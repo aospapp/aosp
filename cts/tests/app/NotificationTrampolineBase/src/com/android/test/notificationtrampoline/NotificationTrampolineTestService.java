@@ -116,7 +116,8 @@ public class NotificationTrampolineTestService extends Service {
                             startTargetActivity();
                         }
                     };
-                    registerReceiver(mReceiver, new IntentFilter(mReceiverAction));
+                    registerReceiver(mReceiver, new IntentFilter(mReceiverAction),
+                            Context.RECEIVER_EXPORTED_UNAUDITED);
                     Intent intent = new Intent(mReceiverAction);
                     postNotification(notificationId,
                             PendingIntent.getBroadcast(context, 0, intent, PI_FLAGS));

@@ -32,5 +32,15 @@ class AbstractBuildFileHandler(object):
     Returns:
       A dictionary where key is file name and value is hash value of its content.
     """
-    raise NotImplementedError('You need to implement GetFileHash function.')
+    raise NotImplementedError('You need to implement get_file_hash function.')
 
+  def get_system_fingerprint(self):
+    """Get build fingerprint in SYSTEM partition.
+
+    Fingerprint format: $(BRAND)/$(PRODUCT)/$(DEVICE)/$(BOARD):
+    $(VERSION.RELEASE)/$(ID)/$(VERSION.INCREMENTAL):$(TYPE)/$(TAGS)
+
+    Returns:
+      String of build fingerprint.
+    """
+    raise NotImplementedError('You need to implement get_system_fingerprint function.')

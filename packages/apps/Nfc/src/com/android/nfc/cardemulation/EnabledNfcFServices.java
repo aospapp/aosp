@@ -15,23 +15,24 @@
  */
 package com.android.nfc.cardemulation;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
-
-import com.android.nfc.ForegroundUtils;
-
-import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.nfc.cardemulation.NfcFServiceInfo;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 
+import com.android.nfc.ForegroundUtils;
+
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+
 public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Callback {
     static final String TAG = "EnabledNfcFCardEmulationServices";
-    static final boolean DBG = false;
+    static final boolean DBG = SystemProperties.getBoolean("persist.nfc.debug_enabled", false);
 
     final Context mContext;
     final RegisteredNfcFServicesCache mNfcFServiceCache;
@@ -50,7 +51,10 @@ public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Call
     boolean mActivated = false;
 
     public interface Callback {
-        void onEnabledForegroundNfcFServiceChanged(ComponentName service);
+        /**
+         * Notify when enabled foreground NfcF service is changed.
+         */
+        void onEnabledForegroundNfcFServiceChanged(int userId, ComponentName service);
     }
 
     public EnabledNfcFServices(Context context,
@@ -87,7 +91,8 @@ public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Call
         }
         // Notify if anything changed
         if (changed) {
-            mCallback.onEnabledForegroundNfcFServiceChanged(foregroundRequested);
+            int userId = UserHandle.getUserHandleForUid(mForegroundUid).getIdentifier();
+            mCallback.onEnabledForegroundNfcFServiceChanged(userId, foregroundRequested);
         }
     }
 
@@ -112,8 +117,9 @@ public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Call
         if (DBG) Log.d(TAG, "registerEnabledForegroundService");
         boolean success = false;
         synchronized (mLock) {
+            int userId = UserHandle.getUserHandleForUid(callingUid).getIdentifier();
             NfcFServiceInfo serviceInfo = mNfcFServiceCache.getService(
-                    ActivityManager.getCurrentUser(), service);
+                    userId, service);
             if (serviceInfo == null) {
                 return false;
             } else {
@@ -123,7 +129,7 @@ public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Call
                     return false;
                 }
             }
-            if (service.equals(mForegroundRequested)) {
+            if (service.equals(mForegroundRequested) && mForegroundUid == callingUid) {
                 Log.e(TAG, "The servcie is already requested to the foreground service.");
                 return true;
             }
@@ -229,14 +235,18 @@ public class EnabledNfcFServices implements com.android.nfc.ForegroundUtils.Call
      * Never reuse a proto field number. When removing a field, mark it as reserved.
      */
     void dumpDebug(ProtoOutputStream proto) {
-        if (mForegroundComponent != null) {
-            mForegroundComponent.dumpDebug(proto, EnabledNfcFServicesProto.FOREGROUND_COMPONENT);
+        synchronized (mLock) {
+            if (mForegroundComponent != null) {
+                mForegroundComponent.dumpDebug(proto,
+                        EnabledNfcFServicesProto.FOREGROUND_COMPONENT);
+            }
+            if (mForegroundRequested != null) {
+                mForegroundRequested.dumpDebug(proto,
+                        EnabledNfcFServicesProto.FOREGROUND_REQUESTED);
+            }
+            proto.write(EnabledNfcFServicesProto.ACTIVATED, mActivated);
+            proto.write(EnabledNfcFServicesProto.COMPUTE_FG_REQUESTED, mComputeFgRequested);
+            proto.write(EnabledNfcFServicesProto.FOREGROUND_UID, mForegroundUid);
         }
-        if (mForegroundRequested != null) {
-            mForegroundRequested.dumpDebug(proto, EnabledNfcFServicesProto.FOREGROUND_REQUESTED);
-        }
-        proto.write(EnabledNfcFServicesProto.ACTIVATED, mActivated);
-        proto.write(EnabledNfcFServicesProto.COMPUTE_FG_REQUESTED, mComputeFgRequested);
-        proto.write(EnabledNfcFServicesProto.FOREGROUND_UID, mForegroundUid);
     }
 }

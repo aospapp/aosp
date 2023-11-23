@@ -52,11 +52,10 @@ inline int16x8_t ComputeWeightedAverage8(const int16x8_t pred0,
 }
 
 template <int width, int height>
-inline void DistanceWeightedBlendSmall_NEON(const int16_t* prediction_0,
-                                            const int16_t* prediction_1,
-                                            const int16x4_t weights[2],
-                                            void* const dest,
-                                            const ptrdiff_t dest_stride) {
+inline void DistanceWeightedBlendSmall_NEON(
+    const int16_t* LIBGAV1_RESTRICT prediction_0,
+    const int16_t* LIBGAV1_RESTRICT prediction_1, const int16x4_t weights[2],
+    void* LIBGAV1_RESTRICT const dest, const ptrdiff_t dest_stride) {
   auto* dst = static_cast<uint8_t*>(dest);
   constexpr int step = 16 / width;
 
@@ -94,12 +93,11 @@ inline void DistanceWeightedBlendSmall_NEON(const int16_t* prediction_0,
   }
 }
 
-inline void DistanceWeightedBlendLarge_NEON(const int16_t* prediction_0,
-                                            const int16_t* prediction_1,
-                                            const int16x4_t weights[2],
-                                            const int width, const int height,
-                                            void* const dest,
-                                            const ptrdiff_t dest_stride) {
+inline void DistanceWeightedBlendLarge_NEON(
+    const int16_t* LIBGAV1_RESTRICT prediction_0,
+    const int16_t* LIBGAV1_RESTRICT prediction_1, const int16x4_t weights[2],
+    const int width, const int height, void* LIBGAV1_RESTRICT const dest,
+    const ptrdiff_t dest_stride) {
   auto* dst = static_cast<uint8_t*>(dest);
 
   int y = height;
@@ -127,12 +125,11 @@ inline void DistanceWeightedBlendLarge_NEON(const int16_t* prediction_0,
   } while (--y != 0);
 }
 
-inline void DistanceWeightedBlend_NEON(const void* prediction_0,
-                                       const void* prediction_1,
-                                       const uint8_t weight_0,
-                                       const uint8_t weight_1, const int width,
-                                       const int height, void* const dest,
-                                       const ptrdiff_t dest_stride) {
+inline void DistanceWeightedBlend_NEON(
+    const void* LIBGAV1_RESTRICT prediction_0,
+    const void* LIBGAV1_RESTRICT prediction_1, const uint8_t weight_0,
+    const uint8_t weight_1, const int width, const int height,
+    void* LIBGAV1_RESTRICT const dest, const ptrdiff_t dest_stride) {
   const auto* pred_0 = static_cast<const int16_t*>(prediction_0);
   const auto* pred_1 = static_cast<const int16_t*>(prediction_1);
   int16x4_t weights[2] = {vdup_n_s16(weight_0), vdup_n_s16(weight_1)};
@@ -267,11 +264,12 @@ inline uint16x4x4_t LoadU16x4_x4(uint16_t const* ptr) {
   return x;
 }
 
-void DistanceWeightedBlend_NEON(const void* prediction_0,
-                                const void* prediction_1,
+void DistanceWeightedBlend_NEON(const void* LIBGAV1_RESTRICT prediction_0,
+                                const void* LIBGAV1_RESTRICT prediction_1,
                                 const uint8_t weight_0, const uint8_t weight_1,
                                 const int width, const int height,
-                                void* const dest, const ptrdiff_t dest_stride) {
+                                void* LIBGAV1_RESTRICT const dest,
+                                const ptrdiff_t dest_stride) {
   const auto* pred_0 = static_cast<const uint16_t*>(prediction_0);
   const auto* pred_1 = static_cast<const uint16_t*>(prediction_1);
   auto* dst = static_cast<uint16_t*>(dest);

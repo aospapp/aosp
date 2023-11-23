@@ -16,31 +16,12 @@
 
 package com.android.nfc;
 
-import android.content.Intent;
-import android.content.pm.UserInfo;
-
-import com.android.nfc.beam.BeamManager;
-import com.android.nfc.beam.BeamSendService;
-import com.android.nfc.beam.BeamTransferRecord;
-
-import android.os.UserManager;
-import com.android.nfc.sneptest.ExtDtaSnepServer;
-import com.android.nfc.sneptest.DtaSnepClient;
-import com.android.nfc.echoserver.EchoServer;
-import com.android.nfc.handover.HandoverClient;
-import com.android.nfc.handover.HandoverDataParser;
-import com.android.nfc.handover.HandoverServer;
-import com.android.nfc.ndefpush.NdefPushClient;
-import com.android.nfc.ndefpush.NdefPushServer;
-import com.android.nfc.snep.SnepClient;
-import com.android.nfc.snep.SnepMessage;
-import com.android.nfc.snep.SnepServer;
-
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.UserInfo;
 import android.net.Uri;
 import android.nfc.BeamShareData;
 import android.nfc.IAppCallback;
@@ -52,16 +33,28 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.util.Log;
+import android.util.proto.ProtoOutputStream;
+
+import com.android.nfc.beam.BeamManager;
+import com.android.nfc.echoserver.EchoServer;
+import com.android.nfc.handover.HandoverClient;
+import com.android.nfc.handover.HandoverDataParser;
+import com.android.nfc.handover.HandoverServer;
+import com.android.nfc.ndefpush.NdefPushClient;
+import com.android.nfc.ndefpush.NdefPushServer;
+import com.android.nfc.snep.SnepClient;
+import com.android.nfc.snep.SnepMessage;
+import com.android.nfc.snep.SnepServer;
+import com.android.nfc.sneptest.DtaSnepClient;
+import com.android.nfc.sneptest.ExtDtaSnepServer;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
 import java.io.UnsupportedEncodingException;
-
-import android.util.proto.ProtoOutputStream;
+import java.util.List;
 
 /**
  * Interface to listen for P2P events.
@@ -1312,22 +1305,24 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
      * Never reuse a proto field number. When removing a field, mark it as reserved.
      */
     void dumpDebug(ProtoOutputStream proto) {
-        proto.write(P2pLinkManagerProto.DEFAULT_MIU, mDefaultMiu);
-        proto.write(P2pLinkManagerProto.DEFAULT_RW_SIZE, mDefaultRwSize);
-        proto.write(P2pLinkManagerProto.LINK_STATE, linkStateToProtoEnum(mLinkState));
-        proto.write(P2pLinkManagerProto.SEND_STATE, sendStateToProtoEnum(mSendState));
-        proto.write(P2pLinkManagerProto.SEND_FLAGS, mSendFlags);
-        proto.write(P2pLinkManagerProto.SEND_ENABLED, mIsSendEnabled);
-        proto.write(P2pLinkManagerProto.RECEIVE_ENABLED, mIsReceiveEnabled);
-        proto.write(P2pLinkManagerProto.CALLBACK_NDEF, String.valueOf(mCallbackNdef));
-        if (mMessageToSend != null) {
-            long token = proto.start(P2pLinkManagerProto.MESSAGE_TO_SEND);
-            mMessageToSend.dumpDebug(proto);
-            proto.end(token);
-        }
-        if (mUrisToSend != null && mUrisToSend.length > 0) {
-            for (Uri uri : mUrisToSend) {
-                proto.write(P2pLinkManagerProto.URIS_TO_SEND, uri.toString());
+        synchronized (P2pLinkManager.this) {
+            proto.write(P2pLinkManagerProto.DEFAULT_MIU, mDefaultMiu);
+            proto.write(P2pLinkManagerProto.DEFAULT_RW_SIZE, mDefaultRwSize);
+            proto.write(P2pLinkManagerProto.LINK_STATE, linkStateToProtoEnum(mLinkState));
+            proto.write(P2pLinkManagerProto.SEND_STATE, sendStateToProtoEnum(mSendState));
+            proto.write(P2pLinkManagerProto.SEND_FLAGS, mSendFlags);
+            proto.write(P2pLinkManagerProto.SEND_ENABLED, mIsSendEnabled);
+            proto.write(P2pLinkManagerProto.RECEIVE_ENABLED, mIsReceiveEnabled);
+            proto.write(P2pLinkManagerProto.CALLBACK_NDEF, String.valueOf(mCallbackNdef));
+            if (mMessageToSend != null) {
+                long token = proto.start(P2pLinkManagerProto.MESSAGE_TO_SEND);
+                mMessageToSend.dumpDebug(proto);
+                proto.end(token);
+            }
+            if (mUrisToSend != null && mUrisToSend.length > 0) {
+                for (Uri uri : mUrisToSend) {
+                    proto.write(P2pLinkManagerProto.URIS_TO_SEND, uri.toString());
+                }
             }
         }
     }

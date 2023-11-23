@@ -92,14 +92,14 @@ public class KeyStoreBuilderTest extends TestCase {
         // exceptions verification
 
         try {
-            KeyStore.Builder.newInstance(null, null);
+            KeyStore.Builder.newInstance((KeyStore) null, null);
             fail("NullPointerException must be thrown");
         } catch (NullPointerException e) {
             // expected
         }
 
         try {
-            KeyStore.Builder.newInstance(null, protPass);
+            KeyStore.Builder.newInstance((KeyStore) null, protPass);
             fail("NullPointerException must be thrown");
         } catch (NullPointerException e) {
             // expected

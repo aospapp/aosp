@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * erofs-utils/include/erofs/list.h
- *
  * Copyright (C) 2018 HUAWEI, Inc.
  *             http://www.huawei.com/
  * Created by Li Guifu <bluce.liguifu@huawei.com>
  */
 #ifndef __EROFS_LIST_HEAD_H
 #define __EROFS_LIST_HEAD_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #include "defs.h"
 
@@ -106,5 +109,10 @@ static inline int list_empty(struct list_head *head)
 	    n    = list_next_entry(pos, member);                               \
 	     &pos->member != (head);                                           \
 	     pos = n, n = list_next_entry(n, member))
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

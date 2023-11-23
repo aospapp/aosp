@@ -59,6 +59,39 @@ fn interleave_shortest() {
     assert_eq!(it.size_hint(), (6, Some(6)));
 }
 
+#[test]
+fn duplicates_by() {
+    let xs = ["aaa", "bbbbb", "aa", "ccc", "bbbb", "aaaaa", "cccc"];
+    let ys = ["aa", "bbbb", "cccc"];
+    it::assert_equal(ys.iter(), xs.iter().duplicates_by(|x| x[..2].to_string()));
+    it::assert_equal(ys.iter(), xs.iter().rev().duplicates_by(|x| x[..2].to_string()).rev());
+    let ys_rev = ["ccc", "aa", "bbbbb"];
+    it::assert_equal(ys_rev.iter(), xs.iter().duplicates_by(|x| x[..2].to_string()).rev());
+}
+
+#[test]
+fn duplicates() {
+    let xs = [0, 1, 2, 3, 2, 1, 3];
+    let ys = [2, 1, 3];
+    it::assert_equal(ys.iter(), xs.iter().duplicates());
+    it::assert_equal(ys.iter(), xs.iter().rev().duplicates().rev());
+    let ys_rev = [3, 2, 1];
+    it::assert_equal(ys_rev.iter(), xs.iter().duplicates().rev());
+
+    let xs = [0, 1, 0, 1];
+    let ys = [0, 1];
+    it::assert_equal(ys.iter(), xs.iter().duplicates());
+    it::assert_equal(ys.iter(), xs.iter().rev().duplicates().rev());
+    let ys_rev = [1, 0];
+    it::assert_equal(ys_rev.iter(), xs.iter().duplicates().rev());
+
+    let xs = vec![0, 1, 2, 1, 2];
+    let ys = vec![1, 2];
+    assert_eq!(ys, xs.iter().duplicates().cloned().collect_vec());
+    assert_eq!(ys, xs.iter().rev().duplicates().rev().cloned().collect_vec());
+    let ys_rev = vec![2, 1];
+    assert_eq!(ys_rev, xs.iter().duplicates().rev().cloned().collect_vec());
+}
 
 #[test]
 fn unique_by() {
@@ -187,6 +220,13 @@ fn all_equal() {
     for (_key, mut sub) in &"AABBCCC".chars().group_by(|&x| x) {
         assert!(sub.all_equal());
     }
+}
+
+#[test]
+fn all_unique() {
+    assert!("ABCDEFGH".chars().all_unique());
+    assert!(!"ABCDEFGA".chars().all_unique());
+    assert!(::std::iter::empty::<usize>().all_unique());
 }
 
 #[test]
@@ -468,6 +508,30 @@ fn sorted_by_key() {
 
     let v = (0..5).sorted_by_key(|&x| -x);
     it::assert_equal(v, vec![4, 3, 2, 1, 0]);
+}
+
+#[test]
+fn sorted_by_cached_key() {
+    // Track calls to key function
+    let mut ncalls = 0;
+
+    let sorted = [3, 4, 1, 2].iter().cloned().sorted_by_cached_key(|&x| {
+        ncalls += 1;
+        x.to_string()
+    });
+    it::assert_equal(sorted, vec![1, 2, 3, 4]);
+    // Check key function called once per element
+    assert_eq!(ncalls, 4);
+
+    let mut ncalls = 0;
+
+    let sorted = (0..5).sorted_by_cached_key(|&x| {
+        ncalls += 1;
+        -x
+    });
+    it::assert_equal(sorted, vec![4, 3, 2, 1, 0]);
+    // Check key function called once per element
+    assert_eq!(ncalls, 5);
 }
 
 #[test]
@@ -1046,4 +1110,13 @@ fn exactly_one_question_mark_syntax_works() {
 fn exactly_one_question_mark_return() -> Result<(), ExactlyOneError<std::slice::Iter<'static, ()>>> {
     [].iter().exactly_one()?;
     Ok(())
+}
+
+#[test]
+fn multiunzip() {
+    let (a, b, c): (Vec<_>, Vec<_>, Vec<_>) = [(0, 1, 2), (3, 4, 5), (6, 7, 8)].iter().cloned().multiunzip();    
+    assert_eq!((a, b, c), (vec![0, 3, 6], vec![1, 4, 7], vec![2, 5, 8]));
+    let (): () = [(), (), ()].iter().cloned().multiunzip();
+    let t: (Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>) = [(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)].iter().cloned().multiunzip();    
+    assert_eq!(t, (vec![0], vec![1], vec![2], vec![3], vec![4], vec![5], vec![6], vec![7], vec![8], vec![9], vec![10], vec![11]));
 }

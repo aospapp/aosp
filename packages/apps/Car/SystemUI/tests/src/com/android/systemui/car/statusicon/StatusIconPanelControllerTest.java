@@ -80,7 +80,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
 
     @Test
     public void onPanelAnchorViewClicked_panelShowing() {
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         assertThat(mStatusIconPanelController.getPanel().isShowing()).isTrue();
@@ -88,7 +88,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
 
     @Test
     public void onPanelAnchorViewClicked_statusIconHighlighted() {
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         verify(mAnchorView).setColorFilter(mStatusIconPanelController.getIconHighlightedColor());
@@ -96,9 +96,9 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
 
     @Test
     public void onPanelAnchorViewClicked_panelShowing_panelDismissed() {
-        mAnchorView.performClick();
+        clickAnchorView();
 
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         assertThat(mStatusIconPanelController.getPanel().isShowing()).isFalse();
@@ -106,9 +106,9 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
 
     @Test
     public void onPanelAnchorViewClicked_panelShowing_statusIconNotHighlighted() {
-        mAnchorView.performClick();
+        clickAnchorView();
 
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         verify(mAnchorView).setColorFilter(mStatusIconPanelController.getIconNotHighlightedColor());
@@ -118,7 +118,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
     public void onPanelAnchorViewClicked_sendsIntentToDismissSystemDialogsWithIdentifier() {
         ArgumentCaptor<Intent> argumentCaptor = ArgumentCaptor.forClass(Intent.class);
 
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         verify(mContext).sendBroadcastAsUser(argumentCaptor.capture(), eq(UserHandle.CURRENT));
@@ -133,7 +133,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
         Intent intent = new Intent();
         intent.setAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         intent.setIdentifier(mStatusIconPanelController.getIdentifier());
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         mStatusIconPanelController.getBroadcastReceiver().onReceive(mContext, intent);
@@ -146,7 +146,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
         Intent intent = new Intent();
         intent.setAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         intent.setIdentifier(mStatusIconPanelController.getIdentifier());
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         mStatusIconPanelController.getBroadcastReceiver().onReceive(mContext, intent);
@@ -158,7 +158,7 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
     public void onDismissSystemDialogReceived_notFromSelf_panelOpen_dismissesPanel() {
         Intent intent = new Intent();
         intent.setAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         mStatusIconPanelController.getBroadcastReceiver().onReceive(mContext, intent);
@@ -170,11 +170,15 @@ public class StatusIconPanelControllerTest extends SysuiTestCase {
     public void onDismissSystemDialogReceived_notFromSelf_panelOpen_statusIconNotHighlighted() {
         Intent intent = new Intent();
         intent.setAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        mAnchorView.performClick();
+        clickAnchorView();
         waitForIdleSync();
 
         mStatusIconPanelController.getBroadcastReceiver().onReceive(mContext, intent);
 
         verify(mAnchorView).setColorFilter(mStatusIconPanelController.getIconNotHighlightedColor());
+    }
+
+    private void clickAnchorView() {
+        mStatusIconPanelController.getOnClickListener().onClick(mAnchorView);
     }
 }

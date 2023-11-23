@@ -1,13 +1,13 @@
 /*  Copyright 2008,2009 Alain Knaff.
  *  This file is part of mtools.
- *                              
+ *
  *  Mtools is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or   
- *  (at your option) any later version.                                 
- *                                                                      
- *  Mtools is distributed in the hope that it will be useful,           
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of      
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
@@ -61,7 +61,7 @@ static int try(const char *testCp) {
 	size_t outbufLen = 2*sizeof(char);
 	iconv_t test = 0;
 	size_t i;
-	
+
 	for(i=0; i < sizeof(asciiTries) / sizeof(asciiTries[0]); i++) {
 		test = iconv_open(asciiTries[i], testCp);
 		if(test != (iconv_t) -1)
@@ -88,7 +88,7 @@ static int try(const char *testCp) {
 static const char *getWcharCp(void) {
 	unsigned int i;
 	if(wcharCp != NULL)
-		return wcharCp;	
+		return wcharCp;
 	for(i=0; i< sizeof(wcharTries) / sizeof(wcharTries[0]); i++) {
 		if(try(wcharTries[i]))
 			return (wcharCp=wcharTries[i]);
@@ -98,7 +98,7 @@ static const char *getWcharCp(void) {
 }
 
 
-doscp_t *cp_open(int codepage)
+doscp_t *cp_open(unsigned int codepage)
 {
 	char dosCp[17];
 	doscp_t *ret;
@@ -107,7 +107,7 @@ doscp_t *cp_open(int codepage)
 
 	if(codepage == 0)
 		codepage = mtools_default_codepage;
-	if(codepage < 0 || codepage > 9999) {
+	if(codepage > 9999) {
 		fprintf(stderr, "Bad codepage %d\n", codepage);
 		return NULL;
 	}
@@ -152,19 +152,19 @@ void cp_close(doscp_t *cp)
 	free(cp);
 }
 
-int dos_to_wchar(doscp_t *cp, const char *dos, wchar_t *wchar, size_t len)
+size_t dos_to_wchar(doscp_t *cp, const char *dos, wchar_t *wchar, size_t len)
 {
-	int r;
+	size_t r;
 	size_t in_len=len;
 	size_t out_len=len*sizeof(wchar_t);
 	wchar_t *dptr=wchar;
-	char *dos2 = (char *) dos; /* Magic to be able to call iconv with its 
+	char *dos2 = (char *) dos; /* Magic to be able to call iconv with its
 				      buggy prototype */
 	r=iconv(cp->from, &dos2, &in_len, (char **)&dptr, &out_len);
-	if(r < 0)
+	if(r == (size_t) -1)
 		return r;
 	*dptr = L'\0';
-	return dptr-wchar;
+	return (size_t) (dptr-wchar);
 }
 
 /**
@@ -172,10 +172,10 @@ int dos_to_wchar(doscp_t *cp, const char *dos, wchar_t *wchar, size_t len)
  * ensure that dest is large enough.
  * mangled will be set if there has been an untranslatable character.
  */
-static int safe_iconv(iconv_t conv, const wchar_t *wchar, char *dest,
+static size_t safe_iconv(iconv_t conv, const wchar_t *wchar, char *dest,
 		      size_t in_len, size_t out_len, int *mangled)
 {
-	int r;
+	size_t r;
 	unsigned int i;
 	char *dptr = dest;
 	size_t len;
@@ -184,7 +184,7 @@ static int safe_iconv(iconv_t conv, const wchar_t *wchar, char *dest,
 
 	while(in_len > 0 && out_len > 0) {
 		r=iconv(conv, (char**)&wchar, &in_len, &dptr, &out_len);
-		if(r >= 0 || errno != EILSEQ) {
+		if(r == (size_t) -1 || errno != EILSEQ) {
 			/* everything transformed, or error that is _not_ a bad
 			 * character */
 			break;
@@ -193,7 +193,7 @@ static int safe_iconv(iconv_t conv, const wchar_t *wchar, char *dest,
 
 		if(out_len <= 0)
 			break;
-		if(dptr) 
+		if(dptr)
 			*dptr++ = '_';
 		in_len -= sizeof(wchar_t);
 
@@ -201,8 +201,8 @@ static int safe_iconv(iconv_t conv, const wchar_t *wchar, char *dest,
 		out_len--;
 	}
 
-	len = dptr-dest; /* how many dest characters have there been
-			    generated */
+	len = (size_t) (dptr-dest); /* how many dest characters have there been
+				       generated */
 
 	/* eliminate question marks which might have been formed by
 	   untransliterable characters */
@@ -230,7 +230,7 @@ struct doscp_t {
 	unsigned char to_dos[0x80];
 };
 
-doscp_t *cp_open(int codepage)
+doscp_t *cp_open(unsigned int codepage)
 {
 	doscp_t *ret;
 	int i;
@@ -269,7 +269,7 @@ void cp_close(doscp_t *cp)
 	free(cp);
 }
 
-int dos_to_wchar(doscp_t *cp, const char *dos, wchar_t *wchar, size_t len)
+size_t dos_to_wchar(doscp_t *cp, const char *dos, wchar_t *wchar, size_t len)
 {
 	int i;
 
@@ -317,7 +317,7 @@ static inline size_t wcrtomb(char *s, wchar_t wc, mbstate_t *ps)
 	return 1;
 }
 
-static inline size_t mbrtowc(wchar_t *pwc, const char *s, 
+static inline size_t mbrtowc(wchar_t *pwc, const char *s,
 			     size_t n, mbstate_t *ps)
 {
 	*pwc = *s;
@@ -335,7 +335,7 @@ static iconv_t to_native = NULL;
 static void initialize_to_native(void)
 {
 	char *li, *cp;
-	int len;
+	size_t len;
 	if(to_native != NULL)
 		return;
 	li = nl_langinfo(CODESET);
@@ -364,12 +364,12 @@ static void initialize_to_native(void)
  * Convert wchar string to native, converting at most len wchar characters
  * Returns number of generated native characters
  */
-int wchar_to_native(const wchar_t *wchar, char *native, size_t len,
-		    size_t out_len)
+size_t wchar_to_native(const wchar_t *wchar, char *native, size_t len,
+		       size_t out_len)
 {
 #ifdef HAVE_ICONV_H
 	int mangled;
-	int r;
+	size_t r;
 	initialize_to_native();
 	len = wcsnlen(wchar,len);
 	r=safe_iconv(to_native, wchar, native, len, out_len, &mangled);
@@ -381,13 +381,11 @@ int wchar_to_native(const wchar_t *wchar, char *native, size_t len,
 	mbstate_t ps;
 	memset(&ps, 0, sizeof(ps));
 	for(i=0; i<len && wchar[i] != 0; i++) {
-		int r = wcrtomb(dptr, wchar[i], &ps);
-		if(r < 0 && errno == EILSEQ) {
+		size_t r = wcrtomb(dptr, wchar[i], &ps);
+		if(r == (size_t) -1 && errno == EILSEQ) {
 			r=1;
 			*dptr='_';
 		}
-		if(r < 0)
-			return r;
 		dptr+=r;
 	}
 	*dptr='\0';
@@ -400,16 +398,16 @@ int wchar_to_native(const wchar_t *wchar, char *native, size_t len,
  * characters. If end is supplied, stop conversion when source pointer
  * exceeds end. Returns number of generated wchars
  */
-int native_to_wchar(const char *native, wchar_t *wchar, size_t len,
-		    const char *end, int *mangled)
+size_t native_to_wchar(const char *native, wchar_t *wchar, size_t len,
+		       const char *end, int *mangled)
 {
 	mbstate_t ps;
 	unsigned int i;
 	memset(&ps, 0, sizeof(ps));
 
 	for(i=0; i<len && (native < end || !end); i++) {
-		int r = mbrtowc(wchar+i, native, len, &ps);
-		if(r < 0) {
+		size_t r = mbrtowc(wchar+i, native, len, &ps);
+		if(r == (size_t) -1) {
 			/* Unconvertible character. Just pretend it's Latin1
 			   encoded (if valid Latin1 character) or substitute
 			   with an underscore if not

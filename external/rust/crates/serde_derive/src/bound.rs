@@ -49,8 +49,8 @@ pub fn with_where_predicates_from_fields(
     let predicates = cont
         .data
         .all_fields()
-        .flat_map(|field| from_field(&field.attrs))
-        .flat_map(|predicates| predicates.to_vec());
+        .filter_map(|field| from_field(&field.attrs))
+        .flat_map(<[syn::WherePredicate]>::to_vec);
 
     let mut generics = generics.clone();
     generics.make_where_clause().predicates.extend(predicates);
@@ -71,8 +71,8 @@ pub fn with_where_predicates_from_variants(
 
     let predicates = variants
         .iter()
-        .flat_map(|variant| from_variant(&variant.attrs))
-        .flat_map(|predicates| predicates.to_vec());
+        .filter_map(|variant| from_variant(&variant.attrs))
+        .flat_map(<[syn::WherePredicate]>::to_vec);
 
     let mut generics = generics.clone();
     generics.make_where_clause().predicates.extend(predicates);

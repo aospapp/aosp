@@ -167,6 +167,36 @@ abstract class Repository {
     }
 
     /**
+     * A checkout of the hg repository of OpenJDK 11 or higher, located in the
+     * subdirectory {@code upstreamName} under the directory {@code upstreamRoot}.
+     */
+    public static Repository openJdk11(Path upstreamRoot, String upstreamName) {
+        List<String> sourceDirs = Arrays.asList(
+            "src/java.base/share/classes",
+            "src/java.logging/share/classes",
+            "src/java.prefs/share/classes",
+            "src/java.sql/share/classes",
+            "src/java.desktop/share/classes",
+            "src/java.base/solaris/classes",
+            "src/java.base/unix/classes",
+            "src/java.prefs/unix/classes",
+            "src/jdk.unsupported/share/classes",
+            "src/jdk.net/share/classes",
+            "src/java.base/linux/classes",
+            "build/linux-x86_64-normal-server-release/support/gensrc/java.base",
+
+            // Native (.c) files
+            "src/java.base/unix/native/libjava",
+            "src/java.base/share/native/libjava",
+            "src/java.base/unix/native/libnio",
+            "src/java.base/unix/native/libnio/ch",
+            "src/java.base/unix/native/libnio/fs",
+            "src/java.base/unix/native/libnet"
+        );
+        return new OpenJdkRepository(upstreamRoot, upstreamName, sourceDirs);
+    }
+
+    /**
      * A checkout of the hg repository of OpenJDK 8 or earlier, located in the
      * subdirectory {@code upstreamName} under the directory {@code upstreamRoot}.
      */

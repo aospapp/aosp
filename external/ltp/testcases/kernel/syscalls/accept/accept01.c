@@ -3,9 +3,11 @@
 /*
  *   Copyright (c) International Business Machines  Corp., 2001
  *   07/2001 Ported by Wayne Boyer
- *
- *   Description:
- *     Verify that accept() returns the proper errno for various failure cases
+ */
+
+/*\
+ * [Description]
+ * Verify that accept() returns the proper errno for various failure cases.
  */
 
 #include <stdio.h>
@@ -95,21 +97,8 @@ void verify_accept(unsigned int nr)
 {
 	struct test_case *tcase = &tcases[nr];
 
-	TEST(accept(*tcase->fd, tcase->sockaddr, &tcase->salen));
-
-	if (TST_RET != -1) {
-		tst_res(TFAIL, "%s: returned %li, expected -1",
-				tcase->desc, TST_RET);
-		return;
-	}
-
-	if (TST_ERR != tcase->experrno) {
-		tst_res(TFAIL | TTERRNO, "%s: expected errno %s, got ",
-				tcase->desc, tst_strerrno(tcase->experrno));
-		return;
-	}
-
-	tst_res(TPASS | TTERRNO, "%s successful", tcase->desc);
+	TST_EXP_FAIL(accept(*tcase->fd, tcase->sockaddr, &tcase->salen),
+	             tcase->experrno, "%s", tcase->desc);
 }
 
 static struct tst_test test = {

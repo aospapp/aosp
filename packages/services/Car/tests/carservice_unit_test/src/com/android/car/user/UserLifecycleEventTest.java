@@ -24,30 +24,79 @@ import org.junit.Test;
 
 public final class UserLifecycleEventTest {
 
+    private static final int EVENT_TYPE = 42;
+    private static final int FROM_USER_ID = 10;
+    private static final int TO_USER_ID = 20;
+
     @Test
     public void testFullConstructor() {
-        int eventType = 42;
-        int from = 10;
-        int to = 20;
-        UserLifecycleEvent event = new UserLifecycleEvent(eventType, from, to);
+        UserLifecycleEvent event = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
 
-        assertThat(event.getEventType()).isEqualTo(eventType);
-        assertThat(event.getUserId()).isEqualTo(to);
-        assertThat(event.getUserHandle().getIdentifier()).isEqualTo(to);
-        assertThat(event.getPreviousUserId()).isEqualTo(from);
-        assertThat(event.getPreviousUserHandle().getIdentifier()).isEqualTo(from);
+        assertThat(event.getEventType()).isEqualTo(EVENT_TYPE);
+        assertThat(event.getUserId()).isEqualTo(TO_USER_ID);
+        assertThat(event.getUserHandle().getIdentifier()).isEqualTo(TO_USER_ID);
+        assertThat(event.getPreviousUserId()).isEqualTo(FROM_USER_ID);
+        assertThat(event.getPreviousUserHandle().getIdentifier()).isEqualTo(FROM_USER_ID);
     }
 
     @Test
     public void testAlternativeConstructor() {
-        int eventType = 42;
-        int to = 20;
-        UserLifecycleEvent event = new UserLifecycleEvent(eventType, to);
+        UserLifecycleEvent event = new UserLifecycleEvent(EVENT_TYPE, TO_USER_ID);
 
-        assertThat(event.getEventType()).isEqualTo(eventType);
-        assertThat(event.getUserId()).isEqualTo(to);
-        assertThat(event.getUserHandle().getIdentifier()).isEqualTo(to);
+        assertThat(event.getEventType()).isEqualTo(EVENT_TYPE);
+        assertThat(event.getUserId()).isEqualTo(TO_USER_ID);
+        assertThat(event.getUserHandle().getIdentifier()).isEqualTo(TO_USER_ID);
         assertThat(event.getPreviousUserId()).isEqualTo(UserHandle.USER_NULL);
         assertThat(event.getPreviousUserHandle()).isNull();
+    }
+
+    @Test
+    public void testEquals_true() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+        UserLifecycleEvent event2 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+
+        assertThat(event1.equals(event2)).isTrue();
+    }
+
+    @Test
+    public void testEquals_differentEventType_false() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+        UserLifecycleEvent event2 = new UserLifecycleEvent(EVENT_TYPE + 1,
+                FROM_USER_ID, TO_USER_ID);
+
+        assertThat(event1.equals(event2)).isFalse();
+    }
+
+    @Test
+    public void testEquals_differentFromUserId_false() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+        UserLifecycleEvent event2 = new UserLifecycleEvent(EVENT_TYPE,
+                FROM_USER_ID + 1, TO_USER_ID);
+
+        assertThat(event1.equals(event2)).isFalse();
+    }
+
+    @Test
+    public void testEquals_differentToUserId_false() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+        UserLifecycleEvent event2 = new UserLifecycleEvent(EVENT_TYPE,
+                FROM_USER_ID, TO_USER_ID + 1);
+
+        assertThat(event1.equals(event2)).isFalse();
+    }
+
+    @Test
+    public void testEquals_null_false() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+
+        assertThat(event1.equals(null)).isFalse();
+    }
+
+    @Test
+    public void testHashCode() {
+        UserLifecycleEvent event1 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+        UserLifecycleEvent event2 = new UserLifecycleEvent(EVENT_TYPE, FROM_USER_ID, TO_USER_ID);
+
+        assertThat(event1.hashCode()).isEqualTo(event2.hashCode());
     }
 }

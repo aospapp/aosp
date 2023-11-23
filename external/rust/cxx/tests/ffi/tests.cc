@@ -336,13 +336,13 @@ void c_take_unique_ptr_string(std::unique_ptr<std::string> s) {
 }
 
 void c_take_unique_ptr_vector_u8(std::unique_ptr<std::vector<uint8_t>> v) {
-  if (v->size() == 4) {
+  if (v->size() == 3) {
     cxx_test_suite_set_correct();
   }
 }
 
 void c_take_unique_ptr_vector_f64(std::unique_ptr<std::vector<double>> v) {
-  if (v->size() == 4) {
+  if (v->size() == 5) {
     cxx_test_suite_set_correct();
   }
 }
@@ -354,7 +354,7 @@ void c_take_unique_ptr_vector_string(
 }
 
 void c_take_unique_ptr_vector_shared(std::unique_ptr<std::vector<Shared>> v) {
-  if (v->size() == 2) {
+  if (v->size() == 3) {
     cxx_test_suite_set_correct();
   }
 }
@@ -492,6 +492,16 @@ const SharedString &c_take_ref_shared_string(const SharedString &s) {
 
 void c_take_callback(rust::Fn<size_t(rust::String)> callback) {
   callback("2020");
+}
+
+void c_take_callback_ref(rust::Fn<void(const rust::String &)> callback) {
+  const rust::String string = "2020";
+  callback(string);
+}
+
+void c_take_callback_mut(rust::Fn<void(rust::String &)> callback) {
+  rust::String string = "2020";
+  callback(string);
 }
 
 void c_take_enum(Enum e) {
@@ -825,11 +835,23 @@ extern "C" const char *cxx_run_test() noexcept {
   ASSERT(cstring == "foo");
   ASSERT(other_cstring == "test");
 
+  ASSERT(cstring.capacity() == 3);
+  cstring.reserve(2);
+  ASSERT(cstring.capacity() == 3);
+  cstring.reserve(5);
+  ASSERT(cstring.capacity() >= 5);
+
   rust::Str cstr = "test";
   rust::Str other_cstr = "foo";
   swap(cstr, other_cstr);
   ASSERT(cstr == "foo");
   ASSERT(other_cstr == "test");
+
+  const char *utf8_literal = u8"Test string";
+  const char16_t *utf16_literal = u"Test string";
+  rust::String utf8_rstring = utf8_literal;
+  rust::String utf16_rstring = utf16_literal;
+  ASSERT(utf8_rstring == utf16_rstring);
 
   rust::Vec<int> vec1{1, 2};
   rust::Vec<int> vec2{3, 4};

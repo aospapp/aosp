@@ -18,31 +18,16 @@
 
 #include "MemoryUtils.h"
 
-#include <android-base/logging.h>
-#include <android/hidl/allocator/1.0/IAllocator.h>
+#include <nnapi/SharedMemory.h>
+#include <nnapi/hal/1.3/Conversions.h>
 
 using ::android::hardware::hidl_memory;
-using ::android::hidl::allocator::V1_0::IAllocator;
 
 namespace android {
 namespace nn {
 
 hidl_memory allocateSharedMemory(int64_t size) {
-    static const std::string type = "ashmem";
-    static sp<IAllocator> allocator = IAllocator::getService(type);
-
-    hidl_memory memory;
-
-    // TODO: should we align memory size to nearest page? doesn't seem necessary...
-    allocator->allocate(size, [&](bool success, const hidl_memory& mem) {
-        if (!success) {
-            LOG(ERROR) << "unable to allocate " << size << " bytes of " << type;
-        } else {
-            memory = mem;
-        }
-    });
-
-    return memory;
+    return hardware::neuralnetworks::V1_3::utils::convert(createSharedMemory(size).value()).value();
 }
 
 }  // namespace nn

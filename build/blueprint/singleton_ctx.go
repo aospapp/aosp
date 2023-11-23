@@ -82,10 +82,10 @@ type SingletonContext interface {
 	// RequireNinjaVersion sets the generated ninja manifest to require at least the specified version of ninja.
 	RequireNinjaVersion(major, minor, micro int)
 
-	// SetNinjaBuildDir sets the value of the top-level "builddir" Ninja variable
+	// SetOutDir sets the value of the top-level "builddir" Ninja variable
 	// that controls where Ninja stores its build log files.  This value can be
 	// set at most one time for a single build, later calls are ignored.
-	SetNinjaBuildDir(pctx PackageContext, value string)
+	SetOutDir(pctx PackageContext, value string)
 
 	// AddSubninja adds a ninja file to include with subninja. This should likely
 	// only ever be used inside bootstrap to handle glob rules.
@@ -289,7 +289,7 @@ func (s *singletonContext) RequireNinjaVersion(major, minor, micro int) {
 	s.context.requireNinjaVersion(major, minor, micro)
 }
 
-func (s *singletonContext) SetNinjaBuildDir(pctx PackageContext, value string) {
+func (s *singletonContext) SetOutDir(pctx PackageContext, value string) {
 	s.scope.ReparentTo(pctx)
 
 	ninjaValue, err := parseNinjaString(s.scope, value)
@@ -297,7 +297,7 @@ func (s *singletonContext) SetNinjaBuildDir(pctx PackageContext, value string) {
 		panic(err)
 	}
 
-	s.context.setNinjaBuildDir(ninjaValue)
+	s.context.setOutDir(ninjaValue)
 }
 
 func (s *singletonContext) AddSubninja(file string) {

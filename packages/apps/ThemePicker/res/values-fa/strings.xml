@@ -78,10 +78,15 @@
     <string name="accessibility_custom_color_title" msgid="4124246598886320663">"رنگ سفارشی"</string>
     <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"شکل سفارشی"</string>
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"نام سبک سفارشی"</string>
-    <string name="mode_title" msgid="2394873501427436055">"طرح زمینه تیره"</string>
+    <string name="mode_title" msgid="2394873501427436055">"زمینه تیره"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"به‌دلیل روشن بودن «بهینه‌سازی باتری» موقتاً غیرفعال شده است"</string>
-    <string name="mode_changed" msgid="2243581369395418584">"طرح زمینه تغییر کرد"</string>
-    <string name="themed_icon_title" msgid="7312460430471956558">"نمادهای دارای طرح زمینه"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"زمینه تغییر کرد"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"نمادهای دارای زمینه"</string>
     <string name="beta_title" msgid="8703819523760746458">"بتا"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"تغییر جدول برنامه"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"رنگ‌های کاغذدیواری"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"رنگ کاغذدیواری"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"رنگ‌های اصلی"</string>
+    <string name="color_changed" msgid="7029571720331641235">"رنگ تغییر کرد"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"پویا"</string>
 </resources>

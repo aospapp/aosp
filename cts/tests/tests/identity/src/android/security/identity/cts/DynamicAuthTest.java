@@ -33,6 +33,7 @@ import android.security.identity.IdentityCredentialStore;
 import android.security.identity.NoAuthenticationKeyAvailableException;
 import android.security.identity.ResultData;
 import androidx.test.InstrumentationRegistry;
+import com.android.security.identity.internal.Util;
 
 import org.junit.Test;
 
@@ -62,7 +63,7 @@ public class DynamicAuthTest {
 
     @Test
     public void dynamicAuthTest() throws Exception {
-        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
 
         Context appContext = InstrumentationRegistry.getTargetContext();
         IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
@@ -286,7 +287,6 @@ public class DynamicAuthTest {
         assertArrayEquals(new byte[]{42, 43, 44}, rd.getStaticAuthenticationData());
         assertArrayEquals(new int[]{1, 0, 0, 0, 0}, credential.getAuthenticationDataUsageCount());
 
-
         // Now do this one more time.... this time key4 should have been used. Check this by
         // inspecting use-counts and the static authentication data.
         credential = store.getCredentialByName(credentialName,
@@ -460,14 +460,14 @@ public class DynamicAuthTest {
 
     @Test
     public void dynamicAuthWithExpirationTest() throws Exception {
-        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
 
         Context appContext = InstrumentationRegistry.getTargetContext();
         IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
         assumeTrue(
             "IdentityCredential.storeStaticAuthenticationData(X509Certificate, Instant, byte[]) " +
             "not supported",
-            Util.getFeatureVersion() >= 202101);
+            TestUtil.getFeatureVersion() >= 202101);
 
         String credentialName = "test";
 
@@ -589,6 +589,166 @@ public class DynamicAuthTest {
 
         // ... and we're done. Clean up after ourselves.
         store.deleteCredentialByName(credentialName);
+    }
+
+    @Test
+    public void dynamicAuthMultipleGetEntries() throws Exception {
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
+
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+
+        String credentialName = "test";
+
+        store.deleteCredentialByName(credentialName);
+        Collection<X509Certificate> certChain = ProvisioningTest.createCredential(store,
+                credentialName);
+
+        IdentityCredential credential = store.getCredentialByName(credentialName,
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        assertNotNull(credential);
+        assertArrayEquals(new int[0], credential.getAuthenticationDataUsageCount());
+
+        credential.setAvailableAuthenticationKeys(5, 3);
+        assertArrayEquals(new int[]{0, 0, 0, 0, 0},
+                          credential.getAuthenticationDataUsageCount());
+
+        Collection<X509Certificate> certs = credential.getAuthKeysNeedingCertification();
+        assertEquals(5, certs.size());
+
+        // Certify authKeys 0 and 1
+        //
+        X509Certificate key0Cert = new ArrayList<X509Certificate>(certs).get(0);
+        credential.storeStaticAuthenticationData(key0Cert, new byte[]{42, 43, 44});
+        X509Certificate key1Cert = new ArrayList<X509Certificate>(certs).get(1);
+        credential.storeStaticAuthenticationData(key1Cert, new byte[]{43, 44, 45});
+
+        // Get ready to present...
+        //
+        Map<String, Collection<String>> entriesToRequest = new LinkedHashMap<>();
+        entriesToRequest.put("org.iso.18013-5.2019", Arrays.asList("First name", "Last name"));
+        KeyPair ephemeralKeyPair = credential.createEphemeralKeyPair();
+        KeyPair readerEphemeralKeyPair = Util.createEphemeralKeyPair();
+        byte[] sessionTranscript = Util.buildSessionTranscript(ephemeralKeyPair);
+        credential.setReaderEphemeralPublicKey(readerEphemeralKeyPair.getPublic());
+
+        // First getEntries() call should pick key0
+        //
+        ResultData rd = credential.getEntries(
+                Util.createItemsRequest(entriesToRequest, null),
+                entriesToRequest,
+                sessionTranscript,
+                null);
+        assertArrayEquals(new int[]{1, 0, 0, 0, 0}, credential.getAuthenticationDataUsageCount());
+        assertArrayEquals(new byte[]{42, 43, 44}, rd.getStaticAuthenticationData());
+
+        // Doing another getEntries() call on the same object should use the same key. Check this
+        // by inspecting use-counts and the static authentication data.
+        //
+        rd = credential.getEntries(
+            Util.createItemsRequest(entriesToRequest, null),
+            entriesToRequest,
+            sessionTranscript,
+            null);
+        assertArrayEquals(new int[]{1, 0, 0, 0, 0}, credential.getAuthenticationDataUsageCount());
+        assertArrayEquals(new byte[]{42, 43, 44}, rd.getStaticAuthenticationData());
+    }
+
+    @Test
+    public void dynamicAuthNoUsageCountIncrement() throws Exception {
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
+
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+        assumeTrue(
+            "IdentityCredential.setIncrementKeyUsageCount(boolean) not supported",
+            TestUtil.getFeatureVersion() >= 202201);
+
+        String credentialName = "test";
+
+        store.deleteCredentialByName(credentialName);
+        Collection<X509Certificate> certChain = ProvisioningTest.createCredential(store,
+                                                                                  credentialName);
+
+        IdentityCredential credential = store.getCredentialByName(
+            credentialName,
+            IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        assertNotNull(credential);
+        assertArrayEquals(new int[0], credential.getAuthenticationDataUsageCount());
+
+        credential.setAvailableAuthenticationKeys(5, 3);
+        assertArrayEquals(new int[]{0, 0, 0, 0, 0},
+                          credential.getAuthenticationDataUsageCount());
+
+        Collection<X509Certificate> certs = credential.getAuthKeysNeedingCertification();
+        assertEquals(5, certs.size());
+
+        // Certify authKeys 0 and 1
+        //
+        X509Certificate key0Cert = new ArrayList<X509Certificate>(certs).get(0);
+        credential.storeStaticAuthenticationData(key0Cert, new byte[]{42, 43, 44});
+        X509Certificate key1Cert = new ArrayList<X509Certificate>(certs).get(1);
+        credential.storeStaticAuthenticationData(key1Cert, new byte[]{43, 44, 45});
+
+        // Get ready to present...
+        //
+        Map<String, Collection<String>> entriesToRequest = new LinkedHashMap<>();
+        entriesToRequest.put("org.iso.18013-5.2019", Arrays.asList("First name", "Last name"));
+        KeyPair ephemeralKeyPair = credential.createEphemeralKeyPair();
+        KeyPair readerEphemeralKeyPair = Util.createEphemeralKeyPair();
+        byte[] sessionTranscript = Util.buildSessionTranscript(ephemeralKeyPair);
+        credential.setReaderEphemeralPublicKey(readerEphemeralKeyPair.getPublic());
+
+        // First getEntries() call should pick key0
+        //
+        ResultData rd = credential.getEntries(
+            Util.createItemsRequest(entriesToRequest, null),
+            entriesToRequest,
+            sessionTranscript,
+            null);
+        assertArrayEquals(new int[]{1, 0, 0, 0, 0}, credential.getAuthenticationDataUsageCount());
+        assertArrayEquals(new byte[]{42, 43, 44}, rd.getStaticAuthenticationData());
+
+        // Now configure to not increase the usage count... we should be able to do as many
+        // presentations as we want and usage counts shouldn't change. We'll just do 3.
+        //
+        // Note that key1 will be picked (we can check that by inspecting static authentication
+        // data) but its usage count won't be increased.
+        //
+        credential = store.getCredentialByName(credentialName,
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        ephemeralKeyPair = credential.createEphemeralKeyPair();
+        readerEphemeralKeyPair = Util.createEphemeralKeyPair();
+        sessionTranscript = Util.buildSessionTranscript(ephemeralKeyPair);
+        credential.setReaderEphemeralPublicKey(readerEphemeralKeyPair.getPublic());
+        credential.setIncrementKeyUsageCount(false);
+        for (int n = 0; n < 3; n++) {
+            rd = credential.getEntries(
+                Util.createItemsRequest(entriesToRequest, null),
+                entriesToRequest,
+                sessionTranscript,
+                null);
+            assertArrayEquals(new int[]{1, 0, 0, 0, 0},
+                              credential.getAuthenticationDataUsageCount());
+            assertArrayEquals(new byte[]{43, 44, 45}, rd.getStaticAuthenticationData());
+        }
+
+        // With usage counts incrementing again, do another getEntries() call. It should pick key1
+        // and use it up. Check this by inspecting use-counts and the static authentication data.
+        //
+        credential = store.getCredentialByName(credentialName,
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        ephemeralKeyPair = credential.createEphemeralKeyPair();
+        readerEphemeralKeyPair = Util.createEphemeralKeyPair();
+        sessionTranscript = Util.buildSessionTranscript(ephemeralKeyPair);
+        credential.setReaderEphemeralPublicKey(readerEphemeralKeyPair.getPublic());
+        rd = credential.getEntries(
+            Util.createItemsRequest(entriesToRequest, null),
+            entriesToRequest,
+            sessionTranscript,
+            null);
+        assertArrayEquals(new int[]{1, 1, 0, 0, 0}, credential.getAuthenticationDataUsageCount());
+        assertArrayEquals(new byte[]{43, 44, 45}, rd.getStaticAuthenticationData());
     }
 
     // TODO: test storeStaticAuthenticationData() throwing UnknownAuthenticationKeyException

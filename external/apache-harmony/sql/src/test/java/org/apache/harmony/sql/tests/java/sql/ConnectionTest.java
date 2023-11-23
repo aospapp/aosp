@@ -19,8 +19,12 @@ package org.apache.harmony.sql.tests.java.sql;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.HashMap;
 
+import java.util.Properties;
 import junit.framework.TestCase;
 
 public class ConnectionTest extends TestCase {
@@ -84,6 +88,26 @@ public class ConnectionTest extends TestCase {
         } // end for
 
     } // end method testPublicStatics
+
+    private static final String CONNECTION_URL = TestHelper_Driver4.URL_SCHEME + ":data2";
+
+    public void testGetConnection_unauthenticated() {
+        try {
+            DriverManager.getConnection(CONNECTION_URL);
+            fail("TestHelper_Driver4 should throw SQLException for unauthenicated connection");
+        } catch (SQLException e) {
+            // expected
+        }
+    }
+
+    public void testGetConnection_authenticated() throws SQLException {
+        Properties credentials = new Properties();
+        credentials.put(TestHelper_Driver4.userProperty, TestHelper_Driver4.validuser);
+        credentials.put(TestHelper_Driver4.passwordProperty, TestHelper_Driver4.validpassword);
+        Connection conn = DriverManager.getConnection(CONNECTION_URL, credentials);
+        assertTrue(conn instanceof TestHelper_Connection1);
+    }
+
 
 } // end class ConnectionTest
 

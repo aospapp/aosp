@@ -22,6 +22,10 @@
 
 ifneq ($(filter beagle_x15%, $(TARGET_DEVICE)),)
 
+$(eval $(call declare-1p-copy-files,device/ti/beagle_x15/,.rc))
+$(eval $(call declare-1p-copy-files,device/ti/beagle_x15/,.xml))
+$(eval $(call declare-1p-copy-files,device/ti/beagle_x15/,fstab.beagle_x15board))
+
 LOCAL_PATH := $(call my-dir)
 
 # if some modules are built directly from this directory (not subdirectories),

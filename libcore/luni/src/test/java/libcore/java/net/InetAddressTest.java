@@ -329,6 +329,18 @@ public class InetAddressTest {
         } catch (UnknownHostException expected) {
         }
 
+
+        try {
+            InetAddress.getByNameOnNet(invalid, 0 /* NETID_UNSET */);
+            String msg = "Invalid IP address incorrectly recognized as valid: \"" + invalid + "\"";
+            if (InetAddressUtils.parseNumericAddressNoThrowStripOptionalBrackets(invalid) == null) {
+                msg += " (it was probably unexpectedly resolved by this network's DNS)";
+            }
+            msg += ".";
+            fail(msg);
+        } catch (UnknownHostException expected) {
+        }
+
         // exercise negative cache
         try {
             InetAddress.getByName(invalid);
@@ -346,6 +358,7 @@ public class InetAddressTest {
     @Test
     public void test_getByName_valid(String valid) throws Exception {
         InetAddress.getByName(valid);
+        InetAddress.getAllByNameOnNet(valid, 0 /* NETID_UNSET */);
 
         // exercise positive cache
         InetAddress.getByName(valid);

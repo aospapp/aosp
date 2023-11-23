@@ -18,14 +18,21 @@ package com.android.documentsui;
 
 import static androidx.core.util.Preconditions.checkNotNull;
 
+import static com.android.documentsui.DevicePolicyResources.Strings.PERSONAL_TAB;
+import static com.android.documentsui.DevicePolicyResources.Strings.WORK_TAB;
+
+import android.app.admin.DevicePolicyManager;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.UserId;
+import com.android.modules.utils.build.SdkLevel;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.common.base.Objects;
@@ -112,12 +119,31 @@ public class ProfileTabs implements ProfileTabsAddons {
             mTabs.removeAllTabs();
             if (mUserIds.size() > 1) {
                 // set setSelected to false otherwise it will trigger callback.
-                mTabs.addTab(createTab(R.string.personal_tab,
+                mTabs.addTab(createTab(
+                        getEnterpriseString(PERSONAL_TAB, R.string.personal_tab),
                         mUserIdManager.getSystemUser()), /* setSelected= */false);
-                mTabs.addTab(createTab(R.string.work_tab,
+                mTabs.addTab(createTab(
+                        getEnterpriseString(WORK_TAB, R.string.work_tab),
                         mUserIdManager.getManagedUser()), /* setSelected= */false);
             }
         }
+    }
+
+    private String getEnterpriseString(String updatableStringId, int defaultStringId) {
+        if (SdkLevel.isAtLeastT()) {
+            return getUpdatableEnterpriseString(updatableStringId, defaultStringId);
+        } else {
+            return mTabsContainer.getContext().getString(defaultStringId);
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private String getUpdatableEnterpriseString(String updatableStringId, int defaultStringId) {
+        DevicePolicyManager dpm = mTabsContainer.getContext().getSystemService(
+                DevicePolicyManager.class);
+        return dpm.getResources().getString(
+                updatableStringId,
+                () -> mTabsContainer.getContext().getString(defaultStringId));
     }
 
     /**
@@ -145,8 +171,8 @@ public class ProfileTabs implements ProfileTabsAddons {
                 && mState.stack.getRoot() != null && mState.stack.getRoot().supportsCrossProfile();
     }
 
-    private TabLayout.Tab createTab(int resId, UserId userId) {
-        return mTabs.newTab().setText(resId).setTag(userId);
+    private TabLayout.Tab createTab(String text, UserId userId) {
+        return mTabs.newTab().setText(text).setTag(userId);
     }
 
     @Override

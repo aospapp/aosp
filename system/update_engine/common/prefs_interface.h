@@ -37,10 +37,10 @@ class PrefsInterface {
     virtual ~ObserverInterface() = default;
 
     // Called when the value is set for the observed |key|.
-    virtual void OnPrefSet(const std::string& key) = 0;
+    virtual void OnPrefSet(std::string_view key) = 0;
 
     // Called when the observed |key| is deleted.
-    virtual void OnPrefDeleted(const std::string& key) = 0;
+    virtual void OnPrefDeleted(std::string_view key) = 0;
   };
 
   virtual ~PrefsInterface() = default;
@@ -48,61 +48,61 @@ class PrefsInterface {
   // Gets a string |value| associated with |key|. Returns true on
   // success, false on failure (including when the |key| is not
   // present in the store).
-  virtual bool GetString(const std::string& key, std::string* value) const = 0;
+  virtual bool GetString(std::string_view key, std::string* value) const = 0;
 
   // Associates |key| with a string |value|. Returns true on success,
   // false otherwise.
-  virtual bool SetString(const std::string& key, std::string_view value) = 0;
+  virtual bool SetString(std::string_view key, std::string_view value) = 0;
 
   // Gets an int64_t |value| associated with |key|. Returns true on
   // success, false on failure (including when the |key| is not
   // present in the store).
-  virtual bool GetInt64(const std::string& key, int64_t* value) const = 0;
+  virtual bool GetInt64(std::string_view key, int64_t* value) const = 0;
 
   // Associates |key| with an int64_t |value|. Returns true on success,
   // false otherwise.
-  virtual bool SetInt64(const std::string& key, const int64_t value) = 0;
+  virtual bool SetInt64(std::string_view key, const int64_t value) = 0;
 
   // Gets a boolean |value| associated with |key|. Returns true on
   // success, false on failure (including when the |key| is not
   // present in the store).
-  virtual bool GetBoolean(const std::string& key, bool* value) const = 0;
+  virtual bool GetBoolean(std::string_view key, bool* value) const = 0;
 
   // Associates |key| with a boolean |value|. Returns true on success,
   // false otherwise.
-  virtual bool SetBoolean(const std::string& key, const bool value) = 0;
+  virtual bool SetBoolean(std::string_view key, const bool value) = 0;
 
   // Returns true if the setting exists (i.e. a file with the given key
   // exists in the prefs directory)
-  virtual bool Exists(const std::string& key) const = 0;
+  virtual bool Exists(std::string_view key) const = 0;
 
   // Returns true if successfully deleted the file corresponding to
   // this key. Calling with non-existent keys does nothing.
-  virtual bool Delete(const std::string& key) = 0;
+  virtual bool Delete(std::string_view key) = 0;
 
   // Deletes the pref key from platform and given namespace subdirectories.
   // Keys are matched against end of pref keys in each namespace.
   // Returns true if all deletes were successful.
-  virtual bool Delete(const std::string& pref_key,
+  virtual bool Delete(std::string_view pref_key,
                       const std::vector<std::string>& nss) = 0;
 
   // Creates a key which is part of a sub preference.
   static std::string CreateSubKey(const std::vector<std::string>& ns_with_key);
 
   // Returns a list of keys within the namespace.
-  virtual bool GetSubKeys(const std::string& ns,
+  virtual bool GetSubKeys(std::string_view ns,
                           std::vector<std::string>* keys) const = 0;
 
   // Add an observer to watch whenever the given |key| is modified. The
   // OnPrefSet() and OnPrefDelete() methods will be called whenever any of the
   // Set*() methods or the Delete() method are called on the given key,
   // respectively.
-  virtual void AddObserver(const std::string& key,
+  virtual void AddObserver(std::string_view key,
                            ObserverInterface* observer) = 0;
 
   // Remove an observer added with AddObserver(). The observer won't be called
   // anymore for future Set*() and Delete() method calls.
-  virtual void RemoveObserver(const std::string& key,
+  virtual void RemoveObserver(std::string_view key,
                               ObserverInterface* observer) = 0;
 
  protected:

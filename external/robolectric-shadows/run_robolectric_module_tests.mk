@@ -53,7 +53,8 @@ copy_android_all_jar_pairs := \
   $(android_all_source_dir)/android-all-9-robolectric-4913185-2.jar:$(android_all_target_dir)/android-all-9-robolectric-4913185-2.jar \
   $(android_all_source_dir)/android-all-9plus-robolectric-5616371.jar:$(android_all_target_dir)/android-all-9plus-robolectric-5616371.jar \
   $(android_all_source_dir)/android-all-R-beta2-robolectric-6625208.jar:$(android_all_target_dir)/android-all-R-beta2-robolectric-6625208.jar \
-  $(local_android_all_source_jar):$(android_all_target_dir)/android-all-S-robolectric-r0.jar
+  $(android_all_source_dir)/android-all-S-beta3-robolectric-7541949.jar:$(android_all_target_dir)/android-all-S-beta3-robolectric-7541949.jar \
+  $(local_android_all_source_jar):$(android_all_target_dir)/android-all-current-robolectric-r0.jar
 copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 
 # If debugging the tests was requested, set up the JVM parameters to enable it.

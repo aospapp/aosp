@@ -16,9 +16,6 @@ type hal_audio_ext_hwservice, hwservice_manager_type;
 # WLC
 type hal_wlc_hwservice, hwservice_manager_type;
 
-# Bluetooth HAL extension
-type hal_bluetooth_coexistence_hwservice, hwservice_manager_type, vendor_hwservice_type;
-
 # Fingerprint
 type hal_fingerprint_ext_hwservice, hwservice_manager_type;
 

@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -34,6 +35,7 @@ import org.junit.runner.RunWith;
 /**
  * Tests for ephemeral packages.
  */
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 @AppModeFull(reason = "Already handles instant installs when needed")
 public class InstantAppUserTest extends BaseHostJUnit4Test {

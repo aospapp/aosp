@@ -15,9 +15,10 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-     package="android.telecom.cts.thirdptyincallservice"
-     android:versionCode="1"
-     android:versionName="1.0">
+          package="android.telecom.cts.thirdptyincallservice"
+          android:versionCode="1"
+          android:versionName="1.0"
+          android:sharedUserId="android.telecom.cts">
 
     <!-- sdk 15 is the max for read call log -->
     <uses-sdk android:minSdkVersion="15"/>

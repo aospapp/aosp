@@ -183,6 +183,11 @@ def translate_sha_to_rev(llvm_config: LLVMConfig, sha_or_ref: str) -> Rev:
     raise ValueError(
         f'No viable branches found from {llvm_config.remote} with {sha}')
 
+  # It seems that some `origin/release/.*` branches have
+  # `origin/upstream/release/.*` equivalents, which is... awkward to deal with.
+  # Prefer the latter, since that seems to have newer commits than the former.
+  # Technically n^2, but len(elements) should be like, tens in the worst case.
+  candidates = [x for x in candidates if f'upstream/{x}' not in candidates]
   if len(candidates) != 1:
     raise ValueError(
         f'Ambiguity: multiple branches from {llvm_config.remote} have {sha}: '

@@ -25,10 +25,9 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import android.bluetooth.BluetoothAdapter;
-import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCActionItem;
@@ -47,8 +46,7 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
 @RunWith(AndroidJUnit4.class)
-public class BluetoothSwitchTest {
-    private Context mContext = ApplicationProvider.getApplicationContext();
+public class BluetoothSwitchTest extends BaseSettingsQCItemTestCase {
     private BluetoothSwitch mBluetoothSwitch;
     private MockitoSession mSession;
 
@@ -109,6 +107,24 @@ public class BluetoothSwitchTest {
         QCList list = (QCList) mBluetoothSwitch.getQCItem();
         QCActionItem actionItem = list.getRows().get(0).getEndItems().get(0);
         assertThat(actionItem.isChecked()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_switchDisabled() {
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH, /* restricted= */ true);
+        QCList list = (QCList) mBluetoothSwitch.getQCItem();
+        QCActionItem actionItem = list.getRows().get(0).getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_switchClickableWhileDisabled() {
+        setUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH, /* restricted= */ true);
+        QCList list = (QCList) mBluetoothSwitch.getQCItem();
+        QCActionItem actionItem = list.getRows().get(0).getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

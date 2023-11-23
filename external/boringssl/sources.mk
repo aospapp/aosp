@@ -20,7 +20,6 @@ crypto_sources := \
   src/crypto/asn1/a_bool.c\
   src/crypto/asn1/a_d2i_fp.c\
   src/crypto/asn1/a_dup.c\
-  src/crypto/asn1/a_enum.c\
   src/crypto/asn1/a_gentm.c\
   src/crypto/asn1/a_i2d_fp.c\
   src/crypto/asn1/a_int.c\
@@ -28,6 +27,7 @@ crypto_sources := \
   src/crypto/asn1/a_object.c\
   src/crypto/asn1/a_octet.c\
   src/crypto/asn1/a_print.c\
+  src/crypto/asn1/a_strex.c\
   src/crypto/asn1/a_strnid.c\
   src/crypto/asn1/a_time.c\
   src/crypto/asn1/a_type.c\
@@ -36,7 +36,6 @@ crypto_sources := \
   src/crypto/asn1/asn1_lib.c\
   src/crypto/asn1/asn1_par.c\
   src/crypto/asn1/asn_pack.c\
-  src/crypto/asn1/f_enum.c\
   src/crypto/asn1/f_int.c\
   src/crypto/asn1/f_string.c\
   src/crypto/asn1/tasn_dec.c\
@@ -69,27 +68,28 @@ crypto_sources := \
   src/crypto/chacha/chacha.c\
   src/crypto/cipher_extra/cipher_extra.c\
   src/crypto/cipher_extra/derive_key.c\
-  src/crypto/cipher_extra/e_aesccm.c\
   src/crypto/cipher_extra/e_aesctrhmac.c\
   src/crypto/cipher_extra/e_aesgcmsiv.c\
   src/crypto/cipher_extra/e_chacha20poly1305.c\
+  src/crypto/cipher_extra/e_des.c\
   src/crypto/cipher_extra/e_null.c\
   src/crypto/cipher_extra/e_rc2.c\
   src/crypto/cipher_extra/e_rc4.c\
   src/crypto/cipher_extra/e_tls.c\
   src/crypto/cipher_extra/tls_cbc.c\
-  src/crypto/cmac/cmac.c\
   src/crypto/conf/conf.c\
-  src/crypto/cpu-aarch64-fuchsia.c\
-  src/crypto/cpu-aarch64-linux.c\
-  src/crypto/cpu-aarch64-win.c\
-  src/crypto/cpu-arm-linux.c\
-  src/crypto/cpu-arm.c\
-  src/crypto/cpu-intel.c\
-  src/crypto/cpu-ppc64le.c\
+  src/crypto/cpu_aarch64_apple.c\
+  src/crypto/cpu_aarch64_fuchsia.c\
+  src/crypto/cpu_aarch64_linux.c\
+  src/crypto/cpu_aarch64_win.c\
+  src/crypto/cpu_arm.c\
+  src/crypto/cpu_arm_linux.c\
+  src/crypto/cpu_intel.c\
+  src/crypto/cpu_ppc64le.c\
   src/crypto/crypto.c\
   src/crypto/curve25519/curve25519.c\
   src/crypto/curve25519/spake25519.c\
+  src/crypto/des/des.c\
   src/crypto/dh_extra/dh_asn1.c\
   src/crypto/dh_extra/params.c\
   src/crypto/digest_extra/digest_extra.c\
@@ -102,7 +102,6 @@ crypto_sources := \
   src/crypto/ecdsa_extra/ecdsa_asn1.c\
   src/crypto/engine/engine.c\
   src/crypto/err/err.c\
-  src/crypto/evp/digestsign.c\
   src/crypto/evp/evp.c\
   src/crypto/evp/evp_asn1.c\
   src/crypto/evp/evp_ctx.c\
@@ -122,7 +121,6 @@ crypto_sources := \
   src/crypto/ex_data.c\
   src/crypto/fipsmodule/bcm.c\
   src/crypto/fipsmodule/fips_shared_support.c\
-  src/crypto/fipsmodule/is_fips.c\
   src/crypto/hkdf/hkdf.c\
   src/crypto/hpke/hpke.c\
   src/crypto/hrss/hrss.c\
@@ -169,13 +167,13 @@ crypto_sources := \
   src/crypto/trust_token/voprf.c\
   src/crypto/x509/a_digest.c\
   src/crypto/x509/a_sign.c\
-  src/crypto/x509/a_strex.c\
   src/crypto/x509/a_verify.c\
   src/crypto/x509/algorithm.c\
   src/crypto/x509/asn1_gen.c\
   src/crypto/x509/by_dir.c\
   src/crypto/x509/by_file.c\
   src/crypto/x509/i2d_pr.c\
+  src/crypto/x509/name_print.c\
   src/crypto/x509/rsa_pss.c\
   src/crypto/x509/t_crl.c\
   src/crypto/x509/t_req.c\
@@ -189,7 +187,6 @@ crypto_sources := \
   src/crypto/x509/x509_ext.c\
   src/crypto/x509/x509_lu.c\
   src/crypto/x509/x509_obj.c\
-  src/crypto/x509/x509_r2x.c\
   src/crypto/x509/x509_req.c\
   src/crypto/x509/x509_set.c\
   src/crypto/x509/x509_trs.c\
@@ -250,10 +247,13 @@ crypto_sources := \
 
 linux_aarch64_sources := \
   linux-aarch64/crypto/chacha/chacha-armv8.S\
+  linux-aarch64/crypto/cipher_extra/chacha20_poly1305_armv8.S\
   linux-aarch64/crypto/fipsmodule/aesv8-armx64.S\
   linux-aarch64/crypto/fipsmodule/armv8-mont.S\
   linux-aarch64/crypto/fipsmodule/ghash-neon-armv8.S\
   linux-aarch64/crypto/fipsmodule/ghashv8-armx64.S\
+  linux-aarch64/crypto/fipsmodule/p256-armv8-asm.S\
+  linux-aarch64/crypto/fipsmodule/p256_beeu-armv8-asm.S\
   linux-aarch64/crypto/fipsmodule/sha1-armv8.S\
   linux-aarch64/crypto/fipsmodule/sha256-armv8.S\
   linux-aarch64/crypto/fipsmodule/sha512-armv8.S\

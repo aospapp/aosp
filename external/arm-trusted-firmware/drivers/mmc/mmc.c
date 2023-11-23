@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -103,6 +103,36 @@ static int mmc_device_state(void)
 	} while ((resp_data[0] & STATUS_READY_FOR_DATA) == 0U);
 
 	return MMC_GET_STATE(resp_data[0]);
+}
+
+static int mmc_send_part_switch_cmd(unsigned int part_config)
+{
+	int ret;
+	unsigned int part_time = 0;
+
+	ret = mmc_send_cmd(MMC_CMD(6),
+			   EXTCSD_WRITE_BYTES |
+			   EXTCSD_CMD(CMD_EXTCSD_PARTITION_CONFIG) |
+			   EXTCSD_VALUE(part_config) |
+			   EXTCSD_CMD_SET_NORMAL,
+			   MMC_RESPONSE_R1B, NULL);
+	if (ret != 0) {
+		return ret;
+	}
+
+	/* Partition switch timing is in 10ms units */
+	part_time = mmc_ext_csd[CMD_EXTCSD_PART_SWITCH_TIME] * 10;
+
+	mdelay(part_time);
+
+	do {
+		ret = mmc_device_state();
+		if (ret < 0) {
+			return ret;
+		}
+	} while (ret == MMC_STATE_PRG);
+
+	return 0;
 }
 
 static int mmc_set_ext_csd(unsigned int ext_cmd, unsigned int value)
@@ -392,7 +422,7 @@ static int mmc_send_op_cond(void)
 	ret = mmc_reset_to_idle();
 	if (ret != 0) {
 		return ret;
-	};
+	}
 
 	for (n = 0; n < SEND_OP_COND_MAX_RETRIES; n++) {
 		ret = mmc_send_cmd(MMC_CMD(1), OCR_SECTOR_MODE |
@@ -425,7 +455,7 @@ static int mmc_enumerate(unsigned int clk, unsigned int bus_width)
 	ret = mmc_reset_to_idle();
 	if (ret != 0) {
 		return ret;
-	};
+	}
 
 	if (mmc_dev_info->mmc_dev_type == MMC_IS_EMMC) {
 		ret = mmc_send_op_cond();
@@ -668,7 +698,7 @@ static inline void mmc_rpmb_enable(void)
 {
 	mmc_set_ext_csd(CMD_EXTCSD_PARTITION_CONFIG,
 			PART_CFG_BOOT_PARTITION1_ENABLE |
-			PART_CFG_PARTITION1_ACCESS);
+			PART_CFG_BOOT_PARTITION1_ACCESS);
 }
 
 static inline void mmc_rpmb_disable(void)
@@ -708,6 +738,50 @@ size_t mmc_rpmb_erase_blocks(int lba, size_t size)
 	mmc_rpmb_disable();
 
 	return size_erased;
+}
+
+static int mmc_part_switch(unsigned int part_type)
+{
+	uint8_t part_config = mmc_ext_csd[CMD_EXTCSD_PARTITION_CONFIG];
+
+	part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
+	part_config |= part_type;
+
+	return mmc_send_part_switch_cmd(part_config);
+}
+
+static unsigned char mmc_current_boot_part(void)
+{
+	return PART_CFG_CURRENT_BOOT_PARTITION(mmc_ext_csd[CMD_EXTCSD_PARTITION_CONFIG]);
+}
+
+size_t mmc_boot_part_read_blocks(int lba, uintptr_t buf, size_t size)
+{
+	size_t size_read;
+	int ret;
+	unsigned char current_boot_part = mmc_current_boot_part();
+
+	if (current_boot_part != 1U &&
+	    current_boot_part != 2U) {
+		ERROR("Got unexpected value for active boot partition, %u\n", current_boot_part);
+		return 0;
+	}
+
+	ret = mmc_part_switch(current_boot_part);
+	if (ret < 0) {
+		ERROR("Failed to switch to boot partition, %d\n", ret);
+		return 0;
+	}
+
+	size_read = mmc_read_blocks(lba, buf, size);
+
+	ret = mmc_part_switch(0);
+	if (ret < 0) {
+		ERROR("Failed to switch back to user partition, %d\n", ret);
+		return 0;
+	}
+
+	return size_read;
 }
 
 int mmc_init(const struct mmc_ops *ops_ptr, unsigned int clk,

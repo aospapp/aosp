@@ -86,6 +86,20 @@ public class FanSpeedBarSegment extends ImageView {
         });
     }
 
+    public void setTurnedOn(boolean isOn) {
+        mTurnedOn = isOn;
+        GradientDrawable drawable = (GradientDrawable) getDrawable();
+        if (mTurnedOn) {
+            drawable.setCornerRadius(0);
+            // Setting size -1, makes the drawable grow to the size of the image view.
+            drawable.setSize(-1, -1);
+        } else {
+            drawable.setCornerRadius(mDotSize / 2);
+            drawable.setSize(mDotSize, mDotSize);
+        }
+        setImageDrawable(drawable);
+    }
+
     public boolean isTurnedOn() {
         return mTurnedOn;
     }

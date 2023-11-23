@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ស្តារ​ប្រភេទ​លំនាំ​ដើម"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"បាន​ស្តារ​ប្រភេទ​លំនាំ​ដើម"</string>
     <string name="default_categories" msgid="2117679794687799407">"លំនាំដើម"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">បាន​ជ្រើសរើស %d</item>
-      <item quantity="one">បាន​ជ្រើសរើស %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{បាន​ជ្រើសរើស #}other{បាន​ជ្រើសរើស #}}"</string>
     <string name="applications" msgid="521776761270770549">"កម្មវិធី"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"មិន​មាន​កម្មវិធី​ដែល​អាច​ជួសជុល​បាន​ទេ"</string>
     <string name="buffer_size" msgid="3944311026715111454">"ទំហំកន្លែងផ្ទុកក្នុងមួយ CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"ប្រើ Perfetto (បេតា)"</string>
     <string name="long_traces" msgid="5110949471775966329">"ដានវែង"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"បាន​រក្សាទុក​ជាបន្តបន្ទាប់​ទៅក្នុងទំហំផ្ទុក​ឧបករណ៍"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ត្រូវបាន​រក្សាទុក​ជាបន្តបន្ទាប់​នៅក្នុង​ទំហំផ្ទុក​ឧបករណ៍ (នឹងមិនភ្ជាប់​ជាមួយ​របាយការណ៍អំពីបញ្ហា​ដោយស្វ័យប្រវត្តិ​ទេ)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"ទំហំ​ដានវែង​បំផុត"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"រយៈពេល​ដានវែង​បំផុត"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

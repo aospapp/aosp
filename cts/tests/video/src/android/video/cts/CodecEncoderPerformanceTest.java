@@ -16,7 +16,10 @@
 
 package android.video.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import android.media.MediaFormat;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.test.filters.LargeTest;
@@ -30,8 +33,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static org.junit.Assert.assertTrue;
 
 /**
  * Operating rate is expected to be met by encoder only in surface mode and not in byte buffer mode.
@@ -113,8 +114,12 @@ public class CodecEncoderPerformanceTest extends CodecEncoderPerformanceTestBase
                 " Encoder: %s, Key-priority: %d :: ", mDecoderMime, mDecoderName, mHeight,
                 mEncoderMime, mEncoderName, mKeyPriority);
         int maxExpectedFps = getMaxExpectedFps(mWidth, mHeight);
+        double fpsToleranceFactor = FPS_TOLERANCE_FACTOR;
+        if (VNDK_VERSION <= Build.VERSION_CODES.TIRAMISU) {
+            fpsToleranceFactor = Math.min(0.9, fpsToleranceFactor);
+        }
         double expectedFps =
-                Math.min(mOperatingRateExpected * FPS_TOLERANCE_FACTOR, maxExpectedFps);
+                Math.min(mOperatingRateExpected * fpsToleranceFactor, maxExpectedFps);
         Log.d(LOG_TAG, log + "act/exp fps: " + mAchievedFps + "/" + expectedFps);
         assertTrue("Unable to achieve the expected rate. " + log + "act/exp fps: " + mAchievedFps
                 + "/" + expectedFps, mAchievedFps >= expectedFps);

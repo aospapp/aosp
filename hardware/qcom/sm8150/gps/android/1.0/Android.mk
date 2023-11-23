@@ -8,6 +8,7 @@ LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifie
 LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_SANITIZE += $(GNSS_SANITIZE)
+
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
 LOCAL_VENDOR_MODULE := true
@@ -67,6 +68,7 @@ LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifie
 LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_SANITIZE += $(GNSS_SANITIZE)
+
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
 LOCAL_VINTF_FRAGMENTS := android.hardware.gnss@1.0-service-qti.xml

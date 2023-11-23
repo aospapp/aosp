@@ -28,25 +28,25 @@ public final class PortLocationTypeTest {
     @Test
     public void testMatchWithVehicleHal() {
         assertThat(PortLocationType.UNKNOWN)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.UNKNOWN);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.UNKNOWN);
 
         assertThat(PortLocationType.FRONT_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.FRONT_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.FRONT_LEFT);
 
         assertThat(PortLocationType.FRONT_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.FRONT_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.FRONT_RIGHT);
 
         assertThat(PortLocationType.REAR_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.REAR_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.REAR_RIGHT);
 
         assertThat(PortLocationType.REAR_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.REAR_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.REAR_LEFT);
 
         assertThat(PortLocationType.FRONT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.FRONT);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.FRONT);
 
         assertThat(PortLocationType.REAR)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.PortLocationType.REAR);
+                .isEqualTo(android.hardware.automotive.vehicle.PortLocationType.REAR);
 
     }
 }

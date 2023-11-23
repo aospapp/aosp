@@ -102,12 +102,22 @@ enum class PixelFormat : int {
   RGBX = 2,
   BGRA = 3,
   ARGB = 4,
+  RGBA = 5, // LSB Alpha
 };
 
-// Initializes the graphics backend and loads font file. Returns 0 on success, or -1 on error. Note
-// that the font initialization failure would be non-fatal, as caller may not need to draw any text
-// at all. Caller can check the font initialization result via gr_sys_font() as needed.
+enum class GraphicsBackend : int {
+  UNKNOWN = 0,
+  DRM = 1,
+  FBDEV = 2,
+};
+
+// Initializes the default graphics backend and loads font file. Returns 0 on success, or -1 on
+// error. Note that the font initialization failure would be non-fatal, as caller may not need to
+// draw any text at all. Caller can check the font initialization result via gr_sys_font() as
+// needed.
 int gr_init();
+// Supports backend selection for minui client.
+int gr_init(std::initializer_list<GraphicsBackend> backends);
 
 // Frees the allocated resources. The function is idempotent, and safe to be called if gr_init()
 // didn't finish successfully.
@@ -118,6 +128,7 @@ int gr_fb_height();
 
 void gr_flip();
 void gr_fb_blank(bool blank);
+void gr_fb_blank(bool blank, int index);
 
 // Clears entire surface to current color.
 void gr_clear();
@@ -152,6 +163,7 @@ struct input_event;
 
 using ev_callback = std::function<int(int fd, uint32_t epevents)>;
 using ev_set_key_callback = std::function<int(int code, int value)>;
+using ev_set_sw_callback = std::function<int(int code, int value)>;
 
 int ev_init(ev_callback input_cb, bool allow_touch_inputs = false);
 void ev_exit();
@@ -159,6 +171,7 @@ int ev_add_fd(android::base::unique_fd&& fd, ev_callback cb);
 void ev_iterate_available_keys(const std::function<void(int)>& f);
 void ev_iterate_touch_inputs(const std::function<void(int)>& action);
 int ev_sync_key_state(const ev_set_key_callback& set_key_cb);
+int ev_sync_sw_state(const ev_set_sw_callback& set_sw_cb);
 
 // 'timeout' has the same semantics as poll(2).
 //    0 : don't block

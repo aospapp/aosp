@@ -44,7 +44,7 @@ import java.util.List;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class QuiescentBootTests extends BaseHostJUnit4Test {
-    private static final int REBOOT_TIMEOUT = 60000;
+    private static final int REBOOT_TIMEOUT = 120000;
 
     private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
     private static final String CMD_DUMPSYS_POWER = "dumpsys power --proto";

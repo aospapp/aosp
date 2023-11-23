@@ -24,15 +24,6 @@ PRODUCT_COPY_FILES +=   $(TARGET_PREBUILT_KERNEL):kernel \
 			device/linaro/hikey/ueventd.common.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
 			device/linaro/hikey/common.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/hikey.kl
 
-# Copy BT firmware
-PRODUCT_COPY_FILES += \
-	device/linaro/hikey/bt-wifi-firmware-util/TIInit_11.8.32.bts:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/TIInit_11.8.32.bts
-
-# Copy wlan firmware
-PRODUCT_COPY_FILES += \
-	device/linaro/hikey/bt-wifi-firmware-util/wl18xx-fw-4.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/wl18xx-fw-4.bin \
-	device/linaro/hikey/bt-wifi-firmware-util/wl18xx-conf.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/wl18xx-conf.bin
-
 # Build HiKey HDMI audio HAL
 PRODUCT_PACKAGES += audio.primary.hikey
 
@@ -51,12 +42,10 @@ PRODUCT_PACKAGES += power.hikey
 # Sensors HAL
 PRODUCT_PACKAGES += sensors.hikey
 
-ifeq ($(HIKEY_USE_DRM_HWCOMPOSER), true)
-  PRODUCT_PACKAGES += hwcomposer.drm_hikey
-endif
+PRODUCT_PACKAGES += hwcomposer.drm_hikey
 
 # Include mali blobs from ARM
-PRODUCT_PACKAGES += libGLES_mali.so END_USER_LICENCE_AGREEMENT.txt
+PRODUCT_PACKAGES += libGLES_mali
 
 ifneq ($(TARGET_NO_RECOVERY),true)
 PRODUCT_COPY_FILES += \

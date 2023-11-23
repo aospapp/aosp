@@ -20,6 +20,8 @@ import android.media.MediaMetadataRetriever;
 
 import com.android.camera.debug.Log;
 
+import java.io.IOException;
+
 public class VideoRotationMetadataLoader {
     private static final Log.Tag TAG = new Log.Tag("VidRotDataLoader");
 
@@ -52,6 +54,12 @@ public class VideoRotationMetadataLoader {
             // setDataSource() can cause RuntimeException beyond
             // IllegalArgumentException. e.g: data contain *.avi file.
             Log.e(TAG, "MediaMetdataRetriever.setDataSource() fail", ex);
+        } finally {
+            try {
+                retriever.release();
+            } catch (IOException e) {
+                // Ignore errors occurred while releasing the MediaMetadataRetriever.
+            }
         }
         return true;
     }

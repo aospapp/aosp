@@ -77,6 +77,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
+import com.android.compatibility.common.util.WindowUtil;
 
 import com.google.common.collect.ImmutableList;
 
@@ -145,13 +146,11 @@ public class AutoCompleteTextViewTest {
     @Before
     public void setup() {
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
-
+        WindowUtil.waitForFocus(mActivity);
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mAutoCompleteTextView = (AutoCompleteTextView) mActivity
-                .findViewById(R.id.autocompletetv_edit);
-        mMockAutoCompleteTextView = (MockAutoCompleteTextView) mActivity
-                .findViewById(R.id.autocompletetv_custom);
+        mAutoCompleteTextView = mActivity.findViewById(R.id.autocompletetv_edit);
+        mAutoCompleteTextView.setFocusableInTouchMode(true);
+        mMockAutoCompleteTextView = mActivity.findViewById(R.id.autocompletetv_custom);
         mAdapter = new ArrayAdapter<>(mActivity,
                 android.R.layout.simple_dropdown_item_1line, WORDS);
         KeyCharacterMap keymap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
@@ -820,6 +819,15 @@ public class AutoCompleteTextViewTest {
 
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
         // KeyBack will close the popup.
+        assertFalse(mAutoCompleteTextView.isPopupShowing());
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView, () -> {
+            mAutoCompleteTextView.showDropDown();
+        });
+        assertTrue(mAutoCompleteTextView.isPopupShowing());
+
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ESCAPE);
+        // KeyEscape will also close the popup.
         assertFalse(mAutoCompleteTextView.isPopupShowing());
 
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mAutoCompleteTextView, () -> {

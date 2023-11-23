@@ -838,6 +838,8 @@ static int hostapd_is_usable_edmg(struct hostapd_iface *iface)
 				       iface->freq, NULL,
 				       iface->hw_features,
 				       iface->num_hw_features);
+	if (!pri_chan)
+		return 0;
 	hostapd_encode_edmg_chan(iface->conf->enable_edmg,
 				 iface->conf->edmg_channel,
 				 pri_chan->chan,
@@ -917,8 +919,14 @@ static int hostapd_is_usable_chans(struct hostapd_iface *iface)
 		return 1;
 
 	if (hostapd_is_usable_chan(iface, iface->freq +
-				   iface->conf->secondary_channel * 20, 0))
-		return 1;
+				   iface->conf->secondary_channel * 20, 0)) {
+		if (iface->conf->secondary_channel == 1 &&
+		    (pri_chan->allowed_bw & HOSTAPD_CHAN_WIDTH_40P))
+			return 1;
+		if (iface->conf->secondary_channel == -1 &&
+		    (pri_chan->allowed_bw & HOSTAPD_CHAN_WIDTH_40M))
+			return 1;
+	}
 	if (!iface->conf->ht40_plus_minus_allowed)
 		return 0;
 

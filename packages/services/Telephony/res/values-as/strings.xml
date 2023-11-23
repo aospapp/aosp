@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"জৰুৰীকালীন কলবেক ম\'ড"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ডেটা সংযোগ অক্ষম কৰা হ’ল"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g>লৈকে কোনো ডেটা সংযোগ নাথাকে"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one"><xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে ফ\'নটো জৰুৰীকালীন কলবেক ম\'ডত থাকিব। এই ম\'ডত থাকোঁতে ডেটা সংযোগ দৰকাৰ হোৱা কোনো এপ্ ব্যৱহাৰ কৰিব নোৱাৰি। আপুনি এতিয়া বাহিৰ হ\'ব খোজে নেকি?</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে ফ\'নটো জৰুৰীকালীন কলবেক ম\'ডত থাকিব। এই ম\'ডত থাকোঁতে ডেটা সংযোগ দৰকাৰ হোৱা কোনো এপ্ ব্যৱহাৰ কৰিব নোৱাৰি। আপুনি এতিয়া বাহিৰ হ\'ব খোজে নেকি?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">বাছনি কৰা কাৰ্যকলাপটো জৰুৰীকালীন কলবেক ম\'ডত উপলব্ধ নহয়। ফ\'নটো এই ম\'ডত <xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে থাকিব। আপুনি এতিয়া বাহিৰ হ\'ব খোজে নেকি?</item>
-      <item quantity="other">বাছনি কৰা কাৰ্যকলাপটো জৰুৰীকালীন কলবেক ম\'ডত উপলব্ধ নহয়। ফ\'নটো এই ম\'ডত <xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে থাকিব। আপুনি এতিয়া বাহিৰ হ\'ব খোজে নেকি?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"জৰুৰীকালীন কল চলি থকাৰ সময়ত বাছনি কৰা কাৰ্যটো উপলব্ধ নহয়।"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"জৰুৰীকালীন কলবেক ম\'ডৰ পৰা প্ৰস্থান কৰা হৈছে"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"হয়"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"অগ্ৰাহ্য কৰক"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ফ’নটো জৰুৰীকালীন কলবেক ম’ডত আছে"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> পৰ্যন্ত"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">ফ’নটো <xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে জৰুৰীকালীন কলবেক ম’ডত থাকিব।\nআপুনি এতিয়া বাহিৰ হ’বলৈ বিচাৰে নেকি?</item>
-      <item quantity="other">ফ’নটো <xliff:g id="COUNT_1">%s</xliff:g> মিনিটৰ বাবে জৰুৰীকালীন কলবেক ম’ডত থাকিব।\nআপুনি এতিয়া বাহিৰ হ’বলৈ বিচাৰে নেকি?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"সেৱা"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"ছেট আপ কৰক"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;ছেট কৰা হোৱা নাই&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"সাধ্য সুবিধাসমূহ"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"এওঁৰ পৰা ৱাই-ফাই কল আহিছে"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ৱাই-ফাই কল"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"খুলিবলৈ পুনৰাই টিপক"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"বাৰ্তাটো ডিক\'ড কৰোঁতে আসোঁৱাহৰ সৃষ্টি হৈছিল।"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"এখন ছিম কাৰ্ডে আপোনাৰ সেৱাসমূহ সক্ৰিয় কৰিছে আৰু আপোনাৰ ফ\'নটোৰ ৰ\'মিং সক্ষমতাসমূহো আপডে’ট কৰিছে।"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"কেইবাটাও কল ইতিমধ্যে সক্ৰিয় হৈ আছে। নতুন কল এটা কৰাৰ আগেয়ে অনুগ্ৰহ কৰি সেইবোৰ একেলগ কৰক বা সমাপ্ত কৰক।"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"অইন এটা বহিৰ্গামী কল ডায়েল কৰি থকাৰ কাৰণে বেলেগ কল কৰিব নোৱাৰি।"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"বেলেগ কল কৰিব নোৱাৰি, কাৰণ এটা অন্তৰ্গামী কল এতিয়াও সক্ৰিয় হৈ আছে যাৰ উত্তৰ দিয়া হোৱা নাই। নতুন কল এটা কৰাৰ আগেয়ে সেই কলটোৰ উত্তৰ দিয়ক বা কলটো প্ৰত্যাখ্যান কৰক।"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"কোনো কল কৰিব নোৱাৰি কাৰণ ro.telephony.disable-call ছিষ্টেম প্ৰ’পাৰ্টি ব্যৱহাৰ কৰি কল কৰাৰ সুবিধা অক্ষম কৰা হৈছে।"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"কোনো কল কৰিব নোৱাৰি কাৰণ ইতিমধ্যে দুটা বেলেগ কল চলি আছে। নতুন এটা কল কৰাৰ আগেয়ে সেই দুটাৰ ভিতৰত এটাৰ সংযোগ বিচ্ছিন্ন কৰক বা কল দুটা একত্ৰিত কৰি এটা কনফাৰেন্স কললৈ সলনি কৰক।"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"কল কৰিব নোৱাৰি, কাৰণ ইতিমধ্যে দুটা কল চলি আছে। এটা নতুন কল কৰাৰ আগতে সেই দুটা কলৰ এটাৰ সংযোগ বিচ্ছিন্ন কৰক অথবা কল দুটা একত্ৰিত কৰি এটা কনফাৰেন্স কললৈ সলনি কৰক।"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ব্যৱহাৰ কৰিবলৈ ম’বাইল ডেটা অন হৈ থকাটো নিশ্চিত কৰক। আপুনি ম’বাইল নেটৱৰ্ক ছেটিংসমূহ-লৈ গৈ ইয়াক সলনি কৰিব পাৰে।"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ব্যৱহাৰ কৰিবলৈ ম’বাইল ডেটা আৰু ডেটা ৰ’মিং অন হৈ থকাটো নিশ্চিত কৰক। আপুনি ম’বাইল নেটৱৰ্ক ছেটিংসমূহ-লৈ গৈ ইয়াক সলনি কৰিব পাৰে।"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> ব্যৱহাৰ কৰিবলৈ <xliff:g id="SIM_NUMBER">%2$d</xliff:g> ছিমত ম’বাইল ডেটা অন হৈ থকাটো নিশ্চিত কৰক। আপুনি ম’বাইল নেটৱৰ্ক ছেটিংসমূহ-লৈ গৈ ইয়াক সলনি কৰিব পাৰে।"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"আপুনি এই ছেটিংটো সলনি কৰিবলৈ আপোনাৰ ডিভাইচটো ৰিষ্টার্ট কৰিব লাগিব।"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"ৰিষ্টাৰ্ট কৰক"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"বাতিল কৰক"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"আঁতৰাব পৰা ই-ছিম ডিফ’ল্ট হিচাপে ছেট কৰক"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ম’বাইলৰ ৰেডিঅ’ পাৱাৰ"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ছিম ঠিকনা সূচী চাওক"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ফিক্সড্ ডায়েলিং নম্বৰসমূহ চাওক"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ৰেডিঅ’ বেণ্ড বাছনি কৰক"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ভইচ নেটৱৰ্কৰ প্ৰকাৰ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ডেটা নেটৱৰ্কৰ প্ৰকাৰ:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"নেটৱৰ্ক প্ৰকাৰ অ’ভাৰৰাইড কৰক:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ফ’নৰ ইনডেক্স বাছনি কৰক"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"পচন্দৰ নেটৱৰ্কৰ প্ৰকাৰ ছেট কৰক:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"হ\'ষ্টনাম(www.google.com) IPv4 পিং কৰক:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ৰিফ্ৰেশ্ব কৰক"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS পৰীক্ষা ট’গল কৰক"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM বিশেষক তথ্য/ছেটিংসমূহ"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC উপলব্ধ:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR প্ৰতিবন্ধিত:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR উপলব্ধ:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR স্থিতি:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC উপলব্ধ (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR সীমিত (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR উপলব্ধ (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR স্থিতি (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ফ্ৰিকুৱেন্সী:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ৰেডিঅ’ৰ বেণ্ড ম’ড ছেট কৰক"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"বেণ্ড সূচীখন ল’ড কৰি থকা হৈছে…"</string>

@@ -43,7 +43,6 @@ public final class GearSelectionTestActivity extends PassFailButtons.Activity {
     private static final long TEST_TIMEOUT_MINUTES = 10;
 
     private List<Integer> mSupportedGears;
-    private Integer mGearsAchievedCount = 0;
     private TextView mExpectedGearSelectionTextView;
     private TextView mCurrentGearSelectionTextView;
     private CarPropertyManager mCarPropertyManager;

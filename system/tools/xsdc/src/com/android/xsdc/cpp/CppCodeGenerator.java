@@ -23,7 +23,9 @@ import com.android.xsdc.XsdConstants;
 import com.android.xsdc.tag.*;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,16 +50,18 @@ public class CppCodeGenerator {
     private boolean writer;
     private int generators;
     private boolean booleanGetter;
+    private boolean useTinyXml;
 
     private static final String UNKNOWN_ENUM = "UNKNOWN";
 
     public CppCodeGenerator(XmlSchema xmlSchema, String pkgName, boolean writer, int generators,
-            boolean booleanGetter) throws CppCodeGeneratorException {
+            boolean booleanGetter, boolean useTinyXml) throws CppCodeGeneratorException {
         this.xmlSchema = xmlSchema;
         this.pkgName = pkgName;
         this.writer = writer;
         this.generators = generators;
         this.booleanGetter = booleanGetter;
+        this.useTinyXml = useTinyXml;
 
         // class naming validation
         {
@@ -150,17 +154,17 @@ public class CppCodeGenerator {
         parserHeaderFile.printf("#include <optional>\n");
         parserHeaderFile.printf("#include <string>\n");
         parserHeaderFile.printf("#include <vector>\n");
+        parserHeaderFile.printf("#include <sstream>\n");
         if (writer) {
             parserHeaderFile.printf("#include <iostream>\n");
         }
         parserHeaderFile.printf("\n");
-        parserHeaderFile.printf("#if __has_include(<libxml/parser.h>)\n");
-        parserHeaderFile.printf("#include <libxml/parser.h>\n");
-        parserHeaderFile.printf("#include <libxml/xinclude.h>\n");
-        parserHeaderFile.printf("#else\n");
-        parserHeaderFile.printf("#error Require libxml2 library. ");
-        parserHeaderFile.printf("Please add libxml2 to shared_libs or static_libs\n");
-        parserHeaderFile.printf("#endif\n");
+        if (useTinyXml) {
+            printGuardedIncludes(parserHeaderFile, "libtinyxml2", "tinyxml2.h");
+        } else {
+            printGuardedIncludes(parserHeaderFile, "libxml2", "libxml/parser.h",
+                    Arrays.asList("libxml/xinclude.h"));
+        }
         if (hasEnums) {
             enumsHeaderFile.printf("#include <xsdc/XsdcSupport.h>\n");
             enumsHeaderFile.printf("\n");
@@ -249,6 +253,23 @@ public class CppCodeGenerator {
         parserHeaderFile.close();
         enumsCppFile.close();
         enumsHeaderFile.close();
+    }
+
+    private void printGuardedIncludes(CodeWriter file, String libName, String mainHeader) {
+        printGuardedIncludes(file, libName, mainHeader, Collections.emptyList());
+    }
+
+    private void printGuardedIncludes(CodeWriter file, String libName, String mainHeader,
+            Collection<String> additionalHeaders) {
+        parserHeaderFile.printf("#if __has_include(<%s>)\n", mainHeader);
+        parserHeaderFile.printf("#include <%s>\n", mainHeader);
+        for (String header : additionalHeaders) {
+            parserHeaderFile.printf("#include <%s>\n", header);
+        }
+        parserHeaderFile.printf("#else\n");
+        parserHeaderFile.printf("#error Require %s library. ", libName);
+        parserHeaderFile.printf("Please add %s to shared_libs or static_libs\n", libName);
+        parserHeaderFile.printf("#endif\n");
     }
 
     private void printEnum(String name, XsdRestriction restrictionType)
@@ -452,8 +473,9 @@ public class CppCodeGenerator {
         }
 
         String fullName = nameScope + name;
-        parserHeaderFile.printf("static %s read(xmlNode *root);\n", fullName, Utils.lowerize(name));
-        parserCppFile.printf("\n%s %s::read(xmlNode *root) {\n", fullName, fullName);
+        String nodeType = getXmlNodeType();
+        parserHeaderFile.printf("static %s read(%s *root);\n", fullName, nodeType);
+        parserCppFile.printf("\n%s %s::read(%s *root) {\n", fullName, fullName, nodeType);
 
         parserCppFile.print("std::string raw;\n");
 
@@ -479,11 +501,7 @@ public class CppCodeGenerator {
         }
 
         if (baseValueType != null) {
-            parserCppFile.printf("auto xmlValue = make_xmlUnique(xmlNodeListGetString("
-                    + "root->doc, root->xmlChildrenNode, 1));\n"
-                    + "if (xmlValue != nullptr) {\n"
-                    + "raw = reinterpret_cast<const char*>(xmlValue.get());\n");
-
+            printNodeListGetString("root");
             parserCppFile.print(baseValueType.getParsingExpression());
             parserCppFile.printf("instance.setValue(value);\n");
             parserCppFile.printf("}\n");
@@ -496,8 +514,15 @@ public class CppCodeGenerator {
                 parserCppFile.printf("%s %s;\n", Utils.elementTypeName(type.getName(),
                         element.isMultiple() || type instanceof CppComplexType), variableName);
             }
-            parserCppFile.print("for (xmlNode *child = root->xmlChildrenNode; child != nullptr;"
-                    + " child = child->next) {\n");
+            if (useTinyXml) {
+                parserCppFile.print("for (auto *child = root->FirstChildElement();"
+                        + " child != nullptr;"
+                        + " child = child->NextSiblingElement()) {\n");
+            } else {
+                parserCppFile.print("for (auto *child = root->xmlChildrenNode;"
+                        + " child != nullptr;"
+                        + " child = child->next) {\n");
+            }
             for (int i = 0; i < allElements.size(); ++i) {
                 CppType type = allElementTypes.get(i);
                 XsdElement element = allElements.get(i);
@@ -505,15 +530,17 @@ public class CppCodeGenerator {
                 String variableName = Utils.toVariableName(getElementName(elementValue));
 
                 if (i != 0) parserCppFile.printf("} else ");
-                parserCppFile.print("if (!xmlStrcmp(child->name, reinterpret_cast<const xmlChar*>");
-                parserCppFile.printf("(\"%s\"))) {\n", elementValue.getName());
+                if (useTinyXml) {
+                    parserCppFile.printf("if (!strcmp(child->Name(), \"%s\")) {\n",
+                            elementValue.getName());
+                } else {
+                    parserCppFile.printf("if (!xmlStrcmp(child->name,"
+                            + " reinterpret_cast<const xmlChar*>(\"%s\"))) {\n",
+                            elementValue.getName());
+                }
 
                 if (type instanceof CppSimpleType) {
-                    parserCppFile.print("auto xmlValue = make_xmlUnique(xmlNodeListGetString(");
-                    parserCppFile.print("child->doc, child->xmlChildrenNode, 1));\n");
-                    parserCppFile.print("if (xmlValue == nullptr) {\nraw = \"\";\n} else {\n");
-                    parserCppFile.print("raw = reinterpret_cast<const char*>(xmlValue.get());\n}");
-                    parserCppFile.print("\n");
+                    printNodeListGetString("child");
                 }
 
                 parserCppFile.print(type.getParsingExpression());
@@ -529,6 +556,31 @@ public class CppCodeGenerator {
         parserCppFile.printf("%s instance%s;\n",
                 fullName, args.length() > 0 ? "(" + args + ")" : "");
         parserCppFile.print("return instance;\n}\n");
+    }
+
+    private String getXmlNodeType() {
+        return (useTinyXml ? "tinyxml2::XMLElement" : "xmlNode");
+    }
+
+    private void printNodeListGetString(String varName) {
+        if (useTinyXml) {
+            // The tinyxml version, in contrast to xmlNodeListGetString does not deal
+            // with ENTITY_REF nodes
+            parserCppFile.printf("raw = \"\";\n");
+            parserCppFile.printf("for (auto *textNode = %s->FirstChild();"
+                    + " textNode != nullptr;"
+                    + " textNode = textNode->NextSibling()) {\n", varName);
+            parserCppFile.printf("if (textNode->ToText() != nullptr) {\n");
+            parserCppFile.printf("raw.append(textNode->Value());\n");
+            parserCppFile.printf("}\n");
+            parserCppFile.printf("}\n");
+        } else {
+            parserCppFile.printf("auto xmlValue = make_xmlUnique(xmlNodeListGetString(");
+            parserCppFile.printf("%s->doc, %s->xmlChildrenNode, 1));\n", varName, varName);
+            parserCppFile.printf("if (xmlValue == nullptr) {\nraw = \"\";\n} else {\n");
+            parserCppFile.printf("raw = reinterpret_cast<const char*>(xmlValue.get());\n}");
+            parserCppFile.printf("\n");
+        }
     }
 
     private void printWriter(String name, String nameScope, XsdComplexType complexType)
@@ -766,27 +818,39 @@ public class CppCodeGenerator {
     }
 
     private void printXmlParser() throws CppCodeGeneratorException {
-        parserCppFile.printf("template <class T>\n"
-                + "constexpr void (*xmlDeleter)(T* t);\n"
-                + "template <>\nconstexpr auto xmlDeleter<xmlDoc> = xmlFreeDoc;\n"
-                + "template <>\nauto xmlDeleter<xmlChar> = [](xmlChar *s) { xmlFree(s); };\n\n"
-                + "template <class T>\n"
-                + "constexpr auto make_xmlUnique(T *t) {\n"
-                + "auto deleter = [](T *t) { xmlDeleter<T>(t); };\n"
-                + "return std::unique_ptr<T, decltype(deleter)>{t, deleter};\n"
-                + "}\n\n");
+        if (useTinyXml) {
+            // Nothing to do for libtinyxml2
+        } else {
+            parserCppFile.printf("template <class T>\n"
+                    + "constexpr void (*xmlDeleter)(T* t);\n"
+                    + "template <>\nconstexpr auto xmlDeleter<xmlDoc> = xmlFreeDoc;\n"
+                    + "template <>\nauto xmlDeleter<xmlChar> = [](xmlChar *s) { xmlFree(s); };\n\n"
+                    + "template <class T>\n"
+                    + "constexpr auto make_xmlUnique(T *t) {\n"
+                    + "auto deleter = [](T *t) { xmlDeleter<T>(t); };\n"
+                    + "return std::unique_ptr<T, decltype(deleter)>{t, deleter};\n"
+                    + "}\n\n");
+        }
 
         if (hasAttr) {
             parserCppFile.printf("static std::string getXmlAttribute"
-                    + "(const xmlNode *cur, const char *attribute) {\n"
-                    + "auto xmlValue = make_xmlUnique(xmlGetProp(cur, "
-                    + "reinterpret_cast<const xmlChar*>(attribute)));\n"
-                    + "if (xmlValue == nullptr) {\n"
-                    + "return \"\";\n"
-                    + "}\n"
-                    + "std::string value(reinterpret_cast<const char*>(xmlValue.get()));\n"
-                    + "return value;\n"
-                    + "}\n\n");
+                    + "(const %s *cur, const char *attribute) {\n", getXmlNodeType());
+            if (useTinyXml) {
+                parserCppFile.printf("auto attrValue = cur->Attribute(attribute);\n"
+                        + "if(attrValue == nullptr) {\n"
+                        + "return \"\";\n"
+                        + "}\n"
+                        + "return std::string(attrValue);\n");
+            } else {
+                parserCppFile.printf("auto xmlValue = make_xmlUnique(xmlGetProp(cur, "
+                        + "reinterpret_cast<const xmlChar*>(attribute)));\n"
+                        + "if (xmlValue == nullptr) {\n"
+                        + "return \"\";\n"
+                        + "}\n"
+                        + "std::string value(reinterpret_cast<const char*>(xmlValue.get()));\n"
+                        + "return value;\n");
+            }
+            parserCppFile.printf("}\n\n");
         }
 
         String className = Utils.toClassName(pkgName);
@@ -803,20 +867,33 @@ public class CppCodeGenerator {
                     typeName, isMultiRootElement ? Utils.capitalize(typeName) : "");
             parserCppFile.printf("std::optional<%s> read%s(const char* configFile) {\n",
                     typeName, isMultiRootElement ? Utils.capitalize(typeName) : "");
-            parserCppFile.printf("auto doc = make_xmlUnique(xmlParseFile(configFile));\n"
-                    + "if (doc == nullptr) {\n"
-                    + "return std::nullopt;\n"
-                    + "}\n"
-                    + "xmlNodePtr child = xmlDocGetRootElement(doc.get());\n"
-                    + "if (child == nullptr) {\n"
-                    + "return std::nullopt;\n"
-                    + "}\n"
-                    + "if (xmlXIncludeProcess(doc.get()) < 0) {\n"
-                    + "return std::nullopt;\n"
-                    + "}\n\n"
-                    + "if (!xmlStrcmp(child->name, reinterpret_cast<const xmlChar*>"
-                    + "(\"%s\"))) {\n",
-                    elementName);
+            if (useTinyXml) {
+                parserCppFile.printf("tinyxml2::XMLDocument doc;\n"
+                        + "if (doc.LoadFile(configFile) != tinyxml2::XML_SUCCESS) {\n"
+                        + "return std::nullopt;\n"
+                        + "}\n"
+                        + "auto child = doc.FirstChildElement();\n"
+                        + "if (child == nullptr) {\n"
+                        + "return std::nullopt;\n"
+                        + "}\n\n"
+                        + "if (strcmp(child->Name(), \"%s\") == 0) {\n",
+                        elementName);
+            } else {
+                parserCppFile.printf("auto doc = make_xmlUnique(xmlParseFile(configFile));\n"
+                        + "if (doc == nullptr) {\n"
+                        + "return std::nullopt;\n"
+                        + "}\n"
+                        + "xmlNodePtr child = xmlDocGetRootElement(doc.get());\n"
+                        + "if (child == nullptr) {\n"
+                        + "return std::nullopt;\n"
+                        + "}\n"
+                        + "if (xmlXIncludeProcess(doc.get()) < 0) {\n"
+                        + "return std::nullopt;\n"
+                        + "}\n\n"
+                        + "if (!xmlStrcmp(child->name, reinterpret_cast<const xmlChar*>"
+                        + "(\"%s\"))) {\n",
+                        elementName);
+            }
 
             if (cppType instanceof CppSimpleType) {
                 parserCppFile.printf("%s value = getXmlAttribute(child, \"%s\");\n",

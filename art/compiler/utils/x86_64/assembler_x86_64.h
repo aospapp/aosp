@@ -112,6 +112,22 @@ class Operand : public ValueObject {
     return value;
   }
 
+  int32_t disp() const {
+    switch (mod()) {
+      case 0:
+        // With mod 00b RBP is special and means disp32 (either in r/m or in SIB base).
+        return (rm() == RBP || (rm() == RSP && base() == RBP)) ? disp32() : 0;
+      case 1:
+        return disp8();
+      case 2:
+        return disp32();
+      default:
+        // Mod 11b means reg/reg, so there is no address and consequently no displacement.
+        DCHECK(false) << "there is no displacement in x86_64 reg/reg operand";
+        UNREACHABLE();
+    }
+  }
+
   bool IsRegister(CpuRegister reg) const {
     return ((encoding_[0] & 0xF8) == 0xC0)  // Addressing mode is register only.
         && ((encoding_[0] & 0x07) == reg.LowBits())  // Register codes match.
@@ -120,6 +136,13 @@ class Operand : public ValueObject {
 
   AssemblerFixup* GetFixup() const {
     return fixup_;
+  }
+
+  inline bool operator==(const Operand &op) const {
+    return rex_ == op.rex_ &&
+        length_ == op.length_ &&
+        memcmp(encoding_, op.encoding_, length_) == 0 &&
+        fixup_ == op.fixup_;
   }
 
  protected:
@@ -224,7 +247,6 @@ class Address : public Operand {
     }
   }
 
-
   Address(CpuRegister index_in, ScaleFactor scale_in, int32_t disp) {
     CHECK_NE(index_in.AsRegister(), RSP);  // Illegal addressing mode.
     SetModRM(0, CpuRegister(RSP));
@@ -278,6 +300,50 @@ class Address : public Operand {
   // If no_rip is true then the Absolute address isn't RIP relative.
   static Address Absolute(ThreadOffset64 addr, bool no_rip = false) {
     return Absolute(addr.Int32Value(), no_rip);
+  }
+
+  // Break the address into pieces and reassemble it again with a new displacement.
+  // Note that it may require a new addressing mode if displacement size is changed.
+  static Address displace(const Address &addr, int32_t disp) {
+    const int32_t new_disp = addr.disp() + disp;
+    const bool sib = addr.rm() == RSP;
+    const bool rbp = RBP == (sib ? addr.base() : addr.rm());
+    Address new_addr;
+    if (addr.mod() == 0 && rbp) {
+      // Special case: mod 00b and RBP in r/m or SIB base => 32-bit displacement.
+      // This case includes RIP-relative addressing.
+      new_addr.SetModRM(0, addr.cpu_rm());
+      if (sib) {
+        new_addr.SetSIB(addr.scale(), addr.cpu_index(), addr.cpu_base());
+      }
+      new_addr.SetDisp32(new_disp);
+    } else if (new_disp == 0 && !rbp) {
+      // Mod 00b (excluding a special case for RBP) => no displacement.
+      new_addr.SetModRM(0, addr.cpu_rm());
+      if (sib) {
+        new_addr.SetSIB(addr.scale(), addr.cpu_index(), addr.cpu_base());
+      }
+    } else if (new_disp >= -128 && new_disp <= 127) {
+      // Mod 01b => 8-bit displacement.
+      new_addr.SetModRM(1, addr.cpu_rm());
+      if (sib) {
+        new_addr.SetSIB(addr.scale(), addr.cpu_index(), addr.cpu_base());
+      }
+      new_addr.SetDisp8(new_disp);
+    } else {
+      // Mod 10b => 32-bit displacement.
+      new_addr.SetModRM(2, addr.cpu_rm());
+      if (sib) {
+        new_addr.SetSIB(addr.scale(), addr.cpu_index(), addr.cpu_base());
+      }
+      new_addr.SetDisp32(new_disp);
+    }
+    new_addr.SetFixup(addr.GetFixup());
+    return new_addr;
+  }
+
+  inline bool operator==(const Address& addr) const {
+    return static_cast<const Operand&>(*this) == static_cast<const Operand&>(addr);
   }
 
  private:
@@ -461,6 +527,9 @@ class X86_64Assembler final : public Assembler {
   void vsubps(XmmRegister dst, XmmRegister add_left, XmmRegister add_right);
   void vsubpd(XmmRegister dst, XmmRegister add_left, XmmRegister add_right);
   void vaddpd(XmmRegister dst, XmmRegister add_left, XmmRegister add_right);
+
+  void vfmadd213ss(XmmRegister accumulator, XmmRegister left, XmmRegister right);
+  void vfmadd213sd(XmmRegister accumulator, XmmRegister left, XmmRegister right);
 
   void movapd(XmmRegister dst, XmmRegister src);     // move
   void movapd(XmmRegister dst, const Address& src);  // load aligned
@@ -709,9 +778,29 @@ class X86_64Assembler final : public Assembler {
   void fptan();
   void fprem();
 
+  void xchgb(CpuRegister dst, CpuRegister src);
+  void xchgb(CpuRegister reg, const Address& address);
+
+  void xchgw(CpuRegister dst, CpuRegister src);
+  void xchgw(CpuRegister reg, const Address& address);
+
   void xchgl(CpuRegister dst, CpuRegister src);
-  void xchgq(CpuRegister dst, CpuRegister src);
   void xchgl(CpuRegister reg, const Address& address);
+
+  void xchgq(CpuRegister dst, CpuRegister src);
+  void xchgq(CpuRegister reg, const Address& address);
+
+  void xaddb(CpuRegister dst, CpuRegister src);
+  void xaddb(const Address& address, CpuRegister reg);
+
+  void xaddw(CpuRegister dst, CpuRegister src);
+  void xaddw(const Address& address, CpuRegister reg);
+
+  void xaddl(CpuRegister dst, CpuRegister src);
+  void xaddl(const Address& address, CpuRegister reg);
+
+  void xaddq(CpuRegister dst, CpuRegister src);
+  void xaddq(const Address& address, CpuRegister reg);
 
   void cmpb(const Address& address, const Immediate& imm);
   void cmpw(const Address& address, const Immediate& imm);
@@ -843,6 +932,8 @@ class X86_64Assembler final : public Assembler {
   void jmp(NearLabel* label);
 
   X86_64Assembler* lock();
+  void cmpxchgb(const Address& address, CpuRegister reg);
+  void cmpxchgw(const Address& address, CpuRegister reg);
   void cmpxchgl(const Address& address, CpuRegister reg);
   void cmpxchgq(const Address& address, CpuRegister reg);
 
@@ -890,6 +981,10 @@ class X86_64Assembler final : public Assembler {
   void repe_cmpsl();
   void repe_cmpsq();
   void rep_movsw();
+  void rep_movsb();
+  void rep_movsl();
+
+  void ud2();
 
   //
   // Macros for High-level operations.
@@ -899,12 +994,52 @@ class X86_64Assembler final : public Assembler {
 
   void LoadDoubleConstant(XmmRegister dst, double value);
 
+  void LockCmpxchgb(const Address& address, CpuRegister reg) {
+    lock()->cmpxchgb(address, reg);
+  }
+
+  void LockCmpxchgw(const Address& address, CpuRegister reg) {
+    AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+    // We make sure that the operand size override bytecode is emited before the lock bytecode.
+    // We test against clang which enforces this bytecode order.
+    EmitOperandSizeOverride();
+    EmitUint8(0xF0);
+    EmitOptionalRex32(reg, address);
+    EmitUint8(0x0F);
+    EmitUint8(0xB1);
+    EmitOperand(reg.LowBits(), address);
+  }
+
   void LockCmpxchgl(const Address& address, CpuRegister reg) {
     lock()->cmpxchgl(address, reg);
   }
 
   void LockCmpxchgq(const Address& address, CpuRegister reg) {
     lock()->cmpxchgq(address, reg);
+  }
+
+  void LockXaddb(const Address& address, CpuRegister reg) {
+    lock()->xaddb(address, reg);
+  }
+
+  void LockXaddw(const Address& address, CpuRegister reg) {
+    AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+    // We make sure that the operand size override bytecode is emited before the lock bytecode.
+    // We test against clang which enforces this bytecode order.
+    EmitOperandSizeOverride();
+    EmitUint8(0xF0);
+    EmitOptionalRex32(reg, address);
+    EmitUint8(0x0F);
+    EmitUint8(0xC1);
+    EmitOperand(reg.LowBits(), address);
+  }
+
+  void LockXaddl(const Address& address, CpuRegister reg) {
+    lock()->xaddl(address, reg);
+  }
+
+  void LockXaddq(const Address& address, CpuRegister reg) {
+    lock()->xaddq(address, reg);
   }
 
   //
@@ -1018,7 +1153,13 @@ class X86_64Assembler final : public Assembler {
   void EmitRex64(CpuRegister dst, XmmRegister src);
 
   // Emit a REX prefix to normalize byte registers plus necessary register bit encodings.
-  void EmitOptionalByteRegNormalizingRex32(CpuRegister dst, CpuRegister src);
+  // `normalize_both` parameter controls if the REX prefix is checked only for the `src` register
+  // (which is the case for instructions like `movzxb rax, bpl`), or for both `src` and `dst`
+  // registers (which is the case of instructions like `xchg bpl, al`). By default only `src` is
+  // used to decide if REX is needed.
+  void EmitOptionalByteRegNormalizingRex32(CpuRegister dst,
+                                           CpuRegister src,
+                                           bool normalize_both = false);
   void EmitOptionalByteRegNormalizingRex32(CpuRegister dst, const Operand& operand);
 
   uint8_t EmitVexPrefixByteZero(bool is_twobyte_form);
@@ -1034,6 +1175,12 @@ class X86_64Assembler final : public Assembler {
   uint8_t EmitVexPrefixByteTwo(bool W,
                                int SET_VEX_L,
                                int SET_VEX_PP);
+
+  // Helper function to emit a shorter variant of XCHG if at least one operand is RAX/EAX/AX.
+  bool try_xchg_rax(CpuRegister dst,
+                    CpuRegister src,
+                    void (X86_64Assembler::*prefix_fn)(CpuRegister));
+
   ConstantArea constant_area_;
   bool has_AVX_;     // x86 256bit SIMD AVX.
   bool has_AVX2_;    // x86 256bit SIMD AVX 2.0.

@@ -36,6 +36,12 @@ bool compUidRangeParcel(const UidRangeParcel& lhs, const UidRangeParcel& rhs) {
     return lhs.start != rhs.start ? (lhs.start < rhs.start) : (lhs.stop < rhs.stop);
 };
 
+// Check whether two uid ranges have overlapped uid. For any uid included in both ranges, it is
+// considered as overlap.
+bool isOverlapped(const UidRangeParcel& r1, const UidRangeParcel& r2) {
+    return (r1.stop >= r2.start) && (r1.start <= r2.stop);
+}
+
 UidRangeParcel makeUidRangeParcel(int start, int stop) {
     UidRangeParcel res;
     res.start = start;
@@ -127,10 +133,6 @@ void UidRanges::remove(const UidRanges& other) {
     mRanges.erase(end, mRanges.end());
 }
 
-bool UidRanges::isOverlapped(const UidRangeParcel& r1, const UidRangeParcel& r2) const {
-    return (r1.stop >= r2.start) && (r1.start <= r2.stop);
-}
-
 bool UidRanges::overlapsSelf() const {
     // Compare each element one by one
     for (size_t i = 0; i < mRanges.size(); i++) {
@@ -143,12 +145,20 @@ bool UidRanges::overlapsSelf() const {
     return false;
 }
 
+// std::binary_search cannot do partial match. For example, an uid range x-y not only overlaps with
+// x-y, but also w-x, y-z, w-z, ...etc. Therefore, we need a specialized binary search.
 bool UidRanges::overlaps(const UidRanges& other) const {
-    for (const auto& thisRange : mRanges) {
-        for (const auto& inputRange : other.getRanges()) {
-            if (isOverlapped(thisRange, inputRange)) {
-                return true;
-            }
+    for (const auto& target : other.getRanges()) {
+        int first = 0;
+        int end = mRanges.size() - 1;
+
+        while (first <= end) {
+            int middle = (first + end) / 2;
+            if (isOverlapped(mRanges[middle], target)) return true;
+            if (compUidRangeParcel(mRanges[middle], target))
+                first = middle + 1;
+            else
+                end = middle - 1;
         }
     }
     return false;

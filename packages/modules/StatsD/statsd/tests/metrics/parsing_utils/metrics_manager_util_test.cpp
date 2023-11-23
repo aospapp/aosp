@@ -23,15 +23,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "src/statsd_config.pb.h"
 #include "src/condition/ConditionTracker.h"
 #include "src/matchers/AtomMatchingTracker.h"
 #include "src/metrics/CountMetricProducer.h"
 #include "src/metrics/DurationMetricProducer.h"
 #include "src/metrics/GaugeMetricProducer.h"
 #include "src/metrics/MetricProducer.h"
-#include "src/metrics/ValueMetricProducer.h"
+#include "src/metrics/NumericValueMetricProducer.h"
 #include "src/state/StateManager.h"
+#include "src/statsd_config.pb.h"
 #include "tests/metrics/metrics_test_helper.h"
 #include "tests/statsd_test_util.h"
 

@@ -1,3 +1,4 @@
 allow pixelstats_vendor sysfs_typec_info:dir search;
 allow pixelstats_vendor sysfs_typec_info:file r_file_perms;
 allow pixelstats_vendor battery_history_device:chr_file r_file_perms;
+allow pixelstats_vendor fwk_stats_hwservice:hwservice_manager find;

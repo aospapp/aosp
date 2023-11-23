@@ -71,6 +71,8 @@ public class WebViewOnUiThread extends WebViewSyncLoader {
      * A new WebViewOnUiThread should be called during setUp so as to
      * reinitialize between calls.
      *
+     * The caller is responsible for destroying the WebView instance.
+     *
      * @param webView The webView that the methods should call.
      */
     public WebViewOnUiThread(WebView webView) {

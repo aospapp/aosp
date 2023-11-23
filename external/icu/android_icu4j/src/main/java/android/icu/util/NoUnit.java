@@ -9,7 +9,6 @@ import android.icu.number.NumberFormatter;
  * Dimensionless unit for percent and permille.
  * @see NumberFormatter
  * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public final class NoUnit {
     /**
@@ -18,8 +17,6 @@ public final class NoUnit {
      * Prior to ICU 68, this constant equaled an instance of NoUnit.
      *
      * Since ICU 68, this constant equals null.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit BASE = null;
 
@@ -29,8 +26,6 @@ public final class NoUnit {
      * Prior to ICU 68, this constant equaled an instance of NoUnit.
      *
      * Since ICU 68, this constant is equivalent to MeasureUnit.PERCENT.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit PERCENT = MeasureUnit.PERCENT;
 
@@ -40,8 +35,6 @@ public final class NoUnit {
      * Prior to ICU 68, this constant equaled an instance of NoUnit.
      *
      * Since ICU 68, this constant is equivalent to MeasureUnit.PERMILLE.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit PERMILLE = MeasureUnit.PERMILLE;
 

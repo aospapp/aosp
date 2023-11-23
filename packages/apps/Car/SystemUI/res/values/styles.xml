@@ -35,11 +35,19 @@
            parent="@android:style/TextAppearance.DeviceDefault">
         <item name="android:textSize">@dimen/car_body3_size</item>
         <item name="android:textColor">@color/system_bar_text_color_with_selection</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <style name="TextAppearance.CarStatus" parent="@android:style/TextAppearance.DeviceDefault">
         <item name="android:textSize">@*android:dimen/car_body2_size</item>
         <item name="android:textColor">@color/system_bar_text_color</item>
+    </style>
+
+    <!-- The style for a Toast. -->
+    <style name="TextAppearance.Toast" parent="*android:TextAppearance">
+        <item name="android:fontFamily">Roboto</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 
     <style name="SystemBarButton">
@@ -81,10 +89,7 @@
 
     <style name="HvacTemperatureControlIcon">
         <item name="android:scaleType">center</item>
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">@dimen/temperature_control_arrow_height</item>
         <item name="android:layout_centerHorizontal">true</item>
-        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
     </style>
 
     <style name="HvacFanSpeedBar">
@@ -120,6 +125,35 @@
     <style name="HvacButton.FanDirection" parent="HvacButton">
         <item name="android:layout_gravity">center</item>
         <item name="android:scaleType">fitCenter</item>
+    </style>
+
+    <!-- TextAppearances for ActivityBlockingActivity. -->
+    <style name="ActivityBlockingActivityText">
+        <item name="android:fontFamily">roboto-regular</item>
+        <item name="android:textColor">@color/blocking_text</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/blocking_text_size</item>
+    </style>
+
+    <!-- TextAppearances for Button Text in ActivityBlockingActivity. -->
+    <style name="ActionButtonText" parent="android:TextAppearance.DeviceDefault">
+        <item name="android:fontFamily">roboto-regular</item>
+        <item name="android:textColor">@color/blocking_text</item>
+        <item name="android:textSize">@*android:dimen/car_body3_size</item>
+    </style>
+
+    <!-- Style for buttons in ActivityBlockingActivity. -->
+    <style name="ButtonStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/activity_blocking_action_button_height</item>
+        <item name="android:minWidth">@dimen/activity_blocking_action_button_min_width</item>
+        <item name="android:maxWidth">@dimen/activity_blocking_action_button_max_width</item>
+        <item name="android:textAppearance">@style/ActionButtonText</item>
+        <item name="android:textColor">@color/blocking_text</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:background">@drawable/activity_blocking_action_button_background</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingHorizontal">@dimen/activity_blocking_action_button_padding_horizontal</item>
     </style>
 
     <style name="QCFooterButtonStyle"

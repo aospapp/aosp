@@ -13,9 +13,7 @@ from cryptography.hazmat.backends.interfaces import CipherBackend
 from cryptography.hazmat.primitives.ciphers import algorithms, modes
 
 from .utils import generate_encrypt_test
-from ...utils import (
-    load_cryptrec_vectors, load_nist_vectors
-)
+from ...utils import load_cryptrec_vectors, load_nist_vectors
 
 
 @pytest.mark.supported(
@@ -26,13 +24,13 @@ from ...utils import (
 )
 @pytest.mark.requires_backend_interface(interface=CipherBackend)
 class TestCamelliaModeECB(object):
-    test_ECB = generate_encrypt_test(
+    test_ecb = generate_encrypt_test(
         load_cryptrec_vectors,
         os.path.join("ciphers", "Camellia"),
         [
             "camellia-128-ecb.txt",
             "camellia-192-ecb.txt",
-            "camellia-256-ecb.txt"
+            "camellia-256-ecb.txt",
         ],
         lambda key, **kwargs: algorithms.Camellia(binascii.unhexlify(key)),
         lambda **kwargs: modes.ECB(),
@@ -47,7 +45,7 @@ class TestCamelliaModeECB(object):
 )
 @pytest.mark.requires_backend_interface(interface=CipherBackend)
 class TestCamelliaModeCBC(object):
-    test_CBC = generate_encrypt_test(
+    test_cbc = generate_encrypt_test(
         load_nist_vectors,
         os.path.join("ciphers", "Camellia"),
         ["camellia-cbc.txt"],
@@ -64,7 +62,7 @@ class TestCamelliaModeCBC(object):
 )
 @pytest.mark.requires_backend_interface(interface=CipherBackend)
 class TestCamelliaModeOFB(object):
-    test_OFB = generate_encrypt_test(
+    test_ofb = generate_encrypt_test(
         load_nist_vectors,
         os.path.join("ciphers", "Camellia"),
         ["camellia-ofb.txt"],
@@ -81,7 +79,7 @@ class TestCamelliaModeOFB(object):
 )
 @pytest.mark.requires_backend_interface(interface=CipherBackend)
 class TestCamelliaModeCFB(object):
-    test_CFB = generate_encrypt_test(
+    test_cfb = generate_encrypt_test(
         load_nist_vectors,
         os.path.join("ciphers", "Camellia"),
         ["camellia-cfb.txt"],

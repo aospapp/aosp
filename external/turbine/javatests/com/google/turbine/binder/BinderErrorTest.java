@@ -18,7 +18,7 @@ package com.google.turbine.binder;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -93,6 +93,9 @@ public class BinderErrorTest {
           "<>:2: error: could not resolve element foo() in Anno", //
           "@Anno(foo=100, bar=200) class Test {}",
           "      ^",
+          "<>:2: error: could not resolve element bar() in Anno", //
+          "@Anno(foo=100, bar=200) class Test {}",
+          "               ^",
         },
       },
       {
@@ -558,9 +561,12 @@ public class BinderErrorTest {
           "class T {}",
         },
         {
-          "<>:7: error: could not resolve B", //
+          "<>:7: error: could not resolve B",
           "@One.A(b = {@B})",
           "             ^",
+          "<>:7: error: could not evaluate constant expression",
+          "@One.A(b = {@B})",
+          "           ^",
         },
       },
       {
@@ -700,6 +706,258 @@ public class BinderErrorTest {
           "                                     ^",
         },
       },
+      {
+        {
+          "import java.util.List;",
+          "class T {", //
+          "  List<int> xs = new ArrayList<>();",
+          "}",
+        },
+        {
+          "<>:3: error: unexpected type int", //
+          "  List<int> xs = new ArrayList<>();",
+          "          ^",
+        },
+      },
+      {
+        {
+          "@interface A {",
+          "  int[] xs() default {};",
+          "}",
+          "@A(xs = Object.class)",
+          "class T {",
+          "}",
+        },
+        {
+          "<>:4: error: could not evaluate constant expression",
+          "@A(xs = Object.class)",
+          "        ^",
+        },
+      },
+      {
+        {
+          "package foobar;",
+          "import java.lang.annotation.Retention;",
+          "@Retention",
+          "@interface Test {}",
+        },
+        {
+          "<>:3: error: missing required annotation argument: value", //
+          "@Retention",
+          "^",
+        },
+      },
+      {
+        {
+          "interface Test {", //
+          "  static final void f() {}",
+          "}",
+        },
+        {
+          "<>:2: error: unexpected modifier: final", //
+          "  static final void f() {}",
+          "                    ^",
+        },
+      },
+      {
+        {
+          "package foobar;",
+          "import java.lang.annotation.Retention;",
+          "@Retention",
+          "@Retention",
+          "@interface Test {}",
+        },
+        {
+          "<>:3: error: missing required annotation argument: value",
+          "@Retention",
+          "^",
+        },
+      },
+      {
+        {
+          "import java.util.List;", //
+          "class Test {",
+          "  @interface A {}",
+          "  void f(List<@NoSuch int> xs) {}",
+          "}",
+        },
+        {
+          "<>:4: error: could not resolve NoSuch",
+          "  void f(List<@NoSuch int> xs) {}",
+          "              ^",
+          "<>:4: error: unexpected type int",
+          "  void f(List<@NoSuch int> xs) {}",
+          "                         ^",
+        },
+      },
+      {
+        {
+          "@interface B {}",
+          "@interface A {",
+          "  B[] value() default @B;",
+          "}",
+          "interface C {}",
+          "@A(value = @C)",
+          "class T {}",
+        },
+        {
+          "<>:6: error: C is not an annotation", //
+          "@A(value = @C)",
+          "            ^",
+        },
+      },
+      {
+        {
+          "@interface A {",
+          "  boolean x();",
+          "  boolean value();",
+          "}",
+          "@A(x = true, false)",
+          "class T {}",
+        },
+        {
+          "<>:5: error: expected an annotation value of the form name=value",
+          "@A(x = true, false)",
+          "             ^",
+        },
+      },
+      {
+        {
+          "@interface A {",
+          "  boolean value();",
+          "}",
+          "class B {",
+          "  static final String X = \"hello\";",
+          "}",
+          "@A(B.X)",
+          "class T {}",
+        },
+        {
+          "<>:7: error: value \"hello\" of type String cannot be converted to boolean",
+          "@A(B.X)",
+          "   ^",
+        },
+      },
+      {
+        {
+          "class T {", //
+          "  public static final boolean b = true == 42;",
+          "}",
+        },
+        {
+          "<>:2: error: value 42 of type int cannot be converted to boolean",
+          "  public static final boolean b = true == 42;",
+          "                                          ^",
+        },
+      },
+      {
+        {
+          "class T {", //
+          "  public static final byte b = (byte) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to byte",
+          "  public static final byte b = (byte) \"hello\";",
+          "                                      ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final char c = (char) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to char",
+          "  public static final char c = (char) \"hello\";",
+          "                                      ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final short s = (short) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to short",
+          "  public static final short s = (short) \"hello\";",
+          "                                        ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final int i = (int) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to int",
+          "  public static final int i = (int) \"hello\";",
+          "                                    ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final long l = (long) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to long",
+          "  public static final long l = (long) \"hello\";",
+          "                                      ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final float f = (float) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to float",
+          "  public static final float f = (float) \"hello\";",
+          "                                        ^",
+        }
+      },
+      {
+        {
+          "class T {", //
+          "  public static final double d = (double) \"hello\";",
+          "}",
+        },
+        {
+          "<>:2: error: value \"hello\" of type String cannot be converted to double",
+          "  public static final double d = (double) \"hello\";",
+          "                                          ^",
+        },
+      },
+      {
+        {
+          "class T {", //
+          "  public static final boolean X = \"1\" == 2;",
+          "}",
+        },
+        {
+          "<>:2: error: value 2 of type int cannot be converted to String",
+          "  public static final boolean X = \"1\" == 2;",
+          "                                         ^",
+        },
+      },
+      {
+        {
+          "class T {", //
+          "  public static final boolean X = \"1\" != 2;",
+          "}",
+        },
+        {
+          "<>:2: error: value 2 of type int cannot be converted to String",
+          "  public static final boolean X = \"1\" != 2;",
+          "                                         ^",
+        },
+      },
     };
     return Arrays.asList((Object[][]) testCases);
   }
@@ -714,17 +972,18 @@ public class BinderErrorTest {
 
   @Test
   public void test() throws Exception {
-    try {
-      Binder.bind(
-              ImmutableList.of(parseLines(source)),
-              ClassPathBinder.bindClasspath(ImmutableList.of()),
-              TURBINE_BOOTCLASSPATH,
-              /* moduleVersion=*/ Optional.empty())
-          .units();
-      fail(Joiner.on('\n').join(source));
-    } catch (TurbineError e) {
-      assertThat(e).hasMessageThat().isEqualTo(lines(expected));
-    }
+    TurbineError e =
+        assertThrows(
+            Joiner.on('\n').join(source),
+            TurbineError.class,
+            () ->
+                Binder.bind(
+                        ImmutableList.of(parseLines(source)),
+                        ClassPathBinder.bindClasspath(ImmutableList.of()),
+                        TURBINE_BOOTCLASSPATH,
+                        /* moduleVersion=*/ Optional.empty())
+                    .units());
+    assertThat(e).hasMessageThat().isEqualTo(lines(expected));
   }
 
   @SupportedAnnotationTypes("*")
@@ -744,22 +1003,23 @@ public class BinderErrorTest {
   // exercise error reporting with annotation enabled, which should be identical
   @Test
   public void testWithProcessors() throws Exception {
-    try {
-      Binder.bind(
-              ImmutableList.of(parseLines(source)),
-              ClassPathBinder.bindClasspath(ImmutableList.of()),
-              ProcessorInfo.create(
-                  ImmutableList.of(new HelloWorldProcessor()),
-                  /* loader= */ getClass().getClassLoader(),
-                  /* options= */ ImmutableMap.of(),
-                  SourceVersion.latestSupported()),
-              TURBINE_BOOTCLASSPATH,
-              /* moduleVersion=*/ Optional.empty())
-          .units();
-      fail(Joiner.on('\n').join(source));
-    } catch (TurbineError e) {
-      assertThat(e).hasMessageThat().isEqualTo(lines(expected));
-    }
+    TurbineError e =
+        assertThrows(
+            Joiner.on('\n').join(source),
+            TurbineError.class,
+            () ->
+                Binder.bind(
+                        ImmutableList.of(parseLines(source)),
+                        ClassPathBinder.bindClasspath(ImmutableList.of()),
+                        ProcessorInfo.create(
+                            ImmutableList.of(new HelloWorldProcessor()),
+                            /* loader= */ getClass().getClassLoader(),
+                            /* options= */ ImmutableMap.of(),
+                            SourceVersion.latestSupported()),
+                        TURBINE_BOOTCLASSPATH,
+                        /* moduleVersion=*/ Optional.empty())
+                    .units());
+    assertThat(e).hasMessageThat().isEqualTo(lines(expected));
   }
 
   private static CompUnit parseLines(String... lines) {

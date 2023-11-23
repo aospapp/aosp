@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Tilkoblinger"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Standard utskriftstjeneste finner ikke Wi-Fi Direct-skrivere"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Slå av Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standard utskriftstjeneste trenger posisjonstillatelse for å finne enheter i nærheten."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Standardtjenesten for utskrift må ha tillatelse for enheter i nærheten for å finne skrivere i nærheten."</string>
     <string name="fix" msgid="7784394272611365393">"Gjennomgå tillatelse"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Standard utskriftstjeneste krever at posisjonstjenester er på, for å finne enheter i nærheten."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Slå på posisjon"</string>
     <string name="print" msgid="7851318072404916362">"Skriv ut"</string>
 </resources>

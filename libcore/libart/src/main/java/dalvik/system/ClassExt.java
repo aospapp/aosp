@@ -27,6 +27,13 @@ package dalvik.system;
  */
 public final class ClassExt {
     /**
+     * If the class is in an erroneous state, we must return the same error on subsequent tries.
+     *
+     * This field is a logical part of the 'Class' type.
+     */
+    private Throwable erroneousStateError;
+
+    /**
      * A Pointer-sized-array of instance jfieldIDs in the same order as the ifields_ array.
      * The jfieldID is associated with the ArtField at the corresonding index in the ifields_ array.
      */
@@ -89,14 +96,6 @@ public final class ClassExt {
      * The jfieldID is associated with the ArtField at the corresonding index in the sfields_ array.
      */
     private Object staticJfieldIDs;
-
-    /**
-     * If class verify fails, we must return same error on subsequent tries. We may store either
-     * the class of the error, or an actual instance of Throwable here.
-     *
-     * This field is a logical part of the 'Class' type.
-     */
-    private Object verifyError;
 
     /**
      * If set, native pointer to the initial, pre-redefine, dex file associated with the related

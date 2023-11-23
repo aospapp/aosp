@@ -16,13 +16,30 @@
 
 package com.android.documentsui.dirlist;
 
+import static com.android.documentsui.DevicePolicyResources.Drawables.Style.OUTLINE;
+import static com.android.documentsui.DevicePolicyResources.Drawables.WORK_PROFILE_OFF_ICON;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SAVE_TO_PERSONAL_MESSAGE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SAVE_TO_PERSONAL_TITLE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SAVE_TO_WORK_MESSAGE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SAVE_TO_WORK_TITLE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SELECT_PERSONAL_FILES_MESSAGE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SELECT_PERSONAL_FILES_TITLE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SELECT_WORK_FILES_MESSAGE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CANT_SELECT_WORK_FILES_TITLE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CROSS_PROFILE_NOT_ALLOWED_MESSAGE;
+import static com.android.documentsui.DevicePolicyResources.Strings.CROSS_PROFILE_NOT_ALLOWED_TITLE;
+import static com.android.documentsui.DevicePolicyResources.Strings.WORK_PROFILE_OFF_ENABLE_BUTTON;
+import static com.android.documentsui.DevicePolicyResources.Strings.WORK_PROFILE_OFF_ERROR_TITLE;
+
 import android.Manifest;
 import android.app.AuthenticationRequiredException;
+import android.app.admin.DevicePolicyManager;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.documentsui.CrossProfileException;
 import com.android.documentsui.CrossProfileNoPermissionException;
@@ -35,6 +52,7 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.DocumentsAdapter.Environment;
+import com.android.modules.utils.build.SdkLevel;
 
 /**
  * Data object used by {@link InflateMessageDocumentHolder} and {@link HeaderMessageDocumentHolder}.
@@ -217,20 +235,21 @@ abstract class Message {
             mLayout = InflateMessageDocumentHolder.LAYOUT_CROSS_PROFILE_ERROR;
             CharSequence buttonText = null;
             if (mCanModifyQuietMode) {
-                buttonText = mEnv.getContext().getResources().getText(R.string.quiet_mode_button);
+                buttonText = getEnterpriseString(
+                        WORK_PROFILE_OFF_ENABLE_BUTTON, R.string.quiet_mode_button);
                 mCallback = () -> mEnv.getActionHandler().requestQuietModeDisabled(
                         mEnv.getDisplayState().stack.getRoot(), userId);
             }
             update(
-                    mEnv.getContext().getResources().getText(R.string.quiet_mode_error_title),
+                    getEnterpriseString(
+                            WORK_PROFILE_OFF_ERROR_TITLE, R.string.quiet_mode_error_title),
                     /* messageString= */ "",
                     buttonText,
-                    mEnv.getContext().getDrawable(R.drawable.work_off));
+                    getWorkProfileOffIcon());
         }
 
         private void updateToCrossProfileNoPermissionErrorMessage() {
             mLayout = InflateMessageDocumentHolder.LAYOUT_CROSS_PROFILE_ERROR;
-            boolean currentUserIsSystem = UserId.CURRENT_USER.isSystem();
             update(getCrossProfileNoPermissionErrorTitle(),
                     getCrossProfileNoPermissionErrorMessage(),
                     /* buttonString= */ null,
@@ -239,38 +258,55 @@ abstract class Message {
 
         private CharSequence getCrossProfileNoPermissionErrorTitle() {
             boolean currentUserIsSystem = UserId.CURRENT_USER.isSystem();
-            Resources res = mEnv.getContext().getResources();
             switch (mEnv.getDisplayState().action) {
                 case State.ACTION_GET_CONTENT:
                 case State.ACTION_OPEN:
                 case State.ACTION_OPEN_TREE:
-                    return res.getText(currentUserIsSystem
-                            ? R.string.cant_select_work_files_error_title
-                            : R.string.cant_select_personal_files_error_title);
+                    return currentUserIsSystem
+                            ? getEnterpriseString(
+                                    CANT_SELECT_WORK_FILES_TITLE,
+                                    R.string.cant_select_work_files_error_title)
+                            : getEnterpriseString(
+                                    CANT_SELECT_PERSONAL_FILES_TITLE,
+                                    R.string.cant_select_personal_files_error_title);
                 case State.ACTION_CREATE:
-                    return res.getText(currentUserIsSystem
-                            ? R.string.cant_save_to_work_error_title
-                            : R.string.cant_save_to_personal_error_title);
+                    return currentUserIsSystem
+                            ? getEnterpriseString(
+                                    CANT_SAVE_TO_WORK_TITLE, R.string.cant_save_to_work_error_title)
+                            : getEnterpriseString(
+                                    CANT_SAVE_TO_PERSONAL_TITLE,
+                                    R.string.cant_save_to_personal_error_title);
             }
-            return res.getText(R.string.cross_profile_action_not_allowed_title);
+            return getEnterpriseString(
+                    CROSS_PROFILE_NOT_ALLOWED_TITLE,
+                    R.string.cross_profile_action_not_allowed_title);
         }
 
         private CharSequence getCrossProfileNoPermissionErrorMessage() {
             boolean currentUserIsSystem = UserId.CURRENT_USER.isSystem();
-            Resources res = mEnv.getContext().getResources();
             switch (mEnv.getDisplayState().action) {
                 case State.ACTION_GET_CONTENT:
                 case State.ACTION_OPEN:
                 case State.ACTION_OPEN_TREE:
-                    return res.getText(currentUserIsSystem
-                            ? R.string.cant_select_work_files_error_message
-                            : R.string.cant_select_personal_files_error_message);
+                    return currentUserIsSystem
+                            ? getEnterpriseString(
+                                    CANT_SELECT_WORK_FILES_MESSAGE,
+                                    R.string.cant_select_work_files_error_message)
+                            : getEnterpriseString(
+                                    CANT_SELECT_PERSONAL_FILES_MESSAGE,
+                                    R.string.cant_select_personal_files_error_message);
                 case State.ACTION_CREATE:
-                    return res.getText(currentUserIsSystem
-                            ? R.string.cant_save_to_work_error_message
-                            : R.string.cant_save_to_personal_error_message);
+                    return currentUserIsSystem
+                            ? getEnterpriseString(
+                                    CANT_SAVE_TO_WORK_MESSAGE,
+                                    R.string.cant_save_to_work_error_message)
+                            : getEnterpriseString(
+                                    CANT_SAVE_TO_PERSONAL_MESSAGE,
+                                    R.string.cant_save_to_personal_error_message);
             }
-            return res.getText(R.string.cross_profile_action_not_allowed_message);
+            return getEnterpriseString(
+                    CROSS_PROFILE_NOT_ALLOWED_MESSAGE,
+                    R.string.cross_profile_action_not_allowed_message);
         }
 
         private void updateToInflatedErrorMessage() {
@@ -294,6 +330,39 @@ abstract class Message {
                 message = mEnv.getContext().getResources().getText(R.string.empty);
             }
             update(null, message, null, mEnv.getContext().getDrawable(R.drawable.empty));
+        }
+
+        private String getEnterpriseString(String updatableStringId, int defaultStringId) {
+            if (SdkLevel.isAtLeastT()) {
+                return getUpdatableEnterpriseString(updatableStringId, defaultStringId);
+            } else {
+                return mEnv.getContext().getString(defaultStringId);
+            }
+        }
+
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        private String getUpdatableEnterpriseString(String updatableStringId, int defaultStringId) {
+            DevicePolicyManager dpm = mEnv.getContext().getSystemService(
+                    DevicePolicyManager.class);
+            return dpm.getResources().getString(
+                    updatableStringId, () -> mEnv.getContext().getString(defaultStringId));
+        }
+
+        private Drawable getWorkProfileOffIcon() {
+            if (SdkLevel.isAtLeastT()) {
+                return getUpdatableWorkProfileIcon();
+            } else {
+                return mEnv.getContext().getDrawable(R.drawable.work_off);
+            }
+        }
+
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        private Drawable getUpdatableWorkProfileIcon() {
+            DevicePolicyManager dpm = mEnv.getContext().getSystemService(
+                    DevicePolicyManager.class);
+            return dpm.getResources().getDrawable(
+                    WORK_PROFILE_OFF_ICON, OUTLINE,
+                    () -> mEnv.getContext().getDrawable(R.drawable.work_off));
         }
     }
 }

@@ -70,7 +70,7 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
     @Override
     public synchronized ThemesUserEventLogger getUserEventLogger(Context context) {
         if (mUserEventLogger == null) {
-            mUserEventLogger = new StatsLogUserEventLogger();
+            mUserEventLogger = new StatsLogUserEventLogger(context);
         }
         return mUserEventLogger;
     }

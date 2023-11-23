@@ -48,7 +48,7 @@ var (
 
 	// License modules, i.e. modules depended upon via a licensesTag, must be automatically added to
 	// any sdk/module_exports to which their referencing module is a member.
-	_ SdkMemberTypeDependencyTag = licensesTag
+	_ SdkMemberDependencyTag = licensesTag
 )
 
 // Describes the property provided by a module to reference applicable licenses.
@@ -213,7 +213,7 @@ func licensesPropertyFlattener(ctx ModuleContext) {
 				m.base().commonProperties.Effective_package_name = l.properties.Package_name
 			}
 			mergeStringProps(&m.base().commonProperties.Effective_licenses, module.base().commonProperties.Effective_licenses...)
-			mergePathProps(&m.base().commonProperties.Effective_license_text, module.base().commonProperties.Effective_license_text...)
+			mergeNamedPathProps(&m.base().commonProperties.Effective_license_text, module.base().commonProperties.Effective_license_text...)
 			mergeStringProps(&m.base().commonProperties.Effective_license_kinds, module.base().commonProperties.Effective_license_kinds...)
 			mergeStringProps(&m.base().commonProperties.Effective_license_conditions, module.base().commonProperties.Effective_license_conditions...)
 		} else {
@@ -239,10 +239,24 @@ func mergeStringProps(prop *[]string, values ...string) {
 	*prop = SortedUniqueStrings(*prop)
 }
 
-// Update a property Path array with a distinct union of its values and a list of new values.
-func mergePathProps(prop *Paths, values ...Path) {
+// Update a property NamedPath array with a distinct union of its values and a list of new values.
+func namePathProps(prop *NamedPaths, name *string, values ...Path) {
+	if name == nil {
+		for _, value := range values {
+			*prop = append(*prop, NamedPath{value, ""})
+		}
+	} else {
+		for _, value := range values {
+			*prop = append(*prop, NamedPath{value, *name})
+		}
+	}
+	*prop = SortedUniqueNamedPaths(*prop)
+}
+
+// Update a property NamedPath array with a distinct union of its values and a list of new values.
+func mergeNamedPathProps(prop *NamedPaths, values ...NamedPath) {
 	*prop = append(*prop, values...)
-	*prop = SortedUniquePaths(*prop)
+	*prop = SortedUniqueNamedPaths(*prop)
 }
 
 // Get the licenses property falling back to the package default.
@@ -253,7 +267,7 @@ func getLicenses(ctx BaseModuleContext, module Module) []string {
 
 	primaryProperty := module.base().primaryLicensesProperty
 	if primaryProperty == nil {
-		if ctx.Config().IsEnvTrue("ANDROID_REQUIRE_LICENSES") {
+		if !ctx.Config().IsEnvFalse("ANDROID_REQUIRE_LICENSES") {
 			ctx.ModuleErrorf("module type %q must have an applicable licenses property", ctx.OtherModuleType(module))
 		}
 		return nil
@@ -293,7 +307,7 @@ func exemptFromRequiredApplicableLicensesProperty(module Module) bool {
 	case "*android.soongConfigModuleTypeModule": // creates aliases for modules with licenses
 	case "*android.soongConfigModuleTypeImport": // creates aliases for modules with licenses
 	case "*android.soongConfigStringVariableDummyModule": // used for creating aliases
-	case "*android.SoongConfigBoolVariableDummyModule": // used for creating aliases
+	case "*android.soongConfigBoolVariableDummyModule": // used for creating aliases
 	default:
 		return false
 	}
@@ -308,3 +322,19 @@ type LicenseInfo struct {
 }
 
 var LicenseInfoProvider = blueprint.NewProvider(LicenseInfo{})
+
+func init() {
+	RegisterMakeVarsProvider(pctx, licensesMakeVarsProvider)
+}
+
+func licensesMakeVarsProvider(ctx MakeVarsContext) {
+	ctx.Strict("BUILD_LICENSE_METADATA",
+		ctx.Config().HostToolPath(ctx, "build_license_metadata").String())
+	ctx.Strict("HTMLNOTICE", ctx.Config().HostToolPath(ctx, "htmlnotice").String())
+	ctx.Strict("XMLNOTICE", ctx.Config().HostToolPath(ctx, "xmlnotice").String())
+	ctx.Strict("TEXTNOTICE", ctx.Config().HostToolPath(ctx, "textnotice").String())
+	ctx.Strict("COMPLIANCENOTICE_BOM", ctx.Config().HostToolPath(ctx, "compliancenotice_bom").String())
+	ctx.Strict("COMPLIANCENOTICE_SHIPPEDLIBS", ctx.Config().HostToolPath(ctx, "compliancenotice_shippedlibs").String())
+	ctx.Strict("COMPLIANCE_LISTSHARE", ctx.Config().HostToolPath(ctx, "compliance_listshare").String())
+	ctx.Strict("COMPLIANCE_CHECKSHARE", ctx.Config().HostToolPath(ctx, "compliance_checkshare").String())
+}

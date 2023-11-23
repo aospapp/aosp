@@ -114,6 +114,40 @@ public class ImsMmTelManagerFacade extends RpcReceiver {
     }
 
     /**
+     * Get whether Voice over Cross Sim is enabled for a subId
+     *
+     * @param subId The subscription ID of the sim you want to check
+     */
+    @Rpc(description = "Return True if Cross Sim Calling is enabled.")
+    public boolean imsMmTelIsCrossSimCallingEnabled(
+                        @RpcParameter(name = "subId") Integer subId) {
+        try {
+            return ImsMmTelManager.createForSubscriptionId(subId).isCrossSimCallingEnabled();
+        } catch (ImsException e) {
+            Log.d("ImsException " + e);
+            return false;
+        }
+    }
+
+    /**
+     * Set Voice over Cross Sim Calling for a subId
+     *
+     * @param subId The subscription ID of the sim you want to check
+     * @param isEnabled Whether the sim should have Cross Sim Calling on or off
+     */
+    @Rpc(description = "Set Voice over Cross Sim Calling setting")
+    public void imsMmTelSetCrossSimCallingEnabled(
+                        @RpcParameter(name = "subId") Integer subId,
+                        @RpcParameter(name = "isEnabled") Boolean isEnabled) {
+        try {
+            ImsMmTelManager.createForSubscriptionId(subId)
+                .setCrossSimCallingEnabled(isEnabled);
+        } catch (ImsException e) {
+            Log.d("ImsException " + e);
+        }
+    }
+
+    /**
      * Get whether Video Telephony setting is enabled for a subId
      *
      * @param subId The subscription ID of the sim you want to check

@@ -16,13 +16,18 @@
 package android.device.collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.not;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.endsWith;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -85,10 +90,15 @@ public class ScreenRecordCollectorTest {
         }
     }
 
-    private ScreenRecordCollector initListener() throws IOException {
-        ScreenRecordCollector listener = spy(new ScreenRecordCollector());
+    private ScreenRecordCollector initListener(Bundle b) throws IOException {
+        ScreenRecordCollector listener;
+        if (b != null) {
+            listener = spy(new ScreenRecordCollector(b));
+        } else {
+            listener = spy(new ScreenRecordCollector());
+        }
         listener.setInstrumentation(mInstrumentation);
-        doReturn(mLogDir).when(listener).createAndEmptyDirectory(anyString());
+        doReturn(mLogDir).when(listener).createDirectory(anyString(), anyBoolean());
         doReturn(0L).when(listener).getTailBuffer();
         doReturn(mDevice).when(listener).getDevice();
         doReturn("1234").when(mDevice).executeShellCommand(eq("pidof screenrecord"));
@@ -102,11 +112,11 @@ public class ScreenRecordCollectorTest {
      */
     @Test
     public void testScreenRecord() throws Exception {
-        mListener = initListener();
+        mListener = initListener(null);
 
         // Verify output directories are created on test run start.
         mListener.testRunStarted(mRunDesc);
-        verify(mListener).createAndEmptyDirectory(ScreenRecordCollector.OUTPUT_DIR);
+        verify(mListener).createDirectory(ScreenRecordCollector.OUTPUT_DIR, true);
 
         // Walk through a number of test cases to simulate behavior.
         for (int i = 1; i <= NUM_TEST_CASE; i++) {
@@ -149,7 +159,14 @@ public class ScreenRecordCollectorTest {
         int videoCount = 0;
         for (Bundle bundle : capturedBundle) {
             for (String key : bundle.keySet()) {
-                if (key.contains("mp4")) videoCount++;
+                if (key.contains("mp4")) {
+                    videoCount++;
+                    assertTrue(key.contains(mTestDesc.getClassName()));
+                    assertTrue(key.contains(mTestDesc.getMethodName()));
+                    String fileName = bundle.getString(key);
+                    assertTrue(fileName.contains(mTestDesc.getClassName()));
+                    assertTrue(fileName.contains(mTestDesc.getMethodName()));
+                }
             }
         }
         assertEquals(NUM_TEST_CASE * ScreenRecordCollector.MAX_RECORDING_PARTS, videoCount);
@@ -158,7 +175,7 @@ public class ScreenRecordCollectorTest {
     /** Test that screen recording is properly done for multiple tests and labels iterations. */
     @Test
     public void testScreenRecord_multipleTests() throws Exception {
-        mListener = initListener();
+        mListener = initListener(null);
 
         // Run through a sequence of `NUM_TEST_CASE` failing tests.
         mListener.testRunStarted(mRunDesc);
@@ -189,5 +206,142 @@ public class ScreenRecordCollectorTest {
                         .executeShellCommand(endsWith(String.format("%d-video%d.mp4", i + 1, p)));
             }
         }
+    }
+
+    /** Test that quality options (high) are respected by screen recordings. */
+    @Test
+    public void testScreenRecord_qualityHigh() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.QUALITY_ARG, "high");
+        mListener = initListener(args);
+        doReturn("Physical size: 1080x720 ").when(mDevice).executeShellCommand("wm size");
+
+        mListener.testRunStarted(mRunDesc);
+        mListener.testStarted(mTestDesc);
+
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        verify(mDevice).executeShellCommand(matches("screenrecord --size=1080x720 .*video.mp4"));
+    }
+
+    /** Test that quality options (medium) are respected by screen recordings. */
+    @Test
+    public void testScreenRecord_qualityMedium() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.QUALITY_ARG, "medium");
+        mListener = initListener(args);
+        doReturn("Physical size: 1080x720 ").when(mDevice).executeShellCommand("wm size");
+
+        mListener.testRunStarted(mRunDesc);
+        mListener.testStarted(mTestDesc);
+
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        verify(mDevice).executeShellCommand(matches("screenrecord --size=540x360 .*video.mp4"));
+    }
+
+    /** Test that quality options (low) are respected by screen recordings. */
+    @Test
+    public void testScreenRecord_qualityLow() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.QUALITY_ARG, "low");
+        mListener = initListener(args);
+        doReturn("Physical size: 1080x720 ").when(mDevice).executeShellCommand("wm size");
+
+        mListener.testRunStarted(mRunDesc);
+        mListener.testStarted(mTestDesc);
+
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        verify(mDevice).executeShellCommand(matches("screenrecord --size=135x90 .*video.mp4"));
+    }
+
+    /** Test that quality options (invalid) defaults to 1x. */
+    @Test
+    public void testScreenRecord_qualityUnknown() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.QUALITY_ARG, "other");
+        mListener = initListener(args);
+
+        mListener.testRunStarted(mRunDesc);
+        mListener.testStarted(mTestDesc);
+
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        verify(mDevice, never()).executeShellCommand(matches("screenrecord.*size.*video.mp4"));
+        verify(mDevice, atLeastOnce())
+                .executeShellCommand(not(matches("screenrecord .*video.mp4")));
+    }
+
+    /** Test that unexpected wm size contents defaults to unspecified size/quality option. */
+    @Test
+    public void testScreenRecord_dimensionsInvalid() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.QUALITY_ARG, "high");
+        mListener = initListener(args);
+        doReturn("Physical size: axb ").when(mDevice).executeShellCommand("wm size");
+
+        mListener.testRunStarted(mRunDesc);
+        mListener.testStarted(mTestDesc);
+
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        verify(mDevice, never()).executeShellCommand(matches("screenrecord.*size.*video.mp4"));
+        verify(mDevice, atLeastOnce())
+                .executeShellCommand(not(matches("screenrecord .*video.mp4")));
+    }
+
+    /** Test that the empty-output-dir works. */
+    @Test
+    public void testEmptyrOutputDirOptionSetToFalse() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(ScreenRecordCollector.EMPTY_OUTPUT_DIR_ARG, "false");
+        mListener = initListener(args);
+
+        // Verify output directories are created on test run start.
+        mListener.testRunStarted(mRunDesc);
+        verify(mListener).createDirectory(ScreenRecordCollector.OUTPUT_DIR, false);
+    }
+
+    /**
+     * Test that descriptions with null method names only result in class names in the video file
+     * names.
+     */
+    @Test
+    public void testNullMethodNameDoesNotAppearInVideoName() throws Exception {
+        mListener = initListener(null);
+
+        mListener.testRunStarted(mRunDesc);
+
+        // mRunDesc does not have a method name.
+        mListener.testStarted(mRunDesc);
+        // Delay verification by 100 ms to ensure the thread was started.
+        SystemClock.sleep(100);
+        mListener.testFinished(mRunDesc);
+        mListener.testRunFinished(new Result());
+
+        Bundle resultBundle = new Bundle();
+        mListener.instrumentationRunFinished(System.out, resultBundle, new Result());
+
+        ArgumentCaptor<Bundle> capture = ArgumentCaptor.forClass(Bundle.class);
+        Mockito.verify(mInstrumentation, times(1))
+                .sendStatus(
+                        Mockito.eq(SendToInstrumentation.INST_STATUS_IN_PROGRESS),
+                        capture.capture());
+        Bundle metrics = capture.getValue();
+        // Ensure that we have recordings, and none of them have "null" in their file name or metric
+        // key.
+        boolean hasRecordings = false;
+        for (String key : metrics.keySet()) {
+            if (key.startsWith(mListener.getTag())) {
+                hasRecordings = true;
+                assertTrue(key.contains(mRunDesc.getClassName()));
+                assertFalse(key.contains("null"));
+                String fileName = metrics.getString(key);
+                assertTrue(fileName.contains(mRunDesc.getClassName()));
+                assertFalse(fileName.contains("null"));
+            }
+        }
+        assertTrue(hasRecordings);
     }
 }

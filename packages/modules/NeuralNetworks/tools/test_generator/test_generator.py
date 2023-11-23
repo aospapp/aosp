@@ -1314,7 +1314,7 @@ class FileNames:
         Configuration.use_shm_for_weights = False
 
         # Extract version from absolute file path.
-        versionMatch = re.findall(r"/V\d_\d/", FileNames.specFile)
+        versionMatch = re.findall(r"/V\d_\d/|AIDL_V\d+", FileNames.specFile)
         if len(versionMatch) == 1:
             FileNames.version = versionMatch[0].strip('/')
         else:

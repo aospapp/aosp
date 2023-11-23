@@ -10,11 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Vrati podrazumevane kategorije"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Podrazumevane kategorije su vraćene"</string>
     <string name="default_categories" msgid="2117679794687799407">"Podrazumevano"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">Izabrana je %d</item>
-      <item quantity="few">Izabrane su %d</item>
-      <item quantity="other">Izabrano je %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{Izabrana je #}one{Izabrana je #}few{Izabrane su #}other{Izabrano je #}}"</string>
     <string name="applications" msgid="521776761270770549">"Aplikacije"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Nije dostupna nijedna aplikacija sa funkcijom za otklanjanje grešaka"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Veličina bafera podataka po procesoru"</string>
@@ -43,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Koristi Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Dugi tragovi"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Neprekidno se čuva u memorijskom prostoru uređaja"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Stalno se čuva u memorijski prostor uređaja (neće se automatski priložiti izveštajima o grešci)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Maksimalna veličina dugog traga"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Maksimalno trajanje dugog traga"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

@@ -62,7 +62,7 @@
     <string name="button_compress" msgid="8951561310857223966">"Comprimir"</string>
     <string name="button_extract" msgid="1038674453689912247">"Extraer"</string>
     <string name="button_move" msgid="8596460499325291272">"Mover"</string>
-    <string name="button_dismiss" msgid="7235249361023803349">"Ignorar"</string>
+    <string name="button_dismiss" msgid="7235249361023803349">"Pechar"</string>
     <string name="button_retry" msgid="4011461781916631389">"Tentar de novo"</string>
     <string name="button_clear" msgid="5412304437764369441">"Borrar"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Mostrar no provedor"</string>

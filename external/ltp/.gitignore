@@ -1,4 +1,5 @@
 CVS
+.*.swp
 *~
 *.o
 *.o.d
@@ -11,6 +12,8 @@ lib*.a
 *.pyc
 .cache.mk
 *.dwo
+*.mod
+built-in.a
 
 /aclocal.m4
 autom4te.cache

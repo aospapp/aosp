@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # offcputime    Summarize off-CPU time by kernel stack trace
 #               For Linux, uses BCC, eBPF.
@@ -141,7 +141,9 @@ int oncpu(struct pt_regs *ctx, struct task_struct *prev) {
 
 out:
     val = counts.lookup_or_init(&key, &zero);
-    (*val) += delta;
+    if (val) {
+        (*val) += delta;
+    }
     return 0;
 }
 """

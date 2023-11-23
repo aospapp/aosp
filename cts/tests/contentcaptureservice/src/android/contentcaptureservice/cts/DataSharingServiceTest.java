@@ -141,9 +141,9 @@ public class DataSharingServiceTest extends AbstractContentCaptureIntegrationTes
         CtsContentCaptureService ccService = enableService();
 
         ccService.setDataSharingEnabled(true);
-        sKillingStage = KillingStage.BEFORE_WRITE;
-        getApplicationContext().startService(
-                new Intent(getApplicationContext(), OutOfProcessDataSharingService.class));
+        Intent intent = new Intent(getApplicationContext(), OutOfProcessDataSharingService.class);
+        intent.putExtra("KillingStage", KillingStage.BEFORE_WRITE.name());
+        getApplicationContext().startService(intent);
 
         PollingCheck.waitFor(() -> ccService.mDataShareSessionErrorCode > 0);
 
@@ -156,13 +156,12 @@ public class DataSharingServiceTest extends AbstractContentCaptureIntegrationTes
         CtsContentCaptureService ccService = enableService();
 
         ccService.setDataSharingEnabled(true);
-        sKillingStage = KillingStage.DURING_WRITE;
-        getApplicationContext().startService(
-                new Intent(getApplicationContext(), OutOfProcessDataSharingService.class));
+        Intent intent = new Intent(getApplicationContext(), OutOfProcessDataSharingService.class);
+        intent.putExtra("KillingStage", KillingStage.DURING_WRITE.name());
+        getApplicationContext().startService(intent);
 
-        PollingCheck.waitFor(() -> ccService.mDataShareSessionErrorCode > 0);
+        PollingCheck.waitFor(() -> ccService.mDataShareSessionFinished);
 
-        assertThat(ccService.mDataShareSessionErrorCode).isEqualTo(
-                ContentCaptureManager.DATA_SHARE_ERROR_UNKNOWN);
+        assertThat(ccService.mDataShareSessionSucceeded).isTrue();
     }
 }

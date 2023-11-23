@@ -18,13 +18,13 @@ package android.accessibilityservice.cts.utils;
 
 import static android.view.MotionEvent.ACTION_MOVE;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.view.MotionEvent;
 import android.view.View;
@@ -97,6 +97,9 @@ public class EventCapturingTouchListener implements View.OnTouchListener {
                     if (!prev.equals(MotionEvent.actionToString(ACTION_MOVE))) {
                         received.add(MotionEvent.actionToString(action));
                     }
+                }
+                if (expected.size() == received.size()) {
+                    break;
                 }
                 ev = events.poll(WAIT_TIME_SECONDS, SECONDS);
             }

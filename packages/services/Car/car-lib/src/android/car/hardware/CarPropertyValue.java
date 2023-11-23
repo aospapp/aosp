@@ -16,12 +16,18 @@
 
 package android.car.hardware;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import static java.lang.Integer.toHexString;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.car.annotation.AddedInOrBefore;
+import android.car.builtin.os.ParcelHelper;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -32,8 +38,11 @@ import java.nio.charset.StandardCharsets;
  * Stores values broken down by area for a vehicle property.
  *
  * <p>This class is a java representation of {@code struct VehiclePropValue} defined in
- * {@code hardware/interfaces/automotive/vehicle/2.0/types.hal}. See
- * {@link com.android.car.hal.CarPropertyUtils} to learn conversion details.
+ * {@code hardware/interfaces/automotive/vehicle/aidl/android/hardware/automotive/vehicle/VehiclePropValue.aidl}.
+ * See {@link com.android.car.hal.CarPropertyUtils} to learn conversion details.
+ *
+ * Client should use {@code android.car.*} types when dealing with property ID, area ID or property
+ * value and MUST NOT use {@code android.hardware.automotive.vehicle.*} types directly.
  *
  * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
  *            should be visible to framework as default class loader is being used here.
@@ -58,23 +67,35 @@ public final class CarPropertyValue<T> implements Parcelable {
     /**
      * CarPropertyValue is available.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_AVAILABLE = 0;
 
     /**
      * CarPropertyValue is unavailable.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_UNAVAILABLE = 1;
 
     /**
      * CarPropertyVale has an error.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_ERROR = 2;
 
     /**
      * Creates an instance of CarPropertyValue.
      *
-     * @param propertyId Property ID
-     * @param areaId Area ID of Property
+     * @param propertyId Property ID, must be one of enums in
+     *   {@link android.car.VehiclePropertyIds}.
+     * @param areaId Area ID of Property, must be one of enums in one of the following classes:
+     *   <ul>
+     *     <li><{@link android.car.VehicleAreaWindow}</li>
+     *     <li><{@link android.car.VehicleAreaDoor}</li>
+     *     <li><{@link android.car.VehicleAreaSeat}</li>
+     *     <li><{@link android.car.VehicleAreaMirror}</li>
+     *     <li><{@link android.car.VehicleAreaWheel}</li>
+     *   </ul>
+     *   or 0 for global property.
      * @param value Value of Property
      * @hide
      */
@@ -88,8 +109,17 @@ public final class CarPropertyValue<T> implements Parcelable {
      * monotonically increasing using the same time base as
      * {@link SystemClock#elapsedRealtimeNanos()}.
      *
-     * @param propertyId Property ID
-     * @param areaId     Area ID of Property
+     * @param propertyId Property ID, must be one of enums in
+     *   {@link android.car.VehiclePropertyIds}.
+     * @param areaId     Area ID of Property, must be one of enums in one of the following classes:
+     *   <ul>
+     *     <li><{@link android.car.VehicleAreaWindow}</li>
+     *     <li><{@link android.car.VehicleAreaDoor}</li>
+     *     <li><{@link android.car.VehicleAreaSeat}</li>
+     *     <li><{@link android.car.VehicleAreaMirror}</li>
+     *     <li><{@link android.car.VehicleAreaWheel}</li>
+     *   </ul>
+     *   or 0 for global property.
      * @param status     Status of Property
      * @param timestamp  Elapsed time in nanoseconds since boot
      * @param value      Value of Property
@@ -124,15 +154,16 @@ public final class CarPropertyValue<T> implements Parcelable {
         }
 
         if (String.class.equals(valueClass)) {
-            byte[] bytes = in.readBlob();
+            byte[] bytes = ParcelHelper.readBlob(in);
             mValue = (T) new String(bytes, DEFAULT_CHARSET);
         } else if (byte[].class.equals(valueClass)) {
-            mValue = (T) in.readBlob();
+            mValue = (T) ParcelHelper.readBlob(in);
         } else {
             mValue = (T) in.readValue(valueClass.getClassLoader());
         }
     }
 
+    @AddedInOrBefore(majorVersion = 33)
     public static final Creator<CarPropertyValue> CREATOR = new Creator<CarPropertyValue>() {
         @Override
         public CarPropertyValue createFromParcel(Parcel in) {
@@ -146,11 +177,14 @@ public final class CarPropertyValue<T> implements Parcelable {
     };
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() {
         return 0;
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mPropertyId);
         dest.writeInt(mAreaId);
@@ -162,24 +196,35 @@ public final class CarPropertyValue<T> implements Parcelable {
 
         // Special handling for String and byte[] to mitigate transaction buffer limitations.
         if (String.class.equals(valueClass)) {
-            dest.writeBlob(((String) mValue).getBytes(DEFAULT_CHARSET));
+            ParcelHelper.writeBlob(dest, ((String) mValue).getBytes(DEFAULT_CHARSET));
         } else if (byte[].class.equals(valueClass)) {
-            dest.writeBlob((byte[]) mValue);
+            ParcelHelper.writeBlob(dest, (byte[]) mValue);
         } else {
             dest.writeValue(mValue);
         }
     }
 
     /**
-     * @return Property id of CarPropertyValue
+     * @return Property id of CarPropertyValue, must be one of enums in
+     *   {@link android.car.VehiclePropertyIds}.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getPropertyId() {
         return mPropertyId;
     }
 
     /**
-     * @return Area id of CarPropertyValue
+     * @return Area id of CarPropertyValue, must be one of enums in one of the following classes:
+     *   <ul>
+     *     <li><{@link android.car.VehicleAreaWindow}</li>
+     *     <li><{@link android.car.VehicleAreaDoor}</li>
+     *     <li><{@link android.car.VehicleAreaSeat}</li>
+     *     <li><{@link android.car.VehicleAreaMirror}</li>
+     *     <li><{@link android.car.VehicleAreaWheel}</li>
+     *   </ul>
+     *   or 0 for global property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getAreaId() {
         return mAreaId;
     }
@@ -187,6 +232,7 @@ public final class CarPropertyValue<T> implements Parcelable {
     /**
      * @return Status of CarPropertyValue
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @PropertyStatus int getStatus() {
         return mStatus;
     }
@@ -200,6 +246,7 @@ public final class CarPropertyValue<T> implements Parcelable {
      * {@link Location} and {@link SensorEvent} instances). Ideally, timestamp synchronization
      * error should be below 1 millisecond.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public long getTimestamp() {
         return mTimestamp;
     }
@@ -208,12 +255,14 @@ public final class CarPropertyValue<T> implements Parcelable {
      * @return Value of CarPropertyValue
      */
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public T getValue() {
         return mValue;
     }
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "CarPropertyValue{"
                 + "mPropertyId=0x" + toHexString(mPropertyId)

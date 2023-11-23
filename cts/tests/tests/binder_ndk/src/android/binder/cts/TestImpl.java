@@ -38,16 +38,6 @@ import test_package.SimpleUnion;
 
 public class TestImpl extends ITest.Stub {
   @Override
-  public int getInterfaceVersion() {
-    return this.VERSION;
-  }
-
-  @Override
-  public String getInterfaceHash() {
-    return this.HASH;
-  }
-
-  @Override
   protected void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
     for (String arg : args) {
       pw.print(arg);
@@ -302,6 +292,18 @@ public class TestImpl extends ITest.Stub {
     return out;
   }
 
+  @Override
+  public IBinder[] RepeatBinderArray(IBinder[] in_value, IBinder[] repeated) {
+    System.arraycopy(in_value, 0, repeated, 0, in_value.length);
+    return in_value;
+  }
+
+  @Override
+  public IEmpty[] RepeatInterfaceArray(IEmpty[] in_value, IEmpty[] repeated) {
+    System.arraycopy(in_value, 0, repeated, 0, in_value.length);
+    return in_value;
+  }
+
   public java.util.List<String> Repeat2StringList(java.util.List<String> in_value, java.util.List<String> repeated) {
     repeated.addAll(in_value);
     repeated.addAll(in_value);
@@ -367,6 +369,16 @@ public class TestImpl extends ITest.Stub {
 
   @Override
   public String[] RepeatNullableStringArray(String[] in_value) {
+    return in_value;
+  }
+
+  @Override
+  public IBinder[] RepeatNullableBinderArray(IBinder[] in_value) {
+    return in_value;
+  }
+
+  @Override
+  public IEmpty[] RepeatNullableInterfaceArray(IEmpty[] in_value) {
     return in_value;
   }
 
@@ -455,6 +467,10 @@ public class TestImpl extends ITest.Stub {
   @Override
   public IBinder getICompatTest() {
     return new CompatTest();
+  }
 
+  @Override
+  public IBinder getLegacyBinderTest() {
+    return new ILegacyBinder.Stub();
   }
 }

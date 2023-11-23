@@ -1,14 +1,21 @@
+// Check interoperability with rustc and clippy lints.
+
+// for old compilers
+#![allow(unknown_lints)]
 #![warn(nonstandard_style, rust_2018_idioms, unused)]
 // Note: This does not guarantee compatibility with forbidding these lints in the future.
 // If rustc adds a new lint, we may not be able to keep this.
-#![forbid(future_incompatible, rust_2018_compatibility)]
-#![allow(unknown_lints)] // for old compilers
+#![forbid(future_incompatible, rust_2018_compatibility, rust_2021_compatibility)]
+// lints forbidden as a part of future_incompatible, rust_2018_compatibility, and rust_2021_compatibility are not included in the list below.
+// elided_lifetimes_in_paths, explicit_outlives_requirements, unused_extern_crates:  as a part of rust_2018_idioms
+// unsafe_block_in_unsafe_fn: requires Rust 1.52. and, we don't generate unsafe fn.
+// non_exhaustive_omitted_patterns: unstable
+// unstable_features: no way to generate #![feature(..)] by macros, expect for unstable inner attribute. and this lint is deprecated: https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html#unstable-features
+// unused_crate_dependencies: unrelated
+// unsafe_code: checked in forbid_unsafe module
 #![warn(
     box_pointers,
     deprecated_in_future,
-    disjoint_capture_drop_reorder,
-    elided_lifetimes_in_paths,
-    explicit_outlives_requirements,
     macro_use_extern_crate,
     meta_variable_misuse,
     missing_abi,
@@ -20,26 +27,16 @@
     single_use_lifetimes,
     trivial_casts,
     trivial_numeric_casts,
-    unaligned_references,
     unreachable_pub,
-    unused_extern_crates,
     unused_import_braces,
     unused_lifetimes,
     unused_qualifications,
     unused_results,
     variant_size_differences
 )]
-// absolute_paths_not_starting_with_crate, anonymous_parameters, keyword_idents, pointer_structural_match, semicolon_in_expressions_from_macros: forbidden as a part of future_incompatible
-// unsafe_block_in_unsafe_fn: unstable: https://github.com/rust-lang/rust/issues/71668
-// unsafe_code: checked in forbid_unsafe module
-// unstable_features: deprecated: https://doc.rust-lang.org/beta/rustc/lints/listing/allowed-by-default.html#unstable-features
-// unused_crate_dependencies: unrelated
-#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
-#![warn(clippy::restriction)]
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 #![allow(clippy::blanket_clippy_restriction_lints)] // this is a test, so enable all restriction lints intentionally.
 #![allow(clippy::exhaustive_structs, clippy::exhaustive_enums)] // TODO
-
-// Check interoperability with rustc and clippy lints.
 
 pub mod basic {
     include!("include/basic.rs");
@@ -776,7 +773,7 @@ pub mod single_use_lifetimes {
         for<'pin, 'pin_, 'pin__> &'pin &'pin_ &'pin__ T: Unpin,
     {
         #[pin]
-        f: &'pin___ mut T,
+        _f: &'pin___ mut T,
     }
 
     pub mod inside_macro {
@@ -799,7 +796,7 @@ pub mod single_use_lifetimes {
                     for<'pin, 'pin_, 'pin__> &'pin &'pin_ &'pin__ T: Unpin,
                 {
                     #[pin]
-                    f: &'pin___ mut T,
+                    _f: &'pin___ mut T,
                 }
             };
         }
@@ -1073,6 +1070,45 @@ pub mod clippy_type_repetition_in_bounds {
                     },
                     Tuple(#[pin] T, U),
                     Unit,
+                }
+            };
+        }
+
+        mac!();
+    }
+}
+
+pub mod clippy_use_self {
+    use pin_project::pin_project;
+
+    pub trait Trait {
+        type Assoc;
+    }
+
+    #[pin_project(project_replace)]
+    #[derive(Debug)]
+    pub struct Generics<T: Trait<Assoc = Self>>
+    where
+        Self: Trait<Assoc = Self>,
+    {
+        _f: T,
+    }
+
+    pub mod inside_macro {
+        use pin_project::pin_project;
+
+        use super::Trait;
+
+        #[rustfmt::skip]
+        macro_rules! mac {
+            () => {
+                #[pin_project(project_replace)]
+                #[derive(Debug)]
+                pub struct Generics<T: Trait<Assoc = Self>>
+                where
+                    Self: Trait<Assoc = Self>,
+                {
+                    _f: T,
                 }
             };
         }

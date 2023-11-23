@@ -1986,8 +1986,8 @@ void V4L2Device::enumerateDevicesForType(Type type) {
     candidatePaths.push_back(devicePattern);
 
     // We are sandboxed, so we can't query directory contents to check which devices are actually
-    // available. Try to open the first 10; if not present, we will just fail to open immediately.
-    for (int i = 0; i < 10; ++i) {
+    // available. Try to open the first 16; if not present, we will just fail to open immediately.
+    for (int i = 0; i < 16; ++i) {
         candidatePaths.push_back(base::StringPrintf("%s%d", devicePattern.c_str(), i));
     }
 

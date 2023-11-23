@@ -84,10 +84,14 @@ public class LocationUtils {
         return context.getSystemService(LocationManager.class).isLocationEnabled();
     }
 
+    /** Checks if the provided package is a location provider. */
+    public static boolean isLocationProvider(Context context, String packageName) {
+        return context.getSystemService(LocationManager.class).isProviderPackage(packageName);
+    }
+
     public static boolean isLocationGroupAndProvider(Context context, String groupName,
             String packageName) {
-        return LOCATION_PERMISSION.equals(groupName)
-                && context.getSystemService(LocationManager.class).isProviderPackage(packageName);
+        return LOCATION_PERMISSION.equals(groupName) && isLocationProvider(context, packageName);
     }
 
     public static boolean isLocationGroupAndControllerExtraPackage(@NonNull Context context,

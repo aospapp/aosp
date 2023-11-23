@@ -21,6 +21,7 @@ import static android.hardware.biometrics.BiometricManager.Authenticators.DEVICE
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.KeyguardManager;
@@ -91,8 +92,14 @@ public class BiometricManagerTest {
                 DEVICE_CREDENTIAL).getButtonLabel();
         final boolean isLabelPresentForSubAuthType =
                 !TextUtils.isEmpty(biometricLabel) || !TextUtils.isEmpty(credentialLabel);
+        boolean isBiometricOrCredentialLabel;
+        if (hasOnlyConvenienceSensors()) {
+            isBiometricOrCredentialLabel = TextUtils.isEmpty(credentialLabel);
+        } else {
+            isBiometricOrCredentialLabel = TextUtils.isEmpty(biometricOrCredentialLabel);
+        }
         assertFalse("Label should not be empty if one for an authenticator sub-type is non-empty",
-                TextUtils.isEmpty(biometricOrCredentialLabel) && isLabelPresentForSubAuthType);
+                isBiometricOrCredentialLabel && isLabelPresentForSubAuthType);
     }
 
     @Test
@@ -128,6 +135,8 @@ public class BiometricManagerTest {
         final boolean hasIris = pm.hasSystemFeature(PackageManager.FEATURE_IRIS);
         final boolean hasFace = pm.hasSystemFeature(PackageManager.FEATURE_FACE);
         assumeTrue("Test requires biometric hardware", hasFingerprint || hasIris || hasFace);
+        assumeFalse("Test requires biometric hardware above weak level",
+                hasOnlyConvenienceSensors());
 
         // Ensure biometric setting name is non-empty if device supports biometrics.
         assertFalse("Name should be non-empty if device supports biometric authentication",
@@ -135,6 +144,11 @@ public class BiometricManagerTest {
         assertFalse("Name should be non-empty if device supports biometric authentication",
                 TextUtils.isEmpty(mBiometricManager.getStrings(BIOMETRIC_WEAK | DEVICE_CREDENTIAL)
                         .getSettingName()));
+    }
+
+    private boolean hasOnlyConvenienceSensors() {
+        return mBiometricManager.canAuthenticate(BIOMETRIC_WEAK)
+                == BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE;
     }
 
     @Test

@@ -101,6 +101,13 @@ DecodeTree::DecodeTree() :
 {
     for(int i = 0; i < 0x80; i++)
         m_decode_elements[i] = 0;
+
+     // reset the global demux stats.
+    m_demux_stats.frame_bytes = 0;
+    m_demux_stats.no_id_bytes = 0;
+    m_demux_stats.valid_id_bytes = 0;  
+    m_demux_stats.unknown_id_bytes = 0;
+    m_demux_stats.reserved_id_bytes = 0;     
 }
 
 DecodeTree::~DecodeTree()
@@ -486,6 +493,62 @@ ocsd_err_t DecodeTree::removeDecoder(const uint8_t CSID)
     return err;
 }
 
+ocsd_err_t DecodeTree::getDecoderStats(const uint8_t CSID, ocsd_decode_stats_t **p_stats_block)
+{
+    ocsd_err_t err = OCSD_OK;
+    TrcPktProcI *pPktProc = getPktProcI(CSID);
+    if (!pPktProc)
+        return OCSD_ERR_INVALID_PARAM_VAL;
+    err = pPktProc->getStatsBlock(p_stats_block);
+    if (err == OCSD_OK) {
+        // copy in the global demux stats.
+        (*p_stats_block)->demux.frame_bytes = m_demux_stats.frame_bytes;
+        (*p_stats_block)->demux.no_id_bytes = m_demux_stats.no_id_bytes;
+        (*p_stats_block)->demux.valid_id_bytes = m_demux_stats.valid_id_bytes;
+        (*p_stats_block)->demux.unknown_id_bytes = m_demux_stats.unknown_id_bytes;
+        (*p_stats_block)->demux.reserved_id_bytes = m_demux_stats.reserved_id_bytes;
+    }
+    return err;
+}
+
+ocsd_err_t DecodeTree::resetDecoderStats(const uint8_t CSID)
+{
+    TrcPktProcI *pPktProc = getPktProcI(CSID);
+    if (!pPktProc)
+        return OCSD_ERR_INVALID_PARAM_VAL;
+    pPktProc->resetStats();
+
+    // reset the global demux stats.
+    m_demux_stats.frame_bytes = 0;
+    m_demux_stats.no_id_bytes = 0;
+    m_demux_stats.valid_id_bytes = 0;  
+    m_demux_stats.unknown_id_bytes = 0;
+    m_demux_stats.reserved_id_bytes = 0;
+    return OCSD_OK;
+}
+
+TrcPktProcI *DecodeTree::getPktProcI(const uint8_t CSID)
+{
+    TrcPktProcI *pPktProc = 0;
+    TraceComponent *pComp, *pAssoc;
+    DecodeTreeElement *pElem = getDecoderElement(CSID);
+    
+    if (pElem) 
+    {
+        pComp = pElem->getDecoderHandle();
+        if (pComp)
+        {
+            /* if this is a full decoder then the associated component is the packet processor */
+            pAssoc = pComp->getAssocComponent();
+            if (pAssoc)
+                pPktProc = dynamic_cast<TrcPktProcI *>(pAssoc);
+            else
+                pPktProc = dynamic_cast<TrcPktProcI *>(pComp);
+        }
+    }
+    return pPktProc;
+}
+
 DecodeTreeElement * DecodeTree::getDecoderElement(const uint8_t CSID) const
 {
     DecodeTreeElement *ret_elem = 0;
@@ -511,7 +574,7 @@ DecodeTreeElement *DecodeTree::getNextElement(uint8_t &elemID)
     if(m_decode_elem_iter < 0x80)
     {
         // find a none zero entry or end of range
-        while((m_decode_elements[m_decode_elem_iter] == 0) && (m_decode_elem_iter < 0x80))
+        while((m_decode_elem_iter < 0x80) && (m_decode_elements[m_decode_elem_iter] == 0))
             m_decode_elem_iter++;
 
         // return entry unless end of range
@@ -538,6 +601,7 @@ bool DecodeTree::initialise(const ocsd_dcd_tree_src_t type, uint32_t formatterCf
             m_frame_deformatter_root->Configure(formatterCfgFlags);
             m_frame_deformatter_root->getErrLogAttachPt()->attach(DecodeTree::s_i_error_logger);
             m_i_decoder_root = dynamic_cast<ITrcDataIn*>(m_frame_deformatter_root);
+            m_frame_deformatter_root->SetDemuxStatsBlock(&m_demux_stats);
         }
         else 
             initOK = false;

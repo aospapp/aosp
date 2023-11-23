@@ -15,9 +15,6 @@
  */
 package com.google.android.car.networking.preferenceupdater.components;
 
-import static android.net.NetworkStats.DEFAULT_NETWORK_ALL;
-import static android.net.NetworkStats.METERED_ALL;
-import static android.net.NetworkStats.ROAMING_ALL;
 import static android.provider.Settings.Global.NETSTATS_UID_BUCKET_DURATION;
 
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -30,7 +27,6 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkIdentity;
 import android.net.NetworkTemplate;
 import android.os.Bundle;
 import android.os.Handler;
@@ -56,11 +52,10 @@ public final class MetricDisplay {
     // Network match rules array
     private static final int[] NETWORK_MATCHING_RULES =
             new int[] {
-                NetworkTemplate.MATCH_WIFI_WILDCARD,
-                NetworkTemplate.MATCH_MOBILE_WILDCARD,
+                NetworkTemplate.MATCH_WIFI,
+                NetworkTemplate.MATCH_MOBILE,
                 NetworkTemplate.MATCH_ETHERNET,
                 NetworkTemplate.MATCH_BLUETOOTH,
-                NetworkTemplate.MATCH_PROXY,
             };
 
     private ConnectivityManager mConnectivityManager;
@@ -153,17 +148,8 @@ public final class MetricDisplay {
     }
 
     private Pair<Long, Long> trafficFor(int matchRule, int oemManaged) {
-        NetworkTemplate template =
-                new NetworkTemplate(
-                        matchRule,
-                        /*subscriberId=*/ null,
-                        /*matchSubscriberIds=*/ null,
-                        /*networkId=*/ null,
-                        METERED_ALL,
-                        ROAMING_ALL,
-                        DEFAULT_NETWORK_ALL,
-                        NetworkTemplate.NETWORK_TYPE_ALL,
-                        oemManaged);
+        NetworkTemplate template = new NetworkTemplate.Builder(matchRule)
+                .setOemManaged(oemManaged).build();
         try {
             return calculateTraffic(
                     mNetStatsMan.querySummary(template, mStartTime, System.currentTimeMillis()));
@@ -202,8 +188,10 @@ public final class MetricDisplay {
 
     @WorkerThread
     private void updateStats() {
-        sendMessage(NetworkIdentity.OEM_PAID, combinedTrafficFor(NetworkIdentity.OEM_PAID));
-        sendMessage(NetworkIdentity.OEM_PRIVATE, combinedTrafficFor(NetworkIdentity.OEM_PRIVATE));
+        sendMessage(NetworkTemplate.OEM_MANAGED_PAID,
+                combinedTrafficFor(NetworkTemplate.OEM_MANAGED_PAID));
+        sendMessage(NetworkTemplate.OEM_MANAGED_PRIVATE,
+                combinedTrafficFor(NetworkTemplate.OEM_MANAGED_PRIVATE));
         sendMessage(
                 NetworkTemplate.OEM_MANAGED_YES,
                 combinedTrafficFor(NetworkTemplate.OEM_MANAGED_YES));

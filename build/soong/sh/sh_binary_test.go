@@ -3,6 +3,8 @@ package sh
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"android/soong/android"
@@ -35,13 +37,18 @@ var prepareForShTest = android.GroupFixturePreparers(
 //
 // deprecated
 func testShBinary(t *testing.T, bp string) (*android.TestContext, android.Config) {
+	bp = bp + cc.GatherRequiredDepsForTest(android.Android)
+
 	result := prepareForShTest.RunTestWithBp(t, bp)
 
 	return result.TestContext, result.Config
 }
 
 func TestShTestSubDir(t *testing.T) {
-	ctx, config := testShBinary(t, `
+	result := android.GroupFixturePreparers(
+		prepareForShTest,
+		android.FixtureModifyConfig(android.SetKatiEnabledForTests),
+	).RunTestWithBp(t, `
 		sh_test {
 			name: "foo",
 			src: "test.sh",
@@ -49,17 +56,20 @@ func TestShTestSubDir(t *testing.T) {
 		}
 	`)
 
-	mod := ctx.ModuleForTests("foo", "android_arm64_armv8-a").Module().(*ShTest)
+	mod := result.ModuleForTests("foo", "android_arm64_armv8-a").Module().(*ShTest)
 
-	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
+	entries := android.AndroidMkEntriesForTest(t, result.TestContext, mod)[0]
 
 	expectedPath := "out/target/product/test_device/data/nativetest64/foo_test"
 	actualPath := entries.EntryMap["LOCAL_MODULE_PATH"][0]
-	android.AssertStringPathRelativeToTopEquals(t, "LOCAL_MODULE_PATH[0]", config, expectedPath, actualPath)
+	android.AssertStringPathRelativeToTopEquals(t, "LOCAL_MODULE_PATH[0]", result.Config, expectedPath, actualPath)
 }
 
 func TestShTest(t *testing.T) {
-	ctx, config := testShBinary(t, `
+	result := android.GroupFixturePreparers(
+		prepareForShTest,
+		android.FixtureModifyConfig(android.SetKatiEnabledForTests),
+	).RunTestWithBp(t, `
 		sh_test {
 			name: "foo",
 			src: "test.sh",
@@ -71,13 +81,13 @@ func TestShTest(t *testing.T) {
 		}
 	`)
 
-	mod := ctx.ModuleForTests("foo", "android_arm64_armv8-a").Module().(*ShTest)
+	mod := result.ModuleForTests("foo", "android_arm64_armv8-a").Module().(*ShTest)
 
-	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
+	entries := android.AndroidMkEntriesForTest(t, result.TestContext, mod)[0]
 
 	expectedPath := "out/target/product/test_device/data/nativetest64/foo"
 	actualPath := entries.EntryMap["LOCAL_MODULE_PATH"][0]
-	android.AssertStringPathRelativeToTopEquals(t, "LOCAL_MODULE_PATH[0]", config, expectedPath, actualPath)
+	android.AssertStringPathRelativeToTopEquals(t, "LOCAL_MODULE_PATH[0]", result.Config, expectedPath, actualPath)
 
 	expectedData := []string{":testdata/data1", ":testdata/sub/data2"}
 	actualData := entries.EntryMap["LOCAL_TEST_DATA"]
@@ -114,7 +124,7 @@ func TestShTest_dataModules(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := config.BuildOS.String()
 	arches := []string{"android_arm64_armv8-a", buildOS + "_x86_64"}
 	for _, arch := range arches {
 		variant := ctx.ModuleForTests("foo", arch)
@@ -148,14 +158,20 @@ func TestShTestHost(t *testing.T) {
 				"testdata/data1",
 				"testdata/sub/data2",
 			],
+			test_options: {
+				unit_test: true,
+			},
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := ctx.Config().BuildOS.String()
 	mod := ctx.ModuleForTests("foo", buildOS+"_x86_64").Module().(*ShTest)
 	if !mod.Host() {
 		t.Errorf("host bit is not set for a sh_test_host module.")
 	}
+	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
+	actualData, _ := strconv.ParseBool(entries.EntryMap["LOCAL_IS_UNIT_TEST"][0])
+	android.AssertBoolEquals(t, "LOCAL_IS_UNIT_TEST", true, actualData)
 }
 
 func TestShTestHost_dataDeviceModules(t *testing.T) {
@@ -185,7 +201,7 @@ func TestShTestHost_dataDeviceModules(t *testing.T) {
 		}
 	`)
 
-	buildOS := android.BuildOs.String()
+	buildOS := config.BuildOS.String()
 	variant := ctx.ModuleForTests("foo", buildOS+"_x86_64")
 
 	relocated := variant.Output("relocated/lib64/libbar.so")
@@ -201,4 +217,41 @@ func TestShTestHost_dataDeviceModules(t *testing.T) {
 	}
 	actualData := entries.EntryMap["LOCAL_TEST_DATA"]
 	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_TEST_DATA", config, expectedData, actualData)
+}
+
+func TestShTestHost_dataDeviceModulesAutogenTradefedConfig(t *testing.T) {
+	ctx, config := testShBinary(t, `
+		sh_test_host {
+			name: "foo",
+			src: "test.sh",
+			data_device_bins: ["bar"],
+			data_device_libs: ["libbar"],
+		}
+
+		cc_binary {
+			name: "bar",
+			shared_libs: ["libbar"],
+			no_libcrt: true,
+			nocrt: true,
+			system_shared_libs: [],
+			stl: "none",
+		}
+
+		cc_library {
+			name: "libbar",
+			no_libcrt: true,
+			nocrt: true,
+			system_shared_libs: [],
+			stl: "none",
+		}
+	`)
+
+	buildOS := config.BuildOS.String()
+	fooModule := ctx.ModuleForTests("foo", buildOS+"_x86_64")
+
+	expectedBinAutogenConfig := `<option name="push-file" key="bar" value="/data/local/tests/unrestricted/foo/bar" />`
+	autogen := fooModule.Rule("autogen")
+	if !strings.Contains(autogen.Args["extraConfigs"], expectedBinAutogenConfig) {
+		t.Errorf("foo extraConfings %v does not contain %q", autogen.Args["extraConfigs"], expectedBinAutogenConfig)
+	}
 }

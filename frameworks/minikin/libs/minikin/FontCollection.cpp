@@ -18,17 +18,17 @@
 
 #include "minikin/FontCollection.h"
 
-#include <algorithm>
-
 #include <log/log.h>
 #include <unicode/unorm2.h>
 
-#include "minikin/Emoji.h"
-#include "minikin/FontFileParser.h"
+#include <algorithm>
 
 #include "Locale.h"
 #include "LocaleListCache.h"
 #include "MinikinInternal.h"
+#include "minikin/Characters.h"
+#include "minikin/Emoji.h"
+#include "minikin/FontFileParser.h"
 
 using std::vector;
 
@@ -46,7 +46,13 @@ static std::atomic<uint32_t> gNextCollectionId = {0};
 
 namespace {
 
-uint32_t getGlyphCount(U16StringPiece text, uint32_t start, uint32_t end,
+inline bool isEmojiBreak(uint32_t prevCh, uint32_t ch) {
+    return !(isEmojiModifier(ch) || (isRegionalIndicator(prevCh) && isRegionalIndicator(ch)) ||
+             isKeyCap(ch) || isTagChar(ch) || ch == CHAR_ZWJ || prevCh == CHAR_ZWJ);
+}
+
+// Lower is better
+uint32_t getGlyphScore(U16StringPiece text, uint32_t start, uint32_t end,
                        const HbFontUniquePtr& font) {
     HbBufferUniquePtr buffer(hb_buffer_create());
     hb_buffer_set_direction(buffer.get(), HB_DIRECTION_LTR);
@@ -55,7 +61,61 @@ uint32_t getGlyphCount(U16StringPiece text, uint32_t start, uint32_t end,
 
     unsigned int numGlyphs = -1;
     hb_shape(font.get(), buffer.get(), nullptr, 0);
-    hb_buffer_get_glyph_infos(buffer.get(), &numGlyphs);
+    hb_glyph_info_t* info = hb_buffer_get_glyph_infos(buffer.get(), &numGlyphs);
+
+    // HarfBuzz squashed unsupported tag sequence into first emoji glyph. So, we cannot use glyph
+    // count for the font selection score. Give extra score if the base score is different from the
+    // first glyph.
+    if (numGlyphs == 1) {
+        constexpr uint32_t TAG_SEQUENCE_FALLBACK_PENALTY = 0x10000;
+
+        uint32_t ch = 0;
+        const uint16_t* string = text.data();
+        const uint32_t string_size = text.size();
+        uint32_t readLength = 0;
+
+        U16_NEXT(string, readLength, string_size, ch);
+        if (U_IS_SURROGATE(ch)) {
+            return numGlyphs;  // Broken surrogate pair.
+        }
+
+        if (readLength >= string_size) {
+            return numGlyphs;  // No more characters remaining.
+        }
+
+        uint32_t nextCh = 0;
+        U16_NEXT(string, readLength, string_size, nextCh);
+
+        if (!isTagChar(nextCh)) {
+            return numGlyphs;  // Not a tag sequence.
+        }
+
+        uint32_t composedGlyphId = info[0].codepoint;
+
+        // Shape only the first base emoji.
+        hb_buffer_reset(buffer.get());
+        hb_buffer_set_direction(buffer.get(), HB_DIRECTION_LTR);
+        hb_buffer_add_codepoints(buffer.get(), &ch, 1, 0, 1);
+        hb_buffer_guess_segment_properties(buffer.get());
+
+        unsigned int numGlyphs = -1;
+        hb_shape(font.get(), buffer.get(), nullptr, 0);
+        info = hb_buffer_get_glyph_infos(buffer.get(), &numGlyphs);
+
+        if (numGlyphs != 1) {
+            // If the single code point of the first base emoji is decomposed to multiple glyphs,
+            // we don't support it.
+            return numGlyphs;
+        }
+
+        uint32_t baseGlyphId = info[0].codepoint;
+        if (composedGlyphId == baseGlyphId) {
+            return numGlyphs + TAG_SEQUENCE_FALLBACK_PENALTY;
+        } else {
+            return numGlyphs;
+        }
+    }
+
     return numGlyphs;
 }
 
@@ -552,8 +612,15 @@ std::vector<FontCollection::Run> FontCollection::itemize(U16StringPiece text, Fo
                     if (intersection.empty()) {
                         breakRun = true;  // None of last family can draw the given char.
                     } else {
-                        lastFamilyIndices = intersection;
-                        breakRun = false;
+                        breakRun = isEmojiBreak(prevCh, ch);
+                        if (!breakRun) {
+                            // To select sequence supported families, update family indices with the
+                            // intersection between the supported families between prev char and
+                            // current char.
+                            familyIndices = intersection;
+                            lastFamilyIndices = intersection;
+                            run->familyMatch = intersection;
+                        }
                     }
                 } else {
                     breakRun = familyIndices[0] != lastFamilyIndices[0];
@@ -627,17 +694,18 @@ std::vector<FontCollection::Run> FontCollection::itemize(U16StringPiece text, Fo
 
 FakedFont FontCollection::getBestFont(U16StringPiece text, const Run& run, FontStyle style) {
     uint8_t bestIndex = 0;
-    uint32_t bestGlyphCount = 0xFFFFFFFF;
+    uint32_t bestScore = 0xFFFFFFFF;
 
     const std::shared_ptr<FontFamily>& family = mFamilies[run.familyMatch[0]];
     if (family->isColorEmojiFamily() && run.familyMatch.size() > 1) {
         for (size_t i = 0; i < run.familyMatch.size(); ++i) {
             const std::shared_ptr<FontFamily>& family = mFamilies[run.familyMatch[i]];
             const HbFontUniquePtr& font = family->getFont(0)->baseFont();
-            uint32_t glyphCount = getGlyphCount(text, run.start, run.end, font);
-            if (glyphCount < bestGlyphCount) {
+            uint32_t score = getGlyphScore(text, run.start, run.end, font);
+
+            if (score < bestScore) {
                 bestIndex = run.familyMatch[i];
-                bestGlyphCount = glyphCount;
+                bestScore = score;
             }
         }
     } else {

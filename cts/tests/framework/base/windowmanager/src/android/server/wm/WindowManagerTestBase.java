@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.app.ActivityTaskManager.INVALID_STACK_ID;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
@@ -64,13 +65,20 @@ public class WindowManagerTestBase extends MultiDisplayTestBase {
 
     static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId,
             boolean hasFocus, int windowingMode) {
+        return startActivity(cls, displayId, hasFocus, windowingMode, INVALID_STACK_ID);
+    }
+
+    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId,
+            boolean hasFocus, int windowingMode, int taskId) {
         final Bundle options;
-        if (displayId == DEFAULT_DISPLAY && windowingMode == WINDOWING_MODE_UNDEFINED) {
+        if (displayId == DEFAULT_DISPLAY && windowingMode == WINDOWING_MODE_UNDEFINED
+                && taskId == INVALID_STACK_ID) {
             options = null;
         } else {
             final ActivityOptions ap= ActivityOptions.makeBasic();
             if (displayId != DEFAULT_DISPLAY) ap.setLaunchDisplayId(displayId);
             if (windowingMode != WINDOWING_MODE_UNDEFINED) ap.setLaunchWindowingMode(windowingMode);
+            if (taskId != INVALID_STACK_ID) ap.setLaunchTaskId(taskId);
             options = ap.toBundle();
         }
         final T[] activity = (T[]) Array.newInstance(FocusableActivity.class, 1);

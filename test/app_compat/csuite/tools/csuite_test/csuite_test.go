@@ -29,9 +29,12 @@ func init() {
 }
 
 type csuiteTestProperties struct {
-	// Local path to a module template xml file.
+	// Local path to a default module template xml file.
 	// The content of the template will be used to generate test modules at runtime.
 	Test_config_template *string `android:"path"`
+
+	// Local paths to extra module template xml files.
+	Extra_test_config_templates []string `android:"path"`
 
 	// Local path to a test plan config xml to be included in the generated plan.
 	Test_plan_include *string `android:"path"`
@@ -45,15 +48,26 @@ type CSuiteTest struct {
 	csuiteTestProperties csuiteTestProperties
 }
 
-func (cSuiteTest *CSuiteTest) buildCopyConfigTemplateCommand(ctx android.ModuleContext, rule *android.RuleBuilder) string {
-	if cSuiteTest.csuiteTestProperties.Test_config_template == nil {
-		ctx.ModuleErrorf(`'test_config_template' is missing.`)
+func (cSuiteTest *CSuiteTest) buildCopyConfigTemplateCommand(ctx android.ModuleContext, rule *android.RuleBuilder, templatePath string) string {
+	if !strings.HasSuffix(templatePath, xmlFileExtension) {
+		ctx.ModuleErrorf(`Config template path should ends with ` + xmlFileExtension)
 	}
-	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_config_template)
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, ctx.ModuleName()+configTemplateFileExtension)
+
+	inputPath := android.PathForModuleSrc(ctx, templatePath)
+	genPath := android.PathForModuleGen(ctx, configDirName, ctx.ModuleName(), inputPath.Rel()+configTemplateFileExtension)
 	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return genPath.Rel()
+}
+
+func (cSuiteTest *CSuiteTest) buildCopyExtraConfigTemplatesCommand(ctx android.ModuleContext, rule *android.RuleBuilder) []string {
+	output := make([]string, len(cSuiteTest.csuiteTestProperties.Extra_test_config_templates))
+
+	for idx, templatePath := range cSuiteTest.csuiteTestProperties.Extra_test_config_templates {
+		output[idx] = cSuiteTest.buildCopyConfigTemplateCommand(ctx, rule, templatePath)
+	}
+
+	return output
 }
 
 func (cSuiteTest *CSuiteTest) buildCopyPlanIncludeCommand(ctx android.ModuleContext, rule *android.RuleBuilder) string {
@@ -61,18 +75,26 @@ func (cSuiteTest *CSuiteTest) buildCopyPlanIncludeCommand(ctx android.ModuleCont
 		return emptyPlanIncludePath
 	}
 	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_plan_include)
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, "includes", ctx.ModuleName()+".xml")
+	genPath := android.PathForModuleGen(ctx, configDirName, "includes", ctx.ModuleName()+".xml")
 	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return strings.Replace(genPath.Rel(), "config/", "", -1)
 }
 
-func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext, configTemplatePath string, planIncludePath string) {
+func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext, configTemplatePath string, extraConfigTemplatePaths []string, planIncludePath string) {
 	planName := ctx.ModuleName()
 	content := strings.Replace(planTemplate, "{planName}", planName, -1)
 	content = strings.Replace(content, "{templatePath}", configTemplatePath, -1)
+	content = strings.Replace(content, "{templateRoot}", android.PathForModuleGen(ctx, configDirName, ctx.ModuleName()).Rel(), -1)
 	content = strings.Replace(content, "{planInclude}", planIncludePath, -1)
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, planName+planFileExtension)
+
+	extraTemplateConfigLines := ""
+	for _, extraPath := range extraConfigTemplatePaths {
+		extraTemplateConfigLines += strings.Replace(extraTemplatePathsTemplate, "{templatePath}", extraPath, -1)
+	}
+	content = strings.Replace(content, "{extraTemplatePaths}", extraTemplateConfigLines, -1)
+
+	genPath := android.PathForModuleGen(ctx, configDirName, planName+xmlFileExtension)
 	android.WriteFileRule(ctx, genPath, content)
 	cSuiteTest.AddExtraResource(genPath)
 }
@@ -80,9 +102,14 @@ func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext
 func (cSuiteTest *CSuiteTest) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule := android.NewRuleBuilder(pctx, ctx)
 
-	configTemplatePath := cSuiteTest.buildCopyConfigTemplateCommand(ctx, rule)
+	if cSuiteTest.csuiteTestProperties.Test_config_template == nil {
+		ctx.ModuleErrorf(`'test_config_template' is missing.`)
+	}
+
+	configTemplatePath := cSuiteTest.buildCopyConfigTemplateCommand(ctx, rule, *cSuiteTest.csuiteTestProperties.Test_config_template)
+	extraConfigTemplatePaths := cSuiteTest.buildCopyExtraConfigTemplatesCommand(ctx, rule)
 	planIncludePath := cSuiteTest.buildCopyPlanIncludeCommand(ctx, rule)
-	cSuiteTest.buildWritePlanConfigRule(ctx, configTemplatePath, planIncludePath)
+	cSuiteTest.buildWritePlanConfigRule(ctx, configTemplatePath, extraConfigTemplatePaths, planIncludePath)
 
 	rule.Build("CSuite", "generate C-Suite config files")
 	cSuiteTest.TestHost.GenerateAndroidBuildActions(ctx)
@@ -102,10 +129,12 @@ func CSuiteTestFactory() android.Module {
 
 const (
 	emptyPlanIncludePath        = `empty`
-	planConfigDirName           = `config`
-	configTemplateFileExtension = `.xml.template`
-	planFileExtension           = `.xml`
-	planTemplate                = `<?xml version="1.0" encoding="utf-8"?>
+	configDirName               = `config`
+	configTemplateFileExtension = `.template`
+	xmlFileExtension            = `.xml`
+	extraTemplatePathsTemplate  = `
+          <option name="extra-templates" value="{templatePath}"/>`
+	planTemplate = `<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -121,9 +150,15 @@ const (
      limitations under the License.
 -->
 <configuration>
-     <test class="com.android.csuite.config.ModuleGenerator">
-          <option name="template" value="{templatePath}" />
-     </test>
+     <!-- Generates module files in the beginning of the test. -->
+     <test class="com.android.csuite.core.ModuleGenerator" />
+     <!-- Cleans the generated module files after the test. -->
+     <target_preparer class="com.android.csuite.core.ModuleGenerator" />
+     <object type="MODULE_TEMPLATE_PROVIDER" class="com.android.csuite.core.ModuleTemplate" >
+        <option name="template-root" value="{templateRoot}" />
+        <option name="default-template" value="{templatePath}" />{extraTemplatePaths}
+    </object>
+
      <include name="csuite-base" />
      <include name="{planInclude}" />
      <option name="plan" value="{planName}" />

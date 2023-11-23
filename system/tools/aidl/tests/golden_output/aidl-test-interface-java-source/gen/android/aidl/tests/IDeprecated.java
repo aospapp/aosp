@@ -75,23 +75,6 @@ public interface IDeprecated extends android.os.IInterface
       {
         return DESCRIPTOR;
       }
-      public static android.aidl.tests.IDeprecated sDefaultImpl;
-    }
-    public static boolean setDefaultImpl(android.aidl.tests.IDeprecated impl) {
-      // Only one user of this interface can use this function
-      // at a time. This is a heuristic to detect if two different
-      // users in the same process use this function.
-      if (Stub.Proxy.sDefaultImpl != null) {
-        throw new IllegalStateException("setDefaultImpl() called twice");
-      }
-      if (impl != null) {
-        Stub.Proxy.sDefaultImpl = impl;
-        return true;
-      }
-      return false;
-    }
-    public static android.aidl.tests.IDeprecated getDefaultImpl() {
-      return Stub.Proxy.sDefaultImpl;
     }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$IDeprecated".replace('$', '.');

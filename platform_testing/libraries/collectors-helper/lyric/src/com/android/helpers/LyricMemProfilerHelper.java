@@ -22,6 +22,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
@@ -45,7 +46,11 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
 
     private static final int MIN_PROFILE_PERIOD_MS = 100;
 
-    String mPidName = "camera.provider@";
+    private String[] mCameraProcNameList;
+
+    @VisibleForTesting String[] mCameraPidList;
+
+    private String[] mMetricNameList;
 
     // Extract value of "Native Heap:" and  "TOTAL PSS:" from command: "dumpsys meminfo -s [pid]"
     // example of "dumpsys meminfo -s [pid]":
@@ -84,16 +89,14 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
     // Folling Regexes is for removing "\n" in string
     private static final Pattern REMOVE_CR_PATTERN = Pattern.compile("\n");
 
-    // This Regexes is to match string format as:
-    //   provider@2.7-se:[pid of provider]
+    // List of regexes which are to match string format as:
+    //   [Camera process Name]xxx:[pid of camera process]
     //
-    // Use above pattern to find data section of camera provider
-    // of output string from command "dmabuf_dump"
-    private Pattern mDmabufProcPattern;
+    // Use above pattern to find data section of camera process
+    // in output string from command "dmabuf_dump"
+    private Pattern[] mCameraDmabufPatternList;
 
     private UiDevice mUiDevice;
-
-    private String mCameraProviderPid = "";
 
     private int mProfilePeriodMs = 0;
 
@@ -103,17 +106,34 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
         int mNativeHeap;
         int mTotalPss;
 
+        public MemInfo() {}
+
         public MemInfo(int nativeHeap, int totalPss) {
             mNativeHeap = nativeHeap;
             mTotalPss = totalPss;
         }
     }
 
-    private int mMaxNativeHeap;
+    private MemInfo[] mMaxCameraMemInfoList;
 
-    private int mMaxTotalPss;
+    private int[] mMaxCameraDmabufList;
 
-    private int mMaxDmabuf;
+    private int mMaxTotalCameraDmabuf = 0;
+
+    private int mMaxTotalCameraMemory = 0;
+
+    private synchronized void setMaxResult(
+            MemInfo[] memInfoList, int[] dmabufList, int totalDmabuf, int totalMemory) {
+        for (int i = 0; i < mMaxCameraMemInfoList.length; i++) {
+            mMaxCameraMemInfoList[i].mNativeHeap =
+                    Math.max(mMaxCameraMemInfoList[i].mNativeHeap, memInfoList[i].mNativeHeap);
+            mMaxCameraMemInfoList[i].mTotalPss =
+                    Math.max(mMaxCameraMemInfoList[i].mTotalPss, memInfoList[i].mTotalPss);
+            mMaxCameraDmabufList[i] = Math.max(mMaxCameraDmabufList[i], dmabufList[i]);
+        }
+        mMaxTotalCameraDmabuf = Math.max(mMaxTotalCameraDmabuf, totalDmabuf);
+        mMaxTotalCameraMemory = Math.max(mMaxTotalCameraMemory, totalMemory);
+    }
 
     @VisibleForTesting
     protected UiDevice initUiDevice() {
@@ -125,34 +145,71 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
         if (null == mUiDevice) {
             mUiDevice = initUiDevice();
         }
-        getCameraProviderPid();
+        if (null != mCameraProcNameList
+                && 0 < mCameraProcNameList.length
+                && null != mMetricNameList
+                && mCameraProcNameList.length == mMetricNameList.length) {
+            mCameraPidList = new String[mCameraProcNameList.length];
+            mCameraDmabufPatternList = new Pattern[mCameraProcNameList.length];
+            for (int i = 0; i < mCameraProcNameList.length; i++) {
+                mCameraPidList[i] = getProcPid(mCameraProcNameList[i]);
+                // This Regexes is to match string format such as:
+                //   [camera process name]xxx:[pid of camera process]
+                //   ex: if "provider@" is camera process name, the pattern is:
+                //   provider@xxx:[pid of camera process]
+                // Use following pattern to find data section of camera prcoess
+                // of output string from command "dmabuf_dump"
+                mCameraDmabufPatternList[i] =
+                        Pattern.compile("\\s*.*:" + mCameraPidList[i] + "\\s*");
+            }
+            // To avoid frequnce of polling memory data too high and interference test case
+            // Set minimum polling period to MIN_PROFILE_PERIOD_MS (100), period profile only
+            // enable when MIN_PROFILE_PERIOD_MS <= configured polling period
+            if (MIN_PROFILE_PERIOD_MS <= mProfilePeriodMs) {
+                if (null == mTimer) {
+                    mMaxCameraMemInfoList = new MemInfo[mCameraProcNameList.length];
+                    for (int i = 0; i < mMaxCameraMemInfoList.length; i++)
+                        mMaxCameraMemInfoList[i] = new MemInfo();
+                    mMaxCameraDmabufList = new int[mCameraProcNameList.length];
+                    mTimer = new Timer();
+                    abstract class MyTimerTask extends TimerTask {
+                        MemInfo[] mTimerMemInfoList;
+                        int[] mTimerDmabufList;
+                        String[] mMemInfoStringList;
 
-        // This Regexes is to match string format as:
-        //   provider@2.7-se:[pid of provider]
-        //
-        // Use following pattern to find data section of camera provider
-        // of output string from command "dmabuf_dump"
-        mDmabufProcPattern = Pattern.compile("\\s*provider@.*:" + mCameraProviderPid + "\\s*");
-
-        // To avoid frequnce of polling memory data too high and interference test case
-        // Set minimum polling period to MIN_PROFILE_PERIOD_MS (100), period profile only
-        // enable when MIN_PROFILE_PERIOD_MS <= configured polling period
-        if (MIN_PROFILE_PERIOD_MS <= mProfilePeriodMs) {
-            if (null == mTimer) {
-                mTimer = new Timer();
-                mTimer.schedule(
-                        new TimerTask() {
-                            @Override
-                            public void run() {
-                                MemInfo memInfo = processMemInfo(getMemInfoString());
-                                int dmabuf = processDmabufDump(getDmabufDumpString());
-                                mMaxNativeHeap = Math.max(mMaxNativeHeap, memInfo.mNativeHeap);
-                                mMaxTotalPss = Math.max(mMaxTotalPss, memInfo.mTotalPss);
-                                mMaxDmabuf = Math.max(mMaxDmabuf, dmabuf);
-                            }
-                        },
-                        MIN_PROFILE_PERIOD_MS,
-                        mProfilePeriodMs);
+                        public MyTimerTask(int procNumber) {
+                            mTimerMemInfoList = new MemInfo[procNumber];
+                            mTimerDmabufList = new int[procNumber];
+                            mMemInfoStringList = new String[procNumber];
+                        }
+                    }
+                    mTimer.schedule(
+                            new MyTimerTask(mCameraProcNameList.length) {
+                                @Override
+                                public void run() {
+                                    int i, totalDmabuf = 0, totalMemory = 0;
+                                    String dmabufString = getDmabufDumpString();
+                                    for (i = 0; i < mTimerMemInfoList.length; i++) {
+                                        mMemInfoStringList[i] = getMemInfoString(mCameraPidList[i]);
+                                    }
+                                    processDmabufDump(dmabufString, mTimerDmabufList);
+                                    for (i = 0; i < mTimerMemInfoList.length; i++) {
+                                        mTimerMemInfoList[i] =
+                                                processMemInfo(mMemInfoStringList[i]);
+                                        totalMemory += mTimerMemInfoList[i].mTotalPss;
+                                        totalDmabuf += mTimerDmabufList[i];
+                                    }
+                                    totalMemory += totalDmabuf;
+                                    setMaxResult(
+                                            mTimerMemInfoList,
+                                            mTimerDmabufList,
+                                            totalDmabuf,
+                                            totalMemory);
+                                }
+                            },
+                            MIN_PROFILE_PERIOD_MS,
+                            mProfilePeriodMs);
+                }
             }
         }
         return true;
@@ -162,19 +219,43 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
         mProfilePeriodMs = periodMs;
     }
 
-    public void setProfilePidName(String pidName) {
-        mPidName = pidName;
+    public void setProfileCameraProcName(String[] pidNameList) {
+        mCameraProcNameList = pidNameList;
+    }
+
+    public void setProfileMetricName(String[] metricNameList) {
+        mMetricNameList = metricNameList;
     }
 
     @Override
     public Map<String, Integer> getMetrics() {
-        String memInfoString = getMemInfoString();
+        if (null == mCameraPidList && 0 == mCameraPidList.length) {
+            return new HashMap<>();
+        }
+        String[] memInfoStringList = new String[mCameraPidList.length];
         String dmabufDumpString = getDmabufDumpString();
-        Map<String, Integer> metrics = processOutput(memInfoString, dmabufDumpString);
+        int i;
+        for (i = 0; i < memInfoStringList.length; i++) {
+            memInfoStringList[i] = getMemInfoString(mCameraPidList[i]);
+        }
+        Map<String, Integer> metrics = processOutput(memInfoStringList, dmabufDumpString);
+
         if (MIN_PROFILE_PERIOD_MS <= mProfilePeriodMs) {
-            metrics.put("maxNativeHeap", mMaxNativeHeap);
-            metrics.put("maxTotalPss", mMaxTotalPss);
-            metrics.put("maxDmabuf", mMaxDmabuf);
+            for (i = 0; i < mMetricNameList.length; i++) {
+                metrics.put(
+                        "max" + mMetricNameList[i] + "NativeHeap",
+                        mMaxCameraMemInfoList[i].mNativeHeap);
+                metrics.put(
+                        "max" + mMetricNameList[i] + "TotalPss",
+                        mMaxCameraMemInfoList[i].mTotalPss);
+                metrics.put("max" + mMetricNameList[i] + "Dmabuf", mMaxCameraDmabufList[i]);
+            }
+            metrics.put("maxNativeHeap", mMaxCameraMemInfoList[0].mNativeHeap);
+            metrics.put("maxTotalPss", mMaxCameraMemInfoList[0].mTotalPss);
+            metrics.put("maxDmabuf", mMaxCameraDmabufList[0]);
+
+            metrics.put("maxTotalCameraDmabuf", mMaxTotalCameraDmabuf);
+            metrics.put("maxTotalCameraMemory", mMaxTotalCameraMemory);
         }
         return metrics;
     }
@@ -201,54 +282,83 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
         return new MemInfo(nativeHeap, totalPss);
     }
 
-    private int processDmabufDump(String dmabufDumpString) {
-        int dmabuf = 0;
+    private void processDmabufDump(String dmabufDumpString, int[] dmabufList) {
+        Pattern[] procPatternList =
+                Arrays.copyOf(mCameraDmabufPatternList, mCameraDmabufPatternList.length);
+        int matchCount = 0;
+        Integer matchIndex = null;
         Matcher matcher;
-        boolean procMatched = false;
         for (String line : dmabufDumpString.split("\n")) {
-            if (procMatched) {
-                matcher = METRIC_DMABUF_PSS_PATTERN.matcher(line);
-                if (matcher.find()) {
-                    dmabuf = Integer.parseInt(matcher.group(2));
-                    break;
+            if (null == matchIndex) {
+                for (int i = 0; i < procPatternList.length; i++) {
+                    if (procPatternList[i] != null) {
+                        matcher = procPatternList[i].matcher(line);
+                        if (matcher.find()) {
+                            matchIndex = i;
+                            procPatternList[i] = null;
+                            break;
+                        }
+                    }
                 }
             } else {
-                matcher = mDmabufProcPattern.matcher(line);
+                matcher = METRIC_DMABUF_PSS_PATTERN.matcher(line);
                 if (matcher.find()) {
-                    procMatched = true;
+                    dmabufList[matchIndex] = Integer.parseInt(matcher.group(2));
+                    matchIndex = null;
+                    matchCount++;
+                    if (matchCount == procPatternList.length) break;
                 }
             }
         }
-        return dmabuf;
     }
 
     @VisibleForTesting
-    Map<String, Integer> processOutput(String memInfoString, String dmabufDumpString) {
+    Map<String, Integer> processOutput(String[] memInfoStringList, String dmabufDumpString) {
         Map<String, Integer> metrics = new HashMap<>();
-        MemInfo memInfo = processMemInfo(memInfoString);
-        int dmabuf = processDmabufDump(dmabufDumpString);
-        if (0 < memInfo.mNativeHeap) metrics.put("nativeHeap", memInfo.mNativeHeap);
-        if (0 < memInfo.mTotalPss) metrics.put("totalPss", memInfo.mTotalPss);
-        if (0 < dmabuf) metrics.put("dmabuf", dmabuf);
+        MemInfo[] memInfoList = new MemInfo[mCameraProcNameList.length];
+        int[] dmabufList = new int[mCameraProcNameList.length];
+        int totalDmabuf = 0, totalMemory = 0, i;
+        processDmabufDump(dmabufDumpString, dmabufList);
+        for (i = 0; i < mCameraProcNameList.length; i++) {
+            memInfoList[i] = processMemInfo(memInfoStringList[i]);
+            totalDmabuf += dmabufList[i];
+            totalMemory += memInfoList[i].mTotalPss;
+        }
+        totalMemory += totalDmabuf;
+        if (null != mTimer) {
+            setMaxResult(memInfoList, dmabufList, totalDmabuf, totalMemory);
+        }
+        for (i = 0; i < mMetricNameList.length; i++) {
+            metrics.put(mMetricNameList[i] + "NativeHeap", memInfoList[i].mNativeHeap);
+            metrics.put(mMetricNameList[i] + "TotalPss", memInfoList[i].mTotalPss);
+            metrics.put(mMetricNameList[i] + "Dmabuf", dmabufList[i]);
+        }
+        metrics.put("nativeHeap", memInfoList[0].mNativeHeap);
+        metrics.put("totalPss", memInfoList[0].mTotalPss);
+        metrics.put("dmabuf", dmabufList[0]);
+
+        metrics.put("totalCameraDmabuf", totalDmabuf);
+        metrics.put("totalCameraMemory", totalMemory);
         return metrics;
     }
 
     @VisibleForTesting
-    public String getCameraProviderPid() {
+    String getProcPid(String procName) {
+        String procPid;
         try {
-            mCameraProviderPid = mUiDevice.executeShellCommand(PID_CMD + mPidName).trim();
+            procPid = mUiDevice.executeShellCommand(PID_CMD + procName).trim();
         } catch (IOException e) {
-            Log.e(TAG, "Failed to get camera provider PID");
-            mCameraProviderPid = "";
+            Log.e(TAG, "Failed to get PID of " + procName);
+            procPid = "";
         }
-        return mCameraProviderPid;
+        return procPid;
     }
 
     @VisibleForTesting
-    public String getMemInfoString() {
-        if (!mCameraProviderPid.isEmpty()) {
+    String getMemInfoString(String pidString) {
+        if (!pidString.isEmpty()) {
             try {
-                String cmdString = DUMPSYS_MEMINFO_CMD + mCameraProviderPid;
+                String cmdString = DUMPSYS_MEMINFO_CMD + pidString;
                 return mUiDevice.executeShellCommand(cmdString).trim();
             } catch (IOException e) {
                 Log.e(TAG, "Failed to get Mem info string ");
@@ -258,11 +368,11 @@ public class LyricMemProfilerHelper implements ICollectorHelper<Integer> {
     }
 
     @VisibleForTesting
-    public String getDmabufDumpString() {
-        if (!mCameraProviderPid.isEmpty()) {
+    synchronized String getDmabufDumpString() {
+        if (null != mUiDevice) {
             try {
                 final int minDmabufStringLen = 100;
-                final int maxDmabufRetryCount = 3;
+                final int maxDmabufRetryCount = 5;
                 String dmabufString;
                 for (int retryCount = 0; retryCount < maxDmabufRetryCount; retryCount++) {
                     dmabufString = mUiDevice.executeShellCommand(DMABUF_DUMP_CMD).trim();

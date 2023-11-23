@@ -195,14 +195,28 @@ bool PayloadFile::WritePayload(const string& payload_file,
     PayloadSigner::AddSignatureToManifest(
         next_blob_offset, signature_blob_length, &manifest_);
   }
+  WritePayload(payload_file,
+               ordered_blobs_file.path(),
+               private_key_path,
+               major_version_,
+               manifest_,
+               metadata_size_out);
 
-  // Serialize protobuf
-  string serialized_manifest;
-  TEST_AND_RETURN_FALSE(manifest_.SerializeToString(&serialized_manifest));
+  ReportPayloadUsage(*metadata_size_out);
+  return true;
+}
 
+bool PayloadFile::WritePayload(const std::string& payload_file,
+                               const std::string& ordered_blobs_file,
+                               const std::string& private_key_path,
+                               uint64_t major_version_,
+                               const DeltaArchiveManifest& manifest,
+                               uint64_t* metadata_size_out) {
+  std::string serialized_manifest;
+
+  TEST_AND_RETURN_FALSE(manifest.SerializeToString(&serialized_manifest));
   uint64_t metadata_size =
       sizeof(kDeltaMagic) + 2 * sizeof(uint64_t) + serialized_manifest.size();
-
   LOG(INFO) << "Writing final delta file header...";
   DirectFileWriter writer;
   TEST_AND_RETURN_FALSE_ERRNO(writer.Open(payload_file.c_str(),
@@ -222,12 +236,16 @@ bool PayloadFile::WritePayload(const string& payload_file,
 
   // Metadata signature has the same size as payload signature, because they
   // are both the same kind of signature for the same kind of hash.
-  uint32_t metadata_signature_size = htobe32(signature_blob_length);
-  TEST_AND_RETURN_FALSE_ERRNO(
-      writer.Write(&metadata_signature_size, sizeof(metadata_signature_size)));
-  metadata_size += sizeof(metadata_signature_size);
-  // Set correct size instead of big endian size.
-  metadata_signature_size = signature_blob_length;
+  const auto signature_blob_length = manifest.signatures_size();
+  // Adding a new scope here so code down below can't access
+  // metadata_signature_size, as the integer is in big endian, not host
+  // endianess.
+  {
+    const uint32_t metadata_signature_size = htobe32(signature_blob_length);
+    TEST_AND_RETURN_FALSE_ERRNO(writer.Write(&metadata_signature_size,
+                                             sizeof(metadata_signature_size)));
+    metadata_size += sizeof(metadata_signature_size);
+  }
 
   // Write protobuf
   LOG(INFO) << "Writing final delta file protobuf... "
@@ -249,7 +267,7 @@ bool PayloadFile::WritePayload(const string& payload_file,
 
   // Append the data blobs.
   LOG(INFO) << "Writing final delta file data blobs...";
-  int blobs_fd = open(ordered_blobs_file.path().c_str(), O_RDONLY, 0);
+  int blobs_fd = open(ordered_blobs_file.c_str(), O_RDONLY, 0);
   ScopedFdCloser blobs_fd_closer(&blobs_fd);
   TEST_AND_RETURN_FALSE(blobs_fd >= 0);
   for (;;) {
@@ -262,7 +280,6 @@ bool PayloadFile::WritePayload(const string& payload_file,
     TEST_AND_RETURN_FALSE_ERRNO(rc > 0);
     TEST_AND_RETURN_FALSE_ERRNO(writer.Write(buf.data(), rc));
   }
-
   // Write payload signature blob.
   if (!private_key_path.empty()) {
     LOG(INFO) << "Signing the update...";
@@ -271,15 +288,15 @@ bool PayloadFile::WritePayload(const string& payload_file,
         payload_file,
         {private_key_path},
         metadata_size,
-        metadata_signature_size,
-        metadata_size + metadata_signature_size + manifest_.signatures_offset(),
+        signature_blob_length,
+        metadata_size + signature_blob_length + manifest.signatures_offset(),
         &signature));
     TEST_AND_RETURN_FALSE_ERRNO(
         writer.Write(signature.data(), signature.size()));
   }
-
-  ReportPayloadUsage(metadata_size);
-  *metadata_size_out = metadata_size;
+  if (metadata_size_out) {
+    *metadata_size_out = metadata_size;
+  }
   return true;
 }
 

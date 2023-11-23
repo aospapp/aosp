@@ -128,6 +128,13 @@ def setup_ap(access_point,
         additional_ap_parameters: Additional parameters to send the AP.
         password: Password to connect to WLAN if necessary.
         check_connectivity: Whether to check for internet connectivity.
+
+    Returns:
+        An identifier for each ssid being started. These identifiers can be
+        used later by this controller to control the ap.
+
+    Raises:
+        Error: When the ap can't be brought up.
     """
     ap = hostapd_ap_preset.create_ap_preset(profile_name=profile_name,
                                             iface_wlan_2g=access_point.wlan_2g,
@@ -148,9 +155,10 @@ def setup_ap(access_point,
                                             n_capabilities=n_capabilities,
                                             ac_capabilities=ac_capabilities,
                                             vht_bandwidth=vht_bandwidth)
-    access_point.start_ap(hostapd_config=ap,
-                          setup_bridge=setup_bridge,
-                          additional_parameters=additional_ap_parameters)
+    return access_point.start_ap(
+        hostapd_config=ap,
+        setup_bridge=setup_bridge,
+        additional_parameters=additional_ap_parameters)
 
 
 class Error(Exception):
@@ -177,14 +185,15 @@ class AccessPoint(object):
         ssh_settings: The ssh settings being used by the ssh connection.
         dhcp_settings: The dhcp server settings being used.
     """
+
     def __init__(self, configs):
         """
         Args:
             configs: configs for the access point from config file.
         """
         self.ssh_settings = settings.from_config(configs['ssh_config'])
-        self.log = logger.create_logger(lambda msg: '[Access Point|%s] %s' %
-                                        (self.ssh_settings.hostname, msg))
+        self.log = logger.create_logger(lambda msg: '[Access Point|%s] %s' % (
+            self.ssh_settings.hostname, msg))
         self.device_pdu_config = configs.get('PduDevice', None)
         self.identifier = self.ssh_settings.hostname
 
@@ -212,10 +221,14 @@ class AccessPoint(object):
         self._dhcp = None
         self._dhcp_bss = dict()
         self.bridge = bridge_interface.BridgeInterface(self)
-        self.interfaces = ap_get_interface.ApInterfaces(self)
         self.iwconfig = ap_iwconfig.ApIwconfig(self)
 
-        # Get needed interface names and initialize the unneccessary ones.
+        # Check to see if wan_interface is specified in acts_config for tests
+        # isolated from the internet and set this override.
+        self.interfaces = ap_get_interface.ApInterfaces(
+            self, configs.get('wan_interface'))
+
+        # Get needed interface names and initialize the unnecessary ones.
         self.wan = self.interfaces.get_wan_interface()
         self.wlan = self.interfaces.get_wlan_interface()
         self.wlan_2g = self.wlan[0]
@@ -323,6 +336,7 @@ class AccessPoint(object):
         # Clear all routes to prevent old routes from interfering.
         self._route_cmd.clear_routes(net_interface=interface)
 
+        self._dhcp_bss = dict()
         if hostapd_config.bss_lookup:
             # The self._dhcp_bss dictionary is created to hold the key/value
             # pair of the interface name and the ip scope that will be
@@ -332,7 +346,6 @@ class AccessPoint(object):
             # is requested.  This part is designed to bring up the
             # hostapd interfaces and not the DHCP servers for each
             # interface.
-            self._dhcp_bss = dict()
             counter = 1
             for bss in hostapd_config.bss_lookup:
                 if interface_mac_orig:
@@ -357,7 +370,7 @@ class AccessPoint(object):
         interface_ip = ipaddress.ip_interface(
             '%s/%s' % (subnet.router, subnet.network.netmask))
         if setup_bridge is True:
-            bridge_interface_name = 'br_lan'
+            bridge_interface_name = 'eth_test'
             self.create_bridge(bridge_interface_name, [interface, self.lan])
             self._ip_cmd.set_ipv4_address(bridge_interface_name, interface_ip)
         else:
@@ -374,12 +387,9 @@ class AccessPoint(object):
                 self._ip_cmd.set_ipv4_address(str(k), bss_interface_ip)
 
         # Restart the DHCP server with our updated list of subnets.
-        configured_subnets = [x.subnet for x in self._aps.values()]
-        if hostapd_config.bss_lookup:
-            for k, v in self._dhcp_bss.items():
-                configured_subnets.append(v)
-
-        self.start_dhcp(subnets=configured_subnets)
+        configured_subnets = self.get_configured_subnets()
+        dhcp_conf = dhcp_config.DhcpConfig(subnets=configured_subnets)
+        self.start_dhcp(dhcp_conf=dhcp_conf)
         self.start_nat()
 
         bss_interfaces = [bss for bss in hostapd_config.bss_lookup]
@@ -387,22 +397,66 @@ class AccessPoint(object):
 
         return bss_interfaces
 
-    def start_dhcp(self, subnets):
+    def get_configured_subnets(self):
+        """Get the list of configured subnets on the access point.
+
+        This allows consumers of the access point objects create custom DHCP
+        configs with the correct subnets.
+
+        Returns: a list of dhcp_config.Subnet objects
+        """
+        configured_subnets = [x.subnet for x in self._aps.values()]
+        for k, v in self._dhcp_bss.items():
+            configured_subnets.append(v)
+        return configured_subnets
+
+    def start_dhcp(self, dhcp_conf):
         """Start a DHCP server for the specified subnets.
 
         This allows consumers of the access point objects to control DHCP.
 
         Args:
-            subnets: A list of Subnets.
+            dhcp_conf: A dhcp_config.DhcpConfig object.
+
+        Raises:
+            Error: Raised when a dhcp server error is found.
         """
-        return self._dhcp.start(config=dhcp_config.DhcpConfig(subnets))
+        self._dhcp.start(config=dhcp_conf)
 
     def stop_dhcp(self):
         """Stop DHCP for this AP object.
 
         This allows consumers of the access point objects to control DHCP.
         """
-        return self._dhcp.stop()
+        self._dhcp.stop()
+
+    def get_dhcp_logs(self):
+        """Get DHCP logs for this AP object.
+
+        This allows consumers of the access point objects to validate DHCP
+        behavior.
+
+        Returns:
+            A string of the dhcp server logs, or None is a DHCP server has not
+            been started.
+        """
+        if self._dhcp:
+            return self._dhcp.get_logs()
+        return None
+
+    def get_hostapd_logs(self):
+        """Get hostapd logs for all interfaces on AP object.
+
+        This allows consumers of the access point objects to validate hostapd
+        behavior.
+
+        Returns: A dict with {interface: log} from hostapd instances.
+        """
+        hostapd_logs = dict()
+        for identifier in self._aps:
+            hostapd_logs[identifier] = self._aps.get(
+                identifier).hostapd.pull_logs()
+        return hostapd_logs
 
     def start_nat(self):
         """Start NAT on the AP.
@@ -451,6 +505,9 @@ class AccessPoint(object):
         for interface in interfaces:
             self.ssh.run('brctl addif {bridge_name} {interface}'.format(
                 bridge_name=bridge_name, interface=interface))
+
+        self.ssh.run(
+            'ip link set {bridge_name} up'.format(bridge_name=bridge_name))
 
     def remove_bridge(self, bridge_name):
         """Removes the specified bridge
@@ -793,3 +850,18 @@ class AccessPoint(object):
             self.start_ap(config,
                           setup_bridge=setup_bridge,
                           additional_parameters=additional_parameters)
+
+    def channel_switch(self, identifier, channel_num):
+        """Switch to a different channel on the given AP."""
+        if identifier not in list(self._aps.keys()):
+            raise ValueError('Invalid identifier %s given' % identifier)
+        instance = self._aps.get(identifier)
+        self.log.info('channel switch to channel {}'.format(channel_num))
+        instance.hostapd.channel_switch(channel_num)
+
+    def get_current_channel(self, identifier):
+        """Find the current channel on the given AP."""
+        if identifier not in list(self._aps.keys()):
+            raise ValueError('Invalid identifier %s given' % identifier)
+        instance = self._aps.get(identifier)
+        return instance.hostapd.get_current_channel()

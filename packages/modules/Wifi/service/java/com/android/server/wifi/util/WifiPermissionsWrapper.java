@@ -16,11 +16,8 @@
 
 package com.android.server.wifi.util;
 
-import android.Manifest;
 import android.app.ActivityManager;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.util.Log;
 
 /**
  * A wifi permissions dependency class to wrap around external
@@ -29,7 +26,6 @@ import android.util.Log;
 public class WifiPermissionsWrapper {
     private static final String TAG = "WifiPermissionsWrapper";
     private final Context mContext;
-    private boolean mVerboseLoggingEnabled;
 
     public WifiPermissionsWrapper(Context context) {
         mContext = context;
@@ -47,12 +43,7 @@ public class WifiPermissionsWrapper {
      */
     public int getUidPermission(String permissionType, int uid) {
         // We don't care about pid, pass in -1
-        int granted = mContext.checkPermission(permissionType, -1, uid);
-        if (mVerboseLoggingEnabled) {
-            Log.v(TAG, "getUidPermission(" + permissionType + ", " + uid + "): "
-                    + (granted == PackageManager.PERMISSION_GRANTED));
-        }
-        return granted;
+        return mContext.checkPermission(permissionType, -1, uid);
     }
 
     /**
@@ -65,20 +56,4 @@ public class WifiPermissionsWrapper {
         return getUidPermission(android.Manifest.permission.OVERRIDE_WIFI_CONFIG, uid);
     }
 
-    /**
-     * Determines if the caller has local mac address permission.
-     *
-     * @param uid to check the permission for
-     * @return int representation of success or denied
-     */
-    public int getLocalMacAddressPermission(int uid) {
-        return getUidPermission(Manifest.permission.LOCAL_MAC_ADDRESS, uid);
-    }
-
-    /**
-     * Sets the verbose logging level.
-     */
-    public void enableVerboseLogging(boolean enabled) {
-        mVerboseLoggingEnabled = enabled;
-    }
 }

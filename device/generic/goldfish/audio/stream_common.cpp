@@ -22,7 +22,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::hardware::Void;
@@ -87,7 +87,7 @@ Result StreamCommon::setDevices(const hidl_vec<DeviceAddress>& devices) const {
 }
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

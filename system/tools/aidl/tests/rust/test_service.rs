@@ -16,13 +16,20 @@
 
 //! Test Rust service for the AIDL compiler.
 
+use aidl_test_fixedsizearray::aidl::android::aidl::fixedsizearray::FixedSizeArrayExample::{
+    IRepeatFixedSizeArray, IntParcelable::IntParcelable,
+};
+use aidl_test_interface::aidl::android::aidl::tests::nested::{
+    INestedService, ParcelableWithNested,
+};
 use aidl_test_interface::aidl::android::aidl::tests::ITestService::{
-    self, BnTestService, BpTestService,
+    self, BnTestService, BpTestService, Empty::Empty,
 };
 use aidl_test_interface::aidl::android::aidl::tests::{
+    extension::ExtendableParcelable::ExtendableParcelable, extension::MyExt::MyExt,
     BackendType::BackendType, ByteEnum::ByteEnum, ConstantExpressionEnum::ConstantExpressionEnum,
-    INamedCallback, INewName, IOldName, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable,
-    Union,
+    INamedCallback, INewName, IOldName, IntEnum::IntEnum, LongEnum::LongEnum,
+    RecursiveList::RecursiveList, StructuredParcelable, Union,
 };
 use aidl_test_interface::binder::{
     self, BinderFeatures, Interface, ParcelFileDescriptor, SpIBinder,
@@ -174,6 +181,87 @@ impl ITestService::ITestService for TestService {
         service.GetName().map(|found_name| found_name == name)
     }
 
+    fn GetInterfaceArray(
+        &self,
+        names: &[String],
+    ) -> binder::Result<Vec<binder::Strong<dyn INamedCallback::INamedCallback>>> {
+        names.iter().map(|name| self.GetOtherTestService(name)).collect()
+    }
+
+    fn VerifyNamesWithInterfaceArray(
+        &self,
+        services: &[binder::Strong<dyn INamedCallback::INamedCallback>],
+        names: &[String],
+    ) -> binder::Result<bool> {
+        if services.len() == names.len() {
+            for (s, n) in services.iter().zip(names) {
+                if !self.VerifyName(s, n)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn GetNullableInterfaceArray(
+        &self,
+        names: Option<&[Option<String>]>,
+    ) -> binder::Result<Option<Vec<Option<binder::Strong<dyn INamedCallback::INamedCallback>>>>>
+    {
+        if let Some(names) = names {
+            let mut services = vec![];
+            for name in names {
+                if let Some(name) = name {
+                    services.push(Some(self.GetOtherTestService(name)?));
+                } else {
+                    services.push(None);
+                }
+            }
+            Ok(Some(services))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn VerifyNamesWithNullableInterfaceArray(
+        &self,
+        services: Option<&[Option<binder::Strong<dyn INamedCallback::INamedCallback>>]>,
+        names: Option<&[Option<String>]>,
+    ) -> binder::Result<bool> {
+        if let (Some(services), Some(names)) = (services, names) {
+            for (s, n) in services.iter().zip(names) {
+                if let (Some(s), Some(n)) = (s, n) {
+                    if !self.VerifyName(s, n)? {
+                        return Ok(false);
+                    }
+                } else if s.is_some() || n.is_some() {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        } else {
+            Ok(services.is_none() && names.is_none())
+        }
+    }
+
+    fn GetInterfaceList(
+        &self,
+        names: Option<&[Option<String>]>,
+    ) -> binder::Result<Option<Vec<Option<binder::Strong<dyn INamedCallback::INamedCallback>>>>>
+    {
+        self.GetNullableInterfaceArray(names)
+    }
+
+    fn VerifyNamesWithInterfaceList(
+        &self,
+        services: Option<&[Option<binder::Strong<dyn INamedCallback::INamedCallback>>]>,
+        names: Option<&[Option<String>]>,
+    ) -> binder::Result<bool> {
+        self.VerifyNamesWithNullableInterfaceArray(services, names)
+    }
+
     fn RepeatParcelFileDescriptor(
         &self,
         read: &ParcelFileDescriptor,
@@ -209,18 +297,26 @@ impl ITestService::ITestService for TestService {
         Ok(input.map(String::from))
     }
 
-    fn RepeatNullableParcelable(
-        &self,
-        input: Option<&StructuredParcelable::StructuredParcelable>,
-    ) -> binder::Result<Option<StructuredParcelable::StructuredParcelable>> {
+    fn RepeatNullableParcelable(&self, input: Option<&Empty>) -> binder::Result<Option<Empty>> {
         Ok(input.cloned())
     }
+
+    impl_repeat_nullable! {RepeatNullableParcelableArray, Option<Empty>}
+    impl_repeat_nullable! {RepeatNullableParcelableList, Option<Empty>}
 
     fn TakesAnIBinder(&self, _: &SpIBinder) -> binder::Result<()> {
         Ok(())
     }
 
     fn TakesANullableIBinder(&self, _: Option<&SpIBinder>) -> binder::Result<()> {
+        Ok(())
+    }
+
+    fn TakesAnIBinderList(&self, _: &[SpIBinder]) -> binder::Result<()> {
+        Ok(())
+    }
+
+    fn TakesANullableIBinderList(&self, _: Option<&[Option<SpIBinder>]>) -> binder::Result<()> {
         Ok(())
     }
 
@@ -289,18 +385,75 @@ impl ITestService::ITestService for TestService {
         Ok(())
     }
 
+    fn RepeatExtendableParcelable(
+        &self,
+        ep: &ExtendableParcelable,
+        ep2: &mut ExtendableParcelable,
+    ) -> binder::Result<()> {
+        ep2.a = ep.a;
+        ep2.b = ep.b.clone();
+
+        let my_ext = ep.ext.get_parcelable::<MyExt>()?;
+        if let Some(my_ext) = my_ext {
+            ep2.ext.set_parcelable(my_ext)?;
+        } else {
+            ep2.ext.reset();
+        }
+
+        Ok(())
+    }
+
+    fn ReverseList(&self, list: &RecursiveList) -> binder::Result<RecursiveList> {
+        let mut reversed: Option<RecursiveList> = None;
+        let mut cur: Option<&RecursiveList> = Some(list);
+        while let Some(node) = cur {
+            reversed = Some(RecursiveList { value: node.value, next: reversed.map(Box::new) });
+            cur = node.next.as_ref().map(|n| n.as_ref());
+        }
+        // `list` is always not empty, so is `reversed`.
+        Ok(reversed.unwrap())
+    }
+
+    fn ReverseIBinderArray(
+        &self,
+        input: &[SpIBinder],
+        repeated: &mut Vec<Option<SpIBinder>>,
+    ) -> binder::Result<Vec<SpIBinder>> {
+        *repeated = input.iter().cloned().map(Some).collect();
+        Ok(input.iter().rev().cloned().collect())
+    }
+
+    fn ReverseNullableIBinderArray(
+        &self,
+        input: Option<&[Option<SpIBinder>]>,
+        repeated: &mut Option<Vec<Option<SpIBinder>>>,
+    ) -> binder::Result<Option<Vec<Option<SpIBinder>>>> {
+        let input = input.expect("input is null");
+        *repeated = Some(input.to_vec());
+        Ok(Some(input.iter().rev().cloned().collect()))
+    }
+
     fn GetOldNameInterface(&self) -> binder::Result<binder::Strong<dyn IOldName::IOldName>> {
-        Ok(IOldName::BnOldName::new_binder(
-            OldName,
-            BinderFeatures::default(),
-        ))
+        Ok(IOldName::BnOldName::new_binder(OldName, BinderFeatures::default()))
     }
 
     fn GetNewNameInterface(&self) -> binder::Result<binder::Strong<dyn INewName::INewName>> {
-        Ok(INewName::BnNewName::new_binder(
-            NewName,
-            BinderFeatures::default(),
-        ))
+        Ok(INewName::BnNewName::new_binder(NewName, BinderFeatures::default()))
+    }
+
+    fn GetUnionTags(&self, input: &[Union::Union]) -> binder::Result<Vec<Union::Tag::Tag>> {
+        Ok(input
+            .iter()
+            .map(|u| match u {
+                Union::Union::Ns(_) => Union::Tag::Tag::ns,
+                Union::Union::N(_) => Union::Tag::Tag::n,
+                Union::Union::M(_) => Union::Tag::Tag::m,
+                Union::Union::S(_) => Union::Tag::Tag::s,
+                Union::Union::Ibinder(_) => Union::Tag::Tag::ibinder,
+                Union::Union::Ss(_) => Union::Tag::Tag::ss,
+                Union::Union::Be(_) => Union::Tag::Tag::be,
+            })
+            .collect::<Vec<_>>())
     }
 
     fn GetCppJavaTests(&self) -> binder::Result<Option<SpIBinder>> {
@@ -328,8 +481,107 @@ impl IFooInterface::IFooInterface for FooInterface {
     fn returnsLengthOfFooArray(&self, foos: &[Foo]) -> binder::Result<i32> {
         Ok(foos.len() as i32)
     }
-    fn ignoreParcelablesAndRepeatInt(&self, _in_foo: &Foo, _inout_foo: &mut Foo, _out_foo: &mut Foo, value: i32) -> binder::Result<i32> {
+    fn ignoreParcelablesAndRepeatInt(
+        &self,
+        _in_foo: &Foo,
+        _inout_foo: &mut Foo,
+        _out_foo: &mut Foo,
+        value: i32,
+    ) -> binder::Result<i32> {
         Ok(value)
+    }
+}
+
+struct NestedService;
+
+impl Interface for NestedService {}
+
+impl INestedService::INestedService for NestedService {
+    fn flipStatus(
+        &self,
+        p: &ParcelableWithNested::ParcelableWithNested,
+    ) -> binder::Result<INestedService::Result::Result> {
+        if p.status == ParcelableWithNested::Status::Status::OK {
+            Ok(INestedService::Result::Result {
+                status: ParcelableWithNested::Status::Status::NOT_OK,
+            })
+        } else {
+            Ok(INestedService::Result::Result { status: ParcelableWithNested::Status::Status::OK })
+        }
+    }
+    fn flipStatusWithCallback(
+        &self,
+        st: ParcelableWithNested::Status::Status,
+        cb: &binder::Strong<dyn INestedService::ICallback::ICallback>,
+    ) -> binder::Result<()> {
+        if st == ParcelableWithNested::Status::Status::OK {
+            cb.done(ParcelableWithNested::Status::Status::NOT_OK)
+        } else {
+            cb.done(ParcelableWithNested::Status::Status::OK)
+        }
+    }
+}
+
+struct FixedSizeArrayService;
+
+impl Interface for FixedSizeArrayService {}
+
+impl IRepeatFixedSizeArray::IRepeatFixedSizeArray for FixedSizeArrayService {
+    fn RepeatBytes(&self, input: &[u8; 3], repeated: &mut [u8; 3]) -> binder::Result<[u8; 3]> {
+        *repeated = *input;
+        Ok(*input)
+    }
+    fn RepeatInts(&self, input: &[i32; 3], repeated: &mut [i32; 3]) -> binder::Result<[i32; 3]> {
+        *repeated = *input;
+        Ok(*input)
+    }
+    fn RepeatBinders(
+        &self,
+        input: &[SpIBinder; 3],
+        repeated: &mut [Option<SpIBinder>; 3],
+    ) -> binder::Result<[SpIBinder; 3]> {
+        *repeated = input.clone().map(Some);
+        Ok(input.clone())
+    }
+    fn RepeatParcelables(
+        &self,
+        input: &[IntParcelable; 3],
+        repeated: &mut [IntParcelable; 3],
+    ) -> binder::Result<[IntParcelable; 3]> {
+        *repeated = *input;
+        Ok(*input)
+    }
+    fn Repeat2dBytes(
+        &self,
+        input: &[[u8; 3]; 2],
+        repeated: &mut [[u8; 3]; 2],
+    ) -> binder::Result<[[u8; 3]; 2]> {
+        *repeated = *input;
+        Ok(*input)
+    }
+    fn Repeat2dInts(
+        &self,
+        input: &[[i32; 3]; 2],
+        repeated: &mut [[i32; 3]; 2],
+    ) -> binder::Result<[[i32; 3]; 2]> {
+        *repeated = *input;
+        Ok(*input)
+    }
+    fn Repeat2dBinders(
+        &self,
+        input: &[[SpIBinder; 3]; 2],
+        repeated: &mut [[Option<SpIBinder>; 3]; 2],
+    ) -> binder::Result<[[SpIBinder; 3]; 2]> {
+        *repeated = input.clone().map(|nested| nested.map(Some));
+        Ok(input.clone())
+    }
+    fn Repeat2dParcelables(
+        &self,
+        input: &[[IntParcelable; 3]; 2],
+        repeated: &mut [[IntParcelable; 3]; 2],
+    ) -> binder::Result<[[IntParcelable; 3]; 2]> {
+        *repeated = *input;
+        Ok(*input)
     }
 }
 
@@ -344,6 +596,22 @@ fn main() {
     let versioned_service_name = <BpFooInterface as IFooInterface::IFooInterface>::get_descriptor();
     let versioned_service = BnFooInterface::new_binder(FooInterface, BinderFeatures::default());
     binder::add_service(versioned_service_name, versioned_service.as_binder())
+        .expect("Could not register service");
+
+    let nested_service_name =
+        <INestedService::BpNestedService as INestedService::INestedService>::get_descriptor();
+    let nested_service =
+        INestedService::BnNestedService::new_binder(NestedService, BinderFeatures::default());
+    binder::add_service(nested_service_name, nested_service.as_binder())
+        .expect("Could not register service");
+
+    let fixed_size_array_service_name =
+        <IRepeatFixedSizeArray::BpRepeatFixedSizeArray as IRepeatFixedSizeArray::IRepeatFixedSizeArray>::get_descriptor();
+    let fixed_size_array_service = IRepeatFixedSizeArray::BnRepeatFixedSizeArray::new_binder(
+        FixedSizeArrayService,
+        BinderFeatures::default(),
+    );
+    binder::add_service(fixed_size_array_service_name, fixed_size_array_service.as_binder())
         .expect("Could not register service");
 
     binder::ProcessState::join_thread_pool();

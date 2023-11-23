@@ -15,6 +15,7 @@
  */
 package android.car.hardware.property;
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -29,18 +30,22 @@ public class VehicleElectronicTollCollectionCardStatus {
     /**
      * Status could not be determined
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     /**
      * A valid electronic toll collection card is present
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ELECTRONIC_TOLL_COLLECTION_CARD_VALID = 1;
     /**
      * An electronic toll collection card is present, but it is expired or otherwise invalid
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ELECTRONIC_TOLL_COLLECTION_CARD_INVALID = 2;
     /**
      * No electronic toll collection card is inserted in the reader
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED = 3;
 
     /** @hide */

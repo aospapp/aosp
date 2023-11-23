@@ -39,24 +39,24 @@ Nanoapp::Nanoapp() {
   cycleWakeupBuckets(1);
 }
 
-Nanoapp::~Nanoapp() {
-  const size_t totalAllocatedBytes = getTotalAllocatedBytes();
-
-  if (totalAllocatedBytes > 0) {
-    // TODO: Consider asserting here
-    LOGE("Nanoapp ID=0x%016" PRIx64 " still has %zu allocated bytes!",
-         getAppId(), totalAllocatedBytes);
-  }
-}
-
-bool Nanoapp::isRegisteredForBroadcastEvent(uint16_t eventType,
-                                            uint16_t targetGroupIdMask) const {
+bool Nanoapp::isRegisteredForBroadcastEvent(const Event *event) const {
   bool registered = false;
-  size_t foundIndex = registrationIndex(eventType);
-  if (foundIndex < mRegisteredEvents.size()) {
-    const EventRegistration &reg = mRegisteredEvents[foundIndex];
-    if (targetGroupIdMask & reg.groupIdMask) {
-      registered = true;
+  uint16_t eventType = event->eventType;
+  uint16_t targetGroupIdMask = event->targetAppGroupMask;
+
+  // The host endpoint notification is a special case, because it requires
+  // explicit registration using host endpoint IDs rather than masks.
+  if (eventType == CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION) {
+    const auto *data =
+        static_cast<const chreHostEndpointNotification *>(event->eventData);
+    registered = isRegisteredForHostEndpointNotifications(data->hostEndpointId);
+  } else {
+    size_t foundIndex = registrationIndex(eventType);
+    if (foundIndex < mRegisteredEvents.size()) {
+      const EventRegistration &reg = mRegisteredEvents[foundIndex];
+      if (targetGroupIdMask & reg.groupIdMask) {
+        registered = true;
+      }
     }
   }
   return registered;
@@ -122,23 +122,17 @@ void Nanoapp::configureUserSettingEvent(uint8_t setting, bool enable) {
   }
 }
 
-Event *Nanoapp::processNextEvent() {
-  Event *event = mEventQueue.pop();
-
-  CHRE_ASSERT_LOG(event != nullptr, "Tried delivering event, but queue empty");
-  if (event != nullptr) {
-    if (event->eventType == CHRE_EVENT_GNSS_DATA) {
-      handleGnssMeasurementDataEvent(event);
-    } else {
-      handleEvent(event->senderInstanceId, event->eventType, event->eventData);
-    }
+void Nanoapp::processEvent(Event *event) {
+  if (event->eventType == CHRE_EVENT_GNSS_DATA) {
+    handleGnssMeasurementDataEvent(event);
+  } else {
+    handleEvent(event->senderInstanceId, event->eventType, event->eventData);
   }
-
-  return event;
 }
 
 void Nanoapp::blameHostWakeup() {
   if (mWakeupBuckets.back() < UINT16_MAX) ++mWakeupBuckets.back();
+  if (mNumWakeupsSinceBoot < UINT32_MAX) ++mNumWakeupsSinceBoot;
 }
 
 void Nanoapp::cycleWakeupBuckets(size_t numBuckets) {
@@ -152,7 +146,7 @@ void Nanoapp::cycleWakeupBuckets(size_t numBuckets) {
 }
 
 void Nanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {
-  debugDump.print(" Id=%" PRIu32 " 0x%016" PRIx64 " ", getInstanceId(),
+  debugDump.print(" Id=%" PRIu16 " 0x%016" PRIx64 " ", getInstanceId(),
                   getAppId());
   PlatformNanoapp::logStateToBuffer(debugDump);
   debugDump.print(" v%" PRIu32 ".%" PRIu32 ".%" PRIu32 " tgtAPI=%" PRIu32
@@ -169,7 +163,10 @@ void Nanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {
     debugDump.print("%" PRIu16 ", ", mWakeupBuckets[i]);
   }
   // Earliest bucket gets no comma
-  debugDump.print("%" PRIu16 " ]\n", mWakeupBuckets.front());
+  debugDump.print("%" PRIu16 " ]", mWakeupBuckets.front());
+
+  // Print total wakeups since boot
+  debugDump.print(" totWakeups=%" PRIu32 " ]\n", mNumWakeupsSinceBoot);
 }
 
 bool Nanoapp::permitPermissionUse(uint32_t permission) const {
@@ -202,6 +199,66 @@ void Nanoapp::handleGnssMeasurementDataEvent(const Event *event) {
 #endif  // CHRE_GNSS_MEASUREMENT_BACK_COMPAT_ENABLED
   {
     handleEvent(event->senderInstanceId, event->eventType, event->eventData);
+  }
+}
+
+bool Nanoapp::configureHostEndpointNotifications(uint16_t hostEndpointId,
+                                                 bool enable) {
+  bool success = true;
+  bool registered = isRegisteredForHostEndpointNotifications(hostEndpointId);
+  if (enable && !registered) {
+    success = mRegisteredHostEndpoints.push_back(hostEndpointId);
+    if (!success) {
+      LOG_OOM();
+    }
+  } else if (!enable && registered) {
+    size_t index = mRegisteredHostEndpoints.find(hostEndpointId);
+    mRegisteredHostEndpoints.erase(index);
+  }
+
+  return success;
+}
+
+bool Nanoapp::publishRpcServices(struct chreNanoappRpcService *services,
+                                 size_t numServices) {
+  // TODO(b/204426460): Validate this code is only called from nanoappStart().
+  bool success = true;
+  for (size_t i = 0; i < numServices; i++) {
+    if (!mRpcServices.push_back(services[i])) {
+      LOG_OOM();
+      success = false;
+    }
+  }
+
+  return success;
+}
+
+void Nanoapp::linkHeapBlock(HeapBlockHeader *header) {
+  header->data.next = mFirstHeader;
+  mFirstHeader = header;
+}
+
+void Nanoapp::unlinkHeapBlock(HeapBlockHeader *header) {
+  if (mFirstHeader == nullptr) {
+    // The list is empty.
+    return;
+  }
+
+  if (header == mFirstHeader) {
+    mFirstHeader = header->data.next;
+    return;
+  }
+
+  HeapBlockHeader *previous = mFirstHeader;
+  HeapBlockHeader *current = mFirstHeader->data.next;
+
+  while (current != nullptr) {
+    if (current == header) {
+      previous->data.next = current->data.next;
+      break;
+    }
+    previous = current;
+    current = current->data.next;
   }
 }
 

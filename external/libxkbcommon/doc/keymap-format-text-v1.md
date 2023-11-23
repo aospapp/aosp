@@ -3,6 +3,12 @@
 This document describes the `XKB_KEYMAP_FORMAT_TEXT_V1` keymap format,
 as implemented by libxkbcommon.
 
+NOTE: This document is ever incomplete. Some additional resources are:
+
+- [Ivan Pascal's XKB documentation](https://web.archive.org/web/20190724015820/http://pascal.tsu.ru/en/xkb/)
+- [An Unreliable Guide to XKB Configuration](https://www.charvolant.org/doug/xkb/html/index.html)
+- [ArchWiki XKB page](https://wiki.archlinux.org/index.php/X_keyboard_extension)
+
 A keymap consists of a single top-level `xkb_keymap` block, underwhich
 are nested the following sections.
 
@@ -26,7 +32,7 @@ assign them the names `TLDE` and `AE01` respectively. The format
 `<WXYZ>` is always used to refer to a key by name.
 
 [The naming convention `<AE01>` just denotes the position of the key
-in the main alphanumric section of a standard QWERTY keyboard, with
+in the main alphanumeric section of a standard QWERTY keyboard, with
 the two letters specifying the row and the two digits specifying the
 column, from the bottom left.]
 
@@ -69,7 +75,7 @@ section and by the user.
 
 ## The `xkb_types` section
 
-This section is the second to be processesed, after `xkb_keycodes`.
+This section is the second to be processed, after `xkb_keycodes`.
 However, it is completely independent and could have been the first to
 be processed (it does not refer to specific keys as specified in the
 `xkb_keycodes` section).
@@ -299,7 +305,7 @@ statements:
 If the given modifiers are in the required state (see below), the
 LED is lit.
 
-#### `whichModState` statment
+#### `whichModState` statement
 
     whichModState = Latched+Locked;
 
@@ -351,11 +357,109 @@ satisfied the LED is lit.
 
 ## The `xkb_symbols` section
 
-This section is the fourth to be processed, after `xkb_keycodes`,
-`xkb_types` and `xkb_compat`.
+NOTE: The documentation of this section is incomplete.
 
-TODO
+This section is the fourth to be processed, after `xkb_keycodes`, `xkb_types`
+and `xkb_compat`.
 
+Statements of the form:
+
+    xkb_symbols "basic" {
+        ...
+    }
+
+Declare a symbols map named `basic`. Statements inside the curly braces only
+affect the symbols map.
+
+A map can have various flags applied to it above the statement, separated by
+whitespace:
+
+    partial alphanumeric_keys
+    xkb_symbols "basic" {
+        ...
+    }
+
+The possible flags are:
+
+  * `partial` - Indicates that the map doesn't cover a complete keyboard.
+  * `default` - Marks the symbol map as the default map in the file when no
+    explicit map is specified. If no map is marked as a default, the first map
+    in the file is the default.
+  * `hidden` - Variant that can only be used internally
+  * `alphanumeric_keys` - Indicates that the map contains alphanumeric keys
+  * `modifier_keys` - Indicates that the map contains modifier keys
+  * `keypad_keys` - Indicates that the map contains keypad keys
+  * `function_keys` - Indicates that the map contains function keys
+  * `alternate_group` - Indicates that the map contains keys for an alternate
+    group
+
+If no `*_keys` flags are supplied, then the map is assumed to cover a complete
+keyboard.
+
+At present, except for `default`, none of the flags affect key processing in
+libxkbcommon, and only serve as metadata.
+
+### Name statements
+
+Statements of the form:
+
+    name[Group1] = "US/ASCII";
+    groupName[1] = "US/ASCII";
+
+Gives the name "US/ASCII" to the first group of symbols. Other groups can be
+named using a different group index (ex: `Group2`), and with a different name.
+A group must be named.
+
+`group` and `groupName` mean the same thing, and the `Group` in `Group1` is
+optional.
+
+### Include statements
+
+Statements of the form:
+
+    include "nokia_vndr/rx-51(nordic_base)
+
+Will include data from another `xkb_symbols` section, possibly located in
+another file. Here it would include the `xkb_symbols` section called
+`nordic_base`, from the file `rx-51` located in the `nokia_vndr` folder, itself
+located in an XKB include path.
+
+### Key statement
+
+Statements of the form:
+
+    key <AD01> { [ q, Q ] };
+
+Describes the mapping of a keycode `<AD01>` to a given group of symbols. The
+possible keycodes are the keycodes defined in the `xkb_keycodes` section.
+
+Symbols are named using the symbolic names from the
+`xkbcommon/xkbcommon-keysyms.h` file. A group of symbols is enclosed in brackets
+and separated by commas. Each element of the symbol arrays corresponds to a
+different modifier level. In this example, the symbol (keysym) `XKB_KEY_q` for
+level 1 and `XKB_KEY_Q` for level 2.
+
+#### Groups
+
+Each group represents a list of symbols mapped to a keycode:
+
+    name[Group1]= "US/ASCII";
+    name[Group2]= "Russian";
+    ...
+    key <AD01> { [ q, Q ],
+                 [ Cyrillic_shorti, Cyrillic_SHORTI ] };
+
+A long-form syntax can also be used:
+
+    key <AD01> {
+        symbols[Group1]= [ q, Q ],
+        symbols[Group2]= [ Cyrillic_shorti, Cyrillic_SHORTI ]
+    };
+
+Groups can also be omitted, but the brackets must be present. The following
+statement only defines the Group3 of a mapping:
+
+    key <AD01> { [], [], [ q, Q ] };
 
 ## Virtual modifier statements
 

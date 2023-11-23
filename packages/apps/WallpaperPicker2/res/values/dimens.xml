@@ -139,6 +139,7 @@
     <dimen name="preview_page_horizontal_margin">56dp</dimen>
     <dimen name="preview_page_top_margin">24dp</dimen>
     <dimen name="preview_page_bottom_margin">24dp</dimen>
+    <dimen name="preview_card_vertical_bias">0.5</dimen>
     <dimen name="preview_card_padding">20dp</dimen>
     <dimen name="preview_pager_max_height">450dp</dimen>
     <dimen name="preview_pager_min_height">350dp</dimen>
@@ -146,14 +147,18 @@
     <item name="preview_pager_maximum_height_ratio" format="float" type="dimen">0.7</item>
 
     <!-- Dimensions for full preview page -->
+    <dimen name="full_preview_page_vertical_bias">0.5</dimen>
     <dimen name="full_preview_page_default_padding_top">24dp</dimen>
     <dimen name="full_preview_page_default_padding_bottom">32dp</dimen>
+    <dimen name="full_preview_page_default_horizontal_padding">24dp</dimen>
+    <dimen name="full_preview_page_tabs_horizontal_padding">20dp</dimen>
 
     <!-- Dimensions for the bottom bar. -->
     <dimen name="bottom_actions_height">84dp</dimen>
     <dimen name="bottom_actions_top_padding">24dp</dimen>
     <dimen name="bottom_actions_bottom_padding">12dp</dimen>
-    <dimen name="bottom_actions_horizontal_margin">0dp</dimen>
+    <dimen name="bottom_actions_horizontal_padding">0dp</dimen>
+    <dimen name="bottom_action_button_wide_width">96dp</dimen>
     <dimen name="bottom_action_button_width">72dp</dimen>
     <dimen name="bottom_action_button_height">48dp</dimen>
     <dimen name="bottom_action_button_padding_horizontal">26dp</dimen>
@@ -169,6 +174,7 @@
     <dimen name="wallpaper_info_pane_padding">24dp</dimen>
     <dimen name="wallpaper_info_pane_subtitle1_top_margin">4dp</dimen>
     <dimen name="wallpaper_info_pane_subtitle2_top_margin">24dp</dimen>
+    <dimen name="wallpaper_info_pane_interaction_top_margin">39dp</dimen>
     <dimen name="wallpaper_info_pane_explore_button_top_margin">50dp</dimen>
 
     <dimen name="option_border_width">2dp</dimen>
@@ -198,16 +204,20 @@
 
     <!-- Common dimensions for option sections -->
     <dimen name="section_container_vertical_margin">24dp</dimen>
+    <dimen name="wallpaper_section_horizontal_padding">24dp</dimen>
     <dimen name="section_horizontal_padding">24dp</dimen>
     <dimen name="section_vertical_padding">24dp</dimen>
-    <dimen name="section_top_padding">16dp</dimen>
+    <dimen name="section_top_padding">24dp</dimen>
     <dimen name="section_bottom_padding">16dp</dimen>
 
     <!-- For the wallpaper section -->
-    <dimen name="wallpaper_preview_margin_top">24dp</dimen>
+    <dimen name="wallpaper_preview_margin_top">16dp</dimen>
+    <dimen name="wallpaper_preview_horizontal_padding">16dp</dimen>
+    <dimen name="wallpaper_preview_home_and_lock_margin">8dp</dimen>
     <dimen name="wallpaper_picker_entry_drawable_padding">8dp</dimen>
     <dimen name="wallpaper_picker_entry_horizontal_padding">16dp</dimen>
-    <dimen name="wallpaper_picker_entry_margin_vertical">18dp</dimen>
+    <dimen name="wallpaper_picker_entry_margin_vertical">16dp</dimen>
+    <dimen name="wallpaper_picker_entry_card_corner_radius">12dp</dimen>
 
     <!-- For the full screen preview activity's hide UI menu item -->
     <dimen name="menu_item_hide_ui_background_width">46dp</dimen>
@@ -219,4 +229,9 @@
     <dimen name="menu_item_set_wallpaper_background_width">92dp</dimen>
     <dimen name="menu_item_set_wallpaper_background_height">46dp</dimen>
     <dimen name="menu_item_set_wallpaper_background_radius">24dp</dimen>
+
+    <!-- For the wallpaper effect -->
+    <dimen name="wallpaper_effect_failed_button_background_radius">50dp</dimen>
+    <dimen name="wallpaper_effect_failed_button_height">36dp</dimen>
+    <dimen name="wallpaper_effect_failed_button_horizontal_padding">16dp</dimen>
 </resources>

@@ -24,6 +24,7 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsBiometricsTestCases.apk" />
         <option name="test-file-name" value="CtsBiometricServiceTestApp.apk" />
+        <option name="test-file-name" value="CtsBiometricServiceUtilTestApp.apk" />
         <option name="test-file-name" value="CtsFingerprintServiceTestApp.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

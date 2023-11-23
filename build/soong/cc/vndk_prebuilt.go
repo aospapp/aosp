@@ -82,7 +82,7 @@ func (p *vndkPrebuiltLibraryDecorator) Name(name string) string {
 }
 
 func (p *vndkPrebuiltLibraryDecorator) NameSuffix() string {
-	suffix := p.version()
+	suffix := p.Version()
 	if p.arch() != "" {
 		suffix += "." + p.arch()
 	}
@@ -92,7 +92,7 @@ func (p *vndkPrebuiltLibraryDecorator) NameSuffix() string {
 	return vndkSuffix + suffix
 }
 
-func (p *vndkPrebuiltLibraryDecorator) version() string {
+func (p *vndkPrebuiltLibraryDecorator) Version() string {
 	return String(p.properties.Version)
 }
 
@@ -107,7 +107,7 @@ func (p *vndkPrebuiltLibraryDecorator) binderBit() string {
 	return "64"
 }
 
-func (p *vndkPrebuiltLibraryDecorator) snapshotAndroidMkSuffix() string {
+func (p *vndkPrebuiltLibraryDecorator) SnapshotAndroidMkSuffix() string {
 	return ".vendor"
 }
 
@@ -133,7 +133,7 @@ func (p *vndkPrebuiltLibraryDecorator) singleSourcePath(ctx ModuleContext) andro
 func (p *vndkPrebuiltLibraryDecorator) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 
-	if !p.matchesWithDevice(ctx.DeviceConfig()) {
+	if !p.MatchesWithDevice(ctx.DeviceConfig()) {
 		ctx.Module().HideFromMake()
 		return nil
 	}
@@ -144,7 +144,6 @@ func (p *vndkPrebuiltLibraryDecorator) link(ctx ModuleContext,
 		// current VNDK prebuilts are only shared libs.
 
 		in := p.singleSourcePath(ctx)
-		builderFlags := flagsToBuilderFlags(flags)
 		p.unstrippedOutputFile = in
 		libName := in.Base()
 		if p.stripper.NeedsStrip(ctx) {
@@ -158,19 +157,18 @@ func (p *vndkPrebuiltLibraryDecorator) link(ctx ModuleContext,
 		// depending on a table of contents file instead of the library itself.
 		tocFile := android.PathForModuleOut(ctx, libName+".toc")
 		p.tocFile = android.OptionalPathForPath(tocFile)
-		transformSharedObjectToToc(ctx, in, tocFile, builderFlags)
+		TransformSharedObjectToToc(ctx, in, tocFile)
 
 		p.androidMkSuffix = p.NameSuffix()
 
 		vndkVersion := ctx.DeviceConfig().VndkVersion()
-		if vndkVersion == p.version() {
+		if vndkVersion == p.Version() {
 			p.androidMkSuffix = ""
 		}
 
 		ctx.SetProvider(SharedLibraryInfoProvider, SharedLibraryInfo{
-			SharedLibrary:           in,
-			UnstrippedSharedLibrary: p.unstrippedOutputFile,
-			Target:                  ctx.Target(),
+			SharedLibrary: in,
+			Target:        ctx.Target(),
 
 			TableOfContents: p.tocFile,
 		})
@@ -184,7 +182,7 @@ func (p *vndkPrebuiltLibraryDecorator) link(ctx ModuleContext,
 	return nil
 }
 
-func (p *vndkPrebuiltLibraryDecorator) matchesWithDevice(config android.DeviceConfig) bool {
+func (p *vndkPrebuiltLibraryDecorator) MatchesWithDevice(config android.DeviceConfig) bool {
 	arches := config.Arches()
 	if len(arches) == 0 || arches[0].ArchType.String() != p.arch() {
 		return false
@@ -202,7 +200,7 @@ func (p *vndkPrebuiltLibraryDecorator) nativeCoverage() bool {
 	return false
 }
 
-func (p *vndkPrebuiltLibraryDecorator) isSnapshotPrebuilt() bool {
+func (p *vndkPrebuiltLibraryDecorator) IsSnapshotPrebuilt() bool {
 	return true
 }
 

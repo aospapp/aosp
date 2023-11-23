@@ -18,8 +18,8 @@
 #define LOG_TAG "NativeExtractorUnitTest"
 #include <log/log.h>
 
-#include <NdkMediaExtractor.h>
 #include <jni.h>
+#include <media/NdkMediaExtractor.h>
 #include <sys/stat.h>
 
 #include <cstdlib>

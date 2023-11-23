@@ -47,5 +47,5 @@ cc_test {
         "libadb_sysdeps",
     ],
 
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests", "mts-adbd"],
 }

@@ -23,6 +23,7 @@ import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_
 import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSIONS_FRAGMENT_VIEWED__CATEGORY__ALLOWED_FOREGROUND;
 import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSIONS_FRAGMENT_VIEWED__CATEGORY__DENIED;
 import static com.android.permissioncontroller.permission.ui.ManagePermissionsActivity.EXTRA_CALLER_NAME;
+import static com.android.permissioncontroller.permission.ui.handheld.v31.DashboardUtilsKt.is7DayToggleEnabled;
 
 import static java.util.concurrent.TimeUnit.DAYS;
 
@@ -37,6 +38,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -48,12 +50,13 @@ import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.PermissionControllerStatsLog;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
-import com.android.permissioncontroller.permission.model.AppPermissionUsage;
-import com.android.permissioncontroller.permission.model.PermissionUsages;
+import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage;
+import com.android.permissioncontroller.permission.model.v31.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.Category;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModel;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
+import com.android.permissioncontroller.permission.utils.StringUtils;
 
 import java.text.Collator;
 import java.time.Instant;
@@ -109,6 +112,7 @@ public class AutoAppPermissionsFragment extends AutoSettingsFrameFragment implem
         super.onCreate(savedInstanceState);
         setLoading(true);
 
+        mIsFirstLoad = true;
         mPackageName = getArguments().getString(Intent.EXTRA_PACKAGE_NAME);
         mUser = getArguments().getParcelable(Intent.EXTRA_USER);
         mIsSystemPermsScreen = getArguments().getBoolean(IS_SYSTEM_PERMS_SCREEN, true);
@@ -137,16 +141,17 @@ public class AutoAppPermissionsFragment extends AutoSettingsFrameFragment implem
         createPreferenceCategories(packageInfo);
 
         mViewModel.getPackagePermGroupsLiveData().observe(this, this::updatePreferences);
-        if (mViewModel.getPackagePermGroupsLiveData().getValue() != null) {
-            updatePreferences(mViewModel.getPackagePermGroupsLiveData().getValue());
-        }
+        updatePreferences(mViewModel.getPackagePermGroupsLiveData().getValue());
 
         if (SdkLevel.isAtLeastS()) {
             mPermissionUsages = new PermissionUsages(getContext());
 
+            long aggregateDataFilterBeginDays = is7DayToggleEnabled()
+                    ? AppPermissionGroupsViewModel.AGGREGATE_DATA_FILTER_BEGIN_DAYS_7 :
+                    AppPermissionGroupsViewModel.AGGREGATE_DATA_FILTER_BEGIN_DAYS_1;
+
             long filterTimeBeginMillis = Math.max(System.currentTimeMillis()
-                            - DAYS.toMillis(
-                    AppPermissionGroupsViewModel.AGGREGATE_DATA_FILTER_BEGIN_DAYS),
+                            - DAYS.toMillis(aggregateDataFilterBeginDays),
                     Instant.EPOCH.toEpochMilli());
             mPermissionUsages.load(null, null, filterTimeBeginMillis, Long.MAX_VALUE,
                     PermissionUsages.USAGE_FLAG_LAST, getActivity().getLoaderManager(),
@@ -206,19 +211,23 @@ public class AutoAppPermissionsFragment extends AutoSettingsFrameFragment implem
         bindUi(packageInfo);
     }
 
-    private void updatePreferences(
+    private void updatePreferences(@Nullable
             Map<Category, List<AppPermissionGroupsViewModel.GroupUiInfo>> groupMap) {
-        Context context = getPreferenceManager().getContext();
-        if (context == null) {
-            return;
-        }
-
         if (groupMap == null && mViewModel.getPackagePermGroupsLiveData().isInitialized()) {
+            // null because explicitly set to null
             Toast.makeText(
                     getActivity(), R.string.app_not_found_dlg_title, Toast.LENGTH_LONG).show();
             Log.w(LOG_TAG, "invalid package " + mPackageName);
 
             getActivity().finish();
+            return;
+        } else if (groupMap == null) {
+            // null because uninitialized
+            return;
+        }
+
+        Context context = getPreferenceManager().getContext();
+        if (context == null) {
             return;
         }
 
@@ -312,9 +321,8 @@ public class AutoAppPermissionsFragment extends AutoSettingsFrameFragment implem
                     .commit();
             return true;
         });
-        extraPerms.setSummary(getResources().getQuantityString(
-                R.plurals.additional_permissions_more, numExtraPerms,
-                numExtraPerms));
+        extraPerms.setSummary(StringUtils.getIcuPluralsString(getContext(),
+                R.string.additional_permissions_more, numExtraPerms));
         category.addPreference(extraPerms);
     }
 

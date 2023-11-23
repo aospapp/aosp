@@ -34,8 +34,12 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
 
     <application android:label="CtsWindowManagerDeviceTestCases"
-         android:requestLegacyExternalStorage="true">
+                 android:requestLegacyExternalStorage="true"
+                 android:enableOnBackInvokedCallback="true"
+                 android:testOnly="true">
         <uses-library android:name="android.test.runner"/>
+        <uses-library android:name="androidx.window.extensions"
+            android:required="false" />
 
         <activity android:name="android.server.wm.ActivityManagerTestBase$ConfigChangeHandlingActivity"
              android:resizeableActivity="true"
@@ -56,8 +60,8 @@
         <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$SecondTranslucentActivity"
              android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
-        <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$CallbackTrackingActivity"
-                  android:configChanges="keyboard|keyboardHidden|navigation"/>
+        <activity android:name="android.server.wm.lifecycle.CallbackTrackingActivity"
+             android:configChanges="keyboard|keyboardHidden|navigation"/>
 
         <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$SecondCallbackTrackingActivity"/>
 
@@ -71,7 +75,7 @@
              android:process=":SecondProcess"
              android:exported="true"/>
 
-        <provider android:name="android.server.wm.lifecycle.LifecycleLog"
+        <provider android:name="android.server.wm.lifecycle.EventLog"
              android:authorities="android.server.wm.lifecycle.logprovider"
              android:exported="true"/>
 
@@ -85,7 +89,7 @@
         <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$SingleTopActivity"
              android:launchMode="singleTop"/>
 
-        <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$ConfigChangeHandlingActivity"
+        <activity android:name="android.server.wm.lifecycle.LifecycleConfigChangeHandlingActivity"
              android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density"/>
 
         <activity android:name="android.server.wm.lifecycle.ActivityLifecycleClientTestBase$PipActivity"
@@ -302,6 +306,7 @@
              android:configChanges="orientation|screenLayout|keyboard|keyboardHidden|navigation"
              android:showWhenLocked="true"/>
         <activity android:name="android.server.wm.WindowInsetsPolicyTest$TestActivity"
+             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
              android:turnScreenOn="true"
              android:showWhenLocked="true"/>
         <activity android:name="android.server.wm.WindowInsetsPolicyTest$FullscreenTestActivity"/>
@@ -309,8 +314,6 @@
         <activity android:name="android.server.wm.WindowInsetsPolicyTest$ImmersiveFullscreenTestActivity"
              android:documentLaunchMode="always"
              android:theme="@style/no_animation"/>
-        <activity android:name="android.server.wm.WindowInsetsPolicyTest$NaturalOrientationTestActivity"
-                  android:screenOrientation="nosensor"/>
         <activity android:name="android.server.wm.LayoutTests$TestActivity"
              android:theme="@style/no_animation"/>
         <activity android:name="android.server.wm.LocationOnScreenTests$TestActivity"
@@ -336,7 +339,8 @@
         <activity android:name="android.server.wm.WindowInsetsLayoutTests$TestActivity"/>
         <activity android:name="android.server.wm.WindowInsetsControllerTests$TestActivity"
                   android:theme="@style/no_starting_window"/>
-        <activity android:name="android.server.wm.WindowInsetsControllerTests$TestHideOnCreateActivity"/>
+        <activity android:name="android.server.wm.WindowInsetsControllerTests$TestHideOnCreateActivity"
+                  android:windowSoftInputMode="adjustPan|stateUnchanged"/>
         <activity android:name="android.server.wm.WindowInsetsControllerTests$TestShowOnCreateActivity"/>
 
         <activity android:name="android.server.wm.DragDropTest$DragDropActivity"
@@ -415,6 +419,10 @@
 
         <activity android:name="android.server.wm.WindowInputTests$TestActivity" />
 
+        <activity android:name="android.server.wm.ActivityRecordInputSinkTestsActivity"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="true"/>
+
         <service android:name="android.view.cts.surfacevalidator.LocalMediaProjectionService"
              android:foregroundServiceType="mediaProjection"
              android:enabled="true">
@@ -429,9 +437,24 @@
         <activity android:name="android.server.wm.ForceRelayoutTestBase$TestActivity"
              android:exported="true"/>
 
-        <activity android:name="android.server.wm.ActivityTransitionTests$LauncherActivity"/>
+        <activity android:name="android.server.wm.ActivityTransitionTests$LauncherActivity"
+            android:theme="@style/Theme.TranslucentBars"
+            android:fitsSystemWindows="true" />
 
         <activity android:name="android.server.wm.ActivityTransitionTests$TransitionActivity"/>
+
+        <activity android:name="android.server.wm.ActivityTransitionTests$OverridePendingTransitionActivity"/>
+
+        <activity android:name="android.server.wm.ActivityTransitionTests$TransitionActivityWithWhiteBackground"
+            android:theme="@style/Theme.WhiteBackground"
+            android:exported="true"
+            android:colorMode="wideColorGamut"/>
+
+        <activity android:name="android.server.wm.ActivityTransitionTests$EdgeExtensionActivity"
+            android:theme="@style/Theme.EdgeExtensions"
+            android:exported="true"
+            android:colorMode="wideColorGamut"
+            android:fitsSystemWindows="true" />
 
         <activity android:name="android.server.wm.WindowUntrustedTouchTest$TestActivity"
                   android:exported="true"
@@ -512,7 +535,6 @@
                   android:exported="true"
                   android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density|touchscreen"
                   android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
         <activity android:name="android.server.wm.HostActivity"
                   android:exported="true">
                <intent-filter>
@@ -523,7 +545,25 @@
                  <category android:name="android.intent.category.LAUNCHER"/>
                </intent-filter>
         </activity>
+        <activity android:name="android.server.wm.KeepClearRectsTests$TestActivity"
+                  android:exported="true"
+                  android:theme="@style/NoInsetsTheme" />
+        <activity android:name="android.server.wm.KeepClearRectsTests$TranslucentTestActivity"
+                  android:exported="true"
+                  android:theme="@style/NoInsetsTheme.Translucent" />
 
+        <activity android:name="android.server.wm.SnapshotTaskTests$TestActivity"
+            android:theme="@style/WhiteBackgroundTheme"
+            android:exported="true">
+        </activity>
+        <activity android:name="android.server.wm.BackNavigationActivity"
+                  android:exported="true"/>
+        <activity android:name="android.server.wm.PinnedStackTests$TestActivity"
+                  android:exported="true"/>
+        <activity android:name="android.server.wm.TaskFragmentTrustedModeTest$TranslucentActivity"
+                  android:exported="true"
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density|touchscreen"
+                  android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

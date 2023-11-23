@@ -52,6 +52,7 @@ public class WifiGlobalsTest extends WifiBaseTest {
         mResources = new MockResources();
         mResources.setInteger(R.integer.config_wifiPollRssiIntervalMilliseconds, 3000);
         mResources.setInteger(R.integer.config_wifiClientModeImplNumLogRecs, 200);
+        mResources.setBoolean(R.bool.config_wifiSaveFactoryMacToWifiConfigStore, true);
         when(mContext.getResources()).thenReturn(mResources);
 
         mWifiGlobals = new WifiGlobals(mContext);
@@ -121,5 +122,10 @@ public class WifiGlobalsTest extends WifiBaseTest {
     @Test
     public void testNumLogRecsNormalIsSetCorrectly() throws Exception {
         assertEquals(200, mWifiGlobals.getClientModeImplNumLogRecs());
+    }
+
+    @Test
+    public void testSaveFactoryMacToConfigStoreEnabled() throws Exception {
+        assertEquals(true, mWifiGlobals.isSaveFactoryMacToConfigStoreEnabled());
     }
 }

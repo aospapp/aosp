@@ -28,6 +28,7 @@
     <int name="recipientLimit" value="40"/>
     <int name="smsToMmsTextThreshold" value="6"/>
     <int name="volte_replacement_rat_int" value="6"/>
+    <int name="default_mtu_int" value="1422"/>
     <string name="carrier_eri_file_name_string">eri_310120.xml</string>
     <string name="carrier_name_string">Sprint</string>
     <string name="emailGatewayNumber">6245</string>

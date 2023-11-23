@@ -51,11 +51,11 @@ void DeleteEmptyDirectories(const base::FilePath& path) {
 
 }  // namespace
 
-bool PrefsBase::GetString(const string& key, string* value) const {
+bool PrefsBase::GetString(const std::string_view key, string* value) const {
   return storage_->GetKey(key, value);
 }
 
-bool PrefsBase::SetString(const string& key, std::string_view value) {
+bool PrefsBase::SetString(std::string_view key, std::string_view value) {
   TEST_AND_RETURN_FALSE(storage_->SetKey(key, value));
   const auto observers_for_key = observers_.find(key);
   if (observers_for_key != observers_.end()) {
@@ -66,7 +66,7 @@ bool PrefsBase::SetString(const string& key, std::string_view value) {
   return true;
 }
 
-bool PrefsBase::GetInt64(const string& key, int64_t* value) const {
+bool PrefsBase::GetInt64(const std::string_view key, int64_t* value) const {
   string str_value;
   if (!GetString(key, &str_value))
     return false;
@@ -75,11 +75,11 @@ bool PrefsBase::GetInt64(const string& key, int64_t* value) const {
   return true;
 }
 
-bool PrefsBase::SetInt64(const string& key, const int64_t value) {
+bool PrefsBase::SetInt64(std::string_view key, const int64_t value) {
   return SetString(key, base::NumberToString(value));
 }
 
-bool PrefsBase::GetBoolean(const string& key, bool* value) const {
+bool PrefsBase::GetBoolean(std::string_view key, bool* value) const {
   string str_value;
   if (!GetString(key, &str_value))
     return false;
@@ -95,15 +95,15 @@ bool PrefsBase::GetBoolean(const string& key, bool* value) const {
   return false;
 }
 
-bool PrefsBase::SetBoolean(const string& key, const bool value) {
+bool PrefsBase::SetBoolean(std::string_view key, const bool value) {
   return SetString(key, value ? "true" : "false");
 }
 
-bool PrefsBase::Exists(const string& key) const {
+bool PrefsBase::Exists(std::string_view key) const {
   return storage_->KeyExists(key);
 }
 
-bool PrefsBase::Delete(const string& key) {
+bool PrefsBase::Delete(std::string_view key) {
   TEST_AND_RETURN_FALSE(storage_->DeleteKey(key));
   const auto observers_for_key = observers_.find(key);
   if (observers_for_key != observers_.end()) {
@@ -114,7 +114,7 @@ bool PrefsBase::Delete(const string& key) {
   return true;
 }
 
-bool PrefsBase::Delete(const string& pref_key, const vector<string>& nss) {
+bool PrefsBase::Delete(std::string_view pref_key, const vector<string>& nss) {
   // Delete pref key for platform.
   bool success = Delete(pref_key);
   // Delete pref key in each namespace.
@@ -132,16 +132,18 @@ bool PrefsBase::Delete(const string& pref_key, const vector<string>& nss) {
   return success;
 }
 
-bool PrefsBase::GetSubKeys(const string& ns, vector<string>* keys) const {
+bool PrefsBase::GetSubKeys(std::string_view ns, vector<string>* keys) const {
   return storage_->GetSubKeys(ns, keys);
 }
 
-void PrefsBase::AddObserver(const string& key, ObserverInterface* observer) {
-  observers_[key].push_back(observer);
+void PrefsBase::AddObserver(std::string_view key, ObserverInterface* observer) {
+  observers_[std::string{key}].push_back(observer);
 }
 
-void PrefsBase::RemoveObserver(const string& key, ObserverInterface* observer) {
-  std::vector<ObserverInterface*>& observers_for_key = observers_[key];
+void PrefsBase::RemoveObserver(std::string_view key,
+                               ObserverInterface* observer) {
+  std::vector<ObserverInterface*>& observers_for_key =
+      observers_[std::string{key}];
   auto observer_it =
       std::find(observers_for_key.begin(), observers_for_key.end(), observer);
   if (observer_it != observers_for_key.end())
@@ -165,7 +167,7 @@ bool Prefs::FileStorage::Init(const base::FilePath& prefs_dir) {
   return true;
 }
 
-bool Prefs::FileStorage::GetKey(const string& key, string* value) const {
+bool Prefs::FileStorage::GetKey(std::string_view key, string* value) const {
   base::FilePath filename;
   TEST_AND_RETURN_FALSE(GetFileNameForKey(key, &filename));
   if (!base::ReadFileToString(filename, value)) {
@@ -174,7 +176,7 @@ bool Prefs::FileStorage::GetKey(const string& key, string* value) const {
   return true;
 }
 
-bool Prefs::FileStorage::GetSubKeys(const string& ns,
+bool Prefs::FileStorage::GetSubKeys(std::string_view ns,
                                     vector<string>* keys) const {
   base::FilePath filename;
   TEST_AND_RETURN_FALSE(GetFileNameForKey(ns, &filename));
@@ -192,7 +194,7 @@ bool Prefs::FileStorage::GetSubKeys(const string& ns,
   return true;
 }
 
-bool Prefs::FileStorage::SetKey(const string& key, std::string_view value) {
+bool Prefs::FileStorage::SetKey(std::string_view key, std::string_view value) {
   base::FilePath filename;
   TEST_AND_RETURN_FALSE(GetFileNameForKey(key, &filename));
   if (!base::DirectoryExists(filename.DirName())) {
@@ -205,13 +207,13 @@ bool Prefs::FileStorage::SetKey(const string& key, std::string_view value) {
   return true;
 }
 
-bool Prefs::FileStorage::KeyExists(const string& key) const {
+bool Prefs::FileStorage::KeyExists(std::string_view key) const {
   base::FilePath filename;
   TEST_AND_RETURN_FALSE(GetFileNameForKey(key, &filename));
   return base::PathExists(filename);
 }
 
-bool Prefs::FileStorage::DeleteKey(const string& key) {
+bool Prefs::FileStorage::DeleteKey(std::string_view key) {
   base::FilePath filename;
   TEST_AND_RETURN_FALSE(GetFileNameForKey(key, &filename));
 #if BASE_VER < 800000
@@ -222,20 +224,21 @@ bool Prefs::FileStorage::DeleteKey(const string& key) {
   return true;
 }
 
-bool Prefs::FileStorage::GetFileNameForKey(const string& key,
+bool Prefs::FileStorage::GetFileNameForKey(std::string_view key,
                                            base::FilePath* filename) const {
   // Allows only non-empty keys containing [A-Za-z0-9_-/].
   TEST_AND_RETURN_FALSE(!key.empty());
   for (char c : key)
     TEST_AND_RETURN_FALSE(base::IsAsciiAlpha(c) || base::IsAsciiDigit(c) ||
                           c == '_' || c == '-' || c == kKeySeparator);
-  *filename = prefs_dir_.Append(key);
+  *filename = prefs_dir_.Append(
+      base::FilePath::StringPieceType(key.data(), key.size()));
   return true;
 }
 
 // MemoryPrefs
 
-bool MemoryPrefs::MemoryStorage::GetKey(const string& key,
+bool MemoryPrefs::MemoryStorage::GetKey(std::string_view key,
                                         string* value) const {
   auto it = values_.find(key);
   if (it == values_.end())
@@ -244,15 +247,13 @@ bool MemoryPrefs::MemoryStorage::GetKey(const string& key,
   return true;
 }
 
-bool MemoryPrefs::MemoryStorage::GetSubKeys(const string& ns,
+bool MemoryPrefs::MemoryStorage::GetSubKeys(std::string_view ns,
                                             vector<string>* keys) const {
-  using value_type = decltype(values_)::value_type;
-  using key_type = decltype(values_)::key_type;
-  auto lower_comp = [](const value_type& pr, const key_type& ns) {
-    return pr.first.substr(0, ns.length()) < ns;
+  auto lower_comp = [](const auto& pr, const auto& ns) {
+    return std::string_view{pr.first.data(), ns.length()} < ns;
   };
-  auto upper_comp = [](const key_type& ns, const value_type& pr) {
-    return ns < pr.first.substr(0, ns.length());
+  auto upper_comp = [](const auto& ns, const auto& pr) {
+    return ns < std::string_view{pr.first.data(), ns.length()};
   };
   auto lower_it =
       std::lower_bound(begin(values_), end(values_), ns, lower_comp);
@@ -262,17 +263,17 @@ bool MemoryPrefs::MemoryStorage::GetSubKeys(const string& ns,
   return true;
 }
 
-bool MemoryPrefs::MemoryStorage::SetKey(const string& key,
+bool MemoryPrefs::MemoryStorage::SetKey(std::string_view key,
                                         std::string_view value) {
-  values_[key] = value;
+  values_[std::string{key}] = value;
   return true;
 }
 
-bool MemoryPrefs::MemoryStorage::KeyExists(const string& key) const {
+bool MemoryPrefs::MemoryStorage::KeyExists(std::string_view key) const {
   return values_.find(key) != values_.end();
 }
 
-bool MemoryPrefs::MemoryStorage::DeleteKey(const string& key) {
+bool MemoryPrefs::MemoryStorage::DeleteKey(std::string_view key) {
   auto it = values_.find(key);
   if (it != values_.end())
     values_.erase(it);

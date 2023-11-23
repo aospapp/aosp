@@ -17,9 +17,9 @@ import sys
 import chroot
 import failure_modes
 import get_llvm_hash
+import update_chromeos_llvm_hash
 import update_packages_and_run_tests
 import update_tryjob_status
-import update_chromeos_llvm_hash
 
 
 class ModifyTryjob(enum.Enum):
@@ -57,11 +57,10 @@ def GetCommandLineArgs():
 
   # Add argument that determines which revision to search for in the list of
   # tryjobs.
-  parser.add_argument(
-      '--revision',
-      required=True,
-      type=int,
-      help='The revision to either remove or relaunch.')
+  parser.add_argument('--revision',
+                      required=True,
+                      type=int,
+                      help='The revision to either remove or relaunch.')
 
   # Add argument for other change lists that want to run alongside the tryjob.
   parser.add_argument(
@@ -72,40 +71,38 @@ def GetCommandLineArgs():
       'of updating the packages')
 
   # Add argument for custom options for the tryjob.
-  parser.add_argument(
-      '--options',
-      required=False,
-      nargs='+',
-      help='options to use for the tryjob testing')
+  parser.add_argument('--options',
+                      required=False,
+                      nargs='+',
+                      help='options to use for the tryjob testing')
 
   # Add argument for the builder to use for the tryjob.
-  parser.add_argument('--builder', help='builder to use for the tryjob testing')
+  parser.add_argument('--builder',
+                      help='builder to use for the tryjob testing')
 
   # Add argument for a specific chroot path.
-  parser.add_argument(
-      '--chroot_path',
-      default=cros_root,
-      help='the path to the chroot (default: %(default)s)')
+  parser.add_argument('--chroot_path',
+                      default=cros_root,
+                      help='the path to the chroot (default: %(default)s)')
 
   # Add argument for whether to display command contents to `stdout`.
-  parser.add_argument(
-      '--verbose',
-      action='store_true',
-      help='display contents of a command to the terminal '
-      '(default: %(default)s)')
+  parser.add_argument('--verbose',
+                      action='store_true',
+                      help='display contents of a command to the terminal '
+                      '(default: %(default)s)')
 
   args_output = parser.parse_args()
 
-  if not os.path.isfile(args_output.status_file) or \
-      not args_output.status_file.endswith('.json'):
+  if (not os.path.isfile(args_output.status_file)
+      or not args_output.status_file.endswith('.json')):
     raise ValueError('File does not exist or does not ending in ".json" '
                      ': %s' % args_output.status_file)
 
-  if args_output.modify_tryjob == ModifyTryjob.ADD.value and \
-      not args_output.builder:
+  if (args_output.modify_tryjob == ModifyTryjob.ADD.value
+      and not args_output.builder):
     raise ValueError('A builder is required for adding a tryjob.')
-  elif args_output.modify_tryjob != ModifyTryjob.ADD.value and \
-      args_output.builder:
+  elif (args_output.modify_tryjob != ModifyTryjob.ADD.value
+        and args_output.builder):
     raise ValueError('Specifying a builder is only available when adding a '
                      'tryjob.')
 
@@ -234,13 +231,13 @@ def PerformTryjobModification(revision, modify_tryjob, status_file, extra_cls,
         bisect_contents['jobs'][tryjob_index]['cl'],
         bisect_contents['jobs'][tryjob_index]['extra_cls'],
         bisect_contents['jobs'][tryjob_index]['options'],
-        bisect_contents['jobs'][tryjob_index]['builder'], chroot_path, verbose)
+        bisect_contents['jobs'][tryjob_index]['builder'], chroot_path)
 
     bisect_contents['jobs'][tryjob_index][
         'status'] = update_tryjob_status.TryjobStatus.PENDING.value
     bisect_contents['jobs'][tryjob_index]['link'] = tryjob_results[0]['link']
-    bisect_contents['jobs'][tryjob_index]['buildbucket_id'] = tryjob_results[0][
-        'buildbucket_id']
+    bisect_contents['jobs'][tryjob_index]['buildbucket_id'] = tryjob_results[
+        0]['buildbucket_id']
 
     print('Successfully relaunched the tryjob for revision %d and updated '
           'the tryjob link to %s' % (revision, tryjob_results[0]['link']))
@@ -253,17 +250,14 @@ def PerformTryjobModification(revision, modify_tryjob, status_file, extra_cls,
     # Make sure the revision is within the bounds of the start and end of the
     # bisection.
     elif bisect_contents['start'] < revision < bisect_contents['end']:
-      update_packages = [
-          'sys-devel/llvm', 'sys-libs/compiler-rt', 'sys-libs/libcxx',
-          'sys-libs/libcxxabi', 'sys-libs/llvm-libunwind'
-      ]
 
       patch_metadata_file = 'PATCHES.json'
 
       git_hash, revision = get_llvm_hash.GetLLVMHashAndVersionFromSVNOption(
           revision)
 
-      tryjob_dict = AddTryjob(update_packages, git_hash, revision, chroot_path,
+      tryjob_dict = AddTryjob(update_chromeos_llvm_hash.DEFAULT_PACKAGES,
+                              git_hash, revision, chroot_path,
                               patch_metadata_file, extra_cls, options, builder,
                               verbose, revision)
 
@@ -277,7 +271,10 @@ def PerformTryjobModification(revision, modify_tryjob, status_file, extra_cls,
                      modify_tryjob)
 
   with open(status_file, 'w') as update_tryjobs:
-    json.dump(bisect_contents, update_tryjobs, indent=4, separators=(',', ': '))
+    json.dump(bisect_contents,
+              update_tryjobs,
+              indent=4,
+              separators=(',', ': '))
 
 
 def main():
@@ -290,9 +287,9 @@ def main():
   PerformTryjobModification(args_output.revision,
                             ModifyTryjob(args_output.modify_tryjob),
                             args_output.status_file,
-                            args_output.extra_change_lists, args_output.options,
-                            args_output.builder, args_output.chroot_path,
-                            args_output.verbose)
+                            args_output.extra_change_lists,
+                            args_output.options, args_output.builder,
+                            args_output.chroot_path, args_output.verbose)
 
 
 if __name__ == '__main__':

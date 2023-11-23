@@ -6,15 +6,16 @@ import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.provider.AlarmClock;
+import android.util.Log;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity;
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-import com.android.cts.verifier.TestListAdapter.TestListItem;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
 import com.android.cts.verifier.IntentDrivenTestActivity.IntentFactory;
 import com.android.cts.verifier.IntentDrivenTestActivity.TestInfo;
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -23,6 +24,8 @@ import java.util.Calendar;
  * Activity that lists all the DeskClock tests.
  */
 public class DeskClockTestsActivity extends PassFailButtons.TestListActivity {
+
+    private static final String TAG = DeskClockTestsActivity.class.getSimpleName();
 
     private static final String SHOW_ALARMS_TEST = "SHOW_ALARMS";
     public static final String SET_ALARM_WITH_UI_TEST = "SET_ALARM_WITH_UI";
@@ -153,15 +156,13 @@ public class DeskClockTestsActivity extends PassFailButtons.TestListActivity {
 
     private void addTests(ArrayTestListAdapter adapter, TestInfo[] tests) {
         for (TestInfo info : tests) {
-
-            final int title = info.getTitle();
-            adapter.add(TestListItem.newTest(this, title, info.getTestId(),
-            new Intent(this, IntentDrivenTestActivity.class)
-                    .putExtra(IntentDrivenTestActivity.EXTRA_ID, info.getTestId())
-                    .putExtra(IntentDrivenTestActivity.EXTRA_TITLE, title)
-                    .putExtra(IntentDrivenTestActivity.EXTRA_INFO, info.getInfoText())
-                    .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS, info.getButtons()),
-                    null));
+            int title = info.getTitle();
+            String testId = info.getTestId();
+            Intent intent = IntentDrivenTestActivity.newIntent(this, testId, title,
+                    info.getInfoText(), info.getButtons());
+            Log.d(TAG, "Adding test with " + IntentDrivenTestActivity.toString(this, intent));
+            adapter.add(TestListItem.newTest(this, title, testId, intent,
+                    /* applicableFeatures= */ null));
         }
     }
 

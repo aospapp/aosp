@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.runner.AndroidJUnit4;
@@ -294,6 +295,16 @@ public class ImsEntitlementApiTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getRetryAfterSeconds()).isEqualTo(120);
+    }
+
+    @Test
+    public void checkEntitlementStatus_invalidSubId_resultNull() {
+        ImsEntitlementApi imsEntitlementApi =
+                new ImsEntitlementApi(mContext, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+
+        EntitlementResult result = imsEntitlementApi.checkEntitlementStatus();
+
+        assertThat(result).isNull();
     }
 
     private ServiceEntitlementRequest authenticationRequest(String token) {

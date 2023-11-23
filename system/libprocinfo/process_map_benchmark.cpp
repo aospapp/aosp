@@ -23,7 +23,6 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
-#include <backtrace/BacktraceMap.h>
 #include <unwindstack/Maps.h>
 
 #include <benchmark/benchmark.h>
@@ -60,15 +59,5 @@ static void BM_unwindstack_BufferMaps(benchmark::State& state) {
   }
 }
 BENCHMARK(BM_unwindstack_BufferMaps);
-
-static void BM_backtrace_BacktraceMap(benchmark::State& state) {
-  pid_t pid = getpid();
-  for (auto _ : state) {
-    BacktraceMap* map = BacktraceMap::Create(pid, true);
-    CHECK(map != nullptr);
-    delete map;
-  }
-}
-BENCHMARK(BM_backtrace_BacktraceMap);
 
 BENCHMARK_MAIN();

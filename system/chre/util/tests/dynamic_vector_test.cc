@@ -747,9 +747,10 @@ struct FancyInt {
   FancyInt() : value(index++) {}
 };
 
-int FancyInt::index = 0;
+int FancyInt::index;
 
 TEST(DynamicVector, Resize) {
+  FancyInt::index = 0;
   DynamicVector<FancyInt> vector;
   ASSERT_TRUE(vector.resize(4));
   ASSERT_EQ(vector.size(), 4);
@@ -773,6 +774,8 @@ TEST(DynamicVector, Resize) {
   EXPECT_EQ(vector[2].value, 4);
   EXPECT_EQ(vector[3].value, 5);
 
-  // Reset index for future tests
-  FancyInt::index = 0;
+  // Ensure that we don't overshoot the requested size
+  ASSERT_TRUE(vector.resize(99));
+  EXPECT_EQ(vector.size(), 99);
+  EXPECT_EQ(vector.capacity(), 99);
 }

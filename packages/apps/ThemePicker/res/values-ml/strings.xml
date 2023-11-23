@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"തീമുള്ള ഐക്കണുകൾ"</string>
     <string name="beta_title" msgid="8703819523760746458">"ബീറ്റ"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ആപ്പ് ഗ്രിഡ് മാറ്റുക"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"വാൾപേപ്പർ നിറങ്ങൾ"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"വാൾപേപ്പറിനിന്റെ നിറം"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"അടിസ്ഥാന നിറങ്ങൾ"</string>
+    <string name="color_changed" msgid="7029571720331641235">"നിറം മാറ്റി"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ഡൈനാമിക്"</string>
 </resources>

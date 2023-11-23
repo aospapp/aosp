@@ -18,12 +18,15 @@ package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.checks.infrastructure.TestFiles.base64gzip
 import com.android.tools.metalava.DriverTest
+import com.android.tools.metalava.FileFormat
+import com.android.tools.metalava.java
 import org.junit.Test
 
 class PsiBasedCodebaseTest : DriverTest() {
     @Test
     fun `Regression test for issue 112931426`() {
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -53,7 +56,8 @@ class PsiBasedCodebaseTest : DriverTest() {
                     }
                  */
                 base64gzip(
-                    "test.jar", "" +
+                    "test.jar",
+                    "" +
                         "H4sIAAAAAAAAAAvwZmYRYeDg4GCYUiXhy4AEOBlYGHxdQxx1Pf3c9P+dYmBg" +
                         "ZgjwZucASTFBlQTg1CwCxHDNvo5+nm6uwSF6vm6ffc+c9vHW1bvI662rde7M" +
                         "+c1BBleMHzwt0vPy1fH0vVi6ioUz4oXkEekoCa2MH+Kqas+XaFk8Fxd9Iq46" +

@@ -7,13 +7,16 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/curl/curl/releases/download/curl-7_73_0/curl-7.73.0.tar.xz"
+    value: "https://github.com/curl/curl/releases/download/curl-7_80_0/curl-7.80.0.tar.xz"
   }
-  version: "curl-7_73_0"
+  version: "curl-7_80_0"
   license_type: NOTICE
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:haxx:curl:7.78.0"
+  }
   last_upgrade_date {
-    year: 2020
-    month: 10
-    day: 28
+    year: 2021
+    month: 12
+    day: 7
   }
 }

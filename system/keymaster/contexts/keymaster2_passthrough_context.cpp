@@ -42,7 +42,7 @@ void Keymaster2PassthroughContext::GetSystemVersion(uint32_t* os_version,
 KeyFactory* Keymaster2PassthroughContext::GetKeyFactory(keymaster_algorithm_t algorithm) const {
     auto& result = factories_[algorithm];
     if (!result) {
-        result.reset(new KeymasterPassthroughKeyFactory(engine_.get(), algorithm));
+        result.reset(new (std::nothrow) KeymasterPassthroughKeyFactory(engine_.get(), algorithm));
     }
     return result.get();
 }

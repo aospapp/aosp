@@ -17,6 +17,7 @@
 #include "chre/platform/shared/log_buffer.h"
 #include "chre/platform/assert.h"
 #include "chre/util/lock_guard.h"
+#include "include/chre/platform/shared/log_buffer.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -44,49 +45,14 @@ void LogBuffer::handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
   constexpr size_t maxLogLen = kLogMaxSize - kLogDataOffset;
   char tempBuffer[maxLogLen];
   int logLenSigned = vsnprintf(tempBuffer, maxLogLen, logFormat, args);
-  if (logLenSigned > 0) {
-    size_t logLen = static_cast<size_t>(logLenSigned);
-    if (logLen >= maxLogLen) {
-      // Leave space for nullptr to be copied on end
-      logLen = maxLogLen - 1;
-    }
-    size_t totalLogSize = kLogDataOffset + logLen;
-    {
-      LockGuard<Mutex> lockGuard(mLock);
-      // Invalidate memory allocated for log at head while the buffer is greater
-      // than max size
-      while (mBufferDataSize + totalLogSize > mBufferMaxSize) {
-        mNumLogsDropped++;
-        size_t logSize;
-        mBufferDataHeadIndex = getNextLogIndex(mBufferDataHeadIndex, &logSize);
-        mBufferDataSize -= logSize;
-      }
-      // The final log level as parsed by the daemon requires that the log level
-      // be incremented.
-      uint8_t logLevelAdjusted = static_cast<uint8_t>(logLevel) + 1;
-      copyToBuffer(sizeof(logLevelAdjusted), &logLevelAdjusted);
-      copyToBuffer(sizeof(timestampMs), &timestampMs);
-      copyToBuffer(logLen, tempBuffer);
-      copyToBuffer(1, reinterpret_cast<const void *>("\0"));
-    }
-    if (mCallback != nullptr) {
-      switch (mNotificationSetting) {
-        case LogBufferNotificationSetting::ALWAYS: {
-          mCallback->onLogsReady();
-          break;
-        }
-        case LogBufferNotificationSetting::NEVER: {
-          break;
-        }
-        case LogBufferNotificationSetting::THRESHOLD: {
-          if (mBufferDataSize > mNotificationThresholdBytes) {
-            mCallback->onLogsReady();
-          }
-          break;
-        }
-      }
-    }
-  }
+  processLog(logLevel, timestampMs, tempBuffer, logLenSigned,
+             false /* encoded */);
+}
+
+void LogBuffer::handleEncodedLog(LogBufferLogLevel logLevel,
+                                 uint32_t timestampMs, const uint8_t *log,
+                                 size_t logSize) {
+  processLog(logLevel, timestampMs, log, logSize);
 }
 
 size_t LogBuffer::copyLogs(void *destination, size_t size,
@@ -240,6 +206,92 @@ size_t LogBuffer::getLogDataLength(size_t startingIndex) {
     currentIndex = incrementAndModByBufferMaxSize(currentIndex, 1);
   }
   return numBytes;
+}
+
+void LogBuffer::processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
+                           const void *logBuffer, size_t size, bool encoded) {
+  if (size > 0) {
+    constexpr size_t kMaxLogLen = kLogMaxSize - kLogDataOffset;
+    auto logLen = static_cast<uint8_t>(size);
+    if (size >= kMaxLogLen) {
+      if (!encoded) {
+        // Leave space for nullptr to be copied on end
+        logLen = static_cast<uint8_t>(kMaxLogLen - 1);
+      } else {
+        // There is no way of decoding an encoded message if we truncate it, so
+        // we do the next best thing and try to log a generic failure message
+        // reusing the logbuffer for as much as we can. Note that we also need
+        // flip the encoding flag for proper decoding by the host log message
+        // parser.
+        constexpr char kGenericErrorMsg[] =
+            "Encoded log msg @t=%" PRIu32 "ms too large (%zub)";
+        std::snprintf(static_cast<char *>(const_cast<void *>(logBuffer)),
+                      kMaxLogLen, kGenericErrorMsg, timestampMs, size);
+        encoded = false;
+      }
+    }
+    copyLogToBuffer(logLevel, timestampMs, logBuffer, logLen, encoded);
+    dispatch();
+  }
+}
+
+void LogBuffer::copyLogToBuffer(LogBufferLogLevel level, uint32_t timestampMs,
+                                const void *logBuffer, uint8_t logLen,
+                                bool encoded) {
+  LockGuard<Mutex> lockGuard(mLock);
+  discardExcessOldLogsLocked(encoded, logLen);
+  encodeAndCopyLogLocked(level, timestampMs, logBuffer, logLen, encoded);
+}
+
+void LogBuffer::discardExcessOldLogsLocked(bool encoded,
+                                           uint8_t currentLogLen) {
+  size_t totalLogSize =
+      kLogDataOffset + (encoded ? currentLogLen + 1 : currentLogLen);
+  while (mBufferDataSize + totalLogSize > mBufferMaxSize) {
+    mNumLogsDropped++;
+    size_t logSize;
+    mBufferDataHeadIndex = getNextLogIndex(mBufferDataHeadIndex, &logSize);
+    mBufferDataSize -= logSize;
+  }
+}
+
+void LogBuffer::encodeAndCopyLogLocked(LogBufferLogLevel level,
+                                       uint32_t timestampMs,
+                                       const void *logBuffer, uint8_t logLen,
+                                       bool encoded) {
+  uint8_t metadata =
+      (static_cast<uint8_t>(encoded) << 4) | static_cast<uint8_t>(level);
+
+  copyToBuffer(sizeof(uint8_t), &metadata);
+  copyToBuffer(sizeof(timestampMs), &timestampMs);
+
+  if (encoded) {
+    copyToBuffer(sizeof(uint8_t), &logLen);
+  }
+  copyToBuffer(logLen, logBuffer);
+  if (!encoded) {
+    copyToBuffer(1, reinterpret_cast<const void *>("\0"));
+  }
+}
+
+void LogBuffer::dispatch() {
+  if (mCallback != nullptr) {
+    switch (mNotificationSetting) {
+      case LogBufferNotificationSetting::ALWAYS: {
+        mCallback->onLogsReady();
+        break;
+      }
+      case LogBufferNotificationSetting::NEVER: {
+        break;
+      }
+      case LogBufferNotificationSetting::THRESHOLD: {
+        if (mBufferDataSize > mNotificationThresholdBytes) {
+          mCallback->onLogsReady();
+        }
+        break;
+      }
+    }
+  }
 }
 
 }  // namespace chre

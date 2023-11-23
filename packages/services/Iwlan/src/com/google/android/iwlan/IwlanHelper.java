@@ -16,8 +16,13 @@
 
 package com.google.android.iwlan;
 
+import android.annotation.NonNull;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.location.Country;
+import android.location.CountryDetector;
 import android.net.ConnectivityManager;
+import android.net.IpPrefix;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
@@ -28,18 +33,28 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsMmTelManager;
+import android.text.TextUtils;
+import android.util.Log;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class IwlanHelper {
 
     private static final String TAG = IwlanHelper.class.getSimpleName();
+    private static CountryDetector mCountryDetector;
+    private static final String LAST_KNOWN_COUNTRY_CODE_KEY = "last_known_country_code";
+    private static IpPrefix mNat64Prefix = new IpPrefix("64:ff9b::/96");
 
-    public static String getNai(Context context, int slotId) {
+    public static String getNai(Context context, int slotId, byte[] nextReauthId) {
+        if (nextReauthId != null) {
+            return new String(nextReauthId, StandardCharsets.UTF_8);
+        }
+
         StringBuilder naiBuilder = new StringBuilder();
         TelephonyManager tm = context.getSystemService(TelephonyManager.class);
         SubscriptionInfo subInfo = null;
@@ -97,20 +112,52 @@ public class IwlanHelper {
     public static List<InetAddress> getAddressesForNetwork(Network network, Context context) {
         ConnectivityManager connectivityManager =
                 context.getSystemService(ConnectivityManager.class);
-        List<InetAddress> gatewayList = new ArrayList<InetAddress>();
+        List<InetAddress> gatewayList = new ArrayList<>();
         if (network != null) {
             LinkProperties linkProperties = connectivityManager.getLinkProperties(network);
             if (linkProperties != null) {
-                for (LinkAddress laddr : linkProperties.getLinkAddresses()) {
-                    InetAddress inetaddr = laddr.getAddress();
+                for (LinkAddress linkAddr : linkProperties.getLinkAddresses()) {
+                    InetAddress inetAddr = linkAddr.getAddress();
                     // skip linklocal and loopback addresses
-                    if (!inetaddr.isLoopbackAddress() && !inetaddr.isLinkLocalAddress()) {
-                        gatewayList.add(inetaddr);
+                    if (!inetAddr.isLoopbackAddress() && !inetAddr.isLinkLocalAddress()) {
+                        gatewayList.add(inetAddr);
+                    }
+                }
+                if (linkProperties.getNat64Prefix() != null) {
+                    mNat64Prefix = linkProperties.getNat64Prefix();
+                }
+            }
+        }
+        return gatewayList;
+    }
+
+    public static List<InetAddress> getStackedAddressesForNetwork(
+            Network network, Context context) {
+        ConnectivityManager connectivityManager =
+                context.getSystemService(ConnectivityManager.class);
+        List<InetAddress> gatewayList = new ArrayList<>();
+        if (network != null) {
+            LinkProperties linkProperties = connectivityManager.getLinkProperties(network);
+            if (linkProperties != null) {
+                for (LinkAddress linkAddr : linkProperties.getAllLinkAddresses()) {
+                    InetAddress inetAddr = linkAddr.getAddress();
+                    if ((inetAddr instanceof Inet4Address)) {
+                        gatewayList.add(inetAddr);
                     }
                 }
             }
         }
         return gatewayList;
+    }
+
+    /**
+     * The method is to check if this IP address is an IPv4-embedded IPv6 address(Pref64::/n).
+     *
+     * @param ipAddress IP address
+     * @return True if it is an IPv4-embedded IPv6 addres, otherwise false.
+     */
+    public static boolean isIpv4EmbeddedIpv6Address(@NonNull InetAddress ipAddress) {
+        return (ipAddress instanceof Inet6Address) && mNat64Prefix.contains(ipAddress);
     }
 
     public static boolean hasIpv6Address(List<InetAddress> localAddresses) {
@@ -211,5 +258,59 @@ public class IwlanHelper {
             }
         }
         return isCstEnabled;
+    }
+
+    public static void startCountryDetector(Context context) {
+        mCountryDetector = context.getSystemService(CountryDetector.class);
+        if (mCountryDetector != null) {
+            updateCountryCodeFromCountryDetector(mCountryDetector.detectCountry());
+
+            mCountryDetector.addCountryListener(
+                    (newCountry) -> {
+                        updateCountryCodeFromCountryDetector(newCountry);
+                    },
+                    null);
+        }
+    }
+
+    @NonNull
+    public static String getLastKnownCountryCode(Context context) {
+        final SharedPreferences prefs =
+                context.getSharedPreferences(LAST_KNOWN_COUNTRY_CODE_KEY, Context.MODE_PRIVATE);
+        return prefs.getString(LAST_KNOWN_COUNTRY_CODE_KEY, "");
+    }
+
+    public static void updateCountryCodeWhenNetworkConnected() {
+        if (mCountryDetector != null) {
+            updateCountryCodeFromCountryDetector(mCountryDetector.detectCountry());
+        }
+    }
+
+    private static void updateLastKnownCountryCode(String countryCode) {
+        Context context = IwlanDataService.getContext();
+        final SharedPreferences prefs =
+                context.getSharedPreferences(LAST_KNOWN_COUNTRY_CODE_KEY, Context.MODE_PRIVATE);
+        final SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(LAST_KNOWN_COUNTRY_CODE_KEY, countryCode);
+        editor.commit();
+        Log.d(TAG, "Update the last known country code in sharedPrefs " + countryCode);
+    }
+
+    private static void updateCountryCodeFromCountryDetector(Country country) {
+        if (country == null) {
+            return;
+        }
+
+        if (country.getSource() == Country.COUNTRY_SOURCE_NETWORK
+                || country.getSource() == Country.COUNTRY_SOURCE_LOCATION) {
+            Context context = IwlanDataService.getContext();
+            String newCountryCode = country.getCountryIso();
+            String lastKnownCountryCode = getLastKnownCountryCode(context);
+            if (!TextUtils.isEmpty(newCountryCode)
+                    && (TextUtils.isEmpty(lastKnownCountryCode)
+                            || !lastKnownCountryCode.equalsIgnoreCase(newCountryCode))) {
+                updateLastKnownCountryCode(newCountryCode);
+            }
+        }
     }
 }

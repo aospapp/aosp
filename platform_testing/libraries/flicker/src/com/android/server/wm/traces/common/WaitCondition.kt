@@ -44,7 +44,7 @@ class WaitCondition<T> private constructor(
     private val supplier: () -> T,
     private val condition: Condition<T>,
     private val retryLimit: Int,
-    private val onLog: ((String) -> Unit)?,
+    private val onLog: ((String, Boolean) -> Unit)?,
     private val onFailure: ((T) -> Any)?,
     private val onRetry: ((T) -> Any)?,
     private val onSuccess: ((T) -> Any)?
@@ -53,17 +53,18 @@ class WaitCondition<T> private constructor(
      * @return `false` if the condition does not satisfy within the time limit.
      */
     fun waitFor(): Boolean {
-        onLog?.invoke("***Waiting for $condition")
+        onLog?.invoke("***Waiting for $condition", /* isError */ false)
         var currState: T? = null
         for (i in 0..retryLimit) {
             currState = supplier.invoke()
             if (condition.isSatisfied(currState)) {
-                onLog?.invoke("***Waiting for $condition ... Success!")
+                onLog?.invoke("***Waiting for $condition ... Success!", /* isError */ false)
                 onSuccess?.invoke(currState)
                 return true
             } else {
                 val detailedMessage = condition.getMessage(currState)
-                onLog?.invoke("***Waiting for $detailedMessage... retry=${i + 1}")
+                onLog?.invoke("***Waiting for $detailedMessage... retry=${i + 1}",
+                    /* isError */ true)
                 if (i < retryLimit) {
                     onRetry?.invoke(currState)
                 }
@@ -75,7 +76,7 @@ class WaitCondition<T> private constructor(
         } else {
             condition.toString()
         }
-        onLog?.invoke("***Waiting for $detailedMessage ... Failed!")
+        onLog?.invoke("***Waiting for $detailedMessage ... Failed!", /* isError */ true)
         if (onFailure != null) {
             require(currState != null) { "Missing last result for failure notification" }
             onFailure.invoke(currState)
@@ -91,7 +92,7 @@ class WaitCondition<T> private constructor(
         private var onFailure: ((T) -> Any)? = null
         private var onRetry: ((T) -> Any)? = null
         private var onSuccess: ((T) -> Any)? = null
-        private var onLog: ((String) -> Unit)? = null
+        private var onLog: ((String, Boolean) -> Unit)? = null
 
         fun withCondition(condition: Condition<T>) =
             apply { conditions.add(condition) }
@@ -115,7 +116,7 @@ class WaitCondition<T> private constructor(
         fun onFailure(onFailure: (T) -> Any): Builder<T> =
             apply { this.onFailure = onFailure }
 
-        fun onLog(onLog: (String) -> Unit): Builder<T> =
+        fun onLog(onLog: (String, Boolean) -> Unit): Builder<T> =
             apply { this.onLog = onLog }
 
         fun onRetry(onRetry: ((T) -> Any)? = null): Builder<T> =

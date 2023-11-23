@@ -68,13 +68,12 @@ class queue
 {
 public:
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
 
   /// A convenience typedef for a vector of @ref task_sptr
   typedef std::vector<task_sptr> tasks_type;
 
 private:
-  priv_sptr p_;
+  std::unique_ptr<priv> p_;
 
 public:
   struct task_done_notify;

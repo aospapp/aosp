@@ -99,6 +99,9 @@ status_t EmulatedCameraDeviceHwlImpl::Initialize() {
       return ret;
     }
   }
+
+  default_torch_strength_level_ = GetDefaultTorchStrengthLevel();
+  maximum_torch_strength_level_ = GetMaximumTorchStrengthLevel();
   return OK;
 }
 
@@ -151,7 +154,44 @@ status_t EmulatedCameraDeviceHwlImpl::SetTorchMode(TorchMode mode) {
     return INVALID_OPERATION;
   }
 
+  // If torch strength control is supported, reset the torch strength level to
+  // default level whenever the torch is turned OFF.
+  if (maximum_torch_strength_level_ > 1) {
+    torch_state_->InitializeTorchDefaultLevel(default_torch_strength_level_);
+    torch_state_->InitializeSupportTorchStrengthLevel(true);
+  }
+
   return torch_state_->SetTorchMode(mode);
+}
+
+status_t EmulatedCameraDeviceHwlImpl::TurnOnTorchWithStrengthLevel(int32_t torch_strength) {
+  if (torch_state_.get() == nullptr) {
+    return UNKNOWN_TRANSACTION;
+  }
+
+  // This API is supported if the maximum level is set to greater than 1.
+  if (maximum_torch_strength_level_ <= 1) {
+    ALOGE("Torch strength control feature is not supported.");
+    return UNKNOWN_TRANSACTION;
+  }
+  // Validate that the torch_strength is within the range.
+  if (torch_strength > maximum_torch_strength_level_ || torch_strength < 1) {
+    ALOGE("Torch strength value should be within the range.");
+    return BAD_VALUE;
+  }
+
+  return torch_state_->TurnOnTorchWithStrengthLevel(torch_strength);
+}
+
+status_t EmulatedCameraDeviceHwlImpl::GetTorchStrengthLevel(int32_t& torch_strength) const {
+  if (default_torch_strength_level_ < 1 && maximum_torch_strength_level_ <= 1) {
+    ALOGE("Torch strength control feature is not supported.");
+    return UNKNOWN_TRANSACTION;
+  }
+
+  torch_strength = torch_state_->GetTorchStrengthLevel();
+  ALOGV("Current torch strength level is: %d", torch_strength);
+  return OK;
 }
 
 status_t EmulatedCameraDeviceHwlImpl::DumpState(int /*fd*/) {
@@ -190,6 +230,28 @@ bool EmulatedCameraDeviceHwlImpl::IsStreamCombinationSupported(
       *stream_configuration_map_max_resolution_,
       physical_stream_configuration_map_,
       physical_stream_configuration_map_max_resolution_, sensor_chars_);
+}
+
+int32_t EmulatedCameraDeviceHwlImpl::GetDefaultTorchStrengthLevel() const {
+  camera_metadata_ro_entry entry;
+  int32_t default_level = 0;
+  auto ret = static_metadata_->Get(ANDROID_FLASH_INFO_STRENGTH_DEFAULT_LEVEL, &entry);
+  if (ret == OK && (entry.count == 1)) {
+     default_level = *entry.data.i32;
+     ALOGV("Default torch strength level is %d", default_level);
+  }
+  return default_level;
+}
+
+int32_t EmulatedCameraDeviceHwlImpl::GetMaximumTorchStrengthLevel() const {
+  camera_metadata_ro_entry entry;
+  int32_t max_level = 0;
+  auto ret = static_metadata_->Get(ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL, &entry);
+  if (ret == OK && (entry.count == 1)) {
+     max_level = *entry.data.i32;
+     ALOGV("Maximum torch strength level is %d", max_level);
+  }
+  return max_level;
 }
 
 }  // namespace android

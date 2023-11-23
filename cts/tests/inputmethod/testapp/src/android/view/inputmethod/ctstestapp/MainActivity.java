@@ -77,7 +77,8 @@ public final class MainActivity extends Activity {
             }
             return uri.getBooleanQueryParameter(key, false);
         }
-        return getIntent().getBooleanExtra(key, false);
+        return getIntent().getBooleanExtra(key, false)
+                || "true".equals(getIntent().getStringExtra(key));
     }
 
     @Override
@@ -141,7 +142,8 @@ public final class MainActivity extends Activity {
                 }
             }
         };
-        registerReceiver(mBroadcastReceiver, new IntentFilter(ACTION_TRIGGER));
+        registerReceiver(mBroadcastReceiver, new IntentFilter(ACTION_TRIGGER),
+                Context.RECEIVER_EXPORTED);
     }
 
     @Override

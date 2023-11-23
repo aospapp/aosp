@@ -5,5 +5,5 @@ service eth_mac_addr /system/bin/eth_mac_addr.sh
     disabled
     oneshot
 
-on post-fs-data
+on post-fs-data && property:vendor.hw=db45c
     start eth_mac_addr

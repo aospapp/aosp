@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::cmp::{max, min};
-use std::fmt::{self, Display};
 use std::io::{self, Write};
 use std::mem::size_of;
+use std::path::PathBuf;
 use std::result;
 use std::sync::Arc;
 use std::thread;
@@ -15,114 +14,71 @@ use std::u32;
 use base::Error as SysError;
 use base::Result as SysResult;
 use base::{
-    error, info, iov_max, warn, AsRawDescriptor, Event, PollToken, RawDescriptor, Timer, Tube,
-    WaitContext,
+    error, info, warn, AsRawDescriptor, Event, PollToken, RawDescriptor, Timer, Tube, WaitContext,
 };
 use data_model::DataInit;
 use disk::DiskFile;
 
+use remain::sorted;
+use serde::{Deserialize, Deserializer};
 use sync::Mutex;
+use thiserror::Error;
 use vm_control::{DiskControlCommand, DiskControlResult};
 use vm_memory::GuestMemory;
 
 use super::common::*;
 use crate::virtio::{
-    copy_config, DescriptorChain, DescriptorError, Interrupt, Queue, Reader, SignalableInterrupt,
-    VirtioDevice, Writer, TYPE_BLOCK,
+    block::sys::*, copy_config, DescriptorChain, DescriptorError, Interrupt, Queue, Reader,
+    SignalableInterrupt, VirtioDevice, Writer, TYPE_BLOCK,
 };
 
 const QUEUE_SIZE: u16 = 256;
 const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE];
 const NUM_QUEUES: u16 = 1;
 
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 enum ExecuteError {
+    #[error("failed to copy ID string: {0}")]
     CopyId(io::Error),
+    #[error("virtio descriptor error: {0}")]
     Descriptor(DescriptorError),
-    Read(io::Error),
-    WriteStatus(io::Error),
-    /// Error arming the flush timer.
-    Flush(io::Error),
-    ReadIo {
-        length: usize,
-        sector: u64,
-        desc_error: io::Error,
-    },
-    Timer(SysError),
-    WriteIo {
-        length: usize,
-        sector: u64,
-        desc_error: io::Error,
-    },
+    #[error("failed to perform discard or write zeroes; sector={sector} num_sectors={num_sectors} flags={flags}; {ioerr:?}")]
     DiscardWriteZeroes {
         ioerr: Option<io::Error>,
         sector: u64,
         num_sectors: u32,
         flags: u32,
     },
-    ReadOnly {
-        request_type: u32,
-    },
-    OutOfRange,
+    /// Error arming the flush timer.
+    #[error("failed to flush: {0}")]
+    Flush(io::Error),
+    #[error("not enough space in descriptor chain to write status")]
     MissingStatus,
+    #[error("out of range")]
+    OutOfRange,
+    #[error("failed to read message: {0}")]
+    Read(io::Error),
+    #[error("io error reading {length} bytes from sector {sector}: {desc_error}")]
+    ReadIo {
+        length: usize,
+        sector: u64,
+        desc_error: io::Error,
+    },
+    #[error("read only; request_type={request_type}")]
+    ReadOnly { request_type: u32 },
+    #[error("timer error: {0}")]
+    Timer(SysError),
+    #[error("unsupported ({0})")]
     Unsupported(u32),
-}
-
-impl Display for ExecuteError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::ExecuteError::*;
-
-        match self {
-            CopyId(e) => write!(f, "failed to copy ID string: {}", e),
-            Descriptor(e) => write!(f, "virtio descriptor error: {}", e),
-            Read(e) => write!(f, "failed to read message: {}", e),
-            WriteStatus(e) => write!(f, "failed to write request status: {}", e),
-            Flush(e) => write!(f, "failed to flush: {}", e),
-            ReadIo {
-                length,
-                sector,
-                desc_error,
-            } => write!(
-                f,
-                "io error reading {} bytes from sector {}: {}",
-                length, sector, desc_error,
-            ),
-            Timer(e) => write!(f, "{}", e),
-            WriteIo {
-                length,
-                sector,
-                desc_error,
-            } => write!(
-                f,
-                "io error writing {} bytes to sector {}: {}",
-                length, sector, desc_error,
-            ),
-            DiscardWriteZeroes {
-                ioerr: Some(ioerr),
-                sector,
-                num_sectors,
-                flags,
-            } => write!(
-                f,
-                "failed to perform discard or write zeroes; sector={} num_sectors={} flags={}; {}",
-                sector, num_sectors, flags, ioerr,
-            ),
-            DiscardWriteZeroes {
-                ioerr: None,
-                sector,
-                num_sectors,
-                flags,
-            } => write!(
-                f,
-                "failed to perform discard or write zeroes; sector={} num_sectors={} flags={}",
-                sector, num_sectors, flags,
-            ),
-            ReadOnly { request_type } => write!(f, "read only; request_type={}", request_type),
-            OutOfRange => write!(f, "out of range"),
-            MissingStatus => write!(f, "not enough space in descriptor chain to write status"),
-            Unsupported(n) => write!(f, "unsupported ({})", n),
-        }
-    }
+    #[error("io error writing {length} bytes to sector {sector}: {desc_error}")]
+    WriteIo {
+        length: usize,
+        sector: u64,
+        desc_error: io::Error,
+    },
+    #[error("failed to write request status: {0}")]
+    WriteStatus(io::Error),
 }
 
 impl ExecuteError {
@@ -143,6 +99,53 @@ impl ExecuteError {
             ExecuteError::Unsupported(_) => VIRTIO_BLK_S_UNSUPP,
         }
     }
+}
+
+fn block_option_sparse_default() -> bool {
+    true
+}
+fn block_option_block_size_default() -> u32 {
+    512
+}
+
+/// Maximum length of a `DiskOption` identifier.
+///
+/// This is based on the virtio-block ID length limit.
+pub const DISK_ID_LEN: usize = 20;
+
+fn deserialize_disk_id<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<[u8; DISK_ID_LEN]>, D::Error> {
+    let id = String::deserialize(deserializer)?;
+
+    if id.len() > DISK_ID_LEN {
+        return Err(serde::de::Error::custom(format!(
+            "disk id must be {} or fewer characters",
+            DISK_ID_LEN
+        )));
+    }
+
+    let mut ret = [0u8; DISK_ID_LEN];
+    // Slicing id to value's length will never panic
+    // because we checked that value will fit into id above.
+    ret[..id.len()].copy_from_slice(id.as_bytes());
+    Ok(Some(ret))
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DiskOption {
+    pub path: PathBuf,
+    #[serde(default, rename = "ro")]
+    pub read_only: bool,
+    #[serde(default = "block_option_sparse_default")]
+    pub sparse: bool,
+    #[serde(default)]
+    pub o_direct: bool,
+    #[serde(default = "block_option_block_size_default")]
+    pub block_size: u32,
+    #[serde(default, deserialize_with = "deserialize_disk_id")]
+    pub id: Option<[u8; DISK_ID_LEN]>,
 }
 
 struct Worker {
@@ -195,7 +198,9 @@ impl Worker {
         ) {
             Ok(()) => VIRTIO_BLK_S_OK,
             Err(e) => {
-                error!("failed executing disk request: {}", e);
+                if !matches!(e, ExecuteError::Unsupported(VIRTIO_BLK_T_GET_ID)) {
+                    error!("failed executing disk request: {}", e);
+                }
                 e.status()
             }
         };
@@ -433,12 +438,7 @@ impl Block {
 
         let avail_features = build_avail_features(base_features, read_only, sparse, false);
 
-        let seg_max = min(max(iov_max(), 1), u32::max_value() as usize) as u32;
-
-        // Since we do not currently support indirect descriptors, the maximum
-        // number of segments must be smaller than the queue size.
-        // In addition, the request header and status each consume a descriptor.
-        let seg_max = min(seg_max, u32::from(QUEUE_SIZE) - 2);
+        let seg_max = get_seg_max(QUEUE_SIZE);
 
         Ok(Block {
             kill_evt: None,
@@ -740,13 +740,14 @@ mod tests {
     use std::mem::size_of_val;
 
     use data_model::{Le32, Le64};
+    use hypervisor::ProtectionType;
+    use serde_keyvalue::*;
     use tempfile::tempfile;
     use vm_memory::GuestAddress;
 
     use crate::virtio::base_features;
     use crate::virtio::block::common::*;
     use crate::virtio::descriptor_utils::{create_descriptor_chain, DescriptorType};
-    use crate::ProtectionType;
 
     use super::*;
 
@@ -982,5 +983,156 @@ mod tests {
         let id_offset = GuestAddress(0x1000 + size_of_val(&req_hdr) as u64);
         let returned_id = mem.read_obj_from_addr::<[u8; 20]>(id_offset).unwrap();
         assert_eq!(returned_id, *id);
+    }
+
+    fn from_block_arg(options: &str) -> Result<DiskOption, ParseError> {
+        from_key_values(options)
+    }
+
+    #[test]
+    fn params_from_key_values() {
+        // Path argument is mandatory.
+        let err = from_block_arg("").unwrap_err();
+        assert_eq!(
+            err,
+            ParseError {
+                kind: ErrorKind::SerdeError("missing field `path`".into()),
+                pos: 0,
+            }
+        );
+
+        // Path is the default argument.
+        let params = from_block_arg("/path/to/disk.img").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/path/to/disk.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: false,
+                block_size: 512,
+                id: None,
+            }
+        );
+
+        // Explicitly-specified path.
+        let params = from_block_arg("path=/path/to/disk.img").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/path/to/disk.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: false,
+                block_size: 512,
+                id: None,
+            }
+        );
+
+        // read_only
+        let params = from_block_arg("/some/path.img,ro").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: true,
+                sparse: true,
+                o_direct: false,
+                block_size: 512,
+                id: None,
+            }
+        );
+
+        // sparse
+        let params = from_block_arg("/some/path.img,sparse").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: false,
+                block_size: 512,
+                id: None,
+            }
+        );
+        let params = from_block_arg("/some/path.img,sparse=false").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: false,
+                sparse: false,
+                o_direct: false,
+                block_size: 512,
+                id: None,
+            }
+        );
+
+        // o_direct
+        let params = from_block_arg("/some/path.img,o_direct").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: true,
+                block_size: 512,
+                id: None,
+            }
+        );
+
+        // block_size
+        let params = from_block_arg("/some/path.img,block_size=128").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: false,
+                block_size: 128,
+                id: None,
+            }
+        );
+
+        // id
+        let params = from_block_arg("/some/path.img,id=DISK").unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: false,
+                sparse: true,
+                o_direct: false,
+                block_size: 512,
+                id: Some(*b"DISK\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"),
+            }
+        );
+        let err = from_block_arg("/some/path.img,id=DISK_ID_IS_WAY_TOO_LONG").unwrap_err();
+        assert_eq!(
+            err,
+            ParseError {
+                kind: ErrorKind::SerdeError("disk id must be 20 or fewer characters".into()),
+                pos: 0,
+            }
+        );
+
+        // All together
+        let params =
+            from_block_arg("/some/path.img,block_size=256,ro,sparse=false,id=DISK_LABEL,o_direct")
+                .unwrap();
+        assert_eq!(
+            params,
+            DiskOption {
+                path: "/some/path.img".into(),
+                read_only: true,
+                sparse: false,
+                o_direct: true,
+                block_size: 256,
+                id: Some(*b"DISK_LABEL\0\0\0\0\0\0\0\0\0\0"),
+            }
+        );
     }
 }

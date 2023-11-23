@@ -241,10 +241,10 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 				corner_lengths[pss->last - 1]);
 
 		memcpy(buf + LWS_PRE, uncompressible,
-		       corner_lengths[pss->last - 1]);
+		       (unsigned int)corner_lengths[pss->last - 1]);
 
 		/* notice we allowed for LWS_PRE in the payload already */
-		m = lws_write(wsi, buf + LWS_PRE, corner_lengths[pss->last - 1],
+		m = lws_write(wsi, buf + LWS_PRE, (unsigned int)corner_lengths[pss->last - 1],
 				LWS_WRITE_BINARY);
 		if (m < corner_lengths[pss->last - 1]) {
 			lwsl_err("ERROR %d writing to ws socket\n", m);
@@ -269,36 +269,3 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		2048, \
 		0, NULL, 0 \
 	}
-
-#if !defined (LWS_PLUGIN_STATIC)
-
-/* boilerplate needed if we are built as a dynamic plugin */
-
-static const struct lws_protocols protocols[] = {
-	LWS_PLUGIN_PROTOCOL_MINIMAL
-};
-
-int
-init_protocol_minimal(struct lws_context *context,
-		      struct lws_plugin_capability *c)
-{
-	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
-		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
-			 c->api_magic);
-		return 1;
-	}
-
-	c->protocols = protocols;
-	c->count_protocols = LWS_ARRAY_SIZE(protocols);
-	c->extensions = NULL;
-	c->count_extensions = 0;
-
-	return 0;
-}
-
-int
-destroy_protocol_minimal(struct lws_context *context)
-{
-	return 0;
-}
-#endif

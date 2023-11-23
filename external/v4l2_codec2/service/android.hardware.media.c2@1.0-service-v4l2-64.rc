@@ -3,5 +3,5 @@ service android-hardware-media-c2-v4l2-hal-1-0 /vendor/bin/hw/android.hardware.m
     user media
     group mediadrm drmrpc
     ioprio rt 4
-    writepid /dev/cpuset/foreground/tasks
+    task_profiles ProcessCapacityHigh
     setenv MESA_GLSL_CACHE_DISABLE 1

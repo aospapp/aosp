@@ -76,6 +76,7 @@ android_test {
         "Api29InCallServiceTestApp/**/I*.aidl",
         "ThirdPtyDialerTestApp/**/*.java",
         "ThirdPtyDialerTestAppTwo/**/*.java",
+        "CarModeTestAppSelfManaged/**/*.java",
         "CarModeTestAppTwo/**/*.java",
     ],
     exclude_srcs: [
@@ -98,6 +99,18 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":ThirdPtyInCallServiceTestApp",
+        ":CarModeTestAppTwo",
+        ":Api29InCallServiceTestApp",
+        ":CallRedirectionServiceTestApp",
+        ":ThirdPtyDialerTestAppTwo",
+        ":ThirdPtyDialerTestApp",
+        ":CarModeTestApp",
+        ":CarModeTestAppSelfManaged",
+        ":CallScreeningServiceTestApp",
+    ],
+    per_testcase_directory: true,
 }
 
 java_library {

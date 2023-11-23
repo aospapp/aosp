@@ -27,8 +27,7 @@ android_app {
 
     resource_dirs: ["res"],
 
-    min_sdk_version: "24", // N
-    sdk_version: "24",
+    sdk_version: "current",
 
     optimize: {
         enabled: false,

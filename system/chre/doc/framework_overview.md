@@ -12,7 +12,7 @@ See also:
 [TOC]
 
 The CHRE reference implementation (hereafter referred to just as "CHRE" or "the
-CHRE framework") is developed primarily in C++11 using a modular object-oriented
+CHRE framework") is developed primarily in C++17 using a modular object-oriented
 approach that separates common code from platform-specific code. CHRE is an
 event-based system, so CHRE is built around an event loop which executes nanoapp
 code as well as CHRE system callbacks. Per the CHRE API, nanoapps can’t execute
@@ -187,7 +187,7 @@ rules that are not specified in the Android style guide are inherited from
 Google. Additionally, this project uses clang-format for automatic code
 formatting.
 
-This project uses C++11, but with two main caveats:
+This project uses C++17, but with two main caveats:
 
 1. General considerations for using C++ in an embedded environment apply. This
    means avoiding language features that can impose runtime overhead, due to the

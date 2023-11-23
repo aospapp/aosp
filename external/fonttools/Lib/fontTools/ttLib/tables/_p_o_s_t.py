@@ -1,13 +1,14 @@
-from fontTools.misc.py23 import bytechr, byteord, tobytes, tostr
 from fontTools import ttLib
 from fontTools.ttLib.standardGlyphOrder import standardGlyphOrder
 from fontTools.misc import sstruct
-from fontTools.misc.textTools import safeEval, readHex
+from fontTools.misc.textTools import bytechr, byteord, tobytes, tostr, safeEval, readHex
 from . import DefaultTable
 import sys
 import struct
 import array
+import logging
 
+log = logging.getLogger(__name__)
 
 postFormat = """
 	>
@@ -85,7 +86,8 @@ class table__p_o_s_t(DefaultTable.DefaultTable):
 		indices.frombytes(data[:2*numGlyphs])
 		if sys.byteorder != "big": indices.byteswap()
 		data = data[2*numGlyphs:]
-		self.extraNames = extraNames = unpackPStrings(data)
+		maxIndex = max(indices)
+		self.extraNames = extraNames = unpackPStrings(data, maxIndex-257)
 		self.glyphOrder = glyphOrder = [""] * int(ttFont['maxp'].numGlyphs)
 		for glyphID in range(numGlyphs):
 			index = indices[glyphID]
@@ -252,14 +254,34 @@ class table__p_o_s_t(DefaultTable.DefaultTable):
 			self.data = readHex(content)
 
 
-def unpackPStrings(data):
+def unpackPStrings(data, n):
+        # extract n Pascal strings from data.
+        # if there is not enough data, use ""
+
 	strings = []
 	index = 0
 	dataLen = len(data)
-	while index < dataLen:
-		length = byteord(data[index])
-		strings.append(tostr(data[index+1:index+1+length], encoding="latin1"))
-		index = index + 1 + length
+
+	for _ in range(n):
+		if dataLen <= index:
+			length = 0
+		else:
+			length = byteord(data[index])
+		index += 1
+
+		if dataLen <= index + length - 1:
+			name = ""
+		else:
+			name = tostr(data[index:index+length], encoding="latin1")
+		strings.append (name)
+		index += length
+
+	if index < dataLen:
+		log.warning("%d extra bytes in post.stringData array", dataLen - index)
+
+	elif dataLen < index:
+		log.warning("not enough data in post.stringData array")
+
 	return strings
 
 

@@ -31,11 +31,18 @@ using Buffer = std::vector<uint8_t>;
 // defined an extra class so the users of puffin do not have to include
 // puffin.pb.h and deal with its use.
 struct ByteExtent {
-  ByteExtent(uint64_t offset, uint64_t length)
+  constexpr ByteExtent(uint64_t offset, uint64_t length)
       : offset(offset), length(length) {}
 
-  bool operator==(const ByteExtent& other) const {
+  constexpr bool operator==(const ByteExtent& other) const {
     return this->length == other.length && this->offset == other.offset;
+  }
+
+  constexpr bool operator<(const ByteExtent& other) const {
+    if (offset != other.offset) {
+      return offset < other.offset;
+    }
+    return length < other.length;
   }
 
   uint64_t offset;
@@ -43,11 +50,17 @@ struct ByteExtent {
 };
 
 struct BitExtent {
-  BitExtent(uint64_t offset, uint64_t length)
+  constexpr BitExtent(uint64_t offset, uint64_t length)
       : offset(offset), length(length) {}
 
-  bool operator==(const BitExtent& other) const {
+  constexpr bool operator==(const BitExtent& other) const {
     return this->length == other.length && this->offset == other.offset;
+  }
+  constexpr bool operator<(const BitExtent& other) const {
+    if (offset != other.offset) {
+      return offset < other.offset;
+    }
+    return length < other.length;
   }
 
   uint64_t offset;

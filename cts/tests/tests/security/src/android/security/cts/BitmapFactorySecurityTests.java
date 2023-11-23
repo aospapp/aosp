@@ -16,10 +16,15 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
+import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -27,13 +32,16 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 
 import java.lang.Exception;
+import org.junit.runner.RunWith;
+import org.junit.Test;
 
 import android.security.cts.R;
 
-public class BitmapFactorySecurityTests extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class BitmapFactorySecurityTests extends StsExtraBusinessLogicTestCase {
     private FileDescriptor getResource(int resId) {
         try {
-            InputStream is = mContext.getResources().openRawResource(resId);
+            InputStream is = getInstrumentation().getContext().getResources().openRawResource(resId);
             assertNotNull(is);
             File file = File.createTempFile("BitmapFactorySecurityFile" + resId, "img");
             file.deleteOnExit();
@@ -58,6 +66,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
      * Verifies that decoding a corrupt ICO does crash.
      */
     @AsbSecurityTest(cveBugId = 38116746)
+    @Test
     public void test_android_bug_38116746() {
         FileDescriptor exploitImage = getResource(R.raw.bug_38116746);
         try {
@@ -74,6 +83,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
      * Verifies that decoding a corrupt BMP does crash.
      */
     @AsbSecurityTest(cveBugId = 37627194)
+    @Test
     public void test_android_bug_37627194() {
         FileDescriptor exploitImage = getResource(R.raw.bug_37627194);
         try {
@@ -84,6 +94,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
     }
 
     @AsbSecurityTest(cveBugId = 156261521)
+    @Test
     public void test_android_bug_156261521() {
         // Previously decoding this would crash.
         FileDescriptor exploitImage = getResource(R.raw.bug_156261521);

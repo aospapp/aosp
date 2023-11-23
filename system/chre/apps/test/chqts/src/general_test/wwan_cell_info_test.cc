@@ -25,6 +25,8 @@
 
 #include <shared/send_message.h>
 
+#include "chre/util/macros.h"
+
 /*
  * General philosophy behind this test:
  *   Make a call to chreWwanGetCellInfoAsync and then ensure the following:
@@ -36,7 +38,10 @@ namespace general_test {
 
 WwanCellInfoTest::WwanCellInfoTest() : Test(CHRE_API_VERSION_1_1) {}
 
-void WwanCellInfoTest::setUp(uint32_t messageSize, const void * /* message */) {
+void WwanCellInfoTest::setUp(uint32_t messageSize, const void *message) {
+  UNUSED_VAR(messageSize);
+  UNUSED_VAR(message);
+
   if ((chreWwanGetCapabilities() & CHRE_WWAN_GET_CELL_INFO) == 0) {
     sendMessageToHost(nanoapp_testing::MessageType::kSkipped);
   } else if (!chreWwanGetCellInfoAsync(&mTimerHandle)) {

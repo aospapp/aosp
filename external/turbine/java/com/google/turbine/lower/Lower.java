@@ -18,6 +18,8 @@ package com.google.turbine.lower;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.turbine.binder.DisambiguateTypeAnnotations.groupRepeated;
+import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +39,7 @@ import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.FieldInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.MethodInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.ParamInfo;
+import com.google.turbine.binder.bound.TypeBoundClass.RecordComponentInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.TyVarInfo;
 import com.google.turbine.binder.bytecode.BytecodeBoundClass;
 import com.google.turbine.binder.env.CompoundEnv;
@@ -66,6 +69,7 @@ import com.google.turbine.model.Const;
 import com.google.turbine.model.TurbineFlag;
 import com.google.turbine.model.TurbineTyKind;
 import com.google.turbine.model.TurbineVisibility;
+import com.google.turbine.options.LanguageVersion;
 import com.google.turbine.type.AnnoInfo;
 import com.google.turbine.type.Type;
 import com.google.turbine.type.Type.ArrayTy;
@@ -83,7 +87,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Lowering from bound classes to bytecode. */
 public class Lower {
@@ -111,6 +115,7 @@ public class Lower {
 
   /** Lowers all given classes to bytecode. */
   public static Lowered lowerAll(
+      LanguageVersion languageVersion,
       ImmutableMap<ClassSymbol, SourceTypeBoundClass> units,
       ImmutableList<SourceModuleInfo> modules,
       Env<ClassSymbol, BytecodeBoundClass> classpath) {
@@ -118,20 +123,24 @@ public class Lower {
         CompoundEnv.<ClassSymbol, TypeBoundClass>of(classpath).append(new SimpleEnv<>(units));
     ImmutableMap.Builder<String, byte[]> result = ImmutableMap.builder();
     Set<ClassSymbol> symbols = new LinkedHashSet<>();
+    // Output Java 8 bytecode at minimum, for type annotations
+    int majorVersion = max(languageVersion.majorVersion(), 52);
     for (ClassSymbol sym : units.keySet()) {
-      result.put(sym.binaryName(), lower(units.get(sym), env, sym, symbols));
+      result.put(sym.binaryName(), lower(units.get(sym), env, sym, symbols, majorVersion));
     }
     if (modules.size() == 1) {
       // single module mode: the module-info.class file is at the root
-      result.put("module-info", lower(getOnlyElement(modules), env, symbols));
+      result.put("module-info", lower(getOnlyElement(modules), env, symbols, majorVersion));
     } else {
       // multi-module mode: the output module-info.class are in a directory corresponding to their
       // package
       for (SourceModuleInfo module : modules) {
-        result.put(module.name().replace('.', '/') + "/module-info", lower(module, env, symbols));
+        result.put(
+            module.name().replace('.', '/') + "/module-info",
+            lower(module, env, symbols, majorVersion));
       }
     }
-    return new Lowered(result.build(), ImmutableSet.copyOf(symbols));
+    return new Lowered(result.buildOrThrow(), ImmutableSet.copyOf(symbols));
   }
 
   /** Lowers a class to bytecode. */
@@ -139,15 +148,17 @@ public class Lower {
       SourceTypeBoundClass info,
       Env<ClassSymbol, TypeBoundClass> env,
       ClassSymbol sym,
-      Set<ClassSymbol> symbols) {
-    return new Lower(env).lower(info, sym, symbols);
+      Set<ClassSymbol> symbols,
+      int majorVersion) {
+    return new Lower(env).lower(info, sym, symbols, majorVersion);
   }
 
   private static byte[] lower(
       SourceModuleInfo module,
       CompoundEnv<ClassSymbol, TypeBoundClass> env,
-      Set<ClassSymbol> symbols) {
-    return new Lower(env).lower(module, symbols);
+      Set<ClassSymbol> symbols,
+      int majorVersion) {
+    return new Lower(env).lower(module, symbols, majorVersion);
   }
 
   private final LowerSignature sig = new LowerSignature();
@@ -157,7 +168,7 @@ public class Lower {
     this.env = env;
   }
 
-  private byte[] lower(SourceModuleInfo module, Set<ClassSymbol> symbols) {
+  private byte[] lower(SourceModuleInfo module, Set<ClassSymbol> symbols, int majorVersion) {
     String name = "module-info";
     ImmutableList<AnnotationInfo> annotations = lowerAnnotations(module.annos());
     ClassFile.ModuleInfo moduleInfo = lowerModule(module);
@@ -176,16 +187,22 @@ public class Lower {
     ClassFile classfile =
         new ClassFile(
             /* access= */ TurbineFlag.ACC_MODULE,
+            majorVersion,
             name,
             /* signature= */ null,
             /* superClass= */ null,
             /* interfaces= */ ImmutableList.of(),
+            /* permits= */ ImmutableList.of(),
             /* methods= */ ImmutableList.of(),
             /* fields= */ ImmutableList.of(),
             annotations,
             innerClasses.build(),
             /* typeAnnotations= */ ImmutableList.of(),
-            moduleInfo);
+            moduleInfo,
+            /* nestHost= */ null,
+            /* nestMembers= */ ImmutableList.of(),
+            /* record= */ null,
+            /* transitiveJar= */ null);
     symbols.addAll(sig.classes);
     return ClassWriter.writeClass(classfile);
   }
@@ -233,7 +250,8 @@ public class Lower {
         provides.build());
   }
 
-  private byte[] lower(SourceTypeBoundClass info, ClassSymbol sym, Set<ClassSymbol> symbols) {
+  private byte[] lower(
+      SourceTypeBoundClass info, ClassSymbol sym, Set<ClassSymbol> symbols, int majorVersion) {
     int access = classAccess(info);
     String name = sig.descriptor(sym);
     String signature = sig.classSignature(info, env);
@@ -241,6 +259,20 @@ public class Lower {
     List<String> interfaces = new ArrayList<>();
     for (ClassSymbol i : info.interfaces()) {
       interfaces.add(sig.descriptor(i));
+    }
+    List<String> permits = new ArrayList<>();
+    for (ClassSymbol i : info.permits()) {
+      permits.add(sig.descriptor(i));
+    }
+
+    ClassFile.RecordInfo record = null;
+    if (info.kind().equals(TurbineTyKind.RECORD)) {
+      ImmutableList.Builder<ClassFile.RecordInfo.RecordComponentInfo> components =
+          ImmutableList.builder();
+      for (RecordComponentInfo component : info.components()) {
+        components.add(lowerComponent(info, component));
+      }
+      record = new ClassFile.RecordInfo(components.build());
     }
 
     List<ClassFile.MethodInfo> methods = new ArrayList<>();
@@ -265,25 +297,51 @@ public class Lower {
 
     ImmutableList<TypeAnnotationInfo> typeAnnotations = classTypeAnnotations(info);
 
+    String nestHost = null;
+    ImmutableList<String> nestMembers = ImmutableList.of();
+    // nests were added in Java 11, i.e. major version 55
+    if (majorVersion >= 55) {
+      nestHost = collectNestHost(info.source(), info.owner());
+      nestMembers = nestHost == null ? collectNestMembers(info.source(), info) : ImmutableList.of();
+    }
+
     ImmutableList<ClassFile.InnerClass> inners = collectInnerClasses(info.source(), sym, info);
 
     ClassFile classfile =
         new ClassFile(
             access,
+            majorVersion,
             name,
             signature,
             superName,
             interfaces,
+            permits,
             methods,
             fields.build(),
             annotations,
             inners,
             typeAnnotations,
-            /* module= */ null);
+            /* module= */ null,
+            nestHost,
+            nestMembers,
+            record,
+            /* transitiveJar= */ null);
 
     symbols.addAll(sig.classes);
 
     return ClassWriter.writeClass(classfile);
+  }
+
+  private ClassFile.RecordInfo.RecordComponentInfo lowerComponent(
+      SourceTypeBoundClass info, RecordComponentInfo c) {
+    Function<TyVarSymbol, TyVarInfo> tenv = new TyVarEnv(info.typeParameterTypes());
+    String desc = SigWriter.type(sig.signature(Erasure.erase(c.type(), tenv)));
+    String signature = sig.fieldSignature(c.type());
+    ImmutableList.Builder<TypeAnnotationInfo> typeAnnotations = ImmutableList.builder();
+    lowerTypeAnnotations(
+        typeAnnotations, c.type(), TargetType.FIELD, TypeAnnotationInfo.EMPTY_TARGET);
+    return new ClassFile.RecordInfo.RecordComponentInfo(
+        c.name(), desc, signature, lowerAnnotations(c.annotations()), typeAnnotations.build());
   }
 
   private ClassFile.MethodInfo lowerMethod(final MethodInfo m, final ClassSymbol sym) {
@@ -419,10 +477,55 @@ public class Lower {
     if (info == null) {
       throw TurbineError.format(source, ErrorKind.CLASS_FILE_NOT_FOUND, sym);
     }
-    ClassSymbol owner = env.get(sym).owner();
+    ClassSymbol owner = info.owner();
     if (owner != null) {
       addEnclosing(source, env, all, owner);
       all.add(sym);
+    }
+  }
+
+  private @Nullable String collectNestHost(SourceFile source, @Nullable ClassSymbol sym) {
+    if (sym == null) {
+      return null;
+    }
+    while (true) {
+      TypeBoundClass info = env.get(sym);
+      if (info == null) {
+        throw TurbineError.format(source, ErrorKind.CLASS_FILE_NOT_FOUND, sym);
+      }
+      if (info.owner() == null) {
+        return sig.descriptor(sym);
+      }
+      sym = info.owner();
+    }
+  }
+
+  private ImmutableList<String> collectNestMembers(SourceFile source, SourceTypeBoundClass info) {
+    Set<ClassSymbol> nestMembers = new LinkedHashSet<>();
+    for (ClassSymbol child : info.children().values()) {
+      addNestMembers(source, env, nestMembers, child);
+    }
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (ClassSymbol nestMember : nestMembers) {
+      result.add(sig.descriptor(nestMember));
+    }
+    return result.build();
+  }
+
+  private static void addNestMembers(
+      SourceFile source,
+      Env<ClassSymbol, TypeBoundClass> env,
+      Set<ClassSymbol> nestMembers,
+      ClassSymbol sym) {
+    if (!nestMembers.add(sym)) {
+      return;
+    }
+    TypeBoundClass info = env.get(sym);
+    if (info == null) {
+      throw TurbineError.format(source, ErrorKind.CLASS_FILE_NOT_FOUND, sym);
+    }
+    for (ClassSymbol child : info.children().values()) {
+      addNestMembers(source, env, nestMembers, child);
     }
   }
 
@@ -432,15 +535,16 @@ public class Lower {
    */
   private ClassFile.InnerClass innerClass(
       Env<ClassSymbol, TypeBoundClass> env, ClassSymbol innerSym) {
-    TypeBoundClass inner = env.get(innerSym);
+    TypeBoundClass inner = env.getNonNull(innerSym);
+    // this inner class is known to have an owner
+    ClassSymbol owner = requireNonNull(inner.owner());
 
-    String innerName = innerSym.binaryName().substring(inner.owner().binaryName().length() + 1);
+    String innerName = innerSym.binaryName().substring(owner.binaryName().length() + 1);
 
     int access = inner.access();
     access &= ~(TurbineFlag.ACC_SUPER | TurbineFlag.ACC_STRICT);
 
-    return new ClassFile.InnerClass(
-        innerSym.binaryName(), inner.owner().binaryName(), innerName, access);
+    return new ClassFile.InnerClass(innerSym.binaryName(), owner.binaryName(), innerName, access);
   }
 
   /** Updates visibility, and unsets access bits that can only be set in InnerClass. */
@@ -484,7 +588,7 @@ public class Lower {
       // anything that lexically encloses the class being lowered
       // must be in the same compilation unit, so we have source
       // information for it
-      TypeBoundClass owner = env.get((ClassSymbol) ownerSym);
+      TypeBoundClass owner = env.getNonNull((ClassSymbol) ownerSym);
       return owner.typeParameterTypes().get(sym);
     }
   }
@@ -501,7 +605,7 @@ public class Lower {
     return lowered.build();
   }
 
-  private AnnotationInfo lowerAnnotation(AnnoInfo annotation) {
+  private @Nullable AnnotationInfo lowerAnnotation(AnnoInfo annotation) {
     Boolean visible = isVisible(annotation.sym());
     if (visible == null) {
       return null;
@@ -514,9 +618,9 @@ public class Lower {
    * Returns true if the annotation is visible at runtime, false if it is not visible at runtime,
    * and {@code null} if it should not be retained in bytecode.
    */
-  @Nullable
-  private Boolean isVisible(ClassSymbol sym) {
-    RetentionPolicy retention = env.get(sym).annotationMetadata().retention();
+  private @Nullable Boolean isVisible(ClassSymbol sym) {
+    RetentionPolicy retention =
+        requireNonNull(env.getNonNull(sym).annotationMetadata()).retention();
     switch (retention) {
       case CLASS:
         return false;
@@ -533,7 +637,7 @@ public class Lower {
     for (Map.Entry<String, Const> entry : values.entrySet()) {
       result.put(entry.getKey(), annotationValue(entry.getValue()));
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   private ElementValue annotationValue(Const value) {
@@ -689,7 +793,7 @@ public class Lower {
 
   private boolean isInterface(Type type, Env<ClassSymbol, TypeBoundClass> env) {
     return type.tyKind() == TyKind.CLASS_TY
-        && env.get(((ClassTy) type).sym()).kind() == TurbineTyKind.INTERFACE;
+        && env.getNonNull(((ClassTy) type).sym()).kind() == TurbineTyKind.INTERFACE;
   }
 
   private void lowerTypeAnnotations(

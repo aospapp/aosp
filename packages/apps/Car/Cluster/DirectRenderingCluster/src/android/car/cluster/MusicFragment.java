@@ -94,6 +94,7 @@ public class MusicFragment extends Fragment {
             trackLength,
             seekBar,
             albumIcon,
+            null,
             new Size(artSize, artSize)
         );
 

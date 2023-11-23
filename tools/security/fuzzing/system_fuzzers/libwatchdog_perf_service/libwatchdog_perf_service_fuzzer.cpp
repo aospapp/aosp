@@ -20,7 +20,7 @@
 #include <iostream>
 
 #include "IoPerfCollection.h"
-#include "ProcStat.h"
+#include "ProcStatCollector.h"
 #include "UidIoStatsCollector.h"
 
 namespace android {
@@ -87,9 +87,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, std::size_t size) {
       // Test ProcStat
       TemporaryFile tf2;
       WriteStringToFile(procStatsSnapshot, tf2.path);
-      ProcStat procStat(tf2.path);
-      assert(procStat.enabled() == true);
-      procStat.collect();
+      ProcStatCollector procStatCollector(tf2.path);
+      assert(procStatCollector.enabled() == true);
+      procStatCollector.collect();
     }
     return 0;
 }

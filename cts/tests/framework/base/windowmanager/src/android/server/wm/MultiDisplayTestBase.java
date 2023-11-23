@@ -20,7 +20,6 @@ import static android.content.pm.ActivityInfo.CONFIG_SCREEN_SIZE;
 import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
-import static android.server.wm.StateLogger.log;
 import static android.server.wm.UiDeviceUtils.pressSleepButton;
 import static android.server.wm.UiDeviceUtils.pressWakeupButton;
 import static android.server.wm.app.Components.VIRTUAL_DISPLAY_ACTIVITY;
@@ -50,7 +49,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -86,8 +84,6 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Base class for ActivityManager display tests.
@@ -175,108 +171,6 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         return result;
     }
 
-    public static class ReportedDisplayMetrics {
-        private static final String WM_SIZE = "wm size";
-        private static final String WM_DENSITY = "wm density";
-        private static final Pattern PHYSICAL_SIZE =
-                Pattern.compile("Physical size: (\\d+)x(\\d+)");
-        private static final Pattern OVERRIDE_SIZE =
-                Pattern.compile("Override size: (\\d+)x(\\d+)");
-        private static final Pattern PHYSICAL_DENSITY =
-                Pattern.compile("Physical density: (\\d+)");
-        private static final Pattern OVERRIDE_DENSITY =
-                Pattern.compile("Override density: (\\d+)");
-
-        /** The size of the physical display. */
-        @NonNull
-        final Size physicalSize;
-        /** The density of the physical display. */
-        final int physicalDensity;
-
-        /** The pre-existing size override applied to a logical display. */
-        @Nullable
-        final Size overrideSize;
-        /** The pre-existing density override applied to a logical display. */
-        @Nullable
-        final Integer overrideDensity;
-
-        final int mDisplayId;
-
-        /** Get physical and override display metrics from WM for specified display. */
-        public static ReportedDisplayMetrics getDisplayMetrics(int displayId) {
-            return new ReportedDisplayMetrics(executeShellCommand(WM_SIZE + " -d " + displayId)
-                            + executeShellCommand(WM_DENSITY + " -d " + displayId), displayId);
-        }
-
-        void setDisplayMetrics(final Size size, final int density) {
-            setSize(size);
-            setDensity(density);
-        }
-
-        void restoreDisplayMetrics() {
-            if (overrideSize != null) {
-                setSize(overrideSize);
-            } else {
-                executeShellCommand(WM_SIZE + " reset -d " + mDisplayId);
-            }
-            if (overrideDensity != null) {
-                setDensity(overrideDensity);
-            } else {
-                executeShellCommand(WM_DENSITY + " reset -d " + mDisplayId);
-            }
-        }
-
-        private void setSize(final Size size) {
-            executeShellCommand(
-                    WM_SIZE + " " + size.getWidth() + "x" + size.getHeight() + " -d " + mDisplayId);
-        }
-
-        private void setDensity(final int density) {
-            executeShellCommand(WM_DENSITY + " " + density + " -d " + mDisplayId);
-        }
-
-        /** Get display size that WM operates with. */
-        public Size getSize() {
-            return overrideSize != null ? overrideSize : physicalSize;
-        }
-
-        /** Get density that WM operates with. */
-        int getDensity() {
-            return overrideDensity != null ? overrideDensity : physicalDensity;
-        }
-
-        private ReportedDisplayMetrics(final String lines, int displayId) {
-            mDisplayId = displayId;
-            Matcher matcher = PHYSICAL_SIZE.matcher(lines);
-            assertTrue("Physical display size must be reported", matcher.find());
-            log(matcher.group());
-            physicalSize = new Size(
-                    Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
-
-            matcher = PHYSICAL_DENSITY.matcher(lines);
-            assertTrue("Physical display density must be reported", matcher.find());
-            log(matcher.group());
-            physicalDensity = Integer.parseInt(matcher.group(1));
-
-            matcher = OVERRIDE_SIZE.matcher(lines);
-            if (matcher.find()) {
-                log(matcher.group());
-                overrideSize = new Size(
-                        Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
-            } else {
-                overrideSize = null;
-            }
-
-            matcher = OVERRIDE_DENSITY.matcher(lines);
-            if (matcher.find()) {
-                log(matcher.group());
-                overrideDensity = Integer.parseInt(matcher.group(1));
-            } else {
-                overrideDensity = null;
-            }
-        }
-    }
-
     public static class DisplayMetricsSession implements AutoCloseable {
         private final ReportedDisplayMetrics mInitialDisplayMetrics;
         private final int mDisplayId;
@@ -350,39 +244,28 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         return mObjectTracker.manage(new DisplayMetricsSession(displayId));
     }
 
-    public static class IgnoreOrientationRequestSession implements AutoCloseable {
-        private static final String WM_SET_IGNORE_ORIENTATION_REQUEST =
-                "wm set-ignore-orientation-request ";
-        private static final String WM_GET_IGNORE_ORIENTATION_REQUEST =
-                "wm get-ignore-orientation-request";
-        private static final Pattern IGNORE_ORIENTATION_REQUEST_PATTERN =
-                Pattern.compile("ignoreOrientationRequest (true|false) for displayId=\\d+");
+    public static class LetterboxAspectRatioSession extends IgnoreOrientationRequestSession {
+        private static final String WM_SET_LETTERBOX_STYLE_ASPECT_RATIO =
+                "wm set-letterbox-style --aspectRatio ";
+        private static final String WM_RESET_LETTERBOX_STYLE_ASPECT_RATIO =
+                "wm reset-letterbox-style aspectRatio";
 
-        final int mDisplayId;
-        final boolean mInitialValue;
-
-        IgnoreOrientationRequestSession(int displayId, boolean value) {
-            mDisplayId = displayId;
-            Matcher matcher = IGNORE_ORIENTATION_REQUEST_PATTERN.matcher(
-                    executeShellCommand(WM_GET_IGNORE_ORIENTATION_REQUEST + " -d " + mDisplayId));
-            assertTrue("get-ignore-orientation-request should match pattern", matcher.find());
-            mInitialValue = Boolean.parseBoolean(matcher.group(1));
-
-            executeShellCommand("wm set-ignore-orientation-request true -d " + mDisplayId);
-            executeShellCommand(WM_SET_IGNORE_ORIENTATION_REQUEST + value + " -d " + mDisplayId);
+        LetterboxAspectRatioSession(float aspectRatio) {
+            super(true);
+            executeShellCommand(WM_SET_LETTERBOX_STYLE_ASPECT_RATIO + aspectRatio);
         }
 
         @Override
         public void close() {
-            executeShellCommand(
-                    WM_SET_IGNORE_ORIENTATION_REQUEST + mInitialValue + " -d " + mDisplayId);
+            super.close();
+            executeShellCommand(WM_RESET_LETTERBOX_STYLE_ASPECT_RATIO);
         }
     }
 
     /** @see ObjectTracker#manage(AutoCloseable) */
-    protected IgnoreOrientationRequestSession createManagedIgnoreOrientationRequestSession(
-            int displayId, boolean value) {
-        return mObjectTracker.manage(new IgnoreOrientationRequestSession(displayId, value));
+    protected LetterboxAspectRatioSession createManagedLetterboxAspectRatioSession(
+            float aspectRatio) {
+        return mObjectTracker.manage(new LetterboxAspectRatioSession(aspectRatio));
     }
 
     void waitForDisplayGone(Predicate<DisplayContent> displayPredicate) {

@@ -16,7 +16,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.server.networkstack.integrationtests"
           android:sharedUserId="android.uid.networkstack">
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
 
     <!-- Note: do not add any privileged or signature permissions that are granted
          to the network stack app. Otherwise, the test APK will install, but when the device is

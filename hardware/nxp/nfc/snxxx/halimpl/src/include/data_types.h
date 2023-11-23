@@ -36,7 +36,7 @@
 typedef uint32_t TIME_STAMP;
 
 #ifndef true
-#define true !false
+#define true (!false)
 #endif
 
 #ifndef TRUE

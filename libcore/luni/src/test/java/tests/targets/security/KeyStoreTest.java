@@ -76,6 +76,14 @@ public abstract class KeyStoreTest extends TestCase {
     }
 
     public void testKeyStoreCreate() {
+        createAndTest("the secret password", algorithmName);
+    }
+
+    public void testKeyStoreCreateNullPassword() {
+        createAndTest(null, "BKS");
+    }
+
+    private void createAndTest(String password, String algorithmName) {
         KeyStore keyStore = null;
         try {
             keyStore = KeyStore.getInstance(algorithmName);
@@ -83,8 +91,10 @@ public abstract class KeyStoreTest extends TestCase {
             fail(e.getMessage());
         }
 
+        char[] passwordCharArray = (password == null) ? null : password.toCharArray();
+
         try {
-            keyStore.load(null, "the secret password".toCharArray());
+            keyStore.load(null, passwordCharArray);
         } catch (NoSuchAlgorithmException e) {
             fail(e.getMessage());
         } catch (CertificateException e) {
@@ -124,7 +134,7 @@ public abstract class KeyStoreTest extends TestCase {
 
         try {
             keyStore.setEntry("aPrivateKey", privateKeyEntry,
-                    new PasswordProtection("the key password".toCharArray()));
+                    new PasswordProtection(passwordCharArray));
         } catch (KeyStoreException e) {
             fail(e.getMessage());
         }
@@ -137,8 +147,7 @@ public abstract class KeyStoreTest extends TestCase {
 
         try {
             PrivateKeyEntry entry = (PrivateKeyEntry) keyStore.getEntry(
-                    "aPrivateKey", new PasswordProtection("the key password"
-                            .toCharArray()));
+                    "aPrivateKey", new PasswordProtection(passwordCharArray));
             PrivateKey privateKey = entry.getPrivateKey();
             assertEquals(keyPair.getPrivate(), privateKey);
         } catch (NoSuchAlgorithmException e) {
@@ -151,7 +160,7 @@ public abstract class KeyStoreTest extends TestCase {
 
         try {
             ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            keyStore.store(stream, "the keystore password".toCharArray());
+            keyStore.store(stream, passwordCharArray);
             assertTrue("keystore not written", stream.size() > 0);
         } catch (KeyStoreException e) {
             fail(e.getMessage());

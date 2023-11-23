@@ -32,6 +32,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.cts.helpers.SensorNotSupportedException;
+import android.hardware.cts.helpers.SensorTestStateNotSupportedException;
 import android.hardware.cts.helpers.SuspendStateMonitor;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.Sensor;
@@ -43,6 +44,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
+import android.os.Vibrator;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
@@ -109,11 +111,16 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
      */
     @SuppressWarnings("unused")
     public String testVibratorDoesNotTrigger() throws Throwable {
-     return runTest(
-             R.string.snsr_significant_motion_test_vibration,
-             false /* isMotionExpected */,
-             false /* cancelEventNotification */,
-             true /* vibrate */);
+        Vibrator vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
+        if (!vibrator.hasVibrator()) {
+            throw new SensorTestStateNotSupportedException("Vibrator not supported, skip.");
+        } else {
+            return runTest(
+                    R.string.snsr_significant_motion_test_vibration,
+                    false /* isMotionExpected */,
+                    false /* cancelEventNotification */,
+                    true /* vibrate */);
+        }
     }
 
     /**

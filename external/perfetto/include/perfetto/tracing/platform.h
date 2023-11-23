@@ -25,6 +25,9 @@
 #include <string>
 
 #include "perfetto/base/export.h"
+#include "perfetto/base/logging.h"
+#include "perfetto/base/proc_utils.h"
+#include "perfetto/tracing/tracing.h"
 
 namespace perfetto {
 
@@ -56,6 +59,23 @@ class PERFETTO_EXPORT Platform {
   // to use its own base class for TLS).
   static Platform* GetDefaultPlatform();
 
+  // Embedders can call this to set process ID in those cases where getpid()
+  // returns incorrect values (e.g. for sandboxed processes in Chromium).
+  // Should only be called once, before tracing has been initialized.
+  static void SetCurrentProcessId(base::PlatformProcessId process_id) {
+    PERFETTO_CHECK(!process_id_);
+    PERFETTO_DCHECK(!Tracing::IsInitialized());
+    process_id_ = process_id;
+  }
+
+  // Returns process ID previously set by SetCurrentProcessId, or the process
+  // ID provided by the OS if no custom ID was provided.
+  static base::PlatformProcessId GetCurrentProcessId() {
+    if (process_id_)
+      return process_id_;
+    return base::GetProcessId();
+  }
+
   virtual ~Platform();
 
   // Creates a thread-local object. The embedder must:
@@ -70,7 +90,12 @@ class PERFETTO_EXPORT Platform {
   // Creates a sequenced task runner. The easiest implementation is to create
   // a new thread (e.g. use base::ThreadTaskRunner) but this can also be
   // implemented in some more clever way (e.g. using chromiums's scheduler).
-  struct CreateTaskRunnerArgs {};
+  struct CreateTaskRunnerArgs {
+    // Optional. Sets the name to the newly created task runner. In the default
+    // PosixPlatform implementation this causes a pthread_setname_np(). This is
+    // only for ease of debugging, it does not affect the tracing behavior.
+    std::string name_for_debugging;
+  };
   virtual std::unique_ptr<base::TaskRunner> CreateTaskRunner(
       const CreateTaskRunnerArgs&) = 0;
 
@@ -78,6 +103,9 @@ class PERFETTO_EXPORT Platform {
   // kSystemBackend mode. It can be an arbitrary string when using the
   // in-process mode.
   virtual std::string GetCurrentProcessName() = 0;
+
+ private:
+  static base::PlatformProcessId process_id_;
 };
 
 }  // namespace perfetto

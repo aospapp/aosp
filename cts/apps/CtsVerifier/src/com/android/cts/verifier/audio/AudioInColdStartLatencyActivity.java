@@ -24,6 +24,8 @@ import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.CddTest;
+
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
 
@@ -37,6 +39,7 @@ import org.hyphonate.megaaudio.recorder.sinks.AppCallbackAudioSinkProvider;
 /**
  * CTS-Test for cold-start latency measurements
  */
+@CddTest(requirement = "5.6/C-3-2")
 public class AudioInColdStartLatencyActivity
         extends AudioColdStartBaseActivity {
     private static final String TAG = "AudioInColdStartLatencyActivity";

@@ -75,7 +75,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetActivePeer"
-        test_args = { "peer_id": peer_id }
+        test_args = {"peer_id": peer_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -94,18 +94,19 @@ class FuchsiaHfpLib(BaseLib):
 
         return self.send_command(test_id, test_cmd, test_args)
 
-    def newCall(self, remote, state):
+    def newCall(self, remote, state, direction):
         """Opens a new call channel and alerts the HFP peer.
 
         Args:
             remote: The number of the remote party.
             state: The state of the call.
+            direction: The direction of the call. Can be "incoming" or "outgoing".
 
         Returns:
             Dictionary, call_id if success, error if error.
         """
         test_cmd = "hfp_facade.NewCall"
-        test_args = {"remote": remote, "state": state }
+        test_args = {"remote": remote, "state": state, "direction": direction}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -121,6 +122,23 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, call_id if success, error if error.
         """
         test_cmd = "hfp_facade.IncomingCall"
+        test_args = {"remote": remote}
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
+    def initiateIncomingWaitingCall(self, remote):
+        """Opens an incoming call when there is an onging call and alerts
+        the HFP peer.
+
+        Args:
+            remote: The number of the remote party.
+
+        Returns:
+            Dictionary, call_id if success, error if error.
+        """
+        test_cmd = "hfp_facade.IncomingWaitingCall"
         test_args = {"remote": remote }
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
@@ -137,7 +155,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, call_id if success, error if error.
         """
         test_cmd = "hfp_facade.OutgoingCall"
-        test_args = {"remote": remote }
+        test_args = {"remote": remote}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -153,7 +171,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetCallActive"
-        test_args = {"call_id": call_id }
+        test_args = {"call_id": call_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -169,7 +187,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetCallHeld"
-        test_args = {"call_id": call_id }
+        test_args = {"call_id": call_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -185,7 +203,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetCallTerminated"
-        test_args = {"call_id": call_id }
+        test_args = {"call_id": call_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -201,7 +219,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetCallTransferredToAg"
-        test_args = {"call_id": call_id }
+        test_args = {"call_id": call_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -217,7 +235,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetSpeakerGain"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -233,7 +251,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetMicrophoneGain"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -249,7 +267,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetServiceAvailable"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -265,7 +283,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetRoaming"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -281,7 +299,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetSignalStrength"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -297,7 +315,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetSubscriberNumber"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -313,7 +331,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetOperator"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -329,7 +347,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetNrecSupport"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -345,7 +363,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetBatteryLevel"
-        test_args = {"value": value }
+        test_args = {"value": value}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -361,7 +379,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetLastDialed"
-        test_args = {"number": number }
+        test_args = {"number": number}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -391,7 +409,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetMemoryLocation"
-        test_args = {"location": location, "number": number }
+        test_args = {"location": location, "number": number}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -408,7 +426,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.ClearMemoryLocation"
-        test_args = {"location": location }
+        test_args = {"location": location}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -426,7 +444,7 @@ class FuchsiaHfpLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "hfp_facade.SetDialResult"
-        test_args = {"number": number, "status": status }
+        test_args = {"number": number, "status": status}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -440,6 +458,22 @@ class FuchsiaHfpLib(BaseLib):
         """
         test_cmd = "hfp_facade.GetState"
         test_args = {}
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
+    def setConnectionBehavior(self, autoconnect):
+        """Set the Service Level Connection behavior when a new peer connects.
+
+        Args:
+            autoconnect: Enable/Disable autoconnection of SLC.
+
+        Returns:
+            Dictionary, None if success, error if error.
+        """
+        test_cmd = "hfp_facade.SetConnectionBehavior"
+        test_args = {"autoconnect": autoconnect}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 

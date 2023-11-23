@@ -17,6 +17,7 @@
 package com.android.timezone.location.data_pipeline.steps;
 
 import static com.android.timezone.location.common.LicenseSupport.LICENSE_FILE_NAME;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 

@@ -60,16 +60,21 @@ OsuHalExtn::OsuApduMode OsuHalExtn::isOsuMode(const hidl_vec<uint8_t>& evt,
       }
       break;
     case TRANSMIT:
-      memcpy(pCmdData->p_data, evt.data(), evt.size());
-      if (isOsuMode()) {
-        /*
-         * Process transmit request(unwrap APDU, proprietary actions) in OSU
-         * mode
-         */
-        osuSubState =
-            checkTransmit(pCmdData->p_data, evt.size(), &pCmdData->len);
+      // Validate input data before processing
+      if (pCmdData != NULL && pCmdData->p_data != NULL) {
+        memcpy(pCmdData->p_data, evt.data(), evt.size());
+        if (isOsuMode()) {
+          /*
+           * Process transmit request(unwrap APDU, proprietary actions) in OSU
+           * mode
+           */
+          osuSubState = checkTransmit(pCmdData->p_data, &pCmdData->len, evt);
+        } else {
+          pCmdData->len = evt.size();
+          osuSubState = NON_OSU_MODE;
+        }
       } else {
-        pCmdData->len = evt.size();
+        if (pCmdData != NULL) pCmdData->len = evt.size();
         osuSubState = NON_OSU_MODE;
       }
       break;
@@ -93,6 +98,9 @@ bool OsuHalExtn::isOsuMode(uint8_t type, uint8_t channel) {
       checkAndUpdateOsuMode();
       break;
     case OPENLOGICAL:
+      // No action, only return current mode
+      break;
+    case GETATR:
       // No action, only return current mode
       break;
     case CLOSE:
@@ -188,10 +196,15 @@ bool OsuHalExtn::isOsuMode() { return (isAppOSUMode || isJcopOSUMode); }
 ** Returns:     OsuApduMode
 **
 *******************************************************************************/
-OsuHalExtn::OsuApduMode OsuHalExtn::checkTransmit(uint8_t* input, size_t length,
-                                                  uint32_t* outLength) {
+OsuHalExtn::OsuApduMode OsuHalExtn::checkTransmit(
+    uint8_t* input, uint32_t* outLength, const hidl_vec<uint8_t>& data) {
   OsuHalExtn::OsuApduMode halMode = NON_OSU_MODE;
+  size_t length = data.size();
 
+  // Validate input buffer processing
+  if (input == NULL) {
+    return halMode;
+  }
   /*
    * 1) Transmit request on logical channels(ISO7816_CLA_CHN_MASK)shall be
    *    blocked in OSU mode
@@ -215,8 +228,7 @@ OsuHalExtn::OsuApduMode OsuHalExtn::checkTransmit(uint8_t* input, size_t length,
     if (*(input + ISO7816_LC_OFFSET) != 0) {
       if (length > ISO7816_SHORT_APDU_HEADER) {
         *outLength = length - ISO7816_SHORT_APDU_HEADER;
-        memcpy(input, input + ISO7816_SHORT_APDU_HEADER,
-               length - ISO7816_SHORT_APDU_HEADER);
+        std::copy(data.begin() + ISO7816_SHORT_APDU_HEADER, data.end(), input);
       } else {
         *outLength = 0;
         ALOGE("checkTransmit input data length is incorrect");
@@ -224,8 +236,8 @@ OsuHalExtn::OsuApduMode OsuHalExtn::checkTransmit(uint8_t* input, size_t length,
     } else {
       if (length > ISO7816_EXTENDED_APDU_HEADER) {
         *outLength = length - ISO7816_EXTENDED_APDU_HEADER;
-        memcpy(input, input + ISO7816_EXTENDED_APDU_HEADER,
-               length - ISO7816_EXTENDED_APDU_HEADER);
+        std::copy(data.begin() + ISO7816_EXTENDED_APDU_HEADER, data.end(),
+                  input);
       } else {
         *outLength = 0;
         ALOGE("checkTransmit input data length is incorrect");

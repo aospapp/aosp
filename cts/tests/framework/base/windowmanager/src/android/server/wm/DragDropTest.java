@@ -16,8 +16,9 @@
 
 package android.server.wm;
 
-import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -29,14 +30,16 @@ import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.cts.R;
-import android.util.MutableBoolean;
 import android.view.DragEvent;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -44,7 +47,6 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -741,6 +743,45 @@ public class DragDropTest extends WindowManagerTestBase {
                     expectedHwAccelerated == isCanvasHwAccelerated.get());
         } catch (InterruptedException e) {
             fail("Got InterruptedException while waiting for canvas");
+        }
+    }
+
+    @Test
+    public void testDragShadowWhenPerformDrag() {
+        // Mouse down. Required for the drag to start.
+        injectMouseWithOffset(R.id.draggable, MotionEvent.ACTION_DOWN, 0);
+        final View v = mActivity.findViewById(R.id.draggable);
+        runOnMain(() -> {
+            // Start drag.
+            assertTrue("Couldn't start drag",
+                    v.startDragAndDrop(sClipData, new View.DragShadowBuilder(v) {
+                        @Override
+                        public void onProvideShadowMetrics(Point outShadowSize,
+                                Point outShadowTouchPoint) {
+                            outShadowSize.set(v.getWidth(), v.getHeight());
+                            outShadowTouchPoint.set(0, 0);
+                        }
+
+                        @Override
+                        public void onDrawShadow(Canvas canvas) {
+                            canvas.drawColor(Color.RED);
+                        }
+                    }, sLocalState, View.DRAG_FLAG_OPAQUE));
+        });
+        getInstrumentation().getUiAutomation().syncInputTransactions();
+
+        // Verify if the drag shadow present before any move event.
+        final Bitmap screenshot = mInstrumentation.getUiAutomation().takeScreenshot();
+        injectMouseWithOffset(R.id.draggable, MotionEvent.ACTION_UP, 0);
+
+        int [] viewLoc = new int[2];
+        v.getLocationOnScreen(viewLoc);
+
+        for (int x = viewLoc[0]; x < viewLoc[0] + v.getWidth(); x++) {
+            for (int y = viewLoc[1]; y < viewLoc[1] + v.getHeight(); y++) {
+                final Color color = screenshot.getColor(x, y);
+                assertTrue("Should show drag shadow", color.toArgb() == Color.RED);
+            }
         }
     }
 

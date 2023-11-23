@@ -108,6 +108,7 @@ endif
   else ifeq ($(BOARD_WLAN_DEVICE), qcwcn)
     LIB_WIFI_HAL := libwifi-hal-qcom
     VENDOR_LOCAL_SHARED_LIBRARIES := libcld80211
+    VENDOR_LOCAL_SHARED_LIBRARIES += libcrypto
   else ifeq ($(BOARD_WLAN_DEVICE), mrvl)
     # this is commented because none of the nexus devices
     # that sport Marvell's wifi have support for HAL

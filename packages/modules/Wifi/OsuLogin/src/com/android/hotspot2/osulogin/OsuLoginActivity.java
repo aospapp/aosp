@@ -25,11 +25,13 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.http.SslError;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -268,6 +270,7 @@ public class OsuLoginActivity extends Activity {
             if (request.getUrl().toString().startsWith("http://127.0.0.1")) {
                 mRedirectResponseReceived = true;
                 view.stopLoading();
+                Log.d(TAG, "Redirect received");
             }
 
             if (request.isForMainFrame()) {
@@ -276,6 +279,14 @@ public class OsuLoginActivity extends Activity {
                 mPageError = true;
                 Log.e(TAG, "onReceived Error for MainFrame: " + error.getErrorCode());
             }
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            Log.e(TAG, String.format("SSL error: %d, url: %s, certificate: %s",
+                    error.getPrimaryError(), error.getUrl(), error.getCertificate()));
+            mPageError = true;
+            handler.cancel();
         }
     }
 }

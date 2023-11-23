@@ -89,14 +89,10 @@ public class NotificationPanelViewMediator implements OverlayViewMediator,
     @Override
     @CallSuper
     public void registerListeners() {
-        mCarSystemBarController.registerTopBarTouchListener(
-                mNotificationPanelViewController.getDragCloseTouchListener());
-        mCarSystemBarController.registerBottomBarTouchListener(
-                mNotificationPanelViewController.getDragCloseTouchListener());
-        mCarSystemBarController.registerLeftBarTouchListener(
-                mNotificationPanelViewController.getDragCloseTouchListener());
-        mCarSystemBarController.registerRightBarTouchListener(
-                mNotificationPanelViewController.getDragCloseTouchListener());
+        registerTopBarTouchListener();
+        registerBottomBarTouchListener();
+        registerLeftBarTouchListener();
+        registerRightBarTouchListener();
 
         mCarSystemBarController.registerNotificationController(
                 new CarSystemBarController.NotificationsShadeController() {
@@ -124,7 +120,7 @@ public class NotificationPanelViewMediator implements OverlayViewMediator,
         });
 
         mPowerManagerHelper.setCarPowerStateListener(state -> {
-            if (state == CarPowerManager.CarPowerStateListener.ON) {
+            if (state == CarPowerManager.STATE_ON) {
                 mNotificationPanelViewController.onCarPowerStateOn();
             }
         });
@@ -157,6 +153,26 @@ public class NotificationPanelViewMediator implements OverlayViewMediator,
     public void onLocaleListChanged() {
         mNotificationPanelViewController.reinflate();
         registerListeners();
+    }
+
+    protected void registerTopBarTouchListener() {
+        mCarSystemBarController.registerTopBarTouchListener(
+                mNotificationPanelViewController.getDragCloseTouchListener());
+    }
+
+    protected void registerBottomBarTouchListener() {
+        mCarSystemBarController.registerBottomBarTouchListener(
+                mNotificationPanelViewController.getDragCloseTouchListener());
+    }
+
+    protected void registerLeftBarTouchListener() {
+        mCarSystemBarController.registerLeftBarTouchListener(
+                mNotificationPanelViewController.getDragCloseTouchListener());
+    }
+
+    protected void registerRightBarTouchListener() {
+        mCarSystemBarController.registerRightBarTouchListener(
+                mNotificationPanelViewController.getDragCloseTouchListener());
     }
 
     protected final CarSystemBarController getCarSystemBarController() {

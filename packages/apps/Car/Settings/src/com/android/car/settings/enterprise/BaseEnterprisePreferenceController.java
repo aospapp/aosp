@@ -22,7 +22,9 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.pm.UserInfo;
 import android.content.res.Resources;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import androidx.annotation.Nullable;
@@ -80,6 +82,32 @@ abstract class BaseEnterprisePreferenceController<P extends Preference>
         } catch (Resources.NotFoundException e) {
             mLogger.v("No description for "
                     + deviceAdminInfo.getComponent().flattenToShortString());
+        }
+        return null;
+    }
+
+    /**
+     * Returns whether the device is in COMP mode (primary user managed by a Device Owner app and
+     * work profile managed by a Profile Owner app).
+     */
+    protected boolean isInCompMode() {
+        return EnterpriseUtils.hasDeviceOwner(getContext())
+                && getManagedProfileUserId() != UserHandle.USER_NULL;
+    }
+
+    private int getManagedProfileUserId() {
+        UserInfo userInfo = getManagedProfileUserInfo();
+        if (userInfo != null) {
+            return userInfo.id;
+        }
+        return UserHandle.USER_NULL;
+    }
+
+    private UserInfo getManagedProfileUserInfo() {
+        for (UserInfo userInfo : mUm.getProfiles(UserHandle.myUserId())) {
+            if (userInfo.isManagedProfile()) {
+                return userInfo;
+            }
         }
         return null;
     }

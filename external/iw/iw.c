@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <linux/netlink.h>
 
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
@@ -54,13 +55,18 @@ static int nl80211_init(struct nl80211_state *state)
 		return -ENOMEM;
 	}
 
-	nl_socket_set_buffer_size(state->nl_sock, 8192, 8192);
-
 	if (genl_connect(state->nl_sock)) {
 		fprintf(stderr, "Failed to connect to generic netlink.\n");
 		err = -ENOLINK;
 		goto out_handle_destroy;
 	}
+
+	nl_socket_set_buffer_size(state->nl_sock, 8192, 8192);
+
+	/* try to set NETLINK_EXT_ACK to 1, ignoring errors */
+	err = 1;
+	setsockopt(nl_socket_get_fd(state->nl_sock), SOL_NETLINK,
+		   NETLINK_EXT_ACK, &err, sizeof(err));
 
 	state->nl80211_id = genl_ctrl_resolve(state->nl_sock, "nl80211");
 	if (state->nl80211_id < 0) {
@@ -83,12 +89,12 @@ static void nl80211_cleanup(struct nl80211_state *state)
 
 static int cmd_size;
 
-extern struct cmd __start___cmd;
-extern struct cmd __stop___cmd;
+extern struct cmd *__start___cmd[];
+extern struct cmd *__stop___cmd;
 
-#define for_each_cmd(_cmd)					\
-	for (_cmd = &__start___cmd; _cmd < &__stop___cmd;		\
-	     _cmd = (const struct cmd *)((char *)_cmd + cmd_size))
+#define for_each_cmd(_cmd, i)					\
+	for (i = 0; i < &__stop___cmd - __start___cmd; i++)	\
+		if ((_cmd = __start___cmd[i]))
 
 
 static void __usage_cmd(const struct cmd *cmd, char *indent, bool full)
@@ -186,6 +192,7 @@ static void usage(int argc, char **argv)
 	bool full = argc >= 0;
 	const char *sect_filt = NULL;
 	const char *cmd_filt = NULL;
+	unsigned int i, j;
 
 	if (argc > 0)
 		sect_filt = argv[0];
@@ -197,7 +204,7 @@ static void usage(int argc, char **argv)
 	usage_options();
 	printf("\t--version\tshow version (%s)\n", iw_version);
 	printf("Commands:\n");
-	for_each_cmd(section) {
+	for_each_cmd(section, i) {
 		if (section->parent)
 			continue;
 
@@ -207,7 +214,7 @@ static void usage(int argc, char **argv)
 		if (section->handler && !section->hidden)
 			__usage_cmd(section, "\t", full);
 
-		for_each_cmd(cmd) {
+		for_each_cmd(cmd, j) {
 			if (section != cmd->parent)
 				continue;
 			if (!cmd->handler || cmd->hidden)
@@ -228,7 +235,6 @@ static void usage(int argc, char **argv)
 }
 
 static int print_help(struct nl80211_state *state,
-		      struct nl_cb *cb,
 		      struct nl_msg *msg,
 		      int argc, char **argv,
 		      enum id_input id)
@@ -274,8 +280,47 @@ static int phy_lookup(char *name)
 static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err,
 			 void *arg)
 {
+	struct nlmsghdr *nlh = (struct nlmsghdr *)err - 1;
+	int len = nlh->nlmsg_len;
+	struct nlattr *attrs;
+	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1];
 	int *ret = arg;
-	*ret = err->error;
+	int ack_len = sizeof(*nlh) + sizeof(int) + sizeof(*nlh);
+
+	if (err->error > 0) {
+		/*
+		 * This is illegal, per netlink(7), but not impossible (think
+		 * "vendor commands"). Callers really expect negative error
+		 * codes, so make that happen.
+		 */
+		fprintf(stderr,
+			"ERROR: received positive netlink error code %d\n",
+			err->error);
+		*ret = -EPROTO;
+	} else {
+		*ret = err->error;
+	}
+
+	if (!(nlh->nlmsg_flags & NLM_F_ACK_TLVS))
+		return NL_STOP;
+
+	if (!(nlh->nlmsg_flags & NLM_F_CAPPED))
+		ack_len += err->msg.nlmsg_len - sizeof(*nlh);
+
+	if (len <= ack_len)
+		return NL_STOP;
+
+	attrs = (void *)((unsigned char *)nlh + ack_len);
+	len -= ack_len;
+
+	nla_parse(tb, NLMSGERR_ATTR_MAX, attrs, len, NULL);
+	if (tb[NLMSGERR_ATTR_MSG]) {
+		len = strnlen((char *)nla_data(tb[NLMSGERR_ATTR_MSG]),
+			      nla_len(tb[NLMSGERR_ATTR_MSG]));
+		fprintf(stderr, "kernel reports: %*s\n", len,
+			(char *)nla_data(tb[NLMSGERR_ATTR_MSG]));
+	}
+
 	return NL_STOP;
 }
 
@@ -293,6 +338,23 @@ static int ack_handler(struct nl_msg *msg, void *arg)
 	return NL_STOP;
 }
 
+static int (*registered_handler)(struct nl_msg *, void *);
+static void *registered_handler_data;
+
+void register_handler(int (*handler)(struct nl_msg *, void *), void *data)
+{
+	registered_handler = handler;
+	registered_handler_data = data;
+}
+
+int valid_handler(struct nl_msg *msg, void *arg)
+{
+	if (registered_handler)
+		return registered_handler(msg, registered_handler_data);
+
+	return NL_OK;
+}
+
 static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 			int argc, char **argv, const struct cmd **cmdout)
 {
@@ -301,7 +363,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	struct nl_cb *s_cb;
 	struct nl_msg *msg;
 	signed long long devidx = 0;
-	int err, o_argc;
+	int err, o_argc, i;
 	const char *command, *section;
 	char *tmp, **o_argv;
 	enum command_identify_by command_idby = CIB_NONE;
@@ -353,7 +415,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	argc--;
 	argv++;
 
-	for_each_cmd(sectcmd) {
+	for_each_cmd(sectcmd, i) {
 		if (sectcmd->parent)
 			continue;
 		/* ok ... bit of a hack for the dupe 'info' section */
@@ -371,7 +433,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	if (argc > 0) {
 		command = *argv;
 
-		for_each_cmd(cmd) {
+		for_each_cmd(cmd, i) {
 			if (!cmd->handler)
 				continue;
 			if (cmd->parent != sectcmd)
@@ -424,7 +486,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	if (!cmd->cmd) {
 		argc = o_argc;
 		argv = o_argv;
-		return cmd->handler(state, NULL, NULL, argc, argv, idby);
+		return cmd->handler(state, NULL, argc, argv, idby);
 	}
 
 	msg = nlmsg_alloc();
@@ -438,7 +500,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	if (!cb || !s_cb) {
 		fprintf(stderr, "failed to allocate netlink callbacks\n");
 		err = 2;
-		goto out_free_msg;
+		goto out;
 	}
 
 	genlmsg_put(msg, 0, 0, state->nl80211_id, 0,
@@ -458,7 +520,7 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 		break;
 	}
 
-	err = cmd->handler(state, cb, msg, argc, argv, idby);
+	err = cmd->handler(state, msg, argc, argv, idby);
 	if (err)
 		goto out;
 
@@ -473,12 +535,13 @@ static int __handle_cmd(struct nl80211_state *state, enum id_input idby,
 	nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &err);
 	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &err);
 	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
+	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_handler, NULL);
 
 	while (err > 0)
 		nl_recvmsgs(state->nl_sock, cb);
  out:
 	nl_cb_put(cb);
- out_free_msg:
+	nl_cb_put(s_cb);
 	nlmsg_free(msg);
 	return err;
  nla_put_failure:
@@ -492,6 +555,25 @@ int handle_cmd(struct nl80211_state *state, enum id_input idby,
 	return __handle_cmd(state, idby, argc, argv, NULL);
 }
 
+/*
+ * Unfortunately, I don't know how densely the linker packs the struct cmd.
+ * For example, if you have a 72-byte struct cmd, the linker will pad each
+ * out to 96 bytes before putting them together in the section. There must
+ * be some algorithm, but I haven't found it yet.
+ *
+ * We used to calculate this by taking the (abs value of) the difference
+ * between __section_get and __section_set, but if LTO is enabled then this
+ * stops working because the entries of the "__cmd" section get rearranged
+ * freely by the compiler/linker.
+ *
+ * Fix this by using yet another "__sizer" section that only contains these
+ * two entries - then the (abs value of) the difference between them will
+ * be how they get packed and that can be used to iterate the __cmd section
+ * as well.
+ */
+static struct cmd sizer1 __attribute__((section("__sizer"))) = {};
+static struct cmd sizer2 __attribute__((section("__sizer"))) = {};
+
 int main(int argc, char **argv)
 {
 	struct nl80211_state nlstate;
@@ -499,7 +581,7 @@ int main(int argc, char **argv)
 	const struct cmd *cmd = NULL;
 
 	/* calculate command size including padding */
-	cmd_size = abs((long)&__section_set - (long)&__section_get);
+	cmd_size = labs((long)&sizer2 - (long)&sizer1);
 	/* strip off self */
 	argc--;
 	argv0 = *argv++;
@@ -544,8 +626,9 @@ int main(int argc, char **argv)
 		err = __handle_cmd(&nlstate, II_WDEV, argc, argv, &cmd);
 	} else {
 		int idx;
-		enum id_input idby = II_NONE;
+		enum id_input idby;
  detect:
+		idby = II_NONE;
 		if ((idx = if_nametoindex(argv[0])) != 0)
 			idby = II_NETDEV;
 		else if ((idx = phy_lookup(argv[0])) >= 0)
@@ -553,11 +636,13 @@ int main(int argc, char **argv)
 		err = __handle_cmd(&nlstate, idby, argc, argv, &cmd);
 	}
 
-	if (err == 1) {
+	if (err == HANDLER_RET_USAGE) {
 		if (cmd)
 			usage_cmd(cmd);
 		else
 			usage(0, NULL);
+	} else if (err == HANDLER_RET_DONE) {
+		err = 0;
 	} else if (err < 0)
 		fprintf(stderr, "command failed: %s (%d)\n", strerror(-err), err);
 

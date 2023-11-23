@@ -20,6 +20,7 @@
 # pylint: disable=line-too-long
 
 import os
+import tempfile
 import unittest
 
 from unittest import mock
@@ -50,6 +51,8 @@ MODULE_INFO_B = test_info.TestInfo(MODULE_NAME_B, FAKE_TR_NAME_B, set())
 MODULE_INFO_B_AGAIN = test_info.TestInfo(MODULE_NAME_B_AGAIN, FAKE_TR_NAME_B,
                                          set())
 BAD_TESTINFO = test_info.TestInfo('bad_name', MISSING_TR_NAME, set())
+BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
+PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
 
 class FakeTestRunnerA(tr_base.TestRunnerBase):
     """Fake test runner A."""
@@ -123,7 +126,8 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
             test_runner_handler.get_test_runner_reqs(empty_module_info,
                                                      test_infos))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
+                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(metrics, 'RunnerFinishEvent')
     def test_run_all_tests(self, _mock_runner_finish):
         """Test that the return value as we expected."""

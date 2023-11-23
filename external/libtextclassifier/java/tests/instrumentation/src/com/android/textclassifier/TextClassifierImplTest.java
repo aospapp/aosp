@@ -18,9 +18,14 @@ package com.android.textclassifier;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.CoreMatchers.not;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.expectThrows;
 
 import android.app.RemoteAction;
@@ -38,12 +43,17 @@ import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextLanguage;
 import android.view.textclassifier.TextLinks;
 import android.view.textclassifier.TextSelection;
+import androidx.collection.LruCache;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
-import com.android.textclassifier.common.ModelFileManager;
+import com.android.textclassifier.common.ModelFile;
+import com.android.textclassifier.common.ModelType;
 import com.android.textclassifier.common.TextClassifierSettings;
 import com.android.textclassifier.testing.FakeContextBuilder;
+import com.android.textclassifier.testing.TestingDeviceConfig;
+import com.google.android.textclassifier.AnnotatorModel;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,6 +66,8 @@ import org.hamcrest.Matcher;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -65,19 +77,34 @@ public class TextClassifierImplTest {
   private static final LocaleList LOCALES = LocaleList.forLanguageTags("en-US");
   private static final String NO_TYPE = null;
 
+  @Mock private ModelFileManager modelFileManager;
+
+  private Context context;
+  private TestingDeviceConfig deviceConfig;
+  private TextClassifierSettings settings;
+  private LruCache<ModelFile, AnnotatorModel> annotatorModelCache;
   private TextClassifierImpl classifier;
-  private final ModelFileManager modelFileManager =
-      TestDataUtils.createModelFileManagerForTesting(ApplicationProvider.getApplicationContext());
 
   @Before
-  public void setup() {
-    Context context =
+  public void setup() throws IOException {
+    MockitoAnnotations.initMocks(this);
+    this.context =
         new FakeContextBuilder()
             .setAllIntentComponent(FakeContextBuilder.DEFAULT_COMPONENT)
             .setAppLabel(FakeContextBuilder.DEFAULT_COMPONENT.getPackageName(), "Test app")
             .build();
-    TextClassifierSettings settings = new TextClassifierSettings();
-    classifier = new TextClassifierImpl(context, settings, modelFileManager);
+    this.deviceConfig = new TestingDeviceConfig();
+    this.settings = new TextClassifierSettings(deviceConfig);
+    this.annotatorModelCache = new LruCache<>(2);
+    this.classifier =
+        new TextClassifierImpl(context, settings, modelFileManager, annotatorModelCache);
+
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(TestDataUtils.getTestAnnotatorModelFileWrapped());
+    when(modelFileManager.findBestModelFile(eq(ModelType.LANG_ID), any(), any()))
+        .thenReturn(TestDataUtils.getLangIdModelFileWrapped());
+    when(modelFileManager.findBestModelFile(eq(ModelType.ACTIONS_SUGGESTIONS), any(), any()))
+        .thenReturn(TestDataUtils.getTestActionsModelFileWrapped());
   }
 
   @Test
@@ -90,13 +117,29 @@ public class TextClassifierImplTest {
     int smartStartIndex = text.indexOf(suggested);
     int smartEndIndex = smartStartIndex + suggested.length();
     TextSelection.Request request =
-        new TextSelection.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextSelection.Request.Builder(text, startIndex, endIndex).build();
 
     TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(
         selection, isTextSelection(smartStartIndex, smartEndIndex, TextClassifier.TYPE_EMAIL));
+  }
+
+  @Test
+  public void testSuggestSelection_localePreferenceIsPassedToModelFileManager() throws IOException {
+    String text = "Contact me at droid@android.com";
+    String selected = "droid";
+    String suggested = "droid@android.com";
+    int startIndex = text.indexOf(selected);
+    int endIndex = startIndex + selected.length();
+    int smartStartIndex = text.indexOf(suggested);
+    int smartEndIndex = smartStartIndex + suggested.length();
+    TextSelection.Request request =
+        new TextSelection.Request.Builder(text, startIndex, endIndex)
+            .setDefaultLocales(LOCALES)
+            .build();
+
+    classifier.suggestSelection(null, null, request);
+    verify(modelFileManager).findBestModelFile(eq(ModelType.ANNOTATOR), eq(LOCALES), any());
   }
 
   @Test
@@ -109,9 +152,7 @@ public class TextClassifierImplTest {
     int smartStartIndex = text.indexOf(suggested);
     int smartEndIndex = smartStartIndex + suggested.length();
     TextSelection.Request request =
-        new TextSelection.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextSelection.Request.Builder(text, startIndex, endIndex).build();
 
     TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(selection, isTextSelection(smartStartIndex, smartEndIndex, TextClassifier.TYPE_URL));
@@ -124,12 +165,43 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(selected);
     int endIndex = startIndex + selected.length();
     TextSelection.Request request =
-        new TextSelection.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextSelection.Request.Builder(text, startIndex, endIndex).build();
 
     TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(selection, isTextSelection(startIndex, endIndex, NO_TYPE));
+  }
+
+  @SdkSuppress(minSdkVersion = 31, codeName = "S")
+  @Test
+  public void testSuggestSelection_includeTextClassification() throws IOException {
+    String text = "Visit http://www.android.com for more information";
+    String suggested = "http://www.android.com";
+    int startIndex = text.indexOf(suggested);
+    TextSelection.Request request =
+        new TextSelection.Request.Builder(text, startIndex, /*endIndex=*/ startIndex + 1)
+            .setIncludeTextClassification(true)
+            .build();
+
+    TextSelection selection = classifier.suggestSelection(null, null, request);
+
+    assertThat(
+        selection.getTextClassification(),
+        isTextClassification(suggested, TextClassifier.TYPE_URL));
+    assertThat(selection.getTextClassification(), containsIntentWithAction(Intent.ACTION_VIEW));
+  }
+
+  @SdkSuppress(minSdkVersion = 31, codeName = "S")
+  @Test
+  public void testSuggestSelection_notIncludeTextClassification() throws IOException {
+    String text = "Visit http://www.android.com for more information";
+    TextSelection.Request request =
+        new TextSelection.Request.Builder(text, /*startIndex=*/ 0, /*endIndex=*/ 4)
+            .setIncludeTextClassification(false)
+            .build();
+
+    TextSelection selection = classifier.suggestSelection(null, null, request);
+
+    assertThat(selection.getTextClassification()).isNull();
   }
 
   @Test
@@ -139,9 +211,7 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(classifiedText);
     int endIndex = startIndex + classifiedText.length();
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, startIndex, endIndex).build();
 
     TextClassification classification =
         classifier.classifyText(/* sessionId= */ null, null, request);
@@ -155,9 +225,7 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(classifiedText);
     int endIndex = startIndex + classifiedText.length();
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, startIndex, endIndex).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_URL));
@@ -168,9 +236,7 @@ public class TextClassifierImplTest {
   public void testClassifyText_address() throws IOException {
     String text = "Brandschenkestrasse 110, Zürich, Switzerland";
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, 0, text.length())
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, 0, text.length()).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(text, TextClassifier.TYPE_ADDRESS));
@@ -183,9 +249,7 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(classifiedText);
     int endIndex = startIndex + classifiedText.length();
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, startIndex, endIndex).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_URL));
@@ -199,9 +263,7 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(classifiedText);
     int endIndex = startIndex + classifiedText.length();
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, startIndex, endIndex).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_DATE));
@@ -220,9 +282,7 @@ public class TextClassifierImplTest {
     int startIndex = text.indexOf(classifiedText);
     int endIndex = startIndex + classifiedText.length();
     TextClassification.Request request =
-        new TextClassification.Request.Builder(text, startIndex, endIndex)
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(text, startIndex, endIndex).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_DATE_TIME));
@@ -234,14 +294,12 @@ public class TextClassifierImplTest {
     LocaleList.setDefault(LocaleList.forLanguageTags("en"));
     String japaneseText = "これは日本語のテキストです";
     TextClassification.Request request =
-        new TextClassification.Request.Builder(japaneseText, 0, japaneseText.length())
-            .setDefaultLocales(LOCALES)
-            .build();
+        new TextClassification.Request.Builder(japaneseText, 0, japaneseText.length()).build();
 
     TextClassification classification = classifier.classifyText(null, null, request);
     RemoteAction translateAction = classification.getActions().get(0);
     assertEquals(1, classification.getActions().size());
-    assertEquals("Translate", translateAction.getTitle().toString());
+    assertEquals(Intent.ACTION_TRANSLATE, classification.getIntent().getAction());
 
     assertEquals(translateAction, ExtrasUtils.findTranslateAction(classification));
     Intent intent = ExtrasUtils.getActionsIntents(classification).get(0);
@@ -268,18 +326,17 @@ public class TextClassifierImplTest {
 
   @Test
   public void testGenerateLinks_exclude() throws IOException {
-    String text = "You want apple@banana.com. See you tonight!";
+    String text = "The number is +12122537077. See you tonight!";
     List<String> hints = ImmutableList.of();
     List<String> included = ImmutableList.of();
-    List<String> excluded = Arrays.asList(TextClassifier.TYPE_EMAIL);
+    List<String> excluded = Arrays.asList(TextClassifier.TYPE_PHONE);
     TextLinks.Request request =
         new TextLinks.Request.Builder(text)
             .setEntityConfig(TextClassifier.EntityConfig.create(hints, included, excluded))
-            .setDefaultLocales(LOCALES)
             .build();
     assertThat(
         classifier.generateLinks(null, null, request),
-        not(isTextLinksContaining(text, "apple@banana.com", TextClassifier.TYPE_EMAIL)));
+        not(isTextLinksContaining(text, "+12122537077", TextClassifier.TYPE_PHONE)));
   }
 
   @Test
@@ -289,7 +346,6 @@ public class TextClassifierImplTest {
     TextLinks.Request request =
         new TextLinks.Request.Builder(text)
             .setEntityConfig(TextClassifier.EntityConfig.createWithExplicitEntityList(explicit))
-            .setDefaultLocales(LOCALES)
             .build();
     assertThat(
         classifier.generateLinks(null, null, request),
@@ -306,7 +362,6 @@ public class TextClassifierImplTest {
     TextLinks.Request request =
         new TextLinks.Request.Builder(text)
             .setEntityConfig(TextClassifier.EntityConfig.create(hints, included, excluded))
-            .setDefaultLocales(LOCALES)
             .build();
     assertThat(
         classifier.generateLinks(null, null, request),
@@ -507,6 +562,135 @@ public class TextClassifierImplTest {
         classifier.suggestConversationActions(null, null, request);
 
     assertThat(conversationActions.getConversationActions()).isEmpty();
+  }
+
+  @Test
+  public void testUseCachedAnnotatorModelDisabled() throws IOException {
+    deviceConfig.setConfig(TextClassifierSettings.MODEL_DOWNLOAD_MANAGER_ENABLED, true);
+
+    String annotatorFilePath = TestDataUtils.getTestAnnotatorModelFile().getPath();
+    ModelFile annotatorModelA =
+        new ModelFile(ModelType.ANNOTATOR, annotatorFilePath, 701, "en", false);
+    ModelFile annotatorModelB =
+        new ModelFile(ModelType.ANNOTATOR, annotatorFilePath, 801, "en", false);
+
+    String englishText = "You can reach me on +12122537077.";
+    String classifiedText = "+12122537077";
+    TextClassification.Request request =
+        new TextClassification.Request.Builder(englishText, 0, englishText.length()).build();
+
+    // Check modelFileA v701
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelA);
+    TextClassification classificationA = classifier.classifyText(null, null, request);
+
+    assertThat(classificationA.getId()).contains("v701");
+    assertThat(classificationA.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {0, 0, 0, 0},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
+
+    // Check modelFileB v801
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelB);
+    TextClassification classificationB = classifier.classifyText(null, null, request);
+
+    assertThat(classificationB.getId()).contains("v801");
+    assertThat(classificationB.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {0, 0, 0, 0},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
+
+    // Reload modelFileA v701
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelA);
+    TextClassification classificationAcached = classifier.classifyText(null, null, request);
+
+    assertThat(classificationAcached.getId()).contains("v701");
+    assertThat(classificationAcached.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {0, 0, 0, 0},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
+  }
+
+  @Test
+  public void testUseCachedAnnotatorModelEnabled() throws IOException {
+    deviceConfig.setConfig(TextClassifierSettings.MODEL_DOWNLOAD_MANAGER_ENABLED, true);
+    deviceConfig.setConfig(TextClassifierSettings.MULTI_ANNOTATOR_CACHE_ENABLED, true);
+
+    String annotatorFilePath = TestDataUtils.getTestAnnotatorModelFile().getPath();
+    ModelFile annotatorModelA =
+        new ModelFile(ModelType.ANNOTATOR, annotatorFilePath, 701, "en", false);
+    ModelFile annotatorModelB =
+        new ModelFile(ModelType.ANNOTATOR, annotatorFilePath, 801, "en", false);
+
+    String englishText = "You can reach me on +12122537077.";
+    String classifiedText = "+12122537077";
+    TextClassification.Request request =
+        new TextClassification.Request.Builder(englishText, 0, englishText.length()).build();
+
+    // Check modelFileA v701
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelA);
+    TextClassification classification = classifier.classifyText(null, null, request);
+
+    assertThat(classification.getId()).contains("v701");
+    assertThat(classification.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {1, 0, 0, 1},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
+
+    // Check modelFileB v801
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelB);
+    TextClassification classificationB = classifier.classifyText(null, null, request);
+
+    assertThat(classificationB.getId()).contains("v801");
+    assertThat(classificationB.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {2, 0, 0, 2},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
+
+    // Reload modelFileA v701
+    when(modelFileManager.findBestModelFile(eq(ModelType.ANNOTATOR), any(), any()))
+        .thenReturn(annotatorModelA);
+    TextClassification classificationAcached = classifier.classifyText(null, null, request);
+
+    assertThat(classificationAcached.getId()).contains("v701");
+    assertThat(classificationAcached.getText()).contains(classifiedText);
+    assertArrayEquals(
+        new int[] {2, 0, 1, 2},
+        new int[] {
+          annotatorModelCache.putCount(),
+          annotatorModelCache.evictionCount(),
+          annotatorModelCache.hitCount(),
+          annotatorModelCache.missCount()
+        });
   }
 
   private static void assertNoPackageInfoInExtras(Intent intent) {

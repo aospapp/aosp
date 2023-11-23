@@ -41,6 +41,7 @@ import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -71,6 +72,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.data.FullStoragePermissionAppsLiveData.FullStoragePackageState;
+import com.android.permissioncontroller.permission.ui.AdvancedConfirmDialogArgs;
 import com.android.permissioncontroller.permission.ui.GrantPermissionsViewHandler;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel.ButtonState;
@@ -78,12 +80,14 @@ import com.android.permissioncontroller.permission.ui.model.AppPermissionViewMod
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel.ChangeRequest;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
+import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.settingslib.widget.ActionBarShadowController;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import kotlin.Pair;
 
@@ -123,6 +127,7 @@ public class AppPermissionFragment extends SettingsWithLargeHeader
     private @NonNull String mPackageLabel;
     private @NonNull String mPermGroupLabel;
     private Drawable mPackageIcon;
+    private @NonNull RoleManager mRoleManager;
 
     /**
      * Create a bundle with the arguments needed by this fragment
@@ -198,6 +203,8 @@ public class AppPermissionFragment extends SettingsWithLargeHeader
         if (mIsStorageGroup) {
             mViewModel.getFullStorageStateLiveData().observe(this, this::setSpecialStorageState);
         }
+
+        mRoleManager = Utils.getSystemServiceSafe(getContext(), RoleManager.class);
     }
 
     @Override
@@ -224,6 +231,20 @@ public class AppPermissionFragment extends SettingsWithLargeHeader
         TextView footer2Link = root.requireViewById(R.id.footer_link_2);
         footer2Link.setText(context.getString(R.string.app_permission_footer_permission_apps_link));
         setBottomLinkState(footer2Link, caller, Intent.ACTION_MANAGE_PERMISSION_APPS);
+
+        Set<String> exemptedPackages = Utils.getExemptedPackages(mRoleManager);
+        ImageView footerInfoIcon = root.requireViewById(R.id.app_additional_info_icon);
+        TextView footerInfoText = root.requireViewById(R.id.app_additional_info_text);
+        if (exemptedPackages.contains(mPackageName)) {
+            int additional_info_label = Utils.isStatusBarIndicatorPermission(mPermGroupName)
+                    ? R.string.exempt_mic_camera_info_label : R.string.exempt_info_label;
+            footerInfoText.setText(context.getString(additional_info_label, mPackageLabel));
+            footerInfoIcon.setVisibility(View.VISIBLE);
+            footerInfoText.setVisibility(View.VISIBLE);
+        } else {
+            footerInfoIcon.setVisibility(View.GONE);
+            footerInfoText.setVisibility(View.GONE);
+        }
 
         mAllowButton = root.requireViewById(R.id.allow_radio_button);
         mAllowAlwaysButton = root.requireViewById(R.id.allow_always_radio_button);
@@ -566,6 +587,8 @@ public class AppPermissionFragment extends SettingsWithLargeHeader
         private static int sCode =  APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW;
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // TODO(b/229024576): This code is duplicated, refactor ConfirmDialog for easier
+            // NFF sharing
             AppPermissionFragment fragment = (AppPermissionFragment) getParentFragment();
             boolean isGrantFileAccess = getArguments().getSerializable(CHANGE_REQUEST)
                     == ChangeRequest.GRANT_All_FILE_ACCESS;
@@ -600,5 +623,26 @@ public class AppPermissionFragment extends SettingsWithLargeHeader
             AppPermissionFragment fragment = (AppPermissionFragment) getParentFragment();
             fragment.setRadioButtonsState(fragment.mViewModel.getButtonStateLiveData().getValue());
         }
+    }
+
+    @Override
+    public void showAdvancedConfirmDialog(AdvancedConfirmDialogArgs args) {
+        AlertDialog.Builder b = new AlertDialog.Builder(getContext())
+                .setIcon(args.getIconId())
+                .setMessage(args.getMessageId())
+                .setNegativeButton(args.getNegativeButtonTextId(),
+                        (DialogInterface dialog, int which) -> {
+                            setRadioButtonsState(mViewModel.getButtonStateLiveData().getValue());
+                        })
+                .setPositiveButton(args.getPositiveButtonTextId(),
+                        (DialogInterface dialog, int which) -> {
+                            mViewModel.requestChange(args.getSetOneTime(),
+                                    AppPermissionFragment.this, AppPermissionFragment.this,
+                                    args.getChangeRequest(), args.getButtonClicked());
+                        });
+        if (args.getTitleId() != 0) {
+            b.setTitle(args.getTitleId());
+        }
+        b.show();
     }
 }

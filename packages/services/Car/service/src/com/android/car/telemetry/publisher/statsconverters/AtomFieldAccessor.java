@@ -16,24 +16,28 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
+
 import com.google.protobuf.MessageLite;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Class that contains metadata and actions for a field of atom data type T.
  *
  * @param <T> the atom data type.
+ * @param <F> the field type.
  */
-public class AtomFieldAccessor<T extends MessageLite> {
+public class AtomFieldAccessor<T extends MessageLite, F> {
     private final String mFieldName;
-    private final Function<T, Boolean> mHasField;
-    private final Function<T, Object> mGetField;
+    private final Predicate<T> mHasField;
+    private final Function<T, F> mGetField;
 
     AtomFieldAccessor(
-            String fieldName,
-            Function<T, Boolean> hasField,
-            Function<T, Object> getField) {
+            @NonNull String fieldName,
+            @NonNull Predicate<T> hasField,
+            @NonNull Function<T, F> getField) {
         mFieldName = fieldName;
         mHasField = hasField;
         mGetField = getField;
@@ -44,6 +48,7 @@ public class AtomFieldAccessor<T extends MessageLite> {
      *
      * @return field name as string.
      */
+    @NonNull
     String getFieldName() {
         return mFieldName;
     }
@@ -54,8 +59,9 @@ public class AtomFieldAccessor<T extends MessageLite> {
      * @param atomData the atom data in which to check if the field is set.
      * @return whether the field is set.
      */
-    Boolean hasField(T atomData) {
-        return mHasField.apply(atomData);
+    @NonNull
+    boolean hasField(@NonNull T atomData) {
+        return mHasField.test(atomData);
     }
 
     /**
@@ -64,7 +70,8 @@ public class AtomFieldAccessor<T extends MessageLite> {
      * @param atomData the atom data for which to get the field value from.
      * @return the field value Object.
      */
-    Object getField(T atomData) {
+    @NonNull
+    F getField(@NonNull T atomData) {
         return mGetField.apply(atomData);
     }
 }

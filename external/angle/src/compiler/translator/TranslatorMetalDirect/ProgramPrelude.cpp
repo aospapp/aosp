@@ -30,6 +30,7 @@ class ProgramPrelude : public TIntermTraverser
     ProgramPrelude(TInfoSinkBase &out, const ProgramPreludeConfig &ppc)
         : TIntermTraverser(true, false, false), mOut(out)
     {
+        include_metal_stdlib();
         ALWAYS_INLINE();
         int_clamp();
         if (ppc.hasStructEq)
@@ -77,10 +78,19 @@ class ProgramPrelude : public TIntermTraverser
 
     static FuncToEmitter BuildFuncToEmitter();
 
+    void visitOperator(TOperator op, const TFunction *func, const TType *argType0);
+
     void visitOperator(TOperator op,
                        const TFunction *func,
                        const TType *argType0,
-                       const TType *argType1 = nullptr);
+                       const TType *argType1);
+
+    void visitOperator(TOperator op,
+                       const TFunction *func,
+                       const TType *argType0,
+                       const TType *argType1,
+                       const TType *argType2);
+
     void visitVariable(const Name &name, const TType &type);
     void visitVariable(const TVariable &var);
     void visitStructure(const TStructure &s);
@@ -94,6 +104,7 @@ class ProgramPrelude : public TIntermTraverser
   private:
     void ALWAYS_INLINE();
 
+    void include_metal_stdlib();
     void include_metal_atomic();
     void include_metal_common();
     void include_metal_geometric();
@@ -121,6 +132,7 @@ class ProgramPrelude : public TIntermTraverser
     void degrees();
     void radians();
     void mod();
+    void mixBool();
     void postIncrementMatrix();
     void preIncrementMatrix();
     void postDecrementMatrix();
@@ -190,16 +202,22 @@ class ProgramPrelude : public TIntermTraverser
     void texture1DProj();
     void texture1DProjLod();
     void texture2D();
+    void texture2DGradEXT();
     void texture2DLod();
+    void texture2DLodEXT();
     void texture2DProj();
+    void texture2DProjGradEXT();
     void texture2DProjLod();
+    void texture2DProjLodEXT();
     void texture2DRect();
     void texture2DRectProj();
     void texture3DLod();
     void texture3DProj();
     void texture3DProjLod();
     void textureCube();
+    void textureCubeGradEXT();
     void textureCubeLod();
+    void textureCubeLodEXT();
     void textureCubeProj();
     void textureCubeProjLod();
     void textureGrad();
@@ -279,6 +297,7 @@ class ProgramPrelude : public TIntermTraverser
 
 ////////////////////////////////////////////////////////////////////////////////
 
+PROGRAM_PRELUDE_INCLUDE(metal_stdlib)
 PROGRAM_PRELUDE_INCLUDE(metal_atomic)
 PROGRAM_PRELUDE_INCLUDE(metal_common)
 PROGRAM_PRELUDE_INCLUDE(metal_geometric)
@@ -507,7 +526,7 @@ struct ANGLE_normalize_impl
 {
     static ANGLE_ALWAYS_INLINE T exec(T x)
     {
-        return metal::normalize(x);
+        return metal::fast::normalize(x);
     }
 };
 template <typename T>
@@ -721,6 +740,16 @@ ANGLE_ALWAYS_INLINE X ANGLE_mod(X x, Y y)
 }
 )",
                         include_metal_math())
+
+PROGRAM_PRELUDE_DECLARE(mixBool,
+                        R"(
+template <typename T, int N>
+ANGLE_ALWAYS_INLINE metal::vec<T,N> ANGLE_mix_bool(metal::vec<T, N> a, metal::vec<T, N> b, metal::vec<bool, N> c)
+{
+    return metal::mix(a, b, static_cast<metal::vec<T,N>>(c));
+}
+)",
+                        include_metal_common())
 
 PROGRAM_PRELUDE_DECLARE(pack_half_2x16,
                         R"(
@@ -1219,8 +1248,7 @@ struct ANGLE_SwizzleRef
 template <typename T, int N>
 ANGLE_ALWAYS_INLINE ANGLE_VectorElemRef<T, N> ANGLE_swizzle_ref(thread metal::vec<T, N> &vec, int i0)
 {
-    const int is[] = { i0 };
-    return ANGLE_VectorElemRef<T, N>(vec, is);
+    return ANGLE_VectorElemRef<T, N>(vec, i0);
 }
 template <typename T, int N>
 ANGLE_ALWAYS_INLINE ANGLE_SwizzleRef<T, N, 2> ANGLE_swizzle_ref(thread metal::vec<T, N> &vec, int i0, int i1)
@@ -1311,7 +1339,7 @@ struct ANGLE_castVector {};
 template <typename T, int N>
 struct ANGLE_castVector<T, N, N>
 {
-    static ANGLE_ALWAYS_INLINE metal::vec<T, N> exec(thread metal::vec<T, N> const &v)
+    static ANGLE_ALWAYS_INLINE metal::vec<T, N> exec(metal::vec<T, N> const v)
     {
         return v;
     }
@@ -1319,7 +1347,7 @@ struct ANGLE_castVector<T, N, N>
 template <typename T>
 struct ANGLE_castVector<T, 2, 3>
 {
-    static ANGLE_ALWAYS_INLINE metal::vec<T, 2> exec(thread metal::vec<T, 3> const &v)
+    static ANGLE_ALWAYS_INLINE metal::vec<T, 2> exec(metal::vec<T, 3> const v)
     {
         return v.xy;
     }
@@ -1327,7 +1355,7 @@ struct ANGLE_castVector<T, 2, 3>
 template <typename T>
 struct ANGLE_castVector<T, 2, 4>
 {
-    static ANGLE_ALWAYS_INLINE metal::vec<T, 2> exec(thread metal::vec<T, 4> const &v)
+    static ANGLE_ALWAYS_INLINE metal::vec<T, 2> exec(metal::vec<T, 4> const v)
     {
         return v.xy;
     }
@@ -1335,13 +1363,13 @@ struct ANGLE_castVector<T, 2, 4>
 template <typename T>
 struct ANGLE_castVector<T, 3, 4>
 {
-    static ANGLE_ALWAYS_INLINE metal::vec<T, 3> exec(thread metal::vec<T, 4> const &v)
+    static ANGLE_ALWAYS_INLINE metal::vec<T, 3> exec(metal::vec<T, 4> const v)
     {
         return as_type<metal::vec<T, 3>>(v);
     }
 };
 template <int N1, int N2, typename T>
-ANGLE_ALWAYS_INLINE metal::vec<T, N1> ANGLE_cast(thread metal::vec<T, N2> const &v)
+ANGLE_ALWAYS_INLINE metal::vec<T, N1> ANGLE_cast(metal::vec<T, N2> const v)
 {
     return ANGLE_castVector<T, N1, N2>::exec(v);
 }
@@ -1352,7 +1380,7 @@ PROGRAM_PRELUDE_DECLARE(castMatrix,
 template <typename T, int C1, int R1, int C2, int R2, typename Enable = void>
 struct ANGLE_castMatrix
 {
-    static ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> exec(thread metal::matrix<T, C2, R2> const &m2)
+    static ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> exec(metal::matrix<T, C2, R2> const m2)
     {
         metal::matrix<T, C1, R1> m1;
         const int MinC = C1 <= C2 ? C1 : C2;
@@ -1381,7 +1409,7 @@ struct ANGLE_castMatrix
 template <typename T, int C1, int R1, int C2, int R2>
 struct ANGLE_castMatrix<T, C1, R1, C2, R2, ANGLE_enable_if_t<(C1 <= C2 && R1 <= R2)>>
 {
-    static ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> exec(thread metal::matrix<T, C2, R2> const &m2)
+    static ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> exec(metal::matrix<T, C2, R2> const m2)
     {
         metal::matrix<T, C1, R1> m1;
         for (size_t c = 0; c < C1; ++c)
@@ -1392,7 +1420,7 @@ struct ANGLE_castMatrix<T, C1, R1, C2, R2, ANGLE_enable_if_t<(C1 <= C2 && R1 <= 
     }
 };
 template <int C1, int R1, int C2, int R2, typename T>
-ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> ANGLE_cast(thread metal::matrix<T, C2, R2> const &m)
+ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> ANGLE_cast(metal::matrix<T, C2, R2> const m)
 {
     return ANGLE_castMatrix<T, C1, R1, C2, R2>::exec(m);
 };
@@ -1479,11 +1507,13 @@ PROGRAM_PRELUDE_DECLARE(functionConstants,
 #define ANGLE_SAMPLE_COMPARE_LOD_INDEX      1
 #define ANGLE_RASTERIZATION_DISCARD_INDEX   2
 #define ANGLE_COVERAGE_MASK_ENABLED_INDEX   3
+#define ANGLE_DEPTH_WRITE_ENABLED_INDEX     4
 
 constant bool ANGLEUseSampleCompareGradient [[function_constant(ANGLE_SAMPLE_COMPARE_GRADIENT_INDEX)]];
 constant bool ANGLEUseSampleCompareLod      [[function_constant(ANGLE_SAMPLE_COMPARE_LOD_INDEX)]];
 constant bool ANGLERasterizerDisabled       [[function_constant(ANGLE_RASTERIZATION_DISCARD_INDEX)]];
 constant bool ANGLECoverageMaskEnabled      [[function_constant(ANGLE_COVERAGE_MASK_ENABLED_INDEX)]];
+constant bool ANGLEDepthWriteEnabled        [[function_constant(ANGLE_DEPTH_WRITE_ENABLED_INDEX)]];
 )")
 
 PROGRAM_PRELUDE_DECLARE(texelFetch,
@@ -1862,6 +1892,23 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture2D_impl(
 )",
                         textureEnv())
 
+PROGRAM_PRELUDE_DECLARE(texture2DGradEXT,
+                        R"(
+#define ANGLE_texture2DGradEXT(env, ...) ANGLE_texture2DGradEXT_impl(*env.texture, *env.sampler, __VA_ARGS__)
+
+template <typename Texture>
+ANGLE_ALWAYS_INLINE auto ANGLE_texture2DGradEXT_impl(
+    thread Texture &texture,
+    thread metal::sampler const &sampler,
+    metal::float2 const coord,
+    metal::float2 const dPdx,
+    metal::float2 const dPdy)
+{
+    return texture.sample(sampler, coord, metal::gradient2d(dPdx, dPdy));
+}
+)",
+                        textureEnv())
+
 PROGRAM_PRELUDE_DECLARE(texture2DRect,
                         R"(
 #define ANGLE_texture2DRect(env, ...) ANGLE_texture2DRect_impl(*env.texture, *env.sampler, __VA_ARGS__)
@@ -1892,6 +1939,12 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture2DLod_impl(
 )",
                         textureEnv())
 
+PROGRAM_PRELUDE_DECLARE(texture2DLodEXT,
+                        R"(
+#define ANGLE_texture2DLodEXT ANGLE_texture2DLod
+)",
+                        texture2DLod())
+
 PROGRAM_PRELUDE_DECLARE(texture2DProj,
                         R"(
 #define ANGLE_texture2DProj(env, ...) ANGLE_texture2DProj_impl(*env.texture, *env.sampler, __VA_ARGS__)
@@ -1914,6 +1967,34 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture2DProj_impl(
     float bias = 0)
 {
     return texture.sample(sampler, coord.xy/coord.w, metal::bias(bias));
+}
+)",
+                        textureEnv())
+
+PROGRAM_PRELUDE_DECLARE(texture2DProjGradEXT,
+                        R"(
+#define ANGLE_texture2DProjGradEXT(env, ...) ANGLE_texture2DProjGradEXT_impl(*env.texture, *env.sampler, __VA_ARGS__)
+
+template <typename Texture>
+ANGLE_ALWAYS_INLINE auto ANGLE_texture2DProjGradEXT_impl(
+    thread Texture &texture,
+    thread metal::sampler const &sampler,
+    metal::float3 const coord,
+    metal::float2 const dPdx,
+    metal::float2 const dPdy)
+{
+    return texture.sample(sampler, coord.xy/coord.z, metal::gradient2d(dPdx, dPdy));
+}
+
+template <typename Texture>
+ANGLE_ALWAYS_INLINE auto ANGLE_texture2DProjGradEXT_impl(
+    thread Texture &texture,
+    thread metal::sampler const &sampler,
+    metal::float4 const coord,
+    metal::float2 const dPdx,
+    metal::float2 const dPdy)
+{
+    return texture.sample(sampler, coord.xy/coord.w, metal::gradient2d(dPdx, dPdy));
 }
 )",
                         textureEnv())
@@ -1966,6 +2047,12 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture2DProjLod_impl(
 }
 )",
                         textureEnv())
+
+PROGRAM_PRELUDE_DECLARE(texture2DProjLodEXT,
+                        R"(
+#define ANGLE_texture2DProjLodEXT ANGLE_texture2DProjLod
+)",
+                        texture2DProjLod())
 
 PROGRAM_PRELUDE_DECLARE(texture3DLod,
                         R"(
@@ -2040,6 +2127,23 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureCube_impl(
 )",
                         textureEnv())
 
+PROGRAM_PRELUDE_DECLARE(textureCubeGradEXT,
+                        R"(
+#define ANGLE_textureCubeGradEXT(env, ...) ANGLE_textureCubeGradEXT_impl(*env.texture, *env.sampler, __VA_ARGS__)
+
+template <typename T>
+ANGLE_ALWAYS_INLINE auto ANGLE_textureCubeGradEXT_impl(
+    thread metal::texturecube<T> &texture,
+    thread metal::sampler const &sampler,
+    metal::float3 const coord,
+    metal::float3 const dPdx,
+    metal::float3 const dPdy)
+{
+    return texture.sample(sampler, coord, metal::gradientcube(dPdx, dPdy));
+}
+)",
+                        textureEnv())
+
 PROGRAM_PRELUDE_DECLARE(textureCubeLod,
                         R"(
 #define ANGLE_textureCubeLod(env, ...) ANGLE_textureCubeLod_impl(*env.texture, *env.sampler, __VA_ARGS__)
@@ -2055,6 +2159,12 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureCubeLod_impl(
 }
 )",
                         textureEnv())
+
+PROGRAM_PRELUDE_DECLARE(textureCubeLodEXT,
+                        R"(
+#define ANGLE_textureCubeLodEXT ANGLE_textureCubeLod
+)",
+                        textureCubeLod())
 
 PROGRAM_PRELUDE_DECLARE(textureCubeProj,
                         R"(
@@ -3063,7 +3173,7 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         const bool bias             = func.getParamCount() >= 3;
         if (textureName.beginsWith("metal::depth2d<"))
         {
@@ -3139,26 +3249,32 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
     putBuiltIn("texture1DProj", EMIT_METHOD(texture1DProj));
     putBuiltIn("texture1DProjLod", EMIT_METHOD(texture1DProjLod));
     putBuiltIn("texture2D", EMIT_METHOD(texture2D));
+    putBuiltIn("texture2DGradEXT", EMIT_METHOD(texture2DGradEXT));
     putBuiltIn("texture2DLod", EMIT_METHOD(texture2DLod));
+    putBuiltIn("texture2DLodEXT", EMIT_METHOD(texture2DLodEXT));
     putBuiltIn("texture2DProj", EMIT_METHOD(texture2DProj));
+    putBuiltIn("texture2DProjGradEXT", EMIT_METHOD(texture2DProjGradEXT));
+    putBuiltIn("texture2DProjLod", EMIT_METHOD(texture2DProjLod));
+    putBuiltIn("texture2DProjLodEXT", EMIT_METHOD(texture2DProjLodEXT));
     putBuiltIn("texture2DRect", EMIT_METHOD(texture2DRect));
     putBuiltIn("texture2DRectProj", EMIT_METHOD(texture2DRectProj));
     putBuiltIn("texture3DLod", EMIT_METHOD(texture3DLod));
     putBuiltIn("texture3DProj", EMIT_METHOD(texture3DProj));
     putBuiltIn("texture3DProjLod", EMIT_METHOD(texture3DProjLod));
     putBuiltIn("textureCube", EMIT_METHOD(textureCube));
+    putBuiltIn("textureCubeGradEXT", EMIT_METHOD(textureCubeGradEXT));
     putBuiltIn("textureCubeLod", EMIT_METHOD(textureCubeLod));
+    putBuiltIn("textureCubeLodEXT", EMIT_METHOD(textureCubeLodEXT));
     putBuiltIn("textureCubeProj", EMIT_METHOD(textureCubeProj));
     putBuiltIn("textureCubeProjLod", EMIT_METHOD(textureCubeProjLod));
-    putBuiltIn("texture2DProjLod", EMIT_METHOD(texture2DProjLod));
     putBuiltIn("textureGrad", [](ProgramPrelude &pp, const TFunction &func) {
         const ImmutableString textureName =
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         const TType &dPdx           = func.getParam(2)->getType();
-        const int dPdxN             = dPdx.getNominalSize();
+        const uint8_t dPdxN         = dPdx.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 3 && dPdxN == 2)
@@ -3206,9 +3322,9 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         const TType &dPdx           = func.getParam(2)->getType();
-        const int dPdxN             = dPdx.getNominalSize();
+        const uint8_t dPdxN         = dPdx.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 3 && dPdxN == 2)
@@ -3256,7 +3372,7 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 3)
@@ -3293,9 +3409,9 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         const TType &dPdx           = func.getParam(2)->getType();
-        const int dPdxN             = dPdx.getNominalSize();
+        const uint8_t dPdxN         = dPdx.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 4 && dPdxN == 2)
@@ -3325,9 +3441,9 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         const TType &dPdx           = func.getParam(2)->getType();
-        const int dPdxN             = dPdx.getNominalSize();
+        const uint8_t dPdxN         = dPdx.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 4 && dPdxN == 2)
@@ -3357,7 +3473,7 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
             GetTextureTypeName(func.getParam(0)->getType().getBasicType()).rawName();
         const TType &coord          = func.getParam(1)->getType();
         const TBasicType coordBasic = coord.getBasicType();
-        const int coordN            = coord.getNominalSize();
+        const uint8_t coordN        = coord.getNominalSize();
         if (textureName.beginsWith("metal::depth2d<"))
         {
             if (coordBasic == TBasicType::EbtFloat && coordN == 4)
@@ -3391,10 +3507,23 @@ ProgramPrelude::FuncToEmitter ProgramPrelude::BuildFuncToEmitter()
 #undef EMIT_METHOD
 }
 
+void ProgramPrelude::visitOperator(TOperator op, const TFunction *func, const TType *argType0)
+{
+    visitOperator(op, func, argType0, nullptr, nullptr);
+}
+
 void ProgramPrelude::visitOperator(TOperator op,
                                    const TFunction *func,
                                    const TType *argType0,
                                    const TType *argType1)
+{
+    visitOperator(op, func, argType0, argType1, nullptr);
+}
+void ProgramPrelude::visitOperator(TOperator op,
+                                   const TFunction *func,
+                                   const TType *argType0,
+                                   const TType *argType1,
+                                   const TType *argType2)
 {
     switch (op)
     {
@@ -3521,10 +3650,16 @@ void ProgramPrelude::visitOperator(TOperator op,
         case TOperator::EOpClamp:
         case TOperator::EOpMin:
         case TOperator::EOpMax:
-        case TOperator::EOpMix:
         case TOperator::EOpStep:
         case TOperator::EOpSmoothstep:
             include_metal_common();
+            break;
+        case TOperator::EOpMix:
+            include_metal_common();
+            if (argType2->getBasicType() == TBasicType::EbtBool)
+            {
+                mixBool();
+            }
             break;
 
         case TOperator::EOpAll:
@@ -3818,7 +3953,8 @@ void ProgramPrelude::visitVariable(const Name &name, const TType &type)
     }
     else
     {
-        if (name.rawName() == sh::mtl::kRasterizerDiscardEnabledConstName)
+        if (name.rawName() == sh::mtl::kRasterizerDiscardEnabledConstName ||
+            name.rawName() == sh::mtl::kDepthWriteEnabledConstName)
         {
             functionConstants();
         }
@@ -3893,6 +4029,15 @@ bool ProgramPrelude::visitAggregate(Visit visit, TIntermAggregate *node)
             const TType &argType0 = getArgType(0);
             const TType &argType1 = getArgType(1);
             visitOperator(node->getOp(), func, &argType0, &argType1);
+        }
+        break;
+
+        case 3:
+        {
+            const TType &argType0 = getArgType(0);
+            const TType &argType1 = getArgType(1);
+            const TType &argType2 = getArgType(2);
+            visitOperator(node->getOp(), func, &argType0, &argType1, &argType2);
         }
         break;
 

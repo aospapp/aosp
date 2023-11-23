@@ -20,6 +20,7 @@ import android.os.BatterySaverPolicyConfig;
 import android.os.ParcelDuration;
 import android.os.IBinder;
 import android.os.IPowerManager;
+import android.os.IWakeLockCallback;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeReason;
 import android.os.PowerSaveState;
@@ -106,7 +107,7 @@ public class BridgePowerManager implements IPowerManager {
 
     @Override
     public void acquireWakeLock(IBinder arg0, int arg1, String arg2, String arg2_5, WorkSource arg3,
-            String arg4, int arg5)
+            String arg4, int arg5, IWakeLockCallback callback)
             throws RemoteException {
         // pass for now.
     }
@@ -119,7 +120,7 @@ public class BridgePowerManager implements IPowerManager {
 
     @Override
     public void acquireWakeLockWithUid(IBinder arg0, int arg1, String arg2, String arg2_5,
-            int arg3, int arg4)
+            int arg3, int arg4, IWakeLockCallback callback)
             throws RemoteException {
         // pass for now.
     }
@@ -210,6 +211,11 @@ public class BridgePowerManager implements IPowerManager {
     }
 
     @Override
+    public void updateWakeLockCallback(IBinder arg0, IWakeLockCallback arg1) throws RemoteException {
+        // pass for now.
+    }
+
+    @Override
     public boolean isWakeLockLevelSupported(int level) throws RemoteException {
         // pass for now.
         return true;
@@ -240,6 +246,31 @@ public class BridgePowerManager implements IPowerManager {
     @Override
     public boolean isLightDeviceIdleMode() throws RemoteException {
         return false;
+    }
+
+    @Override
+    public boolean isLowPowerStandbySupported() {
+        return false;
+    }
+
+    @Override
+    public boolean isLowPowerStandbyEnabled() {
+        return false;
+    }
+
+    @Override
+    public void setLowPowerStandbyEnabled(boolean enabled) {
+        // pass for now
+    }
+
+    @Override
+    public void setLowPowerStandbyActiveDuringMaintenance(boolean activeDuringMaintenance) {
+        // pass for now
+    }
+
+    @Override
+    public void forceLowPowerStandbyActive(boolean active) {
+        // pass for now
     }
 
     @Override

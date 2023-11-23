@@ -24,16 +24,16 @@ import android.compat.cts.CompatChangeGatingTestCase;
 
 import com.google.common.collect.ImmutableSet;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 
 public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCase {
 
@@ -45,6 +45,7 @@ public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCa
     private static final Set<String> OVERRIDABLE_CHANGES = ImmutableSet.of(
             "ALWAYS_SANDBOX_DISPLAY_APIS",
             "CTS_SYSTEM_API_OVERRIDABLE_CHANGEID",
+            "DEFER_BOOT_COMPLETED_BROADCAST_CHANGE_ID",
             "DOWNSCALED",
             "DOWNSCALE_30",
             "DOWNSCALE_35",
@@ -93,7 +94,7 @@ public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCa
     public void testOnlyAllowedlistedChangesAreOverridable() throws Exception {
         for (Change c : getOnDeviceCompatConfig()) {
             if (c.overridable) {
-                assertWithMessage("Please contact platform-compat-eng@google.com for approval")
+                assertWithMessage("Please contact compat-team@google.com for approval")
                         .that(OVERRIDABLE_CHANGES).contains(c.changeName);
             }
         }

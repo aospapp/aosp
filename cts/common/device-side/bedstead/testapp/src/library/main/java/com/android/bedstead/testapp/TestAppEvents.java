@@ -26,33 +26,66 @@ import com.android.eventlib.events.activities.ActivityStartedEvent;
 import com.android.eventlib.events.activities.ActivityStoppedEvent;
 import com.android.eventlib.events.broadcastreceivers.BroadcastReceivedEvent;
 import com.android.eventlib.events.broadcastreceivers.BroadcastReceiverEvents;
+import com.android.eventlib.events.delegatedadminreceivers.DelegatedAdminChoosePrivateKeyAliasEvent;
+import com.android.eventlib.events.delegatedadminreceivers.DelegatedAdminChoosePrivateKeyAliasEvent.DelegatedAdminChoosePrivateKeyAliasEventQuery;
+import com.android.eventlib.events.delegatedadminreceivers.DelegatedAdminReceiverEvents;
+import com.android.eventlib.events.delegatedadminreceivers.DelegatedAdminSecurityLogsAvailableEvent;
+import com.android.eventlib.events.delegatedadminreceivers.DelegatedAdminSecurityLogsAvailableEvent.DelegatedAdminSecurityLogsAvailableEventQuery;
+import com.android.eventlib.events.deviceadminreceivers.DelegatedAdminNetworkLogsAvailableEvent;
+import com.android.eventlib.events.deviceadminreceivers.DelegatedAdminNetworkLogsAvailableEvent.DelegatedAdminNetworkLogsAvailableEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportFailedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportSharedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportSharingDeclinedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportSharingDeclinedEvent.DeviceAdminBugreportSharingDeclinedEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminChoosePrivateKeyAliasEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminChoosePrivateKeyAliasEvent.DeviceAdminChoosePrivateKeyAliasEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminDisableRequestedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminDisableRequestedEvent.DeviceAdminDisableRequestedEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminDisabledEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminEnabledEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeEnteringEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeEnteringEvent.DeviceAdminLockTaskModeEnteringEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeExitingEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeExitingEvent.DeviceAdminLockTaskModeExitingEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminNetworkLogsAvailableEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminNetworkLogsAvailableEvent.DeviceAdminNetworkLogsAvailableEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminOperationSafetyStateChangedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminOperationSafetyStateChangedEvent.DeviceAdminOperationSafetyStateChangedEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordChangedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordExpiringEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordExpiringEvent.DeviceAdminPasswordExpiringEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordFailedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordSucceededEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordSucceededEvent.DeviceAdminPasswordSucceededEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminProfileProvisioningCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminProfileProvisioningCompleteEvent.DeviceAdminProfileProvisioningCompleteEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminReadyForUserInitializationEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminReadyForUserInitializationEvent.DeviceAdminReadyForUserInitializationEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminReceiverEvents;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSecurityLogsAvailableEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSecurityLogsAvailableEvent.DeviceAdminSecurityLogsAvailableEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSystemUpdatePendingEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSystemUpdatePendingEvent.DeviceAdminSystemUpdatePendingEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent.DeviceAdminTransferAffiliatedProfileOwnershipCompleteEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferOwnershipCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferOwnershipCompleteEvent.DeviceAdminTransferOwnershipCompleteEventQuery;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserAddedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserRemovedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserStartedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserStoppedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserSwitchedEvent;
+import com.android.eventlib.events.services.ServiceBoundEvent;
+import com.android.eventlib.events.services.ServiceConfigurationChangedEvent;
+import com.android.eventlib.events.services.ServiceCreatedEvent;
+import com.android.eventlib.events.services.ServiceDestroyedEvent;
+import com.android.eventlib.events.services.ServiceEvents;
+import com.android.eventlib.events.services.ServiceLowMemoryEvent;
+import com.android.eventlib.events.services.ServiceMemoryTrimmedEvent;
+import com.android.eventlib.events.services.ServiceReboundEvent;
+import com.android.eventlib.events.services.ServiceStartedEvent;
+import com.android.eventlib.events.services.ServiceTaskRemovedEvent;
+import com.android.eventlib.events.services.ServiceUnboundEvent;
 
 /**
  * Quick access to events on this test app.
@@ -62,7 +95,7 @@ import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserSwitchedE
  * <p>{@code #poll} can be used to fetch results, and the result can be asserted on.
  */
 public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
-        DeviceAdminReceiverEvents {
+        DeviceAdminReceiverEvents, DelegatedAdminReceiverEvents, ServiceEvents {
 
     private final TestAppInstance mTestApp;
 
@@ -141,14 +174,14 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     }
 
     @Override
-    public DeviceAdminBugreportSharingDeclinedEvent.DeviceAdminBugreportSharingDeclinedEventQuery bugReportSharingDeclined() {
+    public DeviceAdminBugreportSharingDeclinedEventQuery bugReportSharingDeclined() {
         return DeviceAdminBugreportSharingDeclinedEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminChoosePrivateKeyAliasEvent.DeviceAdminChoosePrivateKeyAliasEventQuery choosePrivateKeyAlias() {
+    public DeviceAdminChoosePrivateKeyAliasEventQuery choosePrivateKeyAlias() {
         return DeviceAdminChoosePrivateKeyAliasEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
@@ -162,7 +195,7 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     }
 
     @Override
-    public DeviceAdminDisableRequestedEvent.DeviceAdminDisableRequestedEventQuery deviceAdminDisableRequested() {
+    public DeviceAdminDisableRequestedEventQuery deviceAdminDisableRequested() {
         return DeviceAdminDisableRequestedEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
@@ -176,28 +209,28 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     }
 
     @Override
-    public DeviceAdminLockTaskModeEnteringEvent.DeviceAdminLockTaskModeEnteringEventQuery lockTaskModeEntering() {
+    public DeviceAdminLockTaskModeEnteringEventQuery lockTaskModeEntering() {
         return DeviceAdminLockTaskModeEnteringEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminLockTaskModeExitingEvent.DeviceAdminLockTaskModeExitingEventQuery lockTaskModeExiting() {
+    public DeviceAdminLockTaskModeExitingEventQuery lockTaskModeExiting() {
         return DeviceAdminLockTaskModeExitingEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminNetworkLogsAvailableEvent.DeviceAdminNetworkLogsAvailableEventQuery networkLogsAvailable() {
+    public DeviceAdminNetworkLogsAvailableEventQuery networkLogsAvailable() {
         return DeviceAdminNetworkLogsAvailableEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminOperationSafetyStateChangedEvent.DeviceAdminOperationSafetyStateChangedEventQuery operationSafetyStateChanged() {
+    public DeviceAdminOperationSafetyStateChangedEventQuery operationSafetyStateChanged() {
         return DeviceAdminOperationSafetyStateChangedEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
@@ -211,7 +244,7 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     }
 
     @Override
-    public DeviceAdminPasswordExpiringEvent.DeviceAdminPasswordExpiringEventQuery passwordExpiring() {
+    public DeviceAdminPasswordExpiringEventQuery passwordExpiring() {
         return DeviceAdminPasswordExpiringEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
@@ -225,49 +258,49 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     }
 
     @Override
-    public DeviceAdminPasswordSucceededEvent.DeviceAdminPasswordSucceededEventQuery passwordSucceeded() {
+    public DeviceAdminPasswordSucceededEventQuery passwordSucceeded() {
         return DeviceAdminPasswordSucceededEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminProfileProvisioningCompleteEvent.DeviceAdminProfileProvisioningCompleteEventQuery profileProvisioningComplete() {
+    public DeviceAdminProfileProvisioningCompleteEventQuery profileProvisioningComplete() {
         return DeviceAdminProfileProvisioningCompleteEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminReadyForUserInitializationEvent.DeviceAdminReadyForUserInitializationEventQuery readyForUserInitialization() {
+    public DeviceAdminReadyForUserInitializationEventQuery readyForUserInitialization() {
         return DeviceAdminReadyForUserInitializationEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminSecurityLogsAvailableEvent.DeviceAdminSecurityLogsAvailableEventQuery securityLogsAvailable() {
+    public DeviceAdminSecurityLogsAvailableEventQuery securityLogsAvailable() {
         return DeviceAdminSecurityLogsAvailableEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminSystemUpdatePendingEvent.DeviceAdminSystemUpdatePendingEventQuery systemUpdatePending() {
+    public DeviceAdminSystemUpdatePendingEventQuery systemUpdatePending() {
         return DeviceAdminSystemUpdatePendingEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent.DeviceAdminTransferAffiliatedProfileOwnershipCompleteEventQuery transferAffiliatedProfileOwnershipComplete() {
+    public DeviceAdminTransferAffiliatedProfileOwnershipCompleteEventQuery transferAffiliatedProfileOwnershipComplete() {
         return DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
     }
 
     @Override
-    public DeviceAdminTransferOwnershipCompleteEvent.DeviceAdminTransferOwnershipCompleteEventQuery transferOwnershipComplete() {
+    public DeviceAdminTransferOwnershipCompleteEventQuery transferOwnershipComplete() {
         return DeviceAdminTransferOwnershipCompleteEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());
@@ -305,6 +338,98 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
     public DeviceAdminUserSwitchedEvent.DeviceAdminUserSwitchedEventQuery userSwitched() {
         return DeviceAdminUserSwitchedEvent.queryPackage(
                 mTestApp.packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceCreatedEvent.ServiceCreatedEventQuery serviceCreated() {
+        return ServiceCreatedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceStartedEvent.ServiceStartedEventQuery serviceStarted() {
+        return ServiceStartedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceDestroyedEvent.ServiceDestroyedEventQuery serviceDestroyed() {
+        return ServiceDestroyedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceConfigurationChangedEvent.ServiceConfigurationChangedEventQuery
+            serviceConfigurationChanged() {
+        return ServiceConfigurationChangedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceLowMemoryEvent.ServiceLowMemoryEventQuery serviceLowMemory() {
+        return ServiceLowMemoryEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceMemoryTrimmedEvent.ServiceMemoryTrimmedEventQuery serviceMemoryTrimmed() {
+        return ServiceMemoryTrimmedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceBoundEvent.ServiceBoundEventQuery serviceBound() {
+        return ServiceBoundEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceUnboundEvent.ServiceUnboundEventQuery serviceUnbound() {
+        return ServiceUnboundEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceReboundEvent.ServiceReboundEventQuery serviceRebound() {
+        return ServiceReboundEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public ServiceTaskRemovedEvent.ServiceTaskRemovedEventQuery serviceTaskRemoved() {
+        return ServiceTaskRemovedEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public DelegatedAdminChoosePrivateKeyAliasEventQuery delegateChoosePrivateKeyAlias() {
+        return DelegatedAdminChoosePrivateKeyAliasEvent.queryPackage(
+                mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public DelegatedAdminNetworkLogsAvailableEventQuery delegateNetworkLogsAvailable() {
+        return DelegatedAdminNetworkLogsAvailableEvent.queryPackage(
+                        mTestApp.testApp().packageName())
+                .onUser(mTestApp.user());
+    }
+
+    @Override
+    public DelegatedAdminSecurityLogsAvailableEventQuery delegateSecurityLogsAvailable() {
+        return DelegatedAdminSecurityLogsAvailableEvent.queryPackage(
+                        mTestApp.testApp().packageName())
                 .onUser(mTestApp.user());
     }
 }

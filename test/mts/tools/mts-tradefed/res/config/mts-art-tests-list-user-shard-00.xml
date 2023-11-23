@@ -21,6 +21,7 @@
     <option name="compatibility:include-filter" value="art-run-test-001-Main"/>
     <option name="compatibility:include-filter" value="art-run-test-002-sleep"/>
     <option name="compatibility:include-filter" value="art-run-test-004-InterfaceTest"/>
+    <option name="compatibility:include-filter" value="art-run-test-004-NativeAllocations"/>
     <option name="compatibility:include-filter" value="art-run-test-004-checker-UnsafeTest18"/>
     <option name="compatibility:include-filter" value="art-run-test-006-args"/>
     <option name="compatibility:include-filter" value="art-run-test-007-count10"/>
@@ -85,8 +86,11 @@
     <option name="compatibility:include-filter" value="art-run-test-093-serialization"/>
     <option name="compatibility:include-filter" value="art-run-test-094-pattern"/>
     <option name="compatibility:include-filter" value="art-run-test-095-switch-MAX_INT"/>
+    <option name="compatibility:include-filter" value="art-run-test-096-array-copy-concurrent-gc"/>
     <option name="compatibility:include-filter" value="art-run-test-099-vmdebug"/>
     <option name="compatibility:include-filter" value="art-run-test-100-reflect2"/>
+    <option name="compatibility:include-filter" value="art-run-test-1000-non-moving-space-stress"/>
+    <option name="compatibility:include-filter" value="art-run-test-1004-checker-volatile-ref-load"/>
     <option name="compatibility:include-filter" value="art-run-test-101-fibonacci"/>
     <option name="compatibility:include-filter" value="art-run-test-102-concurrent-gc"/>
     <option name="compatibility:include-filter" value="art-run-test-103-string-append"/>
@@ -109,15 +113,18 @@
     <option name="compatibility:include-filter" value="art-run-test-129-ThreadGetId"/>
     <option name="compatibility:include-filter" value="art-run-test-132-daemon-locks-shutdown"/>
     <option name="compatibility:include-filter" value="art-run-test-133-static-invoke-super"/>
+    <option name="compatibility:include-filter" value="art-run-test-1338-gc-no-los"/>
     <option name="compatibility:include-filter" value="art-run-test-140-dce-regression"/>
     <option name="compatibility:include-filter" value="art-run-test-140-field-packing"/>
     <option name="compatibility:include-filter" value="art-run-test-143-string-value"/>
     <option name="compatibility:include-filter" value="art-run-test-144-static-field-sigquit"/>
+    <option name="compatibility:include-filter" value="art-run-test-145-alloc-tracking-stress"/>
     <option name="compatibility:include-filter" value="art-run-test-151-OpenFileLimit"/>
     <option name="compatibility:include-filter" value="art-run-test-152-dead-large-object"/>
     <option name="compatibility:include-filter" value="art-run-test-153-reference-stress"/>
     <option name="compatibility:include-filter" value="art-run-test-156-register-dex-file-multi-loader"/>
     <option name="compatibility:include-filter" value="art-run-test-159-app-image-fields"/>
+    <option name="compatibility:include-filter" value="art-run-test-160-read-barrier-stress"/>
     <option name="compatibility:include-filter" value="art-run-test-163-app-image-methods"/>
     <option name="compatibility:include-filter" value="art-run-test-165-lock-owner-proxy"/>
     <option name="compatibility:include-filter" value="art-run-test-168-vmstack-annotated"/>
@@ -141,8 +148,11 @@
     <option name="compatibility:include-filter" value="art-run-test-2028-MultiBackward"/>
     <option name="compatibility:include-filter" value="art-run-test-2029-contended-monitors"/>
     <option name="compatibility:include-filter" value="art-run-test-2030-long-running-child"/>
+    <option name="compatibility:include-filter" value="art-run-test-2042-checker-dce-always-throw"/>
     <option name="compatibility:include-filter" value="art-run-test-2231-checker-heap-poisoning"/>
     <option name="compatibility:include-filter" value="art-run-test-2232-write-metrics-to-log"/>
+    <option name="compatibility:include-filter" value="art-run-test-2234-checker-remove-entry-suspendcheck"/>
+    <option name="compatibility:include-filter" value="art-run-test-2236-JdkUnsafeGetLong-regression"/>
     <option name="compatibility:include-filter" value="art-run-test-300-package-override"/>
     <option name="compatibility:include-filter" value="art-run-test-301-abstract-protected"/>
     <option name="compatibility:include-filter" value="art-run-test-302-float-conversion"/>
@@ -157,6 +167,7 @@
     <option name="compatibility:include-filter" value="art-run-test-408-move-bug"/>
     <option name="compatibility:include-filter" value="art-run-test-409-materialized-condition"/>
     <option name="compatibility:include-filter" value="art-run-test-410-floats"/>
+    <option name="compatibility:include-filter" value="art-run-test-411-checker-hdiv-hrem-const"/>
     <option name="compatibility:include-filter" value="art-run-test-411-checker-hdiv-hrem-pow2"/>
     <option name="compatibility:include-filter" value="art-run-test-411-checker-instruct-simplifier-hrem"/>
     <option name="compatibility:include-filter" value="art-run-test-411-optimizing-arith"/>
@@ -193,6 +204,7 @@
     <option name="compatibility:include-filter" value="art-run-test-446-checker-inliner2"/>
     <option name="compatibility:include-filter" value="art-run-test-447-checker-inliner3"/>
     <option name="compatibility:include-filter" value="art-run-test-449-checker-bce-rem"/>
+    <option name="compatibility:include-filter" value="art-run-test-450-checker-types"/>
     <option name="compatibility:include-filter" value="art-run-test-451-regression-add-float"/>
     <option name="compatibility:include-filter" value="art-run-test-451-spill-splot"/>
     <option name="compatibility:include-filter" value="art-run-test-455-checker-gvn"/>
@@ -209,15 +221,18 @@
     <option name="compatibility:include-filter" value="art-run-test-474-checker-boolean-input"/>
     <option name="compatibility:include-filter" value="art-run-test-474-fp-sub-neg"/>
     <option name="compatibility:include-filter" value="art-run-test-475-simplify-mul-zero"/>
+    <option name="compatibility:include-filter" value="art-run-test-476-checker-ctor-fence-redun-elim"/>
     <option name="compatibility:include-filter" value="art-run-test-476-checker-ctor-memory-barrier"/>
     <option name="compatibility:include-filter" value="art-run-test-476-clinit-inline-static-invoke"/>
     <option name="compatibility:include-filter" value="art-run-test-477-checker-bound-type"/>
     <option name="compatibility:include-filter" value="art-run-test-477-long-2-float-convers-precision"/>
+    <option name="compatibility:include-filter" value="art-run-test-478-checker-clinit-check-pruning"/>
     <option name="compatibility:include-filter" value="art-run-test-478-checker-inline-noreturn"/>
     <option name="compatibility:include-filter" value="art-run-test-478-checker-inliner-nested-loop"/>
     <option name="compatibility:include-filter" value="art-run-test-479-regression-implicit-null-check"/>
     <option name="compatibility:include-filter" value="art-run-test-480-checker-dead-blocks"/>
     <option name="compatibility:include-filter" value="art-run-test-481-regression-phi-cond"/>
+    <option name="compatibility:include-filter" value="art-run-test-482-checker-loop-back-edge-use"/>
     <option name="compatibility:include-filter" value="art-run-test-483-dce-block"/>
     <option name="compatibility:include-filter" value="art-run-test-485-checker-dce-switch"/>
     <option name="compatibility:include-filter" value="art-run-test-486-checker-must-do-null-check"/>
@@ -246,18 +261,22 @@
     <option name="compatibility:include-filter" value="art-run-test-524-boolean-simplifier-regression"/>
     <option name="compatibility:include-filter" value="art-run-test-525-checker-arrays-fields1"/>
     <option name="compatibility:include-filter" value="art-run-test-525-checker-arrays-fields2"/>
+    <option name="compatibility:include-filter" value="art-run-test-526-checker-caller-callee-regs"/>
     <option name="compatibility:include-filter" value="art-run-test-526-long-regalloc"/>
     <option name="compatibility:include-filter" value="art-run-test-527-checker-array-access-simd"/>
     <option name="compatibility:include-filter" value="art-run-test-527-checker-array-access-split"/>
     <option name="compatibility:include-filter" value="art-run-test-528-long-hint"/>
     <option name="compatibility:include-filter" value="art-run-test-529-long-split"/>
+    <option name="compatibility:include-filter" value="art-run-test-530-checker-loops-try-catch"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-loops1"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-loops2"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-loops3"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-loops4"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-loops5"/>
+    <option name="compatibility:include-filter" value="art-run-test-530-checker-lse"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-lse-ctor-fences"/>
     <option name="compatibility:include-filter" value="art-run-test-530-checker-lse-simd"/>
+    <option name="compatibility:include-filter" value="art-run-test-530-checker-lse-try-catch"/>
     <option name="compatibility:include-filter" value="art-run-test-530-instanceof-checkcast"/>
     <option name="compatibility:include-filter" value="art-run-test-532-checker-nonnull-arrayset"/>
     <option name="compatibility:include-filter" value="art-run-test-534-checker-bce-deoptimization"/>
@@ -276,6 +295,7 @@
     <option name="compatibility:include-filter" value="art-run-test-550-checker-multiply-accumulate"/>
     <option name="compatibility:include-filter" value="art-run-test-550-new-instance-clinit"/>
     <option name="compatibility:include-filter" value="art-run-test-551-checker-clinit"/>
+    <option name="compatibility:include-filter" value="art-run-test-551-checker-shifter-operand"/>
     <option name="compatibility:include-filter" value="art-run-test-551-implicit-null-checks"/>
     <option name="compatibility:include-filter" value="art-run-test-552-checker-x86-avx2-bit-manipulation"/>
     <option name="compatibility:include-filter" value="art-run-test-554-checker-rtp-checkcast"/>
@@ -287,6 +307,7 @@
     <option name="compatibility:include-filter" value="art-run-test-561-divrem"/>
     <option name="compatibility:include-filter" value="art-run-test-561-shared-slowpaths"/>
     <option name="compatibility:include-filter" value="art-run-test-562-bce-preheader"/>
+    <option name="compatibility:include-filter" value="art-run-test-562-checker-no-intermediate"/>
     <option name="compatibility:include-filter" value="art-run-test-563-checker-invoke-super"/>
     <option name="compatibility:include-filter" value="art-run-test-564-checker-bitcount"/>
     <option name="compatibility:include-filter" value="art-run-test-564-checker-inline-loop"/>
@@ -303,10 +324,13 @@
     <option name="compatibility:include-filter" value="art-run-test-578-bce-visit"/>
     <option name="compatibility:include-filter" value="art-run-test-578-polymorphic-inlining"/>
     <option name="compatibility:include-filter" value="art-run-test-579-inline-infinite"/>
+    <option name="compatibility:include-filter" value="art-run-test-580-checker-fp16"/>
     <option name="compatibility:include-filter" value="art-run-test-580-checker-round"/>
+    <option name="compatibility:include-filter" value="art-run-test-580-checker-string-fact-intrinsics"/>
     <option name="compatibility:include-filter" value="art-run-test-580-crc32"/>
-    <option name="compatibility:include-filter" value="art-run-test-581-rtp"/>
+    <option name="compatibility:include-filter" value="art-run-test-581-checker-rtp"/>
     <option name="compatibility:include-filter" value="art-run-test-582-checker-bce-length"/>
+    <option name="compatibility:include-filter" value="art-run-test-583-checker-zero"/>
     <option name="compatibility:include-filter" value="art-run-test-584-checker-div-bool"/>
     <option name="compatibility:include-filter" value="art-run-test-589-super-imt"/>
     <option name="compatibility:include-filter" value="art-run-test-590-checker-arr-set-null-regression"/>
@@ -336,6 +360,7 @@
     <option name="compatibility:include-filter" value="art-run-test-635-checker-arm64-volatile-load-cc"/>
     <option name="compatibility:include-filter" value="art-run-test-636-arm64-veneer-pool"/>
     <option name="compatibility:include-filter" value="art-run-test-637-checker-throw-inline"/>
+    <option name="compatibility:include-filter" value="art-run-test-639-checker-code-sinking"/>
     <option name="compatibility:include-filter" value="art-run-test-640-checker-boolean-simd"/>
     <option name="compatibility:include-filter" value="art-run-test-640-checker-integer-valueof"/>
     <option name="compatibility:include-filter" value="art-run-test-640-checker-simd"/>
@@ -352,6 +377,7 @@
     <option name="compatibility:include-filter" value="art-run-test-656-checker-simd-opt"/>
     <option name="compatibility:include-filter" value="art-run-test-657-branches"/>
     <option name="compatibility:include-filter" value="art-run-test-658-fp-read-barrier"/>
+    <option name="compatibility:include-filter" value="art-run-test-659-unpadded-array"/>
     <option name="compatibility:include-filter" value="art-run-test-660-checker-sad"/>
     <option name="compatibility:include-filter" value="art-run-test-660-checker-simd-sad"/>
     <option name="compatibility:include-filter" value="art-run-test-661-checker-simd-reduc"/>
@@ -364,10 +390,9 @@
     <option name="compatibility:include-filter" value="art-run-test-671-npe-field-opts"/>
     <option name="compatibility:include-filter" value="art-run-test-672-checker-throw-method"/>
     <option name="compatibility:include-filter" value="art-run-test-673-checker-throw-vmethod"/>
-    <option name="compatibility:include-filter" value="art-run-test-674-HelloWorld-Dm"/>
     <option name="compatibility:include-filter" value="art-run-test-676-proxy-jit-at-first-use"/>
     <option name="compatibility:include-filter" value="art-run-test-677-fsi2"/>
-    <option name="compatibility:include-filter" value="art-run-test-680-sink-regression"/>
+    <option name="compatibility:include-filter" value="art-run-test-678-quickening"/>
     <option name="compatibility:include-filter" value="art-run-test-684-checker-simd-dotprod"/>
     <option name="compatibility:include-filter" value="art-run-test-684-select-condition"/>
     <option name="compatibility:include-filter" value="art-run-test-689-multi-catch"/>
@@ -381,10 +406,13 @@
     <option name="compatibility:include-filter" value="art-run-test-704-multiply-accumulate"/>
     <option name="compatibility:include-filter" value="art-run-test-705-register-conflict"/>
     <option name="compatibility:include-filter" value="art-run-test-711-checker-type-conversion"/>
+    <option name="compatibility:include-filter" value="art-run-test-713-varhandle-invokers"/>
     <option name="compatibility:include-filter" value="art-run-test-718-zipfile-finalizer"/>
+    <option name="compatibility:include-filter" value="art-run-test-719-varhandle-concurrency"/>
     <option name="compatibility:include-filter" value="art-run-test-721-osr"/>
     <option name="compatibility:include-filter" value="art-run-test-726-array-store"/>
     <option name="compatibility:include-filter" value="art-run-test-730-checker-inlining-super"/>
+    <option name="compatibility:include-filter" value="art-run-test-731-bounds-check-slow-path"/>
     <option name="compatibility:include-filter" value="art-run-test-805-TooDeepClassInstanceOf"/>
     <option name="compatibility:include-filter" value="art-run-test-806-TooWideClassInstanceOf"/>
     <option name="compatibility:include-filter" value="art-run-test-812-recursive-default"/>
@@ -392,7 +420,11 @@
     <option name="compatibility:include-filter" value="art-run-test-815-invokeinterface-default"/>
     <option name="compatibility:include-filter" value="art-run-test-818-clinit-nterp"/>
     <option name="compatibility:include-filter" value="art-run-test-821-madvise-willneed"/>
+    <option name="compatibility:include-filter" value="art-run-test-828-partial-lse"/>
+    <option name="compatibility:include-filter" value="art-run-test-834-lse"/>
+    <option name="compatibility:include-filter" value="art-run-test-835-b216762268"/>
     <option name="compatibility:include-filter" value="art-run-test-963-default-range-smali"/>
+    <option name="compatibility:include-filter" value="art_libnativebridge_cts_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_cmdline_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_compiler_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_dex2oat_tests"/>
@@ -400,20 +432,23 @@
     <option name="compatibility:include-filter" value="art_standalone_dexlist_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_libartbase_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_libartpalette_tests"/>
+    <option name="compatibility:include-filter" value="art_standalone_libartservice_tests"/>
+    <option name="compatibility:include-filter" value="art_standalone_libarttools_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_libdexfile_support_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_libdexfile_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_libprofile_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_oatdump_tests"/>
-    <option name="compatibility:include-filter" value="art_standalone_odrefresh_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_runtime_compiler_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_runtime_tests"/>
     <option name="compatibility:include-filter" value="art_standalone_sigchain_tests"/>
+    <option name="compatibility:include-filter" value="libnativeloader_test"/>
     <!-- Enable MainlineTestModuleController for ART run-tests. -->
     <!-- TODO(rpl): Find a way to express this list in a more concise fashion. -->
     <option name="compatibility:module-arg" value="art-run-test-001-HelloWorld:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-001-Main:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-002-sleep:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-004-InterfaceTest:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-004-NativeAllocations:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-004-checker-UnsafeTest18:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-006-args:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-007-count10:enable:true"/>
@@ -478,8 +513,11 @@
     <option name="compatibility:module-arg" value="art-run-test-093-serialization:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-094-pattern:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-095-switch-MAX_INT:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-096-array-copy-concurrent-gc:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-099-vmdebug:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-100-reflect2:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-1000-non-moving-space-stress:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-1004-checker-volatile-ref-load:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-101-fibonacci:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-102-concurrent-gc:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-103-string-append:enable:true"/>
@@ -502,15 +540,18 @@
     <option name="compatibility:module-arg" value="art-run-test-129-ThreadGetId:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-132-daemon-locks-shutdown:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-133-static-invoke-super:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-1338-gc-no-los:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-140-dce-regression:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-140-field-packing:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-143-string-value:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-144-static-field-sigquit:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-145-alloc-tracking-stress:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-151-OpenFileLimit:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-152-dead-large-object:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-153-reference-stress:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-156-register-dex-file-multi-loader:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-159-app-image-fields:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-160-read-barrier-stress:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-163-app-image-methods:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-165-lock-owner-proxy:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-168-vmstack-annotated:enable:true"/>
@@ -534,8 +575,11 @@
     <option name="compatibility:module-arg" value="art-run-test-2028-MultiBackward:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-2029-contended-monitors:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-2030-long-running-child:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-2042-checker-dce-always-throw:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-2231-checker-heap-poisoning:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-2232-write-metrics-to-log:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-2234-checker-remove-entry-suspendcheck:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-2236-JdkUnsafeGetLong-regression:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-300-package-override:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-301-abstract-protected:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-302-float-conversion:enable:true"/>
@@ -550,6 +594,7 @@
     <option name="compatibility:module-arg" value="art-run-test-408-move-bug:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-409-materialized-condition:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-410-floats:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-411-checker-hdiv-hrem-const:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-411-checker-hdiv-hrem-pow2:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-411-checker-instruct-simplifier-hrem:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-411-optimizing-arith:enable:true"/>
@@ -586,6 +631,7 @@
     <option name="compatibility:module-arg" value="art-run-test-446-checker-inliner2:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-447-checker-inliner3:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-449-checker-bce-rem:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-450-checker-types:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-451-regression-add-float:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-451-spill-splot:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-455-checker-gvn:enable:true"/>
@@ -602,15 +648,18 @@
     <option name="compatibility:module-arg" value="art-run-test-474-checker-boolean-input:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-474-fp-sub-neg:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-475-simplify-mul-zero:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-476-checker-ctor-fence-redun-elim:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-476-checker-ctor-memory-barrier:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-476-clinit-inline-static-invoke:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-477-checker-bound-type:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-477-long-2-float-convers-precision:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-478-checker-clinit-check-pruning:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-478-checker-inline-noreturn:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-478-checker-inliner-nested-loop:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-479-regression-implicit-null-check:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-480-checker-dead-blocks:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-481-regression-phi-cond:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-482-checker-loop-back-edge-use:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-483-dce-block:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-485-checker-dce-switch:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-486-checker-must-do-null-check:enable:true"/>
@@ -639,18 +688,22 @@
     <option name="compatibility:module-arg" value="art-run-test-524-boolean-simplifier-regression:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-525-checker-arrays-fields1:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-525-checker-arrays-fields2:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-526-checker-caller-callee-regs:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-526-long-regalloc:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-527-checker-array-access-simd:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-527-checker-array-access-split:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-528-long-hint:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-529-long-split:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-530-checker-loops-try-catch:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-loops1:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-loops2:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-loops3:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-loops4:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-loops5:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-530-checker-lse:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-lse-ctor-fences:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-checker-lse-simd:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-530-checker-lse-try-catch:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-530-instanceof-checkcast:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-532-checker-nonnull-arrayset:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-534-checker-bce-deoptimization:enable:true"/>
@@ -669,6 +722,7 @@
     <option name="compatibility:module-arg" value="art-run-test-550-checker-multiply-accumulate:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-550-new-instance-clinit:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-551-checker-clinit:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-551-checker-shifter-operand:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-551-implicit-null-checks:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-552-checker-x86-avx2-bit-manipulation:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-554-checker-rtp-checkcast:enable:true"/>
@@ -680,6 +734,7 @@
     <option name="compatibility:module-arg" value="art-run-test-561-divrem:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-561-shared-slowpaths:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-562-bce-preheader:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-562-checker-no-intermediate:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-563-checker-invoke-super:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-564-checker-bitcount:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-564-checker-inline-loop:enable:true"/>
@@ -696,10 +751,13 @@
     <option name="compatibility:module-arg" value="art-run-test-578-bce-visit:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-578-polymorphic-inlining:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-579-inline-infinite:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-580-checker-fp16:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-580-checker-round:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-580-checker-string-fact-intrinsics:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-580-crc32:enable:true"/>
-    <option name="compatibility:module-arg" value="art-run-test-581-rtp:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-581-checker-rtp:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-582-checker-bce-length:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-583-checker-zero:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-584-checker-div-bool:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-589-super-imt:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-590-checker-arr-set-null-regression:enable:true"/>
@@ -729,6 +787,7 @@
     <option name="compatibility:module-arg" value="art-run-test-635-checker-arm64-volatile-load-cc:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-636-arm64-veneer-pool:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-637-checker-throw-inline:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-639-checker-code-sinking:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-640-checker-boolean-simd:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-640-checker-integer-valueof:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-640-checker-simd:enable:true"/>
@@ -745,6 +804,7 @@
     <option name="compatibility:module-arg" value="art-run-test-656-checker-simd-opt:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-657-branches:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-658-fp-read-barrier:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-659-unpadded-array:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-660-checker-sad:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-660-checker-simd-sad:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-661-checker-simd-reduc:enable:true"/>
@@ -757,10 +817,9 @@
     <option name="compatibility:module-arg" value="art-run-test-671-npe-field-opts:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-672-checker-throw-method:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-673-checker-throw-vmethod:enable:true"/>
-    <option name="compatibility:module-arg" value="art-run-test-674-HelloWorld-Dm:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-676-proxy-jit-at-first-use:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-677-fsi2:enable:true"/>
-    <option name="compatibility:module-arg" value="art-run-test-680-sink-regression:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-678-quickening:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-684-checker-simd-dotprod:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-684-select-condition:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-689-multi-catch:enable:true"/>
@@ -774,10 +833,13 @@
     <option name="compatibility:module-arg" value="art-run-test-704-multiply-accumulate:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-705-register-conflict:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-711-checker-type-conversion:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-713-varhandle-invokers:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-718-zipfile-finalizer:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-719-varhandle-concurrency:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-721-osr:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-726-array-store:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-730-checker-inlining-super:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-731-bounds-check-slow-path:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-805-TooDeepClassInstanceOf:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-806-TooWideClassInstanceOf:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-812-recursive-default:enable:true"/>
@@ -785,7 +847,11 @@
     <option name="compatibility:module-arg" value="art-run-test-815-invokeinterface-default:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-818-clinit-nterp:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-821-madvise-willneed:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-828-partial-lse:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-834-lse:enable:true"/>
+    <option name="compatibility:module-arg" value="art-run-test-835-b216762268:enable:true"/>
     <option name="compatibility:module-arg" value="art-run-test-963-default-range-smali:enable:true"/>
+    <option name="compatibility:module-arg" value="art_libnativebridge_cts_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_cmdline_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_compiler_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_dex2oat_tests:enable:true"/>
@@ -793,12 +859,14 @@
     <option name="compatibility:module-arg" value="art_standalone_dexlist_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_libartbase_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_libartpalette_tests:enable:true"/>
+    <option name="compatibility:module-arg" value="art_standalone_libartservice_tests:enable:true"/>
+    <option name="compatibility:module-arg" value="art_standalone_libarttools_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_libdexfile_support_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_libdexfile_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_libprofile_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_oatdump_tests:enable:true"/>
-    <option name="compatibility:module-arg" value="art_standalone_odrefresh_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_runtime_compiler_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_runtime_tests:enable:true"/>
     <option name="compatibility:module-arg" value="art_standalone_sigchain_tests:enable:true"/>
+    <option name="compatibility:module-arg" value="libnativeloader_test:enable:true"/>
 </configuration>

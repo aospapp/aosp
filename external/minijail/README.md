@@ -114,3 +114,51 @@ controlled surprise system call use.
 https://crrev.com/c/4585/ added the original implementation.
 
 Source: Conversations with original authors, ellyjones@ and wad@.
+
+## How to manually upgrade Minijail on Chrome OS
+
+Minijail is manually upgraded on Chrome OS so that there is a way to test
+changes in the Chrome OS commit queue. Committed changes have already passed
+Android's presubmit checks, but the ebuild upgrade CL goes through the Chrome
+OS commit queue and must pass the tests before any additional changes are
+available for use on Chrome OS. To upgrade minijail on Chrome OS, complete the
+following steps.
+
+```bash
+# Sync Minijail repo
+cd ~/chromiumos/src/aosp/external/minijail
+git checkout m/main
+repo sync .
+
+# Set up local branch.
+cd ~/trunk/src/third_party/chromiumos-overlay/
+repo start minijail .  # replace minijail with the local branch name you want.
+
+# Run upgrade script.
+~/trunk/chromite/scripts/cros_uprev --force --overlay-type public \
+  --packages chromeos-base/minijail:dev-rust/minijail-sys:dev-rust/minijail
+```
+
+At this point the Minijail-related packages should be upgraded, so you may want
+to add the changes to a commit and do some local testing before uploading a
+change list. Here are the recommended local tests to try (make sure you are
+**not** working on the minijail packages first i.e. `cros_workon list-all`):
+
+```bash
+# Check build.
+./build_packages --board=${BOARD}
+
+# Check unit tests.
+FEATURES=test emerge-${BOARD} chromeos-base/minijail dev-rust/minijail-sys \
+  dev-rust/minijail
+
+# Check integration tests.
+cros deploy <DUT> chromeos-base/minijail
+tast run <DUT> security.Minijail.* security.MinijailSeccomp
+```
+
+Finally, when uploading the CL make sure to include the list of changes
+since the last uprev. The command to generate the list is as follows:
+```bash
+git log --oneline --no-merges <previous hash in ebuild file>..HEAD
+```

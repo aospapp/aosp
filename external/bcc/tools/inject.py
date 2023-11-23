@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # This script generates a BPF program with structure inspired by trace.py. The
 # generated program operates on PID-indexed stacks. Generally speaking,
@@ -75,7 +75,7 @@ class Probe:
         else:
             early_pred = "bpf_get_prandom_u32() > %s" % str(int((1<<32)*Probe.probability))
         # init the map
-        # dont do an early exit here so the singular case works automatically
+        # don't do an early exit here so the singular case works automatically
         # have an early exit for probability option
         enter = """
         /*
@@ -112,7 +112,7 @@ class Probe:
         self.func_name = self.event + ("_entry" if self.is_entry else "_exit")
         func_sig = "struct pt_regs *ctx"
 
-        # assume theres something in there, no guarantee its well formed
+        # assume there's something in there, no guarantee its well formed
         if right > left + 1 and self.is_entry:
             func_sig += ", " + self.func[left + 1:right]
 
@@ -209,13 +209,13 @@ class Probe:
         pred = self.preds[0][0]
         text = self._get_heading() + """
 {
-        u32 overriden = 0;
+        u32 overridden = 0;
         int zero = 0;
         u32* val;
 
         val = count.lookup(&zero);
         if (val)
-            overriden = *val;
+            overridden = *val;
 
         /*
          * preparation for predicate, if necessary
@@ -224,8 +224,8 @@ class Probe:
         /*
          * If this is the only call in the chain and predicate passes
          */
-        if (%s == 1 && %s && overriden < %s) {
-                count.increment(zero);
+        if (%s == 1 && %s && overridden < %s) {
+                count.atomic_increment(zero);
                 bpf_override_return(ctx, %s);
                 return 0;
         }
@@ -239,8 +239,8 @@ class Probe:
         /*
          * If all conds have been met and predicate passes
          */
-        if (p->conds_met == %s && %s && overriden < %s) {
-                count.increment(zero);
+        if (p->conds_met == %s && %s && overridden < %s) {
+                count.atomic_increment(zero);
                 bpf_override_return(ctx, %s);
         }
         return 0;

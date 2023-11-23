@@ -62,8 +62,20 @@ public class AppSearchPackageTest extends AppSearchHostTestBase {
         runDeviceTestAsUserInPkgB("testGlobalGetDocuments_exist", mPrimaryUserId);
         // remove the package.
         uninstallPackage(TARGET_PKG_A);
-        // query the document from another package, verify the document of package A is removed
-        runDeviceTestAsUserInPkgB("testGlobalGetDocuments_nonexist", mPrimaryUserId);
+        // Max waiting time is 5 second.
+        for (int i = 0; i < 5; i++) {
+            try {
+                // query the document from another package, verify the document of package A is
+                // removed
+                runDeviceTestAsUserInPkgB("testGlobalGetDocuments_nonexist", mPrimaryUserId);
+                // The test is passed.
+                return;
+            } catch (AssertionError e) {
+                // The package hasn't uninstalled yet, sleeping 1s before polling again.
+                Thread.sleep(1000);
+            }
+        }
+        throw new AssertionError("Failed to prune package data after 5 seconds");
     }
 
     @Test
@@ -71,6 +83,11 @@ public class AppSearchPackageTest extends AppSearchHostTestBase {
         runDeviceTestAsUserInPkgA("testPutDocuments", mPrimaryUserId);
         runDeviceTestAsUserInPkgA("closeAndFlush", mPrimaryUserId);
         runDeviceTestAsUserInPkgA("testGetDocuments_exist", mPrimaryUserId);
+        // We won't be able to verify the uninstall is not done before we reboot the device.
+        // This test is a safety that we could prune dead package data when we unlock the user. Any
+        // flaky in the testGetDocuments_nonexist assert means we have a problem.
+        // We have AppSearchMultiUserTest.testPackageUninstall_onLockedUser and unit test
+        // AppSearchImplTest.testPrunePackageData() to cover the same functionality.
         uninstallPackage(TARGET_PKG_A);
         // When test locally, if your test device doesn't support rebootUserspace(), you need to
         // manually unlock your device screen after it got fully rebooted. Or remove your screen

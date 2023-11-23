@@ -213,7 +213,7 @@ public class Channel implements IBinder.DeathRecipient {
             cla = (byte) ((cla & 0xBC) | channelNumber);
         } else if (channelNumber < 20) {
             // b7 = 1 indicates the further interindustry class byte coding
-            boolean isSm = (cla & 0x0C) != 0;
+            boolean isSm = (((cla & 0x40) == 0x00) && ((cla & 0x0C) != 0));
             cla = (byte) ((cla & 0xB0) | 0x40 | (channelNumber - 4));
             if (isSm) {
                 cla |= 0x20;
@@ -329,6 +329,16 @@ public class Channel implements IBinder.DeathRecipient {
             } catch (IOException e) {
                 throw new ServiceSpecificException(SEService.IO_ERROR, e.getMessage());
             }
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ISecureElementChannel.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ISecureElementChannel.VERSION;
         }
     }
 }

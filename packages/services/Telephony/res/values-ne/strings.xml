@@ -127,7 +127,7 @@
     <string name="registration_cf_forbidden" msgid="4386482610771190420">"तपाईंको सेवा प्रदायकले कल फर्वार्ड गर्ने सुविधा उपलब्ध गराउँदैन।"</string>
     <string name="cdma_call_waiting" msgid="4565070960879673216">"कल प्रतीक्षाको सुविधा सक्रिय गर्ने हो?"</string>
     <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"कल हुँदै गर्दा, तपाईंलाई आगमन कलबारे जानकारी दिइने छ"</string>
-    <string name="enable_cdma_cw" msgid="811047045863422232">"सक्रिय गर्नुहोस्"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"अन गर्नुहोस्"</string>
     <string name="disable_cdma_cw" msgid="7119290446496301734">"रद्द गर्नुहोस्"</string>
     <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS अन्तर्गत CDMA कल प्रतीक्षाको सुविधा सक्रिय छ"</string>
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS अन्तर्गत CDMA कल प्रतीक्षाको सुविधा निष्क्रिय छ"</string>
@@ -612,7 +612,7 @@
   </string-array>
     <string name="network_info_message" msgid="7599413947016532355">"सञ्जाल सन्देश"</string>
     <string name="network_error_message" msgid="4271579424089326618">"त्रुटिसम्बन्धी सन्देश"</string>
-    <string name="ota_title_activate" msgid="4049645324841263423">"तपाईंको फोन सक्रिय गर्नुहोस्"</string>
+    <string name="ota_title_activate" msgid="4049645324841263423">"तपाईंको फोन अन गर्नुहोस्"</string>
     <string name="ota_touch_activate" msgid="838764494319694754">"विशेष कललाई तपाईंको फोन सेवा सक्रिय गर्न जरुरी हुन्छ। \n \n \"सक्रिय\" थिचेर तपाईंको फोन  सक्रिय गर्न दिएका निर्देशनहरू सुन्नुहोस्।"</string>
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"सक्रिय गर्दै…"</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"फोनले तपाईँको मोबाइल डेटा सेवा सक्रिय पार्दै छ। \n\nयसले ५ मिनेटसम्म समय लिन सक्छ।"</string>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"आपत्‌कालीन कलब्याक मोड"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"डेटा जडान अक्षम भयो"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> सम्म डेटा कनेक्ट भएको छैन"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other"> फोन आपत्‌कालीन कलब्याक मोडमा <xliff:g id="COUNT_1">%s</xliff:g> मिनेटको लागि हुनेछ। यस मोडको अवस्थामा एक डेटा जडान प्रयोग गरेर कुनै पनि एपहरू प्रयोग गर्न सकिँदैन। के तपाईं अहिले निस्कन चाहनुहुन्छ?</item>
-      <item quantity="one"> फोन आपत्‌कालीन कलब्याक मोडमा <xliff:g id="COUNT_0">%s</xliff:g> मिनेटको लागि हुनेछ। यस मोडको समयमा एक डेटा जडान प्रयोग गरेर कुनै पनि एपहरू प्रयोग गर्न सकिँदैन। के तपाईं अहिले निस्कन चाहनुहुन्छ?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other"> आपत्‌कालीन कलब्याक मोडको समयमा चयनित कार्य उपलब्ध छैन। फोन यस मोडमा <xliff:g id="COUNT_1">%s</xliff:g> मिनेटको लागि हुनेछ। के तपाईं अहिले निस्कन चाहनुहुन्छ?</item>
-      <item quantity="one"> आपत्‌कालीन कलब्याक मोडको समयमा चयनित कार्य उपलब्ध छैन। फोन यस मोडमा <xliff:g id="COUNT_0">%s</xliff:g> मिनेटको लागि हुनेछ। के तपाईं अहिले निस्कन चाहनुहुन्छ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{यो फोन एक मिनेटसम्म आपत्‌कालीन कलब्याक मोडमा हुने छ। उक्त फोन यो मोडमा हुँदा डेटा कनेक्सन प्रयोग गर्ने कुनै पनि एप प्रयोग गर्न मिल्दैन। तपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}other{यो फोन %s मिनेटसम्म आपत्‌कालीन कलब्याक मोडमा हुने छ। उक्त फोन यो मोडमा हुँदा डेटा कनेक्सन प्रयोग गर्ने कुनै पनि एप प्रयोग गर्न मिल्दैन। तपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{आपत्‌कालीन कलब्याक मोडमा हुँदा चयन गरिएको कारबाही गर्न मिल्दैन। फोन एक मिनेटसम्म यो मोडमा हुने छ। तपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}other{आपत्‌कालीन कलब्याक मोडमा हुँदा चयन गरिएको कारबाही गर्न मिल्दैन। फोन %s मिनेटसम्म यो मोडमा हुने छ। तपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"आपत्‌कालीन कल हुँदा चयन भएको कार्य उपलब्ध हुँदैन।"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"आपत्‌कालीन कलब्याक मोडबाट निस्कदै"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"हो"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"खारेज गर्नुहोस्"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"यो फोन आपत्‌कालीन कलब्याक मोडमा छ"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> सम्म"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">यो फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनेटका लागि आपत्‌कालीन कलब्याक मोडमा हुने छ।\nतपाईं अहिले नै बाहिर निस्कन चाहनुहुन्छ?</item>
-      <item quantity="one">यो फोन <xliff:g id="COUNT_0">%s</xliff:g> मिनेटका लागि आपत्‌कालीन कलब्याक मोडमा हुने छ।\nतपाईं अहिले नै बाहिर निस्कन चाहनुहुन्छ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{यो फोन एक मिनेटसम्म आपत्‌कालीन कलब्याक मोडमा हुने छ।\nतपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}other{यो फोन %s मिनेटसम्म आपत्‌कालीन कलब्याक मोडमा हुने छ।\nतपाईं अहिले नै यो मोडबाट बाहिरिन चाहनुहुन्छ?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"सेवा"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"सेटअप"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"सेट गरिएको छैन"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"पहुँचता"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"बाट Wi-Fi मार्फत आएको कल"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi कल"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"खोल्न पुनः ट्याप गर्नुहोस्"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"सन्देश डिकोड गर्दा एउटा समस्या भयो।"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM कार्डले तपाईँको सेवा सक्रिय गर्नुका तथा फोनको रोमिङ क्षमताहरू पनि अद्यावधिक गरिदिएको छ।"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"धेरै सक्रिय कलहरू छन्। कृपया कुनै नयाँ राख्नु अघि विद्यमान कलहरूलाई अन्त्य वा मर्ज गर्नुहोस्।"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"अर्को बहिर्गमन कल पहिले नै डायल भएका हुनाले कल गर्न सकिँदैन।"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"जवाफ नदिइएको आगमन कल जारी रहेकाले नयाँ कल गर्न सकिँदैन। कुनै नयाँ कल गर्नुअघि आगमन कलको जवाफ दिनुहोस् वा त्यसलाई अस्वीकार गर्नुहोस्।"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call प्रणालीको गुण प्रयोग गरेर कल गर्ने सुविधा असक्षम पारिएको हुनाले कल गर्न सकिँदैन।"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"पहिले नै दुईवटा कलहरू जारी रहेकाले कुनै नयाँ कल गर्न सकिँदैन। नयाँ कल गर्नुअघि हाल जारी कलहरूमध्ये कुनै एउटा कल विच्छेद गर्नुहोस् वा ती दुवैलाई सम्मेलन कलमा गाभ्नुहोस्।"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"पहिले नै दुईवटा कलहरू जारी रहेकाले कुनै नयाँ कल गर्न सकिँदैन। नयाँ कल गर्नुअघि हाल जारी कलहरूमध्ये कुनै एउटा कल डिस्कनेक्ट गर्नुहोस् वा ती दुवैलाई सम्मेलन कलमा मर्ज गर्नुहोस्।"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> प्रयोग गर्न मोबाइल डेटा सक्रिय गरिएको कुरा सुनिश्चित गर्नुहोस्। तपाईं मोबाइल नेटवर्कका सेटिङहरूमा गई यसलाई बदल्न सक्नुहुन्छ।"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> प्रयोग गर्न मोबाइल डेटा र डेटा रोमिङ सक्रिय गरिएको कुरा सुनिश्चित गर्नुहोस्। तपाईं मोबाइल नेटवर्कका सेटिङहरूमा गई यी कुराहरू बदल्न सक्नुहुन्छ।"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> प्रयोग गर्न SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> मा मोबाइल डेटा सक्रिय गरिएको कुरा सुनिश्चित गर्नुहोस्। तपाईं मोबाइल नेटवर्कका सेटिङहरूमा गई यसलाई बदल्न सक्नुहुन्छ।"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"यो सेटिङ परिवर्तन गर्न तपाईंले आफ्नो यन्त्र पुनः सुरु गर्नु पर्छ।"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"पुनः सुरु गर्नुहोस्"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"रद्द गर्नुहोस्"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"हटाउन मिल्ने eSIM डिफल्ट रूपमा सेट गर्नुहोस्"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"मोबाइल रेडियोको पावर"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM को ठेगाना पुस्तिका हेर्नुहोस्"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"स्थिर डायल गर्ने नम्बरहरू हेर्नुहोस्"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"रेडियोको ब्यान्ड चयन गर्नुहोस्"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Voice नेटवर्कको प्रकार:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"डेटा नेटवर्कको प्रकार:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ओभरराइड नेटवर्कको प्रकार:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"फोनको सूचक चयन गर्नुहोस्"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"रुचाइएको नेटवर्कको प्रकार सेट गर्नुहोस्:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"होस्टनाम (www.google.com) IPv4 मा पिङ गर्नुहोस्:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"पुनः ताजा गर्नुहोस्"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS को जाँचलाई टगल गर्नुहोस्"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-विशिष्ट जानकारी/सेटिङ"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC उपलब्ध छ:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR प्रतिबन्धित छ:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR उपलब्ध छ:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR को स्थिती:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC उपलब्ध छ (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR प्रतिबन्धित छ (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR उपलब्ध छ (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR को स्थिति (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR फ्रिक्वेन्सी:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"रेडियोको ब्यान्डसम्बन्धी मोडलाई सेट गर्नुहोस्"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ब्यान्डको सूची लोड गर्दै…"</string>

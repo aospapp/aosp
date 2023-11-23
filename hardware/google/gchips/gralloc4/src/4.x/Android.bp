@@ -73,25 +73,6 @@ cc_defaults {
 }
 
 cc_library_shared {
-	name: "android.hardware.graphics.allocator@4.0-impl",
-	defaults: [
-		"arm_gralloc_api_4x_defaults",
-	],
-	shared_libs: [
-		"android.hardware.graphics.allocator@4.0",
-		"android.hardware.graphics.mapper@4.0",
-	],
-	srcs: [
-		"GrallocAllocator.cpp",
-		":libgralloc_hidl_common_allocator",
-		":libgralloc_hidl_common_shared_metadata",
-	],
-	include_dirs: [
-		"hardware/google/gchips/include",
-	],
-}
-
-cc_library_shared {
 	name: "android.hardware.graphics.mapper@4.0-impl",
 	defaults: [
 		"arm_gralloc_api_4x_defaults",
@@ -100,7 +81,7 @@ cc_library_shared {
 		"libgralloc_drmutils",
 	],
 	shared_libs: [
-		"arm.graphics-V1-ndk_platform",
+		"arm.graphics-V1-ndk",
 		"android.hardware.graphics.mapper@4.0",
 	],
 	srcs: [

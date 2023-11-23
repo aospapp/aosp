@@ -40,6 +40,10 @@ _RBE_ENV = {
     'RBE_JAVAC': 'true',
     'RBE_D8': 'true',
     'RBE_R8': 'true',
+    'RBE_CXX_EXEC_STRATEGY' : 'racing',
+    'RBE_JAVAC_EXEC_STRATEGY' : 'racing',
+    'RBE_R8_EXEC_STRATEGY' : 'racing',
+    'RBE_D8_EXEC_STRATEGY' : 'racing',
 }
 
 

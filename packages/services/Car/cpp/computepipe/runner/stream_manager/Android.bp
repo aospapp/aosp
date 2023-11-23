@@ -58,7 +58,6 @@ cc_library {
         "computepipe_runner_includes",
     ],
     static_libs: [
-        "libbase",
         "libgtest",
         "libgmock",
         "libcomputepipeprotos",
@@ -66,6 +65,7 @@ cc_library {
     shared_libs: [
         "computepipe_runner_component",
         "computepipe_stream_manager",
+        "libbase",
         "libnativewindow",
     ],
     include_dirs: [

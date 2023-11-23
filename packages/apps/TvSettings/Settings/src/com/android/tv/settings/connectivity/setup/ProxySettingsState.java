@@ -30,10 +30,10 @@ import androidx.leanback.widget.GuidedAction;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.util.AdvancedOptionsFlowUtil;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
+import com.android.tv.settings.library.network.WifiHelper;
 
 import java.util.List;
 
@@ -79,7 +79,7 @@ public class ProxySettingsState implements State {
                 .of(mActivity)
                 .get(UserChoiceInfo.class);
         WifiConfiguration wifiConfiguration = userChoiceInfo.getWifiConfiguration();
-        return WifiConfigHelper.isNetworkLockedDown(mActivity, wifiConfiguration);
+        return WifiHelper.isNetworkLockedDown(mActivity, wifiConfiguration);
     }
 
     @Override

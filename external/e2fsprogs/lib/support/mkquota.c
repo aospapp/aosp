@@ -234,7 +234,8 @@ out:
 /* Helper functions for computing quota in memory.                */
 /******************************************************************/
 
-static int dict_uint_cmp(const void *a, const void *b)
+static int dict_uint_cmp(const void *cmp_ctx EXT2FS_ATTR((unused)),
+			 const void *a, const void *b)
 {
 	unsigned int	c, d;
 
@@ -503,8 +504,8 @@ errcode_t quota_compute_usage(quota_ctx_t qctx)
 		if (inode->i_links_count &&
 		    (ino == EXT2_ROOT_INO ||
 		     ino >= EXT2_FIRST_INODE(fs->super))) {
-			space = ext2fs_inode_i_blocks(fs,
-						      EXT2_INODE(inode)) << 9;
+			space = ext2fs_get_stat_i_blocks(fs,
+						EXT2_INODE(inode)) << 9;
 			quota_data_add(qctx, inode, ino, space);
 			quota_data_inodes(qctx, inode, ino, +1);
 		}

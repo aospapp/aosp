@@ -16,12 +16,20 @@
 
 package android.car;
 
+import android.car.annotation.AddedInOrBefore;
+
 /** @hide */
 public class CarLibLog {
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_CAR = "CAR.L";
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_CLUSTER = TAG_CAR + ".CLUSTER";
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_INPUT = TAG_CAR + ".INPUT";
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_NAV = TAG_CAR + ".NAV";
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_SENSOR = TAG_CAR + ".SENSOR";
+    @AddedInOrBefore(majorVersion = 33)
     public static final String TAG_DIAGNOSTIC = TAG_CAR + ".DIAGNOSTIC";
 }

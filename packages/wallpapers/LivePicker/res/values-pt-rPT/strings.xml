@@ -36,7 +36,7 @@
     <string name="explore_further" msgid="489032063223099244">"Explorar"</string>
     <string name="tab_info" msgid="5501369870701932475">"Informações"</string>
     <string name="tab_customize" msgid="9007237541087328909">"Personalizar"</string>
-    <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"Pretende eliminar esta imagem de fundo do telemóvel?"</string>
+    <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"Eliminar esta imagem de fundo do telemóvel?"</string>
     <string name="collapse_attribution_panel" msgid="5368959884531941653">"Reduzir o painel de informações da imagem de fundo"</string>
     <string name="expand_attribution_panel" msgid="6540929859713706255">"Expandir o painel de informações da imagem de fundo"</string>
 </resources>

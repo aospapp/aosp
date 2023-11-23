@@ -10,3 +10,12 @@ xsd_config {
     gen_writer: true,
     nullability: true,
 }
+
+xsd_config {
+    name: "xsdc_reference_tinyxml_tests",
+    srcs: ["reference.xsd"],
+    package_name: "reference",
+    gen_writer: true,
+    nullability: true,
+    tinyxml: true,
+}

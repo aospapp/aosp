@@ -48,10 +48,6 @@ public class EapAuthenticator extends Handler {
     private static final String TAG = EapAuthenticator.class.getSimpleName();
     private static final long DEFAULT_TIMEOUT_MILLIS = 7000L;
 
-    private static final EapRandomFactory DEFAULT_RANDOM_FACTORY =
-            () -> {
-                return new SecureRandom();
-            };
     private final Executor mWorkerPool;
     private final EapStateMachine mStateMachine;
     private final IEapCallback mCb;
@@ -59,41 +55,22 @@ public class EapAuthenticator extends Handler {
     private boolean mCallbackFired = false;
 
     /**
-     * Constructor for EapAuthenticator
+     * Constructor for EapAuthenticator.
      *
-     * @param looper Looper for running a message loop
+     * @param eapContext the context of this EapAuthenticator
      * @param cb IEapCallback for callbacks to the client
-     * @param context Context for this EapAuthenticator
      * @param eapSessionConfig Configuration for an EapAuthenticator
-     */
-    public EapAuthenticator(
-            Looper looper, IEapCallback cb, Context context, EapSessionConfig eapSessionConfig) {
-        this(looper, cb, context, eapSessionConfig, DEFAULT_RANDOM_FACTORY);
-    }
-
-    /**
-     * Test-Only Constructor for EapAuthenticator.
-     *
-     * @param looper Looper for running a message loop
-     * @param cb IEapCallback for callbacks to the client
-     * @param context Context for this EapAuthenticator
-     * @param eapSessionConfig Configuration for an EapAuthenticator
-     * @param randomnessFactory the randomness factory
      * @hide
      */
     public EapAuthenticator(
-            Looper looper,
-            IEapCallback cb,
-            Context context,
-            EapSessionConfig eapSessionConfig,
-            EapRandomFactory randomnessFactory) {
+            EapContext eapContext, IEapCallback cb, EapSessionConfig eapSessionConfig) {
         this(
-                looper,
+                eapContext.getLooper(),
                 cb,
                 new EapStateMachine(
-                        context,
+                        eapContext.getContext(),
                         eapSessionConfig,
-                        createNewRandomIfNull(randomnessFactory.getRandom())),
+                        createNewRandomIfNull(eapContext.getRandomnessFactory().getRandom())),
                 Executors.newSingleThreadExecutor(),
                 DEFAULT_TIMEOUT_MILLIS);
     }
@@ -121,6 +98,16 @@ public class EapAuthenticator extends Handler {
     public interface EapRandomFactory {
         /** Returns a SecureRandom instance */
         SecureRandom getRandom();
+    }
+
+    /** EapContext provides interface to retrieve context information for this EapAuthenticator */
+    public interface EapContext {
+        /** Gets the Looper */
+        Looper getLooper();
+        /** Gets the Context */
+        Context getContext();
+        /** Gets the EapRandomFactory which will control if the EapAuthenticator is in test mode */
+        EapRandomFactory getRandomnessFactory();
     }
 
     @Override
@@ -179,7 +166,9 @@ public class EapAuthenticator extends Handler {
                                                             .getSimpleName());
 
                                     if (finalProcessResponse instanceof EapResponse) {
-                                        mCb.onResponse(((EapResponse) finalProcessResponse).packet);
+                                        mCb.onResponse(
+                                                ((EapResponse) finalProcessResponse).packet,
+                                                ((EapResponse) finalProcessResponse).flagMask);
                                     } else if (finalProcessResponse instanceof EapError) {
                                         EapError eapError = (EapError) finalProcessResponse;
                                         LOG.e(
@@ -191,9 +180,14 @@ public class EapAuthenticator extends Handler {
                                         LOG.d(
                                                 TAG,
                                                 "EapSuccess with"
-                                                        + " MSK=" + LOG.pii(eapSuccess.msk)
-                                                        + " EMSK=" + LOG.pii(eapSuccess.emsk));
-                                        mCb.onSuccess(eapSuccess.msk, eapSuccess.emsk);
+                                                        + " MSK="
+                                                        + LOG.pii(eapSuccess.msk)
+                                                        + " EMSK="
+                                                        + LOG.pii(eapSuccess.emsk));
+                                        mCb.onSuccess(
+                                                eapSuccess.msk,
+                                                eapSuccess.emsk,
+                                                eapSuccess.getEapInfo());
                                     } else { // finalProcessResponse instanceof EapFailure
                                         mCb.onFail();
                                     }

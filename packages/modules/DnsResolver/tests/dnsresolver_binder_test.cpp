@@ -29,7 +29,6 @@
 #include <aidl/android/net/IDnsResolver.h>
 #include <android-base/file.h>
 #include <android-base/format.h>
-#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <android/binder_manager.h>
@@ -45,6 +44,7 @@
 #include "ResolverStats.h"
 #include "dns_responder.h"
 #include "dns_responder_client_ndk.h"
+#include "tests/resolv_test_base.h"
 
 using aidl::android::net::IDnsResolver;
 using aidl::android::net::ResolverHostsParcel;
@@ -52,7 +52,6 @@ using aidl::android::net::ResolverOptionsParcel;
 using aidl::android::net::ResolverParamsParcel;
 using aidl::android::net::metrics::INetdEventListener;
 using android::base::ReadFdToString;
-using android::base::StringPrintf;
 using android::base::unique_fd;
 using android::net::ResolverStats;
 using android::net::metrics::TestOnDnsEvent;
@@ -94,7 +93,7 @@ std::vector<std::string> dumpService(ndk::SpAIBinder binder) {
 
 }  // namespace
 
-class DnsResolverBinderTest : public ::testing::Test {
+class DnsResolverBinderTest : public ResolvTestBase {
   public:
     DnsResolverBinderTest() {
         ndk::SpAIBinder resolvBinder = ndk::SpAIBinder(AServiceManager_getService("dnsresolver"));
@@ -455,12 +454,12 @@ TEST_F(DnsResolverBinderTest, SetResolverConfiguration_Tls) {
         ::ndk::ScopedAStatus status = mDnsResolver->setResolverConfiguration(resolverParams);
 
         if (td.expectedReturnCode == 0) {
-            SCOPED_TRACE(StringPrintf("test case %zu should have passed", i));
+            SCOPED_TRACE(fmt::format("test case {} should have passed", i));
             SCOPED_TRACE(status.getMessage());
             EXPECT_EQ(0, status.getServiceSpecificError());
             mExpectedLogDataWithPacel.push_back(toSetResolverConfigurationLogData(resolverParams));
         } else {
-            SCOPED_TRACE(StringPrintf("test case %zu should have failed", i));
+            SCOPED_TRACE(fmt::format("test case {} should have failed", i));
             EXPECT_EQ(EX_SERVICE_SPECIFIC, status.getExceptionCode());
             EXPECT_EQ(td.expectedReturnCode, status.getServiceSpecificError());
             mExpectedLogDataWithPacel.push_back(

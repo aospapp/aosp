@@ -53,6 +53,8 @@
 
 static int32_t fmt_id = FMTID;
 static int test_id;
+static char usrpath[] = USRPATH;
+static char grppath[] = GRPPATH;
 static struct dqblk set_dq = {
 	.dqb_bsoftlimit = 100,
 	.dqb_valid = QIF_BLIMITS
@@ -79,7 +81,7 @@ static struct tcase {
 	char *des;
 	char *tname;
 } tcases[] = {
-	{QCMD(Q_QUOTAON, USRQUOTA), &fmt_id, USRPATH,
+	{QCMD(Q_QUOTAON, USRQUOTA), &fmt_id, usrpath,
 	NULL, NULL, 0, "turn on quota for user",
 	"QCMD(Q_QUOTAON, USRQUOTA)"},
 
@@ -115,11 +117,11 @@ static struct tcase {
 	"get next disk quota limit for user",
 	"QCMD(Q_GETNEXTQUOTA, USRQUOTA)"},
 
-	{QCMD(Q_QUOTAOFF, USRQUOTA), &test_id, USRPATH,
+	{QCMD(Q_QUOTAOFF, USRQUOTA), &test_id, usrpath,
 	NULL, NULL, 0, "turn off quota for user",
 	"QCMD(Q_QUOTAOFF, USRQUOTA)"},
 
-	{QCMD(Q_QUOTAON, GRPQUOTA), &fmt_id, GRPPATH,
+	{QCMD(Q_QUOTAON, GRPQUOTA), &fmt_id, grppath,
 	NULL, NULL, 0, "turn on quota for group",
 	"QCMD(Q_QUOTAON, GRPQUOTA)"},
 
@@ -154,7 +156,7 @@ static struct tcase {
 	"get next disk quota limit for group",
 	"QCMD(Q_GETNEXTQUOTA, GRPQUOTA)"},
 
-	{QCMD(Q_QUOTAOFF, GRPQUOTA), &test_id, GRPPATH,
+	{QCMD(Q_QUOTAOFF, GRPQUOTA), &test_id, grppath,
 	NULL, NULL, 0, "turn off quota for group",
 	"QCMD(Q_QUOTAOFF, GRPQUOTA)"},
 };
@@ -162,18 +164,8 @@ static struct tcase {
 static void setup(void)
 {
 	const char *const cmd[] = {"quotacheck", "-ugF", "vfsv0", MNTPOINT, NULL};
-	int ret;
 
-	ret = tst_run_cmd(cmd, NULL, NULL, 1);
-	switch (ret) {
-	case 0:
-		break;
-	case 255:
-		tst_brk(TCONF, "quotacheck binary not installed");
-		break;
-	default:
-		tst_brk(TBROK, "quotacheck exited with %i", ret);
-	}
+	SAFE_CMD(cmd, NULL, NULL);
 
 	test_id = geteuid();
 	if (access(USRPATH, F_OK) == -1)
@@ -181,6 +173,8 @@ static void setup(void)
 
 	if (access(GRPPATH, F_OK) == -1)
 		tst_brk(TFAIL | TERRNO, "group quotafile didn't exist");
+
+	tst_require_quota_support(tst_device->dev, fmt_id, usrpath);
 
 	TEST(quotactl(QCMD(Q_GETNEXTQUOTA, USRQUOTA), tst_device->dev,
 		test_id, (void *) &res_ndq));
@@ -220,19 +214,21 @@ static void verify_quota(unsigned int n)
 	tst_res(TPASS, "quotactl succeeded to %s", tc->des);
 }
 
-static const char *kconfigs[] = {
-	"CONFIG_QFMT_V2",
-	NULL
-};
-
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_kconfigs = kconfigs,
+	.needs_kconfigs = (const char *[]) {
+		"CONFIG_QFMT_V2",
+		NULL
+	},
 	.test = verify_quota,
 	.tcnt = ARRAY_SIZE(tcases),
 	.mount_device = 1,
 	.dev_fs_type = "ext4",
 	.mntpoint = MNTPOINT,
 	.mnt_data = "usrquota,grpquota",
+	.needs_cmds = (const char *const []) {
+		"quotacheck",
+		NULL
+	},
 	.setup = setup,
 };

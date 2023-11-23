@@ -16,7 +16,6 @@
 
 package com.android.cts.packagemanager.stats.host;
 
-import static com.android.cts.packagemanager.stats.host.Utils.FEATURE_INCREMENTAL_DELIVERY;
 import static com.android.cts.packagemanager.stats.host.Utils.SIGNATURE_FILE_SUFFIX;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -69,7 +68,7 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
 
     @Before
     public void setUp() throws Exception {
-        if (!getDevice().hasFeature(FEATURE_INCREMENTAL_DELIVERY)) {
+        if (!Utils.hasIncrementalFeature(getDevice())) {
             return;
         }
         super.setUp();
@@ -132,7 +131,7 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
     }
 
     public void testAppCrashOnIncremental() throws Exception {
-        if (!getDevice().hasFeature(FEATURE_INCREMENTAL_DELIVERY)) {
+        if (!Utils.hasIncrementalFeature(getDevice())) {
             return;
         }
         final int atomTag = AtomsProto.Atom.APP_CRASH_OCCURRED_FIELD_NUMBER;
@@ -176,7 +175,7 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
     }
 
     public void testAppAnrIncremental() throws Exception {
-        if (!getDevice().hasFeature(FEATURE_INCREMENTAL_DELIVERY)) {
+        if (!Utils.hasIncrementalFeature(getDevice())) {
             return;
         }
         final int atomTag = AtomsProto.Atom.ANR_OCCURRED_FIELD_NUMBER;

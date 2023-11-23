@@ -37,6 +37,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
     the functionality of AttenuatorInstrument is contingent upon a telnet
     connection being established.
     """
+
     def __init__(self, num_atten=0):
         super(AttenuatorInstrument, self).__init__(num_atten)
         self._tnhelper = _tnhelper._TNHelper(tx_cmd_separator='\r\n',
@@ -84,7 +85,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         """
         self._tnhelper.close()
 
-    def set_atten(self, idx, value, strict_flag=True):
+    def set_atten(self, idx, value, strict=True, retry=False):
         """This function sets the attenuation of an attenuator given its index
         in the instrument.
 
@@ -93,9 +94,10 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
                 an instrument. For instruments that only have one channel, this
                 is ignored by the device.
             value: A floating point value for nominal attenuation to be set.
-            strict_flag: if True, function raises an error when given out of
+            strict: if True, function raises an error when given out of
                 bounds attenuation values, if false, the function sets out of
                 bounds values to 0 or max_atten.
+            retry: if True, command will be retried if possible
 
         Raises:
             InvalidOperationError if the telnet connection is not open.
@@ -111,17 +113,20 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
             raise IndexError('Attenuator index out of range!', self.num_atten,
                              idx)
 
-        if value > self.max_atten and strict_flag:
+        if value > self.max_atten and strict:
             raise ValueError('Attenuator value out of range!', self.max_atten,
                              value)
         # The actual device uses one-based index for channel numbers.
-        self._tnhelper.cmd('CHAN:%s:SETATT:%s' % (idx + 1, value))
+        adjusted_value = min(max(0, value), self.max_atten)
+        self._tnhelper.cmd('CHAN:%s:SETATT:%s' % (idx + 1, adjusted_value),
+                           retry=retry)
 
-    def get_atten(self, idx):
+    def get_atten(self, idx, retry=False):
         """Returns the current attenuation of the attenuator at the given index.
 
         Args:
             idx: The index of the attenuator.
+            retry: if True, command will be retried if possible
 
         Raises:
             InvalidOperationError if the telnet connection is not open.
@@ -137,8 +142,9 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
                              idx)
 
         if self.num_atten == 1:
-            atten_val_str = self._tnhelper.cmd(':ATT?')
+            atten_val_str = self._tnhelper.cmd(':ATT?', retry=retry)
         else:
-            atten_val_str = self._tnhelper.cmd('CHAN:%s:ATT?' % (idx + 1))
+            atten_val_str = self._tnhelper.cmd('CHAN:%s:ATT?' % (idx + 1),
+                                               retry=retry)
         atten_val = float(atten_val_str)
         return atten_val

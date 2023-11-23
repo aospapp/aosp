@@ -1043,4 +1043,27 @@ public class ResourcesTest extends AndroidTestCase {
         Typeface typeface = mResources.getFont(R.font.sample_downloadable_font);
         assertEquals(typeface, Typeface.create("sans-serif", Typeface.NORMAL));
     }
+
+    public void testThemeCompare() {
+        Resources.Theme t1 = mResources.newTheme();
+        Resources.Theme t2 = mResources.newTheme();
+        assertTrue(t1.equals(t1));
+        assertTrue(t1.equals(t2));
+        assertTrue(t1.hashCode() == t2.hashCode());
+        assertFalse(t1.equals(null));
+        assertFalse(t1.equals(this));
+
+        t1.applyStyle(1, false);
+        assertFalse(t1.equals(t2));
+        assertFalse(t1.hashCode() == t2.hashCode());
+        t2.applyStyle(1, false);
+        assertTrue(t1.equals(t2));
+        assertTrue(t1.hashCode() == t2.hashCode());
+        t1.applyStyle(2, true);
+        assertFalse(t1.hashCode() == t2.hashCode());
+        assertFalse(t1.equals(t2));
+        t2.applyStyle(2, false);
+        assertFalse(t1.equals(t2));
+        assertFalse(t1.hashCode() == t2.hashCode());
+    }
 }

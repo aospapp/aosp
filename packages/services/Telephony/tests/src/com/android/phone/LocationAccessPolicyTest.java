@@ -29,6 +29,7 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.UserHandle;
@@ -149,11 +150,13 @@ public class LocationAccessPolicyTest {
 
     private static final int TESTING_UID = 10001;
     private static final int TESTING_PID = 8009;
+    private static final String TESTING_CALLING_PACKAGE = "com.android.phone";
 
     @Mock Context mContext;
     @Mock AppOpsManager mAppOpsManager;
     @Mock LocationManager mLocationManager;
     @Mock PackageManager mPackageManager;
+    @Mock Resources mResources;
     Scenario mScenario;
 
     @Before
@@ -163,6 +166,10 @@ public class LocationAccessPolicyTest {
         mockContextSystemService(LocationManager.class, mLocationManager);
         mockContextSystemService(PackageManager.class, mPackageManager);
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mContext.getResources()).thenReturn(mResources);
+        when(mResources.getStringArray(
+                com.android.internal.R.array.config_serviceStateLocationAllowedPackages))
+                .thenReturn(new String[]{TESTING_CALLING_PACKAGE});
     }
 
     private <T> void mockContextSystemService(Class<T> clazz , T obj) {
@@ -246,6 +253,20 @@ public class LocationAccessPolicyTest {
                         .setMinSdkVersionForFine(Build.VERSION_CODES.N)
                         .setMinSdkVersionForCoarse(Build.VERSION_CODES.N).build())
                 .setExpectedResult(LocationAccessPolicy.LocationPermissionResult.DENIED_SOFT)
+                .build());
+
+        scenarios.add(new Scenario.Builder()
+                .setName("System location is off but package is allowlisted for location")
+                .setAppHasFineManifest(true)
+                .setFineAppOp(AppOpsManager.MODE_ALLOWED)
+                .setAppSdkLevel(Build.VERSION_CODES.P)
+                .setIsDynamicLocationEnabled(false)
+                .setQuery(getDefaultQueryBuilder()
+                        .setMinSdkVersionForEnforcement(Build.VERSION_CODES.N)
+                        .setMinSdkVersionForFine(Build.VERSION_CODES.N)
+                        .setMinSdkVersionForCoarse(Build.VERSION_CODES.N)
+                        .setCallingPackage(TESTING_CALLING_PACKAGE).build())
+                .setExpectedResult(LocationAccessPolicy.LocationPermissionResult.ALLOWED)
                 .build());
 
         scenarios.add(new Scenario.Builder()

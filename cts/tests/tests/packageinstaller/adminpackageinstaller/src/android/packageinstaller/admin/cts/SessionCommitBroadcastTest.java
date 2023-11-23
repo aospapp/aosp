@@ -28,6 +28,11 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.text.TextUtils;
 
+import com.android.cts.install.lib.Install;
+import com.android.cts.install.lib.InstallUtils;
+import com.android.cts.install.lib.TestApp;
+import com.android.cts.install.lib.Uninstall;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +59,7 @@ public class SessionCommitBroadcastTest extends BasePackageInstallTest {
     @Override
     protected void tearDown() throws Exception {
         mContext.unregisterReceiver(mReceiver);
+        Uninstall.packages(TestApp.A);
     }
 
     public void testBroadcastNotReceivedForDifferentLauncher() throws Exception {
@@ -89,6 +95,36 @@ public class SessionCommitBroadcastTest extends BasePackageInstallTest {
         PackageInstaller.SessionInfo info = intent
                 .getParcelableExtra(PackageInstaller.EXTRA_SESSION);
         assertEquals(TEST_APP_PKG, info.getAppPackageName());
+    }
+
+    public void testBroadcastNotReceivedForUpdateInstall() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            setLauncher(mThisAppLauncher.flattenToString());
+
+            int sessionId = Install.single(TestApp.A1).commit();
+            assertEquals(1, InstallUtils.getInstalledVersion(TestApp.A));
+            // Check the broadcast is received for a new install and session id matches
+            Intent intent = mReceiver.blockingGetIntent();
+            PackageInstaller.SessionInfo info =
+                    intent.getParcelableExtra(PackageInstaller.EXTRA_SESSION);
+            assertEquals(sessionId, info.getSessionId());
+
+            mContext.unregisterReceiver(mReceiver);
+            mReceiver = new SessionCommitReceiver();
+            Install.single(TestApp.A2).commit();
+            assertEquals(2, InstallUtils.getInstalledVersion(TestApp.A));
+
+            // Check no broadcast is received for an update install
+            intent = mReceiver.blockingGetIntent();
+            assertNull(intent);
+        } finally {
+            // Revert to default launcher
+            setLauncher(mDefaultLauncher.flattenToString());
+        }
     }
 
     public void testBroadcastReceivedForNewInstall() throws Exception {

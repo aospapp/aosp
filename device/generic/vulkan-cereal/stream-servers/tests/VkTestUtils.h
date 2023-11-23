@@ -19,6 +19,7 @@ struct RenderResourceVkBase
     uint32_t m_width;
     uint32_t m_height;
 
+    VkImageCreateInfo m_vkImageCreateInfo;
     VkImage m_vkImage;
     VkDeviceMemory m_imageVkDeviceMemory;
     VkImageView m_vkImageView;
@@ -33,6 +34,7 @@ struct RenderResourceVkBase
 
     explicit RenderResourceVkBase(const goldfish_vk::VulkanDispatch &vk)
         : m_vk(vk),
+          m_vkImageCreateInfo({}),
           m_vkImage(VK_NULL_HANDLE),
           m_imageVkDeviceMemory(VK_NULL_HANDLE),
           m_vkImageView(VK_NULL_HANDLE),
@@ -140,6 +142,7 @@ struct RenderResourceVk : public RenderResourceVkBase {
             m_vkImage = VK_NULL_HANDLE;
             return false;
         }
+        m_vkImageCreateInfo = vk_make_orphan_copy(imageCi);
 
         VkMemoryRequirements memRequirements;
         m_vk.vkGetImageMemoryRequirements(m_vkDevice, m_vkImage,
@@ -164,7 +167,7 @@ struct RenderResourceVk : public RenderResourceVkBase {
             return false;
         }
 
-        runSingleTimeCommands(m_vkQueue, [this](const auto &cmdBuff) {
+        runSingleTimeCommands(m_vkQueue, nullptr, [this](const auto &cmdBuff) {
             recordImageLayoutTransformCommands(
                 cmdBuff, m_vkImage, VK_IMAGE_LAYOUT_UNDEFINED, k_vkImageLayout);
         });

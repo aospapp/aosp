@@ -25,6 +25,7 @@ package {
 cc_defaults {
     name: "libnnbenchmark_jni_defaults",
     sdk_version: "current",
+    min_sdk_version: "29",
     srcs: [
         "benchmark_jni.cpp",
         "crashtest_jni.cpp",
@@ -91,6 +92,34 @@ cc_library {
         "-Wno-unused-parameter",
     ],
     sdk_version: "current",
+    stl: "libc++_static",
+    strip: {
+        keep_symbols: true,
+    },
+}
+
+cc_library {
+    name: "libsupport_library_jni",
+    sdk_version: "current",
+    min_sdk_version: "29",
+    srcs: [
+        "support_library_jni.cpp",
+    ],
+    header_libs: [
+        "flatbuffer_headers",
+        "jni_headers",
+        "tensorflow_headers",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+    static_libs: [
+        "libtflite_static",
+    ],
+    cflags: [
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
     stl: "libc++_static",
     strip: {
         keep_symbols: true,

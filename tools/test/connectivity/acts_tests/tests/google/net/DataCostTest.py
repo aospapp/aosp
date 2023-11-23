@@ -1,5 +1,5 @@
 #
-#   Copyright 2018 - The Android Open Source Project
+#   Copyright 2022 - The Android Open Source Project
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from acts import test_runner
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.net import net_test_utils as nutils
-from acts_contrib.test_utils.tel.tel_test_utils import _check_file_existance
+from acts_contrib.test_utils.tel.tel_test_utils import _check_file_existence
 from acts_contrib.test_utils.tel.tel_test_utils import _generate_file_directory_and_file_name
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.net.connectivity_const import MULTIPATH_PREFERENCE_NONE as NONE
@@ -252,7 +252,7 @@ class DataCostTest(base_test.BaseTestClass):
             self.download_file, DOWNLOAD_PATH)
         file_path = os.path.join(file_folder, file_name)
         self.log.info("File path: %s" % file_path)
-        if _check_file_existance(ad, file_path):
+        if _check_file_existence(ad, file_path):
             self.log.info("File exists. Removing file %s" % file_name)
             ad.adb.shell("rm -rf %s%s" % (DOWNLOAD_PATH, file_name))
 

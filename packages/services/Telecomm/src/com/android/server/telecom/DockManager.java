@@ -29,7 +29,12 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Listens for and caches car dock state. */
+/**
+ * Listens for and caches car dock state.
+ * Testing; you can enable/disable dock with adb commands:
+ *   adb shell dumpsys DockObserver set state 3
+ *   adb shell dumpsys DockObserver set state 0
+ */
 @VisibleForTesting
 public class DockManager {
     @VisibleForTesting

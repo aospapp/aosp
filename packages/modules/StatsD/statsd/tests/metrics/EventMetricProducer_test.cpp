@@ -51,7 +51,17 @@ void makeLogEvent(LogEvent* logEvent, int32_t atomId, int64_t timestampNs, strin
 }
 }  // anonymous namespace
 
-TEST(EventMetricProducerTest, TestNoCondition) {
+class EventMetricProducerTest : public ::testing::Test {
+    void SetUp() override {
+        FlagProvider::getInstance().overrideFuncs(&isAtLeastSFuncTrue);
+    }
+
+    void TearDown() override {
+        FlagProvider::getInstance().resetOverrides();
+    }
+};
+
+TEST_F(EventMetricProducerTest, TestNoCondition) {
     int64_t bucketStartTimeNs = 10000000000;
     int64_t eventStartTimeNs = bucketStartTimeNs + 1;
     int64_t bucketSizeNs = 30 * 1000 * 1000 * 1000LL;
@@ -80,13 +90,14 @@ TEST(EventMetricProducerTest, TestNoCondition) {
                                true /*erase data*/, FAST, &strSet, &output);
 
     StatsLogReport report = outputStreamToProto(&output);
+    backfillAggregatedAtoms(&report);
     EXPECT_TRUE(report.has_event_metrics());
     ASSERT_EQ(2, report.event_metrics().data_size());
     EXPECT_EQ(bucketStartTimeNs + 1, report.event_metrics().data(0).elapsed_timestamp_nanos());
     EXPECT_EQ(bucketStartTimeNs + 2, report.event_metrics().data(1).elapsed_timestamp_nanos());
 }
 
-TEST(EventMetricProducerTest, TestEventsWithNonSlicedCondition) {
+TEST_F(EventMetricProducerTest, TestEventsWithNonSlicedCondition) {
     int64_t bucketStartTimeNs = 10000000000;
     int64_t eventStartTimeNs = bucketStartTimeNs + 1;
     int64_t bucketSizeNs = 30 * 1000 * 1000 * 1000LL;
@@ -122,11 +133,12 @@ TEST(EventMetricProducerTest, TestEventsWithNonSlicedCondition) {
 
     StatsLogReport report = outputStreamToProto(&output);
     EXPECT_TRUE(report.has_event_metrics());
+    backfillAggregatedAtoms(&report);
     ASSERT_EQ(1, report.event_metrics().data_size());
     EXPECT_EQ(bucketStartTimeNs + 1, report.event_metrics().data(0).elapsed_timestamp_nanos());
 }
 
-TEST(EventMetricProducerTest, TestEventsWithSlicedCondition) {
+TEST_F(EventMetricProducerTest, TestEventsWithSlicedCondition) {
     int64_t bucketStartTimeNs = 10000000000;
     int64_t bucketSizeNs = 30 * 1000 * 1000 * 1000LL;
 
@@ -173,11 +185,108 @@ TEST(EventMetricProducerTest, TestEventsWithSlicedCondition) {
                                true /*erase data*/, FAST, &strSet, &output);
 
     StatsLogReport report = outputStreamToProto(&output);
+    backfillAggregatedAtoms(&report);
     EXPECT_TRUE(report.has_event_metrics());
     ASSERT_EQ(1, report.event_metrics().data_size());
     EXPECT_EQ(bucketStartTimeNs + 10, report.event_metrics().data(0).elapsed_timestamp_nanos());
 }
 
+TEST_F(EventMetricProducerTest, TestOneAtomTagAggregatedEvents) {
+    int64_t bucketStartTimeNs = 10000000000;
+    int tagId = 1;
+
+    EventMetric metric;
+    metric.set_id(1);
+
+    LogEvent event1(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event1, tagId, bucketStartTimeNs + 10, "111");
+    LogEvent event2(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event2, tagId, bucketStartTimeNs + 20, "111");
+    LogEvent event3(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event3, tagId, bucketStartTimeNs + 30, "111");
+
+    LogEvent event4(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event4, tagId, bucketStartTimeNs + 40, "222");
+
+    sp<MockConditionWizard> wizard = new NaggyMock<MockConditionWizard>();
+    EventMetricProducer eventProducer(kConfigKey, metric, -1 /*-1 meaning no condition*/, {},
+                                      wizard, protoHash, bucketStartTimeNs);
+
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event1);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event2);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event3);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event4);
+
+    // Check dump report content.
+    ProtoOutputStream output;
+    std::set<string> strSet;
+    eventProducer.onDumpReport(bucketStartTimeNs + 50, true /*include current partial bucket*/,
+                               true /*erase data*/, FAST, &strSet, &output);
+
+    StatsLogReport report = outputStreamToProto(&output);
+    EXPECT_TRUE(report.has_event_metrics());
+    ASSERT_EQ(2, report.event_metrics().data_size());
+
+    for (EventMetricData metricData : report.event_metrics().data()) {
+        AggregatedAtomInfo atomInfo = metricData.aggregated_atom_info();
+        if (atomInfo.elapsed_timestamp_nanos_size() == 1) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 40);
+        } else if (atomInfo.elapsed_timestamp_nanos_size() == 3) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 10);
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(1), bucketStartTimeNs + 20);
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(2), bucketStartTimeNs + 30);
+        } else {
+            FAIL();
+        }
+    }
+}
+
+TEST_F(EventMetricProducerTest, TestTwoAtomTagAggregatedEvents) {
+    int64_t bucketStartTimeNs = 10000000000;
+    int tagId = 1;
+    int tagId2 = 0;
+
+    EventMetric metric;
+    metric.set_id(1);
+
+    LogEvent event1(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event1, tagId, bucketStartTimeNs + 10, "111");
+    LogEvent event2(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event2, tagId, bucketStartTimeNs + 20, "111");
+
+    LogEvent event3(/*uid=*/0, /*pid=*/0);
+    makeLogEvent(&event3, tagId2, bucketStartTimeNs + 40, "222");
+
+    sp<MockConditionWizard> wizard = new NaggyMock<MockConditionWizard>();
+    EventMetricProducer eventProducer(kConfigKey, metric, -1 /*-1 meaning no condition*/, {},
+                                      wizard, protoHash, bucketStartTimeNs);
+
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event1);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event2);
+    eventProducer.onMatchedLogEvent(1 /*matcher index*/, event3);
+
+    // Check dump report content.
+    ProtoOutputStream output;
+    std::set<string> strSet;
+    eventProducer.onDumpReport(bucketStartTimeNs + 50, true /*include current partial bucket*/,
+                               true /*erase data*/, FAST, &strSet, &output);
+
+    StatsLogReport report = outputStreamToProto(&output);
+    EXPECT_TRUE(report.has_event_metrics());
+    ASSERT_EQ(2, report.event_metrics().data_size());
+
+    for (EventMetricData metricData : report.event_metrics().data()) {
+        AggregatedAtomInfo atomInfo = metricData.aggregated_atom_info();
+        if (atomInfo.elapsed_timestamp_nanos_size() == 1) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 40);
+        } else if (atomInfo.elapsed_timestamp_nanos_size() == 2) {
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(0), bucketStartTimeNs + 10);
+            EXPECT_EQ(atomInfo.elapsed_timestamp_nanos(1), bucketStartTimeNs + 20);
+        } else {
+            FAIL();
+        }
+    }
+}
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

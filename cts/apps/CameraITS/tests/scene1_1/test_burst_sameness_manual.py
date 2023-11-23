@@ -128,11 +128,10 @@ class BurstSamenessManualTest(its_base_test.ItsBaseTest):
       # PASS/FAIL based on center patch similarity.
       for plane, means in enumerate([r_means, g_means, b_means]):
         spread = max(means) - min(means)
-        msg = '%s spread: %.5f, spread_thresh: %.2f' % (
-            COLORS[plane], spread, spread_thresh)
-        logging.debug('%s', msg)
-        assert spread < spread_thresh, msg
+        logging.debug('%s spread: %.5f', COLORS[plane], spread)
+        if spread > spread_thresh:
+          raise AssertionError(f'{COLORS[plane]} spread > THRESH. spread: '
+                               f'{spread}, THRESH: {spread_thresh:.2f}')
 
 if __name__ == '__main__':
   test_runner.main()
-

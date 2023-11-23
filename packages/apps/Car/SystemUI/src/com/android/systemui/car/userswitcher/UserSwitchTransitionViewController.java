@@ -19,10 +19,10 @@ package com.android.systemui.car.userswitcher;
 import static android.car.settings.CarSettings.Global.ENABLE_USER_SWITCH_DEVELOPER_MESSAGE;
 
 import android.annotation.UserIdInt;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.os.Handler;
+import android.graphics.drawable.Drawable;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -34,7 +34,6 @@ import android.widget.TextView;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.settingslib.drawable.CircleFramedDrawable;
 import com.android.systemui.R;
 import com.android.systemui.car.window.OverlayViewController;
 import com.android.systemui.car.window.OverlayViewGlobalStateController;
@@ -56,8 +55,10 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
     private final Context mContext;
     private final Resources mResources;
     private final DelayableExecutor mMainExecutor;
+    private final ActivityManager mActivityManager;
     private final UserManager mUserManager;
     private final IWindowManager mWindowManagerService;
+    private final UserIconProvider mUserIconProvider = new UserIconProvider();
     private final int mWindowShownTimeoutMs;
     private final Runnable mWindowShownTimeoutCallback = () -> {
         if (DEBUG) {
@@ -78,6 +79,7 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
             Context context,
             @Main Resources resources,
             @Main DelayableExecutor delayableExecutor,
+            ActivityManager activityManager,
             UserManager userManager,
             IWindowManager windowManagerService,
             OverlayViewGlobalStateController overlayViewGlobalStateController) {
@@ -87,6 +89,7 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
         mContext = context;
         mResources = resources;
         mMainExecutor = delayableExecutor;
+        mActivityManager = activityManager;
         mUserManager = userManager;
         mWindowManagerService = windowManagerService;
         mWindowShownTimeoutMs = mResources.getInteger(
@@ -147,12 +150,10 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
     }
 
     private void drawUserIcon(int newUserId) {
-        Bitmap bitmap = mUserManager.getUserIcon(newUserId);
-        if (bitmap != null) {
-            CircleFramedDrawable drawable = CircleFramedDrawable.getInstance(mContext, bitmap);
-            ((ImageView) getLayout().findViewById(R.id.user_loading_avatar))
-                    .setImageDrawable(drawable);
-        }
+        Drawable userIcon = mUserIconProvider.getDrawableWithBadge(mContext,
+                mUserManager.getUserInfo(newUserId));
+        ((ImageView) getLayout().findViewById(R.id.user_loading_avatar))
+                .setImageDrawable(userIcon);
     }
 
     private void populateLoadingText(@UserIdInt int previousUserId, @UserIdInt int newUserId) {
@@ -167,7 +168,10 @@ public class UserSwitchTransitionViewController extends OverlayViewController {
                     mResources.getString(R.string.car_loading_profile_developer_message,
                             previousUserId, newUserId));
         } else {
-            msgView.setText(mResources.getString(R.string.car_loading_profile));
+            // Show the switchingFromUserMessage if it was set.
+            String switchingFromUserMessage = mActivityManager.getSwitchingFromUserMessage();
+            msgView.setText(switchingFromUserMessage != null ? switchingFromUserMessage
+                    : mResources.getString(R.string.car_loading_profile));
         }
     }
 }

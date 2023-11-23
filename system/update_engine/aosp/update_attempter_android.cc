@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <ostream>
 #include <utility>
 
 #include <android-base/properties.h>
@@ -152,14 +153,50 @@ UpdateAttempterAndroid::~UpdateAttempterAndroid() {
   processor_->set_delegate(nullptr);
 }
 
+[[nodiscard]] static bool DidSystemReboot(PrefsInterface* prefs) {
+  string boot_id;
+  TEST_AND_RETURN_FALSE(utils::GetBootId(&boot_id));
+  string old_boot_id;
+  // If no previous boot id found, treat as a reboot and write boot ID.
+  if (!prefs->GetString(kPrefsBootId, &old_boot_id)) {
+    return true;
+  }
+  return old_boot_id != boot_id;
+}
+
+std::ostream& operator<<(std::ostream& out, OTAResult result) {
+  switch (result) {
+    case OTAResult::NOT_ATTEMPTED:
+      out << "OTAResult::NOT_ATTEMPTED";
+      break;
+    case OTAResult::ROLLED_BACK:
+      out << "OTAResult::ROLLED_BACK";
+      break;
+    case OTAResult::UPDATED_NEED_REBOOT:
+      out << "OTAResult::UPDATED_NEED_REBOOT";
+      break;
+    case OTAResult::OTA_SUCCESSFUL:
+      out << "OTAResult::OTA_SUCCESSFUL";
+      break;
+  }
+  return out;
+}
+
 void UpdateAttempterAndroid::Init() {
   // In case of update_engine restart without a reboot we need to restore the
   // reboot needed state.
   if (UpdateCompletedOnThisBoot()) {
+    LOG(INFO) << "Updated installed but update_engine is restarted without "
+                 "device reboot. Resuming old state.";
     SetStatusAndNotify(UpdateStatus::UPDATED_NEED_REBOOT);
   } else {
+    const auto result = GetOTAUpdateResult();
+    LOG(INFO) << result;
     SetStatusAndNotify(UpdateStatus::IDLE);
-    UpdatePrefsAndReportUpdateMetricsOnReboot();
+    if (DidSystemReboot(prefs_)) {
+      UpdateStateAfterReboot(result);
+    }
+
 #ifdef _UE_SIDELOAD
     LOG(INFO) << "Skip ScheduleCleanupPreviousUpdate in sideload because "
               << "ApplyPayload will call it later.";
@@ -363,60 +400,41 @@ bool UpdateAttempterAndroid::CancelUpdate(brillo::ErrorPtr* error) {
 bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
   LOG(INFO) << "Attempting to reset state from "
             << UpdateStatusToString(status_) << " to UpdateStatus::IDLE";
+  if (processor_->IsRunning()) {
+    return LogAndSetError(
+        error, FROM_HERE, "Already processing an update, cancel it first.");
+  }
 
   if (apex_handler_android_ != nullptr) {
     LOG(INFO) << "Cleaning up reserved space for compressed APEX (if any)";
     std::vector<ApexInfo> apex_infos_blank;
     apex_handler_android_->AllocateSpace(apex_infos_blank);
   }
+  // Remove the reboot marker so that if the machine is rebooted
+  // after resetting to idle state, it doesn't go back to
+  // UpdateStatus::UPDATED_NEED_REBOOT state.
+  if (!ClearUpdateCompletedMarker()) {
+    return LogAndSetError(error,
+                          FROM_HERE,
+                          "Failed to reset the status because "
+                          "ClearUpdateCompletedMarker() failed");
+  }
 
+  if (!boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_)) {
+    LOG(WARNING) << "Failed to reset snapshots. UpdateStatus is IDLE but"
+                  << "space might not be freed.";
+  }
   switch (status_) {
     case UpdateStatus::IDLE: {
-      if (!boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_)) {
-        LOG(WARNING) << "Failed to reset snapshots. UpdateStatus is IDLE but"
-                     << "space might not be freed.";
-      }
       return true;
     }
 
     case UpdateStatus::UPDATED_NEED_REBOOT: {
-      bool ret_value = true;
-
-      // Update the boot flags so the current slot has higher priority.
-      if (!boot_control_->SetActiveBootSlot(GetCurrentSlot()))
-        ret_value = false;
-
-      // Mark the current slot as successful again, since marking it as active
-      // may reset the successful bit. We ignore the result of whether marking
-      // the current slot as successful worked.
-      if (!boot_control_->MarkBootSuccessfulAsync(Bind([](bool successful) {})))
-        ret_value = false;
-
-      // Resets the warm reset property since we won't switch the slot.
-      hardware_->SetWarmReset(false);
-
-      // Resets the vbmeta digest.
-      hardware_->SetVbmetaDigestForInactiveSlot(true /* reset */);
-
-      // Remove update progress for DeltaPerformer and remove snapshots.
-      if (!boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_))
-        ret_value = false;
-
-      // Remove the reboot marker so that if the machine is rebooted
-      // after resetting to idle state, it doesn't go back to
-      // UpdateStatus::UPDATED_NEED_REBOOT state.
-      if (!prefs_->Delete(kPrefsUpdateCompletedOnBootId))
-        ret_value = false;
-      ClearMetricsPrefs();
-
-      if (!ret_value) {
-        return LogAndSetError(
-            error, FROM_HERE, "Failed to reset the status to ");
+      const bool ret_value = resetShouldSwitchSlotOnReboot(error);
+      if (ret_value) {
+        LOG(INFO) << "Reset status successful";
       }
-
-      SetStatusAndNotify(UpdateStatus::IDLE);
-      LOG(INFO) << "Reset status successful";
-      return true;
+      return ret_value;
     }
 
     default:
@@ -553,7 +571,9 @@ void UpdateAttempterAndroid::ProcessingDone(const ActionProcessor* processor,
   switch (code) {
     case ErrorCode::kSuccess:
       // Update succeeded.
-      WriteUpdateCompletedMarker();
+      if (!WriteUpdateCompletedMarker()) {
+        LOG(ERROR) << "Failed to write update completion marker";
+      }
       prefs_->SetInt64(kPrefsDeltaUpdateFailures, 0);
 
       LOG(INFO) << "Update successfully applied, waiting to reboot.";
@@ -678,6 +698,7 @@ void UpdateAttempterAndroid::OnVerifyProgressUpdate(double progress) {
 
 void UpdateAttempterAndroid::ScheduleProcessingStart() {
   LOG(INFO) << "Scheduling an action processor start.";
+  processor_->set_delegate(this);
   brillo::MessageLoop::current()->PostTask(
       FROM_HERE,
       Bind([](ActionProcessor* processor) { processor->StartProcessing(); },
@@ -691,6 +712,7 @@ void UpdateAttempterAndroid::TerminateUpdateAndNotify(ErrorCode error_code) {
   }
 
   if (status_ == UpdateStatus::CLEANUP_PREVIOUS_UPDATE) {
+    ClearUpdateCompletedMarker();
     LOG(INFO) << "Terminating cleanup previous update.";
     SetStatusAndNotify(UpdateStatus::IDLE);
     for (auto observer : daemon_state_->service_observers())
@@ -744,7 +766,6 @@ void UpdateAttempterAndroid::SetStatusAndNotify(UpdateStatus status) {
 
 void UpdateAttempterAndroid::BuildUpdateActions(HttpFetcher* fetcher) {
   CHECK(!processor_->IsRunning());
-  processor_->set_delegate(this);
 
   // Actions:
   auto update_boot_flags_action =
@@ -758,7 +779,8 @@ void UpdateAttempterAndroid::BuildUpdateActions(HttpFetcher* fetcher) {
                                        boot_control_,
                                        hardware_,
                                        fetcher,  // passes ownership
-                                       true /* interactive */);
+                                       true /* interactive */,
+                                       update_certificates_path_);
   download_action->set_delegate(this);
   download_action->set_base_offset(base_offset_);
   auto filesystem_verifier_action = std::make_unique<FilesystemVerifierAction>(
@@ -784,9 +806,20 @@ void UpdateAttempterAndroid::BuildUpdateActions(HttpFetcher* fetcher) {
 }
 
 bool UpdateAttempterAndroid::WriteUpdateCompletedMarker() {
+  LOG(INFO) << "Writing update complete marker.";
   string boot_id;
   TEST_AND_RETURN_FALSE(utils::GetBootId(&boot_id));
-  prefs_->SetString(kPrefsUpdateCompletedOnBootId, boot_id);
+  TEST_AND_RETURN_FALSE(
+      prefs_->SetString(kPrefsUpdateCompletedOnBootId, boot_id));
+  TEST_AND_RETURN_FALSE(
+      prefs_->SetInt64(kPrefsPreviousSlot, boot_control_->GetCurrentSlot()));
+  return true;
+}
+
+bool UpdateAttempterAndroid::ClearUpdateCompletedMarker() {
+  LOG(INFO) << "Clearing update complete marker.";
+  TEST_AND_RETURN_FALSE(prefs_->Delete(kPrefsUpdateCompletedOnBootId));
+  TEST_AND_RETURN_FALSE(prefs_->Delete(kPrefsPreviousSlot));
   return true;
 }
 
@@ -815,6 +848,12 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
     if (p.type == InstallPayloadType::kDelta)
       payload_type = kPayloadTypeDelta;
     payload_size += p.size;
+  }
+  // In some cases, e.g. after calling |setShouldSwitchSlotOnReboot()|,  this
+  // function will be triggered, but payload_size in this case might be 0, if so
+  // skip reporting any metrics.
+  if (payload_size == 0) {
+    return;
   }
 
   metrics::AttemptResult attempt_result =
@@ -883,53 +922,105 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
   }
 }
 
-void UpdateAttempterAndroid::UpdatePrefsAndReportUpdateMetricsOnReboot() {
-  string current_boot_id;
-  TEST_AND_RETURN(utils::GetBootId(&current_boot_id));
+bool UpdateAttempterAndroid::OTARebootSucceeded() const {
+  const auto current_slot = boot_control_->GetCurrentSlot();
+  const string current_version =
+      android::base::GetProperty("ro.build.version.incremental", "");
+  int64_t previous_slot = -1;
+  TEST_AND_RETURN_FALSE(prefs_->GetInt64(kPrefsPreviousSlot, &previous_slot));
+  string previous_version;
+  TEST_AND_RETURN_FALSE(
+      prefs_->GetString(kPrefsPreviousVersion, &previous_version));
+  if (previous_slot != current_slot) {
+    LOG(INFO) << "Detected a slot switch, OTA succeeded, device updated from "
+              << previous_version << " to " << current_version;
+    if (previous_version == current_version) {
+      LOG(INFO) << "Previous version is the same as current version, this is "
+                   "possibly a self-OTA.";
+    }
+    return true;
+  } else {
+    LOG(INFO) << "Slot didn't switch, either the OTA is rolled back, or slot "
+                 "switch never happened, or system not rebooted at all.";
+    if (previous_version != current_version) {
+      LOG(INFO) << "Slot didn't change, but version changed from "
+                << previous_version << " to " << current_version
+                << " device could be flashed.";
+    }
+    return false;
+  }
+}
+
+OTAResult UpdateAttempterAndroid::GetOTAUpdateResult() const {
+  // We only set |kPrefsSystemUpdatedMarker| if slot is actually switched, so
+  // existence of this pref is sufficient indicator. Given that we have to
+  // delete this pref after checking it. This is done in
+  // |DeltaPerformer::ResetUpdateProgress|
+  auto slot_switch_attempted = prefs_->Exists(kPrefsUpdateCompletedOnBootId);
+  auto system_rebooted = DidSystemReboot(prefs_);
+  auto ota_successful = OTARebootSucceeded();
+  if (ota_successful) {
+    return OTAResult::OTA_SUCCESSFUL;
+  }
+  if (slot_switch_attempted) {
+    if (system_rebooted) {
+      // If we attempted slot switch, but still end up on the same slot, we
+      // probably rolled back.
+      return OTAResult::ROLLED_BACK;
+    } else {
+      return OTAResult::UPDATED_NEED_REBOOT;
+    }
+  }
+  return OTAResult::NOT_ATTEMPTED;
+}
+
+void UpdateAttempterAndroid::UpdateStateAfterReboot(const OTAResult result) {
   // Example: [ro.build.version.incremental]: [4292972]
   string current_version =
       android::base::GetProperty("ro.build.version.incremental", "");
   TEST_AND_RETURN(!current_version.empty());
-  const auto current_slot = boot_control_->GetCurrentSlot();
+
+  // |UpdateStateAfterReboot()| is only called after system reboot, so record
+  // boot id unconditionally
+  string current_boot_id;
+  TEST_AND_RETURN(utils::GetBootId(&current_boot_id));
+  prefs_->SetString(kPrefsBootId, current_boot_id);
 
   // If there's no record of previous version (e.g. due to a data wipe), we
   // save the info of current boot and skip the metrics report.
   if (!prefs_->Exists(kPrefsPreviousVersion)) {
-    prefs_->SetString(kPrefsBootId, current_boot_id);
     prefs_->SetString(kPrefsPreviousVersion, current_version);
-    prefs_->SetInt64(std::string{kPrefsPreviousSlot},
-                     boot_control_->GetCurrentSlot());
+    prefs_->SetInt64(kPrefsPreviousSlot, boot_control_->GetCurrentSlot());
     ClearMetricsPrefs();
     return;
   }
-  int64_t previous_slot = -1;
-  prefs_->GetInt64(kPrefsPreviousSlot, &previous_slot);
-  string previous_version;
   // update_engine restarted under the same build and same slot.
-  // TODO(xunchang) identify and report rollback by checking UpdateMarker.
-  if (prefs_->GetString(kPrefsPreviousVersion, &previous_version) &&
-      previous_version == current_version && previous_slot == current_slot) {
-    string last_boot_id;
-    bool is_reboot = prefs_->Exists(kPrefsBootId) &&
-                     (prefs_->GetString(kPrefsBootId, &last_boot_id) &&
-                      last_boot_id != current_boot_id);
+  if (result != OTAResult::OTA_SUCCESSFUL) {
     // Increment the reboot number if |kPrefsNumReboots| exists. That pref is
     // set when we start a new update.
-    if (is_reboot && prefs_->Exists(kPrefsNumReboots)) {
-      prefs_->SetString(kPrefsBootId, current_boot_id);
+    if (prefs_->Exists(kPrefsNumReboots)) {
       int64_t reboot_count =
           metrics_utils::GetPersistedValue(kPrefsNumReboots, prefs_);
       metrics_utils::SetNumReboots(reboot_count + 1, prefs_);
+    }
+
+    if (result == OTAResult::ROLLED_BACK) {
+      // This will release all space previously allocated for apex
+      // decompression. If we detect a rollback, we should release space and
+      // return the space to user. Any subsequent attempt to install OTA will
+      // allocate space again anyway.
+      LOG(INFO) << "Detected a rollback, releasing space allocated for apex "
+                   "deompression.";
+      apex_handler_android_->AllocateSpace({});
+      DeltaPerformer::ResetUpdateProgress(prefs_, false);
     }
     return;
   }
 
   // Now that the build version changes, report the update metrics.
   // TODO(xunchang) check the build version is larger than the previous one.
-  prefs_->SetString(kPrefsBootId, current_boot_id);
   prefs_->SetString(kPrefsPreviousVersion, current_version);
-  prefs_->SetInt64(std::string{kPrefsPreviousSlot},
-                   boot_control_->GetCurrentSlot());
+  prefs_->SetInt64(kPrefsPreviousSlot, boot_control_->GetCurrentSlot());
 
   bool previous_attempt_exists = prefs_->Exists(kPrefsPayloadAttemptNumber);
   // |kPrefsPayloadAttemptNumber| should be cleared upon successful update.
@@ -960,6 +1051,7 @@ void UpdateAttempterAndroid::UpdatePrefsOnUpdateStart(bool is_resume) {
   }
   metrics_utils::SetUpdateTimestampStart(clock_->GetMonotonicTime(), prefs_);
   metrics_utils::SetUpdateBootTimestampStart(clock_->GetBootTime(), prefs_);
+  ClearUpdateCompletedMarker();
 }
 
 void UpdateAttempterAndroid::ClearMetricsPrefs() {
@@ -1057,6 +1149,100 @@ void UpdateAttempterAndroid::CleanupSuccessfulUpdate(
                    base::Unretained(callback_ptr)));
   }
   ScheduleCleanupPreviousUpdate();
+}
+
+bool UpdateAttempterAndroid::setShouldSwitchSlotOnReboot(
+    const std::string& metadata_filename, brillo::ErrorPtr* error) {
+  LOG(INFO) << "setShouldSwitchSlotOnReboot(" << metadata_filename << ")";
+  if (processor_->IsRunning()) {
+    return LogAndSetError(
+        error, FROM_HERE, "Already processing an update, cancel it first.");
+  }
+  DeltaArchiveManifest manifest;
+  TEST_AND_RETURN_FALSE(
+      VerifyPayloadParseManifest(metadata_filename, &manifest, error));
+
+  if (!boot_control_->GetDynamicPartitionControl()->PreparePartitionsForUpdate(
+          GetCurrentSlot(),
+          GetTargetSlot(),
+          manifest,
+          false /* should update */,
+          nullptr)) {
+    return LogAndSetError(
+        error, FROM_HERE, "Failed to PreparePartitionsForUpdate");
+  }
+  InstallPlan install_plan_;
+  install_plan_.source_slot = GetCurrentSlot();
+  install_plan_.target_slot = GetTargetSlot();
+  // Don't do verity computation, just hash the partitions
+  install_plan_.write_verity = false;
+  // Don't run postinstall, we just need PostinstallAction to switch the slots.
+  install_plan_.run_post_install = false;
+  install_plan_.is_resume = true;
+
+  CHECK_NE(install_plan_.source_slot, UINT32_MAX);
+  CHECK_NE(install_plan_.target_slot, UINT32_MAX);
+
+  ErrorCode error_code;
+  if (!install_plan_.ParsePartitions(manifest.partitions(),
+                                     boot_control_,
+                                     manifest.block_size(),
+                                     &error_code)) {
+    return LogAndSetError(error,
+                          FROM_HERE,
+                          "Failed to LoadPartitionsFromSlots " +
+                              utils::ErrorCodeToString(error_code));
+  }
+
+  auto install_plan_action = std::make_unique<InstallPlanAction>(install_plan_);
+  auto filesystem_verifier_action = std::make_unique<FilesystemVerifierAction>(
+      boot_control_->GetDynamicPartitionControl());
+  auto postinstall_runner_action =
+      std::make_unique<PostinstallRunnerAction>(boot_control_, hardware_);
+  SetStatusAndNotify(UpdateStatus::VERIFYING);
+  filesystem_verifier_action->set_delegate(this);
+  postinstall_runner_action->set_delegate(this);
+
+  // Bond them together. We have to use the leaf-types when calling
+  // BondActions().
+  BondActions(install_plan_action.get(), filesystem_verifier_action.get());
+  BondActions(filesystem_verifier_action.get(),
+              postinstall_runner_action.get());
+
+  processor_->EnqueueAction(std::move(install_plan_action));
+  processor_->EnqueueAction(std::move(filesystem_verifier_action));
+  processor_->EnqueueAction(std::move(postinstall_runner_action));
+  ScheduleProcessingStart();
+  return true;
+}
+
+bool UpdateAttempterAndroid::resetShouldSwitchSlotOnReboot(
+    brillo::ErrorPtr* error) {
+  if (processor_->IsRunning()) {
+    return LogAndSetError(
+        error, FROM_HERE, "Already processing an update, cancel it first.");
+  }
+  // Update the boot flags so the current slot has higher priority.
+  if (!boot_control_->SetActiveBootSlot(GetCurrentSlot())) {
+    return LogAndSetError(error, FROM_HERE, "Failed to SetActiveBootSlot");
+  }
+
+  // Mark the current slot as successful again, since marking it as active
+  // may reset the successful bit. We ignore the result of whether marking
+  // the current slot as successful worked.
+  if (!boot_control_->MarkBootSuccessfulAsync(Bind([](bool successful) {}))) {
+    return LogAndSetError(
+        error, FROM_HERE, "Failed to MarkBootSuccessfulAsync");
+  }
+
+  // Resets the warm reset property since we won't switch the slot.
+  hardware_->SetWarmReset(false);
+
+  // Resets the vbmeta digest.
+  hardware_->SetVbmetaDigestForInactiveSlot(true /* reset */);
+  LOG(INFO) << "Slot switch cancelled.";
+  SetStatusAndNotify(UpdateStatus::IDLE);
+  return true;
 }
 
 void UpdateAttempterAndroid::ScheduleCleanupPreviousUpdate() {

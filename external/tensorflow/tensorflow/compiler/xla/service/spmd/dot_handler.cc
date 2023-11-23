@@ -42,20 +42,20 @@ namespace spmd {
 Status SpmdPartitioningVisitor::HandleDot(HloInstruction* hlo) {
   DotConvDimsMapping mapping;
   const auto& dnums = hlo->dot_dimension_numbers();
-  int64 next_output_dim = 0;
-  for (int64 i = 0; i < dnums.lhs_batch_dimensions_size(); ++i) {
+  int64_t next_output_dim = 0;
+  for (int64_t i = 0; i < dnums.lhs_batch_dimensions_size(); ++i) {
     mapping.batch_dims.emplace_back();
     mapping.batch_dims.back().lhs = dnums.lhs_batch_dimensions(i);
     mapping.batch_dims.back().rhs = dnums.rhs_batch_dimensions(i);
     mapping.batch_dims.back().output = next_output_dim++;
   }
-  for (int64 i = 0; i < dnums.lhs_contracting_dimensions_size(); ++i) {
+  for (int64_t i = 0; i < dnums.lhs_contracting_dimensions_size(); ++i) {
     mapping.contracting_dims.emplace_back();
     mapping.contracting_dims.back().lhs = dnums.lhs_contracting_dimensions(i);
     mapping.contracting_dims.back().rhs = dnums.rhs_contracting_dimensions(i);
     mapping.contracting_dims.back().output = -1;
   }
-  for (int64 i = 0; i < hlo->operand(0)->shape().rank(); ++i) {
+  for (int64_t i = 0; i < hlo->operand(0)->shape().rank(); ++i) {
     if (absl::c_linear_search(dnums.lhs_batch_dimensions(), i) ||
         absl::c_linear_search(dnums.lhs_contracting_dimensions(), i)) {
       continue;
@@ -65,7 +65,7 @@ Status SpmdPartitioningVisitor::HandleDot(HloInstruction* hlo) {
     mapping.lhs_non_contracting_dims.back().rhs = -1;
     mapping.lhs_non_contracting_dims.back().output = next_output_dim++;
   }
-  for (int64 i = 0; i < hlo->operand(1)->shape().rank(); ++i) {
+  for (int64_t i = 0; i < hlo->operand(1)->shape().rank(); ++i) {
     if (absl::c_linear_search(dnums.rhs_batch_dimensions(), i) ||
         absl::c_linear_search(dnums.rhs_contracting_dimensions(), i)) {
       continue;
@@ -110,17 +110,21 @@ struct DotDimensionIndexMapping {
   std::vector<int64> output_to_rhs_indices;
 };
 
-void UpdateDDNums(DotDimensionNumbers* new_ddnums, int64 reshaped_dim,
+void UpdateDDNums(DotDimensionNumbers* new_ddnums, int64_t reshaped_dim,
                   bool lhs) {
   auto update_dims =
       [&reshaped_dim](tensorflow::protobuf::RepeatedField<int64>* dims) {
-        for (int64 i = 0; i < dims->size(); ++i) {
+        bool add_reshaped_dim = false;
+        if (absl::c_linear_search(*dims, reshaped_dim)) {
+          add_reshaped_dim = true;
+        }
+        for (int64_t i = 0; i < dims->size(); ++i) {
           auto dim = dims->at(i);
           if (reshaped_dim <= dim) {
             dims->Set(i, dim + 1);
           }
         }
-        if (absl::c_linear_search(*dims, reshaped_dim)) {
+        if (add_reshaped_dim) {
           dims->Add(reshaped_dim);
         }
       };
@@ -136,14 +140,14 @@ void UpdateDDNums(DotDimensionNumbers* new_ddnums, int64 reshaped_dim,
 
 Window GenNewWindow(const HloInstruction* original_dot,
                     const HloInstruction* dot_lhs,
-                    const HloInstruction* dot_rhs, int64 lhs_concat_dim,
-                    int64 rhs_concat_dim, bool windowed_at_contracting_dims,
+                    const HloInstruction* dot_rhs, int64_t lhs_concat_dim,
+                    int64_t rhs_concat_dim, bool windowed_at_contracting_dims,
                     bool windowed_at_batch_dims) {
   auto new_window = original_dot->window();
   const ConvolutionDimensionNumbers& conv_dnums =
       original_dot->convolution_dimension_numbers();
   if (lhs_concat_dim != -1) {
-    for (int64 i = 0; i < conv_dnums.input_spatial_dimensions_size(); ++i) {
+    for (int64_t i = 0; i < conv_dnums.input_spatial_dimensions_size(); ++i) {
       if (conv_dnums.input_spatial_dimensions(i) == lhs_concat_dim) {
         auto wd = new_window.mutable_dimensions(i);
         auto lhs_size = dot_lhs->shape().dimensions(lhs_concat_dim + 1);
@@ -163,7 +167,7 @@ Window GenNewWindow(const HloInstruction* original_dot,
     }
   }
   if (rhs_concat_dim != -1) {
-    for (int64 i = 0; i < conv_dnums.kernel_spatial_dimensions_size(); ++i) {
+    for (int64_t i = 0; i < conv_dnums.kernel_spatial_dimensions_size(); ++i) {
       if (conv_dnums.kernel_spatial_dimensions(i) == rhs_concat_dim &&
           !windowed_at_contracting_dims && !windowed_at_batch_dims &&
           lhs_concat_dim == -1) {
@@ -220,8 +224,9 @@ Window GenNewWindow(const HloInstruction* original_dot,
 
 ConvolutionDimensionNumbers GenNewConvDNums(
     const HloInstruction* original_dot, const HloInstruction* dot_lhs,
-    const HloInstruction* dot_rhs, int64 lhs_concat_dim, int64 rhs_concat_dim,
-    bool windowed_at_contracting_dims, bool windowed_at_batch_dims,
+    const HloInstruction* dot_rhs, int64_t lhs_concat_dim,
+    int64_t rhs_concat_dim, bool windowed_at_contracting_dims,
+    bool windowed_at_batch_dims,
     const std::vector<int64>& lhs_to_output_indices,
     const std::vector<int64>& rhs_to_output_indices,
     const Shape& new_dot_shape) {
@@ -229,8 +234,8 @@ ConvolutionDimensionNumbers GenNewConvDNums(
   const ConvolutionDimensionNumbers& dnums =
       original_dot->convolution_dimension_numbers();
   // Handle the LHS dimension numbers.
-  int64 input_batch_dimension = dnums.input_batch_dimension();
-  int64 input_feature_dimension = dnums.input_feature_dimension();
+  int64_t input_batch_dimension = dnums.input_batch_dimension();
+  int64_t input_feature_dimension = dnums.input_feature_dimension();
   std::vector<int64> input_spatial_dimensions(
       dnums.input_spatial_dimensions().begin(),
       dnums.input_spatial_dimensions().end());
@@ -241,7 +246,7 @@ ConvolutionDimensionNumbers GenNewConvDNums(
     if (lhs_concat_dim <= input_feature_dimension) {
       input_feature_dimension++;
     }
-    for (int64 i = 0; i < input_spatial_dimensions.size(); ++i) {
+    for (int64_t i = 0; i < input_spatial_dimensions.size(); ++i) {
       if (lhs_concat_dim <= input_spatial_dimensions[i]) {
         input_spatial_dimensions[i]++;
       }
@@ -253,8 +258,9 @@ ConvolutionDimensionNumbers GenNewConvDNums(
     input_spatial_dimensions.push_back(dot_lhs->shape().dimensions_size() - 1);
   }
   // Handle the RHS dimension numbers.
-  int64 kernel_input_feature_dimension = dnums.kernel_input_feature_dimension();
-  int64 kernel_output_feature_dimension =
+  int64_t kernel_input_feature_dimension =
+      dnums.kernel_input_feature_dimension();
+  int64_t kernel_output_feature_dimension =
       dnums.kernel_output_feature_dimension();
   std::vector<int64> kernel_spatial_dimensions(
       dnums.kernel_spatial_dimensions().begin(),
@@ -266,7 +272,7 @@ ConvolutionDimensionNumbers GenNewConvDNums(
     if (rhs_concat_dim <= kernel_output_feature_dimension) {
       kernel_output_feature_dimension++;
     }
-    for (int64 i = 0; i < kernel_spatial_dimensions.size(); ++i) {
+    for (int64_t i = 0; i < kernel_spatial_dimensions.size(); ++i) {
       if (rhs_concat_dim <= kernel_spatial_dimensions[i]) {
         kernel_spatial_dimensions[i]++;
       }
@@ -278,8 +284,8 @@ ConvolutionDimensionNumbers GenNewConvDNums(
     kernel_spatial_dimensions.push_back(dot_rhs->shape().dimensions_size() - 1);
   }
   // Handle the Output dimension numbers.
-  int64 output_batch_dimension = dnums.output_batch_dimension();
-  int64 output_feature_dimension = dnums.output_feature_dimension();
+  int64_t output_batch_dimension = dnums.output_batch_dimension();
+  int64_t output_feature_dimension = dnums.output_feature_dimension();
   std::vector<int64> output_spatial_dimensions(
       dnums.output_spatial_dimensions().begin(),
       dnums.output_spatial_dimensions().end());
@@ -293,7 +299,7 @@ ConvolutionDimensionNumbers GenNewConvDNums(
     if (output_slice_dim <= output_feature_dimension) {
       output_feature_dimension++;
     }
-    for (int64 i = 0; i < output_spatial_dimensions.size(); ++i) {
+    for (int64_t i = 0; i < output_spatial_dimensions.size(); ++i) {
       if (output_slice_dim <= output_spatial_dimensions[i]) {
         output_spatial_dimensions[i]++;
       }
@@ -324,21 +330,9 @@ ConvolutionDimensionNumbers GenNewConvDNums(
   return new_dnums;
 }
 
-int64 FirstShardingDimWithPartitionOfSize(int64 num_partitions,
-                                          const HloSharding& sharding) {
-  int64 sharding_dim = -1;
-  for (int64 i = 0; i < sharding.tile_assignment().num_dimensions(); ++i) {
-    if (sharding.tile_assignment().dim(i) == num_partitions) {
-      sharding_dim = i;
-      break;
-    }
-  }
-  return sharding_dim;
-}
-
 DotDimensionIndexMapping ComputeDimensionIndexMapping(
-    const DotConvDimsMapping& dims_mapping, int64 lhs_rank, int64 rhs_rank,
-    int64 output_rank) {
+    const DotConvDimsMapping& dims_mapping, int64_t lhs_rank, int64_t rhs_rank,
+    int64_t output_rank) {
   std::vector<int64> lhs_to_rhs_indices(lhs_rank, -1);
   std::vector<int64> lhs_to_output_indices(lhs_rank, -1);
   std::vector<int64> rhs_to_lhs_indices(rhs_rank, -1);
@@ -381,13 +375,13 @@ DotDimensionIndexMapping ComputeDimensionIndexMapping(
 }
 
 absl::optional<WindowedEinsumConfig> GetWindowedEinsumConfiguration(
-    int64 num_partitions, int64 output_lhs_non_contracting_partitions,
-    int64 output_rhs_non_contracting_partitions,
-    int64 rhs_contracting_partitions, int64 rhs_non_contracting_partitions,
-    int64 rhs_batch_partitions, int64 lhs_contracting_partitions,
-    int64 lhs_non_contracting_partitions, int64 lhs_batch_partitions,
-    int64 output_sharding_dim, int64 rhs_shape_size, int64 lhs_shape_size,
-    int64 output_shape_size, int64 einsum_threshold_mib,
+    int64_t num_partitions, int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions,
+    int64_t rhs_contracting_partitions, int64_t rhs_non_contracting_partitions,
+    int64_t rhs_batch_partitions, int64_t lhs_contracting_partitions,
+    int64_t lhs_non_contracting_partitions, int64_t lhs_batch_partitions,
+    int64_t rhs_shape_size, int64_t lhs_shape_size, int64_t output_shape_size,
+    int64_t einsum_threshold_mib,
     const absl::optional<HloSharding>& output_sharding_transposed_to_match_lhs,
     const absl::optional<HloSharding>& output_sharding_transposed_to_match_rhs,
     const HloSharding& lhs_sharding, const HloSharding& rhs_sharding) {
@@ -443,7 +437,8 @@ absl::optional<WindowedEinsumConfig> GetWindowedEinsumConfiguration(
   }
   if (lhs_contracting_partitions == rhs_contracting_partitions &&
       lhs_contracting_partitions == num_partitions &&
-      output_sharding_dim > -1 &&
+      (output_lhs_non_contracting_partitions == num_partitions ||
+       output_rhs_non_contracting_partitions == num_partitions) &&
       output_shape_size >= einsum_threshold_mib * 1024 * 1024) {
     if (output_lhs_non_contracting_partitions == num_partitions) {
       return WindowedEinsumConfig{
@@ -463,20 +458,70 @@ absl::optional<WindowedEinsumConfig> GetWindowedEinsumConfiguration(
   return absl::nullopt;
 }
 
+std::vector<ReplicaGroup> GetLoopReplicaGroups(HloInstruction* while_loop) {
+  std::vector<ReplicaGroup> groups;
+  for (auto inst : while_loop->while_body()->instructions()) {
+    if (inst->opcode() == HloOpcode::kCollectivePermute) {
+      std::vector<std::pair<int64, int64>> st_pairs =
+          inst->source_target_pairs();
+      std::vector<int64> source_index(st_pairs.size());
+      for (int64_t i = 0; i < st_pairs.size(); ++i) {
+        source_index[st_pairs[i].first] = i;
+      }
+
+      absl::flat_hash_set<int64> visited;
+      for (int64_t i = 0; i < st_pairs.size(); ++i) {
+        if (visited.contains(st_pairs[i].first)) {
+          continue;
+        }
+        std::vector<int64> replica_group;
+        int64_t source = st_pairs[i].first;
+        int64_t target = st_pairs[i].second;
+        replica_group.push_back(source);
+        replica_group.push_back(target);
+        visited.insert(source);
+        visited.insert(target);
+        while (target != source) {
+          target = st_pairs[source_index[target]].second;
+          if (target != source) {
+            replica_group.push_back(target);
+            visited.insert(target);
+          }
+        }
+        absl::c_sort(replica_group);
+        groups.emplace_back();
+        for (auto id : replica_group) {
+          groups.back().add_replica_ids(id);
+        }
+      }
+
+      VLOG(3) << "while loop: " << while_loop->name()
+              << ", replica groups: " << ReplicaGroupsToString(groups);
+      break;
+    }
+  }
+  return groups;
+}
+
+// We use a recursive approach where sets of matching dimensions are recognized
+// one at a time. The base shapes and shardings can be changed during the
+// recursion as we group devices together. So refer to the passed in shapes and
+// shardings for inputs and output, and do not use shape inference.
+
 StatusOr<HloInstruction*> PartitionBaseCase(
     PartitionedHlo lhs, PartitionedHlo rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions,
+    int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
     const Window& conv_window, HloModule* module, HloInstruction* original_hlo,
-    int64 lhs_batch_partitions, int64 rhs_batch_partitions,
-    int64 output_batch_partitions, int64 lhs_contracting_partitions,
-    int64 rhs_contracting_partitions, int64 lhs_non_contracting_partitions,
-    int64 rhs_non_contracting_partitions,
-    int64 output_lhs_non_contracting_partitions,
-    int64 output_rhs_non_contracting_partitions,
+    int64_t lhs_batch_partitions, int64_t rhs_batch_partitions,
+    int64_t output_batch_partitions, int64_t lhs_contracting_partitions,
+    int64_t rhs_contracting_partitions, int64_t lhs_non_contracting_partitions,
+    int64_t rhs_non_contracting_partitions,
+    int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions,
     const SpmdPartitionerOptions& options, SpmdBuilder* b,
     std::vector<SpmdPartitioningVisitor::WindowedDotGeneralLoop>*
         windowed_dot_general_loops,
@@ -582,8 +627,6 @@ StatusOr<HloInstruction*> PartitionBaseCase(
     }
   }
 
-  const int64 output_sharding_dim =
-      FirstShardingDimWithPartitionOfSize(num_partitions, output_sharding);
   // Try to emit windowed DotGeneral when one operand is partitioned in the same
   // way as the output along non-contracting dimensions, but the other operand
   // is tiled in other dimensions. Or both operands are partitioned in the same
@@ -628,18 +671,93 @@ StatusOr<HloInstruction*> PartitionBaseCase(
       lhs = lhs.PadWithValue(zero);
       rhs = rhs.PadWithValue(zero);
     }
+
+    // Get slice sharding, sharding dim, and lhs/rhs concat dim.
+    const HloSharding* slice_sharding;
+    if (operands_sharded_at_contracting_dims) {
+      slice_sharding = windowed_op_is_lhs
+                           ? &*output_sharding_transposed_to_match_rhs
+                           : &*output_sharding_transposed_to_match_lhs;
+    } else if (windowed_at_contracting_dims || windowed_at_batch_dims) {
+      slice_sharding = windowed_op_is_lhs
+                           ? &*lhs_sharding_transposed_to_match_rhs
+                           : &*rhs_sharding_transposed_to_match_lhs;
+    } else {
+      slice_sharding = windowed_op_is_lhs
+                           ? &*lhs_sharding_transposed_to_match_output
+                           : &*rhs_sharding_transposed_to_match_output;
+    }
+    CHECK_EQ(Product(slice_sharding->tile_assignment().dimensions()),
+             num_partitions);
+    int64_t slice_sharding_dim = -1;
+    for (int64_t i = 0; i < slice_sharding->tile_assignment().num_dimensions();
+         ++i) {
+      if (slice_sharding->tile_assignment().dim(i) > 1) {
+        slice_sharding_dim = i;
+        break;
+      }
+    }
+    int64_t lhs_concat_dim = -1;
+    int64_t rhs_concat_dim = -1;
+    if (operands_sharded_at_contracting_dims) {
+      if (windowed_op_is_lhs) {
+        rhs_concat_dim = slice_sharding_dim;
+      } else {
+        lhs_concat_dim = slice_sharding_dim;
+      }
+    } else if (windowed_at_contracting_dims || windowed_at_batch_dims) {
+      lhs_concat_dim = windowed_op_is_lhs
+                           ? indices_map.rhs_to_lhs_indices[slice_sharding_dim]
+                           : slice_sharding_dim;
+      rhs_concat_dim = windowed_op_is_lhs
+                           ? slice_sharding_dim
+                           : indices_map.lhs_to_rhs_indices[slice_sharding_dim];
+    } else {
+      if (windowed_op_is_lhs) {
+        lhs_concat_dim = indices_map.output_to_lhs_indices[slice_sharding_dim];
+      } else {
+        rhs_concat_dim = indices_map.output_to_rhs_indices[slice_sharding_dim];
+      }
+    }
+
+    auto lhs_hlo = lhs.hlo();
+    auto rhs_hlo = rhs.hlo();
+    // Reshape lhs and rhs before the loop for bidirectional communication case.
+    if (options.bidirectional_windowed_einsum && num_partitions % 4 == 0) {
+      if (lhs_concat_dim != -1 && windowed_op_is_lhs &&
+          !operands_sharded_at_contracting_dims) {
+        std::vector<int64> reshaped_dims(lhs_hlo->shape().dimensions().begin(),
+                                         lhs_hlo->shape().dimensions().end());
+        reshaped_dims.insert(reshaped_dims.begin() + lhs_concat_dim, 1);
+        lhs_hlo = b->AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(lhs_hlo->shape().element_type(),
+                                 reshaped_dims),
+            lhs_hlo));
+      }
+      if (rhs_concat_dim != -1 && !windowed_op_is_lhs &&
+          !operands_sharded_at_contracting_dims) {
+        std::vector<int64> reshaped_dims(rhs_hlo->shape().dimensions().begin(),
+                                         rhs_hlo->shape().dimensions().end());
+        reshaped_dims.insert(reshaped_dims.begin() + rhs_concat_dim, 1);
+        rhs_hlo = b->AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(rhs_hlo->shape().element_type(),
+                                 reshaped_dims),
+            rhs_hlo));
+      }
+    }
+
     auto result_buffer = CreateZero(padded_result_buffer_shape, b);
     auto extra_buffer =
         (!(options.bidirectional_windowed_einsum && num_partitions % 4 == 0) ||
          operands_sharded_at_contracting_dims)
             ? CreateZero(padded_result_buffer_shape, b)
-        : windowed_op_is_lhs ? lhs.hlo()
-                             : rhs.hlo();
+        : windowed_op_is_lhs ? lhs_hlo
+                             : rhs_hlo;
 
     if (options.bidirectional_windowed_einsum && num_partitions % 4 == 0 &&
         !operands_sharded_at_contracting_dims) {
       std::vector<std::pair<int64, int64>> pre_sd_pairs(num_partitions);
-      for (int64 source = 0; source < num_partitions; ++source) {
+      for (int64_t source = 0; source < num_partitions; ++source) {
         // 0 -> 1, 1 -> 2, 2 -> 3, ...
         pre_sd_pairs[source] = {source, (source + 1) % num_partitions};
       }
@@ -699,57 +817,6 @@ StatusOr<HloInstruction*> PartitionBaseCase(
       cw_data_partition_id = body_b.AddInstruction(
           HloInstruction::CreateBinary(i->shape(), HloOpcode::kRemainder,
                                        cw_data_partition_id, partition_count));
-      // Calculate concat dim.
-      const HloSharding* slice_sharding;
-      if (operands_sharded_at_contracting_dims) {
-        slice_sharding = windowed_op_is_lhs
-                             ? &*output_sharding_transposed_to_match_rhs
-                             : &*output_sharding_transposed_to_match_lhs;
-      } else if (windowed_at_contracting_dims || windowed_at_batch_dims) {
-        slice_sharding = windowed_op_is_lhs
-                             ? &*lhs_sharding_transposed_to_match_rhs
-                             : &*rhs_sharding_transposed_to_match_lhs;
-      } else {
-        slice_sharding = windowed_op_is_lhs
-                             ? &*lhs_sharding_transposed_to_match_output
-                             : &*rhs_sharding_transposed_to_match_output;
-      }
-      CHECK_EQ(Product(slice_sharding->tile_assignment().dimensions()),
-               num_partitions);
-      int64 slice_sharding_dim = -1;
-      for (int64 i = 0; i < slice_sharding->tile_assignment().num_dimensions();
-           ++i) {
-        if (slice_sharding->tile_assignment().dim(i) > 1) {
-          slice_sharding_dim = i;
-          break;
-        }
-      }
-      int64 lhs_concat_dim = -1;
-      int64 rhs_concat_dim = -1;
-      if (operands_sharded_at_contracting_dims) {
-        if (windowed_op_is_lhs) {
-          rhs_concat_dim = slice_sharding_dim;
-        } else {
-          lhs_concat_dim = slice_sharding_dim;
-        }
-      } else if (windowed_at_contracting_dims || windowed_at_batch_dims) {
-        lhs_concat_dim =
-            windowed_op_is_lhs
-                ? indices_map.rhs_to_lhs_indices[slice_sharding_dim]
-                : slice_sharding_dim;
-        rhs_concat_dim =
-            windowed_op_is_lhs
-                ? slice_sharding_dim
-                : indices_map.lhs_to_rhs_indices[slice_sharding_dim];
-      } else {
-        if (windowed_op_is_lhs) {
-          lhs_concat_dim =
-              indices_map.output_to_lhs_indices[slice_sharding_dim];
-        } else {
-          rhs_concat_dim =
-              indices_map.output_to_rhs_indices[slice_sharding_dim];
-        }
-      }
 
       DotDimensionNumbers new_ddnums;
       if (original_hlo->opcode() == HloOpcode::kDot) {
@@ -760,6 +827,28 @@ StatusOr<HloInstruction*> PartitionBaseCase(
       auto dot_rhs = r;
       auto original_dot_lhs = l;
       auto original_dot_rhs = r;
+      // Recover original lhs and rhs, will not be used in real computation.
+      if (lhs_concat_dim != -1 && windowed_op_is_lhs) {
+        std::vector<int64> reshaped_dims(
+            original_dot_lhs->shape().dimensions().begin(),
+            original_dot_lhs->shape().dimensions().end());
+        reshaped_dims.erase(reshaped_dims.begin() + lhs_concat_dim);
+        original_dot_lhs = body_b.AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(original_dot_lhs->shape().element_type(),
+                                 reshaped_dims),
+            original_dot_lhs));
+      }
+      if (rhs_concat_dim != -1 && !windowed_op_is_lhs) {
+        std::vector<int64> reshaped_dims(
+            original_dot_rhs->shape().dimensions().begin(),
+            original_dot_rhs->shape().dimensions().end());
+        reshaped_dims.erase(reshaped_dims.begin() + rhs_concat_dim);
+        original_dot_rhs = body_b.AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(original_dot_rhs->shape().element_type(),
+                                 reshaped_dims),
+            original_dot_rhs));
+      }
+
       if (windowed_at_contracting_dims || windowed_at_batch_dims ||
           operands_sharded_at_contracting_dims) {
         // Slice the matching operand according to the partitioned dimensions
@@ -779,7 +868,8 @@ StatusOr<HloInstruction*> PartitionBaseCase(
         auto gen_slice = [&](HloInstruction* data_partition_id,
                              bool ccw) -> HloInstruction* {
           std::vector<int64> new_dims;
-          for (int64 i = 0; i < slice_operand->shape().dimensions_size(); ++i) {
+          for (int64_t i = 0; i < slice_operand->shape().dimensions_size();
+               ++i) {
             if (i == slice_sharding_dim) {
               new_dims.push_back(1);
             }
@@ -797,7 +887,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
               reshaped_slice_operand->shape().rank());
           auto padded_slice_operand = reshaped_slice_operand;
           auto padded_shape = padded_slice_operand->shape();
-          int64 padding_dim = slice_sharding_dim;
+          int64_t padding_dim = slice_sharding_dim;
           padded_shape.set_dimensions(padding_dim, 2);
           if (ccw) {
             // ccw pad high
@@ -847,7 +937,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
         // Reshape. The reshaped slice will not be used to produce the final
         // result, but used as a hint for the shape inference.
         std::vector<int64> reshaped_slice_dims;
-        for (int64 i = 0; i < slice->shape().dimensions_size(); ++i) {
+        for (int64_t i = 0; i < slice->shape().dimensions_size(); ++i) {
           auto dim_size = slice->shape().dimensions(i);
           if (i == (slice_sharding_dim + 1)) {
             reshaped_slice_dims.push_back(dim_size * 2);
@@ -881,20 +971,18 @@ StatusOr<HloInstruction*> PartitionBaseCase(
       auto cw_dot_lhs = windowed_op_is_lhs ? extra_inout : l;
       auto cw_dot_rhs = windowed_op_is_lhs ? r : extra_inout;
       if (lhs_concat_dim != -1 && windowed_op_is_lhs) {
+        // Concat
         auto lhs_concat_shape = ccw_dot_lhs->shape();
-        lhs_concat_shape.set_dimensions(
-            lhs_concat_dim,
-            ccw_dot_lhs->shape().dimensions(lhs_concat_dim) * 2);
+        lhs_concat_shape.set_dimensions(lhs_concat_dim, 2);
         dot_lhs = body_b.AddInstruction(HloInstruction::CreateConcatenate(
             lhs_concat_shape, {ccw_dot_lhs, cw_dot_lhs}, lhs_concat_dim));
-        original_dot_lhs = dot_lhs;
 
-        // Reshape
-        std::vector<int64> reshaped_dims(dot_lhs->shape().dimensions().begin(),
-                                         dot_lhs->shape().dimensions().end());
-        reshaped_dims[lhs_concat_dim] /= 2;
-        reshaped_dims.insert(reshaped_dims.begin() + lhs_concat_dim, 2);
-        dot_lhs = body_b.AddInstruction(HloInstruction::CreateReshape(
+        std::vector<int64> reshaped_dims(
+            ccw_dot_lhs->shape().dimensions().begin(),
+            ccw_dot_lhs->shape().dimensions().end());
+        reshaped_dims.erase(reshaped_dims.begin() + lhs_concat_dim);
+        reshaped_dims[lhs_concat_dim] *= 2;
+        original_dot_lhs = body_b.AddInstruction(HloInstruction::CreateReshape(
             ShapeUtil::MakeShape(dot_lhs->shape().element_type(),
                                  reshaped_dims),
             dot_lhs));
@@ -904,20 +992,18 @@ StatusOr<HloInstruction*> PartitionBaseCase(
         }
       }
       if (rhs_concat_dim != -1 && !windowed_op_is_lhs) {
+        // Concat
         auto rhs_concat_shape = ccw_dot_rhs->shape();
-        rhs_concat_shape.set_dimensions(
-            rhs_concat_dim,
-            ccw_dot_rhs->shape().dimensions(rhs_concat_dim) * 2);
+        rhs_concat_shape.set_dimensions(rhs_concat_dim, 2);
         dot_rhs = body_b.AddInstruction(HloInstruction::CreateConcatenate(
             rhs_concat_shape, {ccw_dot_rhs, cw_dot_rhs}, rhs_concat_dim));
-        original_dot_rhs = dot_rhs;
 
-        // Reshape
-        std::vector<int64> reshaped_dims(dot_rhs->shape().dimensions().begin(),
-                                         dot_rhs->shape().dimensions().end());
-        reshaped_dims[rhs_concat_dim] /= 2;
-        reshaped_dims.insert(reshaped_dims.begin() + rhs_concat_dim, 2);
-        dot_rhs = body_b.AddInstruction(HloInstruction::CreateReshape(
+        std::vector<int64> reshaped_dims(
+            ccw_dot_rhs->shape().dimensions().begin(),
+            ccw_dot_rhs->shape().dimensions().end());
+        reshaped_dims.erase(reshaped_dims.begin() + rhs_concat_dim);
+        reshaped_dims[rhs_concat_dim] *= 2;
+        original_dot_rhs = body_b.AddInstruction(HloInstruction::CreateReshape(
             ShapeUtil::MakeShape(dot_rhs->shape().element_type(),
                                  reshaped_dims),
             dot_rhs));
@@ -945,7 +1031,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
                 : indices_map.rhs_to_output_indices[rhs_concat_dim];
         new_dims[slice_dim] /= 2;
         new_dims.insert(new_dims.begin() + slice_dim, 2);
-      } else {
+      } else if (original_hlo->opcode() != HloOpcode::kDot) {
         new_dims.push_back(1);
       }
       new_dot_shape =
@@ -992,11 +1078,13 @@ StatusOr<HloInstruction*> PartitionBaseCase(
       }
       VLOG(2) << dot->ToString();
 
-      // Reshape to the original sharded dot shape.
-      dot = body_b.AddInstruction(
-          HloInstruction::CreateReshape(original_sharded_dot_shape, dot));
-
       if (windowed_at_contracting_dims) {
+        if (original_hlo->opcode() != HloOpcode::kDot) {
+          // Reshape to the original sharded dot shape.
+          dot = body_b.AddInstruction(
+              HloInstruction::CreateReshape(original_sharded_dot_shape, dot));
+        }
+
         // Accumulate the partial output to the result buffer.
         o = body_b.AddInstruction(
             HloInstruction::CreateBinary(o->shape(), HloOpcode::kAdd, o, dot));
@@ -1009,17 +1097,28 @@ StatusOr<HloInstruction*> PartitionBaseCase(
             lhs_concat_dim != -1
                 ? indices_map.lhs_to_output_indices[lhs_concat_dim]
                 : indices_map.rhs_to_output_indices[rhs_concat_dim];
-        slice_shape.set_dimensions(slice_dim,
-                                   dot->shape().dimensions(slice_dim) / 2);
+        slice_shape.set_dimensions(slice_dim, 1);
         std::vector<int64> ccw_start_indices(dot->shape().rank(), 0);
         std::vector<int64> cw_start_indices(dot->shape().rank(), 0);
-        cw_start_indices[slice_dim] = dot->shape().dimensions(slice_dim) / 2;
+        cw_start_indices[slice_dim] = 1;
         auto ccw_dot = body_b.AddInstruction(HloInstruction::CreateSlice(
             slice_shape, dot, ccw_start_indices, slice_shape.dimensions(),
             std::vector<int64>(dot->shape().rank(), 1)));
         auto cw_dot = body_b.AddInstruction(HloInstruction::CreateSlice(
             slice_shape, dot, cw_start_indices, dot->shape().dimensions(),
             std::vector<int64>(dot->shape().rank(), 1)));
+
+        std::vector<int64> reshaped_dims(
+            original_sharded_dot_shape.dimensions().begin(),
+            original_sharded_dot_shape.dimensions().end());
+        reshaped_dims[slice_dim] /= 2;
+        ccw_dot = body_b.AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(ccw_dot->shape().element_type(),
+                                 reshaped_dims),
+            ccw_dot));
+        cw_dot = body_b.AddInstruction(HloInstruction::CreateReshape(
+            ShapeUtil::MakeShape(cw_dot->shape().element_type(), reshaped_dims),
+            cw_dot));
 
         if (operands_sharded_at_contracting_dims) {
           // Accumulate the partial output to the result buffer.
@@ -1080,16 +1179,6 @@ StatusOr<HloInstruction*> PartitionBaseCase(
         state.b = &body_b;
         state.partition_id = data_partition_id;
         state.reshard_cache->per_hlo_cache.erase(slice_operand);
-        const HloSharding* slice_sharding;
-        if (operands_sharded_at_contracting_dims) {
-          slice_sharding = windowed_op_is_lhs
-                               ? &*output_sharding_transposed_to_match_rhs
-                               : &*output_sharding_transposed_to_match_lhs;
-        } else {
-          slice_sharding = windowed_op_is_lhs
-                               ? &*lhs_sharding_transposed_to_match_rhs
-                               : &*rhs_sharding_transposed_to_match_lhs;
-        }
         auto slice =
             PartitionedHlo(slice_operand, slice_operand->shape(), state)
                 .Reshard(*slice_sharding)
@@ -1125,14 +1214,14 @@ StatusOr<HloInstruction*> PartitionBaseCase(
 
     auto param = body_b.AddInstruction(HloInstruction::CreateParameter(
         /*parameter_number=*/0,
-        ShapeUtil::MakeTupleShape({lhs.hlo()->shape(), rhs.hlo()->shape(),
+        ShapeUtil::MakeTupleShape({lhs_hlo->shape(), rhs_hlo->shape(),
                                    result_buffer->shape(),
                                    extra_buffer->shape(), iteration->shape()}),
         "param"));
     auto l = body_b.AddInstruction(
-        HloInstruction::CreateGetTupleElement(lhs.hlo()->shape(), param, 0));
+        HloInstruction::CreateGetTupleElement(lhs_hlo->shape(), param, 0));
     auto r = body_b.AddInstruction(
-        HloInstruction::CreateGetTupleElement(rhs.hlo()->shape(), param, 1));
+        HloInstruction::CreateGetTupleElement(rhs_hlo->shape(), param, 1));
     auto o = body_b.AddInstruction(HloInstruction::CreateGetTupleElement(
         result_buffer->shape(), param, 2));
     auto extra_inout = body_b.AddInstruction(
@@ -1144,13 +1233,13 @@ StatusOr<HloInstruction*> PartitionBaseCase(
     // of degree 2, so num_partitions is required to be a multiple of 4.
     if (options.bidirectional_windowed_einsum && num_partitions % 4 == 0) {
       std::vector<std::pair<int64, int64>> ccw_sd_pairs(num_partitions);
-      for (int64 source = 0; source < num_partitions; ++source) {
+      for (int64_t source = 0; source < num_partitions; ++source) {
         // 0 -> n-1, 1 -> 0, 2 -> 1, ...
         ccw_sd_pairs[source] = {source,
                                 (source - 1 + num_partitions) % num_partitions};
       }
       std::vector<std::pair<int64, int64>> cw_sd_pairs(num_partitions);
-      for (int64 source = 0; source < num_partitions; ++source) {
+      for (int64_t source = 0; source < num_partitions; ++source) {
         // 0 -> 1, 1 -> 2, 2 -> 3, ...
         cw_sd_pairs[source] = {source, (source + 1) % num_partitions};
       }
@@ -1231,7 +1320,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
     } else if (options.unroll_windowed_einsum && num_partitions % 2 == 0) {
       if (operands_sharded_at_contracting_dims) {
         std::vector<std::pair<int64, int64>> output_sd_pairs(num_partitions);
-        for (int64 source = 0; source < num_partitions; ++source) {
+        for (int64_t source = 0; source < num_partitions; ++source) {
           // 0 -> n-2, 1 -> n-1, 2 -> 0, ...
           output_sd_pairs[source] = {
               source, (source - 2 + num_partitions) % num_partitions};
@@ -1267,7 +1356,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
             HloInstruction::CreateTuple({l, r, o, extra_inout, i}));
       } else {
         std::vector<std::pair<int64, int64>> sd_pairs(num_partitions);
-        for (int64 source = 0; source < num_partitions; ++source) {
+        for (int64_t source = 0; source < num_partitions; ++source) {
           // 0 -> n-1, 1 -> 0, 2 -> 1, ...
           sd_pairs[source] = {source,
                               (source - 1 + num_partitions) % num_partitions};
@@ -1355,7 +1444,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
                                                    : r->shape(),
               "window"));
           std::vector<std::pair<int64, int64>> sd_pairs(num_partitions);
-          for (int64 source = 0; source < num_partitions; ++source) {
+          for (int64_t source = 0; source < num_partitions; ++source) {
             // 0 -> n-1, 1 -> 0, 2 -> 1, ...
             sd_pairs[source] = {source,
                                 (source - 1 + num_partitions) % num_partitions};
@@ -1401,13 +1490,13 @@ StatusOr<HloInstruction*> PartitionBaseCase(
     SpmdBuilder cond_b("windowed_dot_general_cond", original_hlo);
     auto cond_param = cond_b.AddInstruction(HloInstruction::CreateParameter(
         /*parameter_number=*/0,
-        ShapeUtil::MakeTupleShape({lhs.hlo()->shape(), rhs.hlo()->shape(),
+        ShapeUtil::MakeTupleShape({lhs_hlo->shape(), rhs_hlo->shape(),
                                    result_buffer->shape(),
                                    extra_buffer->shape(), iteration->shape()}),
         "param"));
     auto cond_i = cond_b.AddInstruction(HloInstruction::CreateGetTupleElement(
         iteration->shape(), cond_param, 4));
-    int64 adapted_num_partitions =
+    int64_t adapted_num_partitions =
         (options.bidirectional_windowed_einsum && num_partitions % 4 == 0)
             ? num_partitions / 2
             : num_partitions;
@@ -1420,17 +1509,18 @@ StatusOr<HloInstruction*> PartitionBaseCase(
         cond_param->shape(), module->AddEmbeddedComputation(cond_b.Build()),
         module->AddEmbeddedComputation(body_b.Build()),
         b->AddInstruction(HloInstruction::CreateTuple(
-            {lhs.hlo(), rhs.hlo(), result_buffer, extra_buffer, iteration}))));
+            {lhs_hlo, rhs_hlo, result_buffer, extra_buffer, iteration}))));
     windowed_dot_general_loops->push_back(
         {while_loop, windowed_op_is_lhs ? 0 : 1, windowed_at_contracting_dims,
-         windowed_at_batch_dims, operands_sharded_at_contracting_dims});
+         windowed_at_batch_dims, operands_sharded_at_contracting_dims,
+         num_partitions, GetLoopReplicaGroups(while_loop)});
     auto result = b->AddInstruction(HloInstruction::CreateGetTupleElement(
         result_buffer->shape(), while_loop, 2));
     if (((options.bidirectional_windowed_einsum && num_partitions % 4 == 0) ||
          (options.unroll_windowed_einsum && num_partitions % 2 == 0)) &&
         operands_sharded_at_contracting_dims) {
       std::vector<std::pair<int64, int64>> extra_sd_pairs(num_partitions);
-      for (int64 source = 0; source < num_partitions; ++source) {
+      for (int64_t source = 0; source < num_partitions; ++source) {
         // 0 -> 1, 1 -> 2, 2 -> 3, ...
         extra_sd_pairs[source] = {source, (source + 1) % num_partitions};
       }
@@ -1470,8 +1560,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
           output_rhs_non_contracting_partitions, rhs_contracting_partitions,
           rhs_non_contracting_partitions, rhs_batch_partitions,
           lhs_contracting_partitions, lhs_non_contracting_partitions,
-          lhs_batch_partitions, output_sharding_dim,
-          ShapeSizeInBytes(rhs.base_shape()),
+          lhs_batch_partitions, ShapeSizeInBytes(rhs.base_shape()),
           ShapeSizeInBytes(lhs.base_shape()),
           ShapeSizeInBytes(output_base_shape),
           options.threshold_for_windowed_einsum_mib,
@@ -1581,7 +1670,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
 
   // Returns true if it is beneficial to reshard the operand at `operand_idx`
   // across the contracting dimension.
-  const auto should_partition_contracting_dim = [&](int64 operand_idx) {
+  const auto should_partition_contracting_dim = [&](int64_t operand_idx) {
     if (!output_sharding.IsReplicated()) {
       return false;
     }
@@ -1636,7 +1725,7 @@ StatusOr<HloInstruction*> PartitionBaseCase(
 StatusOr<HloInstruction*> PartitionDot(
     PartitionedHlo lhs, PartitionedHlo rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions,
+    int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -1648,9 +1737,9 @@ StatusOr<HloInstruction*> PartitionDot(
 StatusOr<HloInstruction*> PartitionDotGroupOnBatch(
     PartitionedHlo lhs, PartitionedHlo rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions, int64 lhs_contracting_partitions,
-    int64 rhs_contracting_partitions, int64 lhs_non_contracting_partitions,
-    int64 rhs_non_contracting_partitions,
+    int64_t num_partitions, int64_t lhs_contracting_partitions,
+    int64_t rhs_contracting_partitions, int64_t lhs_non_contracting_partitions,
+    int64_t rhs_non_contracting_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -1745,9 +1834,9 @@ StatusOr<HloInstruction*> PartitionDotGroupOnBatch(
         [&](PartitionedHlo operand, absl::Span<const int64> batch_dims,
             absl::Span<const int64> contracting_dims,
             absl::Span<const int64> non_contracting_dims,
-            int64 contracting_dim_partitions,
-            int64 non_contracting_dim_partitions,
-            int64 other_contracting_dim_partitions,
+            int64_t contracting_dim_partitions,
+            int64_t non_contracting_dim_partitions,
+            int64_t other_contracting_dim_partitions,
             std::vector<int64>* sharding_dims_adjusted_to_output)
         -> absl::optional<PartitionedHlo> {
       if (operand.sharding().IsTileMaximal()) {
@@ -1772,8 +1861,8 @@ StatusOr<HloInstruction*> PartitionDotGroupOnBatch(
             0) {
           return absl::nullopt;
         }
-        int64 ratio = Product(*sharding_dims_adjusted_to_output) /
-                      reshaped_tiling.num_elements();
+        int64_t ratio = Product(*sharding_dims_adjusted_to_output) /
+                        reshaped_tiling.num_elements();
         if (operand.sharding().ReplicateOnLastTileDim() &&
             reshaped_tiling.dimensions().back() % ratio == 0) {
           sharding_dims_adjusted_to_output->back() /= ratio;
@@ -1784,11 +1873,11 @@ StatusOr<HloInstruction*> PartitionDotGroupOnBatch(
                    (ratio != contracting_dim_partitions ||
                     contracting_dim_partitions ==
                         other_contracting_dim_partitions)) {
-          for (int64 dim : non_contracting_dims) {
+          for (int64_t dim : non_contracting_dims) {
             (*sharding_dims_adjusted_to_output)[dim] = 1;
           }
         } else if (ratio == contracting_dim_partitions) {
-          for (int64 dim : contracting_dims) {
+          for (int64_t dim : contracting_dims) {
             (*sharding_dims_adjusted_to_output)[dim] = 1;
           }
         } else {
@@ -1888,7 +1977,7 @@ GroupedSharding GetNonContractingPartitionGroupedShardingForMatchedOperand(
   // Make sure the partitioning on matching's non-contracting dimensions
   // defines the same device groups for both matching and output.
   for (const auto& dim : partitioned_dims) {
-    int64 md = lhs_matching ? dim.lhs : dim.rhs;
+    int64_t md = lhs_matching ? dim.lhs : dim.rhs;
     matching_sharding_dims[md] =
         output_sharding.tile_assignment().dim(dim.output);
     matching_dims.push_back(md);
@@ -1910,15 +1999,16 @@ GroupedSharding GetNonContractingPartitionGroupedShardingForMatchedOperand(
 absl::optional<GroupedSharding>
 GetNonContractingPartitionGroupedShardingForOtherOperand(
     bool lhs_matching, const Shape& output_base_shape, const Shape& other_shape,
-    int64 other_contracting_partitions, int64 other_non_contracting_partitions,
-    int64 matching_contracting_partitions,
-    int64 output_other_non_contracting_partitions,
+    int64_t other_contracting_partitions,
+    int64_t other_non_contracting_partitions,
+    int64_t matching_contracting_partitions,
+    int64_t output_other_non_contracting_partitions,
     const HloSharding& other_sharding, const HloSharding& output_sharding,
     absl::Span<const DotConvDimsMapping::DimsMapping> matching_partitioned_dims,
     absl::Span<const DotConvDimsMapping::DimsMapping>
         other_non_contracting_dims,
     absl::Span<const DotConvDimsMapping::DimsMapping> other_contracting_dims) {
-  int64 group_count = 1;
+  int64_t group_count = 1;
   std::vector<int64> output_dims;
   for (const auto& dim : matching_partitioned_dims) {
     output_dims.push_back(dim.output);
@@ -1978,13 +2068,14 @@ GetNonContractingPartitionGroupedShardingForOtherOperand(
 
 StatusOr<HloInstruction*> PartitionDotGroupOnNonContracting(
     bool lhs_matching, PartitionedHlo matching, PartitionedHlo other,
-    int64 matching_contracting_partitions, int64 other_contracting_partitions,
+    int64_t matching_contracting_partitions,
+    int64_t other_contracting_partitions,
     absl::Span<const DotConvDimsMapping::DimsMapping>
         partitioned_non_contracting_dims,
-    int64 other_non_contracting_partitions,
-    int64 output_other_non_contracting_partitions,
+    int64_t other_non_contracting_partitions,
+    int64_t output_other_non_contracting_partitions,
     const Shape& output_base_shape, const HloSharding& output_sharding,
-    const DotConvDimsMapping& dims_mapping, int64 num_partitions,
+    const DotConvDimsMapping& dims_mapping, int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -2072,14 +2163,107 @@ StatusOr<HloInstruction*> PartitionDotGroupOnNonContracting(
   return dot;
 }
 
+std::pair<HloSharding, HloSharding>
+GetDotGroupPartitionContractingOutputShardings(
+    const DotConvDimsMapping& dims_mapping, const GroupedSharding& lhs_grouped,
+    const Shape& output_base_shape, const HloSharding& output_sharding,
+    int64_t group_count, int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions,
+    int64_t output_batch_partitions,
+    std::vector<int64>* output_slice_dims_out) {
+  HloSharding inner_output_sharding = HloSharding::Replicate();
+  HloSharding outer_output_tmp_sharding = HloSharding::Replicate();
+  std::vector<int64> output_slice_dims;
+  if (output_sharding.ReplicateOnLastTileDim() &&
+      output_sharding.tile_assignment().dimensions().back() % group_count ==
+          0) {
+    auto grouped = AlignGroupsWith(
+        GroupShardingOnDims(
+            output_sharding,
+            {output_sharding.tile_assignment().num_dimensions() - 1},
+            {output_sharding.tile_assignment().dimensions().back() /
+             group_count}),
+        lhs_grouped,
+        /*ignore_group_order=*/true);
+    outer_output_tmp_sharding = UngroupSharding(grouped);
+    inner_output_sharding = std::move(grouped.sharding);
+  } else {
+    if (auto found_dims = FindMatchingPartitionedDimsForGrouping(
+            output_sharding, lhs_grouped.device_groups)) {
+      output_slice_dims = std::move(*found_dims);
+    } else if (output_lhs_non_contracting_partitions == group_count ||
+               output_rhs_non_contracting_partitions == group_count ||
+               output_batch_partitions == group_count) {
+      if (output_lhs_non_contracting_partitions == group_count) {
+        for (const auto& dim : dims_mapping.lhs_non_contracting_dims) {
+          output_slice_dims.push_back(dim.output);
+        }
+      } else if (output_rhs_non_contracting_partitions == group_count) {
+        for (const auto& dim : dims_mapping.rhs_non_contracting_dims) {
+          output_slice_dims.push_back(dim.output);
+        }
+      } else {
+        for (const auto& dim : dims_mapping.batch_dims) {
+          output_slice_dims.push_back(dim.output);
+        }
+      }
+    }
+    if (!output_slice_dims.empty()) {
+      auto grouped = AlignGroupsWith(
+          GroupShardingOnDims(output_sharding, output_slice_dims), lhs_grouped);
+      inner_output_sharding = grouped.sharding;
+      outer_output_tmp_sharding = UngroupSharding(grouped);
+    }
+  }
+  if (output_slice_dims_out) {
+    (*output_slice_dims_out) = std::move(output_slice_dims);
+  }
+  return std::make_pair(inner_output_sharding, outer_output_tmp_sharding);
+}
+
+std::pair<HloSharding, HloSharding>
+GetDotGroupPartitionContractingLhsRhsShardings(
+    const PartitionedHlo& lhs, const PartitionedHlo& rhs,
+    absl::Span<const DotConvDimsMapping::DimsMapping>
+        partitioned_contracting_dims) {
+  HloSharding lhs_sharding = lhs.sharding();
+  HloSharding rhs_sharding = rhs.sharding();
+  std::vector<int64> lhs_tile_shape =
+      lhs_sharding.tile_assignment().dimensions();
+  std::vector<int64> rhs_tile_shape =
+      rhs_sharding.tile_assignment().dimensions();
+  if (ShapeUtil::ByteSizeOf(lhs.hlo()->shape()) >
+      ShapeUtil::ByteSizeOf(rhs.hlo()->shape())) {
+    for (const auto& dim : partitioned_contracting_dims) {
+      rhs_tile_shape[dim.rhs] = lhs_tile_shape[dim.lhs];
+    }
+    auto new_tile = rhs.sharding().tile_assignment();
+    new_tile.Reshape(rhs_tile_shape);
+    rhs_sharding = rhs_sharding.ReplicateOnLastTileDim()
+                       ? HloSharding::PartialTile(new_tile)
+                       : HloSharding::Tile(new_tile);
+  } else {
+    for (const auto& dim : partitioned_contracting_dims) {
+      lhs_tile_shape[dim.lhs] = rhs_tile_shape[dim.rhs];
+    }
+    auto new_tile = lhs.sharding().tile_assignment();
+    new_tile.Reshape(lhs_tile_shape);
+    lhs_sharding = lhs_sharding.ReplicateOnLastTileDim()
+                       ? HloSharding::PartialTile(new_tile)
+                       : HloSharding::Tile(new_tile);
+  }
+  return std::make_pair(lhs_sharding, rhs_sharding);
+}
+
 StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
     PartitionedHlo lhs, PartitionedHlo rhs,
     absl::Span<const DotConvDimsMapping::DimsMapping>
-        partitioned_contractin_dims,
-    int64 output_batch_partitions, int64 output_lhs_non_contracting_partitions,
-    int64 output_rhs_non_contracting_partitions, const Shape& output_base_shape,
-    const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions,
+        partitioned_contracting_dims,
+    int64_t output_batch_partitions,
+    int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions,
+    const Shape& output_base_shape, const HloSharding& output_sharding,
+    const DotConvDimsMapping& dims_mapping, int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -2095,38 +2279,19 @@ StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
       to_reset.first->set_sharding(to_reset.second);
     }
   });
-  auto lhs_sharding = lhs.sharding();
-  auto rhs_sharding = rhs.sharding();
-  auto lhs_tile_shape = lhs_sharding.tile_assignment().dimensions();
-  auto rhs_tile_shape = rhs_sharding.tile_assignment().dimensions();
   std::vector<int64> lhs_dims;
   std::vector<int64> rhs_dims;
-  int64 group_count = 1;
-  for (const auto& dim : partitioned_contractin_dims) {
+  int64_t group_count = 1;
+  for (const auto& dim : partitioned_contracting_dims) {
     lhs_dims.push_back(dim.lhs);
     rhs_dims.push_back(dim.rhs);
-    group_count *= lhs_sharding.tile_assignment().dim(dim.lhs);
+    group_count *= lhs.sharding().tile_assignment().dim(dim.lhs);
   }
-  if (ShapeUtil::ByteSizeOf(lhs.hlo()->shape()) >
-      ShapeUtil::ByteSizeOf(rhs.hlo()->shape())) {
-    for (const auto& dim : partitioned_contractin_dims) {
-      rhs_tile_shape[dim.rhs] = lhs_tile_shape[dim.lhs];
-    }
-    auto new_tile = rhs.sharding().tile_assignment();
-    new_tile.Reshape(rhs_tile_shape);
-    rhs_sharding = rhs_sharding.ReplicateOnLastTileDim()
-                       ? HloSharding::PartialTile(new_tile)
-                       : HloSharding::Tile(new_tile);
-  } else {
-    for (const auto& dim : partitioned_contractin_dims) {
-      lhs_tile_shape[dim.lhs] = rhs_tile_shape[dim.rhs];
-    }
-    auto new_tile = lhs.sharding().tile_assignment();
-    new_tile.Reshape(lhs_tile_shape);
-    lhs_sharding = lhs_sharding.ReplicateOnLastTileDim()
-                       ? HloSharding::PartialTile(new_tile)
-                       : HloSharding::Tile(new_tile);
-  }
+  HloSharding lhs_sharding = HloSharding::Replicate();
+  HloSharding rhs_sharding = HloSharding::Replicate();
+  std::tie(lhs_sharding, rhs_sharding) =
+      GetDotGroupPartitionContractingLhsRhsShardings(
+          lhs, rhs, partitioned_contracting_dims);
   auto lhs_grouped = GroupShardingOnDims(lhs_sharding, lhs_dims);
   auto rhs_grouped = GroupShardingOnDims(rhs_sharding, rhs_dims);
   if (ShapeUtil::ByteSizeOf(lhs.hlo()->shape()) >
@@ -2147,7 +2312,7 @@ StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
   }
   // Mask out invalid data.
   std::vector<int64> lhs_skipped_dims;
-  for (int64 i = 0; i < lhs.base_shape().rank(); ++i) {
+  for (int64_t i = 0; i < lhs.base_shape().rank(); ++i) {
     if (absl::c_linear_search(lhs_dims, i)) {
       continue;
     }
@@ -2157,7 +2322,7 @@ StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
       CreateZero(ShapeUtil::MakeShape(lhs.base_shape().element_type(), {}), b),
       /*left_padded_dims=*/{}, lhs_skipped_dims);
   std::vector<int64> rhs_skipped_dims;
-  for (int64 i = 0; i < rhs.base_shape().rank(); ++i) {
+  for (int64_t i = 0; i < rhs.base_shape().rank(); ++i) {
     if (absl::c_linear_search(rhs_dims, i)) {
       continue;
     }
@@ -2173,52 +2338,70 @@ StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
 
   HloSharding inner_output_sharding = HloSharding::Replicate();
   HloSharding outer_output_tmp_sharding = HloSharding::Replicate();
-  if (output_sharding.ReplicateOnLastTileDim() &&
-      output_sharding.tile_assignment().dimensions().back() % group_count ==
-          0) {
-    auto grouped = AlignGroupsWith(
-        GroupShardingOnDims(
-            output_sharding,
-            {output_sharding.tile_assignment().num_dimensions() - 1},
-            {output_sharding.tile_assignment().dimensions().back() /
-             group_count}),
-        lhs_grouped,
-        /*ignore_group_order=*/true);
-    outer_output_tmp_sharding = UngroupSharding(grouped);
-    inner_output_sharding = std::move(grouped.sharding);
-  } else {
-    std::vector<int64> group_dims;
-    if (auto found_dims = FindMatchingPartitionedDimsForGrouping(
-            output_sharding, lhs_grouped.device_groups)) {
-      group_dims = std::move(*found_dims);
-    } else if (output_lhs_non_contracting_partitions == group_count ||
-               output_rhs_non_contracting_partitions == group_count ||
-               output_batch_partitions == group_count) {
-      if (output_lhs_non_contracting_partitions == group_count) {
-        for (const auto& dim : dims_mapping.lhs_non_contracting_dims) {
-          group_dims.push_back(dim.output);
-        }
-      } else if (output_rhs_non_contracting_partitions == group_count) {
-        for (const auto& dim : dims_mapping.rhs_non_contracting_dims) {
-          group_dims.push_back(dim.output);
-        }
-      } else {
-        for (const auto& dim : dims_mapping.batch_dims) {
-          group_dims.push_back(dim.output);
-        }
+  std::vector<int64> output_slice_dims;
+  std::tie(inner_output_sharding, outer_output_tmp_sharding) =
+      GetDotGroupPartitionContractingOutputShardings(
+          dims_mapping, lhs_grouped, output_base_shape, output_sharding,
+          group_count, output_lhs_non_contracting_partitions,
+          output_rhs_non_contracting_partitions, output_batch_partitions,
+          &output_slice_dims);
+  Shape inner_output_base_shape = output_base_shape;
+  auto get_non_slice_dims = [&] {
+    std::vector<int64> non_group_dims;
+    for (int64_t i = 0; i < output_base_shape.rank(); ++i) {
+      if (!absl::c_linear_search(output_slice_dims, i)) {
+        non_group_dims.push_back(i);
       }
     }
-    if (!group_dims.empty()) {
-      auto grouped = AlignGroupsWith(
-          GroupShardingOnDims(output_sharding, group_dims), lhs_grouped);
-      inner_output_sharding = grouped.sharding;
-      outer_output_tmp_sharding =
-          hlo_sharding_util::PartiallyReplicateTiledShardingOnDims(
-              UngroupSharding(grouped), group_dims);
-    }
+    return non_group_dims;
+  };
+  if (!output_slice_dims.empty()) {
+    inner_output_base_shape = MakePartitionedShape(
+        output_base_shape,
+        hlo_sharding_util::PartiallyReplicateTiledShardingOnDims(
+            output_sharding, get_non_slice_dims()));
   }
-  auto inner_state = CreatePerGroupPartitioningState(
-      lhs.state(), lhs_grouped.device_groups, b);
+  std::function<StatusOr<HloInstruction*>(HloInstruction*, HloInstruction*,
+                                          SpmdBuilder*, const Window&)>
+      inner_creator =
+          [&](HloInstruction* l, HloInstruction* r, SpmdBuilder* b,
+              const Window& conv_window) -> StatusOr<HloInstruction*> {
+    TF_ASSIGN_OR_RETURN(auto inner_dot,
+                        create_sharded_dot(l, r, b, conv_window));
+    auto ar = lhs.state().partitioner->AllReduceAlongShardingDims(
+        b, inner_dot, lhs_sharding, lhs.state().next_channel_id, lhs_dims,
+        lhs.state().collective_ops_creator,
+        MakeBinaryAdd(output_base_shape.element_type(), module));
+    if (output_slice_dims.empty()) {
+      return ar;
+    }
+    // Use resharding to slice the output. Use a temporary reshard cache since
+    // we are faking with replicated sharding.
+    PartitionedHlo::PartitioningState new_state = lhs.state();
+    new_state.b = b;
+    new_state.partition_id =
+        lhs.state().collective_ops_creator.create_partition_id(b);
+    PartitionedHlo::ReshardCache tmp_cache;
+    new_state.reshard_cache = &tmp_cache;
+    ar->set_sharding(HloSharding::Replicate());
+    return PartitionedHlo(ar, ar->shape(), new_state)
+        .Reshard(hlo_sharding_util::PartiallyReplicateTiledShardingOnDims(
+            output_sharding, get_non_slice_dims()))
+        .hlo();
+  };
+  // Disable doing the inner reshard when the "faster windowed einsum" flag is
+  // enabled, because the windowed einsum implementation is currently slow with
+  // this kind of reshard happening.
+  if (options.choose_faster_windowed_einsum_over_mem) {
+    inner_output_base_shape = output_base_shape;
+    inner_creator = create_sharded_dot;
+    outer_output_tmp_sharding =
+        hlo_sharding_util::PartiallyReplicateTiledShardingOnDims(
+            outer_output_tmp_sharding, output_slice_dims);
+  }
+  PartitionedHlo::PartitioningState inner_state =
+      CreatePerGroupPartitioningState(lhs.state(), lhs_grouped.device_groups,
+                                      b);
   TF_ASSIGN_OR_RETURN(
       auto dot,
       PartitionDot(
@@ -2228,20 +2411,26 @@ StatusOr<HloInstruction*> PartitionDotGroupOnContracting(
           PartitionedHlo(rhs.hlo(),
                          GetPerGroupBaseShape(rhs_grouped, rhs.base_shape()),
                          inner_state),
-          output_base_shape, inner_output_sharding, dims_mapping,
-          num_partitions / group_count, create_sharded_dot, conv_window, module,
+          inner_output_base_shape, inner_output_sharding, dims_mapping,
+          num_partitions / group_count, inner_creator, conv_window, module,
           original_hlo, options, b, windowed_dot_general_loops));
   if (!dot) {
     return nullptr;
   }
-  auto ar = lhs.state().partitioner->AllReduceAlongShardingDims(
-      b, dot, lhs_sharding, lhs.state().next_channel_id, lhs_dims,
-      lhs.state().collective_ops_creator,
-      MakeBinaryAdd(output_base_shape.element_type(), module));
-  ar->set_sharding(outer_output_tmp_sharding);
-  return PartitionedHlo(ar, output_base_shape, lhs.state())
-      .Reshard(output_sharding)
-      .hlo();
+
+  if (options.choose_faster_windowed_einsum_over_mem) {
+    HloInstruction* ar = lhs.state().partitioner->AllReduceAlongShardingDims(
+        b, dot, lhs_sharding, lhs.state().next_channel_id, lhs_dims,
+        lhs.state().collective_ops_creator,
+        MakeBinaryAdd(output_base_shape.element_type(), module));
+    dot = ar;
+  }
+
+  dot->set_sharding(outer_output_tmp_sharding);
+  auto d = PartitionedHlo(dot, output_base_shape, lhs.state())
+               .Reshard(output_sharding)
+               .hlo();
+  return d;
 }
 
 DotConvDimsMapping ConvertDimsMappingWithFeatureGroupCount(
@@ -2284,17 +2473,309 @@ DotConvDimsMapping ConvertDimsMappingWithBatchGroupCount(
   return new_dims_mapping;
 }
 
+// Estimate the number of iterations of a subsequent windowed einsum
+// partitioning if its partitioned in the non-contracting dimensions.
+// First value returned is the estimate of the number of iterations if LHS is
+// matched while the second is the number of iterations if RHS is matched.
+std::pair<absl::optional<int64>, absl::optional<int64>>
+EstimateWindowedEinsumIterationsForNonContractingPartitioning(
+    const DotConvDimsMapping& dims_mapping, const PartitionedHlo& lhs,
+    const PartitionedHlo& rhs, const Shape& output_base_shape,
+    const HloSharding& output_sharding, const SpmdPartitionerOptions& options,
+    int64_t num_partitions, int64_t lhs_non_contracting_partitions,
+    int64_t rhs_non_contracting_partitions, int64_t lhs_matching_partitions,
+    int64_t rhs_matching_partitions, int64_t lhs_contracting_partitions,
+    int64_t rhs_contracting_partitions,
+    int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions, int64_t lhs_batch_partitions,
+    int64_t rhs_batch_partitions) {
+  const DotDimensionIndexMapping indices_map = ComputeDimensionIndexMapping(
+      dims_mapping, lhs.base_shape().rank(), rhs.base_shape().rank(),
+      output_base_shape.rank());
+  auto subsequent_einsum_iterations_estimate =
+      [&](bool assume_lhs_match) -> absl::optional<int64> {
+    const std::vector<DotConvDimsMapping::DimsMapping>&
+        matching_non_contracting_dims =
+            assume_lhs_match ? dims_mapping.lhs_non_contracting_dims
+                             : dims_mapping.rhs_non_contracting_dims;
+    const std::vector<DotConvDimsMapping::DimsMapping>&
+        other_non_contracting_dims =
+            assume_lhs_match ? dims_mapping.rhs_non_contracting_dims
+                             : dims_mapping.lhs_non_contracting_dims;
+    const std::vector<int64>& output_to_matching_indices =
+        assume_lhs_match ? indices_map.output_to_lhs_indices
+                         : indices_map.output_to_rhs_indices;
+    const std::vector<int64>& output_to_other_indices =
+        assume_lhs_match ? indices_map.output_to_rhs_indices
+                         : indices_map.output_to_lhs_indices;
+    const std::vector<int64>& matching_to_output_indices =
+        assume_lhs_match ? indices_map.lhs_to_output_indices
+                         : indices_map.rhs_to_output_indices;
+    const std::vector<int64>& other_to_output_indices =
+        assume_lhs_match ? indices_map.rhs_to_output_indices
+                         : indices_map.lhs_to_output_indices;
+    const HloSharding& matching_sharding =
+        assume_lhs_match ? lhs.sharding() : rhs.sharding();
+    const HloSharding& other_sharding =
+        assume_lhs_match ? rhs.sharding() : lhs.sharding();
+    const PartitionedHlo& matching_partitioned = assume_lhs_match ? lhs : rhs;
+    const PartitionedHlo& other_partitioned = assume_lhs_match ? rhs : lhs;
+    const int64_t matching_non_contracting_partitions =
+        assume_lhs_match ? lhs_non_contracting_partitions
+                         : rhs_non_contracting_partitions;
+    const int64_t other_non_contracting_partitions =
+        assume_lhs_match ? rhs_non_contracting_partitions
+                         : lhs_non_contracting_partitions;
+    const int64_t matching_contracting_partitions =
+        assume_lhs_match ? lhs_contracting_partitions
+                         : rhs_contracting_partitions;
+    const int64_t other_contracting_partitions =
+        assume_lhs_match ? rhs_contracting_partitions
+                         : lhs_contracting_partitions;
+    const int64_t output_matching_non_contracting_partitions =
+        assume_lhs_match ? output_lhs_non_contracting_partitions
+                         : output_rhs_non_contracting_partitions;
+    const int64_t output_other_non_contracting_partitions =
+        assume_lhs_match ? output_rhs_non_contracting_partitions
+                         : output_lhs_non_contracting_partitions;
+    const int64_t matching_batch_partitions =
+        assume_lhs_match ? lhs_batch_partitions : rhs_batch_partitions;
+    const int64_t other_batch_partitions =
+        assume_lhs_match ? rhs_batch_partitions : lhs_batch_partitions;
+    const int64_t matching_matched_non_contracting_partitions =
+        assume_lhs_match ? lhs_non_contracting_partitions
+                         : rhs_non_contracting_partitions;
+    std::vector<int64> output_dims;
+    output_dims.reserve(matching_non_contracting_dims.size());
+    for (const DotConvDimsMapping::DimsMapping& dim :
+         matching_non_contracting_dims) {
+      output_dims.push_back(dim.output);
+    }
+    GroupedSharding output_grouped =
+        GroupShardingOnDims(output_sharding, output_dims);
+    GroupedSharding matching_grouped =
+        GetNonContractingPartitionGroupedShardingForMatchedOperand(
+            assume_lhs_match, matching_sharding, output_sharding,
+            matching_non_contracting_dims);
+    absl::optional<GroupedSharding> other_grouped =
+        GetNonContractingPartitionGroupedShardingForOtherOperand(
+            assume_lhs_match, output_base_shape,
+            other_partitioned.hlo()->shape(), other_contracting_partitions,
+            other_non_contracting_partitions, matching_contracting_partitions,
+            output_other_non_contracting_partitions, other_sharding,
+            output_sharding, matching_non_contracting_dims,
+            other_non_contracting_dims, dims_mapping.contracting_dims);
+    if (!other_grouped) {
+      return absl::nullopt;
+    }
+    absl::optional<HloSharding> output_sharding_transposed_to_match_matching =
+        hlo_sharding_util::TransposeShardingWithCollapsedDims(
+            output_grouped.sharding, output_to_matching_indices,
+            matching_to_output_indices);
+    absl::optional<HloSharding> output_sharding_transposed_to_match_other =
+        hlo_sharding_util::TransposeShardingWithCollapsedDims(
+            output_grouped.sharding, output_to_other_indices,
+            other_to_output_indices);
+    const int64_t new_num_partitions =
+        num_partitions / matching_non_contracting_partitions;
+    absl::optional<WindowedEinsumConfig> e_config =
+        GetWindowedEinsumConfiguration(
+            new_num_partitions, output_matching_non_contracting_partitions,
+            output_other_non_contracting_partitions,
+            other_contracting_partitions, other_non_contracting_partitions,
+            other_batch_partitions, matching_contracting_partitions,
+            matching_non_contracting_partitions /
+                matching_matched_non_contracting_partitions,
+            matching_batch_partitions,
+            ShapeSizeInBytes(other_partitioned.base_shape()),
+            ShapeSizeInBytes(matching_partitioned.base_shape()) /
+                matching_non_contracting_partitions,
+            ShapeSizeInBytes(
+                GetPerGroupBaseShape(output_grouped, output_base_shape)),
+            options.threshold_for_windowed_einsum_mib,
+            output_sharding_transposed_to_match_matching,
+            output_sharding_transposed_to_match_other,
+            matching_grouped.sharding, other_grouped->sharding);
+    return e_config ? new_num_partitions : absl::optional<int64>(absl::nullopt);
+  };
+  absl::optional<int64> lhs_matching_iterations;
+  if (lhs_matching_partitions != 0) {
+    lhs_matching_iterations = subsequent_einsum_iterations_estimate(true);
+  }
+  absl::optional<int64> rhs_matching_iterations;
+  if (rhs_matching_partitions != 0) {
+    rhs_matching_iterations = subsequent_einsum_iterations_estimate(false);
+  }
+  return std::make_pair(lhs_matching_iterations, rhs_matching_iterations);
+}
+
+// Return if we should prioritize partitioning in the contracting dimensions
+// first then non-contracting dimensions if we estimate that would allow
+// for a fewer number of iterations of the windowed einsum.
+bool PrioritizeContractingDimensionsPartitioning(
+    const DotConvDimsMapping& dims_mapping, const PartitionedHlo& lhs,
+    const PartitionedHlo& rhs, const Shape& output_base_shape,
+    const HloSharding& output_sharding, const SpmdPartitionerOptions& options,
+    int64_t num_partitions, int64_t lhs_non_contracting_partitions,
+    int64_t rhs_non_contracting_partitions, int64_t lhs_contracting_partitions,
+    int64_t rhs_contracting_partitions,
+    int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions, int64_t lhs_batch_partitions,
+    int64_t rhs_batch_partitions, int64_t output_batch_partitions,
+    bool require_matching_devices_to_group) {
+  const bool may_group_on_lhs_non_contracting =
+      lhs_non_contracting_partitions == output_lhs_non_contracting_partitions &&
+      lhs_non_contracting_partitions > 1;
+  const bool may_group_on_rhs_non_contracting =
+      rhs_non_contracting_partitions == output_rhs_non_contracting_partitions &&
+      rhs_non_contracting_partitions > 1;
+  if (!options.choose_faster_windowed_einsum_over_mem) {
+    return false;
+  }
+  // Check only for perfect dimensions match for now.
+  if (!may_group_on_lhs_non_contracting && !may_group_on_rhs_non_contracting) {
+    return false;
+  }
+  absl::optional<int64> lhs_matching_iterations;
+  absl::optional<int64> rhs_matching_iterations;
+  const int64_t lhs_matching_non_contracting_partitions =
+      may_group_on_lhs_non_contracting ? lhs_non_contracting_partitions : 0;
+  const int64_t rhs_matching_non_contracting_partitions =
+      may_group_on_rhs_non_contracting ? rhs_non_contracting_partitions : 0;
+  std::tie(lhs_matching_iterations, rhs_matching_iterations) =
+      EstimateWindowedEinsumIterationsForNonContractingPartitioning(
+          dims_mapping, lhs, rhs, output_base_shape, output_sharding, options,
+          num_partitions, lhs_non_contracting_partitions,
+          rhs_non_contracting_partitions,
+          lhs_matching_non_contracting_partitions,
+          rhs_matching_non_contracting_partitions, lhs_contracting_partitions,
+          rhs_contracting_partitions, output_lhs_non_contracting_partitions,
+          output_rhs_non_contracting_partitions, lhs_batch_partitions,
+          rhs_batch_partitions);
+  if (!lhs_matching_iterations && !rhs_matching_iterations) {
+    return false;
+  }
+  // Be conservative and handle only case where the two partitions in rhs and
+  // lhs match
+  if (!(lhs_contracting_partitions == rhs_contracting_partitions &&
+        lhs_contracting_partitions > 1)) {
+    return false;
+  }
+  // Estimate the iterations in the case we perform the partitioning on the
+  // contracting dimensions instead.
+  std::vector<int64> lhs_dims;
+  std::vector<int64> rhs_dims;
+  int64_t group_count = 1;
+  for (const auto& dim : dims_mapping.contracting_dims) {
+    lhs_dims.push_back(dim.lhs);
+    rhs_dims.push_back(dim.rhs);
+    group_count *= lhs.sharding().tile_assignment().dim(dim.lhs);
+  }
+  HloSharding lhs_sharding = HloSharding::Replicate();
+  HloSharding rhs_sharding = HloSharding::Replicate();
+  std::tie(lhs_sharding, rhs_sharding) =
+      GetDotGroupPartitionContractingLhsRhsShardings(
+          lhs, rhs, dims_mapping.contracting_dims);
+  auto lhs_grouped = GroupShardingOnDims(lhs_sharding, lhs_dims);
+  auto rhs_grouped = GroupShardingOnDims(rhs_sharding, rhs_dims);
+  rhs_grouped = AlignGroupsWith(rhs_grouped, lhs_grouped);
+  rhs_sharding = UngroupSharding(rhs_grouped);
+
+  if (require_matching_devices_to_group && rhs.sharding() != rhs_sharding) {
+    return false;
+  }
+  const int64_t new_num_partitions =
+      num_partitions / lhs_contracting_partitions;
+
+  HloSharding inner_output_sharding = HloSharding::Replicate();
+  HloSharding outer_output_tmp_sharding = HloSharding::Replicate();
+  std::vector<int64> output_slice_dims;
+  std::tie(inner_output_sharding, outer_output_tmp_sharding) =
+      GetDotGroupPartitionContractingOutputShardings(
+          dims_mapping, lhs_grouped, output_base_shape, output_sharding,
+          group_count, output_lhs_non_contracting_partitions,
+          output_rhs_non_contracting_partitions, output_batch_partitions,
+          &output_slice_dims);
+  Shape inner_output_base_shape = output_base_shape;
+  if (!output_slice_dims.empty()) {
+    std::vector<int64> non_group_dims;
+    for (int64_t i = 0; i < output_base_shape.rank(); ++i) {
+      if (!absl::c_linear_search(output_slice_dims, i)) {
+        non_group_dims.push_back(i);
+      }
+    }
+    inner_output_base_shape = MakePartitionedShape(
+        output_base_shape,
+        hlo_sharding_util::PartiallyReplicateTiledShardingOnDims(
+            output_sharding, non_group_dims));
+  }
+  int64_t new_output_lhs_non_contracting_partitions = 1;
+  int64_t new_output_rhs_non_contracting_partitions = 1;
+  if (!inner_output_sharding.IsTileMaximal()) {
+    for (const auto& dim : dims_mapping.lhs_non_contracting_dims) {
+      new_output_lhs_non_contracting_partitions *=
+          inner_output_sharding.tile_assignment().dim(dim.output);
+    }
+    for (const auto& dim : dims_mapping.rhs_non_contracting_dims) {
+      if (dim.output != -1) {
+        new_output_rhs_non_contracting_partitions *=
+            inner_output_sharding.tile_assignment().dim(dim.output);
+      }
+    }
+  }
+
+  const DotDimensionIndexMapping indices_map = ComputeDimensionIndexMapping(
+      dims_mapping, lhs.base_shape().rank(), rhs.base_shape().rank(),
+      inner_output_base_shape.rank());
+  absl::optional<HloSharding> output_sharding_transposed_to_match_lhs =
+      hlo_sharding_util::TransposeShardingWithCollapsedDims(
+          inner_output_sharding, indices_map.output_to_lhs_indices,
+          indices_map.lhs_to_output_indices);
+  absl::optional<HloSharding> output_sharding_transposed_to_match_rhs =
+      hlo_sharding_util::TransposeShardingWithCollapsedDims(
+          inner_output_sharding, indices_map.output_to_rhs_indices,
+          indices_map.rhs_to_output_indices);
+  absl::optional<WindowedEinsumConfig> e_config =
+      GetWindowedEinsumConfiguration(
+          new_num_partitions, new_output_lhs_non_contracting_partitions,
+          new_output_rhs_non_contracting_partitions, 1,
+          rhs_non_contracting_partitions, rhs_batch_partitions, 1,
+          lhs_non_contracting_partitions, lhs_batch_partitions,
+          ShapeSizeInBytes(GetPerGroupBaseShape(rhs_grouped, rhs.base_shape())),
+          ShapeSizeInBytes(GetPerGroupBaseShape(lhs_grouped, lhs.base_shape())),
+          ShapeSizeInBytes(inner_output_base_shape),
+          options.threshold_for_windowed_einsum_mib,
+          output_sharding_transposed_to_match_lhs,
+          output_sharding_transposed_to_match_rhs, lhs_grouped.sharding,
+          rhs_grouped.sharding);
+  if (!e_config) {
+    return false;
+  }
+  const int64_t min_nc_iterations =
+      std::min(lhs_matching_iterations ? *lhs_matching_iterations : INT64_MAX,
+               rhs_matching_iterations ? *rhs_matching_iterations : INT64_MAX);
+  return min_nc_iterations > new_num_partitions;
+}
+
+// Return if it would be better to match the LHS operand or RHS operand
+// of a dot for non-contracting partitioning.
 bool LhsIsBestMatchForNonContractingPartitioning(
     const DotConvDimsMapping& dims_mapping, const PartitionedHlo& lhs,
     const PartitionedHlo& rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const SpmdPartitionerOptions& options,
-    int64 num_partitions, int64 lhs_non_contracting_partitions,
-    int64 rhs_non_contracting_partitions, int64 lhs_contracting_partitions,
-    int64 rhs_contracting_partitions,
-    int64 output_lhs_non_contracting_partitions,
-    int64 output_rhs_non_contracting_partitions, int64 lhs_batch_partitions,
-    int64 rhs_batch_partitions, bool may_group_on_lhs_non_contracting,
-    bool may_group_on_rhs_non_contracting) {
+    int64_t num_partitions, int64_t lhs_non_contracting_partitions,
+    int64_t rhs_non_contracting_partitions, int64_t lhs_matching_partitions,
+    int64_t rhs_matching_partitions, int64_t lhs_contracting_partitions,
+    int64_t rhs_contracting_partitions,
+    int64_t output_lhs_non_contracting_partitions,
+    int64_t output_rhs_non_contracting_partitions, int64_t lhs_batch_partitions,
+    int64_t rhs_batch_partitions) {
+  const bool may_group_on_lhs_non_contracting =
+      lhs_non_contracting_partitions == output_lhs_non_contracting_partitions &&
+      lhs_non_contracting_partitions > 1;
+  const bool may_group_on_rhs_non_contracting =
+      rhs_non_contracting_partitions == output_rhs_non_contracting_partitions &&
+      rhs_non_contracting_partitions > 1;
   // If both match output non-contracting dimensions, choose the one which
   // will result in smaller replication of the other operand.
   bool lhs_matching = may_group_on_lhs_non_contracting &&
@@ -2306,117 +2787,24 @@ bool LhsIsBestMatchForNonContractingPartitioning(
   // If both grouping are available and the option to choose faster windowed
   // einsums vs saving memory is enabled then try to determine which of the
   // operands will generate the least amount of iterations for the windowed
-  // einsum when matched (if a windowed einsum is gonna be generated at all).
+  // einsum when matched (if a windowed einsum is gonna be generated at
+  // all).
   if (may_group_on_lhs_non_contracting && may_group_on_rhs_non_contracting &&
       options.choose_faster_windowed_einsum_over_mem) {
     const DotDimensionIndexMapping indices_map = ComputeDimensionIndexMapping(
         dims_mapping, lhs.base_shape().rank(), rhs.base_shape().rank(),
         output_base_shape.rank());
-    auto subsequent_einsum_iterations_estimate =
-        [&](bool assume_lhs_match) -> absl::optional<int64> {
-      const std::vector<DotConvDimsMapping::DimsMapping>&
-          matching_non_contracting_dims =
-              assume_lhs_match ? dims_mapping.lhs_non_contracting_dims
-                               : dims_mapping.rhs_non_contracting_dims;
-      const std::vector<DotConvDimsMapping::DimsMapping>&
-          other_non_contracting_dims =
-              assume_lhs_match ? dims_mapping.rhs_non_contracting_dims
-                               : dims_mapping.lhs_non_contracting_dims;
-      const std::vector<int64>& output_to_matching_indices =
-          assume_lhs_match ? indices_map.output_to_lhs_indices
-                           : indices_map.output_to_rhs_indices;
-      const std::vector<int64>& output_to_other_indices =
-          assume_lhs_match ? indices_map.output_to_rhs_indices
-                           : indices_map.output_to_lhs_indices;
-      const std::vector<int64>& matching_to_output_indices =
-          assume_lhs_match ? indices_map.lhs_to_output_indices
-                           : indices_map.rhs_to_output_indices;
-      const std::vector<int64>& other_to_output_indices =
-          assume_lhs_match ? indices_map.rhs_to_output_indices
-                           : indices_map.lhs_to_output_indices;
-      const HloSharding& matching_sharding =
-          assume_lhs_match ? lhs.sharding() : rhs.sharding();
-      const HloSharding& other_sharding =
-          assume_lhs_match ? rhs.sharding() : lhs.sharding();
-      const PartitionedHlo& matching_partitioned = assume_lhs_match ? lhs : rhs;
-      const PartitionedHlo& other_partitioned = assume_lhs_match ? rhs : lhs;
-      const int64 matching_non_contracting_partitions =
-          assume_lhs_match ? lhs_non_contracting_partitions
-                           : rhs_non_contracting_partitions;
-      const int64 other_non_contracting_partitions =
-          assume_lhs_match ? rhs_non_contracting_partitions
-                           : lhs_non_contracting_partitions;
-      const int64 matching_contracting_partitions =
-          assume_lhs_match ? lhs_contracting_partitions
-                           : rhs_contracting_partitions;
-      const int64 other_contracting_partitions =
-          assume_lhs_match ? rhs_contracting_partitions
-                           : lhs_contracting_partitions;
-      const int64 output_matching_non_contracting_partitions =
-          assume_lhs_match ? output_lhs_non_contracting_partitions
-                           : output_rhs_non_contracting_partitions;
-      const int64 output_other_non_contracting_partitions =
-          assume_lhs_match ? output_rhs_non_contracting_partitions
-                           : output_lhs_non_contracting_partitions;
-      const int64 matching_batch_partitions =
-          assume_lhs_match ? lhs_batch_partitions : rhs_batch_partitions;
-      const int64 other_batch_partitions =
-          assume_lhs_match ? rhs_batch_partitions : lhs_batch_partitions;
-      std::vector<int64> output_dims;
-      output_dims.reserve(matching_non_contracting_dims.size());
-      for (const DotConvDimsMapping::DimsMapping& dim :
-           matching_non_contracting_dims) {
-        output_dims.push_back(dim.output);
-      }
-      GroupedSharding output_grouped =
-          GroupShardingOnDims(output_sharding, output_dims);
-      GroupedSharding matching_grouped =
-          GetNonContractingPartitionGroupedShardingForMatchedOperand(
-              assume_lhs_match, matching_sharding, output_sharding,
-              matching_non_contracting_dims);
-      absl::optional<GroupedSharding> other_grouped =
-          GetNonContractingPartitionGroupedShardingForOtherOperand(
-              assume_lhs_match, output_base_shape,
-              other_partitioned.hlo()->shape(), other_contracting_partitions,
-              other_non_contracting_partitions, matching_contracting_partitions,
-              output_other_non_contracting_partitions, other_sharding,
-              output_sharding, matching_non_contracting_dims,
-              other_non_contracting_dims, dims_mapping.contracting_dims);
-      absl::optional<HloSharding> output_sharding_transposed_to_match_matching =
-          hlo_sharding_util::TransposeShardingWithCollapsedDims(
-              output_grouped.sharding, output_to_matching_indices,
-              matching_to_output_indices);
-      absl::optional<HloSharding> output_sharding_transposed_to_match_other =
-          hlo_sharding_util::TransposeShardingWithCollapsedDims(
-              output_grouped.sharding, output_to_other_indices,
-              other_to_output_indices);
-      const int64 new_num_partitions =
-          num_partitions / matching_non_contracting_partitions;
-      const int64 output_sharding_dim = FirstShardingDimWithPartitionOfSize(
-          new_num_partitions, output_grouped.sharding);
-      absl::optional<WindowedEinsumConfig> e_config =
-          GetWindowedEinsumConfiguration(
-              new_num_partitions, output_matching_non_contracting_partitions,
-              output_other_non_contracting_partitions, 1,
-              other_non_contracting_partitions, other_batch_partitions,
-              matching_contracting_partitions, 1, matching_batch_partitions,
-              output_sharding_dim,
-              ShapeSizeInBytes(other_partitioned.base_shape()),
-              ShapeSizeInBytes(matching_partitioned.base_shape()) /
-                  matching_non_contracting_partitions,
-              ShapeSizeInBytes(
-                  GetPerGroupBaseShape(output_grouped, output_base_shape)),
-              options.threshold_for_windowed_einsum_mib,
-              output_sharding_transposed_to_match_matching,
-              output_sharding_transposed_to_match_other,
-              matching_grouped.sharding, other_grouped->sharding);
-      return e_config ? new_num_partitions
-                      : absl::optional<int64>(absl::nullopt);
-    };
-    absl::optional<int64> lhs_matching_iterations =
-        subsequent_einsum_iterations_estimate(true);
-    absl::optional<int64> rhs_matching_iterations =
-        subsequent_einsum_iterations_estimate(false);
+    absl::optional<int64> lhs_matching_iterations;
+    absl::optional<int64> rhs_matching_iterations;
+    std::tie(lhs_matching_iterations, rhs_matching_iterations) =
+        EstimateWindowedEinsumIterationsForNonContractingPartitioning(
+            dims_mapping, lhs, rhs, output_base_shape, output_sharding, options,
+            num_partitions, lhs_non_contracting_partitions,
+            rhs_non_contracting_partitions, lhs_matching_partitions,
+            rhs_matching_partitions, lhs_contracting_partitions,
+            rhs_contracting_partitions, output_lhs_non_contracting_partitions,
+            output_rhs_non_contracting_partitions, lhs_batch_partitions,
+            rhs_batch_partitions);
     if (lhs_matching_iterations && rhs_matching_iterations &&
         *lhs_matching_iterations != *rhs_matching_iterations) {
       lhs_matching = *lhs_matching_iterations < *rhs_matching_iterations;
@@ -2425,13 +2813,13 @@ bool LhsIsBestMatchForNonContractingPartitioning(
   return lhs_matching;
 }
 
-// Recursive partitioning function. If there are partial dimensions matching in
-// the operands and output, group the devices and recursively partition the
-// in-group dot.
+// Recursive partitioning function. If there are partial dimensions matching
+// in the operands and output, group the devices and recursively partition
+// the in-group dot.
 StatusOr<HloInstruction*> PartitionDot(
     PartitionedHlo lhs, PartitionedHlo rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions,
+    int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -2453,7 +2841,7 @@ StatusOr<HloInstruction*> PartitionDot(
       [&](const HloSharding& sharding,
           absl::Span<const DotConvDimsMapping::DimsMapping> dims,
           int lhs_rhs_or_output) {
-        int64 partitions = 1;
+        int64_t partitions = 1;
         if (sharding.IsTileMaximal()) {
           return partitions;
         }
@@ -2469,35 +2857,36 @@ StatusOr<HloInstruction*> PartitionDot(
         }
         return partitions;
       };
-  const int64 lhs_batch_partitions =
+  const int64_t lhs_batch_partitions =
       get_partitions_for_dims(lhs.sharding(), dims_mapping.batch_dims, 0);
-  const int64 rhs_batch_partitions =
+  const int64_t rhs_batch_partitions =
       get_partitions_for_dims(rhs.sharding(), dims_mapping.batch_dims, 1);
-  const int64 output_batch_partitions =
+  const int64_t output_batch_partitions =
       get_partitions_for_dims(output_sharding, dims_mapping.batch_dims, 2);
-  const int64 lhs_contracting_partitions =
+  const int64_t lhs_contracting_partitions =
       get_partitions_for_dims(lhs.sharding(), dims_mapping.contracting_dims, 0);
-  const int64 rhs_contracting_partitions =
+  const int64_t rhs_contracting_partitions =
       get_partitions_for_dims(rhs.sharding(), dims_mapping.contracting_dims, 1);
-  const int64 lhs_non_contracting_partitions = get_partitions_for_dims(
+  const int64_t lhs_non_contracting_partitions = get_partitions_for_dims(
       lhs.sharding(), dims_mapping.lhs_non_contracting_dims, 0);
-  const int64 rhs_non_contracting_partitions = get_partitions_for_dims(
+  const int64_t rhs_non_contracting_partitions = get_partitions_for_dims(
       rhs.sharding(), dims_mapping.rhs_non_contracting_dims, 1);
-  const int64 output_lhs_non_contracting_partitions = get_partitions_for_dims(
+  const int64_t output_lhs_non_contracting_partitions = get_partitions_for_dims(
       output_sharding, dims_mapping.lhs_non_contracting_dims, 2);
-  const int64 output_rhs_non_contracting_partitions = get_partitions_for_dims(
+  const int64_t output_rhs_non_contracting_partitions = get_partitions_for_dims(
       output_sharding, dims_mapping.rhs_non_contracting_dims, 2);
-  const int64 lhs_conv_spatial_partitions = get_partitions_for_dims(
+  const int64_t lhs_conv_spatial_partitions = get_partitions_for_dims(
       lhs.sharding(), dims_mapping.conv_spatial_dims, 0);
-  const int64 rhs_conv_spatial_partitions = get_partitions_for_dims(
+  const int64_t rhs_conv_spatial_partitions = get_partitions_for_dims(
       rhs.sharding(), dims_mapping.conv_spatial_dims, 1);
-  const int64 output_conv_spatial_partitions = get_partitions_for_dims(
+  const int64_t output_conv_spatial_partitions = get_partitions_for_dims(
       output_sharding, dims_mapping.conv_spatial_dims, 2);
-  // Before we find partial matches along the dimensions, invoke base case again
-  // without may_reshard_without_detecting_match.
+  // Before we find partial matches along the dimensions, invoke base case
+  // again without may_reshard_without_detecting_match.
 
-  // Try partition the purely spatially-partitioned convolution with convolution
-  // spatial dimension partitioned or depthwise parallel dimension partitioned.
+  // Try partition the purely spatially-partitioned convolution with
+  // convolution spatial dimension partitioned or depthwise parallel
+  // dimension partitioned.
   bool is_conv_spatial_dim_partitioned =
       (lhs_conv_spatial_partitions > 1 || rhs_conv_spatial_partitions > 1 ||
        output_conv_spatial_partitions > 1);
@@ -2511,8 +2900,8 @@ StatusOr<HloInstruction*> PartitionDot(
       (original_hlo->opcode() == HloOpcode::kConvolution &&
        (original_hlo->batch_group_count() > 1 ||
         original_hlo->feature_group_count() > 1))) {
-    // Partition with kernel_input_feature_dim > 1 and feature_group_count > 1
-    // is not supported.
+    // Partition with kernel_input_feature_dim > 1 and feature_group_count >
+    // 1 is not supported.
     const auto& dnums = original_hlo->convolution_dimension_numbers();
     if (original_hlo->feature_group_count() > 1 &&
         rhs.hlo()->shape().dimensions(dnums.kernel_input_feature_dimension()) >
@@ -2531,8 +2920,8 @@ StatusOr<HloInstruction*> PartitionDot(
       return partitioned_conv;
     }
 
-    // Recursively partition on different types of dimensions for convolution.
-    // Case 0.a: Group partitions by feature group count.
+    // Recursively partition on different types of dimensions for
+    // convolution. Case 0.a: Group partitions by feature group count.
     if (original_hlo->feature_group_count() > 1 ||
         original_hlo->batch_group_count() > 1) {
       DotConvDimsMapping new_dims_mapping;
@@ -2546,19 +2935,21 @@ StatusOr<HloInstruction*> PartitionDot(
             ConvertDimsMappingWithBatchGroupCount(dims_mapping, original_hlo);
       }
 
-      const int64 conv_lhs_contracting_partitions = get_partitions_for_dims(
+      const int64_t conv_lhs_contracting_partitions = get_partitions_for_dims(
           lhs.sharding(), new_dims_mapping.contracting_dims, 0);
-      const int64 conv_rhs_contracting_partitions = get_partitions_for_dims(
+      const int64_t conv_rhs_contracting_partitions = get_partitions_for_dims(
           rhs.sharding(), new_dims_mapping.contracting_dims, 1);
-      const int64 conv_lhs_non_contracting_partitions = get_partitions_for_dims(
-          lhs.sharding(), new_dims_mapping.lhs_non_contracting_dims, 0);
-      const int64 conv_rhs_non_contracting_partitions = get_partitions_for_dims(
-          rhs.sharding(), new_dims_mapping.rhs_non_contracting_dims, 1);
-      const int64 conv_lhs_batch_partitions = get_partitions_for_dims(
+      const int64_t conv_lhs_non_contracting_partitions =
+          get_partitions_for_dims(lhs.sharding(),
+                                  new_dims_mapping.lhs_non_contracting_dims, 0);
+      const int64_t conv_rhs_non_contracting_partitions =
+          get_partitions_for_dims(rhs.sharding(),
+                                  new_dims_mapping.rhs_non_contracting_dims, 1);
+      const int64_t conv_lhs_batch_partitions = get_partitions_for_dims(
           lhs.sharding(), new_dims_mapping.batch_dims, 0);
-      const int64 conv_rhs_batch_partitions = get_partitions_for_dims(
+      const int64_t conv_rhs_batch_partitions = get_partitions_for_dims(
           rhs.sharding(), new_dims_mapping.batch_dims, 1);
-      const int64 conv_output_batch_partitions = get_partitions_for_dims(
+      const int64_t conv_output_batch_partitions = get_partitions_for_dims(
           output_sharding, new_dims_mapping.batch_dims, 2);
       if ((conv_lhs_batch_partitions == conv_output_batch_partitions ||
            conv_rhs_batch_partitions == conv_output_batch_partitions) &&
@@ -2625,15 +3016,51 @@ StatusOr<HloInstruction*> PartitionDot(
   const bool may_group_on_rhs_non_contracting =
       rhs_non_contracting_partitions == output_rhs_non_contracting_partitions &&
       rhs_non_contracting_partitions > 1;
+  bool lhs_matching = false;
+  std::vector<DotConvDimsMapping::DimsMapping> matching_dims;
   if (may_group_on_lhs_non_contracting || may_group_on_rhs_non_contracting) {
-    const bool lhs_matching = LhsIsBestMatchForNonContractingPartitioning(
+    lhs_matching = LhsIsBestMatchForNonContractingPartitioning(
         dims_mapping, lhs, rhs, output_base_shape, output_sharding, options,
         num_partitions, lhs_non_contracting_partitions,
+        rhs_non_contracting_partitions, lhs_non_contracting_partitions,
         rhs_non_contracting_partitions, lhs_contracting_partitions,
         rhs_contracting_partitions, output_lhs_non_contracting_partitions,
         output_rhs_non_contracting_partitions, lhs_batch_partitions,
-        rhs_batch_partitions, may_group_on_lhs_non_contracting,
-        may_group_on_rhs_non_contracting);
+        rhs_batch_partitions);
+    matching_dims = lhs_matching ? dims_mapping.lhs_non_contracting_dims
+                                 : dims_mapping.rhs_non_contracting_dims;
+  } else if (lhs_non_contracting_partitions > 1 &&
+             output_lhs_non_contracting_partitions > 1) {
+    lhs_matching = true;
+    for (const auto& dim : dims_mapping.lhs_non_contracting_dims) {
+      int64_t lhs_partitions = lhs.sharding().tile_assignment().dim(dim.lhs);
+      if (lhs_partitions > 1 &&
+          lhs_partitions == output_sharding.tile_assignment().dim(dim.output)) {
+        matching_dims.push_back(dim);
+      }
+    }
+  } else if (rhs_non_contracting_partitions > 1 &&
+             output_rhs_non_contracting_partitions > 1) {
+    lhs_matching = false;
+    for (const auto& dim : dims_mapping.rhs_non_contracting_dims) {
+      int64_t rhs_partitions = rhs.sharding().tile_assignment().dim(dim.rhs);
+      if (rhs_partitions > 1 &&
+          rhs_partitions == output_sharding.tile_assignment().dim(dim.output)) {
+        matching_dims.push_back(dim);
+      }
+    }
+  }
+  const bool prioritize_contracting_for_faster_windowed_einsum =
+      PrioritizeContractingDimensionsPartitioning(
+          dims_mapping, lhs, rhs, output_base_shape, output_sharding, options,
+          num_partitions, lhs_non_contracting_partitions,
+          rhs_non_contracting_partitions, lhs_contracting_partitions,
+          rhs_contracting_partitions, output_lhs_non_contracting_partitions,
+          output_rhs_non_contracting_partitions, lhs_batch_partitions,
+          rhs_batch_partitions, output_batch_partitions,
+          require_matching_devices_to_group);
+  if (!(matching_dims.empty() ||
+        prioritize_contracting_for_faster_windowed_einsum)) {
     TF_ASSIGN_OR_RETURN(
         auto dot,
         PartitionDotGroupOnNonContracting(
@@ -2642,8 +3069,7 @@ StatusOr<HloInstruction*> PartitionDot(
                          : rhs_contracting_partitions,
             lhs_matching ? rhs_contracting_partitions
                          : lhs_contracting_partitions,
-            lhs_matching ? dims_mapping.lhs_non_contracting_dims
-                         : dims_mapping.rhs_non_contracting_dims,
+            matching_dims,
             lhs_matching ? rhs_non_contracting_partitions
                          : lhs_non_contracting_partitions,
             lhs_matching ? output_rhs_non_contracting_partitions
@@ -2654,60 +3080,6 @@ StatusOr<HloInstruction*> PartitionDot(
             windowed_dot_general_loops));
     if (dot) {
       return dot;
-    }
-  }
-  if (lhs_non_contracting_partitions > 1 &&
-      output_lhs_non_contracting_partitions > 1) {
-    // If part of LHS non-contracting dims match output, try them.
-    std::vector<DotConvDimsMapping::DimsMapping> matching_dims;
-    for (const auto& dim : dims_mapping.lhs_non_contracting_dims) {
-      int64 lhs_partitions = lhs.sharding().tile_assignment().dim(dim.lhs);
-      if (lhs_partitions > 1 &&
-          lhs_partitions == output_sharding.tile_assignment().dim(dim.output)) {
-        matching_dims.push_back(dim);
-      }
-    }
-    if (!matching_dims.empty()) {
-      TF_ASSIGN_OR_RETURN(
-          auto dot, PartitionDotGroupOnNonContracting(
-                        /*lhs_matching=*/true, lhs, rhs,
-                        lhs_contracting_partitions, rhs_contracting_partitions,
-                        matching_dims, rhs_non_contracting_partitions,
-                        output_rhs_non_contracting_partitions,
-                        output_base_shape, output_sharding, dims_mapping,
-                        num_partitions, create_sharded_dot, conv_window, module,
-                        original_hlo, require_matching_devices_to_group,
-                        options, b, windowed_dot_general_loops));
-      if (dot) {
-        return dot;
-      }
-    }
-  }
-  if (rhs_non_contracting_partitions > 1 &&
-      output_rhs_non_contracting_partitions > 1) {
-    // If part of RHS non-contracting dims match output, try them.
-    std::vector<DotConvDimsMapping::DimsMapping> matching_dims;
-    for (const auto& dim : dims_mapping.rhs_non_contracting_dims) {
-      int64 rhs_partitions = rhs.sharding().tile_assignment().dim(dim.rhs);
-      if (rhs_partitions > 1 &&
-          rhs_partitions == output_sharding.tile_assignment().dim(dim.output)) {
-        matching_dims.push_back(dim);
-      }
-    }
-    if (!matching_dims.empty()) {
-      TF_ASSIGN_OR_RETURN(
-          auto dot, PartitionDotGroupOnNonContracting(
-                        /*lhs_matching=*/false, rhs, lhs,
-                        rhs_contracting_partitions, lhs_contracting_partitions,
-                        matching_dims, lhs_non_contracting_partitions,
-                        output_lhs_non_contracting_partitions,
-                        output_base_shape, output_sharding, dims_mapping,
-                        num_partitions, create_sharded_dot, conv_window, module,
-                        original_hlo, require_matching_devices_to_group,
-                        options, b, windowed_dot_general_loops));
-      if (dot) {
-        return dot;
-      }
     }
   }
 
@@ -2732,7 +3104,7 @@ StatusOr<HloInstruction*> PartitionDot(
     // If part of contracting dims match, try them.
     std::vector<DotConvDimsMapping::DimsMapping> matching_dims;
     for (const auto& dim : dims_mapping.contracting_dims) {
-      int64 lhs_partitions = lhs.sharding().tile_assignment().dim(dim.lhs);
+      int64_t lhs_partitions = lhs.sharding().tile_assignment().dim(dim.lhs);
       if (lhs_partitions > 1 &&
           lhs_partitions == rhs.sharding().tile_assignment().dim(dim.rhs)) {
         matching_dims.push_back(dim);
@@ -2798,7 +3170,7 @@ StatusOr<HloInstruction*> PartitionDot(
 StatusOr<HloInstruction*> PartitionDot(
     PartitionedHlo lhs, PartitionedHlo rhs, const Shape& output_base_shape,
     const HloSharding& output_sharding, const DotConvDimsMapping& dims_mapping,
-    int64 num_partitions,
+    int64_t num_partitions,
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot,
@@ -2837,6 +3209,9 @@ Status SpmdPartitioningVisitor::HandleDotHelper(
     const std::function<StatusOr<HloInstruction*>(
         HloInstruction*, HloInstruction*, SpmdBuilder*,
         const Window& conv_window)>& create_sharded_dot) {
+  if (hlo->sharding().HasUniqueDevice()) {
+    return DefaultAction(hlo);
+  }
   auto& lhs = GetPartitionedHlo(hlo->operand(0));
   auto& rhs = GetPartitionedHlo(hlo->operand(1));
   Window conv_window;
@@ -2855,11 +3230,11 @@ Status SpmdPartitioningVisitor::HandleDotHelper(
 
 namespace {
 
-// Finds a cluster of nodes that produce the inputs for `hlo` which only depend
-// on small operands, which means the cluster should start with broadcasts,
-// constants and iotas. All other internal nodes must be non-side-effecting
-// elemntwise ops. Returns the set of nodes, and the small operands. E.g., for
-// the following graph,
+// Finds a cluster of nodes that produce the inputs for `hlo` which only
+// depend on small operands, which means the cluster should start with
+// broadcasts, constants and iotas. All other internal nodes must be
+// non-side-effecting elemntwise ops. Returns the set of nodes, and the small
+// operands. E.g., for the following graph,
 //
 //     a -> broadcast -> multiply
 //     iota  ---> add--/
@@ -2891,7 +3266,6 @@ FindInputNodesIfOnlyDependOnSmallOperands(HloInstruction* hlo) {
         }
       }
     } else if (inst->IsElementwise() && !inst->HasSideEffectNoRecurse() &&
-               inst->opcode() != HloOpcode::kAllReduce &&
                absl::c_all_of(inst->operands(),
                               [inst](const HloInstruction* o) {
                                 return ShapeUtil::CompatibleIgnoringElementType(
@@ -2928,7 +3302,7 @@ FindInputNodesIfOnlyDependOnSmallOperands(HloInstruction* hlo) {
 // Later optimization passes (TpuPadSliceMover) will merge the dynamic slice
 // with the input nodes.
 Status SinkInputNodesIntoWindowedDotGeneralLoopOnContractingDimensions(
-    HloInstruction* loop, int64 non_windowed_operand_index) {
+    HloInstruction* loop, int64_t non_windowed_operand_index) {
   auto input_tuple = loop->mutable_operand(0);
   auto old_operand = input_tuple->mutable_operand(non_windowed_operand_index);
   auto input_nodes = FindInputNodesIfOnlyDependOnSmallOperands(old_operand);
@@ -2975,7 +3349,7 @@ Status SinkInputNodesIntoWindowedDotGeneralLoopOnContractingDimensions(
       }
     }
   };
-  for (int64 i = 0; i < new_operands.size(); ++i) {
+  for (int64_t i = 0; i < new_operands.size(); ++i) {
     outside_to_inside[new_operands[i]] =
         body->AddInstruction(HloInstruction::CreateGetTupleElement(
             new_operands[i]->shape(), new_operand_tuple_inside, i));
@@ -3001,7 +3375,7 @@ Status SinkInputNodesIntoWindowedDotGeneralLoopOnContractingDimensions(
     auto inst = worklist.back();
     worklist.pop_back();
     std::vector<HloInstruction*> inst_new_operands(inst->operand_count());
-    for (int64 i = 0; i < inst->operand_count(); ++i) {
+    for (int64_t i = 0; i < inst->operand_count(); ++i) {
       inst_new_operands[i] = outside_to_inside[inst->operand(i)];
     }
     outside_to_inside[inst] = body->AddInstruction(
@@ -3020,11 +3394,11 @@ Status SinkInputNodesIntoWindowedDotGeneralLoopOnContractingDimensions(
   return Status::OK();
 }
 
-// Moves a cluster of memory-reducing nodes (with reduce nodes at the end) into
-// the windowed dot-general loop on non-contracting dimensions. Such a loop has
-// a dynamic-update-slice at the output. If we move the user nodes into the loop
-// and before the dynamic-update-slice, the user nodes can operate on smaller
-// shapes, which reduces memory.
+// Moves a cluster of memory-reducing nodes (with reduce nodes at the end)
+// into the windowed dot-general loop on non-contracting dimensions. Such a
+// loop has a dynamic-update-slice at the output. If we move the user nodes
+// into the loop and before the dynamic-update-slice, the user nodes can
+// operate on smaller shapes, which reduces memory.
 //
 // small_operands                   small_operands
 //  | |                 =>                  | |
@@ -3052,8 +3426,8 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
   CHECK_EQ(user_gte->tuple_index(), 2);
   auto computation = loop->parent();
 
-  // Find the reduce outputs and the input nodes they depend on, if input nodes
-  // only have small operands.
+  // Find the reduce outputs and the input nodes they depend on, if input
+  // nodes only have small operands.
   absl::flat_hash_set<HloInstruction*> to_move;
   std::vector<HloInstruction*> new_operands;
   absl::flat_hash_set<const HloInstruction*> new_operands_set;
@@ -3078,8 +3452,8 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
     if (to_move.count(inst) > 0) {
       continue;
     }
-    // We only support reduces with simple reduction function, since we may need
-    // to accumulate across iterations manually.
+    // We only support reduces with simple reduction function, since we may
+    // need to accumulate across iterations manually.
     if (inst->opcode() == HloOpcode::kReduce &&
         inst->to_apply()->instruction_count() == 3 &&
         inst->to_apply()->num_parameters() == 2 &&
@@ -3094,7 +3468,6 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
     } else if (inst != computation->root_instruction() &&
                inst->user_count() > 0 && inst->IsElementwise() &&
                !inst->HasSideEffectNoRecurse() &&
-               inst->opcode() != HloOpcode::kAllReduce &&
                absl::c_all_of(inst->operands(),
                               [inst](const HloInstruction* o) {
                                 return ShapeUtil::CompatibleIgnoringElementType(
@@ -3135,18 +3508,18 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
       break;
     }
   }
-  // If nothing is found, to_move could contain only original_output, or cleared
-  // by the above code.
+  // If nothing is found, to_move could contain only original_output, or
+  // cleared by the above code.
   if (to_move.size() <= 1) {
     return Status::OK();
   }
 
-  // We will replace the original loop output with reduce-shape outputs. Create
-  // the initial buffers before the loop.
+  // We will replace the original loop output with reduce-shape outputs.
+  // Create the initial buffers before the loop.
   for (auto out : reduce_outputs) {
     auto padded_out_shape = out->shape();
-    int64 operand_dim = 0;
-    int64 output_dim = 0;
+    int64_t operand_dim = 0;
+    int64_t output_dim = 0;
     while (output_dim < padded_out_shape.rank()) {
       if (absl::c_linear_search(out->dimensions(), operand_dim)) {
         // Dimension colapsed.
@@ -3203,20 +3576,20 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
       }
     }
   };
-  for (int64 i = 0; i < new_operands.size(); ++i) {
+  for (int64_t i = 0; i < new_operands.size(); ++i) {
     outside_to_inside[new_operands[i]] =
         body->AddInstruction(HloInstruction::CreateGetTupleElement(
             new_operands[i]->shape(), new_loop_input, i));
     add_users_if_available(new_operands[i]);
   }
-  // The elementwise nodes will be created with sliced shape. The original loop
-  // output corresponds to the dynamic-update-slice's update slice.
+  // The elementwise nodes will be created with sliced shape. The original
+  // loop output corresponds to the dynamic-update-slice's update slice.
   auto dus = body_root->mutable_operand(2);
   CHECK_EQ(dus->opcode(), HloOpcode::kDynamicUpdateSlice);
   outside_to_inside[original_output] = dus->mutable_operand(1);
   add_users_if_available(original_output);
   std::vector<HloInstruction*> slice_offsets(padded_shape.rank());
-  for (int64 i = 0; i < slice_offsets.size(); ++i) {
+  for (int64_t i = 0; i < slice_offsets.size(); ++i) {
     slice_offsets[i] = dus->mutable_operand(i + 2);
   }
   auto get_slice = [&](HloInstruction* padded) {
@@ -3228,7 +3601,7 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
   // Helper functions to create nodes with small operands.
   auto add_broadcast = [&](const HloInstruction* broadcast) {
     auto padded_operand_shape = broadcast->operand(0)->shape();
-    for (int64 i = 0; i < broadcast->dimensions().size(); ++i) {
+    for (int64_t i = 0; i < broadcast->dimensions().size(); ++i) {
       padded_operand_shape.set_dimensions(
           i, padded_shape.dimensions(broadcast->dimensions(i)));
     }
@@ -3271,7 +3644,7 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
       // This is an output, for which we has special handling later.
     } else {
       std::vector<HloInstruction*> operands_inside(inst->operand_count());
-      for (int64 i = 0; i < operands_inside.size(); ++i) {
+      for (int64_t i = 0; i < operands_inside.size(); ++i) {
         operands_inside[i] = outside_to_inside[inst->operand(i)];
       }
       outside_to_inside[inst] = body->AddInstruction(inst->CloneWithNewOperands(
@@ -3282,14 +3655,14 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
     add_users_if_available(inst);
   }
   std::vector<HloInstruction*> new_outputs_inside(new_operands.size());
-  for (int64 i = 0; i < new_outputs_inside.size(); ++i) {
+  for (int64_t i = 0; i < new_outputs_inside.size(); ++i) {
     new_outputs_inside[i] = outside_to_inside[new_operands[i]];
   }
   // Now create the reduce outpus inside of the loop.
-  for (int64 i = 0; i < reduce_outputs.size(); ++i) {
+  for (int64_t i = 0; i < reduce_outputs.size(); ++i) {
     auto reduce_outside = reduce_outputs[i];
     CHECK_EQ(reduce_outside->opcode(), HloOpcode::kReduce);
-    int64 index_in_operand = new_operands.size() - reduce_outputs.size() + i;
+    int64_t index_in_operand = new_operands.size() - reduce_outputs.size() + i;
     auto last_iter_result = outside_to_inside[new_operands[index_in_operand]];
     auto operand0 = outside_to_inside[reduce_outside->operand(0)];
     auto operand1 = outside_to_inside[reduce_outside->operand(1)];
@@ -3301,11 +3674,11 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
     *reduce_shape.mutable_layout() = reduce_outside->shape().layout();
     std::vector<HloInstruction*> reduce_dus_offsets;
     // If any collapsed dimension is windowed, we need to accumulate with last
-    // iteration's result. If such a dimension has padding, we also need to mask
-    // off invalid data.
+    // iteration's result. If such a dimension has padding, we also need to
+    // mask off invalid data.
     bool needs_accumulate = false;
     std::vector<int64> dims_to_mask;
-    for (int64 i = 0; i < slice_offsets.size(); ++i) {
+    for (int64_t i = 0; i < slice_offsets.size(); ++i) {
       if (absl::c_linear_search(reduce_outside->dimensions(), i)) {
         if (reduce_outside->operand(0)->shape().dimensions(i) !=
             operand0->shape().dimensions(i)) {
@@ -3319,7 +3692,7 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
       reduce_dus_offsets.push_back(slice_offsets[i]);
     }
     // Mask off invalid data in collapsed dimensions.
-    for (int64 dim : dims_to_mask) {
+    for (int64_t dim : dims_to_mask) {
       auto iota = body->AddInstruction(HloInstruction::CreateIota(
           ShapeUtil::ChangeElementType(operand0->shape(), S32), dim));
       auto add = body->AddInstruction(HloInstruction::CreateBinary(
@@ -3374,8 +3747,8 @@ Status MoveUsersIntoWindowedDotGeneralLoopOnNonContractingDimensions(
   auto new_output_gte =
       computation->AddInstruction(HloInstruction::CreateGetTupleElement(
           new_output_inside->shape(), loop, 2));
-  for (int64 i = 0; i < reduce_outputs.size(); ++i) {
-    int64 index_in_operand = new_operands.size() - reduce_outputs.size() + i;
+  for (int64_t i = 0; i < reduce_outputs.size(); ++i) {
+    int64_t index_in_operand = new_operands.size() - reduce_outputs.size() + i;
     auto new_output =
         computation->AddInstruction(HloInstruction::CreateGetTupleElement(
             new_outputs_inside[index_in_operand]->shape(), new_output_gte,

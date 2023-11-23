@@ -20,6 +20,7 @@ import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.ACCESS_WIFI_STATE;
 import static android.Manifest.permission.CHANGE_WIFI_STATE;
 import static android.Manifest.permission.LOCATION_HARDWARE;
+import static android.Manifest.permission.NEARBY_WIFI_DEVICES;
 
 import android.annotation.CallbackExecutor;
 import android.annotation.NonNull;
@@ -29,10 +30,14 @@ import android.annotation.SdkConstant;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.WorkSource;
 import android.util.Log;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -103,13 +108,20 @@ public class WifiRttManager {
     /**
      * Initiate a request to range to a set of devices specified in the {@link RangingRequest}.
      * Results will be returned in the {@link RangingResultCallback} set of callbacks.
+     * <p>
+     * Ranging request with only Wifi Aware peers can be performed with either
+     * {@link android.Manifest.permission#NEARBY_WIFI_DEVICES} with
+     * android:usesPermissionFlags="neverForLocation", or
+     * {@link android.Manifest.permission#ACCESS_FINE_LOCATION}. All other types of ranging requests
+     * require {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
      *
      * @param request  A request specifying a set of devices whose distance measurements are
      *                 requested.
      * @param executor The Executor on which to run the callback.
      * @param callback A callback for the result of the ranging request.
      */
-    @RequiresPermission(allOf = {ACCESS_FINE_LOCATION, CHANGE_WIFI_STATE, ACCESS_WIFI_STATE})
+    @RequiresPermission(allOf = {ACCESS_FINE_LOCATION, CHANGE_WIFI_STATE, ACCESS_WIFI_STATE,
+            NEARBY_WIFI_DEVICES})
     public void startRanging(@NonNull RangingRequest request,
             @NonNull @CallbackExecutor Executor executor, @NonNull RangingResultCallback callback) {
         startRanging(null, request, executor, callback);
@@ -118,6 +130,12 @@ public class WifiRttManager {
     /**
      * Initiate a request to range to a set of devices specified in the {@link RangingRequest}.
      * Results will be returned in the {@link RangingResultCallback} set of callbacks.
+     * <p>
+     * Ranging request with only Wifi Aware peers can be performed with either
+     * {@link android.Manifest.permission#NEARBY_WIFI_DEVICES} with
+     * android:usesPermissionFlags="neverForLocation", or
+     * {@link android.Manifest.permission#ACCESS_FINE_LOCATION}. All other types of ranging requests
+     * require {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
      *
      * @param workSource A mechanism to specify an alternative work-source for the request.
      * @param request  A request specifying a set of devices whose distance measurements are
@@ -129,7 +147,7 @@ public class WifiRttManager {
      */
     @SystemApi
     @RequiresPermission(allOf = {LOCATION_HARDWARE, ACCESS_FINE_LOCATION, CHANGE_WIFI_STATE,
-            ACCESS_WIFI_STATE})
+            ACCESS_WIFI_STATE, NEARBY_WIFI_DEVICES}, conditional = true)
     public void startRanging(@Nullable WorkSource workSource, @NonNull RangingRequest request,
             @NonNull @CallbackExecutor Executor executor, @NonNull RangingResultCallback callback) {
         if (VDBG) {
@@ -146,6 +164,11 @@ public class WifiRttManager {
 
         Binder binder = new Binder();
         try {
+            Bundle extras = new Bundle();
+            if (SdkLevel.isAtLeastS()) {
+                extras.putParcelable(WifiManager.EXTRA_PARAM_KEY_ATTRIBUTION_SOURCE,
+                        mContext.getAttributionSource());
+            }
             mService.startRanging(binder, mContext.getOpPackageName(),
                     mContext.getAttributionTag(), workSource, request, new IRttCallback.Stub() {
                         @Override
@@ -160,7 +183,7 @@ public class WifiRttManager {
                             clearCallingIdentity();
                             executor.execute(() -> callback.onRangingResults(results));
                         }
-                    });
+                    }, extras);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

@@ -21,15 +21,15 @@ void xnn_f32_pavgpool_minmax_ukernel_9x__wasmsimd_arm_c4(
     float* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(output_pixels != 0);
   assert(kernel_elements != 0);
   assert(kernel_elements <= 9);
   assert(channels != 0);
 
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+  const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
+  const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
 
   do {
     const float* i0 = input[0];
@@ -103,7 +103,7 @@ void xnn_f32_pavgpool_minmax_ukernel_9x__wasmsimd_arm_c4(
       i8 = (const float*) ((uintptr_t) i8 + input_offset);
     }
 
-    const v128_t vmultiplier = wasm_v32x4_load_splat(multiplier);
+    const v128_t vmultiplier = wasm_v128_load32_splat(multiplier);
     multiplier += 1;
 
     size_t c = channels;

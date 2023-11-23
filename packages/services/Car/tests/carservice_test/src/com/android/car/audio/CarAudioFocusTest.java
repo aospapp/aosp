@@ -58,7 +58,7 @@ public class CarAudioFocusTest {
     private static final String TAG = CarAudioFocusTest.class.getSimpleName();
     private static final boolean DEBUG = false;
     private static final long TEST_TIMING_TOLERANCE_MS = 100;
-    private static final int TEST_TORELANCE_MAX_ITERATIONS = 5;
+    private static final int TEST_TOLERANCE_MAX_ITERATIONS = 5;
     private static final int INTERACTION_REJECT = 0;  // Focus not granted
     private static final int INTERACTION_EXCLUSIVE = 1;  // Focus granted, others loose focus
     private static final int INTERACTION_CONCURRENT = 2;  // Focus granted, others keep focus
@@ -707,7 +707,7 @@ public class CarAudioFocusTest {
                     + AudioAttributes.usageToString(attributes1.getSystemUsage());
             boolean shouldStop = false;
             int counter = 0;
-            while (!shouldStop && counter++ < TEST_TORELANCE_MAX_ITERATIONS) {
+            while (!shouldStop && counter++ < TEST_TOLERANCE_MAX_ITERATIONS) {
                 boolean gainedFocusLoss = focusChangeListener1.waitForFocusChangeAndAssertFocus(
                         TEST_TIMING_TOLERANCE_MS, expectedLoss, message);
                 shouldStop = gainedFocusLoss
@@ -739,7 +739,7 @@ public class CarAudioFocusTest {
 
                     boolean focusGained = false;
                     int count = 0;
-                    while (!focusGained && count++ < TEST_TORELANCE_MAX_ITERATIONS) {
+                    while (!focusGained && count++ < TEST_TOLERANCE_MAX_ITERATIONS) {
                         focusGained = focusChangeListener1.waitForFocusChangeAndAssertFocus(
                                 TEST_TIMING_TOLERANCE_MS,
                                 AUDIOFOCUS_GAIN, message);

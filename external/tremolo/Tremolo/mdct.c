@@ -196,6 +196,8 @@ STIN void mdct_butterfly_32(DATA_TYPE *x){
 	   mdct_butterfly_16(x+16);
 }
 
+/* Ignoring overflows as the butterfly dct function expects and uses the overflows */
+__attribute__((no_sanitize("signed-integer-overflow")))
 /* N/stage point generic N stage butterfly (in place, 2 register) */
 STIN void mdct_butterfly_generic(DATA_TYPE *x,int points,int step){
   LOOKUP_T   *T  = sincos_lookup0;

@@ -21,18 +21,26 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// TODO: remove this filegroup together with services.net
 filegroup {
     name: "net-module-utils-srcs",
+    srcs: [
+        "src/android/net/shared/NetdUtils.java",
+        "src/android/net/util/SharedLog.java",
+    ],
+    visibility: [
+        "//frameworks/base/services/net",
+    ]
+}
+
+filegroup {
+    name: "connectivity-module-utils-srcs",
     srcs: [
         "src/android/net/util/SharedLog.java",
         "src/android/net/shared/NetdUtils.java",
         "src/android/net/shared/NetworkMonitorUtils.java",
-        "src/android/net/shared/RouteUtils.java",
-        "src/android/net/util/InterfaceParams.java",
     ],
     visibility: [
-        "//frameworks/base/services/net",
-        "//frameworks/base/packages/Connectivity/service",
         "//packages/modules/Connectivity/service",
     ]
 }
@@ -53,10 +61,7 @@ filegroup {
         "src/android/net/ip/InterfaceController.java",
         "src/android/net/ip/IpNeighborMonitor.java",
         "src/android/net/ip/NetlinkMonitor.java",
-        "src/android/net/netlink/*.java",
         "src/android/net/shared/NetdUtils.java",
-        "src/android/net/shared/RouteUtils.java",
-        "src/android/net/util/InterfaceParams.java",
         "src/android/net/util/SharedLog.java",
     ],
     visibility: [

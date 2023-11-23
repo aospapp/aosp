@@ -3,7 +3,7 @@
 OpenSSL backend
 ===============
 
-The `OpenSSL`_ C library. Cryptography supports OpenSSL version 1.0.1 and
+The `OpenSSL`_ C library. Cryptography supports OpenSSL version 1.1.0 and
 greater.
 
 .. data:: cryptography.hazmat.backends.openssl.backend
@@ -68,6 +68,12 @@ greater.
 OS random engine
 ----------------
 
+.. note::
+
+    As of OpenSSL 1.1.1d its CSPRNG is fork-safe by default.
+    ``cryptography`` does not compile or load the custom engine on
+    these versions.
+
 By default OpenSSL uses a user-space CSPRNG that is seeded from system random (
 ``/dev/urandom`` or ``CryptGenRandom``). This CSPRNG is not reseeded
 automatically when a process calls ``fork()``. This can result in situations
@@ -106,7 +112,7 @@ seeded from the same pool as ``/dev/random``.
 +------------------------------------------+------------------------------+
 | Windows                                  | ``CryptGenRandom()``         |
 +------------------------------------------+------------------------------+
-| Linux >= 3.17 with working               | ``getrandom(GRND_NONBLOCK)`` |
+| Linux >= 3.17 with working               | ``getrandom()``              |
 | ``SYS_getrandom`` syscall                |                              |
 +------------------------------------------+------------------------------+
 | OpenBSD >= 5.6                           | ``getentropy()``             |

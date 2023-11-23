@@ -20,8 +20,8 @@
 import argparse
 import sys
 from threading import Thread
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
 import VehicleHalProto_pb2
 from vhal_emulator import Vhal
@@ -34,33 +34,33 @@ def rxThread(v):
         msg = v.rxMsg()
         if (msg.msg_type == VehicleHalProto_pb2.SET_PROPERTY_RESP):
             if msg.status == 0:
-                print "Success ("+str(msg.status)+")"
+                print('Success (%s)' % msg.status)
             else:
-                print "Error ("+str(msg.status)+")"
+                print('Error (%s)' % msg.status)
         else:
-            print msg;
+            print(msg)
 
 
 # Main window setup
 def window():
-    app = QApplication(sys.argv)
-    widget = QWidget()
-    widget.setWindowTitle("VHal Driver")
-    widget.setGeometry(100,100,200,50)
-    topLevelLayout = QHBoxLayout()
-    widget.setLayout(topLevelLayout)
+    app = QtWidgets.QApplication(sys.argv)
+    dialog = QtWidgets.QDialog()
+    dialog.setWindowTitle('VHal Driver')
+    dialog.setGeometry(100, 100, 200, 50)
+    topLevelLayout = QtWidgets.QHBoxLayout()
+    dialog.setLayout(topLevelLayout)
 
-    shiftLayout = QVBoxLayout()
+    shiftLayout = QtWidgets.QVBoxLayout()
     topLevelLayout.addLayout(shiftLayout)
 
-    gearTitle = QLabel(widget)
-    gearTitle.setText("Gear Shift")
-    shiftLayout.addWidget(gearTitle);
+    gearTitle = QtWidgets.QLabel(dialog)
+    gearTitle.setText('Gear Shift')
+    shiftLayout.addWidget(gearTitle)
 
-    gearDisplay = QLabel(widget)
-    shiftLayout.addWidget(gearDisplay);
+    gearDisplay = QtWidgets.QLabel(dialog)
+    shiftLayout.addWidget(gearDisplay)
 
-    slider = QSlider(Qt.Vertical)
+    slider = QtWidgets.QSlider(QtCore.Qt.Vertical)
     slider.setMinimum(0)
     slider.setMaximum(2)
     slider.setInvertedAppearance(True)
@@ -69,44 +69,44 @@ def window():
     sliderMove(slider, gearDisplay)
 
 
-    buttonLayout = QVBoxLayout()
+    buttonLayout = QtWidgets.QVBoxLayout()
     topLevelLayout.addLayout(buttonLayout)
 
-    signalButtonGroup = QButtonGroup()
+    signalButtonGroup = QtWidgets.QButtonGroup()
 
-    bNoSignal = QPushButton("None")
+    bNoSignal = QtWidgets.QPushButton('None')
     bNoSignal.setCheckable(True)
     bNoSignal.setChecked(True)
     buttonLayout.addWidget(bNoSignal)
     signalButtonGroup.addButton(bNoSignal)
 
-    bHazards = QPushButton("Hazards")
+    bHazards = QtWidgets.QPushButton('Hazards')
     bHazards.setCheckable(True)
     buttonLayout.addWidget(bHazards)
     signalButtonGroup.addButton(bHazards)
 
-    bLeft = QPushButton("Left")
+    bLeft = QtWidgets.QPushButton('Left')
     bLeft.setCheckable(True)
     buttonLayout.addWidget(bLeft)
     signalButtonGroup.addButton(bLeft)
 
-    bRight = QPushButton("Right")
+    bRight = QtWidgets.QPushButton('Right')
     bRight.setCheckable(True)
     buttonLayout.addWidget(bRight)
     signalButtonGroup.addButton(bRight)
 
-    signalButtonGroup.buttonClicked.connect(lambda:onSignalClicked(signalButtonGroup))
+    signalButtonGroup.buttonClicked.connect(lambda: onSignalClicked(signalButtonGroup))
 
-    widget.show()
+    dialog.show()
     sys.exit(app.exec_())
 
 
 def onSignalClicked(group):
-    print "signal "+group.checkedButton().text()+" is active"
+    print('signal ' + group.checkedButton().text() + ' is active')
     try:
         vhal.setProperty(c.VEHICLEPROPERTY_TURN_SIGNAL_STATE, 0, group.checkedId())
     except:
-        print "Ignoring error setting property 0x{:08X}".format(c.VEHICLEPROPERTY_TURN_SIGNAL_STATE)
+        print('Ignoring error setting property 0x{:08X}'.format(c.VEHICLEPROPERTY_TURN_SIGNAL_STATE))
 
 
 def sliderMove(slider, gearDisplay):
@@ -120,21 +120,21 @@ def sliderMove(slider, gearDisplay):
         gearName = 'drive'
         vhal.setProperty(c.VEHICLEPROPERTY_GEAR_SELECTION, 0, c.VEHICLEGEAR_GEAR_DRIVE)
     else:
-        gearName = "UNK"
-    print "slider "+slider.objectName()+" requested "+str(slider.value())+" = "+gearName
+        gearName = 'UNK'
+    print('slider %s requested %s = %s'  % (slider.objectName(), slider.value(), gearName))
     gearDisplay.setText(gearName)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Vehicle HAL Driver UI')
-    parser.add_argument("--serial", "-s", action='store', dest='serial',
+    parser.add_argument('--serial', '-s', action='store', dest='serial',
         default=None, required=False, help='Select which device to connect to')
     args = parser.parse_args()
-    print "Starting VHal driver GUI"
+    print('Starting VHal driver GUI')
     vhal = Vhal(c.vhal_types_2_0, device=args.serial)
 
     # Start a receive thread to consume any replies from the vhal
-    print "Starting receiver thread"
+    print('Starting receiver thread')
     rx = Thread(target=rxThread, args=(vhal,))
     rx.setDaemon(True)
     rx.start()

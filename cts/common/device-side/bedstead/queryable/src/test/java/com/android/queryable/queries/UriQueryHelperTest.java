@@ -16,6 +16,8 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
@@ -76,5 +78,15 @@ public class UriQueryHelperTest {
         uriQueryHelper.stringValue().isEqualTo(DIFFERENT_URI_STRING_VALUE);
 
         assertThat(uriQueryHelper.matches(URI_VALUE)).isFalse();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        UriQueryHelper<Queryable> uriQueryHelper = new UriQueryHelper<>(QUERY);
+
+        uriQueryHelper.isEqualTo(null);
+        uriQueryHelper.stringValue().isEqualTo(DIFFERENT_URI_STRING_VALUE);
+
+        assertParcelsCorrectly(UriQueryHelper.class, uriQueryHelper);
     }
 }

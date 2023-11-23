@@ -29,6 +29,8 @@ enum class ParamType
     TCullFaceMode,
     TDrawElementsType,
     TEGLAttrib,
+    TEGLAttribKHR,
+    TEGLBoolean,
     TEGLClientBuffer,
     TEGLConfig,
     TEGLContext,
@@ -171,7 +173,7 @@ enum class ParamType
     TvoidPointerPointer,
 };
 
-constexpr uint32_t kParamTypeCount = 152;
+constexpr uint32_t kParamTypeCount = 154;
 
 union ParamValue
 {
@@ -187,6 +189,8 @@ union ParamValue
     gl::CullFaceMode CullFaceModeVal;
     gl::DrawElementsType DrawElementsTypeVal;
     EGLAttrib EGLAttribVal;
+    EGLAttribKHR EGLAttribKHRVal;
+    EGLBoolean EGLBooleanVal;
     EGLClientBuffer EGLClientBufferVal;
     EGLConfig EGLConfigVal;
     EGLContext EGLContextVal;
@@ -412,6 +416,18 @@ template <>
 inline EGLAttrib GetParamVal<ParamType::TEGLAttrib, EGLAttrib>(const ParamValue &value)
 {
     return value.EGLAttribVal;
+}
+
+template <>
+inline EGLAttribKHR GetParamVal<ParamType::TEGLAttribKHR, EGLAttribKHR>(const ParamValue &value)
+{
+    return value.EGLAttribKHRVal;
+}
+
+template <>
+inline EGLBoolean GetParamVal<ParamType::TEGLBoolean, EGLBoolean>(const ParamValue &value)
+{
+    return value.EGLBooleanVal;
 }
 
 template <>
@@ -1370,6 +1386,10 @@ T AccessParamValue(ParamType paramType, const ParamValue &value)
             return GetParamVal<ParamType::TDrawElementsType, T>(value);
         case ParamType::TEGLAttrib:
             return GetParamVal<ParamType::TEGLAttrib, T>(value);
+        case ParamType::TEGLAttribKHR:
+            return GetParamVal<ParamType::TEGLAttribKHR, T>(value);
+        case ParamType::TEGLBoolean:
+            return GetParamVal<ParamType::TEGLBoolean, T>(value);
         case ParamType::TEGLClientBuffer:
             return GetParamVal<ParamType::TEGLClientBuffer, T>(value);
         case ParamType::TEGLConfig:
@@ -1651,6 +1671,8 @@ T AccessParamValue(ParamType paramType, const ParamValue &value)
         case ParamType::TvoidPointerPointer:
             return GetParamVal<ParamType::TvoidPointerPointer, T>(value);
     }
+    UNREACHABLE();
+    return T();
 }
 
 template <ParamType PType, typename T>
@@ -1731,6 +1753,18 @@ template <>
 inline void SetParamVal<ParamType::TEGLAttrib>(EGLAttrib valueIn, ParamValue *valueOut)
 {
     valueOut->EGLAttribVal = valueIn;
+}
+
+template <>
+inline void SetParamVal<ParamType::TEGLAttribKHR>(EGLAttribKHR valueIn, ParamValue *valueOut)
+{
+    valueOut->EGLAttribKHRVal = valueIn;
+}
+
+template <>
+inline void SetParamVal<ParamType::TEGLBoolean>(EGLBoolean valueIn, ParamValue *valueOut)
+{
+    valueOut->EGLBooleanVal = valueIn;
 }
 
 template <>
@@ -2679,6 +2713,12 @@ void InitParamValue(ParamType paramType, T valueIn, ParamValue *valueOut)
             break;
         case ParamType::TEGLAttrib:
             SetParamVal<ParamType::TEGLAttrib>(valueIn, valueOut);
+            break;
+        case ParamType::TEGLAttribKHR:
+            SetParamVal<ParamType::TEGLAttribKHR>(valueIn, valueOut);
+            break;
+        case ParamType::TEGLBoolean:
+            SetParamVal<ParamType::TEGLBoolean>(valueIn, valueOut);
             break;
         case ParamType::TEGLClientBuffer:
             SetParamVal<ParamType::TEGLClientBuffer>(valueIn, valueOut);

@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -30,18 +31,25 @@ public final class PortLocationType {
     /**
      * List of port location types
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     /** Port is on front left side of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FRONT_LEFT = 1;
     /** Port is on front right side of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FRONT_RIGHT = 2;
     /** Port is on rear right side of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int REAR_RIGHT = 3;
     /** Port is on rear left side of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int REAR_LEFT = 4;
     /** Port is on front of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FRONT = 5;
     /** Port is on rear of vehicle. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int REAR = 6;
 
     /** @hide */

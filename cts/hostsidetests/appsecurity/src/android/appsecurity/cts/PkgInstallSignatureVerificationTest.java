@@ -17,8 +17,10 @@
 package android.appsecurity.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -32,16 +34,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Tests for APK signature verification during installation.
  */
+@Presubmit
 public class PkgInstallSignatureVerificationTest extends DeviceTestCase implements IBuildReceiver {
 
     private static final String TEST_PKG = "android.appsecurity.cts.tinyapp";
     private static final String TEST_PKG2 = "android.appsecurity.cts.tinyapp2";
     private static final String COMPANION_TEST_PKG = "android.appsecurity.cts.tinyapp_companion";
     private static final String COMPANION2_TEST_PKG = "android.appsecurity.cts.tinyapp_companion2";
+    private static final String COMPANION3_TEST_PKG = "android.appsecurity.cts.tinyapp_companion3";
     private static final String DEVICE_TESTS_APK = "CtsV3SigningSchemeRotationTest.apk";
     private static final String DEVICE_TESTS_PKG = "android.appsecurity.cts.v3rotationtests";
     private static final String DEVICE_TESTS_CLASS = DEVICE_TESTS_PKG + ".V3RotationTest";
@@ -582,7 +588,6 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     }
 
     public void testInstallV3KeyRotationOlderSharedUid() throws Exception {
-
         // tests that a sharedUid APK can still install with another app that is signed by a newer
         // signing certificate, but which allows sharedUid with the older one
         assertInstallSucceeds(
@@ -669,6 +674,65 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallFromBuildFails("v3-por_Z_1_2-default-caps-sharedUid-companion.apk");
     }
 
+    public void testInstallV3WithRestoredCapabilityInSharedUserId() throws Exception {
+        // A sharedUserId contains the shared signing lineage for all packages in the UID; this
+        // shared lineage contain the full signing history for all packages along with the merged
+        // capabilities for each signer shared between the packages. This test verifies if one
+        // package revokes a capability from a previous signer, but subsequently restores that
+        // capability, then since all packages have granted the capability, it is restored to the
+        // previous signer in the shared lineage.
+
+        // Install a package with the SHARED_USER_ID capability revoked for the original signer
+        // in the lineage; verify that a package signed with only the original signer cannot join
+        // the sharedUserId.
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
+        assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
+
+        // Update the package that revoked the SHARED_USER_ID with an updated lineage that restores
+        // this capability to the original signer; verify the package signed with the original
+        // signing key can now join the sharedUserId since all existing packages in the UID grant
+        // this capability to the original signer.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-default-caps-sharedUid.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-1-sharedUid-companion2.apk");
+    }
+
+    public void testInstallV3WithRevokedCapabilityInSharedUserId() throws Exception {
+        // While a capability can be restored to a common signer in the shared signing lineage, if
+        // one package has revoked a capability from a common signer and another package is
+        // installed / updated which restores the capability to that signer, the revocation of
+        // the capability by the existing package should take precedence. A capability can only
+        // be restored to a common signer if all packages in the sharedUserId have granted this
+        // capability to the signer.
+
+        // Install a package with the SHARED_USER_ID capability revoked from the original signer,
+        // then install another package in the sharedUserId that grants this capability to the
+        // original signer. Since a package exists in the sharedUserId that has revoked this
+        // capability, another package signed with this capability shouldn't be able to join the
+        // sharedUserId.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion.apk");
+        assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
+
+        // Install the same package that grants the SHARED_USER_ID capability to the original
+        // signer; when iterating over the existing packages in the packages in the sharedUserId,
+        // the original version of this package should be skipped since the lineage from the
+        // updated package is used when merging with the shared lineage.
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion.apk");
+        assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
+
+        // Install another package that has granted the SHARED_USER_ID to the original signer; this
+        // should trigger another merge with all packages in the sharedUserId. Since one still
+        // remains that revokes the capability, the capability should be revoked in the shared
+        // lineage.
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion3.apk");
+        assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
+    }
+
     public void testInstallV3UpdateAfterRotation() throws Exception {
         // This test performs an end to end verification of the update of an app with a rotated
         // key. The app under test exports a bound service that performs its own PackageManager key
@@ -703,6 +767,98 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallFromBuildSucceeds("CtsSignatureQueryServiceTest_v2.apk");
         Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
                 "verifySignatures_withRotation_succeeds");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testInstallV31UpdateAfterRotation() throws Exception {
+        // This test is the same as above, but using the v3.1 signature scheme for rotation.
+        assertInstallFromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallFromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        assertInstallFromBuildSucceeds("CtsSignatureQueryService_v2-tgt-33.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+
+        assertInstallFromBuildSucceeds("CtsSignatureQueryService_v3-tgt-33.apk");
+        assertInstallFromBuildSucceeds("CtsSignatureQueryServiceTest_v2-tgt-33.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+    }
+
+    @CddTest(requirement="4/C-0-9")
+    public void testInstallV41UpdateAfterRotation() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
+        // This test is the same as above, but using the v4.1 signature scheme for rotation.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService_v2-tgt-33.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService_v3-tgt-33.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest_v2-tgt-33.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+    }
+
+    @CddTest(requirement="4/C-0-9")
+    public void testInstallV41WrongBlockId() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
+        // This test is the same as above, but using the v4.1 signature scheme for rotation.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        assertInstallV4FailsWithError("CtsSignatureQueryService_v2-tgt-33-wrongV41Block.apk",
+                "Failed to find V4 signature block corresponding to V3 blockId: 462663009");
+    }
+
+    @CddTest(requirement="4/C-0-9")
+    public void testInstallV41LegacyV4() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
+        // This test is the same as above, but using the v4.1 signature scheme for rotation.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        assertInstallV4FailsWithError("CtsSignatureQueryService_v2-tgt-33-legacyV4.apk",
+                "Failed to find V4 signature block corresponding to V3 blockId: 462663009");
+    }
+
+    @CddTest(requirement="4/C-0-9")
+    public void testInstallV41WrongDigest() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
+        // This test is the same as above, but using the v4.1 signature scheme for rotation.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        assertInstallV4FailsWithError("CtsSignatureQueryService_v2-tgt-33-wrongDigest.apk",
+                "APK digest in V4 signature does not match V2/V3");
     }
 
     public void testInstallV3KeyRotationSigPerm() throws Exception {
@@ -909,6 +1065,17 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 "testGetApkContentsSignersShowsMultipleSigners");
     }
 
+    public void testInstallV3MultipleSignersInLineageGetSigningCertificateHistory()
+            throws Exception {
+        // The APK used for this test is signed with a lineage containing 5 keys in the signing
+        // history; this test verifies SigningInfo#getSigningCertificateHistory returns all of an
+        // APKs signers in their order of rotation.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por-1_2_3_4_5-default-caps.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testGetSigningCertificateHistoryReturnsSignersInOrder");
+    }
+
     public void testInstallV3KeyRotationHasSigningCertificate() throws Exception {
         // tests that hasSigningCertificate() recognizes past and current signing certs
         assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-full-caps.apk");
@@ -987,6 +1154,117 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallFromBuildSucceeds("v3-ec-p256-1-companion-usesperm.apk");
         Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
     }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31TargetTPlatformUsesRotatedKey() throws Exception {
+        // The v3.1 signature block is intended to allow applications to target T+ for APK signing
+        // key rotation without needing multi-targeting APKs. This test verifies a standard APK
+        // install with the rotated key in the v3.1 signing block targeting T is recognized by the
+        // platform, and this rotated key is used as the signing identity.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingRotatedSigner");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31TargetLaterThanDevicePlatformUsesOriginalKey() throws Exception {
+        // The v3.1 signature block allows targeting SDK versions later than T for rotation; for
+        // this test a target of 100001 is used assuming it will be beyond the platform's version.
+        // Since the target version for rotation is beyond the platform's version the original
+        // signer from the v3.0 block should be used.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-100001.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingOriginalSigner");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31BlockStrippedWithV3StrippingProtectionAttrSet() throws Exception {
+        // With the introduction of the v3.1 signature scheme, a new stripping protection attribute
+        // has been added to the v3.0 signer to protect against stripping and modification of the
+        // v3.1 signing block. This test verifies a stripped v3.1 block is detected when the v3.0
+        // stripping protection attribute is set.
+        assertInstallFails("v31-block-stripped-v3-attr-value-33.apk");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31BlockWithMultipleSignersUsesCorrectSigner() throws Exception {
+        // All of the APKs for this test use multiple v3.1 signers; those targeting SDK versions
+        // expected to be outside the version of a device under test use the original signer, and
+        // those targeting an expected range for a device use the rotated key. This test is
+        // intended to ensure the signer with the min / max SDK version that matches the device
+        // SDK version is used.
+
+        // The APK used for this test contains two signers in the v3.1 signing block. The first
+        // has a range from 100001 to Integer.MAX_VALUE and is using the original signing key;
+        // the second targets 33 to 100000 using the rotated key.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33-ec-p256-tgt-100001.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingRotatedSigner");
+        uninstallPackage();
+
+        // The APK for this test contains two signers in the v3.1 block, one targeting SDK versions
+        // 1 to 27 using the original signer, and the other targeting 33+ using the rotated signer.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33-ec-p256-tgt-1-27.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingRotatedSigner");
+        uninstallPackage();
+
+        // This APK combines the extra signers from the APKs above, one targeting 1 to 27 with the
+        // original signing key, another targeting 100001+ with the original signing key, and the
+        // last targeting 33 to 100000 with the rotated key.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33-ec-p256-tgt-1-27-and-100001.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingRotatedSigner");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31UpdateV3ToFromV31Succeeds() throws Exception {
+        // Since the v3.1 block is just intended to allow targeting SDK versions T and later for
+        // rotation, an APK signed with the rotated key in a v3.0 signing block should support
+        // updates to an APK signed with the same signing key in a v3.1 signing block.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-default-caps.apk");
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33.apk");
+        uninstallPackage();
+
+        // Similarly an APK signed with the rotated key in a v3.1 signing block should support
+        // updates to an APK signed with the same signing key in a v3.0 signing block.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-33.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-default-caps.apk");
+        uninstallPackage();
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31RotationTargetModifiedReportedByV3() throws Exception {
+        // When determining if a signer in the v3.1 signing block should be applied, the min / max
+        // SDK versions from the signer are compared against the device's SDK version; if the device
+        // is not within the signer's range then the block is skipped, other v3.1 blocks are
+        // checked, and finally the v3.0 block is used. The v3.0 signer block contains an additional
+        // attribute with the rotation-min-sdk-version that was expected in the v3.1 signing
+        // block; if this attribute's value does not match what was found in the v3.1 block the
+        // APK should fail to install.
+        assertInstallFails("v31-ec-p256_2-tgt-33-modified.apk");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31RotationTargetsDevRelease() throws Exception {
+        // The v3.1 signature scheme allows targeting a platform release under development through
+        // the use of a rotation-targets-dev-release additional attribute. Since a platform under
+        // development shares the same SDK version as the most recently released platform, the
+        // attribute is used by the platform to determine if a signer block should be applied. If
+        // the signer's minSdkVersion is the same as the device's SDK version and this attribute
+        // is set, then the platform will check the value of ro.build.version.codename; a value of
+        // "REL" indicates the platform is a release platform, so the current signer block will not
+        // be used. During T's development, the SDK version is 31 and the codename is not "REL", so
+        // this test APK will install on T during development as well as after its release since
+        // the SDK version will be bumped at that point.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-31-dev-release.apk");
+    }
+
 
     public void testInstallTargetSdk30WithV1Signers() throws Exception {
         // An app targeting SDK version >= 30 must have at least a V2 signature; this test verifies
@@ -1289,7 +1567,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
         // non-incremental upgrade with a mismatching key.
         assertInstallFailsWithError("v4-inc-to-v3-noninc-ec-p384-appv2.apk",
-                "signatures do not match previously installed version");
+                "signatures do not match newer version");
     }
 
     public void testV4IncToV3NonIncRotatedKeyUpgradeSucceeds() throws Exception {
@@ -1318,7 +1596,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
         // non-incremental upgrade with key rotation mismatch with key used in app v1.
         assertInstallFailsWithError("v4-inc-to-v3-noninc-ec-p384-rotated-ec-p256-appv2.apk",
-                "signatures do not match previously installed version");
+                "signatures do not match newer version");
     }
 
     public void testV4IncToV2NonIncSameKeyUpgradeSucceeds() throws Exception {
@@ -1347,7 +1625,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
         // non-incremental upgrade with a mismatching key.
         assertInstallFailsWithError("v4-inc-to-v2-noninc-ec-p384-appv2.apk",
-                "signatures do not match previously installed version");
+                "signatures do not match newer version");
     }
 
     public void testInstallV4UpdateAfterRotation() throws Exception {
@@ -1631,7 +1909,11 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     private String uninstallCompanionPackages() throws DeviceNotAvailableException {
         String result1 = getDevice().uninstallPackage(COMPANION_TEST_PKG);
         String result2 = getDevice().uninstallPackage(COMPANION2_TEST_PKG);
-        return result1 != null ? result1 : result2;
+        String result3 = getDevice().uninstallPackage(COMPANION3_TEST_PKG);
+        return Stream.of(result1, result2, result3)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     private String uninstallDeviceTestPackage() throws DeviceNotAvailableException {

@@ -602,6 +602,8 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
       r = ParsePipelineShaderOptimizations(pipeline.get());
     } else if (tok == "FRAMEBUFFER_SIZE") {
       r = ParsePipelineFramebufferSize(pipeline.get());
+    } else if (tok == "VIEWPORT") {
+      r = ParsePipelineViewport(pipeline.get());
     } else if (tok == "BIND") {
       r = ParsePipelineBind(pipeline.get());
     } else if (tok == "VERTEX_DATA") {
@@ -620,6 +622,10 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
       r = ParsePipelineStencil(pipeline.get());
     } else if (tok == "SUBGROUP") {
       r = ParsePipelineSubgroup(pipeline.get());
+    } else if (tok == "PATCH_CONTROL_POINTS") {
+      r = ParsePipelinePatchControlPoints(pipeline.get());
+    } else if (tok == "BLEND") {
+      r = ParsePipelineBlend(pipeline.get());
     } else {
       r = Result("unknown token in pipeline block: " + tok);
     }
@@ -929,6 +935,20 @@ Result Parser::ParsePipelineSubgroup(Pipeline* pipeline) {
   return ValidateEndOfStatement("SUBGROUP command");
 }
 
+Result Parser::ParsePipelinePatchControlPoints(Pipeline* pipeline) {
+  auto token = tokenizer_->NextToken();
+  if (token->IsEOL() || token->IsEOS())
+    return Result(
+        "missing number of control points in PATCH_CONTROL_POINTS command");
+
+  if (!token->IsInteger())
+    return Result("expecting integer for the number of control points");
+
+  pipeline->GetPipelineData()->SetPatchControlPoints(token->AsUint32());
+
+  return ValidateEndOfStatement("PATCH_CONTROL_POINTS command");
+}
+
 Result Parser::ParsePipelineFramebufferSize(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
@@ -947,6 +967,75 @@ Result Parser::ParsePipelineFramebufferSize(Pipeline* pipeline) {
   pipeline->SetFramebufferHeight(token->AsUint32());
 
   return ValidateEndOfStatement("FRAMEBUFFER_SIZE command");
+}
+
+Result Parser::ParsePipelineViewport(Pipeline* pipeline) {
+  Viewport vp;
+  vp.mind = 0.0f;
+  vp.maxd = 1.0f;
+
+  float val[2];
+  for (int i = 0; i < 2; i++) {
+    auto token = tokenizer_->NextToken();
+    if (token->IsEOL() || token->IsEOS())
+      return Result("missing offset for VIEWPORT command");
+    Result r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return Result("invalid offset for VIEWPORT command");
+
+    val[i] = token->AsFloat();
+  }
+  vp.x = val[0];
+  vp.y = val[1];
+
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier() || token->AsString() != "SIZE")
+    return Result("missing SIZE for VIEWPORT command");
+
+  for (int i = 0; i < 2; i++) {
+    token = tokenizer_->NextToken();
+    if (token->IsEOL() || token->IsEOS())
+      return Result("missing size for VIEWPORT command");
+    Result r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return Result("invalid size for VIEWPORT command");
+
+    val[i] = token->AsFloat();
+  }
+  vp.w = val[0];
+  vp.h = val[1];
+
+  token = tokenizer_->PeekNextToken();
+  while (token->IsIdentifier()) {
+    if (token->AsString() == "MIN_DEPTH") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (token->IsEOL() || token->IsEOS())
+        return Result("missing min_depth for VIEWPORT command");
+      Result r = token->ConvertToDouble();
+      if (!r.IsSuccess())
+        return Result("invalid min_depth for VIEWPORT command");
+
+      vp.mind = token->AsFloat();
+    }
+    if (token->AsString() == "MAX_DEPTH") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (token->IsEOL() || token->IsEOS())
+        return Result("missing max_depth for VIEWPORT command");
+      Result r = token->ConvertToDouble();
+      if (!r.IsSuccess())
+        return Result("invalid max_depth for VIEWPORT command");
+
+      vp.maxd = token->AsFloat();
+    }
+
+    token = tokenizer_->PeekNextToken();
+  }
+
+  pipeline->GetPipelineData()->SetViewport(vp);
+
+  return ValidateEndOfStatement("VIEWPORT command");
 }
 
 Result Parser::ToBufferType(const std::string& name, BufferType* type) {
@@ -975,6 +1064,8 @@ Result Parser::ToBufferType(const std::string& name, BufferType* type) {
     *type = BufferType::kUniformTexelBuffer;
   else if (name == "storage_texel_buffer")
     *type = BufferType::kStorageTexelBuffer;
+  else if (name == "resolve")
+    *type = BufferType::kResolve;
   else
     return Result("unknown buffer_type: " + name);
 
@@ -1089,6 +1180,8 @@ Result Parser::ParsePipelineBind(Pipeline* pipeline) {
 
         for (auto& buf : buffers)
           buf->SetSampler(sampler);
+      } else if (buffer_type == BufferType::kResolve) {
+        r = pipeline->AddResolveTarget(buffer);
       }
     }
 
@@ -1172,10 +1265,60 @@ Result Parser::ParsePipelineBind(Pipeline* pipeline) {
           }
         }
 
+        // Set default descriptor buffer offsets to 0 and descriptor buffer
+        // ranges to VK_WHOLE_SIZE (~0ULL).
+        std::vector<uint64_t> descriptor_offsets(buffers.size(), 0);
+        std::vector<uint64_t> descriptor_ranges(buffers.size(), ~0ULL);
+        if (buffer_type == BufferType::kUniformDynamic ||
+            buffer_type == BufferType::kStorageDynamic ||
+            buffer_type == BufferType::kStorage ||
+            buffer_type == BufferType::kUniform) {
+          token = tokenizer_->PeekNextToken();
+          if (token->IsIdentifier() &&
+              token->AsString() == "DESCRIPTOR_OFFSET") {
+            token = tokenizer_->NextToken();
+            for (size_t i = 0; i < buffers.size(); i++) {
+              token = tokenizer_->NextToken();
+              if (!token->IsInteger()) {
+                if (i > 0) {
+                  return Result(
+                      "expecting a DESCRIPTOR_OFFSET value for each buffer in "
+                      "the array");
+                } else {
+                  return Result(
+                      "expecting an integer value for DESCRIPTOR_OFFSET");
+                }
+              }
+              descriptor_offsets[i] = token->AsUint64();
+            }
+          }
+
+          token = tokenizer_->PeekNextToken();
+          if (token->IsIdentifier() &&
+              token->AsString() == "DESCRIPTOR_RANGE") {
+            token = tokenizer_->NextToken();
+            for (size_t i = 0; i < buffers.size(); i++) {
+              token = tokenizer_->NextToken();
+              if (!token->IsInteger()) {
+                if (i > 0) {
+                  return Result(
+                      "expecting a DESCRIPTOR_RANGE value for each buffer in "
+                      "the array");
+                } else {
+                  return Result(
+                      "expecting an integer value for DESCRIPTOR_RANGE");
+                }
+              }
+              descriptor_ranges[i] = token->AsUint64();
+            }
+          }
+        }
+
         pipeline->ClearBuffers(descriptor_set, binding);
         for (size_t i = 0; i < buffers.size(); i++) {
           pipeline->AddBuffer(buffers[i], buffer_type, descriptor_set, binding,
-                              base_mip_level, dynamic_offsets[i]);
+                              base_mip_level, dynamic_offsets[i],
+                              descriptor_offsets[i], descriptor_ranges[i]);
         }
       } else if (token->IsIdentifier() && token->AsString() == "KERNEL") {
         token = tokenizer_->NextToken();
@@ -1720,6 +1863,98 @@ Result Parser::ParsePipelineStencil(Pipeline* pipeline) {
   }
 
   return ValidateEndOfStatement("STENCIL command");
+}
+
+Result Parser::ParsePipelineBlend(Pipeline* pipeline) {
+  pipeline->GetPipelineData()->SetEnableBlend(true);
+
+  while (true) {
+    auto token = tokenizer_->NextToken();
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS())
+      return Result("BLEND missing END command");
+    if (!token->IsIdentifier())
+      return Result("BLEND options must be identifiers");
+    if (token->AsString() == "END")
+      break;
+
+    if (token->AsString() == "SRC_COLOR_FACTOR") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for SRC_COLOR_FACTOR");
+
+      const auto factor = NameToBlendFactor(token->AsString());
+      if (factor == BlendFactor::kUnknown)
+        return Result("BLEND invalid value for SRC_COLOR_FACTOR: " +
+                      token->AsString());
+      pipeline->GetPipelineData()->SetSrcColorBlendFactor(
+          NameToBlendFactor(token->AsString()));
+    } else if (token->AsString() == "DST_COLOR_FACTOR") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for DST_COLOR_FACTOR");
+
+      const auto factor = NameToBlendFactor(token->AsString());
+      if (factor == BlendFactor::kUnknown)
+        return Result("BLEND invalid value for DST_COLOR_FACTOR: " +
+                      token->AsString());
+      pipeline->GetPipelineData()->SetDstColorBlendFactor(
+          NameToBlendFactor(token->AsString()));
+    } else if (token->AsString() == "SRC_ALPHA_FACTOR") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for SRC_ALPHA_FACTOR");
+
+      const auto factor = NameToBlendFactor(token->AsString());
+      if (factor == BlendFactor::kUnknown)
+        return Result("BLEND invalid value for SRC_ALPHA_FACTOR: " +
+                      token->AsString());
+      pipeline->GetPipelineData()->SetSrcAlphaBlendFactor(
+          NameToBlendFactor(token->AsString()));
+    } else if (token->AsString() == "DST_ALPHA_FACTOR") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for DST_ALPHA_FACTOR");
+
+      const auto factor = NameToBlendFactor(token->AsString());
+      if (factor == BlendFactor::kUnknown)
+        return Result("BLEND invalid value for DST_ALPHA_FACTOR: " +
+                      token->AsString());
+      pipeline->GetPipelineData()->SetDstAlphaBlendFactor(
+          NameToBlendFactor(token->AsString()));
+    } else if (token->AsString() == "COLOR_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for COLOR_OP");
+
+      const auto op = NameToBlendOp(token->AsString());
+      if (op == BlendOp::kUnknown)
+        return Result("BLEND invalid value for COLOR_OP: " + token->AsString());
+      pipeline->GetPipelineData()->SetColorBlendOp(
+          NameToBlendOp(token->AsString()));
+    } else if (token->AsString() == "ALPHA_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("BLEND invalid value for ALPHA_OP");
+
+      const auto op = NameToBlendOp(token->AsString());
+      if (op == BlendOp::kUnknown)
+        return Result("BLEND invalid value for ALPHA_OP: " + token->AsString());
+      pipeline->GetPipelineData()->SetAlphaBlendOp(
+          NameToBlendOp(token->AsString()));
+    } else {
+      return Result("BLEND invalid value for BLEND: " + token->AsString());
+    }
+  }
+
+  return ValidateEndOfStatement("BLEND command");
 }
 
 Result Parser::ParseStruct() {

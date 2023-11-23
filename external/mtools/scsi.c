@@ -70,7 +70,7 @@
 #include <sys/scsiio.h>
 #endif
 
-int scsi_max_length(void)
+unsigned int scsi_max_length(void)
 {
 #ifdef OS_linux
 	return 8;
@@ -99,12 +99,12 @@ int scsi_open(const char *name, int flag UNUSEDP, int mode UNUSEDP,
 #endif
 }
 
-int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
-	     void *data, size_t len, void *extra_data UNUSEDP)
+int scsi_cmd(int fd, unsigned char *cdb, uint8_t cmdlen, scsi_io_mode_t mode,
+	     void *data, uint32_t len, void *extra_data UNUSEDP)
 {
 #if defined OS_hpux
 	struct sctl_io sctl_io;
-	
+
 	memset(&sctl_io, 0, sizeof sctl_io);   /* clear reserved fields */
 	memcpy(sctl_io.cdb, cdb, cmdlen);      /* copy command */
 	sctl_io.cdb_length = cmdlen;           /* command length */
@@ -116,7 +116,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 			sctl_io.data_length = len;
 			sctl_io.data = data;
 			break;
-		case SCSI_IO_WRITE: 
+		case SCSI_IO_WRITE:
 			sctl_io.flags = 0;
 			sctl_io.data_length = data ? len : 0;
 			sctl_io.data = len ? data : 0;
@@ -129,7 +129,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 	}
 
 	return sctl_io.cdb_status;
-	
+
 #elif defined OS_sunos || defined OS_solaris
 	struct uscsi_cmd uscsi_cmd;
 	memset(&uscsi_cmd, 0, sizeof uscsi_cmd);
@@ -138,7 +138,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 #ifdef OS_solaris
 	uscsi_cmd.uscsi_timeout = 20;  /* msec? */
 #endif /* solaris */
-	
+
 	uscsi_cmd.uscsi_buflen = (u_int)len;
 	uscsi_cmd.uscsi_bufaddr = data;
 
@@ -158,13 +158,13 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 
 	if(uscsi_cmd.uscsi_status) {
 		errno = 0;
-		fprintf(stderr,"scsi status=%x\n",  
+		fprintf(stderr,"scsi status=%x\n",
 			(unsigned short)uscsi_cmd.uscsi_status);
 		return -1;
 	}
-	
+
 	return 0;
-	
+
 #elif defined OS_linux
 	struct sg_io_hdr my_scsi_cmd;
 
@@ -179,7 +179,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 	my_scsi_cmd.dxfer_len       = len;
 	my_scsi_cmd.dxferp          = data;
 	my_scsi_cmd.cmdp            = cdb;
-	my_scsi_cmd.timeout         = ~0; /* where is MAX_UINT defined??? */
+	my_scsi_cmd.timeout         = ~0u; /* where is MAX_UINT defined??? */
 
 #ifdef DEBUG
 	printf("CMD(%d): %02x%02x%02x%02x%02x%02x %sdevice\n",cmdlen,cdb[0],cdb[1],cdb[2],cdb[3],cdb[4],cdb[5],
@@ -191,7 +191,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 		perror("scsi_io");
 		return -1;
 	}
-	
+
 	return my_scsi_cmd.status & STATUS_MASK;
 
 #elif (defined _SCO_DS) && (defined SCSIUSERCMD)
@@ -227,7 +227,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 	case SCSI_IO_WRITE:
 	  my_scsi_cmd.ds_flags = DSRQ_WRITE|DSRQ_SENSE;
 	  break;
-        } 
+        }
 	my_scsi_cmd.ds_time = 10000;
 	my_scsi_cmd.ds_link = 0;
 	my_scsi_cmd.ds_synch =0;
@@ -239,11 +239,11 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 
         if(my_scsi_cmd.ds_status) {
                 errno = 0;
-                fprintf(stderr,"scsi status=%x\n",  
+                fprintf(stderr,"scsi status=%x\n",
                         (unsigned short)my_scsi_cmd.ds_status);
                 return -1;
         }
-        
+
         return 0;
 #elif (defined OS_freebsd) && (__FreeBSD__ >= 2)
 #define MSG_SIMPLE_Q_TAG 0x20 /* O/O */
@@ -278,7 +278,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
                     96,
                     cmdlen,
                     5000);
-                    
+
       if (cam_send_ccb(cam_dev, ccb) < 0 ||
 	  (ccb->ccb_h.status & CAM_STATUS_MASK) != CAM_REQ_CMP) {
 	  return -1;
@@ -310,7 +310,7 @@ int scsi_cmd(int fd, unsigned char *cdb, int cmdlen, scsi_io_mode_t mode,
 
 	if (sc.retsts) {
                 errno = EIO;
-                fprintf(stderr, "SCSI command failed, retsts %d\n", 
+                fprintf(stderr, "SCSI command failed, retsts %d\n",
 sc.retsts);
                 return -1;
 	}

@@ -112,7 +112,6 @@ public class SmsManagerTest {
     private static final String FINANCIAL_SMS_APP = "android.telephony.cts.financialsms";
 
     private TelephonyManager mTelephonyManager;
-    private PackageManager mPackageManager;
     private String mDestAddr;
     private String mText;
     private SmsBroadcastReceiver mSendReceiver;
@@ -139,24 +138,19 @@ public class SmsManagerTest {
 
     @Before
     public void setUp() throws Exception {
-        assumeTrue(InstrumentationRegistry.getContext().getPackageManager()
-                .hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+        assumeTrue(getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_MESSAGING));
 
         mContext = getContext();
         mTelephonyManager =
             (TelephonyManager) getContext().getSystemService(
                     Context.TELEPHONY_SERVICE);
-        mPackageManager = mContext.getPackageManager();
         mDestAddr = mTelephonyManager.getLine1Number();
         mText = "This is a test message";
 
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            mDeliveryReportSupported = false;
-        } else {
-            // exclude the networks that don't support SMS delivery report
-            String mccmnc = mTelephonyManager.getSimOperator();
-            mDeliveryReportSupported = !(CarrierCapability.NO_DELIVERY_REPORTS.contains(mccmnc));
-        }
+        // exclude the networks that don't support SMS delivery report
+        String mccmnc = mTelephonyManager.getSimOperator();
+        mDeliveryReportSupported = !(CarrierCapability.NO_DELIVERY_REPORTS.contains(mccmnc));
 
         // register receivers
         mSendIntent = new Intent(SMS_SEND_ACTION);
@@ -801,6 +795,17 @@ public class SmsManagerTest {
                         CdmaSmsCbProgramData.CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
                         CdmaSmsCbProgramData.CATEGORY_CMAS_EXTREME_THREAT,
                         ranType);
+            });
+        } catch (Exception e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testResetAllCellBroadcastRanges() {
+        try {
+            executeWithShellPermissionIdentity(() -> {
+                getSmsManager().resetAllCellBroadcastRanges();
             });
         } catch (Exception e) {
             // expected

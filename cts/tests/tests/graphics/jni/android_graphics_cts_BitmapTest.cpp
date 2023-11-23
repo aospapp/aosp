@@ -342,7 +342,7 @@ public:
                 mBadInfo.format = 6;
                 break;
             case 12:
-                mBadInfo.format = 10;
+                mBadInfo.format = 11;
                 break;
             case 13:
                 mBadInfo.width = static_cast<uint32_t>(kMaxInt32) + 1;

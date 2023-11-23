@@ -31,6 +31,7 @@ bootstrap_go_package {
         "soong-sysprop",
     ],
     srcs: [
+        "bug_map.go",
         "build_files.go",
         "cil_compat_map.go",
         "compat_cil.go",
@@ -38,6 +39,8 @@ bootstrap_go_package {
         "policy.go",
         "selinux.go",
         "selinux_contexts.go",
+        "sepolicy_freeze.go",
+        "sepolicy_neverallow.go",
         "sepolicy_vers.go",
         "versioned_policy.go",
     ],

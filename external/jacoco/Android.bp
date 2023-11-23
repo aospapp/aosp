@@ -95,9 +95,9 @@ java_library {
     // TODO(b/69671801): there's no bytecode on the device, so these shouldn't
     // be necessary.
     static_libs: [
-        "asm-7.0",
-        "asm-commons-7.0",
-        "asm-tree-7.0",
+        "asm-9.2",
+        "asm-commons-9.2",
+        "asm-tree-9.2",
     ],
 }
 
@@ -138,9 +138,9 @@ java_library_host {
     ],
 
     static_libs: [
-        "asm-7.0",
-        "asm-commons-7.0",
-        "asm-tree-7.0",
+        "asm-9.2",
+        "asm-commons-9.2",
+        "asm-tree-9.2",
         "args4j-2.0.28",
     ],
 

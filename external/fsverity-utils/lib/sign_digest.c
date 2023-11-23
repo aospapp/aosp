@@ -19,6 +19,10 @@
 #include <openssl/pkcs7.h>
 #include <string.h>
 
+#ifndef OPENSSL_IS_BORINGSSL
+#include <openssl/engine.h>
+#endif
+
 static int print_openssl_err_cb(const char *str,
 				size_t len __attribute__((unused)),
 				void *u __attribute__((unused)))
@@ -34,7 +38,7 @@ error_msg_openssl(const char *format, ...)
 	va_list va;
 
 	va_start(va, format);
-	libfsverity_do_error_msg(format, va, 0);
+	libfsverity_do_error_msg(format, va);
 	va_end(va);
 
 	if (ERR_peek_error() == 0)
@@ -80,6 +84,11 @@ static int read_certificate(const char *certfile, X509 **cert_ret)
 	BIO *bio;
 	X509 *cert;
 	int err;
+
+	if (!certfile) {
+		libfsverity_error_msg("no certificate specified");
+		return -EINVAL;
+	}
 
 	errno = 0;
 	bio = BIO_new_file(certfile, "r");
@@ -212,6 +221,15 @@ out:
 	return err;
 }
 
+static int
+load_pkcs11_private_key(const struct libfsverity_signature_params *sig_params
+			__attribute__((unused)),
+			EVP_PKEY **pkey_ret __attribute__((unused)))
+{
+	libfsverity_error_msg("BoringSSL doesn't support PKCS#11 tokens");
+	return -EINVAL;
+}
+
 #else /* OPENSSL_IS_BORINGSSL */
 
 static BIO *new_mem_buf(const void *buf, size_t size)
@@ -315,7 +333,70 @@ out:
 	return err;
 }
 
+static int
+load_pkcs11_private_key(const struct libfsverity_signature_params *sig_params,
+			EVP_PKEY **pkey_ret)
+{
+	ENGINE *engine;
+
+	if (!sig_params->pkcs11_engine) {
+		libfsverity_error_msg("no PKCS#11 engine specified");
+		return -EINVAL;
+	}
+	if (!sig_params->pkcs11_module) {
+		libfsverity_error_msg("no PKCS#11 module specified");
+		return -EINVAL;
+	}
+	ENGINE_load_dynamic();
+	engine = ENGINE_by_id("dynamic");
+	if (!engine) {
+		error_msg_openssl("failed to initialize OpenSSL PKCS#11 engine");
+		return -EINVAL;
+	}
+	if (!ENGINE_ctrl_cmd_string(engine, "SO_PATH",
+				    sig_params->pkcs11_engine, 0) ||
+	    !ENGINE_ctrl_cmd_string(engine, "ID", "pkcs11", 0) ||
+	    !ENGINE_ctrl_cmd_string(engine, "LIST_ADD", "1", 0) ||
+	    !ENGINE_ctrl_cmd_string(engine, "LOAD", NULL, 0) ||
+	    !ENGINE_ctrl_cmd_string(engine, "MODULE_PATH",
+				    sig_params->pkcs11_module, 0) ||
+	    !ENGINE_init(engine)) {
+		error_msg_openssl("failed to initialize OpenSSL PKCS#11 engine");
+		ENGINE_free(engine);
+		return -EINVAL;
+	}
+	*pkey_ret = ENGINE_load_private_key(engine, sig_params->pkcs11_keyid,
+					    NULL, NULL);
+	ENGINE_finish(engine);
+	ENGINE_free(engine);
+	if (!*pkey_ret) {
+		error_msg_openssl("failed to load private key from PKCS#11 token");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 #endif /* !OPENSSL_IS_BORINGSSL */
+
+/* Get a private key, either from disk or from a PKCS#11 token. */
+static int
+get_private_key(const struct libfsverity_signature_params *sig_params,
+		EVP_PKEY **pkey_ret)
+{
+	if (sig_params->pkcs11_engine || sig_params->pkcs11_module ||
+	    sig_params->pkcs11_keyid) {
+		if (sig_params->keyfile) {
+			libfsverity_error_msg("private key must be specified either by file or by PKCS#11 token, not both");
+			return -EINVAL;
+		}
+		return load_pkcs11_private_key(sig_params, pkey_ret);
+	}
+	if (!sig_params->keyfile) {
+		libfsverity_error_msg("no private key specified");
+		return -EINVAL;
+	}
+	return read_private_key(sig_params->keyfile, pkey_ret);
+}
 
 LIBEXPORT int
 libfsverity_sign_digest(const struct libfsverity_digest *digest,
@@ -323,19 +404,14 @@ libfsverity_sign_digest(const struct libfsverity_digest *digest,
 			u8 **sig_ret, size_t *sig_size_ret)
 {
 	const struct fsverity_hash_alg *hash_alg;
-	EVP_PKEY *pkey = NULL;
 	X509 *cert = NULL;
+	EVP_PKEY *pkey = NULL;
 	const EVP_MD *md;
 	struct fsverity_formatted_digest *d = NULL;
 	int err;
 
 	if (!digest || !sig_params || !sig_ret || !sig_size_ret)  {
 		libfsverity_error_msg("missing required parameters for sign_digest");
-		return -EINVAL;
-	}
-
-	if (!sig_params->keyfile || !sig_params->certfile) {
-		libfsverity_error_msg("keyfile and certfile must be specified");
 		return -EINVAL;
 	}
 
@@ -353,11 +429,11 @@ libfsverity_sign_digest(const struct libfsverity_digest *digest,
 		return -EINVAL;
 	}
 
-	err = read_private_key(sig_params->keyfile, &pkey);
+	err = read_certificate(sig_params->certfile, &cert);
 	if (err)
 		goto out;
 
-	err = read_certificate(sig_params->certfile, &cert);
+	err = get_private_key(sig_params, &pkey);
 	if (err)
 		goto out;
 
@@ -383,8 +459,8 @@ libfsverity_sign_digest(const struct libfsverity_digest *digest,
 	err = sign_pkcs7(d, sizeof(*d) + digest->digest_size,
 			 pkey, cert, md, sig_ret, sig_size_ret);
  out:
-	EVP_PKEY_free(pkey);
 	X509_free(cert);
+	EVP_PKEY_free(pkey);
 	free(d);
 	return err;
 }

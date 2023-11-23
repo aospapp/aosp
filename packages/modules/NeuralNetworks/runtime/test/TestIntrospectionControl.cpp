@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <iterator>
 #include <map>
@@ -107,8 +108,8 @@ class TestDriver : public SampleDriver {
 
 class IntrospectionControlTest : public ::testing::Test {
    protected:
-    virtual void SetUp() {}
-    virtual void TearDown() {
+    void SetUp() override {}
+    void TearDown() override {
         if (mEvent) {
             ANeuralNetworksEvent_free(mEvent);
         }
@@ -1502,3 +1503,93 @@ TEST_F(IntrospectionControlTest, ModelNeedTwoDevices) {
     EXPECT_EQ(output[1], kSimpleMultiplier * (input1[1] + input2[1]));
 }
 }  // namespace
+
+#if defined(NN_DEBUGGABLE) && !defined(NNTEST_ONLY_PUBLIC_API)
+
+void forTest_setRuntimeFeatureLevel(int64_t level);  // defined in NeuralNetworks.cpp
+
+namespace {
+class WhiteboxFeatureLevelTest : public IntrospectionControlTest {
+   protected:
+    void TearDown() override {
+        forTest_setRuntimeFeatureLevel(0);
+        IntrospectionControlTest::TearDown();
+    }
+
+   public:
+    enum DeviceLevel { V1_1, V1_3 };
+    void trial(int64_t setRuntimeFeatureLevel, DeviceLevel deviceLevel,
+               int64_t expectDeviceFeatureLevel);
+};
+
+void WhiteboxFeatureLevelTest::trial(int64_t setRuntimeFeatureLevel, DeviceLevel deviceLevel,
+                                     int64_t expectDeviceFeatureLevel) {
+    // This is needed before we have the CPU fallback path being treated as a Device.
+    if (DeviceManager::get()->getUseCpuOnly()) {
+        GTEST_SKIP();
+    }
+
+    using namespace test_drivers;
+
+    forTest_setRuntimeFeatureLevel(setRuntimeFeatureLevel);
+
+    static const char deviceName[] = "trial";
+    auto newTestDriver = [deviceLevel]() -> V1_0::IDevice* {
+        switch (deviceLevel) {
+            case DeviceLevel::V1_1:
+                return new TestDriver11(deviceName, Success::PASS_BOTH_BOTH);
+            case DeviceLevel::V1_3:
+                return new TestDriver13(deviceName, Success::PASS_BOTH_BOTH);
+            default:
+                assert(!"Unrecognized deviceLevel");
+                return nullptr;
+        }
+    };
+    DeviceManager::get()->forTest_registerDevice(nn::makeSharedDevice(deviceName, newTestDriver()));
+
+    ASSERT_TRUE(selectDeviceByName(deviceName));
+    int64_t deviceFeatureLevel;
+    ASSERT_EQ(mDevices.size(), size_t(1));
+    ASSERT_EQ(ANeuralNetworksDevice_getFeatureLevel(mDevices.front(), &deviceFeatureLevel),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(deviceFeatureLevel, expectDeviceFeatureLevel);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, Default_V1_1) {
+    trial(0, DeviceLevel::V1_1, ANEURALNETWORKS_FEATURE_LEVEL_2);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL3_V1_1) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_3, DeviceLevel::V1_1, ANEURALNETWORKS_FEATURE_LEVEL_2);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL2_V1_1) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_2, DeviceLevel::V1_1, ANEURALNETWORKS_FEATURE_LEVEL_2);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL1_V1_1) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_1, DeviceLevel::V1_1, ANEURALNETWORKS_FEATURE_LEVEL_1);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, Default_V1_3) {
+    trial(0, DeviceLevel::V1_3, ANEURALNETWORKS_FEATURE_LEVEL_4);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL5_V1_3) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_5, DeviceLevel::V1_3, ANEURALNETWORKS_FEATURE_LEVEL_4);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL4_V1_3) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_4, DeviceLevel::V1_3, ANEURALNETWORKS_FEATURE_LEVEL_4);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL3_V1_3) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_3, DeviceLevel::V1_3, ANEURALNETWORKS_FEATURE_LEVEL_3);
+}
+
+TEST_F(WhiteboxFeatureLevelTest, FL2_V1_3) {
+    trial(ANEURALNETWORKS_FEATURE_LEVEL_2, DeviceLevel::V1_3, ANEURALNETWORKS_FEATURE_LEVEL_2);
+}
+}  // namespace
+
+#endif  // defined(NN_DEBUGGABLE) && !defined(NNTEST_ONLY_PUBLIC_API)

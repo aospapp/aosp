@@ -34,6 +34,7 @@ public:
     MockUidProcStatsCollector() {
         ON_CALL(*this, enabled()).WillByDefault(::testing::Return(true));
     }
+    MOCK_METHOD(void, init, (), (override));
     MOCK_METHOD(android::base::Result<void>, collect, (), (override));
     MOCK_METHOD((const std::unordered_map<uid_t, UidProcStats>), latestStats, (),
                 (const, override));

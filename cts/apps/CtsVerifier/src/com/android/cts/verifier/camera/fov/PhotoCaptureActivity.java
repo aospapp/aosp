@@ -23,6 +23,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
@@ -34,8 +36,7 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.Log;
 import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
@@ -59,22 +60,24 @@ import java.util.List;
  * An activity for showing the camera preview and taking a picture.
  */
 public class PhotoCaptureActivity extends Activity
-        implements PictureCallback, SurfaceHolder.Callback {
+        implements PictureCallback, TextureView.SurfaceTextureListener {
     private static final String TAG = PhotoCaptureActivity.class.getSimpleName();
     private static final int FOV_REQUEST_CODE = 1006;
     private static final String PICTURE_FILENAME = "photo.jpg";
     private static float mReportedFovDegrees = 0;
     private float mReportedFovPrePictureTaken = -1;
 
-    private SurfaceView mPreview;
-    private SurfaceHolder mSurfaceHolder;
+    private TextureView mPreviewView;
+    private SurfaceTexture mPreviewTexture;
+    private int mPreviewTexWidth;
+    private int mPreviewTexHeight;
+
     private Spinner mResolutionSpinner;
     private List<SelectableResolution> mSupportedResolutions;
     private ArrayAdapter<SelectableResolution> mAdapter;
 
     private SelectableResolution mSelectedResolution;
     private Camera mCamera;
-    private Size mSurfaceSize;
     private boolean mCameraInitialized = false;
     private boolean mPreviewActive = false;
     private boolean mTakingPicture = false;
@@ -114,12 +117,8 @@ public class PhotoCaptureActivity extends Activity
             }
         }
 
-        mPreview = (SurfaceView) findViewById(R.id.camera_fov_camera_preview);
-        mSurfaceHolder = mPreview.getHolder();
-        mSurfaceHolder.addCallback(this);
-
-        // This is required for older versions of Android hardware.
-        mSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        mPreviewView = (TextureView) findViewById(R.id.camera_fov_camera_preview);
+        mPreviewView.setSurfaceTextureListener(this);
 
         TextView textView = (TextView) findViewById(R.id.camera_fov_tap_to_take_photo);
         textView.setTextColor(Color.WHITE);
@@ -185,8 +184,9 @@ public class PhotoCaptureActivity extends Activity
                     SelectableResolution resolution = mSupportedResolutions.get(position);
                     switchToCamera(resolution, false);
 
-                    // It should be guaranteed that the FOV is correctly updated after setParameters().
-                    mReportedFovPrePictureTaken = mCamera.getParameters().getHorizontalViewAngle();
+                    // It should be guaranteed that the FOV is correctly updated after
+                    // setParameters().
+                    mReportedFovPrePictureTaken = getCameraFov(resolution.cameraId);
 
                     mResolutionSpinnerIndex = position;
                     startPreview();
@@ -273,8 +273,8 @@ public class PhotoCaptureActivity extends Activity
     @Override
     public void onPictureTaken(byte[] data, Camera camera) {
         File pictureFile = getPictureFile(this);
-        Camera.Parameters params = mCamera.getParameters();
-        mReportedFovDegrees = params.getHorizontalViewAngle();
+
+        mReportedFovDegrees = getCameraFov(mSelectedResolution.cameraId);
 
         // Show error if FOV does not match the value reported before takePicture().
         if (mReportedFovPrePictureTaken != mReportedFovDegrees) {
@@ -365,20 +365,27 @@ public class PhotoCaptureActivity extends Activity
     }
 
     @Override
-    public void surfaceChanged(
-            SurfaceHolder holder, int format, int width, int height) {
-        mSurfaceSize = new Size(width, height);
+    public void onSurfaceTextureAvailable(SurfaceTexture surface,
+            int width, int height) {
+        mPreviewTexture = surface;
+        mPreviewTexWidth = width;
+        mPreviewTexHeight = height;
         initializeCamera();
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        // Nothing to do.
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+        // Ignored, Camera does all the work for us
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        // Nothing to do.
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+        return true;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        // Invoked every time there's a new Camera preview frame
     }
 
     private void showNextDialogToChoosePreviewSize() {
@@ -431,15 +438,45 @@ public class PhotoCaptureActivity extends Activity
         initializeCamera(true);
     }
 
+    private void setPreviewTransform(Size previewSize) {
+        int sensorRotation = mPreviewOrientation;
+        float selectedPreviewAspectRatio;
+        if (sensorRotation == 0 || sensorRotation == 180) {
+            selectedPreviewAspectRatio = (float) previewSize.width
+                / (float) previewSize.height;
+        } else {
+            selectedPreviewAspectRatio = (float) previewSize.height
+                / (float) previewSize.width;
+        }
+
+        Matrix transform = new Matrix();
+        float viewAspectRatio = (float) mPreviewView.getMeasuredWidth()
+                / (float) mPreviewView.getMeasuredHeight();
+        float scaleX = 1.0f, scaleY = 1.0f;
+        float translateX = 0, translateY = 0;
+        if (selectedPreviewAspectRatio > viewAspectRatio) {
+            scaleY = viewAspectRatio / selectedPreviewAspectRatio;
+            translateY = (float) mPreviewView.getMeasuredHeight() / 2
+                    - (float) mPreviewView.getMeasuredHeight() * scaleY / 2;
+        } else {
+            scaleX = selectedPreviewAspectRatio / viewAspectRatio;
+            translateX = (float) mPreviewView.getMeasuredWidth() / 2
+                    - (float) mPreviewView.getMeasuredWidth() * scaleX / 2;
+        }
+        transform.postScale(scaleX, scaleY);
+        transform.postTranslate(translateX, translateY);
+        mPreviewView.setTransform(transform);
+    }
+
     private void initializeCamera(boolean startPreviewAfterInit) {
-        if (mCamera == null || mSurfaceHolder.getSurface() == null) {
+        if (mCamera == null || mPreviewTexture == null) {
             return;
         }
 
         try {
-            mCamera.setPreviewDisplay(mSurfaceHolder);
+            mCamera.setPreviewTexture(mPreviewTexture);
         } catch (Throwable t) {
-            Log.e(TAG, "Could not set preview display", t);
+            Log.e(TAG, "Could not set preview texture", t);
             Toast.makeText(this, t.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
@@ -452,19 +489,20 @@ public class PhotoCaptureActivity extends Activity
         Size selectedPreviewSize = null;
         if (mPreviewSizes != null) {
             selectedPreviewSize = mPreviewSizes[mSelectedResolution.cameraId];
-        } else if (mSurfaceSize != null) {
+        } else {
             if (mPreviewOrientation == 0 || mPreviewOrientation == 180) {
                 selectedPreviewSize = getBestPreviewSize(
-                        mSurfaceSize.width, mSurfaceSize.height, params);
+                        mPreviewTexWidth, mPreviewTexHeight, params);
             } else {
                 selectedPreviewSize = getBestPreviewSize(
-                        mSurfaceSize.height, mSurfaceSize.width, params);
+                        mPreviewTexHeight, mPreviewTexWidth, params);
             }
         }
 
         if (selectedPreviewSize != null) {
             params.setPreviewSize(selectedPreviewSize.width, selectedPreviewSize.height);
             mCamera.setParameters(params);
+            setPreviewTransform(selectedPreviewSize);
             mCameraInitialized = true;
         }
 
@@ -556,21 +594,25 @@ public class PhotoCaptureActivity extends Activity
         return result;
     }
 
+    private int getDisplayRotation() {
+        int displayRotation = getDisplay().getRotation();
+        int displayRotationDegrees = 0;
+        switch (displayRotation) {
+            case Surface.ROTATION_0: displayRotationDegrees = 0; break;
+            case Surface.ROTATION_90: displayRotationDegrees = 90; break;
+            case Surface.ROTATION_180: displayRotationDegrees = 180; break;
+            case Surface.ROTATION_270: displayRotationDegrees = 270; break;
+        }
+        return displayRotationDegrees;
+    }
+
     private void calculateOrientations(Activity activity,
             int cameraId, android.hardware.Camera camera) {
         android.hardware.Camera.CameraInfo info =
                 new android.hardware.Camera.CameraInfo();
         android.hardware.Camera.getCameraInfo(cameraId, info);
-        int rotation = activity.getWindowManager().getDefaultDisplay()
-                .getRotation();
-        int degrees = 0;
-        switch (rotation) {
-            case Surface.ROTATION_0: degrees = 0; break;
-            case Surface.ROTATION_90: degrees = 90; break;
-            case Surface.ROTATION_180: degrees = 180; break;
-            case Surface.ROTATION_270: degrees = 270; break;
-        }
 
+        int degrees = getDisplayRotation();
         if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
             mJpegOrientation = (info.orientation + degrees) % 360;
             mPreviewOrientation = (360 - mJpegOrientation) % 360;  // compensate the mirror
@@ -597,5 +639,13 @@ public class PhotoCaptureActivity extends Activity
                     ": " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
         return false;
+    }
+
+    private float getCameraFov(int cameraId) {
+        if (mPreviewOrientation == 0 || mPreviewOrientation == 180) {
+            return mCamera.getParameters().getHorizontalViewAngle();
+        } else {
+            return mCamera.getParameters().getVerticalViewAngle();
+        }
     }
 }

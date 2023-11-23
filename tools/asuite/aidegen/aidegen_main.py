@@ -40,10 +40,11 @@ This CLI generates project files for using in IntelliJ, such as:
 from __future__ import absolute_import
 
 import argparse
-import logging
 import os
 import sys
 import traceback
+
+from pathlib import Path
 
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
@@ -93,7 +94,8 @@ _CHOOSE_LANGUAGE_MSG = ('The scope of your modules contains {} different '
                         'would like to implement.\t')
 _LANGUAGE_OPTIONS = [constant.JAVA, constant.C_CPP]
 _NO_ANY_PROJECT_EXIST = 'There is no Java, C/C++ or Rust target.'
-
+_NO_LANGUAGE_PROJECT_EXIST = 'There is no {} target.'
+_NO_IDE_LAUNCH_PATH = 'Can not find the IDE path : {}'
 
 def _parse_args(args):
     """Parse command line arguments.
@@ -256,14 +258,15 @@ def _create_and_launch_java_projects(ide_util_obj, targets):
         targets: A list of build targets.
     """
     projects = project_info.ProjectInfo.generate_projects(targets)
+
     project_info.ProjectInfo.multi_projects_locate_source(projects)
     _generate_project_files(projects)
     if ide_util_obj:
         _launch_ide(ide_util_obj, projects[0].project_absolute_path)
 
 
-def _launch_ide_by_module_contents(args, ide_util_obj, language, jlist=None,
-                                   clist=None, rlist=None, all_langs=False):
+def _launch_ide_by_module_contents(args, ide_util_obj, language,
+                                   lang_targets, all_langs=False):
     """Deals with the suitable IDE launch action.
 
     The rules of AIDEGen launching IDE with languages are:
@@ -311,25 +314,50 @@ def _launch_ide_by_module_contents(args, ide_util_obj, language, jlist=None,
         args: A list of system arguments.
         ide_util_obj: An ide_util instance.
         language: A string of the language to be edited in the IDE.
-        jlist: A list of Java build targets.
-        clist: A list of C/C++ build targets.
-        rlist: A list of Rust build targets.
+        lang_targets: A dict contains None or list of targets of different
+            languages. E.g.
+            {
+               'Java': ['modules1', 'modules2'],
+               'C/C++': ['modules3'],
+               'Rust': None,
+               ...
+            }
         all_langs: A boolean, True to launch all languages else False.
     """
+    if lang_targets is None:
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), _NO_ANY_PROJECT_EXIST))
+        return
+
+    targets = lang_targets
+    java_list = targets[constant.JAVA] if constant.JAVA in targets else None
+    c_cpp_list = targets[constant.C_CPP] if constant.C_CPP in targets else None
+    rust_list = targets[constant.RUST] if constant.RUST in targets else None
+
     if all_langs:
         _launch_vscode(ide_util_obj, project_info.ProjectInfo.modules_info,
-                       jlist, clist, rlist)
+                       java_list, c_cpp_list, rust_list)
         return
-    if not (jlist or clist or rlist):
+    if not (java_list or c_cpp_list or rust_list):
         print(constant.WARN_MSG.format(
             common_util.COLORED_INFO('Warning:'), _NO_ANY_PROJECT_EXIST))
         return
     if language == constant.JAVA:
-        _create_and_launch_java_projects(ide_util_obj, jlist)
+        if not java_list:
+            print(constant.WARN_MSG.format(
+                common_util.COLORED_INFO('Warning:'),
+                _NO_LANGUAGE_PROJECT_EXIST.format(constant.JAVA)))
+            return
+        _create_and_launch_java_projects(ide_util_obj, java_list)
         return
     if language == constant.C_CPP:
-        native_project_info.NativeProjectInfo.generate_projects(clist)
-        native_project_file = native_util.generate_clion_projects(clist)
+        if not c_cpp_list:
+            print(constant.WARN_MSG.format(
+                common_util.COLORED_INFO('Warning:'),
+                _NO_LANGUAGE_PROJECT_EXIST.format(constant.C_CPP)))
+            return
+        native_project_info.NativeProjectInfo.generate_projects(c_cpp_list)
+        native_project_file = native_util.generate_clion_projects(c_cpp_list)
         if native_project_file:
             _launch_native_projects(ide_util_obj, args, [native_project_file])
 
@@ -462,12 +490,20 @@ def main(argv):
     ask_version = False
     try:
         args = _parse_args(argv)
+        # If the targets is the default value, sets it to the absolute path to
+        # avoid the issues caused by the empty path.
+        if args.targets == ['']:
+            args.targets = [os.path.abspath(os.getcwd())]
         if args.version:
             ask_version = True
             version_file = os.path.join(os.path.dirname(__file__),
                                         constant.VERSION_FILE)
             print(common_util.read_file_content(version_file))
             sys.exit(constant.EXIT_CODE_NORMAL)
+        if args.ide_installed_path:
+            if not Path(args.ide_installed_path).exists():
+                print(_NO_IDE_LAUNCH_PATH.format(args.ide_installed_path))
+                sys.exit(constant.EXIT_CODE_NORMAL)
 
         launch_ide = not args.no_launch
         common_util.configure_logging(args.verbose)
@@ -537,8 +573,11 @@ def aidegen_main(args):
     all_langs = config.ide_name == constant.IDE_VSCODE
     # Backward compatible strategy, when both java and C/C++ module exist,
     # check the preferred target from the user and launch single one.
+    language_targets = {constant.JAVA: jtargets,
+                        constant.C_CPP: ctargets,
+                        constant.RUST: rtargets}
     _launch_ide_by_module_contents(args, ide_util_obj, config.language,
-                                   jtargets, ctargets, rtargets, all_langs)
+                                   language_targets, all_langs)
 
 
 if __name__ == '__main__':

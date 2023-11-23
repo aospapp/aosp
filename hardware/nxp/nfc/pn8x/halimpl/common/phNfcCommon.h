@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright 2010-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,13 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#ifndef FW_LIB_ROOT_DIR
+#if (defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64))
+#define FW_LIB_ROOT_DIR "/vendor/lib64/"
+#else
 #define FW_LIB_ROOT_DIR "/vendor/lib/"
+#endif
+#endif
 #define FW_BIN_ROOT_DIR "/vendor/firmware/"
 #define FW_LIB_EXTENSION ".so"
 #define FW_BIN_EXTENSION ".bin"

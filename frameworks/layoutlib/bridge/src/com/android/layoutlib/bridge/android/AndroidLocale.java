@@ -23,7 +23,7 @@ import android.os.LocaleList;
 import java.util.Locale;
 
 /**
- * This class provides an alternate implementation for {@code java.util.Locale#adjustLanguageCode}
+ * This class provides an alternate implementation for {@code java.util.Locale#getDefault}
  * which is not available in openJDK. It also overrides the getDefault method.
  *
  * The create tool re-writes references to the above mentioned method to this one. Hence it's
@@ -31,21 +31,6 @@ import java.util.Locale;
  */
 @SuppressWarnings("UnusedDeclaration")
 public class AndroidLocale {
-
-    public static String adjustLanguageCode(String languageCode) {
-        String adjusted = languageCode.toLowerCase(Locale.US);
-        // Map new language codes to the obsolete language
-        // codes so the correct resource bundles will be used.
-        if (languageCode.equals("he")) {
-            adjusted = "iw";
-        } else if (languageCode.equals("id")) {
-            adjusted = "in";
-        } else if (languageCode.equals("yi")) {
-            adjusted = "ji";
-        }
-
-        return adjusted;
-    }
 
     public static Locale getDefault() {
         BridgeContext context = RenderAction.getCurrentContext();

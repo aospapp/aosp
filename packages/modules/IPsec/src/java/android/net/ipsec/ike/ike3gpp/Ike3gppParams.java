@@ -17,8 +17,11 @@
 package android.net.ipsec.ike.ike3gpp;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
+
+import com.android.internal.net.ipsec.ike.ike3gpp.Ike3gppDeviceIdentityUtils;
 
 import java.util.Objects;
 
@@ -37,9 +40,11 @@ public final class Ike3gppParams {
     public static final byte PDU_SESSION_ID_UNSET = 0;
 
     private final byte mPduSessionId;
+    private final String mDeviceIdentity;
 
-    private Ike3gppParams(byte pduSessionId) {
+    private Ike3gppParams(byte pduSessionId, @Nullable String deviceIdentity) {
         mPduSessionId = pduSessionId;
+        mDeviceIdentity = deviceIdentity;
     }
 
     /**
@@ -63,18 +68,28 @@ public final class Ike3gppParams {
         return mPduSessionId != PDU_SESSION_ID_UNSET;
     }
 
+    /**
+     * Retrieves the Device Identity for this Ike3gppParams.
+     *
+     * <p>If the Device Identity was not set and this method is called, null is returned
+     */
+    public @Nullable String getMobileDeviceIdentity() {
+        return mDeviceIdentity;
+    }
+
     @Override
     public int hashCode() {
-        return Objects.hash(mPduSessionId);
+        return Objects.hash(mPduSessionId, mDeviceIdentity);
     }
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof Ike3gppParams)) {
-            return false;
-        }
+        if (this == o) return true;
+        if (!(o instanceof Ike3gppParams)) return false;
 
-        return mPduSessionId == ((Ike3gppParams) o).mPduSessionId;
+        Ike3gppParams that = (Ike3gppParams) o;
+        return ((mPduSessionId == that.mPduSessionId)
+                && Objects.equals(mDeviceIdentity, that.mDeviceIdentity));
     }
 
     @Override
@@ -83,6 +98,7 @@ public final class Ike3gppParams {
                 .append("Ike3gppParams={ ")
                 .append("pduSessionId=")
                 .append(String.format("%02X", mPduSessionId))
+                .append(String.format("%16s", mDeviceIdentity))
                 .append(" }")
                 .toString();
     }
@@ -90,6 +106,7 @@ public final class Ike3gppParams {
     /** This class can be used to incrementally construct an {@link Ike3gppParams}. */
     public static final class Builder {
         private byte mPduSessionId = PDU_SESSION_ID_UNSET;
+        private String mDeviceIdentity;
 
         /**
          * Sets the PDU Session ID to be used for the 3GPP N1_MODE_CAPABILITY payload.
@@ -113,13 +130,38 @@ public final class Ike3gppParams {
         }
 
         /**
+         * Setting the device identity (IMEI or IMEISV) will enable Mobile Device Identity
+         * Signalling support.
+         *
+         * @see 3GPP 24.302 Section 7.2.6 for details of signaling exchange
+         * @param deviceIdentity String representing decimal digits of IMEI(SV). IMEI is 15 digits
+         *     and IMEISV is 16 digits long as per spec 3GPP TS 23.300. The implementation infers
+         *     the Identity Type (IMEI or IMEISV) based on the length of the deviceIdentity passed
+         *     in. A string of invalid length will result in an exception during build(). If the
+         *     device identity is set, EAP-AKA MUST be configured to be an acceptable auth method.
+         *     Device identity can be unset by passing null.
+         * @return Builder this, to facilitate chaining
+         */
+        @NonNull
+        public Builder setMobileDeviceIdentity(@Nullable String deviceIdentity) {
+            mDeviceIdentity = deviceIdentity;
+            return this;
+        }
+
+        /**
          * Validates and builds the {@link Ike3gppParams}.
          *
          * @return Ike3gppParams the validated Ike3gppParams
          */
         @NonNull
         public Ike3gppParams build() {
-            return new Ike3gppParams(mPduSessionId);
+            if (mDeviceIdentity != null) {
+                if (!Ike3gppDeviceIdentityUtils.isValidDeviceIdentity(mDeviceIdentity)) {
+                    throw new IllegalArgumentException(
+                            "valid device identity should be 15 or 16 digits or set to null");
+                }
+            }
+            return new Ike3gppParams(mPduSessionId, mDeviceIdentity);
         }
     }
 }

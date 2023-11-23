@@ -25,15 +25,21 @@ import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
 import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 import static android.system.OsConstants.ETIMEDOUT;
 
+import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.content.Context;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
-import android.net.ConnectivityManager.NetworkCallback;
 import android.net.DnsResolver;
-import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
@@ -45,11 +51,21 @@ import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.system.ErrnoException;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.net.module.util.DnsPacket;
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 import com.android.testutils.SkipPresubmit;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -61,7 +77,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 @AppModeFull(reason = "WRITE_SECURE_SETTINGS permission can't be granted to instant apps")
-public class DnsResolverTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class DnsResolverTest {
+    @Rule
+    public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
+
     private static final String TAG = "DnsResolverTest";
     private static final char[] HEX_CHARS = {
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
@@ -91,6 +111,7 @@ public class DnsResolverTest extends AndroidTestCase {
     static final int QUERY_TIMES = 10;
     static final int NXDOMAIN = 3;
 
+    private Context mContext;
     private ContentResolver mCR;
     private ConnectivityManager mCM;
     private PackageManager mPackageManager;
@@ -99,30 +120,27 @@ public class DnsResolverTest extends AndroidTestCase {
     private Executor mExecutorInline;
     private DnsResolver mDns;
 
-    private String mOldMode;
-    private String mOldDnsSpecifier;
     private TestNetworkCallback mWifiRequestCallback = null;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mCM = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getContext();
+        mCM = mContext.getSystemService(ConnectivityManager.class);
         mDns = DnsResolver.getInstance();
         mExecutor = new Handler(Looper.getMainLooper())::post;
         mExecutorInline = (Runnable r) -> r.run();
-        mCR = getContext().getContentResolver();
-        mCtsNetUtils = new CtsNetUtils(getContext());
+        mCR = mContext.getContentResolver();
+        mCtsNetUtils = new CtsNetUtils(mContext);
         mCtsNetUtils.storePrivateDnsSetting();
         mPackageManager = mContext.getPackageManager();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         mCtsNetUtils.restorePrivateDnsSetting();
         if (mWifiRequestCallback != null) {
             mCM.unregisterNetworkCallback(mWifiRequestCallback);
         }
-        super.tearDown();
     }
 
     private static String byteArrayToHexString(byte[] bytes) {
@@ -298,42 +316,52 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRawQuery() throws Exception {
         doTestRawQuery(mExecutor);
     }
 
+    @Test
     public void testRawQueryInline() throws Exception {
         doTestRawQuery(mExecutorInline);
     }
 
+    @Test
     public void testRawQueryBlob() throws Exception {
         doTestRawQueryBlob(mExecutor);
     }
 
+    @Test
     public void testRawQueryBlobInline() throws Exception {
         doTestRawQueryBlob(mExecutorInline);
     }
 
+    @Test
     public void testRawQueryRoot() throws Exception {
         doTestRawQueryRoot(mExecutor);
     }
 
+    @Test
     public void testRawQueryRootInline() throws Exception {
         doTestRawQueryRoot(mExecutorInline);
     }
 
+    @Test
     public void testRawQueryNXDomain() throws Exception {
         doTestRawQueryNXDomain(mExecutor);
     }
 
+    @Test
     public void testRawQueryNXDomainInline() throws Exception {
         doTestRawQueryNXDomain(mExecutorInline);
     }
 
+    @Test
     public void testRawQueryNXDomainWithPrivateDns() throws Exception {
         doTestRawQueryNXDomainWithPrivateDns(mExecutor);
     }
 
+    @Test
     public void testRawQueryNXDomainInlineWithPrivateDns() throws Exception {
         doTestRawQueryNXDomainWithPrivateDns(mExecutorInline);
     }
@@ -436,6 +464,7 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRawQueryCancel() throws InterruptedException {
         final String msg = "Test cancel RawQuery " + TEST_DOMAIN;
         // Start a DNS query and the cancel it immediately. Use VerifyCancelCallback to expect
@@ -465,6 +494,7 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRawQueryBlobCancel() throws InterruptedException {
         final String msg = "Test cancel RawQuery blob " + byteArrayToHexString(TEST_BLOB);
         // Start a DNS query and the cancel it immediately. Use VerifyCancelCallback to expect
@@ -493,6 +523,7 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCancelBeforeQuery() throws InterruptedException {
         final String msg = "Test cancelled RawQuery " + TEST_DOMAIN;
         for (Network network : getTestableNetworks()) {
@@ -578,34 +609,42 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testQueryForInetAddress() throws Exception {
         doTestQueryForInetAddress(mExecutor);
     }
 
+    @Test
     public void testQueryForInetAddressInline() throws Exception {
         doTestQueryForInetAddress(mExecutorInline);
     }
 
+    @Test
     public void testQueryForInetAddressIpv4() throws Exception {
         doTestQueryForInetAddressIpv4(mExecutor);
     }
 
+    @Test
     public void testQueryForInetAddressIpv4Inline() throws Exception {
         doTestQueryForInetAddressIpv4(mExecutorInline);
     }
 
+    @Test
     public void testQueryForInetAddressIpv6() throws Exception {
         doTestQueryForInetAddressIpv6(mExecutor);
     }
 
+    @Test
     public void testQueryForInetAddressIpv6Inline() throws Exception {
         doTestQueryForInetAddressIpv6(mExecutorInline);
     }
 
+    @Test
     public void testContinuousQueries() throws Exception {
         doTestContinuousQueries(mExecutor);
     }
 
+    @Test
     @SkipPresubmit(reason = "Flaky: b/159762682; add to presubmit after fixing")
     public void testContinuousQueriesInline() throws Exception {
         doTestContinuousQueries(mExecutorInline);
@@ -625,6 +664,7 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testQueryCancelForInetAddress() throws InterruptedException {
         final String msg = "Test cancel query for InetAddress " + TEST_DOMAIN;
         // Start a DNS query and the cancel it immediately. Use VerifyCancelInetAddressCallback to
@@ -686,7 +726,20 @@ public class DnsResolverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testPrivateDnsBypass() throws InterruptedException {
+        final String dataStallSetting = Settings.Global.getString(mCR,
+                Settings.Global.DATA_STALL_RECOVERY_ON_BAD_NETWORK);
+        Settings.Global.putInt(mCR, Settings.Global.DATA_STALL_RECOVERY_ON_BAD_NETWORK, 0);
+        try {
+            doTestPrivateDnsBypass();
+        } finally {
+            Settings.Global.putString(mCR, Settings.Global.DATA_STALL_RECOVERY_ON_BAD_NETWORK,
+                    dataStallSetting);
+        }
+    }
+
+    private void doTestPrivateDnsBypass() throws InterruptedException {
         final Network[] testNetworks = getTestableNetworks();
 
         // Set an invalid private DNS server
@@ -771,6 +824,21 @@ public class DnsResolverTest extends AndroidTestCase {
                 assertTrue(msg + " returned " + (queryV6 ? "Ipv4" : "Ipv6") + " results",
                         queryV6 ? !callback.hasIpv4Answer() : !callback.hasIpv6Answer());
             }
+        }
+    }
+
+    /** Verifies that DnsResolver.DnsException can be subclassed and its constructor re-used. */
+    @Test @IgnoreUpTo(SC_V2) // TODO: Use to Build.VERSION_CODES.SC_V2 when available
+    public void testDnsExceptionConstructor() throws InterruptedException {
+        class TestDnsException extends DnsResolver.DnsException {
+            TestDnsException(int code, @Nullable Throwable cause) {
+                super(code, cause);
+            }
+        }
+        try {
+            throw new TestDnsException(DnsResolver.ERROR_SYSTEM, null);
+        } catch (DnsResolver.DnsException e) {
+            assertEquals(DnsResolver.ERROR_SYSTEM, e.code);
         }
     }
 }

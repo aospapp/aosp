@@ -30,13 +30,12 @@ import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 
-import static com.google.common.truth.Truth.assertWithMessage;
-
 /** HDMI CEC tests for system standby features (Section 11.1.3) */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class HdmiCecTvStandbyTest extends BaseHdmiCecCtsTest {
 
-    private static final LogicalAddress TV_DEVICE = LogicalAddress.TV;
+    private static final String TV_SEND_STANDBY_ON_SLEEP = "tv_send_standby_on_sleep";
+    private static final String TV_SEND_STANDBY_ON_SLEEP_ENABLED = "1";
 
     public HdmiCecTvStandbyTest() {
         super(HdmiCecConstants.CEC_DEVICE_TYPE_TV);
@@ -46,11 +45,8 @@ public class HdmiCecTvStandbyTest extends BaseHdmiCecCtsTest {
     public RuleChain ruleChain =
             RuleChain.outerRule(CecRules.requiresCec(this))
                     .around(CecRules.requiresLeanback(this))
-                    .around(CecRules.requiresDeviceType(this, TV_DEVICE))
+                    .around(CecRules.requiresDeviceType(this, HdmiCecConstants.CEC_DEVICE_TYPE_TV))
                     .around(hdmiCecClient);
-
-    private static final String HDMI_CONTROL_DEVICE_AUTO_OFF =
-            "hdmi_control_auto_device_off_enabled";
 
     /**
      * Test 11.1.3-1
@@ -62,29 +58,14 @@ public class HdmiCecTvStandbyTest extends BaseHdmiCecCtsTest {
     public void cect_11_1_3_1_BroadcastStandby() throws Exception {
         ITestDevice device = getDevice();
         device.waitForBootComplete(HdmiCecConstants.REBOOT_TIMEOUT);
-        boolean wasOn = setHdmiControlDeviceAutoOff(true);
+        String value = getSettingsValue(TV_SEND_STANDBY_ON_SLEEP);
+        setSettingsValue(TV_SEND_STANDBY_ON_SLEEP, TV_SEND_STANDBY_ON_SLEEP_ENABLED);
         try {
-            device.executeShellCommand("input keyevent KEYCODE_SLEEP");
+            sendDeviceToSleep();
             hdmiCecClient.checkExpectedOutput(LogicalAddress.BROADCAST, CecOperand.STANDBY);
-            String wakeState = device.executeShellCommand("dumpsys power | grep mWakefulness=");
-            assertWithMessage("Device is not in standby.")
-                    .that(wakeState.trim())
-                    .isEqualTo("mWakefulness=Asleep");
         } finally {
-            device.executeShellCommand("input keyevent KEYCODE_WAKEUP");
-            setHdmiControlDeviceAutoOff(wasOn);
+            wakeUpDevice();
+            setSettingsValue(TV_SEND_STANDBY_ON_SLEEP, value);
         }
-    }
-
-    private boolean setHdmiControlDeviceAutoOff(boolean turnOn) throws Exception {
-        ITestDevice device = getDevice();
-        String val =
-                device.executeShellCommand("settings get global " + HDMI_CONTROL_DEVICE_AUTO_OFF)
-                        .trim();
-        String valToSet = turnOn ? "1" : "0";
-        device.executeShellCommand(
-                "settings put global " + HDMI_CONTROL_DEVICE_AUTO_OFF + " " + valToSet);
-        device.executeShellCommand("settings get global " + HDMI_CONTROL_DEVICE_AUTO_OFF);
-        return val.equals("1");
     }
 }

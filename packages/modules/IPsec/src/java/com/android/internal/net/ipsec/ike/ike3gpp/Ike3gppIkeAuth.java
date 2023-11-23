@@ -20,6 +20,7 @@ import static android.net.ipsec.ike.ike3gpp.Ike3gppBackoffTimer.ERROR_TYPE_NETWO
 import static android.net.ipsec.ike.ike3gpp.Ike3gppBackoffTimer.ERROR_TYPE_NO_APN_SUBSCRIPTION;
 
 import static com.android.internal.net.ipsec.ike.ike3gpp.Ike3gppExtensionExchange.NOTIFY_TYPE_BACKOFF_TIMER;
+import static com.android.internal.net.ipsec.ike.ike3gpp.Ike3gppExtensionExchange.NOTIFY_TYPE_DEVICE_IDENTITY;
 import static com.android.internal.net.ipsec.ike.ike3gpp.Ike3gppExtensionExchange.NOTIFY_TYPE_N1_MODE_INFORMATION;
 
 import android.annotation.NonNull;
@@ -46,10 +47,12 @@ import java.util.concurrent.Executor;
 class Ike3gppIkeAuth extends Ike3gppExchangeBase {
     private static final String TAG = Ike3gppIkeAuth.class.getSimpleName();
     private static final Set<Integer> SUPPORTED_RESPONSE_NOTIFY_TYPES = new ArraySet<>();
+    private boolean mIsDeviceIdentityRequestedByNetwork;
 
     static {
         SUPPORTED_RESPONSE_NOTIFY_TYPES.add(NOTIFY_TYPE_N1_MODE_INFORMATION);
         SUPPORTED_RESPONSE_NOTIFY_TYPES.add(NOTIFY_TYPE_BACKOFF_TIMER);
+        SUPPORTED_RESPONSE_NOTIFY_TYPES.add(NOTIFY_TYPE_DEVICE_IDENTITY);
         SUPPORTED_RESPONSE_NOTIFY_TYPES.add(ERROR_TYPE_NETWORK_FAILURE);
         SUPPORTED_RESPONSE_NOTIFY_TYPES.add(ERROR_TYPE_NO_APN_SUBSCRIPTION);
     }
@@ -57,6 +60,20 @@ class Ike3gppIkeAuth extends Ike3gppExchangeBase {
     /** Initializes an Ike3gppIkeAuth. */
     Ike3gppIkeAuth(@NonNull Ike3gppExtension ike3gppExtension, @NonNull Executor userCbExecutor) {
         super(ike3gppExtension, userCbExecutor);
+    }
+
+    /** Provides a list of 3GPP payloads to add in the outbound EAP AUTH REQ. */
+    List<IkePayload> getRequestPayloadsInEap(boolean serverAuthenticated) {
+        List<IkePayload> ike3gppPayloads = new ArrayList<>();
+
+        if (mIsDeviceIdentityRequestedByNetwork && serverAuthenticated) {
+            String deviceIdentity = mIke3gppExtension.getIke3gppParams().getMobileDeviceIdentity();
+            if (deviceIdentity != null) {
+                ike3gppPayloads.add(
+                        Ike3gppDeviceIdentityUtils.generateDeviceIdentityPayload(deviceIdentity));
+            }
+        }
+        return ike3gppPayloads;
     }
 
     List<IkePayload> getRequestPayloads() {
@@ -113,6 +130,9 @@ class Ike3gppIkeAuth extends Ike3gppExchangeBase {
                     break;
                 case NOTIFY_TYPE_BACKOFF_TIMER:
                     backoffTimerPayload = notifyPayload;
+                    break;
+                case NOTIFY_TYPE_DEVICE_IDENTITY:
+                    mIsDeviceIdentityRequestedByNetwork = true;
                     break;
                 case ERROR_TYPE_NO_APN_SUBSCRIPTION: // fallthrough
                 case ERROR_TYPE_NETWORK_FAILURE:

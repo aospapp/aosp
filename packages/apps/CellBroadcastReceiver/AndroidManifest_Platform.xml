@@ -28,6 +28,7 @@
   <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
   <uses-permission android:name="android.permission.MODIFY_CELL_BROADCASTS" />
   <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+  <uses-permission android:name="android.permission.STATUS_BAR" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
   <uses-permission android:name="android.permission.MANAGE_USERS" />
@@ -40,6 +41,7 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.BLUETOOTH" />
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
   <uses-sdk android:minSdkVersion="21"/>
 
@@ -134,7 +136,6 @@
         <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
         <action android:name="android.intent.action.SERVICE_STATE" />
         <action android:name="android.intent.action.BOOT_COMPLETED" />
-        <action android:name="android.telephony.action.SIM_CARD_STATE_CHANGED" />
       </intent-filter>
       <intent-filter>
         <action android:name="android.telephony.action.SECRET_CODE" />

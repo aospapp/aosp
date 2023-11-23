@@ -25,6 +25,8 @@ import static android.view.WindowInsetsController.BEHAVIOR_DEFAULT;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -148,7 +150,7 @@ public class CarSystemBarTest extends SysuiTestCase {
                 mStatusBarIconController, mWindowManager, mDeviceProvisionedController,
                 new CommandQueue(mContext), mAutoHideController, mButtonSelectionStateListener,
                 mExecutor, mUiBgExecutor, mBarService, () -> mKeyguardStateController,
-                () -> mIconPolicy, mSignalPolicy, mHvacController,
+                () -> mIconPolicy, mHvacController, mSignalPolicy,
                 new SystemBarConfigs(mTestableResources.getResources()));
         mCarSystemBar.setSignalPolicy(mSignalPolicy);
     }
@@ -377,6 +379,22 @@ public class CarSystemBarTest extends SysuiTestCase {
         // The transient booleans were cleared.
         assertThat(mCarSystemBar.isStatusBarTransientShown()).isFalse();
         assertThat(mCarSystemBar.isNavBarTransientShown()).isFalse();
+    }
+
+    @Test
+    public void disable_wrongDisplayId_notSetStatusBarState() {
+        int randomDisplay = Display.DEFAULT_DISPLAY + 10;
+
+        mCarSystemBar.disable(randomDisplay, 0, 0, false);
+
+        verify(mCarSystemBarController, never()).setSystemBarStates(anyInt(), anyInt());
+    }
+
+    @Test
+    public void disable_correctDisplayId_setSystemBarStates() {
+        mCarSystemBar.disable(Display.DEFAULT_DISPLAY, 0, 0, false);
+
+        verify(mCarSystemBarController).setSystemBarStates(0, 0);
     }
 
     private void waitForDelayableExecutor() {

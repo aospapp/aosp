@@ -20,9 +20,6 @@ on property:persist.vendor.disable.thermal.control=*
 on property:persist.vendor.disable.usb.overheat.mitigation=*
     setprop vendor.disable.usb.overheat.mitigation.control ${persist.vendor.disable.usb.overheat.mitigation}
 
-on property:persist.vendor.disable.thermal.tj.control=*
-    setprop vendor.disable.thermal.tj.control ${persist.vendor.disable.thermal.tj.control}
-
 on property:persist.vendor.disable.bcl.control=*
     setprop vendor.disable.bcl.control ${persist.vendor.disable.bcl.control}
 
@@ -47,10 +44,16 @@ on property:vendor.disable.thermal.control=1 && property:vendor.thermal.link_rea
     # sm7250
     write /dev/thermal/tz-by-name/skin-therm/emul_temp 25000
     write /dev/thermal/tz-by-name/skin-therm/mode disabled
+    write /dev/thermal/tz-by-name/skin-virt/emul_temp 25000
+    write /dev/thermal/tz-by-name/skin-virt/mode disabled
     write /dev/thermal/tz-by-name/skin-therm-cpu/emul_temp 25000
     write /dev/thermal/tz-by-name/skin-therm-cpu/mode disabled
+    write /dev/thermal/tz-by-name/skin-virt-cpu/emul_temp 25000
+    write /dev/thermal/tz-by-name/skin-virt-cpu/mode disabled
     write /dev/thermal/tz-by-name/skin-therm-monitor/emul_temp 25000
     write /dev/thermal/tz-by-name/skin-therm-monitor/mode disabled
+    write /dev/thermal/tz-by-name/skin-virt-monitor/emul_temp 25000
+    write /dev/thermal/tz-by-name/skin-virt-monitor/mode disabled
     write /dev/thermal/tz-by-name/panel-audio-therm/emul_temp 25000
     write /dev/thermal/tz-by-name/panel-audio-therm/mode disabled
     write /dev/thermal/tz-by-name/cellular-emergency/emul_temp 25000
@@ -83,10 +86,16 @@ on property:vendor.disable.thermal.control=0 && property:vendor.thermal.link_rea
     # sm7250
     write /dev/thermal/tz-by-name/skin-therm/emul_temp 0
     write /dev/thermal/tz-by-name/skin-therm/mode enabled
+    write /dev/thermal/tz-by-name/skin-virt/emul_temp 0
+    write /dev/thermal/tz-by-name/skin-virt/mode enabled
     write /dev/thermal/tz-by-name/skin-therm-cpu/emul_temp 0
     write /dev/thermal/tz-by-name/skin-therm-cpu/mode enabled
+    write /dev/thermal/tz-by-name/skin-virt-cpu/emul_temp 0
+    write /dev/thermal/tz-by-name/skin-virt-cpu/mode enabled
     write /dev/thermal/tz-by-name/skin-therm-monitor/emul_temp 0
     write /dev/thermal/tz-by-name/skin-therm-monitor/mode enabled
+    write /dev/thermal/tz-by-name/skin-virt-monitor/emul_temp 0
+    write /dev/thermal/tz-by-name/skin-virt-monitor/mode enabled
     write /dev/thermal/tz-by-name/panel-audio-therm/emul_temp 0
     write /dev/thermal/tz-by-name/panel-audio-therm/mode enabled
     write /dev/thermal/tz-by-name/cellular-emergency/emul_temp 0
@@ -97,27 +106,6 @@ on property:vendor.disable.thermal.control=0 && property:vendor.thermal.link_rea
     write /dev/thermal/tz-by-name/charger-therm/mode enabled
     # P21
     write /dev/thermal/tz-by-name/disp_therm/mode enabled
-
-# Switch Tj thermal protection
-on property:vendor.disable.thermal.tj.control=1
-    # P21
-    write /dev/thermal/tz-by-name/BIG/mode disabled
-    write /dev/thermal/tz-by-name/MID/mode disabled
-    write /dev/thermal/tz-by-name/LITTLE/mode disabled
-    write /dev/thermal/tz-by-name/G3D/mode disabled
-    write /dev/thermal/tz-by-name/ISP/mode disabled
-    write /dev/thermal/tz-by-name/TPU/mode disabled
-    write /sys/kernel/debug/gs101-thermal/emul_call 1
-
-on property:vendor.disable.thermal.tj.control=0
-    # P21
-    write /dev/thermal/tz-by-name/BIG/mode enabled
-    write /dev/thermal/tz-by-name/MID/mode enabled
-    write /dev/thermal/tz-by-name/LITTLE/mode enabled
-    write /dev/thermal/tz-by-name/G3D/mode enabled
-    write /dev/thermal/tz-by-name/ISP/mode enabled
-    write /dev/thermal/tz-by-name/TPU/mode enabled
-    write /sys/kernel/debug/gs101-thermal/emul_call 0
 
 # Toggle BCL control
 on property:vendor.disable.bcl.control=1

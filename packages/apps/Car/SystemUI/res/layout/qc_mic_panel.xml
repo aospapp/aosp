@@ -20,23 +20,42 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/status_icon_panel_bg_color">
+    <com.android.car.ui.FocusParkingView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
     <com.android.car.ui.FocusArea
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="vertical">
-        <com.android.systemui.car.qc.SystemUIQCView
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            app:localQCProvider="com.android.systemui.car.privacy.MicQcPanel"/>
-        <com.android.systemui.car.qc.QCFooterButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="start"
-            style="@style/QCFooterButtonStyle"
-            android:text="@string/mic_privacy_chip_microphone_settings"
-            app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$PrivacySettingsActivity;launchFlags=0x08080000;end"
-            app:disableWhileDriving="true"/>
+            android:layout_height="wrap_content">
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                app:layout_constraintHeight_default="wrap"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toTopOf="@+id/qc_mic_footer_button">
+                <com.android.systemui.car.qc.SystemUIQCView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    app:localQCProvider="com.android.systemui.car.privacy.MicQcPanel"/>
+            </ScrollView>
+            <com.android.systemui.car.qc.QCFooterButton
+                android:id="@+id/qc_mic_footer_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                style="@style/QCFooterButtonStyle"
+                android:text="@string/mic_privacy_chip_microphone_settings"
+                app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$PrivacySettingsActivity;launchFlags=0x08080000;end"
+                app:disableWhileDriving="true"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </com.android.car.ui.FocusArea>
 </FrameLayout>

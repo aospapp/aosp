@@ -72,8 +72,7 @@ macro_rules! _memoffset_offset_from_unsafe {
 ///
 /// ## Examples
 /// ```
-/// #[macro_use]
-/// extern crate memoffset;
+/// use memoffset::offset_of;
 ///
 /// #[repr(C, packed)]
 /// struct Foo {
@@ -103,8 +102,7 @@ macro_rules! offset_of {
 ///
 /// ## Examples
 /// ```
-/// #[macro_use]
-/// extern crate memoffset;
+/// use memoffset::offset_of_tuple;
 ///
 /// fn main() {
 ///     assert!(offset_of_tuple!((u8, u32), 1) >= 0, "Tuples do not have a defined layout");
@@ -248,6 +246,18 @@ mod tests {
             a: u32,
             b: [u8; 2],
             c: i64,
+        }
+
+        assert_eq!([0; offset_of!(Foo, b)].len(), 4);
+    }
+
+    #[cfg(feature = "unstable_const")]
+    #[test]
+    fn const_offset_interior_mutable() {
+        #[repr(C)]
+        struct Foo {
+            a: u32,
+            b: core::cell::Cell<u32>,
         }
 
         assert_eq!([0; offset_of!(Foo, b)].len(), 4);

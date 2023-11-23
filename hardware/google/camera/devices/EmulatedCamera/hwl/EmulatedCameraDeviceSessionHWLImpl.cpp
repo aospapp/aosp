@@ -18,10 +18,13 @@
 
 #include "EmulatedCameraDeviceSessionHWLImpl.h"
 
+#include <android/hardware/graphics/common/1.2/types.h>
 #include <hardware/gralloc.h>
 #include <inttypes.h>
 #include <log/log.h>
 #include <utils/Trace.h>
+
+#include <memory>
 
 #include "EmulatedSensor.h"
 #include "utils.h"
@@ -33,6 +36,7 @@ using google_camera_hal::Rect;
 using google_camera_hal::utils::GetSensorActiveArraySize;
 using google_camera_hal::utils::HasCapability;
 
+using android::hardware::graphics::common::V1_2::Dataspace;
 std::unique_ptr<EmulatedCameraZoomRatioMapperHwlImpl>
 EmulatedCameraZoomRatioMapperHwlImpl::Create(
     const std::unordered_map<uint32_t, std::pair<Dimension, Dimension>>& dims) {
@@ -202,8 +206,10 @@ status_t EmulatedCameraDeviceSessionHwlImpl::InitializeRequestProcessor() {
     return ret;
   }
 
-  request_processor_ = std::make_unique<EmulatedRequestProcessor>(
+  request_processor_ = std::make_shared<EmulatedRequestProcessor>(
       camera_id_, emulated_sensor, session_callback_);
+
+  request_processor_->InitializeSensorQueue(request_processor_);
 
   return request_processor_->Initialize(
       HalCameraMetadata::Clone(static_metadata_.get()),
@@ -274,20 +280,29 @@ status_t EmulatedCameraDeviceSessionHwlImpl::ConfigurePipeline(
             {{.id = stream.id,
               .override_format =
                   is_input ? stream.format
-                           : EmulatedSensor::OverrideFormat(stream.format),
+                           : EmulatedSensor::OverrideFormat(
+                                 stream.format, stream.dynamic_profile),
               .producer_usage = is_input ? 0
                                          : GRALLOC_USAGE_HW_CAMERA_WRITE |
                                                GRALLOC_USAGE_HW_CAMERA_READ,
               .consumer_usage = 0,
               .max_buffers = max_pipeline_depth_,
-              .override_data_space = stream.data_space,
+              .override_data_space =
+                  (stream.dynamic_profile ==
+                   ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10) &&
+                          (stream.format ==
+                           HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED)
+                      ? static_cast<android_dataspace_t>(
+                            Dataspace::BT2020_ITU_HLG)
+                      : stream.data_space,
               .is_physical_camera_stream = stream.is_physical_camera_stream,
               .physical_camera_id = stream.physical_camera_id},
              .width = stream.width,
              .height = stream.height,
              .buffer_size = stream.buffer_size,
              .is_input = is_input,
-             .group_id = stream.group_id}));
+             .group_id = stream.group_id,
+             .use_case = stream.use_case}));
 
     if (stream.group_id != -1 && stream.is_physical_camera_stream) {
       // TODO: For quad bayer camera, the logical camera id should be used if

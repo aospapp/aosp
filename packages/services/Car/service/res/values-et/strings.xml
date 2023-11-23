@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Juurdepääs auto kaameratele."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"juurdepääs auto energiateabele"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Juurdepääs auto energiateabele."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Elektrisõiduki laadija seadete haldamine"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Teie elektrisõiduki laadija seadete haldamine."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"kohandage auto järelejäänud kütusega kaetavat vahemaad"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Kohandage auto järelejäänud kütusega kaetava vahemaa väärtust."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"juurdepääs auto kliimaseadmele"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Lubage rakendusel valida toimingud, mis kuvatakse näidikulaual"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Näidikulaua kontrollimine"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Kuva rakendusi näidikulaual"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Näidikulaual navigeerimise olek"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Näidikuplokis navigeerimise oleku muudatuste kuulamine"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Näidikulaua renderdamine"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Näidikulaua teabe saamine"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Kasutuskogemuse piirangute seadistus"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Võimaldab juhtida süsteemi Occupant Awareness System tuvastamisgraafiku käivitamist ja peatamist"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Auto sisendteenus"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Sisestussündmuste töötlemine"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-siin ebaõnnestus"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-siin ei reageeri. Eemaldage autoraadio üksus ja pange see tagasi ning taaskäivitage auto"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Te ei saa seda funktsiooni sõidu ajal kasutada"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Uuesti alustamiseks turvaliste rakenduste funktsioonidega valige <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Tagasi"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Sule rakendus"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Tagasi"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"diagnostikaandmete lugemine"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Auto diagnostikaandmete lugemine."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"diagnostikaandmete kustutamine"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Autoistmete juhtimine."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"juurdepääs auto põhiteabele"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Juurdepääs auto põhiteabele."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"juurdepääs auto konfidentsiaalsele teabele"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Juurdepääs auto konfidentsiaalsele teabele."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"juurdepääs auto edasimüüja lubade teabele"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Juurdepääs auto edasimüüja lubade teabele."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"auto salongitulede oleku lugemine"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Auto toitereeglite lugemine."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"auto toitereeglite haldamine"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Auto toitereeglite haldamine."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"väljalülitamise protsessi kohandamine"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Väljalülitamise protsessi kohandamine."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"mallide renderdamine"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Mallide renderdamine."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"rakenduste käivitamise juhtimine"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Rakenduste käivitamise juhtimine."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-siin ebaõnnestus"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-siin ei reageeri. Eemaldage autoraadio üksus ja pange see tagasi ning taaskäivitage auto"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Minu seade"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Külaline"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Vaiketähtsus"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Kõrge tähtsus"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Vajalik on tehaseseadetele lähtestamine"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Kõik teabe ja meelelahutuse süsteemi andmed kustutatakse. Pärast lähtestamist saate seadistada uue profiili."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Rohkem"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Teabe ja meelelahutuse süsteemi lähtestamine"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Teie süsteem sai taotluse tehaseseadetele lähtestamiseks ja kõigi andmete kustutamiseks. Võite kohe lähtestada või see lähtestatakse järgmisel korral, kui auto käivitatakse. Seejärel saate seadistada uue profiili."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Lähtesta kohe"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Lähtesta hiljem"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Teabe ja meelelahutuse süsteem lähtestatakse järgmisel korral, kui auto käivitatakse."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Lähtestamise alustamiseks peab auto olema pargitud."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> mõjutab teie süsteemi toimivust."</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Keelake rakendus, et täiustada süsteemi toimivust. Seadetes saate rakenduse uuesti lubada."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioriseerige rakendus, et selle kasutamist jätkata."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Desinstallige rakendus, et süsteemi toimivust parandada."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Keela rakendus"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Prioriseeri rakendus"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Desinstalli rakendus"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> on keelatud. Seadetes saate selle uuesti lubada."</string>
 </resources>

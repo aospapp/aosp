@@ -17,7 +17,7 @@
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/SudItemContainer"
+    style="?attr/sudItemContainerStyle"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:baselineAligned="false"
@@ -47,7 +47,7 @@
 
         <com.google.android.setupdesign.view.RichTextView
             android:id="@+id/sud_items_title"
-            style="@style/SudItemTitle"
+            style="?attr/sudItemTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"
@@ -57,7 +57,7 @@
 
         <com.google.android.setupdesign.view.RichTextView
             android:id="@+id/sud_items_summary"
-            style="@style/SudItemSummary"
+            style="?attr/sudItemSummaryStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"

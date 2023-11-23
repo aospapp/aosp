@@ -32,6 +32,7 @@
 #include "tcuTexture.hpp"
 #include "util/OSPixmap.h"
 #include "util/OSWindow.h"
+#include "util/angle_features_autogen.h"
 
 // clang-format off
 #if (DE_OS == DE_OS_WIN32)
@@ -83,7 +84,8 @@ constexpr eglu::NativeWindow::Capability kWindowCapabilities =
         eglu::NativeWindow::CAPABILITY_GET_SCREEN_SIZE |
         eglu::NativeWindow::CAPABILITY_READ_SCREEN_PIXELS |
         eglu::NativeWindow::CAPABILITY_SET_SURFACE_SIZE |
-        eglu::NativeWindow::CAPABILITY_CHANGE_VISIBILITY);
+        eglu::NativeWindow::CAPABILITY_CHANGE_VISIBILITY |
+        eglu::NativeWindow::CAPABILITY_CREATE_SURFACE_PLATFORM_EXTENSION);
 
 class ANGLENativeDisplay : public eglu::NativeDisplay
 {
@@ -169,6 +171,7 @@ class NativeWindow : public eglu::NativeWindow
     ~NativeWindow() override;
 
     eglw::EGLNativeWindowType getLegacyNative() override;
+    void *getPlatformExtension() override;
     IVec2 getSurfaceSize() const override;
     IVec2 getScreenSize() const override { return getSurfaceSize(); }
     void processEvents() override;
@@ -337,6 +340,11 @@ eglw::EGLNativeWindowType NativeWindow::getLegacyNative()
     return reinterpret_cast<eglw::EGLNativeWindowType>(mWindow->getNativeWindow());
 }
 
+void *NativeWindow::getPlatformExtension()
+{
+    return mWindow->getPlatformExtension();
+}
+
 IVec2 NativeWindow::getSurfaceSize() const
 {
     int width  = mWindow->getWidth();
@@ -434,15 +442,18 @@ ANGLENativeDisplayFactory::ANGLENativeDisplayFactory(
 
         for (; *enabledFeatures; ++enabledFeatures)
         {
-            if (strcmp(enabledFeatures[0], "emulatedPrerotation90") == 0)
+            if (strcmp(enabledFeatures[0],
+                       angle::GetFeatureName(angle::Feature::EmulatedPrerotation90)) == 0)
             {
                 preRotation = 90;
             }
-            else if (strcmp(enabledFeatures[0], "emulatedPrerotation180") == 0)
+            else if (strcmp(enabledFeatures[0],
+                            angle::GetFeatureName(angle::Feature::EmulatedPrerotation180)) == 0)
             {
                 preRotation = 180;
             }
-            else if (strcmp(enabledFeatures[0], "emulatedPrerotation270") == 0)
+            else if (strcmp(enabledFeatures[0],
+                            angle::GetFeatureName(angle::Feature::EmulatedPrerotation270)) == 0)
             {
                 preRotation = 270;
             }

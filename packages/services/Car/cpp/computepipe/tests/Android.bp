@@ -35,8 +35,8 @@ cc_test {
         "libbinder",
         "libutils",
         "android.automotive.computepipe.router@1.0-impl",
-        "android.automotive.computepipe.runner-V2-ndk_platform",
-        "android.automotive.computepipe.registry-V2-ndk_platform",
+        "android.automotive.computepipe.runner-V2-ndk",
+        "android.automotive.computepipe.registry-V2-ndk",
     ],
 }
 
@@ -59,7 +59,7 @@ cc_test {
         "libbinder_ndk",
         "libutils",
         "android.automotive.computepipe.router@1.0-impl",
-        "android.automotive.computepipe.runner-V2-ndk_platform",
-        "android.automotive.computepipe.registry-V2-ndk_platform",
+        "android.automotive.computepipe.runner-V2-ndk",
+        "android.automotive.computepipe.registry-V2-ndk",
     ],
 }

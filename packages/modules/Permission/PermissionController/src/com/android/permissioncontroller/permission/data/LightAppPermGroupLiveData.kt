@@ -46,7 +46,7 @@ class LightAppPermGroupLiveData private constructor(
     private val user: UserHandle
 ) : SmartUpdateMediatorLiveData<LightAppPermGroup?>(), LocationUtils.LocationListener {
 
-    val LOG_TAG = this::class.java.simpleName
+    private val LOG_TAG = this::class.java.simpleName
 
     private var isSpecialLocation = false
     private val permStateLiveData = PermStateLiveData[packageName, permGroupName, user]

@@ -27,6 +27,7 @@
 #include <openssl/mem.h>
 #include <openssl/x509.h>
 
+#include <android-base/properties.h>
 #include <cutils/properties.h>
 
 #include <keymasterV4_0/attestation_record.h>
@@ -80,6 +81,12 @@ bool operator==(const KeyCharacteristics& a, const KeyCharacteristics& b) {
 
 namespace test {
 namespace {
+
+// The maximum number of times we'll attempt to verify that corruption
+// of an encrypted blob results in an error. Retries are necessary as there
+// is a small (roughly 1/256) chance that corrupting ciphertext still results
+// in valid PKCS7 padding.
+constexpr size_t kMaxPaddingCorruptionRetries = 8;
 
 template <TagType tag_type, Tag tag, typename ValueT>
 bool contains(hidl_vec<KeyParameter>& set, TypedTag<tag_type, tag> ttag, ValueT expected_value) {
@@ -378,6 +385,31 @@ std::string make_string(const uint8_t (&a)[N]) {
 bool avb_verification_enabled() {
     char value[PROPERTY_VALUE_MAX];
     return property_get("ro.boot.vbmeta.device_state", value, "") != 0;
+}
+
+int get_vsr_api_level() {
+    int vendor_api_level = ::android::base::GetIntProperty("ro.vendor.api_level", -1);
+    if (vendor_api_level != -1) {
+        return vendor_api_level;
+    }
+
+    // Android S and older devices do not define ro.vendor.api_level
+    vendor_api_level = ::android::base::GetIntProperty("ro.board.api_level", -1);
+    if (vendor_api_level == -1) {
+        vendor_api_level = ::android::base::GetIntProperty("ro.board.first_api_level", -1);
+    }
+
+    int product_api_level = ::android::base::GetIntProperty("ro.product.first_api_level", -1);
+    if (product_api_level == -1) {
+        product_api_level = ::android::base::GetIntProperty("ro.build.version.sdk", -1);
+        EXPECT_NE(product_api_level, -1) << "Could not find ro.build.version.sdk";
+    }
+
+    // VSR API level is the minimum of vendor_api_level and product_api_level.
+    if (vendor_api_level == -1 || vendor_api_level > product_api_level) {
+        return product_api_level;
+    }
+    return vendor_api_level;
 }
 
 bool is_gsi() {
@@ -1706,6 +1738,7 @@ TEST_P(VerificationOperationsTest, RsaAllPaddingsAndDigests) {
                     case PaddingMode::RSA_PSS:
                         EXPECT_GT(EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING), 0);
                         EXPECT_GT(EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, EVP_MD_size(md)), 0);
+                        EXPECT_GT(EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_ctx, md), 0);
                         break;
                     case PaddingMode::RSA_PKCS1_1_5_SIGN:
                         // PKCS1 is the default; don't need to set anything.
@@ -2853,11 +2886,22 @@ TEST_P(EncryptionOperationsTest, AesEcbPkcs7PaddingCorrupted) {
     string ciphertext = EncryptMessage(message, params);
     EXPECT_EQ(16U, ciphertext.size());
     EXPECT_NE(ciphertext, message);
-    ++ciphertext[ciphertext.size() / 2];
 
-    EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, params));
-    string plaintext;
-    EXPECT_EQ(ErrorCode::INVALID_INPUT_LENGTH, Finish(message, &plaintext));
+    for (size_t i = 0; i < kMaxPaddingCorruptionRetries; ++i) {
+        ++ciphertext[ciphertext.size() / 2];
+
+        EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, params));
+        string plaintext;
+        ErrorCode error = Finish(ciphertext, &plaintext);
+        if (error == ErrorCode::INVALID_ARGUMENT) {
+            // This is the expected error, we can exit the test now.
+            return;
+        } else {
+            // Very small chance we got valid decryption, so try again.
+            ASSERT_EQ(error, ErrorCode::OK);
+        }
+    }
+    FAIL() << "Corrupt ciphertext should have failed to decrypt by now.";
 }
 
 HidlBuf CopyIv(const AuthorizationSet& set) {
@@ -2914,105 +2958,39 @@ TEST_P(EncryptionOperationsTest, AesCtrRoundTripSuccess) {
 }
 
 /*
- * EncryptionOperationsTest.AesIncremental
+ * EncryptionOperationsTest.AesEcbIncremental
  *
- * Verifies that AES works, all modes, when provided data in various size increments.
+ * Verifies that AES works for ECB block mode, when provided data in various size increments.
  */
-TEST_P(EncryptionOperationsTest, AesIncremental) {
-    auto block_modes = {
-        BlockMode::ECB, BlockMode::CBC, BlockMode::CTR, BlockMode::GCM,
-    };
+TEST_P(EncryptionOperationsTest, AesEcbIncremental) {
+    CheckAesIncrementalEncryptOperation(BlockMode::ECB, 240);
+}
 
-    ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
-                                             .Authorization(TAG_NO_AUTH_REQUIRED)
-                                             .AesEncryptionKey(128)
-                                             .BlockMode(block_modes)
-                                             .Padding(PaddingMode::NONE)
-                                             .Authorization(TAG_MIN_MAC_LENGTH, 128)));
+/*
+ * EncryptionOperationsTest.AesCbcIncremental
+ *
+ * Verifies that AES works for CBC block mode, when provided data in various size increments.
+ */
+TEST_P(EncryptionOperationsTest, AesCbcIncremental) {
+    CheckAesIncrementalEncryptOperation(BlockMode::CBC, 240);
+}
 
-    for (int increment = 1; increment <= 240; ++increment) {
-        for (auto block_mode : block_modes) {
-            string message(240, 'a');
-            auto params = AuthorizationSetBuilder()
-                              .BlockMode(block_mode)
-                              .Padding(PaddingMode::NONE)
-                              .Authorization(TAG_MAC_LENGTH, 128) /* for GCM */;
+/*
+ * EncryptionOperationsTest.AesCtrIncremental
+ *
+ * Verifies that AES works for CTR block mode, when provided data in various size increments.
+ */
+TEST_P(EncryptionOperationsTest, AesCtrIncremental) {
+    CheckAesIncrementalEncryptOperation(BlockMode::CTR, 240);
+}
 
-            AuthorizationSet output_params;
-            EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::ENCRYPT, params, &output_params));
-
-            string ciphertext;
-            size_t input_consumed;
-            string to_send;
-            for (size_t i = 0; i < message.size(); i += increment) {
-                to_send.append(message.substr(i, increment));
-                EXPECT_EQ(ErrorCode::OK, Update(to_send, &ciphertext, &input_consumed));
-                EXPECT_EQ(to_send.length(), input_consumed);
-                to_send = to_send.substr(input_consumed);
-                EXPECT_EQ(0U, to_send.length());
-
-                switch (block_mode) {
-                    case BlockMode::ECB:
-                    case BlockMode::CBC:
-                        // Implementations must take as many blocks as possible, leaving less than
-                        // a block.
-                        EXPECT_LE(to_send.length(), 16U);
-                        break;
-                    case BlockMode::GCM:
-                    case BlockMode::CTR:
-                        // Implementations must always take all the data.
-                        EXPECT_EQ(0U, to_send.length());
-                        break;
-                }
-            }
-            EXPECT_EQ(ErrorCode::OK, Finish(to_send, &ciphertext)) << "Error sending " << to_send;
-
-            switch (block_mode) {
-                case BlockMode::GCM:
-                    EXPECT_EQ(message.size() + 16, ciphertext.size());
-                    break;
-                case BlockMode::CTR:
-                    EXPECT_EQ(message.size(), ciphertext.size());
-                    break;
-                case BlockMode::CBC:
-                case BlockMode::ECB:
-                    EXPECT_EQ(message.size() + message.size() % 16, ciphertext.size());
-                    break;
-            }
-
-            auto iv = output_params.GetTagValue(TAG_NONCE);
-            switch (block_mode) {
-                case BlockMode::CBC:
-                case BlockMode::GCM:
-                case BlockMode::CTR:
-                    ASSERT_TRUE(iv.isOk()) << "No IV for block mode " << block_mode;
-                    EXPECT_EQ(block_mode == BlockMode::GCM ? 12U : 16U, iv.value().size());
-                    params.push_back(TAG_NONCE, iv.value());
-                    break;
-
-                case BlockMode::ECB:
-                    EXPECT_FALSE(iv.isOk()) << "ECB mode should not generate IV";
-                    break;
-            }
-
-            EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, params))
-                << "Decrypt begin() failed for block mode " << block_mode;
-
-            string plaintext;
-            for (size_t i = 0; i < ciphertext.size(); i += increment) {
-                to_send.append(ciphertext.substr(i, increment));
-                EXPECT_EQ(ErrorCode::OK, Update(to_send, &plaintext, &input_consumed));
-                to_send = to_send.substr(input_consumed);
-            }
-            ErrorCode error = Finish(to_send, &plaintext);
-            ASSERT_EQ(ErrorCode::OK, error) << "Decryption failed for block mode " << block_mode
-                                            << " and increment " << increment;
-            if (error == ErrorCode::OK) {
-                ASSERT_EQ(message, plaintext) << "Decryption didn't match for block mode "
-                                              << block_mode << " and increment " << increment;
-            }
-        }
-    }
+/*
+ * EncryptionOperationsTest.AesGcmIncremental
+ *
+ * Verifies that AES works for GCM block mode, when provided data in various size increments.
+ */
+TEST_P(EncryptionOperationsTest, AesGcmIncremental) {
+    CheckAesIncrementalEncryptOperation(BlockMode::GCM, 240);
 }
 
 struct AesCtrSp80038aTestVector {
@@ -3150,6 +3128,49 @@ TEST_P(EncryptionOperationsTest, AesCbcRoundTripSuccess) {
     params.push_back(TAG_NONCE, iv1);
     string plaintext = DecryptMessage(ciphertext1, params);
     EXPECT_EQ(message, plaintext);
+}
+
+/*
+ * EncryptionOperationsTest.AesCbcZeroInputSuccessb
+ *
+ * Verifies that keymaster generates correct output on zero-input with
+ * NonePadding mode
+ */
+TEST_P(EncryptionOperationsTest, AesCbcZeroInputSuccess) {
+    ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
+                                                 .Authorization(TAG_NO_AUTH_REQUIRED)
+                                                 .AesEncryptionKey(128)
+                                                 .BlockMode(BlockMode::CBC)
+                                                 .Padding(PaddingMode::NONE, PaddingMode::PKCS7)));
+
+    // Zero input message
+    string message = "";
+    for (auto padding : {PaddingMode::NONE, PaddingMode::PKCS7}) {
+        auto params = AuthorizationSetBuilder().BlockMode(BlockMode::CBC).Padding(padding);
+        AuthorizationSet out_params;
+        string ciphertext1 = EncryptMessage(message, params, &out_params);
+        HidlBuf iv1 = CopyIv(out_params);
+        if (padding == PaddingMode::NONE)
+            EXPECT_EQ(message.size(), ciphertext1.size()) << "PaddingMode: " << padding;
+        else
+            EXPECT_EQ(message.size(), ciphertext1.size() - 16) << "PaddingMode: " << padding;
+
+        out_params.Clear();
+
+        string ciphertext2 = EncryptMessage(message, params, &out_params);
+        HidlBuf iv2 = CopyIv(out_params);
+        if (padding == PaddingMode::NONE)
+            EXPECT_EQ(message.size(), ciphertext2.size()) << "PaddingMode: " << padding;
+        else
+            EXPECT_EQ(message.size(), ciphertext2.size() - 16) << "PaddingMode: " << padding;
+
+        // IVs should be random
+        EXPECT_NE(iv1, iv2) << "PaddingMode: " << padding;
+
+        params.push_back(TAG_NONCE, iv1);
+        string plaintext = DecryptMessage(ciphertext1, params);
+        EXPECT_EQ(message, plaintext) << "PaddingMode: " << padding;
+    }
 }
 
 /*
@@ -3880,17 +3901,30 @@ TEST_P(EncryptionOperationsTest, TripleDesEcbPkcs7PaddingCorrupted) {
     string ciphertext = EncryptMessage(message, BlockMode::ECB, PaddingMode::PKCS7);
     EXPECT_EQ(8U, ciphertext.size());
     EXPECT_NE(ciphertext, message);
-    ++ciphertext[ciphertext.size() / 2];
 
     AuthorizationSetBuilder begin_params;
     begin_params.push_back(TAG_BLOCK_MODE, BlockMode::ECB);
     begin_params.push_back(TAG_PADDING, PaddingMode::PKCS7);
-    EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, begin_params));
-    string plaintext;
-    size_t input_consumed;
-    EXPECT_EQ(ErrorCode::OK, Update(ciphertext, &plaintext, &input_consumed));
-    EXPECT_EQ(ciphertext.size(), input_consumed);
-    EXPECT_EQ(ErrorCode::INVALID_ARGUMENT, Finish(&plaintext));
+
+    for (size_t i = 0; i < kMaxPaddingCorruptionRetries; ++i) {
+        ++ciphertext[ciphertext.size() / 2];
+
+        EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, begin_params));
+        string plaintext;
+
+        size_t input_consumed;
+        EXPECT_EQ(ErrorCode::OK, Update(ciphertext, &plaintext, &input_consumed));
+        EXPECT_EQ(ciphertext.size(), input_consumed);
+        ErrorCode error = Finish(&plaintext);
+        if (error == ErrorCode::INVALID_ARGUMENT) {
+            // This is the expected error, we can exit the test now.
+            return;
+        } else {
+            // Very small chance we got valid decryption, so try again.
+            ASSERT_EQ(error, ErrorCode::OK);
+        }
+    }
+    FAIL() << "Corrupt ciphertext should have failed to decrypt by now.";
 }
 
 struct TripleDesTestVector {
@@ -4191,18 +4225,28 @@ TEST_P(EncryptionOperationsTest, TripleDesCbcPkcs7PaddingCorrupted) {
     string ciphertext = EncryptMessage(message, BlockMode::CBC, PaddingMode::PKCS7, &iv);
     EXPECT_EQ(8U, ciphertext.size());
     EXPECT_NE(ciphertext, message);
-    ++ciphertext[ciphertext.size() / 2];
 
     auto begin_params = AuthorizationSetBuilder()
                             .BlockMode(BlockMode::CBC)
                             .Padding(PaddingMode::PKCS7)
                             .Authorization(TAG_NONCE, iv);
-    EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, begin_params));
-    string plaintext;
-    size_t input_consumed;
-    EXPECT_EQ(ErrorCode::OK, Update(ciphertext, &plaintext, &input_consumed));
-    EXPECT_EQ(ciphertext.size(), input_consumed);
-    EXPECT_EQ(ErrorCode::INVALID_ARGUMENT, Finish(&plaintext));
+    for (size_t i = 0; i < kMaxPaddingCorruptionRetries; ++i) {
+        ++ciphertext[ciphertext.size() / 2];
+        EXPECT_EQ(ErrorCode::OK, Begin(KeyPurpose::DECRYPT, begin_params));
+        string plaintext;
+        size_t input_consumed;
+        EXPECT_EQ(ErrorCode::OK, Update(ciphertext, &plaintext, &input_consumed));
+        EXPECT_EQ(ciphertext.size(), input_consumed);
+        ErrorCode error = Finish(&plaintext);
+        if (error == ErrorCode::INVALID_ARGUMENT) {
+            // This is the expected error, we can exit the test now.
+            return;
+        } else {
+            // Very small chance we got valid decryption, so try again.
+            ASSERT_EQ(error, ErrorCode::OK);
+        }
+    }
+    FAIL() << "Corrupt ciphertext should have failed to decrypt by now.";
 }
 
 /*
@@ -4814,6 +4858,18 @@ TEST_P(TransportLimitTest, LargeFinishInput) {
 }
 
 INSTANTIATE_KEYMASTER_HIDL_TEST(TransportLimitTest);
+
+using VsrRequirementTest = KeymasterHidlTest;
+
+TEST_P(VsrRequirementTest, Vsr13Test) {
+    int vsr_api_level = get_vsr_api_level();
+    if (vsr_api_level < 33) {
+        GTEST_SKIP() << "Applies only to VSR API level 33, this device is: " << vsr_api_level;
+    }
+    FAIL() << "VSR 13+ requires KeyMint version 2";
+}
+
+INSTANTIATE_KEYMASTER_HIDL_TEST(VsrRequirementTest);
 
 }  // namespace test
 }  // namespace V4_0

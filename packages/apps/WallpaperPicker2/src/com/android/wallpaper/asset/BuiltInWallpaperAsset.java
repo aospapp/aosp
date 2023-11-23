@@ -25,15 +25,19 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestOptions;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Asset representing the system's built-in wallpaper.
@@ -43,6 +47,7 @@ import com.bumptech.glide.request.RequestOptions;
  */
 @TargetApi(Build.VERSION_CODES.KITKAT)
 public final class BuiltInWallpaperAsset extends Asset {
+    private static final ExecutorService sExecutorService = Executors.newCachedThreadPool();
     private static final boolean SCALE_TO_FIT = true;
     private static final boolean CROP_TO_FIT = false;
     private static final float HORIZONTAL_CENTER_ALIGNED = 0.5f;
@@ -68,21 +73,52 @@ public final class BuiltInWallpaperAsset extends Asset {
     @Override
     public void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
             boolean shouldAdjustForRtl, BitmapReceiver receiver) {
-        DecodeBitmapRegionAsyncTask task = new DecodeBitmapRegionAsyncTask(rect, receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            Point dimensions = calculateRawDimensions();
+
+            float horizontalCenter = BitmapUtils.calculateHorizontalAlignment(dimensions, rect);
+            float verticalCenter = BitmapUtils.calculateVerticalAlignment(dimensions, rect);
+
+            Drawable drawable = WallpaperManager.getInstance(mContext).getBuiltInDrawable(
+                    rect.width(),
+                    rect.height(),
+                    CROP_TO_FIT,
+                    horizontalCenter,
+                    verticalCenter);
+            Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
+            decodeBitmapCompleted(receiver, bitmap);
+        });
     }
 
     @Override
     public void decodeRawDimensions(Activity unused, DimensionsReceiver receiver) {
-        DecodeDimensionsAsyncTask task = new DecodeDimensionsAsyncTask(receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            Point dimensions = calculateRawDimensions();
+            new Handler(Looper.getMainLooper()).post(
+                    () -> receiver.onDimensionsDecoded(dimensions));
+        });
     }
 
     @Override
     public void decodeBitmap(int targetWidth, int targetHeight,
                              BitmapReceiver receiver) {
-        DecodeBitmapAsyncTask task = new DecodeBitmapAsyncTask(targetWidth, targetHeight, receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            final WallpaperManager wallpaperManager = WallpaperManager.getInstance(mContext);
+
+            Drawable drawable = wallpaperManager.getBuiltInDrawable(
+                    targetWidth,
+                    targetHeight,
+                    SCALE_TO_FIT,
+                    HORIZONTAL_CENTER_ALIGNED,
+                    VERTICAL_CENTER_ALIGNED);
+
+            // Manually request that WallpaperManager loses its reference to the built-in wallpaper
+            // bitmap, which can occupy a large memory allocation for the lifetime of the app.
+            wallpaperManager.forgetLoadedWallpaper();
+
+            Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
+            decodeBitmapCompleted(receiver, bitmap);
+        });
     }
 
     @Override
@@ -121,102 +157,5 @@ public final class BuiltInWallpaperAsset extends Asset {
                         .placeholder(new ColorDrawable(placeholderColor)))
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .into(imageView);
-    }
-
-    /**
-     * AsyncTask subclass which decodes the full built-in wallpaper bitmap off the UI thread.
-     */
-    private class DecodeBitmapAsyncTask extends AsyncTask<Void, Void, Bitmap> {
-
-        private int mWidth;
-        private int mHeight;
-        private BitmapReceiver mReceiver;
-
-        public DecodeBitmapAsyncTask(int width, int height, BitmapReceiver receiver) {
-            mWidth = width;
-            mHeight = height;
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            final WallpaperManager wallpaperManager = WallpaperManager.getInstance(mContext);
-
-            Drawable drawable = wallpaperManager.getBuiltInDrawable(
-                    mWidth,
-                    mHeight,
-                    SCALE_TO_FIT,
-                    HORIZONTAL_CENTER_ALIGNED,
-                    VERTICAL_CENTER_ALIGNED);
-
-            // Manually request that WallpaperManager loses its reference to the built-in wallpaper
-            // bitmap, which can occupy a large memory allocation for the lifetime of the app.
-            wallpaperManager.forgetLoadedWallpaper();
-
-            return ((BitmapDrawable) drawable).getBitmap();
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmap) {
-            mReceiver.onBitmapDecoded(bitmap);
-        }
-    }
-
-    /**
-     * AsyncTask subclass which decodes a bitmap region off the UI thread.
-     */
-    private class DecodeBitmapRegionAsyncTask extends AsyncTask<Void, Void, Bitmap> {
-
-        private Rect mRect;
-        private BitmapReceiver mReceiver;
-
-        public DecodeBitmapRegionAsyncTask(Rect rect, BitmapReceiver receiver) {
-            mRect = rect;
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            Point dimensions = calculateRawDimensions();
-
-            float horizontalCenter = BitmapUtils.calculateHorizontalAlignment(dimensions, mRect);
-            float verticalCenter = BitmapUtils.calculateVerticalAlignment(dimensions, mRect);
-
-            Drawable drawable = WallpaperManager.getInstance(mContext).getBuiltInDrawable(
-                    mRect.width(),
-                    mRect.height(),
-                    CROP_TO_FIT,
-                    horizontalCenter,
-                    verticalCenter);
-
-            return ((BitmapDrawable) drawable).getBitmap();
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmap) {
-            mReceiver.onBitmapDecoded(bitmap);
-        }
-    }
-
-    /**
-     * AsyncTask subclass which decodes the raw dimensions of the built-in wallpaper drawable off the
-     * main UI thread.
-     */
-    private class DecodeDimensionsAsyncTask extends AsyncTask<Void, Void, Point> {
-        private DimensionsReceiver mReceiver;
-
-        public DecodeDimensionsAsyncTask(DimensionsReceiver receiver) {
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Point doInBackground(Void... unused) {
-            return calculateRawDimensions();
-        }
-
-        @Override
-        protected void onPostExecute(Point dimensions) {
-            mReceiver.onDimensionsDecoded(dimensions);
-        }
     }
 }

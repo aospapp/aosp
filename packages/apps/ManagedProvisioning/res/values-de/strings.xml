@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Dein Gerät wird von der folgenden App verwaltet:"</string>
     <string name="next" msgid="1004321437324424398">"Weiter"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Arbeitsprofil wird eingerichtet…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Dein IT-Administrator kann Einstellungen, Zugriffsrechte im Unternehmen, Apps, Berechtigungen und mit diesem Profil verknüpfte Daten, einschließlich deiner Netzwerkaktivitäten, sowie den Standort, die Anrufliste und den Kontaktsuchverlauf überwachen und verwalten.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Wende dich an deinen IT-Administrator, um weitere Informationen insbesondere zu den Datenschutzrichtlinien deiner Organisation zu erhalten."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Dein IT-Administrator kann Einstellungen, Zugriffsrechte im Unternehmen, Apps, Berechtigungen, Daten und Netzwerkaktivitäten einsehen und verwalten, die mit diesem Profil verknüpft sind, sowie deine Anrufliste und den Kontaktsuchverlauf. Wenn du weitere Informationen benötigst und mehr über die Datenschutzerklärung deiner Organisation erfahren möchtest, wende dich bitte an deinen IT-Administrator."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Dein IT-Administrator kann Einstellungen, Zugriffsrechte im Unternehmen, Apps, Berechtigungen und mit diesem Gerät verknüpfte Daten einschließlich deiner Netzwerkaktivitäten sowie den Standort, die Anrufliste und den Kontaktsuchverlauf überwachen und verwalten.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Wende dich an deinen IT-Administrator, um weitere Informationen insbesondere zu den Datenschutzrichtlinien deiner Organisation zu erhalten."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> kann die <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-App installieren, damit du Zahlungen mit diesem Gerät vornehmen kannst."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Dieses Gerät kann eingeschränkt werden"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kann den Zugriff auf das Gerät einschränken, wenn keine Zahlungen vorgenommen werden."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Gerät kann nicht eingerichtet werden. Wende dich an deinen IT-Administrator und gib an, dass du den Fehler „Ungültige Prüfsumme“ erhältst."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Versuch es später noch einmal oder wende dich für Hilfe an deinen IT-Administrator"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Gerät kann nicht eingerichtet werden. Wende dich an deinen IT-Administrator und gib an, dass du den Fehler „Beschädigte oder fehlende Komponenten“ erhältst."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Wird eingerichtet…"</string>
 </resources>

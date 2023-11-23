@@ -17,5 +17,6 @@
 
 <resources>
     <style name="Theme.DeviceDefault.NoActionBar.Notification" parent="@android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:colorPrimary">@color/card_background</item>
     </style>
 </resources>

@@ -70,6 +70,10 @@ struct HostMessage : public NonCopyable {
       //! Identifier for the host-side entity that should receive this message,
       //! or that which sent it
       uint16_t hostEndpoint;
+
+      //! true if this message results in the host transitioning from suspend
+      //! to awake.
+      bool wokeHost;
     } toHostData;
   };
 

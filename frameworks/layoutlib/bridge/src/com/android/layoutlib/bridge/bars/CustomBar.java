@@ -33,7 +33,8 @@ import com.android.resources.ResourceType;
 import android.annotation.NonNull;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
-import android.graphics.Bitmap_Delegate;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapFactory.Options;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
@@ -44,7 +45,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.io.IOException;
 import java.io.InputStream;
 
 import static android.os._Original_Build.VERSION_CODES.LOLLIPOP;
@@ -116,12 +116,10 @@ abstract class CustomBar extends LinearLayout {
             // look for a cached bitmap
             Bitmap bitmap = Bridge.getCachedBitmap(path, Boolean.TRUE /*isFramework*/);
             if (bitmap == null) {
-                try {
-                    bitmap = Bitmap_Delegate.createBitmap(stream, false /*isMutable*/, density);
-                    Bridge.setCachedBitmap(path, bitmap, Boolean.TRUE /*isFramework*/);
-                } catch (IOException e) {
-                    return imageView;
-                }
+                Options options = new Options();
+                options.inDensity = density.getDpiValue();
+                bitmap = BitmapFactory.decodeStream(stream, null, options);
+                Bridge.setCachedBitmap(path, bitmap, Boolean.TRUE /*isFramework*/);
             }
 
             if (bitmap != null) {

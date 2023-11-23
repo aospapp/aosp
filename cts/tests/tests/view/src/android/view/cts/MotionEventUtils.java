@@ -84,6 +84,7 @@ public class MotionEventUtils {
         private float toolMajor;
         private float toolMinor;
         private float orientation;
+        private float generic1;
 
         public PointerCoordsBuilder withPressure(float pressure) {
             this.pressure = pressure;
@@ -112,6 +113,11 @@ public class MotionEventUtils {
             return this;
         }
 
+        public PointerCoordsBuilder withGenericAxis1(float generic1) {
+            this.generic1 = generic1;
+            return this;
+        }
+
         public PointerCoords build() {
             final PointerCoords pointerCoords = new PointerCoords();
             pointerCoords.x = x;
@@ -123,6 +129,7 @@ public class MotionEventUtils {
             pointerCoords.toolMajor = toolMajor;
             pointerCoords.toolMinor = toolMinor;
             pointerCoords.orientation = orientation;
+            pointerCoords.setAxisValue(MotionEvent.AXIS_GENERIC_1, generic1);
             return pointerCoords;
         }
 
@@ -167,6 +174,9 @@ public class MotionEventUtils {
                     that.getOrientation(), this.orientation, DELTA);
             assertEquals("Orientation should be the same",
                     that.getAxisValue(MotionEvent.AXIS_ORIENTATION), this.orientation, DELTA);
+
+            assertEquals("Generic axis 1 should be the same",
+                    that.getAxisValue(MotionEvent.AXIS_GENERIC_1), this.generic1, DELTA);
         }
 
         public void verifyMatches(MotionEvent that, int pointerIndex) {
@@ -220,6 +230,10 @@ public class MotionEventUtils {
             assertEquals("Orientation should be the same",
                     that.getAxisValue(MotionEvent.AXIS_ORIENTATION, pointerIndex), this.orientation,
                         DELTA);
+
+            assertEquals("Generic axis 1 should be the same",
+                    that.getAxisValue(MotionEvent.AXIS_GENERIC_1, pointerIndex), this.generic1,
+                    DELTA);
         }
 
         public void verifyMatchesHistorical(MotionEvent that, int position) {
@@ -273,6 +287,10 @@ public class MotionEventUtils {
             assertEquals("Orientation should be the same",
                     that.getHistoricalAxisValue(MotionEvent.AXIS_ORIENTATION, position),
                     this.orientation, DELTA);
+
+            assertEquals("Generic axis 1 should be the same",
+                    that.getHistoricalAxisValue(MotionEvent.AXIS_GENERIC_1, position),
+                    this.generic1, DELTA);
         }
 
         public void verifyMatchesHistorical(MotionEvent that, int pointerIndex, int position) {
@@ -334,6 +352,10 @@ public class MotionEventUtils {
                     that.getHistoricalAxisValue(MotionEvent.AXIS_ORIENTATION,
                             pointerIndex, position),
                     this.orientation, DELTA);
+
+            assertEquals("Generic axis 1 should be the same",
+                    that.getHistoricalAxisValue(MotionEvent.AXIS_GENERIC_1, pointerIndex, position),
+                    this.generic1, DELTA);
         }
 
         public void verifyMatchesPointerCoords(PointerCoords that) {
@@ -373,6 +395,9 @@ public class MotionEventUtils {
                     that.orientation, this.orientation, DELTA);
             assertEquals("Orientation should be the same",
                     that.getAxisValue(MotionEvent.AXIS_ORIENTATION), this.orientation, DELTA);
+
+            assertEquals("Generic axis 1 should be the same",
+                    that.getAxisValue(MotionEvent.AXIS_GENERIC_1), this.generic1, DELTA);
         }
 
         public void verifyMatchesPointerCoords(MotionEvent motionEvent, int pointerIndex) {

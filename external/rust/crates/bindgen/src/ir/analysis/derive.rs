@@ -9,6 +9,7 @@ use crate::ir::context::{BindgenContext, ItemId};
 use crate::ir::derive::CanDerive;
 use crate::ir::function::FunctionSig;
 use crate::ir::item::{IsOpaque, Item};
+use crate::ir::layout::Layout;
 use crate::ir::template::TemplateParameters;
 use crate::ir::traversal::{EdgeKind, Trace};
 use crate::ir::ty::RUST_DERIVE_IN_ARRAY_LIMIT;
@@ -159,7 +160,7 @@ impl<'ctx> CannotDerive<'ctx> {
             return can_derive;
         }
 
-        if self.derive_trait.not_by_name(self.ctx, &item) {
+        if self.derive_trait.not_by_name(self.ctx, item) {
             trace!(
                 "    cannot derive {} for explicitly excluded type",
                 self.derive_trait
@@ -223,13 +224,13 @@ impl<'ctx> CannotDerive<'ctx> {
                 let inner_type =
                     self.ctx.resolve_type(inner).canonical_type(self.ctx);
                 if let TypeKind::Function(ref sig) = *inner_type.kind() {
-                    return self.derive_trait.can_derive_fnptr(sig);
+                    self.derive_trait.can_derive_fnptr(sig)
                 } else {
-                    return self.derive_trait.can_derive_pointer();
+                    self.derive_trait.can_derive_pointer()
                 }
             }
             TypeKind::Function(ref sig) => {
-                return self.derive_trait.can_derive_fnptr(sig)
+                self.derive_trait.can_derive_fnptr(sig)
             }
 
             // Complex cases need more information
@@ -255,7 +256,7 @@ impl<'ctx> CannotDerive<'ctx> {
                     return CanDerive::No;
                 }
 
-                if self.derive_trait.can_derive_large_array() {
+                if self.derive_trait.can_derive_large_array(self.ctx) {
                     trace!("    array can derive {}", self.derive_trait);
                     return CanDerive::Yes;
                 }
@@ -270,7 +271,7 @@ impl<'ctx> CannotDerive<'ctx> {
                     "    array is small enough to derive {}",
                     self.derive_trait
                 );
-                return CanDerive::Yes;
+                CanDerive::Yes
             }
             TypeKind::Vector(t, len) => {
                 let inner_type =
@@ -285,7 +286,7 @@ impl<'ctx> CannotDerive<'ctx> {
                     return CanDerive::No;
                 }
                 assert_ne!(len, 0, "vectors cannot have zero length");
-                return self.derive_trait.can_derive_vector();
+                self.derive_trait.can_derive_vector()
             }
 
             TypeKind::Comp(ref info) => {
@@ -377,7 +378,7 @@ impl<'ctx> CannotDerive<'ctx> {
                 // Bitfield units are always represented as arrays of u8, but
                 // they're not traced as arrays, so we need to check here
                 // instead.
-                if !self.derive_trait.can_derive_large_array() &&
+                if !self.derive_trait.can_derive_large_array(self.ctx) &&
                     info.has_too_large_bitfield_unit() &&
                     !item.is_opaque(self.ctx, &())
                 {
@@ -389,7 +390,7 @@ impl<'ctx> CannotDerive<'ctx> {
                 }
 
                 let pred = self.derive_trait.consider_edge_comp();
-                return self.constrain_join(item, pred);
+                self.constrain_join(item, pred)
             }
 
             TypeKind::ResolvedTypeRef(..) |
@@ -397,12 +398,12 @@ impl<'ctx> CannotDerive<'ctx> {
             TypeKind::Alias(..) |
             TypeKind::BlockPointer(..) => {
                 let pred = self.derive_trait.consider_edge_typeref();
-                return self.constrain_join(item, pred);
+                self.constrain_join(item, pred)
             }
 
             TypeKind::TemplateInstantiation(..) => {
                 let pred = self.derive_trait.consider_edge_tmpl_inst();
-                return self.constrain_join(item, pred);
+                self.constrain_join(item, pred)
             }
 
             TypeKind::Opaque => unreachable!(
@@ -470,10 +471,7 @@ impl DeriveTrait {
     fn consider_edge_comp(&self) -> EdgePredicate {
         match self {
             DeriveTrait::PartialEqOrPartialOrd => consider_edge_default,
-            _ => |kind| match kind {
-                EdgeKind::BaseMember | EdgeKind::Field => true,
-                _ => false,
-            },
+            _ => |kind| matches!(kind, EdgeKind::BaseMember | EdgeKind::Field),
         }
     }
 
@@ -496,48 +494,37 @@ impl DeriveTrait {
         }
     }
 
-    fn can_derive_large_array(&self) -> bool {
-        match self {
-            DeriveTrait::Copy => true,
-            _ => false,
+    fn can_derive_large_array(&self, ctx: &BindgenContext) -> bool {
+        if ctx.options().rust_features().larger_arrays {
+            !matches!(self, DeriveTrait::Default)
+        } else {
+            matches!(self, DeriveTrait::Copy)
         }
     }
 
     fn can_derive_union(&self) -> bool {
-        match self {
-            DeriveTrait::Copy => true,
-            _ => false,
-        }
+        matches!(self, DeriveTrait::Copy)
     }
 
     fn can_derive_compound_with_destructor(&self) -> bool {
-        match self {
-            DeriveTrait::Copy => false,
-            _ => true,
-        }
+        !matches!(self, DeriveTrait::Copy)
     }
 
     fn can_derive_compound_with_vtable(&self) -> bool {
-        match self {
-            DeriveTrait::Default => false,
-            _ => true,
-        }
+        !matches!(self, DeriveTrait::Default)
     }
 
     fn can_derive_compound_forward_decl(&self) -> bool {
-        match self {
-            DeriveTrait::Copy | DeriveTrait::Debug => true,
-            _ => false,
-        }
+        matches!(self, DeriveTrait::Copy | DeriveTrait::Debug)
     }
 
     fn can_derive_incomplete_array(&self) -> bool {
-        match self {
+        !matches!(
+            self,
             DeriveTrait::Copy |
-            DeriveTrait::Hash |
-            DeriveTrait::PartialEqOrPartialOrd => false,
-            _ => true,
-        }
+                DeriveTrait::Hash |
+                DeriveTrait::PartialEqOrPartialOrd
+        )
     }
 
     fn can_derive_fnptr(&self, f: &FunctionSig) -> CanDerive {
@@ -686,10 +673,10 @@ impl<'ctx> MonotoneFramework for CannotDerive<'ctx> {
             Some(ty) => {
                 let mut can_derive = self.constrain_type(item, ty);
                 if let CanDerive::Yes = can_derive {
-                    if !self.derive_trait.can_derive_large_array() &&
-                        ty.layout(self.ctx).map_or(false, |l| {
-                            l.align > RUST_DERIVE_IN_ARRAY_LIMIT
-                        })
+                    let is_reached_limit =
+                        |l: Layout| l.align > RUST_DERIVE_IN_ARRAY_LIMIT;
+                    if !self.derive_trait.can_derive_large_array(self.ctx) &&
+                        ty.layout(self.ctx).map_or(false, is_reached_limit)
                     {
                         // We have to be conservative: the struct *could* have enough
                         // padding that we emit an array that is longer than

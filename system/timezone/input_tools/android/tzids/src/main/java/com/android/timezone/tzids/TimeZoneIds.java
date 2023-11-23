@@ -53,10 +53,11 @@ import java.util.function.Function;
  *     "Europe/London", the modern / canonical equivalent. "GB-Eire" and "Europe/London" are
  *     identical in TZDB. Note: Other libraries with additional metadata like ICU could still treat
  *     "GB-Eire" differently from "Europe/London".
- *     These will typically be as you'd expect from looking at the IANA tzdb backward file. However,
- *     the IDs preferred by Android are determined by countryzones.txt, which could choose to
- *     continue using an old ID, in which case the link may be reversed. This reversal is expected
- *     when an older version of ICU doesn't have strings for a new ID.</li>
+ *     These will typically be as you'd expect from looking at the IANA tzdb backward file. But as
+ *     it contains cross-country links we do not follow it blindly and the IDs preferred by Android
+ *     are determined by countryzones.txt, which could choose to continue using an old ID, in which
+ *     case the link may be reversed. This reversal is expected when an older version of ICU doesn't
+ *     have strings for a new ID.</li>
  *     <li>"Replacements" : When zones have coalesced over time within a country. TZDB has many
  *     "extra" IDs for time zones because of historical differences that haven't been relevant for
  *     years. Replacements have a "from" time which indicates the point in time after which the two

@@ -15,26 +15,34 @@
  */
 
 package android.mediapc.cts;
+
+import static org.junit.Assert.assertTrue;
+
 import android.media.MediaFormat;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
+import android.mediapc.cts.common.Utils;
 import android.util.Pair;
 import android.view.Surface;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.rule.ActivityTestRule;
 
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import static org.junit.Assert.assertTrue;
 
 /**
  * The following test class validates the maximum number of concurrent Transcode sessions that
@@ -62,6 +70,9 @@ public class MultiTranscoderPerfTest extends MultiCodecPerfTestBase {
         mEncoderPair = encoderPair;
     }
 
+    @Rule
+    public final TestName mTestName = new TestName();
+
     // Parameters {0}_{1}_{2} -- Pair(Mime DecoderName)_Pair(Mime EncoderName)_isAsync
     @Parameterized.Parameters(name = "{index}({0}_{1}_{2})")
     public static Collection<Object[]> inputParams() {
@@ -70,11 +81,11 @@ public class MultiTranscoderPerfTest extends MultiCodecPerfTestBase {
         ArrayList<Pair<String, String>> mimeTypeDecoderPairs = new ArrayList<>();
         ArrayList<Pair<String, String>> mimeTypeEncoderPairs = new ArrayList<>();
         for (String mime : mMimeList) {
-            ArrayList<String> listOfDecoders = getHardwareCodecsFor720p(mime, false);
+            ArrayList<String> listOfDecoders = getHardwareCodecsForMime(mime, false);
             for (String decoder : listOfDecoders) {
                 mimeTypeDecoderPairs.add(Pair.create(mime, decoder));
             }
-            ArrayList<String> listOfEncoders = getHardwareCodecsFor720p(mime, true);
+            ArrayList<String> listOfEncoders = getHardwareCodecsForMime(mime, true);
             for (String encoder : listOfEncoders) {
                 mimeTypeEncoderPairs.add(Pair.create(mime, encoder));
             }
@@ -90,7 +101,7 @@ public class MultiTranscoderPerfTest extends MultiCodecPerfTestBase {
     }
 
     /**
-     * This test calculates the validates number of concurrent Transcode sessions that
+     * This test calculates the validates number of concurrent 720p Transcode sessions that
      * it can support by the (mime, decoder - mime, encoder) pairs. Creates maxInstances / 2
      * Transcode sessions. If maximum instances is odd, creates one additional decoder which decodes
      * to surface and render. And ensures that all the supported sessions succeed in
@@ -98,50 +109,89 @@ public class MultiTranscoderPerfTest extends MultiCodecPerfTestBase {
      */
     @LargeTest
     @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement = "2.2.7.1/5.1/H-1-5,H-1-6")
     public void test720p() throws Exception {
+        Assume.assumeTrue(Utils.isSPerfClass() || Utils.isRPerfClass() || !Utils.isPerfClass());
+
+        boolean hasVP9 = mDecoderPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9)
+                || mEncoderPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9);
+        int requiredMinInstances = getRequiredMinConcurrentInstances720p(hasVP9);
+        testCodec(m720pTestFiles, 720, 1280, requiredMinInstances);
+    }
+
+    /**
+     * This test calculates the validates number of concurrent 1080p Transcode sessions that
+     * it can support by the (mime, decoder - mime, encoder) pairs. Creates maxInstances / 2
+     * Transcode sessions. If maximum instances is odd, creates one additional decoder which decodes
+     * to surface and render. And ensures that all the supported sessions succeed in
+     * transcoding/decoding with meeting the expected frame rate.
+     */
+    @LargeTest
+    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement = "2.2.7.1/5.1/H-1-5,H-1-6")
+    public void test1080p() throws Exception {
+        Assume.assumeTrue(Utils.isTPerfClass() || !Utils.isPerfClass());
+        testCodec(m1080pTestFiles, 1080, 1920, REQUIRED_MIN_CONCURRENT_INSTANCES);
+    }
+
+    private void testCodec(Map<String, String> testFiles, int height, int width,
+            int requiredMinInstances) throws Exception {
+        mTestFiles = testFiles;
         ArrayList<Pair<String, String>> mimeCodecPairs = new ArrayList<>();
         mimeCodecPairs.add(mDecoderPair);
         mimeCodecPairs.add(mEncoderPair);
-        int maxInstances = checkAndGetMaxSupportedInstancesFor720p(mimeCodecPairs);
-        int requiredMinInstances = REQUIRED_MIN_CONCURRENT_INSTANCES / 2;
-        if (mDecoderPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9)
-                || mEncoderPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9)) {
-            requiredMinInstances = REQUIRED_MIN_CONCURRENT_INSTANCES_FOR_VP9 / 2;
-        }
-        assertTrue("DecodeMime: " + mDecoderPair.first + ", Decoder " + mDecoderPair.second +
-                ", EncodeMime: " + mEncoderPair.first + ", Encoder: " + mEncoderPair.second +
-                ", unable to support minimum concurrent instances. act/exp: " + maxInstances +
-                "/" + requiredMinInstances, maxInstances >= requiredMinInstances);
-        ExecutorService pool = Executors.newFixedThreadPool(maxInstances / 2 + maxInstances % 2);
-        List<Transcode> transcodeList = new ArrayList<>();
-        for (int i = 0; i < maxInstances / 2 ; i++) {
-            transcodeList.add(new Transcode(mEncoderPair.first, mTestFiles.get(mDecoderPair.first),
-                    mDecoderPair.second, mEncoderPair.second, mIsAsync));
-        }
+        int maxInstances =
+                checkAndGetMaxSupportedInstancesForCodecCombinations(height, width, mimeCodecPairs,
+                        requiredMinInstances);
         double achievedFrameRate = 0.0;
-        List<Future<Double>> decodeResultList = null;
-        if (maxInstances % 2 == 1) {
-            List<DecodeToSurface> decodeList = new ArrayList<>();
-            mActivityRule.getActivity().waitTillSurfaceIsCreated();
-            Surface surface = mActivityRule.getActivity().getSurface();
-            assertTrue("Surface created is null.", surface != null);
-            assertTrue("Surface created is invalid.", surface.isValid());
-            mActivityRule.getActivity().setScreenParams(1280, 720, true);
-            decodeList.add(new DecodeToSurface(mDecoderPair.first,
-                    mTestFiles.get(mDecoderPair.first), mDecoderPair.second, surface, mIsAsync));
-            decodeResultList = pool.invokeAll(decodeList);
-        }
-        List<Future<Double>> transcodeResultList = pool.invokeAll(transcodeList);
-        for (Future<Double> result : transcodeResultList) {
-            achievedFrameRate += result.get();
-        }
-        if (decodeResultList != null) {
-            for (Future<Double> result : decodeResultList) {
+        if (maxInstances >= requiredMinInstances) {
+            ExecutorService pool =
+                    Executors.newFixedThreadPool(maxInstances / 2 + maxInstances % 2);
+            List<Transcode> transcodeList = new ArrayList<>();
+            for (int i = 0; i < maxInstances / 2; i++) {
+                transcodeList
+                        .add(new Transcode(mEncoderPair.first, mTestFiles.get(mDecoderPair.first),
+                                mDecoderPair.second, mEncoderPair.second, mIsAsync));
+            }
+            List<Future<Double>> decodeResultList = null;
+            if (maxInstances % 2 == 1) {
+                List<DecodeToSurface> decodeList = new ArrayList<>();
+                mActivityRule.getActivity().waitTillSurfaceIsCreated();
+                Surface surface = mActivityRule.getActivity().getSurface();
+                assertTrue("Surface created is null.", surface != null);
+                assertTrue("Surface created is invalid.", surface.isValid());
+                mActivityRule.getActivity().setScreenParams(width, height, true);
+                decodeList.add(new DecodeToSurface(mDecoderPair.first,
+                        mTestFiles.get(mDecoderPair.first), mDecoderPair.second, surface,
+                        mIsAsync));
+                decodeResultList = pool.invokeAll(decodeList);
+            }
+            List<Future<Double>> transcodeResultList = pool.invokeAll(transcodeList);
+            for (Future<Double> result : transcodeResultList) {
                 achievedFrameRate += result.get();
             }
+            if (decodeResultList != null) {
+                for (Future<Double> result : decodeResultList) {
+                    achievedFrameRate += result.get();
+                }
+            }
         }
-        assertTrue("Unable to achieve the maxFrameRate supported. act/exp: " + achievedFrameRate
-                + "/" + mMaxFrameRate / 2 + " for " + maxInstances + " instances.",
-                achievedFrameRate >= mMaxFrameRate / 2);
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_5;
+        PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_6;
+        if (height >= 1080) {
+            r5_1__H_1_5 = pce.addR5_1__H_1_5_1080p();
+            r5_1__H_1_6 = pce.addR5_1__H_1_6_1080p();
+            r5_1__H_1_5.setConcurrentInstances(maxInstances);
+            r5_1__H_1_6.setConcurrentFps(achievedFrameRate);
+        } else {
+            r5_1__H_1_5 = pce.addR5_1__H_1_5_720p(mDecoderPair.first, mEncoderPair.first, height);
+            r5_1__H_1_6 = pce.addR5_1__H_1_6_720p(mDecoderPair.first, mEncoderPair.first, height);
+            r5_1__H_1_5.setConcurrentInstances(maxInstances);
+            r5_1__H_1_6.setConcurrentFps(achievedFrameRate);
+        }
+
+        pce.submitAndCheck();
     }
 }

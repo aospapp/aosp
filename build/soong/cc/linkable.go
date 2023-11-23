@@ -3,6 +3,7 @@ package cc
 import (
 	"android/soong/android"
 	"android/soong/bazel/cquery"
+	"android/soong/snapshot"
 
 	"github.com/google/blueprint"
 )
@@ -13,11 +14,6 @@ type PlatformSanitizeable interface {
 
 	// SanitizePropDefined returns whether the Sanitizer properties struct for this module is defined.
 	SanitizePropDefined() bool
-
-	// IsDependencyRoot returns whether a module is of a type which cannot be a linkage dependency
-	// of another module. For example, cc_binary and rust_binary represent dependency roots as other
-	// modules cannot have linkage dependencies against these types.
-	IsDependencyRoot() bool
 
 	// IsSanitizerEnabled returns whether a sanitizer is enabled.
 	IsSanitizerEnabled(t SanitizerType) bool
@@ -76,23 +72,26 @@ type SantizableDependencyTagChecker func(tag blueprint.DependencyTag) bool
 
 // Snapshottable defines those functions necessary for handling module snapshots.
 type Snapshottable interface {
+	snapshot.VendorSnapshotModuleInterface
+	snapshot.RecoverySnapshotModuleInterface
+
 	// SnapshotHeaders returns a list of header paths provided by this module.
 	SnapshotHeaders() android.Paths
 
-	// ExcludeFromVendorSnapshot returns true if this module should be otherwise excluded from the vendor snapshot.
-	ExcludeFromVendorSnapshot() bool
-
-	// ExcludeFromRecoverySnapshot returns true if this module should be otherwise excluded from the recovery snapshot.
-	ExcludeFromRecoverySnapshot() bool
-
 	// SnapshotLibrary returns true if this module is a snapshot library.
 	IsSnapshotLibrary() bool
+
+	// EffectiveLicenseFiles returns the list of License files for this module.
+	EffectiveLicenseFiles() android.Paths
 
 	// SnapshotRuntimeLibs returns a list of libraries needed by this module at runtime but which aren't build dependencies.
 	SnapshotRuntimeLibs() []string
 
 	// SnapshotSharedLibs returns the list of shared library dependencies for this module.
 	SnapshotSharedLibs() []string
+
+	// SnapshotStaticLibs returns the list of static library dependencies for this module.
+	SnapshotStaticLibs() []string
 
 	// IsSnapshotPrebuilt returns true if this module is a snapshot prebuilt.
 	IsSnapshotPrebuilt() bool
@@ -111,6 +110,7 @@ type LinkableInterface interface {
 	BaseModuleName() string
 
 	OutputFile() android.OptionalPath
+	UnstrippedOutputFile() android.Path
 	CoverageFiles() android.Paths
 
 	NonCcVariants() bool
@@ -124,6 +124,7 @@ type LinkableInterface interface {
 	IsPrebuilt() bool
 	Toc() android.OptionalPath
 
+	Device() bool
 	Host() bool
 
 	InRamdisk() bool
@@ -165,6 +166,9 @@ type LinkableInterface interface {
 	// "product_specific: true" modules are included here.
 	UseVndk() bool
 
+	// Bootstrap tests if this module is allowed to use non-APEX version of libraries.
+	Bootstrap() bool
+
 	// IsVndkSp returns true if this is a VNDK-SP module.
 	IsVndkSp() bool
 
@@ -172,10 +176,14 @@ type LinkableInterface interface {
 	IsVndk() bool
 	IsVndkExt() bool
 	IsVndkPrivate() bool
+	IsVendorPublicLibrary() bool
+	IsVndkPrebuiltLibrary() bool
 	HasVendorVariant() bool
 	HasProductVariant() bool
 	HasNonSystemVariants() bool
+	ProductSpecific() bool
 	InProduct() bool
+	SdkAndPlatformVariantVisibleToMake() bool
 
 	// SubName returns the modules SubName, used for image and NDK/SDK variations.
 	SubName() string
@@ -222,6 +230,9 @@ type LinkableInterface interface {
 
 	// Header returns true if this is a library headers module.
 	Header() bool
+
+	// StaticExecutable returns true if this is a binary module with "static_executable: true".
+	StaticExecutable() bool
 
 	// EverInstallable returns true if the module is ever installable
 	EverInstallable() bool
@@ -305,14 +316,13 @@ func HeaderDepTag() blueprint.DependencyTag {
 
 // SharedLibraryInfo is a provider to propagate information about a shared C++ library.
 type SharedLibraryInfo struct {
-	SharedLibrary           android.Path
-	UnstrippedSharedLibrary android.Path
-	Target                  android.Target
+	SharedLibrary android.Path
+	Target        android.Target
 
-	TableOfContents       android.OptionalPath
-	CoverageSharedLibrary android.OptionalPath
+	TableOfContents android.OptionalPath
 
-	StaticAnalogue *StaticLibraryInfo
+	// should be obtained from static analogue
+	TransitiveStaticLibrariesForOrdering *android.DepSet
 }
 
 var SharedLibraryInfoProvider = blueprint.NewProvider(SharedLibraryInfo{})
@@ -346,6 +356,11 @@ type StaticLibraryInfo struct {
 	Objects       Objects
 	ReuseObjects  Objects
 
+	// A static library may contain prebuilt static libraries included with whole_static_libs
+	// that won't appear in Objects.  They are transitively available in
+	// WholeStaticLibsFromPrebuilts.
+	WholeStaticLibsFromPrebuilts android.Paths
+
 	// This isn't the actual transitive DepSet, shared library dependencies have been
 	// converted into static library analogues.  It is only used to order the static
 	// library dependencies that were specified for the current module.
@@ -378,9 +393,13 @@ func flagExporterInfoFromCcInfo(ctx android.ModuleContext, ccInfo cquery.CcInfo)
 
 	includes := android.PathsForBazelOut(ctx, ccInfo.Includes)
 	systemIncludes := android.PathsForBazelOut(ctx, ccInfo.SystemIncludes)
+	headers := android.PathsForBazelOut(ctx, ccInfo.Headers)
 
 	return FlagExporterInfo{
 		IncludeDirs:       android.FirstUniquePaths(includes),
 		SystemIncludeDirs: android.FirstUniquePaths(systemIncludes),
+		GeneratedHeaders:  headers,
+		// necessary to ensure generated headers are considered implicit deps of dependent actions
+		Deps: headers,
 	}
 }

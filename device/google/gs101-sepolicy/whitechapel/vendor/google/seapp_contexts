@@ -48,7 +48,8 @@ user=_app seinfo=platform name=com.google.googlecbrs domain=cbrs_setup_app type=
 user=_app isPrivApp=true  seinfo=platform name=com.thales.device.ofl.app.basicagent domain=ofl_app type=app_data_file levelFrom=user
 
 # Qorvo UWB system app
-user=uwb isPrivApp=true seinfo=uwb name=com.qorvo.uwb domain=uwb_vendor_app type=uwb_vendor_data_file levelFrom=all
+# TODO(b/222204912): Should this run under uwb user?
+user=_app isPrivApp=true seinfo=uwb name=com.qorvo.uwb.vendorservice domain=uwb_vendor_app type=uwb_vendor_data_file levelFrom=all
 
 # Domain for EuiccSupportPixel
 user=_app isPrivApp=true seinfo=EuiccSupportPixel name=com.google.euiccpixel domain=euiccpixel_app type=app_data_file levelFrom=all

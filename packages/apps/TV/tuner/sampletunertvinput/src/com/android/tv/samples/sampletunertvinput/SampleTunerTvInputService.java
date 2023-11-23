@@ -5,6 +5,7 @@ import static android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
+import android.media.MediaCodec.LinearBlock;
 import android.media.MediaFormat;
 import android.media.tv.tuner.dvr.DvrPlayback;
 import android.media.tv.tuner.dvr.DvrSettings;
@@ -53,13 +54,13 @@ public class SampleTunerTvInputService extends TvInputService {
     private static final int PACKET_SIZE = 188;
 
     private static final int TIMEOUT_US = 100000;
-    private static final boolean SAVE_DATA = true;
-    private static final String ES_PATH = "/data/local/tmp/test.es";
+    private static final boolean SAVE_DATA = false;
+    private static final String ES_FILE_NAME = "test.es";
     private static final MediaFormat VIDEO_FORMAT;
 
     static {
         // format extracted for the specific input file
-        VIDEO_FORMAT = MediaFormat.createVideoFormat("video/avc", 320, 240);
+        VIDEO_FORMAT = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 320, 240);
         VIDEO_FORMAT.setInteger(MediaFormat.KEY_TRACK_ID, 1);
         VIDEO_FORMAT.setLong(MediaFormat.KEY_DURATION, 9933333);
         VIDEO_FORMAT.setInteger(MediaFormat.KEY_LEVEL, 32);
@@ -134,9 +135,11 @@ public class SampleTunerTvInputService extends TvInputService {
             }
             if (mDvr != null) {
                 mDvr.close();
+                mDvr = null;
             }
             if (mTuner != null) {
                 mTuner.close();
+                mTuner = null;
             }
             mDataQueue = null;
             mSavedData = null;
@@ -243,9 +246,9 @@ public class SampleTunerTvInputService extends TvInputService {
                         public void onFilterStatusChanged(Filter filter, int status) {
                             if (DEBUG) {
                                 Log.d(TAG, "onFilterEvent video, status=" + status);
-                                if (status == Filter.STATUS_DATA_READY) {
-                                    mDataReady = true;
-                                }
+                            }
+                            if (status == Filter.STATUS_DATA_READY) {
+                                mDataReady = true;
                             }
                         }
                     });
@@ -275,7 +278,8 @@ public class SampleTunerTvInputService extends TvInputService {
             if (DEBUG) {
                 Log.d(TAG, "config res=" + res);
             }
-            File file = new File(ES_PATH);
+            String testFile = mContext.getFilesDir().getAbsolutePath() + "/" + ES_FILE_NAME;
+            File file = new File(testFile);
             if (file.exists()) {
                 try {
                     dvr.setFileDescriptor(
@@ -323,10 +327,10 @@ public class SampleTunerTvInputService extends TvInputService {
                 mMediaCodec = null;
             }
             try {
-                mMediaCodec = MediaCodec.createDecoderByType("video/avc");
+                mMediaCodec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
                 mMediaCodec.configure(VIDEO_FORMAT, mSurface, null, 0);
             } catch (IOException e) {
-                Log.e(TAG, "Error: " + e.getMessage());
+                Log.e(TAG, "Error in initCodec: " + e.getMessage());
             }
 
             if (mMediaCodec == null) {
@@ -357,23 +361,41 @@ public class SampleTunerTvInputService extends TvInputService {
                 while (!Thread.interrupted()) {
                     if (!mDataReady) {
                         Thread.sleep(100);
+                        continue;
                     }
                     if (!mDataQueue.isEmpty()) {
-                        if (queueCodecInputBuffer(mDataQueue.getFirst())) {
+                        if (handleDataBuffer(mDataQueue.getFirst())) {
                             // data consumed, remove.
                             mDataQueue.pollFirst();
                         }
-                    } else if (SAVE_DATA) {
+                    }
+                    if (SAVE_DATA) {
                         mDataQueue.addAll(mSavedData);
                     }
-                    releaseCodecOutputBuffer();
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error: " + e.getMessage());
+                Log.e(TAG, "Error in decodeInternal: " + e.getMessage());
             }
         }
 
-        private boolean queueCodecInputBuffer(MediaEvent mediaEvent) {
+        private boolean handleDataBuffer(MediaEvent mediaEvent) {
+            if (mediaEvent.getLinearBlock() == null) {
+                if (DEBUG) Log.d(TAG, "getLinearBlock() == null");
+                return true;
+            }
+            boolean success = false;
+            LinearBlock block = mediaEvent.getLinearBlock();
+            if (queueCodecInputBuffer(block, mediaEvent.getDataLength(), mediaEvent.getOffset(),
+                                  mediaEvent.getPts())) {
+                releaseCodecOutputBuffer();
+                success = true;
+            }
+            mediaEvent.release();
+            return success;
+        }
+
+        private boolean queueCodecInputBuffer(LinearBlock block, long sampleSize,
+                                              long offset, long pts) {
             int res = mMediaCodec.dequeueInputBuffer(TIMEOUT_US);
             if (res >= 0) {
                 ByteBuffer buffer = mMediaCodec.getInputBuffer(res);
@@ -381,13 +403,9 @@ public class SampleTunerTvInputService extends TvInputService {
                     throw new RuntimeException("Null decoder input buffer");
                 }
 
-                ByteBuffer data = mediaEvent.getLinearBlock().map();
-                int sampleSize = (int) mediaEvent.getDataLength();
-                int offset = (int) mediaEvent.getOffset();
-                long pts = mediaEvent.getPts();
-
+                ByteBuffer data = block.map();
                 if (offset > 0 && offset < data.limit()) {
-                    data.position(offset);
+                    data.position((int) offset);
                 } else {
                     data.position(0);
                 }
@@ -407,14 +425,21 @@ public class SampleTunerTvInputService extends TvInputService {
                             + " size="
                             + (data.limit() - data.position()));
                 }
-                while (data.position() < data.limit()) {
-                    // fill codec input buffer
-                    buffer.put(data.get());
+                // fill codec input buffer
+                int size = sampleSize > data.limit() ? data.limit() : (int) sampleSize;
+                if (DEBUG) Log.d(TAG, "limit " + data.limit() + " sampleSize " + sampleSize);
+                if (data.hasArray()) {
+                    Log.d(TAG, "hasArray");
+                    buffer.put(data.array(), 0, size);
+                } else {
+                    byte[] array = new byte[size];
+                    data.get(array, 0, size);
+                    buffer.put(array, 0, size);
                 }
 
-                mMediaCodec.queueInputBuffer(res, 0, sampleSize, pts, 0);
+                mMediaCodec.queueInputBuffer(res, 0, (int) sampleSize, pts, 0);
             } else {
-                Log.d(TAG, "queueCodecInputBuffer res=" + res);
+                if (DEBUG) Log.d(TAG, "queueCodecInputBuffer res=" + res);
                 return false;
             }
             return true;

@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ဖုန်းပိုင်ရှင်နှင့် ပတ်သက်သည့် အချက်အလက်များ မရှိပါ"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"ဤအရာသည် သင့်ဖုန်းဖြစ်ပါက အရေးပေါ်ကိစ္စကြုံလာလျှင် ပြသမည့် အချက်အလက်များထည့်ရန် ခဲတံသင်္ကေတကို တို့ပါ"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"အရေးပေါ်အခြေအနေတွင် ဤနေရာတွင်ပြမည့် အချက်အလက်များကိုထည့်ရန် သင့်ဖုန်းကို လော့ခ်ဖွင့်ထားပြီး ခဲတံသင်္ကေတကို တို့ပါ"</string>
     <string name="clear_all" msgid="8899013032870561633">"အားလုံးရှင်းရန်"</string>
     <string name="clear" msgid="3648880442502887163">"ရှင်းရန်"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"အချက်အလက်နှင့် အဆက်အသွယ်အားလုံးကို ရှင်းမလား။"</string>

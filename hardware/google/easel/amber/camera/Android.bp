@@ -16,10 +16,7 @@
 
 package {
     // http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // the below license kinds from "hardware_google_easel_license":
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: ["hardware_google_easel_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 cc_library_headers {

@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Papamahalaan ng sumusunod na app ang iyong device:"</string>
     <string name="next" msgid="1004321437324424398">"Susunod"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nagse-set up ng profile sa trabaho…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa profile na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Puwedeng subaybayan at pamahalaan ng iyong IT admin ang mga setting, pangkumpanyang access, mga app, mga pahintulot, data, at aktibidad sa network na nauugnay sa profile na ito, pati ang iyong history ng tawag at history ng paghahanap ng contact. Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon at para matuto pa tungkol sa mga patakaran sa privacy ng organisasyon mo."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa device na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Puwedeng i-install ng <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ang <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para makapagbayad ka para sa device na ito."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Puwedeng paghigpitan ang device na ito"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Puwedeng paghigpitan ng <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ang access sa device na ito kung hindi ka magbabayad."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Hindi ma-set up ang device. Makipag-ugnayan sa iyong IT admin at banggitin ang \"Invalid na checksum.\""</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Subukan ulit sa ibang pagkakataon o humingi ng tulong sa iyong IT admin"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Hindi ma-set up ang device. Makipag-ugnayan sa iyong IT admin at banggitin ang \"May mga kulang o sirang bahagi.\""</string>
+    <string name="setting_up" msgid="1478847967385506664">"Nagse-set up…"</string>
 </resources>

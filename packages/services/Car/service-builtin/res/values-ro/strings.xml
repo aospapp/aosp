@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"Nu puteți folosi această funcție în timp ce conduceți"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"Pentru a începe din nou cu funcțiile pentru aplicații sigure, selectați <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
+    <string name="exit_button" msgid="3491899413031549265">"Înapoi"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"Închideți aplicația"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"Înapoi"</string>
+    <string name="importance_default" msgid="8017186728206153704">"Importanță prestabilită"</string>
+    <string name="importance_high" msgid="3393374688015554727">"Importanță ridicată"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Sistemul Android"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"Este necesară revenirea la setările din fabrică"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"Toate datele din sistemul de infotainment se vor șterge. După resetare, puteți configura un profil nou."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"Mai mult"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"Datele de pe dispozitiv vor fi șterse"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"Aplicația de administrare nu poate fi folosită. Dispozitivul va fi șters.\n\nDacă aveți întrebări, contactați administratorul organizației dvs."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> afectează performanța sistemului dvs."</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Dezactivați aplicația pentru a îmbunătăți performanța sistemului. Puteți activa din nou aplicația din Setări."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Prioritizați aplicația pentru a o folosi în continuare."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Dezinstalați aplicația pentru a îmbunătăți performanța sistemului."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Dezactivați aplicația"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Prioritizați aplicația"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Dezinstalați aplicația"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> a fost dezactivată. O puteți activa din nou din Setări."</string>
+</resources>

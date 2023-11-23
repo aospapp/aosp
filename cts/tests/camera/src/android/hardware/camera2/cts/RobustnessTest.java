@@ -16,58 +16,91 @@
 
 package android.hardware.camera2.cts;
 
-import static android.hardware.camera2.cts.CameraTestUtils.*;
-import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.*;
+import static android.hardware.camera2.cts.CameraTestUtils.PREVIEW_SIZE_BOUND;
+import static android.hardware.camera2.cts.CameraTestUtils.SessionConfigSupport;
+import static android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
+import static android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
+import static android.hardware.camera2.cts.CameraTestUtils.SizeComparator;
+import static android.hardware.camera2.cts.CameraTestUtils.StreamCombinationTargets;
+import static android.hardware.camera2.cts.CameraTestUtils.assertEquals;
+import static android.hardware.camera2.cts.CameraTestUtils.assertNotNull;
+import static android.hardware.camera2.cts.CameraTestUtils.assertNull;
+import static android.hardware.camera2.cts.CameraTestUtils.checkSessionConfigurationSupported;
+import static android.hardware.camera2.cts.CameraTestUtils.checkSessionConfigurationWithSurfaces;
+import static android.hardware.camera2.cts.CameraTestUtils.configureReprocessableCameraSession;
+import static android.hardware.camera2.cts.CameraTestUtils.fail;
+import static android.hardware.camera2.cts.CameraTestUtils.getAscendingOrderSizes;
+import static android.hardware.camera2.cts.CameraTestUtils.isSessionConfigSupported;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.JPEG;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.MAXIMUM;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.PREVIEW;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.PRIV;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.RAW;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.RECORD;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.VGA;
+import static android.hardware.camera2.cts.RobustnessTest.MaxStreamSizes.YUV;
+
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.assertFalse;
+
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
-import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.camera2.params.DynamicRangeProfiles;
 import android.hardware.camera2.params.InputConfiguration;
-import android.hardware.camera2.params.OisSample;
-import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.MandatoryStreamCombination;
 import android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStreamInformation;
+import android.hardware.camera2.params.OisSample;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
-import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
+import android.view.WindowMetrics;
 
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
-import java.util.Arrays;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Iterator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.junit.runners.Parameterized;
-import org.junit.runner.RunWith;
-import org.junit.Test;
-
-import static junit.framework.Assert.assertTrue;
-import static org.mockito.Mockito.*;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Tests exercising edge cases in camera setup, configuration, and usage.
@@ -301,6 +334,163 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         testMandatoryOutputCombinations(/*maxResolution*/ true);
     }
 
+    /**
+     * Test for making sure the mandatory use case stream combinations work as expected.
+     */
+    @Test
+    public void testMandatoryUseCaseOutputCombinations() throws Exception {
+        for (String id : mCameraIdsUnderTest) {
+            StaticMetadata info = mAllStaticInfo.get(id);
+            CameraCharacteristics chars = info.getCharacteristics();
+            CameraCharacteristics.Key<MandatoryStreamCombination []> ck =
+                    CameraCharacteristics.SCALER_MANDATORY_USE_CASE_STREAM_COMBINATIONS;
+            MandatoryStreamCombination[] combinations = chars.get(ck);
+
+            if (!info.isCapabilitySupported(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE)) {
+                assertNull(combinations);
+                Log.i(TAG, "Camera id " + id + " doesn't support stream use case, skip test");
+                continue;
+            }
+
+            assertNotNull(combinations);
+            openDevice(id);
+
+            try {
+                for (MandatoryStreamCombination combination : combinations) {
+                    Log.i(TAG, "Testing fixed mandatory output combination with stream use case: " +
+                            combination.getDescription() + " on camera: " + id);
+                    CaptureRequest.Builder requestBuilder =
+                            mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                    testMandatoryOutputCombinationWithPresetKeys(id, combination, requestBuilder);
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    @Test
+    public void testMandatoryPreviewStabilizationOutputCombinations() throws Exception {
+        for (String id : mCameraIdsUnderTest) {
+            StaticMetadata info = mAllStaticInfo.get(id);
+            boolean previewStabilizationSupported = isPreviewStabilizationSupported(info);
+            CameraCharacteristics chars = info.getCharacteristics();
+            CameraCharacteristics.Key<MandatoryStreamCombination []> ck =
+                    CameraCharacteristics
+                            .SCALER_MANDATORY_PREVIEW_STABILIZATION_OUTPUT_STREAM_COMBINATIONS;
+            MandatoryStreamCombination[] combinations = chars.get(ck);
+
+            if (combinations == null) {
+                assertFalse("Preview stabilization supported by camera id: " + id
+                        + " but null mandatory streams", previewStabilizationSupported);
+                Log.i(TAG, "Camera id " + id + " doesn't support preview stabilization, skip test");
+                continue;
+            } else {
+                assertTrue("Preview stabilization not supported by camera id: " + id
+                        + " but non-null mandatory streams", previewStabilizationSupported);
+            }
+
+            openDevice(id);
+
+            try {
+                for (MandatoryStreamCombination combination : combinations) {
+                    Log.i(TAG, "Testing fixed mandatory output combination with preview"
+                            + "stabilization case: " + combination.getDescription() + " on camera: "
+                                     + id);
+                    CaptureRequest.Builder requestBuilder =
+                            mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                    requestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                            CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION);
+                    testMandatoryOutputCombinationWithPresetKeys(id, combination, requestBuilder);
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    private boolean isPreviewStabilizationSupported(StaticMetadata info) {
+        int[] availableVideoStabilizationModes = info.getAvailableVideoStabilizationModesChecked();
+        if (availableVideoStabilizationModes == null) {
+            return false;
+        }
+        for (int mode : availableVideoStabilizationModes) {
+            if (mode == CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void testMandatoryOutputCombinationWithPresetKeys(String cameraId,
+            MandatoryStreamCombination combination, CaptureRequest.Builder requestBuilderWithKeys) {
+        final int TIMEOUT_FOR_RESULT_MS = 1000;
+        final int MIN_RESULT_COUNT = 3;
+
+        // Setup outputs
+        List<OutputConfiguration> outputConfigs = new ArrayList<>();
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        List<Surface> uhOutputSurfaces = new ArrayList<Surface>();
+        StreamCombinationTargets targets = new StreamCombinationTargets();
+
+        CameraTestUtils.setupConfigurationTargets(combination.getStreamsInformation(),
+                targets, outputConfigs, outputSurfaces, uhOutputSurfaces, MIN_RESULT_COUNT,
+                /*substituteY8*/ false, /*substituteHeic*/false,
+                /*physicalCameraId*/ null,
+                /*multiResStreamConfig*/null, mHandler,
+                /*dynamicRangeProfiles*/ null);
+
+        boolean haveSession = false;
+        try {
+            checkSessionConfigurationSupported(mCamera, mHandler, outputConfigs,
+                    /*inputConfig*/ null, SessionConfiguration.SESSION_REGULAR,
+                    true/*defaultSupport*/,
+                    String.format("Session configuration query from combination: %s failed",
+                            combination.getDescription()));
+
+            createSessionByConfigs(outputConfigs);
+            haveSession = true;
+            for (Surface s : outputSurfaces) {
+                requestBuilderWithKeys.addTarget(s);
+            }
+            CameraCaptureSession.CaptureCallback mockCaptureCallback =
+                    mock(CameraCaptureSession.CaptureCallback.class);
+            CaptureRequest request = requestBuilderWithKeys.build();
+
+            mCameraSession.setRepeatingRequest(request, mockCaptureCallback, mHandler);
+            verify(mockCaptureCallback,
+                    timeout(TIMEOUT_FOR_RESULT_MS * MIN_RESULT_COUNT).atLeast(MIN_RESULT_COUNT))
+                    .onCaptureCompleted(
+                        eq(mCameraSession),
+                        eq(request),
+                        isA(TotalCaptureResult.class));
+            verify(mockCaptureCallback, never()).
+                    onCaptureFailed(
+                        eq(mCameraSession),
+                        eq(request),
+                        isA(CaptureFailure.class));
+        } catch (Throwable e) {
+            mCollector.addMessage(
+                    String.format("Closing down for combination: %s failed due to: %s",
+                            combination.getDescription(), e.getMessage()));
+        }
+
+        if (haveSession) {
+            try {
+                Log.i(TAG, String.format("Done with camera %s, combination: %s, closing session",
+                                cameraId, combination.getDescription()));
+                stopCapture(/*fast*/false);
+            } catch (Throwable e) {
+                mCollector.addMessage(
+                    String.format("Closing down for combination: %s failed due to: %s",
+                            combination.getDescription(), e.getMessage()));
+            }
+        }
+
+        targets.close();
+    }
+
     private void testMandatoryStreamCombination(String cameraId, StaticMetadata staticInfo,
             String physicalCameraId, MandatoryStreamCombination combination) throws Exception {
         // Check whether substituting YUV_888 format with Y8 format
@@ -463,6 +653,173 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     String.format("Closing down for combination: %s failed due to: %s",
                             combination.getDescription(), e.getMessage()));
             }
+        }
+
+        targets.close();
+    }
+
+    /**
+     * Test for making sure the required 10-bit stream combinations work as expected.
+     * Since we have too many possible combinations between different 8-bit vs. 10-bit as well
+     * as 10-bit dynamic profiles and in order to maximize the coverage within some reasonable
+     * amount of iterations, the test case will configure 8-bit and 10-bit outputs randomly. In case
+     * we have 10-bit output, then the dynamic range profile will also be randomly picked.
+     */
+    @Test
+    public void testMandatory10BitStreamCombinations() throws Exception {
+        for (String id : mCameraIdsUnderTest) {
+            openDevice(id);
+            CameraCharacteristics chars = mStaticInfo.getCharacteristics();
+            if (!CameraTestUtils.hasCapability(
+                    chars, CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT)) {
+                Log.i(TAG, "Camera id " + id + " doesn't support 10-bit output, skip test");
+                closeDevice(id);
+                continue;
+            }
+            CameraCharacteristics.Key<MandatoryStreamCombination []> ck =
+                    CameraCharacteristics.SCALER_MANDATORY_TEN_BIT_OUTPUT_STREAM_COMBINATIONS;
+
+            MandatoryStreamCombination[] combinations = chars.get(ck);
+            assertNotNull(combinations);
+
+            try {
+                for (MandatoryStreamCombination combination : combinations) {
+                    Log.i(TAG, "Testing fixed mandatory 10-bit output stream combination: " +
+                            combination.getDescription() + " on camera: " + id);
+                    DynamicRangeProfiles profiles = mStaticInfo.getCharacteristics().get(
+                            CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES);
+                    assertNotNull(profiles);
+
+                    // First we want to make sure that a fixed set of 10-bit streams
+                    // is functional
+                    for (Long profile : profiles.getSupportedProfiles()) {
+                        if (profile != DynamicRangeProfiles.STANDARD) {
+                            ArrayList<Long> testProfiles = new ArrayList<Long>() {
+                                { add(profile); } };
+                            testMandatory10BitStreamCombination(id, combination, profiles,
+                                    testProfiles);
+                        }
+                    }
+
+                    Log.i(TAG, "Testing random mandatory 10-bit output stream combination: " +
+                            combination.getDescription() + " on camera: " + id);
+                    // Next try out a random mix of standard 8-bit and 10-bit profiles.
+                    // The number of possible combinations is quite big and testing them
+                    // all on physical hardware can become unfeasible.
+                    ArrayList<Long> testProfiles = new ArrayList<>(
+                            profiles.getSupportedProfiles());
+                    testMandatory10BitStreamCombination(id, combination, profiles, testProfiles);
+                }
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    private void testMandatory10BitStreamCombination(String cameraId,
+            MandatoryStreamCombination combination, DynamicRangeProfiles profiles,
+            List<Long> testProfiles) {
+        final int TIMEOUT_FOR_RESULT_MS = 1000;
+        final int MIN_RESULT_COUNT = 3;
+
+        // Setup outputs
+        List<OutputConfiguration> outputConfigs = new ArrayList<>();
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        List<Surface> uhOutputSurfaces = new ArrayList<Surface>();
+        StreamCombinationTargets targets = new StreamCombinationTargets();
+
+        CameraTestUtils.setupConfigurationTargets(combination.getStreamsInformation(),
+                targets, outputConfigs, outputSurfaces, uhOutputSurfaces, MIN_RESULT_COUNT,
+                /*substituteY8*/ false, /*substituteHeic*/false,
+                /*physicalCameraId*/ null,
+                /*multiResStreamConfig*/null, mHandler,
+                testProfiles);
+
+        try {
+            checkSessionConfigurationSupported(mCamera, mHandler, outputConfigs,
+                    /*inputConfig*/ null, SessionConfiguration.SESSION_REGULAR,
+                    true/*defaultSupport*/,
+                    String.format("Session configuration query from combination: %s failed",
+                            combination.getDescription()));
+
+            createSessionByConfigs(outputConfigs);
+
+            boolean constraintPresent = false;
+            List<Surface> constrainedOutputs = new ArrayList<>(outputSurfaces);
+
+            while (!outputSurfaces.isEmpty()) {
+                CaptureRequest.Builder requestBuilder =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                // Check to see how many outputs can be combined in to a single request including
+                // the first output surface and respecting the advertised constraints
+                Iterator<OutputConfiguration> it = outputConfigs.iterator();
+                OutputConfiguration config = it.next();
+                HashSet<Long> currentProfiles = new HashSet<>();
+                currentProfiles.add(config.getDynamicRangeProfile());
+                requestBuilder.addTarget(config.getSurface());
+                outputSurfaces.remove(config.getSurface());
+                it.remove();
+                while (it.hasNext()) {
+                    config = it.next();
+                    Long currentProfile = config.getDynamicRangeProfile();
+                    Set<Long> newLimitations = profiles.getProfileCaptureRequestConstraints(
+                            currentProfile);
+                    if (newLimitations.isEmpty() || (newLimitations.containsAll(currentProfiles))) {
+                        currentProfiles.add(currentProfile);
+                        requestBuilder.addTarget(config.getSurface());
+                        outputSurfaces.remove(config.getSurface());
+                        it.remove();
+                    } else if (!constraintPresent && !newLimitations.isEmpty() &&
+                            !newLimitations.containsAll(currentProfiles)) {
+                        constraintPresent = true;
+                    }
+                }
+
+                CaptureRequest request = requestBuilder.build();
+                CameraCaptureSession.CaptureCallback mockCaptureCallback =
+                        mock(CameraCaptureSession.CaptureCallback.class);
+                mCameraSession.capture(request, mockCaptureCallback, mHandler);
+                verify(mockCaptureCallback,
+                        timeout(TIMEOUT_FOR_RESULT_MS).atLeastOnce())
+                        .onCaptureCompleted(
+                                eq(mCameraSession),
+                                eq(request),
+                                isA(TotalCaptureResult.class));
+
+                verify(mockCaptureCallback, never()).
+                        onCaptureFailed(
+                                eq(mCameraSession),
+                                eq(request),
+                                isA(CaptureFailure.class));
+            }
+
+            if (constraintPresent) {
+                // Capture requests that include output surfaces with dynamic range profiles that
+                // cannot be combined must throw a corresponding exception
+                CaptureRequest.Builder requestBuilder =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                for (Surface s : constrainedOutputs) {
+                    requestBuilder.addTarget(s);
+                }
+
+                CaptureRequest request = requestBuilder.build();
+                CameraCaptureSession.CaptureCallback mockCaptureCallback =
+                        mock(CameraCaptureSession.CaptureCallback.class);
+                try {
+                    mCameraSession.capture(request, mockCaptureCallback, mHandler);
+                    fail("Capture request to outputs with incompatible dynamic range profiles "
+                            + "must always fail!");
+                } catch (IllegalArgumentException e) {
+                    // Expected
+                }
+            }
+
+            Log.i(TAG, String.format("Done with camera %s, combination: %s, closing session",
+                    cameraId, combination.getDescription()));
+        } catch (Throwable e) {
+            mCollector.addMessage(
+                    String.format("Closing down for combination: %s failed due to: %s",
+                            combination.getDescription(), e.getMessage()));
         }
 
         targets.close();
@@ -2693,32 +3050,34 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
     private static Size getMaxPreviewSize(Context context, String cameraId) {
         try {
-            WindowManager windowManager =
-                (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-            Display display = windowManager.getDefaultDisplay();
+            WindowManager windowManager = context.getSystemService(WindowManager.class);
+            assertNotNull("Could not find WindowManager service.", windowManager);
 
-            int width = display.getWidth();
-            int height = display.getHeight();
+            WindowMetrics windowMetrics = windowManager.getCurrentWindowMetrics();
+            Rect windowBounds = windowMetrics.getBounds();
+
+            int width = windowBounds.width();
+            int height = windowBounds.height();
 
             if (height > width) {
                 height = width;
-                width = display.getHeight();
+                width = windowBounds.height();
             }
 
-            CameraManager camMgr =
-                (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            CameraManager camMgr = context.getSystemService(CameraManager.class);
             List<Size> orderedPreviewSizes = CameraTestUtils.getSupportedPreviewSizes(
-                cameraId, camMgr, PREVIEW_SIZE_BOUND);
+                    cameraId, camMgr, PREVIEW_SIZE_BOUND);
 
             if (orderedPreviewSizes != null) {
                 for (Size size : orderedPreviewSizes) {
                     if (width >= size.getWidth() &&
-                        height >= size.getHeight())
+                            height >= size.getHeight()) {
                         return size;
+                    }
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "getMaxPreviewSize Failed. "+e.toString());
+            Log.e(TAG, "getMaxPreviewSize Failed. " + e);
         }
         return PREVIEW_SIZE_BOUND;
     }

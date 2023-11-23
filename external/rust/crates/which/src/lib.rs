@@ -9,10 +9,14 @@
 //! use which::which;
 //! use std::path::PathBuf;
 //!
-//! let result = which::which("rustc").unwrap();
+//! let result = which("rustc").unwrap();
 //! assert_eq!(result, PathBuf::from("/usr/bin/rustc"));
 //!
 //! ```
+
+#[cfg(windows)]
+#[macro_use]
+extern crate lazy_static;
 
 mod checker;
 mod error;
@@ -20,6 +24,10 @@ mod finder;
 #[cfg(windows)]
 mod helper;
 
+#[cfg(feature = "regex")]
+use regex::Regex;
+#[cfg(feature = "regex")]
+use std::borrow::Borrow;
 use std::env;
 use std::fmt;
 use std::path;
@@ -57,9 +65,50 @@ pub fn which<T: AsRef<OsStr>>(binary_name: T) -> Result<path::PathBuf> {
 
 /// Find all binaries with `binary_name` in the path list `paths`, using `cwd` to resolve relative paths.
 pub fn which_all<T: AsRef<OsStr>>(binary_name: T) -> Result<impl Iterator<Item = path::PathBuf>> {
-    let cwd = env::current_dir().map_err(|_| Error::CannotGetCurrentDir)?;
+    let cwd = env::current_dir().ok();
 
-    which_in_all(binary_name, env::var_os("PATH"), cwd)
+    let binary_checker = build_binary_checker();
+
+    let finder = Finder::new();
+
+    finder.find(binary_name, env::var_os("PATH"), cwd, binary_checker)
+}
+
+/// Find all binaries matching a regular expression in a the system PATH.
+///
+/// Only available when feature `regex` is enabled.
+///
+/// # Arguments
+///
+/// * `regex` - A regular expression to match binaries with
+///
+/// # Examples
+///
+/// Find Python executables:
+///
+/// ```no_run
+/// use regex::Regex;
+/// use which::which;
+/// use std::path::PathBuf;
+///
+/// let re = Regex::new(r"python\d$").unwrap();
+/// let binaries: Vec<PathBuf> = which::which_re(re).unwrap().collect();
+/// let python_paths = vec![PathBuf::from("/usr/bin/python2"), PathBuf::from("/usr/bin/python3")];
+/// assert_eq!(binaries, python_paths);
+/// ```
+///
+/// Find all cargo subcommand executables on the path:
+///
+/// ```
+/// use which::which_re;
+/// use regex::Regex;
+///
+/// which_re(Regex::new("^cargo-.*").unwrap()).unwrap()
+///     .for_each(|pth| println!("{}", pth.to_string_lossy()));
+/// ```
+#[cfg(feature = "regex")]
+pub fn which_re(regex: impl Borrow<Regex>) -> Result<impl Iterator<Item = path::PathBuf>> {
+    which_re_in(regex, env::var_os("PATH"))
 }
 
 /// Find `binary_name` in the path list `paths`, using `cwd` to resolve relative paths.
@@ -73,6 +122,44 @@ where
         .and_then(|mut i| i.next().ok_or(Error::CannotFindBinaryPath))
 }
 
+/// Find all binaries matching a regular expression in a list of paths.
+///
+/// Only available when feature `regex` is enabled.
+///
+/// # Arguments
+///
+/// * `regex` - A regular expression to match binaries with
+/// * `paths` - A string containing the paths to search
+///             (separated in the same way as the PATH environment variable)
+///
+/// # Examples
+///
+/// ```no_run
+/// use regex::Regex;
+/// use which::which;
+/// use std::path::PathBuf;
+///
+/// let re = Regex::new(r"python\d$").unwrap();
+/// let paths = Some("/usr/bin:/usr/local/bin");
+/// let binaries: Vec<PathBuf> = which::which_re_in(re, paths).unwrap().collect();
+/// let python_paths = vec![PathBuf::from("/usr/bin/python2"), PathBuf::from("/usr/bin/python3")];
+/// assert_eq!(binaries, python_paths);
+/// ```
+#[cfg(feature = "regex")]
+pub fn which_re_in<T>(
+    regex: impl Borrow<Regex>,
+    paths: Option<T>,
+) -> Result<impl Iterator<Item = path::PathBuf>>
+where
+    T: AsRef<OsStr>,
+{
+    let binary_checker = build_binary_checker();
+
+    let finder = Finder::new();
+
+    finder.find_re(regex, paths, binary_checker)
+}
+
 /// Find all binaries with `binary_name` in the path list `paths`, using `cwd` to resolve relative paths.
 pub fn which_in_all<T, U, V>(
     binary_name: T,
@@ -84,13 +171,17 @@ where
     U: AsRef<OsStr>,
     V: AsRef<path::Path>,
 {
-    let binary_checker = CompositeChecker::new()
-        .add_checker(Box::new(ExistedChecker::new()))
-        .add_checker(Box::new(ExecutableChecker::new()));
+    let binary_checker = build_binary_checker();
 
     let finder = Finder::new();
 
-    finder.find(binary_name, paths, cwd, binary_checker)
+    finder.find(binary_name, paths, Some(cwd), binary_checker)
+}
+
+fn build_binary_checker() -> CompositeChecker {
+    CompositeChecker::new()
+        .add_checker(Box::new(ExistedChecker::new()))
+        .add_checker(Box::new(ExecutableChecker::new()))
 }
 
 /// An owned, immutable wrapper around a `PathBuf` containing the path of an executable.

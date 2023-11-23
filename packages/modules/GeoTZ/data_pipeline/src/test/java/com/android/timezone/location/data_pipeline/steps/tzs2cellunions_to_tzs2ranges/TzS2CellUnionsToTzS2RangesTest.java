@@ -17,6 +17,7 @@
 package com.android.timezone.location.data_pipeline.steps.tzs2cellunions_to_tzs2ranges;
 
 import static com.android.timezone.location.data_pipeline.steps.TestSupport.copyTestResource;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

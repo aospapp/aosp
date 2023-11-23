@@ -150,7 +150,7 @@ class WifiKeystoreHalTest : public TestWithParam<std::string> {
         vector<uint8_t> entropy;
         keymint::AuthorizationSetBuilder key_parameters;
         if (purpose == KeyPurpose::SIGNING) {
-            key_parameters.EcdsaSigningKey(kAESKeySize);
+            key_parameters.EcdsaSigningKey(keymint::EcCurve::P_256);
         }
 
         if (purpose == KeyPurpose::ENCRYPTION) {

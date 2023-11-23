@@ -31,7 +31,7 @@ import opencv_processing_utils
 ALIGN_TOL_MM = 4.0  # mm
 ALIGN_TOL = 0.01  # multiplied by sensor diagonal to convert to pixels
 CIRCLE_COLOR = 0  # [0: black, 255: white]
-CIRCLE_MIN_AREA = 0.01  # multiplied by image size
+CIRCLE_MIN_AREA = 0.0075  # multiplied by image size
 CIRCLE_RTOL = 0.1  # 10%
 CM_TO_M = 1E-2
 FMT_CODE_RAW = 0x20
@@ -126,9 +126,9 @@ def select_ids_to_test(ids, props, chart_distance):
     else:
       logging.debug('Skipping camera. Not appropriate for test rig.')
 
-  e_msg = 'Error: started with 2+ cameras, reduced to <2. Wrong test rig?'
-  e_msg += '\ntest_ids: %s' % str(test_ids)
-  assert len(test_ids) >= 2, e_msg
+  if len(test_ids) < 2:
+    raise AssertionError('Error: started with 2+ cameras, reduced to <2 based '
+                         f'on FoVs. Wrong test rig? test_ids: {test_ids}')
   return test_ids[0:2]
 
 
@@ -562,9 +562,10 @@ class MultiCameraAlignmentTest(its_base_test.ItsBaseTest):
       err_mm = np.linalg.norm(np.array([x_w[i_ref], y_w[i_ref]]) -
                               np.array([x_w[i_2nd], y_w[i_2nd]])) * M_TO_MM
       logging.debug('Center location err (mm): %.2f', err_mm)
-      msg = 'Center locations %s <-> %s too different!' % (i_ref, i_2nd)
-      msg += ' val=%.2f, ATOL=%.f mm' % (err_mm, ALIGN_TOL_MM)
-      assert err_mm < ALIGN_TOL_MM, msg
+      if err_mm > ALIGN_TOL_MM:
+        raise AssertionError(
+            f'Centers {i_ref} <-> {i_2nd} too different! '
+            f'val={err_mm:.2f}, ATOL={ALIGN_TOL_MM} mm')
 
       # Check projections back into pixel space
       for i in [i_ref, i_2nd]:
@@ -572,9 +573,9 @@ class MultiCameraAlignmentTest(its_base_test.ItsBaseTest):
                              np.array([x_p[i], y_p[i]]).reshape(1, -1))
         logging.debug('Camera %s projection error (pixels): %.1f', i, err)
         tol = ALIGN_TOL * sensor_diag[i]
-        msg = 'Camera %s project location too different!' % i
-        msg += ' diff=%.2f, ATOL=%.2f pixels' % (err, tol)
-        assert err < tol, msg
+        if err >= tol:
+          raise AssertionError(f'Camera {i} project location too different! '
+                               f'diff={err:.2f}, ATOL={tol:.2f} pixels')
 
       # Check focal length and circle size if more than 1 focal length
       if len(fl) > 1:
@@ -584,11 +585,12 @@ class MultiCameraAlignmentTest(its_base_test.ItsBaseTest):
                       fl[i_ref], fl[i_2nd])
         logging.debug('Pixel size (um); ref: %.2f, 2nd: %.2f',
                       pixel_sizes[i_ref], pixel_sizes[i_2nd])
-        msg = 'Circle size scales improperly! RTOL=%.1f\n' % CIRCLE_RTOL
-        msg += 'Metric: radius/focal_length*sensor_diag should be equal.'
-        assert np.isclose(circle[i_ref]['r']*pixel_sizes[i_ref]/fl[i_ref],
-                          circle[i_2nd]['r']*pixel_sizes[i_2nd]/fl[i_2nd],
-                          rtol=CIRCLE_RTOL), msg
+        if not math.isclose(circle[i_ref]['r']*pixel_sizes[i_ref]/fl[i_ref],
+                            circle[i_2nd]['r']*pixel_sizes[i_2nd]/fl[i_2nd],
+                            rel_tol=CIRCLE_RTOL):
+          raise AssertionError(
+              f'Circle size scales improperly! RTOL: {CIRCLE_RTOL} '
+              'Metric: radius*pixel_size/focal_length should be equal.')
 
 if __name__ == '__main__':
   test_runner.main()

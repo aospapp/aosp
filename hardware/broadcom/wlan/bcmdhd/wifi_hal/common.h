@@ -54,8 +54,11 @@ const uint32_t BRCM_OUI =  0x001018;
 #define NMR2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5], (a)[6], (a)[7]
 #define NMRSTR "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
 #define NAN_MASTER_RANK_LEN 8
+#define NAN_SCID_INFO_LEN   16
 
 #define SAR_CONFIG_SCENARIO_COUNT      100
+#define MAX_NUM_RADIOS 3
+#define MAX_CMD_RESP_BUF_LEN 8192
 
 /*
  This enum defines ranges for various commands; commands themselves
@@ -229,7 +232,7 @@ typedef enum {
     WIFI_SUBCMD_OTA_UPDATE,
     WIFI_SUBCMD_USABLE_CHANNEL = ANDROID_NL80211_SUBCMD_USABLE_CHANNEL_START,
     WIFI_SUBCMD_TRIGGER_SSR = ANDROID_NL80211_SUBCMD_INIT_DEINIT_RANGE_START,
-
+    WIFI_SUBCMD_GET_RADIO_COMBO_MATRIX,
 } WIFI_SUB_COMMAND;
 
 typedef enum {
@@ -303,6 +306,12 @@ typedef struct {
     bool is_virtual;                                // mark each iface as virtual or static
 } interface_info;
 
+typedef enum {
+	NAN_STATE_DISABLED = 0,
+	NAN_STATE_AP = 1,
+	NAN_STATE_CHRE = 2,
+} nan_enab_state_t;
+
 typedef struct {
 
     struct nl_sock *cmd_sock;                       // command socket object
@@ -330,6 +339,8 @@ typedef struct {
     int max_num_interfaces;                         // max number of interfaces
     wifi_subsystem_restart_handler restart_handler; // trigger sub system handler
 
+    wifi_chre_handler chre_nan_cb;                  // chre CB for nan status
+    nan_enab_state_t nan_state;                     // Nan enable state
 
     // add other details
 } hal_info;
@@ -445,6 +456,12 @@ wifi_error wifi_start_hal(wifi_interface_handle iface);
 wifi_error wifi_stop_hal(wifi_interface_handle iface);
 wifi_interface_handle wifi_get_wlan_interface(wifi_handle info,
 	    wifi_interface_handle *ifaceHandles, int numIfaceHandles);
+#ifdef RING_DUMP
+wifi_error wifi_start_ring_dump(wifi_interface_handle iface,
+            wifi_ring_buffer_data_handler ring_handle);
+wifi_error wifi_stop_ring_dump(wifi_interface_handle iface,
+            wifi_ring_buffer_data_handler ring_handle);
+#endif /* RING_DUMP */
 wifi_error wifi_hal_ota_update(wifi_interface_handle iface, uint32_t ota_version);
 wifi_error wifi_hal_preInit(wifi_interface_handle iface);
 /* API to get wake reason statistics */
@@ -524,6 +541,36 @@ wifi_error twt_get_stats(wifi_interface_handle iface, u8 config_id, TwtStats* st
 wifi_error twt_clear_stats(wifi_interface_handle iface, u8 config_id);
 
 wifi_error wifi_trigger_subsystem_restart(wifi_handle handle);
+
+/**@brief nan_chre_enable_request
+ *        Request from CHRE to enable NAN
+ * @param transaction id:
+ * @param wifi_interface_handle:
+ * @param NanEnableRequest:
+ * @return Synchronous wifi_error
+ */
+wifi_error nan_chre_enable_request(transaction_id id,
+                        wifi_interface_handle iface,
+                        NanEnableRequest* msg);
+
+/**@brief nan_chre_disable_request
+ *        Request from CHRE to disable NAN
+ * @param transaction id:
+ * @param wifi_interface_handle:
+ * @return Synchronous wifi_error
+ */
+wifi_error nan_chre_disable_request(transaction_id id,
+                        wifi_interface_handle iface);
+
+/**@brief nan_chre_register_handler
+ *        Register chre handler to handle NAN status
+ * @param wifi_interface_handle:
+ * @param wifi_chre_handler:
+ * @return Synchronous wifi_error
+ */
+wifi_error nan_chre_register_handler(wifi_interface_handle iface,
+                        wifi_chre_handler handler);
+
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

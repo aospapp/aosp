@@ -24,10 +24,11 @@ import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.util.IndentingPrintWriter;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+
+import com.android.car.internal.util.IndentingPrintWriter;
 
 import org.junit.Before;
 import org.junit.Rule;

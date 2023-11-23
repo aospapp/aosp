@@ -143,4 +143,54 @@ public class MemoryTest extends TestCase {
             assertEquals(expectedValues[i], Memory.peekShort(ptr + Short.BYTES * i, swap));
         }
     }
+
+    public void testMemmove() {
+        final int size = 100;
+        checkPartialMemmove(size, 0, 0, size);
+        checkPartialMemmove(size, 0, 0, size / 2);
+        checkPartialMemmove(size, size / 2, size / 2, size - size / 2);
+        checkPartialMemmove(size, 10, 20, 20);
+
+        checkOverlappingMemmove(size, 0, 0, size);
+        checkOverlappingMemmove(size, 10, 20, 30);
+        checkOverlappingMemmove(size, 20, 10, 30);
+    }
+
+    private void checkPartialMemmove(int size, int offsetDst, int offsetSrc, int count) {
+        byte[] src = new byte[size];
+        for (int i = 0; i < size; ++i) {
+            src[i] = (byte)i;
+        }
+        byte[] dst = new byte[size];
+        Arrays.fill(dst, (byte)-1);
+
+        assertTrue(offsetSrc + count <= size);
+        assertTrue(offsetDst + count <= size);
+        Memory.memmove(dst, offsetDst, src, offsetSrc, count);
+        for (int i = 0; i < size; ++i) {
+            if (i >= offsetDst && i < offsetDst + count) {
+                assertEquals(src[i + (offsetSrc - offsetDst)], dst[i]);
+            } else {
+                assertEquals((byte)-1, dst[i]);
+            }
+        }
+    }
+
+    private void checkOverlappingMemmove(int size, int offsetDst, int offsetSrc, int count) {
+        byte[] buf = new byte[size];
+        for (int i = 0; i < size; ++i) {
+            buf[i] = (byte)i;
+        }
+
+        assertTrue(offsetSrc + count <= size);
+        assertTrue(offsetDst + count <= size);
+        Memory.memmove(buf, offsetDst, buf, offsetSrc, count);
+        for (int i = 0; i < size; ++i) {
+            if (i >= offsetDst && i < offsetDst + count) {
+                assertEquals(i + (offsetSrc - offsetDst), buf[i]);
+            } else {
+                assertEquals((byte)i, buf[i]);
+            }
+        }
+    }
 }

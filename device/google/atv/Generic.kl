@@ -15,7 +15,7 @@
 #
 # Generic key layout file for full alphabetic US English PC style external keyboards.
 #
-# This file is intentionally very generic and is intended to support a broad rang of keyboards.
+# This file is intentionally very generic and is intended to support a broad range of keyboards.
 # Do not edit the generic key layout to support a specific keyboard; instead, create
 # a new key layout file with the required keyboard configuration.
 #
@@ -192,7 +192,7 @@ key 169   CALL
 # key 170 "KEY_ISO"
 key 171   MUSIC
 key 172   HOME
-# key 173 "KEY_REFRESH"
+key 173   REFRESH
 # key 174 "KEY_EXIT"
 # key 175 "KEY_MOVE"
 # key 176 "KEY_EDIT"
@@ -223,7 +223,7 @@ key 200   MEDIA_PLAY
 key 201   MEDIA_PAUSE
 # key 202 "KEY_PROG3"
 # key 203 "KEY_PROG4"
-# key 204 (undefined)
+key 204   NOTIFICATION
 # key 205 "KEY_SUSPEND"
 # key 206 "KEY_CLOSE"
 key 207   MEDIA_PLAY
@@ -317,7 +317,7 @@ key 366   DVR
 # key 367 "KEY_MHP"
 # key 368 "KEY_LANGUAGE"
 # key 369 "KEY_TITLE"
-# key 370 "KEY_SUBTITLE"
+key 370   CAPTIONS
 # key 371 "KEY_ANGLE"
 # key 372 "KEY_ZOOM"
 # key 373 "KEY_MODE"
@@ -345,14 +345,14 @@ key 377   TV
 # key 395 "KEY_LIST"
 # key 396 "KEY_MEMO"
 key 397   CALENDAR
-# key 398 "KEY_RED"
-# key 399 "KEY_GREEN"
-# key 400 "KEY_YELLOW"
-# key 401 "KEY_BLUE"
+key 398   PROG_RED
+key 399   PROG_GREEN
+key 400   PROG_YELLOW
+key 401   PROG_BLUE
 key 402   CHANNEL_UP
 key 403   CHANNEL_DOWN
 # key 404 "KEY_FIRST"
-# key 405 "KEY_LAST"
+key 405   LAST_CHANNEL
 # key 406 "KEY_AB"
 # key 407 "KEY_NEXT"
 # key 408 "KEY_RESTART"
@@ -404,12 +404,16 @@ key 484   B                 FUNCTION
 # key 503 KEY_BRL_DOT7
 # key 504 KEY_BRL_DOT8
 
+key 522   STAR
+key 523   POUND
 key 580   APP_SWITCH
 key 582   VOICE_ASSIST
 
 # Keys defined by HID usages
+key usage 0x0c0067 WINDOW
 key usage 0x0c006F BRIGHTNESS_UP
 key usage 0x0c0070 BRIGHTNESS_DOWN
+key usage 0x0c0173 MEDIA_AUDIO_TRACK
 
 # Joystick and game controller axes.
 # Axes that are not mapped will be assigned generic axis numbers by the input subsystem.
@@ -439,3 +443,11 @@ led 0x07 MUTE
 led 0x08 MISC
 led 0x09 MAIL
 led 0x0a CHARGING
+
+# SENSORs
+sensor 0x00 ACCELEROMETER X
+sensor 0x01 ACCELEROMETER Y
+sensor 0x02 ACCELEROMETER Z
+sensor 0x03 GYROSCOPE X
+sensor 0x04 GYROSCOPE Y
+sensor 0x05 GYROSCOPE Z

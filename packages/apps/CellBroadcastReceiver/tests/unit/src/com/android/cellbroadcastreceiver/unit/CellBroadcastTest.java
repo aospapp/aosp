@@ -22,6 +22,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
@@ -30,6 +31,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.cellbroadcastreceiver.CellBroadcastChannelManager;
 import com.android.internal.telephony.ISub;
 
 import org.mockito.Mock;
@@ -53,10 +55,14 @@ public abstract class CellBroadcastTest {
     Resources mResources;
     @Mock
     ISub.Stub mSubService;
+    @Mock
+    SharedPreferences mSharedPreferences;
 
     protected void setUp(String tag) throws Exception {
         TAG = tag;
         MockitoAnnotations.initMocks(this);
+        doReturn(mSharedPreferences).when(mContext).getSharedPreferences(anyString(), anyInt());
+        doReturn(null).when(mSharedPreferences).getString(anyString(), anyString());
         // A hack to return mResources from static method
         // CellBroadcastSettings.getResources(context).
         doReturn(mSubService).when(mSubService).queryLocalInterface(anyString());
@@ -70,6 +76,7 @@ public abstract class CellBroadcastTest {
         SubscriptionManager.disableCaching();
 
         initContext();
+        CellBroadcastChannelManager.clearAllCellBroadcastChannelRanges();
     }
 
     private void initContext() {
@@ -81,8 +88,6 @@ public abstract class CellBroadcastTest {
         doReturn(mResources).when(mContext).getResources();
         doReturn(mContext).when(mContext).getApplicationContext();
         doReturn(new String[]{""}).when(mResources).getStringArray(anyInt());
-        doReturn(TelephonyManager.SIM_STATE_LOADED).when(mTelephonyManager)
-                .getSimApplicationState(anyInt());
     }
 
     void carrierConfigSetStringArray(int subId, String key, String[] values) {
@@ -97,8 +102,13 @@ public abstract class CellBroadcastTest {
         doReturn(values).when(mResources).getStringArray(eq(id));
     }
 
+    void putResources(int id, boolean values) {
+        doReturn(values).when(mResources).getBoolean(eq(id));
+    }
+
     protected void tearDown() throws Exception {
         mMockedServiceManager.restoreAllServices();
+        CellBroadcastChannelManager.clearAllCellBroadcastChannelRanges();
     }
 
     protected static void logd(String s) {

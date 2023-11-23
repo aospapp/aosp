@@ -18,36 +18,40 @@ package android.graphics.cts;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.R;
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.cts.utils.Cam;
+import android.provider.Settings;
+import android.util.Log;
 import android.util.Pair;
-
 
 import androidx.annotation.ColorInt;
 import androidx.core.graphics.ColorUtils;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.PollingCheck;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class SystemPaletteTest {
 
-    // Hue goes from 0 to 360
-    private static final int MAX_HUE_DISTANCE = 15;
+    private static final boolean DEBUG = true;
+    private static final String TAG = "SystemPaletteTest";
 
     @Test
     public void testShades0and1000() {
@@ -70,76 +74,69 @@ public class SystemPaletteTest {
     }
 
     @Test
-    public void testAllColorsBelongToSameFamily() {
+    public void testThemeStyles() {
         final Context context = getInstrumentation().getTargetContext();
-        List<int[]> allPalettes = Arrays.asList(getAllAccent1Colors(context),
-                getAllAccent2Colors(context), getAllAccent3Colors(context),
-                getAllNeutral1Colors(context), getAllNeutral2Colors(context));
+        forEachThemeDefinition((color, style, expectedPalette) -> {
+            // Update setting, so system colors will change
+            runWithShellPermissionIdentity(() -> {
+                Settings.Secure.putString(context.getContentResolver(),
+                        Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES,
+                        "{\"android.theme.customization.system_palette\":\"" + color
+                                + "\",\"android.theme.customization.theme_style\":\"" + style
+                                + "\"}");
+            });
 
-        final float[] tones = {100, 99, 95, 90, 80, 70, 60, 49, 40, 30, 20, 10, 0};
-        for (int[] palette : allPalettes) {
-            // Determine the median hue of the palette. Each color in the palette colors will have
-            // its hue measured against the median hue. If the difference is too large, the test
-            // fails.
-            List<Float> hues = new ArrayList<>();
-            for (int i = 0; i < palette.length - 1; i++) {
-                // Avoid measuring hue of colors above 90 or below 10 in tone.
-                //
-                // Converting from HCT to sRGB from display quantizes colors - i.e. not every
-                // HCT color can be expressed in sRGB. As colors approach the extreme tones, white
-                // at 100 and black at 0, hues begin overlapping overlay - made up example: hues
-                // 110 to 128 at tone 95, when mapped to sRGB for display, all end up being measured
-                // as hue 114.
-                final float tone = tones[i];
-                if (tone <= 10.0 || tone > 90.0) {
-                    continue;
-                }
-                final Cam cam = Cam.fromInt(palette[i]);
-                hues.add(cam.getHue());
-            }
-            Collections.sort(hues);
-            final float medianHue = hues.get(hues.size() / 2);
+            final int[] allColors = new int[65];
+            new PollingCheck(15_000L, "Invalid tonal palettes for " + color + " " + style) {
+                @Override
+                protected boolean check() {
 
-            // Measure the hue of each color in the palette against the median hue.
-            for (int i = 0; i < palette.length - 1; i++) {
-                final float tone = tones[i];
-                // Skip testing hue of extreme tones, due to overlap due to quantization that occurs
-                // when converting from HCT to sRGB for display.
-                if (tone <= 10.0 || tone > 90.0) {
-                    continue;
+                    System.arraycopy(getAllAccent1Colors(context), 0, allColors, 0, 13);
+                    System.arraycopy(getAllAccent2Colors(context), 0, allColors, 13, 13);
+                    System.arraycopy(getAllAccent3Colors(context), 0, allColors, 26, 13);
+                    System.arraycopy(getAllNeutral1Colors(context), 0, allColors, 39, 13);
+                    System.arraycopy(getAllNeutral2Colors(context), 0, allColors, 52, 13);
+
+                    if (DEBUG) {
+                        final String setting = Settings.Secure
+                                .getString(context.getContentResolver(),
+                                        Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES);
+                        Log.d(TAG, "Expected:\n" + Arrays.toString(expectedPalette)
+                                        + "\nActual:\n" + Arrays.toString(allColors)
+                                        + "\nSetting:\n" + setting);
+                    }
+
+                    return Arrays.equals(allColors, expectedPalette);
                 }
-                final Cam cam = Cam.fromInt(palette[i]);
-                final float hue = cam.getHue();
-                final boolean hueWithinTolerance = deltaHueWithinTolerance(hue, medianHue);
-                assertWithMessage("Color " + toHctString(cam)
-                        + " has different hue compared to median hue " + Math.round(medianHue)
-                        + " of palette: " + Arrays.toString(palette))
-                        .that(hueWithinTolerance).isTrue();
+            }.run();
+        });
+    }
+
+    private void forEachThemeDefinition(ThemeEvaluator evaluator) {
+        final Context context = getInstrumentation().getTargetContext();
+        final XmlPullParser parser = context.getResources()
+                .getXml(android.graphics.cts.R.xml.valid_themes);
+        try {
+            parser.next();
+            parser.next();
+            parser.require(XmlPullParser.START_TAG, null, "themes");
+            while (parser.next() != XmlPullParser.END_TAG) {
+                parser.require(XmlPullParser.START_TAG, null, "theme");
+                final String color = parser.getAttributeValue(null, "color");
+                while (parser.next() != XmlPullParser.END_TAG) {
+                    String styleName = parser.getName();
+                    parser.next();
+                    int[] colors = Arrays.stream(parser.getText().split(","))
+                            .mapToInt(s -> Color.parseColor("#" + s))
+                            .toArray();
+                    parser.next();
+                    parser.require(XmlPullParser.END_TAG, null, styleName);
+                    evaluator.apply(color, styleName.toUpperCase(), colors);
+                }
             }
+        } catch (XmlPullParserException | IOException e) {
+            throw new RuntimeException("Error parsing xml", e);
         }
-    }
-
-    private static String toHctString(Cam cam) {
-        final double[] labColor = new double[3];
-        ColorUtils.colorToLAB(cam.viewedInSrgb(), labColor);
-        return "H" + Math.round(cam.getHue()) + " C" + Math.round(cam.getChroma()) + " T"
-                + Math.round(labColor[0]);
-    }
-
-    /**
-     * Compare if color A and B have similar hue, in gCAM space.
-     *
-     * @param colorA Color 1
-     * @param colorB Color 2
-     * @return True when colors have similar hue.
-     */
-    private boolean deltaHueWithinTolerance(float hueA, float hueB) {
-
-        float hue1 = Math.max(hueA, hueB);
-        float hue2 = Math.min(hueA, hueB);
-
-        float diffDegrees = 180.0f - Math.abs(Math.abs(hue1 - hue2) - 180.0f);
-        return diffDegrees < MAX_HUE_DISTANCE;
     }
 
     @Test
@@ -317,5 +314,9 @@ public class SystemPaletteTest {
         colors[11] = context.getColor(R.color.system_neutral2_900);
         colors[12] = context.getColor(R.color.system_neutral2_1000);
         return colors;
+    }
+
+    private interface ThemeEvaluator {
+        void apply(String color, String style, int[] expectedPalette);
     }
 }

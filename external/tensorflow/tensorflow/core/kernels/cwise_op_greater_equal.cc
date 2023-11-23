@@ -21,15 +21,10 @@ REGISTER9(BinaryOp, CPU, "GreaterEqual", functor::greater_equal, float,
 REGISTER3(BinaryOp, CPU, "GreaterEqual", functor::greater_equal, int8, int16,
           bfloat16);
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
-#if !defined(MLIR_GENERATED_GPU_KERNELS_ENABLED) || \
-    !defined(MLIR_GENERATED_EXPERIMENTAL_KERNELS_ENABLED)
+#if !defined(MLIR_GENERATED_GPU_KERNELS_ENABLED)
 REGISTER9(BinaryOp, GPU, "GreaterEqual", functor::greater_equal, float,
           Eigen::half, double, int64, uint8, uint16, uint32, uint64, int8);
 REGISTER(BinaryOp, GPU, "GreaterEqual", functor::greater_equal, int16);
-#else
-// TODO(b/172804967): We do not generate unsigned kernels for GPU via mlir.
-REGISTER4(BinaryOp, GPU, "GreaterEqual", functor::greater_equal, uint8, uint16,
-          uint32, uint64);
 #endif
 
 // A special GPU kernel for int32.
@@ -43,5 +38,13 @@ REGISTER_KERNEL_BUILDER(Name("GreaterEqual")
                             .TypeConstraint<int32>("T"),
                         BinaryOp<CPUDevice, functor::greater_equal<int32>>);
 #endif
+
+REGISTER_KERNEL_BUILDER(Name("GreaterEqual")
+                            .Device(DEVICE_DEFAULT)
+                            .HostMemory("x")
+                            .HostMemory("y")
+                            .HostMemory("z")
+                            .TypeConstraint<int32>("T"),
+                        BinaryOp<CPUDevice, functor::greater_equal<int32>>);
 
 }  // namespace tensorflow

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Copyright (C) 2021 The Android Open Source Project
+<!-- Copyright (C) 2022 The Android Open Source Project
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -11,17 +11,15 @@ See the License for the specific language governing permissions and
 limitations under the License.-->
 <!--
 THIS FILE WAS AUTO GENERATED, DO NOT EDIT MANUALLY.
-REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
+REGENERATE USING packages/apps/Car/libs/tools/rro/generate-overlayable.py
 -->
 <resources>
   <overlayable name="CarLauncher">
     <policy type="system|product|signature">
-      <item type="array" name="config_foregroundDAComponents"/>
       <item type="array" name="config_homeCardModuleClasses"/>
       <item type="array" name="config_homeCardPreferredMapActivities"/>
-      <item type="array" name="config_ignoreOpeningForegroundDA"/>
+      <item type="array" name="config_taskViewPackages"/>
       <item type="array" name="hidden_apps"/>
-      <item type="bool" name="config_enableRoundedCornerForForegroundDisplayArea"/>
       <item type="color" name="card_background_scrim"/>
       <item type="color" name="date_divider_bar_color"/>
       <item type="color" name="dialer_button_icon_color"/>
@@ -54,13 +52,10 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="dimen" name="card_name_margin_start"/>
       <item type="dimen" name="card_width"/>
       <item type="dimen" name="contextual_screen_percentage"/>
-      <item type="dimen" name="control_bar_height"/>
       <item type="dimen" name="control_bar_padding"/>
-      <item type="dimen" name="default_app_display_area_height"/>
       <item type="dimen" name="descriptive_text_margin_top"/>
       <item type="dimen" name="descriptive_text_only_top_margin"/>
       <item type="dimen" name="descriptive_text_with_controls_top_margin"/>
-      <item type="dimen" name="full_app_display_area_height"/>
       <item type="dimen" name="home_card_button_size"/>
       <item type="dimen" name="horizontal_border_size"/>
       <item type="dimen" name="icon_size"/>
@@ -80,10 +75,6 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="dimen" name="secondary_text_margin_top"/>
       <item type="dimen" name="tap_text_margin"/>
       <item type="dimen" name="text_block_top_margin"/>
-      <item type="dimen" name="title_bar_display_area_height"/>
-      <item type="dimen" name="title_bar_display_area_touch_drag_threshold"/>
-      <item type="dimen" name="total_screen_height"/>
-      <item type="dimen" name="total_screen_width"/>
       <item type="dimen" name="vertical_border_size"/>
       <item type="drawable" name="car_button_background"/>
       <item type="drawable" name="default_audio_background"/>
@@ -134,15 +125,12 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="id" name="tap_for_more_text"/>
       <item type="id" name="text_block"/>
       <item type="id" name="text_block_layout"/>
-      <item type="id" name="title"/>
-      <item type="id" name="title_bar"/>
       <item type="id" name="top_card"/>
       <item type="id" name="top_edge"/>
       <item type="id" name="top_line"/>
       <item type="id" name="vertical_barrier"/>
       <item type="integer" name="car_app_selector_column_number"/>
       <item type="integer" name="card_content_text_block_max_lines"/>
-      <item type="integer" name="enter_exit_animation_foreground_display_area_duration_ms"/>
       <item type="integer" name="playback_controls_bar_columns"/>
       <item type="layout" name="app_grid_activity"/>
       <item type="layout" name="app_item"/>
@@ -159,12 +147,11 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="layout" name="recent_apps_row"/>
       <item type="layout" name="tap_for_more_text"/>
       <item type="layout" name="text_block"/>
-      <item type="layout" name="title_bar_display_area_view"/>
-      <item type="plurals" name="projection_devices"/>
       <item type="string" name="app_launcher_title_all_apps"/>
       <item type="string" name="app_launcher_title_media_only"/>
       <item type="string" name="app_title"/>
-      <item type="string" name="config_assistantVoicePlateActivity"/>
+      <item type="string" name="config_smallCanvasOptimizedMapIntent"/>
+      <item type="string" name="dialing_call_text"/>
       <item type="string" name="driving_toast_text"/>
       <item type="string" name="fake_weather_footer_text"/>
       <item type="string" name="fake_weather_main_text"/>
@@ -173,6 +160,7 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="string" name="ongoing_call_text"/>
       <item type="string" name="projected_launch_text"/>
       <item type="string" name="projected_onclick_launch_error_toast_text"/>
+      <item type="string" name="projection_devices"/>
       <item type="string" name="show_debug_apps"/>
       <item type="string" name="tap_for_more_info_text"/>
       <item type="string" name="tap_to_launch_text"/>

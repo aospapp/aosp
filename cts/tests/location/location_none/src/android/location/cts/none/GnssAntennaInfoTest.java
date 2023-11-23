@@ -118,6 +118,24 @@ public class GnssAntennaInfoTest {
         verifyPartialGnssAntennaInfoValuesAndGetters(gnssAntennaInfo);
     }
 
+    @Test
+    public void testGnssAntennaInfoCopyBuilder() {
+        GnssAntennaInfo gnssAntennaInfo = createFullTestGnssAntennaInfo();
+        GnssAntennaInfo gnssAntennaInfoCopy = new GnssAntennaInfo.Builder(gnssAntennaInfo).build();
+
+        verifyFullGnssAntennaInfoValuesAndGetters(gnssAntennaInfoCopy);
+    }
+
+    @Test
+    public void testGnssAntennaInfoBuilderWithArguments() {
+        GnssAntennaInfo gnssAntennaInfo = createPartialTestGnssAntennaInfo();
+        GnssAntennaInfo gnssAntennaInfoCopy = new GnssAntennaInfo.Builder(
+                gnssAntennaInfo.getCarrierFrequencyMHz(),
+                gnssAntennaInfo.getPhaseCenterOffset()).build();
+
+        verifyPartialGnssAntennaInfoValuesAndGetters(gnssAntennaInfoCopy);
+    }
+
     private static GnssAntennaInfo createFullTestGnssAntennaInfo() {
         double carrierFrequencyMHz = 13758.0;
 

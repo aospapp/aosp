@@ -19,6 +19,7 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
@@ -546,6 +547,8 @@ void Manager::handleAudioSourceStatusEvent(
 }
 
 void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
+  UNUSED_VAR(event);
+
   bool success = false;
   if (mTestSession.has_value()) {
     if (mTestSession->featureState == FeatureState::ENABLED) {

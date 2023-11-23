@@ -20,6 +20,8 @@ public final class PowerPolicyConstants {
     public static final int VHAL_POWER_STATE_REQ_PROPERTY_ID = 289475072;
     public static final int VHAL_POWER_STATE_REP_PROPERTY_ID = 289475073;
 
+    private PowerPolicyConstants() { }
+
     public static final class CarPowerState {
         public static final int INVALID = 0;
         public static final int WAIT_FOR_VHAL = 1;
@@ -29,6 +31,8 @@ public final class PowerPolicyConstants {
         public static final int ON = 6;
         public static final int SHUTDOWN_PREPARE = 7;
         public static final int SHUTDOWN_CANCELLED = 8;
+
+        private CarPowerState() { }
     }
 
     public static final class VhalPowerStateReq {
@@ -36,6 +40,8 @@ public final class PowerPolicyConstants {
         public static final int SHUTDOWN_PREPARE = 1;
         public static final int CANCEL_SHUTDOWN = 2;
         public static final int FINISHED = 3;
+
+        private VhalPowerStateReq() { }
     }
 
     public static final class ShutdownParam {
@@ -44,5 +50,7 @@ public final class PowerPolicyConstants {
         public static final int CAN_SLEEP = 2;
         public static final int SHUTDOWN_ONLY = 3;
         public static final int SLEEP_IMMEDIATELY = 4;
+
+        private ShutdownParam() { }
     }
 }

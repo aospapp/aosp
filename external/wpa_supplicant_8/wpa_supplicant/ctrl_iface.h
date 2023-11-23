@@ -131,7 +131,8 @@ wpa_supplicant_ctrl_iface_init(struct wpa_supplicant *wpa_s)
 }
 
 static inline void
-wpa_supplicant_ctrl_iface_deinit(struct ctrl_iface_priv *priv)
+wpa_supplicant_ctrl_iface_deinit(struct wpa_supplicant *wpa_s,
+				 struct ctrl_iface_priv *priv)
 {
 }
 

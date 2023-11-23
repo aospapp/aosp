@@ -37,10 +37,6 @@ import androidx.core.content.ContextCompat;
 
 import com.android.systemui.R;
 
-/**
- *  An implementation of HvacView that displays the {@code HVAC_TEMPERATURE_SET} and two buttons to
- *  increase or decrease {@code HVAC_TEMPERATURE_SET}.
- */
 public class TemperatureControlView extends LinearLayout implements HvacView {
     protected static final int BUTTON_REPEAT_INTERVAL_MS = 500;
 
@@ -133,6 +129,11 @@ public class TemperatureControlView extends LinearLayout implements HvacView {
     @Override
     public void setHvacPropertySetter(HvacPropertySetter hvacPropertySetter) {
         mHvacPropertySetter = hvacPropertySetter;
+    }
+
+    @Override
+    public void onLocaleListChanged() {
+        updateTemperatureView();
     }
 
     /**

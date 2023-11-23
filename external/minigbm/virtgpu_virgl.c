@@ -48,8 +48,9 @@ static const uint32_t dumb_texture_source_formats[] = {
 };
 
 static const uint32_t texture_source_formats[] = {
-	DRM_FORMAT_NV21,	   DRM_FORMAT_R8,	   DRM_FORMAT_R16,	    DRM_FORMAT_RG88,
-	DRM_FORMAT_YVU420_ANDROID, DRM_FORMAT_ABGR2101010, DRM_FORMAT_ABGR16161616F
+	DRM_FORMAT_NV12,	DRM_FORMAT_NV21,	 DRM_FORMAT_R8,
+	DRM_FORMAT_R16,	        DRM_FORMAT_RG88,	 DRM_FORMAT_YVU420_ANDROID,
+	DRM_FORMAT_ABGR2101010, DRM_FORMAT_ABGR16161616F
 };
 
 extern struct virtgpu_param params[];
@@ -91,6 +92,8 @@ static uint32_t translate_format(uint32_t drm_fourcc)
 		return VIRGL_FORMAT_NV12;
 	case DRM_FORMAT_NV21:
 		return VIRGL_FORMAT_NV21;
+	case DRM_FORMAT_P010:
+		return VIRGL_FORMAT_P010;
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YVU420_ANDROID:
 		return VIRGL_FORMAT_YV12;
@@ -633,8 +636,12 @@ static int virgl_init(struct driver *drv)
 	/* Android CTS tests require this. */
 	virgl_add_combination(drv, DRM_FORMAT_RGB888, &LINEAR_METADATA, BO_USE_SW_MASK);
 	virgl_add_combination(drv, DRM_FORMAT_BGR888, &LINEAR_METADATA, BO_USE_SW_MASK);
+	/* Android Camera CTS tests requires this. Additionally, the scanout usage is needed for
+	 * Camera preview and is expected to be conditionally stripped by virgl_add_combination
+	 * when not natively supported and instead handled by HWComposer. */
 	virgl_add_combination(drv, DRM_FORMAT_P010, &LINEAR_METADATA,
-			      BO_USE_SW_MASK | BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE);
+			      BO_USE_SCANOUT | BO_USE_TEXTURE | BO_USE_SW_MASK |
+				  BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE);
 	drv_modify_combination(drv, DRM_FORMAT_R8, &LINEAR_METADATA,
 			       BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE | BO_USE_HW_VIDEO_DECODER |
 				   BO_USE_HW_VIDEO_ENCODER | BO_USE_GPU_DATA_BUFFER);
@@ -799,7 +806,7 @@ static int virgl_bo_invalidate(struct bo *bo, struct mapping *mapping)
 	// Invalidate is only necessary if the host writes to the buffer. The encoder and
 	// decoder flags don't differentiate between input and output buffers, but we can
 	// use the format to determine whether this buffer could be encoder/decoder output.
-	host_write_flags = BO_USE_RENDERING | BO_USE_CAMERA_WRITE;
+	host_write_flags = BO_USE_RENDERING | BO_USE_CAMERA_WRITE | BO_USE_GPU_DATA_BUFFER;
 	if (bo->meta.format == DRM_FORMAT_R8)
 		host_write_flags |= BO_USE_HW_VIDEO_ENCODER;
 	else

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MEMORY_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MEMORY_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MEMORY_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MEMORY_H
 
 #include <CpuExecutor.h>
 #include <LegacyUtils.h>
@@ -360,4 +360,4 @@ using MemoryTracker = ObjectTracker<RuntimeMemory>;
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MEMORY_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MEMORY_H

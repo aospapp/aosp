@@ -20,7 +20,7 @@ import static android.view.MotionEvent.ACTION_CANCEL;
 import static android.view.MotionEvent.ACTION_DOWN;
 import static android.view.MotionEvent.ACTION_UP;
 
-import static com.android.launcher3.util.DisplayController.getSingleFrameMs;
+import static com.android.launcher3.util.window.RefreshRateTracker.getSingleFrameMs;
 
 import android.annotation.TargetApi;
 import android.app.WallpaperManager;
@@ -40,6 +40,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
 import com.android.launcher3.AbstractFloatingView;
+import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.InsettableFrameLayout;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.util.MultiValueAlpha;
@@ -413,6 +414,14 @@ public abstract class BaseDragLayer<T extends Context & ActivityContext>
     }
 
     /**
+     * Similar to {@link #mapCoordInSelfToDescendant(View descendant, float[] coord)}
+     * but accepts a Rect instead of float[].
+     */
+    public void mapRectInSelfToDescendant(View descendant, Rect rect) {
+        Utilities.mapRectInSelfToDescendant(descendant, this, rect);
+    }
+
+    /**
      * Inverse of {@link #getDescendantCoordRelativeToSelf(View, float[])}.
      */
     public void mapCoordInSelfToDescendant(View descendant, float[] coord) {
@@ -545,8 +554,14 @@ public abstract class BaseDragLayer<T extends Context & ActivityContext>
     public WindowInsets dispatchApplyWindowInsets(WindowInsets insets) {
         if (Utilities.ATLEAST_Q) {
             Insets gestureInsets = insets.getMandatorySystemGestureInsets();
+            int gestureInsetBottom = gestureInsets.bottom;
+            DeviceProfile dp = mActivity.getDeviceProfile();
+            if (dp.isTaskbarPresent) {
+                // Ignore taskbar gesture insets to avoid interfering with TouchControllers.
+                gestureInsetBottom = Math.max(0, gestureInsetBottom - dp.taskbarSize);
+            }
             mSystemGestureRegion.set(gestureInsets.left, gestureInsets.top,
-                    gestureInsets.right, gestureInsets.bottom);
+                    gestureInsets.right, gestureInsetBottom);
         }
         return super.dispatchApplyWindowInsets(insets);
     }

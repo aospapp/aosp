@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"சரி"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"மொபைலின் உரிமையாளர் பற்றிய தகவல் இல்லை"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"இது உங்கள் மொபைலாக இருந்தால், அவசரச் சூழலில் இங்கே காட்டப்பட வேண்டிய தகவலைச் சேர்க்க, பென்சில் ஐகானைத் தட்டவும்"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"உங்கள் மொபைல் அன்லாக் செய்யப்பட்ட நிலையில், அவசரகாலச் சூழ்நிலையின்போது இங்கே காட்டப்பட வேண்டிய தகவல்களைச் சேர்க்க பென்சில் ஐகானைத் தட்டவும்"</string>
     <string name="clear_all" msgid="8899013032870561633">"அனைத்தையும் அழி"</string>
     <string name="clear" msgid="3648880442502887163">"அழி"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"எல்லா தகவலையும் தொடர்புகளையும் அழிக்கவா?"</string>

@@ -63,4 +63,30 @@ public class AppIdleStatePermissionTest {
                     + pkgNames);
         }
     }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#CHANGE_APP_LAUNCH_TIME_ESTIMATE}
+     * permission is only held by at most one package.
+     */
+    @Test
+    public void testChangeAppLaunchEstimatePermission() throws Exception {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[]{
+                android.Manifest.permission.CHANGE_APP_LAUNCH_TIME_ESTIMATE
+        }, PackageManager.MATCH_SYSTEM_ONLY);
+
+        int count = 0;
+        String pkgNames = "";
+        for (PackageInfo pkg : holding) {
+            int uid = pm.getApplicationInfo(pkg.packageName, 0).uid;
+            if (UserHandle.isApp(uid)) {
+                pkgNames += pkg.packageName + "\n";
+                count++;
+            }
+        }
+        if (count > 1) {
+            fail("Only one app may hold the CHANGE_APP_LAUNCH_TIME_ESTIMATE permission;"
+                    + " found packages: \n" + pkgNames);
+        }
+    }
 }

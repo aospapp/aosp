@@ -36,7 +36,6 @@ import android.icu.text.UnicodeSet;
  * A unit such as length, mass, volume, currency, etc.  A unit is
  * coupled with a numeric amount to produce a Measure. MeasureUnit objects are immutable.
  * All subclasses must guarantee that. (However, subclassing is discouraged.)
-
  *
  * @see android.icu.util.Measure
  * @author Alan Liu
@@ -78,202 +77,251 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Enumeration for unit complexity. There are three levels:
-     * <p>
-     * - SINGLE: A single unit, optionally with a power and/or SI prefix. Examples: hectare,
-     * square-kilometer, kilojoule, one-per-second.
-     * - COMPOUND: A unit composed of the product of multiple single units. Examples:
-     * meter-per-second, kilowatt-hour, kilogram-meter-per-square-second.
-     * - MIXED: A unit composed of the sum of multiple single units. Examples: foot-and-inch,
-     * hour-and-minute-and-second, degree-and-arcminute-and-arcsecond.
-     * <p>
+     * <ul>
+     * <li>SINGLE: A single unit, optionally with a power and/or SI or binary prefix.
+     * Examples: hectare, square-kilometer, kilojoule, per-second, mebibyte.</li>
+     * <li>COMPOUND: A unit composed of the product of multiple single units. Examples:
+     * meter-per-second, kilowatt-hour, kilogram-meter-per-square-second.</li>
+     * <li>MIXED: A unit composed of the sum of multiple single units. Examples: foot-and-inch,
+     * hour-and-minute-and-second, degree-and-arcminute-and-arcsecond.</li>
+     * </ul>
      * The complexity determines which operations are available. For example, you cannot set the power
-     * or SI prefix of a compound unit.
-     *
-     * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
+     * or prefix of a compound unit.
      */
     public enum Complexity {
         /**
          * A single unit, like kilojoule.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         SINGLE,
 
         /**
          * A compound unit, like meter-per-second.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         COMPOUND,
 
         /**
          * A mixed unit, like hour-and-minute.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         MIXED
     }
 
     /**
-     * Enumeration for SI prefixes, such as "kilo".
+     * Enumeration for SI and binary prefixes, e.g. "kilo-", "nano-", "mebi-".
      *
      * @hide Only a subset of ICU is exposed in Android
      * @hide draft / provisional / internal are hidden on Android
      */
-    public enum SIPrefix {
+    public enum MeasurePrefix {
 
         /**
          * SI prefix: yotta, 10^24.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        YOTTA(24, "yotta"),
+        YOTTA(24, "yotta", 10),
 
         /**
          * SI prefix: zetta, 10^21.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        ZETTA(21, "zetta"),
+        ZETTA(21, "zetta", 10),
 
         /**
          * SI prefix: exa, 10^18.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        EXA(18, "exa"),
+        EXA(18, "exa", 10),
 
         /**
          * SI prefix: peta, 10^15.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        PETA(15, "peta"),
+        PETA(15, "peta", 10),
 
         /**
          * SI prefix: tera, 10^12.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        TERA(12, "tera"),
+        TERA(12, "tera", 10),
 
         /**
          * SI prefix: giga, 10^9.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        GIGA(9, "giga"),
+        GIGA(9, "giga", 10),
 
         /**
          * SI prefix: mega, 10^6.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        MEGA(6, "mega"),
+        MEGA(6, "mega", 10),
 
         /**
          * SI prefix: kilo, 10^3.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        KILO(3, "kilo"),
+        KILO(3, "kilo", 10),
 
         /**
          * SI prefix: hecto, 10^2.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        HECTO(2, "hecto"),
+        HECTO(2, "hecto", 10),
 
         /**
          * SI prefix: deka, 10^1.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        DEKA(1, "deka"),
+        DEKA(1, "deka", 10),
 
         /**
          * The absence of an SI prefix.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        ONE(0, ""),
+        ONE(0, "", 10),
 
         /**
          * SI prefix: deci, 10^-1.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        DECI(-1, "deci"),
+        DECI(-1, "deci", 10),
 
         /**
          * SI prefix: centi, 10^-2.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        CENTI(-2, "centi"),
+        CENTI(-2, "centi", 10),
 
         /**
          * SI prefix: milli, 10^-3.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        MILLI(-3, "milli"),
+        MILLI(-3, "milli", 10),
 
         /**
          * SI prefix: micro, 10^-6.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        MICRO(-6, "micro"),
+        MICRO(-6, "micro", 10),
 
         /**
          * SI prefix: nano, 10^-9.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        NANO(-9, "nano"),
+        NANO(-9, "nano", 10),
 
         /**
          * SI prefix: pico, 10^-12.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        PICO(-12, "pico"),
+        PICO(-12, "pico", 10),
 
         /**
          * SI prefix: femto, 10^-15.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        FEMTO(-15, "femto"),
+        FEMTO(-15, "femto", 10),
 
         /**
          * SI prefix: atto, 10^-18.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        ATTO(-18, "atto"),
+        ATTO(-18, "atto", 10),
 
         /**
          * SI prefix: zepto, 10^-21.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        ZEPTO(-21, "zepto"),
+        ZEPTO(-21, "zepto", 10),
 
         /**
          * SI prefix: yocto, 10^-24.
          *
          * @hide draft / provisional / internal are hidden on Android
          */
-        YOCTO(-24, "yocto");
+        YOCTO(-24, "yocto", 10),
 
+        /**
+         * IEC binary prefix: kibi, 1024^1.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        KIBI(1, "kibi", 1024),
+
+        /**
+         * IEC binary prefix: mebi, 1024^2.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        MEBI(2, "mebi", 1024),
+
+        /**
+         * IEC binary prefix: gibi, 1024^3.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        GIBI(3, "gibi", 1024),
+
+        /**
+         * IEC binary prefix: tebi, 1024^4.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        TEBI(4, "tebi", 1024),
+
+        /**
+         * IEC binary prefix: pebi, 1024^5.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        PEBI(5, "pebi", 1024),
+
+        /**
+         * IEC binary prefix: exbi, 1024^6.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        EXBI(6, "exbi", 1024),
+
+        /**
+         * IEC binary prefix: zebi, 1024^7.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        ZEBI(7, "zebi", 1024),
+
+        /**
+         * IEC binary prefix: yobi, 1024^8.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        YOBI(8, "yobi", 1024);
+
+        private final int base;
         private final int power;
         private final String identifier;
 
-        SIPrefix(int power, String identifier) {
+        MeasurePrefix(int power, String identifier, int base) {
+            this.base = base;
             this.power = power;
             this.identifier = identifier;
         }
@@ -290,7 +338,20 @@ public class MeasureUnit implements Serializable {
         }
 
         /**
-         * Returns the power of 10 of the prefix. For example, if the prefix is "centi", the power will be -2.
+         * Returns the base of the prefix. For example:
+         * - if the prefix is "centi", the base will be 10.
+         * - if the prefix is "gibi", the base will be 1024.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        public int getBase() {
+            return base;
+        }
+
+        /**
+         * Returns the power of the prefix. For example:
+         * - if the prefix is "centi", the power will be -2.
+         * - if the prefix is "gibi", the power will be 3 (for base 1024).
          *
          * @hide draft / provisional / internal are hidden on Android
          */
@@ -311,8 +372,9 @@ public class MeasureUnit implements Serializable {
     }
 
     /**
-     * Construct a MeasureUnit from a CLDR Unit Identifier, defined in UTS 35.
-     * Validates and canonicalizes the identifier.
+     * Construct a MeasureUnit from a CLDR Core Unit Identifier, defined in UTS
+     * 35. (Core unit identifiers and mixed unit identifiers are supported, long
+     * unit identifiers are not.) Validates and canonicalizes the identifier.
      *
      * Note: dimensionless <code>MeasureUnit</code> is <code>null</code>
      *
@@ -320,9 +382,8 @@ public class MeasureUnit implements Serializable {
      * MeasureUnit example = MeasureUnit::forIdentifier("furlong-per-nanosecond")
      * </pre>
      *
-     * @param identifier The CLDR Sequence Unit Identifier
+     * @param identifier CLDR Unit Identifier
      * @throws IllegalArgumentException if the identifier is invalid.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static MeasureUnit forIdentifier(String identifier) {
         if (identifier == null || identifier.isEmpty()) {
@@ -372,10 +433,9 @@ public class MeasureUnit implements Serializable {
     }
 
     /**
-     * Gets the CLDR Unit Identifier for this MeasureUnit, as defined in UTS 35.
+     * Get CLDR Unit Identifier for this MeasureUnit, as defined in UTS 35.
      *
      * @return The string form of this unit.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public String getIdentifier() {
         String result = measureUnitImpl == null ? getSubtype() : measureUnitImpl.getIdentifier();
@@ -386,7 +446,6 @@ public class MeasureUnit implements Serializable {
      * Compute the complexity of the unit. See Complexity for more information.
      *
      * @return The unit complexity.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public Complexity getComplexity() {
         if (measureUnitImpl == null) {
@@ -397,39 +456,39 @@ public class MeasureUnit implements Serializable {
     }
 
     /**
-     * Creates a MeasureUnit which is this SINGLE unit augmented with the specified SI prefix.
-     * For example, SI_PREFIX_KILO for "kilo".
-     * May return this if this unit already has that prefix.
+     * Creates a MeasureUnit which is this SINGLE unit augmented with the specified prefix.
+     * For example, MeasurePrefix.KILO for "kilo", or MeasurePrefix.KIBI for "kibi".
+     * May return `this` if this unit already has that prefix.
      * <p>
-     * There is sufficient locale data to format all standard SI prefixes.
+     * There is sufficient locale data to format all standard prefixes.
      * <p>
      * NOTE: Only works on SINGLE units. If this is a COMPOUND or MIXED unit, an error will
      * occur. For more information, see `Complexity`.
      *
-     * @param prefix The SI prefix, from SIPrefix.
+     * @param prefix The prefix, from MeasurePrefix.
      * @return A new SINGLE unit.
      * @throws UnsupportedOperationException if this unit is a COMPOUND or MIXED unit.
      * @hide draft / provisional / internal are hidden on Android
      */
-    public MeasureUnit withSIPrefix(SIPrefix prefix) {
+    public MeasureUnit withPrefix(MeasurePrefix prefix) {
         SingleUnitImpl singleUnit = getSingleUnitImpl();
-        singleUnit.setSiPrefix(prefix);
+        singleUnit.setPrefix(prefix);
         return singleUnit.build();
     }
 
     /**
-     * Returns the current SI prefix of this SINGLE unit. For example, if the unit has the SI prefix
-     * "kilo", then SI_PREFIX_KILO is returned.
+     * Returns the current SI or binary prefix of this SINGLE unit. For example,
+     * if the unit has the prefix "kilo", then MeasurePrefix.KILO is returned.
      * <p>
-     * NOTE: Only works on SINGLE units. If this is a COMPOUND or MIXED unit, an error will
-     * occur. For more information, see `Complexity`.
+     * NOTE: Only works on SINGLE units. If this is a COMPOUND or MIXED unit, an
+     * error will occur. For more information, see `Complexity`.
      *
-     * @return The SI prefix of this SINGLE unit, from SIPrefix.
+     * @return The prefix of this SINGLE unit, from MeasurePrefix.
      * @throws UnsupportedOperationException if the unit is COMPOUND or MIXED.
      * @hide draft / provisional / internal are hidden on Android
      */
-    public SIPrefix getSIPrefix() {
-        return getSingleUnitImpl().getSiPrefix();
+    public MeasurePrefix getPrefix() {
+        return getSingleUnitImpl().getPrefix();
     }
 
     /**
@@ -441,7 +500,6 @@ public class MeasureUnit implements Serializable {
      *
      * @return The dimensionality (power) of this simple unit.
      * @throws UnsupportedOperationException if the unit is COMPOUND or MIXED.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public int getDimensionality() {
         return getSingleUnitImpl().getDimensionality();
@@ -457,7 +515,6 @@ public class MeasureUnit implements Serializable {
      * @param dimensionality The dimensionality (power).
      * @return A new SINGLE unit.
      * @throws UnsupportedOperationException if the unit is COMPOUND or MIXED.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public MeasureUnit withDimensionality(int dimensionality) {
         SingleUnitImpl singleUnit = getSingleUnitImpl();
@@ -475,7 +532,6 @@ public class MeasureUnit implements Serializable {
      *
      * @return The reciprocal of the target unit.
      * @throws UnsupportedOperationException if the unit is MIXED.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public MeasureUnit reciprocal() {
         MeasureUnitImpl measureUnit = getCopyOfMeasureUnitImpl();
@@ -498,7 +554,6 @@ public class MeasureUnit implements Serializable {
      * @param other The MeasureUnit to multiply with the target.
      * @return The product of the target unit with the provided unit.
      * @throws UnsupportedOperationException if the unit is MIXED.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public MeasureUnit product(MeasureUnit other) {
         MeasureUnitImpl implCopy = getCopyOfMeasureUnitImpl();
@@ -507,7 +562,7 @@ public class MeasureUnit implements Serializable {
             return implCopy.build();
         }
 
-        final MeasureUnitImpl otherImplRef = other.getMayBeReferenceOfMeasureUnitImpl();
+        final MeasureUnitImpl otherImplRef = other.getMaybeReferenceOfMeasureUnitImpl();
         if (implCopy.getComplexity() == Complexity.MIXED || otherImplRef.getComplexity() == Complexity.MIXED) {
             throw new UnsupportedOperationException();
         }
@@ -525,17 +580,17 @@ public class MeasureUnit implements Serializable {
      * <p>
      * Examples:
      * - Given "meter-kilogram-per-second", three units will be returned: "meter",
-     * "kilogram", and "one-per-second".
+     * "kilogram", and "per-second".
      * - Given "hour+minute+second", three units will be returned: "hour", "minute",
      * and "second".
      * <p>
      * If this is a SINGLE unit, a list of length 1 will be returned.
      *
      * @return An unmodifiable list of single units
-     * @hide draft / provisional / internal are hidden on Android
      */
     public List<MeasureUnit> splitToSingleUnits() {
-        final ArrayList<SingleUnitImpl> singleUnits = getMayBeReferenceOfMeasureUnitImpl().getSingleUnits();
+        final ArrayList<SingleUnitImpl> singleUnits =
+            getMaybeReferenceOfMeasureUnitImpl().getSingleUnits();
         List<MeasureUnit> result = new ArrayList<>(singleUnits.size());
         for (SingleUnitImpl singleUnit : singleUnits) {
             result.add(singleUnit.build());
@@ -572,13 +627,14 @@ public class MeasureUnit implements Serializable {
      */
     @Override
     public String toString() {
-        return type + "-" + subType;
+        String result = measureUnitImpl == null ? type + "-" + subType : measureUnitImpl.getIdentifier();
+        return result == null ? "" : result;
     }
 
     /**
      * Get all of the available units' types. Returned set is unmodifiable.
      */
-    public synchronized static Set<String> getAvailableTypes() {
+    public static Set<String> getAvailableTypes() {
         populateCache();
         return Collections.unmodifiableSet(cache.keySet());
     }
@@ -588,7 +644,7 @@ public class MeasureUnit implements Serializable {
      * @param type the type
      * @return the available units for type. Returned set is unmodifiable.
      */
-    public synchronized static Set<MeasureUnit> getAvailable(String type) {
+    public static Set<MeasureUnit> getAvailable(String type) {
         populateCache();
         Map<String, MeasureUnit> units = cache.get(type);
         // Train users not to modify returned set from the start giving us more
@@ -645,7 +701,12 @@ public class MeasureUnit implements Serializable {
         return MeasureUnit.addUnit(type, subType, factory);
     }
 
-    private static MeasureUnit findBySubType(String subType) {
+    /**
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static MeasureUnit findBySubType(String subType) {
         populateCache();
         for (Map<String, MeasureUnit> unitsForType : cache.values()) {
             if (unitsForType.containsKey(subType)) {
@@ -741,11 +802,9 @@ public class MeasureUnit implements Serializable {
      * Adding of others is deferred until later to avoid circular static init
      * dependencies with classes Currency and TimeUnit.
      *
-     * <p>Synchronization: this function must be called from static synchronized methods only.
-     *
      * @hide draft / provisional / internal are hidden on Android
      */
-    static private void populateCache() {
+    static synchronized private void populateCache() {
         if (cacheIsPopulated) {
             return;
         }
@@ -805,7 +864,7 @@ public class MeasureUnit implements Serializable {
 // the "End generated MeasureUnit constants" comment is auto generated code
 // and must not be edited manually. For instructions on how to correctly
 // update this code, refer to:
-// http://site.icu-project.org/design/formatting/measureformat/updating-measure-unit
+// docs/processes/release/tasks/updating-measure-unit.md
 //
     // Start generated MeasureUnit constants
 
@@ -896,9 +955,21 @@ public class MeasureUnit implements Serializable {
     public static final MeasureUnit SQUARE_YARD = MeasureUnit.internalGetInstance("area", "square-yard");
 
     /**
+     * Constant for unit of concentr: item
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit ITEM = MeasureUnit.internalGetInstance("concentr", "item");
+
+    /**
      * Constant for unit of concentr: karat
      */
     public static final MeasureUnit KARAT = MeasureUnit.internalGetInstance("concentr", "karat");
+
+    /**
+     * Constant for unit of concentr: milligram-ofglucose-per-deciliter
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit MILLIGRAM_OFGLUCOSE_PER_DECILITER = MeasureUnit.internalGetInstance("concentr", "milligram-ofglucose-per-deciliter");
 
     /**
      * Constant for unit of concentr: milligram-per-deciliter
@@ -1165,6 +1236,12 @@ public class MeasureUnit implements Serializable {
     public static final MeasureUnit THERM_US = MeasureUnit.internalGetInstance("energy", "therm-us");
 
     /**
+     * Constant for unit of force: kilowatt-hour-per-100-kilometer
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit KILOWATT_HOUR_PER_100_KILOMETER = MeasureUnit.internalGetInstance("force", "kilowatt-hour-per-100-kilometer");
+
+    /**
      * Constant for unit of force: newton
      * @hide unsupported on Android
      */
@@ -1198,8 +1275,7 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of graphics: dot
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     */
     public static final MeasureUnit DOT = MeasureUnit.internalGetInstance("graphics", "dot");
 
     /**
@@ -1254,8 +1330,8 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of length: earth-radius
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit EARTH_RADIUS = MeasureUnit.internalGetInstance("length", "earth-radius");
 
     /**
@@ -1351,14 +1427,12 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of light: candela
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     */
     public static final MeasureUnit CANDELA = MeasureUnit.internalGetInstance("light", "candela");
 
     /**
      * Constant for unit of light: lumen
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     */
     public static final MeasureUnit LUMEN = MeasureUnit.internalGetInstance("light", "lumen");
 
     /**
@@ -1391,8 +1465,8 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of mass: grain
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit GRAIN = MeasureUnit.internalGetInstance("mass", "grain");
 
     /**
@@ -1660,26 +1734,26 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of volume: dessert-spoon
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit DESSERT_SPOON = MeasureUnit.internalGetInstance("volume", "dessert-spoon");
 
     /**
      * Constant for unit of volume: dessert-spoon-imperial
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit DESSERT_SPOON_IMPERIAL = MeasureUnit.internalGetInstance("volume", "dessert-spoon-imperial");
 
     /**
      * Constant for unit of volume: dram
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit DRAM = MeasureUnit.internalGetInstance("volume", "dram");
 
     /**
      * Constant for unit of volume: drop
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit DROP = MeasureUnit.internalGetInstance("volume", "drop");
 
     /**
@@ -1710,8 +1784,8 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of volume: jigger
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit JIGGER = MeasureUnit.internalGetInstance("volume", "jigger");
 
     /**
@@ -1731,8 +1805,8 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of volume: pinch
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit PINCH = MeasureUnit.internalGetInstance("volume", "pinch");
 
     /**
@@ -1752,8 +1826,8 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of volume: quart-imperial
-     * @hide draft / provisional / internal are hidden on Android
-    */
+     * @hide unsupported on Android
+     */
     public static final MeasureUnit QUART_IMPERIAL = MeasureUnit.internalGetInstance("volume", "quart-imperial");
 
     /**
@@ -1766,9 +1840,8 @@ public class MeasureUnit implements Serializable {
      */
     public static final MeasureUnit TEASPOON = MeasureUnit.internalGetInstance("volume", "teaspoon");
 
-    // unitPerUnitToSingleUnit no longer in use! TODO: remove from code-generation code.
-
     // End generated MeasureUnit constants
+
     /* Private */
 
     private Object writeReplace() throws ObjectStreamException {
@@ -1780,6 +1853,7 @@ public class MeasureUnit implements Serializable {
      * @return this object as a SingleUnitImpl.
      * @throws UnsupportedOperationException if this object could not be converted to a single unit.
      */
+    // In ICU4C, this is SingleUnitImpl::forMeasureUnit().
     private SingleUnitImpl getSingleUnitImpl() {
         if (measureUnitImpl == null) {
             return MeasureUnitImpl.forIdentifier(getIdentifier()).getSingleUnitImpl();
@@ -1791,8 +1865,11 @@ public class MeasureUnit implements Serializable {
     /**
      *
      * @return this object in a MeasureUnitImpl form.
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
      */
-    private MeasureUnitImpl getCopyOfMeasureUnitImpl() {
+    @Deprecated
+    public MeasureUnitImpl getCopyOfMeasureUnitImpl() {
         return this.measureUnitImpl == null ?
                 MeasureUnitImpl.forIdentifier(getIdentifier()) :
                 this.measureUnitImpl.copy();
@@ -1802,7 +1879,7 @@ public class MeasureUnit implements Serializable {
      *
      * @return this object in a MeasureUnitImpl form.
      */
-    private MeasureUnitImpl getMayBeReferenceOfMeasureUnitImpl(){
+    private MeasureUnitImpl getMaybeReferenceOfMeasureUnitImpl() {
         return this.measureUnitImpl == null ?
                 MeasureUnitImpl.forIdentifier(getIdentifier()) :
                 this.measureUnitImpl;

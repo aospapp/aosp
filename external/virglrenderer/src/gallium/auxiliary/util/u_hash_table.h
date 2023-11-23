@@ -47,6 +47,7 @@ extern "C" {
  * Generic purpose hash table.
  */
 struct util_hash_table;
+struct util_hash_table_u64;
 
 
 /**
@@ -89,6 +90,26 @@ util_hash_table_foreach(struct util_hash_table *ht,
 void
 util_hash_table_destroy(struct util_hash_table *ht);
 
+
+struct util_hash_table_u64 *
+util_hash_table_create_u64(void (*destroy)(void *value));
+
+enum pipe_error
+util_hash_table_set_u64(struct util_hash_table_u64 *ht,
+                        uint64_t key,
+                        void *value);
+
+void *
+util_hash_table_get_u64(struct util_hash_table_u64 *ht,
+                        uint64_t key);
+
+
+void
+util_hash_table_remove_u64(struct util_hash_table_u64 *ht,
+                           uint64_t key);
+
+void
+util_hash_table_destroy_u64(struct util_hash_table_u64 *ht);
 
 #ifdef __cplusplus
 }

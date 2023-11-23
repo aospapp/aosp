@@ -44,4 +44,7 @@ public class AES192ECBNoPaddingCipherTest extends AESECBNoPaddingCipherTestBase 
     protected byte[] getKatCiphertext() {
         return KAT_CIPHERTEXT.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

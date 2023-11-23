@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # sofdsnoop traces file descriptors passed via socket
@@ -15,12 +15,11 @@ from __future__ import print_function
 from bcc import ArgString, BPF
 import os
 import argparse
-import ctypes as ct
 from datetime import datetime, timedelta
 
 # arguments
 examples = """examples:
-    ./sofdsnoop           # trace file descriptors passes
+    ./sofdsnoop           # trace passed file descriptors
     ./sofdsnoop -T        # include timestamps
     ./sofdsnoop -p 181    # only trace PID 181
     ./sofdsnoop -t 123    # only trace TID 123
@@ -106,7 +105,7 @@ static int sent_1(struct pt_regs *ctx, struct val_t *val, int num, void *data)
 {
     val->fd_cnt = min(num, MAX_FD);
 
-    if (bpf_probe_read(&val->fd[0], MAX_FD * sizeof(int), data))
+    if (bpf_probe_read_kernel(&val->fd[0], MAX_FD * sizeof(int), data))
         return -1;
 
     events.perf_submit(ctx, val, sizeof(*val));
@@ -279,20 +278,7 @@ b.attach_kprobe(event="__scm_send", fn_name="trace_scm_send_entry")
 b.attach_kprobe(event="scm_detach_fds", fn_name="trace_scm_detach_fds_entry")
 b.attach_kretprobe(event="scm_detach_fds", fn_name="trace_scm_detach_fds_return")
 
-TASK_COMM_LEN = 16    # linux/sched.h
-
 initial_ts = 0
-
-class Data(ct.Structure):
-    _fields_ = [
-        ("id",      ct.c_ulonglong),
-        ("ts",      ct.c_ulonglong),
-        ("action",  ct.c_int),
-        ("sock_fd", ct.c_int),
-        ("fd_cnt",  ct.c_int),
-        ("fd",      ct.c_int  * MAX_FD),
-        ("comm",    ct.c_char * TASK_COMM_LEN),
-    ]
 
 # header
 if args.timestamp:
@@ -309,7 +295,7 @@ def get_file(pid, fd):
 
 # process event
 def print_event(cpu, data, size):
-    event = ct.cast(data, ct.POINTER(Data)).contents
+    event = b["events"].event(data)
     tid = event.id & 0xffffffff;
 
     cnt = min(MAX_FD, event.fd_cnt);

@@ -15,9 +15,11 @@
  */
 package android.platform.test.rule;
 
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import android.os.Bundle;
 
 import com.android.helpers.GarbageCollectionHelper;
 
@@ -25,7 +27,6 @@ import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 
 /**
@@ -36,17 +37,22 @@ public class GarbageCollectRuleTest {
     private final GarbageCollectionHelper mGcHelper = mock(GarbageCollectionHelper.class);
 
     /**
-     * Tests that this rule will fail to register if no apps are supplied.
+     * Tests that this rule will not call gc before the test if an app not supplied.
      */
     @Test
-    public void testNoAppToGcFails() {
-        try {
-            GarbageCollectRule rule = new GarbageCollectRule();
-            fail("An initialization error should have been thrown, but wasn't.");
-        } catch (InitializationError e) {
-            return;
-        }
+    public void testNoGcBeforeTest() throws Throwable {
+        GarbageCollectRule rule = new TestableGarbageCollectRule();
+        Statement testStatement = new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+            }
+        };
+
+        rule.apply(testStatement,
+                Description.createTestDescription("clzz", "mthd")).evaluate();
+        verify(mGcHelper, times(0)).garbageCollect();
     }
+
 
     /**
      * Tests that this rule will gc before the test if an app is supplied.
@@ -67,14 +73,71 @@ public class GarbageCollectRuleTest {
                 Description.createTestDescription("clzz", "mthd")).evaluate();
     }
 
+    /**
+     * Tests that this rule will gc before and after the test if an app is supplied.
+     */
+    @Test
+    public void testCallsGcBeforeAndAfterTest() throws Throwable {
+        Bundle gcEndBundle = new Bundle();
+        gcEndBundle.putString(GarbageCollectRule.GC_RULE_END, "true");
+        GarbageCollectRule rule = new TestableGarbageCollectRule(gcEndBundle, "package.name1");
+        Statement testStatement = new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                // Assert that garbage collection was called before the test.
+                verify(mGcHelper).setUp("package.name1");
+            }
+        };
+
+        rule.apply(testStatement,
+                Description.createTestDescription("clzz", "mthd")).evaluate();
+        verify(mGcHelper, times(2)).garbageCollect();
+    }
+
+    /**
+     * Tests that this rule will gc only before the test if an app is supplied.
+     */
+    @Test
+    public void testCallsGcOnlyBeforeTest() throws Throwable {
+        Bundle gcEndBundle = new Bundle();
+        gcEndBundle.putString(GarbageCollectRule.GC_RULE_END, "false");
+        GarbageCollectRule rule = new TestableGarbageCollectRule(gcEndBundle, "package.name1");
+        Statement testStatement = new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                // Assert that garbage collection was called before the test.
+                verify(mGcHelper).setUp("package.name1");
+            }
+        };
+
+        rule.apply(testStatement,
+                Description.createTestDescription("clzz", "mthd")).evaluate();
+        verify(mGcHelper, times(1)).garbageCollect();
+    }
 
     private class TestableGarbageCollectRule extends GarbageCollectRule {
+        private Bundle mBundle;
+
+        public TestableGarbageCollectRule() {
+            super();
+        }
+
+        public TestableGarbageCollectRule(Bundle bundle, String app) {
+            super(app);
+            mBundle = bundle;
+        }
+
         public TestableGarbageCollectRule(String app) {
             super(app);
         }
 
         @Override
-        GarbageCollectionHelper initGcHelper() {
+        protected Bundle getArguments() {
+            return mBundle;
+        }
+
+        @Override
+        GarbageCollectionHelper getGcHelper() {
             return mGcHelper;
         }
     }

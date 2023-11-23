@@ -27,7 +27,5 @@ class AudioProxyManager {
   virtual bool registerDevice(audio_proxy_device_t* device) = 0;
 };
 
-namespace V5_1 {
 std::unique_ptr<AudioProxyManager> createAudioProxyManager();
-}  // namespace V5_1
 }  // namespace audio_proxy

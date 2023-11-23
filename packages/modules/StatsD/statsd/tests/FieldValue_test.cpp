@@ -34,6 +34,7 @@ namespace os {
 namespace statsd {
 
 namespace {
+
 void makeLogEvent(LogEvent* logEvent, const int32_t atomId, const int64_t timestamp,
                   const vector<int>& attributionUids, const vector<string>& attributionTags,
                   const string& name) {
@@ -57,6 +58,14 @@ void makeLogEvent(LogEvent* logEvent, const int32_t atomId, const int64_t timest
     writeAttribution(statsEvent, attributionUids, attributionTags);
     AStatsEvent_writeInt32(statsEvent, value);
 
+    parseStatsEventToLogEvent(statsEvent, logEvent);
+}
+
+void makeRepeatedIntLogEvent(LogEvent* logEvent, const int32_t atomId,
+                             const vector<int>& intArray) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomId);
+    AStatsEvent_writeInt32Array(statsEvent, intArray.data(), intArray.size());
     parseStatsEventToLogEvent(statsEvent, logEvent);
 }
 }  // anonymous namespace
@@ -148,6 +157,76 @@ TEST(AtomMatcherTest, TestFilter_ALL) {
     EXPECT_EQ("some value", output.getValues()[6].mValue.str_value);
 }
 
+TEST(AtomMatcherTest, TestFilterRepeated_FIRST) {
+    FieldMatcher matcher;
+    matcher.set_field(123);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::FIRST);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<int> intArray = {21, 9, 13};
+    makeRepeatedIntLogEvent(&event, 123, intArray);
+
+    HashableDimensionKey output;
+    EXPECT_TRUE(filterValues(matchers, event.getValues(), &output));
+
+    ASSERT_EQ((size_t)1, output.getValues().size());
+    EXPECT_EQ((int32_t)0x01010100, output.getValues()[0].mField.getField());
+    EXPECT_EQ((int32_t)21, output.getValues()[0].mValue.int_value);
+}
+
+TEST(AtomMatcherTest, TestFilterRepeated_LAST) {
+    FieldMatcher matcher;
+    matcher.set_field(123);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::LAST);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<int> intArray = {21, 9, 13};
+    makeRepeatedIntLogEvent(&event, 123, intArray);
+
+    HashableDimensionKey output;
+    EXPECT_TRUE(filterValues(matchers, event.getValues(), &output));
+
+    ASSERT_EQ((size_t)1, output.getValues().size());
+    EXPECT_EQ((int32_t)0x01018000, output.getValues()[0].mField.getField());
+    EXPECT_EQ((int32_t)13, output.getValues()[0].mValue.int_value);
+}
+
+TEST(AtomMatcherTest, TestFilterRepeated_ALL) {
+    FieldMatcher matcher;
+    matcher.set_field(123);
+    FieldMatcher* child = matcher.add_child();
+    child->set_field(1);
+    child->set_position(Position::ALL);
+
+    vector<Matcher> matchers;
+    translateFieldMatcher(matcher, &matchers);
+
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<int> intArray = {21, 9, 13};
+    makeRepeatedIntLogEvent(&event, 123, intArray);
+
+    HashableDimensionKey output;
+    EXPECT_TRUE(filterValues(matchers, event.getValues(), &output));
+
+    ASSERT_EQ((size_t)3, output.getValues().size());
+    EXPECT_EQ((int32_t)0x01010100, output.getValues()[0].mField.getField());
+    EXPECT_EQ((int32_t)21, output.getValues()[0].mValue.int_value);
+    EXPECT_EQ((int32_t)0x01010200, output.getValues()[1].mField.getField());
+    EXPECT_EQ((int32_t)9, output.getValues()[1].mValue.int_value);
+    EXPECT_EQ((int32_t)0x01010300, output.getValues()[2].mField.getField());
+    EXPECT_EQ((int32_t)13, output.getValues()[2].mValue.int_value);
+}
+
 TEST(AtomMatcherTest, TestSubDimension) {
     HashableDimensionKey dim;
 
@@ -230,21 +309,25 @@ TEST(AtomMatcherTest, TestMetric2ConditionLink) {
 }
 
 TEST(AtomMatcherTest, TestWriteDimensionPath) {
-    for (auto position : {Position::ANY, Position::ALL, Position::FIRST, Position::LAST}) {
+    for (auto position : {Position::ALL, Position::FIRST, Position::LAST}) {
         FieldMatcher matcher1;
         matcher1.set_field(10);
+
+        // Repeated nested fields (attribution chain).
         FieldMatcher* child = matcher1.add_child();
         child->set_field(2);
         child->set_position(position);
         child->add_child()->set_field(1);
         child->add_child()->set_field(3);
 
+        // Primitive field.
         child = matcher1.add_child();
         child->set_field(4);
 
+        // Repeated primitive field.
         child = matcher1.add_child();
         child->set_field(6);
-        child->add_child()->set_field(2);
+        child->set_position(position);
 
         vector<Matcher> matchers;
         translateFieldMatcher(matcher1, &matchers);
@@ -285,9 +368,6 @@ TEST(AtomMatcherTest, TestWriteDimensionPath) {
 
         const auto& dim3 = result.value_tuple().dimensions_value(2);
         EXPECT_EQ(6, dim3.field());
-        ASSERT_EQ(1, dim3.value_tuple().dimensions_value_size());
-        const auto& dim31 = dim3.value_tuple().dimensions_value(0);
-        EXPECT_EQ(2, dim31.field());
     }
 }
 
@@ -513,6 +593,48 @@ TEST(AtomMatcherTest, TestWriteAtomToProto) {
     EXPECT_EQ(999, atom.num_results());
 }
 
+TEST(AtomMatcherTest, TestWriteAtomWithRepeatedFieldsToProto) {
+    vector<int> intArray = {3, 6};
+    vector<int64_t> longArray = {1000L, 10002L};
+    vector<float> floatArray = {0.3f, 0.09f};
+    vector<string> stringArray = {"str1", "str2"};
+    int boolArrayLength = 2;
+    bool boolArray[boolArrayLength];
+    boolArray[0] = 1;
+    boolArray[1] = 0;
+    vector<bool> boolArrayVector = {1, 0};
+    vector<int> enumArray = {TestAtomReported::ON, TestAtomReported::OFF};
+
+    unique_ptr<LogEvent> event = CreateTestAtomReportedEventVariableRepeatedFields(
+            12345, intArray, longArray, floatArray, stringArray, boolArray, boolArrayLength,
+            enumArray);
+
+    android::util::ProtoOutputStream protoOutput;
+    writeFieldValueTreeToStream(event->GetTagId(), event->getValues(), &protoOutput);
+
+    vector<uint8_t> outData;
+    outData.resize(protoOutput.size());
+    size_t pos = 0;
+    sp<ProtoReader> reader = protoOutput.data();
+    while (reader->readBuffer() != NULL) {
+        size_t toRead = reader->currentToRead();
+        std::memcpy(&(outData[pos]), reader->readBuffer(), toRead);
+        pos += toRead;
+        reader->move(toRead);
+    }
+
+    Atom result;
+    ASSERT_EQ(true, result.ParseFromArray(&outData[0], outData.size()));
+    EXPECT_EQ(Atom::PushedCase::kTestAtomReported, result.pushed_case());
+    TestAtomReported atom = result.test_atom_reported();
+    EXPECT_THAT(atom.repeated_int_field(), ElementsAreArray(intArray));
+    EXPECT_THAT(atom.repeated_long_field(), ElementsAreArray(longArray));
+    EXPECT_THAT(atom.repeated_float_field(), ElementsAreArray(floatArray));
+    EXPECT_THAT(atom.repeated_string_field(), ElementsAreArray(stringArray));
+    EXPECT_THAT(atom.repeated_boolean_field(), ElementsAreArray(boolArrayVector));
+    EXPECT_THAT(atom.repeated_enum_field(), ElementsAreArray(enumArray));
+}
+
 /*
  * Test two Matchers is not a subset of one Matcher.
  * Test one Matcher is subset of two Matchers.
@@ -643,6 +765,31 @@ TEST(AtomMatcherTest, TestSubsetDimensions4) {
 
     EXPECT_TRUE(subsetDimensions(matchers1, matchers2));
     EXPECT_FALSE(subsetDimensions(matchers2, matchers1));
+}
+
+TEST(AtomMatcherTest, TestIsPrimitiveRepeatedField) {
+    int pos1[] = {1, 1, 1};  // attribution uid
+    int pos2[] = {1, 1, 2};  // attribution tag
+    int pos3[] = {1, 2, 1};  // attribution uid - second node
+    int pos4[] = {1, 2, 2};  // attribution tag - second node
+    int pos5[] = {2, 1, 1};  // repeated field first element
+    int pos6[] = {2, 2, 1};  // repeated field second element
+    int pos7[] = {3, 1, 1};  // top-level field
+    Field field1(10, pos1, 2);
+    Field field2(10, pos2, 2);
+    Field field3(10, pos3, 2);
+    Field field4(10, pos4, 2);
+    Field field5(10, pos5, 1);
+    Field field6(10, pos6, 1);
+    Field field7(10, pos7, 0);
+
+    EXPECT_FALSE(isPrimitiveRepeatedField(field1));
+    EXPECT_FALSE(isPrimitiveRepeatedField(field2));
+    EXPECT_FALSE(isPrimitiveRepeatedField(field3));
+    EXPECT_FALSE(isPrimitiveRepeatedField(field4));
+    EXPECT_TRUE(isPrimitiveRepeatedField(field5));
+    EXPECT_TRUE(isPrimitiveRepeatedField(field6));
+    EXPECT_FALSE(isPrimitiveRepeatedField(field7));
 }
 
 }  // namespace statsd

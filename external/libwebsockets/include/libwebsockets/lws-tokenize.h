@@ -43,6 +43,10 @@
 #define LWS_TOKENIZE_F_HASH_COMMENT	(1 << 7)
 /* Do not treat / as a terminal character, so "multipart/related" is one token */
 #define LWS_TOKENIZE_F_SLASH_NONTERM	(1 << 8)
+/* Do not treat * as a terminal character, so "myfile*" is one token */
+#define LWS_TOKENIZE_F_ASTERISK_NONTERM	(1 << 9)
+/* Do not treat = as a terminal character, so "x=y" is one token */
+#define LWS_TOKENIZE_F_EQUALS_NONTERM	(1 << 10)
 
 typedef enum {
 
@@ -192,10 +196,15 @@ enum {
  * \p exp: the exp object to init
  * \p priv: the user's object pointer to pass to callback
  * \p cb: the callback to expand named objects
- * \p out: the start of the output buffer
+ * \p out: the start of the output buffer, or NULL just to get the length
  * \p olen: the length of the output buffer in bytes
  *
  * Prepares an lws_strexp_t for use and sets the initial output buffer
+ *
+ * If \p out is NULL, substitution proceeds normally, but no output is produced,
+ * only the length is returned.  olen should be set to the largest feasible
+ * overall length.  To use this mode, the substitution callback must also check
+ * for NULL \p out and avoid producing the output.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_strexp_init(lws_strexp_t *exp, void *priv, lws_strexp_expand_cb cb,
@@ -205,12 +214,17 @@ lws_strexp_init(lws_strexp_t *exp, void *priv, lws_strexp_expand_cb cb,
  * lws_strexp_reset_out() - reset the output buffer on an existing strexp
  *
  * \p exp: the exp object to init
- * \p out: the start of the output buffer
+ * \p out: the start of the output buffer, or NULL to just get length
  * \p olen: the length of the output buffer in bytes
  *
  * Provides a new output buffer for lws_strexp_expand() to continue to write
  * into.  It can be the same as the old one if it has been copied out or used.
  * The position of the next write will be reset to the start of the given buf.
+ *
+ * If \p out is NULL, substitution proceeds normally, but no output is produced,
+ * only the length is returned.  \p olen should be set to the largest feasible
+ * overall length.  To use this mode, the substitution callback must also check
+ * for NULL \p out and avoid producing the output.
  */
 LWS_VISIBLE LWS_EXTERN void
 lws_strexp_reset_out(lws_strexp_t *exp, char *out, size_t olen);
@@ -241,3 +255,18 @@ LWS_VISIBLE LWS_EXTERN int
 lws_strexp_expand(lws_strexp_t *exp, const char *in, size_t len,
 		  size_t *pused_in, size_t *pused_out);
 
+/**
+ * lws_strcmp_wildcard() - strcmp but the first arg can have wildcards
+ *
+ * \p wildcard: a string that may contain zero to three *, and may lack a NUL
+ * \p wlen: length of the wildcard string
+ * \p check: string to test to see if it matches wildcard
+ * \p clen: length of check string
+ *
+ * Like strcmp, but supports patterns like "a*", "a*b", "a*b*" etc
+ * where a and b are arbitrary substrings.  Both the wc and check strings need
+ * not be NUL terminated, but are specified by lengths.
+ */
+LWS_VISIBLE LWS_EXTERN int
+lws_strcmp_wildcard(const char *wildcard, size_t wlen, const char *check,
+		    size_t clen);

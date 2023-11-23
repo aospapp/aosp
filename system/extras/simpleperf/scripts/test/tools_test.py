@@ -46,17 +46,17 @@ class TestTools(TestBase):
             ],
             '/simpleperf_runtest_two_functions_arm': [
                 {
-                    'func_addr': 0x784,
-                    'addr': 0x7b0,
-                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:14
-                                 system/extras/simpleperf/runtest/two_functions.cpp:23""",
-                    'function': """Function2()
+                    'func_addr': 0x1304,
+                    'addr': 0x131a,
+                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:8
+                                 system/extras/simpleperf/runtest/two_functions.cpp:22""",
+                    'function': """Function1()
                                    main""",
                 },
                 {
-                    'func_addr': 0x784,
-                    'addr': 0x7d0,
-                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:15
+                    'func_addr': 0x1304,
+                    'addr': 0x131c,
+                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:16
                                  system/extras/simpleperf/runtest/two_functions.cpp:23""",
                     'function': """Function2()
                                    main""",
@@ -64,44 +64,49 @@ class TestTools(TestBase):
             ],
             '/simpleperf_runtest_two_functions_x86_64': [
                 {
-                    'func_addr': 0x840,
-                    'addr': 0x840,
-                    'source': 'system/extras/simpleperf/runtest/two_functions.cpp:7',
-                    'function': 'Function1()',
-                },
-                {
-                    'func_addr': 0x920,
-                    'addr': 0x94a,
-                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:7
+                    'func_addr': 0x19e0,
+                    'addr': 0x19f6,
+                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:8
                                  system/extras/simpleperf/runtest/two_functions.cpp:22""",
                     'function': """Function1()
+                                   main""",
+                },
+                {
+                    'func_addr': 0x19e0,
+                    'addr': 0x1a19,
+                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:16
+                                 system/extras/simpleperf/runtest/two_functions.cpp:23""",
+                    'function': """Function2()
                                    main""",
                 }
             ],
             '/simpleperf_runtest_two_functions_x86': [
                 {
-                    'func_addr': 0x6d0,
-                    'addr': 0x6da,
-                    'source': 'system/extras/simpleperf/runtest/two_functions.cpp:14',
-                    'function': 'Function2()',
-                },
-                {
-                    'func_addr': 0x710,
-                    'addr': 0x749,
+                    'func_addr': 0x16e0,
+                    'addr': 0x16f6,
                     'source': """system/extras/simpleperf/runtest/two_functions.cpp:8
                                  system/extras/simpleperf/runtest/two_functions.cpp:22""",
                     'function': """Function1()
                                    main""",
+                },
+                {
+                    'func_addr': 0x16e0,
+                    'addr': 0x1710,
+                    'source': """system/extras/simpleperf/runtest/two_functions.cpp:16
+                                 system/extras/simpleperf/runtest/two_functions.cpp:23""",
+                    'function': """Function2()
+                                   main""",
                 }
             ],
         }
+
         binary_finder = BinaryFinder(TestHelper.testdata_dir, ReadElf(TestHelper.ndk_path))
         addr2line = Addr2Nearestline(TestHelper.ndk_path, binary_finder, with_function_name)
         for dso_path in test_map:
             test_addrs = test_map[dso_path]
             for test_addr in test_addrs:
                 addr2line.add_addr(dso_path, None, test_addr['func_addr'], test_addr['addr'])
-        addr2line.convert_addrs_to_lines()
+        addr2line.convert_addrs_to_lines(4)
         for dso_path in test_map:
             dso = addr2line.get_dso(dso_path)
             self.assertIsNotNone(dso, dso_path)
@@ -136,42 +141,100 @@ class TestTools(TestBase):
                                  'for %s:0x%x, expected source %s, actual source %s' %
                                  (dso_path, test_addr['addr'], expected_source, actual_source))
 
+    def test_addr2nearestline_parse_output(self):
+        output = """
+0x104c
+system/extras/simpleperf/runtest/two_functions.cpp:6:0
+
+0x1094
+system/extras/simpleperf/runtest/two_functions.cpp:9:10
+
+0x10bb
+system/extras/simpleperf/runtest/two_functions.cpp:11:1
+
+0x10bc
+system/extras/simpleperf/runtest/two_functions.cpp:13:0
+
+0x1104
+system/extras/simpleperf/runtest/two_functions.cpp:16:10
+
+0x112b
+system/extras/simpleperf/runtest/two_functions.cpp:18:1
+
+0x112c
+system/extras/simpleperf/runtest/two_functions.cpp:20:0
+
+0x113c
+system/extras/simpleperf/runtest/two_functions.cpp:22:5
+
+0x1140
+system/extras/simpleperf/runtest/two_functions.cpp:23:5
+
+0x1147
+system/extras/simpleperf/runtest/two_functions.cpp:21:3
+        """
+        dso = Addr2Nearestline.Dso(None)
+        binary_finder = BinaryFinder(TestHelper.testdata_dir, ReadElf(TestHelper.ndk_path))
+        addr2line = Addr2Nearestline(TestHelper.ndk_path, binary_finder, False)
+        addr_map = addr2line.parse_line_output(output, dso)
+        expected_addr_map = {
+            0x104c: [('system/extras/simpleperf/runtest/two_functions.cpp', 6)],
+            0x1094: [('system/extras/simpleperf/runtest/two_functions.cpp', 9)],
+            0x10bb: [('system/extras/simpleperf/runtest/two_functions.cpp', 11)],
+            0x10bc: [('system/extras/simpleperf/runtest/two_functions.cpp', 13)],
+            0x1104: [('system/extras/simpleperf/runtest/two_functions.cpp', 16)],
+            0x112b: [('system/extras/simpleperf/runtest/two_functions.cpp', 18)],
+            0x112c: [('system/extras/simpleperf/runtest/two_functions.cpp', 20)],
+            0x113c: [('system/extras/simpleperf/runtest/two_functions.cpp', 22)],
+            0x1140: [('system/extras/simpleperf/runtest/two_functions.cpp', 23)],
+            0x1147: [('system/extras/simpleperf/runtest/two_functions.cpp', 21)],
+        }
+        self.assertEqual(len(expected_addr_map), len(addr_map))
+        for addr in expected_addr_map:
+            expected_source_list = expected_addr_map[addr]
+            source_list = addr_map[addr]
+            self.assertEqual(len(expected_source_list), len(source_list))
+            for expected_source, source in zip(expected_source_list, source_list):
+                file_path = dso.file_id_to_name[source[0]]
+                self.assertEqual(file_path, expected_source[0])
+                self.assertEqual(source[1], expected_source[1])
+
     def test_objdump(self):
         test_map = {
             '/simpleperf_runtest_two_functions_arm64': {
                 'start_addr': 0x112c,
                 'len': 28,
                 'expected_items': [
-                    ('main():', 0),
-                    ('system/extras/simpleperf/runtest/two_functions.cpp:20', 0),
+                    ('main', 0),
+                    ('two_functions.cpp:20', 0),
                     ('1134:      	add	x29, sp, #16', 0x1134),
                 ],
             },
             '/simpleperf_runtest_two_functions_arm': {
-                'start_addr': 0x784,
-                'len': 80,
+                'start_addr': 0x1304,
+                'len': 40,
                 'expected_items': [
-                    ('main():', 0),
-                    ('system/extras/simpleperf/runtest/two_functions.cpp:20', 0),
-                    ('7ae:	bne.n	7a6 <main+0x22>', 0x7ae),
+                    ('main', 0),
+                    ('two_functions.cpp:20', 0),
+                    ('1318:      	bne	0x1312 <main+0xe>', 0x1318),
                 ],
             },
             '/simpleperf_runtest_two_functions_x86_64': {
-                'start_addr': 0x920,
-                'len': 201,
+                'start_addr': 0x19e0,
+                'len': 151,
                 'expected_items': [
-                    ('main():', 0),
-                    ('system/extras/simpleperf/runtest/two_functions.cpp:20', 0),
-                    ('96e:      	movl	%edx, (%rbx,%rax,4)', 0x96e),
+                    ('main', 0),
+                    ('two_functions.cpp:20', 0),
+                    (r'19f0:      	movl	%eax, 9314(%rip)', 0x19f0),
                 ],
             },
             '/simpleperf_runtest_two_functions_x86': {
-                'start_addr': 0x710,
-                'len': 98,
+                'start_addr': 0x16e0,
+                'len': 65,
                 'expected_items': [
-                    ('main():', 0),
-                    ('system/extras/simpleperf/runtest/two_functions.cpp:20', 0),
-                    ('748:      	cmpl	$100000000, %ebp', 0x748),
+                    ('main', 0),
+                    ('two_functions.cpp:20', 0),
+                    (r'16f7:      	cmpl	$100000000, %ecx', 0x16f7),
                 ],
             },
         }
@@ -208,7 +271,7 @@ class TestTools(TestBase):
             },
             'simpleperf_runtest_two_functions_arm': {
                 'arch': 'arm',
-                'build_id': '0x718f5b36c4148ee1bd3f51af89ed2be600000000',
+                'build_id': '0x6b5c2ee980465d306b580c5a8bc9767f00000000',
             },
             'simpleperf_runtest_two_functions_x86_64': {
                 'arch': 'x86_64',
@@ -234,24 +297,24 @@ class TestTools(TestBase):
 
     def test_source_file_searcher(self):
         searcher = SourceFileSearcher(
-            [TestHelper.testdata_path('SimpleperfExampleWithNative'),
+            [TestHelper.testdata_path('SimpleperfExampleCpp'),
              TestHelper.testdata_path('SimpleperfExampleOfKotlin')])
 
         def format_path(path):
             return os.path.join(TestHelper.testdata_dir, path.replace('/', os.sep))
         # Find a C++ file with pure file name.
         self.assertEqual(
-            format_path('SimpleperfExampleWithNative/app/src/main/cpp/native-lib.cpp'),
+            format_path('SimpleperfExampleCpp/app/src/main/cpp/native-lib.cpp'),
             searcher.get_real_path('native-lib.cpp'))
         # Find a C++ file with an absolute file path.
         self.assertEqual(
-            format_path('SimpleperfExampleWithNative/app/src/main/cpp/native-lib.cpp'),
+            format_path('SimpleperfExampleCpp/app/src/main/cpp/native-lib.cpp'),
             searcher.get_real_path('/data/native-lib.cpp'))
         # Find a Java file.
         self.assertEqual(
-            format_path('SimpleperfExampleWithNative/app/src/main/java/com/example/' +
-                        'simpleperf/simpleperfexamplewithnative/MainActivity.java'),
-            searcher.get_real_path('simpleperfexamplewithnative/MainActivity.java'))
+            format_path(
+                'SimpleperfExampleCpp/app/src/main/java/simpleperf/example/cpp/MainActivity.java'),
+            searcher.get_real_path('cpp/MainActivity.java'))
         # Find a Kotlin file.
         self.assertEqual(
             format_path('SimpleperfExampleOfKotlin/app/src/main/java/com/example/' +

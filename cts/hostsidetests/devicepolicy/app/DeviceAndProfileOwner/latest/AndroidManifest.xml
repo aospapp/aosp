@@ -39,12 +39,9 @@
     <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 
-    <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
-
     <!-- Add a network security config that trusts user added CAs for tests -->
     <application android:networkSecurityConfig="@xml/network_security_config"
-         android:testOnly="true">
+         android:testOnly="true" android:debuggable="true">
 
         <uses-library android:name="android.test.runner"/>
         <receiver android:name="com.android.cts.deviceandprofileowner.BaseDeviceAdminTest$BasicAdminReceiver"
@@ -55,6 +52,8 @@
                  android:resource="@xml/device_admin"/>
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
+                <!--  TODO(b/176993670): remove if DpmWrapperManagerWrapper goes away -->
+                <action android:name="com.android.bedstead.dpmwrapper.action.WRAPPED_MANAGER_CALL"/>
             </intent-filter>
         </receiver>
         <activity android:name="com.android.cts.deviceandprofileowner.ExampleIntentReceivingActivity1"

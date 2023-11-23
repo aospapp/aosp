@@ -112,6 +112,12 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
             addSplitFromNonDangerousPermissions(packagesToVerify, pregrantUidStates);
         }
 
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)
+                || ApiLevelUtil.codenameStartsWith("T")) {
+            addImplicitlyGrantedPermission(Manifest.permission.POST_NOTIFICATIONS,
+                    Build.VERSION_CODES.TIRAMISU, packagesToVerify, pregrantUidStates);
+        }
+
         // Add exceptions
         addExceptionsDefaultPermissions(packagesToVerify, runtimePermNames, pregrantUidStates);
 
@@ -509,6 +515,37 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
                                         + permission, false, Collections.singleton(extendedPerm),
                                 outUidStates);
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Add a permission which is granted, if it is implicitly added to a package
+     * @param permissionToAdd The permission to be added
+     * @param targetSdk The targetSDK below which the permission is added in
+     * @param packageInfos The packageInfos to be checked
+     * @param outUidStates The state to be modified
+     */
+    public static void addImplicitlyGrantedPermission(String permissionToAdd, int targetSdk,
+            Map<String, PackageInfo> packageInfos, SparseArray<UidState> outUidStates) {
+        for (PackageInfo pkg : packageInfos.values()) {
+            if (pkg.applicationInfo.targetSdkVersion >= targetSdk) {
+                continue;
+            }
+            for (String perm: pkg.requestedPermissions) {
+                if (perm.equals(permissionToAdd)) {
+                    int uid = pkg.applicationInfo.uid;
+                    UidState uidState = outUidStates.get(uid);
+                    if (uidState != null
+                            && uidState.grantedPermissions.containsKey(permissionToAdd)) {
+                        // permission is already granted. Don't override the grant-state.
+                        continue;
+                    }
+
+                    appendPackagePregrantedPerms(pkg, "permission " + permissionToAdd
+                                    + " is granted to pre-" + targetSdk + " apps", false,
+                            Collections.singleton(permissionToAdd), outUidStates);
                 }
             }
         }

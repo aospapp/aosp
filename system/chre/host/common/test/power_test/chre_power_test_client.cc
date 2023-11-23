@@ -37,6 +37,7 @@
 #include "chre/version.h"
 #include "chre_host/host_protocol_host.h"
 #include "chre_host/log.h"
+#include "chre_host/napp_header.h"
 #include "chre_host/socket_client.h"
 #include "generated/chre_power_test_generated.h"
 
@@ -62,6 +63,9 @@
  *                                <interval_ns> <optional: latency_ns>
  *  chre_power_test_client breakit <optional: tcm> <enable>
  *  chre_power_test_client gnss_meas <optional: tcm> <enable> <interval_ms>
+ *  chre_power_test_client wifi_nan_sub <optional: tcm> <sub_type>
+ *                                <service_name>
+ *  chre_power_test_client end_wifi_nan_sub <optional: tcm> <subscription_id>
  *
  * Command:
  *  load: load power test nanoapp to CHRE
@@ -122,6 +126,7 @@ using android::chre::FragmentedLoadTransaction;
 using android::chre::getStringFromByteVector;
 using android::chre::HostProtocolHost;
 using android::chre::IChreMessageHandlers;
+using android::chre::NanoAppBinaryHeader;
 using android::chre::SocketClient;
 using chre::power_test::MessageType;
 using chre::power_test::SensorType;
@@ -140,8 +145,6 @@ namespace {
 
 constexpr uint16_t kHostEndpoint = 0xfffd;
 
-constexpr uint32_t kAppVersion = 0x00020000;
-constexpr uint32_t kApiVersion = CHRE_API_VERSION;
 constexpr uint64_t kPowerTestAppId = 0x012345678900000f;
 constexpr uint64_t kPowerTestTcmAppId = 0x0123456789000010;
 constexpr uint64_t kUint64Max = std::numeric_limits<uint64_t>::max();
@@ -165,16 +168,25 @@ enum class Command : uint32_t {
   kAudio,
   kSensor,
   kBreakIt,
-  kGnssMeas
+  kGnssMeas,
+  kNanSub,
+  kNanCancel,
 };
 
 std::unordered_map<string, Command> commandMap{
-    {"unloadall", Command::kUnloadAll}, {"load", Command::kLoad},
-    {"unload", Command::kUnload},       {"timer", Command::kTimer},
-    {"wifi", Command::kWifi},           {"gnss", Command::kGnss},
-    {"cell", Command::kCell},           {"audio", Command::kAudio},
-    {"sensor", Command::kSensor},       {"breakit", Command::kBreakIt},
-    {"gnss_meas", Command::kGnssMeas}};
+    {"unloadall", Command::kUnloadAll},
+    {"load", Command::kLoad},
+    {"unload", Command::kUnload},
+    {"timer", Command::kTimer},
+    {"wifi", Command::kWifi},
+    {"gnss", Command::kGnss},
+    {"cell", Command::kCell},
+    {"audio", Command::kAudio},
+    {"sensor", Command::kSensor},
+    {"breakit", Command::kBreakIt},
+    {"gnss_meas", Command::kGnssMeas},
+    {"wifi_nan_sub", Command::kNanSub},
+    {"end_wifi_nan_sub", Command::kNanCancel}};
 
 std::unordered_map<string, MessageType> messageTypeMap{
     {"timer", MessageType::TIMER_TEST},
@@ -184,7 +196,9 @@ std::unordered_map<string, MessageType> messageTypeMap{
     {"audio", MessageType::AUDIO_REQUEST_TEST},
     {"sensor", MessageType::SENSOR_REQUEST_TEST},
     {"breakit", MessageType::BREAK_IT_TEST},
-    {"gnss_meas", MessageType::GNSS_MEASUREMENT_TEST}};
+    {"gnss_meas", MessageType::GNSS_MEASUREMENT_TEST},
+    {"wifi_nan_sub", MessageType::WIFI_NAN_SUB},
+    {"end_wifi_nan_sub", MessageType::WIFI_NAN_SUB_CANCEL}};
 
 std::unordered_map<string, SensorType> sensorTypeMap{
     {"accelerometer", SensorType::ACCELEROMETER},
@@ -343,62 +357,80 @@ bool requestNanoappList(SocketClient &client) {
   return true;
 }
 
-bool sendLoadNanoappRequest(SocketClient &client, const char *filename,
-                            uint64_t appId, uint32_t appVersion,
-                            uint32_t apiVersion, bool tcmApp) {
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
+bool readFileContents(const std::string filename,
+                      std::vector<uint8_t> *buffer) {
+  bool success = false;
+  std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
   if (!file) {
-    LOGE("Couldn't open file '%s': %s", filename, strerror(errno));
-    return false;
-  }
-  ssize_t size = file.tellg();
-  file.seekg(0, std::ios::beg);
+    LOGE("Couldn't open file '%s': %d (%s)", filename.c_str(), errno,
+         strerror(errno));
+  } else {
+    ssize_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-  std::vector<uint8_t> buffer(size);
-  if (!file.read(reinterpret_cast<char *>(buffer.data()), size)) {
-    LOGE("Couldn't read from file: %s", strerror(errno));
-    file.close();
-    return false;
-  }
-
-  // All loaded nanoapps must be signed currently.
-  uint32_t appFlags = CHRE_NAPP_HEADER_SIGNED;
-  if (tcmApp) {
-    appFlags |= CHRE_NAPP_HEADER_TCM_CAPABLE;
+    buffer->resize(size);
+    if (!file.read(reinterpret_cast<char *>(buffer->data()), size)) {
+      LOGE("Couldn't read from file '%s': %d (%s)", filename.c_str(), errno,
+           strerror(errno));
+    } else {
+      success = true;
+    }
   }
 
+  return success;
+}
+
+bool sendNanoappLoad(SocketClient &client, uint64_t appId, uint32_t appVersion,
+                     uint32_t apiVersion, uint32_t appFlags,
+                     const std::vector<uint8_t> &binary) {
   // Perform loading with 1 fragment for simplicity
-  FlatBufferBuilder builder(size + 128);
+  FlatBufferBuilder builder(binary.size() + 128);
   FragmentedLoadTransaction transaction = FragmentedLoadTransaction(
-      1 /* transactionId */, appId, appVersion, appFlags, apiVersion, buffer,
-      buffer.size() /* fragmentSize */);
+      1 /* transactionId */, appId, appVersion, appFlags, apiVersion, binary,
+      binary.size() /* fragmentSize */);
   HostProtocolHost::encodeFragmentedLoadNanoappRequest(
       builder, transaction.getNextRequest());
+
   LOGI("Sending load nanoapp request (%" PRIu32
-       " bytes total w/ %zu bytes of payload)",
-       builder.GetSize(), buffer.size());
-  bool success =
-      client.sendMessage(builder.GetBufferPointer(), builder.GetSize());
-  if (!success) {
-    LOGE("Failed to send message");
+       " bytes total w/%zu bytes of "
+       "payload)",
+       builder.GetSize(), binary.size());
+  return client.sendMessage(builder.GetBufferPointer(), builder.GetSize());
+}
+
+bool sendLoadNanoappRequest(SocketClient &client,
+                            const std::string filenameNoExtension) {
+  bool success = false;
+  std::vector<uint8_t> headerBuffer;
+  std::vector<uint8_t> binaryBuffer;
+  if (readFileContents(filenameNoExtension + ".napp_header", &headerBuffer) &&
+      readFileContents(filenameNoExtension + ".so", &binaryBuffer)) {
+    if (headerBuffer.size() != sizeof(NanoAppBinaryHeader)) {
+      LOGE("Header size mismatch");
+    } else {
+      // The header blob contains the struct above.
+      const auto *appHeader =
+          reinterpret_cast<const NanoAppBinaryHeader *>(headerBuffer.data());
+
+      // Build the target API version from major and minor.
+      uint32_t targetApiVersion = (appHeader->targetChreApiMajorVersion << 24) |
+                                  (appHeader->targetChreApiMinorVersion << 16);
+
+      success =
+          sendNanoappLoad(client, appHeader->appId, appHeader->appVersion,
+                          targetApiVersion, appHeader->flags, binaryBuffer);
+    }
   }
-  file.close();
   return success;
 }
 
 bool loadNanoapp(SocketClient &client, sp<SocketCallbacks> callbacks,
-                 const char *filename, uint64_t appId, uint32_t appVersion,
-                 uint32_t apiVersion, bool tcmApp) {
-  if (!sendLoadNanoappRequest(client, filename, appId, appVersion, apiVersion,
-                              tcmApp)) {
+                 const std::string filenameNoExt) {
+  if (!sendLoadNanoappRequest(client, filenameNoExt)) {
     return false;
   }
   auto status = kReadyCond.wait_for(kReadyCondLock, kTimeout);
-  bool success =
-      (status == std::cv_status::no_timeout && callbacks->actionSucceeded());
-  LOGI("Loaded the nanoapp with appId: %" PRIx64 " success: %d", appId,
-       success);
-  return success;
+  return (status == std::cv_status::no_timeout && callbacks->actionSucceeded());
 }
 
 bool sendUnloadNanoappRequest(SocketClient &client, uint64_t appId) {
@@ -596,6 +628,22 @@ bool validateArguments(Command commandEnum, std::vector<string> &args) {
     return false;
   }
 
+  if (commandEnum == Command::kNanSub) {
+    if (args.size() != 3) {
+      LOGE("Incorrect number of parameters for NAN sub");
+      return false;
+    }
+    return true;
+  }
+
+  if (commandEnum == Command::kNanCancel) {
+    if (args.size() != 2) {
+      LOGE("Incorrect number of parameters for NAN cancel");
+      return false;
+    }
+    return true;
+  }
+
   if (args[1] != "enable" && args[1] != "disable") {
     LOGE("<enable> was neither enable nor disable");
     return false;
@@ -725,6 +773,22 @@ void createGnssMeasMessage(FlatBufferBuilder &fbb, std::vector<string> &args) {
        enable, intervalMilliseconds);
 }
 
+void createNanSubMessage(FlatBufferBuilder &fbb, std::vector<string> &args) {
+  uint8_t subType = atoi(args[1].c_str());
+  std::string &serviceName = args[2];
+  std::vector<uint8_t> serviceNameBytes(serviceName.begin(), serviceName.end());
+  fbb.Finish(
+      ptest::CreateWifiNanSubMessageDirect(fbb, subType, &serviceNameBytes));
+  LOGI("Created NAN subscription message, subType %d serviceName %s", subType,
+       serviceName.c_str());
+}
+
+void createNanCancelMessage(FlatBufferBuilder &fbb, std::vector<string> &args) {
+  uint32_t subId = strtoul(args[1].c_str(), nullptr /* endptr */, 0 /* base */);
+  fbb.Finish(ptest::CreateWifiNanSubCancelMessage(fbb, subId));
+  LOGI("Created NAN subscription cancel message, subId %" PRIu32, subId);
+}
+
 bool sendMessageToNanoapp(SocketClient &client, sp<SocketCallbacks> callbacks,
                           FlatBufferBuilder &fbb, uint64_t appId,
                           MessageType messageType) {
@@ -772,6 +836,10 @@ static void usage() {
       " chre_power_test_client breakit <optional: tcm> <enable>\n"
       " chre_power_test_client gnss_meas <optional: tcm> <enable> <interval_ms>"
       "\n"
+      " chre_power_test_client wifi_nan_sub <optional: tcm> <sub_type>"
+      " <service_name>\n"
+      " chre_power_test_client end_wifi_nan_sub <optional: tcm>"
+      " <subscription_id>\n"
       "Command:\n"
       "load: load power test nanoapp to CHRE\n"
       "unload: unload power test nanoapp from CHRE\n"
@@ -784,6 +852,8 @@ static void usage() {
       "sensor: start/stop periodic sensor sampling\n"
       "breakit: start/stop all action for stress tests\n"
       "gnss_meas: start/stop periodic GNSS measurement\n"
+      "wifi_nan_sub: start a WiFi NAN subscription\n"
+      "end_wifi_nan_sub: end a WiFi NAN subscription\n"
       "\n"
       "<optional: tcm>: tcm for micro image, default for big image\n"
       "<enable>: enable/disable\n"
@@ -828,38 +898,36 @@ static void usage() {
 void createRequestMessage(Command commandEnum, FlatBufferBuilder &fbb,
                           std::vector<string> &args) {
   switch (commandEnum) {
-    case Command::kTimer: {
+    case Command::kTimer:
       createTimerMessage(fbb, args);
       break;
-    }
-    case Command::kWifi: {
+    case Command::kWifi:
       createWifiMessage(fbb, args);
       break;
-    }
-    case Command::kGnss: {
+    case Command::kGnss:
       createGnssMessage(fbb, args);
       break;
-    }
-    case Command::kCell: {
+    case Command::kCell:
       createCellMessage(fbb, args);
       break;
-    }
-    case Command::kAudio: {
+    case Command::kAudio:
       createAudioMessage(fbb, args);
       break;
-    }
-    case Command::kSensor: {
+    case Command::kSensor:
       createSensorMessage(fbb, args);
       break;
-    }
-    case Command::kBreakIt: {
+    case Command::kBreakIt:
       createBreakItMessage(fbb, args);
       break;
-    }
-    case Command::kGnssMeas: {
+    case Command::kGnssMeas:
       createGnssMeasMessage(fbb, args);
       break;
-    }
+    case Command::kNanSub:
+      createNanSubMessage(fbb, args);
+      break;
+    case Command::kNanCancel:
+      createNanCancelMessage(fbb, args);
+      break;
     default: {
       usage();
     }
@@ -917,9 +985,14 @@ int main(int argc, char *argv[]) {
     }
     case Command::kLoad: {
       LOGI("Loading nanoapp from %s", getPath(args).c_str());
-      success =
-          loadNanoapp(client, callbacks, getPath(args).c_str(), getId(args),
-                      kAppVersion, kApiVersion, isTcmArgSpecified(args));
+      std::string filepath = getPath(args);
+      // Strip extension if present so the path can be used for both the
+      // nanoapp header and .so
+      size_t index = filepath.find_last_of(".");
+      if (index != std::string::npos) {
+        filepath = filepath.substr(0, index);
+      }
+      success = loadNanoapp(client, callbacks, filepath);
       break;
     }
     default: {

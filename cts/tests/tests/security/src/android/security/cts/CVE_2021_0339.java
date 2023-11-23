@@ -31,6 +31,9 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2021_0339 {
+public class CVE_2021_0339 extends StsExtraBusinessLogicTestCase {
 
     static final String TAG = CVE_2021_0339.class.getSimpleName();
     private static final String SECURITY_CTS_PACKAGE_NAME = "android.security.cts";

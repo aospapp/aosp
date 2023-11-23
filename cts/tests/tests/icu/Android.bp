@@ -30,7 +30,6 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
     ],
     platform_apis: true,
 }
@@ -39,7 +38,9 @@ java_test_host {
     name: "CtsIcu4cTestCases",
     defaults: ["cts_support_defaults"],
     test_config: "CtsIcu4cTestCases.xml",
+    per_testcase_directory: true,
     data: [
+        ":CtsIcu4cTestApp",
         ":cintltst32",
         ":cintltst64",
         ":intltest32",

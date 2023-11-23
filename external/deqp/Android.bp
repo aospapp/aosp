@@ -97,9 +97,11 @@ cc_defaults {
         "-DDE_ANDROID_API=28",
         "-DDE_ASSERT_FAILURE_CALLBACK",
         "-DDE_COMPILER=DE_COMPILER_CLANG",
+        "-DDE_MINGW=0",
         "-DDE_OS=DE_OS_ANDROID",
         "-DDEQP_GLES2_DIRECT_LINK=1",
-        "-DDEQP_HAVE_RENDERDOC_HEADER=1",
+        "-DDEQP_HAVE_RENDERDOC_HEADER=0", // Needs to be 0.
+        "-DDEQP_SUPPORT_DRM=0",
         "-DDEQP_SUPPORT_GLES1=1",
         "-DDEQP_TARGET_NAME=\"Android\"",
         "-DQP_SUPPORT_PNG",

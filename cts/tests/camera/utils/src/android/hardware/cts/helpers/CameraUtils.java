@@ -17,12 +17,14 @@
 package android.hardware.cts.helpers;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.devicestate.DeviceStateManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -30,8 +32,11 @@ import android.view.TextureView;
 
 import androidx.test.InstrumentationRegistry;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -273,4 +278,30 @@ public class CameraUtils {
         }
     }
 
+    /**
+     * Uses {@link DeviceStateManager} to determine if the device is foldable or not. It relies on
+     * the OEM exposing supported states, and setting
+     * com.android.internal.R.array.config_foldedDeviceStates correctly with the folded states.
+     *
+     * @return true is the device is a foldable; false otherwise
+     */
+    public static boolean isDeviceFoldable(Context mContext) {
+        DeviceStateManager deviceStateManager =
+                mContext.getSystemService(DeviceStateManager.class);
+        if (deviceStateManager == null) {
+            Log.w(TAG, "Couldn't locate DeviceStateManager to detect if the device is foldable"
+                    + " or not. Defaulting to not-foldable.");
+            return false;
+        }
+        Set<Integer> supportedStates = Arrays.stream(
+                deviceStateManager.getSupportedStates()).boxed().collect(Collectors.toSet());
+
+        Resources systemRes = Resources.getSystem();
+        int foldedStatesArrayIdentifier = systemRes.getIdentifier("config_foldedDeviceStates",
+                "array", "android");
+        int[] foldedDeviceStates = systemRes.getIntArray(foldedStatesArrayIdentifier);
+
+        // Device is a foldable if supportedStates contains any state in foldedDeviceStates
+        return Arrays.stream(foldedDeviceStates).anyMatch(supportedStates::contains);
+    }
 }

@@ -19,14 +19,13 @@ package com.android.permissioncontroller.permission.ui;
 import static android.app.PendingIntent.FLAG_IMMUTABLE;
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static android.app.PendingIntent.getActivity;
+import static android.app.admin.DevicePolicyResources.Strings.PermissionSettings.LOCATION_AUTO_GRANTED_MESSAGE;
 import static android.content.Intent.ACTION_MANAGE_APP_PERMISSION;
 import static android.content.Intent.EXTRA_PACKAGE_NAME;
 import static android.content.Intent.EXTRA_PERMISSION_GROUP_NAME;
 import static android.content.Intent.EXTRA_USER;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.graphics.Bitmap.Config.ARGB_8888;
-import static android.graphics.Bitmap.createBitmap;
 import static android.os.UserHandle.getUserHandleForUid;
 
 import static com.android.permissioncontroller.Constants.ADMIN_AUTO_GRANTED_PERMISSIONS_ALERTING_NOTIFICATION_CHANNEL_ID;
@@ -46,8 +45,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
@@ -58,6 +55,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.permissioncontroller.R;
+import com.android.permissioncontroller.permission.utils.KotlinUtils;
+import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.ArrayList;
 
@@ -141,7 +140,8 @@ public class AutoGrantPermissionsNotifier {
         long sessionId = getValidSessionId();
 
         Intent manageAppPermission = getSettingsPermissionIntent(sessionId);
-        Bitmap pkgIconBmp = getPackageIcon(pm.getApplicationIcon(mPackageInfo.applicationInfo));
+        Bitmap pkgIconBmp = KotlinUtils.INSTANCE.convertToBitmap(
+                pm.getApplicationIcon(mPackageInfo.applicationInfo));
         // Use the hash code of the package name string as a unique request code for
         // PendingIntent.getActivity.
         // To prevent multiple notifications related to different apps all leading to the same
@@ -155,8 +155,8 @@ public class AutoGrantPermissionsNotifier {
 
         String title = mContext.getString(
                 R.string.auto_granted_location_permission_notification_title);
-        String messageText = mContext.getString(R.string.auto_granted_permission_notification_body,
-                pkgLabel);
+        String messageText = Utils.getEnterpriseString(mContext, LOCATION_AUTO_GRANTED_MESSAGE,
+                R.string.auto_granted_permission_notification_body, pkgLabel);
         Notification.Builder b = (new Notification.Builder(mContext,
                 getNotificationChannelId(shouldNotifySilently))).setContentTitle(title)
                 .setContentText(messageText)
@@ -225,16 +225,6 @@ public class AutoGrantPermissionsNotifier {
                 .putExtra(EXTRA_SESSION_ID, sessionId)
                 .putExtra(ManagePermissionsActivity.EXTRA_CALLER_NAME,
                         AutoGrantPermissionsNotifier.class.getName());
-    }
-
-    private @NonNull Bitmap getPackageIcon(@NonNull Drawable pkgIcon) {
-        Bitmap pkgIconBmp = createBitmap(pkgIcon.getIntrinsicWidth(), pkgIcon.getIntrinsicHeight(),
-                ARGB_8888);
-        // Draw the icon so it can be displayed.
-        Canvas canvas = new Canvas(pkgIconBmp);
-        pkgIcon.setBounds(0, 0, pkgIcon.getIntrinsicWidth(), pkgIcon.getIntrinsicHeight());
-        pkgIcon.draw(canvas);
-        return pkgIconBmp;
     }
 
     private String getNotificationChannelId(boolean shouldNotifySilently) {

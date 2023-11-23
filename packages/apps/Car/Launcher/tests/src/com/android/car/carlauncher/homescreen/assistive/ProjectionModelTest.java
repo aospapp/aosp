@@ -24,16 +24,17 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 import android.car.projection.ProjectionStatus;
-import android.testing.TestableContext;
+import android.content.Context;
+import android.icu.text.MessageFormat;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 
+import com.android.car.carlauncher.R;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,12 +42,12 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Collections;
+import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class ProjectionModelTest {
 
-    @Rule
-    public TestableContext mContext = new TestableContext(InstrumentationRegistry.getContext());
+    public Context mContext = ApplicationProvider.getApplicationContext();
 
     private static final String PROJECTING_DEVICE_NAME = "projecting device name";
     private static final String NONPROJECTING_DEVICE_NAME = "non-projecting device name";
@@ -66,6 +67,17 @@ public class ProjectionModelTest {
     private final ProjectionStatus mNonProjectingDeviceProjectionStatus = ProjectionStatus.builder(
             mContext.getPackageName(), ProjectionStatus.PROJECTION_STATE_READY_TO_PROJECT)
             .addMobileDevice(NONPROJECTING_DEVICE).build();
+    private final ProjectionStatus mProjectingAndNonProjectingDeviceProjectionStatus =
+            ProjectionStatus.builder(
+                    mContext.getPackageName(),
+                    ProjectionStatus.PROJECTION_STATE_READY_TO_PROJECT).addMobileDevice(
+                    PROJECTING_DEVICE).addMobileDevice(NONPROJECTING_DEVICE).build();
+    private final ProjectionStatus mProjectingMultipleAndNonProjectingDeviceProjectionStatus =
+            ProjectionStatus.builder(
+                    mContext.getPackageName(),
+                    ProjectionStatus.PROJECTION_STATE_READY_TO_PROJECT).addMobileDevice(
+                    PROJECTING_DEVICE).addMobileDevice(PROJECTING_DEVICE).addMobileDevice(
+                    NONPROJECTING_DEVICE).build();
 
     private ProjectionModel mModel;
 
@@ -99,7 +111,7 @@ public class ProjectionModelTest {
 
         verify(mPresenter).onModelUpdated(mModel);
         DescriptiveTextView content = (DescriptiveTextView) mModel.getCardContent();
-        assertEquals(content.getSubtitle(), PROJECTING_DEVICE_NAME);
+        assertEquals(PROJECTING_DEVICE_NAME, String.valueOf(content.getSubtitle()));
     }
 
     @Test
@@ -108,7 +120,31 @@ public class ProjectionModelTest {
 
         verify(mPresenter).onModelUpdated(mModel);
         DescriptiveTextView content = (DescriptiveTextView) mModel.getCardContent();
-        assertEquals(content.getSubtitle(), NONPROJECTING_DEVICE_NAME);
+        assertEquals(NONPROJECTING_DEVICE_NAME, String.valueOf(content.getSubtitle()));
+    }
+
+    @Test
+    public void changeProjectionStatusToSingleProjectingAndNonProjectingDevice_callsPresenter() {
+        sendProjectionStatus(mProjectingAndNonProjectingDeviceProjectionStatus);
+
+        verify(mPresenter).onModelUpdated(mModel);
+        DescriptiveTextView content = (DescriptiveTextView) mModel.getCardContent();
+        assertEquals(PROJECTING_DEVICE_NAME, String.valueOf(content.getSubtitle()));
+    }
+
+    @Test
+    public void changeProjectionStatusToMultipleProjectingAndNonProjectingDevice_callsPresenter() {
+        sendProjectionStatus(mProjectingMultipleAndNonProjectingDeviceProjectionStatus);
+
+        verify(mPresenter).onModelUpdated(mModel);
+        DescriptiveTextView content = (DescriptiveTextView) mModel.getCardContent();
+
+        String formattedPluralString = MessageFormat.format(mContext.getString(
+                        R.string.projection_devices),
+                Map.of("count",
+                        mProjectingMultipleAndNonProjectingDeviceProjectionStatus
+                                .getConnectedMobileDevices().size()));
+        assertEquals(formattedPluralString, String.valueOf(content.getSubtitle()));
     }
 
     @Test

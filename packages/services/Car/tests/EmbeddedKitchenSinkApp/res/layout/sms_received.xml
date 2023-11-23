@@ -39,35 +39,12 @@
     <TextView android:id="@+id/bluetoothDevice" android:layout_height="wrap_content"
               android:layout_width="wrap_content"/>
 
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
-        <Button
-            android:id="@+id/uploading_supported_feature"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="@string/uploading_supported_feature"/>
-        <EditText
-            android:id="@+id/uploading_supported_feature_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0"
-            android:inputType="none" />
-    </LinearLayout>
-
     <Button
         android:id="@+id/reply"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/sms_reply_busy"/>
-    <Button
-        android:id="@+id/check_messages"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="@string/sms_listing_button"/>
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">

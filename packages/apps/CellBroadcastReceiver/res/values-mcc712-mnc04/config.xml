@@ -15,8 +15,11 @@
 -->
 
 <resources>
-    <string-array name="additional_cbs_channels_strings" translatable="false">
-        <!-- Channel 50 for area update info -->
-        <item>0x032:type=area, emergency=false</item>
+    <!-- Emergency alerts toggle default value -->
+    <bool name="emergency_alerts_enabled_default">false</bool>
+    <!-- 50, 919 -->
+    <string-array name="emergency_alerts_channels_range_strings" translatable="false">
+        <item>0x0032:rat=gsm, emergency=true, dialog_with_notification=true</item>
+        <item>0x0397:rat=gsm, emergency=true</item>
     </string-array>
 </resources>

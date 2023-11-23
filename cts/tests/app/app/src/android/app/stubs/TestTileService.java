@@ -19,85 +19,10 @@ package android.app.stubs;
 import android.content.ComponentName;
 import android.service.quicksettings.TileService;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 public class TestTileService extends TileService {
-
-    public static final String TAG = "TestTileService";
-    public static final String PKG = "android.app.stubs";
-    public static final int ICON_ID = R.drawable.robot;
-
-    private static TestTileService sTestTileService = null;
-    AtomicBoolean isConnected = new AtomicBoolean(false);
-    AtomicBoolean isListening = new AtomicBoolean(false);
-    AtomicBoolean hasBeenClicked = new AtomicBoolean(false);
-
-    public static String getId() {
-        return String.format("%s/%s", TestTileService.class.getPackage().getName(),
-                TestTileService.class.getName());
-    }
 
     public static ComponentName getComponentName() {
         return new ComponentName(TestTileService.class.getPackage().getName(),
                 TestTileService.class.getName());
-    }
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-    }
-
-    public static TestTileService getInstance() {
-        return TestTileService.sTestTileService;
-    }
-
-    public void setInstance(TestTileService tile) {
-        sTestTileService = tile;
-    }
-
-    public static boolean isConnected() {
-        return getInstance() != null && getInstance().isConnected.get();
-    }
-
-    public static boolean isListening() {
-        return getInstance().isListening.get();
-    }
-
-    public static boolean hasBeenClicked() {
-        return getInstance().hasBeenClicked.get();
-    }
-
-    @Override
-    public void onStartListening() {
-        super.onStartListening();
-        isListening.set(true);
-    }
-
-    @Override
-    public void onStopListening() {
-        super.onStopListening();
-        isListening.set(false);
-    }
-
-    @Override
-    public void onClick() {
-        super.onClick();
-        hasBeenClicked.set(true);
-    }
-
-    @Override
-    public void onTileAdded() {
-        super.onTileAdded();
-        setInstance(this);
-        isConnected.set(true);
-    }
-
-    @Override
-    public void onTileRemoved() {
-        super.onTileRemoved();
-        setInstance(null);
-        isConnected.set(false);
-        isListening.set(false);
-        hasBeenClicked.set(false);
     }
 }

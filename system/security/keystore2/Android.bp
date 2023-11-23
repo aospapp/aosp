@@ -25,9 +25,11 @@ rust_defaults {
     name: "libkeystore2_defaults",
     crate_name: "keystore2",
     srcs: ["src/lib.rs"],
+    defaults: [
+        "keymint_use_latest_hal_aidl_rust",
+    ],
 
     rustlibs: [
-        "android.hardware.security.keymint-V1-rust",
         "android.hardware.security.secureclock-V1-rust",
         "android.hardware.security.sharedsecret-V1-rust",
         "android.os.permissions_aidl-rust",
@@ -37,24 +39,23 @@ rust_defaults {
         "android.security.maintenance-rust",
         "android.security.metrics-rust",
         "android.security.remoteprovisioning-rust",
-        "android.system.keystore2-V1-rust",
+        "android.system.keystore2-V2-rust",
         "libanyhow",
         "libbinder_rs",
-        "libcutils_bindgen",
         "libkeystore2_aaid-rust",
         "libkeystore2_apc_compat-rust",
         "libkeystore2_crypto_rust",
         "libkeystore2_km_compat",
         "libkeystore2_selinux",
-        "libkeystore2_system_property-rust",
         "libkeystore2_vintf_rust",
         "liblazy_static",
         "liblibc",
-        "liblibsqlite3_sys",
         "liblog_event_list",
         "liblog_rust",
         "librand",
-        "librusqlite",
+        "librustutils",
+        "libserde",
+        "libserde_cbor",
         "libthiserror",
     ],
     shared_libs: [
@@ -68,15 +69,59 @@ rust_defaults {
 rust_library {
     name: "libkeystore2",
     defaults: ["libkeystore2_defaults"],
+    rustlibs: [
+        "liblibsqlite3_sys",
+        "librusqlite",
+    ],
 }
 
 rust_library {
     name: "libkeystore2_test_utils",
     crate_name: "keystore2_test_utils",
     srcs: ["test_utils/lib.rs"],
+    defaults: ["keymint_use_latest_hal_aidl_rust"],
     rustlibs: [
+        "android.system.keystore2-V2-rust",
+        "libbinder_rs",
+        "libkeystore2_selinux",
         "liblog_rust",
+        "libnix",
         "librand",
+        "libserde",
+        "libserde_cbor",
+    ],
+}
+
+rust_library {
+    name: "libkeystore2_with_test_utils",
+    defaults: ["libkeystore2_defaults"],
+    features: [
+        "keystore2_blob_test_utils",
+    ],
+    rustlibs: [
+        "liblibsqlite3_sys",
+        "librusqlite",
+        "libkeystore2_test_utils",
+    ],
+}
+
+rust_test {
+    name: "keystore2_test_utils_test",
+    srcs: ["test_utils/lib.rs"],
+    defaults: ["keymint_use_latest_hal_aidl_rust"],
+    test_suites: ["general-tests"],
+    require_root: true,
+    auto_gen_config: true,
+    compile_multilib: "first",
+    rustlibs: [
+        "android.system.keystore2-V2-rust",
+        "libbinder_rs",
+        "libkeystore2_selinux",
+        "liblog_rust",
+        "libnix",
+        "librand",
+        "libserde",
+        "libserde_cbor",
     ],
 }
 
@@ -90,23 +135,25 @@ rust_test {
     rustlibs: [
         "libandroid_logger",
         "libkeystore2_test_utils",
+        "liblibsqlite3_sys",
         "libnix",
+        "librusqlite",
+        "libkeystore2_with_test_utils",
     ],
     // The test should always include watchdog.
     features: [
         "watchdog",
+        "keystore2_blob_test_utils",
     ],
 }
 
-rust_binary {
-    name: "keystore2",
+rust_defaults {
+    name: "keystore2_defaults",
     srcs: ["src/keystore2_main.rs"],
     rustlibs: [
         "libandroid_logger",
         "libbinder_rs",
-        "libkeystore2",
         "liblog_rust",
-        "liblegacykeystore-rust",
     ],
     init_rc: ["keystore2.rc"],
 
@@ -118,31 +165,18 @@ rust_binary {
     // selection available in the build system.
     prefer_rlib: true,
 
-    // TODO(b/187412695)
-    // This is a hack to work around the build system not installing
-    // dynamic dependencies of rlibs to the device. This section should
-    // be removed once that works correctly.
-    shared_libs: [
-        "android.hardware.confirmationui@1.0",
-        "android.hardware.security.sharedsecret-V1-ndk_platform",
-        "android.security.compat-ndk_platform",
-        "libc",
-        "libdl_android",
-        "libdl",
-        "libandroidicu",
-        "libkeymint",
-        "libkeystore2_aaid",
-        "libkeystore2_apc_compat",
-        "libkeystore2_crypto",
-        "libkeystore2_vintf_cpp",
-        "libkm_compat_service",
-        "libkm_compat",
-        "libm",
-        "libstatspull",
-        "libstatssocket",
-    ],
-
     vintf_fragments: ["android.system.keystore2-service.xml"],
 
     required: ["keystore_cli_v2"],
+}
+
+rust_binary {
+    name: "keystore2",
+    defaults: ["keystore2_defaults"],
+    rustlibs: [
+        "libkeystore2",
+        "liblegacykeystore-rust",
+        "librusqlite",
+    ],
+    afdo: true,
 }

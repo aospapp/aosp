@@ -29,27 +29,24 @@ namespace chromeos_update_engine {
 
 class MockPrefs : public PrefsInterface {
  public:
-  MOCK_CONST_METHOD2(GetString,
-                     bool(const std::string& key, std::string* value));
-  MOCK_METHOD2(SetString, bool(const std::string& key, std::string_view value));
-  MOCK_CONST_METHOD2(GetInt64, bool(const std::string& key, int64_t* value));
-  MOCK_METHOD2(SetInt64, bool(const std::string& key, const int64_t value));
+  MOCK_CONST_METHOD2(GetString, bool(std::string_view key, std::string* value));
+  MOCK_METHOD2(SetString, bool(std::string_view key, std::string_view value));
+  MOCK_CONST_METHOD2(GetInt64, bool(std::string_view key, int64_t* value));
+  MOCK_METHOD2(SetInt64, bool(std::string_view key, const int64_t value));
 
-  MOCK_CONST_METHOD2(GetBoolean, bool(const std::string& key, bool* value));
-  MOCK_METHOD2(SetBoolean, bool(const std::string& key, const bool value));
+  MOCK_CONST_METHOD2(GetBoolean, bool(std::string_view key, bool* value));
+  MOCK_METHOD2(SetBoolean, bool(std::string_view key, const bool value));
 
-  MOCK_CONST_METHOD1(Exists, bool(const std::string& key));
-  MOCK_METHOD1(Delete, bool(const std::string& key));
+  MOCK_CONST_METHOD1(Exists, bool(std::string_view key));
+  MOCK_METHOD1(Delete, bool(std::string_view key));
   MOCK_METHOD2(Delete,
-               bool(const std::string& key,
-                    const std::vector<std::string>& nss));
+               bool(std::string_view key, const std::vector<std::string>& nss));
 
   MOCK_CONST_METHOD2(GetSubKeys,
-                     bool(const std::string&, std::vector<std::string>*));
+                     bool(std::string_view, std::vector<std::string>*));
 
-  MOCK_METHOD2(AddObserver, void(const std::string& key, ObserverInterface*));
-  MOCK_METHOD2(RemoveObserver,
-               void(const std::string& key, ObserverInterface*));
+  MOCK_METHOD2(AddObserver, void(std::string_view key, ObserverInterface*));
+  MOCK_METHOD2(RemoveObserver, void(std::string_view key, ObserverInterface*));
 };
 
 }  // namespace chromeos_update_engine

@@ -22,6 +22,7 @@ import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHidHost;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -132,6 +133,11 @@ public class BluetoothDevicesService extends Service {
                 }
             } else {
                 switch(action) {
+                    case BluetoothHidHost.ACTION_CONNECTION_STATE_CHANGED:
+                        if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+                            mHandler.post(() -> onDeviceUpdated(device));
+                        }
+                        break;
                     case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED:
                         int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
                         mHandler.post(() -> onA2dpConnectionStateChanged(device.getName(), state));
@@ -169,6 +175,7 @@ public class BluetoothDevicesService extends Service {
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        filter.addAction(BluetoothHidHost.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED); // Headset connection
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED); // Bluetooth toggle
         registerReceiver(mBluetoothReceiver, filter);

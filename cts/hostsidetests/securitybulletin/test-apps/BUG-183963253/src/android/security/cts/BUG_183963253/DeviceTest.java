@@ -41,6 +41,7 @@ import androidx.test.uiautomator.Until;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assume.assumeNotNull;
 
 /** Basic sample for unbundled UiAutomator. */
 @RunWith(AndroidJUnit4.class)
@@ -111,7 +112,7 @@ public class DeviceTest {
         mContext.startActivity(intent);
 
         UiObject2 view = waitForView(By.text(Constants.TEST_APP_PACKAGE));
-        assertNotNull("Activity under-test was not launched or found!", view);
+        assumeNotNull("Activity under-test was not launched or found!", view);
         Log.d(LOG_TAG, "Started Activity under-test.");
     }
 

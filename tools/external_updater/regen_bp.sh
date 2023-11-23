@@ -26,14 +26,15 @@ set -e
 
 # Wrapper around cargo2android.
 C2A_WRAPPER="/google/bin/releases/android-rust/cargo2android/sandbox.par"
+C2A_WRAPPER_FLAGS="--updater"
 
 function main() {
   check_files $*
   update_files_with_cargo_pkg_vars
   # Save Cargo.lock if it existed before this update.
   [ ! -f Cargo.lock ] || mv Cargo.lock Cargo.lock.saved
-  echo "Updating Android.bp: $C2A_WRAPPER -- $FLAGS"
-  $C2A_WRAPPER -- $FLAGS
+  echo "Updating Android.bp: $C2A_WRAPPER $C2A_WRAPPER_FLAGS -- $FLAGS"
+  $C2A_WRAPPER $C2A_WRAPPER_FLAGS -- $FLAGS
   copy_cargo_out_files $*
   rm -rf target.tmp cargo.out Cargo.lock
   # Restore Cargo.lock if it existed before this update.

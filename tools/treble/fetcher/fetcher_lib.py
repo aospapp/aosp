@@ -103,7 +103,8 @@ def create_client(http):
   Returns:
     An authorized android build api client.
   """
-  return build(serviceName='androidbuildinternal', version='v2beta1', http=http)
+  return build(serviceName='androidbuildinternal', version='v2beta1', http=http,
+               static_discovery=False)
 
 
 def create_client_from_json_keyfile(json_keyfile_name=None):

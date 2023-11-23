@@ -35,31 +35,35 @@ public enum ModeId {
     /**
      * $BOOTCLASSPATH for art+libcore only.
      * (Intended for use with dalvikvm only.)
-     * See TARGET_TEST_CORE_JARS in android/art/build/Android.common_path.mk
      */
     private static final String[] DEVICE_JARS = new String[] {
+            // ART module BCP libraries. See CORE_IMG_JARS in art/build/Android.common_path.mk.
             "core-oj",
             "core-libart",
-            "core-icu4j",
-            "conscrypt",
             "okhttp",
             "bouncycastle",
             "apache-xml",
+            // Stubs for dependencies from other APEX modules. If tests require it, this could use
+            // platform (xxx.module.platform.api.stubs) or even intra-core
+            // (xxx.module.intra.core.api.stubs) API stubs. However it's currently not necessary, so
+            // let's stick to public APIs for hygiene.
+            "i18n.module.public.api.stubs",
+            "conscrypt.module.public.api.stubs",
     };
 
     /**
      * $BOOTCLASSPATH for art+libcore only (host version).
      * (Intended for use with dalvikvm only.)
-     * See HOST_TEST_CORE_JARS in android/art/build/Android.common_path.mk
+     * See HOST_TEST_CORE_JARS in art/build/Android.common_path.mk
      */
     private static final String[] HOST_JARS = new String[] {
             "core-oj-hostdex",
             "core-libart-hostdex",
-            "core-icu4j-hostdex",
-            "conscrypt-hostdex",
             "okhttp-hostdex",
             "bouncycastle-hostdex",
             "apache-xml-hostdex",
+            "core-icu4j-hostdex",
+            "conscrypt-hostdex",
     };
 
     /**

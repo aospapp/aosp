@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"Fiók felvétele"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"Fiókok és bejelentkezés"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Nincs fiók"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> fiók</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> fiók</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# fiók}other{# fiók}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Médiaszolgáltatások, Segéd, Kifizetések"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Hálózat és internet"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"Hang"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Alkalmazások"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Eszközbeállítások"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Távvezérlők és tartozékok"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Nincsenek csatlakoztatott Bluetooth-eszközök"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> tartozék</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> tartozék</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Hang és kijelző"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Súgó és visszajelzés"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Adatvédelem"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"Gyári adatok visszaállítása"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrálás"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Akkumulátorkímélő"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"Eszközök"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Formátumok kiválasztása"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"Térhatású hangzás"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"ENGEDÉLYEZETT FORMÁTUMOK"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"LETILTOTT FORMÁTUMOK"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"A letiltáshoz állítsa a formátumot Kézi beállításra."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"Felbontás"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automatikus"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"A felbontás megváltozott"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Válassza az OK gombot, ha mostantól a(z) %1$s felbontást szeretné használni."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Mégse"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Törli a gyorsítótárban tárolt adatokat?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Ez törli minden alkalmazás gyorsítótárban tárolt adatait"</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"Tartozék hozzáadása"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"Párosítás..."</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"Csatlakozás…"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Tartozékok"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Távirányító"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Távirányító beállításai"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Távirányító gombjainak beállítása"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"Hangerő, bekapcsológomb és bemenet kezelése tévén, vevőeszközön és hangprojektoron"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Csatlakozás"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"Csatlakozás a következőhöz: %1$s"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"Leválasztás"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Nem áll rendelkezésre"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"Eszközrendszergazdai alkalmazások"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Nincsenek aktív alkalmazások"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aktív alkalmazás</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aktív alkalmazás</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Rendszergazda, szabályzat vagy adattár letiltotta"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Felügyelt eszköz adatai"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"A szervezet által kezelt módosítások és beállítások"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"Nincs"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Telepített alkalmazások"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Az alkalmazások száma becsült érték. Elképzelhető, hogy nem tartalmazza a Play Áruházon kívülről származó alkalmazásokat."</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">Legalább <xliff:g id="COUNT_1">%d</xliff:g> alkalmazás</item>
-      <item quantity="one">Legalább <xliff:g id="COUNT_0">%d</xliff:g> alkalmazás</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{Legalább # alkalmazás}other{Legalább # alkalmazás}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Helymeghatározási jogosultságok"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Mikrofonhasználati engedélyek"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Kamerahasználati engedélyek"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Alapértelmezett alkalmazások"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> alkalmazás</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> alkalmazás</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# alkalmazás}other{# alkalmazás}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Alapértelmezett billentyűzet"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"Beállítva: <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"A „mindig bekapcsolt VPN” lehetőség be van kapcsolva"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Megbízható hitelesítési adatok"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Megbízható hitelesítési adatok a személyes profilban"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Megbízható hitelesítési adatok a munkaprofilban"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">Legalább <xliff:g id="COUNT_1">%d</xliff:g> CA-tanúsítvány</item>
-      <item quantity="one">Legalább <xliff:g id="COUNT_0">%d</xliff:g> CA-tanúsítvány</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# CA-tanúsítvány}other{# CA-tanúsítvány}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"A rendszergazda zárolhatja az eszközt, és új jelszót állíthat be"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"A rendszergazda törölheti az összes adatot az eszközről"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Sikertelen jelszómegadási próbálkozások száma az összes eszközadat törlése előtt"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"Sikertelen jelszómegadási próbálkozások száma a munkaprofilhoz tartozó adatok törlése előtt"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> próbálkozás</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> próbálkozás</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{# próbálkozás}other{# próbálkozás}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Az eszközt az Ön szervezete kezeli."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Az eszközt a következő szervezet kezeli: <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"További információ"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">Kameraalkalmazások</item>
-      <item quantity="one">Kameraalkalmazás</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Kameraalkalmazás}other{Kameraalkalmazások}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Naptáralkalmazás"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"Címtáralkalmazás"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">E-mail-alkalmazások</item>
-      <item quantity="one">E-mail-alkalmazás</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{Levelezőprogram-alkalmazás}other{Levelezőprogram-alkalmazások}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"Térképalkalmazás"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">Telefonalkalmazások</item>
-      <item quantity="one">Telefonalkalmazás</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{Telefonalkalmazás}other{Telefonalkalmazások}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"Böngészőalkalmazás"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV OS-verzió"</string>
     <string name="about_serial" msgid="3432319328808745459">"Sorozatszám"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV OS-build"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">Már csak <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> lépésre van attól, hogy fejlesztő legyen</item>
-      <item quantity="one">Már csak <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> lépésre van attól, hogy fejlesztő legyen</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{# lépésre van a fejlesztővé válástól}other{# lépésre van a fejlesztővé válástól}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"Hirdetések"</string>
     <string name="ads_description" msgid="8081069475265061074">"Kezelheti a hirdetésbeállításokat, például újra beállíthatja a hirdetésazonosítót."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"Hirdetések, Kezelheti a hirdetésbeállításokat, például újra beállíthatja a hirdetésazonosítót."</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Rendszerfrissítések"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"Lehet, hogy a hálózat felügyelt"</string>
     <string name="done_button" msgid="616159688526431451">"Kész"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">Tanúsítványok eltávolítása, illetve elfogadása megbízhatóként</item>
-      <item quantity="one">Tanúsítvány eltávolítása, illetve elfogadása megbízhatóként</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> tanúsítványkibocsátókat telepített az Ön eszközére, ami lehetővé teheti az eszköz hálózati tevékenységeinek, beleértve az e-maileknek, az alkalmazásoknak és a biztonságos webhelyeknek a megfigyelését.\n\nHa többet szeretne megtudni ezekről a tanúsítványokról, forduljon a rendszergazdájához.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> tanúsítványkibocsátót telepített az Ön eszközére, ami lehetővé teheti az eszköz hálózati tevékenységeinek, beleértve az e-maileknek, az alkalmazásoknak és a biztonságos webhelyeknek a megfigyelését.\n\nHa többet szeretne megtudni erről a tanúsítványról, forduljon a rendszergazdájához.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> tanúsítványkibocsátókat telepített az Ön munkaprofiljához, ami lehetővé teheti a munkahelyi hálózati tevékenységek, beleértve az e-mailek, alkalmazások és biztonságos webhelyek megfigyelését.\n\nHa többet szeretne megtudni ezekről a tanúsítványokról, forduljon a rendszergazdájához.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> tanúsítványkibocsátót telepített az Ön munkaprofiljához, ami lehetővé teheti a munkahelyi hálózati tevékenységek, beleértve az e-mailek, alkalmazások és biztonságos webhelyek megfigyelését.\n\nHa többet szeretne megtudni erről a tanúsítványról, forduljon a rendszergazdájához.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Egy harmadik fél képes az Ön hálózati tevékenységének figyelésére, beleértve az e-maileket, az alkalmazásokat és a biztonságos webhelyeket is.\n\nEzt az Ön eszközére telepített megbízható hitelesítési adatok teszik lehetővé."</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">Tanúsítványok ellenőrzése</item>
-      <item quantity="one">Tanúsítvány ellenőrzése</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{Tanúsítvány elfogadása megbízhatóként vagy eltávolítása}other{Tanúsítványok elfogadása megbízhatóként vagy eltávolításuk}}"</string>
     <string name="device_status" msgid="8266002761193692207">"Állapot"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Hálózat, sorozatszámok és egyéb adatok"</string>
     <string name="manual" msgid="5683935624321864999">"Útmutató"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"Csatlakozás"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"Hálózat elfelejtése"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"Ezzel törli a hálózathoz való kapcsolódás során használt adatokat, beleértve a mentett jelszót is"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"A Wi-Fi-hez való csatlakozáshoz olvassa be a QR-kódot a mobiltelefonjáról, majd kövesse az utasításokat."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" A Wi-Fi-hez való csatlakozáshoz olvassa be a QR-kódot mobiltelefonról, majd kövesse az utasításokat.\n\n "<b>"Android-telefon"</b>" esetén lépjen a Beállítások &gt; Hálózat és internet &gt; Wi-Fi ponthoz &gt; válassza ki a kívánt Wi-Fi-hálózatot &gt; a Speciális &gt; Eszköz hozzáadása elemet, majd olvassa be a QR-kódot."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"A megszakításhoz nyomja meg a vissza gombot"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"OK"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"Tovább"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"Az eszköz tárhelye"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Cserélhető tárhely"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Visszaállítás"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"Tárhely felszabadítása"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"Törli a gyorsítótárban tárolt adatokat?"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"<xliff:g id="SPACE">%1$s</xliff:g> felszabadítása"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"Törli a helyet foglaló ideiglenes fájlokat. Nem befolyásolja a mentett adatokat, például az alkalmazásbeállításokat vagy az offline videókat, és nem kell újra bejelentkeznie az alkalmazásokba."</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"Törli a gyorsítótárban tárolt adatokat?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"Ez törli az alkalmazások gyorsítótárbeli adatait."</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"Alkalmazások eltávolítása"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"A(z) <xliff:g id="NAME">%1$s</xliff:g> csatlakoztatva"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"A(z) <xliff:g id="NAME">%1$s</xliff:g> csatlakoztatása sikertelen"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB-tár újracsatlakoztatva"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"Mikrofon"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofon-hozzáférés"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Alkalmazások mikrofon-hozzáférése"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Mikrofonhoz való hozzáférés letiltva"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"A letiltás feloldásához kapcsolja át az eszközén található adatvédelmi kapcsolót Mikrofon bekapcsolva pozícióba, így engedélyezheti a mikrofonhoz való hozzáférést."</string>
     <string name="camera" msgid="1226671478936288283">"Kamera"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"Kamera-hozzáférés"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"Alkalmazások kamera-hozzáférése"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"A kamerához való hozzáférés letiltva"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"A letiltás feloldásához kapcsolja át az eszközén található adatvédelmi kapcsolót Kamera bekapcsolva pozícióba, így engedélyezheti a kamerához való hozzáférést."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofon-hozzáférés: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"Ha be van kapcsolva, minden engedéllyel rendelkező alkalmazás és szolgáltatás hozzáférhet az eszköz összes mikrofonjához.\n\nAz egyéni protokollal rendelkező hangperifériákat ez a beállítás nem érinti."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kamera-hozzáférés: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"Zöldeskék"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Sárga"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Magenta"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Audionarráció"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Leírást hallhat a támogatott filmek és sorozatok cselekményéről"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Engedélyezés"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Beállítások"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Használja: <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"Felügyelet"</string>
     <string name="system_apps" msgid="8481888654606868074">"Alkalmazások"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"Nem kapcsol ki"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"A képernyő soha nem lép alvó üzemmódba"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP ellenőrzés"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI-optimalizáció"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"Újraindítja az eszközt most?"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"HDMI-eszközök kikapcsolása a tévével együtt"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"Tévé automatikus bekapcsolása"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"A tévé bekapcsolása a HDMI-eszközzel együtt"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">Csatlakoztatott bemenetek</item>
-      <item quantity="one">Csatlakoztatott bemenet</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">Készenléti bemenetek</item>
-      <item quantity="one">Készenléti bemenet</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">Nem csatlakoztatott bemenetek</item>
-      <item quantity="one">Nem csatlakoztatott bemenet</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{Csatlakoztatott bemenet}other{Csatlakoztatott bemenetek}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{Készenléti bemenet}other{Készenléti bemenetek}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{Nem csatlakoztatott bemenet}other{Nem csatlakoztatott bemenetek}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Alkalmazásokhoz és egyéb tartalmakhoz való hozzáférés korlátozása saját fiókjában"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Korlátozott profil"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"A(z) <xliff:g id="APP">%1$s</xliff:g> vezérli"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"Korlátozott profil létrehozása"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"Beállítások"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"Engedélyezett alkalmazások"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d alkalmazás engedélyezve</item>
-      <item quantity="one">1 alkalmazás engedélyezve</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"Engedélyezett"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"Nem engedélyezett"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"Korlátozások személyre szabása"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"Harmadik félhez tartozó forrás"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"Engedélyek"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"Az alkalmazást nem lehet elindítani"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"Nem használt alkalmazások"</string>
     <string name="settings_ok" msgid="5950888975075541964">"OK"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"Megerősítés"</string>
     <string name="settings_cancel" msgid="576094334743686152">"Mégse"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"Ez az engedély lehetővé teszi az alkalmazás számára a rendszerbeállítások módosítását."</string>
     <string name="write_settings_on" msgid="71675710746513956">"Igen"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"Nem"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"Hozzáférés minden fájlhoz"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"Hozzáférés megadása minden fájl kezeléséhez"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"Engedélyezi ennek az alkalmazásnak az eszközön és a csatlakoztatott tárolóköteteken található összes fájl olvasását, módosítását és törlését. Ha engedélyezve van, az alkalmazás anélkül férhet hozzá a fájlokhoz, hogy Önt külön tájékoztatná róla."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Kép a képben"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Kép a képben engedélyezése"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"A telepített alkalmazások nem támogatják a kép a képben funkciót"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Engedélyezi, hogy az alkalmazások kép a képben ablakot hozzanak létre, amikor meg vannak nyitva, vagy miután Ön kilépett belőlük (például azért, hogy tovább nézzen egy videót). Az említett ablak az Ön által használt többi alkalmazás fölött jelenik meg."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Lehetővé teszi az alkalmazásoknak, hogy ébresztéseket állítsanak be, valamint időérzékeny feladatokat ütemezzenek. Ezzel engedélyezi az alkalmazásoknak, hogy a háttérben fussanak, ami megnövekedett akkumulátorhasználattal járhat.\n\nHa ez az engedély ki van kapcsolva, az alkalmazás által beállított ébresztések és ütemezett időérzékeny események nem fognak működni."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"Képernyő bekapcsolása"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"A képernyő bekapcsolásának engedélyezése"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"A képernyő bekapcsolásának engedélyezése az adott alkalmazás számára. Ha megadja az engedélyt, az alkalmazás az Ön kifejezett szándéka nélkül, bármikor bekapcsolhatja a képernyőt."</string>
     <string name="special_access" msgid="21806055758289916">"Különleges alkalmazás-hozzáférés"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Hanganyag"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"Adatforgalom-csökkentő"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Videó minőségének automatikus beállítása a kevesebb mobiladat-használathoz"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Adathasználat és értesítések"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Csatlakozhat az internethez Wi-Fi, Ethernet vagy telefonja hotspotja segítségével. További segítségért keresse fel a(z) "<b>"g.co/network"</b>" webhelyet."</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Az internethez Wi-Fi, Ethernet-kábel vagy telefonja hotspotja segítségével csatlakozhat."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Nem engedélyezett művelet"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"A hangerő nem módosítható"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"Áramellátás és energia"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"Bekapcsolási viselkedés"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Visszaállítás"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Ethernet-hálózat párosítókódja"</string>
 </resources>

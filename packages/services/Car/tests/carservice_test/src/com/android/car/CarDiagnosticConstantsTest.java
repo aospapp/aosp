@@ -145,28 +145,28 @@ public class CarDiagnosticConstantsTest extends TestCase {
 
     @Test
     public void testFuelSystemStatus() throws Exception {
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2FuelSystemStatus.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2FuelSystemStatus.class,
             android.car.diagnostic.CarDiagnosticEvent.FuelSystemStatus.class);
     }
 
     @Test public void testFuelType() throws Exception {
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2FuelType.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2FuelType.class,
             android.car.diagnostic.CarDiagnosticEvent.FuelType.class);
     }
 
     @Test public void testSecondaryAirStatus() throws Exception {
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2SecondaryAirStatus.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2SecondaryAirStatus.class,
             android.car.diagnostic.CarDiagnosticEvent.SecondaryAirStatus.class);
     }
 
     @Test public void testIgnitionMonitors() throws Exception {
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2CommonIgnitionMonitors.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2CommonIgnitionMonitors.class,
             android.car.diagnostic.CarDiagnosticEvent.CommonIgnitionMonitors.class);
 
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2CompressionIgnitionMonitors.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2CompressionIgnitionMonitors.class,
             android.car.diagnostic.CarDiagnosticEvent.CompressionIgnitionMonitors.class);
 
-        validateMatch(android.hardware.automotive.vehicle.V2_0.Obd2SparkIgnitionMonitors.class,
+        validateMatch(android.hardware.automotive.vehicle.Obd2SparkIgnitionMonitors.class,
             android.car.diagnostic.CarDiagnosticEvent.SparkIgnitionMonitors.class);
     }
 }

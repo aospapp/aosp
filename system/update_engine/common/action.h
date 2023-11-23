@@ -98,7 +98,7 @@ class AbstractAction {
   virtual void PerformAction() = 0;
 
   // Called on ActionProcess::ActionComplete() by ActionProcessor.
-  virtual void ActionCompleted(ErrorCode code) {}
+  virtual void ActionCompleted([[maybe_unused]] ErrorCode code) {}
 
   // Called by the ActionProcessor to tell this Action which processor
   // it belongs to.

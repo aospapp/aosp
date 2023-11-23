@@ -17,9 +17,9 @@
 #include <filesystem>
 #include <fstream>
 
-#include <asm-generic/errno-base.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <linux/loop.h>
 #include <sched.h>
 #include <sys/mount.h>
 
@@ -33,26 +33,20 @@
 #include <android/apex/ApexInfo.h>
 #include <android/apex/ApexSessionInfo.h>
 #include <binder/IServiceManager.h>
+#include <fstab/fstab.h>
+#include <libdm/dm.h>
 #include <selinux/android.h>
 
 #include "apex_file.h"
+#include "apexd_loop.h"
+#include "apexd_utils.h"
 #include "session_state.pb.h"
 
 #include "com_android_apex.h"
 
-using android::base::Error;
-using android::base::Result;
-using apex::proto::SessionState;
-
 namespace android {
 namespace apex {
 namespace testing {
-
-using ::testing::AllOf;
-using ::testing::Eq;
-using ::testing::ExplainMatchResult;
-using ::testing::Field;
-using ::testing::Property;
 
 template <typename T>
 inline ::testing::AssertionResult IsOk(const android::base::Result<T>& result) {
@@ -73,6 +67,10 @@ inline ::testing::AssertionResult IsOk(const android::binder::Status& status) {
 }
 
 MATCHER_P(SessionInfoEq, other, "") {
+  using ::testing::AllOf;
+  using ::testing::Eq;
+  using ::testing::Field;
+
   return ExplainMatchResult(
       AllOf(
           Field("sessionId", &ApexSessionInfo::sessionId, Eq(other.sessionId)),
@@ -95,6 +93,10 @@ MATCHER_P(SessionInfoEq, other, "") {
 }
 
 MATCHER_P(ApexInfoEq, other, "") {
+  using ::testing::AllOf;
+  using ::testing::Eq;
+  using ::testing::Field;
+
   return ExplainMatchResult(
       AllOf(Field("moduleName", &ApexInfo::moduleName, Eq(other.moduleName)),
             Field("modulePath", &ApexInfo::modulePath, Eq(other.modulePath)),
@@ -107,6 +109,10 @@ MATCHER_P(ApexInfoEq, other, "") {
 }
 
 MATCHER_P(ApexFileEq, other, "") {
+  using ::testing::AllOf;
+  using ::testing::Eq;
+  using ::testing::Property;
+
   return ExplainMatchResult(
       AllOf(Property("path", &ApexFile::GetPath, Eq(other.get().GetPath())),
             Property("image_offset", &ApexFile::GetImageOffset,
@@ -165,13 +171,13 @@ inline void PrintTo(const ApexInfo& apex, std::ostream* os) {
   *os << "}";
 }
 
-inline Result<bool> CompareFiles(const std::string& filename1,
-                                 const std::string& filename2) {
+inline android::base::Result<bool> CompareFiles(const std::string& filename1,
+                                                const std::string& filename2) {
   std::ifstream file1(filename1, std::ios::binary);
   std::ifstream file2(filename2, std::ios::binary);
 
   if (file1.bad() || file2.bad()) {
-    return Error() << "Could not open one of the file";
+    return android::base::Error() << "Could not open one of the file";
   }
 
   std::istreambuf_iterator<char> begin1(file1);
@@ -298,10 +304,136 @@ inline android::base::Result<void> SetUpApexTestEnvironment() {
   // Just in case, run restorecon -R on /apex.
   if (selinux_android_restorecon("/apex", SELINUX_ANDROID_RESTORECON_RECURSE) <
       0) {
-    return android::base::ErrnoError() << "Failed to restorecon /apex";
+    return ErrnoError() << "Failed to restorecon /apex";
   }
 
   return {};
+}
+
+// Simpler version of loop::CreateLoopDevice. Uses LOOP_SET_FD/LOOP_SET_STATUS64
+// instead of LOOP_CONFIGURE.
+// TODO(b/191244059) use loop::CreateLoopDevice
+inline base::Result<loop::LoopbackDeviceUniqueFd> CreateLoopDeviceForTest(
+    const std::string& filepath) {
+  base::unique_fd ctl_fd(open("/dev/loop-control", O_RDWR | O_CLOEXEC));
+  if (ctl_fd.get() == -1) {
+    return base::ErrnoError() << "Failed to open loop-control";
+  }
+  int num = ioctl(ctl_fd.get(), LOOP_CTL_GET_FREE);
+  if (num == -1) {
+    return base::ErrnoError() << "Failed LOOP_CTL_GET_FREE";
+  }
+  auto loop_device = loop::WaitForDevice(num);
+  if (!loop_device.ok()) {
+    return loop_device.error();
+  }
+  base::unique_fd target_fd(open(filepath.c_str(), O_RDONLY | O_CLOEXEC));
+  if (target_fd.get() == -1) {
+    return base::ErrnoError() << "Failed to open " << filepath;
+  }
+  struct loop_info64 li = {};
+  strlcpy((char*)li.lo_crypt_name, filepath.c_str(), LO_NAME_SIZE);
+  li.lo_flags |= LO_FLAGS_AUTOCLEAR;
+  if (ioctl(loop_device->device_fd.get(), LOOP_SET_FD, target_fd.get()) == -1) {
+    return base::ErrnoError() << "Failed to LOOP_SET_FD";
+  }
+  if (ioctl(loop_device->device_fd.get(), LOOP_SET_STATUS64, &li) == -1) {
+    return base::ErrnoError() << "Failed to LOOP_SET_STATUS64";
+  }
+  return loop_device;
+}
+
+inline base::Result<loop::LoopbackDeviceUniqueFd> MountViaLoopDevice(
+    const std::string& filepath, const std::string& mount_point) {
+  auto loop_device = CreateLoopDeviceForTest(filepath);
+  if (loop_device.ok()) {
+    close(open(mount_point.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
+               0644));
+    if (0 != mount(loop_device->name.c_str(), mount_point.c_str(), nullptr,
+                   MS_BIND, nullptr)) {
+      return base::ErrnoError() << "can't mount.";
+    }
+  }
+  return loop_device;
+}
+
+inline base::Result<loop::LoopbackDeviceUniqueFd> WriteBlockApex(
+    const std::string& apex_file, const std::string& apex_path) {
+  std::string intermediate_path = apex_path + ".intermediate";
+  std::filesystem::copy(apex_file, intermediate_path);
+  return MountViaLoopDevice(intermediate_path, apex_path);
+}
+
+inline android::base::Result<std::string> GetBlockDeviceForApex(
+    const std::string& package_id) {
+  using android::fs_mgr::Fstab;
+  using android::fs_mgr::GetEntryForMountPoint;
+  using android::fs_mgr::ReadFstabFromFile;
+
+  std::string mount_point = std::string(kApexRoot) + "/" + package_id;
+  Fstab fstab;
+  if (!ReadFstabFromFile("/proc/mounts", &fstab)) {
+    return android::base::Error() << "Failed to read /proc/mounts";
+  }
+  auto entry = GetEntryForMountPoint(&fstab, mount_point);
+  if (entry == nullptr) {
+    return android::base::Error()
+           << "Can't find " << mount_point << " in /proc/mounts";
+  }
+  return entry->blk_device;
+}
+
+inline android::base::Result<void> ReadDevice(const std::string& block_device) {
+  static constexpr int kBlockSize = 4096;
+  static constexpr size_t kBufSize = 1024 * kBlockSize;
+  std::vector<uint8_t> buffer(kBufSize);
+
+  android::base::unique_fd fd(
+      TEMP_FAILURE_RETRY(open(block_device.c_str(), O_RDONLY | O_CLOEXEC)));
+  if (fd.get() == -1) {
+    return android::base::ErrnoError() << "Can't open " << block_device;
+  }
+
+  while (true) {
+    int n = read(fd.get(), buffer.data(), kBufSize);
+    if (n < 0) {
+      return android::base::ErrnoError() << "Failed to read " << block_device;
+    }
+    if (n == 0) {
+      break;
+    }
+  }
+  return {};
+}
+
+inline android::base::Result<std::vector<std::string>> ListChildLoopDevices(
+    const std::string& name) {
+  using android::base::Error;
+  using android::dm::DeviceMapper;
+
+  DeviceMapper& dm = DeviceMapper::Instance();
+  std::string dm_path;
+  if (!dm.GetDmDevicePathByName(name, &dm_path)) {
+    return Error() << "Failed to get path of dm device " << name;
+  }
+  // It's a little bit sad we can't use ConsumePrefix here :(
+  constexpr std::string_view kDevPrefix = "/dev/";
+  if (!android::base::StartsWith(dm_path, kDevPrefix)) {
+    return Error() << "Illegal path " << dm_path;
+  }
+  dm_path = dm_path.substr(kDevPrefix.length());
+  std::vector<std::string> children;
+  std::string dir = "/sys/" + dm_path + "/slaves";
+  auto status = WalkDir(dir, [&](const auto& entry) {
+    std::error_code ec;
+    if (entry.is_symlink(ec)) {
+      children.push_back("/dev/block/" + entry.path().filename().string());
+    }
+  });
+  if (!status.ok()) {
+    return status.error();
+  }
+  return children;
 }
 
 }  // namespace apex
@@ -312,12 +444,25 @@ namespace android {
 namespace apex {
 
 namespace testing {
+
+// "preinstalledModulePath" is an optional in ApexInfoList.xsd.
+// getPreinstalledModulePath() should be called when hasPreinstalledModulePath()
+// returns true. Introducing a simple wrapper which returns optional<string>.
+inline std::optional<std::string> getPreinstalledModulePath(
+    const ApexInfo& obj) {
+  if (obj.hasPreinstalledModulePath()) {
+    return obj.getPreinstalledModulePath();
+  }
+  return std::nullopt;
+}
+
 MATCHER_P(ApexInfoXmlEq, other, "") {
   using ::testing::AllOf;
   using ::testing::Eq;
   using ::testing::ExplainMatchResult;
   using ::testing::Field;
   using ::testing::Property;
+  using ::testing::ResultOf;
 
   return ExplainMatchResult(
       AllOf(
@@ -325,9 +470,8 @@ MATCHER_P(ApexInfoXmlEq, other, "") {
                    Eq(other.getModuleName())),
           Property("modulePath", &ApexInfo::getModulePath,
                    Eq(other.getModulePath())),
-          Property("preinstalledModulePath",
-                   &ApexInfo::getPreinstalledModulePath,
-                   Eq(other.getPreinstalledModulePath())),
+          ResultOf(&getPreinstalledModulePath,
+                   Eq(getPreinstalledModulePath(other))),
           Property("versionCode", &ApexInfo::getVersionCode,
                    Eq(other.getVersionCode())),
           Property("isFactory", &ApexInfo::getIsFactory,
@@ -345,8 +489,10 @@ inline void PrintTo(const ApexInfo& apex, std::ostream* os) {
   *os << "apex_info: {\n";
   *os << "  moduleName : " << apex.getModuleName() << "\n";
   *os << "  modulePath : " << apex.getModulePath() << "\n";
-  *os << "  preinstalledModulePath : " << apex.getPreinstalledModulePath()
-      << "\n";
+  if (apex.hasPreinstalledModulePath()) {
+    *os << "  preinstalledModulePath : " << apex.getPreinstalledModulePath()
+        << "\n";
+  }
   *os << "  versionCode : " << apex.getVersionCode() << "\n";
   *os << "  isFactory : " << apex.getIsFactory() << "\n";
   *os << "  isActive : " << apex.getIsActive() << "\n";

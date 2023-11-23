@@ -39,13 +39,14 @@ cc_binary {
         memtag_heap: true,
     },
     clang: true,
+    header_libs: ["bpf_headers"],
     shared_libs: [
         "libcutils",
         "libbpf_android",
         "libbase",
         "liblog",
         "libnetdutils",
-        "libbpf",
+        "libbpf_bcc",
     ],
     srcs: [
         "BpfLoader.cpp",
@@ -54,6 +55,7 @@ cc_binary {
     init_rc: ["bpfloader.rc"],
 
     required: [
+        "btfloader",
         "time_in_state.o"
     ],
 

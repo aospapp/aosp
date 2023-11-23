@@ -30,6 +30,8 @@ void SensorTest::testInvalidParameter(JNIEnv *env) {
     ASensorList dummyList;
     ASSERT_EQ(ASensorManager_getSensorList(nullptr, nullptr), -EINVAL);
     ASSERT_EQ(ASensorManager_getSensorList(nullptr, &dummyList), -EINVAL);
+    ASSERT_EQ(ASensorManager_getDynamicSensorList(nullptr, nullptr), -EINVAL);
+    ASSERT_EQ(ASensorManager_getDynamicSensorList(nullptr, &dummyList), -EINVAL);
 
     ASSERT_EQ(ASensorManager_getDefaultSensor(nullptr, ASENSOR_TYPE_ACCELEROMETER), nullptr);
 

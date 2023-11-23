@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Offentlige sikkerhetsmeldinger"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Anbefalte handlinger som kan redde liv eller eiendom"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Vis meldinger i fullskjerm"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Slå av for å få offentlige sikkerhetsmeldinger bare sendt til SMS-appen."</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"Når det er av, sendes offentlige sikkerhetsmeldinger fremdeles som varsler"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Statlige og lokale tester"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Motta testmeldinger fra statlige og lokale myndigheter"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Nødvarsler"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Ja"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nei"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Tidligere nødvarsler"</string>
+    <string name="action_delete" msgid="7435661404543945861">"Slett"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"Vis informasjon"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Én gang"</item>
     <item msgid="9097229303902157183">"Hvert 2. minutt"</item>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"Maksimal ventetid:"</string>
     <string name="seconds" msgid="141450721520515025">"sekunder"</string>
     <string name="message_copied" msgid="6922953753733166675">"Meldingen er kopiert"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"Når du bruker roaming, kan du motta varsler som ikke er inkludert i disse innstillingene"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Innstillingene er endret av operatøren"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Trykk for å se innstillinger for trådløse nødvarsler"</string>
 </resources>

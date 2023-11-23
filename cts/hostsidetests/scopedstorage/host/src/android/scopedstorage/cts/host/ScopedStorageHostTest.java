@@ -125,6 +125,26 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
     }
 
     @Test
+    public void testManageExternalStorageCantInsertFilesInOtherAppPrivateDir() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testManageExternalStorageCantInsertFilesInOtherAppPrivateDir");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
+    public void testManageExternalStorageCantUpdateFilesInOtherAppPrivateDir() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testManageExternalStorageCantUpdateFilesInOtherAppPrivateDir");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
     public void testCheckInstallerAppAccessToObbDirs() throws Exception {
         allowAppOps("android:request_install_packages");
         grantPermissions("android.permission.WRITE_EXTERNAL_STORAGE");
@@ -173,6 +193,26 @@ public class ScopedStorageHostTest extends BaseHostTestCase {
         allowAppOps("android:manage_external_storage");
         try {
             runDeviceTest("testScanDoesntSkipDirtySubtree");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
+    public void testFileManagerCanTrashOtherAndroidMediaFiles() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testFileManagerCanTrashOtherAndroidMediaFiles");
+        } finally {
+            denyAppOps("android:manage_external_storage");
+        }
+    }
+
+    @Test
+    public void testFileManagerCanUpdateOtherAndroidMediaFiles() throws Exception {
+        allowAppOps("android:manage_external_storage");
+        try {
+            runDeviceTest("testFileManagerCanUpdateOtherAndroidMediaFiles");
         } finally {
             denyAppOps("android:manage_external_storage");
         }

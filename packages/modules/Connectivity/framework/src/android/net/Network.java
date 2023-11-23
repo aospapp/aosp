@@ -382,13 +382,14 @@ public class Network implements Parcelable {
         // Query a property of the underlying socket to ensure that the socket's file descriptor
         // exists, is available to bind to a network and is not closed.
         socket.getReuseAddress();
-        final ParcelFileDescriptor pfd = ParcelFileDescriptor.fromDatagramSocket(socket);
-        bindSocket(pfd.getFileDescriptor());
-        // ParcelFileDescriptor.fromSocket() creates a dup of the original fd. The original and the
-        // dup share the underlying socket in the kernel. The socket is never truly closed until the
-        // last fd pointing to the socket being closed. So close the dup one after binding the
-        // socket to control the lifetime of the dup fd.
-        pfd.close();
+
+        // ParcelFileDescriptor.fromDatagramSocket() creates a dup of the original fd. The original
+        // and the dup share the underlying socket in the kernel. The socket is never truly closed
+        // until the last fd pointing to the socket being closed. Try and eventually close the dup
+        // one after binding the socket to control the lifetime of the dup fd.
+        try (ParcelFileDescriptor pfd = ParcelFileDescriptor.fromDatagramSocket(socket)) {
+            bindSocket(pfd.getFileDescriptor());
+        }
     }
 
     /**
@@ -400,13 +401,13 @@ public class Network implements Parcelable {
         // Query a property of the underlying socket to ensure that the socket's file descriptor
         // exists, is available to bind to a network and is not closed.
         socket.getReuseAddress();
-        final ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(socket);
-        bindSocket(pfd.getFileDescriptor());
-        // ParcelFileDescriptor.fromSocket() creates a dup of the original fd. The original and the
-        // dup share the underlying socket in the kernel. The socket is never truly closed until the
-        // last fd pointing to the socket being closed. So close the dup one after binding the
-        // socket to control the lifetime of the dup fd.
-        pfd.close();
+        // ParcelFileDescriptor.fromSocket() creates a dup of the original fd. The original and
+        // the dup share the underlying socket in the kernel. The socket is never truly closed
+        // until the last fd pointing to the socket being closed. Try and eventually close the dup
+        // one after binding the socket to control the lifetime of the dup fd.
+        try (ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(socket)) {
+            bindSocket(pfd.getFileDescriptor());
+        }
     }
 
     /**

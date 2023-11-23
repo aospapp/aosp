@@ -250,7 +250,7 @@ class AssemblerBuffer {
   // The limit is set to kMinimumGap bytes before the end of the data area.
   // This leaves enough space for the longest possible instruction and allows
   // for a single, fast space check per instruction.
-  static const int kMinimumGap = 32;
+  static constexpr int kMinimumGap = 32;
 
   ArenaAllocator* const allocator_;
   uint8_t* contents_;
@@ -407,6 +407,13 @@ class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
   AssemblerBuffer buffer_;
 
   DebugFrameOpCodeWriterForAssembler cfi_;
+};
+
+enum ScaleFactor {
+  TIMES_1 = 0,
+  TIMES_2 = 1,
+  TIMES_4 = 2,
+  TIMES_8 = 3
 };
 
 }  // namespace art

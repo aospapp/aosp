@@ -52,6 +52,12 @@ import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
 
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.VideoCapabilities;
+import android.media.MediaCodecList;
+import android.media.MediaFormat;
+
 import androidx.test.InstrumentationRegistry;
 
 import com.android.cts.install.lib.Install;
@@ -462,5 +468,22 @@ public class TranscodeTestUtils {
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
+    }
+
+    public static boolean isAVCHWEncoderSupported() {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (info.isEncoder() && info.isVendor() && !info.getName().contains("secure")
+                    && info.isHardwareAccelerated()) {
+                try {
+                    CodecCapabilities caps =
+                            info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC);
+                } catch (IllegalArgumentException e) {
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 }

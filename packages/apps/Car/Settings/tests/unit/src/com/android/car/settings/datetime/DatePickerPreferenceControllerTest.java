@@ -19,6 +19,7 @@ package com.android.car.settings.datetime;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -94,7 +95,8 @@ public class DatePickerPreferenceControllerTest {
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.AUTO_TIME, 1);
         ArgumentCaptor<BroadcastReceiver> broadcastReceiverArgumentCaptor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
-        verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any());
+        verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any(),
+                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,
                 new Intent(Intent.ACTION_TIME_CHANGED));
         assertThat(mPreference.isEnabled()).isFalse();
@@ -107,7 +109,8 @@ public class DatePickerPreferenceControllerTest {
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.AUTO_TIME, 0);
         ArgumentCaptor<BroadcastReceiver> broadcastReceiverArgumentCaptor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
-        verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any());
+        verify(mContext).registerReceiver(broadcastReceiverArgumentCaptor.capture(), any(),
+                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,
                 new Intent(Intent.ACTION_TIME_CHANGED));
         assertThat(mPreference.isEnabled()).isTrue();

@@ -49,4 +49,6 @@ include $(BUILD_PHONY_PACKAGE)
 
 droidcore: dtbimage dtboimage
 
+$(call dist-for-goals, dist_files, $(DTBOIMAGE))
+
 endif

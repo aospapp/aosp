@@ -23,7 +23,6 @@
 #include <android/hardware/secure_element/1.0/types.h>
 #include <hwbinder/ProcessState.h>
 #include <log/log.h>
-#include <pthread.h>
 
 using android::sp;
 using android::hardware::hidl_vec;
@@ -42,19 +41,19 @@ extern "C" void verify_stack_non_volatile_store();
 extern "C" void delete_stack_non_volatile_store(bool forceDelete);
 
 EseAdaptation* EseAdaptation::mpInstance = NULL;
-ThreadMutex EseAdaptation::sLock;
-ThreadMutex EseAdaptation::sIoctlLock;
+NfcHalThreadMutex EseAdaptation::sLock;
+NfcHalThreadMutex EseAdaptation::sIoctlLock;
 sp<INxpEse> EseAdaptation::mHalNxpEse;
 sp<ISecureElement> EseAdaptation::mHal;
 tHAL_ESE_CBACK* EseAdaptation::mHalCallback = NULL;
 tHAL_ESE_DATA_CBACK* EseAdaptation::mHalDataCallback = NULL;
-ThreadCondVar EseAdaptation::mHalOpenCompletedEvent;
-ThreadCondVar EseAdaptation::mHalCloseCompletedEvent;
+NfcHalThreadCondVar EseAdaptation::mHalOpenCompletedEvent;
+NfcHalThreadCondVar EseAdaptation::mHalCloseCompletedEvent;
 
 #if (NXP_EXTNS == TRUE)
-ThreadCondVar EseAdaptation::mHalCoreResetCompletedEvent;
-ThreadCondVar EseAdaptation::mHalCoreInitCompletedEvent;
-ThreadCondVar EseAdaptation::mHalInitCompletedEvent;
+NfcHalThreadCondVar EseAdaptation::mHalCoreResetCompletedEvent;
+NfcHalThreadCondVar EseAdaptation::mHalCoreInitCompletedEvent;
+NfcHalThreadCondVar EseAdaptation::mHalInitCompletedEvent;
 #endif
 #define SIGNAL_NONE 0
 #define SIGNAL_SIGNALED 1
@@ -94,7 +93,7 @@ EseAdaptation::~EseAdaptation() { mpInstance = NULL; }
 **
 *******************************************************************************/
 EseAdaptation& EseAdaptation::GetInstance() {
-  AutoThreadMutex a(sLock);
+  NfcHalAutoThreadMutex a(sLock);
 
   if (!mpInstance) mpInstance = new EseAdaptation;
   return *mpInstance;
@@ -143,7 +142,7 @@ uint32_t EseAdaptation::Thread(uint32_t arg) {
   const char* func = "EseAdaptation::Thread";
   ALOGD_IF(nfc_debug_enabled, "%s: enter", func);
   arg = 0;
-  { ThreadCondVar CondVar; }
+  { NfcHalThreadCondVar CondVar; }
 
   EseAdaptation::GetInstance().signal();
 
@@ -248,7 +247,7 @@ void IoctlCallback(hidl_vec<uint8_t> outputData) {
 int EseAdaptation::HalIoctl(long arg, void* p_data) {
   const char* func = "EseAdaptation::HalIoctl";
   hidl_vec<uint8_t> data;
-  AutoThreadMutex a(sIoctlLock);
+  NfcHalAutoThreadMutex a(sIoctlLock);
   ese_nxp_IoctlInOutData_t* pInpOutData = (ese_nxp_IoctlInOutData_t*)p_data;
   ALOGD_IF(nfc_debug_enabled, "%s arg=%ld", func, arg);
 
@@ -259,132 +258,3 @@ int EseAdaptation::HalIoctl(long arg, void* p_data) {
            (unsigned long)pInpOutData->out.ioctlType);
   return (pInpOutData->out.result);
 }
-
-/*******************************************************************************
-**
-** Function:    ThreadMutex::ThreadMutex()
-**
-** Description: class constructor
-**
-** Returns:     none
-**
-*******************************************************************************/
-ThreadMutex::ThreadMutex() {
-  pthread_mutexattr_t mutexAttr;
-
-  pthread_mutexattr_init(&mutexAttr);
-  pthread_mutex_init(&mMutex, &mutexAttr);
-  pthread_mutexattr_destroy(&mutexAttr);
-}
-
-/*******************************************************************************
-**
-** Function:    ThreadMutex::~ThreadMutex()
-**
-** Description: class destructor
-**
-** Returns:     none
-**
-*******************************************************************************/
-ThreadMutex::~ThreadMutex() { pthread_mutex_destroy(&mMutex); }
-
-/*******************************************************************************
-**
-** Function:    ThreadMutex::lock()
-**
-** Description: lock kthe mutex
-**
-** Returns:     none
-**
-*******************************************************************************/
-void ThreadMutex::lock() { pthread_mutex_lock(&mMutex); }
-
-/*******************************************************************************
-**
-** Function:    ThreadMutex::unblock()
-**
-** Description: unlock the mutex
-**
-** Returns:     none
-**
-*******************************************************************************/
-void ThreadMutex::unlock() { pthread_mutex_unlock(&mMutex); }
-
-/*******************************************************************************
-**
-** Function:    ThreadCondVar::ThreadCondVar()
-**
-** Description: class constructor
-**
-** Returns:     none
-**
-*******************************************************************************/
-ThreadCondVar::ThreadCondVar() {
-  pthread_condattr_t CondAttr;
-
-  pthread_condattr_init(&CondAttr);
-  pthread_cond_init(&mCondVar, &CondAttr);
-
-  pthread_condattr_destroy(&CondAttr);
-}
-
-/*******************************************************************************
-**
-** Function:    ThreadCondVar::~ThreadCondVar()
-**
-** Description: class destructor
-**
-** Returns:     none
-**
-*******************************************************************************/
-ThreadCondVar::~ThreadCondVar() { pthread_cond_destroy(&mCondVar); }
-
-/*******************************************************************************
-**
-** Function:    ThreadCondVar::wait()
-**
-** Description: wait on the mCondVar
-**
-** Returns:     none
-**
-*******************************************************************************/
-void ThreadCondVar::wait() {
-  pthread_cond_wait(&mCondVar, *this);
-  pthread_mutex_unlock(*this);
-}
-
-/*******************************************************************************
-**
-** Function:    ThreadCondVar::signal()
-**
-** Description: signal the mCondVar
-**
-** Returns:     none
-**
-*******************************************************************************/
-void ThreadCondVar::signal() {
-  AutoThreadMutex a(*this);
-  pthread_cond_signal(&mCondVar);
-}
-
-/*******************************************************************************
-**
-** Function:    AutoThreadMutex::AutoThreadMutex()
-**
-** Description: class constructor, automatically lock the mutex
-**
-** Returns:     none
-**
-*******************************************************************************/
-AutoThreadMutex::AutoThreadMutex(ThreadMutex& m) : mm(m) { mm.lock(); }
-
-/*******************************************************************************
-**
-** Function:    AutoThreadMutex::~AutoThreadMutex()
-**
-** Description: class destructor, automatically unlock the mutex
-**
-** Returns:     none
-**
-*******************************************************************************/
-AutoThreadMutex::~AutoThreadMutex() { mm.unlock(); }

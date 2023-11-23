@@ -22,17 +22,11 @@
 #include <hidl/Status.h>
 #include <ctime>
 #include <string>
+#include "aidl/android/hardware/gnss/IGnss.h"
 namespace android {
 namespace hardware {
 namespace gnss {
 namespace common {
-
-constexpr char GPGA_RECORD_TAG[] = "$GPGGA";
-constexpr char GPRMC_RECORD_TAG[] = "$GPRMC";
-constexpr char LINE_SEPARATOR = '\n';
-constexpr char COMMA_SEPARATOR = ',';
-constexpr double TIMESTAMP_EPSILON = 0.001;
-constexpr int MIN_COL_NUM = 13;
 
 /** Helper class to parse and store the GNSS fix details information. */
 class NmeaFixInfo {
@@ -52,6 +46,8 @@ class NmeaFixInfo {
 
   public:
     static std::unique_ptr<V2_0::GnssLocation> getLocationFromInputStr(const std::string& inputStr);
+    static std::unique_ptr<aidl::android::hardware::gnss::GnssLocation> getAidlLocationFromInputStr(
+            const std::string& inputStr);
 
   private:
     static void splitStr(const std::string& line, const char& delimiter,

@@ -26,6 +26,9 @@ import com.google.mockwebserver.QueueDispatcher;
 import com.google.mockwebserver.RecordedRequest;
 import com.google.mockwebserver.SocketPolicy;
 
+import java.lang.reflect.Field;
+import java.net.ContentHandler;
+import java.net.ContentHandlerFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -2968,6 +2971,59 @@ public final class URLConnectionTest {
         HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
         assertEquals("identity", connection.getContentEncoding());
         connection.disconnect();
+    }
+
+    @Test public void setContentHandlerFactory() throws Exception {
+        // Verify that the static ContentHandlerFactory is null
+        Field f = URLConnection.class.getDeclaredField("factory");
+        f.setAccessible(true);
+        assertNull(f.get(null));
+
+        try {
+            URLConnection.setContentHandlerFactory(new MockContentHandlerFactory());
+            String msg = "ABC";
+            server.enqueue(new MockResponse()
+                    .addHeader("Content-Type: text/plain")
+                    .setBody(msg));
+            server.enqueue(new MockResponse()
+                    .addHeader("Content-Type: " + MockContentHandlerFactory.HANDLED_MIME_TYPE)
+                    .setBody(msg));
+            server.play();
+
+            HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+            assertEquals("text/plain", connection.getContentType());
+            assertEquals(msg, readAscii((InputStream) connection.getContent()));
+
+            connection = (HttpURLConnection) server.getUrl("/").openConnection();
+            assertEquals(MockContentHandlerFactory.HANDLED_MIME_TYPE, connection.getContentType());
+            assertEquals(MockContentHandler.CONTENT, connection.getContent());
+        } finally {
+            // reset the static ContentHandlerFactory
+            f.set(null, null);
+        }
+    }
+
+    private static class MockContentHandler extends ContentHandler {
+
+        private static final String CONTENT = "SECRET_CONTENT";
+
+        @Override
+        public Object getContent(URLConnection urlc) throws IOException {
+            return CONTENT;
+        }
+    }
+
+    private static class MockContentHandlerFactory implements ContentHandlerFactory {
+
+        private static final String HANDLED_MIME_TYPE = "text/secret";
+
+        @Override
+        public ContentHandler createContentHandler(String mimetype) {
+            if (HANDLED_MIME_TYPE.equals(mimetype)) {
+                return new MockContentHandler();
+            }
+            return null;
+        }
     }
 
     // http://b/4361656

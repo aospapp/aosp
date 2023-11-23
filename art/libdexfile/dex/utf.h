@@ -17,12 +17,14 @@
 #ifndef ART_LIBDEXFILE_DEX_UTF_H_
 #define ART_LIBDEXFILE_DEX_UTF_H_
 
-#include "base/macros.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
 #include <string>
+#include <string_view>
+#include <type_traits>
+
+#include "base/macros.h"
 
 /*
  * All UTF-8 in art is actually modified UTF-8. Mostly, this distinction
@@ -65,6 +67,24 @@ int CompareModifiedUtf8ToUtf16AsCodePointValues(const char* utf8, const uint16_t
                                                 size_t utf16_length);
 
 /*
+ * Helper template for converting UTF-16 to UTF-8 and similar encodings.
+ *
+ * Template arguments:
+ *    kUseShortZero: Encode U+0000 as a single byte with value 0 (otherwise emit 0xc0 0x80).
+ *    kUse4ByteSequence: Encode valid surrogate pairs as a 4-byte sequence.
+ *    kReplaceBadSurrogates: Replace unmatched surrogates with '?' (otherwise use 3-byte sequence).
+ *                           Must be false if kUse4ByteSequence is false.
+ *    Append: The type of the `append` functor. Should be deduced automatically.
+ *
+ * Encoding               kUseShortZero kUse4ByteSequence kReplaceBadSurrogates
+ * UTF-8                  true          true              true
+ * Modified UTF8          false         false             n/a
+ * JNI GetStringUTFChars  false         true              false
+ */
+template <bool kUseShortZero, bool kUse4ByteSequence, bool kReplaceBadSurrogates, typename Append>
+void ConvertUtf16ToUtf8(const uint16_t* utf16, size_t char_count, Append&& append);
+
+/*
  * Convert from UTF-16 to Modified UTF-8. Note that the output is _not_
  * NUL-terminated. You probably need to call CountUtf8Bytes before calling
  * this anyway, so if you want a NUL-terminated string, you know where to
@@ -78,9 +98,13 @@ void ConvertUtf16ToModifiedUtf8(char* utf8_out, size_t byte_count,
  */
 template<typename MemoryType>
 int32_t ComputeUtf16Hash(const MemoryType* chars, size_t char_count) {
+  static_assert(std::is_same_v<MemoryType, char> ||
+                std::is_same_v<MemoryType, uint8_t> ||
+                std::is_same_v<MemoryType, uint16_t>);
+  using UnsignedMemoryType = std::make_unsigned_t<MemoryType>;
   uint32_t hash = 0;
   while (char_count--) {
-    hash = hash * 31 + *chars++;
+    hash = hash * 31 + static_cast<UnsignedMemoryType>(*chars++);
   }
   return static_cast<int32_t>(hash);
 }
@@ -90,6 +114,27 @@ int32_t ComputeUtf16HashFromModifiedUtf8(const char* utf8, size_t utf16_length);
 // Compute a hash code of a modified UTF-8 string. Not the standard java hash since it returns a
 // uint32_t and hashes individual chars instead of codepoint words.
 uint32_t ComputeModifiedUtf8Hash(const char* chars);
+uint32_t ComputeModifiedUtf8Hash(std::string_view chars);
+
+// The starting value of a modified UTF-8 hash.
+constexpr uint32_t StartModifiedUtf8Hash() {
+  return 0u;
+}
+
+// Update a modified UTF-8 hash with one character.
+ALWAYS_INLINE
+inline uint32_t UpdateModifiedUtf8Hash(uint32_t hash, char c) {
+  return hash * 31u + static_cast<uint8_t>(c);
+}
+
+// Update a modified UTF-8 hash with characters of a `std::string_view`.
+ALWAYS_INLINE
+inline uint32_t UpdateModifiedUtf8Hash(uint32_t hash, std::string_view chars) {
+  for (char c : chars) {
+    hash = UpdateModifiedUtf8Hash(hash, c);
+  }
+  return hash;
+}
 
 /*
  * Retrieve the next UTF-16 character or surrogate pair from a UTF-8 string.

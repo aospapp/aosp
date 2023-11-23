@@ -7,7 +7,7 @@
   "google-tradefed-contrib": { "class": ["JAVA_LIBRARIES"],  "path": ["gtf/contrib"],  "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/google-tradefed-contrib.jar"], "module_name": "google-tradefed-contrib" },
   "tradefed": { "class": ["EXECUTABLES",  "JAVA_LIBRARIES"],  "path": ["tf/core"],  "tags": ["optional"],  "installed": ["out/host/linux-x86/bin/tradefed.sh",  "out/host/linux-x86/framework/tradefed.jar"], "module_name": "tradefed" },
   "tradefed-contrib": { "class": ["JAVA_LIBRARIES"],  "path": ["tf/contrib"],  "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "tradefed-contrib" },
-  "module-no-path": { "class": ["JAVA_LIBRARIES"],  "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": ["module-no-path"] },
+  "module-no-path": { "class": ["JAVA_LIBRARIES"],  "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "module-no-path" },
   "module1": { "class": ["JAVA_LIBRARIES"],  "path": ["shared/path/to/be/used"], "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "module1" },
   "module2": { "class": ["JAVA_LIBRARIES"],  "path": ["shared/path/to/be/used"], "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "module2" },
   "multiarch1": { "class": ["JAVA_LIBRARIES"],  "path": ["shared/path/to/be/used2"], "tags": ["optional"],  "installed": ["out/host/linux-x86/framework/tradefed-contrib.jar"], "module_name": "multiarch1" },
@@ -26,5 +26,8 @@
   "test_dep_level_2_2": { "module_name": "test_dep_level_2_2", "dependencies": [] },
   "single_config_module": {"module_name": "single_config_module", "test_config":  ["my/single/config/path/test_config.xml"],  "path": ["my/single/config/path"]},
   "androidtest_config_module": {"module_name": "androidtest_config_module", "test_config":  [],  "path": ["my/android/config/path"]},
-  "multiple_config_module": {"module_name": "multiple_config_module", "test_config":  ["my/multiple/config/path/main_test_config.xml", "my/multiple/config/path/Multiple1.xml", "my/multiple/config/path/Multiple2.xml"], "path": ["my/multiple/config/path"]}
+  "multiple_config_module": {"module_name": "multiple_config_module", "test_config":  ["my/multiple/config/path/main_test_config.xml", "my/multiple/config/path/Multiple1.xml", "my/multiple/config/path/Multiple2.xml"], "path": ["my/multiple/config/path"]},
+  "MainModule1": {"module_name": "MainModule1", "test_config": [], "test_mainline_modules": ["foo2.apk+foo3.apk"]},
+  "MainModule2": {"module_name": "MainModule2", "test_config": ["unittest_data/parameter_config/mainline_param.cfg"], "test_mainline_modules": []},
+  "MainModule3": {"module_name": "MainModule3", "test_config": ["unittest_data/parameter_config/parameter.cfg"], "test_mainline_modules": []}
 }

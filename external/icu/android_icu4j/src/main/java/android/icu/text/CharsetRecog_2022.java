@@ -10,7 +10,7 @@
 package android.icu.text;
 
 /**
- *  class CharsetRecog_2022  part of the ICU charset detection imlementation.
+ *  class CharsetRecog_2022  part of the ICU charset detection implementation.
  *                           This is a superclass for the individual detectors for
  *                           each of the detectable members of the ISO 2022 family
  *                           of encodings.
@@ -75,7 +75,7 @@ abstract class CharsetRecog_2022 extends CharsetRecognizer {
         }
 
         //
-        // Initial quality is based on relative proportion of recongized vs.
+        // Initial quality is based on relative proportion of recognized vs.
         //   unrecognized escape sequences.
         //   All good:  quality = 100;
         //   half or less good: quality = 0;

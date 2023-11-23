@@ -57,6 +57,7 @@ FLAGS += -I$(VARIANT_PATH)/inc
 FLAGS += -Iexternal/freebsd/inc
 FLAGS += -I../lib/include
 FLAGS += -I../../../../system/chre/chre_api/include/chre_api
+FLAGS += -I../../../../system/chre/util/include
 
 FLAGS += -Wall -Werror
 #help avoid commmon embedded C mistakes

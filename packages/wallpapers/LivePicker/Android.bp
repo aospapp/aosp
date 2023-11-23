@@ -42,7 +42,7 @@ android_app {
     srcs: ["src/**/*.java"],
     required: ["android.software.live_wallpaper.xml"],
     platform_apis: true,
-    certificate: "platform",
+    privileged: true,
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },

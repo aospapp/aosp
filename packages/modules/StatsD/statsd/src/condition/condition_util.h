@@ -37,6 +37,8 @@ ConditionState operator|(ConditionState l, ConditionState r);
 ConditionState evaluateCombinationCondition(const std::vector<int>& children,
                                             const LogicalOperation& operation,
                                             const std::vector<ConditionState>& conditionCache);
+
+ConditionState convertInitialValue(const SimplePredicate_InitialValue& initialValue);
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

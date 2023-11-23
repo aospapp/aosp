@@ -493,31 +493,25 @@ public abstract class DateFormat extends UFormat {
 
     /**
      * Hour Cycle
-     * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public enum HourCycle {
         /**
          * hour in am/pm (0~11)
-         * @hide draft / provisional / internal are hidden on Android
          */
         HOUR_CYCLE_11,
 
         /**
          * hour in am/pm (1~12)
-         * @hide draft / provisional / internal are hidden on Android
          */
         HOUR_CYCLE_12,
 
         /**
          * hour in day (0~23)
-         * @hide draft / provisional / internal are hidden on Android
          */
         HOUR_CYCLE_23,
 
         /**
          * hour in day (1~24)
-         * @hide draft / provisional / internal are hidden on Android
          */
         HOUR_CYCLE_24;
     };
@@ -1798,7 +1792,7 @@ public abstract class DateFormat extends UFormat {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     //-------------------------------------------------------------------------
-    // Public static interface for creating custon DateFormats for different
+    // Public static interface for creating custom DateFormats for different
     // types of Calendars.
     //-------------------------------------------------------------------------
 
@@ -1938,7 +1932,6 @@ public abstract class DateFormat extends UFormat {
      *
      * @param cal   The calendar system for which a date/time format is desired.
      * @param locale The locale for which the date/time format is desired.
-     * @hide draft / provisional / internal are hidden on Android
      */
     static final public DateFormat getInstance(Calendar cal, ULocale locale) {
         return getDateTimeInstance(cal, SHORT, SHORT, locale);

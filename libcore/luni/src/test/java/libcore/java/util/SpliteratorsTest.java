@@ -26,6 +26,10 @@ import java.util.List;
 import java.util.PrimitiveIterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.Spliterators.AbstractDoubleSpliterator;
+import java.util.Spliterators.AbstractIntSpliterator;
+import java.util.Spliterators.AbstractLongSpliterator;
+import java.util.Spliterators.AbstractSpliterator;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
@@ -862,5 +866,303 @@ public class SpliteratorsTest extends TestCase {
         assertEquals(Arrays.toString(array), Arrays.toString(recorder.toArray()));
 
         assertFalse(it.hasNext());
+    }
+
+    private static class IncrementalDoubleSequenceSpliterator extends AbstractDoubleSpliterator {
+        private int current = 0;
+        private final int size;
+
+        IncrementalDoubleSequenceSpliterator(int size, int additionalCharacteristics) {
+            super(size, additionalCharacteristics);
+            this.size = size;
+        }
+
+        @Override
+        public boolean tryAdvance(DoubleConsumer action) {
+            if (current < size) {
+                action.accept(current++);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    public void testAbstractDoubleSpliterator_smallSize() {
+        int size = 10;
+        int characteristics = Spliterator.ORDERED;
+        AbstractDoubleSpliterator spliterator = new IncrementalDoubleSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics);
+
+        Spliterator.OfDouble resultSpliterator = spliterator.trySplit();
+        // The parent spliterator should have no remaining elements
+        assertEquals(spliterator.estimateSize(), 0);
+        assertFalse(spliterator.tryAdvance((DoubleConsumer) value -> {
+            throw new IllegalArgumentException("Unexpected call with value: " + value);
+        }));
+        // The result spliterator should have the same size because the size is small.
+        assertEquals(resultSpliterator.estimateSize(), size);
+        assertTrue(resultSpliterator.tryAdvance(((DoubleConsumer) value -> {
+            assertEquals(0d, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((DoubleConsumer) value -> {
+            assertEquals(1d, value);
+        })));
+    }
+
+    public void testAbstractDoubleSpliterator_largeSize() {
+        // AbstractDoubleSpliterator.MAX_BATCH is package-private, and so assume it's 1 << 10.
+        int maxBatch = 1 << 10;
+        int size = maxBatch * 2;
+        int characteristics = Spliterator.ORDERED | Spliterator.SIZED;
+        AbstractDoubleSpliterator spliterator = new IncrementalDoubleSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics | Spliterator.SUBSIZED);
+
+        Spliterator.OfDouble resultSpliterator = spliterator.trySplit();
+        // The total size is not changed
+        assertEquals(size, spliterator.estimateSize() + resultSpliterator.estimateSize());
+
+        // The result spliterator should have the max batch size.
+        assertEquals(resultSpliterator.estimateSize(), maxBatch);
+        assertTrue(resultSpliterator.tryAdvance(((DoubleConsumer) value -> {
+            assertEquals(0d, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((DoubleConsumer) value -> {
+            assertEquals(1d, value);
+        })));;
+
+        // The parent spliterator should be able to advance.
+        assertTrue(spliterator.tryAdvance(((DoubleConsumer) value -> {
+            assertEquals((double) maxBatch, value);
+        })));
+
+    }
+
+    private static class IncrementalIntSequenceSpliterator extends AbstractIntSpliterator {
+        private int current = 0;
+        private final int size;
+
+        IncrementalIntSequenceSpliterator(int size, int additionalCharacteristics) {
+            super(size, additionalCharacteristics);
+            this.size = size;
+        }
+
+        @Override
+        public boolean tryAdvance(IntConsumer action) {
+            if (current < size) {
+                action.accept(current++);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    public void testAbstractIntSpliterator_smallSize() {
+        int size = 10;
+        int characteristics = Spliterator.ORDERED;
+        AbstractIntSpliterator spliterator = new IncrementalIntSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics);
+
+        Spliterator.OfInt resultSpliterator = spliterator.trySplit();
+        // The parent spliterator should have no remaining elements
+        assertEquals(spliterator.estimateSize(), 0);
+        assertFalse(spliterator.tryAdvance((IntConsumer) value -> {
+            throw new IllegalArgumentException("Unexpected call with value: " + value);
+        }));
+        // The result spliterator should have the same size because the size is small.
+        assertEquals(resultSpliterator.estimateSize(), size);
+        assertTrue(resultSpliterator.tryAdvance(((IntConsumer) value -> {
+            assertEquals(0, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((IntConsumer) value -> {
+            assertEquals(1, value);
+        })));
+    }
+
+    public void testAbstractIntSpliterator_largeSize() {
+        // AbstractIntSpliterator.MAX_BATCH is package-private, and so assume it's 1 << 10.
+        int maxBatch = 1 << 10;
+        int size = maxBatch * 2;
+        int characteristics = Spliterator.ORDERED | Spliterator.SIZED;
+        AbstractIntSpliterator spliterator = new IncrementalIntSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics | Spliterator.SUBSIZED);
+
+        Spliterator.OfInt resultSpliterator = spliterator.trySplit();
+        // The total size is not changed
+        assertEquals(size, spliterator.estimateSize() + resultSpliterator.estimateSize());
+
+        // The result spliterator should have the max batch size.
+        assertEquals(resultSpliterator.estimateSize(), maxBatch);
+        assertTrue(resultSpliterator.tryAdvance(((IntConsumer) value -> {
+            assertEquals(0, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((IntConsumer) value -> {
+            assertEquals(1, value);
+        })));
+
+        // The parent spliterator should be able to advance.
+        assertTrue(spliterator.tryAdvance(((IntConsumer) value -> {
+            assertEquals(maxBatch, value);
+        })));
+    }
+
+    private static class IncrementalLongSequenceSpliterator extends AbstractLongSpliterator {
+        private int current = 0;
+        private final int size;
+
+        IncrementalLongSequenceSpliterator(int size, int additionalCharacteristics) {
+            super(size, additionalCharacteristics);
+            this.size = size;
+        }
+
+        @Override
+        public boolean tryAdvance(LongConsumer action) {
+            if (current < size) {
+                action.accept(current++);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    public void testAbstractLongSpliterator_smallSize() {
+        int size = 10;
+        int characteristics = Spliterator.ORDERED;
+        AbstractLongSpliterator spliterator = new IncrementalLongSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics);
+
+        Spliterator.OfLong resultSpliterator = spliterator.trySplit();
+        // The parent spliterator should have no remaining elements
+        assertEquals(spliterator.estimateSize(), 0L);
+        assertFalse(spliterator.tryAdvance((LongConsumer) value -> {
+            throw new IllegalArgumentException("Unexpected call with value: " + value);
+        }));
+        // The result spliterator should have the same size because the size is small.
+        assertEquals(resultSpliterator.estimateSize(), size);
+        assertTrue(resultSpliterator.tryAdvance(((LongConsumer) value -> {
+            assertEquals(0L, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((LongConsumer) value -> {
+            assertEquals(1L, value);
+        })));
+    }
+
+    public void testAbstractLongSpliterator_largeSize() {
+        // AbstractLongSpliterator.MAX_BATCH is package-private, and so assume it's 1 << 10.
+        int maxBatch = 1 << 10;
+        int size = maxBatch * 2;
+        int characteristics = Spliterator.ORDERED | Spliterator.SIZED;
+        AbstractLongSpliterator spliterator = new IncrementalLongSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics | Spliterator.SUBSIZED);
+
+        Spliterator.OfLong resultSpliterator = spliterator.trySplit();
+        // The total size is not changed
+        assertEquals(size, spliterator.estimateSize() + resultSpliterator.estimateSize());
+
+        // The result spliterator should have the max batch size.
+        assertEquals(resultSpliterator.estimateSize(), maxBatch);
+        assertTrue(resultSpliterator.tryAdvance(((LongConsumer) value -> {
+            assertEquals(0, value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance(((LongConsumer) value -> {
+            assertEquals(1, value);
+        })));;
+
+        // The parent spliterator should be able to advance.
+        assertTrue(spliterator.tryAdvance(((LongConsumer) value -> {
+            assertEquals(maxBatch, value);
+        })));
+
+    }
+
+    private static class IncrementalIntegerSequenceSpliterator extends
+            AbstractSpliterator<Integer> {
+        private int current = 0;
+        private final int size;
+
+        IncrementalIntegerSequenceSpliterator(int size, int additionalCharacteristics) {
+            super(size, additionalCharacteristics);
+            this.size = size;
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super Integer> action) {
+            if (current < size) {
+                action.accept(current++);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    public void testAbstractSpliterator_smallSize() {
+        int size = 10;
+        int characteristics = Spliterator.ORDERED;
+        AbstractSpliterator<Integer> spliterator = new IncrementalIntegerSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics);
+
+        Spliterator<Integer> resultSpliterator = spliterator.trySplit();
+        // The parent spliterator should have no remaining elements
+        assertEquals(spliterator.estimateSize(), 0L);
+        assertFalse(spliterator.tryAdvance(value -> {
+            throw new IllegalArgumentException("Unexpected call with value: " + value);
+        }));
+        // The result spliterator should have the same size because the size is small.
+        assertEquals(resultSpliterator.estimateSize(), size);
+        assertTrue(resultSpliterator.tryAdvance((value -> {
+            assertEquals(Integer.valueOf(0), value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance((value -> {
+            assertEquals(Integer.valueOf(1), value);
+        })));
+    }
+
+    public void testAbstractSpliterator_largeSize() {
+        // AbstractSpliterator.MAX_BATCH is package-private, and so assume it's 1 << 10.
+        int maxBatch = 1 << 10;
+        int size = maxBatch * 2;
+        int characteristics = Spliterator.ORDERED | Spliterator.SIZED;
+        AbstractSpliterator<Integer> spliterator = new IncrementalIntegerSequenceSpliterator(size,
+                characteristics);
+        assertEquals(spliterator.estimateSize(), size);
+        assertEquals(spliterator.characteristics(), characteristics | Spliterator.SUBSIZED);
+
+        Spliterator<Integer> resultSpliterator = spliterator.trySplit();
+        // The total size is not changed
+        assertEquals(size, spliterator.estimateSize() + resultSpliterator.estimateSize());
+
+        // The result spliterator should have the max batch size.
+        assertEquals(resultSpliterator.estimateSize(), maxBatch);
+        assertTrue(resultSpliterator.tryAdvance((value -> {
+            assertEquals(Integer.valueOf(0), value);
+        })));
+        assertTrue(resultSpliterator.tryAdvance((value -> {
+            assertEquals(Integer.valueOf(1), value);
+        })));
+
+        ;
+
+        // The parent spliterator should be able to advance.
+        assertTrue(spliterator.tryAdvance((value -> {
+            assertEquals(Integer.valueOf(maxBatch), value);
+        })));
+
     }
 }

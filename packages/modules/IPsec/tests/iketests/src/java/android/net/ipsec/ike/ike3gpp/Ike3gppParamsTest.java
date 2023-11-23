@@ -24,6 +24,7 @@ import org.junit.Test;
 
 public class Ike3gppParamsTest {
     private static final byte PDU_SESSION_ID = (byte) 0x01;
+    private static final String DEVICE_IDENTITY_IMEI = "123456789123456";
 
     @Test
     public void testBuildWithPduSessionId() {
@@ -38,6 +39,26 @@ public class Ike3gppParamsTest {
         Ike3gppParams ike3gppParams = new Ike3gppParams.Builder().build();
 
         assertEquals(PDU_SESSION_ID_UNSET, ike3gppParams.getPduSessionId());
+        assertEquals(null, ike3gppParams.getMobileDeviceIdentity());
+    }
+
+    @Test
+    public void testBuildWithDeviceIdentity() {
+        Ike3gppParams ike3gppParams =
+                new Ike3gppParams.Builder().setMobileDeviceIdentity(DEVICE_IDENTITY_IMEI).build();
+
+        assertEquals(DEVICE_IDENTITY_IMEI, ike3gppParams.getMobileDeviceIdentity());
+    }
+
+    @Test
+    public void testBuildIke3gppParamsSetAndClearDeviceIdentity() {
+        Ike3gppParams ike3gppParams =
+                new Ike3gppParams.Builder()
+                        .setMobileDeviceIdentity(DEVICE_IDENTITY_IMEI)
+                        .setMobileDeviceIdentity(null)
+                        .build();
+
+        assertEquals(null, ike3gppParams.getMobileDeviceIdentity());
     }
 
     @Test

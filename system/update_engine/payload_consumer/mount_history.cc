@@ -72,7 +72,7 @@ void LogMountHistory(const FileDescriptorPtr blockdevice_fd) {
   if (magic == 0xEF53) {
     // Timestamps can be updated by fsck without updating mount count,
     // log if any timestamp differ
-    if (! (write_time == created_time && check_time == created_time)) {
+    if (!(write_time == created_time && check_time == created_time)) {
       LOG(WARNING) << "Device have been modified after being created. "
                    << "Filesystem created on "
                    << base::Time::FromTimeT(created_time) << ", "

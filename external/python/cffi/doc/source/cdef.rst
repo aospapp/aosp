@@ -235,7 +235,12 @@ specifies that all structure fields should have an alignment of one
 byte.  (Note that the packed attribute has no effect on bit fields so
 far, which mean that they may be packed differently than on GCC.
 Also, this has no effect on structs declared with ``"...;"``---more
-about it later in `Letting the C compiler fill the gaps`_.)
+about it later in `Letting the C compiler fill the gaps`_.  In
+particular, if your C source uses other attributes like
+``__attribute__((aligned(16)))``, there is no way to declare this fact
+in the ``cdef()``, but you can generally just declare the struct with
+``"...;"`` as the last field.)
+
 *New in version 1.12:*  In ABI mode, you can also pass ``pack=n``,
 with an integer ``n`` which must be a power of two.  Then the
 alignment of any field is limited to ``n`` if it would otherwise be
@@ -302,6 +307,7 @@ strings as arguments instead of byte strings.
 
 
 .. _loading-libraries:
+.. _dlopen:
 
 ffi.dlopen(): loading libraries in ABI mode
 -------------------------------------------
@@ -364,6 +370,18 @@ look for the library's filename.  This also means that
 ``ffi.dlopen(None)`` no longer work on Windows; try instead
 ``ffi.dlopen(ctypes.util.find_library('c'))``.
 
+*New in version 1.14:* ``ffi.dlopen(handle)``: instead of a file path,
+you can give an already-opened library handle, as a cdata of type
+``void *``.  Such a call converts this handle into a regular FFI object
+with the functions and global variables declared by ``ffi.cdef()``.
+Useful if you have special needs (e.g. you need the GNU extension
+``dlmopen()``, which you can itself declare and call using a different
+``ffi`` object).  Note that in this variant, ``dlclose()`` is not called
+automatically if the FFI object is garbage-collected (but you can still
+call ``ffi.dlclose()`` explicitly if needed).
+
+
+.. _set_source:
 
 ffibuilder.set_source(): preparing out-of-line modules
 ------------------------------------------------------
@@ -471,10 +489,12 @@ Moreover, you can use "``...``" (literally, dot-dot-dot) in the
 ``cdef()`` at various places, in order to ask the C compiler to fill
 in the details.  These places are:
 
-*  structure declarations: any ``struct { }`` that ends with "``...;``" as
-   the last "field" is
-   partial: it may be missing fields and/or have them declared out of order.
-   This declaration will be corrected by the compiler.  (But note that you
+*  structure declarations: any ``struct { }`` or ``union { }`` that ends
+   with "``...;``" as the last "field" is partial: it may be missing
+   fields, have them declared out of order, use non-standard alignment,
+   etc.  Precisely, the field offsets, total struct size, and total
+   struct alignment deduced by looking at the ``cdef`` are not relied
+   upon and will instead be corrected by the compiler.  (But note that you
    can only access fields that you declared, not others.)  Any ``struct``
    declaration which doesn't use "``...``" is assumed to be exact, but this is
    checked: you get an error if it is not correct.
@@ -512,14 +532,14 @@ in the details.  These places are:
    field; then you would use "``typedef struct { ...; } foo_t;``".
 
 *  array lengths: when used as structure fields or in global variables,
-   arrays can have an unspecified length, as in "``int n[...];``".  The
+   arrays can have an unspecified length, as in "``extern int n[...];``".  The
    length is completed by the C compiler.
-   This is slightly different from "``int n[];``", because the latter
+   This is slightly different from "``extern int n[];``", because the latter
    means that the length is not known even to the C compiler, and thus
    no attempt is made to complete it.  This supports
-   multidimensional arrays: "``int n[...][...];``".
+   multidimensional arrays: "``extern int n[...][...];``".
 
-   *New in version 1.2:* "``int m[][...];``", i.e. ``...`` can be used
+   *New in version 1.2:* "``extern int m[][...];``", i.e. ``...`` can be used
    in the innermost dimensions without being also used in the outermost
    dimension.  In the example given, the length of the ``m`` array is
    assumed not to be known to the C compiler, but the length of every
@@ -568,12 +588,12 @@ pointer types; currently, it also does not work for variadic functions.
 
 For more complex types, you have no choice but be precise.  For example,
 you cannot misdeclare a ``int *`` argument as ``long *``, or a global
-array ``int a[5];`` as ``long a[5];``.  CFFI considers `all types listed
-above`_ as primitive (so ``long long a[5];`` and ``int64_t a[5]`` are
+array ``extern int a[5];`` as ``extern long a[5];``.  CFFI considers `all types listed
+above`_ as primitive (so ``extern long long a[5];`` and ``extern int64_t a[5]`` are
 different declarations).  The reason for that is detailed in `a comment
 about an issue.`__
 
-.. __: https://bitbucket.org/cffi/cffi/issues/265/cffi-doesnt-allow-creating-pointers-to#comment-28406958
+.. __: https://foss.heptapod.net/pypy/cffi/-/issues/265#note_50393
 
 
 ffibuilder.compile() etc.: compiling out-of-line modules
@@ -806,7 +826,7 @@ write the rest of the build script):
     print lib.mysize
 
 Extra arguments to ``ffi.verify()``:
-    
+
 *  ``tmpdir`` controls where the C
    files are created and compiled. Unless the ``CFFI_TMPDIR`` environment
    variable is set, the default is

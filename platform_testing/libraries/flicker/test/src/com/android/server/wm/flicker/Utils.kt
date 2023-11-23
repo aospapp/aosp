@@ -18,6 +18,7 @@ package com.android.server.wm.flicker
 
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
+import com.android.server.wm.flicker.FlickerRunResult.Companion.RunStatus.ASSERTION_SUCCESS
 import com.android.server.wm.flicker.traces.FlickerSubjectException
 import com.android.server.wm.traces.common.layers.LayersTrace
 import com.android.server.wm.traces.common.tags.TagTrace
@@ -27,13 +28,15 @@ import com.android.server.wm.traces.parser.tags.TagTraceParserUtil
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerTraceParser
 import com.google.common.io.ByteStreams
 import com.google.common.truth.ExpectFailure
+import com.google.common.truth.Truth
 import com.google.common.truth.TruthFailureSubject
-import java.nio.file.Paths
+import java.io.FileInputStream
+import java.nio.file.Files
+import java.util.zip.ZipInputStream
 
 internal fun readWmTraceFromFile(relativePath: String): WindowManagerTrace {
     return try {
-        WindowManagerTraceParser.parseFromTrace(readTestFile(relativePath),
-            source = Paths.get(relativePath))
+        WindowManagerTraceParser.parseFromTrace(readTestFile(relativePath))
     } catch (e: Exception) {
         throw RuntimeException(e)
     }
@@ -52,8 +55,11 @@ internal fun readLayerTraceFromFile(
     ignoreOrphanLayers: Boolean = true
 ): LayersTrace {
     return try {
-        LayersTraceParser.parseFromTrace(readTestFile(relativePath),
-            source = Paths.get(relativePath)) { ignoreOrphanLayers }
+        LayersTraceParser.parseFromTrace(
+            readTestFile(relativePath),
+            ignoreLayersStackMatchNoDisplay = false,
+            ignoreLayersInVirtualDisplay = false
+        ) { ignoreOrphanLayers }
     } catch (e: Exception) {
         throw RuntimeException(e)
     }
@@ -61,8 +67,7 @@ internal fun readLayerTraceFromFile(
 
 internal fun readTagTraceFromFile(relativePath: String): TagTrace {
     return try {
-        TagTraceParserUtil.parseFromTrace(readTestFile(relativePath),
-            source = Paths.get(relativePath))
+        TagTraceParserUtil.parseFromTrace(readTestFile(relativePath))
     } catch (e: Exception) {
         throw RuntimeException(e)
     }
@@ -106,4 +111,36 @@ fun assertFailure(failure: Throwable?): TruthFailureSubject {
     }
     require(target is AssertionError) { "Unknown failure $target" }
     return ExpectFailure.assertThat(target)
+}
+
+fun assertThatErrorContainsDebugInfo(error: Throwable, withBlameEntry: Boolean = true) {
+    Truth.assertThat(error).hasMessageThat().contains("What?")
+    Truth.assertThat(error).hasMessageThat().contains("Where?")
+    Truth.assertThat(error).hasMessageThat().contains("Facts")
+    Truth.assertThat(error).hasMessageThat().contains("Trace start")
+    Truth.assertThat(error).hasMessageThat().contains("Trace end")
+
+    if (withBlameEntry) {
+        Truth.assertThat(error).hasMessageThat().contains("Entry")
+    }
+}
+
+fun assertArchiveContainsAllTraces(
+    runStatus: FlickerRunResult.Companion.RunStatus = ASSERTION_SUCCESS,
+    testName: String = "",
+    iteration: Int = 0
+) {
+    val archiveFileName = "${runStatus.prefix}_${testName}_$iteration.zip"
+    val archivePath = getDefaultFlickerOutputDir().resolve(archiveFileName)
+    Truth.assertWithMessage("Expected trace archive `$archivePath` to exist")
+            .that(Files.exists(archivePath)).isTrue()
+
+    val archiveStream = ZipInputStream(FileInputStream(archivePath.toFile()))
+
+    val expectedFiles = listOf("wm_trace.winscope", "layers_trace.winscope", "transition.mp4")
+    val actualFiles = generateSequence { archiveStream.nextEntry }.map { it.name }.toList()
+
+    Truth.assertThat(actualFiles).hasSize(expectedFiles.size)
+    Truth.assertWithMessage("Trace archive doesn't contain all expected traces")
+            .that(actualFiles.containsAll(expectedFiles)).isTrue()
 }

@@ -200,9 +200,9 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             removeRootTasksWithActivityTypes(ACTIVITY_TYPE_ASSISTANT);
         }
 
-        // Launch an assistant activity on top of an existing fullscreen activity, and ensure that
-        // the fullscreen activity is still visible and on top after the assistant activity finishes
-        launchActivityOnDisplay(TEST_ACTIVITY, WINDOWING_MODE_FULLSCREEN, mAssistantDisplayId);
+        // Launch an assistant activity on top of an existing activity, and ensure that the activity
+        // is still visible and on top after the assistant activity finishes
+        launchActivityOnDisplay(TEST_ACTIVITY, mAssistantDisplayId);
         try (final AssistantSession assistantSession = new AssistantSession()) {
             assistantSession.setVoiceInteractionService(ASSISTANT_VOICE_INTERACTION_SERVICE);
 
@@ -280,7 +280,29 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             int windowingMode = mWmState.getFocusedRootTaskWindowingMode();
             // In a multi-window environment the home activity might not be fully covered
             assumeTrue(windowingMode == WINDOWING_MODE_FULLSCREEN);
-            mWmState.waitAndAssertVisibilityGone(homeActivity);
+
+            // A WM Shell can implement a policy where there are more than one default
+            // Task Display Areas.
+            // If there are two task display areas, for example, left and right.
+            // When an activity is organized in left task display area it is still running in
+            // WINDOWING_MODE_FULLSCREEN. Having said that, home activity in default task display
+            // area is not fully covered. Thus, home activity is still resumed and visible.
+            // More than that, in the current AOSP 11 implementation, visibility and activity
+            // lifecycle work differently if activities are in the same task display area or in
+            // different task display areas.
+            // For example, if two task display areas have the exact same bounds,
+            // for the user, an activity running in the top task display area covers the activity
+            // running in the bottom task display area. However, because they are in separate
+            // display areas they will be both resumed.
+            // There can be cases where the bounds match but because tasks are in different
+            // task display area they are both resumed.
+            // So we check the activity bounds for two activities to confirm if task display
+            // areas are the same. If not the same, we will skip the visibility asserting test.
+            if (compareActivityBounds(homeActivity,
+                    ComponentName.unflattenFromString(mWmState.getFocusedActivity()))) {
+                mWmState.waitAndAssertVisibilityGone(homeActivity);
+            }
+
             mBroadcastActionTrigger.doAction(TEST_ACTIVITY_ACTION_FINISH_SELF);
             mWmState.waitForFocusedStack(WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
             assertAssistantStackExists();
@@ -428,5 +450,17 @@ public class AssistantStackTests extends ActivityManagerTestBase {
         void setVoiceInteractionService(ComponentName assistantName) throws Exception {
             super.set(getActivityName(assistantName));
         }
+    }
+
+    /**
+     * Compare if bounds were the same between activities
+     */
+    private boolean compareActivityBounds(ComponentName activityName1,
+            ComponentName activityName2) {
+        if (mWmState.getTaskByActivity(activityName1).getBounds()
+                .equals(mWmState.getTaskByActivity(activityName2).getBounds())) {
+            return true;
+        }
+        return false;
     }
 }

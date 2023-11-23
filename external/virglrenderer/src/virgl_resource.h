@@ -68,6 +68,9 @@ struct virgl_resource {
 
    uint32_t map_info;
 
+   uint64_t map_size;
+   void *mapped;
+
    void *private_data;
 };
 

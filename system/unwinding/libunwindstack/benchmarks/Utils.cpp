@@ -17,6 +17,9 @@
 #include <err.h>
 #include <stdint.h>
 
+#include <benchmark/benchmark.h>
+#include <malloc.h>
+
 #include <string>
 #include <vector>
 
@@ -27,17 +30,30 @@
 #include <unwindstack/Elf.h>
 #include <unwindstack/Memory.h>
 
+#include "utils/OfflineUnwindUtils.h"
+
+#include "Utils.h"
+
+std::string GetBenchmarkFilesDirectory() {
+  std::string path = android::base::GetExecutableDirectory() + "/benchmarks/files/";
+  unwindstack::DecompressFiles(path);
+  return path;
+}
+
 std::string GetElfFile() {
-  return android::base::GetExecutableDirectory() + "/benchmarks/files/libart_arm.so";
+  return GetBenchmarkFilesDirectory() + "libart_arm.so";
 }
 
 std::string GetSymbolSortedElfFile() {
-  return android::base::GetExecutableDirectory() + "/benchmarks/files/boot_arm.oat";
+  return GetBenchmarkFilesDirectory() + "boot_arm.oat";
 }
 
-std::string GetCompressedElfFile() {
-  // Both are the same right now.
-  return GetSymbolSortedElfFile();
+std::string GetLargeCompressedFrameElfFile() {
+  return GetBenchmarkFilesDirectory() + "libpac.so";
+}
+
+std::string GetLargeEhFrameElfFile() {
+  return GetBenchmarkFilesDirectory() + "libLLVM_android.so";
 }
 
 #if defined(__BIONIC__)
@@ -60,3 +76,42 @@ void GatherRss(uint64_t* rss_bytes) {
   }
 }
 #endif
+
+void MemoryTracker::SetBenchmarkCounters(benchmark::State& state) {
+  total_iterations_ += state.iterations();
+#if defined(__BIONIC__)
+  state.counters["MEAN_RSS_BYTES"] = total_rss_bytes_ / static_cast<double>(total_iterations_);
+  state.counters["MAX_RSS_BYTES"] = max_rss_bytes_;
+  state.counters["MIN_RSS_BYTES"] = min_rss_bytes_;
+#endif
+  state.counters["MEAN_ALLOCATED_BYTES"] =
+      total_alloc_bytes_ / static_cast<double>(total_iterations_);
+  state.counters["MAX_ALLOCATED_BYTES"] = max_alloc_bytes_;
+  state.counters["MIN_ALLOCATED_BYTES"] = min_alloc_bytes_;
+}
+
+void MemoryTracker::StartTrackingAllocations() {
+#if defined(__BIONIC__)
+  mallopt(M_PURGE, 0);
+  rss_bytes_before_ = 0;
+  GatherRss(&rss_bytes_before_);
+#endif
+  alloc_bytes_before_ = mallinfo().uordblks;
+}
+
+void MemoryTracker::StopTrackingAllocations() {
+#if defined(__BIONIC__)
+  mallopt(M_PURGE, 0);
+#endif
+  uint64_t bytes_alloced = mallinfo().uordblks - alloc_bytes_before_;
+  total_alloc_bytes_ += bytes_alloced;
+  if (bytes_alloced > max_alloc_bytes_) max_alloc_bytes_ = bytes_alloced;
+  if (bytes_alloced < min_alloc_bytes_) min_alloc_bytes_ = bytes_alloced;
+#if defined(__BIONIC__)
+  uint64_t rss_bytes = 0;
+  GatherRss(&rss_bytes);
+  total_rss_bytes_ += rss_bytes - rss_bytes_before_;
+  if (rss_bytes > max_rss_bytes_) max_rss_bytes_ = rss_bytes;
+  if (rss_bytes < min_rss_bytes_) min_rss_bytes_ = rss_bytes;
+#endif
+}

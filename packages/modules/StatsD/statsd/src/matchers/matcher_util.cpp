@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "src/statsd_config.pb.h"
@@ -237,18 +237,13 @@ bool matchesSimple(const sp<UidMap>& uidMap, const FieldValueMatcher& matcher,
         case FieldValueMatcher::ValueMatcherCase::kNeqAnyString: {
             const auto& str_list = matcher.neq_any_string();
             for (int i = start; i < end; i++) {
-                bool notEqAll = true;
                 for (const auto& str : str_list.str_value()) {
                     if (tryMatchString(uidMap, values[i], str)) {
-                        notEqAll = false;
-                        break;
+                        return false;
                     }
                 }
-                if (notEqAll) {
-                    return true;
-                }
             }
-            return false;
+            return true;
         }
         case FieldValueMatcher::ValueMatcherCase::kEqAnyString: {
             const auto& str_list = matcher.eq_any_string();

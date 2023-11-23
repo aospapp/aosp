@@ -42,3 +42,11 @@ class TestPurgatorio(TestBase):
         # Show original method name with proguard mapping file.
         self.assertIn(original_methodname, self.get_report(
             ['--proguard-mapping-file', proguard_mapping_file, '-i', testdata_file]))
+
+    def test_show_art_frames(self):
+        art_frame_str = 'art::interpreter::DoCall'
+        options = ['-i', TestHelper.testdata_path('perf_with_interpreter_frames.data')]
+        report = self.get_report(options)
+        self.assertIn(art_frame_str, report)
+        report = self.get_report(options + ['--no-show-art-frames'])
+        self.assertNotIn(art_frame_str, report)

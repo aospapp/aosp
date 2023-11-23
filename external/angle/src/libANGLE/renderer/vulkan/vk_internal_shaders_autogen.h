@@ -90,10 +90,10 @@ enum Conversion
 constexpr size_t kArrayLen = 0x00000008;
 }  // namespace ConvertVertex_comp
 
-namespace FullScreenQuad_vert
+namespace FullScreenTri_vert
 {
 constexpr size_t kArrayLen = 0x00000001;
-}  // namespace FullScreenQuad_vert
+}  // namespace FullScreenTri_vert
 
 namespace GenerateMipmap_comp
 {
@@ -162,31 +162,15 @@ enum SrcType
 constexpr size_t kArrayLen = 0x0000002B;
 }  // namespace ImageCopy_frag
 
-namespace OverlayCull_comp
+namespace OverlayDraw_frag
 {
-enum SubgroupSize
-{
-    kIs8x4 = 0x00000000,
-    kIs8x8 = 0x00000001,
-};
-enum SubgroupOp
-{
-    kSupportsBallot     = 0x00000000,
-    kSupportsArithmetic = 0x00000002,
-    kSupportsNone       = 0x00000004,
-};
-constexpr size_t kArrayLen = 0x00000006;
-}  // namespace OverlayCull_comp
+constexpr size_t kArrayLen = 0x00000001;
+}  // namespace OverlayDraw_frag
 
-namespace OverlayDraw_comp
+namespace OverlayDraw_vert
 {
-enum SubgroupSize
-{
-    kIs8x4 = 0x00000000,
-    kIs8x8 = 0x00000001,
-};
-constexpr size_t kArrayLen = 0x00000002;
-}  // namespace OverlayDraw_comp
+constexpr size_t kArrayLen = 0x00000001;
+}  // namespace OverlayDraw_vert
 
 }  // namespace InternalShader
 
@@ -216,9 +200,9 @@ class ShaderLibrary final : angle::NonCopyable
     angle::Result getConvertVertex_comp(Context *context,
                                         uint32_t shaderFlags,
                                         RefCounted<ShaderAndSerial> **shaderOut);
-    angle::Result getFullScreenQuad_vert(Context *context,
-                                         uint32_t shaderFlags,
-                                         RefCounted<ShaderAndSerial> **shaderOut);
+    angle::Result getFullScreenTri_vert(Context *context,
+                                        uint32_t shaderFlags,
+                                        RefCounted<ShaderAndSerial> **shaderOut);
     angle::Result getGenerateMipmap_comp(Context *context,
                                          uint32_t shaderFlags,
                                          RefCounted<ShaderAndSerial> **shaderOut);
@@ -228,10 +212,10 @@ class ShaderLibrary final : angle::NonCopyable
     angle::Result getImageCopy_frag(Context *context,
                                     uint32_t shaderFlags,
                                     RefCounted<ShaderAndSerial> **shaderOut);
-    angle::Result getOverlayCull_comp(Context *context,
+    angle::Result getOverlayDraw_frag(Context *context,
                                       uint32_t shaderFlags,
                                       RefCounted<ShaderAndSerial> **shaderOut);
-    angle::Result getOverlayDraw_comp(Context *context,
+    angle::Result getOverlayDraw_vert(Context *context,
                                       uint32_t shaderFlags,
                                       RefCounted<ShaderAndSerial> **shaderOut);
 
@@ -249,16 +233,16 @@ class ShaderLibrary final : angle::NonCopyable
     RefCounted<ShaderAndSerial>
         mConvertVertex_comp_shaders[InternalShader::ConvertVertex_comp::kArrayLen];
     RefCounted<ShaderAndSerial>
-        mFullScreenQuad_vert_shaders[InternalShader::FullScreenQuad_vert::kArrayLen];
+        mFullScreenTri_vert_shaders[InternalShader::FullScreenTri_vert::kArrayLen];
     RefCounted<ShaderAndSerial>
         mGenerateMipmap_comp_shaders[InternalShader::GenerateMipmap_comp::kArrayLen];
     RefCounted<ShaderAndSerial>
         mImageClear_frag_shaders[InternalShader::ImageClear_frag::kArrayLen];
     RefCounted<ShaderAndSerial> mImageCopy_frag_shaders[InternalShader::ImageCopy_frag::kArrayLen];
     RefCounted<ShaderAndSerial>
-        mOverlayCull_comp_shaders[InternalShader::OverlayCull_comp::kArrayLen];
+        mOverlayDraw_frag_shaders[InternalShader::OverlayDraw_frag::kArrayLen];
     RefCounted<ShaderAndSerial>
-        mOverlayDraw_comp_shaders[InternalShader::OverlayDraw_comp::kArrayLen];
+        mOverlayDraw_vert_shaders[InternalShader::OverlayDraw_vert::kArrayLen];
 };
 }  // namespace vk
 }  // namespace rx

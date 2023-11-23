@@ -148,7 +148,6 @@ static void find_usb_device(const std::string& base,
             struct usb_endpoint_descriptor *ep1, *ep2;
             unsigned zero_mask = 0;
             size_t max_packet_size = 0;
-            unsigned vid, pid;
 
             if (contains_non_digit(de->d_name)) continue;
 
@@ -180,11 +179,10 @@ static void find_usb_device(const std::string& base,
                 continue;
             }
 
-            vid = device->idVendor;
-            pid = device->idProduct;
-            DBGX("[ %s is V:%04x P:%04x ]\n", dev_name.c_str(), vid, pid);
+            DBGX("[ %s is V:%04x P:%04x ]\n", dev_name.c_str(), device->idVendor,
+                 device->idProduct);
 
-                // should have config descriptor next
+            // should have config descriptor next
             config = (struct usb_config_descriptor *)bufptr;
             bufptr += USB_DT_CONFIG_SIZE;
             if (config->bLength != USB_DT_CONFIG_SIZE || config->bDescriptorType != USB_DT_CONFIG) {
@@ -533,6 +531,24 @@ size_t usb_get_max_packet_size(usb_handle* h) {
 static void register_device(const char* dev_name, const char* dev_path, unsigned char ep_in,
                             unsigned char ep_out, int interface, int serial_index,
                             unsigned zero_mask, size_t max_packet_size) {
+    // Read the device's serial number.
+    std::string serial_path =
+            android::base::StringPrintf("/sys/bus/usb/devices/%s/serial", dev_path + 4);
+    std::string serial;
+    if (!android::base::ReadFileToString(serial_path, &serial)) {
+        D("[ usb read %s failed: %s ]", serial_path.c_str(), strerror(errno));
+        // We don't actually want to treat an unknown serial as an error because
+        // devices aren't able to communicate a serial number in early bringup.
+        // http://b/20883914
+        serial = "";
+    }
+    serial = android::base::Trim(serial);
+
+    if (!transport_server_owns_device(dev_path, serial)) {
+        // We aren't allowed to communicate with this device. Don't open this device.
+        return;
+    }
+
     // Since Linux will not reassign the device ID (and dev_name) as long as the
     // device is open, we can add to the list here once we open it and remove
     // from the list when we're finally closed and everything will work out
@@ -580,19 +596,6 @@ static void register_device(const char* dev_name, const char* dev_path, unsigned
             return;
         }
     }
-
-    // Read the device's serial number.
-    std::string serial_path = android::base::StringPrintf(
-        "/sys/bus/usb/devices/%s/serial", dev_path + 4);
-    std::string serial;
-    if (!android::base::ReadFileToString(serial_path, &serial)) {
-        D("[ usb read %s failed: %s ]", serial_path.c_str(), strerror(errno));
-        // We don't actually want to treat an unknown serial as an error because
-        // devices aren't able to communicate a serial number in early bringup.
-        // http://b/20883914
-        serial = "";
-    }
-    serial = android::base::Trim(serial);
 
     // Add to the end of the active handles.
     usb_handle* done_usb = usb.release();

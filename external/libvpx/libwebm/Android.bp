@@ -20,6 +20,10 @@ cc_library_static {
         // cfi: true,
     },
     min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+    ],
     host_supported: true,
     target: {
         darwin: {

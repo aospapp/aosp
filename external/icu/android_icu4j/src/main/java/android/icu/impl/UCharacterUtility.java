@@ -187,7 +187,7 @@ public final class UCharacterUtility
       
     ///CLOVER:OFF
     /**
-    * private constructor to avoid initialisation
+    * private constructor to avoid initialization
     */
     private UCharacterUtility()
     {

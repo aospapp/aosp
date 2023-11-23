@@ -106,4 +106,13 @@ public class DateTimeFormatterTest {
         assertEquals(23, accessor.getLong(ChronoField.HOUR_OF_DAY));
         assertEquals(59, accessor.getLong(ChronoField.MINUTE_OF_HOUR));
     }
+
+    // Regression test for http://b/206566562 when ICU4J fails to load the pattern data.
+    @Test
+    public void test_format_locale_de_AT() {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+            .withLocale(new Locale("de", "AT"))
+            .withZone(ZoneOffset.UTC);
+        assertEquals("00:00", dateTimeFormatter.format(TEST_INSTANT));
+    }
 }

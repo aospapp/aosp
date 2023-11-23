@@ -18,6 +18,7 @@ package android.device.collectors;
 import static org.junit.Assert.assertNotNull;
 
 import android.device.collectors.annotations.OptionClass;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
@@ -41,6 +42,16 @@ import org.junit.runner.Description;
  */
 @OptionClass(alias = "screen-record-collector")
 public class ScreenRecordCollector extends BaseMetricListener {
+    // Quality is relative to screen resolution.
+    // *  "medium" is 1/2 the resolution.
+    // *  "low" is 1/8 the resolution.
+    // *  Otherwise, use the resolution.
+    @VisibleForTesting static final String QUALITY_ARG = "video-quality";
+    // Option for whether to empty the output directory before collecting. Defaults to true. Setting
+    // to false is useful when multiple test classes need recordings and recordings are pulled at
+    // the end of the test run.
+    @VisibleForTesting static final String EMPTY_OUTPUT_DIR_ARG = "empty-output-dir";
+    // Maximum parts per test (each part is <= 3min).
     @VisibleForTesting static final int MAX_RECORDING_PARTS = 5;
     private static final long VIDEO_TAIL_BUFFER = 500;
 
@@ -51,13 +62,67 @@ public class ScreenRecordCollector extends BaseMetricListener {
 
     private RecordingThread mCurrentThread;
 
+    private String mVideoDimensions;
+    private boolean mEmptyOutputDir;
+
     // Tracks the test iterations to ensure that each failure gets unique filenames.
     // Key: test description; value: number of iterations.
     private Map<String, Integer> mTestIterations = new HashMap<String, Integer>();
 
+    public ScreenRecordCollector() {
+        super();
+    }
+
+    /** Constructors for overriding instrumentation arguments only. */
+    @VisibleForTesting
+    ScreenRecordCollector(Bundle args) {
+        super(args);
+    }
+
     @Override
-    public void onTestRunStart(DataRecord runData, Description description) {
-        mDestDir = createAndEmptyDirectory(OUTPUT_DIR);
+    public void onSetUp() {
+        mDestDir = createDirectory(OUTPUT_DIR, mEmptyOutputDir);
+    }
+
+    @Override
+    public void setupAdditionalArgs() {
+        mEmptyOutputDir =
+                Boolean.parseBoolean(
+                        getArgsBundle().getString(EMPTY_OUTPUT_DIR_ARG, String.valueOf(true)));
+
+        try {
+            long scaleDown = 1;
+            switch (getArgsBundle().getString(QUALITY_ARG, "default")) {
+                case "high":
+                    scaleDown = 1;
+                    break;
+
+                case "medium":
+                    scaleDown = 2;
+                    break;
+
+                case "low":
+                    scaleDown = 8;
+                    break;
+
+                default:
+                    return;
+            }
+
+            // Display metrics isn't the absolute size, so use "wm size".
+            String[] dims =
+                    getDevice()
+                            .executeShellCommand("wm size")
+                            .substring("Physical size: ".length())
+                            .trim()
+                            .split("x");
+            int width = Integer.parseInt(dims[0]);
+            int height = Integer.parseInt(dims[1]);
+            mVideoDimensions = String.format("%dx%d", width / scaleDown, height / scaleDown);
+            Log.v(getTag(), String.format("Using video dimensions: %s", mVideoDimensions));
+        } catch (Exception e) {
+            Log.e(getTag(), "Failed to query the device dimensions. Using default.", e);
+        }
     }
 
     @Override
@@ -110,18 +175,24 @@ public class ScreenRecordCollector extends BaseMetricListener {
 
     /** Returns the recording's name for part {@code part} of test {@code description}. */
     private File getOutputFile(Description description, int part) {
-        final String baseName =
-                String.format("%s.%s", description.getClassName(), description.getMethodName());
-        // Omit the iteration number for the first iteration.
+        StringBuilder builder = new StringBuilder(description.getClassName());
+        if (description.getMethodName() != null) {
+            builder.append(".");
+            builder.append(description.getMethodName());
+        }
         int iteration = mTestIterations.get(description.getDisplayName());
-        final String fileName =
-                String.format(
-                        "%s-video%s.mp4",
-                        iteration == 1
-                                ? baseName
-                                : String.join("-", baseName, String.valueOf(iteration)),
-                        part == 1 ? "" : part);
-        return Paths.get(mDestDir.getAbsolutePath(), fileName).toFile();
+        // Omit the iteration number for the first iteration.
+        if (iteration > 1) {
+            builder.append("-");
+            builder.append(iteration);
+        }
+        builder.append("-video");
+        // Omit the part number for the first part.
+        if (part > 1) {
+            builder.append(part);
+        }
+        builder.append(".mp4");
+        return Paths.get(mDestDir.getAbsolutePath(), builder.toString()).toFile();
     }
 
     /** Returns a buffer duration for the end of the video. */
@@ -167,9 +238,15 @@ public class ScreenRecordCollector extends BaseMetricListener {
                     // Make sure not to block on this background command in the main thread so
                     // that the test continues to run, but block in this thread so it does not
                     // trigger a new screen recording session before the prior one completes.
+                    String dimensionsOpt =
+                            mVideoDimensions == null
+                                    ? ""
+                                    : String.format("--size=%s", mVideoDimensions);
                     getDevice()
                             .executeShellCommand(
-                                    String.format("screenrecord %s", output.getAbsolutePath()));
+                                    String.format(
+                                            "screenrecord %s %s",
+                                            dimensionsOpt, output.getAbsolutePath()));
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Caught exception while screen recording.");

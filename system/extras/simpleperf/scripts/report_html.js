@@ -333,6 +333,12 @@ class RecordFileView {
         if (gRecordInfo.androidVersion) {
             rows.push(['Android Version', gRecordInfo.androidVersion]);
         }
+        if (gRecordInfo.androidBuildFingerprint) {
+            rows.push(['Build Fingerprint', gRecordInfo.androidBuildFingerprint]);
+        }
+        if (gRecordInfo.kernelVersion) {
+            rows.push(['Kernel Version', gRecordInfo.kernelVersion]);
+        }
         if (gRecordInfo.recordCmdline) {
             rows.push(['Record cmdline', gRecordInfo.recordCmdline]);
         }

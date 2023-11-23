@@ -34,6 +34,7 @@ public class AclNotFoundExceptionTest extends TestCase {
     /**
      * check default constructor
      */
+    @SuppressWarnings("removal")
     public void testAclNotFoundException() {
         assertNotNull(new AclNotFoundException());
         assertNull(new AclNotFoundException().getMessage());

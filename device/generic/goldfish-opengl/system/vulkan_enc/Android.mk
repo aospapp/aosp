@@ -44,6 +44,7 @@ LOCAL_CFLAGS += \
     -fstrict-aliasing \
     -DVK_USE_PLATFORM_ANDROID_KHR \
     -DVK_NO_PROTOTYPES \
+    -DVIRTIO_GPU
 
 LOCAL_SRC_FILES := AndroidHardwareBuffer.cpp \
     CommandBufferStagingStream.cpp \

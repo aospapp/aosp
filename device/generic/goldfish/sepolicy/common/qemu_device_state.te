@@ -11,3 +11,6 @@ allow qemu_device_state proc_bootconfig:file r_file_perms;
 # Permission to write to /data/vendor/system/devicestate.
 allow qemu_device_state vendor_data_file:dir create_dir_perms;
 allow qemu_device_state vendor_data_file:file create_file_perms;
+
+allow qemu_device_state sysfs_dt_firmware_android:dir search;
+allow qemu_device_state sysfs_dt_firmware_android:file r_file_perms;

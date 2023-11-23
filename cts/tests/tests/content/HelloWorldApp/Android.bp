@@ -42,6 +42,7 @@ android_test {
     srcs: ["src5/**/*.java"],
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -56,6 +57,7 @@ android_test {
     manifest: "AndroidManifestProfileable.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "vts10",
         "general-tests",
@@ -70,6 +72,7 @@ android_test {
     srcs: ["src7/**/*.java"],
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -105,6 +108,7 @@ android_test {
     ],
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -120,6 +124,200 @@ android_test {
     manifest: "AndroidManifestShell.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk1",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk1/**/*.java"],
+    manifest: "AndroidManifestSdk1.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk1Updated",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk1/**/*.java"],
+    manifest: "AndroidManifestSdk1Updated.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk1MajorVersion2",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk1/**/*.java"],
+    manifest: "AndroidManifestSdk1MajorVersion2.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk1DifferentSigner",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk1/**/*.java"],
+    manifest: "AndroidManifestSdk1.xml",
+    certificate: ":cts-testkey1",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk2",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk2/**/*.java"],
+    manifest: "AndroidManifestSdk2.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk2Updated",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk2/**/*.java"],
+    manifest: "AndroidManifestSdk2Updated.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk3UsingSdk1",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk3/**/*.java"],
+    manifest: "AndroidManifestSdk3UsingSdk1.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldSdk3UsingSdk1And2",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk3/**/*.java"],
+    manifest: "AndroidManifestSdk3UsingSdk1And2.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldUsingSdk1",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk_user/**/*.java"],
+    manifest: "AndroidManifestUsingSdk1.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldUsingSdk1And2",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk_user/**/*.java"],
+    manifest: "AndroidManifestUsingSdk1And2.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldUsingSdk3",
+    defaults: ["hello_world_defaults"],
+    srcs: ["sdk_user/**/*.java"],
+    manifest: "AndroidManifestUsingSdk3.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    v4_signature: true,
+}
+
+//-----------------------------------------------------------
+android_test {
+    name: "HelloWorldNoAppStorage",
+    defaults: ["hello_world_defaults"],
+    srcs: ["src5/**/*.java"],
+    manifest: "AndroidManifestNoAppStorage.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "mts",
         "cts",
         "vts10",
         "general-tests",

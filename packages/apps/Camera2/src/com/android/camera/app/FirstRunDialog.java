@@ -44,7 +44,9 @@ public class FirstRunDialog {
 
     public interface FirstRunDialogListener {
         public void onFirstRunStateReady();
+
         public void onFirstRunDialogCancelled();
+
         public void onCameraAccessException();
     }
 
@@ -83,15 +85,14 @@ public class FirstRunDialog {
 
     /**
      * Constructs a first run dialog.
-     *
      */
     public FirstRunDialog(
-          AppController appController,
-          Context activityContext,
-          ResolutionSetting resolutionSetting,
-          SettingsManager settingManager,
-          OneCameraManager hardwareManager,
-          FirstRunDialogListener listener) {
+            AppController appController,
+            Context activityContext,
+            ResolutionSetting resolutionSetting,
+            SettingsManager settingManager,
+            OneCameraManager hardwareManager,
+            FirstRunDialogListener listener) {
         mAppController = appController;
         mContext = activityContext;
         mResolutionSetting = resolutionSetting;
@@ -211,14 +212,19 @@ public class FirstRunDialog {
 
     private void checkLocationPermission() {
         if (mContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            Activity activity = (Activity) mContext;
-            activity.requestPermissions(
-                new String[] {Manifest.permission.ACCESS_COARSE_LOCATION},
-                PERMISSION_REQUEST_CODE);
-            mSettingsManager.set(SettingsManager.SCOPE_GLOBAL,
-                Keys.KEY_HAS_SEEN_PERMISSIONS_DIALOGS, true);
+                == PackageManager.PERMISSION_GRANTED || mContext.checkSelfPermission(
+                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            return;
         }
+
+        Activity activity = (Activity) mContext;
+        activity.requestPermissions(
+                new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.ACCESS_FINE_LOCATION},
+                PERMISSION_REQUEST_CODE);
+        mSettingsManager.set(SettingsManager.SCOPE_GLOBAL,
+                Keys.KEY_HAS_SEEN_PERMISSIONS_DIALOGS, true);
+
     }
 
     /**

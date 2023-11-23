@@ -333,6 +333,9 @@ static void cmd_line(int argc, char *argv[])
 		opts->from_type = OPTS_FROM_CUR;
 
 	if (opts->from_type == OPTS_FROM_ARG) {
+		if (!argv[0])
+			errx(EXIT_FAILURE, "No argument given");
+
 		opts->f.arg = argv[0];
 
 		if (xstreq(argv[0], "-"))
@@ -341,7 +344,7 @@ static void cmd_line(int argc, char *argv[])
 		errx(EXIT_FAILURE, "SELinux is not enabled");
 }
 
-static int my_getXcon_raw(pid_t pid, security_context_t * con, const char *val)
+static int my_getXcon_raw(pid_t pid, char  **con, const char *val)
 {
 	char buf[4096];
 	FILE *fp = NULL;
@@ -371,23 +374,23 @@ static int my_getXcon_raw(pid_t pid, security_context_t * con, const char *val)
 	return (0);
 }
 
-static int my_getpidexeccon_raw(pid_t pid, security_context_t * con)
+static int my_getpidexeccon_raw(pid_t pid, char **con)
 {
 	return (my_getXcon_raw(pid, con, "exec"));
 }
-static int my_getpidfscreatecon_raw(pid_t pid, security_context_t * con)
+static int my_getpidfscreatecon_raw(pid_t pid, char **con)
 {
 	return (my_getXcon_raw(pid, con, "fscreate"));
 }
-static int my_getpidkeycreatecon_raw(pid_t pid, security_context_t * con)
+static int my_getpidkeycreatecon_raw(pid_t pid, char **con)
 {
 	return (my_getXcon_raw(pid, con, "keycreate"));
 }
 
-static security_context_t get_scon(void)
+static char *get_scon(void)
 {
 	static char dummy_NIL[1] = "";
-	security_context_t con = NULL, con_tmp;
+	char *con = NULL, *con_tmp;
 	int ret = -1;
 
 	switch (opts->from_type) {
@@ -620,9 +623,10 @@ static void disp__con_val(const char *name, const char *val,
 	done = TRUE;
 }
 
-static void disp_con(security_context_t scon_raw)
+static void disp_con(const char *scon_raw)
 {
-	security_context_t scon_trans, scon;
+	char *scon_trans;
+	const char *scon;
 	context_t con = NULL;
 	char *color_str = NULL;
 	struct context_color_t color = { .valid = 0 };
@@ -682,7 +686,7 @@ static void disp_con(security_context_t scon_raw)
 		color.range_bg = strtok(NULL, " ");
 
 		color.valid = 1;
-	};
+	}
 
 	if (!(con = context_new(scon)))
 		errx(EXIT_FAILURE, "Couldn't create context from: %s", scon);
@@ -748,7 +752,7 @@ static void disp_con(security_context_t scon_raw)
 
 int main(int argc, char *argv[])
 {
-	security_context_t scon_raw = NULL;
+	char *scon_raw = NULL;
 
 	cmd_line(argc, argv);
 

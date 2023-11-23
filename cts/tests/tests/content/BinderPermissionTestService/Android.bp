@@ -27,6 +27,7 @@ android_test_helper_app {
         "aidl/**/I*.aidl",
     ],
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],

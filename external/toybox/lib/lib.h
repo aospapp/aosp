@@ -8,11 +8,6 @@ struct ptr_len {
   long len;
 };
 
-struct str_len {
-  char *str;
-  long len;
-};
-
 // llist.c
 
 // All these list types can be handled by the same code because first element
@@ -21,7 +16,7 @@ struct str_len {
 
 struct string_list {
   struct string_list *next;
-  char str[0];
+  char str[];
 };
 
 struct arg_list {
@@ -90,8 +85,7 @@ struct dirtree {
   char *symlink;
   int dirfd;
   struct stat st;
-  char again;
-  char name[];
+  char again, name[];
 };
 
 int isdotdot(char *name);
@@ -105,20 +99,23 @@ struct dirtree *dirtree_flagread(char *path, int flags,
   int (*callback)(struct dirtree *node));
 struct dirtree *dirtree_read(char *path, int (*callback)(struct dirtree *node));
 
-// help.c
-
-void show_help(FILE *out, int full);
-
 // Tell xopen and friends to print warnings but return -1 as necessary
 // The largest O_BLAH flag so far is arch/alpha's O_PATH at 0x800000 so
 // plenty of headroom.
-#define WARN_ONLY (1<<31)
+#define WARN_ONLY        (1<<31) // don't exit, just warn
+#define LOOPFILES_ANYWAY (1<<30) // call function with fd -1
+
+// xabspath flags
+#define ABS_PATH 1 // all but last path component must exist
+#define ABS_FILE 2 // last path component must exist
+#define ABS_KEEP 4 // don't resolve symlinks in path to last component
+#define ABS_LAST 8 // don't resolve symlink in last path component
 
 // xwrap.c
 void xstrncpy(char *dest, char *src, size_t size);
 void xstrncat(char *dest, char *src, size_t size);
-void _xexit(void) __attribute__((__noreturn__));
-void xexit(void) __attribute__((__noreturn__));
+_Noreturn void _xexit(void);
+_Noreturn void xexit(void);
 void *xmmap(void *addr, size_t length, int prot, int flags, int fd, off_t off);
 void *xmalloc(size_t size);
 void *xzalloc(size_t size);
@@ -177,9 +174,11 @@ struct group *xgetgrnam(char *name);
 unsigned xgetuid(char *name);
 unsigned xgetgid(char *name);
 void xsetuser(struct passwd *pwd);
+char *xreadlinkat(int dir, char *name);
 char *xreadlink(char *name);
 double xstrtod(char *s);
 long xparsetime(char *arg, long units, long *fraction);
+void xparsetimespec(char *arg, struct timespec *ts);
 long long xparsemillitime(char *arg);
 void xpidfile(char *name);
 void xregcomp(regex_t *preg, char *rexec, int cflags);
@@ -195,13 +194,13 @@ time_t xmktime(struct tm *tm, int utc);
 void verror_msg(char *msg, int err, va_list va);
 void error_msg(char *msg, ...) printf_format;
 void perror_msg(char *msg, ...) printf_format;
-void error_exit(char *msg, ...) printf_format __attribute__((__noreturn__));
-void perror_exit(char *msg, ...) printf_format __attribute__((__noreturn__));
-void help_exit(char *msg, ...) printf_format __attribute__((__noreturn__));
+_Noreturn void error_exit(char *msg, ...) printf_format;
+_Noreturn void perror_exit(char *msg, ...) printf_format;
+_Noreturn void help_exit(char *msg, ...) printf_format;
 void error_msg_raw(char *msg);
 void perror_msg_raw(char *msg);
-void error_exit_raw(char *msg);
-void perror_exit_raw(char *msg);
+_Noreturn void error_exit_raw(char *msg);
+_Noreturn void perror_exit_raw(char *msg);
 ssize_t readall(int fd, void *buf, size_t len);
 ssize_t writeall(int fd, void *buf, size_t len);
 off_t lskip(int fd, off_t offset);
@@ -231,7 +230,7 @@ long long atolx(char *c);
 long long atolx_range(char *numstr, long long low, long long high);
 int stridx(char *haystack, char needle);
 int wctoutf8(char *s, unsigned wc);
-int utf8towc(wchar_t *wc, char *str, unsigned len);
+int utf8towc(unsigned *wc, char *str, unsigned len);
 char *strlower(char *s);
 char *strafter(char *haystack, char *needle);
 char *chomp(char *s);
@@ -253,7 +252,7 @@ int wfchmodat(int rc, char *name, mode_t mode);
 int copy_tempfile(int fdin, char *name, char **tempname);
 void delete_tempfile(int fdin, int fdout, char **tempname);
 void replace_tempfile(int fdin, int fdout, char **tempname);
-void crc_init(unsigned int *crc_table, int little_endian);
+void crc_init(unsigned *crc_table, int little_endian);
 void base64_init(char *p);
 int yesno(int def);
 int fyesno(FILE *fp, int def);
@@ -261,7 +260,9 @@ int qstrcmp(const void *a, const void *b);
 void create_uuid(char *uuid);
 char *show_uuid(char *uuid);
 char *next_printf(char *s, char **start);
+struct passwd *bufgetpwnamuid(char *name, uid_t uid);
 struct passwd *bufgetpwuid(uid_t uid);
+struct group *bufgetgrnamgid(char *name, gid_t gid);
 struct group *bufgetgrgid(gid_t gid);
 int readlinkat0(int dirfd, char *path, char *buf, int len);
 int readlink0(char *path, char *buf, int len);
@@ -294,18 +295,8 @@ char *xpop_env(char *name); // because xpopenv() looks like xpopen_v()
 void xclearenv(void);
 void reset_env(struct passwd *p, int clear);
 
-// linestack.c
+// utf8.c
 
-struct linestack {
-  long len, max;
-  struct ptr_len idx[];
-};
-
-void linestack_addstack(struct linestack **lls, struct linestack *throw,
-  long pos);
-void linestack_insert(struct linestack **lls, long pos, char *line, long len);
-void linestack_append(struct linestack **lls, char *line);
-struct linestack *linestack_load(char *name);
 int crunch_escape(FILE *out, int cols, int wc);
 int crunch_rev_escape(FILE *out, int cols, int wc);
 int crunch_str(char **str, int width, FILE *out, char *escmore,
@@ -340,8 +331,6 @@ int scan_key_getsize(char *scratch, int timeout_ms, unsigned *xx, unsigned *yy);
 void xsetspeed(struct termios *tio, int speed);
 int set_terminal(int fd, int raw, int speed, struct termios *old);
 void xset_terminal(int fd, int raw, int speed, struct termios *old);
-void tty_esc(char *s);
-void tty_jump(int x, int y);
 void tty_reset(void);
 void tty_sigreset(int i);
 void start_redraw(unsigned *width, unsigned *height);

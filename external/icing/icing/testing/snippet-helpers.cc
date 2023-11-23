@@ -77,6 +77,16 @@ std::vector<std::string_view> GetMatches(
   return matches;
 }
 
+std::vector<std::string_view> GetSubMatches(
+    std::string_view content, const SnippetProto::EntryProto& snippet_proto) {
+  std::vector<std::string_view> matches;
+  for (const SnippetMatchProto& match : snippet_proto.snippet_matches()) {
+    matches.push_back(content.substr(match.exact_match_byte_position(),
+                                     match.submatch_byte_length()));
+  }
+  return matches;
+}
+
 std::string_view GetString(const DocumentProto* document,
                            std::string_view property_path) {
   std::vector<std::string_view> properties =

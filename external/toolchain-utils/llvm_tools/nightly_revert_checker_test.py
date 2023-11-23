@@ -10,8 +10,10 @@ from __future__ import print_function
 
 import io
 import unittest
+from unittest.mock import patch
 
 import cros_utils.tiny_render as tiny_render
+import get_upstream_patch
 import nightly_revert_checker
 import revert_checker
 
@@ -152,6 +154,43 @@ class Test(unittest.TestCase):
         nightly_revert_checker._parse_llvm_ebuild_for_shas(io.StringIO(bad))
 
       self.assertIn('Failed to detect SHAs', str(e.exception))
+
+  @patch('revert_checker.find_reverts')
+  @patch('get_upstream_patch.get_from_upstream')
+  def test_do_cherrypick_is_called(self, do_cherrypick, find_reverts):
+    find_reverts.return_value = [
+        revert_checker.Revert('12345abcdef', 'fedcba54321')
+    ]
+    nightly_revert_checker.do_cherrypick(
+        chroot_path='/path/to/chroot',
+        llvm_dir='/path/to/llvm',
+        interesting_shas=[('12345abcdef', 'fedcba54321')],
+        state={},
+        reviewers=['meow@chromium.org'],
+        cc=['purr@chromium.org'])
+
+    do_cherrypick.assert_called_once()
+    find_reverts.assert_called_once()
+
+  @patch('revert_checker.find_reverts')
+  @patch('get_upstream_patch.get_from_upstream')
+  def test_do_cherrypick_handles_cherrypick_error(self, do_cherrypick,
+                                                  find_reverts):
+    find_reverts.return_value = [
+        revert_checker.Revert('12345abcdef', 'fedcba54321')
+    ]
+    do_cherrypick.side_effect = get_upstream_patch.CherrypickError(
+        'Patch at 12345abcdef already exists in PATCHES.json')
+    nightly_revert_checker.do_cherrypick(
+        chroot_path='/path/to/chroot',
+        llvm_dir='/path/to/llvm',
+        interesting_shas=[('12345abcdef', 'fedcba54321')],
+        state={},
+        reviewers=['meow@chromium.org'],
+        cc=['purr@chromium.org'])
+
+    do_cherrypick.assert_called_once()
+    find_reverts.assert_called_once()
 
 
 if __name__ == '__main__':

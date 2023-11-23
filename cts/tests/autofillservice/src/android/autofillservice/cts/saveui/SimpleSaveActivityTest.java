@@ -18,13 +18,13 @@ package android.autofillservice.cts.saveui;
 import static android.autofillservice.cts.activities.LoginActivity.ID_USERNAME_CONTAINER;
 import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_COMMIT;
 import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_INPUT;
-import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_LABEL;
 import static android.autofillservice.cts.activities.SimpleSaveActivity.ID_PASSWORD;
 import static android.autofillservice.cts.activities.SimpleSaveActivity.TEXT_LABEL;
 import static android.autofillservice.cts.testcore.AntiTrimmerTextWatcher.TRIMMER_PATTERN;
 import static android.autofillservice.cts.testcore.Helper.ID_STATIC_TEXT;
 import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
 import static android.autofillservice.cts.testcore.Helper.LARGE_STRING;
+import static android.autofillservice.cts.testcore.Helper.assertActivityShownInBackground;
 import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
 import static android.autofillservice.cts.testcore.Helper.assertTextValue;
 import static android.autofillservice.cts.testcore.Helper.findAutofillIdByResourceId;
@@ -142,13 +142,12 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Select dataset.
-        final FillExpectation autofillExpecation = mActivity.expectAutoFill("id", "pass");
+        final FillExpectation autofillExpectation = mActivity.expectAutoFill("id", "pass");
         mUiBot.selectDataset("YO");
-        autofillExpecation.assertAutoFilled();
+        autofillExpectation.assertAutoFilled();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "ID", /* password= */ "PASS");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("ID");
-            mActivity.mPassword.setText("PASS");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = mUiBot.assertUpdateShowing(SAVE_DATA_TYPE_GENERIC);
@@ -195,13 +194,12 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         Helper.assertEqualsToLargeString(hintsOnFill[2]);
 
         // Select dataset.
-        final FillExpectation autofillExpecation = mActivity.expectAutoFill("id", "pass");
+        final FillExpectation autofillExpectation = mActivity.expectAutoFill("id", "pass");
         mUiBot.selectDataset("YO");
-        autofillExpecation.assertAutoFilled();
+        autofillExpectation.assertAutoFilled();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "ID", /* password= */ "PASS");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("ID");
-            mActivity.mPassword.setText("PASS");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = mUiBot.assertUpdateShowing(SAVE_DATA_TYPE_GENERIC);
@@ -264,8 +262,11 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         assertWithMessage("wrong value for 'password'").that(visiblePassword).hasLength(4);
 
         // Trigger save...
+        final SimpleSaveActivity.FillExpectation changeExpectation =
+                mActivity.expectInputPasswordTextChange("ID", "PASS");
         input.setText("ID");
         password.setText("PASS");
+        changeExpectation.assertTextChange();
         mUiBot.assertShownByRelativeId(ID_COMMIT).click();
         mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
@@ -314,10 +315,9 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
-        mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
-            mActivity.mCommit.performClick();
-        });
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */  null);
+
+        mActivity.syncRunOnUiThread(() -> mActivity.mCommit.performClick());
         UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
 
         if (rotate) {
@@ -359,7 +359,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Set 1st field but don't commit session
-        mActivity.syncRunOnUiThread(() -> mActivity.mInput.setText("108"));
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mUiBot.assertSaveNotShowing();
 
         // 2nd request
@@ -375,10 +375,9 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
-        mActivity.syncRunOnUiThread(() -> {
-            mActivity.mPassword.setText("42");
-            mActivity.mCommit.performClick();
-        });
+        mActivity.setTextAndWaitTextChange(/* input= */ null, /* password= */ "42");
+
+        mActivity.syncRunOnUiThread(() -> mActivity.mCommit.performClick());
         final UiObject2 saveUi = mUiBot.assertSaveShowing(null, SAVE_DATA_TYPE_USERNAME,
                 SAVE_DATA_TYPE_PASSWORD);
 
@@ -415,10 +414,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger delayed save.
-        mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
-            mActivity.mCommit.performClick();
-        });
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
+        mActivity.syncRunOnUiThread(() -> mActivity.mCommit.performClick());
         mUiBot.assertSaveNotShowing();
 
         // 2nd fragment.
@@ -444,10 +441,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger delayed save.
-        mActivity.syncRunOnUiThread(() -> {
-            mActivity.mPassword.setText("42");
-            mActivity.mCommit.performClick();
-        });
+        mActivity.setTextAndWaitTextChange(/* input= */ null, /* password= */ "42");
+        mActivity.syncRunOnUiThread(() -> mActivity.mCommit.performClick());
 
         // Save it...
         mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_USERNAME, SAVE_DATA_TYPE_PASSWORD);
@@ -485,8 +480,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
 
             // Disable autofill so it's not triggered again after WelcomeActivity finishes
@@ -520,8 +515,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
 
@@ -532,7 +527,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         startActivityOnNewTask(LoginActivity.class);
 
         // Make sure LoginActivity started...
-        mUiBot.assertShownByRelativeId(ID_USERNAME_CONTAINER);
+        assertActivityShownInBackground(LoginActivity.class);
 
         // Set expectations.
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -581,8 +576,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
 
@@ -604,8 +599,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
                         .setPresentation(createPresentation("YO"))
                         .build())
                 .build());
+        mActivity.setTextAndWaitTextChange(/* input= */ "", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("");
             mActivity.getAutofillManager().requestAutofill(mActivity.mInput);
         });
         sReplier.getNextFillRequest();
@@ -637,8 +632,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         UiObject2 saveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
@@ -691,8 +686,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.getAutofillManager().cancel();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
 
@@ -720,13 +715,6 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         dismissSaveTest(DismissType.TOUCH_OUTSIDE);
     }
 
-    @Presubmit
-    @Test
-    public void testDismissSave_byFocusingOutside() throws Exception {
-        startActivity();
-        dismissSaveTest(DismissType.FOCUS_OUTSIDE);
-    }
-
     private void dismissSaveTest(DismissType dismissType) throws Exception {
         // Set service.
         enableService();
@@ -741,8 +729,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
@@ -756,11 +744,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
                 mUiBot.pressHome();
                 break;
             case TOUCH_OUTSIDE:
-                mUiBot.assertShownByText(TEXT_LABEL).click();
-                break;
-            case FOCUS_OUTSIDE:
-                mActivity.syncRunOnUiThread(() -> mActivity.mLabel.requestFocus());
-                mUiBot.assertShownByText(TEXT_LABEL).click();
+                mUiBot.touchOutsideSaveDialog();
                 break;
             default:
                 throw new IllegalArgumentException("invalid dismiss type: " + dismissType);
@@ -834,8 +818,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mUiBot.assertNoDatasetsEver();
 
         // Trigger save, but don't tap it.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
@@ -890,8 +874,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
@@ -924,7 +908,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
                 throw new IllegalArgumentException("invalid type: " + type);
         }
         // Make sure previous activity is back...
-        mUiBot.assertShownByRelativeId(ID_INPUT);
+        assertActivityShownInBackground(SimpleSaveActivity.class);
 
         // ... and tap save.
         final UiObject2 newSaveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
@@ -958,8 +942,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
@@ -974,7 +958,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         // Tap back to restore the Save UI...
         mUiBot.pressBack();
         // Make sure previous activity is back...
-        mUiBot.assertShownByRelativeId(ID_LABEL);
+        assertActivityShownInBackground(SimpleSaveActivity.class);
 
         // ...but don't tap it...
         final UiObject2 saveUi2 = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
@@ -982,7 +966,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         // ...instead, do something to dismiss it:
         switch (action) {
             case TOUCH_OUTSIDE:
-                mUiBot.assertShownByRelativeId(ID_LABEL).longClick();
+                mUiBot.touchOutsideSaveDialog();
                 break;
             case TAP_NO_ON_SAVE_UI:
                 mUiBot.saveForAutofill(saveUi2, false);
@@ -1013,8 +997,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "42", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("42");
             mActivity.mCommit.performClick();
         });
 
@@ -1045,8 +1029,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
@@ -1120,9 +1104,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mUiBot.selectDataset(picker2, "D2");
         autofillExpecation2.assertAutoFilled();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "ID", /* password= */ "PASS");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("ID");
-            mActivity.mPassword.setText("PASS");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = mUiBot.assertUpdateShowing(SAVE_DATA_TYPE_GENERIC);
@@ -1163,8 +1146,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi = assertSaveUiWithLinkIsShown(SAVE_DATA_TYPE_GENERIC);
@@ -1173,7 +1156,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         tapSaveUiLink(saveUi);
 
         // Make sure new activity is shown...
-        WelcomeActivity.assertShowingDefaultMessage(mUiBot);
+        assertActivityShownInBackground(WelcomeActivity.class);
 
         // Save UI should be showing as well, since Trampoline finished.
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);
@@ -1182,7 +1165,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mUiBot.pressBack();
         // Go back and make sure it's showing the right activity.
         mUiBot.pressBack();
-        mUiBot.assertShownByRelativeId(ID_LABEL);
+        assertActivityShownInBackground(SimpleSaveActivity.class);
 
         // Now start a new session.
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -1194,8 +1177,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
                 () -> mActivity.getAutofillManager().requestAutofill(mActivity.mPassword));
         sReplier.getNextFillRequest();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ null, /* password= */ "42");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mPassword.setText("42");
             mActivity.mCommit.performClick();
         });
         mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
@@ -1233,6 +1216,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        // TODO: handle wait text change for ntiTrimmerTextWatcher
         mActivity.syncRunOnUiThread(() -> {
             mActivity.mInput.setText("id");
             mActivity.mPassword.setText("pass");
@@ -1275,9 +1259,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mUiBot.assertNoDatasetsEver();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "#id#", /* password= */ "#pass#");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("#id#");
-            mActivity.mPassword.setText("#pass#");
             mActivity.mCommit.performClick();
         });
 
@@ -1323,6 +1306,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
 
+        // TODO: handle wait text change for ntiTrimmerTextWatcher
         mActivity.syncRunOnUiThread(() -> {
             mActivity.mInput.setText("id");
             mActivity.mPassword.setText("pass");
@@ -1361,9 +1345,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "id", /* password= */ "#pass#");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("id");
-            mActivity.mPassword.setText("#pass#");
             mActivity.mCommit.performClick();
         });
 
@@ -1399,9 +1382,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "id", /* password= */ "pass");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("id");
-            mActivity.mPassword.setText("pass");
             mActivity.mCommit.performClick();
         });
 
@@ -1439,9 +1421,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
 
+        mActivity.setTextAndWaitTextChange(/* input= */ "id", /* password= */ "pass");
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("id");
-            mActivity.mPassword.setText("pass");
             mActivity.mCommit.performClick();
         });
 
@@ -1609,8 +1590,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         if (condition == SetTextCondition.NORMAL) {
             sReplier.getNextFillRequest();
 
+            mActivity.setTextAndWaitTextChange(/* input= */ "100", /* password= */ "pass");
             mActivity.syncRunOnUiThread(() -> {
-                mActivity.mInput.setText("100");
                 mActivity.mCommit.performClick();
             });
 
@@ -1662,7 +1643,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
-        mActivity.syncRunOnUiThread(() -> mActivity.mInput.setText("108"));
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
 
         // Take a screenshot to make sure button doesn't disappear.
         final String commitBefore = mUiBot.assertShownByRelativeId(ID_COMMIT).getText();
@@ -1724,8 +1705,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mActivity.syncRunOnUiThread(() -> mActivity.mInput.requestFocus());
         sReplier.getNextFillRequest();
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         final UiObject2 saveUi;
@@ -1862,8 +1843,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         sReplier.getNextFillRequest();
 
         // Trigger save.
+        mActivity.setTextAndWaitTextChange(/* input= */ "108", /* password= */ null);
         mActivity.syncRunOnUiThread(() -> {
-            mActivity.mInput.setText("108");
             mActivity.mCommit.performClick();
         });
         // Waits for the commit be processed
@@ -1900,7 +1881,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
         mUiBot.waitForIdle();
 
         // Make sure previous activity is back...
-        mUiBot.assertShownByRelativeId(ID_INPUT);
+        assertActivityShownInBackground(SimpleSaveActivity.class);
 
         // ... and tap save.
         final UiObject2 newSaveUi = mUiBot.assertSaveShowing(SAVE_DATA_TYPE_GENERIC);

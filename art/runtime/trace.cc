@@ -421,10 +421,11 @@ void Trace::Start(std::unique_ptr<File>&& trace_file_in,
                                             "Sampling profiler thread");
         the_trace_->interval_us_ = interval_us;
       } else {
-        runtime->GetInstrumentation()->AddListener(the_trace_,
-                                                   instrumentation::Instrumentation::kMethodEntered |
-                                                   instrumentation::Instrumentation::kMethodExited |
-                                                   instrumentation::Instrumentation::kMethodUnwind);
+        runtime->GetInstrumentation()->AddListener(
+            the_trace_,
+            instrumentation::Instrumentation::kMethodEntered |
+                instrumentation::Instrumentation::kMethodExited |
+                instrumentation::Instrumentation::kMethodUnwind);
         // TODO: In full-PIC mode, we don't need to fully deopt.
         // TODO: We can only use trampoline entrypoints if we are java-debuggable since in that case
         // we know that inlining and other problematic optimizations are disabled. We might just
@@ -480,9 +481,10 @@ void Trace::StopTracing(bool finish_tracing, bool flush_file) {
         runtime->GetThreadList()->ForEach(ClearThreadStackTraceAndClockBase, nullptr);
       } else {
         runtime->GetInstrumentation()->RemoveListener(
-            the_trace, instrumentation::Instrumentation::kMethodEntered |
-            instrumentation::Instrumentation::kMethodExited |
-            instrumentation::Instrumentation::kMethodUnwind);
+            the_trace,
+            instrumentation::Instrumentation::kMethodEntered |
+                instrumentation::Instrumentation::kMethodExited |
+                instrumentation::Instrumentation::kMethodUnwind);
         runtime->GetInstrumentation()->DisableMethodTracing(kTracerInstrumentationKey);
       }
     }
@@ -560,7 +562,7 @@ Trace::Trace(File* trace_file,
       start_time_(MicroTime()), clock_overhead_ns_(GetClockOverheadNanoSeconds()),
       overflow_(false), interval_us_(0), streaming_lock_(nullptr),
       unique_methods_lock_(new Mutex("unique methods lock", kTracingUniqueMethodsLock)) {
-  CHECK(trace_file != nullptr || output_mode == TraceOutputMode::kDDMS);
+  CHECK_IMPLIES(trace_file == nullptr, output_mode == TraceOutputMode::kDDMS);
 
   uint16_t trace_version = GetTraceVersion(clock_source_);
   if (output_mode == TraceOutputMode::kStreaming) {
@@ -732,10 +734,7 @@ void Trace::FieldWritten(Thread* thread ATTRIBUTE_UNUSED,
              << " " << dex_pc;
 }
 
-void Trace::MethodEntered(Thread* thread,
-                          Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
-                          ArtMethod* method,
-                          uint32_t dex_pc ATTRIBUTE_UNUSED) {
+void Trace::MethodEntered(Thread* thread, ArtMethod* method) {
   uint32_t thread_clock_diff = 0;
   uint32_t wall_clock_diff = 0;
   ReadClocks(thread, &thread_clock_diff, &wall_clock_diff);
@@ -744,9 +743,7 @@ void Trace::MethodEntered(Thread* thread,
 }
 
 void Trace::MethodExited(Thread* thread,
-                         Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                          ArtMethod* method,
-                         uint32_t dex_pc ATTRIBUTE_UNUSED,
                          instrumentation::OptionalFrame frame ATTRIBUTE_UNUSED,
                          JValue& return_value ATTRIBUTE_UNUSED) {
   uint32_t thread_clock_diff = 0;

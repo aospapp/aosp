@@ -15,6 +15,8 @@
  */
 package com.android.permissioncontroller.permission.ui.television;
 
+import static android.Manifest.permission_group.NOTIFICATIONS;
+
 import static com.android.permissioncontroller.Constants.INVALID_SESSION_ID;
 
 import android.app.ActionBar;
@@ -22,6 +24,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.hardware.SensorPrivacyManager;
 import android.os.Bundle;
 import android.util.ArraySet;
 import android.view.View;
@@ -33,6 +36,7 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
 import com.android.permissioncontroller.permission.model.legacy.PermissionApps;
@@ -52,14 +56,14 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
     private static final String KEY_NO_APPS_DENIED = "_noAppsDenied";
     private static final String KEY_SHOW_SYSTEM_PREFS = "_showSystem";
 
-    public static PermissionAppsFragment newInstance(String permissionName) {
-        return setPermissionName(new PermissionAppsFragment(), permissionName);
+    public static PermissionAppsFragment newInstance(String permissionGroupName) {
+        return setPermissionGroupName(new PermissionAppsFragment(), permissionGroupName);
     }
 
-    private static <T extends PermissionsFrameFragment> T setPermissionName(
-            T fragment, String permissionName) {
+    private static <T extends PermissionsFrameFragment> T setPermissionGroupName(
+            T fragment, String permissionGroupName) {
         Bundle arguments = new Bundle();
-        arguments.putString(Intent.EXTRA_PERMISSION_NAME, permissionName);
+        arguments.putString(Intent.EXTRA_PERMISSION_GROUP_NAME, permissionGroupName);
         fragment.setArguments(arguments);
         return fragment;
     }
@@ -73,12 +77,26 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
 
     private Callback mOnPermissionsLoadedListener;
 
+    private SensorPrivacyManager mSensorPrivacyManager;
+    private final SensorPrivacyManager.OnSensorPrivacyChangedListener mPrivacyChangedListener =
+            (sensor, enabled) -> mPermissionApps.refresh(true);
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setLoading(true /* loading */, false /* animate */);
-        String groupName = getArguments().getString(Intent.EXTRA_PERMISSION_NAME);
+        String groupName = getArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME);
+        if (groupName == null) {
+            groupName = getArguments().getString(Intent.EXTRA_PERMISSION_NAME);
+        }
+        if (groupName.equals(NOTIFICATIONS)) {
+            getActivity().onBackPressed();
+            return;
+        }
         mPermissionApps = new PermissionApps(getActivity(), groupName, this);
+        if (SdkLevel.isAtLeastT()) {
+            mSensorPrivacyManager = getContext().getSystemService(SensorPrivacyManager.class);
+        }
     }
 
     @Override
@@ -92,6 +110,9 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
         }
 
         mPermissionApps.refresh(true);
+        if (mSensorPrivacyManager != null) {
+            mSensorPrivacyManager.addSensorPrivacyListener(mPrivacyChangedListener);
+        }
     }
 
     @Override
@@ -291,8 +312,8 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
 
         if (KEY_SHOW_SYSTEM_PREFS.equals(key)) {
             SystemAppsFragment frag = new SystemAppsFragment();
-            setPermissionName(frag, getArguments().getString(
-                    Intent.EXTRA_PERMISSION_NAME));
+            setPermissionGroupName(frag, getArguments().getString(
+                    Intent.EXTRA_PERMISSION_GROUP_NAME));
             frag.setTargetFragment(this, 0);
             getFragmentManager().beginTransaction()
                     .replace(android.R.id.content, frag)
@@ -340,6 +361,9 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
     public void onStop() {
         super.onStop();
         logToggledGroups();
+        if (mSensorPrivacyManager != null) {
+            mSensorPrivacyManager.removeSensorPrivacyListener(mPrivacyChangedListener);
+        }
     }
 
     private PreferenceCategory findOrCreateCategory(
@@ -435,7 +459,7 @@ public final class PermissionAppsFragment extends SettingsWithHeader implements 
         @Override
         public void onViewCreated(View view, Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
-            String groupName = getArguments().getString(Intent.EXTRA_PERMISSION_NAME);
+            String groupName = getArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME);
             PermissionApps permissionApps = new PermissionApps(getActivity(), groupName,
                     (Callback) null);
             bindUi(this, permissionApps);

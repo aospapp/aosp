@@ -26,6 +26,7 @@
     <!-- TODO: Needed because we call BluetoothAdapter.getDefaultAdapter() statically, and
          BluetoothAdapter is a final class. -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED" />
 
     <!-- TODO: Needed because we call ActivityManager.getCurrentUser() statically. -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />

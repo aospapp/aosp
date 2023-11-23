@@ -24,29 +24,29 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 class CaptureEventActivity : Activity() {
-    private val mEvents = LinkedBlockingQueue<InputEvent>()
+    private val events = LinkedBlockingQueue<InputEvent>()
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent?): Boolean {
-        mEvents.add(MotionEvent.obtain(ev))
+        events.add(MotionEvent.obtain(ev))
         return true
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        mEvents.add(MotionEvent.obtain(ev))
+        events.add(MotionEvent.obtain(ev))
         return true
     }
 
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
-        mEvents.add(KeyEvent(event))
+        events.add(KeyEvent(event))
         return true
     }
 
     override fun dispatchTrackballEvent(ev: MotionEvent?): Boolean {
-        mEvents.add(MotionEvent.obtain(ev))
+        events.add(MotionEvent.obtain(ev))
         return true
     }
 
-    fun getLastInputEvent(): InputEvent? {
-        return mEvents.poll(5, TimeUnit.SECONDS)
+    fun getInputEvent(): InputEvent? {
+        return events.poll(5, TimeUnit.SECONDS)
     }
 }

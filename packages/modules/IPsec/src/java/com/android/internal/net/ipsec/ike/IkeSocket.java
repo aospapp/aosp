@@ -71,14 +71,11 @@ public abstract class IkeSocket implements AutoCloseable {
     private final IkeSocketConfig mIkeSocketConfig;
     private final Handler mHandler;
 
-    // Map from locally generated IKE SPI to IkeSessionStateMachine instances.
-    @VisibleForTesting
-    protected final LongSparseArray<IkeSessionStateMachine> mSpiToIkeSession =
-            new LongSparseArray<>();
+    // Map from locally generated IKE SPI to IkeSocket.Callback instances.
+    @VisibleForTesting final LongSparseArray<Callback> mSpiToCallback = new LongSparseArray<>();
 
-    // Set to store all running IkeSessionStateMachines that are using this IkeSocket instance.
-    @VisibleForTesting
-    protected final Set<IkeSessionStateMachine> mAliveIkeSessions = new HashSet<>();
+    // Set to store all registered IkeSocket.Callbacks
+    @VisibleForTesting protected final Set<Callback> mRegisteredCallbacks = new HashSet<>();
 
     protected IkeSocket(IkeSocketConfig sockConfig, Handler handler) {
         mHandler = handler;
@@ -86,9 +83,7 @@ public abstract class IkeSocket implements AutoCloseable {
     }
 
     protected static void parseAndDemuxIkePacket(
-            byte[] ikePacketBytes,
-            LongSparseArray<IkeSessionStateMachine> spiToIkeSession,
-            String tag) {
+            byte[] ikePacketBytes, LongSparseArray<Callback> spiToCallback, String tag) {
         try {
             // TODO: Retrieve and log the source address
             getIkeLog().d(tag, "Receive packet of " + ikePacketBytes.length + " bytes)");
@@ -101,12 +96,12 @@ public abstract class IkeSocket implements AutoCloseable {
                             ? ikeHeader.ikeResponderSpi
                             : ikeHeader.ikeInitiatorSpi;
 
-            IkeSessionStateMachine ikeStateMachine = spiToIkeSession.get(localGeneratedSpi);
-            if (ikeStateMachine == null) {
+            Callback callback = spiToCallback.get(localGeneratedSpi);
+            if (callback == null) {
                 getIkeLog().w(tag, "Unrecognized IKE SPI.");
                 // TODO(b/148479270): Handle invalid IKE SPI error
             } else {
-                ikeStateMachine.receiveIkePacket(ikeHeader, ikePacketBytes);
+                callback.onIkePacketReceived(ikeHeader, ikePacketBytes);
             }
         } catch (IkeProtocolException e) {
             // Handle invalid IKE header
@@ -207,13 +202,13 @@ public abstract class IkeSocket implements AutoCloseable {
     }
 
     /**
-     * Register new created IKE SA
+     * Register newly created IKE SA
      *
      * @param spi the locally generated IKE SPI
-     * @param ikeSession the IKE session this IKE SA belongs to
+     * @param callback the callback that notifies the IKE SA of incoming packets
      */
-    public final void registerIke(long spi, IkeSessionStateMachine ikeSession) {
-        mSpiToIkeSession.put(spi, ikeSession);
+    public final void registerIke(long spi, Callback callback) {
+        mSpiToCallback.put(spi, callback);
     }
 
     /**
@@ -222,17 +217,13 @@ public abstract class IkeSocket implements AutoCloseable {
      * @param spi the locally generated IKE SPI
      */
     public final void unregisterIke(long spi) {
-        mSpiToIkeSession.remove(spi);
+        mSpiToCallback.remove(spi);
     }
 
-    /**
-     * Release reference of current IkeSocket when the IKE session no longer needs it.
-     *
-     * @param ikeSession IKE session that is being closed.
-     */
-    public final void releaseReference(IkeSessionStateMachine ikeSession) {
-        mAliveIkeSessions.remove(ikeSession);
-        if (mAliveIkeSessions.isEmpty()) close();
+    /** Release reference of current IkeSocket when the caller no longer needs it. */
+    public final void releaseReference(Callback callback) {
+        mRegisteredCallbacks.remove(callback);
+        if (mRegisteredCallbacks.isEmpty()) close();
     }
 
     /**
@@ -268,6 +259,12 @@ public abstract class IkeSocket implements AutoCloseable {
      * <p>IPacketReceiver exists so that the interface is injectable for testing.
      */
     interface IPacketReceiver {
-        void handlePacket(byte[] recvbuf, LongSparseArray<IkeSessionStateMachine> spiToIkeSession);
+        void handlePacket(byte[] recvbuf, LongSparseArray<Callback> spiToCallback);
+    }
+
+    /** Callback notifies caller of all IkeSocket events */
+    public interface Callback {
+        /** Method to notify caller of the received IKE packet */
+        void onIkePacketReceived(IkeHeader ikeHeader, byte[] ikePacketBytes);
     }
 }

@@ -16,11 +16,14 @@
 
 #define LOG_TAG "audiohalservice"
 
+#include <signal.h>
 #include <string>
 #include <vector>
 
+#include <android/binder_process.h>
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
+#include <dlfcn.h>
 #include <hidl/HidlTransportSupport.h>
 #include <hidl/LegacySupport.h>
 #include <hwbinder/ProcessState.h>
@@ -44,10 +47,40 @@ static bool registerPassthroughServiceImplementations(Iter first, Iter last) {
     return false;
 }
 
+static bool registerExternalServiceImplementation(const std::string& libName,
+                                                  const std::string& funcName) {
+    constexpr int dlMode = RTLD_LAZY;
+    void* handle = nullptr;
+    dlerror();  // clear
+    auto libPath = libName + ".so";
+    handle = dlopen(libPath.c_str(), dlMode);
+    if (handle == nullptr) {
+        const char* error = dlerror();
+        ALOGE("Failed to dlopen %s: %s", libPath.c_str(),
+              error != nullptr ? error : "unknown error");
+        return false;
+    }
+    binder_status_t (*factoryFunction)();
+    *(void**)(&factoryFunction) = dlsym(handle, funcName.c_str());
+    if (!factoryFunction) {
+        const char* error = dlerror();
+        ALOGE("Factory function %s not found in libName %s: %s", funcName.c_str(), libPath.c_str(),
+              error != nullptr ? error : "unknown error");
+        dlclose(handle);
+        return false;
+    }
+    return ((*factoryFunction)() == STATUS_OK);
+}
+
 int main(int /* argc */, char* /* argv */ []) {
+    signal(SIGPIPE, SIG_IGN);
+
     ::android::ProcessState::initWithDriver("/dev/vndbinder");
     // start a threadpool for vndbinder interactions
     ::android::ProcessState::self()->startThreadPool();
+
+    ABinderProcess_setThreadPoolMaxThreadCount(1);
+    ABinderProcess_startThreadPool();
 
     const int32_t defaultValue = -1;
     int32_t value =
@@ -63,6 +96,7 @@ int main(int /* argc */, char* /* argv */ []) {
     const std::vector<InterfacesList> mandatoryInterfaces = {
         {
             "Audio Core API",
+            "android.hardware.audio@7.1::IDevicesFactory",
             "android.hardware.audio@7.0::IDevicesFactory",
             "android.hardware.audio@6.0::IDevicesFactory",
             "android.hardware.audio@5.0::IDevicesFactory",
@@ -87,6 +121,7 @@ int main(int /* argc */, char* /* argv */ []) {
         },
         {
             "Bluetooth Audio API",
+            "android.hardware.bluetooth.audio@2.2::IBluetoothAudioProvidersFactory",
             "android.hardware.bluetooth.audio@2.1::IBluetoothAudioProvidersFactory",
             "android.hardware.bluetooth.audio@2.0::IBluetoothAudioProvidersFactory",
         },
@@ -95,6 +130,13 @@ int main(int /* argc */, char* /* argv */ []) {
             "Bluetooth Audio Offload API",
             "android.hardware.bluetooth.a2dp@1.0::IBluetoothAudioOffload"
         }
+    };
+
+    const std::vector<std::pair<std::string,std::string>> optionalInterfaceSharedLibs = {
+        {
+            "android.hardware.bluetooth.audio-impl",
+            "createIBluetoothAudioProviderFactory",
+        },
     };
     // clang-format on
 
@@ -110,6 +152,16 @@ int main(int /* argc */, char* /* argv */ []) {
         const std::string& interfaceFamilyName = *iter++;
         ALOGW_IF(!registerPassthroughServiceImplementations(iter, listIter.end()),
                  "Could not register %s", interfaceFamilyName.c_str());
+    }
+
+    for (const auto& interfacePair : optionalInterfaceSharedLibs) {
+        const std::string& libraryName = interfacePair.first;
+        const std::string& interfaceLoaderFuncName = interfacePair.second;
+        if (registerExternalServiceImplementation(libraryName, interfaceLoaderFuncName)) {
+            ALOGI("%s() from %s success", interfaceLoaderFuncName.c_str(), libraryName.c_str());
+        } else {
+            ALOGW("%s() from %s failed", interfaceLoaderFuncName.c_str(), libraryName.c_str());
+        }
     }
 
     joinRpcThreadpool();

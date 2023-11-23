@@ -38,15 +38,6 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
 
     @FlakyTest
     @Test
-    public void testLockNowWithKeyEviction() throws Exception {
-        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
-
-        changeUserCredential(TEST_PASSWORD, null, mProfileUserId);
-        lockProfile();
-    }
-
-    @FlakyTest
-    @Test
     public void testResetPasswordWithTokenBeforeUnlock() throws Exception {
         assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
 

@@ -30,7 +30,6 @@
 using ::android::hardware::audio::CPP_VERSION::IDevicesFactory;
 
 namespace android {
-namespace CPP_VERSION {
 
 class DevicesFactoryHalHidl : public DevicesFactoryHalInterface
 {
@@ -46,6 +45,8 @@ class DevicesFactoryHalHidl : public DevicesFactoryHalInterface
 
     status_t setCallbackOnce(sp<DevicesFactoryHalCallback> callback) override;
 
+    float getHalVersion() const override { return MAJOR_VERSION + (float)MINOR_VERSION / 10; }
+
   private:
     friend class ServiceNotificationListener;
     void addDeviceFactory(sp<IDevicesFactory> factory, bool needToNotify);
@@ -59,7 +60,6 @@ class DevicesFactoryHalHidl : public DevicesFactoryHalInterface
     virtual ~DevicesFactoryHalHidl() = default;
 };
 
-} // namespace CPP_VERSION
 } // namespace android
 
 #endif // ANDROID_HARDWARE_DEVICES_FACTORY_HAL_HIDL_H

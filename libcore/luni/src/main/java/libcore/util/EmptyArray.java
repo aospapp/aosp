@@ -27,20 +27,17 @@ import dalvik.annotation.compat.VersionCodes;
  *
  * @hide
  */
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @SystemApi(client = MODULE_LIBRARIES)
 public final class EmptyArray {
     private EmptyArray() {}
 
     /** @hide */
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull boolean[] BOOLEAN = new boolean[0];
 
     /** @hide */
     @UnsupportedAppUsage(maxTargetSdk=VersionCodes.Q,
             publicAlternatives="Use {@code new byte[0]} instead.")
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull byte[] BYTE = new byte[0];
 
@@ -51,21 +48,18 @@ public final class EmptyArray {
     public static final double[] DOUBLE = new double[0];
 
     /** @hide */
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull float[] FLOAT = new float[0];
 
     /** @hide */
     @UnsupportedAppUsage(maxTargetSdk=VersionCodes.Q,
             publicAlternatives="Use {@code new int[0]} instead.")
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull int[] INT = new int[0];
 
     /** @hide */
     @UnsupportedAppUsage(maxTargetSdk=VersionCodes.Q,
             publicAlternatives="Use {@code new long[0]} instead.")
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull long[] LONG = new long[0];
 
@@ -75,12 +69,10 @@ public final class EmptyArray {
     /** @hide */
     @UnsupportedAppUsage(maxTargetSdk=VersionCodes.Q,
             publicAlternatives="Use {@code new Object[0]} instead.")
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull Object[] OBJECT = new Object[0];
 
     /** @hide */
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @SystemApi(client = MODULE_LIBRARIES)
     public static final @NonNull String[] STRING = new String[0];
 

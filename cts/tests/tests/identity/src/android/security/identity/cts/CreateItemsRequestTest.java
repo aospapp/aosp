@@ -18,6 +18,8 @@ package android.security.identity.cts;
 
 import static org.junit.Assert.assertEquals;
 
+import com.android.security.identity.internal.Util;
+
 import org.junit.Test;
 
 import java.util.Arrays;

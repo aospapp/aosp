@@ -16,18 +16,19 @@
 #ifndef _LIB_OPENGL_RENDER_THREAD_INFO_H
 #define _LIB_OPENGL_RENDER_THREAD_INFO_H
 
-#include "base/Stream.h"
+#include <functional>
+#include <memory>
+#include <unordered_set>
+
 #include "RenderContext.h"
+#include "StalePtrRegistry.h"
+#include "SyncThread.h"
+#include "VkDecoder.h"
 #include "WindowSurface.h"
+#include "base/Stream.h"
 #include "gles1_dec/GLESv1Decoder.h"
 #include "gles2_dec/GLESv2Decoder.h"
 #include "renderControl_dec/renderControl_dec.h"
-#include "VkDecoder.h"
-#include "StalePtrRegistry.h"
-#include "SyncThread.h"
-
-#include <functional>
-#include <unordered_set>
 
 typedef uint32_t HandleType;
 typedef std::unordered_set<HandleType> ThreadContextSet;
@@ -62,7 +63,7 @@ struct RenderThreadInfo {
     GLESv1Decoder                   m_glDec;
     GLESv2Decoder                   m_gl2Dec;
     renderControl_decoder_context_t m_rcDec;
-    VkDecoder                       m_vkDec;
+    std::unique_ptr<VkDecoder> m_vkDec;
 
     // All the contexts that are created by this render thread.
     // New emulator manages contexts in guest process level,

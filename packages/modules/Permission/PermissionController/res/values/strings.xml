@@ -30,6 +30,14 @@
     <!-- Button label for back action [CHAR LIMIT=20] -->
     <string name="back">Back</string>
 
+    <!-- Label indicating access is allowed. If you update this string, please
+    update the string "quick_settings_camera_mic_available" in System Ui [CHAR LIMIT=NONE] -->
+    <string name="available">Available</string>
+
+    <!-- Label indicating access is blocked. If you update this string, please
+    update the string "quick_settings_camera_mic_blocked" in SystemUi [CHAR LIMIT=NONE] -->
+    <string name="blocked">Blocked</string>
+
     <!-- Button label for uninstall or disable actions [CHAR LIMIT=none] -->
     <string name="uninstall_or_disable">Uninstall or disable</string>
 
@@ -139,6 +147,31 @@
     <!-- Label when there are zero unused apps [CHAR LIMIT=30] -->
     <string name="zero_unused_apps">0 unused apps</string>
 
+    <!-- Title for the page to review permission decisions [CHAR LIMIT=30] -->
+    <string name="review_permission_decisions">Recent permission decisions</string>
+
+    <!-- Title for the preference row to view all recent permission decisions. [CHAR LIMIT=80] -->
+    <string name="review_permission_decisions_view_all">View all recent permission decisions</string>
+
+    <!-- Title for the preference row describing that the user hasn't made any recent permission decisions. [CHAR LIMIT=80] -->
+    <string name="review_permission_decisions_empty">No recent permission decisions</string>
+
+    <!-- Summary of the row linking to permission manager on Auto devices [CHAR LIMIT=80] -->
+    <string name="auto_permission_manager_summary">Manage data access to calendar, call logs, and more</string>
+
+    <!-- Label for reviewing a permission decision grant [CHAR LIMIT=80] -->
+    <string name="granted_permission_decision">You gave <xliff:g id="app_name" example="Google Maps">%1$s</xliff:g> access to <xliff:g id="permission_name" example="contacts">%2$s</xliff:g></string>
+
+    <!-- Label for reviewing a permission decision denial [CHAR LIMIT=80] -->
+    <string name="denied_permission_decision">You denied <xliff:g id="app_name" example="Google Maps">%1$s</xliff:g> access to <xliff:g id="permission_name" example="contacts">%2$s</xliff:g></string>
+
+    <!-- The number of days ago [CHAR LIMIT=NONE] -->
+    <string name="days_ago">{count, plural,
+        =0    {Today}
+        =1    {1 day ago}
+        other {# days ago}
+        }</string>
+
     <!-- [CHAR LIMIT=30] Manage applications, label for option to disable app -->
     <string name="app_disable_dlg_positive">Disable app</string>
 
@@ -162,13 +195,19 @@
     <string name="app_permissions_info_button_label">Open app info</string>
 
     <!-- Description of how many more permissions to view on next page [CHAR LIMIT=30] -->
-    <plurals name="additional_permissions_more">
-        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> more</item>
-        <item quantity="other"><xliff:g id="count" example="2">%1$d</xliff:g> more</item>
-    </plurals>
+    <string name="additional_permissions_more">{count, plural,
+        =1      {# more}
+        other   {# more}
+    }</string>
 
     <!-- Warning for turning off permissions on older apps [CHAR LIMIT=none] -->
     <string name="old_sdk_deny_warning">This app was designed for an older version of Android. Denying permission may cause it to no longer function as intended.</string>
+
+    <!-- Warning for allowing storage permissions on older apps [CHAR LIMIT=none] -->
+    <string name="storage_supergroup_warning_allow">This app was designed for an older version of Android. If you allow this permission, then access to all storage (including photos, videos, music, audio, and other files) will be allowed.</string>
+
+    <!-- Warning for denying storage permissions on older apps [CHAR LIMIT=none] -->
+    <string name="storage_supergroup_warning_deny">This app was designed for an older version of Android. If you deny this permission, then access to all storage (including photos, videos, music, audio, and other files) will be denied.</string>
 
     <!-- The default description of a permission, i.e. what it does.  [CHAR LIMIT=40] -->
     <string name="default_permission_description">perform an unknown action</string>
@@ -179,10 +218,17 @@
     <!-- Summary of number of apps currently granted a single permission [CHAR LIMIT=45] -->
     <string name="app_permissions_group_summary2"><xliff:g id="count" example="10">%1$d</xliff:g>/<xliff:g id="count" example="10">%2$d</xliff:g> apps allowed</string>
 
-   <!-- [CHAR LIMIT=NONE] Menu for manage permissions to control whether system apps are shown -->
-   <string name="menu_show_system">Show system</string>
-   <!-- [CHAR LIMIT=NONE] Menu for manage permissions to control whether system apps are hidden -->
-   <string name="menu_hide_system">Hide system</string>
+    <!-- [CHAR LIMIT=NONE] Menu for manage permissions to control whether system apps are shown -->
+    <string name="menu_show_system">Show system</string>
+
+    <!-- [CHAR LIMIT=NONE] Menu for manage permissions to control whether system apps are hidden -->
+    <string name="menu_hide_system">Hide system</string>
+
+    <!-- [CHAR LIMIT=NONE] Menu for showing permission usages for the past 7 days in privacy dashboard-->
+    <string name="menu_show_7_days_data">Show 7 days</string>
+
+    <!-- [CHAR LIMIT=NONE] Menu for showing permission usages for the past 24 hours in privacy dashboard-->
+    <string name="menu_show_24_hours_data">Show 24 hours</string>
 
     <!-- FAB text of permission usage fragment [CHAR LIMIT=30] -->
     <string name="manage_permission">Manage permission</string>
@@ -198,6 +244,12 @@
 
    <!-- [CHAR LIMIT=NONE] Warning message when turning off permission for system apps -->
    <string name="system_warning">If you deny this permission, basic features of your device may no longer function as intended.</string>
+
+    <!-- [CHAR LIMIT=NONE] Warning message when turning off permission for system apps -->
+    <string name="deny_read_media_visual_warning">This app was designed for an older version of Android. If you deny this app access to photos &amp; videos, access to music &amp; other audio will also be denied.</string>
+
+    <!-- [CHAR LIMIT=NONE] Warning message when turning off permission for system apps -->
+    <string name="deny_read_media_aural_warning">This app was designed for an older version of Android. If you deny this app access to music &amp; other audio, access to photos &amp; videos will also be denied.</string>
 
     <!-- [CHAR LIMIT=NONE] Warning message when turning off permission for an app managing a companion device -->
     <string name="cdm_profile_revoke_warning">If you deny this permission, some features of your device managed by this app may no longer function as intended.</string>
@@ -308,6 +360,9 @@
     <!-- Title for permission usage [CHAR LIMIT=30] -->
     <string name="permission_usage_title">Privacy dashboard</string>
 
+    <!-- Summary for permission usage preference row [CHAR LIMIT=60] -->
+    <string name="auto_permission_usage_summary">View which apps recently used permissions</string>
+
     <!-- Title for permission group usage [CHAR LIMIT=30] -->
     <string name="permission_group_usage_title"><xliff:g id="permgroup" example="Location">%1$s</xliff:g> usage</string>
 
@@ -320,8 +375,11 @@
     <!-- Summary for permission usage advanced info for 3 or more items [CHAR LIMIT=60] -->
     <string name="perm_usage_adv_info_summary_more_items"><xliff:g id="permgroup" example="Location">%1$s</xliff:g>,\u0020<xliff:g id="permgroup" example="Location">%2$s</xliff:g>, and\u0020<xliff:g id="num" example="7">%3$s</xliff:g> more</string>
 
-    <!-- Subtitle for permission group usage [CHAR LIMIT=100] -->
-    <string name="permission_group_usage_subtitle">Timeline of when apps used your <xliff:g id="permgroup" example="Location">%1$s</xliff:g> in the past 24 hours</string>
+    <!-- Subtitle for permission group usage for the past 24 hours[CHAR LIMIT=100] -->
+    <string name="permission_group_usage_subtitle_24h">Timeline of when apps used your <xliff:g id="permgroup" example="Location">%1$s</xliff:g> in the past 24 hours</string>
+
+    <!-- Subtitle for permission group usage for the past 7 days [CHAR LIMIT=100] -->
+    <string name="permission_group_usage_subtitle_7d">Timeline of when apps used your <xliff:g id="permgroup" example="Location">%1$s</xliff:g> in the past 7 days</string>
 
     <!-- Subtitle for access time list dialog [CHAR LIMIT=100] -->
     <string name="permission_usage_access_dialog_subtitle">When this app used your <xliff:g id="permgroup" example="Location">%1$s</xliff:g> permission</string>
@@ -329,60 +387,41 @@
     <!-- Link text for intent out to location provider [CHAR LIMIT=20] -->
     <string name="permission_usage_access_dialog_learn_more">Learn more</string>
 
-    <!-- Label which separates a proxy app name (an app which uses apermission on behalf of another app), and a usage duration, with a bullet point [CHAR LIMIT=NONE]-->
-    <string name="permission_usage_duration_and_proxy"><xliff:g id="app_name" example="Gmail">%1$s</xliff:g> \u2022 <xliff:g id="truncated_time" example="1 hr 20min">%2$s</xliff:g></string>
+    <!-- Summary for preference to manage a permission for a group like location or microphone [CHAR LIMIT=60] -->
+    <string name="manage_permission_summary">Control app access to your <xliff:g id="permgroup" example="Location">%1$s</xliff:g></string>
+
+    <!-- Summary for preference about microphone usage on Auto. On Auto, the access time is combined with the summary text. [CHAR LIMIT=60] -->
+    <string name="auto_permission_usage_timeline_summary"><xliff:g id="access_time" example="12:23am">%1$s</xliff:g> \u2022 <xliff:g id="summary_text" example="2 mins">%2$s</xliff:g></string>
+
+    <!-- Label which separates a combination of 2 of the following 3 in order : an attribution text, proxy app name (an app which uses a permission on behalf of another app), and a usage duration, with a bullet point [CHAR LIMIT=NONE]-->
+    <string name="history_preference_subtext_2"><xliff:g id="app_name" example="Gmail">%1$s</xliff:g> \u2022 <xliff:g id="truncated_time" example="1 hr 20min">%2$s</xliff:g></string>
+
+    <!-- Label which separates an attribution text, a proxy app name (an app which uses a permission on behalf of another app), and a usage duration, with bullet points [CHAR LIMIT=NONE]-->
+    <string name="history_preference_subtext_3"><xliff:g id="attribution_name" example="Nearby Share">%1$s</xliff:g> \u2022 <xliff:g id="app_name" example="Gmail">%2$s</xliff:g> \u2022 <xliff:g id="truncated_time" example="1 hr 20min">%3$s</xliff:g></string>
 
     <!-- Duration used for a permission in days -->
-    <plurals name="duration_used_days">
-        <item quantity="one">1 day</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> days</item>
-    </plurals>
+    <string name="duration_used_days">{count, plural,
+        =1      {1 day}
+        other   {# days}
+    }</string>
 
     <!-- Duration used for a permission in hours -->
-    <plurals name="duration_used_hours">
-        <item quantity="one">1 hour</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> hours</item>
-    </plurals>
+    <string name="duration_used_hours">{count, plural,
+        =1      {1 hour}
+        other   {# hours}
+    }</string>
 
     <!-- Duration used for a permission in minutes -->
-    <plurals name="duration_used_minutes">
-        <item quantity="one">1 min</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> mins</item>
-    </plurals>
+    <string name="duration_used_minutes">{count, plural,
+        =1      {1 min}
+        other   {# mins}
+    }</string>
 
     <!-- Duration used for a permission in seconds -->
-    <plurals name="duration_used_seconds">
-        <item quantity="one">1 sec</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> secs</item>
-    </plurals>
-
-
-    <!-- Summary for showing a single permission access and the number of accesses [CHAR LIMIT=80] -->
-    <plurals name="permission_usage_summary">
-        <item quantity="one">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> access</item>
-        <item quantity="other">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> accesses</item>
-    </plurals>
-
-    <!-- Summary for showing a single permission access and the number of accesses, including those in the background [CHAR LIMIT=80] -->
-    <plurals name="permission_usage_summary_background">
-        <item quantity="one">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> access (<xliff:g id="num" example="7">%3$s</xliff:g> in background)</item>
-        <item quantity="other">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> accesses (<xliff:g id="num" example="7">%3$s</xliff:g> in background)</item>
-    </plurals>
-
-    <!-- Summary for showing a single permission access and the number of accesses [CHAR LIMIT=120] -->
-    <plurals name="permission_usage_summary_duration">
-        <item quantity="one">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> access\nDuration: <xliff:g id="time" example="2 hours">%3$s</xliff:g></item>
-        <item quantity="other">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> accesses\nDuration: <xliff:g id="time" example="2 hours">%3$s</xliff:g></item>
-    </plurals>
-
-    <!-- Summary for showing a single permission access and the number of accesses, including those in the background [CHAR LIMIT=120] -->
-    <plurals name="permission_usage_summary_background_duration">
-        <item quantity="one">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> access (<xliff:g id="num" example="7">%3$s</xliff:g> in background)\nDuration: <xliff:g id="time" example="2 hours">%3$s</xliff:g></item>
-        <item quantity="other">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\n<xliff:g id="num" example="42">%2$s</xliff:g> accesses (<xliff:g id="num" example="7">%3$s</xliff:g> in background)\nDuration: <xliff:g id="time" example="2 hours">%3$s</xliff:g></item>
-    </plurals>
-
-    <!-- Summary for showing a single permission access and the time of the last access when it was in the background [CHAR LIMIT=80] -->
-    <string name="permission_usage_summary_background">Last access: <xliff:g id="time" example="12:10 PM">%1$s</xliff:g>\nLast accessed in the background</string>
+    <string name="duration_used_seconds">{count, plural,
+        =1      {1 sec}
+        other   {# secs}
+    }</string>
 
     <!-- Description for showing permission accesses with any permission [CHAR LIMIT=30] -->
     <string name="permission_usage_any_permission">Any permission</string>
@@ -444,20 +483,17 @@
     <!-- Label for the title of the permission bar chart showing how often the most common permissions are used [CHAR LIMIT=50] -->
     <string name="permission_usage_bar_chart_title_last_minute">Permission usage in last 1 minute</string>
 
-    <!-- Label for the bars on the chart that shows how many apps have used various permissions [CHAR LIMIT=10] -->
-    <plurals name="permission_usage_bar_label">
-        <item quantity="one">1 app</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> apps</item>
-    </plurals>
+    <!-- Summary text if a permission usage is not used in past 24 hours [CHAR LIMIT=60] -->
+    <string name="permission_usage_preference_summary_not_used_24h">Not used in past 24 hours</string>
 
-    <!-- Summary text if a permission usage is not used [CHAR LIMIT=60] -->
-    <string name="permission_usage_preference_summary_not_used">Not used in past 24 hours</string>
+    <!-- Summary text if a permission usage is not used in past 7 days [CHAR LIMIT=60] -->
+    <string name="permission_usage_preference_summary_not_used_7d">Not used in past 7 days</string>
 
     <!-- Label for the permission usage preference that shows how many apps have used various permissions [CHAR LIMIT=50] -->
-    <plurals name="permission_usage_preference_label">
-        <item quantity="one">Used by 1 app</item>
-        <item quantity="other">Used by <xliff:g id="number" example="7">%1$d</xliff:g> apps</item>
-    </plurals>
+    <string name="permission_usage_preference_label">{count, plural,
+        =1      {Used by 1 app}
+        other   {Used by # apps}
+    }</string>
 
     <!-- Label for the button to bring the user to view the details of recent permission accesses [CHAR LIMIT=42] -->
     <string name="permission_usage_view_details">See all in Dashboard</string>
@@ -500,12 +536,6 @@
 
     <!-- Label for refreshing the list of permission usages. [CHAR LIMIT=30] -->
     <string name="permission_usage_refresh">Refresh</string>
-
-    <!-- Subtitle for showing how many apps have accessed a given permission [CHAR LIMIT=20] -->
-    <plurals name="permission_usage_permission_filter_subtitle">
-        <item quantity="one">1 app</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> apps</item>
-    </plurals>
 
     <!-- Label for the title of permission history. [CHAR LIMIT=20] -->
     <string name="permission_history_title">Permission history</string>
@@ -576,11 +606,20 @@
     <!-- Label for the assistant mic display switch [CHAR LIMIT=60] -->
     <string name="assistant_mic_label">Show assistant microphone usage</string>
 
+    <!-- Category title for unused apps on T+ devices [CHAR LIMIT=40] -->
+    <string name="unused_apps_category_title">Unused app settings</string>
+
     <!-- Label for the auto revoke switch on pre-S devices [CHAR LIMIT=60] -->
     <string name="auto_revoke_label">Remove permissions if app isn\u2019t used</string>
 
-    <!-- Label for the hibernation / auto revoke switch on S+ devices [CHAR LIMIT=40] -->
+    <!-- Label for the hibernation / auto revoke switch on S devices [CHAR LIMIT=40] -->
     <string name="unused_apps_label">Remove permissions and free up space</string>
+
+    <!-- Label for the hibernation / auto revoke switch on T+ devices [CHAR LIMIT=40] -->
+    <string name="unused_apps_label_v2">Pause app activity if unused</string>
+
+    <!-- Hibernation switch preference summary which describes what the toggle does on T+ devices [CHAR LIMIT=NONE] -->
+    <string name="unused_apps_summary">Remove permissions, delete temporary files, and stop notifications</string>
 
     <!-- Summary for stating that permissions will be removed [CHAR LIMIT=none] -->
     <string name="auto_revoke_summary">To protect your data, permissions for this app will be removed if the app is unused for a few months.</string>
@@ -629,6 +668,9 @@
 
     <!-- Summary for the screen that shows all unused apps that have been hibernated [CHAR LIMIT=none] -->
     <string name="unused_apps_page_summary">If an app is unused for a few months:\n\n\u2022 Permissions are removed to protect your data\n\u2022 Notifications are stopped to save battery\n\u2022 Temporary files are removed to free up space\n\nTo allow permissions and notifications again, open the app.</string>
+
+    <!-- Summary for the screen on TV that shows all unused apps that have been hibernated [CHAR LIMIT=none] -->
+    <string name="unused_apps_page_tv_summary">If an app is unused for a few months:\n\n\u2022 Permissions are removed to protect your data\n\u2022 Temporary files are removed to free up space\n\nTo allow permissions again, open the app.</string>
 
     <!-- Title for a category of apps that were last used several months ago [CHAR LIMIT=none] -->
     <string name="last_opened_category_title">Last opened more than <xliff:g id="number" example="3">%s</xliff:g> months ago</string>
@@ -684,6 +726,12 @@
     <!-- Label for showing a permission group's description in the header of the list of apps that have the Storage permission [CHAR LIMIT=none] -->
     <string name="permission_description_summary_storage">Apps with this permission can access photos, media, and files on your device</string>
 
+    <!-- Label for showing a permission group's description in the header of the list of apps that have the nearby devices permission [CHAR LIMIT=none] -->
+    <string name="permission_description_summary_read_media_aural">Apps with this permission can access music and other audio files on this device</string>
+
+    <!-- Label for showing a permission group's description in the header of the list of apps that have the nearby devices permission [CHAR LIMIT=none] -->
+    <string name="permission_description_summary_read_media_visual">Apps with this permission can access photos and videos on this device</string>
+
     <!-- Summary for showing the time and/or date of the most recent access of a permission by an app [CHAR LIMIT=60] -->
     <string name="app_permission_most_recent_summary">Last access: <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g></string>
 
@@ -717,29 +765,32 @@
     <!-- Header for denied permissions/apps [CHAR LIMIT=40] -->
     <string name="denied_header">Not allowed</string>
 
+    <!-- Text of hyperlink shown in storage_footer [CHAR LIMIT=60] -->
+    <string name="storage_footer_hyperlink_text">See more apps that can access all files</string>
+
     <!-- Time in days -->
-    <plurals name="days">
-        <item quantity="one">1 day</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> days</item>
-    </plurals>
+    <string name="days">{count, plural,
+        =1      {1 day}
+        other   {# days}
+    }</string>
 
     <!-- Time in hours -->
-    <plurals name="hours">
-        <item quantity="one">1 hour</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> hours</item>
-    </plurals>
+    <string name="hours">{count, plural,
+        =1      {1 hour}
+        other   {# hours}
+    }</string>
 
     <!-- Time in minutes -->
-    <plurals name="minutes">
-        <item quantity="one">1 minute</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> minutes</item>
-    </plurals>
+    <string name="minutes">{count, plural,
+        =1      {1 minute}
+        other   {# minutes}
+    }</string>
 
     <!-- Time in seconds -->
-    <plurals name="seconds">
-        <item quantity="one">1 second</item>
-        <item quantity="other"><xliff:g id="number" example="7">%s</xliff:g> seconds</item>
-    </plurals>
+    <string name="seconds">{count, plural,
+        =1      {1 second}
+        other   {# seconds}
+    }</string>
 
     <!-- The name of the notification channel containing reminders about permission [CHAR LIMIT=60]-->
     <string name="permission_reminders">Permission reminders</string>
@@ -759,29 +810,38 @@
     <!-- The notification content for the auto revoke reminder notification [CHAR LIMIT=none] -->
     <string name="auto_revoke_permission_notification_content">Some apps haven\u2019t been used in a few months. Tap to review.</string>
 
-    <!-- The subtitle for the auto revoke reminder notification, including the number of apps [CHAR LIMIT=none] -->
-    <plurals name="auto_revoke_permission_notification_content_count">
-        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> app hasn\u2019t been used in a few months. Tap to review</item>
-        <item quantity="other"><xliff:g id="count" example="2">%1$d</xliff:g> apps haven\u2019t been used in a few months. Tap to review</item>
-    </plurals>
-
     <!-- The notification title for the notification that app hibernation has happened [CHAR LIMIT=60] -->
-    <plurals name="unused_apps_notification_title">
-        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> unused app</item>
-        <item quantity="other"><xliff:g id="count" example="2">%1$d</xliff:g> unused apps</item>
-    </plurals>
+    <string name="unused_apps_notification_title">{count, plural,
+        =1      {# unused app}
+        other   {# unused apps}
+    }</string>
 
     <!-- The notification content for the hibernation reminder notification [CHAR LIMIT=none] -->
     <string name="unused_apps_notification_content">Permissions and temporary files have been removed and notifications were stopped. Tap to review.</string>
 
+    <!-- The notification title for the notification that shows up at the end of a drive where the user made a permission decision [CHAR LIMIT=60] -->
+    <string name="post_drive_permission_decision_reminder_title">Check recent permissions</string>
+
+    <!-- The notification summary for the notification that shows up at the end of a drive where the user made a permission decision for a single app [CHAR LIMIT=90] -->
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission">While driving, you gave <xliff:g id="app" example="Waze">%1$s</xliff:g> access to <xliff:g id="permission" example="location">%2$s</xliff:g></string>
+
+    <!-- The notification summary for the notification that shows up at the end of a drive where the user made 2 permission decisions for a single app [CHAR LIMIT=90] -->
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions">While driving, you gave <xliff:g id="app" example="Waze">%1$s</xliff:g> access to <xliff:g id="permission_1" example="location">%2$s</xliff:g> &amp; <xliff:g id="permission_2" example="microphone">%3$s</xliff:g></string>
+
+    <!-- The notification summary for the notification that shows up at the end of a drive where the user made 3 or more permission decisions for a single app [CHAR LIMIT=90] -->
+    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission">While driving, you granted <xliff:g id="count" example="2">%1$d</xliff:g> permissions to <xliff:g id="app" example="Waze">%2$s</xliff:g></string>
+
+    <!-- The notification summary for the notification that shows up at the end of a drive where the user made permission decisions for multiple apps [CHAR LIMIT=NONE] -->
+    <string name="post_drive_permission_decision_reminder_summary_multi_apps">{count, plural,
+        =1      {While driving, you gave <xliff:g id="app" example="Waze">%1$s</xliff:g> &amp; # other app access}
+        other   {While driving, you gave <xliff:g id="app" example="Waze">%1$s</xliff:g> &amp; # other apps access}
+        }</string>
+
+    <!-- The text of a button for an action in a notification that opens the Settings app [CHAR LIMIT=60] -->
+    <string name="go_to_settings">Go to Settings</string>
+
     <!-- The subtitle for the auto revoke settings card [CHAR LIMIT=none] -->
     <string name="auto_revoke_setting_subtitle">Some apps haven\u2019t been used in a few months</string>
-
-    <!-- The subtitle for the auto revoke settings card, including the number of apps [CHAR LIMIT=none] -->
-    <plurals name="auto_revoke_setting_subtitle_count">
-        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> app hasn\u2019t been used in a few months</item>
-        <item quantity="other"><xliff:g id="count" example="2">%1$d</xliff:g> apps haven\u2019t been used in a few months</item>
-    </plurals>
 
     <!-- The title of the category showing apps with removed permissions [CHAR LIMIT=60] -->
     <string name="permissions_removed_category_title">Removed permissions</string>
@@ -803,6 +863,24 @@
 
     <!-- The notification content for background location access reminder notification [CHAR LIMIT=none] -->
     <string name="background_location_access_reminder_notification_content">This app can always access your location. Tap to change.</string>
+
+    <!-- The notification title for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=60] -->
+    <string name="notification_listener_reminder_notification_title">Review app with notification listener access</string>
+
+    <!-- The notification title for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=60] -->
+    <string name="notification_listener_reminder_notification_title_plural">{count, plural,
+        =1      {Review app with notification listener access}
+        other   {Review apps with notification listener access}
+        }</string>
+
+    <!-- The notification content for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=none] -->
+    <string name="notification_listener_reminder_notification_content"><xliff:g id="app_name" example="Gmail">%s</xliff:g> can read all your notifications.</string>
+
+    <!-- The notification content for background location access reminder notification [DO NOT TRANSLATE] [CHAR LIMIT=none] -->
+    <string name="notification_listener_reminder_notification_content_plural">{count, plural,
+        =1      {<xliff:g id="app_name" example="Gmail">%s</xliff:g> can read all your notifications.}
+        other   {# apps can read all your notifications.}
+        }</string>
 
     <!-- The notification title for the notification that a permission auto revoke has happened [CHAR LIMIT=60] -->
     <string name="auto_revoke_after_notification_title">App permissions removed to protect privacy</string>
@@ -870,8 +948,14 @@
     <!-- Summary for showing the last access text for sensor data permissions for yesterday [CHAR LIMIT=70] -->
     <string name="app_perms_24h_access_yest">Last accessed yesterday at <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g></string>
 
+    <!-- Summary for showing the last access text for sensor data permissions for yesterday [CHAR LIMIT=70] -->
+    <string name="app_perms_7d_access">Last accessed <xliff:g id="time_date" example="Jan 3">%1$s</xliff:g> at <xliff:g id="time_date" example="12:42 PM">%2$s</xliff:g></string>
+
     <!-- Summary for showing the last access text for content provider permissions [CHAR LIMIT=70] -->
-    <string name="app_perms_content_provider">Accessed in past 24 hours</string>
+    <string name="app_perms_content_provider_24h">Accessed in past 24 hours</string>
+
+    <!-- Summary for showing the last access text for content provider permissions [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_7d">Accessed in past 7 days</string>
 
     <!-- Subtitle for the preference that the permission is currently always granted. [CHAR LIMIT=70] -->
     <string name="app_perms_24h_access_background">Last accessed <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 Allowed all the time</string>
@@ -880,7 +964,13 @@
     <string name="app_perms_24h_access_yest_background">Last accessed yesterday at <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 Allowed all the time</string>
 
     <!-- Subtitle for the preference that the permission is currently always granted. [CHAR LIMIT=70] -->
-    <string name="app_perms_content_provider_background">Accessed in past 24 hours \u2022 Allowed all the time</string>
+    <string name="app_perms_7d_access_background">Last accessed <xliff:g id="time_date" example="Jan 3">%1$s</xliff:g> at <xliff:g id="time_date" example="12:42 PM">%2$s</xliff:g> \u2022 Allowed all the time</string>
+
+    <!-- Subtitle for the preference that the permission is currently always granted. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_24h_background">Accessed in past 24 hours \u2022 Allowed all the time</string>
+
+    <!-- Subtitle for the preference that the permission is currently always granted. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_7d_background">Accessed in past 7 days \u2022 Allowed all the time</string>
 
     <!-- Subtitle for a storage preference that is currently granted for Media files only. [CHAR LIMIT=70] -->
     <string name="app_perms_24h_access_media_only">Last accessed <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 Media</string>
@@ -889,7 +979,13 @@
     <string name="app_perms_24h_access_yest_media_only">Last accessed yesterday at <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 Media</string>
 
     <!-- Subtitle for a storage preference that is currently granted for Media files only. [CHAR LIMIT=70] -->
-    <string name="app_perms_content_provider_media_only">Accessed in past 24 hours \u2022 Media</string>
+    <string name="app_perms_7d_access_media_only">Last accessed <xliff:g id="time_date" example="Jan 3">%1$s</xliff:g> at <xliff:g id="time_date" example="12:42 PM">%2$s</xliff:g> \u2022 Media</string>
+
+    <!-- Subtitle for a storage preference that is currently granted for Media files only. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_24h_media_only">Accessed in past 24 hours \u2022 Media</string>
+
+    <!-- Subtitle for a storage preference that is currently granted for Media files only. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_7d_media_only">Accessed in past 7 days \u2022 Media</string>
 
     <!-- Subtitle for a storage preference that is currently granted for all files. [CHAR LIMIT=70] -->
     <string name="app_perms_24h_access_all_files">Last accessed <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 All Files</string>
@@ -898,7 +994,13 @@
     <string name="app_perms_24h_access_yest_all_files">Last accessed yesterday at <xliff:g id="time_date" example="12:42 PM">%1$s</xliff:g> \u2022 All Files</string>
 
     <!-- Subtitle for a storage preference that is currently granted for all files. [CHAR LIMIT=70] -->
-    <string name="app_perms_content_provider_all_files">Accessed in past 24 hours \u2022 All Files</string>
+    <string name="app_perms_7d_access_all_files">Last accessed <xliff:g id="time_date" example="Jan 3">%1$s</xliff:g> at <xliff:g id="time_date" example="12:42 PM">%2$s</xliff:g> \u2022 All Files</string>
+
+    <!-- Subtitle for a storage preference that is currently granted for all files. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_24h_all_files">Accessed in past 24 hours \u2022 All Files</string>
+
+    <!-- Subtitle for a storage preference that is currently granted for all files. [CHAR LIMIT=70] -->
+    <string name="app_perms_content_provider_7d_all_files">Accessed in past 7 days \u2022 All Files</string>
 
     <!-- Label when app has been granted no permissions [CHAR LIMIT=none] -->
     <string name="no_permissions_allowed">No permissions allowed</string>
@@ -942,10 +1044,6 @@
     <string name="role_assistant_short_label">Digital assistant app</string>
     <!-- Description for the assistant role. [CHAR LIMIT=NONE] -->
     <string name="role_assistant_description">Assist apps can help you based on information from the screen you\u2019re viewing. Some apps support both launcher and voice input services to give you integrated assistance.</string>
-    <!-- Template for the title when an app requests to become the default assistant app. [CHAR LIMIT=100] -->
-    <string name="role_assistant_request_title">Set <xliff:g id="app_name" example="Super Assistant">%1$s</xliff:g> as your default assist app?</string>
-    <!-- Description when an app requests to become the default assistant. [CHAR LIMIT=60] -->
-    <string name="role_assistant_request_description">Gets access to SMS, call log</string>
 
     <!-- Label for the browser role. [CHAR LIMIT=30] -->
     <string name="role_browser_label">Default browser app</string>
@@ -966,8 +1064,8 @@
     <string name="role_dialer_description">Apps that allow you to make and receive telephone calls on your device</string>
     <!-- Template for the title when an app requests to become the default dialer app. [CHAR LIMIT=100] -->
     <string name="role_dialer_request_title">Set <xliff:g id="app_name" example="Super Phone">%1$s</xliff:g> as your default phone app?</string>
-    <!-- Description when an app requests to become the default dialer app. [CHAR LIMIT=60] -->
-    <string name="role_dialer_request_description">Gets access to call log, send SMS</string>
+    <!-- Description when an app requests to become the default dialer app. [CHAR LIMIT=NONE] -->
+    <string name="role_dialer_request_description">This app will be given access to your Camera, Contacts, Microphone, Phone, and SMS</string>
     <!-- Search keywords for the dialer role. [CHAR LIMIT=NONE] -->
     <string name="role_dialer_search_keywords">dialer</string>
 
@@ -979,8 +1077,8 @@
     <string name="role_sms_description">Apps that allow you to use your phone number to send and receive short text messages, photos, videos, and more</string>
     <!-- Template for the title when an app requests to become the default SMS app. [CHAR LIMIT=100] -->
     <string name="role_sms_request_title">Set <xliff:g id="app_name" example="Super SMS">%1$s</xliff:g> as your default SMS app?</string>
-    <!-- Description when an app requests to become the default SMS app. [CHAR LIMIT=60] -->
-    <string name="role_sms_request_description">Gets access to contacts, SMS, phone</string>
+    <!-- Description when an app requests to become the default SMS app. [CHAR LIMIT=NONE] -->
+    <string name="role_sms_request_description">This app will be given access to your Camera, Contacts, Files and media, Microphone, Phone, and SMS</string>
     <!-- Search keywords for the SMS role. [CHAR LIMIT=NONE] -->
     <string name="role_sms_search_keywords">text message, texting, messages, messaging</string>
 
@@ -1032,8 +1130,25 @@
     <!-- Description when an app requests to become the default call screening app. [CHAR LIMIT=60] -->
     <string name="role_call_screening_request_description">No permissions needed</string>
 
+    <!-- Label for the automotive navigation role. [CHAR LIMIT=45] -->
+    <string name="role_automotive_navigation_label">Default navigation app</string>
+    <!-- Short label for the automotive navigation role. [CHAR LIMIT=30] -->
+    <string name="role_automotive_navigation_short_label">Navigation app</string>
+    <!-- Description for the automotive navigation role. [CHAR LIMIT=NONE] -->
+    <string name="role_automotive_navigation_description">Apps that can provide point-of-interest search and turn-by-turn navigation guidance</string>
+    <!-- Template for the title when an app requests to become the default automotive navigation app. [CHAR LIMIT=100] -->
+    <string name="role_automotive_navigation_request_title">Set <xliff:g id="app_name" example="Super Navigation">%1$s</xliff:g> as your default navigation app?</string>
+    <!-- Description when an app requests to become the default automotive navigation app. [CHAR LIMIT=60] -->
+    <string name="role_automotive_navigation_request_description">No permissions needed</string>
+
     <!-- Description for the watch profile role. [CHAR LIMIT=NONE] -->
     <string name="role_watch_description"><xliff:g id="app_name" example="Wear">%1$s</xliff:g> will be allowed to interact with your notifications and access your Phone, SMS, Contacts and Calendar permissions.</string>
+
+    <!-- Description for the app streaming profile role. [CHAR LIMIT=NONE] -->
+    <string name="role_app_streaming_description"><xliff:g id="app_name" example="Cross-Device Communciation">%1$s</xliff:g> will be allowed to interact with your notifications and stream your apps to the connected device.</string>
+
+    <!-- Description for the companion device computer profile role. [CHAR LIMIT=NONE] -->
+    <string name="role_companion_device_computer_description">This service shares your photos, media, and notifications from your phone to other devices.</string>
 
     <!-- Subtitle for the application that is the current default application [CHAR LIMIT=30] -->
     <string name="request_role_current_default">Current default</string>
@@ -1258,6 +1373,20 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
         &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access photos, media, and files on your device?</string>
 
     <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_storage_q_to_s">Allow
+        &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access &lt;b>photos, videos, music, and audio&lt;/b> on this device?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_storage_pre_q">Allow
+        &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access &lt;b>photos, videos, music, audio, and other files&lt;/b> on this device?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_read_media_aural">Allow &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access music and audio on this device?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_read_media_visual">Allow &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access photos and videos on this device?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
     <string name="permgrouprequest_microphone">Allow
         &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to record audio?</string>
     <!-- Subtitle of the message shown to the user when the apps requests permission to use the microphone only while app is in foreground [CHAR LIMIT=150]-->
@@ -1303,6 +1432,20 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="permgrouprequest_sensors">Allow
         &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access sensor data about your vital signs?</string>
 
+    <!-- Subtitle of the message shown to the user when the apps requests permission to use the body sensors while app is in foreground and background. Try to keep the link annotation at the end of the string [CHAR LIMIT=NONE] -->
+    <string name="permgroupupgraderequestdetail_sensors">This app wants to access sensor data about your vital signs all the time, even when you\u2019re not using the app. To make this change, <annotation id="link">go to settings.</annotation></string>
+    <!-- Message shown to the user when the apps requests permission to use the bosy sensors while app is in foreground and background. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgroupbackgroundrequest_sensors">Allow
+        &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access the sensor data about your vital signs?</string>
+    <!-- Subtitle of the message shown to the user when the apps requests permission to use the body sensors while app is in foreground and background. Try to keep the link annotation at the end of the string [CHAR LIMIT=NONE] -->
+    <string name="permgroupbackgroundrequestdetail_sensors">To let this app access body sensor data all the time, even when you\u2019re not using the app, <annotation id="link">go to settings.</annotation></string>
+    <!-- Message shown to the user when the apps requests permission to use the body sensors while app is in foreground and background. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgroupupgraderequest_sensors">Keep allowing &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to access body sensor data while app is in use?</string>
+
+    <!-- Message shown to the user when the apps requests permission from this group. If ever possible this should stay below 80 characters (assuming the parameters takes 20 characters). Don't abbreviate until the message reaches 120 characters though. [CHAR LIMIT=120] -->
+    <string name="permgrouprequest_notifications">Allow
+        &lt;b><xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b> to send you notifications?</string>
+
     <!-- Notification shown to the user when location permissions are auto-granted by admin policy. These are for when the admin is forcing the permission and the user cannot control it. [CHAR LIMIT=120]-->
     <string name="auto_granted_permissions">Controlled permissions</string>
     <!-- Content of the notification [CHAR LIMIT=120]-->
@@ -1333,6 +1476,111 @@ Allow <xliff:g id="app_name" example="Gmail">%4$s</xliff:g> to upload a bug repo
     <string name="privdash_label_other">Other</string>
     <!-- Permission label for "none" (not anything). [CHAR LIMIT=20] -->
     <string name="privdash_label_none">None</string>
-    <!-- Label that describes a "last 24 hours" time window, prefer two lines. [CHAR LIMIT=20] -->
+    <!-- Label that describes a "past 24 hours" time window, prefer two lines. [CHAR LIMIT=20] -->
     <string name="privdash_label_24h">Past\n24 hours</string>
+    <!-- Label that describes a "past 7 days" time window, prefer two lines. [CHAR LIMIT=20] -->
+    <string name="privdash_label_7d">Past\n7 days</string>
+
+    <!-- Info label for status bar indicator permissions (Mic and Camera) for apps holding special exempted roles. [CHAR LIMIT=none] -->
+    <string name="exempt_mic_camera_info_label"><xliff:g id="app_name" example="Gmail">%1$s</xliff:g> is protected by Android. Because your data is processed on this device, this app’s permission usage isn’t shown on the status bar or your privacy dashboard. </string>
+    <!-- Info label for permissions for apps holding special exempted roles. [CHAR LIMIT=none] -->
+    <string name="exempt_info_label"><xliff:g id="app_name" example="Gmail">%1$s</xliff:g> is protected by Android. Because your data is processed on this device, this app’s permission usage isn’t shown on your privacy dashboard. </string>
+
+    <!-- Info label for the warning banner title if camera is blocked [CHAR LIMIT=none] -->
+    <string name="blocked_camera_title">Device camera is blocked</string>
+    <!-- Info label for the warning banner title if microphone is blocked [CHAR LIMIT=none] -->
+    <string name="blocked_microphone_title">Device microphone is blocked</string>
+    <!-- Info label for the warning banner title if location is off [CHAR LIMIT=none] -->
+    <string name="blocked_location_title">Device location is off</string>
+    <!-- Info label to display that the sensor is blocked for apps and services [CHAR LIMIT=none] -->
+    <string name="blocked_sensor_summary">For apps and services</string>
+    <!-- Info label to display that the mic is blocked for apps and services [CHAR LIMIT=none] -->
+    <string name="blocked_mic_summary">Microphone data may still be shared when you call an emergency number.</string>
+    <!-- Label for the button to change the sensor status  [CHAR LIMIT=none] -->
+    <string name="blocked_sensor_button_label">Change</string>
+
+    <!-- Title for page containing overall view of device safety status [CHAR LIMIT=30] -->
+    <string name="safety_center_dashboard_page_title">Security &amp; Privacy</string>
+    <!-- Label for the button that triggers a new scan for safety center data [CHAR LIMIT=60] -->
+    <string name="safety_center_rescan_button">Scan</string>
+    <!-- Content description for the button dismisses a safety center issue [CHAR LIMIT=NONE] -->
+    <string name="safety_center_issue_card_dismiss_button">Dismiss</string>
+    <!-- Label for the button that takes the user to the settings page for Android Security  [CHAR LIMIT=60] -->
+    <string name="security_settings">Security Settings</string>
+    <!-- Label for the permission usage section of safety center QS page[CHAR LIMIT=30] -->
+    <string name="sensor_permissions_qs">Sensor Permissions</string>
+    <!-- Label for the privacy controls section of safety center QS page [CHAR LIMIT=30] -->
+    <string name="privacy_controls_qs">Privacy Controls</string>
+    <!-- Label when permissions were removed via safety center QS page [CHAR LIMIT=30] -->
+    <string name="permissions_removed_qs">Permission removed</string>
+    <!-- Label to see camera usage in safety center QS page [CHAR LIMIT=50] -->
+    <string name="camera_usage_qs">See more camera usage</string>
+    <!-- Label to see microphone usage in safety center QS page [CHAR LIMIT=50] -->
+    <string name="microphone_usage_qs">See more microphone usage</string>
+    <!-- Label to remove camera permission in safety center QS page [CHAR LIMIT=50] -->
+    <string name="remove_camera_qs">Remove camera permission</string>
+    <!-- Label to remove microphone permission in safety center QS page [CHAR LIMIT=50] -->
+    <string name="remove_microphone_qs">Remove microphone permission</string>
+    <!-- Label to manage service in safety center QS page [CHAR LIMIT=50] -->
+    <string name="manage_service_qs">Manage service</string>
+    <!-- Label to manage permissions in safety center QS page [CHAR LIMIT=50] -->
+    <string name="manage_permissions_qs">Manage permissions</string>
+    <!-- Label for active usage by phone call in safety center QS page [CHAR LIMIT=50] -->
+    <string name="active_call_usage_qs">Being used by phone call</string>
+    <!-- Label for recent usage by phone call in safety center QS page [CHAR LIMIT=50] -->
+    <string name="recent_call_usage_qs">Recently used in phone call</string>
+    <!-- Label for active app usage in safety center QS page [CHAR LIMIT=50] -->
+    <string name="active_app_usage_qs">Being used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g></string>
+    <!-- Label for recent app usage in safety center QS page [CHAR LIMIT=50] -->
+    <string name="recent_app_usage_qs">Recently used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g></string>
+    <!-- Label for active app usage with sub-attribution or proxy label in safety center QS page [CHAR LIMIT=NONE] -->
+    <string name="active_app_usage_1_qs">Being used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>)</string>
+    <!-- Label for recent app usage with sub-attribution or proxy label in safety center QS page [CHAR LIMIT=NONE] -->
+    <string name="recent_app_usage_1_qs">Recently used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>)</string>
+    <!-- Label for active app usage with sub-attribution and proxy label in safety center QS page [CHAR LIMIT=NONE] -->
+    <string name="active_app_usage_2_qs">Being used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>  \u2022 <xliff:g id="proxy_label" example="Speech services">%3$s</xliff:g>)</string>
+    <!-- Label for recent app usage with sub-attribution and proxy label in safety center QS page [CHAR LIMIT=NONE] -->
+    <string name="recent_app_usage_2_qs">Recently used by <xliff:g id="app_name" example="Gmail">%1$s</xliff:g> (<xliff:g id="attribution_label" example="For Wallet">%2$s</xliff:g>  \u2022 <xliff:g id="proxy_label" example="Speech services">%3$s</xliff:g>)</string>
+
+    <!-- Title of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
+    <string name="safety_privacy_qs_tile_title">Security &amp; Privacy</string>
+    <!-- Subtitle of the safety and privacy quick settings tile [CHAR LIMIT=NONE] -->
+    <string name="safety_privacy_qs_tile_subtitle">Check status</string>
+
+    <!-- Positive button for media confirm dialog [CHAR LIMIT=40] -->
+    <string name="media_confirm_dialog_positive_button">Confirm</string>
+    <!-- Negative button for media confirm dialog [CHAR LIMIT=40] -->
+    <string name="media_confirm_dialog_negative_button">Back</string>
+    <!-- Title for media confirm dialog (when user allows aural group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_a_to_p_aural_allow">Access to other files will also be allowed</string>
+    <!-- Title for media confirm dialog (when user denies aural group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_a_to_p_aural_deny">Access to other files also won\u2019t be allowed</string>
+    <!-- Title for media confirm dialog (when user allows visual group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_a_to_p_visual_allow">Access to other files will also be allowed</string>
+    <!-- Title for media confirm dialog (when user denies visual group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_a_to_p_visual_deny">Access to other files also won\u2019t be allowed</string>
+    <!-- Title for media confirm dialog (when user allows aural group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_q_to_s_aural_allow">Access to photos and videos will also be allowed</string>
+    <!-- Title for media confirm dialog (when user denies aural group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_q_to_s_aural_deny">Access to photos and videos also won\u2019t be allowed</string>
+    <!-- Title for media confirm dialog (when user allows visual group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_q_to_s_visual_allow">Access to music and audio files will also be allowed</string>
+    <!-- Title for media confirm dialog (when user denies visual group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_title_q_to_s_visual_deny">Access to music and audio files also won\u2019t be allowed</string>
+    <!-- Message for media confirm dialog (when user allows aural group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_a_to_p_aural_allow">This app doesn\u2019t support the latest version of Android. If this app can access music and audio files, it will also be allowed to access photos, videos, and other files.</string>
+    <!-- Message for media confirm dialog (when user denies aural group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_a_to_p_aural_deny">This app doesn\u2019t support the latest version of Android. If this app can\u2019t access music and audio files, it also won\u2019t be allowed to access photos, videos, and other files.</string>
+    <!-- Message for media confirm dialog (when user allows visual group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_a_to_p_visual_allow">This app doesn\u2019t support the latest version of Android. If this app can access photos and videos, it will also be allowed to access music, audio, and other files.</string>
+    <!-- Message for media confirm dialog (when user denies visual group of pre-q app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_a_to_p_visual_deny">This app doesn\u2019t support the latest version of Android. If this app can\u2019t access photos and videos, it also won\u2019t be allowed to access music, audio, other files.</string>
+    <!-- Message for media confirm dialog (when user allows aural group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_q_to_s_aural_allow">This app doesn\u2019t support the latest version of Android. If this app can access music and audio files, it will also be allowed to access photos and videos.</string>
+    <!-- Message for media confirm dialog (when user denies aural group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_q_to_s_aural_deny">This app doesn\u2019t support the latest version of Android. If this app can\u2019t access music and audio files, it also won\u2019t be allowed to access photos and videos.</string>
+    <!-- Message for media confirm dialog (when user allows visual group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_q_to_s_visual_allow">This app doesn\u2019t support the latest version of Android. If this app can access photos and videos, it will also be allowed to access music and audio files.</string>
+    <!-- Message for media confirm dialog (when user denies visual group of q_to_s app) [CHAR LIMIT=NONE] -->
+    <string name="media_confirm_dialog_message_q_to_s_visual_deny">This app doesn\u2019t support the latest version of Android. If this app can\u2019t access music and audio files, it also won\u2019t be allowed to access photos and videos.</string>
 </resources>

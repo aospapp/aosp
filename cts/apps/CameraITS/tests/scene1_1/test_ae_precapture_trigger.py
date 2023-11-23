@@ -86,8 +86,8 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
         state = cap['metadata']['android.control.aeState']
         msg = 'AE state after manual request %d: %d' % (i, state)
         logging.debug('%s', msg)
-        e_msg = msg + ' AE_INACTIVE: %d' % AE_INACTIVE
-        assert state == AE_INACTIVE, e_msg
+        if state != AE_INACTIVE:
+          raise AssertionError(f'{msg} AE_INACTIVE: {AE_INACTIVE}')
 
       # Capture auto request and verify the AE state: no trigger.
       logging.debug('Auto capture')
@@ -97,9 +97,9 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
       state = cap['metadata']['android.control.aeState']
       msg = 'AE state after auto request: %d' % state
       logging.debug('%s', msg)
-      e_msg = msg + ' AE_SEARCHING: %d, AE_CONVERGED: %d' % (
-          AE_SEARCHING, AE_CONVERGED)
-      assert state in [AE_SEARCHING, AE_CONVERGED], e_msg
+      if state not in [AE_SEARCHING, AE_CONVERGED]:
+        raise AssertionError(f'{msg} AE_SEARCHING: {AE_SEARCHING}, '
+                             f'AE_CONVERGED: {AE_CONVERGED}')
 
       # Capture auto request with a precapture trigger.
       logging.debug('Auto capture with precapture trigger')
@@ -108,9 +108,10 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
       state = cap['metadata']['android.control.aeState']
       msg = 'AE state after auto request with precapture trigger: %d' % state
       logging.debug('%s', msg)
-      e_msg = msg + ' AE_SEARCHING: %d, AE_CONVERGED: %d, AE_PRECAPTURE: %d' % (
-          AE_SEARCHING, AE_CONVERGED, AE_PRECAPTURE)
-      assert state in [AE_SEARCHING, AE_CONVERGED, AE_PRECAPTURE], e_msg
+      if state not in [AE_SEARCHING, AE_CONVERGED, AE_PRECAPTURE]:
+        raise AssertionError(f'{msg} AE_SEARCHING: {AE_SEARCHING}, '
+                             f'AE_CONVERGED: {AE_CONVERGED}, '
+                             f'AE_PRECAPTURE: {AE_PRECAPTURE}')
 
       # Capture some more auto requests, and AE should converge.
       logging.debug('Additional auto captures')
@@ -122,8 +123,8 @@ class AePrecaptureTest(its_base_test.ItsBaseTest):
         logging.debug('%s', msg)
         if state == AE_CONVERGED:
           return
-      e_msg = msg + ' AE_CONVERGED: %d' % AE_CONVERGED
-      assert state == AE_CONVERGED, e_msg
+      if state != AE_CONVERGED:
+        raise AssertionError(f'{msg}  AE_CONVERGED: {AE_CONVERGED}')
 
 if __name__ == '__main__':
   test_runner.main()

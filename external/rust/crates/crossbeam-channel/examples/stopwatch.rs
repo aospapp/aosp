@@ -12,13 +12,13 @@ fn main() {
     use std::time::{Duration, Instant};
 
     use crossbeam_channel::{bounded, select, tick, Receiver};
+    use signal_hook::consts::SIGINT;
     use signal_hook::iterator::Signals;
-    use signal_hook::SIGINT;
 
     // Creates a channel that gets a message every time `SIGINT` is signalled.
     fn sigint_notifier() -> io::Result<Receiver<()>> {
         let (s, r) = bounded(100);
-        let signals = Signals::new(&[SIGINT])?;
+        let mut signals = Signals::new(&[SIGINT])?;
 
         thread::spawn(move || {
             for _ in signals.forever() {
@@ -33,11 +33,7 @@ fn main() {
 
     // Prints the elapsed time.
     fn show(dur: Duration) {
-        println!(
-            "Elapsed: {}.{:03} sec",
-            dur.as_secs(),
-            dur.subsec_nanos() / 1_000_000
-        );
+        println!("Elapsed: {}.{:03} sec", dur.as_secs(), dur.subsec_millis());
     }
 
     let start = Instant::now();

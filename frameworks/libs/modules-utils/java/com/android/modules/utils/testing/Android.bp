@@ -27,3 +27,36 @@ java_library {
     min_sdk_version: "29",
     visibility: ["//visibility:public"],
 }
+
+// Depend on modules-utils-testable-device-config-defaults instead of this library.
+java_library {
+    name: "modules-utils-testable-device-config",
+    srcs: [
+        "StaticMockFixture.java",
+        "StaticMockFixtureRule.java",
+        "TestableDeviceConfig.java",
+    ],
+    static_libs: [
+        "androidx.test.rules",
+        "mockito-target-extended-minus-junit4",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: ["//visibility:public"],
+}
+
+// Utility for mocking DeviceConfig and other device state.
+// In order to use these utils successfully, both Java code and native libraries will be required.
+// If your code is in a library, you will have to depend on these defaults both in the library as
+// well as in the android_test that it gets linked into.
+// You will also need to specify android:debuggable="true" in the test's manifest.
+java_defaults {
+    name: "modules-utils-testable-device-config-defaults",
+    static_libs: ["modules-utils-testable-device-config"],
+    compile_multilib: "both",
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
+    defaults_visibility: ["//visibility:public"],
+}

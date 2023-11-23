@@ -638,13 +638,18 @@ static const struct fuse_opt iconv_opts[] = {
 
 static void iconv_help(void)
 {
-	char *old = strdup(setlocale(LC_CTYPE, ""));
-	char *charmap = strdup(nl_langinfo(CODESET));
-	setlocale(LC_CTYPE, old);
-	free(old);
+	char *charmap;
+	const char *old = setlocale(LC_CTYPE, "");
+
+	charmap = strdup(nl_langinfo(CODESET));
+	if (old)
+		setlocale(LC_CTYPE, old);
+	else
+		perror("setlocale");
+
 	printf(
 "    -o from_code=CHARSET   original encoding of file names (default: UTF-8)\n"
-"    -o to_code=CHARSET	    new encoding of the file names (default: %s)\n",
+"    -o to_code=CHARSET     new encoding of the file names (default: %s)\n",
 		charmap);
 	free(charmap);
 }
@@ -667,7 +672,7 @@ static struct fuse_fs *iconv_new(struct fuse_args *args,
 {
 	struct fuse_fs *fs;
 	struct iconv *ic;
-	char *old = NULL;
+	const char *old = NULL;
 	const char *from;
 	const char *to;
 
@@ -689,7 +694,7 @@ static struct fuse_fs *iconv_new(struct fuse_args *args,
 	to = ic->to_code ? ic->to_code : "";
 	/* FIXME: detect charset equivalence? */
 	if (!to[0])
-		old = strdup(setlocale(LC_CTYPE, ""));
+		old = setlocale(LC_CTYPE, "");
 	ic->tofs = iconv_open(from, to);
 	if (ic->tofs == (iconv_t) -1) {
 		fuse_log(FUSE_LOG_ERR, "fuse-iconv: cannot convert from %s to %s\n",
@@ -704,7 +709,7 @@ static struct fuse_fs *iconv_new(struct fuse_args *args,
 	}
 	if (old) {
 		setlocale(LC_CTYPE, old);
-		free(old);
+		old = NULL;
 	}
 
 	ic->next = next[0];
@@ -724,7 +729,6 @@ out_free:
 	free(ic);
 	if (old) {
 		setlocale(LC_CTYPE, old);
-		free(old);
 	}
 	return NULL;
 }

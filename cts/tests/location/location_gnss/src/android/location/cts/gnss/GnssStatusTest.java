@@ -1,12 +1,22 @@
 package android.location.cts.gnss;
 
+
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+
+import android.content.Context;
 import android.location.GnssStatus;
 import android.location.cts.common.GnssTestCase;
 import android.location.cts.common.SoftAssert;
+import android.location.cts.common.TestGnssStatusCallback;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
+import android.location.cts.common.TestUtils;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import java.util.List;
 
 public class GnssStatusTest extends GnssTestCase  {
 
@@ -23,16 +33,28 @@ public class GnssStatusTest extends GnssTestCase  {
   /**
    * Tests that one can listen for {@link GnssStatus}.
    */
+  @AppModeFull(reason = "Instant apps cannot access package manager to scan for permissions")
   public void testGnssStatusChanges() throws Exception {
     // Checks if GPS hardware feature is present, skips test (pass) if not
     if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
       return;
     }
 
-    // Register Gps Status Listener.
-    TestGnssStatusCallback testGnssStatusCallback =
-        new TestGnssStatusCallback(TAG, STATUS_TO_COLLECT_COUNT);
-    checkGnssChange(testGnssStatusCallback);
+    // Revoke location permissions from packages before running GnssStatusTest stops
+    // active location requests, allowing this test to receive all necessary Gnss callbacks.
+    List<String> courseLocationPackages = TestUtils.revokePermissions(ACCESS_COARSE_LOCATION);
+    List<String> fineLocationPackages = TestUtils.revokePermissions(ACCESS_FINE_LOCATION);
+
+    try {
+        // Register Gps Status Listener.
+        TestGnssStatusCallback testGnssStatusCallback =
+            new TestGnssStatusCallback(TAG, STATUS_TO_COLLECT_COUNT);
+        checkGnssChange(testGnssStatusCallback);
+    } finally {
+        // For each location package, re-grant the permission
+        TestUtils.grantLocationPermissions(ACCESS_COARSE_LOCATION, courseLocationPackages);
+        TestUtils.grantLocationPermissions(ACCESS_FINE_LOCATION, fineLocationPackages);
+    }
   }
 
   private void checkGnssChange(TestGnssStatusCallback testGnssStatusCallback)
@@ -61,18 +83,31 @@ public class GnssStatusTest extends GnssTestCase  {
   /**
    * Tests values of {@link GnssStatus}.
    */
+  @AppModeFull(reason = "Instant apps cannot access package manager to scan for permissions")
   public void testGnssStatusValues() throws InterruptedException {
     // Checks if GPS hardware feature is present, skips test (pass) if not
     if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
       return;
     }
-    SoftAssert softAssert = new SoftAssert(TAG);
-    // Register Gps Status Listener.
-    TestGnssStatusCallback testGnssStatusCallback =
-        new TestGnssStatusCallback(TAG, STATUS_TO_COLLECT_COUNT);
-    checkGnssChange(testGnssStatusCallback);
-    validateGnssStatus(testGnssStatusCallback.getGnssStatus(), softAssert);
-    softAssert.assertAll();
+
+    // Revoke location permissions from packages before running GnssStatusTest stops
+    // active location requests, allowing this test to receive all necessary Gnss callbacks.
+    List<String> courseLocationPackages = TestUtils.revokePermissions(ACCESS_COARSE_LOCATION);
+    List<String> fineLocationPackages = TestUtils.revokePermissions(ACCESS_FINE_LOCATION);
+
+    try {
+        SoftAssert softAssert = new SoftAssert(TAG);
+        // Register Gps Status Listener.
+        TestGnssStatusCallback testGnssStatusCallback =
+            new TestGnssStatusCallback(TAG, STATUS_TO_COLLECT_COUNT);
+        checkGnssChange(testGnssStatusCallback);
+        validateGnssStatus(testGnssStatusCallback.getGnssStatus(), softAssert);
+        softAssert.assertAll();
+    } finally {
+        // For each location package, re-grant the permission
+        TestUtils.grantLocationPermissions(ACCESS_COARSE_LOCATION, courseLocationPackages);
+        TestUtils.grantLocationPermissions(ACCESS_FINE_LOCATION, fineLocationPackages);
+    }
   }
 
   /**

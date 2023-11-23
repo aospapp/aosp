@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # ustat  Activity stats from high-level languages, including exceptions,
@@ -93,8 +93,10 @@ BPF_HASH(%s_%s_counts, u32, u64);   // pid to event count
 int %s_%s(void *ctx) {
     u64 *valp, zero = 0;
     u32 tgid = bpf_get_current_pid_tgid() >> 32;
-    valp = %s_%s_counts.lookup_or_init(&tgid, &zero);
-    ++(*valp);
+    valp = %s_%s_counts.lookup_or_try_init(&tgid, &zero);
+    if (valp) {
+        ++(*valp);
+    }
     return 0;
 }
         """

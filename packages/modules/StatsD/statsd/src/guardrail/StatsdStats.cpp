@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "StatsdStats.h"
@@ -1097,6 +1097,13 @@ void StatsdStats::dumpStats(std::vector<uint8_t>* output, bool reset) {
     }
 
     VLOG("reset=%d, returned proto size %lu", reset, (unsigned long)bufferSize);
+}
+
+std::pair<size_t, size_t> StatsdStats::getAtomDimensionKeySizeLimits(const int atomId) {
+    return kAtomDimensionKeySizeLimitMap.find(atomId) != kAtomDimensionKeySizeLimitMap.end()
+                   ? kAtomDimensionKeySizeLimitMap.at(atomId)
+                   : std::make_pair<size_t, size_t>(kDimensionKeySizeSoftLimit,
+                                                    kDimensionKeySizeHardLimit);
 }
 
 }  // namespace statsd

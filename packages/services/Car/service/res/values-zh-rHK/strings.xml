@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"存取汽車攝錄機。"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"存取汽車的能源資訊"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"存取汽車的電量資訊。"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"控制汽車的電動車充電設定"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"控制汽車的電動車充電設定。"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"調整汽車油量餘額"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"調整汽車油量餘額。"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"存取汽車的暖通空調"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"允許應用程式於儀表板顯示活動"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"儀表板控制器"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"在儀表板啟動應用程式"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"儀器叢集導覽狀態"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"聆聽儀器叢集導覽狀態變更"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"正在輸出儀表板"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"接收儀表板資料"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"使用者體驗限制設定"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"允許控制何時開始和停止 Occupant Awareness System 的偵測圖表"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"汽車輸入服務"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"處理輸入活動"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"控制器區域網路操作失敗"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"控制器區域網路未有回覆。請拔除並重新插上汽車音響主機，然後重新啟動汽車"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"您無法在駕駛時使用此功能"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"如要以安全應用程式功能重新啟動，請選擇 <xliff:g id="EXIT_BUTTON">%s</xliff:g>。"</string>
-    <string name="exit_button" msgid="5829638404777671253">"返回"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"關閉應用程式"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"返回"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"讀取診斷資料"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"讀取來自汽車的診斷資料。"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"清除診斷資料"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"控制汽車座位。"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"存取汽車基本資訊"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"存取汽車基本資訊。"</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"存取汽車的保密資料"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"存取汽車的保密資料。"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"存取汽車供應商權限資訊"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"存取汽車供應商權限資訊。"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"讀取汽車外部燈光狀態"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"閱讀汽車能源政策。"</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"控制汽車能源政策"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"控制汽車能源政策。"</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"調整關閉程序"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"調整關閉程序。"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"輸出範本"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"輸出範本。"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"控制啟動應用程式"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"控制啟動應用程式。"</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"控制器區域網路操作失敗"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"控制器區域網路未有回覆。請拔除並重新插上汽車音響主機，然後重新啟動汽車"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"我的裝置"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"訪客"</string>
-    <string name="importance_default" msgid="8587741629268312938">"預設重要性"</string>
-    <string name="importance_high" msgid="3141530792377745041">"重要性：高"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"需要回復原廠設定"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"系統將會清除資訊娛樂系統中的所有資料。重設後，您可以設定新設定檔。"</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"更多"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"重設資訊娛樂系統"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"您的系統已收到回復原廠設定並清除所有資料的要求。您可以立即重設，否則系統將在汽車下次啟動時重設。之後，您可以設定新設定檔。"</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"立即重設"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"稍後重設"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"資訊娛樂系統將在汽車下次啟動時重設。"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"必須泊車才能開始重設。"</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> 正在影響系統效能"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"停用應用程式即可改善系統效能。您可以在「設定」中再次啟用應用程式。"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"優先處理應用程式即可繼續使用應用程式。"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"解除安裝應用程式即可改善系統效能。"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"停用應用程式"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"優先處理應用程式"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"解除安裝應用程式"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"「<xliff:g id="ID_1">^1</xliff:g>」已停用。您可以在「設定」中再次啟用。"</string>
 </resources>

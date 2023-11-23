@@ -605,8 +605,7 @@ static InOutSpec in_out_specs[] =
     "data/test-diff-pkg/PR24690/PR24690-report-0.txt",
     "output/test-diff-pkg/PR24690/PR24690-report-0.txt"
   },
-#if WITH_RPM_4_15
-  // This RPM version supports packages compressed with zstd.
+#if WITH_RPM_ZSTD
   // RPMs from Fedora 31 onwards are compressed with zstd.
   {
     "data/test-diff-pkg/mesa-libGLU-9.0.1-3.fc33.x86_64.rpm",
@@ -696,7 +695,58 @@ static InOutSpec in_out_specs[] =
     "data/test-diff-pkg/elfutils-libs-debuginfo-0.183-1.el9.x86_64-self-check-report-0.txt",
     "output/test-diff-pkg/elfutils-libs-debuginfo-0.183-1.el9.x86_64-self-check-report-0.txt"
   } ,
-#endif // WITH_RPM_4_15
+  {
+    "data/test-diff-pkg/graphviz-2.44.0-18.el9.aarch64.rpm",
+    "data/test-diff-pkg/graphviz-2.44.0-18.el9.aarch64.rpm",
+    "--self-check",
+    "",
+    "data/test-diff-pkg/graphviz-debuginfo-2.44.0-18.el9.aarch64.rpm",
+    "data/test-diff-pkg/graphviz-debuginfo-2.44.0-18.el9.aarch64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/graphviz-2.44.0-18.el9.aarch64-self-check-report-0.txt",
+    "output/test-diff-pkg/graphviz-2.44.0-18.el9.aarch64-self-check-report-0.txt"
+  } ,
+  {
+    "data/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64.rpm",
+    "data/test-diff-pkg/libxcrypt-4.4.18-3.el9.x86_64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/libxcrypt-debuginfo-4.1.1-6.el8.x86_64.rpm",
+    "data/test-diff-pkg/libxcrypt-debuginfo-4.4.18-3.el9.x86_64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64--libxcrypt-4.1.1-6.el8.x86_64-output-1.txt",
+    "output/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64--libxcrypt-4.1.1-6.el8.x86_64-output-1.txt"
+  } ,
+  {
+    "data/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64.rpm",
+    "data/test-diff-pkg/libxcrypt-compat-4.4.18-3.el9.x86_64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/libxcrypt-debuginfo-4.1.1-6.el8.x86_64.rpm",
+    "data/test-diff-pkg/libxcrypt-debuginfo-4.4.18-3.el9.x86_64.rpm,"
+    "data/test-diff-pkg/libxcrypt-compat-debuginfo-4.4.18-3.el9.x86_64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64--libxcrypt-compat-4.4.18-3.el9.x86_64-report-1.txt",
+    "output/test-diff-pkg/libxcrypt-4.1.1-6.el8.x86_64--libxcrypt-compat-4.4.18-3.el9.x86_64-report-1.txt"
+  } ,
+  {
+    "data/test-diff-pkg/wireshark/wireshark-cli-3.4.9-1.fc36.x86_64.rpm",
+    "data/test-diff-pkg/wireshark/wireshark-cli-3.4.9-1.fc36.x86_64.rpm",
+    "--self-check",
+    "",
+    "data/test-diff-pkg/wireshark/wireshark-cli-debuginfo-3.4.9-1.fc36.x86_64.rpm,"
+    "data/test-diff-pkg/wireshark/wireshark-debuginfo-3.4.9-1.fc36.x86_64.rpm",
+    "data/test-diff-pkg/wireshark/wireshark-cli-debuginfo-3.4.9-1.fc36.x86_64.rpm,"
+    "data/test-diff-pkg/wireshark/wireshark-debuginfo-3.4.9-1.fc36.x86_64.rpm",
+    "",
+    "",
+    "data/test-diff-pkg/wireshark/wireshark-cli-3.4.9-1.fc36.x86_64-self-check-report.txt",
+    "output/test-diff-pkg/wireshark/wireshark-cli-3.4.9-1.fc36.x86_64-self-check-report.txt"
+  } ,
+#endif // WITH_RPM_ZSTD
 #endif //WITH_RPM
 
 #ifdef WITH_DEB

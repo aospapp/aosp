@@ -20,6 +20,17 @@
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/cts/hostside/os" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
+    </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="CtsStaticSharedLibProviderApp1.apk->/data/local/tmp/cts/hostside/os/CtsStaticSharedLibProviderApp1.apk" />
+        <option name="push" value="CtsStaticSharedLibProviderApp2.apk->/data/local/tmp/cts/hostside/os/CtsStaticSharedLibProviderApp2.apk" />
+    </target_preparer>
+
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsDeviceOsTestApp.apk" />

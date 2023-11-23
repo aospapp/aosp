@@ -8,20 +8,24 @@
 //! something:
 //!
 //! 1. Split your input into [`Fragment`]s. These are abstract blocks
-//!    of text or content which can be wrapped into lines. You can use
-//!    [`find_words`] to do this for text.
+//!    of text or content which can be wrapped into lines. See
+//!    [`WordSeparator`](crate::word_separators::WordSeparator) for
+//!    how to do this for text.
 //!
 //! 2. Potentially split your fragments into smaller pieces. This
-//!    allows you to implement things like hyphenation. If wrapping
-//!    text, [`split_words`] can help you do this.
+//!    allows you to implement things like hyphenation. If you use the
+//!    `Word` type, you can use [`WordSplitter`](crate::WordSplitter)
+//!    enum for this.
 //!
 //! 3. Potentially break apart fragments that are still too large to
 //!    fit on a single line. This is implemented in [`break_words`].
 //!
 //! 4. Finally take your fragments and put them into lines. There are
-//!    two algorithms for this: [`wrap_optimal_fit`] and
-//!    [`wrap_first_fit`]. The former produces better line breaks, the
-//!    latter is faster.
+//!    two algorithms for this in the
+//!    [`wrap_algorithms`](crate::wrap_algorithms) module:
+//!    [`wrap_optimal_fit`](crate::wrap_algorithms::wrap_optimal_fit)
+//!    and [`wrap_first_fit`](crate::wrap_algorithms::wrap_first_fit).
+//!    The former produces better line breaks, the latter is faster.
 //!
 //! 5. Iterate through the slices returned by the wrapping functions
 //!    and construct your lines of output.
@@ -29,13 +33,6 @@
 //! Please [open an issue](https://github.com/mgeisler/textwrap/) if
 //! the functionality here is not sufficient or if you have ideas for
 //! improving it. We would love to hear from you!
-
-use crate::{Options, WordSplitter};
-
-#[cfg(feature = "smawk")]
-mod optimal_fit;
-#[cfg(feature = "smawk")]
-pub use optimal_fit::wrap_optimal_fit;
 
 /// The CSI or “Control Sequence Introducer” introduces an ANSI escape
 /// sequence. This is typically used for colored text and will be
@@ -48,7 +45,7 @@ const ANSI_FINAL_BYTE: std::ops::RangeInclusive<char> = '\x40'..='\x7e';
 /// `chars` provide the following characters. The `chars` will be
 /// modified if `ch` is the start of an ANSI escape sequence.
 #[inline]
-fn skip_ansi_escape_sequence<I: Iterator<Item = char>>(ch: char, chars: &mut I) -> bool {
+pub(crate) fn skip_ansi_escape_sequence<I: Iterator<Item = char>>(ch: char, chars: &mut I) -> bool {
     if ch == CSI.0 && chars.next() == Some(CSI.1) {
         // We have found the start of an ANSI escape code, typically
         // used for colored terminal text. We skip until we find a
@@ -175,7 +172,6 @@ fn ch_width(ch: char) -> usize {
 /// [Unicode equivalence]: https://en.wikipedia.org/wiki/Unicode_equivalence
 /// [CJK characters]: https://en.wikipedia.org/wiki/CJK_characters
 /// [emoji modifier sequences]: https://unicode.org/emoji/charts/full-emoji-modifiers.html
-#[inline]
 pub fn display_width(text: &str) -> usize {
     let mut chars = text.chars();
     let mut width = 0;
@@ -200,15 +196,15 @@ pub fn display_width(text: &str) -> usize {
 /// the displayed width of each part, which this trait provides.
 pub trait Fragment: std::fmt::Debug {
     /// Displayed width of word represented by this fragment.
-    fn width(&self) -> usize;
+    fn width(&self) -> f64;
 
     /// Displayed width of the whitespace that must follow the word
     /// when the word is not at the end of a line.
-    fn whitespace_width(&self) -> usize;
+    fn whitespace_width(&self) -> f64;
 
     /// Displayed width of the penalty that must be inserted if the
     /// word falls at the end of a line.
-    fn penalty_width(&self) -> usize;
+    fn penalty_width(&self) -> f64;
 }
 
 /// A piece of wrappable text, including any trailing whitespace.
@@ -217,10 +213,14 @@ pub trait Fragment: std::fmt::Debug {
 /// trailing whitespace, and potentially a penalty item.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Word<'a> {
-    word: &'a str,
-    width: usize,
-    pub(crate) whitespace: &'a str,
-    pub(crate) penalty: &'a str,
+    /// Word content.
+    pub word: &'a str,
+    /// Whitespace to insert if the word does not fall at the end of a line.
+    pub whitespace: &'a str,
+    /// Penalty string to insert if the word falls at the end of a line.
+    pub penalty: &'a str,
+    // Cached width in columns.
+    pub(crate) width: usize,
 }
 
 impl std::ops::Deref for Word<'_> {
@@ -232,7 +232,7 @@ impl std::ops::Deref for Word<'_> {
 }
 
 impl<'a> Word<'a> {
-    /// Construct a new `Word`.
+    /// Construct a `Word` from a string.
     ///
     /// A trailing stretch of `' '` is automatically taken to be the
     /// whitespace part of the word.
@@ -240,7 +240,7 @@ impl<'a> Word<'a> {
         let trimmed = word.trim_end_matches(' ');
         Word {
             word: trimmed,
-            width: display_width(&trimmed),
+            width: display_width(trimmed),
             whitespace: &word[trimmed.len()..],
             penalty: "",
         }
@@ -303,135 +303,23 @@ impl<'a> Word<'a> {
 
 impl Fragment for Word<'_> {
     #[inline]
-    fn width(&self) -> usize {
-        self.width
+    fn width(&self) -> f64 {
+        self.width as f64
     }
 
     // We assume the whitespace consist of ' ' only. This allows us to
     // compute the display width in constant time.
     #[inline]
-    fn whitespace_width(&self) -> usize {
-        self.whitespace.len()
+    fn whitespace_width(&self) -> f64 {
+        self.whitespace.len() as f64
     }
 
     // We assume the penalty is `""` or `"-"`. This allows us to
     // compute the display width in constant time.
     #[inline]
-    fn penalty_width(&self) -> usize {
-        self.penalty.len()
+    fn penalty_width(&self) -> f64 {
+        self.penalty.len() as f64
     }
-}
-
-/// Split line into words separated by regions of `' '` characters.
-///
-/// # Examples
-///
-/// ```
-/// use textwrap::core::{find_words, Fragment, Word};
-/// let words = find_words("Hello World!").collect::<Vec<_>>();
-/// assert_eq!(words, vec![Word::from("Hello "), Word::from("World!")]);
-/// assert_eq!(words[0].width(), 5);
-/// assert_eq!(words[0].whitespace_width(), 1);
-/// assert_eq!(words[0].penalty_width(), 0);
-/// ```
-pub fn find_words(line: &str) -> impl Iterator<Item = Word> {
-    let mut start = 0;
-    let mut in_whitespace = false;
-    let mut char_indices = line.char_indices();
-
-    std::iter::from_fn(move || {
-        // for (idx, ch) in char_indices does not work, gives this
-        // error:
-        //
-        // > cannot move out of `char_indices`, a captured variable in
-        // > an `FnMut` closure
-        #[allow(clippy::while_let_on_iterator)]
-        while let Some((idx, ch)) = char_indices.next() {
-            if in_whitespace && ch != ' ' {
-                let word = Word::from(&line[start..idx]);
-                start = idx;
-                in_whitespace = ch == ' ';
-                return Some(word);
-            }
-
-            in_whitespace = ch == ' ';
-        }
-
-        if start < line.len() {
-            let word = Word::from(&line[start..]);
-            start = line.len();
-            return Some(word);
-        }
-
-        None
-    })
-}
-
-/// Split words into smaller words according to the split points given
-/// by `options`.
-///
-/// Note that we split all words, regardless of their length. This is
-/// to more cleanly separate the business of splitting (including
-/// automatic hyphenation) from the business of word wrapping.
-///
-/// # Examples
-///
-/// ```
-/// use textwrap::core::{split_words, Word};
-/// use textwrap::{NoHyphenation, Options};
-///
-/// // The default splitter is HyphenSplitter:
-/// let options = Options::new(80);
-/// assert_eq!(
-///     split_words(vec![Word::from("foo-bar")], &options).collect::<Vec<_>>(),
-///     vec![Word::from("foo-"), Word::from("bar")]
-/// );
-///
-/// // The NoHyphenation splitter ignores the '-':
-/// let options = Options::new(80).splitter(NoHyphenation);
-/// assert_eq!(
-///     split_words(vec![Word::from("foo-bar")], &options).collect::<Vec<_>>(),
-///     vec![Word::from("foo-bar")]
-/// );
-/// ```
-pub fn split_words<'a, I, S, Opt>(words: I, options: Opt) -> impl Iterator<Item = Word<'a>>
-where
-    I: IntoIterator<Item = Word<'a>>,
-    S: WordSplitter,
-    Opt: Into<Options<'a, S>>,
-{
-    let options = options.into();
-
-    words.into_iter().flat_map(move |word| {
-        let mut prev = 0;
-        let mut split_points = options.splitter.split_points(&word).into_iter();
-        std::iter::from_fn(move || {
-            if let Some(idx) = split_points.next() {
-                let need_hyphen = !word[..idx].ends_with('-');
-                let w = Word {
-                    word: &word.word[prev..idx],
-                    width: display_width(&word[prev..idx]),
-                    whitespace: "",
-                    penalty: if need_hyphen { "-" } else { "" },
-                };
-                prev = idx;
-                return Some(w);
-            }
-
-            if prev < word.word.len() || prev == 0 {
-                let w = Word {
-                    word: &word.word[prev..],
-                    width: display_width(&word[prev..]),
-                    whitespace: word.whitespace,
-                    penalty: word.penalty,
-                };
-                prev = word.word.len() + 1;
-                return Some(w);
-            }
-
-            None
-        })
-    })
 }
 
 /// Forcibly break words wider than `line_width` into smaller words.
@@ -445,7 +333,7 @@ where
 {
     let mut shortened_words = Vec::new();
     for word in words {
-        if word.width() > line_width {
+        if word.width() > line_width as f64 {
             shortened_words.extend(word.break_apart(line_width));
         } else {
             shortened_words.push(word);
@@ -454,213 +342,12 @@ where
     shortened_words
 }
 
-/// Wrapping algorithms.
-///
-/// After a text has been broken into [`Fragment`]s, the one now has
-/// to decide how to break the fragments into lines. The simplest
-/// algorithm for this is implemented by [`wrap_first_fit`]: it uses
-/// no look-ahead and simply adds fragments to the line as long as
-/// they fit. However, this can lead to poor line breaks if a large
-/// fragment almost-but-not-quite fits on a line. When that happens,
-/// the fragment is moved to the next line and it will leave behind a
-/// large gap. A more advanced algorithm, implemented by
-/// [`wrap_optimal_fit`], will take this into account. The optimal-fit
-/// algorithm considers all possible line breaks and will attempt to
-/// minimize the gaps left behind by overly short lines.
-///
-/// While both algorithms run in linear time, the first-fit algorithm
-/// is about 4 times faster than the optimal-fit algorithm.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WrapAlgorithm {
-    /// Use an advanced algorithm which considers the entire paragraph
-    /// to find optimal line breaks. Implemented by
-    /// [`wrap_optimal_fit`].
-    ///
-    /// **Note:** Only available when the `smawk` Cargo feature is
-    /// enabled.
-    #[cfg(feature = "smawk")]
-    OptimalFit,
-    /// Use a fast and simple algorithm with no look-ahead to find
-    /// line breaks. Implemented by [`wrap_first_fit`].
-    FirstFit,
-}
-
-/// Wrap abstract fragments into lines with a first-fit algorithm.
-///
-/// The `line_widths` map line numbers (starting from 0) to a target
-/// line width. This can be used to implement hanging indentation.
-///
-/// The fragments must already have been split into the desired
-/// widths, this function will not (and cannot) attempt to split them
-/// further when arranging them into lines.
-///
-/// # First-Fit Algorithm
-///
-/// This implements a simple “greedy” algorithm: accumulate fragments
-/// one by one and when a fragment no longer fits, start a new line.
-/// There is no look-ahead, we simply take first fit of the fragments
-/// we find.
-///
-/// While fast and predictable, this algorithm can produce poor line
-/// breaks when a long fragment is moved to a new line, leaving behind
-/// a large gap:
-///
-/// ```
-/// use textwrap::core::{find_words, wrap_first_fit, Word};
-///
-/// // Helper to convert wrapped lines to a Vec<String>.
-/// fn lines_to_strings(lines: Vec<&[Word<'_>]>) -> Vec<String> {
-///     lines.iter().map(|line| {
-///         line.iter().map(|word| &**word).collect::<Vec<_>>().join(" ")
-///     }).collect::<Vec<_>>()
-/// }
-///
-/// let text = "These few words will unfortunately not wrap nicely.";
-/// let words = find_words(text).collect::<Vec<_>>();
-/// assert_eq!(lines_to_strings(wrap_first_fit(&words, |_| 15)),
-///            vec!["These few words",
-///                 "will",  // <-- short line
-///                 "unfortunately",
-///                 "not wrap",
-///                 "nicely."]);
-///
-/// // We can avoid the short line if we look ahead:
-/// #[cfg(feature = "smawk")]
-/// assert_eq!(lines_to_strings(textwrap::core::wrap_optimal_fit(&words, |_| 15)),
-///            vec!["These few",
-///                 "words will",
-///                 "unfortunately",
-///                 "not wrap",
-///                 "nicely."]);
-/// ```
-///
-/// The [`wrap_optimal_fit`] function was used above to get better
-/// line breaks. It uses an advanced algorithm which tries to avoid
-/// short lines. This function is about 4 times faster than
-/// [`wrap_optimal_fit`].
-///
-/// # Examples
-///
-/// Imagine you're building a house site and you have a number of
-/// tasks you need to execute. Things like pour foundation, complete
-/// framing, install plumbing, electric cabling, install insulation.
-///
-/// The construction workers can only work during daytime, so they
-/// need to pack up everything at night. Because they need to secure
-/// their tools and move machines back to the garage, this process
-/// takes much more time than the time it would take them to simply
-/// switch to another task.
-///
-/// You would like to make a list of tasks to execute every day based
-/// on your estimates. You can model this with a program like this:
-///
-/// ```
-/// use textwrap::core::{wrap_first_fit, Fragment};
-///
-/// #[derive(Debug)]
-/// struct Task<'a> {
-///     name: &'a str,
-///     hours: usize,   // Time needed to complete task.
-///     sweep: usize,   // Time needed for a quick sweep after task during the day.
-///     cleanup: usize, // Time needed for full cleanup if day ends with this task.
-/// }
-///
-/// impl Fragment for Task<'_> {
-///     fn width(&self) -> usize { self.hours }
-///     fn whitespace_width(&self) -> usize { self.sweep }
-///     fn penalty_width(&self) -> usize { self.cleanup }
-/// }
-///
-/// // The morning tasks
-/// let tasks = vec![
-///     Task { name: "Foundation",  hours: 4, sweep: 2, cleanup: 3 },
-///     Task { name: "Framing",     hours: 3, sweep: 1, cleanup: 2 },
-///     Task { name: "Plumbing",    hours: 2, sweep: 2, cleanup: 2 },
-///     Task { name: "Electrical",  hours: 2, sweep: 1, cleanup: 2 },
-///     Task { name: "Insulation",  hours: 2, sweep: 1, cleanup: 2 },
-///     Task { name: "Drywall",     hours: 3, sweep: 1, cleanup: 2 },
-///     Task { name: "Floors",      hours: 3, sweep: 1, cleanup: 2 },
-///     Task { name: "Countertops", hours: 1, sweep: 1, cleanup: 2 },
-///     Task { name: "Bathrooms",   hours: 2, sweep: 1, cleanup: 2 },
-/// ];
-///
-/// // Fill tasks into days, taking `day_length` into account. The
-/// // output shows the hours worked per day along with the names of
-/// // the tasks for that day.
-/// fn assign_days<'a>(tasks: &[Task<'a>], day_length: usize) -> Vec<(usize, Vec<&'a str>)> {
-///     let mut days = Vec::new();
-///     // Assign tasks to days. The assignment is a vector of slices,
-///     // with a slice per day.
-///     let assigned_days: Vec<&[Task<'a>]> = wrap_first_fit(&tasks, |i| day_length);
-///     for day in assigned_days.iter() {
-///         let last = day.last().unwrap();
-///         let work_hours: usize = day.iter().map(|t| t.hours + t.sweep).sum();
-///         let names = day.iter().map(|t| t.name).collect::<Vec<_>>();
-///         days.push((work_hours - last.sweep + last.cleanup, names));
-///     }
-///     days
-/// }
-///
-/// // With a single crew working 8 hours a day:
-/// assert_eq!(
-///     assign_days(&tasks, 8),
-///     [
-///         (7, vec!["Foundation"]),
-///         (8, vec!["Framing", "Plumbing"]),
-///         (7, vec!["Electrical", "Insulation"]),
-///         (5, vec!["Drywall"]),
-///         (7, vec!["Floors", "Countertops"]),
-///         (4, vec!["Bathrooms"]),
-///     ]
-/// );
-///
-/// // With two crews working in shifts, 16 hours a day:
-/// assert_eq!(
-///     assign_days(&tasks, 16),
-///     [
-///         (14, vec!["Foundation", "Framing", "Plumbing"]),
-///         (15, vec!["Electrical", "Insulation", "Drywall", "Floors"]),
-///         (6, vec!["Countertops", "Bathrooms"]),
-///     ]
-/// );
-/// ```
-///
-/// Apologies to anyone who actually knows how to build a house and
-/// knows how long each step takes :-)
-pub fn wrap_first_fit<T: Fragment, F: Fn(usize) -> usize>(
-    fragments: &[T],
-    line_widths: F,
-) -> Vec<&[T]> {
-    let mut lines = Vec::new();
-    let mut start = 0;
-    let mut width = 0;
-
-    for (idx, fragment) in fragments.iter().enumerate() {
-        let line_width = line_widths(lines.len());
-        if width + fragment.width() + fragment.penalty_width() > line_width && idx > start {
-            lines.push(&fragments[start..idx]);
-            start = idx;
-            width = 0;
-        }
-        width += fragment.width() + fragment.whitespace_width();
-    }
-    lines.push(&fragments[start..]);
-    lines
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[cfg(feature = "unicode-width")]
     use unicode_width::UnicodeWidthChar;
-
-    // Like assert_eq!, but the left expression is an iterator.
-    macro_rules! assert_iter_eq {
-        ($left:expr, $right:expr) => {
-            assert_eq!($left.collect::<Vec<_>>(), $right);
-        };
-    }
 
     #[test]
     fn skip_ansi_escape_sequence_works() {
@@ -742,161 +429,5 @@ mod tests {
     #[test]
     fn display_width_emojis() {
         assert_eq!(display_width("😂😭🥺🤣✨😍🙏🥰😊🔥"), 20);
-    }
-
-    #[test]
-    fn find_words_empty() {
-        assert_iter_eq!(find_words(""), vec![]);
-    }
-
-    #[test]
-    fn find_words_single_word() {
-        assert_iter_eq!(find_words("foo"), vec![Word::from("foo")]);
-    }
-
-    #[test]
-    fn find_words_two_words() {
-        assert_iter_eq!(
-            find_words("foo bar"),
-            vec![Word::from("foo "), Word::from("bar")]
-        );
-    }
-
-    #[test]
-    fn find_words_multiple_words() {
-        assert_iter_eq!(
-            find_words("foo bar baz"),
-            vec![Word::from("foo "), Word::from("bar "), Word::from("baz")]
-        );
-    }
-
-    #[test]
-    fn find_words_whitespace() {
-        assert_iter_eq!(find_words("    "), vec![Word::from("    ")]);
-    }
-
-    #[test]
-    fn find_words_inter_word_whitespace() {
-        assert_iter_eq!(
-            find_words("foo   bar"),
-            vec![Word::from("foo   "), Word::from("bar")]
-        )
-    }
-
-    #[test]
-    fn find_words_trailing_whitespace() {
-        assert_iter_eq!(find_words("foo   "), vec![Word::from("foo   ")]);
-    }
-
-    #[test]
-    fn find_words_leading_whitespace() {
-        assert_iter_eq!(
-            find_words("   foo"),
-            vec![Word::from("   "), Word::from("foo")]
-        );
-    }
-
-    #[test]
-    fn find_words_multi_column_char() {
-        assert_iter_eq!(
-            find_words("\u{1f920}"), // cowboy emoji 🤠
-            vec![Word::from("\u{1f920}")]
-        );
-    }
-
-    #[test]
-    fn find_words_hyphens() {
-        assert_iter_eq!(find_words("foo-bar"), vec![Word::from("foo-bar")]);
-        assert_iter_eq!(
-            find_words("foo- bar"),
-            vec![Word::from("foo- "), Word::from("bar")]
-        );
-        assert_iter_eq!(
-            find_words("foo - bar"),
-            vec![Word::from("foo "), Word::from("- "), Word::from("bar")]
-        );
-        assert_iter_eq!(
-            find_words("foo -bar"),
-            vec![Word::from("foo "), Word::from("-bar")]
-        );
-    }
-
-    #[test]
-    fn split_words_no_words() {
-        assert_iter_eq!(split_words(vec![], 80), vec![]);
-    }
-
-    #[test]
-    fn split_words_empty_word() {
-        assert_iter_eq!(
-            split_words(vec![Word::from("   ")], 80),
-            vec![Word::from("   ")]
-        );
-    }
-
-    #[test]
-    fn split_words_hyphen_splitter() {
-        assert_iter_eq!(
-            split_words(vec![Word::from("foo-bar")], 80),
-            vec![Word::from("foo-"), Word::from("bar")]
-        );
-    }
-
-    #[test]
-    fn split_words_short_line() {
-        // Note that `split_words` does not take the line width into
-        // account, that is the job of `break_words`.
-        assert_iter_eq!(
-            split_words(vec![Word::from("foobar")], 3),
-            vec![Word::from("foobar")]
-        );
-    }
-
-    #[test]
-    fn split_words_adds_penalty() {
-        #[derive(Debug)]
-        struct FixedSplitPoint;
-        impl WordSplitter for FixedSplitPoint {
-            fn split_points(&self, _: &str) -> Vec<usize> {
-                vec![3]
-            }
-        }
-
-        let options = Options::new(80).splitter(FixedSplitPoint);
-        assert_iter_eq!(
-            split_words(vec![Word::from("foobar")].into_iter(), &options),
-            vec![
-                Word {
-                    word: "foo",
-                    width: 3,
-                    whitespace: "",
-                    penalty: "-"
-                },
-                Word {
-                    word: "bar",
-                    width: 3,
-                    whitespace: "",
-                    penalty: ""
-                }
-            ]
-        );
-
-        assert_iter_eq!(
-            split_words(vec![Word::from("fo-bar")].into_iter(), &options),
-            vec![
-                Word {
-                    word: "fo-",
-                    width: 3,
-                    whitespace: "",
-                    penalty: ""
-                },
-                Word {
-                    word: "bar",
-                    width: 3,
-                    whitespace: "",
-                    penalty: ""
-                }
-            ]
-        );
     }
 }

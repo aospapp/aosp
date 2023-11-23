@@ -358,8 +358,8 @@
     <string name="list_language_summary" msgid="7921756070782277559">"Yangiliklar tilini tanlang"</string>
   <string-array name="list_language_entries">
     <item msgid="2347238508726934281">"Ingliz tili"</item>
-    <item msgid="5172468397620875174">"Fransuzcha"</item>
-    <item msgid="3978110664146015398">"Ispancha"</item>
+    <item msgid="5172468397620875174">"Fransuz"</item>
+    <item msgid="3978110664146015398">"Ispan"</item>
     <item msgid="2637764545851526369">"Yaponcha"</item>
     <item msgid="6103816221834932751">"Koreyscha"</item>
     <item msgid="3127367370005168399">"Xitoycha"</item>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Favqulodda teskari chaqiruv rejimi"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Internetga ulanish o‘chirildi"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> gacha internetga ulanib bo‘lmaydi"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Telefon <xliff:g id="COUNT_1">%s</xliff:g> daqiqa davomida Favqulodda teskari qo‘ng‘iroq rejimida bo‘ladi. Ushbu rejimda internet bilan ishlaydigan hech qanday ilovadan foydalanib bo‘lmaydi. Bu rejimdan chiqishni xohlaysizmi?</item>
-      <item quantity="one">Telefon <xliff:g id="COUNT_0">%s</xliff:g> daqiqa davomida Favqulodda teskari qo‘ng‘iroq rejimida bo‘ladi. Ushbu rejimda internet bilan ishlaydigan hech qanday ilovadan foydalanib bo‘lmaydi. Bu rejimdan chiqishni xohlaysizmi?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Tanlangan amaldan Favqulodda teskari qo‘ng‘iroq rejimida foydalanib bo‘lmaydi. Telefon <xliff:g id="COUNT_1">%s</xliff:g> daqiqa davomida shu rejimda bo‘ladi. Bu rejimdan chiqishni xohlaysizmi?</item>
-      <item quantity="one">Tanlangan amaldan Favqulodda teskari qo‘ng‘iroq rejimida foydalanib bo‘lmaydi. Telefon <xliff:g id="COUNT_0">%s</xliff:g> daqiqa davomida shu rejimda bo‘ladi. Bu rejimdan chiqishni xohlaysizmi?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Telefon favqulodda qayta chaqiruv rejimida bir daqiqa qoladi. Bu rejimda internet ishlatadigan ilovalardan foydalana olmaysiz. Bu rejimdan chiqilsinmi?}other{Telefon favqulodda qayta chaqiruv rejimida %s daqiqa qoladi. Bu rejimda internet ishlatadigan ilovalardan foydalana olmaysiz. Bu rejimdan chiqilsinmi?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Tanlangan amallarni favqulodda qayta chaqiruv rejimida bajarish imkonsiz. Telefon bu rejimida bir daqiqa qoladi. Bu rejimdan chiqilsinmi?}other{Tanlangan amallarni favqulodda qayta chaqiruv rejimida bajarish imkonsiz. Telefon bu rejimida %s daqiqa qoladi. Bu rejimdan chiqilsinmi?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Favqulodda qo‘ng‘rioq rejimida tanlangan amalni bajarib bo‘lmaydi."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Favqulodda teskari qo‘ng‘iroq rejimidan chiqilmoqda"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Ha"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Rad etish"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefon favqulodda teskari chaqiruv rejimida"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> gacha"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Telefon favqulodda teskari chaqiruv rejimida <xliff:g id="COUNT_1">%s</xliff:g> daqiqa qoladi.\nBu rejimdan chiqilsinmi?</item>
-      <item quantity="one">Telefon favqulodda teskari chaqiruv rejimida <xliff:g id="COUNT_0">%s</xliff:g> daqiqa qoladi.\nBu rejimdan chiqilsinmi?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Telefon favqulodda qayta chaqiruv rejimida bir daqiqa qoladi.\nBu rejimdan chiqilsinmi?}other{Telefon favqulodda qayta chaqiruv rejimida %s daqiqa qoladi.\nBu rejimdan chiqilsinmi?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Xizmat"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Sozlash"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Kiritilmagan&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Maxsus imkoniyatlar"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi orqali qo‘ng‘iroq:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi qo‘ng‘irog‘i"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Ochish uchun yana bosing"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Xabarni kodsizlashda xatolik yuz berdi."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Telefoningizda rouming xizmati sozlangan va SIM karta faollashtirilgan."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Hozir bir nechta chaqiruv amalda. Boshqa abonentga telefon qilishdan avval amaldagi chaqiruvlarni tugating yoki ularni konferens-aloqaga birlashtiring."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Telefon qilish imkonsiz, chunki siz allaqachon boshqa raqamga telefon qilmoqdasiz."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Telefon qilish imkonsiz. Telefon qilish uchun avval kiruvchi chaqiruvni qabul qiling yoki rad eting."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Telefon qilish imkonsiz, chunki chaqiruvlar ro.telephony.disable-call tizim parametrida faolsizlantirilgan."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Telefon qilish imkonsiz, chunki ayni paytda ikkita chaqiruv davom etmoqda. Telefon qilish uchun chaqiruvlardan birini tugating yoki ularni konferens-aloqaga birlashtiring."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Telefon qilish imkonsiz, chunki ayni paytda ikkita chaqiruv davom etmoqda. Telefon qilish uchun chaqiruvlardan birini yakunlang yoki ularni konferens-aloqaga birlashtiring."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> imkoniyatlaridan foydalanish uchun mobil internet yoqilgan bo‘lishi lozim. Buning uchun mobil tarmoq sozlamalariga kiring."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> imkoniyatlaridan foydalanish uchun mobil internet va internet rouming yoqilgan bo‘lishi lozim. Buning uchun mobil tarmoq sozlamalariga kiring."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> imkoniyatlaridan foydalanish uchun <xliff:g id="SIM_NUMBER">%2$d</xliff:g> raqamida mobil internet yoqilgan bo‘lishi lozim. Buning uchun mobil tarmoq sozlamalariga kiring."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Bu sozlamani o‘zgartirish uchun qurilmangizni o‘chirib yoqing."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"O‘chirib yoqish"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Bekor qilish"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Olinadigan eSIM kartani birlamchi qilib belgilash"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Radio signal quvvati"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM kartadagi abonentlar ro‘yxatini ochish"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Ruxsat etilgan raqamlar ro‘yxatini ochish"</string>
@@ -867,7 +858,7 @@
     <string name="radioInfo_phone_offhook" msgid="7564601639749936170">"Chaqiruv"</string>
     <string name="radioInfo_data_disconnected" msgid="8085447971880814541">"Ulanmagan"</string>
     <string name="radioInfo_data_connecting" msgid="925092271092152472">"Ulanmoqda"</string>
-    <string name="radioInfo_data_connected" msgid="7637335645634239508">"Ulandi"</string>
+    <string name="radioInfo_data_connected" msgid="7637335645634239508">"Ulangan"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Bloklangan"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Noma’lum"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Radiostansiyani tanlash"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Ovozli aloqa uchun tarmoq turi:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Trafik uchun tarmoq turi:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Tarmoq turini almashtirish:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Telefon kodini tanlang"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Afzal tarmoq turini tanlash:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"www.google.com uchun ping, IPv4 so‘rovining host nomi:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Yangilash"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS tekshiruvini yoqish/o‘chirish"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM maxsus axboroti va sozlamalari"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ochiq:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR cheklangan:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ochiq:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR holati:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC mavjud (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR: cheklovlar mavjud (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR mavjud (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR holati (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR chastotasi:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Tarmoq rejimini sozlash"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Chastotalar ro‘yxati yuklanmoqda…"</string>

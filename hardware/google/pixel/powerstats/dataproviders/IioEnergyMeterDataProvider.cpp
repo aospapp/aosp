@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <dataproviders/IioEnergyMeterDataProvider.h>
-#include <dataproviders/IioEnergyMeterDataSelector.h>
+#define ATRACE_TAG (ATRACE_TAG_POWER | ATRACE_TAG_HAL)
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <dataproviders/IioEnergyMeterDataProvider.h>
+#include <dataproviders/IioEnergyMeterDataSelector.h>
 #include <inttypes.h>
+#include <utils/Trace.h>
 
 namespace aidl {
 namespace android {
@@ -159,6 +161,7 @@ int IioEnergyMeterDataProvider::parseEnergyContents(const std::string &contents)
                     if (mReading[index].energyUWs == ULLONG_MAX) {
                         LOG(ERROR) << "Potentially wrong energy value on rail: " << railName;
                     }
+                    ATRACE_INT(railNameRaw, energy);
                 }
                 parseLineSuccess = true;
             }

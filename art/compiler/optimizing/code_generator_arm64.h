@@ -80,6 +80,8 @@ static constexpr size_t kParameterFPRegistersLength = arraysize(kParameterFPRegi
 const vixl::aarch64::Register tr = vixl::aarch64::x19;
 // Marking Register.
 const vixl::aarch64::Register mr = vixl::aarch64::x20;
+// Implicit suspend check register.
+const vixl::aarch64::Register kImplicitSuspendCheckRegister = vixl::aarch64::x21;
 // Method register on invoke.
 static const vixl::aarch64::Register kArtMethodRegister = vixl::aarch64::x0;
 const vixl::aarch64::CPURegList vixl_reserved_core_registers(vixl::aarch64::ip0,
@@ -91,6 +93,7 @@ const vixl::aarch64::CPURegList runtime_reserved_core_registers =
         tr,
         // Reserve X20 as Marking Register when emitting Baker read barriers.
         ((kEmitCompilerReadBarrier && kUseBakerReadBarrier) ? mr : vixl::aarch64::NoCPUReg),
+        kImplicitSuspendCheckRegister,
         vixl::aarch64::lr);
 
 // Some instructions have special requirements for a temporary, for example
@@ -388,6 +391,7 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
   void GenerateIntRemForConstDenom(HRem *instruction);
   void GenerateIntRemForPower2Denom(HRem *instruction);
   void HandleGoto(HInstruction* got, HBasicBlock* successor);
+  void GenerateMethodEntryExitHook(HInstruction* instruction);
 
   // Helpers to set up locations for vector memory operations. Returns the memory operand and,
   // if used, sets the output parameter scratch to a temporary register used in this operand,
@@ -812,6 +816,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                 vixl::aarch64::Register out,
                                 vixl::aarch64::Register base);
 
+  void LoadBootImageRelRoEntry(vixl::aarch64::Register reg, uint32_t boot_image_offset);
   void LoadBootImageAddress(vixl::aarch64::Register reg, uint32_t boot_image_reference);
   void LoadTypeForBootImageIntrinsic(vixl::aarch64::Register reg, TypeReference type_reference);
   void LoadIntrinsicDeclaringClass(vixl::aarch64::Register reg, HInvoke* invoke);
@@ -961,6 +966,8 @@ class CodeGeneratorARM64 : public CodeGenerator {
 
   void MaybeGenerateInlineCacheCheck(HInstruction* instruction, vixl::aarch64::Register klass);
   void MaybeIncrementHotness(bool is_frame_entry);
+
+  bool CanUseImplicitSuspendCheck() const;
 
  private:
   // Encoding of thunk type and data for link-time generated thunks for Baker read barriers.

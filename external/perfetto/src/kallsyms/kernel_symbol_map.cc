@@ -26,12 +26,13 @@
 #include "perfetto/ext/base/utils.h"
 #include "perfetto/protozero/proto_utils.h"
 
-#include <inttypes.h>
 #include <stdio.h>
 
 #include <algorithm>
+#include <cinttypes>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <utility>
 
 namespace perfetto {
@@ -202,7 +203,7 @@ TokenId KernelSymbolMap::TokenTable::Add(const std::string& token) {
     *(tok_wptr++) = token.at(i) & 0x7f;
   }
   *(tok_wptr++) = static_cast<char>(token.at(token_size - 1) | 0x80);
-  PERFETTO_DCHECK(tok_wptr == &buf_[buf_.size()]);
+  PERFETTO_DCHECK(tok_wptr == buf_.data() + buf_.size());
   return id;
 }
 
@@ -243,8 +244,9 @@ size_t KernelSymbolMap::Parse(const std::string& kallsyms_path) {
     TokenId id = 0;
   };
 
-  // Note if changing the container: the code below relies on stable iterators.
-  using TokenMap = std::map<std::string, TokenInfo>;
+  // Note if changing the container: the code below doesn't rely on stable
+  // iterators, but relies on stable pointers.
+  using TokenMap = std::unordered_map<std::string, TokenInfo>;
   using TokenMapPtr = TokenMap::value_type*;
   TokenMap tokens;
 
@@ -394,7 +396,7 @@ std::string KernelSymbolMap::Lookup(uint64_t sym_addr) {
   uint32_t addr = it->first;
   uint32_t off = it->second;
   const uint8_t* rdptr = &buf_[off];
-  const uint8_t* const buf_end = &buf_[buf_.size()];
+  const uint8_t* const buf_end = buf_.data() + buf_.size();
   bool parsing_addr = true;
   const uint8_t* next_rdptr = nullptr;
   uint64_t sym_start_addr = 0;

@@ -22,13 +22,9 @@ PRODUCT_PACKAGES := \
     QtiTelephonyService
 
 PRODUCT_PACKAGES += \
-    libadsprpc_system \
-    libcdsprpc_system \
     libdiag_system \
     libimsmedia_jni \
-    libmdsprpc_system \
     libmmosal \
-    libsdsprpc_system \
 
 #  blob(s) necessary for flame hardware
 PRODUCT_COPY_FILES := \

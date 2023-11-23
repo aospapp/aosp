@@ -19,8 +19,10 @@ package com.android.systemui.car;
 import android.car.Car;
 import android.content.Context;
 
+import androidx.annotation.AnyThread;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.systemui.dagger.SysUISingleton;
 
 import java.util.ArrayList;
@@ -33,7 +35,18 @@ import javax.inject.Inject;
 public class CarServiceProvider {
 
     private final Context mContext;
+    /**
+     * mListeners is guarded by itself - when requiring locks on both mListeners and mCar, always
+     * obtain the car lock before the listeners.
+     */
+    @GuardedBy("mListeners")
     private final List<CarServiceOnConnectedListener> mListeners = new ArrayList<>();
+    private final Object mCarLock = new Object();
+    /**
+     * mCar is guarded by mCarLock - when requiring locks on both mListeners and mCar, always
+     * obtain the car lock before the listeners.
+     */
+    @GuardedBy("mCarLock")
     private Car mCar;
 
     @Inject
@@ -41,16 +54,18 @@ public class CarServiceProvider {
         mContext = context;
         mCar = Car.createCar(mContext, /* handler= */ null, Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT,
                 (car, ready) -> {
-                    mCar = car;
-
-                    synchronized (mListeners) {
-                        for (CarServiceOnConnectedListener listener : mListeners) {
+                    synchronized (mCarLock) {
+                        synchronized (mListeners) {
+                            mCar = car;
                             if (ready) {
-                                listener.onConnected(mCar);
+                                for (CarServiceOnConnectedListener listener : mListeners) {
+                                    listener.onConnected(mCar);
+                                }
                             }
                         }
                     }
                 });
+
     }
 
     @VisibleForTesting
@@ -63,11 +78,16 @@ public class CarServiceProvider {
      * Let's other components hook into the connection to the car service. If we're already
      * connected to the car service, the callback is immediately triggered.
      */
+    @AnyThread
     public void addListener(CarServiceOnConnectedListener listener) {
-        if (mCar.isConnected()) {
-            listener.onConnected(mCar);
+        synchronized (mCarLock) {
+            if (mCar.isConnected()) {
+                listener.onConnected(mCar);
+            }
         }
-        mListeners.add(listener);
+        synchronized (mListeners) {
+            mListeners.add(listener);
+        }
     }
 
     /**

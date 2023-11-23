@@ -18,8 +18,10 @@
 
 #include "perfetto/ext/tracing/core/trace_writer.h"
 #include "perfetto/ext/tracing/core/tracing_service.h"
+#include "perfetto/protozero/scattered_heap_buffer.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
+#include "protos/perfetto/common/track_event_descriptor.pbzero.h"
 #include "src/base/test/test_task_runner.h"
 
 using ::testing::_;
@@ -29,6 +31,26 @@ using ::testing::InvokeWithoutArgs;
 using ::testing::Property;
 
 namespace perfetto {
+
+namespace {
+
+static DataSourceDescriptor CreateDataSourceDescriptor(
+    const std::initializer_list<std::string>& categories,
+    uint32_t id) {
+  DataSourceDescriptor ds_desc;
+  ds_desc.set_name("track_event");
+  ds_desc.set_id(id);
+
+  protozero::HeapBuffered<protos::pbzero::TrackEventDescriptor> ted;
+  for (auto c : categories) {
+    auto cat = ted->add_available_categories();
+    cat->set_name(c);
+  }
+  ds_desc.set_track_event_descriptor_raw(ted.SerializeAsString());
+  return ds_desc;
+}
+
+}  // anonymous namespace
 
 MockProducer::MockProducer(base::TestTaskRunner* task_runner)
     : task_runner_(task_runner) {}
@@ -47,12 +69,13 @@ MockProducer::~MockProducer() {
 void MockProducer::Connect(TracingService* svc,
                            const std::string& producer_name,
                            uid_t uid,
+                           pid_t pid,
                            size_t shared_memory_size_hint_bytes,
                            size_t shared_memory_page_size_hint_bytes,
                            std::unique_ptr<SharedMemory> shm) {
   producer_name_ = producer_name;
   service_endpoint_ = svc->ConnectProducer(
-      this, uid, producer_name, shared_memory_size_hint_bytes,
+      this, uid, pid, producer_name, shared_memory_size_hint_bytes,
       /*in_process=*/true, TracingService::ProducerSMBScrapingMode::kDefault,
       shared_memory_page_size_hint_bytes, std::move(shm));
   auto checkpoint_name = "on_producer_connect_" + producer_name;
@@ -75,6 +98,20 @@ void MockProducer::RegisterDataSource(const std::string& name,
 
 void MockProducer::UnregisterDataSource(const std::string& name) {
   service_endpoint_->UnregisterDataSource(name);
+}
+
+void MockProducer::RegisterTrackEventDataSource(
+    const std::initializer_list<std::string>& categories,
+    uint32_t id) {
+  service_endpoint_->RegisterDataSource(
+      CreateDataSourceDescriptor(categories, id));
+}
+
+void MockProducer::UpdateTrackEventDataSource(
+    const std::initializer_list<std::string>& categories,
+    uint32_t id) {
+  service_endpoint_->UpdateDataSource(
+      CreateDataSourceDescriptor(categories, id));
 }
 
 void MockProducer::RegisterTraceWriter(uint32_t writer_id,

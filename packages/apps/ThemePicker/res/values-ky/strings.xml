@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"Тематикалык сүрөтчөлөр"</string>
     <string name="beta_title" msgid="8703819523760746458">"Бета"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Колдонмонун торчосун өзгөртүү"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Тушкагаздын түстөрү"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Тушкагаздын түсү"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Негизги түстөр"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Түс өзгөртүлдү"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Динамикалык"</string>
 </resources>

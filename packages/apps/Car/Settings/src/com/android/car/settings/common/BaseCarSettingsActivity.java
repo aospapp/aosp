@@ -117,7 +117,7 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
                     // Attempting to shift focus to the SettingsFocusParkingView without a layout
                     // listener is not allowed, since it can cause undermined focus behavior
                     // in these rare edge cases.
-                    newFocus.clearFocus();
+                    requestTopLevelMenuFocus();
                 }
 
                 // This will maintain focus in the content pane if a view goes from
@@ -160,6 +160,8 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
         if (shouldFocusContentOnLaunch()) {
             requestContentPaneFocus();
             mHasInitialFocus = true;
+        } else {
+            requestTopLevelMenuFocus();
         }
         setUpFocusChangeListener(true);
     }
@@ -214,7 +216,7 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
         }
     }
 
-    private void launchFragmentInternal(Fragment fragment) {
+    protected void launchFragmentInternal(Fragment fragment) {
         getSupportFragmentManager()
                 .beginTransaction()
                 .setCustomAnimations(
@@ -436,6 +438,33 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
         }
     }
 
+    private void requestTopLevelMenuFocus() {
+        if (mIsSinglePane) {
+            return;
+        }
+        Fragment topLevelMenu = getSupportFragmentManager().findFragmentById(R.id.top_level_menu);
+        if (topLevelMenu == null) {
+            return;
+        }
+        View fragmentView = topLevelMenu.getView();
+        if (fragmentView == null) {
+            return;
+        }
+        View focusArea = fragmentView.findViewById(R.id.settings_car_ui_focus_area);
+        if (focusArea == null) {
+            return;
+        }
+        removeGlobalLayoutListener();
+        mGlobalLayoutListener = () -> {
+            if (focusArea.isInTouchMode() || focusArea.hasFocus()) {
+                return;
+            }
+            focusArea.performAccessibilityAction(ACTION_FOCUS, /* arguments= */ null);
+            removeGlobalLayoutListener();
+        };
+        fragmentView.getViewTreeObserver().addOnGlobalLayoutListener(mGlobalLayoutListener);
+    }
+
     private void requestContentPaneFocus() {
         if (mIsSinglePane) {
             return;
@@ -460,22 +489,20 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
                 return;
             }
         }
+        removeGlobalLayoutListener();
         View finalFocusArea = focusArea; // required to be effectively final for inner class access
-        mGlobalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                if (finalFocusArea.isInTouchMode() || finalFocusArea.hasFocus()) {
-                    return;
-                }
-                boolean success = finalFocusArea.performAccessibilityAction(
+        mGlobalLayoutListener = () -> {
+            if (finalFocusArea.isInTouchMode() || finalFocusArea.hasFocus()) {
+                return;
+            }
+            boolean success = finalFocusArea.performAccessibilityAction(
+                    ACTION_FOCUS, /* arguments= */ null);
+            if (success) {
+                removeGlobalLayoutListener();
+            } else {
+                findViewById(
+                        R.id.settings_focus_parking_view).performAccessibilityAction(
                         ACTION_FOCUS, /* arguments= */ null);
-                if (success) {
-                    removeGlobalLayoutListener();
-                } else {
-                    findViewById(
-                            R.id.settings_focus_parking_view).performAccessibilityAction(
-                            ACTION_FOCUS, /* arguments= */ null);
-                }
             }
         };
         fragmentView.getViewTreeObserver().addOnGlobalLayoutListener(mGlobalLayoutListener);
@@ -485,15 +512,21 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
         if (mGlobalLayoutListener == null) {
             return;
         }
-        if (getCurrentFragment() == null) {
-            return;
+
+        // Check content pane
+        Fragment contentFragment = getCurrentFragment();
+        if (contentFragment != null && contentFragment.getView() != null) {
+            contentFragment.getView().getViewTreeObserver()
+                    .removeOnGlobalLayoutListener(mGlobalLayoutListener);
         }
-        View fragmentView = getCurrentFragment().getView();
-        if (fragmentView == null) {
-            return;
+
+        // Check top level menu
+        Fragment topLevelMenu = getSupportFragmentManager().findFragmentById(R.id.top_level_menu);
+        if (topLevelMenu != null && topLevelMenu.getView() != null) {
+            topLevelMenu.getView().getViewTreeObserver()
+                    .removeOnGlobalLayoutListener(mGlobalLayoutListener);
         }
-        fragmentView.getViewTreeObserver()
-                .removeOnGlobalLayoutListener(mGlobalLayoutListener);
+
         mGlobalLayoutListener = null;
     }
 

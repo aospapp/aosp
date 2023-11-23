@@ -205,10 +205,10 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                         new ButtonInfo(R.string.enterprise_privacy_open_settings,
                                 new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
                         new ButtonInfo(R.string.enterprise_privacy_set_always_on_vpn,
-                                buildCommandIntent(
+                                buildCommandIntentForCurrentUser(
                                         CommandReceiverActivity.COMMAND_SET_ALWAYS_ON_VPN)),
                         new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(
+                                buildCommandIntentForCurrentUser(
                                         CommandReceiverActivity.COMMAND_CLEAR_ALWAYS_ON_VPN))}));
 
         adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_GLOBAL_HTTP_PROXY,
@@ -230,10 +230,10 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                         new ButtonInfo(R.string.enterprise_privacy_open_settings,
                                 new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
                         new ButtonInfo(R.string.enterprise_privacy_install_cert,
-                                buildCommandIntent(
+                                buildCommandIntentForCurrentUser(
                                         CommandReceiverActivity.COMMAND_INSTALL_CA_CERT)),
                         new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(
+                                buildCommandIntentForCurrentUser(
                                         CommandReceiverActivity.COMMAND_CLEAR_CA_CERT))}));
         if (Utils.isLockscreenSupported(this)) {
             adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_FAILED_PASSWORD_WIPE,

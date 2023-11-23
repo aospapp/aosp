@@ -28,8 +28,8 @@ import acts.utils as utils
 from acts import asserts
 from acts.controllers.ap_lib import hostapd_constants
 from acts.test_decorators import test_tracker_info
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from threading import Thread
 

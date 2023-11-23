@@ -505,6 +505,13 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     String shortQuarters[] = null;
 
     /**
+     * Narrow quarter names. For example: "1", "2", "3", "4". An array
+     * of 4 strings indexed by the month divided by 3.
+     * @serial
+     */
+    String narrowQuarters[] = null;
+
+    /**
      * Full quarter names. For example: "1st Quarter", "2nd Quarter", "3rd Quarter",
      * "4th Quarter". An array of 4 strings, indexed by the month divided by 3.
      * @serial
@@ -517,6 +524,13 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @serial
      */
     String standaloneShortQuarters[] = null;
+
+    /**
+     * Standalone narrow quarter names. For example: "1", "2", "3", "4". An array
+     * of 4 strings indexed by the month divided by 3.
+     * @serial
+     */
+    String standaloneNarrowQuarters[] = null;
 
     /**
      * Standalone full quarter names. For example: "1st Quarter", "2nd Quarter", "3rd Quarter",
@@ -1013,7 +1027,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * <strong>[icu]</strong> Returns quarter strings. For example: "1st Quarter", "2nd Quarter", etc.
      * @param context    The quarter context, FORMAT or STANDALONE.
      * @param width      The width or the returned quarter string,
-     *                   either WIDE or ABBREVIATED. There are no NARROW quarters.
+     *                   WIDE, NARROW, or ABBREVIATED.
      * @return the quarter strings.
      */
     public String[] getQuarters(int context, int width) {
@@ -1029,7 +1043,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     returnValue = shortQuarters;
                     break;
                  case NARROW :
-                     returnValue = null;
+                     returnValue = narrowQuarters;
                      break;
               }
               break;
@@ -1044,7 +1058,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     returnValue = standaloneShortQuarters;
                     break;
                  case NARROW:
-                     returnValue = null;
+                     returnValue = standaloneNarrowQuarters;
                      break;
               }
               break;
@@ -1060,7 +1074,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @param newQuarters the new quarter strings.
      * @param context    The formatting context, FORMAT or STANDALONE.
      * @param width      The width of the quarter string,
-     *                   either WIDE or ABBREVIATED. There are no NARROW quarters.
+     *                   WIDE, NARROW, or ABBREVIATED.
      */
     public void setQuarters(String[] newQuarters, int context, int width) {
         switch (context) {
@@ -1073,7 +1087,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     shortQuarters = duplicate(newQuarters);
                     break;
                  case NARROW :
-                    //narrowQuarters = duplicate(newQuarters);
+                    narrowQuarters = duplicate(newQuarters);
                     break;
                  default : // HANDLE SHORT, etc.
                     break;
@@ -1088,7 +1102,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     standaloneShortQuarters = duplicate(newQuarters);
                     break;
                  case NARROW :
-                    //standaloneNarrowQuarters = duplicate(newQuarters);
+                    standaloneNarrowQuarters = duplicate(newQuarters);
                     break;
                  default : // HANDLE SHORT, etc.
                     break;
@@ -1472,7 +1486,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                 && arrayOfArrayEquals(zoneStrings, that.zoneStrings)
                 // getDiplayName maps deprecated country and language codes to the current ones
                 // too bad there is no way to get the current codes!
-                // I thought canolicalize() would map the codes but .. alas! it doesn't.
+                // I thought canonicalize() would map the codes but .. alas! it doesn't.
                 && requestedLocale.getDisplayName().equals(that.requestedLocale.getDisplayName())
                 && Utility.arrayEquals(localPatternChars,
                                        that.localPatternChars));
@@ -1636,8 +1650,10 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         this.ampmsNarrow = dfs.ampmsNarrow;
         this.timeSeparator = dfs.timeSeparator;
         this.shortQuarters = dfs.shortQuarters;
+        this.narrowQuarters = dfs.narrowQuarters;
         this.quarters = dfs.quarters;
         this.standaloneShortQuarters = dfs.standaloneShortQuarters;
+        this.standaloneNarrowQuarters = dfs.standaloneNarrowQuarters;
         this.standaloneQuarters = dfs.standaloneQuarters;
         this.leapMonthPatterns = dfs.leapMonthPatterns;
         this.shortYearNames = dfs.shortYearNames;
@@ -2052,9 +2068,11 @@ public class DateFormatSymbols implements Serializable, Cloneable {
 
         quarters = arrays.get("quarters/format/wide");
         shortQuarters = arrays.get("quarters/format/abbreviated");
+        narrowQuarters = arrays.get("quarters/format/narrow");
 
         standaloneQuarters = arrays.get("quarters/stand-alone/wide");
         standaloneShortQuarters = arrays.get("quarters/stand-alone/abbreviated");
+        standaloneNarrowQuarters = arrays.get("quarters/stand-alone/narrow");
 
         // BEGIN Android-changed: Load narrow quarters needed for the Q/q symbols in DateTimeFormatter.
         if (aospExtendedDateFormatSymbols != null) {
@@ -2297,20 +2315,6 @@ public class DateFormatSymbols implements Serializable, Cloneable {
 
         initializeData(locale, calType);
     }
-
-    // Android patch (http://b/30464240) start: Add constructor taking a calendar type.
-    /**
-     * Variant of DateFormatSymbols(Calendar, ULocale) that takes the calendar type
-     * instead of a Calendar instance.
-     * @see #DateFormatSymbols(Calendar, Locale)
-     * @deprecated This API is ICU internal only.
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    public DateFormatSymbols(ULocale locale, String calType) {
-        initializeData(locale, calType);
-    }
-    // Android patch end.
 
     /**
      * Fetches a custom calendar's DateFormatSymbols out of the given resource

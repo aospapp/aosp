@@ -30,7 +30,7 @@ public class DataPathPassphraseUnsolicitedPublishAcceptAnyTestActivity extends B
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
                 /* isPublish */ true, /* isUnsolicited */ true, /* usePmk */ false,
-                /* acceptAny */ true);
+                /* acceptAny */ true, /* forceChannel */false);
     }
 
     @Override

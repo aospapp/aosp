@@ -24,7 +24,7 @@
     <string name="notification_missedCallsTitle" msgid="3910479625507893809">"不在着信"</string>
     <string name="notification_missedCallsMsg" msgid="5055782736170916682">"不在着信<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g>件"</string>
     <string name="notification_missedCallTicker" msgid="6731461957487087769">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g>さんからの不在着信"</string>
-    <string name="notification_missedCall_call_back" msgid="7900333283939789732">"コールバック"</string>
+    <string name="notification_missedCall_call_back" msgid="7900333283939789732">"かけ直す"</string>
     <string name="notification_missedCall_message" msgid="4054698824390076431">"メッセージ"</string>
     <string name="notification_disconnectedCall_title" msgid="1790131923692416928">"通話が切断されました"</string>
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"緊急通報番号宛に発信中のため、<xliff:g id="CALLER">%s</xliff:g> さんとの通話が切断されました。"</string>
@@ -50,8 +50,8 @@
     <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"このアプリは、電話権限がないため発信できません。"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="7665135102566099778">"発信するには、有効な番号を入力してください。"</string>
     <string name="duplicate_video_call_not_allowed" msgid="5754746140185781159">"通話は現在追加できません。"</string>
-    <string name="no_vm_number" msgid="2179959110602180844">"ボイスメール番号がありません"</string>
-    <string name="no_vm_number_msg" msgid="1339245731058529388">"SIMカードにボイスメールの番号がありません。"</string>
+    <string name="no_vm_number" msgid="2179959110602180844">"留守番電話の番号がありません"</string>
+    <string name="no_vm_number_msg" msgid="1339245731058529388">"SIMカードに留守番電話の番号がありません。"</string>
     <string name="add_vm_number_str" msgid="5179510133063168998">"番号を追加"</string>
     <string name="change_default_dialer_dialog_title" msgid="5861469279421508060">"<xliff:g id="NEW_APP">%s</xliff:g> をデフォルトの電話アプリにしますか？"</string>
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"デフォルトに設定"</string>
@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"公衆電話からの着信をブロック"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"不明な発信者"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"不明な発信者からの着信をブロック"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"発信者番号が不明"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"発信者番号が不明な通話がブロックされます"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"着信のブロック"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"着信のブロックを無効にしました"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"緊急通報"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"着信のブロックを無効して、救急隊員などがあなたに連絡できるようにしました。"</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecom デベロッパー メニュー"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"緊急通報中は、他の電話を受けることができません。"</string>
+    <string name="cancel" msgid="6733466216239934756">"キャンセル"</string>
 </resources>

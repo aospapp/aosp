@@ -19,9 +19,10 @@ import io
 import textwrap
 import unittest
 
-import ndkstubgen
 import symbolfile
-from symbolfile import Arch, Tag
+from symbolfile import Arch, Tags
+
+import ndkstubgen
 
 
 # pylint: disable=missing-docstring
@@ -33,26 +34,30 @@ class GeneratorTest(unittest.TestCase):
         # OmitVersionTest, PrivateVersionTest, and SymbolPresenceTest.
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9, False, False)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9, False, False)
 
-        version = symbolfile.Version('VERSION_PRIVATE', None, [], [
-            symbolfile.Symbol('foo', []),
+        version = symbolfile.Version('VERSION_PRIVATE', None, Tags(), [
+            symbolfile.Symbol('foo', Tags()),
         ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
-        version = symbolfile.Version('VERSION', None, [Tag('x86')], [
-            symbolfile.Symbol('foo', []),
-        ])
+        version = symbolfile.Version('VERSION', None, Tags.from_strs(['x86']),
+                                     [
+                                         symbolfile.Symbol('foo', Tags()),
+                                     ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
-        version = symbolfile.Version('VERSION', None, [Tag('introduced=14')], [
-            symbolfile.Symbol('foo', []),
-        ])
+        version = symbolfile.Version('VERSION', None,
+                                     Tags.from_strs(['introduced=14']), [
+                                         symbolfile.Symbol('foo', Tags()),
+                                     ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
@@ -62,32 +67,34 @@ class GeneratorTest(unittest.TestCase):
         # SymbolPresenceTest.
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9, False, False)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9, False, False)
 
-        version = symbolfile.Version('VERSION_1', None, [], [
-            symbolfile.Symbol('foo', [Tag('x86')]),
+        version = symbolfile.Version('VERSION_1', None, Tags(), [
+            symbolfile.Symbol('foo', Tags.from_strs(['x86'])),
         ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
-        version = symbolfile.Version('VERSION_1', None, [], [
-            symbolfile.Symbol('foo', [Tag('introduced=14')]),
+        version = symbolfile.Version('VERSION_1', None, Tags(), [
+            symbolfile.Symbol('foo', Tags.from_strs(['introduced=14'])),
         ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
-        version = symbolfile.Version('VERSION_1', None, [], [
-            symbolfile.Symbol('foo', [Tag('llndk')]),
+        version = symbolfile.Version('VERSION_1', None, Tags(), [
+            symbolfile.Symbol('foo', Tags.from_strs(['llndk'])),
         ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
-        version = symbolfile.Version('VERSION_1', None, [], [
-            symbolfile.Symbol('foo', [Tag('apex')]),
+        version = symbolfile.Version('VERSION_1', None, Tags(), [
+            symbolfile.Symbol('foo', Tags.from_strs(['apex'])),
         ])
         generator.write_version(version)
         self.assertEqual('', src_file.getvalue())
@@ -96,22 +103,23 @@ class GeneratorTest(unittest.TestCase):
     def test_write(self) -> None:
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9, False, False)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9, False, False)
 
         versions = [
-            symbolfile.Version('VERSION_1', None, [], [
-                symbolfile.Symbol('foo', []),
-                symbolfile.Symbol('bar', [Tag('var')]),
-                symbolfile.Symbol('woodly', [Tag('weak')]),
-                symbolfile.Symbol('doodly',
-                                  [Tag('weak'), Tag('var')]),
+            symbolfile.Version('VERSION_1', None, Tags(), [
+                symbolfile.Symbol('foo', Tags()),
+                symbolfile.Symbol('bar', Tags.from_strs(['var'])),
+                symbolfile.Symbol('woodly', Tags.from_strs(['weak'])),
+                symbolfile.Symbol('doodly', Tags.from_strs(['weak', 'var'])),
             ]),
-            symbolfile.Version('VERSION_2', 'VERSION_1', [], [
-                symbolfile.Symbol('baz', []),
+            symbolfile.Version('VERSION_2', 'VERSION_1', Tags(), [
+                symbolfile.Symbol('baz', Tags()),
             ]),
-            symbolfile.Version('VERSION_3', 'VERSION_1', [], [
-                symbolfile.Symbol('qux', [Tag('versioned=14')]),
+            symbolfile.Version('VERSION_3', 'VERSION_1', Tags(), [
+                symbolfile.Symbol('qux', Tags.from_strs(['versioned=14'])),
             ]),
         ]
 
@@ -140,6 +148,17 @@ class GeneratorTest(unittest.TestCase):
             } VERSION_1;
         """)
         self.assertEqual(expected_version, version_file.getvalue())
+
+        expected_allowlist = textwrap.dedent("""\
+            [abi_symbol_list]
+            foo
+            bar
+            woodly
+            doodly
+            baz
+            qux
+        """)
+        self.assertEqual(expected_allowlist, symbol_list_file.getvalue())
 
 
 class IntegrationTest(unittest.TestCase):
@@ -186,8 +205,10 @@ class IntegrationTest(unittest.TestCase):
 
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9, False, False)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9, False, False)
         generator.write(versions)
 
         expected_src = textwrap.dedent("""\
@@ -215,6 +236,16 @@ class IntegrationTest(unittest.TestCase):
         """)
         self.assertEqual(expected_version, version_file.getvalue())
 
+        expected_allowlist = textwrap.dedent("""\
+            [abi_symbol_list]
+            foo
+            baz
+            qux
+            wibble
+            wobble
+        """)
+        self.assertEqual(expected_allowlist, symbol_list_file.getvalue())
+
     def test_integration_future_api(self) -> None:
         api_map = {
             'O': 9000,
@@ -238,8 +269,10 @@ class IntegrationTest(unittest.TestCase):
 
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9001, False, False)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9001, False, False)
         generator.write(versions)
 
         expected_src = textwrap.dedent("""\
@@ -256,6 +289,13 @@ class IntegrationTest(unittest.TestCase):
             };
         """)
         self.assertEqual(expected_version, version_file.getvalue())
+
+        expected_allowlist = textwrap.dedent("""\
+            [abi_symbol_list]
+            foo
+            bar
+        """)
+        self.assertEqual(expected_allowlist, symbol_list_file.getvalue())
 
     def test_multiple_definition(self) -> None:
         input_file = io.StringIO(textwrap.dedent("""\
@@ -336,8 +376,10 @@ class IntegrationTest(unittest.TestCase):
 
         src_file = io.StringIO()
         version_file = io.StringIO()
-        generator = ndkstubgen.Generator(src_file, version_file, Arch('arm'),
-                                         9, False, True)
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file, symbol_list_file,
+                                         Arch('arm'), 9, False, True)
         generator.write(versions)
 
         expected_src = textwrap.dedent("""\
@@ -370,6 +412,40 @@ class IntegrationTest(unittest.TestCase):
             } VERSION_2;
         """)
         self.assertEqual(expected_version, version_file.getvalue())
+
+    def test_empty_stub(self) -> None:
+        """Tests that empty stubs can be generated.
+
+        This is not a common case, but libraries whose only behavior is to
+        interpose symbols to alter existing behavior do not need to expose
+        their interposing symbols as API, so it's possible for the stub to be
+        empty while still needing a stub to link against. libsigchain is an
+        example of this.
+        """
+        input_file = io.StringIO(textwrap.dedent("""\
+            VERSION_1 {
+                local:
+                    *;
+            };
+        """))
+        parser = symbolfile.SymbolFileParser(input_file, {}, Arch('arm'),
+                                             9, llndk=False, apex=True)
+        versions = parser.parse()
+
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        symbol_list_file = io.StringIO()
+        generator = ndkstubgen.Generator(src_file,
+                                         version_file,
+                                         symbol_list_file,
+                                         Arch('arm'),
+                                         9,
+                                         llndk=False,
+                                         apex=True)
+        generator.write(versions)
+
+        self.assertEqual('', src_file.getvalue())
+        self.assertEqual('', version_file.getvalue())
 
 
 def main() -> None:

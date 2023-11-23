@@ -190,14 +190,17 @@ class WlanWmmTest(AbstractDeviceWlanDeviceBaseTest):
                 tc.wlan_device.disconnect()
                 tc.wlan_device.reset_wifi()
             if tc.access_point:
+                self.download_ap_logs()
                 tc.access_point.stop_all_aps()
 
     def teardown_class(self):
         for tc in self.wmm_transceivers:
             tc.destroy_resources()
+        super().teardown_class()
 
     def on_fail(self, test_name, begin_time):
-        super().on_fail(test_name, begin_time)
+        for wlan_device in self.wlan_devices:
+            super().on_device_fail(wlan_device.device, test_name, begin_time)
 
     def start_ap_with_wmm_params(self, ap_parameters, wmm_parameters):
         """Sets up WMM network on AP.

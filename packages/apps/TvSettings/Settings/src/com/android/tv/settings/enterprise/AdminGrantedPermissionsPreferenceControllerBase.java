@@ -17,13 +17,18 @@
 package com.android.tv.settings.enterprise;
 
 import android.content.Context;
+import android.icu.text.MessageFormat;
 
 import androidx.preference.Preference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.R;
-import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public abstract class AdminGrantedPermissionsPreferenceControllerBase extends
         AbstractPreferenceController {
@@ -51,9 +56,13 @@ public abstract class AdminGrantedPermissionsPreferenceControllerBase extends
                     if (num == 0) {
                         mHasApps = false;
                     } else {
-                        preference.setSummary(mContext.getResources().getQuantityString(
-                                R.plurals.enterprise_privacy_number_packages_lower_bound,
-                                num, num));
+                        MessageFormat msgFormat = new MessageFormat(
+                                mContext.getResources().getString(
+                                        R.string.enterprise_privacy_number_packages_lower_bound),
+                                Locale.getDefault());
+                        Map<String, Object> arguments = new HashMap<>();
+                        arguments.put("count", num);
+                        preference.setSummary(msgFormat.format(arguments));
                         mHasApps = true;
                     }
                     preference.setVisible(mHasApps);

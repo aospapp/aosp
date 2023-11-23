@@ -112,7 +112,7 @@ public class AppStartMemoryStateCapturedConverterTest {
         List<Atom> atomsList = Arrays.asList(ATOM_A, ATOM_B);
         List<List<DimensionsValue>> dimensionsValuesList = Arrays.asList(DV_PAIR_A, DV_PAIR_B);
 
-        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured>> accessorMap =
+        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> accessorMap =
                 mConverter.getAtomFieldAccessorMap();
 
         PersistableBundle bundle = mConverter.convert(atomsList, DIM_FIELDS_IDS,

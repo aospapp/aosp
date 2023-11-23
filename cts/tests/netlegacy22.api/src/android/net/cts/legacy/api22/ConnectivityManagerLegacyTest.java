@@ -26,6 +26,8 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkInfo;
+import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
 import android.os.ConditionVariable;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -58,13 +60,16 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
 
     private ConnectivityManager mCm;
     private PackageManager mPackageManager;
+    private TelephonyManager mTm;
 
     private final List<Integer>mProtectedNetworks = new ArrayList<Integer>();
 
     protected void setUp() throws Exception {
         super.setUp();
-        mCm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        mCm = getContext().getSystemService(ConnectivityManager.class);
+
         mPackageManager = getContext().getPackageManager();
+        mTm = getContext().getSystemService(TelephonyManager.class);
 
         // Get com.android.internal.R.array.config_protectedNetworks
         int resId = getContext().getResources().getIdentifier("config_protectedNetworks", "array", "android");
@@ -139,6 +144,13 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
         Log.d(TAG, "Source address " + localAddress + " found on network type " + type);
     }
 
+    private void assertTelephonyInService() {
+        final ServiceState state = mTm.getServiceState();
+        if (state == null || state.getState() != ServiceState.STATE_IN_SERVICE) {
+            fail("Telephony state is out of service. Please ensure device has a working SIM card.");
+        }
+    }
+
     /** Test that hipri can be brought up when Wifi is enabled. */
     public void testStartUsingNetworkFeature_enableHipri() throws Exception {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
@@ -146,6 +158,8 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
             // This test requires a mobile data connection and WiFi.
             return;
         }
+
+        assertTelephonyInService();
 
         // Make sure WiFi is connected to an access point.
         boolean isWifiEnabled = isWifiConnected();

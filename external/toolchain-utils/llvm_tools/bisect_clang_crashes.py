@@ -7,8 +7,6 @@
 """Fetches and submits the artifacts from Chrome OS toolchain's crash bucket.
 """
 
-# pylint: disable=cros-logging-import
-
 import argparse
 import glob
 import json

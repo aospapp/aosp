@@ -18,9 +18,11 @@ package com.android.car.watchdog;
 
 import static com.android.car.watchdog.TimeSource.ZONE_OFFSET;
 
+import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.automotive.watchdog.PerStateBytes;
+import android.car.builtin.util.Slogf;
 import android.car.watchdog.IoOveruseStats;
 import android.car.watchdog.PackageKillableState.KillableState;
 import android.content.ContentValues;
@@ -32,16 +34,16 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Process;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-import android.util.IntArray;
-import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
+import com.android.car.internal.util.IntArray;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.utils.Slogf;
 
 import java.io.File;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.time.Instant;
 import java.time.Period;
 import java.time.ZonedDateTime;
@@ -59,6 +61,40 @@ import java.util.Objects;
 public final class WatchdogStorage {
     private static final String TAG = CarLog.tagFor(WatchdogStorage.class);
     private static final int RETENTION_PERIOD_IN_DAYS = 30;
+
+    /**
+     * The database is clean when it is synchronized with the in-memory cache. Cannot start a
+     * write while in this state.
+     */
+    private static final int DB_STATE_CLEAN = 1;
+
+    /**
+     * The database is dirty when it is not synchronized with the in-memory cache. When the
+     * database is in this state, no write is in progress.
+     */
+    private static final int DB_STATE_DIRTY = 2;
+
+    /**
+     * Database write in progress. Cannot start a new write when the database is in this state.
+     */
+    private static final int DB_STATE_WRITE_IN_PROGRESS = 3;
+
+    /**
+     * The database enters this state when the database is marked dirty while a write is in
+     * progress.
+     */
+    private static final int DB_STATE_WRITE_IN_PROGRESS_DIRTY = 4;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"DB_STATE_"}, value = {
+            DB_STATE_CLEAN,
+            DB_STATE_DIRTY,
+            DB_STATE_WRITE_IN_PROGRESS,
+            DB_STATE_WRITE_IN_PROGRESS_DIRTY
+    })
+    private @interface DatabaseStateType{}
+
+    public static final int FAILED_TRANSACTION = -1;
     /* Stats are stored on a daily basis. */
     public static final TemporalUnit STATS_TEMPORAL_UNIT = ChronoUnit.DAYS;
     /* Number of days to retain the stats in local storage. */
@@ -76,6 +112,8 @@ public final class WatchdogStorage {
     // the cache won't change until the next boot, so it is safe to cache the data in memory.
     @GuardedBy("mLock")
     private final List<IoUsageStatsEntry> mTodayIoUsageStatsEntries = new ArrayList<>();
+    @GuardedBy("mLock")
+    private @DatabaseStateType int mCurrentDbState = DB_STATE_CLEAN;
 
     public WatchdogStorage(Context context, TimeSource timeSource) {
         this(context, /* useDataSystemCarDir= */ true, timeSource);
@@ -96,6 +134,54 @@ public final class WatchdogStorage {
     public void shrinkDatabase() {
         try (SQLiteDatabase db = mDbHelper.getWritableDatabase()) {
             mDbHelper.onShrink(db);
+        }
+    }
+
+    /**
+     * Marks the database as dirty. The database is dirty when it is not synchronized with the
+     * memory cache.
+     */
+    public void markDirty() {
+        synchronized (mLock) {
+            mCurrentDbState = mCurrentDbState == DB_STATE_WRITE_IN_PROGRESS
+                    ? DB_STATE_WRITE_IN_PROGRESS_DIRTY : DB_STATE_DIRTY;
+        }
+        Slogf.i(TAG, "Database marked dirty.");
+    }
+
+    /**
+     * Starts write to database only if database is dirty and no writing is in progress.
+     *
+     * @return {@code true} if start was successful, otherwise {@code false}.
+     */
+    public boolean startWrite() {
+        synchronized (mLock) {
+            if (mCurrentDbState != DB_STATE_DIRTY) {
+                Slogf.e(TAG, "Cannot start a new write while the DB state is %s",
+                        toDbStateString(mCurrentDbState));
+                return false;
+            }
+            mCurrentDbState = DB_STATE_WRITE_IN_PROGRESS;
+            return true;
+        }
+    }
+
+    /** Ends write to database if write is in progress. */
+    public void endWrite() {
+        synchronized (mLock) {
+            mCurrentDbState = mCurrentDbState == DB_STATE_CLEAN ? DB_STATE_CLEAN : DB_STATE_DIRTY;
+        }
+    }
+
+    /** Marks the database as clean during an in progress database write. */
+    public void markWriteSuccessful() {
+        synchronized (mLock) {
+            if (mCurrentDbState != DB_STATE_WRITE_IN_PROGRESS) {
+                Slogf.e(TAG, "Failed to mark write successful as the current db state is %s",
+                        toDbStateString(mCurrentDbState));
+                return;
+            }
+            mCurrentDbState = DB_STATE_CLEAN;
         }
     }
 
@@ -150,8 +236,13 @@ public final class WatchdogStorage {
         return entries;
     }
 
-    /** Saves the given I/O usage stats. Returns true only on success. */
-    public boolean saveIoUsageStats(List<IoUsageStatsEntry> entries) {
+    /**
+     * Saves the given I/O usage stats.
+     *
+     * @return the number of saved entries, on success. Otherwise, returns
+     *     {@code FAILED_TRANSACTION}
+     */
+    public int saveIoUsageStats(List<IoUsageStatsEntry> entries) {
         return saveIoUsageStats(entries, /* shouldCheckRetention= */ true);
     }
 
@@ -228,10 +319,26 @@ public final class WatchdogStorage {
      * summaries are not available.
      */
     public @Nullable List<AtomsProto.CarWatchdogDailyIoUsageSummary> getDailySystemIoUsageSummaries(
-            long includingStartEpochSeconds, long excludingEndEpochSeconds) {
+            long minSystemTotalWrittenBytes, long includingStartEpochSeconds,
+            long excludingEndEpochSeconds) {
         try (SQLiteDatabase db = mDbHelper.getReadableDatabase()) {
-            return IoUsageStatsTable.queryDailySystemIoUsageSummaries(db,
-                    includingStartEpochSeconds, excludingEndEpochSeconds);
+            List<AtomsProto.CarWatchdogDailyIoUsageSummary> dailyIoUsageSummaries =
+                    IoUsageStatsTable.queryDailySystemIoUsageSummaries(db,
+                            includingStartEpochSeconds, excludingEndEpochSeconds);
+            if (dailyIoUsageSummaries == null) {
+                return null;
+            }
+            long systemTotalWrittenBytes = 0;
+            for (int i = 0; i < dailyIoUsageSummaries.size(); i++) {
+                AtomsProto.CarWatchdogPerStateBytes writtenBytes =
+                        dailyIoUsageSummaries.get(i).getWrittenBytes();
+                systemTotalWrittenBytes += writtenBytes.getForegroundBytes()
+                        + writtenBytes.getBackgroundBytes() + writtenBytes.getGarageModeBytes();
+            }
+            if (systemTotalWrittenBytes < minSystemTotalWrittenBytes) {
+                return null;
+            }
+            return dailyIoUsageSummaries;
         }
     }
 
@@ -359,7 +466,7 @@ public final class WatchdogStorage {
     }
 
     @VisibleForTesting
-    boolean saveIoUsageStats(List<IoUsageStatsEntry> entries, boolean shouldCheckRetention) {
+    int saveIoUsageStats(List<IoUsageStatsEntry> entries, boolean shouldCheckRetention) {
         ZonedDateTime currentDate = mTimeSource.getCurrentDate();
         List<ContentValues> rows = new ArrayList<>(entries.size());
         for (int i = 0; i < entries.size(); ++i) {
@@ -400,10 +507,16 @@ public final class WatchdogStorage {
         }
     }
 
-    private static boolean atomicReplaceEntries(SQLiteDatabase db, String tableName,
+    /**
+     * Atomically replace rows in a database table.
+     *
+     * @return the number of replaced entries, on success. Otherwise, returns
+     *     {@code FAILED_TRANSACTION}
+     */
+    private static int atomicReplaceEntries(SQLiteDatabase db, String tableName,
             List<ContentValues> rows) {
         if (rows.isEmpty()) {
-            return true;
+            return 0;
         }
         try {
             db.beginTransaction();
@@ -411,19 +524,33 @@ public final class WatchdogStorage {
                 try {
                     if (db.replaceOrThrow(tableName, null, rows.get(i)) == -1) {
                         Slogf.e(TAG, "Failed to insert %s entry [%s]", tableName, rows.get(i));
-                        return false;
+                        return FAILED_TRANSACTION;
                     }
                 } catch (SQLException e) {
-                    Slog.e(TAG, "Failed to insert " + tableName + " entry [" + rows.get(i) + "]",
-                            e);
-                    return false;
+                    Slogf.e(TAG, e, "Failed to insert %s entry [%s]", tableName, rows.get(i));
+                    return FAILED_TRANSACTION;
                 }
             }
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
         }
-        return true;
+        return rows.size();
+    }
+
+    private static String toDbStateString(int dbState) {
+        switch (dbState) {
+            case DB_STATE_CLEAN:
+                return "DB_STATE_CLEAN";
+            case DB_STATE_DIRTY:
+                return "DB_STATE_DIRTY";
+            case DB_STATE_WRITE_IN_PROGRESS:
+                return "DB_STATE_WRITE_IN_PROGRESS";
+            case DB_STATE_WRITE_IN_PROGRESS_DIRTY:
+                return "DB_STATE_WRITE_IN_PROGRESS_DIRTY";
+            default:
+                return "UNKNOWN";
+        }
     }
 
     /** Defines the user package settings entry stored in the UserPackageSettingsTable. */

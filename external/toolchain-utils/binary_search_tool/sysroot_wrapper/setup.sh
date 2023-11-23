@@ -1,6 +1,8 @@
 #!/bin/bash -u
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2021 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 #
 # This script is part of the ChromeOS object binary search triage process.
 # It should be the first script called by the user, after the user has set up
@@ -23,6 +25,8 @@ bisect_dir=${BISECT_DIR:-/tmp/sysroot_bisect}
 BOARD=$1
 REMOTE=$2
 PACKAGE=$3
+REBOOT_OPTION=$4
+USE_FLAGS=$5
 
 GOOD_BUILD=${bisect_dir}/good
 BAD_BUILD=${bisect_dir}/bad
@@ -60,6 +64,8 @@ cat <<-EOF > ${COMMON_FILE}
 BISECT_BOARD=${BOARD}
 BISECT_REMOTE=${REMOTE}
 BISECT_PACKAGE=${PACKAGE}
+BISECT_REBOOT_OPTION=${REBOOT_OPTION}
+BISECT_USE_FLAGS="${USE_FLAGS}"
 BISECT_MODE="OBJECT_MODE"
 
 bisect_dir=${bisect_dir}

@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 /**
  * VehicleAreaDoor is an abstraction for a door in a car. Some car APIs may provide control per
@@ -24,13 +25,21 @@ import android.annotation.SystemApi;
  */
 @SystemApi
 public final class VehicleAreaDoor {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_1_LEFT = 0x00000001;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_1_RIGHT = 0x00000004;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_2_LEFT = 0x00000010;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_2_RIGHT = 0x00000040;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_3_LEFT = 0x00000100;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_ROW_3_RIGHT = 0x00000400;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_HOOD = 0x10000000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DOOR_REAR = 0x20000000;
 
     private VehicleAreaDoor() {}

@@ -79,7 +79,7 @@ fn get_report_filename(node_id: &MacAddr6) -> Result<String> {
     let since_epoch = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?;
     let ts =
         Timestamp::from_unix(&*UUID_CONTEXT, since_epoch.as_secs(), since_epoch.subsec_nanos());
-    let uuid = Uuid::new_v1(ts, &node_id.as_bytes())?;
+    let uuid = Uuid::new_v1(ts, node_id.as_bytes())?;
     Ok(uuid.to_string())
 }
 

@@ -18,6 +18,7 @@ package com.android.cts.host.blob;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 import com.android.tradefed.util.Pair;
@@ -98,10 +99,6 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
         return device.isMultiUserSupported();
     }
 
-    protected boolean isMultiUserSupported() throws Exception {
-        return isMultiUserSupported(getDevice());
-    }
-
     protected Map<String, String> createArgsFromLastTestRun() {
         final Map<String, String> args = new HashMap<>();
         for (String key : new String[] {
@@ -137,12 +134,25 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
     protected void addAssistRoleHolder(String pkgName, int userId) throws Exception {
         final String cmd = String.format("cmd role add-role-holder "
                 + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
-        getDevice().executeShellCommand(cmd).trim();
+        runCommand(cmd);
     }
 
     protected void removeAssistRoleHolder(String pkgName, int userId) throws Exception {
         final String cmd = String.format("cmd role remove-role-holder "
                 + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
-        getDevice().executeShellCommand(cmd).trim();
+        runCommand(cmd);
+    }
+
+    protected void revokePermission(String pkgName, String permissionName, int userId)
+            throws Exception {
+        final String cmd = String.format("cmd package revoke --user %d %s %s",
+                userId, pkgName, permissionName);
+        runCommand(cmd);
+    }
+
+    protected String runCommand(String command) throws Exception {
+        final String output = getDevice().executeShellCommand(command);
+        CLog.v("Output of cmd '" + command + "': '" + output.trim() + "'");
+        return output;
     }
 }

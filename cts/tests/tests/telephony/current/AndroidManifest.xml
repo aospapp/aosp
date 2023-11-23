@@ -17,6 +17,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.telephony.cts">
 
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -46,7 +48,9 @@
 
     <permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"
          android:protectionLevel="signature"/>
-    <application>
+    <!-- Must be debuggable for compat shell commands to work on user builds -->
+    <application android:debuggable="true">
+
         <provider android:name="android.telephony.cts.MmsPduProvider"
              android:authorities="telephonyctstest"
              android:grantUriPermissions="true"/>
@@ -104,7 +108,7 @@
             </intent-filter>
         </service>
 
-        <service android:name="android.telephony.cts.StubInCallService"
+        <service android:name="android.telephony.cts.InCallServiceStateValidator"
              android:permission="android.permission.BIND_INCALL_SERVICE"
              android:exported="true">
             <intent-filter>

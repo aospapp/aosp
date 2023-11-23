@@ -1,0 +1,5 @@
+on early-init
+    write /sys/module/firmware_class/parameters/path /vendor/firmware/
+
+on boot
+    exec u:r:vendor_modprobe:s0 -- /vendor/bin/modprobe -a -d /vendor/lib/modules btusb.ko

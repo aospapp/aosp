@@ -29,7 +29,7 @@
 #endif  /* MINOR not defined */
 
 #else
- 
+
 #include <linux/fs.h>        /* get MAJOR/MINOR from Linux kernel */
 #ifndef major
 #define major(x) MAJOR(x)
@@ -91,14 +91,14 @@ UNUSED(static __inline__ void RR_SETHEAD(struct floppy_raw_cmd *request, uint8_t
 	request->cmd[3] = head;
 }
 
-UNUSED(static __inline__ void RR_SETSECTOR(struct floppy_raw_cmd *request, 
+UNUSED(static __inline__ void RR_SETSECTOR(struct floppy_raw_cmd *request,
 					   uint8_t sector))
 {
 	request->cmd[4] = sector;
 	request->cmd[6] = sector-1;
 }
 
-UNUSED(static __inline__ void RR_SETSIZECODE(struct floppy_raw_cmd *request, 
+UNUSED(static __inline__ void RR_SETSIZECODE(struct floppy_raw_cmd *request,
 					     uint8_t sizecode))
 {
 	request->cmd[5] = sizecode;
@@ -113,7 +113,7 @@ static inline void RR_SETEND(struct floppy_raw_cmd *request, int end)
 }
 #endif
 
-UNUSED(static __inline__ void RR_SETDIRECTION(struct floppy_raw_cmd *request, 
+UNUSED(static __inline__ void RR_SETDIRECTION(struct floppy_raw_cmd *request,
 					      int direction))
 {
 	if(direction == MT_READ) {
@@ -126,7 +126,7 @@ UNUSED(static __inline__ void RR_SETDIRECTION(struct floppy_raw_cmd *request,
 }
 
 
-UNUSED(static __inline__ void RR_SETDATA(struct floppy_raw_cmd *request, 
+UNUSED(static __inline__ void RR_SETDATA(struct floppy_raw_cmd *request,
 					 caddr_t data))
 {
 	request->data = data;
@@ -169,12 +169,12 @@ UNUSED(static __inline__ int GET_DRIVE(int fd))
 		perror("stat");
 		return -1;
 	}
-	  
+
 	if (!S_ISBLK(statbuf.st_mode) ||
 	    MAJOR(statbuf.st_rdev) != FLOPPY_MAJOR)
 		return -1;
-	
-	return MINOR( statbuf.st_rdev );
+
+	return (int) MINOR( statbuf.st_rdev );
 }
 
 
@@ -183,5 +183,7 @@ UNUSED(static __inline__ int GET_DRIVE(int fd))
 int send_one_cmd(int fd, RawRequest_t *raw_cmd, const char *message);
 int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print);
 
-
 #endif
+
+int init_geom(int fd, struct device *dev, struct device *orig_dev,
+	      struct MT_STAT *statbuf);

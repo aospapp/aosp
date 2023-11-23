@@ -52,7 +52,7 @@ public final class UpdateParameter implements Parcelable {
      * Valid string for UpdateMethod.
      */
     public static final String UPDATE_METHOD_OMADM = "OMA-DM-ClientInitiated";
-    public static final String UPDATE_METHOD_SSP = "SSP-ClientInitiated";
+    public static final String UPDATE_METHOD_SPP = "SPP-ClientInitiated";
 
     /**
      * Valid string for Restriction.
@@ -308,7 +308,7 @@ public final class UpdateParameter implements Parcelable {
         }
 
         if (!TextUtils.equals(mUpdateMethod, UPDATE_METHOD_OMADM)
-                && !TextUtils.equals(mUpdateMethod, UPDATE_METHOD_SSP)) {
+                && !TextUtils.equals(mUpdateMethod, UPDATE_METHOD_SPP)) {
             Log.d(TAG, "Unknown update method: " + mUpdateMethod);
             return false;
         }

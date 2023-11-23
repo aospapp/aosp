@@ -24,119 +24,124 @@
 #include "chre/util/container_support.h"
 
 namespace chre {
+namespace internal {
 
-template <typename ElementType, size_t kCapacity>
-ArrayQueue<ElementType, kCapacity>::~ArrayQueue() {
+template <typename ElementType, typename StorageType>
+ArrayQueueCore<ElementType, StorageType>::~ArrayQueueCore() {
   clear();
 }
 
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::empty() const {
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::empty() const {
   return (mSize == 0);
 }
 
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::full() const {
-  return (mSize == kCapacity);
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::full() const {
+  return (mSize == StorageType::capacity());
 }
 
-template <typename ElementType, size_t kCapacity>
-size_t ArrayQueue<ElementType, kCapacity>::size() const {
+template <typename ElementType, typename StorageType>
+size_t ArrayQueueCore<ElementType, StorageType>::size() const {
   return mSize;
 }
 
-template <typename ElementType, size_t kCapacity>
-ElementType &ArrayQueue<ElementType, kCapacity>::front() {
+template <typename ElementType, typename StorageType>
+ElementType &ArrayQueueCore<ElementType, StorageType>::front() {
   CHRE_ASSERT(mSize > 0);
-  return data()[mHead];
+  return StorageType::data()[mHead];
 }
 
-template <typename ElementType, size_t kCapacity>
-const ElementType &ArrayQueue<ElementType, kCapacity>::front() const {
+template <typename ElementType, typename StorageType>
+const ElementType &ArrayQueueCore<ElementType, StorageType>::front() const {
   CHRE_ASSERT(mSize > 0);
-  return data()[mHead];
+  return StorageType::data()[mHead];
 }
 
-template <typename ElementType, size_t kCapacity>
-ElementType &ArrayQueue<ElementType, kCapacity>::back() {
+template <typename ElementType, typename StorageType>
+ElementType &ArrayQueueCore<ElementType, StorageType>::back() {
   CHRE_ASSERT(mSize > 0);
-  return data()[mTail];
+  return StorageType::data()[mTail];
 }
 
-template <typename ElementType, size_t kCapacity>
-const ElementType &ArrayQueue<ElementType, kCapacity>::back() const {
+template <typename ElementType, typename StorageType>
+const ElementType &ArrayQueueCore<ElementType, StorageType>::back() const {
   CHRE_ASSERT(mSize > 0);
-  return data()[mTail];
+  return StorageType::data()[mTail];
 }
 
-template <typename ElementType, size_t kCapacity>
-ElementType &ArrayQueue<ElementType, kCapacity>::operator[](size_t index) {
+template <typename ElementType, typename StorageType>
+ElementType &ArrayQueueCore<ElementType, StorageType>::operator[](
+    size_t index) {
   CHRE_ASSERT(index < mSize);
-  return data()[relativeIndexToAbsolute(index)];
+  return StorageType::data()[relativeIndexToAbsolute(index)];
 }
 
-template <typename ElementType, size_t kCapacity>
-const ElementType &ArrayQueue<ElementType, kCapacity>::operator[](
+template <typename ElementType, typename StorageType>
+const ElementType &ArrayQueueCore<ElementType, StorageType>::operator[](
     size_t index) const {
   CHRE_ASSERT(index < mSize);
-  return data()[relativeIndexToAbsolute(index)];
+  return StorageType::data()[relativeIndexToAbsolute(index)];
 }
 
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::push(const ElementType &element) {
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::push(
+    const ElementType &element) {
   bool success = pushTail();
   if (success) {
-    new (&data()[mTail]) ElementType(element);
+    new (&StorageType::data()[mTail]) ElementType(element);
   }
   return success;
 }
 
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::push(ElementType &&element) {
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::push(ElementType &&element) {
   bool success = pushTail();
   if (success) {
-    new (&data()[mTail]) ElementType(std::move(element));
+    new (&StorageType::data()[mTail]) ElementType(std::move(element));
   }
   return success;
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::kick_push(const ElementType &element) {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::kick_push(
+    const ElementType &element) {
   if (full()) {
     pop();
   }
   push(element);
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::kick_push(ElementType &&element) {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::kick_push(
+    ElementType &&element) {
   if (full()) {
     pop();
   }
   push(element);
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::pop() {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::pop() {
   if (mSize > 0) {
-    data()[mHead].~ElementType();
+    StorageType::data()[mHead].~ElementType();
     pullHead();
   }
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::pop_back() {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::pop_back() {
   if (mSize > 0) {
     size_t absoluteIndex = relativeIndexToAbsolute(mSize - 1);
-    data()[absoluteIndex].~ElementType();
+    StorageType::data()[absoluteIndex].~ElementType();
     pullTail();
   }
 }
 
 // Assuming popping from the middle of the queue is rare, part of the
 // array is copied over.
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::remove(size_t index) {
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::remove(size_t index) {
   // If we used memmove to shift the array down when removing an element in the
   // middle of the queue, then we'd need to add this somewhere:
   // static_assert(std::is_trivially_copyable<ElementType>::value,
@@ -150,7 +155,7 @@ bool ArrayQueue<ElementType, kCapacity>::remove(size_t index) {
     size_t headLength = index;
 
     size_t absoluteIndex = relativeIndexToAbsolute(index);
-    data()[absoluteIndex].~ElementType();
+    StorageType::data()[absoluteIndex].~ElementType();
 
     // Move all the elements before the one just popped to the next storage
     // space.
@@ -158,9 +163,9 @@ bool ArrayQueue<ElementType, kCapacity>::remove(size_t index) {
     // If headLength < mSize/2, pull heads towards tail.
     // Otherwise, pull tails towards head.
     for (size_t i = 0; i < headLength; ++i) {
-      size_t prev =
-          (absoluteIndex == 0) ? (kCapacity - 1) : (absoluteIndex - 1);
-      data()[absoluteIndex] = data()[prev];
+      size_t prev = (absoluteIndex == 0) ? (StorageType::capacity() - 1)
+                                         : (absoluteIndex - 1);
+      StorageType::data()[absoluteIndex] = StorageType::data()[prev];
       absoluteIndex = prev;
     }
 
@@ -170,18 +175,18 @@ bool ArrayQueue<ElementType, kCapacity>::remove(size_t index) {
   return success;
 }
 
-template <typename ElementType, size_t kCapacity>
+template <typename ElementType, typename StorageType>
 template <typename... Args>
-bool ArrayQueue<ElementType, kCapacity>::emplace(Args &&... args) {
+bool ArrayQueueCore<ElementType, StorageType>::emplace(Args &&...args) {
   bool success = pushTail();
   if (success) {
-    new (&data()[mTail]) ElementType(std::forward<Args>(args)...);
+    new (&StorageType::data()[mTail]) ElementType(std::forward<Args>(args)...);
   }
   return success;
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::clear() {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::clear() {
   if (!std::is_trivially_destructible<ElementType>::value) {
     while (!empty()) {
       pop();
@@ -189,95 +194,92 @@ void ArrayQueue<ElementType, kCapacity>::clear() {
   } else {
     mSize = 0;
     mHead = 0;
-    mTail = kCapacity - 1;
+    mTail = StorageType::capacity() - 1;
   }
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::iterator
-ArrayQueue<ElementType, kCapacity>::begin() {
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::iterator
+ArrayQueueCore<ElementType, StorageType>::begin() {
   // Align begin() and end() outside of the memory block when empty.
-  return empty() ? end() : iterator(data() + mHead, data(), mTail);
+  return empty() ? end()
+                 : iterator(StorageType::data() + mHead, StorageType::data(),
+                            mTail, StorageType::capacity());
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::iterator
-ArrayQueue<ElementType, kCapacity>::end() {
-  return iterator(data() + kCapacity, data(), mTail);
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::iterator
+ArrayQueueCore<ElementType, StorageType>::end() {
+  return iterator(StorageType::data() + StorageType::capacity(),
+                  StorageType::data(), mTail, StorageType::capacity());
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::const_iterator
-ArrayQueue<ElementType, kCapacity>::begin() const {
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::const_iterator
+ArrayQueueCore<ElementType, StorageType>::begin() const {
   return cbegin();
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::const_iterator
-ArrayQueue<ElementType, kCapacity>::end() const {
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::const_iterator
+ArrayQueueCore<ElementType, StorageType>::end() const {
   return cend();
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::const_iterator
-ArrayQueue<ElementType, kCapacity>::cbegin() const {
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::const_iterator
+ArrayQueueCore<ElementType, StorageType>::cbegin() const {
   // Align begin() and end() outside of the memory block when empty.
-  return empty() ? cend() : const_iterator(data() + mHead, data(), mTail);
+  return empty()
+             ? cend()
+             : const_iterator(StorageType::data() + mHead, StorageType::data(),
+                              mTail, StorageType::capacity());
 }
 
-template <typename ElementType, size_t kCapacity>
-typename ArrayQueue<ElementType, kCapacity>::const_iterator
-ArrayQueue<ElementType, kCapacity>::cend() const {
-  return const_iterator(data() + kCapacity, data(), mTail);
+template <typename ElementType, typename StorageType>
+typename ArrayQueueCore<ElementType, StorageType>::const_iterator
+ArrayQueueCore<ElementType, StorageType>::cend() const {
+  return const_iterator(StorageType::data() + StorageType::capacity(),
+                        StorageType::data(), mTail, StorageType::capacity());
 }
 
-template <typename ElementType, size_t kCapacity>
-ElementType *ArrayQueue<ElementType, kCapacity>::data() {
-  return reinterpret_cast<ElementType *>(mData);
-}
-
-template <typename ElementType, size_t kCapacity>
-const ElementType *ArrayQueue<ElementType, kCapacity>::data() const {
-  return reinterpret_cast<const ElementType *>(mData);
-}
-
-template <typename ElementType, size_t kCapacity>
-size_t ArrayQueue<ElementType, kCapacity>::relativeIndexToAbsolute(
+template <typename ElementType, typename StorageType>
+size_t ArrayQueueCore<ElementType, StorageType>::relativeIndexToAbsolute(
     size_t index) const {
   size_t absoluteIndex = mHead + index;
-  if (absoluteIndex >= kCapacity) {
-    absoluteIndex -= kCapacity;
+  if (absoluteIndex >= StorageType::capacity()) {
+    absoluteIndex -= StorageType::capacity();
   }
   return absoluteIndex;
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::pullHead() {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::pullHead() {
   CHRE_ASSERT(mSize > 0);
-  if (++mHead == kCapacity) {
+  if (++mHead == StorageType::capacity()) {
     mHead = 0;
   }
   mSize--;
 }
 
-template <typename ElementType, size_t kCapacity>
-void ArrayQueue<ElementType, kCapacity>::pullTail() {
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::pullTail() {
   CHRE_ASSERT(mSize > 0);
   if (mTail == 0) {
-    mTail = kCapacity - 1;
+    mTail = StorageType::capacity() - 1;
   } else {
     mTail--;
   }
   mSize--;
 }
 
-template <typename ElementType, size_t kCapacity>
-bool ArrayQueue<ElementType, kCapacity>::pushTail() {
+template <typename ElementType, typename StorageType>
+bool ArrayQueueCore<ElementType, StorageType>::pushTail() {
   bool success;
-  if (mSize >= kCapacity) {
+  if (mSize >= StorageType::capacity()) {
     success = false;
   } else {
-    if (++mTail == kCapacity) {
+    if (++mTail == StorageType::capacity()) {
       mTail = 0;
     }
     mSize++;
@@ -286,6 +288,7 @@ bool ArrayQueue<ElementType, kCapacity>::pushTail() {
   return success;
 }
 
+}  // namespace internal
 }  // namespace chre
 
 #endif  // CHRE_UTIL_ARRAY_QUEUE_IMPL_H_

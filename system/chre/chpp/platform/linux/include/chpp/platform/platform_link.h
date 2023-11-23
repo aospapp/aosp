@@ -63,6 +63,10 @@ struct ChppPlatformLinkParameters {
 
   //! The string name of the CHPP work thread.
   const char *workThreadName;
+
+  //! A flag to indicate if the link is active. Setting this value to false
+  //! will cause the CHPP link layer to fail to send/receive messages.
+  bool isLinkActive;
 };
 
 #ifdef __cplusplus

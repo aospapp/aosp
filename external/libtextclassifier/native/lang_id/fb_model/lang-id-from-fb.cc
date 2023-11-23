@@ -16,7 +16,9 @@
 
 #include "lang_id/fb_model/lang-id-from-fb.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include "lang_id/fb_model/model-provider-from-fb.h"
 

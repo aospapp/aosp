@@ -27,8 +27,8 @@
 
 #include "DwarfOp.h"
 
-#include "MemoryFake.h"
 #include "RegsFake.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 

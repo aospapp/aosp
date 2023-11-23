@@ -54,6 +54,8 @@ public class TestApp {
             "TestAppAOriginalV1.apk");
     public static final TestApp ARotated2 = new TestApp("ARotatedV2", A, 2, /*isApex*/false,
             "TestAppARotatedV2.apk");
+    public static final TestApp ARollbackWipe2 = new TestApp("ARollbackWipe2", A, 2,
+            /*isApex*/false, "TestAppARollbackWipeV2.apk");
 
     public static final TestApp B1 = new TestApp("Bv1", B, 1, /*isApex*/false,
             "TestAppBv1.apk");
@@ -61,11 +63,15 @@ public class TestApp {
             "TestAppBv2.apk");
     public static final TestApp B3 = new TestApp("Bv3", B, 3, /*isApex*/false,
             "TestAppBv3.apk");
+    public static final TestApp BRollbackRestore2 = new TestApp("BRollbackRestore2", B, 2,
+            /*isApex*/false, "TestAppBRollbackRestoreV2.apk");
 
     public static final TestApp C1 = new TestApp("Cv1", C, 1, /*isApex*/false,
             "TestAppCv1.apk");
     public static final TestApp C2 = new TestApp("Cv2", C, 2, /*isApex*/false,
             "TestAppCv2.apk");
+    public static final TestApp CRollbackRetain2 = new TestApp("CRollbackRetain2", C, 2,
+            /*isApex*/false, "TestAppCRollbackRetainV2.apk");
 
     // Apex collection
     public static final TestApp Apex1 = new TestApp("Apex1", SHIM_APEX_PACKAGE_NAME, 1,

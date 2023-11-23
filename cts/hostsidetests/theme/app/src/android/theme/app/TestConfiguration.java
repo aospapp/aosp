@@ -17,79 +17,16 @@
 package android.theme.app;
 
 import android.os.Build;
-import android.theme.app.modifiers.DatePickerModifier;
 import android.theme.app.modifiers.ProgressBarModifier;
 import android.theme.app.modifiers.SearchViewModifier;
-import android.theme.app.modifiers.ViewCheckedModifier;
-import android.theme.app.modifiers.ViewPressedModifier;
 import android.theme.app.modifiers.TimePickerModifier;
+import android.theme.app.modifiers.ViewCheckedModifier;
 
 /**
  * Constants defining the themes and layouts to be verified.
  */
 public class TestConfiguration {
-    @SuppressWarnings("deprecation")
     static final ThemeInfo[] THEMES = {
-            // Holo
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo,
-                    Build.VERSION_CODES.HONEYCOMB, "holo"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Dialog,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialog"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Dialog_MinWidth,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialog_minwidth"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Dialog_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialog_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Dialog_NoActionBar_MinWidth,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialog_noactionbar_minwidth"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_DialogWhenLarge,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialogwhenlarge"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_DialogWhenLarge_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_dialogwhenlarge_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_InputMethod,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_inputmethod"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_NoActionBar_Fullscreen,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_noactionbar_fullscreen"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_NoActionBar_Overscan,
-                    Build.VERSION_CODES.JELLY_BEAN_MR2, "holo_noactionbar_overscan"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_NoActionBar_TranslucentDecor,
-                    Build.VERSION_CODES.KITKAT, "holo_noactionbar_translucentdecor"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Panel,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_panel"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Wallpaper,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_wallpaper"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Wallpaper_NoTitleBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_wallpaper_notitlebar"),
-
-            // Holo Light
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_DarkActionBar,
-                    Build.VERSION_CODES.ICE_CREAM_SANDWICH, "holo_light_darkactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_Dialog,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_Dialog_MinWidth,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_minwidth"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_Dialog_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_Dialog_NoActionBar_MinWidth,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialog_noactionbar_minwidth"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_DialogWhenLarge,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialogwhenlarge"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_DialogWhenLarge_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_dialogwhenlarge_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_NoActionBar,
-                    Build.VERSION_CODES.HONEYCOMB_MR2, "holo_light_noactionbar"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_Fullscreen,
-                    Build.VERSION_CODES.HONEYCOMB_MR2, "holo_light_noactionbar_fullscreen"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_Overscan,
-                    Build.VERSION_CODES.JELLY_BEAN_MR2, "holo_light_noactionbar_overscan"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_NoActionBar_TranslucentDecor,
-                    Build.VERSION_CODES.KITKAT, "holo_light_noactionbar_translucentdecor"),
-            new ThemeInfo(ThemeInfo.HOLO, android.R.style.Theme_Holo_Light_Panel,
-                    Build.VERSION_CODES.HONEYCOMB, "holo_light_panel"),
-
             // Material
             new ThemeInfo(ThemeInfo.MATERIAL, android.R.style.Theme_Material,
                     Build.VERSION_CODES.LOLLIPOP, "material"),

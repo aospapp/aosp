@@ -21,14 +21,18 @@ import com.android.layoutlib.bridge.intensive.RenderTestBase;
 import com.android.layoutlib.bridge.intensive.setup.ConfigGenerator;
 import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
+import com.android.tools.idea.validator.ValidatorData.CompoundFix;
 import com.android.tools.idea.validator.ValidatorData.Issue;
 import com.android.tools.idea.validator.ValidatorData.Level;
+import com.android.tools.idea.validator.ValidatorData.SetViewAttributeFix;
+
 import com.android.tools.idea.validator.ValidatorData.Type;
 
 import org.junit.Test;
 
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,9 +41,23 @@ import com.google.android.apps.common.testing.accessibility.framework.Accessibil
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityHierarchyCheck;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class LayoutValidatorTests extends RenderTestBase {
+
+    private static final float SCALE_X_FOR_NEXUS_5 = 1.0f;
+    private static final float SCALE_Y_FOR_NEXUS_5 = 1.0f;
+
+    @Test
+    public void testEnsureDebuggingOff() {
+        assertFalse(LayoutValidator.shouldSaveCroppedImages());
+    }
+
+    @Test
+    public void testEnsureObtainCharacterLocation() {
+        assertFalse(LayoutValidator.obtainCharacterLocations());
+    }
 
     @Test
     public void testRenderAndVerify() throws Exception {
@@ -61,30 +79,48 @@ public class LayoutValidatorTests extends RenderTestBase {
     @Test
     public void testValidation() throws Exception {
         render(sBridge, generateParams(), -1, session -> {
-            ValidatorResult result = LayoutValidator
-                    .validate(((View) session.getRootViews().get(0).getViewObject()), null);
-            assertEquals(3, result.getIssues().size());
+            ValidatorResult result = LayoutValidator.validate(
+                    ((View) session.getRootViews().get(0).getViewObject()),
+                    null,
+                    SCALE_X_FOR_NEXUS_5,
+                    SCALE_Y_FOR_NEXUS_5);
+            assertEquals(30, result.getIssues().size());
+            ArrayList<Issue> errorIssues = new ArrayList<>();
             for (Issue issue : result.getIssues()) {
                 assertEquals(Type.ACCESSIBILITY, issue.mType);
-                assertEquals(Level.ERROR, issue.mLevel);
+                if (issue.mLevel == Level.ERROR) {
+                    errorIssues.add(issue);
+                }
             }
 
-            Issue first = result.getIssues().get(0);
+            Issue first = errorIssues.get(0);
             assertEquals("This item may not have a label readable by screen readers.",
                          first.mMsg);
             assertEquals("https://support.google.com/accessibility/android/answer/7158690",
                          first.mHelpfulUrl);
             assertEquals("SpeakableTextPresentCheck", first.mSourceClass);
+            assertTrue(first.mFix instanceof SetViewAttributeFix);
+            assertEquals("Set this item's android:contentDescription to a meaningful" +
+                            " non-empty string or resource reference.",
+                    first.mFix.getDescription());
 
-            Issue second = result.getIssues().get(1);
+            Issue second = errorIssues.get(1);
+            CompoundFix compoundFix = (CompoundFix) second.mFix;
             assertEquals("This item's size is 10dp x 10dp. Consider making this touch target " +
                             "48dp wide and 48dp high or larger.",
                          second.mMsg);
             assertEquals("https://support.google.com/accessibility/android/answer/7101858",
                          second.mHelpfulUrl);
             assertEquals("TouchTargetSizeCheck", second.mSourceClass);
+            assertTrue(compoundFix.mFixes.size() == 2);
+            assertEquals(
+                    "Set this item's android:layout_width to 48dp.",
+                    compoundFix.mFixes.get(0).getDescription());
+            assertEquals(
+                    "Set this item's android:layout_height to 48dp.",
+                    compoundFix.mFixes.get(1).getDescription());
 
-            Issue third = result.getIssues().get(2);
+            Issue third = errorIssues.get(2);
             assertEquals("The item's text contrast ratio is 1.00. This ratio is based on a text color " +
                             "of #000000 and background color of #000000. Consider increasing this item's" +
                             " text contrast ratio to 4.50 or greater.",
@@ -92,6 +128,9 @@ public class LayoutValidatorTests extends RenderTestBase {
             assertEquals("https://support.google.com/accessibility/android/answer/7158390",
                          third.mHelpfulUrl);
             assertEquals("TextContrastCheck", third.mSourceClass);
+            assertTrue(third.mFix instanceof SetViewAttributeFix);
+            assertEquals("Set this item's android:textColor to #757575.",
+                    third.mFix.getDescription());
         });
     }
 
@@ -105,8 +144,14 @@ public class LayoutValidatorTests extends RenderTestBase {
 
             render(sBridge, generateParams(), -1, session -> {
                 ValidatorResult result = LayoutValidator.validate(
-                        ((View) session.getRootViews().get(0).getViewObject()), null);
-                assertTrue(result.getIssues().isEmpty());
+                        ((View) session.getRootViews().get(0).getViewObject()),
+                        null,
+                        SCALE_X_FOR_NEXUS_5,
+                        SCALE_Y_FOR_NEXUS_5);
+
+                assertEquals(1, result.getIssues().size());
+                assertEquals("Hierarchy is not built yet.",
+                        result.getIssues().get(0).mMsg);
             });
         } finally {
             LayoutValidator.updatePolicy(LayoutValidator.DEFAULT_POLICY);
@@ -123,7 +168,10 @@ public class LayoutValidatorTests extends RenderTestBase {
 
             render(sBridge, generateParams(), -1, session -> {
                 ValidatorResult result = LayoutValidator.validate(
-                        ((View) session.getRootViews().get(0).getViewObject()), null);
+                        ((View) session.getRootViews().get(0).getViewObject()),
+                        null,
+                        SCALE_X_FOR_NEXUS_5,
+                        SCALE_Y_FOR_NEXUS_5);
                 assertEquals(27, result.getIssues().size());
                 result.getIssues().forEach(issue ->assertEquals(Level.VERBOSE, issue.mLevel));
             });
@@ -150,7 +198,10 @@ public class LayoutValidatorTests extends RenderTestBase {
 
             render(sBridge, generateParams(), -1, session -> {
                 ValidatorResult result = LayoutValidator.validate(
-                        ((View) session.getRootViews().get(0).getViewObject()), null);
+                        ((View) session.getRootViews().get(0).getViewObject()),
+                        null,
+                        SCALE_X_FOR_NEXUS_5,
+                        SCALE_Y_FOR_NEXUS_5);
                 assertEquals(1, result.getIssues().size());
                 Issue textCheck = result.getIssues().get(0);
                 assertEquals("The item's text contrast ratio is 1.00. This ratio is based on a text color " +

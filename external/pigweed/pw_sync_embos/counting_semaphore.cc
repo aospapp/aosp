@@ -17,7 +17,7 @@
 #include <algorithm>
 
 #include "RTOS.h"
-#include "pw_assert/assert.h"
+#include "pw_assert/check.h"
 #include "pw_chrono/system_clock.h"
 #include "pw_chrono_embos/system_clock_constants.h"
 #include "pw_interrupt/context.h"
@@ -40,27 +40,33 @@ void CountingSemaphore::release(ptrdiff_t update) {
   }
 }
 
-bool CountingSemaphore::try_acquire_for(SystemClock::duration for_at_least) {
+bool CountingSemaphore::try_acquire_for(SystemClock::duration timeout) {
+  // Enforce the pw::sync::CountingSemaphore IRQ contract.
   PW_DCHECK(!interrupt::InInterruptContext());
 
   // Use non-blocking try_acquire for negative and zero length durations.
-  if (for_at_least <= SystemClock::duration::zero()) {
+  if (timeout <= SystemClock::duration::zero()) {
     return try_acquire();
   }
 
-  // On a tick based kernel we cannot tell how far along we are on the current
-  // tick, ergo we add one whole tick to the final duration.
+  // In case the timeout is too long for us to express through the native
+  // embOS API, we repeatedly wait with shorter durations. Note that on a tick
+  // based kernel we cannot tell how far along we are on the current tick, ergo
+  // we add one whole tick to the final duration. However, this also means that
+  // the loop must ensure that timeout + 1 is less than the max timeout.
   constexpr SystemClock::duration kMaxTimeoutMinusOne =
       pw::chrono::embos::kMaxTimeout - SystemClock::duration(1);
-  while (for_at_least > kMaxTimeoutMinusOne) {
+  while (timeout > kMaxTimeoutMinusOne) {
     if (OS_WaitCSemaTimed(&native_type_,
                           static_cast<OS_TIME>(kMaxTimeoutMinusOne.count()))) {
       return true;
     }
-    for_at_least -= kMaxTimeoutMinusOne;
+    timeout -= kMaxTimeoutMinusOne;
   }
+  // On a tick based kernel we cannot tell how far along we are on the current
+  // tick, ergo we add one whole tick to the final duration.
   return OS_WaitCSemaTimed(&native_type_,
-                           static_cast<OS_TIME>(for_at_least.count() + 1));
+                           static_cast<OS_TIME>(timeout.count() + 1));
 }
 
 }  // namespace pw::sync

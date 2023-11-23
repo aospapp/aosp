@@ -19,13 +19,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.StatsManager;
 import android.util.Log;
-
+import android.util.Pair;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
 import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
 import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
+import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.GaugeBucketInfo;
@@ -33,9 +34,11 @@ import com.android.os.StatsLog.GaugeMetricData;
 import com.android.os.StatsLog.StatsLogReport;
 import com.android.os.StatsLog.StatsdStatsReport;
 import com.android.os.StatsLog.StatsdStatsReport.ConfigStats;
-
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Util class for constructing statsd configs.
@@ -102,13 +105,19 @@ public class StatsConfigUtils {
         return report;
 
     }
+
     public static List<Atom> getGaugeMetricDataList(ConfigMetricsReport report) {
         List<Atom> data = new ArrayList<>();
         for (StatsLogReport metric : report.getMetricsList()) {
             for (GaugeMetricData gaugeMetricData : metric.getGaugeMetrics().getDataList()) {
                 for (GaugeBucketInfo bucketInfo : gaugeMetricData.getBucketInfoList()) {
-                    for (Atom atom : bucketInfo.getAtomList()) {
-                        data.add(atom);
+                    if (bucketInfo.getAtomCount() != 0) {
+                        for (Atom atom : bucketInfo.getAtomList()) {
+                            data.add(atom);
+                        }
+                    } else {
+                        data.addAll(
+                                backFillGaugeBucketAtoms(bucketInfo.getAggregatedAtomInfoList()));
                     }
                 }
             }
@@ -119,6 +128,18 @@ public class StatsConfigUtils {
     public static List<Atom> getGaugeMetricDataList(StatsManager statsManager, long configId) {
         ConfigMetricsReport report = getConfigMetricsReport(statsManager, configId);
         return getGaugeMetricDataList(report);
+    }
+
+    private static List<Atom> backFillGaugeBucketAtoms(
+            List<StatsLog.AggregatedAtomInfo> atomInfoList) {
+        List<Pair<Atom, Long>> atomTimestamp = new ArrayList<>();
+        for (StatsLog.AggregatedAtomInfo atomInfo : atomInfoList) {
+            for (long timestampNs : atomInfo.getElapsedTimestampNanosList()) {
+                atomTimestamp.add(Pair.create(atomInfo.getAtom(), timestampNs));
+            }
+        }
+        atomTimestamp.sort(Comparator.comparing(o -> o.second));
+        return atomTimestamp.stream().map(p -> p.first).collect(Collectors.toList());
     }
 }
 

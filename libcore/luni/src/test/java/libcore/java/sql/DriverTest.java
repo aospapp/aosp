@@ -16,6 +16,7 @@
 
 package libcore.java.sql;
 
+import java.util.Collections;
 import junit.framework.TestCase;
 
 import SQLite.JDBCDriver;
@@ -66,6 +67,15 @@ public final class DriverTest extends TestCase {
     public void testJdbcCompliant() throws Exception {
         // The SQLite JDBC driver used by these tests is not actually JDBC compliant.
         assertFalse(getDriver().jdbcCompliant());
+    }
+
+    public void testGetDrivers() {
+        for (Driver driver : Collections.list(DriverManager.getDrivers())) {
+            if (driver instanceof JDBCDriver) {
+                return;
+            }
+        }
+        fail("DriverManager.getDrivers() doesn't return a Sqlite JDBC driver.");
     }
 
     private Driver getDriver() throws SQLException {

@@ -24,6 +24,7 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace android {
 namespace meminfo {
@@ -120,6 +121,12 @@ bool ReadIonPoolsSizeKb(
 // Read DMA-BUF heap pools allocation size in kb
 bool ReadDmabufHeapPoolsSizeKb(uint64_t* size,
                             const std::string& path = "/sys/kernel/dma_heap/total_pools_kb");
+
+// Read per-process GPU memory usage. Returns a map of pid -> GPU Mem in kilobytes.
+bool ReadPerProcessGpuMem(std::unordered_map<uint32_t, uint64_t>* out);
+
+// Read GPU usage of the specified process in kb.
+bool ReadProcessGpuUsageKb(uint32_t pid, uint32_t gpu_id, uint64_t* size);
 
 // Read GPU total usage size in kb
 bool ReadGpuTotalUsageKb(uint64_t* size);

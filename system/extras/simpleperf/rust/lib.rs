@@ -25,9 +25,16 @@ fn path_to_cstr(path: &Path) -> CString {
     CString::new(path.to_str().unwrap()).unwrap()
 }
 
-/// Returns whether the system has support for simpleperf etm.
-pub fn has_support() -> bool {
-    unsafe { simpleperf_profcollect_bindgen::HasSupport() }
+/// Returns whether the system has etm driver. ETM driver should be available immediately
+/// after boot.
+pub fn has_driver_support() -> bool {
+    unsafe { simpleperf_profcollect_bindgen::HasDriverSupport() }
+}
+
+/// Returns whether the system has etm device. ETM device may not be available immediately
+/// after boot.
+pub fn has_device_support() -> bool {
+    unsafe { simpleperf_profcollect_bindgen::HasDeviceSupport() }
 }
 
 /// ETM recording scope
@@ -56,11 +63,16 @@ pub fn record(trace_file: &Path, duration: &Duration, scope: RecordScope) {
 }
 
 /// Translate ETM trace to profile.
-pub fn process(trace_path: &Path, profile_path: &Path) {
+pub fn process(trace_path: &Path, profile_path: &Path, binary_filter: &str) {
     let trace_path = path_to_cstr(trace_path);
     let profile_path = path_to_cstr(profile_path);
+    let binary_filter = CString::new(binary_filter).unwrap();
 
     unsafe {
-        simpleperf_profcollect_bindgen::Inject(trace_path.as_ptr(), profile_path.as_ptr());
+        simpleperf_profcollect_bindgen::Inject(
+            trace_path.as_ptr(),
+            profile_path.as_ptr(),
+            binary_filter.as_ptr(),
+        );
     }
 }

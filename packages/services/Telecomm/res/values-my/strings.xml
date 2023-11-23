@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"အများသုံးဖုန်းများမှ ခေါ်ဆိုမှုများကို ပိတ်ပါ"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"အမည်မသိ"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"အမည်မသိသော ခေါ်ဆိုသူများကို ပိတ်ပါ"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"မသိနိုင်ပါ"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"နံပါတ် မသိနိုင်သော ခေါ်ဆိုမှုများကို ပိတ်ထားပါ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ခေါ်ဆိုမှု ပိတ်ထားခြင်း"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"\'ခေါ်ဆိုမှု ပိတ်ခြင်း\' ကို ရပ်ထားပါသည်"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"အရေးပေါ် ခေါ်ဆိုမှု ပြုလုပ်ထားပါသည်"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"အရေးပေါ်တုံ့ပြန်သူများက သင့်အား ဆက်သွယ်နိုင်စေရန် \'ခေါ်ဆိုမှု ပိတ်ခြင်း\' ကို ရပ်ထားပါသည်။"</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecom ဆော့ဖ်ဝဲအင်ဂျင်နီယာ မီနူး"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"အရေးပေါ်ခေါ်ဆိုမှု ပြုလုပ်နေစဉ် ဖုန်းမခေါ်နိုင်ပါ။"</string>
+    <string name="cancel" msgid="6733466216239934756">"မလုပ်တော့"</string>
 </resources>

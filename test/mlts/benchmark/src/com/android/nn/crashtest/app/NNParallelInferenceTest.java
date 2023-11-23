@@ -26,7 +26,9 @@ import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.nn.benchmark.app.AcceleratorSpecificTestSupport;
 import com.android.nn.benchmark.app.BenchmarkTestBase;
+import com.android.nn.benchmark.core.NNTestBase;
 import com.android.nn.benchmark.core.NnApiDelegationFailure;
 import com.android.nn.benchmark.core.TestModels;
 
@@ -128,6 +130,10 @@ abstract class NNParallelInferenceTest
             intent.putExtra(NNParallelTestActivity.EXTRA_ACCELERATOR_NAME, acceleratorName);
             intent.putExtra(NNParallelTestActivity.EXTRA_IGNORE_UNSUPPORTED_MODELS, true);
         }
+        intent.putExtra(NNParallelTestActivity.EXTRA_USE_NNAPI_SL,
+            NNTestBase.shouldUseNnApiSupportLibrary());
+        intent.putExtra(NNParallelTestActivity.EXTRA_EXTRACT_NNAPI_SL,
+            NNTestBase.shouldExtractNnApiSupportLibrary());
         return intent;
     }
 }

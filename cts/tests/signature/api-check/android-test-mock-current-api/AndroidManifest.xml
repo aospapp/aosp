@@ -27,7 +27,7 @@
         <uses-library android:name="android.test.mock"/>
     </application>
 
-    <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.signature.cts.api.android_test_mock_current"
                      android:label="Android Test Mock Current API Signature Test"/>
 

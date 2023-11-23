@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
+#include "types.h"
+
 #include <gtest/gtest.h>
 
 #include <memory>
-#include "types.h"
+#include <utility>
+
+#include "fdevent/fdevent_test.h"
 
 static IOVector::block_type create_block(const std::string& string) {
     return IOVector::block_type(string.begin(), string.end());
@@ -133,4 +137,71 @@ TEST(IOVector, drop_front) {
     vec.drop_front(1);
     ASSERT_EQ(1000U, vec.front_size());
     ASSERT_EQ(1000U, vec.size());
+}
+
+TEST(IOVector, take_front) {
+    IOVector vec;
+    ASSERT_TRUE(vec.take_front(0).empty());
+
+    vec.append(create_block('x', 2));
+    ASSERT_EQ(2ULL, vec.size());
+
+    ASSERT_EQ(1ULL, vec.take_front(1).size());
+    ASSERT_EQ(1ULL, vec.size());
+
+    ASSERT_EQ(1ULL, vec.take_front(1).size());
+    ASSERT_EQ(0ULL, vec.size());
+}
+
+TEST(IOVector, trim_front) {
+    IOVector vec;
+    vec.append(create_block('x', 2));
+
+    ASSERT_EQ(1ULL, vec.take_front(1).size());
+    ASSERT_EQ(1ULL, vec.size());
+    vec.trim_front();
+    ASSERT_EQ(1ULL, vec.size());
+}
+
+class weak_ptr_test : public FdeventTest {};
+
+struct Destructor : public enable_weak_from_this<Destructor> {
+    Destructor(bool* destroyed) : destroyed_(destroyed) {}
+    ~Destructor() { *destroyed_ = true; }
+
+    bool* destroyed_;
+};
+
+TEST_F(weak_ptr_test, smoke) {
+    PrepareThread();
+
+    Destructor* destructor = nullptr;
+    bool destroyed = false;
+    std::optional<weak_ptr<Destructor>> p;
+
+    fdevent_run_on_main_thread([&p, &destructor, &destroyed]() {
+        destructor = new Destructor(&destroyed);
+        p = destructor->weak();
+        ASSERT_TRUE(p->get());
+
+        p->reset();
+        ASSERT_FALSE(p->get());
+
+        p->reset(destructor);
+        ASSERT_TRUE(p->get());
+    });
+    WaitForFdeventLoop();
+    ASSERT_TRUE(destructor);
+    ASSERT_FALSE(destroyed);
+
+    destructor->schedule_deletion();
+    WaitForFdeventLoop();
+
+    ASSERT_TRUE(destroyed);
+    fdevent_run_on_main_thread([&p]() {
+        ASSERT_FALSE(p->get());
+        p.reset();
+    });
+
+    TerminateThread();
 }

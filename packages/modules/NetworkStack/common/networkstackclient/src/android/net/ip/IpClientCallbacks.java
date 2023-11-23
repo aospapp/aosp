@@ -19,6 +19,7 @@ package android.net.ip;
 import android.net.DhcpResultsParcelable;
 import android.net.Layer2PacketParcelable;
 import android.net.LinkProperties;
+import android.net.networkstack.aidl.ip.ReachabilityLossInfoParcelable;
 
 import java.util.List;
 
@@ -133,4 +134,16 @@ public class IpClientCallbacks {
      * Invoked on starting preconnection process.
      */
     public void onPreconnectionStart(List<Layer2PacketParcelable> packets) {}
+
+    /**
+     * Called when the internal IpReachabilityMonitor (if enabled) has detected the loss of a
+     * critical number of required neighbors or DHCP roaming fails.
+     *
+     * @param lossInfo the specific neighbor reachability loss information.
+     */
+    public void onReachabilityFailure(ReachabilityLossInfoParcelable lossInfo) {
+        // If the client does not implement this method, call the older
+        // onReachabilityLost method.
+        onReachabilityLost(lossInfo.message);
+    }
 }

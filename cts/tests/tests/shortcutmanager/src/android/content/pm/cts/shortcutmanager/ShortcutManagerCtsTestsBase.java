@@ -18,6 +18,7 @@ package android.content.pm.cts.shortcutmanager;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.*;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -37,9 +38,13 @@ import android.os.PersistableBundle;
 import android.os.StrictMode;
 import android.os.StrictMode.ThreadPolicy;
 import android.os.UserHandle;
-import androidx.annotation.NonNull;
+import android.provider.DeviceConfig;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -450,6 +455,17 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
     }
 
     /**
+     * Make a shortcut excluded from launcher with an ID.
+     */
+    protected ShortcutInfo makeShortcutExcludedFromLauncher(String id) {
+        return makeShortcut(
+                id, "Title-" + id, /* activity =*/ null, /* icon =*/ null,
+                makeIntent(Intent.ACTION_VIEW, ShortcutActivity.class), /* rank =*/ 0,
+                /* locusId =*/ null, /* longLived =*/ true,
+                /* excludedSurfaces */ ShortcutInfo.SURFACE_LAUNCHER);
+    }
+
+    /**
      * Make multiple shortcuts with IDs.
      */
     protected List<ShortcutInfo> makeShortcuts(String... ids) {
@@ -482,11 +498,21 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
      */
     protected ShortcutInfo makeShortcut(String id, String shortLabel, ComponentName activity,
             Icon icon, Intent intent, int rank, LocusId locusId, boolean longLived) {
+        return makeShortcut(id, shortLabel, activity, icon, intent, rank, locusId, longLived, 0);
+    }
+
+    /**
+     * Make a shortcut with details.
+     */
+    protected ShortcutInfo makeShortcut(String id, String shortLabel, ComponentName activity,
+            Icon icon, Intent intent, int rank, LocusId locusId, boolean longLived,
+            int excludedSurfaces) {
         final ShortcutInfo.Builder b = makeShortcutBuilder(id)
                 .setShortLabel(shortLabel)
                 .setRank(rank)
                 .setIntent(intent)
-                .setLongLived(longLived);
+                .setLongLived(longLived)
+                .setExcludedFromSurfaces(excludedSurfaces);
         if (activity != null) {
             b.setActivity(activity);
         } else if (mTargetActivityOverride != null) {
@@ -618,5 +644,12 @@ public abstract class ShortcutManagerCtsTestsBase extends InstrumentationTestCas
             q.setLocusIds(locusIds);
         }
         return getLauncherApps().getShortcuts(q, getUserHandle());
+    }
+
+    protected boolean isAppSearchEnabled() {
+        return SystemUtil.runWithShellPermissionIdentity(() ->
+                DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_SYSTEMUI,
+                        "shortcut_appsearch_integration", true))
+                && !getTestContext().getSystemService(ActivityManager.class).isLowRamDevice();
     }
 }

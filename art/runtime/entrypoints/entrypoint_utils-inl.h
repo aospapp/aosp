@@ -19,6 +19,8 @@
 
 #include "entrypoint_utils.h"
 
+#include <sstream>
+
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
@@ -39,6 +41,7 @@
 #include "mirror/object-inl.h"
 #include "mirror/throwable.h"
 #include "nth_caller_visitor.h"
+#include "oat_file.h"
 #include "reflective_handle_scope-inl.h"
 #include "runtime.h"
 #include "stack_map.h"
@@ -46,6 +49,57 @@
 #include "well_known_classes.h"
 
 namespace art {
+
+inline std::string GetResolvedMethodErrorString(ClassLinker* class_linker,
+                                                ArtMethod* inlined_method,
+                                                ArtMethod* parent_method,
+                                                ArtMethod* outer_method,
+                                                ObjPtr<mirror::DexCache> dex_cache,
+                                                MethodInfo method_info)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  const uint32_t method_index = method_info.GetMethodIndex();
+
+  std::stringstream error_ss;
+  std::string separator = "";
+  error_ss << "BCP vector {";
+  for (const DexFile* df : class_linker->GetBootClassPath()) {
+    error_ss << separator << df << "(" << df->GetLocation() << ")";
+    separator = ", ";
+  }
+  error_ss << "}. oat_dex_files vector: {";
+  separator = "";
+  for (const OatDexFile* odf_value :
+       parent_method->GetDexFile()->GetOatDexFile()->GetOatFile()->GetOatDexFiles()) {
+    error_ss << separator << odf_value << "(" << odf_value->GetDexFileLocation() << ")";
+    separator = ", ";
+  }
+  error_ss << "}. ";
+  if (inlined_method != nullptr) {
+    error_ss << "Inlined method: " << inlined_method->PrettyMethod() << " ("
+             << inlined_method->GetDexFile()->GetLocation() << "/"
+             << static_cast<const void*>(inlined_method->GetDexFile()) << "). ";
+  } else if (dex_cache != nullptr) {
+    error_ss << "Could not find an inlined method from an .oat file, using dex_cache to print the "
+                "inlined method: "
+             << dex_cache->GetDexFile()->PrettyMethod(method_index) << " ("
+             << dex_cache->GetDexFile()->GetLocation() << "/"
+             << static_cast<const void*>(dex_cache->GetDexFile()) << "). ";
+  } else {
+    error_ss << "Both inlined_method and dex_cache are null. This means that we had an OOB access "
+             << "to either bcp_dex_files or oat_dex_files. ";
+  }
+  error_ss << "The outer method is: " << parent_method->PrettyMethod() << " ("
+           << parent_method->GetDexFile()->GetLocation() << "/"
+           << static_cast<const void*>(parent_method->GetDexFile())
+           << "). The outermost method in the chain is: " << outer_method->PrettyMethod() << " ("
+           << outer_method->GetDexFile()->GetLocation() << "/"
+           << static_cast<const void*>(outer_method->GetDexFile())
+           << "). MethodInfo: method_index=" << std::dec << method_index
+           << ", is_in_bootclasspath=" << std::boolalpha
+           << (method_info.GetDexFileIndexKind() == MethodInfo::kKindBCP) << std::noboolalpha
+           << ", dex_file_index=" << std::dec << method_info.GetDexFileIndex() << ".";
+  return error_ss.str();
+}
 
 inline ArtMethod* GetResolvedMethod(ArtMethod* outer_method,
                                     const CodeInfo& code_info,
@@ -80,35 +134,48 @@ inline ArtMethod* GetResolvedMethod(ArtMethod* outer_method,
   for (InlineInfo inline_info : inline_infos) {
     DCHECK(!inline_info.EncodesArtMethod());
     DCHECK_NE(inline_info.GetDexPc(), static_cast<uint32_t>(-1));
-    uint32_t method_index = code_info.GetMethodIndexOf(inline_info);
-    ArtMethod* inlined_method = class_linker->LookupResolvedMethod(method_index,
-                                                                   method->GetDexCache(),
-                                                                   method->GetClassLoader());
+    MethodInfo method_info = code_info.GetMethodInfoOf(inline_info);
+    uint32_t method_index = method_info.GetMethodIndex();
+    const uint32_t dex_file_index = method_info.GetDexFileIndex();
+    ArtMethod* inlined_method = nullptr;
+    ObjPtr<mirror::DexCache> dex_cache = nullptr;
+    if (method_info.HasDexFileIndex()) {
+      if (method_info.GetDexFileIndexKind() == MethodInfo::kKindBCP) {
+        ArrayRef<const DexFile* const> bcp_dex_files(class_linker->GetBootClassPath());
+        DCHECK_LT(dex_file_index, bcp_dex_files.size())
+            << "OOB access to bcp_dex_files. Dumping info: "
+            << GetResolvedMethodErrorString(
+                   class_linker, inlined_method, method, outer_method, dex_cache, method_info);
+        const DexFile* dex_file = bcp_dex_files[dex_file_index];
+        DCHECK_NE(dex_file, nullptr);
+        dex_cache = class_linker->FindDexCache(Thread::Current(), *dex_file);
+      } else {
+        ArrayRef<const OatDexFile* const> oat_dex_files(
+            outer_method->GetDexFile()->GetOatDexFile()->GetOatFile()->GetOatDexFiles());
+        DCHECK_LT(dex_file_index, oat_dex_files.size())
+            << "OOB access to oat_dex_files. Dumping info: "
+            << GetResolvedMethodErrorString(
+                   class_linker, inlined_method, method, outer_method, dex_cache, method_info);
+        const OatDexFile* odf = oat_dex_files[dex_file_index];
+        DCHECK_NE(odf, nullptr);
+        dex_cache = class_linker->FindDexCache(Thread::Current(), *odf);
+      }
+    } else {
+      dex_cache = outer_method->GetDexCache();
+    }
+    inlined_method =
+        class_linker->LookupResolvedMethod(method_index, dex_cache, dex_cache->GetClassLoader());
+
     if (UNLIKELY(inlined_method == nullptr)) {
-      LOG(FATAL) << "Could not find an inlined method from an .oat file: "
-                 << method->GetDexFile()->PrettyMethod(method_index) << " . "
-                 << "This must be due to duplicate classes or playing wrongly with class loaders";
+      LOG(FATAL) << GetResolvedMethodErrorString(
+          class_linker, inlined_method, method, outer_method, dex_cache, method_info);
       UNREACHABLE();
     }
     DCHECK(!inlined_method->IsRuntimeMethod());
-    if (UNLIKELY(inlined_method->GetDexFile() != method->GetDexFile())) {
-      // TODO: We could permit inlining within a multi-dex oat file and the boot image,
-      // even going back from boot image methods to the same oat file. However, this is
-      // not currently implemented in the compiler. Therefore crossing dex file boundary
-      // indicates that the inlined definition is not the same as the one used at runtime.
-      bool target_sdk_at_least_p =
-          IsSdkVersionSetAndAtLeast(Runtime::Current()->GetTargetSdkVersion(), SdkVersion::kP);
-      LOG(target_sdk_at_least_p ? FATAL : WARNING)
-          << "Inlined method resolution crossed dex file boundary: from "
-          << method->PrettyMethod()
-          << " in " << method->GetDexFile()->GetLocation() << "/"
-          << static_cast<const void*>(method->GetDexFile())
-          << " to " << inlined_method->PrettyMethod()
-          << " in " << inlined_method->GetDexFile()->GetLocation() << "/"
-          << static_cast<const void*>(inlined_method->GetDexFile()) << ". "
-          << "This must be due to duplicate classes or playing wrongly with class loaders. "
-          << "The runtime is in an unsafe state.";
-    }
+    DCHECK_EQ(inlined_method->GetDexFile() == outer_method->GetDexFile(),
+              dex_file_index == MethodInfo::kSameDexFile)
+        << GetResolvedMethodErrorString(
+               class_linker, inlined_method, method, outer_method, dex_cache, method_info);
     method = inlined_method;
   }
 
@@ -419,6 +486,66 @@ EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticPrimitiveWrite);
 #undef EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL
 #undef EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL
 
+template<bool access_check>
+ALWAYS_INLINE ArtMethod* FindSuperMethodToCall(uint32_t method_idx,
+                                              ArtMethod* resolved_method,
+                                              ArtMethod* referrer,
+                                              Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // TODO This lookup is quite slow.
+  // NB This is actually quite tricky to do any other way. We cannot use GetDeclaringClass since
+  //    that will actually not be what we want in some cases where there are miranda methods or
+  //    defaults. What we actually need is a GetContainingClass that says which classes virtuals
+  //    this method is coming from.
+  ClassLinker* linker = Runtime::Current()->GetClassLinker();
+  dex::TypeIndex type_idx = referrer->GetDexFile()->GetMethodId(method_idx).class_idx_;
+  ObjPtr<mirror::Class> referenced_class = linker->ResolveType(type_idx, referrer);
+  if (UNLIKELY(referenced_class == nullptr)) {
+    DCHECK(self->IsExceptionPending());
+    return nullptr;
+  }
+
+  if (access_check) {
+    if (!referenced_class->IsAssignableFrom(referrer->GetDeclaringClass())) {
+      ThrowNoSuchMethodError(kSuper,
+                             resolved_method->GetDeclaringClass(),
+                             resolved_method->GetName(),
+                             resolved_method->GetSignature());
+      return nullptr;
+    }
+  }
+
+  if (referenced_class->IsInterface()) {
+    // TODO We can do better than this for a (compiled) fastpath.
+    ArtMethod* found_method = referenced_class->FindVirtualMethodForInterfaceSuper(
+        resolved_method, linker->GetImagePointerSize());
+    DCHECK(found_method != nullptr);
+    return found_method;
+  }
+
+  DCHECK(resolved_method->IsCopied() ||
+         !resolved_method->GetDeclaringClass()->IsInterface());
+
+  uint16_t vtable_index = resolved_method->GetMethodIndex();
+  ObjPtr<mirror::Class> super_class = referrer->GetDeclaringClass()->GetSuperClass();
+  if (access_check) {
+    DCHECK(super_class == nullptr || super_class->HasVTable());
+    // Check existence of super class.
+    if (super_class == nullptr ||
+        vtable_index >= static_cast<uint32_t>(super_class->GetVTableLength())) {
+      // Behavior to agree with that of the verifier.
+      ThrowNoSuchMethodError(kSuper,
+                             resolved_method->GetDeclaringClass(),
+                             resolved_method->GetName(),
+                             resolved_method->GetSignature());
+      return nullptr;  // Failure.
+    }
+  }
+  DCHECK(super_class != nullptr);
+  DCHECK(super_class->HasVTable());
+  return super_class->GetVTableEntry(vtable_index, linker->GetImagePointerSize());
+}
+
 // Follow virtual/interface indirections if applicable.
 // Will throw null-pointer exception the if the object is null.
 template<InvokeType type, bool access_check>
@@ -464,67 +591,7 @@ ALWAYS_INLINE ArtMethod* FindMethodToCall(uint32_t method_idx,
       return klass->GetVTableEntry(vtable_index, class_linker->GetImagePointerSize());
     }
     case kSuper: {
-      // TODO This lookup is quite slow.
-      // NB This is actually quite tricky to do any other way. We cannot use GetDeclaringClass since
-      //    that will actually not be what we want in some cases where there are miranda methods or
-      //    defaults. What we actually need is a GetContainingClass that says which classes virtuals
-      //    this method is coming from.
-      StackHandleScope<2> hs2(self);
-      HandleWrapperObjPtr<mirror::Object> h_this(hs2.NewHandleWrapper(this_object));
-      Handle<mirror::Class> h_referring_class(hs2.NewHandle(referrer->GetDeclaringClass()));
-      const dex::TypeIndex method_type_idx =
-          referrer->GetDexFile()->GetMethodId(method_idx).class_idx_;
-      ObjPtr<mirror::Class> method_reference_class =
-          class_linker->ResolveType(method_type_idx, referrer);
-      if (UNLIKELY(method_reference_class == nullptr)) {
-        // Bad type idx.
-        CHECK(self->IsExceptionPending());
-        return nullptr;
-      } else if (!method_reference_class->IsInterface()) {
-        // It is not an interface. If the referring class is in the class hierarchy of the
-        // referenced class in the bytecode, we use its super class. Otherwise, we throw
-        // a NoSuchMethodError.
-        ObjPtr<mirror::Class> super_class = nullptr;
-        if (method_reference_class->IsAssignableFrom(h_referring_class.Get())) {
-          super_class = h_referring_class->GetSuperClass();
-        }
-        uint16_t vtable_index = resolved_method->GetMethodIndex();
-        if (access_check) {
-          // Check existence of super class.
-          if (super_class == nullptr ||
-              !super_class->HasVTable() ||
-              vtable_index >= static_cast<uint32_t>(super_class->GetVTableLength())) {
-            // Behavior to agree with that of the verifier.
-            ThrowNoSuchMethodError(type, resolved_method->GetDeclaringClass(),
-                                   resolved_method->GetName(), resolved_method->GetSignature());
-            return nullptr;  // Failure.
-          }
-        }
-        DCHECK(super_class != nullptr);
-        DCHECK(super_class->HasVTable());
-        return super_class->GetVTableEntry(vtable_index, class_linker->GetImagePointerSize());
-      } else {
-        // It is an interface.
-        if (access_check) {
-          if (!method_reference_class->IsAssignableFrom(h_this->GetClass())) {
-            ThrowIncompatibleClassChangeErrorClassForInterfaceSuper(resolved_method,
-                                                                    method_reference_class,
-                                                                    h_this.Get(),
-                                                                    referrer);
-            return nullptr;  // Failure.
-          }
-        }
-        // TODO We can do better than this for a (compiled) fastpath.
-        ArtMethod* result = method_reference_class->FindVirtualMethodForInterfaceSuper(
-            resolved_method, class_linker->GetImagePointerSize());
-        // Throw an NSME if nullptr;
-        if (result == nullptr) {
-          ThrowNoSuchMethodError(type, resolved_method->GetDeclaringClass(),
-                                 resolved_method->GetName(), resolved_method->GetSignature());
-        }
-        return result;
-      }
-      UNREACHABLE();
+      return FindSuperMethodToCall<access_check>(method_idx, resolved_method, referrer, self);
     }
     case kInterface: {
       size_t imt_index = resolved_method->GetImtIndex();
@@ -603,100 +670,6 @@ EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kInterface);
 #undef EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL
 #undef EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL
 
-// Fast path field resolution that can't initialize classes or throw exceptions.
-inline ArtField* FindFieldFast(uint32_t field_idx, ArtMethod* referrer, FindFieldType type,
-                               size_t expected_size) {
-  ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  ArtField* resolved_field = referrer->GetDexCache()->GetResolvedField(field_idx);
-  if (UNLIKELY(resolved_field == nullptr)) {
-    return nullptr;
-  }
-  // Check for incompatible class change.
-  const bool is_primitive = (type & FindFieldFlags::PrimitiveBit) != 0;
-  const bool is_set = (type & FindFieldFlags::WriteBit) != 0;
-  const bool is_static = (type & FindFieldFlags::StaticBit) != 0;
-  if (UNLIKELY(resolved_field->IsStatic() != is_static)) {
-    // Incompatible class change.
-    return nullptr;
-  }
-  ObjPtr<mirror::Class> fields_class = resolved_field->GetDeclaringClass();
-  if (is_static) {
-    // Check class is initialized else fail so that we can contend to initialize the class with
-    // other threads that may be racing to do this.
-    if (UNLIKELY(!fields_class->IsVisiblyInitialized())) {
-      return nullptr;
-    }
-  }
-  ObjPtr<mirror::Class> referring_class = referrer->GetDeclaringClass();
-  if (UNLIKELY(!referring_class->CanAccess(fields_class) ||
-               !referring_class->CanAccessMember(fields_class, resolved_field->GetAccessFlags()) ||
-               (is_set && !resolved_field->CanBeChangedBy(referrer)))) {
-    // Illegal access.
-    return nullptr;
-  }
-  if (UNLIKELY(resolved_field->IsPrimitiveType() != is_primitive ||
-               resolved_field->FieldSize() != expected_size)) {
-    return nullptr;
-  }
-  return resolved_field;
-}
-
-// Fast path method resolution that can't throw exceptions.
-template <InvokeType type, bool access_check>
-inline ArtMethod* FindMethodFast(uint32_t method_idx,
-                                 ObjPtr<mirror::Object> this_object,
-                                 ArtMethod* referrer) {
-  ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  if (UNLIKELY(this_object == nullptr && type != kStatic)) {
-    return nullptr;
-  }
-  ObjPtr<mirror::Class> referring_class = referrer->GetDeclaringClass();
-  ObjPtr<mirror::DexCache> dex_cache = referrer->GetDexCache();
-  constexpr ClassLinker::ResolveMode resolve_mode = access_check
-      ? ClassLinker::ResolveMode::kCheckICCEAndIAE
-      : ClassLinker::ResolveMode::kNoChecks;
-  ClassLinker* linker = Runtime::Current()->GetClassLinker();
-  ArtMethod* resolved_method = linker->GetResolvedMethod<type, resolve_mode>(method_idx, referrer);
-  if (UNLIKELY(resolved_method == nullptr)) {
-    return nullptr;
-  }
-  if (type == kInterface) {  // Most common form of slow path dispatch.
-    return this_object->GetClass()->FindVirtualMethodForInterface(resolved_method,
-                                                                  kRuntimePointerSize);
-  } else if (type == kStatic || type == kDirect) {
-    return resolved_method;
-  } else if (type == kSuper) {
-    // TODO This lookup is rather slow.
-    dex::TypeIndex method_type_idx = dex_cache->GetDexFile()->GetMethodId(method_idx).class_idx_;
-    ObjPtr<mirror::Class> method_reference_class = linker->LookupResolvedType(
-        method_type_idx, dex_cache, referrer->GetClassLoader());
-    if (method_reference_class == nullptr) {
-      // Need to do full type resolution...
-      return nullptr;
-    } else if (!method_reference_class->IsInterface()) {
-      // It is not an interface. If the referring class is in the class hierarchy of the
-      // referenced class in the bytecode, we use its super class. Otherwise, we cannot
-      // resolve the method.
-      if (!method_reference_class->IsAssignableFrom(referring_class)) {
-        return nullptr;
-      }
-      ObjPtr<mirror::Class> super_class = referring_class->GetSuperClass();
-      if (resolved_method->GetMethodIndex() >= super_class->GetVTableLength()) {
-        // The super class does not have the method.
-        return nullptr;
-      }
-      return super_class->GetVTableEntry(resolved_method->GetMethodIndex(), kRuntimePointerSize);
-    } else {
-      return method_reference_class->FindVirtualMethodForInterfaceSuper(
-          resolved_method, kRuntimePointerSize);
-    }
-  } else {
-    DCHECK(type == kVirtual);
-    return this_object->GetClass()->GetVTableEntry(
-        resolved_method->GetMethodIndex(), kRuntimePointerSize);
-  }
-}
-
 inline ObjPtr<mirror::Class> ResolveVerifyAndClinit(dex::TypeIndex type_idx,
                                                     ArtMethod* referrer,
                                                     Thread* self,
@@ -758,23 +731,27 @@ inline bool NeedsClinitCheckBeforeCall(ArtMethod* method) {
   return method->IsStatic() && !method->IsConstructor();
 }
 
-inline jobject GetGenericJniSynchronizationObject(Thread* self, ArtMethod* called)
+inline ObjPtr<mirror::Object> GetGenericJniSynchronizationObject(Thread* self, ArtMethod* called)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(!called->IsCriticalNative());
   DCHECK(!called->IsFastNative());
   DCHECK(self->GetManagedStack()->GetTopQuickFrame() != nullptr);
   DCHECK_EQ(*self->GetManagedStack()->GetTopQuickFrame(), called);
+  // We do not need read barriers here.
+  // On method entry, all reference arguments are to-space references and we mark the
+  // declaring class of a static native method if needed. When visiting thread roots at
+  // the start of a GC, we visit all these references to ensure they point to the to-space.
   if (called->IsStatic()) {
     // Static methods synchronize on the declaring class object.
-    // The `jclass` is a pointer to the method's declaring class.
-    return reinterpret_cast<jobject>(called->GetDeclaringClassAddressWithoutBarrier());
+    return called->GetDeclaringClass<kWithoutReadBarrier>();
   } else {
     // Instance methods synchronize on the `this` object.
     // The `this` reference is stored in the first out vreg in the caller's frame.
-    // The `jobject` is a pointer to the spill slot.
     uint8_t* sp = reinterpret_cast<uint8_t*>(self->GetManagedStack()->GetTopQuickFrame());
     size_t frame_size = RuntimeCalleeSaveFrame::GetFrameSize(CalleeSaveType::kSaveRefsAndArgs);
-    return reinterpret_cast<jobject>(sp + frame_size + static_cast<size_t>(kRuntimePointerSize));
+    StackReference<mirror::Object>* this_ref = reinterpret_cast<StackReference<mirror::Object>*>(
+        sp + frame_size + static_cast<size_t>(kRuntimePointerSize));
+    return this_ref->AsMirrorPtr();
   }
 }
 

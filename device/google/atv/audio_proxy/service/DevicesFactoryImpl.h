@@ -17,36 +17,43 @@
 // clang-format off
 #include PATH(android/hardware/audio/FILE_VERSION/IDevicesFactory.h)
 // clang-format on
-#include <hidl/MQDescriptor.h>
-#include <hidl/Status.h>
 
 #include "DeviceImpl.h"
+#include "ServiceConfig.h"
 
 namespace audio_proxy {
 namespace service {
 
-using ::android::sp;
-using ::android::hardware::hidl_array;
-using ::android::hardware::hidl_memory;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::audio::CPP_VERSION::IDevicesFactory;
+using android::hardware::Return;
 
-class BusDeviceProvider;
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+using android::hardware::audio::V7_1::IDevicesFactory;
+#else
+using android::hardware::audio::CPP_VERSION::IDevicesFactory;
+#endif
+
+class BusStreamProvider;
 
 class DevicesFactoryImpl : public IDevicesFactory {
  public:
-  explicit DevicesFactoryImpl(BusDeviceProvider& busDeviceProvider);
+  DevicesFactoryImpl(BusStreamProvider& busDeviceProvider,
+                     const ServiceConfig& config);
 
-  // Methods from ::android::hardware::audio::V5_0::IDevicesFactory follow.
+  // Methods from android::hardware::audio::V5_0::IDevicesFactory follow.
   Return<void> openDevice(const hidl_string& device,
                           openDevice_cb _hidl_cb) override;
   Return<void> openPrimaryDevice(openPrimaryDevice_cb _hidl_cb) override;
 
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+  Return<void> openDevice_7_1(const hidl_string& device,
+                              openDevice_7_1_cb _hidl_cb) override;
+  Return<void> openPrimaryDevice_7_1(
+      openPrimaryDevice_7_1_cb _hidl_cb) override;
+#endif
+
  private:
-  BusDeviceProvider& mBusDeviceProvider;
+  BusStreamProvider& mBusStreamProvider;
+  const ServiceConfig& mConfig;
 };
 
 }  // namespace service

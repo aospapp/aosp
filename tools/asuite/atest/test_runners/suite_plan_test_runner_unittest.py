@@ -25,6 +25,8 @@ from unittest import mock
 import unittest_constants as uc
 import unittest_utils
 
+from logstorage import atest_gcp_utils
+from logstorage import logstorage_utils
 from test_finders import test_info
 from test_runners import suite_plan_test_runner
 
@@ -113,16 +115,26 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
             self.suite_tr.generate_run_commands(test_infos, {'SERIAL':'LG123456789'}),
             run_cmd)
 
+    @mock.patch.object(logstorage_utils, 'BuildClient')
+    @mock.patch.object(atest_gcp_utils, 'do_upload_flow')
+    @mock.patch('atest_utils.get_manifest_branch')
+    @mock.patch.object(logstorage_utils.BuildClient, 'update_invocation')
     @mock.patch('subprocess.Popen')
     @mock.patch.object(suite_plan_test_runner.SuitePlanTestRunner, 'run')
     @mock.patch.object(suite_plan_test_runner.SuitePlanTestRunner,
                        'generate_run_commands')
-    def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen):
+    def test_run_tests(self, _mock_gen_cmd, _mock_run, _mock_popen,
+        _mock_upd_inv, _mock_get_branch, _mock_do_upload_flow, _mock_client):
         """Test run_tests method."""
         test_infos = []
-        extra_args = []
+        extra_args = {}
         mock_reporter = mock.Mock()
         _mock_gen_cmd.return_value = ["cmd1", "cmd2"]
+        process = _mock_popen.return_value.__enter__.return_value
+        process.returncode = 0
+        process.communicate.return_value = (b'output', b'error')
+        _mock_do_upload_flow.return_value = None, None
+
         # Test Build Pass
         _mock_popen.return_value.returncode = 0
         self.assertEqual(

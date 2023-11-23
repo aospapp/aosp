@@ -21,7 +21,7 @@ _TEST_CONFIG_XML = """<config>
   <target name="android_target_1">
     <build_config>
       <goal name="droid"/>
-      <goal name="dist"/>
+      <flag name="dist"/>
     </build_config>
   </target>
   <target name="android_target_2" tags="cool,hot">
@@ -30,14 +30,14 @@ _TEST_CONFIG_XML = """<config>
     <goal name="common_goal"/>
     <build_config tags="warm">
       <goal name="droid"/>
-      <goal name="dist"/>
+      <flag name="dist"/>
       <goal name="goal_for_android_target_2"/>
     </build_config>
     <build_config name="build_target_2" tags="dry">
       <config name="fmc_framework_images" value="bt1,bt2"/>
       <config name="fmc_misc_info_keys" value="misc_info_keys_2.txt"/>
       <goal name="droid"/>
-      <goal name="VAR=a"/>
+      <flag name="VAR=a"/>
     </build_config>
   </target>
   <target name="android_target_3" tags="">
@@ -67,10 +67,10 @@ _TEST_CONTEXTS_CONFIG_XML = """<config>
       <goal name="always" contexts=""/>
 
       <!-- selected if ci context requested -->
-      <goal name="dist" contexts="ci"/>
+      <flag name="dist" contexts="ci"/>
 
       <!-- selected if x context requested -->
-      <goal name="VAR=value" contexts="x"/>
+      <flag name="VAR=value" contexts="x"/>
 
       <!-- selected if ci or x context requested -->
       <goal name="extra_goal" contexts="ci,x"/>
@@ -79,6 +79,7 @@ _TEST_CONTEXTS_CONFIG_XML = """<config>
   </target>
 </config>
 """
+
 
 class ConfigTest(unittest.TestCase):
   """unittest for Config."""
@@ -159,32 +160,28 @@ class ConfigTest(unittest.TestCase):
           cfg.get_build_config_android_target('some_target'),
           'android_target_4')
 
-  def testBuildTargetToBuildGoals(self):
+  def testBuildTargetToBuildGoalsAndFlags(self):
     with tempfile.NamedTemporaryFile('w+t') as test_config:
       test_config.write(_TEST_CONFIG_XML)
       test_config.flush()
       cfg = config.factory(test_config.name)
 
-      # Test that build_target android_target_1 has goals droid and dist.
-      self.assertEqual(
-          cfg.get_build_goals('android_target_1'),
-          ['droid', 'dist'])
+      self.assertEqual(cfg.get_build_goals('android_target_1'), ['droid'])
+      self.assertEqual(cfg.get_build_flags('android_target_1'), ['dist'])
 
-      # Test that build_target android_target_2 has goals droid, dist, and
-      # goal_for_android_target_2.
       self.assertEqual(
           cfg.get_build_goals('android_target_2'),
-          ['common_goal', 'droid', 'dist', 'goal_for_android_target_2'])
+          ['common_goal', 'droid', 'goal_for_android_target_2'])
+      self.assertEqual(cfg.get_build_flags('android_target_2'), ['dist'])
 
-      # Test that build_target build_target_2 has goals droid and VAR=a.
       self.assertEqual(
-          cfg.get_build_goals('build_target_2'),
-          ['common_goal', 'droid', 'VAR=a'])
+          cfg.get_build_goals('build_target_2'), ['common_goal', 'droid'])
+      self.assertEqual(cfg.get_build_flags('build_target_2'), ['VAR=a'])
 
       # Test empty goals
-      self.assertEqual(cfg.get_build_goals('no_goals_target'),[])
+      self.assertEqual(cfg.get_build_goals('no_goals_target'), [])
 
-  def testBuildTargetToBuildGoalsWithContexts(self):
+  def testBuildTargetToBuildGoalsAndFlagsWithContexts(self):
     with tempfile.NamedTemporaryFile('w+t') as test_config:
       test_config.write(_TEST_CONTEXTS_CONFIG_XML)
       test_config.flush()
@@ -212,19 +209,19 @@ class ConfigTest(unittest.TestCase):
       # the x goals.
 
       build_goals = cfg.get_build_goals('test_target', set(['x']))
+      build_flags = cfg.get_build_flags('test_target', set(['x']))
 
-      self.assertEqual(
-          build_goals,
-          ['droid', 'always', 'VAR=value', 'extra_goal'])
+      self.assertEqual(build_goals, ['droid', 'always', 'extra_goal'])
+      self.assertEqual(build_flags, ['VAR=value'])
 
       # Test that when requested_contexts is set(['ci', 'x']), we select the
       # "always" goals, the ci goals, and the x goals.
 
       build_goals = cfg.get_build_goals('test_target', set(['ci', 'x']))
+      build_flags = cfg.get_build_flags('test_target', set(['ci', 'x']))
 
-      self.assertEqual(
-          build_goals,
-          ['droid', 'always', 'dist', 'VAR=value', 'extra_goal'])
+      self.assertEqual(build_goals, ['droid', 'always', 'extra_goal'])
+      self.assertEqual(build_flags, ['dist', 'VAR=value'])
 
   def testAllowReadWriteAll(self):
     with tempfile.NamedTemporaryFile('w+t') as test_config:
@@ -292,16 +289,19 @@ class ConfigTest(unittest.TestCase):
       cfg = config.factory(test_config.name)
 
       bc_at2 = cfg.get_build_config('android_target_2')
-      self.assertDictEqual(bc_at2.configurations, {
-        'fmc_framework_images': 'image1,image2',
-        'fmc_misc_info_keys': 'misc_info_keys.txt'
-      })
+      self.assertDictEqual(
+          bc_at2.configurations, {
+              'fmc_framework_images': 'image1,image2',
+              'fmc_misc_info_keys': 'misc_info_keys.txt'
+          })
 
       bc_bt2 = cfg.get_build_config('build_target_2')
-      self.assertDictEqual(bc_bt2.configurations, {
-        'fmc_framework_images': 'bt1,bt2',
-        'fmc_misc_info_keys': 'misc_info_keys_2.txt'
-      })
+      self.assertDictEqual(
+          bc_bt2.configurations, {
+              'fmc_framework_images': 'bt1,bt2',
+              'fmc_misc_info_keys': 'misc_info_keys_2.txt'
+          })
+
 
 if __name__ == '__main__':
   unittest.main()

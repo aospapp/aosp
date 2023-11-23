@@ -17,22 +17,13 @@
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_ONLINE_CALIBRATION_COMMON_DATA_ONLINE_CALIBRATION_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_ONLINE_CALIBRATION_COMMON_DATA_ONLINE_CALIBRATION_H_
 
-#include <cstdint>
-#include <cstring>
+#include <string.h>
 
 #include "calibration/online_calibration/common_data/calibration_callback.h"
 #include "calibration/online_calibration/common_data/calibration_data.h"
 #include "calibration/online_calibration/common_data/sensor_data.h"
 
 namespace online_calibration {
-
-// Device physical state change types.
-enum class PhysicalStateType : uint8_t {
-  kUnknownPhysicalState = 0,
-  kFoldableOpen,
-  kFoldableClosed,
-  kNumPhysicalStateTypes,
-};
 
 /*
  * This abstract base class provides a set of general interface functions for
@@ -71,28 +62,9 @@ class OnlineCalibration {
   // of the calibration update flags, 'cal_update_polling_flags_'.
   virtual CalibrationTypeFlags SetMeasurement(const SensorData& sample) = 0;
 
-  // In a multisensor context, 'sensor_index' is used to disambiguate the origin
-  // of the input sensor data (e.g., useful for separating multiple magnetometer
-  // data streams). The default implementation resorts to the above
-  // SetMeasurement implementation provided by each calibration algorithm.
-  // SetMultiSensorMeasurement can be overridden to do the special multisensor
-  // handling when applicable.
-  virtual CalibrationTypeFlags SetMultiSensorMeasurement(
-      const SensorData& sample, uint8_t sensor_index) {
-    return SetMeasurement(sample);
-  }
-
   // Sets the initial calibration data of the calibration algorithm. Returns
   // "true" if set successfully.
   virtual bool SetInitialCalibration(const CalibrationType& cal_data) = 0;
-
-  // Indicates which values are modified by this calibration algorithm.
-  virtual CalibrationTypeFlags which_calibration_flags() const = 0;
-
-  // Optional function used by calibration algorithms to maintain awareness of
-  // of sensor enable states.
-  virtual void UpdateSensorEnableState(SensorType sensor_type,
-                                       uint8_t sensor_index, bool is_enabled) {}
 
   // Polling Updates: New calibration updates are generated during
   // SetMeasurement and the 'cal_update_polling_flags_' are set according to
@@ -119,31 +91,8 @@ class OnlineCalibration {
     calibration_callback_ = calibration_callback;
   }
 
-  // Sets a platform-dependent sensor index that can be used to associate
-  // calibration data with a particular sensor.
-  void set_sensor_index(uint8_t sensor_index) { sensor_index_ = sensor_index; }
-
-  // Returns the platform-dependent sensor index.
-  uint8_t get_sensor_index() const { return sensor_index_; }
-
-  // Sets a platform-dependent calibration index that can be used to
-  // associate more than one distinct calibration data with a particular sensor.
-  void set_calibration_index(uint8_t calibration_index) {
-    calibration_index_ = calibration_index;
-  }
-
-  // Returns the platform-dependent sensor index.
-  uint8_t get_calibration_index() const { return calibration_index_; }
-
   // Returns the sensor-type this calibration algorithm provides updates for.
   virtual SensorType get_sensor_type() const = 0;
-
-  // Tells the calibrator that the device's physical state has changed. This is
-  // useful, for example, if there is a need for the calibration algorithm to be
-  // aware of and take some sort of internal action in response to a physical
-  // state change (e.g., for foldable devices, MagCal may adjust internal states
-  // to implement specific transition behavior between open/closed states).
-  virtual void UpdatePhysicalState(PhysicalStateType physical_state) {}
 
  protected:
   // Helper function that activates the registered callback.
@@ -162,10 +111,6 @@ class OnlineCalibration {
 
   // Stores the sensor calibration data.
   CalibrationType cal_data_;
-
-  // Associated sensor and calibration indices.
-  uint8_t sensor_index_ = 0;
-  uint8_t calibration_index_ = 0;
 
   // Tracks the most recent sensor temperature value.
   float temperature_celsius_ = kInvalidTemperatureCelsius;

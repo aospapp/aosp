@@ -129,8 +129,10 @@ LocalExecutable::RunHelper(const absl::Span<const Shape* const> argument_shapes,
         computation_layout.parameter_count(), argument_shapes.size());
   }
   for (int i = 0, end = argument_shapes.size(); i < end; ++i) {
+    // TODO(b/187081154): Compare tiling info also.
     if (!computation_layout.parameter_layout(i).MatchesLayoutInShape(
-            *argument_shapes[i], /*minor_to_major_only=*/true)) {
+            *argument_shapes[i], /*minor_to_major_only=*/false,
+            /*ignore_fully_empty_tiling=*/true)) {
       return InvalidParameterArgument(
           executable_.get(), i,
           "Argument does not match host shape or layout of computation "

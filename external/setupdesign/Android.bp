@@ -34,6 +34,7 @@ android_library {
         "androidx.appcompat_appcompat",
         "androidx.recyclerview_recyclerview",
         "com.google.android.material_material",
+        "error_prone_annotations",
         "setupcompat",
         "setupdesign-strings",
     ],

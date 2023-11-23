@@ -88,6 +88,11 @@ ifneq ($(MESA_BUILD_GALLIUM),)
 LOCAL_REQUIRED_MODULES += gallium_dri
 endif
 
+# TODO(b/223646636): Temporary hack for handles with HDR metadata fds
+ifeq ($(BOARD_GPU_DRIVERS),virgl)
+LOCAL_CFLAGS += -DNUM_FDS_HACK
+endif
+
 LOCAL_MODULE := libGLES_mesa
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
 LOCAL_LICENSE_CONDITIONS := notice

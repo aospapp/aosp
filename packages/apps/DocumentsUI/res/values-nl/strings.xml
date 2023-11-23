@@ -233,7 +233,7 @@
     <string name="archive_loading_failed" msgid="7243436722828766996">"Archief kan niet worden geopend voor browsen. Het bestand is mogelijk beschadigd of heeft een niet-ondersteunde indeling."</string>
     <string name="name_conflict" msgid="28407269328862986">"Er bestaat al een bestand met deze naam."</string>
     <string name="authentication_required" msgid="8030880723643436099">"Log in bij <xliff:g id="NAME">%1$s</xliff:g> om deze directory te bekijken"</string>
-    <string name="cant_display_content" msgid="8633226333229417237">"Kan content niet weergeven"</string>
+    <string name="cant_display_content" msgid="8633226333229417237">"Kan content niet bekijken"</string>
     <string name="sign_in" msgid="6253762676723505592">"Inloggen"</string>
     <string name="new_archive_file_name" msgid="1604650338077249838">"archief<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> overschrijven?"</string>

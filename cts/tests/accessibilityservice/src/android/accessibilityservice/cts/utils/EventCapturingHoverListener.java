@@ -17,14 +17,17 @@
 package android.accessibilityservice.cts.utils;
 
 import static android.view.MotionEvent.ACTION_HOVER_MOVE;
-import static java.util.concurrent.TimeUnit.SECONDS;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import android.view.MotionEvent;
 import android.view.View;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -94,6 +97,9 @@ public class EventCapturingHoverListener implements View.OnHoverListener {
                     if (!prev.equals(MotionEvent.actionToString(ACTION_HOVER_MOVE))) {
                         received.add(MotionEvent.actionToString(action));
                     }
+                }
+                if (expected.size() == received.size()) {
+                    break;
                 }
                 ev = mEvents.poll(waitTime, SECONDS);
             }

@@ -15,9 +15,14 @@
 
 #pragma once
 
+#include <optional>
+#include <vector>
+
 #include <keymaster/serializable.h>
 
 #include "host/commands/secure_env/tpm_resource_manager.h"
+
+namespace cuttlefish {
 
 /**
  * A keymaster::Serializable that wraps another keymaster::Serializable,
@@ -38,17 +43,23 @@
  */
 class HmacSerializable : public keymaster::Serializable {
 public:
-  HmacSerializable(TpmResourceManager&,
-                   std::function<TpmObjectSlot(TpmResourceManager&)>,
-                   uint32_t digest_size,
-                   Serializable*);
+ HmacSerializable(TpmResourceManager&,
+                  std::function<TpmObjectSlot(TpmResourceManager&)>,
+                  uint32_t digest_size, Serializable*, const Serializable* aad);
 
-  size_t SerializedSize() const override;
-  uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
-  bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+ size_t SerializedSize() const override;
+ uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+ bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
 private:
   TpmResourceManager& resource_manager_;
   std::function<TpmObjectSlot(TpmResourceManager&)> signing_key_fn_;
   uint32_t digest_size_;
-  keymaster::Serializable* wrapped_;
+  Serializable* wrapped_;
+  const Serializable* aad_;
+
+  std::optional<std::vector<uint8_t>> AppendAad(const uint8_t* sensitive,
+                                                size_t sensitive_size) const;
 };
+
+}  // namespace cuttlefish

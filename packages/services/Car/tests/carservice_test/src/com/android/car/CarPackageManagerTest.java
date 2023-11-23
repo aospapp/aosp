@@ -15,9 +15,7 @@
  */
 package com.android.car;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.car.Car;
 import android.car.content.pm.AppBlockingPackageInfo;
@@ -50,9 +48,9 @@ public class CarPackageManagerTest extends MockedCarTestBase {
         Log.i(TAG, "init started");
         TestAppBlockingPolicyService.controlPolicySettingFromService(policyFromService);
         mCarPm = (CarPackageManager) getCar().getCarManager(Car.PACKAGE_SERVICE);
-        assertNotNull(mCarPm);
+        assertThat(mCarPm).isNotNull();
         mCarPmService = CarLocalServices.getService(CarPackageManagerService.class);
-        assertNotNull(mCarPmService);
+        assertThat(mCarPmService).isNotNull();
         mCarPmService.startAppBlockingPolicies();
     }
 
@@ -60,22 +58,23 @@ public class CarPackageManagerTest extends MockedCarTestBase {
     public void testServiceLaunched() throws Exception {
         init(true);
         Log.i(TAG, "testServiceLaunched, init called");
-        assertTrue(pollingCheck(new PollingChecker() {
+        assertThat(pollingCheck(new PollingChecker() {
             @Override
             public boolean check() {
                 Log.i(TAG, "checking instance ...");
                 return TestAppBlockingPolicyService.getInstance() != null;
             }
-        }, POLLING_MAX_RETRY, POLLING_SLEEP));
+        }, POLLING_MAX_RETRY, POLLING_SLEEP)).isTrue();
         final String thisPackage = getContext().getPackageName();
         final String serviceClassName = "DOES_NOT_MATTER";
-        assertTrue(pollingCheck(
+        assertThat(pollingCheck(
                 () -> mCarPm.isServiceDistractionOptimized(thisPackage, serviceClassName),
                 POLLING_MAX_RETRY,
-                POLLING_SLEEP));
-        assertTrue(mCarPm.isServiceDistractionOptimized(thisPackage, null));
-        assertFalse(mCarPm.isServiceDistractionOptimized(serviceClassName, serviceClassName));
-        assertFalse(mCarPm.isServiceDistractionOptimized(serviceClassName, null));
+                POLLING_SLEEP)).isTrue();
+        assertThat(mCarPm.isServiceDistractionOptimized(thisPackage, null)).isTrue();
+        assertThat(mCarPm.isServiceDistractionOptimized(serviceClassName,
+                serviceClassName)).isFalse();
+        assertThat(mCarPm.isServiceDistractionOptimized(serviceClassName, null)).isFalse();
     }
 
     // TODO(b/113531788): Suppress this temporarily. Need to find the cause of issue and re-evaluate
@@ -99,9 +98,10 @@ public class CarPackageManagerTest extends MockedCarTestBase {
         mCarPm.setAppBlockingPolicy(thisPackage, policy,
                 CarPackageManager.FLAG_SET_POLICY_WAIT_FOR_CHANGE);
         Log.i(TAG, "setting policy done");
-        assertTrue(mCarPm.isActivityDistractionOptimized(carServicePackageName, activityAllowed));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName,
-                activityNotAllowed));
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityAllowed)).isTrue();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityNotAllowed)).isFalse();
 
         // replace policy
         info = new AppBlockingPackageInfo(carServicePackageName, 0, 0,
@@ -110,10 +110,12 @@ public class CarPackageManagerTest extends MockedCarTestBase {
                 , null);
         mCarPm.setAppBlockingPolicy(thisPackage, policy,
                 CarPackageManager.FLAG_SET_POLICY_WAIT_FOR_CHANGE);
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName, activityAllowed));
-        assertTrue(mCarPm.isActivityDistractionOptimized(carServicePackageName, acticityAllowed2));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName,
-                activityNotAllowed));
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityAllowed)).isFalse();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                acticityAllowed2)).isTrue();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityNotAllowed)).isFalse();
 
         //add, it replace the whole package policy. So activities are not added.
         info = new AppBlockingPackageInfo(carServicePackageName, 0, 0,
@@ -123,10 +125,12 @@ public class CarPackageManagerTest extends MockedCarTestBase {
         mCarPm.setAppBlockingPolicy(thisPackage, policy,
                 CarPackageManager.FLAG_SET_POLICY_WAIT_FOR_CHANGE |
                 CarPackageManager.FLAG_SET_POLICY_ADD);
-        assertTrue(mCarPm.isActivityDistractionOptimized(carServicePackageName, activityAllowed));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName, acticityAllowed2));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName,
-                activityNotAllowed));
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityAllowed)).isTrue();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                acticityAllowed2)).isFalse();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityNotAllowed)).isFalse();
 
         //remove
         info = new AppBlockingPackageInfo(carServicePackageName, 0, 0,
@@ -136,10 +140,12 @@ public class CarPackageManagerTest extends MockedCarTestBase {
         mCarPm.setAppBlockingPolicy(thisPackage, policy,
                 CarPackageManager.FLAG_SET_POLICY_WAIT_FOR_CHANGE |
                 CarPackageManager.FLAG_SET_POLICY_REMOVE);
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName, activityAllowed));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName, acticityAllowed2));
-        assertFalse(mCarPm.isActivityDistractionOptimized(carServicePackageName,
-                activityNotAllowed));
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityAllowed)).isFalse();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                acticityAllowed2)).isFalse();
+        assertThat(mCarPm.isActivityDistractionOptimized(carServicePackageName,
+                activityNotAllowed)).isFalse();
     }
 
     interface PollingChecker {

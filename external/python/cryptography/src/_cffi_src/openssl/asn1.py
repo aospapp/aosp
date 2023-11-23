@@ -27,7 +27,10 @@ typedef struct asn1_string_st ASN1_TIME;
 typedef ... ASN1_OBJECT;
 typedef struct asn1_string_st ASN1_STRING;
 typedef struct asn1_string_st ASN1_UTF8STRING;
-typedef ... ASN1_TYPE;
+typedef struct {
+    int type;
+    ...;
+} ASN1_TYPE;
 typedef ... ASN1_GENERALIZEDTIME;
 typedef ... ASN1_ENUMERATED;
 typedef ... ASN1_NULL;
@@ -59,7 +62,6 @@ int ASN1_INTEGER_set(ASN1_INTEGER *, long);
 /*  ASN1 TIME */
 ASN1_TIME *ASN1_TIME_new(void);
 void ASN1_TIME_free(ASN1_TIME *);
-ASN1_TIME *ASN1_TIME_set(ASN1_TIME *, time_t);
 int ASN1_TIME_set_string(ASN1_TIME *, const char *);
 
 /*  ASN1 GENERALIZEDTIME */

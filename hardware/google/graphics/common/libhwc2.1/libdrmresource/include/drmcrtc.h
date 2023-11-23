@@ -48,6 +48,7 @@ class DrmCrtc {
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
   const DrmProperty &cgc_lut_property() const;
+  const DrmProperty &cgc_lut_fd_property() const;
   const DrmProperty &degamma_lut_property() const;
   const DrmProperty &degamma_lut_size_property() const;
   const DrmProperty &gamma_lut_property() const;
@@ -63,6 +64,12 @@ class DrmCrtc {
   const DrmProperty &max_disp_freq_property() const;
   const DrmProperty &dqe_enabled_property() const;
   const DrmProperty &color_mode_property() const;
+  const DrmProperty &expected_present_time_property() const;
+
+  /* Histogram Properties */
+  const DrmProperty &histogram_roi_property() const;
+  const DrmProperty &histogram_weights_property() const;
+  const DrmProperty &histogram_threshold_property() const;
 
   const std::vector<DrmProperty *> &properties() const {
       return properties_;
@@ -81,6 +88,7 @@ class DrmCrtc {
   DrmProperty mode_property_;
   DrmProperty out_fence_ptr_property_;
   DrmProperty cgc_lut_property_;
+  DrmProperty cgc_lut_fd_property_;
   DrmProperty degamma_lut_property_;
   DrmProperty degamma_lut_size_property_;
   DrmProperty gamma_lut_property_;
@@ -96,6 +104,13 @@ class DrmCrtc {
   DrmProperty max_disp_freq_property_;
   DrmProperty dqe_enabled_property_;
   DrmProperty color_mode_property_;
+  DrmProperty expected_present_time_property_;
+
+  /* Histogram Properties */
+  DrmProperty histogram_roi_property_;
+  DrmProperty histogram_weights_property_;
+  DrmProperty histogram_threshold_property_;
+
   std::vector<DrmProperty *> properties_;
 };
 }  // namespace android

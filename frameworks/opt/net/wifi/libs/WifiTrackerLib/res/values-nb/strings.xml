@@ -28,22 +28,39 @@
     <string name="wifitrackerlib_wifi_ap_unable_to_handle_new_sta" msgid="931922372010639716">"Tilgangspunktet er midlertidig fullt"</string>
     <string name="wifitrackerlib_wifi_poor_channel_conditions" msgid="26484680900376236">"Dårlige nettverksforhold midlertidig"</string>
     <string name="wifitrackerlib_wifi_mbo_oce_assoc_disallowed_insufficient_rssi" msgid="5078611817423181773">"Svakt signal. Prøv å flytte deg nærmere ruteren."</string>
-    <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_max_num_sta_associated" msgid="4418848919914618807">"Nettverket er over kapasitet. Prøv igjen senere."</string>
-    <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_cannot_connect" msgid="2692286425448897083">"Kan ikke koble til. Prøv igjen senere."</string>
-    <string name="wifitrackerlib_wifi_network_not_found" msgid="1308764769892463388">"Kan ikke koble til. Prøv igjen senere."</string>
+    <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_max_num_sta_associated" msgid="4418848919914618807">"Nettverket er over kapasitet. Prøv på nytt senere."</string>
+    <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_cannot_connect" msgid="2692286425448897083">"Kan ikke koble til. Prøv på nytt senere."</string>
+    <string name="wifitrackerlib_wifi_network_not_found" msgid="1308764769892463388">"Kan ikke koble til. Prøv på nytt senere."</string>
     <string name="wifitrackerlib_wifi_disconnected" msgid="3320414360982942679">"Frakoblet"</string>
     <string name="wifitrackerlib_wifi_remembered" msgid="2406091442008343041">"Lagret"</string>
     <string name="wifitrackerlib_wifi_metered_label" msgid="8818508951778620385">"Med datamåling"</string>
     <string name="wifitrackerlib_wifi_unmetered_label" msgid="1902150402929678469">"Uten datamåling"</string>
     <string name="wifitrackerlib_connected_via_app" msgid="7823921840931347560">"Tilkoblet via <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="wifitrackerlib_available_via_app" msgid="8556844256194837469">"Tilgjengelig via <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="wifitrackerlib_connected_via_network_scorer" msgid="6306655070903763086">"Automatisk tilkoblet via <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="wifitrackerlib_connected_via_network_scorer_default" msgid="3436792128688839692">"Automatisk tilkoblet via leverandør av nettverksvurdering"</string>
     <string name="wifitrackerlib_wifi_limited_connection" msgid="4234326409980991740">"Begrenset tilkobling"</string>
     <string name="wifitrackerlib_private_dns_broken" msgid="6049401148262718707">"Den private DNS-tjeneren kan ikke nås"</string>
     <string name="wifitrackerlib_wifi_connected_cannot_provide_internet" msgid="3803471522215612745">"Koblet til enheten. Kan ikke gi internettilgang."</string>
     <string name="wifi_connected_low_quality" msgid="4478331645458058445">"Lav kvalitet"</string>
+    <string name="wifitrackerlib_admin_restricted_network" msgid="5439914801076897515">"Ikke tillatt av organisasjonen din"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2" msgid="4815223667006927841">"WPA/WPA2-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2" msgid="6425661975745405271">"WPA/WPA2-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa3" msgid="6210273302049534874">"WPA3-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa3" msgid="3945746966044709030">"WPA3-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2_wpa3" msgid="1461382917566262495">"WPA/WPA2/WPA3-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2_wpa3" msgid="5793439868239112839">"WPA/WPA2/WPA3-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_suiteb" msgid="6335062557041604336">"Suite-B-192"</string>
+    <string name="wifitrackerlib_wifi_security_eap_suiteb" msgid="4715703239786225763">"WPA3-Enterprise 192-bit"</string>
+    <string name="wifitrackerlib_wifi_security_short_wpa_wpa2" msgid="6770438383385707243">"WPA/WPA2"</string>
+    <string name="wifitrackerlib_wifi_security_wpa_wpa2" msgid="5767878305316110228">"WPA/WPA2-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_short_wpa_wpa2_wpa3" msgid="4489424775550194618">"WPA/WPA2/WPA3"</string>
+    <string name="wifitrackerlib_wifi_security_wpa_wpa2_wpa3" msgid="4154428413248489642">"WPA/WPA2/WPA3-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_wep" msgid="7714779033848180369">"WEP"</string>
+    <string name="wifitrackerlib_wifi_security_short_sae" msgid="107913757758514692">"WPA3"</string>
+    <string name="wifitrackerlib_wifi_security_sae" msgid="6191706087425911867">"WPA3-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_short_owe" msgid="224333285610280433">"OWE"</string>
+    <string name="wifitrackerlib_wifi_security_owe" msgid="1018282395106838649">"Enhanced Open"</string>
     <string name="wifitrackerlib_wifi_security_none" msgid="2686062484642847280">"Ingen"</string>
+    <string name="wifitrackerlib_wifi_security_passpoint" msgid="3980446437188585906">"Passpoint"</string>
     <string name="wifitrackerlib_wifi_passpoint_expired" msgid="7974960573887452566">"Utløpt"</string>
     <string name="wifitrackerlib_tap_to_sign_up" msgid="3897017015910817402">"Trykk for å registrere deg"</string>
     <string name="wifitrackerlib_tap_to_renew_subscription_and_connect" msgid="6048420776676138069">"Trykk for å fornye abonnementet og koble til"</string>
@@ -53,11 +70,12 @@
     <string name="wifitrackerlib_osu_sign_up_failed" msgid="3964140125523395898">"Kunne ikke fullføre registreringen. Trykk for å prøve på nytt."</string>
     <string name="wifitrackerlib_osu_sign_up_complete" msgid="3279606633343124580">"Registreringen er fullført. Kobler til …"</string>
     <string name="wifitrackerlib_imsi_protection_warning" msgid="7202210931586169466">"Dette nettverket mottar en SIM-ID som kan brukes til å spore enhetsposisjonen. "<annotation id="url">"Finn ut mer"</annotation></string>
-    <string name="wifitrackerlib_speed_label_very_slow" msgid="6606409259798814244">"Veldig treg"</string>
-    <string name="wifitrackerlib_speed_label_slow" msgid="7327906382011957760">"Treg"</string>
-    <string name="wifitrackerlib_speed_label_okay" msgid="6656684124654881956">"OK"</string>
-    <string name="wifitrackerlib_speed_label_medium" msgid="2249280306855290094">"Medium"</string>
-    <string name="wifitrackerlib_speed_label_fast" msgid="2593921008376044650">"Rask"</string>
-    <string name="wifitrackerlib_speed_label_very_fast" msgid="4162759416291355173">"Veldig rask"</string>
     <string name="wifitrackerlib_wifi_wont_autoconnect_for_now" msgid="4923161724964349851">"Wi-Fi kobles ikke til automatisk inntil videre"</string>
+    <string name="wifitrackerlib_wifi_standard_unknown" msgid="8339211498889012019">"Ukjent"</string>
+    <string name="wifitrackerlib_wifi_standard_legacy" msgid="7760511318791054384">"En eldre versjon"</string>
+    <string name="wifitrackerlib_wifi_standard_11n" msgid="2642177213395884818">"Wi-Fi 4"</string>
+    <string name="wifitrackerlib_wifi_standard_11ac" msgid="4347870672254411383">"Wi-Fi 5"</string>
+    <string name="wifitrackerlib_wifi_standard_11ax" msgid="4071875115186480116">"Wi-Fi 6"</string>
+    <string name="wifitrackerlib_wifi_standard_11ad" msgid="4955749187120493383">"WiGig"</string>
+    <string name="wifitrackerlib_wifi_standard_11be" msgid="1886834788680487835">"Wi-Fi 7"</string>
 </resources>

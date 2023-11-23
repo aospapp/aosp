@@ -1,0 +1,19 @@
+# init-fingerprint-extension-sh is to send intent command to app
+# for tracking fingerprint issue.
+service fingerprint-extension-bug-latency /system_ext/bin/fingerprint.extension.sh latency
+    group shell
+    user shell
+    disabled
+    oneshot
+
+service fingerprint-extension-bug-lockout /system_ext/bin/fingerprint.extension.sh lockout
+    group shell
+    user shell
+    disabled
+    oneshot
+
+service fingerprint-extension-bug-auth /system_ext/bin/fingerprint.extension.sh auth
+    group shell
+    user shell
+    disabled
+    oneshot

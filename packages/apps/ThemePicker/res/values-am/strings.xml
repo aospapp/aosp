@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"ልጣፍ &amp; ቅጥ"</string>
+    <string name="app_name" msgid="1647136562008520313">"ልጣፍ እና ቅጥ"</string>
     <string name="theme_title" msgid="2144932106319405101">"ቅጥ"</string>
     <string name="clock_title" msgid="2126046720254613991">"ሰዓት"</string>
     <string name="grid_title" msgid="1688173478777254123">"የመተግበሪያ ፍርግርግ"</string>
@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"ገጽታ ያላቸው አዶዎች"</string>
     <string name="beta_title" msgid="8703819523760746458">"ቤታ"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"የመተግበሪያ ፍርግርግን ይቀይሩ"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"የልጣፍ ቀለማት"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"የልጣፍ ቀለም"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"መሰረታዊ ቀለሞች"</string>
+    <string name="color_changed" msgid="7029571720331641235">"ቀለም ተቀይሯል"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ተለዋዋጭ"</string>
 </resources>

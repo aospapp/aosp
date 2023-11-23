@@ -14,74 +14,25 @@ cc_library {
 
   srcs: [
     "AudioProxy.cpp",
-  ],
-
-  shared_libs: [
-    "libcutils",
-    "libfmq",
-    "libhidlbase",
-    "liblog",
-    "libutils",
-
-    // Audio HAL version 5.0
-    "android.hardware.audio@5.0",
-    "android.hardware.audio.common@5.0",
-
-    // HAL version 5.0
-    "device.google.atv.audio_proxy@5.0",
-
-    // HAL version 5.1
-    "device.google.atv.audio_proxy@5.1",
-  ],
-
-  static_libs: [
-    "libaudio_proxy_client@5.1",
-  ],
-}
-
-cc_defaults {
-  name: "libaudio_proxy_client_default",
-
-  system_ext_specific: true,
-
-  srcs: [
     "AudioProxyDevice.cpp",
     "AudioProxyManager.cpp",
     "AudioProxyStreamOut.cpp",
-    "BusDeviceImpl.cpp",
-    "HidlTypeUtil.cpp",
-    "StreamOutImpl.cpp",
-  ],
-
-  header_libs: [
-    "libaudio_system_headers",
+    "OutputStreamImpl.cpp",
+    "StreamProviderImpl.cpp",
   ],
 
   shared_libs: [
+    "device.google.atv.audio_proxy-aidl-V1-ndk",
+    "libbase",
+    "libbinder_ndk",
     "libcutils",
     "libfmq",
-    "libhidlbase",
-    "liblog",
     "libutils",
-  ]
-}
-
-cc_library_static {
-  name: "libaudio_proxy_client@5.1",
-
-  defaults: [ "libaudio_proxy_client_default" ],
-
-  shared_libs: [
-    "android.hardware.audio@5.0",
-    "android.hardware.audio.common@5.0",
-    "device.google.atv.audio_proxy@5.0",
-    "device.google.atv.audio_proxy@5.1",
   ],
 
   cflags: [
-    "-DMAJOR_VERSION=5",
-    "-DMINOR_VERSION=0",
-    "-DAUDIO_PROXY_MINOR_VERSION=1",
-    "-include common/AudioProxyVersionMacro.h",
+    "-Werror",
+    "-Wthread-safety",
+    "-Wno-unused-parameter",
   ],
 }

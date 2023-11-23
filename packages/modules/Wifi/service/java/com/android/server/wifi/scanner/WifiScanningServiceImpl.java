@@ -34,6 +34,7 @@ import android.net.wifi.WifiScanner.PnoSettings;
 import android.net.wifi.WifiScanner.ScanData;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.net.wifi.WifiScanner.WifiBand;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.BadParcelableException;
 import android.os.BatteryStatsManager;
 import android.os.Binder;
@@ -69,8 +70,6 @@ import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
 import com.android.server.wifi.util.ArrayUtils;
 import com.android.server.wifi.util.LastCallerInfoManager;
-import com.android.server.wifi.util.ScanResultUtil;
-import com.android.server.wifi.util.WifiHandler;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 import com.android.server.wifi.util.WorkSourceUtil;
 
@@ -148,6 +147,20 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
         return b;
     }
 
+    /**
+     * See {@link WifiScanner#isScanning()}
+     * @return true if in ScanningState.
+     */
+    @Override
+    public boolean isScanning() {
+        int uid = Binder.getCallingUid();
+        if (!mWifiPermissionsUtil.checkCallersHardwareLocationPermission(uid)) {
+            throw new SecurityException("UID " + uid
+                    + " does not have hardware Location permission");
+        }
+        return mIsScanning;
+    }
+
     private void enforceNetworkStack(int uid) {
         mContext.enforcePermission(
                 Manifest.permission.NETWORK_STACK,
@@ -157,11 +170,14 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
 
     // Helper method to check if the incoming message is for a privileged request.
     private boolean isPrivilegedMessage(int msgWhat) {
-        return (msgWhat == WifiScanner.CMD_ENABLE
+        boolean isPrivileged = (msgWhat == WifiScanner.CMD_ENABLE
                 || msgWhat == WifiScanner.CMD_DISABLE
                 || msgWhat == WifiScanner.CMD_START_PNO_SCAN
-                || msgWhat == WifiScanner.CMD_STOP_PNO_SCAN
-                || msgWhat == WifiScanner.CMD_REGISTER_SCAN_LISTENER);
+                || msgWhat == WifiScanner.CMD_STOP_PNO_SCAN);
+        if (!SdkLevel.isAtLeastT()) {
+            isPrivileged = isPrivileged || msgWhat == WifiScanner.CMD_REGISTER_SCAN_LISTENER;
+        }
+        return isPrivileged;
     }
 
     // For non-privileged requests, retrieve the bundled package name for app-op & permission
@@ -249,10 +265,10 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
         }
     }
 
-    private class ClientHandler extends WifiHandler {
+    private class ClientHandler extends Handler {
 
         ClientHandler(String tag, Looper looper) {
-            super(tag, looper);
+            super(looper);
         }
 
         @Override
@@ -273,7 +289,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
                         return;
                     }
 
-                    AsyncChannel ac = mFrameworkFacade.makeWifiAsyncChannel(TAG);
+                    AsyncChannel ac = new AsyncChannel();
                     ac.connected(mContext, this, msg.replyTo);
 
                     client = new ExternalClientInfo(msg.sendingUid, msg.replyTo, ac);
@@ -338,7 +354,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
                     mBackgroundScanStateMachine.sendMessage(Message.obtain(msg));
                     mSingleScanStateMachine.sendMessage(Message.obtain(msg));
                     mPnoScanStateMachine.sendMessage(Message.obtain(msg));
-                    mLastCallerInfoManager.put(LastCallerInfoManager.SCANNING_ENABLED, msg.arg1,
+                    mLastCallerInfoManager.put(WifiManager.API_SCANNING_ENABLED, msg.arg1,
                             msg.sendingUid, msg.arg2, (String) msg.obj, true);
                     break;
                 case WifiScanner.CMD_DISABLE:
@@ -347,7 +363,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
                     mBackgroundScanStateMachine.sendMessage(Message.obtain(msg));
                     mSingleScanStateMachine.sendMessage(Message.obtain(msg));
                     mPnoScanStateMachine.sendMessage(Message.obtain(msg));
-                    mLastCallerInfoManager.put(LastCallerInfoManager.SCANNING_ENABLED, msg.arg1,
+                    mLastCallerInfoManager.put(WifiManager.API_SCANNING_ENABLED, msg.arg1,
                             msg.sendingUid, msg.arg2, (String) msg.obj, false);
                     break;
                 case WifiScanner.CMD_START_BACKGROUND_SCAN:
@@ -401,6 +417,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
     private ChannelHelper mChannelHelper;
     private BackgroundScanScheduler mBackgroundScheduler;
     private WifiNative.ScanSettings mPreviousSchedule;
+    private boolean mIsScanning = false;
 
     private WifiBackgroundScanStateMachine mBackgroundScanStateMachine;
     private WifiSingleScanStateMachine mSingleScanStateMachine;
@@ -528,15 +545,6 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
             Log.i(TAG, "Removed an impl for " + ifaceName);
         }
         mScannerImpls.clear();
-    }
-
-    /**
-     * Provide a way for unit tests to set valid log object in the WifiHandler
-     * @param log WifiLog object to assign to the clientHandler
-     */
-    @VisibleForTesting
-    public void setWifiHandlerLogForTest(WifiLog log) {
-        mClientHandler.setWifiLog(log);
     }
 
     private WorkSource computeWorkSource(ClientInfo ci, WorkSource requestedWorkSource) {
@@ -1046,6 +1054,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
                 WifiStatsLog.write(WifiStatsLog.WIFI_SCAN_STATE_CHANGED,
                         uidsAndTags.first, uidsAndTags.second,
                         WifiStatsLog.WIFI_SCAN_STATE_CHANGED__STATE__ON);
+                mIsScanning = true;
             }
 
             @Override
@@ -1057,6 +1066,7 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
                 WifiStatsLog.write(WifiStatsLog.WIFI_SCAN_STATE_CHANGED,
                         uidsAndTags.first, uidsAndTags.second,
                         WifiStatsLog.WIFI_SCAN_STATE_CHANGED__STATE__OFF);
+                mIsScanning = false;
 
                 // if any scans are still active (never got results available then indicate failure)
                 mWifiMetrics.incrementScanReturnEntry(
@@ -1262,10 +1272,19 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
             bucketSettings.report_events = WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN;
 
             ChannelCollection channels = mChannelHelper.createChannelCollection();
+            WifiScanner.ChannelSpec[][] available6GhzChannels =
+                    mChannelHelper.getAvailableScanChannels(WifiScanner.WIFI_BAND_6_GHZ);
+            boolean are6GhzChannelsAvailable = available6GhzChannels.length > 0
+                    && available6GhzChannels[0].length > 0;
             List<WifiNative.HiddenNetwork> hiddenNetworkList = new ArrayList<>();
             for (RequestInfo<ScanSettings> entry : mPendingScans) {
                 settings.scanType = mergeScanTypes(settings.scanType, entry.settings.type);
-                settings.enable6GhzRnr = mergeRnrSetting(settings.enable6GhzRnr, entry.settings);
+                if (are6GhzChannelsAvailable) {
+                    settings.enable6GhzRnr = mergeRnrSetting(
+                            settings.enable6GhzRnr, entry.settings);
+                } else {
+                    settings.enable6GhzRnr = false;
+                }
                 channels.addChannels(entry.settings);
                 for (ScanSettings.HiddenNetwork srcNetwork : entry.settings.hiddenNetworks) {
                     WifiNative.HiddenNetwork hiddenNetwork = new WifiNative.HiddenNetwork();
@@ -2336,8 +2355,10 @@ public class WifiScanningServiceImpl extends IWifiScanner.Stub {
         private void removeHwPnoScanRequest(ClientInfo ci, int handler) {
             if (ci != null) {
                 Pair<PnoSettings, ScanSettings> settings = removePnoScanRequest(ci, handler);
-                logScanRequest("removeHwPnoScanRequest", ci, handler, null,
-                        settings.second, settings.first);
+                if (settings != null) {
+                    logScanRequest("removeHwPnoScanRequest", ci, handler, null,
+                            settings.second, settings.first);
+                }
             }
         }
 

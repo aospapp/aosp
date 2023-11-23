@@ -15,6 +15,12 @@
 #include <libwebsockets.h>
 #include <string.h>
 #include <signal.h>
+#if defined(WIN32)
+#define HAVE_STRUCT_TIMESPEC
+#if defined(pid_t)
+#undef pid_t
+#endif
+#endif
 #include <pthread.h>
 
 static struct lws_context *context;
@@ -40,7 +46,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 			char buf[128];
 
 			lws_get_peer_simple(wsi, buf, sizeof(buf));
-			status = lws_http_client_http_response(wsi);
+			status = (int)lws_http_client_http_response(wsi);
 
 			lwsl_user("Connected to %s, http response: %d\n",
 					buf, status);
@@ -100,10 +106,9 @@ static const struct lws_protocols protocols[] = {
 	{
 		"http",
 		callback_http,
-		0,
-		0,
+		0, 0, 0, NULL, 0
 	},
-	{ NULL, NULL, 0, 0 }
+	LWS_PROTOCOL_LIST_TERM
 };
 
 void sigint_handler(int sig)
@@ -119,10 +124,7 @@ attach_callback(struct lws_context *context, int tsi, void *opaque)
 	/*
 	 * Even though it was asked for from a different thread, we are called
 	 * back by lws from the lws event loop thread context
-	 */
-	lwsl_user("%s: called from tid %p\n", __func__, (void *)pthread_self());
-
-	/*
+	 *
 	 * We can set up our operations on the lws event loop and return so
 	 * they can happen asynchronously
 	 */
@@ -178,7 +180,7 @@ lws_create(void *d)
 {
 	struct lws_context_creation_info info;
 
-	lwsl_user("%s: tid %p\n", __func__, (void *)pthread_self());
+       lwsl_user("%s: tid %p\n", __func__, (void *)(intptr_t)pthread_self());
 
 	memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
 	info.port = CONTEXT_PORT_NO_LISTEN;
@@ -218,7 +220,6 @@ int main(int argc, const char **argv)
 		logs = atoi(p);
 
 	lws_set_log_level(logs, NULL);
-	lwsl_user("%s: main thread tid %p\n", __func__, (void *)pthread_self());
 	lwsl_user("LWS minimal http client attach\n");
 
 	pthread_mutex_init(&lock, NULL);

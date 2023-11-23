@@ -17,6 +17,7 @@ package com.android.car.settings.enterprise;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.net.ConnectivityManager;
 
 import androidx.preference.Preference;
 
@@ -27,18 +28,16 @@ import com.android.car.settings.common.FragmentController;
 */
 public final class GlobalHttpProxyPreferenceController
         extends BaseEnterprisePreferenceController<Preference> {
+    private final ConnectivityManager mConnectivityManager;
 
     public GlobalHttpProxyPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mConnectivityManager = context.getSystemService(ConnectivityManager.class);
     }
 
     @Override
     protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) return superStatus;
-
-        //TODO(b/206155840): implement / add unit test
-        return DISABLED_FOR_PROFILE;
+        return mConnectivityManager.getGlobalProxy() != null ? AVAILABLE : DISABLED_FOR_PROFILE;
     }
 }

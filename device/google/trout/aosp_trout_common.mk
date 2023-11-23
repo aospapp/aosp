@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+$(call add_soong_config_namespace,audio_extn_config)
+$(call add_soong_config_var_value,audio_extn_config,isHFPEnabled,$(AUDIO_FEATURE_HFP_ENABLED))
+
 ifeq ($(TARGET_USES_CUTTLEFISH_AUDIO),true)
 # Cuttlefish Audio HAL with custom configuration
 LOCAL_AUDIO_PRODUCT_COPY_FILES ?= \
@@ -51,11 +54,12 @@ endif
 LOCAL_AUDIOCONTROL_HAL_PRODUCT_PACKAGE ?= android.hardware.automotive.audiocontrol-service.trout
 
 # Dumpstate HAL
-LOCAL_DUMPSTATE_PRODUCT_PACKAGE ?= android.hardware.dumpstate@1.1-service.trout
-LOCAL_DUMPSTATE_PROPERTIES ?= \
-    ro.vendor.dumpstate.server.cid=2 \
-    ro.vendor.dumpstate.server.port=9310 \
-    ro.vendor.helpersystem.log_loc=/data/host_logs \
+# TODO(b/215200137): Re-enable once converted to AIDL
+#LOCAL_DUMPSTATE_PRODUCT_PACKAGE ?= android.hardware.dumpstate@1.1-service.trout
+#LOCAL_DUMPSTATE_PROPERTIES ?= \
+#    ro.vendor.dumpstate.server.cid=2 \
+#    ro.vendor.dumpstate.server.port=9310 \
+#    ro.vendor.helpersystem.log_loc=/data/host_logs \
 
 # Vehicle HAL
 LOCAL_VHAL_PRODUCT_PACKAGE ?= android.hardware.automotive.vehicle@2.0-virtualization-service
@@ -66,7 +70,11 @@ LOCAL_EVS_PRODUCT_COPY_FILES ?= \
     device/google/trout/product_files/vendor/etc/automotive/evs/evs_configuration_override.xml:$(TARGET_COPY_OUT_VENDOR)/etc/automotive/evs/evs_configuration_override.xml \
 
 LOCAL_EVS_PROPERTIES ?= persist.automotive.evs.mode=1
-ENABLE_EVS_SAMPLE := true
+LOCAL_EVS_RRO_PACKAGE_OVERLAYS ?= TroutEvsOverlay
+ENABLE_EVS_SAMPLE ?= true
+ENABLE_CAREVSSERVICE_SAMPLE ?= true
+
+PRODUCT_PACKAGES += $(LOCAL_EVS_RRO_PACKAGE_OVERLAYS)
 
 PRODUCT_COPY_FILES += \
     ${LOCAL_EVS_PRODUCT_COPY_FILES} \
@@ -103,10 +111,10 @@ PRODUCT_COPY_FILES += \
     device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RAMDISK)/first_stage_ramdisk/fstab.trout
 
 # User HAL support
-TARGET_SUPPORTS_USER_HAL ?= true
+TARGET_SUPPORTS_USER_HAL ?= false
 
-ifeq ($(TARGET_SUPPORTS_USER_HAL),true)
-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += android.car.user_hal_enabled=true
+ifeq ($(TARGET_SUPPORTS_USER_HAL),false)
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += android.car.user_hal_enabled=false
 endif
 
 BOARD_SEPOLICY_DIRS += device/google/trout/sepolicy/vendor/google

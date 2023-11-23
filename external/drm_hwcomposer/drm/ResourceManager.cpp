@@ -21,116 +21,164 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <ctime>
 #include <sstream>
 
 #include "bufferinfo/BufferInfoGetter.h"
+#include "drm/DrmAtomicStateManager.h"
+#include "drm/DrmDevice.h"
+#include "drm/DrmDisplayPipeline.h"
+#include "drm/DrmPlane.h"
 #include "utils/log.h"
 #include "utils/properties.h"
 
 namespace android {
 
-ResourceManager::ResourceManager() : num_displays_(0), gralloc_(nullptr) {
+ResourceManager::ResourceManager(
+    PipelineToFrontendBindingInterface *p2f_bind_interface)
+    : frontend_interface_(p2f_bind_interface) {
+  if (uevent_listener_.Init() != 0) {
+    ALOGE("Can't initialize event listener");
+  }
 }
 
-int ResourceManager::Init() {
+ResourceManager::~ResourceManager() {
+  uevent_listener_.Exit();
+}
+
+void ResourceManager::Init() {
+  if (initialized_) {
+    ALOGE("Already initialized");
+    return;
+  }
+
   char path_pattern[PROPERTY_VALUE_MAX];
   // Could be a valid path or it can have at the end of it the wildcard %
   // which means that it will try open all devices until an error is met.
   int path_len = property_get("vendor.hwc.drm.device", path_pattern,
                               "/dev/dri/card%");
-  int ret = 0;
   if (path_pattern[path_len - 1] != '%') {
-    ret = AddDrmDevice(std::string(path_pattern));
+    AddDrmDevice(std::string(path_pattern));
   } else {
     path_pattern[path_len - 1] = '\0';
-    for (int idx = 0; !ret; ++idx) {
+    for (int idx = 0;; ++idx) {
       std::ostringstream path;
       path << path_pattern << idx;
 
       struct stat buf {};
-      if (stat(path.str().c_str(), &buf))
+      if (stat(path.str().c_str(), &buf) != 0)
         break;
 
-      if (IsKMSDev(path.str().c_str()))
-        ret = AddDrmDevice(path.str());
+      if (DrmDevice::IsKMSDev(path.str().c_str())) {
+        AddDrmDevice(path.str());
+      }
     }
-  }
-
-  if (!num_displays_) {
-    ALOGE("Failed to initialize any displays");
-    return ret ? -EINVAL : ret;
   }
 
   char scale_with_gpu[PROPERTY_VALUE_MAX];
   property_get("vendor.hwc.drm.scale_with_gpu", scale_with_gpu, "0");
   scale_with_gpu_ = bool(strncmp(scale_with_gpu, "0", 1));
 
-  if (!BufferInfoGetter::GetInstance()) {
+  if (BufferInfoGetter::GetInstance() == nullptr) {
     ALOGE("Failed to initialize BufferInfoGetter");
-    return -EINVAL;
+    return;
   }
 
-  return hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                       (const hw_module_t **)&gralloc_);
+  uevent_listener_.RegisterHotplugHandler([this] {
+    const std::lock_guard<std::mutex> lock(GetMainLock());
+    UpdateFrontendDisplays();
+  });
+
+  UpdateFrontendDisplays();
+
+  initialized_ = true;
+}
+
+void ResourceManager::DeInit() {
+  if (!initialized_) {
+    ALOGE("Not initialized");
+    return;
+  }
+
+  uevent_listener_.RegisterHotplugHandler([] {});
+
+  DetachAllFrontendDisplays();
+  drms_.clear();
+
+  initialized_ = false;
 }
 
 int ResourceManager::AddDrmDevice(const std::string &path) {
   auto drm = std::make_unique<DrmDevice>();
-  int displays_added = 0;
-  int ret = 0;
-  std::tie(ret, displays_added) = drm->Init(path.c_str(), num_displays_);
+  int ret = drm->Init(path.c_str());
   drms_.push_back(std::move(drm));
-  num_displays_ += displays_added;
   return ret;
 }
 
-DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
-  DrmDevice *drm_device = GetDrmDevice(display);
-  DrmConnector *writeback_conn = nullptr;
-  if (drm_device) {
-    writeback_conn = drm_device->AvailableWritebackConnector(display);
-    if (writeback_conn)
-      return writeback_conn;
+auto ResourceManager::GetTimeMonotonicNs() -> int64_t {
+  struct timespec ts {};
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  constexpr int64_t kNsInSec = 1000000000LL;
+  return int64_t(ts.tv_sec) * kNsInSec + int64_t(ts.tv_nsec);
+}
+
+void ResourceManager::UpdateFrontendDisplays() {
+  auto ordered_connectors = GetOrderedConnectors();
+
+  for (auto *conn : ordered_connectors) {
+    conn->UpdateModes();
+    bool connected = conn->IsConnected();
+    bool attached = attached_pipelines_.count(conn) != 0;
+
+    if (connected != attached) {
+      ALOGI("%s connector %s", connected ? "Attaching" : "Detaching",
+            conn->GetName().c_str());
+
+      if (connected) {
+        auto pipeline = DrmDisplayPipeline::CreatePipeline(*conn);
+        frontend_interface_->BindDisplay(pipeline.get());
+        attached_pipelines_[conn] = std::move(pipeline);
+      } else {
+        auto &pipeline = attached_pipelines_[conn];
+        frontend_interface_->UnbindDisplay(pipeline.get());
+        attached_pipelines_.erase(conn);
+      }
+    }
   }
+  frontend_interface_->FinalizeDisplayBinding();
+}
+
+void ResourceManager::DetachAllFrontendDisplays() {
+  for (auto &p : attached_pipelines_) {
+    frontend_interface_->UnbindDisplay(p.second.get());
+  }
+  attached_pipelines_.clear();
+  frontend_interface_->FinalizeDisplayBinding();
+}
+
+auto ResourceManager::GetOrderedConnectors() -> std::vector<DrmConnector *> {
+  /* Put internal displays first then external to
+   * ensure Internal will take Primary slot
+   */
+
+  std::vector<DrmConnector *> ordered_connectors;
+
   for (auto &drm : drms_) {
-    if (drm.get() == drm_device)
-      continue;
-    writeback_conn = drm->AvailableWritebackConnector(display);
-    if (writeback_conn)
-      return writeback_conn;
-  }
-  return writeback_conn;
-}
-
-bool ResourceManager::IsKMSDev(const char *path) {
-  int fd = open(path, O_RDWR | O_CLOEXEC);
-  if (fd < 0)
-    return false;
-
-  auto *res = drmModeGetResources(fd);
-  if (!res) {
-    close(fd);
-    return false;
+    for (const auto &conn : drm->GetConnectors()) {
+      if (conn->IsInternal()) {
+        ordered_connectors.emplace_back(conn.get());
+      }
+    }
   }
 
-  bool is_kms = res->count_crtcs > 0 && res->count_connectors > 0 &&
-                res->count_encoders > 0;
-
-  drmModeFreeResources(res);
-  close(fd);
-
-  return is_kms;
-}
-
-DrmDevice *ResourceManager::GetDrmDevice(int display) {
   for (auto &drm : drms_) {
-    if (drm->HandlesDisplay(display))
-      return drm.get();
+    for (const auto &conn : drm->GetConnectors()) {
+      if (conn->IsExternal()) {
+        ordered_connectors.emplace_back(conn.get());
+      }
+    }
   }
-  return nullptr;
-}
 
-const gralloc_module_t *ResourceManager::gralloc() {
-  return gralloc_;
+  return ordered_connectors;
 }
 }  // namespace android

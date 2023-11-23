@@ -20,11 +20,16 @@ package {
 
 android_test {
     name: "CaptivePortalLoginTests",
-    defaults: ["framework-connectivity-test-defaults"],
+    defaults: [
+        "framework-connectivity-test-defaults",
+        "connectivity-mainline-presubmit-java-defaults",
+    ],
     srcs: ["src/**/*.java", "src/**/*.kt"],
     platform_apis: true,
+    compile_multilib: "both",
     min_sdk_version: "29",
-    test_suites: ["device-tests"],
+    target_sdk_version: "33", // Keep in sync with CaptivePortalLogin
+    test_suites: ["general-tests", "mts-networking"],
 
     static_libs: [
         "androidx.test.rules",

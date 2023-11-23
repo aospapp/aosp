@@ -83,7 +83,7 @@ impl SDT {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &self.data.as_slice()
+        self.data.as_slice()
     }
 
     pub fn append<T: DataInit>(&mut self, value: T) {
@@ -96,14 +96,24 @@ impl SDT {
         self.write(LENGTH_OFFSET, self.data.len() as u32);
     }
 
+    /// Read a value at the given offset
+    pub fn read<T: DataInit + Default>(&self, offset: usize) -> T {
+        let value_len = std::mem::size_of::<T>();
+        *T::from_slice(
+            self.as_slice()
+                .get(offset..offset + value_len)
+                .unwrap_or(T::default().as_slice()),
+        )
+        .unwrap()
+    }
+
     /// Write a value at the given offset
     pub fn write<T: DataInit>(&mut self, offset: usize, value: T) {
         let value_len = std::mem::size_of::<T>();
         if (offset + value_len) > self.data.len() {
             return;
         }
-
-        self.data[offset..offset + value_len].copy_from_slice(&value.as_slice());
+        self.data[offset..offset + value_len].copy_from_slice(value.as_slice());
         self.update_checksum();
     }
 
@@ -126,7 +136,7 @@ mod tests {
             .iter()
             .fold(0u8, |acc, x| acc.wrapping_add(*x));
         assert_eq!(sum, 0);
-        sdt.write(36, 0x12345678 as u32);
+        sdt.write(36, 0x12345678_u32);
         let sum: u8 = sdt
             .as_slice()
             .iter()
@@ -142,11 +152,11 @@ mod tests {
         // Write SDT to file.
         {
             let mut writer = temp_file.as_file();
-            writer.write_all(&expected_sdt.as_slice())?;
+            writer.write_all(expected_sdt.as_slice())?;
         }
 
         // Read it back and verify.
-        let actual_sdt = SDT::from_file(&temp_file.path().to_path_buf())?;
+        let actual_sdt = SDT::from_file(temp_file.path())?;
         assert!(actual_sdt.is_signature(b"TEST"));
         assert_eq!(actual_sdt.as_slice(), expected_sdt.as_slice());
         Ok(())

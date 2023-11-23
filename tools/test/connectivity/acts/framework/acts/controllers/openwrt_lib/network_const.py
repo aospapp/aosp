@@ -1,3 +1,5 @@
+LOCALHOST = "192.168.1.1"
+
 # params for ipsec.conf
 IPSEC_CONF = {
     "config setup": {
@@ -15,7 +17,7 @@ IPSEC_L2TP_PSK = {
     "conn L2TP_PSK": {
         "keyexchange": "ikev1",
         "type": "transport",
-        "left": "192.168.1.1",
+        "left": LOCALHOST,
         "leftprotoport": "17/1701",
         "leftauth": "psk",
         "right": "%any",
@@ -30,7 +32,7 @@ IPSEC_L2TP_RSA = {
     "conn L2TP_RSA": {
         "keyexchange": "ikev1",
         "type": "transport",
-        "left": "192.168.1.1",
+        "left": LOCALHOST,
         "leftprotoport": "17/1701",
         "leftauth": "pubkey",
         "leftcert": "serverCert.der",
@@ -45,7 +47,7 @@ IPSEC_L2TP_RSA = {
 IPSEC_HYBRID_RSA = {
     "conn HYBRID_RSA": {
         "keyexchange": "ikev1",
-        "left": "192.168.1.1",
+        "left": LOCALHOST,
         "leftsubnet": "0.0.0.0/0",
         "leftauth": "pubkey",
         "leftcert": "serverCert.der",
@@ -62,7 +64,7 @@ IPSEC_HYBRID_RSA = {
 IPSEC_XAUTH_PSK = {
     "conn XAUTH_PSK": {
         "keyexchange": "ikev1",
-        "left": "192.168.1.1",
+        "left": LOCALHOST,
         "leftsubnet": "0.0.0.0/0",
         "leftauth": "psk",
         "right": "%any",
@@ -76,7 +78,7 @@ IPSEC_XAUTH_PSK = {
 IPSEC_XAUTH_RSA = {
     "conn XAUTH_RSA": {
         "keyexchange": "ikev1",
-        "left": "192.168.1.1",
+        "left": LOCALHOST,
         "leftsubnet": "0.0.0.0/0",
         "leftcert": "serverCert.der",
         "leftsendcert": "always",
@@ -85,6 +87,100 @@ IPSEC_XAUTH_RSA = {
         "rightauth": "xauth",
         "xauth": "server",
         "auto": "add",
+    }
+}
+
+IPSEC_IKEV2_MSCHAPV2 = {
+    "conn IKEV2_MSCHAPV2": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": LOCALHOST,
+        "leftcert": "serverCert.der",
+        "leftsubnet": "0.0.0.0/0",
+        "leftauth": "pubkey",
+        "leftsendcert": "always",
+        "right": "%any",
+        "rightid": "vpntest",
+        "rightauth": "eap-mschapv2",
+        "auto": "add"
+    }
+}
+
+IPSEC_IKEV2_PSK = {
+    "conn IKEV2_PSK": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": LOCALHOST,
+        "leftauth": "psk",
+        "leftsubnet": "0.0.0.0/0",
+        "right": "%any",
+        "rightid": "vpntest",
+        "rightauth": "psk",
+        "auto": "add"
+    }
+}
+
+IPSEC_IKEV2_RSA = {
+    "conn IKEV2_RSA": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": LOCALHOST,
+        "leftcert": "serverCert.der",
+        "leftsubnet": "0.0.0.0/0",
+        "leftauth": "pubkey",
+        "leftsendcert": "always",
+        "right": "%any",
+        "rightid": "vpntest@%s" % LOCALHOST,
+        "rightauth": "pubkey",
+        "rightcert": "clientCert.pem",
+        "auto": "add"
+    }
+}
+
+IPSEC_IKEV2_MSCHAPV2_HOSTNAME = {
+    "conn IKEV2_MSCHAPV2_HOSTNAME": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": "strongswan-vpn-server.android-iperf.com",
+        "leftcert": "serverCert.der",
+        "leftsubnet": "0.0.0.0/0",
+        "leftauth": "pubkey",
+        "leftsendcert": "always",
+        "right": "%any",
+        "rightid": "vpntest",
+        "rightauth": "eap-mschapv2",
+        "auto": "add"
+    }
+}
+
+IPSEC_IKEV2_PSK_HOSTNAME = {
+    "conn IKEV2_PSK_HOSTNAME": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": "strongswan-vpn-server.android-iperf.com",
+        "leftauth": "psk",
+        "leftsubnet": "0.0.0.0/0",
+        "right": "%any",
+        "rightid": "vpntest",
+        "rightauth": "psk",
+        "auto": "add"
+    }
+}
+
+IPSEC_IKEV2_RSA_HOSTNAME = {
+    "conn IKEV2_RSA_HOSTNAME": {
+        "keyexchange": "ikev2",
+        "left": LOCALHOST,
+        "leftid": "strongswan-vpn-server.android-iperf.com",
+        "leftcert": "serverCert.der",
+        "leftsubnet": "0.0.0.0/0",
+        "leftauth": "pubkey",
+        "leftsendcert": "always",
+        "right": "%any",
+        "rightid": "vpntest@strongswan-vpn-server.android-iperf.com",
+        "rightauth": "pubkey",
+        "rightcert": "clientCert.pem",
+        "auto": "add"
     }
 }
 
@@ -149,7 +245,6 @@ FIREWALL_RULES_FOR_L2TP = (
     "iptables -I FORWARD  -m policy --dir out --pol ipsec --proto esp -j ACCEPT",
     "iptables -I OUTPUT   -m policy --dir out --pol ipsec --proto esp -j ACCEPT",
     "iptables -t nat -I POSTROUTING -m policy --pol ipsec --dir out -j ACCEPT",
-    "iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT",
     "iptables -A INPUT -p esp -j ACCEPT",
     "iptables -A INPUT -i eth0.2 -p udp --dport 500 -j ACCEPT",
     "iptables -A INPUT -i eth0.2 -p tcp --dport 500 -j ACCEPT",

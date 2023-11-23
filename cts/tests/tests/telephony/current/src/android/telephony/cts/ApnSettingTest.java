@@ -17,7 +17,10 @@
 package android.telephony.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import android.net.Uri;
+import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
 import android.util.ArrayMap;
 
@@ -42,6 +45,8 @@ public class ApnSettingTest {
         EXPECTED_STRING_TO_INT_MAP.put(ApnSetting.TYPE_EMERGENCY_STRING, ApnSetting.TYPE_EMERGENCY);
         EXPECTED_STRING_TO_INT_MAP.put(ApnSetting.TYPE_MCX_STRING, ApnSetting.TYPE_MCX);
         EXPECTED_STRING_TO_INT_MAP.put(ApnSetting.TYPE_XCAP_STRING, ApnSetting.TYPE_XCAP);
+        EXPECTED_STRING_TO_INT_MAP.put(ApnSetting.TYPE_ENTERPRISE_STRING,
+                ApnSetting.TYPE_ENTERPRISE);
 
         EXPECTED_INT_TO_STRING_MAP = new ArrayMap<>();
         EXPECTED_INT_TO_STRING_MAP.put(ApnSetting.TYPE_DEFAULT, ApnSetting.TYPE_DEFAULT_STRING);
@@ -56,6 +61,8 @@ public class ApnSettingTest {
         EXPECTED_INT_TO_STRING_MAP.put(ApnSetting.TYPE_EMERGENCY, ApnSetting.TYPE_EMERGENCY_STRING);
         EXPECTED_INT_TO_STRING_MAP.put(ApnSetting.TYPE_MCX, ApnSetting.TYPE_MCX_STRING);
         EXPECTED_INT_TO_STRING_MAP.put(ApnSetting.TYPE_XCAP, ApnSetting.TYPE_XCAP_STRING);
+        EXPECTED_INT_TO_STRING_MAP.put(ApnSetting.TYPE_ENTERPRISE,
+                ApnSetting.TYPE_ENTERPRISE_STRING);
     }
 
     @Test
@@ -70,5 +77,77 @@ public class ApnSettingTest {
         for (Map.Entry<String, Integer> e : EXPECTED_STRING_TO_INT_MAP.entrySet()) {
             assertEquals((int) e.getValue(), ApnSetting.getApnTypeInt(e.getKey()));
         }
+    }
+
+    @Test
+    public void testBuilderGet() {
+        int apnTypeBitMask = ApnSetting.TYPE_DEFAULT;
+        int profileId = 9;
+        int mtuV4 = 1;
+        int mtuV6 = 2;
+        int proxyPort = 5;
+        int mmsPort = 3;
+        int authType = ApnSetting.AUTH_TYPE_NONE;
+        int protocol = ApnSetting.PROTOCOL_IP;
+        int networkTypeBitmask =  (int) TelephonyManager.NETWORK_TYPE_BITMASK_LTE;
+        int roamingProtocol = 1;
+        int mvnoType = ApnSetting.MVNO_TYPE_SPN;
+        int carrierId = 123;
+        boolean isPersistent = true;
+        boolean carrierEnabled = true;
+        Uri mmsc = new Uri.Builder().build();
+        String mmsProxy = "12.34.56";
+        String proxyAddress = "11.22.33.44";
+        String apnName = "testApnName";
+        String entryName = "entryName";
+        String user = "testUser";
+        String password = "testPWD";
+        String operatorNumeric = "123";
+        ApnSetting apnSettingUT = new ApnSetting.Builder()
+                .setApnTypeBitmask(apnTypeBitMask)
+                .setApnName(apnName)
+                .setEntryName(entryName)
+                .setMtuV4(mtuV4)
+                .setMtuV6(mtuV6)
+                .setProxyPort(proxyPort)
+                .setMmsProxyPort(mmsPort)
+                .setAuthType(authType)
+                .setProtocol(protocol)
+                .setNetworkTypeBitmask(networkTypeBitmask)
+                .setRoamingProtocol(roamingProtocol)
+                .setMvnoType(mvnoType)
+                .setCarrierId(carrierId)
+                .setCarrierEnabled(carrierEnabled)
+                .setProfileId(profileId)
+                .setPersistent(isPersistent)
+                .setMmsc(mmsc)
+                .setMmsProxyAddress(mmsProxy)
+                .setProxyAddress(proxyAddress)
+                .setUser(user)
+                .setPassword(password)
+                .setOperatorNumeric(operatorNumeric)
+                .build();
+        assertEquals(apnTypeBitMask, apnSettingUT.getApnTypeBitmask());
+        assertEquals(profileId, apnSettingUT.getProfileId());
+        assertEquals(mtuV4, apnSettingUT.getMtuV4());
+        assertEquals(mtuV6, apnSettingUT.getMtuV6());
+        assertEquals(proxyPort, apnSettingUT.getProxyPort());
+        assertEquals(mmsPort, apnSettingUT.getMmsProxyPort());
+        assertEquals(authType, apnSettingUT.getAuthType());
+        assertEquals(protocol, apnSettingUT.getProtocol());
+        assertEquals(networkTypeBitmask, apnSettingUT.getNetworkTypeBitmask());
+        assertEquals(roamingProtocol, apnSettingUT.getRoamingProtocol());
+        assertEquals(mvnoType, apnSettingUT.getMvnoType());
+        assertEquals(carrierId, apnSettingUT.getCarrierId());
+        assertEquals(mmsc, apnSettingUT.getMmsc());
+        assertEquals(mmsProxy, apnSettingUT.getMmsProxyAddressAsString());
+        assertEquals(proxyAddress, apnSettingUT.getProxyAddressAsString());
+        assertEquals(apnName, apnSettingUT.getApnName());
+        assertEquals(entryName, apnSettingUT.getEntryName());
+        assertEquals(user, apnSettingUT.getUser());
+        assertEquals(password, apnSettingUT.getPassword());
+        assertEquals(operatorNumeric, apnSettingUT.getOperatorNumeric());
+        assertTrue(apnSettingUT.isPersistent());
+        assertTrue(apnSettingUT.isEnabled());
     }
 }

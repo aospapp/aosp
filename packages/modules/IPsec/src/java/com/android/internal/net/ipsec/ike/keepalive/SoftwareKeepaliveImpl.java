@@ -18,20 +18,18 @@ package com.android.internal.net.ipsec.ike.keepalive;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.net.IpSecManager.UdpEncapsulationSocket;
-import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.Os;
 
 import com.android.internal.net.ipsec.ike.IkeSocket;
+import com.android.internal.net.ipsec.ike.utils.IkeAlarm;
+import com.android.internal.net.ipsec.ike.utils.IkeAlarm.IkeAlarmConfig;
 
 import java.net.Inet4Address;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.TimeUnit;
 
 /** This class provides methods to schedule and send keepalive packet. */
 public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
@@ -40,11 +38,9 @@ public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepali
     // NAT-Keepalive packet payload as per RFC 3948
     private static final byte[] NATT_KEEPALIVE_PAYLOAD = new byte[] {(byte) 0xff};
 
-    private final long mKeepaliveDelayMs;
     private final UdpEncapsulationSocket mSocket;
     private final Inet4Address mDestAddress;
-    private final AlarmManager mAlarmMgr;
-    private final PendingIntent mKeepaliveIntent;
+    private final IkeAlarm mIkeAlarm;
 
     /**
      * Construct an instance of SoftwareKeepaliveImpl
@@ -53,16 +49,17 @@ public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepali
      */
     public SoftwareKeepaliveImpl(
             Context context,
-            int keepaliveDelaySeconds,
             Inet4Address dest,
             UdpEncapsulationSocket socket,
-            PendingIntent keepAliveAlarmIntent) {
-        mKeepaliveDelayMs = TimeUnit.SECONDS.toMillis(keepaliveDelaySeconds);
+            IkeAlarmConfig alarmConfig) {
         mSocket = socket;
-
-        mAlarmMgr = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         mDestAddress = dest;
-        mKeepaliveIntent = keepAliveAlarmIntent;
+
+        // It is time-critical to send packets periodically to keep the dynamic NAT mapping
+        // alive. Thus, the alarm has to be "setExact" to avoid batching delay (can be at most 75%)
+        // and allowed to goes off when the device is in doze mode. There will still be a rate limit
+        // on firing alarms. Please check AlarmManager#setExactAndAllowWhileIdle for more details.
+        mIkeAlarm = IkeAlarm.newExactAndAllowWhileIdleAlarm(alarmConfig);
     }
 
     @Override
@@ -72,8 +69,7 @@ public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepali
 
     @Override
     public void stop() {
-        mAlarmMgr.cancel(mKeepaliveIntent);
-        mKeepaliveIntent.cancel();
+        mIkeAlarm.cancel();
     }
 
     @Override
@@ -83,6 +79,7 @@ public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepali
 
     /** Send out keepalive packet and schedule next keepalive event */
     private void sendKeepaliveAndScheduleNext() {
+        getIkeLog().d(TAG, "Send keepalive to " + mDestAddress.getHostAddress());
         try {
             Os.sendto(
                     mSocket.getFileDescriptor(),
@@ -95,13 +92,6 @@ public final class SoftwareKeepaliveImpl implements IkeNattKeepalive.NattKeepali
             getIkeLog().i(TAG, "Failed to keepalive packet to " + mDestAddress.getHostAddress(), e);
         }
 
-        // It is time-critical to send packets periodically to keep the dynamic NAT mapping
-        // alive. Thus, the alarm has to be "setExact" to avoid batching delay (can be at most 75%)
-        // and allowed to goes off when the device is in doze mode. There will still be a rate limit
-        // on firing alarms. Please check AlarmManager#setExactAndAllowWhileIdle for more details.
-        mAlarmMgr.setExactAndAllowWhileIdle(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + mKeepaliveDelayMs,
-                mKeepaliveIntent);
+        mIkeAlarm.schedule();
     }
 }

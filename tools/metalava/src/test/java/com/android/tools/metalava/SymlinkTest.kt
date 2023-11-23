@@ -62,7 +62,8 @@ class SymlinkTest : DriverTest() {
                             @Nullable public Double method2(@NonNull Double factor1, @NonNull Double factor2) { }
                             @Nullable public Double method3(@NonNull Double factor1, @NonNull Double factor2) { }
                         }
-                        """)
+                        """
+                    )
                     File(dir, "src/test/pkg/sub1/package.html").writeText(
                         """
                         <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
@@ -75,7 +76,8 @@ class SymlinkTest : DriverTest() {
                         Another line.<br>
                         </BODY>
                         </html>
-                        """)
+                        """
+                    )
                 },
                 // Empty source path: don't pick up random directory stuff
                 extraArguments = arrayOf(

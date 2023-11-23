@@ -17,7 +17,8 @@
 package com.android.layoutlib.bridge;
 
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
-import com.android.tools.layoutlib.create.CreateInfo;
+
+import com.android.tools.layoutlib.create.NativeConfig;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -29,7 +30,7 @@ import junit.framework.TestCase;
 /**
  * Tests that native delegate classes implement all the required methods.
  *
- * This looks at {@link CreateInfo#DELEGATE_CLASS_NATIVES} to get the list of classes that
+ * This looks at {@link NativeConfig#DELEGATE_CLASS_NATIVES} to get the list of classes that
  * have their native methods reimplemented through a delegate.
  *
  * Since the reimplemented methods are not native anymore, we look for the annotation
@@ -45,7 +46,7 @@ public class TestDelegates extends TestCase {
 
     public void testNativeDelegates() {
 
-        final String[] classes = CreateInfo.DELEGATE_CLASS_NATIVES;
+        final String[] classes = NativeConfig.DELEGATE_CLASS_NATIVES;
         mErrors.clear();
         for (String clazz : classes) {
             String targetClassName = clazz.replace('$', '_') + "_Delegate";
@@ -55,7 +56,7 @@ public class TestDelegates extends TestCase {
     }
 
     public void testMethodDelegates() {
-        final String[] methods = CreateInfo.DELEGATE_METHODS;
+        final String[] methods = NativeConfig.DELEGATE_METHODS;
         mErrors.clear();
         for (String methodName : methods) {
             // extract the class name

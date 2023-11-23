@@ -41,18 +41,10 @@ using std::set;
 using std::string;
 using std::vector;
 
-struct DumpForEqualityVisitor : DumpVisitor {
-  DumpForEqualityVisitor(CodeWriter& out) : DumpVisitor(out) {}
-
-  void DumpConstantValue(const AidlTypeSpecifier&, const AidlConstantValue& c) {
-    out << c.Literal();
-  }
-};
-
 static std::string Dump(const AidlDefinedType& type) {
   string code;
   CodeWriterPtr out = CodeWriter::ForString(&code);
-  DumpForEqualityVisitor visitor(*out);
+  DumpVisitor visitor(*out);
   type.DispatchVisit(visitor);
   out->Close();
   return code;
@@ -86,7 +78,10 @@ static vector<string> get_strict_annotations(const AidlAnnotatable& node) {
       AidlAnnotation::Type::NULLABLE,
       // @JavaDerive doesn't affect read/write
       AidlAnnotation::Type::JAVA_DERIVE,
+      AidlAnnotation::Type::JAVA_DEFAULT,
+      AidlAnnotation::Type::JAVA_DELEGATOR,
       AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE,
+      AidlAnnotation::Type::JAVA_SUPPRESS_LINT,
       // @Backing for a enum type is checked by the enum checker
       AidlAnnotation::Type::BACKING,
       // @RustDerive doesn't affect read/write
@@ -94,11 +89,11 @@ static vector<string> get_strict_annotations(const AidlAnnotatable& node) {
       AidlAnnotation::Type::SUPPRESS_WARNINGS,
   };
   vector<string> annotations;
-  for (const AidlAnnotation& annotation : node.GetAnnotations()) {
-    if (kIgnoreAnnotations.find(annotation.GetType()) != kIgnoreAnnotations.end()) {
+  for (const auto& annotation : node.GetAnnotations()) {
+    if (kIgnoreAnnotations.find(annotation->GetType()) != kIgnoreAnnotations.end()) {
       continue;
     }
-    auto annotation_string = annotation.ToString();
+    auto annotation_string = annotation->ToString();
     // adding @Deprecated (with optional args) is okay
     if (StartsWith(annotation_string, "@JavaPassthrough(annotation=\"@Deprecated")) {
       continue;
@@ -154,8 +149,8 @@ static bool are_compatible_constants(const AidlDefinedType& older, const AidlDef
     const auto new_c = found->second;
     compatible &= are_compatible_types(old_c->GetType(), new_c->GetType());
 
-    const string old_value = old_c->GetValue().Literal();
-    const string new_value = new_c->GetValue().Literal();
+    const string old_value = old_c->ValueString(AidlConstantValueDecorator);
+    const string new_value = new_c->ValueString(AidlConstantValueDecorator);
     if (old_value != new_value) {
       AIDL_ERROR(newer) << "Changed constant value: " << older.GetCanonicalName() << "."
                         << old_c->GetName() << " from " << old_value << " to " << new_value << ".";
@@ -227,21 +222,14 @@ static bool are_compatible_interfaces(const AidlInterface& older, const AidlInte
 static bool HasZeroEnumerator(const AidlEnumDeclaration& enum_decl) {
   return std::any_of(enum_decl.GetEnumerators().begin(), enum_decl.GetEnumerators().end(),
                      [&](const unique_ptr<AidlEnumerator>& enumerator) {
-                       return enumerator->GetValue()->Literal() == "0";
+                       return enumerator->GetValue()->ValueString(
+                                  enum_decl.GetBackingType(), AidlConstantValueDecorator) == "0";
                      });
 }
 
-static bool EvaluatesToZero(const AidlEnumDeclaration& enum_decl, const std::string& value) {
-  if (value == "") return true;
-  // Because --check_api runs with "valid" AIDL definitions, we can safely assume that
-  // the value is formatted as <scope>.<enumerator>.
-  auto enumerator_name = value.substr(value.find_last_of('.') + 1);
-  for (const auto& enumerator : enum_decl.GetEnumerators()) {
-    if (enumerator->GetName() == enumerator_name) {
-      return enumerator->GetValue()->Literal() == "0";
-    }
-  }
-  AIDL_FATAL(enum_decl) << "Can't find " << enumerator_name << " in " << enum_decl.GetName();
+static bool EvaluatesToZero(const AidlEnumDeclaration& enum_decl, const AidlConstantValue* value) {
+  if (value == nullptr) return true;
+  return value->ValueString(enum_decl.GetBackingType(), AidlConstantValueDecorator) == "0";
 }
 
 static bool are_compatible_parcelables(const AidlDefinedType& older, const AidlTypenames&,
@@ -277,15 +265,14 @@ static bool are_compatible_parcelables(const AidlDefinedType& older, const AidlT
     const auto& new_field = new_fields.at(i);
     compatible &= are_compatible_types(old_field->GetType(), new_field->GetType());
 
-    string old_value = old_field->GetDefaultValue() ? old_field->GetDefaultValue()->Literal() : "";
-    string new_value = new_field->GetDefaultValue() ? new_field->GetDefaultValue()->Literal() : "";
-
+    const string old_value = old_field->ValueString(AidlConstantValueDecorator);
+    const string new_value = new_field->ValueString(AidlConstantValueDecorator);
     if (old_value == new_value) {
       continue;
     }
     // For enum type fields, we accept setting explicit default value which is "zero"
     auto enum_decl = new_types.GetEnumDeclaration(new_field->GetType());
-    if (old_value == "" && enum_decl && EvaluatesToZero(*enum_decl, new_value)) {
+    if (old_value == "" && enum_decl && EvaluatesToZero(*enum_decl, new_field->GetDefaultValue())) {
       continue;
     }
 
@@ -390,8 +377,10 @@ static bool are_compatible_enums(const AidlEnumDeclaration& older,
       compatible = false;
       continue;
     }
-    const string old_value = old_enum_map[name]->Literal();
-    const string new_value = new_enum_map[name]->Literal();
+    const string old_value =
+        old_enum_map[name]->ValueString(older.GetBackingType(), AidlConstantValueDecorator);
+    const string new_value =
+        new_enum_map[name]->ValueString(newer.GetBackingType(), AidlConstantValueDecorator);
     if (old_value != new_value) {
       AIDL_ERROR(newer) << "Changed enumerator value: " << older.GetCanonicalName() << "::" << name
                         << " from " << old_value << " to " << new_value << ".";
@@ -401,8 +390,8 @@ static bool are_compatible_enums(const AidlEnumDeclaration& older,
   return compatible;
 }
 
-static Result<AidlTypenames> load_from_dir(const Options& options, const IoDelegate& io_delegate,
-                                           const std::string& dir) {
+static Result<AidlTypenames> LoadApiDump(const Options& options, const IoDelegate& io_delegate,
+                                         const std::string& dir) {
   Result<std::vector<std::string>> dir_files = io_delegate.ListFiles(dir);
   if (!dir_files.ok()) {
     AIDL_ERROR(dir) << dir_files.error();
@@ -412,7 +401,9 @@ static Result<AidlTypenames> load_from_dir(const Options& options, const IoDeleg
   AidlTypenames typenames;
   for (const auto& file : *dir_files) {
     if (!android::base::EndsWith(file, ".aidl")) continue;
-    if (internals::load_and_validate_aidl(file, options, io_delegate, &typenames,
+    // current "dir" is added to "imports" so that referenced.aidl files in the current
+    // module are available when resolving references.
+    if (internals::load_and_validate_aidl(file, options.PlusImportDir(dir), io_delegate, &typenames,
                                           nullptr /* imported_files */) != AidlError::OK) {
       AIDL_ERROR(file) << "Failed to read.";
       return Error();
@@ -427,19 +418,31 @@ bool check_api(const Options& options, const IoDelegate& io_delegate) {
   AIDL_FATAL_IF(options.InputFiles().size() != 2, AIDL_LOCATION_HERE)
       << "--checkapi requires two inputs "
       << "but got " << options.InputFiles().size();
-  auto old_tns = load_from_dir(options, io_delegate, options.InputFiles().at(0));
+  auto old_tns = LoadApiDump(options, io_delegate, options.InputFiles().at(0));
   if (!old_tns.ok()) {
     return false;
   }
-  auto new_tns = load_from_dir(options, io_delegate, options.InputFiles().at(1));
+  auto new_tns = LoadApiDump(options, io_delegate, options.InputFiles().at(1));
   if (!new_tns.ok()) {
     return false;
   }
 
   const Options::CheckApiLevel level = options.GetCheckApiLevel();
 
-  std::vector<AidlDefinedType*> old_types = old_tns->AllDefinedTypes();
-  std::vector<AidlDefinedType*> new_types = new_tns->AllDefinedTypes();
+  // We don't check impoted types.
+  auto get_types_in = [](const AidlTypenames& tns, const std::string& location) {
+    std::vector<const AidlDefinedType*> types;
+    for (const auto& type : tns.AllDefinedTypes()) {
+      if (StartsWith(type->GetLocation().GetFile(), location)) {
+        types.push_back(type);
+      }
+    }
+    return types;
+  };
+  std::vector<const AidlDefinedType*> old_types =
+      get_types_in(*old_tns, options.InputFiles().at(0));
+  std::vector<const AidlDefinedType*> new_types =
+      get_types_in(*new_tns, options.InputFiles().at(1));
 
   bool compatible = true;
 
@@ -458,7 +461,7 @@ bool check_api(const Options& options, const IoDelegate& io_delegate) {
     }
   }
 
-  map<string, AidlDefinedType*> new_map;
+  map<string, const AidlDefinedType*> new_map;
   for (const auto t : new_types) {
     new_map.emplace(t->GetCanonicalName(), t);
   }

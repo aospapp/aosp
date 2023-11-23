@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A seguinte aplicación xestionará o teu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Seguinte"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando o perfil de traballo..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"O teu administrador de TI pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este perfil (entre os que se inclúe a actividade da túa rede); así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Ponte en contacto co teu administrador de TI para recibir máis información e consultar as políticas de privacidade da túa organización."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"O teu administrador de TI pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos, a actividade da rede e os datos asociados a este perfil, así como o historial de chamadas e o de busca de contactos. Ponte en contacto co teu administrador de TI para recibir máis información sobre as políticas de privacidade da túa organización."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"O teu administrador de TI pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este dispositivo (entre os que se inclúe a actividade da túa rede); así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ponte en contacto co teu administrador de TI para recibir máis información e consultar as políticas de privacidade da túa organización."</string>
@@ -99,7 +97,7 @@
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"Podes configurar o perfil de traballo máis tarde na aplicación de administración de dispositivos da túa organización"</string>
     <string name="continue_button" msgid="7177918589510964446">"Continuar"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Deter"</string>
-    <string name="dismiss" msgid="9009534756748565880">"Ignorar"</string>
+    <string name="dismiss" msgid="9009534756748565880">"Pechar"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"Estás a punto de crear un perfil de traballo, que a túa organización xestionará e controlará. Aplicaranse as condicións pertinentes."</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Estás a punto de crear un perfil de traballo que a túa organización xestionará e controlará. Aplicaranse as condicións de <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"Crearase un perfil para as aplicacións que utilizas para traballar. A túa organización xestionará e controlará este perfil e o resto do dispositivo. Aplicaranse as condicións pertinentes."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> pode instalar a aplicación de <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para que poidas facer pagos con este dispositivo."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Este dispositivo pode ter restricións"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pode restrinxir o acceso a este dispositivo se non fas pagos."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Non se puido configurar o dispositivo. Ponte en contacto co teu administrador de TI e indícalle o motivo: \"Suma de comprobación non válida\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Téntao de novo máis tarde ou pídelle axuda ao teu administrador de TI"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Non se puido configurar o dispositivo. Ponte en contacto co teu administrador de TI e indícalle o motivo: \"Faltan compoñentes ou están danados\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configurando…"</string>
 </resources>

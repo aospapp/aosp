@@ -21,6 +21,9 @@ fn smoke() {
 #[test]
 fn frob() {
     const N: u32 = 10;
+    #[cfg(miri)]
+    const M: usize = 100;
+    #[cfg(not(miri))]
     const M: usize = 1000;
 
     let r = Arc::new(ShardedLock::new(()));
@@ -148,7 +151,7 @@ fn arc() {
 fn arc_access_in_unwind() {
     let arc = Arc::new(ShardedLock::new(1));
     let arc2 = arc.clone();
-    let _ = thread::spawn(move || -> () {
+    let _ = thread::spawn(move || {
         struct Unwinder {
             i: Arc<ShardedLock<isize>>,
         }

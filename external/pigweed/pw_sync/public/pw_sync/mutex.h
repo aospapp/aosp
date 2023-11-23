@@ -20,6 +20,7 @@
 
 #ifdef __cplusplus
 
+#include "pw_sync/virtual_basic_lockable.h"
 #include "pw_sync_backend/mutex_native.h"
 
 namespace pw::sync {
@@ -68,9 +69,44 @@ class PW_LOCKABLE("pw::sync::Mutex") Mutex {
 
   native_handle_type native_handle();
 
+ protected:
+  // Expose the NativeMutex directly to derived classes (TimedMutex) in
+  // case implementations use different types for backend::NativeMutex and
+  // native_handle().
+  backend::NativeMutex& native_type() { return native_type_; }
+  const backend::NativeMutex& native_type() const { return native_type_; }
+
  private:
   // This may be a wrapper around a native type with additional members.
   backend::NativeMutex native_type_;
+};
+
+class PW_LOCKABLE("pw::sync::VirtualMutex") VirtualMutex final
+    : public VirtualBasicLockable {
+ public:
+  VirtualMutex() = default;
+
+  VirtualMutex(const VirtualMutex&) = delete;
+  VirtualMutex(VirtualMutex&&) = delete;
+  VirtualMutex& operator=(const VirtualMutex&) = delete;
+  VirtualMutex& operator=(VirtualMutex&&) = delete;
+
+  Mutex& mutex() { return mutex_; }
+
+ private:
+  void DoLockOperation(Operation operation) override
+      PW_NO_LOCK_SAFETY_ANALYSIS {
+    switch (operation) {
+      case Operation::kLock:
+        return mutex_.lock();
+
+      case Operation::kUnlock:
+      default:
+        return mutex_.unlock();
+    }
+  }
+
+  Mutex mutex_;
 };
 
 }  // namespace pw::sync

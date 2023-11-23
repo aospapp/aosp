@@ -23,6 +23,7 @@ extern int register_android_view_cts_ChoreographerNativeTest(JNIEnv* env);
 extern int register_android_view_cts_AKeyEventNativeTest(JNIEnv *env);
 extern int register_android_view_cts_AMotionEventNativeTest(JNIEnv *env);
 extern int register_android_view_cts_InputDeviceKeyLayoutMapTest(JNIEnv *env);
+extern int register_android_view_cts_InputQueueTest(JNIEnv *env);
 
 jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env = NULL;
@@ -42,6 +43,9 @@ jint JNI_OnLoad(JavaVM *vm, void *) {
         return JNI_ERR;
     }
     if (register_android_view_cts_InputDeviceKeyLayoutMapTest(env)) {
+        return JNI_ERR;
+    }
+    if (register_android_view_cts_InputQueueTest(env)) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_4;

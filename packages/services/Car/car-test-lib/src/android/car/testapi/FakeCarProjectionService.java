@@ -29,6 +29,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Message;
@@ -52,6 +53,7 @@ class FakeCarProjectionService extends ICarProjection.Stub implements
     private final Context mContext;
 
     private SoftApConfiguration mSoftApConfiguration;
+    private WifiConfiguration mWifiConfiguration;
     private Messenger mApMessenger;
     private IBinder mApBinder;
     private List<ICarProjectionStatusListener> mStatusListeners = new ArrayList<>();
@@ -118,6 +120,9 @@ class FakeCarProjectionService extends ICarProjection.Stub implements
         if (mSoftApConfiguration != null) {
             message.what = CarProjectionManager.PROJECTION_AP_STARTED;
             message.obj = mSoftApConfiguration;
+        } else if (mWifiConfiguration != null) {
+            message.what = CarProjectionManager.PROJECTION_AP_STARTED;
+            message.obj = mWifiConfiguration;
         } else {
             message.what = CarProjectionManager.PROJECTION_AP_FAILED;
             message.arg1 = ProjectionAccessPointCallback.ERROR_GENERIC;
@@ -184,6 +189,11 @@ class FakeCarProjectionService extends ICarProjection.Stub implements
     }
 
     @Override
+    public void setWifiConfiguration(WifiConfiguration wifiConfiguration) {
+        mWifiConfiguration = wifiConfiguration;
+    }
+
+    @Override
     public Bundle getProjectionOptions() throws RemoteException {
         return mProjectionOptions.toBundle();
     }
@@ -193,6 +203,10 @@ class FakeCarProjectionService extends ICarProjection.Stub implements
         return new int[] {2412 /* Channel 1 */, 5180 /* Channel 36 */};
     }
 
+    @Override
+    public void resetProjectionAccessPointCredentials() throws RemoteException {
+        // Nothing to do.
+    }
 
     @Override
     public void setProjectionOptions(ProjectionOptions projectionOptions) {

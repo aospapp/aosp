@@ -10,8 +10,24 @@ package {
 cc_binary {
     name: "fsverity_init",
     srcs: [
-        "fsverity_init.cpp",
+        "main.cpp",
     ],
+    static_libs: [
+        "libc++fs",
+        "libfsverity_init",
+        "libmini_keyctl_static",
+    ],
+    shared_libs: [
+        "libbase",
+        "libkeyutils",
+        "liblog",
+    ],
+    cflags: ["-Werror", "-Wall", "-Wextra"],
+}
+
+cc_library {
+    name: "libfsverity_init",
+    srcs: ["fsverity_init.cpp"],
     static_libs: [
         "libc++fs",
         "libmini_keyctl_static",
@@ -20,7 +36,8 @@ cc_binary {
         "libbase",
         "libkeyutils",
         "liblog",
-        "liblogwrap",
     ],
     cflags: ["-Werror", "-Wall", "-Wextra"],
+    export_include_dirs: ["include"],
+    recovery_available: true,
 }

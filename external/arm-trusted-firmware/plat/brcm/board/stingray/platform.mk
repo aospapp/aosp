@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, Broadcom
+# Copyright (c) 2019-2021, Broadcom
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -71,6 +71,12 @@ endif
 
 ifeq (${BOARD_CFG},)
 BOARD_CFG := bcm958742t
+endif
+
+# Use USB
+ifeq (${USE_USB},yes)
+$(info Using USB)
+$(eval $(call add_define,USE_USB))
 endif
 
 # Use PAXB
@@ -190,16 +196,21 @@ PLAT_BL_COMMON_SOURCES	+=	lib/cpus/aarch64/cortex_a72.S \
 				plat/${SOC_DIR}/src/tz_sec.c \
 				drivers/arm/tzc/tzc400.c \
 				plat/${SOC_DIR}/driver/plat_emmc.c \
-				plat/${SOC_DIR}/src/topology.c
+				plat/${SOC_DIR}/src/topology.c \
+				drivers/brcm/mdio/mdio.c
 
 ifeq (${USE_CHIMP},yes)
 PLAT_BL_COMMON_SOURCES	+=	drivers/brcm/chimp.c
 endif
 
+ifeq (${USE_USB},yes)
+PLAT_BL_COMMON_SOURCES	+=	plat/${SOC_DIR}/driver/usb.c \
+				plat/${SOC_DIR}/driver/usb_phy.c
+endif
+
 BL2_SOURCES		+=	plat/${SOC_DIR}/driver/ihost_pll_config.c \
 				plat/${SOC_DIR}/src/bl2_setup.c \
 				plat/${SOC_DIR}/driver/swreg.c
-
 
 ifeq (${USE_DDR},yes)
 PLAT_INCLUDES		+=	-Iplat/${SOC_DIR}/driver/ddr/soc/include

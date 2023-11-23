@@ -92,9 +92,9 @@ public class ConfigMetricsReportListConverterTest {
                                                         .setField(2)))))
                         .addStrings(testGaugeMetricProcessName))
                 .build();
-        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured>> appMemAccessorMap =
+        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> appMemAccessorMap =
                 new AppStartMemoryStateCapturedConverter().getAtomFieldAccessorMap();
-        SparseArray<AtomFieldAccessor<ProcessMemoryState>> procMemAccessorMap =
+        SparseArray<AtomFieldAccessor<ProcessMemoryState, ?>> procMemAccessorMap =
                 new ProcessMemoryStateConverter().getAtomFieldAccessorMap();
 
         Map<Long, PersistableBundle> map = ConfigMetricsReportListConverter.convert(reportList);

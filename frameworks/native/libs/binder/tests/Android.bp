@@ -37,7 +37,11 @@ cc_test {
     srcs: ["binderDriverInterfaceTest.cpp"],
     header_libs: ["libbinder_headers"],
     compile_multilib: "32",
-    multilib: { lib32: { suffix: "" } },
+    multilib: {
+        lib32: {
+            suffix: "",
+        },
+    },
     cflags: ["-DBINDER_IPC_32BIT=1"],
     test_suites: ["vts"],
 }
@@ -52,7 +56,10 @@ cc_test {
     },
     header_libs: ["libbinder_headers"],
     srcs: ["binderDriverInterfaceTest.cpp"],
-    test_suites: ["device-tests", "vts"],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
 }
 
 cc_test {
@@ -60,14 +67,20 @@ cc_test {
     defaults: ["binder_test_defaults"],
     srcs: ["binderLibTest.cpp"],
     shared_libs: [
+        "libbase",
         "libbinder",
+        "liblog",
         "libutils",
     ],
     static_libs: [
         "libgmock",
     ],
     compile_multilib: "32",
-    multilib: { lib32: { suffix: "" } },
+    multilib: {
+        lib32: {
+            suffix: "",
+        },
+    },
     cflags: ["-DBINDER_IPC_32BIT=1"],
     test_suites: ["vts"],
     require_root: true,
@@ -75,16 +88,22 @@ cc_test {
 
 // unit test only, which can run on host and doesn't use /dev/binder
 cc_test {
-    name: "binderParcelTest",
+    name: "binderUnitTest",
     host_supported: true,
     target: {
         darwin: {
             enabled: false,
         },
     },
-    srcs: ["binderParcelTest.cpp"],
+    srcs: [
+        "binderParcelUnitTest.cpp",
+        "binderBinderUnitTest.cpp",
+        "binderStatusUnitTest.cpp",
+        "binderMemoryHeapBaseUnitTest.cpp",
+    ],
     shared_libs: [
         "libbinder",
+        "libcutils",
         "libutils",
     ],
     test_suites: ["general-tests"],
@@ -101,13 +120,18 @@ cc_test {
 
     srcs: ["binderLibTest.cpp"],
     shared_libs: [
+        "libbase",
         "libbinder",
+        "liblog",
         "libutils",
     ],
     static_libs: [
         "libgmock",
     ],
-    test_suites: ["device-tests", "vts"],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
     require_root: true,
 }
 
@@ -116,14 +140,49 @@ aidl_interface {
     host_supported: true,
     unstable: true,
     srcs: [
+        "BinderRpcTestClientInfo.aidl",
+        "BinderRpcTestServerInfo.aidl",
+        "IBinderRpcCallback.aidl",
         "IBinderRpcSession.aidl",
         "IBinderRpcTest.aidl",
+        "ParcelableCertificateData.aidl",
     ],
     backend: {
         java: {
             enabled: false,
         },
     },
+}
+
+cc_library_static {
+    name: "libbinder_tls_test_utils",
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    defaults: [
+        "binder_test_defaults",
+        "libbinder_tls_shared_deps",
+    ],
+    shared_libs: [
+        "libbinder",
+        "libbase",
+        "liblog",
+    ],
+    static_libs: [
+        "libbinder_tls_static",
+    ],
+    srcs: [
+        "RpcTlsTestUtils.cpp",
+    ],
+    export_include_dirs: [
+        "include_tls_test_utils",
+    ],
+    visibility: [
+        ":__subpackages__",
+    ],
 }
 
 cc_test {
@@ -133,10 +192,13 @@ cc_test {
         darwin: {
             enabled: false,
         },
+        android: {
+            test_suites: ["vts"],
+        },
     },
     defaults: [
         "binder_test_defaults",
-        "libbinder_ndk_host_user",
+        "libbinder_tls_shared_deps",
     ],
 
     srcs: [
@@ -151,19 +213,55 @@ cc_test {
         "liblog",
     ],
     static_libs: [
+        "libbinder_tls_static",
+        "libbinder_tls_test_utils",
         "binderRpcTestIface-cpp",
-        "binderRpcTestIface-ndk_platform",
+        "binderRpcTestIface-ndk",
     ],
+    test_suites: ["general-tests"],
     require_root: true,
-    // Prevent the unit test target from running on sc-dev as it's not ready.
-    test_options: {
-        unit_test: false,
+}
+
+cc_test {
+    name: "RpcTlsUtilsTest",
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        android: {
+            test_suites: ["vts"],
+        },
     },
+    defaults: [
+        "binder_test_defaults",
+        "libbinder_tls_shared_deps",
+    ],
+    srcs: [
+        "RpcTlsUtilsTest.cpp",
+    ],
+    shared_libs: [
+        "libbinder",
+        "libbase",
+        "libutils",
+        "liblog",
+    ],
+    static_libs: [
+        "libbinder_tls_test_utils",
+        "libbinder_tls_static",
+    ],
+    test_suites: [
+        "general-tests",
+        "device-tests",
+    ],
 }
 
 cc_benchmark {
     name: "binderRpcBenchmark",
-    defaults: ["binder_test_defaults"],
+    defaults: [
+        "binder_test_defaults",
+        "libbinder_tls_shared_deps",
+    ],
     host_supported: true,
     target: {
         darwin: {
@@ -180,6 +278,37 @@ cc_benchmark {
         "liblog",
         "libutils",
     ],
+    static_libs: [
+        "libbinder_tls_test_utils",
+        "libbinder_tls_static",
+    ],
+}
+
+cc_test {
+    name: "binderRpcWireProtocolTest",
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        android: {
+            test_suites: ["vts"],
+        },
+    },
+    defaults: [
+        "binder_test_defaults",
+    ],
+    srcs: [
+        "binderRpcWireProtocolTest.cpp",
+    ],
+    shared_libs: [
+        "libbinder",
+        "libbase",
+        "libutils",
+        "libcutils",
+        "liblog",
+    ],
+    test_suites: ["general-tests"],
 }
 
 cc_test {
@@ -240,7 +369,10 @@ cc_test {
         "liblog",
         "libutils",
     ],
-    test_suites: ["device-tests", "vts"],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
     require_root: true,
 }
 
@@ -291,10 +423,13 @@ cc_test {
     ],
     static_libs: [
         "binderStabilityTestIface-cpp",
-        "binderStabilityTestIface-ndk_platform",
+        "binderStabilityTestIface-ndk",
     ],
 
-    test_suites: ["device-tests", "vts"],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
     require_root: true,
 }
 
@@ -323,4 +458,69 @@ cc_benchmark {
         "liblog",
         "libutils",
     ],
+}
+
+cc_test_host {
+    name: "binderUtilsHostTest",
+    defaults: ["binder_test_defaults"],
+    srcs: ["binderUtilsHostTest.cpp"],
+    shared_libs: [
+        "libbase",
+        "libbinder",
+    ],
+    static_libs: [
+        "libgmock",
+    ],
+    test_suites: ["general-tests"],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+}
+
+cc_test_host {
+    name: "binderHostDeviceTest",
+    defaults: ["binder_test_defaults"],
+    srcs: ["binderHostDeviceTest.cpp"],
+    test_config: "binderHostDeviceTest.xml",
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "liblog",
+        "libutils",
+    ],
+    static_libs: [
+        "libgmock",
+    ],
+    target_required: [
+        "binderHostDeviceTestService",
+    ],
+    test_suites: ["general-tests"],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    test_options: {
+        unit_test: false,
+    },
+}
+
+cc_test {
+    name: "binderHostDeviceTestService",
+    // The binary is named differently from the module so that PushFilePreparer pushes the binary
+    // directly, not the test module directory.
+    stem: "binderHostDeviceTest-service",
+    defaults: ["binder_test_defaults"],
+    gtest: false,
+    auto_gen_config: false,
+    srcs: ["binderHostDeviceTestService.cpp"],
+    shared_libs: [
+        "libbase",
+        "libbinder",
+        "liblog",
+        "libutils",
+    ],
+    test_suites: ["general-tests"],
 }

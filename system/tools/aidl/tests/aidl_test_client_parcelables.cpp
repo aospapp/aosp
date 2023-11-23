@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+#include <android/aidl/fixedsizearray/FixedSizeArrayExample.h>
 #include <android/aidl/tests/ParcelableForToString.h>
 #include <android/aidl/tests/extension/MyExt.h>
 #include <android/aidl/tests/extension/MyExt2.h>
 #include <android/aidl/tests/extension/MyExtLike.h>
 #include <android/aidl/tests/unions/EnumUnion.h>
+#include <binder/Binder.h>
 #include "aidl_test_client.h"
 
 #include <string>
@@ -27,6 +29,9 @@
 using android::IInterface;
 using android::sp;
 using android::String16;
+using android::String8;
+using android::aidl::fixedsizearray::FixedSizeArrayExample;
+using android::aidl::tests::BadParcelable;
 using android::aidl::tests::ConstantExpressionEnum;
 using android::aidl::tests::GenericStructuredParcelable;
 using android::aidl::tests::INamedCallback;
@@ -34,6 +39,7 @@ using android::aidl::tests::IntEnum;
 using android::aidl::tests::ITestService;
 using android::aidl::tests::OtherParcelableForToString;
 using android::aidl::tests::ParcelableForToString;
+using android::aidl::tests::RecursiveList;
 using android::aidl::tests::SimpleParcelable;
 using android::aidl::tests::StructuredParcelable;
 using android::aidl::tests::Union;
@@ -42,10 +48,34 @@ using android::aidl::tests::extension::MyExt;
 using android::aidl::tests::extension::MyExt2;
 using android::aidl::tests::extension::MyExtLike;
 using android::aidl::tests::unions::EnumUnion;
+using IntParcelable = android::aidl::fixedsizearray::FixedSizeArrayExample::IntParcelable;
+using IRepeatFixedSizeArray =
+    android::aidl::fixedsizearray::FixedSizeArrayExample::IRepeatFixedSizeArray;
+using android::BBinder;
+using android::IBinder;
+using android::OK;
 using android::binder::Status;
 using android::os::PersistableBundle;
 using std::string;
 using std::vector;
+
+TEST_F(AidlTest, BadParcelable) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
+  BadParcelable output;
+  {
+    BadParcelable bad(/*bad=*/true, "Booya", 42);
+    Status status = cpp_java_tests->RepeatBadParcelable(bad, &output);
+    ASSERT_FALSE(status.isOk());
+    EXPECT_EQ(status.exceptionCode(), Status::Exception::EX_BAD_PARCELABLE);
+  }
+  {
+    BadParcelable not_bad(/*bad=*/false, "Booya", 42);
+    Status status = cpp_java_tests->RepeatBadParcelable(not_bad, &output);
+    ASSERT_TRUE(status.isOk());
+    EXPECT_EQ(not_bad, output);
+  }
+}
 
 TEST_F(AidlTest, RepeatSimpleParcelable) {
   if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
@@ -181,7 +211,8 @@ TEST_F(AidlTest, UnionUsage) {
 
   // Use std::in_place_index<tag> to avoid "move"
   // Note that make<tag>(...) involves "move" of the content value
-  EXPECT_EQ(Union::make<Union::ns>(3, 0), Union(std::in_place_index<Union::ns>, 3, 0));
+  EXPECT_EQ(Union::make<Union::ns>(3, 0),
+            Union(std::in_place_index<static_cast<size_t>(Union::ns)>, 3, 0));
 
   Union one_two = one_two_three;
   // get<tag> can be used to modify the content
@@ -294,6 +325,10 @@ TEST_F(AidlTest, ConfirmStructuredParcelables) {
   EXPECT_EQ(parcelable.int32_max, INT32_MAX);
   EXPECT_EQ(parcelable.int64_max, INT64_MAX);
   EXPECT_EQ(parcelable.hexInt32_neg_1, -1);
+
+  for (size_t ndx = 0; ndx < parcelable.int8_1.size(); ndx++) {
+    EXPECT_EQ(parcelable.int8_1[ndx], 1) << ndx;
+  }
 
   for (size_t ndx = 0; ndx < parcelable.int32_1.size(); ndx++) {
     EXPECT_EQ(parcelable.int32_1[ndx], 1) << ndx;
@@ -515,4 +550,161 @@ TEST_F(AidlTest, ParcelableToString) {
       "}";
 
   EXPECT_EQ(expected, p.toString());
+}
+
+TEST_F(AidlTest, ReverseRecursiveList) {
+  std::unique_ptr<RecursiveList> head;
+  for (int i = 0; i < 10; i++) {
+    auto node = std::make_unique<RecursiveList>();
+    node->value = i;
+    node->next = std::move(head);
+    head = std::move(node);
+  }
+  // head: [9, 8, ... 0]
+
+  RecursiveList reversed;
+  auto status = service->ReverseList(*head, &reversed);
+  ASSERT_TRUE(status.isOk()) << status.toString8();
+
+  // reversed should be [0, 1, .. 9]
+  RecursiveList* cur = &reversed;
+  for (int i = 0; i < 10; i++) {
+    EXPECT_EQ(i, cur->value);
+    cur = cur->next.get();
+  }
+  EXPECT_EQ(nullptr, cur);
+}
+
+TEST_F(AidlTest, GetUnionTags) {
+  std::vector<Union> unions;
+  std::vector<Union::Tag> tags;
+  // test empty
+  auto status = service->GetUnionTags(unions, &tags);
+  ASSERT_TRUE(status.isOk()) << status.toString8();
+  EXPECT_EQ(tags, (std::vector<Union::Tag>{}));
+  // test non-empty
+  unions.push_back(Union::make<Union::n>());
+  unions.push_back(Union::make<Union::ns>());
+  status = service->GetUnionTags(unions, &tags);
+  ASSERT_TRUE(status.isOk()) << status.toString8();
+  EXPECT_EQ(tags, (std::vector<Union::Tag>{Union::n, Union::ns}));
+}
+
+TEST_F(AidlTest, FixedSizeArray) {
+  android::Parcel parcel;
+
+  FixedSizeArrayExample p;
+  p.byteMatrix[0][0] = 0;
+  p.byteMatrix[0][1] = 1;
+  p.byteMatrix[1][0] = 2;
+  p.byteMatrix[1][1] = 3;
+  p.floatMatrix[0][0] = 0.f;
+  p.floatMatrix[0][1] = 1.f;
+  p.floatMatrix[1][0] = 2.f;
+  p.floatMatrix[1][1] = 3.f;
+  EXPECT_EQ(OK, p.writeToParcel(&parcel));
+
+  parcel.setDataPosition(0);
+
+  FixedSizeArrayExample q;
+  EXPECT_EQ(OK, q.readFromParcel(&parcel));
+  EXPECT_EQ(p, q);
+}
+
+TEST_F(AidlTest, FixedSizeArrayWithValuesAtNullableFields) {
+  android::Parcel parcel;
+
+  FixedSizeArrayExample p;
+  p.boolNullableArray = std::array<bool, 2>{true, false};
+  p.byteNullableArray = std::array<uint8_t, 2>{42, 0};
+  p.stringNullableArray = std::array<std::optional<std::string>, 2>{"hello", "world"};
+
+  p.boolNullableMatrix.emplace();
+  p.boolNullableMatrix->at(0) = std::array<bool, 2>{true, false};
+  p.byteNullableMatrix.emplace();
+  p.byteNullableMatrix->at(0) = std::array<uint8_t, 2>{42, 0};
+  p.stringNullableMatrix.emplace();
+  p.stringNullableMatrix->at(0) = std::array<std::optional<std::string>, 2>{"hello", "world"};
+
+  EXPECT_EQ(OK, p.writeToParcel(&parcel));
+
+  parcel.setDataPosition(0);
+
+  FixedSizeArrayExample q;
+  EXPECT_EQ(OK, q.readFromParcel(&parcel));
+  EXPECT_EQ(p, q);
+}
+
+TEST_F(AidlTest, FixedSizeArrayOfBytesShouldBePacked) {
+  android::Parcel parcel;
+
+  std::array<std::array<uint8_t, 3>, 2> byte_array;
+  byte_array[0] = {1, 2, 3};
+  byte_array[1] = {4, 5, 6};
+  EXPECT_EQ(OK, parcel.writeFixedArray(byte_array));
+
+  parcel.setDataPosition(0);
+
+  int32_t len;
+  EXPECT_EQ(OK, parcel.readInt32(&len));
+  EXPECT_EQ(2, len);
+  std::vector<uint8_t> byte_vector;
+  EXPECT_EQ(OK, parcel.readByteVector(&byte_vector));
+  EXPECT_EQ(byte_vector, (std::vector<uint8_t>{1, 2, 3}));
+  EXPECT_EQ(OK, parcel.readByteVector(&byte_vector));
+  EXPECT_EQ(byte_vector, (std::vector<uint8_t>{4, 5, 6}));
+}
+
+template <typename Service, typename MemFn, typename Input>
+void CheckRepeat(Service service, MemFn fn, Input input) {
+  Input out1, out2;
+  EXPECT_TRUE(std::invoke(fn, service, input, &out1, &out2).isOk());
+  EXPECT_EQ(input, out1);
+  EXPECT_EQ(input, out2);
+}
+
+template <typename T>
+std::array<std::array<T, 3>, 2> Make2dArray(std::initializer_list<T> values) {
+  std::array<std::array<T, 3>, 2> arr = {};
+  auto it = std::begin(values);
+  for (auto& row : arr) {
+    for (auto& el : row) {
+      if (it == std::end(values)) break;
+      el = *it++;
+    }
+  }
+  return arr;
+}
+
+TEST_F(AidlTest, FixedSizeArrayOverBinder) {
+  sp<IRepeatFixedSizeArray> service;
+  ASSERT_EQ(OK, getService(IRepeatFixedSizeArray::descriptor, &service));
+
+  CheckRepeat(service, &IRepeatFixedSizeArray::RepeatBytes, (std::array<uint8_t, 3>{1, 2, 3}));
+
+  CheckRepeat(service, &IRepeatFixedSizeArray::RepeatInts, (std::array<int32_t, 3>{1, 2, 3}));
+
+  sp<IBinder> binder1 = new BBinder();
+  sp<IBinder> binder2 = new BBinder();
+  sp<IBinder> binder3 = new BBinder();
+  CheckRepeat(service, &IRepeatFixedSizeArray::RepeatBinders,
+              (std::array<sp<IBinder>, 3>{binder1, binder2, binder3}));
+
+  IntParcelable p1, p2, p3;
+  p1.value = 1;
+  p2.value = 2;
+  p3.value = 3;
+  CheckRepeat(service, &IRepeatFixedSizeArray::RepeatParcelables,
+              (std::array<IntParcelable, 3>{p1, p2, p3}));
+
+  CheckRepeat(service, &IRepeatFixedSizeArray::Repeat2dBytes, Make2dArray<uint8_t>({1, 2, 3}));
+
+  CheckRepeat(service, &IRepeatFixedSizeArray::Repeat2dInts, Make2dArray<int32_t>({1, 2, 3}));
+
+  // Not-nullable
+  CheckRepeat(service, &IRepeatFixedSizeArray::Repeat2dBinders,
+              Make2dArray<sp<IBinder>>({binder1, binder2, binder3, binder1, binder2, binder3}));
+
+  CheckRepeat(service, &IRepeatFixedSizeArray::Repeat2dParcelables,
+              Make2dArray<IntParcelable>({p1, p2, p3}));
 }

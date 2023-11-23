@@ -38,17 +38,20 @@ import java.util.Set;
 public class DeviceConfigShellHelper {
 
     /**
-     * Value used with {@link #setSyncModeForTest}, {@link #setSyncDisabled(String)}.
+     * Value used with {@link #setSyncModeForTest}, {@link #getSyncDisabled()},
+     * {@link #setSyncDisabled(String)}.
      */
     public static final String SYNC_DISABLED_MODE_NONE = "none";
 
     /**
-     * Value used with {@link #setSyncModeForTest}, {@link #setSyncDisabled(String)}.
+     * Value used with {@link #setSyncModeForTest}, {@link #getSyncDisabled()},
+     * {@link #setSyncDisabled(String)}.
      */
     public static final String SYNC_DISABLED_MODE_UNTIL_REBOOT = "until_reboot";
 
     /**
-     * Value used with {@link #setSyncModeForTest}, {@link #setSyncDisabled(String)}.
+     * Value used with {@link #setSyncModeForTest}, {@link #getSyncDisabled()},
+     * {@link #setSyncDisabled(String)}.
      */
     public static final String SYNC_DISABLED_MODE_PERSISTENT = "persistent";
 
@@ -64,11 +67,13 @@ public class DeviceConfigShellHelper {
     }
 
     /**
-     * Executes "is_sync_disabled_for_tests". Returns {@code true} or {@code false}.
+     * Executes "get_sync_disabled_for_tests". Returns the output, expected to be one of
+     * {@link #SYNC_DISABLED_MODE_PERSISTENT}, {@link #SYNC_DISABLED_MODE_UNTIL_REBOOT} or
+     * {@link #SYNC_DISABLED_MODE_NONE}.
      */
-    public boolean isSyncDisabled() throws Exception {
-        String cmd = SHELL_CMD_PREFIX + "is_sync_disabled_for_tests";
-        return mShellCommandExecutor.executeToBoolean(cmd);
+    public String getSyncDisabled() throws Exception {
+        String cmd = SHELL_CMD_PREFIX + "get_sync_disabled_for_tests";
+        return mShellCommandExecutor.executeToTrimmedString(cmd);
     }
 
     /**
@@ -135,7 +140,7 @@ public class DeviceConfigShellHelper {
             NamespaceEntries namespaceValues = list(namespacetoSave);
             savedValues.add(namespaceValues);
         }
-        PreTestState preTestState = new PreTestState(isSyncDisabled(), savedValues);
+        PreTestState preTestState = new PreTestState(getSyncDisabled(), savedValues);
         setSyncDisabled(syncMode);
         return preTestState;
     }
@@ -155,8 +160,7 @@ public class DeviceConfigShellHelper {
                     subMap(oldEntries.keyValues, difference.entriesDiffering().keySet());
             putAll(oldEntries.namespace, entriesToUpdate);
         }
-        setSyncDisabled(restoreState.mIsSyncDisabled
-                ? SYNC_DISABLED_MODE_UNTIL_REBOOT : SYNC_DISABLED_MODE_NONE);
+        setSyncDisabled(restoreState.mSyncDisabledMode);
     }
 
     private static <X, Y> Map<X, Y> subMap(Map<X, Y> keyValues, Set<X> keySet) {
@@ -177,11 +181,11 @@ public class DeviceConfigShellHelper {
 
     /** Opaque saved state information. */
     public static class PreTestState {
-        private final boolean mIsSyncDisabled;
+        private final String mSyncDisabledMode;
         private final List<NamespaceEntries> mSavedValues = new ArrayList<>();
 
-        private PreTestState(boolean isSyncDisabled, List<NamespaceEntries> values) {
-            mIsSyncDisabled = isSyncDisabled;
+        private PreTestState(String syncDisabledMode, List<NamespaceEntries> values) {
+            mSyncDisabledMode = syncDisabledMode;
             mSavedValues.addAll(values);
         }
     }

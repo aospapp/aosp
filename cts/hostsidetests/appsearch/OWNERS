@@ -1,2 +1,2 @@
 # Bug component: 755061
-include platform/frameworks/base:/apex/appsearch/OWNERS
+include platform/packages/modules/AppSearch:/OWNERS

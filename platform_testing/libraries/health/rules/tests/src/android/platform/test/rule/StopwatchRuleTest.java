@@ -32,7 +32,7 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class StopwatchRuleTest {
 
-    private static final int SLEEP_TIME_MS = 1000;
+    private static final int SLEEP_TIME_MS = 200;
     private static final int TIME_DELTA_MS = 20;
 
     @Test
@@ -40,7 +40,6 @@ public class StopwatchRuleTest {
         StopwatchRule rule = new StopwatchRule();
         rule.apply(
                         new Statement() {
-                            //Mock a test that will take 1000ms long
                             @Override
                             public void evaluate() throws Throwable {
                                 Thread.sleep(SLEEP_TIME_MS);
@@ -69,5 +68,61 @@ public class StopwatchRuleTest {
                         Description.EMPTY)
                 .evaluate();
         verify(instr).sendStatus(StopwatchRule.INST_STATUS_IN_PROGRESS, rule.getMetric());
+    }
+
+    @Test
+    public void testMetricKeyWithoutAppend() throws Throwable {
+        Bundle args = new Bundle();
+        args.putString(StopwatchRule.APPEND_TEST_NAME, "false");
+        TestableStopwatchRule rule = new TestableStopwatchRule(args);
+        rule.apply(
+                        new Statement() {
+                            @Override
+                            public void evaluate() throws Throwable {
+                                Thread.sleep(SLEEP_TIME_MS);
+                            }
+                        },
+                        Description.createTestDescription("clzz", "method"))
+                .evaluate();
+
+        Bundle metric = rule.getMetric();
+        long value = metric.getLong(StopwatchRule.METRIC_BASE);
+        // Assert if StopwatchRule correctly measures the test time.
+        assertEquals(SLEEP_TIME_MS, value, TIME_DELTA_MS);
+    }
+
+    @Test
+    public void testMetricKeyWithAppend() throws Throwable {
+        Bundle args = new Bundle();
+        args.putString(StopwatchRule.APPEND_TEST_NAME, "true");
+        TestableStopwatchRule rule = new TestableStopwatchRule(args);
+        rule.apply(
+                        new Statement() {
+                            @Override
+                            public void evaluate() throws Throwable {
+                                Thread.sleep(SLEEP_TIME_MS);
+                            }
+                        },
+                        Description.createTestDescription("clzz", "method"))
+                .evaluate();
+
+        Bundle metric = rule.getMetric();
+        String metricKey = String.format(StopwatchRule.METRIC_FORMAT, "clzz", "method");
+        long value = metric.getLong(metricKey);
+        // Assert if StopwatchRule correctly measures the test time.
+        assertEquals(SLEEP_TIME_MS, value, TIME_DELTA_MS);
+    }
+
+    private static class TestableStopwatchRule extends StopwatchRule {
+        private Bundle mBundle;
+
+        public TestableStopwatchRule(Bundle bundle) {
+            mBundle = bundle;
+        }
+
+        @Override
+        protected Bundle getArguments() {
+            return mBundle;
+        }
     }
 }

@@ -35,7 +35,6 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
     With the exception of HTTP-specific commands, all functionality is defined
     by the AttenuatorInstrument class.
     """
-
     def __init__(self, num_atten=1):
         super(AttenuatorInstrument, self).__init__(num_atten)
         self._ip_address = None
@@ -59,7 +58,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
 
         att_req = urllib.request.urlopen('http://{}:{}/MN?'.format(
             self._ip_address, self._port))
-        config_str = att_req.read().decode('utf-8')
+        config_str = att_req.read().decode('utf-8').strip()
         if not config_str.startswith('MN='):
             raise attenuator.InvalidDataError(
                 'Attenuator returned invalid data. Attenuator returned: {}'.
@@ -86,7 +85,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         """
         pass
 
-    def set_atten(self, idx, value, strict_flag=True):
+    def set_atten(self, idx, value, strict=True, retry=False, **_):
         """This function sets the attenuation of an attenuator given its index
         in the instrument.
 
@@ -95,9 +94,10 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
                 an instrument. For instruments that only have one channel, this
                 is ignored by the device.
             value: A floating point value for nominal attenuation to be set.
-            strict_flag: if True, function raises an error when given out of
+            strict: if True, function raises an error when given out of
                 bounds attenuation values, if false, the function sets out of
                 bounds values to 0 or max_atten.
+            retry: if True, command will be retried if possible
 
         Raises:
             InvalidDataError if the attenuator does not respond with the
@@ -107,25 +107,31 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
             raise IndexError('Attenuator index out of range!', self.num_atten,
                              idx)
 
-        if value > self.max_atten and strict_flag:
+        if value > self.max_atten and strict:
             raise ValueError('Attenuator value out of range!', self.max_atten,
                              value)
         # The actual device uses one-based index for channel numbers.
+        adjusted_value = min(max(0, value), self.max_atten)
         att_req = urllib.request.urlopen(
-            'http://{}:{}/CHAN:{}:SETATT:{}'.format(
-                self._ip_address, self._port, idx + 1, value),
+            'http://{}:{}/CHAN:{}:SETATT:{}'.format(self._ip_address,
+                                                    self._port, idx + 1,
+                                                    adjusted_value),
             timeout=self._timeout)
-        att_resp = att_req.read().decode('utf-8')
+        att_resp = att_req.read().decode('utf-8').strip()
         if att_resp != '1':
-            raise attenuator.InvalidDataError(
-                'Attenuator returned invalid data. Attenuator returned: {}'.
-                format(att_resp))
+            if retry:
+                self.set_atten(idx, value, strict, retry=False)
+            else:
+                raise attenuator.InvalidDataError(
+                    'Attenuator returned invalid data. Attenuator returned: {}'
+                    .format(att_resp))
 
-    def get_atten(self, idx):
+    def get_atten(self, idx, retry=False, **_):
         """Returns the current attenuation of the attenuator at the given index.
 
         Args:
             idx: The index of the attenuator.
+            retry: if True, command will be retried if possible
 
         Raises:
             InvalidDataError if the attenuator does not respond with the
@@ -141,11 +147,14 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
             'http://{}:{}/CHAN:{}:ATT?'.format(self._ip_address, self.port,
                                                idx + 1),
             timeout=self._timeout)
-        att_resp = att_req.read().decode('utf-8')
+        att_resp = att_req.read().decode('utf-8').strip()
         try:
             atten_val = float(att_resp)
         except:
-            raise attenuator.InvalidDataError(
-                'Attenuator returned invalid data. Attenuator returned: {}'.
-                format(att_resp))
+            if retry:
+                self.get_atten(idx, retry=False)
+            else:
+                raise attenuator.InvalidDataError(
+                    'Attenuator returned invalid data. Attenuator returned: {}'
+                    .format(att_resp))
         return atten_val

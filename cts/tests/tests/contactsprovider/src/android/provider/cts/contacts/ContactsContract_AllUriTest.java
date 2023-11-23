@@ -35,6 +35,8 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 @LargeTest
 public class ContactsContract_AllUriTest extends AndroidTestCase {
@@ -144,7 +146,7 @@ public class ContactsContract_AllUriTest extends AndroidTestCase {
             {"content://com.android.contacts/phone_lookup/XXX"},
             {"content://com.android.contacts/phone_lookup_enterprise/XXX"},
             {"content://com.android.contacts/aggregation_exceptions", "u"},
-            {"content://com.android.contacts/settings", "ud"},
+            {"content://com.android.contacts/settings", "iud"},
             {"content://com.android.contacts/status_updates", "ud"},
             {"content://com.android.contacts/status_updates/1"},
             {"content://com.android.contacts/search_suggest_query"},
@@ -178,7 +180,25 @@ public class ContactsContract_AllUriTest extends AndroidTestCase {
             {"content://com.android.contacts/directory_file_enterprise/XXX?directory=0", "-"},
     };
 
+    // Contains entries for Uris that require specific values when inserting
+    private static final Map<String, ContentValues> URI_INSERT_VALUES;
+
     private static final String[] ARG1 = {"-1"};
+
+    static {
+        URI_INSERT_VALUES = new HashMap<>();
+        ContentValues values = new ContentValues();
+        values.put(SyncState.ACCOUNT_NAME, "abc");
+        values.put(SyncState.ACCOUNT_TYPE, "def");
+        URI_INSERT_VALUES.put("content://com.android.contacts/syncstate", values);
+        URI_INSERT_VALUES.put("content://com.android.contacts/syncstate/1", values);
+        URI_INSERT_VALUES.put("content://com.android.contacts/profile/syncstate", values);
+
+        values = new ContentValues();
+        values.put(ContactsContract.Settings.ACCOUNT_NAME, "abc");
+        values.put(ContactsContract.Settings.ACCOUNT_TYPE, "def");
+        URI_INSERT_VALUES.put("content://com.android.contacts/settings", values);
+    }
 
     private ContentResolver mResolver;
 
@@ -627,14 +647,12 @@ public class ContactsContract_AllUriTest extends AndroidTestCase {
             final Uri uri = getUri(path);
 
             cv.clear();
-            if (supportsQuery(path)) {
+            if (URI_INSERT_VALUES.containsKey(path[0])) {
+                cv.putAll(URI_INSERT_VALUES.get(path[0]));
+            } else if (supportsQuery(path)) {
                 cv.put(getColumns(uri)[0], 1);
             } else {
                 cv.put("_id", 1);
-            }
-            if (uri.toString().contains("syncstate")) {
-                cv.put(SyncState.ACCOUNT_NAME, "abc");
-                cv.put(SyncState.ACCOUNT_TYPE, "def");
             }
 
             checkExecutable("insert", uri, supportsInsert(path), () -> {

@@ -22,7 +22,7 @@ android_app {
     resource_dirs: ["res"],
     certificate: "shared",
     overrides: ["LatinIME"],
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
     static_libs: [
         "android-common",
         "jsr305",

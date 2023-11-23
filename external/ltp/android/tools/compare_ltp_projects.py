@@ -48,7 +48,7 @@ def scan_tests(ltp_root, suite):
     runtest_dir = ltp_root + os.path.sep + 'runtest'
     test_suiteFile = runtest_dir + os.path.sep + suite
     if not os.path.isfile(test_suiteFile):
-        print ('No tests defined for suite {}',format(suite))
+        print('No tests defined for suite {}',format(suite))
         return tests
 
     with open(test_suiteFile) as f:
@@ -73,7 +73,7 @@ def scan_test_suites(ltp_root, scenario):
 
     runtest_dir = ltp_root + os.path.sep + 'runtest'
     if not os.path.isdir(runtest_dir):
-        print ('Invalid ltp_root {}, runtest directory doesnt exist'.format(ltp_root))
+        print('Invalid ltp_root {}, runtest directory doesnt exist'.format(ltp_root))
         sys.exit(2)
 
     test_suites = []
@@ -111,12 +111,12 @@ def scan_ltp(ltp_root, scenario):
     '''
 
     if not os.path.isdir(ltp_root):
-        print ('ltp_root {} does not exist'.format(ltp_root))
+        print('ltp_root {} does not exist'.format(ltp_root))
         sys.exit(1)
 
     test_suites = scan_test_suites(ltp_root, scenario)
     if not test_suites:
-        print ('No Testsuites found for scenario {}'.format(scenario))
+        print('No Testsuites found for scenario {}'.format(scenario))
         sys.exit(3)
 
     ltp_tests = {}
@@ -169,31 +169,35 @@ def show_diff(ltp_tests_1, ltp_tests_2):
 
     # total rows we have to print
     total_rows = max(len(deleted_test_suites), len(added_test_suites))
+    deleted_text = 'Deleted ({})'.format(len(deleted_test_suites))
+    added_text = 'Added ({})'.format(len(added_test_suites))
     if total_rows > 0:
-        print ('{:*^{len}}'.format(' Tests Suites ', len=width*2+2))
-        print ('{:>{len}} {:>{len}}'.format('Deleted', 'Added', len=width))
+        print('{:*^{len}}'.format(' Tests Suites ', len=width*2+2))
+        print('{:>{len}} {:>{len}}'.format(deleted_text, added_text, len=width))
         for i in range(total_rows):
-            print ('{:>{len}} {:>{len}}'.format('' if i >= len(deleted_test_suites) else str(deleted_test_suites[i]),
+            print('{:>{len}} {:>{len}}'.format('' if i >= len(deleted_test_suites) else str(deleted_test_suites[i]),
                                  '' if i >= len(added_test_suites) else str(added_test_suites[i]), len=width))
 
     print('')
     # total rows we have to print
     total_rows = max(len(deleted_tests), len(added_tests))
+    deleted_text = 'Deleted ({})'.format(len(deleted_tests))
+    added_text = 'Added ({})'.format(len(added_tests))
     if total_rows:
-        print ('{:*^{len}}'.format(' Tests ', len=width*2+2))
-        print ('{:>{len}} {:>{len}}'.format('Deleted', 'Added', len=width))
+        print('{:*^{len}}'.format(' Tests ', len=width*2+2))
+        print('{:>{len}} {:>{len}}'.format(deleted_text, added_text, len=width))
         for i in range(total_rows):
-            print ('{:>{len}} {:>{len}}'.format('' if i >= len(deleted_tests) else str(deleted_tests[i]),
+            print('{:>{len}} {:>{len}}'.format('' if i >= len(deleted_tests) else str(deleted_tests[i]),
                                  '' if i >= len(added_tests) else str(added_tests[i]), len=width))
 def main():
     arg_parser = argparse.ArgumentParser(
         description='Diff 2 LTP projects for supported test cases')
-    arg_parser.add_argument('--ltp-root1',
-                            dest='ltp_root1',
+    arg_parser.add_argument('--ltp-old',
+                            dest='ltp_old',
                             required=True,
                             help="LTP Root Directory before merge")
-    arg_parser.add_argument('--ltp-root2',
-                            dest='ltp_root2',
+    arg_parser.add_argument('--ltp-new',
+                            dest='ltp_new',
                             required=True,
                             help="LTP Root Directory after merge")
     arg_parser.add_argument('--scenario', default=None,
@@ -201,8 +205,8 @@ def main():
                             help="LTP scenario to list tests for")
     args = arg_parser.parse_args()
 
-    ltp_tests1 = scan_ltp(args.ltp_root1, args.scenario)
-    ltp_tests2 = scan_ltp(args.ltp_root2, args.scenario)
+    ltp_tests1 = scan_ltp(args.ltp_old, args.scenario)
+    ltp_tests2 = scan_ltp(args.ltp_new, args.scenario)
     show_diff(ltp_tests1, ltp_tests2)
 
 if __name__ == '__main__':

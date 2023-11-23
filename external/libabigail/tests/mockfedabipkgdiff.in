@@ -39,7 +39,6 @@ variables.
 
 import os
 import tempfile
-import imp
 import six
 
 try:
@@ -69,8 +68,34 @@ def get_download_dir():
     return DOWNLOAD_CACHE_DIR
 
 
+def load_source(name, path):
+    # Different version of Python want this be done differently.
+    try:
+        import importlib.machinery
+        loader = importlib.machinery.SourceFileLoader(name, path)
+        import importlib.util
+        spec = importlib.util.spec_from_loader(name, loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        import sys.modules
+        sys.modules[name] = module
+        return module
+    except:
+        pass
+    try:
+        import importlib.machinery
+        loader = importlib.machinery.SourceFileLoader(name, path)
+        module = loader.load_module()
+        return module
+    except:
+        pass
+    import imp
+    module = imp.load_source(name, path)
+    return module
+
+
 # Import the fedabipkgdiff program file from the source directory.
-fedabipkgdiff_mod = imp.load_source('fedabipkgdiff', FEDABIPKGDIFF)
+fedabipkgdiff_mod = load_source('fedabipkgdiff', FEDABIPKGDIFF)
 
 
 # -----------------  Koji resource storage begins ------------------

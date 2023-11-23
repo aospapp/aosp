@@ -1,6 +1,6 @@
---- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-01-19 16:26:24.362648532 +0000
-+++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-01-19 16:26:50.790836134 +0000
-@@ -53,16 +53,6 @@
+--- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-11-19 15:35:27.250742750 +0000
++++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-11-19 15:40:24.805136914 +0000
+@@ -54,16 +54,6 @@
   * more convenient in Java to have a separate primitive datatype for them,
   * ints suffice in the meantime.
   *
@@ -17,19 +17,19 @@
   * <p>Aside from the additions for UTF-16 support, and the updated Unicode
   * properties, the main differences between UCharacter and Character are:
   * <ul>
-@@ -84,11 +74,6 @@
+@@ -85,11 +75,6 @@
   *      as having numeric values.  This is a semantic change from ICU4J 1.3.1.
   * </ul>
   * <p>
 - * Further detail on differences can be determined using the program
 - *        <a href=
-- * "http://source.icu-project.org/repos/icu/icu4j/trunk/src/com/ibm/icu/dev/test/lang/UCharacterCompare.java">
+- * "https://github.com/unicode-org/icu/blob/main/icu4j/main/tests/core/src/com/ibm/icu/dev/test/lang/UCharacterCompare.java">
 - *        android.icu.dev.test.lang.UCharacterCompare</a>
 - * <p>
   * In addition to Java compatibility functions, which calculate derived properties,
   * this API provides low-level access to the Unicode Character Database.
   * <p>
-@@ -5209,7 +5194,6 @@
+@@ -5306,7 +5291,6 @@
       *         Unicode version does not have data for the property at all, or
       *         not for this code point.
       * @see android.icu.lang.UProperty
@@ -37,7 +37,7 @@
       */
      public static boolean hasBinaryProperty(int ch, int property)
      {
-@@ -5298,7 +5282,6 @@
+@@ -5432,7 +5416,6 @@
       * @see #hasBinaryProperty
       * @see #getIntPropertyMinValue
       * @see #getIntPropertyMaxValue

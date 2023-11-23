@@ -32,6 +32,8 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.text.TextUtils;
 
@@ -211,7 +213,7 @@ public class BluetoothRequestPermissionActivity extends ComponentActivity {
                         | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
                         | PackageManager.MATCH_DISABLED_COMPONENTS);
         if (matches.size() == 1) {
-            return matches.get(0).getComponentInfo().packageName;
+            return matches.get(0).activityInfo.packageName;
         } else {
             LOG.e("There should probably be exactly one setup wizard; found " + matches.size()
                     + ": matches=" + matches);
@@ -283,10 +285,19 @@ public class BluetoothRequestPermissionActivity extends ComponentActivity {
                 return REQUEST_UNKNOWN;
         }
 
-        String packageName = getCallingPackage();
-        if (TextUtils.isEmpty(packageName)) {
-            packageName = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
+        String packageName = getLaunchedFromPackage();
+        int mCallingUid = getLaunchedFromUid();
+
+        if (UserHandle.isSameApp(mCallingUid, Process.SYSTEM_UID)
+                && getIntent().getStringExtra(Intent.EXTRA_PACKAGE_NAME) != null) {
+            packageName = getIntent().getStringExtra(Intent.EXTRA_PACKAGE_NAME);
         }
+
+        if (!UserHandle.isSameApp(mCallingUid, Process.SYSTEM_UID)
+                && getIntent().getStringExtra(Intent.EXTRA_PACKAGE_NAME) != null) {
+            LOG.w("Non-system Uid: " + mCallingUid + " tried to override packageName");
+        }
+
         if (!mBypassConfirmDialog && !TextUtils.isEmpty(packageName)) {
             try {
                 ApplicationInfo applicationInfo = getPackageManager().getApplicationInfo(

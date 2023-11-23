@@ -21,21 +21,28 @@ import androidx.appsearch.app.AppSearchSchema.StringPropertyConfig;
 
 @Document
 public class TestDocument {
-    @Document.Uri private final String uri;
+    @Document.Namespace private final String mNamespace;
 
-    @Document.Property(indexingType = StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-    private final String body;
+    @Document.Id private final String mId;
 
-    TestDocument(String uri, String body) {
-        this.uri = uri;
-        this.body = body;
+    @Document.StringProperty(indexingType = StringPropertyConfig.INDEXING_TYPE_PREFIXES)
+    private final String mBody;
+
+    TestDocument(String namespace, String id, String body) {
+        mNamespace = namespace;
+        mId = id;
+        mBody = body;
     }
 
-    public String getUri() {
-        return uri;
+    public String getNamespace() {
+        return mNamespace;
+    }
+
+    public String getId() {
+        return mId;
     }
 
     public String getBody() {
-        return body;
+        return mBody;
     }
 }

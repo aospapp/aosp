@@ -103,7 +103,7 @@
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"વ્યક્તિગત પ્રોફાઇલમાં સાચવી શકતા નથી"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"તમારા IT વ્યવસ્થાપક તમને તમારી વ્યક્તિગત પ્રોફાઇલમાં ઑફિસની ફાઇલોને સાચવવાની મંજૂરી આપતા નથી"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"આ ક્રિયાની મંજૂરી નથી"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"વધુ જાણવા માટે, તમારા IT વ્યવસ્થાપકનો સંપર્ક કરો"</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"વધુ જાણવા માટે, તમારા IT ઍડમિનનો સંપર્ક કરો"</string>
     <string name="root_recent" msgid="1080156975424341623">"તાજેતરમાં"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ખાલી"</string>
     <string name="root_type_service" msgid="6521366147466512289">"સ્ટોરેજ સેવાઓ"</string>

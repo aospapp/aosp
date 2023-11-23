@@ -16,6 +16,7 @@
 
 package libcore.java.time.chrono;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -24,14 +25,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.chrono.ChronoLocalDateTime;
 import java.time.chrono.ChronoZonedDateTime;
+import java.time.chrono.JapaneseChronology;
+import java.time.chrono.JapaneseDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalField;
 import java.time.temporal.TemporalUnit;
+import java.util.Locale;
 
 @RunWith(JUnit4.class)
 public class ChronoZonedDateTimeTest {
@@ -56,6 +65,21 @@ public class ChronoZonedDateTimeTest {
         chronoZonedDateTime.isSupported(temporalUnit);
 
         verify(temporalUnit).isSupportedBy(chronoZonedDateTime);
+    }
+
+    @Test
+    public void testFormat() {
+        JapaneseChronology chrono = JapaneseChronology.INSTANCE;
+        DateTimeFormatter dateFormatter = new DateTimeFormatterBuilder()
+                .appendLocalized(FormatStyle.MEDIUM, null)
+                .toFormatter(Locale.US);
+        ZonedDateTime epochTime = ZonedDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC"));
+
+        ChronoZonedDateTime<JapaneseDate> chronoZonedDateTime = chrono.zonedDateTime(epochTime);
+        assertEquals("Jan 1, 45 Shōwa", chronoZonedDateTime.format(dateFormatter));
+
+        ChronoLocalDateTime<JapaneseDate> chronoLocalDateTime = chrono.localDateTime(epochTime);
+        assertEquals("Jan 1, 45 Shōwa", chronoLocalDateTime.format(dateFormatter));
     }
 
     /* Used to test default methods. */

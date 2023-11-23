@@ -176,7 +176,9 @@ public class VelocityBasedConnectedScore extends ConnectedScore {
      */
     @Override
     public int generateScore() {
-        if (mFilter.mx == null) return WIFI_TRANSITION_SCORE + 1;
+        final int transitionScore = isPrimary() ? WIFI_TRANSITION_SCORE
+                : WIFI_SECONDARY_TRANSITION_SCORE;
+        if (mFilter.mx == null) return transitionScore + 1;
         double badRssi = getAdjustedRssiThreshold();
         double horizonSeconds = mScoringParams.getHorizonSeconds();
         Matrix x = new Matrix(mFilter.mx);
@@ -187,7 +189,7 @@ public class VelocityBasedConnectedScore extends ConnectedScore {
         if (forecastRssi > filteredRssi) {
             forecastRssi = filteredRssi; // Be pessimistic about predicting an actual increase
         }
-        int score = (int) (Math.round(forecastRssi) - badRssi) + WIFI_TRANSITION_SCORE;
+        int score = (int) (Math.round(forecastRssi) - badRssi) + transitionScore;
         return score;
     }
 }

@@ -28,9 +28,9 @@ import androidx.annotation.Nullable;
 
 import com.android.timezone.location.common.PiiLoggable;
 import com.android.timezone.location.common.PiiLoggables;
+import com.android.timezone.location.common.PiiLoggables.PiiLoggableValue;
 import com.android.timezone.location.lookup.GeoTimeZonesFinder;
 import com.android.timezone.location.provider.core.OfflineLocationTimeZoneDelegate.ListenModeEnum;
-import com.android.timezone.location.common.PiiLoggables.PiiLoggableValue;
 
 import java.io.IOException;
 import java.time.Duration;

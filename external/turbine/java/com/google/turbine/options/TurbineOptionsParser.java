@@ -17,7 +17,6 @@
 package com.google.turbine.options;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
@@ -29,11 +28,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Iterator;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A command line options parser for {@link TurbineOptions}. */
-public class TurbineOptionsParser {
+public final class TurbineOptionsParser {
 
   /**
    * Parses command line options into {@link TurbineOptions}, expanding any {@code @params} files.
@@ -57,17 +54,17 @@ public class TurbineOptionsParser {
 
   private static void parse(TurbineOptions.Builder builder, Deque<String> argumentDeque) {
     while (!argumentDeque.isEmpty()) {
-      String next = argumentDeque.pollFirst();
+      String next = argumentDeque.removeFirst();
       switch (next) {
         case "--output":
-          builder.setOutput(readOne(argumentDeque));
+          builder.setOutput(readOne(next, argumentDeque));
           break;
         case "--source_jars":
           builder.setSourceJars(readList(argumentDeque));
           break;
         case "--temp_dir":
           // TODO(cushon): remove this when Bazel no longer passes the flag
-          readOne(argumentDeque);
+          readOne(next, argumentDeque);
           break;
         case "--processors":
           builder.setProcessors(readList(argumentDeque));
@@ -84,27 +81,23 @@ public class TurbineOptionsParser {
         case "--bootclasspath":
           builder.setBootClassPath(readList(argumentDeque));
           break;
-        case "--release":
-          builder.setRelease(readOne(argumentDeque));
-          break;
         case "--system":
-          builder.setSystem(readOne(argumentDeque));
+          builder.setSystem(readOne(next, argumentDeque));
           break;
         case "--javacopts":
-          {
-            ImmutableList<String> javacopts = readJavacopts(argumentDeque);
-            setReleaseFromJavacopts(builder, javacopts);
-            builder.addAllJavacOpts(javacopts);
-            break;
-          }
+          ImmutableList<String> javacOpts = readJavacopts(argumentDeque);
+          builder.setLanguageVersion(LanguageVersion.fromJavacopts(javacOpts));
+          builder.addAllJavacOpts(javacOpts);
+          break;
         case "--sources":
           builder.setSources(readList(argumentDeque));
           break;
+        case "--output_deps_proto":
         case "--output_deps":
-          builder.setOutputDeps(readOne(argumentDeque));
+          builder.setOutputDeps(readOne(next, argumentDeque));
           break;
         case "--output_manifest_proto":
-          builder.setOutputManifest(readOne(argumentDeque));
+          builder.setOutputManifest(readOne(next, argumentDeque));
           break;
         case "--direct_dependencies":
           builder.setDirectJars(readList(argumentDeque));
@@ -113,10 +106,10 @@ public class TurbineOptionsParser {
           builder.setDepsArtifacts(readList(argumentDeque));
           break;
         case "--target_label":
-          builder.setTargetLabel(readOne(argumentDeque));
+          builder.setTargetLabel(readOne(next, argumentDeque));
           break;
         case "--injecting_rule_kind":
-          builder.setInjectingRuleKind(readOne(argumentDeque));
+          builder.setInjectingRuleKind(readOne(next, argumentDeque));
           break;
         case "--javac_fallback":
         case "--nojavac_fallback":
@@ -129,25 +122,36 @@ public class TurbineOptionsParser {
           builder.setReducedClasspathMode(ReducedClasspathMode.NONE);
           break;
         case "--reduce_classpath_mode":
-          builder.setReducedClasspathMode(ReducedClasspathMode.valueOf(readOne(argumentDeque)));
+          builder.setReducedClasspathMode(
+              ReducedClasspathMode.valueOf(readOne(next, argumentDeque)));
           break;
         case "--full_classpath_length":
-          builder.setFullClasspathLength(Integer.parseInt(readOne(argumentDeque)));
+          builder.setFullClasspathLength(Integer.parseInt(readOne(next, argumentDeque)));
           break;
         case "--reduced_classpath_length":
-          builder.setReducedClasspathLength(Integer.parseInt(readOne(argumentDeque)));
+          builder.setReducedClasspathLength(Integer.parseInt(readOne(next, argumentDeque)));
           break;
         case "--profile":
-          builder.setProfile(readOne(argumentDeque));
+          builder.setProfile(readOne(next, argumentDeque));
           break;
+        case "--generated_sources_output":
         case "--gensrc_output":
-          builder.setGensrcOutput(readOne(argumentDeque));
+          builder.setGensrcOutput(readOne(next, argumentDeque));
           break;
         case "--resource_output":
-          builder.setResourceOutput(readOne(argumentDeque));
+          builder.setResourceOutput(readOne(next, argumentDeque));
           break;
         case "--help":
           builder.setHelp(true);
+          break;
+        case "--experimental_fix_deps_tool":
+        case "--strict_java_deps":
+        case "--native_header_output":
+          // accepted (and ignored) for compatibility with JavaBuilder command lines
+          readOne(next, argumentDeque);
+          break;
+        case "--compress_jar":
+          // accepted (and ignored) for compatibility with JavaBuilder command lines
           break;
         default:
           throw new IllegalArgumentException("unknown option: " + next);
@@ -182,28 +186,29 @@ public class TurbineOptionsParser {
         if (!Files.exists(paramsPath)) {
           throw new AssertionError("params file does not exist: " + paramsPath);
         }
-        expandParamsFiles(
-            argumentDeque, ARG_SPLITTER.split(new String(Files.readAllBytes(paramsPath), UTF_8)));
+        expandParamsFiles(argumentDeque, ARG_SPLITTER.split(Files.readString(paramsPath)));
       } else {
         argumentDeque.addLast(arg);
       }
     }
   }
 
-  /** Returns the value of an option, or {@code null}. */
-  @Nullable
-  private static String readOne(Deque<String> argumentDeque) {
-    if (argumentDeque.isEmpty() || argumentDeque.peekFirst().startsWith("-")) {
-      return null;
+  /**
+   * Returns the value of an option, or throws {@link IllegalArgumentException} if the value is not
+   * present.
+   */
+  private static String readOne(String flag, Deque<String> argumentDeque) {
+    if (argumentDeque.isEmpty() || argumentDeque.getFirst().startsWith("-")) {
+      throw new IllegalArgumentException("missing required argument for: " + flag);
     }
-    return argumentDeque.pollFirst();
+    return argumentDeque.removeFirst();
   }
 
   /** Returns a list of option values. */
   private static ImmutableList<String> readList(Deque<String> argumentDeque) {
     ImmutableList.Builder<String> result = ImmutableList.builder();
-    while (!argumentDeque.isEmpty() && !argumentDeque.peekFirst().startsWith("--")) {
-      result.add(argumentDeque.pollFirst());
+    while (!argumentDeque.isEmpty() && !argumentDeque.getFirst().startsWith("--")) {
+      result.add(argumentDeque.removeFirst());
     }
     return result.build();
   }
@@ -215,7 +220,7 @@ public class TurbineOptionsParser {
   private static ImmutableList<String> readJavacopts(Deque<String> argumentDeque) {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     while (!argumentDeque.isEmpty()) {
-      String arg = argumentDeque.pollFirst();
+      String arg = argumentDeque.removeFirst();
       if (arg.equals("--")) {
         return result.build();
       }
@@ -224,17 +229,5 @@ public class TurbineOptionsParser {
     throw new IllegalArgumentException("javacopts should be terminated by `--`");
   }
 
-  /**
-   * Parses the given javacopts for {@code --release}, and if found sets turbine's {@code --release}
-   * flag.
-   */
-  private static void setReleaseFromJavacopts(
-      TurbineOptions.Builder builder, ImmutableList<String> javacopts) {
-    Iterator<String> it = javacopts.iterator();
-    while (it.hasNext()) {
-      if (it.next().equals("--release") && it.hasNext()) {
-        builder.setRelease(it.next());
-      }
-    }
-  }
+  private TurbineOptionsParser() {}
 }

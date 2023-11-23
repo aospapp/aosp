@@ -16,13 +16,12 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test_helper_app {
-    name: "CtsCarApp",
+java_defaults {
+    name: "cts_app_defaults",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
 
-    enforce_uses_libs: false,
     static_libs: [
         "android.frameworks.automotive.powerpolicy-V1-java",
         "android.hardware.automotive.vehicle-V2.0-java",
@@ -34,20 +33,22 @@ android_test_helper_app {
 }
 
 android_test_helper_app {
-    name: "CtsCarWatchdogSharedApp",
-    defaults: ["cts_defaults"],
-    srcs: ["src/**/*.java"],
-    sdk_version: "test_current",
-
-    manifest: "AndroidManifestWithSharedUserId.xml",
-
+    name: "CtsCarApp",
+    defaults: ["cts_app_defaults"],
     enforce_uses_libs: false,
-    static_libs: [
-        "android.frameworks.automotive.powerpolicy-V1-java",
-        "android.hardware.automotive.vehicle-V2.0-java",
-        "androidx.test.rules",
-        "compatibility-device-util-axt",
-    ],
+    libs: ["android.car-test-stubs"],
+}
 
-    libs: ["android.car"],
+android_test_helper_app {
+    name: "CtsCarWatchdogSharedApp",
+    defaults: ["cts_app_defaults"],
+    manifest: "AndroidManifestWithSharedUserId.xml",
+    enforce_uses_libs: false,
+}
+
+android_test_helper_app {
+    name: "CtsCarWatchdogSecondSharedApp",
+    defaults: ["cts_app_defaults"],
+    manifest: "AndroidManifestWithSharedUserId2.xml",
+    enforce_uses_libs: false,
 }

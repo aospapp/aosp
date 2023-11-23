@@ -13,11 +13,11 @@
 [package]
 edition = "2018"
 name = "tokio-test"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Tokio Contributors <team@tokio.rs>"]
 description = "Testing utilities for Tokio- and futures-based code\n"
 homepage = "https://tokio.rs"
-documentation = "https://docs.rs/tokio-test/0.4.1/tokio_test"
+documentation = "https://docs.rs/tokio-test/0.4.2/tokio_test"
 categories = ["asynchronous", "testing"]
 license = "MIT"
 repository = "https://github.com/tokio-rs/tokio"

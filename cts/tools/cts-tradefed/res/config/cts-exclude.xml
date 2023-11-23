@@ -14,6 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Excluded tests from main CTS runs">
+
+    <include name="cts-developer-exclude" />
+
     <!-- b/64127136 -->
     <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testNoExemptionsForBinderInVendorBan" />
     <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testNoExemptionsForSocketsBetweenCoreAndVendorBan" />

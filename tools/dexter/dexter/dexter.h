@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "dissasembler.h"
+#include "disassembler.h"
 #include "slicer/dex_ir.h"
 
 #include <stdlib.h>
@@ -54,10 +54,10 @@ class Dexter {
   bool list_classes_ = false;
   const char* out_dex_filename_ = nullptr;
   const char* dex_filename_ = nullptr;
-  bool dissasemble_ = false;
+  bool disassemble_ = false;
   bool print_map_ = false;
   std::vector<const char*> experiments_;
-  DexDissasembler::CfgType cfg_type_ = DexDissasembler::CfgType::None;
+  DexDisassembler::CfgType cfg_type_ = DexDisassembler::CfgType::None;
 
   // basic timing stats
   double reader_time_ = 0;

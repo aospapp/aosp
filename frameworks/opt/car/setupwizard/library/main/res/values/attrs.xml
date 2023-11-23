@@ -90,6 +90,11 @@
               of the progress bar -->
         <attr name="showProgressBar"/>
         <attr name="indeterminateProgressBar"/>
+
+        <!-- Attributes related to the split nav layout -->
+        <attr name="supportsSplitNavLayout" format="boolean"/>
+        <!-- Attributes related to the rotary support -->
+        <attr name="supportsRotaryControl" format="boolean"/>
     </declare-styleable>
 
 </resources>

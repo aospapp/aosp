@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"ବନ୍ଦ ଅଛି"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"ବନ୍ଦ ଅଛି"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"ଭଏସ ଚିହ୍ନଟକରଣ ଏବେ ସଂଯୁକ୍ତ ଥିବା ବ୍ଲୁଟୁଥ ଡିଭାଇସ ଦ୍ୱାରା ପରିଚାଳିତ"</string>
-    <string name="car_guest" msgid="768913000117469596">"ଅତିଥି"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"ଅତିଥି"</string>
     <string name="car_add_user" msgid="6182764665687382136">"ଏକ ପ୍ରୋଫାଇଲ ଯୋଗ କରନ୍ତୁ"</string>
     <string name="car_new_user" msgid="6766334721724989964">"ନୂଆ ପ୍ରୋଫାଇଲ"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"ନୂଆ ପ୍ରୋଫାଇଲ ଯୋଗ କରିବେ?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"ଆପଣ କୌଣସି ବ୍ୟକ୍ତିଙ୍କ ପାଇଁ ଏକ ନୂଆ ପ୍ରୋଫାଇଲ ତିଆରି କରିବା ପରେ, ସେ ନିଜ ପାଇଁ ତା\'କୁ କଷ୍ଟମାଇଜ କରିବା ଉଚିତ।"</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"ଅନ୍ୟ ସମସ୍ତ ପ୍ରୋଫାଇଲ ଦ୍ୱାରା ବ୍ୟବହାର କରାଯିବା ପାଇଁ ଯେ କୌଣସି ପ୍ରୋଫାଇଲରୁ ଆପଗୁଡ଼ିକୁ ଅପଡେଟ କରାଯାଇପାରିବ।"</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"ଅଧିକ ପ୍ରୋଫାଇଲ ପାଇଁ ଅନୁମତି ନାହିଁ"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="other">ଆପଣ <xliff:g id="COUNT">%d</xliff:g>ଟି ପର୍ଯ୍ୟନ୍ତ ପ୍ରୋଫାଇଲ ଯୋଗ କରିପାରିବେ।</item>
-      <item quantity="one">କେବଳ ଗୋଟିଏ ପ୍ରୋଫାଇଲ ତିଆରି କରାଯାଇପାରିବ।</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{କେବଳ ଗୋଟିଏ ପ୍ରୋଫାଇଲ ତିଆରି କରାଯାଇପାରିବ।}other{ଆପଣ #ଟି ପର୍ଯ୍ୟନ୍ତ ପ୍ରୋଫାଇଲ ଯୋଗ କରିପାରିବେ।}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"ଲୋଡ୍ କରାଯାଉଛି"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"ଉପଯୋଗକର୍ତ୍ତାଙ୍କୁ ଲୋଡ୍ କରାଯାଉଛି (<xliff:g id="FROM_USER">%1$d</xliff:g>ଙ୍କ ଠାରୁ <xliff:g id="TO_USER">%2$d</xliff:g> ପର୍ଯ୍ୟନ୍ତ)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"ମାଇକ୍ରୋଫୋନ୍ ବନ୍ଦ ଅଛି।"</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"ମାଇକ୍ରୋଫୋନ ବ୍ୟବହାର କରନ୍ତୁ"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"ଅନୁମତି ଥିବା ଆପଗୁଡ଼ିକ ପାଇଁ"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> ବନ୍ଦ ଅଛି।"</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"<xliff:g id="SENSOR">%1$s</xliff:g> ବ୍ୟବହାର କରନ୍ତୁ"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"ଅନୁମତି ଥିବା ଆପ୍ସ ପାଇଁ"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"ମାଇକ୍ରୋଫୋନ ସେଟିଂସ"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> ମାଇକ୍ ବ୍ୟବହାର କରୁଛି"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> <xliff:g id="SENSOR">%2$s</xliff:g> ବ୍ୟବହାର କରୁଛି"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> ମାଇକ୍ ବ୍ୟବହାର କରୁଛନ୍ତି"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"ନିକଟରେ <xliff:g id="APP">%s</xliff:g> ମାଇକ୍ ବ୍ୟବହାର କରିଥିଲା"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> ଏବଂ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>ଟି ଅଧିକ ଆପ ଦ୍ୱାରା ବର୍ତ୍ତମାନ ମାଇକ ବ୍ୟବହାର କରାଯାଇଛି"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> ବର୍ତ୍ତମାନ <xliff:g id="SENSOR">%2$s</xliff:g> ବ୍ୟବହାର କରିଛି"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> ଏବଂ ଅଧିକ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>ଟି ଆପ ବର୍ତ୍ତମାନ <xliff:g id="SENSOR">%3$s</xliff:g> ବ୍ୟବହାର କରିଛି"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"ମାଇକ୍ରୋଫୋନ୍ ଚାଲୁ କରାଯାଇଛି"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"ମାଇକ୍ରୋଫୋନ୍ ବନ୍ଦ କରାଯାଇଛି"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"ଠିକ୍ ଅଛି"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"ଗାଡ଼ିର ମାଇକ୍ରୋଫୋନ ଚାଲୁ କରିବେ କି?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"ଜାରି ରଖିବା ପାଇଁ, ଇନଫୋଟେନମେଣ୍ଟ ସିଷ୍ଟମ ମାଇକ୍ରୋଫୋନକୁ ଚାଲୁ କରନ୍ତୁ। ଏହା ଅନୁମତି ଥିବା ସମସ୍ତ ଆପ ପାଇଁ ମାଇକ୍ରୋଫୋନ ଚାଲୁ କରିବ।"</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"କ୍ୟାମେରା ସେଟିଂସ"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> କ୍ୟାମେରା ବ୍ୟବହାର କରୁଛି"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> କ୍ୟାମେରା ବ୍ୟବହାର କରୁଛି"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> ବର୍ତ୍ତମାନ କ୍ୟାମେରା ବ୍ୟବହାର କରିଛି"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> ଏବଂ ଅଧିକ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>ଟି ଆପ ବର୍ତ୍ତମାନ କ୍ୟାମେରା ବ୍ୟବହାର କରିଛି"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"କ୍ୟାମେରା ଚାଲୁ କରାଯାଇଛି"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"କ୍ୟାମେରା ବନ୍ଦ କରାଯାଇଛି"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"ଠିକ୍ ଅଛି"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"ଗାଡ଼ିର କ୍ୟାମେରାକୁ ଚାଲୁ କରିବେ?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"ଜାରି ରଖିବା ପାଇଁ, ଇନଫୋଟେନମେଣ୍ଟ ସିଷ୍ଟମ କ୍ୟାମେରାକୁ ଚାଲୁ କରନ୍ତୁ। ଏହା ଅନୁମତି ଥିବା ସମସ୍ତ ଆପ ପାଇଁ କ୍ୟାମେରାକୁ ଚାଲୁ କରିବ।"</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"ଆପଣ ଡ୍ରାଇଭ୍‍ କରିବା ସମୟରେ ଏହି ଫିଚର୍‍ ବ୍ୟବହାର କରିପାରିବେ ନାହିଁ"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"ଆପ୍‍ ବନ୍ଦ କରନ୍ତୁ"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"ପଛକୁ ଫେରନ୍ତୁ"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"ସେଟିଂସ"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"ବ୍ଲୁଟୁଥ ସେଟିଂସ"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"ନେଟୱାର୍କ ଏବଂ ଇଣ୍ଟରନେଟ ସେଟିଂସ"</string>

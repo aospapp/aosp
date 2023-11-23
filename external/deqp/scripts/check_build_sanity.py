@@ -139,7 +139,7 @@ def runSteps (steps):
 			print("Skip: %s" % step.getName())
 
 COMMON_CFLAGS		= ["-Werror", "-Wno-error=unused-function"]
-COMMON_GCC_CFLAGS	= COMMON_CFLAGS + ["-Wno-implicit-fallthrough", "-Wno-error=array-bounds"]
+COMMON_GCC_CFLAGS	= COMMON_CFLAGS + ["-Wno-error=array-bounds"]
 COMMON_CLANG_CFLAGS	= COMMON_CFLAGS + ["-Wno-error=unused-command-line-argument"]
 GCC_32BIT_CFLAGS	= COMMON_GCC_CFLAGS + ["-m32"]
 CLANG_32BIT_CFLAGS	= COMMON_CLANG_CFLAGS + ["-m32"]
@@ -149,7 +149,7 @@ CLANG_VERSION		= getClangVersion()
 
 # Always ran before any receipe
 PREREQUISITES		= [
-	RunScript(os.path.join("external", "fetch_sources.py"))
+	RunScript(os.path.join("external", "fetch_sources.py"), lambda env: ["--force"])
 ]
 
 # Always ran after any receipe

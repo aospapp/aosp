@@ -40,11 +40,15 @@ class Burst final : public IBurst {
 
     ExecutionResult<std::pair<std::vector<OutputShape>, Timing>> execute(
             const Request& request, MeasureTiming measure, const nn::OptionalTimePoint& deadline,
-            const nn::OptionalDuration& loopTimeoutDuration) const override;
+            const nn::OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<SharedExecution> createReusableExecution(
             const Request& request, MeasureTiming measure,
-            const nn::OptionalDuration& loopTimeoutDuration) const override;
+            const nn::OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
    private:
     const std::shared_ptr<const PreparedModel> kPreparedModel;

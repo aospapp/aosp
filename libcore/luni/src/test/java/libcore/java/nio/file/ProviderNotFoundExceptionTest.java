@@ -22,6 +22,12 @@ import java.nio.file.ProviderNotFoundException;
 
 public class ProviderNotFoundExceptionTest extends TestCase {
 
+    public void test_constructor$() {
+        ProviderNotFoundException exception = new ProviderNotFoundException();
+        assertNull(exception.getMessage());
+        assertNull(exception.getCause());
+    }
+
     public void test_constructor$String() {
         String message = "message";
         ProviderNotFoundException exception = new ProviderNotFoundException(message);

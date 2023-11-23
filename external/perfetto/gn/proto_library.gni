@@ -173,6 +173,17 @@ template("ipc_library") {
     } else {
       deps += [ "$perfetto_root_path/src/ipc:common" ]
     }
+    if (is_win) {
+      # TODO(primiano): investigate this. In Windows standalone builds, some
+      # executable targets end up in a state where no code pulls a dep on the
+      # ipc:client (in turn that seems a subtle consequence of not having
+      # traced_probes on Windows). This dep here is effectively needed because
+      # the client-side code in the generated .ipc.cc effectively depends on the
+      # client-side IPC library. Perhaps we just should do this unconditionally
+      # on all platforms?
+      deps += [ "$perfetto_root_path/src/ipc:client" ]
+    }
+
     if (defined(invoker.deps)) {
       deps += invoker.deps
     }
@@ -242,6 +253,16 @@ template("perfetto_proto_library") {
         deps_ += [ string_replace(dep, expansion_token, gen_type) ]
       }
     }
+
+    # The distinction between deps and public_deps does not matter for GN
+    # but Bazel cares about the difference so we distinguish between the two.
+    public_deps_ = []
+    if (defined(invoker.public_deps)) {
+      foreach(dep, invoker.public_deps) {
+        public_deps_ = [ string_replace(dep, expansion_token, gen_type) ]
+      }
+    }
+    deps_ += public_deps_
 
     if (gen_type == "zero") {
       protozero_library(target_name_) {
@@ -317,6 +338,7 @@ template("perfetto_proto_library") {
         metadata = {
           proto_library_sources = invoker.sources
           import_dirs = import_dirs_
+          exports = get_path_info(public_deps_, "abspath")
         }
         forward_variables_from(invoker, vars_to_forward)
       }

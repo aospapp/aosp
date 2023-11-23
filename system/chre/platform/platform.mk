@@ -103,6 +103,7 @@ SLPI_SRCS += platform/shared/memory_manager.cc
 SLPI_SRCS += platform/shared/nanoapp_load_manager.cc
 SLPI_SRCS += platform/shared/nanoapp/nanoapp_dso_util.cc
 SLPI_SRCS += platform/shared/pal_system_api.cc
+SLPI_SRCS += platform/shared/platform_debug_dump_manager.cc
 SLPI_SRCS += platform/shared/pw_tokenized_log.cc
 SLPI_SRCS += platform/shared/system_time.cc
 SLPI_SRCS += platform/shared/version.cc
@@ -112,7 +113,6 @@ SLPI_SRCS += platform/slpi/host_link.cc
 SLPI_SRCS += platform/slpi/init.cc
 SLPI_SRCS += platform/slpi/memory.cc
 SLPI_SRCS += platform/slpi/memory_manager.cc
-SLPI_SRCS += platform/slpi/platform_debug_dump_manager.cc
 SLPI_SRCS += platform/slpi/platform_nanoapp.cc
 SLPI_SRCS += platform/slpi/platform_pal.cc
 SLPI_SRCS += platform/slpi/platform_sensor_type_helpers.cc
@@ -177,7 +177,7 @@ endif
 
 SLPI_QSH_SRCS += platform/slpi/see/island_vote_client.cc
 SLPI_QSH_SRCS += platform/slpi/see/power_control_manager.cc
-SLPI_QSH_SRCS += platform/slpi/qsh/qsh_shim.cc
+SLPI_QSH_SRCS += platform/slpi/qsh/qsh_proto_shim.cc
 
 ifeq ($(CHRE_USE_BUFFERED_LOGGING), true)
 SLPI_QSH_SRCS += platform/shared/log_buffer.cc
@@ -188,7 +188,8 @@ endif
 
 # Simulator-specific Compiler Flags ############################################
 
-SIM_CFLAGS += -Iplatform/shared/include
+SIM_CFLAGS += -I$(CHRE_PREFIX)/platform/shared/include
+SIM_CFLAGS += -Iplatform/linux/sim/include
 
 # Simulator-specific Source Files ##############################################
 
@@ -201,14 +202,15 @@ SIM_SRCS += platform/linux/memory_manager.cc
 SIM_SRCS += platform/linux/platform_debug_dump_manager.cc
 SIM_SRCS += platform/linux/platform_log.cc
 SIM_SRCS += platform/linux/platform_pal.cc
+SIM_SRCS += platform/linux/platform_sensor.cc
 SIM_SRCS += platform/linux/platform_sensor_type_helpers.cc
 SIM_SRCS += platform/linux/power_control_manager.cc
 SIM_SRCS += platform/linux/system_time.cc
 SIM_SRCS += platform/linux/system_timer.cc
 SIM_SRCS += platform/linux/platform_nanoapp.cc
 SIM_SRCS += platform/linux/platform_sensor.cc
-SIM_SRCS += platform/linux/platform_sensor_type_helpers.cc
 SIM_SRCS += platform/shared/chre_api_audio.cc
+SIM_SRCS += platform/shared/chre_api_ble.cc
 SIM_SRCS += platform/shared/chre_api_core.cc
 SIM_SRCS += platform/shared/chre_api_gnss.cc
 SIM_SRCS += platform/shared/chre_api_re.cc
@@ -219,11 +221,20 @@ SIM_SRCS += platform/shared/chre_api_wifi.cc
 SIM_SRCS += platform/shared/chre_api_wwan.cc
 SIM_SRCS += platform/shared/memory_manager.cc
 SIM_SRCS += platform/shared/nanoapp/nanoapp_dso_util.cc
-SIM_SRCS += platform/shared/pal_sensor_stub.cc
 SIM_SRCS += platform/shared/pal_system_api.cc
-SIM_SRCS += platform/shared/platform_sensor_manager.cc
 SIM_SRCS += platform/shared/system_time.cc
 SIM_SRCS += platform/shared/version.cc
+
+# Optional audio support.
+ifeq ($(CHRE_AUDIO_SUPPORT_ENABLED), true)
+SIM_SRCS += platform/linux/pal_audio.cc
+endif
+
+# Optional BLE support.
+ifeq ($(CHRE_BLE_SUPPORT_ENABLED), true)
+SIM_SRCS += platform/linux/pal_ble.cc
+SIM_SRCS += platform/shared/platform_ble.cc
+endif
 
 # Optional GNSS support.
 ifeq ($(CHRE_GNSS_SUPPORT_ENABLED), true)
@@ -231,8 +242,17 @@ SIM_SRCS += platform/linux/pal_gnss.cc
 SIM_SRCS += platform/shared/platform_gnss.cc
 endif
 
+# Optional sensor support.
+ifeq ($(CHRE_SENSORS_SUPPORT_ENABLED), true)
+SIM_SRCS += platform/linux/pal_sensor.cc
+SIM_SRCS += platform/shared/platform_sensor_manager.cc
+endif
+
 # Optional Wi-Fi support.
 ifeq ($(CHRE_WIFI_SUPPORT_ENABLED), true)
+ifeq ($(CHRE_WIFI_NAN_SUPPORT_ENABLED), true)
+SIM_SRCS += platform/linux/pal_nan.cc
+endif
 SIM_SRCS += platform/linux/pal_wifi.cc
 SIM_SRCS += platform/shared/platform_wifi.cc
 endif
@@ -254,8 +274,13 @@ GOOGLE_X86_LINUX_SRCS += platform/linux/assert.cc
 
 # Optional audio support.
 ifeq ($(CHRE_AUDIO_SUPPORT_ENABLED), true)
-GOOGLE_X86_LINUX_SRCS += platform/linux/audio_source.cc
-GOOGLE_X86_LINUX_SRCS += platform/linux/platform_audio.cc
+GOOGLE_X86_LINUX_SRCS += platform/linux/sim/audio_source.cc
+GOOGLE_X86_LINUX_SRCS += platform/linux/sim/platform_audio.cc
+endif
+
+# Optional WiFi NAN support
+ifeq ($(CHRE_WIFI_NAN_SUPPORT_ENABLED), true)
+GOOGLE_X86_LINUX_SRCS += platform/linux/pal_nan.cc
 endif
 
 # Android-specific Compiler Flags ##############################################
@@ -310,7 +335,10 @@ GOOGLETEST_CFLAGS += -Iplatform/slpi/include
 # GoogleTest Source Files ######################################################
 
 GOOGLETEST_COMMON_SRCS += platform/linux/assert.cc
-GOOGLETEST_COMMON_SRCS += platform/linux/audio_source.cc
-GOOGLETEST_COMMON_SRCS += platform/linux/platform_audio.cc
+GOOGLETEST_COMMON_SRCS += platform/linux/sim/audio_source.cc
+GOOGLETEST_COMMON_SRCS += platform/linux/sim/platform_audio.cc
 GOOGLETEST_COMMON_SRCS += platform/tests/log_buffer_test.cc
 GOOGLETEST_COMMON_SRCS += platform/shared/log_buffer.cc
+ifeq ($(CHRE_WIFI_NAN_SUPPORT_ENABLED), true)
+GOOGLETEST_COMMON_SRCS += platform/linux/pal_nan.cc
+endif

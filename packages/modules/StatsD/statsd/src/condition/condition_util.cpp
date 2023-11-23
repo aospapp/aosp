@@ -88,6 +88,17 @@ ConditionState evaluateCombinationCondition(const std::vector<int>& children,
 ConditionState operator|(ConditionState l, ConditionState r) {
     return l >= r ? l : r;
 }
+
+ConditionState convertInitialValue(const SimplePredicate_InitialValue& initialValue) {
+    switch (initialValue) {
+        case SimplePredicate_InitialValue_FALSE:
+            return ConditionState::kFalse;
+        case SimplePredicate_InitialValue_UNKNOWN:
+            return ConditionState::kUnknown;
+        default:
+            return ConditionState::kUnknown;
+    }
+}
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

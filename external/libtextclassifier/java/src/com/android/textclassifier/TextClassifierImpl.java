@@ -43,11 +43,12 @@ import android.view.textclassifier.TextLinks;
 import android.view.textclassifier.TextSelection;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.WorkerThread;
+import androidx.collection.LruCache;
 import androidx.core.util.Pair;
-import com.android.textclassifier.common.ModelFileManager;
-import com.android.textclassifier.common.ModelFileManager.ModelFile;
+import com.android.textclassifier.common.ModelFile;
 import com.android.textclassifier.common.ModelType;
 import com.android.textclassifier.common.TextClassifierSettings;
+import com.android.textclassifier.common.TextSelectionCompat;
 import com.android.textclassifier.common.base.TcLog;
 import com.android.textclassifier.common.intent.LabeledIntent;
 import com.android.textclassifier.common.intent.TemplateIntentFactory;
@@ -63,6 +64,7 @@ import com.google.android.textclassifier.ActionsSuggestionsModel;
 import com.google.android.textclassifier.ActionsSuggestionsModel.ActionSuggestions;
 import com.google.android.textclassifier.AnnotatorModel;
 import com.google.android.textclassifier.LangIdModel;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
@@ -95,22 +97,25 @@ final class TextClassifierImpl {
   private final Object lock = new Object();
 
   @GuardedBy("lock")
-  private ModelFileManager.ModelFile annotatorModelInUse;
+  private ModelFile annotatorModelInUse;
 
   @GuardedBy("lock")
   private AnnotatorModel annotatorImpl;
 
   @GuardedBy("lock")
-  private ModelFileManager.ModelFile langIdModelInUse;
+  private ModelFile langIdModelInUse;
 
   @GuardedBy("lock")
   private LangIdModel langIdImpl;
 
   @GuardedBy("lock")
-  private ModelFileManager.ModelFile actionModelInUse;
+  private ModelFile actionModelInUse;
 
   @GuardedBy("lock")
   private ActionsSuggestionsModel actionsImpl;
+
+  @GuardedBy("lock")
+  private final LruCache<ModelFile, AnnotatorModel> annotatorModelCache;
 
   private final TextClassifierEventLogger textClassifierEventLogger =
       new TextClassifierEventLogger();
@@ -121,10 +126,20 @@ final class TextClassifierImpl {
 
   TextClassifierImpl(
       Context context, TextClassifierSettings settings, ModelFileManager modelFileManager) {
+    this(
+        context, settings, modelFileManager, new LruCache<>(settings.getMultiAnnotatorCacheSize()));
+  }
+
+  @VisibleForTesting
+  public TextClassifierImpl(
+      Context context,
+      TextClassifierSettings settings,
+      ModelFileManager modelFileManager,
+      LruCache<ModelFile, AnnotatorModel> annotatorModelCache) {
     this.context = Preconditions.checkNotNull(context);
     this.settings = Preconditions.checkNotNull(settings);
     this.modelFileManager = Preconditions.checkNotNull(modelFileManager);
-
+    this.annotatorModelCache = annotatorModelCache;
     generateLinksLogger = new GenerateLinksLogger(this.settings.getGenerateLinksLogSampleRate());
     templateIntentFactory = new TemplateIntentFactory();
   }
@@ -147,7 +162,10 @@ final class TextClassifierImpl {
     final String detectLanguageTags =
         String.join(",", detectLanguageTags(langIdModel, request.getText()));
     final ZonedDateTime refTime = ZonedDateTime.now(ZoneId.systemDefault());
-    final AnnotatorModel annotatorImpl = getAnnotatorImpl(request.getDefaultLocales());
+    final LocaleList detectedLocaleList = LocaleList.forLanguageTags(detectLanguageTags);
+    final ModelFile annotatorModelInUse =
+        getAnnotatorModelFile(request.getDefaultLocales(), detectedLocaleList);
+    final AnnotatorModel annotatorImpl = loadAnnotatorModelFile(annotatorModelInUse);
     final int[] startEnd =
         annotatorImpl.suggestSelection(
             string,
@@ -167,6 +185,8 @@ final class TextClassifierImpl {
       throw new IllegalArgumentException("Got bad indices for input text. Ignoring result.");
     }
     final TextSelection.Builder tsBuilder = new TextSelection.Builder(start, end);
+    final boolean shouldIncludeTextClassification =
+        TextSelectionCompat.shouldIncludeTextClassification(request);
     final AnnotatorModel.ClassificationResult[] results =
         annotatorImpl.classifyText(
             string,
@@ -177,18 +197,24 @@ final class TextClassifierImpl {
                 .setReferenceTimezone(refTime.getZone().getId())
                 .setLocales(localesString)
                 .setDetectedTextLanguageTags(detectLanguageTags)
+                .setAnnotationUsecase(AnnotatorModel.AnnotationUsecase.SMART.getValue())
                 .setUserFamiliarLanguageTags(LocaleList.getDefault().toLanguageTags())
                 .build(),
-            // Passing null here to suppress intent generation
+            // Passing null here to suppress intent generation.
             // TODO: Use an explicit flag to suppress it.
-            /* appContext */ null,
-            /* deviceLocales */ null);
+            shouldIncludeTextClassification ? context : null,
+            getResourceLocalesString());
     final int size = results.length;
     for (int i = 0; i < size; i++) {
       tsBuilder.setEntityType(results[i].getCollection(), results[i].getScore());
     }
     final String resultId =
         createAnnotatorId(string, request.getStartIndex(), request.getEndIndex());
+    if (shouldIncludeTextClassification) {
+      TextClassification textClassification =
+          createClassificationResult(results, string, start, end, langIdModel);
+      TextSelectionCompat.setTextClassification(tsBuilder, textClassification);
+    }
     return tsBuilder.setId(resultId).build();
   }
 
@@ -213,8 +239,10 @@ final class TextClassifierImpl {
         request.getReferenceTime() != null
             ? request.getReferenceTime()
             : ZonedDateTime.now(ZoneId.systemDefault());
+    final LocaleList detectedLocaleList =
+        LocaleList.forLanguageTags(String.join(",", detectLanguageTags));
     final AnnotatorModel.ClassificationResult[] results =
-        getAnnotatorImpl(request.getDefaultLocales())
+        getAnnotatorImpl(request.getDefaultLocales(), detectedLocaleList)
             .classifyText(
                 string,
                 request.getStartIndex(),
@@ -264,7 +292,10 @@ final class TextClassifierImpl {
     final String localesString = concatenateLocales(request.getDefaultLocales());
     LangIdModel langId = getLangIdImpl();
     ImmutableList<String> detectLanguageTags = detectLanguageTags(langId, request.getText());
-    final AnnotatorModel annotatorImpl = getAnnotatorImpl(request.getDefaultLocales());
+    final LocaleList detectedLocaleList =
+        LocaleList.forLanguageTags(String.join(",", detectLanguageTags));
+    final AnnotatorModel annotatorImpl =
+        getAnnotatorImpl(request.getDefaultLocales(), detectedLocaleList);
     final boolean isSerializedEntityDataEnabled =
         ExtrasUtils.isSerializedEntityDataEnabled(request);
     final AnnotatorModel.AnnotatedSpan[] annotations =
@@ -394,7 +425,7 @@ final class TextClassifierImpl {
             null,
             context,
             getResourceLocalesString(),
-            getAnnotatorImpl(LocaleList.getDefault()));
+            getAnnotatorImpl(LocaleList.getDefault(), /* detectedLocaleList= */ null));
     return createConversationActionResult(request, nativeSuggestions);
   }
 
@@ -460,33 +491,57 @@ final class TextClassifierImpl {
     return request.getTypeConfig().resolveEntityListModifications(defaultActionTypes);
   }
 
-  private AnnotatorModel getAnnotatorImpl(LocaleList localeList) throws IOException {
+  private ModelFile getAnnotatorModelFile(
+      LocaleList requestLocaleList, LocaleList detectedLocaleList) throws IOException {
+    final ModelFile bestModel =
+        modelFileManager.findBestModelFile(
+            ModelType.ANNOTATOR, requestLocaleList, detectedLocaleList);
+    if (bestModel == null) {
+      throw new IllegalStateException("Failed to find the best annotator model");
+    }
+    return bestModel;
+  }
+
+  private AnnotatorModel loadAnnotatorModelFile(ModelFile annotatorModelFile) throws IOException {
     synchronized (lock) {
-      localeList = localeList == null ? LocaleList.getDefault() : localeList;
-      final ModelFileManager.ModelFile bestModel =
-          modelFileManager.findBestModelFile(ModelType.ANNOTATOR, localeList);
-      if (bestModel == null) {
-        throw new IllegalStateException("Failed to find the best annotator model");
+      if (settings.getMultiAnnotatorCacheEnabled()
+          && !Objects.equals(annotatorModelInUse, annotatorModelFile)) {
+        TcLog.v(TAG, "Attempting to reload cached annotator model....");
+        annotatorImpl = annotatorModelCache.get(annotatorModelFile);
+        if (annotatorImpl != null) {
+          annotatorModelInUse = annotatorModelFile;
+          TcLog.v(TAG, "Successfully reloaded cached annotator model: " + annotatorModelFile);
+        }
       }
-      if (annotatorImpl == null || !Objects.equals(annotatorModelInUse, bestModel)) {
-        TcLog.d(TAG, "Loading " + bestModel);
+      if (annotatorImpl == null || !Objects.equals(annotatorModelInUse, annotatorModelFile)) {
+        TcLog.d(TAG, "Loading " + annotatorModelFile);
         // The current annotator model may be still used by another thread / model.
         // Do not call close() here, and let the GC to clean it up when no one else
         // is using it.
-        try (AssetFileDescriptor afd = bestModel.open(context.getAssets())) {
+        try (AssetFileDescriptor afd = annotatorModelFile.open(context.getAssets())) {
           annotatorImpl = new AnnotatorModel(afd);
           annotatorImpl.setLangIdModel(getLangIdImpl());
-          annotatorModelInUse = bestModel;
+          annotatorModelInUse = annotatorModelFile;
+          if (settings.getMultiAnnotatorCacheEnabled()) {
+            annotatorModelCache.put(annotatorModelFile, annotatorImpl);
+          }
         }
       }
       return annotatorImpl;
     }
   }
 
+  private AnnotatorModel getAnnotatorImpl(
+      LocaleList requestLocaleList, LocaleList detectedLocaleList) throws IOException {
+    ModelFile annotatorModelFile = getAnnotatorModelFile(requestLocaleList, detectedLocaleList);
+    return loadAnnotatorModelFile(annotatorModelFile);
+  }
+
   private LangIdModel getLangIdImpl() throws IOException {
     synchronized (lock) {
-      final ModelFileManager.ModelFile bestModel =
-          modelFileManager.findBestModelFile(ModelType.LANG_ID, /* localePreferences= */ null);
+      final ModelFile bestModel =
+          modelFileManager.findBestModelFile(
+              ModelType.LANG_ID, /* localePreferences= */ null, /* detectedLocales= */ null);
       if (bestModel == null) {
         throw new IllegalStateException("Failed to find the best LangID model.");
       }
@@ -504,9 +559,9 @@ final class TextClassifierImpl {
   private ActionsSuggestionsModel getActionsImpl() throws IOException {
     synchronized (lock) {
       // TODO: Use LangID to determine the locale we should use here?
-      final ModelFileManager.ModelFile bestModel =
+      final ModelFile bestModel =
           modelFileManager.findBestModelFile(
-              ModelType.ACTIONS_SUGGESTIONS, LocaleList.getDefault());
+              ModelType.ACTIONS_SUGGESTIONS, LocaleList.getDefault(), /* detectedLocales= */ null);
       if (bestModel == null) {
         throw new IllegalStateException("Failed to find the best actions model");
       }

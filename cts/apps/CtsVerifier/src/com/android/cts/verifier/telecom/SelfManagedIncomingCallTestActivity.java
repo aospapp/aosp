@@ -28,6 +28,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
@@ -37,6 +39,8 @@ import com.android.cts.verifier.R;
  * call UI when a new incoming self-managed call is added when there is already an ongoing managed
  * call or when there is an ongoing self-managed call in another app.
  */
+@ApiTest(apis={"android.telecom.ConnectionService"})
+@CddTest(requirement="7.4.1.2/C-1-2")
 public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activity {
     private static final String TAG = "SelfManagedIncomingCall";
     private Uri TEST_DIAL_NUMBER_1 = Uri.fromParts("tel", "6505551212", null);

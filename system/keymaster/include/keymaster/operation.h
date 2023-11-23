@@ -103,6 +103,10 @@ class Operation {
 
     void set_key_id(uint64_t key_id) { key_id_ = key_id; }
     uint64_t key_id() const { return key_id_; }
+    void set_secure_deletion_slot(uint32_t secure_deletion_slot) {
+        secure_deletion_slot_ = secure_deletion_slot;
+    }
+    uint32_t secure_deletion_slot() const { return secure_deletion_slot_; }
     virtual keymaster_operation_handle_t operation_handle() const { return operation_handle_; }
 
     AuthProxy authorizations() const { return AuthProxy(hw_enforced_, sw_enforced_); }
@@ -150,6 +154,7 @@ class Operation {
     AuthorizationSet hw_enforced_;
     AuthorizationSet sw_enforced_;
     uint64_t key_id_;
+    uint32_t secure_deletion_slot_ = 0;
     UniquePtr<Buffer> confirmation_verifier_buffer_;
 };
 

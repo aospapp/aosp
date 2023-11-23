@@ -110,6 +110,7 @@ cc_defaults {
             shared_libs: [
                 "liblog",
             ],
+            system_shared_libs: ["libc"],
 
             header_libs: ["libcutils_headers"],
 
@@ -126,7 +127,6 @@ cc_defaults {
     export_include_dirs: ["include"],
 
     stl: "none",
-    system_shared_libs: ["libc"],
 }
 
 cc_library {
@@ -150,9 +150,8 @@ cc_library {
     ],
 
     target: {
-        linux_glibc: {
+        host_linux: {
             srcs: [
-                "src/android/android_host.c",
                 "src/avc.c",
                 "src/avc_internal.c",
                 "src/avc_sidtab.c",
@@ -162,47 +161,29 @@ cc_library {
                 "src/context.c",
                 "src/deny_unknown.c",
                 "src/enabled.c",
-                "src/fgetfilecon.c",
                 "src/getenforce.c",
                 "src/getfilecon.c",
                 "src/get_initial_context.c",
                 "src/init.c",
-                "src/lgetfilecon.c",
                 "src/load_policy.c",
-                "src/lsetfilecon.c",
                 "src/mapping.c",
                 "src/procattr.c",
                 "src/reject_unknown.c",
-                "src/setenforce.c",
+                "src/sestatus.c",
                 "src/setexecfilecon.c",
-                "src/setfilecon.c",
                 "src/stringrep.c",
+            ],
+        },
+        linux_glibc: {
+            srcs: [
+                "src/fgetfilecon.c",
+                "src/lgetfilecon.c",
+                "src/lsetfilecon.c",
+                "src/setfilecon.c",
             ],
         },
         linux_bionic: {
             enabled: true,
-            srcs: [
-                "src/android/android_host.c",
-                "src/avc.c",
-                "src/avc_internal.c",
-                "src/avc_sidtab.c",
-                "src/compute_av.c",
-                "src/compute_create.c",
-                "src/compute_member.c",
-                "src/context.c",
-                "src/deny_unknown.c",
-                "src/enabled.c",
-                "src/getenforce.c",
-                "src/getfilecon.c",
-                "src/get_initial_context.c",
-                "src/init.c",
-                "src/load_policy.c",
-                "src/mapping.c",
-                "src/procattr.c",
-                "src/reject_unknown.c",
-                "src/setexecfilecon.c",
-                "src/stringrep.c",
-            ],
         },
 
         android: {
@@ -329,4 +310,21 @@ rust_bindgen {
 
     // This is mainly to run layout tests for generated bindings on the host.
     host_supported: true,
+
+    apex_available: [
+        "com.android.virt",
+        "//apex_available:platform",
+    ],
+}
+
+rust_test {
+    name: "libselinux_bindgen_test",
+    srcs: [
+        ":libselinux_bindgen",
+    ],
+    crate_name: "selinux_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
 }

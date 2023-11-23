@@ -66,7 +66,8 @@ public class MyPhotosViewHolder extends ViewHolder implements View.OnClickListen
      */
     private static void fetchThumbnail(final Context context, final AssetListener listener) {
         if (!isReadExternalStoragePermissionGranted(context)) {
-            // MediaStore.Images.Media.EXTERNAL_CONTENT_URI requires the READ_EXTERNAL_STORAGE permission.
+            // MediaStore.Images.Media.EXTERNAL_CONTENT_URI requires
+            // the READ_MEDIA_IMAGES permission.
             listener.onAssetRetrieved(null);
         }
 
@@ -105,10 +106,10 @@ public class MyPhotosViewHolder extends ViewHolder implements View.OnClickListen
     }
 
     /**
-     * Returns whether READ_EXTERNAL_STORAGE has been granted for the application.
+     * Returns whether READ_MEDIA_IMAGES has been granted for the application.
      */
     private static boolean isReadExternalStoragePermissionGranted(Context context) {
-        return context.getPackageManager().checkPermission(permission.READ_EXTERNAL_STORAGE,
+        return context.getPackageManager().checkPermission(permission.READ_MEDIA_IMAGES,
                 context.getPackageName()) == PackageManager.PERMISSION_GRANTED;
     }
 

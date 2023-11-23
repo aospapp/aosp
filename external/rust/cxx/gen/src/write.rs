@@ -9,8 +9,8 @@ use crate::syntax::set::UnorderedSet;
 use crate::syntax::symbol::Symbol;
 use crate::syntax::trivial::{self, TrivialReason};
 use crate::syntax::{
-    derive, mangle, Api, Enum, ExternFn, ExternType, Pair, Signature, Struct, Trait, Type,
-    TypeAlias, Types, Var,
+    derive, mangle, Api, Doc, Enum, EnumRepr, ExternFn, ExternType, Pair, Signature, Struct, Trait,
+    Type, TypeAlias, Types, Var,
 };
 use proc_macro2::Ident;
 
@@ -101,10 +101,10 @@ fn write_data_structures<'a>(out: &mut OutFile<'a>, apis: &'a [Api]) {
             }
             Api::Enum(enm) => {
                 out.next_section();
-                if out.types.cxx.contains(&enm.name.rust) {
-                    check_enum(out, enm);
-                } else {
+                if !out.types.cxx.contains(&enm.name.rust) {
                     write_enum(out, enm);
+                } else if !enm.variants_from_header {
+                    check_enum(out, enm);
                 }
             }
             Api::RustType(ety) => {
@@ -249,14 +249,24 @@ fn write_struct<'a>(out: &mut OutFile<'a>, strct: &'a Struct, methods: &[&Extern
         writeln!(out, "{};", field.name.cxx);
     }
 
-    writeln!(out);
+    out.next_section();
 
     for method in methods {
+        if !method.doc.is_empty() {
+            out.next_section();
+        }
+        for line in method.doc.to_string().lines() {
+            writeln!(out, "  //{}", line);
+        }
         write!(out, "  ");
         let sig = &method.sig;
         let local_name = method.name.cxx.to_string();
-        write_rust_function_shim_decl(out, &local_name, sig, false);
+        let indirect_call = false;
+        write_rust_function_shim_decl(out, &local_name, sig, indirect_call);
         writeln!(out, ";");
+        if !method.doc.is_empty() {
+            out.next_section();
+        }
     }
 
     if operator_eq {
@@ -307,8 +317,12 @@ fn write_struct_decl(out: &mut OutFile, ident: &Pair) {
 }
 
 fn write_enum_decl(out: &mut OutFile, enm: &Enum) {
+    let repr = match &enm.repr {
+        EnumRepr::Foreign { .. } => return,
+        EnumRepr::Native { atom, .. } => *atom,
+    };
     write!(out, "enum class {} : ", enm.name.cxx);
-    write_atom(out, enm.repr);
+    write_atom(out, repr);
     writeln!(out, ";");
 }
 
@@ -332,12 +346,22 @@ fn write_opaque_type<'a>(out: &mut OutFile<'a>, ety: &'a ExternType, methods: &[
         ety.name.cxx,
     );
 
-    for method in methods {
+    for (i, method) in methods.iter().enumerate() {
+        if i > 0 && !method.doc.is_empty() {
+            out.next_section();
+        }
+        for line in method.doc.to_string().lines() {
+            writeln!(out, "  //{}", line);
+        }
         write!(out, "  ");
         let sig = &method.sig;
         let local_name = method.name.cxx.to_string();
-        write_rust_function_shim_decl(out, &local_name, sig, false);
+        let indirect_call = false;
+        write_rust_function_shim_decl(out, &local_name, sig, indirect_call);
         writeln!(out, ";");
+        if !method.doc.is_empty() {
+            out.next_section();
+        }
     }
 
     writeln!(out, "  ~{}() = delete;", ety.name.cxx);
@@ -356,6 +380,10 @@ fn write_opaque_type<'a>(out: &mut OutFile<'a>, ety: &'a ExternType, methods: &[
 }
 
 fn write_enum<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
+    let repr = match &enm.repr {
+        EnumRepr::Foreign { .. } => return,
+        EnumRepr::Native { atom, .. } => *atom,
+    };
     out.set_namespace(&enm.name.namespace);
     let guard = format!("CXXBRIDGE1_ENUM_{}", enm.name.to_symbol());
     writeln!(out, "#ifndef {}", guard);
@@ -364,7 +392,7 @@ fn write_enum<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
         writeln!(out, "//{}", line);
     }
     write!(out, "enum class {} : ", enm.name.cxx);
-    write_atom(out, enm.repr);
+    write_atom(out, repr);
     writeln!(out, " {{");
     for variant in &enm.variants {
         for line in variant.doc.to_string().lines() {
@@ -377,6 +405,10 @@ fn write_enum<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
 }
 
 fn check_enum<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
+    let repr = match &enm.repr {
+        EnumRepr::Foreign { .. } => return,
+        EnumRepr::Native { atom, .. } => *atom,
+    };
     out.set_namespace(&enm.name.namespace);
     out.include.type_traits = true;
     writeln!(
@@ -385,11 +417,11 @@ fn check_enum<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
         enm.name.cxx,
     );
     write!(out, "static_assert(sizeof({}) == sizeof(", enm.name.cxx);
-    write_atom(out, enm.repr);
+    write_atom(out, repr);
     writeln!(out, "), \"incorrect size\");");
     for variant in &enm.variants {
         write!(out, "static_assert(static_cast<");
-        write_atom(out, enm.repr);
+        write_atom(out, repr);
         writeln!(
             out,
             ">({}::{}) == {}, \"disagrees with the value in #[cxx::bridge]\");",
@@ -824,7 +856,8 @@ fn write_function_pointer_trampoline(out: &mut OutFile, efn: &ExternFn, var: &Pa
 
     out.next_section();
     let c_trampoline = mangle::c_trampoline(efn, var, out.types).to_string();
-    write_rust_function_shim_impl(out, &c_trampoline, f, &r_trampoline, indirect_call);
+    let doc = Doc::new();
+    write_rust_function_shim_impl(out, &c_trampoline, f, &doc, &r_trampoline, indirect_call);
 }
 
 fn write_rust_function_decl<'a>(out: &mut OutFile<'a>, efn: &'a ExternFn) {
@@ -894,9 +927,6 @@ fn write_rust_function_decl_impl(
 
 fn write_rust_function_shim<'a>(out: &mut OutFile<'a>, efn: &'a ExternFn) {
     out.set_namespace(&efn.name.namespace);
-    for line in efn.doc.to_string().lines() {
-        writeln!(out, "//{}", line);
-    }
     let local_name = match &efn.sig.receiver {
         None => efn.name.cxx.to_string(),
         Some(receiver) => format!(
@@ -905,9 +935,10 @@ fn write_rust_function_shim<'a>(out: &mut OutFile<'a>, efn: &'a ExternFn) {
             efn.name.cxx,
         ),
     };
+    let doc = &efn.doc;
     let invoke = mangle::extern_fn(efn, out.types);
     let indirect_call = false;
-    write_rust_function_shim_impl(out, &local_name, efn, &invoke, indirect_call);
+    write_rust_function_shim_impl(out, &local_name, efn, doc, &invoke, indirect_call);
 }
 
 fn write_rust_function_shim_decl(
@@ -947,12 +978,19 @@ fn write_rust_function_shim_impl(
     out: &mut OutFile,
     local_name: &str,
     sig: &Signature,
+    doc: &Doc,
     invoke: &Symbol,
     indirect_call: bool,
 ) {
     if out.header && sig.receiver.is_some() {
         // We've already defined this inside the struct.
         return;
+    }
+    if sig.receiver.is_none() {
+        // Member functions already documented at their declaration.
+        for line in doc.to_string().lines() {
+            writeln!(out, "//{}", line);
+        }
     }
     write_rust_function_shim_decl(out, local_name, sig, indirect_call);
     if out.header {
@@ -1429,7 +1467,7 @@ fn write_rust_vec_extern(out: &mut OutFile, key: NamedImplKey) {
     );
     writeln!(
         out,
-        "void cxxbridge1$rust_vec${}$reserve_total(::rust::Vec<{}> *ptr, ::std::size_t cap) noexcept;",
+        "void cxxbridge1$rust_vec${}$reserve_total(::rust::Vec<{}> *ptr, ::std::size_t new_cap) noexcept;",
         instance, inner,
     );
     writeln!(
@@ -1524,12 +1562,12 @@ fn write_rust_vec_impl(out: &mut OutFile, key: NamedImplKey) {
     begin_function_definition(out);
     writeln!(
         out,
-        "void Vec<{}>::reserve_total(::std::size_t cap) noexcept {{",
+        "void Vec<{}>::reserve_total(::std::size_t new_cap) noexcept {{",
         inner,
     );
     writeln!(
         out,
-        "  return cxxbridge1$rust_vec${}$reserve_total(this, cap);",
+        "  return cxxbridge1$rust_vec${}$reserve_total(this, new_cap);",
         instance,
     );
     writeln!(out, "}}");
@@ -1566,11 +1604,7 @@ fn write_unique_ptr_common(out: &mut OutFile, ty: UniquePtr) {
         // know at code generation time, so we generate both C++ and Rust side
         // bindings for a "new" method anyway. But the Rust code can't be called
         // for Opaque types because the 'new' method is not implemented.
-        UniquePtr::Ident(ident) => {
-            out.types.structs.contains_key(ident)
-                || out.types.enums.contains_key(ident)
-                || out.types.aliases.contains_key(ident)
-        }
+        UniquePtr::Ident(ident) => out.types.is_maybe_trivial(ident),
         UniquePtr::CxxVector(_) => false,
     };
 
@@ -1678,9 +1712,7 @@ fn write_shared_ptr(out: &mut OutFile, key: NamedImplKey) {
     // know at code generation time, so we generate both C++ and Rust side
     // bindings for a "new" method anyway. But the Rust code can't be called for
     // Opaque types because the 'new' method is not implemented.
-    let can_construct_from_value = out.types.structs.contains_key(ident)
-        || out.types.enums.contains_key(ident)
-        || out.types.aliases.contains_key(ident);
+    let can_construct_from_value = out.types.is_maybe_trivial(ident);
 
     writeln!(
         out,
@@ -1803,6 +1835,8 @@ fn write_cxx_vector(out: &mut OutFile, key: NamedImplKey) {
     let instance = element.to_mangled(out.types);
 
     out.include.cstddef = true;
+    out.include.utility = true;
+    out.builtin.destroy = true;
 
     writeln!(
         out,
@@ -1811,6 +1845,7 @@ fn write_cxx_vector(out: &mut OutFile, key: NamedImplKey) {
     );
     writeln!(out, "  return s.size();");
     writeln!(out, "}}");
+
     writeln!(
         out,
         "{} *cxxbridge1$std$vector${}$get_unchecked(::std::vector<{}> *s, ::std::size_t pos) noexcept {{",
@@ -1818,6 +1853,26 @@ fn write_cxx_vector(out: &mut OutFile, key: NamedImplKey) {
     );
     writeln!(out, "  return &(*s)[pos];");
     writeln!(out, "}}");
+
+    if out.types.is_maybe_trivial(element) {
+        writeln!(
+            out,
+            "void cxxbridge1$std$vector${}$push_back(::std::vector<{}> *v, {} *value) noexcept {{",
+            instance, inner, inner,
+        );
+        writeln!(out, "  v->push_back(::std::move(*value));");
+        writeln!(out, "  ::rust::destroy(value);");
+        writeln!(out, "}}");
+
+        writeln!(
+            out,
+            "void cxxbridge1$std$vector${}$pop_back(::std::vector<{}> *v, {} *out) noexcept {{",
+            instance, inner, inner,
+        );
+        writeln!(out, "  ::new (out) {}(::std::move(v->back()));", inner);
+        writeln!(out, "  v->pop_back();");
+        writeln!(out, "}}");
+    }
 
     out.include.memory = true;
     write_unique_ptr_common(out, UniquePtr::CxxVector(element));

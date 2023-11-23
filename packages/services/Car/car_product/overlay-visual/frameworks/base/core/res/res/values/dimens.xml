@@ -161,10 +161,16 @@
 
     <!-- Radio button dimensions -->
     <dimen name="car_radio_button_outer_ring_size">45dp</dimen>
-    <dimen name="car_radio_button_outer_ring_stroke_width">2dp</dimen>
+    <dimen name="car_radio_button_outer_ring_stroke_width">4dp</dimen>
     <dimen name="car_radio_button_inner_circle_size">32dp</dimen>
     <dimen name="car_radio_button_focus_ring_size">69dp</dimen>
     <dimen name="car_radio_button_focus_ring_padding">12dp</dimen>
+
+    <!-- Checkbox dimensions. -->
+    <!-- 77dp scales the material checkbox to provide a 44dp x 44dp checkbox rectangle. -->
+    <dimen name="car_checkbox_size">77dp</dimen>
+    <!-- The checkbox focus ring size -->
+    <dimen name="car_checkbox_focus_ring_size">66dp</dimen>
 
     <!-- SeekBar dimensions. -->
     <!-- Allows thumb to extend out of the range of the track. -->
@@ -180,6 +186,8 @@
     <dimen name="car_seekbar_thumb_selected_stroke_width">8dp</dimen>
     <!-- The size of the SeekBar thumb. -->
     <dimen name="car_seekbar_thumb_size">68dp</dimen>
+    <!-- The radius of the end of the SeekbarTrack. -->
+    <dimen name="car_seekbar_thumb_outer_radius">24dp</dimen>
 
     <!-- Sets the Theme android:disabledAlpha value, Used by SeekBar. -->
     <dimen name="car_disabled_alpha">0.46</dimen>

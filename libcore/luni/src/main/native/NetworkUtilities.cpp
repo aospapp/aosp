@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <android-base/logging.h>
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedLocalRef.h>
 
@@ -79,19 +80,25 @@ jobject sockaddrToInetAddress(JNIEnv* env, const sockaddr_storage& ss, jint* por
     }
 
     ScopedLocalRef<jbyteArray> byteArray(env, env->NewByteArray(addressLength));
-    if (byteArray.get() == NULL) {
-        return NULL;
+    if (byteArray == nullptr) {
+        // NewByteArray aborts if the addressLength is negative, so the allocation must have failed.
+        DCHECK(env->ExceptionCheck());
+        return nullptr;
     }
+
     env->SetByteArrayRegion(byteArray.get(), 0, addressLength,
             reinterpret_cast<const jbyte*>(rawAddress));
 
-    static jmethodID getByAddressMethod = env->GetStaticMethodID(JniConstants::GetInetAddressClass(env),
-            "getByAddress", "(Ljava/lang/String;[BI)Ljava/net/InetAddress;");
-    if (getByAddressMethod == NULL) {
-        return NULL;
-    }
-    return env->CallStaticObjectMethod(JniConstants::GetInetAddressClass(env), getByAddressMethod,
-            NULL, byteArray.get(), scope_id);
+    jclass inetAddressClass = JniConstants::GetInetAddressClass(env);
+    jmethodID getByAddressMethod =
+        env->GetStaticMethodID(inetAddressClass,
+                               "getByAddress",
+                               "(Ljava/lang/String;[BI)Ljava/net/InetAddress;");
+    return env->CallStaticObjectMethod(inetAddressClass,
+                                       getByAddressMethod,
+                                       /*host*/ NULL,
+                                       /*addr*/ byteArray.get(),
+                                       /*scopeId*/ scope_id);
 }
 
 static bool inetAddressToSockaddr(JNIEnv* env, jobject inetAddress, int port, sockaddr_storage& ss, socklen_t& sa_len, bool map) {

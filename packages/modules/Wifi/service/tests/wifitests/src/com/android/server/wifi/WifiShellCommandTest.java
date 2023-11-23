@@ -16,10 +16,12 @@
 
 package com.android.server.wifi;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
+import static android.net.wifi.WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT;
 import static android.net.wifi.WifiManager.WIFI_STATE_ENABLED;
 
 import static com.android.server.wifi.WifiShellCommand.SHELL_PACKAGE_NAME;
@@ -42,14 +44,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.MacAddress;
+import android.net.NetworkRequest;
 import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.os.Binder;
+import android.os.PatternMatcher;
 import android.os.Process;
 
 import androidx.test.filters.SmallTest;
@@ -86,7 +92,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
     @Mock WifiCountryCode mWifiCountryCode;
     @Mock WifiLastResortWatchdog mWifiLastResortWatchdog;
     @Mock WifiServiceImpl mWifiService;
-    @Mock Context mContext;
+    @Mock WifiContext mContext;
     @Mock ConnectivityManager mConnectivityManager;
     @Mock WifiCarrierInfoManager mWifiCarrierInfoManager;
     @Mock WifiNetworkFactory mWifiNetworkFactory;
@@ -132,15 +138,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
 
     @Test
     public void testSetIpReachDisconnect() {
-        // not allowed for unrooted shell.
-        mWifiShellCommand.exec(
-                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
-                new String[]{"set-ipreach-disconnect", "enabled"});
-        verify(mWifiGlobals, never()).setIpReachabilityDisconnectEnabled(anyBoolean());
-        assertFalse(mWifiShellCommand.getErrPrintWriter().toString().isEmpty());
-
-        BinderUtil.setUid(Process.ROOT_UID);
-
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"set-ipreach-disconnect", "enabled"});
@@ -161,15 +158,6 @@ public class WifiShellCommandTest extends WifiBaseTest {
 
     @Test
     public void testGetIpReachDisconnect() {
-        // not allowed for unrooted shell.
-        mWifiShellCommand.exec(
-                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
-                new String[]{"get-ipreach-disconnect"});
-        verify(mWifiGlobals, never()).getIpReachabilityDisconnectEnabled();
-        assertFalse(mWifiShellCommand.getErrPrintWriter().toString().isEmpty());
-
-        BinderUtil.setUid(Process.ROOT_UID);
-
         when(mWifiGlobals.getIpReachabilityDisconnectEnabled()).thenReturn(true);
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
@@ -281,6 +269,15 @@ public class WifiShellCommandTest extends WifiBaseTest {
         assertEquals(bssid, sd.getBSSIDString());
         assertEquals(2412, sd.getScanResult().frequency);
         assertEquals(-55, sd.getScanResult().level);
+
+        // Test with "hello world" SSID encoded in hexadecimal UTF-8
+        String hexSsid = "68656c6c6f20776f726c64";
+        mWifiShellCommand.exec(new Binder(), new FileDescriptor(), new FileDescriptor(),
+                new FileDescriptor(),
+                new String[]{"add-fake-scan", "-x", hexSsid, bssid, capabilities, freq, dbm});
+        verify(mWifiNative, times(2)).addFakeScanDetail(scanDetailCaptor.capture());
+        sd = scanDetailCaptor.getValue();
+        assertEquals("hello world", sd.getScanResult().SSID);
     }
 
     @Test
@@ -543,7 +540,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 softApConfigurationCaptor.getValue().getBand());
         assertEquals(SoftApConfiguration.SECURITY_TYPE_WPA2_PSK,
                 softApConfigurationCaptor.getValue().getSecurityType());
-        assertEquals("ap1", softApConfigurationCaptor.getValue().getSsid());
+        assertEquals("ap1", softApConfigurationCaptor.getValue().getWifiSsid().getUtf8Text());
         assertEquals("xyzabc321", softApConfigurationCaptor.getValue().getPassphrase());
     }
 
@@ -555,6 +552,32 @@ public class WifiShellCommandTest extends WifiBaseTest {
         verify(mWifiService).stopSoftAp();
     }
 
+    @Test
+    public void testStartLohs() {
+        BinderUtil.setUid(Process.ROOT_UID);
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"start-lohs", "ap1", "wpa2", "xyzabc321", "-b", "5"});
+        ArgumentCaptor<SoftApConfiguration> softApConfigurationCaptor = ArgumentCaptor.forClass(
+                SoftApConfiguration.class);
+        verify(mWifiService).startLocalOnlyHotspot(any(), eq(SHELL_PACKAGE_NAME), any(),
+                softApConfigurationCaptor.capture(), any());
+        assertEquals(SoftApConfiguration.BAND_5GHZ,
+                softApConfigurationCaptor.getValue().getBand());
+        assertEquals(SoftApConfiguration.SECURITY_TYPE_WPA2_PSK,
+                softApConfigurationCaptor.getValue().getSecurityType());
+        assertEquals("ap1", softApConfigurationCaptor.getValue().getSsid());
+        assertEquals("xyzabc321", softApConfigurationCaptor.getValue().getPassphrase());
+    }
+
+    @Test
+    public void testStopLohs() {
+        BinderUtil.setUid(Process.ROOT_UID);
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"stop-lohs"});
+        verify(mWifiService).stopLocalOnlyHotspot();
+    }
 
     @Test
     public void testSetScanAlwaysAvailable() {
@@ -597,7 +620,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
             return (sL.size() == 1)
                     && (sL.get(0).getSsid().equals("ssid1234"))
                     && (sL.get(0).isUntrusted());
-        }), eq(SHELL_PACKAGE_NAME));
+        }), eq(SHELL_PACKAGE_NAME), eq(ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mConnectivityManager).unregisterNetworkCallback(
                 any(ConnectivityManager.NetworkCallback.class));
     }
@@ -632,7 +655,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
             return (sL.size() == 1)
                     && (sL.get(0).getSsid().equals("ssid1234"))
                     && (sL.get(0).isOemPaid());
-        }), eq(SHELL_PACKAGE_NAME));
+        }), eq(SHELL_PACKAGE_NAME), eq(ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mConnectivityManager).unregisterNetworkCallback(
                 any(ConnectivityManager.NetworkCallback.class));
     }
@@ -667,13 +690,13 @@ public class WifiShellCommandTest extends WifiBaseTest {
             return (sL.size() == 1)
                     && (sL.get(0).getSsid().equals("ssid1234"))
                     && (sL.get(0).isOemPrivate());
-        }), eq(SHELL_PACKAGE_NAME));
+        }), eq(SHELL_PACKAGE_NAME), eq(ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mConnectivityManager).unregisterNetworkCallback(
                 any(ConnectivityManager.NetworkCallback.class));
     }
 
     @Test
-    public void testAddSuggestionWithEnhancedMacRandomization() {
+    public void testAddSuggestionWithNonPersistentMacRandomization() {
         // default
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
@@ -685,7 +708,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
                     == WifiConfiguration.RANDOMIZATION_PERSISTENT);
         }), eq(SHELL_PACKAGE_NAME), any());
 
-        // using enhanced MAC randomization.
+        // using non-persistent MAC randomization.
         if (SdkLevel.isAtLeastS()) {
             mWifiShellCommand.exec(
                     new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
@@ -798,6 +821,7 @@ public class WifiShellCommandTest extends WifiBaseTest {
 
     @Test
     public void testConnectNetworkWithNoneMacRandomization() {
+        BinderUtil.setUid(Process.ROOT_UID);
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"connect-network", "ssid1234", "open", "-r", "none"});
@@ -805,13 +829,14 @@ public class WifiShellCommandTest extends WifiBaseTest {
             return (wifiConfiguration.SSID.equals("\"ssid1234\"")
                     && wifiConfiguration.macRandomizationSetting
                     == WifiConfiguration.RANDOMIZATION_NONE);
-        }), eq(-1), any());
+        }), eq(-1), any(), any());
     }
 
     @Test
     public void testConnectNetworkWithNonPersistentMacRandomizationOnSAndAbove() {
         assumeTrue(SdkLevel.isAtLeastS());
 
+        BinderUtil.setUid(Process.ROOT_UID);
         mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"connect-network", "ssid1234", "open", "-r", "non_persistent"});
@@ -819,16 +844,49 @@ public class WifiShellCommandTest extends WifiBaseTest {
             return (wifiConfiguration.SSID.equals("\"ssid1234\"")
                     && wifiConfiguration.macRandomizationSetting
                     == WifiConfiguration.RANDOMIZATION_NON_PERSISTENT);
-        }), eq(-1), any());
+        }), eq(-1), any(), any());
     }
 
     @Test
     public void testConnectNetworkWithNonPersistentMacRandomizationOnR() {
         assumeFalse(SdkLevel.isAtLeastS());
 
+        BinderUtil.setUid(Process.ROOT_UID);
         assertEquals(-1, mWifiShellCommand.exec(
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"connect-network", "ssid1234", "open", "-r", "non_persistent"}));
+    }
+
+    @Test
+    public void testConnectNetworkWithHexSsid() {
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"connect-network", "012345", "open", "-x"});
+        verify(mWifiService, never()).connect(argThat(wifiConfiguration ->
+                (wifiConfiguration.SSID.equals("012345"))), eq(-1), any());
+
+        BinderUtil.setUid(Process.ROOT_UID);
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"connect-network", "012345", "open", "-x"});
+        verify(mWifiService).connect(argThat(wifiConfiguration ->
+                (wifiConfiguration.SSID.equals("012345"))), eq(-1), any(), any());
+    }
+
+    @Test
+    public void testAddNetworkWithHexSsid() {
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-network", "012345", "open", "-x"});
+        verify(mWifiService, never()).save(argThat(wifiConfiguration ->
+                (wifiConfiguration.SSID.equals("012345"))), any());
+
+        BinderUtil.setUid(Process.ROOT_UID);
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-network", "012345", "open", "-x"});
+        verify(mWifiService).save(argThat(wifiConfiguration ->
+                (wifiConfiguration.SSID.equals("012345"))), any(), any());
     }
 
     @Test
@@ -847,5 +905,102 @@ public class WifiShellCommandTest extends WifiBaseTest {
                 new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
                 new String[]{"enable-scanning", "enabled", "-h"});
         verify(mScanRequestProxy).enableScanning(true, true);
+    }
+
+    @Test
+    public void testAddNetworkRequest() {
+        BinderUtil.setUid(Process.ROOT_UID);
+        final String testSsid = "ssid";
+        final String testBssid = "80:01:02:03:04:05";
+        final String testPassphrase = "password";
+
+        // Open
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", testSsid, "open"});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsid(testSsid)
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
+
+        // OWE
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", testSsid, "owe", testPassphrase});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsid(testSsid)
+                                .setIsEnhancedOpen(true)
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
+
+        // WPA2
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", testSsid, "wpa2", testPassphrase});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsid(testSsid)
+                                .setWpa2Passphrase(testPassphrase)
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
+
+        // WPA3
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", testSsid, "wpa3", testPassphrase});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsid(testSsid)
+                                .setWpa3Passphrase(testPassphrase)
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
+
+        // Test bssid flag
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", testSsid, "open", "-b", testBssid});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsid(testSsid)
+                                .setBssid(MacAddress.fromString(testBssid))
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
+
+        // Test glob flag
+        mWifiShellCommand.exec(
+                new Binder(), new FileDescriptor(), new FileDescriptor(), new FileDescriptor(),
+                new String[]{"add-request", "-g", testSsid, "open"});
+        verify(mConnectivityManager).requestNetwork(eq(
+                new NetworkRequest.Builder()
+                        .addTransportType(TRANSPORT_WIFI)
+                        .removeCapability(NET_CAPABILITY_INTERNET)
+                        .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                                .setSsidPattern(new PatternMatcher(
+                                        testSsid, PatternMatcher.PATTERN_ADVANCED_GLOB))
+                                .build())
+                        .build()),
+                (ConnectivityManager.NetworkCallback) any());
     }
 }

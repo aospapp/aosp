@@ -60,10 +60,6 @@ class CSuiteHarness(contextlib.AbstractContextManager):
         'android-csuite/tools/csuite-tradefed')
     _add_owner_exec_permission(self._launcher_binary)
 
-    self._generate_module_binary = self._suite_dir.joinpath(
-        'android-csuite/tools/csuite_generate_module')
-    _add_owner_exec_permission(self._generate_module_binary)
-
     self._testcases_dir = self._suite_dir.joinpath('android-csuite/testcases')
 
   def __exit__(self, unused_type, unused_value, unused_traceback):
@@ -74,25 +70,6 @@ class CSuiteHarness(contextlib.AbstractContextManager):
       return
     shutil.rmtree(self._suite_dir, ignore_errors=True)
 
-  def add_module(self, package_name: Text) -> Text:
-    """Generates and adds a test module for the provided package."""
-    module_name = 'csuite_%s' % package_name
-
-    with tempfile.TemporaryDirectory() as o:
-      out_dir = pathlib.Path(o)
-      package_list_path = out_dir.joinpath('packages.list')
-
-      package_list_path.write_text(package_name + '\n')
-
-      flags = ['--package-list', package_list_path, '--root-dir', out_dir]
-
-      _run_command([self._generate_module_binary] + flags)
-
-      out_file_path = self._testcases_dir.joinpath(module_name + '.config')
-      shutil.copy(
-          out_dir.joinpath(package_name, 'AndroidTest.xml'), out_file_path)
-
-      return module_name
 
   def run_and_wait(self, flags: Sequence[Text]) -> subprocess.CompletedProcess:
     """Starts the Tradefed launcher and waits for it to complete."""
@@ -112,6 +89,10 @@ class CSuiteHarness(contextlib.AbstractContextManager):
     # Unset environment variables that might cause the suite to pick up a
     # connected device that wasn't explicitly specified.
     env.pop('ANDROID_SERIAL', None)
+
+    # Unset environment variables that might cause the TradeFed to load classes
+    # that weren't included in the standalone suite zip.
+    env.pop('TF_GLOBAL_CONFIG', None)
 
     # Set the environment variable that TradeFed requires to find test modules.
     env['ANDROID_TARGET_OUT_TESTCASES'] = self._testcases_dir
@@ -205,7 +186,7 @@ class Adb:
     return [l.split(':')[1] for l in p.stdout.splitlines()]
 
 
-def _run_command(args, check=True, **kwargs) -> subprocess.CompletedProcess:
+def _run_command(args, check=False, **kwargs) -> subprocess.CompletedProcess:
   """A wrapper for subprocess.run that overrides defaults and adds logging."""
   env = kwargs.get('env', {})
 

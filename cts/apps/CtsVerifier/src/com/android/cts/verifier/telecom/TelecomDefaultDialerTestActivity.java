@@ -27,10 +27,14 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
 
+@ApiTest(apis={"android.telecom.InCallService"})
+@CddTest(requirement="3.2.3.5/C-2-2")
 public class TelecomDefaultDialerTestActivity extends PassFailButtons.Activity {
     private Button mSetDefaultDialer;
     private Button mConfirmLockScreen;

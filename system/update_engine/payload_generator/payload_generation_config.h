@@ -26,6 +26,7 @@
 #include <brillo/key_value_store.h>
 #include <brillo/secure_blob.h>
 
+#include "bsdiff/constants.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/filesystem_interface.h"
 #include "update_engine/update_metadata.pb.h"
@@ -82,6 +83,13 @@ struct VerityConfig {
 
 struct PartitionConfig {
   explicit PartitionConfig(std::string name) : name(name) {}
+  static CompressionAlgorithm ParseCompressionParam(std::string_view param);
+  static CompressionAlgorithm GetDefaultCompressionParam() {
+    CompressionAlgorithm algo;
+    algo.set_type(CompressionAlgorithm::LZ4HC);
+    algo.set_level(9);
+    return algo;
+  }
 
   // Returns whether the PartitionConfig is not an empty image and all the
   // fields are set correctly to a valid image file.
@@ -122,6 +130,12 @@ struct PartitionConfig {
 
   // Per-partition version, usually a number representing timestamp.
   std::string version;
+
+  // parameter passed to mkfs.erofs's -z option.
+  // In the format of "compressor,compression_level"
+  // Examples: lz4    lz4hc,9
+  // The default is usually lz4hc,9 for mkfs.erofs
+  CompressionAlgorithm erofs_compression_param = GetDefaultCompressionParam();
 };
 
 // The ImageConfig struct describes a pair of binaries kernel and rootfs and the
@@ -184,6 +198,8 @@ struct PayloadGenerationConfig {
   // Returns whether the PayloadGenerationConfig is valid.
   bool Validate() const;
 
+  void ParseCompressorTypes(const std::string& compressor_types);
+
   // Image information about the new image that's the target of this payload.
   ImageConfig target;
 
@@ -233,6 +249,20 @@ struct PayloadGenerationConfig {
 
   // Path to apex_info.pb, extracted from target_file.zip
   std::string apex_info_file;
+
+  // Whether to enable VABC xor op
+  bool enable_vabc_xor = false;
+
+  // Whether to enable LZ4diff ops
+  bool enable_lz4diff = false;
+
+  // Whether to enable zucchini ops
+  bool enable_zucchini = true;
+
+  std::vector<bsdiff::CompressorType> compressors{
+      bsdiff::CompressorType::kBZ2, bsdiff::CompressorType::kBrotli};
+
+  [[nodiscard]] bool OperationEnabled(InstallOperation::Type op) const noexcept;
 };
 
 }  // namespace chromeos_update_engine

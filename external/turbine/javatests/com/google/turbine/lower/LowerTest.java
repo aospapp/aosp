@@ -18,13 +18,13 @@ package com.google.turbine.lower;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
+import static com.google.turbine.testing.TestResources.getResource;
+import static java.util.Objects.requireNonNull;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import com.google.turbine.binder.Binder;
 import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.ClassPathBinder;
@@ -41,6 +41,7 @@ import com.google.turbine.diag.TurbineError;
 import com.google.turbine.model.TurbineConstantTypeKind;
 import com.google.turbine.model.TurbineFlag;
 import com.google.turbine.model.TurbineTyKind;
+import com.google.turbine.options.LanguageVersion;
 import com.google.turbine.parse.Parser;
 import com.google.turbine.testing.AsmUtils;
 import com.google.turbine.type.Type;
@@ -184,9 +185,11 @@ public class LowerTest {
     SourceTypeBoundClass c =
         new SourceTypeBoundClass(
             interfaceTypes,
+            ImmutableList.of(),
             xtnds,
             tps,
             access,
+            ImmutableList.of(),
             methods,
             fields,
             owner,
@@ -204,9 +207,11 @@ public class LowerTest {
     SourceTypeBoundClass i =
         new SourceTypeBoundClass(
             ImmutableList.of(),
+            ImmutableList.of(),
             Type.ClassTy.OBJECT,
             ImmutableMap.of(),
             TurbineFlag.ACC_STATIC | TurbineFlag.ACC_PROTECTED,
+            ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
             new ClassSymbol("test/Test"),
@@ -227,24 +232,17 @@ public class LowerTest {
 
     Map<String, byte[]> bytes =
         Lower.lowerAll(
+                LanguageVersion.createDefault(),
                 ImmutableMap.of(
                     new ClassSymbol("test/Test"), c, new ClassSymbol("test/Test$Inner"), i),
                 ImmutableList.of(),
                 TURBINE_BOOTCLASSPATH.env())
             .bytes();
 
-    assertThat(AsmUtils.textify(bytes.get("test/Test")))
-        .isEqualTo(
-            new String(
-                ByteStreams.toByteArray(
-                    LowerTest.class.getResourceAsStream("testdata/golden/outer.txt")),
-                UTF_8));
-    assertThat(AsmUtils.textify(bytes.get("test/Test$Inner")))
-        .isEqualTo(
-            new String(
-                ByteStreams.toByteArray(
-                    LowerTest.class.getResourceAsStream("testdata/golden/inner.txt")),
-                UTF_8));
+    assertThat(AsmUtils.textify(bytes.get("test/Test"), /* skipDebug= */ false))
+        .isEqualTo(getResource(LowerTest.class, "testdata/golden/outer.txt"));
+    assertThat(AsmUtils.textify(bytes.get("test/Test$Inner"), /* skipDebug= */ false))
+        .isEqualTo(getResource(LowerTest.class, "testdata/golden/inner.txt"));
   }
 
   @Test
@@ -264,11 +262,16 @@ public class LowerTest {
             TURBINE_BOOTCLASSPATH,
             /* moduleVersion=*/ Optional.empty());
     Map<String, byte[]> lowered =
-        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+        Lower.lowerAll(
+                LanguageVersion.createDefault(),
+                bound.units(),
+                bound.modules(),
+                bound.classPathEnv())
+            .bytes();
     List<String> attributes = new ArrayList<>();
     new ClassReader(lowered.get("Test$Inner$InnerMost"))
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
@@ -285,10 +288,7 @@ public class LowerTest {
   public void wildArrayElement() throws Exception {
     IntegrationTestSupport.TestInput input =
         IntegrationTestSupport.TestInput.parse(
-            new String(
-                ByteStreams.toByteArray(
-                    getClass().getResourceAsStream("testdata/canon_array.test")),
-                UTF_8));
+            getResource(getClass(), "testdata/canon_array.test"));
 
     Map<String, byte[]> actual =
         IntegrationTestSupport.runTurbine(input.sources, ImmutableList.of());
@@ -342,15 +342,20 @@ public class LowerTest {
             TURBINE_BOOTCLASSPATH,
             /* moduleVersion=*/ Optional.empty());
     Map<String, byte[]> lowered =
-        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+        Lower.lowerAll(
+                LanguageVersion.createDefault(),
+                bound.units(),
+                bound.modules(),
+                bound.classPathEnv())
+            .bytes();
     TypePath[] path = new TypePath[1];
     new ClassReader(lowered.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public FieldVisitor visitField(
                   int access, String name, String desc, String signature, Object value) {
-                return new FieldVisitor(Opcodes.ASM7) {
+                return new FieldVisitor(Opcodes.ASM9) {
                   @Override
                   public AnnotationVisitor visitTypeAnnotation(
                       int typeRef, TypePath typePath, String desc, boolean visible) {
@@ -397,7 +402,7 @@ public class LowerTest {
     Map<String, Object> values = new LinkedHashMap<>();
     new ClassReader(actual.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public FieldVisitor visitField(
                   int access, String name, String desc, String signature, Object value) {
@@ -420,11 +425,16 @@ public class LowerTest {
             TURBINE_BOOTCLASSPATH,
             /* moduleVersion=*/ Optional.empty());
     Map<String, byte[]> lowered =
-        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+        Lower.lowerAll(
+                LanguageVersion.createDefault(),
+                bound.units(),
+                bound.modules(),
+                bound.classPathEnv())
+            .bytes();
     int[] acc = {0};
     new ClassReader(lowered.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public void visit(
                   int version,
@@ -488,7 +498,7 @@ public class LowerTest {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       sources.forEach(
           (k, v) -> builder.put(k, v.replaceAll("import static b\\.B\\.nosuch\\..*;", "")));
-      noImports = builder.build();
+      noImports = builder.buildOrThrow();
     }
 
     Map<String, byte[]> expected = IntegrationTestSupport.runJavac(noImports, ImmutableList.of());
@@ -522,16 +532,11 @@ public class LowerTest {
     Path libJar = temporaryFolder.newFile("lib.jar").toPath();
     try (OutputStream os = Files.newOutputStream(libJar);
         JarOutputStream jos = new JarOutputStream(os)) {
-      jos.putNextEntry(new JarEntry("A$M.class"));
-      jos.write(lib.get("A$M"));
-      jos.putNextEntry(new JarEntry("A$M$I.class"));
-      jos.write(lib.get("A$M$I"));
-      jos.putNextEntry(new JarEntry("B.class"));
-      jos.write(lib.get("B"));
-      jos.putNextEntry(new JarEntry("B$BM.class"));
-      jos.write(lib.get("B$BM"));
-      jos.putNextEntry(new JarEntry("B$BM$BI.class"));
-      jos.write(lib.get("B$BM$BI"));
+      write(jos, lib, "A$M");
+      write(jos, lib, "A$M$I");
+      write(jos, lib, "B");
+      write(jos, lib, "B$BM");
+      write(jos, lib, "B$BM$BI");
     }
 
     ImmutableMap<String, String> sources =
@@ -544,14 +549,13 @@ public class LowerTest {
                     "}"))
             .build();
 
-    try {
-      IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar));
-      fail();
-    } catch (TurbineError error) {
-      assertThat(error)
-          .hasMessageThat()
-          .contains("Test.java: error: could not locate class file for A");
-    }
+    TurbineError error =
+        assertThrows(
+            TurbineError.class,
+            () -> IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar)));
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Test.java: error: could not locate class file for A");
   }
 
   @Test
@@ -579,16 +583,11 @@ public class LowerTest {
     Path libJar = temporaryFolder.newFile("lib.jar").toPath();
     try (OutputStream os = Files.newOutputStream(libJar);
         JarOutputStream jos = new JarOutputStream(os)) {
-      jos.putNextEntry(new JarEntry("A$M.class"));
-      jos.write(lib.get("A$M"));
-      jos.putNextEntry(new JarEntry("A$M$I.class"));
-      jos.write(lib.get("A$M$I"));
-      jos.putNextEntry(new JarEntry("B.class"));
-      jos.write(lib.get("B"));
-      jos.putNextEntry(new JarEntry("B$BM.class"));
-      jos.write(lib.get("B$BM"));
-      jos.putNextEntry(new JarEntry("B$BM$BI.class"));
-      jos.write(lib.get("B$BM$BI"));
+      write(jos, lib, "A$M");
+      write(jos, lib, "A$M$I");
+      write(jos, lib, "B");
+      write(jos, lib, "B$BM");
+      write(jos, lib, "B$BM$BI");
     }
 
     ImmutableMap<String, String> sources =
@@ -603,18 +602,15 @@ public class LowerTest {
                     "}"))
             .build();
 
-    try {
-      IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar));
-      fail();
-    } catch (TurbineError error) {
-      assertThat(error)
-          .hasMessageThat()
-          .contains(
-              lines(
-                  "Test.java:3: error: could not locate class file for A",
-                  "     I i;",
-                  "       ^"));
-    }
+    TurbineError error =
+        assertThrows(
+            TurbineError.class,
+            () -> IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar)));
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            lines(
+                "Test.java:3: error: could not locate class file for A", "     I i;", "       ^"));
   }
 
   // If an element incorrectly has multiple visibility modifiers, pick one, and rely on javac to
@@ -629,7 +625,7 @@ public class LowerTest {
     int[] testAccess = {0};
     new ClassReader(lowered.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public void visit(
                   int version,
@@ -646,7 +642,46 @@ public class LowerTest {
     assertThat((testAccess[0] & TurbineFlag.ACC_PROTECTED)).isNotEqualTo(TurbineFlag.ACC_PROTECTED);
   }
 
+  @Test
+  public void minClassVersion() throws Exception {
+    BindingResult bound =
+        Binder.bind(
+            ImmutableList.of(Parser.parse("class Test {}")),
+            ClassPathBinder.bindClasspath(ImmutableList.of()),
+            TURBINE_BOOTCLASSPATH,
+            /* moduleVersion=*/ Optional.empty());
+    Map<String, byte[]> lowered =
+        Lower.lowerAll(
+                LanguageVersion.fromJavacopts(ImmutableList.of("-source", "7", "-target", "7")),
+                bound.units(),
+                bound.modules(),
+                bound.classPathEnv())
+            .bytes();
+    int[] major = {0};
+    new ClassReader(lowered.get("Test"))
+        .accept(
+            new ClassVisitor(Opcodes.ASM9) {
+              @Override
+              public void visit(
+                  int version,
+                  int access,
+                  String name,
+                  String signature,
+                  String superName,
+                  String[] interfaces) {
+                major[0] = version;
+              }
+            },
+            0);
+    assertThat(major[0]).isEqualTo(Opcodes.V1_8);
+  }
+
   static String lines(String... lines) {
     return Joiner.on(System.lineSeparator()).join(lines);
+  }
+
+  static void write(JarOutputStream jos, Map<String, byte[]> lib, String name) throws IOException {
+    jos.putNextEntry(new JarEntry(name + ".class"));
+    jos.write(requireNonNull(lib.get(name)));
   }
 }

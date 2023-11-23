@@ -78,6 +78,8 @@ public:
 
     virtual int32_t setMinIdleRefreshRate(uint32_t display_id, int32_t fps);
     virtual int32_t setRefreshRateThrottle(uint32_t display_id, int32_t delayMs);
+    int32_t setDisplayRCDLayerEnabled(uint32_t displayIndex, bool enable) override;
+    int32_t triggerDisplayIdleEnter(uint32_t displayIndex, uint32_t idleTeRefreshRate) override;
 
 private:
     friend class Singleton<ExynosHWCService>;

@@ -45,11 +45,15 @@ python_binary_host {
     libs: ["sdk_proto_python"],
 }
 
-gensrcs {
+genrule {
     name: "cur_sdkinfo_src",
-    srcs: [""],
     tools: [ "gen_sdkinfo" ],
-    cmd: "$(location) -v 1 -o $(out)",
+    out: ["sdkinfo.pb"],
+    product_variables: {
+        platform_sdk_extension_version: {
+            cmd: "$(location) -v %d -o $(out)",
+        }
+    }
 }
 
 prebuilt_etc {
@@ -61,9 +65,12 @@ prebuilt_etc {
         "//art:__subpackages__",
         "//external/conscrypt:__subpackages__",
         "//frameworks/av/apex:__subpackages__",
+        "//packages/modules/AdServices:__subpackages__",
+        "//packages/modules/AppSearch:__subpackages__",
         "//packages/modules/Connectivity:__subpackages__",
         "//packages/modules/IPsec/apex:__subpackages__",
         "//packages/modules/Permission:__subpackages__",
+        "//packages/modules/OnDevicePersonalization:__subpackages__",
         "//packages/modules/Scheduling:__subpackages__",
         "//packages/modules/SdkExtensions:__subpackages__",
         "//packages/modules/StatsD:__subpackages__",

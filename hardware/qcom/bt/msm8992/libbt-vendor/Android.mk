@@ -20,7 +20,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH_QCOM),true)
 
 include $(CLEAR_VARS)
 
-BDROID_DIR:= system/bt
+BDROID_DIR:= packages/modules/Bluetooth/system
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_qcom.c \

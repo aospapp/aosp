@@ -2,7 +2,6 @@
  * This file is auto-generated.  DO NOT MODIFY.
  */
 package android.aidl.tests;
-
 public final class Union implements android.os.Parcelable {
   // tags for union fields
   public final static int ns = 0;  // int[] ns;
@@ -283,5 +282,14 @@ public final class Union implements android.os.Parcelable {
   private void _set(int _tag, Object _value) {
     this._tag = _tag;
     this._value = _value;
+  }
+  public static @interface Tag {
+    public static final int ns = 0;
+    public static final int n = 1;
+    public static final int m = 2;
+    public static final int s = 3;
+    public static final int ibinder = 4;
+    public static final int ss = 5;
+    public static final int be = 6;
   }
 }

@@ -35,11 +35,11 @@ bool IsInNativeAbi() {
     pclose(fp);
     std::string s = buf;
     in_native_abi = 1;
-    if (GetBuildArch() == ARCH_X86_32 || GetBuildArch() == ARCH_X86_64) {
+    if (GetTargetArch() == ARCH_X86_32 || GetTargetArch() == ARCH_X86_64) {
       if (s.find("86") == std::string::npos) {
         in_native_abi = 0;
       }
-    } else if (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64) {
+    } else if (GetTargetArch() == ARCH_ARM || GetTargetArch() == ARCH_ARM64) {
       if (s.find("arm") == std::string::npos && s.find("aarch64") == std::string::npos) {
         in_native_abi = 0;
       }
@@ -75,7 +75,7 @@ bool HasHardwareCounter() {
   static int has_hw_counter = -1;
   if (has_hw_counter == -1) {
     has_hw_counter = 1;
-    auto arch = GetBuildArch();
+    auto arch = GetTargetArch();
     std::string fingerprint = android::base::GetProperty("ro.system.build.fingerprint", "");
     bool is_emulator = android::base::StartsWith(fingerprint, "google/sdk_gphone") ||
                        android::base::StartsWith(fingerprint, "generic/cf");

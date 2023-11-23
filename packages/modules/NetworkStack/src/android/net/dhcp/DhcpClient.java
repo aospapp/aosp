@@ -73,7 +73,6 @@ import android.net.metrics.DhcpErrorEvent;
 import android.net.metrics.IpConnectivityLog;
 import android.net.networkstack.aidl.dhcp.DhcpOption;
 import android.net.util.HostnameTransliterator;
-import android.net.util.InterfaceParams;
 import android.net.util.NetworkStackUtils;
 import android.net.util.SocketUtils;
 import android.os.Build;
@@ -99,6 +98,7 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.internal.util.WakeupMessage;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.InterfaceParams;
 import com.android.net.module.util.NetworkStackConstants;
 import com.android.net.module.util.PacketReader;
 import com.android.networkstack.R;
@@ -251,6 +251,7 @@ public class DhcpClient extends StateMachine {
     public static final int DHCP_SUCCESS = 1;
     public static final int DHCP_FAILURE = 2;
     public static final int DHCP_IPV6_ONLY = 3;
+    public static final int DHCP_REFRESH_FAILURE = 4;
 
     // Internal messages.
     private static final int PRIVATE_BASE         = IpClient.DHCPCLIENT_CMD_BASE + 100;
@@ -391,6 +392,7 @@ public class DhcpClient extends StateMachine {
     private State mIpAddressConflictDetectingState = new IpAddressConflictDetectingState();
     private State mDhcpDecliningState = new DhcpDecliningState();
     private State mIpv6OnlyWaitState = new Ipv6OnlyWaitState();
+    private State mDhcpRefreshingAddressState = new DhcpRefreshingAddressState();
 
     private WakeupMessage makeWakeupMessage(String cmdName, int cmd) {
         cmdName = DhcpClient.class.getSimpleName() + "." + mIfaceName + "." + cmdName;
@@ -499,6 +501,7 @@ public class DhcpClient extends StateMachine {
                 addState(mDhcpRenewingState, mDhcpHaveLeaseState);
                 addState(mDhcpRebindingState, mDhcpHaveLeaseState);
                 addState(mDhcpDecliningState, mDhcpHaveLeaseState);
+                addState(mDhcpRefreshingAddressState, mDhcpHaveLeaseState);
             addState(mDhcpInitRebootState, mDhcpState);
             addState(mDhcpRebootingState, mDhcpState);
         // CHECKSTYLE:ON IndentationCheck
@@ -747,9 +750,14 @@ public class DhcpClient extends StateMachine {
     }
 
     private boolean sendDiscoverPacket() {
+        // When Rapid Commit option is enabled, limit only the first 3 DHCPDISCOVER packets
+        // taking Rapid Commit option, in order to prevent the potential interoperability issue
+        // and be able to rollback later. See {@link DHCP_TIMEOUT_MS} for the (re)transmission
+        // schedule with 10% jitter.
+        final boolean requestRapidCommit = isDhcpRapidCommitEnabled() && (getSecs() <= 4);
         final ByteBuffer packet = DhcpPacket.buildDiscoverPacket(
                 DhcpPacket.ENCAP_L2, mTransactionId, getSecs(), mHwAddr,
-                DO_UNICAST, getRequestedParams(), isDhcpRapidCommitEnabled(), mHostname,
+                DO_UNICAST, getRequestedParams(), requestRapidCommit, mHostname,
                 mConfiguration.options);
         mMetrics.incrementCountForDiscover();
         return transmitPacket(packet, "DHCPDISCOVER", DhcpPacket.ENCAP_L2, INADDR_BROADCAST);
@@ -844,11 +852,11 @@ public class DhcpClient extends StateMachine {
                 CMD_POST_DHCP_ACTION, DHCP_SUCCESS, 0, new DhcpResults(mDhcpLease));
     }
 
-    private void notifyFailure() {
+    private void notifyFailure(int arg) {
         if (isDhcpLeaseCacheEnabled()) {
             setLeaseExpiredToIpMemoryStore();
         }
-        mController.sendMessage(CMD_POST_DHCP_ACTION, DHCP_FAILURE, 0, null);
+        mController.sendMessage(CMD_POST_DHCP_ACTION, arg, 0, null);
     }
 
     private void acceptDhcpResults(DhcpResults results, String msg) {
@@ -1044,7 +1052,7 @@ public class DhcpClient extends StateMachine {
                 if (mDhcpPacketHandler.start()) return;
                 Log.e(TAG, "Fail to start DHCP Packet Handler");
             }
-            notifyFailure();
+            notifyFailure(DHCP_FAILURE);
             // We cannot call transitionTo because a transition is still in progress.
             // Instead, ensure that we process CMD_STOP_DHCP as soon as the transition is complete.
             deferMessage(obtainMessage(CMD_STOP_DHCP));
@@ -1449,8 +1457,8 @@ public class DhcpClient extends StateMachine {
             switch (message.what) {
                 case CMD_EXPIRE_DHCP:
                     Log.d(TAG, "Lease expired!");
-                    notifyFailure();
-                    transitionTo(mDhcpInitState);
+                    notifyFailure(DHCP_FAILURE);
+                    transitionTo(mStoppedState);
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -1761,7 +1769,7 @@ public class DhcpClient extends StateMachine {
                 // return an IPv4 address from another interface, or even return "0.0.0.0".
                 //
                 // TODO: Consider deleting this check, following testing on several kernels.
-                notifyFailure();
+                notifyFailure(DHCP_FAILURE);
                 transitionTo(mStoppedState);
             }
 
@@ -1783,7 +1791,7 @@ public class DhcpClient extends StateMachine {
                     preDhcpTransitionTo(mWaitBeforeRenewalState, mDhcpRenewingState);
                     return HANDLED;
                 case CMD_REFRESH_LINKADDRESS:
-                    transitionTo(mDhcpRebindingState);
+                    transitionTo(mDhcpRefreshingAddressState);
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -1811,6 +1819,10 @@ public class DhcpClient extends StateMachine {
 
         protected abstract Inet4Address packetDestination();
 
+        // Check whether DhcpClient should notify provisioning failure when receiving DHCPNAK
+        // in renew/rebind state or just restart reconfiguration from StoppedState.
+        protected abstract boolean shouldRestartOnNak();
+
         protected boolean sendPacket() {
             return sendRequestPacket(
                     (Inet4Address) mDhcpLease.ipAddress.getAddress(),  // ciaddr
@@ -1829,8 +1841,8 @@ public class DhcpClient extends StateMachine {
                 if (results != null) {
                     if (!mDhcpLease.ipAddress.equals(results.ipAddress)) {
                         Log.d(TAG, "Renewed lease not for our current IP address!");
-                        notifyFailure();
-                        transitionTo(mDhcpInitState);
+                        notifyFailure(DHCP_FAILURE);
+                        transitionTo(mStoppedState);
                         return;
                     }
                     setDhcpLeaseExpiry(packet);
@@ -1844,9 +1856,9 @@ public class DhcpClient extends StateMachine {
                     transitionTo(mDhcpBoundState);
                 }
             } else if (packet instanceof DhcpNakPacket) {
-                Log.d(TAG, "Received NAK, returning to INIT");
-                notifyFailure();
-                transitionTo(mDhcpInitState);
+                Log.d(TAG, "Received NAK, returning to StoppedState");
+                notifyFailure(shouldRestartOnNak() ? DHCP_REFRESH_FAILURE : DHCP_FAILURE);
+                transitionTo(mStoppedState);
             }
         }
     }
@@ -1878,6 +1890,11 @@ public class DhcpClient extends StateMachine {
             return (mDhcpLease.serverAddress != null) ?
                     mDhcpLease.serverAddress : INADDR_BROADCAST;
         }
+
+        @Override
+        protected boolean shouldRestartOnNak() {
+            return false;
+        }
     }
 
     class DhcpRebindingState extends DhcpReacquiringState {
@@ -1901,6 +1918,22 @@ public class DhcpClient extends StateMachine {
         @Override
         protected Inet4Address packetDestination() {
             return INADDR_BROADCAST;
+        }
+
+        @Override
+        protected boolean shouldRestartOnNak() {
+            return false;
+        }
+    }
+
+    class DhcpRefreshingAddressState extends DhcpRebindingState {
+        DhcpRefreshingAddressState() {
+            mLeaseMsg = "Refreshing address";
+        }
+
+        @Override
+        protected boolean shouldRestartOnNak() {
+            return true;
         }
     }
 

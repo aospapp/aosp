@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,6 +51,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
 
     private static final int TEST_PHONE_ID_1 = 1;
     private static final int TEST_PHONE_ID_2 = 2;
+    private static final int TEST_SUB_ID_3 = 3;
     private static final long TEST_SERVICE_CAPS = ImsService.CAPABILITY_EMERGENCY_OVER_MMTEL;
 
     @Mock IBinder mMockMmTelFeatureA;
@@ -86,7 +88,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
     public void testGetInterfaceExists() throws Exception {
         ImsFeatureContainer fc =
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fc);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fc);
         ImsFeatureContainer resultFc =
                 mRepository.getIfExists(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL).orElse(null);
         assertNotNull("returned connection should not be null!", resultFc);
@@ -108,8 +110,8 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
     public void testGetInterfaceRemoveDoesntExist() throws Exception {
         ImsFeatureContainer fc =
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fc);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, null);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fc);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, null);
         ImsFeatureContainer resultFc =
                 mRepository.getIfExists(TEST_PHONE_ID_1,
                 ImsFeature.FEATURE_MMTEL).orElse(null);
@@ -123,8 +125,8 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         ImsFeatureContainer fcB =
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcB);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcB);
         ImsFeatureContainer resultFc =
                 mRepository.getIfExists(TEST_PHONE_ID_1,
                         ImsFeature.FEATURE_MMTEL).orElse(null);
@@ -140,8 +142,8 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         ImsFeatureContainer fcB =
                 getFeatureContainer(mMockRcsFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_RCS, fcB);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_RCS, fcB);
         ImsFeatureContainer resultFcA =
                 mRepository.getIfExists(TEST_PHONE_ID_1,
                         ImsFeature.FEATURE_MMTEL).orElse(null);
@@ -164,7 +166,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
     }
@@ -176,7 +178,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
 
@@ -184,7 +186,8 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
         // Listener is "dead", so we should not get this update
         mRepository.notifyFeatureStateChanged(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 ImsFeature.STATE_READY);
-        verify(mConnectionCallback, never()).imsStatusChanged(ImsFeature.STATE_READY);
+        verify(mConnectionCallback, never()).imsStatusChanged(ImsFeature.STATE_READY,
+                TEST_SUB_ID_3);
     }
 
     @Test
@@ -194,18 +197,18 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         ImsFeatureContainer resultFc =
                 mRepository.getIfExists(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL).orElse(null);
         assertNotNull(resultFc);
         assertEquals(ImsFeature.STATE_UNAVAILABLE, resultFc.getState());
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
-        verify(mConnectionCallback, never()).imsStatusChanged(anyInt());
+        verify(mConnectionCallback, never()).imsStatusChanged(anyInt(), eq(TEST_SUB_ID_3));
 
         mRepository.notifyFeatureStateChanged(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 ImsFeature.STATE_READY);
-        verify(mConnectionCallback).imsStatusChanged(ImsFeature.STATE_READY);
+        verify(mConnectionCallback).imsStatusChanged(ImsFeature.STATE_READY, TEST_SUB_ID_3);
         assertEquals(ImsFeature.STATE_READY, resultFc.getState());
     }
 
@@ -217,9 +220,10 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
 
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         ImsFeatureContainer resultFc =
-                mRepository.getIfExists(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL).orElse(null);
+                mRepository.getIfExists(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL).
+                                orElse(null);
         assertNotNull(resultFc);
         assertEquals(TEST_SERVICE_CAPS, resultFc.getCapabilities());
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
@@ -239,10 +243,10 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureB, TEST_SERVICE_CAPS);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         mRepository.unregisterForConnectionUpdates(mConnectionCallback);
 
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcB);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcB);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verifyFeatureCreatedCalled(0 /*times*/, mConnectionCallback, fcB);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
@@ -257,7 +261,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 mConnectionCallback, Runnable::run);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
     }
@@ -267,7 +271,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
     public void testListenAfterUpdate() throws Exception {
         ImsFeatureContainer fcA =
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
@@ -279,7 +283,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
     public void testListenNoUpdate() throws Exception {
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
-        verify(mConnectionCallback, never()).imsFeatureCreated(any());
+        verify(mConnectionCallback, never()).imsFeatureCreated(any(), anyInt());
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
     }
 
@@ -288,7 +292,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
     public void testListenNull() throws Exception {
         ImsFeatureContainer fcA =
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
         mRepository.removeConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL);
@@ -304,7 +308,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         ImsFeatureContainer fcB =
                 getFeatureContainer(mMockRcsFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
@@ -314,10 +318,10 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 mConnectionCallback2, Runnable::run);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
-        verify(mConnectionCallback2, never()).imsFeatureCreated(any());
+        verify(mConnectionCallback2, never()).imsFeatureCreated(any(), eq(TEST_SUB_ID_3));
         verify(mConnectionCallback2, never()).imsFeatureRemoved(anyInt());
 
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_RCS, fcB);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_RCS, fcB);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback2, fcB);
@@ -331,7 +335,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 getFeatureContainer(mMockMmTelFeatureA, TEST_SERVICE_CAPS);
         ImsFeatureContainer fcB =
                 getFeatureContainer(mMockRcsFeatureA, TEST_SERVICE_CAPS);
-        mRepository.addConnection(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL, fcA);
+        mRepository.addConnection(TEST_PHONE_ID_1, TEST_SUB_ID_3, ImsFeature.FEATURE_MMTEL, fcA);
         mRepository.registerForConnectionUpdates(TEST_PHONE_ID_1, ImsFeature.FEATURE_MMTEL,
                 mConnectionCallback, Runnable::run);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
@@ -341,10 +345,10 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
                 mConnectionCallback2, Runnable::run);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
-        verify(mConnectionCallback2, never()).imsFeatureCreated(any());
+        verify(mConnectionCallback2, never()).imsFeatureCreated(any(), anyInt());
         verify(mConnectionCallback2, never()).imsFeatureRemoved(anyInt());
 
-        mRepository.addConnection(TEST_PHONE_ID_2, ImsFeature.FEATURE_RCS, fcB);
+        mRepository.addConnection(TEST_PHONE_ID_2, TEST_SUB_ID_3, ImsFeature.FEATURE_RCS, fcB);
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback, fcA);
         verify(mConnectionCallback, never()).imsFeatureRemoved(anyInt());
         verifyFeatureCreatedCalled(1 /*times*/, mConnectionCallback2, fcB);
@@ -353,7 +357,7 @@ public class ImsFeatureBinderRepositoryTest extends ImsTestBase {
 
     private void verifyFeatureCreatedCalled(int timesCalled, IImsServiceFeatureCallback cb,
             ImsFeatureContainer fc) throws Exception {
-        verify(cb, times(timesCalled)).imsFeatureCreated(fc);
+        verify(cb, times(timesCalled)).imsFeatureCreated(fc, TEST_SUB_ID_3);
     }
 
     private ImsFeatureContainer getFeatureContainer(IBinder feature, long caps) {

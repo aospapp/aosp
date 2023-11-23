@@ -51,6 +51,70 @@
 //!     }
 //! }
 //! ```
+//!
+//! To use a oneshot channel in a `tokio::select!` loop, add `&mut` in front of
+//! the channel.
+//!
+//! ```
+//! use tokio::sync::oneshot;
+//! use tokio::time::{interval, sleep, Duration};
+//!
+//! #[tokio::main]
+//! # async fn _doc() {}
+//! # #[tokio::main(flavor = "current_thread", start_paused = true)]
+//! async fn main() {
+//!     let (send, mut recv) = oneshot::channel();
+//!     let mut interval = interval(Duration::from_millis(100));
+//!
+//!     # let handle =
+//!     tokio::spawn(async move {
+//!         sleep(Duration::from_secs(1)).await;
+//!         send.send("shut down").unwrap();
+//!     });
+//!
+//!     loop {
+//!         tokio::select! {
+//!             _ = interval.tick() => println!("Another 100ms"),
+//!             msg = &mut recv => {
+//!                 println!("Got message: {}", msg.unwrap());
+//!                 break;
+//!             }
+//!         }
+//!     }
+//!     # handle.await.unwrap();
+//! }
+//! ```
+//!
+//! To use a `Sender` from a destructor, put it in an [`Option`] and call
+//! [`Option::take`].
+//!
+//! ```
+//! use tokio::sync::oneshot;
+//!
+//! struct SendOnDrop {
+//!     sender: Option<oneshot::Sender<&'static str>>,
+//! }
+//! impl Drop for SendOnDrop {
+//!     fn drop(&mut self) {
+//!         if let Some(sender) = self.sender.take() {
+//!             // Using `let _ =` to ignore send errors.
+//!             let _ = sender.send("I got dropped!");
+//!         }
+//!     }
+//! }
+//!
+//! #[tokio::main]
+//! # async fn _doc() {}
+//! # #[tokio::main(flavor = "current_thread")]
+//! async fn main() {
+//!     let (send, recv) = oneshot::channel();
+//!
+//!     let send_on_drop = SendOnDrop { sender: Some(send) };
+//!     drop(send_on_drop);
+//!
+//!     assert_eq!(recv.await, Ok("I got dropped!"));
+//! }
+//! ```
 
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::AtomicUsize;
@@ -65,15 +129,6 @@ use std::task::Poll::{Pending, Ready};
 use std::task::{Context, Poll, Waker};
 
 /// Sends a value to the associated [`Receiver`].
-///
-/// A pair of both a [`Sender`] and a [`Receiver`]  are created by the
-/// [`channel`](fn@channel) function.
-#[derive(Debug)]
-pub struct Sender<T> {
-    inner: Option<Arc<Inner<T>>>,
-}
-
-/// Receive a value from the associated [`Sender`].
 ///
 /// A pair of both a [`Sender`] and a [`Receiver`]  are created by the
 /// [`channel`](fn@channel) function.
@@ -120,13 +175,137 @@ pub struct Sender<T> {
 ///     }
 /// }
 /// ```
+///
+/// To use a `Sender` from a destructor, put it in an [`Option`] and call
+/// [`Option::take`].
+///
+/// ```
+/// use tokio::sync::oneshot;
+///
+/// struct SendOnDrop {
+///     sender: Option<oneshot::Sender<&'static str>>,
+/// }
+/// impl Drop for SendOnDrop {
+///     fn drop(&mut self) {
+///         if let Some(sender) = self.sender.take() {
+///             // Using `let _ =` to ignore send errors.
+///             let _ = sender.send("I got dropped!");
+///         }
+///     }
+/// }
+///
+/// #[tokio::main]
+/// # async fn _doc() {}
+/// # #[tokio::main(flavor = "current_thread")]
+/// async fn main() {
+///     let (send, recv) = oneshot::channel();
+///
+///     let send_on_drop = SendOnDrop { sender: Some(send) };
+///     drop(send_on_drop);
+///
+///     assert_eq!(recv.await, Ok("I got dropped!"));
+/// }
+/// ```
+///
+/// [`Option`]: std::option::Option
+/// [`Option::take`]: std::option::Option::take
+#[derive(Debug)]
+pub struct Sender<T> {
+    inner: Option<Arc<Inner<T>>>,
+}
+
+/// Receives a value from the associated [`Sender`].
+///
+/// A pair of both a [`Sender`] and a [`Receiver`]  are created by the
+/// [`channel`](fn@channel) function.
+///
+/// This channel has no `recv` method because the receiver itself implements the
+/// [`Future`] trait. To receive a value, `.await` the `Receiver` object directly.
+///
+/// [`Future`]: trait@std::future::Future
+///
+/// # Examples
+///
+/// ```
+/// use tokio::sync::oneshot;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let (tx, rx) = oneshot::channel();
+///
+///     tokio::spawn(async move {
+///         if let Err(_) = tx.send(3) {
+///             println!("the receiver dropped");
+///         }
+///     });
+///
+///     match rx.await {
+///         Ok(v) => println!("got = {:?}", v),
+///         Err(_) => println!("the sender dropped"),
+///     }
+/// }
+/// ```
+///
+/// If the sender is dropped without sending, the receiver will fail with
+/// [`error::RecvError`]:
+///
+/// ```
+/// use tokio::sync::oneshot;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let (tx, rx) = oneshot::channel::<u32>();
+///
+///     tokio::spawn(async move {
+///         drop(tx);
+///     });
+///
+///     match rx.await {
+///         Ok(_) => panic!("This doesn't happen"),
+///         Err(_) => println!("the sender dropped"),
+///     }
+/// }
+/// ```
+///
+/// To use a `Receiver` in a `tokio::select!` loop, add `&mut` in front of the
+/// channel.
+///
+/// ```
+/// use tokio::sync::oneshot;
+/// use tokio::time::{interval, sleep, Duration};
+///
+/// #[tokio::main]
+/// # async fn _doc() {}
+/// # #[tokio::main(flavor = "current_thread", start_paused = true)]
+/// async fn main() {
+///     let (send, mut recv) = oneshot::channel();
+///     let mut interval = interval(Duration::from_millis(100));
+///
+///     # let handle =
+///     tokio::spawn(async move {
+///         sleep(Duration::from_secs(1)).await;
+///         send.send("shut down").unwrap();
+///     });
+///
+///     loop {
+///         tokio::select! {
+///             _ = interval.tick() => println!("Another 100ms"),
+///             msg = &mut recv => {
+///                 println!("Got message: {}", msg.unwrap());
+///                 break;
+///             }
+///         }
+///     }
+///     # handle.await.unwrap();
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Receiver<T> {
     inner: Option<Arc<Inner<T>>>,
 }
 
 pub mod error {
-    //! Oneshot error types
+    //! Oneshot error types.
 
     use std::fmt;
 
@@ -171,7 +350,7 @@ pub mod error {
 use self::error::*;
 
 struct Inner<T> {
-    /// Manages the state of the inner cell
+    /// Manages the state of the inner cell.
     state: AtomicUsize,
 
     /// The value. This is set by `Sender` and read by `Receiver`. The state of
@@ -179,9 +358,19 @@ struct Inner<T> {
     value: UnsafeCell<Option<T>>,
 
     /// The task to notify when the receiver drops without consuming the value.
+    ///
+    /// ## Safety
+    ///
+    /// The `TX_TASK_SET` bit in the `state` field is set if this field is
+    /// initialized. If that bit is unset, this field may be uninitialized.
     tx_task: Task,
 
     /// The task to notify when the value is sent.
+    ///
+    /// ## Safety
+    ///
+    /// The `RX_TASK_SET` bit in the `state` field is set if this field is
+    /// initialized. If that bit is unset, this field may be uninitialized.
     rx_task: Task,
 }
 
@@ -220,7 +409,7 @@ impl Task {
 #[derive(Clone, Copy)]
 struct State(usize);
 
-/// Create a new one-shot channel for sending single values across asynchronous
+/// Creates a new one-shot channel for sending single values across asynchronous
 /// tasks.
 ///
 /// The function returns separate "send" and "receive" handles. The `Sender`
@@ -311,11 +500,24 @@ impl<T> Sender<T> {
         let inner = self.inner.take().unwrap();
 
         inner.value.with_mut(|ptr| unsafe {
+            // SAFETY: The receiver will not access the `UnsafeCell` unless the
+            // channel has been marked as "complete" (the `VALUE_SENT` state bit
+            // is set).
+            // That bit is only set by the sender later on in this method, and
+            // calling this method consumes `self`. Therefore, if it was possible to
+            // call this method, we know that the `VALUE_SENT` bit is unset, and
+            // the receiver is not currently accessing the `UnsafeCell`.
             *ptr = Some(t);
         });
 
         if !inner.complete() {
             unsafe {
+                // SAFETY: The receiver will not access the `UnsafeCell` unless
+                // the channel has been marked as "complete". Calling
+                // `complete()` will return true if this bit is set, and false
+                // if it is not set. Thus, if `complete()` returned false, it is
+                // safe for us to access the value, because we know that the
+                // receiver will not.
                 return Err(inner.consume_value().unwrap());
             }
         }
@@ -430,7 +632,7 @@ impl<T> Sender<T> {
         state.is_closed()
     }
 
-    /// Check whether the oneshot channel has been closed, and if not, schedules the
+    /// Checks whether the oneshot channel has been closed, and if not, schedules the
     /// `Waker` in the provided `Context` to receive a notification when the channel is
     /// closed.
     ///
@@ -661,6 +863,11 @@ impl<T> Receiver<T> {
             let state = State::load(&inner.state, Acquire);
 
             if state.is_complete() {
+                // SAFETY: If `state.is_complete()` returns true, then the
+                // `VALUE_SENT` bit has been set and the sender side of the
+                // channel will no longer attempt to access the inner
+                // `UnsafeCell`. Therefore, it is now safe for us to access the
+                // cell.
                 match unsafe { inner.consume_value() } {
                     Some(value) => Ok(value),
                     None => Err(TryRecvError::Closed),
@@ -751,6 +958,11 @@ impl<T> Inner<T> {
                         State::set_rx_task(&self.state);
 
                         coop.made_progress();
+                        // SAFETY: If `state.is_complete()` returns true, then the
+                        // `VALUE_SENT` bit has been set and the sender side of the
+                        // channel will no longer attempt to access the inner
+                        // `UnsafeCell`. Therefore, it is now safe for us to access the
+                        // cell.
                         return match unsafe { self.consume_value() } {
                             Some(value) => Ready(Ok(value)),
                             None => Ready(Err(RecvError(()))),
@@ -797,6 +1009,14 @@ impl<T> Inner<T> {
     }
 
     /// Consumes the value. This function does not check `state`.
+    ///
+    /// # Safety
+    ///
+    /// Calling this method concurrently on multiple threads will result in a
+    /// data race. The `VALUE_SENT` state bit is used to ensure that only the
+    /// sender *or* the receiver will call this method at a given point in time.
+    /// If `VALUE_SENT` is not set, then only the sender may call this method;
+    /// if it is set, then only the receiver may call this method.
     unsafe fn consume_value(&self) -> Option<T> {
         self.value.with_mut(|ptr| (*ptr).take())
     }
@@ -837,9 +1057,28 @@ impl<T: fmt::Debug> fmt::Debug for Inner<T> {
     }
 }
 
+/// Indicates that a waker for the receiving task has been set.
+///
+/// # Safety
+///
+/// If this bit is not set, the `rx_task` field may be uninitialized.
 const RX_TASK_SET: usize = 0b00001;
+/// Indicates that a value has been stored in the channel's inner `UnsafeCell`.
+///
+/// # Safety
+///
+/// This bit controls which side of the channel is permitted to access the
+/// `UnsafeCell`. If it is set, the `UnsafeCell` may ONLY be accessed by the
+/// receiver. If this bit is NOT set, the `UnsafeCell` may ONLY be accessed by
+/// the sender.
 const VALUE_SENT: usize = 0b00010;
 const CLOSED: usize = 0b00100;
+
+/// Indicates that a waker for the sending task has been set.
+///
+/// # Safety
+///
+/// If this bit is not set, the `tx_task` field may be uninitialized.
 const TX_TASK_SET: usize = 0b01000;
 
 impl State {
@@ -852,11 +1091,38 @@ impl State {
     }
 
     fn set_complete(cell: &AtomicUsize) -> State {
-        // TODO: This could be `Release`, followed by an `Acquire` fence *if*
-        // the `RX_TASK_SET` flag is set. However, `loom` does not support
-        // fences yet.
-        let val = cell.fetch_or(VALUE_SENT, AcqRel);
-        State(val)
+        // This method is a compare-and-swap loop rather than a fetch-or like
+        // other `set_$WHATEVER` methods on `State`. This is because we must
+        // check if the state has been closed before setting the `VALUE_SENT`
+        // bit.
+        //
+        // We don't want to set both the `VALUE_SENT` bit if the `CLOSED`
+        // bit is already set, because `VALUE_SENT` will tell the receiver that
+        // it's okay to access the inner `UnsafeCell`. Immediately after calling
+        // `set_complete`, if the channel was closed, the sender will _also_
+        // access the `UnsafeCell` to take the value back out, so if a
+        // `poll_recv` or `try_recv` call is occurring concurrently, both
+        // threads may try to access the `UnsafeCell` if we were to set the
+        // `VALUE_SENT` bit on a closed channel.
+        let mut state = cell.load(Ordering::Relaxed);
+        loop {
+            if State(state).is_closed() {
+                break;
+            }
+            // TODO: This could be `Release`, followed by an `Acquire` fence *if*
+            // the `RX_TASK_SET` flag is set. However, `loom` does not support
+            // fences yet.
+            match cell.compare_exchange_weak(
+                state,
+                state | VALUE_SENT,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => state = actual,
+            }
+        }
+        State(state)
     }
 
     fn is_rx_task_set(self) -> bool {

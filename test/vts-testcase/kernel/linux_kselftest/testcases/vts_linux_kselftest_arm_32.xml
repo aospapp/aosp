@@ -30,7 +30,9 @@
         <option name="run-command" value='find &ktest_dir; -type f | xargs grep -l -e "bin/sh" -e "bin/bash" | xargs sed -i -e "s?/bin/echo?echo?" -i -e "s?#!/bin/sh?#!/system/bin/sh?" -i -e "s?#!/bin/bash?#!/system/bin/sh?"' />
     </target_preparer>
 
-    <test class="com.android.tradefed.testtype.binary.ExecutableTargetTest" >
+    <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
+        <option name="exit-code-skip" value="4" />
+	<option name="test-command-line" key="binderfs_arm_32" value="chmod 755 &ktest_dir;/filesystems/binderfs/binderfs_test; cd &ktest_dir;/filesystems/binderfs; ./binderfs_test" />
         <option name="test-command-line" key="capabilities_test_execve_arm_32" value="chmod 755 &ktest_dir;/capabilities/test_execve; cd &ktest_dir;/capabilities; ./test_execve" />
         <option name="test-command-line" key="futex_functional_run.sh_arm_32" value="chmod 755 &ktest_dir;/futex/functional/run.sh; cd &ktest_dir;/futex/functional; ./run.sh" />
         <option name="test-command-line" key="kcmp_kcmp_test_arm_32" value="chmod 755 &ktest_dir;/kcmp/kcmp_test; cd &ktest_dir;/kcmp; ./kcmp_test" />
@@ -49,6 +51,8 @@
         <option name="test-command-line" key="timers_set-timer-lat_arm_32" value="chmod 755 &ktest_dir;/timers/set-timer-lat; cd &ktest_dir;/timers; ./set-timer-lat" />
         <option name="test-command-line" key="timers_threadtest_arm_32" value="chmod 755 &ktest_dir;/timers/threadtest; cd &ktest_dir;/timers; ./threadtest" />
         <option name="test-command-line" key="timers_valid-adjtimex_arm_32" value="chmod 755 &ktest_dir;/timers/valid-adjtimex; cd &ktest_dir;/timers; ./valid-adjtimex" />
+        <option name="test-command-line" key="vm_userfaultfd_anon_arm_32" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd anon 32 99" />
+        <option name="test-command-line" key="vm_userfaultfd_shmem_arm_32" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd shmem 32 99" />
     </test>
 </configuration>
 

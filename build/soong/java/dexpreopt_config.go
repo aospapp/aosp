@@ -32,7 +32,7 @@ func dexpreoptTargets(ctx android.PathContext) []android.Target {
 		}
 	}
 	// We may also need the images on host in order to run host-based tests.
-	for _, target := range ctx.Config().Targets[android.BuildOs] {
+	for _, target := range ctx.Config().Targets[ctx.Config().BuildOS] {
 		targets = append(targets, target)
 	}
 
@@ -41,50 +41,59 @@ func dexpreoptTargets(ctx android.PathContext) []android.Target {
 
 var (
 	bootImageConfigKey     = android.NewOnceKey("bootImageConfig")
+	bootImageConfigRawKey  = android.NewOnceKey("bootImageConfigRaw")
 	artBootImageName       = "art"
 	frameworkBootImageName = "boot"
 )
 
-// Construct the global boot image configs.
-func genBootImageConfigs(ctx android.PathContext) map[string]*bootImageConfig {
-	return ctx.Config().Once(bootImageConfigKey, func() interface{} {
-
+func genBootImageConfigRaw(ctx android.PathContext) map[string]*bootImageConfig {
+	return ctx.Config().Once(bootImageConfigRawKey, func() interface{} {
 		global := dexpreopt.GetGlobalConfig(ctx)
-		targets := dexpreoptTargets(ctx)
-		deviceDir := android.PathForOutput(ctx, ctx.Config().DeviceName())
 
 		artModules := global.ArtApexJars
 		frameworkModules := global.BootJars.RemoveList(artModules)
 
-		artDirOnHost := "apex/art_boot_images/javalib"
-		artDirOnDevice := "apex/com.android.art/javalib"
-		frameworkSubdir := "system/framework"
-
 		// ART config for the primary boot image in the ART apex.
 		// It includes the Core Libraries.
 		artCfg := bootImageConfig{
-			name:               artBootImageName,
-			stem:               "boot",
-			installDirOnHost:   artDirOnHost,
-			installDirOnDevice: artDirOnDevice,
-			modules:            artModules,
+			name:                     artBootImageName,
+			stem:                     "boot",
+			installDirOnHost:         "apex/art_boot_images/javalib",
+			installDirOnDevice:       "system/framework",
+			profileInstallPathInApex: "etc/boot-image.prof",
+			modules:                  artModules,
+			preloadedClassesFile:     "art/build/boot/preloaded-classes",
 		}
 
 		// Framework config for the boot image extension.
 		// It includes framework libraries and depends on the ART config.
+		frameworkSubdir := "system/framework"
 		frameworkCfg := bootImageConfig{
-			extends:            &artCfg,
-			name:               frameworkBootImageName,
-			stem:               "boot",
-			installDirOnHost:   frameworkSubdir,
-			installDirOnDevice: frameworkSubdir,
-			modules:            frameworkModules,
+			extends:              &artCfg,
+			name:                 frameworkBootImageName,
+			stem:                 "boot",
+			installDirOnHost:     frameworkSubdir,
+			installDirOnDevice:   frameworkSubdir,
+			modules:              frameworkModules,
+			preloadedClassesFile: "frameworks/base/config/preloaded-classes",
 		}
 
-		configs := map[string]*bootImageConfig{
+		return map[string]*bootImageConfig{
 			artBootImageName:       &artCfg,
 			frameworkBootImageName: &frameworkCfg,
 		}
+	}).(map[string]*bootImageConfig)
+}
+
+// Construct the global boot image configs.
+func genBootImageConfigs(ctx android.PathContext) map[string]*bootImageConfig {
+	return ctx.Config().Once(bootImageConfigKey, func() interface{} {
+		targets := dexpreoptTargets(ctx)
+		deviceDir := android.PathForOutput(ctx, ctx.Config().DeviceName())
+
+		configs := genBootImageConfigRaw(ctx)
+		artCfg := configs[artBootImageName]
+		frameworkCfg := configs[frameworkBootImageName]
 
 		// common to all configs
 		for _, c := range configs {
@@ -142,14 +151,14 @@ func defaultBootImageConfig(ctx android.PathContext) *bootImageConfig {
 	return genBootImageConfigs(ctx)[frameworkBootImageName]
 }
 
-// Updatable boot config allows to access build/install paths of updatable boot jars without going
+// Apex boot config allows to access build/install paths of apex boot jars without going
 // through the usual trouble of registering dependencies on those modules and extracting build paths
 // from those dependencies.
-type updatableBootConfig struct {
-	// A list of updatable boot jars.
+type apexBootConfig struct {
+	// A list of apex boot jars.
 	modules android.ConfiguredJarList
 
-	// A list of predefined build paths to updatable boot jars. They are configured very early,
+	// A list of predefined build paths to apex boot jars. They are configured very early,
 	// before the modules for these jars are processed and the actual paths are generated, and
 	// later on a singleton adds commands to copy actual jars to the predefined paths.
 	dexPaths android.WritablePaths
@@ -161,21 +170,21 @@ type updatableBootConfig struct {
 	dexLocations []string
 }
 
-var updatableBootConfigKey = android.NewOnceKey("updatableBootConfig")
+var updatableBootConfigKey = android.NewOnceKey("apexBootConfig")
 
-// Returns updatable boot config.
-func GetUpdatableBootConfig(ctx android.PathContext) updatableBootConfig {
+// Returns apex boot config.
+func GetApexBootConfig(ctx android.PathContext) apexBootConfig {
 	return ctx.Config().Once(updatableBootConfigKey, func() interface{} {
-		updatableBootJars := dexpreopt.GetGlobalConfig(ctx).UpdatableBootJars
+		apexBootJars := dexpreopt.GetGlobalConfig(ctx).ApexBootJars
 
-		dir := android.PathForOutput(ctx, ctx.Config().DeviceName(), "updatable_bootjars")
-		dexPaths := updatableBootJars.BuildPaths(ctx, dir)
-		dexPathsByModuleName := updatableBootJars.BuildPathsByModule(ctx, dir)
+		dir := android.PathForOutput(ctx, ctx.Config().DeviceName(), "apex_bootjars")
+		dexPaths := apexBootJars.BuildPaths(ctx, dir)
+		dexPathsByModuleName := apexBootJars.BuildPathsByModule(ctx, dir)
 
-		dexLocations := updatableBootJars.DevicePaths(ctx.Config(), android.Android)
+		dexLocations := apexBootJars.DevicePaths(ctx.Config(), android.Android)
 
-		return updatableBootConfig{updatableBootJars, dexPaths, dexPathsByModuleName, dexLocations}
-	}).(updatableBootConfig)
+		return apexBootConfig{apexBootJars, dexPaths, dexPathsByModuleName, dexLocations}
+	}).(apexBootConfig)
 }
 
 // Returns a list of paths and a list of locations for the boot jars used in dexpreopt (to be
@@ -188,10 +197,10 @@ func bcpForDexpreopt(ctx android.PathContext, withUpdatable bool) (android.Writa
 	dexLocations := bootImage.getAnyAndroidVariant().dexLocationsDeps
 
 	if withUpdatable {
-		// Updatable boot jars (they are used only in dexpreopt, but not in the boot image).
-		updBootConfig := GetUpdatableBootConfig(ctx)
-		dexPaths = append(dexPaths, updBootConfig.dexPaths...)
-		dexLocations = append(dexLocations, updBootConfig.dexLocations...)
+		// Apex boot jars (they are used only in dexpreopt, but not in the boot image).
+		apexBootConfig := GetApexBootConfig(ctx)
+		dexPaths = append(dexPaths, apexBootConfig.dexPaths...)
+		dexLocations = append(dexLocations, apexBootConfig.dexLocations...)
 	}
 
 	return dexPaths, dexLocations

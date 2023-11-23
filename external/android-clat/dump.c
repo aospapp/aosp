@@ -15,9 +15,7 @@
  *
  * dump.c - print various headers for debugging
  */
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "dump.h"
 
 #include <arpa/inet.h>
 #include <linux/icmp.h>
@@ -29,12 +27,13 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "netutils/checksum.h"
-
+#include "checksum.h"
 #include "clatd.h"
 #include "debug.h"
-#include "dump.h"
 #include "logging.h"
 
 #if CLAT_DEBUG

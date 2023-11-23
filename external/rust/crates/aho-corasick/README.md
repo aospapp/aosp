@@ -28,12 +28,6 @@ Add this to your `Cargo.toml`:
 aho-corasick = "0.7"
 ```
 
-and this to your crate root (if you're using Rust 2015):
-
-```rust
-extern crate aho_corasick;
-```
-
 
 ### Example: basic searching
 
@@ -162,7 +156,7 @@ expression alternation. See `MatchKind` in the docs for more details.
 
 ### Minimum Rust version policy
 
-This crate's minimum supported `rustc` version is `1.28.0`.
+This crate's minimum supported `rustc` version is `1.41.1`.
 
 The current policy is that the minimum Rust version required to use this crate
 can be increased in minor version updates. For example, if `crate 1.0` requires

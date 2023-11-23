@@ -26,6 +26,7 @@
 #include "utils/tokenizer_generated.h"
 #include "utils/utf8/unicodetext.h"
 #include "utils/utf8/unilib.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 
@@ -90,7 +91,7 @@ class Tokenizer {
   };
 
   // Tokenizes the input string using the selected tokenization method.
-  std::vector<Token> Tokenize(const std::string& text) const;
+  std::vector<Token> Tokenize(absl::string_view text) const;
 
   // Same as above but takes UnicodeText.
   std::vector<Token> Tokenize(const UnicodeText& text_unicode) const;

@@ -72,74 +72,68 @@ lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
 FUCHSIA_INTERFACES = {
     'id':
     '1',
-    'result': [{
-        'features':
-        4,
-        'filepath':
-        '[none]',
-        'id':
-        1,
-        'ipv4_addresses': [[127, 0, 0, 1]],
-        'ipv6_addresses': [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]],
-        'is_administrative_status_enabled':
-        True,
-        'is_physical_status_up':
-        True,
-        'mac': [0, 0, 0, 0, 0, 0],
-        'mtu':
-        65536,
-        'name':
-        'lo',
-        'topopath':
-        'loopback'
-    }, {
-        'features':
-        0,
-        'filepath':
-        '/dev/class/ethernet/000',
-        'id':
-        2,
-        'ipv4_addresses': [[100, 127, 110, 79]],
-        'ipv6_addresses':
-        [[254, 128, 0, 0, 0, 0, 0, 0, 198, 109, 60, 117, 44, 236, 29, 114],
-         [36, 1, 250, 0, 4, 128, 122, 0, 141, 79, 133, 255, 204, 92, 120, 126],
-         [36, 1, 250, 0, 4, 128, 122, 0, 4, 89, 185, 147, 252, 191, 20, 25]],
-        'is_administrative_status_enabled':
-        True,
-        'is_physical_status_up':
-        True,
-        'mac': [0, 224, 76, 5, 76, 229],
-        'mtu':
-        1514,
-        'name':
-        'eno1',
-        'topopath':
-        '@/dev/xhci/xhci/usb-bus/001/001/ifc-000/usb-cdc-ecm/ethernet'
-    }, {
-        'features':
-        1,
-        'filepath':
-        '/dev/class/ethernet/001',
-        'id':
-        3,
-        'ipv4_addresses': [],
-        'ipv6_addresses':
-        [[254, 128, 0, 0, 0, 0, 0, 0, 96, 255, 93, 96, 52, 253, 253, 243],
-         [254, 128, 0, 0, 0, 0, 0, 0, 70, 7, 11, 255, 254, 118, 126, 192]],
-        'is_administrative_status_enabled':
-        False,
-        'is_physical_status_up':
-        False,
-        'mac': [68, 7, 11, 118, 126, 192],
-        'mtu':
-        1500,
-        'name':
-        'wlanxc0',
-        'topopath':
-        '@/dev/wifi/wlanphy/wlanif-client/wlan-ethernet/ethernet'
-    }],
+    'result': [
+        {
+            'id': 1,
+            'name': 'lo',
+            'ipv4_addresses': [
+                [127, 0, 0, 1],
+            ],
+            'ipv6_addresses': [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            ],
+            'online': True,
+            'mac': [0, 0, 0, 0, 0, 0],
+        },
+        {
+            'id':
+            2,
+            'name':
+            'eno1',
+            'ipv4_addresses': [
+                [100, 127, 110, 79],
+            ],
+            'ipv6_addresses': [
+                [
+                    254, 128, 0, 0, 0, 0, 0, 0, 198, 109, 60, 117, 44, 236, 29,
+                    114
+                ],
+                [
+                    36, 1, 250, 0, 4, 128, 122, 0, 141, 79, 133, 255, 204, 92,
+                    120, 126
+                ],
+                [
+                    36, 1, 250, 0, 4, 128, 122, 0, 4, 89, 185, 147, 252, 191,
+                    20, 25
+                ],
+            ],
+            'online':
+            True,
+            'mac': [0, 224, 76, 5, 76, 229],
+        },
+        {
+            'id':
+            3,
+            'name':
+            'wlanxc0',
+            'ipv4_addresses': [],
+            'ipv6_addresses': [
+                [
+                    254, 128, 0, 0, 0, 0, 0, 0, 96, 255, 93, 96, 52, 253, 253,
+                    243
+                ],
+                [
+                    254, 128, 0, 0, 0, 0, 0, 0, 70, 7, 11, 255, 254, 118, 126,
+                    192
+                ],
+            ],
+            'online':
+            False,
+            'mac': [68, 7, 11, 118, 126, 192],
+        },
+    ],
     'error':
-    None
+    None,
 }
 
 CORRECT_FULL_IP_LIST = {
@@ -162,7 +156,9 @@ CORRECT_EMPTY_IP_LIST = {
 }
 
 FUCHSIA_INIT_SERVER = ('acts.controllers.fuchsia_device.FuchsiaDevice.'
-                       'init_server_connection')
+                       'init_sl4f_connection')
+FUCHSIA_INIT_FFX = ('acts.controllers.fuchsia_device.FuchsiaDevice.'
+                    'init_ffx_connection')
 FUCHSIA_SET_CONTROL_PATH_CONFIG = ('acts.controllers.fuchsia_device.'
                                    'FuchsiaDevice._set_control_path_config')
 FUCHSIA_START_SERVICES = ('acts.controllers.fuchsia_device.FuchsiaDevice.'
@@ -171,12 +167,11 @@ FUCHSIA_NETSTACK_LIST_INTERFACES = (
     'acts.controllers.'
     'fuchsia_lib.netstack.netstack_lib.'
     'FuchsiaNetstackLib.netstackListInterfaces')
-FUCHSIA_INIT_NETSTACK = ('acts.controllers.fuchsia_lib.netstack.'
-                         'netstack_lib.FuchsiaNetstackLib.init')
 
 
 class ByPassSetupWizardTests(unittest.TestCase):
     """This test class for unit testing acts.utils.bypass_setup_wizard."""
+
     def test_start_standing_subproc(self):
         with self.assertRaisesRegex(utils.ActsUtilsError,
                                     'Process .* has terminated'):
@@ -310,6 +305,7 @@ class BypassSetupWizardReturn:
 
 class ConcurrentActionsTest(unittest.TestCase):
     """Tests acts.utils.run_concurrent_actions and related functions."""
+
     @staticmethod
     def function_returns_passed_in_arg(arg):
         return arg
@@ -319,15 +315,15 @@ class ConcurrentActionsTest(unittest.TestCase):
         raise exception_type
 
     def test_run_concurrent_actions_no_raise_returns_proper_return_values(
-        self):
+            self):
         """Tests run_concurrent_actions_no_raise returns in the correct order.
 
         Each function passed into run_concurrent_actions_no_raise returns the
         values returned from each individual callable in the order passed in.
         """
         ret_values = utils.run_concurrent_actions_no_raise(
-            lambda: self.function_returns_passed_in_arg('ARG1'),
-            lambda: self.function_returns_passed_in_arg('ARG2'),
+            lambda: self.function_returns_passed_in_arg(
+                'ARG1'), lambda: self.function_returns_passed_in_arg('ARG2'),
             lambda: self.function_returns_passed_in_arg('ARG3'))
 
         self.assertEqual(len(ret_values), 3)
@@ -358,8 +354,8 @@ class ConcurrentActionsTest(unittest.TestCase):
         """
 
         ret_values = utils.run_concurrent_actions(
-            lambda: self.function_returns_passed_in_arg('ARG1'),
-            lambda: self.function_returns_passed_in_arg('ARG2'),
+            lambda: self.function_returns_passed_in_arg(
+                'ARG1'), lambda: self.function_returns_passed_in_arg('ARG2'),
             lambda: self.function_returns_passed_in_arg('ARG3'))
 
         self.assertEqual(len(ret_values), 3)
@@ -393,6 +389,7 @@ class ConcurrentActionsTest(unittest.TestCase):
 
 class SuppressLogOutputTest(unittest.TestCase):
     """Tests SuppressLogOutput"""
+
     def test_suppress_log_output(self):
         """Tests that the SuppressLogOutput context manager removes handlers
         of the specified levels upon entry and re-adds handlers upon exit.
@@ -528,16 +525,16 @@ class IpAddressUtilTest(unittest.TestCase):
             CORRECT_EMPTY_IP_LIST)
 
     @mock.patch(FUCHSIA_INIT_SERVER)
+    @mock.patch(FUCHSIA_INIT_FFX)
     @mock.patch(FUCHSIA_SET_CONTROL_PATH_CONFIG)
     @mock.patch(FUCHSIA_START_SERVICES)
     @mock.patch(FUCHSIA_NETSTACK_LIST_INTERFACES)
-    @mock.patch(FUCHSIA_INIT_NETSTACK)
-    def test_fuchsia_get_interface_ip_addresses_full(self, init_mock,
-                                                     list_interfaces_mock,
-                                                     start_services_mock,
-                                                     control_path_mock,
-                                                     fuchsia_device_mock):
-        init_mock.return_value = None
+    def test_fuchsia_get_interface_ip_addresses_full(
+            self, list_interfaces_mock, start_services_mock, control_path_mock,
+            ffx_mock, fuchsia_device_mock):
+        # Will never actually be created/used.
+        logging.log_path = '/tmp/unit_test_garbage'
+
         list_interfaces_mock.return_value = FUCHSIA_INTERFACES
         fuchsia_device_mock.return_value = None
         self.assertEqual(
@@ -546,22 +543,50 @@ class IpAddressUtilTest(unittest.TestCase):
             CORRECT_FULL_IP_LIST)
 
     @mock.patch(FUCHSIA_INIT_SERVER)
+    @mock.patch(FUCHSIA_INIT_FFX)
     @mock.patch(FUCHSIA_SET_CONTROL_PATH_CONFIG)
     @mock.patch(FUCHSIA_START_SERVICES)
     @mock.patch(FUCHSIA_NETSTACK_LIST_INTERFACES)
-    @mock.patch(FUCHSIA_INIT_NETSTACK)
-    def test_fuchsia_get_interface_ip_addresses_empty(self, init_mock,
-                                                      list_interfaces_mock,
-                                                      start_services_mock,
-                                                      control_path_mock,
-                                                      fuchsia_device_mock):
-        init_mock.return_value = None
+    def test_fuchsia_get_interface_ip_addresses_empty(
+            self, list_interfaces_mock, start_services_mock, control_path_mock,
+            ffx_mock, fuchsia_device_mock):
+        # Will never actually be created/used.
+        logging.log_path = '/tmp/unit_test_garbage'
+
         list_interfaces_mock.return_value = FUCHSIA_INTERFACES
         fuchsia_device_mock.return_value = None
         self.assertEqual(
             utils.get_interface_ip_addresses(
                 FuchsiaDevice({'ip': '192.168.1.1'}), 'wlan1'),
             CORRECT_EMPTY_IP_LIST)
+
+
+class GetDeviceTest(unittest.TestCase):
+    class TestDevice:
+        def __init__(self, id, device_type=None) -> None:
+            self.id = id
+            if device_type:
+                self.device_type = device_type
+
+    def test_get_device_none(self):
+        devices = []
+        self.assertRaises(ValueError, utils.get_device, devices, 'DUT')
+
+    def test_get_device_default_one(self):
+        devices = [self.TestDevice(0)]
+        self.assertEqual(utils.get_device(devices, 'DUT').id, 0)
+
+    def test_get_device_default_many(self):
+        devices = [self.TestDevice(0), self.TestDevice(1)]
+        self.assertEqual(utils.get_device(devices, 'DUT').id, 0)
+
+    def test_get_device_specified_one(self):
+        devices = [self.TestDevice(0), self.TestDevice(1, 'DUT')]
+        self.assertEqual(utils.get_device(devices, 'DUT').id, 1)
+
+    def test_get_device_specified_many(self):
+        devices = [self.TestDevice(0, 'DUT'), self.TestDevice(1, 'DUT')]
+        self.assertRaises(ValueError, utils.get_device, devices, 'DUT')
 
 
 if __name__ == '__main__':

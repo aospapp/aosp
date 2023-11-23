@@ -21,6 +21,7 @@ import (
 func init() {
 	host_allowlist := []string{
 		"device/google/cuttlefish/host/commands/",
+		"external/icu/",
 		"external/skia",
 		"frameworks/base/libs/hwui",
 		"packages/modules/RuntimeI18n/apex/",

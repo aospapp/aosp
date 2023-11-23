@@ -29,13 +29,14 @@ class PlatformSensorBase {
   /**
    * Initializes the members of PlatformSensorBase.
    */
-  void initBase(struct chreSensorInfo *sensorInfo, uint32_t sensorHandle) {
+  void initBase(const struct chreSensorInfo *sensorInfo,
+                uint32_t sensorHandle) {
     mSensorInfo = sensorInfo;
     mSensorHandle = sensorHandle;
   }
 
   //! The sensor information for this sensor.
-  struct chreSensorInfo *mSensorInfo;
+  const struct chreSensorInfo *mSensorInfo;
 
   //! The sensor handle for this sensor.
   uint32_t mSensorHandle;
@@ -45,7 +46,7 @@ class PlatformSensorBase {
    *
    * @param sensorInfo Information about this sensor.
    */
-  void setSensorInfo(struct chreSensorInfo *sensorInfo) {
+  void setSensorInfo(const struct chreSensorInfo *sensorInfo) {
     mSensorInfo = sensorInfo;
   }
 

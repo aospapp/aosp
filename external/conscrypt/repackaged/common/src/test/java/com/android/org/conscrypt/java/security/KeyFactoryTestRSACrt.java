@@ -31,7 +31,6 @@ import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPublicKeySpec;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -64,8 +63,7 @@ public class KeyFactoryTestRSACrt extends
   @Test
   public void testExtraBufferSpace_Private() throws Exception {
       PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
-      // b/209335673 Base image has fix for b/191150645 but release version of module does not
-      // assertTrue(privateKey instanceof RSAPrivateCrtKey);
+      assertTrue(privateKey instanceof RSAPrivateCrtKey);
 
       byte[] encoded = privateKey.getEncoded();
       byte[] longBuffer = new byte[encoded.length + 147];
@@ -76,7 +74,6 @@ public class KeyFactoryTestRSACrt extends
   }
 
   @Test
-  @Ignore("b/209335673 Base image has fix for b/191150645 but release version of module does not")
   public void javaSerialization() throws Exception {
       PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
       assertTrue(privateKey instanceof RSAPrivateCrtKey);

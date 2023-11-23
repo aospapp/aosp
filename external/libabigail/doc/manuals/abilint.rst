@@ -90,5 +90,10 @@ Options
 
     Expect the input XML to represent a single translation unit.
 
+  * ``--ctf``
+
+    Extract ABI information from CTF debug information, if present in
+    the given object.
+
 .. _ELF: http://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 .. _DWARF: http://www.dwarfstd.org

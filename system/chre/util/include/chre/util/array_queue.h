@@ -23,23 +23,58 @@
 
 #include "chre/util/non_copyable.h"
 
+/**
+ * @file
+ * ArrayQueue is a templated fixed-size FIFO queue implemented around a
+ * contiguous array. Two variations on how the
+ *
+ *  1) ArrayQueue<ElementType, kCapacity> allocates the underlying array within
+ *  the ArrayQueue object itself.
+ *  2) ArrayQueueExt<ElementType> accepts a pointer to the storage at
+ *  construction time. Since this variation maintains the capacity of the array
+ *  as a member variable rather than template parameter, it can be useful in
+ *  situations where it'd be inconvenient to include the array capacity in the
+ *  type specification, for example when processing multiple array queues with
+ *  different capacities in a loop or similar construct.
+ *
+ * This variability is accomplished through a base class which provides the
+ * underlying storage, which is attached to the array queue implementation in
+ * ArrayQueueCore via a template parameter, then the two storage options are
+ * composed into public APIs as ArrayQueue and ArrayQueueExt. Users of this
+ * container are not expected to reference ArrayQueueCore or ArrayQueue*Storage
+ * directly, but developers should refer to ArrayQueueCore for API
+ * documentation.
+ */
+
 namespace chre {
 
+// Forward declaration to support declarations in ArrayQueueCore
+template <typename ValueType>
+class ArrayQueueIterator;
+
+namespace internal {
+
 /**
- * A fixed-size FIFO queue for storing elements. When the FIFO is full, new
- * element will not be able to be pushed in.
+ * The core implementation of an array queue, from which the public interfaces
+ * (ArrayQueue and ArrayQueueExt) are derived.
+ *
+ * The StorageType template parameter must be a class supplying data() and
+ * capacity() methods used to access the underlying array storage.
  */
-template <typename ElementType, size_t kCapacity>
-class ArrayQueue : public NonCopyable {
+template <typename ElementType, class StorageType>
+class ArrayQueueCore : public StorageType {
  public:
+  // Inherit constructors from StorageType
+  using StorageType::StorageType;
+
   /**
    * Calls the destructor of all the elements in the array queue.
    */
-  ~ArrayQueue();
+  ~ArrayQueueCore();
+
+  // data() and capacity() functions are inherited from StorageType
 
   /**
-   * Determines whether the array queue is empty or not.
-   *
    * @return true if the array queue is empty.
    */
   bool empty() const;
@@ -50,8 +85,6 @@ class ArrayQueue : public NonCopyable {
   bool full() const;
 
   /**
-   * Obtains the number of elements currently stored in the array queue.
-   *
    * @return The number of elements currently stored in the array queue.
    */
   size_t size() const;
@@ -161,68 +194,6 @@ class ArrayQueue : public NonCopyable {
   void clear();
 
   /**
-   * A template class that implements a forward iterator for the array queue.
-   */
-  template <typename ValueType>
-  class ArrayQueueIterator {
-   public:
-    typedef ValueType value_type;
-    typedef ValueType &reference;
-    typedef ValueType *pointer;
-    typedef std::ptrdiff_t difference_type;
-    typedef std::forward_iterator_tag iterator_category;
-
-    ArrayQueueIterator() = default;
-    ArrayQueueIterator(ValueType *pointer, ValueType *base, size_t tail)
-        : mPointer(pointer), mBase(base), mTail(tail) {}
-
-    bool operator==(const ArrayQueueIterator &right) const {
-      return (mPointer == right.mPointer);
-    }
-
-    bool operator!=(const ArrayQueueIterator &right) const {
-      return (mPointer != right.mPointer);
-    }
-
-    ValueType &operator*() {
-      return *mPointer;
-    }
-
-    ValueType *operator->() {
-      return mPointer;
-    }
-
-    ArrayQueueIterator &operator++() {
-      if (mPointer == (mBase + mTail)) {
-        // Jump to end() if at tail
-        mPointer = mBase + kCapacity;
-      } else if (mPointer == (mBase + kCapacity - 1)) {
-        // Wrap around in the memory
-        mPointer = mBase;
-      } else {
-        mPointer++;
-      }
-      return *this;
-    }
-
-    ArrayQueueIterator operator++(int) {
-      ArrayQueueIterator it(*this);
-      operator++();
-      return it;
-    }
-
-   private:
-    //! Pointer of the iterator.
-    ValueType *mPointer;
-
-    //! The memory base address of this container.
-    ValueType *mBase;
-
-    //! The tail offset relative to the memory base address.
-    size_t mTail;
-  };
-
-  /**
    * Forward iterator that points to some element in the container.
    */
   typedef ArrayQueueIterator<ElementType> iterator;
@@ -231,52 +202,31 @@ class ArrayQueue : public NonCopyable {
   /**
    * @return A forward iterator to the beginning.
    */
-  typename ArrayQueue<ElementType, kCapacity>::iterator begin();
-  typename ArrayQueue<ElementType, kCapacity>::const_iterator begin() const;
-  typename ArrayQueue<ElementType, kCapacity>::const_iterator cbegin() const;
+  iterator begin();
+  const_iterator begin() const;
+  const_iterator cbegin() const;
 
   /**
    * @return A forward iterator to the end.
    */
-  typename ArrayQueue<ElementType, kCapacity>::iterator end();
-  typename ArrayQueue<ElementType, kCapacity>::const_iterator end() const;
-  typename ArrayQueue<ElementType, kCapacity>::const_iterator cend() const;
+  iterator end();
+  const_iterator end() const;
+  const_iterator cend() const;
 
  private:
-  /**
-   * Storage for array queue elements. To avoid static initialization of
-   * members, std::aligned_storage is used.
-   */
-  typename std::aligned_storage<sizeof(ElementType), alignof(ElementType)>::type
-      mData[kCapacity];
-
   /*
-   * Initialize mTail to be (kCapacity-1). When an element is pushed in,
+   * Initialize mTail to be (capacity-1). When an element is pushed in,
    * mHead and mTail will align. Also, this is consistent with
-   * mSize = (mTail - mHead)%kCapacity + 1 for mSize > 0.
+   * mSize = (mTail - mHead)%capacity + 1 for mSize > 0.
    */
   //! Index of the front element
   size_t mHead = 0;
 
   //! Index of the back element
-  size_t mTail = kCapacity - 1;
+  size_t mTail = StorageType::capacity() - 1;
 
   //! Number of elements in the array queue
   size_t mSize = 0;
-
-  /**
-   * Obtains a pointer to the underlying storage for the vector.
-   *
-   * @return A pointer to the storage used for elements in this vector.
-   */
-  ElementType *data();
-
-  /**
-   * Obtains a pointer to the underlying storage for the vector.
-   *
-   * @return A pointer to the storage used for elements in this vector.
-   */
-  const ElementType *data() const;
 
   /**
    * Converts relative index with respect to mHead to absolute index in the
@@ -306,6 +256,156 @@ class ArrayQueue : public NonCopyable {
    * @return true if the array queue is not full.
    */
   bool pushTail();
+};
+
+/**
+ * Storage for ArrayQueue based on an array allocated inside this object.
+ */
+template <typename ElementType, size_t kCapacity>
+class ArrayQueueInternalStorage : public NonCopyable {
+ public:
+  ElementType *data() {
+    return reinterpret_cast<ElementType *>(mData);
+  }
+
+  const ElementType *data() const {
+    return reinterpret_cast<const ElementType *>(mData);
+  }
+
+  size_t capacity() const {
+    return kCapacity;
+  }
+
+ private:
+  /**
+   * Storage for array queue elements. To avoid static initialization of
+   * members, std::aligned_storage is used.
+   */
+  typename std::aligned_storage<sizeof(ElementType), alignof(ElementType)>::type
+      mData[kCapacity];
+};
+
+/**
+ * Storage for ArrayQueue based on a pointer to an array allocated elsewhere.
+ */
+template <typename ElementType>
+class ArrayQueueExternalStorage : public NonCopyable {
+ public:
+  ArrayQueueExternalStorage(ElementType *storage, size_t capacity)
+      : mData(storage), kCapacity(capacity) {}
+
+  ElementType *data() {
+    return mData;
+  }
+
+  const ElementType *data() const {
+    return mData;
+  }
+
+  size_t capacity() const {
+    return kCapacity;
+  }
+
+ private:
+  ElementType *mData;
+  const size_t kCapacity;
+};
+
+}  // namespace internal
+
+/**
+ * Alias to the array queue implementation with storage allocated inside the
+ * object. This is the interface that most code is expected to use.
+ */
+template <typename ElementType, size_t kCapacity>
+class ArrayQueue
+    : public internal::ArrayQueueCore<
+          ElementType,
+          internal::ArrayQueueInternalStorage<ElementType, kCapacity>> {
+ public:
+  typedef ElementType value_type;
+};
+
+/**
+ * Wrapper for the array queue implementation with storage allocated elsewhere.
+ * This is useful in instances where it's inconvenient to have the array's
+ * capacity form part of the type specification.
+ */
+template <typename ElementType>
+class ArrayQueueExt
+    : public internal::ArrayQueueCore<
+          ElementType, internal::ArrayQueueExternalStorage<ElementType>> {
+ public:
+  ArrayQueueExt(ElementType *storage, size_t capacity)
+      : internal::ArrayQueueCore<
+            ElementType, internal::ArrayQueueExternalStorage<ElementType>>(
+            storage, capacity) {}
+};
+
+/**
+ * A template class that implements a forward iterator for the array queue.
+ */
+template <typename ValueType>
+class ArrayQueueIterator {
+ public:
+  typedef ValueType value_type;
+  typedef ValueType &reference;
+  typedef ValueType *pointer;
+  typedef std::ptrdiff_t difference_type;
+  typedef std::forward_iterator_tag iterator_category;
+
+  ArrayQueueIterator() = default;
+  ArrayQueueIterator(ValueType *pointer, ValueType *base, size_t tail,
+                     size_t capacity)
+      : mPointer(pointer), mBase(base), mTail(tail), mCapacity(capacity) {}
+
+  bool operator==(const ArrayQueueIterator &right) const {
+    return (mPointer == right.mPointer);
+  }
+
+  bool operator!=(const ArrayQueueIterator &right) const {
+    return (mPointer != right.mPointer);
+  }
+
+  ValueType &operator*() {
+    return *mPointer;
+  }
+
+  ValueType *operator->() {
+    return mPointer;
+  }
+
+  ArrayQueueIterator &operator++() {
+    if (mPointer == (mBase + mTail)) {
+      // Jump to end() if at tail
+      mPointer = mBase + mCapacity;
+    } else if (mPointer == (mBase + mCapacity - 1)) {
+      // Wrap around in the memory
+      mPointer = mBase;
+    } else {
+      mPointer++;
+    }
+    return *this;
+  }
+
+  ArrayQueueIterator operator++(int) {
+    ArrayQueueIterator it(*this);
+    operator++();
+    return it;
+  }
+
+ private:
+  //! Pointer of the iterator.
+  ValueType *mPointer;
+
+  //! The memory base address of this container.
+  ValueType *mBase;
+
+  //! The tail offset relative to the memory base address.
+  size_t mTail;
+
+  //! Number of elements the underlying ArrayQueue can hold
+  size_t mCapacity;
 };
 
 }  // namespace chre

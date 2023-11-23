@@ -16,7 +16,6 @@
 
 package com.android.managedprovisioning.analytics;
 
-import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_COPY_ACCOUNT_TASK_MS;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_CREATE_PROFILE_TASK_MS;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_DOWNLOAD_PACKAGE_TASK_MS;
@@ -30,31 +29,23 @@ import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVIS
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_WEB_ACTIVITY_TIME_MS;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.VIEW_UNKNOWN;
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
 import android.content.Intent;
-import android.icu.util.TimeUnit;
-import android.nfc.NdefRecord;
 import android.os.SystemClock;
 import android.stats.devicepolicy.DevicePolicyEnums;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.TimeLogger.TimeCategory;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
-import com.android.managedprovisioning.parser.PropertiesProvisioningDataParser;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 /**
@@ -101,8 +92,6 @@ public class AnalyticsUtils {
         if (intent == null || ACTION_RESUME_PROVISIONING.equals(intent.getAction())) {
             // Provisioning extras should have already been logged for resume case.
             return new ArrayList<String>();
-        } else if (ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
-            return getExtrasFromProperties(intent);
         } else {
             return getExtrasFromBundle(intent);
         }
@@ -133,26 +122,6 @@ public class AnalyticsUtils {
                 if (isValidProvisioningExtra(key)) {
                     provisioningExtras.add(key);
                 }
-            }
-        }
-        return provisioningExtras;
-    }
-
-    @NonNull
-    private static List<String> getExtrasFromProperties(Intent intent) {
-        List<String> provisioningExtras = new ArrayList<String>();
-        NdefRecord firstRecord = PropertiesProvisioningDataParser.getFirstNdefRecord(intent);
-        if (firstRecord != null) {
-            try {
-                Properties props = new Properties();
-                props.load(new StringReader(new String(firstRecord.getPayload(), UTF_8)));
-                final Set<String> keys = props.stringPropertyNames();
-                for (String key : keys) {
-                    if (isValidProvisioningExtra(key)) {
-                        provisioningExtras.add(key);
-                    }
-                }
-            } catch (IOException e) {
             }
         }
         return provisioningExtras;

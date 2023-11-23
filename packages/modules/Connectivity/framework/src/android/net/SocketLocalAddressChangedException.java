@@ -18,6 +18,8 @@ package android.net;
 
 import android.annotation.SystemApi;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Thrown when the local address of the socket has changed.
  *
@@ -25,7 +27,7 @@ import android.annotation.SystemApi;
  */
 @SystemApi
 public class SocketLocalAddressChangedException extends Exception {
-    /** @hide */
+    @VisibleForTesting
     public SocketLocalAddressChangedException() {
         super("The local address of the socket changed");
     }

@@ -129,16 +129,23 @@ def _find_node(screen_dump_xml, **kwargs):
         long_clickable
         password
         selected
+        A special key/value: matching_node key is used to identify If more than one nodes have the same key/value,
+            the matching_node stands for which matching node should be fetched.
 
   Returns:
     XML node of the UI element or None if not found.
   """
   nodes = screen_dump_xml.getElementsByTagName('node')
+  matching_node = kwargs.pop('matching_node', 1)
+  count = 1
   for node in nodes:
     if match_node(node, **kwargs):
-      logging.debug('Found a node matching conditions: %s',
-                    get_key_value_pair_strings(kwargs))
-      return node
+      if count == matching_node:
+        logging.debug('Found a node matching conditions: %s',
+                      get_key_value_pair_strings(kwargs))
+        return node
+      count += 1
+  return None
 
 
 def wait_and_get_xml_node(device, timeout, child=None, sibling=None, **kwargs):

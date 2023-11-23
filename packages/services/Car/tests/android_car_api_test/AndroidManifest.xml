@@ -20,6 +20,8 @@
      android:sharedUserId="com.google.android.car.uid.kitchensink"
      android:debuggable="true">
 
+    <uses-sdk android:minSdkVersion="33"/>
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="android.car.apitest"
          android:label="Tests for Car APIs"
@@ -74,5 +76,11 @@
         </activity>
         <service android:name=".CarProjectionManagerTest$TestService"
              android:exported="true"/>
+        <service android:name="com.android.car.internal.test.LargeParcelableTestService"
+             android:process=":apiTestServiceProcess"
+             android:exported="true"/>
+        <service android:name="com.android.car.internal.test.IStableAIDLBinderTestService"
+                 android:process=":apiTestServiceProcess"
+                 android:exported="true"/>
     </application>
 </manifest>

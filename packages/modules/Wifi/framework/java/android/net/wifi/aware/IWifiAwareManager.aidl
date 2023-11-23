@@ -26,6 +26,9 @@ import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
 import android.net.wifi.aware.Characteristics;
 import android.net.wifi.aware.AwareResources;
+import android.net.wifi.aware.AwareParams;
+
+import android.os.Bundle;
 
 /**
  * Interface that WifiAwareService implements
@@ -41,17 +44,21 @@ interface IWifiAwareManager
     boolean isDeviceAttached();
     void enableInstantCommunicationMode(in String callingPackage, boolean enable);
     boolean isInstantCommunicationModeEnabled();
+    boolean isSetChannelOnDataPathSupported();
+    void setAwareParams(in AwareParams parameters);
 
     // client API
     void connect(in IBinder binder, in String callingPackage, in String callingFeatureId,
             in IWifiAwareEventCallback callback, in ConfigRequest configRequest,
-            boolean notifyOnIdentityChanged);
+            boolean notifyOnIdentityChanged, in Bundle extras);
     void disconnect(int clientId, in IBinder binder);
 
     void publish(in String callingPackage, in String callingFeatureId, int clientId,
-            in PublishConfig publishConfig, in IWifiAwareDiscoverySessionCallback callback);
+            in PublishConfig publishConfig, in IWifiAwareDiscoverySessionCallback callback,
+            in Bundle extras);
     void subscribe(in String callingPackage, in String callingFeatureId, int clientId,
-            in SubscribeConfig subscribeConfig, in IWifiAwareDiscoverySessionCallback callback);
+            in SubscribeConfig subscribeConfig, in IWifiAwareDiscoverySessionCallback callback,
+            in Bundle extras);
 
     // session API
     void updatePublish(int clientId, int discoverySessionId, in PublishConfig publishConfig);
@@ -61,5 +68,5 @@ interface IWifiAwareManager
     void terminateSession(int clientId, int discoverySessionId);
 
     // internal APIs: intended to be used between System Services (restricted permissions)
-    void requestMacAddresses(int uid, in List peerIds, in IWifiAwareMacAddressProvider callback);
+    void requestMacAddresses(int uid, in int[] peerIds, in IWifiAwareMacAddressProvider callback);
 }

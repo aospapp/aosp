@@ -22,7 +22,7 @@
     <string name="request_org" msgid="8416693445448308975">"کد سازمان"</string>
     <string name="request_security_protocol" msgid="1444164827561010482">"‏شناسه پروتکل امنیتی UA"</string>
     <string name="request_tls_cipher_suite" msgid="6659854717595308404">"شناسه مجموعه رمزنگاری امنیت لایه انتقال"</string>
-    <string name="response_success" msgid="2469204471244527663">"‏احراز هویت «معماری خود راه‌اندازی فراگیر» (GBA) موفق بود؟"</string>
+    <string name="response_success" msgid="2469204471244527663">"‏اصالت‌سنجی «معماری خود راه‌اندازی فراگیر» (GBA) موفق بود؟"</string>
     <string name="response_fail_reason" msgid="3401426967253202496">"شناسه دلیل انجام نشدن"</string>
     <string name="response_key" msgid="8839847772051686309">"‏کلید «معماری خود راه‌اندازی فراگیر» (GBA)‏ (CK + IK)"</string>
     <string name="response_btid" msgid="2550216722679350756">"‏شناسه تبادل خود راه‌اندازی (B-TID)"</string>

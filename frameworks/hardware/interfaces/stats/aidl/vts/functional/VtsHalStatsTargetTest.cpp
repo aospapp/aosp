@@ -54,7 +54,7 @@ TEST_P(StatsAidlTest, reportVendorAtom) {
     values.push_back(tmp);
     tmp.set<VendorAtomValue::intValue>(3);
     values.push_back(tmp);
-    VendorAtom atom = {.reverseDomainName = "com.google.pixel", .atomId = 100001, .values = values};
+    VendorAtom atom = {.reverseDomainName = "", .atomId = 100001, .values = values};
     const ndk::ScopedAStatus ret = client->reportVendorAtom(atom);
 
     ASSERT_TRUE(ret.isOk());
@@ -75,7 +75,7 @@ TEST_P(StatsAidlTest, reportVendorAtomInvalidAtomIdLow) {
     values.push_back(tmp);
     tmp.set<VendorAtomValue::intValue>(3);
     values.push_back(tmp);
-    VendorAtom atom = {.reverseDomainName = "com.google.pixel", .atomId = 1000, .values = values};
+    VendorAtom atom = {.reverseDomainName = "", .atomId = 1000, .values = values};
     const ndk::ScopedAStatus ret = client->reportVendorAtom(atom);
 
     ASSERT_TRUE(ret.isOk());
@@ -96,7 +96,7 @@ TEST_P(StatsAidlTest, reportVendorAtomInvalidAtomIdHigh) {
     values.push_back(tmp);
     tmp.set<VendorAtomValue::intValue>(3);
     values.push_back(tmp);
-    VendorAtom atom = {.reverseDomainName = "com.google.pixel", .atomId = 300001, .values = values};
+    VendorAtom atom = {.reverseDomainName = "", .atomId = 300001, .values = values};
     const ndk::ScopedAStatus ret = client->reportVendorAtom(atom);
 
     ASSERT_TRUE(ret.isOk());
@@ -117,7 +117,7 @@ TEST_P(StatsAidlTest, reportVendorAtomInvalidDomainNameTooLong) {
     values.push_back(tmp);
     tmp.set<VendorAtomValue::intValue>(3);
     values.push_back(tmp);
-    VendorAtom atom = {.reverseDomainName = "com.google.pixel.SubDomainName.SubDomainName.Domain",
+    VendorAtom atom = {.reverseDomainName = "",
                        .atomId = 100001,
                        .values = values};
     const ndk::ScopedAStatus ret = client->reportVendorAtom(atom);

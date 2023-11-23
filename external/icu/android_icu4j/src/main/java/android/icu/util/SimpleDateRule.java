@@ -15,7 +15,7 @@ import java.util.Date;
 /**
  * <b>Note:</b> The Holiday framework is a technology preview.
  * Despite its age, is still draft API, and clients should treat it as such.
- * 
+ *
  * Simple implementation of DateRule.
  * @hide Only a subset of ICU is exposed in Android
  * @hide draft / provisional / internal are hidden on Android
@@ -75,6 +75,7 @@ public class SimpleDateRule implements DateRule
      * @see #firstBetween
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public Date firstAfter(Date start)
     {
         return doFirstBetween(start, null);
@@ -94,6 +95,7 @@ public class SimpleDateRule implements DateRule
      * @see #firstAfter
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public Date firstBetween(Date start, Date end)
     {
         // Pin to the min/max dates for this rule
@@ -111,6 +113,7 @@ public class SimpleDateRule implements DateRule
      * @return      true if this event occurs on the given date.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public boolean isOn(Date date)
     {
         Calendar c = calendar;
@@ -134,6 +137,7 @@ public class SimpleDateRule implements DateRule
      * dates given.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public boolean isBetween(Date start, Date end)
     {
         return firstBetween(start, end) != null; // TODO: optimize?
@@ -208,9 +212,6 @@ public class SimpleDateRule implements DateRule
         }
     }
 
-    /**
-     * @hide draft / provisional / internal are hidden on Android
-     */
 //    public void setCalendar(Calendar c) {
 //        calendar = c;
 //    }

@@ -20,7 +20,7 @@ Learn how to use the Google API Python Client with these guides:
 - [Auth](auth.md)
   - [API Keys](api-keys.md)
   - [OAuth 2.0](oauth.md)
-  - [OAuth 2.0 for Web Server Applications](oauth-web.md)
+  - [OAuth 2.0 for Web Server Applications](https://developers.google.com/identity/protocols/oauth2/web-server)
   - [OAuth 2.0 for Installed Applications](oauth-installed.md)
   - [OAuth 2.0 for Server to Server Applications](oauth-server.md)
   - [Client Secrets](client-secrets.md)
@@ -34,5 +34,5 @@ Learn how to use the Google API Python Client with these guides:
 
 ### Reference Documentation
 
-- Reference documentation for the the core library [googleapiclient](http://googleapis.github.io/google-api-python-client/docs/epy/index.html).
+- Reference documentation for the core library [googleapiclient](http://googleapis.github.io/google-api-python-client/docs/epy/index.html).
 - [Library reference documentation by API](dyn/index.md).

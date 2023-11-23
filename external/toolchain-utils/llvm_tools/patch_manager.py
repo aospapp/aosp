@@ -212,8 +212,13 @@ def GetPatchMetadata(patch_dict):
   """
 
   # Get the metadata values of a patch if possible.
-  start_version = patch_dict.get('start_version', 0)
-  end_version = patch_dict.get('end_version', None)
+  # FIXME(b/221489531): Remove  start_version & end_version
+  if 'version_range' in patch_dict:
+    start_version = patch_dict['version_range'].get('from', 0)
+    end_version = patch_dict['version_range'].get('until', None)
+  else:
+    start_version = patch_dict.get('start_version', 0)
+    end_version = patch_dict.get('end_version', None)
   is_critical = patch_dict.get('is_critical', False)
 
   return start_version, end_version, is_critical

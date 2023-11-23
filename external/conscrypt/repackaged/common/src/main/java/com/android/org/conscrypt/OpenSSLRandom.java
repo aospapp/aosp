@@ -29,10 +29,9 @@ import java.security.SecureRandomSpi;
 public final class OpenSSLRandom extends SecureRandomSpi implements Serializable {
     private static final long serialVersionUID = 8506210602917522861L;
 
-    @android.compat.annotation
-            .UnsupportedAppUsage
-            @libcore.api.IntraCoreApi
-            public OpenSSLRandom() {}
+    @android.compat.annotation.UnsupportedAppUsage
+    @libcore.api.IntraCoreApi
+    public OpenSSLRandom() {}
 
     @Override
     protected void engineSetSeed(byte[] seed) {

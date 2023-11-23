@@ -20,6 +20,15 @@
 
 export GO111MODULE=off
 
+if [[ $CFLAGS != *sanitize=memory* && $CFLAGS != *-m32* ]]
+then
+    # Install nodejs/npm
+    # It is required for building noble-bls12-381
+    cd $SRC/
+    tar Jxf node-v14.17.1-linux-x64.tar.xz
+    export PATH="$PATH:$SRC/node-v14.17.1-linux-x64/bin/"
+fi
+
 # Compile xxd
 $CC $SRC/xxd.c -o /usr/bin/xxd
 
@@ -49,9 +58,6 @@ go get golang.org/x/crypto/ripemd160
 
 # This enables runtime checks for C++-specific undefined behaviour.
 export CXXFLAGS="$CXXFLAGS -D_GLIBCXX_DEBUG"
-
-# Prevent Boost compilation error with -std=c++17
-export CXXFLAGS="$CXXFLAGS -D_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR"
 
 export CXXFLAGS="$CXXFLAGS -I $SRC/cryptofuzz/fuzzing-headers/include"
 if [[ $CFLAGS = *sanitize=memory* ]]
@@ -87,23 +93,23 @@ then
 fi
 
 # Compile NSS
-if [[ $CFLAGS != *-m32* ]]
-then
-    mkdir $SRC/nss-nspr
-    mv $SRC/nss $SRC/nss-nspr/
-    mv $SRC/nspr $SRC/nss-nspr/
-    cd $SRC/nss-nspr/
-
-    CXX="$CXX -stdlib=libc++" LDFLAGS="$CFLAGS" nss/build.sh --enable-fips --static --disable-tests --fuzz=oss
-
-    export NSS_NSPR_PATH=$(realpath $SRC/nss-nspr/)
-    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NSS"
-    export LINK_FLAGS="$LINK_FLAGS -lsqlite3"
-
-    # Compile Cryptofuzz NSS module
-    cd $SRC/cryptofuzz/modules/nss
-    make -B
-fi
+#if [[ $CFLAGS != *-m32* ]]
+#then
+#    mkdir $SRC/nss-nspr
+#    mv $SRC/nss $SRC/nss-nspr/
+#    mv $SRC/nspr $SRC/nss-nspr/
+#    cd $SRC/nss-nspr/
+#
+#    CXX="$CXX -stdlib=libc++" LDFLAGS="$CFLAGS" nss/build.sh --enable-fips --static --disable-tests --fuzz=oss
+#
+#    export NSS_NSPR_PATH=$(realpath $SRC/nss-nspr/)
+#    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NSS"
+#    export LINK_FLAGS="$LINK_FLAGS -lsqlite3"
+#
+#    # Compile Cryptofuzz NSS module
+#    cd $SRC/cryptofuzz/modules/nss
+#    make -B
+#fi
 
 # Compile Monocypher
 cd $SRC/Monocypher/
@@ -141,53 +147,93 @@ then
     make -B
 fi
 
-# Compile SymCrypt
-cd $SRC/SymCrypt/
-if [[ $CFLAGS != *sanitize=array-bounds* ]]
+## Build blst
+#cd $SRC/blst/
+## Patch to disable assembly
+## This is to prevent false positives, see:
+## https://github.com/google/oss-fuzz/issues/5914
+#touch new_no_asm.h
+#echo "#if LIMB_T_BITS==32" >>new_no_asm.h
+#echo "typedef unsigned long long llimb_t;" >>new_no_asm.h
+#echo "#else" >>new_no_asm.h
+#echo "typedef __uint128_t llimb_t;" >>new_no_asm.h
+#echo "#endif" >>new_no_asm.h
+#cat src/no_asm.h >>new_no_asm.h
+#mv new_no_asm.h src/no_asm.h
+#CFLAGS="$CFLAGS -D__BLST_NO_ASM__ -D__BLST_PORTABLE__" ./build.sh
+#export BLST_LIBBLST_A_PATH=$(realpath libblst.a)
+#export BLST_INCLUDE_PATH=$(realpath bindings/)
+#export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_BLST"
+#
+## Compile Cryptofuzz blst module
+#cd $SRC/cryptofuzz/modules/blst/
+#make -B -j$(nproc)
+
+# Build libsecp256k1
+cd $SRC/secp256k1/
+autoreconf -ivf
+export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_SECP256K1"
+if [[ $CFLAGS = *sanitize=memory* ]]
 then
-    # Unittests don't build with clang and are not needed anyway
-    sed -i "s/^add_subdirectory(unittest)$//g" CMakeLists.txt
+    ./configure --enable-static --disable-tests --disable-benchmark --disable-exhaustive-tests --enable-module-recovery --enable-experimental --enable-module-schnorrsig --enable-module-ecdh --with-asm=no
+else
+    ./configure --enable-static --disable-tests --disable-benchmark --disable-exhaustive-tests --enable-module-recovery --enable-experimental --enable-module-schnorrsig --enable-module-ecdh
+fi
+make
+export SECP256K1_INCLUDE_PATH=$(realpath .)
+export LIBSECP256K1_A_PATH=$(realpath .libs/libsecp256k1.a)
 
-    mkdir b/
-    cd b/
-    cmake ../
-    make -j$(nproc)
+# Compile Cryptofuzz libsecp256k1 module
+cd $SRC/cryptofuzz/modules/secp256k1/
+make -B -j$(nproc)
 
-    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_SYMCRYPT"
-    export SYMCRYPT_INCLUDE_PATH=$(realpath ../inc/)
-    export LIBSYMCRYPT_COMMON_A_PATH=$(realpath lib/x86_64/Generic/libsymcrypt_common.a)
-    export SYMCRYPT_GENERIC_A_PATH=$(realpath lib/x86_64/Generic/symcrypt_generic.a)
+if [[ $CFLAGS != *sanitize=memory* && $CFLAGS != *-m32* ]]
+then
+    # noble-secp256k1
+    cd $SRC/cryptofuzz/modules/noble-secp256k1/
+    export NOBLE_SECP256K1_PATH="$SRC/noble-secp256k1/index.js"
+    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NOBLE_SECP256K1"
+    make -B
 
-    # Compile Cryptofuzz SymCrypt module
-    cd $SRC/cryptofuzz/modules/symcrypt
+    # noble-bls12-381
+    cd $SRC/noble-bls12-381/
+    cp math.ts new_index.ts
+    $(awk '/^export/ {print "tail -n +"FNR+1" index.ts"; exit}' index.ts) >>new_index.ts
+    mv new_index.ts index.ts
+    npm install && npm run build
+    export NOBLE_BLS12_381_PATH=$(realpath index.js)
+    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NOBLE_BLS12_381"
+    cd $SRC/cryptofuzz/modules/noble-bls12-381/
+    make -B
+
+    # noble-ed25519
+    cd $SRC/cryptofuzz/modules/noble-ed25519/
+    export NOBLE_ED25519_PATH="$SRC/noble-ed25519/index.js"
+    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NOBLE_ED25519"
     make -B
 fi
 
-# Compile Nettle
-mkdir $SRC/nettle-install/
-cd $SRC/nettle/
-bash .bootstrap
-if [[ $CFLAGS != *sanitize=memory* ]]
-then
-    ./configure --disable-documentation --disable-openssl --prefix=`realpath ../nettle-install`
-else
-    ./configure --disable-documentation --disable-openssl --disable-assembler --prefix=`realpath ../nettle-install`
-fi
-make -j$(nproc)
-make install
-if [[ $CFLAGS != *-m32* ]]
-then
-export LIBNETTLE_A_PATH=`realpath ../nettle-install/lib/libnettle.a`
-export LIBHOGWEED_A_PATH=`realpath ../nettle-install/lib/libhogweed.a`
-else
-export LIBNETTLE_A_PATH=`realpath ../nettle-install/lib32/libnettle.a`
-export LIBHOGWEED_A_PATH=`realpath ../nettle-install/lib32/libhogweed.a`
-fi
-export NETTLE_INCLUDE_PATH=`realpath ../nettle-install/include`
-export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NETTLE"
-# Compile Cryptofuzz Nettle module
-cd $SRC/cryptofuzz/modules/nettle
-make -B
+## Compile SymCrypt
+#cd $SRC/SymCrypt/
+#if [[ $CFLAGS != *sanitize=array-bounds* ]]
+#then
+#    # Unittests don't build with clang and are not needed anyway
+#    sed -i "s/^add_subdirectory(unittest)$//g" CMakeLists.txt
+#
+#    mkdir b/
+#    cd b/
+#    cmake ../
+#    make -j$(nproc)
+#
+#    export CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_SYMCRYPT"
+#    export SYMCRYPT_INCLUDE_PATH=$(realpath ../inc/)
+#    export LIBSYMCRYPT_COMMON_A_PATH=$(realpath lib/x86_64/Generic/libsymcrypt_common.a)
+#    export SYMCRYPT_GENERIC_A_PATH=$(realpath lib/x86_64/Generic/symcrypt_generic.a)
+#
+#    # Compile Cryptofuzz SymCrypt module
+#    cd $SRC/cryptofuzz/modules/symcrypt
+#    make -B
+#fi
 
 # Compile libgmp
 if [[ $CFLAGS != *sanitize=memory* ]]
@@ -211,8 +257,8 @@ fi
 
 # Compile mpdecimal
 cd $SRC/
-tar zxf mpdecimal-2.5.0.tar.gz
-cd mpdecimal-2.5.0/
+tar zxf mpdecimal-2.5.1.tar.gz
+cd mpdecimal-2.5.1/
 ./configure
 cd libmpdec/
 make libmpdec.a -j$(nproc)
@@ -403,27 +449,27 @@ then
     make -B
 fi
 
-if [[ $CFLAGS != *-m32* ]]
-then
-    # Compile Cryptofuzz (NSS-based)
-    cd $SRC/cryptofuzz
-    LIBFUZZER_LINK="$LIB_FUZZING_ENGINE" CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NO_OPENSSL $INCLUDE_PATH_FLAGS" make -B -j$(nproc)
-
-    # Generate dictionary
-    ./generate_dict
-
-    # Copy fuzzer
-    cp $SRC/cryptofuzz/cryptofuzz $OUT/cryptofuzz-nss
-    # Copy dictionary
-    cp $SRC/cryptofuzz/cryptofuzz-dict.txt $OUT/cryptofuzz-nss.dict
-    # Copy seed corpus
-    cp $SRC/cryptofuzz-corpora/libressl_latest.zip $OUT/cryptofuzz-nss_seed_corpus.zip
-
-    rm $SRC/cryptofuzz/modules/nss/module.a
-
-    CXXFLAGS=${CXXFLAGS//"-DCRYPTOFUZZ_NSS"/}
-    LINK_FLAGS=${LINK_FLAGS//"-lsqlite3"/}
-fi
+#if [[ $CFLAGS != *-m32* ]]
+#then
+#    # Compile Cryptofuzz (NSS-based)
+#    cd $SRC/cryptofuzz
+#    LIBFUZZER_LINK="$LIB_FUZZING_ENGINE" CXXFLAGS="$CXXFLAGS -DCRYPTOFUZZ_NO_OPENSSL $INCLUDE_PATH_FLAGS" make -B -j$(nproc)
+#
+#    # Generate dictionary
+#    ./generate_dict
+#
+#    # Copy fuzzer
+#    cp $SRC/cryptofuzz/cryptofuzz $OUT/cryptofuzz-nss
+#    # Copy dictionary
+#    cp $SRC/cryptofuzz/cryptofuzz-dict.txt $OUT/cryptofuzz-nss.dict
+#    # Copy seed corpus
+#    cp $SRC/cryptofuzz-corpora/libressl_latest.zip $OUT/cryptofuzz-nss_seed_corpus.zip
+#
+#    rm $SRC/cryptofuzz/modules/nss/module.a
+#
+#    CXXFLAGS=${CXXFLAGS//"-DCRYPTOFUZZ_NSS"/}
+#    LINK_FLAGS=${LINK_FLAGS//"-lsqlite3"/}
+#fi
 
 if [[ $CFLAGS != *sanitize=memory* ]]
 then

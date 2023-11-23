@@ -30,7 +30,6 @@ abstract class FlickerSubject(
     protected val fm: FailureMetadata,
     data: Any?
 ) : Subject(fm, data) {
-    abstract fun clone(): FlickerSubject
     @VisibleForTesting
     abstract val timestamp: Long
     protected abstract val parent: FlickerSubject?

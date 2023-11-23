@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"确定"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"没有任何关于手机机主的信息"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"如果这是您的手机，请点按铅笔图标，添加相应的信息，以备紧急时使用"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"手机解锁后，点按铅笔图标即可添加要显示在此处的急救信息"</string>
     <string name="clear_all" msgid="8899013032870561633">"全部清除"</string>
     <string name="clear" msgid="3648880442502887163">"清除"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有信息和联系人吗？"</string>

@@ -111,6 +111,11 @@ abstract class BaseDeviceOwnerTest extends BaseDevicePolicyTest {
         executeShellCommand("setprop %s '%s'", PROPERTY_STOP_BG_USERS_ON_SWITCH, value);
     }
 
+    protected boolean isPackageInstalledForUser(String packageName, int userId) throws Exception {
+        String result = executeShellCommand("pm list packages --user %d %s", userId, packageName);
+        return result != null && !result.isEmpty();
+    }
+
     private void executeDeviceOwnerPackageTestMethod(String className, String testName,
             int userId) throws Exception {
         runDeviceTestsAsUser(DEVICE_OWNER_PKG, className, testName, userId);

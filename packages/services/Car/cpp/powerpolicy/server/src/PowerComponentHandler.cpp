@@ -21,12 +21,14 @@
 
 #include <android-base/file.h>
 #include <android-base/stringprintf.h>
-#include <binder/Enums.h>
 
 namespace android {
 namespace frameworks {
 namespace automotive {
 namespace powerpolicy {
+
+using ::aidl::android::frameworks::automotive::powerpolicy::CarPowerPolicy;
+using ::aidl::android::frameworks::automotive::powerpolicy::PowerComponent;
 
 using ::android::base::Error;
 using ::android::base::Result;
@@ -36,7 +38,7 @@ using ::android::base::WriteStringToFd;
 void PowerComponentHandler::init() {
     Mutex::Autolock lock(mMutex);
     mAccumulatedPolicy = std::make_shared<CarPowerPolicy>();
-    for (const auto componentId : enum_range<PowerComponent>()) {
+    for (const auto componentId : ::ndk::enum_range<PowerComponent>()) {
         mAccumulatedPolicy->disabledComponents.push_back(componentId);
     }
 }

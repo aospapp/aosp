@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,15 @@ final class Config {
     @GuardedBy("mLock")
     private String mUploadDestination = null;
 
-    void start() {
+    static Config create() {
+        Config config = new Config();
+        config.start();
+        return config;
+    }
+
+    private Config() {}
+
+    private void start() {
         DeviceConfig.addOnPropertiesChangedListener(NAMESPACE_CAR,
                 ActivityThread.currentApplication().getMainExecutor(), this::onPropertiesChanged);
         updateConstants();

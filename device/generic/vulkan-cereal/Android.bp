@@ -76,6 +76,7 @@ cc_library_headers {
 cc_defaults {
     name: "gfxstream_defaults",
     cflags: ["-D_FILE_OFFSET_BITS=64",
+             "-DVIRGL_RENDERER_UNSTABLE_APIS",
              "-Wno-unreachable-code-loop-increment",
              "-Wno-unused-parameter",
              "-Wno-unused-function",

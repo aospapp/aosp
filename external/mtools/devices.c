@@ -28,11 +28,15 @@
 
 #define INIT_NOOP
 
-#define DEF_ARG1(x) (x), 0x2,0,(char *)0, 0, 0
+#define DEF_ARG1(x) (x), 0x2,0,(char *)0, 0, 0, 0, 0, 0, 0, NULL
 #define DEF_ARG0(x) 0,DEF_ARG1(x)
 
 #define MDEF_ARG 0L,DEF_ARG0(MFORMAT_ONLY_FLAG)
 #define FDEF_ARG 0L,DEF_ARG0(0)
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-macros"
+
 #define VOLD_DEF_ARG 0L,DEF_ARG0(VOLD_FLAG|MFORMAT_ONLY_FLAG)
 
 #define MED312	12,0,80,2,36,0,MDEF_ARG /* 3 1/2 extra density */
@@ -66,7 +70,9 @@
 #define ZIP(x)	 ZIPJAZ(x,96, 64, 32, 0)
 #define RZIP(x)	 ZIPJAZ(x,96, 64, 32, SCSI_FLAG|PRIV_FLAG)
 
-#define REMOTE    {"$DISPLAY", 'X', 0,0, 0,0, 0,0,0L, DEF_ARG0(FLOPPYD_FLAG),0,0}
+#pragma GCC diagnostic pop
+
+#define REMOTE    {"$DISPLAY", 'X', 0,0, 0,0, 0,0,0L, DEF_ARG0(FLOPPYD_FLAG)}
 
 
 
@@ -170,7 +176,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 		perror("FLOPPY_GET_GEOMETRY");
 		return(1);
 	}
-	
+
 	return 0;
 }
 
@@ -180,21 +186,21 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SECTSIZE(floppy) floppy.fg.sector_size
 #define FD_SET_SECTSIZE(floppy,v) { floppy.fg.sector_size = v; }
 
-static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
+static inline int set_parameters(int fd, struct generic_floppy_struct *floppy,
 				 struct MT_STAT *buf)
 {
 	if (ioctl(fd, FLOPPY_SET_GEOMETRY, &(floppy->fg)) != 0) {
 		perror("");
 		return(1);
 	}
-	
+
 	return 0;
 }
 #define INIT_GENERIC
 #endif
 
 #endif /* hpux */
- 
+
 
 #if (defined(OS_sinix) || defined(VENDOR_sni) || defined(SNI))
 #define predefined_devices
@@ -314,7 +320,7 @@ struct device devices[] = {
 };
 #endif /* aix */
 
-  
+
 #ifdef OS_osf4
 /* modified by Chris Samuel <chris@rivers.dra.hmg.gb> */
 #define predefined_devices
@@ -330,14 +336,14 @@ struct device devices[] = {
 #ifdef USING_NEW_VOLD
 
 char *alias_name = NULL;
-  
+
 extern char *media_oldaliases(char *);
 extern char *media_findname(char *);
 
 char *getVoldName(struct device *dev, char *name)
 {
 	char *rname;
-  
+
 	if(!SHOULD_USE_VOLD(dev))
 		return name;
 
@@ -353,8 +359,8 @@ char *getVoldName(struct device *dev, char *name)
 	}
 #endif
 	if (rname == NULL) {
-		fprintf(stderr, 
-				"No such volume or no media in device: %s.\n", 
+		fprintf(stderr,
+				"No such volume or no media in device: %s.\n",
 				name);
 		exit(1);
 	}
@@ -380,6 +386,7 @@ struct device devices[] = {
 
 
 
+#ifdef HAVE_SYS_FDIO_H
 /*
  * Ofer Licht <ofer@stat.Berkeley.EDU>, May 14, 1997.
  */
@@ -414,8 +421,8 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SECTSIZE(floppy) floppy.fdchar.fdc_sec_size
 #define FD_SET_SECTSIZE(floppy,v) { floppy.fdchar.fdc_sec_size = v; }
 
-static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
-				 struct MT_STAT *buf)
+static inline int set_parameters(int fd, struct generic_floppy_struct *floppy,
+				 struct MT_STAT *buf UNUSEDP)
 {
 	if (ioctl(fd, FDIOSCHAR, &(floppy->fdchar)) != 0) {
 		ioctl(fd, FDEJECT, NULL);
@@ -424,7 +431,7 @@ static inline int set_parameters(int fd, struct generic_floppy_struct *floppy,
 	}
 	return 0;
 }
-#define INIT_GENERIC
+#endif
 #endif /* solaris */
 
 #ifdef OS_sunos3
@@ -490,7 +497,7 @@ struct device devices[] = {
 /*
  * Stuffing back the floppy parameters into the driver allows for gems
  * like 10 sector or single sided floppies from Atari ST systems.
- * 
+ *
  * Martin Schulz, Universite de Moncton, N.B., Canada, March 11, 1991.
  */
 
@@ -512,7 +519,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 		ioctl(fd, FDKEJECT, NULL);
 		return(1);
 	}
-	
+
 	if (ioctl(fd, FDKIOGCHAR, &( floppy->dkbuf)) != 0) {
 		perror("");
 		ioctl(fd, FDKEJECT, NULL);
@@ -528,7 +535,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SECTSIZE(floppy) floppy.dkbuf.sec_size
 #define FD_SET_SECTSIZE(floppy,v) { floppy.dkbuf.sec_size = v; }
 
-static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
+static inline int set_parameters(int fd, struct generic_floppy_struct *floppy,
 				 struct MT_STAT *buf)
 {
 	if (ioctl(fd, FDKIOSCHAR, &(floppy->dkbuf)) != 0) {
@@ -536,7 +543,7 @@ static inline int set_parameters(int fd, struct generic_floppy_struct *floppy,
 		perror("");
 		return(1);
 	}
-	
+
 	if (ioctl(fd, ( unsigned int) DKIOCSPART, &(floppy->dkmap)) != 0) {
 		ioctl(fd, FDKEJECT, NULL);
 		perror("");
@@ -611,15 +618,15 @@ static __inline__ void print_message(RawRequest_t *raw_cmd,const char *message)
 
 	fprintf(stderr,"   ");
 	for (i=0; i< raw_cmd->cmd_count; i++)
-		fprintf(stderr,"%2.2x ", 
+		fprintf(stderr,"%2.2x ",
 			(int)raw_cmd->cmd[i] );
 	fprintf(stderr,"\n");
 	for (i=0; i< raw_cmd->reply_count; i++)
 		fprintf(stderr,"%2.2x ",
 			(int)raw_cmd->reply[i] );
 	fprintf(stderr,"\n");
-	code = (raw_cmd->reply[0] <<16) + 
-		(raw_cmd->reply[1] << 8) + 
+	code = (raw_cmd->reply[0] <<16) +
+		(raw_cmd->reply[1] << 8) +
 		raw_cmd->reply[2];
 	for(i=0; i<22; i++){
 		if ((code & (1 << i)) && error_msg[i])
@@ -641,7 +648,7 @@ int send_one_cmd(int fd, RawRequest_t *raw_cmd, const char *message)
 		if (raw_cmd->reply_count < 7) {
 			fprintf(stderr,"Short reply from FDC\n");
 			return -1;
-		}		
+		}
 		return 0;
 	}
 
@@ -673,10 +680,10 @@ int send_one_cmd(int fd, RawRequest_t *raw_cmd, const char *message)
 
 int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 {
-	
+
 	if(raw_cmd->reply_count == 7) {
 		int end;
-		
+
 		if (raw_cmd->reply[3] != raw_cmd->cmd[2]) {
 			/* end of cylinder */
 			end = raw_cmd->cmd[6] + 1;
@@ -688,7 +695,7 @@ int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 		/* FIXME: over/under run */
 		*bytes = *bytes << (7 + raw_cmd->cmd[5]);
 	} else
-		*bytes = 0;       
+		*bytes = 0;
 
 	switch(raw_cmd->reply[0] & 0xc0){
 		case 0x40:
@@ -720,7 +727,7 @@ int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 			return -1;
 		default:
 			break;
-	}	
+	}
 #ifdef FD_RAW_MORE
 	if(raw_cmd->flags & FD_RAW_MORE)
 		return 1;
@@ -730,19 +737,19 @@ int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/fd0", 'A', 0, 0, 80,2, 18,0, MDEF_ARG, 0, 0},
-	{"/dev/fd1", 'B', 0, 0, 0,0, 0,0, FDEF_ARG, 0, 0},
+	{"/dev/fd0", 'A', 0, 0, 80,2, 18,0, MDEF_ARG },
+	{"/dev/fd1", 'B', 0, 0, 0,0, 0,0, FDEF_ARG },
 	/* we assume that the Zip or Jaz drive is the second on the SCSI bus */
-	{"/dev/sdb4",'J', GENHD, 0, 0 },
-	{"/dev/sdb4",'Z', GENHD, 0, 0 },
-	/*	{"/dev/sda4",'D', GENHD, 0, 0 },*/
+	{"/dev/sdb4",'J', GENHD },
+	{"/dev/sdb4",'Z', GENHD },
+	/*	{"/dev/sda4",'D', GENHD },*/
 	REMOTE
 };
 
 /*
  * Stuffing back the floppy parameters into the driver allows for gems
  * like 21 sector or single sided floppies from Atari ST systems.
- * 
+ *
  * Alain Knaff, Université Joseph Fourier, France, November 12, 1993.
  */
 
@@ -758,31 +765,32 @@ struct device devices[] = {
 #define USE_2M(floppy) ((floppy.rate & FD_2M) ? 0xff : 0x80 )
 #define SSIZE(floppy) ((((floppy.rate & 0x38) >> 3 ) + 2) % 8)
 
-static __inline__ void set_2m(struct floppy_struct *floppy, int value)
+static __inline__ void set_2m(struct floppy_struct *floppy, unsigned int value)
 {
+	uint8_t v;
 	if (value & 0x7f)
-		value = FD_2M;
+		v = FD_2M;
 	else
-		value = 0;
-	floppy->rate = (floppy->rate & ~FD_2M) | value;
+		v = 0;
+	floppy->rate = (floppy->rate & ~FD_2M) | v;
 }
 #define SET_2M set_2m
 
 static __inline__ void set_ssize(struct floppy_struct *floppy, int value)
 {
-	value = (( (value & 7) + 6 ) % 8) << 3;
+	uint8_t v = (uint8_t) ((( (value & 7) + 6 ) % 8) << 3);
 
-	floppy->rate = (floppy->rate & ~0x38) | value;
+	floppy->rate = (floppy->rate & ~0x38) | v;
 }
 
 #define SET_SSIZE set_ssize
 
-static __inline__ int set_parameters(int fd, struct floppy_struct *floppy, 
+static __inline__ int set_parameters(int fd, struct floppy_struct *floppy,
 				     struct MT_STAT *buf)
 {
 	if ( ( MINOR(buf->st_rdev ) & 0x7f ) > 3 )
 		return 1;
-	
+
 	return ioctl(fd, FDSETPRM, floppy);
 }
 
@@ -790,6 +798,86 @@ static __inline__ int get_parameters(int fd, struct floppy_struct *floppy)
 {
 	return ioctl(fd, FDGETPRM, floppy);
 }
+
+#include "linux/hdreg.h"
+#include "linux/fs.h"
+
+static uint32_t ulong_to_sectors(unsigned long raw_sect) {
+	/* Number of sectors must fit into 32bit value */
+	if (raw_sect > ULONG_MAX) {
+		fprintf(stderr, "Too many sectors for FAT %8lx\n",raw_sect);
+		exit(1);
+	}
+	return (uint32_t) raw_sect;
+}
+
+int get_sector_size(int fd) {
+	int sec_size;
+	if (ioctl(fd, BLKSSZGET, &sec_size) != 0 || sec_size <= 0) {
+		fprintf(stderr, "Could not get sector size of device (%s)",
+			strerror(errno));
+		return -1;
+	}
+
+	/* Cap sector size at 4096 */
+	if(sec_size > 4096)
+		sec_size = 4096;
+	return sec_size;
+}
+
+static int get_block_geom(int fd, struct device *dev) {
+	struct hd_geometry geom;
+	int sec_size;
+	unsigned long size;
+	uint16_t heads=dev->heads;
+	uint16_t sectors=dev->sectors;
+	uint32_t sect_per_track;
+
+	if (ioctl(fd, HDIO_GETGEO, &geom) < 0) {
+		fprintf(stderr, "Could not get geometry of device (%s)",
+			strerror(errno));
+		return -1;
+	}
+
+	if (ioctl(fd, BLKGETSIZE, &size) < 0) {
+		fprintf(stderr, "Could not get size of device (%s)",
+			strerror(errno));
+		return -1;
+	}
+
+	sec_size = get_sector_size(fd);
+	if(sec_size < 0)
+		return -1;
+
+	dev->ssize = 0;
+	while (dev->ssize < 0x7F && (128 << dev->ssize) < sec_size)
+		dev->ssize++;
+
+	if(!heads)
+		heads = geom.heads;
+	if(!sectors)
+		sectors = geom.sectors;
+
+	sect_per_track = heads * sectors;
+	if(!dev->hidden) {
+		uint32_t hidden;
+		hidden = geom.start % sect_per_track;
+		if(hidden && hidden != sectors) {
+			fprintf(stderr,
+				"Hidden (%d) does not match sectors (%d)\n",
+				hidden, sectors);
+			return -1;
+		}
+		dev->hidden = hidden;
+	}
+	dev->heads = heads;
+	dev->sectors = sectors;
+	if(!dev->tracks)
+		dev->tracks = ulong_to_sectors((size + dev->hidden % sect_per_track) / sect_per_track);
+	return 0;
+}
+
+#define HAVE_GET_BLOCK_GEOM
 
 #endif /* linux */
 
@@ -818,7 +906,7 @@ struct device devices[] = {
 	REMOTE
 };
 #endif /* __FreeBSD__ */
- 
+
 /*** /jes -- for ALR 486 DX4/100 ***/
 #if defined(OS_netbsd) || defined(OS_netbsdelf)
 #define predefined_devices
@@ -871,7 +959,7 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 	}
 	if((dev->use_2m & 0x7f) || (dev->ssize & 0x7f))
 		return 1;
-	
+
 	SET_INT(gdbuf.params.cyls,dev->ntracks);
 	SET_INT(gdbuf.params.heads,dev->nheads);
 	SET_INT(gdbuf.params.psectrk,dev->nsect);
@@ -879,7 +967,7 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 	dev->nheads = gdbuf.params.heads;
 	dev->nsect = gdbuf.params.psectrk;
 	dev->use_2m = 0x80;
-	dev->ssize = 0x82;
+	dev->ssize = 0x02;
 
 	gdbuf.params.pseccyl = gdbuf.params.psectrk * gdbuf.params.heads;
 	gdbuf.params.flags = 1;		/* disk type flag */
@@ -967,7 +1055,7 @@ struct device devices[] = {
 #endif
 
 #ifndef SSIZE
-#define SSIZE(x) 0x82
+#define SSIZE(x) 0x02
 #endif
 
 #ifndef SET_2M
@@ -984,52 +1072,63 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 {
 	struct generic_floppy_struct floppy;
 	int change;
-	
-	/* 
+
+#ifdef HAVE_GET_BLOCK_GEOM
+	/**
+	 * Block device which *isn't* a floppy device
+	 */
+	if (S_ISBLK(statbuf->st_mode) &&
+	    major(statbuf->st_rdev) != BLOCK_MAJOR) {
+		get_block_geom(fd, dev);
+		return compare_geom(dev, orig_dev);
+	}
+#endif
+
+	/*
 	 * succeed if we don't have a floppy
 	 * this is the case for dosemu floppy image files for instance
 	 */
-	if (!((S_ISBLK(statbuf->st_mode) && 
+	if (!((S_ISBLK(statbuf->st_mode) &&
 	       major(statbuf->st_rdev) == BLOCK_MAJOR)
 #ifdef CHAR_MAJOR
-	      || (S_ISCHR(statbuf->st_mode) && 
-		  major(statbuf->st_rdev) == CHAR_MAJOR) 
+	      || (S_ISCHR(statbuf->st_mode) &&
+		  major(statbuf->st_rdev) == CHAR_MAJOR)
 #endif
 		))
 		return compare_geom(dev, orig_dev);
-	
+
 	/*
 	 * We first try to get the current floppy parameters from the kernel.
 	 * This allows us to
 	 * 1. get the rate
 	 * 2. skip the parameter setting if the parameters are already o.k.
 	 */
-	
+
 	if (get_parameters( fd, & floppy ) )
-		/* 
+		/*
 		 * autodetection failure.
 		 * This mostly occurs because of an absent or unformatted disks.
 		 *
-		 * It might also occur because of bizarre formats (for example 
+		 * It might also occur because of bizarre formats (for example
 		 * rate 1 on a 3 1/2 disk).
 
-		 * If this is the case, the user should do an explicit 
+		 * If this is the case, the user should do an explicit
 		 * setfdprm before calling mtools
 		 *
-		 * Another cause might be pre-existing wrong parameters. The 
+		 * Another cause might be pre-existing wrong parameters. The
 		 * user should do an setfdprm -c to repair this situation.
 		 *
 		 * ...fail immediately... ( Theoretically, we could try to save
-		 * the situation by trying out all rates, but it would be slow 
+		 * the situation by trying out all rates, but it would be slow
 		 * and awkward)
 		 */
 		return 1;
 
 
-	/* 
+	/*
 	 * if we have already have the correct parameters, keep them.
 	 * the number of tracks doesn't need to match exactly, it may be bigger.
-	 * the number of heads and sectors must match exactly, to avoid 
+	 * the number of heads and sectors must match exactly, to avoid
 	 * miscalculation of the location of a block on the disk
 	 */
 	change = 0;
@@ -1037,15 +1136,15 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 		SECTORS(floppy) = dev->sectors;
 		change = 1;
 	} else
-		dev->sectors = SECTORS(floppy);
+		dev->sectors = (uint16_t) SECTORS(floppy);
 
 	if(compare(dev->heads, HEADS(floppy))){
 		HEADS(floppy) = dev->heads;
 		change = 1;
 	} else
-		dev->heads = HEADS(floppy);
-	 
-	if(compare(dev->tracks, TRACKS(floppy))){
+		dev->heads = (uint16_t) HEADS(floppy);
+
+	if(compare(dev->tracks, (unsigned int) TRACKS(floppy))){
 		TRACKS(floppy) = dev->tracks;
 		change = 1;
 	} else
@@ -1057,7 +1156,7 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 		change = 1;
 	} else
 		dev->use_2m = USE_2M(floppy);
-	
+
 	if( ! (dev->ssize & 0x80) )
 		dev->ssize = 0;
 	if(compare(dev->ssize, SSIZE(floppy) + 128)){
@@ -1077,18 +1176,18 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 #ifdef SECTORS_PER_DISK
 	SECTORS_PER_DISK(floppy) = dev->sectors * dev->heads * dev->tracks;
 #endif
-	
+
 #ifdef STRETCH
 	/* ... and the stretch */
-	if ( dev->tracks > 41 ) 
+	if ( dev->tracks > 41 )
 		STRETCH(floppy) = 0;
 	else
 		STRETCH(floppy) = 1;
 #endif
-	
+
 	return set_parameters( fd, &floppy, statbuf);
 }
-#endif /* INIT_GENERIC */  
+#endif /* INIT_GENERIC */
 
 #ifdef INIT_NOOP
 int init_geom(int fd, struct device *dev, struct device *orig_dev,

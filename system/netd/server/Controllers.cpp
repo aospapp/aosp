@@ -74,9 +74,8 @@ static const std::vector<const char*> FILTER_OUTPUT = {
 };
 
 static const std::vector<const char*> RAW_PREROUTING = {
-        ClatdController::LOCAL_RAW_PREROUTING,
-        BandwidthController::LOCAL_RAW_PREROUTING,
         IdletimerController::LOCAL_RAW_PREROUTING,
+        BandwidthController::LOCAL_RAW_PREROUTING,
         TetherController::LOCAL_RAW_PREROUTING,
 };
 
@@ -192,8 +191,7 @@ void Controllers::createChildChains(IptablesTarget target, const char* table,
 }
 
 Controllers::Controllers()
-    : clatdCtrl(&netCtrl),
-      wakeupCtrl(
+    : wakeupCtrl(
               [this](const WakeupController::ReportArgs& args) {
                   const auto listener = eventReporter.getNetdEventListener();
                   if (listener == nullptr) {
@@ -279,22 +277,15 @@ void Controllers::init() {
     initIptablesRules();
     Stopwatch s;
 
-    clatdCtrl.init();
-    gLog.info("Initializing ClatdController: %" PRId64 "us", s.getTimeAndResetUs());
-
-    netdutils::Status tcStatus = trafficCtrl.start();
-    if (!isOk(tcStatus)) {
-        gLog.error("Failed to start trafficcontroller: (%s)", toString(tcStatus).c_str());
-        gLog.error("CRITICAL: sleeping 60 seconds, netd exiting with failure, crash loop likely!");
-        // The expected reason we get here is a major kernel or other code bug, as such
-        // the probability that things will succeed on restart of netd is pretty small.
-        // So, let's wait a minute to at least try to limit the log spam a little bit.
-        sleep(60);
+    if (int ret = bandwidthCtrl.enableBandwidthControl()) {
+        gLog.error("Failed to initialize BandwidthController (%s)", strerror(-ret));
+        // A failure to init almost definitely means that iptables failed to load
+        // our static ruleset, which then basically means network accounting will not work.
+        // As such simply exit netd.  This may crash loop the system, but by failing
+        // to bootup we will trigger rollback and thus this offers us protection against
+        // a mainline update breaking things.
         exit(1);
     }
-    gLog.info("Initializing traffic control: %" PRId64 "us", s.getTimeAndResetUs());
-
-    bandwidthCtrl.enableBandwidthControl();
     gLog.info("Enabling bandwidth control: %" PRId64 "us", s.getTimeAndResetUs());
 
     if (int ret = RouteController::Init(NetworkController::LOCAL_NET_ID)) {

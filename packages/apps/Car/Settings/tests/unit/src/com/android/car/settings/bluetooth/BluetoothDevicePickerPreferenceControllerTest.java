@@ -19,15 +19,19 @@ package com.android.car.settings.bluetooth;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import static org.testng.Assert.assertThrows;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothUuid;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.ComponentName;
@@ -61,9 +65,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 
@@ -96,6 +103,8 @@ public class BluetoothDevicePickerPreferenceControllerTest {
     private BluetoothDevice mBondedDevice;
     @Mock
     private CachedBluetoothDeviceManager mCachedDeviceManager;
+    @Mock
+    private BluetoothAdapter mMockBluetoothAdapter;
 
     @Before
     @UiThreadTest
@@ -125,9 +134,14 @@ public class BluetoothDevicePickerPreferenceControllerTest {
         when(mUnbondedCachedDevice.compareTo(mBondedCachedDevice)).thenReturn(1);
 
         mSession = ExtendedMockito.mockitoSession()
-                .mockStatic(BluetoothUtils.class, withSettings().lenient())
+                .mockStatic(BluetoothUtils.class)
+                .strictness(Strictness.LENIENT)
                 .startMocking();
         when(BluetoothUtils.getLocalBtManager(mContext)).thenReturn(mLocalBluetoothManager);
+        when(BluetoothUtils.shouldEnableBTScanning(eq(mContext), any())).thenReturn(true);
+        BluetoothManager bluetoothManager = mock(BluetoothManager.class);
+        when(bluetoothManager.getAdapter()).thenReturn(mMockBluetoothAdapter);
+        when(mContext.getSystemService(BluetoothManager.class)).thenReturn(bluetoothManager);
 
         mPreferenceController = new TestBluetoothDevicePickerPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController,
@@ -284,14 +298,16 @@ public class BluetoothDevicePickerPreferenceControllerTest {
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreferenceGroup);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
+        verify(mMockBluetoothAdapter).startDiscovery();
         BluetoothDevicePreference devicePreference =
                 (BluetoothDevicePreference) mPreferenceGroup.getPreference(1);
         when(mUnbondedCachedDevice.startPairing()).thenReturn(false);
-        assertThat(BluetoothAdapter.getDefaultAdapter().isDiscovering()).isTrue();
 
+        Mockito.clearInvocations(mMockBluetoothAdapter);
         devicePreference.performClick();
-
-        assertThat(BluetoothAdapter.getDefaultAdapter().isDiscovering()).isTrue();
+        InOrder inOrder = inOrder(mMockBluetoothAdapter);
+        inOrder.verify(mMockBluetoothAdapter).setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE);
+        inOrder.verify(mMockBluetoothAdapter).startDiscovery();
     }
 
     @Test

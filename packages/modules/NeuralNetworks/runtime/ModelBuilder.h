@@ -17,8 +17,8 @@
 // Class used to build a model through a succession of successive calls
 // to the NN API.
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MODEL_BUILDER_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MODEL_BUILDER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MODEL_BUILDER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MODEL_BUILDER_H
 
 #include <LegacyUtils.h>
 
@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "Memory.h"
+#include "ModelArchHasher.h"
 #include "NeuralNetworks.h"
 
 namespace android {
@@ -64,6 +65,7 @@ class ModelBuilder {
 
     bool hasOEMOperation() const { return mHasOEMOperation; }
     bool hasExtensionOperation() const { return mHasExtensionOperation; }
+    bool hasControlFlow() const { return mHasControlFlow; }
 
     // explicitDeviceList is true if the list of devices was provided explicitly
     // via the ANeuralNetworksModel_createForDevices API (which has certain
@@ -129,7 +131,10 @@ class ModelBuilder {
     // simulateFailureResultCode == ANEURALNETWORKS_NO_ERROR means behave normally.
     int partitionTheWork(const std::vector<std::shared_ptr<Device>>& devices, uint32_t preference,
                          uint32_t priority, const OptionalTimePoint& deadline, ExecutionPlan* plan,
+                         const std::vector<TokenValuePair>& metaData,
                          int simulateFailureResultCode = ANEURALNETWORKS_NO_ERROR) const;
+
+    const uint8_t* getModelArchHash() const;
 
    private:
     // TODO(b/132322449): move partitionTheWork, findBestDeviceForEachOperation,
@@ -181,6 +186,11 @@ class ModelBuilder {
     // Copies the large values to a shared memory, if we have any.
     int copyLargeValuesToSharedMemory();
 
+    // Mark that the model should be simplified during ModelBuilder::makeModel, removing arguments
+    // from operations that already match the default values, dead operands, dead pools, dead
+    // subgraphs, and dead extensions.
+    void simplifyModel();
+
     // The operations of the graph.
     std::vector<Operation> mOperations;
     // The mapping from sorted index to the original index of operations in mOperations.
@@ -198,6 +208,10 @@ class ModelBuilder {
     std::vector<uint32_t> mInputIndexes;
     // The indexes of output operands of the model.
     std::vector<uint32_t> mOutputIndexes;
+    // Whether the model should be simplified during ModelBuilder::makeModel, removing arguments
+    // from operations that already match the default values, dead operands, dead pools, dead
+    // subgraphs, and dead extensions.
+    bool mSimplifyModel = false;
 
     MemoryTracker mMemories;
 
@@ -235,10 +249,16 @@ class ModelBuilder {
     // for validateOperation().
     std::vector<Model::Subgraph> mReferencedSubgraphsForValidation;
 
+    // Does the model contain control flow operands or operations?
+    bool mHasControlFlow = false;
+
+    // Model architecture hash, used for telemetry.
+    uint8_t mModelArchHash[BYTE_SIZE_OF_MODEL_ARCH_HASH];
+
     class ModelMaker;
 };
 
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MODEL_BUILDER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MODEL_BUILDER_H

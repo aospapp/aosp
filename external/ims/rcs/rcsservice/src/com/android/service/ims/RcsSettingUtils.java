@@ -124,9 +124,9 @@ public class RcsSettingUtils {
         }
         try {
             ProvisioningManager manager = ProvisioningManager.createForSubscriptionId(subId);
-            isProvisioned = manager.getProvisioningIntValue(
-                    ProvisioningManager.KEY_EAB_PROVISIONING_STATUS)
-                    == ProvisioningManager.PROVISIONING_VALUE_ENABLED;
+            isProvisioned = manager.getRcsProvisioningStatusForCapability(
+                    ImsRcsManager.CAPABILITY_TYPE_PRESENCE_UCE,
+                    ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
         } catch (Exception e) {
             logger.debug("isEabProvisioned: exception=" + e.getMessage());
         }

@@ -33,6 +33,12 @@ namespace android {
 namespace os {
 namespace statsd {
 
+enum PullErrorCode {
+    PULL_SUCCESS = 0,
+    PULL_FAIL = 1,
+    PULL_DEAD_OBJECT = 2,
+};
+
 class StatsPuller : public virtual RefBase {
 public:
     explicit StatsPuller(const int tagId,
@@ -45,13 +51,14 @@ public:
     // Pulls the most recent data.
     // The data may be served from cache if consecutive pulls come within
     // predefined cooldown time.
-    // Returns true if the pull was successful.
-    // Returns false when
+    // Returns PULL_SUCCESS if the pull was successful.
+    // Returns PULL_DEAD_OBJECT if a dead object exception occurred when making a pull.
+    // Returns PULL_FAIL when
     //   1) the pull fails
     //   2) pull takes longer than mPullTimeoutNs (intrinsic to puller)
     // If a metric wants to make any change to the data, like timestamps, it
     // should make a copy as this data may be shared with multiple metrics.
-    bool Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<LogEvent>>* data);
+    PullErrorCode Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<LogEvent>>* data);
 
     // Clear cache immediately
     int ForceClearCache();
@@ -77,7 +84,7 @@ private:
     mutable std::mutex mLock;
 
     // Real puller impl.
-    virtual bool PullInternal(std::vector<std::shared_ptr<LogEvent>>* data) = 0;
+    virtual PullErrorCode PullInternal(std::vector<std::shared_ptr<LogEvent>>* data) = 0;
 
     bool mHasGoodData = false;
 

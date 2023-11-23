@@ -223,7 +223,7 @@ class ProcSysKernelRandomBootId(KernelProcFileTestBase.KernelProcFileTestBase):
     '''/proc/sys/kernel/random/boot_id generates a random ID each boot.'''
 
     def parse_contents(self, contents):
-        return self.parse_line("{:uuid}", contents, dict(uuid=token_uuid))[0]
+        return self.parse_line("{:uuid}\n", contents, dict(uuid=token_uuid))[0]
 
     def get_path(self):
         return "/proc/sys/kernel/random/boot_id"
@@ -267,24 +267,6 @@ class ProcSchedChildRunsFirst(KernelProcFileTestBase.KernelProcFileTestBase):
         return target_file_utils.IsReadWrite
 
 
-class ProcSchedLatencyNS(KernelProcFileTestBase.KernelProcFileTestBase):
-    '''/proc/sys/kernel/sched_latency_ns is the maximum latency in nanoseconds a
-    task may incur prior to being scheduled.
-    '''
-
-    def parse_contents(self, contents):
-        return self.parse_line("{:d}\n", contents)[0]
-
-    def result_correct(self, result):
-        return result >= 100000 and result <= 1000000000
-
-    def get_path(self):
-        return "/proc/sys/kernel/sched_latency_ns"
-
-    def get_permission_checker(self):
-        return target_file_utils.IsReadWrite
-
-
 class ProcSchedRTPeriodUS(KernelProcFileTestBase.KernelProcFileTestBase):
     '''/proc/sys/kernel/sched_rt_period_us defines the period length used by the
     system-wide RT execution limit in microseconds.
@@ -317,45 +299,6 @@ class ProcSchedRTRuntimeUS(KernelProcFileTestBase.KernelProcFileTestBase):
 
     def get_path(self):
         return "/proc/sys/kernel/sched_rt_runtime_us"
-
-    def get_permission_checker(self):
-        return target_file_utils.IsReadWrite
-
-
-class ProcSchedTunableScaling(KernelProcFileTestBase.KernelProcFileTestBase):
-    '''/proc/sys/kernel/sched_tunable_scaling determines whether
-    sched_latency_ns should be automatically adjusted by the scheduler based on
-    the number of CPUs.
-    '''
-
-    def parse_contents(self, contents):
-        return self.parse_line("{:d}\n", contents)[0]
-
-    def result_correct(self, result):
-        return result >= 0 and result <= 2
-
-    def get_path(self):
-        return "/proc/sys/kernel/sched_tunable_scaling"
-
-    def get_permission_checker(self):
-        return target_file_utils.IsReadWrite
-
-
-class ProcSchedWakeupGranularityNS(
-    KernelProcFileTestBase.KernelProcFileTestBase):
-    '''/proc/sys/kernel/sched_wakeup_granularity_ns defines how much more
-    virtual runtime task A must have than task B in nanoseconds in order for
-    task B to preempt it.
-    '''
-
-    def parse_contents(self, contents):
-        return self.parse_line("{:d}\n", contents)[0]
-
-    def result_correct(self, result):
-        return result >= 0 and result <= 1000000000
-
-    def get_path(self):
-        return "/proc/sys/kernel/sched_wakeup_granularity_ns"
 
     def get_permission_checker(self):
         return target_file_utils.IsReadWrite

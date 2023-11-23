@@ -62,6 +62,18 @@ class HostLink : public HostLinkBase, public NonCopyable {
    * @return true if the message was successfully queued
    */
   bool sendMessage(const MessageToHost *message);
+
+  /**
+   * Sends a metric message to the host.
+   *
+   * @param metricId The ID of the metric being sent.
+   * @param encodedMetric The non-null pointer to the metric being sent.
+   * @param encodedMetricLen The length of the metric in bytes.
+   *
+   * @return true if the data was successfully queued for sending
+   */
+  bool sendMetricLog(uint32_t metricId, const uint8_t *encodedMetric,
+                     size_t encodedMetricLen);
 };
 
 }  // namespace chre

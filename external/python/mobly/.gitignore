@@ -1,0 +1,14 @@
+build/
+.cache/
+dist/
+.DS_Store
+*.egg-info/
+*.egg/
+*.eggs/
+Gemfile.lock
+.jekyll-metadata
+*.pyc
+.pytest_cache/
+.sass-cache
+_site
+.tox/

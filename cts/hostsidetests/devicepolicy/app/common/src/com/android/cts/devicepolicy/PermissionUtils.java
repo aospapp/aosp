@@ -16,6 +16,7 @@
 
 package com.android.cts.devicepolicy;
 
+import static android.Manifest.permission.BODY_SENSORS;
 import static android.Manifest.permission.CAMERA;
 import static android.Manifest.permission.RECORD_AUDIO;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
@@ -110,7 +111,8 @@ public class PermissionUtils {
                 // For some permissions, different buttons may be available.
                 if (LOCATION_PERMISSIONS.contains(permission)
                         || RECORD_AUDIO.equals(permission)
-                        || CAMERA.equals(permission)) {
+                        || CAMERA.equals(permission)
+                        || BODY_SENSORS.equals(permission)) {
                     resNames.add("permission_allow_foreground_only_button");
                     resNames.add("permission_allow_one_time_button");
                 }
@@ -137,34 +139,54 @@ public class PermissionUtils {
     }
 
     public static void checkPermission(String permission, int expected, String packageName) {
-        assertPermission(permission, packageName, getContext().getPackageManager()
-                .checkPermission(permission, packageName), expected);
+        checkPermission(getContext(), permission, expected, packageName);
+    }
+
+    public static void checkPermission(Context context, String permission, int expected,
+            String packageName) {
+        PackageManager pm = context.getPackageManager();
+        Log.d(LOG_TAG, "checkPermission(" + permission + ", " + expected + ", " + packageName
+                + "): " + "using " + pm + " on user " + context.getUser());
+        assertPermission(permission, packageName, pm.checkPermission(permission, packageName),
+                expected);
     }
 
     private static void assertPermission(String permission, String packageName, int actual,
             int expected) {
-        assertWithMessage("Wrong status for permission %s on package %s", permission, packageName)
-                .that(actual).isEqualTo(expected);
+        assertWithMessage("Wrong status for permission %s on package %s (where %s=%s and %s=%s)",
+                permission, packageName,
+                expected, permissionToString(expected), actual, permissionToString(actual))
+                        .that(actual).isEqualTo(expected);
     }
 
     /**
-     * Correctly check a runtime permission. This also works for pre-m apps.
+     * Correctly checks a runtime permission. This also works for pre-{@code M} apps.
      */
     public static void checkPermissionAndAppOps(String permission, int expected, String packageName)
             throws Exception {
-        assertPermission(permission, packageName, checkPermissionAndAppOps(permission, packageName),
-                expected);
+        checkPermissionAndAppOps(getContext(), permission, expected, packageName);
     }
 
-    private static int checkPermissionAndAppOps(String permission, String packageName)
-            throws Exception {
-        PackageInfo packageInfo = getContext().getPackageManager().getPackageInfo(packageName, 0);
-        if (getContext().checkPermission(permission, -1, packageInfo.applicationInfo.uid)
+    /**
+     * Correctly checks a runtime permission. This also works for pre-{@code M} apps.
+     */
+    public static void checkPermissionAndAppOps(Context context, String permission, int expected,
+            String packageName) throws Exception {
+        assertPermission(permission, packageName,
+                checkPermissionAndAppOps(context, permission, packageName), expected);
+    }
+
+    private static int checkPermissionAndAppOps(Context context, String permission,
+            String packageName) throws Exception {
+        Log.d(LOG_TAG, "checkPermissionAndAppOps(): user=" + context.getUser()
+                + ", permission=" + permission + ", packageName=" + packageName);
+        PackageInfo packageInfo = context.getPackageManager().getPackageInfo(packageName, 0);
+        if (context.checkPermission(permission, -1, packageInfo.applicationInfo.uid)
                 == PERMISSION_DENIED) {
             return PERMISSION_DENIED;
         }
 
-        AppOpsManager appOpsManager = getContext().getSystemService(AppOpsManager.class);
+        AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
         if (appOpsManager != null && appOpsManager.noteProxyOpNoThrow(
                 AppOpsManager.permissionToOp(permission), packageName,
                 packageInfo.applicationInfo.uid, null, null)

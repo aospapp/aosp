@@ -42,7 +42,7 @@ import java.util.List;
 public class HSOsuProvidersElementTest extends WifiBaseTest {
     private static final byte[] TEST_OSU_SSID_BYTES = "Test SSID".getBytes(StandardCharsets.UTF_8);
     private static final WifiSsid TEST_OSU_SSID =
-            WifiSsid.createFromByteArray(TEST_OSU_SSID_BYTES);
+            WifiSsid.fromBytes(TEST_OSU_SSID_BYTES);
     private static final List<OsuProviderInfo> TEST_PROVIDER_LIST =
             Arrays.asList(OsuProviderInfoTestUtil.TEST_OSU_PROVIDER_INFO);
 

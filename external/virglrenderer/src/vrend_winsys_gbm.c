@@ -99,16 +99,15 @@ static const struct planar_layout triplanar_yuv_420_layout = {
 
 static const struct format_conversion conversions[] = {
     { GBM_FORMAT_RGB565, VIRGL_FORMAT_B5G6R5_UNORM },
-    { GBM_FORMAT_ARGB8888, VIRGL_FORMAT_B8G8R8A8_UNORM },
-    { GBM_FORMAT_XRGB8888, VIRGL_FORMAT_B8G8R8X8_UNORM },
+    { GBM_FORMAT_ABGR8888, VIRGL_FORMAT_B8G8R8A8_UNORM },
+    { GBM_FORMAT_XBGR8888, VIRGL_FORMAT_B8G8R8X8_UNORM },
+    { GBM_FORMAT_ABGR2101010, VIRGL_FORMAT_R10G10B10A2_UNORM },
     { GBM_FORMAT_ABGR16161616F, VIRGL_FORMAT_R16G16B16A16_FLOAT },
     { GBM_FORMAT_NV12, VIRGL_FORMAT_NV12 },
     { GBM_FORMAT_ABGR8888, VIRGL_FORMAT_R8G8B8A8_UNORM},
     { GBM_FORMAT_XBGR8888, VIRGL_FORMAT_R8G8B8X8_UNORM},
     { GBM_FORMAT_R8, VIRGL_FORMAT_R8_UNORM},
     { GBM_FORMAT_YVU420, VIRGL_FORMAT_YV12},
-    { GBM_FORMAT_ABGR8888, VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED},
-    { GBM_FORMAT_XBGR8888, VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED},
 };
 
 static int rendernode_open(void)
@@ -186,6 +185,7 @@ static const struct planar_layout *layout_from_format(uint32_t format)
    case GBM_FORMAT_XRGB8888:
    case GBM_FORMAT_ABGR8888:
    case GBM_FORMAT_XBGR8888:
+   case GBM_FORMAT_ABGR2101010:
       return &packed_4bpp_layout;
    case GBM_FORMAT_ABGR16161616F:
       return &packed_8bpp_layout;
@@ -268,6 +268,10 @@ struct virgl_gbm *virgl_gbm_init(int fd)
 
    gbm->fd = -1;
    if (fd < 0) {
+#ifdef ENABLE_MINIGBM_ALLOCATION
+      gbm->fd = gbm_get_default_device_fd();
+      if (gbm->fd < 0)
+#endif
       gbm->fd = rendernode_open();
       if (gbm->fd < 0)
          goto out_error;
@@ -281,6 +285,7 @@ struct virgl_gbm *virgl_gbm_init(int fd)
       gbm->device = gbm_create_device(fd);
       if (!gbm->device)
          goto out_error;
+      gbm->fd = fd;
    }
 
    return gbm;
@@ -340,7 +345,7 @@ int virgl_gbm_transfer(struct gbm_bo *bo, uint32_t direction, const struct iovec
    /* XXX remove this and map just the region when single plane and GBM honors the region */
    if (direction == VIRGL_TRANSFER_TO_HOST &&
        !(info->box->x == 0 && info->box->y == 0 &&
-         info->box->width == width && info->box->height == height))
+         info->box->width == (int)width && info->box->height == (int)height))
       map_flags |= GBM_BO_TRANSFER_READ;
 
    void *addr = gbm_bo_map(bo, 0, 0, width, height, map_flags, &host_map_stride0, &map_data);
@@ -435,7 +440,8 @@ uint32_t virgl_gbm_convert_flags(uint32_t virgl_bind_flags)
    if (virgl_bind_flags & VIRGL_BIND_MINIGBM_HW_VIDEO_ENCODER)
       flags |= GBM_BO_USE_HW_VIDEO_ENCODER;
 
-   if ((virgl_bind_flags & VIRGL_BIND_MINIGBM_PROTECTED) == VIRGL_BIND_MINIGBM_PROTECTED) {
+   if ((virgl_bind_flags & VIRGL_BIND_MINIGBM_PROTECTED) ==
+       (uint32_t)VIRGL_BIND_MINIGBM_PROTECTED) {
       flags |= GBM_BO_USE_PROTECTED;
    } else {
       if (virgl_bind_flags & VIRGL_BIND_MINIGBM_SW_READ_OFTEN)

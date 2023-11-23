@@ -36,10 +36,10 @@ package {
 // See: http://go/android-license-faq
 license {
     name: "packages_modules_NeuralNetworks_runtime_license",
+    package_name: "Android Neural Networks API Runtime",
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-Artistic",
         "SPDX-license-identifier-BSD",
         "SPDX-license-identifier-MPL",
         "SPDX-license-identifier-MPL-2.0",
@@ -51,7 +51,7 @@ license {
 
 cc_library_headers {
     name: "libneuralnetworks_headers",
-    host_supported: false,
+    host_supported: true,
     vendor_available: true,
     export_include_dirs: ["include"],
     apex_available: [
@@ -65,19 +65,21 @@ cc_library_headers {
 
 cc_library_headers {
     name: "libneuralnetworks_headers_ndk",
+    host_supported: true,
     export_include_dirs: ["include"],
     sdk_version: "current",
 }
 
 cc_library_headers {
     name: "libneuralnetworks_private_headers",
-    host_supported: false,
+    host_supported: true,
     export_include_dirs: ["."],
 }
 
 cc_defaults {
     name: "libneuralnetworks_defaults",
-    host_supported: false,
+    defaults: ["neuralnetworks_use_latest_utils_hal_aidl"],
+    host_supported: true,
     use_version_lib: true,
     // b/109953668, disable OpenMP
     // openmp: true,
@@ -90,23 +92,35 @@ cc_defaults {
         "ExecutionPlan.cpp",
         "Manager.cpp",
         "Memory.cpp",
+        "ModelArchHasher.cpp",
         "ModelArgumentInfo.cpp",
         "ModelBuilder.cpp",
         "NeuralNetworks.cpp",
+        "ServerFlag.cpp",
+        "Telemetry.cpp",
         "TypeManager.cpp",
     ],
-
     target: {
         android: {
             version_script: "libneuralnetworks.map.txt",
+            generated_sources: ["statslog_neuralnetworks.cpp"],
+            generated_headers: ["statslog_neuralnetworks.h"],
+            export_generated_headers: ["statslog_neuralnetworks.h"],
+            srcs: [
+                "TelemetryStatsd.cpp",
+            ],
             shared_libs: [
-                "liblog",
                 "libnativewindow",
-                "libneuralnetworks_packageinfo",
+                "libstatssocket",
+                "libvndksupport",
+            ],
+            whole_static_libs: [
+                "libprocpartition",
             ],
         },
         host: {
-            shared_libs: [
+            cflags: [
+                "-D__INTRODUCED_IN(n)=",
             ],
         },
     },
@@ -114,9 +128,6 @@ cc_defaults {
     // TODO(pszczepaniak, b/144488395): Use system libnativewindow,
     // this would remove half of dependencies here.
     static_libs: [
-        "android.hardware.common-V2-ndk_platform",
-        "android.hardware.graphics.common-V2-ndk_platform",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "android.hardware.neuralnetworks@1.0",
         "android.hardware.neuralnetworks@1.1",
         "android.hardware.neuralnetworks@1.2",
@@ -137,18 +148,17 @@ cc_defaults {
         "libtextclassifier_hash_static",
         "libutils",
         "neuralnetworks_types",
+        "neuralnetworks_utils_hal_service",
+        "server_configurable_flags",
     ],
 
     stl: "libc++_static",
 
-    whole_static_libs: [
-        "libprocpartition",
-    ],
-
     shared_libs: [
         "libbinder_ndk",
         "libcgrouprc",
-        "libvndksupport",
+        "liblog",
+        "libneuralnetworks_packageinfo",
     ],
 
     header_libs: [
@@ -194,12 +204,33 @@ cc_library_static {
     apex_available: ["//apex_available:platform"],
 }
 
+// Required for tests (b/147158681)
+cc_library_static {
+    name: "libneuralnetworks_static_experimental",
+    defaults: [
+        "libneuralnetworks_defaults",
+        "neuralnetworks_defaults",
+    ],
+    exclude_static_libs: [
+        "libneuralnetworks_common",
+        "neuralnetworks_types",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libneuralnetworks_common_experimental",
+        "neuralnetworks_types_experimental",
+    ],
+    cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
+    apex_available: ["//apex_available:platform"],
+}
+
 cc_library_static {
     name: "libneuralnetworks_cl",
     defaults: [
         "neuralnetworks_cl_defaults",
         "neuralnetworks_defaults",
     ],
+    host_supported: false,
     apex_available: ["//apex_available:platform"],
     // b/109953668, disable OpenMP
     // openmp: true,
@@ -211,9 +242,13 @@ cc_library_static {
         "ExecutionPlan.cpp",
         "Manager.cpp",
         "Memory.cpp",
+        "ModelArchHasher.cpp",
         "ModelArgumentInfo.cpp",
         "ModelBuilder.cpp",
         "NeuralNetworks.cpp",
+        "ServerFlag.cpp",
+        "SupportLibraryDiagnostic.cpp",
+        "Telemetry.cpp",
         "TypeManager.cpp",
     ],
     static_libs: [
@@ -250,4 +285,22 @@ ndk_library {
     symbol_file: "libneuralnetworks.map.txt",
     // Android O-MR1
     first_version: "27",
+}
+
+genrule {
+    name: "statslog_neuralnetworks.h",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_neuralnetworks.h --module neuralnetworks --namespace android,nn,stats",
+    out: [
+        "statslog_neuralnetworks.h",
+    ],
+}
+
+genrule {
+    name: "statslog_neuralnetworks.cpp",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog_neuralnetworks.cpp --module neuralnetworks --namespace android,nn,stats  --importHeader statslog_neuralnetworks.h",
+    out: [
+        "statslog_neuralnetworks.cpp",
+    ],
 }

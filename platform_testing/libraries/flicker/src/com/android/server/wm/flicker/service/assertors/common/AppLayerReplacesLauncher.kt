@@ -38,5 +38,6 @@ class AppLayerReplacesLauncher : AppComponentBaseTest() {
         layerSubject.isVisible(Components.LAUNCHER)
             .then()
             .isVisible(getComponentName(tag, wmSubject))
+            .forAllEntries()
     }
 }

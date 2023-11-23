@@ -31,7 +31,6 @@ import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
 import com.android.managedprovisioning.common.InitializeLayoutConsumerHandler;
 import com.android.managedprovisioning.common.StylerHelper;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity.ProvisioningMode;
 import com.android.managedprovisioning.provisioning.ProvisioningModeWrapperProvider.ProvisioningModeWrapper;
@@ -79,10 +78,8 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
                 ? R.layout.empty_layout
                 : R.layout.provision_layout;
 
-        CustomizationParams customizationParams =
-                CustomizationParams.createInstance(getParams(), activity, getUtils());
         getInitializeLayoutParamsConsumer().initializeLayoutParams(
-                mainLayoutId, /* headerResId= */ null, customizationParams);
+                mainLayoutId, /* headerResId= */ null);
         activity.setTitle(titleResId);
 
         CarSetupWizardLayoutHelper layoutHelper = setupBasicLayout(activity, subLayoutId);

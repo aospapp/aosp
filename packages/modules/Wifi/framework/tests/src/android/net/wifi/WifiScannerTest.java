@@ -48,6 +48,7 @@ import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.internal.util.AsyncChannel;
 import com.android.internal.util.test.BidirectionalAsyncChannelServer;
 import com.android.modules.utils.build.SdkLevel;
 
@@ -263,6 +264,12 @@ public class WifiScannerTest {
         WifiScanner.ScanSettings scanSettings = new WifiScanner.ScanSettings();
         scanSettings.setRnrSetting(WifiScanner.WIFI_RNR_NOT_NEEDED);
         assertEquals(WifiScanner.WIFI_RNR_NOT_NEEDED, scanSettings.getRnrSetting());
+    }
+
+    @Test
+    public void testIsScanning() throws Exception {
+        mWifiScanner.isScanning();
+        verify(mService).isScanning();
     }
 
     /**
@@ -653,5 +660,36 @@ public class WifiScannerTest {
                 WifiScanner.WIFI_BAND_24_GHZ | WifiScanner.WIFI_BAND_5_GHZ, false));
         assertTrue(WifiScanner.isFullBandScan(WifiScanner.WIFI_BAND_BOTH_WITH_DFS, true));
         assertTrue(WifiScanner.isFullBandScan(WifiScanner.WIFI_BAND_BOTH_WITH_DFS, false));
+    }
+
+    /**
+     * Tests creating WifiScanner in multi threads, with async channel disconnects.
+     */
+    @Test
+    public void testWifiScannerConcurrentServiceStart() {
+        WifiScanner wifiScanner = new WifiScanner(
+                mContext, mService, WifiFrameworkInitializer.getInstanceLooper());
+
+        Message.obtain(wifiScanner.getInternalHandler(),
+                AsyncChannel.CMD_CHANNEL_DISCONNECTED, 0).sendToTarget();
+
+        Message.obtain(wifiScanner.getInternalHandler(), WifiScanner.CMD_OP_SUCCEEDED, 0)
+                .sendToTarget();
+
+        Thread thread1 = new Thread(() -> {
+            try {
+                WifiScanner wifiScanner1 = new WifiScanner(
+                        mContext, mService, WifiFrameworkInitializer.getInstanceLooper());
+            }  catch (NullPointerException e) {
+                fail("WifiScanner can't be initialized! " + e);
+            }
+        });
+
+        thread1.start();
+        try {
+            thread1.join();
+        } catch (InterruptedException e) {
+            fail("WifiScanner can't be initialized!" + e);
+        }
     }
 }

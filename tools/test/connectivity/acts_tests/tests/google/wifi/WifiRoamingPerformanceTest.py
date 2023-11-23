@@ -28,6 +28,7 @@ from acts.controllers import iperf_server as ipf
 from acts.controllers.utils_lib import ssh
 from acts.metrics.loggers.blackbox import BlackboxMappedMetricLogger
 from acts_contrib.test_utils.wifi import wifi_performance_test_utils as wputils
+from acts_contrib.test_utils.wifi.wifi_performance_test_utils.bokeh_figure import BokehFigure
 from acts_contrib.test_utils.wifi import wifi_retail_ap as retail_ap
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 
@@ -221,7 +222,7 @@ class WifiRoamingPerformanceTest(base_test.BaseTestClass):
         roam_stats = collections.OrderedDict()
         current_context = context.get_current_context().get_full_output_path()
         for secondary_atten, results_list in results_dict.items():
-            figure = wputils.BokehFigure(title=self.current_test_name,
+            figure = BokehFigure(title=self.current_test_name,
                                          x_label='Time (ms)',
                                          primary_y_label=primary_y_axis,
                                          secondary_y_label='RSSI (dBm)')
@@ -383,7 +384,7 @@ class WifiRoamingPerformanceTest(base_test.BaseTestClass):
             output_file_path: optional path to output file
         """
         if not figure:
-            figure = wputils.BokehFigure(title=self.current_test_name,
+            figure = BokehFigure(title=self.current_test_name,
                                          x_label='Time (ms)',
                                          primary_y_label='RTT (ms)',
                                          secondary_y_label='RSSI (dBm)')
@@ -418,7 +419,7 @@ class WifiRoamingPerformanceTest(base_test.BaseTestClass):
             output_file_path: optional path to output file
         """
         if not figure:
-            figure = wputils.BokehFigure(title=self.current_test_name,
+            figure = BokehFigure(title=self.current_test_name,
                                          x_label='Time (s)',
                                          primary_y_label='Throughput (Mbps)',
                                          secondary_y_label='RSSI (dBm)')

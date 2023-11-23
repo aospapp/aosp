@@ -23,6 +23,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiContext;
 import android.util.Log;
 
 import com.android.modules.utils.build.SdkLevel;

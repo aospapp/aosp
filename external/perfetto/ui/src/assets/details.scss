@@ -21,6 +21,9 @@
     border: 1px solid rgba(0,0,0,0.1);
     border-bottom: none;
     cursor: row-resize;
+    // Disable user selection since this handle is draggable to resize the
+    // bottom panels.
+    user-select: none;
     height: 28px;
     min-height: 28px;
     display: grid;
@@ -35,10 +38,10 @@
       .tab {
         font-family: 'Roboto Condensed', sans-serif;
         color: #3c4b5d;
-        padding: 3px 10px 0px 10px;
+        padding: 3px 10px 0 10px;
         margin-top: 3px;
         font-size: 13px;
-        border-radius: 5px 5px 0px 0px;
+        border-radius: 5px 5px 0 0;
         background-color: hsla(0, 0%, 75%, 1);
         border-top: solid 1px hsla(0, 0%, 75%, 1);
         border-left: solid 1px hsla(0, 0%, 75%, 1);
@@ -98,7 +101,6 @@
   font-family: 'Roboto Condensed', sans-serif;
   font-weight: 300;
   color: #3c4b5d;
-  user-select: text;
 
   .material-icons {
     @include transition(0.3s);
@@ -120,7 +122,7 @@
   .details-panel-heading {
     padding: 10px 0 5px 0;
     position: sticky;
-    top: 0px;
+    top: 0;
     display: flex;
     background: white;
     &.aggregation {
@@ -171,12 +173,12 @@
         width: 50%;
       }
     }
-    &.heap-profile {
+    &.flamegraph-profile {
       display: flex;
       justify-content: space-between;
       align-content: center;
       height: 30px;
-      padding: 0px;
+      padding: 0;
       font-size: 12px;
       * {
         align-self: center;
@@ -193,7 +195,7 @@
         width: fit-content;
         height: 20px;
         padding: 3px;
-        padding-top: 0px;
+        padding-top: 0;
         margin: 2px;
         font-size: 12px;
         opacity: 0.5;
@@ -220,6 +222,14 @@
         justify-self: end;
         margin-right: 10px;
       }
+      .selected {
+        justify-self: end;
+        margin-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 200px;
+      }
     }
   }
 
@@ -228,19 +238,39 @@
     font-size: 14px;
     line-height: 18px;
     width: 100%;
+    // Aggregation panel uses multiple table elements that need to be aligned,
+    // which is done by using fixed table layout.
+    table-layout: fixed;
     word-wrap: break-word;
-    padding: 0px 10px;
+    padding: 0 10px;
     tr:hover {
-      background-color: hsl(214, 22%, 90%);
+      td, th {
+        background-color: hsl(214, 22%, 90%);
+
+        &.no-highlight {
+          background-color: white;
+        }
+      }
     }
     th {
       text-align: left;
       width: 30%;
       font-weight: normal;
+      vertical-align: top;
+    }
+    td.value {
+      white-space: pre-wrap;
+    }
+    td.padding {
+      min-width: 10px;
     }
     .array-index {
       text-align: right;
     }
+  }
+
+  .auto-layout {
+    table-layout: auto;
   }
 
   button {
@@ -370,7 +400,7 @@ table.half-width {
 
   header {
     position: sticky;
-    top: 0px;
+    top: 0;
     z-index: 1;
     background-color: white;
     color: #3c4b5d;

@@ -23,8 +23,15 @@ public class Components extends ComponentsBase {
 
     public static final ComponentName APP_B_FOREGROUND_ACTIVITY =
             component(Components.class, "ForegroundActivity");
+    public static final ComponentName APP_B_START_PENDING_INTENT_ACTIVITY =
+            component(Components.class, "StartPendingIntentActivity");
     public static final ComponentName APP_B_START_PENDING_INTENT_RECEIVER =
             component(Components.class, "StartPendingIntentReceiver");
+
+    /** Extra key constants for {@link #APP_B_START_PENDING_INTENT_ACTIVITY} */
+    public static class StartPendingIntentActivity {
+        public static final String ALLOW_BAL_EXTRA = "ALLOW_BAL_EXTRA";
+    }
 
     /** Extra key constants for {@link #APP_B_START_PENDING_INTENT_RECEIVER} */
     public static class StartPendingIntentReceiver {

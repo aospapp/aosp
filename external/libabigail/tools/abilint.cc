@@ -13,6 +13,7 @@
 /// runs a diff on the two files and expects the result of the diff to
 /// be empty.
 
+#include "config.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -27,6 +28,9 @@
 #include "abg-corpus.h"
 #include "abg-reader.h"
 #include "abg-dwarf-reader.h"
+#ifdef WITH_CTF
+#include "abg-ctf-reader.h"
+#endif
 #include "abg-writer.h"
 #include "abg-suppression.h"
 
@@ -67,6 +71,9 @@ struct options
   bool				read_tu;
   bool				diff;
   bool				noout;
+#ifdef WITH_CTF
+  bool				use_ctf;
+#endif
   std::shared_ptr<char>	di_root_path;
   vector<string>		suppression_paths;
   string			headers_dir;
@@ -78,6 +85,10 @@ struct options
       read_tu(false),
       diff(false),
       noout(false)
+#ifdef WITH_CTF
+    ,
+      use_ctf(false)
+#endif
   {}
 };//end struct options;
 
@@ -90,16 +101,19 @@ display_usage(const string& prog_name, ostream& out)
     << "  --help  display this message\n"
     << "  --version|-v  display program version information and exit\n"
     << "  --debug-info-dir <path> the path under which to look for "
-    << "  --headers-dir|--hd <patch> the path to headers of the elf file\n"
     "debug info for the elf <abi-file>\n"
+    << "  --headers-dir|--hd <path> the path to headers of the elf file\n"
     << "  --header-file|--hf <path> the path to one header of the elf file\n"
-    "debug info for the elf <abi-file>\n"
     << "  --suppressions|--suppr <path> specify a suppression file\n"
     << "  --diff  for xml inputs, perform a text diff between "
     "the input and the memory model saved back to disk\n"
     << "  --noout  do not display anything on stdout\n"
-    << "  --stdin|--  read abi-file content from stdin\n"
-    << "  --tu  expect a single translation unit file\n";
+    << "  --stdin  read abi-file content from stdin\n"
+    << "  --tu  expect a single translation unit file\n"
+#ifdef WITH_CTF
+    << "  --ctf use CTF instead of DWARF in ELF files\n"
+#endif
+    ;
 }
 
 bool
@@ -173,6 +187,10 @@ parse_command_line(int argc, char* argv[], options& opts)
 	  opts.read_from_stdin = true;
 	else if (!strcmp(argv[i], "--tu"))
 	  opts.read_tu = true;
+#ifdef WITH_CTF
+        else if (!strcmp(argv[i], "--ctf"))
+          opts.use_ctf = true;
+#endif
 	else if (!strcmp(argv[i], "--diff"))
 	  opts.diff = true;
 	else if (!strcmp(argv[i], "--noout"))
@@ -187,6 +205,14 @@ parse_command_line(int argc, char* argv[], options& opts)
 
     if (opts.file_path.empty())
       opts.read_from_stdin = true;
+
+    if (opts.read_from_stdin && !opts.file_path.empty())
+    {
+      emit_prefix(argv[0], cout)
+        << "WARNING: The \'--stdin\' option is used. The "
+        << opts.file_path << " will be ignored automatically\n";
+    }
+
     return true;
 }
 
@@ -262,7 +288,8 @@ main(int argc, char* argv[])
   if (opts.display_version)
     {
       emit_prefix(argv[0], cout)
-	<< abigail::tools_utils::get_library_version_string();
+	<< abigail::tools_utils::get_library_version_string()
+	<< "\n";
       return 0;
     }
 
@@ -319,7 +346,7 @@ main(int argc, char* argv[])
       abigail::translation_unit_sptr tu;
       abigail::corpus_sptr corp;
       abigail::corpus_group_sptr group;
-      abigail::dwarf_reader::status s = abigail::dwarf_reader::STATUS_OK;
+      abigail::elf_reader::status s = abigail::elf_reader::STATUS_OK;
       char* di_root_path = 0;
       file_type type = guess_file_type(opts.file_path);
 
@@ -327,7 +354,8 @@ main(int argc, char* argv[])
 	{
 	case abigail::tools_utils::FILE_TYPE_UNKNOWN:
 	  emit_prefix(argv[0], cerr)
-	    << "Unknown file type given in input: " << opts.file_path;
+	    << "Unknown file type given in input: " << opts.file_path
+	    << "\n";
 	  return 1;
 	case abigail::tools_utils::FILE_TYPE_NATIVE_BI:
 	  tu = read_translation_unit_from_file(opts.file_path, env.get());
@@ -338,13 +366,27 @@ main(int argc, char* argv[])
 	    di_root_path = opts.di_root_path.get();
 	    vector<char**> di_roots;
 	    di_roots.push_back(&di_root_path);
-	    abigail::dwarf_reader::read_context_sptr ctxt =
-	      abigail::dwarf_reader::create_read_context(opts.file_path,
-							 di_roots, env.get(),
-							 /*load_all_types=*/false);
-	    assert(ctxt);
-	    set_suppressions(*ctxt, opts);
-	    corp = read_corpus_from_elf(*ctxt, s);
+
+#ifdef WITH_CTF
+            if (opts.use_ctf)
+              {
+                abigail::ctf_reader::read_context_sptr ctxt
+                  = abigail::ctf_reader::create_read_context(opts.file_path,
+                                                             env.get());
+                ABG_ASSERT(ctxt);
+                corp = abigail::ctf_reader::read_corpus(ctxt.get(), s);
+              }
+            else
+#endif
+              {
+                abigail::dwarf_reader::read_context_sptr ctxt =
+                  abigail::dwarf_reader::create_read_context(opts.file_path,
+                                                             di_roots, env.get(),
+                                                             /*load_all_types=*/false);
+                assert(ctxt);
+                set_suppressions(*ctxt, opts);
+                corp = read_corpus_from_elf(*ctxt, s);
+              }
 	  }
 	  break;
 	case abigail::tools_utils::FILE_TYPE_XML_CORPUS:
@@ -383,9 +425,9 @@ main(int argc, char* argv[])
 	{
 	  emit_prefix(argv[0], cerr)
 	    << "failed to read " << opts.file_path << "\n";
-	  if (!(s & abigail::dwarf_reader::STATUS_OK))
+	  if (!(s & abigail::elf_reader::STATUS_OK))
 	    {
-	      if (s & abigail::dwarf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
+	      if (s & abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
 		{
 		  cerr << "could not find the debug info";
 		  if(di_root_path == 0)
@@ -399,7 +441,7 @@ main(int argc, char* argv[])
 		      << "Maybe the root path to the debug "
 		      "information is wrong?\n";
 		}
-	      if (s & abigail::dwarf_reader::STATUS_NO_SYMBOLS_FOUND)
+	      if (s & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
 		emit_prefix(argv[0], cerr)
 		  << "could not find the ELF symbols in the file "
 		  << opts.file_path
@@ -440,11 +482,16 @@ main(int argc, char* argv[])
       else
 	{
 	  if (type == abigail::tools_utils::FILE_TYPE_XML_CORPUS
-	      ||type == abigail::tools_utils::FILE_TYPE_XML_CORPUS_GROUP
+	      || type == abigail::tools_utils::FILE_TYPE_XML_CORPUS_GROUP
 	      || type == abigail::tools_utils::FILE_TYPE_ELF)
 	    {
 	      if (!opts.noout)
-		is_ok = write_corpus(*ctxt, corp, 0);
+		{
+		  if (corp)
+		    is_ok = write_corpus(*ctxt, corp, 0);
+		  else if (group)
+		    is_ok = write_corpus_group(*ctxt, group, 0);
+		}
 	    }
 	}
 

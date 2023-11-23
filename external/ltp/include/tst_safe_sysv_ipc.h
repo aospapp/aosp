@@ -1,18 +1,5 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (c) 2017 Xiao yang <yangx.jy@cn.fujitsu.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_SAFE_SYSV_IPC_H__
@@ -22,6 +9,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 int safe_msgget(const char *file, const int lineno, key_t key, int msgflg);
 #define SAFE_MSGGET(key, msgflg) \
@@ -64,4 +52,21 @@ int safe_shmctl(const char *file, const int lineno, int shmid, int cmd,
 	(shmid) = ((cmd) == IPC_RMID ? -1 : (shmid)); \
 	tst_ret_;})
 
+int safe_semget(const char *file, const int lineno, key_t key, int nsems,
+		int semflg);
+#define SAFE_SEMGET(key, nsems, semflg) \
+	safe_semget(__FILE__, __LINE__, (key), (nsems), (semflg))
+
+int safe_semctl(const char *file, const int lineno, int semid, int semnum,
+		int cmd, ...);
+#define SAFE_SEMCTL(semid, semnum, cmd, ...) ({ \
+	int tst_ret_ = safe_semctl(__FILE__, __LINE__, (semid), (semnum), \
+				(cmd), ##__VA_ARGS__); \
+	(semid) = ((cmd) == IPC_RMID ? -1 : (semid)); \
+	tst_ret_; })
+
+int safe_semop(const char *file, const int lineno, int semid, struct sembuf *sops,
+		size_t nsops);
+#define SAFE_SEMOP(semid, sops, nsops) \
+	safe_semop(__FILE__, __LINE__, (semid), (sops), (nsops))
 #endif /* TST_SAFE_SYSV_IPC_H__ */

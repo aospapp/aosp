@@ -115,7 +115,7 @@ fun Model.findProcess(queryName: String,
                     map { it.slices }.
                     filter { it.isNotEmpty() }.
                     map { it.first().startTime }.
-                    min() ?: throw MissingProcessInfoException(process.id)
+                    minOrNull() ?: throw MissingProcessInfoException(process.id)
 
             if (firstSliceStart in lowerBound..upperBound) {
                 return process
@@ -142,7 +142,7 @@ fun Model.getStartupEvents() : List<StartupEvent> {
             val newProc        = this.findProcess(newProcName, systemServerSlice.startTime, systemServerSlice.endTime)
             val startProcSlice = systemServerProc.findFirstSlice(SLICE_NAME_PROC_START, newProcName, systemServerSlice.startTime, systemServerSlice.endTime)
             val rfdSlice       = systemServerProc.findFirstSliceOrNull(SLICE_NAME_REPORT_FULLY_DRAWN, newProcName, systemServerSlice.startTime)
-            val firstSliceTime = newProc.threads.map { it.slices.firstOrNull()?.startTime ?: Double.POSITIVE_INFINITY }.min()!!
+            val firstSliceTime = newProc.threads.map { it.slices.firstOrNull()?.startTime ?: Double.POSITIVE_INFINITY }.minOrNull()!!
 
             val schedSliceInfo : MutableMap<SchedulingState, Double> = mutableMapOf()
             newProc.threads.first().schedSlices.forEach schedLoop@ { schedSlice ->

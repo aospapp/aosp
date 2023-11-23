@@ -59,12 +59,13 @@
  * @sa tst_fzsync_pair
  */
 
+#include <math.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
-#include <math.h>
-#include <stdlib.h>
-#include <pthread.h>
 #include "tst_atomic.h"
+#include "tst_cpu.h"
 #include "tst_timer.h"
 #include "tst_safe_pthread.h"
 
@@ -180,6 +181,15 @@ struct tst_fzsync_pair {
 	int exec_loop;
 	/** Internal; The second thread or 0 */
 	pthread_t thread_b;
+	/**
+	 * The flag indicates single core machines or not
+	 *
+	 * If running on single core machines, it would take considerable
+	 * amount of time to run fuzzy sync library.
+	 * Thus call sched_yield to give up cpu to decrease the test time.
+	 */
+	bool yield_in_wait;
+
 };
 
 #define CHK(param, low, hi, def) do {					      \
@@ -206,6 +216,9 @@ static void tst_fzsync_pair_init(struct tst_fzsync_pair *pair)
 	CHK(max_dev_ratio, 0, 1, 0.1);
 	CHK(exec_time_p, 0, 1, 0.5);
 	CHK(exec_loops, 20, INT_MAX, 3000000);
+
+	if (tst_ncpus_available() <= 1)
+		pair->yield_in_wait = 1;
 }
 #undef CHK
 
@@ -220,44 +233,11 @@ static void tst_fzsync_pair_cleanup(struct tst_fzsync_pair *pair)
 {
 	if (pair->thread_b) {
 		/* Revoke thread B if parent hits accidental break */
-		if (!pair->exit) {
+		if (!pair->exit)
 			tst_atomic_store(1, &pair->exit);
-			usleep(100000);
-
-/*
- * b/148414662
- * Android does not support pthread_cancel. This mechanism is just used to avoid
- * a timeout in a rare failure case and is not required for proper operation, so
- * just skip it for now (effort will be made upstream to remove the use of
- * pthread_cancel).
- *		pthread_cancel(pair->thread_b);
- */
-		}
 		SAFE_PTHREAD_JOIN(pair->thread_b, NULL);
 		pair->thread_b = 0;
 	}
-}
-
-/** To store the run_b pointer and pass to tst_fzsync_thread_wrapper */
-struct tst_fzsync_run_thread {
-	void *(*func)(void *);
-	void *arg;
-};
-
-/**
- * Wrap run_b for tst_fzsync_pair_reset to enable pthread cancel
- * at the start of the thread B.
- */
-static void *tst_fzsync_thread_wrapper(void *run_thread)
-{
-       struct tst_fzsync_run_thread t = *(struct tst_fzsync_run_thread *)run_thread;
-
-/*
- * See above comment for b/148414662
- *     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
- *     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
- */
-       return t.func(t.arg);
 }
 
 /**
@@ -300,6 +280,7 @@ static void tst_fzsync_pair_reset(struct tst_fzsync_pair *pair,
 	tst_init_stat(&pair->diff_ab);
 	tst_init_stat(&pair->spins_avg);
 	pair->delay = 0;
+	pair->delay_bias = 0;
 	pair->sampling = pair->min_samples;
 
 	pair->exec_loop = 0;
@@ -307,10 +288,8 @@ static void tst_fzsync_pair_reset(struct tst_fzsync_pair *pair,
 	pair->a_cntr = 0;
 	pair->b_cntr = 0;
 	pair->exit = 0;
-	if (run_b) {
-		struct tst_fzsync_run_thread wrap_run_b = {.func = run_b, .arg = NULL};
-		SAFE_PTHREAD_CREATE(&pair->thread_b, 0, tst_fzsync_thread_wrapper, &wrap_run_b);
-	}
+	if (run_b)
+		SAFE_PTHREAD_CREATE(&pair->thread_b, 0, run_b, 0);
 
 	pair->exec_time_start = (float)tst_timeout_remaining();
 }
@@ -519,15 +498,15 @@ static void tst_fzsync_pair_update(struct tst_fzsync_pair *pair)
 		per_spin_time = fabsf(pair->diff_ab.avg) / MAX(pair->spins_avg.avg, 1.0f);
 		time_delay = drand48() * (pair->diff_sa.avg + pair->diff_sb.avg)
 			- pair->diff_sb.avg;
-		pair->delay += (int)(time_delay / per_spin_time);
+		pair->delay += (int)(1.1 * time_delay / per_spin_time);
 
 		if (!pair->sampling) {
 			tst_res(TINFO,
 				"Reached deviation ratios < %.2f, introducing randomness",
 				pair->max_dev_ratio);
-			tst_res(TINFO, "Delay range is [-%d, %d]",
-				(int)(pair->diff_sb.avg / per_spin_time) + pair->delay_bias,
-				(int)(pair->diff_sa.avg / per_spin_time) - pair->delay_bias);
+			tst_res(TINFO, "Delay range is [%d, %d]",
+				-(int)(pair->diff_sb.avg / per_spin_time) + pair->delay_bias,
+				(int)(pair->diff_sa.avg / per_spin_time) + pair->delay_bias);
 			tst_fzsync_pair_info(pair);
 			pair->sampling = -1;
 		}
@@ -547,6 +526,7 @@ static void tst_fzsync_pair_update(struct tst_fzsync_pair *pair)
  * @param our_cntr The counter for the thread we are on
  * @param other_cntr The counter for the thread we are synchronising with
  * @param spins A pointer to the spin counter or NULL
+ * @param exit Exit flag when we need to break out of the wait loop
  *
  * Used by tst_fzsync_pair_wait_a(), tst_fzsync_pair_wait_b(),
  * tst_fzsync_start_race_a(), etc. If the calling thread is ahead of the other
@@ -558,7 +538,9 @@ static void tst_fzsync_pair_update(struct tst_fzsync_pair *pair)
  */
 static inline void tst_fzsync_pair_wait(int *our_cntr,
 					int *other_cntr,
-					int *spins)
+					int *spins,
+					int *exit,
+					bool yield_in_wait)
 {
 	if (tst_atomic_inc(other_cntr) == INT_MAX) {
 		/*
@@ -568,27 +550,59 @@ static inline void tst_fzsync_pair_wait(int *our_cntr,
 		 * line above before doing that. If we are in rear position
 		 * then our counter may already have been set to zero.
 		 */
-		while (tst_atomic_load(our_cntr) > 0
-		       && tst_atomic_load(our_cntr) < INT_MAX) {
-			if (spins)
-				(*spins)++;
+		if (yield_in_wait) {
+			while (tst_atomic_load(our_cntr) > 0
+			       && tst_atomic_load(our_cntr) < INT_MAX
+			       && !tst_atomic_load(exit)) {
+				if (spins)
+					(*spins)++;
+
+				sched_yield();
+			}
+		} else {
+			while (tst_atomic_load(our_cntr) > 0
+			       && tst_atomic_load(our_cntr) < INT_MAX
+			       && !tst_atomic_load(exit)) {
+				if (spins)
+					(*spins)++;
+			}
 		}
+
 
 		tst_atomic_store(0, other_cntr);
 		/*
 		 * Once both counters have been set to zero the invariant
 		 * is restored and we can continue.
 		 */
-		while (tst_atomic_load(our_cntr) > 1)
-			;
+		if (yield_in_wait) {
+			while (tst_atomic_load(our_cntr) > 1
+			       && !tst_atomic_load(exit))
+				sched_yield();
+		} else {
+			while (tst_atomic_load(our_cntr) > 1
+			       && !tst_atomic_load(exit))
+				;
+		}
 	} else {
 		/*
 		 * If our counter is less than the other thread's we are ahead
 		 * of it and need to wait.
 		 */
-		while (tst_atomic_load(our_cntr) < tst_atomic_load(other_cntr)) {
-			if (spins)
-				(*spins)++;
+		if (yield_in_wait) {
+			while (tst_atomic_load(our_cntr) <
+			       tst_atomic_load(other_cntr)
+			       && !tst_atomic_load(exit)) {
+				if (spins)
+					(*spins)++;
+				sched_yield();
+			}
+		} else {
+			while (tst_atomic_load(our_cntr) <
+			       tst_atomic_load(other_cntr)
+			       && !tst_atomic_load(exit)) {
+				if (spins)
+					(*spins)++;
+			}
 		}
 	}
 }
@@ -601,7 +615,8 @@ static inline void tst_fzsync_pair_wait(int *our_cntr,
  */
 static inline void tst_fzsync_wait_a(struct tst_fzsync_pair *pair)
 {
-	tst_fzsync_pair_wait(&pair->a_cntr, &pair->b_cntr, NULL);
+	tst_fzsync_pair_wait(&pair->a_cntr, &pair->b_cntr,
+			     NULL, &pair->exit, pair->yield_in_wait);
 }
 
 /**
@@ -612,7 +627,8 @@ static inline void tst_fzsync_wait_a(struct tst_fzsync_pair *pair)
  */
 static inline void tst_fzsync_wait_b(struct tst_fzsync_pair *pair)
 {
-	tst_fzsync_pair_wait(&pair->b_cntr, &pair->a_cntr, NULL);
+	tst_fzsync_pair_wait(&pair->b_cntr, &pair->a_cntr,
+			     NULL, &pair->exit, pair->yield_in_wait);
 }
 
 /**
@@ -628,7 +644,6 @@ static inline void tst_fzsync_wait_b(struct tst_fzsync_pair *pair)
  */
 static inline int tst_fzsync_run_a(struct tst_fzsync_pair *pair)
 {
-	int exit = 0;
 	float rem_p = 1 - tst_timeout_remaining() / pair->exec_time_start;
 
 	if ((pair->exec_time_p * SAMPLING_SLICE < rem_p)
@@ -643,19 +658,18 @@ static inline int tst_fzsync_run_a(struct tst_fzsync_pair *pair)
 	if (pair->exec_time_p < rem_p) {
 		tst_res(TINFO,
 			"Exceeded execution time, requesting exit");
-		exit = 1;
+		tst_atomic_store(1, &pair->exit);
 	}
 
 	if (++pair->exec_loop > pair->exec_loops) {
 		tst_res(TINFO,
 			"Exceeded execution loops, requesting exit");
-		exit = 1;
+		tst_atomic_store(1, &pair->exit);
 	}
 
-	tst_atomic_store(exit, &pair->exit);
 	tst_fzsync_wait_a(pair);
 
-	if (exit) {
+	if (pair->exit) {
 		tst_fzsync_pair_cleanup(pair);
 		return 0;
 	}
@@ -702,8 +716,15 @@ static inline void tst_fzsync_start_race_a(struct tst_fzsync_pair *pair)
 	tst_fzsync_wait_a(pair);
 
 	delay = pair->delay;
-	while (delay < 0)
-		delay++;
+	if (pair->yield_in_wait) {
+		while (delay < 0) {
+			sched_yield();
+			delay++;
+		}
+	} else {
+		while (delay < 0)
+			delay++;
+	}
 
 	tst_fzsync_time(&pair->a_start);
 }
@@ -717,7 +738,8 @@ static inline void tst_fzsync_start_race_a(struct tst_fzsync_pair *pair)
 static inline void tst_fzsync_end_race_a(struct tst_fzsync_pair *pair)
 {
 	tst_fzsync_time(&pair->a_end);
-	tst_fzsync_pair_wait(&pair->a_cntr, &pair->b_cntr, &pair->spins);
+	tst_fzsync_pair_wait(&pair->a_cntr, &pair->b_cntr,
+			     &pair->spins, &pair->exit, pair->yield_in_wait);
 }
 
 /**
@@ -733,8 +755,15 @@ static inline void tst_fzsync_start_race_b(struct tst_fzsync_pair *pair)
 	tst_fzsync_wait_b(pair);
 
 	delay = pair->delay;
-	while (delay > 0)
-		delay--;
+	if (pair->yield_in_wait) {
+		while (delay > 0) {
+			sched_yield();
+			delay--;
+		}
+	} else {
+		while (delay > 0)
+			delay--;
+	}
 
 	tst_fzsync_time(&pair->b_start);
 }
@@ -748,7 +777,8 @@ static inline void tst_fzsync_start_race_b(struct tst_fzsync_pair *pair)
 static inline void tst_fzsync_end_race_b(struct tst_fzsync_pair *pair)
 {
 	tst_fzsync_time(&pair->b_end);
-	tst_fzsync_pair_wait(&pair->b_cntr, &pair->a_cntr, &pair->spins);
+	tst_fzsync_pair_wait(&pair->b_cntr, &pair->a_cntr,
+			     &pair->spins, &pair->exit, pair->yield_in_wait);
 }
 
 /**

@@ -550,7 +550,7 @@ TEST_F(LibHidlTest, ReturnTest) {
 
     hidl_string one = "1";
     hidl_string two = "2";
-    Return<hidl_string> ret = Return<hidl_string>(Status::fromStatusT(DEAD_OBJECT));
+    const Return<hidl_string> ret = Return<hidl_string>(Status::fromStatusT(DEAD_OBJECT));
 
     EXPECT_EQ(one, Return<hidl_string>(one).withDefault(two));
     EXPECT_EQ(two, ret.withDefault(two));

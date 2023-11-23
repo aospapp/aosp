@@ -40,5 +40,11 @@
         android:summary="@string/phone_settings_unknown_summary_txt"
         android:persistent="false"
         android:defaultValue="false"/>
+    <SwitchPreference
+        android:key="block_unavailable_calls_setting"
+        android:title="@string/phone_settings_unavailable_txt"
+        android:summary="@string/phone_settings_unavailable_summary_txt"
+        android:persistent="false"
+        android:defaultValue="false"/>
     <!--Add divider to separate this enhanced call blocking settings from other settings-->
 </PreferenceScreen>

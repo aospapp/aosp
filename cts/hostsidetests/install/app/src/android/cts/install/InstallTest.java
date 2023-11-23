@@ -104,15 +104,12 @@ public final class InstallTest {
     @Test
     public void assert_commitFailure_phase() {
         Install install = getParameterizedInstall(VERSION_CODE_TARGET);
-        if (mEnableRollback) {
-            InstallUtils.commitExpectingFailure(IllegalArgumentException.class,
-                "Non-staged APEX session doesn't support INSTALL_ENABLE_ROLLBACK", install);
-        } else if (mInstallType.equals(INSTALL_TYPE.SINGLE_APEX)) {
+        if (mInstallType.equals(INSTALL_TYPE.SINGLE_APEX)) {
             InstallUtils.commitExpectingFailure(AssertionError.class,
                 "does not support non-staged update", install);
         } else {
-            InstallUtils.commitExpectingFailure(AssertionError.class,
-                "Non-staged multi package install of APEX and APK packages is not supported",
+            InstallUtils.commitExpectingFailure(IllegalStateException.class,
+                "Mix of APK and APEX is not supported for non-staged multi-package session",
                 install);
         }
     }

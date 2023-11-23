@@ -37,87 +37,12 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "rust_libc_defaults",
-    crate_name: "libc",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2015",
-    features: [
-        "default",
-        "extra_traits",
-        "std",
-    ],
-    cfgs: [
-        "freebsd11",
-        "libc_align",
-        "libc_cfg_target_vendor",
-        "libc_const_size_of",
-        "libc_core_cvoid",
-        "libc_packedN",
-        "libc_priv_mod_use",
-        "libc_union",
-    ],
-}
-
-rust_test_host {
-    name: "libc_host_test_src_lib",
-    defaults: ["rust_libc_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "libc_device_test_src_lib",
-    defaults: ["rust_libc_defaults"],
-}
-
-rust_defaults {
-    name: "rust_libc_defaults_const_fn",
-    crate_name: "const_fn",
-    srcs: ["tests/const_fn.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2015",
-    features: [
-        "default",
-        "extra_traits",
-        "std",
-    ],
-    cfgs: [
-        "freebsd11",
-        "libc_align",
-        "libc_cfg_target_vendor",
-        "libc_const_size_of",
-        "libc_core_cvoid",
-        "libc_packedN",
-        "libc_priv_mod_use",
-        "libc_union",
-    ],
-    rustlibs: [
-        "liblibc",
-    ],
-}
-
-rust_test_host {
-    name: "libc_host_test_tests_const_fn",
-    defaults: ["rust_libc_defaults_const_fn"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "libc_device_test_tests_const_fn",
-    defaults: ["rust_libc_defaults_const_fn"],
-}
-
 rust_library {
     name: "liblibc",
     host_supported: true,
     crate_name: "libc",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.119",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
@@ -131,14 +56,20 @@ rust_library {
         "libc_cfg_target_vendor",
         "libc_const_size_of",
         "libc_core_cvoid",
+        "libc_non_exhaustive",
         "libc_packedN",
         "libc_priv_mod_use",
+        "libc_ptr_addr_of",
         "libc_union",
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }

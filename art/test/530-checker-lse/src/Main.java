@@ -1021,13 +1021,18 @@ public class Main {
 
   /// CHECK-START: int Main.test33(TestClass, boolean) load_store_elimination (after)
   /// CHECK-DAG:                     InstanceFieldSet
-  /// CHECK-DAG:                     Phi
+  /// CHECK-DAG:                     InstanceFieldSet
+  /// CHECK-DAG: <<Phi:i\d+>>        Phi
 
   /// CHECK-START: int Main.test33(TestClass, boolean) load_store_elimination (after)
   /// CHECK:                         InstanceFieldSet
+  /// CHECK:                         InstanceFieldSet
   /// CHECK-NOT:                     InstanceFieldSet
 
-  // Test eliminating non-observable stores.
+  // Test that we are not eliminating the if/else sets to `obj.i`. We have `NullCheck`s on `obj`
+  // when doing `obj.i`. Since `NullCheck` can throw, we save the stores.
+  // The 3rd `obj.i` set is redundant and can be eliminated. It will have the same value and it is
+  // not needed.
   static int test33(TestClass obj, boolean x) {
     int phi;
     if (x) {
@@ -1215,6 +1220,48 @@ public class Main {
       obj.next = new SubTestClass();
     }
     return obj.next.i;
+  }
+
+  private static int test40() {
+    int[] array = new int[1];
+    try {
+      $noinline$fillArrayTest40(array, 100, 0);
+      System.out.println("UNREACHABLE");
+    } catch (Throwable expected) {
+    }
+    assertIntEquals(array[0], 1);
+    try {
+      $noinline$fillArrayTest40(array, 100, 1);
+      System.out.println("UNREACHABLE");
+    } catch (Throwable expected) {
+    }
+    assertIntEquals(array[0], 2);
+    $noinline$fillArrayTest40(array, 100, 2);
+    assertIntEquals(array[0], 150);
+    return array[0];
+  }
+
+  /// CHECK-START: void Main.$noinline$fillArrayTest40(int[], int, int) load_store_elimination (before)
+  /// CHECK:                     ArraySet
+  /// CHECK:                     DivZeroCheck
+  /// CHECK:                     ArraySet
+  /// CHECK:                     DivZeroCheck
+  /// CHECK:                     ArraySet
+
+  /// CHECK-START: void Main.$noinline$fillArrayTest40(int[], int, int) load_store_elimination (after)
+  /// CHECK:                     ArraySet
+  /// CHECK:                     DivZeroCheck
+  /// CHECK:                     ArraySet
+  /// CHECK:                     DivZeroCheck
+  /// CHECK:                     ArraySet
+
+  // Check that the stores to array[0] are not eliminated since we can throw in between the stores.
+  private static void $noinline$fillArrayTest40(int[] array, int a, int b) {
+    array[0] = 1;
+    int x = a / b;
+    array[0] = 2;
+    int y = a / (b - 1);
+    array[0] = x + y;
   }
 
   /// CHECK-START: int Main.$noinline$testConversion1(TestClass, int) load_store_elimination (before)
@@ -1426,6 +1473,56 @@ public class Main {
     System.out.println("testFinalizableByForcingGc() failed to force gc.");
   }
 
+  /// CHECK-START: void Main.testFinalizable() load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: void Main.testFinalizableWithLoop() load_store_elimination (after)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
+
+  // Allocations of finalizable objects cannot be eliminated.
+  static void testFinalizableWithLoop() {
+    for (int i = 0; i < 1000; ++i) {
+      Finalizable finalizable = new Finalizable();
+      finalizable.i = Finalizable.VALUE2;
+      finalizable.i = Finalizable.VALUE1;
+    }
+  }
+
+  static void testFinalizableWithLoopByForcingGc() {
+    testFinalizableWithLoop();
+    java.lang.ref.WeakReference<Object> reference = getWeakReference();
+
+    Runtime runtime = Runtime.getRuntime();
+    for (int i = 0; i < 20; ++i) {
+      runtime.gc();
+      System.runFinalization();
+      try {
+        Thread.sleep(1);
+      } catch (InterruptedException e) {
+        throw new AssertionError(e);
+      }
+
+      // Check to see if the weak reference has been garbage collected.
+      if (reference.get() == null) {
+        // A little bit more sleep time to make sure.
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          throw new AssertionError(e);
+        }
+        if (!Finalizable.sVisited) {
+          System.out.println("finalize() not called.");
+        }
+        return;
+      }
+    }
+    System.out.println("testFinalizableWithLoopByForcingGc() failed to force gc.");
+  }
+
   /// CHECK-START: int Main.$noinline$testHSelect(boolean) load_store_elimination (before)
   /// CHECK: InstanceFieldSet
   /// CHECK: Select
@@ -1605,12 +1702,13 @@ public class Main {
   /// CHECK: InstanceFieldSet
 
   /// CHECK-START: int Main.testStoreStore6(TestClass2, TestClass2) load_store_elimination (after)
-  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
   /// CHECK: InstanceFieldGet
   /// CHECK: InstanceFieldSet
 
   private static int testStoreStore6(TestClass2 obj1, TestClass2 obj2) {
-    obj1.i = 81;      // This store is not needed since obj2.j cannot load from it.
+    obj1.i = 81; // Even though the value in `obj1.i` will be overridden below, this store is needed
+                 // since obj2.j has a NullCheck and can throw.
     int j = obj2.j;
     obj1.i = 82;
     return j;
@@ -1828,10 +1926,10 @@ public class Main {
 
   /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (before)
   /// CHECK-DAG: NewInstance
-  /// CHECK-DAG: InstanceFieldSet
-  /// CHECK-DAG: InstanceFieldGet
+  /// CHECK-DAG: InstanceFieldSet field_name:TestClass.i
+  /// CHECK-DAG: InstanceFieldGet field_name:TestClass.i
   /// CHECK-DAG: Return
-  /// CHECK-DAG: InstanceFieldSet
+  /// CHECK-DAG: InstanceFieldSet field_name:TestClass.i
   /// CHECK-DAG: Throw
 
   /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (after)
@@ -1839,8 +1937,8 @@ public class Main {
   /// CHECK-DAG: Throw
 
   /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (after)
-  /// CHECK-NOT: InstanceFieldSet
-  /// CHECK-NOT: InstanceFieldGet
+  /// CHECK-NOT: InstanceFieldSet field_name:TestClass.i
+  /// CHECK-NOT: InstanceFieldGet field_name:TestClass.i
 
   /// CHECK-START: int Main.testExitMerge(boolean) load_store_elimination (after)
   /// CHECK: NewInstance
@@ -3942,6 +4040,8 @@ public class Main {
   /// CHECK-START: int Main.$noinline$testPartialEscape1(TestClass, boolean) load_store_elimination (after)
   /// CHECK:         InstanceFieldSet
   //
+  // TODO: We should be able to remove this setter by realizing `i` only escapes in a branch.
+  /// CHECK:         InstanceFieldSet
   /// CHECK-NOT:     InstanceFieldSet
   //
   /// CHECK-START: int Main.$noinline$testPartialEscape1(TestClass, boolean) load_store_elimination (after)
@@ -4064,8 +4164,10 @@ public class Main {
     assertIntEquals(test38(new TestClass(), false), 2);
     assertIntEquals(test39(new TestClass(), true), 0);
     assertIntEquals(test39(new TestClass(), false), 1);
+    assertIntEquals(test40(), 150);
 
     testFinalizableByForcingGc();
+    testFinalizableWithLoopByForcingGc();
     assertIntEquals($noinline$testHSelect(true), 0xdead);
     int[] array = {2, 5, 9, -1, -3, 10, 8, 4};
     assertIntEquals(sumWithinRange(array, 1, 5), 11);

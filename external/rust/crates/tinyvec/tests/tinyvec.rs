@@ -385,3 +385,27 @@ fn TinyVec_ser_de_heap() {
     ],
   );
 }
+
+#[test]
+fn TinyVec_pretty_debug() {
+  let tv: TinyVec<[i32; 6]> = tiny_vec![1, 2, 3];
+  let s = format!("{:#?}", tv);
+  let expected = format!("{:#?}", tv.as_slice());
+
+  assert_eq!(s, expected);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn TinyVec_std_io_write() {
+  use std::io::Write;
+  let mut tv: TinyVec<[u8; 3]> = TinyVec::new();
+
+  tv.write_all(b"foo").ok();
+  assert!(tv.is_inline());
+  assert_eq!(tv, tiny_vec![b'f', b'o', b'o']);
+
+  tv.write_all(b"bar").ok();
+  assert!(tv.is_heap());
+  assert_eq!(tv, tiny_vec![b'f', b'o', b'o', b'b', b'a', b'r']);
+}

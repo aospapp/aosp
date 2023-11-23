@@ -21,6 +21,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.provider.Settings;
 
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;

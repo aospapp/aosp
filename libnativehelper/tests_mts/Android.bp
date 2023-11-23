@@ -34,7 +34,7 @@ java_defaults {
     sdk_version: "test_current",
     srcs: ["src/com/android/art/libnativehelper/JniHelpTest.java"],
     test_suites: [
-        "device-tests",
+        "general-tests",
         "mts",
     ],
 }

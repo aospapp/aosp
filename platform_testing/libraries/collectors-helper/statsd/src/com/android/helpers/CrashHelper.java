@@ -66,8 +66,12 @@ public class CrashHelper implements ICollectorHelper<Integer> {
         appCrashResultMap.put(TOTAL_PREFIX + EVENT_NATIVE_CRASH, 0);
         appCrashResultMap.put(TOTAL_PREFIX + EVENT_ANR, 0);
         for (StatsLog.EventMetricData dataItem : eventMetricData) {
-            if (dataItem.atom.hasAppCrashOccurred()) {
-                AtomsProto.AppCrashOccurred appCrashAtom = dataItem.atom.getAppCrashOccurred();
+            AtomsProto.Atom atom = dataItem.atom;
+            if (atom == null) {
+                atom = dataItem.aggregatedAtomInfo.atom;
+            }
+            if (atom.hasAppCrashOccurred()) {
+                AtomsProto.AppCrashOccurred appCrashAtom = atom.getAppCrashOccurred();
                 String eventType = appCrashAtom.eventType;
                 String pkgName = appCrashAtom.packageName;
                 int foregroundState = appCrashAtom.foregroundState;
@@ -84,8 +88,8 @@ public class CrashHelper implements ICollectorHelper<Integer> {
                         MetricUtility.constructKey(
                                 eventType, pkgName, String.valueOf(foregroundState));
                 MetricUtility.addMetric(detailKey, appCrashResultMap);
-            } else if (dataItem.atom.hasAnrOccurred()) {
-                AtomsProto.ANROccurred anrAtom = dataItem.atom.getAnrOccurred();
+            } else if (atom.hasAnrOccurred()) {
+                AtomsProto.ANROccurred anrAtom = atom.getAnrOccurred();
                 String processName = anrAtom.processName;
                 String reason = anrAtom.reason;
                 int foregoundState = anrAtom.foregroundState;

@@ -79,3 +79,17 @@ android_test_helper_app {
         "general-tests",
     ],
 }
+
+android_test_helper_app {
+    name: "appcompat_preinstall_override2_versioncode1_release",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    static_libs: ["pre_install_override_lib"],
+    manifest: "AndroidManifest_2_versioncode1_release.xml",
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+}

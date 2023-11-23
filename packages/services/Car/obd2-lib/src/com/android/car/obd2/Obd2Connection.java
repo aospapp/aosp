@@ -17,6 +17,7 @@
 package com.android.car.obd2;
 
 import android.util.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -117,33 +118,29 @@ public class Obd2Connection {
     }
 
     private String runImpl(String command) throws IOException, InterruptedException {
-        InputStream in = Objects.requireNonNull(mConnection.getInputStream());
-        OutputStream out = Objects.requireNonNull(mConnection.getOutputStream());
-
-        if (DBG) {
-            Log.i(TAG, "runImpl(" + command + ")");
-        }
-
-        out.write((command + "\r").getBytes());
-        out.flush();
-
         StringBuilder response = new StringBuilder();
-        while (true) {
-            int value = in.read();
-            if (value < 0) continue;
-            char c = (char) value;
-            // this is the prompt, stop here
-            if (c == '>') break;
-            if (c == '\r' || c == '\n' || c == ' ' || c == '\t' || c == '.') continue;
-            response.append(c);
+        try (InputStream in = Objects.requireNonNull(mConnection.getInputStream())) {
+            try (OutputStream out = Objects.requireNonNull(mConnection.getOutputStream())) {
+                if (DBG) {
+                    Log.i(TAG, "runImpl(" + command + ")");
+                }
+                out.write((command + "\r").getBytes());
+                out.flush();
+            }
+            while (true) {
+                int value = in.read();
+                if (value < 0) continue;
+                char c = (char) value;
+                // this is the prompt, stop here
+                if (c == '>') break;
+                if (c == '\r' || c == '\n' || c == ' ' || c == '\t' || c == '.') continue;
+                response.append(c);
+            }
         }
-
         String responseValue = response.toString();
-
         if (DBG) {
             Log.i(TAG, "runImpl() returned " + responseValue);
         }
-
         return responseValue;
     }
 

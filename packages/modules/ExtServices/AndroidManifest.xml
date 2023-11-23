@@ -16,6 +16,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="android.ext.services"
     android:versionCode="309999900"
     android:versionName="2019-09"
@@ -30,18 +31,34 @@
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- INTERNET permission is restricted to TextClassifier downloader process only -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Remove unused permissions merged from WorkManager library -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
 
     <uses-sdk
         android:targetSdkVersion="30"
     />
 
-    <application android:label="@string/app_name"
+    <application
+        android:name=".ExtServicesApplication"
+        android:label="@string/app_name"
         android:forceQueryable="true"
-        android:directBootAware="true"
         android:supportsRtl="true">
+
+        <processes>
+            <!-- Deny INTERNET permission for all processes by default -->
+            <deny-permission android:name="android.permission.INTERNET" />
+            <process />
+            <process android:process=":modelDownloaderServiceProcess">
+                <allow-permission android:name="android.permission.INTERNET" />
+            </process>
+        </processes>
 
         <service android:name=".storage.CacheQuotaServiceImpl"
              android:exported="true"
+             android:directBootAware="true"
              android:permission="android.permission.BIND_CACHE_QUOTA_SERVICE">
             <intent-filter>
                 <action android:name="android.app.usage.CacheQuotaService" />
@@ -50,6 +67,7 @@
 
         <service android:name=".resolver.LRResolverRankerService"
                  android:exported="true"
+                 android:directBootAware="true"
                  android:permission="android.permission.BIND_RESOLVER_RANKER_SERVICE">
             <intent-filter android:priority="-1">
                 <action android:name="android.service.resolver.ResolverRankerService" />
@@ -58,6 +76,7 @@
 
         <service android:name=".notification.Assistant"
                  android:label="@string/notification_assistant"
+                 android:directBootAware="true"
                  android:permission="android.permission.BIND_NOTIFICATION_ASSISTANT_SERVICE"
                  android:exported="true">
             <intent-filter>
@@ -67,6 +86,7 @@
 
         <service android:name=".autofill.AutofillFieldClassificationServiceImpl"
              android:exported="true"
+             android:directBootAware="true"
              android:permission="android.permission.BIND_AUTOFILL_FIELD_CLASSIFICATION_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillFieldClassificationService" />
@@ -81,6 +101,7 @@
 
         <service android:name=".watchdog.ExplicitHealthCheckServiceImpl"
                  android:exported="true"
+                 android:directBootAware="true"
                  android:permission="android.permission.BIND_EXPLICIT_HEALTH_CHECK_SERVICE">
             <intent-filter>
                 <action android:name="android.service.watchdog.ExplicitHealthCheckService" />
@@ -89,10 +110,13 @@
 
         <activity android:name="com.android.textclassifier.notification.CopyCodeActivity"
                   android:exported="false"
+                  android:directBootAware="true"
                   android:theme="@android:style/Theme.NoDisplay"/>
 
+        <!-- DirectBootAware is disabled below as it shouldn't be used if the device is locked -->
         <service
             android:name="com.android.textclassifier.DefaultTextClassifierService"
+            android:directBootAware="false"
             android:exported="true"
             android:permission="android.permission.BIND_TEXTCLASSIFIER_SERVICE">
             <intent-filter>
@@ -100,8 +124,15 @@
             </intent-filter>
         </service>
 
+        <service android:name="com.android.textclassifier.downloader.ModelDownloaderService"
+                 android:exported="false"
+                 android:directBootAware="false"
+                 android:process=":modelDownloaderServiceProcess">
+        </service>
+
         <service android:name=".autofill.InlineSuggestionRenderServiceImpl"
                  android:exported="true"
+                 android:directBootAware="true"
                  android:permission="android.permission.BIND_INLINE_SUGGESTION_RENDER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.autofill.InlineSuggestionRenderService" />
@@ -110,11 +141,25 @@
 
         <service android:name=".displayhash.DisplayHashingServiceImpl"
             android:exported="true"
+            android:directBootAware="true"
             android:permission="android.permission.BIND_DISPLAY_HASHING_SERVICE">
             <intent-filter>
                 <action android:name="android.service.displayhash.DisplayHashingService" />
             </intent-filter>
         </service>
+
+        <!-- Remove the default WorkManager and Startup initializers and use on-demand
+             initialization instead. This gives us more control on when initialization
+             happens, e.g. when the user is unlocked.
+        -->
+        <provider
+            android:name="androidx.work.impl.WorkManagerInitializer"
+            android:authorities="${applicationId}.workmanager-init"
+            tools:node="remove" />
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
 
     </application>
 

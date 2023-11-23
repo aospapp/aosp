@@ -16,16 +16,15 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "WifiTrackerLibTests",
+java_defaults {
+    name: "WifiTrackerLibTestDefaults",
     srcs: ["src/**/*.java"],
 
     static_libs: [
         "androidx.test.rules",
         "frameworks-base-testutils",
-        "mockito-target-minus-junit4",
+        "mockito-target-extended-minus-junit4",
         "truth-prebuilt",
-        "WifiTrackerLib",
         "Robolectric_all-target",
     ],
 
@@ -33,7 +32,31 @@ android_test {
         "android.test.mock",
     ],
 
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
+
     platform_apis: true,
 
     test_suites: ["general-tests"],
+}
+
+android_test {
+    name: "WifiTrackerLibTests",
+    defaults: ["WifiTrackerLibTestDefaults"],
+
+    static_libs: [
+        "WifiTrackerLib",
+    ],
+}
+
+android_test {
+    name: "SdkWifiTrackerLibTests",
+    defaults: ["WifiTrackerLibTestDefaults"],
+    exclude_srcs: ["src/**/NonSdkApiWrapperTest.java"],
+
+    static_libs: [
+        "SdkWifiTrackerLib",
+    ],
 }

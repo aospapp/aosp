@@ -25,12 +25,9 @@
 
 #include "NetdClient.h"
 
-#define SKIP_IF_NO_NETWORK_CONNECTIVITY                                    \
-    do {                                                                   \
-        if (!checkNetworkConnectivity()) {                                 \
-            GTEST_LOG_(INFO) << "Skip. Required Network Connectivity. \n"; \
-            return;                                                        \
-        }                                                                  \
+#define SKIP_IF_NO_NETWORK_CONNECTIVITY                                                          \
+    do {                                                                                         \
+        if (!checkNetworkConnectivity()) GTEST_SKIP() << "Skip. Requires Network Connectivity."; \
     } while (0)
 
 namespace {

@@ -20,17 +20,15 @@
 #include PATH(android/hardware/audio/effect/FILE_VERSION/IEffectsFactory.h)
 #include <media/audiohal/EffectsFactoryHalInterface.h>
 
-#include "ConversionHelperHidl.h"
+#include "EffectConversionHelperHidl.h"
 
 namespace android {
 namespace effect {
-namespace CPP_VERSION {
 
 using ::android::hardware::hidl_vec;
-using ::android::CPP_VERSION::ConversionHelperHidl;
 using namespace ::android::hardware::audio::effect::CPP_VERSION;
 
-class EffectsFactoryHalHidl : public EffectsFactoryHalInterface, public ConversionHelperHidl
+class EffectsFactoryHalHidl : public EffectsFactoryHalInterface, public EffectConversionHelperHidl
 {
   public:
     EffectsFactoryHalHidl(sp<IEffectsFactory> effectsFactory);
@@ -70,7 +68,6 @@ class EffectsFactoryHalHidl : public EffectsFactoryHalInterface, public Conversi
     status_t queryAllDescriptors();
 };
 
-} // namespace CPP_VERSION
 } // namespace effect
 } // namespace android
 

@@ -3,31 +3,23 @@
 // found in the LICENSE file.
 
 use std::arch::x86_64::{__cpuid, __cpuid_count};
-use std::fmt::{self, Display};
 use std::result;
 
 use devices::{IrqChipCap, IrqChipX86_64};
 use hypervisor::{HypervisorX86_64, VcpuX86_64};
+use remain::sorted;
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+#[sorted]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
+    #[error("GetSupportedCpus ioctl failed: {0}")]
     GetSupportedCpusFailed(base::Error),
+    #[error("SetSupportedCpus ioctl failed: {0}")]
     SetSupportedCpusFailed(base::Error),
 }
+
 pub type Result<T> = result::Result<T, Error>;
-
-impl std::error::Error for Error {}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            GetSupportedCpusFailed(e) => write!(f, "GetSupportedCpus ioctl failed: {}", e),
-            SetSupportedCpusFailed(e) => write!(f, "SetSupportedCpus ioctl failed: {}", e),
-        }
-    }
-}
 
 // CPUID bits in ebx, ecx, and edx.
 const EBX_CLFLUSH_CACHELINE: u32 = 8; // Flush a cache line size.
@@ -43,6 +35,7 @@ const ECX_TOPO_TYPE_SHIFT: u32 = 8; // Topology Level type.
 const ECX_TOPO_SMT_TYPE: u32 = 1; // SMT type.
 const ECX_TOPO_CORE_TYPE: u32 = 2; // CORE type.
 const EAX_CPU_CORES_SHIFT: u32 = 26; // Index of cpu cores in the same physical package.
+const EDX_HYBRID_CPU_SHIFT: u32 = 15; // Hybrid. The processor is identified as a hybrid part.
 
 fn filter_cpuid(
     vcpu_id: usize,
@@ -50,6 +43,7 @@ fn filter_cpuid(
     cpuid: &mut hypervisor::CpuId,
     irq_chip: &dyn IrqChipX86_64,
     no_smt: bool,
+    host_cpu_topology: bool,
 ) {
     let entries = &mut cpuid.cpu_id_entries;
 
@@ -68,14 +62,31 @@ fn filter_cpuid(
                 if irq_chip.check_capability(IrqChipCap::TscDeadlineTimer) {
                     entry.ecx |= 1 << ECX_TSC_DEADLINE_TIMER_SHIFT;
                 }
+
+                if host_cpu_topology {
+                    entry.ebx |= EBX_CLFLUSH_CACHELINE << EBX_CLFLUSH_SIZE_SHIFT;
+
+                    // Expose HT flag to Guest.
+                    let result = unsafe { __cpuid(entry.function) };
+                    entry.edx |= result.edx & (1 << EDX_HTT_SHIFT);
+                    continue;
+                }
+
                 entry.ebx = (vcpu_id << EBX_CPUID_SHIFT) as u32
                     | (EBX_CLFLUSH_CACHELINE << EBX_CLFLUSH_SIZE_SHIFT);
                 if cpu_count > 1 {
+                    // This field is only valid if CPUID.1.EDX.HTT[bit 28]= 1.
                     entry.ebx |= (cpu_count as u32) << EBX_CPU_COUNT_SHIFT;
+                    // A value of 0 for HTT indicates there is only a single logical
+                    // processor in the package and software should assume only a
+                    // single APIC ID is reserved.
                     entry.edx |= 1 << EDX_HTT_SHIFT;
                 }
             }
-            2 | 0x80000005 | 0x80000006 => unsafe {
+            2 | // Cache and TLB Descriptor information
+            0x80000002 | 0x80000003 | 0x80000004 | // Processor Brand String
+            0x80000005 | 0x80000006 // L1 and L2 cache information
+              => unsafe {
                 let result = __cpuid(entry.function);
                 entry.eax = result.eax;
                 entry.ebx = result.ebx;
@@ -90,6 +101,11 @@ fn filter_cpuid(
                     entry.ecx = result.ecx;
                     entry.edx = result.edx;
                 }
+
+                if host_cpu_topology {
+                    continue;
+                }
+
                 entry.eax &= !0xFC000000;
                 if cpu_count > 1 {
                     let cpu_cores = if no_smt {
@@ -106,7 +122,30 @@ fn filter_cpuid(
                 // Clear X86 EPB feature.  No frequency selection in the hypervisor.
                 entry.ecx &= !(1 << ECX_EPB_SHIFT);
             }
+            7 => {
+                if host_cpu_topology && entry.index == 0 {
+                    // Safe because we pass 7 and 0 for this call and the host supports the
+                    // `cpuid` instruction
+                    let result = unsafe { __cpuid_count(entry.function, entry.index) };
+                    entry.edx |= result.edx & (1 << EDX_HYBRID_CPU_SHIFT);
+                }
+            }
+            0x1A => {
+                // Hybrid information leaf.
+                if host_cpu_topology {
+                    // Safe because we pass 0x1A for this call and the host supports the
+                    // `cpuid` instruction
+                    let result = unsafe { __cpuid(entry.function) };
+                    entry.eax = result.eax;
+                    entry.ebx = result.ebx;
+                    entry.ecx = result.ecx;
+                    entry.edx = result.edx;
+                }
+            }
             0xB | 0x1F => {
+                if host_cpu_topology {
+                    continue;
+                }
                 // Extended topology enumeration / V2 Extended topology enumeration
                 // NOTE: these will need to be split if any of the fields that differ between
                 // the two versions are to be set.
@@ -153,6 +192,8 @@ fn filter_cpuid(
 /// * `vcpu` - `VcpuX86_64` for setting CPU ID.
 /// * `vcpu_id` - The vcpu index of `vcpu`.
 /// * `nrcpus` - The number of vcpus being used by this VM.
+/// * `no_smt` - The flag indicates whether vCPUs supports SMT.
+/// * `host_cpu_topology` - The flag indicates whether vCPUs use mirror CPU topology.
 pub fn setup_cpuid(
     hypervisor: &dyn HypervisorX86_64,
     irq_chip: &dyn IrqChipX86_64,
@@ -160,34 +201,29 @@ pub fn setup_cpuid(
     vcpu_id: usize,
     nrcpus: usize,
     no_smt: bool,
+    host_cpu_topology: bool,
 ) -> Result<()> {
     let mut cpuid = hypervisor
         .get_supported_cpuid()
         .map_err(Error::GetSupportedCpusFailed)?;
 
-    filter_cpuid(vcpu_id, nrcpus, &mut cpuid, irq_chip, no_smt);
+    filter_cpuid(
+        vcpu_id,
+        nrcpus,
+        &mut cpuid,
+        irq_chip,
+        no_smt,
+        host_cpu_topology,
+    );
 
     vcpu.set_cpuid(&cpuid)
         .map_err(Error::SetSupportedCpusFailed)
 }
 
-/// get host cpu max physical address bits
-pub fn phy_max_address_bits() -> u32 {
-    let mut phys_bits: u32 = 36;
-
-    let highest_ext_function = unsafe { __cpuid(0x80000000) };
-    if highest_ext_function.eax >= 0x80000008 {
-        let addr_size = unsafe { __cpuid(0x80000008) };
-        phys_bits = addr_size.eax & 0xff;
-    }
-
-    phys_bits
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hypervisor::CpuIdEntry;
+    use hypervisor::{CpuIdEntry, ProtectionType};
 
     #[test]
     fn feature_and_vendor_name() {
@@ -195,7 +231,7 @@ mod tests {
         let guest_mem =
             vm_memory::GuestMemory::new(&[(vm_memory::GuestAddress(0), 0x10000)]).unwrap();
         let kvm = hypervisor::kvm::Kvm::new().unwrap();
-        let vm = hypervisor::kvm::KvmVm::new(&kvm, guest_mem).unwrap();
+        let vm = hypervisor::kvm::KvmVm::new(&kvm, guest_mem, ProtectionType::Unprotected).unwrap();
         let irq_chip = devices::KvmKernelIrqChip::new(vm, 1).unwrap();
 
         let entries = &mut cpuid.cpu_id_entries;
@@ -209,7 +245,7 @@ mod tests {
             edx: 0,
             ..Default::default()
         });
-        filter_cpuid(1, 2, &mut cpuid, &irq_chip, false);
+        filter_cpuid(1, 2, &mut cpuid, &irq_chip, false, false);
 
         let entries = &mut cpuid.cpu_id_entries;
         assert_eq!(entries[0].function, 0);

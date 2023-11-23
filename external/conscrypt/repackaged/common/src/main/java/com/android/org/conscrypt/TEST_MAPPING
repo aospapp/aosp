@@ -5,6 +5,9 @@
       "options": [
         {
           "include-filter": "com.android.org.conscrypt"
+        },
+        {
+          "include-filter": "libcore.java.security"
         }
       ]
     }

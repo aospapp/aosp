@@ -16,11 +16,7 @@
 
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "packages_modules_NeuralNetworks_runtime_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-Artistic
+    // Inherits all licenses from parent to get Apache 2.0 and package name.
     default_applicable_licenses: [
         "packages_modules_NeuralNetworks_runtime_license",
     ],
@@ -28,14 +24,16 @@ package {
 
 cc_defaults {
     name: "NeuralNetworksTest_default_libs",
-    defaults: ["neuralnetworks_defaults"],
-    host_supported: false,
+    defaults: [
+        "neuralnetworks_defaults",
+        "neuralnetworks_use_latest_utils_hal_aidl",
+    ],
+    host_supported: true,
     // b/109953668, disable OpenMP
     // openmp: true,
     shared_libs: [
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
-        "libandroid",
         "libbase",
         "libbinder_ndk",
         "libcutils",
@@ -43,14 +41,10 @@ cc_defaults {
         "libhidlbase",
         "libhidlmemory",
         "liblog",
-        "libnativewindow",
         "libneuralnetworks_packageinfo",
         "libutils",
     ],
     static_libs: [
-        "android.hardware.common-V2-ndk_platform",
-        "android.hardware.graphics.common-V2-ndk_platform",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "android.hardware.neuralnetworks@1.0",
         "android.hardware.neuralnetworks@1.1",
         "android.hardware.neuralnetworks@1.2",
@@ -59,10 +53,30 @@ cc_defaults {
         "libc++fs",
         "libneuralnetworks_generated_test_harness",
         "libtextclassifier_hash_static",
+        "neuralnetworks_utils_hal_service",
+        "server_configurable_flags",
     ],
     whole_static_libs: [
         "libcrypto_static",
     ],
+    target: {
+        android: {
+            shared_libs: [
+                "libandroid",
+                "libnativewindow",
+                "libstatssocket",
+            ],
+        },
+        host: {
+            cflags: [
+                "-D__ANDROID_API_FUTURE__=10000",
+                "-D__ANDROID_API_Q__=29",
+                "-D__ANDROID_API_R__=30",
+                "-D__ANDROID_API_S__=31",
+                "-D__INTRODUCED_IN(n)=",
+            ],
+        },
+    },
     srcs: [
         "RequireDebug.cpp", // Abort compilation if NDEBUG is defined
     ],
@@ -84,7 +98,6 @@ cc_defaults {
         "TestControlFlow.cpp",
         "TestFree.cpp",
         "TestGenerated.cpp",
-        "TestGpuNnapi.cpp",
         "TestMemory.cpp",
         "TestNeuralNetworksWrapper.cpp",
         "TestOperandExtraParams.cpp",
@@ -96,28 +109,41 @@ cc_defaults {
         "TestValidateOperations.cpp",
         "TestValidation.cpp",
         "TestWrapper.cpp",
-
+    ],
+    tidy_disabled_srcs: [
+        "TestValidateModel.cpp", // includes large generated code
     ],
     header_libs: [
         "libneuralnetworks_common_headers",
+        "neuralnetworks_types_headers",
     ],
     static_libs: [
         "libgmock",
     ],
-    shared_libs: [
-        "libvulkan",
-    ],
     whole_static_libs: [
+        "neuralnetworks_generated_AIDL_V2_example",
+        "neuralnetworks_generated_AIDL_V3_example",
         "neuralnetworks_generated_V1_0_example",
         "neuralnetworks_generated_V1_1_example",
         "neuralnetworks_generated_V1_2_example",
         "neuralnetworks_generated_V1_3_cts_only_example",
         "neuralnetworks_generated_V1_3_example",
     ],
+    target: {
+        android: {
+            shared_libs: [
+                "libvulkan",
+            ],
+            srcs: [
+                "TestGpuNnapi.cpp",
+            ],
+        },
+    },
 }
 
 cc_test {
     name: "NeuralNetworksTest_shared_partial",
+    host_supported: false,
     defaults: ["NeuralNetworksTest_defaults"],
     srcs: [
         "TestMain.cpp",
@@ -146,24 +172,20 @@ cc_defaults {
         "TestExtensions.cpp",
         "TestFailingDriver.cpp",
         "TestIntrospectionControl.cpp",
+        "TestMain.cpp",
         "TestMemoryDomain.cpp",
         "TestMemoryInternal.cpp",
         "TestPartitioning.cpp",
         "TestPartitioningRandom.cpp",
         "TestRemoveDefaultArguments.cpp",
+        "TestServerFlag.cpp",
+        "TestTelemetry.cpp",
         "fibonacci_extension/FibonacciDriver.cpp",
         "fibonacci_extension/FibonacciExtensionTest.cpp",
-
-        "TestMain.cpp",
     ],
     static_libs: [
-        "android.hardware.neuralnetworks@1.0-adapter-helper",
-        "android.hardware.neuralnetworks@1.1-adapter-helper",
-        "android.hardware.neuralnetworks@1.2-adapter-helper",
-        "android.hardware.neuralnetworks@1.3-adapter-helper",
         "libSampleDriver",
         "libgmock",
-        "libhidladapter",
         "libneuralnetworks_common",
         "libneuralnetworks_generated_test_harness",
         "libneuralnetworks_static",
@@ -185,7 +207,44 @@ cc_test {
     test_suites: [
         "general-tests",
     ],
+    target: {
+        android: {
+            test_config: "AndroidTest_NeuralNetworksTest_static.xml",
+            srcs: ["TestStatsdTelemetry.cpp"],
+        },
+        host: {
+            cflags: [
+                "-D__ANDROID_API__=10000",
+            ],
+        },
+    },
+    whole_static_libs: [
+        "neuralnetworks_generated_experimental_example",
+    ],
+    exclude_static_libs: [
+        "libneuralnetworks_common",
+        "libneuralnetworks_static",
+        "neuralnetworks_types",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libneuralnetworks_common_experimental",
+        "libneuralnetworks_static_experimental",
+        "neuralnetworks_types_experimental",
+    ],
+    cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
+    test_options: {
+        unit_test: false,
+    },
 }
+
+tidy_disabled_operation_signatures_files = [
+    // These took too much time with clang-tidy.
+    "fuzzing/operation_signatures/Convolutions.cpp",
+    "fuzzing/operation_signatures/Poolings.cpp",
+    "fuzzing/operation_signatures/Reshape.cpp",
+    "fuzzing/operation_signatures/Resize.cpp",
+]
 
 cc_test {
     name: "NeuralNetworksTest_static_fuzzing",
@@ -200,6 +259,7 @@ cc_test {
         "fuzzing/TestRandomGraph.cpp",
         "fuzzing/operation_signatures/*.cpp",
     ],
+    tidy_disabled_srcs: tidy_disabled_operation_signatures_files,
     static_libs: [
         "libSampleDriver",
         "libgmock",
@@ -211,12 +271,21 @@ cc_test {
         "neuralnetworks_utils_hal_1_2",
         "neuralnetworks_utils_hal_1_3",
     ],
-    shared_libs: ["libmemunreachable"],
+    target: {
+        android: {
+            shared_libs: [
+                "libmemunreachable",
+            ],
+        },
+    },
     header_libs: [
         "libneuralnetworks_private_headers",
     ],
     sanitize: {
         integer_overflow: true,
+    },
+    test_options: {
+        unit_test: false,
     },
 }
 
@@ -229,9 +298,6 @@ cc_fuzz {
     owner: "google",
     fuzz_config: {
         cc: ["butlermichael@google.com"],
-        // Temporarily disabled due to b/151102177.
-        fuzz_on_haiku_host: false,
-        fuzz_on_haiku_device: false,
     },
     srcs: [
         "android_fuzzing/FuzzTest.cpp",
@@ -252,57 +318,39 @@ cc_fuzz {
     owner: "google",
     fuzz_config: {
         cc: ["butlermichael@google.com"],
-        // Temporarily disabled due to b/151102177.
-        fuzz_on_haiku_host: false,
-        fuzz_on_haiku_device: false,
     },
     srcs: [
         "android_fuzzing/DriverFuzzTest.cpp",
     ],
+    header_libs: [
+        "libneuralnetworks_headers",
+    ],
     static_libs: [
-        "libSampleDriver",
         "libneuralnetworks_common",
         "libneuralnetworks_generated_test_harness",
-        "libneuralnetworks_static",
+        "neuralnetworks_canonical_sample_driver",
+        "neuralnetworks_test_utils",
+        "neuralnetworks_types",
     ],
 }
 
 // Temporarily disabled due to b/139889855.
 cc_test {
     name: "NeuralNetworksTest_static_asan",
+    host_supported: false,
     defaults: ["NeuralNetworksTest_static_defaults"],
     enabled: false,
     sanitize: {
         address: true,
     },
     // Declare explicit library dependency for continuous builds
-    target: {
-        android_arm: {
-            required: [
-                "libclang_rt.asan-arm-android",
-            ],
-        },
-        android_arm64: {
-            required: [
-                "libclang_rt.asan-aarch64-android",
-            ],
-        },
-        android_x86: {
-            required: [
-                "libclang_rt.asan-i686-android",
-            ],
-        },
-        android_x86_64: {
-            required: [
-                "libclang_rt.asan-x86_64-android",
-            ],
-        },
-    },
+    required: ["libclang_rt.asan"],
 }
 
 // Temporarily disabled due to b/139889855.
 cc_test {
     name: "NeuralNetworksTest_static_ubsan",
+    host_supported: false,
     defaults: ["NeuralNetworksTest_static_defaults"],
     enabled: false,
     sanitize: {
@@ -317,6 +365,7 @@ cc_test {
 cc_defaults {
     name: "NeuralNetworksTest_mt_defaults",
     defaults: ["NeuralNetworksTest_default_libs"],
+    host_supported: false,
     srcs: [
         "GeneratedTestUtils.cpp",
         "TestGenerated.cpp",
@@ -333,6 +382,8 @@ cc_defaults {
         "libneuralnetworks_static",
     ],
     whole_static_libs: [
+        "neuralnetworks_generated_AIDL_V2_example",
+        "neuralnetworks_generated_AIDL_V3_example",
         "neuralnetworks_generated_V1_0_example",
         "neuralnetworks_generated_V1_1_example",
         "neuralnetworks_generated_V1_2_example",
@@ -365,6 +416,7 @@ cc_test {
 
 cc_library_static {
     name: "CtsNNAPITests_static",
+    host_supported: true,
     defaults: ["neuralnetworks_float16"],
     srcs: [
         ":libneuralnetworks_generated_test_harness_for_cts",
@@ -374,7 +426,6 @@ cc_library_static {
         "TestControlFlow.cpp",
         "TestFree.cpp",
         "TestGenerated.cpp",
-        "TestGpuNnapi.cpp",
         "TestMemory.cpp",
         "TestNeuralNetworksWrapper.cpp",
         "TestTrivialModel.cpp",
@@ -390,10 +441,18 @@ cc_library_static {
         "fuzzing/RandomVariable.cpp",
         "fuzzing/TestRandomGraph.cpp",
         "fuzzing/operation_signatures/*.cpp",
+        "generated/spec_AIDL_V*/*.example.cpp",
         "generated/spec_V1_*/*.example.cpp",
     ],
+    // generated code are too big to run with clang-tidy
+    tidy_disabled_srcs: [
+        "TestValidateModel.cpp", // includes large generated code
+        "generated/spec_AIDL_V*/*.example.cpp",
+        "generated/spec_V1_*/*.example.cpp",
+    ] + tidy_disabled_operation_signatures_files,
     include_dirs: [
         "packages/modules/NeuralNetworks/common/include",
+        "packages/modules/NeuralNetworks/common/types/include",
         "packages/modules/NeuralNetworks/runtime/",
         "packages/modules/NeuralNetworks/runtime/include/",
         "packages/modules/NeuralNetworks/tools/test_generator/test_harness/include",
@@ -406,16 +465,40 @@ cc_library_static {
         "-Werror",
     ],
     shared_libs: [
-        "libandroid",
         "liblog",
         "libneuralnetworks",
-        "libvulkan",
     ],
-    static_libs: [
-        "libbase_ndk",
-        "libgmock_ndk",
-        "libgtest_ndk_c++",
-    ],
+    target: {
+        android: {
+            static_libs: [
+                "libbase_ndk",
+                "libgmock_ndk",
+                "libgtest_ndk_c++",
+            ],
+            shared_libs: [
+                "libandroid",
+                "libvulkan",
+            ],
+            srcs: [
+                "TestGpuNnapi.cpp",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libbase",
+                "libgmock",
+                "libgtest",
+            ],
+            cflags: [
+                "-D__ANDROID_API_FUTURE__=10000",
+                "-D__ANDROID_API_Q__=29",
+                "-D__ANDROID_API_R__=30",
+                "-D__ANDROID_API_S__=31",
+                "-D__ANDROID_API__=10000",
+                "-D__INTRODUCED_IN(n)=",
+            ],
+        },
+    },
     min_sdk_version: "30",
     sdk_version: "current",
     stl: "libc++_static",
@@ -424,8 +507,8 @@ cc_library_static {
 cc_defaults {
     name: "neuralnetworks_generated_defaults",
     defaults: ["neuralnetworks_float16"],
-    // b/146324523, NNAPI host build capability
-    host_supported: false,
+    tidy: false, // generated files are too big to run with clang-tidy
+    host_supported: true,
     vendor_available: true,
     static_libs: ["libneuralnetworks_generated_test_harness"],
 }
@@ -455,14 +538,36 @@ cc_library_static {
 }
 
 cc_library_static {
+    name: "neuralnetworks_generated_AIDL_V2_example",
+    defaults: ["neuralnetworks_generated_defaults"],
+    srcs: ["generated/spec_AIDL_V2/*.example.cpp"],
+}
+
+cc_library_static {
+    name: "neuralnetworks_generated_AIDL_V3_example",
+    defaults: ["neuralnetworks_generated_defaults"],
+    srcs: ["generated/spec_AIDL_V3/*.example.cpp"],
+}
+
+cc_library_static {
     name: "neuralnetworks_generated_V1_3_cts_only_example",
+    host_supported: true,
     defaults: ["neuralnetworks_float16"],
+    tidy: false, // generated files are too big to run with clang-tidy
     srcs: ["generated/spec_V1_3_cts_only/*.example.cpp"],
     static_libs: ["libneuralnetworks_generated_test_harness"],
 }
 
 cc_library_static {
+    name: "neuralnetworks_generated_experimental_example",
+    defaults: ["neuralnetworks_generated_defaults"],
+    srcs: ["generated/spec_experimental/*.example.cpp"],
+    cflags: ["-DNN_EXPERIMENTAL_FEATURE"],
+}
+
+cc_library_static {
     name: "NeuralNetworksTest_random_graph",
+    host_supported: true,
     defaults: ["neuralnetworks_float16"],
     srcs: [
         ":libneuralnetworks_generated_test_harness_for_cts",
@@ -474,6 +579,7 @@ cc_library_static {
         "fuzzing/RandomVariable.cpp",
         "fuzzing/operation_signatures/*.cpp",
     ],
+    tidy_disabled_srcs: tidy_disabled_operation_signatures_files,
     include_dirs: [
         "packages/modules/NeuralNetworks/common/include",
         "packages/modules/NeuralNetworks/runtime/",
@@ -492,15 +598,32 @@ cc_library_static {
         "-Werror",
     ],
     shared_libs: [
-        "libandroid",
         "liblog",
         "libneuralnetworks",
     ],
-    static_libs: [
-        "libbase_ndk",
-        "libgmock_ndk",
-        "libgtest_ndk_c++",
-    ],
+    target: {
+        android: {
+            static_libs: [
+                "libbase_ndk",
+                "libgmock_ndk",
+                "libgtest_ndk_c++",
+            ],
+            shared_libs: [
+                "libandroid",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libbase",
+                "libgmock",
+                "libgtest",
+            ],
+            cflags: [
+                "-D__ANDROID_API_S__=31",
+                "-D__INTRODUCED_IN(n)=",
+            ],
+        },
+    },
     sanitize: {
         address: true,
         all_undefined: true,
@@ -514,6 +637,7 @@ cc_library_static {
 
 cc_test {
     name: "NeuralNetworksSupportLibraryTest",
+    host_supported: false,
     srcs: [
         "GeneratedTestUtils.cpp",
         "SupportLibraryTestGenerated.cpp",
@@ -539,11 +663,12 @@ cc_test {
         "neuralnetworks_supportlibrary_loader",
     ],
     whole_static_libs: [
+        "neuralnetworks_generated_AIDL_V2_example",
+        "neuralnetworks_generated_AIDL_V3_example",
         "neuralnetworks_generated_V1_0_example",
         "neuralnetworks_generated_V1_1_example",
         "neuralnetworks_generated_V1_2_example",
-        "neuralnetworks_generated_V1_3_cts_only_example",
-        "neuralnetworks_generated_V1_3_example",
+        "neuralnetworks_generated_V1_3_example", // TODO (b/209655430): Decide if need to add "neuralnetworks_generated_V1_3_cts_only_example".
     ],
     include_dirs: [
         "packages/modules/NeuralNetworks/runtime/include/",

@@ -223,7 +223,7 @@ ANGLE_INLINE angle::Result ContextGL::setDrawArraysState(const gl::Context *cont
 {
     const angle::FeaturesGL &features = getFeaturesGL();
     if (context->getStateCache().hasAnyActiveClientAttrib() ||
-        (features.shiftInstancedArrayDataWithExtraOffset.enabled && first > 0))
+        (features.shiftInstancedArrayDataWithOffset.enabled && first > 0))
     {
         const gl::State &glState                = context->getState();
         const gl::ProgramExecutable *executable = getState().getProgramExecutable();
@@ -237,7 +237,7 @@ ANGLE_INLINE angle::Result ContextGL::setDrawArraysState(const gl::Context *cont
         ANGLE_TRY(vaoGL->validateState(context));
 #endif  // ANGLE_STATE_VALIDATION_ENABLED
     }
-    else if (features.shiftInstancedArrayDataWithExtraOffset.enabled && first == 0)
+    else if (features.shiftInstancedArrayDataWithOffset.enabled && first == 0)
     {
         // There could be previous draw call that has modified the attributes
         // Instead of forcefully streaming attributes, we just rebind the original ones
@@ -270,7 +270,7 @@ ANGLE_INLINE angle::Result ContextGL::setDrawElementsState(const gl::Context *co
     const gl::StateCache &stateCache        = context->getStateCache();
 
     const angle::FeaturesGL &features = getFeaturesGL();
-    if (features.shiftInstancedArrayDataWithExtraOffset.enabled)
+    if (features.shiftInstancedArrayDataWithOffset.enabled)
     {
         // There might be instanced arrays that are forced streaming for drawArraysInstanced
         // They cannot be ELEMENT_ARRAY_BUFFER
@@ -366,7 +366,7 @@ gl::AttributesMask ContextGL::updateAttributesForBaseInstance(const gl::Program 
         const FunctionsGL *functions = getFunctions();
         const auto &attribs          = mState.getVertexArray()->getVertexAttributes();
         const auto &bindings         = mState.getVertexArray()->getVertexBindings();
-        for (GLuint attribIndex = 0; attribIndex < gl::MAX_VERTEX_ATTRIBS; attribIndex++)
+        for (GLuint attribIndex = 0; attribIndex < attribs.size(); attribIndex++)
         {
             const gl::VertexAttribute &attrib = attribs[attribIndex];
             const gl::VertexBinding &binding  = bindings[attrib.bindingIndex];
@@ -750,6 +750,17 @@ angle::Result ContextGL::multiDrawArraysInstanced(const gl::Context *context,
                                                drawcount);
 }
 
+angle::Result ContextGL::multiDrawArraysIndirect(const gl::Context *context,
+                                                 gl::PrimitiveMode mode,
+                                                 const void *indirect,
+                                                 GLsizei drawcount,
+                                                 GLsizei stride)
+{
+    mRenderer->markWorkSubmitted();
+
+    return rx::MultiDrawArraysIndirectGeneral(this, context, mode, indirect, drawcount, stride);
+}
+
 angle::Result ContextGL::multiDrawElements(const gl::Context *context,
                                            gl::PrimitiveMode mode,
                                            const GLsizei *counts,
@@ -774,6 +785,19 @@ angle::Result ContextGL::multiDrawElementsInstanced(const gl::Context *context,
 
     return rx::MultiDrawElementsInstancedGeneral(this, context, mode, counts, type, indices,
                                                  instanceCounts, drawcount);
+}
+
+angle::Result ContextGL::multiDrawElementsIndirect(const gl::Context *context,
+                                                   gl::PrimitiveMode mode,
+                                                   gl::DrawElementsType type,
+                                                   const void *indirect,
+                                                   GLsizei drawcount,
+                                                   GLsizei stride)
+{
+    mRenderer->markWorkSubmitted();
+
+    return rx::MultiDrawElementsIndirectGeneral(this, context, mode, type, indirect, drawcount,
+                                                stride);
 }
 
 angle::Result ContextGL::multiDrawArraysInstancedBaseInstance(const gl::Context *context,
@@ -856,7 +880,8 @@ angle::Result ContextGL::popDebugGroup(const gl::Context *context)
 
 angle::Result ContextGL::syncState(const gl::Context *context,
                                    const gl::State::DirtyBits &dirtyBits,
-                                   const gl::State::DirtyBits &bitMask)
+                                   const gl::State::DirtyBits &bitMask,
+                                   gl::Command command)
 {
     return mRenderer->getStateManager()->syncState(context, dirtyBits, bitMask);
 }
@@ -880,7 +905,7 @@ angle::Result ContextGL::onMakeCurrent(const gl::Context *context)
 angle::Result ContextGL::onUnMakeCurrent(const gl::Context *context)
 {
     ANGLE_TRY(flush(context));
-    if (getFeaturesGL().unbindFBOOnContextSwitch.enabled)
+    if (getFeaturesGL().unbindFBOBeforeSwitchingContext.enabled)
     {
         mRenderer->getStateManager()->bindFramebuffer(GL_FRAMEBUFFER, 0);
     }

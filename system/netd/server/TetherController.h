@@ -28,9 +28,10 @@
 #include "NetdConstants.h"
 #include "android-base/result.h"
 #include "bpf/BpfMap.h"
-#include "netdbpf/bpf_shared.h"
 
 #include "android/net/TetherOffloadRuleParcel.h"
+
+#include "mainline/XtBpfProgLocations.h"
 
 namespace android {
 namespace net {

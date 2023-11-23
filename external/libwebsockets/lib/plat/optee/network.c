@@ -24,6 +24,13 @@
 
 #include "private-lib-core.h"
 
+#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_HAVE_MBEDTLS_NET_SOCKETS)
+#include "mbedtls/net_sockets.h"
+#else
+#include "mbedtls/net.h"
+#endif
+#endif
 
 int
 lws_plat_pipe_create(struct lws *wsi)
@@ -89,7 +96,7 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 
 	/* stay dead once we are dead */
 
-	if (!context || !context->vhost_list)
+	if (!context)
 		return 1;
 
 	pt = &context->pt[tsi];
@@ -99,7 +106,7 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 	else
 		timeout_ms = 2000000000;
 
-	if (!pt->service_tid_detected) {
+	if (!pt->service_tid_detected && context->vhost_list) {
 		struct lws _lws;
 
 		memset(&_lws, 0, sizeof(_lws));
@@ -121,7 +128,9 @@ again:
 
 			lws_pt_lock(pt, __func__);
 			/* don't stay in poll wait longer than next hr timeout */
-			us = __lws_sul_service_ripe(&pt->pt_sul_owner, lws_now_usecs());
+			us = __lws_sul_service_ripe(pt->pt_sul_owner,
+						    LWS_COUNT_PT_SUL_OWNERS,
+						    lws_now_usecs());
 			if (us && us < timeout_us)
 				timeout_us = us;
 
@@ -194,7 +203,7 @@ lws_plat_set_socket_options(struct lws_vhost *vhost, int fd, int unix_skt)
 
 int
 lws_plat_write_cert(struct lws_vhost *vhost, int is_key, int fd, void *buf,
-			int len)
+			size_t len)
 {
 	return 1;
 }
@@ -234,7 +243,7 @@ lws_plat_change_pollfd(struct lws_context *context,
 }
 
 const char *
-lws_plat_inet_ntop(int af, const void *src, char *dst, int cnt)
+lws_plat_inet_ntop(int af, const void *src, char *dst, socklen_t cnt)
 {
 	//return inet_ntop(af, src, dst, cnt);
 	return "lws_plat_inet_ntop";
@@ -247,4 +256,67 @@ lws_plat_inet_pton(int af, const char *src, void *dst)
 	return 1;
 }
 
+int
+lws_plat_set_socket_options_ip(int fd, uint8_t pri, unsigned int lws_flags)
+{
+	return 0;
+}
 
+int
+lws_plat_vhost_tls_client_ctx_init(struct lws_vhost *vhost)
+{
+	return 0;
+}
+
+#if defined(LWS_WITH_MBEDTLS)
+int
+lws_plat_mbedtls_net_send(void *ctx, const uint8_t *buf, size_t len)
+{
+	int fd = ((mbedtls_net_context *) ctx)->fd;
+	int ret;
+
+	if (fd < 0)
+		return MBEDTLS_ERR_NET_INVALID_CONTEXT;
+
+	ret = write(fd, buf, len);
+	if (ret >= 0)
+		return ret;
+
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+		return MBEDTLS_ERR_SSL_WANT_WRITE;
+
+	if (errno == EPIPE || errno == ECONNRESET)
+		return MBEDTLS_ERR_NET_CONN_RESET;
+
+	if( errno == EINTR )
+		return MBEDTLS_ERR_SSL_WANT_WRITE;
+
+	return MBEDTLS_ERR_NET_SEND_FAILED;
+}
+
+int
+lws_plat_mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len)
+{
+	int fd = ((mbedtls_net_context *) ctx)->fd;
+	int ret;
+
+	if (fd < 0)
+		return MBEDTLS_ERR_NET_INVALID_CONTEXT;
+
+	ret = (int)read(fd, buf, len);
+	if (ret >= 0)
+		return ret;
+
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+		return MBEDTLS_ERR_SSL_WANT_READ;
+
+	if (errno == EPIPE || errno == ECONNRESET)
+		return MBEDTLS_ERR_NET_CONN_RESET;
+
+	if (errno == EINTR)
+		return MBEDTLS_ERR_SSL_WANT_READ;
+
+	return MBEDTLS_ERR_NET_RECV_FAILED;
+}
+
+#endif

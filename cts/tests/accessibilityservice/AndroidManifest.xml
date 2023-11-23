@@ -25,6 +25,7 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application android:theme="@android:style/Theme.Holo.NoActionBar"
          android:requestLegacyExternalStorage="true">
@@ -57,6 +58,11 @@
              android:supportsPictureInPicture="true"
              android:screenOrientation="locked"/>
 
+        <activity android:label="Activity for testing window accessibility reporting"
+                  android:name=".activities.NotTouchableWindowTestActivity"
+                  android:process=":NotTouchableWindowTestActivity"
+                  android:exported="true"/>
+
         <activity android:label="@string/non_default_display_activity"
                   android:name=".activities.NonDefaultDisplayActivity"
                   android:screenOrientation="locked"/>
@@ -76,6 +82,9 @@
 
         <activity android:label="@string/accessibility_drag_and_drop_test_activity"
                   android:name=".activities.AccessibilityDragAndDropActivity"
+                  android:screenOrientation="locked"/>
+        <activity android:label="@string/accessibility_cache_activity"
+                  android:name=".activities.AccessibilityCacheActivity"
                   android:screenOrientation="locked"/>
 
         <service android:name=".StubSystemActionsAccessibilityService"
@@ -193,6 +202,53 @@
 
             <meta-data android:name="android.accessibilityservice"
                        android:resource="@xml/stub_focus_indicator_service"/>
+        </service>
+
+        <service android:name=".StubInputMethod"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod"/>
+            </intent-filter>
+            <meta-data android:name="android.view.im"
+                android:resource="@xml/stub_ime"/>
+        </service>
+
+        <service android:name=".StubSimpleImeAccessibilityService"
+                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+                <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC"/>
+            </intent-filter>
+
+            <meta-data android:name="android.accessibilityservice"
+                       android:resource="@xml/stub_simple_ime_accessibility_service"/>
+        </service>
+
+        <service android:name=".StubImeAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+                <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC"/>
+            </intent-filter>
+
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/stub_ime_accessibility_service"/>
+        </service>
+
+        <service android:name=".StubNonImeAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+                <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC"/>
+            </intent-filter>
+
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/stub_non_ime_accessibility_service"/>
         </service>
     </application>
 

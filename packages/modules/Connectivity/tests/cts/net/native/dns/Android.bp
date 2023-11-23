@@ -24,6 +24,8 @@ cc_defaults {
         "liblog",
         "libutils",
     ],
+    // To be compatible with Q devices, the min_sdk_version must be 29.
+    min_sdk_version: "29",
 }
 
 cc_test {

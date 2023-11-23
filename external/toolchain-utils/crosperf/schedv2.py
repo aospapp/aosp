@@ -108,8 +108,8 @@ class DutWorker(Thread):
     if self._terminated:
       return 1
 
-    if self._sched.get_experiment().skylab:
-      self._logger.LogOutput('Skylab mode, do not image before testing.')
+    if self._sched.get_experiment().crosfleet:
+      self._logger.LogOutput('Crosfleet mode, do not image before testing.')
       self._dut.label = label
       return 0
 
@@ -295,9 +295,9 @@ class Schedv2(object):
     # Split benchmarkruns set into segments. Each segment will be handled by
     # a thread. Note, we use (x+3)/4 to mimic math.ceil(x/4).
     n_threads = max(2, min(20, (n_benchmarkruns + 3) // 4))
-    self._logger.LogOutput(('Starting {} threads to read cache status for '
-                            '{} benchmark runs ...').format(
-                                n_threads, n_benchmarkruns))
+    self._logger.LogOutput(
+        ('Starting {} threads to read cache status for '
+         '{} benchmark runs ...').format(n_threads, n_benchmarkruns))
     benchmarkruns_per_thread = (n_benchmarkruns + n_threads - 1) // n_threads
     benchmarkrun_segments = []
     for i in range(n_threads - 1):

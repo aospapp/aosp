@@ -25,12 +25,12 @@ import java.util.Map;
  */
 public class Api extends ApiElement {
     private final Map<String, ApiClass> mClasses = new HashMap<>();
+    private final int mMin;
     private final int mMax;
 
-    public Api(int max) {
-        // Pretend that API started from version 0 to make sure that classes existed in the first version
-        // are printed with since="1".
+    public Api(int min, int max) {
         super("Android API");
+        mMin = min;
         mMax = max;
     }
 
@@ -40,7 +40,11 @@ public class Api extends ApiElement {
      * @param stream the stream to print the XML elements to
      */
     public void print(PrintStream stream) {
-        stream.println("<api version=\"2\">");
+        stream.print("<api version=\"2\"");
+        if (mMin > 1) {
+            stream.print(" min=\"" + mMin + "\"");
+        }
+        stream.println(">");
         print(mClasses.values(), "class", "\t", stream);
         printClosingTag("api", "", stream);
     }

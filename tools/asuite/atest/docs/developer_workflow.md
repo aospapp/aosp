@@ -67,11 +67,26 @@ for the logic in `cli_translator.py` go in the file
 ##### Running tests
 
 Python tests are just python files executable by the Python interpreter.
-You can run ALL the python tests by executing this bash script in the
-atest root dir: `./run_atest_unittests.sh`. Alternatively, you can
-directly execute any individual unittest file. However, you'll need to
-first add atest to your PYTHONPATH via entering in your terminal:
-`PYTHONPATH=<atest_dir>:$PYTHONPATH`.
+You can use atest to run all unit tests via:<br>
+
+```
+atest atest_unittests --host
+```
+
+Alternatively, it is possible to run ALL the python tests by executing the
+python script in the atest root dir:<br>
+
+```
+croot <atest_dir>
+./atest_run_unittests.py
+```
+
+To directly execute any individual unittest file, you'll need to first add
+atest to your PYTHONPATH:<br>
+
+```croot <atest_dir>
+PYTHONPATH=.:$PYTHONPATH test_finders/module_finder_unittest.py
+```
 
 All tests should be passing before you submit your change.
 
@@ -109,15 +124,21 @@ There are so many TradeFed tests that you'll probably want to
 first run the test file your code change affected individually. The
 command to run an individual test file is:<br>
 
-`tradefed.sh run host -n --class <fully.qualified.ClassName>`
+```
+tradefed.sh run host -n --class <fully.qualified.ClassName>
+```
 
 Thus, to run all the tests in AtestRunnerTest.java, you'd enter:
 
-`tradefed.sh run host -n --class com.android.tradefed.testtype.suite.AtestRunnerTest`
+```
+tradefed.sh run host -n --class com.android.tradefed.testtype.suite.AtestRunnerTest
+```
 
-To run ALL the TradeFed unittests, enter:
-`./tools/tradefederation/core/tests/run_tradefed_tests.sh`
-(from android repo root)
+To run ALL the TradeFed unittests:<br>
+```
+croot tools/tradefederation/core
+javatests/run_tradefed_tests.sh
+```
 
 Before submitting code you should run all the TradeFed tests.
 
@@ -142,13 +163,6 @@ Again, you shouldn't need to change vts10-tradefed code.
 
 ##### Where does the Robolectric code live?
 
-The Robolectric code lives here: `prebuilts/misc/common/robolectric/3.6.1/`
+The Robolectric code lives here: `prebuilts/misc/common/robolectric/4.3.1/`
 (path relative to android repo root)
 
-##### Writing tests
-
-You shouldn't need to edit this code, so no need to write tests.
-
-##### Running tests
-
-Again, you shouldn't need to edit this code, so no need to run test.

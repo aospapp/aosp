@@ -16,11 +16,14 @@
 package com.android.car.hal;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
+import android.content.Context;
+import android.hardware.automotive.vehicle.VehicleApPowerStateReq;
 import android.util.Log;
 
 import com.android.car.CarServiceUtils;
+import com.android.car.VehicleStub;
 
 import java.util.LinkedList;
 
@@ -29,6 +32,7 @@ public class MockedPowerHalService extends PowerHalService {
 
     private final boolean mIsPowerStateSupported;
     private final boolean mIsDeepSleepAllowed;
+    private final boolean mIsHibernationAllowed;
     private final boolean mIsTimedWakeupAllowed;
     private PowerState mCurrentPowerState = new PowerState(VehicleApPowerStateReq.ON, 0);
     private PowerEventListener mListener;
@@ -41,7 +45,11 @@ public class MockedPowerHalService extends PowerHalService {
     }
 
     private static VehicleHal createVehicleHalWithMockedServices() {
+        HalPropValueBuilder propValueBuilder = new HalPropValueBuilder(/*isAidl=*/true);
+        VehicleStub vehicleStub = mock(VehicleStub.class);
+        when(vehicleStub.getHalPropValueBuilder()).thenReturn(propValueBuilder);
         VehicleHal mockedVehicleHal = new VehicleHal(
+                mock(Context.class),
                 mock(PowerHalService.class),
                 mock(PropertyHalService.class),
                 mock(InputHalService.class),
@@ -51,15 +59,18 @@ public class MockedPowerHalService extends PowerHalService {
                 mock(ClusterHalService.class),
                 mock(TimeHalService.class),
                 mock(HalClient.class),
-                CarServiceUtils.getHandlerThread(VehicleHal.class.getSimpleName()));
+                CarServiceUtils.getHandlerThread(VehicleHal.class.getSimpleName()),
+                vehicleStub);
+
         return mockedVehicleHal;
     }
 
     public MockedPowerHalService(boolean isPowerStateSupported, boolean isDeepSleepAllowed,
-            boolean isTimedWakeupAllowed) {
+            boolean isHibernationAllowed, boolean isTimedWakeupAllowed) {
         super(createVehicleHalWithMockedServices());
         mIsPowerStateSupported = isPowerStateSupported;
         mIsDeepSleepAllowed = isDeepSleepAllowed;
+        mIsHibernationAllowed = isHibernationAllowed;
         mIsTimedWakeupAllowed = isTimedWakeupAllowed;
     }
 
@@ -115,6 +126,24 @@ public class MockedPowerHalService extends PowerHalService {
         doSendState(SET_SHUTDOWN_CANCELLED, 0);
     }
 
+    @Override
+    public void sendShutdownPrepare() {
+        Log.i(TAG, "sendShutdownPrepare");
+        super.sendShutdownPrepare();
+    }
+
+    @Override
+    public void sendHibernationEntry(int wakeupTimeSec) {
+        Log.i(TAG, "sendHibernationEntry");
+        doSendState(SET_HIBERNATION_ENTRY, wakeupTimeSec);
+    }
+
+    @Override
+    public void sendHibernationExit() {
+        Log.i(TAG, "sendHibernationExit");
+        doSendState(SET_HIBERNATION_EXIT, 0);
+    }
+
     public synchronized int[] waitForSend(long timeoutMs) throws Exception {
         if (mSentStates.size() == 0) {
             wait(timeoutMs);
@@ -143,6 +172,11 @@ public class MockedPowerHalService extends PowerHalService {
     @Override
     public boolean isDeepSleepAllowed() {
         return mIsDeepSleepAllowed;
+    }
+
+    @Override
+    public boolean isHibernationAllowed() {
+        return mIsHibernationAllowed;
     }
 
     @Override

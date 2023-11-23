@@ -18,17 +18,26 @@ package android.app.cts;
 
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.ApplicationExitInfo;
 import android.app.Instrumentation;
 import android.app.cts.android.app.cts.tools.WatchUidRunner;
+import android.app.stubs.IHeartbeat;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.externalservice.common.RunningServiceInfo;
 import android.externalservice.common.ServiceMessages;
 import android.os.AsyncTask;
@@ -42,17 +51,20 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.server.wm.settings.SettingsSession;
 import android.system.OsConstants;
-import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.DebugUtils;
 import android.util.Log;
 import android.util.Pair;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.AmMonitor;
 import com.android.compatibility.common.util.PollingCheck;
@@ -62,6 +74,11 @@ import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.MemInfoReader;
 import com.android.server.os.TombstoneProtos.Tombstone;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,7 +87,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public final class ActivityManagerAppExitInfoTest {
     private static final String TAG = ActivityManagerAppExitInfoTest.class.getSimpleName();
 
     private static final String STUB_PACKAGE_NAME =
@@ -81,10 +99,23 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
             "com.android.cts.launcherapps.simpleapp.SimpleService5";
     private static final String STUB_SERVICE_ISOLATED_NAME =
             "com.android.cts.launcherapps.simpleapp.SimpleService6";
-    private static final String STUB_RECEIVER_NAMWE =
+    private static final String STUB_RECEIVER_NAME =
             "com.android.cts.launcherapps.simpleapp.SimpleReceiver";
-    private static final String STUB_ROCESS_NAME = STUB_PACKAGE_NAME;
-    private static final String STUB_REMOTE_ROCESS_NAME = STUB_ROCESS_NAME + ":remote";
+    private static final String STUB_PROCESS_NAME = STUB_PACKAGE_NAME;
+    private static final String STUB_REMOTE_PROCESS_NAME = STUB_PROCESS_NAME + ":remote";
+    private static final String SIMPLE_ACTIVITY = ".SimpleActivity";
+
+    private static final String HEARTBEAT_PACKAGE = "android.app.stubs";
+    private static final String HEARTBEAT_PROCESS = HEARTBEAT_PACKAGE + ":hbact";
+    private static final String HEARTBEAT_ACTIVITY = HEARTBEAT_PACKAGE + ".HeartbeatActivity";
+    private static final String HEARTBEAT_SERVICE = HEARTBEAT_PACKAGE + ".HeartbeatService";
+    private static final String HEARTBEAT_PROCESS_DEAD = "dead";
+    private static final String HEARTBEAT_COUNTDOWN_NAME = "countdown";
+    private static final String HEARTBEAT_INTERVAL_NAME = "interval";
+    private static final int HEARTBEAT_COUNTDOWN = 15;
+    private static final long HEARTBEAT_INTERVAL = 1000;
+    private static final long HEARTBEAT_FREEZER_LONG = 30000;
+    private static final long HEARTBEAT_FREEZER_SHORT = 5000;
 
     private static final String EXIT_ACTION =
             "com.android.cts.launchertests.simpleapp.EXIT_ACTION";
@@ -104,10 +135,10 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
     private static final int EXIT_CODE = 123;
     private static final int CRASH_SIGNAL = OsConstants.SIGSEGV;
 
-    private static final int TOMBSTONE_FETCH_TIMEOUT_MS = 10_000;
+    private static final long TOMBSTONE_FETCH_TIMEOUT_MS = 10_000;
 
-    private static final int WAITFOR_MSEC = 10000;
-    private static final int WAITFOR_SETTLE_DOWN = 2000;
+    private static final long WAITFOR_MSEC = 10000;
+    private static final long WAITFOR_SETTLE_DOWN = 2000;
 
     private static final int CMD_PID = 1;
 
@@ -139,11 +170,12 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
     private SettingsSession<String> mDataAnrSettings;
     private SettingsSession<String> mHiddenApiSettings;
     private int mProcSeqNum;
+    private String mFreezerTimeout;
+    private boolean mHeartbeatDead;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setUp() throws Exception {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getContext();
         mStubPackageUid = mContext.getPackageManager().getPackageUid(STUB_PACKAGE_NAME, 0);
         mWatcher = new WatchUidRunner(mInstrumentation, mStubPackageUid, WAITFOR_MSEC);
@@ -157,6 +189,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         mHandler = new H(mHandlerThread.getLooper());
         mMessenger = new Messenger(mHandler);
         executeShellCmd("cmd deviceidle whitelist +" + STUB_PACKAGE_NAME);
+        executeShellCmd("cmd deviceidle whitelist +" + HEARTBEAT_PACKAGE);
         mDataAnrSettings = new SettingsSession<>(
                 Settings.Global.getUriFor(
                         Settings.Global.DROPBOX_TAG_PREFIX + "data_app_anr"),
@@ -167,6 +200,8 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                         Settings.Global.HIDDEN_API_BLACKLIST_EXEMPTIONS),
                 Settings.Global::getString, Settings.Global::putString);
         mHiddenApiSettings.set("*");
+        mFreezerTimeout = executeShellCmd(
+                "device_config get activity_manager_native_boot freeze_debounce_timeout");
     }
 
     private void handleMessagePid(Message msg) {
@@ -174,7 +209,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         Bundle b = (Bundle) msg.obj;
         String processName = b.getString(EXTRA_PROCESS_NAME);
 
-        if (STUB_ROCESS_NAME.equals(processName)) {
+        if (STUB_PROCESS_NAME.equals(processName)) {
             if (mOtherUserId != 0 && UserHandle.getUserId(msg.arg2) == mOtherUserId) {
                 mStubPackageOtherUserPid = msg.arg1;
                 assertTrue(mStubPackageOtherUserPid > 0);
@@ -182,7 +217,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 mStubPackagePid = msg.arg1;
                 assertTrue(mStubPackagePid > 0);
             }
-        } else if (STUB_REMOTE_ROCESS_NAME.equals(processName)) {
+        } else if (STUB_REMOTE_PROCESS_NAME.equals(processName)) {
             if (mOtherUserId != 0 && UserHandle.getUserId(msg.arg2) == mOtherUserId) {
                 mStubPackageRemoteOtherUserPid = msg.arg1;
                 assertTrue(mStubPackageRemoteOtherUserPid > 0);
@@ -190,6 +225,12 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 mStubPackageRemotePid = msg.arg1;
                 assertTrue(mStubPackageRemotePid > 0);
             }
+        } else if (HEARTBEAT_PROCESS.equals(processName)) {
+            mStubPackagePid = msg.arg1;
+            mStubPackageUid = msg.arg2;
+            mHeartbeatDead = b.getBoolean(HEARTBEAT_PROCESS_DEAD);
+            assertTrue(mStubPackagePid > 0);
+            assertTrue(mStubPackageUid > 0);
         } else { // must be isolated process
             mStubPackageIsolatedPid = msg.arg1;
             mStubPackageIsolatedUid = msg.arg2;
@@ -221,10 +262,16 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         mWatcher.finish();
+        executeShellCmd(
+                "device_config put activity_manager_native_boot freeze_debounce_timeout "
+                        + mFreezerTimeout);
         executeShellCmd("cmd deviceidle whitelist -" + STUB_PACKAGE_NAME);
+        executeShellCmd("cmd deviceidle whitelist -" + HEARTBEAT_PACKAGE);
+        executeShellCmd("am force-stop " + STUB_PACKAGE_NAME);
+        executeShellCmd("am force-stop " + HEARTBEAT_PACKAGE);
         removeTestUserIfNecessary();
         mHandlerThread.quitSafely();
         if (mDataAnrSettings != null) {
@@ -299,8 +346,12 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
     }
 
     private void awaitForLatch(CountDownLatch latch) {
+        awaitForLatch(latch, WAITFOR_MSEC);
+    }
+
+    private void awaitForLatch(CountDownLatch latch, long timeout) {
         try {
-            assertTrue("Timeout for waiting", latch.await(WAITFOR_MSEC, TimeUnit.MILLISECONDS));
+            assertTrue("Timeout for waiting", latch.await(timeout, TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
             fail("Interrupted");
         }
@@ -368,6 +419,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         return am.getHistoricalProcessExitReasons(packageName, pid, max);
     }
 
+    @Test
     public void testExitCode() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -440,6 +492,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         return memConsumers;
     }
 
+    @Test
     public void testLmkdKill() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -491,6 +544,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         }
     }
 
+    @Test
     public void testKillBySignal() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -511,6 +565,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 ApplicationExitInfo.REASON_SIGNALED, OsConstants.SIGKILL, null, now, now2);
     }
 
+    @Test
     public void testAnr() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -545,7 +600,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 new String[]{AmMonitor.WAIT_FOR_CRASHED});
 
         Intent intent = new Intent();
-        intent.setComponent(new ComponentName(STUB_PACKAGE_NAME, STUB_RECEIVER_NAMWE));
+        intent.setComponent(new ComponentName(STUB_PACKAGE_NAME, STUB_RECEIVER_NAME));
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // This will result an ANR
         mContext.sendOrderedBroadcast(intent, null);
@@ -609,6 +664,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         mContext.unregisterReceiver(receiver);
     }
 
+    @Test
     public void testOther() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -693,6 +749,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         return dump.substring(start, end);
     }
 
+    @Test
     public void testPermissionChange() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -742,6 +799,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
     }
 
     // A clone of testPermissionChange using a different revoke api
+    @Test
     public void testPermissionChangeWithReason() throws Exception {
         String revokeReason = "test reason";
         // Remove old records to avoid interference with the test.
@@ -795,6 +853,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 info.getRss() * 1024, new StringBuilder()));
     }
 
+    @Test
     public void testCrash() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -819,6 +878,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 ApplicationExitInfo.REASON_CRASH, null, null, now, now2);
     }
 
+    @Test
     public void testNativeCrash() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -853,6 +913,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         assertEquals(tombstone.getPid(), mStubPackagePid);
     }
 
+    @Test
     public void testUserRequested() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -879,6 +940,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 ApplicationExitInfo.REASON_USER_REQUESTED, null, null, now, now2);
     }
 
+    @Test
     public void testDependencyDied() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -896,7 +958,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                     am, (m) -> m.getRunningAppProcesses(),
                     android.Manifest.permission.REAL_GET_TASKS);
             for (RunningAppProcessInfo info: list) {
-                if (info.processName.equals(STUB_REMOTE_ROCESS_NAME)) {
+                if (info.processName.equals(STUB_REMOTE_PROCESS_NAME)) {
                     providerPid = info.pid;
                     break;
                 }
@@ -923,6 +985,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 ApplicationExitInfo.REASON_DEPENDENCY_DIED, null, null, now, now2);
     }
 
+    @Test
     public void testMultipleProcess() throws Exception {
         // Remove old records to avoid interference with the test.
         clearHistoricalExitInfo();
@@ -945,9 +1008,9 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 android.Manifest.permission.DUMP);
 
         assertTrue(list != null && list.size() == 2);
-        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_ROCESS_NAME,
+        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_PROCESS_NAME,
                 ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE, null, now2, now3);
-        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_ROCESS_NAME,
+        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_PROCESS_NAME,
                 ApplicationExitInfo.REASON_SIGNALED, OsConstants.SIGKILL, null, now, now2);
 
         // If we only retrieve one report
@@ -957,7 +1020,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 android.Manifest.permission.DUMP);
 
         assertTrue(list != null && list.size() == 1);
-        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_ROCESS_NAME,
+        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_PROCESS_NAME,
                 ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE, null, now2, now3);
     }
 
@@ -1023,6 +1086,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         }
     }
 
+    @Test
     public void testSecondaryUser() throws Exception {
         if (!mSupportMultipleUsers) {
             return;
@@ -1108,10 +1172,10 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 android.Manifest.permission.DUMP);
 
         assertTrue(list != null && list.size() == 2);
-        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_ROCESS_NAME,
+        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_PROCESS_NAME,
                 ApplicationExitInfo.REASON_SIGNALED, OsConstants.SIGKILL, null, now4, now5,
                 cookie4);
-        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_ROCESS_NAME,
+        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_PROCESS_NAME,
                 ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE, null, now, now2, cookie1);
 
         // Now try the other user
@@ -1134,9 +1198,9 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
 
         assertTrue(list != null && list.size() == 2);
         verify(list.get(0), mStubPackageRemoteOtherUserPid, mStubPackageOtherUid,
-                STUB_REMOTE_ROCESS_NAME, ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE,
+                STUB_REMOTE_PROCESS_NAME, ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE,
                 null, now3, now4, cookie3);
-        verify(list.get(1), mStubPackageOtherUserPid, mStubPackageOtherUid, STUB_ROCESS_NAME,
+        verify(list.get(1), mStubPackageOtherUserPid, mStubPackageOtherUid, STUB_PROCESS_NAME,
                 ApplicationExitInfo.REASON_SIGNALED, OsConstants.SIGKILL, null,
                 now2, now3, cookie2);
 
@@ -1161,7 +1225,7 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 this::getHistoricalProcessExitReasonsAsUser,
                 android.Manifest.permission.DUMP,
                 android.Manifest.permission.INTERACT_ACROSS_USERS);
-        verify(list.get(0), mStubPackageOtherUserPid, mStubPackageOtherUid, STUB_ROCESS_NAME,
+        verify(list.get(0), mStubPackageOtherUserPid, mStubPackageOtherUid, STUB_PROCESS_NAME,
                 ApplicationExitInfo.REASON_USER_STOPPED, null, null, now6, now7, cookie5);
 
         int otherUserId = mOtherUserId;
@@ -1205,11 +1269,102 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
                 android.Manifest.permission.INTERACT_ACROSS_USERS);
 
         assertTrue(list != null && list.size() == 2);
-        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_ROCESS_NAME,
+        verify(list.get(0), mStubPackageRemotePid, mStubPackageUid, STUB_REMOTE_PROCESS_NAME,
                 ApplicationExitInfo.REASON_SIGNALED, OsConstants.SIGKILL, null, now4, now5,
                 cookie4);
-        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_ROCESS_NAME,
+        verify(list.get(1), mStubPackagePid, mStubPackageUid, STUB_PROCESS_NAME,
                 ApplicationExitInfo.REASON_EXIT_SELF, EXIT_CODE, null, now, now2, cookie1);
+    }
+
+    @Test
+    public void testFreezerNormalExitCode() throws Exception {
+        // The app should NOT be frozen with 30s freeze timeout configuration
+        runFreezerTest(HEARTBEAT_FREEZER_LONG, false, ApplicationExitInfo.REASON_SIGNALED);
+    }
+
+    @Test
+    public void testFreezerKillExitCode() throws Exception {
+        // The app should be frozen and killed with 5s freeze timeout configuration
+        assumeTrue(mActivityManager.getService().isAppFreezerEnabled());
+        runFreezerTest(HEARTBEAT_FREEZER_SHORT, true, ApplicationExitInfo.REASON_FREEZER);
+    }
+
+    public void runFreezerTest(long freezerTimeout, boolean dead, int reason) throws Exception {
+        // Remove old records to avoid interference with the test.
+        clearHistoricalExitInfo();
+
+        executeShellCmd(
+                "device_config put activity_manager_native_boot freeze_debounce_timeout "
+                        + freezerTimeout);
+
+        long now = System.currentTimeMillis();
+
+        mLatch = new CountDownLatch(1);
+
+        // Start the HeartbeatService to wait for HeartbeatActivity
+        Intent serviceIntent = new Intent(HEARTBEAT_SERVICE);
+        serviceIntent.setPackage(HEARTBEAT_PACKAGE);
+        ServiceConnection connection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                IHeartbeat heartbeat = IHeartbeat.Stub.asInterface(service);
+                try {
+                    heartbeat.monitor(mMessenger);
+                } catch (RemoteException e) {
+                    fail("Failed to monitor Heartbeat service");
+                }
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+            }
+        };
+        mContext.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE);
+
+        // Launch the HeartbeatActivity to talk to the HeartbeatService
+        Intent clientIntent = new Intent(Intent.ACTION_MAIN);
+        clientIntent.setClassName(HEARTBEAT_PACKAGE, HEARTBEAT_ACTIVITY);
+        clientIntent.putExtra(HEARTBEAT_COUNTDOWN_NAME, HEARTBEAT_COUNTDOWN);
+        clientIntent.putExtra(HEARTBEAT_INTERVAL_NAME, HEARTBEAT_INTERVAL);
+        clientIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(clientIntent);
+        sleep(1000);
+
+        // Launch another app to bring the HeartbeatActivity to background
+        Intent intent1 = new Intent(Intent.ACTION_MAIN);
+        intent1.setClassName(STUB_PACKAGE_NAME, STUB_PACKAGE_NAME + SIMPLE_ACTIVITY);
+        intent1.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent1);
+        sleep(1000);
+
+        // Launch Home to make sure the HeartbeatActivity is in cached mode
+        Intent intentHome = new Intent(Intent.ACTION_MAIN);
+        intentHome.addCategory(Intent.CATEGORY_HOME);
+        intentHome.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intentHome);
+
+        // Wait until the HeartbeatService finishes
+        awaitForLatch(mLatch, HEARTBEAT_COUNTDOWN * HEARTBEAT_INTERVAL);
+        mContext.unbindService(connection);
+        sleep(1000);
+
+        // Check if the frozen app is killed
+        assertEquals(dead, mHeartbeatDead);
+        int uid = mContext.getPackageManager().getPackageUid(HEARTBEAT_PACKAGE,
+                PackageManager.PackageInfoFlags.of(0));
+        assertEquals(uid, mStubPackageUid);
+
+        long now2 = System.currentTimeMillis();
+
+        List<ApplicationExitInfo> list = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                HEARTBEAT_PACKAGE, mStubPackagePid, 1, mCurrentUserId,
+                this::getHistoricalProcessExitReasonsAsUser,
+                android.Manifest.permission.DUMP);
+
+        assertNotNull(list);
+        assertEquals(list.size(), 1);
+        verify(list.get(0), mStubPackagePid, uid, HEARTBEAT_PROCESS,
+                reason, null, null, now, now2);
     }
 
     private void verify(ApplicationExitInfo info, int pid, int uid, String processName,

@@ -19,6 +19,7 @@ package android.view.cts.util;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Rect;
+import android.hardware.HardwareBuffer;
 import android.view.Surface;
 
 public class ASurfaceControlTestUtils {
@@ -170,4 +171,11 @@ public class ASurfaceControlTestUtils {
             long surfaceTransaction, boolean waitForFence, TransactionCompleteListener listener);
     public static native void nSurfaceTransaction_setOnCommitCallbackWithoutContext(
             long surfaceTransaction, TransactionCompleteListener listener);
+    public static native void nSurfaceTransaction_setFrameTimeline(long surfaceTransaction,
+            long vsyncId);
+
+    public static native HardwareBuffer getSolidBuffer(int width, int height, int color);
+    public static native HardwareBuffer getQuadrantBuffer(int width, int height,
+            int colorTopLeft, int colorTopRight, int colorBottomRight, int colorBottomLeft);
+    public static native long getBufferId(HardwareBuffer buffer);
 }

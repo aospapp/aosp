@@ -113,7 +113,7 @@ public:
 
     class IoConfigEventData : public ConfigEventData {
     public:
-        IoConfigEventData(audio_io_config_event event, pid_t pid,
+        IoConfigEventData(audio_io_config_event_t event, pid_t pid,
                           audio_port_handle_t portId) :
             mEvent(event), mPid(pid), mPortId(portId) {}
 
@@ -121,14 +121,14 @@ public:
             snprintf(buffer, size, "- IO event: event %d\n", mEvent);
         }
 
-        const audio_io_config_event mEvent;
+        const audio_io_config_event_t mEvent;
         const pid_t                 mPid;
         const audio_port_handle_t   mPortId;
     };
 
     class IoConfigEvent : public ConfigEvent {
     public:
-        IoConfigEvent(audio_io_config_event event, pid_t pid, audio_port_handle_t portId) :
+        IoConfigEvent(audio_io_config_event_t event, pid_t pid, audio_port_handle_t portId) :
             ConfigEvent(CFG_EVENT_IO) {
             mData = new IoConfigEventData(event, pid, portId);
         }
@@ -332,15 +332,15 @@ public:
                                                     status_t& status) = 0;
     virtual     status_t    setParameters(const String8& keyValuePairs);
     virtual     String8     getParameters(const String8& keys) = 0;
-    virtual     void        ioConfigChanged(audio_io_config_event event, pid_t pid = 0,
+    virtual     void        ioConfigChanged(audio_io_config_event_t event, pid_t pid = 0,
                                         audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE) = 0;
                 // sendConfigEvent_l() must be called with ThreadBase::mLock held
                 // Can temporarily release the lock if waiting for a reply from
                 // processConfigEvents_l().
                 status_t    sendConfigEvent_l(sp<ConfigEvent>& event);
-                void        sendIoConfigEvent(audio_io_config_event event, pid_t pid = 0,
+                void        sendIoConfigEvent(audio_io_config_event_t event, pid_t pid = 0,
                                               audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
-                void        sendIoConfigEvent_l(audio_io_config_event event, pid_t pid = 0,
+                void        sendIoConfigEvent_l(audio_io_config_event_t event, pid_t pid = 0,
                                             audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
                 void        sendPrioConfigEvent(pid_t pid, pid_t tid, int32_t prio, bool forApp);
                 void        sendPrioConfigEvent_l(pid_t pid, pid_t tid, int32_t prio, bool forApp);
@@ -483,7 +483,7 @@ public:
                             if (track->isFastTrack()) {
                                 result |= FAST_SESSION;  // caution, only represents first track.
                             }
-                            if (track->canBeSpatialized()) {
+                            if (track->isSpatialized()) {
                                 result |= SPATIALIZED_SESSION;  // caution, only first track.
                             }
                             break;
@@ -687,10 +687,14 @@ protected:
                 int64_t                 mLastIoBeginNs = -1;
                 int64_t                 mLastIoEndNs = -1;
 
+                // ThreadSnapshot is thread-safe (internally locked)
+                mediautils::ThreadSnapshot mThreadSnapshot;
+
                 // This should be read under ThreadBase lock (if not on the threadLoop thread).
                 audio_utils::Statistics<double> mIoJitterMs{0.995 /* alpha */};
                 audio_utils::Statistics<double> mProcessTimeMs{0.995 /* alpha */};
                 audio_utils::Statistics<double> mLatencyMs{0.995 /* alpha */};
+                audio_utils::Statistics<double> mMonopipePipeDepthStats{0.999 /* alpha */};
 
                 // Save the last count when we delivered statistics to mediametrics.
                 int64_t                 mLastRecordedTimestampVerifierN = 0;
@@ -959,7 +963,8 @@ public:
                                 pid_t tid,
                                 status_t *status /*non-NULL*/,
                                 audio_port_handle_t portId,
-                                const sp<media::IAudioTrackCallback>& callback);
+                                const sp<media::IAudioTrackCallback>& callback,
+                                bool isSpatialized);
 
                 AudioStreamOut* getOutput() const;
                 AudioStreamOut* clearOutput();
@@ -979,7 +984,7 @@ public:
                                 { return android_atomic_acquire_load(&mSuspended) > 0; }
 
     virtual     String8     getParameters(const String8& keys);
-    virtual     void        ioConfigChanged(audio_io_config_event event, pid_t pid = 0,
+    virtual     void        ioConfigChanged(audio_io_config_event_t event, pid_t pid = 0,
                                             audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
                 status_t    getRenderPosition(uint32_t *halFrames, uint32_t *dspFrames);
                 // Consider also removing and passing an explicit mMainBuffer initialization
@@ -1375,6 +1380,14 @@ protected:
                 struct audio_patch mDownStreamPatch;
 
                 std::atomic_bool mCheckOutputStageEffects{};
+
+                // A differential check on the timestamps to see if there is a change in the
+                // timestamp frame position between the last call to checkRunningTimestamp.
+                uint64_t mLastCheckedTimestampPosition = ~0LL;
+
+                bool checkRunningTimestamp();
+
+    virtual     void flushHw_l() { mLastCheckedTimestampPosition = ~0LL; }
 };
 
 class MixerThread : public PlaybackThread {
@@ -1492,7 +1505,7 @@ public:
     virtual     bool        checkForNewParameter_l(const String8& keyValuePair,
                                                    status_t& status);
 
-    virtual     void        flushHw_l();
+                void        flushHw_l() override;
 
                 void        setMasterBalance(float balance) override;
 
@@ -1557,7 +1570,7 @@ public:
     OffloadThread(const sp<AudioFlinger>& audioFlinger, AudioStreamOut* output,
                   audio_io_handle_t id, bool systemReady);
     virtual                 ~OffloadThread() {};
-    virtual     void        flushHw_l();
+                void        flushHw_l() override;
 
 protected:
     // threadLoop snippets
@@ -1574,10 +1587,6 @@ private:
     size_t      mPausedWriteLength;     // length in bytes of write interrupted by pause
     size_t      mPausedBytesRemaining;  // bytes still waiting in mixbuffer after resume
     bool        mKeepWakeLock;          // keep wake lock while waiting for write callback
-    uint64_t    mOffloadUnderrunPosition; // Current frame position for offloaded playback
-                                          // used and valid only during underrun.  ~0 if
-                                          // no underrun has occurred during playback and
-                                          // is not reset on standby.
 };
 
 class AsyncCallbackThread : public Thread {
@@ -1801,7 +1810,7 @@ public:
                                                status_t& status);
     virtual void        cacheParameters_l() {}
     virtual String8     getParameters(const String8& keys);
-    virtual void        ioConfigChanged(audio_io_config_event event, pid_t pid = 0,
+    virtual void        ioConfigChanged(audio_io_config_event_t event, pid_t pid = 0,
                                         audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
     virtual status_t    createAudioPatch_l(const struct audio_patch *patch,
                                            audio_patch_handle_t *handle);
@@ -1859,6 +1868,8 @@ public:
 
             bool        isTimestampCorrectionEnabled() const override {
                             // checks popcount for exactly one device.
+                            // Is currently disabled. Before enabling,
+                            // verify compressed record timestamps.
                             return audio_is_input_device(mTimestampCorrectedDevice)
                                     && inDeviceType() == mTimestampCorrectedDevice;
                         }
@@ -2010,7 +2021,7 @@ class MmapThread : public ThreadBase
     virtual     bool        checkForNewParameter_l(const String8& keyValuePair,
                                                     status_t& status);
     virtual     String8     getParameters(const String8& keys);
-    virtual     void        ioConfigChanged(audio_io_config_event event, pid_t pid = 0,
+    virtual     void        ioConfigChanged(audio_io_config_event_t event, pid_t pid = 0,
                                             audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
                 void        readHalParameters_l();
     virtual     void        cacheParameters_l() {}

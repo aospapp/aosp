@@ -60,7 +60,7 @@ using android::base::ErrnoRestorer;
 static int check_log_uid_permissions() {
   uid_t uid = getuid();
 
-  /* Matches clientHasLogCredentials() in logd */
+  /* Matches clientCanWriteSecurityLog() in logd */
   if ((uid != AID_SYSTEM) && (uid != AID_ROOT) && (uid != AID_LOG)) {
     uid = geteuid();
     if ((uid != AID_SYSTEM) && (uid != AID_ROOT) && (uid != AID_LOG)) {
@@ -81,7 +81,8 @@ static int check_log_uid_permissions() {
           }
           num_groups = getgroups(num_groups, groups);
           while (num_groups > 0) {
-            if (groups[num_groups - 1] == AID_LOG) {
+            if (groups[num_groups - 1] == AID_LOG ||
+                groups[num_groups - 1] == AID_SECURITY_LOG_WRITER) {
               break;
             }
             --num_groups;
@@ -108,11 +109,10 @@ void __android_log_close() {
 #endif
 }
 
-#if defined(__GLIBC__) || defined(_WIN32)
+// BSD-based systems like Android/macOS have getprogname(). Others need us to provide one.
+#if !defined(__APPLE__) && !defined(__BIONIC__)
 static const char* getprogname() {
-#if defined(__GLIBC__)
-  return program_invocation_short_name;
-#elif defined(_WIN32)
+#ifdef _WIN32
   static bool first = true;
   static char progname[MAX_PATH] = {};
 
@@ -129,6 +129,8 @@ static const char* getprogname() {
   }
 
   return progname;
+#else
+  return program_invocation_short_name;
 #endif
 }
 #endif
@@ -267,7 +269,7 @@ void __android_log_stderr_logger(const struct __android_log_message* log_message
             log_message->tag ? log_message->tag : "nullptr", priority_char, timestamp, getpid(),
             tid, log_message->file, log_message->line, log_message->message);
   } else {
-    fprintf(stderr, "%s %c %s %5d %5" PRIu64 " %s\n",
+    fprintf(stderr, "%s %c %s %5d %5" PRIu64 "] %s\n",
             log_message->tag ? log_message->tag : "nullptr", priority_char, timestamp, getpid(),
             tid, log_message->message);
   }

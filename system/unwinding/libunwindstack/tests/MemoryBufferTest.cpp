@@ -103,7 +103,14 @@ TEST_F(MemoryBufferTest, Resize) {
   ASSERT_TRUE(memory_->Resize(256));
 
   ASSERT_TRUE(memory_->Resize(1024));
+}
 
+extern "C" void __hwasan_init() __attribute__((weak));
+
+TEST_F(MemoryBufferTest, Resize_too_large) {
+  if (&__hwasan_init != 0) {
+    GTEST_SKIP() << "Tests fails hwasan allocation size too large check.";
+  }
   ASSERT_FALSE(memory_->Resize(SIZE_MAX));
 }
 

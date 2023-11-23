@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Alapértelmezett kategóriák visszaállítása"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Alapértelmezett kategóriák helyreállítva"</string>
     <string name="default_categories" msgid="2117679794687799407">"Alapértelmezett"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d kiválasztva</item>
-      <item quantity="one">%d kiválasztva</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# kiválasztva}other{# kiválasztva}}"</string>
     <string name="applications" msgid="521776761270770549">"Alkalmazások"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Nincs olyan alkalmazás, amely hibaelhárítást igényel"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Processzoronkénti pufferméret"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"A Perfetto (béta) használata"</string>
     <string name="long_traces" msgid="5110949471775966329">"Hosszú nyomkövetések"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Folyamatos mentés az eszköz tárhelyére"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Folyamatosan mentve az eszköz tárhelyére (nem lesz automatikusan csatolva a hibajelentésekhez)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"A hosszú nyomkövetések maximális mérete"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Hosszú nyomkövetések maximális időtartama"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

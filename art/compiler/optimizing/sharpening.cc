@@ -171,6 +171,11 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(
   dex::TypeIndex type_index = load_class->GetTypeIndex();
   const CompilerOptions& compiler_options = codegen->GetCompilerOptions();
 
+  auto is_class_in_current_boot_image = [&]() {
+    return (compiler_options.IsBootImage() || compiler_options.IsBootImageExtension()) &&
+           compiler_options.IsImageClass(dex_file.StringByTypeIdx(type_index));
+  };
+
   bool is_in_boot_image = false;
   HLoadClass::LoadKind desired_load_kind = HLoadClass::LoadKind::kInvalid;
 
@@ -181,12 +186,17 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(
     // locations of target classes. The additional register pressure
     // for using the ArtMethod* should be considered.
     desired_load_kind = HLoadClass::LoadKind::kReferrersClass;
+    // Determine whether the referrer's class is in the boot image.
+    is_in_boot_image = is_class_in_current_boot_image();
   } else if (load_class->NeedsAccessCheck()) {
     DCHECK_EQ(load_class->GetLoadKind(), HLoadClass::LoadKind::kRuntimeCall);
     if (klass != nullptr) {
       // Resolved class that needs access check must be really inaccessible
       // and the access check is bound to fail. Just emit the runtime call.
       desired_load_kind = HLoadClass::LoadKind::kRuntimeCall;
+      // Determine whether the class is in the boot image.
+      is_in_boot_image = Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(klass.Get()) ||
+                         is_class_in_current_boot_image();
     } else if (compiler_options.IsJitCompiler()) {
       // Unresolved class while JITting means that either we never hit this
       // instruction or it failed. Either way, just emit the runtime call.
@@ -222,6 +232,9 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(
       if (!compiler_options.GetCompilePic()) {
         // Test configuration, do not sharpen.
         desired_load_kind = HLoadClass::LoadKind::kRuntimeCall;
+        // Determine whether the class is in the boot image.
+        is_in_boot_image = Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(klass.Get()) ||
+                           is_class_in_current_boot_image();
       } else if (klass != nullptr && runtime->GetHeap()->ObjectIsInBootImageSpace(klass.Get())) {
         DCHECK(compiler_options.IsBootImageExtension());
         is_in_boot_image = true;
@@ -283,6 +296,12 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(
       // We actually cannot reference this class, we're forced to bail.
       // We cannot reference this class with Bss, as the entrypoint will lookup the class
       // in the caller's dex file, but that dex file does not reference the class.
+      // TODO(solanes): We could theoretically enable this optimization for kBssEntry* but this
+      // requires some changes to the entrypoints, particularly artResolveTypeFromCode and
+      // artResolveTypeAndVerifyAccessFromCode. Currently, they assume that the `load_class`'s
+      // Dexfile and the `dex_compilation_unit` DexFile is the same and will try to use the type
+      // index in the incorrect DexFile by using the `caller`'s DexFile. A possibility is to add
+      // another parameter to it pointing to the correct DexFile to use.
       return HLoadClass::LoadKind::kInvalid;
     }
   }

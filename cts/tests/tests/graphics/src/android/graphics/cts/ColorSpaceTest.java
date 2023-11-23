@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.graphics.ColorSpace;
+import android.hardware.DataSpace;
 
 import androidx.test.filters.SmallTest;
 
@@ -936,6 +937,25 @@ public class ColorSpaceTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void getDataSpaceFromColorSpace() {
+        ColorSpace cs = ColorSpace.get(ColorSpace.Named.BT709);
+        assertNotNull(cs);
+        assertEquals(DataSpace.DATASPACE_BT709, cs.getDataSpace());
+
+        cs = ColorSpace.get(ColorSpace.Named.ACES);
+        assertEquals(DataSpace.DATASPACE_UNKNOWN, cs.getDataSpace());
+    }
+
+    @Test
+    public void getColorSpaceFromDataSpace() {
+        ColorSpace cs = ColorSpace.getFromDataSpace(DataSpace.DATASPACE_SRGB);
+        assertNotNull(cs);
+        assertEquals(DataSpace.DATASPACE_SRGB, cs.getDataSpace());
+
+        assertNull(ColorSpace.getFromDataSpace(DataSpace.DATASPACE_JFIF));
     }
 
     @SuppressWarnings("SameParameterValue")

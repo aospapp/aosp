@@ -25,7 +25,6 @@
 #include <android-base/mapped_file.h>
 #include <android-base/unique_fd.h>
 #include <android/binder_auto_utils.h>
-#include <android/hardware_buffer.h>
 #include <cutils/native_handle.h>
 #include <nnapi/OperandTypes.h>
 #include <nnapi/OperationTypes.h>
@@ -35,8 +34,6 @@
 #include <nnapi/Types.h>
 #include <nnapi/Validation.h>
 #include <nnapi/hal/CommonUtils.h>
-#include <nnapi/hal/HandleError.h>
-#include <vndk/hardware_buffer.h>
 
 #include <algorithm>
 #include <chrono>
@@ -48,6 +45,11 @@
 
 #include "Utils.h"
 
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#include <vndk/hardware_buffer.h>
+#endif  // __ANDROID__
+
 #define VERIFY_NON_NEGATIVE(value) \
     while (UNLIKELY(value < 0)) return NN_ERROR()
 
@@ -55,10 +57,6 @@
     while (UNLIKELY(value > std::numeric_limits<int32_t>::max())) return NN_ERROR()
 
 namespace {
-template <typename Type>
-constexpr std::underlying_type_t<Type> underlyingType(Type value) {
-    return static_cast<std::underlying_type_t<Type>>(value);
-}
 
 constexpr int64_t kNoTiming = -1;
 
@@ -68,6 +66,7 @@ namespace android::nn {
 namespace {
 
 using ::aidl::android::hardware::common::NativeHandle;
+using ::aidl::android::hardware::neuralnetworks::utils::underlyingType;
 
 template <typename Input>
 using UnvalidatedConvertOutput =
@@ -108,17 +107,6 @@ GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> validatedConvert(
     return canonical;
 }
 
-GeneralResult<Handle> unvalidatedConvertHelper(const NativeHandle& aidlNativeHandle) {
-    std::vector<base::unique_fd> fds;
-    fds.reserve(aidlNativeHandle.fds.size());
-    for (const auto& fd : aidlNativeHandle.fds) {
-        auto duplicatedFd = NN_TRY(dupFd(fd.get()));
-        fds.emplace_back(duplicatedFd.release());
-    }
-
-    return Handle{.fds = std::move(fds), .ints = aidlNativeHandle.ints};
-}
-
 struct NativeHandleDeleter {
     void operator()(native_handle_t* handle) const {
         if (handle) {
@@ -130,6 +118,7 @@ struct NativeHandleDeleter {
 
 using UniqueNativeHandle = std::unique_ptr<native_handle_t, NativeHandleDeleter>;
 
+#ifdef __ANDROID__
 GeneralResult<UniqueNativeHandle> nativeHandleFromAidlHandle(const NativeHandle& handle) {
     auto nativeHandle = UniqueNativeHandle(dupFromAidl(handle));
     if (nativeHandle.get() == nullptr) {
@@ -142,6 +131,7 @@ GeneralResult<UniqueNativeHandle> nativeHandleFromAidlHandle(const NativeHandle&
     }
     return nativeHandle;
 }
+#endif  // __ANDROID__
 
 }  // anonymous namespace
 
@@ -184,26 +174,31 @@ GeneralResult<Capabilities> unvalidatedConvert(const aidl_hal::Capabilities& cap
     }
 
     auto operandPerformance = NN_TRY(unvalidatedConvert(capabilities.operandPerformance));
-    auto table = NN_TRY(hal::utils::makeGeneralFailure(
-            Capabilities::OperandPerformanceTable::create(std::move(operandPerformance)),
-            nn::ErrorStatus::GENERAL_FAILURE));
+    auto table =
+            NN_TRY(Capabilities::OperandPerformanceTable::create(std::move(operandPerformance)));
 
+    const auto relaxedFloat32toFloat16PerformanceScalar =
+            NN_TRY(unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceScalar));
+    const auto relaxedFloat32toFloat16PerformanceTensor =
+            NN_TRY(unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceTensor));
+    const auto ifPerformance = NN_TRY(unvalidatedConvert(capabilities.ifPerformance));
+    const auto whilePerformance = NN_TRY(unvalidatedConvert(capabilities.whilePerformance));
     return Capabilities{
-            .relaxedFloat32toFloat16PerformanceScalar = NN_TRY(
-                    unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceScalar)),
-            .relaxedFloat32toFloat16PerformanceTensor = NN_TRY(
-                    unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceTensor)),
+            .relaxedFloat32toFloat16PerformanceScalar = relaxedFloat32toFloat16PerformanceScalar,
+            .relaxedFloat32toFloat16PerformanceTensor = relaxedFloat32toFloat16PerformanceTensor,
             .operandPerformance = std::move(table),
-            .ifPerformance = NN_TRY(unvalidatedConvert(capabilities.ifPerformance)),
-            .whilePerformance = NN_TRY(unvalidatedConvert(capabilities.whilePerformance)),
+            .ifPerformance = ifPerformance,
+            .whilePerformance = whilePerformance,
     };
 }
 
 GeneralResult<Capabilities::OperandPerformance> unvalidatedConvert(
         const aidl_hal::OperandPerformance& operandPerformance) {
+    const auto type = NN_TRY(unvalidatedConvert(operandPerformance.type));
+    const auto info = NN_TRY(unvalidatedConvert(operandPerformance.info));
     return Capabilities::OperandPerformance{
-            .type = NN_TRY(unvalidatedConvert(operandPerformance.type)),
-            .info = NN_TRY(unvalidatedConvert(operandPerformance.info)),
+            .type = type,
+            .info = info,
     };
 }
 
@@ -239,10 +234,13 @@ GeneralResult<DataLocation> unvalidatedConvert(const aidl_hal::DataLocation& loc
 }
 
 GeneralResult<Operation> unvalidatedConvert(const aidl_hal::Operation& operation) {
+    const auto type = NN_TRY(unvalidatedConvert(operation.type));
+    auto inputs = NN_TRY(toUnsigned(operation.inputs));
+    auto outputs = NN_TRY(toUnsigned(operation.outputs));
     return Operation{
-            .type = NN_TRY(unvalidatedConvert(operation.type)),
-            .inputs = NN_TRY(toUnsigned(operation.inputs)),
-            .outputs = NN_TRY(toUnsigned(operation.outputs)),
+            .type = type,
+            .inputs = std::move(inputs),
+            .outputs = std::move(outputs),
     };
 }
 
@@ -252,14 +250,19 @@ GeneralResult<Operand::LifeTime> unvalidatedConvert(
 }
 
 GeneralResult<Operand> unvalidatedConvert(const aidl_hal::Operand& operand) {
+    const auto type = NN_TRY(unvalidatedConvert(operand.type));
+    auto dimensions = NN_TRY(toUnsigned(operand.dimensions));
+    const auto lifetime = NN_TRY(unvalidatedConvert(operand.lifetime));
+    const auto location = NN_TRY(unvalidatedConvert(operand.location));
+    auto extraParams = NN_TRY(unvalidatedConvert(operand.extraParams));
     return Operand{
-            .type = NN_TRY(unvalidatedConvert(operand.type)),
-            .dimensions = NN_TRY(toUnsigned(operand.dimensions)),
+            .type = type,
+            .dimensions = std::move(dimensions),
             .scale = operand.scale,
             .zeroPoint = operand.zeroPoint,
-            .lifetime = NN_TRY(unvalidatedConvert(operand.lifetime)),
-            .location = NN_TRY(unvalidatedConvert(operand.location)),
-            .extraParams = NN_TRY(unvalidatedConvert(operand.extraParams)),
+            .lifetime = lifetime,
+            .location = location,
+            .extraParams = std::move(extraParams),
     };
 }
 
@@ -291,37 +294,47 @@ GeneralResult<Operand::SymmPerChannelQuantParams> unvalidatedConvert(
 }
 
 GeneralResult<Model> unvalidatedConvert(const aidl_hal::Model& model) {
+    auto main = NN_TRY(unvalidatedConvert(model.main));
+    auto referenced = NN_TRY(unvalidatedConvert(model.referenced));
+    auto operandValues = NN_TRY(unvalidatedConvert(model.operandValues));
+    auto pools = NN_TRY(unvalidatedConvert(model.pools));
+    auto extensionNameToPrefix = NN_TRY(unvalidatedConvert(model.extensionNameToPrefix));
     return Model{
-            .main = NN_TRY(unvalidatedConvert(model.main)),
-            .referenced = NN_TRY(unvalidatedConvert(model.referenced)),
-            .operandValues = NN_TRY(unvalidatedConvert(model.operandValues)),
-            .pools = NN_TRY(unvalidatedConvert(model.pools)),
+            .main = std::move(main),
+            .referenced = std::move(referenced),
+            .operandValues = std::move(operandValues),
+            .pools = std::move(pools),
             .relaxComputationFloat32toFloat16 = model.relaxComputationFloat32toFloat16,
-            .extensionNameToPrefix = NN_TRY(unvalidatedConvert(model.extensionNameToPrefix)),
+            .extensionNameToPrefix = std::move(extensionNameToPrefix),
     };
 }
 
 GeneralResult<Model::Subgraph> unvalidatedConvert(const aidl_hal::Subgraph& subgraph) {
+    auto operands = NN_TRY(unvalidatedConvert(subgraph.operands));
+    auto operations = NN_TRY(unvalidatedConvert(subgraph.operations));
+    auto inputIndexes = NN_TRY(toUnsigned(subgraph.inputIndexes));
+    auto outputIndexes = NN_TRY(toUnsigned(subgraph.outputIndexes));
     return Model::Subgraph{
-            .operands = NN_TRY(unvalidatedConvert(subgraph.operands)),
-            .operations = NN_TRY(unvalidatedConvert(subgraph.operations)),
-            .inputIndexes = NN_TRY(toUnsigned(subgraph.inputIndexes)),
-            .outputIndexes = NN_TRY(toUnsigned(subgraph.outputIndexes)),
+            .operands = std::move(operands),
+            .operations = std::move(operations),
+            .inputIndexes = std::move(inputIndexes),
+            .outputIndexes = std::move(outputIndexes),
     };
 }
 
-GeneralResult<Model::ExtensionNameAndPrefix> unvalidatedConvert(
+GeneralResult<ExtensionNameAndPrefix> unvalidatedConvert(
         const aidl_hal::ExtensionNameAndPrefix& extensionNameAndPrefix) {
-    return Model::ExtensionNameAndPrefix{
+    return ExtensionNameAndPrefix{
             .name = extensionNameAndPrefix.name,
             .prefix = extensionNameAndPrefix.prefix,
     };
 }
 
 GeneralResult<Extension> unvalidatedConvert(const aidl_hal::Extension& extension) {
+    auto operandTypes = NN_TRY(unvalidatedConvert(extension.operandTypes));
     return Extension{
             .name = extension.name,
-            .operandTypes = NN_TRY(unvalidatedConvert(extension.operandTypes)),
+            .operandTypes = std::move(operandTypes),
     };
 }
 
@@ -337,8 +350,9 @@ GeneralResult<Extension::OperandTypeInformation> unvalidatedConvert(
 }
 
 GeneralResult<OutputShape> unvalidatedConvert(const aidl_hal::OutputShape& outputShape) {
+    auto dimensions = NN_TRY(toUnsigned(outputShape.dimensions));
     return OutputShape{
-            .dimensions = NN_TRY(toUnsigned(outputShape.dimensions)),
+            .dimensions = std::move(dimensions),
             .isSufficient = outputShape.isSufficient,
     };
 }
@@ -357,8 +371,9 @@ GeneralResult<SharedMemory> unvalidatedConvert(const aidl_hal::Memory& memory) {
                 return NN_ERROR() << "Memory: size must be <= std::numeric_limits<size_t>::max()";
             }
 
+            auto fd = NN_TRY(dupFd(ashmem.fd.get()));
             auto handle = Memory::Ashmem{
-                    .fd = NN_TRY(dupFd(ashmem.fd.get())),
+                    .fd = std::move(fd),
                     .size = static_cast<size_t>(ashmem.size),
             };
             return std::make_shared<const Memory>(Memory{.handle = std::move(handle)});
@@ -382,6 +397,7 @@ GeneralResult<SharedMemory> unvalidatedConvert(const aidl_hal::Memory& memory) {
             return createSharedMemoryFromFd(size, prot, fd, offset);
         }
         case Tag::hardwareBuffer: {
+#ifdef __ANDROID__
             const auto& hardwareBuffer = memory.get<Tag::hardwareBuffer>();
 
             const UniqueNativeHandle handle =
@@ -404,9 +420,14 @@ GeneralResult<SharedMemory> unvalidatedConvert(const aidl_hal::Memory& memory) {
             }
 
             return createSharedMemoryFromAHWB(ahwb, /*takeOwnership=*/true);
+#else   // __ANDROID__
+            LOG(FATAL) << "GeneralResult<SharedMemory> unvalidatedConvert(const aidl_hal::Memory& "
+                          "memory): Not Available on Host Build";
+            return NN_ERROR() << "createFromHandle failed";
+#endif  // __ANDROID__
         }
     }
-    return NN_ERROR() << "Unrecognized Memory::Tag: " << memory.getTag();
+    return NN_ERROR() << "Unrecognized Memory::Tag: " << underlyingType(memory.getTag());
 }
 
 GeneralResult<Timing> unvalidatedConvert(const aidl_hal::Timing& timing) {
@@ -431,7 +452,8 @@ GeneralResult<Model::OperandValues> unvalidatedConvert(const std::vector<uint8_t
 }
 
 GeneralResult<BufferDesc> unvalidatedConvert(const aidl_hal::BufferDesc& bufferDesc) {
-    return BufferDesc{.dimensions = NN_TRY(toUnsigned(bufferDesc.dimensions))};
+    auto dimensions = NN_TRY(toUnsigned(bufferDesc.dimensions));
+    return BufferDesc{.dimensions = std::move(dimensions)};
 }
 
 GeneralResult<BufferRole> unvalidatedConvert(const aidl_hal::BufferRole& bufferRole) {
@@ -445,20 +467,25 @@ GeneralResult<BufferRole> unvalidatedConvert(const aidl_hal::BufferRole& bufferR
 }
 
 GeneralResult<Request> unvalidatedConvert(const aidl_hal::Request& request) {
+    auto inputs = NN_TRY(unvalidatedConvert(request.inputs));
+    auto outputs = NN_TRY(unvalidatedConvert(request.outputs));
+    auto pools = NN_TRY(unvalidatedConvert(request.pools));
     return Request{
-            .inputs = NN_TRY(unvalidatedConvert(request.inputs)),
-            .outputs = NN_TRY(unvalidatedConvert(request.outputs)),
-            .pools = NN_TRY(unvalidatedConvert(request.pools)),
+            .inputs = std::move(inputs),
+            .outputs = std::move(outputs),
+            .pools = std::move(pools),
     };
 }
 
 GeneralResult<Request::Argument> unvalidatedConvert(const aidl_hal::RequestArgument& argument) {
     const auto lifetime = argument.hasNoValue ? Request::Argument::LifeTime::NO_VALUE
                                               : Request::Argument::LifeTime::POOL;
+    const auto location = NN_TRY(unvalidatedConvert(argument.location));
+    auto dimensions = NN_TRY(toUnsigned(argument.dimensions));
     return Request::Argument{
             .lifetime = lifetime,
-            .location = NN_TRY(unvalidatedConvert(argument.location)),
-            .dimensions = NN_TRY(toUnsigned(argument.dimensions)),
+            .location = location,
+            .dimensions = std::move(dimensions),
     };
 }
 
@@ -498,19 +525,21 @@ GeneralResult<ExecutionPreference> unvalidatedConvert(
     return static_cast<ExecutionPreference>(executionPreference);
 }
 
-GeneralResult<SharedHandle> unvalidatedConvert(const NativeHandle& aidlNativeHandle) {
-    return std::make_shared<const Handle>(NN_TRY(unvalidatedConvertHelper(aidlNativeHandle)));
-}
-
 GeneralResult<std::vector<Operation>> unvalidatedConvert(
         const std::vector<aidl_hal::Operation>& operations) {
     return unvalidatedConvertVec(operations);
 }
 
-GeneralResult<SyncFence> unvalidatedConvert(const ndk::ScopedFileDescriptor& syncFence) {
-    auto duplicatedFd = NN_TRY(dupFd(syncFence.get()));
-    return SyncFence::create(std::move(duplicatedFd));
+GeneralResult<SharedHandle> unvalidatedConvert(const ndk::ScopedFileDescriptor& handle) {
+    auto duplicatedFd = NN_TRY(dupFd(handle.get()));
+    return std::make_shared<const Handle>(std::move(duplicatedFd));
 }
+
+#ifdef NN_AIDL_V4_OR_ABOVE
+GeneralResult<TokenValuePair> unvalidatedConvert(const aidl_hal::TokenValuePair& tokenValuePair) {
+    return TokenValuePair{.token = tokenValuePair.token, .value = tokenValuePair.value};
+}
+#endif  // NN_AIDL_V4_OR_ABOVE
 
 GeneralResult<Capabilities> convert(const aidl_hal::Capabilities& capabilities) {
     return validatedConvert(capabilities);
@@ -553,8 +582,12 @@ GeneralResult<Timing> convert(const aidl_hal::Timing& timing) {
     return validatedConvert(timing);
 }
 
-GeneralResult<SyncFence> convert(const ndk::ScopedFileDescriptor& syncFence) {
-    return validatedConvert(syncFence);
+GeneralResult<SharedHandle> convert(const ndk::ScopedFileDescriptor& handle) {
+    return validatedConvert(handle);
+}
+
+GeneralResult<BufferDesc> convert(const aidl_hal::BufferDesc& bufferDesc) {
+    return validatedConvert(bufferDesc);
 }
 
 GeneralResult<std::vector<Extension>> convert(const std::vector<aidl_hal::Extension>& extension) {
@@ -564,10 +597,30 @@ GeneralResult<std::vector<Extension>> convert(const std::vector<aidl_hal::Extens
 GeneralResult<std::vector<SharedMemory>> convert(const std::vector<aidl_hal::Memory>& memories) {
     return validatedConvert(memories);
 }
+GeneralResult<std::vector<ExtensionNameAndPrefix>> convert(
+        const std::vector<aidl_hal::ExtensionNameAndPrefix>& extensionNameAndPrefix) {
+    return unvalidatedConvert(extensionNameAndPrefix);
+}
+
+#ifdef NN_AIDL_V4_OR_ABOVE
+GeneralResult<std::vector<TokenValuePair>> convert(
+        const std::vector<aidl_hal::TokenValuePair>& metaData) {
+    return validatedConvert(metaData);
+}
+#endif  // NN_AIDL_V4_OR_ABOVE
 
 GeneralResult<std::vector<OutputShape>> convert(
         const std::vector<aidl_hal::OutputShape>& outputShapes) {
     return validatedConvert(outputShapes);
+}
+
+GeneralResult<std::vector<SharedHandle>> convert(
+        const std::vector<ndk::ScopedFileDescriptor>& handles) {
+    return validatedConvert(handles);
+}
+
+GeneralResult<std::vector<BufferRole>> convert(const std::vector<aidl_hal::BufferRole>& roles) {
+    return validatedConvert(roles);
 }
 
 GeneralResult<std::vector<uint32_t>> toUnsigned(const std::vector<int32_t>& vec) {
@@ -582,53 +635,7 @@ GeneralResult<std::vector<uint32_t>> toUnsigned(const std::vector<int32_t>& vec)
 namespace aidl::android::hardware::neuralnetworks::utils {
 namespace {
 
-template <typename Input>
-using UnvalidatedConvertOutput =
-        std::decay_t<decltype(unvalidatedConvert(std::declval<Input>()).value())>;
-
-template <typename Type>
-nn::GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> unvalidatedConvertVec(
-        const std::vector<Type>& arguments) {
-    std::vector<UnvalidatedConvertOutput<Type>> halObject;
-    halObject.reserve(arguments.size());
-    for (const auto& argument : arguments) {
-        halObject.push_back(NN_TRY(unvalidatedConvert(argument)));
-    }
-    return halObject;
-}
-
-template <typename Type>
-nn::GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> unvalidatedConvert(
-        const std::vector<Type>& arguments) {
-    return unvalidatedConvertVec(arguments);
-}
-
-template <typename Type>
-nn::GeneralResult<UnvalidatedConvertOutput<Type>> validatedConvert(const Type& canonical) {
-    NN_TRY(compliantVersion(canonical));
-    return utils::unvalidatedConvert(canonical);
-}
-
-template <typename Type>
-nn::GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> validatedConvert(
-        const std::vector<Type>& arguments) {
-    std::vector<UnvalidatedConvertOutput<Type>> halObject(arguments.size());
-    for (size_t i = 0; i < arguments.size(); ++i) {
-        halObject[i] = NN_TRY(validatedConvert(arguments[i]));
-    }
-    return halObject;
-}
-
-nn::GeneralResult<common::NativeHandle> unvalidatedConvert(const nn::Handle& handle) {
-    common::NativeHandle aidlNativeHandle;
-    aidlNativeHandle.fds.reserve(handle.fds.size());
-    for (const auto& fd : handle.fds) {
-        auto duplicatedFd = NN_TRY(nn::dupFd(fd.get()));
-        aidlNativeHandle.fds.emplace_back(duplicatedFd.release());
-    }
-    aidlNativeHandle.ints = handle.ints;
-    return aidlNativeHandle;
-}
+using utils::unvalidatedConvert;
 
 // Helper template for std::visit
 template <class... Ts>
@@ -636,8 +643,9 @@ struct overloaded : Ts... {
     using Ts::operator()...;
 };
 template <class... Ts>
-overloaded(Ts...)->overloaded<Ts...>;
+overloaded(Ts...) -> overloaded<Ts...>;
 
+#ifdef __ANDROID__
 nn::GeneralResult<common::NativeHandle> aidlHandleFromNativeHandle(
         const native_handle_t& nativeHandle) {
     auto handle = ::android::dupToAidl(&nativeHandle);
@@ -647,6 +655,7 @@ nn::GeneralResult<common::NativeHandle> aidlHandleFromNativeHandle(
     }
     return handle;
 }
+#endif  // __ANDROID__
 
 nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::Ashmem& memory) {
     if constexpr (std::numeric_limits<size_t>::max() > std::numeric_limits<int64_t>::max()) {
@@ -694,6 +703,7 @@ nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::Fd& memory) {
 }
 
 nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::HardwareBuffer& memory) {
+#ifdef __ANDROID__
     const native_handle_t* nativeHandle = AHardwareBuffer_getNativeHandle(memory.handle.get());
     if (nativeHandle == nullptr) {
         return (NN_ERROR() << "unvalidatedConvert failed because AHardwareBuffer_getNativeHandle "
@@ -721,12 +731,87 @@ nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::HardwareBuffer& m
             .handle = std::move(handle),
     };
     return Memory::make<Memory::Tag::hardwareBuffer>(std::move(hardwareBuffer));
+#else   // __ANDROID__
+    LOG(FATAL) << "nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::HardwareBuffer& "
+                  "memory): Not Available on Host Build";
+    (void)memory;
+    return (NN_ERROR() << "unvalidatedConvert failed").operator nn::GeneralResult<Memory>();
+#endif  // __ANDROID__
 }
 
 nn::GeneralResult<Memory> unvalidatedConvert(const nn::Memory::Unknown& /*memory*/) {
     return (NN_ERROR() << "Unable to convert Unknown memory type")
             .
             operator nn::GeneralResult<Memory>();
+}
+
+nn::GeneralResult<PerformanceInfo> unvalidatedConvert(
+        const nn::Capabilities::PerformanceInfo& info) {
+    return PerformanceInfo{.execTime = info.execTime, .powerUsage = info.powerUsage};
+}
+
+nn::GeneralResult<OperandPerformance> unvalidatedConvert(
+        const nn::Capabilities::OperandPerformance& operandPerformance) {
+    const auto type = NN_TRY(unvalidatedConvert(operandPerformance.type));
+    const auto info = NN_TRY(unvalidatedConvert(operandPerformance.info));
+    return OperandPerformance{.type = type, .info = info};
+}
+
+nn::GeneralResult<std::vector<OperandPerformance>> unvalidatedConvert(
+        const nn::Capabilities::OperandPerformanceTable& table) {
+    std::vector<OperandPerformance> operandPerformances;
+    operandPerformances.reserve(table.asVector().size());
+    for (const auto& operandPerformance : table.asVector()) {
+        operandPerformances.push_back(NN_TRY(unvalidatedConvert(operandPerformance)));
+    }
+    return operandPerformances;
+}
+
+nn::GeneralResult<ExtensionOperandTypeInformation> unvalidatedConvert(
+        const nn::Extension::OperandTypeInformation& info) {
+    return ExtensionOperandTypeInformation{.type = info.type,
+                                           .isTensor = info.isTensor,
+                                           .byteSize = static_cast<int32_t>(info.byteSize)};
+}
+
+nn::GeneralResult<int64_t> unvalidatedConvert(const nn::Duration& duration) {
+    if (duration < nn::Duration::zero()) {
+        return NN_ERROR() << "Unable to convert invalid (negative) duration";
+    }
+    constexpr std::chrono::nanoseconds::rep kIntMax = std::numeric_limits<int64_t>::max();
+    const auto count = duration.count();
+    return static_cast<int64_t>(std::min(count, kIntMax));
+}
+
+template <typename Input>
+using UnvalidatedConvertOutput =
+        std::decay_t<decltype(unvalidatedConvert(std::declval<Input>()).value())>;
+
+template <typename Type>
+nn::GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> unvalidatedConvert(
+        const std::vector<Type>& arguments) {
+    std::vector<UnvalidatedConvertOutput<Type>> halObject;
+    halObject.reserve(arguments.size());
+    for (const auto& argument : arguments) {
+        halObject.push_back(NN_TRY(unvalidatedConvert(argument)));
+    }
+    return halObject;
+}
+
+template <typename Type>
+nn::GeneralResult<UnvalidatedConvertOutput<Type>> validatedConvert(const Type& canonical) {
+    NN_TRY(compliantVersion(canonical));
+    return utils::unvalidatedConvert(canonical);
+}
+
+template <typename Type>
+nn::GeneralResult<std::vector<UnvalidatedConvertOutput<Type>>> validatedConvert(
+        const std::vector<Type>& arguments) {
+    std::vector<UnvalidatedConvertOutput<Type>> halObject(arguments.size());
+    for (size_t i = 0; i < arguments.size(); ++i) {
+        halObject[i] = NN_TRY(validatedConvert(arguments[i]));
+    }
+    return halObject;
 }
 
 }  // namespace
@@ -736,7 +821,8 @@ nn::GeneralResult<std::vector<uint8_t>> unvalidatedConvert(const nn::CacheToken&
 }
 
 nn::GeneralResult<BufferDesc> unvalidatedConvert(const nn::BufferDesc& bufferDesc) {
-    return BufferDesc{.dimensions = NN_TRY(toSigned(bufferDesc.dimensions))};
+    auto dimensions = NN_TRY(toSigned(bufferDesc.dimensions));
+    return BufferDesc{.dimensions = std::move(dimensions)};
 }
 
 nn::GeneralResult<BufferRole> unvalidatedConvert(const nn::BufferRole& bufferRole) {
@@ -751,13 +837,21 @@ nn::GeneralResult<BufferRole> unvalidatedConvert(const nn::BufferRole& bufferRol
     };
 }
 
-nn::GeneralResult<bool> unvalidatedConvert(const nn::MeasureTiming& measureTiming) {
-    return measureTiming == nn::MeasureTiming::YES;
+nn::GeneralResult<DeviceType> unvalidatedConvert(const nn::DeviceType& deviceType) {
+    switch (deviceType) {
+        case nn::DeviceType::UNKNOWN:
+            break;
+        case nn::DeviceType::OTHER:
+        case nn::DeviceType::CPU:
+        case nn::DeviceType::GPU:
+        case nn::DeviceType::ACCELERATOR:
+            return static_cast<DeviceType>(deviceType);
+    }
+    return NN_ERROR() << "Invalid DeviceType " << deviceType;
 }
 
-nn::GeneralResult<common::NativeHandle> unvalidatedConvert(const nn::SharedHandle& sharedHandle) {
-    CHECK(sharedHandle != nullptr);
-    return unvalidatedConvert(*sharedHandle);
+nn::GeneralResult<bool> unvalidatedConvert(const nn::MeasureTiming& measureTiming) {
+    return measureTiming == nn::MeasureTiming::YES;
 }
 
 nn::GeneralResult<Memory> unvalidatedConvert(const nn::SharedMemory& memory) {
@@ -787,7 +881,8 @@ nn::GeneralResult<ErrorStatus> unvalidatedConvert(const nn::ErrorStatus& errorSt
 }
 
 nn::GeneralResult<OutputShape> unvalidatedConvert(const nn::OutputShape& outputShape) {
-    return OutputShape{.dimensions = NN_TRY(toSigned(outputShape.dimensions)),
+    auto dimensions = NN_TRY(toSigned(outputShape.dimensions));
+    return OutputShape{.dimensions = std::move(dimensions),
                        .isSufficient = outputShape.isSufficient};
 }
 
@@ -855,14 +950,19 @@ nn::GeneralResult<std::optional<OperandExtraParams>> unvalidatedConvert(
 }
 
 nn::GeneralResult<Operand> unvalidatedConvert(const nn::Operand& operand) {
+    const auto type = NN_TRY(unvalidatedConvert(operand.type));
+    auto dimensions = NN_TRY(toSigned(operand.dimensions));
+    const auto lifetime = NN_TRY(unvalidatedConvert(operand.lifetime));
+    const auto location = NN_TRY(unvalidatedConvert(operand.location));
+    auto extraParams = NN_TRY(unvalidatedConvert(operand.extraParams));
     return Operand{
-            .type = NN_TRY(unvalidatedConvert(operand.type)),
-            .dimensions = NN_TRY(toSigned(operand.dimensions)),
+            .type = type,
+            .dimensions = std::move(dimensions),
             .scale = operand.scale,
             .zeroPoint = operand.zeroPoint,
-            .lifetime = NN_TRY(unvalidatedConvert(operand.lifetime)),
-            .location = NN_TRY(unvalidatedConvert(operand.location)),
-            .extraParams = NN_TRY(unvalidatedConvert(operand.extraParams)),
+            .lifetime = lifetime,
+            .location = location,
+            .extraParams = std::move(extraParams),
     };
 }
 
@@ -874,19 +974,26 @@ nn::GeneralResult<OperationType> unvalidatedConvert(const nn::OperationType& ope
 }
 
 nn::GeneralResult<Operation> unvalidatedConvert(const nn::Operation& operation) {
+    const auto type = NN_TRY(unvalidatedConvert(operation.type));
+    auto inputs = NN_TRY(toSigned(operation.inputs));
+    auto outputs = NN_TRY(toSigned(operation.outputs));
     return Operation{
-            .type = NN_TRY(unvalidatedConvert(operation.type)),
-            .inputs = NN_TRY(toSigned(operation.inputs)),
-            .outputs = NN_TRY(toSigned(operation.outputs)),
+            .type = type,
+            .inputs = std::move(inputs),
+            .outputs = std::move(outputs),
     };
 }
 
 nn::GeneralResult<Subgraph> unvalidatedConvert(const nn::Model::Subgraph& subgraph) {
+    auto operands = NN_TRY(unvalidatedConvert(subgraph.operands));
+    auto operations = NN_TRY(unvalidatedConvert(subgraph.operations));
+    auto inputIndexes = NN_TRY(toSigned(subgraph.inputIndexes));
+    auto outputIndexes = NN_TRY(toSigned(subgraph.outputIndexes));
     return Subgraph{
-            .operands = NN_TRY(unvalidatedConvert(subgraph.operands)),
-            .operations = NN_TRY(unvalidatedConvert(subgraph.operations)),
-            .inputIndexes = NN_TRY(toSigned(subgraph.inputIndexes)),
-            .outputIndexes = NN_TRY(toSigned(subgraph.outputIndexes)),
+            .operands = std::move(operands),
+            .operations = std::move(operations),
+            .inputIndexes = std::move(inputIndexes),
+            .outputIndexes = std::move(outputIndexes),
     };
 }
 
@@ -896,7 +1003,7 @@ nn::GeneralResult<std::vector<uint8_t>> unvalidatedConvert(
 }
 
 nn::GeneralResult<ExtensionNameAndPrefix> unvalidatedConvert(
-        const nn::Model::ExtensionNameAndPrefix& extensionNameToPrefix) {
+        const nn::ExtensionNameAndPrefix& extensionNameToPrefix) {
     return ExtensionNameAndPrefix{
             .name = extensionNameToPrefix.name,
             .prefix = extensionNameToPrefix.prefix,
@@ -904,13 +1011,23 @@ nn::GeneralResult<ExtensionNameAndPrefix> unvalidatedConvert(
 }
 
 nn::GeneralResult<Model> unvalidatedConvert(const nn::Model& model) {
+    if (!hal::utils::hasNoPointerData(model)) {
+        return NN_ERROR(nn::ErrorStatus::INVALID_ARGUMENT)
+               << "Model cannot be unvalidatedConverted because it contains pointer-based memory";
+    }
+
+    auto main = NN_TRY(unvalidatedConvert(model.main));
+    auto referenced = NN_TRY(unvalidatedConvert(model.referenced));
+    auto operandValues = NN_TRY(unvalidatedConvert(model.operandValues));
+    auto pools = NN_TRY(unvalidatedConvert(model.pools));
+    auto extensionNameToPrefix = NN_TRY(unvalidatedConvert(model.extensionNameToPrefix));
     return Model{
-            .main = NN_TRY(unvalidatedConvert(model.main)),
-            .referenced = NN_TRY(unvalidatedConvert(model.referenced)),
-            .operandValues = NN_TRY(unvalidatedConvert(model.operandValues)),
-            .pools = NN_TRY(unvalidatedConvert(model.pools)),
+            .main = std::move(main),
+            .referenced = std::move(referenced),
+            .operandValues = std::move(operandValues),
+            .pools = std::move(pools),
             .relaxComputationFloat32toFloat16 = model.relaxComputationFloat32toFloat16,
-            .extensionNameToPrefix = NN_TRY(unvalidatedConvert(model.extensionNameToPrefix)),
+            .extensionNameToPrefix = std::move(extensionNameToPrefix),
     };
 }
 
@@ -919,10 +1036,18 @@ nn::GeneralResult<Priority> unvalidatedConvert(const nn::Priority& priority) {
 }
 
 nn::GeneralResult<Request> unvalidatedConvert(const nn::Request& request) {
+    if (!hal::utils::hasNoPointerData(request)) {
+        return NN_ERROR(nn::ErrorStatus::INVALID_ARGUMENT)
+               << "Request cannot be unvalidatedConverted because it contains pointer-based memory";
+    }
+
+    auto inputs = NN_TRY(unvalidatedConvert(request.inputs));
+    auto outputs = NN_TRY(unvalidatedConvert(request.outputs));
+    auto pools = NN_TRY(unvalidatedConvert(request.pools));
     return Request{
-            .inputs = NN_TRY(unvalidatedConvert(request.inputs)),
-            .outputs = NN_TRY(unvalidatedConvert(request.outputs)),
-            .pools = NN_TRY(unvalidatedConvert(request.pools)),
+            .inputs = std::move(inputs),
+            .outputs = std::move(outputs),
+            .pools = std::move(pools),
     };
 }
 
@@ -933,10 +1058,12 @@ nn::GeneralResult<RequestArgument> unvalidatedConvert(
                << "Request cannot be unvalidatedConverted because it contains pointer-based memory";
     }
     const bool hasNoValue = requestArgument.lifetime == nn::Request::Argument::LifeTime::NO_VALUE;
+    const auto location = NN_TRY(unvalidatedConvert(requestArgument.location));
+    auto dimensions = NN_TRY(toSigned(requestArgument.dimensions));
     return RequestArgument{
             .hasNoValue = hasNoValue,
-            .location = NN_TRY(unvalidatedConvert(requestArgument.location)),
-            .dimensions = NN_TRY(toSigned(requestArgument.dimensions)),
+            .location = location,
+            .dimensions = std::move(dimensions),
     };
 }
 
@@ -963,19 +1090,12 @@ nn::GeneralResult<RequestMemoryPool> unvalidatedConvert(const nn::Request::Memor
 }
 
 nn::GeneralResult<Timing> unvalidatedConvert(const nn::Timing& timing) {
+    const auto timeOnDeviceNs = NN_TRY(unvalidatedConvert(timing.timeOnDevice));
+    const auto timeInDriverNs = NN_TRY(unvalidatedConvert(timing.timeInDriver));
     return Timing{
-            .timeOnDeviceNs = NN_TRY(unvalidatedConvert(timing.timeOnDevice)),
-            .timeInDriverNs = NN_TRY(unvalidatedConvert(timing.timeInDriver)),
+            .timeOnDeviceNs = timeOnDeviceNs,
+            .timeInDriverNs = timeInDriverNs,
     };
-}
-
-nn::GeneralResult<int64_t> unvalidatedConvert(const nn::Duration& duration) {
-    if (duration < nn::Duration::zero()) {
-        return NN_ERROR() << "Unable to convert invalid (negative) duration";
-    }
-    constexpr std::chrono::nanoseconds::rep kIntMax = std::numeric_limits<int64_t>::max();
-    const auto count = duration.count();
-    return static_cast<int64_t>(std::min(count, kIntMax));
 }
 
 nn::GeneralResult<int64_t> unvalidatedConvert(const nn::OptionalDuration& optionalDuration) {
@@ -997,18 +1117,37 @@ nn::GeneralResult<ndk::ScopedFileDescriptor> unvalidatedConvert(const nn::SyncFe
     return ndk::ScopedFileDescriptor(duplicatedFd.release());
 }
 
-nn::GeneralResult<ndk::ScopedFileDescriptor> unvalidatedConvertCache(
-        const nn::SharedHandle& handle) {
-    if (handle->ints.size() != 0) {
-        NN_ERROR() << "Cache handle must not contain ints";
-    }
-    if (handle->fds.size() != 1) {
-        NN_ERROR() << "Cache handle must contain exactly one fd but contains "
-                   << handle->fds.size();
-    }
-    auto duplicatedFd = NN_TRY(nn::dupFd(handle->fds.front().get()));
+nn::GeneralResult<ndk::ScopedFileDescriptor> unvalidatedConvert(const nn::SharedHandle& handle) {
+    auto duplicatedFd = NN_TRY(nn::dupFd(handle->get()));
     return ndk::ScopedFileDescriptor(duplicatedFd.release());
 }
+
+nn::GeneralResult<Capabilities> unvalidatedConvert(const nn::Capabilities& capabilities) {
+    const auto relaxedFloat32toFloat16PerformanceTensor =
+            NN_TRY(unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceTensor));
+    const auto relaxedFloat32toFloat16PerformanceScalar =
+            NN_TRY(unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceScalar));
+    auto operandPerformance = NN_TRY(unvalidatedConvert(capabilities.operandPerformance));
+    const auto ifPerformance = NN_TRY(unvalidatedConvert(capabilities.ifPerformance));
+    const auto whilePerformance = NN_TRY(unvalidatedConvert(capabilities.whilePerformance));
+    return Capabilities{
+            .relaxedFloat32toFloat16PerformanceTensor = relaxedFloat32toFloat16PerformanceTensor,
+            .relaxedFloat32toFloat16PerformanceScalar = relaxedFloat32toFloat16PerformanceScalar,
+            .operandPerformance = std::move(operandPerformance),
+            .ifPerformance = ifPerformance,
+            .whilePerformance = whilePerformance,
+    };
+}
+
+nn::GeneralResult<Extension> unvalidatedConvert(const nn::Extension& extension) {
+    auto operandTypes = NN_TRY(unvalidatedConvert(extension.operandTypes));
+    return Extension{.name = extension.name, .operandTypes = std::move(operandTypes)};
+}
+#ifdef NN_AIDL_V4_OR_ABOVE
+nn::GeneralResult<TokenValuePair> unvalidatedConvert(const nn::TokenValuePair& tokenValuePair) {
+    return TokenValuePair{.token = tokenValuePair.token, .value = tokenValuePair.value};
+}
+#endif  // NN_AIDL_V4_OR_ABOVE
 
 nn::GeneralResult<std::vector<uint8_t>> convert(const nn::CacheToken& cacheToken) {
     return validatedConvert(cacheToken);
@@ -1016,6 +1155,10 @@ nn::GeneralResult<std::vector<uint8_t>> convert(const nn::CacheToken& cacheToken
 
 nn::GeneralResult<BufferDesc> convert(const nn::BufferDesc& bufferDesc) {
     return validatedConvert(bufferDesc);
+}
+
+nn::GeneralResult<DeviceType> convert(const nn::DeviceType& deviceType) {
+    return validatedConvert(deviceType);
 }
 
 nn::GeneralResult<bool> convert(const nn::MeasureTiming& measureTiming) {
@@ -1058,6 +1201,14 @@ nn::GeneralResult<int64_t> convert(const nn::OptionalTimePoint& outputShapes) {
     return validatedConvert(outputShapes);
 }
 
+nn::GeneralResult<Capabilities> convert(const nn::Capabilities& capabilities) {
+    return validatedConvert(capabilities);
+}
+
+nn::GeneralResult<Extension> convert(const nn::Extension& extension) {
+    return validatedConvert(extension);
+}
+
 nn::GeneralResult<std::vector<BufferRole>> convert(const std::vector<nn::BufferRole>& bufferRoles) {
     return validatedConvert(bufferRoles);
 }
@@ -1069,21 +1220,27 @@ nn::GeneralResult<std::vector<OutputShape>> convert(
 
 nn::GeneralResult<std::vector<ndk::ScopedFileDescriptor>> convert(
         const std::vector<nn::SharedHandle>& cacheHandles) {
-    const auto version = NN_TRY(hal::utils::makeGeneralFailure(nn::validate(cacheHandles)));
-    if (version > kVersion) {
-        return NN_ERROR() << "Insufficient version: " << version << " vs required " << kVersion;
-    }
-    std::vector<ndk::ScopedFileDescriptor> cacheFds;
-    cacheFds.reserve(cacheHandles.size());
-    for (const auto& cacheHandle : cacheHandles) {
-        cacheFds.push_back(NN_TRY(unvalidatedConvertCache(cacheHandle)));
-    }
-    return cacheFds;
+    return validatedConvert(cacheHandles);
 }
 
 nn::GeneralResult<std::vector<ndk::ScopedFileDescriptor>> convert(
         const std::vector<nn::SyncFence>& syncFences) {
     return validatedConvert(syncFences);
+}
+nn::GeneralResult<std::vector<ExtensionNameAndPrefix>> convert(
+        const std::vector<nn::ExtensionNameAndPrefix>& extensionNameToPrefix) {
+    return unvalidatedConvert(extensionNameToPrefix);
+}
+
+#ifdef NN_AIDL_V4_OR_ABOVE
+nn::GeneralResult<std::vector<TokenValuePair>> convert(
+        const std::vector<nn::TokenValuePair>& metaData) {
+    return validatedConvert(metaData);
+}
+#endif  // NN_AIDL_V4_OR_ABOVE
+
+nn::GeneralResult<std::vector<Extension>> convert(const std::vector<nn::Extension>& extensions) {
+    return validatedConvert(extensions);
 }
 
 nn::GeneralResult<std::vector<int32_t>> toSigned(const std::vector<uint32_t>& vec) {
@@ -1092,6 +1249,10 @@ nn::GeneralResult<std::vector<int32_t>> toSigned(const std::vector<uint32_t>& ve
         return NN_ERROR() << "Vector contains a value that doesn't fit into int32_t.";
     }
     return std::vector<int32_t>(vec.begin(), vec.end());
+}
+
+std::vector<uint8_t> toVec(const std::array<uint8_t, IDevice::BYTE_SIZE_OF_CACHE_TOKEN>& token) {
+    return std::vector<uint8_t>(token.begin(), token.end());
 }
 
 }  // namespace aidl::android::hardware::neuralnetworks::utils

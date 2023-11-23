@@ -57,7 +57,7 @@ public class ContextWrapperTest extends ContextTest {
         // Test getBaseContext()
         assertSame(context, testContextWrapper.getBaseContext());
 
-        Context secondContext = testContextWrapper.createPackageContext(getValidPackageName(),
+        Context secondContext = testContextWrapper.createPackageContext("com.android.shell",
                 Context.CONTEXT_IGNORE_SECURITY);
         assertNotNull(secondContext);
 

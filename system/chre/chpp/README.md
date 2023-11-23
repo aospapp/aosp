@@ -106,7 +106,7 @@ The optional payload immediately follows a non-zero payload length. Its contents
 ## Checksum
 
 Provides an error detection code that is run over of the entire CHPP packet, i.e. anything between the preamble and the checksum fields.
-The checksum algorithm is [TBD].
+The checksum algorithm is IEEE CRC-32 initialized to 0xFFFFFFFF.
 
 # CHPP Transport - Link Layer API
 

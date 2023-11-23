@@ -18,6 +18,7 @@
 
 #include "tst_common.h"
 #include "tst_res_flags.h"
+#include "tst_test_macros.h"
 #include "tst_checkpoint.h"
 #include "tst_device.h"
 #include "tst_mkfs.h"
@@ -28,7 +29,6 @@
 #include "tst_process_state.h"
 #include "tst_atomic.h"
 #include "tst_kvercmp.h"
-#include "tst_clone.h"
 #include "tst_kernel.h"
 #include "tst_minmax.h"
 #include "tst_get_bad_addr.h"
@@ -37,6 +37,11 @@
 #include "tst_coredump.h"
 #include "tst_buffers.h"
 #include "tst_capability.h"
+#include "tst_hugepage.h"
+#include "tst_assert.h"
+#include "tst_lockdown.h"
+#include "tst_fips.h"
+#include "tst_taint.h"
 
 /*
  * Reports testcase result.
@@ -46,7 +51,11 @@ void tst_res_(const char *file, const int lineno, int ttype,
               __attribute__ ((format (printf, 4, 5)));
 
 #define tst_res(ttype, arg_fmt, ...) \
-	tst_res_(__FILE__, __LINE__, (ttype), (arg_fmt), ##__VA_ARGS__)
+	({									\
+		TST_RES_SUPPORTS_TCONF_TFAIL_TINFO_TPASS_TWARN(!((TTYPE_RESULT(ttype) ?: TCONF) & \
+			(TCONF | TFAIL | TINFO | TPASS | TWARN))); 				\
+		tst_res_(__FILE__, __LINE__, (ttype), (arg_fmt), ##__VA_ARGS__);\
+	})
 
 void tst_resm_hexd_(const char *file, const int lineno, int ttype,
 	const void *buf, size_t size, const char *arg_fmt, ...)
@@ -84,6 +93,7 @@ pid_t safe_fork(const char *filename, unsigned int lineno);
 #include "tst_safe_macros.h"
 #include "tst_safe_file_ops.h"
 #include "tst_safe_net.h"
+#include "tst_clone.h"
 
 /*
  * Wait for all children and exit with TBROK if
@@ -149,6 +159,36 @@ struct tst_test {
 	int all_filesystems:1;
 
 	/*
+	 * The skip_filesystem is a NULL terminated list of filesystems the
+	 * test does not support. It can also be used to disable whole class of
+	 * filesystems with a special keyworks such as "fuse".
+	 */
+	const char *const *skip_filesystems;
+
+	/* Minimum number of online CPU required by the test */
+	unsigned long min_cpus;
+
+	/*
+	 * If set non-zero number of request_hugepages, test will try to reserve the
+	 * expected number of hugepage for testing in setup phase. If system does not
+	 * have enough hpage for using, it will try the best to reserve 80% available
+	 * number of hpages. With success test stores the reserved hugepage number in
+	 * 'tst_hugepages. For the system without hugetlb supporting, variable
+	 * 'tst_hugepages' will be set to 0.
+	 *
+	 * Also, we do cleanup and restore work for the hpages resetting automatically.
+	 */
+	unsigned long request_hugepages;
+
+	/*
+	 * If set to non-zero, call tst_taint_init(taint_check) during setup
+	 * and check kernel taint at the end of the test. If all_filesystems
+	 * is non-zero, taint check will be performed after each FS test and
+	 * testing will be terminated by TBROK if taint is detected.
+	 */
+	unsigned int taint_check;
+
+	/*
 	 * If set non-zero denotes number of test variant, the test is executed
 	 * variants times each time with tst_variant set to different number.
 	 *
@@ -163,8 +203,6 @@ struct tst_test {
 
 	/* Device filesystem type override NULL == default */
 	const char *dev_fs_type;
-	/* Flags to be passed to tst_get_supported_fs_types() */
-	int dev_fs_flags;
 
 	/* Options passed to SAFE_MKFS() when format_device is set */
 	const char *const *dev_fs_opts;
@@ -222,6 +260,9 @@ struct tst_test {
 	 * {NULL, NULL} terminated array of tags.
 	 */
 	const struct tst_tag *tags;
+
+	/* NULL terminated array of required commands */
+	const char *const *needs_cmds;
 };
 
 /*
@@ -236,33 +277,6 @@ void tst_run_tcases(int argc, char *argv[], struct tst_test *self)
  * The LTP_IPC_PATH variable must be passed to the program environment.
  */
 void tst_reinit(void);
-
-//TODO Clean?
-#define TEST(SCALL) \
-	do { \
-		errno = 0; \
-		TST_RET = SCALL; \
-		TST_ERR = errno; \
-	} while (0)
-
-#define TEST_VOID(SCALL) \
-	do { \
-		errno = 0; \
-		SCALL; \
-		TST_ERR = errno; \
-	} while (0)
-
-extern long TST_RET;
-extern int TST_ERR;
-
-extern void *TST_RET_PTR;
-
-#define TESTPTR(SCALL) \
-	do { \
-		errno = 0; \
-		TST_RET_PTR = (void*)SCALL; \
-		TST_ERR = errno; \
-	} while (0)
 
 /*
  * Functions to convert ERRNO to its name and SIGNAL to its name.
@@ -299,9 +313,5 @@ int main(int argc, char *argv[])
 
 #define TST_TEST_TCONF(message)                                 \
         static struct tst_test test = { .tconf_msg = message  } \
-/*
- * This is a hack to make the testcases link without defining TCID
- */
-const char *TCID;
 
 #endif	/* TST_TEST_H__ */

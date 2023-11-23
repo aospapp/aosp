@@ -21,6 +21,8 @@ import android.net.IpConfiguration;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 
+import com.android.tv.settings.library.network.WifiHelper;
+
 /**
  * Wi-Fi configuration that implements NetworkConfiguration.
  */
@@ -61,6 +63,6 @@ class WifiConfig implements NetworkConfiguration {
     }
 
     public boolean isLockedDown(Context context) {
-        return WifiConfigHelper.isNetworkLockedDown(context, mWifiConfiguration);
+        return WifiHelper.isNetworkLockedDown(context, mWifiConfiguration);
     }
 }

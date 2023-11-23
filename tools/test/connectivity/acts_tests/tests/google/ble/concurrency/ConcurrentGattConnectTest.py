@@ -141,14 +141,14 @@ class ConcurrentGattConnectTest(BluetoothBaseTest):
                     if adv_name in item
                 ]
                 devices_found.append(device[0][0].serial)
-                if len(device) is not 0:
+                if len(device) != 0:
                     address_list_tuple = (device[0][0], mac_address)
                 else:
                     continue
                 result = [item for item in address_list if mac_address in item]
                 # if length of result is 0, it indicates that we have discovered
                 # new mac address.
-                if len(result) is 0:
+                if len(result) == 0:
                     self.log.info("Found new mac address: {}".format(
                         address_list_tuple[1]))
                     address_list.append(address_list_tuple)

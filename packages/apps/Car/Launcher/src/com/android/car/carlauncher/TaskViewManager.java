@@ -24,6 +24,7 @@ import static com.android.wm.shell.ShellTaskOrganizer.TASK_LISTENER_TYPE_FULLSCR
 import android.annotation.UiContext;
 import android.app.ActivityTaskManager;
 import android.app.TaskInfo;
+import android.car.app.CarActivityManager;
 import android.content.Context;
 import android.util.Slog;
 import android.window.TaskAppearedInfo;
@@ -31,8 +32,6 @@ import android.window.TaskAppearedInfo;
 import com.android.launcher3.icons.IconProvider;
 import com.android.wm.shell.ShellTaskOrganizer;
 import com.android.wm.shell.TaskView;
-import com.android.wm.shell.TaskViewFactory;
-import com.android.wm.shell.TaskViewFactoryController;
 import com.android.wm.shell.common.HandlerExecutor;
 import com.android.wm.shell.common.SyncTransactionQueue;
 import com.android.wm.shell.common.TransactionPool;
@@ -42,6 +41,7 @@ import com.android.wm.shell.startingsurface.phone.PhoneStartingWindowTypeAlgorit
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public final class TaskViewManager {
@@ -49,22 +49,24 @@ public final class TaskViewManager {
 
     private final Context mContext;
     private final HandlerExecutor mExecutor;
-    private final TaskViewFactory mTaskViewFactory;
+    private final SyncTransactionQueue mSyncQueue;
     private final ShellTaskOrganizer mTaskOrganizer;
 
-    public TaskViewManager(@UiContext Context context, HandlerExecutor handlerExecutor) {
+    public TaskViewManager(@UiContext Context context, HandlerExecutor handlerExecutor,
+            AtomicReference<CarActivityManager> carActivityManagerRef) {
         mContext = context;
         mExecutor = handlerExecutor;
         mTaskOrganizer = new ShellTaskOrganizer(mExecutor, mContext);
-        mTaskViewFactory = initWmShell();
+        TransactionPool transactionPool = new TransactionPool();
+        mSyncQueue = new SyncTransactionQueue(transactionPool, mExecutor);
+        initTaskOrganizer(carActivityManagerRef, transactionPool);
         if (DBG) Slog.d(TAG, "TaskViewManager.create");
     }
 
-    private TaskViewFactory initWmShell() {
-        TransactionPool transactionPool = new TransactionPool();
-        SyncTransactionQueue syncQueue = new SyncTransactionQueue(transactionPool, mExecutor);
-        FullscreenTaskListener fullscreenTaskListener = new FullscreenTaskListener(syncQueue,
-                Optional.empty());
+    private void initTaskOrganizer(AtomicReference<CarActivityManager> carActivityManagerRef,
+            TransactionPool transactionPool) {
+        FullscreenTaskListener fullscreenTaskListener = new CarFullscreenTaskMonitorListener(
+                carActivityManagerRef, mSyncQueue, Optional.empty());
         mTaskOrganizer.addListenerForType(fullscreenTaskListener, TASK_LISTENER_TYPE_FULLSCREEN);
         StartingWindowController startingController =
                 new StartingWindowController(mContext, mExecutor,
@@ -73,9 +75,6 @@ public final class TaskViewManager {
         mTaskOrganizer.initStartingWindow(startingController);
         List<TaskAppearedInfo> taskAppearedInfos = mTaskOrganizer.registerOrganizer();
         cleanUpExistingTaskViewTasks(taskAppearedInfos);
-
-        return new TaskViewFactoryController(mTaskOrganizer, mExecutor, syncQueue)
-                .asTaskViewFactory();
     }
 
     void release() {
@@ -84,7 +83,10 @@ public final class TaskViewManager {
     }
 
     void createTaskView(Consumer<TaskView> onCreate) {
-        mTaskViewFactory.create(mContext, mExecutor, onCreate);
+        CarTaskView taskView = new CarTaskView(mContext, mTaskOrganizer, mSyncQueue);
+        mExecutor.execute(() -> {
+            onCreate.accept(taskView);
+        });
     }
 
     private static void cleanUpExistingTaskViewTasks(List<TaskAppearedInfo> taskAppearedInfos) {

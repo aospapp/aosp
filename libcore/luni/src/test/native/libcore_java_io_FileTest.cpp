@@ -37,18 +37,22 @@ extern "C" void Java_libcore_java_io_FileTest_nativeTestFilesWithSurrogatePairs(
   int ret = stat(subDir.c_str(), &sb);
   if (ret == -1) {
       jniThrowIOException(env, errno);
+      return;
   }
   if (!S_ISDIR(sb.st_mode)) {
       jniThrowException(env, "java/lang/IllegalStateException", "expected dir");
+      return;
   }
 
   ret = stat(subFile.c_str(), &sb);
   if (ret == -1) {
       jniThrowIOException(env, errno);
+      return;
   }
 
   if (!S_ISREG(sb.st_mode)) {
       jniThrowException(env, "java/lang/IllegalStateException", "expected file");
+      return;
   }
 }
 

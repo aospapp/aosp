@@ -257,7 +257,7 @@
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ನಿಂದ ಚಿತ್ರಗಳು"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> ನಿಂದ ಚಿತ್ರಗಳು"</string>
     <string name="chip_title_images" msgid="7838299046109841015">"ಚಿತ್ರಗಳು"</string>
-    <string name="chip_title_audio" msgid="1032801828748235436">"ಆಡಿಯೊ"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ಆಡಿಯೋ"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"ವೀಡಿಯೊಗಳು"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳು"</string>
     <string name="chip_title_large_files" msgid="7740269190493883980">"ದೊಡ್ಡ ಫೈಲ್‌ಗಳು"</string>

@@ -16,6 +16,7 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
 import static com.android.queryable.queries.IntentFilterQuery.intentFilter;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -131,4 +132,18 @@ public class ActivityQueryHelperTest {
         assertThat(activityQueryHelper.matches(INTENT_FILTER_ACTIVITY_INFO)).isFalse();
     }
 
+    @Test
+    public void parcel_parcelsCorrectly() {
+        ActivityQueryHelper<Queryable> activityQueryHelper = new ActivityQueryHelper<>(mQuery);
+
+        activityQueryHelper
+                .activityClass().className().isEqualTo("");
+        activityQueryHelper
+                .intentFilters().doesNotContain(
+                intentFilter().actions().contains("action")
+        );
+        activityQueryHelper.exported().isTrue();
+
+        assertParcelsCorrectly(ActivityQueryHelper.class, activityQueryHelper);
+    }
 }

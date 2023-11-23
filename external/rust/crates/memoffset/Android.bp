@@ -22,6 +22,8 @@ rust_library {
     name: "libmemoffset",
     host_supported: true,
     crate_name: "memoffset",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.6.5",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: ["default"],
@@ -34,16 +36,26 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.virt",
     ],
+    vendor_available: true,
+    min_sdk_version: "29",
 }
 
-rust_defaults {
-    name: "memoffset_defaults",
+rust_test {
+    name: "memoffset_test_src_lib",
+    host_supported: true,
     crate_name: "memoffset",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.6.5",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2015",
     features: ["default"],
     cfgs: [
@@ -53,25 +65,4 @@ rust_defaults {
         "raw_ref_macros",
         "tuple_ty",
     ],
-    rustlibs: [
-        // ANDROID: disable for now just to avoid another dependency.
-        //"libdoc_comment",
-    ],
 }
-
-rust_test_host {
-    name: "memoffset_host_test_src_lib",
-    defaults: ["memoffset_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "memoffset_device_test_src_lib",
-    defaults: ["memoffset_defaults"],
-}
-
-// dependent_library ["feature_list"]
-//   autocfg-1.0.1
-//   doc-comment-0.3.3

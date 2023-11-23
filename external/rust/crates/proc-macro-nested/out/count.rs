@@ -67,6 +67,8 @@ macro_rules! count {
     (!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!) => { proc_macro_call_63!() };
     (!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!) => { proc_macro_call_64!() };
     ($(!)+) => {
-        compile_error! { "this macro does not support >64 nested macro invocations" }
+        compile_error! {
+            "this macro does not support >64 nested macro invocations"
+        }
     };
 }

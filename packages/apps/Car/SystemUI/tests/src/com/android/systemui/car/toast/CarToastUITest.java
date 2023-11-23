@@ -30,6 +30,7 @@ import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.View;
 
@@ -110,7 +111,7 @@ public class CarToastUITest extends SysuiTestCase {
                 false, /* isSignedWithPlatformKey= */ false);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory, never()).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(),
                 anyInt());
@@ -123,7 +124,7 @@ public class CarToastUITest extends SysuiTestCase {
                 false, /* isSignedWithPlatformKey= */ true);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }
@@ -135,7 +136,7 @@ public class CarToastUITest extends SysuiTestCase {
                 true, /* isSignedWithPlatformKey= */ false);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory, never()).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(),
                 anyInt());
@@ -148,7 +149,7 @@ public class CarToastUITest extends SysuiTestCase {
                 true, /* isSignedWithPlatformKey= */ true);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }
@@ -160,7 +161,7 @@ public class CarToastUITest extends SysuiTestCase {
                 false, /* isSignedWithPlatformKey= */ false);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory, never()).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(),
                 anyInt());
@@ -179,7 +180,7 @@ public class CarToastUITest extends SysuiTestCase {
                 false, /* isSignedWithPlatformKey= */ false);
 
         carToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }
@@ -191,7 +192,7 @@ public class CarToastUITest extends SysuiTestCase {
                 false, /* isSignedWithPlatformKey= */ true);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }
@@ -203,7 +204,7 @@ public class CarToastUITest extends SysuiTestCase {
                 true, /* isSignedWithPlatformKey= */ false);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }
@@ -215,7 +216,7 @@ public class CarToastUITest extends SysuiTestCase {
                 true, /* isSignedWithPlatformKey= */ true);
 
         mCarToastUI.showToast(UID, PACKAGE_NAME, mIBinder, TEXT, mIBinder, DURATION,
-                mITransientNotificationCallback);
+                mITransientNotificationCallback, Display.DEFAULT_DISPLAY);
 
         verify(mToastFactory).createToast(any(), eq(TEXT), eq(PACKAGE_NAME), anyInt(), anyInt());
     }

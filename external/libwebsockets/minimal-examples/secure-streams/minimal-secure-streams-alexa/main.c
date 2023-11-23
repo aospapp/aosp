@@ -175,14 +175,20 @@ static const char * const default_ss_policy =
 			"]"
 		"}"
 	  "],"
+	  "\"auth\": [" /* available auth type bindings */
+		"{"
+		  "\"name\":"		"\"lwa\","
+		  "\"streamtype\":"	"\"api_amazon_com_lwa\","
+		  "\"blob\":"		"0"
+		"}"
+	  "],"
 	  "\"s\": [" /* the supported stream types */
-		"{\"api_amazon_com_auth\": {"
+		"{\"api_amazon_com_lwa\": {"
 			"\"endpoint\":"			"\"api.amazon.com\","
 			"\"port\":"			"443,"
 			"\"protocol\":"			"\"h1\","
 			"\"http_method\":"		"\"POST\","
 			"\"http_url\":"			"\"auth/o2/token\","
-			"\"plugins\":"			"[],"
 			"\"opportunistic\":"		"true,"
 			"\"tls\":"			"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
@@ -200,13 +206,14 @@ static const char * const default_ss_policy =
 			"\"protocol\":"			"\"h2\","
 			"\"http_method\":"		"\"GET\","
 			"\"http_url\":"			"\"v20160207/directives\","
+			"\"use_auth\":"			"\"lwa\","
 			"\"h2q_oflow_txcr\":"		"true,"
 			"\"http_auth_header\":"		"\"authorization:\","
 			"\"http_auth_preamble\":"	"\"Bearer \","
+			"\"http_multipart_ss_in\":"	"true,"
 			"\"nailed_up\":"		"true,"
 			"\"long_poll\":"		"true,"
 			"\"retry\":"			"\"default\","
-			"\"plugins\":"			"[],"
 			"\"tls\":"			"true,"
 			"\"tls_trust_store\":"		"\"avs_via_starfield\""
 		"}},"
@@ -222,6 +229,7 @@ static const char * const default_ss_policy =
 			"\"protocol\":"			"\"h2\","
 			"\"http_method\":"		"\"POST\","
 			"\"http_url\":"			"\"v20160207/events\","
+			"\"use_auth\":"			"\"lwa\","
 			"\"opportunistic\":"		"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
 			"\"http_auth_header\":"		"\"authorization:\","
@@ -229,9 +237,9 @@ static const char * const default_ss_policy =
 			"\"http_multipart_name\":"	"\"metadata\","
 			"\"http_mime_content_type\":"	"\"application/json; charset=UTF-8\","
 			"\"http_no_content_length\":"	"true,"
+			"\"http_multipart_ss_in\":"	"true,"
 			"\"rideshare\":"		"\"avs_audio\","
 			"\"retry\":"			"\"default\","
-			"\"plugins\":"			"[],"
 			"\"tls\":"			"true,"
 			"\"tls_trust_store\":"		"\"avs_via_starfield\""
 		"}},"
@@ -241,11 +249,12 @@ static const char * const default_ss_policy =
 			"\"protocol\":"			"\"h2\","
 			"\"http_method\":"		"\"POST\","
 			"\"http_url\":"			"\"v20160207/events\","
-			"\"plugins\":"			"[],"
+			"\"use_auth\":"			"\"lwa\","
 			"\"tls\":"			"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
 			"\"http_auth_header\":"		"\"authorization:\","
 			"\"http_auth_preamble\":"	"\"Bearer \","
+			"\"http_multipart_ss_in\":"	"true,"
 			"\"http_multipart_name\":"	"\"audio\","
 			"\"http_mime_content_type\":"	"\"application/octet-stream\","
 			"\"http_no_content_length\":"	"true,"
@@ -379,11 +388,6 @@ int main(int argc, const char **argv)
 #endif
 	info.port = CONTEXT_PORT_NO_LISTEN;
 	info.pprotocols = protocols;
-
-#if defined(LWS_WITH_DETAILED_LATENCY)
-	info.detailed_latency_cb = lws_det_lat_plot_cb;
-	info.detailed_latency_filepath = "/tmp/lws-latency-ssproxy";
-#endif
 
 	/* integrate us with lws system state management when context created */
 	nl.name = "app";

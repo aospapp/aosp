@@ -74,6 +74,10 @@ java_sdk_library {
 
     hostdex: true, // for hiddenapi check
 
+    lint: {
+        strict_updatability_linting: true
+    },
+
     impl_library_visibility: [
         "//frameworks/base/apex/statsd/framework/test:__subpackages__",
         "//packages/modules/StatsD/framework/test:__subpackages__",

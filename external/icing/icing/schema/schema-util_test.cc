@@ -38,32 +38,32 @@ constexpr char kEmailType[] = "EmailMessage";
 constexpr char kMessageType[] = "Text";
 constexpr char kPersonType[] = "Person";
 
-constexpr PropertyConfigProto_DataType_Code TYPE_DOCUMENT =
-    PropertyConfigProto_DataType_Code_DOCUMENT;
-constexpr PropertyConfigProto_DataType_Code TYPE_STRING =
-    PropertyConfigProto_DataType_Code_STRING;
-constexpr PropertyConfigProto_DataType_Code TYPE_INT =
-    PropertyConfigProto_DataType_Code_INT64;
-constexpr PropertyConfigProto_DataType_Code TYPE_DOUBLE =
-    PropertyConfigProto_DataType_Code_DOUBLE;
+constexpr PropertyConfigProto::DataType::Code TYPE_DOCUMENT =
+    PropertyConfigProto::DataType::DOCUMENT;
+constexpr PropertyConfigProto::DataType::Code TYPE_STRING =
+    PropertyConfigProto::DataType::STRING;
+constexpr PropertyConfigProto::DataType::Code TYPE_INT =
+    PropertyConfigProto::DataType::INT64;
+constexpr PropertyConfigProto::DataType::Code TYPE_DOUBLE =
+    PropertyConfigProto::DataType::DOUBLE;
 
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_UNKNOWN =
-    PropertyConfigProto_Cardinality_Code_UNKNOWN;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_REQUIRED =
-    PropertyConfigProto_Cardinality_Code_REQUIRED;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_OPTIONAL =
-    PropertyConfigProto_Cardinality_Code_OPTIONAL;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_REPEATED =
-    PropertyConfigProto_Cardinality_Code_REPEATED;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_UNKNOWN =
+    PropertyConfigProto::Cardinality::UNKNOWN;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REQUIRED =
+    PropertyConfigProto::Cardinality::REQUIRED;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_OPTIONAL =
+    PropertyConfigProto::Cardinality::OPTIONAL;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REPEATED =
+    PropertyConfigProto::Cardinality::REPEATED;
 
-constexpr StringIndexingConfig_TokenizerType_Code TOKENIZER_NONE =
-    StringIndexingConfig_TokenizerType_Code_NONE;
-constexpr StringIndexingConfig_TokenizerType_Code TOKENIZER_PLAIN =
-    StringIndexingConfig_TokenizerType_Code_PLAIN;
+constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_NONE =
+    StringIndexingConfig::TokenizerType::NONE;
+constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_PLAIN =
+    StringIndexingConfig::TokenizerType::PLAIN;
 
-constexpr TermMatchType_Code MATCH_UNKNOWN = TermMatchType_Code_UNKNOWN;
-constexpr TermMatchType_Code MATCH_EXACT = TermMatchType_Code_EXACT_ONLY;
-constexpr TermMatchType_Code MATCH_PREFIX = TermMatchType_Code_PREFIX;
+constexpr TermMatchType::Code MATCH_UNKNOWN = TermMatchType::UNKNOWN;
+constexpr TermMatchType::Code MATCH_EXACT = TermMatchType::EXACT_ONLY;
+constexpr TermMatchType::Code MATCH_PREFIX = TermMatchType::PREFIX;
 
 TEST(SchemaUtilTest, DependencyGraphAlphabeticalOrder) {
   // Create a schema with the following dependencies:

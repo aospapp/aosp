@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_generic"
+#define LOG_TAG "audio_hw_generic_caremu"
+// #define LOG_NDEBUG 0
 
 #include <errno.h>
 #include <stdlib.h>

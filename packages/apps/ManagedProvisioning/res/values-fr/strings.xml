@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'application suivante gérera votre appareil :"</string>
     <string name="next" msgid="1004321437324424398">"Suivant"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configuration du profil professionnel…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à ce profil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'organisation, les applis, les autorisations, les données et l\'activité réseau associés à ce profil, ainsi que l\'historique des appels et celui des recherches de contacts. Contactez-le pour obtenir plus d\'informations, y compris sur les règles de confidentialité de votre organisation."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Votre administrateur informatique peut surveiller et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau, ainsi que les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Pour plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur informatique."</string>
@@ -162,7 +160,7 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Votre compte est géré"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Votre administrateur informatique utilise la gestion des appareils mobiles afin d\'appliquer les règles de sécurité"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Préparation pour la configuration professionnelle…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configurer votre profil professionnel"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configurons votre profil professionnel"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Les applis professionnelles sont dans votre profil professionnel"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Mettez vos applis professionnelles en pause quand vous avez fini de travailler"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Votre administrateur informatique a accès aux données du profil professionnel"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> peut installer l\'appli <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> afin que vous puissiez effectuer des paiements sur cet appareil."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Cet appareil peut être limité"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> peut limiter l\'accès à cet appareil si vous n\'effectuez pas de paiements."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Impossible de configurer l\'appareil. Contactez votre administrateur informatique et donnez-lui la référence \"Checksum non valide\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Réessayez plus tard ou demandez de l\'aide à votre administrateur informatique"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Impossible de configurer l\'appareil. Contactez votre administrateur informatique et donnez-lui la référence \"Composants manquants ou corrompus\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configuration…"</string>
 </resources>

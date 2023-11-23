@@ -3,8 +3,6 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl.number.parse;
 
-import static android.icu.impl.number.parse.ParsingUtils.safeContains;
-
 import android.icu.impl.StaticUnicodeSets;
 import android.icu.impl.StringSegment;
 import android.icu.impl.number.DecimalQuantity_DualStorageBCD;
@@ -38,9 +36,9 @@ public class ScientificMatcher implements NumberParseMatcher {
         ignorablesMatcher = IgnorablesMatcher.getInstance(ParsingUtils.PARSE_FLAG_STRICT_IGNORABLES);
 
         String minusSign = symbols.getMinusSignString();
-        customMinusSign = safeContains(minusSignSet(), minusSign) ? null : minusSign;
+        customMinusSign = minusSignSet().contains(minusSign) ? null : minusSign;
         String plusSign = symbols.getPlusSignString();
-        customPlusSign = safeContains(plusSignSet(), plusSign) ? null : plusSign;
+        customPlusSign = plusSignSet().contains(plusSign) ? null : plusSign;
     }
 
     private static UnicodeSet minusSignSet() {

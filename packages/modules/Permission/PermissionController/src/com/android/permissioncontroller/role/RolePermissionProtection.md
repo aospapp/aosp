@@ -56,7 +56,7 @@ Edit [roles.xml](../../../../../res/xml/roles.xml) to add your new role:
     name="android.app.role.SYSTEM_YOUR_ROLE_NAME"
     defaultHolders="config_systemYourRoleName"
     exclusive="true"
-    minSdkVersion="31"
+    minSdkVersion="33"
     static="true"
     systemOnly="true"
     visible="false">
@@ -93,14 +93,14 @@ overlay.
 Since role is modularized, we also need to make this config resource a system API for access by
 role.
 
-Edit `frameworks/base/core/res/res/values/public.xml` to expose the new config resource as a system
-API:
+Edit `frameworks/base/core/res/res/values/public-staging.xml` to expose the new config resource as
+a system API:
 
 ```xml
-<public-group type="string" first-id="0xXXXXXXXX">
+<staging-public-group type="string" first-id="0xXXXXXXXX">
     <!-- @hide @SystemApi -->
     <public name="config_systemYourRoleName" />
-</public-group>
+</staging-public-group>
 ```
 
 Then run `m update-api` to update the API text files.

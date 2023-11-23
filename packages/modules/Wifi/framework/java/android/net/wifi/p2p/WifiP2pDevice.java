@@ -19,6 +19,7 @@ package android.net.wifi.p2p;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.compat.annotation.UnsupportedAppUsage;
+import android.net.wifi.ScanResult;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -26,6 +27,9 @@ import android.util.Log;
 
 import com.android.modules.utils.build.SdkLevel;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -130,6 +134,9 @@ public class WifiP2pDevice implements Parcelable {
     /** @hide */
     @UnsupportedAppUsage
     public WifiP2pWfdInfo wfdInfo;
+
+    /** This stores vendor-specific information element from the native side. */
+    private List<ScanResult.InformationElement> mVendorElements;
 
     /** Detailed device string pattern with WFD info
      * Example:
@@ -327,6 +334,32 @@ public class WifiP2pDevice implements Parcelable {
         wfdInfo = device.wfdInfo;
     }
 
+    /**
+     * Set vendor-specific information elements.
+     * @hide
+     */
+    public void setVendorElements(
+            List<ScanResult.InformationElement> vendorElements) {
+        if (vendorElements == null) {
+            mVendorElements = null;
+            return;
+        }
+        mVendorElements = new ArrayList<>(vendorElements);
+    }
+
+    /**
+     * Get the vendor-specific information elements received as part of the discovery
+     * of the peer device.
+     *
+     * @return the list of vendor-specific information elements
+     *         The information element format is defined in the IEEE 802.11-2016 spec
+     *         Table 9-77.
+     */
+    @NonNull public List<ScanResult.InformationElement> getVendorElements() {
+        if (mVendorElements == null) return Collections.emptyList();
+        return new ArrayList<>(mVendorElements);
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -356,6 +389,7 @@ public class WifiP2pDevice implements Parcelable {
         sbuf.append("\n devcapab: ").append(deviceCapability);
         sbuf.append("\n status: ").append(status);
         sbuf.append("\n wfdInfo: ").append(wfdInfo);
+        sbuf.append("\n vendorElements: ").append(mVendorElements);
         return sbuf.toString();
     }
 
@@ -379,6 +413,9 @@ public class WifiP2pDevice implements Parcelable {
             if (source.wfdInfo != null) {
                 wfdInfo = new WifiP2pWfdInfo(source.wfdInfo);
             }
+            if (null != source.mVendorElements) {
+                mVendorElements = new ArrayList<>(source.mVendorElements);
+            }
         }
     }
 
@@ -399,6 +436,7 @@ public class WifiP2pDevice implements Parcelable {
         } else {
             dest.writeInt(0);
         }
+        dest.writeTypedList(mVendorElements);
     }
 
     /** Implement the Parcelable interface */
@@ -418,6 +456,8 @@ public class WifiP2pDevice implements Parcelable {
                 if (in.readInt() == 1) {
                     device.wfdInfo = WifiP2pWfdInfo.CREATOR.createFromParcel(in);
                 }
+                device.mVendorElements = in.createTypedArrayList(
+                        ScanResult.InformationElement.CREATOR);
                 return device;
             }
 

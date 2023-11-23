@@ -8,10 +8,10 @@
 
 #include "gtest/gtest.h"
 
-#include "puffin/src/file_stream.h"
+#include "puffin/file_stream.h"
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/utils.h"
-#include "puffin/src/memory_stream.h"
+#include "puffin/memory_stream.h"
 #include "puffin/src/unittest_common.h"
 
 using std::string;

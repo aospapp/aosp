@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
                 tmp.set<VendorAtomValue::intValue>(3);
                 values.push_back(tmp);
                 VendorAtom atom = {
-                    .reverseDomainName = "com.google.pixel", .atomId = 100001, .values = values};
+                    .reverseDomainName = "", .atomId = 100001, .values = values};
                 const ndk::ScopedAStatus ret = service->reportVendorAtom(atom);
                 if (!ret.isOk()) {
                     std::cout << "reportVendorAtom failed: " << ret.getServiceSpecificError()

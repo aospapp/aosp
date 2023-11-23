@@ -24,12 +24,12 @@ import static android.telephony.ServiceState.ROAMING_TYPE_DOMESTIC;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_DEACTIVATE_DATA_CALL;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_SEND_SMS;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_SETUP_DATA_CALL;
+import static com.android.internal.telephony.data.LinkBandwidthEstimator.NUM_SIGNAL_LEVEL;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_ADDRESS;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_DNS;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_GATEWAY;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_IFNAME;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_PCSCF_ADDRESS;
-import static com.android.internal.telephony.dataconnection.LinkBandwidthEstimator.NUM_SIGNAL_LEVEL;
 import static com.android.internal.telephony.nano.TelephonyProto.PdpType.PDP_TYPE_IPV4V6;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -37,6 +37,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 import android.net.InetAddresses;
 import android.net.LinkAddress;
@@ -60,7 +61,7 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SmsResponse;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.UUSInfo;
-import com.android.internal.telephony.dataconnection.LinkBandwidthEstimator;
+import com.android.internal.telephony.data.LinkBandwidthEstimator;
 import com.android.internal.telephony.nano.TelephonyProto;
 import com.android.internal.telephony.nano.TelephonyProto.BandwidthEstimatorStats;
 import com.android.internal.telephony.nano.TelephonyProto.ImsConnectionState;
@@ -82,21 +83,15 @@ import com.android.internal.telephony.nano.TelephonyProto.TelephonySettings.RilN
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 public class TelephonyMetricsTest extends TelephonyTest {
-
-    @Mock
+    // Mocked classes
     private ImsCallSession mImsCallSession;
-
-    @Mock
     private ServiceState mServiceState;
-
-    @Mock
     private GsmCdmaConnection mConnection;
 
     private TelephonyMetrics mMetrics;
@@ -108,6 +103,9 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mImsCallSession = mock(ImsCallSession.class);
+        mServiceState = mock(ServiceState.class);
+        mConnection = mock(GsmCdmaConnection.class);
         mMetrics = new TelephonyMetrics();
         mMetrics.setContext(mContext);
         mUusInfo = new UUSInfo(1, 2, new byte[]{1, 2});
@@ -130,6 +128,9 @@ public class TelephonyMetricsTest extends TelephonyTest {
 
     @After
     public void tearDown() throws Exception {
+        mMetrics = null;
+        mUusInfo = null;
+        mImsReasonInfo = null;
         super.tearDown();
     }
 

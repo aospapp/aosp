@@ -49,6 +49,7 @@ import android.content.Intent;
 import android.stats.devicepolicy.DevicePolicyEnums;
 
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 
@@ -100,17 +101,6 @@ public class ProvisioningAnalyticsTracker {
     public void logProvisioningStarted(Context context, ProvisioningParams params) {
         logDpcPackageInformation(context, params.inferDeviceAdminPackageName());
         logNetworkType(context);
-    }
-
-    /**
-     * Logs some metrics when the preprovisioning starts.
-     *
-     * @param context Context passed to MetricsLogger
-     * @param intent Intent that started provisioning
-     */
-    public void logPreProvisioningStarted(Context context, Intent intent) {
-        logProvisioningExtras(context, intent);
-        maybeLogEntryPoint(context, intent);
     }
 
     /**
@@ -348,7 +338,7 @@ public class ProvisioningAnalyticsTracker {
      * @param context Context passed to MetricsLogger
      * @param intent Intent that started provisioning
      */
-    private void logProvisioningExtras(Context context, Intent intent) {
+    public void logProvisioningExtras(Context context, Intent intent) {
         final List<String> provisioningExtras = AnalyticsUtils.getAllProvisioningExtras(intent);
         for (String extra : provisioningExtras) {
             mMetricsLoggerWrapper.logAction(context, PROVISIONING_EXTRA, extra);
@@ -361,11 +351,12 @@ public class ProvisioningAnalyticsTracker {
 
     /**
      * Logs some entry points to provisioning.
-     *
-     * @param context Context passed to MetricsLogger
+     *  @param context Context passed to MetricsLogger
      * @param intent Intent that started provisioning
+     * @param settingsFacade
      */
-    private void maybeLogEntryPoint(Context context, Intent intent) {
+    public void logEntryPoint(Context context, Intent intent,
+            SettingsFacade settingsFacade) {
         if (intent == null || intent.getAction() == null) {
             return;
         }
@@ -377,12 +368,69 @@ public class ProvisioningAnalyticsTracker {
                         .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
                 break;
             case ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE:
-                logProvisionedFromTrustedSource(context, intent);
+                logProvisionedFromTrustedSource(context, intent, settingsFacade);
                 break;
         }
     }
 
-    private void logProvisionedFromTrustedSource(Context context, Intent intent) {
+    public void logRoleHolderProvisioningStart() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_PROVISIONING_START)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logRoleHolderProvisioningFinish() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_PROVISIONING_FINISH)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logPlatformRoleHolderUpdateStart() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PLATFORM_ROLE_HOLDER_UPDATE_START)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logPlatformRoleHolderUpdateFailed() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PLATFORM_ROLE_HOLDER_UPDATE_FAILED)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logPlatformRoleHolderUpdateFinished(int resultCode) {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.PLATFORM_ROLE_HOLDER_UPDATE_FINISHED)
+                        .setInt(resultCode)
+                        .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logRoleHolderUpdaterUpdateStart() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_UPDATER_UPDATE_START)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logRoleHolderUpdaterUpdateFinish(int resultCode) {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_UPDATER_UPDATE_FINISH)
+                .setInt(resultCode)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logRoleHolderUpdaterUpdateRetry() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_UPDATER_UPDATE_RETRY)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    public void logRoleHolderUpdaterUpdateFailed() {
+        mMetricsWriter.write(DevicePolicyEventLogger
+                .createEvent(DevicePolicyEnums.ROLE_HOLDER_UPDATER_UPDATE_FAILED)
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+    }
+
+    private void logProvisionedFromTrustedSource(Context context, Intent intent,
+            SettingsFacade settingsFacade) {
         mMetricsLoggerWrapper.logAction(context, PROVISIONING_ENTRY_POINT_TRUSTED_SOURCE);
         final int provisioningTrigger = intent.getIntExtra(EXTRA_PROVISIONING_TRIGGER,
                 PROVISIONING_TRIGGER_UNSPECIFIED);
@@ -392,7 +440,8 @@ public class ProvisioningAnalyticsTracker {
         mMetricsWriter.write(DevicePolicyEventLogger
                 .createEvent(DevicePolicyEnums.PROVISIONING_ENTRY_POINT_TRUSTED_SOURCE)
                 .setInt(provisioningTrigger)
-                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
+                .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences))
+                .setBoolean(settingsFacade.isDuringSetupWizard(context)));
     }
 
     /**

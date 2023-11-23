@@ -20,6 +20,7 @@ import static android.Manifest.permission.CONNECTIVITY_INTERNAL;
 import static android.Manifest.permission.NETWORK_SETTINGS;
 import static android.net.ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
@@ -27,6 +28,11 @@ import static android.os.Process.myUid;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.annotation.NonNull;
@@ -47,16 +53,19 @@ import android.os.Build;
 import android.os.WorkSource;
 import android.support.test.uiautomator.UiDevice;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -104,8 +113,12 @@ public class TestHelper {
         private final CountDownLatch mCountDownLatch;
         public boolean onAvailableCalled = false;
 
-        TestScanResultsCallback(CountDownLatch countDownLatch) {
-            mCountDownLatch = countDownLatch;
+        TestScanResultsCallback() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        public void await() throws InterruptedException {
+            mCountDownLatch.await(DURATION_MILLIS, TimeUnit.MILLISECONDS);
         }
 
         @Override
@@ -125,28 +138,51 @@ public class TestHelper {
      *
      * @param wifiManager WifiManager service
      * @param savedNetworks List of saved networks on the device.
+     * @return List of WifiConfiguration with matching bssid.
      */
     public static List<WifiConfiguration> findMatchingSavedNetworksWithBssid(
             @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks) {
         if (savedNetworks.isEmpty()) return Collections.emptyList();
         List<WifiConfiguration> matchingNetworksWithBssids = new ArrayList<>();
-        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Map<Integer, List<WifiConfiguration>> networksMap =
+                findMatchingSavedNetworksWithBssidByBand(wifiManager, savedNetworks);
+        for (List<WifiConfiguration> configs : networksMap.values()) {
+            matchingNetworksWithBssids.addAll(configs);
+        }
+        return matchingNetworksWithBssids;
+    }
+
+    /**
+     * Loops through all the saved networks available in the scan results. Returns a map of lists of
+     * WifiConfiguration with the matching bssid filled in {@link WifiConfiguration#BSSID}.
+     *
+     * Note:
+     * a) If there are more than 2 networks with the same SSID, but different credential type, then
+     * this matching may pick the wrong one.
+     *
+     * @param wifiManager WifiManager service
+     * @param savedNetworks List of saved networks on the device.
+     * @return Map from band to the list of WifiConfiguration with matching bssid.
+     */
+    public static Map<Integer, List<WifiConfiguration>> findMatchingSavedNetworksWithBssidByBand(
+            @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks) {
+        if (savedNetworks.isEmpty()) return Collections.emptyMap();
+        Map<Integer, List<WifiConfiguration>> matchingNetworksWithBssids = new ArrayMap<>();
         for (int i = 0; i < SCAN_RETRY_CNT_TO_FIND_MATCHING_BSSID; i++) {
             // Trigger a scan to get fresh scan results.
-            TestScanResultsCallback scanResultsCallback =
-                    new TestScanResultsCallback(countDownLatch);
+            TestScanResultsCallback scanResultsCallback = new TestScanResultsCallback();
             try {
                 wifiManager.registerScanResultsCallback(
                         Executors.newSingleThreadExecutor(), scanResultsCallback);
                 wifiManager.startScan(new WorkSource(myUid()));
                 // now wait for callback
-                countDownLatch.await(DURATION_MILLIS, TimeUnit.MILLISECONDS);
+                scanResultsCallback.await();
             } catch (InterruptedException e) {
             } finally {
                 wifiManager.unregisterScanResultsCallback(scanResultsCallback);
             }
             List<ScanResult> scanResults = wifiManager.getScanResults();
-            if (scanResults == null || scanResults.isEmpty()) fail("No scan results available");
+            if (scanResults == null || scanResults.isEmpty()) continue;
             for (ScanResult scanResult : scanResults) {
                 WifiConfiguration matchingNetwork = savedNetworks.stream()
                         .filter(network -> TextUtils.equals(
@@ -157,7 +193,13 @@ public class TestHelper {
                     // make a copy in case we have 2 bssid's for the same network.
                     WifiConfiguration matchingNetworkCopy = new WifiConfiguration(matchingNetwork);
                     matchingNetworkCopy.BSSID = scanResult.BSSID;
-                    matchingNetworksWithBssids.add(matchingNetworkCopy);
+                    List<WifiConfiguration> bandConfigs = matchingNetworksWithBssids.get(
+                            scanResult.getBand());
+                    if (bandConfigs == null) {
+                        bandConfigs = new ArrayList<>();
+                        matchingNetworksWithBssids.put(scanResult.getBand(), bandConfigs);
+                    }
+                    bandConfigs.add(matchingNetworkCopy);
                 }
             }
             if (!matchingNetworksWithBssids.isEmpty()) break;
@@ -226,47 +268,70 @@ public class TestHelper {
                 .setBssid(MacAddress.fromString(network.BSSID));
     }
 
-    private static class TestNetworkCallback extends ConnectivityManager.NetworkCallback {
-        private final CountDownLatch mCountDownLatch;
+    public static class TestNetworkCallback extends ConnectivityManager.NetworkCallback {
+        private CountDownLatch mBlocker;
         public boolean onAvailableCalled = false;
         public boolean onUnavailableCalled = false;
+        public boolean onLostCalled = false;
         public NetworkCapabilities networkCapabilities;
 
-        TestNetworkCallback(@NonNull CountDownLatch countDownLatch) {
-            mCountDownLatch = countDownLatch;
+        TestNetworkCallback() {
+            mBlocker = new CountDownLatch(1);
         }
 
-        TestNetworkCallback(@NonNull CountDownLatch countDownLatch, int flags) {
+        TestNetworkCallback(int flags) {
             super(flags);
-            mCountDownLatch = countDownLatch;
+            mBlocker = new CountDownLatch(1);
+        }
+
+        public boolean await(long timeout) throws Exception {
+            return mBlocker.await(timeout, TimeUnit.MILLISECONDS);
         }
 
         @Override
         public void onAvailable(Network network) {
+            Log.i(TAG, "onAvailable " + network);
             onAvailableCalled = true;
         }
 
         @Override
         public void onCapabilitiesChanged(Network network,
                 NetworkCapabilities networkCapabilities) {
+            Log.i(TAG, "onCapabilitiesChanged " + network);
             this.networkCapabilities = networkCapabilities;
-            mCountDownLatch.countDown();
+            mBlocker.countDown();
         }
 
         @Override
         public void onUnavailable() {
+            Log.i(TAG, "onUnavailable ");
             onUnavailableCalled = true;
-            mCountDownLatch.countDown();
+            mBlocker.countDown();
+        }
+
+        @Override
+        public void onLost(Network network) {
+            onLostCalled = true;
+            mBlocker.countDown();
+        }
+
+        boolean waitForAnyCallback(int timeout) {
+            try {
+                boolean noTimeout = mBlocker.await(timeout, TimeUnit.MILLISECONDS);
+                mBlocker = new CountDownLatch(1);
+                return noTimeout;
+            } catch (InterruptedException e) {
+                return false;
+            }
         }
     }
 
-    private static TestNetworkCallback createTestNetworkCallback(
-            @NonNull CountDownLatch countDownLatch) {
+    private static TestNetworkCallback createTestNetworkCallback() {
         if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)) {
             // flags for NetworkCallback only introduced in S.
-            return new TestNetworkCallback(countDownLatch, FLAG_INCLUDE_LOCATION_INFO);
+            return new TestNetworkCallback(FLAG_INCLUDE_LOCATION_INFO);
         } else {
-            return new TestNetworkCallback(countDownLatch);
+            return new TestNetworkCallback();
         }
     }
 
@@ -320,9 +385,8 @@ public class TestHelper {
     public ConnectivityManager.NetworkCallback testConnectionFlowWithConnect(
             @NonNull WifiConfiguration network) throws Exception {
         CountDownLatch countDownLatchAl = new CountDownLatch(1);
-        CountDownLatch countDownLatchNr = new CountDownLatch(1);
         TestActionListener actionListener = new TestActionListener(countDownLatchAl);
-        TestNetworkCallback testNetworkCallback = createTestNetworkCallback(countDownLatchNr);
+        TestNetworkCallback testNetworkCallback = createTestNetworkCallback();
         UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
             uiAutomation.adoptShellPermissionIdentity();
@@ -346,8 +410,8 @@ public class TestHelper {
             assertThat(actionListener.onSuccessCalled).isTrue();
 
             // Wait for connection to complete & ensure we are connected to the saved network.
-            assertThat(countDownLatchNr.await(
-                    DURATION_NETWORK_CONNECTION_MILLIS, TimeUnit.MILLISECONDS)).isTrue();
+            assertThat(testNetworkCallback.waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS))
+                    .isTrue();
             assertThat(testNetworkCallback.onAvailableCalled).isTrue();
             final WifiInfo wifiInfo = getWifiInfo(testNetworkCallback.networkCapabilities);
             assertConnectionEquals(network, wifiInfo);
@@ -379,15 +443,18 @@ public class TestHelper {
      * @param restrictedNetworkCapabilities Whether this connection should be restricted with
      *                                    the provided capability.
      *
+     * @param isRestricted whether the suggestion is for a restricted network
      * @return NetworkCallback used for the connection (can be used by client to release the
      * connection.
      */
     public ConnectivityManager.NetworkCallback testConnectionFlowWithSuggestionWithShellIdentity(
             WifiConfiguration network, WifiNetworkSuggestion suggestion,
             @NonNull ScheduledExecutorService executorService,
-            @NonNull Set<Integer> restrictedNetworkCapabilities) throws Exception {
+            @NonNull Set<Integer> restrictedNetworkCapabilities,
+            boolean isRestricted) throws Exception {
         return testConnectionFlowWithSuggestionInternal(
-                network, suggestion, executorService, restrictedNetworkCapabilities, true);
+                network, suggestion, executorService, restrictedNetworkCapabilities, true,
+                isRestricted);
     }
 
     /**
@@ -402,19 +469,22 @@ public class TestHelper {
      * @param restrictedNetworkCapabilities Whether this connection should be restricted with
      *                                    the provided capability.
      *
+     * @param isRestricted whether the suggestion is for a restricted network
      * @return NetworkCallback used for the connection (can be used by client to release the
      * connection.
      */
     public ConnectivityManager.NetworkCallback testConnectionFlowWithSuggestion(
             WifiConfiguration network, WifiNetworkSuggestion suggestion,
             @NonNull ScheduledExecutorService executorService,
-            @NonNull Set<Integer> restrictedNetworkCapabilities) throws Exception {
+            @NonNull Set<Integer> restrictedNetworkCapabilities,
+            boolean isRestricted) throws Exception {
         final UiAutomation uiAutomation =
                 InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
             uiAutomation.adoptShellPermissionIdentity(NETWORK_SETTINGS, CONNECTIVITY_INTERNAL);
             return testConnectionFlowWithSuggestionWithShellIdentity(
-                    network, suggestion, executorService, restrictedNetworkCapabilities);
+                    network, suggestion, executorService, restrictedNetworkCapabilities,
+                    isRestricted);
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
@@ -441,7 +511,8 @@ public class TestHelper {
         try {
             uiAutomation.adoptShellPermissionIdentity(NETWORK_SETTINGS, CONNECTIVITY_INTERNAL);
             return testConnectionFlowWithSuggestionInternal(
-                    network, suggestion, executorService, restrictedNetworkCapabilities, false);
+                    network, suggestion, executorService, restrictedNetworkCapabilities, false,
+                    false/* restrictedNetwork */);
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
@@ -457,6 +528,7 @@ public class TestHelper {
      *                                    the provided capability.
      * @param expectConnectionSuccess Whether to expect connection success or not.
      *
+     * @param isRestricted whether the suggestion is for a restricted network
      * @return NetworkCallback used for the connection (can be used by client to release the
      * connection.
      */
@@ -464,16 +536,15 @@ public class TestHelper {
             WifiConfiguration network, WifiNetworkSuggestion suggestion,
             @NonNull ScheduledExecutorService executorService,
             @NonNull Set<Integer> restrictedNetworkCapabilities,
-            boolean expectConnectionSuccess) throws Exception {
-        CountDownLatch countDownLatch = new CountDownLatch(1);
+            boolean expectConnectionSuccess, boolean isRestricted) throws Exception {
         // File the network request & wait for the callback.
-        TestNetworkCallback testNetworkCallback = createTestNetworkCallback(countDownLatch);
+        TestNetworkCallback testNetworkCallback = createTestNetworkCallback();
         try {
             // File a request for restricted (oem paid) wifi network.
             NetworkRequest.Builder nrBuilder = new NetworkRequest.Builder()
                     .addTransportType(TRANSPORT_WIFI)
                     .addCapability(NET_CAPABILITY_INTERNET);
-            if (restrictedNetworkCapabilities.isEmpty()) {
+            if (restrictedNetworkCapabilities.isEmpty() && !isRestricted) {
                 // If not a restricted connection, a network callback is sufficient.
                 mConnectivityManager.registerNetworkCallback(
                         nrBuilder.build(), testNetworkCallback);
@@ -481,6 +552,7 @@ public class TestHelper {
                 for (Integer restrictedNetworkCapability : restrictedNetworkCapabilities) {
                     nrBuilder.addCapability(restrictedNetworkCapability);
                 }
+                nrBuilder.removeCapability(NET_CAPABILITY_NOT_RESTRICTED);
                 mConnectivityManager.requestNetwork(nrBuilder.build(), testNetworkCallback);
             }
             // Add wifi network suggestion.
@@ -496,22 +568,21 @@ public class TestHelper {
             }, 0, DURATION_MILLIS, TimeUnit.MILLISECONDS);
             if (expectConnectionSuccess) {
                 // now wait for connection to complete and wait for callback
-                assertThat(countDownLatch.await(
-                        DURATION_NETWORK_CONNECTION_MILLIS, TimeUnit.MILLISECONDS)).isTrue();
+                assertThat(testNetworkCallback
+                        .waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS)).isTrue();
                 assertThat(testNetworkCallback.onAvailableCalled).isTrue();
                 final WifiInfo wifiInfo = getWifiInfo(testNetworkCallback.networkCapabilities);
                 assertConnectionEquals(network, wifiInfo);
-                if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
-                    assertThat(wifiInfo.isTrusted()).isTrue();
-                    WifiInfo redact = wifiInfo
-                            .makeCopy(NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION);
-                    assertThat(wifiInfo.getInformationElements()).isNotNull();
-                    assertThat(redact.getInformationElements()).isNull();
-                    assertThat(redact.getApplicableRedactions()).isEqualTo(
-                            NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION
-                            | NetworkCapabilities.REDACT_FOR_LOCAL_MAC_ADDRESS
-                            | NetworkCapabilities.REDACT_FOR_NETWORK_SETTINGS);
-                }
+                assertThat(wifiInfo.isTrusted()).isTrue();
+                assertThat(wifiInfo.isRestricted()).isEqualTo(isRestricted);
+                WifiInfo redact = wifiInfo
+                        .makeCopy(NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION);
+                assertThat(wifiInfo.getInformationElements()).isNotNull();
+                assertThat(redact.getInformationElements()).isNull();
+                assertThat(redact.getApplicableRedactions()).isEqualTo(
+                        NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION
+                                | NetworkCapabilities.REDACT_FOR_LOCAL_MAC_ADDRESS
+                                | NetworkCapabilities.REDACT_FOR_NETWORK_SETTINGS);
                 if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)) {
                     // If STA concurrency for restricted connection is supported, this should not
                     // be the primary connection.
@@ -524,8 +595,8 @@ public class TestHelper {
                 }
             } else {
                 // now wait for connection to timeout.
-                assertThat(countDownLatch.await(
-                        DURATION_NETWORK_CONNECTION_MILLIS, TimeUnit.MILLISECONDS)).isFalse();
+                assertThat(testNetworkCallback
+                        .waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS)).isFalse();
             }
         } catch (Throwable e /* catch assertions & exceptions */) {
             try {
@@ -672,9 +743,8 @@ public class TestHelper {
     public ConnectivityManager.NetworkCallback testConnectionFlowWithSpecifierWithShellIdentity(
             WifiConfiguration network, WifiNetworkSpecifier specifier, boolean shouldUserReject)
             throws Exception {
-        CountDownLatch countDownLatch = new CountDownLatch(1);
         // File the network request & wait for the callback.
-        TestNetworkCallback testNetworkCallback = createTestNetworkCallback(countDownLatch);
+        TestNetworkCallback testNetworkCallback = createTestNetworkCallback();
 
         // Fork a thread to handle the UI interactions.
         Thread uiThread = new Thread(() -> {
@@ -703,8 +773,8 @@ public class TestHelper {
             // Start the UI interactions.
             uiThread.run();
             // now wait for callback
-            assertThat(countDownLatch.await(
-                    DURATION_NETWORK_CONNECTION_MILLIS, TimeUnit.MILLISECONDS)).isTrue();
+            assertThat(testNetworkCallback.waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS))
+                    .isTrue();
             if (shouldUserReject) {
                 assertThat(testNetworkCallback.onUnavailableCalled).isTrue();
             } else {
@@ -771,8 +841,9 @@ public class TestHelper {
     public long getNumWifiConnections() {
         Network[] networks = mConnectivityManager.getAllNetworks();
         return Arrays.stream(networks)
-                .filter(n ->
-                        mConnectivityManager.getNetworkCapabilities(n).hasTransport(TRANSPORT_WIFI))
+                .filter(n -> mConnectivityManager.getNetworkCapabilities(n) != null
+                        && mConnectivityManager.getNetworkCapabilities(n)
+                                .hasTransport(TRANSPORT_WIFI))
                 .count();
     }
 
@@ -783,8 +854,7 @@ public class TestHelper {
      * @throws Exception
      */
     public void assertWifiInternetConnectionAvailable() throws Exception {
-        CountDownLatch countDownLatchNr = new CountDownLatch(1);
-        TestNetworkCallback testNetworkCallback = createTestNetworkCallback(countDownLatchNr);
+        TestNetworkCallback testNetworkCallback = createTestNetworkCallback();
         try {
             // File a callback for wifi network.
             NetworkRequest.Builder builder = new NetworkRequest.Builder()
@@ -799,8 +869,8 @@ public class TestHelper {
             mConnectivityManager.registerNetworkCallback(builder.build(), testNetworkCallback);
             // Wait for connection to complete & ensure we are connected to some network capable
             // of providing internet access.
-            assertThat(countDownLatchNr.await(
-                    DURATION_NETWORK_CONNECTION_MILLIS, TimeUnit.MILLISECONDS)).isTrue();
+            assertThat(testNetworkCallback.waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS))
+                    .isTrue();
             assertThat(testNetworkCallback.onAvailableCalled).isTrue();
         } finally {
             mConnectivityManager.unregisterNetworkCallback(testNetworkCallback);
@@ -825,4 +895,168 @@ public class TestHelper {
         }
     }
 
+    /**
+     * Create a network request for specified band in a network specifier.
+     */
+    private NetworkRequest createNetworkRequestForInternet(int band) {
+        final NetworkRequest networkRequest = new NetworkRequest.Builder()
+                .clearCapabilities()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addTransportType(TRANSPORT_WIFI)
+                .setNetworkSpecifier(new WifiNetworkSpecifier.Builder()
+                        .setBand(band).build())
+                .build();
+        return networkRequest;
+    }
+
+    /**
+     * Check if a wifi network info is as expected for multi internet connections.
+     * @return the WifiInfo of the network.
+     */
+    private WifiInfo checkWifiNetworkInfo(TestNetworkCallback testNetworkCallback,
+            int band) {
+        if (testNetworkCallback.networkCapabilities == null) {
+            return null;
+        }
+        WifiInfo wifiInfo = getWifiInfo(testNetworkCallback.networkCapabilities);
+        assertTrue(wifiInfo.isTrusted());
+        assertFalse(wifiInfo.isRestricted());
+        WifiInfo redact = wifiInfo
+                .makeCopy(NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION);
+        assertNotNull(wifiInfo.getInformationElements());
+        assertNull(redact.getInformationElements());
+        assertEquals(NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION
+                        | NetworkCapabilities.REDACT_FOR_LOCAL_MAC_ADDRESS
+                        | NetworkCapabilities.REDACT_FOR_NETWORK_SETTINGS,
+                        redact.getApplicableRedactions());
+        assertEquals(band, getBandFromFrequency(wifiInfo.getFrequency()));
+
+        return wifiInfo;
+    }
+
+    /**
+     * Tests the entire connection success/failure flow using the provided suggestion.
+     *
+     * @param executorService Excutor service to run scan periodically (to trigger connection).
+     * @param expectConnectionSuccess Whether to expect connection success or not.
+     */
+    private void testMultiInternetConnectionFlowInternal(
+            @NonNull ScheduledExecutorService executorService,
+            boolean expectConnectionSuccess) throws Exception {
+        // File the network request & wait for the callback.
+        TestNetworkCallback testNetworkCallback2G = createTestNetworkCallback();
+        TestNetworkCallback testNetworkCallback5G = createTestNetworkCallback();
+        final NetworkRequest networkRequest2G = createNetworkRequestForInternet(
+                ScanResult.WIFI_BAND_24_GHZ);
+        final NetworkRequest networkRequest5G = createNetworkRequestForInternet(
+                ScanResult.WIFI_BAND_5_GHZ);
+         // Make sure wifi is connected to primary after wifi enabled with saved network.
+        PollingCheck.check("Wifi not connected", DURATION_NETWORK_CONNECTION_MILLIS,
+                () -> getNumWifiConnections() > 0);
+        try {
+            // Request both 2G and 5G wifi networks.
+            mConnectivityManager.requestNetwork(networkRequest2G, testNetworkCallback2G);
+            mConnectivityManager.requestNetwork(networkRequest5G, testNetworkCallback5G);
+            // Wait for the request to reach the wifi stack before kick-start periodic scans.
+            Thread.sleep(200);
+            boolean band2gFound = false;
+            boolean band5gFound = false;
+            // now wait for connection to complete and wait for callback
+            WifiInfo primaryInfo = null;
+            WifiInfo secondaryInfo = null;
+            if (testNetworkCallback2G.await(DURATION_NETWORK_CONNECTION_MILLIS)) {
+                WifiInfo info2g = checkWifiNetworkInfo(testNetworkCallback2G,
+                        ScanResult.WIFI_BAND_24_GHZ);
+                if (info2g != null) {
+                    if (info2g.isPrimary()) {
+                        primaryInfo = info2g;
+                    } else {
+                        secondaryInfo = info2g;
+                    }
+                    band2gFound = true;
+                }
+            }
+            if (testNetworkCallback5G.await(DURATION_NETWORK_CONNECTION_MILLIS)) {
+                WifiInfo info5g = checkWifiNetworkInfo(testNetworkCallback5G,
+                        ScanResult.WIFI_BAND_5_GHZ);
+                if (info5g != null) {
+                    if (info5g.isPrimary()) {
+                        primaryInfo = info5g;
+                    } else {
+                        secondaryInfo = info5g;
+                    }
+                    band5gFound = true;
+                }
+            }
+            if (expectConnectionSuccess) {
+                // Ensure both primary and non-primary networks are created.
+                assertTrue("Network not found on 2g", band2gFound);
+                assertTrue("Network not found on 5g", band5gFound);
+                assertFalse("Network unavailable on 2g", testNetworkCallback2G.onUnavailableCalled);
+                assertFalse("Network unavailable on 5g", testNetworkCallback5G.onUnavailableCalled);
+                assertNotNull("No primary network info", primaryInfo);
+                assertNotNull("No secondary network info", secondaryInfo);
+                assertFalse("Primary and secondary networks are same",
+                        primaryInfo.equals(secondaryInfo));
+                // Ensure that there are 2 wifi connections available for apps.
+                assertEquals("Expecting 2 Wifi networks", 2, getNumWifiConnections());
+                // Check if the networks meets the expected requested multi internet state
+                int mode = mWifiManager.getStaConcurrencyForMultiInternetMode();
+                if (mode == mWifiManager.WIFI_MULTI_INTERNET_MODE_MULTI_AP) {
+                    // Multi AP state allows connecting to same network or multi APs in other
+                    // networks, with different BSSIDs.
+                    assertFalse("Can not connect to same bssid" + primaryInfo.getBSSID()
+                            + " / " + secondaryInfo.getBSSID(),
+                            TextUtils.equals(primaryInfo.getBSSID(), secondaryInfo.getBSSID()));
+                } else if (mode == mWifiManager.WIFI_MULTI_INTERNET_MODE_DBS_AP) {
+                    assertTrue("NETWORK_DBS mode can only connect to the same SSID but got "
+                            + primaryInfo.getSSID() + " / " + secondaryInfo.getSSID(),
+                            TextUtils.equals(primaryInfo.getSSID(), secondaryInfo.getSSID()));
+                    assertEquals("NETWORK_DBS mode can only connect to the same network Id but got"
+                            + primaryInfo.getNetworkId() + " / " + secondaryInfo.getNetworkId(),
+                            primaryInfo.getNetworkId(), secondaryInfo.getNetworkId());
+                    assertEquals("NETWORK_DBS mode can only connect to same security type but got"
+                            + primaryInfo.getCurrentSecurityType() + " / "
+                            + secondaryInfo.getCurrentSecurityType(),
+                            primaryInfo.getCurrentSecurityType(),
+                            secondaryInfo.getCurrentSecurityType());
+                } else {
+                    fail("Invalid multi internet mode " + mode);
+                }
+            } else {
+                // Ensure no band specified wifi connection is created.
+                assertTrue(testNetworkCallback2G.onUnavailableCalled
+                        || testNetworkCallback5G.onUnavailableCalled);
+                // Only one wifi network
+                assertEquals("There should be only one wifi network but got "
+                        + getNumWifiConnections(), 1, getNumWifiConnections());
+            }
+        } finally {
+            mConnectivityManager.unregisterNetworkCallback(testNetworkCallback2G);
+            mConnectivityManager.unregisterNetworkCallback(testNetworkCallback5G);
+            executorService.shutdown();
+        }
+    }
+
+    /**
+     * Tests the entire connection success flow using the provided suggestion.
+     *
+     * Note: The caller needs to invoke this after acquiring shell identity.
+     *
+     * @param executorService Excutor service to run scan periodically (to trigger connection).
+     * @param expectConnectionSuccess Whether to expect connection success or not.
+     */
+    public void testMultiInternetConnectionFlowWithShellIdentity(
+            @NonNull ScheduledExecutorService executorService,
+            boolean expectConnectionSuccess) throws Exception {
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            uiAutomation.adoptShellPermissionIdentity(NETWORK_SETTINGS, CONNECTIVITY_INTERNAL);
+            testMultiInternetConnectionFlowInternal(
+                    executorService, expectConnectionSuccess);
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+        }
+    }
 }

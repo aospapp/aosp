@@ -40,36 +40,37 @@ lws_plat_service(struct lws_context *context, int timeout_ms)
 int
 _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 {
+	volatile struct lws_context_per_thread *vpt;
 	struct lws_context_per_thread *pt;
 	lws_usec_t timeout_us;
 	int n = -1, m, c, a = 0;
 
 	/* stay dead once we are dead */
 
-	if (!context || !context->vhost_list)
+	if (!context)
 		return 1;
 
 	pt = &context->pt[tsi];
-	lws_stats_bump(pt, LWSSTATS_C_SERVICE_ENTRY, 1);
+	vpt = (volatile struct lws_context_per_thread *)pt;
 
 	{
 		unsigned long m = lws_now_secs();
 
 		if (m > context->time_last_state_dump) {
 			context->time_last_state_dump = m;
-#if defined(LWS_AMAZON_RTOS)
-			n = xPortGetFreeHeapSize();
-#else
+#if defined(LWS_ESP_PLATFORM)
 			n = esp_get_free_heap_size();
+#else
+			n = xPortGetFreeHeapSize();
 #endif
 			if ((unsigned int)n != context->last_free_heap) {
 				if ((unsigned int)n > context->last_free_heap)
-					lwsl_notice(" heap :%ld (+%ld)\n",
+					lwsl_debug(" heap :%ld (+%ld)\n",
 						    (unsigned long)n,
 						    (unsigned long)(n -
 						      context->last_free_heap));
 				else
-					lwsl_notice(" heap :%ld (-%ld)\n",
+					lwsl_debug(" heap :%ld (-%ld)\n",
 						    (unsigned long)n,
 						    (unsigned long)(
 						      context->last_free_heap -
@@ -86,31 +87,38 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
 		timeout_ms = 2000000000;
 	timeout_us = ((lws_usec_t)timeout_ms) * LWS_US_PER_MS;
 
-	if (!pt->service_tid_detected) {
-		struct lws *_lws = pt->fake_wsi;
+	if (!pt->service_tid_detected && context->vhost_list) {
+		lws_fakewsi_def_plwsa(pt);
 
-		if (!_lws)
-			return 1;
-		_lws->context = context;
+		lws_fakewsi_prep_plwsa_ctx(context);
 
 		pt->service_tid = context->vhost_list->protocols[0].callback(
-			_lws, LWS_CALLBACK_GET_THREAD_ID, NULL, NULL, 0);
+			(struct lws *)plwsa, LWS_CALLBACK_GET_THREAD_ID,
+			NULL, NULL, 0);
 		pt->service_tid_detected = 1;
 	}
 
 	/*
 	 * is there anybody with pending stuff that needs service forcing?
 	 */
-	if (lws_service_adjust_timeout(context, 1, tsi)) {
-
+#if !defined(LWS_AMAZON_RTOS)
 again:
+#endif
+	n = 0;
+	if (lws_service_adjust_timeout(context, 1, tsi)) {
+#if defined(LWS_AMAZON_RTOS)
+again:
+#endif /* LWS_AMAZON_RTOS */
+
 		a = 0;
 		if (timeout_us) {
 			lws_usec_t us;
 
 			lws_pt_lock(pt, __func__);
 			/* don't stay in poll wait longer than next hr timeout */
-			us = __lws_sul_service_ripe(&pt->pt_sul_owner, lws_now_usecs());
+			us = __lws_sul_service_ripe(pt->pt_sul_owner,
+						    LWS_COUNT_PT_SUL_OWNERS,
+						    lws_now_usecs());
 			if (us && us < timeout_us)
 				timeout_us = us;
 
@@ -138,17 +146,12 @@ again:
 				FD_SET(pt->fds[n].fd, &errfds);
 			}
 
+			vpt->inside_poll = 1;
+			lws_memory_barrier();
 			n = select(max_fd + 1, &readfds, &writefds, &errfds, ptv);
+			vpt->inside_poll = 0;
+			lws_memory_barrier();
 			n = 0;
-
-	#if defined(LWS_WITH_DETAILED_LATENCY)
-			/*
-			 * so we can track how long it took before we actually read a POLLIN
-			 * that was signalled when we last exited poll()
-			 */
-			if (context->detailed_latency_cb)
-				pt->ust_left_poll = lws_now_usecs();
-	#endif
 
 			for (m = 0; m < (int)pt->fds_count; m++) {
 				c = 0;
@@ -177,25 +180,18 @@ again:
 		m |= !!pt->ws.rx_draining_ext_list;
 	#endif
 
+#if defined(LWS_WITH_TLS)
 		if (pt->context->tls_ops &&
 		    pt->context->tls_ops->fake_POLLIN_for_buffered)
 			m |= pt->context->tls_ops->fake_POLLIN_for_buffered(pt);
-
+#endif
 		if (!m && !n)
 			return 0;
 	} else
 		a = 1;
 
 	m = lws_service_flag_pending(context, tsi);
-	if (m)
-		c = -1; /* unknown limit */
-	else
-		if (n < 0) {
-			if (LWS_ERRNO != LWS_EINTR)
-				return -1;
-			return 0;
-		} else
-			c = n;
+	c = m ? -1 : n;
 
 	/* any socket with events to service? */
 	for (n = 0; n < (int)pt->fds_count && c; n++) {

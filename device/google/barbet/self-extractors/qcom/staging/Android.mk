@@ -1,5 +1,11 @@
 LOCAL_PATH := $(call my-dir)
 
+$(call declare-license-metadata,$(LOCAL_PATH)/vendor.img,legacy_proprietary,proprietary,$(LOCAL_PATH)/../LICENSE,"Vendor Image",vendor)
+
+$(eval $(call declare-copy-files-license-metadata,vendor/qcom/barbet,:qcom,legacy_proprietary,proprietary,vendor/qcom/barbet/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,vendor/qcom/barbet,.jar,legacy_proprietary,proprietary,vendor/qcom/barbet/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,vendor/qcom/barbet,.xml,legacy_proprietary,proprietary,vendor/qcom/barbet/LICENSE,))
+
 ifneq ($(filter barbet, $(TARGET_DEVICE)),)
 include $(CLEAR_VARS)
 LOCAL_MODULE_SUFFIX := $(COMMON_ANDROID_PACKAGE_SUFFIX)
@@ -15,6 +21,9 @@ LOCAL_MODULE_OWNER := qcom
 LOCAL_MODULE_CLASS := APPS
 LOCAL_SRC_FILES := $(LOCAL_MODULE).apk
 LOCAL_CERTIFICATE := platform
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../COPYRIGHT $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
@@ -31,6 +40,9 @@ LOCAL_MODULE_OWNER := qcom
 LOCAL_MODULE_CLASS := APPS
 LOCAL_SRC_FILES := $(LOCAL_MODULE).apk
 LOCAL_CERTIFICATE := platform
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../COPYRIGHT $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
@@ -46,5 +58,8 @@ LOCAL_MODULE_OWNER := qcom
 LOCAL_MODULE_CLASS := APPS
 LOCAL_SRC_FILES := $(LOCAL_MODULE).apk
 LOCAL_CERTIFICATE := platform
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../COPYRIGHT $(LOCAL_PATH)/../LICENSE
 include $(BUILD_PREBUILT)
 endif

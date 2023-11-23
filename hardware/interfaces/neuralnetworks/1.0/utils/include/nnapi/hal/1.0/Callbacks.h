@@ -24,8 +24,9 @@
 #include <nnapi/Result.h>
 #include <nnapi/Types.h>
 #include <nnapi/hal/CommonUtils.h>
-#include <nnapi/hal/ProtectCallback.h>
 #include <nnapi/hal/TransferValue.h>
+
+#include "nnapi/hal/1.0/ProtectCallback.h"
 
 // See hardware/interfaces/neuralnetworks/utils/README.md for more information on HIDL interface
 // lifetimes across processes and for protecting asynchronous calls across HIDL.
@@ -40,7 +41,7 @@ nn::GeneralResult<std::vector<bool>> supportedOperationsCallback(
 
 // Converts the results of IDevice::prepareModel* to the NN canonical format. On success, this
 // function returns with a non-null nn::SharedPreparedModel with a feature level of
-// nn::Version::ANDROID_OC_MR1. On failure, this function returns with the appropriate
+// nn::kVersionFeatureLevel1. On failure, this function returns with the appropriate
 // nn::GeneralError.
 nn::GeneralResult<nn::SharedPreparedModel> prepareModelCallback(
         ErrorStatus status, const sp<IPreparedModel>& preparedModel);

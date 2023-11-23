@@ -10,14 +10,16 @@ package {
 cc_library_static {
     name: "rmidevice",
     srcs: [
-        "rmifunction.cpp",
-        "rmidevice.cpp",
         "hiddevice.cpp",
+        "rmidevice.cpp",
+        "rmifunction.cpp",
+        "util.cpp",
     ],
     cflags: [
         "-Wall",
         "-Werror",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
     ],
     export_include_dirs: ["."],
 }

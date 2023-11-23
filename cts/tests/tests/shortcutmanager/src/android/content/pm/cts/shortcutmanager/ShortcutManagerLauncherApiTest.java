@@ -16,6 +16,7 @@
 package android.content.pm.cts.shortcutmanager;
 
 import static android.content.pm.LauncherApps.ShortcutQuery.FLAG_GET_KEY_FIELDS_ONLY;
+import static android.content.pm.LauncherApps.ShortcutQuery.FLAG_GET_PERSISTED_DATA;
 import static android.content.pm.LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC;
 import static android.content.pm.LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST;
 import static android.content.pm.LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED;
@@ -25,12 +26,20 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
 
+import android.content.Intent;
 import android.content.LocusId;
+import android.content.pm.Capability;
+import android.content.pm.CapabilityParams;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.SystemUtil;
+
+import java.util.List;
 
 @SmallTest
 public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase {
@@ -410,5 +419,364 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
             mLauncherContext1, mPackageContext1.getPackageName(), "s1", false));
         assertIconDimensions(icon2, getIconAsLauncher(
             mLauncherContext1, mPackageContext1.getPackageName(), "s2", false));
+    }
+
+    public void testSetDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            // Verifies setDynamicShortcuts persists shortcuts into AppSearch
+            manager.setDynamicShortcuts(list(
+                    makeShortcutBuilder("s1")
+                            .setShortLabel("Title-s1")
+                            .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.type", "running")
+                                            .addAlias("jogging")
+                                            .build())
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.duration", "10m")
+                                            .build())
+                            .build(),
+                    makeShortcut("s2"),
+                    makeShortcutExcludedFromLauncher("s3")
+            ));
+            // Verify shortcut excluded from launcher are not included in search result
+            assertWith(manager.getShortcuts(ShortcutManager.FLAG_MATCH_DYNAMIC))
+                    .haveIds("s1", "s2")
+                    .areAllDynamic();
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3"),
+                    null);
+            // Package 1
+            assertWith(ret).haveIds("s1", "s2", "s3").forShortcutWithId("s1", si -> {
+                assertEquals(list(new Capability.Builder(
+                        "action.intent.START_EXERCISE").build()), si.getCapabilities());
+                assertEquals(list(
+                                new CapabilityParams.Builder("exercise.type", "running")
+                                        .addAlias("jogging").build(),
+                                new CapabilityParams.Builder("exercise.duration", "10m").build()),
+                        si.getCapabilityParams(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()));
+            });
+        });
+    }
+
+    public void testRemoveAllDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            // Verifies setDynamicShortcuts persists shortcuts into AppSearch
+            manager.setDynamicShortcuts(list(
+                    makeShortcutBuilder("s1")
+                            .setShortLabel("Title-s1")
+                            .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.type", "running")
+                                            .addAlias("jogging")
+                                            .build())
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.duration", "10m")
+                                            .build())
+                            .build(),
+                    makeShortcut("s2"),
+                    makeShortcutExcludedFromLauncher("s3")
+            ));
+            // Verify shortcut excluded from launcher are not included in search result
+            assertWith(manager.getShortcuts(ShortcutManager.FLAG_MATCH_DYNAMIC))
+                    .haveIds("s1", "s2")
+                    .areAllDynamic()
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals(list(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()), si.getCapabilities());
+                        assertEquals(list(
+                                        new CapabilityParams.Builder("exercise.type", "running")
+                                                .addAlias("jogging").build(),
+                                        new CapabilityParams.Builder("exercise.duration", "10m")
+                                                .build()),
+                                si.getCapabilityParams(new Capability.Builder(
+                                        "action.intent.START_EXERCISE").build()));
+                    });
+        });
+        Thread.sleep(5000);
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            // Verifies removeAllDynamicShortcuts removes shortcuts from persistence layer
+            getManager().removeAllDynamicShortcuts();
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3"),
+                    null);
+            assertWith(ret).isEmpty();
+        });
+    }
+
+    public void testAddDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            manager.setDynamicShortcuts(list(
+                    makeShortcutBuilder("s1")
+                            .setShortLabel("Title-s1")
+                            .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.type", "running")
+                                            .addAlias("jogging")
+                                            .build())
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.duration", "10m")
+                                            .build())
+                            .build(),
+                    makeShortcut("s2"),
+                    makeShortcutExcludedFromLauncher("s3")
+            ));
+            // Verify shortcut excluded from launcher are not included in search result
+            assertWith(manager.getShortcuts(ShortcutManager.FLAG_MATCH_DYNAMIC))
+                    .haveIds("s1", "s2")
+                    .areAllDynamic()
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals(list(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()), si.getCapabilities());
+                        assertEquals(list(
+                                        new CapabilityParams.Builder("exercise.type", "running")
+                                                .addAlias("jogging").build(),
+                                        new CapabilityParams.Builder("exercise.duration", "10m")
+                                                .build()),
+                                si.getCapabilityParams(new Capability.Builder(
+                                        "action.intent.START_EXERCISE").build()));
+                    });
+            // Verifies addDynamicShortcuts persists shortcuts into AppSearch
+            manager.addDynamicShortcuts(list(makeShortcut("s4"), makeShortcut("s5")));
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret).haveIds("s1", "s2", "s3", "s4", "s5");
+        });
+    }
+
+    public void testPushDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        SystemUtil.runShellCommand("cmd shortcut override-config max_shortcuts=5");
+        runWithCallerWithStrictMode(mPackageContext1, () ->
+                getManager().setDynamicShortcuts(list(
+                        makeShortcutBuilder("s1")
+                                .setShortLabel("Title-s1")
+                                .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                                .addCapabilityBinding(
+                                        new Capability.Builder(
+                                                "action.intent.START_EXERCISE").build(),
+                                        new CapabilityParams.Builder("exercise.type", "running")
+                                                .addAlias("jogging")
+                                                .build())
+                                .addCapabilityBinding(
+                                        new Capability.Builder(
+                                                "action.intent.START_EXERCISE").build(),
+                                        new CapabilityParams.Builder("exercise.duration", "10m")
+                                                .build())
+                                .build(),
+                        makeShortcut("s2"),
+                        makeShortcut("s3"),
+                        makeShortcutExcludedFromLauncher("s4"),
+                        makeShortcutExcludedFromLauncher("s5")
+                )));
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret).haveIds("s1", "s2", "s3", "s4", "s5")
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals(list(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()), si.getCapabilities());
+                        assertEquals(list(
+                                        new CapabilityParams.Builder("exercise.type", "running")
+                                                .addAlias("jogging").build(),
+                                        new CapabilityParams.Builder("exercise.duration", "10m")
+                                                .build()),
+                                si.getCapabilityParams(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()));
+                    });
+        });
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            // Verifies pushDynamicShortcuts further persists shortcuts into AppSearch without
+            // removing previous shortcuts when max number of shortcuts is reached.
+            getManager().pushDynamicShortcut(makeShortcut("s6"));
+        });
+        Thread.sleep(5000);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5", "s6"),
+                    null);
+            assertWith(ret).haveIds("s1", "s2", "s3", "s4", "s5", "s6");
+        });
+        SystemUtil.runShellCommand("cmd shortcut reset-config");
+    }
+
+    public void testRemoveDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            manager.setDynamicShortcuts(list(
+                    makeShortcut("s1"),
+                    makeShortcut("s2"),
+                    makeShortcutExcludedFromLauncher("s3"),
+                    makeShortcutExcludedFromLauncher("s4"),
+                    makeShortcutExcludedFromLauncher("s5")
+            ));
+            // Verifies removeDynamicShortcuts removes shortcuts from persistence layer
+            manager.removeDynamicShortcuts(list("s1"));
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret).haveIds("s2", "s3", "s4", "s5");
+        });
+    }
+
+    public void testRemoveLongLivedShortcuts_RemovesShortcutsFromDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            manager.setDynamicShortcuts(list(
+                    makeShortcutExcludedFromLauncher("s1"),
+                    makeShortcut("s2"),
+                    makeShortcutExcludedFromLauncher("s3"),
+                    makeShortcut("s4"),
+                    makeShortcut("s5")
+            ));
+            manager.removeDynamicShortcuts(list("s2"));
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret).haveIds("s1", "s3", "s4", "s5");
+        });
+    }
+
+    public void testDisableShortcuts_RemovesShortcutsFromDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            manager.setDynamicShortcuts(list(
+                    makeShortcut("s1"),
+                    makeShortcutExcludedFromLauncher("s2"),
+                    makeShortcut("s3"),
+                    makeShortcutExcludedFromLauncher("s4"),
+                    makeShortcut("s5")
+            ));
+            // Verifies disableShortcuts removes shortcuts from persistence layer
+            manager.disableShortcuts(list("s3"));
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret).haveIds("s1", "s2", "s4", "s5");
+        });
+    }
+
+    public void testUpdateShortcuts_UpdateShortcutsOnDisk() throws Exception {
+        if (!isAppSearchEnabled()) {
+            return;
+        }
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutManager manager = getManager();
+            manager.setDynamicShortcuts(list(
+                    makeShortcut("s1"),
+                    makeShortcutExcludedFromLauncher("s2"),
+                    makeShortcut("s3"),
+                    makeShortcutExcludedFromLauncher("s4"),
+                    makeShortcut("s5")
+            ));
+            // Verifies shortcuts in persistence layer are being updated
+            manager.updateShortcuts(list(makeShortcut("s3", "custom")));
+        });
+        Thread.sleep(5000);
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            final List<ShortcutInfo> ret = getShortcutsAsLauncher(
+                    FLAG_GET_PERSISTED_DATA,
+                    mPackageContext1.getPackageName(),
+                    null,
+                    0,
+                    list("s1", "s2", "s3", "s4", "s5"),
+                    null);
+            assertWith(ret)
+                    .haveIds("s1", "s2", "s3", "s4", "s5")
+                    .forShortcutWithId("s3", si -> {
+                        assertEquals("custom", si.getShortLabel());
+                    });
+        });
     }
 }

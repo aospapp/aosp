@@ -32,6 +32,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.PersistableBundle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 
@@ -194,8 +195,6 @@ public class ImsEntitlementReceiverTest {
 
     @Test
     public void onReceive_isSystemUser_jobScheduled() {
-        when(mMockUserManager.isSystemUser()).thenReturn(true);
-
         mReceiver.onReceive(
                 mContext, getCarrierConfigChangedIntent(SUB_ID, /* slotId= */ 0));
 
@@ -204,9 +203,9 @@ public class ImsEntitlementReceiverTest {
 
     @Test
     public void onReceive_notSystemUser_noJobScheduled() {
-        when(mMockUserManager.isSystemUser()).thenReturn(false);
+        ImsEntitlementReceiver receiver = new ImsEntitlementReceiver();
 
-        mReceiver.onReceive(
+        receiver.onReceive(
                 mContext, getCarrierConfigChangedIntent(SUB_ID, /* slotId= */ 0));
 
         verify(mMockJobManager, never()).queryEntitlementStatusOnceNetworkReady();
@@ -232,6 +231,27 @@ public class ImsEntitlementReceiverTest {
         verify(mMockJobManager, never()).queryEntitlementStatusOnceNetworkReady();
     }
 
+    @Test
+    public void onReceive_invalidSubId_noJobScheduled() {
+        mReceiver.onReceive(mContext,
+                getCarrierConfigChangedIntent(SubscriptionManager.INVALID_SUBSCRIPTION_ID, 0));
+
+        verify(mMockJobManager, never()).queryEntitlementStatusOnceNetworkReady();
+    }
+
+    @Test
+    public void isBootUp_compareWithLastBootCount_returnResult() {
+        int currentBootCount =
+                Settings.Global.getInt(
+                        mContext.getContentResolver(), Settings.Global.BOOT_COUNT, /* def= */ -1);
+        setLastBootCount(/* slotId= */ 0, /* count=*/ currentBootCount);
+        setLastBootCount(/* slotId= */ 1, /* count=*/ currentBootCount - 1);
+        ImsEntitlementReceiver receiver = new ImsEntitlementReceiver();
+
+        assertThat(receiver.isBootUp(mContext, 0)).isFalse();
+        assertThat(receiver.isBootUp(mContext, 1)).isTrue();
+    }
+
     private Intent getCarrierConfigChangedIntent(int subId, int slotId) {
         Intent intent = new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         intent.putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, subId);
@@ -253,6 +273,12 @@ public class ImsEntitlementReceiverTest {
         SharedPreferences preferences =
                 mContext.getSharedPreferences("PREFERENCE_ACTIVATION_INFO", Context.MODE_PRIVATE);
         preferences.edit().putInt("last_sub_id_" + slotId, subId).apply();
+    }
+
+    private void setLastBootCount(int slotId, int count) {
+        SharedPreferences preferences =
+                mContext.getSharedPreferences("PREFERENCE_ACTIVATION_INFO", Context.MODE_PRIVATE);
+        preferences.edit().putInt("last_boot_count_" + slotId, count).apply();
     }
 
     private void useDirectExecutor() throws Exception {

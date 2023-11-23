@@ -131,6 +131,7 @@ Update these files by running the script located at
 external/ltp/android/tools/gen_android_build.sh. Instructions for the script
 are in external/ltp/android/how-to-update.txt.
 
+
 How do I enable or disable tests from VTS LTP?
 ----------------------------------------------
 
@@ -158,6 +159,7 @@ If the runtime of LTP changes significantly be sure to update the runtime-hint
 and test-timeout parameters to VTS in
 `test/vts-testcase/kernel/ltp/stable/AndroidTest.xml`.
 
+
 How do I see recent VTS LTP results?
 ----------------------------------------------------------
 
@@ -167,12 +169,14 @@ done on internal devices.
 Test results are also gathered by Linaro and may be seen
 [here](https://qa-reports.linaro.org/android-lkft/).
 
+
 Help! The external/ltp build is failing!
 ----------------------------------------
 
 Try doing a make distclean inside of external/ltp. If an upgrade to LTP has
 recently merged or the build files were recently updated, stale files in
 external/ltp can cause build failures.
+
 
 What outstanding issues exist?
 ------------------------------
@@ -181,6 +185,7 @@ The hotlist for LTP bugs is [ltp-todo](https://buganizer.corp.google.com/hotlist
 
 When you begin working on an LTP bug please assign the bug to yourself so that
 others know it is being worked on.
+
 
 Testing x86_64
 --------------
@@ -195,6 +200,7 @@ To run LTP tests for x86 platform, you can do:
 * `atest vts_ltp_test_x86`
 * `atest vts_ltp_test_x86_64`
 
+
 Sending Fixes Upstream
 ----------------------
 
@@ -207,9 +213,69 @@ One easy way to do this is by using git format-patch and git send-email.
 There is an #LTP channel on freenode. The maintainer Cyril Hrubis is there (his
 nick is metan).
 
+
 Merging Fixes
 ------------------------
 
 When possible please merge fixes upstream first. Then cherrypick the change
 onto aosp/master in external/ltp.
 
+
+Upgrade LTP to the latest upstream release
+-------------------------------------------
+
+LTP has three releases per year. Keeping the current project aligned with the
+upstream development is important to get additional tests and bug-fixes.
+
+### Merge the changes
+
+AOSP external projects have a branch that track the changes to the upstream
+repository, called `aosp/upstream-master`.
+That branch is automatically updated with:
+
+`repo sync .`
+
+Create a new branch to work on the merge, that will contain the merge commit
+itself and conflicts resolutions:
+
+`repo start mymerge .`
+
+Find the commit for the latest LTP release, for example
+
+```
+$ git log --oneline aosp/upstream-master
+c00f96994 (aosp/upstream-master) openposix/Makefile: Use tabs instead of spaces
+a90664f8d Makefile: Use SPDX in Makefile
+0fb171f2b LTP 20210524
+```
+
+Force the creation of a merge commit (no fast-forward).
+
+`git merge <release commit> --no-ff`
+
+Fix all the merge conflicts ensuring that the project still builds, by
+periodically running:
+
+`git clean -dfx && make autotools && ./configure && make -j`
+
+### Update the Android build targets
+
+Building LTP with the Android build system requires the additional Android
+build configuration files mentioned above.
+A new LTP release may have disabled existing tests or enabled new ones, so the
+Android build configurations must be updated accordingly.
+This is done by the script `android/tools/gen_android_build.sh`:
+
+`git clean -dfx && android/tools/gen_android_build.sh && git clean -dfx && mma .`
+
+This command will possibly update the files `android/Android.ltp.mk`,
+`android/ltp_package_list.mk` and `gen.bp`.
+
+It's a good practice to create an explanatory commit message that presents the
+differences in the test suite.
+`android/tools/compare_ltp_projects.py` is a script that helps comparing the tests available in two different LTP folders.
+
+LTP_NEW=$ANDROID_BUILD_TOP/external/ltp
+LTP_OLD=/tmp/ltp-base
+git archive aosp/master | tar -x -C $LTP_OLD
+android/tools/compare_ltp_projects.py --ltp-new $LTP_NEW --ltp-old $LTP_OLD

@@ -136,7 +136,7 @@ class MockSniffer(OtaSnifferBase):
             network: dict of network credentials.
             duration: duration of the sniff.
         """
-        self.log.info('Starting sniffer.')
+        self.log.debug('Starting sniffer.')
 
     def stop_capture(self):
         """Stops the sniffer.
@@ -145,7 +145,7 @@ class MockSniffer(OtaSnifferBase):
             log_file: name of processed sniffer.
         """
 
-        self.log.info('Stopping sniffer.')
+        self.log.debug('Stopping sniffer.')
         log_file = self._get_full_file_path()
         with open(log_file, 'w') as file:
             file.write('this is a sniffer dump.')
@@ -235,6 +235,7 @@ class TsharkSnifferBase(OtaSnifferBase):
         self.sniffer_output_file_type = config['output_file_type']
         self.sniffer_snap_length = config['snap_length']
         self.sniffer_interface = config['interface']
+        self.sniffer_disabled = False
 
         #Logging into sniffer
         self.log.info('Logging into sniffer.')
@@ -325,13 +326,13 @@ class TsharkSnifferBase(OtaSnifferBase):
         Args:
             sniffer_command: sniffer command to execute.
         """
-        self.log.info('Starting sniffer.')
+        self.log.debug('Starting sniffer.')
         sniffer_job = self._sniffer_server.run_async(sniffer_command)
         self.sniffer_proc_pid = sniffer_job.stdout
 
     def _stop_tshark(self):
         """ Stops the sniffer."""
-        self.log.info('Stopping sniffer')
+        self.log.debug('Stopping sniffer')
 
         # while loop to kill the sniffer process
         stop_time = time.time() + SNIFFER_TIMEOUT
@@ -408,7 +409,7 @@ class TsharkSnifferBase(OtaSnifferBase):
         """
         # Checking for existing sniffer processes
         if self._started:
-            self.log.info('Sniffer already running')
+            self.log.debug('Sniffer already running')
             return
 
         # Configure sniffer
@@ -429,7 +430,7 @@ class TsharkSnifferBase(OtaSnifferBase):
         """
         # Checking if there is an ongoing sniffer capture
         if not self._started:
-            self.log.error('No sniffer process running')
+            self.log.debug('No sniffer process running')
             return
         # Killing sniffer process
         self._stop_tshark()
@@ -494,6 +495,30 @@ class TsharkSnifferOnLinux(TsharkSnifferBase):
         # Wait for wifi config changes before trying to further configuration
         # e.g. setting monitor mode (which will fail if above is not complete)
         time.sleep(1)
+
+    def start_capture(self, network, chan, bw, duration=60):
+        """Starts sniffer capture on the specified machine.
+
+        Args:
+            network: dict describing network to sniff on.
+            duration: duration of sniff.
+        """
+        # If sniffer doesnt support the channel, return
+        if '6g' in str(chan):
+            self.log.debug('Channel not supported on sniffer')
+            return
+        # Checking for existing sniffer processes
+        if self._started:
+            self.log.debug('Sniffer already running')
+            return
+
+        # Configure sniffer
+        self._configure_sniffer(network, chan, bw)
+        tshark_command = self._get_tshark_command(duration)
+        sniffer_command = self._get_sniffer_command(tshark_command)
+
+        # Starting sniffer capture by executing tshark command
+        self._run_tshark(sniffer_command)
 
     def set_monitor_mode(self, chan, bw):
         """Function to configure interface to monitor mode

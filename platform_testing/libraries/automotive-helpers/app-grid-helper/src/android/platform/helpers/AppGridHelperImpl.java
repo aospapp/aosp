@@ -19,20 +19,11 @@ package android.platform.helpers;
 import android.os.SystemClock;
 import android.app.Instrumentation;
 import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 
 public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements IAutoAppGridHelper {
 
-    private static final String PAGE_UP_BUTTON_ID = "page_up";
-    private static final String PAGE_DOWN_BUTTON_ID = "page_down";
-
     private static final int UI_RESPONSE_WAIT_MS = 5000;
-
-    private final BySelector PAGE_UP_BUTTON =
-            By.res(getApplicationConfig(AutoConfigConstants.APP_GRID_PACKAGE), PAGE_UP_BUTTON_ID);
-    private final BySelector PAGE_DOWN_BUTTON =
-            By.res(getApplicationConfig(AutoConfigConstants.APP_GRID_PACKAGE), PAGE_DOWN_BUTTON_ID);
 
     public AppGridHelperImpl(Instrumentation instr) {
         super(instr);
@@ -98,7 +89,12 @@ public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements 
     @Override
     public boolean isTop() {
         if (isAppInForeground()) {
-            UiObject2 pageUp = mDevice.findObject(PAGE_UP_BUTTON);
+            UiObject2 pageUp =
+                    findUiObject(
+                            getResourceFromConfig(
+                                    AutoConfigConstants.APP_GRID,
+                                    AutoConfigConstants.APP_GRID_VIEW,
+                                    AutoConfigConstants.UP_BUTTON));
             if (pageUp != null) {
                 return !pageUp.isEnabled();
             } else {
@@ -114,7 +110,12 @@ public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements 
     @Override
     public boolean isBottom() {
         if (isAppInForeground()) {
-            UiObject2 pageDown = mDevice.findObject(PAGE_DOWN_BUTTON);
+            UiObject2 pageDown =
+                    findUiObject(
+                            getResourceFromConfig(
+                                    AutoConfigConstants.APP_GRID,
+                                    AutoConfigConstants.APP_GRID_VIEW,
+                                    AutoConfigConstants.DOWN_BUTTON));
             if (pageDown != null) {
                 return !pageDown.isEnabled();
             } else {

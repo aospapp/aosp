@@ -25,6 +25,7 @@
           <item type="bool" name="config_wifi6ghzSupport" />
           <item type="bool" name="config_wifi60ghzSupport" />
           <item type="bool" name="config_wifi11axSupportOverride" />
+          <item type="bool" name="config_wifi11beSupportOverride" />
           <item type="bool" name="config_wifiFrameworkMaxNumSpatialStreamDeviceOverrideEnable" />
           <item type="integer" name="config_wifiFrameworkMaxNumSpatialStreamDeviceOverrideValue" />
           <item type="bool" name="config_wifi_fast_bss_transition_enabled" />
@@ -37,12 +38,17 @@
           <item type="bool" name="config_wifi_turn_off_during_emergency_call" />
           <item type="integer" name="config_wifiFrameworkThroughputBonusNumerator" />
           <item type="integer" name="config_wifiFrameworkThroughputBonusDenominator" />
+          <item type="integer" name="config_wifiFrameworkThroughputBonusNumeratorAfter800Mbps" />
+          <item type="integer" name="config_wifiFrameworkThroughputBonusDenominatorAfter800Mbps" />
+          <item type="bool" name="config_wifiEnable6GhzBeaconRssiBoost" />
           <item type="integer" name="config_wifiFrameworkThroughputBonusLimit" />
           <item type="integer" name="config_wifiFrameworkSavedNetworkBonus" />
           <item type="integer" name="config_wifiFrameworkUnmeteredNetworkBonus" />
           <item type="integer" name="config_wifiFrameworkCurrentNetworkBonusMin" />
           <item type="integer" name="config_wifiFrameworkCurrentNetworkBonusPercent" />
           <item type="integer" name="config_wifiFrameworkSecureNetworkBonus" />
+          <item type="integer" name="config_wifiBand6GhzBonus" />
+          <item type="integer" name="config_wifiScoringBucketStepSize" />
           <item type="integer" name="config_wifiFrameworkLastSelectionMinutes" />
           <item type="integer" name="config_wifiFrameworkMinPacketPerSecondActiveTraffic" />
           <item type="integer" name="config_wifiFrameworkMinPacketPerSecondHighTraffic" />
@@ -60,12 +66,14 @@
           <item type="integer" name="config_wifiFrameworkScoreGoodRssiThreshold6ghz" />
           <item type="integer" name="config_wifiFrameworkSoftApShutDownTimeoutMilliseconds" />
           <item type="integer" name="config_wifiFrameworkSoftApShutDownIdleInstanceInBridgedModeTimeoutMillisecond" />
+          <item type="bool" name="config_wifiFrameworkSoftApDisableBridgedModeShutdownIdleInstanceWhenCharging" />
           <item type="bool" name="config_wifiSoftApDynamicCountryCodeUpdateSupported" />
           <item type="bool" name="config_wifiSoftapResetChannelConfig" />
           <item type="bool" name="config_wifiSoftapResetHiddenConfig" />
           <item type="bool" name="config_wifiSoftapResetUserControlConfig" />
           <item type="bool" name="config_wifiSoftapResetAutoShutdownTimerConfig" />
           <item type="bool" name="config_wifiSoftapResetMaxClientSettingConfig" />
+          <item type="bool" name="config_wifiSoftapAutoUpgradeToBridgedConfigWhenSupported" />
           <item type="string"  name="config_wifiSoftap2gChannelList" />
           <item type="string"  name="config_wifiSoftap5gChannelList" />
           <item type="string"  name="config_wifiSoftap6gChannelList" />
@@ -74,6 +82,8 @@
           <item type="integer" name="config_wifi_framework_recovery_timeout_delay" />
           <item type="bool" name="config_wifi_framework_enable_associated_network_selection" />
           <item type="integer" name="config_wifiSufficientDurationAfterUserSelectionMilliseconds" />
+          <item type="integer" name="config_wifiLowConnectedScoreThresholdToTriggerScanForMbb" />
+          <item type="integer" name="config_wifiLowConnectedScoreScanPeriodSeconds" />
           <item type="bool" name="config_wifiEnable6ghzPscScanning" />
           <item type="bool" name="config_wifiEnablePartialInitialScan" />
           <item type="integer" name="config_wifiInitialPartialScanChannelMaxCount" />
@@ -91,24 +101,28 @@
           <item type="bool" name="config_wifiSoftapMacAddressCustomizationSupported" />
           <item type="bool" name="config_wifi_softap_ieee80211ac_supported" />
           <item type="bool" name="config_wifiSoftapIeee80211axSupported" />
+          <item type="bool" name="config_wifiSoftapIeee80211beSupported" />
           <item type="bool" name="config_wifiSoftap24ghzSupported" />
           <item type="bool" name="config_wifiSoftap5ghzSupported" />
           <item type="bool" name="config_wifiSoftap6ghzSupported" />
           <item type="bool" name="config_wifiSoftap60ghzSupported" />
+          <item type="bool" name="config_wifiSoftapAutoAppendLowerBandsToBandConfigurationEnabled" />
           <item type="bool" name="config_wifiSoftapHeSuBeamformerSupported" />
           <item type="bool" name="config_wifiSoftapHeSuBeamformeeSupported" />
           <item type="bool" name="config_wifiSoftapHeMuBeamformerSupported" />
           <item type="bool" name="config_wifiSoftapHeTwtSupported" />
           <item type="bool" name="config_wifiLocalOnlyHotspot6ghz" />
           <item type="bool" name="config_wifi_local_only_hotspot_5ghz" />
+          <item type="bool" name="config_wifiSaveFactoryMacToWifiConfigStore" />
           <item type="bool" name="config_wifi_connected_mac_randomization_supported" />
-          <item type="bool" name="config_wifiAllowEnhancedMacRandomizationOnOpenSsids" />
+          <item type="bool" name="config_wifiAllowNonPersistentMacRandomizationOnOpenSsids" />
           <item type="bool" name="config_wifi_p2p_mac_randomization_supported" />
           <item type="bool" name="config_wifi_ap_mac_randomization_supported" />
           <item type="bool" name="config_wifiBridgedSoftApSupported" />
           <item type="bool" name="config_wifiStaWithBridgedSoftApConcurrencySupported" />
-          <item type="array" name="config_wifi_aggressive_randomization_ssid_allowlist" />
-          <item type="array" name="config_wifi_aggressive_randomization_ssid_blocklist" />
+          <item type="array" name="config_wifiForceDisableMacRandomizationSsidList" />
+          <item type="array" name="config_wifi_non_persistent_randomization_ssid_allowlist" />
+          <item type="array" name="config_wifi_non_persistent_randomization_ssid_blocklist" />
           <item type="integer" name="config_wifiRecentFailureReasonExpirationMinutes" />
           <item type="integer" name="config_wifiAllNonCarrierMergedWifiMinDisableDurationMinutes" />
           <item type="integer" name="config_wifiAllNonCarrierMergedWifiMaxDisableDurationMinutes" />
@@ -124,6 +138,9 @@
           <item type="array" name="config_wifiDisconnectedScanIntervalScheduleSec" />
           <item type="array" name="config_wifiConnectedScanIntervalScheduleSec" />
           <item type="array" name="config_wifiSingleSavedNetworkConnectedScanIntervalScheduleSec" />
+          <item type="array" name="config_wifiDisconnectedScanType" />
+          <item type="array" name="config_wifiConnectedScanType" />
+          <item type="array" name="config_wifiSingleSavedNetworkConnectedScanType" />
           <item type="integer" name="config_wifiPnoScanLowRssiNetworkRetryStartDelaySec" />
           <item type="integer" name="config_wifiPnoScanLowRssiNetworkRetryMaxDelaySec" />
           <item type="integer" name="config_wifiConnectedHighRssiScanMinimumWindowSizeSec" />
@@ -180,11 +197,16 @@
           <item type="bool" name="config_wifiMultiStaNetworkSwitchingMakeBeforeBreakEnabled" />
           <item type="bool" name="config_wifiMultiStaLocalOnlyConcurrencyEnabled" />
           <item type="bool" name="config_wifiMultiStaRestrictedConcurrencyEnabled" />
+          <item type="bool" name="config_wifiMultiStaMultiInternetConcurrencyEnabled" />
           <item type="bool" name="config_wifiDefaultCoexAlgorithmEnabled"/>
+          <item type="bool" name="config_wifiCoexForGpsL1"/>
+          <item type="integer" name="config_wifiCoexGpsL1ThresholdKhz"/>
           <item type="string" name="config_wifiCoexTableFilepath"/>
           <item type="integer" name="config_wifiDisableReasonAuthenticationFailureCarrierSpecificThreshold" />
           <item type="integer" name="config_wifiDisableReasonAuthenticationFailureCarrierSpecificDurationMs" />
           <item type="bool" name="config_wifiAllowMultipleNetworksOnSameAwareNdi"/>
+          <item type="integer" name="config_wifiAwareInstantCommunicationModeDurationMillis" />
+          <item type="bool" name="config_wifiSupportChannelOnDataPath"/>
           <item type="integer" name="config_wifiTrafficPollerTxPacketThreshold"/>
           <item type="integer" name="config_wifiTrafficPollerRxPacketThreshold"/>
           <item type="integer" name="config_wifiLinkBandwidthUpdateThresholdPercent" />
@@ -200,6 +222,24 @@
           <item type="integer" name="config_wifiConnectivityLocalLogMaxLinesLowRam" />
           <item type="integer" name="config_wifiConnectivityLocalLogMaxLinesHighRam" />
           <item type="integer" name="config_wifiClientModeImplNumLogRecs" />
+          <item type="bool" name="config_wifiDriverSupportedNl80211RegChangedEvent" />
+          <item type="integer" name="config_wifiVerboseLoggingAlwaysOnLevel" />
+          <item type="string" name="config_wifiCertInstallationHelpLink" />
+          <item type="integer" name="config_wifiConfigurationRestoreNetworksBatchNum" />
+          <item type="array" name="config_oemPrivilegedWifiAdminPackages" />
+          <item type="bool" name="config_wifiSoftapOweSupported" />
+          <item type="bool" name="config_wifiSoftapOweTransitionSupported" />
+          <item type="integer" name="config_wifiDialogGravity" />
+          <item type="bool" name="config_showConfirmationDialogForThirdPartyAppsEnablingWifi" />
+          <item type="integer" name="config_p2pInvitationReceivedDialogTimeoutMs"/>
+          <item type="bool" name="config_p2pInvitationReceivedDialogNotificationSound"/>
+          <item type="bool" name="config_wifiForcedSoftApRestartWhenCountryCodeChanged" />
+          <item type="bool" name="config_wifiDppAkmSupported" />
+          <item type="array" name="config_wifiInterfacePriorityTreatAsForegroundList"/>
+          <item type="bool" name="config_wifiUserApprovalRequiredForD2dInterfacePriority" />
+          <item type="array" name="config_wifiExcludedFromUserApprovalForD2dInterfacePriority" />
+          <item type="bool" name="config_wifiNetworkCentricQosPolicyFeatureEnabled" />
+          <item type="string" name="config_wifiDriverWorldModeCountryCode" />
           <!-- Params from config.xml that can be overlayed -->
 
           <!-- Params from strings.xml that can be overlayed -->
@@ -261,10 +301,25 @@
           <item type="string" name="wifi_eap_error_message_code_32764" />
           <item type="string" name="wifi_eap_error_message_code_32765" />
           <item type="string" name="wifi_eap_error_message_code_32766" />
+          <item type="string" name="wifi_eap_error_message_code_32767" />
+          <item type="string" name="wifi_eap_error_message_code_32768" />
+          <item type="string" name="wifi_eap_error_message_code_32769" />
+          <item type="string" name="wifi_eap_error_message_code_16384" />
+          <item type="string" name="wifi_eap_error_message_code_16385" />
+          <item type="string" name="wifi_eap_error_message_unknown_error_code" />
           <item type="string" name="wifi_softap_auto_shutdown_timeout_expired_title" />
           <item type="string" name="wifi_softap_auto_shutdown_timeout_expired_summary" />
           <item type="string" name="wifi_sim_required_title" />
           <item type="string" name="wifi_sim_required_message" />
+          <item type="string" name="wifi_enable_request_dialog_title" />
+          <item type="string" name="wifi_enable_request_dialog_message" />
+          <item type="string" name="wifi_enable_request_dialog_positive_button" />
+          <item type="string" name="wifi_enable_request_dialog_negative_button" />
+          <item type="string" name="wifi_interface_priority_title" />
+          <item type="string" name="wifi_interface_priority_message" />
+          <item type="string" name="wifi_interface_priority_message_plural" />
+          <item type="string" name="wifi_interface_priority_approve" />
+          <item type="string" name="wifi_interface_priority_reject" />
           <!-- Params from strings.xml that can be overlayed -->
 
           <!-- Params from styles.xml that can be overlayed -->
@@ -272,6 +327,11 @@
           <item type="style" name="wifi_item_label" />
           <item type="style" name="wifi_item_content" />
           <item type="style" name="wifi_section" />
+          <item type="style" name="wifi_p2p_invitation_received_dialog" />
+          <item type="style" name="wifi_p2p_dialog_row_label" />
+          <item type="style" name="wifi_p2p_dialog_row_content" />
+          <item type="style" name="wifi_p2p_dialog_enter_pin_message" />
+          <item type="style" name="wifi_p2p_dialog_pin_input" />
           <!-- Params from styles.xml that can be overlayed -->
 
           <!-- Params from drawable/ that can be overlayed -->

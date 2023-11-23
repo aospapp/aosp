@@ -5,21 +5,16 @@
 		#define _DEBUG
 	#endif
 #endif
+/* #undef LWIP_PROVIDE_ERRNO */
 
 /* Define to 1 to use CyaSSL as a replacement for OpenSSL. 
  * LWS_OPENSSL_SUPPORT needs to be set also for this to work. */
 /* #undef USE_CYASSL */
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#define LWS_HAVE_DLFCN_H
-
-/* Define to 1 if you have the <fcntl.h> header file. */
-#define LWS_HAVE_FCNTL_H
-
 /* Define to 1 if you have the `fork' function. */
 #define LWS_HAVE_FORK
 
-/* Define to 1 if you have the `getenv’ function. */
+/* Define to 1 if you have the `getenv' function. */
 #define LWS_HAVE_GETENV
 
 /* Define to 1 if you have the <in6addr.h> header file. */
@@ -32,18 +27,8 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define LWS_HAVE_MEMORY_H
 
-/* Define to 1 if you have the `memset' function. */
-#define LWS_HAVE_MEMSET
-
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #define LWS_HAVE_NETINET_IN_H
-
-/* Define to 1 if your system has a GNU libc compatible `realloc' function,
-   and to 0 otherwise. */
-#define LWS_HAVE_REALLOC
-
-/* Define to 1 if you have the `socket' function. */
-#define LWS_HAVE_SOCKET
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define LWS_HAVE_STDINT_H
@@ -62,6 +47,9 @@
 
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 #define LWS_HAVE_SYS_PRCTL_H
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#define LWS_HAVE_SYS_RESOURCE_H
 
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #define LWS_HAVE_SYS_SOCKET_H
@@ -87,10 +75,10 @@
 /* #undef LWS_HAVE_VFORK_H */
 
 /* Define to 1 if `fork' works. */
-#define LWS_HAVE_WORKING_FORK
+/* #undef LWS_HAVE_WORKING_FORK */
 
 /* Define to 1 if `vfork' works. */
-#define LWS_HAVE_WORKING_VFORK
+/* #undef LWS_HAVE_WORKING_VFORK */
 
 /* Define to 1 if execvpe() exists */
 #define LWS_HAVE_EXECVPE
@@ -117,7 +105,7 @@
 /* #undef inline */
 
 /* #undef LWS_WITH_ZLIB */
-#define LWS_HAS_PTHREAD_SETNAME_NP
+/* #undef LWS_HAS_PTHREAD_SETNAME_NP */
 
 /* Defined if you have the <inttypes.h> header file. */
 #define LWS_HAVE_INTTYPES_H

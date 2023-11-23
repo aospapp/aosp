@@ -33,6 +33,7 @@
 #define ERROR_INVALID_VALUE_TYPE 0x400
 #define ERROR_STRING_NOT_NULL_TERMINATED 0x800
 #define ERROR_ATOM_ID_INVALID_POSITION 0x2000
+#define ERROR_LIST_TOO_LONG 0x4000
 
 /* TYPE IDS */
 #define INT32_TYPE 0x00
@@ -85,6 +86,23 @@ void checkByteArray(uint8_t** buffer, const vector<uint8_t>& expectedByteArray) 
     vector<uint8_t> parsedByteArray(*buffer, *buffer + size);
     EXPECT_EQ(parsedByteArray, expectedByteArray);
     *buffer += size;  // move buffer past byte array we just read
+}
+
+void checkArrayMetadata(uint8_t** buffer, uint8_t numElements, uint8_t elementTypeId,
+                        uint8_t numAnnotations = 0) {
+    checkTypeHeader(buffer, LIST_TYPE, numAnnotations);
+    EXPECT_EQ(readNext<uint8_t>(buffer), numElements);
+    checkTypeHeader(buffer, elementTypeId);
+}
+
+template <class T>
+void checkScalarArray(uint8_t** buffer, uint8_t numElements, uint8_t elementTypeId,
+                      const T* expectedArrayValues, uint8_t numAnnotations = 0) {
+    checkArrayMetadata(buffer, numElements, elementTypeId, numAnnotations);
+
+    for (int i = 0; i < numElements; i++) {
+        checkScalar(buffer, expectedArrayValues[i]);
+    }
 }
 
 template <class T>
@@ -259,6 +277,61 @@ TEST(StatsEventTest, TestNullByteArrays) {
     AStatsEvent_release(event);
 }
 
+TEST(StatsEventTest, TestAllArrays) {
+    uint32_t atomId = 100;
+
+    uint8_t numElements = 3;
+    int32_t int32Array[3] = {3, 6, 9};
+    int64_t int64Array[3] = {1000L, 1001L, 1002L};
+    float floatArray[3] = {0.1f, 0.3f, 0.09f};
+    bool boolArray[3] = {0, 1, 1};
+
+    vector<string> stringArray = {"str1", "str2", "str3"};
+    const char* cStringArray[3];
+    for (int i = 0; i < numElements; i++) {
+        cStringArray[i] = stringArray[i].c_str();
+    }
+
+    int64_t startTime = android::elapsedRealtimeNano();
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, atomId);
+    AStatsEvent_writeInt32Array(event, int32Array, numElements);
+    AStatsEvent_writeInt64Array(event, int64Array, numElements);
+    AStatsEvent_writeFloatArray(event, floatArray, numElements);
+    AStatsEvent_writeBoolArray(event, boolArray, numElements);
+    AStatsEvent_writeStringArray(event, cStringArray, numElements);
+    AStatsEvent_build(event);
+    int64_t endTime = android::elapsedRealtimeNano();
+
+    size_t bufferSize;
+    uint8_t* buffer = AStatsEvent_getBuffer(event, &bufferSize);
+    uint8_t* bufferEnd = buffer + bufferSize;
+
+    checkMetadata(&buffer, /*numTopLevelElements=*/5, startTime, endTime, atomId);
+
+    // check int32Array element
+    checkScalarArray(&buffer, numElements, INT32_TYPE, int32Array);
+
+    // check int64Array element
+    checkScalarArray(&buffer, numElements, INT64_TYPE, int64Array);
+
+    // check floatArray element
+    checkScalarArray(&buffer, numElements, FLOAT_TYPE, floatArray);
+
+    // check boolArray element
+    checkScalarArray(&buffer, numElements, BOOL_TYPE, boolArray);
+
+    // check stringArray element
+    checkArrayMetadata(&buffer, numElements, STRING_TYPE);
+    for (int i = 0; i < numElements; i++) {
+        checkString(&buffer, stringArray[i]);
+    }
+
+    EXPECT_EQ(buffer, bufferEnd);  // ensure that we have read the entire buffer
+    EXPECT_EQ(AStatsEvent_getErrors(event), 0);
+    AStatsEvent_release(event);
+}
+
 TEST(StatsEventTest, TestAttributionChains) {
     uint32_t atomId = 100;
 
@@ -348,6 +421,43 @@ TEST(StatsEventTest, TestFieldAnnotations) {
     checkScalar(&buffer, floatValue);
     checkAnnotation(&buffer, floatAnnotation1Id, INT32_TYPE, floatAnnotation1Value);
     checkAnnotation(&buffer, floatAnnotation2Id, BOOL_TYPE, floatAnnotation2Value);
+
+    EXPECT_EQ(buffer, bufferEnd);  // ensure that we have read the entire buffer
+    EXPECT_EQ(AStatsEvent_getErrors(event), 0);
+    AStatsEvent_release(event);
+}
+
+TEST(StatsEventTest, TestArrayFieldAnnotations) {
+    uint32_t atomId = 100;
+
+    // array annotation info
+    uint8_t boolAnnotationId = 1;
+    uint8_t int32AnnotationId = 2;
+    bool boolAnnotationValue = true;
+    int32_t int32AnnotationValue = 4;
+
+    uint8_t numElements = 3;
+    int32_t int32Array[3] = {3, 6, 9};
+
+    int64_t startTime = android::elapsedRealtimeNano();
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, atomId);
+    AStatsEvent_writeInt32Array(event, int32Array, numElements);
+    AStatsEvent_addBoolAnnotation(event, boolAnnotationId, boolAnnotationValue);
+    AStatsEvent_addInt32Annotation(event, int32AnnotationId, int32AnnotationValue);
+    AStatsEvent_build(event);
+    int64_t endTime = android::elapsedRealtimeNano();
+
+    size_t bufferSize;
+    uint8_t* buffer = AStatsEvent_getBuffer(event, &bufferSize);
+    uint8_t* bufferEnd = buffer + bufferSize;
+
+    checkMetadata(&buffer, /*numElements=*/1, startTime, endTime, atomId);
+
+    // check first element
+    checkScalarArray(&buffer, numElements, INT32_TYPE, int32Array, /*numAnnotations=*/2);
+    checkAnnotation(&buffer, boolAnnotationId, BOOL_TYPE, boolAnnotationValue);
+    checkAnnotation(&buffer, int32AnnotationId, INT32_TYPE, int32AnnotationValue);
 
     EXPECT_EQ(buffer, bufferEnd);  // ensure that we have read the entire buffer
     EXPECT_EQ(AStatsEvent_getErrors(event), 0);
@@ -513,4 +623,44 @@ TEST(StatsEventTest, TestOverwriteTimestamp) {
 
     EXPECT_EQ(AStatsEvent_getErrors(event), 0);
     AStatsEvent_release(event);
+}
+
+TEST(StatsEventTest, TestAttributionChainTooLongError) {
+    uint32_t atomId = 100;
+    uint8_t numNodes = 128;
+    uint32_t uids[numNodes];
+    vector<string> tags(numNodes);  // storage that cTag elements point to
+    const char* cTags[numNodes];
+    for (int i = 0; i < (int)numNodes; i++) {
+        uids[i] = i;
+        if (0 == i) {
+            tags.push_back("");
+            cTags[i] = nullptr;
+        } else {
+            tags.push_back("test" + std::to_string(i));
+            cTags[i] = tags[i].c_str();
+        }
+    }
+
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, atomId);
+    AStatsEvent_writeAttributionChain(event, uids, cTags, numNodes);
+    AStatsEvent_build(event);
+
+    uint32_t errors = AStatsEvent_getErrors(event);
+    EXPECT_EQ(errors & ERROR_ATTRIBUTION_CHAIN_TOO_LONG, ERROR_ATTRIBUTION_CHAIN_TOO_LONG);
+}
+
+TEST(StatsEventTest, TestListTooLongError) {
+    uint32_t atomId = 100;
+    uint8_t numElements = 128;
+    int32_t int32Array[128] = {1};
+
+    AStatsEvent* event = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(event, atomId);
+    AStatsEvent_writeInt32Array(event, int32Array, numElements);
+    AStatsEvent_build(event);
+
+    uint32_t errors = AStatsEvent_getErrors(event);
+    EXPECT_EQ(errors & ERROR_LIST_TOO_LONG, ERROR_LIST_TOO_LONG);
 }

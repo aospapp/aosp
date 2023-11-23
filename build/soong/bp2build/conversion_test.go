@@ -17,6 +17,8 @@ package bp2build
 import (
 	"sort"
 	"testing"
+
+	"android/soong/android"
 )
 
 type bazelFilepath struct {
@@ -29,7 +31,7 @@ func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
 	expectedFilePaths := []bazelFilepath{
 		{
 			dir:      "",
-			basename: "BUILD",
+			basename: "BUILD.bazel",
 		},
 		{
 			dir:      "",
@@ -37,7 +39,7 @@ func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
 		},
 		{
 			dir:      bazelRulesSubDir,
-			basename: "BUILD",
+			basename: "BUILD.bazel",
 		},
 		{
 			dir:      bazelRulesSubDir,
@@ -69,7 +71,7 @@ func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
 
 		if actualFile.Dir != expectedFile.dir || actualFile.Basename != expectedFile.basename {
 			t.Errorf("Did not find expected file %s/%s", actualFile.Dir, actualFile.Basename)
-		} else if actualFile.Basename == "BUILD" || actualFile.Basename == "WORKSPACE" {
+		} else if actualFile.Basename == "BUILD.bazel" || actualFile.Basename == "WORKSPACE" {
 			if actualFile.Contents != "" {
 				t.Errorf("Expected %s to have no content.", actualFile)
 			}
@@ -80,16 +82,49 @@ func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
 }
 
 func TestCreateBazelFiles_Bp2Build_CreatesDefaultFiles(t *testing.T) {
-	files := CreateSoongInjectionFiles()
+	testConfig := android.TestConfig("", make(map[string]string), "", make(map[string][]byte))
+	files := CreateSoongInjectionFiles(testConfig, CodegenMetrics{})
 
 	expectedFilePaths := []bazelFilepath{
 		{
 			dir:      "cc_toolchain",
-			basename: "BUILD",
+			basename: GeneratedBuildFileName,
 		},
 		{
 			dir:      "cc_toolchain",
 			basename: "constants.bzl",
+		},
+		{
+			dir:      "java_toolchain",
+			basename: GeneratedBuildFileName,
+		},
+		{
+			dir:      "java_toolchain",
+			basename: "constants.bzl",
+		},
+		{
+			dir:      "metrics",
+			basename: "converted_modules.txt",
+		},
+		{
+			dir:      "product_config",
+			basename: "soong_config_variables.bzl",
+		},
+		{
+			dir:      "product_config",
+			basename: "arch_configuration.bzl",
+		},
+		{
+			dir:      "api_levels",
+			basename: GeneratedBuildFileName,
+		},
+		{
+			dir:      "api_levels",
+			basename: "api_levels.json",
+		},
+		{
+			dir:      "api_levels",
+			basename: "api_levels.bzl",
 		},
 	}
 
@@ -102,10 +137,6 @@ func TestCreateBazelFiles_Bp2Build_CreatesDefaultFiles(t *testing.T) {
 
 		if actualFile.Dir != expectedFile.dir || actualFile.Basename != expectedFile.basename {
 			t.Errorf("Did not find expected file %s/%s", actualFile.Dir, actualFile.Basename)
-		}
-
-		if expectedFile.basename != "BUILD" && actualFile.Contents == "" {
-			t.Errorf("Contents of %s unexpected empty.", actualFile)
 		}
 	}
 }

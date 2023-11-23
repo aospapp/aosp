@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Používat datové připojení přes mobilní síť"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Mobilní síť"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Použít mobilní data"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Vypnuto"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Vypnout mobilní data?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Je vyžadován výběr"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Používat pro mobilní data <xliff:g id="CARRIER">%1$s</xliff:g>?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Vyhledávání Wi‑Fi je zapnuto"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Automaticky přepínat na mobilní data"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Když Wi-Fi nebude mít přístup k internetu, použije se mobilní datové připojení. Za využití dat mohou být účtovány poplatky."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Vyhledávat sítě Wi‑Fi a připojovat se k nim"</string>
     <string name="learn_more" msgid="8214605928933358604">"Další informace"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Název hotspotu"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Zapínání hotspotu <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Ostatní zařízení se mohou připojit k hostpotu <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Heslo hotspotu"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Zabezpečení"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2 Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"–"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Pásmo př. bodu"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Předvolby aplikací byly resetovány"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Vymazat data (tovární reset)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Vymazat z informačního a zábavního systému všechna data a profily"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Touto akcí vymažete všechna data z informačního a zábavního systému vozidla, včetně těchto:\n\n"<li>"váš účet Google,"</li>\n<li>"data a nastavení systému a aplikací,"</li>\n<li>"stažené aplikace."</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Touto akcí vymažete všechna data z informačního a zábavního systému vozidla, včetně těchto:\n\n"<li>"vaše účty a profily,"</li>\n<li>"data a nastavení systému a aplikací,"</li>\n<li>"stažené aplikace."</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Jste přihlášeni k následujícím účtům:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Pro toto vozidlo byly nastaveny jiné profily."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Vymazat všechna data"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Vyberte nového administrátora"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Potřebujete minimálně jednoho administrátora. Chcete-li tohoto administrátora smazat, nejprve vyberte náhradního."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Vyberte administrátora"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Host"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Host"</string>
     <string name="user_switch" msgid="6544839750534690781">"Přepnout"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Vy (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Jméno"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Účty uživatele <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Automaticky synchronizovat data"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Nechat aplikace automaticky aktualizovat data"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Zapnout aut. synchronizaci dat?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Změny, které v rámci svých účtů provedete na webu, se automaticky zkopírují do telefonu.\n\nNěkteré účty také automaticky zkopírují změny provedené v telefonu na web. Tímto způsobem funguje například účet Google."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Vypnout automatickou synchronizaci dat?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Povolit automatické synchronizování dat?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Změny, které v rámci svých účtů provedete na webu, se automaticky zkopírují do vozidla.\n\nNěkteré účty také automaticky zkopírují změny provedené ve vozidle na web."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Zakázat automatické synchronizování dat?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Toto nastavení šetří data. Nejnovější informace ale bude třeba získávat pomocí ruční synchronizace každého účtu. Kromě toho nebudete dostávat oznámení o aktualizacích."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Informace o účtu"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Přidat účet"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Soukromí"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Data informačního a zábavního systému"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Ovládání přístupu aplikace k vaší poloze"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Fotoaparát"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Správa přístupu aplikací k fotoaparátům"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Ovládání přístupu aplikace k mikrofonu"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Data informačního a zábavního systému"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Zrušit"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Potvrdit"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Musí obsahovat nejméně 4 znaky"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Minimální počet znaků: <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"Minimální počet číslic kódu PIN: <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Heslo musí být kratší než <xliff:g id="NUMBER">%d</xliff:g> znaků"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"PIN musí mít méně než tento počet číslic: <xliff:g id="NUMBER">%d</xliff:g>"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Kód PIN smí obsahovat pouze číslice 0 až 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Administrátor zařízení nedovoluje použití nedávno použitého kódu PIN"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Obvyklé kódy PIN jsou blokovány administrátorem IT. Použijte jiný PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Administrátor zařízení neumožňuje použít heslo, které jste použili nedávno"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Při ukládání hesla došlo k chybě"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Obvyklá hesla jsou blokována administrátorem IT. Použijte jiné heslo."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Posloupnost rostoucích, klesajících nebo opakujících se číslic není povolena."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Heslo musí obsahovat alespoň jedno písmeno."</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Heslo musí obsahovat alespoň jednu číslici."</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Heslo musí obsahovat alespoň jeden symbol"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Heslo musí obsahovat alespoň # písmeno}few{Heslo musí obsahovat alespoň # písmena}many{Heslo musí obsahovat alespoň # písmena}other{Heslo musí obsahovat alespoň # písmen}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Heslo musí obsahovat alespoň # malé písmeno}few{Heslo musí obsahovat alespoň # malá písmena}many{Heslo musí obsahovat alespoň # malého písmena}other{Heslo musí obsahovat alespoň # malých písmen}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Heslo musí obsahovat alespoň # velké písmeno}few{Heslo musí obsahovat alespoň # velká písmena}many{Heslo musí obsahovat alespoň # velkého písmena}other{Heslo musí obsahovat alespoň # velkých písmen}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Heslo musí obsahovat alespoň # číslici}few{Heslo musí obsahovat alespoň # číslice}many{Heslo musí obsahovat alespoň # číslice}other{Heslo musí obsahovat alespoň # číslic}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Heslo musí obsahovat alespoň # speciální symbol}few{Heslo musí obsahovat alespoň # speciální symboly}many{Heslo musí obsahovat alespoň # speciálního symbolu}other{Heslo musí obsahovat alespoň # speciálních symbolů}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Heslo musí obsahovat alespoň # znak jiný než písmeno}few{Heslo musí obsahovat alespoň # znaky jiné než písmena}many{Heslo musí obsahovat alespoň # znaku jiného než písmeno}other{Heslo musí obsahovat alespoň # znaků jiných než písmena}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Heslo musí obsahovat alespoň # znak jiný než číslici}few{Heslo musí obsahovat alespoň # znaky jiné než číslice}many{Heslo musí obsahovat alespoň # znaku jiného než číslice}other{Heslo musí obsahovat alespoň # znaků jiných než číslice}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Heslo musí obsahovat alespoň # znak}few{Heslo musí obsahovat alespoň # znaky}many{Heslo musí obsahovat alespoň # znaku}other{Heslo musí obsahovat alespoň # znaků}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{PIN musí obsahovat alespoň # číslici}few{PIN musí obsahovat alespoň # číslice}many{PIN musí obsahovat alespoň # číslice}other{PIN musí obsahovat alespoň # číslic}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Heslo musí být kratší než # znak}few{Heslo musí být kratší než # znaky}many{Heslo musí být kratší než # znaku}other{Heslo musí být kratší než # znaků}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{PIN musí mít méně než # číslici}few{PIN musí mít méně než # číslice}many{PIN musí mít méně než # číslice}other{PIN musí mít méně než # číslic}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Posloupnost rostoucích, klesajících nebo opakujících se číslic není povolena"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Možnosti zámku obrazovky"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : před <xliff:g id="NUM_DAYS">%3$s</xliff:g> dny"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Vymazat pověření"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Odstranit"</string>
     <string name="cancel" msgid="750286395700355455">"Zrušit"</string>
     <string name="allow" msgid="7519431342750394402">"Povolit"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Nepovolovat"</string>
     <string name="deny" msgid="340512788979930804">"Zakázat"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Klávesa Backspace"</string>
     <string name="enter_key" msgid="2121394305541579468">"Klávesa Enter"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Aktivovat tuto aplikaci informačního a zábavního systému"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Deaktivovat a odinstalovat"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Deaktivovat tuto aplikaci informačního a zábavního systému"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Další podrobnosti"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Správce organizace může sledovat a spravovat aplikace a data přidružená k tomuto profilu, včetně nastavení, oprávnění, firemního přístupu, aktivity v síti a informací o poloze vozidla."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Správce organizace může sledovat a spravovat aplikace a data přidružená k tomuto profilu, včetně nastavení, oprávnění, firemního přístupu, aktivity v síti a informací o poloze zařízení."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Správce organizace může sledovat a spravovat aplikace a data přidružená k tomuto informačnímu a zábavnímu systému, včetně nastavení, oprávnění, firemního přístupu, aktivity v síti a informací o poloze vozidla."</string>
@@ -757,12 +771,79 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Zásady organizace <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> pro vozidla"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Nastavení spravovaná správcem organizace"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Další informace o službě <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informace o spravovaném vozidle"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Nastavení spravovaná administrátorem flotily"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Za účelem poskytnutí přístupu k datům v tomto spravovaném vozidle může administrátor flotily změnit nastavení a nainstalovat software do informačního a zábavního systému.\n\nDalší podrobnosti vám sdělí administrátor flotily."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informace viditelné pro administrátora flotily"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Změny provedené administrátorem flotily"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Data přidružená k účtu spravovaného vozidla"</li>\n" "<li>"Seznam aplikací ve spravovaném vozidle"</li>\n" "<li>"Čas používání a spotřebovaná data v jednotlivých aplikacích"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Váš přístup k informačnímu a zábavnímu systému"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Seznam aplikací ve vozidle"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Počet aplikací je odhad. Nemusí zahrnovat aplikace nainstalované mimo Obchod Play."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="few">Minimálně <xliff:g id="COUNT_1">%d</xliff:g> aplikace</item>
+      <item quantity="many">Minimálně <xliff:g id="COUNT_1">%d</xliff:g> aplikace</item>
+      <item quantity="other">Minimálně <xliff:g id="COUNT_1">%d</xliff:g> aplikací</item>
+      <item quantity="one">Minimálně <xliff:g id="COUNT_0">%d</xliff:g> aplikace</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> aplikace</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> aplikace</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aplikací</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aplikace</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Nejnovější protokol síťového provozu"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Nejnovější zpráva o chybě"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Nejnovější protokol zabezpečení"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Žádné"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Nainstalované aplikace"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Oprávnění přístupu k poloze"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Oprávnění přístupu k mikrofonu"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Oprávnění přístupu k fotoaparátu"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Výchozí aplikace"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Výchozí klávesnice"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Nastavit na <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Globální proxy server protokolu HTTP je nastaven"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Důvěryhodné identifikační údaje ve vašem osobním profilu"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Administrátor může zamknout informační a zábavní systém a resetovat heslo"</li>\n" "<li>"Administrátor může smazat data informačního a zábavního systému"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Nezdařené pokusy o zadání hesla před smazáním všech dat informačního a zábavního systému"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Nezdařené pokusy o zadání hesla před smazáním dat z profilu"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> pokusy</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> pokusu</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> pokusů</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> pokus</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="few">Aplikace k focení a natáčení</item>
+      <item quantity="many">Aplikace k focení a natáčení</item>
+      <item quantity="other">Aplikace k focení a natáčení</item>
+      <item quantity="one">Aplikace k focení a natáčení</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="few">Aplikace pro práci s e-maily</item>
+      <item quantity="many">Aplikace pro práci s e-maily</item>
+      <item quantity="other">Aplikace pro práci s e-maily</item>
+      <item quantity="one">Aplikace pro práci s e-maily</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="few">Aplikace k telefonování</item>
+      <item quantity="many">Aplikace k telefonování</item>
+      <item quantity="other">Aplikace k telefonování</item>
+      <item quantity="one">Aplikace k telefonování</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Sdílet zprávu o chybě?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Správce organizace tohoto vozidla požádal o zprávu o chybě, aby mohl problém odstranit. Mohou být sdíleny aplikace a data."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Správce organizace tohoto vozidla požádal o zprávu o chybě, aby mohl problém odstranit. Mohou být sdíleny aplikace a data a zařízení se může dočasně zpomalit."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Tato zpráva o chybě je sdílení se správcem organizace tohoto vozidla. Ten vám také poskytne další informace."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Sdílet"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Odmítnout"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Resetování informačního a zábavního systému"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Systém přijal požadavek na resetování do továrního nastavení a vymazání všech dat. Můžete ho resetovat hned, nebo se resetuje při příštím nastartování auta. Poté můžete nastavit nový profil"</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Resetovat"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Resetovat později"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Systém se resetuje při příštím nastartování auta."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Před zahájením resetu musí být auto zaparkované."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Toto nastavení teď nelze změnit"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Přístupnost"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Titulky"</string>
@@ -784,4 +865,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Černé na bílém"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Žluté na černém"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Žluté na modrém"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Čtečka obrazovky"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Vypnuto"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Čtení položek na obrazovce"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Použít aplikaci <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Možnosti"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Nastavení"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Fotoaparát"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Použití aplikace Fotoaparát"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Povolit všem aplikacím přístup k mikrofonu"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Spravovat oprávnění k fotoaparátu"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Nedávno používáno"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Žádné nedávné aplikace"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Žádná aplikace nemá přístup"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{Přístup má # z {total_count} aplikací}few{Přístup mají # z {total_count} aplikací}many{Přístup má # z {total_count} aplikací}other{Přístup má # z {total_count} aplikací}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Nedávno používáno"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Zobrazit vše"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Načítání…"</string>
 </resources>

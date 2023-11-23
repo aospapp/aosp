@@ -23,6 +23,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.IBinder;
 import android.platform.test.annotations.AppModeFull;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -116,6 +117,31 @@ public class CarTest {
                 listenerImpl);
         assertConnectedCar(mCar);
         listenerImpl.waitForReady(DEFAULT_WAIT_TIMEOUT_MS);
+    }
+
+    @Test
+    public void testApiVersion() throws Exception {
+        int ApiVersionTooHigh = 1000000;
+        int MinorApiVersionTooHigh = 1000000;
+        assertThat(Car.isApiVersionAtLeast(Car.API_VERSION_MAJOR_INT)).isTrue();
+        assertThat(Car.isApiVersionAtLeast(ApiVersionTooHigh)).isFalse();
+
+        assertThat(Car.isApiVersionAtLeast(Car.API_VERSION_MAJOR_INT -1 ,
+                MinorApiVersionTooHigh)).isTrue();
+        assertThat(Car.isApiVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                Car.API_VERSION_MINOR_INT)).isTrue();
+        assertThat(Car.isApiVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                MinorApiVersionTooHigh)).isFalse();
+        assertThat(Car.isApiVersionAtLeast(ApiVersionTooHigh, 0)).isFalse();
+
+        assertThat(Car.isApiAndPlatformVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                Build.VERSION.SDK_INT)).isTrue();
+        assertThat(Car.isApiAndPlatformVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                Build.VERSION.SDK_INT + 1)).isFalse();
+        assertThat(Car.isApiAndPlatformVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                Car.API_VERSION_MINOR_INT, Build.VERSION.SDK_INT)).isTrue();
+        assertThat(Car.isApiAndPlatformVersionAtLeast(Car.API_VERSION_MAJOR_INT,
+                Car.API_VERSION_MINOR_INT, Build.VERSION.SDK_INT + 1)).isFalse();
     }
 
     private static void assertConnectedCar(Car car) {

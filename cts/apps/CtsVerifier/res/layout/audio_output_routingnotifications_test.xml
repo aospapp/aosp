@@ -50,6 +50,12 @@
           android:layout_height="wrap_content"
           android:id="@+id/audio_routingnotification_audioTrack_change"/>
 
+      <TextView
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:textSize="20sp"
+          android:id="@+id/audio_routingnotification_testresult"/>
+
       <LinearLayout
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
@@ -58,13 +64,13 @@
               android:layout_width="wrap_content"
               android:layout_height="wrap_content"
               android:id="@+id/audio_routingnotification_playBtn"
-              android:text="@string/audio_routingnotification_playBtn"/>
+              android:text="@string/audio_general_play"/>
 
           <Button
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
               android:id="@+id/audio_routingnotification_playStopBtn"
-              android:text="@string/audio_routingnotification_playStopBtn"/>
+              android:text="@string/audio_general_stop"/>
       </LinearLayout>
     </LinearLayout>
 

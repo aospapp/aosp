@@ -56,9 +56,9 @@ public final class TemporaryFile implements AutoCloseable {
     }
 
     public void write(String s) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(mFile));
-        writer.write(s);
-        writer.close();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(mFile))) {
+            writer.write(s);
+        }
     }
 
     public FileWriter newFileWriter() throws IOException {

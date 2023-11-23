@@ -1,115 +1,71 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 2
-        dimension: 2
-        dimension: 2
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 2
+          dimension: 1
         }
-        channel_dim: 0
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 3707337993
+        }
       }
-      data {
-        random_seed: 0
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 4172777120
+        }
+      }
+      operand {
+        type: TENSOR_BOOL8
+        dimensions {
+          dimension: 2
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 65793
+        }
       }
     }
-    operand {
-      type: INT32
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
+    operations {
+      operation {
+        type: LESS_EQUAL
+        inputs {
+          index: 0
+          index: 1
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2823836134
+        outputs {
+          index: 2
+        }
       }
     }
-    operand {
-      type: INT32
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 1503006379
-      }
+    input_indexes {
+      index: 0
+      index: 1
     }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 2
-        dimension: 1
-        dimension: 2
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 1551735690
-      }
-    }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 2
-        dimension: 1
-        dimension: 2
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2820911615
-      }
+    output_indexes {
+      index: 2
     }
   }
-  operations {
-    operation {
-      type: SPLIT
-      inputs {
-        index: 0
-        index: 1
-        index: 2
-      }
-      outputs {
-        index: 3
-        index: 4
-      }
-    }
+  referenced {
   }
-  input_indexes {
-    index: 0
-  }
-  output_indexes {
-    index: 3
-    index: 4
-  }
-  is_relaxed: true
 }

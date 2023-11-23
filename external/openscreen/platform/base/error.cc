@@ -254,10 +254,16 @@ std::ostream& operator<<(std::ostream& os, const Error::Code& code) {
       return os << "ProcessReceivedRecordFailure";
     case Error::Code::kUnknownCodec:
       return os << "UnknownCodec";
+    case Error::Code::kInvalidCodecParameter:
+      return os << "InvalidCodecParameter";
     case Error::Code::kSocketFailure:
       return os << "SocketFailure";
     case Error::Code::kUnencryptedOffer:
       return os << "UnencryptedOffer";
+    case Error::Code::kRemotingNotSupported:
+      return os << "RemotingNotSupported";
+    case Error::Code::kNegotiationFailure:
+      return os << "NegotiationFailure";
     case Error::Code::kNone:
       break;
   }

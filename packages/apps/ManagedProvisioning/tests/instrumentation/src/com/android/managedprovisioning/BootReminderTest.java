@@ -28,7 +28,7 @@ import android.content.Context;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
-import com.android.managedprovisioning.manageduser.ManagedUserRemovalUtils;
+import com.android.managedprovisioning.provisioninglisteners.ManagedUserRemovalUtils;
 import com.android.managedprovisioning.ota.CrossProfileAppsPregrantController;
 import com.android.managedprovisioning.preprovisioning.EncryptionController;
 

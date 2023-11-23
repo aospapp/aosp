@@ -18,6 +18,7 @@ package android.car.media;
 
 import android.annotation.SdkConstant;
 import android.annotation.SuppressLint;
+import android.car.annotation.AddedInOrBefore;
 
 /**
  * Defines media related intents (and their extras) for the car.
@@ -34,6 +35,7 @@ public final class CarMediaIntents {
       */
     @SuppressLint("ActionValue") // Moved from android.car.Car.java
     @SdkConstant(SdkConstant.SdkConstantType.ACTIVITY_INTENT_ACTION)
+    @AddedInOrBefore(majorVersion = 33)
     public static final String ACTION_MEDIA_TEMPLATE = "android.car.intent.action.MEDIA_TEMPLATE";
 
     /**
@@ -41,6 +43,7 @@ public final class CarMediaIntents {
      * MediaBrowserService that user wants to start the media on.
      */
     @SuppressLint("ActionValue") // Moved from android.car.Car.java
+    @AddedInOrBefore(majorVersion = 33)
     public static final String EXTRA_MEDIA_COMPONENT = "android.car.intent.extra.MEDIA_COMPONENT";
 
     /**
@@ -48,6 +51,7 @@ public final class CarMediaIntents {
      * to send either to the current MediaBrowserService or the one specified
      * with {@link #EXTRA_MEDIA_COMPONENT}.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String EXTRA_SEARCH_QUERY = "android.car.media.extra.SEARCH_QUERY";
 
     /** @hide */

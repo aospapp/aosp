@@ -185,6 +185,16 @@ public class DhcpServingParamsParcelExt extends DhcpServingParamsParcel {
         return this;
     }
 
+    /** Set leases subnet prefix length. If the value is smaller than server address prefix length,
+     * this configuration will be ignored.
+     *
+     * <p>If not set, the default value is zero.
+     */
+    public DhcpServingParamsParcelExt setLeasesSubnetPrefixLength(int prefixLength) {
+        this.leasesSubnetPrefixLength = prefixLength;
+        return this;
+    }
+
     private static int[] toIntArray(@NonNull Collection<Inet4Address> addrs) {
         int[] res = new int[addrs.size()];
         int i = 0;

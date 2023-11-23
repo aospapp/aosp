@@ -18,12 +18,12 @@ package com.google.android.car.kitchensink.hvac;
 
 import static java.lang.Integer.toHexString;
 
+import android.car.VehicleAreaSeat;
+import android.car.VehicleAreaWindow;
+import android.car.VehicleUnit;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.hvac.CarHvacManager;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow;
-import android.hardware.automotive.vehicle.V2_0.VehicleUnit;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -157,12 +157,12 @@ public class HvacTestFragment extends Fragment {
                             mTbMaxDefrost.setChecked((boolean) value.getValue());
                             break;
                         case CarHvacManager.ID_WINDOW_DEFROSTER_ON:
-                            if ((zones & VehicleAreaWindow.FRONT_WINDSHIELD)
-                                    == VehicleAreaWindow.FRONT_WINDSHIELD) {
+                            if ((zones & VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD)
+                                    == VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD) {
                                 mTbDefrostFront.setChecked((boolean) value.getValue());
                             }
-                            if ((zones & VehicleAreaWindow.REAR_WINDSHIELD)
-                                    == VehicleAreaWindow.REAR_WINDSHIELD) {
+                            if ((zones & VehicleAreaWindow.WINDOW_REAR_WINDSHIELD)
+                                    == VehicleAreaWindow.WINDOW_REAR_WINDSHIELD) {
                                 mTbDefrostRear.setChecked((boolean) value.getValue());
                             }
                             break;
@@ -420,14 +420,14 @@ public class HvacTestFragment extends Fragment {
     private void configureTempSetpoint(View v, CarPropertyConfig prop) {
 
         mZoneForSetTempD = 0;
-        if (prop.hasArea(VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_2_LEFT
-                | VehicleAreaSeat.ROW_2_CENTER)) {
-            mZoneForSetTempD = VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_2_LEFT
-                    | VehicleAreaSeat.ROW_2_CENTER;
+        if (prop.hasArea(VehicleAreaSeat.SEAT_ROW_1_LEFT | VehicleAreaSeat.SEAT_ROW_2_LEFT
+                | VehicleAreaSeat.SEAT_ROW_2_CENTER)) {
+            mZoneForSetTempD = VehicleAreaSeat.SEAT_ROW_1_LEFT | VehicleAreaSeat.SEAT_ROW_2_LEFT
+                    | VehicleAreaSeat.SEAT_ROW_2_CENTER;
         }
         mZoneForSetTempP = 0;
-        if (prop.hasArea(VehicleAreaSeat.ROW_1_RIGHT | VehicleAreaSeat.ROW_2_RIGHT)) {
-            mZoneForSetTempP = VehicleAreaSeat.ROW_1_RIGHT | VehicleAreaSeat.ROW_2_RIGHT;
+        if (prop.hasArea(VehicleAreaSeat.SEAT_ROW_1_RIGHT | VehicleAreaSeat.SEAT_ROW_2_RIGHT)) {
+            mZoneForSetTempP = VehicleAreaSeat.SEAT_ROW_1_RIGHT | VehicleAreaSeat.SEAT_ROW_2_RIGHT;
         }
         int[] areas = prop.getAreaIds();
         if (mZoneForSetTempD == 0 && areas.length > 1) {
@@ -527,20 +527,20 @@ public class HvacTestFragment extends Fragment {
     }
 
     private void configureDefrosterOn(View v, CarPropertyConfig prop1) {
-        if (prop1.hasArea(VehicleAreaWindow.FRONT_WINDSHIELD)) {
+        if (prop1.hasArea(VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD)) {
             mTbDefrostFront = (ToggleButton) v.findViewById(R.id.tbDefrostFront);
             mTbDefrostFront.setEnabled(true);
             mTbDefrostFront.setOnClickListener(view -> {
                 setBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
-                        VehicleAreaWindow.FRONT_WINDSHIELD, mTbDefrostFront.isChecked());
+                        VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD, mTbDefrostFront.isChecked());
             });
         }
-        if (prop1.hasArea(VehicleAreaWindow.REAR_WINDSHIELD)) {
+        if (prop1.hasArea(VehicleAreaWindow.WINDOW_REAR_WINDSHIELD)) {
             mTbDefrostRear = (ToggleButton) v.findViewById(R.id.tbDefrostRear);
             mTbDefrostRear.setEnabled(true);
             mTbDefrostRear.setOnClickListener(view -> {
                 setBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
-                        VehicleAreaWindow.REAR_WINDSHIELD, mTbDefrostRear.isChecked());
+                        VehicleAreaWindow.WINDOW_REAR_WINDSHIELD, mTbDefrostRear.isChecked());
             });
         }
     }

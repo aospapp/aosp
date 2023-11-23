@@ -30,6 +30,7 @@ import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 /** Device-side tests for Test Harness Mode */
 @RunWith(AndroidJUnit4.class)
@@ -51,7 +52,7 @@ public class TestHarnessModeDeviceTest {
     @Test
     public void dirtyDevice() {
         TestHarnessActivity activity = mActivityRule.getActivity();
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
 
         activity.dirtyDevice();
     }
@@ -59,7 +60,7 @@ public class TestHarnessModeDeviceTest {
     @Test
     public void testDeviceIsClean() {
         TestHarnessActivity activity = mActivityRule.getActivity();
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
 
         Assert.assertTrue(activity.isDeviceClean());
     }

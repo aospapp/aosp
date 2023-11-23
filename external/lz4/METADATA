@@ -5,11 +5,11 @@ third_party {
     type: GIT
     value: "https://github.com/lz4/lz4.git"
   }
-  version: "v1.9.2"
+  version: "v1.9.3"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2020
-    month: 4
-    day: 13
+    year: 2021
+    month: 9
+    day: 10
   }
 }

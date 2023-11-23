@@ -16,13 +16,14 @@
 
 package android.appsecurity.cts;
 
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
-
 import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
 import static com.android.compatibility.common.util.PropertyUtil.getVendorApiLevel;
 
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 
 import junitparams.Parameters;
 
+@Presubmit
 @RunWith(DeviceParameterizedRunner.class)
 @AppModeFull
 public final class ApkVerityInstallTest extends BaseAppSecurityTest {

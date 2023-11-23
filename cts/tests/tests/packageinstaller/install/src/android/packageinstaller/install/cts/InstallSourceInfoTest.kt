@@ -57,10 +57,24 @@ class InstallSourceInfoTest : PackageInstallerTestBase() {
     }
 
     @Test
+    fun InstallViaSessionByStore() {
+        installViaSession(PackageInstaller.PACKAGE_SOURCE_STORE)
+    }
+
+    @Test
+    fun InstallViaSessionByLocalFile() {
+        installViaSession(PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE)
+    }
+
+    @Test
     fun InstallViaSession() {
+        installViaSession(null)
+    }
+
+    private fun installViaSession(packageSource: Int?) {
         assumeNotWatch()
 
-        startInstallationViaSession()
+        startInstallationViaSessionWithPackageSource(packageSource)
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
         // Install should have succeeded
@@ -70,6 +84,12 @@ class InstallSourceInfoTest : PackageInstallerTestBase() {
         assertThat(info.getInstallingPackageName()).isEqualTo(ourPackageName)
         assertThat(info.getInitiatingPackageName()).isEqualTo(ourPackageName)
         assertThat(info.getOriginatingPackageName()).isNull()
+        if (packageSource != null) {
+            assertThat(info.getPackageSource()).isEqualTo(packageSource)
+        } else {
+            assertThat(info.getPackageSource()).isEqualTo(
+                    PackageInstaller.PACKAGE_SOURCE_UNSPECIFIED)
+        }
     }
 
     private fun getPackageInstallerPackageName(): String {

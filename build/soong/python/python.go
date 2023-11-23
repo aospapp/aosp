@@ -22,6 +22,8 @@ import (
 	"regexp"
 	"strings"
 
+	"android/soong/bazel"
+
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
@@ -45,7 +47,7 @@ func RegisterPythonPreDepsMutators(ctx android.RegisterMutatorsContext) {
 type VersionProperties struct {
 	// whether the module is required to be built with this version.
 	// Defaults to true for Python 3, and false otherwise.
-	Enabled *bool `android:"arch_variant"`
+	Enabled *bool
 
 	// list of source files specific to this Python version.
 	// Using the syntax ":module", srcs may reference the outputs of other modules that produce source files,
@@ -60,7 +62,7 @@ type VersionProperties struct {
 	Libs []string `android:"arch_variant"`
 
 	// whether the binary is required to be built with embedded launcher for this version, defaults to false.
-	Embedded_launcher *bool `android:"arch_variant"` // TODO(b/174041232): Remove this property
+	Embedded_launcher *bool // TODO(b/174041232): Remove this property
 }
 
 // properties that apply to all python modules
@@ -70,10 +72,10 @@ type BaseProperties struct {
 	// eg. Pkg_path = "a/b/c"; Other packages can reference this module by using
 	// (from a.b.c import ...) statement.
 	// if left unspecified, all the source/data files path is unchanged within zip file.
-	Pkg_path *string `android:"arch_variant"`
+	Pkg_path *string
 
 	// true, if the Python module is used internally, eg, Python std libs.
-	Is_internal *bool `android:"arch_variant"`
+	Is_internal *bool
 
 	// list of source (.py) files compatible both with Python2 and Python3 used to compile the
 	// Python module.
@@ -118,6 +120,18 @@ type BaseProperties struct {
 	// whether the binary is required to be built with embedded launcher for this actual_version.
 	// this is set by the python version mutator based on version-specific properties
 	Embedded_launcher *bool `blueprint:"mutated"`
+}
+
+type baseAttributes struct {
+	// TODO(b/200311466): Probably not translate b/c Bazel has no good equiv
+	//Pkg_path    bazel.StringAttribute
+	// TODO: Related to Pkg_bath and similarLy gated
+	//Is_internal bazel.BoolAttribute
+	// Combines Srcs and Exclude_srcs
+	Srcs bazel.LabelListAttribute
+	Deps bazel.LabelListAttribute
+	// Combines Data and Java_data (invariant)
+	Data bazel.LabelListAttribute
 }
 
 // Used to store files of current module after expanding dependencies
@@ -175,6 +189,25 @@ func newModule(hod android.HostOrDeviceSupported, multilib android.Multilib) *Mo
 		hod:      hod,
 		multilib: multilib,
 	}
+}
+
+func (m *Module) makeArchVariantBaseAttributes(ctx android.TopDownMutatorContext) baseAttributes {
+	var attrs baseAttributes
+	archVariantBaseProps := m.GetArchVariantProperties(ctx, &BaseProperties{})
+	for axis, configToProps := range archVariantBaseProps {
+		for config, props := range configToProps {
+			if baseProps, ok := props.(*BaseProperties); ok {
+				attrs.Srcs.SetSelectValue(axis, config,
+					android.BazelLabelForModuleSrcExcludes(ctx, baseProps.Srcs, baseProps.Exclude_srcs))
+				attrs.Deps.SetSelectValue(axis, config,
+					android.BazelLabelForModuleDeps(ctx, baseProps.Libs))
+				data := android.BazelLabelForModuleSrc(ctx, baseProps.Data)
+				data.Append(android.BazelLabelForModuleSrc(ctx, baseProps.Java_data))
+				attrs.Data.SetSelectValue(axis, config, data)
+			}
+		}
+	}
+	return attrs
 }
 
 // bootstrapper interface should be implemented for runnable modules, e.g. binary and test
@@ -310,13 +343,16 @@ func versionSplitMutator() func(android.BottomUpMutatorContext) {
 // HostToolPath returns a path if appropriate such that this module can be used as a host tool,
 // fulfilling HostToolProvider interface.
 func (p *Module) HostToolPath() android.OptionalPath {
-	if p.installer == nil {
-		// python_library is just meta module, and doesn't have any installer.
-		return android.OptionalPath{}
+	if p.installer != nil {
+		if bin, ok := p.installer.(*binaryDecorator); ok {
+			// TODO: This should only be set when building host binaries -- tests built for device would be
+			// setting this incorrectly.
+			return android.OptionalPathForPath(bin.path)
+		}
 	}
-	// TODO: This should only be set when building host binaries -- tests built for device would be
-	// setting this incorrectly.
-	return android.OptionalPathForPath(p.installer.(*binaryDecorator).path)
+
+	return android.OptionalPath{}
+
 }
 
 // OutputFiles returns output files based on given tag, returns an error if tag is unsupported.
@@ -387,6 +423,9 @@ func (p *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
 		if ctx.Target().Os.Bionic() {
 			launcherSharedLibDeps = append(launcherSharedLibDeps, "libc", "libdl", "libm")
 		}
+		if ctx.Target().Os == android.LinuxMusl && !ctx.Config().HostStaticBinaries() {
+			launcherSharedLibDeps = append(launcherSharedLibDeps, "libc_musl")
+		}
 
 		switch p.properties.Actual_version {
 		case pyVersion2:
@@ -396,6 +435,7 @@ func (p *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
 			if p.bootstrapper.autorun() {
 				launcherModule = "py2-launcher-autorun"
 			}
+
 			launcherSharedLibDeps = append(launcherSharedLibDeps, "libc++")
 
 		case pyVersion3:
@@ -404,6 +444,9 @@ func (p *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
 			launcherModule = "py3-launcher"
 			if p.bootstrapper.autorun() {
 				launcherModule = "py3-launcher-autorun"
+			}
+			if ctx.Config().HostStaticBinaries() && ctx.Target().Os == android.LinuxMusl {
+				launcherModule += "-static"
 			}
 
 			if ctx.Device() {
@@ -632,16 +675,23 @@ func (p *Module) createSrcsZip(ctx android.ModuleContext, pkgPath string) androi
 }
 
 // isPythonLibModule returns whether the given module is a Python library Module or not
-// This is distinguished by the fact that Python libraries are not installable, while other Python
-// modules are.
 func isPythonLibModule(module blueprint.Module) bool {
 	if m, ok := module.(*Module); ok {
-		// Python library has no bootstrapper or installer
-		if m.bootstrapper == nil && m.installer == nil {
-			return true
-		}
+		return m.isLibrary()
 	}
 	return false
+}
+
+// This is distinguished by the fact that Python libraries are not installable, while other Python
+// modules are.
+func (p *Module) isLibrary() bool {
+	// Python library has no bootstrapper or installer
+	return p.bootstrapper == nil && p.installer == nil
+}
+
+func (p *Module) isBinary() bool {
+	_, ok := p.bootstrapper.(*binaryDecorator)
+	return ok
 }
 
 // collectPathsFromTransitiveDeps checks for source/data files for duplicate paths
@@ -675,7 +725,7 @@ func (p *Module) collectPathsFromTransitiveDeps(ctx android.ModuleContext) {
 		if !isPythonLibModule(child) {
 			ctx.PropertyErrorf("libs",
 				"the dependency %q of module %q is not Python library!",
-				ctx.ModuleName(), ctx.OtherModuleName(child))
+				ctx.OtherModuleName(child), ctx.ModuleName())
 		}
 		// collect source and data paths, checking that there are no duplicate output file conflicts
 		if dep, ok := child.(pythonDependency); ok {
@@ -715,6 +765,14 @@ func checkForDuplicateOutputPath(ctx android.ModuleContext, m map[string]string,
 // InstallInData returns true as Python is not supported in the system partition
 func (p *Module) InstallInData() bool {
 	return true
+}
+
+func (p *Module) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	if p.isLibrary() {
+		pythonLibBp2Build(ctx, p)
+	} else if p.isBinary() {
+		pythonBinaryBp2Build(ctx, p)
+	}
 }
 
 var Bool = proptools.Bool

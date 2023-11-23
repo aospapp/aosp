@@ -136,6 +136,19 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
                 os.path.join(self._IDEA_PATH,
                              project_file_gen._CODE_STYLE_FOLDER,
                              'codeStyleConfig.xml')))
+
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._INSPECTION_FOLDER,
+                             'profiles_settings.xml')))
+
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self._IDEA_PATH,
+                             project_file_gen._INSPECTION_FOLDER,
+                             'Aidegen_Inspections.xml')))
+
         self.assertTrue(
             os.path.isfile(
                 os.path.join(self._IDEA_PATH,
@@ -149,19 +162,19 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
         shutil.rmtree(self._IDEA_PATH)
 
     @mock.patch.object(logging, 'error')
-    @mock.patch.object(os, 'symlink')
+    @mock.patch.object(shutil, 'copy')
     @mock.patch.object(os.path, 'exists')
-    def test_generate_git_ignore(self, mock_path_exist, mock_link,
+    def test_generate_git_ignore(self, mock_path_exist, mock_copy,
                                  mock_loggin_error):
         """Test _generate_git_ignore."""
         mock_path_exist.return_value = True
         project_file_gen._generate_git_ignore(
             common_util.get_aidegen_root_dir())
-        self.assertFalse(mock_link.called)
+        self.assertFalse(mock_copy.called)
 
         # Test for creating symlink exception.
         mock_path_exist.return_value = False
-        mock_link.side_effect = OSError()
+        mock_copy.side_effect = OSError()
         project_file_gen._generate_git_ignore(
             common_util.get_aidegen_root_dir())
         self.assertTrue(mock_loggin_error.called)

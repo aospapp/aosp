@@ -18,7 +18,7 @@ from cros_utils import command_executer
 
 TEST_THAT_PATH = '/usr/bin/test_that'
 TAST_PATH = '/usr/bin/tast'
-SKYLAB_PATH = '/usr/local/bin/skylab'
+CROSFLEET_PATH = 'crosfleet'
 GS_UTIL = 'src/chromium/depot_tools/gsutil.py'
 AUTOTEST_DIR = '/mnt/host/source/src/third_party/autotest/files'
 CHROME_MOUNT_DIR = '/tmp/chrome_root'
@@ -75,8 +75,8 @@ class SuiteRunner(object):
   def Run(self, cros_machine, label, benchmark, test_args, profiler_args):
     machine_name = cros_machine.name
     for i in range(0, benchmark.retries + 1):
-      if label.skylab:
-        ret_tup = self.Skylab_Run(label, benchmark, test_args, profiler_args)
+      if label.crosfleet:
+        ret_tup = self.Crosfleet_Run(label, benchmark, test_args, profiler_args)
       else:
         if benchmark.suite == 'tast':
           ret_tup = self.Tast_Run(machine_name, label, benchmark)
@@ -87,12 +87,12 @@ class SuiteRunner(object):
         self.logger.LogOutput('benchmark %s failed. Retries left: %s' %
                               (benchmark.name, benchmark.retries - i))
       elif i > 0:
-        self.logger.LogOutput(
-            'benchmark %s succeded after %s retries' % (benchmark.name, i))
+        self.logger.LogOutput('benchmark %s succeded after %s retries' %
+                              (benchmark.name, i))
         break
       else:
-        self.logger.LogOutput(
-            'benchmark %s succeded on first try' % benchmark.name)
+        self.logger.LogOutput('benchmark %s succeded on first try' %
+                              benchmark.name)
         break
     return ret_tup
 
@@ -238,8 +238,8 @@ class SuiteRunner(object):
       self.logger.LogOutput('Result downloaded for task %s' % task_id)
     return status
 
-  def Skylab_Run(self, label, benchmark, test_args, profiler_args):
-    """Run the test via skylab.."""
+  def Crosfleet_Run(self, label, benchmark, test_args, profiler_args):
+    """Run the test via crosfleet.."""
     options = []
     if label.board:
       options.append('-board=%s' % label.board)
@@ -257,19 +257,19 @@ class SuiteRunner(object):
       dimensions.append('-dim dut_name:%s' % dut.rstrip('.cros'))
 
     command = (('%s create-test %s %s %s') % \
-              (SKYLAB_PATH, ' '.join(dimensions), ' '.join(options),
+              (CROSFLEET_PATH, ' '.join(dimensions), ' '.join(options),
                benchmark.suite if
                (benchmark.suite == 'telemetry_Crosperf' or
                 benchmark.suite == 'crosperf_Wrapper')
                else benchmark.test_name))
 
     if self.log_level != 'verbose':
-      self.logger.LogOutput('Starting skylab test.')
+      self.logger.LogOutput('Starting crosfleet test.')
       self.logger.LogOutput('CMD: %s' % command)
     ret_tup = self._ce.RunCommandWOutput(command, command_terminator=self._ct)
 
     if ret_tup[0] != 0:
-      self.logger.LogOutput('Skylab test not created successfully.')
+      self.logger.LogOutput('Crosfleet test not created successfully.')
       return ret_tup
 
     # Std output of the command will look like:
@@ -278,9 +278,9 @@ class SuiteRunner(object):
     # number in the very end of the link address.
     task_id = ret_tup[1].strip().split('b')[-1]
 
-    command = ('skylab wait-task %s' % task_id)
+    command = ('crosfleet wait-task %s' % task_id)
     if self.log_level != 'verbose':
-      self.logger.LogOutput('Waiting for skylab test to finish.')
+      self.logger.LogOutput('Waiting for crosfleet test to finish.')
       self.logger.LogOutput('CMD: %s' % command)
 
     ret_tup = self._ce.RunCommandWOutput(command, command_terminator=self._ct)

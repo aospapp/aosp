@@ -18,6 +18,7 @@ package com.android.networkstack.apishim.common;
 
 import android.net.IpPrefix;
 import android.net.LinkProperties;
+import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 
@@ -25,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.net.Inet4Address;
+import java.util.List;
 
 /**
  * Compatibility interface for network info classes such as {@link LinkProperties} and
@@ -94,6 +96,14 @@ public interface NetworkInformationShim {
      */
     @Nullable
     default String getCapabilityCarrierName(int capability) {
+        return null;
+    }
+
+    /**
+     * @see NetworkCapabilites#getUnderlyingNetworks()
+     */
+    @Nullable
+    default List<Network> getUnderlyingNetworks(@NonNull NetworkCapabilities nc) {
         return null;
     }
 }

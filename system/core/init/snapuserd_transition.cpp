@@ -29,17 +29,19 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <cutils/sockets.h>
 #include <fs_avb/fs_avb.h>
 #include <libsnapshot/snapshot.h>
-#include <libsnapshot/snapuserd_client.h>
 #include <private/android_filesystem_config.h>
 #include <procinfo/process_map.h>
 #include <selinux/android.h>
+#include <snapuserd/snapuserd_client.h>
 
 #include "block_dev_initializer.h"
+#include "lmkd_service.h"
 #include "service_utils.h"
 #include "util.h"
 
@@ -55,10 +57,11 @@ using android::snapshot::SnapuserdClient;
 static constexpr char kSnapuserdPath[] = "/system/bin/snapuserd";
 static constexpr char kSnapuserdFirstStagePidVar[] = "FIRST_STAGE_SNAPUSERD_PID";
 static constexpr char kSnapuserdFirstStageFdVar[] = "FIRST_STAGE_SNAPUSERD_FD";
+static constexpr char kSnapuserdFirstStageInfoVar[] = "FIRST_STAGE_SNAPUSERD_INFO";
 static constexpr char kSnapuserdLabel[] = "u:object_r:snapuserd_exec:s0";
 static constexpr char kSnapuserdSocketLabel[] = "u:object_r:snapuserd_socket:s0";
 
-void LaunchFirstStageSnapuserd() {
+void LaunchFirstStageSnapuserd(SnapshotDriver driver) {
     SocketDescriptor socket_desc;
     socket_desc.name = android::snapshot::kSnapuserdSocket;
     socket_desc.type = SOCK_STREAM;
@@ -80,12 +83,31 @@ void LaunchFirstStageSnapuserd() {
     }
     if (pid == 0) {
         socket->Publish();
-        char arg0[] = "/system/bin/snapuserd";
-        char* const argv[] = {arg0, nullptr};
-        if (execv(arg0, argv) < 0) {
-            PLOG(FATAL) << "Cannot launch snapuserd; execv failed";
+
+        if (driver == SnapshotDriver::DM_USER) {
+            char arg0[] = "/system/bin/snapuserd";
+            char arg1[] = "-user_snapshot";
+            char* const argv[] = {arg0, arg1, nullptr};
+            if (execv(arg0, argv) < 0) {
+                PLOG(FATAL) << "Cannot launch snapuserd; execv failed";
+            }
+            _exit(127);
+        } else {
+            char arg0[] = "/system/bin/snapuserd";
+            char* const argv[] = {arg0, nullptr};
+            if (execv(arg0, argv) < 0) {
+                PLOG(FATAL) << "Cannot launch snapuserd; execv failed";
+            }
+            _exit(127);
         }
-        _exit(127);
+    }
+
+    auto client = SnapuserdClient::Connect(android::snapshot::kSnapuserdSocket, 10s);
+    if (!client) {
+        LOG(FATAL) << "Could not connect to first-stage snapuserd";
+    }
+    if (client->SupportsSecondStageSocketHandoff()) {
+        setenv(kSnapuserdFirstStageInfoVar, "socket", 1);
     }
 
     setenv(kSnapuserdFirstStagePidVar, std::to_string(pid).c_str(), 1);
@@ -300,6 +322,14 @@ void SnapuserdSelinuxHelper::RelaunchFirstStageSnapuserd() {
 
         LOG(INFO) << "Relaunched snapuserd with pid: " << pid;
 
+        // Since daemon is not started as a service, we have
+        // to explicitly set the OOM score to default which is unkillable
+        std::string oom_str = std::to_string(DEFAULT_OOM_SCORE_ADJUST);
+        std::string oom_file = android::base::StringPrintf("/proc/%d/oom_score_adj", pid);
+        if (!android::base::WriteStringToFile(oom_str, oom_file)) {
+            PLOG(ERROR) << "couldn't write oom_score_adj to snapuserd daemon with pid: " << pid;
+        }
+
         if (!TestSnapuserdIsReady()) {
             PLOG(FATAL) << "snapuserd daemon failed to launch";
         } else {
@@ -384,6 +414,14 @@ void SaveRamdiskPathToSnapuserd() {
 
 bool IsFirstStageSnapuserdRunning() {
     return GetSnapuserdFirstStagePid().has_value();
+}
+
+std::vector<std::string> GetSnapuserdFirstStageInfo() {
+    const char* pid_str = getenv(kSnapuserdFirstStageInfoVar);
+    if (!pid_str) {
+        return {};
+    }
+    return android::base::Split(pid_str, ",");
 }
 
 }  // namespace init

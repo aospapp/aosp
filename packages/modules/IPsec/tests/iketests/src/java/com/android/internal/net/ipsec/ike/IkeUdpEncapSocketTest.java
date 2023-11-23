@@ -67,11 +67,11 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
             new IkeSocketFactory() {
                 @Override
                 public IkeSocket getIkeSocket(
-                        IkeSocketConfig ikeSockConfig, IkeSessionStateMachine ikeSession)
+                        IkeSocketConfig ikeSockConfig, IkeSocket.Callback callback)
                         throws ErrnoException, IOException {
                     try {
                         return IkeUdpEncapSocket.getIkeUdpEncapSocket(
-                                ikeSockConfig, mSpyIpSecManager, ikeSession, mLooper.getLooper());
+                                ikeSockConfig, mSpyIpSecManager, callback, mLooper.getLooper());
                     } catch (ResourceUnavailableException e) {
                         throw new IllegalStateException(e);
                     }
@@ -152,7 +152,7 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
                 IkeUdpEncapSocket.getIkeUdpEncapSocket(
                         mSpyIkeSocketConfig,
                         mSpyIpSecManager,
-                        mMockIkeSessionStateMachine,
+                        mMockIkeSocketCallback,
                         Looper.myLooper());
         ikeSocket.sendIkePacket(mDataOne, IPV4_LOOPBACK);
 
@@ -166,7 +166,7 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
 
         assertArrayEquals(expectedBuffer.array(), receivedData);
 
-        ikeSocket.releaseReference(mMockIkeSessionStateMachine);
+        ikeSocket.releaseReference(mMockIkeSocketCallback);
     }
 
     private interface ReceiveTestRunnable {
@@ -192,7 +192,7 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
                                         IkeUdpEncapSocket.getIkeUdpEncapSocket(
                                                 mSpyIkeSocketConfig,
                                                 mSpyIpSecManager,
-                                                mMockIkeSessionStateMachine,
+                                                mMockIkeSocketCallback,
                                                 mIkeThread.getLooper()));
                                 createLatch.countDown();
                                 Log.d("IkeUdpEncapSocketTest", "IkeUdpEncapSocket created.");
@@ -223,7 +223,7 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
                     .getThreadHandler()
                     .post(
                             () -> {
-                                ikeSocket.releaseReference(mMockIkeSessionStateMachine);
+                                ikeSocket.releaseReference(mMockIkeSocketCallback);
                                 closeLatch.countDown();
                             });
             closeLatch.await();
@@ -292,9 +292,9 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
         // Modify Non-ESP Marker
         recvBuf[0] = 1;
 
-        getPacketReceiver().handlePacket(recvBuf, mSpiToIkeStateMachineMap);
+        getPacketReceiver().handlePacket(recvBuf, mSpiToIkeSocketCallbackMap);
 
-        verify(mMockIkeSessionStateMachine, never()).receiveIkePacket(any(), any());
+        verify(mMockIkeSocketCallback, never()).onIkePacketReceived(any(), any());
     }
 
     @Test
@@ -304,9 +304,9 @@ public final class IkeUdpEncapSocketTest extends IkeSocketTestBase {
                 TestUtils.hexStringToByteArray(
                         NON_ESP_MARKER_HEX_STRING + malformedIkePacketHexString);
 
-        getPacketReceiver().handlePacket(recvBuf, mSpiToIkeStateMachineMap);
+        getPacketReceiver().handlePacket(recvBuf, mSpiToIkeSocketCallbackMap);
 
-        verify(mMockIkeSessionStateMachine, never()).receiveIkePacket(any(), any());
+        verify(mMockIkeSocketCallback, never()).onIkePacketReceived(any(), any());
     }
 
     private void sendToIkeUdpEncapSocket(FileDescriptor fd, byte[] data, InetAddress destAddress)

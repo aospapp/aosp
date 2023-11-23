@@ -21,4 +21,5 @@
 
     <!-- Progress bar preference resources -->
     <color name="config_progress_background_tint">@*android:color/config_progress_background_tint</color>
+    <color name="white_disabled_material">@*android:color/white_disabled_material</color>
 </resources>

@@ -7,8 +7,6 @@
  */
 
 #include "utils/includes.h"
-#include <openssl/opensslv.h>
-#include <openssl/err.h>
 
 #include "utils/common.h"
 #include "crypto/aes.h"
@@ -19,28 +17,13 @@
 
 #ifdef CONFIG_DPP2
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || \
-	(defined(LIBRESSL_VERSION_NUMBER) && \
-	 LIBRESSL_VERSION_NUMBER < 0x20700000L)
-/* Compatibility wrappers for older versions. */
-
-static EC_KEY * EVP_PKEY_get0_EC_KEY(EVP_PKEY *pkey)
-{
-	if (pkey->type != EVP_PKEY_EC)
-		return NULL;
-	return pkey->pkey.ec;
-}
-
-#endif
-
-
 void dpp_free_asymmetric_key(struct dpp_asymmetric_key *key)
 {
 	while (key) {
 		struct dpp_asymmetric_key *next = key->next;
 
-		EVP_PKEY_free(key->csign);
-		EVP_PKEY_free(key->pp_key);
+		crypto_ec_key_deinit(key->csign);
+		crypto_ec_key_deinit(key->pp_key);
 		str_clear_free(key->config_template);
 		str_clear_free(key->connector_template);
 		os_free(key);
@@ -56,23 +39,13 @@ static struct wpabuf * dpp_build_conf_params(struct dpp_configurator *conf)
 	/* TODO: proper template values */
 	const char *conf_template = "{\"wi-fi_tech\":\"infra\",\"discovery\":{\"ssid\":\"test\"},\"cred\":{\"akm\":\"dpp\"}}";
 	const char *connector_template = NULL;
-	EC_KEY *eckey;
-	unsigned char *der = NULL;
-	int der_len;
 
 	if (!conf->pp_key)
 		return NULL;
-	eckey = EVP_PKEY_get0_EC_KEY(conf->pp_key);
-	if (!eckey)
-		return NULL;
 
-	EC_KEY_set_enc_flags(eckey, EC_PKEY_NO_PUBKEY);
-	der_len = i2d_ECPrivateKey(eckey, &der);
-	if (der_len > 0)
-		priv_key = wpabuf_alloc_copy(der, der_len);
-	OPENSSL_free(der);
+	priv_key = crypto_ec_key_get_ecprivate_key(conf->pp_key, false);
 	if (!priv_key)
-		goto fail;
+		return NULL;
 
 	len = 100 + os_strlen(conf_template);
 	if (connector_template)
@@ -178,19 +151,10 @@ static struct wpabuf * dpp_build_key_alg(const struct dpp_curve_params *curve)
 static struct wpabuf * dpp_build_key_pkg(struct dpp_authentication *auth)
 {
 	struct wpabuf *key = NULL, *attr, *alg, *priv_key = NULL;
-	EC_KEY *eckey;
-	unsigned char *der = NULL;
-	int der_len;
 
-	eckey = EVP_PKEY_get0_EC_KEY(auth->conf->csign);
-	if (!eckey)
+	priv_key = crypto_ec_key_get_ecprivate_key(auth->conf->csign, false);
+	if (!priv_key)
 		return NULL;
-
-	EC_KEY_set_enc_flags(eckey, EC_PKEY_NO_PUBKEY);
-	der_len = i2d_ECPrivateKey(eckey, &der);
-	if (der_len > 0)
-		priv_key = wpabuf_alloc_copy(der, der_len);
-	OPENSSL_free(der);
 
 	alg = dpp_build_key_alg(auth->conf->curve);
 
@@ -592,11 +556,9 @@ static int dpp_parse_recipient_infos(const u8 *pos, size_t len,
 	 * Shall always use the pwri CHOICE.
 	 */
 
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_CONTEXT_SPECIFIC || hdr.tag != 3) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected CHOICE [3] (pwri) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !hdr.constructed ||
+	    !asn1_is_cs_tag(&hdr, 3)) {
+		asn1_unexpected(&hdr, "DPP: Expected CHOICE [3] (pwri)");
 		return -1;
 	}
 	wpa_hexdump(MSG_MSGDUMP, "DPP: PasswordRecipientInfo",
@@ -629,11 +591,10 @@ static int dpp_parse_recipient_infos(const u8 *pos, size_t len,
 	wpa_hexdump(MSG_MSGDUMP, "DPP: Remaining PasswordRecipientInfo after version",
 		    pos, end - pos);
 
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_CONTEXT_SPECIFIC || hdr.tag != 0) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected keyDerivationAlgorithm [0] - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !hdr.constructed ||
+	    !asn1_is_cs_tag(&hdr, 0)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected keyDerivationAlgorithm [0]");
 		return -1;
 	}
 	pos = hdr.payload;
@@ -672,11 +633,9 @@ static int dpp_parse_recipient_infos(const u8 *pos, size_t len,
 	pos = hdr.payload;
 
 	if (asn1_get_next(pos, e_end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL ||
-	    hdr.tag != ASN1_TAG_OCTETSTRING) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected OCTETSTRING (salt.specified) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	    !asn1_is_octetstring(&hdr)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected OCTETSTRING (salt.specified)");
 		return -1;
 	}
 	wpa_hexdump(MSG_MSGDUMP, "DPP: salt.specified",
@@ -752,11 +711,9 @@ static int dpp_parse_recipient_infos(const u8 *pos, size_t len,
 	 * EncryptedKey ::= OCTET STRING
 	 */
 	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL ||
-	    hdr.tag != ASN1_TAG_OCTETSTRING) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected OCTETSTRING (pwri.encryptedKey) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	    !asn1_is_octetstring(&hdr)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected OCTETSTRING (pwri.encryptedKey)");
 		return -1;
 	}
 	wpa_hexdump(MSG_MSGDUMP, "DPP: pwri.encryptedKey",
@@ -825,11 +782,10 @@ static int dpp_parse_encrypted_content_info(const u8 *pos, const u8 *end,
 
 	/* encryptedContent [0] IMPLICIT EncryptedContent OPTIONAL
 	 * EncryptedContent ::= OCTET STRING */
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_CONTEXT_SPECIFIC || hdr.tag != 0) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected [0] IMPLICIT (EncryptedContent) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || hdr.constructed ||
+	    !asn1_is_cs_tag(&hdr, 0)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected [0] IMPLICIT (EncryptedContent)");
 		return -1;
 	}
 	wpa_hexdump(MSG_MSGDUMP, "DPP: EncryptedContent",
@@ -884,11 +840,9 @@ static int dpp_parse_enveloped_data(const u8 *env_data, size_t env_data_len,
 		return -1;
 	}
 
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL || hdr.tag != ASN1_TAG_SET) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected SET (RecipientInfos) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !asn1_is_set(&hdr)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected SET (RecipientInfos)");
 		return -1;
 	}
 
@@ -910,7 +864,6 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 	struct asn1_oid oid;
 	char txt[80];
 	struct dpp_asymmetric_key *key;
-	EC_KEY *eckey;
 
 	wpa_hexdump_key(MSG_MSGDUMP, "DPP: OneAsymmetricKey", buf, len);
 
@@ -977,28 +930,17 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 	 *    (Contains DER encoding of ECPrivateKey)
 	 */
 	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL ||
-	    hdr.tag != ASN1_TAG_OCTETSTRING) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected OCTETSTRING (PrivateKey) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	    !asn1_is_octetstring(&hdr)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected OCTETSTRING (PrivateKey)");
 		goto fail;
 	}
 	wpa_hexdump_key(MSG_MSGDUMP, "DPP: PrivateKey",
 			hdr.payload, hdr.length);
 	pos = hdr.payload + hdr.length;
-	eckey = d2i_ECPrivateKey(NULL, &hdr.payload, hdr.length);
-	if (!eckey) {
-		wpa_printf(MSG_INFO,
-			   "DPP: OpenSSL: d2i_ECPrivateKey() failed: %s",
-			   ERR_error_string(ERR_get_error(), NULL));
+	key->csign = crypto_ec_key_parse_priv(hdr.payload, hdr.length);
+	if (!key->csign)
 		goto fail;
-	}
-	key->csign = EVP_PKEY_new();
-	if (!key->csign || EVP_PKEY_assign_EC_KEY(key->csign, eckey) != 1) {
-		EC_KEY_free(eckey);
-		goto fail;
-	}
 	if (wpa_debug_show_keys)
 		dpp_debug_print_key("DPP: Received c-sign-key", key->csign);
 
@@ -1007,11 +949,9 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 	 *
 	 * Exactly one instance of type Attribute in OneAsymmetricKey.
 	 */
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_CONTEXT_SPECIFIC || hdr.tag != 0) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected [0] Attributes - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !hdr.constructed ||
+	    !asn1_is_cs_tag(&hdr, 0)) {
+		asn1_unexpected(&hdr, "DPP: Expected [0] Attributes");
 		goto fail;
 	}
 	wpa_hexdump_key(MSG_MSGDUMP, "DPP: Attributes",
@@ -1025,11 +965,8 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 	pos = hdr.payload;
 	end = hdr.payload + hdr.length;
 
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL || hdr.tag != ASN1_TAG_SET) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected SET (Attributes) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !asn1_is_set(&hdr)) {
+		asn1_unexpected(&hdr, "DPP: Expected SET (Attributes)");
 		goto fail;
 	}
 	if (hdr.payload + hdr.length < end) {
@@ -1075,11 +1012,8 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 		goto fail;
 	}
 
-	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL || hdr.tag != ASN1_TAG_SET) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected SET (Attribute) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	if (asn1_get_next(pos, end - pos, &hdr) < 0 || !asn1_is_set(&hdr)) {
+		asn1_unexpected(&hdr, "DPP: Expected SET (Attribute)");
 		goto fail;
 	}
 	pos = hdr.payload;
@@ -1109,38 +1043,24 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 	 *    (Contains DER encoding of ECPrivateKey)
 	 */
 	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL ||
-	    hdr.tag != ASN1_TAG_OCTETSTRING) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected OCTETSTRING (PrivateKey) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	    !asn1_is_octetstring(&hdr)) {
+		asn1_unexpected(&hdr, "DPP: Expected OCTETSTRING (PrivateKey)");
 		goto fail;
 	}
 	wpa_hexdump_key(MSG_MSGDUMP, "DPP: privacyProtectionKey",
 			hdr.payload, hdr.length);
 	pos = hdr.payload + hdr.length;
-	eckey = d2i_ECPrivateKey(NULL, &hdr.payload, hdr.length);
-	if (!eckey) {
-		wpa_printf(MSG_INFO,
-			   "DPP: OpenSSL: d2i_ECPrivateKey() failed: %s",
-			   ERR_error_string(ERR_get_error(), NULL));
+	key->pp_key = crypto_ec_key_parse_priv(hdr.payload, hdr.length);
+	if (!key->pp_key)
 		goto fail;
-	}
-	key->pp_key = EVP_PKEY_new();
-	if (!key->pp_key || EVP_PKEY_assign_EC_KEY(key->pp_key, eckey) != 1) {
-		EC_KEY_free(eckey);
-		goto fail;
-	}
 	if (wpa_debug_show_keys)
 		dpp_debug_print_key("DPP: Received privacyProtectionKey",
 				    key->pp_key);
 
 	if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-	    hdr.class != ASN1_CLASS_UNIVERSAL ||
-	    hdr.tag != ASN1_TAG_UTF8STRING) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Expected UTF8STRING (configurationTemplate) - found class %d tag 0x%x",
-			   hdr.class, hdr.tag);
+	    !asn1_is_utf8string(&hdr)) {
+		asn1_unexpected(&hdr,
+				"DPP: Expected UTF8STRING (configurationTemplate)");
 		goto fail;
 	}
 	wpa_hexdump_ascii_key(MSG_MSGDUMP, "DPP: configurationTemplate",
@@ -1154,11 +1074,9 @@ dpp_parse_one_asymmetric_key(const u8 *buf, size_t len)
 
 	if (pos < end) {
 		if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
-		    hdr.class != ASN1_CLASS_UNIVERSAL ||
-		    hdr.tag != ASN1_TAG_UTF8STRING) {
-			wpa_printf(MSG_DEBUG,
-				   "DPP: Expected UTF8STRING (connectorTemplate) - found class %d tag 0x%x",
-				   hdr.class, hdr.tag);
+		    !asn1_is_utf8string(&hdr)) {
+			asn1_unexpected(&hdr,
+					"DPP: Expected UTF8STRING (connectorTemplate)");
 			goto fail;
 		}
 		wpa_hexdump_ascii_key(MSG_MSGDUMP, "DPP: connectorTemplate",

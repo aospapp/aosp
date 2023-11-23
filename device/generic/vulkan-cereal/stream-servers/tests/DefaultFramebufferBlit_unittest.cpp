@@ -13,6 +13,7 @@
 // limitations under the License.
 #include <gtest/gtest.h>
 
+#include "host-common/testing/MockAndroidAgentFactory.h"
 #include "Standalone.h"
 #include "GLTestUtils.h"
 
@@ -172,6 +173,13 @@ static constexpr float kDrawColorGreen[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
 
 class CombinedFramebufferBlit : public ::testing::Test, public ::testing::WithParamInterface<ClearColorParam> {
 protected:
+    static void SetUpTestSuite() {
+        android::emulation::injectConsoleAgents(
+                android::emulation::MockAndroidConsoleFactory());
+    }
+
+    static void TearDownTestSuite() { }
+
     virtual void SetUp() override {
         mApp.reset(new ClearColor(GetParam()));
     }

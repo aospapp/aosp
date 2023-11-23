@@ -63,11 +63,10 @@ class RawSensitivityTest(its_base_test.ItsBaseTest):
           camera_properties_utils.per_frame_control(props) and
           not camera_properties_utils.mono_camera(props))
       name_with_log_path = os.path.join(self.log_path, NAME)
-      camera_fov = float(cam.calc_camera_fov(props))
 
-      # Load chart for scene
+      # Load chart for scene (chart_distance=0 for no chart scaling)
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet, chart_distance=0)
 
       # Expose for the scene with min sensitivity
       sens_min, _ = props['android.sensor.info.sensitivityRange']

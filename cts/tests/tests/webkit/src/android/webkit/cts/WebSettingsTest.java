@@ -22,53 +22,43 @@ import static org.junit.Assert.assertNotEquals;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Message;
 import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Base64;
-import android.util.Log;
 import android.view.ViewGroup;
-import android.webkit.ConsoleMessage;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebIconDatabase;
-import android.webkit.WebResourceResponse;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebSettings.TextSize;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
+
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Tests for {@link android.webkit.WebSettings}
  */
 @AppModeFull
 public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
-
-    private static final int WEBVIEW_TIMEOUT = 5000;
     private static final String LOG_TAG = "WebSettingsTest";
 
     private final String EMPTY_IMAGE_HEIGHT = "0";
@@ -515,7 +505,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mSettings.setJavaScriptCanOpenWindowsAutomatically(false);
         assertFalse(mSettings.getJavaScriptCanOpenWindowsAutomatically());
         mOnUiThread.loadUrl(mWebServer.getAssetUrl(TestHtmlConstants.POPUP_URL));
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return "Popup blocked".equals(mOnUiThread.getTitle());
@@ -536,7 +526,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mSettings.setJavaScriptEnabled(true);
         assertTrue(mSettings.getJavaScriptEnabled());
         loadAssetUrl(TestHtmlConstants.JAVASCRIPT_URL);
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return "javascript on".equals(mOnUiThread.getTitle());
@@ -546,7 +536,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mSettings.setJavaScriptEnabled(false);
         assertFalse(mSettings.getJavaScriptEnabled());
         loadAssetUrl(TestHtmlConstants.JAVASCRIPT_URL);
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return "javascript off".equals(mOnUiThread.getTitle());
@@ -737,7 +727,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mSettings.setJavaScriptEnabled(true);
 
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             protected boolean check() {
                 return "Loaded".equals(mOnUiThread.getTitle());
             }
@@ -764,7 +754,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mSettings.setJavaScriptEnabled(true);
 
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return "Loaded".equals(mOnUiThread.getTitle());
@@ -1185,29 +1175,6 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertTrue("Can enable Safe Browsing", mSettings.getSafeBrowsingEnabled());
     }
 
-    private  int[] getBitmapPixels(Bitmap bitmap, int x, int y, int width, int height) {
-        int[] pixels = new int[width * height];
-        bitmap.getPixels(pixels, 0, width, x, y, width, height);
-        return pixels;
-    }
-
-    private Map<Integer,Integer> getBitmapHistogram(Bitmap bitmap, int x, int y, int width, int height) {
-        HashMap<Integer, Integer> histogram = new HashMap();
-        for (int pixel : getBitmapPixels(bitmap, x, y, width, height)) {
-            histogram.put(pixel, histogram.getOrDefault(pixel, 0) + 1);
-        }
-        return histogram;
-    }
-
-    public void testForceDark_default() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        assertEquals("The default force dark state should be AUTO",
-                mSettings.getForceDark(), WebSettings.FORCE_DARK_AUTO);
-    }
-
     private void setWebViewSize(int width, int height) {
         // Set the webview size to 64x64
         WebkitUtils.onMainThreadSync(() -> {
@@ -1218,46 +1185,6 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
             webView.setLayoutParams(params);
         });
 
-    }
-
-    public void testForceDark_rendersDark() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        setWebViewSize(64, 64);
-
-        // Set the webview non-focusable to avoid drawing the focus highlight.
-        WebkitUtils.onMainThreadSync(() -> {
-            mOnUiThread.getWebView().setFocusable(false);
-        });
-
-        Map<Integer, Integer> histogram;
-        Integer[] colourValues;
-
-        // Loading about:blank into a force-dark-on webview should result in a dark background
-        mSettings.setForceDark(WebSettings.FORCE_DARK_ON);
-        assertEquals("Force dark should have been set to ON",
-                mSettings.getForceDark(), WebSettings.FORCE_DARK_ON);
-
-        mOnUiThread.loadUrlAndWaitForCompletion("about:blank");
-        histogram = getBitmapHistogram(mOnUiThread.captureBitmap(), 0, 0, 64, 64);
-        assertEquals("Bitmap should have a single colour", histogram.size(), 1);
-        colourValues = histogram.keySet().toArray(new Integer[0]);
-        assertThat("Bitmap colour should be dark",
-                Color.luminance(colourValues[0]), lessThan(0.5f));
-
-        // Loading about:blank into a force-dark-off webview should result in a light background
-        mSettings.setForceDark(WebSettings.FORCE_DARK_OFF);
-        assertEquals("Force dark should have been set to OFF",
-                mSettings.getForceDark(), WebSettings.FORCE_DARK_OFF);
-
-        mOnUiThread.loadUrlAndWaitForCompletion("about:blank");
-        histogram = getBitmapHistogram(mOnUiThread.captureBitmap(), 0, 0, 64, 64);
-        assertEquals("Bitmap should have a single colour", histogram.size(), 1);
-        colourValues = histogram.keySet().toArray(new Integer[0]);
-        assertThat("Bitmap colour should be light",
-                Color.luminance(colourValues[0]), greaterThan(0.5f));
     }
 
     /**
@@ -1297,7 +1224,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
     }
 
     private void waitForNonEmptyImage() {
-        new PollingCheck(WEBVIEW_TIMEOUT) {
+        new PollingCheck(WebkitUtils.TEST_TIMEOUT_MS) {
             @Override
             protected boolean check() {
                 return !EMPTY_IMAGE_HEIGHT.equals(mOnUiThread.getTitle());

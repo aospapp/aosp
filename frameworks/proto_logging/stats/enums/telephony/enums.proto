@@ -260,13 +260,50 @@ enum ApnProtocolEnum {
 }
 
 // Action taken to recover a data call that is stalled. From
-// frameworks/opt/telephony/src/java/com/android/internal/telephony/dataconnection/DcTracker.java
-// #RecoveryAction
+// frameworks/opt/telephony/src/java/com/android/internal/telephony/data/
+// DataStallRecoveryManager.java#RecoveryAction
 enum DataStallRecoveryActionEnum {
+    /**
+     * DataStallRecoveryManager queries RIL for link properties (IP addresses, DNS server addresses
+     * etc).  This will help in cases where the data stall occurred because of a link property
+     * changed but not notified to connectivity service.
+     */
     RECOVERY_ACTION_GET_DATA_CALL_LIST = 0;
+    /**
+     * DataStallRecoveryManager will request DataNetworkController to reestablish internet and sets
+     * up the data call back using SETUP_DATA_CALL. It will help to reestablish the channel between
+     * RIL and modem.
+     */
     RECOVERY_ACTION_CLEANUP = 1;
+    /**
+     * DcTracker triggers RIL to detach for GPRS and re-attach(re-register the network).
+     * RECOVERY_ACTION_REREGISTER is no longer used in Android T and later.
+     */
     RECOVERY_ACTION_REREGISTER = 2;
+    /**
+     * DataStallRecoveryManager will request ServiceStateTracker to power off and on, equivalent
+     * to airplane mode toggle on and off.
+     */
     RECOVERY_ACTION_RADIO_RESTART = 3;
+    /**
+     * DataStallRecoveryManager will request to reboot modem. It will recover if there is a problem
+     * in modem side. RECOVERY_ACTION_RESET_MODEM is introduced in Android T.
+     */
+    RECOVERY_ACTION_RESET_MODEM = 4;
+ }
+
+// The data stall recovered reason.
+// frameworks/opt/telephony/src/java/com/android/internal/telephony/data/
+// DataStallRecoveryManager.java#RecoveredReason
+enum DataStallRecoveredReason {
+   /* The data stall symptom not recover yet. */
+   RECOVERED_REASON_NONE = 0;
+   /* The data stall symptom recovered by DataStallRecoveryManager. */
+   RECOVERED_REASON_DSRM = 1;
+   /* The data stall symptom recovered by modem. */
+   RECOVERED_REASON_MODEM = 2;
+   /* The data stall symptom recovered by user. */
+   RECOVERED_REASON_USER = 3;
 }
 
 // Codec quality
@@ -367,4 +404,15 @@ enum SipRequestMethodType {
     SIP_REQUEST_REFER = 13;
     SIP_REQUEST_MESSAGE = 14;
     SIP_REQUEST_UPDATE = 15;
+}
+
+// Buckets of call duration in a voice call.
+enum CallDuration {
+  CALL_DURATION_UNKNOWN = 0; // Unknown duration
+  CALL_DURATION_LESS_THAN_ONE_MINUTE = 1; // Call lasted less than 1 minute
+  CALL_DURATION_LESS_THAN_FIVE_MINUTES = 2; // Call lasted between 1 and 5 minutes
+  CALL_DURATION_LESS_THAN_TEN_MINUTES = 3; // Call lasted between 5 and 10 minutes
+  CALL_DURATION_LESS_THAN_THIRTY_MINUTES = 4; // Call lasted between 10 and 30 minutes
+  CALL_DURATION_LESS_THAN_ONE_HOUR = 5; // Call lasted between 30 minutes and 1 hour
+  CALL_DURATION_MORE_THAN_ONE_HOUR = 6; // Call lasted more than 1 hour
 }

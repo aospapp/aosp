@@ -21,6 +21,7 @@ import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.WifiScanner.WifiBandIndex;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -32,7 +33,6 @@ import com.android.server.wifi.WifiMonitor;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
 import com.android.server.wifi.util.NativeUtil;
-import com.android.server.wifi.util.ScanResultUtil;
 import com.android.wifi.resources.R;
 
 import java.io.FileDescriptor;
@@ -54,8 +54,8 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
     private static final boolean DBG = false;
 
     public static final String TIMEOUT_ALARM_TAG = TAG + " Scan Timeout";
-    // Max number of networks that can be specified to wificond per scan request
-    public static final int MAX_HIDDEN_NETWORK_IDS_PER_SCAN = 16;
+    // Default number of networks that can be specified to wificond per scan request
+    public static final int DEFAULT_NUM_HIDDEN_NETWORK_IDS_PER_SCAN = 16;
 
     private static final int SCAN_BUFFER_CAPACITY = 10;
     private static final int MAX_APS_PER_SCAN = 32;
@@ -75,6 +75,8 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
     private ArrayList<ScanDetail> mNativePnoScanResults;
     private WifiScanner.ScanData mLatestSingleScanResult =
             new WifiScanner.ScanData(0, 0, new ScanResult[0]);
+    private int mMaxNumScanSsids = -1;
+    private int mNextHiddenNetworkScanId = 0;
 
     // Settings for the currently running single scan, null if no scan active
     private LastScanSettings mLastScanSettings = null;
@@ -118,6 +120,8 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
             cancelScanTimeout();
             reportScanFailure();
             stopHwPnoScan();
+            mMaxNumScanSsids = -1;
+            mNextHiddenNetworkScanId = 0;
             mLastScanSettings = null; // finally clear any active scan
             mLastPnoScanSettings = null; // finally clear any active scan
             mWifiMonitor.deregisterHandler(getIfaceName(),
@@ -172,11 +176,38 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
 
             List<String> hiddenNetworkSSIDSet = new ArrayList<>();
             if (settings.hiddenNetworks != null) {
-                int numHiddenNetworks =
-                        Math.min(settings.hiddenNetworks.length, MAX_HIDDEN_NETWORK_IDS_PER_SCAN);
-                for (int i = 0; i < numHiddenNetworks; i++) {
-                    hiddenNetworkSSIDSet.add(settings.hiddenNetworks[i].ssid);
+                boolean executeRoundRobin = true;
+                int maxNumScanSsids = mMaxNumScanSsids;
+                if (maxNumScanSsids <= 0) {
+                    // Subtract 1 to account for the wildcard/broadcast probe request that
+                    // wificond adds to the scan set.
+                    mMaxNumScanSsids = mWifiNative.getMaxSsidsPerScan(getIfaceName()) - 1;
+                    if (mMaxNumScanSsids > 0) {
+                        maxNumScanSsids = mMaxNumScanSsids;
+                    } else {
+                        maxNumScanSsids = DEFAULT_NUM_HIDDEN_NETWORK_IDS_PER_SCAN;
+                        executeRoundRobin = false;
+                    }
                 }
+                int numHiddenNetworksPerScan =
+                        Math.min(settings.hiddenNetworks.length, maxNumScanSsids);
+                if (numHiddenNetworksPerScan == settings.hiddenNetworks.length
+                        || mNextHiddenNetworkScanId >= settings.hiddenNetworks.length
+                        || !executeRoundRobin) {
+                    mNextHiddenNetworkScanId = 0;
+                }
+                if (DBG) {
+                    Log.d(TAG, "Scanning for " + numHiddenNetworksPerScan + " out of "
+                            + settings.hiddenNetworks.length + " total hidden networks");
+                    Log.d(TAG, "Scan hidden networks starting at id=" + mNextHiddenNetworkScanId);
+                }
+
+                int id = mNextHiddenNetworkScanId;
+                for (int i = 0; i < numHiddenNetworksPerScan; i++, id++) {
+                    hiddenNetworkSSIDSet.add(
+                            settings.hiddenNetworks[id % settings.hiddenNetworks.length].ssid);
+                }
+                mNextHiddenNetworkScanId = id % settings.hiddenNetworks.length;
             }
             mLastScanSettings = new LastScanSettings(
                     mClock.getElapsedSinceBootNanos(),
@@ -369,9 +400,13 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
                 ScanResult result = mNativeScanResults.get(i).getScanResult();
                 // nanoseconds -> microseconds
                 if (result.timestamp >= mLastScanSettings.startTimeNanos / 1_000) {
+                    // Allow even not explicitly requested 6Ghz results because they could be found
+                    // via 6Ghz RNR.
                     if (mLastScanSettings.singleScanFreqs.containsChannel(
-                                    result.frequency)) {
+                                    result.frequency) || ScanResult.is6GHz(result.frequency)) {
                         singleScanResults.add(result);
+                    } else {
+                        numFilteredScanResults++;
                     }
                 } else {
                     numFilteredScanResults++;

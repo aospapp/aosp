@@ -52,6 +52,11 @@ struct virgl_renderer_callbacks {
    virgl_renderer_gl_context (*create_gl_context)(void *cookie, int scanout_idx, struct virgl_renderer_gl_ctx_param *param);
    void (*destroy_gl_context)(void *cookie, virgl_renderer_gl_context ctx);
    int (*make_current)(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx);
+
+   int (*get_drm_fd)(void *cookie);
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+   void (*write_context_fence)(void *cookie, uint64_t fence, uint32_t ctx_id, uint8_t ring_idx);
+#endif
 };
 
 /* virtio-gpu compatible interface */
@@ -163,7 +168,6 @@ struct virgl_renderer_resource_info {
 VIRGL_EXPORT int virgl_renderer_resource_get_info(int res_handle,
                                                   struct virgl_renderer_resource_info *info);
 
-VIRGL_EXPORT int virgl_renderer_resource_create_v2(unsigned int res_handle, uint64_t hvaId);
 VIRGL_EXPORT int virgl_renderer_resource_map(unsigned int res_handle, void** hvaOut, uint64_t* sizeOut);
 VIRGL_EXPORT int virgl_renderer_resource_unmap(unsigned int res_handle);
 
@@ -234,7 +238,6 @@ typedef void (*virgl_renderer_ctx_detach_resource_t)(
 typedef int (*virgl_renderer_resource_get_info_t)(
     int res_handle,
     struct virgl_renderer_resource_info *info);
-typedef int (*virgl_renderer_resource_create_v2_t)(unsigned int res_handle, uint64_t hvaId);
 typedef int (*virgl_renderer_resource_map_t)(unsigned int res_handle, void** hvaOut, uint64_t* sizeOut);
 typedef int (*virgl_renderer_resource_unmap_t)(unsigned int res_handle);
 
@@ -258,7 +261,6 @@ f(virgl_renderer_force_ctx_0) \
 f(virgl_renderer_ctx_attach_resource) \
 f(virgl_renderer_ctx_detach_resource) \
 f(virgl_renderer_resource_get_info) \
-f(virgl_renderer_resource_create_v2) \
 f(virgl_renderer_resource_map) \
 f(virgl_renderer_resource_unmap) \
 

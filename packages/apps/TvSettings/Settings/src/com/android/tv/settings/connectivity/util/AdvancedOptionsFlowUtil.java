@@ -68,7 +68,7 @@ public class AdvancedOptionsFlowUtil {
             int result;
             try {
                 port = Integer.parseInt(portStr);
-                result = WifiConfigHelper.validate(host, portStr, exclusionList);
+                result = WifiConfigHelper.validate(host, portStr, exclusionList, true);
             } catch (NumberFormatException e) {
                 result = R.string.proxy_error_invalid_port;
             }

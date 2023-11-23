@@ -15,24 +15,16 @@ Example module that is used for testing modules that import file system modules
 to be patched under another name.
 """
 import os as my_os
+import pathlib
+import sys
+from builtins import open as bltn_open
 from io import open as io_open
 from os import path
 from os import stat
 from os import stat as my_stat
 from os.path import exists
 from os.path import exists as my_exists
-
-from builtins import open as bltn_open
-
-import sys
-
-try:
-    from pathlib import Path
-except ImportError:
-    try:
-        from pathlib2 import Path
-    except ImportError:
-        Path = None
+from pathlib import Path
 
 
 def check_if_exists1(filepath):
@@ -45,10 +37,9 @@ def check_if_exists2(filepath):
     return path.exists(filepath)
 
 
-if Path:
-    def check_if_exists3(filepath):
-        # tests patching Path imported from pathlib
-        return Path(filepath).exists()
+def check_if_exists3(filepath):
+    # tests patching Path imported from pathlib
+    return Path(filepath).exists()
 
 
 def check_if_exists4(filepath, file_exists=my_os.path.exists):
@@ -63,6 +54,11 @@ def check_if_exists5(filepath):
 def check_if_exists6(filepath):
     # tests patching `exists` imported from os.path as other name
     return my_exists(filepath)
+
+
+def check_if_exists7(filepath):
+    # tests patching pathlib
+    return pathlib.Path(filepath).exists()
 
 
 def file_stat1(filepath):
@@ -94,8 +90,19 @@ def file_contents2(filepath):
 
 
 def exists_this_file():
-    "Returns True in real fs only"
+    """Returns True in real fs only"""
     return exists(__file__)
+
+
+def open_this_file():
+    """Works only in real fs"""
+    with open(__file__):
+        pass
+
+
+def return_this_file_path():
+    """Works only in real fs"""
+    return Path(__file__)
 
 
 class TestDefaultArg:

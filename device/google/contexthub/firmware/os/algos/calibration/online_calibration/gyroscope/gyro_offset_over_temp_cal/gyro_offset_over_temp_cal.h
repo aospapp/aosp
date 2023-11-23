@@ -69,12 +69,6 @@ class GyroOffsetOtcCal final
   bool SetInitialCalibration(
       const CalibrationDataThreeAxis& input_cal_data) final;
 
-  // Indicates which values are modified by this calibration algorithm.
-  CalibrationTypeFlags which_calibration_flags() const final {
-    return CalibrationTypeFlags::BIAS | CalibrationTypeFlags::OVER_TEMP |
-           CalibrationTypeFlags::OTC_STILL_BIAS;
-  }
-
   // Returns the calibration sensor type.
   SensorType get_sensor_type() const final {
     return SensorType::kGyroscopeRps;
@@ -84,20 +78,12 @@ class GyroOffsetOtcCal final
   const GyroCal& get_gyro_cal() const { return gyro_cal_; }
   const OverTempCal& get_over_temp_cal() const { return over_temp_cal_; }
 
-  // Optional function used by calibration algorithms to maintain awareness of
-  // of sensor enable states.
-  void UpdateSensorEnableState(SensorType sensor_type, uint8_t sensor_index,
-                               bool is_enabled) final;
-
  private:
   // GyroCal algorithm data structure.
   GyroCal gyro_cal_;
 
   // Over-temperature offset compensation algorithm data structure.
   OverTempCal over_temp_cal_;
-
-  // Tracks the gyro sensor enable state.
-  bool gyro_is_enabled_;
 };
 
 }  // namespace online_calibration

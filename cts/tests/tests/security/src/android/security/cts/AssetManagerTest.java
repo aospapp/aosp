@@ -19,13 +19,19 @@ package android.security.cts;
 import android.content.res.AssetManager;
 import android.content.res.XmlResourceParser;
 import android.platform.test.annotations.AsbSecurityTest;
+import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
-public class AssetManagerTest extends CtsAndroidTestCase {
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class AssetManagerTest extends StsExtraBusinessLogicTestCase {
 
     // b/144028297
     @AsbSecurityTest(cveBugId = 144028297)
+    @Test
     public void testCloseThenFinalize() throws Exception {
         final XmlResourceParser[] parser = {null};
         final AssetManager[] assetManager = {AssetManager.class.newInstance()};

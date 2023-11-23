@@ -28,7 +28,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "vts",
-        "mts",
+        "mts-permission",
         "general-tests",
         "sts",
     ],

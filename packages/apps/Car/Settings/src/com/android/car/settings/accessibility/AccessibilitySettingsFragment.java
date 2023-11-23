@@ -16,13 +16,18 @@
 
 package com.android.car.settings.accessibility;
 
+import android.provider.Settings;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
+import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.settingslib.search.SearchIndexable;
 
 /**
  * The main page for accessibility settings. This allows users to change accessibility settings
  * like closed captions styling and text size.
  */
+@SearchIndexable
 public class AccessibilitySettingsFragment extends SettingsFragment {
 
     @Override
@@ -30,4 +35,7 @@ public class AccessibilitySettingsFragment extends SettingsFragment {
         return R.xml.accessibility_settings_fragment;
     }
 
+    public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new CarBaseSearchIndexProvider(R.xml.accessibility_settings_fragment,
+                    Settings.ACTION_ACCESSIBILITY_SETTINGS);
 }

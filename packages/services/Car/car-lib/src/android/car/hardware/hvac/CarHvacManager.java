@@ -20,6 +20,7 @@ import android.annotation.IntDef;
 import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.annotation.AddedInOrBefore;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
@@ -64,34 +65,40 @@ public final class CarHvacManager extends CarManagerBase {
      * Mirror defrosters state, bool type
      * true indicates mirror defroster is on
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_MIRROR_DEFROSTER_ON = 0x1440050c;
     /**
      * Steering wheel temp, int type
      * Positive values indicate heating.
      * Negative values indicate cooling
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_STEERING_WHEEL_HEAT = 0x1140050d;
     /**
      * Outside air temperature, float type
      * Value is in degrees Celsius
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_OUTSIDE_AIR_TEMP = 0x11600703;
     /**
      * Temperature units being used, int type
      *  0x30 = Celsius
      *  0x31 = Fahrenheit
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_TEMPERATURE_DISPLAY_UNITS = 0x1140050e;
 
     /**
      * Temperature setpoint, float type
      * Temperature set by the user, units are in degrees Celsius.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_TEMP_SETPOINT = 0x15600503;
     /**
      * Actual temperature, float type
      * Actual zone temperature is read only value, in terms of F or C.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_TEMP_ACTUAL = 0x15600502;
     /**
      * HVAC system powered on / off, bool type
@@ -99,72 +106,86 @@ public final class CarHvacManager extends CarManagerBase {
      * throw an IllegalStateException.  To correct this, need to turn on the HVAC module first
      * before manipulating a parameter.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_HVAC_POWER_ON = 0x15200510;
     /**
      * Fan speed setpoint, int type
      * Fan speed is an integer from 0-n, depending on number of fan speeds available.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_FAN_SPEED_SETPOINT = 0x15400500;
     /**
      * Actual fan speed, int type
      * Actual fan speed is a read-only value, expressed in RPM.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_FAN_SPEED_RPM = 0x1540050f;
     /**
      *  Fan direction available, int vector type
      *  Fan direction is a bitmask of directions available for each zone.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_FAN_DIRECTION_AVAILABLE = 0x15410511;
     /**
      * Current fan direction setting, int type. The value must be one of the FAN_DIRECTION_AVAILABLE
      * values declared above.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_FAN_DIRECTION = 0x15400501;
     /**
      * Seat temperature, int type
      * Seat temperature is negative for cooling, positive for heating.  Temperature is a
      * setting, i.e. -3 to 3 for 3 levels of cooling and 3 levels of heating.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_SEAT_TEMP = 0x1540050b;
     /**
      * Air ON, bool type
      * true indicates AC is ON.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_AC_ON = 0x15200505;
     /**
      * Automatic Mode ON, bool type
      * true indicates HVAC is in automatic mode
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_AUTOMATIC_MODE_ON = 0x1520050A;
     /**
      * Air recirculation ON, bool type
      * true indicates recirculation is active.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_AIR_RECIRCULATION_ON = 0x15200508;
     /**
      * Max AC ON, bool type
      * true indicates MAX AC is ON
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_MAX_AC_ON = 0x15200506;
     /** Dual zone ON, bool type
      * true indicates dual zone mode is ON
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_DUAL_ZONE_ON = 0x15200509;
     /**
      * Max Defrost ON, bool type
      * true indicates max defrost is active.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_MAX_DEFROST_ON = 0x15200507;
     /**
      * Automatic recirculation mode ON
      * true indicates recirculation is in automatic mode
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_ZONED_HVAC_AUTO_RECIRC_ON = 0x15200512;
     /**
      * Defroster ON, bool type
      * Defroster controls are based on window position.
      * True indicates the defroster is ON.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ID_WINDOW_DEFROSTER_ON = 0x13200504;
 
     /** @hide */
@@ -221,18 +242,21 @@ public final class CarHvacManager extends CarManagerBase {
      * Represents fan direction when air flows through face directed vents.
      * This constant must be used with {@link #ID_ZONED_FAN_DIRECTION} property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FAN_DIRECTION_FACE = 0x1;
     /**
      * Use {@link android.car.hardware.CarHvacFanDirection#FLOOR} instead.
      * Represents fan direction when air flows through floor directed vents.
      * This constant must be used with {@link #ID_ZONED_FAN_DIRECTION} property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FAN_DIRECTION_FLOOR = 0x2;
     /**
      * Use {@link android.car.hardware.CarHvacFanDirection#DEFROST} instead.
      * Represents fan direction when air flows through defrost vents.
      * This constant must be used with {@link #ID_ZONED_FAN_DIRECTION} property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FAN_DIRECTION_DEFROST = 0x4;
 
     /**
@@ -244,6 +268,7 @@ public final class CarHvacManager extends CarManagerBase {
          * Called when a property is updated
          * @param value Property that has been updated.
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onChangeEvent(CarPropertyValue value);
 
         /**
@@ -251,6 +276,7 @@ public final class CarHvacManager extends CarManagerBase {
          * @param propertyId
          * @param zone
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onErrorEvent(@PropertyId int propertyId, int zone);
     }
 
@@ -320,6 +346,7 @@ public final class CarHvacManager extends CarManagerBase {
      * Implement wrappers for contained CarPropertyManager object
      * @param callback
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void registerCallback(CarHvacEventCallback callback) {
         synchronized (mLock) {
             if (mCallbacks.isEmpty()) {
@@ -339,6 +366,7 @@ public final class CarHvacManager extends CarManagerBase {
      * this listener, all listening will be stopped.
      * @param callback
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void unregisterCallback(CarHvacEventCallback callback) {
         synchronized (mLock) {
             mCallbacks.remove(callback);
@@ -363,6 +391,7 @@ public final class CarHvacManager extends CarManagerBase {
      * Get list of properties represented by Car Hvac Manager for this car.
      * @return List of CarPropertyConfig objects available via Car Hvac Manager.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public List<CarPropertyConfig> getPropertyList() {
         return mCarPropertyMgr.getPropertyList(mHvacPropertyIds);
     }
@@ -371,6 +400,7 @@ public final class CarHvacManager extends CarManagerBase {
      * Check whether a given property is available or disabled based on the cars current state.
      * @return true if the property is AVAILABLE, false otherwise
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isPropertyAvailable(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.isPropertyAvailable(propertyId, area);
     }
@@ -381,6 +411,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @return value of requested boolean property
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean getBooleanProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getBooleanProperty(propertyId, area);
     }
@@ -391,6 +422,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @return value of requested float property
      */
+    @AddedInOrBefore(majorVersion = 33)
     public float getFloatProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getFloatProperty(propertyId, area);
     }
@@ -401,6 +433,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @return value of requested integer property
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getIntProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getIntProperty(propertyId, area);
     }
@@ -411,6 +444,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @param val
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setBooleanProperty(@PropertyId int propertyId, int area, boolean val) {
         if (mHvacPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setBooleanProperty(propertyId, area, val);
@@ -423,6 +457,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @param val
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setFloatProperty(@PropertyId int propertyId, int area, float val) {
         if (mHvacPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setFloatProperty(propertyId, area, val);
@@ -435,6 +470,7 @@ public final class CarHvacManager extends CarManagerBase {
      * @param area
      * @param val
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setIntProperty(@PropertyId int propertyId, int area, int val) {
         if (mHvacPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setIntProperty(propertyId, area, val);
@@ -442,6 +478,7 @@ public final class CarHvacManager extends CarManagerBase {
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         synchronized (mLock) {
             mCallbacks.clear();

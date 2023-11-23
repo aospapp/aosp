@@ -221,12 +221,9 @@ public class MediaStorePlacementTest {
                 Optional.of("Android/media/android.provider.cts/foo"), null));
         assertFalse(updatePlacement(uri,
                 Optional.of("Android/media/com.example/foo"), null));
-        try {
-            assertTrue(updatePlacementOrThrow(uri, Optional.of("DCIM"), null));
-        } catch (IllegalArgumentException tolerated) {
-            // update() above can either succeed or throw IllegalArgumentExxception based on the
-            // MediaProvider version.
-        }
+        assertTrue(updatePlacement(uri,
+                Optional.of("DCIM"), null));
+        assertFalse(updatePlacement(uri, Optional.of("Android/media"), null));
     }
 
     @Test
@@ -236,17 +233,13 @@ public class MediaStorePlacementTest {
         final Uri uri = ProviderTestUtils.stageMedia(R.drawable.scenery,
                 mExternalImages, "image/jpeg");
 
+        assertTrue(updatePlacement(uri,
+                Optional.of("Android/media/android.provider.cts/foo"), null));
         assertFalse(updatePlacement(uri,
                 Optional.of("Android/media/com.example/foo"), null));
         assertTrue(updatePlacement(uri,
                 Optional.of("DCIM"), null));
-        try {
-            assertTrue(updatePlacementOrThrow(uri,
-                    Optional.of("Android/media/android.provider.cts/foo"), null));
-        } catch (IllegalArgumentException tolerated) {
-            // update() above can either succeed or throw IllegalArgumentExxception based on the
-            // MediaProvider version.
-        }
+        assertFalse(updatePlacement(uri, Optional.of("Android/media"), null));
     }
 
     @Test
@@ -327,8 +320,8 @@ public class MediaStorePlacementTest {
                 ProviderTestUtils.stageFile(R.raw.scenery, file));
     }
 
-    private boolean updatePlacementOrThrow(Uri uri, Optional<String> path,
-            Optional<String> displayName) throws Exception {
+    private boolean updatePlacement(Uri uri, Optional<String> path, Optional<String> displayName)
+            throws Exception {
         final ContentValues values = new ContentValues();
         if (path != null) {
             values.put(MediaColumns.RELATIVE_PATH, path.orElse(null));
@@ -336,13 +329,8 @@ public class MediaStorePlacementTest {
         if (displayName != null) {
             values.put(MediaColumns.DISPLAY_NAME, displayName.orElse(null));
         }
-        return (mContentResolver.update(uri, values, null, null) == 1);
-    }
-
-    private boolean updatePlacement(Uri uri, Optional<String> path,
-            Optional<String> displayName) {
         try {
-            return updatePlacementOrThrow(uri, path, displayName);
+            return (mContentResolver.update(uri, values, null, null) == 1);
         } catch (Exception tolerated) {
             return false;
         }

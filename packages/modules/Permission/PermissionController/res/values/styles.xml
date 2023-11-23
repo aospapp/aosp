@@ -39,6 +39,14 @@
         <item name="android:showDividers">middle</item>
     </style>
 
+    <style name="PermissionGrantDialogMaterial3">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">?android:attr/windowBackground</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:showDividers">middle</item>
+    </style>
+
     <style name="PermissionGrantContent">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
@@ -57,6 +65,14 @@
     </style>
 
     <style name="PermissionGrantTitleIcon">
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
+        <item name="android:layout_marginBottom">12dp</item>
+        <item name="android:tint">?android:attr/colorAccent</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+
+    <style name="PermissionGrantTitleIconMaterial3">
         <item name="android:layout_width">24dp</item>
         <item name="android:layout_height">24dp</item>
         <item name="android:layout_marginBottom">12dp</item>
@@ -127,6 +143,13 @@
         <item name="android:showDividers">middle</item>
     </style>
 
+    <style name="PermissionGrantButtonListMaterial3">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:showDividers">middle</item>
+    </style>
+
     <style name="PermissionGrantButtonBarSpace">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">0dp</item>
@@ -152,6 +175,17 @@
     <style name="PermissionGrantButtonDeny"
            parent="@style/PermissionGrantButton"></style>
     <style name="PermissionGrantButtonNoUpgrade"
+           parent="@style/PermissionGrantButton"></style>
+
+    <style name="PermissionGrantButtonAllowMaterial3"
+           parent="@style/PermissionGrantButton"></style>
+    <style name="PermissionGrantButtonAllowForegroundMaterial3"
+           parent="@style/PermissionGrantButton"></style>
+    <style name="PermissionGrantButtonAllowOneTimeMaterial3"
+           parent="@style/PermissionGrantButton"></style>
+    <style name="PermissionGrantButtonDenyMaterial3"
+           parent="@style/PermissionGrantButton"></style>
+    <style name="PermissionGrantButtonNoUpgradeMaterial3"
            parent="@style/PermissionGrantButton"></style>
 
     <!-- END PERMISSION GRANT DIALOG -->
@@ -1059,5 +1093,88 @@
     </style>
 
     <!-- END PRIVACY DASHBOARD -->
+
+    <!-- START WARNING BANNER -->
+
+    <style name="WarningBannerMainContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+        <item name="android:clipToPadding">false</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">?android:attr/listPreferredItemHeightSmall</item>
+        <item name="android:paddingEnd">?android:attr/listPreferredItemPaddingEnd</item>
+        <item name="android:paddingStart">?android:attr/listPreferredItemPaddingStart</item>
+    </style>
+
+    <style name="WarningBannerCardView"
+           xmlns:card_view="http://schemas.android.com/apk/res-auto"
+           xmlns:app="http://schemas.android.com/apk/res-auto" >
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="app:cardCornerRadius">20dp</item>
+        <item name="app:cardBackgroundColor">@color/warning_surface</item>
+        <item name="app:cardElevation">0dp</item>
+        <item name="card_view:contentPaddingBottom">8dp</item>
+        <item name="card_view:contentPaddingTop">20dp</item>
+        <item name="card_view:contentPaddingLeft">20dp</item>
+        <item name="card_view:contentPaddingRight">20dp</item>
+    </style>
+
+    <style name="WarningBannerIcon">
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:tint">@color/warning_onsurface</item>
+    </style>
+
+    <style name="WarningBannerDimensions">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="WarningBannerText">
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
+
+    <style name="WarningBannerTitle" parent="@style/WarningBannerText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:lineHeight">24sp</item>
+    </style>
+
+    <style name="WarningBannerSummary" parent="@style/WarningBannerText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineHeight">20sp</item>
+    </style>
+
+    <style name="WarningBannerButton">
+        <item name="android:layout_height">48dp</item>
+        <item name="android:minWidth">48dp</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_alignParentBottom">true</item>
+        <item name="android:layout_alignParentEnd">true</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineHeight">20sp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textColor">@color/warning_onsurface</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+    </style>
+
+    <style name="WarningBannerWidgetFrame">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:gravity">end|center_vertical</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- END WARNING BANNER -->
 
 </resources>

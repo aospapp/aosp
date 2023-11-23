@@ -736,7 +736,7 @@ MACRO3(ONE_ARG_SAVE_EVERYTHING_DOWNCALL, c_name, cxx_name, runtime_method_offset
     CFI_REMEMBER_STATE
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_RAX        // restore frame up to return address
     ret
-    CFI_RESTORE_STATE_AND_DEF_CFA(rsp, FRAME_SIZE_SAVE_EVERYTHING)
+    CFI_RESTORE_STATE_AND_DEF_CFA rsp, FRAME_SIZE_SAVE_EVERYTHING
 1:
     DELIVER_PENDING_EXCEPTION_FRAME_READY
     END_FUNCTION VAR(c_name)
@@ -1068,48 +1068,23 @@ ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromC
 
 TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_EAX_ZERO
 
+    /*
+     * Entry from managed code that tries to lock the object in a fast path and
+     * calls `artLockObjectFromCode()` for the difficult cases, may block for GC.
+     * RDI holds the possibly null object to lock.
+     */
 DEFINE_FUNCTION art_quick_lock_object
-    testl %edi, %edi                      // Null check object/rdi.
-    jz   .Lslow_lock
-.Lretry_lock:
-    movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word.
-    test LITERAL(LOCK_WORD_STATE_MASK_SHIFTED), %ecx  // Test the 2 high bits.
-    jne  .Lslow_lock                      // Slow path if either of the two high bits are set.
-    movl %ecx, %edx                       // save lock word (edx) to keep read barrier bits.
-    andl LITERAL(LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED), %ecx  // zero the gc bits.
-    test %ecx, %ecx
-    jnz  .Lalready_thin                   // Lock word contains a thin lock.
-    // unlocked case - edx: original lock word, edi: obj.
-    movl %edx, %eax                       // eax: lock word zero except for read barrier bits.
-    movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
-    or   %eax, %edx                       // edx: thread id with count of 0 + read barrier bits.
-    lock cmpxchg  %edx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
-    jnz  .Lretry_lock                     // cmpxchg failed retry
-    ret
-.Lalready_thin:  // edx: lock word (with high 2 bits zero and original rb bits), edi: obj.
-    movl %gs:THREAD_ID_OFFSET, %ecx       // ecx := thread id
-    cmpw %cx, %dx                         // do we hold the lock already?
-    jne  .Lslow_lock
-    movl %edx, %ecx                       // copy the lock word to check count overflow.
-    andl LITERAL(LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED), %ecx  // zero the gc bits.
-    addl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %ecx  // increment recursion count
-    test LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK), %ecx  // overflowed if the upper bit (28) is set
-    jne  .Lslow_lock                      // count overflowed so go slow
-    movl %edx, %eax                       // copy the lock word as the old val for cmpxchg.
-    addl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %edx   // increment recursion count again for real.
-    // update lockword, cmpxchg necessary for read barrier bits.
-    lock cmpxchg  %edx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, edx: new val.
-    jnz  .Lretry_lock                     // cmpxchg failed retry
-    ret
-.Lslow_lock:
-    SETUP_SAVE_REFS_ONLY_FRAME
-    movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
-    call SYMBOL(artLockObjectFromCode)    // artLockObjectFromCode(object, Thread*)
-    RESTORE_SAVE_REFS_ONLY_FRAME          // restore frame up to return address
-    RETURN_IF_EAX_ZERO
+    testq %rdi, %rdi                      // Null check object.
+    jz   art_quick_lock_object_no_inline
+    LOCK_OBJECT_FAST_PATH rdi, ecx, art_quick_lock_object_no_inline
 END_FUNCTION art_quick_lock_object
 
+    /*
+     * Entry from managed code that calls `artLockObjectFromCode()`, may block for GC.
+     * RDI holds the possibly null object to lock.
+     */
 DEFINE_FUNCTION art_quick_lock_object_no_inline
+    // This is also the slow path for art_quick_lock_object.
     SETUP_SAVE_REFS_ONLY_FRAME
     movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
     call SYMBOL(artLockObjectFromCode)    // artLockObjectFromCode(object, Thread*)
@@ -1117,50 +1092,24 @@ DEFINE_FUNCTION art_quick_lock_object_no_inline
     RETURN_IF_EAX_ZERO
 END_FUNCTION art_quick_lock_object_no_inline
 
+    /*
+     * Entry from managed code that tries to unlock the object in a fast path and calls
+     * `artUnlockObjectFromCode()` for the difficult cases and delivers exception on failure.
+     * RDI holds the possibly null object to unlock.
+     */
 DEFINE_FUNCTION art_quick_unlock_object
-    testl %edi, %edi                      // null check object/edi
-    jz   .Lslow_unlock
-.Lretry_unlock:
-    movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word
-    movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
-    test LITERAL(LOCK_WORD_STATE_MASK_SHIFTED), %ecx
-    jnz  .Lslow_unlock                    // lock word contains a monitor
-    cmpw %cx, %dx                         // does the thread id match?
-    jne  .Lslow_unlock
-    movl %ecx, %edx                       // copy the lock word to detect new count of 0.
-    andl LITERAL(LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED), %edx  // zero the gc bits.
-    cmpl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %edx
-    jae  .Lrecursive_thin_unlock
-    // update lockword, cmpxchg necessary for read barrier bits.
-    movl %ecx, %eax                       // eax: old lock word.
-    andl LITERAL(LOCK_WORD_GC_STATE_MASK_SHIFTED), %ecx  // ecx: new lock word zero except original gc bits.
-#ifndef USE_READ_BARRIER
-    movl %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
-#else
-    lock cmpxchg  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, ecx: new val.
-    jnz  .Lretry_unlock                   // cmpxchg failed retry
-#endif
-    ret
-.Lrecursive_thin_unlock:  // ecx: original lock word, edi: obj
-    // update lockword, cmpxchg necessary for read barrier bits.
-    movl %ecx, %eax                       // eax: old lock word.
-    subl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %ecx
-#ifndef USE_READ_BARRIER
-    mov  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
-#else
-    lock cmpxchg  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, ecx: new val.
-    jnz  .Lretry_unlock                   // cmpxchg failed retry
-#endif
-    ret
-.Lslow_unlock:
-    SETUP_SAVE_REFS_ONLY_FRAME
-    movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
-    call SYMBOL(artUnlockObjectFromCode)  // artUnlockObjectFromCode(object, Thread*)
-    RESTORE_SAVE_REFS_ONLY_FRAME          // restore frame up to return address
-    RETURN_IF_EAX_ZERO
+    testq %rdi, %rdi                      // Null check object.
+    jz   art_quick_lock_object_no_inline
+    UNLOCK_OBJECT_FAST_PATH rdi, ecx, /*saved_rax*/ none, art_quick_unlock_object_no_inline
 END_FUNCTION art_quick_unlock_object
 
+    /*
+     * Entry from managed code that calls `artUnlockObjectFromCode()`
+     * and delivers exception on failure.
+     * RDI holds the possibly null object to unlock.
+     */
 DEFINE_FUNCTION art_quick_unlock_object_no_inline
+    // This is also the slow path for art_quick_unlock_object.
     SETUP_SAVE_REFS_ONLY_FRAME
     movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
     call SYMBOL(artUnlockObjectFromCode)  // artUnlockObjectFromCode(object, Thread*)
@@ -1187,7 +1136,7 @@ DEFINE_FUNCTION art_quick_check_instance_of
     addq LITERAL(24), %rsp            // pop arguments
     CFI_ADJUST_CFA_OFFSET(-24)
     ret
-    CFI_RESTORE_STATE_AND_DEF_CFA(rsp, 64)  // Reset unwind info so following code unwinds.
+    CFI_RESTORE_STATE_AND_DEF_CFA rsp, 64  // Reset unwind info so following code unwinds.
 
 .Lthrow_class_cast_exception:
     RESTORE_FP_CALLEE_SAVE_FRAME
@@ -1660,7 +1609,7 @@ DEFINE_FUNCTION art_quick_generic_jni_trampoline
     ret
 
     // Undo the unwinding information from above since it doesn't apply below.
-    CFI_RESTORE_STATE_AND_DEF_CFA(rbp, 208)
+    CFI_RESTORE_STATE_AND_DEF_CFA rbp, 208
 .Lexception_in_native:
     pushq %gs:THREAD_TOP_QUICK_FRAME_OFFSET
     addq LITERAL(-1), (%rsp)  // Remove the GenericJNI tag.
@@ -2098,7 +2047,7 @@ DEFINE_FUNCTION art_quick_osr_stub
     movq %rax, (%rcx)              // Store the result.
     ret
 .Losr_entry:
-    CFI_RESTORE_STATE_AND_DEF_CFA(rsp, 80)
+    CFI_RESTORE_STATE_AND_DEF_CFA rsp, 80
     // Since the call has pushed the return address we need to switch the CFA register to RBP.
     CFI_DEF_CFA_REGISTER(rbp)
 
@@ -2208,3 +2157,40 @@ DEFINE_FUNCTION art_quick_compile_optimized
     RESTORE_SAVE_EVERYTHING_FRAME               // restore frame up to return address
     ret
 END_FUNCTION art_quick_compile_optimized
+
+// On entry, method is at the bottom of the stack.
+DEFINE_FUNCTION art_quick_method_entry_hook
+    SETUP_SAVE_EVERYTHING_FRAME
+
+    movq FRAME_SIZE_SAVE_EVERYTHING(%rsp), %rdi // pass ArtMethod
+    movq %gs:THREAD_SELF_OFFSET, %rsi           // pass Thread::Current()
+
+    call SYMBOL(artMethodEntryHook)              // (ArtMethod*, Thread*)
+
+    RESTORE_SAVE_EVERYTHING_FRAME
+    ret
+END_FUNCTION art_quick_method_entry_hook
+
+// On entry, method is at the bottom of the stack.
+// and r8 has should_deopt_frame value.
+DEFINE_FUNCTION art_quick_method_exit_hook
+    SETUP_SAVE_EVERYTHING_FRAME
+
+    leaq 16(%rsp), %rcx                         // floating-point result pointer in kSaveEverything
+                                                // frame
+    leaq 144(%rsp), %rdx                        // integer result pointer in kSaveEverything frame
+    movq FRAME_SIZE_SAVE_EVERYTHING(%rsp), %rsi // ArtMethod
+    movq %gs:THREAD_SELF_OFFSET, %rdi           // Thread::Current
+    call SYMBOL(artMethodExitHook)              // (Thread*, SP, gpr_res*, fpr_res*)
+
+    cmpq LITERAL(1), %rax
+    CFI_REMEMBER_STATE
+    je .Ldo_deliver_instrumentation_exception_exit
+
+    // Normal return.
+    RESTORE_SAVE_EVERYTHING_FRAME
+    ret
+.Ldo_deliver_instrumentation_exception_exit:
+    CFI_RESTORE_STATE_AND_DEF_CFA rsp, FRAME_SIZE_SAVE_EVERYTHING
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
+END_FUNCTION art_quick_method_entry_hook

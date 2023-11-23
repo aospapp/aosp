@@ -4,10 +4,10 @@
 
 # Common Compiler Flags ########################################################
 
-# CHRE requires C++11 and C99 support.
-COMMON_CXX_CFLAGS += -std=c++11
+# CHRE requires C++17 and C11 support.
+COMMON_CXX_CFLAGS += -std=c++17
 COMMON_C_CFLAGS += -x c
-COMMON_C_CFLAGS += -std=c99
+COMMON_C_CFLAGS += -std=c11
 
 # Configure 'all' and 'extra' warnings and promote warnings to errors.
 COMMON_CFLAGS += -Wall

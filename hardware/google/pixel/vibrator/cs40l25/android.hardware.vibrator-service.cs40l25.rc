@@ -34,6 +34,7 @@ on boot
     chown system system /sys/class/leds/vibrator/device/hw_reset
     chown system system /sys/class/leds/vibrator/device/num_waves
     chown system system /sys/class/leds/vibrator/device/pwle
+    chown system system /sys/class/leds/vibrator/device/pwle_ramp_down
     chown system system /sys/class/leds/vibrator/device/q_stored
     chown system system /sys/class/leds/vibrator/device/redc_comp_enable
     chown system system /sys/class/leds/vibrator/device/redc_stored
@@ -67,6 +68,7 @@ service vendor.vibrator.cs40l25 /vendor/bin/hw/android.hardware.vibrator-service
         device/heartbeat
         device/num_waves
         device/pwle
+        device/pwle_ramp_down
         device/q_stored
         device/redc_stored
         state

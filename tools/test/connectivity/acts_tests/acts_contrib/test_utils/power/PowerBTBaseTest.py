@@ -49,6 +49,7 @@ def ramp_attenuation(obj_atten, attenuation_target, attenuation_step_max=20,
         time.sleep(time_wait_in_between)
         attenuation_delta = obj_atten.get_atten() - attenuation_target
     obj_atten.set_atten(attenuation_target)
+    time.sleep(time_wait_in_between)
 
 
 class PowerBTBaseTest(PBT.PowerBaseTest):

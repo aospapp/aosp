@@ -37,15 +37,6 @@ prop {
     enum_values: "tv|recording_device|reserved|tuner|playback_device|audio_system|pure_cec_switch|video_processor"
 }
 
-# Set this to true to enable 'Set Menu Language' CEC feature.
-prop {
-    api_name: "set_menu_language_enabled"
-    type: Boolean
-    scope: Internal
-    access: Readonly
-    prop_name: "ro.hdmi.set_menu_language"
-}
-
 # When ARC is initiated, this port will be used to turn on ARC.
 prop {
     api_name: "arc_port"

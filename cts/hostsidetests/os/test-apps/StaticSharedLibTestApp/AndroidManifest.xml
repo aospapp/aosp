@@ -21,6 +21,11 @@
     <application>
     </application>
 
+    <queries>
+        <package android:name="android.os.lib.provider"/>
+        <package android:name="android.os.lib.consumer1"/>
+    </queries>
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.os.lib.app"/>
 </manifest>

@@ -31,6 +31,7 @@ class PolicyScanTest(WifiBaseTest):
     * One or more Fuchsia devices
     * One Whirlwind Access Point
     """
+
     def setup_class(self):
         super().setup_class()
         if len(self.fuchsia_devices) < 1:

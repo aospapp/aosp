@@ -18,21 +18,21 @@ package com.google.turbine.binder.lookup;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A {@link Scope} that chains other scopes together. */
 public class CompoundScope implements Scope {
 
   private final Scope scope;
-  @Nullable private final Scope base;
+  private final @Nullable Scope base;
 
-  private CompoundScope(Scope scope, Scope base) {
+  private CompoundScope(Scope scope, @Nullable Scope base) {
     this.scope = checkNotNull(scope);
     this.base = base;
   }
 
   @Override
-  public LookupResult lookup(LookupKey key) {
+  public @Nullable LookupResult lookup(LookupKey key) {
     LookupResult result = scope.lookup(key);
     if (result != null) {
       return result;

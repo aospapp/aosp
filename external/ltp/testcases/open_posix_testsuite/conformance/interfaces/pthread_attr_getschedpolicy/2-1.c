@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include "posixtest.h"
 
-#define TEST "1-1"
+#define TEST "2-1"
 #define FUNCTION "pthread_attr_getschedpolicy"
 #define ERROR_PREFIX "unexpected error: " FUNCTION " " TEST ": "
 
@@ -27,7 +27,7 @@
 #define RRPOLICY SCHED_RR
 #define OTHERPOLICY SCHED_OTHER
 
-int verify_policy(pthread_attr_t * attr, int policytype)
+static int verify_policy(pthread_attr_t * attr, int policytype)
 {
 	int rc;
 	int policy;

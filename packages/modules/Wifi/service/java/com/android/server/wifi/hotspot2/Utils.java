@@ -1,5 +1,6 @@
 package com.android.server.wifi.hotspot2;
 
+import static com.android.server.wifi.hotspot2.anqp.Constants.BYTES_IN_EUI48;
 import static com.android.server.wifi.hotspot2.anqp.Constants.BYTE_MASK;
 import static com.android.server.wifi.hotspot2.anqp.Constants.NIBBLE_MASK;
 
@@ -62,18 +63,37 @@ public abstract class Utils {
         return mac;
     }
 
+    /**
+     * Convert from mac address as long to simple string in hex code, same as "%012x".
+     * @param mac The Mac address as long value.
+     * @return String value of mac address.
+     */
+    public static String macToSimpleString(long mac) {
+        StringBuilder sb = new StringBuilder();
+        for (int n = BYTES_IN_EUI48 - 1; n >= 0; n--) {
+            long b = (mac >>> (n * Byte.SIZE)) & BYTE_MASK;
+            sb.append(b > 0xf ? Long.toHexString(b) : "0" + Long.toHexString(b));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Convert from mac address as long to string in hex code, separated with colon.
+     * @param mac The Mac address as long value.
+     * @return String value of mac address.
+     */
     public static String macToString(long mac) {
         int len = (mac & ~EUI48Mask) != 0 ? EUI64Length : EUI48Length;
         StringBuilder sb = new StringBuilder();
         boolean first = true;
-        for (int n = (len - 1)*Byte.SIZE; n >= 0; n -= Byte.SIZE) {
+        for (int n = (len - 1) * Byte.SIZE; n >= 0; n -= Byte.SIZE) {
             if (first) {
                 first = false;
-            }
-            else {
+            } else {
                 sb.append(':');
             }
-            sb.append(String.format("%02x", (mac >>> n) & Constants.BYTE_MASK));
+            long b = (mac >>> n) & Constants.BYTE_MASK;
+            sb.append(b > 0xf ? Long.toHexString(b) : "0" + Long.toHexString(b));
         }
         return sb.toString();
     }

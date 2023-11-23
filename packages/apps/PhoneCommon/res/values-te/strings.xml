@@ -30,11 +30,11 @@
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"నంబర్‌ను చేరుకోవడం సాధ్యపడలేదు"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"వినియోగదారు పేరు లేదా పాస్‌వర్డ్ చెల్లదు"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"కాల్ చేయడానికి నెట్‌వర్క్ లేదు"</string>
-    <string name="callFailed_server_error" msgid="8449565039784274698">"సర్వర్ లోపం. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"సర్వర్ ఎర్రర్. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"సిగ్నల్ లేదు"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"ACM పరిమితి మించిపోయింది"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"రేడియో ఆఫ్‌లో ఉంది"</string>
-    <string name="callFailed_simError" msgid="510948380244092037">"సిమ్ లేదు లేదా సిమ్ లోపం"</string>
+    <string name="callFailed_simError" msgid="510948380244092037">"సిమ్ లేదు లేదా సిమ్ ఎర్రర్"</string>
     <string name="callFailed_outOfService" msgid="2917536349269880601">"సెల్యులార్ నెట్‌వర్క్ అందుబాటులో లేదు"</string>
     <string name="callFailed_fdn_only" msgid="584249308311672690">"FDN ద్వారా అవుట్‌గోయింగ్ కాల్స్‌ పరిమితం చేయబడ్డాయి."</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"కాల్ USSD రిక్వెస్ట్‌కు మార్చబడింది"</string>

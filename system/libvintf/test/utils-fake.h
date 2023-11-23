@@ -45,6 +45,14 @@ class MockFileSystem : public FileSystem {
     FileSystemImpl mImpl;
 };
 
+class MockFileSystemWithError : public FileSystem {
+   public:
+    MOCK_METHOD(status_t, fetch, (const std::string&, std::string*, std::string*),
+                (const override));
+    MOCK_METHOD(status_t, listFiles, (const std::string&, std::vector<std::string>*, std::string*),
+                (const override));
+};
+
 class MockRuntimeInfo : public RuntimeInfo {
    public:
     MockRuntimeInfo();

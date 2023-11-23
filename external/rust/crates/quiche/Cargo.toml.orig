@@ -1,6 +1,6 @@
 [package]
 name = "quiche"
-version = "0.6.0"
+version = "0.9.0"
 authors = ["Alessandro Ghedini <alessandro@ghedini.me>"]
 edition = "2018"
 build = "src/build.rs"
@@ -17,6 +17,7 @@ include = [
     "/COPYING",
     "/benches",
     "/deps/boringssl/**/*.[chS]",
+    "/deps/boringssl/**/*.asm",
     "/deps/boringssl/src/**/*.cc",
     "/deps/boringssl/**/CMakeLists.txt",
     "/deps/boringssl/**/sources.cmake",
@@ -42,6 +43,9 @@ fuzzing = []
 # For building with Android NDK < 18 and GCC.
 ndk-old-gcc = []
 
+# Expose the FFI API.
+ffi = []
+
 [package.metadata.docs.rs]
 no-default-features = true
 
@@ -54,7 +58,8 @@ libc = "0.2"
 libm = "0.2"
 ring = "0.16"
 lazy_static = "1"
-qlog = { version = "0.3", path = "tools/qlog", optional = true }
+boring-sys = { version = "1.0.2", optional = true }
+qlog = { version = "0.4", path = "tools/qlog", optional = true }
 
 [target."cfg(windows)".dependencies]
 winapi = { version = "0.3", features = ["wincrypt"] }

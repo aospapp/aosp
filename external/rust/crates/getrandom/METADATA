@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/getrandom/getrandom-0.2.2.crate"
+    value: "https://static.crates.io/crates/getrandom/getrandom-0.2.5.crate"
   }
-  version: "0.2.2"
+  version: "0.2.5"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
+    year: 2022
     month: 3
-    day: 3
+    day: 1
   }
 }

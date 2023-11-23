@@ -83,6 +83,42 @@ public class MethodHandlesTest extends TestCase {
         }
     }
 
+    public void test_privateLookupIn() throws Throwable {
+        MethodHandles.Lookup defaultLookup = MethodHandles.lookup();
+
+        try {
+            MethodHandles.privateLookupIn(null, defaultLookup);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            MethodHandles.privateLookupIn(int.class, defaultLookup);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+
+        try {
+            MethodHandles.privateLookupIn(Integer[].class, defaultLookup);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+
+        D dInstance = new D();
+
+        MethodHandles.Lookup privateLookup =
+            MethodHandles.privateLookupIn(MethodHandlesTest.D.class, defaultLookup);
+        assertNotNull(privateLookup);
+
+        MethodHandle handle = privateLookup.findVirtual(MethodHandlesTest.D.class,
+                "privateRyan", MethodType.methodType(void.class));
+        assertNotNull(handle);
+
+        dInstance.privateDCalled = false;
+        handle.invokeExact(dInstance);
+        assertTrue(dInstance.privateDCalled);
+    }
+
     public void test_findStatic() throws Exception {
         MethodHandles.Lookup defaultLookup = MethodHandles.lookup();
 

@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Na-update ang setting. Subukang kumonekta ulit."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Hindi puwedeng baguhin ang setting ng privacy"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"Hindi nakita ang network"</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32756"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32760"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Hindi ka puwedeng kumonekta sa Verizon Wi-Fi Access mula sa labas ng lugar na sakop ng Verizon. (Error = 32760)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32761"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Hindi ka naka-subscribe sa Verizon Wi-Fi Access. Pakitawagan kami sa 800-922-0204. (Error = 32761)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32762"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa iyong Verizon Wi-Fi Access account. Pakitawagan kami sa 800-922-0204. (Error = 32762)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32763"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Nakakonekta ka na sa Verizon Wi-Fi Access. (Error = 32763)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32764"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa pagkonekta sa iyo sa Verizon Wi-Fi Access. Pakitawagan kami sa 800-922-0204. (Error = 32764)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32765"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa iyong Verizon Wi-Fi Access account. Pakitawagan kami sa 800-922-0204. (Error = 32765)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32766"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : Hindi available sa iyong lokasyon ang Verizon Wi-Fi Access. Subukan ulit sa ibang pagkakataon o subukan mula sa ibang lokasyon. (Error = 32766)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa pagkonekta sa iyo sa Verizon Wi-Fi Access. Subukan ulit sa ibang pagkakataon o subukan mula sa ibang lokasyon."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa pagkonekta sa iyo sa Verizon Wi-Fi Access dahil sa error 16384."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa pagkonekta sa iyo sa Verizon Wi-Fi Access dahil sa error 16385."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : Error sa pag-authenticate ng EAP, hindi alam ang error code"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : May problema sa pagkonekta sa iyo sa Verizon Wi-Fi Access."</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"Naka-off ang hotspot"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"Walang mga nakakonektang device. I-tap para baguhin."</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"Nadiskonekta ang Wi‑Fi"</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"Para makakonekta sa <xliff:g id="SSID">%1$s</xliff:g>, maglagay ng <xliff:g id="CARRIER_NAME">%2$s</xliff:g> na SIM"</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"Gustong gumamit ng <xliff:g id="APP">%1$s</xliff:g> ng resource sa networking"</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"Posible itong magdulot ng mga problema para sa <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"Puwede itong magdulot ng mga problema para sa mga app na ito: <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"Payagan"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"Huwag payagan"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"Pinagkakatiwalaan ba ang network na ito?"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"Oo, kumonekta"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"Hindi, huwag kumonekta"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"Payagan lang ang network na ito na kumonekta kung mukhang tama ang impormasyon sa ibaba.\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"Pangalan ng Server:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"Pangalan ng Nagbigay:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"Organisasyon:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"Makipag-ugnayan sa:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"Lagda:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"Kailangang ma-verify ng network"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"Suriin ang mga detalye ng network para sa <xliff:g id="SSID">%1$s</xliff:g> bago kumonekta. I-tap para magpatuloy."</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"Hindi na-install ang certificate."</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"Hindi ma-verify ang network na ito"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"Kumonekta pa rin"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"Huwag kumonekta"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"Kulang ng certificate ang network na <xliff:g id="SSID">%1$s</xliff:g>."</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"Alamin kung paano magdagdag ng mga certificate"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"Hindi ma-verify ang network na ito"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"Kulang ng certificate ang network na <xliff:g id="SSID">%1$s</xliff:g>. I-tap para matuto pa tungkol sa kung paano magdagdag ng mga certificate."</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"Kumonekta pa rin"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"Huwag kumonekta"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"Payagan ang <xliff:g id="APP_NAME">%1$s</xliff:g> na i-on ang Wi‑Fi?"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"Puwede mong i-off ang Wi‑Fi sa Mga Mabilisang Setting"</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"Payagan"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"Huwag payagan"</string>
 </resources>

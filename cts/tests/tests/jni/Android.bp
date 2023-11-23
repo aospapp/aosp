@@ -44,6 +44,7 @@ android_test {
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
     use_embedded_native_libs: false,
+    per_testcase_directory: true,
 }
 
 cc_test_library {

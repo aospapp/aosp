@@ -48,8 +48,8 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 
-import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.WindowUtil;
 
 import java.util.List;
 
@@ -75,7 +75,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         mIntent = new Intent(mContext, InstrumentationTestActivity.class);
         mIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mActivity = (InstrumentationTestActivity) mInstrumentation.startActivitySync(mIntent);
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity);
     }
 
     protected void tearDown() throws Exception {

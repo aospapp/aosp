@@ -179,7 +179,8 @@ public class ConnectMobileNetworkTaskRoboTest {
         }
 
         @Override
-        public void onError(AbstractProvisioningTask task, int errorCode) {
+        public void onError(
+                AbstractProvisioningTask task, int errorCode, String errorMessage) {
             errorTaskCounts.put(task, getErrorCount(task) + 1);
         }
 

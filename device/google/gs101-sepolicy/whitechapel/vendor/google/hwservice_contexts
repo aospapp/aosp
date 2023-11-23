@@ -23,11 +23,6 @@ vendor.google.whitechapel.audio.audioext::IAudioExt             u:object_r:hal_a
 # Wireless charger hal
 vendor.google.wireless_charger::IWirelessCharger                u:object_r:hal_wlc_hwservice:s0
 
-# Bluetooth HAL extension
-hardware.google.bluetooth.bt_channel_avoidance::IBTChannelAvoidance   u:object_r:hal_bluetooth_coexistence_hwservice:s0
-hardware.google.bluetooth.sar::IBluetoothSar                          u:object_r:hal_bluetooth_coexistence_hwservice:s0
-hardware.google.bluetooth.ccc::IBluetoothCcc                          u:object_r:hal_bluetooth_coexistence_hwservice:s0
-
 # Fingerprint
 vendor.goodix.hardware.biometrics.fingerprint::IGoodixFingerprintDaemon  u:object_r:hal_fingerprint_ext_hwservice:s0
 

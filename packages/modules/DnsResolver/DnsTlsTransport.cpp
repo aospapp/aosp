@@ -23,7 +23,6 @@
 #include <android-base/format.h>
 #include <android-base/logging.h>
 #include <android-base/result.h>
-#include <android-base/stringprintf.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <netdutils/Stopwatch.h>
@@ -37,7 +36,6 @@
 #include "resolv_private.h"
 #include "util.h"
 
-using android::base::StringPrintf;
 using android::netdutils::setThreadName;
 
 namespace android {
@@ -236,7 +234,7 @@ void DnsTlsTransport::onClosed() {
 
 void DnsTlsTransport::doReconnect() {
     std::lock_guard guard(mLock);
-    setThreadName(StringPrintf("TlsReconn_%u", mMark & 0xffff).c_str());
+    setThreadName(fmt::format("TlsReconn_{}", mMark & 0xffff));
     if (mClosing) {
         return;
     }
@@ -301,11 +299,11 @@ bool DnsTlsTransport::validate(const DnsTlsServer& server, uint32_t mark) {
     //
     // For instance, with latencyFactor = 3 and latencyOffsetMs = 10, if UDP probe latency is 5 ms,
     // DoT probe latency must less than 25 ms.
-    const bool versionHigherThanAndroidR = getApiLevel() >= 30;
+    const bool isAtLeastR = getApiLevel() >= 30;
     int latencyFactor = Experiments::getInstance()->getFlag("dot_validation_latency_factor",
-                                                            (versionHigherThanAndroidR ? 3 : -1));
-    int latencyOffsetMs = Experiments::getInstance()->getFlag(
-            "dot_validation_latency_offset_ms", (versionHigherThanAndroidR ? 100 : -1));
+                                                            (isAtLeastR ? 3 : -1));
+    int latencyOffsetMs = Experiments::getInstance()->getFlag("dot_validation_latency_offset_ms",
+                                                              (isAtLeastR ? 100 : -1));
     const bool shouldCompareUdpLatency =
             server.name.empty() &&
             (latencyFactor >= 0 && latencyOffsetMs >= 0 && latencyFactor + latencyOffsetMs != 0);

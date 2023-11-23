@@ -91,6 +91,8 @@ public abstract class SetupLayoutActivity extends AppCompatActivity {
         if (LOCK_TO_PORTRAIT_MODE && getResources().getBoolean(R.bool.lock_to_portrait)) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         }
+
+        getBaseApplication().maybeKeepScreenOn(this);
         logMetrics();
     }
 

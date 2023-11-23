@@ -45,7 +45,7 @@ bool ExtentRanges::ExtentsOverlapOrTouch(const Extent& a, const Extent& b) {
 
 bool ExtentRanges::ExtentsOverlap(const Extent& a, const Extent& b) {
   if (a.start_block() == b.start_block())
-    return true;
+    return a.num_blocks() != 0;
   if (a.start_block() == kSparseHole || b.start_block() == kSparseHole)
     return false;
   if (a.start_block() < b.start_block()) {
@@ -56,6 +56,7 @@ bool ExtentRanges::ExtentsOverlap(const Extent& a, const Extent& b) {
 }
 
 void ExtentRanges::AddBlock(uint64_t block) {
+  // Remember to respect |merge_touching_extents_| setting
   AddExtent(ExtentForRange(block, 1));
 }
 
@@ -86,7 +87,10 @@ void ExtentRanges::AddExtent(Extent extent) {
   for (ExtentSet::iterator it = extent_set_.begin(), e = extent_set_.end();
        it != e;
        ++it) {
-    if (ExtentsOverlapOrTouch(*it, extent)) {
+    const bool should_merge = merge_touching_extents_
+                                  ? ExtentsOverlapOrTouch(*it, extent)
+                                  : ExtentsOverlap(*it, extent);
+    if (should_merge) {
       end_del = it;
       ++end_del;
       del_blocks += it->num_blocks();
@@ -155,6 +159,7 @@ void ExtentRanges::SubtractExtent(const Extent& extent) {
 }
 
 void ExtentRanges::AddRanges(const ExtentRanges& ranges) {
+  // Remember to respect |merge_touching_extents_| setting
   for (ExtentSet::const_iterator it = ranges.extent_set_.begin(),
                                  e = ranges.extent_set_.end();
        it != e;
@@ -173,6 +178,7 @@ void ExtentRanges::SubtractRanges(const ExtentRanges& ranges) {
 }
 
 void ExtentRanges::AddExtents(const vector<Extent>& extents) {
+  // Remember to respect |merge_touching_extents_| setting
   for (vector<Extent>::const_iterator it = extents.begin(), e = extents.end();
        it != e;
        ++it) {
@@ -190,6 +196,7 @@ void ExtentRanges::SubtractExtents(const vector<Extent>& extents) {
 
 void ExtentRanges::AddRepeatedExtents(
     const ::google::protobuf::RepeatedPtrField<Extent>& exts) {
+  // Remember to respect |merge_touching_extents_| setting
   for (int i = 0, e = exts.size(); i != e; ++i) {
     AddExtent(exts.Get(i));
   }
@@ -203,7 +210,7 @@ void ExtentRanges::SubtractRepeatedExtents(
 }
 
 bool ExtentRanges::OverlapsWithExtent(const Extent& extent) const {
-  for (const auto& entry : extent_set_) {
+  for (const auto& entry : GetCandidateRange(extent)) {
     if (ExtentsOverlap(entry, extent)) {
       return true;
     }
@@ -281,6 +288,31 @@ vector<Extent> ExtentRanges::GetExtentsForBlockCount(uint64_t count) const {
   return out;
 }
 
+Range<ExtentRanges::ExtentSet::const_iterator> ExtentRanges::GetCandidateRange(
+    const Extent& extent) const {
+  auto lower_it = extent_set_.lower_bound(extent);
+  if (lower_it != extent_set_.begin()) {
+    --lower_it;
+  }
+
+  const auto upper_it = extent_set_.upper_bound(
+      ExtentForRange(extent.start_block() + extent.num_blocks(), 1));
+  return {lower_it, upper_it};
+}
+
+std::vector<Extent> ExtentRanges::GetIntersectingExtents(
+    const Extent& extent) const {
+  const auto candidates = GetCandidateRange(extent);
+  std::vector<Extent> result;
+  for (const auto& ext : candidates) {
+    if (auto intersection = GetOverlapExtent(ext, extent);
+        intersection.num_blocks() != 0) {
+      result.emplace_back(std::move(intersection));
+    }
+  }
+  return result;
+}
+
 vector<Extent> FilterExtentRanges(const vector<Extent>& extents,
                                   const ExtentRanges& ranges) {
   vector<Extent> result;
@@ -329,6 +361,17 @@ vector<Extent> FilterExtentRanges(const vector<Extent>& extents,
       result.push_back(extent);
   }
   return result;
+}
+
+Extent GetOverlapExtent(const Extent& extent1, const Extent& extent2) {
+  if (!ExtentRanges::ExtentsOverlap(extent1, extent2)) {
+    return {};
+  }
+  const auto start_block =
+      std::max(extent1.start_block(), extent2.start_block());
+  const auto end_block = std::min(extent1.start_block() + extent1.num_blocks(),
+                                  extent2.start_block() + extent2.num_blocks());
+  return ExtentForRange(start_block, end_block - start_block);
 }
 
 }  // namespace chromeos_update_engine

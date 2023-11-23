@@ -19,14 +19,16 @@
 
 #include "JpegCompressor.h"
 
+#include <camera_blob.h>
 #include <cutils/properties.h>
-#include <hardware/camera3.h>
 #include <libyuv.h>
 #include <utils/Log.h>
 #include <utils/Trace.h>
 
 namespace android {
 
+using google_camera_hal::CameraBlob;
+using google_camera_hal::CameraBlobId;
 using google_camera_hal::ErrorCode;
 using google_camera_hal::MessageType;
 using google_camera_hal::NotifyMessage;
@@ -204,13 +206,12 @@ void JpegCompressor::CompressYUV420(std::unique_ptr<JpegYUV420Job> job) {
   }
 
   auto jpeg_header_offset =
-      job->output->plane.img.buffer_size - sizeof(struct camera3_jpeg_blob);
+      job->output->plane.img.buffer_size - sizeof(struct CameraBlob);
   if (jpeg_header_offset > encoded_size) {
-    struct camera3_jpeg_blob* blob =
-        reinterpret_cast<struct camera3_jpeg_blob*>(job->output->plane.img.img +
-                                                    jpeg_header_offset);
-    blob->jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
-    blob->jpeg_size = encoded_size;
+    struct CameraBlob* blob = reinterpret_cast<struct CameraBlob*>(
+        job->output->plane.img.img + jpeg_header_offset);
+    blob->blob_id = CameraBlobId::JPEG;
+    blob->blob_size = encoded_size;
   } else {
     ALOGW("%s: No space for jpeg header at offset: %u and jpeg size: %u",
           __FUNCTION__, static_cast<unsigned>(jpeg_header_offset),
@@ -260,7 +261,7 @@ size_t JpegCompressor::CompressYUV420Frame(YUV420Frame frame) {
           dmgr.buffer_size);
   };
 
-  dmgr.empty_output_buffer = [](j_compress_ptr cinfo __unused) {
+  dmgr.empty_output_buffer = [](j_compress_ptr) {
     ALOGE("%s:%d Out of buffer", __FUNCTION__, __LINE__);
     return 0;
   };

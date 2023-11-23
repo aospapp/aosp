@@ -16,20 +16,25 @@
 
 package com.android.car.obd2.test;
 
-import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.OBD2_LIVE_FRAME;
+import static android.hardware.automotive.vehicle.VehicleProperty.OBD2_LIVE_FRAME;
+
 import static com.android.car.obd2.test.Utils.concatIntArrays;
 import static com.android.car.obd2.test.Utils.stringsToIntArray;
+
 import static org.junit.Assert.*;
 
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehiclePropValue;
 import android.util.JsonReader;
 import android.util.JsonWriter;
+
+import com.android.car.hal.test.DiagnosticJsonReader;
 import com.android.car.obd2.Obd2Connection;
 import com.android.car.obd2.Obd2LiveFrameGenerator;
-import com.android.car.vehiclehal.DiagnosticJsonReader;
+
+import org.junit.Test;
+
 import java.io.StringReader;
 import java.io.StringWriter;
-import org.junit.Test;
 
 public class Obd2LiveFrameGeneratorTest {
     private static final String[] EXPECTED_INIT_COMMANDS =
@@ -82,7 +87,7 @@ public class Obd2LiveFrameGeneratorTest {
         DiagnosticJsonReader diagnosticJsonReader = new DiagnosticJsonReader();
         VehiclePropValue vehiclePropValue = diagnosticJsonReader.build(jsonReader);
         assertEquals(OBD2_LIVE_FRAME, vehiclePropValue.prop);
-        assertEquals(1155, (long) vehiclePropValue.value.int32Values.get(0xC));
-        assertEquals(130, (long) vehiclePropValue.value.int32Values.get(0xD));
+        assertEquals(1155, (long) vehiclePropValue.value.int32Values[0xC]);
+        assertEquals(130, (long) vehiclePropValue.value.int32Values[0xD]);
     }
 }

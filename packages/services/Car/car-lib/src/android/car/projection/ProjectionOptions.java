@@ -21,6 +21,8 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.app.ActivityOptions;
+import android.car.annotation.AddedInOrBefore;
+import android.car.builtin.app.ActivityManagerHelper;
 import android.content.ComponentName;
 import android.os.Bundle;
 
@@ -37,9 +39,11 @@ public class ProjectionOptions {
     private static final String KEY_PREFIX = "android.car.projection.";
 
     /** Immersive full screen mode (all system bars are hidden) */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UI_MODE_FULL_SCREEN = 0;
 
     /** Show status and navigation bars. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UI_MODE_BLENDED = 1;
 
     private static final int UI_MODE_DEFAULT = UI_MODE_FULL_SCREEN;
@@ -49,13 +53,44 @@ public class ProjectionOptions {
     @Retention(RetentionPolicy.SOURCE)
     public @interface ProjectionUiMode {}
 
+    /** Indicates that head unit didn't specify information about access point mode.  This value
+     * can only be seen on Android SDK 31 and below. */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int AP_MODE_NOT_SPECIFIED = 0;
+
+    /** Projection access point was created such that it may provide Internet access. */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int AP_MODE_TETHERED = 1;
+
+    /**
+     * Projection access point was created as local-only hotspot, without Internet access and the
+     * credentials will be auto-generated for every access point initialization.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int AP_MODE_LOHS_DYNAMIC_CREDENTIALS = 2;
+
+    /**
+     * Projection access point was created as local-only hotspot, without Internet access and the
+     * credentials will persist reboots.  Credentials still can be reseted by user or app request.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int AP_MODE_LOHS_STATIC_CREDENTIALS = 3;
+
+    /** @hide */
+    @IntDef({AP_MODE_NOT_SPECIFIED, AP_MODE_TETHERED, AP_MODE_LOHS_DYNAMIC_CREDENTIALS,
+            AP_MODE_LOHS_STATIC_CREDENTIALS})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ProjectionAccessPointMode {}
+
     private static final String KEY_ACTIVITY_OPTIONS = KEY_PREFIX + "activityOptions";
     private static final String KEY_UI_MODE = KEY_PREFIX + "systemUiFlags";
     private static final String KEY_CONSENT_ACTIVITY = KEY_PREFIX + "consentActivity";
+    private static final String KEY_ACCESS_POINT_MODE = KEY_PREFIX + "ap_mode";
 
     private final ActivityOptions mActivityOptions;
     private final int mUiMode;
     private final ComponentName mConsentActivity;
+    private final int mApMode;
 
     /**
      * Creates new instance for given {@code Bundle}
@@ -65,28 +100,48 @@ public class ProjectionOptions {
     public ProjectionOptions(Bundle bundle) {
         Bundle activityOptionsBundle = bundle.getBundle(KEY_ACTIVITY_OPTIONS);
         mActivityOptions = activityOptionsBundle != null
-                ? new ActivityOptions(activityOptionsBundle) : null;
+                ? ActivityManagerHelper.createActivityOptions(activityOptionsBundle) : null;
         mUiMode = bundle.getInt(KEY_UI_MODE, UI_MODE_DEFAULT);
         mConsentActivity = bundle.getParcelable(KEY_CONSENT_ACTIVITY);
+        mApMode = bundle.getInt(KEY_ACCESS_POINT_MODE, AP_MODE_NOT_SPECIFIED);
     }
 
     private ProjectionOptions(Builder builder) {
         mActivityOptions = builder.mActivityOptions;
         mUiMode = builder.mUiMode;
         mConsentActivity = builder.mConsentActivity;
+        mApMode = builder.mApMode;
     }
 
     /**
      * Returns combination of flags from View.SYSTEM_UI_FLAG_* which will be used by projection
      * receiver app during rendering.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @ProjectionUiMode int getUiMode() {
         return mUiMode;
     }
 
     /**
+     * Returns projection access point mode.
+     *
+     * <p>The result could be one of the following values:
+     * <ul>
+     *     <li>{@link #AP_MODE_NOT_SPECIFIED}</li>
+     *     <li>{@link #AP_MODE_TETHERED}</li>
+     *     <li>{@link #AP_MODE_LOHS_DYNAMIC_CREDENTIALS}</li>
+     *     <li>{@link #AP_MODE_LOHS_STATIC_CREDENTIALS}</li>
+     * </ul>
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public @ProjectionAccessPointMode int getProjectionAccessPointMode() {
+        return mApMode;
+    }
+
+    /**
      * Returns {@link ActivityOptions} that needs to be applied when launching projection activity
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @Nullable ActivityOptions getActivityOptions() {
         return mActivityOptions;
     }
@@ -97,11 +152,13 @@ public class ProjectionOptions {
      *
      * <p>If the method returns null then consent dialog should not be shown.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @Nullable ComponentName getConsentActivity() {
         return mConsentActivity;
     }
 
     /** Converts current object to {@link Bundle} */
+    @AddedInOrBefore(majorVersion = 33)
     public @NonNull Bundle toBundle() {
         Bundle bundle = new Bundle();
         if (mActivityOptions != null) {
@@ -111,10 +168,12 @@ public class ProjectionOptions {
         if (mUiMode != UI_MODE_DEFAULT) {
             bundle.putInt(KEY_UI_MODE, mUiMode);
         }
+        bundle.putInt(KEY_ACCESS_POINT_MODE, mApMode);
         return bundle;
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static Builder builder() {
         return new Builder();
     }
@@ -124,26 +183,38 @@ public class ProjectionOptions {
         private ActivityOptions mActivityOptions;
         private int mUiMode = UI_MODE_DEFAULT;
         private ComponentName mConsentActivity;
+        private int mApMode = AP_MODE_NOT_SPECIFIED;
 
         /** Sets {@link ActivityOptions} to launch projection activity. */
+        @AddedInOrBefore(majorVersion = 33)
         public Builder setProjectionActivityOptions(ActivityOptions activityOptions) {
             mActivityOptions = activityOptions;
             return this;
         }
 
         /** Set UI for projection activity. It can be one of {@code UI_MODE_*} constants. */
+        @AddedInOrBefore(majorVersion = 33)
         public Builder setUiMode(@ProjectionUiMode int uiMode) {
             mUiMode = uiMode;
             return this;
         }
 
         /** Sets consent activity which will be shown before starting projection. */
+        @AddedInOrBefore(majorVersion = 33)
         public Builder setConsentActivity(ComponentName consentActivity) {
             mConsentActivity = consentActivity;
             return this;
         }
 
+        /** Sets projection access point mode */
+        @AddedInOrBefore(majorVersion = 33)
+        public Builder setAccessPointMode(@ProjectionAccessPointMode int accessPointMode) {
+            this.mApMode = accessPointMode;
+            return this;
+        }
+
         /** Creates an instance of {@link android.car.projection.ProjectionOptions} */
+        @AddedInOrBefore(majorVersion = 33)
         public ProjectionOptions build() {
             return new ProjectionOptions(this);
         }
@@ -151,6 +222,7 @@ public class ProjectionOptions {
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return toBundle().toString();
     }

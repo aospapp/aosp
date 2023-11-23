@@ -78,7 +78,11 @@ static struct tcase {
 	{&fd_chrdev,	0,	EINVAL,		CONTSIZE,	"char device",	0},
 	{&fd_fifo,	0,	EINVAL,		CONTSIZE,	"fifo", 	0},
 	{&fd_pipe[0],	0,	EINVAL,		CONTSIZE,	"pipe", 	0},
-	{&fd_copy,	0,	EOVERFLOW,	ULLONG_MAX,	"max length lenght", 	1},
+#ifdef TST_ABI64
+	{&fd_copy,	0,	EOVERFLOW,	ULLONG_MAX,	"max length", 	1},
+#else
+	{&fd_copy,	0,	EFBIG,		ULLONG_MAX,	"max length", 	1},
+#endif
 	{&fd_copy,	0,	EFBIG,		MIN_OFF,	"max file size", 	1},
 };
 
@@ -87,7 +91,7 @@ static int run_command(char *command, char *option, char *file)
 	const char *const cmd[] = {command, option, file, NULL};
 	int ret;
 
-	ret = tst_run_cmd(cmd, NULL, NULL, 1);
+	ret = tst_cmd(cmd, NULL, NULL, TST_CMD_PASS_RETVAL);
 	switch (ret) {
 	case 0:
 	return 0;

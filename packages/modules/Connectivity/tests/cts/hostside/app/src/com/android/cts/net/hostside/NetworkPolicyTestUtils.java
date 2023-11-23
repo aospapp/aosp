@@ -25,7 +25,7 @@ import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 import static android.net.wifi.WifiConfiguration.METERED_OVERRIDE_METERED;
 import static android.net.wifi.WifiConfiguration.METERED_OVERRIDE_NONE;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommandOrThrow;
 import static com.android.cts.net.hostside.AbstractRestrictBackgroundNetworkTestCase.TAG;
 
 import static org.junit.Assert.assertEquals;
@@ -38,6 +38,7 @@ import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.ConnectivityManager.NetworkCallback;
@@ -56,6 +57,7 @@ import android.telephony.data.ApnSetting;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.AppStandbyUtils;
 import com.android.compatibility.common.util.BatteryUtils;
@@ -99,6 +101,10 @@ public class NetworkPolicyTestUtils {
         return mBatterySaverSupported;
     }
 
+    private static boolean isWear() {
+        return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
     /**
      * As per CDD requirements, if the device doesn't support data saver mode then
      * ConnectivityManager.getRestrictBackgroundStatus() will always return
@@ -107,6 +113,9 @@ public class NetworkPolicyTestUtils {
      * RESTRICT_BACKGROUND_STATUS_DISABLED or not.
      */
     public static boolean isDataSaverSupported() {
+        if (isWear()) {
+            return false;
+        }
         if (mDataSaverSupported == null) {
             assertMyRestrictBackgroundStatus(RESTRICT_BACKGROUND_STATUS_DISABLED);
             try {
@@ -382,7 +391,7 @@ public class NetworkPolicyTestUtils {
     }
 
     public static String executeShellCommand(String command) {
-        final String result = runShellCommand(command).trim();
+        final String result = runShellCommandOrThrow(command).trim();
         Log.d(TAG, "Output of '" + command + "': '" + result + "'");
         return result;
     }
@@ -430,6 +439,10 @@ public class NetworkPolicyTestUtils {
         return InstrumentationRegistry.getInstrumentation();
     }
 
+    public static UiDevice getUiDevice() {
+        return UiDevice.getInstance(getInstrumentation());
+    }
+
     // When power saver mode or restrict background enabled or adding any white/black list into
     // those modes, NetworkPolicy may need to take some time to update the rules of uids. So having
     // this function and using PollingCheck to try to make sure the uid has updated and reduce the
@@ -437,6 +450,11 @@ public class NetworkPolicyTestUtils {
     public static void assertNetworkingBlockedStatusForUid(int uid, boolean metered,
             boolean expectedResult) throws Exception {
         PollingCheck.waitFor(() -> (expectedResult == isUidNetworkingBlocked(uid, metered)));
+    }
+
+    public static void assertIsUidRestrictedOnMeteredNetworks(int uid, boolean expectedResult)
+            throws Exception {
+        PollingCheck.waitFor(() -> (expectedResult == isUidRestrictedOnMeteredNetworks(uid)));
     }
 
     public static boolean isUidNetworkingBlocked(int uid, boolean meteredNetwork) {

@@ -145,9 +145,9 @@ public class CallScreeningServiceHelper {
 
         if (!bindCallScreeningService(mContext, mUserHandle, mPackageName, serviceConnection)) {
             Log.i(this, "bindAndGetCallIdentification - bind failed");
-            Log.addEvent(mCall, LogUtils.Events.BIND_SCREENING, mPackageName);
             mFuture.complete(null);
         }
+        Log.addEvent(mCall, LogUtils.Events.BIND_SCREENING, mPackageName);
 
         // Set up a timeout so that we're not waiting forever for the caller ID information.
         Handler handler = new Handler();

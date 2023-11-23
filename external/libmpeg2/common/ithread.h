@@ -77,4 +77,17 @@ WORD32  ithread_sem_wait(void *sem);
 WORD32  ithread_sem_destroy(void *sem);
 
 WORD32 ithread_set_affinity(WORD32 core_id);
+
+#ifdef KEEP_THREADS_ACTIVE
+WORD32 ithread_get_cond_struct_size(void);
+
+WORD32 ithread_cond_init(void *cond);
+
+WORD32 ithread_cond_destroy(void *cond);
+
+WORD32 ithread_cond_wait(void *cond, void *mutex);
+
+WORD32 ithread_cond_signal(void *cond);
+#endif
+
 #endif /* __ITHREAD_H__ */

@@ -62,7 +62,6 @@
             system_ext/lib/lib-imsvideocodec.so \
             system_ext/lib/liblistensoundmodel2.qti.so \
             system_ext/lib/libmmosal.so \
-            system_ext/lib/libqct_resampler.so \
             system_ext/lib/libvr_amb_engine.so \
             system_ext/lib/libvr_object_engine.so \
             system_ext/app/QtiTelephonyService/QtiTelephonyService.apk \

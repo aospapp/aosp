@@ -33,7 +33,10 @@ cc_library_shared {
         "-Wextra",
         "-DNXP_EXTNS=TRUE",
         "-DNXP_HW_SELF_TEST=TRUE",
-        "-DNXP_SRD=TRUE"
+        "-DNXP_SRD=TRUE",
+        "-DNXP_NFC_RECOVERY=TRUE",
+        "-DNXP_QTAG=TRUE",
+        "-DNXP_FORCE_FW_DOWNLOAD=1"
     ],
     srcs: [
         "halimpl/dnld/phDnldNfc.cc",
@@ -51,10 +54,10 @@ cc_library_shared {
         "halimpl/tml/phDal4Nfc_messageQueueLib.cc",
         "halimpl/tml/phOsalNfc_Timer.cc",
         "halimpl/tml/phTmlNfc.cc",
-        "halimpl/tml/spi_spm.cc",
         "halimpl/tml/NfccTransportFactory.cc",
         "halimpl/tml/transport/*.cc",
         "halimpl/utils/NxpNfcCapability.cc",
+        "halimpl/utils/NxpNfcThreadMutex.cc",
         "halimpl/utils/phNxpConfig.cc",
         "halimpl/utils/phNxpNciHal_utils.cc",
         "halimpl/utils/sparse_crc32.cc",
@@ -62,6 +65,7 @@ cc_library_shared {
         "halimpl/hal/phNxpNciHal_IoctlOperations.cc",
         "halimpl/hal/phNxpNciHal_extOperations.cc",
         "halimpl/mifare/NxpMfcReader.cc",
+        "halimpl/recovery/phNxpNciHal_Recovery.cc",
     ],
 
     local_include_dirs: [
@@ -77,7 +81,8 @@ cc_library_shared {
         "halimpl/eseclients_extns/inc",
         "halimpl/src/include",
         "halimpl/mifare",
-        "extns/impl/nxpnfc/2.0"
+        "extns/impl/nxpnfc/2.0",
+        "halimpl/recovery",
     ],
 
     include_dirs: [
@@ -113,7 +118,8 @@ cc_binary {
          "-Werror",
          "-Wextra",
          "-fexceptions",
-         "-DNXP_EXTNS=TRUE"
+         "-DNXP_EXTNS=TRUE",
+         "-DNXP_NFC_RECOVERY=TRUE"
      ],
 
     srcs: [
@@ -151,6 +157,7 @@ cc_binary {
         "halimpl/mifare",
         "halimpl/eseclients_extns/inc/",
         "extns/impl/nxpnfc/2.0",
+        "halimpl/recovery",
     ],
 
     include_dirs: [

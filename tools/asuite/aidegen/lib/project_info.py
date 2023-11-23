@@ -50,6 +50,12 @@ _CMD_LENGTH_BUFFER = 5000
 _BLANK_SIZE = 1
 _CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
                  'org.apache.http.legacy.stubs.system']
+_BUILD_BP_JSON_ENV_ON = {
+    constant.GEN_JAVA_DEPS: 'true',
+    constant.GEN_CC_DEPS: 'true',
+    constant.GEN_COMPDB: 'true',
+    constant.GEN_RUST: 'true'
+}
 
 
 class ProjectInfo:
@@ -600,7 +606,7 @@ def _build_target(targets):
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
     verbose = True
-    if not atest_utils.build(build_cmd, verbose):
+    if not atest_utils.build(build_cmd, verbose, _BUILD_BP_JSON_ENV_ON):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))

@@ -5,7 +5,7 @@ index 78271ca1..e2ef84af 100644
 @@ -54,14 +54,21 @@ rust_library {
      crate_name: "disk",
      srcs: ["src/disk.rs"],
-     edition: "2018",
+     edition: "2021",
 +    features: [
 +        "composite-disk",  // Added manually
 +    ],

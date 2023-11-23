@@ -29,6 +29,7 @@ java_test_host {
         "cts-tradefed",
         "tradefed",
         "compatibility-host-util",
+        "androidx.annotation_annotation",
     ],
     data: [
         ":HdmiCecHelperApp",

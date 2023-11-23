@@ -82,7 +82,7 @@ public class UiActionLatencyHelperTest {
         assertTrue(mActionLatencyHelper.startCollecting());
         Log.d(LOG_TAG, "testQuickSwitchMetric: started collecting");
 
-        sLauncher.getBackground().quickSwitchToPreviousApp();
+        sLauncher.getLaunchedAppState().quickSwitchToPreviousApp();
 
         // Checking metrics produced by the CUJ.
         final Map<String, StringBuilder> latencyMetrics = mActionLatencyHelper.getMetrics();
@@ -103,7 +103,7 @@ public class UiActionLatencyHelperTest {
     }
 
     private void startApp(LauncherInstrumentation sLauncher, String appName, String appPackage) {
-        final AllApps allApps = sLauncher.pressHome().switchToAllApps();
+        final AllApps allApps = sLauncher.goHome().switchToAllApps();
         allApps.freeze();
         try {
             allApps.getAppIcon(appName).launch(appPackage);

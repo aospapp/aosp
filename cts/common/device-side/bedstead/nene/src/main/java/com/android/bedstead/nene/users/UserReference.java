@@ -19,11 +19,19 @@ package com.android.bedstead.nene.users;
 import static android.Manifest.permission.CREATE_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
+import static android.content.Intent.ACTION_MANAGED_PROFILE_AVAILABLE;
+import static android.content.Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE;
+import static android.os.Build.VERSION_CODES.P;
 import static android.os.Build.VERSION_CODES.R;
 import static android.os.Build.VERSION_CODES.S;
 
+import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_PROFILE_AND_DEVICE_OWNERS;
+import static com.android.bedstead.nene.permissions.CommonPermissions.MODIFY_QUIET_MODE;
 import static com.android.bedstead.nene.users.Users.users;
 
+import android.annotation.TargetApi;
+import android.app.KeyguardManager;
+import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
@@ -33,6 +41,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.annotations.Experimental;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.permissions.PermissionContext;
@@ -60,6 +69,8 @@ public class UserReference implements AutoCloseable {
 
     private static final String LOG_TAG = "UserReference";
 
+    private static final String USER_SETUP_COMPLETE_KEY = "user_setup_complete";
+
     private final int mId;
 
     private final UserManager mUserManager;
@@ -70,6 +81,14 @@ public class UserReference implements AutoCloseable {
     private Boolean mIsPrimary;
     private boolean mParentCached = false;
     private UserReference mParent;
+    private @Nullable String mPassword;
+
+    /**
+     * Returns a {@link UserReference} equivalent to the passed {@code userHandle}.
+     */
+    public static UserReference of(UserHandle userHandle) {
+        return TestApis.users().find(userHandle.getIdentifier());
+    }
 
     UserReference(int id) {
         mId = id;
@@ -255,12 +274,15 @@ public class UserReference implements AutoCloseable {
                             .getSystemService(UserManager.class)
                             .getUserName();
                 }
-                if (mName.equals("")) {
+                if (mName == null || mName.equals("")) {
                     if (!exists()) {
                         mName = null;
                         throw new NeneException("User does not exist " + this);
                     }
                 }
+            }
+            if (mName == null) {
+                mName = "";
             }
         }
 
@@ -369,6 +391,140 @@ public class UserReference implements AutoCloseable {
             return TestApis.users().all().stream().anyMatch(u -> u.equals(this));
         }
         return users().anyMatch(ui -> ui.id == id());
+    }
+
+    /**
+     * Sets the value of {@code user_setup_complete} in secure settings to {@code complete}.
+     */
+    @Experimental
+    public void setSetupComplete(boolean complete) {
+        if (!Versions.meetsMinimumSdkVersionRequirement(S)) {
+            return;
+        }
+        DevicePolicyManager devicePolicyManager =
+                TestApis.context().androidContextAsUser(this)
+                        .getSystemService(DevicePolicyManager.class);
+        TestApis.settings().secure().putInt(
+                /* user= */ this, USER_SETUP_COMPLETE_KEY, complete ? 1 : 0);
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+            devicePolicyManager.forceUpdateUserSetupComplete(id());
+        }
+    }
+
+    /**
+     * Gets the value of {@code user_setup_complete} from secure settings.
+     */
+    @Experimental
+    public boolean getSetupComplete() {
+        try (PermissionContext p = TestApis.permissions().withPermission(CREATE_USERS)) {
+            return TestApis.settings().secure()
+                    .getInt(/*user= */ this, USER_SETUP_COMPLETE_KEY, /* def= */ 0) == 1;
+        }
+    }
+
+    /**
+     * True if the user has a password.
+     */
+    public boolean hasPassword() {
+        return TestApis.context().androidContextAsUser(this)
+                .getSystemService(KeyguardManager.class).isDeviceSecure();
+    }
+
+    /**
+     * Set a password for the user.
+     */
+    public void setPassword(String password) {
+        try {
+            ShellCommand.builder("cmd lock_settings")
+                    .addOperand("set-password")
+                    .addOperand(password)
+                    .addOption("--user", mId)
+                    .validate(s -> s.startsWith("Password set to "))
+                    .execute();
+        } catch (AdbException e) {
+            throw new NeneException("Error setting password", e);
+        }
+        mPassword = password;
+    }
+
+    /**
+     * Clear the password for the user, using the password that was last set using Nene.
+     */
+    public void clearPassword() {
+        if (mPassword == null) {
+            throw new NeneException(
+                    "clearPassword() can only be called when setPassword was used to set the"
+                            + " password");
+        }
+        clearPassword(mPassword);
+    }
+
+    /**
+     * Clear the password for the user.
+     */
+    public void clearPassword(String password) {
+
+        try {
+            ShellCommand.builder("cmd lock_settings")
+                    .addOperand("clear")
+                    .addOption("--old", password)
+                    .addOption("--user", mId)
+                    .validate(s -> s.startsWith("Lock credential cleared"))
+                    .execute();
+        } catch (AdbException e) {
+            if (e.output().contains("user has no password")) {
+                // No password anyway, fine
+                mPassword = null;
+                return;
+            }
+            throw new NeneException("Error clearing password", e);
+        }
+
+        mPassword = null;
+    }
+
+    /**
+     * Returns the password for this user if that password was set using Nene.
+     *
+     *
+     * <p>If there is no password, or the password was not set using Nene, then this will
+     * return {@code null}.
+     */
+    public @Nullable String password() {
+        return mPassword;
+    }
+
+    /**
+     * Sets quiet mode to {@code enabled}. This will only work for managed profiles with no
+     * credentials set.
+     *
+     * @return {@code false} if user's credential is needed in order to turn off quiet mode,
+     *         {@code true} otherwise.
+     */
+    @TargetApi(P)
+    @Experimental
+    public boolean setQuietMode(boolean enabled) {
+        if (!Versions.meetsMinimumSdkVersionRequirement(P)) {
+            return false;
+        }
+        try (PermissionContext p = TestApis.permissions().withPermission(MODIFY_QUIET_MODE)) {
+            BlockingBroadcastReceiver r = BlockingBroadcastReceiver.create(
+                            TestApis.context().instrumentedContext(),
+                            enabled
+                                    ? ACTION_MANAGED_PROFILE_UNAVAILABLE
+                                    : ACTION_MANAGED_PROFILE_AVAILABLE)
+                    .register();
+            try {
+                if (mUserManager.requestQuietModeEnabled(enabled, userHandle())) {
+                    r.awaitForBroadcast();
+                    return true;
+                }
+                return false;
+            } finally {
+                r.unregisterQuietly();
+            }
+        }
     }
 
     @Override

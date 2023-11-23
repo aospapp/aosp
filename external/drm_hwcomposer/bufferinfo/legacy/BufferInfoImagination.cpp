@@ -20,6 +20,8 @@
 
 #include <xf86drm.h>
 
+#include <cerrno>
+
 #include "img_gralloc1_public.h"
 #include "utils/log.h"
 

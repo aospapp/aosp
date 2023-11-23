@@ -29,7 +29,7 @@ import android.util.Log;
  */
 
 public class TestExternalImsService extends TestImsService {
-    private static final String TAG = "GtsImsTestDeviceImsService";
+    private static final String TAG = "CtsImsTestDeviceImsService";
     // TODO: Use ImsService.SERVICE_INTERFACE definition when it becomes public.
     private static final String ACTION_BIND_IMS_SERVICE = "android.telephony.ims.ImsService";
 
@@ -56,19 +56,26 @@ public class TestExternalImsService extends TestImsService {
         public void resetState() {
             TestExternalImsService.this.resetState();
         }
+
+        public boolean isTelephonyBound() {
+            return TestExternalImsService.this.isTelephonyBound();
+        }
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        if (ACTION_BIND_IMS_SERVICE.equals(intent.getAction())) {
-            if (ImsUtils.VDBG) {
-                Log.i(TAG, "onBind-Remote");
+        synchronized (mLock) {
+            if (ACTION_BIND_IMS_SERVICE.equals(intent.getAction())) {
+                if (ImsUtils.VDBG) {
+                    Log.i(TAG, "onBind-Remote");
+                }
+                mIsTelephonyBound = true;
+                return super.onBind(intent);
             }
-            return super.onBind(intent);
+            if (ImsUtils.VDBG) {
+                Log.i(TAG, "onBind-Local");
+            }
+            return mBinder;
         }
-        if (ImsUtils.VDBG) {
-            Log.i(TAG, "onBind-Local");
-        }
-        return mBinder;
     }
 }

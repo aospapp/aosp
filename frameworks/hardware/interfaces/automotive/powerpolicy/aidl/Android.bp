@@ -29,7 +29,12 @@ aidl_interface {
     stability: "vintf",
     backend: {
         java: {
-            platform_apis: true,
+            sdk_version: "module_current",
+            min_sdk_version: "31",
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.car.framework",
+            ],
             enabled: true,
         },
     },
@@ -38,16 +43,28 @@ aidl_interface {
 
 aidl_interface {
     name: "android.frameworks.automotive.powerpolicy.internal",
-    unstable: true,
     vendor_available: false,
     srcs: [
         "android/frameworks/automotive/powerpolicy/internal/ICarPowerPolicySystemNotification.aidl",
         "android/frameworks/automotive/powerpolicy/internal/PolicyState.aidl",
     ],
+    stability: "vintf",
     backend: {
         java: {
-            platform_apis: true,
+            sdk_version: "module_current",
+            min_sdk_version: "31",
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.car.framework",
+            ],
             enabled: true,
         },
     },
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [],
+        },
+    ],
+
 }

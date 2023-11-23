@@ -16,6 +16,7 @@
 
 package android.app.notification.legacy.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_FULL_SCREEN_INTENT;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_LIGHTS;
 import static android.app.NotificationManager.Policy.SUPPRESSED_EFFECT_NOTIFICATION_LIST;
@@ -28,17 +29,16 @@ import static junit.framework.Assert.assertEquals;
 
 import static org.junit.Assert.assertTrue;
 
-import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.UiAutomation;
-import android.content.pm.PackageManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.provider.Telephony.Threads;
@@ -75,6 +75,8 @@ public class LegacyNotificationManagerTest {
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getContext();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(POST_NOTIFICATIONS);
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
         toggleListenerAccess(SecondaryNotificationListener.getId(),
@@ -87,6 +89,8 @@ public class LegacyNotificationManagerTest {
 
     @After
     public void tearDown() throws Exception {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
         toggleListenerAccess(SecondaryNotificationListener.getId(),
@@ -180,27 +184,25 @@ public class LegacyNotificationManagerTest {
     public void testSuspendPackage() throws Exception {
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(500); // wait for listener to be allowed
+        Thread.sleep(1000); // wait for listener to be allowed
 
         mListener = TestNotificationListener.getInstance();
         Assert.assertNotNull(mListener);
 
         sendNotification(1, R.drawable.icon_black);
-        Thread.sleep(500); // wait for notification listener to receive notification
-        assertEquals(1, mListener.mPosted.size());
+        assertTrue(pollForPostedNotifications(1));
         mListener.resetData();
 
         // suspend package, listener receives onRemoved
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 true);
-        Thread.sleep(500); // wait for notification listener to get response
-        assertEquals(1, mListener.mRemoved.size());
+        Thread.sleep(1000); // wait for notification listener to get response
+        assertTrue(pollForRemovedNotifications(1));
 
         // unsuspend package, listener receives onPosted
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 false);
-        Thread.sleep(500); // wait for notification listener to get response
-        assertEquals(1, mListener.mPosted.size());
+        assertTrue(pollForPostedNotifications(1));
 
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
@@ -223,14 +225,13 @@ public class LegacyNotificationManagerTest {
         Thread.sleep(500); // wait for notification listener to get response
 
         sendNotification(1, R.drawable.icon_black);
-        Thread.sleep(500); // wait for notification listener in case it receives notification
+        Thread.sleep(1000); // wait for notification listener in case it receives notification
         assertEquals(0, mListener.mPosted.size()); // shouldn't see any notifications posted
 
         // unsuspend package, listener should receive onPosted
         suspendPackage(mContext.getPackageName(), InstrumentationRegistry.getInstrumentation(),
                 false);
-        Thread.sleep(500); // wait for notification listener to get response
-        assertEquals(1, mListener.mPosted.size());
+        assertTrue(pollForPostedNotifications(1));
 
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), false);
@@ -320,13 +321,13 @@ public class LegacyNotificationManagerTest {
         assertEquals(Build.VERSION_CODES.O_MR1, mContext.getApplicationInfo().targetSdkVersion);
         toggleListenerAccess(TestNotificationListener.getId(),
                 InstrumentationRegistry.getInstrumentation(), true);
-        Thread.sleep(500); // wait for listener to be allowed
+        Thread.sleep(1000); // wait for listener to be allowed
         mListener = TestNotificationListener.getInstance();
 
         sendNotification(566, R.drawable.icon_black);
 
-        Thread.sleep(500); // wait for notification listener to receive notification
-        assertEquals(1, mListener.mPosted.size());
+        // wait for notification listener to receive notification
+        assertTrue(pollForPostedNotifications(1));
         String key = mListener.mPosted.get(0).getKey();
 
         mNotificationManager.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
@@ -357,6 +358,36 @@ public class LegacyNotificationManagerTest {
                         .setGroup(groupKey)
                         .build();
         mNotificationManager.notify(id, notification);
+    }
+
+    // Wait for the listener to have received the specified number of posted notifications.
+    private boolean pollForPostedNotifications(int expected) {
+        for (int tries = 5; tries-- > 0; ) {
+            if (mListener.mPosted.size() >= expected) {
+                return true;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ex) {
+                // pass
+            }
+        }
+        return false;
+    }
+
+    // Wait for the listener to have received the specified number of removed notifications.
+    private boolean pollForRemovedNotifications(int expected) {
+        for (int tries = 5; tries-- > 0; ) {
+            if (mListener.mRemoved.size() >= expected) {
+                return true;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ex) {
+                // pass
+            }
+        }
+        return false;
     }
 
     private int getCancellationReason(String key) {

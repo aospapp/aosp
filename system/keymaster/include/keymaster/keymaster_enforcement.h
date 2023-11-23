@@ -17,10 +17,13 @@
 #ifndef ANDROID_LIBRARY_KEYMASTER_ENFORCEMENT_H
 #define ANDROID_LIBRARY_KEYMASTER_ENFORCEMENT_H
 
+#include <array>
+
 #include <stdio.h>
 
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/authorization_set.h>
+#include <keymaster/keymaster_utils.h>
 
 namespace keymaster {
 
@@ -179,6 +182,16 @@ class KeymasterEnforcement {
      * Generate TimestampToken for secure clock instance.
      */
     virtual keymaster_error_t GenerateTimestampToken(TimestampToken* token);
+
+    /**
+     * Compute an HMAC using the auth token HMAC key.
+     *
+     * Note: Use with caution.  MACed data must contain enough structure that it's unambiguous.
+     */
+    virtual KmErrorOr<std::array<uint8_t, 32>>
+    ComputeHmac(const std::vector<uint8_t>& /* data_to_mac */) const {
+        return KM_ERROR_UNIMPLEMENTED;
+    }
 
     /**
      * Creates a key ID for use in subsequent calls to AuthorizeOperation.  AndroidKeymaster

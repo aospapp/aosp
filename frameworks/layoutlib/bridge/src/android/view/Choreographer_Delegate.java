@@ -15,13 +15,18 @@
  */
 package android.view;
 
+import com.android.ide.common.rendering.api.ILayoutLog;
+import com.android.internal.lang.System_Delegate;
+import com.android.layoutlib.bridge.Bridge;
+import com.android.layoutlib.bridge.android.BridgeContext;
+import com.android.layoutlib.bridge.impl.RenderAction;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
+import com.android.tools.layoutlib.annotations.Nullable;
 
-import android.animation.AnimationHandler;
-import android.util.TimeUtils;
-import android.view.animation.AnimationUtils;
+import java.lang.StackWalker.StackFrame;
+import java.util.Optional;
 
-import java.util.concurrent.atomic.AtomicReference;
+import static com.android.layoutlib.bridge.impl.RenderAction.getCurrentContext;
 
 /**
  * Delegate used to provide new implementation of a select few methods of {@link Choreographer}
@@ -31,65 +36,80 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  */
 public class Choreographer_Delegate {
-    private static final AtomicReference<Choreographer> mInstance = new AtomicReference<Choreographer>();
-
-    private static final int MS_16 = 16000000;
-
-    @LayoutlibDelegate
-    public static Choreographer getInstance() {
-        if (mInstance.get() == null) {
-            mInstance.compareAndSet(null, Choreographer.getInstance_Original());
-        }
-
-        return mInstance.get();
-    }
-
     @LayoutlibDelegate
     public static float getRefreshRate() {
         return 60.f;
     }
 
     @LayoutlibDelegate
-    static void scheduleVsyncLocked(Choreographer thisChoreographer) {
-        // do nothing
-    }
-
-    public static void doFrame(long frameTimeNanos) {
-        Choreographer thisChoreographer = Choreographer.getInstance();
-
-        AnimationUtils.lockAnimationClock(frameTimeNanos / TimeUtils.NANOS_PER_MS);
-
-        try {
-            thisChoreographer.mLastFrameTimeNanos = frameTimeNanos - thisChoreographer.getFrameIntervalNanos();
-            thisChoreographer.mFrameInfo.markInputHandlingStart();
-            thisChoreographer.doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos, MS_16);
-
-            thisChoreographer.mFrameInfo.markAnimationsStart();
-            thisChoreographer.doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos, MS_16);
-
-            thisChoreographer.mFrameInfo.markPerformTraversalsStart();
-            thisChoreographer.doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos, MS_16);
-
-            thisChoreographer.doCallbacks(Choreographer.CALLBACK_COMMIT, frameTimeNanos, MS_16);
-        } finally {
-            AnimationUtils.unlockAnimationClock();
+    public static void postCallbackDelayedInternal(
+            Choreographer thiz, int callbackType, Object action, Object token, long delayMillis) {
+        BridgeContext context = getCurrentContext();
+        if (context == null) {
+            if (!Thread.currentThread().getName().equals("kotlinx.coroutines.DefaultExecutor")) {
+                return;
+            }
+            ClassLoader moduleClassLoader = findCallingClassLoader();
+            if (moduleClassLoader == null) {
+                return;
+            }
+            context = RenderAction.findContextFor(moduleClassLoader);
+            if (context == null) {
+                return;
+            }
         }
+        if (callbackType != Choreographer.CALLBACK_ANIMATION) {
+            // Ignore non-animation callbacks
+            return;
+        }
+        if (action == null) {
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
+                    "Callback with null action", (Object) null, null);
+        }
+        context.getSessionInteractiveData().getChoreographerCallbacks().add(action, delayMillis);
     }
 
-    public static void clearFrames() {
-        Choreographer thisChoreographer = Choreographer.getInstance();
-
-        thisChoreographer.removeCallbacks(Choreographer.CALLBACK_INPUT, null, null);
-        thisChoreographer.removeCallbacks(Choreographer.CALLBACK_ANIMATION, null, null);
-        thisChoreographer.removeCallbacks(Choreographer.CALLBACK_TRAVERSAL, null, null);
-        thisChoreographer.removeCallbacks(Choreographer.CALLBACK_COMMIT, null, null);
-
-        // Release animation handler instance since it holds references to the callbacks
-        AnimationHandler.sAnimatorHandler.set(null);
+    @LayoutlibDelegate
+    public static void removeCallbacksInternal(
+            Choreographer thiz, int callbackType, Object action, Object token) {
+        BridgeContext context = getCurrentContext();
+        if (context == null) {
+            return;
+        }
+        if (callbackType != Choreographer.CALLBACK_ANIMATION) {
+            // Ignore non-animation callbacks
+            return;
+        }
+        if (action == null) {
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
+                    "Callback with null action", (Object) null, null);
+        }
+        context.getSessionInteractiveData().getChoreographerCallbacks().remove(action);
     }
 
-    public static void dispose() {
-        clearFrames();
-        Choreographer.releaseInstance();
+    @LayoutlibDelegate
+    public static long getFrameTimeNanos(Choreographer thiz) {
+        return System.nanoTime();
+    }
+
+    /**
+     * With this method we are trying to find a child ClassLoader that calls this method. We assume
+     * that the child ClassLoader is the first ClassLoader in the callstack that is different from
+     * the current one.
+     */
+    @Nullable
+    private static ClassLoader findCallingClassLoader() {
+        final ClassLoader current = Choreographer_Delegate.class.getClassLoader();
+        StackWalker walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+        try {
+            return walker.walk(stackFrameStream -> {
+                Optional<StackFrame> stackFrame = stackFrameStream
+                        .filter(sf -> sf.getDeclaringClass().getClassLoader() != current)
+                        .findFirst();
+                return stackFrame.map(f -> f.getDeclaringClass().getClassLoader()).orElse(null);
+            });
+        } catch (Throwable ex) {
+            return null;
+        }
     }
 }

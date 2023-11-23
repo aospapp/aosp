@@ -28,7 +28,6 @@ import android.content.rollback.RollbackInfo;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.cts.install.lib.Install;
-import com.android.cts.install.lib.InstallUtils;
 import com.android.cts.install.lib.TestApp;
 import com.android.cts.rollback.lib.RollbackUtils;
 
@@ -147,8 +146,6 @@ public class ApexCompressionTests {
         // Trigger rollback
         RollbackInfo available = RollbackUtils.getAvailableRollback(COMPRESSED_APEX_PACKAGE_NAME);
         RollbackUtils.rollback(available.getRollbackId(), UNCOMPRESSED_APEX_V2);
-        RollbackInfo committed = RollbackUtils.getCommittedRollbackById(available.getRollbackId());
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
     }
 
     @Test

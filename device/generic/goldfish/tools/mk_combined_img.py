@@ -1,9 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
 import argparse
 import codecs
+import math
 import operator
 import os
 import sys
@@ -49,7 +50,7 @@ def parse_input(input_file):
         partition_info["path"] = line[0]
         partition_info["label"] = line[1]
         # round up by 1M
-        sizeByMb = str((1024 * 1024 - 1 + os.path.getsize(line[0])) / 1024 / 1024)
+        sizeByMb = str(math.ceil(os.path.getsize(line[0]) / 1024 / 1024))
         partition_info["sizeByMb"] = sizeByMb
 
         try:

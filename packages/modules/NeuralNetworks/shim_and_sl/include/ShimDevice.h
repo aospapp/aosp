@@ -58,6 +58,9 @@ class ShimDevice : public BnDevice {
             const std::vector<::ndk::ScopedFileDescriptor>& dataCache,
             const std::vector<uint8_t>& token,
             const std::shared_ptr<IPreparedModelCallback>& callback) override;
+    ::ndk::ScopedAStatus prepareModelWithConfig(
+            const Model& model, const PrepareModelConfig& config,
+            const std::shared_ptr<IPreparedModelCallback>& callback) override;
     ::ndk::ScopedAStatus prepareModelFromCache(
             int64_t deadlineNs, const std::vector<::ndk::ScopedFileDescriptor>& modelCache,
             const std::vector<::ndk::ScopedFileDescriptor>& dataCache,
@@ -65,6 +68,14 @@ class ShimDevice : public BnDevice {
             const std::shared_ptr<IPreparedModelCallback>& callback) override;
 
    private:
+    ndk::ScopedAStatus prepareModelCommon(
+            const Model& model, ExecutionPreference preference, Priority priority,
+            int64_t deadlineNs, const std::vector<::ndk::ScopedFileDescriptor>& modelCache,
+            const std::vector<::ndk::ScopedFileDescriptor>& dataCache,
+            const std::vector<uint8_t>& token, const std::vector<TokenValuePair>& compilationHints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix,
+            const std::shared_ptr<IPreparedModelCallback>& callback);
+
     std::shared_ptr<const NnApiSupportLibrary> mNnapi;
     std::shared_ptr<ShimBufferTracker> mBufferTracker;
     std::string mServiceName;

@@ -43,6 +43,7 @@ import android.net.dhcp.DhcpServingParamsParcel;
 import android.net.dhcp.IDhcpServerCallbacks;
 import android.net.ip.IIpClientCallbacks;
 import android.net.ip.IpClient;
+import android.net.networkstack.aidl.NetworkMonitorParameters;
 import android.net.shared.PrivateDnsConfig;
 import android.net.util.SharedLog;
 import android.os.Build;
@@ -612,10 +613,23 @@ public class NetworkStackService extends Service {
             mNm.notifyDnsResponse(returnCode);
         }
 
+        /**
+         * Send a notification to NetworkMonitor indicating that the network is now connected.
+         * @Deprecated use notifyNetworkConnectedParcel, which also passes the NetworkAgentConfig.
+         */
         @Override
         public void notifyNetworkConnected(LinkProperties lp, NetworkCapabilities nc) {
             mPermChecker.enforceNetworkStackCallingPermission();
             mNm.notifyNetworkConnected(lp, nc);
+        }
+
+        /**
+         * Send a notification to NetworkMonitor indicating that the network is now connected.
+         */
+        @Override
+        public void notifyNetworkConnectedParcel(NetworkMonitorParameters params) {
+            mPermChecker.enforceNetworkStackCallingPermission();
+            mNm.notifyNetworkConnectedParcel(params);
         }
 
         @Override

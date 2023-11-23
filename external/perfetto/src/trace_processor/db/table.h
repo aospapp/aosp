@@ -38,7 +38,7 @@ class Table {
   // Iterator over the rows of the table.
   class Iterator {
    public:
-    Iterator(const Table* table) : table_(table) {
+    explicit Iterator(const Table* table) : table_(table) {
       for (const auto& rm : table->row_maps()) {
         its_.emplace_back(rm.IterateRows());
       }
@@ -60,7 +60,7 @@ class Table {
     // Returns the value at the current row for column |col_idx|.
     SqlValue Get(uint32_t col_idx) const {
       const auto& col = table_->columns_[col_idx];
-      return col.GetAtIdx(its_[col.row_map_idx_].row());
+      return col.GetAtIdx(its_[col.row_map_idx_].index());
     }
 
    private:
@@ -133,22 +133,6 @@ class Table {
 
   // Sorts the Table using the specified order by constraints.
   Table Sort(const std::vector<Order>& od) const;
-
-  // Joins |this| table with the |other| table using the values of column |left|
-  // of |this| table to lookup the row in |right| column of the |other| table.
-  //
-  // Concretely, for each row in the returned table we lookup the value of
-  // |left| in |right|. The found row is used as the values for |other|'s
-  // columns in the returned table.
-  //
-  // This means we obtain the following invariants:
-  //  1. this->size() == ret->size()
-  //  2. this->Rows()[i].Get(j) == ret->Rows()[i].Get(j)
-  //
-  // It also means there are few restrictions on the data in |left| and |right|:
-  //  * |left| is not allowed to have any nulls.
-  //  * |left|'s values must exist in |right|
-  Table LookupJoin(JoinKey left, const Table& other, JoinKey right);
 
   // Extends the table with a new column called |name| with data |sv|.
   template <typename T>

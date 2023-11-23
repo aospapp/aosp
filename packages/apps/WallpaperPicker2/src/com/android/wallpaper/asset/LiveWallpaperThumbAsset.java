@@ -17,7 +17,6 @@ package com.android.wallpaper.asset;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -27,7 +26,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.ImageView;
 
@@ -46,6 +44,8 @@ import com.bumptech.glide.request.RequestOptions;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -54,6 +54,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class LiveWallpaperThumbAsset extends Asset {
     private static final String TAG = "LiveWallpaperThumbAsset";
+    private static final ExecutorService sExecutorService = Executors.newCachedThreadPool();
     private static final int LOW_RES_THUMB_TIMEOUT_SECONDS = 2;
 
     protected final Context mContext;
@@ -75,9 +76,34 @@ public class LiveWallpaperThumbAsset extends Asset {
     @Override
     public void decodeBitmap(int targetWidth, int targetHeight,
                              BitmapReceiver receiver) {
-        // No scaling is needed, as the thumbnail is already a thumbnail.
-        LoadThumbnailTask task = new LoadThumbnailTask(mContext, mInfo, receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            Drawable thumb = mInfo.loadThumbnail(mContext.getPackageManager());
+
+            // Live wallpaper components may or may not specify a thumbnail drawable.
+            if (thumb instanceof BitmapDrawable) {
+                decodeBitmapCompleted(receiver,
+                        Bitmap.createScaledBitmap(((BitmapDrawable) thumb).getBitmap(), targetWidth,
+                                targetHeight, true));
+                return;
+            } else if (thumb != null) {
+                Bitmap bitmap;
+                if (thumb.getIntrinsicWidth() > 0 && thumb.getIntrinsicHeight() > 0) {
+                    bitmap = Bitmap.createBitmap(thumb.getIntrinsicWidth(),
+                            thumb.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                } else {
+                    decodeBitmapCompleted(receiver, null);
+                    return;
+                }
+
+                Canvas canvas = new Canvas(bitmap);
+                thumb.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                thumb.draw(canvas);
+                decodeBitmapCompleted(receiver,
+                        Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true));
+                return;
+            }
+            decodeBitmapCompleted(receiver, null);
+        });
     }
 
     @Override
@@ -109,6 +135,7 @@ public class LiveWallpaperThumbAsset extends Asset {
             reqOptions = RequestOptions.centerCropTransform()
                     .placeholder(new ColorDrawable(placeholderColor));
         }
+        imageView.setBackgroundColor(placeholderColor);
         Glide.with(context)
                 .asDrawable()
                 .load(LiveWallpaperThumbAsset.this)
@@ -243,54 +270,6 @@ public class LiveWallpaperThumbAsset extends Asset {
                     + "packageName=" + mInfo.getPackageName() + ","
                     + "serviceName=" + mInfo.getServiceName()
                     + '}';
-        }
-    }
-
-    /**
-     * AsyncTask subclass which loads the live wallpaper's thumbnail bitmap off the main UI thread.
-     * Resolves with null if live wallpaper thumbnail is not a bitmap.
-     */
-    private static class LoadThumbnailTask extends AsyncTask<Void, Void, Bitmap> {
-        private final PackageManager mPackageManager;
-        private android.app.WallpaperInfo mInfo;
-        private BitmapReceiver mReceiver;
-
-        public LoadThumbnailTask(Context context, android.app.WallpaperInfo info,
-                BitmapReceiver receiver) {
-            mInfo = info;
-            mReceiver = receiver;
-            mPackageManager = context.getPackageManager();
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            Drawable thumb = mInfo.loadThumbnail(mPackageManager);
-
-            // Live wallpaper components may or may not specify a thumbnail drawable.
-            if (thumb instanceof BitmapDrawable) {
-                return ((BitmapDrawable) thumb).getBitmap();
-            } else if (thumb != null) {
-                Bitmap bitmap;
-                if (thumb.getIntrinsicWidth() > 0 && thumb.getIntrinsicHeight() > 0) {
-                    bitmap = Bitmap.createBitmap(thumb.getIntrinsicWidth(),
-                            thumb.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-                } else {
-                    return null;
-                }
-
-                Canvas canvas = new Canvas(bitmap);
-                thumb.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-                thumb.draw(canvas);
-                return bitmap;
-            }
-
-            // If no thumbnail was specified, return a null bitmap.
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmap) {
-            mReceiver.onBitmapDecoded(bitmap);
         }
     }
 }

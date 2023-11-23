@@ -101,9 +101,13 @@ public class TouchHelper {
     }
 
     public void tapOnCenter(Rect bounds, int displayId) {
+        tapOnCenter(bounds, displayId, true  /* waitAnimation */);
+    }
+
+    public void tapOnCenter(Rect bounds, int displayId, boolean waitAnimation) {
         final int tapX = bounds.left + bounds.width() / 2;
         final int tapY = bounds.top + bounds.height() / 2;
-        tapOnDisplaySync(tapX, tapY, displayId);
+        tapOnDisplay(tapX, tapY, displayId, true /* sync */, waitAnimation);
     }
 
     public void tapOnViewCenter(View view) {

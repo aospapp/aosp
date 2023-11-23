@@ -20,12 +20,13 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
+
+import androidx.annotation.IntDef;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import androidx.annotation.IntDef;
 
 /**
  * An abstraction over WallpaperManager to allow for the transitional state in which the N SDK
@@ -41,7 +42,7 @@ public abstract class WallpaperManagerCompat {
     public static WallpaperManagerCompat getInstance(Context context) {
         synchronized (sInstanceLock) {
             if (sInstance == null) {
-                if (BuildCompat.isAtLeastN()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     sInstance = new WallpaperManagerCompatVN(context.getApplicationContext());
                 } else {
                     sInstance = new WallpaperManagerCompatV16(context.getApplicationContext());

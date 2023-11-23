@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"Varsler viser fullførte eller avbrutte nedlastinger"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"Nedlastingsfremdrift"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"Varsler viser fremdriften til filnedlastinger"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"Nedlastingen ble avbrutt"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"Filen er for stor. Nedlastingen ble avbrutt."</string>
 </resources>

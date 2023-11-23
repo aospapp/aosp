@@ -21,3 +21,7 @@ r_dir_file(turbo_adapter, proc_uid_cputime_showstat);
 # PAS: for SuspendControlServiceDataProvider
 binder_call(turbo_adapter, system_suspend_internal_server)
 get_prop(turbo_adapter, suspend_prop)
+
+# Allow setting `debug.` properties to propagate experimental feature configuration.
+# TODO(b/209406271): Before launching to public, migrate to a more reliable configuration.
+set_prop(turbo_adapter, debug_prop)

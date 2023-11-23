@@ -27,7 +27,7 @@ import java.util.Hashtable;
 
 import org.apache.harmony.security.tests.java.security.Identity2Test.IdentitySubclass;
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings("removal")
 public class IdentityScope2Test extends junit.framework.TestCase {
 
     private static PublicKey PUB_KEY;
@@ -38,6 +38,7 @@ public class IdentityScope2Test extends junit.framework.TestCase {
         return PUB_KEY;
     }
 
+    @SuppressWarnings("removal")
     public static class IdentityScopeSubclass extends IdentityScope {
         private static final long serialVersionUID = 1L;
         Hashtable<Identity, Identity> identities;

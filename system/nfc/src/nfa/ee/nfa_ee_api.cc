@@ -127,6 +127,9 @@ tNFA_STATUS NFA_EeGetInfo(uint8_t* p_num_nfcee, tNFA_EE_INFO* p_info) {
     p_info->ee_status = p_cb->ee_status;
     p_info->num_interface = p_cb->num_interface;
     p_info->num_tlvs = p_cb->num_tlvs;
+    p_info->la_protocol = p_cb->la_protocol;
+    p_info->lb_protocol = p_cb->lb_protocol;
+    p_info->lf_protocol = p_cb->lf_protocol;
     memcpy(p_info->ee_interface, p_cb->ee_interface, p_cb->num_interface);
     memcpy(p_info->ee_tlv, p_cb->ee_tlv, p_cb->num_tlvs * sizeof(tNFA_EE_TLV));
     p_info->ee_power_supply_status = p_cb->ee_power_supply_status;
@@ -558,7 +561,11 @@ tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
   tNFA_EE_ECB* p_cb;
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("handle:<0x%x>", ee_handle);
-  p_cb = nfa_ee_find_ecb(nfcee_id);
+  if (aid_len == 0) {
+    p_cb = &nfa_ee_cb.ecb[NFA_EE_EMPTY_AID_ECB];
+  } else {
+    p_cb = nfa_ee_find_ecb(nfcee_id);
+  }
 
   /* validate parameters - make sure the AID is in valid length range */
   if ((p_cb == nullptr) ||
@@ -570,6 +577,7 @@ tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
     LOG(ERROR) << StringPrintf("Bad ee_handle or AID (len=%d)", aid_len);
     status = NFA_STATUS_INVALID_PARAM;
   } else {
+    p_cb->nfcee_id = nfcee_id;
     p_msg = (tNFA_EE_API_ADD_AID*)GKI_getbuf(size);
     if (p_msg != nullptr) {
       if (p_aid != nullptr)

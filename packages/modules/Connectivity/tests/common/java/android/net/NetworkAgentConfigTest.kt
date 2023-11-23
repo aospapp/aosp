@@ -20,6 +20,8 @@ import android.os.Build
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
 import com.android.modules.utils.build.SdkLevel.isAtLeastS
+import com.android.modules.utils.build.SdkLevel.isAtLeastT
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import com.android.testutils.assertParcelingIsLossless
@@ -32,6 +34,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
+@ConnectivityModuleTest
 class NetworkAgentConfigTest {
     @Rule @JvmField
     val ignoreRule = DevSdkIgnoreRule()
@@ -46,6 +49,10 @@ class NetworkAgentConfigTest {
             setUnvalidatedConnectivityAcceptable(true)
             if (isAtLeastS()) {
                 setBypassableVpn(true)
+            }
+            if (isAtLeastT()) {
+                setLocalRoutesExcludedForVpn(true)
+                setVpnRequiresValidation(true)
             }
         }.build()
         assertParcelingIsLossless(config)
@@ -67,6 +74,10 @@ class NetworkAgentConfigTest {
                 setProvisioningNotificationEnabled(false)
                 setBypassableVpn(true)
             }
+            if (isAtLeastT()) {
+                setLocalRoutesExcludedForVpn(true)
+                setVpnRequiresValidation(true)
+            }
         }.build()
 
         assertTrue(config.isExplicitlySelected())
@@ -75,6 +86,10 @@ class NetworkAgentConfigTest {
         assertFalse(config.isPartialConnectivityAcceptable())
         assertTrue(config.isUnvalidatedConnectivityAcceptable())
         assertEquals("TEST_NETWORK", config.getLegacyTypeName())
+        if (isAtLeastT()) {
+            assertTrue(config.areLocalRoutesExcludedForVpn())
+            assertTrue(config.isVpnValidationRequired())
+        }
         if (isAtLeastS()) {
             assertEquals(testExtraInfo, config.getLegacyExtraInfo())
             assertFalse(config.isNat64DetectionEnabled())

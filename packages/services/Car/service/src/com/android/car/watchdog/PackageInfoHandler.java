@@ -22,19 +22,20 @@ import android.automotive.watchdog.internal.ComponentType;
 import android.automotive.watchdog.internal.PackageIdentifier;
 import android.automotive.watchdog.internal.PackageInfo;
 import android.automotive.watchdog.internal.UidType;
+import android.car.builtin.content.pm.PackageManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-import android.util.IntArray;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 
 import com.android.car.CarLog;
+import com.android.car.internal.util.IntArray;
 import com.android.internal.annotations.GuardedBy;
-import com.android.server.utils.Slogf;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,7 +87,8 @@ public final class PackageInfoHandler {
         if (unmappedUids.size() == 0) {
             return genericPackageNameByUid;
         }
-        String[] genericPackageNames = mPackageManager.getNamesForUids(unmappedUids.toArray());
+        String[] genericPackageNames = PackageManagerHelper.getNamesForUids(mPackageManager,
+                unmappedUids.toArray());
         synchronized (mLock) {
             for (int i = 0; i < unmappedUids.size(); ++i) {
                 if (genericPackageNames[i] == null || genericPackageNames[i].isEmpty()) {
@@ -120,8 +122,8 @@ public final class PackageInfoHandler {
             }
         }
         try {
-            return getNameForPackage(
-                    mPackageManager.getPackageInfoAsUser(packageName, /* flags= */ 0, userId));
+            return getNameForPackage(PackageManagerHelper.getPackageInfoAsUser(
+                    mPackageManager, packageName, /* flags= */ 0, userId));
         } catch (PackageManager.NameNotFoundException e) {
             Slogf.e(TAG, "Package '%s' not found for user %d: %s", packageName, userId, e);
         }
@@ -299,15 +301,15 @@ public final class PackageInfoHandler {
 
     /** Returns the component type for the given application info. */
     public int getComponentType(ApplicationInfo applicationInfo) {
-        if ((applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_OEM) != 0
-                || (applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_VENDOR) != 0
-                || (applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_ODM) != 0) {
+        if (PackageManagerHelper.isOemApp(applicationInfo)
+                || PackageManagerHelper.isVendorApp(applicationInfo)
+                || PackageManagerHelper.isOdmApp(applicationInfo)) {
             return ComponentType.VENDOR;
         }
-        if ((applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
-                || (applicationInfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-                || (applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_PRODUCT) != 0
-                || (applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_SYSTEM_EXT) != 0) {
+        if (PackageManagerHelper.isSystemApp(applicationInfo)
+                || PackageManagerHelper.isUpdatedSystemApp(applicationInfo)
+                || PackageManagerHelper.isProductApp(applicationInfo)
+                || PackageManagerHelper.isSystemExtApp(applicationInfo)) {
             synchronized (mLock) {
                 for (int i = 0; i < mVendorPackagePrefixes.size(); ++i) {
                     if (applicationInfo.packageName.startsWith(mVendorPackagePrefixes.get(i))) {

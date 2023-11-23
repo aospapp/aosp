@@ -23,7 +23,7 @@ for various cryptographic algorithms. These are not included in the repository
 continuous integration environments.
 
 We have ensured all test vectors are used as of commit
-``c313761979d74b0417230eddd0f87d0cfab2b46b``.
+``2196000605e45d91097147c9c71f26b72af58003``.
 
 Asymmetric ciphers
 ~~~~~~~~~~~~~~~~~~
@@ -78,6 +78,8 @@ Custom asymmetric vectors
 * ``asymmetric/PEM_Serialization/rsa_public_key.pem`` and
   ``asymmetric/DER_Serialization/rsa_public_key.der``- Contains an RSA 2048
   bit public generated using OpenSSL from ``rsa_private_key.pem``.
+* ``asymmetric/PEM_Serialization/dsa_4096.pem`` - Contains a 4096-bit DSA
+  private key generated using OpenSSL.
 * ``asymmetric/PEM_Serialization/dsaparam.pem`` - Contains 2048-bit DSA
   parameters generated using OpenSSL; contains no keys.
 * ``asymmetric/PEM_Serialization/dsa_private_key.pem`` - Contains a DSA 2048
@@ -86,6 +88,11 @@ Custom asymmetric vectors
 * ``asymmetric/PEM_Serialization/dsa_public_key.pem`` and
   ``asymmetric/DER_Serialization/dsa_public_key.der`` - Contains a DSA 2048 bit
   key generated using OpenSSL from ``dsa_private_key.pem``.
+* ``asymmetric/DER_Serialization/dsa_public_key_no_params.der`` - Contains a
+  DSA public key with the optional parameters removed.
+* ``asymmetric/DER_Serialization/dsa_public_key_invalid_bit_string.der`` -
+  Contains a DSA public key with the bit string padding value set to 2 rather
+  than the required 0.
 * ``asymmetric/PKCS8/unenc-dsa-pkcs8.pem`` and
   ``asymmetric/DER_Serialization/unenc-dsa-pkcs8.der`` - Contains a DSA 1024
   bit key generated using OpenSSL.
@@ -102,6 +109,8 @@ Custom asymmetric vectors
 * ``x509/custom/ca/ca_key.pem`` - An unencrypted PCKS8 ``secp256r1`` key. It is
   the private key for the certificate ``x509/custom/ca/ca.pem``. This key is
   encoded in several of the PKCS12 custom vectors.
+* ``x509/custom/ca/rsa_key.pem`` - An unencrypted PCKS8 4096 bit RSA key. It is
+  the private key for the certificate ``x509/custom/ca/rsa_ca.pem``.
 * ``asymmetric/EC/compressed_points.txt`` - Contains compressed public points
   generated using OpenSSL.
 * ``asymmetric/X448/x448-pkcs8-enc.pem`` and
@@ -111,6 +120,13 @@ Custom asymmetric vectors
   contain an unencrypted X448 key.
 * ``asymmetric/X448/x448-pub.pem`` and ``asymmetric/X448/x448-pub.der`` contain
   an X448 public key.
+* ``asymmetric/Ed25519/ed25519-pkcs8-enc.pem`` and
+  ``asymmetric/Ed25519/ed25519-pkcs8-enc.der`` contain an Ed25519 key encrypted
+  with AES 256 CBC with the password ``password``.
+* ``asymmetric/Ed25519/ed25519-pkcs8.pem`` and
+  ``asymmetric/Ed25519/ed25519-pkcs8.der`` contain an unencrypted Ed25519 key.
+* ``asymmetric/Ed25519/ed25519-pub.pem`` and
+  ``asymmetric/Ed25519/ed25519-pub.der`` contain an Ed25519 public key.
 * ``asymmetric/X25519/x25519-pkcs8-enc.pem`` and
   ``asymmetric/X25519/x25519-pkcs8-enc.der`` contain an X25519 key encrypted
   with AES 256 CBC with the password ``password``.
@@ -118,6 +134,13 @@ Custom asymmetric vectors
   ``asymmetric/X25519/x25519-pkcs8.der`` contain an unencrypted X25519 key.
 * ``asymmetric/X25519/x25519-pub.pem`` and ``asymmetric/X25519/x25519-pub.der``
   contain an X25519 public key.
+* ``asymmetric/Ed448/ed448-pkcs8-enc.pem`` and
+  ``asymmetric/Ed448/ed448-pkcs8-enc.der`` contain an Ed448 key encrypted
+  with AES 256 CBC with the password ``password``.
+* ``asymmetric/Ed448/ed448-pkcs8.pem`` and
+  ``asymmetric/Ed448/ed448-pkcs8.der`` contain an unencrypted Ed448 key.
+* ``asymmetric/Ed448/ed448-pub.pem`` and ``asymmetric/Ed448/ed448-pub.der``
+  contain an Ed448 public key.
 
 
 Key exchange
@@ -161,6 +184,8 @@ Key exchange
   ``vectors/cryptography_vectors/asymmetric/DH/dhkey_rfc5114_2.der`` and
   ``vectors/cryptography_vectors/asymmetric/DH/dhpub_rfc5114_2.der`` contains
   are the above parameters and keys in DER format.
+* ``vectors/cryptography_vectors/asymmetric/DH/dh_key_256.pem`` contains
+  a PEM PKCS8 encoded DH key with a 256-bit key size.
 
 * ``vectors/cryptoraphy_vectors/asymmetric/ECDH/brainpool.txt`` contains
   Brainpool vectors from :rfc:`7027`.
@@ -217,6 +242,17 @@ X.509
   UTCTime in its validity->not_after.
 * ``letsencryptx3.pem`` - A subordinate certificate used by Let's Encrypt to
   issue end entity certificates.
+* ``ed25519-rfc8410.pem`` - A certificate containing an X25519 public key with
+  an ``ed25519`` signature taken from :rfc:`8410`.
+* ``root-ed25519.pem`` - An ``ed25519`` root certificate (``ed25519`` signature
+  with ``ed25519`` public key) from the OpenSSL test suite.
+  (`root-ed25519.pem`_)
+* ``server-ed25519-cert.pem`` - An ``ed25519`` server certificate (RSA
+  signature with ``ed25519`` public key) from the OpenSSL test suite.
+  (`server-ed25519-cert.pem`_)
+* ``server-ed448-cert.pem`` - An ``ed448`` server certificate (RSA
+  signature with ``ed448`` public key) from the OpenSSL test suite.
+  (`server-ed448-cert.pem`_)
 
 Custom X.509 Vectors
 ~~~~~~~~~~~~~~~~~~~~
@@ -371,9 +407,19 @@ Custom X.509 Vectors
   a ``policyConstraints`` extension with a ``requireExplicitPolicy`` value.
 * ``freshestcrl.pem`` - A self-signed certificate containing a ``freshestCRL``
   extension.
+* ``sia.pem`` - An RSA 2048 bit self-signed certificate containing a subject
+  information access extension with both a CA repository entry and a custom
+  OID entry.
 * ``ca/ca.pem`` - A self-signed certificate with ``basicConstraints`` set to
   true. Its private key is ``ca/ca_key.pem``. This certificate is encoded in
   several of the PKCS12 custom vectors.
+* ``negative_serial.pem`` - A certificate with a serial number that is a
+  negative number.
+* ``rsa_pss.pem`` - A certificate with an RSA PSS signature.
+* ``root-ed448.pem`` - An ``ed448`` self-signed CA certificate
+  using ``ed448-pkcs8.pem`` as key.
+* ``ca/rsa_ca.pem`` - A self-signed RSA certificate with ``basicConstraints``
+  set to true. Its private key is ``ca/rsa_key.pem``.
 
 Custom X.509 Request Vectors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -406,6 +452,14 @@ Custom X.509 Request Vectors
   critical.
 * ``invalid_signature.pem`` - A certificate signing request for an RSA
   1024 bit key containing an invalid signature with correct padding.
+* ``challenge.pem`` - A certificate signing request for an RSA 2048 bit key
+  containing a challenge password.
+* ``challenge-invalid.der`` - A certificate signing request for an RSA 2048 bit
+  key containing a challenge password attribute that has been encoded as an
+  ASN.1 integer rather than a string.
+* ``challenge-unstructured.pem`` - A certificate signing request for an RSA
+  2048 bit key containing a challenge password attribute and an unstructured
+  name attribute.
 
 Custom X.509 Certificate Revocation List Vectors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -480,6 +534,12 @@ X.509 OCSP Test Vectors
   contains a revoked certificate and no ``nextUpdate`` value.
 * ``x509/ocsp/resp-invalid-signature-oid.der`` - An OCSP response that was
   modified to contain an MD2 signature algorithm object identifier.
+* ``x509/ocsp/resp-single-extension-reason.der`` - An OCSP response that
+  contains a ``CRLReason`` single extension.
+* ``x509/ocsp/resp-sct-extension.der`` - An OCSP response containing a
+  ``CT Certificate SCTs`` single extension, from the SwissSign OCSP responder.
+* ``x509/ocsp/ocsp-army.deps.mil-resp.der`` - An OCSP response containing
+  multiple ``SINGLERESP`` values.
 
 Custom X.509 OCSP Test Vectors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -514,6 +574,49 @@ Custom PKCS12 Test Vectors
 * ``pkcs12/cert-aes256cbc-no-key.p12`` - A PKCS12 file containing a cert
   (``x509/custom/ca/ca.pem``) encrypted via AES 256 CBC with the
   password ``cryptography`` and no private key.
+
+Custom PKCS7 Test Vectors
+~~~~~~~~~~~~~~~~~~~~~~~~~
+* ``pkcs7/isrg.pem`` - A PEM encoded PKCS7 file containing the ISRG X1 root
+  CA.
+* ``pkcs7/amazon-roots.p7b`` - A DER encoded PCKS7 file containing Amazon Root
+  CA 2 and 3.
+* ``pkcs7/enveloped.pem`` - A PEM encoded PKCS7 file with enveloped data.
+
+Custom OpenSSH Test Vectors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generated by
+``asymmetric/OpenSSH/gen.sh``
+using command-line tools from OpenSSH_7.6p1 package.
+
+* ``dsa-nopsw.key``, ``dsa-nopsw.key.pub``, ``dsa-nopsw.key-cert.pub`` -
+  DSA-1024 private key; and corresponding public key in plain format
+  and with self-signed certificate.
+* ``dsa-psw.key``, ``dsa-psw.key.pub`` -
+  Password-protected DSA-1024 private key and corresponding public key.
+  Password is "password".
+* ``ecdsa-nopsw.key``, ``ecdsa-nopsw.key.pub``,
+  ``ecdsa-nopsw.key-cert.pub`` -
+  SECP256R1 private key; and corresponding public key in plain format
+  and with self-signed certificate.
+* ``ecdsa-psw.key``, ``ecdsa-psw.key.pub`` -
+  Password-protected SECP384R1 private key and corresponding public key.
+  Password is "password".
+* ``ed25519-nopsw.key``, ``ed25519-nopsw.key.pub``,
+  ``ed25519-nopsw.key-cert.pub`` -
+  Ed25519 private key; and corresponding public key in plain format
+  and with self-signed certificate.
+* ``ed25519-psw.key``, ``ed25519-psw.key.pub`` -
+  Password-protected Ed25519 private key and corresponding public key.
+  Password is "password".
+* ``rsa-nopsw.key``, ``rsa-nopsw.key.pub``,
+  ``rsa-nopsw.key-cert.pub`` -
+  RSA-2048 private key; and corresponding public key in plain format
+  and with self-signed certificate.
+* ``rsa-psw.key``, ``rsa-psw.key.pub`` -
+  Password-protected RSA-2048 private key and corresponding public key.
+  Password is "password".
 
 Hashes
 ~~~~~~
@@ -593,6 +696,11 @@ CMAC
 
 * AES-128, AES-192, AES-256, 3DES from `NIST SP-800-38B`_
 
+Poly1305
+~~~~~~~~
+
+* Test vectors from :rfc:`7539`.
+
 Creating test vectors
 ---------------------
 
@@ -629,7 +737,7 @@ header format (substituting the correct information):
 .. _`IETF`: https://www.ietf.org/
 .. _`Project Wycheproof`: https://github.com/google/wycheproof
 .. _`NIST CAVP`: https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program
-.. _`Bruce Schneier's vectors`: https://www.schneier.com/code/vectors.txt
+.. _`Bruce Schneier's vectors`: https://www.schneier.com/wp-content/uploads/2015/12/vectors-2.txt
 .. _`Camellia page`: https://info.isl.ntt.co.jp/crypt/eng/camellia/
 .. _`CRYPTREC`: https://www.cryptrec.go.jp
 .. _`OpenSSL's test vectors`: https://github.com/openssl/openssl/blob/97cf1f6c2854a3a955fd7dd3a1f113deba00c9ef/crypto/evp/evptests.txt#L232
@@ -654,13 +762,16 @@ header format (substituting the correct information):
 .. _`NIST SP-800-38B`: https://csrc.nist.gov/publications/detail/sp/800-38b/archive/2005-05-01
 .. _`NIST PKI Testing`: https://csrc.nist.gov/Projects/PKI-Testing
 .. _`testx509.pem`: https://github.com/openssl/openssl/blob/master/test/testx509.pem
-.. _`DigiCert Global Root G3`: https://cacerts.digicert.com/DigiCertGlobalRootG3.crt
+.. _`DigiCert Global Root G3`: http://cacerts.digicert.com/DigiCertGlobalRootG3.crt
 .. _`root data`: https://hg.mozilla.org/projects/nss/file/25b2922cc564/security/nss/lib/ckfw/builtins/certdata.txt#l2053
 .. _`asymmetric/public/PKCS1/dsa.pub.pem`: https://github.com/ruby/ruby/blob/4ccb387f3bc436a08fc6d72c4931994f5de95110/test/openssl/test_pkey_dsa.rb#L53
 .. _`Mozilla bug`: https://bugzilla.mozilla.org/show_bug.cgi?id=233586
-.. _`Russian CA`: https://e-trust.gosuslugi.ru/MainCA
+.. _`Russian CA`: https://e-trust.gosuslugi.ru/
 .. _`test/evptests.txt`: https://github.com/openssl/openssl/blob/2d0b44126763f989a4cbffbffe9d0c7518158bb7/test/evptests.txt
 .. _`unknown signature OID`: https://bugzilla.mozilla.org/show_bug.cgi?id=405966
 .. _`botan`: https://github.com/randombit/botan/blob/57789bdfc55061002b2727d0b32587612829a37c/src/tests/data/pubkey/dh.vec
 .. _`DHKE`: https://sandilands.info/sgordon/diffie-hellman-secret-key-exchange-with-openssl
 .. _`Botan's key wrap vectors`: https://github.com/randombit/botan/blob/737f33c09a18500e044dca3e2ae13bd2c08bafdd/src/tests/data/keywrap/nist_key_wrap.vec
+.. _`root-ed25519.pem`: https://github.com/openssl/openssl/blob/2a1e2fe145c6eb8e75aa2e1b3a8c3a49384b2852/test/certs/root-ed25519.pem
+.. _`server-ed25519-cert.pem`: https://github.com/openssl/openssl/blob/2a1e2fe145c6eb8e75aa2e1b3a8c3a49384b2852/test/certs/server-ed25519-cert.pem
+.. _`server-ed448-cert.pem`: https://github.com/openssl/openssl/blob/2a1e2fe145c6eb8e75aa2e1b3a8c3a49384b2852/test/certs/server-ed448-cert.pem

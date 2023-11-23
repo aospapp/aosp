@@ -18,6 +18,5 @@
     <!-- Cell broadcast channels for area info update. Note the channel configuration for area info
          is needed in CellBroadcastReceiver as well.  -->
     <integer-array name="area_info_channels">
-        <item>50</item>
     </integer-array>
 </resources>

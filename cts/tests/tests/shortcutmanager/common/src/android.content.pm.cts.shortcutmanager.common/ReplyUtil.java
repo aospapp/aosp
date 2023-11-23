@@ -83,7 +83,8 @@ public class ReplyUtil {
             }
         };
 
-        context.registerReceiver(resultReceiver, filter);
+        context.registerReceiver(resultReceiver, filter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
 
         try {
             // Run the code.

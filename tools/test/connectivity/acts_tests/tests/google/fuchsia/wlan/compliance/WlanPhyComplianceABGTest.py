@@ -32,6 +32,7 @@ class WlanPhyComplianceABGTest(AbstractDeviceWlanDeviceBaseTest):
     * One Android device or Fuchsia device
     * One Access Point
     """
+
     def setup_class(self):
         super().setup_class()
         if 'dut' in self.user_params:
@@ -122,6 +123,7 @@ class WlanPhyComplianceABGTest(AbstractDeviceWlanDeviceBaseTest):
         self.dut.turn_location_off_and_scan_toggle_off()
         self.dut.disconnect()
         self.dut.reset_wifi()
+        self.download_ap_logs()
         self.access_point.stop_all_aps()
 
     def on_fail(self, test_name, begin_time):

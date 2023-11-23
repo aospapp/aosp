@@ -1,6 +1,6 @@
 [package]
 name = "rayon-core"
-version = "1.9.0" # reminder to update html_root_url attribute
+version = "1.9.1" # reminder to update html_root_url attribute
 authors = ["Niko Matsakis <niko@alum.mit.edu>",
            "Josh Stone <cuviper@gmail.com>"]
 description = "Core APIs for Rayon"
@@ -23,8 +23,8 @@ crossbeam-deque = "0.8.0"
 crossbeam-utils = "0.8.0"
 
 [dev-dependencies]
-rand = "0.7"
-rand_xorshift = "0.2"
+rand = "0.8"
+rand_xorshift = "0.3"
 scoped-tls = "1.0"
 
 [target.'cfg(unix)'.dev-dependencies]

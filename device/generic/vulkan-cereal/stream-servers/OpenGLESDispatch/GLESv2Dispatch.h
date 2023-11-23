@@ -25,6 +25,7 @@
 #include "OpenGLESDispatch/gles_common_for_gles2_static_translator_namespaced_header.h"
 #include "OpenGLESDispatch/gles_extensions_for_gles2_static_translator_namespaced_header.h"
 #include "OpenGLESDispatch/gles31_only_static_translator_namespaced_header.h"
+#include "OpenGLESDispatch/gles32_only_static_translator_namespaced_header.h"
 #include "OpenGLESDispatch/gles3_extensions_static_translator_namespaced_header.h"
 #include "OpenGLESDispatch/gles3_only_static_translator_namespaced_header.h"
 

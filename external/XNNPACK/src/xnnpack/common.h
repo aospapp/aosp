@@ -45,17 +45,30 @@
   #define XNN_ARCH_PPC64 0
 #endif
 
+#if defined(__riscv) || defined(__riscv__)
+  #define XNN_ARCH_RISCV 1
+#else
+  #define XNN_ARCH_RISCV 0
+#endif
+
 #if defined(__wasm__)
-  #if defined(__wasm_simd128__)
-    #define XNN_ARCH_WASMSIMD 1
+  #if defined(__wasm_relaxed_simd__)
     #define XNN_ARCH_WASM 0
+    #define XNN_ARCH_WASMSIMD 0
+    #define XNN_ARCH_WASMRELAXEDSIMD 1
+  #elif defined(__wasm_simd128__)
+    #define XNN_ARCH_WASM 0
+    #define XNN_ARCH_WASMSIMD 1
+    #define XNN_ARCH_WASMRELAXEDSIMD 0
   #else
     #define XNN_ARCH_WASM 1
     #define XNN_ARCH_WASMSIMD 0
+    #define XNN_ARCH_WASMRELAXEDSIMD 0
   #endif
 #else
   #define XNN_ARCH_WASM 0
   #define XNN_ARCH_WASMSIMD 0
+  #define XNN_ARCH_WASMRELAXEDSIMD 0
 #endif
 
 // Define platform identification macros
@@ -89,6 +102,18 @@
   #define XNN_PLATFORM_WEB 1
 #else
   #define XNN_PLATFORM_WEB 0
+#endif
+
+#if defined(_WIN32)
+  #define XNN_PLATFORM_WINDOWS 1
+#else
+  #define XNN_PLATFORM_WINDOWS 0
+#endif
+
+#if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && !XNN_PLATFORM_IOS
+  #define XNN_PLATFORM_JIT 1
+#else
+  #define XNN_PLATFORM_JIT 0
 #endif
 
 // Define compile identification macros
@@ -166,6 +191,18 @@
   #error "Platform-specific implementation of XNN_ALIGN required"
 #endif
 
+#if defined(__GNUC__)
+  #define XNN_UNALIGNED __attribute__((__aligned__(1)))
+#elif defined(_MSC_VER)
+  #if defined(_M_IX86)
+    #define XNN_UNALIGNED
+  #else
+    #define XNN_UNALIGNED __unaligned
+  #endif
+#else
+  #error "Platform-specific implementation of XNN_UNALIGNED required"
+#endif
+
 #define XNN_COUNT_OF(array) (sizeof(array) / sizeof(0[array]))
 
 #if defined(__cplusplus) || XNN_COMPILER_MSVC
@@ -195,6 +232,14 @@
 #else
   #define XNN_DISABLE_TSAN
 #endif
+
+#if XNN_COMPILER_HAS_FEATURE(memory_sanitizer)
+  #define XNN_DISABLE_MSAN __attribute__((__no_sanitize__("memory")))
+#else
+  #define XNN_DISABLE_MSAN
+#endif
+
+#define XNN_OOB_READS XNN_DISABLE_TSAN XNN_DISABLE_MSAN
 
 #if defined(__GNUC__)
   #define XNN_INTRINSIC inline __attribute__((__always_inline__, __artificial__))

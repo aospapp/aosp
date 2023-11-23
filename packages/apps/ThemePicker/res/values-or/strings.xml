@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"ଥିମ୍ ଯୁକ୍ତ ଆଇକନ୍"</string>
     <string name="beta_title" msgid="8703819523760746458">"ବିଟା"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ଆପ୍ ଗ୍ରିଡ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"ୱାଲପେପର ରଙ୍ଗଗୁଡ଼ିକ"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"ୱାଲପେପର ରଙ୍ଗ"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"ମୌଳିକ ରଙ୍ଗଗୁଡ଼ିକ"</string>
+    <string name="color_changed" msgid="7029571720331641235">"ରଙ୍ଗ ପରିବର୍ତ୍ତନ କରାଯାଇଛି"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ଡାଇନାମିକ"</string>
 </resources>

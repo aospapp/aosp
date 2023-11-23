@@ -15,10 +15,10 @@
 #ifndef ICING_INDEX_MAIN_POSTING_LIST_USED_H_
 #define ICING_INDEX_MAIN_POSTING_LIST_USED_H_
 
-#include <string.h>
 #include <sys/mman.h>
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include "icing/text_classifier/lib3/utils/base/status.h"

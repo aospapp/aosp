@@ -143,7 +143,26 @@ func (ps *PropertyStruct) GetByName(name string) *Property {
 }
 
 func (ps *PropertyStruct) Nest(nested *PropertyStruct) {
-	ps.Properties = append(ps.Properties, nested.Properties...)
+	ps.Properties = nestUnique(ps.Properties, nested.Properties)
+}
+
+// Adds a target element to src if it does not exist in src
+func nestUnique(src []Property, target []Property) []Property {
+	var ret []Property
+	ret = append(ret, src...)
+	for _, elem := range target {
+		isUnique := true
+		for _, retElement := range ret {
+			if elem.Equal(retElement) {
+				isUnique = false
+				break
+			}
+		}
+		if isUnique {
+			ret = append(ret, elem)
+		}
+	}
+	return ret
 }
 
 func getByName(name string, prefix string, props *[]Property) *Property {
@@ -158,7 +177,7 @@ func getByName(name string, prefix string, props *[]Property) *Property {
 }
 
 func (p *Property) Nest(nested *PropertyStruct) {
-	p.Properties = append(p.Properties, nested.Properties...)
+	p.Properties = nestUnique(p.Properties, nested.Properties)
 }
 
 func (p *Property) SetAnonymous() {

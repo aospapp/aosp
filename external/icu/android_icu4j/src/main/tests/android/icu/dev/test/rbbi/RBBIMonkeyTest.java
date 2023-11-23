@@ -556,6 +556,8 @@ public class RBBIMonkeyTest extends TestFmwk {
             fRuleForPosition = new int[fString.length()+1];
             f2ndRuleForPos   = new int[fString.length()+1];
 
+            int expectedBreakCount = 0;
+
             // Apply reference rules to find the expected breaks.
 
             fExpectedBreaks[0] = true;       // Force an expected break before the start of the text.
@@ -622,6 +624,7 @@ public class RBBIMonkeyTest extends TestFmwk {
                 if (hasBreak) {
                     int breakPos = strIdx + BreakGroupStart(matchingRule.fRuleMatcher);
                     fExpectedBreaks[breakPos] = true;
+                    expectedBreakCount++;
                     // System.out.printf("recording break at %d\n", breakPos);
                     // For the next iteration, pick up applying rules immediately after the break,
                     // which may differ from end of the match. The matching rule may have included
@@ -641,6 +644,10 @@ public class RBBIMonkeyTest extends TestFmwk {
                     strIdx = updatedStrIdx;
                     initialMatch = false;
                 }
+            }
+            if (expectedBreakCount >= fString.length()) {
+                throw new IllegalArgumentException(String.format("expectedBreakCount (%d) should be less than the test string length (%d).",
+                        expectedBreakCount, fString.length()));
             }
         };
 

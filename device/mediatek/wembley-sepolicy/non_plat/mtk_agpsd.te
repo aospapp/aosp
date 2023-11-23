@@ -70,3 +70,5 @@ get_prop(mtk_agpsd, vendor_mtk_mnld_prop)
 get_prop(mtk_agpsd, vendor_mtk_gps_support_prop)
 
 wakelock_use(mtk_agpsd)
+
+allow mtk_agpsd self:netlink_route_socket { bind nlmsg_readpriv nlmsg_getneigh };

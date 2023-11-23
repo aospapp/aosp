@@ -16,21 +16,30 @@
 
 package com.android.car;
 
-import static com.android.car.CarServiceUtils.toByteArray;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarVendorExtensionManager;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.VehicleArea;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
+import android.hardware.automotive.vehicle.GetValueRequest;
+import android.hardware.automotive.vehicle.GetValueRequests;
+import android.hardware.automotive.vehicle.GetValueResult;
+import android.hardware.automotive.vehicle.GetValueResults;
+import android.hardware.automotive.vehicle.IVehicleCallback;
+import android.hardware.automotive.vehicle.RawPropValues;
+import android.hardware.automotive.vehicle.SetValueRequest;
+import android.hardware.automotive.vehicle.SetValueRequests;
+import android.hardware.automotive.vehicle.SetValueResult;
+import android.hardware.automotive.vehicle.SetValueResults;
+import android.hardware.automotive.vehicle.StatusCode;
+import android.hardware.automotive.vehicle.VehicleArea;
+import android.hardware.automotive.vehicle.VehicleAreaSeat;
+import android.hardware.automotive.vehicle.VehiclePropConfig;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehiclePropertyGroup;
+import android.hardware.automotive.vehicle.VehiclePropertyType;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.SparseArray;
@@ -38,8 +47,10 @@ import android.util.SparseArray;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
-import com.android.car.vehiclehal.test.MockedVehicleHal;
-import com.android.car.vehiclehal.test.VehiclePropConfigBuilder;
+import com.android.car.hal.test.AidlMockedVehicleHal;
+import com.android.car.hal.test.AidlVehiclePropConfigBuilder;
+import com.android.car.internal.LargeParcelable;
+import com.android.internal.annotations.GuardedBy;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -91,22 +102,22 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
     private static final float MIN_PROP_FLOAT = 10.42f;
     private static final float MAX_PROP_FLOAT = 42.10f;
     private static final VehiclePropConfig mConfigs[] = new VehiclePropConfig[] {
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_INT_PROP_ID)
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_INT_PROP_ID)
                     .addAreaConfig(0, MIN_PROP_INT32, MAX_PROP_INT32)
                     .build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_ZONED_FLOAT_PROP_ID)
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_ZONED_FLOAT_PROP_ID)
                     .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_1_RIGHT, 0, 0)
                     .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT, MIN_PROP_FLOAT, MAX_PROP_FLOAT)
                     .addAreaConfig(VehicleAreaSeat.ROW_2_RIGHT, MIN_PROP_FLOAT, MAX_PROP_FLOAT)
                     .build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_BYTES_PROP_ID_1)
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_BYTES_PROP_ID_1)
                     .addAreaConfig(VehicleAreaSeat.ROW_1_LEFT | VehicleAreaSeat.ROW_1_RIGHT, 0, 0)
                     .build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_BYTES_PROP_ID_2).build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_STRING_PROP_ID).build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_LONG_PROP_ID).build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_INT_ARRAY_PROP_ID).build(),
-            VehiclePropConfigBuilder.newBuilder(CUSTOM_LONG_ARRAY_PROP_ID).build(),
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_BYTES_PROP_ID_2).build(),
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_STRING_PROP_ID).build(),
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_LONG_PROP_ID).build(),
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_INT_ARRAY_PROP_ID).build(),
+            AidlVehiclePropConfigBuilder.newBuilder(CUSTOM_LONG_ARRAY_PROP_ID).build(),
     };
 
     private CarVendorExtensionManager mManager;
@@ -284,52 +295,118 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
     }
 
     @Override
-    protected synchronized MockedVehicleHal createMockedVehicleHal() {
-        MockedVehicleHal hal = new VendorExtMockedVehicleHal();
+    protected AidlMockedVehicleHal createAidlMockedVehicleHal() {
+        AidlMockedVehicleHal hal = new VendorExtMockedVehicleHal();
         hal.addProperties(mConfigs);
         return hal;
     }
 
-    private static class VendorExtMockedVehicleHal extends MockedVehicleHal {
+    private static class VendorExtMockedVehicleHal extends AidlMockedVehicleHal {
+        private final Object mLock = new Object();
+        @GuardedBy("mLock")
+        private byte[] mBytes = null;
+        @GuardedBy("mLock")
         private final SparseArray<VehiclePropValue> mValues = new SparseArray<>();
 
-        private byte[] mBytes = null;
-
         @Override
-        public synchronized int set(VehiclePropValue propValue) {
-            if (propValue.prop == CUSTOM_BYTES_PROP_ID_1) {
-                mBytes = toByteArray(propValue.value.bytes);
+        public void getValues(IVehicleCallback callback, GetValueRequests requests)
+                throws RemoteException {
+            requests = (GetValueRequests) LargeParcelable.reconstructStableAIDLParcelable(
+                    requests, /* keepSharedMemory= */ false);
+
+            int nonVendorCount = 0;
+            int requestSize = requests.payloads.length;
+            for (int i = 0; i < requestSize; i++) {
+                GetValueRequest request = requests.payloads[i];
+                if (!isVendorProperty(request.prop.prop)) {
+                    GetValueRequests oneRequest = new GetValueRequests();
+                    oneRequest.payloads = new GetValueRequest[]{request};
+                    super.getValues(callback, oneRequest);
+                    nonVendorCount++;
+                }
             }
 
-            mValues.put(propValue.prop, propValue);
-            return StatusCode.OK;
+            if (nonVendorCount == requestSize) {
+                return;
+            }
+
+            GetValueResults results = new GetValueResults();
+            results.payloads = new GetValueResult[requestSize - nonVendorCount];
+
+            synchronized (mLock) {
+                for (int i = 0; i < requests.payloads.length; i++) {
+                    GetValueRequest request = requests.payloads[i];
+                    GetValueResult result = new GetValueResult();
+                    result.requestId = request.requestId;
+                    VehiclePropValue requestedPropValue = request.prop;
+                    int propId = requestedPropValue.prop;
+                    if (!isVendorProperty(propId)) {
+                        continue;
+                    }
+
+                    VehiclePropValue resultValue = new VehiclePropValue();
+                    resultValue.prop = propId;
+                    resultValue.areaId = requestedPropValue.areaId;
+                    resultValue.value = new RawPropValues();
+
+                    if (propId == CUSTOM_BYTES_PROP_ID_2 && mBytes != null) {
+                        Log.d(TAG, "Returning byte array property, value size " + mBytes.length);
+                        resultValue.value.byteValues = mBytes.clone();
+                    } else {
+                        VehiclePropValue existingValue = mValues.get(propId);
+                        if (existingValue != null) {
+                            resultValue = existingValue;
+                        } else {
+                            resultValue = requestedPropValue;
+                        }
+                    }
+
+                    result.prop = resultValue;
+                    result.status = StatusCode.OK;
+                    results.payloads[i] = result;
+                }
+            }
+
+            results = (GetValueResults) LargeParcelable.toLargeParcelable(results, () -> {
+                GetValueResults newResults = new GetValueResults();
+                newResults.payloads = new GetValueResult[0];
+                return newResults;
+            });
+            callback.onGetValues(results);
         }
 
         @Override
-        public synchronized void get(VehiclePropValue requestedPropValue, getCallback cb) {
-            if (!isVendorProperty(requestedPropValue.prop)) {
-                super.get(requestedPropValue, cb);
-                return;
-            }
-            VehiclePropValue result = new VehiclePropValue();
-            result.prop = requestedPropValue.prop;
-            result.areaId = requestedPropValue.areaId;
+        public void setValues(IVehicleCallback callback, SetValueRequests requests)
+                throws RemoteException {
+            requests = (SetValueRequests) LargeParcelable.reconstructStableAIDLParcelable(
+                    requests, /* keepSharedMemory= */ false);
 
-            if (requestedPropValue.prop == CUSTOM_BYTES_PROP_ID_2 && mBytes != null) {
-                Log.d(TAG, "Returning byte array property, value size " + mBytes.length);
-                result.value.bytes.ensureCapacity(mBytes.length);
-                for (byte b : mBytes) {
-                    result.value.bytes.add(b);
-                }
-            } else {
-                VehiclePropValue existingValue = mValues.get(requestedPropValue.prop);
-                if (existingValue != null) {
-                    result = existingValue;
-                } else {
-                    result = requestedPropValue;
+            SetValueResults results = new SetValueResults();
+            results.payloads = new SetValueResult[requests.payloads.length];
+
+            synchronized (mLock) {
+                for (int i = 0; i < requests.payloads.length; i++) {
+                    SetValueRequest request = requests.payloads[i];
+                    VehiclePropValue requestedPropValue = request.value;
+                    if (requestedPropValue.prop == CUSTOM_BYTES_PROP_ID_1) {
+                        mBytes = requestedPropValue.value.byteValues.clone();
+                    }
+
+                    mValues.put(requestedPropValue.prop, requestedPropValue);
+
+                    SetValueResult result = new SetValueResult();
+                    result.requestId = request.requestId;
+                    result.status = StatusCode.OK;
+                    results.payloads[i] = result;
                 }
             }
-            cb.onValues(StatusCode.OK, result);
+
+            results = (SetValueResults) LargeParcelable.toLargeParcelable(results, () -> {
+                SetValueResults newResults = new SetValueResults();
+                newResults.payloads = new SetValueResult[0];
+                return newResults;
+            });
+            callback.onSetValues(results);
         }
 
         private boolean isVendorProperty(int prop) {

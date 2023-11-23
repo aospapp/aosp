@@ -100,6 +100,7 @@ cc_library_headers {
     defaults: ["libgtest_defaults", "libgtest_host_defaults"],
     host_supported: true,
     native_bridge_supported: true,
+    ramdisk_available: true,
     recovery_available: true,
     vendor_ramdisk_available: true,
     vendor_available: true,

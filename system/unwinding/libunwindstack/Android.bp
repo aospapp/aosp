@@ -51,42 +51,44 @@ cc_defaults {
     },
 }
 
+libunwindstack_common_src_files = [
+    "AndroidUnwinder.cpp",
+    "ArmExidx.cpp",
+    "DexFiles.cpp",
+    "DwarfCfa.cpp",
+    "DwarfEhFrameWithHdr.cpp",
+    "DwarfMemory.cpp",
+    "DwarfOp.cpp",
+    "DwarfSection.cpp",
+    "Elf.cpp",
+    "ElfInterface.cpp",
+    "ElfInterfaceArm.cpp",
+    "Global.cpp",
+    "JitDebug.cpp",
+    "MapInfo.cpp",
+    "Maps.cpp",
+    "Memory.cpp",
+    "MemoryMte.cpp",
+    "MemoryXz.cpp",
+    "Regs.cpp",
+    "RegsArm.cpp",
+    "RegsArm64.cpp",
+    "RegsX86.cpp",
+    "RegsX86_64.cpp",
+    "RegsMips.cpp",
+    "RegsMips64.cpp",
+    "Symbols.cpp",
+    "ThreadEntry.cpp",
+    "ThreadUnwinder.cpp",
+    "Unwinder.cpp",
+]
+
 cc_defaults {
     name: "libunwindstack_defaults",
     defaults: ["libunwindstack_flags"],
     export_include_dirs: ["include"],
 
-    srcs: [
-        "ArmExidx.cpp",
-        "DexFiles.cpp",
-        "DwarfCfa.cpp",
-        "DwarfEhFrameWithHdr.cpp",
-        "DwarfMemory.cpp",
-        "DwarfOp.cpp",
-        "DwarfSection.cpp",
-        "Elf.cpp",
-        "ElfInterface.cpp",
-        "ElfInterfaceArm.cpp",
-        "Global.cpp",
-        "JitDebug.cpp",
-        "Log.cpp",
-        "MapInfo.cpp",
-        "Maps.cpp",
-        "Memory.cpp",
-        "MemoryMte.cpp",
-        "LocalUnwinder.cpp",
-        "Regs.cpp",
-        "RegsArm.cpp",
-        "RegsArm64.cpp",
-        "RegsX86.cpp",
-        "RegsX86_64.cpp",
-        "RegsMips.cpp",
-        "RegsMips64.cpp",
-        "Symbols.cpp",
-        "ThreadEntry.cpp",
-        "ThreadUnwinder.cpp",
-        "Unwinder.cpp",
-    ],
+    srcs: libunwindstack_common_src_files,
 
     cflags: [
         "-Wexit-time-destructors",
@@ -140,7 +142,10 @@ cc_library {
         support_system_process: true,
     },
     defaults: ["libunwindstack_defaults"],
-    srcs: ["DexFile.cpp"],
+    srcs: [
+        "DexFile.cpp",
+        "LogAndroid.cpp",
+    ],
     cflags: ["-DDEXFILE_SUPPORT"],
     static_libs: ["libdexfile_support"],
     runtime_libs: ["libdexfile"], // libdexfile_support dependency
@@ -186,12 +191,23 @@ cc_library {
     min_sdk_version: "29",
 }
 
+// Make sure that the code can be compiled without Android Logging.
+cc_library {
+    name: "libunwindstack_stdout_log",
+    defaults: ["libunwindstack_defaults"],
+    srcs: [
+        "LogStdout.cpp",
+    ],
+}
+
 // Static library without DEX support to avoid dependencies on the ART APEX.
 cc_library_static {
     name: "libunwindstack_no_dex",
+    ramdisk_available: true,
     recovery_available: true,
     vendor_ramdisk_available: true,
     defaults: ["libunwindstack_defaults"],
+    srcs: ["LogAndroid.cpp"],
 
     visibility: [
         "//external/gwp_asan",
@@ -202,6 +218,30 @@ cc_library_static {
     apex_available: [
         "//apex_available:platform",
         "com.android.runtime",
+    ],
+}
+
+//-------------------------------------------------------------------------
+// Utils
+//-------------------------------------------------------------------------
+cc_library {
+    name: "libunwindstack_utils",
+    defaults: ["libunwindstack_flags"],
+    export_include_dirs: ["utils"],
+    shared_libs: [
+        "libbase",
+        "libunwindstack",
+        "libprocinfo",
+    ],
+    whole_static_libs: [
+        "libc++fs",
+        "libz",
+    ],
+    srcs: [
+        "utils/MemoryFake.cpp",
+        "utils/OfflineUnwindUtils.cpp",
+        "utils/PidUtils.cpp",
+        "utils/ProcessTracer.cpp",
     ],
 }
 
@@ -228,6 +268,7 @@ cc_defaults {
     defaults: ["libunwindstack_flags"],
 
     srcs: [
+        "tests/AndroidUnwinderTest.cpp",
         "tests/ArmExidxDecodeTest.cpp",
         "tests/ArmExidxExtractTest.cpp",
         "tests/DexFileTest.cpp",
@@ -249,9 +290,9 @@ cc_defaults {
         "tests/ElfTest.cpp",
         "tests/ElfTestUtils.cpp",
         "tests/GlobalDebugImplTest.cpp",
+        "tests/GlobalTest.cpp",
         "tests/IsolatedSettings.cpp",
         "tests/JitDebugTest.cpp",
-        "tests/LocalUnwinderTest.cpp",
         "tests/LocalUpdatableMapsTest.cpp",
         "tests/LogFake.cpp",
         "tests/MapInfoCreateMemoryTest.cpp",
@@ -262,7 +303,6 @@ cc_defaults {
         "tests/MapsTest.cpp",
         "tests/MemoryBufferTest.cpp",
         "tests/MemoryCacheTest.cpp",
-        "tests/MemoryFake.cpp",
         "tests/MemoryFileTest.cpp",
         "tests/MemoryLocalTest.cpp",
         "tests/MemoryOfflineBufferTest.cpp",
@@ -276,6 +316,7 @@ cc_defaults {
         "tests/MemoryXzTest.cpp",
         "tests/RegsInfoTest.cpp",
         "tests/RegsIterateTest.cpp",
+        "tests/RegsRemoteTest.cpp",
         "tests/RegsStepIfSignalHandlerTest.cpp",
         "tests/RegsTest.cpp",
         "tests/SymbolsTest.cpp",
@@ -284,6 +325,7 @@ cc_defaults {
         "tests/UnwindTest.cpp",
         "tests/UnwinderTest.cpp",
         "tests/VerifyBionicTerminationTest.cpp",
+        "utils/tests/ProcessTracerTest.cpp",
     ],
 
     cflags: [
@@ -301,6 +343,8 @@ cc_defaults {
     static_libs: [
         "libdexfile_support",
         "libgmock",
+        "libprocinfo",
+        "libunwindstack_utils",
     ],
 
     test_suites: ["device-tests"],
@@ -312,30 +356,47 @@ cc_defaults {
         "tests/files/boot_arm.oat.gnu_debugdata.xz.one-block",
         "tests/files/elf32.xz",
         "tests/files/elf64.xz",
-        "tests/files/offline/art_quick_osr_stub_arm/*",
-        "tests/files/offline/bad_eh_frame_hdr_arm64/*",
-        "tests/files/offline/debug_frame_first_x86/*",
-        "tests/files/offline/debug_frame_load_bias_arm/*",
-        "tests/files/offline/eh_frame_bias_x86/*",
-        "tests/files/offline/eh_frame_hdr_begin_x86_64/*",
-        "tests/files/offline/empty_arm64/*",
-        "tests/files/offline/invalid_elf_offset_arm/*",
-        "tests/files/offline/jit_debug_arm/*",
-        "tests/files/offline/jit_debug_x86/*",
-        "tests/files/offline/jit_map_arm/*",
-        "tests/files/offline/gnu_debugdata_arm/*",
-        "tests/files/offline/load_bias_different_section_bias_arm64/*",
-        "tests/files/offline/load_bias_ro_rx_x86_64/*",
-        "tests/files/offline/offset_arm/*",
-        "tests/files/offline/pauth_pc_arm64/*",
-        "tests/files/offline/shared_lib_in_apk_arm64/*",
-        "tests/files/offline/shared_lib_in_apk_memory_only_arm64/*",
-        "tests/files/offline/shared_lib_in_apk_single_map_arm64/*",
-        "tests/files/offline/signal_load_bias_arm/*",
-        "tests/files/offline/signal_fde_x86/*",
-        "tests/files/offline/signal_fde_x86_64/*",
-        "tests/files/offline/straddle_arm/*",
-        "tests/files/offline/straddle_arm64/*",
+        "offline_files/common/*",
+        "offline_files/apk_rorx_arm64/*",
+        "offline_files/apk_rorx_unreadable_arm64/*",
+        "offline_files/apk_rx_arm64/*",
+        "offline_files/apk_rx_unreadable_arm64/*",
+        "offline_files/art_quick_osr_stub_arm/*",
+        "offline_files/bad_eh_frame_hdr_arm64/*",
+        "offline_files/debug_frame_first_x86/*",
+        "offline_files/debug_frame_load_bias_arm/*",
+        "offline_files/eh_frame_bias_x86/*",
+        "offline_files/eh_frame_hdr_begin_x86_64/*",
+        "offline_files/empty_arm64/*",
+        "offline_files/invalid_elf_offset_arm/*",
+        "offline_files/jit_debug_arm/*",
+        "offline_files/jit_map_arm/*",
+        "offline_files/gnu_debugdata_arm/*",
+        "offline_files/load_bias_different_section_bias_arm64/*",
+        "offline_files/load_bias_ro_rx_x86_64/*",
+        "offline_files/offset_arm/*",
+        "offline_files/pauth_pc_arm64/*",
+        "offline_files/shared_lib_in_apk_arm64/*",
+        "offline_files/shared_lib_in_apk_memory_only_arm64/*",
+        "offline_files/shared_lib_in_apk_single_map_arm64/*",
+        "offline_files/signal_load_bias_arm/*",
+        "offline_files/signal_fde_x86/*",
+        "offline_files/signal_fde_x86_64/*",
+        "offline_files/straddle_arm/*",
+        "offline_files/jit_debug_x86/*",
+        "offline_files/straddle_arm64/*",
+        "offline_files/bluetooth_arm64/pc_1/*",
+        "offline_files/bluetooth_arm64/pc_2/*",
+        "offline_files/bluetooth_arm64/pc_3/*",
+        "offline_files/bluetooth_arm64/pc_4/*",
+        "offline_files/photos_reset_arm64/*",
+        "offline_files/youtube_compiled_arm64/*",
+        "offline_files/yt_music_arm64/*",
+        "offline_files/maps_compiled_arm64/28613_main-thread/*",
+        "offline_files/maps_compiled_arm64/28644/*",
+        "offline_files/maps_compiled_arm64/28648/*",
+        "offline_files/maps_compiled_arm64/28656_oat_odex_jar/*",
+        "offline_files/maps_compiled_arm64/28667/*",
     ],
 
     target: {
@@ -377,6 +438,7 @@ cc_defaults {
     ],
     static_libs: [
         "libdexfile_support",
+        "libunwindstack_utils",
     ],
 }
 
@@ -384,7 +446,6 @@ cc_fuzz {
     name: "libunwindstack_fuzz_unwinder",
     defaults: ["libunwindstack_fuzz_defaults"],
     srcs: [
-        "tests/MemoryFake.cpp",
         "tests/ElfFake.cpp",
         "tests/fuzz/UnwinderComponentCreator.cpp",
         "tests/fuzz/UnwinderFuzz.cpp",
@@ -399,7 +460,7 @@ cc_defaults {
     defaults: ["libunwindstack_flags"],
 
     shared_libs: [
-        "libunwindstack",
+        "libunwindstack_stdout_log",
         "libbase",
         "liblzma",
     ],
@@ -444,6 +505,10 @@ cc_binary {
 cc_binary {
     name: "unwind_for_offline",
     defaults: ["libunwindstack_tools"],
+    static_libs: [
+        "libunwindstack_utils",
+        "libc++fs",
+    ],
 
     srcs: [
         "tools/unwind_for_offline.cpp",
@@ -481,10 +546,27 @@ cc_benchmark {
         "benchmarks/main.cpp",
         "benchmarks/remote_unwind_benchmarks.cpp",
         "benchmarks/thread_unwind_benchmarks.cpp",
+        "benchmarks/OfflineUnwindBenchmarks.cpp",
+        "benchmarks/EvalBenchmark.cpp",
     ],
 
     data: [
         "benchmarks/files/*",
+        "offline_files/common/*",
+        "offline_files/jit_debug_arm/*",
+        "offline_files/straddle_arm64/*",
+        "offline_files/bluetooth_arm64/pc_1/*",
+        "offline_files/bluetooth_arm64/pc_2/*",
+        "offline_files/bluetooth_arm64/pc_3/*",
+        "offline_files/bluetooth_arm64/pc_4/*",
+        "offline_files/photos_reset_arm64/*",
+        "offline_files/youtube_compiled_arm64/*",
+        "offline_files/yt_music_arm64/*",
+        "offline_files/maps_compiled_arm64/28613_main-thread/*",
+        "offline_files/maps_compiled_arm64/28644/*",
+        "offline_files/maps_compiled_arm64/28648/*",
+        "offline_files/maps_compiled_arm64/28656_oat_odex_jar/*",
+        "offline_files/maps_compiled_arm64/28667/*",
     ],
 
     shared_libs: [
@@ -492,11 +574,15 @@ cc_benchmark {
         "libunwindstack",
     ],
 
+    static_libs: [
+        "libunwindstack_utils",
+        "libprocinfo",
+    ],
+
     target: {
         android: {
             static_libs: [
                 "libmeminfo",
-                "libprocinfo",
             ],
         },
     },

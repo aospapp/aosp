@@ -155,6 +155,7 @@ public class BlockCheckerFilter extends CallFilter {
                 return CallLog.Calls.BLOCK_REASON_BLOCKED_NUMBER;
 
             case BlockedNumberContract.STATUS_BLOCKED_UNKNOWN_NUMBER:
+            case BlockedNumberContract.STATUS_BLOCKED_UNAVAILABLE:
                 return CallLog.Calls.BLOCK_REASON_UNKNOWN_NUMBER;
 
             case BlockedNumberContract.STATUS_BLOCKED_RESTRICTED:

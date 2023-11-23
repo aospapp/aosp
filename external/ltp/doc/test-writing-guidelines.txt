@@ -24,7 +24,6 @@ Do not reinvent the wheel!
 * Do not add custom PASS/FAIL reporting functions
 * Do not write Makefiles from scratch,
   use LTP build system instead, etc.
-* ...
 
 1.2 Code duplication
 ~~~~~~~~~~~~~~~~~~~~
@@ -48,10 +47,12 @@ LTP adopted Linux kernel coding style. If you aren't familiar with its rules
 locate 'linux/Documentation/CodingStyle' in the kernel sources and read it,
 it's a well written introduction.
 
-There is also a checkpatch (see 'linux/scripts/checkpatch.pl') script that can
-be used to check your patches before the submission.
+There is also
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/checkpatch.pl[checkpatch.pl]
+script from kernel git tree which can be used to check your patches before the
+submission.  Please use reasonably recent one.
 
-NOTE: If checkpatch does not report any problems, the code still may be wrong
+NOTE: If checkpatch.pl does not report any problems, the code still may be wrong
       as the tool only looks for common mistakes.
 
 1.3.2 Shell coding style
@@ -327,6 +328,15 @@ time may vary arbitrarily, for these timeout can be disabled by setting it to
 Test can find out how much time (in seconds) is remaining to timeout,
 by calling 'tst_timeout_remaining()'.
 
+LAPI headers
+++++++++++++
+
+Use our LAPI headers ('include "lapi/foo.h"') to keep compatibility with old
+distributions. LAPI header should always include original header. Older linux
+headers were problematic, therefore we preferred to use libc headers. There are
+still some bugs when combining certain glibc headers with linux headers, see
+https://sourceware.org/glibc/wiki/Synchronizing_Headers.
+
 A word about the cleanup() callback
 +++++++++++++++++++++++++++++++++++
 
@@ -421,6 +431,7 @@ Printf-like function to report test result, it's mostly used with ttype:
 | 'TPASS' | Test has passed.
 | 'TFAIL' | Test has failed.
 | 'TINFO' | General message.
+| 'TWARN' | Something went wrong but we decided to continue. Mostly used in cleanup functions.
 |==============================
 
 The 'ttype' can be combined bitwise with 'TERRNO' or 'TTERRNO' to print
@@ -441,6 +452,60 @@ Printf-like function to report error and exit the test, it can be used with ttyp
 
 The 'ttype' can be combined bitwise with 'TERRNO' or 'TTERRNO' to print
 'errno', 'TST_ERR' respectively.
+
+There are also 'TST_EXP_*()' macros that can simplify syscall unit tests to a
+single line, use them whenever possible. These macros take a function call as
+the first parameter and a printf-like format string and parameters as well.
+These test macros then expand to a code that runs the call, checks the return
+value and errno and reports the test result.
+
+[source,c]
+-------------------------------------------------------------------------------
+static void test(void)
+{
+	...
+	TST_EXP_PASS(stat(fname, &statbuf), "stat(%s, ...)", fname);
+
+	if (!TST_PASS)
+		return;
+	...
+}
+-------------------------------------------------------------------------------
+
+The 'TST_EXP_PASS()' can be used for calls that return -1 on failure and 0 on
+success. It will check for the return value and reports failure if the return
+value is not equal to 0. The call also sets the 'TST_PASS' variable to 1 if
+the call succeeeded.
+
+[source,c]
+-------------------------------------------------------------------------------
+static void test(void)
+{
+	...
+	TST_EXP_FD(open(fname, O_RDONLY), "open(%s, O_RDONLY)", fname);
+
+	SAFE_CLOSE(TST_RET);
+	...
+}
+-------------------------------------------------------------------------------
+
+The 'TST_EXP_FD()' is the same as 'TST_EXP_PASS()' the only difference is that
+the return value is expected to be a file descriptor so the call passes if
+positive integer is returned.
+
+[source,c]
+-------------------------------------------------------------------------------
+static void test(void)
+{
+	...
+	TST_EXP_FAIL(stat(fname, &statbuf), ENOENT, "stat(%s, ...)", fname);
+	...
+}
+-------------------------------------------------------------------------------
+
+The 'TST_EXP_FAIL()' is similar to 'TST_EXP_PASS()' but it fails the test if
+the call haven't failed with -1 and 'errno' wasn't set to the expected one
+passed as the second argument.
 
 [source,c]
 -------------------------------------------------------------------------------
@@ -484,9 +549,9 @@ void tst_flush(void);
 Flush output streams, handling errors appropriately.
 
 This function is rarely needed when you have to flush the output streams
-before calling 'fork()' or 'clone()'. Note that the 'SAFE_FORK()' calls this
-function automatically. See 3.4 FILE buffers and fork() for explanation why is
-this needed.
+before calling 'fork()' or 'clone()'. Note that the 'SAFE_FORK()' and 'SAFE_CLONE()'
+calls this function automatically. See 3.4 FILE buffers and fork() for explanation
+why is this needed.
 
 2.2.3 Test temporary directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -554,7 +619,7 @@ struct tst_option {
 };
 -------------------------------------------------------------------------------
 
-Test specific command line parameters can be passed with the 'NULL'-terminated
+Test specific command line parameters can be passed with the 'NULL' terminated
 array of 'struct tst_option'. The 'optstr' is the command line option i.e. "o"
 or "o:" if option has a parameter. Only short options are supported. The 'arg'
 is where 'optarg' is stored upon match. If option has no parameter it's set to
@@ -669,10 +734,10 @@ This happens when 'stdout' gets redirected to a file. In this case, the
 'stdout' is not line buffered, but block buffered. Hence after a fork content
 of the buffers will be printed by the parent and each of the children.
 
-To avoid that you should use 'SAFE_FORK()'.
+To avoid that you should use 'SAFE_FORK()', 'SAFE_CLONE()' or 'tst_clone()'.
 
 IMPORTANT: You have to set the '.forks_child' flag in the test structure
-           if your testcase forks.
+           if your testcase forks or calls 'SAFE_CLONE()'.
 
 2.2.8 Doing the test in the child process
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -706,6 +771,23 @@ The 'tst_reap_children()' function makes the process wait for all of its
 children and exits with 'tst_brk(TBROK, ...)' if any of them returned
 a non zero exit code.
 
+When using 'SAFE_CLONE' or 'tst_clone', this may not work depending on
+the parameters passed to clone. The following call to 'SAFE_CLONE' is
+identical to 'fork()', so will work as expected.
+
+[source,c]
+--------------------------------------------------------------------------------
+const struct tst_clone_args args = {
+	.exit_signal = SIGCHLD,
+};
+
+SAFE_CLONE(&args);
+--------------------------------------------------------------------------------
+
+If 'exit_signal' is set to something else, then this will break
+'tst_reap_children'. It's not expected that all parameters to clone will
+work with the LTP library unless specific action is taken by the test code.
+
 .Using 'tst_res()' from binaries started by 'exec()'
 [source,c]
 -------------------------------------------------------------------------------
@@ -724,7 +806,7 @@ static void do_test(void)
 
 	execve(path, argv, environ);
 
-	tst_res(TBROK | TERRNO, "EXEC!");
+	tst_res(TFAIL | TERRNO, "EXEC!");
 }
 
 static struct tst_test test = {
@@ -820,11 +902,14 @@ For the details of the interface, look into the 'include/tst_checkpoint.h'.
  * Z - zombie process
  * T - process is traced
  */
-TST_PROCESS_STATE_WAIT(pid, state)
+TST_PROCESS_STATE_WAIT(pid, state, msec_timeout)
 -------------------------------------------------------------------------------
 
 The 'TST_PROCESS_STATE_WAIT()' waits until process 'pid' is in requested
-'state'. The call polls +/proc/pid/stat+ to get this information.
+'state' or timeout is reached. The call polls +/proc/pid/stat+ to get this
+information. A timeout of 0 will wait infinitely.
+
+On timeout -1 is returned and errno set to ETIMEDOUT.
 
 It's mostly used with state 'S' which means that process is sleeping in kernel
 for example in 'pause()' or any other blocking syscall.
@@ -895,39 +980,58 @@ LTP_ALIGN(x, a)
 
 Aligns the x to be next multiple of a. The a must be power of 2.
 
-2.2.13 Filesystem type detection
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2.2.13 Filesystem type detection and skiplist
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests are known to fail on certain filesystems (you cannot swap on TMPFS,
 there are unimplemented 'fcntl()' etc.).
 
-If your test needs to be skipped on certain filesystems, use the interface
-below:
+If your test needs to be skipped on certain filesystems use the
+'.skip_filesystems' field in the tst_test structure as follows:
 
 [source,c]
 -------------------------------------------------------------------------------
 #include "tst_test.h"
 
-	/*
-	 * Unsupported only on NFS.
-	 */
-	if (tst_fs_type(".") == TST_NFS_MAGIC)
-		tst_brk(TCONF, "Test not supported on NFS filesystem");
+static struct tst_test test = {
+	...
+        .skip_filesystems = (const char *const []) {
+                "tmpfs",
+                "ramfs",
+                "nfs",
+                NULL
+        },
+};
+-------------------------------------------------------------------------------
 
+When the '.all_filesystem' flag is set the '.skip_filesystems' list is passed
+to the function that detects supported filesystems any listed filesystem is
+not included in the resulting list of supported filesystems.
 
-	/*
-	 * Unsupported on NFS, TMPFS and RAMFS
-	 */
-	long type;
+If test needs to adjust expectations based on filesystem type it's also
+possible to detect filesystem type at the runtime. This is preferably used
+when only subset of the test is not applicable for a given filesystem.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static void run(void)
+{
+	...
 
 	switch ((type = tst_fs_type("."))) {
 	case TST_NFS_MAGIC:
 	case TST_TMPFS_MAGIC:
 	case TST_RAMFS_MAGIC:
-		tst_brk(TCONF, "Test not supported on %s filesystem",
+		tst_brk(TCONF, "Subtest not supported on %s",
 		        tst_fs_type_name(type));
+		return;
 	break;
 	}
+
+	...
+}
 -------------------------------------------------------------------------------
 
 2.2.14 Thread-safety in the LTP library
@@ -1077,6 +1181,17 @@ FS deferred IO metadata/cache interference, we suggest doing "syncfs" before the
 tst_dev_bytes_written first invocation. And an inline function named tst_dev_sync
 is created for that intention.
 
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+voud tst_find_backing_dev(const char *path, char *dev);
+-------------------------------------------------------------------------------
+
+This function finds the block dev that this path belongs to, it uses stat function
+to get the major/minor number of the path. Then scan them in "/proc/self/mountinfo"
+and list 2th column value after ' - ' string as its block dev if match succeeds.
+
 2.2.16 Formatting a device with a filesystem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1103,6 +1218,9 @@ The extra options 'extra_opts' should either be 'NULL' if there are none, or a
 'NULL' terminated array of strings such as +{"102400", NULL}+; 'extra_opts'
 will be passed after device name. e.g: +mkfs -t ext4 -b 1024 /dev/sda1 102400+
 in this case.
+
+Note that perfer to store the options which can be passed before or after device
+name by 'fs_opts' array.
 
 2.2.17 Verifying a filesystem's free space
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1190,6 +1308,17 @@ Directory is considered empty if it contains only '.' and '..'.
 -------------------------------------------------------------------------------
 #include "tst_test.h"
 
+void tst_purge_dir(const char *path);
+-------------------------------------------------------------------------------
+
+Deletes the contents of given directory but keeps the directory itself. Useful
+for cleaning up the temporary directory and mount points between test cases or
+test iterations. Terminates the program with 'TBROK' on error.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
 int tst_fill_fd(int fd, char pattern, size_t bs, size_t bcount);
 -------------------------------------------------------------------------------
 
@@ -1199,10 +1328,30 @@ Fill a file with specified pattern using file descriptor.
 -------------------------------------------------------------------------------
 #include "tst_test.h"
 
+int tst_prealloc_size_fd(int fd, size_t bs, size_t bcount);
+-------------------------------------------------------------------------------
+
+Preallocate the specified amount of space using 'fallocate()'. Falls back to
+'tst_fill_fd()' if 'fallocate()' fails.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
 int tst_fill_file(const char *path, char pattern, size_t bs, size_t bcount);
 -------------------------------------------------------------------------------
 
 Creates/overwrites a file with specified pattern using file path.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+int tst_prealloc_file(const char *path, size_t bs, size_t bcount);
+-------------------------------------------------------------------------------
+
+Create/overwrite a file and preallocate the specified amount of space for it.
+The allocated space will not be initialized to any particular content.
 
 2.2.19 Getting an unused PID number
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1237,27 +1386,31 @@ different once the call returns and should be used only for rough estimates.
 -------------------------------------------------------------------------------
 #include "tst_test.h"
 
-int tst_run_cmd(const char *const argv[],
+int tst_cmd(const char *const argv[],
 	        const char *stdout_path,
 	        const char *stderr_path,
-	        int pass_exit_val);
+	        enum tst_cmd_flags flags);
 -------------------------------------------------------------------------------
 
-'tst_run_cmd' is a wrapper for 'vfork() + execvp()' which provides a way
+'tst_cmd()' is a wrapper for 'vfork() + execvp()' which provides a way
 to execute an external program.
 
-'argv[]' is a NULL-terminated array of strings starting with the program name
+'argv[]' is a 'NULL' terminated array of strings starting with the program name
 which is followed by optional arguments.
 
-A non-zero 'pass_exit_val' makes 'tst_run_cmd' return the program exit code to
-the caller. A zero for 'pass_exit_val' makes 'tst_run_cmd' exit the tests
-on failure.
+'TST_CMD_PASS_RETVAL' enum 'tst_cmd_flags' makes 'tst_cmd()'
+return the program exit code to the caller, otherwise 'tst_cmd()' exit the
+tests on failure. 'TST_CMD_TCONF_ON_MISSING' check for program in '$PATH' and exit
+with 'TCONF' if not found.
 
-In case that 'execvp()' has failed and the 'pass_exit_val' flag was set, the
+In case that 'execvp()' has failed and the enum 'TST_CMD_PASS_RETVAL' flag was set, the
 return value is '255' if 'execvp()' failed with 'ENOENT' and '254' otherwise.
 
 'stdout_path' and 'stderr_path' determine where to redirect the program
 stdout and stderr I/O streams.
+
+The 'SAFE_CMD()' macro can be used automatic handling non-zero exits (exits
+with 'TBROK') and 'ENOENT' (exits with 'TCONF').
 
 .Example
 [source,c]
@@ -1268,7 +1421,7 @@ const char *const cmd[] = { "ls", "-l", NULL };
 
 ...
 	/* Store output of 'ls -l' into log.txt */
-	tst_run_cmd(cmd, "log.txt", NULL, 0);
+	tst_cmd(cmd, "log.txt", NULL, 0);
 ...
 -------------------------------------------------------------------------------
 
@@ -1408,7 +1561,7 @@ static struct tst_test test = {
 
 If the test needs additional files to be copied to the test temporary
 directory all you need to do is to list their filenames in the
-'NULL'-terminated array '.resource_files' in the tst_test structure.
+'NULL' terminated array '.resource_files' in the tst_test structure.
 
 When resource files is set test temporary directory is created automatically,
 there is need to set '.needs_tmpdir' as well.
@@ -1474,38 +1627,41 @@ test.c:8: INFO: do_action(arg) failed
 2.2.24 Tainted kernels
 ^^^^^^^^^^^^^^^^^^^^^^
 
-If you need to detect, if a testcase triggers a kernel warning, bug or oops,
-the following can be used to detect TAINT_W or TAINT_D:
+If you need to detect whether a testcase triggers a kernel warning, bug or
+oops, the following can be used to detect TAINT_W or TAINT_D:
 
 [source,c]
 -------------------------------------------------------------------------------
 #include "tst_test.h"
-#include "tst_taint.h"
 
-void setup(void)
-{
+static struct tst_test test = {
 	...
-	tst_taint_init(TST_TAINT_W | TST_TAINT_D);
+	.taint_check = TST_TAINT_W | TST_TAINT_D,
 	...
-}
-...
+};
+
 void run(void)
 {
 	...
-	if (tst_taint_check() == 0)
-		tst_res(TPASS, "kernel is not tainted");
+	if (tst_taint_check() != 0)
+		tst_res(TFAIL, "kernel has issues");
 	else
-		tst_res(TFAIL, "kernel is tainted");
+		tst_res(TPASS, "kernel seems to be fine");
 }
 -------------------------------------------------------------------------------
 
-You have to call tst_taint_init() with non-zero flags first, preferably during
-setup(). The function will generate a TCONF if the requested flags are not
-fully supported on the running kernel, and TBROK if either a zero mask was
-supplied or if the kernel is already tainted before executing the test.
+To initialize taint checks, you have to set the taint flags you want to test
+for in the 'taint_check' attribute of the tst_test struct. LTP library will
+then automatically call 'tst_taint_init()' during test setup. The function
+will generate a 'TCONF' if the requested flags are not fully supported on the
+running kernel, and 'TBROK' if the kernel is already tainted before executing
+the test.
 
-Then you can call tst_taint_check() during run(), which returns 0 or the
-tainted flags set in /proc/sys/kernel/tainted as specified earlier.
+LTP library will then automatically check kernel taint at the end of testing.
+If '.all_filesystems' is set in struct tst_test, taint check will be performed
+after each file system and taint will abort testing early with 'TFAIL'. You
+can optionally also call 'tst_taint_check()' during 'run()', which returns 0
+or the tainted flags set in '/proc/sys/kernel/tainted' as specified earlier.
 
 Depending on your kernel version, not all tainted-flags will be supported.
 
@@ -1517,14 +1673,14 @@ https://www.kernel.org/doc/html/latest/admin-guide/tainted-kernels.html
 ^^^^^^^^^^^^^^^^
 
 CRC32c checksum generation is supported by LTP. In order to use it, the
-test should include "tst_checksum.h" header, then can call tst_crc32c().
+test should include 'tst_checksum.h' header, then can call 'tst_crc32c()'.
 
 2.2.26 Checking kernel for the driver support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Some tests may need specific kernel drivers, either compiled in, or built
-as a module. If .need_drivers points to a NULL-terminated array of kernel
-module names these are all checked and the test exits with TCONF on the
+as a module. If '.needs_drivers' points to a 'NULL' terminated array of kernel
+module names these are all checked and the test exits with 'TCONF' on the
 first missing driver.
 
 Since it relies on modprobe command, the check will be skipped if the command
@@ -1535,7 +1691,7 @@ itself is not available on the system.
 
 LTP library can be instructed to save and restore value of specified
 (/proc|sys) files. This is achieved by initialized tst_test struct
-field 'save_restore'. It is a NULL terminated array of strings where
+field 'save_restore'. It is a 'NULL' terminated array of strings where
 each string represents a file, whose value is saved at the beginning
 and restored at the end of the test. Only first line of a specified
 file is saved and restored.
@@ -1543,10 +1699,10 @@ file is saved and restored.
 Pathnames can be optionally prefixed to specify how strictly (during
 'store') are handled errors:
 
-* (no prefix) - test ends with TCONF, if file doesn't exist
+* (no prefix) - test ends with 'TCONF', if file doesn't exist
 * '?'         - test prints info message and continues,
                 if file doesn't exist or open/read fails
-* '!'         - test ends with TBROK, if file doesn't exist
+* '!'         - test ends with 'TBROK', if file doesn't exist
 
 'restore' is always strict and will TWARN if it encounters any error.
 
@@ -1579,21 +1735,26 @@ on the system, disabled syscalls can be detected by checking for 'ENOSYS'
 errno etc.
 
 However in rare cases core kernel features couldn't be detected based on the
-kernel userspace API and we have to resort to kernel .config parsing.
+kernel userspace API and we have to resort to parse the kernel .config.
 
-For this cases the test should set the 'NULL' terminated needs_kconfig array
-of kernel config options required for the test. The config option can be
-specified either as plain "CONFIG_FOO" in which case it's sufficient for the
-test continue if it's set to any value (typically =y or =m). Or with a value
-as "CONFIG_FOO=bar" in which case the value has to match as well. The test is
-aborted with 'TCONF' if any of the required options were not set.
+For this cases the test should set the 'NULL' terminated '.needs_kconfigs'
+array of boolean expressions with constraints on the kconfig variables. The
+boolean expression consits of variables, two binary operations '&' and '|',
+negation '!' and correct sequence of parentesis '()'. Variables are expected
+to be in a form of "CONFIG_FOO[=bar]".
+
+The test will continue to run if all expressions are evaluated to 'True'.
+Missing variable is mapped to 'False' as well as variable with different than
+specified value, e.g. 'CONFIG_FOO=bar' will evaluate to 'False' if the value
+is anything else but 'bar'. If config variable is specified as plain
+'CONFIG_FOO' it's evaluated to true it's set to any value (typically =y or =m).
 
 [source,c]
 -------------------------------------------------------------------------------
 #include "tst_test.h"
 
 static const char *kconfigs[] = {
-	"CONFIG_X86_INTEL_UMIP",
+	"CONFIG_X86_INTEL_UMIP | CONFIG_X86_UMIP",
 	NULL
 };
 
@@ -1655,8 +1816,8 @@ over, rather than that the test library provides support for test variants.
 The idea behind test variants is simple, we run the test several times each
 time with different syscall variant.
 
-The implementation consist of test_variant integer that, if set, denotes number
-of test variants. The test is then forked and executed test_variant times each
+The implementation consist of test_variants integer that, if set, denotes number
+of test variants. The test is then forked and executed test_variants times each
 time with different value in global tst_variant variable.
 
 [source,c]
@@ -1802,7 +1963,7 @@ static void run(void)
 	if (TST_RET > -1) {
 		tst_res(TFAIL, "Created raw socket");
 	} else if (TST_ERR != EPERM) {
-		tst_res(TBROK | TTERRNO,
+		tst_res(TFAIL | TTERRNO,
 			"Failed to create socket for wrong reason");
 	} else {
 		tst_res(TPASS | TTERRNO, "Didn't create raw socket");
@@ -1830,7 +1991,7 @@ static struct tst_test test = {
 --------------------------------------------------------------------------------
 
 Look at the test struct at the bottom. We have filled in the 'caps' field with
-a NULL terminated array containing two 'tst_cap' structs. 'TST_CAP_REQ'
+a 'NULL' terminated array containing two 'tst_cap' structs. 'TST_CAP_REQ'
 actions are executed before setup and 'TST_CAP_DROP' are executed after
 setup. This means it is possible to both request and drop a capability.
 
@@ -1939,6 +2100,326 @@ specified by the user plus some other heuristics.
 
 For full documentation see the comments in 'include/tst_fuzzy_sync.h'.
 
+2.2.34 Reserving hugepages
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Many of the LTP tests need to use hugepage in their testing, this allows the
+test can reserve hugepages from system only via '.request_hugepages = xx'.
+
+If set non-zero number of 'request_hugepages', test will try to reserve the
+expected number of hugepage for testing in setup phase. If system does not
+have enough hpage for using, it will try the best to reserve 80% available
+number of hpages. With success test stores the reserved hugepage number in
+'tst_hugepages'. For the system without hugetlb supporting, variable
+'tst_hugepages' will be set to 0.
+
+Also, we do cleanup and restore work for the hpages resetting automatically.
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static void run(void)
+{
+	...
+
+	if (tst_hugepages == test.request_hugepages)
+		TEST(do_hpage_test);
+	else
+		...
+	...
+}
+
+struct tst_test test = {
+	.test_all = run,
+	.request_hugepages = 2,
+	...
+};
+-------------------------------------------------------------------------------
+
+or,
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+
+static void run(void)
+{
+	...
+}
+
+static void setup(void)
+{
+        if (tst_hugepages != test.requested_hugepages)
+                tst_brk(TCONF, "...");
+}
+
+struct tst_test test = {
+	.test_all = run,
+	.request_hugepages = 2,
+	...
+};
+-------------------------------------------------------------------------------
+
+2.2.35 Checking for required commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Required commands can be checked with '.needs_cmds', which points to a 'NULL'
+terminated array of strings such as:
+
+[source,c]
+-------------------------------------------------------------------------------
+.needs_cmds = (const char *const []) {
+	"useradd",
+	"userdel",
+	NULL
+},
+-------------------------------------------------------------------------------
+
+2.2.36 Assert sys or proc file value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using TST_ASSERT_INT/STR(path, val) to assert that integer value or string stored in
+the prefix field of file pointed by path equals to the value passed to this function.
+
+Also having a similar api pair TST_ASSERT_FILE_INT/STR(path, prefix, val) to assert
+the field value of file.
+
+2.2.36 Using Control Group
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some LTP tests need specific Control Group configurations. tst_cgroup.h provides
+APIs to discover and use CGroups. There are many differences between CGroups API
+V1 and V2. We encapsulate the details of configuring CGroups in high-level
+functions which follow the V2 kernel API. Allowing one to use CGroups without
+caring too much about the current system's configuration.
+
+Also, the LTP library will automatically mount/umount and configure the CGroup
+hierarchies if that is required (e.g. if you run the tests from init with no
+system manager).
+
+[source,c]
+-------------------------------------------------------------------------------
+#include "tst_test.h"
+#include "tst_cgroup.h"
+
+static const struct tst_cgroup_group *cg;
+
+static void run(void)
+{
+	...
+	// do test under cgroup
+	...
+}
+
+static void setup(void)
+{
+	tst_cgroup_require("memory", NULL);
+	cg = tst_cgroup_get_test_group();
+	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
+	SAFE_CGROUP_PRINTF(cg, "memory.max", "%lu", MEMSIZE);
+	if (SAFE_CGROUP_HAS(cg, "memory.swap.max"))
+		SAFE_CGROUP_PRINTF(cg, "memory.swap.max", "%zu", memsw);
+}
+
+static void cleanup(void)
+{
+	tst_cgroup_cleanup();
+}
+
+struct tst_test test = {
+	.setup = setup,
+	.test_all = run,
+	.cleanup = cleanup,
+	...
+};
+-------------------------------------------------------------------------------
+
+Above, we first ensure the memory controller is available on the
+test's CGroup with 'tst_cgroup_require'. We then get a structure,
+'cg', which represents the test's CGroup. Note that
+'tst_cgroup_get_test_group' should not be called many times, as it is
+allocated in a guarded buffer (See section 2.2.31). Therefor it is
+best to call it once in 'setup' and not 'run' because 'run' may be
+repeated with the '-i' option.
+
+We then write the current processes PID into 'cgroup.procs', which
+moves the current process into the test's CGroup. After which we set
+the maximum memory size by writing to 'memory.max'. If the memory
+controller is mounted on CGroups V1 then the library will actually
+write to 'memory.limit_in_bytes'. As a general rule, if a file exists
+on both CGroup versions, then we use the V2 naming.
+
+Some controller features, such as 'memory.swap', can be
+disabled. Therefor we need to check if they exist before accessing
+them. This can be done with 'SAFE_CGROUP_HAS' which can be called on
+any control file or feature.
+
+Most tests only require setting a few limits similar to the above. In
+such cases the differences between V1 and V2 are hidden. Setup and
+cleanup is also mostly hidden. However things can get much worse.
+
+[source,c]
+-------------------------------------------------------------------------------
+static const struct tst_cgroup_group *cg;
+static const struct tst_cgroup_group *cg_drain;
+static struct tst_cgroup_group *cg_child;
+
+static void run(void)
+{
+	char buf[BUFSIZ];
+	size_t mem = 0;
+
+	cg_child = tst_cgroup_group_mk(cg, "child");
+	SAFE_CGROUP_PRINTF(cg_child, "cgroup.procs", "%d", getpid());
+
+	if (TST_CGROUP_VER(cg, "memory") != TST_CGROUP_V1)
+		SAFE_CGROUP_PRINT(cg, "cgroup.subtree_control", "+memory");
+	if (TST_CGROUP_VER(cg, "cpuset") != TST_CGROUP_V1)
+		SAFE_CGROUP_PRINT(cg, "cgroup.subtree_control", "+cpuset");
+
+	if (!SAFE_FORK()) {
+		SAFE_CGROUP_PRINTF(cg_child, "cgroup.procs", "%d", getpid());
+
+		if (SAFE_CGROUP_HAS(cg_child, "memory.swap"))
+			SAFE_CGROUP_SCANF(cg_child, "memory.swap.current", "%zu", &mem);
+		SAFE_CGROUP_READ(cg_child, "cpuset.mems", buf, sizeof(buf));
+
+		// Do something with cpuset.mems and memory.current values
+		...
+
+		exit(0);
+	}
+
+	tst_reap_children();
+	SAFE_CGROUP_PRINTF(cg_drain, "cgroup.procs", "%d", getpid());
+	cg_child = tst_cgroup_group_rm(cg_child);
+}
+
+static void setup(void)
+{
+	tst_cgroup_require("memory", NULL);
+	tst_cgroup_require("cpuset", NULL);
+
+	cg = tst_cgroup_get_test_group();
+	cg_drain = tst_cgroup_get_drain_group();
+}
+
+static void cleanup(void)
+{
+	if (cg_child) {
+		SAFE_CGROUP_PRINTF(cg_drain, "cgroup.procs", "%d", getpid());
+		cg_child = tst_cgroup_group_rm(cg_child);
+	}
+
+	tst_cgroup_cleanup();
+}
+
+struct tst_test test = {
+	.setup = setup,
+	.test_all = run,
+	.cleanup = cleanup,
+	...
+};
+-------------------------------------------------------------------------------
+
+Starting with setup; we can see here that we also fetch the 'drain'
+CGroup. This is a shared group (between parallel tests) which may
+contain processes from other tests. It should have default settings and
+these should not be changed by the test. It can be used to remove
+processes from other CGroups incase the hierarchy root is not
+accessible.
+
+In 'run', we first create a child CGroup with 'tst_cgroup_mk'. As we
+create this CGroup in 'run' we should also remove it at the end of
+run. We also need to check if it exists and remove it in cleanup as
+well. Because there are 'SAFE_' functions which may jump to cleanup.
+
+We then move the main test process into the child CGroup. This is
+important as it means that before we destroy the child CGroup we have
+to move the main test process elsewhere. For that we use the 'drain'
+group.
+
+Next we enable the memory and cpuset controller configuration on the
+test CGroup's descendants (i.e. 'cg_child'). This allows each child to
+have its own settings. The file 'cgroup.subtree_control' does not
+exist on V1. Because it is possible to have both V1 and V2 active at
+the same time. We can not simply check if 'subtree_control' exists
+before writing to it. We have to check if a particular controller is
+on V2 before trying to add it to 'subtree_control'. Trying to add a V1
+controller will result in 'ENOENT'.
+
+We then fork a child process and add this to the child CGroup. Within
+the child process we try to read 'memory.swap.current'. It is possible
+that the memory controller was compiled without swap support, so it is
+necessary to check if 'memory.swap' is enabled. That is unless the
+test will never reach the point where 'memory.swap.*' are used without
+swap support.
+
+The parent process waits for the child process to be reaped before
+destroying the child CGroup. So there is no need to transfer the child
+to drain. However the parent process must be moved otherwise we will
+get 'EBUSY' when trying to remove the child CGroup.
+
+Another example of an edge case is the following.
+
+[source,c]
+-------------------------------------------------------------------------------
+	if (TST_CGROUP_VER(cg, "memory") == TST_CGROUP_V1)
+		SAFE_CGROUP_PRINTF(cg, "memory.swap.max", "%lu", ~0UL);
+	else
+		SAFE_CGROUP_PRINT(cg, "memory.swap.max", "max");
+-------------------------------------------------------------------------------
+
+CGroups V2 introduced a feature where 'memory[.swap].max' could be set to
+"max". This does not appear to work on V1 'limit_in_bytes' however. For most
+tests, simply using a large number is sufficient and there is no need to use
+"max". Importantly though, one should be careful to read both the V1 and V2
+kernel docs. The LTP library can not handle all edge cases. It does the minimal
+amount of work to make testing on both V1 and V2 feasible.
+
+2.2.37 Require minimum numbers of CPU for a testcase
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some tests require more than specific number of CPU. It can be defined with
+`.min_cpus = N`.
+
+2.2.38 Test tags
+^^^^^^^^^^^^^^^^
+
+Test tags are name-value pairs that can hold any test metadata.
+
+We have additional support for CVE entries, git commit in mainline kernel,
+stable kernel or glibc git repository.  If a test is a regression test it
+should include these tags.  They are printed when test fails and exported
+into documentation.
+
+CVE, mainline and stable kernel git commits in a regression test for a kernel bug:
+[source,c]
+-------------------------------------------------------------------------------
+struct tst_test test = {
+	...
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "9392a27d88b9"},
+		{"linux-git", "ff002b30181d"},
+		{"linux-stable-git", "c4a23c852e80"},
+		{"CVE", "2020-29373"},
+		{}
+	}
+};
+-------------------------------------------------------------------------------
+
+Glibc git commit in a regression test for a glibc bug:
+[source,c]
+-------------------------------------------------------------------------------
+struct tst_test test = {
+	...
+	.tags = (const struct tst_tag[]) {
+		{"glibc-git", "574500a108be"},
+		{}
+	}
+};
+-------------------------------------------------------------------------------
+
 2.3 Writing a testcase in shell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1994,11 +2475,15 @@ able to clean up correctly even in this situation. The easiest solution for
 this is to keep track of what was initialized and act accordingly in the
 cleanup.
 
-WARNING: Similar to the C library, calling tst_brk() in the $TST_CLEANUP does
+WARNING: Similar to the C library, calling 'tst_brk' in the $TST_CLEANUP does
          not exit the test and 'TBROK' is converted to 'TWARN'.
 
-Notice also the 'tst_run' function called at the end of the test that actually
-starts the test.
+Notice also the 'tst_run' shell API function called at the end of the test that
+actually starts the test.
+
+WARNING: cleanup function is called only after 'tst_run' has been started.
+Calling 'tst_brk' in shell libraries, e.g. 'tst_test.sh' or 'tst_net.sh' does
+not trigger calling it.
 
 [source,sh]
 -------------------------------------------------------------------------------
@@ -2115,8 +2600,8 @@ tst_run
 '$TST_TEST_DATA' can be used with '$TST_CNT'. If '$TST_TEST_DATA_IFS' not specified,
 space as default value is used. Of course, it's possible to use separate functions.
 
-2.3.2 Library environment variables for shell
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2.3.2 Library environment variables and functions for shell
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Similarily to the C library various checks and preparations can be requested
 simply by setting right '$TST_NEEDS_FOO'.
@@ -2124,7 +2609,8 @@ simply by setting right '$TST_NEEDS_FOO'.
 [options="header"]
 |=============================================================================
 | Variable name      | Action done
-| 'TST_NEEDS_ROOT'   | Exit the test with 'TCONF' unless executed under root
+| 'TST_NEEDS_ROOT'   | Exit the test with 'TCONF' unless executed under root.
+|                    | Alternatively the 'tst_require_root' command can be used.
 | 'TST_NEEDS_TMPDIR' | Create test temporary directory and cd into it.
 | 'TST_NEEDS_DEVICE' | Prepare test temporary device, the path to testing
                        device is stored in '$TST_DEVICE' variable.
@@ -2136,11 +2622,19 @@ simply by setting right '$TST_NEEDS_FOO'.
 | 'TST_TIMEOUT'      | Maximum timeout set for the test in sec. Must be int >= 1,
                        or -1 (special value to disable timeout), default is 300.
                        Variable is meant be set in tests, not by user.
-                       It's equivalent of `tst_test.timeout` in C.
+                       It's an equivalent of `tst_test.timeout` in C, can be set
+                       via 'tst_set_timeout(timeout)' after test has started.
+|=============================================================================
+
+[options="header"]
+|=============================================================================
+| Function name              | Action done
+| 'tst_set_timeout(timeout)' | Maximum timeout set for the test in sec.
+                               See 'TST_TIMEOUT' variable.
 |=============================================================================
 
 NOTE: Network tests (see testcases/network/README.md) use additional variables
-in 'tst_net.sh'.
+and functions in 'tst_net.sh'.
 
 Checking for presence of commands
 +++++++++++++++++++++++++++++++++
@@ -2166,7 +2660,10 @@ runtime, since sometimes we need to the check at runtime too.
 
 'tst_check_cmds()' can be used for requirements just for a particular test
 as it doesn't exit (it issues 'tst_res TCONF'). Expected usage is:
-...
+
+[source,sh]
+-------------------------------------------------------------------------------
+#!/bin/sh
 
 TST_TESTFUNC=do_test
 . tst_test.sh
@@ -2179,7 +2676,7 @@ do_test()
 }
 
 tst_run
-...
+-------------------------------------------------------------------------------
 
 Locating kernel modules
 +++++++++++++++++++++++
@@ -2190,6 +2687,9 @@ module in a few possible paths.
 
 If module was found the path to it will be stored into '$TST_MODPATH'
 variable, if module wasn't found the test will exit with 'TCONF'.
+
+Alternatively the 'tst_require_module()' function can be used to do the same
+at runtime.
 
 2.3.3 Optional command line parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2314,30 +2814,63 @@ that can sleep for defined amount of seconds, milliseconds or microseconds.
 tst_sleep 100ms
 -------------------------------------------------------------------------------
 
-Retry a function in limited time
-++++++++++++++++++++++++++++++++
+Retry a function call multiple times
+++++++++++++++++++++++++++++++++++++
 
-Sometimes LTP test needs retrying a function for many times to get success.
-This achievement makes that possible via keeping it retrying if the return
-value of the function is NOT as we expected. After exceeding a limited time,
-test will break from the retries immediately. The time limit is multiplied
-with LTP_TIMEOUT_MUL.
+Sometimes an LTP test needs to retry a function call multiple times because
+the system is not ready to process it successfully on the first try. The LTP
+library has useful tools to handle the call retry automatically.
+'TST_RETRY_FUNC()' will keep retrying for up to 1 second. If you want a custom
+time limit use 'TST_RETRY_FN_EXP_BACKOFF()'. Both methods return the value
+returned by the last 'FUNC' call.
+
+The delay between retries starts at 1 microsecond and doubles after each call.
+The retry loop ends when the function call succeeds or when the next delay
+exceeds the specified time (1 second for 'TST_RETRY_FUNC()'). The maximum
+delay is multiplied by TST_TIMEOUT_MUL. The total cumulative delay may be up
+to twice as long as the adjusted maximum delay.
+
+The C version of 'TST_RETRY_FUNC()' is a macro which takes two arguments:
+
+* 'FUNC' is the complete function call with arguments which should be retried
+  multiple times.
+* 'SUCCESS_CHECK' is a macro or function which will validate 'FUNC' return
+  value. 'FUNC' call was successful if 'SUCCESS_CHECK(ret)' evaluates to
+  non-zero.
+
+Both retry methods clear 'errno' before every 'FUNC' call so your
+'SUCCESS_CHECK' can look for specific error codes as well. The LTP library
+also includes predefined 'SUCCESS_CHECK' macros for the most common call
+conventions:
+
+* 'TST_RETVAL_EQ0()' - The call was successful if 'FUNC' returned 0 or NULL
+* 'TST_RETVAL_NOTNULL()' - The call was successful if 'FUNC' returned any
+  value other than 0 or NULL.
+* 'TST_RETVAL_GE0()' - The call was successful if 'FUNC' returned value >= 0.
 
 [source,c]
 -------------------------------------------------------------------------------
-# retry function in 1 second
-TST_RETRY_FUNC(FUNC, EXPECTED_RET)
+/* Keep trying for 1 second */
+TST_RETRY_FUNC(FUNC, SUCCESS_CHECK)
 
-# retry function in N second
-TST_RETRY_FN_EXP_BACKOFF(FUNC, EXPECTED_RET, N)
+/* Keep trying for up to 2*N seconds */
+TST_RETRY_FN_EXP_BACKOFF(FUNC, SUCCESS_CHECK, N)
 -------------------------------------------------------------------------------
+
+The shell version of 'TST_RETRY_FUNC()' is simpler and takes slightly
+different arguments:
+
+* 'FUNC' is a string containing the complete function or program call with
+  arguments.
+* 'EXPECTED_RET' is a single expected return value. 'FUNC' call was successful
+  if the return value is equal to EXPECTED_RET.
 
 [source,sh]
 -------------------------------------------------------------------------------
-# retry function in 1 second
+# Keep trying for 1 second
 TST_RETRY_FUNC "FUNC arg1 arg2 ..." "EXPECTED_RET"
 
-# retry function in N second
+# Keep trying for up to 2*N seconds
 TST_RETRY_FN_EXP_BACKOFF "FUNC arg1 arg2 ..." "EXPECTED_RET" "N"
 -------------------------------------------------------------------------------
 
@@ -2418,7 +2951,7 @@ ROD_SILENT command arg1 arg2 ...
 
 command arg1 arg2 ... > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-        tst_brkm TBROK "..."
+        tst_brk TBROK "..."
 fi
 
 
@@ -2428,7 +2961,7 @@ ROD command arg1 arg2 ...
 
 ROD arg1 arg2 ...
 if [ $? -ne 0 ]; then
-        tst_brkm TBROK "..."
+        tst_brk TBROK "..."
 fi
 -------------------------------------------------------------------------------
 
@@ -2459,8 +2992,8 @@ EXPECT_PASS command arg1 arg2 ... [ \> file ]
 EXPECT_FAIL command arg1 arg2 ... [ \> file ]
 -------------------------------------------------------------------------------
 
-'EXPECT_PASS' calls 'tst_resm TPASS' if the command exited with 0 exit code,
-and 'tst_resm TFAIL' otherwise. 'EXPECT_FAIL' does vice versa.
+'EXPECT_PASS' calls 'tst_res TPASS' if the command exited with 0 exit code,
+and 'tst_res TFAIL' otherwise. 'EXPECT_FAIL' does vice versa.
 
 Output redirection rules are the same as for the 'ROD' function. In addition
 to that, 'EXPECT_FAIL' always redirects the command's stderr to '/dev/null'.
@@ -2679,10 +3212,11 @@ skips 'atexit(3)' callbacks.
 4. Test Contribution Checklist
 ------------------------------
 
-1. Test compiles and runs fine (check with -i 10 too)
-2. Checkpatch does not report any errors
+1. Test compiles and runs fine (check with `-i 10` too)
+2. https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/checkpatch.pl[checkpatch.pl]
+   does not report any errors
 3. The runtest entires are in place
-4. Test files are added into corresponding .gitignore files
+4. Test binaries are added into corresponding '.gitignore' files
 5. Patches apply over the latest git
 
 

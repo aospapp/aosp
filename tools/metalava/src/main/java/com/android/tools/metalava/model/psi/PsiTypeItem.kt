@@ -18,7 +18,6 @@ package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.detector.api.getInternalName
 import com.android.tools.metalava.JAVA_LANG_STRING
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
@@ -48,7 +47,6 @@ import com.intellij.psi.PsiTypeElement
 import com.intellij.psi.PsiTypeParameter
 import com.intellij.psi.PsiTypeParameterList
 import com.intellij.psi.PsiTypeVisitor
-import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.PsiWildcardType
 import com.intellij.psi.util.PsiTypesUtil
 import com.intellij.psi.util.TypeConversionUtil
@@ -344,6 +342,16 @@ class PsiTypeItem private constructor(
         toInnerAnnotatedString = toAnnotatedString
     }
 
+    /**
+     * Returns `true` if `this` type can be assigned from `other` without unboxing the other.
+     */
+    fun isAssignableFromWithoutUnboxing(other: PsiTypeItem): Boolean {
+        if (this.primitive && !other.primitive) {
+            return false
+        }
+        return TypeConversionUtil.isAssignable(psiType, other.psiType)
+    }
+
     companion object {
         private fun getPrimitiveSignature(typeName: String): String? = when (typeName) {
             "boolean" -> "Z"
@@ -465,14 +473,11 @@ class PsiTypeItem private constructor(
                             codebase.getNonNullAnnotationProvider()
                         }
 
-                        if (implicitNullness == false &&
-                            owner is MethodItem &&
-                            (owner.containingClass().isAnnotationType() ||
-                                owner.containingClass().isEnum() && owner.name() == "values") &&
-                            type is PsiArrayType
+                        // Special handling for implicitly non-null arrays that also have an
+                        // implicitly non-null component type
+                        if (implicitNullness == false && type is PsiArrayType &&
+                            owner != null && owner.impliesNonNullArrayComponents()
                         ) {
-                            // For arrays in annotations not only is the method itself non null but so
-                            // is the component type
                             type.componentType.annotate(provider).createArrayType()
                                 .annotate(provider)
                         } else if (implicitNullness == false &&
@@ -512,6 +517,20 @@ class PsiTypeItem private constructor(
                 }
             } catch (e: Throwable) {
                 return type.getCanonicalText(false)
+            }
+        }
+
+        /**
+         * Determine if this item implies that its associated type is a non-null array with
+         * non-null components. This is true for the synthetic `Enum.values()` method and any
+         * annotation properties or accessors.
+         */
+        private fun Item.impliesNonNullArrayComponents(): Boolean {
+            return when (this) {
+                is MemberItem -> containingClass().isAnnotationType() && !modifiers.isStatic()
+                is MethodItem -> containingClass().isEnum() && modifiers.isStatic() &&
+                    name() == "values" && parameters().isEmpty()
+                else -> false
             }
         }
 
@@ -695,11 +714,6 @@ class PsiTypeItem private constructor(
                             return
                         } else if (element is PsiJavaToken && element.tokenType == JavaTokenType.COMMA) {
                             sb.append(",")
-                            if (compatibility.spaceAfterCommaInTypes) {
-                                if (element.nextSibling == null || element.nextSibling !is PsiWhiteSpace) {
-                                    sb.append(" ")
-                                }
-                            }
                             return
                         }
                         if (element.firstChild == null) { // leaf nodes only

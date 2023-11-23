@@ -90,10 +90,10 @@ using ContainerPointerType =
 // lookup of std::begin and std::end, i.e.
 //   using std::begin;
 //   using std::end;
-//   std::foo(begin(c), end(c);
+//   std::foo(begin(c), end(c));
 // becomes
 //   std::foo(container_algorithm_internal::begin(c),
-//   container_algorithm_internal::end(c));
+//            container_algorithm_internal::end(c));
 // These are meant for internal use only.
 
 template <typename C>
@@ -188,7 +188,7 @@ bool c_any_of(const C& c, Pred&& pred) {
 // c_none_of()
 //
 // Container-based version of the <algorithm> `std::none_of()` function to
-// test if no elements in a container fulfil a condition.
+// test if no elements in a container fulfill a condition.
 template <typename C, typename Pred>
 bool c_none_of(const C& c, Pred&& pred) {
   return std::none_of(container_algorithm_internal::c_begin(c),

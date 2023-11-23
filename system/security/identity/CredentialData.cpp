@@ -538,7 +538,8 @@ AuthKeyData* CredentialData::findAuthKey_(bool allowUsingExhaustedKeys,
 }
 
 const AuthKeyData* CredentialData::selectAuthKey(bool allowUsingExhaustedKeys,
-                                                 bool allowUsingExpiredKeys) {
+                                                 bool allowUsingExpiredKeys,
+                                                 bool incrementUsageCount) {
     AuthKeyData* candidate;
 
     // First try to find a un-expired key..
@@ -556,7 +557,9 @@ const AuthKeyData* CredentialData::selectAuthKey(bool allowUsingExhaustedKeys,
         }
     }
 
-    candidate->useCount += 1;
+    if (incrementUsageCount) {
+        candidate->useCount += 1;
+    }
     return candidate;
 }
 

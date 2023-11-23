@@ -1,114 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2000 Silicon Graphics, Inc.  All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Contact information: Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
- * Mountain View, CA  94043, or:
- *
- * http://www.sgi.com
- *
- * For further information regarding this notice, see:
- *
- * http://oss.sgi.com/projects/GenInfo/NoticeExplan/
- *
+ * Copyright (C) 2015-2017 Cyril Hrubis <chrubis@suse.cz>
  */
+
 /*
- *    AUTHOR            : Richard Logan
- *    CO-PILOT          : Glen Overby
- *    DATE STARTED      : 02/24/93
- *
- *    TEST CASES
- *      1.) select(2) to fd of system pipe with no I/O and small timeout
+ * Check that select() timeouts correctly.
  */
+#include <unistd.h>
 #include <errno.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/param.h>
-#include <sys/types.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
-#include "test.h"
-#include "safe_macros.h"
+#include "tst_timer_test.h"
 
-static void setup(void);
+#include "select_var.h"
 
-char *TCID = "select02";
-int TST_TOTAL = 1;
+static int fds[2];
 
-int Fd[2];
-fd_set saved_Readfds, saved_Writefds;
-fd_set Readfds, Writefds;
-
-int main(int ac, char **av)
+static int sample_fn(int clk_id, long long usec)
 {
-	int lc;
-	struct timeval timeout;
-	long test_time = 0;	/* in usecs */
+	struct timeval timeout = tst_us_to_timeval(usec);
+	fd_set sfds;
 
-	tst_parse_opts(ac, av, NULL, NULL);
+	FD_ZERO(&sfds);
 
-	setup();
+	FD_SET(fds[0], &sfds);
 
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		tst_count = 0;
+	tst_timer_start(clk_id);
+	TEST(do_select(1, &sfds, NULL, NULL, &timeout));
+	tst_timer_stop();
+	tst_timer_sample();
 
-		test_time = ((lc % 2000) * 100000);	/* 100 milli-seconds */
-
-		if (test_time > 1000000 * 60)
-			test_time = test_time % (1000000 * 60);
-
-		timeout.tv_sec = test_time / 1000000;
-		timeout.tv_usec = test_time - (timeout.tv_sec * 1000000);
-
-		Readfds = saved_Readfds;
-		Writefds = saved_Writefds;
-
-		TEST(select(5, &Readfds, &Writefds, 0, &timeout));
-
-		if (TEST_RETURN == -1) {
-			tst_resm(TFAIL,
-				 "%d select(5, &Readfds, &Writefds, 0, &timeout) failed, errno=%d\n",
-				 lc, errno);
-		} else {
-			tst_resm(TPASS,
-				 "select(5, &Readfds, &Writefds, 0, &timeout) timeout = %ld usecs",
-				 test_time);
-		}
-
+	if (TST_RET != 0) {
+		tst_res(TFAIL | TTERRNO, "select() returned %li", TST_RET);
+		return 1;
 	}
 
-	tst_exit();
+	return 0;
 }
 
 static void setup(void)
 {
-	tst_sig(FORK, DEF_HANDLER, NULL);
+	select_info();
 
-	TEST_PAUSE;
-
-	SAFE_PIPE(NULL, Fd);
-
-	FD_ZERO(&saved_Readfds);
-	FD_ZERO(&saved_Writefds);
-	FD_SET(Fd[0], &saved_Readfds);
-	FD_SET(Fd[1], &saved_Writefds);
+	SAFE_PIPE(fds);
 }
+
+static void cleanup(void)
+{
+	if (fds[0] > 0)
+		SAFE_CLOSE(fds[0]);
+
+	if (fds[1] > 0)
+		SAFE_CLOSE(fds[1]);
+}
+
+static struct tst_test test = {
+	.scall = "select()",
+	.sample = sample_fn,
+	.setup = setup,
+	.test_variants = TEST_VARIANTS,
+	.cleanup = cleanup,
+};

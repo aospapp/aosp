@@ -111,7 +111,7 @@ class FlickerBlockJUnit4ClassRunner @JvmOverloads constructor(
      */
     override fun createTest(): Any {
         val test = super.createTest()
-        if (flickerTestParameter?.internalFlicker == null) {
+        if (flickerTestParameter?.isInitialized != true) {
             Log.v(FLICKER_TAG, "Flicker object is not yet initialized")
             injectFlickerOnTestParams(test)
         }
@@ -125,16 +125,14 @@ class FlickerBlockJUnit4ClassRunner @JvmOverloads constructor(
         val flickerTestParameter = flickerTestParameter
         val flickerMethod = flickerMethod
         if (flickerTestParameter != null && flickerMethod != null) {
-            Log.v(FLICKER_TAG, "Creating flicker object and adding it to test parameter")
+            val testName = test::class.java.simpleName
+            Log.v(FLICKER_TAG, "Creating flicker object for $testName and adding it into " +
+                "test parameter")
             val builder = flickerMethod.invokeExplosively(test) as FlickerBuilder
-            val testName = "${test::class.java.simpleName}_${flickerTestParameter.name}"
-            val flicker = builder.apply {
-                withTestName { testName }
-                repeat { flickerTestParameter.config.repetitions }
-            }.build(TransitionRunnerWithRules(flickerTestParameter.config))
-            flickerTestParameter.internalFlicker = flicker
+            flickerTestParameter.initialize(builder, testName)
         } else {
-            Log.v(FLICKER_TAG, "Missing flicker builder provider method")
+            Log.v(FLICKER_TAG, "Missing flicker builder provider method " +
+                "in ${test::class.java.simpleName}")
         }
     }
 

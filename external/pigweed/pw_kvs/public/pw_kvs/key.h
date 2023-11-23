@@ -21,7 +21,7 @@
 #include <string_view>
 #endif  // __cplusplus >= 201703L
 
-#include "pw_string/util.h"
+#include "pw_string/internal/length.h"
 
 namespace pw {
 namespace kvs {
@@ -35,7 +35,8 @@ class Key {
   constexpr Key(const Key&) = default;
   constexpr Key(const char* str)
       : str_{str},
-        length_{string::Length(str, std::numeric_limits<size_t>::max())} {}
+        length_{string::internal::ClampedLength(
+            str, std::numeric_limits<size_t>::max())} {}
   constexpr Key(const char* str, size_t len) : str_{str}, length_{len} {}
   Key(const std::string& str) : str_{str.data()}, length_{str.length()} {}
 
@@ -44,6 +45,9 @@ class Key {
       : str_{str.data()}, length_{str.length()} {}
   operator std::string_view() { return std::string_view{str_, length_}; }
 #endif  // __cplusplus >= 201703L
+
+  // Assignment
+  constexpr Key& operator=(const Key&) = default;
 
   // Traits
   constexpr size_t size() const { return length_; }

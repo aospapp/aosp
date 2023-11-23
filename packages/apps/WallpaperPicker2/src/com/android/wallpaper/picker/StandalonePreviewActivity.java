@@ -74,7 +74,7 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
             return;
         }
 
-        // Check if READ_EXTERNAL_STORAGE permission is needed because the app invoking this activity
+        // Check if READ_MEDIA_IMAGES permission is needed because the app invoking this activity
         // passed a file:// URI or a content:// URI without a flag to grant read permission.
         boolean isReadPermissionGrantedForImageUri = isReadPermissionGrantedForImageUri(imageUri);
         mUserEventLogger.logStandalonePreviewImageUriHasReadPermission(
@@ -85,7 +85,7 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         // granted.
         if (!isReadPermissionGrantedForImageUri && !isReadExternalStoragePermissionGrantedForApp()) {
             requestPermissions(
-                    new String[]{permission.READ_EXTERNAL_STORAGE},
+                    new String[]{permission.READ_MEDIA_IMAGES},
                     READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE);
         }
     }
@@ -108,7 +108,7 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         // Load the preview fragment if the storage permission was granted.
         if (requestCode == READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE) {
             boolean isGranted = permissions.length > 0
-                    && permissions[0].equals(permission.READ_EXTERNAL_STORAGE)
+                    && permissions[0].equals(permission.READ_MEDIA_IMAGES)
                     && grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
@@ -203,16 +203,16 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
     }
 
     /**
-     * Returns whether the user has granted READ_EXTERNAL_STORAGE permission to the app.
+     * Returns whether the user has granted READ_MEDIA_IMAGES permission to the app.
      */
     private boolean isReadExternalStoragePermissionGrantedForApp() {
-        return getPackageManager().checkPermission(permission.READ_EXTERNAL_STORAGE,
+        return getPackageManager().checkPermission(permission.READ_MEDIA_IMAGES,
                 getPackageName()) == PackageManager.PERMISSION_GRANTED;
     }
 
     /**
      * Returns whether the provided image Uri is readable without requiring the app to have the user
-     * grant READ_EXTERNAL_STORAGE permission.
+     * grant READ_MEDIA_IMAGES permission.
      */
     private boolean isReadPermissionGrantedForImageUri(Uri imageUri) {
         return checkUriPermission(

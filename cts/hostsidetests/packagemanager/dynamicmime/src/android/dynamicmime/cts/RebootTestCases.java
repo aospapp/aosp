@@ -40,6 +40,8 @@ public class RebootTestCases extends BaseHostJUnit4Test {
     private static final String PACKAGE_TEST_APP = "android.dynamicmime.testapp";
     private static final String PACKAGE_REBOOT_TESTS = PACKAGE_TEST_APP + ".reboot";
 
+    private static final int SETTINGS_WRITE_TIMEOUT_MS = 10_000;
+
     @Test
     public void testGroupWithExactType() throws DeviceNotAvailableException {
         runTestWithReboot("SingleAppTest", "testGroupWithExactType");
@@ -213,6 +215,7 @@ public class RebootTestCases extends BaseHostJUnit4Test {
     private void runTestWithReboot(String testClassName, String testMethodName)
             throws DeviceNotAvailableException {
         runPreReboot(testClassName, testMethodName);
+        waitForSettingsWrite();
         getDevice().reboot();
         runPostReboot(testClassName, testMethodName);
     }
@@ -221,6 +224,13 @@ public class RebootTestCases extends BaseHostJUnit4Test {
         throws DeviceNotAvailableException {
         runDeviceTests(PACKAGE_TEST_APP, PACKAGE_REBOOT_TESTS + ".PostReboot" + testClassName,
             testMethodName);
+    }
+
+    private void waitForSettingsWrite() {
+        try {
+            Thread.sleep(SETTINGS_WRITE_TIMEOUT_MS);
+        } catch (InterruptedException ignored) {
+        }
     }
 
     private void runPreReboot(String testClassName, String testMethodName)

@@ -26,39 +26,32 @@ rust_library {
     crate_name: "keystore2_vintf",
     srcs: ["lib.rs"],
     rustlibs: [
-        "libkeystore2_vintf_bindgen",
+        "libcxx",
     ],
     shared_libs: [
+        "libvintf",
+    ],
+    static_libs: [
         "libkeystore2_vintf_cpp",
-        "libvintf",
     ],
 }
 
-cc_library {
+cc_library_static {
     name: "libkeystore2_vintf_cpp",
-    srcs: [
-        "vintf.cpp",
-    ],
+    srcs: ["vintf.cpp"],
+    generated_headers: ["cxx-bridge-header"],
+    generated_sources: ["vintf_bridge_code"],
     shared_libs: [
         "libvintf",
     ],
 }
 
-rust_bindgen {
-    name: "libkeystore2_vintf_bindgen",
-    wrapper_src: "vintf.hpp",
-    crate_name: "keystore2_vintf_bindgen",
-    source_stem: "bindings",
-    host_supported: true,
-    shared_libs: ["libvintf"],
-    bindgen_flags: [
-        "--size_t-is-usize",
-        "--allowlist-function", "getHalNames",
-        "--allowlist-function", "getHalNamesAndVersions",
-        "--allowlist-function", "getHidlInstances",
-        "--allowlist-function", "getAidlInstances",
-        "--allowlist-function", "freeNames",
-    ],
+genrule {
+    name: "vintf_bridge_code",
+    tools: ["cxxbridge"],
+    cmd: "$(location cxxbridge) $(in) >> $(out)",
+    srcs: ["lib.rs"],
+    out: ["vintf_cxx_generated.cc"],
 }
 
 rust_test {
@@ -68,7 +61,7 @@ rust_test {
     test_suites: ["general-tests"],
     auto_gen_config: true,
     rustlibs: [
-        "libkeystore2_vintf_bindgen",
+        "libcxx",
     ],
     static_libs: [
         "libkeystore2_vintf_cpp",

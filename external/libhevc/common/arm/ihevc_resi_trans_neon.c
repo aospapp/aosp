@@ -411,35 +411,22 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     UWORD32 sad;
 
     (void)pi4_temp;
-#define RESIDUE(k)                                                                                 \
-    if(NULL_PLANE == e_chroma_plane)                                                               \
-    {                                                                                              \
-        const uint8x8_t s##k = vld1_u8(pu1_src);                                                   \
-        const uint8x8_t p##k = vld1_u8(pu1_pred);                                                  \
-        diff_16[k] = vreinterpretq_s16_u16(vsubl_u8(s##k, p##k));                                  \
-        pu1_src += src_strd;                                                                       \
-        pu1_pred += pred_strd;                                                                     \
-        abs = vaddq_s16(abs, vabsq_s16(diff_16[k]));                                               \
-    }                                                                                              \
-    else                                                                                           \
-    {                                                                                              \
-        const uint8x8_t s##k = vld2_u8(pu1_src).val[e_chroma_plane];                               \
-        const uint8x8_t p##k = vld2_u8(pu1_pred).val[e_chroma_plane];                              \
-        diff_16[k] = vreinterpretq_s16_u16(vsubl_u8(s##k, p##k));                                  \
-        pu1_src += src_strd;                                                                       \
-        pu1_pred += pred_strd;                                                                     \
-        abs = vaddq_s16(abs, vabsq_s16(diff_16[k]));                                               \
-    }
-
     // stage 1
-    RESIDUE(0);
-    RESIDUE(1);
-    RESIDUE(2);
-    RESIDUE(3);
-    RESIDUE(4);
-    RESIDUE(5);
-    RESIDUE(6);
-    RESIDUE(7);
+    for(int k = 0; k < 8; k++)
+    {
+        if(NULL_PLANE == e_chroma_plane)
+        {
+            diff_16[k] = vreinterpretq_s16_u16(vsubl_u8(vld1_u8(pu1_src), vld1_u8(pu1_pred)));
+        }
+        else
+        {
+            diff_16[k] = vreinterpretq_s16_u16(vsubl_u8(vld2_u8(pu1_src).val[e_chroma_plane],
+                                                        vld2_u8(pu1_pred).val[e_chroma_plane]));
+        }
+        pu1_src += src_strd;
+        pu1_pred += pred_strd;
+        abs = vaddq_s16(abs, vabsq_s16(diff_16[k]));
+    }
 
     tmp_a = vpaddlq_s16(abs);
     tmp_b = vpaddlq_s32(tmp_a);

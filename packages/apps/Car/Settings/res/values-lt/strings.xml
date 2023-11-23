@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Prieiga prie duomenų naud. mobiliojo ryšio tinklą"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Mobiliojo ryšio tinklas"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Naudoti mobiliojo ryšio duomenis"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Išjungta"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Išjungti mobiliojo ryšio duomenis?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Būtina pasirinkti"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Naudoti „<xliff:g id="CARRIER">%1$s</xliff:g>“ mob. ryšio duomen.?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"„Wi‑Fi“ nuskaitymas įjungtas"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Automatiškai perjungti į mobiliojo ryšio duomenis"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Naudoti mobiliojo ryšio duomenis, kai „Wi-Fi“ tinkle nėra interneto ryšio. Galite būti apmokestinti už naudojamus duomenis."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Raskite „Wi‑Fi“ tinklus ir prisijunkite"</string>
     <string name="learn_more" msgid="8214605928933358604">"Sužinoti daugiau"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Vieš. int. prieig. tšk. pav."</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Įjungiama: „<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>“..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Kiti įrenginiai gali prisijungti prie „<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>“"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Vieš. int. prieig. tšk. slapt."</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Sauga"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2 / „WPA3-Personal“"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Nėra"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"PT juosta"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Programų nuostatos nustatytos iš naujo"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Ištr. visus duom. (atk. gamykl. nustat.)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Ištrinkite visus duomenis ir profilius iš informacinės pramoginės sistemos"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Tai atlikus bus ištrinti visi duomenys iš transporto priemonės informacinės pramoginės sistemos, įskaitant:\n\n"<li>"„Google“ paskyrą;"</li>\n<li>"sistemos ir programų duomenis bei nustatymus;"</li>\n<li>"atsisiųstas programas."</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Tai atlikus bus ištrinti visi duomenys iš transporto priemonės informacinės pramoginės sistemos, įskaitant:\n\n"<li>"„Google“ paskyras ir profilius;"</li>\n<li>"sistemos ir programų duomenis bei nustatymus;"</li>\n<li>"atsisiųstas programas."</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Šiuo metu esate prisijungę prie toliau nurodytų paskyrų."</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Nustatyti kiti šios transporto priemonės profiliai."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Ištrinti visus duomenis"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Naujo administratoriaus pasirinkimas"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Jums reikalingas bent vienas administratorius. Kad galėtumėte ištrinti šį, pirmiausia pasirinkite kitą administratorių."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Pasir. administratorių"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Svečias"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Svečias"</string>
     <string name="user_switch" msgid="6544839750534690781">"Jungiklis"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Jūs (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Vardas"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Paskyros (<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>)"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Automatiškai sinchronizuoti duomenis"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Leisti programoms automatiškai atnaujinti duomenis"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Įjungti autom. sinchronizavimą?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Bet kokie paskyrų pakeitimai, kuriuos atliekate žiniatinklyje, bus automatiškai nukopijuoti į jūsų įrenginį.\n\nIš kai kurių paskyrų į žiniatinklį gali būti automatiškai kopijuojami visi telefone atlikti pakeitimai. Taip veikia „Google“ paskyra."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Išjungti autom. sinchronizavimą?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Leisti automatiškai sinchronizuoti duomenis?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Bet kokie paskyrų pakeitimai, kuriuos atliekate žiniatinklyje, bus automatiškai nukopijuoti į jūsų transporto priemonę.\n\nBe to, iš kai kurių paskyrų į žiniatinklį gali būti automatiškai kopijuojami visi transporto priemonėje atlikti pakeitimai."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Neleisti automatiškai sinchronizuoti duomenų?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Tai atlikus duomenys bus naudojami saikingai, tačiau, jei norėsite surinkti naujausią informaciją, turėsite sinchronizuoti kiekvieną paskyrą neautomatiškai. Be to, negausite pranešimų, kai atsiras naujinių."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Paskyros informacija"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Paskyros pridėjimas"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privatumas"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Informacinės pramog. sistemos duomenys"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Valdyti programų prieigą prie vietovės"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Fotoaparatas"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Valdyti programų prieigą prie fotoaparato"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofonas"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Valdykite programų prieigą prie mikrofono"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Inform. pramog. sist. duomenys"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Atšaukti"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Patvirtinti"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Turi būti bent 4 simboliai"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Turi būti bent <xliff:g id="COUNT">%d</xliff:g> simbol."</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN kodą turi sudaryti bent <xliff:g id="COUNT">%d</xliff:g> skaitm."</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Turi būti mažiau nei <xliff:g id="NUMBER">%d</xliff:g> simbol."</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Turi būti mažiau nei <xliff:g id="NUMBER">%d</xliff:g> skaitm."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Turi būti sudarytas tik iš skaitmenų 0–9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Įrenginio administratorius neleidžia naudoti pastarojo PIN kodo"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Dažnai naudojamus PIN kodus užblokavo IT administratorius. Bandykite naudoti kitą PIN kodą."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Įrenginio administratorius neleidžia naudoti pastarojo slaptažodžio"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Klaida išsaugant slaptažodį"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Dažnai naudojamus slaptažodžius užblokavo IT administratorius. Bandykite naudoti kitą slaptažodį."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Didėjanti, mažėjanti ar pasikartojanti skaitmenų seka neleidžiama."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Turi būti bent viena raidė"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Turi būti bent vienas skaitmuo"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Turi būti bent vienas simbolis"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Turi būti bent # raidė}one{Turi būti bent # raidė}few{Turi būti bent # raidės}many{Turi būti bent # raidės}other{Turi būti bent # raidžių}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Turi būti bent # mažoji raidė}one{Turi būti bent # mažoji raidė}few{Turi būti bent # mažosios raidės}many{Turi būti bent # mažosios raidės}other{Turi būti bent # mažųjų raidžių}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Turi būti bent # didžioji raidė}one{Turi būti bent # didžioji raidė}few{Turi būti bent # didžiosios raidės}many{Turi būti bent # didžiosios raidės}other{Turi būti bent # didžiųjų raidžių}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Turi būti bent # skaitmuo}one{Turi būti bent # skaitmuo}few{Turi būti bent # skaitmenys}many{Turi būti bent # skaitmens}other{Turi būti bent # skaitmenų}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Turi būti bent # specialusis simbolis}one{Turi būti bent # specialusis simbolis}few{Turi būti bent # specialieji simboliai}many{Turi būti bent # specialiojo simbolio}other{Turi būti bent # specialiųjų simbolių}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Turi būti bent # neraidinis simbolis}one{Turi būti bent # neraidinis simbolis}few{Turi būti bent # neraidiniai simboliai}many{Turi būti bent # neraidinio simbolio}other{Turi būti bent # neraidinių simbolių}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Turi būti bent # neskaitinis simbolis}one{Turi būti bent # neskaitinis simbolis}few{Turi būti bent # neskaitiniai simboliai}many{Turi būti bent # neskaitinio simbolio}other{Turi būti bent # neskaitinių simbolių}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Turi būti bent # simbolis}one{Turi būti bent # simbolis}few{Turi būti bent # simboliai}many{Turi būti bent # simbolio}other{Turi būti bent # simbolių}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Turi būti bent # skaitmuo}one{Turi būti bent # skaitmuo}few{Turi būti bent # skaitmenys}many{Turi būti bent # skaitmens}other{Turi būti bent # skaitmenų}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Turi būti mažiau nei # simbolis}one{Turi būti mažiau nei # simbolis}few{Turi būti mažiau nei # simboliai}many{Turi būti mažiau nei # simbolio}other{Turi būti mažiau nei # simbolių}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Turi būti mažiau nei # skaitmuo}one{Turi būti mažiau nei # skaitmuo}few{Turi būti mažiau nei # skaitmenys}many{Turi būti mažiau nei # skaitmens}other{Turi būti mažiau nei # skaitmenų}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Didėjanti, mažėjanti ar pasikartojanti skaitmenų seka neleidžiama"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Ekrano užrakto parinktys"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: prieš <xliff:g id="NUM_DAYS">%3$s</xliff:g> d."</string>
     <string name="credentials_reset" msgid="873900550885788639">"Išvalyti prisijungimo duomenis"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Pašalinti"</string>
     <string name="cancel" msgid="750286395700355455">"Atšaukti"</string>
     <string name="allow" msgid="7519431342750394402">"Leisti"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Neleisti"</string>
     <string name="deny" msgid="340512788979930804">"Atmesti"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Naikinimo klavišas"</string>
     <string name="enter_key" msgid="2121394305541579468">"Klavišas „Enter“"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Suaktyvinti šią informacinės pramoginės sistemos programą"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Išaktyvinti ir pašalinti"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Išaktyvinti šią informacinės pramoginės sistemos programą"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Daugiau išsamios informacijos"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Organizacijos valdytojas gali stebėti ir tvarkyti su šiuo profiliu susietas programas bei duomenis, įskaitant nustatymus, leidimus, prieigą prie įmonės duomenų, tinklo veiklą ir transporto priemonės vietovės informaciją."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Organizacijos valdytojas gali stebėti ir tvarkyti su šiuo profiliu susietas programas bei duomenis, įskaitant nustatymus, leidimus, prieigą prie įmonės duomenų, tinklo veiklą ir įrenginio vietovės informaciją."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Organizacijos valdytojas gali stebėti ir tvarkyti su šia informacine pramogine sistema susietas programas ir duomenis, įskaitant nustatymus, leidimus, prieigą prie įmonės duomenų, tinklo veiklą ir transporto priemonės vietovės informaciją."</string>
@@ -757,12 +771,79 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"„<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>“ transporto priemonių politika"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Organizacijos valdytojo tvarkomi nustatymai"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Sužinokite daugiau apie paslaugą „<xliff:g id="SERVICE">%1$s</xliff:g>“"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Valdomos transporto priemonės informacija"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Parko administratoriaus valdomi nustatymai"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Kad būtų galima teikti prieigą prie duomenų šioje valdomoje transporto priemonėje, parko administratorius gali pakeisti nustatymus ir įdiegti programinę įrangą informacinėje pramoginėje sistemoje.\n\nJei reikia daugiau išsamios informacijos, susisiekite su parko administratoriumi."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informacija, kurią gali peržiūrėti parko administratorius"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Parko administratoriaus atlikti pakeitimai"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Duomenys, susieti su jūsų valdomos transporto priemonės paskyra"</li>\n" "<li>"Programų jūsų valdomoje transporto priemonėje sąrašas"</li>\n" "<li>"Vertės, nurodančios, kiek laiko praleista ir kiek duomenų išnaudota kiekvienoje programoje"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Jūsų prieiga prie informacinės pramoginės sistemos"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Programų jūsų transporto priemonėje sąrašas"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Numatomas programų skaičius. Jis gali neapimti už „Play“ parduotuvės ribų įdiegtų programų."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="one">Mažiausiai <xliff:g id="COUNT_1">%d</xliff:g> programa</item>
+      <item quantity="few">Mažiausiai <xliff:g id="COUNT_1">%d</xliff:g> programos</item>
+      <item quantity="many">Mažiausiai <xliff:g id="COUNT_1">%d</xliff:g> programos</item>
+      <item quantity="other">Mažiausiai <xliff:g id="COUNT_1">%d</xliff:g> programų</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> programa</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> programos</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> programos</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> programų</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Naujausias tinklo srauto žurnalas"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Naujausias pranešimas apie riktą"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Naujausias saugos žurnalas"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Nėra"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Programos įdiegtos"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Leidimai pasiekti vietovės duomenis"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Mikrofono leidimai"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Fotoaparato leidimai"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Numatytosios programos"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Numatytoji klaviatūra"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Nustatyti į „<xliff:g id="APP_LABEL">%s</xliff:g>“"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Nustatytas visuotinis HTTP tarpinis serveris"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Patikimi prisijungimo duomenys asmeniniame profilyje"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Administratorius gali užrakinti informacinę pramoginę sistemą ir iš naujo nustatyti slaptažodį"</li>\n" "<li>"Administratorius gali ištrinti duomenis informacinėje pramoginėje sistemoje"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Nesėkmingų bandymų įvesti slaptažodį skaičius prieš ištrinant visus duomenis informacinėje pramoginėje sistemoje"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Nesėkmingų bandymų įvesti slaptažodį skaičius prieš ištrinant profilio duomenis"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> bandymas</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> bandymai</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> bandymo</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> bandymų</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="one">Fotoaparato programos</item>
+      <item quantity="few">Fotoaparato programos</item>
+      <item quantity="many">Fotoaparato programos</item>
+      <item quantity="other">Fotoaparato programos</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="one">El. pašto programos</item>
+      <item quantity="few">El. pašto programos</item>
+      <item quantity="many">El. pašto programos</item>
+      <item quantity="other">El. pašto programos</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="one">Telefono programos</item>
+      <item quantity="few">Telefono programos</item>
+      <item quantity="many">Telefono programos</item>
+      <item quantity="other">Telefono programos</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Bendrinti pranešimą apie riktą?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Transporto priemonės organizacijos valdytojas pateikė pranešimo apie riktą užklausą, kad galėtų padėti pašalinti triktis šiame įrenginyje. Programos ir duomenys gali būti bendrinami."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Transporto priemonės organizacijos valdytojas pateikė pranešimo apie riktą užklausą, kad galėtų padėti pašalinti triktis šiame įrenginyje. Programos bei duomenys gali būti bendrinami ir įrenginys gali laikinai veikti lėčiau."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Šis pranešimas apie riktą bendrinamas su transporto priemonės organizacijos valdytoju. Jei reikia išsamesnės informacijos, susisiekite su juo."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Bendrinti"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Atmesti"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Informacinės pramoginės sistemos nustatymas iš naujo"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Jūsų sistema gavo užklausą atkurti gamyklinius nustatymus ir ištrinti visus duomenis. Galite iš naujo nustatyti dabar arba tada, kai automobilis bus užvestas kitą kartą. Tada galėsite nustatyti naują profilį."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Nustatyti iš naujo dabar"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Vėliau nustatyti iš naujo"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Informacinė pramoginė sistema iš naujo bus nustatyta kitą kartą užvedus automobilį."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Norint nustatyti iš naujo, automobilis turi stovėti."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Šiuo metu šio nustatymo pakeisti negalima"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Pritaikomumas"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Subtitrai"</string>
@@ -784,4 +865,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Juodas ant balto"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Geltonas ant juodo"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Geltonas ant mėlyno"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Ekrano skaitytuvas"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Išjungta"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Ištarti ekrane esančius elementus"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Naudoti „<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>“"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Parinktys"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Nustatymai"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Fotoaparatas"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Naudoti fotoaparatą"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Leisti visoms programoms pasiekti fotoaparatą"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Tvarkyti fotoaparato leidimus"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Neseniai pasiekta"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Nėra naujausių programų"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 programų suteikta prieiga"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# programai iš {total_count} suteikta prieiga}one{# programai iš {total_count} suteikta prieiga}few{# programoms iš {total_count} suteikta prieiga}many{# programos iš {total_count} suteikta prieiga}other{# programų iš {total_count} suteikta prieiga}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Neseniai pasiekta"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Žr. viską"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Įkeliama…"</string>
 </resources>

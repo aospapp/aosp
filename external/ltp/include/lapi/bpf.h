@@ -37,8 +37,10 @@
 #define BPF_OP(code)    ((code) & 0xf0)
 #define		BPF_ADD		0x00
 #define		BPF_SUB		0x10
+#define		BPF_DIV		0x30
 #define		BPF_LSH		0x60
 #define		BPF_RSH		0x70
+#define		BPF_MOD		0x90
 
 #define		BPF_JEQ		0x10
 
@@ -449,6 +451,14 @@ enum bpf_func_id {
 		.off   = 0,					\
 		.imm   = 0 })
 
+#define BPF_ALU32_REG(OP, DST, SRC)				\
+	((struct bpf_insn) {					\
+		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
+		.dst_reg = DST,					\
+		.src_reg = SRC,					\
+		.off   = 0,					\
+		.imm   = 0 })
+
 #define BPF_ALU64_IMM(OP, DST, IMM)				\
 	((struct bpf_insn) {					\
 		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
@@ -457,9 +467,25 @@ enum bpf_func_id {
 		.off   = 0,					\
 		.imm   = IMM })
 
+#define BPF_ALU32_IMM(OP, DST, IMM)				\
+	((struct bpf_insn) {					\
+		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
+		.dst_reg = DST,					\
+		.src_reg = 0,					\
+		.off   = 0,					\
+		.imm   = IMM })
+
 #define BPF_MOV64_REG(DST, SRC)					\
 	((struct bpf_insn) {					\
 		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
+		.dst_reg = DST,					\
+		.src_reg = SRC,					\
+		.off   = 0,					\
+		.imm   = 0 })
+
+#define BPF_MOV32_REG(DST, SRC)					\
+	((struct bpf_insn) {					\
+		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
 		.dst_reg = DST,					\
 		.src_reg = SRC,					\
 		.off   = 0,					\
@@ -553,12 +579,12 @@ enum bpf_func_id {
 /* End copy from tools/include/filter.h */
 
 /* Start copy from tools/lib/bpf  */
-inline uint64_t ptr_to_u64(const void *ptr)
+static inline uint64_t ptr_to_u64(const void *ptr)
 {
 	return (uint64_t) (unsigned long) ptr;
 }
 
-inline int bpf(enum bpf_cmd cmd, union bpf_attr *attr, unsigned int size)
+static inline int bpf(enum bpf_cmd cmd, union bpf_attr *attr, unsigned int size)
 {
 	return tst_syscall(__NR_bpf, cmd, attr, size);
 }

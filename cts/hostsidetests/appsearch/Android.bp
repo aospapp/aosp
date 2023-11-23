@@ -29,12 +29,18 @@ java_test_host {
         "tools-common-prebuilt",
         "cts-tradefed",
         "tradefed",
-        "truth-prebuilt"
+        "truth-prebuilt",
     ],
     test_suites: [
         "cts",
         "general-tests",
+        "mts-appsearch",
     ],
+    data: [
+        ":CtsAppSearchHostTestHelperA",
+        ":CtsAppSearchHostTestHelperB",
+    ],
+    per_testcase_directory: true,
 }
 
 android_test_helper_app {
@@ -53,6 +59,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
+        "mts-appsearch",
     ],
     manifest: "test-apps/AppSearchHostTestHelperA/AndroidManifest.xml",
     certificate: ":cts-appsearch-hosttest-helper-cert-a",
@@ -75,6 +82,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
+        "mts-appsearch",
     ],
     manifest: "test-apps/AppSearchHostTestHelperB/AndroidManifest.xml",
     certificate: ":cts-appsearch-hosttest-helper-cert-b",

@@ -56,15 +56,14 @@ public abstract class IkeUdpSocket extends IkeSocket {
     /** Package private */
     @VisibleForTesting
     static final class PacketReceiver implements IkeSocket.IPacketReceiver {
-        public void handlePacket(
-                byte[] recvbuf, LongSparseArray<IkeSessionStateMachine> spiToIkeSession) {
+        public void handlePacket(byte[] recvbuf, LongSparseArray<Callback> spiToCallback) {
             ByteBuffer byteBuffer = ByteBuffer.wrap(recvbuf);
 
             // Re-direct IKE packet to IkeSessionStateMachine according to the locally generated
             // IKE SPI.
             byte[] ikePacketBytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(ikePacketBytes);
-            parseAndDemuxIkePacket(ikePacketBytes, spiToIkeSession, TAG);
+            parseAndDemuxIkePacket(ikePacketBytes, spiToCallback, TAG);
         }
     }
 
@@ -80,7 +79,7 @@ public abstract class IkeUdpSocket extends IkeSocket {
      */
     @Override
     protected void handlePacket(byte[] recvbuf, int length) {
-        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToIkeSession);
+        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToCallback);
     }
 
     /**

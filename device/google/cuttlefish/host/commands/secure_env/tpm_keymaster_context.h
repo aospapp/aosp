@@ -23,10 +23,13 @@
 
 #include "tpm_attestation_record.h"
 
+namespace cuttlefish {
+
 class TpmAttestationRecordContext;
 class TpmResourceManager;
 class TpmKeyBlobMaker;
 class TpmRandomSource;
+class TpmRemoteProvisioningContext;
 
 /**
  * Implementation of KeymasterContext that wraps its keys with a TPM.
@@ -35,17 +38,25 @@ class TpmRandomSource;
  * https://cs.android.com/android/platform/superproject/+/master:system/keymaster/include/keymaster/keymaster_context.h;drc=821acb74d7febb886a9b7cefee4ee3df4cc8c556
  */
 class TpmKeymasterContext : public keymaster::KeymasterContext {
-private:
+ private:
   TpmResourceManager& resource_manager_;
   keymaster::KeymasterEnforcement& enforcement_;
   std::unique_ptr<TpmKeyBlobMaker> key_blob_maker_;
   std::unique_ptr<TpmRandomSource> random_source_;
   std::unique_ptr<TpmAttestationRecordContext> attestation_context_;
-  std::map<keymaster_algorithm_t, std::unique_ptr<keymaster::KeyFactory>> key_factories_;
+  std::unique_ptr<TpmRemoteProvisioningContext> remote_provisioning_context_;
+  std::map<keymaster_algorithm_t, std::unique_ptr<keymaster::KeyFactory>>
+      key_factories_;
   std::vector<keymaster_algorithm_t> supported_algorithms_;
   uint32_t os_version_;
   uint32_t os_patchlevel_;
-public:
+  std::optional<uint32_t> vendor_patchlevel_;
+  std::optional<uint32_t> boot_patchlevel_;
+  std::optional<std::string> bootloader_state_;
+  std::optional<std::string> verified_boot_state_;
+  std::optional<std::vector<uint8_t>> vbmeta_digest_;
+
+ public:
   TpmKeymasterContext(TpmResourceManager&, keymaster::KeymasterEnforcement&);
   ~TpmKeymasterContext() = default;
 
@@ -53,14 +64,14 @@ public:
     return attestation_context_->GetKmVersion();
   }
 
-  keymaster_error_t SetSystemVersion(
-      uint32_t os_version, uint32_t os_patchlevel) override;
-  void GetSystemVersion(
-      uint32_t* os_version, uint32_t* os_patchlevel) const override;
+  keymaster_error_t SetSystemVersion(uint32_t os_version,
+                                     uint32_t os_patchlevel) override;
+  void GetSystemVersion(uint32_t* os_version,
+                        uint32_t* os_patchlevel) const override;
 
   const keymaster::KeyFactory* GetKeyFactory(
       keymaster_algorithm_t algorithm) const override;
-  const keymaster::OperationFactory* GetOperationFactory(
+  keymaster::OperationFactory* GetOperationFactory(
       keymaster_algorithm_t algorithm,
       keymaster_purpose_t purpose) const override;
   const keymaster_algorithm_t* GetSupportedAlgorithms(
@@ -76,10 +87,14 @@ public:
       const keymaster::AuthorizationSet& additional_params,
       keymaster::UniquePtr<keymaster::Key>* key) const override;
 
-  keymaster_error_t AddRngEntropy(
-      const uint8_t* buf, size_t length) const override;
+  keymaster_error_t AddRngEntropy(const uint8_t* buf,
+                                  size_t length) const override;
 
   keymaster::KeymasterEnforcement* enforcement_policy() override;
+
+  keymaster::AttestationContext* attestation_context() override {
+    return attestation_context_.get();
+  }
 
   keymaster::CertificateChain GenerateAttestation(
       const keymaster::Key& key,
@@ -89,10 +104,8 @@ public:
       keymaster_error_t* error) const override;
 
   keymaster::CertificateChain GenerateSelfSignedCertificate(
-      const keymaster::Key& key,
-      const keymaster::AuthorizationSet& cert_params,
-      bool fake_signature,
-      keymaster_error_t* error) const override;
+      const keymaster::Key& key, const keymaster::AuthorizationSet& cert_params,
+      bool fake_signature, keymaster_error_t* error) const override;
 
   keymaster_error_t UnwrapKey(
       const keymaster::KeymasterKeyBlob& wrapped_key_blob,
@@ -102,4 +115,18 @@ public:
       keymaster::AuthorizationSet* wrapped_key_params,
       keymaster_key_format_t* wrapped_key_format,
       keymaster::KeymasterKeyBlob* wrapped_key_material) const override;
+
+  keymaster::RemoteProvisioningContext* GetRemoteProvisioningContext()
+      const override;
+
+  keymaster_error_t SetVerifiedBootInfo(
+      std::string_view verified_boot_state, std::string_view bootloader_state,
+      const std::vector<uint8_t>& vbmeta_digest) override;
+
+  keymaster_error_t SetVendorPatchlevel(uint32_t vendor_patchlevel) override;
+  keymaster_error_t SetBootPatchlevel(uint32_t boot_patchlevel) override;
+  std::optional<uint32_t> GetVendorPatchlevel() const override;
+  std::optional<uint32_t> GetBootPatchlevel() const override;
 };
+
+}  // namespace cuttlefish

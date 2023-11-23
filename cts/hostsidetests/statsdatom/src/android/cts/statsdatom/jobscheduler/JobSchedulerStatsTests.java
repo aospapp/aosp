@@ -29,12 +29,18 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildReceiver {
+    private static final Set<Integer> STATE_SCHEDULE = new HashSet<>(
+            List.of(AtomsProto.ScheduledJobStateChanged.State.SCHEDULED_VALUE));
+    private static final Set<Integer> STATE_START = new HashSet<>(
+            List.of(AtomsProto.ScheduledJobStateChanged.State.STARTED_VALUE));
+    private static final Set<Integer> STATE_FINISH = new HashSet<>(
+            List.of(AtomsProto.ScheduledJobStateChanged.State.FINISHED_VALUE));
+
     private static final String JOB_NAME =
             "com.android.server.cts.device.statsdatom/.StatsdJobService";
 
@@ -65,15 +71,9 @@ public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildRece
 
     public void testScheduledJobState() throws Exception {
         final int atomTag = AtomsProto.Atom.SCHEDULED_JOB_STATE_CHANGED_FIELD_NUMBER;
-        Set<Integer> jobSchedule = new HashSet<>(
-                Arrays.asList(AtomsProto.ScheduledJobStateChanged.State.SCHEDULED_VALUE));
-        Set<Integer> jobOn = new HashSet<>(
-                Arrays.asList(AtomsProto.ScheduledJobStateChanged.State.STARTED_VALUE));
-        Set<Integer> jobOff = new HashSet<>(
-                Arrays.asList(AtomsProto.ScheduledJobStateChanged.State.FINISHED_VALUE));
 
         // Add state sets to the list in order.
-        List<Set<Integer>> stateSet = Arrays.asList(jobSchedule, jobOn, jobOff);
+        List<Set<Integer>> stateSet = List.of(STATE_SCHEDULE, STATE_START, STATE_FINISH);
 
         ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 atomTag, /*useUidAttributionChain=*/true);
@@ -83,12 +83,43 @@ public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildRece
         // Sorted list of events in order in which they occurred.
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
 
-        AtomTestUtils.assertStatesOccurred(stateSet, data, 0,
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 0,
                 atom -> atom.getScheduledJobStateChanged().getState().getNumber());
 
         for (StatsLog.EventMetricData e : data) {
             assertThat(e.getAtom().getScheduledJobStateChanged().getJobName())
                     .isEqualTo(JOB_NAME);
+        }
+    }
+
+    public void testScheduledJobStatePriority() throws Exception {
+        final int atomTag = AtomsProto.Atom.SCHEDULED_JOB_STATE_CHANGED_FIELD_NUMBER;
+
+        // Add state sets to the list in order.
+        List<Set<Integer>> stateSet = List.of(
+                STATE_SCHEDULE, STATE_START, STATE_FINISH,
+                STATE_SCHEDULE, STATE_START, STATE_FINISH,
+                STATE_SCHEDULE, STATE_START, STATE_FINISH,
+                STATE_SCHEDULE, STATE_START, STATE_FINISH
+        );
+
+        ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
+                atomTag, /*useUidAttributionChain=*/true);
+        DeviceUtils.allowImmediateSyncs(getDevice());
+        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests",
+                "testScheduledJobPriority");
+
+        // Sorted list of events in order in which they occurred.
+        List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
+
+        AtomTestUtils.assertStatesOccurred(stateSet, data,
+                atom -> atom.getScheduledJobStateChanged().getState().getNumber());
+
+        for (StatsLog.EventMetricData e : data) {
+            assertThat(e.getAtom().getScheduledJobStateChanged().getJobName())
+                    .isEqualTo(JOB_NAME);
+            assertThat(e.getAtom().getScheduledJobStateChanged().getRequestedPriority())
+                    .isEqualTo(e.getAtom().getScheduledJobStateChanged().getJobId());
         }
     }
 }

@@ -4,7 +4,7 @@ Asynchronous stream of elements.
 
 Provides two macros, `stream!` and `try_stream!`, allowing the caller to
 define asynchronous streams of elements. These are implemented using `async`
-& `await` notation. The `stream!` macro works without unstable features.
+& `await` notation. This crate works without unstable features.
 
 The `stream!` macro returns an anonymous type implementing the [`Stream`]
 trait. The `Item` associated type is the type of the values yielded from the
@@ -68,7 +68,8 @@ async fn main() {
 }
 ```
 
-Streams may be implemented in terms of other streams:
+Streams may be implemented in terms of other streams - `async-stream` provides `for await`
+syntax to assist with this:
 
 ```rust
 use async_stream::stream;
@@ -89,8 +90,7 @@ fn double<S: Stream<Item = u32>>(input: S)
     -> impl Stream<Item = u32>
 {
     stream! {
-        pin_mut!(input);
-        while let Some(value) = input.next().await {
+        for await value in input {
             yield value * 2;
         }
     }
@@ -124,7 +124,7 @@ fn bind_and_accept(addr: SocketAddr)
     -> impl Stream<Item = io::Result<TcpStream>>
 {
     try_stream! {
-        let mut listener = TcpListener::bind(&addr)?;
+        let mut listener = TcpListener::bind(addr).await?;
 
         loop {
             let (stream, addr) = listener.accept().await?;
@@ -138,9 +138,7 @@ fn bind_and_accept(addr: SocketAddr)
 ## Implementation
 
 The `stream!` and `try_stream!` macros are implemented using proc macros.
-Given that proc macros in expression position are not supported on stable
-rust, a hack similar to the one provided by the [`proc-macro-hack`] crate is
-used. The macro searches the syntax tree for instances of `sender.send($expr)` and
+The macro searches the syntax tree for instances of `sender.send($expr)` and
 transforms them into `sender.send($expr).await`.
 
 The stream uses a lightweight sender to send values from the stream
@@ -150,17 +148,10 @@ stored on the stack. A pointer to the cell is stored in a thread local and
 `sender.send(value)` stores the value that cell and yields back to the
 caller.
 
-## Limitations
-
-`async-stream` suffers from the same limitations as the [`proc-macro-hack`]
-crate. Primarily, nesting support must be implemented using a `TT-muncher`.
-If large `stream!` blocks are used, the caller will be required to add
-`#![recursion_limit = "..."]` to their crate.
-
-A `stream!` macro may only contain up to 64 macro invocations.
-
 [`Stream`]: https://docs.rs/futures-core/*/futures_core/stream/trait.Stream.html
-[`proc-macro-hack`]: https://github.com/dtolnay/proc-macro-hack/
+
+## Supported Rust Versions
+`async-stream` is built against the latest stable release. The minimum supported version is 1.45 due to [function-like procedural macros in expression, pattern, and statement positions](https://blog.rust-lang.org/2020/07/16/Rust-1.45.0.html#stabilizing-function-like-procedural-macros-in-expressions-patterns-and-statements).
 
 ## License
 

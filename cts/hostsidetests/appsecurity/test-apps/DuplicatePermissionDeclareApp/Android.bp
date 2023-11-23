@@ -30,3 +30,23 @@ android_test_helper_app {
         "general-tests",
     ],
 }
+
+android_test_import {
+    name: "CtsDuplicatePermissionDeclareApp_DifferentProtectionLevel",
+    apk: "apk/b211934395_DifferentProtectionLevel.apk",
+    presigned: true,
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_import {
+    name: "CtsDuplicatePermissionDeclareApp_SameProtectionLevel",
+    apk: "apk/b211934395_SameProtectionLevel.apk",
+    presigned: true,
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}

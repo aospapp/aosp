@@ -14,24 +14,30 @@
  * limitations under the License.
  */
 
-#include <fuzzer/FuzzedDataProvider.h>
-#include <hidl/HidlTransportSupport.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <iostream>
 #include "Common.h"
 #include "Enumerator.h"
 #include "HalDisplay.h"
 #include "MockHWEnumerator.h"
 
+#include <fuzzer/FuzzedDataProvider.h>
+#include <hidl/HidlTransportSupport.h>
+
+#include <stdlib.h>
+#include <sys/time.h>
+
+#include <iostream>
+
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
+using IEvsCamera_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsCamera;
+using IEvsCamera_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsCamera;
+using IEvsEnumerator_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsEnumerator;
+using IEvsEnumerator_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsEnumerator;
+using IEvsDisplay_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
+using IEvsDisplay_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
+using EvsDisplayState = ::android::hardware::automotive::evs::V1_0::DisplayState;
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+namespace android::automotive::evs::V1_1::implementation {
 
 namespace {
 
@@ -55,9 +61,7 @@ enum EvsFuzzFuncs {
 
 const int kMaxFuzzerConsumedBytes = 12;
 
-
 static sp<IEvsEnumerator_1_1> sMockHWEnumerator;
-static sp<Enumerator> sEnumerator;
 
 bool DoInitialization() {
     android::hardware::details::setTrebleTestingOverride(true);
@@ -68,8 +72,7 @@ bool DoInitialization() {
     status_t status = sMockHWEnumerator->registerAsService(kMockHWEnumeratorName);
     if (status != OK) {
         std::cerr << "Could not register service " << kMockHWEnumeratorName
-                  << " status = " << status
-                  << " - quitting from LLVMFuzzerInitialize" << std::endl;
+                  << " status = " << status << " - quitting from LLVMFuzzerInitialize" << std::endl;
         exit(2);
     }
 
@@ -79,13 +82,11 @@ bool DoInitialization() {
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     FuzzedDataProvider fdp(data, size);
 
-    vector<sp<IEvsCamera_1_0>> vVirtualCameras;
-    vector<sp<IEvsDisplay_1_0>> vDisplays;
+    std::vector<sp<IEvsCamera_1_0>> vVirtualCameras;
+    std::vector<sp<IEvsDisplay_1_0>> vDisplays;
 
-    // Inititialize the enumerator that we are going to test
-    static bool initialized = DoInitialization();
-    sEnumerator = new Enumerator();
-    if (!initialized || !sEnumerator->init(kMockHWEnumeratorName)) {
+    std::unique_ptr<Enumerator> enumerator = Enumerator::build(kMockHWEnumeratorName);
+    if (!DoInitialization() || !enumerator) {
         std::cerr << "Failed to connect to hardware service"
                   << "- quitting from LLVMFuzzerInitialize" << std::endl;
         exit(1);
@@ -95,16 +96,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         switch (fdp.ConsumeIntegralInRange<uint32_t>(0, EVS_FUZZ_API_SUM)) {
             case EVS_FUZZ_GET_CAMERA_LIST: {
                 LOG(DEBUG) << "EVS_FUZZ_GET_CAMERA_LIST";
-                sEnumerator->getCameraList([](auto list) {});
+                enumerator->getCameraList([](auto list) {});
                 break;
             }
             case EVS_FUZZ_OPEN_CAMERA: {
                 LOG(DEBUG) << "EVS_FUZZ_OPEN_CAMERA";
-                uint64_t whichCam =
-                            fdp.ConsumeIntegralInRange<uint64_t>(startMockHWCameraId,
-                                                                 endMockHWCameraId-1);
+                uint64_t whichCam = fdp.ConsumeIntegralInRange<uint64_t>(startMockHWCameraId,
+                                                                         endMockHWCameraId - 1);
                 hidl_string camStr = std::to_string(whichCam);
-                sp<IEvsCamera_1_0> virtualCam = sEnumerator->openCamera(camStr);
+                sp<IEvsCamera_1_0> virtualCam = enumerator->openCamera(camStr);
                 if (virtualCam != nullptr) {
                     vVirtualCameras.emplace_back(virtualCam);
                 }
@@ -114,14 +114,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 LOG(DEBUG) << "EVS_FUZZ_CLOSE_CAMERA";
                 if (!vVirtualCameras.empty()) {
                     sp<IEvsCamera_1_0> cam = vVirtualCameras.back();
-                    sEnumerator->closeCamera(cam);
+                    enumerator->closeCamera(cam);
                     vVirtualCameras.pop_back();
                 }
                 break;
             }
             case EVS_FUZZ_OPEN_DISPLAY: {
                 LOG(DEBUG) << "EVS_FUZZ_OPEN_DISPLAY";
-                sp<IEvsDisplay_1_0> display = sEnumerator->openDisplay();
+                sp<IEvsDisplay_1_0> display = enumerator->openDisplay();
                 if (display != nullptr) {
                     vDisplays.emplace_back(display);
                 }
@@ -131,29 +131,28 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 LOG(DEBUG) << "EVS_FUZZ_CLOSE_DISPLAY";
                 if (!vDisplays.empty()) {
                     sp<IEvsDisplay_1_0> display = vDisplays.back();
-                    sEnumerator->closeDisplay(display);
+                    enumerator->closeDisplay(display);
                     vDisplays.pop_back();
                 }
                 break;
             }
             case EVS_FUZZ_GET_DISPLAY_STATE: {
                 LOG(DEBUG) << "EVS_FUZZ_GET_DISPLAY_STATE";
-                sEnumerator->getDisplayState();
+                enumerator->getDisplayState();
                 break;
             }
             case EVS_FUZZ_GET_CAMERA_LIST_1_1: {
                 LOG(DEBUG) << "EVS_FUZZ_GET_CAMERA_LIST_1_1";
-                sEnumerator->getCameraList_1_1([](auto cams) {});
+                enumerator->getCameraList_1_1([](auto cams) {});
                 break;
             }
             case EVS_FUZZ_OPEN_CAMERA_1_1: {
                 LOG(DEBUG) << "EVS_FUZZ_OPEN_CAMERA_1_1";
-                uint64_t whichCam =
-                            fdp.ConsumeIntegralInRange<uint64_t>(startMockHWCameraId,
-                                                                 endMockHWCameraId-1);
+                uint64_t whichCam = fdp.ConsumeIntegralInRange<uint64_t>(startMockHWCameraId,
+                                                                         endMockHWCameraId - 1);
                 hidl_string camStr = std::to_string(whichCam);
                 Stream streamCfg = {};
-                sp<IEvsCamera_1_1> virtualCam = sEnumerator->openCamera_1_1(camStr, streamCfg);
+                sp<IEvsCamera_1_1> virtualCam = enumerator->openCamera_1_1(camStr, streamCfg);
                 if (virtualCam != nullptr) {
                     vVirtualCameras.emplace_back(virtualCam);
                 }
@@ -161,22 +160,21 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             }
             case EVS_FUZZ_IS_HARDWARE: {
                 LOG(DEBUG) << "EVS_FUZZ_IS_HARDWARE";
-                sEnumerator->isHardware();
+                enumerator->isHardware();
                 break;
             }
             case EVS_FUZZ_GET_DISPLAY_LIST: {
                 LOG(DEBUG) << "EVS_FUZZ_GET_DISPLAY_LIST";
-                sEnumerator->getDisplayIdList([](auto list) {});
+                enumerator->getDisplayIdList([](auto list) {});
                 break;
             }
             case EVS_FUZZ_OPEN_DISPLAY_1_1: {
                 LOG(DEBUG) << "EVS_FUZZ_OPEN_DISPLAY_1_1";
-                uint64_t whichDisp =
-                            fdp.ConsumeIntegralInRange<uint64_t>(startMockHWDisplayId,
-                                                                 endMockHWDisplayId-1);
+                uint64_t whichDisp = fdp.ConsumeIntegralInRange<uint64_t>(startMockHWDisplayId,
+                                                                          endMockHWDisplayId - 1);
                 // port is the same as display in this test
-                sp<IEvsDisplay_1_1> display = sEnumerator->openDisplay_1_1(
-                                                static_cast<uint8_t>(whichDisp));
+                sp<IEvsDisplay_1_1> display =
+                        enumerator->openDisplay_1_1(static_cast<uint8_t>(whichDisp));
                 if (display != nullptr) {
                     vDisplays.emplace_back(display);
                 }
@@ -184,19 +182,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             }
             case EVS_FUZZ_GET_ULTRASONICS_ARRAY_LIST: {
                 LOG(DEBUG) << "EVS_FUZZ_GET_ULTRASONICS_ARRAY_LIST";
-                sEnumerator->getUltrasonicsArrayList([](auto list) {});
+                enumerator->getUltrasonicsArrayList([](auto list) {});
                 break;
             }
             case EVS_FUZZ_OPEN_ULTRASONICS_ARRAY: {
                 LOG(DEBUG) << "EVS_FUZZ_OPEN_ULTRASONICS_ARRAY";
                 // TODO(b/162465548) replace this once implementation is ready
-                sEnumerator->openUltrasonicsArray("");
+                enumerator->openUltrasonicsArray("");
                 break;
             }
             case EVS_FUZZ_CLOSE_ULTRASONICS_ARRAY: {
                 LOG(DEBUG) << "EVS_FUZZ_CLOSE_ULTRASONICS_ARRAY";
                 // TODO(b/162465548) replace this once implementation is ready
-                sEnumerator->closeUltrasonicsArray(nullptr);
+                enumerator->closeUltrasonicsArray(nullptr);
                 break;
             }
             default:
@@ -205,14 +203,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         }
     }
 
-    // Explicitly destroy the Enumerator
-    sEnumerator = nullptr;
     return 0;
 }
 
 }  // namespace
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+
+}  // namespace android::automotive::evs::V1_1::implementation

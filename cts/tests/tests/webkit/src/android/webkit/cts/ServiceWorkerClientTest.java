@@ -141,6 +141,7 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
     protected void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
+            ServiceWorkerController.getInstance().setServiceWorkerClient(null);
         }
         super.tearDown();
     }
@@ -197,6 +198,28 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         };
         PollingCheck.check("JS could not unregister Service Worker", POLLING_TIMEOUT,
                 unregisterSuccess);
+    }
+
+    /**
+     * This should remain functionally equivalent to
+     * androidx.webkit.ServiceWorkerClientCompatTest#testSetNullServiceWorkerClient.
+     * Modifications to this test should be reflected in that test as necessary. See
+     * http://go/modifying-webview-cts.
+     */
+    // Test setting a null ServiceWorkerClient.
+    public void testSetNullServiceWorkerClient() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        ServiceWorkerController swController = ServiceWorkerController.getInstance();
+        swController.setServiceWorkerClient(null);
+        mOnUiThread.loadUrlAndWaitForCompletion(INDEX_URL);
+
+        Callable<Boolean> registrationFailure =
+                () -> !mJavascriptStatusReceiver.mRegistrationSuccess;
+        PollingCheck.check("JS unexpectedly registered the Service Worker", POLLING_TIMEOUT,
+                registrationFailure);
     }
 
     // Object added to the page via AddJavascriptInterface() that is used by the test Javascript to

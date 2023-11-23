@@ -16,7 +16,9 @@
 
 #include "lang_id/fb_model/model-provider-from-fb.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include "lang_id/common/file/file-utils.h"
 #include "lang_id/common/file/mmap.h"

@@ -535,6 +535,7 @@ bool verifyImageSingleColoredRow (tcu::TestLog& log, const tcu::ConstPixelBuffer
 		return false;
 	}
 
+	// Note: this is never reached
 	log << tcu::TestLog::Image("LayerContent", "Layer content", image);
 
 	return allPixelsOk;
@@ -801,7 +802,7 @@ bool verifyLayerContent (tcu::TestLog& log, const TestType testType, const tcu::
 		default:
 			DE_ASSERT(0);
 			return false;
-	};
+	}
 }
 
 std::string getLayerDescription (const VkImageViewType viewType, const int layer)
@@ -1169,7 +1170,7 @@ void initPrograms (SourceCollections& programCollection, const TestParams params
 				DE_ASSERT(params.image.viewType == VK_IMAGE_VIEW_TYPE_3D);
 				imageViewString = "image3D";
 				break;
-		};
+		}
 
 		std::ostringstream src;
 		src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n"
@@ -1199,7 +1200,7 @@ void initPrograms (SourceCollections& programCollection, const TestParams params
 				default:
 					src << "    ivec3 coord = ivec3(int(gl_FragCoord.x), int(gl_FragCoord.y), gl_Layer);\n";
 					break;
-			};
+			}
 
 			src << "    vec4 src_color = imageLoad(storageImage, coord);\n"
 				<< "    o_color = (vert_color + src_color) / 2.0;\n"

@@ -59,6 +59,10 @@ public class PreferredEngineEntryPreferenceController extends
         getPreference().setOnSecondaryActionClickListener(() -> {
             TextToSpeech.EngineInfo info = mEnginesHelper.getEngineInfo(
                     mEnginesHelper.getDefaultEngine());
+            if (info == null) {
+                LOG.e("EngineInfo is null");
+                return;
+            }
             Intent subSettingsIntent = mEnginesHelper.getSettingsIntent(info.name);
             if (subSettingsIntent != null) {
                 getContext().startActivity(subSettingsIntent);
@@ -72,6 +76,10 @@ public class PreferredEngineEntryPreferenceController extends
     protected void updateState(CarUiTwoActionIconPreference preference) {
         TextToSpeech.EngineInfo info = mEnginesHelper.getEngineInfo(
                 mEnginesHelper.getDefaultEngine());
+        if (info == null) {
+            LOG.e("EngineInfo is null");
+            return;
+        }
         preference.setSummary(info.label);
     }
 }

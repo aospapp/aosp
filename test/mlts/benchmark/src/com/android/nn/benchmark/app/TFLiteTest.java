@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 public class TFLiteTest extends BenchmarkTestBase {
 
     public TFLiteTest(TestModelEntry model) {
-        super(model);
+        super(model, /*acceleratorName=*/null);
     }
 
     @Override

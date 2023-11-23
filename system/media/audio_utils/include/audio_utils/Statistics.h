@@ -17,6 +17,8 @@
 #ifndef ANDROID_AUDIO_UTILS_STATISTICS_H
 #define ANDROID_AUDIO_UTILS_STATISTICS_H
 
+#include <sys/cdefs.h>
+
 #ifdef __cplusplus
 
 #include "variadic_utils.h"

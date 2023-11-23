@@ -23,7 +23,7 @@
  * are implemented using the CHRE API rather than private system APIs.
  */
 
-#ifdef CHRE_IS_NANOAPP_BUILD
+#if defined CHRE_IS_NANOAPP_BUILD
 
 #include <chre.h>
 
@@ -50,6 +50,22 @@ inline void *memoryAlloc(size_t size) {
  */
 inline void memoryFree(void *pointer) {
   chreHeapFree(pointer);
+}
+
+}  // namespace chre
+
+#elif defined CHRE_IS_HOST_BUILD
+
+#include "chre/util/host/assert.h"
+
+namespace chre {
+
+inline void *memoryAlloc(size_t size) {
+  return malloc(size);
+}
+
+inline void memoryFree(void *pointer) {
+  free(pointer);
 }
 
 }  // namespace chre

@@ -20,5 +20,6 @@ mod editor;
 mod sys;
 mod verifier;
 
+pub use common::merkle_tree_size;
 pub use editor::VerifiedFileEditor;
 pub use verifier::VerifiedFileReader;

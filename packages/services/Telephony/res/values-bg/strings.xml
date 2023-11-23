@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Режим на обратно обаждане при спешност"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Връзката с данни е деактивирана"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Няма връзка за данни до <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Телефонът ще бъде в режим за обратно обаждане при спешност в продължение на <xliff:g id="COUNT_1">%s</xliff:g> минути. В този режим не могат да се използват приложения, работещи с връзка за данни. Искате ли да излезете сега?</item>
-      <item quantity="one">Телефонът ще бъде в режим за обратно обаждане при спешност в продължение на <xliff:g id="COUNT_0">%s</xliff:g> минута. В този режим не могат да се използват приложения, работещи с връзка за данни. Искате ли да излезете сега?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Избраното действие не е налице в режима за обратно обаждане при спешност. Телефонът ще бъде в този режим в продължение на <xliff:g id="COUNT_1">%s</xliff:g> минути. Искате ли да излезете сега?</item>
-      <item quantity="one">Избраното действие не е налице в режима за обратно обаждане при спешност. Телефонът ще бъде в този режим в продължение на <xliff:g id="COUNT_0">%s</xliff:g> минута. Искате ли да излезете сега?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Телефонът ще бъде в режим на обратно обаждане при спешност в продължение на 1 минута. През това време не могат да се използват приложения, работещи с връзка с данни. Искате ли да излезете сега?}other{Телефонът ще бъде в режим на обратно обаждане при спешност в продължение на %s минути. През това време не могат да се използват приложения, работещи с връзка с данни. Искате ли да излезете сега?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Избраното действие не е налично в режим на обратно обаждане при спешност. Телефонът ще бъде в този режим в продължение на 1 минута. Искате ли да излезете сега?}other{Избраното действие не е налично в режим на обратно обаждане при спешност. Телефонът ще бъде в този режим в продължение на %s минути. Искате ли да излезете сега?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Избраното действие не е налично по време на спешно обаждане."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Излиза се от режим на спешно обратно обаждане"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Да"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Отхвърляне"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Телефонът е в режим на спешно обратно обаждане"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"До <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Телефонът ще бъде в режим на спешно обратно обаждане в продължение на <xliff:g id="COUNT_1">%s</xliff:g> минути.\nИскате ли да излезете сега?</item>
-      <item quantity="one">Телефонът ще бъде в режим на спешно обратно обаждане в продължение на <xliff:g id="COUNT_0">%s</xliff:g> минута.\nИскате ли да излезете сега?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Телефонът ще бъде в режим на обратно обаждане при спешност в продължение на 1 минута.\nИскате ли да излезете сега?}other{Телефонът ще бъде в режим на обратно обаждане при спешност в продължение на %s минути.\nИскате ли да излезете сега?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Услуга"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Настройка"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Не е зададено&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Достъпност"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Обаждане през Wi-Fi от"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Обаждане през Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Докоснете отново, за да отворите"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"При декодирането на съобщението възникна грешка."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM картата е активирала клетъчните ви услуги и е актуализирала възможностите за роуминг на телефона ви."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Активните обаждания са твърде много. Моля, завършете или обединете съществуващи обаждания, преди да започнете ново."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Не може да се извърши обаждане, тъй като в момента се набира друго изходящо обаждане."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Не може да се извърши обаждане, тъй като има неотговорено входящо обаждане. Отговорете му или го отхвърлете, преди да извършите ново обаждане."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Не може да се извърши обаждане, тъй като обажданията са деактивирани чрез системното свойство ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Не може да се извърши обаждане, тъй като вече се провеждат две обаждания. Прекъснете едно от тях или ги обединете в конферентен разговор, преди да извършите ново обаждане."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Не може да се извърши обаждане, тъй като вече се провеждат две обаждания. Прекъснете едно от тях или ги обединете в конферентен разговор, преди да извършите ново обаждане."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"За да използвате <xliff:g id="SUPP_SERVICE">%s</xliff:g>, мобилните данни трябва да са включени. Можете да промените това в настройките за мобилната мрежа."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"За да използвате <xliff:g id="SUPP_SERVICE">%s</xliff:g>, мобилните данни и роумингът на данни трябва да са включени. Можете да промените това в настройките за мобилната мрежа."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"За да използвате <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, мобилните данни за SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> трябва да са включени. Можете да промените това в настройките за мобилната мрежа."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"За да промените настройката, трябва да рестартирате устройството си."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Рестартиране"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Отказ"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Задаване на електронната SIM карта с изваждащ се чип като основна"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Мощност на мобилното радио"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Преглед на указателя на SIM картата"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Преглед на номера за фиксирано набиране"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Избиране на радиодиапазон"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тип на гласовата мрежа:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тип на мрежата за данни:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Замяна на типа на мрежата:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Избиране на индекс за телефон"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Задаване на предпочитан тип мрежа:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Име на хост за позив (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Опресняване"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Превключване на проверката на DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Информация/настройки, специфични за ОЕМ"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"Налично EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Ограничено DCNR:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"Налично NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Състояние на NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC е налице (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR е ограничено (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR е налице (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Състояние на NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Честота за NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Задаване на режима за радиодиапазона"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Списъкът с диапазони се зарежда…"</string>

@@ -29,7 +29,10 @@ public interface SettingsShim {
      * @see android.provider.Settings#checkAndNoteWriteSettingsOperation(Context, int, String,
      * String, boolean)
      */
-    boolean checkAndNoteWriteSettingsOperation(@NonNull Context context, int uid,
+    default boolean checkAndNoteWriteSettingsOperation(@NonNull Context context, int uid,
             @NonNull String callingPackage, @Nullable String callingAttributionTag,
-            boolean throwException);
+            boolean throwException) {
+        // Only supported starting from API 30.
+        return false;
+    }
 }

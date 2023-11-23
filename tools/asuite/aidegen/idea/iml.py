@@ -107,6 +107,7 @@ class IMLGenerator:
             return cls.USED_NAME_CACHE[abs_module_path]
 
         uniq_name = abs_module_path.strip(os.sep).split(os.sep)[-1]
+
         if any(uniq_name == name for name in cls.USED_NAME_CACHE.values()):
             parent_path = os.path.relpath(abs_module_path,
                                           common_util.get_android_root_dir())
@@ -120,13 +121,20 @@ class IMLGenerator:
                 if uniq_name not in cls.USED_NAME_CACHE.values():
                     break
             else:
-                # TODO(b/133393638): To handle several corner cases.
-                uniq_name_base = parent_path.strip(os.sep).replace(os.sep, '_')
-                i = 0
-                uniq_name = uniq_name_base
-                while uniq_name in cls.USED_NAME_CACHE.values():
-                    i = i + 1
-                    uniq_name = '_'.join([uniq_name_base, str(i)])
+                # For full source tree case, there are 2 path cases w/wo "/".
+                # In the 2nd run, if abs_module_path is root dir,
+                # it will use uniq_name directly.
+                if parent_path == ".":
+                    pass
+                else:
+                    # TODO(b/133393638): To handle several corner cases.
+                    uniq_name_base = parent_path.strip(os.sep).replace(os.sep,
+                                                                       '_')
+                    i = 0
+                    uniq_name = uniq_name_base
+                    while uniq_name in cls.USED_NAME_CACHE.values():
+                        i = i + 1
+                        uniq_name = '_'.join([uniq_name_base, str(i)])
         cls.USED_NAME_CACHE[abs_module_path] = uniq_name
         logging.debug('Unique name for module path of %s is %s.',
                       abs_module_path, uniq_name)

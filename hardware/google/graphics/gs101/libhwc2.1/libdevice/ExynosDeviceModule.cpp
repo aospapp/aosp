@@ -31,7 +31,9 @@ ExynosDeviceModule::ExynosDeviceModule() : ExynosDevice(), mDisplayColorLoader(D
         ExynosDisplayDrmInterfaceModule* moduleDisplayInterface =
                 (ExynosDisplayDrmInterfaceModule*)(display->mDisplayInterface.get());
 
-        moduleDisplayInterface->getDisplayInfo(display_info);
+        if (display->mType == HWC_DISPLAY_PRIMARY) {
+            moduleDisplayInterface->getDisplayInfo(display_info);
+        }
     }
     initDisplayColor(display_info);
 }

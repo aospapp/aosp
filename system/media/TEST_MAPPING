@@ -6,5 +6,13 @@
     {
       "name": "libmedia_helper_tests"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "systemaudio_tests"
+    },
+    {
+      "name": "libmedia_helper_tests"
+    }
   ]
 }

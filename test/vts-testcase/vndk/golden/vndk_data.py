@@ -46,12 +46,13 @@ VNDK_SP = "VNDK-SP"
 # VNDK-SP dependencies that vendor modules cannot directly access.
 VNDK_SP_PRIVATE = "VNDK-SP-private"
 
-# The tuples of (ABI name, bitness, arch name). 64-bit comes before 32-bit in
-# order to sequentially search for longest prefix.
+# The tuples of (ABI name, bitness, arch name, legacy name ...). The legacy
+# name is for VNDK 32 and older versions. 64-bit comes before 32-bit in order
+# to sequentially search for longest prefix.
 _ABI_LIST = (
-    ("arm64", 64, "arm64_armv8-a"),
-    ("arm64", 32, "arm_armv8-a"),
-    ("arm", 32, "arm_armv7-a-neon"),
+    ("arm64", 64, "arm64", "arm64_armv8-a"),
+    ("arm64", 32, "arm_arm64", "arm_armv8-a"),
+    ("arm", 32, "arm", "arm_armv7-a-neon"),
     ("x86_64", 64, "x86_64"),
     ("x86_64", 32, "x86_x86_64"),
     ("x86", 32, "x86"),
@@ -61,69 +62,13 @@ _ABI_LIST = (
 _GOLDEN_DIR = os.path.join("vts", "testcases", "vndk", "golden")
 
 # The data package.
-_RESOURCE_PACKAGE = "vts.testcases.vndk";
+_RESOURCE_PACKAGE = "vts.testcases.vndk"
 
 # The name of the zip file containing ABI dumps.
 _ABI_DUMP_ZIP_NAME = "abi_dump.zip"
 
 # Regular expression prefix for library name patterns.
 _REGEX_PREFIX = "[regex]"
-
-def LoadDefaultVndkVersion(data_file_path):
-    """Loads the name of the data directory for devices with no VNDK version.
-
-    Args:
-        data_file_path: The path to VTS data directory.
-
-    Returns:
-        A string, the directory name.
-        None if fails to load the name.
-    """
-    try:
-        with open(os.path.join(data_file_path, _GOLDEN_DIR,
-                               "platform_vndk_version.txt"), "r") as f:
-            return f.read().strip()
-    except IOError:
-        logging.error("Cannot load default VNDK version.")
-        return None
-
-
-def GetAbiDumpDirectory(data_file_path, version, binder_bitness, abi_name,
-                        abi_bitness):
-    """Returns the VNDK dump directory on host.
-
-    Args:
-        data_file_path: The path to VTS data directory.
-        version: A string, the VNDK version.
-        binder_bitness: A string or an integer, 32 or 64.
-        abi_name: A string, the ABI of the library dump.
-        abi_bitness: A string or an integer, 32 or 64.
-
-    Returns:
-        A string, the path to the dump directory.
-        None if there is no directory for the version and ABI.
-    """
-    try:
-        abi_dir = next(x[0] for x in _ABI_LIST if abi_name.startswith(x[0]))
-    except StopIteration:
-        logging.warning("Unknown ABI %s.", abi_name)
-        return None
-
-    version_dir = (version if version else
-                   LoadDefaultVndkVersion(data_file_path))
-    if not version_dir:
-        return None
-
-    dump_dir = os.path.join(
-        data_file_path, _GOLDEN_DIR, version_dir,
-        "binder64" if str(binder_bitness) == "64" else "binder32",
-        abi_dir, "lib64" if str(abi_bitness) == "64" else "lib")
-
-    if not os.path.isdir(dump_dir):
-        logging.warning("%s is not a directory.", dump_dir)
-        return None
-
-    return dump_dir
 
 
 class AbiDumpResource:
@@ -167,23 +112,27 @@ def GetAbiDumpPathsFromResources(version, binder_bitness, abi_name, abi_bitness)
 
     abi_bitness = int(abi_bitness)
     try:
-        arch_name = next(x[2] for x in _ABI_LIST if
-                         abi_name.startswith(x[0]) and x[1] == abi_bitness)
+        arch_names = next(x[2:] for x in _ABI_LIST if
+                          abi_name.startswith(x[0]) and x[1] == abi_bitness)
     except StopIteration:
         logging.warning("Unknown %d-bit ABI %s.", abi_bitness, abi_name)
         return dict()
 
     # The separator in zipped path is always "/".
-    dump_dir = "/".join((version, str(binder_bitness), arch_name,
-                         "source-based")) + "/"
+    dump_dirs = ["/".join((version, str(binder_bitness), arch_name,
+                           "source-based")) + "/"
+                 for arch_name in arch_names]
+    ext = ".lsdump"
 
     dump_paths = dict()
 
     with AbiDumpResource() as dump_resource:
         for path in dump_resource.zip_file.namelist():
-            if path.startswith(dump_dir) and path.endswith(".lsdump"):
-                lib_name = path[len(dump_dir):-len(".lsdump")]
-                dump_paths[lib_name] = path
+            for dump_dir in dump_dirs:
+                if path.startswith(dump_dir) and path.endswith(ext):
+                    lib_name = path[len(dump_dir):-len(ext)]
+                    dump_paths[lib_name] = path
+                    break
 
     return dump_paths
 
@@ -230,46 +179,6 @@ def _LoadVndkLibraryListsFile(vndk_lists, tags, vndk_lib_list_file):
             if lib_name.startswith(_REGEX_PREFIX):
                 lib_name = lib_name[len(_REGEX_PREFIX):]
             vndk_lists[index].append(lib_name)
-
-
-def LoadVndkLibraryLists(data_file_path, version, *tags):
-    """Find the VNDK libraries with specific tags.
-
-    Args:
-        data_file_path: The path to VTS data directory.
-        version: A string, the VNDK version.
-        *tags: Strings, the tags of the libraries to find.
-
-    Returns:
-        A tuple of lists containing library names. Each list corresponds to
-        one tag in the argument. For SP-HAL, the returned names are regular
-        expressions.
-        None if the spreadsheet for the version is not found.
-    """
-    version_dir = (version if version else
-                   LoadDefaultVndkVersion(data_file_path))
-    if not version_dir:
-        return None
-
-    vndk_lib_list_path = os.path.join(
-        data_file_path, _GOLDEN_DIR, version_dir, "vndk-lib-list.txt")
-    if not os.path.isfile(vndk_lib_list_path):
-        logging.warning("Cannot load %s.", vndk_lib_list_path)
-        return None
-
-    vndk_lib_extra_list_path = os.path.join(
-        data_file_path, _GOLDEN_DIR, version_dir, "vndk-lib-extra-list.txt")
-    if not os.path.isfile(vndk_lib_extra_list_path):
-        logging.warning("Cannot load %s.", vndk_lib_extra_list_path)
-        return None
-
-    vndk_lists = tuple([] for x in tags)
-
-    with open(vndk_lib_list_path, "r") as f:
-        _LoadVndkLibraryListsFile(vndk_lists, tags, f)
-    with open(vndk_lib_extra_list_path, "r") as f:
-        _LoadVndkLibraryListsFile(vndk_lists, tags, f)
-    return vndk_lists
 
 
 def LoadVndkLibraryListsFromResources(version, *tags):

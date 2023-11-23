@@ -116,4 +116,13 @@ public class KeepalivePacketData {
         return mPacket.clone();
     }
 
+    @Override
+    public String toString() {
+        return "KeepalivePacketData[srcAddress=" + mSrcAddress
+                + ", dstAddress=" + mDstAddress
+                + ", srcPort=" + mSrcPort
+                + ", dstPort=" + mDstPort
+                + ", packet.length=" + mPacket.length
+                + ']';
+    }
 }

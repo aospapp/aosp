@@ -21,9 +21,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
 import android.view.View;
+import android.view.inputmethod.TextSnapshot;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An immutable object that stores event happened in the {@link MockIme}.
@@ -40,6 +44,7 @@ public final class ImeEvent {
         CharSequence,
         Exception,
         Parcelable,
+        List
     }
 
     /**
@@ -63,6 +68,9 @@ public final class ImeEvent {
         if (object instanceof Handler) {
             return ReturnType.KnownUnsupportedType;
         }
+        if (object instanceof TextSnapshot) {
+            return ReturnType.KnownUnsupportedType;
+        }
         if (object instanceof Boolean) {
             return ReturnType.Boolean;
         }
@@ -80,6 +88,9 @@ public final class ImeEvent {
         }
         if (object instanceof Parcelable) {
             return ReturnType.Parcelable;
+        }
+        if (object instanceof List) {
+            return ReturnType.List;
         }
         throw new UnsupportedOperationException("Unsupported return type=" + object);
     }
@@ -153,6 +164,9 @@ public final class ImeEvent {
             case Parcelable:
                 bundle.putParcelable("mReturnValue", getReturnParcelableValue());
                 break;
+            case List:
+                bundle.putParcelableArrayList("mReturnValue", getReturnParcelableArrayListValue());
+                break;
             default:
                 throw new UnsupportedOperationException("Unsupported type=" + mReturnType);
         }
@@ -198,6 +212,9 @@ public final class ImeEvent {
                 break;
             case Parcelable:
                 result = bundle.getParcelable("mReturnValue");
+                break;
+            case List:
+                result = bundle.getParcelableArrayList("mReturnValue");
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported type=" + returnType);
@@ -407,6 +424,22 @@ public final class ImeEvent {
             throw new ClassCastException();
         }
         return (T) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link ArrayList<? extends Parcelable>}
+     */
+    public <T extends Parcelable> ArrayList<T> getReturnParcelableArrayListValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.List) {
+            throw new ClassCastException();
+        }
+        return (ArrayList<T>) mReturnValue;
     }
 
     /**

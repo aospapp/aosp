@@ -1,6 +1,0 @@
-google-api-python-client
-google-endpoints
-
-pytz
-stripe
-

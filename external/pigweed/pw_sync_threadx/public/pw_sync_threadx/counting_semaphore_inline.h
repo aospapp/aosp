@@ -15,7 +15,7 @@
 
 #include <algorithm>
 
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_chrono/system_clock.h"
 #include "pw_interrupt/context.h"
 #include "pw_sync/counting_semaphore.h"
@@ -61,10 +61,10 @@ inline bool CountingSemaphore::try_acquire() noexcept {
 }
 
 inline bool CountingSemaphore::try_acquire_until(
-    chrono::SystemClock::time_point until_at_least) {
+    chrono::SystemClock::time_point deadline) {
   // Note that if this deadline is in the future, it will get rounded up by
   // one whole tick due to how try_acquire_for is implemented.
-  return try_acquire_for(until_at_least - chrono::SystemClock::now());
+  return try_acquire_for(deadline - chrono::SystemClock::now());
 }
 
 inline CountingSemaphore::native_handle_type

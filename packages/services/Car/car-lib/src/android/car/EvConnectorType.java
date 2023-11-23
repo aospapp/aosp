@@ -16,13 +16,18 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
  * EvConnectorType denotes the different connectors a EV may use.
+ *
+ * @deprecated Use {@link android.car.hardware.property.EvChargingConnectorType} as the return value
+ * of {@link android.car.hardware.property.CarPropertyManager#getProperty(int, int)} instead.
  */
+@Deprecated
 public final class EvConnectorType {
     /**
      * List of EV Connector Types used in {@link CarInfoManager#getEvConnectorTypes()}.
@@ -30,33 +35,46 @@ public final class EvConnectorType {
      * The vehicle returns OTHER when no other types apply.
      * <b>Note:</b> The connector types in Java API have different values than the ones in VHAL.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     /** Connector type SAE J1772 */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int J1772 = 1;
     /** IEC 62196 Type 2 connector */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MENNEKES = 2;
     /** CHAdeMo fast charger connector */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CHADEMO = 3;
     /** Combined Charging System Combo 1 */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int COMBO_1 = 4;
     /** Combined Charging System Combo 2 */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int COMBO_2 = 5;
     /** Connector of Tesla Roadster */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int TESLA_ROADSTER = 6;
     /** High Power Wall Charger of Tesla */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int TESLA_HPWC = 7;
     /** Supercharger of Tesla */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int TESLA_SUPERCHARGER = 8;
     /** GBT_AC Fast Charging Standard */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GBT = 9;
     /** GBT_DC Fast Charging Standard */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GBT_DC = 10;
     /** IEC_TYPE_3_AC connector */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int SCAME = 11;
 
     /**
      * Connector type to use when no other types apply.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int OTHER = 101;
 
     /** @hide */

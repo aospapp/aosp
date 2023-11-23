@@ -43,8 +43,8 @@ class Scorer {
   //   FAILED_PRECONDITION on any null pointer input
   //   INVALID_ARGUMENT if fails to create an instance
   static libtextclassifier3::StatusOr<std::unique_ptr<Scorer>> Create(
-      ScoringSpecProto::RankingStrategy::Code rank_by, double default_score,
-      const DocumentStore* document_store);
+      const ScoringSpecProto& scoring_spec, double default_score,
+      const DocumentStore* document_store, const SchemaStore* schema_store);
 
   // Returns a non-negative score of a document. The score can be a
   // document-associated score which comes from the DocumentProto directly, an

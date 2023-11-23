@@ -123,7 +123,8 @@ public class UserNameViewControllerTest extends SysuiTestCase {
         // Add the initial TextView, which registers the UserLifecycleListener
         mUserNameViewController.addUserNameView(mTextView);
         assertEquals(mTextView.getText(), mUserInfo1.name);
-        verify(mCarUserManager).addListener(any(), userLifecycleListenerArgumentCaptor.capture());
+        verify(mCarUserManager).addListener(any(), any(),
+                userLifecycleListenerArgumentCaptor.capture());
 
         CarUserManager.UserLifecycleEvent event = new CarUserManager.UserLifecycleEvent(
                 CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING, /* from= */ mUserInfo1.id,

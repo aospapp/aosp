@@ -16,14 +16,17 @@
 
 #pragma once
 
+#include <android-base/result.h>
+
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
 #include "apex_constants.h"
 #include "apex_file.h"
-
-#include <android-base/result.h>
 
 namespace android {
 namespace apex {
@@ -39,10 +42,15 @@ using ApexFileRef = std::reference_wrapper<const android::apex::ApexFile>;
 // mounts apexes (e.g. apexd, otapreopt_chroot).
 class ApexFileRepository final {
  public:
-  // c-tor and d-tor are exposed for testing.
+  // c-tors and d-tor are exposed for testing.
   explicit ApexFileRepository(
       const std::string& decompression_dir = kApexDecompressedDir)
       : decompression_dir_(decompression_dir){};
+  explicit ApexFileRepository(
+      bool enforce_multi_install_partition,
+      const std::vector<std::string>& multi_install_select_prop_prefixes)
+      : multi_install_select_prop_prefixes_(multi_install_select_prop_prefixes),
+        enforce_multi_install_partition_(enforce_multi_install_partition){};
 
   ~ApexFileRepository() {
     pre_installed_store_.clear();
@@ -59,6 +67,24 @@ class ApexFileRepository final {
   // finished, all queries to the instance are thread safe.
   android::base::Result<void> AddPreInstalledApex(
       const std::vector<std::string>& prebuilt_dirs);
+
+  // Populate instance by collecting host-provided apex files via
+  // |metadata_partition|. Host can provide its apexes to a VM instance via the
+  // virtual disk image which has partitions: (see
+  // /packages/modules/Virtualization/microdroid for the details)
+  //  - metadata partition(/dev/block/vd*1) should be accessed by
+  //  setting the system property apexd.payload_metadata.prop. On microdroid,
+  //  this is /dev/block/by-name/payload-metadata.
+  //  - each subsequence partition(/dev/block/vd*{2,3,..}) represents an APEX
+  //  archive.
+  // It will fail if there is more than one apex with the same name in
+  // pre-installed and block apexes. Note: this call is **not thread safe** and
+  // is expected to be performed in a single thread during initialization of
+  // apexd. After initialization is finished, all queries to the instance are
+  // thread safe.
+  // This will return the number of block apexes that were added.
+  android::base::Result<int> AddBlockApex(
+      const std::string& metadata_partition);
 
   // Populate instance by collecting data apex files from the given |data_dir|.
   // Note: this call is **not thread safe** and is expected to be performed in a
@@ -78,6 +104,14 @@ class ApexFileRepository final {
   android::base::Result<const std::string> GetDataPath(
       const std::string& name) const;
 
+  // Returns root digest of an apex with the given |name| for block apexes.
+  std::optional<std::string> GetBlockApexRootDigest(
+      const std::string& name) const;
+
+  // Returns timestamp to be used for the block apex of the given |name|.
+  std::optional<int64_t> GetBlockApexLastUpdateSeconds(
+      const std::string& name) const;
+
   // Checks whether there is a pre-installed version of an apex with the given
   // |name|.
   bool HasPreInstalledVersion(const std::string& name) const;
@@ -90,6 +124,9 @@ class ApexFileRepository final {
 
   // Checks if given |apex| is decompressed from a pre-installed APEX
   bool IsDecompressedApex(const ApexFile& apex) const;
+
+  // Checks if given |apex| is loaded from block device.
+  bool IsBlockApex(const ApexFile& apex) const;
 
   // Returns reference to all pre-installed APEX on device
   std::vector<ApexFileRef> GetPreInstalledApexFiles() const;
@@ -115,7 +152,9 @@ class ApexFileRepository final {
   void Reset(const std::string& decompression_dir = kApexDecompressedDir) {
     pre_installed_store_.clear();
     data_store_.clear();
+    block_apex_overrides_.clear();
     decompression_dir_ = decompression_dir;
+    block_disk_path_.reset();
   }
 
  private:
@@ -130,9 +169,41 @@ class ApexFileRepository final {
   android::base::Result<void> ScanBuiltInDir(const std::string& dir);
 
   std::unordered_map<std::string, ApexFile> pre_installed_store_, data_store_;
+
+  // Multi-installed APEX name -> all encountered public keys for this APEX.
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      multi_install_public_keys_;
+
+  // Prefixes used when looking for multi-installed APEX sysprops.
+  // Order matters: the first non-empty prop value is returned.
+  std::vector<std::string> multi_install_select_prop_prefixes_ = {
+      // Check persist props first, to allow users to override bootconfig.
+      kMultiApexSelectPersistPrefix,
+      kMultiApexSelectBootconfigPrefix,
+  };
+
+  // Allows multi-install APEXes outside of expected partitions.
+  // Only set false in tests.
+  bool enforce_multi_install_partition_ = true;
+
   // Decompression directory which will be used to determine if apex is
   // decompressed or not
   std::string decompression_dir_;
+
+  // Disk path where block apexes are read from. AddBlockApex() sets this.
+  std::optional<std::string> block_disk_path_;
+
+  // Information from the metadata for block apexes, overriding the file data.
+  struct BlockApexOverride {
+    // Root digest for the APEX. When specified in block apex config, it
+    // should be used/checked when activating the apex to avoid
+    // TOCTOU(time-of-check to time-of-use).
+    std::optional<std::string> block_apex_root_digest;
+    // The last update time of the APEX.
+    std::optional<int64_t> last_update_seconds;
+  };
+
+  std::unordered_map<std::string, BlockApexOverride> block_apex_overrides_;
 };
 
 }  // namespace apex

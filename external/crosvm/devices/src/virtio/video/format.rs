@@ -46,6 +46,7 @@ pub enum Profile {
 impl_try_from_le32_for_enumn!(Profile, "profile");
 
 impl Profile {
+    #[cfg(any(feature = "video-encoder", feature = "libvda"))]
     pub fn to_format(&self) -> Format {
         use Profile::*;
         match self {
@@ -125,6 +126,7 @@ pub enum BitrateMode {
 }
 impl_try_from_le32_for_enumn!(BitrateMode, "bitrate_mode");
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum Bitrate {
     /// Constant bitrate.
@@ -133,6 +135,7 @@ pub enum Bitrate {
     VBR { target: u32, peak: u32 },
 }
 
+#[cfg(feature = "video-encoder")]
 impl Bitrate {
     pub fn mode(&self) -> BitrateMode {
         match self {
@@ -164,6 +167,28 @@ pub struct PlaneFormat {
     pub stride: u32,
 }
 impl_from_for_interconvertible_structs!(virtio_video_plane_format, PlaneFormat, plane_size, stride);
+
+impl PlaneFormat {
+    pub fn get_plane_layout(format: Format, width: u32, height: u32) -> Option<Vec<PlaneFormat>> {
+        match format {
+            Format::NV12 => Some(vec![
+                // Y plane, 1 sample per pixel.
+                PlaneFormat {
+                    plane_size: width * height,
+                    stride: width,
+                },
+                // UV plane, 1 sample per group of 4 pixels for U and V.
+                PlaneFormat {
+                    // Add one vertical line so odd resolutions result in an extra UV line to cover all the
+                    // Y samples.
+                    plane_size: width * ((height + 1) / 2),
+                    stride: width,
+                },
+            ]),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FormatRange {
@@ -218,6 +243,7 @@ impl Response for FormatDesc {
     }
 }
 
+#[cfg(feature = "video-encoder")]
 fn clamp_size(size: u32, min: u32, step: u32) -> u32 {
     match step {
         0 | 1 => size,
@@ -234,6 +260,7 @@ fn clamp_size(size: u32, min: u32, step: u32) -> u32 {
 
 /// Parses a slice of valid frame formats and the desired resolution
 /// and returns the closest available resolution.
+#[cfg(feature = "video-encoder")]
 pub fn find_closest_resolution(
     frame_formats: &[FrameFormat],
     desired_width: u32,

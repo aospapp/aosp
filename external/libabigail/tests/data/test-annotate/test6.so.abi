@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' architecture='elf-amd-x86_64'>
+<abi-corpus version='2.1' architecture='elf-amd-x86_64'>
   <elf-needed>
     <dependency name='libstdc++.so.6'/>
     <dependency name='libm.so.6'/>
@@ -31,8 +31,8 @@
       <member-function access='public'>
         <!-- int B::foo() -->
         <function-decl name='foo' mangled-name='_ZN1B3fooEv' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='11' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_ZN1B3fooEv'>
-          <!-- implicit parameter of type 'B* const' -->
-          <parameter type-id='type-id-3' name='this' is-artificial='yes'/>
+          <!-- implicit parameter of type 'B*' -->
+          <parameter type-id='type-id-3' is-artificial='yes'/>
           <!-- int -->
           <return type-id='type-id-1'/>
         </function-decl>
@@ -46,9 +46,7 @@
       </data-member>
     </class-decl>
     <!-- B* -->
-    <pointer-type-def type-id='type-id-2' size-in-bits='64' id='type-id-5'/>
-    <!-- B* const -->
-    <qualified-type-def type-id='type-id-5' const='yes' id='type-id-3'/>
+    <pointer-type-def type-id='type-id-2' size-in-bits='64' id='type-id-3'/>
     <!-- int bar() -->
     <function-decl name='bar' mangled-name='_Z3barv' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test6.cc' line='19' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_Z3barv'>
       <!-- int -->

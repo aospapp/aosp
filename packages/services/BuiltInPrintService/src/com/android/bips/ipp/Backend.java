@@ -177,7 +177,7 @@ public class Backend implements JobCallback {
      * is no longer required. After closing this object it should be discarded.
      */
     public void close() {
-        nativeExit();
+        new Thread(this::nativeExit).start();
         PdfRender.getInstance(mContext).close();
     }
 

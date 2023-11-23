@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Uhlelo lokusebenza olulandelayo luzophatha idivayisi yakho:"</string>
     <string name="next" msgid="1004321437324424398">"Okulandelayo"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Isetha iphrofayela yomsebenzi..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Umphathi wakho we-IT unekhono lokugada nokuphatha izilungiselelo, ukufinyelela kwezinkampani, izinhlelo zokusebenza, izimvume, nedatha ehambisana nale phrofayela, efaka umsebenzi wakho wenethiwekhi, kanye nendawo yedivayisi yakho, umlando wekholi, nomlando wosesho wokuxhumana.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Xhumana nomphathi wakho we-IT ukuze uthole olunye ulwazi, olufaka izinqubomgomo zobumfihlo zenhlangano yakho."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Umphathi wakho we-IT angakwazi ukwengamela futhi aphathe amasethingi, ukufinyelela kwezinkampani, ama-app, izimvume, idatha, nomsebenzi wenethiwekhi ohlotshaniswa nale phrofayela, kanye nomlando wakho wekholi nomlando wosesho loxhumana nabo. Xhumana nomphathi wakho we-IT ukuze uthole ulwazi olwengeziwe futhi ufunde kabanzi mayelana nezinqubomgomo zobumfihlo zenhlangano yakho."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Umphathi wakho we-IT unekhono lokuqaphela aphinde aphathe izilungiselelo, ukufinyelela kwezinkampani, izinhlelo zokusebenza, izimvume, kanye nedatha ehambisana nale divayisi, efaka umsebenzi wakho wenethiwekhi, kanye nendawo yedivayisi yakho, umlando wekholi, nomlando wosesho wokuxhumana.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Xhumana nomphathi wakho we-IT ukuze uthole olunye ulwazi, okufaka izinqubomgomo zobumfihlo zenhlangano yakho."</string>
@@ -164,7 +162,7 @@
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Ukusethwa kokulungela umsebenzi…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Asisethe iphrofayela yakho yomsebenzi"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Izinhlelo zakho zokusebenza zigcinwa kuphrofayela yakho yohlelo lokusebenza"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Phumuza izinhlelo zokusebenza uma usuqedile osukwini"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Phumuza ama-PP uma usuqedile osukwini"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Idatha ekuphrofayela yakho yomsebenzi ibonakala kumphathi wakho we-IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Isetha iphrofayela yakho yomsebenzi…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Izinhlelo zokusebenza zomsebenzi zigcinwe kuphrofayela yakho yomsebenzi. Ungaphumuza izinhlelo zakho zokusebenza zomsebenzi uma usuqedile ngosuku. Idatha ekuphrofayela yakho yomsebenzi ibonakala kumphathi wakho we-IT."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"U-<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> angafaka i-app ye-<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ukuze ukwazi ukukhokhela le divayisi."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Le divayisi ayikwazi ukukhawulelwa"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"I-<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ingakhawulela ukufinyelela kule divayisi uma ungakhokhi."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Ayikwazi ukusetha idivayisi. Xhumana nomphathi wakho we-IT bese ubhekisela kokuthi \"I-checksum engavumelekile\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Zama futhi emuva kwesikhathi noma ucele usizo kumphathi wakho we-IT"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Ayikwazi ukusetha idivayisi. Xhumana nomphathi wakho we-IT futhi ubhekisele kokuthi \"Izakhi ezingekho noma ezonakele\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Iyasetha…"</string>
 </resources>

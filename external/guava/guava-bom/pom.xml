@@ -8,13 +8,14 @@
 
   <groupId>com.google.guava</groupId>
   <artifactId>guava-bom</artifactId>
-  <version>30.0-jre</version>
+  <version>31.0.1-jre</version>
   <packaging>pom</packaging>
   
   <parent>
     <groupId>org.sonatype.oss</groupId>
     <artifactId>oss-parent</artifactId>
     <version>9</version>
+    <relativePath></relativePath>
   </parent>
 
   <name>Guava BOM</name>

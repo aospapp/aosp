@@ -19,25 +19,29 @@ package {
 kernel_version = "5.10"
 
 kernel_stem = "kernel_prebuilts-" + kernel_version
-kernel_modules_stem = "virt_device_prebuilts_kernel_modules-" + kernel_version
 
 cc_test {
-    name: "VirtualizationTestCases",
-    test_suites: ["device-tests"],
+    // ".64" suffix is to work around cts-unit-test which is demanding that all
+    // executables in CTS should have both 32 and 64 ABIs.
+    name: "VirtualizationTestCases.64",
+    test_suites: [
+        "general-tests",
+    ],
     srcs: [
         "common.cc",
         "vsock_test.cc",
     ],
     local_include_dirs: ["include"],
+    compile_multilib: "64",
     data: [
         ":virt_test_kernel",
         ":virt_test_initramfs",
-        "vsock_config.json",
     ],
     static_libs: [
         // The existence of the library in the system partition is not guaranteed.
         // Let's have our own copy of it.
-        "android.system.virtmanager-cpp",
+        "android.system.virtualizationservice-cpp",
+        "PlatformProperties",
     ],
     shared_libs: [
         "libbase",
@@ -79,17 +83,18 @@ prebuilt_etc {
 
 android_filesystem {
     name: "virt_test_initramfs",
-    arch: {
-        arm64: {
-            deps: [kernel_modules_stem + "-arm64"],
-        },
-        x86_64: {
-            deps: [kernel_modules_stem + "-x86_64"],
-        },
-    },
     deps: [
+        "microdroid_kernel_modules",
         "virt_test_guest_init",
         "virt_test_vsock_guest",
     ],
     type: "cpio",
+}
+
+genrule {
+    name: "test-payload-metadata",
+    tools: ["mk_payload"],
+    cmd: "$(location mk_payload) --metadata-only $(in) $(out)",
+    srcs: ["test-payload-metadata-config.json"],
+    out: ["test-payload-metadata.img"],
 }

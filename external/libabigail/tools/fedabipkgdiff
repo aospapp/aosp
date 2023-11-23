@@ -46,9 +46,20 @@ import koji
 # something wrong.
 
 
-koji_config = koji.read_config('koji')
-DEFAULT_KOJI_SERVER = koji_config['server']
-DEFAULT_KOJI_TOPURL = koji_config['topurl']
+# First, try proper Koji initialization.
+try:
+    koji_config = koji.read_config('koji')
+    DEFAULT_KOJI_SERVER = koji_config['server']
+    DEFAULT_KOJI_TOPURL = koji_config['topurl']
+except koji.ConfigurationError:
+    # ..., but if that fails because of a rather strict interpretation where
+    # 'read_config' looks for configuration files, just use dummy values.
+    # These fail upon use unless overridden, which for libabigail test suite
+    # usage they always are (all relevant artifacts are shipped in the
+    # libabigail distribution).
+    DEFAULT_KOJI_SERVER = 'dummy_DEFAULT_KOJI_SERVER'
+    DEFAULT_KOJI_TOPURL = 'dummy_DEFAULT_KOJI_TOPURL'
+
 
 # The working directory where to hold all data including downloaded RPM
 # packages Currently, it's not configurable and hardcode here. In the future
@@ -198,8 +209,13 @@ def match_nvra(s):
 
 def is_rpm_file(filename):
     """Return if a file is a RPM"""
-    return os.path.isfile(filename) and \
-        mimetypes.guess_type(filename)[0] == 'application/x-rpm'
+    isfile = os.path.isfile(filename)
+    mimetype = mimetypes.guess_type(filename)[0] if isfile else None
+    isrpm = (mimetype == 'application/x-redhat-package-manager'
+             or mimetype == 'application/x-rpm')
+    logger.debug('is_rpm_file(\'%s\'): isfile=%s, mimetype=\'%s\', isrpm=%s',
+                 filename, isfile, mimetype, isrpm)
+    return isrpm
 
 
 def cmp_nvr(left, right):

@@ -22,7 +22,9 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -94,6 +96,25 @@ public class ConcurrentSkipListSetTest {
             lastVal = val;
         }
         assertEquals(i, size);
+    }
+
+    @Test
+    public void testHeadSet() {
+        ConcurrentSkipListSet<Integer> set = new ConcurrentSkipListSet<>();
+        for (int i = -5; i < 5; i++) {
+            set.add(i);
+            // Adding twice should make no difference to the set.
+            set.add(i);
+        }
+
+        Set<Integer> headset = set.headSet(-1, true);
+        assertTrue(headset.containsAll(Arrays.asList(-5, -4, -3, -2, -1)));
+        assertEquals(5, headset.size());
+
+
+        headset = set.headSet(-1, false);
+        assertTrue(headset.containsAll(Arrays.asList(-5, -4, -3, -2)));
+        assertEquals(4, headset.size());
     }
 
 }

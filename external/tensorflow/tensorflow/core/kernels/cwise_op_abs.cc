@@ -17,7 +17,7 @@ limitations under the License.
 
 namespace tensorflow {
 
-#if !defined(MLIR_GENERATED_GPU_KERNELS_ENABLED) || \
+#if !defined(MLIR_GENERATED_CPU_KERNELS_ENABLED) || \
     !defined(MLIR_GENERATED_EXPERIMENTAL_KERNELS_ENABLED)
 REGISTER8(UnaryOp, CPU, "Abs", functor::abs, Eigen::half, bfloat16, float,
           double, int8, int16, int32, int64);
@@ -43,5 +43,11 @@ REGISTER_KERNEL_BUILDER(Name("Abs")
                             .TypeConstraint<int32>("T"),
                         UnaryOp<CPUDevice, functor::abs<int32>>);
 #endif
+REGISTER_KERNEL_BUILDER(Name("Abs")
+                            .Device(DEVICE_DEFAULT)
+                            .HostMemory("x")
+                            .HostMemory("y")
+                            .TypeConstraint<int32>("T"),
+                        UnaryOp<CPUDevice, functor::abs<int32>>);
 
 }  // namespace tensorflow

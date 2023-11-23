@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -65,38 +66,38 @@ print("public class ImtConflictBenchmark {")
 # Warm up interface method tables
 print("    @BeforeExperiment")
 print("    public void setup() {")
-for i in xrange(max_conflict_depth):
+for i in range(max_conflict_depth):
     print("        C{0} c{0} = new C{0}();".format(i))
-    for j in xrange(i+1):
+    for j in range(i+1):
         print("        callF{}(c{});".format(imt_size * j, i))
 print("    }")
 
 # Print test cases--one for each conflict depth
-for i in xrange(max_conflict_depth):
+for i in range(max_conflict_depth):
     print("    public void timeConflictDepth{:02d}(int nreps) {{".format(i+1))
     print("        C{0} c{0} = new C{0}();".format(i))
     print("        for (int i = 0; i < nreps; i++) {")
     # Cycle through each interface method in an IMT entry in order
     # to test all conflict resolution possibilities
-    for j in xrange(max_conflict_depth):
+    for j in range(max_conflict_depth):
         print("            callF{}(c{});".format(imt_size * (j % (i + 1)), i))
     print("        }")
     print("    }")
 
 # Make calls through the IMTs
-for i in xrange(max_conflict_depth):
+for i in range(max_conflict_depth):
     print("    public void callF{0}(I{1} i) {{ i.f{0}(); }}".format(imt_size*i, i))
 
 # Class definitions, implementing varying amounts of interfaces
-for i in xrange(max_conflict_depth):
-    interfaces = ", ".join(["I{}".format(j) for j in xrange(i+1)])
+for i in range(max_conflict_depth):
+    interfaces = ", ".join(["I{}".format(j) for j in range(i+1)])
     print("    static class C{} implements {} {{}}".format(i, interfaces))
 
 # Interface definitions, each with enough methods to fill an entire IMT
-for i in xrange(max_conflict_depth):
+for i in range(max_conflict_depth):
     print("    static interface I{} {{".format(i))
-    for j in xrange(imt_size):
+    for j in range(imt_size):
         print("        default void f{}() {{}}".format(i*imt_size + j))
     print("    }")
 
-print "}"
+print("}")

@@ -7,14 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/rustversion/rustversion-1.0.4.crate"
+    value: "https://static.crates.io/crates/rustversion/rustversion-1.0.5.crate"
   }
-  version: "1.0.4"
-  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  version: "1.0.5"
   license_type: NOTICE
   last_upgrade_date {
     year: 2021
-    month: 2
-    day: 19
+    month: 5
+    day: 25
   }
 }

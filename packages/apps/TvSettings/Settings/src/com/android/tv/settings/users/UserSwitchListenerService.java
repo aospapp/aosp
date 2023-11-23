@@ -31,6 +31,8 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import com.android.tv.settings.library.users.RestrictedProfileModel;
+
 public class UserSwitchListenerService extends Service {
 
     private static final boolean DEBUG = false;
@@ -42,37 +44,61 @@ public class UserSwitchListenerService extends Service {
     private static final String
             ON_BOOT_USER_ID_PREFERENCE = "UserSwitchOnBootBroadcastReceiver.userId";
 
+    private final UserSwitchObserver mUserSwitchObserver = new UserSwitchObserver() {
+        @Override
+        public void onUserSwitchComplete(int newUserId) {
+            if (DEBUG) {
+                Log.d(TAG, "user has been foregrounded: " + newUserId);
+            }
+            setBootUser(UserSwitchListenerService.this, newUserId);
+        }
+    };
+
     public static class BootReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(final Context context, Intent intent) {
-            boolean isSystemUser = UserManager.get(context).isSystemUser();
-            if (isSystemUser) {
-                context.startService(new Intent(context, UserSwitchListenerService.class));
-                int bootUserId = getBootUser(context);
-                if (DEBUG) {
-                    Log.d(TAG, "boot completed, user is " + UserHandle.myUserId()
-                            + " boot user id: " + bootUserId);
-                }
+            int bootUserId = getBootUser(context);
+            if (DEBUG) {
+                Log.d(TAG, "boot completed, user is " + UserHandle.myUserId()
+                        + " boot user id: " + bootUserId);
+            }
+            if (UserManager.get(context).isSystemUser()) {
                 if (UserHandle.myUserId() != bootUserId) {
                     switchUserNow(bootUserId);
                 }
             }
-            updateLaunchPoint(context, new RestrictedProfileModel(context).getUser() != null);
+            onUserCreatedOrDeleted(context);
         }
     }
 
-    public static void updateLaunchPoint(Context context, boolean enableLaunchPoint) {
+    /** The UserSwitchListenerService is only ever needed when there is a restricted profile. */
+    private static boolean hasRestrictedProfile(Context context) {
+        return new RestrictedProfileModel(context).getUser() != null;
+    }
+
+    /**
+     * Enable or disable the restricted profile launcher entry activity as well as the
+     * {@link UserSwitchListenerService} depending on whether there is a restricted profile.
+     */
+    public static void onUserCreatedOrDeleted(final Context context) {
+        final boolean restrictedProfile = hasRestrictedProfile(context);
         if (DEBUG) {
-            Log.d(TAG, "updating launch point: " + enableLaunchPoint);
+            Log.d(TAG, "updating restricted profile : " + restrictedProfile);
         }
 
-        PackageManager pm = context.getPackageManager();
-        ComponentName compName = new ComponentName(context,
-                RESTRICTED_PROFILE_LAUNCHER_ENTRY_ACTIVITY);
-        pm.setComponentEnabledSetting(compName,
-                enableLaunchPoint ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        context.getPackageManager().setComponentEnabledSetting(new ComponentName(context,
+                        RESTRICTED_PROFILE_LAUNCHER_ENTRY_ACTIVITY), restrictedProfile
+                        ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
+
+        if (restrictedProfile) {
+            context.startServiceAsUser(new Intent(context, UserSwitchListenerService.class),
+                    UserHandle.SYSTEM);
+        } else {
+            context.stopServiceAsUser(new Intent(context, UserSwitchListenerService.class),
+                    UserHandle.SYSTEM);
+        }
     }
 
     static void setBootUser(Context context, int userId) {
@@ -101,26 +127,30 @@ public class UserSwitchListenerService extends Service {
         super.onCreate();
         try {
             ActivityManager.getService().registerUserSwitchObserver(
-                    new UserSwitchObserver() {
-                        @Override
-                        public void onUserSwitchComplete(int newUserId) throws RemoteException {
-                            if (DEBUG) {
-                                Log.d(TAG, "user has been foregrounded: " + newUserId);
-                            }
-                            setBootUser(UserSwitchListenerService.this, newUserId);
-                        }
-                    }, UserSwitchListenerService.class.getName());
+                    mUserSwitchObserver,
+                    UserSwitchListenerService.class.getName());
         } catch (RemoteException e) {
+            Log.e(TAG, "Caught exception while registering UserSwitchObserver", e);
         }
     }
 
     @Override
     public void onDestroy() {
+        try {
+            ActivityManager.getService().unregisterUserSwitchObserver(mUserSwitchObserver);
+        } catch (RemoteException e) {
+            // Not much we can do here
+        }
         super.onDestroy();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!hasRestrictedProfile(this)) {
+            stopSelf();
+            Log.w(TAG, "no restricted profiles found! Immediately finishing "
+                    + UserSwitchListenerService.class.getSimpleName());
+        }
         return START_STICKY;
     }
 

@@ -29,6 +29,9 @@ target_compile_options(pw_build
     $<$<CXX_COMPILER_ID:Clang>:-fcolor-diagnostics>
     $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
 )
+if(ZEPHYR_PIGWEED_MODULE_DIR)
+  target_link_libraries(pw_build INTERFACE zephyr_interface)
+endif()
 
 # Declare top-level targets for tests.
 add_custom_target(pw_tests.default)
@@ -48,14 +51,34 @@ target_compile_options(pw_build.reduced_size
     $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
 )
 
+# Define the standard Pigweed compile options.
+#
+# The pw_build.warnings library is used by upstream Pigweed targets to add
+# compiler warnings to the build.
+#
+# Toolchains may override these warnings by setting pw_build_WARNINGS:
+#
+#   set(pw_build_WARNINGS my_warnings CACHE STRING "" FORCE)
+#
+set(pw_build_WARNINGS pw_build.strict_warnings
+    CACHE STRING "Warnings libraries to use for Pigweed upstream code")
+
+add_library(pw_build.warnings INTERFACE)
+target_link_libraries(pw_build.warnings INTERFACE ${pw_build_WARNINGS})
+
+# TODO(hepler): These Zephyr exceptions should be made by overriding
+#     pw_build_WARNINGS.
 add_library(pw_build.strict_warnings INTERFACE)
+if(NOT ZEPHYR_PIGWEED_MODULE_DIR)
+  # Only include these flags if we're not building with Zephyr.
+  set(strict_warnings_cond "-Wcast-qual" "-Wundef")
+endif()
 target_compile_options(pw_build.strict_warnings
   INTERFACE
     "-Wall"
     "-Wextra"
     "-Wimplicit-fallthrough"
-    "-Wcast-qual"
-    "-Wundef"
+    ${strict_warnings_cond}
     "-Wpointer-arith"
 
     # Make all warnings errors, except for the exemptions below.
@@ -67,10 +90,14 @@ target_compile_options(pw_build.strict_warnings
 )
 
 add_library(pw_build.extra_strict_warnings INTERFACE)
+if(NOT ZEPHYR_PIGWEED_MODULE_DIR)
+  # Only include these flags if we're not building with Zephyr.
+  set(extra_strict_warnings_cond "-Wredundant-decls")
+endif()
 target_compile_options(pw_build.extra_strict_warnings
   INTERFACE
     "-Wshadow"
-    "-Wredundant-decls"
+    ${extra_strict_warnings_cond}
     $<$<COMPILE_LANGUAGE:C>:-Wstrict-prototypes>
 )
 

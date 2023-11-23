@@ -6,8 +6,9 @@ auto_ccs:
   - "kempfjb@gmail.com"
   - "b@rr-dav.id.au"
   - "dav1d-fuzz@videolan.org"
+  - "psilokos@twoorioles.com"
+  - "gramner@twoorioles.com"
 vendor_ccs:
-  - "negge@mozilla.com"
   - "twsmith@mozilla.com"
 sanitizers:
   - address

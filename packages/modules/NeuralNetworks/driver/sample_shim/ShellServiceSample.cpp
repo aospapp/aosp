@@ -63,7 +63,7 @@ void registerInvalidDevices(const std::vector<Names>& names) {
 
 int registerDevices(const std::string& driverPath, const std::vector<Names>& devices) {
     // Load support library.
-    void* libHandle = dlopen(driverPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
+    void* libHandle = dlopen(driverPath.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
     if (libHandle == nullptr) {
         LOG(ERROR) << "Failed to load sample SL driver: " << driverPath;
         registerInvalidDevices(devices);

@@ -19,22 +19,29 @@
           package="android.server.wm.overlay">
 
     <!-- We use SAWs to create obscuring windows for test WindowUntrustedTouchTest -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <application>
         <service
             android:name="android.server.wm.overlay.UntrustedTouchTestService"
-            android:exported="true" />
+            android:exported="true"/>
         <activity
             android:name="android.server.wm.overlay.OverlayActivity"
             android:theme="@android:style/Theme.Translucent"
-            android:exported="true" />
+            android:exported="true"/>
         <activity
             android:name="android.server.wm.overlay.ExitAnimationActivity"
-            android:exported="true" />
+            android:exported="true"/>
         <activity
             android:name="android.server.wm.overlay.ToastActivity"
-            android:exported="true" />
+            android:exported="true"/>
+        <activity
+            android:name="android.server.wm.overlay.TrampolineActivity"
+            android:exported="true"/>
+        <activity
+            android:name="android.server.wm.overlay.TranslucentFloatingActivity"
+            android:theme="@style/TranslucentFloatingTheme"
+            android:exported="true"/>
     </application>
 
 </manifest>

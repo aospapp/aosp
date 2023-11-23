@@ -129,6 +129,10 @@ struct DefaultDataSourceTraits {
   // for when incremental state needs to be cleared. See
   // TraceContext::GetIncrementalState().
   using IncrementalStateType = void;
+  // |TlsStateType| can optionally be used to store custom per-sequence
+  // session data, which is not reset when incremental state is cleared
+  // (e.g. configuration options).
+  using TlsStateType = void;
 
   // Allows overriding what type of thread-local state configuration the data
   // source uses. By default every data source gets independent thread-local
@@ -214,13 +218,20 @@ class DataSource : public DataSourceBase {
     // immediately before calling this. The caller is supposed to check for its
     // validity before using it. After checking, the handle is guaranteed to
     // remain valid until the handle goes out of scope.
-    LockedHandle<DataSourceType> GetDataSourceLocked() {
+    LockedHandle<DataSourceType> GetDataSourceLocked() const {
       auto* internal_state = static_state_.TryGet(instance_index_);
       if (!internal_state)
         return LockedHandle<DataSourceType>();
       return LockedHandle<DataSourceType>(
           &internal_state->lock,
           static_cast<DataSourceType*>(internal_state->data_source.get()));
+    }
+
+    // Post-condition: returned ptr will be non-null.
+    typename DataSourceTraits::TlsStateType* GetCustomTlsState() {
+      PERFETTO_DCHECK(tls_inst_->data_source_custom_tls);
+      return reinterpret_cast<typename DataSourceTraits::TlsStateType*>(
+          tls_inst_->data_source_custom_tls.get());
     }
 
     typename DataSourceTraits::IncrementalStateType* GetIncrementalState() {
@@ -387,6 +398,7 @@ class DataSource : public DataSourceBase {
         instance_state = static_state_.TryGetCached(instances, i);
         if (!instance_state || !instance_state->trace_lambda_enabled)
           continue;
+        tls_inst.muxer_id_for_testing = instance_state->muxer_id_for_testing;
         tls_inst.backend_id = instance_state->backend_id;
         tls_inst.backend_connection_id = instance_state->backend_connection_id;
         tls_inst.buffer_id = instance_state->buffer_id;
@@ -397,7 +409,7 @@ class DataSource : public DataSourceBase {
             &static_state_, i, instance_state,
             DataSourceType::kBufferExhaustedPolicy);
         CreateIncrementalState(&tls_inst);
-
+        CreateDataSourceCustomTLS(TraceContext(&tls_inst, i));
         // Even in the case of out-of-IDs, SharedMemoryArbiterImpl returns a
         // NullTraceWriter. The returned pointer should never be null.
         assert(tls_inst.trace_writer);
@@ -434,6 +446,12 @@ class DataSource : public DataSourceBase {
                                             &static_state_);
   }
 
+  // Updates the data source descriptor.
+  static void UpdateDescriptor(const DataSourceDescriptor& descriptor) {
+    auto* tracing_impl = internal::TracingMuxer::Get();
+    tracing_impl->UpdateDataSourceDescriptor(descriptor, &static_state_);
+  }
+
  private:
   // Traits for customizing the behavior of a specific trace point.
   struct DefaultTracePointTraits {
@@ -467,7 +485,7 @@ class DataSource : public DataSourceBase {
         static_state_.incremental_state_generation.load(
             std::memory_order_relaxed);
     tls_inst->incremental_state =
-        internal::DataSourceInstanceThreadLocalState::IncrementalStatePointer(
+        internal::DataSourceInstanceThreadLocalState::ObjectWithDeleter(
             reinterpret_cast<void*>(new T()),
             [](void* p) { delete reinterpret_cast<T*>(p); });
   }
@@ -481,6 +499,27 @@ class DataSource : public DataSourceBase {
     CreateIncrementalStateImpl(
         tls_inst,
         static_cast<typename DataSourceTraits::IncrementalStateType*>(nullptr));
+  }
+
+  // Create the user provided custom tls state in the given TraceContext's
+  // thread-local storage.  Note: The second parameter here is used to
+  // specialize the case where there is no incremental state type.
+  template <typename T>
+  static void CreateDataSourceCustomTLSImpl(const TraceContext& trace_context,
+                                            const T*) {
+    PERFETTO_DCHECK(!trace_context.tls_inst_->data_source_custom_tls);
+    trace_context.tls_inst_->data_source_custom_tls =
+        internal::DataSourceInstanceThreadLocalState::ObjectWithDeleter(
+            reinterpret_cast<void*>(new T(trace_context)),
+            [](void* p) { delete reinterpret_cast<T*>(p); });
+  }
+
+  static void CreateDataSourceCustomTLSImpl(const TraceContext&, const void*) {}
+
+  static void CreateDataSourceCustomTLS(const TraceContext& trace_context) {
+    CreateDataSourceCustomTLSImpl(
+        trace_context,
+        static_cast<typename DataSourceTraits::TlsStateType*>(nullptr));
   }
 
   // Note that the returned object is one per-thread per-data-source-type, NOT
@@ -536,22 +575,7 @@ PERFETTO_THREAD_LOCAL internal::DataSourceThreadLocalState*
 #define PERFETTO_DECLARE_DATA_SOURCE_STATIC_MEMBERS(...)              \
   template <>                                                         \
   PERFETTO_COMPONENT_EXPORT perfetto::internal::DataSourceStaticState \
-      perfetto::DataSource<__VA_ARGS__>::static_state_;               \
-  template <>                                                         \
-  PERFETTO_COMPONENT_EXPORT PERFETTO_THREAD_LOCAL                     \
-      perfetto::internal::DataSourceThreadLocalState*                 \
-          perfetto::DataSource<__VA_ARGS__>::tls_state_
-
-// MSVC has a bug where explicit template member specialization declarations
-// can't have thread_local as the storage class specifier. The generated code
-// seems correct without the specifier, so drop it until the bug gets fixed.
-// See https://developercommunity2.visualstudio.com/t/Unable-to-specialize-
-// static-thread_local/1302689.
-#if PERFETTO_BUILDFLAG(PERFETTO_COMPILER_MSVC)
-#define PERFETTO_TEMPLATE_THREAD_LOCAL
-#else
-#define PERFETTO_TEMPLATE_THREAD_LOCAL PERFETTO_THREAD_LOCAL
-#endif
+      perfetto::DataSource<__VA_ARGS__>::static_state_
 
 // This macro must be used once for each data source in one source file to
 // allocate static storage for the data source's static state.
@@ -563,10 +587,6 @@ PERFETTO_THREAD_LOCAL internal::DataSourceThreadLocalState*
 #define PERFETTO_DEFINE_DATA_SOURCE_STATIC_MEMBERS(...)               \
   template <>                                                         \
   PERFETTO_COMPONENT_EXPORT perfetto::internal::DataSourceStaticState \
-      perfetto::DataSource<__VA_ARGS__>::static_state_{};             \
-  template <>                                                         \
-  PERFETTO_COMPONENT_EXPORT PERFETTO_TEMPLATE_THREAD_LOCAL            \
-      perfetto::internal::DataSourceThreadLocalState*                 \
-          perfetto::DataSource<__VA_ARGS__>::tls_state_ = nullptr
+      perfetto::DataSource<__VA_ARGS__>::static_state_ {}
 
 #endif  // INCLUDE_PERFETTO_TRACING_DATA_SOURCE_H_

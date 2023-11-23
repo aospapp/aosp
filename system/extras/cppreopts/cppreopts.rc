@@ -18,7 +18,7 @@ service cppreopts /system/bin/cppreopts.sh /postinstall
     user root
     priority -20
     ioprio rt 0
-    writepid /dev/cpuset/foreground/tasks
+    task_profiles ProcessCapacityHigh
     capabilities
 
 # Post install is above Treble VINTF, because it runs some utilities from

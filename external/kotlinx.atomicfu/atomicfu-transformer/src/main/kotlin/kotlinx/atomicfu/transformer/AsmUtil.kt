@@ -42,6 +42,12 @@ val AbstractInsnNode?.thisOrPrevUseful: AbstractInsnNode?
         return cur
     }
 
+fun getInsnOrNull(from: AbstractInsnNode?, to: AbstractInsnNode?, predicate: (AbstractInsnNode) -> Boolean): AbstractInsnNode? {
+    var cur: AbstractInsnNode? = from?.next
+    while (cur != null && cur != to && !predicate(cur)) cur = cur.next
+    return cur
+}
+
 private fun AbstractInsnNode?.isUseless() = this is LabelNode || this is LineNumberNode || this is FrameNode
 
 fun InsnList.listUseful(limit: Int = Int.MAX_VALUE): List<AbstractInsnNode> {
@@ -68,6 +74,9 @@ fun AbstractInsnNode.isAreturn() =
 
 fun AbstractInsnNode.isReturn() =
     this.opcode == RETURN
+
+fun AbstractInsnNode.isInvokeVirtual() =
+        this.opcode == INVOKEVIRTUAL
 
 @Suppress("UNCHECKED_CAST")
 fun MethodNode.localVar(v: Int, node: AbstractInsnNode): LocalVariableNode? =

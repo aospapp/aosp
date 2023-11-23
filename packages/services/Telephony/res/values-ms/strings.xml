@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Mod Paggil Balik Kecemasan"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Sambungan data dilumpuhkan"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Tiada sambungan data hingga <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Telefon akan berada dalam mod Panggilan Balik Kecemasan selama <xliff:g id="COUNT_1">%s</xliff:g> minit. Semasa berada dalam mod ini tiada aplikasi yang menggunakan sambungan data boleh digunakan. Adakah anda mahu keluar sekarang?</item>
-      <item quantity="one">Telefon akan berada dalam mod Panggilan Balik Kecemasan selama <xliff:g id="COUNT_0">%s</xliff:g> seminit. Semasa berada dalam mod ini tiada apl yang menggunakan sambungan data boleh digunakan. Adakah anda mahu keluar sekarang?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Tindakan yang dipilih tidak tersedia semasa berada dalam mod Panggilan Balik Kecemasan. Telefon akan berada dalam mod ini selama <xliff:g id="COUNT_1">%s</xliff:g> minit. Adakah anda mahu keluar sekarang?</item>
-      <item quantity="one">Tindakan yang dipilih tidak tersedia semasa berada dalam mod Panggilan Balik Kecemasan. Telefon akan berada dalam mod ini selama <xliff:g id="COUNT_0">%s</xliff:g> minit. Adakah anda mahu keluar sekarang?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Telefon akan menggunakan mod Panggil Balik Kecemasan selama satu minit. Semasa dalam mod ini, tiada apl yang menggunakan sambungan data boleh digunakan. Adakah anda mahu keluar sekarang?}other{Telefon akan menggunakan mod Panggil Balik Kecemasan selama %s minit. Semasa dalam mod ini, tiada apl yang menggunakan sambungan data boleh digunakan. Adakah anda mahu keluar sekarang?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Tindakan yang dipilih tidak tersedia semasa dalam mod Panggil Balik Kecemasan. Telefon akan menggunakan mod ini selama satu minit. Adakah anda mahu keluar sekarang?}other{Tindakan yang dipilih tidak tersedia semasa dalam mod Panggil Balik Kecemasan. Telefon akan menggunakan mod ini selama %s minit. Adakah anda mahu keluar sekarang?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Tindakan yang dipilih tidak tersedia semasa berada dalam panggilan kecemasan."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Keluar Daripada mod Panggil Balik Kecemasan"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Ya"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Ketepikan"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefon dalam mod panggil balik kecemasan"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Hingga <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Telefon akan berada dalam mod panggil balik kecemasan selama <xliff:g id="COUNT_1">%s</xliff:g> minit.\nAdakah anda mahu keluar sekarang?</item>
-      <item quantity="one">Telefon akan berada dalam mod panggil balik kecemasan selama <xliff:g id="COUNT_0">%s</xliff:g> minit.\nAdakah anda mahu keluar sekarang?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Telefon akan berada dalam mod panggil balik kecemasan selama satu minit.\nAdakah anda mahu keluar sekarang?}other{Telefon akan berada dalam mod panggil balik kecemasan selama %s minit.\nAdakah anda mahu keluar sekarang?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Perkhidmatan"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Persediaan"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Tidak ditetapkan&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Kebolehaksesan"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Panggilan Wi-Fi daripada"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Panggilan Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Ketik lagi untuk membuka"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Terdapat ralat semasa menyahkodkan mesej."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Kad SIM telah mengaktifkan perkhidmatan anda dan mengemas kini keupayaan perayauan telefon anda."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Terlalu banyak panggilan aktif. Sila tamatkan atau gabungkan panggilan yang sedia ada sebelum membuat panggilan baharu."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Tidak dapat membuat panggilan kerana panggilan keluar lain sudah pun mendail."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Tidak dapat membuat panggilan kerana terdapat panggilan masuk yang tidak dijawab. Jawab atau tolak panggilan masuk itu sebelum membuat panggilan baharu."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Tidak dapat membuat panggilan kerana panggilan telah dilumpuhkan menggunakan sifat sistem ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Tidak dapat membuat panggilan kerana sudah terdapat dua panggilan yang sedang berlangsung. Putuskan salah satu panggilan itu atau gabungkan panggilan tersebut menjadi panggilan persidangan sebelum membuat panggilan baharu."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Tidak dapat membuat panggilan kerana sudah terdapat dua panggilan yang sedang berlangsung. Putuskan salah satu panggilan itu atau gabungkan panggilan tersebut menjadi panggilan sidang sebelum membuat panggilan baharu."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Untuk menggunakan <xliff:g id="SUPP_SERVICE">%s</xliff:g>, pastikan data mudah alih dihidupkan. Anda boleh menukar tetapan ini dalam tetapan rangkaian mudah alih."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Untuk menggunakan <xliff:g id="SUPP_SERVICE">%s</xliff:g>, pastikan data mudah alih dan perayauan data dihidupkan. Anda boleh menukar tetapan ini dalam tetapan rangkaian mudah alih."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Untuk menggunakan <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, pastikan data mudah alih dihidupkan bagi SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Anda boleh menukar tetapan ini dalam tetapan rangkaian mudah alih."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Anda perlu memulakan semula peranti untuk menukar tetapan ini."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Mulakan semula"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Batal"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Tetapkan eSIM Boleh Tanggal sebagai Lalai"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Kuasa Radio Mudah Alih"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Lihat Buku Alamat SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Lihat Nombor Dailan Tetap"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Pilih Jalur Radio"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Jenis Rangkaian Suara:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Jenis Rangkaian Data:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Jenis Rangkaian Penggantian:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Pilih indeks telefon"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Tetapkan Jenis Rangkaian Pilihan:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping Nama Hos(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Muat semula"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Togol Semakan DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Maklumat/Tetapan khusus OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC Tersedia:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR Terhad:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR Tersedia:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Keadaan NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC Tersedia (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR Terhad (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR Tersedia (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Keadaan NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frekuensi NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Tetapkan Mod Jalur Radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Memuatkan Senarai Jalur…"</string>

@@ -25,7 +25,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 public class BluetoothRequestPermissionActivity extends FragmentActivity {
 
@@ -56,8 +56,8 @@ public class BluetoothRequestPermissionActivity extends FragmentActivity {
             return;
         }
 
-        mBluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE,
-                TimeUnit.SECONDS.toMillis(mTimeoutSeconds));
+        mBluetoothAdapter.setDiscoverableTimeout(Duration.ofSeconds(mTimeoutSeconds));
+        mBluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
 
         setResult(Activity.RESULT_OK);
         finish();

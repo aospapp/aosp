@@ -142,40 +142,9 @@ on init && property:vendor.skip.init=0
     # Property used by NFC for sku specific configurations
     setprop ro.boot.product.hardware.sku ${ro.boot.hardware.sku}
 
-    # Battery Defender
-    chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
-    chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_drainto_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_voltage
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_abs_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_time
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_time
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_voltage
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_enable
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_dry_run
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/aacr_state
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/aacr_cycle_max
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/aacr_cycle_grace
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_enable
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_recharge_soc
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_cnt
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_dry_run
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_reset_sec
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_clear
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/health_safety_margin
-    chown system system /sys/class/power_supply/wireless/device/mitigate_threshold
-
     # report max frequency to unity tasks.
     write /proc/sys/kernel/sched_lib_name "UnityMain,libunity.so"
     write /proc/sys/kernel/sched_lib_mask_force 255
-
-    # Charge stats (write 0)
-    chown system system /sys/class/power_supply/battery/charge_stats
 
     # NFC streset tool name
     setprop persist.vendor.nfc.streset libstreset
@@ -410,9 +379,6 @@ on early-boot
     # Wait for insmod_sh to finish all modules
     wait_for_prop vendor.all.modules.ready 1
 
-    # Update dm-verity state and set partition.*.verified properties
-    verity_update_state
-
     # Wait for insmod_sh to finish all boot devices
     wait_for_prop vendor.all.devices.ready 1
 
@@ -444,6 +410,15 @@ on early-boot
 
     # FG cycle count read from dumpstate + backup restore from health HAL (and pixelstats)
     chown system system /sys/class/power_supply/maxfg/cycle_counts_bins
+
+    # Battery Defender
+    chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_clear
+
+    # Charge stats (write 0)
+    chown system system /sys/class/power_supply/battery/charge_stats
 
     # Permission for battery eeprom
     chown system system /sys/devices/platform/soc/98c000.i2c/i2c-1/1-0050/1-00500/nvmem
@@ -519,10 +494,6 @@ on property:sys.boot_completed=1
     # Runtime fs tuning
     write /sys/block/sda/queue/nr_requests 128
     write /sys/block/sda/queue/iostats 1
-
-    # Block layer tuning: discard chunk size up to 128MB
-    # Otherwise, contiguous discards can be merged
-    write /sys/block/sda/queue/discard_max_bytes 134217728
 
     # Back to default VM settings
     write /proc/sys/vm/dirty_expire_centisecs 3000
@@ -764,7 +735,7 @@ service vendor.msm_irqbalance /vendor/bin/msm_irqbalance -f /vendor/etc/msm_irqb
     class core
     user root
     group root
-    writepid /dev/cpuset/system-background/tasks
+    task_profiles ServiceCapacityLow
 
 service pd_mapper /vendor/bin/pd-mapper
      class core

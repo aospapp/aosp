@@ -16,7 +16,7 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.scriptexecutor_test">
+          package="com.android.car.scriptexecutortest.unit">
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
@@ -29,6 +29,6 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.car.scriptexecutor_test"
+                     android:targetPackage="com.android.car.scriptexecutortest.unit"
                      android:label="Tests for ScriptExecutor"/>
 </manifest>

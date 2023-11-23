@@ -129,6 +129,23 @@ static void verify_umip_instruction(unsigned int n)
 			return;
 		} else
 			tst_res(TINFO, "Linux kernel version is before than v5.4");
+		break;
+	case 2:
+	case 4:
+		/* after Linux kernel v5.10 mainline, SLDT and STR will return
+		   dummy value and not trigger SIGSEGV due to kernel code change */
+		if ((tst_kvercmp(5, 10, 0)) >= 0) {
+			tst_res(TINFO, "Linux kernel version is v5.10 or higher");
+			if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV) {
+				tst_res(TFAIL, "Got SIGSEGV");
+				return;
+			}
+			tst_res(TPASS, "Didn't receive SIGSEGV, child exited with %s",
+				tst_strstatus(status));
+			return;
+		} else
+			tst_res(TINFO, "Linux kernel version is earlier than v5.10");
+		break;
 	}
 
 	if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV) {
@@ -171,7 +188,7 @@ static struct tst_test test = {
 	.forks_child = 1,
 	.test = verify_umip_instruction,
 	.needs_kconfigs = (const char *[]){
-		"CONFIG_X86_INTEL_UMIP=y",
+		"CONFIG_X86_INTEL_UMIP=y | CONFIG_X86_UMIP=y",
 		NULL
 	},
 	.needs_root = 1,

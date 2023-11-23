@@ -17,7 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <style name="TextAppearance_CarUi_AlertDialog_Title" parent="android:TextAppearance.DeviceDefault">
-        <item name="android:textSize">32sp</item>
+        <item name="android:textSize">36sp</item>
+        <item name="android:textStyle">bold</item>
     </style>
     <style name="TextAppearance_CarUi_AlertDialog_Subtitle" parent="android:TextAppearance.DeviceDefault">
         <item name="android:textSize">24sp</item>
@@ -48,5 +49,33 @@
     <style name="TextAppearance.CarUi.Widget.Toolbar.Title">
         <item name="android:singleLine">true</item>
         <item name="android:textSize">32sp</item>
+    </style>
+
+    <style name="Widget.CarUi.Toolbar.Container"/>
+    <style name="Widget.CarUi.Toolbar.NavIconContainer"/>
+    <style name="Widget.CarUi.Toolbar.ProgressBar"
+           parent="@android:style/Widget.DeviceDefault.ProgressBar.Horizontal"/>
+    <style name="Widget.CarUi.Toolbar.MenuItem.Container">
+        <item name="android:divider">@drawable/car_ui_toolbar_menu_item_divider</item>
+        <item name="android:showDividers">beginning|middle|end</item>
+    </style>
+    <style name="Widget.CarUi.Toolbar.Subtitle">
+        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
+        <item name="android:textAlignment">viewStart</item>
+    </style>
+    <style name="Widget.CarUi.Toolbar.Title">
+        <item name="android:textAppearance">@style/TextAppearance.CarUi.Widget.Toolbar.Title</item>
+        <item name="android:textAlignment">viewStart</item>
+    </style>
+    <style name="Widget.CarUi.Toolbar.Logo"/>
+    <style name="Widget.CarUi.Toolbar.LogoContainer">
+        <item name="android:paddingEnd">0dp</item>
+    </style>
+    <style name="Widget.CarUi.Toolbar"/>
+    <style name="Widget.CarUi" parent="android:Widget.DeviceDefault"/>
+    <style name="Widget.CarUi.Toolbar.MenuItem"/>
+    <style name="Widget.CarUi.Toolbar.NavIcon">
+        <item name="android:tint">@color/car_ui_toolbar_nav_icon_color</item>
+        <item name="android:background">@drawable/car_ui_toolbar_menu_item_icon_ripple</item>
     </style>
 </resources>

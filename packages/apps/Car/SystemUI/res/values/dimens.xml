@@ -50,7 +50,9 @@
     <dimen name="status_bar_system_icon_spacing">16dp</dimen>
     <!-- Overrides the size of the network signal icon -->
     <dimen name="signal_icon_size">32dp</dimen>
-    <dimen name="system_bar_user_icon_padding">16dp</dimen>
+    <!-- Padding of user icon and text -->
+    <dimen name="system_bar_user_icon_padding">8dp</dimen>
+    <!-- User icon size -->
     <dimen name="system_bar_user_icon_drawing_size">36dp</dimen>
     <!-- Padding on either side of the group of all system bar buttons -->
     <dimen name="system_bar_button_group_padding">64dp</dimen>
@@ -101,6 +103,8 @@
     <dimen name="car_keyline_2">96dp</dimen>
     <dimen name="car_keyline_3">128dp</dimen>
 
+    <dimen name="device_management_dialog_subtitle_padding">20dp</dimen>
+
     <!-- Height of icons in Privacy chip dialog. Both App Op icon and application icon -->
     <dimen name="privacy_chip_dialog_icon_height">48dp</dimen>
     <!-- Icon size for Privacy chip -->
@@ -109,12 +113,14 @@
     <dimen name="privacy_chip_width">76dp</dimen>
     <!-- Margin between icons of Privacy chip -->
     <dimen name="privacy_chip_icon_margin">2dp</dimen>
-    <!-- Diameter of indicator circle in mic privacy chip animation -->
+    <!-- Diameter of indicator circle in privacy chip animation -->
     <dimen name="privacy_chip_indicator_circle_diameter">21.5dp</dimen>
-    <!-- Width of mic privacy chip qc panel -->
-    <dimen name="car_mic_qc_panel_width">800dp</dimen>
+    <!-- Width of privacy chip qc panel -->
+    <dimen name="car_sensor_qc_panel_width">800dp</dimen>
     <!-- Privacy chip horizontal padding -->
     <dimen name="privacy_chip_horizontal_padding">@dimen/car_padding_3</dimen>
+    <!-- Outside stroke width for Privacy chip -->
+    <dimen name="privacy_chip_indicator_outside_stroke_width">4dp</dimen>
 
     <!-- Car volume dimens. -->
     <dimen name="car_volume_item_icon_size">@dimen/car_primary_icon_size</dimen>
@@ -137,7 +143,7 @@
     <dimen name="notification_shade_handle_bar_margin_end">200dp</dimen>
     <dimen name="notification_shade_handle_bar_margin_top">20dp</dimen>
     <dimen name="notification_shade_handle_bar_margin_bottom">10dp</dimen>
-    <dimen name="notification_shade_list_padding_bottom">50dp</dimen>
+    <dimen name="notification_shade_list_padding_bottom">0dp</dimen>
 
     <!-- The alpha for the scrim behind the notification shade. This value is 1 so that the
      scrim has no transparency. -->
@@ -181,15 +187,15 @@
     <!-- The top margin of the notification panel. -->
     <dimen name="notification_panel_margin_top">32dp</dimen>
 
-    <!-- The bottom margin of the panel that holds the list of notifications. -->
-    <dimen name="notification_panel_margin_bottom">@dimen/notification_divider_height</dimen>
+    <!-- The bottom padding of the panel that holds the list of notifications. -->
+    <dimen name="notification_panel_padding_bottom">@dimen/notification_divider_height</dimen>
 
     <!-- The corner radius of the shadow behind the notification. -->
     <dimen name="notification_shadow_radius">16dp</dimen>
 
     <!-- The amount of space below the notification list. This value is 0 so the list scrolls
          all the way to the bottom. -->
-    <dimen name="close_handle_underlap">0dp</dimen>
+    <dimen name="notification_panel_margin_bottom">0dp</dimen>
 
     <!-- The height of the divider between the individual notifications in a notification group. -->
     <dimen name="notification_children_container_divider_height">1dp</dimen>
@@ -357,4 +363,21 @@
 
     <dimen name="hvac_temperature_control_button_width">48dp</dimen>
     <dimen name="hvac_temperature_control_button_height">48dp</dimen>
+
+    <!-- Text size in ActivityBlockingActivity. -->
+    <dimen name="blocking_text_size">@*android:dimen/car_body1_size</dimen>
+    <dimen name="blocking_text_width">706dp</dimen>
+
+    <dimen name="common_margin">32dp</dimen>
+
+    <dimen name="ic_ux_restricted_size">48dp</dimen>
+
+    <!-- Dimensions for the Buttons in ActivityBlockingActivity -->
+    <dimen name="activity_blocking_action_button_height">76dp</dimen>
+    <dimen name="activity_blocking_action_button_top_margin">48dp</dimen>
+    <dimen name="activity_blocking_action_button_corner_radius">38dp</dimen>
+    <dimen name="activity_blocking_action_button_max_width">268dp</dimen>
+    <dimen name="activity_blocking_action_button_min_width">@*android:dimen/car_button_min_width</dimen>
+    <dimen name="activity_blocking_action_button_text_size">@*android:dimen/car_body3_size</dimen>
+    <dimen name="activity_blocking_action_button_padding_horizontal">@*android:dimen/car_padding_4</dimen>
 </resources>

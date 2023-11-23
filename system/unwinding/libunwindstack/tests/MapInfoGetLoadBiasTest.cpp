@@ -39,7 +39,7 @@
 
 #include "ElfFake.h"
 #include "ElfTestUtils.h"
-#include "MemoryFake.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 
@@ -50,7 +50,7 @@ class MapInfoGetLoadBiasTest : public ::testing::Test {
     process_memory_.reset(memory_);
     elf_ = new ElfFake(new MemoryFake);
     elf_container_.reset(elf_);
-    map_info_.reset(new MapInfo(nullptr, nullptr, 0x1000, 0x20000, 0, PROT_READ | PROT_WRITE, ""));
+    map_info_ = MapInfo::Create(0x1000, 0x20000, 0, PROT_READ | PROT_WRITE, "");
   }
 
   void MultipleThreadTest(uint64_t expected_load_bias);
@@ -59,13 +59,13 @@ class MapInfoGetLoadBiasTest : public ::testing::Test {
   MemoryFake* memory_;
   ElfFake* elf_;
   std::unique_ptr<ElfFake> elf_container_;
-  std::unique_ptr<MapInfo> map_info_;
+  std::shared_ptr<MapInfo> map_info_;
 };
 
 TEST_F(MapInfoGetLoadBiasTest, no_elf_and_no_valid_elf_in_memory) {
-  MapInfo info(nullptr, nullptr, 0x1000, 0x2000, 0, PROT_READ, "");
+  auto info = MapInfo::Create(0x1000, 0x2000, 0, PROT_READ, "");
 
-  EXPECT_EQ(0U, info.GetLoadBias(process_memory_));
+  EXPECT_EQ(0U, info->GetLoadBias(process_memory_));
 }
 
 TEST_F(MapInfoGetLoadBiasTest, load_bias_cached_from_elf) {
@@ -84,7 +84,7 @@ TEST_F(MapInfoGetLoadBiasTest, elf_exists) {
   elf_->FakeSetLoadBias(0);
   EXPECT_EQ(0U, map_info_->GetLoadBias(process_memory_));
 
-  map_info_->set_load_bias(INT64_MAX);
+  map_info_->set_load_bias(UINT64_MAX);
   elf_->FakeSetLoadBias(0x1000);
   EXPECT_EQ(0x1000U, map_info_->GetLoadBias(process_memory_));
 }

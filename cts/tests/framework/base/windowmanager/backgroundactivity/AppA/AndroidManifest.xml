@@ -20,11 +20,14 @@
 
     <!-- To enable the app to start activities from the background. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
-    <application android:testOnly="true">
+    <application android:testOnly="true" android:manageSpaceActivity=".BackgroundActivity">
         <receiver android:name=".StartBackgroundActivityReceiver"
              android:exported="true"/>
         <receiver android:name=".SendPendingIntentReceiver"
+                  android:exported="true"/>
+        <service android:name=".BackgroundActivityTestService"
              android:exported="true"/>
         <receiver android:name=".SimpleAdminReceiver"
              android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -50,5 +53,14 @@
                   android:supportsPictureInPicture="true"/>
         <activity android:name=".VirtualDisplayActivity"
                   android:exported="true"/>
+        <activity android:name=".WidgetConfigTestActivity"
+                  android:exported="true"/>
+        <receiver android:name=".WidgetProvider" android:exported="true" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                       android:resource="@xml/my_appwidget_info" />
+        </receiver>
     </application>
 </manifest>

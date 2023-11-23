@@ -178,7 +178,7 @@ cc_library_static {
 // Language and vendor related defaults
 cc_defaults {
     name: "nos_cc_defaults",
-    clang: true,
+
     cflags: [
         "-pedantic",
         "-Wall",

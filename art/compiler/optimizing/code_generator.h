@@ -36,6 +36,7 @@
 #include "optimizing_compiler_stats.h"
 #include "read_barrier_option.h"
 #include "stack.h"
+#include "utils/assembler.h"
 #include "utils/label.h"
 
 namespace art {
@@ -402,6 +403,14 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
     requires_current_method_ = true;
   }
 
+  bool NeedsSuspendCheckEntry() const {
+    return needs_suspend_check_entry_;
+  }
+
+  void MarkNeedsSuspendCheckEntry() {
+    needs_suspend_check_entry_ = true;
+  }
+
   void SetRequiresCurrentMethod() {
     requires_current_method_ = true;
   }
@@ -489,7 +498,7 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
 
   static bool StoreNeedsWriteBarrier(DataType::Type type, HInstruction* value) {
     // Check that null value is not represented as an integer constant.
-    DCHECK(type != DataType::Type::kReference || !value->IsIntConstant());
+    DCHECK_IMPLIES(type == DataType::Type::kReference, !value->IsIntConstant());
     return type == DataType::Type::kReference && !value->IsNullConstant();
   }
 
@@ -701,6 +710,7 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   virtual void GenerateNop() = 0;
 
   static QuickEntrypointEnum GetArrayAllocationEntrypoint(HNewArray* new_array);
+  static ScaleFactor ScaleFactorForType(DataType::Type type);
 
  protected:
   // Patch info used for recording locations of required linker patches and their targets,
@@ -852,6 +862,9 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
 
   // Whether the method is a leaf method.
   bool is_leaf_;
+
+  // Whether the method has to emit a SuspendCheck at entry.
+  bool needs_suspend_check_entry_;
 
   // Whether an instruction in the graph accesses the current method.
   // TODO: Rename: this actually indicates that some instruction in the method

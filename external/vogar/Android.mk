@@ -33,6 +33,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
   caliper-gson \
   guavalib \
   junit \
+  testng \
   vogar-jsr305 \
   vogar-kxml-libcore-20110123
 

@@ -1,15 +1,16 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
+#include <android/binder_enums.h>
 #ifdef BINDER_STABILITY_SUPPORT
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
-#include <array>
-#include <android/binder_enums.h>
+
 namespace aidl {
 namespace android {
 namespace aidl {
@@ -18,6 +19,14 @@ enum class Enum : int8_t {
   FOO = 42,
 };
 
+}  // namespace loggable
+}  // namespace aidl
+}  // namespace android
+}  // namespace aidl
+namespace aidl {
+namespace android {
+namespace aidl {
+namespace loggable {
 [[nodiscard]] static inline std::string toString(Enum val) {
   switch(val) {
   case Enum::FOO:
@@ -40,4 +49,4 @@ constexpr inline std::array<aidl::android::aidl::loggable::Enum, 1> enum_values<
 };
 #pragma clang diagnostic pop
 }  // namespace internal
-}  // namespace android
+}  // namespace ndk

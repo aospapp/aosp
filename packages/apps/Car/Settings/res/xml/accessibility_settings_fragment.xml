@@ -20,6 +20,16 @@
                   android:title="@string/accessibility_settings_title"
                   android:key="@string/psk_accessibility_settings">
     <PreferenceCategory
+        android:key="@string/pk_screen_reader_settings_header"
+        android:title="@string/accessibility_settings_screen_reader_title"
+        settings:controller="com.android.car.settings.accessibility.ScreenReaderCategoryPreferenceController">
+        <Preference
+            android:fragment="com.android.car.settings.accessibility.ScreenReaderSettingsFragment"
+            android:key="@string/psk_screen_reader_settings"
+            android:icon="@drawable/ic_screen_reader_settings"
+            settings:controller="com.android.car.settings.accessibility.ScreenReaderSettingsPreferenceController"/>
+    </PreferenceCategory>
+    <PreferenceCategory
         android:key="@string/pk_captions_settings_header"
         android:title="@string/accessibility_settings_captions_title">
         <Preference

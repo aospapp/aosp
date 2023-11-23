@@ -44,6 +44,9 @@ cc_library_static {
 cc_test {
     name: "VtsHalNeuralnetworksV1_2TargetTest",
     defaults: ["neuralnetworks_vts_functional_defaults"],
+    tidy_timeout_srcs: [
+        "CompilationCachingTests.cpp",
+    ],
     srcs: [
         "BasicTests.cpp",
         "CompilationCachingTests.cpp",
@@ -71,7 +74,7 @@ cc_test {
         "libgmock",
         "libhidlmemory",
         "libneuralnetworks_generated_test_harness",
-        "libneuralnetworks_utils",
+        "libneuralnetworks_common",
     ],
     whole_static_libs: [
         "neuralnetworks_generated_V1_0_example",

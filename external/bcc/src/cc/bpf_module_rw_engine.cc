@@ -47,9 +47,28 @@ void BPFModule::cleanup_rw_engine() {
   rw_engine_.reset();
 }
 
+static LoadInst *createLoad(IRBuilder<> &B, Value *addr, bool isVolatile = false)
+{
+#if LLVM_MAJOR_VERSION >= 14
+  return B.CreateLoad(addr->getType()->getPointerElementType(), addr, isVolatile);
+#else
+  return B.CreateLoad(addr, isVolatile);
+#endif
+}
+
+static Value *createInBoundsGEP(IRBuilder<> &B, Value *ptr, ArrayRef<Value *>idxlist)
+{
+#if LLVM_MAJOR_VERSION >= 14
+  return B.CreateInBoundsGEP(ptr->getType()->getScalarType()->getPointerElementType(),
+                             ptr, idxlist);
+#else
+  return B.CreateInBoundsGEP(ptr, idxlist);
+#endif
+}
+
 static void debug_printf(Module *mod, IRBuilder<> &B, const string &fmt, vector<Value *> args) {
   GlobalVariable *fmt_gvar = B.CreateGlobalString(fmt, "fmt");
-  args.insert(args.begin(), B.CreateInBoundsGEP(fmt_gvar, vector<Value *>({B.getInt64(0), B.getInt64(0)})));
+  args.insert(args.begin(), createInBoundsGEP(B, fmt_gvar, vector<Value *>({B.getInt64(0), B.getInt64(0)})));
   args.insert(args.begin(), B.getInt64((uintptr_t)stderr));
   Function *fprintf_fn = mod->getFunction("fprintf");
   if (!fprintf_fn) {
@@ -76,8 +95,8 @@ static void finish_sscanf(IRBuilder<> &B, vector<Value *> *args, string *fmt,
   *fmt += "%n";
   B.CreateStore(B.getInt32(0), nread);
   GlobalVariable *fmt_gvar = B.CreateGlobalString(*fmt, "fmt");
-  (*args)[1] = B.CreateInBoundsGEP(fmt_gvar, {B.getInt64(0), B.getInt64(0)});
-  (*args)[0] = B.CreateLoad(sptr);
+  (*args)[1] = createInBoundsGEP(B, fmt_gvar, {B.getInt64(0), B.getInt64(0)});
+  (*args)[0] = createLoad(B, sptr);
   args->push_back(nread);
   CallInst *call = B.CreateCall(sscanf_fn, *args);
   call->setTailCall(true);
@@ -97,7 +116,7 @@ static void finish_sscanf(IRBuilder<> &B, vector<Value *> *args, string *fmt,
   B.SetInsertPoint(label_false);
   // s = &s[nread];
   B.CreateStore(
-      B.CreateInBoundsGEP(B.CreateLoad(sptr), B.CreateLoad(nread, true)), sptr);
+      createInBoundsGEP(B, createLoad(B, sptr), createLoad(B, nread, true)), sptr);
 
   args->resize(2);
   fmt->clear();
@@ -196,7 +215,7 @@ static void parse_type(IRBuilder<> &B, vector<Value *> *args, string *fmt,
       *fmt += "x";
     else
       *fmt += "i";
-    args->push_back(is_writer ? B.CreateLoad(out) : out);
+    args->push_back(is_writer ? createLoad(B, out) : out);
   }
 }
 
@@ -326,7 +345,7 @@ string BPFModule::make_writer(Module *mod, Type *type) {
 
   GlobalVariable *fmt_gvar = B.CreateGlobalString(fmt, "fmt");
 
-  args[2] = B.CreateInBoundsGEP(fmt_gvar, vector<Value *>({B.getInt64(0), B.getInt64(0)}));
+  args[2] = createInBoundsGEP(B, fmt_gvar, vector<Value *>({B.getInt64(0), B.getInt64(0)}));
 
   if (0)
     debug_printf(mod, B, "%d %p %p\n", vector<Value *>({arg_len, arg_out, arg_in}));
@@ -356,7 +375,9 @@ unique_ptr<ExecutionEngine> BPFModule::finalize_rw(unique_ptr<Module> m) {
   string err;
   EngineBuilder builder(move(m));
   builder.setErrorStr(&err);
+#if LLVM_MAJOR_VERSION <= 11
   builder.setUseOrcMCJITReplacement(false);
+#endif
   auto engine = unique_ptr<ExecutionEngine>(builder.create());
   if (!engine)
     fprintf(stderr, "Could not create ExecutionEngine: %s\n", err.c_str());
@@ -380,7 +401,12 @@ int BPFModule::annotate() {
     GlobalValue *gvar = mod_->getNamedValue(table.name);
     if (!gvar) continue;
     if (PointerType *pt = dyn_cast<PointerType>(gvar->getType())) {
-      if (StructType *st = dyn_cast<StructType>(pt->getElementType())) {
+#if LLVM_MAJOR_VERSION >= 15
+      StructType *st = dyn_cast<StructType>(pt->getPointerElementType());
+#else
+      StructType *st = dyn_cast<StructType>(pt->getElementType());
+#endif
+      if (st) {
         if (st->getNumElements() < 2) continue;
         Type *key_type = st->elements()[0];
         Type *leaf_type = st->elements()[1];
@@ -433,7 +459,7 @@ StatusTuple BPFModule::snprintf(string fn_name, char *str, size_t sz,
     return StatusTuple(rc, "error in snprintf: %s", std::strerror(errno));
   if ((size_t)rc == sz)
     return StatusTuple(-1, "buffer of size %zd too small", sz);
-  return StatusTuple(0);
+  return StatusTuple::OK();
 }
 
 } // namespace ebpf

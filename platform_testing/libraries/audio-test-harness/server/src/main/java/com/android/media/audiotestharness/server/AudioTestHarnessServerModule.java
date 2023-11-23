@@ -17,6 +17,7 @@
 package com.android.media.audiotestharness.server;
 
 import com.android.media.audiotestharness.proto.AudioTestHarnessGrpc;
+import com.android.media.audiotestharness.server.config.SharedHostConfiguration;
 import com.android.media.audiotestharness.server.javasound.JavaSoundModule;
 import com.android.media.audiotestharness.server.service.AudioCaptureSessionFactory;
 import com.android.media.audiotestharness.server.service.AudioCaptureSessionFactoryImpl;
@@ -25,6 +26,7 @@ import com.android.media.audiotestharness.server.service.StreamObserverOutputStr
 
 import com.google.common.base.Preconditions;
 import com.google.inject.AbstractModule;
+import com.google.inject.multibindings.OptionalBinder;
 
 import java.util.concurrent.Executor;
 
@@ -67,5 +69,9 @@ public final class AudioTestHarnessServerModule extends AbstractModule {
         bind(AudioTestHarnessGrpc.AudioTestHarnessImplBase.class).to(AudioTestHarnessImpl.class);
         bind(StreamObserverOutputStreamFactory.class);
         bind(AudioCaptureSessionFactory.class).to(AudioCaptureSessionFactoryImpl.class);
+
+        OptionalBinder.newOptionalBinder(binder(), SharedHostConfiguration.class)
+                .setDefault()
+                .toInstance(SharedHostConfiguration.getDefault());
     }
 }

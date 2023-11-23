@@ -17,6 +17,7 @@
 #include "Standalone.h"
 #include "HelloTriangle.h"
 #include "host-common/AndroidAgentFactory.h"
+#include "host-common/testing/MockAndroidAgentFactory.h"
 
 #include <gtest/gtest.h>
 
@@ -60,6 +61,13 @@ protected:
 template <typename T>
 class SnapshotGlRenderingSampleTest : public ::testing::Test {
 protected:
+    static void SetUpTestSuite() {
+        android::emulation::injectConsoleAgents(
+                android::emulation::MockAndroidConsoleFactory());
+    }
+
+    static void TearDownTestSuite() { }
+
     virtual void SetUp() override {
         // setupStandaloneLibrarySearchPaths();
         emugl::set_emugl_window_operations(*getConsoleAgents()->emu);

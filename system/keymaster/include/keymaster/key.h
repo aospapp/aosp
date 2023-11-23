@@ -60,6 +60,9 @@ class Key {
     const KeyFactory* key_factory() const { return key_factory_; }
     const KeyFactory*& key_factory() { return key_factory_; }
 
+    void set_secure_deletion_slot(uint32_t slot) { secure_deletion_slot_ = slot; }
+    uint32_t secure_deletion_slot() const { return secure_deletion_slot_; }
+
   protected:
     Key(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
         const KeyFactory* key_factory)
@@ -71,6 +74,7 @@ class Key {
     AuthorizationSet sw_enforced_;
     KeymasterKeyBlob key_material_;
     const KeyFactory* key_factory_;
+    uint32_t secure_deletion_slot_ = 0;
 };
 
 }  // namespace keymaster

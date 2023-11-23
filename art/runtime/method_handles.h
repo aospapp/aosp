@@ -29,6 +29,7 @@ namespace art {
 class ShadowFrame;
 
 namespace mirror {
+class EmulatedStackFrame;
 class MethodHandle;
 class MethodType;
 }  // namespace mirror
@@ -127,6 +128,13 @@ bool PerformConversions(Thread* self,
                         int32_t start_index,
                         int32_t end_index) REQUIRES_SHARED(Locks::mutator_lock_);
 
+template <typename G, typename S>
+bool CopyArguments(Thread* self,
+                   Handle<mirror::MethodType> method_type,
+                   Handle<mirror::MethodType> callee_type,
+                   G* getter,
+                   S* setter) REQUIRES_SHARED(Locks::mutator_lock_);
+
 bool MethodHandleInvoke(Thread* self,
                         ShadowFrame& shadow_frame,
                         Handle<mirror::MethodHandle> method_handle,
@@ -141,6 +149,11 @@ bool MethodHandleInvokeExact(Thread* self,
                              Handle<mirror::MethodType> callsite_type,
                              const InstructionOperands* const args,
                              JValue* result)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+
+void MethodHandleInvokeExactWithFrame(Thread* self,
+                                      Handle<mirror::MethodHandle> method_handle,
+                                      Handle<mirror::EmulatedStackFrame> stack_frame)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 }  // namespace art

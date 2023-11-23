@@ -3,7 +3,10 @@ Current folder comprises of files necessary for testing media extractor, media m
 
 The aim of these tests is not solely to verify the CDD requirements but also to test components, their plugins and their interactions with media framework.
 
-The test vectors used by the test suite is available at [link](https://storage.googleapis.com/android_media/cts/tests/media/CtsMediaV2TestCases-1.14.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
+The test vectors used by the test suite is available at [link](https://storage.googleapis.com/android_media/cts/tests/media/CtsMediaV2TestCases-2.4.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
+
+All Big Buck Bunny(bbb) test vectors are of 8-bit format. They are downloaded from [link](https://peach.blender.org/download/) and resampled according to the test requirements.
+All Cosmos Laundromat(cosmat) test vectors are of 10-bit format. They are downloaded from [link](https://media.xiph.org/) and resampled according to the test requirements.
 
 The test suite looks to cover sdk/ndk api in normal and error scenarios. Error scenarios are separated from regular usage and are placed under class *UnitTest (MuxerUnitTest, ExtractorUnitTest, ...).
 

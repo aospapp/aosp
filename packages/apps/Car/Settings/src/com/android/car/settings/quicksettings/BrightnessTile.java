@@ -24,6 +24,7 @@ import static com.android.settingslib.display.BrightnessUtils.convertLinearToGam
 import android.app.ActivityManager;
 import android.content.Context;
 import android.os.PowerManager;
+import android.os.UserHandle;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
 import android.widget.SeekBar;
@@ -80,8 +81,9 @@ public class BrightnessTile implements QuickSettingGridAdapter.SeekbarTile {
     public int getCurrent() {
         int gamma = GAMMA_SPACE_MAX;
         try {
-            int linear = System.getIntForUser(mContext.getContentResolver(), SCREEN_BRIGHTNESS,
-                    ActivityManager.getCurrentUser());
+            int linear = System.getInt(mContext.createContextAsUser(
+                    UserHandle.of(ActivityManager.getCurrentUser()), /* flags= */ 0)
+                            .getContentResolver(), SCREEN_BRIGHTNESS);
             gamma = convertLinearToGamma(linear, mMinimumBacklight, mMaximumBacklight);
         } catch (SettingNotFoundException e) {
             LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");

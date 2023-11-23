@@ -18,7 +18,6 @@ package com.android.car.storagemonitoring;
 import static java.util.Objects.hash;
 
 import android.car.storagemonitoring.WearEstimate;
-import java.time.Instant;
 
 public final class WearInformation {
     public static final int UNKNOWN_LIFETIME_ESTIMATE = -1;

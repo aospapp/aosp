@@ -81,9 +81,6 @@ int get_xml_node_depth(xmlNodePtr);
 #define CHAR_STR(xml_char_str) \
   reinterpret_cast<char*>(xml_char_str.get())
 
-xmlNodePtr
-advance_to_next_sibling_element(xmlNodePtr node);
-
 void
 escape_xml_string(const std::string& str,
 		  std::string& escaped);

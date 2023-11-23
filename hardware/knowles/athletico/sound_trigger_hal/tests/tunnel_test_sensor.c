@@ -25,7 +25,7 @@
 
 #define LOG_TAG "ia_tunneling_sensor_test"
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <linux/mfd/adnc/iaxxx-system-identifiers.h>
 #include <linux/mfd/adnc/iaxxx-tunnel-intf.h>
 #include <linux/mfd/adnc/iaxxx-sensor-tunnel.h>

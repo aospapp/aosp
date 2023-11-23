@@ -34,8 +34,8 @@ class KernelVersionTest : public ::testing::Test {
   std::string version_;
   KernelVersionTest()
       : arch_(android::base::GetProperty("ro.bionic.arch", "")),
-        first_api_level_(std::stoi(
-            android::base::GetProperty("ro.product.first_api_level", "0"))),
+        first_api_level_(
+            std::stoi(android::base::GetProperty("ro.vendor.api_level", "0"))),
         should_run_compiler_test_(
             first_api_level_ >= __ANDROID_API_R__ ||
             (arch_ == "arm64" && first_api_level_ >= __ANDROID_API_Q__)),

@@ -1,11 +1,13 @@
 #
-# Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 include lib/libfdt/libfdt.mk
 include lib/xlat_tables_v2/xlat_tables.mk
+
+include drivers/arm/gic/v2/gicv2.mk
 
 PLAT_INCLUDES		:=	-Iplat/rpi/common/include		\
 				-Iplat/rpi/rpi4/include
@@ -18,9 +20,6 @@ PLAT_BL_COMMON_SOURCES	:=	drivers/ti/uart/aarch64/16550_console.S	\
 BL31_SOURCES		+=	lib/cpus/aarch64/cortex_a72.S		\
 				plat/rpi/common/aarch64/plat_helpers.S	\
 				plat/rpi/rpi4/aarch64/armstub8_header.S	\
-				drivers/arm/gic/common/gic_common.c     \
-				drivers/arm/gic/v2/gicv2_helpers.c      \
-				drivers/arm/gic/v2/gicv2_main.c         \
 				drivers/delay_timer/delay_timer.c	\
 				drivers/gpio/gpio.c			\
 				drivers/rpi3/gpio/rpi3_gpio.c		\
@@ -30,7 +29,8 @@ BL31_SOURCES		+=	lib/cpus/aarch64/cortex_a72.S		\
 				plat/common/plat_psci_common.c		\
 				plat/rpi/common/rpi3_topology.c		\
 				common/fdt_fixup.c			\
-				${LIBFDT_SRCS}
+				${LIBFDT_SRCS}				\
+				${GICV2_SOURCES}
 
 # For now we only support BL31, using the kernel loaded by the GPU firmware.
 RESET_TO_BL31		:=	1
@@ -86,6 +86,9 @@ RPI3_RUNTIME_UART		:= 0
 # Use normal memory mapping for ROM, FIP, SRAM and DRAM
 RPI3_USE_UEFI_MAP		:= 0
 
+# SMCCC PCI support (should be enabled for ACPI builds)
+SMC_PCI_SUPPORT            	:= 0
+
 # Process platform flags
 # ----------------------
 
@@ -96,6 +99,7 @@ $(eval $(call add_define,RPI3_PRELOADED_DTB_BASE))
 endif
 $(eval $(call add_define,RPI3_RUNTIME_UART))
 $(eval $(call add_define,RPI3_USE_UEFI_MAP))
+$(eval $(call add_define,SMC_PCI_SUPPORT))
 
 ifeq (${ARCH},aarch32)
   $(error Error: AArch32 not supported on rpi4)
@@ -105,3 +109,8 @@ ifneq ($(ENABLE_STACK_PROTECTOR), 0)
 PLAT_BL_COMMON_SOURCES	+=	drivers/rpi3/rng/rpi3_rng.c		\
 				plat/rpi/common/rpi3_stack_protector.c
 endif
+
+ifeq ($(SMC_PCI_SUPPORT), 1)
+BL31_SOURCES            +=      plat/rpi/rpi4/rpi4_pci_svc.c
+endif
+

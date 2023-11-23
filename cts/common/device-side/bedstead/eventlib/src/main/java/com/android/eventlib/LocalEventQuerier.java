@@ -36,8 +36,7 @@ public class LocalEventQuerier<E extends Event, F extends EventLogsQuery> implem
     LocalEventQuerier(Context context, EventLogsQuery<E, F> eventLogsQuery) {
         mEventLogsQuery = eventLogsQuery;
         mEvents = Events.getInstance(context, /* needsHistory= */ true);
-        mFetchedEvents = new LinkedBlockingDeque<>(mEvents.getEvents());
-        mEvents.registerEventListener(this);
+        mFetchedEvents = new LinkedBlockingDeque<>(mEvents.registerEventListener(this));
     }
 
     @Override

@@ -50,6 +50,12 @@ namespace {
 // computation.
 struct FusedKernelMatcherPass
     : public PassWrapper<FusedKernelMatcherPass, FunctionPass> {
+  StringRef getArgument() const final { return "tf-fused-kernel-matcher"; }
+
+  StringRef getDescription() const final {
+    return "Matches computations corresponding to optimized fused kernels";
+  }
+
   void runOnFunction() override;
 };
 
@@ -106,6 +112,16 @@ class FuseContractionWithBiasAdd : public OpRewritePattern<SrcOpT> {
   LogicalResult matchAndRewrite(SrcOpT contraction,
                                 PatternRewriter &rewriter) const override {
     auto context = rewriter.getContext();
+
+    // We do support fusion only if the contraction operation is inside one of
+    // the expected operations with regions. Other operations can have semantics
+    // that is not compatible with fusion (e.g. region compilation).
+    if (!isa<FuncOp, IfOp, WhileOp>(contraction->getParentOp())) {
+      return rewriter.notifyMatchFailure(
+          contraction,
+          "fused operation must be nested inside a function, If or While");
+    }
+
     // If the contraction is used in multiple places, fusing it will only create
     // more contraction nodes, which is slower.
     if (!contraction.getResult().hasOneUse())
@@ -156,7 +172,7 @@ class FuseContractionWithBiasAdd : public OpRewritePattern<SrcOpT> {
     // The fused contraction has the same attributes as the original
     // contraction, with two additions: the list of ops which have been fused
     // together; epsilon (only with FusedBatchNorm).
-    std::vector<NamedAttribute> attrs = contraction.getAttrs();
+    std::vector<NamedAttribute> attrs = contraction->getAttrs();
     ArrayAttr fused_ops_attr = ArrayAttr::get(context, fused_ops);
     attrs.push_back(
         NamedAttribute(Identifier::get("fused_ops", context), fused_ops_attr));
@@ -234,7 +250,7 @@ class FuseMatMulBiasAdd
 };
 
 void FusedKernelMatcherPass::runOnFunction() {
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   auto func = getFunction();
   patterns.insert<FuseConv2DBiasAdd, FuseMatMulBiasAdd>(&getContext());
 
@@ -247,9 +263,7 @@ std::unique_ptr<OperationPass<FuncOp>> CreateFusedKernelMatcherPass() {
   return std::make_unique<FusedKernelMatcherPass>();
 }
 
-static PassRegistration<FusedKernelMatcherPass> pass(
-    "tf-fused-kernel-matcher",
-    "Matches computations corresponding to optimized fused kernels");
+static PassRegistration<FusedKernelMatcherPass> pass;
 
 }  // namespace TF
 

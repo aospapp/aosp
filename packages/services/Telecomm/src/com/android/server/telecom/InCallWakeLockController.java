@@ -60,10 +60,18 @@ public class InCallWakeLockController extends CallsManagerListenerBase {
         handleWakeLock();
     }
 
+    @Override
+    public void onExternalCallChanged(Call call, boolean isExternalCall) {
+        // In case a call changes its external call state during ringing, we need to trigger
+        // the wake lock update correspondingly. External call is handled by another device
+        // and should not hold a wake lock on the local device.
+        handleWakeLock();
+    }
+
     private void handleWakeLock() {
         // We grab a full lock as long as there exists a ringing call.
         Call ringingCall = mCallsManager.getRingingOrSimulatedRingingCall();
-        if (ringingCall != null) {
+        if (ringingCall != null && !ringingCall.isExternalCall()) {
             mTelecomWakeLock.acquire();
             Log.i(this, "Acquiring full wake lock");
         } else {

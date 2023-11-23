@@ -16,13 +16,14 @@
 
 import time
 from acts.utils import rand_ascii_str
-from acts_contrib.test_utils.tel.tel_test_utils import mms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
+from acts_contrib.test_utils.tel.tel_message_utils import mms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_message_utils import mms_receive_verify_after_call_hangup
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
-from acts_contrib.test_utils.tel.tel_test_utils import mms_receive_verify_after_call_hangup
 
 message_lengths = (50, 160, 180)
 long_message_lengths = (800, 1600)
+
 
 def _mms_test_mo(log, ads, expected_result=True):
     return _mms_test(log,

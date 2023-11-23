@@ -49,32 +49,35 @@ func TestCLC(t *testing.T) {
 	//
 	ctx := testContext()
 
+	optional := false
+	implicit := true
+
 	m := make(ClassLoaderContextMap)
 
-	m.AddContext(ctx, AnySdkVersion, "a", buildPath(ctx, "a"), installPath(ctx, "a"), nil)
-	m.AddContext(ctx, AnySdkVersion, "b", buildPath(ctx, "b"), installPath(ctx, "b"), nil)
-	m.AddContext(ctx, AnySdkVersion, "c", buildPath(ctx, "c"), installPath(ctx, "c"), nil)
+	m.AddContext(ctx, AnySdkVersion, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+	m.AddContext(ctx, AnySdkVersion, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+	m.AddContext(ctx, AnySdkVersion, "c", optional, implicit, buildPath(ctx, "c"), installPath(ctx, "c"), nil)
 
 	// Add some libraries with nested subcontexts.
 
 	m1 := make(ClassLoaderContextMap)
-	m1.AddContext(ctx, AnySdkVersion, "a1", buildPath(ctx, "a1"), installPath(ctx, "a1"), nil)
-	m1.AddContext(ctx, AnySdkVersion, "b1", buildPath(ctx, "b1"), installPath(ctx, "b1"), nil)
+	m1.AddContext(ctx, AnySdkVersion, "a1", optional, implicit, buildPath(ctx, "a1"), installPath(ctx, "a1"), nil)
+	m1.AddContext(ctx, AnySdkVersion, "b1", optional, implicit, buildPath(ctx, "b1"), installPath(ctx, "b1"), nil)
 
 	m2 := make(ClassLoaderContextMap)
-	m2.AddContext(ctx, AnySdkVersion, "a2", buildPath(ctx, "a2"), installPath(ctx, "a2"), nil)
-	m2.AddContext(ctx, AnySdkVersion, "b2", buildPath(ctx, "b2"), installPath(ctx, "b2"), nil)
-	m2.AddContext(ctx, AnySdkVersion, "c2", buildPath(ctx, "c2"), installPath(ctx, "c2"), m1)
+	m2.AddContext(ctx, AnySdkVersion, "a2", optional, implicit, buildPath(ctx, "a2"), installPath(ctx, "a2"), nil)
+	m2.AddContext(ctx, AnySdkVersion, "b2", optional, implicit, buildPath(ctx, "b2"), installPath(ctx, "b2"), nil)
+	m2.AddContext(ctx, AnySdkVersion, "c2", optional, implicit, buildPath(ctx, "c2"), installPath(ctx, "c2"), m1)
 
 	m3 := make(ClassLoaderContextMap)
-	m3.AddContext(ctx, AnySdkVersion, "a3", buildPath(ctx, "a3"), installPath(ctx, "a3"), nil)
-	m3.AddContext(ctx, AnySdkVersion, "b3", buildPath(ctx, "b3"), installPath(ctx, "b3"), nil)
+	m3.AddContext(ctx, AnySdkVersion, "a3", optional, implicit, buildPath(ctx, "a3"), installPath(ctx, "a3"), nil)
+	m3.AddContext(ctx, AnySdkVersion, "b3", optional, implicit, buildPath(ctx, "b3"), installPath(ctx, "b3"), nil)
 
-	m.AddContext(ctx, AnySdkVersion, "d", buildPath(ctx, "d"), installPath(ctx, "d"), m2)
+	m.AddContext(ctx, AnySdkVersion, "d", optional, implicit, buildPath(ctx, "d"), installPath(ctx, "d"), m2)
 	// When the same library is both in conditional and unconditional context, it should be removed
 	// from conditional context.
-	m.AddContext(ctx, 42, "f", buildPath(ctx, "f"), installPath(ctx, "f"), nil)
-	m.AddContext(ctx, AnySdkVersion, "f", buildPath(ctx, "f"), installPath(ctx, "f"), nil)
+	m.AddContext(ctx, 42, "f", optional, implicit, buildPath(ctx, "f"), installPath(ctx, "f"), nil)
+	m.AddContext(ctx, AnySdkVersion, "f", optional, implicit, buildPath(ctx, "f"), installPath(ctx, "f"), nil)
 
 	// Merge map with implicit root library that is among toplevel contexts => does nothing.
 	m.AddContextMap(m1, "c")
@@ -83,12 +86,12 @@ func TestCLC(t *testing.T) {
 	m.AddContextMap(m3, "m_g")
 
 	// Compatibility libraries with unknown install paths get default paths.
-	m.AddContext(ctx, 29, AndroidHidlManager, buildPath(ctx, AndroidHidlManager), nil, nil)
-	m.AddContext(ctx, 29, AndroidHidlBase, buildPath(ctx, AndroidHidlBase), nil, nil)
+	m.AddContext(ctx, 29, AndroidHidlManager, optional, implicit, buildPath(ctx, AndroidHidlManager), nil, nil)
+	m.AddContext(ctx, 29, AndroidHidlBase, optional, implicit, buildPath(ctx, AndroidHidlBase), nil, nil)
 
 	// Add "android.test.mock" to conditional CLC, observe that is gets removed because it is only
 	// needed as a compatibility library if "android.test.runner" is in CLC as well.
-	m.AddContext(ctx, 30, AndroidTestMock, buildPath(ctx, AndroidTestMock), nil, nil)
+	m.AddContext(ctx, 30, AndroidTestMock, optional, implicit, buildPath(ctx, AndroidTestMock), nil, nil)
 
 	valid, validationError := validateClassLoaderContext(m)
 
@@ -96,10 +99,10 @@ func TestCLC(t *testing.T) {
 
 	var haveStr string
 	var havePaths android.Paths
-	var haveUsesLibs []string
+	var haveUsesLibsReq, haveUsesLibsOpt []string
 	if valid && validationError == nil {
 		haveStr, havePaths = ComputeClassLoaderContext(m)
-		haveUsesLibs = m.UsesLibs()
+		haveUsesLibsReq, haveUsesLibsOpt = m.UsesLibs()
 	}
 
 	// Test that validation is successful (all paths are known).
@@ -112,16 +115,16 @@ func TestCLC(t *testing.T) {
 	// Test that class loader context structure is correct.
 	t.Run("string", func(t *testing.T) {
 		wantStr := " --host-context-for-sdk 29 " +
-			"PCL[out/" + AndroidHidlManager + ".jar]#" +
-			"PCL[out/" + AndroidHidlBase + ".jar]" +
+			"PCL[out/soong/" + AndroidHidlManager + ".jar]#" +
+			"PCL[out/soong/" + AndroidHidlBase + ".jar]" +
 			" --target-context-for-sdk 29 " +
 			"PCL[/system/framework/" + AndroidHidlManager + ".jar]#" +
 			"PCL[/system/framework/" + AndroidHidlBase + ".jar]" +
 			" --host-context-for-sdk any " +
-			"PCL[out/a.jar]#PCL[out/b.jar]#PCL[out/c.jar]#PCL[out/d.jar]" +
-			"{PCL[out/a2.jar]#PCL[out/b2.jar]#PCL[out/c2.jar]" +
-			"{PCL[out/a1.jar]#PCL[out/b1.jar]}}#" +
-			"PCL[out/f.jar]#PCL[out/a3.jar]#PCL[out/b3.jar]" +
+			"PCL[out/soong/a.jar]#PCL[out/soong/b.jar]#PCL[out/soong/c.jar]#PCL[out/soong/d.jar]" +
+			"{PCL[out/soong/a2.jar]#PCL[out/soong/b2.jar]#PCL[out/soong/c2.jar]" +
+			"{PCL[out/soong/a1.jar]#PCL[out/soong/b1.jar]}}#" +
+			"PCL[out/soong/f.jar]#PCL[out/soong/a3.jar]#PCL[out/soong/b3.jar]" +
 			" --target-context-for-sdk any " +
 			"PCL[/system/a.jar]#PCL[/system/b.jar]#PCL[/system/c.jar]#PCL[/system/d.jar]" +
 			"{PCL[/system/a2.jar]#PCL[/system/b2.jar]#PCL[/system/c2.jar]" +
@@ -135,11 +138,11 @@ func TestCLC(t *testing.T) {
 	// Test that all expected build paths are gathered.
 	t.Run("paths", func(t *testing.T) {
 		wantPaths := []string{
-			"out/android.hidl.manager-V1.0-java.jar", "out/android.hidl.base-V1.0-java.jar",
-			"out/a.jar", "out/b.jar", "out/c.jar", "out/d.jar",
-			"out/a2.jar", "out/b2.jar", "out/c2.jar",
-			"out/a1.jar", "out/b1.jar",
-			"out/f.jar", "out/a3.jar", "out/b3.jar",
+			"out/soong/android.hidl.manager-V1.0-java.jar", "out/soong/android.hidl.base-V1.0-java.jar",
+			"out/soong/a.jar", "out/soong/b.jar", "out/soong/c.jar", "out/soong/d.jar",
+			"out/soong/a2.jar", "out/soong/b2.jar", "out/soong/c2.jar",
+			"out/soong/a1.jar", "out/soong/b1.jar",
+			"out/soong/f.jar", "out/soong/a3.jar", "out/soong/b3.jar",
 		}
 		if !reflect.DeepEqual(wantPaths, havePaths.Strings()) {
 			t.Errorf("\nwant paths: %s\nhave paths: %s", wantPaths, havePaths)
@@ -148,20 +151,26 @@ func TestCLC(t *testing.T) {
 
 	// Test for libraries that are added by the manifest_fixer.
 	t.Run("uses libs", func(t *testing.T) {
-		wantUsesLibs := []string{"a", "b", "c", "d", "f", "a3", "b3"}
-		if !reflect.DeepEqual(wantUsesLibs, haveUsesLibs) {
-			t.Errorf("\nwant uses libs: %s\nhave uses libs: %s", wantUsesLibs, haveUsesLibs)
+		wantUsesLibsReq := []string{"a", "b", "c", "d", "f", "a3", "b3"}
+		wantUsesLibsOpt := []string{}
+		if !reflect.DeepEqual(wantUsesLibsReq, haveUsesLibsReq) {
+			t.Errorf("\nwant required uses libs: %s\nhave required uses libs: %s", wantUsesLibsReq, haveUsesLibsReq)
+		}
+		if !reflect.DeepEqual(wantUsesLibsOpt, haveUsesLibsOpt) {
+			t.Errorf("\nwant optional uses libs: %s\nhave optional uses libs: %s", wantUsesLibsOpt, haveUsesLibsOpt)
 		}
 	})
 }
 
 func TestCLCJson(t *testing.T) {
 	ctx := testContext()
+	optional := false
+	implicit := true
 	m := make(ClassLoaderContextMap)
-	m.AddContext(ctx, 28, "a", buildPath(ctx, "a"), installPath(ctx, "a"), nil)
-	m.AddContext(ctx, 29, "b", buildPath(ctx, "b"), installPath(ctx, "b"), nil)
-	m.AddContext(ctx, 30, "c", buildPath(ctx, "c"), installPath(ctx, "c"), nil)
-	m.AddContext(ctx, AnySdkVersion, "d", buildPath(ctx, "d"), installPath(ctx, "d"), nil)
+	m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+	m.AddContext(ctx, 29, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+	m.AddContext(ctx, 30, "c", optional, implicit, buildPath(ctx, "c"), installPath(ctx, "c"), nil)
+	m.AddContext(ctx, AnySdkVersion, "d", optional, implicit, buildPath(ctx, "d"), installPath(ctx, "d"), nil)
 	jsonCLC := toJsonClassLoaderContext(m)
 	restored := fromJsonClassLoaderContext(ctx, jsonCLC)
 	android.AssertIntEquals(t, "The size of the maps should be the same.", len(m), len(restored))
@@ -181,20 +190,26 @@ func TestCLCJson(t *testing.T) {
 // Test that unknown library paths cause a validation error.
 func testCLCUnknownPath(t *testing.T, whichPath string) {
 	ctx := testContext()
+	optional := false
+	implicit := true
 
 	m := make(ClassLoaderContextMap)
 	if whichPath == "build" {
-		m.AddContext(ctx, AnySdkVersion, "a", nil, nil, nil)
+		m.AddContext(ctx, AnySdkVersion, "a", optional, implicit, nil, nil, nil)
 	} else {
-		m.AddContext(ctx, AnySdkVersion, "a", buildPath(ctx, "a"), nil, nil)
+		m.AddContext(ctx, AnySdkVersion, "a", optional, implicit, buildPath(ctx, "a"), nil, nil)
 	}
 
 	// The library should be added to <uses-library> tags by the manifest_fixer.
 	t.Run("uses libs", func(t *testing.T) {
-		haveUsesLibs := m.UsesLibs()
-		wantUsesLibs := []string{"a"}
-		if !reflect.DeepEqual(wantUsesLibs, haveUsesLibs) {
-			t.Errorf("\nwant uses libs: %s\nhave uses libs: %s", wantUsesLibs, haveUsesLibs)
+		haveUsesLibsReq, haveUsesLibsOpt := m.UsesLibs()
+		wantUsesLibsReq := []string{"a"}
+		wantUsesLibsOpt := []string{}
+		if !reflect.DeepEqual(wantUsesLibsReq, haveUsesLibsReq) {
+			t.Errorf("\nwant required uses libs: %s\nhave required uses libs: %s", wantUsesLibsReq, haveUsesLibsReq)
+		}
+		if !reflect.DeepEqual(wantUsesLibsOpt, haveUsesLibsOpt) {
+			t.Errorf("\nwant optional uses libs: %s\nhave optional uses libs: %s", wantUsesLibsOpt, haveUsesLibsOpt)
 		}
 	})
 
@@ -216,10 +231,12 @@ func TestCLCUnknownInstallPath(t *testing.T) {
 // An attempt to add conditional nested subcontext should fail.
 func TestCLCNestedConditional(t *testing.T) {
 	ctx := testContext()
+	optional := false
+	implicit := true
 	m1 := make(ClassLoaderContextMap)
-	m1.AddContext(ctx, 42, "a", buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+	m1.AddContext(ctx, 42, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
 	m := make(ClassLoaderContextMap)
-	err := m.addContext(ctx, AnySdkVersion, "b", buildPath(ctx, "b"), installPath(ctx, "b"), m1)
+	err := m.addContext(ctx, AnySdkVersion, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), m1)
 	checkError(t, err, "nested class loader context shouldn't have conditional part")
 }
 
@@ -227,11 +244,13 @@ func TestCLCNestedConditional(t *testing.T) {
 // they end up in the order that agrees with PackageManager.
 func TestCLCSdkVersionOrder(t *testing.T) {
 	ctx := testContext()
+	optional := false
+	implicit := true
 	m := make(ClassLoaderContextMap)
-	m.AddContext(ctx, 28, "a", buildPath(ctx, "a"), installPath(ctx, "a"), nil)
-	m.AddContext(ctx, 29, "b", buildPath(ctx, "b"), installPath(ctx, "b"), nil)
-	m.AddContext(ctx, 30, "c", buildPath(ctx, "c"), installPath(ctx, "c"), nil)
-	m.AddContext(ctx, AnySdkVersion, "d", buildPath(ctx, "d"), installPath(ctx, "d"), nil)
+	m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+	m.AddContext(ctx, 29, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+	m.AddContext(ctx, 30, "c", optional, implicit, buildPath(ctx, "c"), installPath(ctx, "c"), nil)
+	m.AddContext(ctx, AnySdkVersion, "d", optional, implicit, buildPath(ctx, "d"), installPath(ctx, "d"), nil)
 
 	valid, validationError := validateClassLoaderContext(m)
 
@@ -251,17 +270,122 @@ func TestCLCSdkVersionOrder(t *testing.T) {
 
 	// Test that class loader context structure is correct.
 	t.Run("string", func(t *testing.T) {
-		wantStr := " --host-context-for-sdk 30 PCL[out/c.jar]" +
+		wantStr := " --host-context-for-sdk 30 PCL[out/soong/c.jar]" +
 			" --target-context-for-sdk 30 PCL[/system/c.jar]" +
-			" --host-context-for-sdk 29 PCL[out/b.jar]" +
+			" --host-context-for-sdk 29 PCL[out/soong/b.jar]" +
 			" --target-context-for-sdk 29 PCL[/system/b.jar]" +
-			" --host-context-for-sdk 28 PCL[out/a.jar]" +
+			" --host-context-for-sdk 28 PCL[out/soong/a.jar]" +
 			" --target-context-for-sdk 28 PCL[/system/a.jar]" +
-			" --host-context-for-sdk any PCL[out/d.jar]" +
+			" --host-context-for-sdk any PCL[out/soong/d.jar]" +
 			" --target-context-for-sdk any PCL[/system/d.jar]"
 		if wantStr != haveStr {
 			t.Errorf("\nwant class loader context: %s\nhave class loader context: %s", wantStr, haveStr)
 		}
+	})
+}
+
+func TestCLCMExcludeLibs(t *testing.T) {
+	ctx := testContext()
+	const optional = false
+	const implicit = true
+
+	excludeLibs := func(t *testing.T, m ClassLoaderContextMap, excluded_libs ...string) ClassLoaderContextMap {
+		// Dump the CLCM before creating a new copy that excludes a specific set of libraries.
+		before := m.Dump()
+
+		// Create a new CLCM that excludes some libraries.
+		c := m.ExcludeLibs(excluded_libs)
+
+		// Make sure that the original CLCM was not changed.
+		after := m.Dump()
+		android.AssertStringEquals(t, "input CLCM modified", before, after)
+
+		return c
+	}
+
+	t.Run("exclude nothing", func(t *testing.T) {
+		m := make(ClassLoaderContextMap)
+		m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+
+		a := excludeLibs(t, m)
+
+		android.AssertStringEquals(t, "output CLCM ", `{
+  "28": [
+    {
+      "Name": "a",
+      "Optional": false,
+      "Implicit": true,
+      "Host": "out/soong/a.jar",
+      "Device": "/system/a.jar",
+      "Subcontexts": []
+    }
+  ]
+}`, a.Dump())
+	})
+
+	t.Run("one item from list", func(t *testing.T) {
+		m := make(ClassLoaderContextMap)
+		m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+		m.AddContext(ctx, 28, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+
+		a := excludeLibs(t, m, "a")
+
+		expected := `{
+  "28": [
+    {
+      "Name": "b",
+      "Optional": false,
+      "Implicit": true,
+      "Host": "out/soong/b.jar",
+      "Device": "/system/b.jar",
+      "Subcontexts": []
+    }
+  ]
+}`
+		android.AssertStringEquals(t, "output CLCM ", expected, a.Dump())
+	})
+
+	t.Run("all items from a list", func(t *testing.T) {
+		m := make(ClassLoaderContextMap)
+		m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), nil)
+		m.AddContext(ctx, 28, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+
+		a := excludeLibs(t, m, "a", "b")
+
+		android.AssertStringEquals(t, "output CLCM ", `{}`, a.Dump())
+	})
+
+	t.Run("items from a subcontext", func(t *testing.T) {
+		s := make(ClassLoaderContextMap)
+		s.AddContext(ctx, AnySdkVersion, "b", optional, implicit, buildPath(ctx, "b"), installPath(ctx, "b"), nil)
+		s.AddContext(ctx, AnySdkVersion, "c", optional, implicit, buildPath(ctx, "c"), installPath(ctx, "c"), nil)
+
+		m := make(ClassLoaderContextMap)
+		m.AddContext(ctx, 28, "a", optional, implicit, buildPath(ctx, "a"), installPath(ctx, "a"), s)
+
+		a := excludeLibs(t, m, "b")
+
+		android.AssertStringEquals(t, "output CLCM ", `{
+  "28": [
+    {
+      "Name": "a",
+      "Optional": false,
+      "Implicit": true,
+      "Host": "out/soong/a.jar",
+      "Device": "/system/a.jar",
+      "Subcontexts": [
+        {
+          "Name": "c",
+          "Optional": false,
+          "Implicit": true,
+          "Host": "out/soong/c.jar",
+          "Device": "/system/c.jar",
+          "Subcontexts": []
+        }
+      ]
+    }
+  ]
+}`, a.Dump())
 	})
 }
 

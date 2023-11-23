@@ -19,7 +19,7 @@
     package="android.appenumeration.queries.nothing.hasprovider">
     <application>
         <uses-library android:name="android.test.runner" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
         <provider android:name="android.appenumeration.cts.query.TestProvider"
                   android:authorities="android.appenumeration.queries.nothing.hasprovider"

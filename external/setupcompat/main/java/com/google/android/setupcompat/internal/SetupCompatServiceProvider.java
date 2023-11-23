@@ -82,8 +82,8 @@ public class SetupCompatServiceProvider {
         return waitForConnection(timeout, timeUnit);
 
       case NOT_STARTED:
-        throw new IllegalStateException(
-            "NOT_STARTED state only possible before instance is created.");
+        LOG.w("NOT_STARTED state only possible before instance is created.");
+        return null;
     }
     throw new IllegalStateException("Unknown state = " + serviceContext.state);
   }
@@ -172,7 +172,8 @@ public class SetupCompatServiceProvider {
     return serviceContext;
   }
 
-  private void swapServiceContextAndNotify(ServiceContext latestServiceContext) {
+  @VisibleForTesting
+  void swapServiceContextAndNotify(ServiceContext latestServiceContext) {
     LOG.atInfo(
         String.format("State changed: %s -> %s", serviceContext.state, latestServiceContext.state));
 
@@ -200,7 +201,7 @@ public class SetupCompatServiceProvider {
         return countDownLatch;
       }
       countDownLatch = createCountDownLatch();
-    } while (!connectedConditionRef.compareAndSet(/* expect= */ null, countDownLatch));
+    } while (!connectedConditionRef.compareAndSet(/* expectedValue= */ null, countDownLatch));
     return countDownLatch;
   }
 
@@ -285,7 +286,8 @@ public class SetupCompatServiceProvider {
     REBIND_REQUIRED
   }
 
-  private static final class ServiceContext {
+  @VisibleForTesting
+  static final class ServiceContext {
     final State state;
     @Nullable final ISetupCompatService compatService;
 
@@ -298,7 +300,8 @@ public class SetupCompatServiceProvider {
       }
     }
 
-    private ServiceContext(State state) {
+    @VisibleForTesting
+    ServiceContext(State state) {
       this(state, /* compatService= */ null);
     }
   }

@@ -106,7 +106,7 @@ public final class UrlEncodingTest extends TestCase {
 
     public void testUrlDecoderFailsOnNullCharset() throws Exception {
         try {
-            URLDecoder.decode("ab", null);
+            URLDecoder.decode("ab", (String) null);
             fail();
         } catch (IllegalCharsetNameException expected) {
         } catch (NullPointerException expected) {
@@ -124,7 +124,7 @@ public final class UrlEncodingTest extends TestCase {
 
     public void testUrlEncoderFailsOnNullCharset() throws Exception {
         try {
-            URLEncoder.encode("ab", null);
+            URLEncoder.encode("ab", (String) null);
             fail();
         } catch (IllegalCharsetNameException expected) {
         } catch (NullPointerException expected) {
@@ -148,7 +148,7 @@ public final class UrlEncodingTest extends TestCase {
         try {
             assertEquals("ab", URLDecoder.decode("ab", "no-such-charset"));
             // no fail()
-        } catch (UnsupportedCharsetException expected) {
+        } catch (UnsupportedEncodingException expected) {
         }
     }
 

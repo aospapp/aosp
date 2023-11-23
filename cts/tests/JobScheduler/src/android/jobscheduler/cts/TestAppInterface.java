@@ -100,7 +100,9 @@ class TestAppInterface {
             throws Exception {
         final Intent scheduleJobIntent = new Intent(TestJobSchedulerReceiver.ACTION_SCHEDULE_JOB);
         scheduleJobIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        scheduleJobIntent.putExtra(TestJobSchedulerReceiver.EXTRA_JOB_ID_KEY, mJobId);
+        if (!intExtras.containsKey(TestJobSchedulerReceiver.EXTRA_JOB_ID_KEY)) {
+            scheduleJobIntent.putExtra(TestJobSchedulerReceiver.EXTRA_JOB_ID_KEY, mJobId);
+        }
         booleanExtras.forEach(scheduleJobIntent::putExtra);
         intExtras.forEach(scheduleJobIntent::putExtra);
         scheduleJobIntent.setComponent(new ComponentName(TEST_APP_PACKAGE, TEST_APP_RECEIVER));
@@ -165,9 +167,13 @@ class TestAppInterface {
     };
 
     boolean awaitJobStart(long maxWait) throws Exception {
+        return awaitJobStart(mJobId, maxWait);
+    }
+
+    boolean awaitJobStart(int jobId, long maxWait) throws Exception {
         return waitUntilTrue(maxWait, () -> {
             synchronized (mTestJobState) {
-                return (mTestJobState.jobId == mJobId) && mTestJobState.running;
+                return (mTestJobState.jobId == jobId) && mTestJobState.running;
             }
         });
     }

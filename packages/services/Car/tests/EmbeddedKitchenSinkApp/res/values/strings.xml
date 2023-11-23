@@ -241,8 +241,9 @@
     <string name="radio_na" translatable="false">N/A</string>
 
     <!-- sensors test -->
-    <string name="location_title" translatable="false">Location/Orientation:</string>
-    <string name="sensor_title" translatable="false">Car Sensor Data:</string>
+    <string name="location_title" translatable="false">Location Data:</string>
+    <string name="sensor_title" translatable="false">Sensor Data:</string>
+    <string name="car_sensor_title" translatable="false">Car Sensor Data:</string>
     <string name="sensor_na" translatable="false">N/A</string>
 
     <string name="sensor_environment" translatable="false">Environment[%1$s]: temperature=%2$s</string>
@@ -282,7 +283,6 @@
     <string name="mms_new_message_button" translatable="false">Send new message (Long)</string>
     <string name="reset_message_counter_button" translatable="false">Reset message counter</string>
     <string name="sms_notifications" translatable="false">Toggle Notifications</string>
-    <string name="sms_listing_button" translatable="false">List SMS</string>
     <string name="sms_listing_label_folder" translatable="false">Folder</string>
     <string name="sms_listing_label_count" translatable="false">Count</string>
     <string name="sms_listing_label_offset" translatable="false">Offset</string>
@@ -303,7 +303,10 @@
     <string name="bluetooth_outgoing_phone_number" translatable="false">Enter number</string>
     <string name="bluetooth_voice_recognition_enable" translatable="false">Start Voice Recognition</string>
     <string name="bluetooth_voice_recognition_disable" translatable="false">Stop Voice Recognition</string>
-    <string name="uploading_supported_feature" translatable="false">Uploading_Supported bit value</string>
+    <string name="bluetooth_eir_advertising_state" translatable="false">Advertising state:</string>
+    <string name="bluetooth_eir_adapter_state" translatable="false">Bluetooth adapter state:</string>
+    <string name="bluetooth_eir_advertising_instructions" translatable="false">Advertising puts device in discoverable mode. Enables BT adapter if not already enabled. (Pixel needs to be discoverable to receive EIR)</string>
+    <string name="bluetooth_eir_uuid_instructions" translatable="false">Toggle ON to add UUID to EIR, toggle OFF to remove. UUID can only be changed when the toggle is OFF. Toggling ON a UUID enables BT adapter if not already enabled.</string>
 
     <!--Car Service Settings-->
     <string name="garage_title" translatable="false">Garage Mode</string>
@@ -359,7 +362,7 @@
     <string name="createcar" translatable="false">createCar</string>
     <string name="createcar_with_status_change" translatable="false">createCarWithStatusChange</string>
 
-    <!-- UserNoiticeDemoUiService -->
+    <!-- UserNoticeDemoUiService -->
     <string name="usernotice" translatable="false">This screen is for showing initial user notice and is not for product. Plz change config_userNoticeUiService in CarService before shipping.</string>
     <string name="dismiss_now" translatable="false">Dismiss for now</string>
     <string name="dismiss_forever" translatable="false">Do not show again</string>
@@ -383,21 +386,29 @@
     <string name="cancel" translatable="false">Cancel</string>
 
     <!-- CarTelemetryService Test -->
-    <string name="gear_change_config" translate="false">on_gear_change:</string>
-    <string name="process_memory_config" translate="false">process_memory:</string>
-    <string name="app_start_memory_state_captured_config" translate="false">app_start_memory_state_captured:</string>
-    <string name="activity_foreground_state_changed_config" translate="false">activity_foreground_state_changed:</string>
-    <string name="process_cpu_time_config" translate="false">process_cpu_time:</string>
-    <string name="app_crash_occurred_config" translate="false">app_crash_occurred:</string>
-    <string name="anr_occurred_config" translate="false">anr_occurred:</string>
-    <string name="wtf_occurred_config" translate="false">wtf_occurred:</string>
+    <string name="gear_change_config" translatable="false">on_gear_change:</string>
+    <string name="process_memory_config" translatable="false">process_memory:</string>
+    <string name="app_start_memory_state_captured_config" translatable="false">app_start_memory_state_captured:</string>
+    <string name="activity_foreground_state_changed_config" translatable="false">activity_foreground_state_changed:</string>
+    <string name="process_cpu_time_config" translatable="false">process_cpu_time:</string>
+    <string name="app_crash_occurred_config" translatable="false">app_crash_occurred:</string>
+    <string name="anr_occurred_config" translatable="false">anr_occurred:</string>
+    <string name="wtf_occurred_config" translatable="false">wtf_occurred:</string>
+    <string name="wifi_netstats_config" translatable="false">wifi_netstats_top_consumers:</string>
+    <string name="stats_and_connectivity_config" translatable="false">stats and connectivity:</string>
+    <string name="memory_config" translatable="false">memory:</string>
     <string name="add_metrics_config" translatable="false">Add MetricsConfig</string>
     <string name="remove_metrics_config" translatable="false">Remove MetricsConfig</string>
+    <string name="download_data" translatable="false">Download Data</string>
+    <string name="emulate_suspend_to_RAM" translatable="false">Suspend to RAM</string>
+    <string name="emulate_reboot" translatable="false">Reboot</string>
     <string name="get_report" translatable="false">Get Report</string>
-    <string name="show_mem_info" translate="false">Show Memory Info</string>
+    <string name="print_mem_info" translatable="false">Print Memory Info</string>
+    <string name="receive_report_notification_text" translatable="false">Receive Report Ready Notification = %s</string>
+    <string name="driving_sessions_config" translatable="false">driving sessions:</string>
 
     <!-- Watchdog Test -->
-    <string name="non_recurring_io_overuse" translate="false">Non-recurring I/O overuse</string>
-    <string name="recurring_io_overuse" translate="false">Recurring I/O overuse</string>
-    <string name="long_running_recurring_io_overuse" translate="false">Long-running recurring I/O overuse</string>
+    <string name="non_recurring_io_overuse" translatable="false">Non-recurring I/O overuse</string>
+    <string name="recurring_io_overuse" translatable="false">Recurring I/O overuse</string>
+    <string name="long_running_recurring_io_overuse" translatable="false">Long-running recurring I/O overuse</string>
 </resources>

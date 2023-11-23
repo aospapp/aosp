@@ -23,6 +23,8 @@
 #include <climits>
 #include <cstdarg>
 #include <cstddef>
+#include <fstream>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -62,6 +64,131 @@ class NonCopyable
 };
 
 extern const uintptr_t DirtyPointer;
+
+struct SaveFileHelper
+{
+  public:
+    // We always use ios::binary to avoid inconsistent line endings when captured on Linux vs Win.
+    SaveFileHelper(const std::string &filePathIn);
+    ~SaveFileHelper();
+
+    template <typename T>
+    SaveFileHelper &operator<<(const T &value)
+    {
+        mOfs << value;
+        checkError();
+        return *this;
+    }
+
+    void write(const uint8_t *data, size_t size);
+
+  private:
+    void checkError();
+
+    std::ofstream mOfs;
+    std::string mFilePath;
+};
+
+// AMD_performance_monitor helpers.
+constexpr char kPerfMonitorExtensionName[] = "GL_AMD_performance_monitor";
+
+struct PerfMonitorCounter
+{
+    PerfMonitorCounter();
+    ~PerfMonitorCounter();
+
+    std::string name;
+    uint32_t value;
+};
+using PerfMonitorCounters = std::vector<PerfMonitorCounter>;
+
+struct PerfMonitorCounterGroup
+{
+    PerfMonitorCounterGroup();
+    ~PerfMonitorCounterGroup();
+
+    std::string name;
+    PerfMonitorCounters counters;
+};
+using PerfMonitorCounterGroups = std::vector<PerfMonitorCounterGroup>;
+
+uint32_t GetPerfMonitorCounterIndex(const PerfMonitorCounters &counters, const std::string &name);
+const PerfMonitorCounter &GetPerfMonitorCounter(const PerfMonitorCounters &counters,
+                                                const std::string &name);
+PerfMonitorCounter &GetPerfMonitorCounter(PerfMonitorCounters &counters, const std::string &name);
+uint32_t GetPerfMonitorCounterGroupIndex(const PerfMonitorCounterGroups &groups,
+                                         const std::string &name);
+const PerfMonitorCounterGroup &GetPerfMonitorCounterGroup(const PerfMonitorCounterGroups &groups,
+                                                          const std::string &name);
+PerfMonitorCounterGroup &GetPerfMonitorCounterGroup(PerfMonitorCounterGroups &groups,
+                                                    const std::string &name);
+
+struct PerfMonitorTriplet
+{
+    uint32_t group;
+    uint32_t counter;
+    uint32_t value;
+};
+
+#define ANGLE_VK_PERF_COUNTERS_X(FN)               \
+    FN(primaryBuffers)                             \
+    FN(renderPasses)                               \
+    FN(submittedCommands)                          \
+    FN(writeDescriptorSets)                        \
+    FN(flushedOutsideRenderPassCommandBuffers)     \
+    FN(swapchainResolveInSubpass)                  \
+    FN(swapchainResolveOutsideSubpass)             \
+    FN(resolveImageCommands)                       \
+    FN(colorLoadOpClears)                          \
+    FN(colorLoadOpLoads)                           \
+    FN(colorLoadOpNones)                           \
+    FN(colorStoreOpStores)                         \
+    FN(colorStoreOpNones)                          \
+    FN(colorClearAttachments)                      \
+    FN(depthLoadOpClears)                          \
+    FN(depthLoadOpLoads)                           \
+    FN(depthLoadOpNones)                           \
+    FN(depthStoreOpStores)                         \
+    FN(depthStoreOpNones)                          \
+    FN(depthClearAttachments)                      \
+    FN(stencilLoadOpClears)                        \
+    FN(stencilLoadOpLoads)                         \
+    FN(stencilLoadOpNones)                         \
+    FN(stencilStoreOpStores)                       \
+    FN(stencilStoreOpNones)                        \
+    FN(stencilClearAttachments)                    \
+    FN(colorAttachmentUnresolves)                  \
+    FN(depthAttachmentUnresolves)                  \
+    FN(stencilAttachmentUnresolves)                \
+    FN(colorAttachmentResolves)                    \
+    FN(depthAttachmentResolves)                    \
+    FN(stencilAttachmentResolves)                  \
+    FN(readOnlyDepthStencilRenderPasses)           \
+    FN(descriptorSetAllocations)                   \
+    FN(descriptorSetCacheTotalSize)                \
+    FN(descriptorSetCacheKeySizeBytes)             \
+    FN(uniformsAndXfbDescriptorSetCacheHits)       \
+    FN(uniformsAndXfbDescriptorSetCacheMisses)     \
+    FN(uniformsAndXfbDescriptorSetCacheTotalSize)  \
+    FN(textureDescriptorSetCacheHits)              \
+    FN(textureDescriptorSetCacheMisses)            \
+    FN(textureDescriptorSetCacheTotalSize)         \
+    FN(shaderResourcesDescriptorSetCacheHits)      \
+    FN(shaderResourcesDescriptorSetCacheMisses)    \
+    FN(shaderResourcesDescriptorSetCacheTotalSize) \
+    FN(buffersGhosted)                             \
+    FN(vertexArraySyncStateCalls)                  \
+    FN(allocateNewBufferBlockCalls)                \
+    FN(dynamicBufferAllocations)
+
+#define ANGLE_DECLARE_PERF_COUNTER(COUNTER) uint32_t COUNTER;
+
+struct VulkanPerfCounters
+{
+    ANGLE_VK_PERF_COUNTERS_X(ANGLE_DECLARE_PERF_COUNTER)
+};
+
+#undef ANGLE_DECLARE_PERF_COUNTER
 
 }  // namespace angle
 
@@ -196,8 +323,6 @@ inline std::string Str(int i)
     return strstr.str();
 }
 
-size_t FormatStringIntoVector(const char *fmt, va_list vararg, std::vector<char> &buffer);
-
 template <typename T>
 std::string ToString(const T &value)
 {
@@ -212,6 +337,32 @@ inline bool IsLittleEndian()
     const bool isLittleEndian          = *reinterpret_cast<const uint8_t *>(&kEndiannessTest) == 1;
     return isLittleEndian;
 }
+
+// Helper class to use a mutex with the control of boolean.
+class ConditionalMutex final : angle::NonCopyable
+{
+  public:
+    ConditionalMutex() : mUseMutex(true) {}
+    void init(bool useMutex) { mUseMutex = useMutex; }
+    void lock()
+    {
+        if (mUseMutex)
+        {
+            mMutex.lock();
+        }
+    }
+    void unlock()
+    {
+        if (mUseMutex)
+        {
+            mMutex.unlock();
+        }
+    }
+
+  private:
+    std::mutex mMutex;
+    bool mUseMutex;
+};
 
 // snprintf is not defined with MSVC prior to to msvc14
 #if defined(_MSC_VER) && _MSC_VER < 1900
@@ -370,6 +521,9 @@ inline bool IsLittleEndian()
 #    define ANGLE_FORMAT_PRINTF(fmt, args)
 #endif
 
+ANGLE_FORMAT_PRINTF(1, 0)
+size_t FormatStringIntoVector(const char *fmt, va_list vararg, std::vector<char> &buffer);
+
 // Format messes up the # inside the macro.
 // clang-format off
 #ifndef ANGLE_STRINGIFY
@@ -404,4 +558,46 @@ inline bool IsLittleEndian()
 #    define ANGLE_REQUIRE_CONSTANT_INIT
 #endif  // __has_cpp_attribute(require_constant_initialization)
 
+#if __has_cpp_attribute(clang::fallthrough)
+#    define ANGLE_FALLTHROUGH [[clang::fallthrough]]
+#else
+#    define ANGLE_FALLTHROUGH
+#endif
+
+// Compiler configs.
+inline bool IsASan()
+{
+#if defined(ANGLE_WITH_ASAN)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_WITH_ASAN)
+}
+
+inline bool IsMSan()
+{
+#if defined(ANGLE_WITH_MSAN)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_WITH_MSAN)
+}
+
+inline bool IsTSan()
+{
+#if defined(ANGLE_WITH_TSAN)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_WITH_TSAN)
+}
+
+inline bool IsUBSan()
+{
+#if defined(ANGLE_WITH_UBSAN)
+    return true;
+#else
+    return false;
+#endif  // defined(ANGLE_WITH_UBSAN)
+}
 #endif  // COMMON_ANGLEUTILS_H_

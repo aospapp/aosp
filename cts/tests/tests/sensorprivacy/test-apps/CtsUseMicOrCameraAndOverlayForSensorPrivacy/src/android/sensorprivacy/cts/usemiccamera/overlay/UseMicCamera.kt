@@ -38,6 +38,8 @@ class UseMicCamera : Activity() {
     companion object {
         const val MIC_CAM_OVERLAY_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.overlay.action.USE_MIC_CAM"
+        const val SHOW_OVERLAY_ACTION =
+                "android.sensorprivacy.cts.usemiccamera.action.SHOW_OVERLAY_ACTION"
         const val FINISH_MIC_CAM_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.action.FINISH_USE_MIC_CAM"
         const val USE_MIC_EXTRA =
@@ -68,7 +70,17 @@ class UseMicCamera : Activity() {
                 finishAndRemoveTask()
                 Runtime.getRuntime().exit(0)
             }
-        }, IntentFilter(FINISH_MIC_CAM_ACTIVITY_ACTION))
+        }, IntentFilter(FINISH_MIC_CAM_ACTIVITY_ACTION), Context.RECEIVER_EXPORTED)
+
+        registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val intent = Intent(this@UseMicCamera, OverlayActivity::class.java)
+                if (intent.getBooleanExtra(DELAYED_ACTIVITY_NEW_TASK_EXTRA, false)) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            }
+        }, IntentFilter(SHOW_OVERLAY_ACTION), Context.RECEIVER_EXPORTED)
 
         val useMic = intent.getBooleanExtra(USE_MIC_EXTRA, false)
         val useCam = intent.getBooleanExtra(USE_CAM_EXTRA, false)
@@ -80,13 +92,5 @@ class UseMicCamera : Activity() {
                 cam = openCam(this, intent.getBooleanExtra(UseMicCamera.RETRY_CAM_EXTRA, false))
             }, 1000)
         }
-
-        handler.postDelayed({
-            val intent = Intent(this, OverlayActivity::class.java)
-            if (intent.getBooleanExtra(DELAYED_ACTIVITY_NEW_TASK_EXTRA, false)) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        }, 2000)
     }
 }

@@ -16,9 +16,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "chpp/common/gnss.h"
+#include "chpp/log.h"
 #include "chpp/macros.h"
+#include "chpp/platform/platform_gnss.h"
 #include "chre/pal/gnss.h"
 
 static const struct chrePalSystemApi *gSystemApi;
@@ -49,12 +52,49 @@ static bool gnssPalControlLocationSession(bool enable, uint32_t minIntervalMs,
   return true;  // If successful
 }
 
+void gnssPalSendLocationEvent() {
+  struct chreGnssLocationEvent *event =
+      (struct chreGnssLocationEvent *)(chppMalloc(
+          sizeof(struct chreGnssLocationEvent)));
+  if (event == NULL) {
+    CHPP_LOG_OOM();
+  } else {
+    memset(event, 0, sizeof(struct chreGnssLocationEvent));
+
+    event->timestamp = gSystemApi->getCurrentTime();
+    gCallbacks->locationEventCallback(event);
+  }
+}
+
+void gnssPalSendMeasurementEvent() {
+  struct chreGnssDataEvent *event = (struct chreGnssDataEvent *)(chppMalloc(
+      sizeof(struct chreGnssDataEvent)));
+  struct chreGnssMeasurement *measurement =
+      (struct chreGnssMeasurement *)(chppMalloc(
+          sizeof(struct chreGnssMeasurement)));
+  if (event == NULL) {
+    CHPP_LOG_OOM();
+  } else if (measurement == NULL) {
+    CHPP_LOG_OOM();
+    chppFree(event);
+  } else {
+    memset(event, 0, sizeof(struct chreGnssDataEvent));
+    memset(measurement, 0, sizeof(struct chreGnssMeasurement));
+    measurement->c_n0_dbhz = 63.0f;
+
+    event->measurements = measurement;
+    event->measurement_count = 1;
+    event->clock.time_ns = (int64_t)(gSystemApi->getCurrentTime());
+    gCallbacks->measurementEventCallback(event);
+  }
+}
+
 static void gnssPalReleaseLocationEvent(struct chreGnssLocationEvent *event) {
   gSystemApi->memoryFree(event);
 }
 
-static bool gnssPalControlMeasurementSessiont(bool enable,
-                                              uint32_t minIntervalMs) {
+static bool gnssPalControlMeasurementSession(bool enable,
+                                             uint32_t minIntervalMs) {
   // TODO
   UNUSED_VAR(enable);
   UNUSED_VAR(minIntervalMs);
@@ -84,7 +124,7 @@ const struct chrePalGnssApi *chrePalGnssGetApi(uint32_t requestedApiVersion) {
       .getCapabilities = gnssPalGetCapabilities,
       .controlLocationSession = gnssPalControlLocationSession,
       .releaseLocationEvent = gnssPalReleaseLocationEvent,
-      .controlMeasurementSession = gnssPalControlMeasurementSessiont,
+      .controlMeasurementSession = gnssPalControlMeasurementSession,
       .releaseMeasurementDataEvent = gnssPalReleaseMeasurementDataEvent,
       .configurePassiveLocationListener =
           gnssPalConfigurePassiveLocationListener,

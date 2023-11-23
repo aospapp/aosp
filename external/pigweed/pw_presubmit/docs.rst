@@ -15,9 +15,11 @@ building tools.
 
 The ``pw_presubmit`` module also includes ``pw format``, a tool that provides a
 unified interface for automatically formatting code in a variety of languages.
-With ``pw format``, you can format C, C++, Python, GN, and Go code according to
-configurations defined by your project. ``pw format`` leverages existing tools
-like ``clang-format``, and it’s simple to add support for new languages.
+With ``pw format``, you can format Bazel, C, C++, Python, GN, and Go code
+according to configurations defined by your project. ``pw format`` leverages
+existing tools like ``clang-format``, and it’s simple to add support for new
+languages. (Note: Bazel formatting requires ``buildifier`` to be present on your
+system. If it's not Bazel formatting passes without checking.)
 
 .. image:: docs/pw_presubmit_demo.gif
    :alt: ``pw format`` demo
@@ -53,18 +55,26 @@ A project's presubmit script can be registered as a
 presubmit``.
 
 Setting up the command-line interface
--------------------------------------
+=====================================
 The ``pw_presubmit.cli`` module sets up the command-line interface for a
 presubmit script. This defines a standard set of arguments for invoking
 presubmit checks. Its use is optional, but recommended.
 
 pw_presubmit.cli
-~~~~~~~~~~~~~~~~
+----------------
 .. automodule:: pw_presubmit.cli
    :members: add_arguments, run
 
+Presubmit output directory
+--------------------------
+The ``pw_presubmit`` command line interface includes an ``--output-directory``
+option that specifies the working directory to use for presubmits. The default
+path is ``out/presubmit``.  A subdirectory is created for each presubmit step.
+This directory persists between presubmit runs and can be cleaned by deleting it
+or running ``pw presubmit --clean``.
+
 Presubmit checks
-----------------
+================
 A presubmit check is defined as a function or other callable. The function must
 accept one argument: a ``PresubmitContext``, which provides the paths on which
 to run. Presubmit checks communicate failure by raising an exception.
@@ -93,15 +103,61 @@ such as a quick program for local use and a full program for automated use. The
 :ref:`example script <example-script>` uses ``pw_presubmit.Programs`` to define
 ``quick`` and ``full`` programs.
 
+Existing Presubmit Checks
+-------------------------
+A small number of presubmit checks are made available through ``pw_presubmit``
+modules.
+
+Code Formatting
+^^^^^^^^^^^^^^^
+Formatting checks for a variety of languages are available from
+``pw_presubmit.format_code``. These include C/C++, Java, Go, Python, GN, and
+others. All of these checks can be included by adding
+``pw_presubmit.format_code.presubmit_checks()`` to a presubmit program. These
+all use language-specific formatters like clang-format or yapf.
+
+These will suggest fixes using ``pw format --fix``.
+
+#pragma once
+^^^^^^^^^^^^
+There's a ``pragma_once`` check that confirms the first non-comment line of
+C/C++ headers is ``#pragma once``. This is enabled by adding
+``pw_presubmit.pragma_once`` to a presubmit program.
+
+Python Checks
+^^^^^^^^^^^^^
+There are two checks in the ``pw_presubmit.python_checks`` module, ``gn_pylint``
+and ``gn_python_check``. They assume there's a top-level ``python`` GN target.
+``gn_pylint`` runs Pylint and Mypy checks and ``gn_python_check`` runs Pylint,
+Mypy, and all Python tests.
+
+Inclusive Language
+^^^^^^^^^^^^^^^^^^
+.. inclusive-language: disable
+
+The inclusive language check looks for words that are typical of non-inclusive
+code, like using "master" and "slave" in place of "primary" and "secondary" or
+"sanity check" in place of "consistency check".
+
+.. inclusive-language: enable
+
+These checks can be disabled for individual lines with
+"inclusive-language: ignore" on the line in question or the line above it, or
+for entire blocks by using "inclusive-language: disable" before the block and
+"inclusive-language: enable" after the block.
+
+.. In case things get moved around in the previous paragraphs the enable line
+.. is repeated here: inclusive-language: enable.
+
 pw_presubmit
-~~~~~~~~~~~~
+------------
 .. automodule:: pw_presubmit
    :members: filter_paths, call, PresubmitFailure, Programs
 
 .. _example-script:
 
 Example
--------
+=======
 A simple example presubmit check script follows. This can be copied-and-pasted
 to serve as a starting point for a project's presubmit check script.
 
@@ -127,26 +183,23 @@ See ``pigweed_presubmit.py`` for a more complex presubmit check script example.
       sys.exit(2)
 
   import pw_presubmit
-  from pw_presubmit import build, cli, environment, format_code, git_repo
-  from pw_presubmit import python_checks, filter_paths, PresubmitContext
+  from pw_presubmit import (
+      build,
+      cli,
+      cpp_checks,
+      environment,
+      format_code,
+      git_repo,
+      inclusive_language,
+      filter_paths,
+      python_checks,
+      PresubmitContext,
+  )
   from pw_presubmit.install_hook import install_hook
 
   # Set up variables for key project paths.
   PROJECT_ROOT = Path(os.environ['MY_PROJECT_ROOT'])
   PIGWEED_ROOT = PROJECT_ROOT / 'pigweed'
-
-  #
-  # Initialization
-  #
-  def init_cipd(ctx: PresubmitContext):
-      environment.init_cipd(PIGWEED_ROOT, ctx.output_dir)
-
-
-  def init_virtualenv(ctx: PresubmitContext):
-      environment.init_virtualenv(PIGWEED_ROOT,
-                                  ctx.output_dir,
-                                  setup_py_roots=[PROJECT_ROOT])
-
 
   # Rerun the build if files with these extensions change.
   _BUILD_EXTENSIONS = frozenset(
@@ -177,31 +230,39 @@ See ``pigweed_presubmit.py`` for a more complex presubmit check script example.
   # filters with @filter_paths.
   @filter_paths(endswith='.h', exclude=PATH_EXCLUSIONS)
   def pragma_once(ctx: PresubmitContext):
-      pw_presubmit.pragma_once(ctx)
+      cpp_checks.pragma_once(ctx)
 
 
   #
   # Presubmit check programs
   #
+  OTHER = (
+      # Checks not ran by default but that should be available. These might
+      # include tests that are expensive to run or that don't yet pass.
+      build.gn_quick_check,
+  )
+
   QUICK = (
-      # Initialize an environment for running presubmit checks.
-      init_cipd,
-      init_virtualenv,
       # List some presubmit checks to run
       pragma_once,
       host_tests,
       # Use the upstream formatting checks, with custom path filters applied.
       format_code.presubmit_checks(exclude=PATH_EXCLUSIONS),
+      # Include the upstream inclusive language check.
+      inclusive_language.inclusive_language,
+      # Include just the lint-related Python checks.
+      python_checks.gn_pylint.with_filter(exclude=PATH_EXCLUSIONS),
   )
 
   FULL = (
       QUICK,  # Add all checks from the 'quick' program
       release_build,
       # Use the upstream Python checks, with custom path filters applied.
-      python_checks.all_checks(exclude=PATH_EXCLUSIONS),
+      # Checks listed multiple times are only run once.
+      python_checks.gn_python_check.with_filter(exclude=PATH_EXCLUSIONS),
   )
 
-  PROGRAMS = pw_presubmit.Programs(quick=QUICK, full=FULL)
+  PROGRAMS = pw_presubmit.Programs(other=OTHER, quick=QUICK, full=FULL)
 
 
   def run(install: bool, **presubmit_args) -> int:

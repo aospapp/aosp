@@ -44,18 +44,10 @@ revision number. For example, if the current version is
 ```
 
 Rename chromiumos-overlay/sys-devel/gcc/gcc-${VERSION}.ebuild to the next
-revision number.  For example, if the current version is 4.9.2-r254:
+revision number.  For example, if the current version is 10.2.0-r3:
 ```
 (chroot) cd ~/trunk/src/third_party/chromiumos-overlay
-(chroot) git mv sys-devel/gcc/gcc-4.9.2-r254.ebuild sys-devel/gcc/gcc-4.9.2-r255.ebuild
-```
-
-Edit the new ebuild file and change the number at the end to match the new revision:
-```
--# If you need to force a cros_workon uprev, change this number (you can use next
--# uprev): 254
-+# If you need to force a cros_workon uprev, change this number (you can use next
-+# uprev): 255
+(chroot) git mv sys-devel/gcc/gcc-10.2.0-r3.ebuild sys-devel/gcc/gcc-10.2.0-r4.ebuild
 ```
 
 Commit those changes together with the changes made by
@@ -74,10 +66,10 @@ The changes can then be reviewed and submitted through the normal process.
 Generated wrappers are stored here:
 
 - Sysroot wrapper with ccache:
-  `/usr/x86_64-pc-linux-gnu/<arch>/gcc-bin/4.9.x/sysroot_wrapper.hardened.ccache`
+  `/usr/x86_64-pc-linux-gnu/<arch>/gcc-bin/10.2.0/sysroot_wrapper.hardened.ccache`
 - Sysroot wrapper without ccache:
-  `/usr/x86_64-pc-linux-gnu/<arch>/gcc-bin/4.9.x/sysroot_wrapper.hardened.noccache`
+  `/usr/x86_64-pc-linux-gnu/<arch>/gcc-bin/10.2.0/sysroot_wrapper.hardened.noccache`
 - Clang host wrapper:
   `/usr/bin/clang_host_wrapper`
 - Gcc host wrapper:
-  `/usr/x86_64-pc-linux-gnu/gcc-bin/4.9.x/host_wrapper`
+  `/usr/x86_64-pc-linux-gnu/gcc-bin/10.2.0/host_wrapper`

@@ -43,97 +43,71 @@ static std::mutex g_constants_mutex;
 // Flag indicating whether cached constants are valid
 static bool g_constants_valid = false;
 
-// Constants
-jclass booleanClass;
-jclass byteBufferClass;
-jclass doubleClass;
-jclass errnoExceptionClass;
-jclass fileDescriptorClass;
-jclass gaiExceptionClass;
-jclass inet6AddressClass;
-jclass inet6AddressHolderClass;
-jclass inetAddressClass;
-jclass inetAddressHolderClass;
-jclass inetSocketAddressClass;
-jclass inetSocketAddressHolderClass;
-jclass integerClass;
-jclass localeDataClass;
-jclass longClass;
-jclass netlinkSocketAddressClass;
-jclass packetSocketAddressClass;
-jclass vmSocketAddressClass;
-jclass primitiveByteArrayClass;
-jclass stringClass;
-jclass structAddrinfoClass;
-jclass structCmsghdrClass;
-jclass structGroupReqClass;
-jclass structIfaddrsClass;
-jclass structLingerClass;
-jclass structMsghdrClass;
-jclass structPasswdClass;
-jclass structPollfdClass;
-jclass structStatClass;
-jclass structStatVfsClass;
-jclass structTimespecClass;
-jclass structTimevalClass;
-jclass structUcredClass;
-jclass structUtsnameClass;
-jclass unixSocketAddressClass;
+// Mapping between C++ names and java class descriptors.
+#define JCLASS_CONSTANTS_LIST(V)                                                            \
+    V(BooleanClass, "java/lang/Boolean")                                                    \
+    V(ByteBufferClass, "java/nio/ByteBuffer")                                               \
+    V(DoubleClass, "java/lang/Double")                                                      \
+    V(ErrnoExceptionClass, "android/system/ErrnoException")                                 \
+    V(FileDescriptorClass, "java/io/FileDescriptor")                                        \
+    V(GaiExceptionClass, "android/system/GaiException")                                     \
+    V(Inet6AddressClass, "java/net/Inet6Address")                                           \
+    V(Inet6AddressHolderClass, "java/net/Inet6Address$Inet6AddressHolder")                  \
+    V(InetAddressClass, "java/net/InetAddress")                                             \
+    V(InetAddressHolderClass, "java/net/InetAddress$InetAddressHolder")                     \
+    V(InetSocketAddressClass, "java/net/InetSocketAddress")                                 \
+    V(InetSocketAddressHolderClass, "java/net/InetSocketAddress$InetSocketAddressHolder")   \
+    V(IntegerClass, "java/lang/Integer")                                                    \
+    V(LocaleDataClass, "libcore/icu/LocaleData")                                            \
+    V(LongClass, "java/lang/Long")                                                          \
+    V(NetlinkSocketAddressClass, "android/system/NetlinkSocketAddress")                     \
+    V(PacketSocketAddressClass, "android/system/PacketSocketAddress")                       \
+    V(VmSocketAddressClass, "android/system/VmSocketAddress")                               \
+    V(PrimitiveByteArrayClass, "[B")                                                        \
+    V(StringClass, "java/lang/String")                                                      \
+    V(StructAddrinfoClass, "android/system/StructAddrinfo")                                 \
+    V(StructCmsghdrClass, "android/system/StructCmsghdr")                                   \
+    V(StructGroupReqClass, "android/system/StructGroupReq")                                 \
+    V(StructIfaddrsClass, "android/system/StructIfaddrs")                                   \
+    V(StructLingerClass, "android/system/StructLinger")                                     \
+    V(StructMsghdrClass, "android/system/StructMsghdr")                                     \
+    V(StructPasswdClass, "android/system/StructPasswd")                                     \
+    V(StructPollfdClass, "android/system/StructPollfd")                                     \
+    V(StructStatClass, "android/system/StructStat")                                         \
+    V(StructStatVfsClass, "android/system/StructStatVfs")                                   \
+    V(StructTimevalClass, "android/system/StructTimeval")                                   \
+    V(StructTimespecClass, "android/system/StructTimespec")                                 \
+    V(StructUcredClass, "android/system/StructUcred")                                       \
+    V(StructUtsnameClass, "android/system/StructUtsname")                                   \
+    V(UnixSocketAddressClass, "android/system/UnixSocketAddress")
+
+#define DECLARE_JCLASS_CONSTANT(cppname, _) jclass g_ ## cppname;
+JCLASS_CONSTANTS_LIST(DECLARE_JCLASS_CONSTANT)
 
 // EnsureJniConstantsInitialized initializes cached constants. It should be
 // called before returning a heap object from the cache to ensure cache is
 // initialized. This pattern is only necessary because if a process finishes one
 // runtime and starts another then JNI_OnLoad may not be called.
 void EnsureJniConstantsInitialized(JNIEnv* env) {
-    if (g_constants_valid) {
-        return;
-    }
-
     std::lock_guard guard(g_constants_mutex);
     if (g_constants_valid) {
         return;
     }
 
-    booleanClass = findClass(env, "java/lang/Boolean");
-    byteBufferClass = findClass(env, "java/nio/ByteBuffer");
-    doubleClass = findClass(env, "java/lang/Double");
-    errnoExceptionClass = findClass(env, "android/system/ErrnoException");
-    fileDescriptorClass = findClass(env, "java/io/FileDescriptor");
-    gaiExceptionClass = findClass(env, "android/system/GaiException");
-    inet6AddressClass = findClass(env, "java/net/Inet6Address");
-    inet6AddressHolderClass = findClass(env, "java/net/Inet6Address$Inet6AddressHolder");
-    inetAddressClass = findClass(env, "java/net/InetAddress");
-    inetAddressHolderClass = findClass(env, "java/net/InetAddress$InetAddressHolder");
-    inetSocketAddressClass = findClass(env, "java/net/InetSocketAddress");
-    inetSocketAddressHolderClass = findClass(env, "java/net/InetSocketAddress$InetSocketAddressHolder");
-    integerClass = findClass(env, "java/lang/Integer");
-    localeDataClass = findClass(env, "libcore/icu/LocaleData");
-    longClass = findClass(env, "java/lang/Long");
-    netlinkSocketAddressClass = findClass(env, "android/system/NetlinkSocketAddress");
-    packetSocketAddressClass = findClass(env, "android/system/PacketSocketAddress");
-    vmSocketAddressClass = findClass(env, "android/system/VmSocketAddress");
-    primitiveByteArrayClass = findClass(env, "[B");
-    stringClass = findClass(env, "java/lang/String");
-    structAddrinfoClass = findClass(env, "android/system/StructAddrinfo");
-    structCmsghdrClass = findClass(env, "android/system/StructCmsghdr");
-    structGroupReqClass = findClass(env, "android/system/StructGroupReq");
-    structIfaddrsClass = findClass(env, "android/system/StructIfaddrs");
-    structLingerClass = findClass(env, "android/system/StructLinger");
-    structMsghdrClass = findClass(env, "android/system/StructMsghdr");
-    structPasswdClass = findClass(env, "android/system/StructPasswd");
-    structPollfdClass = findClass(env, "android/system/StructPollfd");
-    structStatClass = findClass(env, "android/system/StructStat");
-    structStatVfsClass = findClass(env, "android/system/StructStatVfs");
-    structTimevalClass = findClass(env, "android/system/StructTimeval");
-    structTimespecClass = findClass(env, "android/system/StructTimespec");
-    structUcredClass = findClass(env, "android/system/StructUcred");
-    structUtsnameClass = findClass(env, "android/system/StructUtsname");
-    unixSocketAddressClass = findClass(env, "android/system/UnixSocketAddress");
+#define INITIALIZE_JCLASS_CONSTANT(cppname, javaname) g_ ## cppname = findClass(env, javaname);
+JCLASS_CONSTANTS_LIST(INITIALIZE_JCLASS_CONSTANT)
 
     g_constants_valid = true;
 }
 
 }  // namespace
+
+#define CONSTANT_GETTER(cppname, _)                                                         \
+jclass JniConstants::Get ## cppname(JNIEnv* env) {                                          \
+    EnsureJniConstantsInitialized(env);                                                     \
+    return g_ ## cppname;                                                                   \
+}
+JCLASS_CONSTANTS_LIST(CONSTANT_GETTER)
 
 void JniConstants::Initialize(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
@@ -151,179 +125,4 @@ void JniConstants::Invalidate() {
     // once all threads are unregistered.
     std::lock_guard guard(g_constants_mutex);
     g_constants_valid = false;
-}
-
-jclass JniConstants::GetBooleanClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return booleanClass;
-}
-
-jclass JniConstants::GetByteBufferClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return byteBufferClass;
-}
-
-jclass JniConstants::GetDoubleClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return doubleClass;
-}
-
-jclass JniConstants::GetErrnoExceptionClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return errnoExceptionClass;
-}
-
-jclass JniConstants::GetFileDescriptorClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return fileDescriptorClass;
-}
-
-jclass JniConstants::GetGaiExceptionClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return gaiExceptionClass;
-}
-
-jclass JniConstants::GetInet6AddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inet6AddressClass;
-}
-
-jclass JniConstants::GetInet6AddressHolderClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inet6AddressHolderClass;
-}
-
-jclass JniConstants::GetInetAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inetAddressClass;
-}
-
-jclass JniConstants::GetInetAddressHolderClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inetAddressHolderClass;
-}
-
-jclass JniConstants::GetInetSocketAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inetSocketAddressClass;
-}
-
-jclass JniConstants::GetInetSocketAddressHolderClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return inetSocketAddressHolderClass;
-}
-
-jclass JniConstants::GetIntegerClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return integerClass;
-}
-
-jclass JniConstants::GetLocaleDataClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return localeDataClass;
-}
-
-jclass JniConstants::GetLongClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return longClass;
-}
-
-jclass JniConstants::GetNetlinkSocketAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return netlinkSocketAddressClass;
-}
-
-jclass JniConstants::GetPacketSocketAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return packetSocketAddressClass;
-}
-
-jclass JniConstants::GetVmSocketAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return vmSocketAddressClass;
-}
-
-jclass JniConstants::GetPrimitiveByteArrayClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return primitiveByteArrayClass;
-}
-
-jclass JniConstants::GetStringClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return stringClass;
-}
-
-jclass JniConstants::GetStructAddrinfoClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structAddrinfoClass;
-}
-
-jclass JniConstants::GetStructCmsghdrClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structCmsghdrClass;
-}
-
-jclass JniConstants::GetStructGroupReqClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structGroupReqClass;
-}
-
-jclass JniConstants::GetStructIfaddrsClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structIfaddrsClass;
-}
-
-jclass JniConstants::GetStructLingerClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structLingerClass;
-}
-
-jclass JniConstants::GetStructMsghdrClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structMsghdrClass;
-}
-
-jclass JniConstants::GetStructPasswdClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structPasswdClass;
-}
-
-jclass JniConstants::GetStructPollfdClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structPollfdClass;
-}
-
-jclass JniConstants::GetStructStatClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structStatClass;
-}
-
-jclass JniConstants::GetStructStatVfsClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structStatVfsClass;
-}
-
-jclass JniConstants::GetStructTimespecClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structTimespecClass;
-}
-
-jclass JniConstants::GetStructTimevalClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structTimevalClass;
-}
-
-jclass JniConstants::GetStructUcredClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structUcredClass;
-}
-
-jclass JniConstants::GetStructUtsnameClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return structUtsnameClass;
-}
-
-jclass JniConstants::GetUnixSocketAddressClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return unixSocketAddressClass;
 }

@@ -26,6 +26,7 @@ import android.car.Car;
 import android.car.CarManagerBase;
 import android.car.VehicleAreaType;
 import android.car.VehiclePropertyIds;
+import android.car.annotation.AddedInOrBefore;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.os.Build;
@@ -44,7 +45,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Provides an application interface for interacting with the Vehicle specific properties.
@@ -74,6 +74,7 @@ public class CarPropertyManager extends CarManagerBase {
          * Called when a property is updated
          * @param value Property that has been updated.
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onChangeEvent(CarPropertyValue value);
 
         /**
@@ -84,6 +85,7 @@ public class CarPropertyManager extends CarManagerBase {
          *
          * @see CarPropertyEventCallback#onErrorEvent(int, int, int)
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onErrorEvent(int propId, int zone);
 
         /**
@@ -99,6 +101,7 @@ public class CarPropertyManager extends CarManagerBase {
          * @param areaId AreaId which is detected an error.
          * @param errorCode Error code is raised in the car.
          */
+        @AddedInOrBefore(majorVersion = 33)
         default void onErrorEvent(int propId, int areaId, @CarSetPropertyErrorCode int errorCode) {
             if (DBG) {
                 Log.d(TAG, "onErrorEvent propertyId: 0x" + toHexString(propId) + " areaId:0x"
@@ -109,14 +112,19 @@ public class CarPropertyManager extends CarManagerBase {
     }
 
     /** Read ONCHANGE sensors. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final float SENSOR_RATE_ONCHANGE = 0f;
     /** Read sensors at the rate of  1 hertz */
+    @AddedInOrBefore(majorVersion = 33)
     public static final float SENSOR_RATE_NORMAL = 1f;
     /** Read sensors at the rate of 5 hertz */
+    @AddedInOrBefore(majorVersion = 33)
     public static final float SENSOR_RATE_UI = 5f;
     /** Read sensors at the rate of 10 hertz */
+    @AddedInOrBefore(majorVersion = 33)
     public static final float SENSOR_RATE_FAST = 10f;
     /** Read sensors at the rate of 100 hertz */
+    @AddedInOrBefore(majorVersion = 33)
     public static final float SENSOR_RATE_FASTEST = 100f;
 
 
@@ -124,26 +132,31 @@ public class CarPropertyManager extends CarManagerBase {
     /**
      * Status to indicate that set operation failed. Try it again.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CAR_SET_PROPERTY_ERROR_CODE_TRY_AGAIN = 1;
 
     /**
      * Status to indicate that set operation failed because of an invalid argument.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CAR_SET_PROPERTY_ERROR_CODE_INVALID_ARG = 2;
 
     /**
      * Status to indicate that set operation failed because the property is not available.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CAR_SET_PROPERTY_ERROR_CODE_PROPERTY_NOT_AVAILABLE = 3;
 
     /**
      * Status to indicate that set operation failed because car denied access to the property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CAR_SET_PROPERTY_ERROR_CODE_ACCESS_DENIED = 4;
 
     /**
      * Status to indicate that set operation failed because of an general error in cars.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CAR_SET_PROPERTY_ERROR_CODE_UNKNOWN = 5;
 
     /** @hide */
@@ -234,6 +247,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @return true if the listener is successfully registered.
      * @throws SecurityException if missing the appropriate permission.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean registerCallback(@NonNull CarPropertyEventCallback callback,
             int propertyId, @FloatRange(from = 0.0, to = 100.0) float rate) {
         synchronized (mActivePropertyListener) {
@@ -304,6 +318,7 @@ public class CarPropertyManager extends CarManagerBase {
      * this callback, all listening will be stopped.
      * @param callback CarPropertyEventCallback to be unregistered.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void unregisterCallback(@NonNull CarPropertyEventCallback callback) {
         synchronized (mActivePropertyListener) {
             int [] propertyIds = new int[mActivePropertyListener.size()];
@@ -323,6 +338,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @param callback CarPropertyEventCallback to be unregistered.
      * @param propertyId PropertyId to be unregistered.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void unregisterCallback(@NonNull CarPropertyEventCallback callback, int propertyId) {
         synchronized (mActivePropertyListener) {
             doUnregisterListenerLocked(callback, propertyId);
@@ -354,6 +370,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @return List of properties implemented by this car that the application may access.
      */
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public List<CarPropertyConfig> getPropertyList() {
         List<CarPropertyConfig> configs;
         try {
@@ -371,6 +388,7 @@ public class CarPropertyManager extends CarManagerBase {
      *          may access.
      */
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public List<CarPropertyConfig> getPropertyList(@NonNull ArraySet<Integer> propertyIds) {
         int[] propIds = new int[propertyIds.size()];
         int idx = 0;
@@ -396,6 +414,7 @@ public class CarPropertyManager extends CarManagerBase {
      * Null if the property is not available.
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public CarPropertyConfig<?> getCarPropertyConfig(int propId) {
         checkSupportedProperty(propId);
         List<CarPropertyConfig> configs;
@@ -417,6 +436,7 @@ public class CarPropertyManager extends CarManagerBase {
      * the selected area.
      * @return AreaId contains the selected area for the property.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getAreaId(int propId, int area) {
         checkSupportedProperty(propId);
 
@@ -447,6 +467,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @hide
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public String getReadPermission(int propId) {
         if (DBG) {
             Log.d(TAG, "getReadPermission, propId: 0x" + toHexString(propId));
@@ -467,6 +488,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @hide
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public String getWritePermission(int propId) {
         if (DBG) {
             Log.d(TAG, "getWritePermission, propId: 0x" + toHexString(propId));
@@ -486,6 +508,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @param area AreaId of property
      * @return true if STATUS_AVAILABLE, false otherwise (eg STATUS_UNAVAILABLE)
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isPropertyAvailable(int propId, int area) {
         checkSupportedProperty(propId);
         try {
@@ -494,6 +517,9 @@ public class CarPropertyManager extends CarManagerBase {
                     && (propValue.getStatus() == CarPropertyValue.STATUS_AVAILABLE);
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, false);
+        } catch (ServiceSpecificException e) {
+            Log.e(TAG, "unable to get property, error: " + e);
+            return false;
         }
     }
 
@@ -534,6 +560,7 @@ public class CarPropertyManager extends CarManagerBase {
      *
      * @return value of a bool property, {@code false} if can not get value from cars.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean getBooleanProperty(int prop, int area) {
         checkSupportedProperty(prop);
         CarPropertyValue<Boolean> carProp = getProperty(Boolean.class, prop, area);
@@ -561,6 +588,7 @@ public class CarPropertyManager extends CarManagerBase {
      *
      * @return value of a float property, 0 if can not get value from the cars.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public float getFloatProperty(int prop, int area) {
         checkSupportedProperty(prop);
         CarPropertyValue<Float> carProp = getProperty(Float.class, prop, area);
@@ -588,6 +616,7 @@ public class CarPropertyManager extends CarManagerBase {
      *
      * @return value of an integer property, 0 if can not get the value from cars.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getIntProperty(int prop, int area) {
         checkSupportedProperty(prop);
         CarPropertyValue<Integer> carProp = getProperty(Integer.class, prop, area);
@@ -617,6 +646,7 @@ public class CarPropertyManager extends CarManagerBase {
      * from cars.
      */
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public int[] getIntArrayProperty(int prop, int area) {
         checkSupportedProperty(prop);
         CarPropertyValue<Integer[]> carProp = getProperty(Integer[].class, prop, area);
@@ -697,6 +727,7 @@ public class CarPropertyManager extends CarManagerBase {
      */
     @SuppressWarnings("unchecked")
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public <E> CarPropertyValue<E> getProperty(@NonNull Class<E> clazz, int propId, int areaId) {
         if (DBG) {
             Log.d(TAG, "getProperty, propId: 0x" + toHexString(propId)
@@ -727,7 +758,7 @@ public class CarPropertyManager extends CarManagerBase {
                             + "areaId: 0x%x", propId, areaId));
                 }
             }
-            return handleCarServiceSpecificException(e.errorCode, propId, areaId, null);
+            return handleCarServiceSpecificException(e, propId, areaId, null);
         }
     }
 
@@ -770,6 +801,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @return CarPropertyValue. Null if property's id is invalid.
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public <E> CarPropertyValue<E> getProperty(int propId, int areaId) {
         checkSupportedProperty(propId);
 
@@ -787,7 +819,7 @@ public class CarPropertyManager extends CarManagerBase {
                             + "areaId: 0x%x", propId, areaId));
                 }
             }
-            return handleCarServiceSpecificException(e.errorCode, propId, areaId, null);
+            return handleCarServiceSpecificException(e, propId, areaId, null);
         }
     }
 
@@ -837,6 +869,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @throws {@link IllegalStateException} when get an unexpected error code.
      * @throws {@link IllegalArgumentException} when the property in the areaId is not supplied.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public <E> void setProperty(@NonNull Class<E> clazz, int propId, int areaId, @NonNull E val) {
         if (DBG) {
             Log.d(TAG, "setProperty, propId: 0x" + toHexString(propId)
@@ -861,7 +894,7 @@ public class CarPropertyManager extends CarManagerBase {
                             + "areaId: 0x%x", propId, areaId));
                 }
             }
-            handleCarServiceSpecificException(e.errorCode, propId, areaId, null);
+            handleCarServiceSpecificException(e, propId, areaId, null);
         }
     }
 
@@ -876,6 +909,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @param areaId AreaId to apply the modification.
      * @param val Value to set
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setBooleanProperty(int prop, int areaId, boolean val) {
         setProperty(Boolean.class, prop, areaId, val);
     }
@@ -890,6 +924,7 @@ public class CarPropertyManager extends CarManagerBase {
      * @param areaId AreaId to apply the modification
      * @param val Value to set
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setFloatProperty(int prop, int areaId, float val) {
         setProperty(Float.class, prop, areaId, val);
     }
@@ -904,13 +939,17 @@ public class CarPropertyManager extends CarManagerBase {
      * @param areaId AreaId to apply the modification
      * @param val Value to set
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void setIntProperty(int prop, int areaId, int val) {
         setProperty(Integer.class, prop, areaId, val);
     }
 
     // Handles ServiceSpecificException in CarService for R and later version.
-    private <T> T handleCarServiceSpecificException(int errorCode, int propId, int areaId,
-            T returnValue) {
+    private <T> T handleCarServiceSpecificException(
+            ServiceSpecificException e, int propId, int areaId, T returnValue) {
+        // We are not passing the error message down, so log it here.
+        Log.w(TAG, "received ServiceSpecificException: " + e);
+        int errorCode = e.errorCode;
         switch (errorCode) {
             case VehicleHalStatusCode.STATUS_NOT_AVAILABLE:
                 throw new PropertyNotAvailableException(propId, areaId);
@@ -999,6 +1038,7 @@ public class CarPropertyManager extends CarManagerBase {
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         synchronized (mActivePropertyListener) {
             mActivePropertyListener.clear();

@@ -47,7 +47,9 @@ namespace implementation {
 #define LOG_HAL_LEVEL 4
 #endif
 
+uint8_t getResponse[5] = {0x00, 0xC0, 0x00, 0x00, 0x00};
 static struct se_gto_ctx *ctx;
+bool debug_log_enabled = false;
 
 SecureElement::SecureElement(const char* ese_name){
     nbrOpenChannel = 0;
@@ -98,7 +100,7 @@ int SecureElement::initializeSE() {
         return EXIT_FAILURE;
     }
     //settings = default_settings(ctx);
-    se_gto_set_log_level(ctx, 4);
+    se_gto_set_log_level(ctx, 3);
 
     openConfigFile(1);
 
@@ -220,6 +222,7 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid, uin
     uint8_t *resp;
     int resp_len = 0;
     uint8_t index = 0;
+    int getResponseOffset = 0;
 
     apdu_len = 5;
     apdu = (uint8_t*)malloc(apdu_len * sizeof(uint8_t));
@@ -295,8 +298,9 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid, uin
         apdu[index++] = p2;
         apdu[index++] = aid.size();
         memcpy(&apdu[index], aid.data(), aid.size());
-        dump_bytes("CMD: ", ':', apdu, apdu_len, stdout);
 
+send_logical:
+        dump_bytes("CMD: ", ':', apdu, apdu_len, stdout);
         resp_len = se_gto_apdu_transmit(ctx, apdu, apdu_len, resp, 65536);
         ALOGD("SecureElement:%s selectApdu resp_len = %d", __func__,resp_len);
     }
@@ -310,10 +314,34 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid, uin
     } else {
         dump_bytes("RESP: ", ':', resp, resp_len, stdout);
 
-        if (resp[resp_len - 2] == 0x90 && resp[resp_len - 1] == 0x00) {
-            resApduBuff.selectResponse.resize(resp_len);
-            memcpy(&resApduBuff.selectResponse[0], resp, resp_len);
+        if (resp[resp_len - 2] == 0x90 || resp[resp_len - 2] == 0x62 || resp[resp_len - 2] == 0x63) {
+            resApduBuff.selectResponse.resize(getResponseOffset + resp_len);
+            memcpy(&resApduBuff.selectResponse[getResponseOffset], resp, resp_len);
             mSecureElementStatus = SecureElementStatus::SUCCESS;
+        }
+        else if (resp[resp_len - 2] == 0x61) {
+            resApduBuff.selectResponse.resize(getResponseOffset + resp_len - 2);
+            memcpy(&resApduBuff.selectResponse[getResponseOffset], resp, resp_len - 2);
+            getResponseOffset += (resp_len - 2);
+            getResponse[4] = resp[resp_len - 1];
+            getResponse[0] = apdu[0];
+            dump_bytes("getResponse CMD: ", ':', getResponse, 5, stdout);
+            free(apdu);
+            apdu_len = 5;
+            apdu = (uint8_t*)malloc(apdu_len * sizeof(uint8_t));
+            memset(resp, 0, resp_len);
+            memcpy(apdu, getResponse, apdu_len);
+            apdu[0] = resApduBuff.channelNumber;
+            goto send_logical;
+        }
+        else if (resp[resp_len - 2] == 0x6C) {
+            resApduBuff.selectResponse.resize(getResponseOffset + resp_len - 2);
+            memcpy(&resApduBuff.selectResponse[getResponseOffset], resp, resp_len - 2);
+            getResponseOffset += (resp_len - 2);
+            apdu[4] = resp[resp_len - 1];
+            dump_bytes("case2 getResponse CMD: ", ':', apdu, 5, stdout);
+            memset(resp, 0, resp_len);
+            goto send_logical;
         }
         else if (resp[resp_len - 2] == 0x6A && resp[resp_len - 1] == 0x80) {
             mSecureElementStatus = SecureElementStatus::IOERROR;
@@ -355,6 +383,8 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid, uint8
     int apdu_len = 0;
     uint8_t *resp;
     int resp_len = 0;
+    int getResponseOffset = 0;
+    uint8_t index = 0;
 
     if (!checkSeUp) {
         if (initializeSE() != EXIT_SUCCESS) {
@@ -373,7 +403,7 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid, uint8
 
 
     if (apdu != NULL) {
-        uint8_t index = 0;
+        index = 0;
         apdu[index++] = 0x00;
         apdu[index++] = 0xA4;
         apdu[index++] = 0x04;
@@ -381,7 +411,7 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid, uint8
         apdu[index++] = aid.size();
         memcpy(&apdu[index], aid.data(), aid.size());
         dump_bytes("CMD: ", ':', apdu, apdu_len, stdout);
-
+send_basic:
         resp_len = se_gto_apdu_transmit(ctx, apdu, apdu_len, resp, 65536);
         ALOGD("SecureElement:%s selectApdu resp_len = %d", __func__,resp_len);
     }
@@ -394,13 +424,37 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid, uint8
     } else {
         dump_bytes("RESP: ", ':', resp, resp_len, stdout);
 
-        if ((resp[resp_len - 2] == 0x90) && (resp[resp_len - 1] == 0x00)) {
-            result.resize(resp_len);
-            memcpy(&result[0], resp, resp_len);
+        if (resp[resp_len - 2] == 0x90 || resp[resp_len - 2] == 0x62 || resp[resp_len - 2] == 0x63) {
+            result.resize(getResponseOffset + resp_len);
+            memcpy(&result[getResponseOffset], resp, resp_len);
 
             isBasicChannelOpen = true;
             nbrOpenChannel++;
             mSecureElementStatus = SecureElementStatus::SUCCESS;
+        }
+        else if (resp[resp_len - 2] == 0x61) {
+            result.resize(getResponseOffset + resp_len - 2);
+            memcpy(&result[getResponseOffset], resp, resp_len - 2);
+            getResponseOffset += (resp_len - 2);
+            getResponse[4] = resp[resp_len - 1];
+            getResponse[0] = apdu[0];
+            dump_bytes("getResponse CMD: ", ':', getResponse, 5, stdout);
+            free(apdu);
+            apdu_len = 5;
+            apdu = (uint8_t*)malloc(apdu_len * sizeof(uint8_t));
+            memset(resp, 0, resp_len);
+            memcpy(apdu, getResponse, apdu_len);
+            goto send_basic;
+        }
+        else if (resp[resp_len - 2] == 0x6C) {
+            result.resize(getResponseOffset + resp_len - 2);
+            memcpy(&result[getResponseOffset], resp, resp_len - 2);
+            getResponseOffset += (resp_len - 2);
+            apdu[4] = resp[resp_len - 1];
+            dump_bytes("case2 getResponse CMD: ", ':', apdu, 5, stdout);
+            apdu_len = 5;
+            memset(resp, 0, resp_len);
+            goto send_basic;
         }
         else if (resp[resp_len - 2] == 0x68 && resp[resp_len - 1] == 0x81) {
             mSecureElementStatus = SecureElementStatus::CHANNEL_NOT_AVAILABLE;
@@ -495,6 +549,8 @@ SecureElement::dump_bytes(const char *pf, char sep, const uint8_t *p, int n, FIL
     int len = 0;
     int input_len = n;
 
+    if (!debug_log_enabled) return;
+
     msg = (char*) malloc ( (pf ? strlen(pf) : 0) + input_len * 3 + 1);
     if(!msg) {
         errno = ENOMEM;
@@ -583,13 +639,26 @@ SecureElement::parseConfigFile(FILE *f, int verbose)
             continue;
         }
 
-        pch = strtok (s," =;");
-        if (strcmp("GTO_DEV", pch) == 0){
-            pch = strtok (NULL, " =;");
+        pch = strtok(s," =;");
+        if (strcmp("GTO_DEV", pch) == 0) {
+            pch = strtok(NULL, " =;");
             ALOGD("SecureElement:%s Defined node : %s", __func__, pch);
-            if (strlen (pch) > 0 && strcmp("\n",pch) != 0 && strcmp("\0",pch) != 0 ) se_gto_set_gtodev(ctx, pch);
+            if (strlen(pch) > 0 && strcmp("\n", pch) != 0 && strcmp("\0", pch) != 0 ) {
+                se_gto_set_gtodev(ctx, pch);
+            }
+        } else if (strcmp("GTO_DEBUG", pch) == 0) {
+            pch = strtok(NULL, " =;");
+            ALOGD("SecureElement:%s Log state : %s", __func__, pch);
+            if (strlen(pch) > 0 && strcmp("\n", pch) != 0 && strcmp("\0", pch) != 0 ) {
+                if (strcmp(pch, "enable") == 0) {
+                    debug_log_enabled = true;
+                    se_gto_set_log_level(ctx, 4);
+                } else {
+                    debug_log_enabled = false;
+                    se_gto_set_log_level(ctx, 3);
+                }
+            }
         }
-        
     }
     return 0;
 }

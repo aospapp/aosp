@@ -20,14 +20,14 @@ void xnn_f32_vabs_ukernel__wasmsimd_x8(
     size_t n,
     const float* x,
     float* y,
-    const union xnn_f32_abs_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_abs_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
   assert(x != NULL);
   assert(y != NULL);
 
-  const v128_t vnonsign_mask = wasm_v32x4_load_splat(&params->wasmsimd.nonsign_mask);
+  const v128_t vnonsign_mask = wasm_v128_load64_splat(&params->wasmsimd.nonsign_mask);
   for (; n >= 8 * sizeof(float); n -= 8 * sizeof(float)) {
     const v128_t vx0123 = wasm_v128_load(x);
     const v128_t vx4567 = wasm_v128_load(x + 4);

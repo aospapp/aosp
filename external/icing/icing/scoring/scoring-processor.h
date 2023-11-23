@@ -40,8 +40,8 @@ class ScoringProcessor {
   //   A ScoringProcessor on success
   //   FAILED_PRECONDITION on any null pointer input
   static libtextclassifier3::StatusOr<std::unique_ptr<ScoringProcessor>> Create(
-      const ScoringSpecProto& scoring_spec,
-      const DocumentStore* document_store);
+      const ScoringSpecProto& scoring_spec, const DocumentStore* document_store,
+      const SchemaStore* schema_store);
 
   // Assigns scores to DocHitInfos from the given DocHitInfoIterator and returns
   // a vector of ScoredDocumentHits. The size of results is no more than

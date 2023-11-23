@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "audio_hw_generic"
+#define LOG_TAG "audio_hw_generic_caremu"
+// #define LOG_NDEBUG 0
 
 #include <errno.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -31,6 +33,8 @@ static struct ext_pcm *shared_ext_pcm = NULL;
 
 // Sleep 10ms between each mixing, this interval value is arbitrary chosen
 #define MIXER_INTERVAL_MS 10
+#define MS_TO_US 1000
+
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -70,7 +74,8 @@ static bool mixer_thread_mix(__unused void *key, void *value, void *context) {
 }
 
 static void *mixer_thread_loop(void *context) {
-  ALOGD("%s: __enter__", __func__);
+  pthread_setname_np(pthread_self(), "car_mixer_loop");
+  ALOGD("%s: starting mixer loop", __func__);
   struct ext_pcm *ext_pcm = (struct ext_pcm *)context;
   do {
     pthread_mutex_lock(&ext_pcm->mixer_lock);
@@ -79,14 +84,25 @@ static void *mixer_thread_loop(void *context) {
     hashmapForEach(ext_pcm->mixer_pipeline_map, mixer_thread_mix,
         &ext_pcm->mixer_pipeline);
     if (ext_pcm->mixer_pipeline.position > 0) {
-      pcm_write(ext_pcm->pcm, (void *)ext_pcm->mixer_pipeline.buffer,
+      int ret = pcm_write(ext_pcm->pcm, (void *)ext_pcm->mixer_pipeline.buffer,
           ext_pcm->mixer_pipeline.position * sizeof(int16_t));
+      if (ret != 0) {
+        ALOGE("%s error[%d] writing data to pcm");
+      }
     }
     memset(&ext_pcm->mixer_pipeline, 0, sizeof(struct ext_mixer_pipeline));
     pthread_cond_broadcast(&ext_pcm->mixer_wake);
     pthread_mutex_unlock(&ext_pcm->mixer_lock);
-    usleep(MIXER_INTERVAL_MS * 1000);
+    pthread_mutex_lock(&ext_pcm_init_lock);
+    bool keep_running = ext_pcm->run_mixer;
+    pthread_mutex_unlock(&ext_pcm_init_lock);
+    if (!keep_running) {
+      break;
+    }
+    usleep(MIXER_INTERVAL_MS * MS_TO_US);
   } while (1);
+  ALOGD("%s: exiting mixer loop", __func__);
+  return NULL;
 }
 
 static int mixer_pipeline_write(struct ext_pcm *ext_pcm, const char *bus_address,
@@ -130,12 +146,10 @@ struct ext_pcm *ext_pcm_open(unsigned int card, unsigned int device,
     pthread_create(&shared_ext_pcm->mixer_thread, (const pthread_attr_t *)NULL,
             mixer_thread_loop, shared_ext_pcm);
     shared_ext_pcm->mixer_pipeline_map = hashmapCreate(8, str_hash_fn, str_eq);
+    shared_ext_pcm->run_mixer = true;
   }
-  pthread_mutex_unlock(&ext_pcm_init_lock);
-
-  pthread_mutex_lock(&shared_ext_pcm->lock);
   shared_ext_pcm->ref_count += 1;
-  pthread_mutex_unlock(&shared_ext_pcm->lock);
+  pthread_mutex_unlock(&ext_pcm_init_lock);
 
   return shared_ext_pcm;
 }
@@ -147,27 +161,37 @@ static bool mixer_free_pipeline(__unused void *key, void *value, void *context) 
 }
 
 int ext_pcm_close(struct ext_pcm *ext_pcm) {
+  ALOGD("%s closing pcm", __func__);
   if (ext_pcm == NULL || ext_pcm->pcm == NULL) {
     return -EINVAL;
   }
 
-  pthread_mutex_lock(&ext_pcm->lock);
-  ext_pcm->ref_count -= 1;
-  pthread_mutex_unlock(&ext_pcm->lock);
-
   pthread_mutex_lock(&ext_pcm_init_lock);
-  if (ext_pcm->ref_count <= 0) {
+  int count = ext_pcm->ref_count -= 1;
+  if (count <= 0) {
+    ext_pcm->run_mixer = false;
+    // On pcm open new shared_ext_pcm will be created
+    shared_ext_pcm = NULL;
+    pthread_mutex_unlock(&ext_pcm_init_lock);
+    void* ret_val = NULL;
+    int ret = pthread_join(ext_pcm->mixer_thread, &ret_val);
+    if (ret != 0) {
+      ALOGE("%s error[%d] when joining thread",
+        __func__, ret);
+      // Try killing if timeout failed
+      pthread_kill(ext_pcm->mixer_thread, SIGINT);
+    }
+    pthread_mutex_lock(&ext_pcm_init_lock);
     pthread_mutex_destroy(&ext_pcm->lock);
     pcm_close(ext_pcm->pcm);
     pthread_mutex_destroy(&ext_pcm->mixer_lock);
     hashmapForEach(ext_pcm->mixer_pipeline_map, mixer_free_pipeline,
         (void *)NULL);
     hashmapFree(ext_pcm->mixer_pipeline_map);
-    pthread_kill(ext_pcm->mixer_thread, SIGINT);
     free(ext_pcm);
-    shared_ext_pcm = NULL;
   }
   pthread_mutex_unlock(&ext_pcm_init_lock);
+  ALOGD("%s finished closing pcm", __func__);
   return 0;
 }
 

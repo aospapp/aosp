@@ -166,7 +166,7 @@ public final class BankedTzIdSetsPacker {
             return uniqueTzIdIntSet;
         }
 
-        public int getTzIdSetId(List<String> tzIdStringSet) {
+        int getTzIdSetId(List<String> tzIdStringSet) {
             List<Integer> tzIdIntSet = getStringIdList(tzIdStringSet);
             Integer setId = mSetToSetId.get(tzIdIntSet);
             if (setId == null) {

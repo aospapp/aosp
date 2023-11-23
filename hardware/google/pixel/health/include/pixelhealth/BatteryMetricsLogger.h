@@ -18,6 +18,7 @@
 #define HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYMETRICSLOGGER_H
 
 #include <aidl/android/frameworks/stats/IStats.h>
+#include <aidl/android/hardware/health/HealthInfo.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
@@ -42,7 +43,9 @@ class BatteryMetricsLogger {
     BatteryMetricsLogger(const char *const batt_res, const char *const batt_ocv,
                          const char *const batt_avg_res = "", int sample_period = TEN_MINUTES_SEC,
                          int upload_period = ONE_DAY_SEC);
+    // Deprecated. Use logBatteryProperties(const HealthInfo&)
     void logBatteryProperties(struct android::BatteryProperties *props);
+    void logBatteryProperties(const aidl::android::hardware::health::HealthInfo &props);
 
   private:
     enum sampleType {
@@ -86,7 +89,7 @@ class BatteryMetricsLogger {
     int64_t last_upload_;      // time in seconds since boot of last upload
 
     int64_t getTime();
-    bool recordSample(struct android::BatteryProperties *props);
+    bool recordSample(const aidl::android::hardware::health::HealthInfo &health_info);
     bool uploadMetrics();
     bool uploadOutlierMetric(const std::shared_ptr<IStats> &stats_client, sampleType type);
     bool uploadAverageBatteryResistance(const std::shared_ptr<IStats> &stats_client);

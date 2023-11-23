@@ -40,7 +40,7 @@ parcelable KeyMetadata {
      * The security level that the key resides in.
      * TODO, we could also take this from the origin tag in authorizations.
      */
-    SecurityLevel keySecurityLevel;
+    SecurityLevel keySecurityLevel = SecurityLevel.SOFTWARE;
     /**
      * The authorizations describing the key, e.g., the algorithm, key size,
      * permissible purposes, digests and paddings, as well as usage restrictions,

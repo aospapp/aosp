@@ -17,7 +17,6 @@
 package vogar.target;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -35,6 +34,7 @@ import vogar.RunnerType;
 import vogar.TestProperties;
 import vogar.monitor.TargetMonitor;
 import vogar.target.junit.JUnitRunnerFactory;
+import vogar.target.testng.TestNgRunnerFactory;
 
 /**
  * Runs an action, in process on the target.
@@ -87,6 +87,9 @@ public final class TestRunner {
         }
         if (runnerType.supportsMain()) {
             runnerFactories.add(new MainRunnerFactory());
+        }
+        if (runnerType.supportsTestNg()) {
+            runnerFactories.add(new TestNgRunnerFactory());
         }
         runnerFactory = new CompositeRunnerFactory(runnerFactories);
 

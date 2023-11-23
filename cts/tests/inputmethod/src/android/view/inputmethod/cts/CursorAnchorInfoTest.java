@@ -32,6 +32,7 @@ import android.os.Parcel;
 import android.text.TextUtils;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.CursorAnchorInfo.Builder;
+import android.view.inputmethod.EditorBoundsInfo;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -103,12 +104,17 @@ public class CursorAnchorInfoTest {
         Matrix transformMatrix = new Matrix();
         transformMatrix.setScale(10.0f, 20.0f);
 
+        final EditorBoundsInfo boundsInfo =
+                new EditorBoundsInfo.Builder().setEditorBounds(MANY_BOUNDS[0])
+                        .setHandwritingBounds(MANY_BOUNDS[1]).build();
+
         final Builder builder = new Builder();
         builder.setSelectionRange(selectionStart, selectionEnd)
                 .setComposingText(composingTextStart, composingText)
                 .setInsertionMarkerLocation(insertionMarkerHorizontal, insertionMarkerTop,
                         insertionMarkerBaseline, insertionMarkerBottom, insertionMarkerFlags)
-                .setMatrix(transformMatrix);
+                .setMatrix(transformMatrix)
+                .setEditorBoundsInfo(boundsInfo);
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF bounds = MANY_BOUNDS[i];
             final int flags = MANY_FLAGS_ARRAY[i];
@@ -127,6 +133,11 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerBaseline, info.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(insertionMarkerBottom, info.getInsertionMarkerBottom(), EPSILON);
         assertEquals(transformMatrix, info.getMatrix());
+        assertEquals(boundsInfo, info.getEditorBoundsInfo());
+        assertEquals(MANY_BOUNDS[0],
+                info.getEditorBoundsInfo().getEditorBounds());
+        assertEquals(MANY_BOUNDS[1],
+                info.getEditorBoundsInfo().getHandwritingBounds());
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF expectedBounds = MANY_BOUNDS[i];
             assertEquals(expectedBounds, info.getCharacterBounds(i));
@@ -151,6 +162,7 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerTop, info2.getInsertionMarkerTop(), EPSILON);
         assertEquals(insertionMarkerBaseline, info2.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(insertionMarkerBottom, info2.getInsertionMarkerBottom(), EPSILON);
+        assertEquals(boundsInfo, info2.getEditorBoundsInfo());
         assertEquals(transformMatrix, info2.getMatrix());
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF expectedBounds = MANY_BOUNDS[i];
@@ -178,6 +190,7 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerTop, info3.getInsertionMarkerTop(), EPSILON);
         assertEquals(insertionMarkerBaseline, info3.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(insertionMarkerBottom, info3.getInsertionMarkerBottom(), EPSILON);
+        assertEquals(boundsInfo, info3.getEditorBoundsInfo());
         assertEquals(transformMatrix, info3.getMatrix());
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF expectedBounds = MANY_BOUNDS[i];
@@ -204,6 +217,7 @@ public class CursorAnchorInfoTest {
         assertEquals(Float.NaN, uninitializedInfo.getInsertionMarkerTop(), EPSILON);
         assertEquals(Float.NaN, uninitializedInfo.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(Float.NaN, uninitializedInfo.getInsertionMarkerBottom(), EPSILON);
+        assertEquals(null, uninitializedInfo.getEditorBoundsInfo());
         assertEquals(new Matrix(), uninitializedInfo.getMatrix());
     }
 

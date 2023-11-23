@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"بازیابی دسته‌های پیش‌فرض"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"دسته‌های پیش‌فرض بازیابی شد"</string>
     <string name="default_categories" msgid="2117679794687799407">"پیش‌فرض"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">‏%d مورد انتخاب‌شده</item>
-      <item quantity="other">‏%d مورد انتخاب‌شده</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# دسته انتخاب شده است}one{# دسته انتخاب شده است}other{# دسته انتخاب شده است}}"</string>
     <string name="applications" msgid="521776761270770549">"برنامه‌ها"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"هیچ برنامه‌ای با قابلیت اشکال‌زدایی در دسترس نیست"</string>
     <string name="buffer_size" msgid="3944311026715111454">"‏اندازه بافر Per-CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"‏استفاده از Perfetto (بتا)"</string>
     <string name="long_traces" msgid="5110949471775966329">"ردهای طولانی"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"به‌طور مرتب در فضای ذخیره‌سازی دستگاه ذخیره شده است"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"به‌طور پیوسته در فضای ذخیره‌سازی دستگاه ذخیره می‌شود (به‌طور خودکار به گزارش‌های اشکال پیوست نخواهد شد)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"بیشترین اندازه رد طولانی"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"بیشترین مدت رد طولانی"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"۲۰۰ مگابایت"</string>

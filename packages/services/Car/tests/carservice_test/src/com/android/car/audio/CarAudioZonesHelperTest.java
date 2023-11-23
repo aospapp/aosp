@@ -262,37 +262,40 @@ public class CarAudioZonesHelperTest {
 
     @Test
     public void loadAudioZones_forVersionOne_bindsNonLegacyContextsToDefault() throws Exception {
-        InputStream versionOneStream = mContext.getResources().openRawResource(
-                R.raw.car_audio_configuration_V1);
+        try (InputStream versionOneStream = mContext.getResources().openRawResource(
+                R.raw.car_audio_configuration_V1)) {
 
-        CarAudioZonesHelper cazh = new CarAudioZonesHelper(mCarAudioSettings, versionOneStream,
-                mCarAudioOutputDeviceInfos, mInputAudioDeviceInfos, false);
+            CarAudioZonesHelper cazh = new CarAudioZonesHelper(mCarAudioSettings, versionOneStream,
+                    mCarAudioOutputDeviceInfos, mInputAudioDeviceInfos, false);
 
-        SparseArray<CarAudioZone> zones = cazh.loadAudioZones();
+            SparseArray<CarAudioZone> zones = cazh.loadAudioZones();
 
-        CarAudioZone defaultZone = zones.get(0);
-        CarVolumeGroup volumeGroup = defaultZone.getVolumeGroups()[0];
-        List<Integer> audioContexts = Arrays.stream(volumeGroup.getContexts()).boxed()
-                .collect(Collectors.toList());
+            CarAudioZone defaultZone = zones.get(0);
+            CarVolumeGroup volumeGroup = defaultZone.getVolumeGroups()[0];
+            List<Integer> audioContexts = Arrays.stream(volumeGroup.getContexts()).boxed()
+                    .collect(Collectors.toList());
 
-        assertThat(audioContexts).containsAtLeast(DEFAULT_AUDIO_CONTEXT, CarAudioContext.EMERGENCY,
-                CarAudioContext.SAFETY, CarAudioContext.VEHICLE_STATUS,
-                CarAudioContext.ANNOUNCEMENT);
+            assertThat(audioContexts).containsAtLeast(DEFAULT_AUDIO_CONTEXT,
+                    CarAudioContext.EMERGENCY,
+                    CarAudioContext.SAFETY, CarAudioContext.VEHICLE_STATUS,
+                    CarAudioContext.ANNOUNCEMENT);
+        }
     }
 
     @Test
-    public void loadAudioZones_forVersionOneWithNonLegacyContexts_throws() {
-        InputStream v1NonLegacyContextStream = mContext.getResources().openRawResource(
-                R.raw.car_audio_configuration_V1_with_non_legacy_contexts);
+    public void loadAudioZones_forVersionOneWithNonLegacyContexts_throws() throws Exception {
+        try (InputStream v1NonLegacyContextStream = mContext.getResources().openRawResource(
+                R.raw.car_audio_configuration_V1_with_non_legacy_contexts)) {
 
-        CarAudioZonesHelper cazh =
-                new CarAudioZonesHelper(mCarAudioSettings, v1NonLegacyContextStream,
-                        mCarAudioOutputDeviceInfos, mInputAudioDeviceInfos, false);
+            CarAudioZonesHelper cazh =
+                    new CarAudioZonesHelper(mCarAudioSettings, v1NonLegacyContextStream,
+                            mCarAudioOutputDeviceInfos, mInputAudioDeviceInfos, false);
 
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class,
-                cazh::loadAudioZones);
+            IllegalArgumentException exception = expectThrows(IllegalArgumentException.class,
+                    cazh::loadAudioZones);
 
-        assertThat(exception).hasMessageThat().contains("Non-legacy audio contexts such as");
+            assertThat(exception).hasMessageThat().contains("Non-legacy audio contexts such as");
+        }
     }
 
     @Test

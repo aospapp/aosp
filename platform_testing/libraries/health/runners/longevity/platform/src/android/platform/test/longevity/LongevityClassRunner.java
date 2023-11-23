@@ -17,14 +17,10 @@
 package android.platform.test.longevity;
 
 import android.os.Bundle;
+import android.platform.test.microbenchmark.Microbenchmark;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -33,12 +29,18 @@ import org.junit.BeforeClass;
 import org.junit.internal.runners.statements.RunAfters;
 import org.junit.internal.runners.statements.RunBefores;
 import org.junit.runner.Description;
+import org.junit.runner.notification.StoppedByUserException;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.MultipleFailureException;
 import org.junit.runners.model.Statement;
-import org.junit.runner.notification.StoppedByUserException;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A {@link BlockJUnit4ClassRunner} that runs the test class's {@link BeforeClass} methods as {@link
@@ -119,6 +121,11 @@ public class LongevityClassRunner extends BlockJUnit4ClassRunner {
     protected Statement withBefores(FrameworkMethod method, Object target, Statement statement) {
         List<FrameworkMethod> allBeforeMethods = new ArrayList<>();
         allBeforeMethods.addAll(getTestClass().getAnnotatedMethods(BeforeClass.class));
+        // Workaround to support @NoMetricBefore/@NoMetricAfter methods used in microbenchmark
+        // runner.
+        // TODO(b/205019000) TODO(b/148104702): these annotations seen as a temporary solutions
+        // and supposed to be eventually removed
+        allBeforeMethods.addAll(getTestClass().getAnnotatedMethods(Microbenchmark.NoMetricBefore.class));
         allBeforeMethods.addAll(getTestClass().getAnnotatedMethods(Before.class));
         return allBeforeMethods.isEmpty()
                 ? statement
@@ -131,9 +138,17 @@ public class LongevityClassRunner extends BlockJUnit4ClassRunner {
      */
     @Override
     protected Statement withAfters(FrameworkMethod method, Object target, Statement statement) {
+        final List<FrameworkMethod> afterMethods = new ArrayList<>();
+        afterMethods.addAll(getTestClass().getAnnotatedMethods(After.class));
+        // Workaround to support @NoMetricBefore/@NoMetricAfter methods used in microbenchmark
+        // runner.
+        // TODO(b/205019000) TODO(b/148104702): these annotations seen as a temporary solutions
+        // and supposed to be eventually removed
+        afterMethods.addAll(getTestClass().getAnnotatedMethods(Microbenchmark.NoMetricAfter.class));
+
         return addRunAfters(
                 statement,
-                getTestClass().getAnnotatedMethods(After.class),
+                afterMethods,
                 getTestClass().getAnnotatedMethods(AfterClass.class),
                 target);
     }

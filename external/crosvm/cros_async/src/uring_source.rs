@@ -2,18 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::convert::TryInto;
-use std::io;
-use std::ops::{Deref, DerefMut};
-use std::os::unix::io::AsRawFd;
-use std::sync::Arc;
+use std::{
+    convert::TryInto,
+    io,
+    ops::{Deref, DerefMut},
+    os::unix::io::AsRawFd,
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 
-use crate::mem::{BackingMemory, MemRegion, VecIoWrapper};
-use crate::uring_executor::{Error, RegisteredSource, Result, URingExecutor};
-use crate::AsyncError;
-use crate::AsyncResult;
+use super::{
+    mem::{BackingMemory, MemRegion, VecIoWrapper},
+    uring_executor::{Error, RegisteredSource, Result, URingExecutor},
+    AsyncError, AsyncResult,
+};
 
 /// `UringSource` wraps FD backed IO sources for use with io_uring. It is a thin wrapper around
 /// registering an IO source with the uring that provides an `IoSource` implementation.
@@ -40,7 +43,7 @@ impl<F: AsRawFd> UringSource<F> {
 }
 
 #[async_trait(?Send)]
-impl<F: AsRawFd> crate::ReadAsync for UringSource<F> {
+impl<F: AsRawFd> super::ReadAsync for UringSource<F> {
     /// Reads from the iosource at `file_offset` and fill the given `vec`.
     async fn read_to_vec<'a>(
         &'a self,
@@ -120,7 +123,7 @@ impl<F: AsRawFd> crate::ReadAsync for UringSource<F> {
 }
 
 #[async_trait(?Send)]
-impl<F: AsRawFd> crate::WriteAsync for UringSource<F> {
+impl<F: AsRawFd> super::WriteAsync for UringSource<F> {
     /// Writes from the given `vec` to the file starting at `file_offset`.
     async fn write_from_vec<'a>(
         &'a self,
@@ -180,7 +183,7 @@ impl<F: AsRawFd> crate::WriteAsync for UringSource<F> {
 }
 
 #[async_trait(?Send)]
-impl<F: AsRawFd> crate::IoSourceExt<F> for UringSource<F> {
+impl<F: AsRawFd> super::IoSourceExt<F> for UringSource<F> {
     /// Yields the underlying IO source.
     fn into_source(self: Box<Self>) -> F {
         self.source
@@ -213,13 +216,17 @@ impl<F: AsRawFd> DerefMut for UringSource<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{File, OpenOptions};
-    use std::os::unix::io::AsRawFd;
-    use std::path::PathBuf;
+    use std::{
+        fs::{File, OpenOptions},
+        os::unix::io::AsRawFd,
+        path::PathBuf,
+    };
 
-    use crate::io_ext::{ReadAsync, WriteAsync};
-    use crate::uring_executor::use_uring;
-    use crate::UringSource;
+    use super::super::{
+        io_ext::{ReadAsync, WriteAsync},
+        uring_executor::use_uring,
+        UringSource,
+    };
 
     use super::*;
 
@@ -229,7 +236,7 @@ mod tests {
             return;
         }
 
-        use crate::mem::VecIoWrapper;
+        use super::super::mem::VecIoWrapper;
         use std::io::Write;
         use tempfile::tempfile;
 
@@ -237,7 +244,7 @@ mod tests {
         // Use guest memory as a test file, it implements AsRawFd.
         let mut source = tempfile().unwrap();
         let data = vec![0x55; 8192];
-        source.write(&data).unwrap();
+        source.write_all(&data).unwrap();
 
         let io_obj = UringSource::new(source, &ex).unwrap();
 
@@ -336,7 +343,7 @@ mod tests {
             return;
         }
 
-        use sys_util::EventFd;
+        use base::EventFd;
 
         async fn write_event(ev: EventFd, wait: EventFd, ex: &URingExecutor) {
             let wait = UringSource::new(wait, ex).unwrap();
@@ -382,7 +389,7 @@ mod tests {
         use futures::future::Either;
 
         async fn do_test(ex: &URingExecutor) {
-            let (read_source, mut w) = sys_util::pipe(true).unwrap();
+            let (read_source, mut w) = base::pipe(true).unwrap();
             let source = UringSource::new(read_source, ex).unwrap();
             let done = Box::pin(async { 5usize });
             let pending = Box::pin(read_u64(&source));
@@ -390,7 +397,7 @@ mod tests {
                 Either::Right((5, pending)) => {
                     // Write to the pipe so that the kernel will release the memory associated with
                     // the uring read operation.
-                    w.write(&[0]).expect("failed to write to pipe");
+                    w.write_all(&[0]).expect("failed to write to pipe");
                     ::std::mem::drop(pending);
                 }
                 _ => panic!("unexpected select result"),
@@ -499,10 +506,12 @@ mod tests {
                 .write(true)
                 .open(&file_path)
                 .unwrap();
-            let source = UringSource::new(f, &ex).unwrap();
+            let source = UringSource::new(f, ex).unwrap();
             if let Err(e) = source.fallocate(0, 4096, 0).await {
                 match e {
-                    crate::io_ext::Error::Uring(crate::uring_executor::Error::Io(io_err)) => {
+                    super::super::io_ext::Error::Uring(
+                        super::super::uring_executor::Error::Io(io_err),
+                    ) => {
                         if io_err.kind() == std::io::ErrorKind::InvalidInput {
                             // Skip the test on kernels before fallocate support.
                             return;
@@ -566,7 +575,7 @@ mod tests {
                 .unwrap();
             let source = UringSource::new(f, ex).unwrap();
             let v = vec![0x55u8; 64];
-            let vw = Arc::new(crate::mem::VecIoWrapper::from(v));
+            let vw = Arc::new(super::super::mem::VecIoWrapper::from(v));
             let ret = source
                 .write_from_mem(None, vw, &[MemRegion { offset: 0, len: 32 }])
                 .await

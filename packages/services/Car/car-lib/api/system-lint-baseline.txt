@@ -15,8 +15,6 @@ ArrayReturn: android.car.content.pm.CarAppBlockingPolicy#blacklists:
     Field should be Collection<AppBlockingPackageInfo> (or subclass) instead of raw array; was `android.car.content.pm.AppBlockingPackageInfo[]`
 ArrayReturn: android.car.content.pm.CarAppBlockingPolicy#whitelists:
     Field should be Collection<AppBlockingPackageInfo> (or subclass) instead of raw array; was `android.car.content.pm.AppBlockingPackageInfo[]`
-ArrayReturn: android.car.input.CarInputHandlingService#CarInputHandlingService(android.car.input.CarInputHandlingService.InputFilter[]) parameter #0:
-    Method parameter should be Collection<InputFilter> (or subclass) instead of raw array; was `android.car.input.CarInputHandlingService.InputFilter[]`
 
 
 AutoBoxing: android.car.diagnostic.CarDiagnosticEvent#getFuelSystemStatus():
@@ -138,12 +136,6 @@ IntentName: android.car.Car#CAR_EXTRA_CLUSTER_ACTIVITY_STATE:
     Intent extra constant name must be EXTRA_FOO: CAR_EXTRA_CLUSTER_ACTIVITY_STATE
 IntentName: android.car.media.CarAudioManager#AUDIOFOCUS_EXTRA_RECEIVE_DUCKING_EVENTS:
     Intent extra constant name must be EXTRA_FOO: AUDIOFOCUS_EXTRA_RECEIVE_DUCKING_EVENTS
-
-
-InternalField: android.car.input.CarInputHandlingService.InputFilter#mKeyCode:
-    Internal field mKeyCode must not be exposed
-InternalField: android.car.input.CarInputHandlingService.InputFilter#mTargetDisplay:
-    Internal field mTargetDisplay must not be exposed
 
 
 MinMaxConstant: android.car.diagnostic.IntegerSensorIndex#MAX_AIR_FLOW_RATE_FROM_MASS_AIR_FLOW_SENSOR:
@@ -388,24 +380,6 @@ MissingNullability: android.car.hardware.hvac.CarHvacManager#unregisterCallback(
     Missing nullability on parameter `callback` in method `unregisterCallback`
 MissingNullability: android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback#onChangeEvent(android.car.hardware.CarPropertyValue) parameter #0:
     Missing nullability on parameter `value` in method `onChangeEvent`
-MissingNullability: android.car.input.CarInputHandlingService#CarInputHandlingService(android.car.input.CarInputHandlingService.InputFilter[]) parameter #0:
-    Missing nullability on parameter `handledKeys` in method `CarInputHandlingService`
-MissingNullability: android.car.input.CarInputHandlingService#dump(java.io.FileDescriptor, java.io.PrintWriter, String[]) parameter #0:
-    Missing nullability on parameter `fd` in method `dump`
-MissingNullability: android.car.input.CarInputHandlingService#dump(java.io.FileDescriptor, java.io.PrintWriter, String[]) parameter #1:
-    Missing nullability on parameter `writer` in method `dump`
-MissingNullability: android.car.input.CarInputHandlingService#dump(java.io.FileDescriptor, java.io.PrintWriter, String[]) parameter #2:
-    Missing nullability on parameter `args` in method `dump`
-MissingNullability: android.car.input.CarInputHandlingService#onBind(android.content.Intent):
-    Missing nullability on method `onBind` return
-MissingNullability: android.car.input.CarInputHandlingService#onBind(android.content.Intent) parameter #0:
-    Missing nullability on parameter `intent` in method `onBind`
-MissingNullability: android.car.input.CarInputHandlingService#onKeyEvent(android.view.KeyEvent, int) parameter #0:
-    Missing nullability on parameter `keyEvent` in method `onKeyEvent`
-MissingNullability: android.car.input.CarInputHandlingService.InputFilter#CREATOR:
-    Missing nullability on field `CREATOR` in class `class android.car.input.CarInputHandlingService.InputFilter`
-MissingNullability: android.car.input.CarInputHandlingService.InputFilter#writeToParcel(android.os.Parcel, int) parameter #0:
-    Missing nullability on parameter `dest` in method `writeToParcel`
 MissingNullability: android.car.media.CarAudioManager#createAudioPatch(String, int, int):
     Missing nullability on method `createAudioPatch` return
 MissingNullability: android.car.media.CarAudioManager#createAudioPatch(String, int, int) parameter #0:
@@ -646,8 +620,6 @@ OnNameExpected: android.car.cluster.renderer.InstrumentClusterRenderingService#s
     If implemented by developer, should follow the on<Something> style; otherwise consider marking final
 OnNameExpected: android.car.content.pm.CarAppBlockingPolicyService#getAppBlockingPolicy():
     Methods implemented by developers should follow the on<Something> style, was `getAppBlockingPolicy`
-OnNameExpected: android.car.input.CarInputHandlingService#dump(java.io.FileDescriptor, java.io.PrintWriter, String[]):
-    If implemented by developer, should follow the on<Something> style; otherwise consider marking final
 
 
 ParcelConstructor: android.car.content.pm.AppBlockingPackageInfo#AppBlockingPackageInfo(android.os.Parcel):
@@ -682,10 +654,6 @@ ProtectedMember: android.car.cluster.renderer.InstrumentClusterRenderingService#
     Protected methods not allowed; must be public: method android.car.cluster.renderer.InstrumentClusterRenderingService.startNavigationActivity(android.content.ComponentName)}
 ProtectedMember: android.car.content.pm.CarAppBlockingPolicyService#getAppBlockingPolicy():
     Protected methods not allowed; must be public: method android.car.content.pm.CarAppBlockingPolicyService.getAppBlockingPolicy()}
-ProtectedMember: android.car.input.CarInputHandlingService#dump(java.io.FileDescriptor, java.io.PrintWriter, String[]):
-    Protected methods not allowed; must be public: method android.car.input.CarInputHandlingService.dump(java.io.FileDescriptor,java.io.PrintWriter,String[])}
-ProtectedMember: android.car.input.CarInputHandlingService#onKeyEvent(android.view.KeyEvent, int):
-    Protected methods not allowed; must be public: method android.car.input.CarInputHandlingService.onKeyEvent(android.view.KeyEvent,int)}
 ProtectedMember: android.car.vms.VmsPublisherClientService#onVmsPublisherServiceReady():
     Protected methods not allowed; must be public: method android.car.vms.VmsPublisherClientService.onVmsPublisherServiceReady()}
 

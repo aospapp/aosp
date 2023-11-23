@@ -96,7 +96,7 @@
     <option name="compatibility:exclude-filter" value="CtsDeviceIdleHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsLegacyNotification27TestCases" />
     <option name="compatibility:exclude-filter" value="CtsAppEnumerationTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsCodePathHostTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsPackageSettingHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsAccessibilityTestCases" />
     <option name="compatibility:exclude-filter" value="CtsTvTestCases" />
     <option name="compatibility:exclude-filter" value="CtsSettingsHostTestCases" />

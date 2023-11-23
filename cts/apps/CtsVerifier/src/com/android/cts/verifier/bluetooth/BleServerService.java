@@ -41,11 +41,7 @@ import android.widget.Toast;
 
 import com.android.cts.verifier.R;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.UUID;
@@ -88,7 +84,8 @@ public class BleServerService extends Service {
     public static final String BLE_CHARACTERISTIC_READ_REQUEST_WITHOUT_PERMISSION =
             "com.android.cts.verifier.bluetooth.BLE_CHARACTERISTIC_READ_REQUEST_WITHOUT_PERMISSION";
     public static final String BLE_CHARACTERISTIC_WRITE_REQUEST_WITHOUT_PERMISSION =
-            "com.android.cts.verifier.bluetooth.BLE_CHARACTERISTIC_WRITE_REQUEST_WITHOUT_PERMISSION";
+            "com.android.cts.verifier.bluetooth"
+                    + ".BLE_CHARACTERISTIC_WRITE_REQUEST_WITHOUT_PERMISSION";
     public static final String BLE_CHARACTERISTIC_READ_REQUEST_NEED_ENCRYPTED =
             "com.android.cts.verifier.bluetooth.BLE_CHARACTERISTIC_READ_REQUEST_NEED_ENCRYPTED";
     public static final String BLE_CHARACTERISTIC_WRITE_REQUEST_NEED_ENCRYPTED =
@@ -132,7 +129,7 @@ public class BleServerService extends Service {
             UUID.fromString("00009997-0000-1000-8000-00805f9b34fb");
     private static final UUID DESCRIPTOR_UUID =
             UUID.fromString("00009996-0000-1000-8000-00805f9b34fb");
-    public static final UUID ADV_SERVICE_UUID=
+    public static final UUID ADV_SERVICE_UUID =
             UUID.fromString("00003333-0000-1000-8000-00805f9b34fb");
 
     private static final UUID SERVICE_UUID_ADDITIONAL =
@@ -212,8 +209,8 @@ public class BleServerService extends Service {
     private static final long NOTIFICATION_DELAY_OF_SECURE_TEST_FAILURE = 5 * 1000;
 
     public static final String WRITE_VALUE = "SERVER_TEST";
-    private static final String NOTIFY_VALUE = "NOTIFY_TEST";
-    private static final String INDICATE_VALUE = "INDICATE_TEST";
+    public static final String NOTIFY_VALUE = "NOTIFY_TEST";
+    public static final String INDICATE_VALUE = "INDICATE_TEST";
     public static final String READ_NO_PERMISSION = "READ_NO_CHAR";
     public static final String WRITE_NO_PERMISSION = "WRITE_NO_CHAR";
     public static final String DESCRIPTOR_READ_NO_PERMISSION = "READ_NO_DESC";
@@ -303,20 +300,20 @@ public class BleServerService extends Service {
         String action = intent.getAction();
         if (action != null) {
             switch (action) {
-            case BLE_ACTION_SERVER_SECURE:
-                mSecure = true;
-                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
-                    showMessage("Skip MTU test.");
-                    mCountMtuChange = 1;
-                    notifyMtuRequest();
-                    mCountMtuChange = 2;
-                    notifyMtuRequest();
-                    mCountMtuChange = 0;
-                }
-                break;
-            case BLE_ACTION_SERVER_NON_SECURE:
-                mSecure = false;
-                break;
+                case BLE_ACTION_SERVER_SECURE:
+                    mSecure = true;
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
+                        showMessage("Skip MTU test.");
+                        mCountMtuChange = 1;
+                        notifyMtuRequest();
+                        mCountMtuChange = 2;
+                        notifyMtuRequest();
+                        mCountMtuChange = 0;
+                    }
+                    break;
+                case BLE_ACTION_SERVER_NON_SECURE:
+                    mSecure = false;
+                    break;
             }
         }
 
@@ -337,7 +334,7 @@ public class BleServerService extends Service {
         cancelNotificationTaskOfSecureTestStartFailure();
         stopAdvertise();
         if (mGattServer == null) {
-           return;
+            return;
         }
         if (mDevice != null) {
             mGattServer.cancelConnection(mDevice);
@@ -631,7 +628,8 @@ public class BleServerService extends Service {
 
     private BluetoothGattService createServiceChangedService() {
         BluetoothGattService service =
-                new BluetoothGattService(SERVICE_UUID_SERVICE_CHANGED, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+                new BluetoothGattService(SERVICE_UUID_SERVICE_CHANGED,
+                        BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
         BluetoothGattCharacteristic dummyCharacteristic =
                 new BluetoothGattCharacteristic(SERVICE_CHANGED_CHARACTERISTIC_UUID, 0x02, 0x02);
@@ -642,15 +640,16 @@ public class BleServerService extends Service {
 
     /**
      * Create service for notification test
-     * @return
      */
     private BluetoothGattService createAdditionalNotificationService() {
         BluetoothGattService service =
-                new BluetoothGattService(SERVICE_UUID_ADDITIONAL, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+                new BluetoothGattService(SERVICE_UUID_ADDITIONAL,
+                        BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
         BluetoothGattCharacteristic notiCharacteristic =
                 new BluetoothGattCharacteristic(UPDATE_CHARACTERISTIC_UUID_1, 0x12, 0x1);
-        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(UPDATE_DESCRIPTOR_UUID, 0x11);
+        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(UPDATE_DESCRIPTOR_UUID,
+                0x11);
         descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
         notiCharacteristic.addDescriptor(descriptor);
         notiCharacteristic.setValue(NOTIFY_VALUE);
@@ -742,7 +741,8 @@ public class BleServerService extends Service {
         descriptor.setValue(WRITE_VALUE.getBytes());
         characteristic.addDescriptor(descriptor);
 
-        BluetoothGattDescriptor descriptor_permission = new BluetoothGattDescriptor(DESCRIPTOR_NO_READ_UUID, 0x10);
+        BluetoothGattDescriptor descriptor_permission = new BluetoothGattDescriptor(
+                DESCRIPTOR_NO_READ_UUID, 0x10);
         characteristic.addDescriptor(descriptor_permission);
 
         descriptor_permission = new BluetoothGattDescriptor(DESCRIPTOR_NO_WRITE_UUID, 0x01);
@@ -753,10 +753,12 @@ public class BleServerService extends Service {
         characteristic =
                 new BluetoothGattCharacteristic(CHARACTERISTIC_RESULT_UUID, 0x0A, 0x11);
 
-        BluetoothGattDescriptor descriptor_encrypted = new BluetoothGattDescriptor(DESCRIPTOR_NEED_ENCRYPTED_READ_UUID, 0x02);
+        BluetoothGattDescriptor descriptor_encrypted = new BluetoothGattDescriptor(
+                DESCRIPTOR_NEED_ENCRYPTED_READ_UUID, 0x02);
         characteristic.addDescriptor(descriptor_encrypted);
 
-        descriptor_encrypted = new BluetoothGattDescriptor(DESCRIPTOR_NEED_ENCRYPTED_WRITE_UUID, 0x20);
+        descriptor_encrypted = new BluetoothGattDescriptor(DESCRIPTOR_NEED_ENCRYPTED_WRITE_UUID,
+                0x20);
         characteristic.addDescriptor(descriptor_encrypted);
 
         service.addCharacteristic(characteristic);
@@ -774,11 +776,13 @@ public class BleServerService extends Service {
 
         // Registered the characteristic of authenticate (Encrypted) for operation confirmation.
         characteristic =
-                new BluetoothGattCharacteristic(CHARACTERISTIC_NEED_ENCRYPTED_READ_UUID, 0x0A, 0x02);
+                new BluetoothGattCharacteristic(CHARACTERISTIC_NEED_ENCRYPTED_READ_UUID, 0x0A,
+                        0x02);
         service.addCharacteristic(characteristic);
 
         characteristic =
-                new BluetoothGattCharacteristic(CHARACTERISTIC_NEED_ENCRYPTED_WRITE_UUID, 0x0A, 0x20);
+                new BluetoothGattCharacteristic(CHARACTERISTIC_NEED_ENCRYPTED_WRITE_UUID, 0x0A,
+                        0x20);
         service.addCharacteristic(characteristic);
 
         // Add new Characteristics(Indicate)
@@ -841,7 +845,8 @@ public class BleServerService extends Service {
 
         // Add new Characteristics (Service change control)
         BluetoothGattCharacteristic controlCharacteristic =
-                new BluetoothGattCharacteristic(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID, 0x08, 0x10);
+                new BluetoothGattCharacteristic(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID, 0x08,
+                        0x10);
         service.addCharacteristic(controlCharacteristic);
 
         return service;
@@ -896,7 +901,8 @@ public class BleServerService extends Service {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     mDevice = device;
                     boolean bonded = false;
-                    Set<BluetoothDevice> pairedDevices = mBluetoothManager.getAdapter().getBondedDevices();
+                    Set<BluetoothDevice> pairedDevices =
+                            mBluetoothManager.getAdapter().getBondedDevices();
                     if (pairedDevices.size() > 0) {
                         for (BluetoothDevice target : pairedDevices) {
                             if (target.getAddress().equals(device.getAddress())) {
@@ -906,7 +912,8 @@ public class BleServerService extends Service {
                         }
                     }
 
-                    if (mSecure && ((device.getBondState() == BluetoothDevice.BOND_NONE) || !bonded)) {
+                    if (mSecure && ((device.getBondState() == BluetoothDevice.BOND_NONE)
+                            || !bonded)) {
                         // not pairing and execute Secure Test
                         cancelNotificationTaskOfSecureTestStartFailure();
                         /*
@@ -914,7 +921,8 @@ public class BleServerService extends Service {
                             @Override
                             public void run() {
                                 mNotificationTaskOfSecureTestStartFailure = null;
-                                if (mSecure && (mDevice.getBondState() != BluetoothDevice.BOND_BONDED)) {
+                                if (mSecure && (mDevice.getBondState() != BluetoothDevice
+                                .BOND_BONDED)) {
                                     notifyMismatchSecure();
                                 }
                             }
@@ -922,7 +930,8 @@ public class BleServerService extends Service {
                         mHandler.postDelayed(mNotificationTaskOfSecureTestStartFailure,
                                 NOTIFICATION_DELAY_OF_SECURE_TEST_FAILURE);
                         */
-                    } else if (!mSecure && ((device.getBondState() != BluetoothDevice.BOND_NONE) || bonded)) {
+                    } else if (!mSecure && ((device.getBondState() != BluetoothDevice.BOND_NONE)
+                            || bonded)) {
                         // already pairing nad execute Insecure Test
                         /*
                         notifyMismatchInsecure();
@@ -950,11 +959,13 @@ public class BleServerService extends Service {
                 if (uuid.equals(mService.getUuid())) {
                     // create and add nested service
                     BluetoothGattService includedService =
-                            new BluetoothGattService(SERVICE_UUID_INCLUDED, BluetoothGattService.SERVICE_TYPE_SECONDARY);
+                            new BluetoothGattService(SERVICE_UUID_INCLUDED,
+                                    BluetoothGattService.SERVICE_TYPE_SECONDARY);
                     BluetoothGattCharacteristic characteristic =
-                        new BluetoothGattCharacteristic(CHARACTERISTIC_UUID, 0x0A, 0x11);
+                            new BluetoothGattCharacteristic(CHARACTERISTIC_UUID, 0x0A, 0x11);
                     characteristic.setValue(WRITE_VALUE.getBytes());
-                    BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(DESCRIPTOR_UUID, 0x11);
+                    BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(
+                            DESCRIPTOR_UUID, 0x11);
                     descriptor.setValue(WRITE_VALUE.getBytes());
                     characteristic.addDescriptor(descriptor);
                     includedService.addCharacteristic(characteristic);
@@ -976,7 +987,8 @@ public class BleServerService extends Service {
         }
 
         @Override
-        public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattCharacteristic characteristic) {
+        public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset,
+                BluetoothGattCharacteristic characteristic) {
             if (mGattServer == null) {
                 if (DEBUG) {
                     Log.d(TAG, "GattServer is null, return");
@@ -1028,7 +1040,8 @@ public class BleServerService extends Service {
                 return;
             }
             if (DEBUG) {
-                Log.d(TAG, "onCharacteristicWriteRequest: preparedWrite=" + preparedWrite + ", responseNeeded= " + responseNeeded);
+                Log.d(TAG, "onCharacteristicWriteRequest: preparedWrite=" + preparedWrite
+                        + ", responseNeeded= " + responseNeeded);
             }
 
             if (characteristic.getUuid().equals(CHARACTERISTIC_RESULT_UUID)) {
@@ -1052,14 +1065,16 @@ public class BleServerService extends Service {
                         break;
                 }
                 if (responseNeeded) {
-                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
+                            value);
                 }
                 return;
             }
 
             if (characteristic.getUuid().equals(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID)) {
                 if (responseNeeded) {
-                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
+                            value);
                 }
                 mGattServer.removeService(mServiceChangedService);
                 return;
@@ -1077,7 +1092,8 @@ public class BleServerService extends Service {
                     }
                 }
                 if (responseNeeded) {
-                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
+                            value);
                 }
 
                 return;
@@ -1096,7 +1112,8 @@ public class BleServerService extends Service {
             } else {
                 characteristic.setValue(value);
                 // verify
-                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(), characteristic.getValue())) {
+                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(),
+                        characteristic.getValue())) {
                     UUID uid = characteristic.getUuid();
                     if (uid.equals(CHARACTERISTIC_NEED_ENCRYPTED_WRITE_UUID)) {
                         notifyCharacteristicWriteRequestNeedEncrypted();
@@ -1109,7 +1126,8 @@ public class BleServerService extends Service {
             }
 
             if (responseNeeded) {
-                mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
+                        value);
             }
         }
 
@@ -1122,13 +1140,13 @@ public class BleServerService extends Service {
                 }
                 return;
             }
-                if (DEBUG) {
+            if (DEBUG) {
                 Log.d(TAG, "onDescriptorReadRequest(): (descriptor == getDescriptor())="
                         + (descriptor == getDescriptor()));
             }
 
             UUID uid = descriptor.getUuid();
-            if (uid.equals(DESCRIPTOR_NEED_ENCRYPTED_READ_UUID)){
+            if (uid.equals(DESCRIPTOR_NEED_ENCRYPTED_READ_UUID)) {
                 notifyDescriptorReadRequestNeedEncrypted();
             } else {
                 notifyDescriptorReadRequest();
@@ -1146,7 +1164,7 @@ public class BleServerService extends Service {
         public void onDescriptorWriteRequest(BluetoothDevice device, int requestId,
                 BluetoothGattDescriptor descriptor,
                 boolean preparedWrite, boolean responseNeeded,
-                int offset,  byte[] value) {
+                int offset, byte[] value) {
             if (mGattServer == null) {
                 if (DEBUG) {
                     Log.d(TAG, "GattServer is null, return");
@@ -1156,38 +1174,44 @@ public class BleServerService extends Service {
             BluetoothGattCharacteristic characteristic = descriptor.getCharacteristic();
             UUID uid = characteristic.getUuid();
             if (DEBUG) {
-                Log.d(TAG, "onDescriptorWriteRequest: preparedWrite=" + preparedWrite + ", responseNeeded= " + responseNeeded);
+                Log.d(TAG, "onDescriptorWriteRequest: preparedWrite=" + preparedWrite
+                        + ", responseNeeded= " + responseNeeded);
                 Log.d(TAG, "   characteristic uuid = " + uid);
             }
 
-            descriptor.setValue(value);
             UUID duid = descriptor.getUuid();
             // If there is a written request to the CCCD for Notify.
             if (duid.equals(UPDATE_DESCRIPTOR_UUID)) {
                 if (Arrays.equals(value, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
-                    mGattServer.notifyCharacteristicChanged(mDevice, descriptor.getCharacteristic(), false);
+                    mGattServer.notifyCharacteristicChanged(
+                            mDevice, descriptor.getCharacteristic(), false,
+                            characteristic.getValue());
+
                     mIndicated = false;
                 } else if (Arrays.equals(value, BluetoothGattDescriptor.ENABLE_INDICATION_VALUE)) {
-                    mGattServer.notifyCharacteristicChanged(mDevice, descriptor.getCharacteristic(), true);
+                    mGattServer.notifyCharacteristicChanged(
+                            mDevice, descriptor.getCharacteristic(), true,
+                            characteristic.getValue());
                     mIndicated = true;
                 }
             } else if (duid.equals(DESCRIPTOR_NEED_ENCRYPTED_WRITE_UUID)) {
                 // verify
-                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(), descriptor.getValue())) {
+                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(), value)) {
                     notifyDescriptorWriteRequestNeedEncrypted();
                 } else {
                     showMessage("Written data is not correct");
                 }
             } else {
                 // verify
-                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(), descriptor.getValue())) {
+                if (Arrays.equals(BleClientService.WRITE_VALUE.getBytes(), value)) {
                     notifyDescriptorWriteRequest();
                 } else {
                     showMessage("Written data is not correct");
                 }
             }
             if (responseNeeded) {
-                mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
+                        value);
             }
         }
 
@@ -1282,14 +1306,14 @@ public class BleServerService extends Service {
             Log.d(TAG, "startAdvertise");
         }
         AdvertiseData data = new AdvertiseData.Builder()
-            .addServiceData(new ParcelUuid(ADV_SERVICE_UUID), new byte[]{1,2,3})
-            .addServiceUuid(new ParcelUuid(ADV_SERVICE_UUID))
-            .build();
+                .addServiceData(new ParcelUuid(ADV_SERVICE_UUID), new byte[]{1, 2, 3})
+                .addServiceUuid(new ParcelUuid(ADV_SERVICE_UUID))
+                .build();
         AdvertiseSettings setting = new AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-            .setConnectable(true)
-            .build();
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+                .setConnectable(true)
+                .build();
         mAdvertiser.startAdvertising(setting, data, mAdvertiseCallback);
     }
 
@@ -1302,7 +1326,7 @@ public class BleServerService extends Service {
         }
     }
 
-    private final AdvertiseCallback mAdvertiseCallback = new AdvertiseCallback(){
+    private final AdvertiseCallback mAdvertiseCallback = new AdvertiseCallback() {
         @Override
         public void onStartFailure(int errorCode) {
             // Implementation for API Test.
@@ -1328,7 +1352,8 @@ public class BleServerService extends Service {
         }
     };
 
-    /*protected*/ static void dumpService(BluetoothGattService service, int level) {
+    /*protected*/
+    static void dumpService(BluetoothGattService service, int level) {
         String indent = "";
         for (int i = 0; i < level; ++i) {
             indent += "  ";
@@ -1340,18 +1365,20 @@ public class BleServerService extends Service {
         for (BluetoothGattCharacteristic ch : service.getCharacteristics()) {
             Log.d(TAG, indent + "    UUID: " + ch.getUuid());
             Log.d(TAG, indent + "      properties: " + String.format("0x%02X", ch.getProperties()));
-            Log.d(TAG, indent + "      permissions: " + String.format("0x%02X", ch.getPermissions()));
+            Log.d(TAG,
+                    indent + "      permissions: " + String.format("0x%02X", ch.getPermissions()));
             Log.d(TAG, indent + "      [descriptors]");
             for (BluetoothGattDescriptor d : ch.getDescriptors()) {
                 Log.d(TAG, indent + "        UUID: " + d.getUuid());
-                Log.d(TAG, indent + "          permissions: " + String.format("0x%02X", d.getPermissions()));
+                Log.d(TAG, indent + "          permissions: " + String.format("0x%02X",
+                        d.getPermissions()));
             }
         }
 
         if (service.getIncludedServices() != null) {
             Log.d(TAG, indent + "  [included services]");
             for (BluetoothGattService s : service.getIncludedServices()) {
-                dumpService(s, level+1);
+                dumpService(s, level + 1);
             }
         }
     }

@@ -28,6 +28,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.IPowerManager;
 import android.os.IThermalService;
@@ -35,7 +36,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.telephony.SmsCbMessage;
-import android.telephony.TelephonyManager;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,9 +70,6 @@ public class CellBroadcastAlertDialogTest extends
 
     @Mock
     private IThermalService.Stub mMockedThermalService;
-
-    @Mock
-    TelephonyManager mTelephonyManager;
 
     @Captor
     private ArgumentCaptor<Integer> mInt;
@@ -115,9 +114,13 @@ public class CellBroadcastAlertDialogTest extends
         mPowerManager = new PowerManager(mContext, mMockedPowerManagerService,
                 mMockedThermalService, null);
         injectSystemService(PowerManager.class, mPowerManager);
-        doReturn(TelephonyManager.SIM_STATE_UNKNOWN).when(mTelephonyManager)
-                .getSimApplicationState(anyInt());
-        injectSystemService(TelephonyManager.class, mTelephonyManager);
+
+        SubscriptionManager mockSubManager = mock(SubscriptionManager.class);
+        injectSystemService(SubscriptionManager.class, mockSubManager);
+        SubscriptionInfo mockSubInfo = mock(SubscriptionInfo.class);
+        doReturn(mockSubInfo).when(mockSubManager).getActiveSubscriptionInfo(anyInt());
+
+        CellBroadcastSettings.resetResourcesCache();
     }
 
     @After
@@ -165,7 +168,7 @@ public class CellBroadcastAlertDialogTest extends
     public void testAddToNotification() throws Throwable {
         startActivity();
         waitForMs(100);
-        stopActivity();
+        leaveActivity();
         waitForMs(100);
         verify(mMockedNotificationManager, times(1)).notify(mInt.capture(),
                 mNotification.capture());
@@ -177,6 +180,57 @@ public class CellBroadcastAlertDialogTest extends
                 b.getCharSequence(Notification.EXTRA_TITLE).toString()));
         assertEquals(CellBroadcastAlertServiceTest.createMessage(98235).getMessageBody(),
                 b.getCharSequence(Notification.EXTRA_TEXT));
+    }
+
+    public void testDoNotAddToNotificationOnStop() throws Throwable {
+        startActivity();
+        waitForMs(100);
+        stopActivity();
+        waitForMs(100);
+        verify(mMockedNotificationManager, times(0)).notify(mInt.capture(),
+                mNotification.capture());
+    }
+
+    public void testGetNewMessageListIfNeeded() throws Throwable {
+        CellBroadcastAlertDialog activity = startActivity();
+        Resources spyRes = mContext.getResources();
+        doReturn(false).when(spyRes).getBoolean(
+                R.bool.show_cmas_messages_in_priority_order);
+
+        SmsCbMessage testMessage1 = CellBroadcastAlertServiceTest
+                .createMessageForCmasMessageClass(12412,
+                        SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
+                        mCmasMessageClass);
+        waitForMs(10);
+        SmsCbMessage testMessage2 = CellBroadcastAlertServiceTest
+                .createMessageForCmasMessageClass(12412,
+                        SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
+                        mCmasMessageClass);
+        ArrayList<SmsCbMessage> inputList1 = new ArrayList<>();
+        ArrayList<SmsCbMessage> inputList2 = new ArrayList<>();
+
+        inputList1.add(testMessage1);
+        ArrayList<SmsCbMessage> messageList = activity.getNewMessageListIfNeeded(
+                inputList1, inputList2);
+        assertTrue(messageList.size() == 1);
+        assertEquals(testMessage1.getReceivedTime(), messageList.get(0).getReceivedTime());
+
+        inputList2.add(testMessage1);
+        messageList = activity.getNewMessageListIfNeeded(inputList1, inputList2);
+        assertTrue(messageList.size() == 1);
+        assertEquals(testMessage1.getReceivedTime(), messageList.get(0).getReceivedTime());
+
+        inputList2.add(testMessage2);
+        messageList = activity.getNewMessageListIfNeeded(inputList1, inputList2);
+        assertTrue(messageList.size() == 2);
+        assertEquals(testMessage2.getReceivedTime(), messageList.get(1).getReceivedTime());
+
+        doReturn(true).when(spyRes).getBoolean(
+                R.bool.show_cmas_messages_in_priority_order);
+
+        messageList = activity.getNewMessageListIfNeeded(inputList1, inputList2);
+        assertTrue(messageList.size() == 2);
+        assertEquals(testMessage1.getReceivedTime(), messageList.get(1).getReceivedTime());
     }
 
     @InstrumentationTest

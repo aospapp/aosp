@@ -60,6 +60,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -207,7 +208,7 @@ public class InputMethodManagerTest {
                 PackageManager.FEATURE_INPUT_METHODS));
         enableImes(MOCK_IME_ID, HIDDEN_FROM_PICKER_IME_ID);
 
-        final TestActivity testActivity = TestActivity.startSync(activity -> {
+        TestActivity.startSync(activity -> {
             final View view = new View(activity);
             view.setLayoutParams(new LayoutParams(
                     LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -222,11 +223,23 @@ public class InputMethodManagerTest {
 
         // Test InputMethodManager#showInputMethodPicker() works as expected.
         mImManager.showInputMethodPicker();
-        waitOnMainUntil(() -> mImManager.isInputMethodPickerShown()
-                        && !testActivity.hasWindowFocus(), TIMEOUT,
-                "InputMethod picker should be shown and test activity lost focus");
-        final UiDevice uiDevice =
-                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        waitOnMainUntil(() -> mImManager.isInputMethodPickerShown(), TIMEOUT,
+                "InputMethod picker should be shown");
+
+        // UiDevice.getInstance(Instrumentation) may return a cached instance if it's already called
+        // in this process and for some unknown reasons it fails to detect MOCK_IME_LABEL.
+        // As a quick workaround, here we clear its internal singleton value.
+        // TODO(b/230698095): Fix this in UiDevice or stop using UiDevice.
+        try {
+            final Field field = UiDevice.class.getDeclaredField("sInstance");
+            field.setAccessible(true);
+            field.set(null, null);
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException
+                | IllegalAccessException e) {
+            // We don't treat this as an error as it's an implementation detail of UiDevice.
+        }
+
+        final UiDevice uiDevice = UiDevice.getInstance(mInstrumentation);
         assertThat(uiDevice.wait(Until.hasObject(By.text(MOCK_IME_LABEL)), TIMEOUT)).isTrue();
         assertThat(uiDevice.findObject(By.text(HIDDEN_FROM_PICKER_IME_LABEL))).isNull();
 
@@ -235,8 +248,6 @@ public class InputMethodManagerTest {
                 new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
         waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
                 "InputMethod picker should be closed");
-        waitOnMainUntil(() -> testActivity.hasWindowFocus(), TIMEOUT,
-                "Activity should be focused after picker dismissed");
     }
 
     private void enableImes(String... ids) {

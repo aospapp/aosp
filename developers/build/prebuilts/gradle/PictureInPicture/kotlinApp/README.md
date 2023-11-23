@@ -20,7 +20,7 @@ Lifecycle][5].
 To specify that your activity can use PIP mode, set `android:supportsPictureInPicture` to `true` in
 the manifest. (Beginning with the O Developer Preview, you do not need to set
 `android:resizeableActivity` to `true` if you are supporting PIP mode, either on Android TV or on
-other Android devices; you only need to `setrandroid:resizeableActivity` if your activity supports
+other Android devices; you only need to set `android:resizeableActivity` if your activity supports
 other multi-window modes.)
 
 You can pass a [PictureInPictureParams][6] to [enterPictureInPictureMode()][7] to specify how an

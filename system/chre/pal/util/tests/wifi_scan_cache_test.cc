@@ -337,13 +337,13 @@ TEST_F(WifiScanCacheTests, DuplicateScanResultTest) {
   const char *dummyBssid = "12:34:56:78:9a:bc";
   memcpy(result.bssid, dummyBssid, strlen(dummyBssid));
   chreWifiScanResult result2 = {};
-  result.rssi = -98;
-  result.primaryChannel = 5270;
+  result2.rssi = -98;
+  result2.primaryChannel = 5270;
   const char *dummySsid2 = "Test ssid 2";
-  memcpy(result.ssid, dummySsid, strlen(dummySsid2));
-  result.ssidLen = strlen(dummySsid);
+  memcpy(result2.ssid, dummySsid2, strlen(dummySsid2));
+  result2.ssidLen = strlen(dummySsid2);
   const char *dummyBssid2 = "34:56:78:9a:bc:de";
-  memcpy(result.bssid, dummyBssid, strlen(dummyBssid2));
+  memcpy(result2.bssid, dummyBssid2, strlen(dummyBssid2));
 
   chreWifiScanCacheScanEventAdd(&result);
   chreWifiScanCacheScanEventAdd(&result2);

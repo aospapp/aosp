@@ -41,8 +41,8 @@ open class WMFlickerServiceRule @JvmOverloads constructor(
 ) : TestWatcher() {
     private val traceMonitors = mutableListOf<TraceMonitor>()
 
-    protected var wmTrace: WindowManagerTrace = WindowManagerTrace(emptyArray(), source = "")
-    protected var layersTrace: LayersTrace = LayersTrace(emptyArray(), source = "")
+    protected var wmTrace: WindowManagerTrace = WindowManagerTrace(emptyArray())
+    protected var layersTrace: LayersTrace = LayersTrace(emptyArray())
 
     override fun starting(description: Description?) {
         setupMonitors()
@@ -53,36 +53,36 @@ open class WMFlickerServiceRule @JvmOverloads constructor(
     }
 
     override fun finished(description: Description?) {
-        val testTag = description?.methodName ?: "fass"
         traceMonitors.forEach {
             it.stop()
-            it.save(testTag)
         }
 
         Files.createDirectories(outputDir)
-        wmTrace = getWindowManagerTrace(getFassFilePath(outputDir, testTag, "wm_trace"))
-        layersTrace = getLayersTrace(getFassFilePath(outputDir, testTag, "layers_trace"))
+        wmTrace = getWindowManagerTrace(getFassFilePath(outputDir, "wm_trace"))
+        layersTrace = getLayersTrace(getFassFilePath(outputDir, "layers_trace"))
 
         val flickerService = FlickerService()
-        flickerService.process(wmTrace, layersTrace, outputDir, testTag)
+        flickerService.process(wmTrace, layersTrace, outputDir)
     }
 
     private fun setupMonitors() {
         traceMonitors.add(WindowManagerTraceMonitor(outputDir))
         traceMonitors.add(LayersTraceMonitor(outputDir))
         traceMonitors.add(ScreenRecorder(
-            outputDir,
-            InstrumentationRegistry.getInstrumentation().targetContext)
+            InstrumentationRegistry.getInstrumentation().targetContext, outputDir)
         )
     }
 
     /**
-     * Remove the WM trace and layers trace files collected from previous test runs.
+     * Remove the WM trace and layers trace files collected from previous test runs if the
+     * directory exists.
      */
     private fun cleanupTraceFiles() {
-        Files.list(outputDir).forEach { file ->
-            if (!Files.isDirectory(file)) {
-                Files.delete(file)
+        if (Files.exists(outputDir)) {
+            Files.list(outputDir).forEach { file ->
+                if (!Files.isDirectory(file)) {
+                    Files.delete(file)
+                }
             }
         }
     }

@@ -33,4 +33,7 @@
         android:key="denied"
         android:title="@string/denied_header" />
 
+    <PreferenceCategory
+        android:key="storage_footer_category" />
+
 </PreferenceScreen>

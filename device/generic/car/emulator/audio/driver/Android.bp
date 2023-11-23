@@ -24,13 +24,31 @@ package {
     default_applicable_licenses: ["device_generic_car_license"],
 }
 
+soong_config_module_type {
+    name: "audio_extn_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "audio_extn_config",
+    bool_variables: ["isHFPEnabled"],
+    properties: ["srcs", "cflags"],
+}
+
+audio_extn_cc_defaults {
+    name: "audio_extn_hfp",
+    soong_config_variables: {
+        isHFPEnabled: {
+            cflags: ["-DHFP_ENABLED"],
+	    srcs: ["audio_extn/hfp.c"],
+        },
+    },
+}
+
 cc_library_shared {
 
     vendor: true,
     vintf_fragments: ["android.hardware.audio@6.0-impl.xml"],
     name: "audio.primary.caremu",
     relative_install_path: "hw",
-
+    defaults: ["audio_extn_hfp"],
     srcs: [
         "audio_hw.c",
         "audio_vbuffer.c",
@@ -38,6 +56,7 @@ cc_library_shared {
     ],
 
     include_dirs: ["external/tinyalsa/include"],
+    local_include_dirs: ["audio_extn"],
     export_include_dirs: [
         "include"
     ],

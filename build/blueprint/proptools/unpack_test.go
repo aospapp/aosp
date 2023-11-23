@@ -129,6 +129,82 @@ var validUnpackTestCases = []struct {
 	},
 
 	{
+		name: "map",
+		input: `
+			m {
+				stuff: { "asdf": "jkl;", "qwert": "uiop"},
+				empty: {},
+				nested: {
+					other_stuff: {},
+				},
+			}
+		`,
+		output: []interface{}{
+			&struct {
+				Stuff     map[string]string
+				Empty     map[string]string
+				Nil       map[string]string
+				NonString map[string]struct{ S string } `blueprint:"mutated"`
+				Nested    struct {
+					Other_stuff map[string]string
+				}
+			}{
+				Stuff:     map[string]string{"asdf": "jkl;", "qwert": "uiop"},
+				Empty:     map[string]string{},
+				Nil:       nil,
+				NonString: nil,
+				Nested: struct{ Other_stuff map[string]string }{
+					Other_stuff: map[string]string{},
+				},
+			},
+		},
+	},
+
+	{
+		name: "map with slice",
+		input: `
+			m {
+				stuff: { "asdf": ["jkl;"], "qwert": []},
+				empty: {},
+			}
+		`,
+		output: []interface{}{
+			&struct {
+				Stuff     map[string][]string
+				Empty     map[string][]string
+				Nil       map[string][]string
+				NonString map[string]struct{ S string } `blueprint:"mutated"`
+			}{
+				Stuff:     map[string][]string{"asdf": []string{"jkl;"}, "qwert": []string{}},
+				Empty:     map[string][]string{},
+				Nil:       nil,
+				NonString: nil,
+			},
+		},
+	},
+
+	{
+		name: "map with struct",
+		input: `
+			m {
+				stuff: { "asdf": {s:"a"}},
+				empty: {},
+			}
+		`,
+		output: []interface{}{
+			&struct {
+				Stuff map[string]struct{ S string }
+				Empty map[string]struct{ S string }
+				Nil   map[string]struct{ S string }
+			}{
+				Stuff: map[string]struct{ S string }{"asdf": struct{ S string }{"a"}},
+				Empty: map[string]struct{ S string }{},
+				Nil:   nil,
+			},
+		},
+	},
+
+	{
 		name: "double nested",
 		input: `
 			m {
@@ -755,7 +831,7 @@ func TestUnpackProperties(t *testing.T) {
 					}
 				}
 
-				_, errs = UnpackProperties(module.Properties, output...)
+				_, errs = unpackProperties(module.Properties, []string{"stuff", "empty", "nil", "nested.other_stuff"}, output...)
 				if len(errs) != 0 && len(testCase.errs) == 0 {
 					t.Errorf("test case: %s", testCase.input)
 					t.Errorf("unexpected unpack errors:")
@@ -960,6 +1036,37 @@ func TestUnpackErrors(t *testing.T) {
 			},
 			errors: []string{
 				`<input>:3:16: can't assign string value to list property "map_list"`,
+			},
+		},
+		{
+			name: "invalid use of maps",
+			input: `
+				m {
+					map: {"foo": "bar"},
+				}
+			`,
+			output: []interface{}{
+				&struct {
+					Map map[string]string
+				}{},
+			},
+			errors: []string{
+				`<input>: Uses of maps for properties must be allowlisted. "map" is an unsupported use case`,
+			},
+		},
+		{
+			name: "invalid use of maps, not used in bp file",
+			input: `
+				m {
+				}
+			`,
+			output: []interface{}{
+				&struct {
+					Map map[string]string
+				}{},
+			},
+			errors: []string{
+				`<input>: Uses of maps for properties must be allowlisted. "map" is an unsupported use case`,
 			},
 		},
 	}

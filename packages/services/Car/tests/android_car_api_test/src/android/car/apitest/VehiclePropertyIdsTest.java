@@ -15,10 +15,12 @@
  */
 package android.car.apitest;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.car.VehiclePropertyIds;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.test.AndroidTestCase;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.SparseArray;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -28,350 +30,316 @@ import org.junit.runner.RunWith;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
-public class VehiclePropertyIdsTest extends AndroidTestCase {
-    private static final List<String> MISSING_VEHICLE_PROPERTY_IDS =
-            new ArrayList<>(
-                Arrays.asList(
+public class VehiclePropertyIdsTest {
+    // IDs that only exist in CarPropertyManager, not VHAL.
+    private static final List<String> MISSING_VHAL_IDS = List.of();
+
+    // IDs that only exist in VHAL, not exposed by CarPropertyManager.
+    private static final List<String> MISSING_VEHICLE_PROPERTY_IDS = List.of(
+                    "EXTERNAL_CAR_TIME",
                     "DISABLED_OPTIONAL_FEATURES",
                     "EVS_SERVICE_REQUEST",
                     "HW_CUSTOM_INPUT",
                     "HW_ROTARY_INPUT",
-                    "SUPPORT_CUSTOMIZE_VENDOR_PERMISSION"));
-    private static final List<Integer> MISSING_VEHICLE_PROPERTY_ID_VALUES =
-            new ArrayList<>(
-                Arrays.asList(
-                    /*DISABLED_OPTIONAL_FEATURES=*/286265094,
-                    /*EVS_SERVICE_REQUEST=*/289476368,
-                    /*HW_CUSTOM_INPUT=*/289475120,
-                    /*HW_ROTARY_INPUT=*/289475104,
-                    /*SUPPORT_CUSTOMIZE_VENDOR_PERMISSION=*/287313669));
+                    "SUPPORT_CUSTOMIZE_VENDOR_PERMISSION");
 
 
     @Test
     public void testMatchingVehiclePropertyNamesInVehicleHal() {
-        List<String> vehiclePropertyIdNames = getListOfConstantNames(VehiclePropertyIds.class);
-        List<String> vehiclePropertyNames = getListOfConstantNames(VehicleProperty.class);
-        assertEquals(vehiclePropertyNames.size(),
-                vehiclePropertyIdNames.size() + MISSING_VEHICLE_PROPERTY_IDS.size());
-        for (String vehiclePropertyName: vehiclePropertyNames) {
-            if (MISSING_VEHICLE_PROPERTY_IDS.contains(vehiclePropertyName)) {
+        List<String> carServiceNames = getListOfConstantNames(VehiclePropertyIds.class);
+        List<String> vhalNames = getListOfConstantNames(VehicleProperty.class);
+        assertThat(vhalNames.size() + MISSING_VHAL_IDS.size()).isEqualTo(
+                carServiceNames.size() + MISSING_VEHICLE_PROPERTY_IDS.size());
+
+        List<String> expectedCarServiceNames = new ArrayList<>();
+        for (String vhalName : vhalNames) {
+            if (MISSING_VEHICLE_PROPERTY_IDS.contains(vhalName)) {
                 continue;
             }
-            assertTrue(vehiclePropertyIdNames.contains(vehiclePropertyName));
+            if (vhalName.equals("ANDROID_EPOCH_TIME")) {
+                // This is renamed in AIDL VHAL.
+                expectedCarServiceNames.add("EPOCH_TIME");
+                continue;
+            }
+            expectedCarServiceNames.add(vhalName);
         }
+
+        List<String> filteredCarServiceNames = carServiceNames.stream().filter(
+                name -> !MISSING_VHAL_IDS.contains(name)).collect(Collectors.toList());
+
+        assertThat(expectedCarServiceNames).containsExactlyElementsIn(filteredCarServiceNames);
     }
 
     @Test
     public void testMatchingVehiclePropertyValuesInVehicleHal() {
-        List<Integer> vehiclePropertyIds = getListOfConstantValues(VehiclePropertyIds.class);
-        List<Integer> vehicleProperties = getListOfConstantValues(VehicleProperty.class);
-        assertEquals(vehicleProperties.size(),
-                vehiclePropertyIds.size() + MISSING_VEHICLE_PROPERTY_ID_VALUES.size());
-        for (int vehicleProperty: vehicleProperties) {
-            if (MISSING_VEHICLE_PROPERTY_ID_VALUES.contains(vehicleProperty)) {
+        List<String> carServiceNames = getListOfConstantNames(VehiclePropertyIds.class);
+        List<String> vhalNames = getListOfConstantNames(VehicleProperty.class);
+        assertThat(vhalNames.size() + MISSING_VHAL_IDS.size()).isEqualTo(
+                carServiceNames.size() + MISSING_VEHICLE_PROPERTY_IDS.size());
+
+        List<String> mismatchNames = new ArrayList<>();
+
+        for (String vhalName : vhalNames) {
+            if (MISSING_VEHICLE_PROPERTY_IDS.contains(vhalName)) {
                 continue;
             }
+            int vhalPropId = getValue(VehicleProperty.class, vhalName);
             // TODO(b/151168399): VEHICLE_SPEED_DISPLAY_UNITS mismatch between java and hal.
-            if (vehicleProperty == VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS) {
+            if (vhalPropId == VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS) {
                 continue;
             }
-            assertTrue(vehiclePropertyIds.contains(vehicleProperty));
+
+            String carServiceName = vhalName;
+            if (carServiceName.equals("ANDROID_EPOCH_TIME")) {
+                // This is renamed in AIDL VHAL.
+                carServiceName = "EPOCH_TIME";
+            }
+            int carServicePropId = getValue(VehiclePropertyIds.class, carServiceName);
+
+            if (vhalPropId != carServicePropId) {
+                mismatchNames.add(vhalName);
+            }
         }
+
+        assertThat(mismatchNames).isEmpty();
     }
 
     @Test
     public void testToString() {
-        assertEquals("INVALID", VehiclePropertyIds.toString(VehiclePropertyIds.INVALID));
-        assertEquals("INFO_VIN", VehiclePropertyIds.toString(VehiclePropertyIds.INFO_VIN));
-        assertEquals("INFO_MAKE", VehiclePropertyIds.toString(VehiclePropertyIds.INFO_MAKE));
-        assertEquals("INFO_MODEL", VehiclePropertyIds.toString(VehiclePropertyIds.INFO_MODEL));
-        assertEquals("INFO_MODEL_YEAR",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_MODEL_YEAR));
-        assertEquals("INFO_FUEL_CAPACITY",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_FUEL_CAPACITY));
-        assertEquals("INFO_FUEL_TYPE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_FUEL_TYPE));
-        assertEquals("INFO_EV_BATTERY_CAPACITY",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_EV_BATTERY_CAPACITY));
-        assertEquals("INFO_MULTI_EV_PORT_LOCATIONS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_MULTI_EV_PORT_LOCATIONS));
-        assertEquals("INFO_EV_CONNECTOR_TYPE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_EV_CONNECTOR_TYPE));
-        assertEquals("INFO_FUEL_DOOR_LOCATION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_FUEL_DOOR_LOCATION));
-        assertEquals("INFO_EV_PORT_LOCATION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_EV_PORT_LOCATION));
-        assertEquals("INFO_DRIVER_SEAT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_DRIVER_SEAT));
-        assertEquals("INFO_EXTERIOR_DIMENSIONS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INFO_EXTERIOR_DIMENSIONS));
-        assertEquals("PERF_ODOMETER",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PERF_ODOMETER));
-        assertEquals("PERF_VEHICLE_SPEED",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PERF_VEHICLE_SPEED));
-        assertEquals("PERF_VEHICLE_SPEED_DISPLAY",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PERF_VEHICLE_SPEED_DISPLAY));
-        assertEquals("PERF_STEERING_ANGLE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PERF_STEERING_ANGLE));
-        assertEquals("PERF_REAR_STEERING_ANGLE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PERF_REAR_STEERING_ANGLE));
-        assertEquals("ENGINE_COOLANT_TEMP",
-                VehiclePropertyIds.toString(VehiclePropertyIds.ENGINE_COOLANT_TEMP));
-        assertEquals("ENGINE_OIL_LEVEL",
-                VehiclePropertyIds.toString(VehiclePropertyIds.ENGINE_OIL_LEVEL));
-        assertEquals("ENGINE_OIL_TEMP",
-                VehiclePropertyIds.toString(VehiclePropertyIds.ENGINE_OIL_TEMP));
-        assertEquals("ENGINE_RPM", VehiclePropertyIds.toString(VehiclePropertyIds.ENGINE_RPM));
-        assertEquals("WHEEL_TICK", VehiclePropertyIds.toString(VehiclePropertyIds.WHEEL_TICK));
-        assertEquals("FUEL_LEVEL", VehiclePropertyIds.toString(VehiclePropertyIds.FUEL_LEVEL));
-        assertEquals("FUEL_DOOR_OPEN",
-                VehiclePropertyIds.toString(VehiclePropertyIds.FUEL_DOOR_OPEN));
-        assertEquals("EV_BATTERY_LEVEL",
-                VehiclePropertyIds.toString(VehiclePropertyIds.EV_BATTERY_LEVEL));
-        assertEquals("EV_CHARGE_PORT_OPEN",
-                VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_PORT_OPEN));
-        assertEquals("EV_CHARGE_PORT_CONNECTED",
-                VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED));
-        assertEquals("EV_BATTERY_INSTANTANEOUS_CHARGE_RATE",
-                VehiclePropertyIds.toString(
-                        VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE));
-        assertEquals("RANGE_REMAINING",
-                VehiclePropertyIds.toString(VehiclePropertyIds.RANGE_REMAINING));
-        assertEquals("TIRE_PRESSURE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.TIRE_PRESSURE));
-        assertEquals("CRITICALLY_LOW_TIRE_PRESSURE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.CRITICALLY_LOW_TIRE_PRESSURE));
-        assertEquals("GEAR_SELECTION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.GEAR_SELECTION));
-        assertEquals("CURRENT_GEAR", VehiclePropertyIds.toString(VehiclePropertyIds.CURRENT_GEAR));
-        assertEquals("PARKING_BRAKE_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PARKING_BRAKE_ON));
-        assertEquals("PARKING_BRAKE_AUTO_APPLY",
-                VehiclePropertyIds.toString(VehiclePropertyIds.PARKING_BRAKE_AUTO_APPLY));
-        assertEquals("FUEL_LEVEL_LOW",
-                VehiclePropertyIds.toString(VehiclePropertyIds.FUEL_LEVEL_LOW));
-        assertEquals("NIGHT_MODE", VehiclePropertyIds.toString(VehiclePropertyIds.NIGHT_MODE));
-        assertEquals("TURN_SIGNAL_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.TURN_SIGNAL_STATE));
-        assertEquals("IGNITION_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.IGNITION_STATE));
-        assertEquals("ABS_ACTIVE", VehiclePropertyIds.toString(VehiclePropertyIds.ABS_ACTIVE));
-        assertEquals("TRACTION_CONTROL_ACTIVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.TRACTION_CONTROL_ACTIVE));
-        assertEquals("HVAC_FAN_SPEED",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_FAN_SPEED));
-        assertEquals("HVAC_FAN_DIRECTION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_FAN_DIRECTION));
-        assertEquals("HVAC_TEMPERATURE_CURRENT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_CURRENT));
-        assertEquals("HVAC_TEMPERATURE_SET",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_SET));
-        assertEquals("HVAC_TEMPERATURE_VALUE_SUGGESTION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_VALUE_SUGGESTION));
-        assertEquals("HVAC_DEFROSTER",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_DEFROSTER));
-        assertEquals("HVAC_AC_ON", VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_AC_ON));
-        assertEquals("HVAC_MAX_AC_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_MAX_AC_ON));
-        assertEquals("HVAC_MAX_DEFROST_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_MAX_DEFROST_ON));
-        assertEquals("HVAC_RECIRC_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_RECIRC_ON));
-        assertEquals("HVAC_DUAL_ON", VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_DUAL_ON));
-        assertEquals("HVAC_AUTO_ON", VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_AUTO_ON));
-        assertEquals("HVAC_SEAT_TEMPERATURE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_SEAT_TEMPERATURE));
-        assertEquals("HVAC_SIDE_MIRROR_HEAT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_SIDE_MIRROR_HEAT));
-        assertEquals("HVAC_STEERING_WHEEL_HEAT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_STEERING_WHEEL_HEAT));
-        assertEquals("HVAC_TEMPERATURE_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_TEMPERATURE_DISPLAY_UNITS));
-        assertEquals("HVAC_ACTUAL_FAN_SPEED_RPM",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_ACTUAL_FAN_SPEED_RPM));
-        assertEquals("HVAC_POWER_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_POWER_ON));
-        assertEquals("HVAC_FAN_DIRECTION_AVAILABLE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_FAN_DIRECTION_AVAILABLE));
-        assertEquals("HVAC_AUTO_RECIRC_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_AUTO_RECIRC_ON));
-        assertEquals("HVAC_SEAT_VENTILATION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_SEAT_VENTILATION));
-        assertEquals("HVAC_ELECTRIC_DEFROSTER_ON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HVAC_ELECTRIC_DEFROSTER_ON));
-        assertEquals("DISTANCE_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.DISTANCE_DISPLAY_UNITS));
-        assertEquals("FUEL_VOLUME_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.FUEL_VOLUME_DISPLAY_UNITS));
-        assertEquals("TIRE_PRESSURE_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.TIRE_PRESSURE_DISPLAY_UNITS));
-        assertEquals("EV_BATTERY_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.EV_BATTERY_DISPLAY_UNITS));
-        assertEquals("FUEL_CONSUMPTION_UNITS_DISTANCE_OVER_VOLUME",
-                VehiclePropertyIds.toString(
-                        VehiclePropertyIds.FUEL_CONSUMPTION_UNITS_DISTANCE_OVER_VOLUME));
-        assertEquals("ENV_OUTSIDE_TEMPERATURE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.ENV_OUTSIDE_TEMPERATURE));
-        assertEquals("AP_POWER_STATE_REQ",
-                VehiclePropertyIds.toString(VehiclePropertyIds.AP_POWER_STATE_REQ));
-        assertEquals("AP_POWER_STATE_REPORT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.AP_POWER_STATE_REPORT));
-        assertEquals("AP_POWER_BOOTUP_REASON",
-                VehiclePropertyIds.toString(VehiclePropertyIds.AP_POWER_BOOTUP_REASON));
-        assertEquals("DISPLAY_BRIGHTNESS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.DISPLAY_BRIGHTNESS));
-        assertEquals("HW_KEY_INPUT", VehiclePropertyIds.toString(VehiclePropertyIds.HW_KEY_INPUT));
-        assertEquals("DOOR_POS", VehiclePropertyIds.toString(VehiclePropertyIds.DOOR_POS));
-        assertEquals("DOOR_MOVE", VehiclePropertyIds.toString(VehiclePropertyIds.DOOR_MOVE));
-        assertEquals("DOOR_LOCK", VehiclePropertyIds.toString(VehiclePropertyIds.DOOR_LOCK));
-        assertEquals("MIRROR_Z_POS", VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_Z_POS));
-        assertEquals("MIRROR_Z_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_Z_MOVE));
-        assertEquals("MIRROR_Y_POS", VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_Y_POS));
-        assertEquals("MIRROR_Y_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_Y_MOVE));
-        assertEquals("MIRROR_LOCK", VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_LOCK));
-        assertEquals("MIRROR_FOLD", VehiclePropertyIds.toString(VehiclePropertyIds.MIRROR_FOLD));
-        assertEquals("SEAT_MEMORY_SELECT",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_MEMORY_SELECT));
-        assertEquals("SEAT_MEMORY_SET",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_MEMORY_SET));
-        assertEquals("SEAT_BELT_BUCKLED",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BELT_BUCKLED));
-        assertEquals("SEAT_BELT_HEIGHT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BELT_HEIGHT_POS));
-        assertEquals("SEAT_BELT_HEIGHT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BELT_HEIGHT_MOVE));
-        assertEquals("SEAT_FORE_AFT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_FORE_AFT_POS));
-        assertEquals("SEAT_FORE_AFT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_FORE_AFT_MOVE));
-        assertEquals("SEAT_BACKREST_ANGLE_1_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BACKREST_ANGLE_1_POS));
-        assertEquals("SEAT_BACKREST_ANGLE_1_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BACKREST_ANGLE_1_MOVE));
-        assertEquals("SEAT_BACKREST_ANGLE_2_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BACKREST_ANGLE_2_POS));
-        assertEquals("SEAT_BACKREST_ANGLE_2_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_BACKREST_ANGLE_2_MOVE));
-        assertEquals("SEAT_HEIGHT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEIGHT_POS));
-        assertEquals("SEAT_HEIGHT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEIGHT_MOVE));
-        assertEquals("SEAT_DEPTH_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_DEPTH_POS));
-        assertEquals("SEAT_DEPTH_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_DEPTH_MOVE));
-        assertEquals("SEAT_TILT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_TILT_POS));
-        assertEquals("SEAT_TILT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_TILT_MOVE));
-        assertEquals("SEAT_LUMBAR_FORE_AFT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_LUMBAR_FORE_AFT_POS));
-        assertEquals("SEAT_LUMBAR_FORE_AFT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_LUMBAR_FORE_AFT_MOVE));
-        assertEquals("SEAT_LUMBAR_SIDE_SUPPORT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_LUMBAR_SIDE_SUPPORT_POS));
-        assertEquals("SEAT_LUMBAR_SIDE_SUPPORT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_LUMBAR_SIDE_SUPPORT_MOVE));
-        assertEquals("SEAT_HEADREST_HEIGHT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_HEIGHT_POS));
-        assertEquals("SEAT_HEADREST_HEIGHT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_HEIGHT_MOVE));
-        assertEquals("SEAT_HEADREST_ANGLE_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_ANGLE_POS));
-        assertEquals("SEAT_HEADREST_ANGLE_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_ANGLE_MOVE));
-        assertEquals("SEAT_HEADREST_FORE_AFT_POS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_FORE_AFT_POS));
-        assertEquals("SEAT_HEADREST_FORE_AFT_MOVE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_HEADREST_FORE_AFT_MOVE));
-        assertEquals("SEAT_OCCUPANCY",
-                VehiclePropertyIds.toString(VehiclePropertyIds.SEAT_OCCUPANCY));
-        assertEquals("WINDOW_POS", VehiclePropertyIds.toString(VehiclePropertyIds.WINDOW_POS));
-        assertEquals("WINDOW_MOVE", VehiclePropertyIds.toString(VehiclePropertyIds.WINDOW_MOVE));
-        assertEquals("WINDOW_LOCK", VehiclePropertyIds.toString(VehiclePropertyIds.WINDOW_LOCK));
-        assertEquals("VEHICLE_MAP_SERVICE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.VEHICLE_MAP_SERVICE));
-        assertEquals("OBD2_LIVE_FRAME",
-                VehiclePropertyIds.toString(VehiclePropertyIds.OBD2_LIVE_FRAME));
-        assertEquals("OBD2_FREEZE_FRAME",
-                VehiclePropertyIds.toString(VehiclePropertyIds.OBD2_FREEZE_FRAME));
-        assertEquals("OBD2_FREEZE_FRAME_INFO",
-                VehiclePropertyIds.toString(VehiclePropertyIds.OBD2_FREEZE_FRAME_INFO));
-        assertEquals("OBD2_FREEZE_FRAME_CLEAR",
-                VehiclePropertyIds.toString(VehiclePropertyIds.OBD2_FREEZE_FRAME_CLEAR));
-        assertEquals("HEADLIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HEADLIGHTS_STATE));
-        assertEquals("HIGH_BEAM_LIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HIGH_BEAM_LIGHTS_STATE));
-        assertEquals("FOG_LIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.FOG_LIGHTS_STATE));
-        assertEquals("HAZARD_LIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HAZARD_LIGHTS_STATE));
-        assertEquals("HEADLIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HEADLIGHTS_SWITCH));
-        assertEquals("HIGH_BEAM_LIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HIGH_BEAM_LIGHTS_SWITCH));
-        assertEquals("FOG_LIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.FOG_LIGHTS_SWITCH));
-        assertEquals("HAZARD_LIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.HAZARD_LIGHTS_SWITCH));
-        assertEquals("CABIN_LIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.CABIN_LIGHTS_STATE));
-        assertEquals("CABIN_LIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.CABIN_LIGHTS_SWITCH));
-        assertEquals("READING_LIGHTS_STATE",
-                VehiclePropertyIds.toString(VehiclePropertyIds.READING_LIGHTS_STATE));
-        assertEquals("READING_LIGHTS_SWITCH",
-                VehiclePropertyIds.toString(VehiclePropertyIds.READING_LIGHTS_SWITCH));
-        assertEquals("VEHICLE_SPEED_DISPLAY_UNITS",
-                VehiclePropertyIds.toString(VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS));
-        assertEquals("ELECTRONIC_TOLL_COLLECTION_CARD_STATUS",
-                VehiclePropertyIds.toString(
-                        VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS));
-        assertEquals("ELECTRONIC_TOLL_COLLECTION_CARD_TYPE",
-                VehiclePropertyIds.toString(
-                        VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_TYPE));
-        assertEquals("INITIAL_USER_INFO",
-                VehiclePropertyIds.toString(VehiclePropertyIds.INITIAL_USER_INFO));
-        assertEquals("SWITCH_USER", VehiclePropertyIds.toString(VehiclePropertyIds.SWITCH_USER));
-        assertEquals("USER_IDENTIFICATION_ASSOCIATION",
-                VehiclePropertyIds.toString(VehiclePropertyIds.USER_IDENTIFICATION_ASSOCIATION));
-        assertEquals("0x3", VehiclePropertyIds.toString(3));
-        // Properties in S
-        assertEquals("EPOCH_TIME", VehiclePropertyIds.toString(VehiclePropertyIds.EPOCH_TIME));
-        assertEquals("STORAGE_ENCRYPTION_BINDING_SEED",
-                VehiclePropertyIds.toString(VehiclePropertyIds.STORAGE_ENCRYPTION_BINDING_SEED));
-    }
+        SparseArray<String> propsToString = new SparseArray<>();
 
-    private static List<Integer> getListOfConstantValues(Class clazz) {
-        List<Integer> list = new ArrayList<Integer>();
-        for (Field field : clazz.getDeclaredFields()) {
-            int modifiers = field.getModifiers();
-            if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
-                try {
-                    list.add(field.getInt(null));
-                } catch (IllegalAccessException e) {
-                }
-            }
+        propsToString.put(3, "0x3");
+        propsToString.put(VehiclePropertyIds.INVALID, "INVALID");
+        propsToString.put(VehiclePropertyIds.INFO_VIN, "INFO_VIN");
+        propsToString.put(VehiclePropertyIds.INFO_MAKE, "INFO_MAKE");
+        propsToString.put(VehiclePropertyIds.INFO_MODEL, "INFO_MODEL");
+        propsToString.put(VehiclePropertyIds.INFO_MODEL_YEAR, "INFO_MODEL_YEAR");
+        propsToString.put(VehiclePropertyIds.INFO_FUEL_CAPACITY, "INFO_FUEL_CAPACITY");
+        propsToString.put(VehiclePropertyIds.INFO_FUEL_TYPE, "INFO_FUEL_TYPE");
+        propsToString.put(VehiclePropertyIds.INFO_EV_BATTERY_CAPACITY, "INFO_EV_BATTERY_CAPACITY");
+        propsToString.put(VehiclePropertyIds.INFO_MULTI_EV_PORT_LOCATIONS,
+                "INFO_MULTI_EV_PORT_LOCATIONS");
+        propsToString.put(VehiclePropertyIds.INFO_EV_CONNECTOR_TYPE, "INFO_EV_CONNECTOR_TYPE");
+        propsToString.put(VehiclePropertyIds.INFO_FUEL_DOOR_LOCATION, "INFO_FUEL_DOOR_LOCATION");
+        propsToString.put(VehiclePropertyIds.INFO_EV_PORT_LOCATION, "INFO_EV_PORT_LOCATION");
+        propsToString.put(VehiclePropertyIds.INFO_DRIVER_SEAT, "INFO_DRIVER_SEAT");
+        propsToString.put(VehiclePropertyIds.INFO_EXTERIOR_DIMENSIONS, "INFO_EXTERIOR_DIMENSIONS");
+        propsToString.put(VehiclePropertyIds.PERF_ODOMETER, "PERF_ODOMETER");
+        propsToString.put(VehiclePropertyIds.PERF_VEHICLE_SPEED, "PERF_VEHICLE_SPEED");
+        propsToString.put(VehiclePropertyIds.PERF_VEHICLE_SPEED_DISPLAY,
+                "PERF_VEHICLE_SPEED_DISPLAY");
+        propsToString.put(VehiclePropertyIds.PERF_STEERING_ANGLE, "PERF_STEERING_ANGLE");
+        propsToString.put(VehiclePropertyIds.PERF_REAR_STEERING_ANGLE, "PERF_REAR_STEERING_ANGLE");
+        propsToString.put(VehiclePropertyIds.ENGINE_COOLANT_TEMP, "ENGINE_COOLANT_TEMP");
+        propsToString.put(VehiclePropertyIds.ENGINE_OIL_LEVEL, "ENGINE_OIL_LEVEL");
+        propsToString.put(VehiclePropertyIds.ENGINE_OIL_TEMP, "ENGINE_OIL_TEMP");
+        propsToString.put(VehiclePropertyIds.ENGINE_RPM, "ENGINE_RPM");
+        propsToString.put(VehiclePropertyIds.WHEEL_TICK, "WHEEL_TICK");
+        propsToString.put(VehiclePropertyIds.FUEL_LEVEL, "FUEL_LEVEL");
+        propsToString.put(VehiclePropertyIds.FUEL_DOOR_OPEN, "FUEL_DOOR_OPEN");
+        propsToString.put(VehiclePropertyIds.EV_BATTERY_LEVEL, "EV_BATTERY_LEVEL");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_PORT_OPEN, "EV_CHARGE_PORT_OPEN");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED, "EV_CHARGE_PORT_CONNECTED");
+        propsToString.put(VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE,
+                "EV_BATTERY_INSTANTANEOUS_CHARGE_RATE");
+        propsToString.put(VehiclePropertyIds.RANGE_REMAINING, "RANGE_REMAINING");
+        propsToString.put(VehiclePropertyIds.TIRE_PRESSURE, "TIRE_PRESSURE");
+        propsToString.put(VehiclePropertyIds.CRITICALLY_LOW_TIRE_PRESSURE,
+                "CRITICALLY_LOW_TIRE_PRESSURE");
+        propsToString.put(VehiclePropertyIds.GEAR_SELECTION, "GEAR_SELECTION");
+        propsToString.put(VehiclePropertyIds.CURRENT_GEAR, "CURRENT_GEAR");
+        propsToString.put(VehiclePropertyIds.PARKING_BRAKE_ON, "PARKING_BRAKE_ON");
+        propsToString.put(VehiclePropertyIds.PARKING_BRAKE_AUTO_APPLY, "PARKING_BRAKE_AUTO_APPLY");
+        propsToString.put(VehiclePropertyIds.FUEL_LEVEL_LOW, "FUEL_LEVEL_LOW");
+        propsToString.put(VehiclePropertyIds.NIGHT_MODE, "NIGHT_MODE");
+        propsToString.put(VehiclePropertyIds.TURN_SIGNAL_STATE, "TURN_SIGNAL_STATE");
+        propsToString.put(VehiclePropertyIds.IGNITION_STATE, "IGNITION_STATE");
+        propsToString.put(VehiclePropertyIds.ABS_ACTIVE, "ABS_ACTIVE");
+        propsToString.put(VehiclePropertyIds.TRACTION_CONTROL_ACTIVE, "TRACTION_CONTROL_ACTIVE");
+        propsToString.put(VehiclePropertyIds.HVAC_FAN_SPEED, "HVAC_FAN_SPEED");
+        propsToString.put(VehiclePropertyIds.HVAC_FAN_DIRECTION, "HVAC_FAN_DIRECTION");
+        propsToString.put(VehiclePropertyIds.HVAC_TEMPERATURE_CURRENT, "HVAC_TEMPERATURE_CURRENT");
+        propsToString.put(VehiclePropertyIds.HVAC_TEMPERATURE_SET, "HVAC_TEMPERATURE_SET");
+        propsToString.put(VehiclePropertyIds.HVAC_TEMPERATURE_VALUE_SUGGESTION,
+                "HVAC_TEMPERATURE_VALUE_SUGGESTION");
+        propsToString.put(VehiclePropertyIds.HVAC_DEFROSTER, "HVAC_DEFROSTER");
+        propsToString.put(VehiclePropertyIds.HVAC_AC_ON, "HVAC_AC_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_MAX_AC_ON, "HVAC_MAX_AC_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_MAX_DEFROST_ON, "HVAC_MAX_DEFROST_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_RECIRC_ON, "HVAC_RECIRC_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_DUAL_ON, "HVAC_DUAL_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_AUTO_ON, "HVAC_AUTO_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_SEAT_TEMPERATURE, "HVAC_SEAT_TEMPERATURE");
+        propsToString.put(VehiclePropertyIds.HVAC_SIDE_MIRROR_HEAT, "HVAC_SIDE_MIRROR_HEAT");
+        propsToString.put(VehiclePropertyIds.HVAC_STEERING_WHEEL_HEAT, "HVAC_STEERING_WHEEL_HEAT");
+        propsToString.put(VehiclePropertyIds.HVAC_TEMPERATURE_DISPLAY_UNITS,
+                "HVAC_TEMPERATURE_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.HVAC_ACTUAL_FAN_SPEED_RPM,
+                "HVAC_ACTUAL_FAN_SPEED_RPM");
+        propsToString.put(VehiclePropertyIds.HVAC_POWER_ON, "HVAC_POWER_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_FAN_DIRECTION_AVAILABLE,
+                "HVAC_FAN_DIRECTION_AVAILABLE");
+        propsToString.put(VehiclePropertyIds.HVAC_AUTO_RECIRC_ON, "HVAC_AUTO_RECIRC_ON");
+        propsToString.put(VehiclePropertyIds.HVAC_SEAT_VENTILATION, "HVAC_SEAT_VENTILATION");
+        propsToString.put(VehiclePropertyIds.HVAC_ELECTRIC_DEFROSTER_ON,
+                "HVAC_ELECTRIC_DEFROSTER_ON");
+        propsToString.put(VehiclePropertyIds.DISTANCE_DISPLAY_UNITS, "DISTANCE_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.FUEL_VOLUME_DISPLAY_UNITS,
+                "FUEL_VOLUME_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.TIRE_PRESSURE_DISPLAY_UNITS,
+                "TIRE_PRESSURE_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.EV_BATTERY_DISPLAY_UNITS, "EV_BATTERY_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.FUEL_CONSUMPTION_UNITS_DISTANCE_OVER_VOLUME,
+                "FUEL_CONSUMPTION_UNITS_DISTANCE_OVER_VOLUME");
+        propsToString.put(VehiclePropertyIds.ENV_OUTSIDE_TEMPERATURE, "ENV_OUTSIDE_TEMPERATURE");
+        propsToString.put(VehiclePropertyIds.AP_POWER_STATE_REQ, "AP_POWER_STATE_REQ");
+        propsToString.put(VehiclePropertyIds.AP_POWER_STATE_REPORT, "AP_POWER_STATE_REPORT");
+        propsToString.put(VehiclePropertyIds.AP_POWER_BOOTUP_REASON, "AP_POWER_BOOTUP_REASON");
+        propsToString.put(VehiclePropertyIds.DISPLAY_BRIGHTNESS, "DISPLAY_BRIGHTNESS");
+        propsToString.put(VehiclePropertyIds.HW_KEY_INPUT, "HW_KEY_INPUT");
+        propsToString.put(VehiclePropertyIds.DOOR_POS, "DOOR_POS");
+        propsToString.put(VehiclePropertyIds.DOOR_MOVE, "DOOR_MOVE");
+        propsToString.put(VehiclePropertyIds.DOOR_LOCK, "DOOR_LOCK");
+        propsToString.put(VehiclePropertyIds.MIRROR_Z_POS, "MIRROR_Z_POS");
+        propsToString.put(VehiclePropertyIds.MIRROR_Z_MOVE, "MIRROR_Z_MOVE");
+        propsToString.put(VehiclePropertyIds.MIRROR_Y_POS, "MIRROR_Y_POS");
+        propsToString.put(VehiclePropertyIds.MIRROR_Y_MOVE, "MIRROR_Y_MOVE");
+        propsToString.put(VehiclePropertyIds.MIRROR_LOCK, "MIRROR_LOCK");
+        propsToString.put(VehiclePropertyIds.MIRROR_FOLD, "MIRROR_FOLD");
+        propsToString.put(VehiclePropertyIds.SEAT_MEMORY_SELECT, "SEAT_MEMORY_SELECT");
+        propsToString.put(VehiclePropertyIds.SEAT_MEMORY_SET, "SEAT_MEMORY_SET");
+        propsToString.put(VehiclePropertyIds.SEAT_BELT_BUCKLED, "SEAT_BELT_BUCKLED");
+        propsToString.put(VehiclePropertyIds.SEAT_BELT_HEIGHT_POS, "SEAT_BELT_HEIGHT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_BELT_HEIGHT_MOVE, "SEAT_BELT_HEIGHT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_FORE_AFT_POS, "SEAT_FORE_AFT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_FORE_AFT_MOVE, "SEAT_FORE_AFT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_BACKREST_ANGLE_1_POS,
+                "SEAT_BACKREST_ANGLE_1_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_BACKREST_ANGLE_1_MOVE,
+                "SEAT_BACKREST_ANGLE_1_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_BACKREST_ANGLE_2_POS,
+                "SEAT_BACKREST_ANGLE_2_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_BACKREST_ANGLE_2_MOVE,
+                "SEAT_BACKREST_ANGLE_2_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_HEIGHT_POS, "SEAT_HEIGHT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_HEIGHT_MOVE, "SEAT_HEIGHT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_DEPTH_POS, "SEAT_DEPTH_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_DEPTH_MOVE, "SEAT_DEPTH_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_TILT_POS, "SEAT_TILT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_TILT_MOVE, "SEAT_TILT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_LUMBAR_FORE_AFT_POS, "SEAT_LUMBAR_FORE_AFT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_LUMBAR_FORE_AFT_MOVE,
+                "SEAT_LUMBAR_FORE_AFT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_LUMBAR_SIDE_SUPPORT_POS,
+                "SEAT_LUMBAR_SIDE_SUPPORT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_LUMBAR_SIDE_SUPPORT_MOVE,
+                "SEAT_LUMBAR_SIDE_SUPPORT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_HEIGHT_POS, "SEAT_HEADREST_HEIGHT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_HEIGHT_MOVE,
+                "SEAT_HEADREST_HEIGHT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_ANGLE_POS, "SEAT_HEADREST_ANGLE_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_ANGLE_MOVE, "SEAT_HEADREST_ANGLE_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_FORE_AFT_POS,
+                "SEAT_HEADREST_FORE_AFT_POS");
+        propsToString.put(VehiclePropertyIds.SEAT_HEADREST_FORE_AFT_MOVE,
+                "SEAT_HEADREST_FORE_AFT_MOVE");
+        propsToString.put(VehiclePropertyIds.SEAT_OCCUPANCY, "SEAT_OCCUPANCY");
+        propsToString.put(VehiclePropertyIds.WINDOW_POS, "WINDOW_POS");
+        propsToString.put(VehiclePropertyIds.WINDOW_MOVE, "WINDOW_MOVE");
+        propsToString.put(VehiclePropertyIds.WINDOW_LOCK, "WINDOW_LOCK");
+        propsToString.put(VehiclePropertyIds.VEHICLE_MAP_SERVICE, "VEHICLE_MAP_SERVICE");
+        propsToString.put(VehiclePropertyIds.OBD2_LIVE_FRAME, "OBD2_LIVE_FRAME");
+        propsToString.put(VehiclePropertyIds.OBD2_FREEZE_FRAME, "OBD2_FREEZE_FRAME");
+        propsToString.put(VehiclePropertyIds.OBD2_FREEZE_FRAME_INFO, "OBD2_FREEZE_FRAME_INFO");
+        propsToString.put(VehiclePropertyIds.OBD2_FREEZE_FRAME_CLEAR, "OBD2_FREEZE_FRAME_CLEAR");
+        propsToString.put(VehiclePropertyIds.HEADLIGHTS_STATE, "HEADLIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.HIGH_BEAM_LIGHTS_STATE, "HIGH_BEAM_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.FOG_LIGHTS_STATE, "FOG_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.HAZARD_LIGHTS_STATE, "HAZARD_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.HEADLIGHTS_SWITCH, "HEADLIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.HIGH_BEAM_LIGHTS_SWITCH, "HIGH_BEAM_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.FOG_LIGHTS_SWITCH, "FOG_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.HAZARD_LIGHTS_SWITCH, "HAZARD_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.CABIN_LIGHTS_STATE, "CABIN_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.CABIN_LIGHTS_SWITCH, "CABIN_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.READING_LIGHTS_STATE, "READING_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.READING_LIGHTS_SWITCH, "READING_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.VEHICLE_SPEED_DISPLAY_UNITS,
+                "VEHICLE_SPEED_DISPLAY_UNITS");
+        propsToString.put(VehiclePropertyIds.INITIAL_USER_INFO, "INITIAL_USER_INFO");
+        propsToString.put(VehiclePropertyIds.SWITCH_USER, "SWITCH_USER");
+        propsToString.put(VehiclePropertyIds.CREATE_USER, "CREATE_USER");
+        propsToString.put(VehiclePropertyIds.REMOVE_USER, "REMOVE_USER");
+        propsToString.put(VehiclePropertyIds.USER_IDENTIFICATION_ASSOCIATION,
+                "USER_IDENTIFICATION_ASSOCIATION");
+        propsToString.put(VehiclePropertyIds.POWER_POLICY_REQ, "POWER_POLICY_REQ");
+        propsToString.put(VehiclePropertyIds.POWER_POLICY_GROUP_REQ, "POWER_POLICY_GROUP_REQ");
+        propsToString.put(VehiclePropertyIds.CURRENT_POWER_POLICY, "CURRENT_POWER_POLICY");
+        propsToString.put(VehiclePropertyIds.WATCHDOG_ALIVE, "WATCHDOG_ALIVE");
+        propsToString.put(VehiclePropertyIds.WATCHDOG_TERMINATED_PROCESS,
+                "WATCHDOG_TERMINATED_PROCESS");
+        propsToString.put(VehiclePropertyIds.VHAL_HEARTBEAT, "VHAL_HEARTBEAT");
+        propsToString.put(VehiclePropertyIds.CLUSTER_SWITCH_UI, "CLUSTER_SWITCH_UI");
+        propsToString.put(VehiclePropertyIds.CLUSTER_DISPLAY_STATE, "CLUSTER_DISPLAY_STATE");
+        propsToString.put(VehiclePropertyIds.CLUSTER_REPORT_STATE, "CLUSTER_REPORT_STATE");
+        propsToString.put(VehiclePropertyIds.CLUSTER_REQUEST_DISPLAY, "CLUSTER_REQUEST_DISPLAY");
+        propsToString.put(VehiclePropertyIds.CLUSTER_NAVIGATION_STATE, "CLUSTER_NAVIGATION_STATE");
+        propsToString.put(VehiclePropertyIds.EPOCH_TIME, "EPOCH_TIME");
+        propsToString.put(VehiclePropertyIds.STORAGE_ENCRYPTION_BINDING_SEED,
+                "STORAGE_ENCRYPTION_BINDING_SEED");
+        propsToString.put(VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS,
+                "ELECTRONIC_TOLL_COLLECTION_CARD_STATUS");
+        propsToString.put(VehiclePropertyIds.ELECTRONIC_TOLL_COLLECTION_CARD_TYPE,
+                "ELECTRONIC_TOLL_COLLECTION_CARD_TYPE");
+        propsToString.put(VehiclePropertyIds.FRONT_FOG_LIGHTS_STATE, "FRONT_FOG_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.FRONT_FOG_LIGHTS_SWITCH, "FRONT_FOG_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.REAR_FOG_LIGHTS_STATE, "REAR_FOG_LIGHTS_STATE");
+        propsToString.put(VehiclePropertyIds.REAR_FOG_LIGHTS_SWITCH, "REAR_FOG_LIGHTS_SWITCH");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_CURRENT_DRAW_LIMIT,
+                "EV_CHARGE_CURRENT_DRAW_LIMIT");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_PERCENT_LIMIT, "EV_CHARGE_PERCENT_LIMIT");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_STATE, "EV_CHARGE_STATE");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_SWITCH, "EV_CHARGE_SWITCH");
+        propsToString.put(VehiclePropertyIds.EV_CHARGE_TIME_REMAINING, "EV_CHARGE_TIME_REMAINING");
+        propsToString.put(VehiclePropertyIds.EV_REGENERATIVE_BRAKING_STATE,
+                "EV_REGENERATIVE_BRAKING_STATE");
+        propsToString.put(VehiclePropertyIds.VEHICLE_CURB_WEIGHT, "VEHICLE_CURB_WEIGHT");
+        propsToString.put(VehiclePropertyIds.TRAILER_PRESENT, "TRAILER_PRESENT");
+
+        for (int i = 0; i < propsToString.size(); i++) {
+            assertThat(VehiclePropertyIds.toString(propsToString.keyAt(i))).isEqualTo(
+                    propsToString.valueAt(i));
         }
-        return list;
     }
 
     private static List<String> getListOfConstantNames(Class clazz) {
         List<String> list = new ArrayList<String>();
-        for (Field field : clazz.getDeclaredFields()) {
+        for (Field field : clazz.getFields()) {
             int modifiers = field.getModifiers();
             if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
                 list.add(field.getName());
             }
         }
         return list;
+    }
+
+    private static int getValue(Class clazz, String name) {
+        for (Field field : clazz.getFields()) {
+            int modifiers = field.getModifiers();
+            if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)
+                    && field.getName().equals(name)) {
+                try {
+                    return field.getInt(null);
+                } catch (IllegalAccessException e) {
+                    // ignore
+                }
+            }
+        }
+        return 0;
     }
 }

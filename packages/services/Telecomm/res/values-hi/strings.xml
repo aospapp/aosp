@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"पे फ़ोन से आने वाले कॉल पर रोक लगाएं"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"अज्ञात"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"अनजान कॉलर के कॉल पर रोक लगाएं"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"उपलब्ध नहीं है"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ऐसे कॉल ब्लॉक करें जिनका नंबर उपलब्ध नहीं है"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"कॉल पर रोक"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"कॉल पर रोक लगाने की सुविधा बंद है"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"आपातकालीन कॉल किया गया"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"आपातकालीन सहायता कर्मचारी आपसे संपर्क कर सकें, इसलिए कॉल पर रोक लगाने की सुविधा बंद कर दी गई है."</string>
     <string name="developer_title" msgid="9146088855661672353">"टेलीकॉम डेवलपर मेन्यू"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"आपातकालीन कॉल के दौरान कॉल नहीं उठाया जा सकता."</string>
+    <string name="cancel" msgid="6733466216239934756">"रद्द करें"</string>
 </resources>

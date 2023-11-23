@@ -16,9 +16,12 @@
 
 package com.android.server.telecom.bluetooth;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHearingAid;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothLeAudio;
 import android.content.Context;
 import android.os.Message;
 import android.telecom.Log;
@@ -30,14 +33,15 @@ import com.android.internal.os.SomeArgs;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
-import com.android.server.telecom.BluetoothHeadsetProxy;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,9 +56,9 @@ public class BluetoothRouteManager extends StateMachine {
     private static final SparseArray<String> MESSAGE_CODE_TO_NAME = new SparseArray<String>() {{
          put(NEW_DEVICE_CONNECTED, "NEW_DEVICE_CONNECTED");
          put(LOST_DEVICE, "LOST_DEVICE");
-         put(CONNECT_HFP, "CONNECT_HFP");
-         put(DISCONNECT_HFP, "DISCONNECT_HFP");
-         put(RETRY_HFP_CONNECTION, "RETRY_HFP_CONNECTION");
+         put(CONNECT_BT, "CONNECT_BT");
+         put(DISCONNECT_BT, "DISCONNECT_BT");
+         put(RETRY_BT_CONNECTION, "RETRY_BT_CONNECTION");
          put(BT_AUDIO_IS_ON, "BT_AUDIO_IS_ON");
          put(BT_AUDIO_LOST, "BT_AUDIO_LOST");
          put(CONNECTION_TIMEOUT, "CONNECTION_TIMEOUT");
@@ -94,11 +98,11 @@ public class BluetoothRouteManager extends StateMachine {
     public static final int LOST_DEVICE = 2;
 
     // arg2 (optional): the address of the specific device to connect to.
-    public static final int CONNECT_HFP = 100;
+    public static final int CONNECT_BT = 100;
     // No args.
-    public static final int DISCONNECT_HFP = 101;
+    public static final int DISCONNECT_BT = 101;
     // arg2: the address of the device to connect to.
-    public static final int RETRY_HFP_CONNECTION = 102;
+    public static final int RETRY_BT_CONNECTION = 102;
 
     // arg2: the address of the device that is on
     public static final int BT_AUDIO_IS_ON = 200;
@@ -155,27 +159,29 @@ public class BluetoothRouteManager extends StateMachine {
                     case LOST_DEVICE:
                         removeDevice((String) args.arg2);
                         break;
-                    case CONNECT_HFP:
-                        String actualAddress = connectBtAudio((String) args.arg2);
+                    case CONNECT_BT:
+                        String actualAddress = connectBtAudio((String) args.arg2,
+                            false /* switchingBtDevices*/);
 
                         if (actualAddress != null) {
                             transitionTo(getConnectingStateForAddress(actualAddress,
-                                    "AudioOff/CONNECT_HFP"));
+                                    "AudioOff/CONNECT_BT"));
                         } else {
                             Log.w(LOG_TAG, "Tried to connect to %s but failed to connect to" +
-                                    " any HFP device.", (String) args.arg2);
+                                    " any BT device.", (String) args.arg2);
                         }
                         break;
-                    case DISCONNECT_HFP:
+                    case DISCONNECT_BT:
                         // Ignore.
                         break;
-                    case RETRY_HFP_CONNECTION:
-                        Log.i(LOG_TAG, "Retrying HFP connection to %s", (String) args.arg2);
-                        String retryAddress = connectBtAudio((String) args.arg2, args.argi1);
+                    case RETRY_BT_CONNECTION:
+                        Log.i(LOG_TAG, "Retrying BT connection to %s", (String) args.arg2);
+                        String retryAddress = connectBtAudio((String) args.arg2, args.argi1,
+                            false /* switchingBtDevices*/);
 
                         if (retryAddress != null) {
                             transitionTo(getConnectingStateForAddress(retryAddress,
-                                    "AudioOff/RETRY_HFP_CONNECTION"));
+                                    "AudioOff/RETRY_BT_CONNECTION"));
                         } else {
                             Log.i(LOG_TAG, "Retry failed.");
                         }
@@ -185,12 +191,12 @@ public class BluetoothRouteManager extends StateMachine {
                         break;
                     case BT_AUDIO_IS_ON:
                         String address = (String) args.arg2;
-                        Log.w(LOG_TAG, "HFP audio unexpectedly turned on from device %s", address);
+                        Log.w(LOG_TAG, "BT audio unexpectedly turned on from device %s", address);
                         transitionTo(getConnectedStateForAddress(address,
                                 "AudioOff/BT_AUDIO_IS_ON"));
                         break;
                     case BT_AUDIO_LOST:
-                        Log.i(LOG_TAG, "Received HFP off for device %s while HFP off.",
+                        Log.i(LOG_TAG, "Received BT off for device %s while BT off.",
                                 (String) args.arg2);
                         mListener.onUnexpectedBluetoothStateChange();
                         break;
@@ -243,6 +249,7 @@ public class BluetoothRouteManager extends StateMachine {
 
             SomeArgs args = (SomeArgs) msg.obj;
             String address = (String) args.arg2;
+            boolean switchingBtDevices = !Objects.equals(mDeviceAddress, address);
             try {
                 switch (msg.what) {
                     case NEW_DEVICE_CONNECTED:
@@ -255,35 +262,38 @@ public class BluetoothRouteManager extends StateMachine {
                             transitionToActualState();
                         }
                         break;
-                    case CONNECT_HFP:
-                        if (Objects.equals(mDeviceAddress, address)) {
+                    case CONNECT_BT:
+                        if (!switchingBtDevices) {
                             // Ignore repeated connection attempts to the same device
                             break;
                         }
-                        String actualAddress = connectBtAudio(address);
 
+                        String actualAddress = connectBtAudio(address,
+                            true /* switchingBtDevices*/);
                         if (actualAddress != null) {
                             transitionTo(getConnectingStateForAddress(actualAddress,
-                                    "AudioConnecting/CONNECT_HFP"));
+                                    "AudioConnecting/CONNECT_BT"));
                         } else {
                             Log.w(LOG_TAG, "Tried to connect to %s but failed" +
-                                    " to connect to any HFP device.", (String) args.arg2);
+                                    " to connect to any BT device.", (String) args.arg2);
                         }
                         break;
-                    case DISCONNECT_HFP:
+                    case DISCONNECT_BT:
                         mDeviceManager.disconnectAudio();
                         break;
-                    case RETRY_HFP_CONNECTION:
-                        if (Objects.equals(address, mDeviceAddress)) {
+                    case RETRY_BT_CONNECTION:
+                        if (!switchingBtDevices) {
                             Log.d(LOG_TAG, "Retry message came through while connecting.");
+                            break;
+                        }
+
+                        String retryAddress = connectBtAudio(address, args.argi1,
+                            true /* switchingBtDevices*/);
+                        if (retryAddress != null) {
+                            transitionTo(getConnectingStateForAddress(retryAddress,
+                                    "AudioConnecting/RETRY_BT_CONNECTION"));
                         } else {
-                            String retryAddress = connectBtAudio(address, args.argi1);
-                            if (retryAddress != null) {
-                                transitionTo(getConnectingStateForAddress(retryAddress,
-                                        "AudioConnecting/RETRY_HFP_CONNECTION"));
-                            } else {
-                                Log.i(LOG_TAG, "Retry failed.");
-                            }
+                            Log.i(LOG_TAG, "Retry failed.");
                         }
                         break;
                     case CONNECTION_TIMEOUT:
@@ -293,7 +303,7 @@ public class BluetoothRouteManager extends StateMachine {
                         break;
                     case BT_AUDIO_IS_ON:
                         if (Objects.equals(mDeviceAddress, address)) {
-                            Log.i(LOG_TAG, "HFP connection success for device %s.", mDeviceAddress);
+                            Log.i(LOG_TAG, "BT connection success for device %s.", mDeviceAddress);
                             transitionTo(mAudioConnectedStates.get(mDeviceAddress));
                         } else {
                             Log.w(LOG_TAG, "In connecting state for device %s but %s" +
@@ -308,7 +318,7 @@ public class BluetoothRouteManager extends StateMachine {
                                     mDeviceAddress);
                             transitionToActualState();
                         } else {
-                            Log.w(LOG_TAG, "Got HFP lost message for device %s while" +
+                            Log.w(LOG_TAG, "Got BT lost message for device %s while" +
                                     " connecting to %s.", address, mDeviceAddress);
                             mListener.onUnexpectedBluetoothStateChange();
                         }
@@ -341,7 +351,7 @@ public class BluetoothRouteManager extends StateMachine {
         public void enter() {
             // Remove any of the retries that are still in the queue once any device becomes
             // connected.
-            removeMessages(RETRY_HFP_CONNECTION);
+            removeMessages(RETRY_BT_CONNECTION);
             // Remove and add to ensure that the device is at the top.
             mMostRecentlyUsedDevices.remove(mDeviceAddress);
             mMostRecentlyUsedDevices.add(mDeviceAddress);
@@ -357,6 +367,7 @@ public class BluetoothRouteManager extends StateMachine {
 
             SomeArgs args = (SomeArgs) msg.obj;
             String address = (String) args.arg2;
+            boolean switchingBtDevices = !Objects.equals(mDeviceAddress, address);
             try {
                 switch (msg.what) {
                     case NEW_DEVICE_CONNECTED:
@@ -368,35 +379,41 @@ public class BluetoothRouteManager extends StateMachine {
                             transitionToActualState();
                         }
                         break;
-                    case CONNECT_HFP:
-                        if (Objects.equals(mDeviceAddress, address)) {
-                            // Ignore connection to already connected device.
+                    case CONNECT_BT:
+                        if (!switchingBtDevices) {
+                            // Ignore connection to already connected device but still notify
+                            // CallAudioRouteStateMachine since this might be a switch from other
+                            // to this already connected BT audio
+                            mListener.onBluetoothAudioConnected();
                             break;
                         }
-                        String actualAddress = connectBtAudio(address);
 
+                        String actualAddress = connectBtAudio(address,
+                            true /* switchingBtDevices*/);
                         if (actualAddress != null) {
                             transitionTo(getConnectingStateForAddress(address,
-                                    "AudioConnected/CONNECT_HFP"));
+                                    "AudioConnected/CONNECT_BT"));
                         } else {
                             Log.w(LOG_TAG, "Tried to connect to %s but failed" +
-                                    " to connect to any HFP device.", (String) args.arg2);
+                                    " to connect to any BT device.", (String) args.arg2);
                         }
                         break;
-                    case DISCONNECT_HFP:
+                    case DISCONNECT_BT:
                         mDeviceManager.disconnectAudio();
                         break;
-                    case RETRY_HFP_CONNECTION:
-                        if (Objects.equals(address, mDeviceAddress)) {
+                    case RETRY_BT_CONNECTION:
+                        if (!switchingBtDevices) {
                             Log.d(LOG_TAG, "Retry message came through while connected.");
+                            break;
+                        }
+
+                        String retryAddress = connectBtAudio(address, args.argi1,
+                            true /* switchingBtDevices*/);
+                        if (retryAddress != null) {
+                            transitionTo(getConnectingStateForAddress(retryAddress,
+                                    "AudioConnected/RETRY_BT_CONNECTION"));
                         } else {
-                            String retryAddress = connectBtAudio(address, args.argi1);
-                            if (retryAddress != null) {
-                                transitionTo(getConnectingStateForAddress(retryAddress,
-                                        "AudioConnected/RETRY_HFP_CONNECTION"));
-                            } else {
-                                Log.i(LOG_TAG, "Retry failed.");
-                            }
+                            Log.i(LOG_TAG, "Retry failed.");
                         }
                         break;
                     case CONNECTION_TIMEOUT:
@@ -415,10 +432,10 @@ public class BluetoothRouteManager extends StateMachine {
                         break;
                     case BT_AUDIO_LOST:
                         if (Objects.equals(mDeviceAddress, address) || address == null) {
-                            Log.i(LOG_TAG, "HFP connection with device %s lost.", mDeviceAddress);
+                            Log.i(LOG_TAG, "BT connection with device %s lost.", mDeviceAddress);
                             transitionToActualState();
                         } else {
-                            Log.w(LOG_TAG, "Got HFP lost message for device %s while" +
+                            Log.w(LOG_TAG, "Got BT lost message for device %s while" +
                                     " connected to %s.", address, mDeviceAddress);
                             mListener.onUnexpectedBluetoothStateChange();
                         }
@@ -447,9 +464,10 @@ public class BluetoothRouteManager extends StateMachine {
 
     private BluetoothStateListener mListener;
     private BluetoothDeviceManager mDeviceManager;
-    // Tracks the active devices in the BT stack (HFP or hearing aid).
+    // Tracks the active devices in the BT stack (HFP or hearing aid or le audio).
     private BluetoothDevice mHfpActiveDeviceCache = null;
     private BluetoothDevice mHearingAidActiveDeviceCache = null;
+    private BluetoothDevice mLeAudioActiveDeviceCache = null;
     private BluetoothDevice mMostRecentlyReportedActiveDevice = null;
 
     public BluetoothRouteManager(Context context, TelecomSystem.SyncRoot lock,
@@ -490,7 +508,7 @@ public class BluetoothRouteManager extends StateMachine {
     }
 
     /**
-     * Returns whether there is a HFP device available to route audio to.
+     * Returns whether there is a BT device available to route audio to.
      * @return true if there is a device, false otherwise.
      */
     public boolean isBluetoothAvailable() {
@@ -535,20 +553,20 @@ public class BluetoothRouteManager extends StateMachine {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = Log.createSubsession();
         args.arg2 = address;
-        sendMessage(CONNECT_HFP, args);
+        sendMessage(CONNECT_BT, args);
     }
 
     /**
-     * Disconnects Bluetooth HFP audio.
+     * Disconnects Bluetooth audio.
      */
     public void disconnectBluetoothAudio() {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = Log.createSubsession();
-        sendMessage(DISCONNECT_HFP, args);
+        sendMessage(DISCONNECT_BT, args);
     }
 
-    public void disconnectSco() {
-        mDeviceManager.disconnectSco();
+    public void disconnectAudio() {
+        mDeviceManager.disconnectAudio();
     }
 
     public void cacheHearingAidDevice() {
@@ -581,19 +599,43 @@ public class BluetoothRouteManager extends StateMachine {
         mListener.onBluetoothDeviceListChanged();
     }
 
-    public void onActiveDeviceChanged(BluetoothDevice device, boolean isHearingAid) {
-        boolean wasActiveDevicePresent = mHearingAidActiveDeviceCache != null
-                || mHfpActiveDeviceCache != null;
-        if (isHearingAid) {
+    public void onAudioOn(String address) {
+        Session session = Log.createSubsession();
+        SomeArgs args = SomeArgs.obtain();
+        args.arg1 = session;
+        args.arg2 = address;
+        sendMessage(BT_AUDIO_IS_ON, args);
+    }
+
+    public void onAudioLost(String address) {
+        Session session = Log.createSubsession();
+        SomeArgs args = SomeArgs.obtain();
+        args.arg1 = session;
+        args.arg2 = address;
+        sendMessage(BT_AUDIO_LOST, args);
+    }
+
+    public void onActiveDeviceChanged(BluetoothDevice device, int deviceType) {
+        boolean wasActiveDevicePresent = hasBtActiveDevice();
+        if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_LE_AUDIO) {
+            mLeAudioActiveDeviceCache = device;
+            if (device == null) {
+                mDeviceManager.clearLeAudioCommunicationDevice();
+            }
+        } else if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_HEARING_AID) {
             mHearingAidActiveDeviceCache = device;
-        } else {
+            if (device == null) {
+                mDeviceManager.clearHearingAidCommunicationDevice();
+            }
+        } else if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_HEADSET) {
             mHfpActiveDeviceCache = device;
+        } else {
+            return;
         }
 
         if (device != null) mMostRecentlyReportedActiveDevice = device;
 
-        boolean isActiveDevicePresent = mHearingAidActiveDeviceCache != null
-                || mHfpActiveDeviceCache != null;
+        boolean isActiveDevicePresent = hasBtActiveDevice();
 
         if (wasActiveDevicePresent && !isActiveDevicePresent) {
             mListener.onBluetoothActiveDeviceGone();
@@ -603,15 +645,25 @@ public class BluetoothRouteManager extends StateMachine {
     }
 
     public boolean hasBtActiveDevice() {
-        return mHearingAidActiveDeviceCache != null || mHfpActiveDeviceCache != null;
+        return mLeAudioActiveDeviceCache != null ||
+                mHearingAidActiveDeviceCache != null ||
+                mHfpActiveDeviceCache != null;
+    }
+
+    public boolean isCachedLeAudioDevice(BluetoothDevice device) {
+        return mLeAudioActiveDeviceCache != null && mLeAudioActiveDeviceCache.equals(device);
+    }
+
+    public boolean isCachedHearingAidDevice(BluetoothDevice device) {
+        return mHearingAidActiveDeviceCache != null && mHearingAidActiveDeviceCache.equals(device);
     }
 
     public Collection<BluetoothDevice> getConnectedDevices() {
         return mDeviceManager.getUniqueConnectedDevices();
     }
 
-    private String connectBtAudio(String address) {
-        return connectBtAudio(address, 0);
+    private String connectBtAudio(String address, boolean switchingBtDevices) {
+        return connectBtAudio(address, 0, switchingBtDevices);
     }
 
     /**
@@ -620,14 +672,20 @@ public class BluetoothRouteManager extends StateMachine {
      * Telecom from within it.
      * @param address The address that should be tried first. May be null.
      * @param retryCount The number of times this connection attempt has been retried.
+     * @param switchingBtDevices Used when there is existing audio connection to other Bt device.
      * @return The address of the device that's actually being connected to, or null if no
      * connection was successful.
      */
-    private String connectBtAudio(String address, int retryCount) {
+    private String connectBtAudio(String address, int retryCount, boolean switchingBtDevices) {
         Collection<BluetoothDevice> deviceList = mDeviceManager.getConnectedDevices();
         Optional<BluetoothDevice> matchingDevice = deviceList.stream()
                 .filter(d -> Objects.equals(d.getAddress(), address))
                 .findAny();
+
+        if (switchingBtDevices) {
+            /* When new Bluetooth connects audio, make sure previous one has disconnected audio. */
+            mDeviceManager.disconnectAudio();
+        }
 
         String actualAddress = matchingDevice.isPresent()
                 ? address : getActiveDeviceAddress();
@@ -664,7 +722,7 @@ public class BluetoothRouteManager extends StateMachine {
                 args.arg1 = Log.createSubsession();
                 args.arg2 = actualAddress;
                 args.argi1 = retryCount + 1;
-                sendMessageDelayed(RETRY_HFP_CONNECTION, args,
+                sendMessageDelayed(RETRY_BT_CONNECTION, args,
                         mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
                                 mContext.getContentResolver()));
             }
@@ -680,6 +738,9 @@ public class BluetoothRouteManager extends StateMachine {
         }
         if (mHearingAidActiveDeviceCache != null) {
             return mHearingAidActiveDeviceCache.getAddress();
+        }
+        if (mLeAudioActiveDeviceCache != null) {
+            return mLeAudioActiveDeviceCache.getAddress();
         }
         return null;
     }
@@ -701,46 +762,83 @@ public class BluetoothRouteManager extends StateMachine {
      */
     @VisibleForTesting
     public BluetoothDevice getBluetoothAudioConnectedDevice() {
-        BluetoothHeadsetProxy bluetoothHeadset = mDeviceManager.getHeadsetService();
-        BluetoothHearingAid bluetoothHearingAid = mDeviceManager.getHearingAidService();
+        BluetoothAdapter bluetoothAdapter = mDeviceManager.getBluetoothAdapter();
+        BluetoothHeadset bluetoothHeadset = mDeviceManager.getBluetoothHeadset();
+        BluetoothHearingAid bluetoothHearingAid = mDeviceManager.getBluetoothHearingAid();
+        BluetoothLeAudio bluetoothLeAudio = mDeviceManager.getLeAudioService();
 
         BluetoothDevice hfpAudioOnDevice = null;
         BluetoothDevice hearingAidActiveDevice = null;
+        BluetoothDevice leAudioActiveDevice = null;
 
-        if (bluetoothHeadset == null && bluetoothHearingAid == null) {
+        if (bluetoothAdapter == null) {
+            Log.i(this, "getBluetoothAudioConnectedDevice: no adapter available.");
+            return null;
+        }
+        if (bluetoothHeadset == null && bluetoothHearingAid == null && bluetoothLeAudio == null) {
             Log.i(this, "getBluetoothAudioConnectedDevice: no service available.");
             return null;
         }
 
+        int activeDevices = 0;
         if (bluetoothHeadset != null) {
-            hfpAudioOnDevice = bluetoothHeadset.getActiveDevice();
+            for (BluetoothDevice device : bluetoothAdapter.getActiveDevices(
+                        BluetoothProfile.HEADSET)) {
+                hfpAudioOnDevice = device;
+                break;
+            }
 
-            if (bluetoothHeadset.getAudioState(hfpAudioOnDevice)
+            if (hfpAudioOnDevice != null && bluetoothHeadset.getAudioState(hfpAudioOnDevice)
                     == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
                 hfpAudioOnDevice = null;
+            } else {
+                activeDevices++;
             }
         }
 
         if (bluetoothHearingAid != null) {
-            for (BluetoothDevice device : bluetoothHearingAid.getActiveDevices()) {
-                if (device != null) {
-                    hearingAidActiveDevice = device;
-                    break;
+            if (mDeviceManager.isHearingAidSetAsCommunicationDevice()) {
+                for (BluetoothDevice device : bluetoothAdapter.getActiveDevices(
+                        BluetoothProfile.HEARING_AID)) {
+                    if (device != null) {
+                        hearingAidActiveDevice = device;
+                        activeDevices++;
+                        break;
+                    }
                 }
             }
         }
 
-        // Return the active device reported by either HFP or hearing aid. If both are reporting
-        // active devices, go with the most recent one as reported by the receiver.
-        if (hfpAudioOnDevice != null) {
-            if (hearingAidActiveDevice != null) {
-                Log.i(this, "Both HFP and hearing aid are reporting active devices. Going with"
-                        + " the most recently reported active device: %s");
-                return mMostRecentlyReportedActiveDevice;
+        if (bluetoothLeAudio != null) {
+            if (mDeviceManager.isLeAudioCommunicationDevice()) {
+                for (BluetoothDevice device : bluetoothAdapter.getActiveDevices(
+                        BluetoothProfile.LE_AUDIO)) {
+                    if (device != null) {
+                        leAudioActiveDevice = device;
+                        activeDevices++;
+                        break;
+                    }
+                }
             }
-            return hfpAudioOnDevice;
         }
-        return hearingAidActiveDevice;
+
+        // Return the active device reported by either HFP, hearing aid or le audio. If more than
+        // one is reporting active devices, go with the most recent one as reported by the receiver.
+        if (activeDevices > 1) {
+            Log.i(this, "More than one profile reporting active devices. Going with the most"
+                    + " recently reported active device: %s", mMostRecentlyReportedActiveDevice);
+            return mMostRecentlyReportedActiveDevice;
+        }
+
+        if (leAudioActiveDevice != null) {
+            return leAudioActiveDevice;
+        }
+
+        if (hearingAidActiveDevice != null) {
+            return hearingAidActiveDevice;
+        }
+
+        return hfpAudioOnDevice;
     }
 
     /**
@@ -751,7 +849,7 @@ public class BluetoothRouteManager extends StateMachine {
      */
     @VisibleForTesting
     public boolean isInbandRingingEnabled() {
-        BluetoothHeadsetProxy bluetoothHeadset = mDeviceManager.getHeadsetService();
+        BluetoothHeadset bluetoothHeadset = mDeviceManager.getBluetoothHeadset();
         if (bluetoothHeadset == null) {
             Log.i(this, "isInbandRingingEnabled: no headset service available.");
             return false;
@@ -836,10 +934,12 @@ public class BluetoothRouteManager extends StateMachine {
     }
 
     @VisibleForTesting
-    public void setActiveDeviceCacheForTesting(BluetoothDevice device, boolean isHearingAid) {
-        if (isHearingAid) {
+    public void setActiveDeviceCacheForTesting(BluetoothDevice device, int deviceType) {
+        if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_LE_AUDIO) {
+          mLeAudioActiveDeviceCache = device;
+        } else if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_HEARING_AID) {
             mHearingAidActiveDeviceCache = device;
-        } else {
+        } else if (deviceType == BluetoothDeviceManager.DEVICE_TYPE_HEADSET) {
             mHfpActiveDeviceCache = device;
         }
     }

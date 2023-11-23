@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Qasu te të dhënat duke përdorur rrjetin celular"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Rrjeti celular"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Përdor të dhënat celulare"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Joaktiv"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Të çaktivizohen të dhënat celulare?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Kërkohet përzgjedhja"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Të përdoret <xliff:g id="CARRIER">%1$s</xliff:g> për të dhënat celulare?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Skanimi i Wi‑Fi është aktivizuar"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Kalo automatikisht te të dhënat celulare"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Përdor të dhënat celulare kur Wi-Fi nuk ka qasje në internet. Mund të zbatohen tarifa për të dhënat."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Gjej dhe lidhu me rrjetet Wi-Fi"</string>
     <string name="learn_more" msgid="8214605928933358604">"Mëso më shumë"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Emri i zonës së qasjes për internet"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> po aktivizohet..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Pajisjet e tjera mund të lidhen me <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Fjalëkalimi i zonës së qasjes për internet"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Siguria"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Asnjë"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Brezi AP"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Preferencat e aplikacioneve janë rivendosur"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Spastro të gjitha të dhënat (rivendosja e fabrikës)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Spastro të gjitha të dhënat dhe profilet nga ky sistem info-argëtues"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Kjo do të spastrojë të gjitha të dhënat nga sistemi info-argëtues i automjetit tënd, duke përfshirë:\n\n"<li>"Llogarinë tënde të Google"</li>\n<li>"Të dhënat dhe cilësimet e sistemit dhe të aplikacioneve"</li>\n<li>"Aplikacionet e shkarkuara"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Kjo do të fshijë të gjitha të dhënat nga sistemi info-argëtues i automjetit, duke përfshirë:\n\n"<li>"Llogaritë dhe profilet e tua"</li>\n<li>"Të dhënat dhe cilësimet e sistemit dhe të aplikacioneve"</li>\n<li>"Aplikacionet e shkarkuara"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Je i identifikuar aktualisht në llogaritë e mëposhtme:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Për këtë automjet janë konfiguruar profile të tjera."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Spastro të gjitha të dhënat"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Zgjidh një administrator të ri"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Të duhet të paktën një administrator. Për ta fshirë këtë, në fillim zgjidh një zëvendësues."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Zgjidh administratorin"</string>
-    <string name="user_guest" msgid="3465399481257448601">"I ftuar"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"I ftuar"</string>
     <string name="user_switch" msgid="6544839750534690781">"Ndërro"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Ti (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Emri"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Llogaritë për <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sinkronizo automatikisht të dhënat"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Lejo që aplikacionet t\'i rifreskojnë automatikisht të dhënat"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Të aktivizohen të dhënat e sinkronizimit automatik?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Çdo ndryshim që bën në llogaritë e tua në ueb do të kopjohet automatikisht te pajisja jote.\n\nDisa llogari mund të kopjojnë po ashtu automatikisht në ueb çdo ndryshim që bën në telefon, për ta sinkronizuar në ueb. Kështu funksionon \"Llogaria e Google\"."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Të çaktivizohen të dhënat e sinkronizimit automatik?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Të lejohet sinkronizimi automatik i të dhënave?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Çdo ndryshim që bën në llogaritë e tua në ueb do të kopjohen automatikisht në automjetin tënd.\n\nDisa llogari mund edhe të kopjojnë automatikisht në ueb çdo ndryshim që ti bën në automjet."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Të ndalohet sinkronizimi automatik i të dhënave?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Kjo do të kursejë të dhënat, por për të mbledhur informacionet më të fundit, do të të duhet të sinkronizosh në mënyrë manuale çdo llogari. Dhe nuk do të marrësh njoftime kur të ndodhin përditësimet."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Informacionet e llogarisë"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Shto llogari"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privatësia"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Të dhënat e sistemit info-argëtues"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Kontrollo qasjen e aplikacioneve te vendndodhja jote"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Kamera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Kontrollo qasjen e aplikacioneve te kamerat e tua"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofoni"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Kontrollo qasjen e aplikacionit te mikrofoni"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Të dhënat e sistemit info-argëtues"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Anulo"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Konfirmo"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Duhet të jetë të paktën 4 karaktere"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Duhet të jetë të paktën <xliff:g id="COUNT">%d</xliff:g> karaktere"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"Kodi PIN duhet të jetë të paktën <xliff:g id="COUNT">%d</xliff:g> shifra"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Duhet të jetë më pak se <xliff:g id="NUMBER">%d</xliff:g> karaktere"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Duhet të jetë më pak se <xliff:g id="NUMBER">%d</xliff:g> shifra"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Duhet të përmbajë vetëm shifra 0-9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Administratori i pajisjes nuk e lejon përdorimin e një kodi PIN të përdorur së fundi"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Kodet e zakonshme PIN janë bllokuar nga administratori i teknologjisë së informacionit. Provo një kod tjetër PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Administratori i pajisjes nuk e lejon përdorimin e një fjalëkalimi të përdorur së fundi"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Gabim gjatë ruajtjes së fjalëkalimit"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Fjalëkalimet e zakonshme janë bllokuar nga administratori i teknologjisë së informacionit. Provo një fjalëkalim tjetër."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Nuk lejohet një sekuencë shifrash në rritje, në zbritje ose me përsëritje."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Duhet të përmbajë të paktën një shkronjë"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Duhet të përmbajë të paktën një shifër"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Duhet të përmbajë të paktën një simbol"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Duhet të përmbajë të paktën # shkronjë}other{Duhet të përmbajë të paktën # shkronja}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Duhet të përmbajë të paktën # shkronjë të vogël}other{Duhet të përmbajë të paktën # shkronja të vogla}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Duhet të përmbajë të paktën # shkronjë të madhe}other{Duhet të përmbajë të paktën # shkronja të mëdha}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Duhet të përmbajë të paktën # shifër numerike}other{Duhet të përmbajë të paktën # shifra numerike}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Duhet të përmbajë të paktën # simbol të veçantë}other{Duhet të përmbajë të paktën # simbole të veçanta}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Duhet të përmbajë të paktën # karakter që nuk është shkronjë}other{Duhet të përmbajë të paktën # karaktere që nuk janë shkronja}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Duhet të përmbajë të paktën # karakter jonumerik}other{Duhet të përmbajë të paktën # karaktere jonumerike}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Duhet të përmbajë të paktën # karakter}other{Duhet të përmbajë të paktën # karaktere}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Duhet të përmbajë të paktën # shifër}other{Duhet të përmbajë të paktën # shifra}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Duhet të ketë më pak se # karakter}other{Duhet të ketë më pak se # karaktere}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Duhet të ketë më pak se # shifër}other{Duhet të ketë më pak se # shifra}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Nuk lejohet një sekuencë shifrash në rritje, në zbritje ose me përsëritje"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opsionet e kyçjes së ekranit"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> ditë më parë"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Pastro kredencialet"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Hiq"</string>
     <string name="cancel" msgid="750286395700355455">"Anulo"</string>
     <string name="allow" msgid="7519431342750394402">"Lejo"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Mos lejo"</string>
     <string name="deny" msgid="340512788979930804">"Refuzo"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Tasti \"Kthim prapa\""</string>
     <string name="enter_key" msgid="2121394305541579468">"Tasti \"Hyrje\""</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Aktivizo këtë aplikacion të sistemit info-argëtues"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Çaktivizo dhe çinstalo"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Çaktivizo këtë aplikacion të sistemit info-argëtues"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Më shumë detaje"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Menaxheri i organizatës mund të monitorojë dhe menaxhojë aplikacionet dhe të dhënat e lidhura me këtë profil, duke përfshirë cilësimet, lejet, qasjen e korporatës, aktivitetin në rrjet dhe informacionin e vendndodhjes së automjetit."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Menaxheri i organizatës mund të monitorojë dhe menaxhojë aplikacionet dhe të dhënat e lidhura me këtë profil, duke përfshirë cilësimet, lejet, qasjen e korporatës, aktivitetin në rrjet dhe informacionin e vendndodhjes së pajisjes."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Menaxheri i organizatës mund të monitorojë dhe menaxhojë aplikacionet dhe të dhënat e lidhura me këtë sistem info-argëtues, duke përfshirë cilësimet, lejet, qasjen e korporatës, aktivitetin në rrjet dhe informacionin e vendndodhjes së automjetit."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Politika e automjeteve e <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Cilësimet menaxhohen nga menaxheri i organizatës"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Mëso më shumë për \"<xliff:g id="SERVICE">%1$s</xliff:g>\""</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informacionet e automjetit të menaxhuar"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Cilësimet e menaxhuara nga administratori i flotës"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Për të ofruar qasje tek të dhënat e këtij automjeti të menaxhuar, administratori i flotës mund të ndryshojë cilësimet e sistemit dhe të instalojë softuerë në sistemin info-argëtues.\n\nKontakto administratorin e flotës për më shumë detaje."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informacionet që administratori i flotës mund të shohë"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Ndryshimet e kryera nga administratori i flotës"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Të dhënat e lidhura me llogarinë e automjetit tënd të menaxhuar"</li>\n" "<li>"Lista e aplikacioneve në automjetin tënd të menaxhuar"</li>\n" "<li>"Sasia e kohës dhe të dhënat e harxhuara në secilin aplikacion"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Qasja jote në sistemin info-argëtues"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Lista e aplikacioneve në automjetin tënd"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Numri i aplikacioneve është i përafërt. Ai mund të mos përfshijë aplikacionet e instaluara jashtë \"Dyqanit të Play\"."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Minimumi <xliff:g id="COUNT_1">%d</xliff:g> aplikacione</item>
+      <item quantity="one">Minimumi <xliff:g id="COUNT_0">%d</xliff:g> aplikacion</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aplikacione</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aplikacion</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Evidenca më e fundit e trafikut të rrjetit"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Raporti më i fundit i defekteve në kod"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Evidenca më e fundit e sigurisë"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Asnjë"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Aplikacionet e instaluara"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Lejet e vendndodhjes"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Lejet e mikrofonit"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Lejet e kamerës"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Aplikacionet e parazgjedhura"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Tastiera e parazgjedhur"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"U caktua në <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Proxy global HTTP është caktuar"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Kredencialet e besuara në profilin tënd personal"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Administratori mund ta kyçë sistemin info-argëtues dhe të rivendosë fjalëkalimin"</li>\n" "<li>"Administratori mund të fshijë të dhëna në sistemin info-argëtues"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Përpjekjet e pasuksesshme për fjalëkalimin përpara fshirjes së të gjithave të dhënave në sistemin info-argëtues"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Përpjekjet e pasuksesshme për fjalëkalimin përpara fshirjes së të dhënave të profilit"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> përpjekje</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> përpjekje</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Aplikacionet e kamerës</item>
+      <item quantity="one">Aplikacioni i kamerës</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">Aplikacionet e klientit të email-it</item>
+      <item quantity="one">Aplikacioni i klientit të email-it</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Aplikacionet e telefonit</item>
+      <item quantity="one">Aplikacioni i telefonit</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Të ndahet raporti i defektit në kod?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Menaxheri i organizatës i automjetit kërkoi një raport të defektit në kod për të ndihmuar në zgjidhjen e problemeve të kësaj pajisjeje. Aplikacionet dhe të dhënat mund të ndahen."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Menaxheri i organizatës i automjetit kërkoi një raport të defektit në kod për të ndihmuar në zgjidhjen e problemeve të kësaj pajisjeje. Aplikacionet dhe të dhënat mund të ndahen dhe pajisja jote mund të ngadalësohet përkohësisht."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Raporti i defektit në kod po ndahet me menaxherin e organizatës e automjetit. Kontaktoje atë për detaje."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Ndaj"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Refuzo"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Rivendos sistemin info-argëtues"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Sistemi yt ka marrë një kërkesë për ta rivendosur në gjendje fabrike dhe për të spastruar të gjitha të dhënat. Mund ta rivendosësh tani ose do të rivendoset herën tjetër që do të ndizet makina. Më pas mund të konfigurosh një profil të ri."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Rivendos tani"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Rivendose më vonë"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Sistemi info-argëtues do të rivendoset herën tjetër që do të ndizet makina."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Makina duhet të jetë e parkuar për të nisur rivendosjen."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Ky cilësim nuk mund të ndryshohet në këtë moment"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Qasshmëria"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Titrat"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"E zezë mbi të bardhë"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"E verdhë mbi të zezë"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"E verdhë në të kaltër"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Lexuesi i ekranit"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Joaktiv"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Lexo me zë artikujt në ekran"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Përdor <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Opsionet"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Cilësimet"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Kamera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Përdor kamerën"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Lejo qasjen në kamerën tënde për të gjitha aplikacionet"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Menaxho lejet e kamerës"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Qasur së fundi"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Asnjë aplikacion i fundit"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 aplikacione kanë qasje"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# nga {total_count} aplikacione ka qasje}other{# nga {total_count} aplikacione kanë qasje}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Qasur së fundi"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Shiko të gjitha"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Po ngarkohet…"</string>
 </resources>

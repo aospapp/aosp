@@ -67,6 +67,9 @@ void ApInterfaceBinder::NotifySoftApChannelSwitched(
     case ChannelBandwidth::BW_160:
       bandwidth = IApInterfaceEventCallback::BANDWIDTH_160;
       break;
+    case ChannelBandwidth::BW_320:
+      bandwidth = IApInterfaceEventCallback::BANDWIDTH_320;
+      break;
     default:
       bandwidth = IApInterfaceEventCallback::BANDWIDTH_INVALID;
   }

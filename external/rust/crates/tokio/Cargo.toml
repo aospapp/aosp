@@ -3,21 +3,20 @@
 # When uploading crates to the registry Cargo will automatically
 # "normalize" Cargo.toml files for maximal compatibility
 # with all versions of Cargo and also rewrite `path` dependencies
-# to registry (e.g., crates.io) dependencies
+# to registry (e.g., crates.io) dependencies.
 #
-# If you believe there's an error in this file please file an
-# issue against the rust-lang/cargo repository. If you're
-# editing this file be aware that the upstream Cargo.toml
-# will likely look very different (and much more reasonable)
+# If you are reading this file be aware that the original Cargo.toml
+# will likely look very different (and much more reasonable).
+# See Cargo.toml.orig for the original contents.
 
 [package]
 edition = "2018"
 name = "tokio"
-version = "1.5.0"
+version = "1.14.0"
 authors = ["Tokio Contributors <team@tokio.rs>"]
 description = "An event-driven, non-blocking I/O platform for writing asynchronous I/O\nbacked applications.\n"
 homepage = "https://tokio.rs"
-documentation = "https://docs.rs/tokio/1.5.0/tokio/"
+documentation = "https://docs.rs/tokio/1.14.0/tokio/"
 readme = "README.md"
 keywords = ["io", "async", "non-blocking", "futures"]
 categories = ["asynchronous", "network-programming"]
@@ -57,7 +56,7 @@ optional = true
 version = "0.2.0"
 
 [dependencies.tokio-macros]
-version = "1.1.0"
+version = "1.6.0"
 optional = true
 [dev-dependencies.async-stream]
 version = "0.3"
@@ -66,11 +65,17 @@ version = "0.3"
 version = "0.3.0"
 features = ["async-await"]
 
+[dev-dependencies.mockall]
+version = "0.10.2"
+
 [dev-dependencies.proptest]
 version = "1"
 
 [dev-dependencies.rand]
 version = "0.8.0"
+
+[dev-dependencies.socket2]
+version = "0.4"
 
 [dev-dependencies.tempfile]
 version = "3.1.0"
@@ -90,19 +95,23 @@ full = ["fs", "io-util", "io-std", "macros", "net", "parking_lot", "process", "r
 io-std = []
 io-util = ["memchr", "bytes"]
 macros = ["tokio-macros"]
-net = ["libc", "mio/os-poll", "mio/os-util", "mio/tcp", "mio/udp", "mio/uds"]
+net = ["libc", "mio/os-poll", "mio/os-util", "mio/tcp", "mio/udp", "mio/uds", "winapi/namedpipeapi"]
 process = ["bytes", "once_cell", "libc", "mio/os-poll", "mio/os-util", "mio/uds", "signal-hook-registry", "winapi/threadpoollegacyapiset"]
 rt = []
 rt-multi-thread = ["num_cpus", "rt"]
 signal = ["once_cell", "libc", "mio/os-poll", "mio/uds", "mio/os-util", "signal-hook-registry", "winapi/consoleapi"]
+stats = []
 sync = []
-test-util = []
+test-util = ["rt", "sync", "time"]
 time = []
 [target."cfg(loom)".dev-dependencies.loom]
 version = "0.5"
 features = ["futures", "checkpoint"]
+[target."cfg(target_os = \"freebsd\")".dev-dependencies.mio-aio]
+version = "0.6.0"
+features = ["tokio"]
 [target."cfg(tokio_unstable)".dependencies.tracing]
-version = "0.1.21"
+version = "0.1.25"
 features = ["std"]
 optional = true
 default-features = false
@@ -117,8 +126,10 @@ optional = true
 version = "0.2.42"
 
 [target."cfg(unix)".dev-dependencies.nix]
-version = "0.19.0"
+version = "0.22.0"
 [target."cfg(windows)".dependencies.winapi]
 version = "0.3.8"
 optional = true
 default-features = false
+[target."cfg(windows)".dev-dependencies.ntapi]
+version = "0.3.6"

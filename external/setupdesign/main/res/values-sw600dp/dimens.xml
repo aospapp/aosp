@@ -18,10 +18,14 @@
 <resources>
 
     <!-- General -->
+    <!-- Calculated by (sud_glif_margin_start - sud_glif_button_padding) -->
+    <dimen name="sud_glif_button_margin_start">24dp</dimen>
     <!-- Calculated by (sud_glif_margin_start - 4dp internal padding of button) -->
     <dimen name="sud_glif_button_margin_end">36dp</dimen>
     <!-- Calculated by (sud_glif_margin_start - sud_glif_button_padding) -->
-    <dimen name="sud_glif_button_margin_start">24dp</dimen>
+    <dimen name="sud_glif_footer_padding_start">24dp</dimen>
+    <!-- Calculated by (sud_glif_margin_end - 4dp internal padding of button) -->
+    <dimen name="sud_glif_footer_padding_end">36dp</dimen>
     <dimen name="sud_glif_margin_start">40dp</dimen>
     <dimen name="sud_glif_margin_end">40dp</dimen>
 
@@ -37,5 +41,27 @@
     <dimen name="sud_items_text_divider_inset">40dp</dimen>
     <dimen name="sud_items_glif_icon_divider_inset">88dp</dimen>
     <dimen name="sud_items_glif_text_divider_inset">40dp</dimen>
+
+    <!-- General Material You -->
+    <dimen name="sud_glif_content_padding_top_material_you">0dp</dimen>
+
+     <!-- Items Material You -->
+    <dimen name="sud_items_summary_text_size_material_you">16sp</dimen>
+
+    <!-- Page Margins Material You -->
+    <dimen name="sud_glif_margin_start_material_you">120dp</dimen>
+    <dimen name="sud_glif_margin_end_material_you">120dp</dimen>
+
+    <!-- Footer Button Material You-->
+    <dimen name="sud_glif_primary_button_button_margin_start_material_you">24dp</dimen>
+
+    <!-- Footer Bar Material You -->
+    <dimen name="sud_glif_footer_bar_padding_start_material_you">104dp</dimen>
+    <!-- Calculated by (sud_glif_margin_end - 4dp internal padding of button) -->
+    <dimen name="sud_glif_footer_bar_padding_end_material_you">116dp</dimen>
+
+    <!-- Header Area Material You -->
+    <dimen name="sud_glif_header_title_size_material_you">44sp</dimen>
+    <dimen name="sud_glif_icon_margin_top_material_you">24dp</dimen>
 
 </resources>

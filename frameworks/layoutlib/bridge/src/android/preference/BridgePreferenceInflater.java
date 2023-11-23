@@ -16,12 +16,15 @@
 
 package android.preference;
 
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.android.BridgeContext;
 import com.android.layoutlib.bridge.android.BridgeXmlBlockParser;
 
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.InflateException;
+
+import static com.android.layoutlib.bridge.Bridge.getLog;
 
 public class BridgePreferenceInflater extends PreferenceInflater {
 
@@ -53,6 +56,11 @@ public class BridgePreferenceInflater extends PreferenceInflater {
                     "androidx.preference".equals(prefix)) &&
                     "SwitchPreferenceCompat".equals(name)) {
                 preference = super.createItem("SwitchPreference", prefix, attrs);
+            } else {
+                // Log the error and rethrow the exception as returning null would later result in
+                // a NullPointerException without a good error message for the user.
+                getLog().error(ILayoutLog.TAG_INFLATE, exception.getMessage(), null, null);
+                throw exception;
             }
         }
 

@@ -8,6 +8,9 @@
   "基伍地区": {
     "name": "基伍地区"
   },
+  "中国实控白玉地区": {
+    "name:zh": "中国实控白玉地区"
+  },
   "שטח B": {
     "name:he": "שטח B"
   },
@@ -144,6 +147,9 @@
   "Bir Tawil": {
     "alt_name:en": "Bi'r Tawīl"
   },
+  "Blanc Sablon-tz": {
+    "timezone": "America/Blanc-Sablon"
+  },
   "Bledsoe County, TN": {
     "name": "Bledsoe County",
     "nist:state_fips": "47"
@@ -222,9 +228,6 @@
   "Cancun-tz": {
     "timezone": "America/Cancun"
   },
-  "Cape Breton County": {
-    "name": "Cape Breton County"
-  },
   "Cape Verde": {
     "ISO3166-1": "CV"
   },
@@ -293,9 +296,6 @@
   "Corrientes": {
     "ISO3166-2": "AR-W"
   },
-  "Coral Harbour-tz": {
-    "timezone": "America/Coral_Harbour"
-  },
   "Corson County, SD": {
     "name": "Corson County",
     "nist:state_fips": "46"
@@ -314,7 +314,7 @@
     "nist:state_fips": "18"
   },
   "Creston-tz": {
-    "timezone": "America/Creston"
+    "name": "America/Creston"
   },
   "Crimea": {
     "name:en": "Republic of Crimea"
@@ -365,8 +365,8 @@
   "Djibouti": {
     "ISO3166-1": "DJ"
   },
-  "Doklam 洞郎地区": {
-    "name": "Doklam 洞郎地区"
+  "Doklam 洞朗地区": {
+    "name": "Doklam 洞朗地区"
   },
   "Dominica": {
     "ISO3166-1": "DM"
@@ -427,6 +427,10 @@
   "Faroe Islands": {
     "ISO3166-1": "FO"
   },
+  "Fentress County, TN": {
+    "name": "Fentress County",
+    "nist:state_fips": "47"
+  },
   "Fiji": {
     "ISO3166-1": "FJ"
   },
@@ -465,6 +469,10 @@
   "Gibson County, IN": {
     "name": "Gibson County",
     "nist:state_fips": "18"
+  },
+  "Glace Bay-tz": {
+    "boundary": "timezone",
+    "name": "America/Glace_Bay Timezone"
   },
   "Gogebic County": {
     "name": "Gogebic County"
@@ -517,6 +525,9 @@
   },
   "Haiti": {
     "ISO3166-1": "HT"
+  },
+  "Halifax-tz": {
+    "timezone": "America/Halifax"
   },
   "Hamilton County, KS": {
     "name": "Hamilton County",
@@ -944,10 +955,6 @@
   "Omsk": {
     "ISO3166-2": "RU-OMS"
   },
-  "Overton County, TN": {
-    "name": "Overton County",
-    "nist:state_fips": "47"
-  },
   "Oymyakonsky": {
     "name:en": "Oymyakonsky Ulus"
   },
@@ -1038,6 +1045,9 @@
   },
   "Queensland": {
     "ISO3166-2": "AU-QLD"
+  },
+  "Rainy River-tz": {
+    "timezone": "America/Rainy_River"
   },
   "Rankin Inlet-tz": {
     "timezone": "America/Rankin_Inlet"
@@ -1248,8 +1258,9 @@
   "Sweden": {
     "ISO3166-1": "SE"
   },
-  "Swift Current": {
-    "name": "Swift Current"
+  "Swift Current-tz": {
+    "boundary": "timezone",
+    "name": "America/Swift_Current timezone"
   },
   "Switzerland": {
     "ISO3166-1": "CH"

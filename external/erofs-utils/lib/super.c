@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * erofs-utils/lib/super.c
- *
  * Created by Li Guifu <blucerlee@gmail.com>
  */
 #include <string.h>
 #include <stdlib.h>
-#include <asm-generic/errno-base.h>
-
 #include "erofs/io.h"
 #include "erofs/print.h"
 
@@ -27,6 +23,45 @@ static bool check_layout_compatibility(struct erofs_sb_info *sbi,
 	return true;
 }
 
+static int erofs_init_devices(struct erofs_sb_info *sbi,
+			      struct erofs_super_block *dsb)
+{
+	unsigned int ondisk_extradevs, i;
+	erofs_off_t pos;
+
+	sbi->total_blocks = sbi->primarydevice_blocks;
+
+	if (!erofs_sb_has_device_table())
+		ondisk_extradevs = 0;
+	else
+		ondisk_extradevs = le16_to_cpu(dsb->extra_devices);
+
+	if (ondisk_extradevs != sbi->extra_devices) {
+		erofs_err("extra devices don't match (ondisk %u, given %u)",
+			  ondisk_extradevs, sbi->extra_devices);
+		return -EINVAL;
+	}
+	if (!ondisk_extradevs)
+		return 0;
+
+	sbi->device_id_mask = roundup_pow_of_two(ondisk_extradevs + 1) - 1;
+	sbi->devs = calloc(ondisk_extradevs, sizeof(*sbi->devs));
+	pos = le16_to_cpu(dsb->devt_slotoff) * EROFS_DEVT_SLOT_SIZE;
+	for (i = 0; i < ondisk_extradevs; ++i) {
+		struct erofs_deviceslot dis;
+		int ret;
+
+		ret = dev_read(0, &dis, pos, sizeof(dis));
+		if (ret < 0)
+			return ret;
+
+		sbi->devs[i].mapped_blkaddr = dis.mapped_blkaddr;
+		sbi->total_blocks += dis.blocks;
+		pos += EROFS_DEVT_SLOT_SIZE;
+	}
+	return 0;
+}
+
 int erofs_read_superblock(void)
 {
 	char data[EROFS_BLKSIZ];
@@ -34,7 +69,7 @@ int erofs_read_superblock(void)
 	unsigned int blkszbits;
 	int ret;
 
-	ret = blk_read(data, 0, 1);
+	ret = blk_read(0, data, 0, 1);
 	if (ret < 0) {
 		erofs_err("cannot read erofs superblock: %d", ret);
 		return -EIO;
@@ -60,17 +95,17 @@ int erofs_read_superblock(void)
 	if (!check_layout_compatibility(&sbi, dsb))
 		return ret;
 
-	sbi.blocks = le32_to_cpu(dsb->blocks);
+	sbi.primarydevice_blocks = le32_to_cpu(dsb->blocks);
 	sbi.meta_blkaddr = le32_to_cpu(dsb->meta_blkaddr);
 	sbi.xattr_blkaddr = le32_to_cpu(dsb->xattr_blkaddr);
 	sbi.islotbits = EROFS_ISLOTBITS;
 	sbi.root_nid = le16_to_cpu(dsb->root_nid);
 	sbi.inos = le64_to_cpu(dsb->inos);
+	sbi.checksum = le32_to_cpu(dsb->checksum);
 
 	sbi.build_time = le64_to_cpu(dsb->build_time);
 	sbi.build_time_nsec = le32_to_cpu(dsb->build_time_nsec);
 
 	memcpy(&sbi.uuid, dsb->uuid, sizeof(dsb->uuid));
-	return 0;
+	return erofs_init_devices(&sbi, dsb);
 }
-

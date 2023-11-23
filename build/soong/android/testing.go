@@ -15,6 +15,7 @@
 package android
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -22,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	mkparser "android/soong/androidmk/parser"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -110,6 +113,15 @@ var PrepareForTestWithLicenseDefaultModules = GroupFixturePreparers(
 	FixtureAddFile("build/soong/licenses/LICENSE", nil),
 )
 
+var PrepareForTestWithNamespace = FixtureRegisterWithContext(func(ctx RegistrationContext) {
+	registerNamespaceBuildComponents(ctx)
+	ctx.PreArchMutators(RegisterNamespaceMutator)
+})
+
+var PrepareForTestWithMakevars = FixtureRegisterWithContext(func(ctx RegistrationContext) {
+	ctx.RegisterSingletonType("makevars", makeVarsSingletonFunc)
+})
+
 // Test fixture preparer that will register most java build components.
 //
 // Singletons and mutators should only be added here if they are needed for a majority of java
@@ -166,9 +178,9 @@ func NewTestArchContext(config Config) *TestContext {
 
 type TestContext struct {
 	*Context
-	preArch, preDeps, postDeps, finalDeps           []RegisterMutatorFunc
-	bp2buildPreArch, bp2buildDeps, bp2buildMutators []RegisterMutatorFunc
-	NameResolver                                    *NameResolver
+	preArch, preDeps, postDeps, finalDeps []RegisterMutatorFunc
+	bp2buildPreArch, bp2buildMutators     []RegisterMutatorFunc
+	NameResolver                          *NameResolver
 
 	// The list of pre-singletons and singletons registered for the test.
 	preSingletons, singletons sortableComponents
@@ -199,30 +211,14 @@ func (ctx *TestContext) FinalDepsMutators(f RegisterMutatorFunc) {
 	ctx.finalDeps = append(ctx.finalDeps, f)
 }
 
-func (ctx *TestContext) RegisterBp2BuildConfig(config Bp2BuildConfig) {
+func (ctx *TestContext) RegisterBp2BuildConfig(config bp2BuildConversionAllowlist) {
 	ctx.config.bp2buildPackageConfig = config
-}
-
-// RegisterBp2BuildMutator registers a BazelTargetModule mutator for converting a module
-// type to the equivalent Bazel target.
-func (ctx *TestContext) RegisterBp2BuildMutator(moduleType string, m func(TopDownMutatorContext)) {
-	f := func(ctx RegisterMutatorsContext) {
-		ctx.TopDown(moduleType, m)
-	}
-	ctx.config.bp2buildModuleTypeConfig[moduleType] = true
-	ctx.bp2buildMutators = append(ctx.bp2buildMutators, f)
 }
 
 // PreArchBp2BuildMutators adds mutators to be register for converting Android Blueprint modules
 // into Bazel BUILD targets that should run prior to deps and conversion.
 func (ctx *TestContext) PreArchBp2BuildMutators(f RegisterMutatorFunc) {
 	ctx.bp2buildPreArch = append(ctx.bp2buildPreArch, f)
-}
-
-// DepsBp2BuildMutators adds mutators to be register for converting Android Blueprint modules into
-// Bazel BUILD targets that should run prior to conversion to resolve dependencies.
-func (ctx *TestContext) DepsBp2BuildMutators(f RegisterMutatorFunc) {
-	ctx.bp2buildDeps = append(ctx.bp2buildDeps, f)
 }
 
 // registeredComponentOrder defines the order in which a sortableComponent type is registered at
@@ -459,7 +455,8 @@ func (ctx *TestContext) Register() {
 
 // RegisterForBazelConversion prepares a test context for bp2build conversion.
 func (ctx *TestContext) RegisterForBazelConversion() {
-	RegisterMutatorsForBazelConversion(ctx.Context, ctx.bp2buildPreArch, ctx.bp2buildDeps, ctx.bp2buildMutators)
+	ctx.SetRunningAsBp2build()
+	RegisterMutatorsForBazelConversion(ctx.Context, ctx.bp2buildPreArch)
 }
 
 func (ctx *TestContext) ParseFileList(rootDir string, filePaths []string) (deps []string, errs []error) {
@@ -492,6 +489,66 @@ func (ctx *TestContext) RegisterPreSingletonType(name string, factory SingletonF
 	ctx.preSingletons = append(ctx.preSingletons, newPreSingleton(name, factory))
 }
 
+// ModuleVariantForTests selects a specific variant of the module with the given
+// name by matching the variations map against the variations of each module
+// variant. A module variant matches the map if every variation that exists in
+// both have the same value. Both the module and the map are allowed to have
+// extra variations that the other doesn't have. Panics if not exactly one
+// module variant matches.
+func (ctx *TestContext) ModuleVariantForTests(name string, matchVariations map[string]string) TestingModule {
+	modules := []Module{}
+	ctx.VisitAllModules(func(m blueprint.Module) {
+		if ctx.ModuleName(m) == name {
+			am := m.(Module)
+			amMut := am.base().commonProperties.DebugMutators
+			amVar := am.base().commonProperties.DebugVariations
+			matched := true
+			for i, mut := range amMut {
+				if wantedVar, found := matchVariations[mut]; found && amVar[i] != wantedVar {
+					matched = false
+					break
+				}
+			}
+			if matched {
+				modules = append(modules, am)
+			}
+		}
+	})
+
+	if len(modules) == 0 {
+		// Show all the modules or module variants that do exist.
+		var allModuleNames []string
+		var allVariants []string
+		ctx.VisitAllModules(func(m blueprint.Module) {
+			allModuleNames = append(allModuleNames, ctx.ModuleName(m))
+			if ctx.ModuleName(m) == name {
+				allVariants = append(allVariants, m.(Module).String())
+			}
+		})
+
+		if len(allVariants) == 0 {
+			panic(fmt.Errorf("failed to find module %q. All modules:\n  %s",
+				name, strings.Join(SortedUniqueStrings(allModuleNames), "\n  ")))
+		} else {
+			sort.Strings(allVariants)
+			panic(fmt.Errorf("failed to find module %q matching %v. All variants:\n  %s",
+				name, matchVariations, strings.Join(allVariants, "\n  ")))
+		}
+	}
+
+	if len(modules) > 1 {
+		moduleStrings := []string{}
+		for _, m := range modules {
+			moduleStrings = append(moduleStrings, m.String())
+		}
+		sort.Strings(moduleStrings)
+		panic(fmt.Errorf("module %q has more than one variant that match %v:\n  %s",
+			name, matchVariations, strings.Join(moduleStrings, "\n  ")))
+	}
+
+	return newTestingModule(ctx.config, modules[0])
+}
+
 func (ctx *TestContext) ModuleForTests(name, variant string) TestingModule {
 	var module Module
 	ctx.VisitAllModules(func(m blueprint.Module) {
@@ -510,12 +567,11 @@ func (ctx *TestContext) ModuleForTests(name, variant string) TestingModule {
 				allVariants = append(allVariants, ctx.ModuleSubDir(m))
 			}
 		})
-		sort.Strings(allModuleNames)
 		sort.Strings(allVariants)
 
 		if len(allVariants) == 0 {
 			panic(fmt.Errorf("failed to find module %q. All modules:\n  %s",
-				name, strings.Join(allModuleNames, "\n  ")))
+				name, strings.Join(SortedUniqueStrings(allModuleNames), "\n  ")))
 		} else {
 			panic(fmt.Errorf("failed to find module %q variant %q. All variants:\n  %s",
 				name, variant, strings.Join(allVariants, "\n  ")))
@@ -551,6 +607,62 @@ func (ctx *TestContext) SingletonForTests(name string) TestingSingleton {
 
 	panic(fmt.Errorf("failed to find singleton %q."+
 		"\nall singletons: %v", name, allSingletonNames))
+}
+
+type InstallMakeRule struct {
+	Target        string
+	Deps          []string
+	OrderOnlyDeps []string
+}
+
+func parseMkRules(t *testing.T, config Config, nodes []mkparser.Node) []InstallMakeRule {
+	var rules []InstallMakeRule
+	for _, node := range nodes {
+		if mkParserRule, ok := node.(*mkparser.Rule); ok {
+			var rule InstallMakeRule
+
+			if targets := mkParserRule.Target.Words(); len(targets) == 0 {
+				t.Fatalf("no targets for rule %s", mkParserRule.Dump())
+			} else if len(targets) > 1 {
+				t.Fatalf("unsupported multiple targets for rule %s", mkParserRule.Dump())
+			} else if !targets[0].Const() {
+				t.Fatalf("unsupported non-const target for rule %s", mkParserRule.Dump())
+			} else {
+				rule.Target = normalizeStringRelativeToTop(config, targets[0].Value(nil))
+			}
+
+			prereqList := &rule.Deps
+			for _, prereq := range mkParserRule.Prerequisites.Words() {
+				if !prereq.Const() {
+					t.Fatalf("unsupported non-const prerequisite for rule %s", mkParserRule.Dump())
+				}
+
+				if prereq.Value(nil) == "|" {
+					prereqList = &rule.OrderOnlyDeps
+					continue
+				}
+
+				*prereqList = append(*prereqList, normalizeStringRelativeToTop(config, prereq.Value(nil)))
+			}
+
+			rules = append(rules, rule)
+		}
+	}
+
+	return rules
+}
+
+func (ctx *TestContext) InstallMakeRulesForTesting(t *testing.T) []InstallMakeRule {
+	installs := ctx.SingletonForTests("makevars").Singleton().(*makeVarsSingleton).installsForTesting
+	buf := bytes.NewBuffer(append([]byte(nil), installs...))
+	parser := mkparser.NewParser("makevars", buf)
+
+	nodes, errs := parser.Parse()
+	if len(errs) > 0 {
+		t.Fatalf("error parsing install rules: %s", errs[0])
+	}
+
+	return parseMkRules(t, ctx.config, nodes)
 }
 
 func (ctx *TestContext) Config() Config {
@@ -665,15 +777,15 @@ func newBaseTestingComponent(config Config, provider testBuildProvider) baseTest
 // containing at most one instance of the temporary build directory at the start of the path while
 // this assumes that there can be any number at any position.
 func normalizeStringRelativeToTop(config Config, s string) string {
-	// The buildDir usually looks something like: /tmp/testFoo2345/001
+	// The soongOutDir usually looks something like: /tmp/testFoo2345/001
 	//
-	// Replace any usage of the buildDir with out/soong, e.g. replace "/tmp/testFoo2345/001" with
+	// Replace any usage of the soongOutDir with out/soong, e.g. replace "/tmp/testFoo2345/001" with
 	// "out/soong".
-	outSoongDir := filepath.Clean(config.buildDir)
+	outSoongDir := filepath.Clean(config.soongOutDir)
 	re := regexp.MustCompile(`\Q` + outSoongDir + `\E\b`)
 	s = re.ReplaceAllString(s, "out/soong")
 
-	// Replace any usage of the buildDir/.. with out, e.g. replace "/tmp/testFoo2345" with
+	// Replace any usage of the soongOutDir/.. with out, e.g. replace "/tmp/testFoo2345" with
 	// "out". This must come after the previous replacement otherwise this would replace
 	// "/tmp/testFoo2345/001" with "out/001" instead of "out/soong".
 	outDir := filepath.Dir(outSoongDir)
@@ -732,25 +844,27 @@ func (b baseTestingComponent) buildParamsFromRule(rule string) TestingBuildParam
 	return p
 }
 
-func (b baseTestingComponent) maybeBuildParamsFromDescription(desc string) TestingBuildParams {
+func (b baseTestingComponent) maybeBuildParamsFromDescription(desc string) (TestingBuildParams, []string) {
+	var searchedDescriptions []string
 	for _, p := range b.provider.BuildParamsForTests() {
+		searchedDescriptions = append(searchedDescriptions, p.Description)
 		if strings.Contains(p.Description, desc) {
-			return b.newTestingBuildParams(p)
+			return b.newTestingBuildParams(p), searchedDescriptions
 		}
 	}
-	return TestingBuildParams{}
+	return TestingBuildParams{}, searchedDescriptions
 }
 
 func (b baseTestingComponent) buildParamsFromDescription(desc string) TestingBuildParams {
-	p := b.maybeBuildParamsFromDescription(desc)
+	p, searchedDescriptions := b.maybeBuildParamsFromDescription(desc)
 	if p.Rule == nil {
-		panic(fmt.Errorf("couldn't find description %q", desc))
+		panic(fmt.Errorf("couldn't find description %q\nall descriptions:\n%s", desc, strings.Join(searchedDescriptions, "\n")))
 	}
 	return p
 }
 
 func (b baseTestingComponent) maybeBuildParamsFromOutput(file string) (TestingBuildParams, []string) {
-	var searchedOutputs []string
+	searchedOutputs := WritablePaths(nil)
 	for _, p := range b.provider.BuildParamsForTests() {
 		outputs := append(WritablePaths(nil), p.Outputs...)
 		outputs = append(outputs, p.ImplicitOutputs...)
@@ -761,10 +875,17 @@ func (b baseTestingComponent) maybeBuildParamsFromOutput(file string) (TestingBu
 			if f.String() == file || f.Rel() == file || PathRelativeToTop(f) == file {
 				return b.newTestingBuildParams(p), nil
 			}
-			searchedOutputs = append(searchedOutputs, f.Rel())
+			searchedOutputs = append(searchedOutputs, f)
 		}
 	}
-	return TestingBuildParams{}, searchedOutputs
+
+	formattedOutputs := []string{}
+	for _, f := range searchedOutputs {
+		formattedOutputs = append(formattedOutputs,
+			fmt.Sprintf("%s (rel=%s)", PathRelativeToTop(f), f.Rel()))
+	}
+
+	return TestingBuildParams{}, formattedOutputs
 }
 
 func (b baseTestingComponent) buildParamsFromOutput(file string) TestingBuildParams {
@@ -804,7 +925,8 @@ func (b baseTestingComponent) Rule(rule string) TestingBuildParams {
 // MaybeDescription finds a call to ctx.Build with BuildParams.Description set to a the given string.  Returns an empty
 // BuildParams if no rule is found.
 func (b baseTestingComponent) MaybeDescription(desc string) TestingBuildParams {
-	return b.maybeBuildParamsFromDescription(desc)
+	p, _ := b.maybeBuildParamsFromDescription(desc)
+	return p
 }
 
 // Description finds a call to ctx.Build with BuildParams.Description set to a the given string.  Panics if no rule is
@@ -992,7 +1114,7 @@ func NormalizePathForTesting(path Path) string {
 	}
 	p := path.String()
 	if w, ok := path.(WritablePath); ok {
-		rel, err := filepath.Rel(w.getBuildDir(), p)
+		rel, err := filepath.Rel(w.getSoongOutDir(), p)
 		if err != nil {
 			panic(err)
 		}

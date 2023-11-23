@@ -73,8 +73,13 @@ TEST(PropertyNodeTest, DumpToFdTest) {
     TemporaryFile dumptf;
     t.DumpToFd(dumptf.fd);
     fsync(dumptf.fd);
-    std::string buf(
-        android::base::StringPrintf("test_dump\t%s\t1\tvalue1\n", key.c_str()));
+    std::string buf(android::base::StringPrintf(
+            "Node Name\t"
+            "Property Name\t"
+            "Current Index\t"
+            "Current Value\n"
+            "%s\t%s\t%zu\t%s\n",
+            "test_dump", key.c_str(), static_cast<size_t>(1), "value1"));
     std::string s;
     EXPECT_TRUE(android::base::ReadFileToString(dumptf.path, &s))
         << strerror(errno);

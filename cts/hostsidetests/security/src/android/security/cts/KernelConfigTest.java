@@ -233,56 +233,56 @@ public class KernelConfigTest extends BaseHostJUnit4Test {
         put("EXYNOS7870", null);
         put("EXYNOS7880", null);
         put("EXYNOS7570", null);
-        put("EXYNOS7872", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("EXYNOS7885", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("EXYNOS9610", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("Kirin980", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("Kirin970", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
+        put("EXYNOS7872", null);
+        put("EXYNOS7885", null);
+        put("EXYNOS9610", null);
+        put("Kirin980", null);
+        put("Kirin970", null);
         put("Kirin810", null);
-        put("Kirin710", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6889Z/CZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6889Z/CIZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("mt6873", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6853V/TZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6853V/TNZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/ZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/NZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/TZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/TNZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/MZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6833V/MNZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6877V/ZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6877V/NZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6877V/TZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6877V/TNZA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6768V/WA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6768V/CA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6768V/WB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6768V/CB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6767V/WA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6767V/CA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6767V/WB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6767V/CB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CA", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CB", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WT", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CT", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WU", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CU", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WZ", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CZ", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/WY", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("MT6769V/CY", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("SDMMAGPIE", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("SM6150", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("SM7150", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
+        put("Kirin710", null);
+        put("MT6889Z/CZA", null);
+        put("MT6889Z/CIZA", null);
+        put("mt6873", null);
+        put("MT6853V/TZA", null);
+        put("MT6853V/TNZA", null);
+        put("MT6833V/ZA", null);
+        put("MT6833V/NZA", null);
+        put("MT6833V/TZA", null);
+        put("MT6833V/TNZA", null);
+        put("MT6833V/MZA", null);
+        put("MT6833V/MNZA", null);
+        put("MT6877V/ZA", null);
+        put("MT6877V/NZA", null);
+        put("MT6877V/TZA", null);
+        put("MT6877V/TNZA", null);
+        put("MT6768V/WA", null);
+        put("MT6768V/CA", null);
+        put("MT6768V/WB", null);
+        put("MT6768V/CB", null);
+        put("MT6767V/WA", null);
+        put("MT6767V/CA", null);
+        put("MT6767V/WB", null);
+        put("MT6767V/CB", null);
+        put("MT6769V/WA", null);
+        put("MT6769V/CA", null);
+        put("MT6769V/WB", null);
+        put("MT6769V/CB", null);
+        put("MT6769V/WT", null);
+        put("MT6769V/CT", null);
+        put("MT6769V/WU", null);
+        put("MT6769V/CU", null);
+        put("MT6769V/WZ", null);
+        put("MT6769V/CZ", null);
+        put("MT6769V/WY", null);
+        put("MT6769V/CY", null);
+        put("SDMMAGPIE", null);
+        put("SM6150", null);
+        put("SM7150", null);
         put("SM7250", null);
         put("LITO", null);
         put("LAGOON", null);
-        put("SM8150", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("SM8150P", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
+        put("SM8150", null);
+        put("SM8150P", null);
         put("SM8250", null);
         put("KONA", null);
         put("SDM429", null);
@@ -290,10 +290,12 @@ public class KernelConfigTest extends BaseHostJUnit4Test {
         put("QM215", null);
         put("ATOLL", null);
         put("ATOLL-AB", null);
-        put("SDM660", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("BENGAL", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y"});
-        put("DEFAULT", new String[]{"CONFIG_HARDEN_BRANCH_PREDICTOR=y",
-            "CONFIG_UNMAP_KERNEL_AT_EL0=y"});
+        put("SDM660", null);
+        put("BENGAL", null);
+        put("KHAJE", null);
+        put("BENGAL-IOT", null);
+        put("BENGALP-IOT", null);
+        put("DEFAULT", new String[]{"CONFIG_UNMAP_KERNEL_AT_EL0=y"});
     }};
 
     private String[] lookupMitigations() throws Exception {
@@ -414,5 +416,45 @@ public class KernelConfigTest extends BaseHostJUnit4Test {
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }
+    }
+
+    /**
+     * Test that the kernel is using kASLR.
+     *
+     * @throws Exception
+     */
+    @CddTest(requirement="9.7")
+    @Test
+    public void testConfigRandomizeBase() throws Exception {
+        if (PropertyUtil.getFirstApiLevel(mDevice) < 33) {
+            return;
+        }
+
+        if (CpuFeatures.isArm32(mDevice)) {
+            return;
+        }
+
+        assertTrue("The kernel's base address must be randomized",
+                configSet.contains("CONFIG_RANDOMIZE_BASE=y"));
+    }
+
+    /**
+     * Test that CONFIG_VMAP_STACK is enabled on architectures that support it.
+     *
+     * @throws Exception
+     */
+    @CddTest(requirement="9.7")
+    @Test
+    public void testConfigVmapStack() throws Exception {
+        if (PropertyUtil.getFirstApiLevel(mDevice) < 33) {
+            return;
+        }
+
+        if (!configSet.contains("CONFIG_HAVE_ARCH_VMAP_STACK=y")) {
+            return;
+        }
+
+        assertTrue("CONFIG_VMAP_STACK must be enabled on architectures that support it.",
+                configSet.contains("CONFIG_VMAP_STACK=y"));
     }
 }

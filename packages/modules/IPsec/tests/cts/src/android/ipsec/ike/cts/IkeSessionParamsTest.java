@@ -18,6 +18,9 @@ package android.ipsec.ike.cts;
 
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_REKEY_MOBILITY;
 import static android.net.ipsec.ike.IkeSessionParams.IkeAuthConfig;
 import static android.net.ipsec.ike.IkeSessionParams.IkeAuthDigitalSignLocalConfig;
 import static android.net.ipsec.ike.IkeSessionParams.IkeAuthDigitalSignRemoteConfig;
@@ -45,13 +48,16 @@ import android.net.ipsec.ike.IkeSessionParams.ConfigRequestIpv6PcscfServer;
 import android.net.ipsec.ike.IkeSessionParams.IkeConfigRequest;
 import android.net.ipsec.ike.ike3gpp.Ike3gppExtension;
 import android.net.ipsec.ike.ike3gpp.Ike3gppParams;
+import android.os.Build;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 
 import com.android.internal.net.ipsec.test.ike.testutils.CertUtils;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -292,25 +298,49 @@ public final class IkeSessionParamsTest extends IkeSessionTestBase {
 
     @Test
     public void testAddIkeOption() throws Exception {
+        verifyAddIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID);
+        verifyAddIkeOption(IKE_OPTION_INITIAL_CONTACT);
+    }
+
+    private void verifyAddIkeOption(int ikeOption) {
         IkeSessionParams sessionParams =
-                createIkeParamsBuilderMinimum()
-                        .addIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID)
-                        .build();
+                createIkeParamsBuilderMinimum().addIkeOption(ikeOption).build();
 
         verifyIkeParamsMinimum(sessionParams);
-        assertTrue(sessionParams.hasIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID));
+        assertTrue(sessionParams.hasIkeOption(ikeOption));
     }
 
     @Test
     public void testRemoveIkeOption() throws Exception {
+        verifyRemoveIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID);
+        verifyRemoveIkeOption(IKE_OPTION_INITIAL_CONTACT);
+    }
+
+    private void verifyRemoveIkeOption(int ikeOption) {
         IkeSessionParams sessionParams =
                 createIkeParamsBuilderMinimum()
-                        .addIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID)
-                        .removeIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID)
+                        .addIkeOption(ikeOption)
+                        .removeIkeOption(ikeOption)
                         .build();
 
         verifyIkeParamsMinimum(sessionParams);
-        assertFalse(sessionParams.hasIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID));
+        assertFalse(sessionParams.hasIkeOption(ikeOption));
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testAddIkeOptionMobike() throws Exception {
+        IkeSessionParams sessionParams =
+                createIkeParamsBuilderMinimum().addIkeOption(IKE_OPTION_MOBIKE).build();
+
+        verifyIkeParamsMinimum(sessionParams);
+        assertTrue(sessionParams.hasIkeOption(IKE_OPTION_MOBIKE));
+
+        if (SdkLevel.isAtLeastT()) {
+            assertFalse(sessionParams.hasIkeOption(IKE_OPTION_REKEY_MOBILITY));
+        } else {
+            assertTrue(sessionParams.hasIkeOption(IKE_OPTION_REKEY_MOBILITY));
+        }
     }
 
     /**

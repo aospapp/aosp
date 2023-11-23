@@ -9,17 +9,13 @@ enum BackendFlags {
     GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
 };
 
-// based on VIRGL_RENDERER_USE* and friends
-enum RendererFlags {
-    GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT = 1 << 0,
-    GFXSTREAM_RENDERER_FLAGS_THREAD_SYNC = 1 << 1,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLX_BIT = 1 << 2,
-    GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT = 1 << 3,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLES_BIT = 1 << 4,
-    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5, // for disabling vk
-
-    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20, // for disabling syncfd
-    GFXSTREAM_RENDERER_FLAGS_VULKAN_NATIVE_SWAPCHAIN_BIT = 1 << 22,
+struct gfxstream_callbacks {
+   /* Metrics callbacks */
+   void (*add_instant_event)(int64_t event_code);
+   void (*add_instant_event_with_descriptor)(int64_t event_code, int64_t descriptor);
+   void (*add_instant_event_with_metric)(int64_t event_code, int64_t metric_value);
+   void (*set_annotation)(const char* key, const char* value);
+   void (*abort)();
 };
 
 extern "C" VG_EXPORT void gfxstream_backend_init(
@@ -28,7 +24,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks);
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks);
 
 extern "C" VG_EXPORT void gfxstream_backend_setup_window(
         void* native_window_handle,
@@ -40,3 +37,21 @@ extern "C" VG_EXPORT void gfxstream_backend_setup_window(
         int32_t fb_height);
 
 extern "C" VG_EXPORT void gfxstream_backend_teardown(void);
+
+// Get the gfxstream backend render information.
+// example:
+//      /* Get the render string size */
+//      size_t size = 0
+//      gfxstream_backend_getrender(nullptr, 0, &size);
+//
+//      /* add extra space for '\0' */
+//      char * buf = malloc(size + 1);
+//
+//      /* Get the result render string */
+//      gfxstream_backend_getrender(buf, size+1, nullptr);
+//
+// if bufSize is less or equal the render string length, only bufSize-1 char copied.
+extern "C" VG_EXPORT void gfxstream_backend_getrender(
+      char* buf,
+      size_t bufSize,
+      size_t* size);

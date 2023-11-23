@@ -17,6 +17,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.systemui.cts">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application>
         <activity android:name=".TestNotificationActivity"

@@ -46,9 +46,6 @@
 constexpr int MAXALIASES = 35;
 constexpr int MAXADDRS = 35;
 
-#define ALIGNBYTES (sizeof(uintptr_t) - 1)
-#define ALIGN(p) (((uintptr_t)(p) + ALIGNBYTES) & ~ALIGNBYTES)
-
 static void sethostent_r(FILE** hf) {
     if (!*hf)
         *hf = fopen(_PATH_HOSTS, "re");
@@ -121,7 +118,7 @@ int _hf_gethtbyname2(const char* name, int af, getnamaddr* info) {
                 if (anum >= MAXALIASES) goto nospc;
                 HENT_SCOPY(aliases[anum], hp->h_aliases[anum], ptr, len);
             }
-            ptr = (char*) ALIGN(ptr);
+            ptr = align_ptr(ptr);
             if ((size_t)(ptr - buf) >= info->buflen) goto nospc;
         }
 

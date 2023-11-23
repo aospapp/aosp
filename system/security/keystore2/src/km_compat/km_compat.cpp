@@ -80,7 +80,6 @@ bool isAttestationParameter(const KMV1::KeyParameter& param) {
     case Tag::CERTIFICATE_SUBJECT:
     case Tag::CERTIFICATE_NOT_BEFORE:
     case Tag::CERTIFICATE_NOT_AFTER:
-    case Tag::INCLUDE_UNIQUE_ID:
     case Tag::DEVICE_UNIQUE_ATTESTATION:
         return true;
     default:
@@ -127,7 +126,7 @@ bool isKeyCreationParameter(const KMV1::KeyParameter& param) {
     case Tag::TRUSTED_CONFIRMATION_REQUIRED:
     case Tag::UNLOCKED_DEVICE_REQUIRED:
     case Tag::CREATION_DATETIME:
-    case Tag::UNIQUE_ID:
+    case Tag::INCLUDE_UNIQUE_ID:
     case Tag::IDENTITY_CREDENTIAL_KEY:
     case Tag::STORAGE_KEY:
     case Tag::MAC_LENGTH:
@@ -384,29 +383,39 @@ convertSharedSecretParametersToLegacy(const std::vector<SharedSecretParameters>&
     return ssps;
 }
 
-void OperationSlots::setNumFreeSlots(uint8_t numFreeSlots) {
+void OperationSlotManager::setNumFreeSlots(uint8_t numFreeSlots) {
     std::lock_guard<std::mutex> lock(mNumFreeSlotsMutex);
     mNumFreeSlots = numFreeSlots;
 }
 
-bool OperationSlots::claimSlot() {
-    std::lock_guard<std::mutex> lock(mNumFreeSlotsMutex);
-    if (mNumFreeSlots > 0) {
-        mNumFreeSlots--;
-        return true;
+std::optional<OperationSlot>
+OperationSlotManager::claimSlot(std::shared_ptr<OperationSlotManager> operationSlots) {
+    std::lock_guard<std::mutex> lock(operationSlots->mNumFreeSlotsMutex);
+    if (operationSlots->mNumFreeSlots > 0) {
+        operationSlots->mNumFreeSlots--;
+        return OperationSlot(std::move(operationSlots), std::nullopt);
     }
-    return false;
+    return std::nullopt;
 }
 
-void OperationSlots::freeSlot() {
+OperationSlot
+OperationSlotManager::claimReservedSlot(std::shared_ptr<OperationSlotManager> operationSlots) {
+    std::unique_lock<std::mutex> reservedGuard(operationSlots->mReservedSlotMutex);
+    return OperationSlot(std::move(operationSlots), std::move(reservedGuard));
+}
+
+OperationSlot::OperationSlot(std::shared_ptr<OperationSlotManager> slots,
+                             std::optional<std::unique_lock<std::mutex>> reservedGuard)
+    : mOperationSlots(std::move(slots)), mReservedGuard(std::move(reservedGuard)) {}
+
+void OperationSlotManager::freeSlot() {
     std::lock_guard<std::mutex> lock(mNumFreeSlotsMutex);
     mNumFreeSlots++;
 }
 
-void OperationSlot::freeSlot() {
-    if (mIsActive) {
+OperationSlot::~OperationSlot() {
+    if (!mReservedGuard && mOperationSlots) {
         mOperationSlots->freeSlot();
-        mIsActive = false;
     }
 }
 
@@ -496,16 +505,15 @@ ScopedAStatus KeyMintDevice::importKey(const std::vector<KeyParameter>& inKeyPar
     auto legacyKeyGENParams = convertKeyParametersToLegacy(extractGenerationParams(inKeyParams));
     auto legacyKeyFormat = convertKeyFormatToLegacy(in_inKeyFormat);
     KMV1::ErrorCode errorCode;
-    auto result = mDevice->importKey(legacyKeyGENParams, legacyKeyFormat, in_inKeyData,
-                                     [&](V4_0_ErrorCode error, const hidl_vec<uint8_t>& keyBlob,
-                                         const V4_0_KeyCharacteristics& keyCharacteristics) {
-                                         errorCode = convert(error);
-                                         out_creationResult->keyBlob =
-                                             keyBlobPrefix(keyBlob, false);
-                                         out_creationResult->keyCharacteristics =
-                                             processLegacyCharacteristics(
-                                                 securityLevel_, inKeyParams, keyCharacteristics);
-                                     });
+    auto result = mDevice->importKey(
+        legacyKeyGENParams, legacyKeyFormat, in_inKeyData,
+        [&](V4_0_ErrorCode error, const hidl_vec<uint8_t>& keyBlob,
+            const V4_0_KeyCharacteristics& keyCharacteristics) {
+            errorCode = convert(error);
+            out_creationResult->keyBlob = keyBlobPrefix(keyBlob, false);
+            out_creationResult->keyCharacteristics =
+                processLegacyCharacteristics(securityLevel_, inKeyParams, keyCharacteristics);
+        });
     if (!result.isOk()) {
         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
         return convertErrorCode(KMV1::ErrorCode::UNKNOWN_ERROR);
@@ -613,9 +621,15 @@ ScopedAStatus KeyMintDevice::begin(KeyPurpose in_inPurpose,
                                    const std::vector<KeyParameter>& in_inParams,
                                    const std::optional<HardwareAuthToken>& in_inAuthToken,
                                    BeginResult* _aidl_return) {
-    if (!mOperationSlots.claimSlot()) {
-        return convertErrorCode(V4_0_ErrorCode::TOO_MANY_OPERATIONS);
-    }
+    return beginInternal(in_inPurpose, prefixedKeyBlob, in_inParams, in_inAuthToken,
+                         false /* useReservedSlot */, _aidl_return);
+}
+
+ScopedAStatus KeyMintDevice::beginInternal(KeyPurpose in_inPurpose,
+                                           const std::vector<uint8_t>& prefixedKeyBlob,
+                                           const std::vector<KeyParameter>& in_inParams,
+                                           const std::optional<HardwareAuthToken>& in_inAuthToken,
+                                           bool useReservedSlot, BeginResult* _aidl_return) {
 
     const std::vector<uint8_t>& in_inKeyBlob = prefixedKeyBlobRemovePrefix(prefixedKeyBlob);
     if (prefixedKeyBlobIsSoftKeyMint(prefixedKeyBlob)) {
@@ -623,27 +637,40 @@ ScopedAStatus KeyMintDevice::begin(KeyPurpose in_inPurpose,
                                          _aidl_return);
     }
 
+    OperationSlot slot;
+    // No need to claim a slot for software device.
+    if (useReservedSlot) {
+        // There is only one reserved slot. This function blocks until
+        // the reserved slot becomes available.
+        slot = OperationSlotManager::claimReservedSlot(mOperationSlots);
+    } else {
+        if (auto opt_slot = OperationSlotManager::claimSlot(mOperationSlots)) {
+            slot = std::move(*opt_slot);
+        } else {
+            return convertErrorCode(V4_0_ErrorCode::TOO_MANY_OPERATIONS);
+        }
+    }
+
     auto legacyPurpose =
         static_cast<::android::hardware::keymaster::V4_0::KeyPurpose>(in_inPurpose);
     auto legacyParams = convertKeyParametersToLegacy(in_inParams);
     auto legacyAuthToken = convertAuthTokenToLegacy(in_inAuthToken);
     KMV1::ErrorCode errorCode;
-    auto result = mDevice->begin(
-        legacyPurpose, in_inKeyBlob, legacyParams, legacyAuthToken,
-        [&](V4_0_ErrorCode error, const hidl_vec<V4_0_KeyParameter>& outParams,
-            uint64_t operationHandle) {
-            errorCode = convert(error);
-            _aidl_return->challenge = operationHandle;
-            _aidl_return->params = convertKeyParametersFromLegacy(outParams);
-            _aidl_return->operation = ndk::SharedRefBase::make<KeyMintOperation>(
-                mDevice, operationHandle, &mOperationSlots, error == V4_0_ErrorCode::OK);
-        });
+    auto result =
+        mDevice->begin(legacyPurpose, in_inKeyBlob, legacyParams, legacyAuthToken,
+                       [&](V4_0_ErrorCode error, const hidl_vec<V4_0_KeyParameter>& outParams,
+                           uint64_t operationHandle) {
+                           errorCode = convert(error);
+                           if (error == V4_0_ErrorCode::OK) {
+                               _aidl_return->challenge = operationHandle;
+                               _aidl_return->params = convertKeyParametersFromLegacy(outParams);
+                               _aidl_return->operation = ndk::SharedRefBase::make<KeyMintOperation>(
+                                   mDevice, operationHandle, std::move(slot));
+                           }
+                       });
     if (!result.isOk()) {
         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
         errorCode = KMV1::ErrorCode::UNKNOWN_ERROR;
-    }
-    if (errorCode != KMV1::ErrorCode::OK) {
-        mOperationSlots.freeSlot();
     }
     return convertErrorCode(errorCode);
 }
@@ -704,8 +731,9 @@ KeyMintDevice::convertStorageKeyToEphemeral(const std::vector<uint8_t>& prefixed
         LOG(ERROR) << __func__ << " export_key failed: " << ret.description();
         return convertErrorCode(KMV1::ErrorCode::UNKNOWN_ERROR);
     }
-    if (km_error != KMV1::ErrorCode::OK)
+    if (km_error != KMV1::ErrorCode::OK) {
         LOG(ERROR) << __func__ << " export_key failed, code " << int32_t(km_error);
+    }
 
     return convertErrorCode(km_error);
 }
@@ -741,6 +769,19 @@ ScopedAStatus KeyMintDevice::getKeyCharacteristics(
     }
 }
 
+ScopedAStatus KeyMintDevice::getRootOfTrustChallenge(std::array<uint8_t, 16>* /* challenge */) {
+    return convertErrorCode(KMV1::ErrorCode::UNIMPLEMENTED);
+}
+
+ScopedAStatus KeyMintDevice::getRootOfTrust(const std::array<uint8_t, 16>& /* challenge */,
+                                            std::vector<uint8_t>* /* rootOfTrust */) {
+    return convertErrorCode(KMV1::ErrorCode::UNIMPLEMENTED);
+}
+
+ScopedAStatus KeyMintDevice::sendRootOfTrust(const std::vector<uint8_t>& /* rootOfTrust */) {
+    return convertErrorCode(KMV1::ErrorCode::UNIMPLEMENTED);
+}
+
 ScopedAStatus KeyMintOperation::updateAad(const std::vector<uint8_t>& input,
                                           const std::optional<HardwareAuthToken>& optAuthToken,
                                           const std::optional<TimeStampToken>& optTimeStampToken) {
@@ -757,7 +798,11 @@ ScopedAStatus KeyMintOperation::updateAad(const std::vector<uint8_t>& input,
         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
         errorCode = KMV1::ErrorCode::UNKNOWN_ERROR;
     }
-    if (errorCode != KMV1::ErrorCode::OK) mOperationSlot.freeSlot();
+
+    // Operation slot is no longer occupied.
+    if (errorCode != KMV1::ErrorCode::OK) {
+        mOperationSlot = std::nullopt;
+    }
 
     return convertErrorCode(errorCode);
 }
@@ -815,7 +860,10 @@ ScopedAStatus KeyMintOperation::update(const std::vector<uint8_t>& input_raw,
         inputPos += consumed;
     }
 
-    if (errorCode != KMV1::ErrorCode::OK) mOperationSlot.freeSlot();
+    // Operation slot is no longer occupied.
+    if (errorCode != KMV1::ErrorCode::OK) {
+        mOperationSlot = std::nullopt;
+    }
 
     return convertErrorCode(errorCode);
 }
@@ -846,17 +894,19 @@ KeyMintOperation::finish(const std::optional<std::vector<uint8_t>>& in_input,
             *out_output = output;
         });
 
-    mOperationSlot.freeSlot();
     if (!result.isOk()) {
         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
         errorCode = KMV1::ErrorCode::UNKNOWN_ERROR;
     }
+
+    mOperationSlot = std::nullopt;
+
     return convertErrorCode(errorCode);
 }
 
 ScopedAStatus KeyMintOperation::abort() {
     auto result = mDevice->abort(mOperationHandle);
-    mOperationSlot.freeSlot();
+    mOperationSlot = std::nullopt;
     if (!result.isOk()) {
         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
         return convertErrorCode(KMV1::ErrorCode::UNKNOWN_ERROR);
@@ -865,7 +915,7 @@ ScopedAStatus KeyMintOperation::abort() {
 }
 
 KeyMintOperation::~KeyMintOperation() {
-    if (mOperationSlot.hasSlot()) {
+    if (mOperationSlot) {
         auto error = abort();
         if (!error.isOk()) {
             LOG(WARNING) << "Error calling abort in ~KeyMintOperation: " << error.getMessage();
@@ -1118,8 +1168,8 @@ KeyMintDevice::signCertificate(const std::vector<KeyParameter>& keyParams,
                 kps.push_back(KMV1::makeKeyParameter(KMV1::TAG_PADDING, origPadding));
             }
             BeginResult beginResult;
-            auto error =
-                begin(KeyPurpose::SIGN, prefixedKeyBlob, kps, HardwareAuthToken(), &beginResult);
+            auto error = beginInternal(KeyPurpose::SIGN, prefixedKeyBlob, kps, HardwareAuthToken(),
+                                       true /* useReservedSlot */, &beginResult);
             if (!error.isOk()) {
                 errorCode = toErrorCode(error);
                 return std::vector<uint8_t>();
@@ -1355,20 +1405,21 @@ KeymasterDevices initializeKeymasters() {
 }
 
 void KeyMintDevice::setNumFreeSlots(uint8_t numFreeSlots) {
-    mOperationSlots.setNumFreeSlots(numFreeSlots);
+    mOperationSlots->setNumFreeSlots(numFreeSlots);
 }
 
 // Constructors and helpers.
 
 KeyMintDevice::KeyMintDevice(sp<Keymaster> device, KeyMintSecurityLevel securityLevel)
-    : mDevice(device), securityLevel_(securityLevel) {
+    : mDevice(device), mOperationSlots(std::make_shared<OperationSlotManager>()),
+      securityLevel_(securityLevel) {
     if (securityLevel == KeyMintSecurityLevel::STRONGBOX) {
         setNumFreeSlots(3);
     } else {
         setNumFreeSlots(15);
     }
 
-    softKeyMintDevice_.reset(CreateKeyMintDevice(KeyMintSecurityLevel::SOFTWARE));
+    softKeyMintDevice_ = CreateKeyMintDevice(KeyMintSecurityLevel::SOFTWARE);
 }
 
 sp<Keymaster> getDevice(KeyMintSecurityLevel securityLevel) {
@@ -1391,12 +1442,31 @@ sp<Keymaster> getDevice(KeyMintSecurityLevel securityLevel) {
     }
 }
 
+std::shared_ptr<IKeyMintDevice> getSoftwareKeymintDevice() {
+    static std::mutex mutex;
+    static std::shared_ptr<IKeyMintDevice> swDevice;
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!swDevice) {
+        swDevice = CreateKeyMintDevice(KeyMintSecurityLevel::SOFTWARE);
+    }
+    return swDevice;
+}
+
 std::shared_ptr<KeyMintDevice>
-KeyMintDevice::createKeyMintDevice(KeyMintSecurityLevel securityLevel) {
+KeyMintDevice::getWrappedKeymasterDevice(KeyMintSecurityLevel securityLevel) {
     if (auto dev = getDevice(securityLevel)) {
         return ndk::SharedRefBase::make<KeyMintDevice>(std::move(dev), securityLevel);
     }
     return {};
+}
+
+std::shared_ptr<IKeyMintDevice>
+KeyMintDevice::createKeyMintDevice(KeyMintSecurityLevel securityLevel) {
+    if (securityLevel == KeyMintSecurityLevel::SOFTWARE) {
+        return getSoftwareKeymintDevice();
+    } else {
+        return getWrappedKeymasterDevice(securityLevel);
+    }
 }
 
 std::shared_ptr<SharedSecret> SharedSecret::createSharedSecret(KeyMintSecurityLevel securityLevel) {

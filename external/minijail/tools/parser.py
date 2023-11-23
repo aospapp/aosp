@@ -31,6 +31,12 @@ except ImportError:
     from minijail import bpf
 
 
+# Representations of numbers with different radix (base) in C.
+HEX_REGEX = r'-?0[xX][0-9a-fA-F]+'
+OCTAL_REGEX = r'-?0[0-7]+'
+DECIMAL_REGEX = r'-?[0-9]+'
+
+
 Token = collections.namedtuple(
     'Token', ['type', 'value', 'filename', 'line', 'line_number', 'column'])
 
@@ -42,8 +48,9 @@ _TOKEN_SPECIFICATION = (
     ('DEFAULT', r'@default\b'),
     ('INCLUDE', r'@include\b'),
     ('FREQUENCY', r'@frequency\b'),
+    ('DENYLIST', r'@denylist$'),
     ('PATH', r'(?:\.)?/\S+'),
-    ('NUMERIC_CONSTANT', r'-?0[xX][0-9a-fA-F]+|-?0[Oo][0-7]+|-?[0-9]+'),
+    ('NUMERIC_CONSTANT', f'{HEX_REGEX}|{OCTAL_REGEX}|{DECIMAL_REGEX}'),
     ('COLON', r':'),
     ('SEMICOLON', r';'),
     ('COMMA', r','),
@@ -219,14 +226,21 @@ class PolicyParser:
                  *,
                  kill_action,
                  include_depth_limit=10,
-                 override_default_action=None):
+                 override_default_action=None,
+                 denylist=False,
+                 ret_log=False):
         self._parser_states = [ParserState("<memory>")]
         self._kill_action = kill_action
         self._include_depth_limit = include_depth_limit
-        self._default_action = self._kill_action
+        if denylist:
+            self._default_action = bpf.Allow()
+        else:
+            self._default_action = self._kill_action
         self._override_default_action = override_default_action
         self._frequency_mapping = collections.defaultdict(int)
         self._arch = arch
+        self._denylist = denylist
+        self._ret_log = ret_log
 
     @property
     def _parser_state(self):
@@ -241,8 +255,21 @@ class PolicyParser:
                 self._parser_state.error('invalid constant', token=token)
             single_constant = self._arch.constants[token.value]
         elif token.type == 'NUMERIC_CONSTANT':
+            # As `int(_, 0)` in Python != `strtol(_, _, 0)` in C, to make sure
+            # the number parsing behaves exactly in C, instead of using `int()`
+            # directly, we list out all the possible formats for octal, decimal
+            # and hex numbers, and determine the corresponding base by regex.
             try:
-                single_constant = int(token.value, base=0)
+                if re.match(HEX_REGEX, token.value):
+                    base = 16
+                elif re.match(OCTAL_REGEX, token.value):
+                    base = 8
+                elif re.match(DECIMAL_REGEX, token.value):
+                    base = 10
+                else:
+                    # This should never happen.
+                    raise ValueError
+                single_constant = int(token.value, base=base)
             except ValueError:
                 self._parser_state.error('invalid constant', token=token)
         else:
@@ -290,7 +317,7 @@ class PolicyParser:
 
         Constants can be:
 
-        - A number that can be parsed with int(..., base=0)
+        - A number that can be parsed with strtol() in C.
         - A named constant expression.
         - A parenthesized, valid constant expression.
         - A valid constant expression prefixed with the unary bitwise
@@ -406,6 +433,11 @@ class PolicyParser:
         if not tokens:
             self._parser_state.error('missing action')
         action_token = tokens.pop(0)
+        # denylist policies must specify a return for every line.
+        if self._denylist:
+            if action_token.type != 'RETURN':
+                self._parser_state.error('invalid denylist policy')
+
         if action_token.type == 'ACTION':
             if action_token.value == 'allow':
                 return bpf.Allow()
@@ -430,17 +462,22 @@ class PolicyParser:
         elif action_token.type == 'RETURN':
             if not tokens:
                 self._parser_state.error('missing return value')
-            return bpf.ReturnErrno(self._parse_single_constant(tokens.pop(0)))
+            if self._ret_log:
+                tokens.pop(0)
+                return bpf.Log()
+            else:
+                return bpf.ReturnErrno(self._parse_single_constant(tokens.pop(0)))
         return self._parser_state.error('invalid action', token=action_token)
 
     # single-filter = action
     #               | argument-expression , [ ';' , action ]
+    #               | '!','(', argument-expression, [ ';', action ], ')'
     #               ;
     def _parse_single_filter(self, tokens):
         if not tokens:
             self._parser_state.error('missing filter')
         if tokens[0].type == 'ARGUMENT':
-            # Only argument expressions can start with an ARGUMENT token.
+	    # Only argument expressions can start with an ARGUMENT token.
             argument_expression = self.parse_argument_expression(tokens)
             if tokens and tokens[0].type == 'SEMICOLON':
                 tokens.pop(0)
@@ -697,6 +734,7 @@ class PolicyParser:
         self._parser_states.append(ParserState(filename))
         try:
             statements = []
+            denylist_header = False
             with open(filename) as policy_file:
                 for tokens in self._parser_state.tokenize(policy_file):
                     if tokens[0].type == 'INCLUDE':
@@ -710,6 +748,14 @@ class PolicyParser:
                     elif tokens[0].type == 'DEFAULT':
                         self._default_action = self._parse_default_statement(
                             tokens)
+                    elif tokens[0].type == 'DENYLIST':
+                        tokens.pop()
+                        if not self._denylist:
+                            self._parser_state.error('policy is denylist, but '
+                                                     'flag --denylist not '
+                                                     'passed in.')
+                        else:
+                            denylist_header = True
                     else:
                         statement = self.parse_filter_statement(tokens)
                         if statement is None:
@@ -721,6 +767,9 @@ class PolicyParser:
                     if tokens:
                         self._parser_state.error(
                             'extra tokens', token=tokens[0])
+            if self._denylist and not denylist_header:
+                self._parser_state.error('policy must contain @denylist flag to'
+                                         ' be compiled with --denylist flag.')
             return statements
         finally:
             self._parser_states.pop()

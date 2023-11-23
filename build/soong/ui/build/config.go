@@ -15,8 +15,12 @@
 package build
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -25,15 +29,24 @@ import (
 
 	"android/soong/shared"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	smpb "android/soong/ui/metrics/metrics_proto"
+)
+
+const (
+	envConfigDir = "vendor/google/tools/soong_config"
+	jsonSuffix   = "json"
+
+	configFetcher         = "vendor/google/tools/soong/expconfigfetcher"
+	envConfigFetchTimeout = 10 * time.Second
 )
 
 type Config struct{ *configImpl }
 
 type configImpl struct {
-	// From the environment
+	// Some targets that are implemented in soong_build
+	// (bp2build, json-module-graph) are not here and have their own bits below.
 	arguments     []string
 	goma          bool
 	environ       *Environment
@@ -41,16 +54,22 @@ type configImpl struct {
 	buildDateTime string
 
 	// From the arguments
-	parallel       int
-	keepGoing      int
-	verbose        bool
-	checkbuild     bool
-	dist           bool
-	skipConfig     bool
-	skipKati       bool
-	skipKatiNinja  bool
-	skipNinja      bool
-	skipSoongTests bool
+	parallel        int
+	keepGoing       int
+	verbose         bool
+	checkbuild      bool
+	dist            bool
+	jsonModuleGraph bool
+	bp2build        bool
+	queryview       bool
+	reportMkMetrics bool // Collect and report mk2bp migration progress metrics.
+	soongDocs       bool
+	skipConfig      bool
+	skipKati        bool
+	skipKatiNinja   bool
+	skipSoong       bool
+	skipNinja       bool
+	skipSoongTests  bool
 
 	// From the product config
 	katiArgs        []string
@@ -58,6 +77,7 @@ type configImpl struct {
 	katiSuffix      string
 	targetDevice    string
 	targetDeviceDir string
+	sandboxConfig   *SandboxConfig
 
 	// Autodetected
 	totalRAM uint64
@@ -76,6 +96,8 @@ type configImpl struct {
 
 	// Set by multiproduct_kati
 	emptyNinjaFile bool
+
+	metricsUploader string
 }
 
 const srcDirFileCheck = "build/soong/root.bp"
@@ -104,9 +126,6 @@ const (
 	// Don't use bazel at all.
 	noBazel bazelBuildMode = iota
 
-	// Only generate build files (in a subdirectory of the out directory) and exit.
-	generateBuildFiles
-
 	// Generate synthetic build files and incorporate these files into a build which
 	// partially uses Bazel. Build metadata may come from Android.bp or BUILD files.
 	mixedBuild
@@ -122,9 +141,102 @@ func checkTopDir(ctx Context) {
 	}
 }
 
+// fetchEnvConfig optionally fetches environment config from an
+// experiments system to control Soong features dynamically.
+func fetchEnvConfig(ctx Context, config *configImpl, envConfigName string) error {
+	configName := envConfigName + "." + jsonSuffix
+	expConfigFetcher := &smpb.ExpConfigFetcher{}
+	defer func() {
+		ctx.Metrics.ExpConfigFetcher(expConfigFetcher)
+	}()
+
+	s, err := os.Stat(configFetcher)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if s.Mode()&0111 == 0 {
+		status := smpb.ExpConfigFetcher_ERROR
+		expConfigFetcher.Status = &status
+		return fmt.Errorf("configuration fetcher binary %v is not executable: %v", configFetcher, s.Mode())
+	}
+
+	tCtx, cancel := context.WithTimeout(ctx, envConfigFetchTimeout)
+	defer cancel()
+	fetchStart := time.Now()
+	cmd := exec.CommandContext(tCtx, configFetcher, "-output_config_dir", config.OutDir(),
+		"-output_config_name", configName)
+	if err := cmd.Start(); err != nil {
+		status := smpb.ExpConfigFetcher_ERROR
+		expConfigFetcher.Status = &status
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		status := smpb.ExpConfigFetcher_ERROR
+		expConfigFetcher.Status = &status
+		return err
+	}
+	fetchEnd := time.Now()
+	expConfigFetcher.Micros = proto.Uint64(uint64(fetchEnd.Sub(fetchStart).Microseconds()))
+	outConfigFilePath := filepath.Join(config.OutDir(), configName)
+	expConfigFetcher.Filename = proto.String(outConfigFilePath)
+	if _, err := os.Stat(outConfigFilePath); err == nil {
+		status := smpb.ExpConfigFetcher_CONFIG
+		expConfigFetcher.Status = &status
+	} else {
+		status := smpb.ExpConfigFetcher_NO_CONFIG
+		expConfigFetcher.Status = &status
+	}
+	return nil
+}
+
+func loadEnvConfig(ctx Context, config *configImpl) error {
+	bc := os.Getenv("ANDROID_BUILD_ENVIRONMENT_CONFIG")
+	if bc == "" {
+		return nil
+	}
+
+	if err := fetchEnvConfig(ctx, config, bc); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to fetch config file: %v\n", err)
+	}
+
+	configDirs := []string{
+		config.OutDir(),
+		os.Getenv("ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR"),
+		envConfigDir,
+	}
+	for _, dir := range configDirs {
+		cfgFile := filepath.Join(os.Getenv("TOP"), dir, fmt.Sprintf("%s.%s", bc, jsonSuffix))
+		envVarsJSON, err := ioutil.ReadFile(cfgFile)
+		if err != nil {
+			continue
+		}
+		ctx.Verbosef("Loading config file %v\n", cfgFile)
+		var envVars map[string]map[string]string
+		if err := json.Unmarshal(envVarsJSON, &envVars); err != nil {
+			fmt.Fprintf(os.Stderr, "Env vars config file %s did not parse correctly: %s", cfgFile, err.Error())
+			continue
+		}
+		for k, v := range envVars["env"] {
+			if os.Getenv(k) != "" {
+				continue
+			}
+			config.environ.Set(k, v)
+		}
+		ctx.Verbosef("Finished loading config file %v\n", cfgFile)
+		break
+	}
+
+	return nil
+}
+
 func NewConfig(ctx Context, args ...string) Config {
 	ret := &configImpl{
-		environ: OsEnvironment(),
+		environ:       OsEnvironment(),
+		sandboxConfig: &SandboxConfig{},
 	}
 
 	// Default matching ninja
@@ -150,10 +262,20 @@ func NewConfig(ctx Context, args ...string) Config {
 		ret.environ.Set("OUT_DIR", outDir)
 	}
 
+	// loadEnvConfig needs to know what the OUT_DIR is, so it should
+	// be called after we determine the appropriate out directory.
+	if err := loadEnvConfig(ctx, ret); err != nil {
+		ctx.Fatalln("Failed to parse env config files: %v", err)
+	}
+
 	if distDir, ok := ret.environ.Get("DIST_DIR"); ok {
 		ret.distDir = filepath.Clean(distDir)
 	} else {
 		ret.distDir = filepath.Join(ret.OutDir(), "dist")
+	}
+
+	if srcDirIsWritable, ok := ret.environ.Get("BUILD_BROKEN_SRC_DIR_IS_WRITABLE"); ok {
+		ret.sandboxConfig.SetSrcDirIsRO(srcDirIsWritable == "false")
 	}
 
 	ret.environ.Unset(
@@ -228,13 +350,16 @@ func NewConfig(ctx Context, args ...string) Config {
 	// Precondition: the current directory is the top of the source tree
 	checkTopDir(ctx)
 
-	if srcDir := absPath(ctx, "."); strings.ContainsRune(srcDir, ' ') {
+	srcDir := absPath(ctx, ".")
+	if strings.ContainsRune(srcDir, ' ') {
 		ctx.Println("You are building in a directory whose absolute path contains a space character:")
 		ctx.Println()
 		ctx.Printf("%q\n", srcDir)
 		ctx.Println()
 		ctx.Fatalln("Directory names containing spaces are not supported")
 	}
+
+	ret.metricsUploader = GetMetricsUploader(srcDir, ret.environ)
 
 	if outDir := ret.OutDir(); strings.ContainsRune(outDir, ' ') {
 		ctx.Println("The absolute path of your output directory ($OUT_DIR) contains a space character:")
@@ -256,9 +381,13 @@ func NewConfig(ctx Context, args ...string) Config {
 	java8Home := filepath.Join("prebuilts/jdk/jdk8", ret.HostPrebuiltTag())
 	java9Home := filepath.Join("prebuilts/jdk/jdk9", ret.HostPrebuiltTag())
 	java11Home := filepath.Join("prebuilts/jdk/jdk11", ret.HostPrebuiltTag())
+	java17Home := filepath.Join("prebuilts/jdk/jdk17", ret.HostPrebuiltTag())
 	javaHome := func() string {
 		if override, ok := ret.environ.Get("OVERRIDE_ANDROID_JAVA_HOME"); ok {
 			return override
+		}
+		if ret.environ.IsEnvTrue("EXPERIMENTAL_USE_OPENJDK17_TOOLCHAIN") {
+			return java17Home
 		}
 		if toolchain11, ok := ret.environ.Get("EXPERIMENTAL_USE_OPENJDK11_TOOLCHAIN"); ok && toolchain11 != "true" {
 			ctx.Fatalln("The environment variable EXPERIMENTAL_USE_OPENJDK11_TOOLCHAIN is no longer supported. An OpenJDK 11 toolchain is now the global default.")
@@ -336,18 +465,26 @@ func storeConfigMetrics(ctx Context, config Config) {
 		return
 	}
 
-	b := &smpb.BuildConfig{
-		ForceUseGoma: proto.Bool(config.ForceUseGoma()),
-		UseGoma:      proto.Bool(config.UseGoma()),
-		UseRbe:       proto.Bool(config.UseRBE()),
-	}
-	ctx.Metrics.BuildConfig(b)
+	ctx.Metrics.BuildConfig(buildConfig(config))
 
 	s := &smpb.SystemResourceInfo{
 		TotalPhysicalMemory: proto.Uint64(config.TotalRAM()),
 		AvailableCpus:       proto.Int32(int32(runtime.NumCPU())),
 	}
 	ctx.Metrics.SystemResourceInfo(s)
+}
+
+func buildConfig(config Config) *smpb.BuildConfig {
+	c := &smpb.BuildConfig{
+		ForceUseGoma:    proto.Bool(config.ForceUseGoma()),
+		UseGoma:         proto.Bool(config.UseGoma()),
+		UseRbe:          proto.Bool(config.UseRBE()),
+		BazelAsNinja:    proto.Bool(config.UseBazel()),
+		BazelMixedBuild: proto.Bool(config.bazelBuildMode() == mixedBuild),
+	}
+	c.Targets = append(c.Targets, config.arguments...)
+
+	return c
 }
 
 // getConfigArgs processes the command arguments based on the build action and creates a set of new
@@ -568,9 +705,14 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 		arg := strings.TrimSpace(args[i])
 		if arg == "showcommands" {
 			c.verbose = true
+		} else if arg == "--empty-ninja-file" {
+			c.emptyNinjaFile = true
 		} else if arg == "--skip-ninja" {
 			c.skipNinja = true
 		} else if arg == "--skip-make" {
+			// TODO(ccross): deprecate this, it has confusing behaviors.  It doesn't run kati,
+			//   but it does run a Kati ninja file if the .kati_enabled marker file was created
+			//   by a previous build.
 			c.skipConfig = true
 			c.skipKati = true
 		} else if arg == "--skip-kati" {
@@ -579,8 +721,16 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 		} else if arg == "--soong-only" {
 			c.skipKati = true
 			c.skipKatiNinja = true
+		} else if arg == "--config-only" {
+			c.skipKati = true
+			c.skipKatiNinja = true
+			c.skipSoong = true
+		} else if arg == "--skip-config" {
+			c.skipConfig = true
 		} else if arg == "--skip-soong-tests" {
 			c.skipSoongTests = true
+		} else if arg == "--mk-metrics" {
+			c.reportMkMetrics = true
 		} else if len(arg) > 0 && arg[0] == '-' {
 			parseArgNum := func(def int) int {
 				if len(arg) > 2 {
@@ -613,6 +763,14 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 			c.environ.Set(k, v)
 		} else if arg == "dist" {
 			c.dist = true
+		} else if arg == "json-module-graph" {
+			c.jsonModuleGraph = true
+		} else if arg == "bp2build" {
+			c.bp2build = true
+		} else if arg == "queryview" {
+			c.queryview = true
+		} else if arg == "soong_docs" {
+			c.soongDocs = true
 		} else {
 			if arg == "checkbuild" {
 				c.checkbuild = true
@@ -671,60 +829,33 @@ func (c *configImpl) configureLocale(ctx Context) {
 	}
 }
 
-// Lunch configures the environment for a specific product similarly to the
-// `lunch` bash function.
-func (c *configImpl) Lunch(ctx Context, product, variant string) {
-	if variant != "eng" && variant != "userdebug" && variant != "user" {
-		ctx.Fatalf("Invalid variant %q. Must be one of 'user', 'userdebug' or 'eng'", variant)
-	}
-
-	c.environ.Set("TARGET_PRODUCT", product)
-	c.environ.Set("TARGET_BUILD_VARIANT", variant)
-	c.environ.Set("TARGET_BUILD_TYPE", "release")
-	c.environ.Unset("TARGET_BUILD_APPS")
-	c.environ.Unset("TARGET_BUILD_UNBUNDLED")
-}
-
-// Tapas configures the environment to build one or more unbundled apps,
-// similarly to the `tapas` bash function.
-func (c *configImpl) Tapas(ctx Context, apps []string, arch, variant string) {
-	if len(apps) == 0 {
-		apps = []string{"all"}
-	}
-	if variant == "" {
-		variant = "eng"
-	}
-
-	if variant != "eng" && variant != "userdebug" && variant != "user" {
-		ctx.Fatalf("Invalid variant %q. Must be one of 'user', 'userdebug' or 'eng'", variant)
-	}
-
-	var product string
-	switch arch {
-	case "arm", "":
-		product = "aosp_arm"
-	case "arm64":
-		product = "aosm_arm64"
-	case "x86":
-		product = "aosp_x86"
-	case "x86_64":
-		product = "aosp_x86_64"
-	default:
-		ctx.Fatalf("Invalid architecture: %q", arch)
-	}
-
-	c.environ.Set("TARGET_PRODUCT", product)
-	c.environ.Set("TARGET_BUILD_VARIANT", variant)
-	c.environ.Set("TARGET_BUILD_TYPE", "release")
-	c.environ.Set("TARGET_BUILD_APPS", strings.Join(apps, " "))
-}
-
 func (c *configImpl) Environment() *Environment {
 	return c.environ
 }
 
 func (c *configImpl) Arguments() []string {
 	return c.arguments
+}
+
+func (c *configImpl) SoongBuildInvocationNeeded() bool {
+	if len(c.Arguments()) > 0 {
+		// Explicit targets requested that are not special targets like b2pbuild
+		// or the JSON module graph
+		return true
+	}
+
+	if !c.JsonModuleGraph() && !c.Bp2Build() && !c.Queryview() && !c.SoongDocs() {
+		// Command line was empty, the default Ninja target is built
+		return true
+	}
+
+	// bp2build + dist may be used to dist bp2build logs but does not require SoongBuildInvocation
+	if c.Dist() && !c.Bp2Build() {
+		return true
+	}
+
+	// build.ninja doesn't need to be generated
+	return false
 }
 
 func (c *configImpl) OutDir() string {
@@ -761,6 +892,53 @@ func (c *configImpl) SoongOutDir() string {
 	return filepath.Join(c.OutDir(), "soong")
 }
 
+func (c *configImpl) PrebuiltOS() string {
+	switch runtime.GOOS {
+	case "linux":
+		return "linux-x86"
+	case "darwin":
+		return "darwin-x86"
+	default:
+		panic("Unknown GOOS")
+	}
+}
+
+func (c *configImpl) HostToolDir() string {
+	if c.SkipKatiNinja() {
+		return filepath.Join(c.SoongOutDir(), "host", c.PrebuiltOS(), "bin")
+	} else {
+		return filepath.Join(c.OutDir(), "host", c.PrebuiltOS(), "bin")
+	}
+}
+
+func (c *configImpl) NamedGlobFile(name string) string {
+	return shared.JoinPath(c.SoongOutDir(), "globs-"+name+".ninja")
+}
+
+func (c *configImpl) UsedEnvFile(tag string) string {
+	return shared.JoinPath(c.SoongOutDir(), usedEnvFile+"."+tag)
+}
+
+func (c *configImpl) Bp2BuildMarkerFile() string {
+	return shared.JoinPath(c.SoongOutDir(), "bp2build_workspace_marker")
+}
+
+func (c *configImpl) SoongDocsHtml() string {
+	return shared.JoinPath(c.SoongOutDir(), "docs/soong_build.html")
+}
+
+func (c *configImpl) QueryviewMarkerFile() string {
+	return shared.JoinPath(c.SoongOutDir(), "queryview.marker")
+}
+
+func (c *configImpl) ModuleGraphFile() string {
+	return shared.JoinPath(c.SoongOutDir(), "module-graph.json")
+}
+
+func (c *configImpl) ModuleActionsFile() string {
+	return shared.JoinPath(c.SoongOutDir(), "module-actions.json")
+}
+
 func (c *configImpl) TempDir() string {
 	return shared.TempDirForOutDir(c.SoongOutDir())
 }
@@ -786,6 +964,22 @@ func (c *configImpl) Dist() bool {
 	return c.dist
 }
 
+func (c *configImpl) JsonModuleGraph() bool {
+	return c.jsonModuleGraph
+}
+
+func (c *configImpl) Bp2Build() bool {
+	return c.bp2build
+}
+
+func (c *configImpl) Queryview() bool {
+	return c.queryview
+}
+
+func (c *configImpl) SoongDocs() bool {
+	return c.soongDocs
+}
+
 func (c *configImpl) IsVerbose() bool {
 	return c.verbose
 }
@@ -796,6 +990,10 @@ func (c *configImpl) SkipKati() bool {
 
 func (c *configImpl) SkipKatiNinja() bool {
 	return c.skipKatiNinja
+}
+
+func (c *configImpl) SkipSoong() bool {
+	return c.skipSoong
 }
 
 func (c *configImpl) SkipNinja() bool {
@@ -911,7 +1109,7 @@ func (c *configImpl) StartGoma() bool {
 }
 
 func (c *configImpl) UseRBE() bool {
-	if v, ok := c.environ.Get("USE_RBE"); ok {
+	if v, ok := c.Environment().Get("USE_RBE"); ok {
 		v = strings.TrimSpace(v)
 		if v != "" && v != "false" {
 			return true
@@ -927,8 +1125,6 @@ func (c *configImpl) UseBazel() bool {
 func (c *configImpl) bazelBuildMode() bazelBuildMode {
 	if c.Environment().IsEnvTrue("USE_BAZEL_ANALYSIS") {
 		return mixedBuild
-	} else if c.Environment().IsEnvTrue("GENERATE_BAZEL_FILES") {
-		return generateBuildFiles
 	} else {
 		return noBazel
 	}
@@ -1008,7 +1204,12 @@ func (c *configImpl) rbeReproxy() string {
 }
 
 func (c *configImpl) rbeAuth() (string, string) {
-	credFlags := []string{"use_application_default_credentials", "use_gce_credentials", "credential_file"}
+	credFlags := []string{
+		"use_application_default_credentials",
+		"use_gce_credentials",
+		"credential_file",
+		"use_google_prod_creds",
+	}
 	for _, cf := range credFlags {
 		for _, f := range []string{"RBE_" + cf, "FLAG_" + cf} {
 			if v, ok := c.environ.Get(f); ok {
@@ -1178,22 +1379,25 @@ func (c *configImpl) BuildDateTime() string {
 }
 
 func (c *configImpl) MetricsUploaderApp() string {
-	if p, ok := c.environ.Get("ANDROID_ENABLE_METRICS_UPLOAD"); ok {
-		return p
-	}
-	return ""
+	return c.metricsUploader
 }
 
-// LogsDir returns the logs directory where build log and metrics
-// files are located. By default, the logs directory is the out
+// LogsDir returns the absolute path to the logs directory where build log and
+// metrics files are located. By default, the logs directory is the out
 // directory. If the argument dist is specified, the logs directory
 // is <dist_dir>/logs.
 func (c *configImpl) LogsDir() string {
+	dir := c.OutDir()
 	if c.Dist() {
 		// Always write logs to the real dist dir, even if Bazel is using a rigged dist dir for other files
-		return filepath.Join(c.RealDistDir(), "logs")
+		dir = filepath.Join(c.RealDistDir(), "logs")
 	}
-	return c.OutDir()
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nError making log dir '%s' absolute: %s\n", dir, err.Error())
+		os.Exit(1)
+	}
+	return absDir
 }
 
 // BazelMetricsDir returns the <logs dir>/bazel_metrics directory
@@ -1202,10 +1406,26 @@ func (c *configImpl) BazelMetricsDir() string {
 	return filepath.Join(c.LogsDir(), "bazel_metrics")
 }
 
+// MkFileMetrics returns the file path for make-related metrics.
+func (c *configImpl) MkMetrics() string {
+	return filepath.Join(c.LogsDir(), "mk_metrics.pb")
+}
+
 func (c *configImpl) SetEmptyNinjaFile(v bool) {
 	c.emptyNinjaFile = v
 }
 
 func (c *configImpl) EmptyNinjaFile() bool {
 	return c.emptyNinjaFile
+}
+
+func GetMetricsUploader(topDir string, env *Environment) string {
+	if p, ok := env.Get("METRICS_UPLOADER"); ok {
+		metricsUploader := filepath.Join(topDir, p)
+		if _, err := os.Stat(metricsUploader); err == nil {
+			return metricsUploader
+		}
+	}
+
+	return ""
 }

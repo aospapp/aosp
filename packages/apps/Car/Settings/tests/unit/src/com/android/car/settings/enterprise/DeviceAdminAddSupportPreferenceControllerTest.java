@@ -18,13 +18,14 @@ package com.android.car.settings.enterprise;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
 public final class DeviceAdminAddSupportPreferenceControllerTest extends
-        BasePreferenceControllerTestCase {
+        BaseEnterprisePreferenceControllerTestCase {
 
     @Mock
     private Preference mPreference;
@@ -44,7 +45,7 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
                 new DeviceAdminAddSupportPreferenceController(mSpiedContext, mPreferenceKey,
                         mFragmentController, mUxRestrictions);
 
-        assertAvailability(controller.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
@@ -52,7 +53,7 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
     public void testGetAvailabilityStatus_nullMessage() {
         mockGetLongSupportMessageForUser(null);
 
-        assertAvailability(mController.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
@@ -60,7 +61,7 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
     public void testGetAvailabilityStatus_emptyMessage() {
         mockGetLongSupportMessageForUser("");
 
-        assertAvailability(mController.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
@@ -68,7 +69,8 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
     public void testGetAvailabilityStatus_validMessage() {
         mockGetLongSupportMessageForUser("WHAZZZZUP");
 
-        assertAvailability(mController.getAvailabilityStatus(), PreferenceController.AVAILABLE);
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
     }
 
     @Test

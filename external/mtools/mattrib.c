@@ -25,11 +25,10 @@
 #include "mainloop.h"
 
 typedef struct Arg_t {
-	unsigned char add;
-	unsigned char remove;
-	struct MainParam_t mp;
 	int recursive;
 	int doPrintName;
+	unsigned char add;
+	unsigned char remove;
 } Arg_t;
 
 static int attrib_file(direntry_t *entry, MainParam_t *mp)
@@ -110,7 +109,7 @@ static int concise_view_attrib(direntry_t *entry, MainParam_t *mp)
 	if(IS_ARCHIVE(entry))
 		putchar('A');
 	if(IS_DIR(entry))
-		putchar('D');	
+		putchar('D');
 	if(IS_SYSTEM(entry))
 		putchar('S');
 	if(IS_HIDDEN(entry))
@@ -135,9 +134,9 @@ static int recursive_attrib(direntry_t *entry, MainParam_t *mp)
 static void usage(int ret) NORETURN;
 static void usage(int ret)
 {
-	fprintf(stderr, "Mtools version %s, dated %s\n", 
+	fprintf(stderr, "Mtools version %s, dated %s\n",
 		mversion, mdate);
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: %s [-p] [-a|+a] [-h|+h] [-r|+r] [-s|+s] msdosfile [msdosfiles...]\n",
 		progname);
 	exit(ret);
@@ -163,6 +162,7 @@ void mattrib(int argc, char **argv, int type UNUSEDP) NORETURN;
 void mattrib(int argc, char **argv, int type UNUSEDP)
 {
 	Arg_t arg;
+	struct MainParam_t mp;
 	int view;
 	int c;
 	int concise;
@@ -230,29 +230,29 @@ void mattrib(int argc, char **argv, int type UNUSEDP)
 	if (optind >= argc)
 		usage(1);
 
-	init_mp(&arg.mp);
+	init_mp(&mp);
 	if(view){
 		if(concise) {
-			arg.mp.callback = concise_view_attrib;
+			mp.callback = concise_view_attrib;
 			arg.doPrintName = (argc - optind > 1 ||
 					   arg.recursive ||
 					   strpbrk(argv[optind], "*[?") != 0);
 		} else if (replay) {
-			arg.mp.callback = replay_attrib;
+			mp.callback = replay_attrib;
 		} else
-			arg.mp.callback = view_attrib;
-		arg.mp.openflags = O_RDONLY;
+			mp.callback = view_attrib;
+		mp.openflags = O_RDONLY;
 	} else {
-		arg.mp.callback = attrib_file;
-		arg.mp.openflags = O_RDWR;
+		mp.callback = attrib_file;
+		mp.openflags = O_RDWR;
 	}
 
 	if(arg.recursive)
-		arg.mp.dirCallback = recursive_attrib;
+		mp.dirCallback = recursive_attrib;
 
-	arg.mp.arg = (void *) &arg;
-	arg.mp.lookupflags = ACCEPT_PLAIN | ACCEPT_DIR;
+	mp.arg = (void *) &arg;
+	mp.lookupflags = ACCEPT_PLAIN | ACCEPT_DIR;
 	if(arg.recursive)
-		arg.mp.lookupflags |= DO_OPEN_DIRS | NO_DOTS;
-	exit(main_loop(&arg.mp, argv + optind, argc - optind));
+		mp.lookupflags |= DO_OPEN_DIRS | NO_DOTS;
+	exit(main_loop(&mp, argv + optind, argc - optind));
 }

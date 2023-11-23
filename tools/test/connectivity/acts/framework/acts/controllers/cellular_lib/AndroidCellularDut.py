@@ -17,6 +17,13 @@
 from acts.controllers.android_lib.tel import tel_utils
 from acts.controllers.cellular_lib import BaseCellularDut
 
+GET_BUILD_VERSION = 'getprop ro.build.version.release'
+
+NETWORK_TYPE_TO_BITMASK = {
+    BaseCellularDut.PreferredNetworkType.LTE_ONLY: '01000001000000000000',
+    BaseCellularDut.PreferredNetworkType.NR_LTE: '11000001000000000000',
+    BaseCellularDut.PreferredNetworkType.WCDMA_ONLY: '00000100001110000100',
+}
 
 class AndroidCellularDut(BaseCellularDut.BaseCellularDut):
     """ Android implementation of the cellular DUT class."""
@@ -72,6 +79,22 @@ class AndroidCellularDut(BaseCellularDut.BaseCellularDut):
         Args:
           type: an instance of class PreferredNetworkType
         """
+
+        # If android version is S or later, uses bit mask to set and return.
+        version = self.ad.adb.shell(GET_BUILD_VERSION)
+        try:
+            version_in_number = int(version)
+            if version_in_number > 11:
+                set_network_cmd = 'cmd phone set-allowed-network-types-for-users '
+                set_network_cmd += NETWORK_TYPE_TO_BITMASK[type]
+                self.ad.adb.shell(set_network_cmd)
+                get_network_cmd = 'cmd phone get-allowed-network-types-for-users'
+                allowed_network = self.ad.adb.shell(get_network_cmd)
+                self.log.info('The allowed network: {}'.format(allowed_network))
+                return
+        except ValueError:
+            self.log.info('The android version is older than S, use sl4a')
+
         if type == BaseCellularDut.PreferredNetworkType.LTE_ONLY:
             formatted_type = tel_utils.NETWORK_MODE_LTE_ONLY
         elif type == BaseCellularDut.PreferredNetworkType.WCDMA_ONLY:

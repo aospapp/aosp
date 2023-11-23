@@ -33,6 +33,7 @@ import com.google.common.geometry.S2LatLng;
 import com.google.common.geometry.S2Loop;
 import com.google.common.geometry.S2Point;
 import com.google.common.geometry.S2Polygon;
+
 import org.geojson.Feature;
 import org.geojson.FeatureCollection;
 import org.geojson.Geometry;
@@ -94,22 +95,22 @@ public final class GeoJsonTzToTzS2Polygons {
                 description = "The input geojson file to parse",
                 required = true,
                 converter = FileConverter.class)
-        File geoJsonFile;
+        public File geoJsonFile;
 
         @Parameter(names = "--num-threads",
                 description = "The number of threads to use",
                 required = true)
-        int numThreads;
+        public int numThreads;
 
         @Parameter(names = "--output",
                 description = "The output directory",
                 required = true,
                 converter = FileConverter.class)
-        File outputDir;
+        public File outputDir;
 
         @Parameter(names = "--tz-ids",
                 description = "Comma separated list of time zones to build S2Polygons for")
-        String tzIds;
+        public String tzIds;
 
         Set<String> tzIds() {
             return tzIds == null

@@ -1,4 +1,4 @@
-# Copyright 2020 The Pigweed Authors
+# Copyright 2021 The Pigweed Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -17,10 +17,11 @@ import os
 from typing import Iterable
 
 from pw_protobuf.output_file import OutputFile
-from pw_protobuf.proto_tree import ProtoNode, ProtoService, ProtoServiceMethod
+from pw_protobuf.proto_tree import ProtoServiceMethod
 from pw_protobuf.proto_tree import build_node_tree
 from pw_rpc import codegen
-from pw_rpc.codegen import RPC_NAMESPACE
+from pw_rpc.codegen import (client_call_type, get_id, CodeGenerator,
+                            RPC_NAMESPACE)
 
 PROTO_H_EXTENSION = '.pb.h'
 
@@ -37,64 +38,128 @@ def _proto_filename_to_stub_header(proto_file: str) -> str:
     return f'{filename}.raw_rpc.stub{PROTO_H_EXTENSION}'
 
 
-def _generate_method_descriptor(method: ProtoServiceMethod, method_id: int,
-                                output: OutputFile) -> None:
-    """Generates a method descriptor for a raw RPC method."""
-
-    impl_method = f'&Implementation::{method.name()}'
-
-    output.write_line(
-        f'{RPC_NAMESPACE}::internal::GetRawMethodFor<{impl_method}, '
-        f'{method.type().cc_enum()}>(')
-    output.write_line(f'    0x{method_id:08x}),  // Hash of "{method.name()}"')
+def _function(method: ProtoServiceMethod) -> str:
+    return f'{client_call_type(method, "Raw")} {method.name()}'
 
 
-def _generate_server_writer_alias(output: OutputFile) -> None:
-    output.write_line(
-        f'using RawServerWriter = {RPC_NAMESPACE}::RawServerWriter;')
+def _user_args(method: ProtoServiceMethod) -> Iterable[str]:
+    if not method.client_streaming():
+        yield '::pw::ConstByteSpan request'
+
+    if method.server_streaming():
+        yield '::pw::Function<void(::pw::ConstByteSpan)>&& on_next = nullptr'
+        yield '::pw::Function<void(::pw::Status)>&& on_completed = nullptr'
+    else:
+        yield ('::pw::Function<void(::pw::ConstByteSpan, ::pw::Status)>&& '
+               'on_completed = nullptr')
+
+    yield '::pw::Function<void(::pw::Status)>&& on_error = nullptr'
 
 
-def _generate_code_for_client(unused_service: ProtoService,
-                              unused_root: ProtoNode,
-                              output: OutputFile) -> None:
-    """Outputs client code for an RPC service."""
-    output.write_line('// Raw RPC clients are not yet implemented.\n')
+class RawCodeGenerator(CodeGenerator):
+    """Generates an RPC service and client using the raw buffers API."""
+    def name(self) -> str:
+        return 'raw'
 
+    def method_union_name(self) -> str:
+        return 'RawMethodUnion'
 
-def _generate_code_for_service(service: ProtoService, root: ProtoNode,
-                               output: OutputFile) -> None:
-    """Generates a C++ base class for a raw RPC service."""
-    codegen.service_class(service, root, output, _generate_server_writer_alias,
-                          'RawMethodUnion', _generate_method_descriptor)
+    def includes(self, unused_proto_file_name: str) -> Iterable[str]:
+        yield '#include "pw_rpc/raw/client_reader_writer.h"'
+        yield '#include "pw_rpc/raw/internal/method_union.h"'
+        yield '#include "pw_rpc/raw/server_reader_writer.h"'
 
+    def service_aliases(self) -> None:
+        self.line(f'using RawServerWriter = {RPC_NAMESPACE}::RawServerWriter;')
+        self.line(f'using RawServerReader = {RPC_NAMESPACE}::RawServerReader;')
+        self.line('using RawServerReaderWriter = '
+                  f'{RPC_NAMESPACE}::RawServerReaderWriter;')
 
-def _generate_code_for_package(proto_file, package: ProtoNode,
-                               output: OutputFile) -> None:
-    """Generates code for a header file corresponding to a .proto file."""
-    includes = lambda *_: ['#include "pw_rpc/internal/raw_method_union.h"']
+    def method_descriptor(self, method: ProtoServiceMethod) -> None:
+        impl_method = f'&Implementation::{method.name()}'
 
-    codegen.package(proto_file, package, output, includes,
-                    _generate_code_for_service, _generate_code_for_client)
+        self.line(f'{RPC_NAMESPACE}::internal::GetRawMethodFor<{impl_method}, '
+                  f'{method.type().cc_enum()}>(')
+        self.line(f'    {get_id(method)}),  // Hash of "{method.name()}"')
+
+    def client_member_function(self, method: ProtoServiceMethod) -> None:
+        self.line(f'{_function(method)}(')
+        self.indented_list(*_user_args(method), end=') const {')
+
+        with self.indent():
+            base = 'Stream' if method.server_streaming() else 'Unary'
+            self.line(f'return {RPC_NAMESPACE}::internal::'
+                      f'{base}ResponseClientCall::'
+                      f'Start<{client_call_type(method, "Raw")}>(')
+
+            service_client = RPC_NAMESPACE + '::internal::ServiceClient'
+            arg = ['std::move(on_next)'] if method.server_streaming() else []
+
+            self.indented_list(
+                f'{service_client}::client()',
+                f'{service_client}::channel_id()',
+                'kServiceId',
+                get_id(method),
+                *arg,
+                'std::move(on_completed)',
+                'std::move(on_error)',
+                '{}' if method.client_streaming() else 'request',
+                end=');')
+
+        self.line('}')
+
+    def client_static_function(self, method: ProtoServiceMethod) -> None:
+        self.line(f'static {_function(method)}(')
+        self.indented_list(f'{RPC_NAMESPACE}::Client& client',
+                           'uint32_t channel_id',
+                           *_user_args(method),
+                           end=') {')
+
+        with self.indent():
+            self.line(f'return Client(client, channel_id).{method.name()}(')
+
+            args = []
+
+            if not method.client_streaming():
+                args.append('request')
+
+            if method.server_streaming():
+                args.append('std::move(on_next)')
+
+            self.indented_list(*args,
+                               'std::move(on_completed)',
+                               'std::move(on_error)',
+                               end=');')
+
+        self.line('}')
 
 
 class StubGenerator(codegen.StubGenerator):
     def unary_signature(self, method: ProtoServiceMethod, prefix: str) -> str:
-        return (f'pw::StatusWithSize {prefix}{method.name()}(ServerContext&, '
-                'pw::ConstByteSpan request, pw::ByteSpan response)')
+        return (f'void {prefix}{method.name()}(pw::ConstByteSpan request, '
+                'pw::rpc::RawUnaryResponder& responder)')
 
     def unary_stub(self, method: ProtoServiceMethod,
                    output: OutputFile) -> None:
         output.write_line(codegen.STUB_REQUEST_TODO)
         output.write_line('static_cast<void>(request);')
         output.write_line(codegen.STUB_RESPONSE_TODO)
-        output.write_line('static_cast<void>(response);')
-        output.write_line('return pw::StatusWithSize::Unimplemented();')
+        output.write_line('static_cast<void>(responder);')
 
     def server_streaming_signature(self, method: ProtoServiceMethod,
                                    prefix: str) -> str:
 
-        return (f'void {prefix}{method.name()}(ServerContext&, '
+        return (f'void {prefix}{method.name()}('
                 'pw::ConstByteSpan request, RawServerWriter& writer)')
+
+    def client_streaming_signature(self, method: ProtoServiceMethod,
+                                   prefix: str) -> str:
+        return f'void {prefix}{method.name()}(RawServerReader& reader)'
+
+    def bidirectional_streaming_signature(self, method: ProtoServiceMethod,
+                                          prefix: str) -> str:
+        return (f'void {prefix}{method.name()}('
+                'RawServerReaderWriter& reader_writer)')
 
 
 def process_proto_file(proto_file) -> Iterable[OutputFile]:
@@ -102,10 +167,10 @@ def process_proto_file(proto_file) -> Iterable[OutputFile]:
 
     _, package_root = build_node_tree(proto_file)
     output_filename = _proto_filename_to_generated_header(proto_file.name)
-    output_file = OutputFile(output_filename)
-    _generate_code_for_package(proto_file, package_root, output_file)
 
-    output_file.write_line()
-    codegen.package_stubs(package_root, output_file, StubGenerator())
+    generator = RawCodeGenerator(output_filename)
+    codegen.generate_package(proto_file, package_root, generator)
 
-    return [output_file]
+    codegen.package_stubs(package_root, generator, StubGenerator())
+
+    return [generator.output]

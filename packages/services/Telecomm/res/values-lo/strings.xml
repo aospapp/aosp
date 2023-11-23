@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ບລັອກສາຍຈາກຕູ້ໂທ"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"ບໍ່ຮູ້ຈັກ"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"ບລັອກສາຍຈາກຜູ້ໂທທີ່ລະບຸຕົວຕົນບໍ່ໄດ້"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"ບໍ່ສາມາດໃຊ້ໄດ້"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ບລັອກການໂທເມື່ອໝາຍເລກບໍ່ສາມາດໃຊ້ໄດ້"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ການບລັອກສາຍ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"ປິດການບລັອກສາຍແລ້ວ"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"ໂທສຸກເສີນແລ້ວ"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ປິດການບລັອກສາຍແລ້ວເພື່ອອະນຸຍາດໃຫ້ສາຍສຸກເສີນສາມາດຕິດຕໍ່ຫາທ່ານໄດ້."</string>
     <string name="developer_title" msgid="9146088855661672353">"ເມນູນັກພັດທະນາໂທລະຄົມ"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ບໍ່ສາມາດໂທໄດ້ໃນຂະນະທີ່ຢູ່ໃນການໂທສຸກເສີນ."</string>
+    <string name="cancel" msgid="6733466216239934756">"ຍົກເລີກ"</string>
 </resources>

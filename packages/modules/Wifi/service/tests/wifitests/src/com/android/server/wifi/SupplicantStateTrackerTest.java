@@ -49,7 +49,7 @@ public class SupplicantStateTrackerTest extends WifiBaseTest {
 
     private static final String TAG = "SupplicantStateTrackerTest";
     private static final String SSID = "\"GoogleGuest\"";
-    private static final WifiSsid WIFI_SSID = WifiSsid.createFromAsciiEncoded(SSID);
+    private static final WifiSsid WIFI_SSID = WifiSsid.fromUtf8Text(SSID);
     private static final String BSSID = "01:02:03:04:05:06";
     private static final String TEST_IFACE = "wlan_test";
 

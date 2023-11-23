@@ -16,12 +16,12 @@
 
 package com.android.timezone.location.provider.core;
 
+import android.service.timezone.TimeZoneProviderService;
+import android.service.timezone.TimeZoneProviderSuggestion;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import android.service.timezone.TimeZoneProviderService;
-import android.service.timezone.TimeZoneProviderSuggestion;
 
 import java.util.Objects;
 

@@ -16,10 +16,13 @@
 
 package android.content.pm.cts;
 
+import static android.Manifest.permission.WRITE_DEVICE_CONFIG;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.annotation.NonNull;
 import android.app.UiAutomation;
@@ -28,12 +31,16 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.provider.DeviceConfig;
 import android.service.dataloader.DataLoaderService;
 import android.system.Os;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -78,6 +85,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -85,6 +93,7 @@ import java.util.stream.Stream;
 @RunWith(AndroidJUnit4.class)
 @AppModeFull
 @LargeTest
+@Presubmit
 public class PackageManagerShellCommandIncrementalTest {
     private static final String TAG = "PackageManagerShellCommandIncrementalTest";
 
@@ -103,6 +112,21 @@ public class PackageManagerShellCommandIncrementalTest {
     private static final String TEST_APK_SPLIT2 = "HelloWorld5_xhdpi-v4.apk";
     private static final String TEST_APK_SPLIT2_IDSIG = "HelloWorld5_xhdpi-v4.apk.idsig";
     private static final String TEST_APK_MALFORMED = "malformed.apk";
+
+    private static final String TEST_HW7 = "HelloWorld7.apk";
+    private static final String TEST_HW7_IDSIG = "HelloWorld7.apk.idsig";
+    private static final String TEST_HW7_SPLIT0 = "HelloWorld7_hdpi-v4.apk";
+    private static final String TEST_HW7_SPLIT0_IDSIG = "HelloWorld7_hdpi-v4.apk.idsig";
+    private static final String TEST_HW7_SPLIT1 = "HelloWorld7_mdpi-v4.apk";
+    private static final String TEST_HW7_SPLIT1_IDSIG = "HelloWorld7_mdpi-v4.apk.idsig";
+    private static final String TEST_HW7_SPLIT2 = "HelloWorld7_xhdpi-v4.apk";
+    private static final String TEST_HW7_SPLIT2_IDSIG = "HelloWorld7_xhdpi-v4.apk.idsig";
+    private static final String TEST_HW7_SPLIT3 = "HelloWorld7_xxhdpi-v4.apk";
+    private static final String TEST_HW7_SPLIT3_IDSIG = "HelloWorld7_xxhdpi-v4.apk.idsig";
+    private static final String TEST_HW7_SPLIT4 = "HelloWorld7_xxxhdpi-v4.apk";
+    private static final String TEST_HW7_SPLIT4_IDSIG = "HelloWorld7_xxxhdpi-v4.apk.idsig";
+
+    private static final boolean CHECK_BASE_APK_DIGESTION = false;
 
     private static final long EXPECTED_READ_TIME = 1000L;
 
@@ -202,6 +226,8 @@ public class PackageManagerShellCommandIncrementalTest {
         final long blockSize = Os.statvfs("/data/incremental").f_bsize;
         final long preAllocatedBlocks = Os.statvfs("/data/incremental").f_bfree;
 
+        final AtomicLong freeSpaceDifference = new AtomicLong(-1L);
+
         mSession =
                 new IncrementalInstallSession.Builder()
                         .addApk(Paths.get(apk), Paths.get(idsig))
@@ -216,10 +242,8 @@ public class PackageManagerShellCommandIncrementalTest {
                             try {
                                 final long postAllocatedBlocks =
                                         Os.statvfs("/data/incremental").f_bfree;
-                                final long freeSpaceDifference =
-                                        (preAllocatedBlocks - postAllocatedBlocks) * blockSize;
-                                assertTrue(freeSpaceDifference
-                                        >= ((appFileSize * 1.015) + blockSize * 8));
+                                freeSpaceDifference.set(
+                                        (preAllocatedBlocks - postAllocatedBlocks) * blockSize);
                             } catch (Exception e) {
                                 Log.i(TAG, "ErrnoException: ", e);
                                 throw new AssertionError(e);
@@ -238,6 +262,10 @@ public class PackageManagerShellCommandIncrementalTest {
         }
 
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+
+        final double freeSpaceExpectedDifference = ((appFileSize * 1.015) + blockSize * 8);
+        assertTrue(freeSpaceDifference.get() + " >= " + freeSpaceExpectedDifference,
+                freeSpaceDifference.get() >= freeSpaceExpectedDifference);
 
         String installPath = executeShellCommand(String.format("pm path %s", TEST_APP_PACKAGE))
                                         .replaceFirst("package:", "")
@@ -721,6 +749,153 @@ public class PackageManagerShellCommandIncrementalTest {
         assertEquals(2764243, extractTimestamp(
                 "<...>-2777  ( 1639) [006] ....  2764.243225: tracing_mark_write: "
                         + "B|1639|missing_page_reads: count=132"));
+        assertEquals(114176, extractTimestamp(
+                "DataLoaderManag-8339    (   1780) [004] ....   114.176342: tracing_mark_write: "
+                        + "B|1780|page_read: index=1846 count=21 file=0 appid=10151 userid=0"));
+    }
+    static class AppReads {
+        public final String packageName;
+        public final int reads;
+
+        AppReads(String packageName, int reads) {
+            this.packageName = packageName;
+            this.reads = reads;
+        }
+    }
+
+    @LargeTest
+    @Test
+    public void testInstallWithIdSigNoDigesting() throws Exception {
+        // Overall timeout of 3secs in 100ms intervals.
+        final int installIterations = 1;
+        final int atraceDumpIterations = 30;
+        final int atraceDumpDelayMs = 100;
+        final int blockSize = 4096;
+
+        final String[] apks =
+                new String[]{TEST_HW7, TEST_HW7_SPLIT0, TEST_HW7_SPLIT1, TEST_HW7_SPLIT2,
+                        TEST_HW7_SPLIT3, TEST_HW7_SPLIT4};
+        final boolean[][] touched = new boolean[apks.length][];
+        final int[] blocks = new int[apks.length];
+        final AtomicLong[] totalTouchedBlocks = new AtomicLong[apks.length];
+        for (int i = 0, size = apks.length; i < size; ++i) {
+            final String apkName = apks[i];
+            final File apkfile = new File(createApkPath(apkName));
+            blocks[i] = (int) ((apkfile.length() + blockSize - 1) / blockSize);
+            touched[i] = new boolean[blocks[i]];
+            totalTouchedBlocks[i] = new AtomicLong(0);
+        }
+
+        final ArrayMap<Integer, Integer> uids = new ArrayMap<>();
+
+        checkSysTrace(
+                installIterations,
+                atraceDumpIterations,
+                atraceDumpDelayMs,
+                () -> {
+                    mSession =
+                            new IncrementalInstallSession.Builder()
+                                    .addApk(Paths.get(createApkPath(TEST_HW7)),
+                                            Paths.get(createApkPath(TEST_HW7_IDSIG)))
+                                    .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT0)),
+                                            Paths.get(createApkPath(TEST_HW7_SPLIT0_IDSIG)))
+                                    .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT1)),
+                                            Paths.get(createApkPath(TEST_HW7_SPLIT1_IDSIG)))
+                                    .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT2)),
+                                            Paths.get(createApkPath(TEST_HW7_SPLIT2_IDSIG)))
+                                    .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT3)),
+                                            Paths.get(createApkPath(TEST_HW7_SPLIT3_IDSIG)))
+                                    .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT4)),
+                                            Paths.get(createApkPath(TEST_HW7_SPLIT4_IDSIG)))
+                                    .addExtraArgs("-t", "-i", CTS_PACKAGE_NAME,
+                                            "--skip-verification")
+                                    .setLogger(new IncrementalDeviceConnection.Logger())
+                                    .build();
+                    getUiAutomation().adoptShellPermissionIdentity();
+                    try {
+                        mSession.start(Executors.newSingleThreadExecutor(),
+                                IncrementalDeviceConnection.Factory.reliable());
+                        mSession.waitForInstallCompleted(30, TimeUnit.SECONDS);
+                        assertEquals(
+                                "base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, "
+                                        + "config.xxxhdpi",
+                                getSplits(TEST_APP_PACKAGE));
+                    } finally {
+                        getUiAutomation().dropShellPermissionIdentity();
+                    }
+                    return null;
+                },
+                (stdout) -> {
+                    try (Scanner scanner = new Scanner(stdout)) {
+                        while (scanner.hasNextLine()) {
+                            String line = scanner.nextLine();
+                            final ReadLogEntry readLogEntry = ReadLogEntry.parse(line);
+                            if (readLogEntry == null) {
+                                continue;
+                            }
+                            int fileIdx = readLogEntry.fileIdx;
+                            for (int i = 0, count = readLogEntry.count; i < count; ++i) {
+                                int blockIdx = readLogEntry.blockIdx + i;
+                                if (touched[fileIdx][blockIdx]) {
+                                    continue;
+                                }
+
+                                touched[fileIdx][blockIdx] = true;
+
+                                int uid = UserHandle.getUid(readLogEntry.userId,
+                                        readLogEntry.appId);
+                                Integer touchedByUid = uids.get(uid);
+                                uids.put(uid, touchedByUid == null ? 1 : touchedByUid + 1);
+
+                                long totalTouched = totalTouchedBlocks[fileIdx].incrementAndGet();
+                                if (totalTouched >= blocks[fileIdx]) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    }
+                });
+
+        int firstFileIdx = CHECK_BASE_APK_DIGESTION ? 0 : 1;
+
+        boolean found = false;
+        for (int i = firstFileIdx, size = blocks.length; i < size; ++i) {
+            if (totalTouchedBlocks[i].get() >= blocks[i]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return;
+        }
+
+        PackageManager pm = getPackageManager();
+
+        AppReads[] appIdReads = new AppReads[uids.size()];
+        for (int i = 0, size = uids.size(); i < size; ++i) {
+            final int uid = uids.keyAt(i);
+            final int appId = UserHandle.getAppId(uid);
+            final int userId = UserHandle.getUserId(uid);
+
+            final String packageName;
+            if (appId < Process.FIRST_APPLICATION_UID) {
+                packageName = "<system>";
+            } else {
+                String[] packages = pm.getPackagesForUid(uid);
+                if (packages == null || packages.length == 0) {
+                    packageName = "<unknown package, appId=" + appId + ", userId=" + userId + ">";
+                } else {
+                    packageName = "[" + String.join(",", packages) + "]";
+                }
+            }
+            appIdReads[i] = new AppReads(packageName, uids.valueAt(i));
+        }
+        Arrays.sort(appIdReads, (lhs, rhs) -> Integer.compare(rhs.reads, lhs.reads));
+
+        final String packages = String.join("\n", Arrays.stream(appIdReads).map(
+                item -> item.packageName + " : " + item.reads + " blocks").toArray(String[]::new));
+        fail("Digesting detected, list of packages: " + packages);
     }
 
     @LargeTest
@@ -741,46 +916,71 @@ public class PackageManagerShellCommandIncrementalTest {
     @LargeTest
     @Test
     public void testInstallWithIdSigStreamPerUidTimeoutsIncompleteData() throws Exception {
+        // To disable verification.
+        installNonIncremental(TEST_APK);
+
         checkIncrementalDeliveryV2Feature();
 
         mSession =
                 new IncrementalInstallSession.Builder()
-                        .addApk(Paths.get(createApkPath(TEST_APK)),
-                                Paths.get(createApkPath(TEST_APK_IDSIG)))
-                        .addApk(Paths.get(createApkPath(TEST_APK_SPLIT0)),
-                                Paths.get(createApkPath(TEST_APK_SPLIT0_IDSIG)))
-                        .addApk(Paths.get(createApkPath(TEST_APK_SPLIT1)),
-                                Paths.get(createApkPath(TEST_APK_SPLIT1_IDSIG)))
-                        .addExtraArgs("-t", "-i", CTS_PACKAGE_NAME)
+                        .addApk(Paths.get(createApkPath(TEST_HW7)),
+                                Paths.get(createApkPath(TEST_HW7_IDSIG)))
+                        .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT0)),
+                                Paths.get(createApkPath(TEST_HW7_SPLIT0_IDSIG)))
+                        .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT1)),
+                                Paths.get(createApkPath(TEST_HW7_SPLIT1_IDSIG)))
+                        .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT2)),
+                                Paths.get(createApkPath(TEST_HW7_SPLIT2_IDSIG)))
+                        .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT3)),
+                                Paths.get(createApkPath(TEST_HW7_SPLIT3_IDSIG)))
+                        .addApk(Paths.get(createApkPath(TEST_HW7_SPLIT4)),
+                                Paths.get(createApkPath(TEST_HW7_SPLIT4_IDSIG)))
+                        .addExtraArgs("-t", "-i", CTS_PACKAGE_NAME, "--skip-verification")
                         .setLogger(new IncrementalDeviceConnection.Logger())
                         .build();
 
-        executeShellCommand("atrace --async_start -b 1024 -c adb");
+        executeShellCommand("atrace --async_start -b 10240 -c adb");
         try {
-            setDeviceProperty("incfs_default_timeouts", "5000000:5000000:5000000");
+            setDeviceProperty("incfs_default_timeouts", "20000000:20000000:20000000");
             setDeviceProperty("known_digesters_list", CTS_PACKAGE_NAME);
 
             final int beforeReadDelayMs = 1000;
             Thread.currentThread().sleep(beforeReadDelayMs);
 
-            // Partially install the apk+split0+split1.
+            // Partially install the apk+split0/1/2/3/4.
             getUiAutomation().adoptShellPermissionIdentity();
             try {
                 mSession.start(Executors.newSingleThreadExecutor(),
                         IncrementalDeviceConnection.Factory.reliable());
                 mSession.waitForInstallCompleted(30, TimeUnit.SECONDS);
-                assertEquals("base, config.hdpi, config.mdpi", getSplits(TEST_APP_PACKAGE));
+                assertEquals(
+                        "base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config"
+                                + ".xxxhdpi",
+                        getSplits(TEST_APP_PACKAGE));
             } finally {
                 getUiAutomation().dropShellPermissionIdentity();
             }
 
-            // Try to read a split and see if we are throttled.
-            final File apkToRead = getSplit("split_config.mdpi.apk");
-            final long readTime0 = readAndReportTime(apkToRead, 1000);
+            final String packagePath = getCodePath(TEST_APP_PACKAGE);
 
-            assertTrue(
-                    "Must take longer than " + EXPECTED_READ_TIME + "ms: time0=" + readTime0 + "ms",
-                    readTime0 >= EXPECTED_READ_TIME);
+            // Try to read splits and see if we are throttled at least once.
+            long maxReadTime = 0;
+            for (String splitName : new String[]{"split_config.hdpi.apk", "split_config.mdpi.apk",
+                    "split_config.xhdpi.apk", "split_config.xxxhdpi.apk",
+                    "split_config.xxxhdpi.apk"}) {
+                final File apkToRead = new File(packagePath, splitName);
+                final long readTime0 = readAndReportTime(apkToRead, 1000);
+
+                if (readTime0 < EXPECTED_READ_TIME) {
+                    executeShellCommand("atrace --async_dump");
+                }
+                maxReadTime = Math.max(maxReadTime, readTime0);
+                if (maxReadTime >= EXPECTED_READ_TIME) {
+                    break;
+                }
+            }
+            assertTrue("Must take longer than " + EXPECTED_READ_TIME + "ms: time0=" + maxReadTime
+                    + "ms", maxReadTime >= EXPECTED_READ_TIME);
         } finally {
             executeShellCommand("atrace --async_stop");
         }
@@ -984,7 +1184,13 @@ public class PackageManagerShellCommandIncrementalTest {
         return TEST_APK_PATH + baseName;
     }
 
-    private Void installPackage(String baseName) throws IOException {
+    static void installNonIncremental(String baseName) throws IOException {
+        File file = new File(createApkPath(baseName));
+        assertEquals("Success\n",
+                executeShellCommand("pm install -t -g " + file.getPath()));
+    }
+
+    static Void installPackage(String baseName) throws IOException {
         File file = new File(createApkPath(baseName));
         assertEquals("Success\n",
                 executeShellCommand("pm install-incremental -t -g " + file.getPath()));
@@ -1030,19 +1236,18 @@ public class PackageManagerShellCommandIncrementalTest {
     }
 
     private long readAndReportTime(File file, long borderTime) throws Exception {
-        assertTrue(file.toString(), file.exists());
         final long startTime = SystemClock.uptimeMillis();
-        long readTime = 0;
+        assertTrue(file.toString(), file.exists());
         try (InputStream baseApkStream = new FileInputStream(file)) {
             final byte[] buffer = new byte[128 * 1024];
             while (baseApkStream.read(buffer) != -1) {
-                readTime = SystemClock.uptimeMillis() - startTime;
+                long readTime = SystemClock.uptimeMillis() - startTime;
                 if (readTime >= borderTime) {
                     break;
                 }
             }
         }
-        return readTime;
+        return SystemClock.uptimeMillis() - startTime;
     }
 
     static String uninstallPackageSilently(String packageName) throws IOException {
@@ -1137,8 +1342,8 @@ public class PackageManagerShellCommandIncrementalTest {
         mSession = null;
     }
 
-    private void setDeviceProperty(String name, String value) {
-        getUiAutomation().adoptShellPermissionIdentity();
+    static void setDeviceProperty(String name, String value) {
+        getUiAutomation().adoptShellPermissionIdentity(WRITE_DEVICE_CONFIG);
         try {
             DeviceConfig.setProperty(DeviceConfig.NAMESPACE_PACKAGE_MANAGER_SERVICE, name, value,
                     false);
@@ -1147,7 +1352,7 @@ public class PackageManagerShellCommandIncrementalTest {
         }
     }
 
-    private void setSystemProperty(String name, String value) throws Exception {
+    static void setSystemProperty(String name, String value) throws Exception {
         executeShellCommand("setprop " + name + " " + value);
     }
 

@@ -74,11 +74,6 @@ public class DozeServiceHost implements DozeHost {
     }
 
     @Override
-    public boolean isBlockingDoze() {
-        return true;
-    }
-
-    @Override
     public void extendPulse(int reason) {
         // No op.
     }
@@ -119,7 +114,7 @@ public class DozeServiceHost implements DozeHost {
     }
 
     @Override
-    public boolean isDozeSuppressed() {
+    public boolean isAlwaysOnSuppressed() {
         return true;
     }
 }

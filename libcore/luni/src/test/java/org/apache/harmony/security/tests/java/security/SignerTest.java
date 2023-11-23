@@ -43,7 +43,7 @@ import junit.framework.TestCase;
  * tests for class Signer
  *
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings("removal")
 public class SignerTest extends TestCase {
 
     public static class MySecurityManager extends SecurityManager {

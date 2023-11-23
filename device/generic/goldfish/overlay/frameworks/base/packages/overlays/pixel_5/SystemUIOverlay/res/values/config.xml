@@ -27,7 +27,6 @@
          corner edges), this pulls out just the curve.
      -->
     <string name="config_rounded_mask" translatable="false">M156,0 C76,4 58,5 31,31 5,58 4,76 0,156</string>
-    <bool name="config_roundedCornerMultipleRadius">true</bool>
     <!-- Configure 13px of extra protection around the front-facing camera -->
     <string translatable="false" name="config_frontBuiltInDisplayCutoutProtection">
         M 29,77

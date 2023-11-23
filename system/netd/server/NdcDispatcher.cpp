@@ -136,7 +136,6 @@ NdcDispatcher::NdcDispatcher() {
     registerCmd(new BandwidthControlCmd());
     registerCmd(new IdletimerControlCmd());
     registerCmd(new FirewallCmd());
-    registerCmd(new ClatdCmd());
     registerCmd(new NetworkCommand());
     registerCmd(new StrictCmd());
 }
@@ -841,40 +840,6 @@ int NdcDispatcher::FirewallCmd::runCommand(NdcClient* cli, int argc, char** argv
     }
 
     cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown command", false);
-    return 0;
-}
-
-NdcDispatcher::ClatdCmd::ClatdCmd() : NdcNetdCommand("clatd") {}
-
-int NdcDispatcher::ClatdCmd::runCommand(NdcClient* cli, int argc, char** argv) const {
-    int rc = 0;
-    if (argc < 3) {
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing argument", false);
-        return 0;
-    }
-
-    std::string v6Addr;
-
-    if (!strcmp(argv[1], "stop")) {
-        rc = !mNetd->clatdStop(argv[2]).isOk();
-    } else if (!strcmp(argv[1], "start")) {
-        if (argc < 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing argument", false);
-            return 0;
-        }
-        rc = !mNetd->clatdStart(argv[2], argv[3], &v6Addr).isOk();
-    } else {
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown clatd cmd", false);
-        return 0;
-    }
-
-    if (!rc) {
-        cli->sendMsg(ResponseCode::CommandOkay,
-                     std::string(("Clatd operation succeeded ") + v6Addr).c_str(), false);
-    } else {
-        cli->sendMsg(ResponseCode::OperationFailed, "Clatd operation failed", false);
-    }
-
     return 0;
 }
 

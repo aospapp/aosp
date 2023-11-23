@@ -17,16 +17,19 @@
 # get installed too.
 
 pattern_locales := \
+    af \
     as \
     be \
     bg \
     bn \
+    cs \
     cu \
     cy \
     da \
     de-1901 \
     de-1996 \
     de-ch-1901 \
+    el \
     en-gb \
     en-us \
     es \
@@ -34,25 +37,37 @@ pattern_locales := \
     eu \
     fr \
     ga \
+    gl \
     gu \
     hi \
     hr \
     hu \
     hy \
+    it \
+    ka \
     kn \
     la \
+    lt \
+    lv \
     ml \
     mn-cyrl \
     mr \
+    mul-ethi \
     nb \
+    nl \
     nn \
     or \
     pa \
     pt \
+    ru \
+    sk \
     sl \
+    sq \
+    sv \
     ta \
     te \
     tk \
+    uk \
     und-ethi
 
 PRODUCT_PACKAGES := $(addprefix hyph-,$(pattern_locales)) \

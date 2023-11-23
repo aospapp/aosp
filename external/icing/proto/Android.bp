@@ -43,4 +43,5 @@ cc_library_static {
         export_proto_headers: true,
     },
     srcs: ["icing/**/*.proto"],
+    min_sdk_version: "Tiramisu",
 }

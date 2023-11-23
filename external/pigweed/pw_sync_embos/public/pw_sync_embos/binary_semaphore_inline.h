@@ -14,7 +14,7 @@
 #pragma once
 
 #include "RTOS.h"
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_chrono/system_clock.h"
 #include "pw_chrono_embos/system_clock_constants.h"
 #include "pw_interrupt/context.h"
@@ -31,7 +31,8 @@ inline BinarySemaphore::~BinarySemaphore() { OS_DeleteCSema(&native_type_); }
 inline void BinarySemaphore::release() { OS_SignalCSemaMax(&native_type_, 1); }
 
 inline void BinarySemaphore::acquire() {
-  PW_ASSERT(!interrupt::InInterruptContext());
+  // Enforce the pw::sync::BinarySemaphore IRQ contract.
+  PW_DASSERT(!interrupt::InInterruptContext());
   OS_WaitCSema(&native_type_);
 }
 
@@ -40,10 +41,10 @@ inline bool BinarySemaphore::try_acquire() noexcept {
 }
 
 inline bool BinarySemaphore::try_acquire_until(
-    chrono::SystemClock::time_point until_at_least) {
+    chrono::SystemClock::time_point deadline) {
   // Note that if this deadline is in the future, it will get rounded up by
   // one whole tick due to how try_acquire_for is implemented.
-  return try_acquire_for(until_at_least - chrono::SystemClock::now());
+  return try_acquire_for(deadline - chrono::SystemClock::now());
 }
 
 inline BinarySemaphore::native_handle_type BinarySemaphore::native_handle() {

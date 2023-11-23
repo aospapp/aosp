@@ -20,7 +20,8 @@ import (
 )
 
 // AppendProperties appends the values of properties in the property struct src to the property
-// struct dst. dst and src must be the same type, and both must be pointers to structs.
+// struct dst. dst and src must be the same type, and both must be pointers to structs. Properties
+// tagged `blueprint:"mutated"` are skipped.
 //
 // The filter function can prevent individual properties from being appended by returning false, or
 // abort AppendProperties with an error by returning an error.  Passing nil for filter will append
@@ -38,7 +39,8 @@ func AppendProperties(dst interface{}, src interface{}, filter ExtendPropertyFil
 }
 
 // PrependProperties prepends the values of properties in the property struct src to the property
-// struct dst. dst and src must be the same type, and both must be pointers to structs.
+// struct dst. dst and src must be the same type, and both must be pointers to structs. Properties
+// tagged `blueprint:"mutated"` are skipped.
 //
 // The filter function can prevent individual properties from being prepended by returning false, or
 // abort PrependProperties with an error by returning an error.  Passing nil for filter will prepend
@@ -58,7 +60,7 @@ func PrependProperties(dst interface{}, src interface{}, filter ExtendPropertyFi
 // AppendMatchingProperties appends the values of properties in the property struct src to the
 // property structs in dst.  dst and src do not have to be the same type, but every property in src
 // must be found in at least one property in dst.  dst must be a slice of pointers to structs, and
-// src must be a pointer to a struct.
+// src must be a pointer to a struct.  Properties tagged `blueprint:"mutated"` are skipped.
 //
 // The filter function can prevent individual properties from being appended by returning false, or
 // abort AppendProperties with an error by returning an error.  Passing nil for filter will append
@@ -79,7 +81,7 @@ func AppendMatchingProperties(dst []interface{}, src interface{},
 // PrependMatchingProperties prepends the values of properties in the property struct src to the
 // property structs in dst.  dst and src do not have to be the same type, but every property in src
 // must be found in at least one property in dst.  dst must be a slice of pointers to structs, and
-// src must be a pointer to a struct.
+// src must be a pointer to a struct.  Properties tagged `blueprint:"mutated"` are skipped.
 //
 // The filter function can prevent individual properties from being prepended by returning false, or
 // abort PrependProperties with an error by returning an error.  Passing nil for filter will prepend
@@ -99,6 +101,7 @@ func PrependMatchingProperties(dst []interface{}, src interface{},
 
 // ExtendProperties appends or prepends the values of properties in the property struct src to the
 // property struct dst. dst and src must be the same type, and both must be pointers to structs.
+// Properties tagged `blueprint:"mutated"` are skipped.
 //
 // The filter function can prevent individual properties from being appended or prepended by
 // returning false, or abort ExtendProperties with an error by returning an error.  Passing nil for
@@ -123,7 +126,8 @@ func ExtendProperties(dst interface{}, src interface{}, filter ExtendPropertyFil
 // ExtendMatchingProperties appends or prepends the values of properties in the property struct src
 // to the property structs in dst.  dst and src do not have to be the same type, but every property
 // in src must be found in at least one property in dst.  dst must be a slice of pointers to
-// structs, and src must be a pointer to a struct.
+// structs, and src must be a pointer to a struct.  Properties tagged `blueprint:"mutated"` are
+// skipped.
 //
 // The filter function can prevent individual properties from being appended or prepended by
 // returning false, or abort ExtendMatchingProperties with an error by returning an error.  Passing
@@ -247,13 +251,11 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 	prefix string, filter ExtendPropertyFilterFunc, sameTypes bool,
 	orderFunc ExtendPropertyOrderFunc) error {
 
+	dstValuesCopied := false
+
 	srcType := srcValue.Type()
 	for i, srcField := range typeFields(srcType) {
-		if srcField.PkgPath != "" {
-			// The field is not exported so just skip it.
-			continue
-		}
-		if HasTag(srcField, "blueprint", "mutated") {
+		if ShouldSkipProperty(srcField) {
 			continue
 		}
 
@@ -284,7 +286,9 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 
 		found := false
 		var recurse []reflect.Value
-		for _, dstValue := range dstValues {
+		// Use an iteration loop so elements can be added to the end of dstValues inside the loop.
+		for j := 0; j < len(dstValues); j++ {
+			dstValue := dstValues[j]
 			dstType := dstValue.Type()
 			var dstField reflect.StructField
 
@@ -297,6 +301,27 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 					if field.Name == srcField.Name {
 						dstField = field
 						ok = true
+					} else if IsEmbedded(field) {
+						embeddedDstValue := dstValue.FieldByIndex(field.Index)
+						if isStructPtr(embeddedDstValue.Type()) {
+							if embeddedDstValue.IsNil() {
+								newEmbeddedDstValue := reflect.New(embeddedDstValue.Type().Elem())
+								embeddedDstValue.Set(newEmbeddedDstValue)
+							}
+							embeddedDstValue = embeddedDstValue.Elem()
+						}
+						if !isStruct(embeddedDstValue.Type()) {
+							return extendPropertyErrorf(propertyName, "%s is not a struct (%s)",
+								prefix+field.Name, embeddedDstValue.Type())
+						}
+						// The destination struct contains an embedded struct, add it to the list
+						// of destinations to consider.  Make a copy of dstValues if necessary
+						// to avoid modifying the backing array of an input parameter.
+						if !dstValuesCopied {
+							dstValues = append([]reflect.Value(nil), dstValues...)
+							dstValuesCopied = true
+						}
+						dstValues = append(dstValues, embeddedDstValue)
 					}
 				}
 				if !ok {
@@ -342,7 +367,7 @@ func extendPropertiesRecursive(dstValues []reflect.Value, srcValue reflect.Value
 				// Recursively extend the struct's fields.
 				recurse = append(recurse, dstFieldValue)
 				continue
-			case reflect.Bool, reflect.String, reflect.Slice:
+			case reflect.Bool, reflect.String, reflect.Slice, reflect.Map:
 				if srcFieldValue.Type() != dstFieldValue.Type() {
 					return extendPropertyErrorf(propertyName, "mismatched types %s and %s",
 						dstFieldValue.Type(), srcFieldValue.Type())
@@ -443,6 +468,34 @@ func ExtendBasicType(dstFieldValue, srcFieldValue reflect.Value, order Order) {
 			newSlice = reflect.AppendSlice(newSlice, srcFieldValue)
 		}
 		dstFieldValue.Set(newSlice)
+	case reflect.Map:
+		if srcFieldValue.IsNil() {
+			break
+		}
+		var mapValue reflect.Value
+		// for append/prepend, maintain keys from original value
+		// for replace, replace entire map
+		if order == Replace || dstFieldValue.IsNil() {
+			mapValue = srcFieldValue
+		} else {
+			mapValue = dstFieldValue
+
+			iter := srcFieldValue.MapRange()
+			for iter.Next() {
+				dstValue := dstFieldValue.MapIndex(iter.Key())
+				if prepend {
+					// if the key exists in the map, keep the original value.
+					if !dstValue.IsValid() {
+						// otherwise, add the new value
+						mapValue.SetMapIndex(iter.Key(), iter.Value())
+					}
+				} else {
+					// For append, replace the original value.
+					mapValue.SetMapIndex(iter.Key(), iter.Value())
+				}
+			}
+		}
+		dstFieldValue.Set(mapValue)
 	case reflect.Ptr:
 		if srcFieldValue.IsNil() {
 			break
@@ -482,6 +535,18 @@ func ExtendBasicType(dstFieldValue, srcFieldValue reflect.Value, order Order) {
 			panic(fmt.Errorf("unexpected pointer kind %s", ptrKind))
 		}
 	}
+}
+
+// ShouldSkipProperty indicates whether a property should be skipped in processing.
+func ShouldSkipProperty(structField reflect.StructField) bool {
+	return structField.PkgPath != "" || // The field is not exported so just skip it.
+		HasTag(structField, "blueprint", "mutated") // The field is not settable in a blueprint file
+}
+
+// IsEmbedded indicates whether a property is embedded. This is useful for determining nesting name
+// as the name of the embedded field is _not_ used in blueprint files.
+func IsEmbedded(structField reflect.StructField) bool {
+	return structField.Name == "BlueprintEmbed" || structField.Anonymous
 }
 
 type getStructEmptyError struct{}

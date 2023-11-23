@@ -24,18 +24,36 @@ namespace android {
 
 HostConnection* createOrGetHostConnection();
 
-#define DEFINE_AND_VALIDATE_HOST_CONNECTION                                   \
-  HostConnection* hostCon = createOrGetHostConnection();                      \
-  if (!hostCon) {                                                             \
-    ALOGE("%s: Failed to get host connection\n", __FUNCTION__);               \
-    return HWC2::Error::NoResources;                                          \
-  }                                                                           \
-  ExtendedRCEncoderContext* rcEnc = hostCon->rcEncoder();                     \
-  if (!rcEnc) {                                                               \
-    ALOGE("%s: Failed to get renderControl encoder context\n", __FUNCTION__); \
-    return HWC2::Error::NoResources;                                          \
+inline HWC2::Error getAndValidateHostConnection(
+    HostConnection** ppHostCon, ExtendedRCEncoderContext** ppRcEnc) {
+  *ppHostCon = nullptr;
+  *ppRcEnc = nullptr;
+
+  HostConnection* hostCon = createOrGetHostConnection();
+  if (!hostCon) {
+    ALOGE("%s: Failed to get host connection\n", __FUNCTION__);
+    return HWC2::Error::NoResources;
+  }
+  ExtendedRCEncoderContext* rcEnc = hostCon->rcEncoder();
+  if (!rcEnc) {
+    ALOGE("%s: Failed to get renderControl encoder context\n", __FUNCTION__);
+    return HWC2::Error::NoResources;
   }
 
+  *ppHostCon = hostCon;
+  *ppRcEnc = rcEnc;
+  return HWC2::Error::None;
+}
+
+#define DEFINE_AND_VALIDATE_HOST_CONNECTION                           \
+  HostConnection* hostCon;                                            \
+  ExtendedRCEncoderContext* rcEnc;                                    \
+  {                                                                   \
+    HWC2::Error res = getAndValidateHostConnection(&hostCon, &rcEnc); \
+    if (res != HWC2::Error::None) {                                   \
+      return res;                                                     \
+    }                                                                 \
+  }
 }  // namespace android
 
 #endif

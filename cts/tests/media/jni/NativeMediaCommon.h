@@ -18,7 +18,7 @@
 #define MEDIACTSNATIVE_NATIVE_MEDIA_COMMON_H
 
 #include <inttypes.h>
-#include <NdkMediaFormat.h>
+#include <media/NdkMediaFormat.h>
 
 extern const char* AMEDIA_MIMETYPE_VIDEO_VP8;
 extern const char* AMEDIA_MIMETYPE_VIDEO_VP9;
@@ -56,6 +56,7 @@ typedef enum {
 constexpr int COLOR_FormatYUV420SemiPlanar = 21;
 constexpr int COLOR_FormatYUV420Flexible = 0x7F420888;
 constexpr int COLOR_FormatSurface = 0x7f000789;
+constexpr int COLOR_FormatYUVP010 = 54;
 
 // constants not defined in NDK
 extern const char* TBD_AMEDIACODEC_PARAMETER_KEY_REQUEST_SYNC_FRAME;

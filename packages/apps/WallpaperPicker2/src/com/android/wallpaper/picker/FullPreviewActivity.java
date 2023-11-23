@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.transition.Slide;
+import android.view.View;
 import android.view.Window;
 
 import androidx.fragment.app.Fragment;
@@ -106,5 +107,18 @@ public class FullPreviewActivity extends BasePreviewActivity implements AppbarFr
         public Intent newIntent(Context context, WallpaperInfo wallpaper) {
             return FullPreviewActivity.newIntent(context, wallpaper);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (isInMultiWindowMode()) {
+            onBackPressed();
+        }
+        // Hide the navigation bar
+        View decorView = getWindow().getDecorView();
+        int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN;
+        decorView.setSystemUiVisibility(uiOptions);
     }
 }

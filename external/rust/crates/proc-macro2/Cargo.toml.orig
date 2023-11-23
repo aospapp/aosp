@@ -1,14 +1,16 @@
 [package]
 name = "proc-macro2"
-version = "1.0.26" # remember to update html_root_url
-authors = ["Alex Crichton <alex@alexcrichton.com>", "David Tolnay <dtolnay@gmail.com>"]
+version = "1.0.36" # remember to update html_root_url
+authors = ["David Tolnay <dtolnay@gmail.com>", "Alex Crichton <alex@alexcrichton.com>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["macros"]
-repository = "https://github.com/alexcrichton/proc-macro2"
+repository = "https://github.com/dtolnay/proc-macro2"
 documentation = "https://docs.rs/proc-macro2"
 categories = ["development-tools::procedural-macro-helpers"]
 edition = "2018"
+autobenches = false
+rust-version = "1.31"
 description = """
 A substitute implementation of the compiler's `proc_macro` API to decouple
 token-based libraries from the procedural macro use case.

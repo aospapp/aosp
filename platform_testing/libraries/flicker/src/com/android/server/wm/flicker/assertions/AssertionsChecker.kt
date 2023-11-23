@@ -33,6 +33,16 @@ class AssertionsChecker<T : FlickerSubject> {
     private val assertions = mutableListOf<CompoundAssertion<T>>()
     private var skipUntilFirstAssertion = false
 
+    /**
+     * Empty the list of assertions.
+     */
+    internal fun clear() {
+        assertions.clear()
+    }
+
+    /**
+     * Add [assertion] to a new [CompoundAssertion] block.
+     */
     fun add(name: String, isOptional: Boolean = false, assertion: Assertion<T>) {
         assertions.add(CompoundAssertion(assertion, name, isOptional))
     }
@@ -88,7 +98,7 @@ class AssertionsChecker<T : FlickerSubject> {
                 lastPassedAssertionIndex = assertionIndex
                 entryIndex++
             } catch (e: Throwable) {
-                // ignore errors are the start of the trace
+                // ignore errors at the start of the trace
                 val ignoreFailure = skipUntilFirstAssertion && lastPassedAssertionIndex == -1
                 if (ignoreFailure) {
                     entryIndex++

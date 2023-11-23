@@ -15,10 +15,11 @@
  */
 
 #include "slicer/dex_format.h"
+
 #include "slicer/common.h"
 
-#include <zlib.h>
 #include <sstream>
+#include <zlib.h>
 
 namespace dex {
 
@@ -64,14 +65,14 @@ std::string DescriptorToDecl(const char* descriptor) {
 
   if (*descriptor == 'L') {
     for (++descriptor; *descriptor != ';'; ++descriptor) {
-      SLICER_CHECK(*descriptor != '\0');
+      SLICER_CHECK_NE(*descriptor, '\0');
       ss << (*descriptor == '/' ? '.' : *descriptor);
     }
   } else {
     ss << PrimitiveTypeName(*descriptor);
   }
 
-  SLICER_CHECK(descriptor[1] == '\0');
+  SLICER_CHECK_EQ(descriptor[1], '\0');
 
   // add the array brackets
   for (int i = 0; i < array_dimensions; ++i) {
@@ -95,10 +96,10 @@ char DescriptorToShorty(const char* descriptor) {
   if (short_descriptor == 'L') {
     // skip the full class name
     for(; *descriptor && *descriptor != ';'; ++descriptor);
-    SLICER_CHECK(*descriptor == ';');
+    SLICER_CHECK_EQ(*descriptor, ';');
   }
 
-  SLICER_CHECK(descriptor[1] == '\0');
+  SLICER_CHECK_EQ(descriptor[1], '\0');
   SLICER_CHECK(short_descriptor == 'L' || PrimitiveTypeName(short_descriptor) != nullptr);
 
   return array_dimensions > 0 ? 'L' : short_descriptor;

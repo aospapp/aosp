@@ -27,6 +27,8 @@
 #include "test-utils.h"
 
 using abigail::tools_utils::abidiff_status;
+using abigail::tests::emit_test_status_and_update_counters;
+using abigail::tests::emit_test_summary;
 
 struct InOutSpec
 {
@@ -425,6 +427,17 @@ InOutSpec in_out_specs[] =
     "data/test-abidiff-exit/test-missing-alias-report.txt",
     "output/test-abidiff-exit/test-missing-alias-report.txt"
   },
+  {
+    "data/test-abidiff-exit/test-PR28316-v0.o",
+    "data/test-abidiff-exit/test-PR28316-v1.o",
+    "",
+    "",
+    "",
+    "--no-default-suppression --harmless",
+    abigail::tools_utils::ABIDIFF_ABI_CHANGE,
+    "data/test-abidiff-exit/test-PR28316-report.txt",
+    "output/test-abidiff-exit/test-PR28316-report.txt"
+  },
   {0, 0, 0 ,0, 0, 0, abigail::tools_utils::ABIDIFF_OK, 0, 0}
 };
 
@@ -453,9 +466,10 @@ main()
   using abigail::tools_utils::split_string;
   using abigail::tools_utils::abidiff_status;
 
-  bool is_ok = true;
+  unsigned int total_count = 0, passed_count = 0, failed_count = 0;
+
   string in_elfv0_path, in_elfv1_path,
-    in_suppression_path, abidiff_options, abidiff, cmd,
+    in_suppression_path, abidiff_options, abidiff, cmd, diff_cmd,
     ref_diff_report_path, out_diff_report_path;
   vector<string> in_elfv0_headers_dirs, in_elfv1_headers_dirs;
   string source_dir_prefix = string(get_src_dir()) + "/tests/";
@@ -463,6 +477,7 @@ main()
 
     for (InOutSpec* s = in_out_specs; s->in_elfv0_path; ++s)
       {
+	bool is_ok = true;
 	in_elfv0_path = source_dir_prefix + s->in_elfv0_path;
 	in_elfv1_path = source_dir_prefix + s->in_elfv1_path;
 	split_string(s->in_elfv0_headers_dirs, ",", in_elfv0_headers_dirs);
@@ -529,14 +544,23 @@ main()
 
 	if (abidiff_ok)
 	  {
-	    cmd = "diff -u " + ref_diff_report_path
+	    diff_cmd = "diff -u " + ref_diff_report_path
 	      + " " + out_diff_report_path;
-	    if (system(cmd.c_str()))
+	    if (system(diff_cmd.c_str()))
 	      is_ok = false;
 	  }
 	else
 	  is_ok = false;
+
+	emit_test_status_and_update_counters(is_ok,
+					     cmd,
+					     passed_count,
+					     failed_count,
+					     total_count);
       }
 
-    return !is_ok;
+    emit_test_summary(total_count, passed_count, failed_count);
+
+
+    return failed_count;
 }

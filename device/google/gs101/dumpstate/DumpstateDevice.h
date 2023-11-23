@@ -64,6 +64,7 @@ struct DumpstateDevice : public IDumpstateDevice {
     void dumpWlanSection(int fd);
     void dumpPowerSection(int fd);
     void dumpThermalSection(int fd);
+    void dumpPreTouchSection(int fd);
     void dumpTouchSection(int fd);
     void dumpSocSection(int fd);
     void dumpCpuSection(int fd);

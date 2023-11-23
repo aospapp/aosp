@@ -19,11 +19,19 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/media_product.mk)
 
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
 
+PRODUCT_PUBLIC_SEPOLICY_DIRS += device/google/atv/audio_proxy/sepolicy/public
+
 PRODUCT_PACKAGES += \
     TvFrameworkOverlay \
     TvSettingsProviderOverlay \
     TvWifiOverlay
 
 PRODUCT_COPY_FILES += \
-    device/google/atv/atv-component-overrides.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/atv-component-overrides.xml \
+    device/google/atv/atv-component-overrides.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/atv-component-overrides.xml
 
+PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/android.hardware.gamepad.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/android.hardware.gamepad.xml
+
+# Too many tombstones can cause bugreports to grow too large to be uploaded.
+PRODUCT_PRODUCT_PROPERTIES += \
+    tombstoned.max_tombstone_count?=10

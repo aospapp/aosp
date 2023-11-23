@@ -135,6 +135,11 @@ interface IImageService {
     void removeDisabledImages();
 
     /**
+     * Return whether an image is disabled.
+     */
+    boolean isImageDisabled(@utf8InCpp String name);
+
+    /**
      * Return the block device path of a mapped image, or an empty string if not mapped.
      */
     @utf8InCpp String getMappedImageDevice(@utf8InCpp String name);

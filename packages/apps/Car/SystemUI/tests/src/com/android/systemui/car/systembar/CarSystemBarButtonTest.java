@@ -16,6 +16,7 @@
 
 package com.android.systemui.car.systembar;
 
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -31,10 +32,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.ActivityManager;
+import android.app.ActivityTaskManager;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.os.RemoteException;
 import android.testing.AndroidTestingRunner;
-import android.testing.TestableLooper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
@@ -53,16 +55,11 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.MockitoAnnotations;
 
-import java.util.List;
-
 @CarSystemUiTest
 @RunWith(AndroidTestingRunner.class)
-@TestableLooper.RunWithLooper
 @SmallTest
 public class CarSystemBarButtonTest extends SysuiTestCase {
 
-    private static final String DEFAULT_BUTTON_ACTIVITY_NAME =
-            "com.android.car.carlauncher/.CarLauncher";
     private static final String DIALER_BUTTON_ACTIVITY_NAME =
             "com.android.car.dialer/.ui.TelecomActivity";
     private static final String BROADCAST_ACTION_NAME =
@@ -97,11 +94,12 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     @Test
     public void onSelected_selectedIconDefined_togglesIcon() {
         mDefaultButton.setSelected(true);
+        waitForIdleSync();
         Drawable selectedIconDrawable = ((AlphaOptimizedImageView) mDefaultButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
 
-
         mDefaultButton.setSelected(false);
+        waitForIdleSync();
         Drawable unselectedIconDrawable = ((AlphaOptimizedImageView) mDefaultButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
 
@@ -114,11 +112,13 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
                 R.id.selected_icon_undefined);
 
         selectedIconUndefinedButton.setSelected(true);
+        waitForIdleSync();
         Drawable selectedIconDrawable = ((AlphaOptimizedImageView) mDefaultButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
 
 
         selectedIconUndefinedButton.setSelected(false);
+        waitForIdleSync();
         Drawable unselectedIconDrawable = ((AlphaOptimizedImageView) mDefaultButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
 
@@ -128,15 +128,17 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     @Test
     public void onUnselected_doesNotHighlightWhenSelected_applySelectedAlpha() {
         mDefaultButton.setSelected(false);
+        waitForIdleSync();
 
         assertThat(mDefaultButton.getAlpha()).isEqualTo(mDefaultButton.getSelectedAlpha());
     }
 
     @Test
-    public void onSelected_doesNotHighlightWhenSelected_applySelectedAlpha() {
+    public void onSelected_doesNotHighlightWhenSelected_applyDefaultUnselectedAlpha() {
         mDefaultButton.setSelected(true);
+        waitForIdleSync();
 
-        assertThat(mDefaultButton.getIconAlpha()).isEqualTo(mDefaultButton.getSelectedAlpha());
+        assertThat(mDefaultButton.getIconAlpha()).isEqualTo(mDefaultButton.getUnselectedAlpha());
     }
 
     @Test
@@ -144,6 +146,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         CarSystemBarButton highlightWhenSelectedButton = mTestView.findViewById(
                 R.id.highlightable_no_more_button);
         highlightWhenSelectedButton.setSelected(false);
+        waitForIdleSync();
 
         assertThat(highlightWhenSelectedButton.getIconAlpha()).isEqualTo(
                 highlightWhenSelectedButton.getUnselectedAlpha());
@@ -154,6 +157,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         CarSystemBarButton highlightWhenSelectedButton = mTestView.findViewById(
                 R.id.highlightable_no_more_button);
         highlightWhenSelectedButton.setSelected(true);
+        waitForIdleSync();
 
         assertThat(highlightWhenSelectedButton.getIconAlpha()).isEqualTo(
                 highlightWhenSelectedButton.getSelectedAlpha());
@@ -164,6 +168,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         mDefaultButton.setSelected(true);
         AlphaOptimizedImageView moreIcon = mDefaultButton.findViewById(
                 R.id.car_nav_button_more_icon);
+        waitForIdleSync();
 
         assertThat(moreIcon.getVisibility()).isEqualTo(View.GONE);
     }
@@ -175,6 +180,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         showMoreWhenSelected.setSelected(true);
         AlphaOptimizedImageView moreIcon = showMoreWhenSelected.findViewById(
                 R.id.car_nav_button_more_icon);
+        waitForIdleSync();
 
         assertThat(moreIcon.getVisibility()).isEqualTo(View.VISIBLE);
     }
@@ -187,6 +193,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         showMoreWhenSelected.setSelected(false);
         AlphaOptimizedImageView moreIcon = showMoreWhenSelected.findViewById(
                 R.id.car_nav_button_more_icon);
+        waitForIdleSync();
 
         assertThat(moreIcon.getVisibility()).isEqualTo(View.GONE);
     }
@@ -198,6 +205,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
 
         roleBasedButton.setAppIcon(appIcon);
         roleBasedButton.setSelected(false);
+        waitForIdleSync();
 
         Drawable currentDrawable = ((AlphaOptimizedImageView) roleBasedButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
@@ -211,6 +219,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
 
         roleBasedButton.setAppIcon(getContext().getDrawable(R.drawable.ic_android));
         roleBasedButton.setSelected(false);
+        waitForIdleSync();
 
         assertThat(roleBasedButton.getIconAlpha()).isEqualTo(roleBasedButton.getUnselectedAlpha());
     }
@@ -222,6 +231,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
 
         roleBasedButton.setSelected(true);
         roleBasedButton.setAppIcon(appIcon);
+        waitForIdleSync();
 
         Drawable currentDrawable = ((AlphaOptimizedImageView) roleBasedButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
@@ -233,8 +243,8 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onSelected_withAppIcon_applySelectedAlpha() {
         CarSystemBarButton roleBasedButton = mTestView.findViewById(R.id.role_based_button);
 
+        roleBasedButton.setSelected(true);
         roleBasedButton.setAppIcon(getContext().getDrawable(R.drawable.ic_android));
-        roleBasedButton.performClick();
         waitForIdleSync();
 
         assertThat(roleBasedButton.getIconAlpha()).isEqualTo(roleBasedButton.getSelectedAlpha());
@@ -244,10 +254,9 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onClick_launchesIntentActivity() {
         mDefaultButton.performClick();
 
-        assertThat(getCurrentActivityName()).isEqualTo(DEFAULT_BUTTON_ACTIVITY_NAME);
-
         CarSystemBarButton dialerButton = mTestView.findViewById(R.id.dialer_activity);
         dialerButton.performClick();
+        waitForIdleSync();
 
         assertThat(getCurrentActivityName()).isEqualTo(DIALER_BUTTON_ACTIVITY_NAME);
     }
@@ -255,8 +264,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     @Test
     public void onLongClick_longIntentDefined_launchesLongIntentActivity() {
         mDefaultButton.performClick();
-
-        assertThat(getCurrentActivityName()).isEqualTo(DEFAULT_BUTTON_ACTIVITY_NAME);
+        waitForIdleSync();
 
         CarSystemBarButton dialerButton = mTestView.findViewById(
                 R.id.long_click_dialer_activity);
@@ -305,6 +313,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onSetUnseen_hasUnseen_showsUnseenIndicator() {
         mDefaultButton.setUnseen(true);
         ImageView hasUnseenIndicator = mDefaultButton.findViewById(R.id.car_nav_button_unseen_icon);
+        waitForIdleSync();
 
         assertThat(hasUnseenIndicator.getVisibility()).isEqualTo(View.VISIBLE);
     }
@@ -313,6 +322,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onSetUnseen_doesNotHaveUnseen_hidesUnseenIndicator() {
         mDefaultButton.setUnseen(false);
         ImageView hasUnseenIndicator = mDefaultButton.findViewById(R.id.car_nav_button_unseen_icon);
+        waitForIdleSync();
 
         assertThat(hasUnseenIndicator.getVisibility()).isEqualTo(View.GONE);
     }
@@ -355,14 +365,17 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
      * like TaskViews).
      */
     private String getCurrentActivityName() {
-        // Check 3 running tasks to be safe in making sure there is at least 1 task running in
-        // fullscreen mode.
-        List<ActivityManager.RunningTaskInfo> infos = mActivityManager.getRunningTasks(3);
-        for (ActivityManager.RunningTaskInfo info : infos) {
-            if (info.getWindowingMode() == WINDOWING_MODE_FULLSCREEN) {
-                return info.topActivity.flattenToShortString();
+        try {
+            ActivityTaskManager.RootTaskInfo rootTaskInfo =
+                    ActivityTaskManager.getService().getRootTaskInfoOnDisplay(
+                            WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_UNDEFINED,
+                            mContext.getDisplayId());
+            if (rootTaskInfo == null || rootTaskInfo.topActivity == null) {
+                return null;
             }
+            return rootTaskInfo.topActivity.flattenToShortString();
+        } catch (RemoteException e) {
+            return null;
         }
-        return null;
     }
 }

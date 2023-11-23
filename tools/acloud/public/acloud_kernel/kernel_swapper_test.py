@@ -33,7 +33,7 @@ class KernelSwapperTest(driver_test_lib.BaseDriverTest):
 
     def setUp(self):
         """Set up the test."""
-        super(KernelSwapperTest, self).setUp()
+        super().setUp()
         self.cfg = mock.MagicMock()
         self.credentials = mock.MagicMock()
         self.Patch(auth, 'CreateCredentials', return_value=self.credentials)

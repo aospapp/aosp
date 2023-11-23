@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"ഒരു അക്കൗണ്ട് ചേർക്കുക"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"അക്കൗണ്ടുകളും സൈൻ ഇൻ ചെയ്യലും"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"അക്കൗണ്ടുകളില്ല"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> അക്കൗണ്ടുകൾ</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> അക്കൗണ്ട്</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# അക്കൗണ്ട്}other{# അക്കൗണ്ടുകൾ}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"മീഡിയ സേവനങ്ങൾ, Assistant, പേയ്‌മെന്റുകൾ എന്നിവ"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"നെറ്റ്‌വർക്കും ഇന്റർനെറ്റും"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"ശബ്‌ദം"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"ആപ്പുകൾ"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"ഉപകരണ മുൻഗണനകൾ"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"റിമോട്ടുകളും ആക്‌സസറികളും"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"കണക്റ്റ് ചെയ്‌ത Bluetooth ഉപകരണങ്ങളൊന്നുമില്ല"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> ആക്സസറികൾ</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> ആക്സസറി</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"ഡിസ്‌പ്ലേയും ശബ്‌ദവും"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"സഹായവും ഫീഡ്‌ബാക്കും"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"സ്വകാര്യത"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"ഫാക്‌ടറി ഡാറ്റ പുനഃക്രമീകരണം"</string>
     <string name="device_calibration" msgid="2907914144048739705">"കാലിബ്രേഷൻ"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"എനർജി സേവർ"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"ഉപകരണങ്ങൾ"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"ഫോർമാറ്റുകൾ തിരഞ്ഞെടുക്കുക"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"സറൗണ്ട് ശബ്‌ദം"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"ഡോൾബി ഡിജിറ്റൽ"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"പ്രവർത്തനക്ഷമമാക്കിയ ഫോർമാറ്റുകൾ"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"പ്രവർത്തനരഹിതമാക്കിയ ഫോർമാറ്റുകൾ"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"പ്രവർത്തനരഹിതമാക്കാൻ, ഫോർമാറ്റ് തിരഞ്ഞെടുക്കൽ \'നേരിട്ട്\' എന്നതിലേക്ക് മാറ്റുക."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"റെസല്യൂഷൻ"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"സ്വയമേവ"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"റെസല്യൂഷൻ മാറ്റി"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"ഇപ്പോൾ മുതൽ %1$s ഉപയോഗിക്കാൻ ശരി തിരഞ്ഞെടുക്കുക."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"റദ്ദാക്കുക"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ശരി"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"കാഷെ ചെയ്‌ത ഡാറ്റ മായ്‌ക്കണോ?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"ഇത് എല്ലാ അപ്ലിക്കേഷനുകൾക്കുമായി കാഷെ ചെയ്ത ഡാറ്റ മായ്‌ക്കും."</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"ചേർക്കൂ"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"ജോടിയാക്കുന്നു…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"കണക്‌റ്റുചെയ്യുന്നു..."</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"ആക്‌സസറികൾ"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"റിമോട്ട് കൺട്രോൾ"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"റിമോട്ട് കൺട്രോൾ ക്രമീകരണം"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"റിമോട്ട് ബട്ടണുകൾ സജ്ജീകരിക്കുക"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"ശബ്‌ദം, പവർ, ടിവികളിലെ ഇൻപുട്ട്, റിസീവറുകൾ, സൗണ്ട് ബാറുകൾ എന്നിവ നിയന്ത്രിക്കുക"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"കണക്റ്റ് ചെയ്യുക"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s എന്നതിലേക്ക് കണക്‌റ്റ് ചെയ്യുക"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"വിച്ഛേദിക്കുക"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"ലഭ്യമല്ല"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"ഉപകരണ അഡ്‌മിൻ ആപ്പുകൾ"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"സജീവ ആപ്പുകളൊന്നുമില്ല"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other">സജീവമായ <xliff:g id="COUNT_1">%d</xliff:g> ആപ്പുകൾ</item>
-      <item quantity="one">സജീവമായ <xliff:g id="COUNT_0">%d</xliff:g> ആപ്പ്</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"അഡ്‌മിനോ എൻക്രിപ്‌ഷൻ നയമോ ക്രെഡൻഷ്യൽ സ്റ്റോറേജോ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"മാനേജുചെയ്യപ്പെടുന്ന ഉപകരണത്തിന്റെ വിവരങ്ങൾ"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"മാറ്റങ്ങളും ക്രമീകരണവും മാനേജുചെയ്യുന്നത് നിങ്ങളുടെ സ്ഥാപനമാണ്"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"ഒന്നുമില്ല"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"അപ്ലിക്കേഷനുകൾ ഇൻസ്റ്റാളുചെയ്‌തു"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ആപ്പുകളുടെ എണ്ണം ഏകദേശക്കണക്കാണ്. ഇതിൽ Play സ്‌റ്റോറിന് പുറത്തുനിന്ന് ഇൻസ്‌റ്റാൾ ചെയ്‌ത ആപ്പുകൾ ഉൾപ്പെടണമെന്നില്ല."</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">കുറഞ്ഞത് <xliff:g id="COUNT_1">%d</xliff:g> ആപ്പുകൾ</item>
-      <item quantity="one">കുറഞ്ഞത് <xliff:g id="COUNT_0">%d</xliff:g> ആപ്പ്</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{കുറഞ്ഞത് # ആപ്പ്}other{കുറഞ്ഞത് # ആപ്പുകൾ}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"ലൊക്കേഷൻ അനുമതികൾ"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"മൈക്രോഫോൺ അനുമതികൾ"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"ക്യാമറ അനുമതികൾ"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"ഡിഫോൾട്ട് ആപ്പുകൾ"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ആപ്പുകൾ</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ആപ്പ്</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# ആപ്പ്}other{# ആപ്പുകൾ}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"ഡിഫോൾട്ട് കീബോർഡ്"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g> എന്നതിലേക്ക് സജ്ജമാക്കുക"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"എപ്പോഴും ഓണായിരിക്കുന്ന VPN ഓണാണ്"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"വിശ്വസ്‍ത ക്രെഡൻഷ്യലുകൾ"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"നിങ്ങളുടെ വ്യക്തിഗത പ്രൊഫൈലിലെ വിശ്വസ്‍ത ക്രെഡൻഷ്യലുകൾ"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈലിലെ വിശ്വസ്‍ത ക്രെഡൻഷ്യലുകൾ"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">കുറഞ്ഞത് <xliff:g id="COUNT_1">%d</xliff:g> CA സർട്ടിഫിക്കറ്റുകൾ</item>
-      <item quantity="one">കുറഞ്ഞത് <xliff:g id="COUNT_0">%d</xliff:g> CA സർട്ടിഫിക്കറ്റ്</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# CA സർട്ടിഫിക്കറ്റ്}other{# CA സർട്ടിഫിക്കറ്റുകൾ}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"അഡ്മിന് ഉപകരണം ‌ലോക്കുചെയ്യാനും പാസ്‌വേഡ് പുനഃക്രമീകരിക്കാനും കഴിയും"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"അഡ്മിന് ഉപകരണത്തിലെ എല്ലാ ‌ഡാറ്റയും ഇല്ലാതാക്കാൻ ‌കഴിയും"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"എല്ലാ ഉപകരണ ഡാറ്റയും ഇല്ലാതാക്കുന്നതിന് മുമ്പ് പരാജയപ്പെട്ട പാസ്‌വേഡ് ശ്രമങ്ങൾ"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"ഔദ്യോഗിക പ്രൊഫൈൽ ഡാറ്റ ഇല്ലാതാക്കുന്നതിന് മുമ്പ് പരാജയപ്പെട്ട പാസ്‌വേഡ് ശ്രമങ്ങൾ"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ശ്രമങ്ങൾ</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ശ്രമം</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{# ശ്രമം}other{# ശ്രമങ്ങൾ}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"ഈ ഉപകരണം മാനേജുചെയ്യുന്നത് നിങ്ങളുടെ സ്ഥാപനമാണ്."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"ഈ ഉപകരണം നിയന്ത്രിക്കുന്നത് <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> ആണ്."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"കൂടുതലറിയുക"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">ക്യാമറാ ആപ്പുകൾ</item>
-      <item quantity="one">ക്യാമറാ ആപ്പ്</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{ക്യാമറാ ആപ്പ്}other{ക്യാമറാ ആപ്പുകൾ}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Calendar ആപ്പ്"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"കോണ്‍‌ടാക്റ്റ് ആപ്പ്"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">ഇമെയിൽ ക്ലയന്റ് ആപ്പുകൾ</item>
-      <item quantity="one">ഇമെയിൽ ക്ലയന്റ് ആപ്പ്</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{ഇമെയിൽ ക്ലയന്റ് ആപ്പ്}other{ഇമെയിൽ ക്ലയന്റ് ആപ്പുകൾ}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"മാപ്പ് ആപ്പ്"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">ഫോൺ ആപ്പുകൾ</item>
-      <item quantity="one">ഫോൺ ആപ്പ്</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{ഫോൺ ആപ്പ്}other{ഫോൺ ആപ്പുകൾ}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"ബ്രൗസർ ആപ്പ്"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV OS പതിപ്പ്"</string>
     <string name="about_serial" msgid="3432319328808745459">"സീരിയല്‍ നമ്പര്‍"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV OS ബിൽഡ്"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">നിങ്ങൾ ഇപ്പോൾ ഒരു ഡവലപ്പറാകുന്നതിൽ നിന്നും <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> ചുവട് മാത്രം അകലെയാണ്</item>
-      <item quantity="one">നിങ്ങൾ ഇപ്പോൾ ഒരു ഡവലപ്പറാകുന്നതിൽ നിന്നും <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> ചുവട് മാത്രം അകലെയാണ്</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{ഒരു ഡെവലപ്പറാകുന്നതിൽ നിന്നും # ചുവട് അകലെയാണ് നിങ്ങൾ ഇപ്പോൾ}other{ഒരു ഡെവലപ്പറാകുന്നതിൽ നിന്നും # ചുവട് അകലെയാണ് നിങ്ങൾ ഇപ്പോൾ}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"പരസ്യങ്ങൾ"</string>
     <string name="ads_description" msgid="8081069475265061074">"പരസ്യം ചെയ്യൽ ഐഡി റീസെറ്റ് ചെയ്യുന്നത് പോലുള്ള പരസ്യ ക്രമീകരണം മാനേജ് ചെയ്യൂ."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"പരസ്യങ്ങൾ, പരസ്യം ചെയ്യൽ ഐഡി റീസെറ്റ് ചെയ്യുന്നത് പോലുള്ള നിങ്ങളുടെ പരസ്യ ക്രമീകരണം മാനേജ് ചെയ്യൂ."</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"അധിക സി‌സ്റ്റം അപ്ഡേറ്റുകൾ"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"നെറ്റ്‌വർക്ക് നിരീക്ഷിക്കപ്പെടാം"</string>
     <string name="done_button" msgid="616159688526431451">"പൂർത്തിയാക്കി"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">സർട്ടിഫിക്കറ്റുകൾ വിശ്വസിക്കുക അല്ലെങ്കിൽ നീക്കം ചെയ്യുക</item>
-      <item quantity="one">സർട്ടിഫിക്കറ്റ് വിശ്വസിക്കുക അല്ലെങ്കിൽ നീക്കം ചെയ്യുക</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>, നിങ്ങളുടെ ഉപകരണത്തിൽ സർട്ടിഫിക്കറ്റ് അതോറിറ്റികൾ ഇൻസ്റ്റാൾ ചെയ്തിട്ടുണ്ട്, ഇമെയിലുകളും ആപ്പുകളും സുരക്ഷിത വെബ്‌സൈറ്റുകളും ഉൾപ്പെടെ, ഉപകരണ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി നിരീക്ഷിക്കുന്നതിന് ഇത് അവരെ അനുവദിച്ചേക്കാം.\n\nഈ സർട്ടിഫിക്കറ്റുകളെക്കുറിച്ചുള്ള കൂടുതൽ വിവരങ്ങൾക്ക്, നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>, നിങ്ങളുടെ ഉപകരണത്തിൽ ഒരു സർട്ടിഫിക്കറ്റ് അതോറിറ്റി ഇൻസ്റ്റാൾ ചെയ്തിട്ടുണ്ട്, ഇമെയിലുകളും ആപ്പുകളും സുരക്ഷിത വെബ്‌സൈറ്റുകളും ഉൾപ്പെടെ, ഉപകരണ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി നിരീക്ഷിക്കുന്നതിന് ഇത് അവരെ അനുവദിച്ചേക്കാം.\n\nഈ സർട്ടിഫിക്കറ്റിനെക്കുറിച്ചുള്ള കൂടുതൽ വിവരങ്ങൾക്ക്, നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>, നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈലിന് സർട്ടിഫിക്കറ്റ് അതോറിറ്റികൾ ഇൻസ്റ്റാൾ ചെയ്തിട്ടുണ്ട്, ഇമെയിലുകളും ആപ്പുകളും സുരക്ഷിത വെബ്‌സൈറ്റുകളും ഉൾപ്പെടെ, ഔദ്യോഗിക നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി നിരീക്ഷിക്കുന്നതിന് ഇത് അവരെ അനുവദിച്ചേക്കാം.\n\nഈ സർട്ടിഫിക്കറ്റുകളെക്കുറിച്ചുള്ള കൂടുതൽ വിവരങ്ങൾക്ക്, നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>, നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈലിന് ഒരു സർട്ടിഫിക്കറ്റ് അതോറിറ്റി ഇൻസ്റ്റാൾ ചെയ്തിട്ടുണ്ട്, ഇമെയിലുകളും ആപ്പുകളും സുരക്ഷിത വെബ്‌സൈറ്റുകളും ഉൾപ്പെടെ, ഔദ്യോഗിക നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി നിരീക്ഷിക്കുന്നതിന് ഇത് അവരെ അനുവദിച്ചേക്കാം.\n\nഈ സർട്ടിഫിക്കറ്റിനെക്കുറിച്ചുള്ള കൂടുതൽ വിവരങ്ങൾക്ക്, നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"ഇമെയിലുകളും അപ്ലിക്കേഷനുകളും വെബ്‌സൈറ്റുകൾ സുരക്ഷിതമാക്കലും ഉൾപ്പെടെയുള്ള നിങ്ങളുടെ നെറ്റ്‌വർക്ക് പ്രവർത്തനങ്ങൾ നിരീക്ഷിക്കാൻ ഒരു മൂന്നാം കക്ഷിയ്‌ക്ക് കഴിയും.\n\nനിങ്ങളുടെ ഉപകരണത്തിൽ വിശ്വാസ്യയോഗ്യമായ ഒരു ക്രെഡൻഷ്യൽ ഇൻസ്റ്റാളുചെയ്യുന്നത് ഇത് സാധ്യമാക്കുന്നു."</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">സർട്ടിഫിക്കറ്റുകൾ പരിശോധിക്കുക</item>
-      <item quantity="one">സർട്ടിഫിക്കറ്റ് പരിശോധിക്കുക</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{സർട്ടിഫിക്കറ്റ് വിശ്വസിക്കുക അല്ലെങ്കിൽ നീക്കം ചെയ്യുക}other{സർട്ടിഫിക്കറ്റുകൾ വിശ്വസിക്കുക അല്ലെങ്കിൽ നീക്കം ചെയ്യുക}}"</string>
     <string name="device_status" msgid="8266002761193692207">"നില"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"നെറ്റ്‌വർക്കും സീരിയൽ നമ്പറുകളും മറ്റ് വിവരങ്ങളും"</string>
     <string name="manual" msgid="5683935624321864999">"മാനുവൽ"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"കണക്റ്റുചെയ്യുക"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"നെറ്റ്‌വർക്ക് മറക്കുക"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"സംരക്ഷിച്ച ഒരു പാസ്‌വേഡ് ഉൾപ്പടെ, ഈ നെറ്റ്‌വർക്കിലേക്ക് കണക്‌റ്റുചെയ്യാൻ ഉപയോഗിച്ച വിവരങ്ങളെ ഇത് മായ്ക്കുന്നു"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"നിങ്ങളുടെ മൊബൈലിൽ QR കോഡ് സ്‌കാൻ ചെയ്‌ത ശേഷം നിർദ്ദേശങ്ങൾ പിന്തുടർന്ന് വൈഫൈയിൽ ചേരുക."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" നിങ്ങളുടെ മൊബൈലിൽ QR കോഡ് സ്‌കാൻ ചെയ്‌ത ശേഷം നിർദ്ദേശങ്ങൾ പിന്തുടർന്ന് വൈഫൈയിൽ ചേരുക.\n \n ഒരു "<b>"Android ഫോണിൽ നിന്ന്"</b>" ക്രമീകരണം -&gt; നെറ്റ്‌വർക്കും ഇന്റർനെറ്റും -&gt; വൈഫൈ -&gt; വൈഫൈ തിരഞ്ഞെടുക്കുക -&gt; വിപുലമായത് -&gt; ഉപകരണം ചേർത്ത ശേഷം QR കോഡ് സ്‌കാൻ ചെയ്യുക എന്നതിലേക്ക് പോകുക."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"റദ്ദാക്കാൻ, മടങ്ങുക ബട്ടൺ അമർത്തുക"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"ശരി"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"തുടരുക"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"ഉപകരണ സ്റ്റോറേജ്"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"നീക്കംചെയ്യാനാവുന്ന സ്റ്റോറേജ്"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"റീസെറ്റുചെയ്യുക"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"സ്‌റ്റോറേജിൽ ഇടം സൃഷ്‌ടിക്കുക"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"കാഷെ ചെയ്‌ത ഡാറ്റ മായ്‌ക്കുക"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"<xliff:g id="SPACE">%1$s</xliff:g> ഇടം സൃഷ്‌ടിക്കുക"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"ഇടം അപഹരിക്കുന്ന താൽക്കാലിക ഫയലുകൾ മായ്ക്കുന്നു. ആപ്പ് മുൻഗണനകളോ ഓഫ്‌ലൈൻ വീഡിയോകളോ പോലുള്ള സംരക്ഷിച്ച ഡാറ്റയെ ബാധിക്കില്ല, നിങ്ങൾ വീണ്ടും ആപ്പുകളിലേക്ക് സൈൻ ഇൻ ചെയ്യേണ്ടതില്ല."</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"കാഷെ ചെയ്‌ത ഡാറ്റ മായ്‌ക്കണോ?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"ഇത് എല്ലാ ആപ്പുകൾക്കുമായി കാഷെ ചെയ്ത ഡാറ്റ മായ്‌ക്കും."</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"ആപ്പുകൾ അൺഇൻസ്‌റ്റാൾ ചെയ്യുക"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g> എന്നതിനെ മൗണ്ടുചെയ്‌തു"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"<xliff:g id="NAME">%1$s</xliff:g> മൗണ്ടുചെയ്യാനായില്ല"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB സ്റ്റോറേജ് വീണ്ടും കണക്റ്റുചെയ്തു"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"മൈക്രോഫോൺ"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"മൈക്രോഫോൺ ആക്‌സസ്"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"മൈക്രോഫോണിലേക്കുള്ള ആപ്പ് ആക്സസ്"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"മൈക്രോഫോൺ ആക്‌സസ് ബ്ലോക്ക് ചെയ്തിരിക്കുന്നു"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"അൺബ്ലോക്ക് ചെയ്യാൻ, മൈക്രോഫോൺ ആക്സസ് അനുവദിക്കുന്നതിന്, മൈക്രോഫോൺ ഓണാണ് എന്ന സ്ഥാനത്തേക്ക് നിങ്ങളുടെ ഉപകരണത്തിലെ സ്വകാര്യത മാറ്റുക."</string>
     <string name="camera" msgid="1226671478936288283">"ക്യാമറ"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"ക്യാമറാ ആക്‌സസ്"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"ക്യാമറയിലേക്കുള്ള ആപ്പ് ആക്സസ്"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"ക്യാമറാ ആക്സസ് ബ്ലോക്ക് ചെയ്തിരിക്കുന്നു"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"അൺബ്ലോക്ക് ചെയ്യാൻ, ക്യാമറാ ആക്സസ് അനുവദിക്കുന്നതിന്, ക്യാമറ ഓണാണ് എന്ന സ്ഥാനത്തേക്ക് നിങ്ങളുടെ ഉപകരണത്തിലെ സ്വകാര്യത മാറ്റുക."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"മൈക്രോഫോൺ ആക്‌സസ്: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"ഓണായിരിക്കുമ്പോൾ, അനുമതിയുള്ള എല്ലാ ആപ്പുകൾക്കും സേവനങ്ങൾക്കും ഈ ഉപകരണത്തിലെ ഏത് മൈക്രോഫോണും ആക്സസ് ചെയ്യാനാകും.\n\nഇഷ്ടാനുസൃത പ്രോട്ടോക്കോളുള്ള ഓഡിയോ പെരിഫറലുകളെ ഈ ക്രമീകരണം ബാധിക്കില്ല."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"ക്യാമറാ ആക്‌സസ്: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"സിയാൻ"</string>
     <string name="color_yellow" msgid="3519470952904560404">"മഞ്ഞ"</string>
     <string name="color_magenta" msgid="2377854703399624607">"മജന്ത"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"ഓഡിയോ വിവരണം"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"പിന്തുണയ്ക്കുന്ന സിനിമകളിലും ഷോകളിലും, സ്ക്രീനിൽ എന്താണ് സംഭവിക്കുന്നത് എന്നതിന്റെ ഒരു വിവരണം കേൾക്കുക"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"പ്രവർത്തനക്ഷമമാക്കുക"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"കോൺഫിഗറേഷൻ"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g> ഉപയോഗിക്കണോ?"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"മോണിറ്ററിംഗ്"</string>
     <string name="system_apps" msgid="8481888654606868074">"ആപ്പുകൾ"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"സജീവമായി തുടരുക"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"സ്ക്രീൻ ഒരിക്കലും സ്ലീപ്പ് മോഡിലാകില്ല"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP പരിശോധന"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI അനുരൂപമാക്കൽ"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"ഇപ്പോൾ റീസ്റ്റാർട്ട് ചെയ്യണോ?"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"ടിവിയ്‌ക്കൊപ്പമുള്ള HDMI ഉപകരണങ്ങളുടെ പവർ ഓഫ് ചെയ്യുക"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"ടിവി യാന്ത്രിക പവർ ഓൺ"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"HDMI ഉപകരണം ഉപയോഗിച്ച് ടിവി ഓൺ ചെയ്യുക"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">കണക്‌റ്റുചെയ്‌ത ഇൻപുട്ടുകൾ</item>
-      <item quantity="one">കണക്‌റ്റുചെയ്‌ത ഇൻപുട്ട്</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">സ്‌റ്റാൻഡ്‌ബൈ ഇൻപുട്ടുകൾ</item>
-      <item quantity="one">സ്‌റ്റാൻഡ്‌ബൈ ഇൻപുട്ട്</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">കണക്‌റ്റുചെയ്‌തിട്ടില്ലാത്ത ഇൻപുട്ടുകൾ</item>
-      <item quantity="one">കണക്‌റ്റുചെയ്‌തിട്ടില്ലാത്ത ഇൻപുട്ട്</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{കണക്‌റ്റ് ചെയ്‌തിരിക്കുന്ന ഇൻപുട്ട്}other{കണക്‌റ്റ് ചെയ്‌തിരിക്കുന്ന ഇൻപുട്ടുകൾ}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{സ്റ്റാൻഡ്ബൈ ഇൻപുട്ട്}other{സ്റ്റാൻഡ്ബൈ ഇൻപുട്ട്}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{കണക്റ്റ് ചെയ്തിട്ടില്ലാത്ത ഇൻപുട്ട്}other{കണക്റ്റ് ചെയ്തിട്ടില്ലാത്ത ഇൻപുട്ടുകൾ}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"നിങ്ങളുടെ അക്കൗണ്ടിലെ അപ്ലിക്കേഷനിലേക്കും മറ്റ് ഉള്ളടക്കത്തിലേക്കുമുള്ള ആക്‌സസ്സ് നിയന്ത്രിക്കുക"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"നിയന്ത്രിത പ്രൊഫൈൽ"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g> നിയന്ത്രിക്കുന്നത്"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"നിയന്ത്രിത പ്രൊഫൈൽ സൃഷ്ടിക്കുക"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"ക്രമീകരണം"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"അനുവദിച്ച അപ്ലിക്കേഷനുകൾ"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d അപ്ലിക്കേഷനുകൾ അനുവദിച്ചു</item>
-      <item quantity="one">ഒരു അപ്ലിക്കേഷൻ അനുവദിച്ചു</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"അനുവദനീയം"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"അനുവദിച്ചിട്ടില്ല"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"നിയന്ത്രണങ്ങൾ ഇഷ്‌ടാനുസൃതമാക്കുക"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"മൂന്നാം കക്ഷി ഉറവിടം"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"അനുമതികൾ"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"അപ്ലിക്കേഷൻ ലഭ്യമല്ല"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"ഉപയോഗിക്കാത്ത ആപ്പുകൾ"</string>
     <string name="settings_ok" msgid="5950888975075541964">"ശരി"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"സ്ഥിരീകരിക്കൂ"</string>
     <string name="settings_cancel" msgid="576094334743686152">"റദ്ദാക്കുക"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"ഈ അനുമതി, സിസ്റ്റം ക്രമീകരണം പരിഷ്‌ക്കരിക്കാൻ ആപ്പിനെ അനുവദിക്കുന്നു."</string>
     <string name="write_settings_on" msgid="71675710746513956">"അതെ"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"ഇല്ല"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"എല്ലാ ഫയലുകളിലേക്കും ആക്സസ്"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"എല്ലാ ഫയലുകളും മാനേജ് ചെയ്യാൻ ആക്സസ് അനുവദിക്കൂ"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"ഈ ഉപകരണത്തിലെയോ ഇതുമായി ബന്ധിപ്പിച്ചിട്ടുള്ള ഏതെങ്കിലും സ്‌റ്റോറേജുകളിലെയോ എല്ലാ ഫയലുകളും വായിക്കാനും പരിഷ്ക്കരിക്കാനും ഇല്ലാതാക്കാനും ഈ ആപ്പിനെ അനുവദിക്കുക. അനുമതി നൽകിയിട്ടുണ്ടെങ്കിൽ, നിങ്ങളുടെ അറിവില്ലാതെ തന്നെ ആപ്പ് ഫയലുകൾ ആക്സസ് ചെയ്തേക്കാം."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"ചിത്രത്തിനുള്ളിൽ ചിത്രം"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"\'ചിത്രത്തിനുള്ളിൽ ചിത്രം\' അനുവദിക്കുക"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"ഇൻസ്റ്റാൾ ചെയ്‌ത ആപ്പുകളൊന്നും \'ചിത്രത്തിനുള്ളിൽ ചിത്രം\' പിന്തുണയ്ക്കുന്നില്ല"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"ഈ ആപ്പ് തുറന്നിരിക്കുന്ന സമയത്തോ നിങ്ങളതിൽ നിന്ന് പുറത്തുകടന്നതിന് ശേഷമോ (ഉദാഹരണത്തിന്, ഒരു വീഡിയോ കാണുന്നത് തുടരുന്നതിന്) \'ചിത്രത്തിനുള്ളിൽ ചിത്രം\' വിൻഡോ സൃഷ്‌ടിക്കാൻ ഈ ആപ്പിനെ അനുവദിക്കുക. നിങ്ങൾ ഉപയോഗിക്കുന്ന മറ്റ് ആപ്പുകളുടെ മുകളിൽ ഈ വിൻഡോ പ്രദർശിപ്പിക്കുന്നു."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"അലാറങ്ങൾ സജ്ജീകരിക്കാനും സമയപ്രാധാന്യമുള്ള പ്രവർത്തനങ്ങൾ ഷെഡ്യൂൾ ചെയ്യാനും ആപ്പുകളെ അനുവദിക്കുക. പശ്ചാത്തലത്തിൽ റൺ ചെയ്യാൻ ഇത് ആപ്പുകളെ അനുവദിക്കുന്നു, ഇതിന് കൂടുതൽ ബാറ്ററി ഉപയോഗിച്ചേക്കാം.\n\nഈ അനുമതി ഓഫാണെങ്കിൽ, ആപ്പ് ഷെഡ്യൂൾ ചെയ്‌തസമയാധിഷ്‌ഠിത ഇവന്റുകളും നിലവിലെ അലാറങ്ങളും പ്രവർത്തിക്കില്ല."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"സ്‌ക്രീൻ ഓണാക്കുക"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"സ്ക്രീൻ ഓണാക്കാൻ അനുവദിക്കുക"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"സ്‌ക്രീൻ ഓണാക്കാൻ ഒരു ആപ്പിനെ അനുവദിക്കുക. അനുവദിക്കുകയാണെങ്കിൽ, നിങ്ങൾക്ക് വ്യക്തമായ ഉദ്ദേശ്യമില്ലെങ്കിലും ആപ്പ് ഏതുസമയത്തും സ്ക്രീൻ ഓണാക്കിയേക്കാം."</string>
     <string name="special_access" msgid="21806055758289916">"പ്രത്യേക ആപ്പ് ആക്‌സസ്"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"ഓഡിയോ"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"ഡാറ്റ സേവർ"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"കുറഞ്ഞ മൊബെെൽ ഡാറ്റ ഉപയോഗിക്കുന്നതിന്, വീഡിയോ നിലവാരം സ്വയമേവ ക്രമീകരിക്കുക"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ഡാറ്റാ ഉപയോഗവും മുന്നറിയിപ്പുകളും"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"വെെഫെെ, എതെർനെറ്റ്, അല്ലെങ്കിൽ ഫോണിന്റെ ഹോട്ട്‌സ്‌പോട്ട് ഉപയോഗിച്ച് ഇന്റർനെറ്റിലേക്ക് കണക്റ്റ് ചെയ്യാം. കൂടുതൽ സഹായത്തിന് "<b>"g.co/network"</b>" സന്ദർശിക്കൂ."</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"വെെഫെെ, ഇതർനെറ്റ്, അല്ലെങ്കിൽ ഫോണിന്റെ ഹോട്ട്‌സ്‌പോട്ട് ഉപയോഗിച്ച് ഇന്റർനെറ്റിലേക്ക് കണക്റ്റ് ചെയ്യാം."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"പ്രവർത്തനം അനുവദനീയമല്ല"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"വോളിയം മാറ്റാനാകില്ല"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"പവറും ഊർജ്ജവും"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"പവർ ഓണാക്കുമ്പോഴുള്ള പ്രവർത്തനരീതി"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"റീസെറ്റ് ചെയ്യുക"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"ഇതർനെറ്റ് ജോടിയാക്കൽ കോഡ്"</string>
 </resources>

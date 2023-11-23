@@ -29,7 +29,6 @@ import static com.android.wifitrackerlib.Utils.getSecurityTypesFromWifiConfigura
 import static com.android.wifitrackerlib.Utils.getSubIdForConfig;
 import static com.android.wifitrackerlib.Utils.isImsiPrivacyProtectionProvided;
 import static com.android.wifitrackerlib.Utils.isSimPresent;
-import static com.android.wifitrackerlib.Utils.linkifyAnnotation;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -51,14 +50,12 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.NetworkInfo;
-import android.net.NetworkScoreManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.net.wifi.WifiNetworkScoreCache;
 import android.os.Handler;
 import android.os.PersistableBundle;
 import android.os.test.TestLooper;
@@ -66,10 +63,7 @@ import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.text.Annotation;
 import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.style.ClickableSpan;
 
 import com.android.wifitrackerlib.shadow.ShadowSystem;
@@ -93,9 +87,6 @@ public class UtilsTest {
     private static final String LABEL_METERED = "Metered";
     private static final String LABEL_UNMETERED = "Unmetered";
 
-    private static final String SYSTEM_UID_APP_NAME = "systemUidAppName";
-    private static final String APP_LABEL = "appLabel";
-    private static final String SETTINGS_APP_NAME = "com.android.settings";
     private static final int TEST_CARRIER_ID = 1191;
     private static final int TEST_SUB_ID = 1111;
 
@@ -107,8 +98,6 @@ public class UtilsTest {
     @Mock private PackageManager mPackageManager;
     @Mock private ApplicationInfo mApplicationInfo;
     @Mock private ContentResolver mContentResolver;
-    @Mock private NetworkScoreManager mMockNetworkScoreManager;
-    @Mock private WifiNetworkScoreCache mMockScoreCache;
     @Mock private WifiManager mMockWifiManager;
     @Mock private SubscriptionManager mSubscriptionManager;
     @Mock private TelephonyManager mTelephonyManager;
@@ -124,9 +113,9 @@ public class UtilsTest {
         TestLooper testLooper = new TestLooper();
         mTestHandler = new Handler(testLooper.getLooper());
         when(mMockContext.getResources()).thenReturn(mMockResources);
-        when(mMockContext.getSystemService(Context.NETWORK_SCORE_SERVICE))
-                .thenReturn(mMockNetworkScoreManager);
         when(mMockContext.getString(R.string.wifitrackerlib_summary_separator)).thenReturn("/");
+        when(mMockContext.getText(R.string.wifitrackerlib_imsi_protection_warning))
+                .thenReturn("IMSI");
         when(mMockContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
                 .thenReturn(mCarrierConfigManager);
         when(mMockContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE))
@@ -170,7 +159,7 @@ public class UtilsTest {
         config.SSID = "\"ssid\"";
         config.allowAutojoin = true;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_auto_connect_disable))
+        when(mMockContext.getString(R.string.wifitrackerlib_auto_connect_disable))
                 .thenReturn(LABEL_AUTO_CONNECTION_DISABLED);
 
         final String autoConnectDescription = getAutoConnectDescription(mMockContext, entry);
@@ -184,7 +173,7 @@ public class UtilsTest {
         config.SSID = "\"ssid\"";
         config.allowAutojoin = false;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_auto_connect_disable))
+        when(mMockContext.getString(R.string.wifitrackerlib_auto_connect_disable))
                 .thenReturn(LABEL_AUTO_CONNECTION_DISABLED);
 
         final String autoConnectDescription = getAutoConnectDescription(mMockContext, entry);
@@ -211,7 +200,7 @@ public class UtilsTest {
         config.SSID = "\"ssid\"";
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_metered_label))
                 .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
@@ -227,7 +216,7 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_NONE;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_metered_label))
                 .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
@@ -242,7 +231,7 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_wifi_metered_label))
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_metered_label))
                 .thenReturn(LABEL_METERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
@@ -257,7 +246,7 @@ public class UtilsTest {
         config.meteredHint = true;
         config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_NOT_METERED;
         final StandardWifiEntry entry = getStandardWifiEntry(config);
-        when(mMockResources.getString(R.string.wifitrackerlib_wifi_unmetered_label))
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_unmetered_label))
                 .thenReturn(LABEL_UNMETERED);
 
         final String meteredDescription = getMeteredDescription(mMockContext, entry);
@@ -368,55 +357,56 @@ public class UtilsTest {
         final WifiConfiguration mockWifiConfig = mock(WifiConfiguration.class);
         final WifiEnterpriseConfig mockWifiEnterpriseConfig = mock(WifiEnterpriseConfig.class);
         when(mockWifiEnterpriseConfig.isAuthenticationSimBased()).thenReturn(true);
+        when(mockWifiEnterpriseConfig.getEapMethod()).thenReturn(WifiEnterpriseConfig.Eap.AKA);
         mockWifiConfig.enterpriseConfig = mockWifiEnterpriseConfig;
 
         assertEquals(getImsiProtectionDescription(mMockContext, mockWifiConfig).toString(), "");
     }
 
     @Test
+    public void testGetImsiProtectionDescription() {
+        List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
+        SubscriptionInfo subscriptionInfo = mock(SubscriptionInfo.class);
+        when(subscriptionInfo.getCarrierId()).thenReturn(TEST_CARRIER_ID);
+        subscriptionInfoList.add(subscriptionInfo);
+        when(mSubscriptionManager.getActiveSubscriptionInfoList()).thenReturn(subscriptionInfoList);
+        final WifiConfiguration mockWifiConfig = mock(WifiConfiguration.class);
+        final WifiEnterpriseConfig mockWifiEnterpriseConfig = mock(WifiEnterpriseConfig.class);
+        when(mockWifiEnterpriseConfig.isAuthenticationSimBased()).thenReturn(true);
+        when(mockWifiEnterpriseConfig.getEapMethod()).thenReturn(WifiEnterpriseConfig.Eap.AKA);
+        mockWifiConfig.enterpriseConfig = mockWifiEnterpriseConfig;
+        mockWifiConfig.carrierId = TEST_CARRIER_ID;
+
+        assertFalse(getImsiProtectionDescription(mMockContext, mockWifiConfig).toString()
+                .isEmpty());
+    }
+
+    @Test
+    public void testGetImsiProtectionDescription_serverCertNetwork_returnEmptyString() {
+        List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
+        SubscriptionInfo subscriptionInfo = mock(SubscriptionInfo.class);
+        when(subscriptionInfo.getCarrierId()).thenReturn(TEST_CARRIER_ID);
+        subscriptionInfoList.add(subscriptionInfo);
+        when(mSubscriptionManager.getActiveSubscriptionInfoList()).thenReturn(subscriptionInfoList);
+        final WifiConfiguration mockWifiConfig = mock(WifiConfiguration.class);
+        final WifiEnterpriseConfig mockWifiEnterpriseConfig = mock(WifiEnterpriseConfig.class);
+        when(mockWifiEnterpriseConfig.isAuthenticationSimBased()).thenReturn(true);
+        when(mockWifiEnterpriseConfig.isEapMethodServerCertUsed()).thenReturn(true);
+        mockWifiConfig.enterpriseConfig = mockWifiEnterpriseConfig;
+        mockWifiConfig.carrierId = TEST_CARRIER_ID;
+
+        assertEquals("", getImsiProtectionDescription(mMockContext, mockWifiConfig).toString());
+    }
+
+    @Test
     public void testLinkifyAnnotation_noAnnotation_returnOriginalText() {
         final CharSequence testText = "test text";
 
-        final CharSequence output = linkifyAnnotation(mMockContext, testText, "id", "url");
+        final CharSequence output =
+                NonSdkApiWrapper.linkifyAnnotation(mMockContext, testText, "id", "url");
 
         final SpannableString outputSpannableString = new SpannableString(output);
-        assertEquals(output.toString(), testText);
-        assertEquals(outputSpannableString.getSpans(0, outputSpannableString.length(),
-                ClickableSpan.class).length, 0);
-    }
-
-    @Test
-    public void testLinkifyAnnotation_annotation_returnTextWithClickableSpan() {
-        final String annotationId = "id";
-        final CharSequence testText = "test text ";
-        final CharSequence testLink = "link";
-        final CharSequence expectedText = "test text link";
-        final SpannableStringBuilder builder = new SpannableStringBuilder(testText);
-        builder.append(testLink, new Annotation("key", annotationId),
-                Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-
-        final CharSequence output = linkifyAnnotation(mMockContext, builder, annotationId, "url");
-
-        final SpannableString outputSpannableString = new SpannableString(output);
-        assertEquals(output.toString(), expectedText.toString());
-        assertEquals(outputSpannableString.getSpans(0, outputSpannableString.length(),
-                ClickableSpan.class).length, 1);
-    }
-
-    @Test
-    public void testLinkifyAnnotation_annotationWithEmptyUriString_returnOriginalText() {
-        final String annotationId = "url";
-        final CharSequence testText = "test text ";
-        final CharSequence testLink = "Learn More";
-        final CharSequence expectedText = "test text Learn More";
-        final SpannableStringBuilder builder = new SpannableStringBuilder(testText);
-        builder.append(testLink, new Annotation("key", annotationId),
-                Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-
-        final CharSequence output = linkifyAnnotation(mMockContext, builder, annotationId, "");
-
-        final SpannableString outputSpannableString = new SpannableString(output);
-        assertEquals(output.toString(), expectedText.toString());
+        assertEquals(output.toString(), testText.toString());
         assertEquals(outputSpannableString.getSpans(0, outputSpannableString.length(),
                 ClickableSpan.class).length, 0);
     }
@@ -498,6 +488,12 @@ public class UtilsTest {
         assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
                 WifiInfo.SECURITY_TYPE_EAP);
 
+        // EAP with passpoint capabilities should only map to EAP for StandardWifiEntry.
+        ScanResult passpointScan = spy(scanResult);
+        when(passpointScan.isPasspointNetwork()).thenReturn(true);
+        assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
+                WifiInfo.SECURITY_TYPE_EAP);
+
         scanResult.capabilities = "[RSN-EAP/SHA1+EAP/SHA256][MFPC]";
         assertThat(getSecurityTypesFromScanResult(scanResult)).containsExactly(
                 WifiInfo.SECURITY_TYPE_EAP, WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
@@ -548,7 +544,7 @@ public class UtilsTest {
     private StandardWifiEntry getStandardWifiEntry(WifiConfiguration config) {
         final StandardWifiEntry entry = new StandardWifiEntry(mMockInjector, mMockContext,
                 mTestHandler, new StandardWifiEntryKey(config), Collections.singletonList(config),
-                null, mMockWifiManager, mMockScoreCache, false /* forSavedNetworksPage */);
+                null, mMockWifiManager, false /* forSavedNetworksPage */);
         final WifiInfo mockWifiInfo = mock(WifiInfo.class);
         final NetworkInfo mockNetworkInfo = mock(NetworkInfo.class);
 

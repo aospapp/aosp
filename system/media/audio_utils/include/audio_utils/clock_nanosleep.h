@@ -23,8 +23,8 @@
 #ifdef __linux__
 
 #include <sys/syscall.h>
-#ifdef __ANDROID__
-// bionic for Android provides clock_nanosleep
+#if defined(__ANDROID__) || defined(ANDROID_HOST_MUSL)
+// bionic for Android and musl provide clock_nanosleep
 #define audio_utils_clock_nanosleep clock_nanosleep
 #else
 // bionic for desktop Linux omits clock_nanosleep

@@ -21,7 +21,9 @@ import android.annotation.Nullable;
 import android.net.wifi.ILocalOnlyHotspotCallback;
 import android.net.wifi.SoftApConfiguration;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.WorkSource;
 
@@ -35,6 +37,7 @@ import com.android.internal.util.Preconditions;
 class LocalOnlyHotspotRequestInfo implements IBinder.DeathRecipient {
     static final int HOTSPOT_NO_ERROR = -1;
 
+    private final Handler mHandler;
     private final int mPid;
     private final WorkSource mWs;
     private final ILocalOnlyHotspotCallback mCallback;
@@ -51,9 +54,11 @@ class LocalOnlyHotspotRequestInfo implements IBinder.DeathRecipient {
         void onLocalOnlyHotspotRequestorDeath(LocalOnlyHotspotRequestInfo requestor);
     }
 
-    LocalOnlyHotspotRequestInfo(@NonNull WorkSource ws, @NonNull ILocalOnlyHotspotCallback callback,
+    LocalOnlyHotspotRequestInfo(Looper looper, @NonNull WorkSource ws,
+            @NonNull ILocalOnlyHotspotCallback callback,
             @NonNull RequestingApplicationDeathCallback deathCallback,
             @Nullable SoftApConfiguration customConfig) {
+        mHandler = new Handler(looper);
         mPid = Binder.getCallingPid();
         mWs = Preconditions.checkNotNull(ws);
         mCallback = Preconditions.checkNotNull(callback);
@@ -79,7 +84,7 @@ class LocalOnlyHotspotRequestInfo implements IBinder.DeathRecipient {
      */
     @Override
     public void binderDied() {
-        mDeathCallback.onLocalOnlyHotspotRequestorDeath(this);
+        mHandler.post(() -> mDeathCallback.onLocalOnlyHotspotRequestorDeath(this));
     }
 
     /**

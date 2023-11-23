@@ -20,19 +20,14 @@ import android.sysprop.TraceProperties;
 import android.text.TextUtils;
 import android.util.Log;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
-import java.util.TreeMap;
 
 import com.android.traceur.TraceUtils.Streamer;
 
@@ -154,33 +149,5 @@ public class AtraceUtils implements TraceUtils.TraceEngine {
         }
 
         return userInitiatedTracingFlag && tracingOnFlag;
-    }
-
-    public static TreeMap<String,String> atraceListCategories() {
-        String cmd = "atrace --list_categories";
-
-        Log.v(TAG, "Listing tags: " + cmd);
-        try {
-            Process atrace = TraceUtils.exec(cmd, null, false);
-
-            BufferedReader stdout = new BufferedReader(
-                    new InputStreamReader(atrace.getInputStream()));
-
-            if (atrace.waitFor() != 0) {
-                Log.e(TAG, "atraceListCategories failed with: " + atrace.exitValue());
-            }
-
-            TreeMap<String, String> result = new TreeMap<>();
-            String line;
-            while ((line = stdout.readLine()) != null) {
-                String[] fields = line.trim().split(" - ", 2);
-                if (fields.length == 2) {
-                    result.put(fields[0], fields[1]);
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

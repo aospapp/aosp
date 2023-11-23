@@ -76,6 +76,10 @@ typedef GLint (renderControl_APIENTRY *rcComposeWithoutPost_server_proc_t) (uint
 typedef void (renderControl_APIENTRY *rcComposeAsyncWithoutPost_server_proc_t) (uint32_t, void*);
 typedef int (renderControl_APIENTRY *rcCreateDisplayById_server_proc_t) (uint32_t);
 typedef int (renderControl_APIENTRY *rcSetDisplayPoseDpi_server_proc_t) (uint32_t, GLint, GLint, uint32_t, uint32_t, uint32_t);
+typedef int (renderControl_APIENTRY *rcReadColorBufferDMA_server_proc_t) (uint32_t, GLint, GLint, GLint, GLint, GLenum, GLenum, void*, uint32_t);
+typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsCount_server_proc_t) ();
+typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsParam_server_proc_t) (int, EGLint);
+typedef int (renderControl_APIENTRY *rcGetFBDisplayActiveConfig_server_proc_t) ();
 
 
 #endif

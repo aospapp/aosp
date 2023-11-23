@@ -22,7 +22,6 @@
 #include <vector>
 
 #include <BinderUtil.h>
-#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
@@ -39,7 +38,6 @@
 using aidl::android::net::ResolverOptionsParcel;
 using aidl::android::net::ResolverParamsParcel;
 using android::base::Join;
-using android::base::StringPrintf;
 using android::netdutils::DumpWriter;
 using android::netdutils::IPPrefix;
 
@@ -182,8 +180,8 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
         }
     }
 
-    auto err = StringPrintf("UID %d / PID %d does not have any of the following permissions: %s",
-                            uid, pid, Join(permissions, ',').c_str());
+    auto err = fmt::format("UID {} / PID {} does not have any of the following permissions: {}",
+                           uid, pid, Join(permissions, ','));
     return ::ndk::ScopedAStatus(AStatus_fromExceptionCodeWithMessage(EX_SECURITY, err.c_str()));
 }
 
@@ -197,7 +195,7 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
     uid_t uid = AIBinder_getCallingUid();
     // CAUTION: caCertificate should NOT be used except for internal testing.
     if (resolverParams.caCertificate.size() != 0 && uid != AID_ROOT) {
-        auto err = StringPrintf("UID %d is not authorized to set a non-empty CA certificate", uid);
+        auto err = fmt::format("UID {} is not authorized to set a non-empty CA certificate", uid);
         return ::ndk::ScopedAStatus(AStatus_fromExceptionCodeWithMessage(EX_SECURITY, err.c_str()));
     }
 

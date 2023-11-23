@@ -373,6 +373,8 @@ ogg_int32_t *floor1_inverse1(vorbis_dsp_state *vd,vorbis_info_floor *in,
   return(NULL);
 }
 
+// overflowing calculations not used for indexing
+__attribute__((no_sanitize("signed-integer-overflow")))
 int floor1_inverse2(vorbis_dsp_state *vd,vorbis_info_floor *in,
 		    ogg_int32_t *fit_value,ogg_int32_t *out){
   vorbis_info_floor1 *info=(vorbis_info_floor1 *)in;

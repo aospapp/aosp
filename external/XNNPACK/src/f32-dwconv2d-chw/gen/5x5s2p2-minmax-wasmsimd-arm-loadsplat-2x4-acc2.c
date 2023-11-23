@@ -25,7 +25,7 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd_arm_loadsplat_2x4_acc2(
     const float* zero,
     float* output,
     uint32_t padding_top,
-    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(input_height != 0);
   assert(input_width != 0);
@@ -35,37 +35,35 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd_arm_loadsplat_2x4_acc2(
 
   const v128_t vmask_even = wasm_v128_load(params->scalar.mask_even);
   const v128_t vmask_odd  = wasm_v128_load(params->scalar.mask_odd);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
 
-  const v128_t vbias = wasm_v32x4_load_splat(weights);
-  const v128_t vk00 = wasm_v32x4_load_splat(weights + 1);
-  const v128_t vk01 = wasm_v32x4_load_splat(weights + 2);
-  const v128_t vk02 = wasm_v32x4_load_splat(weights + 3);
-  const v128_t vk03 = wasm_v32x4_load_splat(weights + 4);
-  const v128_t vk04 = wasm_v32x4_load_splat(weights + 5);
-  const v128_t vk10 = wasm_v32x4_load_splat(weights + 6);
-  const v128_t vk11 = wasm_v32x4_load_splat(weights + 7);
-  const v128_t vk12 = wasm_v32x4_load_splat(weights + 8);
-  const v128_t vk13 = wasm_v32x4_load_splat(weights + 9);
-  const v128_t vk14 = wasm_v32x4_load_splat(weights + 10);
-  const v128_t vk20 = wasm_v32x4_load_splat(weights + 11);
-  const v128_t vk21 = wasm_v32x4_load_splat(weights + 12);
-  const v128_t vk22 = wasm_v32x4_load_splat(weights + 13);
-  const v128_t vk23 = wasm_v32x4_load_splat(weights + 14);
-  const v128_t vk24 = wasm_v32x4_load_splat(weights + 15);
-  const v128_t vk30 = wasm_v32x4_load_splat(weights + 16);
-  const v128_t vk31 = wasm_v32x4_load_splat(weights + 17);
-  const v128_t vk32 = wasm_v32x4_load_splat(weights + 18);
-  const v128_t vk33 = wasm_v32x4_load_splat(weights + 19);
-  const v128_t vk34 = wasm_v32x4_load_splat(weights + 20);
-  const v128_t vk40 = wasm_v32x4_load_splat(weights + 21);
-  const v128_t vk41 = wasm_v32x4_load_splat(weights + 22);
-  const v128_t vk42 = wasm_v32x4_load_splat(weights + 23);
-  const v128_t vk43 = wasm_v32x4_load_splat(weights + 24);
-  const v128_t vk44 = wasm_v32x4_load_splat(weights + 25);
-
-  const v128_t vzero = wasm_f32x4_splat(0.0f);
+  const v128_t vbias = wasm_v128_load32_splat(weights);
+  const v128_t vk00 = wasm_v128_load32_splat(weights + 1);
+  const v128_t vk01 = wasm_v128_load32_splat(weights + 2);
+  const v128_t vk02 = wasm_v128_load32_splat(weights + 3);
+  const v128_t vk03 = wasm_v128_load32_splat(weights + 4);
+  const v128_t vk04 = wasm_v128_load32_splat(weights + 5);
+  const v128_t vk10 = wasm_v128_load32_splat(weights + 6);
+  const v128_t vk11 = wasm_v128_load32_splat(weights + 7);
+  const v128_t vk12 = wasm_v128_load32_splat(weights + 8);
+  const v128_t vk13 = wasm_v128_load32_splat(weights + 9);
+  const v128_t vk14 = wasm_v128_load32_splat(weights + 10);
+  const v128_t vk20 = wasm_v128_load32_splat(weights + 11);
+  const v128_t vk21 = wasm_v128_load32_splat(weights + 12);
+  const v128_t vk22 = wasm_v128_load32_splat(weights + 13);
+  const v128_t vk23 = wasm_v128_load32_splat(weights + 14);
+  const v128_t vk24 = wasm_v128_load32_splat(weights + 15);
+  const v128_t vk30 = wasm_v128_load32_splat(weights + 16);
+  const v128_t vk31 = wasm_v128_load32_splat(weights + 17);
+  const v128_t vk32 = wasm_v128_load32_splat(weights + 18);
+  const v128_t vk33 = wasm_v128_load32_splat(weights + 19);
+  const v128_t vk34 = wasm_v128_load32_splat(weights + 20);
+  const v128_t vk40 = wasm_v128_load32_splat(weights + 21);
+  const v128_t vk41 = wasm_v128_load32_splat(weights + 22);
+  const v128_t vk42 = wasm_v128_load32_splat(weights + 23);
+  const v128_t vk43 = wasm_v128_load32_splat(weights + 24);
+  const v128_t vk44 = wasm_v128_load32_splat(weights + 25);
 
   const uint32_t padding_top_less_1 = padding_top - 1;
   const size_t input_decrement = round_up_po2(input_width, 8 * sizeof(float));
@@ -103,21 +101,21 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd_arm_loadsplat_2x4_acc2(
       i6 = zero;
     }
 
-    v128_t vi0x0246 = vzero;
-    v128_t vi1x0246 = vzero;
-    v128_t vi2x0246 = vzero;
-    v128_t vi3x0246 = vzero;
-    v128_t vi4x0246 = vzero;
-    v128_t vi5x0246 = vzero;
-    v128_t vi6x0246 = vzero;
+    v128_t vi0x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi1x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi2x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi3x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi4x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi5x0246 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi6x0246 = wasm_f32x4_const_splat(0.0f);
 
-    v128_t vi0x1357 = vzero;
-    v128_t vi1x1357 = vzero;
-    v128_t vi2x1357 = vzero;
-    v128_t vi3x1357 = vzero;
-    v128_t vi4x1357 = vzero;
-    v128_t vi5x1357 = vzero;
-    v128_t vi6x1357 = vzero;
+    v128_t vi0x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi1x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi2x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi3x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi4x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi5x1357 = wasm_f32x4_const_splat(0.0f);
+    v128_t vi6x1357 = wasm_f32x4_const_splat(0.0f);
 
     const v128_t vi0x89AB = wasm_v128_load(i0);
     const v128_t vi0xCDEF = wasm_v128_load(i0 + 4);
@@ -435,6 +433,7 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd_arm_loadsplat_2x4_acc2(
       vo0p1 = wasm_f32x4_add(vo0p1, wasm_f32x4_mul(vi4x79BD, vk41));
       vo1p1 = wasm_f32x4_add(vo1p1, wasm_f32x4_mul(vi6x79BD, vk41));
 
+      const v128_t vzero = wasm_f32x4_const_splat(0.0f);
       const v128_t vi0xACEG = wasm_v32x4_shuffle(vi0x8ACE, vzero, 1, 2, 3, 4);
       const v128_t vi1xACEG = wasm_v32x4_shuffle(vi1x8ACE, vzero, 1, 2, 3, 4);
       const v128_t vi2xACEG = wasm_v32x4_shuffle(vi2x8ACE, vzero, 1, 2, 3, 4);

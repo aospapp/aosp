@@ -16,7 +16,6 @@
 
 package com.android.imsserviceentitlement;
 
-import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__CANCELED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__DISABLED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__ENABLED;
@@ -47,6 +46,7 @@ import com.android.imsserviceentitlement.entitlement.EntitlementConfiguration.Cl
 import com.android.imsserviceentitlement.entitlement.EntitlementResult;
 import com.android.imsserviceentitlement.job.JobManager;
 import com.android.imsserviceentitlement.utils.ImsUtils;
+import com.android.imsserviceentitlement.utils.MetricsLogger;
 import com.android.imsserviceentitlement.utils.TelephonyUtils;
 
 import java.time.Duration;
@@ -147,6 +147,7 @@ public class ImsEntitlementPollingService extends JobService {
         private final ImsEntitlementApi mImsEntitlementApi;
         private final ImsUtils mImsUtils;
         private final TelephonyUtils mTelephonyUtils;
+        private final MetricsLogger mMetricsLogger;
         private final int mSubid;
         private final boolean mNeedsImsProvisioning;
 
@@ -168,15 +169,15 @@ public class ImsEntitlementPollingService extends JobService {
             this.mImsEntitlementApi = ImsEntitlementPollingService.this.mImsEntitlementApi != null
                     ? ImsEntitlementPollingService.this.mImsEntitlementApi
                     : new ImsEntitlementApi(ImsEntitlementPollingService.this, subId);
+            this.mMetricsLogger = new MetricsLogger(mTelephonyUtils);
         }
 
         @Override
         protected Void doInBackground(Void... unused) {
-            mStartTime = mTelephonyUtils.getUptimeMillis();
             int jobId = JobManager.getPureJobId(mParams.getJobId());
             switch (jobId) {
                 case JobManager.QUERY_ENTITLEMENT_STATUS_JOB_ID:
-                    mPurpose = IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__POLLING;
+                    mMetricsLogger.start(IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__POLLING);
                     doEntitlementCheck();
                     break;
                 default:
@@ -343,13 +344,11 @@ public class ImsEntitlementPollingService extends JobService {
         }
 
         private void sendStatsLogToMetrics() {
-            mDurationMillis = mTelephonyUtils.getUptimeMillis() - mStartTime;
-
             // If no result set, it was cancelled for reasons.
             if (mVowifiResult == IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNKNOWN_RESULT) {
                 mVowifiResult = IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__CANCELED;
             }
-            writeStateLogByApps(
+            mMetricsLogger.write(
                     IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__VOWIFI, mVowifiResult);
 
             if (mNeedsImsProvisioning) {
@@ -359,22 +358,11 @@ public class ImsEntitlementPollingService extends JobService {
                 if (mSmsoipResult == IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNKNOWN_RESULT) {
                     mSmsoipResult = IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__CANCELED;
                 }
-                writeStateLogByApps(
+                mMetricsLogger.write(
                         IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__VOLTE, mVolteResult);
-                writeStateLogByApps(
+                mMetricsLogger.write(
                         IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__SMSOIP, mSmsoipResult);
             }
-        }
-
-        private void writeStateLogByApps(int appId, int appResult) {
-            ImsServiceEntitlementStatsLog.write(
-                    IMS_SERVICE_ENTITLEMENT_UPDATED,
-                    mTelephonyUtils.getCarrierId(),
-                    mTelephonyUtils.getSpecificCarrierId(),
-                    mPurpose,
-                    appId,
-                    appResult,
-                    mDurationMillis);
         }
     }
 }

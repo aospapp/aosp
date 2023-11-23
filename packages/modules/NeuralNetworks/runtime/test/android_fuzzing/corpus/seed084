@@ -1,64 +1,66 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 1
-        dimension: 2
-        dimension: 3
-        dimension: 4
-        dimension: 5
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 5
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2409271078
-      }
-    }
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 1
-        dimension: 2
-        dimension: 3
-        dimension: 4
-        dimension: 5
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
         }
-        channel_dim: 0
+        data {
+          random_seed: 3969926330
+        }
       }
-      data {
-        random_seed: 4100595710
+      operand {
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 897988541
+        }
+      }
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 5
+        }
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 520997621
+        }
       }
     }
-  }
-  operations {
-    operation {
-      type: RSQRT
-      inputs {
-        index: 0
-      }
-      outputs {
-        index: 1
+    operations {
+      operation {
+        type: SOFTMAX
+        inputs {
+          index: 0
+          index: 1
+        }
+        outputs {
+          index: 2
+        }
       }
     }
+    input_indexes {
+      index: 0
+    }
+    output_indexes {
+      index: 2
+    }
   }
-  input_indexes {
-    index: 0
+  referenced {
   }
-  output_indexes {
-    index: 1
-  }
-  is_relaxed: true
 }

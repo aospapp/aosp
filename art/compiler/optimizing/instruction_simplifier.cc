@@ -20,9 +20,12 @@
 #include "class_linker-inl.h"
 #include "class_root-inl.h"
 #include "data_type-inl.h"
+#include "driver/compiler_options.h"
 #include "escape.h"
 #include "intrinsics.h"
+#include "intrinsics_utils.h"
 #include "mirror/class-inl.h"
+#include "optimizing/data_type.h"
 #include "optimizing/nodes.h"
 #include "scoped_thread_state_change-inl.h"
 #include "sharpening.h"
@@ -111,9 +114,6 @@ class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
   void VisitDeoptimize(HDeoptimize* deoptimize) override;
   void VisitVecMul(HVecMul* instruction) override;
   void VisitPredicatedInstanceFieldGet(HPredicatedInstanceFieldGet* instruction) override;
-
-  bool CanEnsureNotNullAt(HInstruction* instr, HInstruction* at) const;
-
   void SimplifySystemArrayCopy(HInvoke* invoke);
   void SimplifyStringEquals(HInvoke* invoke);
   void SimplifyFP2Int(HInvoke* invoke);
@@ -123,6 +123,10 @@ class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
   void SimplifyNPEOnArgN(HInvoke* invoke, size_t);
   void SimplifyReturnThis(HInvoke* invoke);
   void SimplifyAllocationIntrinsic(HInvoke* invoke);
+  void SimplifyVarHandleIntrinsic(HInvoke* invoke);
+
+  bool CanUseKnownBootImageVarHandle(HInvoke* invoke);
+  static bool CanEnsureNotNullAt(HInstruction* input, HInstruction* at);
 
   CodeGenerator* codegen_;
   OptimizingCompilerStats* stats_;
@@ -580,7 +584,7 @@ void InstructionSimplifierVisitor::VisitNullCheck(HNullCheck* null_check) {
   }
 }
 
-bool InstructionSimplifierVisitor::CanEnsureNotNullAt(HInstruction* input, HInstruction* at) const {
+bool InstructionSimplifierVisitor::CanEnsureNotNullAt(HInstruction* input, HInstruction* at) {
   if (!input->CanBeNull()) {
     return true;
   }
@@ -1183,6 +1187,33 @@ static bool IsTypeConversionLossless(DataType::Type input_type, DataType::Type r
       !(result_type == DataType::Type::kInt64 && input_type == DataType::Type::kFloat32);
 }
 
+static bool CanRemoveRedundantAnd(HConstant* and_right,
+                                  HConstant* shr_right,
+                                  DataType::Type result_type) {
+  int64_t and_cst = Int64FromConstant(and_right);
+  int64_t shr_cst = Int64FromConstant(shr_right);
+
+  // In the following sequence A is the input value, D is the result:
+  // B := A & x
+  // C := B >> r
+  // D := TypeConv(n-bit type) C
+
+  // The value of D is entirely dependent on the bits [n-1:0] of C, which in turn are dependent
+  // on bits [r+n-1:r] of B.
+  // Therefore, if the AND does not change bits [r+n-1:r] of A then it will not affect D.
+  // This can be checked by ensuring that bits [r+n-1:r] of the AND Constant are 1.
+
+  // For example: return (byte) ((value & 0xff00) >> 8)
+  //              return (byte) ((value & 0xff000000) >> 31)
+
+  // The mask sets bits [r+n-1:r] to 1, and all others to 0.
+  int64_t mask = DataType::MaxValueOfIntegralType(DataType::ToUnsigned(result_type)) << shr_cst;
+
+  // If the result of a bitwise AND between the mask and the AND constant is the original mask, then
+  // the AND does not change bits [r+n-1:r], meaning that it is redundant and can be removed.
+  return ((and_cst & mask) == mask);
+}
+
 static inline bool TryReplaceFieldOrArrayGetType(HInstruction* maybe_get, DataType::Type new_type) {
   if (maybe_get->IsInstanceFieldGet()) {
     maybe_get->AsInstanceFieldGet()->SetType(new_type);
@@ -1301,6 +1332,36 @@ void InstructionSimplifierVisitor::VisitTypeConversion(HTypeConversion* instruct
         input_conversion->GetBlock()->RemoveInstruction(input_conversion);
         RecordSimplification();
         return;
+      }
+    }
+  } else if (input->IsShr() && DataType::IsIntegralType(result_type) &&
+            // Optimization only applies to lossy Type Conversions.
+            !IsTypeConversionLossless(input_type, result_type)) {
+    DCHECK(DataType::IsIntegralType(input_type));
+    HShr* shr_op = input->AsShr();
+    HConstant* shr_right = shr_op->GetConstantRight();
+    HInstruction* shr_left = shr_op->GetLeastConstantLeft();
+    if (shr_right != nullptr && shr_left->IsAnd()) {
+      // Optimization needs AND -> SHR -> TypeConversion pattern.
+      HAnd* and_op = shr_left->AsAnd();
+      HConstant* and_right = and_op->GetConstantRight();
+      HInstruction* and_left = and_op->GetLeastConstantLeft();
+      if (and_right != nullptr &&
+          !DataType::IsUnsignedType(and_left->GetType()) &&
+          !DataType::IsUnsignedType(result_type) &&
+          !DataType::IsUnsignedType(and_right->GetType()) &&
+          (DataType::Size(and_left->GetType()) < 8) &&
+          (DataType::Size(result_type) == 1)) {
+        // TODO: Support Unsigned Types.
+        // TODO: Support Long Types.
+        // TODO: Support result types other than byte.
+        if (and_op->HasOnlyOneNonEnvironmentUse() &&
+            CanRemoveRedundantAnd(and_right, shr_right, result_type)) {
+          and_op->ReplaceWith(and_left);
+          and_op->GetBlock()->RemoveInstruction(and_op);
+          RecordSimplification();
+          return;
+        }
       }
     }
   } else if (input->IsAnd() && DataType::IsIntegralType(result_type)) {
@@ -2586,12 +2647,15 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
   // Collect args and check for unexpected uses.
   // We expect one call to a constructor with no arguments, one constructor fence (unless
   // eliminated), some number of append calls and one call to StringBuilder.toString().
+  bool constructor_inlined = false;
   bool seen_constructor = false;
   bool seen_constructor_fence = false;
   bool seen_to_string = false;
   uint32_t format = 0u;
   uint32_t num_args = 0u;
   HInstruction* args[StringBuilderAppend::kMaxArgs];  // Added in reverse order.
+  // When inlining, `maybe_new_array` tracks an environment use that we want to allow.
+  HInstruction* maybe_new_array = nullptr;
   for (HBackwardInstructionIterator iter(block->GetInstructions()); !iter.Done(); iter.Advance()) {
     HInstruction* user = iter.Current();
     // Instructions of interest apply to `sb`, skip those that do not involve `sb`.
@@ -2672,13 +2736,25 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
       format = (format << StringBuilderAppend::kBitsPerArg) | static_cast<uint32_t>(arg);
       args[num_args] = as_invoke_virtual->InputAt(1u);
       ++num_args;
-    } else if (user->IsInvokeStaticOrDirect() &&
-               user->AsInvokeStaticOrDirect()->GetResolvedMethod() != nullptr &&
-               user->AsInvokeStaticOrDirect()->GetResolvedMethod()->IsConstructor() &&
-               user->AsInvokeStaticOrDirect()->GetNumberOfArguments() == 1u) {
-      // After arguments, we should see the constructor.
-      // We accept only the constructor with no extra arguments.
-      DCHECK(!seen_constructor);
+    } else if (!seen_constructor) {
+      // At this point, we should see the constructor. However, we might have inlined it so we have
+      // to take care of both cases. We accept only the constructor with no extra arguments. This
+      // means that if we inline it, we have to check it is setting its field to a new array.
+      if (user->IsInvokeStaticOrDirect() &&
+          user->AsInvokeStaticOrDirect()->GetResolvedMethod() != nullptr &&
+          user->AsInvokeStaticOrDirect()->GetResolvedMethod()->IsConstructor() &&
+          user->AsInvokeStaticOrDirect()->GetNumberOfArguments() == 1u) {
+        constructor_inlined = false;
+      } else if (user->IsInstanceFieldSet() &&
+                 user->AsInstanceFieldSet()->GetFieldType() == DataType::Type::kReference &&
+                 user->AsInstanceFieldSet()->InputAt(0) == sb &&
+                 user->AsInstanceFieldSet()->GetValue()->IsNewArray()) {
+        maybe_new_array = user->AsInstanceFieldSet()->GetValue();
+        constructor_inlined = true;
+      } else {
+        // We were expecting a constructor but we haven't seen it. Abort optimization.
+        return false;
+      }
       DCHECK(!seen_constructor_fence);
       seen_constructor = true;
     } else if (user->IsConstructorFence()) {
@@ -2704,6 +2780,17 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
     // Accept only calls on the StringBuilder (which shall all be removed).
     // TODO: Carve-out for const-string? Or rely on environment pruning (to be implemented)?
     if (holder->InputCount() == 0 || holder->InputAt(0) != sb) {
+      // When inlining the constructor, we have a NewArray and may have a LoadClass as an
+      // environment use.
+      if (constructor_inlined) {
+        if (holder == maybe_new_array) {
+          continue;
+        }
+        if (holder == maybe_new_array->InputAt(0)) {
+          DCHECK(holder->IsLoadClass());
+          continue;
+        }
+      }
       return false;
     }
   }
@@ -2737,6 +2824,33 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
   while (sb->HasNonEnvironmentUses()) {
     block->RemoveInstruction(sb->GetUses().front().GetUser());
   }
+  if (constructor_inlined) {
+    // We need to remove the inlined constructor instructions,
+    // and all remaining environment uses (if any).
+    DCHECK(sb->HasEnvironmentUses());
+    DCHECK(maybe_new_array != nullptr);
+    DCHECK(maybe_new_array->IsNewArray());
+    DCHECK(maybe_new_array->HasNonEnvironmentUses());
+    HInstruction* fence = maybe_new_array->GetUses().front().GetUser();
+    DCHECK(fence->IsConstructorFence());
+    block->RemoveInstruction(fence);
+    block->RemoveInstruction(maybe_new_array);
+    if (sb->HasEnvironmentUses()) {
+      // We know the only remaining uses are from the LoadClass.
+      HInstruction* load_class = maybe_new_array->InputAt(0);
+      DCHECK(load_class->IsLoadClass());
+      for (HEnvironment* env = load_class->GetEnvironment();
+           env != nullptr;
+           env = env->GetParent()) {
+        for (size_t i = 0, size = env->Size(); i != size; ++i) {
+          if (env->GetInstructionAt(i) == sb) {
+            env->RemoveAsUserOfInput(i);
+            env->SetRawEnvAt(i, /*instruction=*/ nullptr);
+          }
+        }
+      }
+    }
+  }
   DCHECK(!sb->HasEnvironmentUses());
   block->RemoveInstruction(sb);
   return true;
@@ -2760,6 +2874,154 @@ void InstructionSimplifierVisitor::SimplifyAllocationIntrinsic(HInvoke* invoke) 
              TryReplaceStringBuilderAppend(invoke)) {
     RecordSimplification();
   }
+}
+
+void InstructionSimplifierVisitor::SimplifyVarHandleIntrinsic(HInvoke* invoke) {
+  DCHECK(invoke->IsInvokePolymorphic());
+  VarHandleOptimizations optimizations(invoke);
+
+  if (optimizations.GetDoNotIntrinsify()) {
+    // Preceding static checks disabled intrinsic, so no need to analyze further.
+    return;
+  }
+
+  size_t expected_coordinates_count = GetExpectedVarHandleCoordinatesCount(invoke);
+  if (expected_coordinates_count != 0u) {
+    HInstruction* object = invoke->InputAt(1);
+    // The following has been ensured by static checks in the instruction builder.
+    DCHECK(object->GetType() == DataType::Type::kReference);
+    // Re-check for null constant, as this might have changed after the inliner.
+    if (object->IsNullConstant()) {
+      optimizations.SetDoNotIntrinsify();
+      return;
+    }
+    // Test whether we can avoid the null check on the object.
+    if (CanEnsureNotNullAt(object, invoke)) {
+      optimizations.SetSkipObjectNullCheck();
+    }
+  }
+
+  if (CanUseKnownBootImageVarHandle(invoke)) {
+    optimizations.SetUseKnownBootImageVarHandle();
+  }
+}
+
+bool InstructionSimplifierVisitor::CanUseKnownBootImageVarHandle(HInvoke* invoke) {
+  // If the `VarHandle` comes from a static final field of an initialized class in
+  // the boot image, we can do the checks at compile time. We do this optimization only
+  // for AOT and only for field handles when we can avoid all checks. This avoids the
+  // possibility of the code concurrently messing with the `VarHandle` using reflection,
+  // we simply perform the operation with the `VarHandle` as seen at compile time.
+  // TODO: Extend this to arrays to support the `AtomicIntegerArray` class.
+  const CompilerOptions& compiler_options = codegen_->GetCompilerOptions();
+  if (!compiler_options.IsAotCompiler()) {
+    return false;
+  }
+  size_t expected_coordinates_count = GetExpectedVarHandleCoordinatesCount(invoke);
+  if (expected_coordinates_count == 2u) {
+    return false;
+  }
+  HInstruction* var_handle_instruction = invoke->InputAt(0);
+  if (var_handle_instruction->IsNullCheck()) {
+    var_handle_instruction = var_handle_instruction->InputAt(0);
+  }
+  if (!var_handle_instruction->IsStaticFieldGet()) {
+    return false;
+  }
+  ArtField* field = var_handle_instruction->AsStaticFieldGet()->GetFieldInfo().GetField();
+  DCHECK(field->IsStatic());
+  if (!field->IsFinal()) {
+    return false;
+  }
+  ScopedObjectAccess soa(Thread::Current());
+  ObjPtr<mirror::Class> declaring_class = field->GetDeclaringClass();
+  if (!declaring_class->IsVisiblyInitialized()) {
+    // During AOT compilation, dex2oat ensures that initialized classes are visibly initialized.
+    DCHECK(!declaring_class->IsInitialized());
+    return false;
+  }
+  HInstruction* load_class = var_handle_instruction->InputAt(0);
+  if (kIsDebugBuild) {
+    bool is_in_boot_image = false;
+    if (Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(declaring_class)) {
+      is_in_boot_image = true;
+    } else if (compiler_options.IsBootImage() || compiler_options.IsBootImageExtension()) {
+      std::string storage;
+      const char* descriptor = declaring_class->GetDescriptor(&storage);
+      is_in_boot_image = compiler_options.IsImageClass(descriptor);
+    }
+    CHECK_EQ(is_in_boot_image,
+             load_class->IsLoadClass() && load_class->AsLoadClass()->IsInBootImage());
+  }
+  if (!load_class->IsLoadClass() || !load_class->AsLoadClass()->IsInBootImage()) {
+    return false;
+  }
+
+  // Get the `VarHandle` object and check its class.
+  ObjPtr<mirror::Class> expected_var_handle_class;
+  switch (expected_coordinates_count) {
+    case 0:
+      expected_var_handle_class = GetClassRoot<mirror::StaticFieldVarHandle>();
+      break;
+    default:
+      DCHECK_EQ(expected_coordinates_count, 1u);
+      expected_var_handle_class = GetClassRoot<mirror::FieldVarHandle>();
+      break;
+  }
+  ObjPtr<mirror::Object> var_handle_object = field->GetObject(declaring_class);
+  if (var_handle_object == nullptr || var_handle_object->GetClass() != expected_var_handle_class) {
+    return false;
+  }
+  ObjPtr<mirror::VarHandle> var_handle = ObjPtr<mirror::VarHandle>::DownCast(var_handle_object);
+
+  // Check access mode.
+  mirror::VarHandle::AccessMode access_mode =
+      mirror::VarHandle::GetAccessModeByIntrinsic(invoke->GetIntrinsic());
+  if (!var_handle->IsAccessModeSupported(access_mode)) {
+    return false;
+  }
+
+  // Check argument types.
+  ObjPtr<mirror::Class> var_type = var_handle->GetVarType();
+  mirror::VarHandle::AccessModeTemplate access_mode_template =
+      mirror::VarHandle::GetAccessModeTemplate(access_mode);
+  // Note: The data type of input arguments does not need to match the type from shorty
+  // due to implicit conversions or avoiding unnecessary conversions before narrow stores.
+  DataType::Type type = (access_mode_template == mirror::VarHandle::AccessModeTemplate::kGet)
+      ? invoke->GetType()
+      : GetDataTypeFromShorty(invoke, invoke->GetNumberOfArguments() - 1u);
+  if (type != DataTypeFromPrimitive(var_type->GetPrimitiveType())) {
+    return false;
+  }
+  if (type == DataType::Type::kReference) {
+    uint32_t arguments_start = /* VarHandle object */ 1u + expected_coordinates_count;
+    uint32_t number_of_arguments = invoke->GetNumberOfArguments();
+    for (size_t arg_index = arguments_start; arg_index != number_of_arguments; ++arg_index) {
+      HInstruction* arg = invoke->InputAt(arg_index);
+      DCHECK_EQ(arg->GetType(), DataType::Type::kReference);
+      if (!arg->IsNullConstant()) {
+        ReferenceTypeInfo arg_type_info = arg->GetReferenceTypeInfo();
+        if (!arg_type_info.IsValid() ||
+            !var_type->IsAssignableFrom(arg_type_info.GetTypeHandle().Get())) {
+          return false;
+        }
+      }
+    }
+  }
+
+  // Check the first coordinate.
+  if (expected_coordinates_count != 0u) {
+    ObjPtr<mirror::Class> coordinate0_type = var_handle->GetCoordinateType0();
+    DCHECK(coordinate0_type != nullptr);
+    ReferenceTypeInfo object_type_info = invoke->InputAt(1)->GetReferenceTypeInfo();
+    if (!object_type_info.IsValid() ||
+        !coordinate0_type->IsAssignableFrom(object_type_info.GetTypeHandle().Get())) {
+      return false;
+    }
+  }
+
+  // All required checks passed.
+  return true;
 }
 
 void InstructionSimplifierVisitor::VisitInvoke(HInvoke* instruction) {
@@ -2809,6 +3071,39 @@ void InstructionSimplifierVisitor::VisitInvoke(HInvoke* instruction) {
     case Intrinsics::kStringBuilderToString:
       SimplifyAllocationIntrinsic(instruction);
       break;
+    case Intrinsics::kVarHandleCompareAndExchange:
+    case Intrinsics::kVarHandleCompareAndExchangeAcquire:
+    case Intrinsics::kVarHandleCompareAndExchangeRelease:
+    case Intrinsics::kVarHandleCompareAndSet:
+    case Intrinsics::kVarHandleGet:
+    case Intrinsics::kVarHandleGetAcquire:
+    case Intrinsics::kVarHandleGetAndAdd:
+    case Intrinsics::kVarHandleGetAndAddAcquire:
+    case Intrinsics::kVarHandleGetAndAddRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseAnd:
+    case Intrinsics::kVarHandleGetAndBitwiseAndAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseAndRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseOr:
+    case Intrinsics::kVarHandleGetAndBitwiseOrAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseOrRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseXor:
+    case Intrinsics::kVarHandleGetAndBitwiseXorAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseXorRelease:
+    case Intrinsics::kVarHandleGetAndSet:
+    case Intrinsics::kVarHandleGetAndSetAcquire:
+    case Intrinsics::kVarHandleGetAndSetRelease:
+    case Intrinsics::kVarHandleGetOpaque:
+    case Intrinsics::kVarHandleGetVolatile:
+    case Intrinsics::kVarHandleSet:
+    case Intrinsics::kVarHandleSetOpaque:
+    case Intrinsics::kVarHandleSetRelease:
+    case Intrinsics::kVarHandleSetVolatile:
+    case Intrinsics::kVarHandleWeakCompareAndSet:
+    case Intrinsics::kVarHandleWeakCompareAndSetAcquire:
+    case Intrinsics::kVarHandleWeakCompareAndSetPlain:
+    case Intrinsics::kVarHandleWeakCompareAndSetRelease:
+      SimplifyVarHandleIntrinsic(instruction);
+      break;
     case Intrinsics::kIntegerRotateRight:
     case Intrinsics::kLongRotateRight:
     case Intrinsics::kIntegerRotateLeft:
@@ -2823,6 +3118,9 @@ void InstructionSimplifierVisitor::VisitInvoke(HInvoke* instruction) {
     case Intrinsics::kUnsafeLoadFence:
     case Intrinsics::kUnsafeStoreFence:
     case Intrinsics::kUnsafeFullFence:
+    case Intrinsics::kJdkUnsafeLoadFence:
+    case Intrinsics::kJdkUnsafeStoreFence:
+    case Intrinsics::kJdkUnsafeFullFence:
     case Intrinsics::kVarHandleFullFence:
     case Intrinsics::kVarHandleAcquireFence:
     case Intrinsics::kVarHandleReleaseFence:

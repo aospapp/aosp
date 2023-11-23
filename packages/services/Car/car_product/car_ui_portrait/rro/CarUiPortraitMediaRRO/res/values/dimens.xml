@@ -15,6 +15,21 @@
   ~ limitations under the License.
   -->
 
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources>
     <dimen name="image_radius">24dp</dimen>
+    <dimen name="media_browse_indicator_size">25dp</dimen>
+    <dimen name="media_browse_subtitle_margin_top">4dp</dimen>
+    <dimen name="media_browse_grid_item_text_margin_top">16dp</dimen>
+    <dimen name="media_browse_grid_item_margin_bottom">24dp</dimen>
+    <dimen name="media_browse_grid_icons_item_art_size">76dp</dimen>
+    <dimen name="media_browse_grid_item_padding">0dp</dimen>
+    <dimen name="grid_item_spacing">8dp</dimen>
+    <dimen name="media_browse_list_item_height">116dp</dimen>
+    <dimen name="media_browse_list_item_icon_margin_start">0dp</dimen>
+    <dimen name="media_browse_list_icons_item_art_size">44dp</dimen>
+    <dimen name="media_browse_list_item_thumbnail_margin_bottom">4dp</dimen>
+    <dimen name="media_browse_list_item_arrow_size">44dp</dimen>
+    <dimen name="media_browse_list_item_text_margin_x">148dp</dimen>
+    <dimen name="media_browse_list_icons_item_art_margin_start">16dp</dimen>
+    <dimen name="media_browse_list_icons_item_text_margin_x">112dp</dimen>
 </resources>

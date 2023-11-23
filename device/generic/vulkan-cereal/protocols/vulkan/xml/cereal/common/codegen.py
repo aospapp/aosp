@@ -47,7 +47,7 @@ class Module(object):
             return self.basename + ".cpp \\\n"
         dirName = self.directory
         baseName = self.basename
-        joined = os.path.join(dirName, baseName)
+        joined = os.path.join(dirName, baseName).replace("\\", "/")
         return "    " + joined + ".cpp \\\n"
 
     def getCMakeSrcEntry(self):
@@ -55,7 +55,7 @@ class Module(object):
             return self.basename + ".cpp "
         dirName = self.directory
         baseName = self.basename
-        joined = os.path.join(dirName, baseName)
+        joined = os.path.join(dirName, baseName).replace("\\", "/")
         return "    " + joined + ".cpp "
 
     def begin(self, globalDir):
@@ -369,7 +369,7 @@ class CodeGen(object):
         return protoBegin + protoParams
 
     def makeFuncAlias(self, nameDst, nameSrc):
-        return "DEFINE_ALIAS_FUNCTION({}, {});\n\n".format(nameSrc, nameDst)
+        return "DEFINE_ALIAS_FUNCTION({}, {})\n\n".format(nameSrc, nameDst)
 
     def makeFuncDecl(self, vulkanApi):
         return self.makeFuncProto(vulkanApi) + ";\n\n"
@@ -577,7 +577,7 @@ class CodeGen(object):
     def generalLengthAccessGuard(self, vulkanType, parentVarName="parent"):
         return self.makeLengthAccess(vulkanType, parentVarName)[1]
 
-    def vkApiCall(self, api, customPrefix="", customParameters=None, retVarDecl=True):
+    def vkApiCall(self, api, customPrefix="", customParameters=None, retVarDecl=True, retVarAssign=True):
         callLhs = None
 
         retTypeName = api.getRetTypeExpr()
@@ -587,7 +587,8 @@ class CodeGen(object):
             retVar = api.getRetVarExpr()
             if retVarDecl:
                 self.stmt("%s %s = (%s)0" % (retTypeName, retVar, retTypeName))
-            callLhs = retVar
+            if retVarAssign:
+                callLhs = retVar
 
         if customParameters is None:
             self.funcCall(

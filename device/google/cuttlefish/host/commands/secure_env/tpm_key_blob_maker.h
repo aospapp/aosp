@@ -15,9 +15,13 @@
 
 #pragma once
 
+#include <optional>
+//
 #include <keymaster/soft_key_factory.h>
-
+//
 #include "host/commands/secure_env/tpm_resource_manager.h"
+
+namespace cuttlefish {
 
 /**
  * Encrypts key data using a TPM-resident key and signs it with a TPM-resident
@@ -43,6 +47,7 @@ public:
       const keymaster::KeymasterKeyBlob& key_material,
       const keymaster::AuthorizationSet& hw_enforced,
       const keymaster::AuthorizationSet& sw_enforced,
+      const keymaster::AuthorizationSet& hidden,
       keymaster::KeymasterKeyBlob* blob) const;
 
   /**
@@ -60,11 +65,19 @@ public:
       const keymaster_key_blob_t& blob,
       keymaster::AuthorizationSet* hw_enforced,
       keymaster::AuthorizationSet* sw_enforced,
+      const keymaster::AuthorizationSet& hidden,
       keymaster::KeymasterKeyBlob* key_material) const;
 
   keymaster_error_t SetSystemVersion(uint32_t os_version, uint32_t os_patchlevel);
-private:
+  keymaster_error_t SetVendorPatchlevel(uint32_t vendor_patchlevel);
+  keymaster_error_t SetBootPatchlevel(uint32_t boot_patchlevel);
+
+ private:
   TpmResourceManager& resource_manager_;
   uint32_t os_version_;
   uint32_t os_patchlevel_;
+  std::optional<uint32_t> vendor_patchlevel_;
+  std::optional<uint32_t> boot_patchlevel_;
 };
+
+}  // namespace cuttlefish

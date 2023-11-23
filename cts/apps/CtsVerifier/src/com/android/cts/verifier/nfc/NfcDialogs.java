@@ -16,13 +16,13 @@
 
 package com.android.cts.verifier.nfc;
 
-import com.android.cts.verifier.R;
-
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.provider.Settings;
+
+import com.android.cts.verifier.R;
 
 /** Class containing methods to create common dialogs for NFC activities. */
 public class NfcDialogs {
@@ -81,6 +81,25 @@ public class NfcDialogs {
                 })
                 .create();
     }
+
+    /**
+     * SecureNfcEnabled dialog
+     */
+    public static AlertDialog createSecureNfcEnabledDialog(final Context context) {
+        return new AlertDialog.Builder(context)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle(R.string.secure_nfc_enabled)
+                .setMessage(R.string.secure_nfc_enabled_message)
+                .setPositiveButton(R.string.nfc_settings, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Intent intent = new Intent(Settings.ACTION_NFC_SETTINGS);
+                        context.startActivity(intent);
+                    }
+                })
+                .create();
+    }
+
 
     private NfcDialogs() {
     }

@@ -43,6 +43,8 @@ rust_library {
     name: "libfutures_executor",
     host_supported: true,
     crate_name: "futures_executor",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.21",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -58,16 +60,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   futures-core-0.3.14 "alloc,std"
-//   futures-task-0.3.14 "alloc,std"
-//   futures-util-0.3.14 "alloc,slab,std"
-//   libc-0.2.94 "default,std"
-//   num_cpus-1.13.0
-//   pin-project-lite-0.2.6
-//   pin-utils-0.1.0
-//   slab-0.4.3 "default,std"

@@ -29,6 +29,7 @@
 #![cfg_attr(test, deny(warnings))]
 
 // ANDROID: Use std to allow building as a dylib.
+#[cfg(android_dylib)]
 extern crate std;
 
 /// The main macro provided by this crate. See crate documentation for more

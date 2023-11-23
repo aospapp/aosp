@@ -22,7 +22,6 @@ import android.util.Log;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Activity allowing microphone/camera privacy management.
@@ -57,7 +56,8 @@ public class SensorToggleActivity extends TvSettingsActivity {
 
         Bundle args = new Bundle();
         args.putObject(SensorFragment.TOGGLE_EXTRA, toggle);
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(SensorFragment.class.getName(), args);
     }
 

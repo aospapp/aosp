@@ -1,20 +1,20 @@
 // Signature format: 2.0
 package android.compat {
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public final class Compatibility {
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static boolean isChangeEnabled(long);
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static void reportUnconditionalChange(long);
+  @libcore.api.IntraCoreApi public final class Compatibility {
+    method @libcore.api.IntraCoreApi public static boolean isChangeEnabled(long);
+    method @libcore.api.IntraCoreApi public static void reportUnconditionalChange(long);
   }
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static final class Compatibility.ChangeConfig {
-    ctor @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public Compatibility.ChangeConfig(@NonNull java.util.Set<java.lang.Long>, @NonNull java.util.Set<java.lang.Long>);
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public long[] getDisabledChangesArray();
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public java.util.Set<java.lang.Long> getDisabledSet();
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public long[] getEnabledChangesArray();
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public java.util.Set<java.lang.Long> getEnabledSet();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public boolean isEmpty();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public boolean isForceDisabled(long);
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public boolean isForceEnabled(long);
+  @libcore.api.IntraCoreApi public static final class Compatibility.ChangeConfig {
+    ctor @libcore.api.IntraCoreApi public Compatibility.ChangeConfig(@NonNull java.util.Set<java.lang.Long>, @NonNull java.util.Set<java.lang.Long>);
+    method @NonNull @libcore.api.IntraCoreApi public long[] getDisabledChangesArray();
+    method @NonNull @libcore.api.IntraCoreApi public java.util.Set<java.lang.Long> getDisabledSet();
+    method @NonNull @libcore.api.IntraCoreApi public long[] getEnabledChangesArray();
+    method @NonNull @libcore.api.IntraCoreApi public java.util.Set<java.lang.Long> getEnabledSet();
+    method @libcore.api.IntraCoreApi public boolean isEmpty();
+    method @libcore.api.IntraCoreApi public boolean isForceDisabled(long);
+    method @libcore.api.IntraCoreApi public boolean isForceEnabled(long);
   }
 
 }
@@ -22,7 +22,7 @@ package android.compat {
 package android.system {
 
   public final class Os {
-    method @Nullable @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static String realpath(@Nullable String) throws android.system.ErrnoException;
+    method @Nullable @libcore.api.IntraCoreApi public static String realpath(@Nullable String) throws android.system.ErrnoException;
   }
 
 }
@@ -36,13 +36,15 @@ package dalvik.annotation.compat {
     field @libcore.api.IntraCoreApi public static final int Q = 29; // 0x1d
     field @libcore.api.IntraCoreApi public static final int R = 30; // 0x1e
     field @libcore.api.IntraCoreApi public static final int S = 31; // 0x1f
+    field @libcore.api.IntraCoreApi public static final int S_V2 = 32; // 0x20
+    field @libcore.api.IntraCoreApi public static final int TIRAMISU = 33; // 0x21
   }
 
 }
 
 package dalvik.annotation.optimization {
 
-  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD) @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public @interface FastNative {
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD) @libcore.api.IntraCoreApi public @interface FastNative {
   }
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD}) @libcore.api.IntraCoreApi public @interface ReachabilitySensitive {
@@ -52,25 +54,25 @@ package dalvik.annotation.optimization {
 
 package dalvik.system {
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public final class BlockGuard {
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static dalvik.system.BlockGuard.Policy getThreadPolicy();
+  @libcore.api.IntraCoreApi public final class BlockGuard {
+    method @NonNull @libcore.api.IntraCoreApi public static dalvik.system.BlockGuard.Policy getThreadPolicy();
   }
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static interface BlockGuard.Policy {
+  @libcore.api.IntraCoreApi public static interface BlockGuard.Policy {
     method @libcore.api.IntraCoreApi public void onNetwork();
   }
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public final class CloseGuard {
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public void close();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static dalvik.system.CloseGuard get();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public void open(String);
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public void warnIfOpen();
+  @libcore.api.IntraCoreApi public final class CloseGuard {
+    method @libcore.api.IntraCoreApi public void close();
+    method @libcore.api.IntraCoreApi public static dalvik.system.CloseGuard get();
+    method @libcore.api.IntraCoreApi public void open(String);
+    method @libcore.api.IntraCoreApi public void warnIfOpen();
   }
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public final class VMRuntime {
-    method @dalvik.annotation.optimization.FastNative @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public long addressOf(Object);
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static dalvik.system.VMRuntime getRuntime();
-    method @dalvik.annotation.optimization.FastNative @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public Object newNonMovableArray(Class<?>, int);
+  @libcore.api.IntraCoreApi public final class VMRuntime {
+    method @dalvik.annotation.optimization.FastNative @libcore.api.IntraCoreApi public long addressOf(Object);
+    method @libcore.api.IntraCoreApi public static dalvik.system.VMRuntime getRuntime();
+    method @dalvik.annotation.optimization.FastNative @libcore.api.IntraCoreApi public Object newNonMovableArray(Class<?>, int);
   }
 
 }
@@ -126,19 +128,19 @@ package libcore.io {
 
 package libcore.net {
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public abstract class NetworkSecurityPolicy {
-    ctor @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public NetworkSecurityPolicy();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static libcore.net.NetworkSecurityPolicy getInstance();
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public abstract boolean isCertificateTransparencyVerificationRequired(String);
+  @libcore.api.IntraCoreApi public abstract class NetworkSecurityPolicy {
+    ctor @libcore.api.IntraCoreApi public NetworkSecurityPolicy();
+    method @libcore.api.IntraCoreApi public static libcore.net.NetworkSecurityPolicy getInstance();
+    method @libcore.api.IntraCoreApi public abstract boolean isCertificateTransparencyVerificationRequired(String);
   }
 
 }
 
 package libcore.util {
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public class NativeAllocationRegistry {
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public static libcore.util.NativeAllocationRegistry createMalloced(@NonNull ClassLoader, long);
-    method @NonNull @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public Runnable registerNativeAllocation(@NonNull Object, long);
+  @libcore.api.IntraCoreApi public class NativeAllocationRegistry {
+    method @libcore.api.IntraCoreApi public static libcore.util.NativeAllocationRegistry createMalloced(@NonNull ClassLoader, long);
+    method @NonNull @libcore.api.IntraCoreApi public Runnable registerNativeAllocation(@NonNull Object, long);
   }
 
   @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.TYPE_USE}) @libcore.api.IntraCoreApi public @interface NonNull {
@@ -159,10 +161,10 @@ package sun.security.util {
 
 package sun.security.x509 {
 
-  @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public class AlgorithmId implements sun.security.util.DerEncoder java.io.Serializable {
+  @libcore.api.IntraCoreApi public class AlgorithmId implements sun.security.util.DerEncoder java.io.Serializable {
     method @libcore.api.IntraCoreApi public void derEncode(java.io.OutputStream) throws java.io.IOException;
     method @libcore.api.IntraCoreApi public static sun.security.x509.AlgorithmId get(String) throws java.security.NoSuchAlgorithmException;
-    method @libcore.api.CorePlatformApi(status=libcore.api.CorePlatformApi.Status.STABLE) @libcore.api.IntraCoreApi public String getName();
+    method @libcore.api.IntraCoreApi public String getName();
   }
 
 }

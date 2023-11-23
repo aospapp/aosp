@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <thread>
 
+#include "perfmgr/AdpfConfig.h"
 #include "perfmgr/FileNode.h"
 #include "perfmgr/HintManager.h"
 #include "perfmgr/PropertyNode.h"
@@ -106,6 +107,16 @@ constexpr char kJSON_RAW[] = R"(
             "Value": "LAUNCH"
         },
         {
+            "PowerHint": "MASK_LAUNCH_INTERACTION_MODE",
+            "Type": "MaskHint",
+            "Value": "LAUNCH"
+        },
+        {
+            "PowerHint": "MASK_LAUNCH_INTERACTION_MODE",
+            "Type": "MaskHint",
+            "Value": "INTERACTION"
+        },
+        {
             "PowerHint": "END_LAUNCH_MODE",
             "Type": "EndHint",
             "Value": "LAUNCH"
@@ -115,13 +126,65 @@ constexpr char kJSON_RAW[] = R"(
             "Type": "DoHint",
             "Value": "LAUNCH"
         }
+    ],
+    "AdpfConfig": [
+        {
+            "Name": "REFRESH_120FPS",
+            "PID_On": true,
+            "PID_Po": 5.0,
+            "PID_Pu": 3.0,
+            "PID_I": 0.001,
+            "PID_I_Init": 200,
+            "PID_I_High": 512,
+            "PID_I_Low": -120,
+            "PID_Do": 500.0,
+            "PID_Du": 0.0,
+            "SamplingWindow_P": 1,
+            "SamplingWindow_I": 0,
+            "SamplingWindow_D": 1,
+            "UclampMin_On": true,
+            "UclampMin_Init": 100,
+            "UclampMin_High": 384,
+            "UclampMin_Low": 0,
+            "ReportingRateLimitNs": 166666660,
+            "EarlyBoost_On": false,
+            "EarlyBoost_TimeFactor": 0.8,
+            "TargetTimeFactor": 1.0,
+            "StaleTimeFactor": 10.0
+        },
+        {
+            "Name": "REFRESH_60FPS",
+            "PID_On": false,
+            "PID_Po": 0,
+            "PID_Pu": 0,
+            "PID_I": 0,
+            "PID_I_Init": 0,
+            "PID_I_High": 0,
+            "PID_I_Low": 0,
+            "PID_Do": 0,
+            "PID_Du": 0,
+            "SamplingWindow_P": 0,
+            "SamplingWindow_I": 0,
+            "SamplingWindow_D": 0,
+            "UclampMin_On": true,
+            "UclampMin_Init": 200,
+            "UclampMin_High": 157,
+            "UclampMin_Low": 157,
+            "ReportingRateLimitNs": 83333330,
+            "EarlyBoost_On": true,
+            "EarlyBoost_TimeFactor": 1.2,
+            "TargetTimeFactor": 1.4,
+            "StaleTimeFactor": 5.0
+        }
     ]
 }
 )";
 
 class HintManagerTest : public ::testing::Test, public HintManager {
   protected:
-    HintManagerTest() : HintManager(nullptr, std::unordered_map<std::string, Hint>{}) {
+    HintManagerTest()
+        : HintManager(nullptr, std::unordered_map<std::string, Hint>{},
+                      std::vector<std::shared_ptr<AdpfConfig>>()) {
         android::base::SetMinimumLogSeverity(android::base::VERBOSE);
         prop_ = "vendor.pwhal.mode";
     }
@@ -131,12 +194,12 @@ class HintManagerTest : public ::testing::Test, public HintManager {
         std::unique_ptr<TemporaryFile> tf = std::make_unique<TemporaryFile>();
         nodes_.emplace_back(new FileNode(
             "n0", tf->path, {{"n0_value0"}, {"n0_value1"}, {"n0_value2"}}, 2,
-            false));
+            false, false));
         files_.emplace_back(std::move(tf));
         tf = std::make_unique<TemporaryFile>();
         nodes_.emplace_back(new FileNode(
             "n1", tf->path, {{"n1_value0"}, {"n1_value1"}, {"n1_value2"}}, 2,
-            true));
+            true, true));
         files_.emplace_back(std::move(tf));
         nodes_.emplace_back(new PropertyNode(
             "n2", prop_, {{"n2_value0"}, {"n2_value1"}, {"n2_value2"}}, 2,
@@ -208,7 +271,7 @@ static inline void _VerifyStats(const HintStats &stats, uint32_t count, uint64_t
 
 // Test GetHints
 TEST_F(HintManagerTest, GetHintsTest) {
-    HintManager hm(nm_, actions_);
+    HintManager hm(nm_, actions_, std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(hm.Start());
     std::vector<std::string> hints = hm.GetHints();
     EXPECT_TRUE(hm.IsRunning());
@@ -219,7 +282,8 @@ TEST_F(HintManagerTest, GetHintsTest) {
 
 // Test GetHintStats
 TEST_F(HintManagerTest, GetHintStatsTest) {
-    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    auto hm = std::make_unique<HintManager>(nm_, actions_,
+                                            std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(InitHintStatus(hm));
     EXPECT_TRUE(hm->Start());
     HintStats launch_stats(hm->GetHintStats("LAUNCH"));
@@ -232,7 +296,7 @@ TEST_F(HintManagerTest, GetHintStatsTest) {
 
 // Test initialization of default values
 TEST_F(HintManagerTest, HintInitDefaultTest) {
-    HintManager hm(nm_, actions_);
+    HintManager hm(nm_, actions_, std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(hm.Start());
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     EXPECT_TRUE(hm.IsRunning());
@@ -243,49 +307,16 @@ TEST_F(HintManagerTest, HintInitDefaultTest) {
 
 // Test IsHintSupported
 TEST_F(HintManagerTest, HintSupportedTest) {
-    HintManager hm(nm_, actions_);
+    HintManager hm(nm_, actions_, std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(hm.IsHintSupported("INTERACTION"));
     EXPECT_TRUE(hm.IsHintSupported("LAUNCH"));
     EXPECT_FALSE(hm.IsHintSupported("NO_SUCH_HINT"));
 }
 
-// Test DumpToFd
-TEST_F(HintManagerTest, DumpToFdTest) {
-    auto hm = std::make_unique<HintManager>(nm_, actions_);
-    EXPECT_TRUE(InitHintStatus(hm));
-    TemporaryFile dumptf;
-    hm->DumpToFd(dumptf.fd);
-    fsync(dumptf.fd);
-    std::ostringstream dump_buf;
-    dump_buf << "========== Begin perfmgr nodes ==========\nNode Name\tNode "
-                "Path\tCurrent Index\tCurrent Value\nn0\t"
-             << files_[0]->path << "\t2\t\nn1\t" << files_[1]->path
-             << "\t2\t\nn2\tvendor.pwhal.mode\t2\t\n==========  End perfmgr "
-                "nodes  ==========\n========== Begin perfmgr stats ==========\n"
-                "Hint Name\tCounts\tDuration\nINTERACTION\t0\t0\nLAUNCH\t0\t0\n"
-                "==========  End perfmgr stats  ==========\n";
-    _VerifyPathValue(dumptf.path, dump_buf.str());
-    TemporaryFile dumptf_started;
-    EXPECT_TRUE(hm->Start());
-    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
-    EXPECT_TRUE(hm->IsRunning());
-    hm->DumpToFd(dumptf_started.fd);
-    fsync(dumptf_started.fd);
-    dump_buf.str("");
-    dump_buf.clear();
-    dump_buf << "========== Begin perfmgr nodes ==========\nNode Name\tNode "
-                "Path\tCurrent Index\tCurrent Value\nn0\t"
-             << files_[0]->path << "\t2\t\nn1\t" << files_[1]->path
-             << "\t2\tn1_value2\nn2\tvendor.pwhal.mode\t2\tn2_value2\n========="
-                "=  End perfmgr nodes  ==========\n========== Begin perfmgr "
-                "stats ==========\nHint Name\tCounts\tDuration\nINTERACTION\t0\t"
-                "0\nLAUNCH\t0\t0\n==========  End perfmgr stats  ==========\n";
-    _VerifyPathValue(dumptf_started.path, dump_buf.str());
-}
-
 // Test hint/cancel/expire with dummy actions
 TEST_F(HintManagerTest, HintTest) {
-    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    auto hm = std::make_unique<HintManager>(nm_, actions_,
+                                            std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(InitHintStatus(hm));
     EXPECT_TRUE(hm->Start());
     EXPECT_TRUE(hm->IsRunning());
@@ -334,7 +365,8 @@ TEST_F(HintManagerTest, HintTest) {
 
 // Test collecting stats with simple actions
 TEST_F(HintManagerTest, HintStatsTest) {
-    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    auto hm = std::make_unique<HintManager>(nm_, actions_,
+                                            std::vector<std::shared_ptr<AdpfConfig>>());
     EXPECT_TRUE(InitHintStatus(hm));
     EXPECT_TRUE(hm->Start());
     EXPECT_TRUE(hm->IsRunning());
@@ -514,7 +546,7 @@ TEST_F(HintManagerTest, ParseActionsTest) {
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
     std::unordered_map<std::string, Hint> actions = HintManager::ParseActions(json_doc_, nodes);
-    EXPECT_EQ(5u, actions.size());
+    EXPECT_EQ(6u, actions.size());
 
     EXPECT_EQ(2u, actions["INTERACTION"].node_actions.size());
     EXPECT_EQ(1u, actions["INTERACTION"].node_actions[0].node_index);
@@ -546,15 +578,23 @@ TEST_F(HintManagerTest, ParseActionsTest) {
 
     EXPECT_EQ(1u, actions["MASK_LAUNCH_MODE"].hint_actions.size());
     EXPECT_EQ(HintActionType::MaskHint, actions["MASK_LAUNCH_MODE"].hint_actions[0].type);
-    EXPECT_TRUE("LAUNCH" == actions["MASK_LAUNCH_MODE"].hint_actions[0].value);
+    EXPECT_EQ("LAUNCH", actions["MASK_LAUNCH_MODE"].hint_actions[0].value);
+
+    EXPECT_EQ(2u, actions["MASK_LAUNCH_INTERACTION_MODE"].hint_actions.size());
+    EXPECT_EQ(HintActionType::MaskHint,
+              actions["MASK_LAUNCH_INTERACTION_MODE"].hint_actions[0].type);
+    EXPECT_EQ("LAUNCH", actions["MASK_LAUNCH_INTERACTION_MODE"].hint_actions[0].value);
+    EXPECT_EQ(HintActionType::MaskHint,
+              actions["MASK_LAUNCH_INTERACTION_MODE"].hint_actions[1].type);
+    EXPECT_EQ("INTERACTION", actions["MASK_LAUNCH_INTERACTION_MODE"].hint_actions[1].value);
 
     EXPECT_EQ(1u, actions["DO_LAUNCH_MODE"].hint_actions.size());
     EXPECT_EQ(HintActionType::DoHint, actions["DO_LAUNCH_MODE"].hint_actions[0].type);
-    EXPECT_TRUE("LAUNCH" == actions["DO_LAUNCH_MODE"].hint_actions[0].value);
+    EXPECT_EQ("LAUNCH", actions["DO_LAUNCH_MODE"].hint_actions[0].value);
 
     EXPECT_EQ(1u, actions["END_LAUNCH_MODE"].hint_actions.size());
     EXPECT_EQ(HintActionType::EndHint, actions["END_LAUNCH_MODE"].hint_actions[0].type);
-    EXPECT_TRUE("LAUNCH" == actions["END_LAUNCH_MODE"].hint_actions[0].value);
+    EXPECT_EQ("LAUNCH", actions["END_LAUNCH_MODE"].hint_actions[0].value);
 }
 
 // Test parsing actions with duplicate File node
@@ -671,6 +711,109 @@ TEST_F(HintManagerTest, GetFromJSONTest) {
     _VerifyPathValue(files_[0 + 2]->path, "1134000");
     _VerifyPathValue(files_[1 + 2]->path, "1512000");
     _VerifyPropertyValue(prop_, "HIGH");
+
+    // Mask LAUNCH
+    EXPECT_TRUE(hm->DoHint("MASK_LAUNCH_MODE"));
+    EXPECT_FALSE(hm->IsHintEnabled("LAUNCH"));
+    // Mask LAUNCH and INTERACTION
+    EXPECT_TRUE(hm->DoHint("MASK_LAUNCH_INTERACTION_MODE"));
+    EXPECT_FALSE(hm->IsHintEnabled("LAUNCH"));
+    EXPECT_FALSE(hm->IsHintEnabled("INTERACTION"));
+    // End Mask LAUNCH and INTERACTION
+    EXPECT_TRUE(hm->EndHint("MASK_LAUNCH_INTERACTION_MODE"));
+    EXPECT_FALSE(hm->IsHintEnabled("LAUNCH"));
+    EXPECT_TRUE(hm->IsHintEnabled("INTERACTION"));
+    // End Mask LAUNCH
+    EXPECT_TRUE(hm->EndHint("MASK_LAUNCH_MODE"));
+    EXPECT_TRUE(hm->IsHintEnabled("LAUNCH"));
+}
+
+// Test parsing AdpfConfig
+TEST_F(HintManagerTest, ParseAdpfConfigsTest) {
+    std::vector<std::shared_ptr<AdpfConfig>> adpfs = HintManager::ParseAdpfConfigs(json_doc_);
+    EXPECT_EQ(2u, adpfs.size());
+    EXPECT_EQ("REFRESH_120FPS", adpfs[0]->mName);
+    EXPECT_EQ("REFRESH_60FPS", adpfs[1]->mName);
+    EXPECT_TRUE(adpfs[0]->mPidOn);
+    EXPECT_FALSE(adpfs[1]->mPidOn);
+    EXPECT_EQ(5.0, adpfs[0]->mPidPo);
+    EXPECT_EQ(0.0, adpfs[1]->mPidPo);
+    EXPECT_EQ(3.0, adpfs[0]->mPidPu);
+    EXPECT_EQ(0.0, adpfs[1]->mPidPu);
+    EXPECT_EQ(0.001, adpfs[0]->mPidI);
+    EXPECT_EQ(0.0, adpfs[1]->mPidI);
+    EXPECT_EQ(200LL, adpfs[0]->mPidIInit);
+    EXPECT_EQ(0LL, adpfs[1]->mPidIInit);
+    EXPECT_EQ(512LL, adpfs[0]->mPidIHigh);
+    EXPECT_EQ(0LL, adpfs[1]->mPidIHigh);
+    EXPECT_EQ(-120LL, adpfs[0]->mPidILow);
+    EXPECT_EQ(0LL, adpfs[1]->mPidILow);
+    EXPECT_EQ(500.0, adpfs[0]->mPidDo);
+    EXPECT_EQ(0.0, adpfs[1]->mPidDo);
+    EXPECT_EQ(500.0, adpfs[0]->mPidDo);
+    EXPECT_EQ(0.0, adpfs[1]->mPidDo);
+    EXPECT_EQ(1LLU, adpfs[0]->mSamplingWindowP);
+    EXPECT_EQ(0LLU, adpfs[1]->mSamplingWindowP);
+    EXPECT_EQ(0LLU, adpfs[0]->mSamplingWindowI);
+    EXPECT_EQ(0LLU, adpfs[1]->mSamplingWindowI);
+    EXPECT_EQ(1LLU, adpfs[0]->mSamplingWindowD);
+    EXPECT_EQ(0LLU, adpfs[1]->mSamplingWindowD);
+    EXPECT_TRUE(adpfs[0]->mUclampMinOn);
+    EXPECT_TRUE(adpfs[1]->mUclampMinOn);
+    EXPECT_EQ(100U, adpfs[0]->mUclampMinInit);
+    EXPECT_EQ(200U, adpfs[1]->mUclampMinInit);
+    EXPECT_EQ(384U, adpfs[0]->mUclampMinHigh);
+    EXPECT_EQ(157U, adpfs[1]->mUclampMinHigh);
+    EXPECT_EQ(0U, adpfs[0]->mUclampMinLow);
+    EXPECT_EQ(157U, adpfs[1]->mUclampMinLow);
+    EXPECT_EQ(166666660LL, adpfs[0]->mReportingRateLimitNs);
+    EXPECT_EQ(83333330LL, adpfs[1]->mReportingRateLimitNs);
+    EXPECT_EQ(false, adpfs[0]->mEarlyBoostOn);
+    EXPECT_EQ(true, adpfs[1]->mEarlyBoostOn);
+    EXPECT_EQ(0.8, adpfs[0]->mEarlyBoostTimeFactor);
+    EXPECT_EQ(1.2, adpfs[1]->mEarlyBoostTimeFactor);
+    EXPECT_EQ(1.0, adpfs[0]->mTargetTimeFactor);
+    EXPECT_EQ(1.4, adpfs[1]->mTargetTimeFactor);
+    EXPECT_EQ(10.0, adpfs[0]->mStaleTimeFactor);
+    EXPECT_EQ(5.0, adpfs[1]->mStaleTimeFactor);
+}
+
+// Test parsing adpf configs with duplicate name
+TEST_F(HintManagerTest, ParseAdpfConfigsDuplicateNameTest) {
+    std::string from = "REFRESH_120FPS";
+    size_t start_pos = json_doc_.find(from);
+    json_doc_.replace(start_pos, from.length(), "REFRESH_60FPS");
+    std::vector<std::shared_ptr<AdpfConfig>> adpfs = HintManager::ParseAdpfConfigs(json_doc_);
+    EXPECT_EQ(0u, adpfs.size());
+}
+
+// Test parsing adpf configs without PID_Po
+TEST_F(HintManagerTest, ParseAdpfConfigsWithoutPIDPoTest) {
+    std::string from = "\"PID_Po\": 0,";
+    size_t start_pos = json_doc_.find(from);
+    json_doc_.replace(start_pos, from.length(), "");
+    std::vector<std::shared_ptr<AdpfConfig>> adpfs = HintManager::ParseAdpfConfigs(json_doc_);
+    EXPECT_EQ(0u, adpfs.size());
+}
+
+// Test hint/cancel/expire with json config
+TEST_F(HintManagerTest, GetFromJSONAdpfConfigTest) {
+    TemporaryFile json_file;
+    ASSERT_TRUE(android::base::WriteStringToFile(json_doc_, json_file.path)) << strerror(errno);
+    std::unique_ptr<HintManager> hm = HintManager::GetFromJSON(json_file.path, false);
+    EXPECT_NE(nullptr, hm.get());
+    EXPECT_TRUE(hm->Start());
+    EXPECT_TRUE(hm->IsRunning());
+
+    // Get default Adpf Profile
+    EXPECT_EQ("REFRESH_120FPS", hm->GetAdpfProfile()->mName);
+
+    // Set specific Adpf Profile
+    EXPECT_FALSE(hm->SetAdpfProfile("NoSuchProfile"));
+    EXPECT_TRUE(hm->SetAdpfProfile("REFRESH_60FPS"));
+    EXPECT_EQ("REFRESH_60FPS", hm->GetAdpfProfile()->mName);
+    EXPECT_TRUE(hm->SetAdpfProfile("REFRESH_120FPS"));
+    EXPECT_EQ("REFRESH_120FPS", hm->GetAdpfProfile()->mName);
 }
 
 }  // namespace perfmgr

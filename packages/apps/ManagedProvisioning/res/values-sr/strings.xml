@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Следећа апликација ће управљати уређајем:"</string>
     <string name="next" msgid="1004321437324424398">"Даље"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Подешава се пословни профил..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Администратор може да надгледа подешавања, корпоративни приступ, апликације, дозволе и податке повезане са овим профилом, као и да управља њима. Ту спадају активности на мрежи, локација уређаја, историја позива и историја претраге контаката.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Контактирајте ИТ администратора за више информација, укључујући политику приватности организације."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"ИТ администратор може да надгледа подешавања, корпоративни приступ, апликације, дозволе, податке и активности мреже повезане са овим профилом, као и историју позива и историју претраге контаката. Обратите се ИТ администратору за више информација и да бисте сазнали више о политици приватности организације."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ИТ администратор може да надгледа подешавања, корпоративни приступ, апликације, дозволе и податке повезане са овим уређајем, као и да управља њима. Ту спадају активности на мрежи, локација уређаја, историја позива и историја претраге контаката.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Контактирајте администратора за више информација, укључујући политику приватности организације."</string>
@@ -107,7 +105,7 @@
     <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ће управљати овим уређајем, пратити га и штитити. Примењиваће се услови. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ће управљати овим уређајем, пратити га и штитити. Примењиваће се <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> услови. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Овај линк није поуздан и не може да се отвори док се не доврши подешавање уређаја: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="2843488903902493030">"Да бисте сазнали више, контактирајте администратора <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Да бисте сазнали више, обратите се: <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Ако имате питања, обратите се ИТ администратору"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Подешавање није довршено. Потражите помоћ од ИТ администратора."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Потражите помоћ од ИТ администратора"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>може да инсталира апликацију кредитора <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> како бисте могли да плаћате за овај уређај"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Овај уређај може да буде ограничен"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> може да ограничава приступ овом уређају ако не обављате плаћања."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Подешавање уређаја није успело. Обратите се ИТ администратору и наведите да је у питању „неважећи контролни збир“."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Пробајте поново касније или замолите ИТ администратора за помоћ"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Подешавање уређаја није успело. Обратите се ИТ администратору и наведите да су у питању „компоненте које недостају или су оштећене“."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Подешава се…"</string>
 </resources>

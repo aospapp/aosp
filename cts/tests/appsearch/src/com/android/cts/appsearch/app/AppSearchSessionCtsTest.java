@@ -17,29 +17,27 @@ package android.app.appsearch.cts.app;
 
 import android.app.appsearch.AppSearchManager;
 import android.app.appsearch.AppSearchSessionShim;
+import android.app.appsearch.testutil.AppSearchSessionShimImpl;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
-
-import com.android.server.appsearch.testing.AppSearchSessionShimImpl;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.concurrent.ExecutorService;
 
 public class AppSearchSessionCtsTest extends AppSearchSessionCtsTestBase {
-    @Override
-    protected ListenableFuture<AppSearchSessionShim> createSearchSession(@NonNull String dbName) {
-        return AppSearchSessionShimImpl.createSearchSession(
+    protected ListenableFuture<AppSearchSessionShim> createSearchSessionAsync(
+            @NonNull String dbName) {
+        return AppSearchSessionShimImpl.createSearchSessionAsync(
                 new AppSearchManager.SearchContext.Builder(dbName).build());
     }
 
-    @Override
-    protected ListenableFuture<AppSearchSessionShim> createSearchSession(
+    protected ListenableFuture<AppSearchSessionShim> createSearchSessionAsync(
             @NonNull String dbName, @NonNull ExecutorService executor) {
         Context context = ApplicationProvider.getApplicationContext();
-        return AppSearchSessionShimImpl.createSearchSession(context,
+        return AppSearchSessionShimImpl.createSearchSessionAsync(context,
                 new AppSearchManager.SearchContext.Builder(dbName).build(), executor);
     }
 }

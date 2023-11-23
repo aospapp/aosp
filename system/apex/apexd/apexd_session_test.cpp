@@ -39,6 +39,7 @@ namespace {
 using android::apex::testing::IsOk;
 using android::base::Join;
 using android::base::make_scope_guard;
+using ::apex::proto::SessionState;
 
 // TODO(b/170329726): add unit tests for apexd_sessions.h
 

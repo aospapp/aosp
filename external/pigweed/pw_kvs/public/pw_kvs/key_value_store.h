@@ -66,7 +66,8 @@ struct Options {
   // garbage collection is attempted if space for an entry cannot be found. This
   // is a relatively lengthy operation. If kDisabled, Put calls that would
   // require garbage collection fail with RESOURCE_EXHAUSTED.
-  GargbageCollectOnWrite gc_on_write = GargbageCollectOnWrite::kOneSector;
+  GargbageCollectOnWrite gc_on_write =
+      GargbageCollectOnWrite::kAsManySectorsNeeded;
 
   // When the KVS handles errors that are discovered, such as corrupt entries,
   // not enough redundant copys of an entry, etc.
@@ -245,7 +246,8 @@ class KeyValueStore {
 
     constexpr Item(const KeyValueStore& kvs,
                    const internal::EntryCache::const_iterator& item_iterator)
-        : kvs_(kvs), iterator_(item_iterator), key_buffer_{} {}
+        : kvs_(kvs), iterator_(item_iterator), key_buffer_ {}
+    {}
 
     void ReadKey();
 
@@ -260,7 +262,11 @@ class KeyValueStore {
    public:
     iterator& operator++();
 
-    iterator& operator++(int) { return operator++(); }
+    iterator operator++(int) {
+      const iterator original(item_.kvs_, item_.iterator_);
+      operator++();
+      return original;
+    }
 
     // Reads the entry's key from flash.
     const Item& operator*() {
@@ -384,8 +390,8 @@ class KeyValueStore {
   Status ReadEntry(const EntryMetadata& metadata, Entry& entry) const;
 
   // Finds the metadata for an entry matching a particular key. Searches for a
-  // KeyDescriptor that matches this key and sets *metadata to point to it if
-  // one is found.
+  // KeyDescriptor that matches this key and sets *metadata_out to point to it
+  // if one is found.
   //
   //             OK: there is a matching descriptor and *metadata is set
   //      NOT_FOUND: there is no descriptor that matches this key, but this key
@@ -395,15 +401,15 @@ class KeyValueStore {
   //                 key's hash collides with the hash for an existing
   //                 descriptor
   //
-  Status FindEntry(Key key, EntryMetadata* metadata) const;
+  Status FindEntry(Key key, EntryMetadata* metadata_out) const;
 
-  // Searches for a KeyDescriptor that matches this key and sets *metadata to
-  // point to it if one is found.
+  // Searches for a KeyDescriptor that matches this key and sets *metadata_out
+  // to point to it if one is found.
   //
-  //          OK: there is a matching descriptor and *metadata is set
+  //          OK: there is a matching descriptor and *metadata_out is set
   //   NOT_FOUND: there is no descriptor that matches this key
   //
-  Status FindExisting(Key key, EntryMetadata* metadata) const;
+  Status FindExisting(Key key, EntryMetadata* metadata_out) const;
 
   StatusWithSize Get(Key key,
                      const EntryMetadata& metadata,
@@ -413,7 +419,7 @@ class KeyValueStore {
   Status FixedSizeGet(Key key, void* value, size_t size_bytes) const;
 
   Status FixedSizeGet(Key key,
-                      const EntryMetadata& descriptor,
+                      const EntryMetadata& metadata,
                       void* value,
                       size_t size_bytes) const;
 
@@ -447,7 +453,7 @@ class KeyValueStore {
 
   Status GetSectorForWrite(SectorDescriptor** sector,
                            size_t entry_size,
-                           std::span<const Address> addresses_to_skip);
+                           std::span<const Address> reserved_addresses);
 
   Status MarkSectorCorruptIfNotOk(Status status, SectorDescriptor* sector);
 
@@ -461,7 +467,7 @@ class KeyValueStore {
 
   Status RelocateEntry(const EntryMetadata& metadata,
                        KeyValueStore::Address& address,
-                       std::span<const Address> addresses_to_skip);
+                       std::span<const Address> reserved_addresses);
 
   // Perform all maintenance possible, including all neeeded repairing of
   // corruption and garbage collection of reclaimable space in the KVS. When
@@ -478,17 +484,17 @@ class KeyValueStore {
   };
   Status FullMaintenanceHelper(MaintenanceType maintenance_type);
 
-  // Find and garbage collect a singe sector that does not include an address to
-  // skip.
-  Status GarbageCollect(std::span<const Address> addresses_to_skip);
+  // Find and garbage collect a singe sector that does not include a reserved
+  // address.
+  Status GarbageCollect(std::span<const Address> reserved_addresses);
 
   Status RelocateKeyAddressesInSector(
       SectorDescriptor& sector_to_gc,
-      const EntryMetadata& descriptor,
-      std::span<const Address> addresses_to_skip);
+      const EntryMetadata& metadata,
+      std::span<const Address> reserved_addresses);
 
   Status GarbageCollectSector(SectorDescriptor& sector_to_gc,
-                              std::span<const Address> addresses_to_skip);
+                              std::span<const Address> reserved_addresses);
 
   // Ensure that all entries are on the primary (first) format. Entries that are
   // not on the primary format are rewritten.

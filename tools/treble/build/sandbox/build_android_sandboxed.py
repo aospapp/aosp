@@ -23,10 +23,19 @@ _DEFAULT_COMMAND_WRAPPER = \
   '/src/tools/treble/build/sandbox/build_android_target.sh'
 
 
-def build(build_target, variant, nsjail_bin, chroot, dist_dir, build_id,
-          max_cpus, build_goals, config_file=None,
-          command_wrapper=_DEFAULT_COMMAND_WRAPPER, use_rbe=False,
-          readonly_bind_mount=None, env=[]):
+def build(build_target,
+          variant,
+          nsjail_bin,
+          chroot,
+          dist_dir,
+          build_id,
+          max_cpus,
+          build_goals,
+          config_file=None,
+          command_wrapper=_DEFAULT_COMMAND_WRAPPER,
+          use_rbe=False,
+          readonly_bind_mounts=[],
+          env=[]):
   """Builds an Android target in a secure sandbox.
 
   Args:
@@ -42,9 +51,9 @@ def build(build_target, variant, nsjail_bin, chroot, dist_dir, build_id,
     config_file: A string path to an overlay configuration file.
     command_wrapper: A string path to the command wrapper.
     use_rbe: If true, will attempt to use RBE for the build.
-    readonly_bind_mount: A string path to a path to be mounted as read-only.
-    env: An array of environment variables to define in the NsJail sandbox in the
-      `var=val` syntax.
+    readonly_bind_mounts: A list of string paths to be mounted as read-only.
+    env: An array of environment variables to define in the NsJail sandbox in
+      the `var=val` syntax.
 
   Returns:
     A list of commands that were executed. Each command is a list of strings.
@@ -53,7 +62,8 @@ def build(build_target, variant, nsjail_bin, chroot, dist_dir, build_id,
     cfg = config.Config(config_file)
     android_target = cfg.get_build_config_android_target(build_target)
     if cfg.has_tag(build_target, 'skip'):
-      print('Warning: skipping build_target "{}" due to tag being set'.format(build_target))
+      print('Warning: skipping build_target "{}" due to tag being set'.format(
+          build_target))
       return []
   else:
     android_target = build_target
@@ -68,10 +78,6 @@ def build(build_target, variant, nsjail_bin, chroot, dist_dir, build_id,
       'make',
       '-j',
   ] + build_goals
-
-  readonly_bind_mounts = []
-  if readonly_bind_mount:
-    readonly_bind_mounts = [readonly_bind_mount]
 
   extra_nsjail_args = []
   cleanup = lambda: None
@@ -108,15 +114,11 @@ def arg_parser():
   # Use the top level module docstring for the help description
   parser = argparse.ArgumentParser(
       description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-  parser.add_argument(
-      '--build_target',
-      help='The build target.')
+  parser.add_argument('--build_target', help='The build target.')
   parser.add_argument(
       '--variant', default='userdebug', help='The Android build variant.')
   parser.add_argument(
-      '--nsjail_bin',
-      required=True,
-      help='Path to NsJail binary.')
+      '--nsjail_bin', required=True, help='Path to NsJail binary.')
   parser.add_argument(
       '--chroot',
       required=True,
@@ -131,13 +133,17 @@ def arg_parser():
       '--command_wrapper',
       default=_DEFAULT_COMMAND_WRAPPER,
       help='Path to the command wrapper. '
-        'Defaults to \'%s\'.' % _DEFAULT_COMMAND_WRAPPER)
+      'Defaults to \'%s\'.' % _DEFAULT_COMMAND_WRAPPER)
   parser.add_argument(
       '--readonly_bind_mount',
+      type=str,
+      default=[],
+      action='append',
       help='Path to the a path to be mounted as readonly inside the secure '
-      'build sandbox.')
+      'build sandbox. Can be specified multiple times')
   parser.add_argument(
-      '--env', '-e',
+      '--env',
+      '-e',
       type=str,
       default=[],
       action='append',
@@ -163,9 +169,7 @@ def arg_parser():
       help='One or more contexts used to select build goals from the '
       'configuration.')
   parser.add_argument(
-      '--use_rbe',
-      action='store_true',
-      help='Executes the build on RBE')
+      '--use_rbe', action='store_true', help='Executes the build on RBE')
   return parser
 
 
@@ -191,6 +195,7 @@ def main():
 
   cfg = config.Config(args['config_file'])
   build_goals = cfg.get_build_goals(args['build_target'], set(args['context']))
+  build_flags = cfg.get_build_flags(args['build_target'], set(args['context']))
 
   build(
       build_target=args['build_target'],
@@ -199,13 +204,13 @@ def main():
       chroot=args['chroot'],
       config_file=args['config_file'],
       command_wrapper=args['command_wrapper'],
-      readonly_bind_mount=args['readonly_bind_mount'],
+      readonly_bind_mounts=args['readonly_bind_mount'],
       env=args['env'],
       dist_dir=args['dist_dir'],
       build_id=args['build_id'],
       max_cpus=args['max_cpus'],
       use_rbe=args['use_rbe'],
-      build_goals=build_goals)
+      build_goals=build_goals + build_flags)
 
 
 if __name__ == '__main__':

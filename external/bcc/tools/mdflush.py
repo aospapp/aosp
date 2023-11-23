@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # mdflush  Trace md flush events.
@@ -14,7 +14,6 @@
 from __future__ import print_function
 from bcc import BPF
 from time import strftime
-import ctypes as ct
 
 # load BPF program
 b = BPF(text="""
@@ -33,7 +32,7 @@ BPF_PERF_OUTPUT(events);
 int kprobe__md_flush_request(struct pt_regs *ctx, void *mddev, struct bio *bio)
 {
     struct data_t data = {};
-    u32 pid = bpf_get_current_pid_tgid();
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
     data.pid = pid;
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 /*
@@ -48,30 +47,20 @@ int kprobe__md_flush_request(struct pt_regs *ctx, void *mddev, struct bio *bio)
 #else
     struct gendisk *bi_disk = bio->bi_bdev->bd_disk;
 #endif
-    bpf_probe_read(&data.disk, sizeof(data.disk), bi_disk->disk_name);
+    bpf_probe_read_kernel(&data.disk, sizeof(data.disk), bi_disk->disk_name);
     events.perf_submit(ctx, &data, sizeof(data));
     return 0;
 }
 """)
 
-# event data
-TASK_COMM_LEN = 16  # linux/sched.h
-DISK_NAME_LEN = 32  # linux/genhd.h
-class Data(ct.Structure):
-    _fields_ = [
-        ("pid", ct.c_ulonglong),
-        ("comm", ct.c_char * TASK_COMM_LEN),
-        ("disk", ct.c_char * DISK_NAME_LEN)
-    ]
-
 # header
 print("Tracing md flush requests... Hit Ctrl-C to end.")
-print("%-8s %-6s %-16s %s" % ("TIME", "PID", "COMM", "DEVICE"))
+print("%-8s %-7s %-16s %s" % ("TIME", "PID", "COMM", "DEVICE"))
 
 # process event
 def print_event(cpu, data, size):
-    event = ct.cast(data, ct.POINTER(Data)).contents
-    print("%-8s %-6d %-16s %s" % (strftime("%H:%M:%S"), event.pid,
+    event = b["events"].event(data)
+    print("%-8s %-7d %-16s %s" % (strftime("%H:%M:%S"), event.pid,
         event.comm.decode('utf-8', 'replace'),
         event.disk.decode('utf-8', 'replace')))
 

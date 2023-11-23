@@ -24,11 +24,14 @@
         <option name="push" value="CtsKernelConfigTestCases->/data/local/tmp/CtsKernelConfigTestCases" />
         <option name="append-bitness" value="true" />
     </target_preparer>
+    <!-- Make sure there is some data in the pstore then reboot -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="if [ -e /dev/pmsg0 ] ; then echo HELLOWORLD > /dev/pmsg0; fi" />
+        <option name="throw-if-cmd-fail" value="true" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RebootTargetPreparer" />
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsKernelConfigTestCases" />
-        <!-- Make sure there is some data in the pstore -->
-        <option name="before-test-cmd" value="echo HELLOWORLD >/dev/pmsg0" />
-        <option name="reboot-before-test" value="true" />
     </test>
 </configuration>

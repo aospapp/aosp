@@ -43,6 +43,7 @@ public class ConnectHelperTest extends WifiBaseTest {
     private static final int TEST_CALLING_UID = 1000;
     private static final int TEST_NETWORK_ID = 42;
     private static final String TEST_SSID = "TestSSID";
+    private static final String TEST_PACKAGE_NAME = "com.test.xxx";
 
     private ConnectHelper mConnectHelper;
 
@@ -72,10 +73,13 @@ public class ConnectHelperTest extends WifiBaseTest {
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(mWifiConfig);
 
         NetworkUpdateResult result = new NetworkUpdateResult(TEST_NETWORK_ID);
-        mConnectHelper.connectToNetwork(result, mActionListener, TEST_CALLING_UID);
+        mConnectHelper.connectToNetwork(result, mActionListener, TEST_CALLING_UID,
+                TEST_PACKAGE_NAME);
 
-        verify(mWifiConfigManager).updateBeforeConnect(TEST_NETWORK_ID, TEST_CALLING_UID);
-        verify(mClientModeManager).connectNetwork(eq(result), any(), eq(TEST_CALLING_UID));
+        verify(mWifiConfigManager).updateBeforeConnect(TEST_NETWORK_ID, TEST_CALLING_UID,
+                TEST_PACKAGE_NAME);
+        verify(mClientModeManager).connectNetwork(eq(result), any(), eq(TEST_CALLING_UID),
+                eq(TEST_PACKAGE_NAME));
         // success is sent by ClientModeManager, not sent by ConnectHelper
         verify(mActionListener, never()).sendSuccess();
         verify(mActionListener, never()).sendFailure(anyInt());
@@ -86,11 +90,12 @@ public class ConnectHelperTest extends WifiBaseTest {
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(null);
 
         mConnectHelper.connectToNetwork(new NetworkUpdateResult(TEST_NETWORK_ID), mActionListener,
-                TEST_CALLING_UID);
+                TEST_CALLING_UID, TEST_PACKAGE_NAME);
 
-        verify(mWifiConfigManager, never()).updateBeforeConnect(TEST_NETWORK_ID, TEST_CALLING_UID);
-        verify(mClientModeManager, never()).connectNetwork(any(), any(), anyInt());
-        verify(mActionListener).sendFailure(WifiManager.ERROR);
+        verify(mWifiConfigManager, never()).updateBeforeConnect(TEST_NETWORK_ID, TEST_CALLING_UID,
+                TEST_PACKAGE_NAME);
+        verify(mClientModeManager, never()).connectNetwork(any(), any(), anyInt(), any());
+        verify(mActionListener).sendFailure(WifiManager.ActionListener.FAILURE_INTERNAL_ERROR);
         verify(mActionListener, never()).sendSuccess();
     }
 }

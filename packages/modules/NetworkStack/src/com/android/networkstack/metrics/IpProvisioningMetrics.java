@@ -157,17 +157,17 @@ public class IpProvisioningMetrics {
         mStatsBuilder.setDhcpSession(mDhcpSessionBuilder);
         mStatsBuilder.setProvisioningDurationMicros(mWatch.stop());
         mStatsBuilder.setRandomNumber((int) (Math.random() * 1000));
-        final NetworkIpProvisioningReported Stats = mStatsBuilder.build();
-        final byte[] DhcpSession = Stats.getDhcpSession().toByteArray();
+        final NetworkIpProvisioningReported stats = mStatsBuilder.build();
+        final byte[] DhcpSession = stats.getDhcpSession().toByteArray();
         NetworkStackStatsLog.write(NetworkStackStatsLog.NETWORK_IP_PROVISIONING_REPORTED,
-                Stats.getTransportType().getNumber(),
-                Stats.getIpv4LatencyMicros(),
-                Stats.getIpv6LatencyMicros(),
-                Stats.getProvisioningDurationMicros(),
-                Stats.getDisconnectCode().getNumber(),
+                stats.getTransportType().getNumber(),
+                stats.getIpv4LatencyMicros(),
+                stats.getIpv6LatencyMicros(),
+                stats.getProvisioningDurationMicros(),
+                stats.getDisconnectCode().getNumber(),
                 DhcpSession,
-                Stats.getRandomNumber());
+                stats.getRandomNumber());
         mWatch.reset();
-        return Stats;
+        return stats;
     }
 }

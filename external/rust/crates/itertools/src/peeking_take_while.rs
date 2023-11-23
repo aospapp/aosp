@@ -5,7 +5,7 @@ use crate::PutBackN;
 
 /// An iterator that allows peeking at an element before deciding to accept it.
 ///
-/// See [`.peeking_take_while()`](trait.Itertools.html#method.peeking_take_while)
+/// See [`.peeking_take_while()`](crate::Itertools::peeking_take_while)
 /// for more information.
 ///
 /// This is implemented by peeking adaptors like peekable and put back,
@@ -73,7 +73,7 @@ impl<I> PeekingNext for PutBackN<I>
 
 /// An iterator adaptor that takes items while a closure returns `true`.
 ///
-/// See [`.peeking_take_while()`](../trait.Itertools.html#method.peeking_take_while)
+/// See [`.peeking_take_while()`](crate::Itertools::peeking_take_while)
 /// for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub struct PeekingTakeWhile<'a, I: 'a, F>
@@ -81,6 +81,13 @@ pub struct PeekingTakeWhile<'a, I: 'a, F>
 {
     iter: &'a mut I,
     f: F,
+}
+
+impl<'a, I: 'a, F> std::fmt::Debug for PeekingTakeWhile<'a, I, F>
+where
+    I: Iterator + std::fmt::Debug,
+{
+    debug_fmt_fields!(PeekingTakeWhile, iter);
 }
 
 /// Create a PeekingTakeWhile

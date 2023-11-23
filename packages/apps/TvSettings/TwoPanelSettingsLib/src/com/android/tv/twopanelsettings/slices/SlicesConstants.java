@@ -29,6 +29,8 @@ public final class SlicesConstants {
     public static final String TYPE_PREFERENCE_CATEGORY = "TYPE_PREFERENCE_CATEGORY";
     public static final String TYPE_PREFERENCE_SCREEN_TITLE = "TYPE_PREFERENCE_SCREEN_TITLE";
     public static final String TYPE_PREFERENCE_EMBEDDED = "TYPE_PREFERENCE_EMBEDDED";
+    public static final String TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER =
+            "TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER";
     public static final String TYPE_FOCUSED_PREFERENCE = "TYPE_FOCUSED_PREFERENCE";
     public static final String TYPE_REDIRECTED_SLICE_URI = "TYPE_REDIRECTED_SLICE_URI";
     public static final String TAG_TARGET_URI = "TAG_TARGET_URI";
@@ -64,6 +66,7 @@ public final class SlicesConstants {
     public static final String EXTRA_ACTION_ID = "extra_action_id";
     public static final String EXTRA_PAGE_ID = "extra_page_id";
     public static final String EXTRA_SLICE_FOLLOWUP = "extra_slice_followup";
+    public static final String EXTRA_HAS_END_ICON = "extra_has_end_icon";
     public static final int SWITCH = 0;
     public static final int CHECKMARK = 1;
     public static final int RADIO = 2;

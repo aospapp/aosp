@@ -44,9 +44,7 @@ public class ModuleNetworkStackClient extends NetworkStackClientBase {
      */
     @NonNull
     public static synchronized ModuleNetworkStackClient getInstance(Context packageContext) {
-        // TODO(b/149676685): change this check to "< R" once R is defined
-        if (SDK_INT < Build.VERSION_CODES.Q
-                || (SDK_INT == Build.VERSION_CODES.Q && "REL".equals(Build.VERSION.CODENAME))) {
+        if (SDK_INT < Build.VERSION_CODES.R) {
             // The NetworkStack connector is not available through NetworkStack before R
             throw new UnsupportedOperationException(
                     "ModuleNetworkStackClient is not supported on API " + SDK_INT);

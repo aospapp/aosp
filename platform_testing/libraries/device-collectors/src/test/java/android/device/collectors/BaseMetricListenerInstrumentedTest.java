@@ -725,4 +725,34 @@ public class BaseMetricListenerInstrumentedTest {
         assertEquals(RUN_END_VALUE, resultBundle.getString(RUN_END_KEY));
         assertEquals(2, resultBundle.size());
     }
+
+    /** Test that the report as instrumentation result option works. */
+    @MetricOption(group = "testGroup")
+    @Test
+    public void testReportAsInstrumentationResultsIfEnabled() throws Exception {
+        mListener.setReportAsInstrumentationResults(true);
+
+        Description runDescription = Description.createSuiteDescription("run");
+        mListener.testRunStarted(runDescription);
+        Description testDescription = Description.createTestDescription("class", "method");
+        mListener.testStarted(testDescription);
+        mListener.testFinished(testDescription);
+        mListener.testRunFinished(new Result());
+        // AJUR runner is then gonna call instrumentationRunFinished
+        Bundle resultBundle = new Bundle();
+        mListener.instrumentationRunFinished(System.out, resultBundle, new Result());
+
+        // Check that results are reported via Instrumentation.addResults().
+        ArgumentCaptor<Bundle> capture = ArgumentCaptor.forClass(Bundle.class);
+        Mockito.verify(mMockInstrumentation, Mockito.times(1)).addResults(capture.capture());
+        Bundle addedResult = capture.getValue();
+        assertTrue(addedResult.containsKey(TEST_END_KEY));
+        assertEquals(TEST_END_VALUE + "method", addedResult.getString(TEST_END_KEY));
+
+        // Rather than Instrumentation.sendStatus().
+        Mockito.verify(mMockInstrumentation, Mockito.never())
+                .sendStatus(
+                        Mockito.eq(SendToInstrumentation.INST_STATUS_IN_PROGRESS),
+                        Mockito.any(Bundle.class));
+    }
 }

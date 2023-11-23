@@ -26,7 +26,7 @@
 namespace art {
 
 ProfilingInfo::ProfilingInfo(ArtMethod* method, const std::vector<uint32_t>& entries)
-      : baseline_hotness_count_(0),
+      : baseline_hotness_count_(GetOptimizeThreshold()),
         method_(method),
         number_of_inline_caches_(entries.size()),
         current_inline_uses_(0) {
@@ -34,6 +34,10 @@ ProfilingInfo::ProfilingInfo(ArtMethod* method, const std::vector<uint32_t>& ent
   for (size_t i = 0; i < number_of_inline_caches_; ++i) {
     cache_[i].dex_pc_ = entries[i];
   }
+}
+
+uint16_t ProfilingInfo::GetOptimizeThreshold() {
+  return Runtime::Current()->GetJITOptions()->GetOptimizeThreshold();
 }
 
 ProfilingInfo* ProfilingInfo::Create(Thread* self, ArtMethod* method) {
@@ -112,8 +116,10 @@ ScopedProfilingInfoUse::ScopedProfilingInfoUse(jit::Jit* jit, ArtMethod* method,
       self_(self),
       // Fetch the profiling info ahead of using it. If it's null when fetching,
       // we should not call JitCodeCache::DoneCompilerUse.
-      profiling_info_(jit->GetCodeCache()->NotifyCompilerUse(method, self)) {
-}
+      profiling_info_(jit == nullptr
+                          ? nullptr
+                          : jit->GetCodeCache()->NotifyCompilerUse(method, self))
+    {}
 
 ScopedProfilingInfoUse::~ScopedProfilingInfoUse() {
   if (profiling_info_ != nullptr) {

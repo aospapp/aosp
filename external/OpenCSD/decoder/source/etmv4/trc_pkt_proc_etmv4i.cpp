@@ -75,6 +75,7 @@ ocsd_err_t TrcPktProcEtmV4I::onProtocolConfig()
     BuildIPacketTable();    // packet table based on config
     m_curr_packet.setProtocolVersion(m_config.FullVersion());
     m_isInit = true;
+    statsInit();
     return OCSD_OK;
 }
 
@@ -156,6 +157,10 @@ ocsd_datapath_resp_t TrcPktProcEtmV4I::processData(  const ocsd_trc_index_t inde
                 (err.getErrorCode() == OCSD_ERR_INVALID_PCKT_HDR))
             {
                 // send invalid packets up the pipe to let the next stage decide what to do.
+                if (err.getErrorCode() == OCSD_ERR_INVALID_PCKT_HDR)
+                    statsAddBadHdrCount(1);
+                else
+                    statsAddBadSeqCount(1);
                 m_process_state = SEND_PKT; 
                 done = false;
             }
@@ -175,6 +180,7 @@ ocsd_datapath_resp_t TrcPktProcEtmV4I::processData(  const ocsd_trc_index_t inde
         }
     } while (!done);
 
+    statsAddTotalCount(m_trcIn.processed());
     *numBytesProcessed = m_trcIn.processed();
     return resp;
 }
@@ -245,8 +251,8 @@ ocsd_datapath_resp_t TrcPktProcEtmV4I::outputUnsyncedRawPacket()
 {
     ocsd_datapath_resp_t resp = OCSD_RESP_CONT;
     
-
-   outputRawPacketToMonitor(m_packet_index,&m_curr_packet,m_dump_unsynced_bytes,&m_currPacketData[0]);
+    statsAddUnsyncCount(m_dump_unsynced_bytes);
+    outputRawPacketToMonitor(m_packet_index,&m_curr_packet,m_dump_unsynced_bytes,&m_currPacketData[0]);
         
     if(!m_sent_notsync_packet)
     {        
@@ -1501,8 +1507,8 @@ void TrcPktProcEtmV4I::BuildIPacketTable()
         m_i_table[0x85+i].pptkFn   = &TrcPktProcEtmV4I::iPktAddrCtxt;
     }
 
-    // 0b1000 1000 - ETE 1.1 TS Marker
-    if (m_config.MajVersion() >= 0x5)
+    // 0b1000 1000 - ETE 1.1 TS Marker. also ETMv4.6
+    if(m_config.FullVersion() >= 0x46)
     {
         m_i_table[0x88].pkt_type = ETE_PKT_I_TS_MARKER;
         m_i_table[0x88].pptkFn = &TrcPktProcEtmV4I::iPktNoPayload;

@@ -16,7 +16,7 @@
 
 package com.android.car.util;
 
-import android.util.TimingsTraceLog;
+import android.car.builtin.util.TimingsTraceLog;
 
 /**
  * {@link TimingsTraceLog} with additional minimum duration.

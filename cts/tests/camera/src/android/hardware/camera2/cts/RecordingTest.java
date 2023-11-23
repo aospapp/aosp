@@ -12,6 +12,10 @@
 package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
+import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus;
+
 import static com.android.ex.camera2.blocking.BlockingSessionCallback.*;
 
 import android.graphics.ImageFormat;
@@ -23,18 +27,18 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.camera2.params.DynamicRangeProfiles;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.HardwareBuffer;
+import android.media.MediaMuxer;
 import android.util.Size;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.media.CamcorderProfile;
 import android.media.EncoderProfiles;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
@@ -42,7 +46,6 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
@@ -60,12 +63,18 @@ import org.junit.runners.Parameterized;
 import org.junit.runner.RunWith;
 import org.junit.Test;
 
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * CameraDevice video recording use case tests by using MediaRecorder and
@@ -98,6 +107,13 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             CamcorderProfile.QUALITY_QCIF,
             CamcorderProfile.QUALITY_QVGA,
             CamcorderProfile.QUALITY_LOW,
+    };
+
+    private static final int[] mTenBitCodecProfileList = {
+            HEVCProfileMain10,
+            HEVCProfileMain10HDR10,
+            HEVCProfileMain10HDR10Plus,
+            //todo(b/215396395): DolbyVision
     };
     private static final int MAX_VIDEO_SNAPSHOT_IMAGES = 5;
     private static final int BURST_VIDEO_SNAPSHOT_NUM = 3;
@@ -287,9 +303,15 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
                 Log.i(TAG, "Testing supported video size recording for camera " + mCameraIdsUnderTest[i]);
-                if (!mAllStaticInfo.get(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
+                    continue;
+                }
+                if (staticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support CamcorderProfile, skipping");
                     continue;
                 }
                 // Re-use the MediaRecorder object for the same camera device.
@@ -329,6 +351,273 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     @Test
     public void testMediaCodecRecording() throws Exception {
         // TODO. Need implement.
+    }
+
+    private class MediaCodecListener extends MediaCodec.Callback {
+        private final MediaMuxer mMediaMuxer;
+        private final Object mCondition;
+        private int mTrackId = -1;
+        private boolean mEndOfStream = false;
+
+        private MediaCodecListener(MediaMuxer mediaMuxer, Object condition) {
+            mMediaMuxer = mediaMuxer;
+            mCondition = condition;
+        }
+
+        @Override
+        public void onInputBufferAvailable(MediaCodec codec, int index) {
+            fail("Unexpected input buffer available callback!");
+        }
+
+        @Override
+        public void onOutputBufferAvailable(MediaCodec codec, int index,
+                MediaCodec.BufferInfo info) {
+            synchronized (mCondition) {
+                if (mTrackId < 0) {
+                    return;
+                }
+                mMediaMuxer.writeSampleData(mTrackId, codec.getOutputBuffer(index), info);
+                if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) ==
+                        MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+                    mEndOfStream = true;
+                    mCondition.notifyAll();
+                }
+
+                if (!mEndOfStream) {
+                    codec.releaseOutputBuffer(index, false);
+                }
+            }
+        }
+
+        @Override
+        public void onError(MediaCodec codec, MediaCodec.CodecException e) {
+            fail("Codec error: " + e.getDiagnosticInfo());
+        }
+
+        @Override
+        public void onOutputFormatChanged(MediaCodec codec, MediaFormat format) {
+            synchronized (mCondition) {
+                mTrackId = mMediaMuxer.addTrack(format);
+                mMediaMuxer.start();
+            }
+        }
+    }
+
+    private static long getDynamicRangeProfile(int codecProfile, StaticMetadata staticMeta) {
+        if (!staticMeta.isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT)) {
+            return DynamicRangeProfiles.PUBLIC_MAX;
+        }
+
+        DynamicRangeProfiles profiles = staticMeta.getCharacteristics().get(
+                CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES);
+        Set<Long> availableProfiles = profiles.getSupportedProfiles();
+        switch (codecProfile) {
+            case HEVCProfileMain10:
+                return availableProfiles.contains(DynamicRangeProfiles.HLG10) ?
+                        DynamicRangeProfiles.HLG10 : DynamicRangeProfiles.PUBLIC_MAX;
+            case HEVCProfileMain10HDR10:
+                return availableProfiles.contains(DynamicRangeProfiles.HDR10) ?
+                        DynamicRangeProfiles.HDR10 : DynamicRangeProfiles.PUBLIC_MAX;
+            case HEVCProfileMain10HDR10Plus:
+                return availableProfiles.contains(DynamicRangeProfiles.HDR10_PLUS) ?
+                        DynamicRangeProfiles.HDR10_PLUS : DynamicRangeProfiles.PUBLIC_MAX;
+            //todo(b/215396395): DolbyVision
+            default:
+                return DynamicRangeProfiles.PUBLIC_MAX;
+        }
+    }
+
+    private static int getTransferFunction(int codecProfile) {
+        switch (codecProfile) {
+            case HEVCProfileMain10:
+                return MediaFormat.COLOR_TRANSFER_HLG;
+            case HEVCProfileMain10HDR10:
+            case HEVCProfileMain10HDR10Plus:
+            //todo(b/215396395): DolbyVision
+                return MediaFormat.COLOR_TRANSFER_ST2084;
+            default:
+                return MediaFormat.COLOR_TRANSFER_SDR_VIDEO;
+        }
+    }
+
+    /**
+     * <p>
+     * Test basic camera 10-bit recording.
+     * </p>
+     * <p>
+     * This test covers the typical basic use case of camera recording.
+     * MediaCodec is used to record 10-bit video, CamcorderProfile and codec profiles
+     * are used to configure the MediaCodec. It goes through the pre-defined
+     * CamcorderProfile and 10-bit codec profile lists, tests each configuration and
+     * validates the recorded video. Preview is set to the video size.
+     * </p>
+     */
+    @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
+    public void testBasic10BitRecording() throws Exception {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
+            try {
+                Log.i(TAG, "Testing 10-bit recording " + mCameraIdsUnderTest[i]);
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIdsUnderTest[i]);
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                if (staticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support CamcorderProfile, skipping");
+                    continue;
+                }
+
+                int cameraId;
+                try {
+                    cameraId = Integer.valueOf(mCameraIdsUnderTest[i]);
+                } catch (NumberFormatException e) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] + " cannot be parsed"
+                            + " to an integer camera id, skipping");
+                    continue;
+                }
+
+                for (int camcorderProfile : mCamcorderProfileList) {
+                    if (!CamcorderProfile.hasProfile(cameraId, camcorderProfile)) {
+                        continue;
+                    }
+
+                    for (int codecProfile : mTenBitCodecProfileList) {
+                        CamcorderProfile profile = CamcorderProfile.get(cameraId, camcorderProfile);
+
+                        Size videoSize = new Size(profile.videoFrameWidth,
+                                profile.videoFrameHeight);
+                        MediaCodecList list = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+                        MediaFormat format = MediaFormat.createVideoFormat(
+                                MediaFormat.MIMETYPE_VIDEO_HEVC, videoSize.getWidth(),
+                                videoSize.getHeight());
+                        format.setInteger(MediaFormat.KEY_PROFILE, codecProfile);
+                        format.setInteger(MediaFormat.KEY_BIT_RATE, profile.videoBitRate);
+                        format.setInteger(MediaFormat.KEY_FRAME_RATE, profile.videoFrameRate);
+                        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                                CodecCapabilities.COLOR_FormatSurface);
+                        format.setInteger(MediaFormat.KEY_COLOR_STANDARD,
+                                MediaFormat.COLOR_STANDARD_BT2020);
+                        format.setInteger(MediaFormat.KEY_COLOR_RANGE,
+                                MediaFormat.COLOR_RANGE_FULL);
+                        format.setInteger(MediaFormat.KEY_COLOR_TRANSFER,
+                                getTransferFunction(codecProfile));
+                        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+
+                        String codecName = list.findEncoderForFormat(format);
+                        if (codecName == null) {
+                            continue;
+                        }
+
+                        long dynamicRangeProfile = getDynamicRangeProfile(codecProfile, staticInfo);
+                        if (dynamicRangeProfile == DynamicRangeProfiles.PUBLIC_MAX) {
+                            continue;
+                        }
+
+                        MediaCodec mediaCodec = null;
+                        mOutMediaFileName = mDebugFileNameBase + "/test_video.mp4";
+                        MediaMuxer muxer = new MediaMuxer(mOutMediaFileName,
+                                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                        SimpleCaptureCallback captureCallback = new SimpleCaptureCallback();
+                        try {
+                            mediaCodec = MediaCodec.createByCodecName(codecName);
+                            assertNotNull(mediaCodec);
+
+                            openDevice(mCameraIdsUnderTest[i]);
+
+                            mediaCodec.configure(format, null, null,
+                                    MediaCodec.CONFIGURE_FLAG_ENCODE);
+                            Object condition = new Object();
+                            mediaCodec.setCallback(new MediaCodecListener(muxer, condition),
+                                    mHandler);
+
+                            updatePreviewSurfaceWithVideo(videoSize, profile.videoFrameRate);
+
+                            Surface recordingSurface = mediaCodec.createInputSurface();
+                            assertNotNull(recordingSurface);
+
+                            List<Surface> outputSurfaces = new ArrayList<Surface>(2);
+                            assertTrue("Both preview and recording surfaces should be valid",
+                                    mPreviewSurface.isValid() && recordingSurface.isValid());
+
+                            outputSurfaces.add(mPreviewSurface);
+                            outputSurfaces.add(recordingSurface);
+
+                            CameraCaptureSession.StateCallback mockCallback = mock(
+                                    CameraCaptureSession.StateCallback.class);
+                            BlockingSessionCallback sessionListener =
+                                    new BlockingSessionCallback(mockCallback);
+
+                            CaptureRequest.Builder recordingRequestBuilder =
+                                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                            recordingRequestBuilder.addTarget(recordingSurface);
+                            recordingRequestBuilder.addTarget(mPreviewSurface);
+                            recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                                    new Range<>(profile.videoFrameRate, profile.videoFrameRate));
+                            CaptureRequest recordingRequest = recordingRequestBuilder.build();
+
+                            List<OutputConfiguration> outConfigurations =
+                                    new ArrayList<>(outputSurfaces.size());
+                            for (Surface s : outputSurfaces) {
+                                OutputConfiguration config = new OutputConfiguration(s);
+                                config.setDynamicRangeProfile(dynamicRangeProfile);
+                                outConfigurations.add(config);
+                            }
+
+                            SessionConfiguration sessionConfig = new SessionConfiguration(
+                                    SessionConfiguration.SESSION_REGULAR, outConfigurations,
+                                    new HandlerExecutor(mHandler), sessionListener);
+                            mCamera.createCaptureSession(sessionConfig);
+
+                            CameraCaptureSession session = sessionListener.waitAndGetSession(
+                                    SESSION_CONFIGURE_TIMEOUT_MS);
+
+                            mediaCodec.start();
+                            session.setRepeatingRequest(recordingRequest, captureCallback,
+                                    mHandler);
+
+                            SystemClock.sleep(RECORDING_DURATION_MS);
+
+                            session.stopRepeating();
+                            session.close();
+                            verify(mockCallback, timeout(SESSION_CLOSE_TIMEOUT_MS).
+                                    times(1)).onClosed(eq(session));
+
+                            mediaCodec.signalEndOfInputStream();
+                            synchronized (condition) {
+                                condition.wait(SESSION_CLOSE_TIMEOUT_MS);
+                            }
+
+                            mediaCodec.stop();
+                            muxer.stop();
+
+                        } finally {
+                            if (mediaCodec != null) {
+                                mediaCodec.release();
+                            }
+                            if (muxer != null) {
+                                muxer.release();
+                            }
+                        }
+
+                        // Validation.
+                        float frameDurationMinMs = 1000.0f / profile.videoFrameRate;
+                        float durationMinMs =
+                                captureCallback.getTotalNumFrames() * frameDurationMinMs;
+                        float durationMaxMs = durationMinMs;
+                        float frameDurationMaxMs = 0.f;
+
+                        validateRecording(videoSize, durationMinMs, durationMaxMs,
+                                frameDurationMinMs, frameDurationMaxMs,
+                                FRMDRP_RATE_TOLERANCE);
+                    }
+                }
+            } finally {
+                closeDevice();
+            }
+        }
     }
 
     /**
@@ -572,6 +861,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
                             " does not support color outputs, skipping");
+                    continue;
+                }
+                if (staticInfo.isExternalCamera()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support CamcorderProfile, skipping");
                     continue;
                 }
                 // Re-use the MediaRecorder object for the same camera device.
@@ -894,15 +1188,36 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                         mStaticInfo.getValueFromKeyNonNull(
                                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                 Size[] highSpeedVideoSizes = config.getHighSpeedVideoSizes();
+                Log.v(TAG, "highSpeedVideoSizes:" + Arrays.toString(highSpeedVideoSizes));
+                int previewFrameRate = Integer.MAX_VALUE;
                 for (Size size : highSpeedVideoSizes) {
                     List<Range<Integer>> fixedFpsRanges =
                             getHighSpeedFixedFpsRangeForSize(config, size);
+                    Range<Integer>[] highSpeedFpsRangesForSize =
+                            config.getHighSpeedVideoFpsRangesFor(size);
+
+                    Log.v(TAG, "highSpeedFpsRangesForSize for size - " + size + " : " +
+                            Arrays.toString(highSpeedFpsRangesForSize));
+                    // Map to store  max_fps and preview fps for each video size
+                    HashMap<Integer, Integer> previewRateMap = new HashMap();
+                    for (Range<Integer> r : highSpeedFpsRangesForSize ) {
+                        if (r.getLower() != r.getUpper()) {
+                            if (previewRateMap.containsKey(r.getUpper())) {
+                                Log.w(TAG, "previewFps for max_fps already exists.");
+                            } else {
+                                previewRateMap.put(r.getUpper(), r.getLower());
+                            }
+                        }
+                    }
+
                     mCollector.expectTrue("Unable to find the fixed frame rate fps range for " +
                             "size " + size, fixedFpsRanges.size() > 0);
                     // Test recording for each FPS range
                     for (Range<Integer> fpsRange : fixedFpsRanges) {
                         int captureRate = fpsRange.getLower();
-                        final int VIDEO_FRAME_RATE = 30;
+                        previewFrameRate = previewRateMap.get(captureRate);
+                        Log.v(TAG, "previewFrameRate: " + previewFrameRate + " captureRate: " +
+                                captureRate);
                         // Skip the test if the highest recording FPS supported by CamcorderProfile
                         if (fpsRange.getUpper() > getFpsFromHighSpeedProfileForSize(size)) {
                             Log.w(TAG, "high speed recording " + size + "@" + captureRate + "fps"
@@ -919,8 +1234,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
                         mOutMediaFileName = mDebugFileNameBase + "/test_cslowMo_video_" +
                             captureRate + "fps_" + id + "_" + size.toString() + ".mp4";
-
-                        prepareRecording(size, VIDEO_FRAME_RATE, captureRate);
+                        Log.v(TAG, "previewFrameRate:" + previewFrameRate);
+                        prepareRecording(size, previewFrameRate, captureRate);
 
                         SystemClock.sleep(PREVIEW_DURATION_MS);
 
@@ -928,7 +1243,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
                         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
                         // Start recording
-                        startSlowMotionRecording(/*useMediaRecorder*/true, VIDEO_FRAME_RATE,
+                        startSlowMotionRecording(/*useMediaRecorder*/true, previewFrameRate,
                                 captureRate, fpsRange, resultListener,
                                 /*useHighSpeedSession*/true);
 
@@ -941,7 +1256,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                         startConstrainedPreview(fpsRange, previewResultListener);
 
                         // Convert number of frames camera produced into the duration in unit of ms.
-                        float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
+                        float frameDurationMs = 1000.0f / previewFrameRate;
                         float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
                         // Validation.

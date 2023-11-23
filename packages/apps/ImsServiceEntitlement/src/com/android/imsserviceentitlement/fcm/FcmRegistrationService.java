@@ -68,21 +68,23 @@ public class FcmRegistrationService extends JobService {
         super.attachBaseContext(base);
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        try {
-            mApp = FirebaseApp.getInstance();
-        } catch (IllegalStateException e) {
-            Log.d(TAG, "initialize FirebaseApp");
-            mApp = FirebaseApp.initializeApp(
-                    this,
-                    new FirebaseOptions.Builder()
-                            .setApplicationId(getResources().getString(R.string.fcm_app_id))
-                            .setProjectId(getResources().getString(R.string.fcm_project_id))
-                            .setApiKey(getResources().getString(R.string.fcm_api_key))
-                            .build());
+    /** Returns a {@link FirebaseApp} instance, lazily initialized. */
+    private FirebaseApp getFirebaseApp() {
+        if (mApp == null) {
+            try {
+                mApp = FirebaseApp.getInstance();
+            } catch (IllegalStateException e) {
+                Log.d(TAG, "initialize FirebaseApp");
+                mApp = FirebaseApp.initializeApp(
+                        this,
+                        new FirebaseOptions.Builder()
+                                .setApplicationId(getResources().getString(R.string.fcm_app_id))
+                                .setProjectId(getResources().getString(R.string.fcm_project_id))
+                                .setApiKey(getResources().getString(R.string.fcm_api_key))
+                                .build());
+            }
         }
+        return mApp;
     }
 
     @Override
@@ -109,13 +111,8 @@ public class FcmRegistrationService extends JobService {
      */
     protected void onHandleWork(JobParameters params) {
         boolean wantsReschedule = false;
-        FirebaseInstanceId instanceID = getFirebaseInstanceId();
-        if (instanceID == null) {
-            Log.d(TAG, "Cannot get fcm token because FirebaseInstanceId is null");
-            return;
-        }
         for (int subId : TelephonyUtils.getSubIdsWithFcmSupported(this)) {
-            if (!updateFcmToken(instanceID, subId)) {
+            if (!updateFcmToken(getFirebaseInstanceId(), subId)) {
                 wantsReschedule = true;
             }
         }
@@ -137,7 +134,9 @@ public class FcmRegistrationService extends JobService {
     }
 
     private FirebaseInstanceId getFirebaseInstanceId() {
-        return (mFakeInstanceID != null) ? mFakeInstanceID : FirebaseInstanceId.getInstance(mApp);
+        return (mFakeInstanceID != null)
+                ? mFakeInstanceID
+                : FirebaseInstanceId.getInstance(getFirebaseApp());
     }
 
     private String getTokenForSubId(FirebaseInstanceId instanceID, int subId) {

@@ -36,29 +36,29 @@ char *get_homedir(void)
 	uid_t uid;
 	char *homedir;
 	char *username;
-	
-	homedir = getenv ("HOME");    
-	/* 
-	 * first we call getlogin. 
-	 * There might be several accounts sharing one uid 
+
+	homedir = getenv ("HOME");
+	/*
+	 * first we call getlogin.
+	 * There might be several accounts sharing one uid
 	 */
 	if ( homedir )
 		return homedir;
-	
+
 	pw = 0;
-	
+
 	username = getenv("LOGNAME");
 	if ( !username )
 		username = getlogin();
 	if ( username )
 		pw = getpwnam( username);
-  
+
 	if ( pw == 0 ){
 		/* if we can't getlogin, look up the pwent by uid */
 		uid = geteuid();
 		pw = getpwuid(uid);
 	}
-	
+
 	/* we might still get no entry */
 	if ( pw )
 		return pw->pw_dir;
@@ -100,7 +100,7 @@ FILE *open_mcwd(const char *mode)
 	struct MT_STAT sbuf;
 	char file[MAXPATHLEN+1];
 	time_t now;
-	
+
 	get_mcwd_file_name(file);
 	if (*mode == 'r'){
 		if (MT_STAT(file, &sbuf) < 0)
@@ -117,10 +117,10 @@ FILE *open_mcwd(const char *mode)
 			return NULL;
 		}
 	}
-	
+
 	return  fopen(file, mode);
 }
-	
+
 
 
 void *safe_malloc(size_t size)
@@ -141,10 +141,10 @@ void print_sector(const char *message, unsigned char *data, int size)
 	int row;
 
 	printf("%s:\n", message);
-	
+
 	for(row = 0; row * 16 < size; row++){
 		printf("%03x  ", row * 16);
-		for(col = 0; col < 16; col++)			
+		for(col = 0; col < 16; col++)
 			printf("%02x ", data [row*16+col]);
 		for(col = 0; col < 16; col++) {
 			if(isprint(data [row*16+col]))
@@ -193,7 +193,7 @@ time_t getTimeNow(time_t *now)
 			}
 		}
 	}
-	
+
 	if(!haveTime) {
 		time(&sharedNow);
 		haveTime = 1;
@@ -206,30 +206,64 @@ time_t getTimeNow(time_t *now)
 /* Convert a string to an offset. The string should be a number,
    optionally followed by S (sectors), K (K-Bytes), M (Megabytes), G
    (Gigabytes) */
-off_t str_to_offset(char *str) {
-	char s, *endp = NULL;
+off_t str_to_offset_with_end(const char *str, char **endp) {
+	char s;
 	off_t ofs;
 
-	ofs = strtol(str, &endp, 0);
-	if (ofs <= 0)
-		return 0; /* invalid or missing offset */
-	s = *endp++;
-	if (s) {   /* trailing char, see if it is a size specifier */
-		if (s == 's' || s == 'S')       /* sector */
-			ofs <<= 9;
-		else if (s == 'k' || s == 'K')  /* kb */
-			ofs <<= 10;
-		else if (s == 'm' || s == 'M')  /* Mb */
-			ofs <<= 20;
-		else if (s == 'g' || s == 'G')  /* Gb */
-			ofs <<= 30;
-		else
-			return 0;      /* invalid character */
-		if (*endp)
-			return 0;      /* extra char, invalid */
-	}
+	*endp = NULL;
+	ofs = strtol(str, endp, 0);
+	s = **endp;
+	/* trailing char, see if it is a size specifier */
+	if (s == 's' || s == 'S')       /* sector */
+		ofs <<= 9;
+	else if (s == 'k' || s == 'K')  /* kb */
+		ofs <<= 10;
+	else if (s == 'm' || s == 'M')  /* Mb */
+		ofs <<= 20;
+	else if (s == 'g' || s == 'G')  /* Gb */
+		ofs <<= 30;
+	else
+		return ofs;      /* invalid character */
+	(*endp)++;
 	return ofs;
 }
+
+/* Convert a string to a size. The string should be a number,
+   optionally followed by S (sectors), K (K-Bytes), M (Megabytes), G
+   (Gigabytes) */
+mt_off_t str_to_off_with_end(const char *str, char **endp) {
+	char s;
+	mt_off_t siz;
+
+	*endp = NULL;
+	siz = strtol(str, endp, 0);
+	s = **endp;
+	/* trailing char, see if it is a size specifier */
+	if (s == 's' || s == 'S')       /* sector */
+		siz <<= 9;
+	else if (s == 'k' || s == 'K')  /* kb */
+		siz <<= 10;
+	else if (s == 'm' || s == 'M')  /* Mb */
+		siz <<= 20;
+	else if (s == 'g' || s == 'G')  /* Gb */
+		siz <<= 30;
+	else
+		return siz;      /* invalid character */
+	(*endp)++;
+	return siz;
+}
+
+off_t str_to_offset(char *str) {
+	char *end;
+	off_t ofs = str_to_offset_with_end(str, &end);
+	if (ofs <= 0)
+		return 0; /* invalid or missing offset */
+	if (*end)
+		return 0; /* extra char, invalid */
+	return ofs;
+}
+
+
 
 #if 0
 

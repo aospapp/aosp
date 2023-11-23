@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Konexioak"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Inprimatze-zerbitzu lehenetsiak ezin du aurkitu Wi-Fi Direct-eko inprimagailuak"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Desgaitu Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Inprimatze-zerbitzu lehenetsiak kokapena erabiltzeko baimena behar du inguruko gailuak aurkitzeko."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Inprimatze-zerbitzu lehenetsiak inguruko gailuak atzitzeko baimena behar du inguruko inprimagailuak bilatzeko."</string>
     <string name="fix" msgid="7784394272611365393">"Berrikusi baimena"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Inprimatze-zerbitzu lehenetsiak kokapen-zerbitzuak gaituta izan behar ditu inguruko gailuak aurkitzeko."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Gaitu kokapena"</string>
     <string name="print" msgid="7851318072404916362">"Inprimatu"</string>
 </resources>

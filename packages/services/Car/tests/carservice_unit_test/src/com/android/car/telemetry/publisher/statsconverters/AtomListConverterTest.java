@@ -53,7 +53,7 @@ public class AtomListConverterTest {
                                         .setRssInBytes(2345L))
                         .build()
         );
-        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured>> accessorMap =
+        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> accessorMap =
                 new AppStartMemoryStateCapturedConverter().getAtomFieldAccessorMap();
 
         PersistableBundle bundle = AtomListConverter.convert(pushedAtomsList, null, null, null);
@@ -89,7 +89,7 @@ public class AtomListConverterTest {
                                 .setRssInBytes(2345L))
                         .build()
         );
-        SparseArray<AtomFieldAccessor<ProcessMemoryState>> accessorMap =
+        SparseArray<AtomFieldAccessor<ProcessMemoryState, ?>> accessorMap =
                 new ProcessMemoryStateConverter().getAtomFieldAccessorMap();
 
         PersistableBundle bundle = AtomListConverter.convert(pulledAtomsList, null, null, null);

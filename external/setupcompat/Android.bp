@@ -80,6 +80,7 @@ android_library {
     ],
     static_libs: [
         "androidx.annotation_annotation",
+        "error_prone_annotations",
     ],
     min_sdk_version: "14",
     sdk_version: "current",

@@ -18,6 +18,7 @@
 // files, including NN API HIDL definitions.
 // It is not part of CTS.
 
+#include <android-base/file.h>
 #include <android/sharedmem.h>
 #include <gtest/gtest.h>
 
@@ -103,7 +104,13 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     constexpr uint32_t offsetForMatrix3 = offsetForMatrix2 + sizeof(matrix2) + 30;
     constexpr uint32_t weightsSize = offsetForMatrix3 + sizeof(matrix3) + 60;
 
+#ifdef __ANDROID__
     int weightsFd = ASharedMemory_create("weights", weightsSize);
+#else   // __ANDROID__
+    TemporaryFile tmpWeightsFile;
+    int weightsFd = tmpWeightsFile.release();
+    CHECK_EQ(ftruncate(weightsFd, weightsSize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(weightsFd, -1);
     uint8_t* weightsData =
             (uint8_t*)mmap(nullptr, weightsSize, PROT_READ | PROT_WRITE, MAP_SHARED, weightsFd, 0);
@@ -136,7 +143,13 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     // Test the two node model.
     constexpr uint32_t offsetForMatrix1 = 20;
     constexpr size_t inputSize = offsetForMatrix1 + sizeof(Matrix3x4);
+#ifdef __ANDROID__
     int inputFd = ASharedMemory_create("input", inputSize);
+#else   // __ANDROID__
+    TemporaryFile tmpInputFile;
+    int inputFd = tmpInputFile.release();
+    CHECK_EQ(ftruncate(inputFd, inputSize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(inputFd, -1);
     uint8_t* inputData =
             (uint8_t*)mmap(nullptr, inputSize, PROT_READ | PROT_WRITE, MAP_SHARED, inputFd, 0);
@@ -147,7 +160,13 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
 
     constexpr uint32_t offsetForActual = 32;
     constexpr size_t outputSize = offsetForActual + sizeof(Matrix3x4);
+#ifdef __ANDROID__
     int outputFd = ASharedMemory_create("output", outputSize);
+#else   // __ANDROID__
+    TemporaryFile tmpOutputFile;
+    int outputFd = tmpOutputFile.release();
+    CHECK_EQ(ftruncate(outputFd, outputSize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(outputFd, -1);
     uint8_t* outputData =
             (uint8_t*)mmap(nullptr, outputSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);

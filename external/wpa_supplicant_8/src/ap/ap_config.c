@@ -121,7 +121,7 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 
 	bss->radius_das_time_window = 300;
 
-	bss->sae_anti_clogging_threshold = 5;
+	bss->anti_clogging_threshold = 5;
 	bss->sae_sync = 5;
 
 	bss->gas_frag_limit = 1400;
@@ -165,6 +165,11 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 #ifdef CONFIG_TESTING_OPTIONS
 	bss->sae_commit_status = -1;
 #endif /* CONFIG_TESTING_OPTIONS */
+
+#ifdef CONFIG_PASN
+	/* comeback after 10 TUs */
+	bss->pasn_comeback_after = 10;
+#endif /* CONFIG_PASN */
 }
 
 
@@ -270,7 +275,8 @@ struct hostapd_config * hostapd_config_defaults(void)
 	conf->he_op.he_basic_mcs_nss_set = 0xfffc;
 	conf->he_op.he_bss_color_disabled = 1;
 	conf->he_op.he_bss_color_partial = 0;
-	conf->he_op.he_bss_color = 1;
+	conf->he_op.he_bss_color = os_random() % 63 + 1;
+	conf->he_op.he_twt_responder = 1;
 	conf->he_6ghz_max_mpdu = 2;
 	conf->he_6ghz_max_ampdu_len_exp = 7;
 	conf->he_6ghz_rx_ant_pat = 1;
@@ -781,6 +787,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 					   conf->radius->num_auth_servers);
 		hostapd_config_free_radius(conf->radius->acct_servers,
 					   conf->radius->num_acct_servers);
+		os_free(conf->radius->force_client_dev);
 	}
 	hostapd_config_free_radius_attr(conf->radius_auth_req_attr);
 	hostapd_config_free_radius_attr(conf->radius_acct_req_attr);
@@ -1417,6 +1424,15 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 		return -1;
 	}
 #endif /* CONFIG_SAE_PK */
+
+#ifdef CONFIG_FILS
+	if (full_config && bss->fils_discovery_min_int &&
+	    bss->unsol_bcast_probe_resp_interval) {
+		wpa_printf(MSG_ERROR,
+			   "Cannot enable both FILS discovery and unsolicited broadcast Probe Response at the same time");
+		return -1;
+	}
+#endif /* CONFIG_FILS */
 
 	return 0;
 }

@@ -16,6 +16,7 @@
 package com.android.helpers;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -537,6 +538,34 @@ public class StatsdStatsHelperTest {
                 Long.valueOf(fieldValue++));
     }
 
+    private static void verifySummaryMetrics(Map<String, Long> result) {
+        final String metrics[] = {
+            "statsdstats_atom_stats_count",
+            "statsdstats_atom_stats_error_count",
+            "statsdstats_pulled_atom_stats_pull_failed",
+            "statsdstats_pulled_atom_stats_pull_timeout",
+            "statsdstats_pulled_atom_stats_pull_exceed_max_delay",
+            "statsdstats_pulled_atom_stats_empty_data",
+            "statsdstats_pulled_atom_stats_atom_error_count",
+            "statsdstats_pulled_atom_stats_binder_call_failed",
+            "statsdstats_pulled_atom_stats_failed_uid_provider_not_found",
+            "statsdstats_pulled_atom_stats_puller_not_found",
+            "statsdstats_pulled_atom_stats_total_pull",
+            "statsdstats_pulled_atom_stats_total_pull_from_cache",
+            "statsdstats_atom_metric_stats_hard_dimension_limit_reached",
+            "statsdstats_atom_metric_stats_late_log_event_skipped",
+            "statsdstats_atom_metric_stats_skipped_forward_buckets",
+            "statsdstats_atom_metric_stats_bad_value_type",
+            "statsdstats_atom_metric_stats_condition_change_in_next_bucket",
+            "statsdstats_atom_metric_stats_invalidated_bucket",
+            "statsdstats_atom_metric_stats_bucket_dropped",
+            "statsdstats_atom_metric_stats_bucket_unknown_condition"
+        };
+        for (int i = 0; i < metrics.length; i++) {
+            assertNotNull(result.get(metrics[i]));
+        }
+    }
+
     @Test
     public void testNonEmptyReport() throws Exception {
         StatsdStatsHelper.IStatsdHelper statsdHelper = new TestNonEmptyStatsdHelper();
@@ -557,6 +586,7 @@ public class StatsdStatsHelperTest {
         verifyAtomMetricStats(result, TestNonEmptyStatsdHelper.ATOM_METRIC_STATS_COUNT);
         verifyDetectedLogLossStats(result, TestNonEmptyStatsdHelper.DETECTED_LOG_LOSS_STATS_COUNT);
         verifyEventQueueOverfowStats(result);
+        verifySummaryMetrics(result);
         assertTrue(statsdStatsHelper.stopCollecting());
     }
 
@@ -567,7 +597,7 @@ public class StatsdStatsHelperTest {
 
         assertTrue(statsdStatsHelper.startCollecting());
         final Map<String, Long> result = statsdStatsHelper.getMetrics();
-        assertEquals(result.size(), 0);
+        verifySummaryMetrics(result);
         assertTrue(statsdStatsHelper.stopCollecting());
     }
 }

@@ -17,16 +17,34 @@ import("//build_overrides/pigweed.gni")
 import("$dir_pw_build/python.gni")
 
 pw_python_package("py") {
-  setup = [ "setup.py" ]
+  setup = [
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+  ]
   sources = [
     "pw_package/__init__.py",
     "pw_package/git_repo.py",
     "pw_package/package_manager.py",
     "pw_package/packages/__init__.py",
     "pw_package/packages/arduino_core.py",
+    "pw_package/packages/boringssl.py",
+    "pw_package/packages/chromium_verifier.py",
+    "pw_package/packages/crlset.py",
+    "pw_package/packages/freertos.py",
+    "pw_package/packages/googletest.py",
+    "pw_package/packages/mbedtls.py",
+    "pw_package/packages/micro_ecc.py",
     "pw_package/packages/nanopb.py",
+    "pw_package/packages/pico_sdk.py",
+    "pw_package/packages/protobuf.py",
+    "pw_package/packages/smartfusion_mss.py",
+    "pw_package/packages/stm32cube.py",
     "pw_package/pigweed_packages.py",
   ]
   pylintrc = "$dir_pigweed/.pylintrc"
-  python_deps = [ "$dir_pw_arduino_build/py" ]
+  python_deps = [
+    "$dir_pw_arduino_build/py",
+    "$dir_pw_stm32cube_build/py",
+  ]
 }

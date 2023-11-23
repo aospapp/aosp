@@ -171,13 +171,6 @@ void AuthorizationSet::Deduplicate() {
     memmove(elems_, elems_ + invalid_count, size() * sizeof(*elems_));
 }
 
-void AuthorizationSet::Union(const keymaster_key_param_set_t& set) {
-    if (set.length == 0) return;
-
-    push_back(set);
-    Deduplicate();
-}
-
 void AuthorizationSet::Difference(const keymaster_key_param_set_t& set) {
     if (set.length == 0) return;
 

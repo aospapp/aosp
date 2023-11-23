@@ -11,21 +11,17 @@
 # will likely look very different (and much more reasonable)
 
 [package]
+edition = "2018"
 name = "cast"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
-build = "build.rs"
 description = "Ergonomic, checked cast functions for primitive types"
 documentation = "https://docs.rs/cast"
 keywords = ["checked", "cast", "primitive", "integer", "float"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/japaric/cast.rs"
 [dev-dependencies.quickcheck]
-version = "0.9.0"
-[build-dependencies.rustc_version]
-version = "0.2.3"
+version = "1.0.3"
 
 [features]
-default = ["std"]
 std = []
-x128 = []

@@ -22,10 +22,13 @@ import static com.android.internal.util.HexDump.hexStringToByteArray;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import android.net.InetAddresses;
+import android.net.ipsec.ike.exceptions.IkeIOException;
 import android.net.ipsec.ike.exceptions.IkeInternalException;
 import android.net.ipsec.ike.exceptions.IkeNetworkLostException;
+import android.net.ipsec.ike.exceptions.IkeTimeoutException;
 import android.net.ipsec.ike.exceptions.InvalidKeException;
 import android.net.ipsec.ike.exceptions.InvalidMajorVersionException;
 import android.net.ipsec.ike.exceptions.InvalidSelectorsException;
@@ -36,20 +39,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 @RunWith(AndroidJUnit4.class)
 public class IkeExceptionTest extends IkeTestNetworkBase {
+    private static final String ERROR_MSG = "Test Error Message";
+
     @Test
     public void testIkeInternalException() throws Exception {
-        final Throwable cause = new Throwable("Test Cause");
-        final String errMsg = "Test Error Message";
+        final Throwable cause = new Throwable(ERROR_MSG);
 
         final IkeInternalException exception = new IkeInternalException(cause);
-        final IkeInternalException exceptionWithMsg = new IkeInternalException(errMsg, cause);
+        final IkeInternalException exceptionWithMsg = new IkeInternalException(ERROR_MSG, cause);
 
         assertEquals(cause, exception.getCause());
         assertEquals(cause, exceptionWithMsg.getCause());
-        assertEquals(errMsg, exceptionWithMsg.getMessage());
+        assertEquals(ERROR_MSG, exceptionWithMsg.getMessage());
     }
 
     @Test
@@ -59,6 +64,28 @@ public class IkeExceptionTest extends IkeTestNetworkBase {
             final IkeNetworkLostException exception =
                     new IkeNetworkLostException(tunContext.tunNetwork);
             assertEquals(tunContext.tunNetwork, exception.getNetwork());
+        }
+    }
+
+    @Test
+    public void testIkeTimeoutException() throws Exception {
+        final IkeTimeoutException exception = new IkeTimeoutException(ERROR_MSG);
+        assertEquals(ERROR_MSG, exception.getMessage());
+    }
+
+    @Test
+    public void testIkeIOException() throws Exception {
+        final UnknownHostException cause = new UnknownHostException(ERROR_MSG);
+        final IkeIOException exception = new IkeIOException(cause);
+        assertEquals(cause, exception.getCause());
+    }
+
+    @Test
+    public void testIkeIOExceptionThrowOnNull() throws Exception {
+        try {
+            new IkeIOException(null);
+            fail("Expect to fail due the null input");
+        } catch (NullPointerException expected) {
         }
     }
 

@@ -21,6 +21,7 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
 import android.net.wifi.hotspot2.pps.Policy;
 import android.net.wifi.hotspot2.pps.UpdateParameter;
+import android.os.ParcelUuid;
 import android.util.Base64;
 
 import java.util.ArrayList;
@@ -31,6 +32,8 @@ import java.util.Map;
 public class PasspointTestUtils {
     private static final int CERTIFICATE_FINGERPRINT_BYTES = 32;
     private static final int TEST_SUB_ID = 1;
+    private static final ParcelUuid GROUP_UUID = ParcelUuid
+            .fromString("0000110B-0000-1000-8000-00805F9B34FB");
 
     /**
      * Utility function for creating a {@link android.net.wifi.hotspot2.pps.HomeSP}.
@@ -116,7 +119,7 @@ public class PasspointTestUtils {
     private static UpdateParameter createSubscriptionUpdate() {
         UpdateParameter subUpdate = new UpdateParameter();
         subUpdate.setUpdateIntervalInMinutes(9021);
-        subUpdate.setUpdateMethod(UpdateParameter.UPDATE_METHOD_SSP);
+        subUpdate.setUpdateMethod(UpdateParameter.UPDATE_METHOD_SPP);
         subUpdate.setRestriction(UpdateParameter.UPDATE_RESTRICTION_ROAMING_PARTNER);
         subUpdate.setServerUri("subscription.update.com");
         subUpdate.setUsername("subUsername");
@@ -158,6 +161,7 @@ public class PasspointTestUtils {
         friendlyNames.put("kr", "ServiceName2");
         config.setServiceFriendlyNames(friendlyNames);
         config.setSubscriptionId(TEST_SUB_ID);
+        config.setSubscriptionGroup(GROUP_UUID);
         return config;
     }
 

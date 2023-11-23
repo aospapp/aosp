@@ -19,12 +19,12 @@ package com.google.android.car.kitchensink.property;
 import static java.lang.Integer.toHexString;
 
 import android.annotation.Nullable;
+import android.car.VehiclePropertyIds;
+import android.car.VehiclePropertyType;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -111,7 +111,7 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
                 int propId = info.mConfig.getPropertyId();
                 int areaId = Integer.decode(mAreaId.getSelectedItem().toString());
                 CarPropertyValue value = mMgr.getProperty(propId, areaId);
-                if (propId == VehicleProperty.WHEEL_TICK) {
+                if (propId == VehiclePropertyIds.WHEEL_TICK) {
                     Object[] ticks = (Object[]) value.getValue();
                     mGetValue.setText("Timestamp=" + value.getTimestamp()
                             + "\nstatus=" + value.getStatus()

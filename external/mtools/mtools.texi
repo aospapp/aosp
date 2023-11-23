@@ -165,14 +165,17 @@ All options use the @code{-} (minus) as their first character, not
 Most mtools commands allow multiple filename parameters, which
 doesn't follow MS-DOS conventions, but which is more user-friendly.
 
-Most mtools commands allow options that instruct them how to handle file
-name clashes. @xref{name clashes}, for more details on these. All
-commands accept the @code{-V} flags which prints the version, and most
-accept the @code{-v} flag, which switches on verbose mode. In verbose
-mode, these commands print out the name of the MS-DOS files upon which
-they act, unless stated otherwise. @xref{Commands}, for a description of
-the options which are specific to each command.
+Most mtools commands allow options that instruct them how to handle
+file name clashes. @xref{name clashes}, for more details on these.
 
+All commands accept the @code{-i} flag which allows to specify an
+image file (@xref{drive letters}).
+
+All commands accept the @code{-V} flag which prints the version, and
+most accept the @code{-v} flag, which switches on verbose mode. In
+verbose mode, these commands print out the name of the MS-DOS files
+upon which they act, unless stated otherwise. @xref{Commands}, for a
+description of the options which are specific to each command.
 
 @node drive letters, directory, arguments, Common features
 @section Drive letters
@@ -946,6 +949,35 @@ also available in ISO-Latin-1. You may also specify a global code page
 for all drives by using the global @code{default_codepage} parameter
 (outside of any drive description). This parameters exists starting at
 version 4.0.0
+
+@item data_map
+Remaps data from image file. This is useful for image files which
+might need additional zero-filled sectors to be inserted. Such is the
+case for instance for IBM 3174 floppy images. These images represent
+floppy disks with fewer sectors on their first cylinder. These missing
+sectors are not stored in the image, but are still counted in the
+filesystem layout. The data_map allows to fake these missing sectors
+for the upper layers of mtools. A data_map is a comma-separated
+sequence of source type and size. Source type may be @code{zero} for
+zero-filled sectors created by map, @code{skip} for data in raw image
+to be ignored (skipped), and nothing for data to be used as is
+(copied) from the raw image. Datamap is automatically complemented by
+an implicit last element of data to be used as is from current offset
+to end of file. Each size is a number followed by a unit: @code{s} for
+a 512 byte sector, @code{K} for Kbytes, @code{M} for megabytes,
+@code{G} for gigabytes, and nothing for single bytes.
+
+Example:
+
+@code{data_map=1s,zero31s,28s,skip1s} would be a map for use with IBM
+3174 floppy images. First sector (@code{1s}, boot sector) is used as
+is. Then follow 31 fake zero-filled sectors (@code{zero31s}), then the
+next 28 sectors from image (@code{28s}) are used as is (they contain
+FAT and root directory), then one sector from image is skipped
+(@code{skip1s}), and finally the rest of image is used as is
+(implicit)
+
+
 @item precmd
 @cindex Solaris (volcheck)
 @cindex Executing commands before opening the device
@@ -1188,7 +1220,6 @@ description of those.
 * mbadblocks::        tests a floppy disk, and marks the bad blocks in the FAT
 * mcat::              same as cat. Only useful with floppyd.
 * mcd::               change MS-DOS directory
-* mclasserase::       erase memory card
 * mcopy::             copy MS-DOS files to/from Unix
 * mdel::              delete an MS-DOS file
 * mdeltree::          recursively delete an MS-DOS directory
@@ -1480,7 +1511,7 @@ stdin and writes it to the given device.
 command, it will happily destroy any data written before on the
 disk without warning!
 
-@node mcd, mclasserase, mcat, Commands
+@node mcd, mcopy, mcat, Commands
 @section Mcd
 @pindex mcd
 @cindex Directory (changing)
@@ -1510,38 +1541,7 @@ if the file is more than 6 hours old.
 Unlike MS-DOS versions of @code{CD}, @code{mcd} can be used to change to
 another device. It may be wise to remove old @file{.mcwd} files at logout.
 
-@node mclasserase, mcopy, mcd, Commands
-@section Mclasserase
-@pindex mclasserase
-@cindex Memory Card
-@cindex Physically erase
-
-The @code{mclasserase} command is used to wipe memory cards by
-overwriting it three times: first with @code{0xff}, then with
-@code{0x00}, then with @code{0xff} again. The command uses the following
-syntax:
-
-@example
-@code{mclasserase} [@code{-d}] @var{msdosdrive}
-@end example
-
-MS-DOS drive is optional, if none is specified, use @code{A:}. If more than
-one drive are specified, all but the last are ignored.
-
-@code{Mclasserase} accepts the following command line options:
-
-@table @code
-@item d
-Stop after each erase cycle, for testing purposes
-@item p
-Not yet implemented
-@end table
-
-
-@code{Mclasserase} returns 0 on success or -1 on failure.
-
-
-@node mcopy, mdel, mclasserase, Commands
+@node mcopy, mdel, mcd, Commands
 @section Mcopy
 @pindex mcopy
 @cindex Reading MS-DOS files

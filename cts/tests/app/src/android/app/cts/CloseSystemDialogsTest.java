@@ -28,6 +28,7 @@ import static junit.framework.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
 
+import android.Manifest;
 import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
@@ -47,7 +48,10 @@ import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.ResultReceiver;
+import android.permission.PermissionManager;
+import android.permission.cts.PermissionUtils;
 import android.provider.Settings;
 import android.server.wm.WindowManagerStateHelper;
 import android.view.Display;
@@ -118,6 +122,7 @@ public class CloseSystemDialogsTest {
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
+        PermissionUtils.grantPermission(APP_SELF, Manifest.permission.POST_NOTIFICATIONS);
         mResolver = mContext.getContentResolver();
         mMainHandler = new Handler(Looper.getMainLooper());
         toggleListenerAccess(mContext, true);
@@ -163,6 +168,15 @@ public class CloseSystemDialogsTest {
         compat(APP_COMPAT_RESET, ActivityManager.LOCK_DOWN_CLOSE_SYSTEM_DIALOGS, APP_HELPER);
         compat(APP_COMPAT_RESET, "NOTIFICATION_TRAMPOLINE_BLOCK", APP_HELPER);
         mNotificationListener.resetData();
+        // Use test API to prevent PermissionManager from killing the test process when revoking
+        // permission.
+        SystemUtil.runWithShellPermissionIdentity(
+                () -> mContext.getSystemService(PermissionManager.class)
+                        .revokePostNotificationPermissionWithoutKillForTest(
+                                mContext.getPackageName(),
+                                Process.myUserHandle().getIdentifier()),
+                Manifest.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL,
+                Manifest.permission.REVOKE_RUNTIME_PERMISSIONS);
     }
 
     /** Intent.ACTION_CLOSE_SYSTEM_DIALOGS */

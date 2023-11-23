@@ -58,6 +58,7 @@ struct vrend_blitter_ctx {
    // Parameters related to the creation of fs_texfetch_col_swizzle
    unsigned fs_texfetch_col_swizzle_nr_samples;
    bool fs_texfetch_col_swizzle_has_swizzle;
+   uint8_t fs_texfetch_col_swizzle_swizzle[4];
 
    unsigned dst_width;
    unsigned dst_height;
@@ -319,23 +320,31 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                     int pipe_tex_target,
                                     unsigned nr_samples,
                                     const struct vrend_format_table *src_entry,
-                                    const struct vrend_format_table *dst_entry,
-                                    bool skip_dest_swizzle)
+                                    uint8_t swizzle[static 4])
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   bool needs_swizzle = !skip_dest_swizzle && (dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE);
-
+   bool needs_swizzle = false;
+   for (uint i = 0; i < 4; ++i) {
+      if (swizzle[i] != i) {
+         needs_swizzle = true;
+         break;
+      }
+   }
 
    GLuint *shader;
    if (needs_swizzle || nr_samples > 1) {
       shader = &blit_ctx->fs_texfetch_col_swizzle;
-      if (*shader && (blit_ctx->fs_texfetch_col_swizzle_has_swizzle != needs_swizzle
-                        || blit_ctx->fs_texfetch_col_swizzle_nr_samples != nr_samples)) {
+      if (*shader &&
+          (blit_ctx->fs_texfetch_col_swizzle_nr_samples != nr_samples ||
+           blit_ctx->fs_texfetch_col_swizzle_has_swizzle != needs_swizzle ||
+           (needs_swizzle && memcmp(blit_ctx->fs_texfetch_col_swizzle_swizzle, swizzle, 4)))) {
          glDeleteShader(*shader);
          *shader = 0;
       }
       blit_ctx->fs_texfetch_col_swizzle_has_swizzle = needs_swizzle;
+      if (needs_swizzle)
+         memcpy(blit_ctx->fs_texfetch_col_swizzle_swizzle, swizzle, 4);
       blit_ctx->fs_texfetch_col_swizzle_nr_samples = nr_samples;
    } else {
       shader = &blit_ctx->fs_texfetch_col[pipe_tex_target];
@@ -345,8 +354,6 @@ static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
 
       unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
       enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
-
-      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
 
       // Integer textures are resolved using just one sample
       int msaa_samples = nr_samples > 0 ? (tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1) : 0;
@@ -642,7 +649,7 @@ static void vrend_set_tex_param(struct vrend_resource *src_res,
                                 bool has_texture_srgb_decode)
 {
    const struct vrend_format_table *src_entry =
-      vrend_get_format_table_entry_with_emulation(src_res->base.bind, info->src.format);
+      vrend_get_format_table_entry(info->src.format);
 
    if (src_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
@@ -672,8 +679,8 @@ static void vrend_set_tex_param(struct vrend_resource *src_res,
    if (src_res->base.nr_samples < 1) {
       GLenum filter = info->filter == PIPE_TEX_FILTER_NEAREST ?
                                        GL_NEAREST : GL_LINEAR;
-      glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
-      glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+      glTexParameteri(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
+      glTexParameteri(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
    }
 }
 
@@ -699,7 +706,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
                             const struct pipe_blit_info *info,
                             bool has_texture_srgb_decode,
                             bool has_srgb_write_control,
-                            bool skip_dest_swizzle)
+                            uint8_t swizzle[static 4])
 {
    struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
    GLuint buffers;
@@ -714,8 +721,6 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    const struct util_format_description *dst_desc =
       util_format_description(dst_res->base.format);
    const struct vrend_format_table *orig_src_entry = vrend_get_format_table_entry(info->src.format);
-   const struct vrend_format_table *dst_entry =
-      vrend_get_format_table_entry_with_emulation(dst_res->base.bind, info->dst.format);
 
    has_depth = util_format_has_depth(src_desc) &&
       util_format_has_depth(dst_desc);
@@ -735,10 +740,12 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
       fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target,
                                            src_res->base.nr_samples);
    } else {
+      VREND_DEBUG(dbg_blit, ctx, "BLIT: applying swizzle during blit: (%d %d %d %d)\n",
+                  swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
       fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target,
                                     src_res->base.nr_samples,
-                                    orig_src_entry, dst_entry,
-                                    skip_dest_swizzle);
+                                    orig_src_entry,
+                                    swizzle);
    }
    glAttachShader(prog_id, fs_id);
 
@@ -748,7 +755,7 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
    glUseProgram(prog_id);
 
    glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
-   vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, info->dst.box.z);
+   vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, info->dst.box.z, 0);
 
    buffers = GL_COLOR_ATTACHMENT0;
    glDrawBuffers(1, &buffers);
@@ -780,10 +787,12 @@ void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
       float dst_offset = ((info->src.box.depth - 1) -
                           (info->dst.box.depth - 1) * dst2src_scale) * 0.5;
       float src_z = (dst_z + dst_offset) * dst2src_scale;
-      uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP) ? info->dst.box.z : dst_z;
+      uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP ||
+                        dst_res->target == GL_TEXTURE_1D_ARRAY ||
+                        dst_res->target == GL_TEXTURE_2D_ARRAY) ? info->dst.box.z : dst_z;
 
       glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
-      vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, layer);
+      vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, layer, 0);
 
       buffers = GL_COLOR_ATTACHMENT0;
       glDrawBuffers(1, &buffers);

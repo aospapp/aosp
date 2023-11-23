@@ -252,7 +252,7 @@ void ExynosHWCService::enableMPP(uint32_t physicalType, uint32_t physicalIndex, 
             __func__, physicalType, physicalIndex, logicalIndex, enable);
     ExynosResourceManager::enableMPP(physicalType, physicalIndex, logicalIndex, enable);
     mHWCCtx->device->setGeometryChanged(GEOMETRY_DEVICE_CONFIG_CHANGED);
-    mHWCCtx->device->invalidate();
+    mHWCCtx->device->onRefresh();
 }
 
 void ExynosHWCService::setScaleDownRatio(uint32_t physicalType,
@@ -262,7 +262,7 @@ void ExynosHWCService::setScaleDownRatio(uint32_t physicalType,
             __func__, physicalType, physicalIndex, logicalIndex, scaleDownRatio);
     ExynosResourceManager::setScaleDownRatio(physicalType, physicalIndex, logicalIndex, scaleDownRatio);
     mHWCCtx->device->setGeometryChanged(GEOMETRY_DEVICE_CONFIG_CHANGED);
-    mHWCCtx->device->invalidate();
+    mHWCCtx->device->onRefresh();
 }
 
 void ExynosHWCService::setLbeCtrl(uint32_t display_id, uint32_t state, uint32_t lux) {
@@ -462,13 +462,44 @@ int32_t ExynosHWCService::setRefreshRateThrottle(uint32_t display_id, int32_t de
     auto display = mHWCCtx->device->getDisplay(display_id);
 
     if (display != nullptr) {
-        return display->setRefreshRateThrottleNanos(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::milliseconds(delayMs))
-                        .count());
+        return display
+                ->setRefreshRateThrottleNanos(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                                      std::chrono::milliseconds(delayMs))
+                                                      .count(),
+                                              DispIdleTimerRequester::TEST);
     }
 
     return -EINVAL;
+}
+
+int32_t ExynosHWCService::setDisplayRCDLayerEnabled(uint32_t displayIndex, bool enable) {
+    ALOGD("ExynosHWCService::%s() displayIndex(%u) enable(%u)", __func__, displayIndex, enable);
+
+    auto primaryDisplay =
+            mHWCCtx->device->getDisplay(getDisplayId(HWC_DISPLAY_PRIMARY, displayIndex));
+    if (primaryDisplay == nullptr) return -EINVAL;
+
+    auto ret = primaryDisplay->setDebugRCDLayerEnabled(enable);
+
+    mHWCCtx->device->setGeometryChanged(GEOMETRY_DEVICE_CONFIG_CHANGED);
+    mHWCCtx->device->onRefresh();
+
+    return ret;
+}
+
+int32_t ExynosHWCService::triggerDisplayIdleEnter(uint32_t displayIndex,
+                                                  uint32_t idleTeRefreshRate) {
+    ALOGD("ExynosHWCService::%s() displayIndex(%u) idleTeRefreshRate(%u)", __func__, displayIndex,
+          idleTeRefreshRate);
+
+    auto primaryDisplay =
+            mHWCCtx->device->getDisplay(getDisplayId(HWC_DISPLAY_PRIMARY, displayIndex));
+    if (primaryDisplay == nullptr) return -EINVAL;
+
+    mHWCCtx->device->onVsyncIdle(primaryDisplay->getId());
+    primaryDisplay->handleDisplayIdleEnter(idleTeRefreshRate);
+
+    return NO_ERROR;
 }
 
 } //namespace android

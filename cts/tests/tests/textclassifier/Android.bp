@@ -45,4 +45,8 @@ android_test {
     resource_dirs: ["res"],
     sdk_version: "test_current",
     min_sdk_version: "30",
+    data: [
+        ":CtsQueryTextClassifierServiceActivity",
+    ],
+    per_testcase_directory: true,
 }

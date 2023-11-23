@@ -6,15 +6,15 @@ use crate::virtio::snd::constants::*;
 use crate::virtio::snd::layout::*;
 
 use base::{
-    error, net::UnixSeqpacket, AsRawDescriptor, Error as BaseError, Event, FromRawDescriptor,
-    IntoRawDescriptor, MemoryMapping, MemoryMappingBuilder, MmapError, PollToken, SafeDescriptor,
-    ScmSocket, WaitContext,
+    error, AsRawDescriptor, Error as BaseError, Event, FromRawDescriptor, IntoRawDescriptor,
+    MemoryMapping, MemoryMappingBuilder, MmapError, PollToken, SafeDescriptor, ScmSocket,
+    UnixSeqpacket, WaitContext,
 };
 use data_model::{DataInit, VolatileMemory, VolatileMemoryError, VolatileSlice};
 
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::{Error as IOError, ErrorKind as IOErrorKind, Seek, SeekFrom};
+use std::io::{Error as IOError, ErrorKind as IOErrorKind, IoSliceMut, Seek, SeekFrom};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
@@ -23,64 +23,66 @@ use std::thread::JoinHandle;
 
 use sync::Mutex;
 
+use remain::sorted;
 use thiserror::Error as ThisError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
-    #[error("Failed to connect to VioS server: {0:?}")]
-    ServerConnectionError(IOError),
-    #[error("Failed to communicate with VioS server: {0:?}")]
-    ServerError(BaseError),
-    #[error("Failed to communicate with VioS server: {0:?}")]
-    ServerIOError(IOError),
-    #[error("Failed to get size of tx shared memory: {0}")]
-    FileSizeError(IOError),
-    #[error("Error duplicating file descriptor: {0}")]
-    DupError(BaseError),
-    #[error("Error accessing VioS server's shared memory: {0}")]
-    ServerMmapError(MmapError),
-    #[error("Error accessing guest's shared memory: {0}")]
-    GuestMmapError(MmapError),
     #[error("Error memory mapping client_shm: {0}")]
     BaseMmapError(BaseError),
-    #[error("Error accessing volatile memory: {0}")]
-    VolatileMemoryError(VolatileMemoryError),
-    #[error("{0}")]
-    ProtocolError(ProtocolErrorKind),
-    #[error("No PCM streams available")]
-    NoStreamsAvailable,
-    #[error("No jack with id {0}")]
-    InvalidJackId(u32),
-    #[error("No stream with id {0}")]
-    InvalidStreamId(u32),
-    #[error("Invalid operation for stream direction: {0}")]
-    WrongDirection(u8),
-    #[error("Insuficient space for the new buffer in the queue's buffer area")]
-    OutOfSpace,
-    #[error("Unsupported frame rate: {0}")]
-    UnsupportedFrameRate(u32),
-    #[error("Platform not supported")]
-    PlatformNotSupported,
-    #[error("Command failed with status {0}")]
-    CommandFailed(u32),
-    #[error("IO buffer operation failed: status = {0}")]
-    IOBufferError(u32),
-    #[error("Failed to duplicate UnixSeqpacket: {0}")]
-    UnixSeqpacketDupError(IOError),
     #[error("Sender was dropped without sending buffer status, the recv thread may have exited")]
     BufferStatusSenderLost(RecvError),
+    #[error("Command failed with status {0}")]
+    CommandFailed(u32),
+    #[error("Error duplicating file descriptor: {0}")]
+    DupError(BaseError),
     #[error("Failed to create Recv event: {0}")]
     EventCreateError(BaseError),
     #[error("Failed to dup Recv event: {0}")]
     EventDupError(BaseError),
     #[error("Failed to signal event: {0}")]
     EventWriteError(BaseError),
+    #[error("Failed to get size of tx shared memory: {0}")]
+    FileSizeError(IOError),
+    #[error("Error accessing guest's shared memory: {0}")]
+    GuestMmapError(MmapError),
+    #[error("No jack with id {0}")]
+    InvalidJackId(u32),
+    #[error("No stream with id {0}")]
+    InvalidStreamId(u32),
+    #[error("IO buffer operation failed: status = {0}")]
+    IOBufferError(u32),
+    #[error("No PCM streams available")]
+    NoStreamsAvailable,
+    #[error("Insuficient space for the new buffer in the queue's buffer area")]
+    OutOfSpace,
+    #[error("Platform not supported")]
+    PlatformNotSupported,
+    #[error("{0}")]
+    ProtocolError(ProtocolErrorKind),
+    #[error("Failed to connect to VioS server: {0:?}")]
+    ServerConnectionError(IOError),
+    #[error("Failed to communicate with VioS server: {0:?}")]
+    ServerError(BaseError),
+    #[error("Failed to communicate with VioS server: {0:?}")]
+    ServerIOError(IOError),
+    #[error("Error accessing VioS server's shared memory: {0}")]
+    ServerMmapError(MmapError),
+    #[error("Failed to duplicate UnixSeqpacket: {0}")]
+    UnixSeqpacketDupError(IOError),
+    #[error("Unsupported frame rate: {0}")]
+    UnsupportedFrameRate(u32),
+    #[error("Error accessing volatile memory: {0}")]
+    VolatileMemoryError(VolatileMemoryError),
     #[error("Failed to create Recv thread's WaitContext: {0}")]
     WaitContextCreateError(BaseError),
     #[error("Error waiting for events")]
     WaitError(BaseError),
+    #[error("Invalid operation for stream direction: {0}")]
+    WrongDirection(u8),
 }
 
 #[derive(ThisError, Debug)]
@@ -135,7 +137,7 @@ impl VioSClient {
         const NUM_FDS: usize = 5;
         fds.resize(NUM_FDS, 0);
         let (recv_size, fd_count) = client_socket
-            .recv_with_fds(config.as_mut_slice(), &mut fds)
+            .recv_with_fds(IoSliceMut::new(config.as_mut_slice()), &mut fds)
             .map_err(Error::ServerError)?;
 
         // Resize the vector to the actual number of file descriptors received and wrap them in
@@ -760,21 +762,21 @@ pub struct VioSStreamParams {
     pub rate: u8,
 }
 
-impl Into<virtio_snd_pcm_set_params> for (u32, VioSStreamParams) {
-    fn into(self) -> virtio_snd_pcm_set_params {
+impl From<(u32, VioSStreamParams)> for virtio_snd_pcm_set_params {
+    fn from(val: (u32, VioSStreamParams)) -> Self {
         virtio_snd_pcm_set_params {
             hdr: virtio_snd_pcm_hdr {
                 hdr: virtio_snd_hdr {
                     code: VIRTIO_SND_R_PCM_SET_PARAMS.into(),
                 },
-                stream_id: self.0.into(),
+                stream_id: val.0.into(),
             },
-            buffer_bytes: self.1.buffer_bytes.into(),
-            period_bytes: self.1.period_bytes.into(),
-            features: self.1.features.into(),
-            channels: self.1.channels,
-            format: self.1.format,
-            rate: self.1.rate,
+            buffer_bytes: val.1.buffer_bytes.into(),
+            period_bytes: val.1.period_bytes.into(),
+            features: val.1.features.into(),
+            channels: val.1.channels,
+            format: val.1.format,
+            rate: val.1.rate,
             padding: 0u8,
         }
     }

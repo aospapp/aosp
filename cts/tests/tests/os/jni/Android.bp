@@ -46,6 +46,7 @@ cc_library_shared {
         "android_os_cts_HardwareName.cpp",
         "android_os_cts_OSFeatures.cpp",
         "android_os_cts_NoExecutePermissionTest.cpp",
+        "android_os_cts_PerformanceHintManagerTest.cpp",
         "android_os_cts_SeccompTest.cpp",
         "android_os_cts_SharedMemory.cpp",
         "android_os_cts_SPMITest.cpp",
@@ -55,6 +56,10 @@ cc_library_shared {
     static_libs: [
         "libminijail",
         "external_seccomp_tests",
+    ],
+
+    shared_libs: [
+        "libandroid",
     ],
 
     // This define controls the behavior of OSFeatures.needsSeccompSupport().

@@ -29,12 +29,16 @@
 #include <shared/nano_string.h>
 #include <shared/send_message.h>
 
+#include "chre/util/macros.h"
+
 namespace chre {
 namespace {
 
 using nanoapp_testing::sendFatalFailureToHost;
 
 void messageFreeCallback(void *message, size_t size) {
+  UNUSED_VAR(size);
+
   chreHeapFree(message);
 }
 

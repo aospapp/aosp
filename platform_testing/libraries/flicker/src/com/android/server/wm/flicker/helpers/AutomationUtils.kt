@@ -37,7 +37,9 @@ import androidx.test.uiautomator.Until
 import com.android.compatibility.common.util.SystemUtil
 import com.android.server.wm.flicker.helpers.WindowUtils.displayBounds
 import com.android.server.wm.flicker.helpers.WindowUtils.estimateNavigationBarPosition
+import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory
+import com.android.server.wm.traces.parser.toAndroidRect
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
 import org.junit.Assert
 import org.junit.Assert.assertNotNull
@@ -94,7 +96,11 @@ fun UiDevice.reopenAppFromOverview(
     val y = this.displayHeight / 2
     this.click(x, y)
 
-    wmHelper.waitForAppTransitionIdle()
+    wmHelper.waitFor(
+        WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY),
+        WindowManagerConditionsFactory.isLayerVisible(FlickerComponentName.SNAPSHOT).negate(),
+        WindowManagerConditionsFactory.isLayerVisible(FlickerComponentName.SPLASH_SCREEN).negate()
+    )
 }
 
 /**
@@ -114,7 +120,7 @@ fun UiDevice.openQuickstep(
             navBar.visibleBounds
         } else {
             Log.e(TAG, "Could not find nav bar, infer location")
-            estimateNavigationBarPosition(Surface.ROTATION_0).bounds
+            estimateNavigationBarPosition(Surface.ROTATION_0).bounds.toAndroidRect()
         }
 
         val startX = navBarVisibleBounds.centerX()

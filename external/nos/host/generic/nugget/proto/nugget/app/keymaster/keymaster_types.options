@@ -9,3 +9,4 @@ nugget.app.keymaster.VigoSignature.s max_size:32
 nugget.app.keymaster.VigoSecret.material max_size:32
 nugget.app.keymaster.VigoSecret.iv max_size:16
 nugget.app.keymaster.VigoSecret.tag max_size:16
+nugget.app.keymaster.KeysToSign.keys max_count:20

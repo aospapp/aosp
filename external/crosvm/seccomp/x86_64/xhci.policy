@@ -5,11 +5,11 @@
 @include /usr/share/policy/crosvm/common_device.policy
 
 lstat: 1
-readlink: 1
-readlinkat: 1
 timerfd_create: 1
 name_to_handle_at: 1
 access: 1
+faccessat: 1
+faccessat2: 1
 getsockname: 1
 pipe: 1
 setsockopt: 1
@@ -18,6 +18,7 @@ open: return ENOENT
 openat: 1
 socket: arg0 == AF_NETLINK
 stat: 1
+statx: 1
 # The following ioctls are:
 # 0x4008550d == USBDEVFS_REAPURBNDELAY
 # 0x41045508 == USBDEVFS_GETDRIVER
@@ -35,6 +36,7 @@ stat: 1
 # 0x80185520 == USBDEVFS_CONNINFO_EX
 ioctl: arg1 == 0xc0185500 || arg1 == 0x41045508 || arg1 == 0x8004550f || arg1 == 0x4008550d || arg1 == 0x8004551a || arg1 == 0x550b || arg1 == 0x80045510 || arg1 == 0x80045515 || arg1 == 0x8038550a || arg1 == 0x5514 || arg1 == 0x80045505 || arg1 == 0x8108551b || arg1 == 0x40085511 || arg1 == 0x80185520
 fstat: 1
+newfstatat: 1
 getrandom: 1
 getdents: 1
 getdents64: 1

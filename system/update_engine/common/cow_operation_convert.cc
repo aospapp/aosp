@@ -24,6 +24,23 @@
 
 namespace chromeos_update_engine {
 
+namespace {
+
+bool IsConsecutive(const CowOperation& op1, const CowOperation& op2) {
+  return op1.op == op2.op && op1.dst_block + op1.block_count == op2.dst_block &&
+         op1.src_block + op1.block_count == op2.src_block;
+}
+
+void push_back(std::vector<CowOperation>* converted, const CowOperation& op) {
+  if (!converted->empty() && IsConsecutive(converted->back(), op)) {
+    converted->back().block_count++;
+  } else {
+    converted->push_back(op);
+  }
+}
+
+}  // namespace
+
 std::vector<CowOperation> ConvertToCowOperations(
     const ::google::protobuf::RepeatedPtrField<
         ::chromeos_update_engine::InstallOperation>& operations,
@@ -31,7 +48,6 @@ std::vector<CowOperation> ConvertToCowOperations(
         merge_operations) {
   ExtentRanges merge_extents;
   std::vector<CowOperation> converted;
-  ExtentRanges modified_extents;
 
   // We want all CowCopy ops to be done first, before any COW_REPLACE happen.
   // Therefore we add these ops in 2 separate loops. This is because during
@@ -53,8 +69,7 @@ std::vector<CowOperation> ConvertToCowOperations(
     for (uint64_t i = src_extent.num_blocks(); i > 0; i--) {
       auto src_block = src_extent.start_block() + i - 1;
       auto dst_block = dst_extent.start_block() + i - 1;
-      converted.push_back({CowOperation::CowCopy, src_block, dst_block});
-      modified_extents.AddBlock(dst_block);
+      converted.push_back({CowOperation::CowCopy, src_block, dst_block, 1});
     }
   }
   // COW_REPLACE are added after COW_COPY, because replace might modify blocks
@@ -68,10 +83,11 @@ std::vector<CowOperation> ConvertToCowOperations(
     BlockIterator it1{src_extents};
     BlockIterator it2{dst_extents};
     while (!it1.is_end() && !it2.is_end()) {
-      auto src_block = *it1;
-      auto dst_block = *it2;
+      const auto src_block = *it1;
+      const auto dst_block = *it2;
       if (!merge_extents.ContainsBlock(dst_block)) {
-        converted.push_back({CowOperation::CowReplace, src_block, dst_block});
+        push_back(&converted,
+                  {CowOperation::CowReplace, src_block, dst_block, 1});
       }
       ++it1;
       ++it2;

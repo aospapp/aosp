@@ -28,7 +28,6 @@ soong_config_module_type {
     ],
 }
 
-// TODO(b/178585590): delete this after testing linking strategy
 soong_config_module_type {
     name: "library_linking_strategy_apex_defaults",
     module_type: "apex_defaults",

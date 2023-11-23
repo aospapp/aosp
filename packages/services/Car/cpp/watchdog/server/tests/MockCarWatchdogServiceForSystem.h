@@ -33,7 +33,7 @@ namespace watchdog {
 class MockCarWatchdogServiceForSystem :
       public android::automotive::watchdog::internal::ICarWatchdogServiceForSystemDefault {
 public:
-    MockCarWatchdogServiceForSystem() : mBinder(new MockBinder()) {
+    MockCarWatchdogServiceForSystem() : mBinder(sp<MockBinder>::make()) {
         ON_CALL(*this, onAsBinder()).WillByDefault(::testing::Return(mBinder.get()));
     }
 

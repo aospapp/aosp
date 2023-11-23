@@ -1,16 +1,4 @@
-// Copyright 2016 Kyle Mayes
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 //! Provides helper functionality.
 
@@ -18,24 +6,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, io};
 
-use glob;
+use glob::{self, Pattern};
 
 use libc::c_int;
 
 use super::CXVersion;
-
-//================================================
-// Macros
-//================================================
-
-macro_rules! try_opt {
-    ($option:expr) => {{
-        match $option {
-            Some(some) => some,
-            None => return None,
-        }
-    }};
-}
 
 //================================================
 // Structs
@@ -74,20 +49,41 @@ impl Clang {
     /// directory returned by `llvm-config --bindir` is searched. On macOS
     /// systems, `xcodebuild -find clang` will next be queried. Last, the
     /// directories in the system's `PATH` are searched.
+    ///
+    /// ## Cross-compilation
+    ///
+    /// If target arguments are provided (e.g., `-target` followed by a target
+    /// like `x86_64-unknown-linux-gnu`) then this method will prefer a
+    /// target-prefixed instance of `clang` (e.g.,
+    /// `x86_64-unknown-linux-gnu-clang` for the above example).
     pub fn find(path: Option<&Path>, args: &[String]) -> Option<Clang> {
         if let Ok(path) = env::var("CLANG_PATH") {
             return Some(Clang::new(path, args));
         }
 
+        // Determine the cross-compilation target, if any.
+
+        let mut target = None;
+        for i in 0..args.len() {
+            if args[i] == "-target" && i + 1 < args.len() {
+                target = Some(&args[i + 1]);
+            }
+        }
+
+        // Collect the paths to search for a `clang` executable in.
+
         let mut paths = vec![];
+
         if let Some(path) = path {
             paths.push(path.into());
         }
+
         if let Ok(path) = run_llvm_config(&["--bindir"]) {
             if let Some(line) = path.lines().next() {
                 paths.push(line.into());
             }
         }
+
         if cfg!(target_os = "macos") {
             if let Ok((path, _)) = run("xcodebuild", &["-find", "clang"]) {
                 if let Some(line) = path.lines().next() {
@@ -95,7 +91,25 @@ impl Clang {
                 }
             }
         }
-        paths.extend(env::split_paths(&env::var("PATH").unwrap()));
+
+        if let Ok(path) = env::var("PATH") {
+            paths.extend(env::split_paths(&path));
+        }
+
+        // First, look for a target-prefixed `clang` executable.
+
+        if let Some(target) = target {
+            let default = format!("{}-clang{}", target, env::consts::EXE_SUFFIX);
+            let versioned = format!("{}-clang-[0-9]*{}", target, env::consts::EXE_SUFFIX);
+            let patterns = &[&default[..], &versioned[..]];
+            for path in &paths {
+                if let Some(path) = find(path, patterns) {
+                    return Some(Clang::new(path, args));
+                }
+            }
+        }
+
+        // Otherwise, look for any other `clang` executable.
 
         let default = format!("clang{}", env::consts::EXE_SUFFIX);
         let versioned = format!("clang-[0-9]*{}", env::consts::EXE_SUFFIX);
@@ -117,12 +131,17 @@ impl Clang {
 /// Returns the first match to the supplied glob patterns in the supplied
 /// directory if there are any matches.
 fn find(directory: &Path, patterns: &[&str]) -> Option<PathBuf> {
+    // Escape the directory in case it contains characters that have special
+    // meaning in glob patterns (e.g., `[` or `]`).
+    let directory = if let Some(directory) = directory.to_str() {
+        Path::new(&Pattern::escape(directory)).to_owned()
+    } else {
+        return None;
+    };
+
     for pattern in patterns {
         let pattern = directory.join(pattern).to_string_lossy().into_owned();
-        if let Some(path) = try_opt!(glob::glob(&pattern).ok())
-            .filter_map(|p| p.ok())
-            .next()
-        {
+        if let Some(path) = glob::glob(&pattern).ok()?.filter_map(|p| p.ok()).next() {
             if path.is_file() && is_executable(&path).unwrap_or(false) {
                 return Some(path);
             }
@@ -184,10 +203,10 @@ fn parse_version_number(number: &str) -> Option<c_int> {
 /// Parses the version from the output of a `clang` executable if possible.
 fn parse_version(path: &Path) -> Option<CXVersion> {
     let output = run_clang(path, &["--version"]).0;
-    let start = try_opt!(output.find("version ")) + 8;
-    let mut numbers = try_opt!(output[start..].split_whitespace().next()).split('.');
-    let major = try_opt!(numbers.next().and_then(parse_version_number));
-    let minor = try_opt!(numbers.next().and_then(parse_version_number));
+    let start = output.find("version ")? + 8;
+    let mut numbers = output[start..].split_whitespace().next()?.split('.');
+    let major = numbers.next().and_then(parse_version_number)?;
+    let minor = numbers.next().and_then(parse_version_number)?;
     let subminor = numbers.next().and_then(parse_version_number).unwrap_or(0);
     Some(CXVersion {
         Major: major,
@@ -201,8 +220,8 @@ fn parse_search_paths(path: &Path, language: &str, args: &[String]) -> Option<Ve
     let mut clang_args = vec!["-E", "-x", language, "-", "-v"];
     clang_args.extend(args.iter().map(|s| &**s));
     let output = run_clang(path, &clang_args).1;
-    let start = try_opt!(output.find("#include <...> search starts here:")) + 34;
-    let end = try_opt!(output.find("End of search list."));
+    let start = output.find("#include <...> search starts here:")? + 34;
+    let end = output.find("End of search list.")?;
     let paths = output[start..end].replace("(framework directory)", "");
     Some(
         paths

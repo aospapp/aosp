@@ -246,6 +246,9 @@ static int dfs_find_channel(struct hostapd_iface *iface,
 			continue;
 		}
 
+		if (chan->max_tx_power < iface->conf->min_tx_power)
+			continue;
+
 		if (ret_chan && idx == channel_idx) {
 			wpa_printf(MSG_DEBUG, "Selected channel %d (%d)",
 				   chan->freq, chan->chan);
@@ -1228,7 +1231,9 @@ int hostapd_is_dfs_required(struct hostapd_iface *iface)
 {
 	int n_chans, n_chans1, start_chan_idx, start_chan_idx1, res;
 
-	if (!iface->conf->ieee80211h || !iface->current_mode ||
+	if ((!(iface->drv_flags & WPA_DRIVER_FLAGS_DFS_OFFLOAD) &&
+	     !iface->conf->ieee80211h) ||
+	    !iface->current_mode ||
 	    iface->current_mode->mode != HOSTAPD_MODE_IEEE80211A)
 		return 0;
 
@@ -1279,6 +1284,8 @@ int hostapd_dfs_start_cac(struct hostapd_iface *iface, int freq,
  */
 int hostapd_handle_dfs_offload(struct hostapd_iface *iface)
 {
+	int dfs_res;
+
 	wpa_printf(MSG_DEBUG, "%s: iface->cac_started: %d",
 		   __func__, iface->cac_started);
 
@@ -1294,10 +1301,11 @@ int hostapd_handle_dfs_offload(struct hostapd_iface *iface)
 		return 1;
 	}
 
-	if (ieee80211_is_dfs(iface->freq, iface->hw_features,
-			     iface->num_hw_features)) {
-		wpa_printf(MSG_DEBUG, "%s: freq %d MHz requires DFS",
-			   __func__, iface->freq);
+	dfs_res = hostapd_is_dfs_required(iface);
+	if (dfs_res > 0) {
+		wpa_printf(MSG_DEBUG,
+			   "%s: freq %d MHz requires DFS for %d chans",
+			   __func__, iface->freq, dfs_res);
 		return 0;
 	}
 

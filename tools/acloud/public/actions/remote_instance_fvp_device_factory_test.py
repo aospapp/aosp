@@ -19,8 +19,6 @@ import unittest
 
 from unittest import mock
 
-import six
-
 from acloud.create import avd_spec
 from acloud.internal import constants
 from acloud.internal.lib import android_build_client
@@ -80,7 +78,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
             "fip.bin\n"
             "system-qemu.img\n"
             "userdata.img\n"))
-        with mock.patch.object(six.moves.builtins, "open", mock_open):
+        with mock.patch("builtins.open", mock_open):
             factory.CreateInstance()
 
         mock_create_gce.assert_called_once()

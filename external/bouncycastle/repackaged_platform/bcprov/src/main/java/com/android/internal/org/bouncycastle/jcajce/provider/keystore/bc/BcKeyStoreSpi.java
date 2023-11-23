@@ -935,6 +935,33 @@ public class BcKeyStoreSpi
         dOut.close();
     }
 
+    // BEGIN Android-added: new API for KeyStore probing.
+    /**
+     * Probe the first few bytes of the keystore data stream for a valid
+     * keystore encoding. Only the primary keystore implementation is probed.
+     */
+    public boolean engineProbe(InputStream stream) throws IOException {
+        if (stream == null) {
+            throw new NullPointerException("input stream must not be null");
+        }
+        DataInputStream     dIn = new DataInputStream(stream);
+        int                 version = dIn.readInt();
+
+        if (version != STORE_VERSION) {
+            if (version != 0 && version != 1) {
+                return false;
+            }
+        }
+        byte[]      salt = new byte[dIn.readInt()];
+
+        if (salt.length != STORE_SALT_SIZE) {
+            return false;
+        }
+
+        return true;
+    }
+    // END Android-added: new API for KeyStore probing.
+
     /**
      * the BouncyCastle store. This wont work with the key tool as the
      * store is stored encrypted on disk, so the password is mandatory,
@@ -1055,6 +1082,30 @@ public class BcKeyStoreSpi
     
             cOut.close();
         }
+
+        // BEGIN Android-added: new API for KeyStore probing.
+        @Override
+        public boolean engineProbe(InputStream stream) throws IOException {
+            if (stream == null) {
+                throw new NullPointerException("input stream must not be null");
+            }
+            DataInputStream     dIn = new DataInputStream(stream);
+            int                 version = dIn.readInt();
+
+            if (version != STORE_VERSION) {
+                if (version != 0 && version != 1) {
+                    return false;
+                }
+            }
+            byte[]      salt = new byte[dIn.readInt()];
+
+            if (salt.length != STORE_SALT_SIZE) {
+                return false;
+            }
+
+            return true;
+        }
+        // END Android-added: new API for KeyStore probing.
     }
 
     /**

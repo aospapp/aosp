@@ -95,6 +95,17 @@ class ServiceDelegateAndroidInterface {
   // In case of error, returns false and sets |error| accordingly.
   virtual bool VerifyPayloadApplicable(const std::string& metadata_filename,
                                        brillo::ErrorPtr* error) = 0;
+  // Sets the A/B slot switch for the next boot after applying an ota update.
+  // If applyPayload hasn't switched the slot by itself, the client can call
+  // this API to switch the slot and apply the update on next boot. Returns
+  // true on success.
+  virtual bool setShouldSwitchSlotOnReboot(const std::string& metadata_filename,
+                                           brillo::ErrorPtr* error) = 0;
+
+  // Resets the boot slot to the source/current slot, without cancelling the
+  // update progress. This can be called after the update is installed, and to
+  // prevent the device from accidentally taking the update when it reboots.
+  virtual bool resetShouldSwitchSlotOnReboot(brillo::ErrorPtr* error) = 0;
 
   // Allocates space for a payload.
   // Returns 0 if space is successfully preallocated.

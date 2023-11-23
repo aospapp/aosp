@@ -205,6 +205,9 @@ TEST(SystemAudioTest, AudioDeviceTypeHelperFunction) {
     runAudioDeviceTypeHelperFunction(allDeviceTypes, AUDIO_DEVICE_IN_ALL_BLE_ARRAY,
             std::size(AUDIO_DEVICE_IN_ALL_BLE_ARRAY), "ble in",
             audio_is_ble_in_device);
+    runAudioDeviceTypeHelperFunction(allDeviceTypes, AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY,
+            std::size(AUDIO_DEVICE_OUT_BLE_UNICAST_ARRAY), "ble unicast",
+            audio_is_ble_unicast_device);
 }
 
 
@@ -490,13 +493,11 @@ void SystemAudioPortTest::fillFakeAudioPortConfigInfo(struct audio_port_config* 
             AUDIO_CHANNEL_IN_MONO : AUDIO_CHANNEL_OUT_MONO;
     config->format = AUDIO_FORMAT_PCM_16_BIT;
     config->gain = mGainConfig;
-#ifndef AUDIO_NO_SYSTEM_DECLARATIONS
     if (audio_port_config_has_input_direction(config)) {
         config->flags.input = mInputFlag;
     } else {
         config->flags.output = mOutputFlag;
     }
-#endif
     switch (config->type) {
     case AUDIO_PORT_TYPE_DEVICE:
         config->ext.device.hw_module = mHwModule;
@@ -666,7 +667,6 @@ TEST_P(SystemAudioPortTest, AudioPortConfigEquivalentTest) {
     rhs.config_mask = lhs.config_mask;
     ASSERT_TRUE(audio_port_configs_are_equal(&lhs, &rhs));
 
-#ifndef AUDIO_NO_SYSTEM_DECLARATIONS
     lhs.config_mask |= AUDIO_PORT_CONFIG_FLAGS;
     rhs.config_mask = lhs.config_mask;
     ASSERT_TRUE(audio_port_configs_are_equal(&lhs, &rhs));
@@ -679,7 +679,6 @@ TEST_P(SystemAudioPortTest, AudioPortConfigEquivalentTest) {
     lhs.config_mask &= ~AUDIO_PORT_CONFIG_FLAGS;
     rhs.config_mask = lhs.config_mask;
     ASSERT_TRUE(audio_port_configs_are_equal(&lhs, &rhs));
-#endif
 
     testAudioPortExtBaseEquivalent(&lhs, &rhs, audio_port_configs_are_equal);
     if (lhs.type == AUDIO_PORT_TYPE_MIX) {

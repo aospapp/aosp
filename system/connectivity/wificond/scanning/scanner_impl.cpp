@@ -134,6 +134,15 @@ Status ScannerImpl::getPnoScanResults(
   return Status::ok();
 }
 
+Status ScannerImpl::getMaxSsidsPerScan(int32_t* out_max_ssids_per_scan) {
+  if (!CheckIsValid()) {
+    *out_max_ssids_per_scan = 0;
+    return Status::ok();
+  }
+  *out_max_ssids_per_scan = static_cast<int32_t>(scan_capabilities_.max_num_scan_ssids);
+  return Status::ok();
+}
+
 Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
                          bool* out_success) {
   if (!CheckIsValid()) {
@@ -216,6 +225,18 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
   vector<vector<uint8_t>> skipped_match_ssids;
   std::set<int32_t> unique_frequencies;
   int num_networks_no_freqs = 0;
+  // Get the list of supported frequencies
+  const auto band_2g = client_interface_->GetBandInfo().band_2g;
+  const auto band_5g = client_interface_->GetBandInfo().band_5g;
+  const auto band_dfs = client_interface_->GetBandInfo().band_dfs;
+  const auto band_6g = client_interface_->GetBandInfo().band_6g;
+  const auto band_60g = client_interface_->GetBandInfo().band_60g;
+  std::set<uint32_t> all_freqs;
+  all_freqs.insert(band_2g.begin(), band_2g.end());
+  all_freqs.insert(band_5g.begin(), band_5g.end());
+  all_freqs.insert(band_dfs.begin(), band_dfs.end());
+  all_freqs.insert(band_6g.begin(), band_6g.end());
+  all_freqs.insert(band_60g.begin(), band_60g.end());
   for (auto& network : pno_settings.pno_networks_) {
     // Add hidden network ssid.
     if (network.is_hidden_) {
@@ -236,7 +257,11 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
 
     // build the set of unique frequencies to scan for.
     for (const auto& frequency : network.frequencies_) {
-      unique_frequencies.insert(frequency);
+      if (all_freqs.find(frequency) != all_freqs.end()) {
+        unique_frequencies.insert(frequency);
+      } else {
+        LOG(INFO) << "filtered out invalid frequency " << frequency;
+      }
     }
     if (network.frequencies_.empty()) {
       num_networks_no_freqs++;
@@ -247,14 +272,12 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
   // networks don't have frequency data.
   if (num_networks_no_freqs * 100 > kPercentNetworksWithFreq * match_ssids->size()) {
     // Filter out frequencies not supported by chip.
-    const auto band_2g = client_interface_->GetBandInfo().band_2g;
     for (const auto frequency : kPnoScanDefaultFreqs2G) {
       if (std::find(band_2g.begin(), band_2g.end(), frequency) != band_2g.end()) {
         unique_frequencies.insert(frequency);
       }
     }
     // Note: kPnoScanDefaultFreqs5G doesn't contain DFS frequencies.
-    const auto band_5g = client_interface_->GetBandInfo().band_5g;
     for (const auto frequency : kPnoScanDefaultFreqs5G) {
       if (std::find(band_5g.begin(), band_5g.end(), frequency) != band_5g.end()) {
         unique_frequencies.insert(frequency);

@@ -11,6 +11,7 @@
 /// DWARF format) and emit it back in a set of "text sections" in native
 /// libabigail XML format.
 
+#include "config.h"
 #include <unistd.h>
 #include <cassert>
 #include <cstdio>
@@ -25,6 +26,9 @@
 #include "abg-tools-utils.h"
 #include "abg-corpus.h"
 #include "abg-dwarf-reader.h"
+#ifdef WITH_CTF
+#include "abg-ctf-reader.h"
+#endif
 #include "abg-writer.h"
 #include "abg-reader.h"
 #include "abg-comparison.h"
@@ -62,10 +66,7 @@ using abigail::xml_writer::type_id_style_kind;
 using abigail::xml_writer::write_context_sptr;
 using abigail::xml_writer::write_corpus;
 using abigail::xml_reader::read_corpus_from_native_xml_file;
-using abigail::dwarf_reader::read_context;
-using abigail::dwarf_reader::read_context_sptr;
-using abigail::dwarf_reader::read_corpus_from_elf;
-using abigail::dwarf_reader::create_read_context;
+using abigail::xml_reader::create_native_xml_read_context;
 using namespace abigail;
 
 struct options
@@ -82,6 +83,7 @@ struct options
   vector<string>	kabi_whitelist_paths;
   suppressions_type	kabi_whitelist_supprs;
   bool			display_version;
+  bool			display_abixml_version;
   bool			check_alt_debug_info_path;
   bool			show_base_name_alt_debug_info_path;
   bool			write_architecture;
@@ -96,17 +98,29 @@ struct options
   bool			corpus_group_for_linux;
   bool			show_stats;
   bool			noout;
+#ifdef WITH_CTF
+  bool				use_ctf;
+#endif
   bool			show_locs;
   bool			abidiff;
+#ifdef WITH_DEBUG_SELF_COMPARISON
+  bool			debug_abidiff;
+#endif
+#ifdef WITH_DEBUG_TYPE_CANONICALIZATION
+  bool			debug_type_canonicalization;
+#endif
   bool			annotate;
   bool			do_log;
   bool			drop_private_types;
   bool			drop_undefined_syms;
-  bool			merge_translation_units;
   type_id_style_kind	type_id_style;
+#ifdef WITH_DEBUG_SELF_COMPARISON
+  string		type_id_file_path;
+#endif
 
   options()
     : display_version(),
+      display_abixml_version(),
       check_alt_debug_info_path(),
       show_base_name_alt_debug_info_path(),
       write_architecture(true),
@@ -121,13 +135,21 @@ struct options
       corpus_group_for_linux(false),
       show_stats(),
       noout(),
+#ifdef WITH_CTF
+      use_ctf(false),
+#endif
       show_locs(true),
       abidiff(),
+#ifdef WITH_DEBUG_SELF_COMPARISON
+      debug_abidiff(),
+#endif
+#ifdef WITH_DEBUG_TYPE_CANONICALIZATION
+      debug_type_canonicalization(),
+#endif
       annotate(),
       do_log(),
       drop_private_types(false),
       drop_undefined_syms(false),
-      merge_translation_units(false),
       type_id_style(SEQUENCE_TYPE_ID_STYLE)
   {}
 
@@ -150,6 +172,7 @@ display_usage(const string& prog_name, ostream& out)
     << " where options can be: \n"
     << "  --help|-h  display this message\n"
     << "  --version|-v  display program version information and exit\n"
+    << "  --abixml-version  display the version of the ABIXML ABI format\n"
     << "  --debug-info-dir|-d <dir-path>  look for debug info under 'dir-path'\n"
     << "  --headers-dir|--hd <path> the path to headers of the elf file\n"
     << "  --header-file|--hf <path> the path one header of the elf file\n"
@@ -162,7 +185,6 @@ display_usage(const string& prog_name, ostream& out)
     << "  --short-locs  only print filenames rather than paths\n"
     << "  --drop-private-types  drop private types from representation\n"
     << "  --drop-undefined-syms  drop undefined symbols from representation\n"
-    << "  --merge-translation-units  merge translation units for same language\n"
     << "  --no-comp-dir-path  do not show compilation path information\n"
     << "  --no-elf-needed  do not show the DT_NEEDED information\n"
     << "  --no-write-default-sizes  do not emit pointer size when it equals"
@@ -185,6 +207,15 @@ display_usage(const string& prog_name, ostream& out)
     << "  --vmlinux <path>  the path to the vmlinux binary to consider to emit "
        "the ABI of the union of vmlinux and its modules\n"
     << "  --abidiff  compare the loaded ABI against itself\n"
+#ifdef WITH_DEBUG_SELF_COMPARISON
+    << "  --debug-abidiff  debug the process of comparing the loaded ABI against itself\n"
+#endif
+#ifdef WITH_DEBUG_TYPE_CANONICALIZATION
+    << "  --debug-tc  debug the type canonicalization process\n"
+#endif
+#ifdef WITH_CTF
+    << "  --ctf use CTF instead of DWARF in ELF files\n"
+#endif
     << "  --annotate  annotate the ABI artifacts emitted in the output\n"
     << "  --stats  show statistics about various internal stuff\n"
     << "  --verbose show verbose messages about internal stuff\n";
@@ -209,6 +240,9 @@ parse_command_line(int argc, char* argv[], options& opts)
       else if (!strcmp(argv[i], "--version")
 	       || !strcmp(argv[i], "-v"))
 	opts.display_version = true;
+      else if (!strcmp(argv[i], "--abixml-version")
+	       || !strcmp(argv[i], "-v"))
+	opts.display_abixml_version = true;
       else if (!strcmp(argv[i], "--debug-info-dir")
 	       || !strcmp(argv[i], "-d"))
 	{
@@ -280,6 +314,10 @@ parse_command_line(int argc, char* argv[], options& opts)
 	}
       else if (!strcmp(argv[i], "--noout"))
 	opts.noout = true;
+#ifdef WITH_CTF
+        else if (!strcmp(argv[i], "--ctf"))
+          opts.use_ctf = true;
+#endif
       else if (!strcmp(argv[i], "--no-architecture"))
 	opts.write_architecture = false;
       else if (!strcmp(argv[i], "--no-corpus-path"))
@@ -327,12 +365,22 @@ parse_command_line(int argc, char* argv[], options& opts)
 	opts.drop_private_types = true;
       else if (!strcmp(argv[i], "--drop-undefined-syms"))
 	opts.drop_undefined_syms = true;
-      else if (!strcmp(argv[i], "--merge-translation-units"))
-	opts.merge_translation_units = true;
       else if (!strcmp(argv[i], "--no-linux-kernel-mode"))
 	opts.linux_kernel_mode = false;
       else if (!strcmp(argv[i], "--abidiff"))
 	opts.abidiff = true;
+#ifdef WITH_DEBUG_SELF_COMPARISON
+      else if (!strcmp(argv[i], "--debug-abidiff"))
+	{
+	  opts.abidiff = true;
+	  opts.debug_abidiff = true;
+	}
+#endif
+#ifdef WITH_DEBUG_TYPE_CANONICALIZATION
+      else if (!strcmp(argv[i], "--debug-tc")
+	       || !strcmp(argv[i], "debug-type-canonicalization"))
+	opts.debug_type_canonicalization = true;
+#endif
       else if (!strcmp(argv[i], "--annotate"))
 	opts.annotate = true;
       else if (!strcmp(argv[i], "--stats"))
@@ -426,7 +474,7 @@ maybe_check_header_files(const options& opts)
 /// @param opts the options where to get the suppression
 /// specifications from.
 static void
-set_suppressions(read_context& read_ctxt, options& opts)
+set_suppressions(dwarf_reader::read_context& read_ctxt, options& opts)
 {
   suppressions_type supprs;
   for (vector<string>::const_iterator i = opts.suppression_paths.begin();
@@ -462,8 +510,6 @@ set_suppressions(read_context& read_ctxt, options& opts)
 ///
 /// @param env the environment the ABI artifacts are being created in.
 ///
-/// @param context the context of the ELF reading.
-///
 /// @param opts the options of the program.
 ///
 /// @return the exit code: 0 if everything went fine, non-zero
@@ -471,33 +517,108 @@ set_suppressions(read_context& read_ctxt, options& opts)
 static int
 load_corpus_and_write_abixml(char* argv[],
 			     environment_sptr& env,
-			     read_context_sptr& context,
-			     const options& opts)
+			     options& opts)
 {
   int exit_code = 0;
   timer t;
 
-  read_context& ctxt = *context;
+#ifdef WITH_DEBUG_SELF_COMPARISON
+  if (opts.debug_abidiff)
+    env->self_comparison_debug_is_on(true);
+#endif
+
+#ifdef WITH_DEBUG_TYPE_CANONICALIZATION
+  if (opts.debug_type_canonicalization)
+    env->debug_type_canonicalization_is_on(true);
+#endif
+
+  // First of all, read a libabigail IR corpus from the file specified
+  // in OPTS.
   corpus_sptr corp;
-  dwarf_reader::status s = dwarf_reader::STATUS_UNKNOWN;
-  t.start();
-  corp = read_corpus_from_elf(ctxt, s);
-  t.stop();
-  if (opts.do_log)
-    emit_prefix(argv[0], cerr)
-      << "read corpus from elf file in: " << t << "\n";
+  elf_reader::status s = elf_reader::STATUS_UNKNOWN;
+#ifdef WITH_CTF
+  if (opts.use_ctf)
+    {
+      abigail::ctf_reader::read_context_sptr ctxt
+        = abigail::ctf_reader::create_read_context (opts.in_file_path,
+                                                    env.get());
 
-  t.start();
-  context.reset();
-  t.stop();
+      assert (ctxt);
+      t.start();
+      corp = abigail::ctf_reader::read_corpus (ctxt, s);
+      t.stop();
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "read corpus from elf file in: " << t << "\n";
+    }
+  else
+#endif
+    {
+      dwarf_reader::read_context_sptr c
+        = abigail::dwarf_reader::create_read_context(opts.in_file_path,
+                                                     opts.prepared_di_root_paths,
+                                                     env.get(),
+                                                     opts.load_all_types,
+                                                     opts.linux_kernel_mode);
+      dwarf_reader::read_context& ctxt = *c;
+      set_drop_undefined_syms(ctxt, opts.drop_undefined_syms);
+      set_show_stats(ctxt, opts.show_stats);
+      set_suppressions(ctxt, opts);
+      abigail::dwarf_reader::set_do_log(ctxt, opts.do_log);
 
-  if (opts.do_log)
-    emit_prefix(argv[0], cerr)
-      << "reset read context in: " << t << "\n";
+      if (opts.check_alt_debug_info_path)
+        {
+          bool has_alt_di = false;
+          string alt_di_path;
+          abigail::elf_reader::status status =
+            abigail::dwarf_reader::has_alt_debug_info(ctxt,
+                                                      has_alt_di,
+                                                      alt_di_path);
+          if (status & abigail::elf_reader::STATUS_OK)
+            {
+              if (alt_di_path.empty())
+                ;
+              else
+                {
+                  cout << "found the alternate debug info file";
+                  if (opts.show_base_name_alt_debug_info_path)
+                    {
+                      tools_utils::base_name(alt_di_path, alt_di_path);
+                      cout << " '" << alt_di_path << "'";
+                    }
+                  cout << "\n";
+                }
+              return 0;
+            }
+          else
+            {
+              emit_prefix(argv[0], cerr)
+                << "could not find alternate debug info file\n";
+              return 1;
+            }
+        }
 
+      t.start();
+      corp = dwarf_reader::read_corpus_from_elf(ctxt, s);
+      t.stop();
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "read corpus from elf file in: " << t << "\n";
+
+      t.start();
+      c.reset();
+      t.stop();
+
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "reset read context in: " << t << "\n";
+    }
+
+  // If we couldn't create a corpus, emit some (hopefully) useful
+  // diagnostics and return and error.
   if (!corp)
     {
-      if (s == dwarf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
+      if (s == elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
 	{
 	  if (opts.di_root_paths.empty())
 	    {
@@ -527,108 +648,129 @@ load_corpus_and_write_abixml(char* argv[],
 		}
 	    }
 	}
-      else if (s == dwarf_reader::STATUS_NO_SYMBOLS_FOUND)
+      else if (s == elf_reader::STATUS_NO_SYMBOLS_FOUND)
 	emit_prefix(argv[0], cerr)
 	  << "Could not read ELF symbol information from "
 	  << opts.in_file_path << "\n";
 
       return 1;
     }
+
+  // Now create a write context and write out an ABI XML description
+  // of the read corpus.
+  t.start();
+  const write_context_sptr& write_ctxt
+    = create_write_context(corp->get_environment(), cout);
+  set_common_options(*write_ctxt, opts);
+  t.stop();
+
+  if (opts.do_log)
+    emit_prefix(argv[0], cerr)
+      << "created & initialized write context in: "
+      << t << "\n";
+
+  if (opts.abidiff)
+    {
+      // Save the abi in abixml format in a temporary file, read
+      // it back, and compare the ABI of what we've read back
+      // against the ABI of the input ELF file.
+      temp_file_sptr tmp_file = temp_file::create();
+      set_ostream(*write_ctxt, tmp_file->get_stream());
+      write_corpus(*write_ctxt, corp, 0);
+      tmp_file->get_stream().flush();
+
+#ifdef WITH_DEBUG_SELF_COMPARISON
+      if (opts.debug_abidiff)
+        {
+          opts.type_id_file_path = tmp_file->get_path() + string(".typeid");
+          write_canonical_type_ids(*write_ctxt, opts.type_id_file_path);
+        }
+#endif
+      xml_reader::read_context_sptr read_ctxt =
+        create_native_xml_read_context(tmp_file->get_path(), env.get());
+
+#ifdef WITH_DEBUG_SELF_COMPARISON
+      if (opts.debug_abidiff
+          && !opts.type_id_file_path.empty())
+        load_canonical_type_ids(*read_ctxt, opts.type_id_file_path);
+#endif
+      t.start();
+      corpus_sptr corp2 =
+        read_corpus_from_input(*read_ctxt);
+      t.stop();
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "Read corpus in: " << t << "\n";
+
+      if (!corp2)
+        {
+          emit_prefix(argv[0], cerr)
+            << "Could not read temporary XML representation of "
+            "elf file back\n";
+          return 1;
+        }
+
+      diff_context_sptr ctxt(new diff_context);
+      set_diff_context(ctxt);
+      ctxt->show_locs(opts.show_locs);
+      t.start();
+      corpus_diff_sptr diff = compute_diff(corp, corp2, ctxt);
+      t.stop();
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "computed diff in: " << t << "\n";
+
+      bool has_error = diff->has_changes();
+      if (has_error)
+        {
+          t.start();
+          diff->report(cerr);
+          t.stop();
+          if (opts.do_log)
+            emit_prefix(argv[0], cerr)
+              << "emitted report in: " << t << "\n";
+          return 1;
+        }
+      return 0;
+    }
+
+#ifdef WITH_DEBUG_SELF_COMPARISON
+  if (opts.debug_abidiff
+      && !opts.type_id_file_path.empty())
+    remove(opts.type_id_file_path.c_str());
+#endif
+
+  if (opts.noout)
+    return 0;
+
+  if (!opts.out_file_path.empty())
+    {
+      ofstream of(opts.out_file_path.c_str(), std::ios_base::trunc);
+      if (!of.is_open())
+        {
+          emit_prefix(argv[0], cerr)
+            << "could not open output file '"
+            << opts.out_file_path << "'\n";
+          return 1;
+        }
+      set_ostream(*write_ctxt, of);
+      t.start();
+      write_corpus(*write_ctxt, corp, 0);
+      t.stop();
+      if (opts.do_log)
+        emit_prefix(argv[0], cerr)
+          << "emitted abixml output in: " << t << "\n";
+      of.close();
+      return 0;
+    }
   else
     {
       t.start();
-      const write_context_sptr& write_ctxt
-	  = create_write_context(corp->get_environment(), cout);
-      set_common_options(*write_ctxt, opts);
+      exit_code = !write_corpus(*write_ctxt, corp, 0);
       t.stop();
-
       if (opts.do_log)
-	emit_prefix(argv[0], cerr)
-	  << "created & initialized write context in: "
-	  << t << "\n";
-
-      if (opts.abidiff)
-	{
-	  // Save the abi in abixml format in a temporary file, read
-	  // it back, and compare the ABI of what we've read back
-	  // against the ABI of the input ELF file.
-	  temp_file_sptr tmp_file = temp_file::create();
-	  set_ostream(*write_ctxt, tmp_file->get_stream());
-	  write_corpus(*write_ctxt, corp, 0);
-	  tmp_file->get_stream().flush();
-	  t.start();
-	  corpus_sptr corp2 =
-	    read_corpus_from_native_xml_file(tmp_file->get_path(),
-					     env.get());
-	  t.stop();
-	  if (opts.do_log)
-	    emit_prefix(argv[0], cerr)
-	      << "Read corpus in: " << t << "\n";
-
-	  if (!corp2)
-	    {
-	      emit_prefix(argv[0], cerr)
-		<< "Could not read temporary XML representation of "
-		"elf file back\n";
-	      return 1;
-	    }
-
-	  diff_context_sptr ctxt(new diff_context);
-	  set_diff_context(ctxt);
-	  ctxt->show_locs(opts.show_locs);
-	  t.start();
-	  corpus_diff_sptr diff = compute_diff(corp, corp2, ctxt);
-	  t.stop();
-	  if (opts.do_log)
-	    emit_prefix(argv[0], cerr)
-	      << "computed diff in: " << t << "\n";
-
-	  bool has_error = diff->has_changes();
-	  if (has_error)
-	    {
-	      t.start();
-	      diff->report(cerr);
-	      t.stop();
-	      if (opts.do_log)
-		emit_prefix(argv[0], cerr)
-		  << "emitted report in: " << t << "\n";
-	      return 1;
-	    }
-	  return 0;
-	}
-
-      if (opts.noout)
-	return 0;
-
-      if (!opts.out_file_path.empty())
-	{
-	  ofstream of(opts.out_file_path.c_str(), std::ios_base::trunc);
-	  if (!of.is_open())
-	    {
-	      emit_prefix(argv[0], cerr)
-		<< "could not open output file '"
-		<< opts.out_file_path << "'\n";
-	      return 1;
-	    }
-	  set_ostream(*write_ctxt, of);
-	  t.start();
-	  write_corpus(*write_ctxt, corp, 0);
-	  t.stop();
-	  if (opts.do_log)
-	    emit_prefix(argv[0], cerr)
-	      << "emitted abixml output in: " << t << "\n";
-	  of.close();
-	  return 0;
-	}
-      else
-	{
-	  t.start();
-	  exit_code = !write_corpus(*write_ctxt, corp, 0);
-	  t.stop();
-	  if (opts.do_log)
-	    emit_prefix(argv[0], cerr)
-	      << "emitted abixml out in: " << t << "\n";
-	}
+        emit_prefix(argv[0], cerr)
+          << "emitted abixml out in: " << t << "\n";
     }
 
   return exit_code;
@@ -756,7 +898,8 @@ main(int argc, char* argv[])
 
   if (!parse_command_line(argc, argv, opts)
       || (opts.in_file_path.empty()
-	  && !opts.display_version))
+	  && !opts.display_version
+	  && !opts.display_abixml_version))
     {
       if (!opts.wrong_option.empty())
 	emit_prefix(argv[0], cerr)
@@ -772,6 +915,14 @@ main(int argc, char* argv[])
 	<< "\n";
       return 0;
     }
+
+    if (opts.display_abixml_version)
+      {
+	emit_prefix(argv[0], cout)
+	  << abigail::tools_utils::get_abixml_version_string()
+	  << "\n";
+	return 0;
+      }
 
   ABG_ASSERT(!opts.in_file_path.empty());
   if (opts.corpus_group_for_linux)
@@ -808,52 +959,7 @@ main(int argc, char* argv[])
   int exit_code = 0;
 
   if (tools_utils::is_regular_file(opts.in_file_path))
-    {
-      read_context_sptr c = create_read_context(opts.in_file_path,
-						opts.prepared_di_root_paths,
-						env.get(),
-						opts.load_all_types,
-						opts.linux_kernel_mode);
-      read_context& ctxt = *c;
-      set_drop_undefined_syms(ctxt, opts.drop_undefined_syms);
-      set_merge_translation_units(ctxt, opts.merge_translation_units);
-      set_show_stats(ctxt, opts.show_stats);
-      set_suppressions(ctxt, opts);
-      abigail::dwarf_reader::set_do_log(ctxt, opts.do_log);
-
-      if (opts.check_alt_debug_info_path)
-	{
-	  bool has_alt_di = false;
-	  string alt_di_path;
-	  abigail::dwarf_reader::status status =
-	    abigail::dwarf_reader::has_alt_debug_info(ctxt,
-						      has_alt_di,
-						      alt_di_path);
-	  if (status & abigail::dwarf_reader::STATUS_OK)
-	    {
-	      if (alt_di_path.empty())
-		;
-	      else
-		{
-		  cout << "found the alternate debug info file";
-		  if (opts.show_base_name_alt_debug_info_path)
-		    {
-		      tools_utils::base_name(alt_di_path, alt_di_path);
-		      cout << " '" << alt_di_path << "'";
-		    }
-		  cout << "\n";
-		}
-	      return 0;
-	    }
-	  else
-	    {
-	      emit_prefix(argv[0], cerr)
-		<< "could not find alternate debug info file\n";
-	      return 1;
-	    }
-	}
-      exit_code = load_corpus_and_write_abixml(argv, env, c, opts);
-    }
+    exit_code = load_corpus_and_write_abixml(argv, env, opts);
   else
     exit_code = load_kernel_corpus_group_and_write_abixml(argv, env, opts);
 

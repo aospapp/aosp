@@ -20,7 +20,7 @@
 #include "host-common/multi_display_agent.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
-#include "host-common/opengl/virtio_gpu_ops.h"
+#include "../stream-servers/virtio_gpu_ops.h"
 #include "../stream-servers/RenderLib.h"
 
 /* A version of android_initOpenglesEmulation that is called from a library

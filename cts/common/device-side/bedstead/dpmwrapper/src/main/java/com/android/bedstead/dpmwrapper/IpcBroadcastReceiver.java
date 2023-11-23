@@ -32,6 +32,10 @@ import android.util.Log;
    <pre><code>
    <receiver android:name="com.android.bedstead.dpmwrapper.IpcBroadcastReceiver"
              android:exported="true">
+     <intent-filter>
+       <action android:name="com.android.bedstead.dpmwrapper.action.WRAPPED_MANAGER_CALL"/>
+     </intent-filter>
+   </receiver>
    </code></pre>
  */
 // TODO(b/176993670): remove when DpmWrapper IPC mechanism changes

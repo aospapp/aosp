@@ -380,8 +380,8 @@ main()
 	  continue;
 	}
 
-      abigail::dwarf_reader::status status =
-	abigail::dwarf_reader::STATUS_UNKNOWN;
+      abigail::elf_reader::status status =
+	abigail::elf_reader::STATUS_UNKNOWN;
 
       environment_sptr env(new environment);
       std::vector<char**> di_roots;

@@ -5,6 +5,9 @@ target: {
     linux_glibc_x86_64: {
         enabled: false,
     },
+    linux_musl_x86_64: {
+        enabled: false,
+    },
 },
 arch: {
     x86_64: {

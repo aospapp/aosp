@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -31,19 +32,33 @@ public final class VehicleGear {
      *  {@link VehicleGear#GEAR_DRIVE} only apply to the {@link VehiclePropertyIds#GEAR_SELECTION}
      *  property for a vehicle with an automatic transmission.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_UNKNOWN    = 0x0000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_NEUTRAL    = 0x0001;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_REVERSE    = 0x0002;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_PARK       = 0x0004;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_DRIVE      = 0x0008;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_FIRST      = 0x0010;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_SECOND     = 0x0020;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_THIRD      = 0x0040;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_FOURTH     = 0x0080;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_FIFTH      = 0x0100;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_SIXTH      = 0x0200;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_SEVENTH    = 0x0400;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_EIGHTH     = 0x0800;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int GEAR_NINTH      = 0x1000;
 
     /** @hide */
@@ -71,6 +86,7 @@ public final class VehicleGear {
      * @param o Integer
      * @return String
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static  String toString(int o) {
         if (o == GEAR_UNKNOWN) {
             return "GEAR_UNKNOWN";

@@ -4,17 +4,17 @@
 //  "presubmit": [
 //    {
 //      "host": true,
-//      "name": "kvm_sys_host_test_src_lib"
+//      "name": "kvm_sys_test_src_lib"
 //    },
 //    {
-//      "name": "kvm_sys_device_test_src_lib"
+//      "name": "kvm_sys_test_src_lib"
 //    },
 //    {
 //      "host": true,
-//      "name": "kvm_sys_host_test_tests_basic"
+//      "name": "kvm_sys_test_tests_basic"
 //    },
 //    {
-//      "name": "kvm_sys_device_test_tests_basic"
+//      "name": "kvm_sys_test_tests_basic"
 //    }
 //  ]
 }

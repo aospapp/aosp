@@ -94,7 +94,7 @@ public class GarageModeAtomTests extends DeviceTestCase implements IBuildReceive
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
-        AtomTestUtils.assertStatesOccurred(stateSet, data, AtomTestUtils.WAIT_TIME_SHORT,
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_SHORT,
                 atom -> atom.getGarageModeInfo().getIsGarageMode() ?  1 : 0);
 
     }

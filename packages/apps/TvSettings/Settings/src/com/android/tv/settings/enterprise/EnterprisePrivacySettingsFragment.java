@@ -21,7 +21,7 @@ import android.content.Context;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.PreferenceControllerFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.util.List;
 

@@ -18,12 +18,14 @@ TST_SETUP="tst_net_setup"
 # Blank for an IPV4 test; 6 for an IPV6 test.
 TST_IPV6=${TST_IPV6:-}
 TST_IPVER=${TST_IPV6:-4}
+# Blank for IPv4, '-6' for IPv6 test.
+TST_IPV6_FLAG=${TST_IPV6_FLAG:-}
 
 tst_net_parse_args()
 {
 	case $1 in
-	6) TST_IPV6=6 TST_IPVER=6;;
-	*) $TST_PARSE_ARGS_CALLER "$1" "$2";;
+	6) TST_IPV6=6 TST_IPVER=6 TST_IPV6_FLAG="-6";;
+	*) [ "$TST_PARSE_ARGS_CALLER" ] && $TST_PARSE_ARGS_CALLER "$1" "$2";;
 	esac
 }
 
@@ -97,14 +99,6 @@ tst_brk_()
 {
 	[ -z "$TST_USE_LEGACY_API" ] && tst_brk $@ || tst_brkm $@
 }
-tst_require_root_()
-{
-	if [ -z "$TST_USE_LEGACY_API" ]; then
-		_tst_require_root
-	else
-		tst_require_root
-	fi
-}
 
 init_ltp_netspace()
 {
@@ -112,8 +106,9 @@ init_ltp_netspace()
 
 	if [ ! -f /var/run/netns/ltp_ns -a -z "$LTP_NETNS" ]; then
 		tst_require_cmds ip
-		tst_require_root_
+		tst_require_root
 
+		tst_require_drivers veth
 		ROD ip li add name ltp_ns_veth1 type veth peer name ltp_ns_veth2
 		pid="$(ROD ns_create net,mnt)"
 		mkdir -p /var/run/netns
@@ -138,61 +133,71 @@ init_ltp_netspace()
 	tst_restore_ipaddr rhost
 }
 
+# return 0: use ssh, 1: use netns
+tst_net_use_netns()
+{
+	[ -n "$TST_USE_NETNS" ]
+}
+
 # Run command on remote host.
+# tst_rhost_run -c CMD [-b] [-s] [-u USER]
 # Options:
 # -b run in background
+# -c CMD specify command to run (this must be binary, not shell builtin/function)
 # -s safe option, if something goes wrong, will exit with TBROK
-# -c specify command to run (this must be binary, not shell builtin/function)
+# -u USER for ssh (default root)
 # RETURN: 0 on success, 1 on failure
+# TST_NET_RHOST_RUN_DEBUG=1 enables debugging
 tst_rhost_run()
 {
-	local pre_cmd=
 	local post_cmd=' || echo RTERR'
-	local out=
 	local user="root"
-	local cmd=
-	local safe=0
+	local ret=0
+	local cmd out output pre_cmd rcmd sh_cmd safe use
 
-	OPTIND=0
-
-	while getopts :bsc:u: opt; do
+	local OPTIND
+	while getopts :bc:su: opt; do
 		case "$opt" in
-		b) [ "$TST_USE_NETNS" ] && pre_cmd= || pre_cmd="nohup"
+		b) [ "${TST_USE_NETNS:-}" ] && pre_cmd= || pre_cmd="nohup"
 		   post_cmd=" > /dev/null 2>&1 &"
 		   out="1> /dev/null"
 		;;
-		s) safe=1 ;;
 		c) cmd="$OPTARG" ;;
+		s) safe=1 ;;
 		u) user="$OPTARG" ;;
 		*) tst_brk_ TBROK "tst_rhost_run: unknown option: $OPTARG" ;;
 		esac
 	done
 
-	OPTIND=0
-
 	if [ -z "$cmd" ]; then
-		[ "$safe" -eq 1 ] && \
+		[ "$safe" ] && \
 			tst_brk_ TBROK "tst_rhost_run: command not defined"
 		tst_res_ TWARN "tst_rhost_run: command not defined"
 		return 1
 	fi
 
-	local output=
-	local ret=0
-	if [ -n "${TST_USE_SSH:-}" ]; then
-		output=`ssh -n -q $user@$RHOST "sh -c \
-			'$pre_cmd $cmd $post_cmd'" $out 2>&1 || echo 'RTERR'`
-	elif [ -n "$TST_USE_NETNS" ]; then
-		output=`$LTP_NETNS sh -c \
-			"$pre_cmd $cmd $post_cmd" $out 2>&1 || echo 'RTERR'`
+	sh_cmd="$pre_cmd $cmd $post_cmd"
+
+	if [ -n "${TST_USE_NETNS:-}" ]; then
+		use="NETNS"
+		rcmd="$LTP_NETNS sh -c"
 	else
-		output=`rsh -n -l $user $RHOST "sh -c \
-			'$pre_cmd $cmd $post_cmd'" $out 2>&1 || echo 'RTERR'`
+		tst_require_cmds ssh
+		use="SSH"
+		rcmd="ssh -nq $user@$RHOST"
 	fi
+
+	if [ "$TST_NET_RHOST_RUN_DEBUG" = 1 ]; then
+		tst_res_ TINFO "tst_rhost_run: cmd: $cmd"
+		tst_res_ TINFO "$use: $rcmd \"$sh_cmd\" $out 2>&1"
+	fi
+
+	output=$($rcmd "$sh_cmd" $out 2>&1 || echo 'RTERR')
+
 	echo "$output" | grep -q 'RTERR$' && ret=1
 	if [ $ret -eq 1 ]; then
 		output=$(echo "$output" | sed 's/RTERR//')
-		[ "$safe" -eq 1 ] && \
+		[ "$safe" ] && \
 			tst_brk_ TBROK "'$cmd' failed on '$RHOST': '$output'"
 	fi
 
@@ -258,22 +263,32 @@ tst_net_run()
 
 EXPECT_RHOST_PASS()
 {
-	tst_rhost_run -c "$*" > /dev/null
+	local log="$TMPDIR/log.$$"
+
+	tst_rhost_run -c "$*" > $log
 	if [ $? -eq 0 ]; then
 		tst_res_ TPASS "$* passed as expected"
 	else
 		tst_res_ TFAIL "$* failed unexpectedly"
+		cat $log
 	fi
+
+	rm -f $log
 }
 
 EXPECT_RHOST_FAIL()
 {
-	tst_rhost_run -c "$* 2> /dev/null"
+	local log="$TMPDIR/log.$$"
+
+	tst_rhost_run -c "$*" > $log
 	if [ $? -ne 0 ]; then
 		tst_res_ TPASS "$* failed as expected"
 	else
 		tst_res_ TFAIL "$* passed unexpectedly"
+		cat $log
 	fi
+
+	rm -f $log
 }
 
 # Get test interface names for local/remote host.
@@ -577,7 +592,7 @@ tst_del_ipaddr()
 tst_restore_ipaddr()
 {
 	tst_require_cmds ip
-	tst_require_root_
+	tst_require_root
 
 	local type="${1:-lhost}"
 	local link_num="${2:-0}"
@@ -617,9 +632,11 @@ tst_wait_ipv6_dad()
 	done
 }
 
-tst_dump_rhost_cmd()
+tst_netload_brk()
 {
 	tst_rhost_run -c "cat $TST_TMPDIR/netstress.log"
+	cat tst_netload.log
+	tst_brk_ $1 $2
 }
 
 # Run network load test, see 'netstress -h' for option description
@@ -634,6 +651,7 @@ tst_netload()
 	# common options for client and server
 	local cs_opts=
 
+	local run_cnt="$TST_NETLOAD_RUN_COUNT"
 	local c_num="$TST_NETLOAD_CLN_NUMBER"
 	local c_requests="$TST_NETLOAD_CLN_REQUESTS"
 	local c_opts=
@@ -686,86 +704,163 @@ tst_netload()
 	local expect_ret=0
 	[ "$expect_res" != "pass" ] && expect_ret=3
 
-	tst_rhost_run -c "pkill -9 netstress\$"
+	local was_failure=0
+	if [ "$run_cnt" -lt 2 ]; then
+		run_cnt=1
+		was_failure=1
+	fi
+
 	s_opts="${cs_opts}${s_opts}-R $s_replies -B $TST_TMPDIR"
+	c_opts="${cs_opts}${c_opts}-a $c_num -r $((c_requests / run_cnt)) -d $rfile"
+
 	tst_res_ TINFO "run server 'netstress $s_opts'"
-	tst_rhost_run -c "netstress $s_opts" > tst_netload.log 2>&1
-	if [ $? -ne 0 ]; then
-		cat tst_netload.log
-		local ttype="TFAIL"
-		grep -e 'CONF:' tst_netload.log && ttype="TCONF"
-		tst_brk_ $ttype "server failed"
-	fi
+	tst_res_ TINFO "run client 'netstress -l $c_opts' $run_cnt times"
 
-	local port=$(tst_rhost_run -s -c "cat $TST_TMPDIR/netstress_port")
-	c_opts="${cs_opts}${c_opts}-a $c_num -r $c_requests -d $rfile -g $port"
-
-	tst_res_ TINFO "run client 'netstress -l $c_opts'"
-	netstress -l $c_opts > tst_netload.log 2>&1 || ret=$?
 	tst_rhost_run -c "pkill -9 netstress\$"
+	rm -f tst_netload.log
 
-	if [ "$expect_ret" -ne 0 ]; then
-		if [ $((ret & expect_ret)) -ne 0 ]; then
-			tst_res_ TPASS "netstress failed as expected"
-		else
-			tst_res_ TFAIL "expected '$expect_res' but ret: '$ret'"
+	local results
+	local passed=0
+
+	for i in $(seq 1 $run_cnt); do
+		tst_rhost_run -c "netstress $s_opts" > tst_netload.log 2>&1
+		if [ $? -ne 0 ]; then
+			cat tst_netload.log
+			local ttype="TFAIL"
+			grep -e 'CONF:' tst_netload.log && ttype="TCONF"
+			tst_brk_ $ttype "server failed"
 		fi
-		return $ret
-	fi
+
+		local port=$(tst_rhost_run -s -c "cat $TST_TMPDIR/netstress_port")
+		netstress -l ${c_opts} -g $port > tst_netload.log 2>&1
+		ret=$?
+		tst_rhost_run -c "pkill -9 netstress\$"
+
+		if [ "$expect_ret" -ne 0 ]; then
+			if [ $((ret & expect_ret)) -ne 0 ]; then
+				tst_res_ TPASS "netstress failed as expected"
+			else
+				tst_res_ TFAIL "expected '$expect_res' but ret: '$ret'"
+			fi
+			return $ret
+		fi
+
+		if [ "$ret" -ne 0 ]; then
+			[ $((ret & 32)) -ne 0 ] && \
+				tst_netload_brk TCONF "not supported configuration"
+
+			[ $((ret & 3)) -ne 0 -a $was_failure -gt 0 ] && \
+				tst_netload_brk TFAIL "expected '$expect_res' but ret: '$ret'"
+
+			tst_res_ TWARN "netstress failed, ret: $ret"
+			was_failure=1
+			continue
+		fi
+
+		[ ! -f $rfile ] && \
+			tst_netload_brk TFAIL "can't read $rfile"
+
+		results="$results $(cat $rfile)"
+		passed=$((passed + 1))
+	done
 
 	if [ "$ret" -ne 0 ]; then
-		tst_dump_rhost_cmd
-		cat tst_netload.log
-		[ $((ret & 3)) -ne 0 ] && \
-			tst_brk_ TFAIL "expected '$expect_res' but ret: '$ret'"
-		[ $((ret & 32)) -ne 0 ] && \
-			tst_brk_ TCONF "not supported configuration"
 		[ $((ret & 4)) -ne 0 ] && \
 			tst_res_ TWARN "netstress has warnings"
+		tst_netload_brk TFAIL "expected '$expect_res' but ret: '$ret'"
 	fi
 
-	if [ ! -f $rfile ]; then
-		tst_dump_rhost_cmd
-		cat tst_netload.log
-		tst_brk_ TFAIL "can't read $rfile"
-	fi
+	local median=$(tst_get_median $results)
+	echo "$median" > $rfile
 
-	tst_res_ TPASS "netstress passed, time spent '$(cat $rfile)' ms"
+	tst_res_ TPASS "netstress passed, median time $median ms, data:$results"
 
 	return $ret
 }
 
-# tst_ping [IFACE] [DST ADDR] [MESSAGE SIZE ARRAY]
+# Compares results for netload runs.
+# tst_netload_compare TIME_BASE TIME THRESHOLD_LOW [THRESHOLD_HI]
+# TIME_BASE: time taken to run netstress load test - 100%
+# TIME: time that is compared to the base one
+# THRESHOD_LOW: lower limit for TFAIL
+# THRESHOD_HIGH: upper limit for TWARN
+tst_netload_compare()
+{
+	local base_time=$1
+	local new_time=$2
+	local threshold_low=$3
+	local threshold_hi=$4
+
+	if [ -z "$base_time" -o -z "$new_time" -o -z "$threshold_low" ]; then
+		tst_brk_ TBROK "tst_netload_compare: invalid argument(s)"
+	fi
+
+	local res=$(((base_time - new_time) * 100 / base_time))
+	local msg="performance result is ${res}%"
+
+	if [ "$res" -lt "$threshold_low" ]; then
+		tst_res_ TFAIL "$msg < threshold ${threshold_low}%"
+		return
+	fi
+
+	[ "$threshold_hi" ] && [ "$res" -gt "$threshold_hi" ] && \
+		tst_res_ TWARN "$msg > threshold ${threshold_hi}%"
+
+	tst_res_ TPASS "$msg, in range [${threshold_low}:${threshold_hi}]%"
+}
+
+tst_ping_opt_unsupported()
+{
+	ping $@ 2>&1 | grep -q "invalid option"
+}
+
+# tst_ping -c COUNT -s MESSAGE_SIZES -p PATTERN -I IFACE -H HOST
 # Check icmp connectivity
 # IFACE: source interface name or IP address
-# DST ADDR: destination IPv4 or IPv6 address
-# MESSAGE SIZE ARRAY: message size array
+# HOST: destination IPv4 or IPv6 address
+# MESSAGE_SIZES: message size array
 tst_ping()
 {
 	# The max number of ICMP echo request
-	PING_MAX="${PING_MAX:-500}"
-
-	local src_iface="${1:-$(tst_iface)}"
-	local dst_addr="${2:-$(tst_ipaddr rhost)}"; shift $(( $# >= 2 ? 2 : 0 ))
-	local msg_sizes="$*"
-	local msg="tst_ping $dst_addr iface/saddr $src_iface, msg_size"
+	local ping_count="${PING_MAX:-500}"
+	local flood_opt="-f"
+	local pattern_opt
+	local msg_sizes
+	local src_iface="$(tst_iface)"
+	local dst_addr="$(tst_ipaddr rhost)"
 	local cmd="ping"
 	local ret=0
+	local opts
+
+	local OPTIND
+	while getopts c:s:p:I:H: opt; do
+		case "$opt" in
+		c) ping_count="$OPTARG";;
+		s) msg_sizes="$OPTARG";;
+		p) pattern_opt="-p $OPTARG";;
+		I) src_iface="$OPTARG";;
+		H) dst_addr="$OPTARG";;
+		*) tst_brk_ TBROK "tst_ping: unknown option: $OPTARG";;
+		esac
+	done
 
 	echo "$dst_addr" | grep -q ':' && cmd="ping6"
 	tst_require_cmds $cmd
 
+	if tst_ping_opt_unsupported $flood_opt; then
+		flood_opt="-i 0.01"
+		[ "$pattern_opt" ] && pattern_opt="-p aa"
+
+		tst_ping_opt_unsupported -i $pattern_opt && \
+			tst_brk_ TCONF "unsupported ping version (old busybox?)"
+	fi
+
 	# ping cmd use 56 as default message size
 	for size in ${msg_sizes:-"56"}; do
-		$cmd -I $src_iface -c $PING_MAX $dst_addr \
-			-s $size -i 0 > /dev/null 2>&1
+		EXPECT_PASS $cmd -I $src_iface -c $ping_count -s $size \
+			$flood_opt $pattern_opt $dst_addr \>/dev/null
 		ret=$?
-		if [ $ret -eq 0 ]; then
-			tst_res_ TPASS "$msg $size: pass"
-		else
-			tst_res_ TFAIL "$msg $size: fail"
-			break
-		fi
+		[ "$ret" -ne 0 ] && break
 	done
 	return $ret
 }
@@ -843,7 +938,7 @@ tst_default_max_pkt()
 export RHOST="$RHOST"
 export PASSWD="${PASSWD:-}"
 # Don't use it in new tests, use tst_rhost_run() from tst_net.sh instead.
-export LTP_RSH="${LTP_RSH:-rsh -n}"
+export LTP_RSH="${LTP_RSH:-ssh -nq}"
 
 # Test Links
 # IPV{4,6}_{L,R}HOST can be set with or without prefix (e.g. IP or IP/prefix),
@@ -896,9 +991,12 @@ if [ -z "$_tst_net_parse_variables" ]; then
 	export _tst_net_parse_variables="yes"
 fi
 
+export TST_NET_DATAROOT="$LTPROOT/testcases/bin/datafiles"
+
 export TST_NETLOAD_CLN_REQUESTS="${TST_NETLOAD_CLN_REQUESTS:-10000}"
 export TST_NETLOAD_CLN_NUMBER="${TST_NETLOAD_CLN_NUMBER:-2}"
 export TST_NETLOAD_BINDTODEVICE="${TST_NETLOAD_BINDTODEVICE-1}"
+export TST_NETLOAD_RUN_COUNT="${TST_NETLOAD_RUN_COUNT:-5}"
 export HTTP_DOWNLOAD_DIR="${HTTP_DOWNLOAD_DIR:-/var/www/html}"
 export FTP_DOWNLOAD_DIR="${FTP_DOWNLOAD_DIR:-/var/ftp}"
 export FTP_UPLOAD_DIR="${FTP_UPLOAD_DIR:-/var/ftp/pub}"
@@ -919,6 +1017,8 @@ export UPLOAD_BIGFILESIZE="${UPLOAD_BIGFILESIZE:-2147483647}"
 export UPLOAD_REGFILESIZE="${UPLOAD_REGFILESIZE:-1024}"
 export MCASTNUM_NORMAL="${MCASTNUM_NORMAL:-20}"
 export MCASTNUM_HEAVY="${MCASTNUM_HEAVY:-4000}"
+export ROUTE_CHANGE_IP="${ROUTE_CHANGE_IP:-100}"
+export ROUTE_CHANGE_NETLINK="${ROUTE_CHANGE_NETLINK:-10000}"
 
 # Warning: make sure to set valid interface names and IP addresses below.
 # Set names for test interfaces, e.g. "eth0 eth1"

@@ -27,20 +27,21 @@ parser.set_defaults(defines=list())
 
 
 def split_ukernel_name(name):
-  match = re.match(r"^xnn_(qs8|qu8|f16|f32)_[p]?gavgpool(_(minmax))?_ukernel_((\d+)p)?(\d+)x__(.+)_c(\d+)(_acc(\d+))?$", name)
+  match = re.match(r"^xnn_(qs8|qu8|f16|f32)_[p]?gavgpool(_(minmax))?(_(fp32|rndnu))?_ukernel_((\d+)p)?(\d+)x__(.+)_c(\d+)(_acc(\d+))?$", name)
   if match is None:
     raise ValueError("Unexpected microkernel name: " + name)
 
-  if match.group(4):
-    primary_tile = int(match.group(5))
-    incremental_tile = int(match.group(6))
+  requantization_type = match.group(5)
+  if match.group(6):
+    primary_tile = int(match.group(7))
+    incremental_tile = int(match.group(8))
   else:
-    primary_tile = int(match.group(6))
+    primary_tile = int(match.group(8))
     incremental_tile = 0
-  channel_tile = int(match.group(8))
+  channel_tile = int(match.group(10))
 
-  arch, isa = xnncommon.parse_target_name(target_name=match.group(7))
-  return primary_tile, incremental_tile, channel_tile, arch, isa
+  arch, isa = xnncommon.parse_target_name(target_name=match.group(9))
+  return requantization_type, primary_tile, incremental_tile, channel_tile, arch, isa
 
 
 AVGPOOL_TEST_TEMPLATE = """\
@@ -506,12 +507,14 @@ $else:
 """
 
 
-def generate_test_cases(ukernel, primary_tile, incremental_tile, channel_tile,
-                        isa):
+def generate_test_cases(ukernel, init_fn, requantization_type, primary_tile,
+                        incremental_tile, channel_tile, isa):
   """Generates all tests cases for a GAVGPOOL micro-kernel.
 
   Args:
     ukernel: C name of the micro-kernel function.
+    init_fn: C name of the function to initialize microkernel parameters.
+    requantization_type: Requantization type (FP32/RNDNU).
     primary_tile: Number of rows (pixels) processed per one iteration of the
                   primary outer loop of the micro-kernel.
     incremental_tile: Number of rows (pixels) processed per one iteration of
@@ -526,9 +529,10 @@ def generate_test_cases(ukernel, primary_tile, incremental_tile, channel_tile,
   """
   _, test_name = ukernel.split("_", 1)
   _, datatype, ukernel_type, _ = ukernel.split("_", 3)
-  test_args = [ukernel]
-  if not isa:
-    test_args.append("GAvgPoolMicrokernelTester::Variant::Scalar")
+  test_args = [ukernel, init_fn]
+  if requantization_type:
+    test_args.append("xnn_%s_requantize_%s" % \
+      (datatype.lower(), requantization_type.lower()))
   return xngen.preprocess(AVGPOOL_TEST_TEMPLATE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
       "TEST_ARGS": test_args,
@@ -574,18 +578,26 @@ def main(args):
 
     for ukernel_spec in spec_yaml:
       name = ukernel_spec["name"]
-      primary_tile, incremental_tile, channel_tile, arch, isa = \
-        split_ukernel_name(name)
+      init_fn = ukernel_spec.get("init")
+      requantization_type, primary_tile, incremental_tile, channel_tile, arch, \
+        isa = split_ukernel_name(name)
 
       # specification can override architecture
       arch = ukernel_spec.get("arch", arch)
 
-      test_case = generate_test_cases(name, primary_tile, incremental_tile,
+      test_case = generate_test_cases(name, init_fn, requantization_type,
+                                      primary_tile, incremental_tile,
                                       channel_tile, isa)
       tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa)
 
-    with codecs.open(options.output, "w", encoding="utf-8") as output_file:
-      output_file.write(tests)
+    txt_changed = True
+    if os.path.exists(options.output):
+      with codecs.open(options.output, "r", encoding="utf-8") as output_file:
+        txt_changed = output_file.read() != tests
+
+    if txt_changed:
+      with codecs.open(options.output, "w", encoding="utf-8") as output_file:
+        output_file.write(tests)
 
 
 if __name__ == "__main__":

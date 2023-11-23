@@ -17,9 +17,9 @@
 #include "src/trace_processor/importers/proto/track_event_tokenizer.h"
 
 #include "perfetto/base/logging.h"
+#include "perfetto/trace_processor/trace_blob_view.h"
 #include "src/trace_processor/importers/common/clock_tracker.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/importers/common/track_tracker.h"
 #include "src/trace_processor/importers/proto/packet_sequence_state.h"
 #include "src/trace_processor/importers/proto/proto_trace_reader.h"
@@ -71,6 +71,11 @@ ModuleResult TrackEventTokenizer::TokenizeTrackDescriptorPacket(
   StringId name_id = kNullStringId;
   if (track.has_name())
     name_id = context_->storage->InternString(track.name());
+
+  if (packet.has_trusted_pid()) {
+    context_->process_tracker->UpdateTrustedPid(
+        static_cast<uint32_t>(packet.trusted_pid()), track.uuid());
+  }
 
   if (track.has_thread()) {
     protos::pbzero::ThreadDescriptor::Decoder thread(track.thread());

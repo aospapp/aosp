@@ -16,11 +16,11 @@
 
 #include "PreparedModel.h"
 
+#include "Burst.h"
+#include "BurstUtils.h"
 #include "Callbacks.h"
 #include "Conversions.h"
 #include "Execution.h"
-#include "ExecutionBurstController.h"
-#include "ExecutionBurstUtils.h"
 #include "Utils.h"
 
 #include <android/hardware/neuralnetworks/1.0/types.h>
@@ -31,9 +31,9 @@
 #include <nnapi/Result.h>
 #include <nnapi/Types.h>
 #include <nnapi/hal/1.0/Conversions.h>
+#include <nnapi/hal/1.0/HandleError.h>
+#include <nnapi/hal/1.0/ProtectCallback.h>
 #include <nnapi/hal/CommonUtils.h>
-#include <nnapi/hal/HandleError.h>
-#include <nnapi/hal/ProtectCallback.h>
 
 #include <chrono>
 #include <memory>
@@ -82,7 +82,7 @@ PreparedModel::executeAsynchronously(const V1_0::Request& request, MeasureTiming
     const auto ret = kPreparedModel->execute_1_2(request, measure, cb);
     const auto status = HANDLE_TRANSPORT_FAILURE(ret);
     if (status != V1_0::ErrorStatus::OUTPUT_INSUFFICIENT_SIZE) {
-        HANDLE_HAL_STATUS(status) << "execution failed with " << toString(status);
+        HANDLE_STATUS_HIDL(status) << "execution failed with " << toString(status);
     }
 
     return cb->get();
@@ -91,17 +91,18 @@ PreparedModel::executeAsynchronously(const V1_0::Request& request, MeasureTiming
 nn::ExecutionResult<std::pair<std::vector<nn::OutputShape>, nn::Timing>> PreparedModel::execute(
         const nn::Request& request, nn::MeasureTiming measure,
         const nn::OptionalTimePoint& /*deadline*/,
-        const nn::OptionalDuration& /*loopTimeoutDuration*/) const {
+        const nn::OptionalDuration& /*loopTimeoutDuration*/,
+        const std::vector<nn::TokenValuePair>& /*hints*/,
+        const std::vector<nn::ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     // Ensure that request is ready for IPC.
     std::optional<nn::Request> maybeRequestInShared;
     hal::utils::RequestRelocation relocation;
-    const nn::Request& requestInShared =
-            NN_TRY(hal::utils::makeExecutionFailure(hal::utils::convertRequestFromPointerToShared(
-                    &request, nn::kDefaultRequestMemoryAlignment, nn::kMinMemoryPadding,
-                    &maybeRequestInShared, &relocation)));
+    const nn::Request& requestInShared = NN_TRY(hal::utils::convertRequestFromPointerToShared(
+            &request, nn::kDefaultRequestMemoryAlignment, nn::kMinMemoryPadding,
+            &maybeRequestInShared, &relocation));
 
-    const auto hidlRequest = NN_TRY(hal::utils::makeExecutionFailure(convert(requestInShared)));
-    const auto hidlMeasure = NN_TRY(hal::utils::makeExecutionFailure(convert(measure)));
+    const auto hidlRequest = NN_TRY(convert(requestInShared));
+    const auto hidlMeasure = NN_TRY(convert(measure));
 
     return executeInternal(hidlRequest, hidlMeasure, relocation);
 }
@@ -124,19 +125,22 @@ PreparedModel::executeInternal(const V1_0::Request& request, MeasureTiming measu
 }
 
 nn::GeneralResult<std::pair<nn::SyncFence, nn::ExecuteFencedInfoCallback>>
-PreparedModel::executeFenced(const nn::Request& /*request*/,
-                             const std::vector<nn::SyncFence>& /*waitFor*/,
-                             nn::MeasureTiming /*measure*/,
-                             const nn::OptionalTimePoint& /*deadline*/,
-                             const nn::OptionalDuration& /*loopTimeoutDuration*/,
-                             const nn::OptionalDuration& /*timeoutDurationAfterFence*/) const {
+PreparedModel::executeFenced(
+        const nn::Request& /*request*/, const std::vector<nn::SyncFence>& /*waitFor*/,
+        nn::MeasureTiming /*measure*/, const nn::OptionalTimePoint& /*deadline*/,
+        const nn::OptionalDuration& /*loopTimeoutDuration*/,
+        const nn::OptionalDuration& /*timeoutDurationAfterFence*/,
+        const std::vector<nn::TokenValuePair>& /*hints*/,
+        const std::vector<nn::ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     return NN_ERROR(nn::ErrorStatus::GENERAL_FAILURE)
            << "IPreparedModel::executeFenced is not supported on 1.2 HAL service";
 }
 
 nn::GeneralResult<nn::SharedExecution> PreparedModel::createReusableExecution(
         const nn::Request& request, nn::MeasureTiming measure,
-        const nn::OptionalDuration& /*loopTimeoutDuration*/) const {
+        const nn::OptionalDuration& /*loopTimeoutDuration*/,
+        const std::vector<nn::TokenValuePair>& /*hints*/,
+        const std::vector<nn::ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     // Ensure that request is ready for IPC.
     std::optional<nn::Request> maybeRequestInShared;
     hal::utils::RequestRelocation relocation;
@@ -151,16 +155,8 @@ nn::GeneralResult<nn::SharedExecution> PreparedModel::createReusableExecution(
 }
 
 nn::GeneralResult<nn::SharedBurst> PreparedModel::configureExecutionBurst() const {
-    auto self = shared_from_this();
-    auto fallback = [preparedModel = std::move(self)](
-                            const nn::Request& request, nn::MeasureTiming measure,
-                            const nn::OptionalTimePoint& deadline,
-                            const nn::OptionalDuration& loopTimeoutDuration)
-            -> nn::ExecutionResult<std::pair<std::vector<nn::OutputShape>, nn::Timing>> {
-        return preparedModel->execute(request, measure, deadline, loopTimeoutDuration);
-    };
     const auto pollingTimeWindow = getBurstControllerPollingTimeWindow();
-    return ExecutionBurstController::create(shared_from_this(), kPreparedModel, pollingTimeWindow);
+    return Burst::create(shared_from_this(), kPreparedModel, pollingTimeWindow);
 }
 
 std::any PreparedModel::getUnderlyingResource() const {

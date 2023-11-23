@@ -24,4 +24,18 @@ parcelable ApexInfo {
     @utf8InCpp String versionName;
     boolean isFactory;
     boolean isActive;
+
+    // Populated only for getStagedApex() API
+    boolean hasClassPathJars;
+
+    // Will be set to true if during this boot a different APEX package of the APEX was
+    // activated, than in the previous boot.
+    // This can happen in the following situations:
+    //  1. It was part of the staged session that was applied during this boot.
+    //  2. A compressed system APEX was decompressed during this boot.
+    //  3. apexd failed to activate an APEX on /data/apex/active (that was successfully
+    //    activated during last boot) and needed to fallback to pre-installed counterpart.
+    // Note: this field can only be set to true during boot, after boot is completed
+    //  (sys.boot_completed = 1) value of this field will always be false.
+    boolean activeApexChanged;
 }

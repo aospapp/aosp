@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"कनेक्शन"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"डीफॉल्ट प्रिंट सेवा यास वाय-फाय थेट प्रिंटर आढळले नाहीत"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"वाय-फाय थेट बंद करा"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"डीफॉल्ट प्रिंट सेवेला जवळपासच्या डिव्हाइस शोधण्यासाठी स्थान परवानगी आवश्यक आहे."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"डीफॉल्ट प्रिंट सेवेला जवळपासचे प्रिंटर शोधण्यासाठी जवळपासची डिव्हाइसची परवानगी आवश्यक आहे."</string>
     <string name="fix" msgid="7784394272611365393">"परीक्षण परवानगी द्या"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"डीफॉल्ट प्रिंट सेवा यास जवळपासची डिव्हाइस शोधण्यासाठी स्थान सेवा सुरू असणे आवश्यक आहे."</string>
-    <string name="enable_location" msgid="3627841004298863140">"स्थान सुरू करा"</string>
     <string name="print" msgid="7851318072404916362">"प्रिंट करा"</string>
 </resources>

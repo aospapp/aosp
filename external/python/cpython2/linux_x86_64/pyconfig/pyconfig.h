@@ -858,7 +858,10 @@
 #define HAVE_TMPNAM 1
 
 /* Define to 1 if you have the `tmpnam_r' function. */
+#ifdef __GLIBC__
+// musl does not have tmpnam_r
 #define HAVE_TMPNAM_R 1
+#endif
 
 /* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
    `HAVE_STRUCT_TM_TM_ZONE' instead. */

@@ -638,7 +638,11 @@ void Z_INTERNAL zng_tr_flush_block(deflate_state *s, char *buf, uint32_t stored_
     int max_blindex = 0;  /* index of last bit length code of non zero freq */
 
     /* Build the Huffman trees unless a stored block is forced */
-    if (s->level > 0) {
+    if (UNLIKELY(s->sym_next == 0)) {
+        /* Emit an empty static tree block with no codes */
+        opt_lenb = static_lenb = 0;
+        s->static_len = 7;
+    } else if (s->level > 0) {
         /* Check if the file is binary or text */
         if (s->strm->data_type == Z_UNKNOWN)
             s->strm->data_type = detect_data_type(s);
@@ -662,7 +666,7 @@ void Z_INTERNAL zng_tr_flush_block(deflate_state *s, char *buf, uint32_t stored_
         opt_lenb = (s->opt_len+3+7) >> 3;
         static_lenb = (s->static_len+3+7) >> 3;
 
-        Tracev((stderr, "\nopt %lu(%lu) stat %lu(%lu) stored %lu lit %u ",
+        Tracev((stderr, "\nopt %lu(%lu) stat %lu(%lu) stored %u lit %u ",
                 opt_lenb, s->opt_len, static_lenb, s->static_len, stored_len,
                 s->sym_next / 3));
 
@@ -674,13 +678,9 @@ void Z_INTERNAL zng_tr_flush_block(deflate_state *s, char *buf, uint32_t stored_
         opt_lenb = static_lenb = stored_len + 5; /* force a stored block */
     }
 
-#ifdef FORCE_STORED
-    if (buf != NULL) { /* force stored block */
-#else
     if (stored_len+4 <= opt_lenb && buf != NULL) {
-        /* 4: two words for the lengths */
-#endif
-        /* The test buf != NULL is only necessary if LIT_BUFSIZE > WSIZE.
+        /* 4: two words for the lengths
+         * The test buf != NULL is only necessary if LIT_BUFSIZE > WSIZE.
          * Otherwise we can't have processed more than WSIZE input bytes since
          * the last block flush, because compression would have been
          * successful. If LIT_BUFSIZE <= WSIZE, it is never too late to
@@ -688,11 +688,7 @@ void Z_INTERNAL zng_tr_flush_block(deflate_state *s, char *buf, uint32_t stored_
          */
         zng_tr_stored_block(s, buf, stored_len, last);
 
-#ifdef FORCE_STATIC
-    } else if (static_lenb >= 0) { /* force static trees */
-#else
     } else if (s->strategy == Z_FIXED || static_lenb == opt_lenb) {
-#endif
         zng_tr_emit_tree(s, STATIC_TREES, last);
         compress_block(s, (const ct_data *)static_ltree, (const ct_data *)static_dtree);
         cmpr_bits_add(s, s->static_len);

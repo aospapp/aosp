@@ -35,4 +35,9 @@ android_test {
         "general-tests",
         "sts",
     ],
+    data: [
+        ":CtsEmptyTestApp",
+        ":CtsSelfUninstallingTestApp",
+    ],
+    per_testcase_directory: true,
 }

@@ -22,12 +22,12 @@ cc_test_library {
         "libnetd_resolv_internal_headers",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk",
         "libcrypto_static",
         "libnetdutils",
         "libssl",
-        "netd_aidl_interface-lateststable-ndk_platform",
-        "netd_event_listener_interface-lateststable-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk",
+        "netd_event_listener_interface-lateststable-ndk",
     ],
     srcs: [
         "dns_responder.cpp",

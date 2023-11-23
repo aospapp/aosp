@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MANAGER_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MANAGER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MANAGER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MANAGER_H
 
 #include <LegacyUtils.h>
 #include <android-base/macros.h>
@@ -80,7 +80,8 @@ class RuntimePreparedModel {
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, const SharedBurst& burstController,
             MeasureTiming measure, const OptionalTimePoint& deadline,
-            const OptionalDuration& loopTimeoutDuration) const = 0;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const = 0;
 
     // Perform fenced computation with given input/output argument info and memory pools.
     // The returned timing information is only valid if the callback is nullptr.
@@ -91,14 +92,16 @@ class RuntimePreparedModel {
             const std::vector<const RuntimeMemory*>& memories, const std::vector<int>& waitFor,
             MeasureTiming measure, const OptionalTimePoint& deadline,
             const OptionalDuration& loopTimeoutDuration,
-            const OptionalDuration& timeoutDurationAfterFence) const = 0;
+            const OptionalDuration& timeoutDurationAfterFence,
+            const std::vector<TokenValuePair>& metaData) const = 0;
 
     // Create a reusable execution with given input/output argument info and memory pools.
     virtual std::pair<int, std::shared_ptr<RuntimeExecution>> createReusableExecution(
             const std::vector<ModelArgumentInfo>& inputs,
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, MeasureTiming measure,
-            const OptionalDuration& loopTimeoutDuration) const = 0;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const = 0;
 
     virtual GeneralResult<SharedBurst> configureExecutionBurst() const = 0;
 
@@ -129,9 +132,8 @@ class Device {
     // Introspection methods returning device information
     virtual const std::string& getName() const = 0;
     virtual const std::string& getVersionString() const = 0;
-    virtual int64_t getFeatureLevel() const = 0;
+    virtual Version getFeatureLevel() const = 0;
     virtual int32_t getType() const = 0;
-    virtual bool isUpdatable() const = 0;
     virtual const std::vector<Extension>& getSupportedExtensions() const = 0;
 
     // See the MetaModel class in MetaModel.h for more details.
@@ -150,7 +152,9 @@ class Device {
     virtual std::pair<int, std::shared_ptr<RuntimePreparedModel>> prepareModel(
             const ModelFactory& makeModel, ExecutionPreference preference, Priority priority,
             const OptionalTimePoint& deadline, const CacheInfo& cacheInfo,
-            const std::optional<CacheToken>& maybeToken) const = 0;
+            const std::optional<CacheToken>& maybeToken,
+            const std::vector<TokenValuePair>& metaData,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameAndPrefix) const = 0;
 
     // The caller is responsible for making sure the MemoryDescriptor only contains
     // PreparedModels from the same Device.
@@ -168,6 +172,18 @@ class DeviceManager {
         }
         return mDevices;
     }
+
+    // Gets the runtime version corresponding to getServerFeatureLevelFlag (in ServerFlag.h).
+    Version getRuntimeVersion() const { return mRuntimeVersion; }
+
+    // Gets the runtime feature level corresponding to getServerFeatureLevelFlag (in ServerFlag.h).
+    int64_t getRuntimeFeatureLevel() const;
+
+    // Convert the internal Version level representation to the NDK representation.
+    static int64_t versionToFeatureLevel(Version::Level versionLevel);
+
+    // Returns whether platform telemetry is enabled.
+    bool isPlatformTelemetryEnabled() const { return mIsPlatformTelemetryEnabled; }
 
     // For testing only:
     void setUseCpuOnly(bool useCpuOnly) { mSetCpuOnly = useCpuOnly; }
@@ -231,6 +247,13 @@ class DeviceManager {
 
     void findAvailableDevices();
 
+    // Runtime version corresponding to getServerFeatureLevelFlag (in ServerFlag.h).
+    Version mRuntimeVersion;
+
+    // Holds whether platform telemetry is enabled, as indicated by getServerTelemetryEnableFlag (in
+    // ServerFlag.h).
+    bool mIsPlatformTelemetryEnabled;
+
     // List of all the devices we discovered (including CpuDevice).
     std::vector<std::shared_ptr<Device>> mDevices;
 
@@ -257,4 +280,4 @@ std::vector<SharedDevice> getDevices();
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_MANAGER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_MANAGER_H

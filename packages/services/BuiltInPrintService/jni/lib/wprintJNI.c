@@ -100,6 +100,13 @@ static jfieldID _PrintServiceStringsField__JOB_DONE_ERROR;
 static jfieldID _PrintServiceStringsField__JOB_DONE_CANCELLED;
 static jfieldID _PrintServiceStringsField__JOB_DONE_CORRUPT;
 static jfieldID _PrintServiceStringsField__JOB_DONE_OTHER;
+static jfieldID _PrintServiceStringsField__JOB_DONE_AUTHENTICATION_CANCELED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_ACCOUNT_INFO_NEEDED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_ACCOUNT_CLOSED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_ACCOUNT_LIMIT_REACHED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_AUTHORIZATION_FAILED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_SIDES_UNSUPPORTED;
+static jfieldID _PrintServiceStringsField__JOB_DONE_BAD_CERTIFICATE;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__OFFLINE;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__BUSY;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__CANCELLED;
@@ -114,10 +121,68 @@ static jfieldID _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_TONER;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__REALLY_LOW_ON_INK;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__BAD_CERTIFICATE;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__UNKNOWN;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__PAUSED;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__STOPPED;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__INPUT_CANNOT_FEED_SIZE_SELECTED;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__INTERLOCK_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__OUTPUT_MAILBOX_SELECT_FAILURE;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__OUTPUT_TRAY_MISSING;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__BANDER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__BINDER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__POWER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__CLEANER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__DIE_CUTTER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__FOLDER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__IMPRINTER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__INPUT_TRAY_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__INSERTER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__INTERPRETER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__MAKE_ENVELOPE_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__MARKER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__MEDIA_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__PERFORATER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__PUNCHER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SEPARATION_CUTTER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SHEET_ROTATOR_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SLITTER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__STACKER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__STAPLER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__STITCHER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SUBUNIT_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__TRIMMER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__WRAPPER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__CLIENT_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SERVER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__ALERT_REMOVAL_OF_BINARY_CHANGE_ENTRY;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__CONFIGURATION_CHANGED;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__CONNECTING_TO_DEVICE;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__DEACTIVATED;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__DEVELOPER_ERROR;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__HOLD_NEW_JOBS;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__OPC_LIFE_OVER;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SPOOL_AREA_FULL;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__TIMED_OUT;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SHUTDOWN;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__PRINTER_NMS_RESET;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__PRINTER_MANUAL_RESET;
+
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER;
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER_HORIZONTAL;
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER_VERTICAL;
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER_HORIZONTAL_ON_ORIENTATION;
+
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__ABORTED_BY_SYSTEM;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_COMPRESSION;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__COMPRESSION_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_DOCUMENT_FORMAT;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_FORMAT_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__SERVICE_OFFLINE;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PASSWORD_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PERMISSION_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_SECURITY_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_UNPRINTABLE_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_ACCESS_ERROR;
+static jfieldID _PrintServiceStringField__JOB_FAIL_REASON__SUBMISSION_INTERRUPTED;
 
 // Global so it can be used in PDF render code
 JavaVM *_JVM = NULL;
@@ -538,6 +603,20 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
             env, _PrintServiceStringsClass, "JOB_DONE_CORRUPT", "Ljava/lang/String;");
     _PrintServiceStringsField__JOB_DONE_OTHER = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "JOB_DONE_OTHER", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_AUTHENTICATION_CANCELED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_AUTHENTICATION_CANCELED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_ACCOUNT_INFO_NEEDED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_ACCOUNT_INFO_NEEDED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_ACCOUNT_CLOSED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_ACCOUNT_CLOSED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_ACCOUNT_LIMIT_REACHED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_ACCOUNT_LIMIT_REACHED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_AUTHORIZATION_FAILED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_AUTHORIZATION_FAILED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_SIDES_UNSUPPORTED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_SIDES_UNSUPPORTED", "Ljava/lang/String;");
+    _PrintServiceStringsField__JOB_DONE_BAD_CERTIFICATE = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_DONE_BAD_CERTIFICATE", "Ljava/lang/String;");
     _PrintServiceStringsField__BLOCKED_REASON__OFFLINE = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "BLOCKED_REASON__OFFLINE", "Ljava/lang/String;");
     _PrintServiceStringsField__BLOCKED_REASON__BUSY = (*env)->GetStaticFieldID(
@@ -569,6 +648,102 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
             "Ljava/lang/String;");
     _PrintServiceStringsField__BLOCKED_REASON__UNKNOWN = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "BLOCKED_REASON__UNKNOWN", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__PAUSED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__PAUSED", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__STOPPED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__STOPPED", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__INPUT_CANNOT_FEED_SIZE_SELECTED =
+            (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
+            "BLOCKED_REASON__INPUT_CANNOT_FEED_SIZE_SELECTED", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__INTERLOCK_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__INTERLOCK_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__OUTPUT_MAILBOX_SELECT_FAILURE =
+            (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
+            "BLOCKED_REASON__OUTPUT_MAILBOX_SELECT_FAILURE", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__OUTPUT_TRAY_MISSING = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__OUTPUT_TRAY_MISSING", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__BANDER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__BANDER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__BINDER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__BINDER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__POWER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__POWER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__CLEANER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__CLEANER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__DIE_CUTTER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__DIE_CUTTER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__FOLDER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__FOLDER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__IMPRINTER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__IMPRINTER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__INPUT_TRAY_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__INPUT_TRAY_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__INSERTER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__INSERTER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__INTERPRETER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__INTERPRETER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__MAKE_ENVELOPE_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__MAKE_ENVELOPE_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__MARKER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__MARKER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__MEDIA_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__MEDIA_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__PERFORATER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__PERFORATER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__PUNCHER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__PUNCHER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SEPARATION_CUTTER_ERROR = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "BLOCKED_REASON__SEPARATION_CUTTER_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SHEET_ROTATOR_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SHEET_ROTATOR_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SLITTER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SLITTER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__STACKER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__STACKER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__STAPLER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__STAPLER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__STITCHER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__STITCHER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SUBUNIT_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SUBUNIT_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__TRIMMER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__TRIMMER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__WRAPPER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__WRAPPER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__CLIENT_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__CLIENT_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SERVER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SERVER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__ALERT_REMOVAL_OF_BINARY_CHANGE_ENTRY =
+            (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
+            "BLOCKED_REASON__ALERT_REMOVAL_OF_BINARY_CHANGE_ENTRY", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__CONFIGURATION_CHANGED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__CONFIGURATION_CHANGED",
+            "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__CONNECTING_TO_DEVICE = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__CONNECTING_TO_DEVICE",
+            "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__DEACTIVATED = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__DEACTIVATED", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__DEVELOPER_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__DEVELOPER_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__HOLD_NEW_JOBS = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__HOLD_NEW_JOBS", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__OPC_LIFE_OVER = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__OPC_LIFE_OVER", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SPOOL_AREA_FULL = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SPOOL_AREA_FULL", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__SHUTDOWN = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__SHUTDOWN", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__TIMED_OUT = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__TIMED_OUT", "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__PRINTER_MANUAL_RESET = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__PRINTER_MANUAL_RESET",
+            "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__PRINTER_NMS_RESET = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "BLOCKED_REASON__PRINTER_NMS_RESET", "Ljava/lang/String;");
+
 
     _PrintServiceStringsField__ALIGNMENT__CENTER = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "ALIGN_CENTER", "I");
@@ -579,6 +754,40 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
     _PrintServiceStringsField__ALIGNMENT__CENTER_HORIZONTAL_ON_ORIENTATION =
             (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
                     "ALIGN_CENTER_HORIZONTAL_ON_ORIENTATION", "I");
+
+    _PrintServiceStringField__JOB_FAIL_REASON__ABORTED_BY_SYSTEM = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_FAIL_REASON__ABORTED_BY_SYSTEM", "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_COMPRESSION = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__UNSUPPORTED_COMPRESSION",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__COMPRESSION_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_FAIL_REASON__COMPRESSION_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_DOCUMENT_FORMAT =
+            (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
+            "JOB_FAIL_REASON__UNSUPPORTED_DOCUMENT_FORMAT", "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_FORMAT_ERROR = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_FAIL_REASON__DOCUMENT_FORMAT_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__SERVICE_OFFLINE = (*env)->GetStaticFieldID(env,
+            _PrintServiceStringsClass, "JOB_FAIL_REASON__SERVICE_OFFLINE", "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PASSWORD_ERROR = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__DOCUMENT_PASSWORD_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PERMISSION_ERROR = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__DOCUMENT_PERMISSION_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_SECURITY_ERROR = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__DOCUMENT_SECURITY_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_UNPRINTABLE_ERROR =
+            (*env)->GetStaticFieldID(env, _PrintServiceStringsClass,
+            "JOB_FAIL_REASON__DOCUMENT_UNPRINTABLE_ERROR", "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_ACCESS_ERROR = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__DOCUMENT_ACCESS_ERROR",
+            "Ljava/lang/String;");
+    _PrintServiceStringField__JOB_FAIL_REASON__SUBMISSION_INTERRUPTED = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "JOB_FAIL_REASON__SUBMISSION_INTERRUPTED",
+            "Ljava/lang/String;");
 
     pdf_render_init(env);
 }
@@ -935,6 +1144,342 @@ static int _covertJobParams_to_Java(JNIEnv *env, jobject javaJobParams,
 }
 
 /*
+ * Process fail reasons. Converts them to strings from BackendConstants.java
+ */
+static jobjectArray processFailReasons(JNIEnv *env, unsigned long long fail_reasons,
+                                       unsigned int count) {
+    LOGI("entering _process_fail_reasons()");
+    unsigned int i, reasonCount;
+
+    jstring jStr = (*env)->NewStringUTF(env, "");
+    jobjectArray stringArray = (*env)->NewObjectArray(env, count,
+                                                      (*env)->FindClass(env, "java/lang/String"),
+                                                      jStr);
+    (*env)->DeleteLocalRef(env, jStr);
+
+    // Note : The fail reason determination conditions should appear in the same sequence
+    // as defined by enum job_state_reason_t from which they are derived from
+
+    for (reasonCount = i = 0; i < IPP_JOB_STATE_REASON_MAX_VALUE; i++) {
+        jStr = NULL;
+
+        if ((fail_reasons & (LONG_ONE << i)) == 0) {
+            jStr = NULL;
+        } else if (fail_reasons & JOB_FAIL_REASON_UNABLE_TO_CONNECT) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OFFLINE);
+        } else if (fail_reasons & JOB_FAIL_REASON_ABORTED_BY_SYSTEM) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringField__JOB_FAIL_REASON__ABORTED_BY_SYSTEM);
+        } else if (fail_reasons & JOB_FAIL_REASON_UNSUPPORTED_COMPRESSION) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                             _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_COMPRESSION);
+        } else if (fail_reasons & JOB_FAIL_REASON_COMPRESSION_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                   _PrintServiceStringField__JOB_FAIL_REASON__COMPRESSION_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_UNSUPPORTED_DOCUMENT_FORMAT) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                           _PrintServiceStringField__JOB_FAIL_REASON__UNSUPPORTED_DOCUMENT_FORMAT);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_FORMAT_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                               _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_FORMAT_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_SERVICE_OFFLINE) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                       _PrintServiceStringField__JOB_FAIL_REASON__SERVICE_OFFLINE);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_PASSWORD_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                              _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PASSWORD_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_PERMISSION_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                              _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_PERMISSION_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_SECURITY_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                              _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_SECURITY_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_UNPRINTABLE_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                          _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_UNPRINTABLE_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_DOCUMENT_ACCESS_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringField__JOB_FAIL_REASON__DOCUMENT_ACCESS_ERROR);
+        } else if (fail_reasons & JOB_FAIL_REASON_SUBMISSION_INTERRUPTED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringField__JOB_FAIL_REASON__SUBMISSION_INTERRUPTED);
+        } else if (fail_reasons & JOB_FAIL_REASON_AUTHORIZATION_FAILED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__JOB_DONE_AUTHORIZATION_FAILED);
+        } else if (fail_reasons & JOB_FAIL_REASON_ACCOUNT_CLOSED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__JOB_DONE_ACCOUNT_CLOSED);
+        } else if (fail_reasons & JOB_FAIL_REASON_ACCOUNT_INFO_NEEDED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__JOB_DONE_ACCOUNT_INFO_NEEDED);
+        } else if (fail_reasons & JOB_FAIL_REASON_ACCOUNT_LIMIT_REACHED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__JOB_DONE_ACCOUNT_LIMIT_REACHED);
+        }
+
+        fail_reasons &= ~(LONG_ONE << i);
+
+        if (jStr != NULL) {
+            (*env)->SetObjectArrayElement(env, stringArray, reasonCount++, jStr);
+        }
+    }
+    return stringArray;
+}
+
+/*
+ * Process block status. Converts the blocked reasons to strings from BackendConstants.java
+ */
+static jobjectArray processBlockStatus(JNIEnv *env, unsigned long long blocked_reasons,
+                                       unsigned int count) {
+    LOGI("entering process_block_status()");
+    unsigned int i, reasonCount;
+
+    jstring jStr = (*env)->NewStringUTF(env, "");
+    jobjectArray stringArray = (*env)->NewObjectArray(env, count,
+                                                      (*env)->FindClass(env, "java/lang/String"),
+                                                      jStr);
+    (*env)->DeleteLocalRef(env, jStr);
+
+    // Note : The block reason determination  conditions should appear in the same sequence
+    // as defined by enum print_status_t from which they are derived from
+    for (reasonCount = i = 0; i < PRINT_STATUS_MAX_STATE; i++) {
+        jStr = NULL;
+
+        if ((blocked_reasons & (LONG_ONE << i)) == 0) {
+            jStr = NULL;
+        } else if (blocked_reasons & BLOCKED_REASON_UNABLE_TO_CONNECT) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OFFLINE);
+        } else if (blocked_reasons & BLOCKED_REASON_BUSY) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                          _PrintServiceStringsField__BLOCKED_REASON__BUSY);
+        } else if (blocked_reasons & BLOCKED_REASONS_CANCELLED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__CANCELLED);
+        } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_PAPER) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_PAPER);
+        } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_INK) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_INK);
+        } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_TONER) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_TONER);
+        } else if (blocked_reasons & BLOCKED_REASON_JAMMED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__JAMMED);
+        } else if (blocked_reasons & BLOCKED_REASON_DOOR_OPEN) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__DOOR_OPEN);
+        } else if (blocked_reasons & BLOCKED_REASON_SVC_REQUEST) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__SERVICE_REQUEST);
+        } else if (blocked_reasons & BLOCKED_REASON_PAUSED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__PAUSED);
+        } else if (blocked_reasons & BLOCKED_REASON_STOPPED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__STOPPED);
+        } else if (blocked_reasons & BLOCKED_REASON_LOW_ON_INK) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_INK);
+        } else if (blocked_reasons & BLOCKED_REASON_LOW_ON_TONER) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_TONER);
+        } else if (blocked_reasons & BLOCKED_REASON_INPUT_CANNOT_FEED_SIZE_SELECTED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                        _PrintServiceStringsField__BLOCKED_REASON__INPUT_CANNOT_FEED_SIZE_SELECTED);
+        } else if (blocked_reasons & BLOCKED_REASON_INTERLOCK_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__INTERLOCK_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_OUTPUT_TRAY_MISSING) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__OUTPUT_TRAY_MISSING);
+        } else if (blocked_reasons & BLOCKED_REASON_BANDER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__BANDER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_BINDER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__BINDER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_POWER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__POWER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_CLEANER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__CLEANER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_INPUT_TRAY_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__INPUT_TRAY_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_INSERTER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__INSERTER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_INTERPRETER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__INTERPRETER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_MAKE_ENVELOPE_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__MAKE_ENVELOPE_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_MARKER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__MARKER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_MEDIA_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__MEDIA_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_PERFORATER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__PERFORATER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_PUNCHER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__PUNCHER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_SEPARATION_CUTTER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                             _PrintServiceStringsField__BLOCKED_REASON__SEPARATION_CUTTER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_SHEET_ROTATOR_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__SHEET_ROTATOR_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_SLITTER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__SLITTER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_STACKER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__STACKER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_STAPLER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__STAPLER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_STITCHER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__STITCHER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_SUBUNIT_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__SUBUNIT_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_TRIMMER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__TRIMMER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_WRAPPER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__WRAPPER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_CLIENT_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__CLIENT_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_SERVER_ERROR) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__SERVER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_ALERT_REMOVAL_OF_BINARY_CHANGE_ENTRY) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(
+                            env,
+                            _PrintServiceStringsClass,
+                     _PrintServiceStringsField__BLOCKED_REASON__ALERT_REMOVAL_OF_BINARY_CHANGE_ENTRY
+                   );
+        } else if (blocked_reasons & BLOCKED_REASON_CONFIGURATION_CHANGED) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__CONFIGURATION_CHANGED);
+        } else if (blocked_reasons & BLOCKED_REASON_CONNECTING_TO_DEVICE) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__CONNECTING_TO_DEVICE);
+        } else if (blocked_reasons & BLOCKED_REASON_DEVELOPER_ERROR) {
+            jStr = (jstring) (*env)->
+                GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__DEVELOPER_ERROR);
+        } else if (blocked_reasons & BLOCKED_REASON_HOLD_NEW_JOBS) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__HOLD_NEW_JOBS);
+        } else if (blocked_reasons & BLOCKED_REASON_OPC_LIFE_OVER) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__OPC_LIFE_OVER);
+        } else if (blocked_reasons & BLOCKED_REASON_SPOOL_AREA_FULL) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__SPOOL_AREA_FULL);
+        } else if (blocked_reasons & BLOCKED_REASON_TIMED_OUT) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__TIMED_OUT);
+        } else if (blocked_reasons & BLOCKED_REASON_SHUTDOWN) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                         _PrintServiceStringsField__BLOCKED_REASON__SHUTDOWN);
+        } else if (blocked_reasons & BLOCKED_REASON_PRINTER_MANUAL_RESET) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                 _PrintServiceStringsField__BLOCKED_REASON__PRINTER_MANUAL_RESET);
+        } else if (blocked_reasons & BLOCKED_REASON_PRINTER_NMS_RESET) {
+            jStr = (jstring) (*env)->
+                    GetStaticObjectField(env, _PrintServiceStringsClass,
+                                     _PrintServiceStringsField__BLOCKED_REASON__PRINTER_NMS_RESET);
+        }
+
+        blocked_reasons &= ~(LONG_ONE << i);
+
+        if (jStr != NULL) {
+            (*env)->SetObjectArrayElement(env, stringArray, reasonCount++, jStr);
+        }
+    }
+    return stringArray;
+}
+
+/*
  * Handles print job callbacks. Handles job states and blocked reasons
  */
 static void _wprint_callback_fn(wJob_t job_handle, void *param) {
@@ -956,7 +1501,7 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
     jobject callbackParams = (*env)->NewObject(env, _JobCallbackParamsClass,
             _JobCallbackParamsMethod__init);
     if (callbackParams != 0) {
-        switch (cb_param->state) {
+        switch (cb_param->param.state) {
             case JOB_QUEUED:
                 jStr = (jstring) (*env)->GetStaticObjectField(
                         env, _PrintServiceStringsClass,
@@ -985,7 +1530,8 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
         }
         (*env)->SetObjectField(env, callbackParams, _JobCallbackParamsField__jobState, jStr);
 
-        if (cb_param->state == JOB_DONE) {
+        bool print_job_failed = false;
+        if (cb_param->param.state == JOB_DONE) {
             switch (cb_param->job_done_result) {
                 case OK:
                     jStr = (jstring) (*env)->GetStaticObjectField(
@@ -993,6 +1539,7 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
                             _PrintServiceStringsField__JOB_DONE_OK);
                     break;
                 case ERROR:
+                    print_job_failed = true;
                     jStr = (jstring) (*env)->GetStaticObjectField(
                             env, _PrintServiceStringsClass,
                             _PrintServiceStringsField__JOB_DONE_ERROR);
@@ -1003,6 +1550,7 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
                             _PrintServiceStringsField__JOB_DONE_CANCELLED);
                     break;
                 case CORRUPT:
+                    print_job_failed = true;
                     jStr = (jstring) (*env)->GetStaticObjectField(
                             env, _PrintServiceStringsClass,
                             _PrintServiceStringsField__JOB_DONE_CORRUPT);
@@ -1019,91 +1567,31 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
         }
 
         int i, count;
-        for (count = i = 0; i < PRINT_STATUS_MAX_STATE; i++) {
+        int max_value_reasons;
+
+        if (print_job_failed) {
+            max_value_reasons = IPP_JOB_STATE_REASON_MAX_VALUE;
+        } else {
+            max_value_reasons = PRINT_STATUS_MAX_STATE;
+        }
+
+        for (count = i = 0; i < max_value_reasons; i++) {
             if (cb_param->blocked_reasons & (1 << i)) {
                 count++;
             }
         }
 
+        // Add any failed or block reasons to blocked_reasons
         if (count > 0) {
-            jStr = (*env)->NewStringUTF(env, "");
-            jobjectArray stringArray = (*env)->NewObjectArray(env, count, (*env)->FindClass(
-                    env, "java/lang/String"), jStr);
-            (*env)->DeleteLocalRef(env, jStr);
-
-            unsigned int blocked_reasons = cb_param->blocked_reasons;
-            for (count = i = 0; i < PRINT_STATUS_MAX_STATE; i++) {
-                jStr = NULL;
-
-                if ((blocked_reasons & (1 << i)) == 0) {
-                    jStr = NULL;
-                } else if (blocked_reasons & BLOCKED_REASON_UNABLE_TO_CONNECT) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__OFFLINE);
-                } else if (blocked_reasons & BLOCKED_REASON_BUSY) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__BUSY);
-                } else if (blocked_reasons & BLOCKED_REASONS_CANCELLED) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__CANCELLED);
-                } else if (blocked_reasons & BLOCKED_REASON_JAMMED) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__JAMMED);
-                } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_PAPER) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_PAPER);
-                } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_INK) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_INK);
-                } else if (blocked_reasons & BLOCKED_REASON_OUT_OF_TONER) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__OUT_OF_TONER);
-                } else if (blocked_reasons & BLOCKED_REASON_DOOR_OPEN) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__DOOR_OPEN);
-                } else if (blocked_reasons & BLOCKED_REASON_SVC_REQUEST) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__SERVICE_REQUEST);
-                } else if (blocked_reasons & BLOCKED_REASON_LOW_ON_INK) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_INK);
-                } else if (blocked_reasons & BLOCKED_REASON_LOW_ON_TONER) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_TONER);
-                } else if (blocked_reasons &
-                        BLOCKED_REASON_PRINT_STATUS_VERY_LOW_ON_INK) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__REALLY_LOW_ON_INK);
-                } else if (blocked_reasons & BLOCKED_REASON_BAD_CERTIFICATE) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__BAD_CERTIFICATE);
-                } else if (blocked_reasons & BLOCKED_REASON_UNKNOWN) {
-                    jStr = (jstring) (*env)->GetStaticObjectField(
-                            env, _PrintServiceStringsClass,
-                            _PrintServiceStringsField__BLOCKED_REASON__UNKNOWN);
-                }
-
-                blocked_reasons &= ~(1 << i);
-                if (jStr != 0) {
-                    (*env)->SetObjectArrayElement(env, stringArray, count++, jStr);
-                }
+            jobjectArray stringArray;
+            if (print_job_failed) {
+                stringArray = processFailReasons(env, cb_param->blocked_reasons, count);
+            } else {
+                stringArray = processBlockStatus(env, cb_param->blocked_reasons, count);
             }
-
             (*env)->SetObjectField(env, callbackParams, _JobCallbackParamsField__blockedReasons,
-                    stringArray);
+                                   stringArray);
+            (*env)->DeleteLocalRef(env, stringArray);
         }
 
         (*env)->SetIntField(env, callbackParams, _JobCallbackParamsField__jobId,

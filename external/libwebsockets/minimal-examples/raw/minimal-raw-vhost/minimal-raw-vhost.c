@@ -75,17 +75,17 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 
 	case LWS_CALLBACK_RAW_RX:
 		lwsl_user("LWS_CALLBACK_RAW_RX: %d\n", (int)len);
-		vhd->len = len;
+		vhd->len = (int)len;
 		if (vhd->len > (int)sizeof(vhd->buf))
 			vhd->len = sizeof(vhd->buf);
-		memcpy(vhd->buf, in, vhd->len);
+		memcpy(vhd->buf, in, (unsigned int)vhd->len);
 		lws_start_foreach_llp(struct raw_pss **, ppss, vhd->pss_list) {
 			lws_callback_on_writable((*ppss)->wsi);
 		} lws_end_foreach_llp(ppss, pss_list);
 		break;
 
 	case LWS_CALLBACK_RAW_WRITEABLE:
-		if (lws_write(wsi, vhd->buf, vhd->len, LWS_WRITE_RAW) !=
+		if (lws_write(wsi, vhd->buf, (unsigned int)vhd->len, LWS_WRITE_RAW) !=
 		    vhd->len) {
 			lwsl_notice("%s: raw write failed\n", __func__);
 			return 1;
@@ -100,8 +100,8 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "raw-test", callback_raw_test, sizeof(struct raw_pss), 0 },
-	{ NULL, NULL, 0, 0 } /* terminator */
+	{ "raw-test", callback_raw_test, sizeof(struct raw_pss), 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 static int interrupted;
@@ -137,11 +137,13 @@ int main(int argc, const char **argv)
 	info.protocols = protocols;
 	info.options = LWS_SERVER_OPTION_ONLY_RAW; /* vhost accepts RAW */
 
+#if defined(LWS_WITH_TLS)
 	if (lws_cmdline_option(argc, argv, "-s")) {
 		info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 		info.ssl_cert_filepath = "localhost-100y.cert";
 		info.ssl_private_key_filepath = "localhost-100y.key";
 	}
+#endif
 
 	context = lws_create_context(&info);
 	if (!context) {

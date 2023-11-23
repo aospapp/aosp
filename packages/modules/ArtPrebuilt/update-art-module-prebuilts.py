@@ -28,14 +28,13 @@ import tempfile
 # Prebuilt description used in commit message
 PREBUILT_DESCR = "ART Module"
 
-# fetch_artifact branch and target
+# fetch_artifact branch and targets
 BRANCH = "aosp-master-art"
-TARGET = "aosp_art_module"
+MODULE_TARGET = "DOES_NOT_EXIST" # There is currently no CI build in AOSP.
+SDK_TARGET = "mainline_modules_sdks"
 
-ARCHES = ["arm", "arm64", "x86", "x86_64"]
-
-# Where to install the APEX packages
-PACKAGE_PATH = "packages/modules/ArtPrebuilt"
+# Where to install the APEX modules
+MODULE_PATH = "packages/modules/ArtPrebuilt"
 
 # Where to install the SDKs and module exports
 SDK_PATH = "prebuilts/module_sdk/art"
@@ -43,9 +42,9 @@ SDK_PATH = "prebuilts/module_sdk/art"
 SDK_VERSION = "current"
 
 # Paths to git projects to prepare CLs in
-GIT_PROJECT_ROOTS = [PACKAGE_PATH, SDK_PATH]
+GIT_PROJECT_ROOTS = [MODULE_PATH, SDK_PATH]
 
-SCRIPT_PATH = PACKAGE_PATH + "/update-art-module-prebuilts.py"
+SCRIPT_PATH = MODULE_PATH + "/update-art-module-prebuilts.py"
 
 
 InstallEntry = collections.namedtuple("InstallEntry", [
@@ -60,20 +59,20 @@ InstallEntry = collections.namedtuple("InstallEntry", [
 ])
 
 
-def install_apex_entries(apex_name):
-  res = []
-  for arch in ARCHES:
-    res.append(InstallEntry(
-        os.path.join(arch, apex_name + ".apex"),
-        os.path.join(PACKAGE_PATH, apex_name + "-" + arch + ".apex"),
-        module_sdk=False,
-        install_unzipped=False))
-  return res
+def install_apks_entry(apex_name):
+  return [InstallEntry(
+      os.path.join(apex_name + ".apks"),
+      os.path.join(MODULE_PATH, apex_name + ".apks"),
+      module_sdk=False,
+      install_unzipped=False)]
 
 
-def install_sdk_entries(mainline_sdk_name, sdk_dir):
+def install_sdk_entries(apex_name, mainline_sdk_name, sdk_dir):
   return [InstallEntry(
       os.path.join("mainline-sdks",
+                   SDK_VERSION,
+                   apex_name,
+                   sdk_dir,
                    mainline_sdk_name + "-" + SDK_VERSION + ".zip"),
       os.path.join(SDK_PATH, SDK_VERSION, sdk_dir),
       module_sdk=True,
@@ -81,87 +80,14 @@ def install_sdk_entries(mainline_sdk_name, sdk_dir):
 
 
 install_entries = (
-    install_apex_entries("com.android.art") +
-    install_apex_entries("com.android.art.debug") +
-    install_sdk_entries("art-module-sdk", "sdk") +
-    install_sdk_entries("art-module-host-exports", "host-exports") +
-    install_sdk_entries("art-module-test-exports", "test-exports")
+    install_apks_entry("com.android.art") +
+    install_sdk_entries("com.android.art",
+                        "art-module-sdk", "sdk") +
+    install_sdk_entries("com.android.art",
+                        "art-module-host-exports", "host-exports") +
+    install_sdk_entries("com.android.art",
+                        "art-module-test-exports", "test-exports")
 )
-
-
-def rewrite_bp_for_art_module_source_build(bp_path):
-  """Rewrites an Android.bp file to conditionally prefer prebuilts."""
-  print("Rewriting {} for SOONG_CONFIG_art_module_source_build use."
-        .format(bp_path))
-  bp_file = open(bp_path, "r+")
-
-  # TODO(b/174997203): Remove this when we have a proper way to control prefer
-  # flags in Mainline modules.
-
-  header_lines = []
-  for line in bp_file:
-    line = line.rstrip("\n")
-    if not line.startswith("//"):
-      break
-    header_lines.append(line)
-
-  art_module_types = set()
-
-  content_lines = []
-  for line in bp_file:
-    line = line.rstrip("\n")
-    module_header = re.match("([a-z0-9_]+) +{$", line)
-    if not module_header:
-      content_lines.append(line)
-    else:
-      # Iterate over one Soong module.
-      module_start = line
-      soong_config_clause = False
-      module_content = []
-
-      for module_line in bp_file:
-        module_line = module_line.rstrip("\n")
-        if module_line == "}":
-          break
-        if module_line == "    prefer: false,":
-          module_content.extend([
-              ("    // Do not prefer prebuilt if "
-               "SOONG_CONFIG_art_module_source_build is true."),
-              "    prefer: true,",
-              "    soong_config_variables: {",
-              "        source_build: {",
-              "            prefer: false,",
-              "        },",
-              "    },"])
-          soong_config_clause = True
-        else:
-          module_content.append(module_line)
-
-      if soong_config_clause:
-        module_type = "art_prebuilt_" + module_header.group(1)
-        module_start = module_type + " {"
-        art_module_types.add(module_type)
-
-      content_lines.append(module_start)
-      content_lines.extend(module_content)
-      content_lines.append("}")
-
-  header_lines.extend(
-      ["",
-       "// Soong config variable stanza added by {}.".format(SCRIPT_PATH),
-       "soong_config_module_type_import {",
-       "    from: \"prebuilts/module_sdk/art/SoongConfig.bp\",",
-       "    module_types: ["] +
-      ["        \"{}\",".format(art_module)
-       for art_module in sorted(art_module_types)] +
-      ["    ],",
-       "}",
-       ""])
-
-  bp_file.seek(0)
-  bp_file.truncate()
-  bp_file.write("\n".join(header_lines + content_lines))
-  bp_file.close()
 
 
 def check_call(cmd, **kwargs):
@@ -181,20 +107,20 @@ def fetch_artifact(branch, target, build, fetch_pattern, local_dir):
   check_call(cmd, cwd=local_dir)
 
 
-def start_branch(branch_name, git_dirs):
+def start_branch(git_branch_name, git_dirs):
   """Creates a new repo branch in the given projects."""
-  check_call(["repo", "start", branch_name] + git_dirs)
+  check_call(["repo", "start", git_branch_name] + git_dirs)
   # In case the branch already exists we reset it to upstream, to get a clean
   # update CL.
   for git_dir in git_dirs:
     check_call(["git", "reset", "--hard", "@{upstream}"], cwd=git_dir)
 
 
-def upload_branch(git_root, branch_name):
+def upload_branch(git_root, git_branch_name):
   """Uploads the CLs in the given branch in the given project."""
   # Set the branch as topic to bundle with the CLs in other git projects (if
   # any).
-  check_call(["repo", "upload", "-t", "--br=" + branch_name, git_root])
+  check_call(["repo", "upload", "-t", "--br=" + git_branch_name, git_root])
 
 
 def remove_files(git_root, subpaths, stage_removals):
@@ -235,7 +161,7 @@ def commit(git_root, prebuilt_descr, branch, target, build, add_paths, bug_numbe
   os.unlink(msg_path)
 
 
-def install_entry(build, local_dist, entry):
+def install_entry(branch, target, build, local_dist, entry):
   """Installs one file specified by entry."""
 
   install_dir, install_file = os.path.split(entry.install_path)
@@ -243,7 +169,7 @@ def install_entry(build, local_dist, entry):
     os.makedirs(install_dir)
 
   if build:
-    fetch_artifact(BRANCH, TARGET, build, entry.source_path, install_dir)
+    fetch_artifact(branch, target, build, entry.source_path, install_dir)
   else:
     check_call(["cp", os.path.join(local_dist, entry.source_path), install_dir])
   source_file = os.path.basename(entry.source_path)
@@ -289,14 +215,21 @@ def get_args():
   parser = argparse.ArgumentParser(
       epilog="Either --build or --local-dist is required.")
 
+  parser.add_argument("--branch", default=BRANCH,
+                      help="Branch to fetch, defaults to " + BRANCH)
+  parser.add_argument("--module-target", default=MODULE_TARGET,
+                      help="Target to fetch modules from, defaults to " +
+                      MODULE_TARGET)
+  parser.add_argument("--sdk-target", default=SDK_TARGET,
+                      help="Target to fetch SDKs from, defaults to " +
+                      SDK_TARGET)
   parser.add_argument("--build", metavar="NUMBER",
-                      help="Build number to fetch from branch {}, target {}"
-                      .format(BRANCH, TARGET))
+                      help="Build number to fetch")
   parser.add_argument("--local-dist", metavar="PATH",
                       help="Take prebuilts from this local dist dir instead of "
                       "using fetch_artifact")
-  parser.add_argument("--skip-apex", action="store_true",
-                      help="Do not fetch .apex files.")
+  parser.add_argument("--skip-apex", default=True, action="store_true",
+                      help="Do not fetch .apex files. Defaults to true.")
   parser.add_argument("--skip-module-sdk", action="store_true",
                       help="Do not fetch and unpack sdk and module_export zips.")
   parser.add_argument("--skip-cls", action="store_true",
@@ -333,39 +266,31 @@ def main():
   install_paths_per_root = install_paths_per_git_root(
       GIT_PROJECT_ROOTS, install_paths)
 
-  branch_name = PREBUILT_DESCR.lower().replace(" ", "-") + "-update"
+  git_branch_name = PREBUILT_DESCR.lower().replace(" ", "-") + "-update"
   if args.build:
-    branch_name += "-" + args.build
+    git_branch_name += "-" + args.build
 
   if not args.skip_cls:
     git_paths = list(install_paths_per_root.keys())
-    start_branch(branch_name, git_paths)
+    start_branch(git_branch_name, git_paths)
 
   for git_root, subpaths in install_paths_per_root.items():
     remove_files(git_root, subpaths, not args.skip_cls)
   for entry in entries:
-    install_entry(args.build, args.local_dist, entry)
-
-  # Postprocess the Android.bp files in the SDK snapshot to control prefer flags
-  # on the prebuilts through SOONG_CONFIG_art_module_source_build.
-  # TODO(b/174997203): Replace this with a better way to control prefer flags on
-  # Mainline module prebuilts.
-  for entry in entries:
-    if entry.install_unzipped:
-      bp_path = os.path.join(entry.install_path, "Android.bp")
-      if os.path.exists(bp_path):
-        rewrite_bp_for_art_module_source_build(bp_path)
+    target = args.sdk_target if entry.module_sdk else args.module_target
+    install_entry(args.branch, target, args.build, args.local_dist, entry)
 
   if not args.skip_cls:
     for git_root, subpaths in install_paths_per_root.items():
-      commit(git_root, PREBUILT_DESCR, BRANCH, TARGET, args.build, subpaths,
+      target = args.sdk_target if git_root == SDK_PATH else args.module_target
+      commit(git_root, PREBUILT_DESCR, args.branch, target, args.build, subpaths,
              args.bug)
 
     if args.upload:
       # Don't upload all projects in a single repo upload call, because that
       # makes it pop up an interactive editor.
       for git_root in install_paths_per_root:
-        upload_branch(git_root, branch_name)
+        upload_branch(git_root, git_branch_name)
 
 
 if __name__ == "__main__":

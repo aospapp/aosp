@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Ослын Дуудлага хүлээн авах Төлөв"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Дата холболтыг идэвхгүйжүүлсэн"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> болтол дата холболт байхгүй"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Таны гар утас яаралтай түргэн тусламжийн дуудлагын хэлбэрт<xliff:g id="COUNT_1">%s</xliff:g> минут байна. Энэ горимд байгаа тохиолдолд интернет холболт ашигладаг ямар ч программыг ашиглаж үл болно. Та гарахыг хүсэж байна уу?</item>
-      <item quantity="one">Таны гар утас яаралтай түргэн тусламжийн дуудлагын хэлбэрт <xliff:g id="COUNT_0">%s</xliff:g> минут байна. Энэ горимд байгаа тохиолдолд интернет холболт ашигладаг ямар ч программыг ашиглаж үл болно. Та гарахыг хүсэж байна уу?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Сонгосон үйлдлийг яаралтай түргэн тусламжийн горимд байгаа үед ашиглах боломжгүй. Таны гар утас энэ горимд <xliff:g id="COUNT_1">%s</xliff:g> минут байх болно. Та гарахыг хүсэж байна уу?</item>
-      <item quantity="one">Сонгосон үйлдлийг яаралтай түргэн тусламжийн горимд байгаа үед ашиглах боломжгүй. Таны гар утас энэ горимд <xliff:g id="COUNT_0">%s</xliff:g> минут байх болно. Та гарахыг хүсэж байна уу?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Утас яаралтай тусламжийн дуудлага хүлээн авах горимд нэг минут байх болно. Энэ горимд байх үед дата холболтыг ашигладаг ямар ч аппыг ашиглах боломжгүй. Та энэ горимоос одоо гарах уу?}other{Утас яаралтай тусламжийн дуудлага хүлээн авах горимд %s минут байх болно. Энэ горимд байх үед дата холболтыг ашигладаг ямар ч аппыг ашиглах боломжгүй. Та энэ горимоос одоо гарах уу?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Сонгосон үйлдлийг яаралтай тусламжийн дуудлага хүлээн авах горимд гүйцэтгэх боломжгүй. Утас энэ горимд нэг минут байх болно. Та энэ горимоос одоо гарах уу?}other{Сонгосон үйлдлийг яаралтай тусламжийн дуудлага хүлээн авах горимд гүйцэтгэх боломжгүй. Утас энэ горимд %s минут байх болно. Та энэ горимоос одоо гарах уу?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Сонгосон үйлдлийг ослын дуудлагын үед гүйцэтгэх боломжгүй."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Ослын Дуудлага хүлээн авах төлвөөс гарч байна"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Тийм"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Алгасах"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Утас яаралтай буцаж холбоо барих горимд байна"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> хүртэл"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Утас <xliff:g id="COUNT_1">%s</xliff:g> минутын турш яаралтай буцаж холбоо барих горимд байх болно.\nТа одоо гарахыг хүсэж байна уу?</item>
-      <item quantity="one">Утас <xliff:g id="COUNT_0">%s</xliff:g> минутын турш яаралтай буцаж холбоо барих горимд байх болно.\nТа одоо гарахыг хүсэж байна уу?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Утас нэг минутын турш яаралтай тусламжийн дуудлага хүлээн авах горимд байх болно.\nТа энэ горимоос одоо гарах уу?}other{Утас %s минутын турш яаралтай тусламжийн дуудлага хүлээн авах горимд байх болно.\nТа энэ горимоос одоо гарах уу?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Үйлчилгээ"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Тохиргоо"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Тохируулаагүй&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Хандалт"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi дуудлага"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi дуудлага"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Нээхийн тулд дахин дарна уу"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Мессежийн кодыг тайлах явцад алдаа гарсан."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM карт таны үйлчилгээг идэвхжүүлж, утасны роаминг багтаамжийг шинэчиллээ."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Хэт олон идэвхтэй дуудлага байна. Шинэ дуудлага хийхийн өмнө одоогийн дуудлагуудыг таслах буюу нэгтгэнэ үү."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Өөр залгасан дугаар руу аль хэдийн залгаж байх үед дуудлага хийх боломжгүй."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Хариулаагүй ирсэн дуудлага байх үед дуудлага хийх боломжгүй. Шинэ дуудлага хийхийн өмнө ирсэн дуудлагад хариулах эсвэл татгалзана уу."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call системийн өмчийг ашиглан дуудлагыг цуцалсан бол дуудлага хийх боломжгүй."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Аль хэдийн хоёр дуудлага хийж байгаа үед дуудлага хийх боломжгүй. Шинэ дуудлага хийхийн өмнө аль нэг дуудлагыг цуцлах эсвэл хурал болгон нэгтгэнэ үү."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Аль хэдийн хоёр дуудлага хийж байгаа тул дуудлага хийх боломжгүй байна. Шинэ дуудлага хийхийн өмнө аль нэг дуудлагыг салгах эсвэл тэдгээрийг хурал болгож нэгтгэнэ үү."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>-г ашиглахын тулд мобайл датаг асаасан эсэхээ шалгана уу. Та үүнийг мобайл сүлжээний тохиргоонд өөрчлөх боломжтой."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>-г ашиглахын тулд мобайл дата болон дата роуминг асаасан эсэхээ шалгана уу. Та эдгээрийг мобайл сүлжээний тохиргоонд өөрчлөх боломжтой."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>-г ашиглахын тулд SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>-д мобайл датаг асаасан эсэхээ шалгана уу. Та үүнийг мобайл сүлжээний тохиргоонд өөрчлөх боломжтой."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Та энэ тохиргоог өөрчлөхийн тулд төхөөрөмжөө дахин эхлүүлэх шаардлагатай."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Дахин эхлүүлэх"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Цуцлах"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Салгах боломжтой eSIM-г өгөгдмөлөөр тохируулах"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Мобайл радио цахилгаан"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM хаягийн лавлахыг харах"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Залгахаар тохируулсан дугаарыг харах"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Радио мессежийг сонгох"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Дуут сүлжээний төрөл:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Дата сүлжээний төрөл:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Сүлжээний төрлийг дарах:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Утасны индекс сонгох"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Сонгосон сүлжээний төрлийг тохируулна уу:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Пинг хостны нэр(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Сэргээх"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS шалгалтыг асаах/унтраах"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-тодорхой Мэдээлэл/Тохиргоо"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC боломжтой:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR хязгаарласан:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR боломжтой:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR төлөв:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC боломжтой (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR хязгаарласан (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR боломжтой (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR төлөв (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR давтамж:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Радио мессежийн горимыг тохируулах"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Мессежийн жагсаалтыг ачаалж байна…"</string>

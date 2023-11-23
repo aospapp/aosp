@@ -24,6 +24,7 @@ DEVICE_MANIFEST_FILE += \
 endif
 
 # Include the Goodix AIDL HAL namespaces.
+PRODUCT_SOONG_NAMESPACES += vendor/goodix/udfps/fp_utils
 ifeq ($(GOODIX_CONFIG_BUILD_VERSION), g6_trusty)
 PRODUCT_SOONG_NAMESPACES += vendor/goodix/udfps/g6_trusty
 PRODUCT_SOONG_NAMESPACES += vendor/goodix/udfps/g6_aidl_trusty
@@ -34,6 +35,4 @@ else
 $(error Invalid udfps build version)
 endif
 
-SOONG_CONFIG_NAMESPACES += fp_hal_feature
-SOONG_CONFIG_fp_hal_feature += biometric_suez_support
-SOONG_CONFIG_fp_hal_feature_biometric_suez_support := true
+$(call soong_config_set,fp_hal_feature,biometric_suez_support,true)

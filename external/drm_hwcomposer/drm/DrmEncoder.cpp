@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "hwc-drm-encoder"
+
 #include "DrmEncoder.h"
 
 #include <xf86drmMode.h>
@@ -21,43 +23,19 @@
 #include <cstdint>
 
 #include "DrmDevice.h"
+#include "utils/log.h"
 
 namespace android {
 
-DrmEncoder::DrmEncoder(drmModeEncoderPtr e, DrmCrtc *current_crtc,
-                       std::vector<DrmCrtc *> possible_crtcs)
-    : id_(e->encoder_id),
-      crtc_(current_crtc),
-      display_(-1),
-      possible_crtcs_(std::move(possible_crtcs)) {
+auto DrmEncoder::CreateInstance(DrmDevice &dev, uint32_t encoder_id,
+                                uint32_t index) -> std::unique_ptr<DrmEncoder> {
+  auto e = MakeDrmModeEncoderUnique(dev.GetFd(), encoder_id);
+  if (!e) {
+    ALOGE("Failed to get encoder %d", encoder_id);
+    return {};
+  }
+
+  return std::unique_ptr<DrmEncoder>(new DrmEncoder(std::move(e), index));
 }
 
-uint32_t DrmEncoder::id() const {
-  return id_;
-}
-
-DrmCrtc *DrmEncoder::crtc() const {
-  return crtc_;
-}
-
-bool DrmEncoder::CanClone(DrmEncoder *encoder) {
-  return possible_clones_.find(encoder) != possible_clones_.end();
-}
-
-void DrmEncoder::AddPossibleClone(DrmEncoder *possible_clone) {
-  possible_clones_.insert(possible_clone);
-}
-
-void DrmEncoder::set_crtc(DrmCrtc *crtc) {
-  crtc_ = crtc;
-  display_ = crtc->display();
-}
-
-int DrmEncoder::display() const {
-  return display_;
-}
-
-bool DrmEncoder::can_bind(int display) const {
-  return display_ == -1 || display_ == display;
-}
 }  // namespace android

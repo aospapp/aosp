@@ -9,18 +9,18 @@ third_party {
     type: GIT
     value: "https://github.com/iovisor/bcc.git"
   }
-  version: "v0.8.0"
-  # would be NOTICE save for:
-  #   examples/networking/dns_matching/dns_matching.c
-  #   examples/tracing/vfsreadlat.c
-  #   snapcraft/snapcraft.yaml
-  #   src/cc/compat/linux/bpf.h
-  #   src/cc/compat/linux/bpf_common.h
-  #   src/cc/compat/linux/virtual_bpf.h
+  version: "a39e181eaf7111f5a5416752a5757891278f17fa"
+  license_note: "would be NOTICE save for:\n"
+  "   examples/networking/dns_matching/dns_matching.c\n"
+  "   examples/tracing/vfsreadlat.c\n"
+  "   snapcraft/snapcraft.yaml\n"
+  "   src/cc/compat/linux/bpf.h\n"
+  "   src/cc/compat/linux/bpf_common.h\n"
+  "   src/cc/compat/linux/virtual_bpf.h\n"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2019
-    month: 2
-    day: 1
+    year: 2021
+    month: 1
+    day: 14
   }
 }

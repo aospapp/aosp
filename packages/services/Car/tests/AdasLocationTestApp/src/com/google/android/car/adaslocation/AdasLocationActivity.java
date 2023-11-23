@@ -22,9 +22,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.location.LastLocationRequest;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.location.LocationRequest;
 import android.os.Bundle;
 import android.widget.TextView;
 
@@ -91,8 +93,11 @@ public final class AdasLocationActivity extends AppCompatActivity {
         mLastLocationResult = findViewById(R.id.last_location_result);
         mQueryFab.setOnClickListener(
                 v -> {
-                    Location location = mLocationManager
-                            .getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    LastLocationRequest request =
+                            new LastLocationRequest.Builder().setAdasGnssBypass(true).build();
+                    Location location =
+                            mLocationManager.getLastKnownLocation(
+                                    LocationManager.GPS_PROVIDER, request);
                     if (location != null) {
                         mLastLocationResult.setText(locationToFormattedString(location));
                     } else {
@@ -135,7 +140,7 @@ public final class AdasLocationActivity extends AppCompatActivity {
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(LocationManager.MODE_CHANGED_ACTION);
         intentFilter.addAction(LocationManager.ACTION_ADAS_GNSS_ENABLED_CHANGED);
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     @Override
@@ -181,8 +186,9 @@ public final class AdasLocationActivity extends AppCompatActivity {
     }
 
     private void startListening() {
-        mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                0, 0, mLocationListener);
+        LocationRequest request = new LocationRequest.Builder(0).setAdasGnssBypass(true).build();
+        mLocationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, request, this.getMainExecutor(), mLocationListener);
         mObserveLocationResult.setText(R.string.waiting_for_location);
         mIsRegister = true;
     }

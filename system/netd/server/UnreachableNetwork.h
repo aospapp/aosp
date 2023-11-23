@@ -23,14 +23,14 @@ namespace android::net {
 class UnreachableNetwork : public Network {
   public:
     explicit UnreachableNetwork(unsigned netId);
-    [[nodiscard]] int addUsers(const UidRanges& uidRanges, uint32_t subPriority) override;
-    [[nodiscard]] int removeUsers(const UidRanges& uidRanges, uint32_t subPriority) override;
+    [[nodiscard]] int addUsers(const UidRanges& uidRanges, int32_t subPriority) override;
+    [[nodiscard]] int removeUsers(const UidRanges& uidRanges, int32_t subPriority) override;
     bool isUnreachable() override { return true; }
     bool canAddUsers() override { return true; }
 
   private:
     std::string getTypeString() const override { return "UNREACHABLE"; };
-    bool isValidSubPriority(uint32_t priority) override;
+    bool isValidSubPriority(int32_t priority) override;
 };
 
 }  // namespace android::net

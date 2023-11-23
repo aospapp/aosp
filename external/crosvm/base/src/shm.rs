@@ -2,18 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::{
-    AsRawDescriptor, FromRawDescriptor, IntoRawDescriptor, MemfdSeals, RawDescriptor, Result,
-    SafeDescriptor,
+use crate::descriptor::{AsRawDescriptor, FromRawDescriptor, IntoRawDescriptor, SafeDescriptor};
+use crate::{Error, MemfdSeals, RawDescriptor, Result};
+#[cfg(unix)]
+use std::os::unix::io::RawFd;
+use std::{
+    ffi::CStr,
+    fs::File,
+    os::unix::io::{AsRawFd, IntoRawFd},
 };
-use std::ffi::CStr;
-use std::fs::File;
-use std::os::unix::io::{AsRawFd, IntoRawFd};
 
+use crate::platform::SharedMemory as SysUtilSharedMemory;
 use serde::{Deserialize, Serialize};
-use sys_util::SharedMemory as SysUtilSharedMemory;
 
-/// See [SharedMemory](sys_util::SharedMemory) for struct- and method-level
+/// See [SharedMemory](crate::platform::SharedMemory) for struct- and method-level
 /// documentation.
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -37,13 +39,6 @@ impl SharedMemory {
 
     pub fn size(&self) -> u64 {
         self.0.size()
-    }
-
-    /// Unwraps the sys_util::SharedMemory stored within this type.
-    /// This should be used only when necessary for interacting with
-    /// external libraries.
-    pub fn inner(&self) -> &SysUtilSharedMemory {
-        &self.0
     }
 }
 
@@ -91,5 +86,22 @@ impl From<SharedMemory> for SafeDescriptor {
     fn from(sm: SharedMemory) -> SafeDescriptor {
         // Safe because we own the SharedMemory at this point.
         unsafe { SafeDescriptor::from_raw_descriptor(sm.into_raw_descriptor()) }
+    }
+}
+
+impl audio_streams::shm_streams::SharedMemory for SharedMemory {
+    type Error = Error;
+
+    fn anon(size: u64) -> Result<Self> {
+        SharedMemory::anon(size)
+    }
+
+    fn size(&self) -> u64 {
+        self.size()
+    }
+
+    #[cfg(unix)]
+    fn as_raw_fd(&self) -> RawFd {
+        self.as_raw_descriptor()
     }
 }

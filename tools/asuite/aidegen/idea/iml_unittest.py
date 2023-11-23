@@ -164,14 +164,17 @@ class IMLGenUnittests(unittest.TestCase):
         self.iml._generate_facet()
         self.assertEqual(self.iml._facet, templates.FACET)
 
-    def test_get_uniq_iml_name(self):
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_get_uniq_iml_name(self, mock_root_path):
         """Test the unique name cache mechanism.
 
         By using the path data in module info json as input, if the count of
         name data set is the same as sub folder path count, then it means
         there's no duplicated name, the test PASS.
         """
-        # Add following test path
+        root_path = '/usr/abc/code/root'
+        mock_root_path.return_value = root_path
+        # Add following test path.
         test_paths = {
             'cts/tests/tests/app',
             'cts/tests/app',
@@ -183,6 +186,12 @@ class IMLGenUnittests(unittest.TestCase):
             'external/xxxxx-xxx/robolectric',
             'external/robolectric',
         }
+        # Add whole source tree test paths.
+        whole_source_tree_paths = {
+            root_path,
+            root_path + "/",
+        }
+
         mod_info = module_info.ModuleInfo()
         test_paths.update(mod_info._get_path_to_module_info(
             mod_info.name_to_module_info).keys())
@@ -203,6 +212,9 @@ class IMLGenUnittests(unittest.TestCase):
         print('{} {}.'.format('The size of name set is:', len(dic)))
         self.assertEqual(len(dic), len(path_list))
 
+        for path in whole_source_tree_paths:
+            self.assertEqual(os.path.basename(root_path),
+                             iml.IMLGenerator.get_unique_iml_name(path))
 
 if __name__ == '__main__':
     unittest.main()

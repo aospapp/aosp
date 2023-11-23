@@ -17,6 +17,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <fstream>
 
 #include "Fwmark.h"
 #include "IptablesBaseTest.h"
@@ -27,6 +28,13 @@
 
 using android::base::StringPrintf;
 
+static const char* TEST_IFACE1 = "netdtest1";
+static const char* TEST_IFACE2 = "netdtest2";
+static const uint32_t TEST_IFACE1_INDEX = 901;
+static const uint32_t TEST_IFACE2_INDEX = 902;
+// See Linux kernel source in include/net/flow.h
+#define LOOPBACK_IFINDEX 1
+
 namespace android {
 namespace net {
 
@@ -34,10 +42,19 @@ class RouteControllerTest : public IptablesBaseTest {
 public:
     RouteControllerTest() {
         RouteController::iptablesRestoreCommandFunction = fakeExecIptablesRestoreCommand;
+        RouteController::ifNameToIndexFunction = fakeIfaceNameToIndexFunction;
     }
 
     int flushRoutes(uint32_t a) {
         return RouteController::flushRoutes(a);
+    }
+
+    uint32_t static fakeIfaceNameToIndexFunction(const char* iface) {
+        // "lo" is the same as the real one
+        if (!strcmp(iface, "lo")) return LOOPBACK_IFINDEX;
+        if (!strcmp(iface, TEST_IFACE1)) return TEST_IFACE1_INDEX;
+        if (!strcmp(iface, TEST_IFACE2)) return TEST_IFACE2_INDEX;
+        return 0;
     }
 };
 
@@ -80,23 +97,20 @@ TEST_F(RouteControllerTest, TestRouteFlush) {
                   "Test table2 number too large");
 
     EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
-              "192.0.2.2/32", nullptr, 0 /* mtu */));
+                               "192.0.2.2/32", nullptr, 0 /* mtu */, 0 /* priority */));
     EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
-              "192.0.2.3/32", nullptr, 0 /* mtu */));
+                               "192.0.2.3/32", nullptr, 0 /* mtu */, 0 /* priority */));
     EXPECT_EQ(0, modifyIpRoute(RTM_NEWROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo",
-              "192.0.2.4/32", nullptr, 0 /* mtu */));
+                               "192.0.2.4/32", nullptr, 0 /* mtu */, 0 /* priority */));
 
     EXPECT_EQ(0, flushRoutes(table1));
 
-    EXPECT_EQ(-ESRCH,
-              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo", "192.0.2.2/32",
-                            nullptr, 0 /* mtu */));
-    EXPECT_EQ(-ESRCH,
-              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo", "192.0.2.3/32",
-                            nullptr, 0 /* mtu */));
-    EXPECT_EQ(0,
-              modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo", "192.0.2.4/32",
-                            nullptr, 0 /* mtu */));
+    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+                                    "192.0.2.2/32", nullptr, 0 /* mtu */, 0 /* priority */));
+    EXPECT_EQ(-ESRCH, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table1, "lo",
+                                    "192.0.2.3/32", nullptr, 0 /* mtu */, 0 /* priority */));
+    EXPECT_EQ(0, modifyIpRoute(RTM_DELROUTE, NETLINK_ROUTE_CREATE_FLAGS, table2, "lo",
+                               "192.0.2.4/32", nullptr, 0 /* mtu */, 0 /* priority */));
 }
 
 TEST_F(RouteControllerTest, TestModifyIncomingPacketMark) {
@@ -116,6 +130,47 @@ TEST_F(RouteControllerTest, TestModifyIncomingPacketMark) {
       "-t mangle -D routectrl_mangle_INPUT -i netdtest0 -j MARK --set-mark "
       "0x3001e/0x%x",
       mask)});
+}
+
+bool hasLocalInterfaceInRouteTable(const char* iface) {
+    // Calculate the table index from interface index
+    std::string index = std::to_string(RouteController::ROUTE_TABLE_OFFSET_FROM_INDEX_FOR_LOCAL +
+                                       RouteController::ifNameToIndexFunction(iface));
+    std::string localIface =
+            index + " " + std::string(iface) + std::string(RouteController::INTERFACE_LOCAL_SUFFIX);
+    std::string line;
+
+    std::ifstream input(RouteController::RT_TABLES_PATH);
+    while (std::getline(input, line)) {
+        if (line.find(localIface) != std::string::npos) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+TEST_F(RouteControllerTest, TestCreateVirtualLocalInterfaceTable) {
+    static constexpr int TEST_NETID = 65500;
+    std::map<int32_t, UidRanges> uidRangeMap;
+    EXPECT_EQ(0, RouteController::addInterfaceToVirtualNetwork(TEST_NETID, TEST_IFACE1, false,
+                                                               uidRangeMap, false));
+    // Expect to create <iface>_local in the routing table
+    EXPECT_TRUE(hasLocalInterfaceInRouteTable(TEST_IFACE1));
+    // Add another interface, <TEST_IFACE2>_local should also be created
+    EXPECT_EQ(0, RouteController::addInterfaceToVirtualNetwork(TEST_NETID, TEST_IFACE2, false,
+                                                               uidRangeMap, false));
+    EXPECT_TRUE(hasLocalInterfaceInRouteTable(TEST_IFACE2));
+    // Remove TEST_IFACE1
+    EXPECT_EQ(0, RouteController::removeInterfaceFromVirtualNetwork(TEST_NETID, TEST_IFACE1, false,
+                                                                    uidRangeMap, false));
+    // Interface remove should also remove the virtual local interface for routing table
+    EXPECT_FALSE(hasLocalInterfaceInRouteTable(TEST_IFACE1));
+    // <TEST_IFACE2> should still in the routing table
+    EXPECT_TRUE(hasLocalInterfaceInRouteTable(TEST_IFACE2));
+    EXPECT_EQ(0, RouteController::removeInterfaceFromVirtualNetwork(TEST_NETID, TEST_IFACE2, false,
+                                                                    uidRangeMap, false));
+    EXPECT_FALSE(hasLocalInterfaceInRouteTable(TEST_IFACE2));
 }
 
 }  // namespace net

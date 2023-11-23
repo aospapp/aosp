@@ -25,6 +25,4 @@ hal_client_domain(system_app, hal_qspmhal)
 # It's not necessary to use the google camera app.
 dontaudit google_camera_app hal_qspmhal_hwservice:hwservice_manager find;
 
-dontaudit untrusted_app_29 hal_qspmhal_hwservice:hwservice_manager find;
-dontaudit untrusted_app_27 hal_qspmhal_hwservice:hwservice_manager find;
-dontaudit untrusted_app_25 hal_qspmhal_hwservice:hwservice_manager find;
+dontaudit untrusted_app_all hal_qspmhal_hwservice:hwservice_manager find;

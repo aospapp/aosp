@@ -631,20 +631,14 @@
     <string name="ota_spc_failure" msgid="904092035241370080">"အလွန်အကျွံ SPC မအောင်မြင်မှုများ"</string>
     <string name="ota_call_end" msgid="8657746378290737034">"နောက်သို့"</string>
     <string name="ota_try_again" msgid="6914781945599998550">"ပြန်ကြိုးစားပါ"</string>
-    <string name="ota_next" msgid="2041016619313475914">"ရှေ့ဆက်သွားရန်"</string>
+    <string name="ota_next" msgid="2041016619313475914">"ရှေ့သို့"</string>
     <string name="ecm_exit_dialog" msgid="4200691880721429078">"EcmExitDialog"</string>
     <string name="phone_entered_ecm_text" msgid="8431238297843035842">"အရေးပေါ်ပြန်လည်ခေါ်ဆိုမှုအား ရိုက်သွင်းပြီး"</string>
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"အရေးပေါ်ပြန်လည်ခေါ်ဆိုမှု"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ဒေတာဆက်သွယ်မှု မရှိပါ"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> အထိ ဒေတာချိတ်ဆက်မှု မရှိပါ"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other"> ဖုန်းသည် <xliff:g id="COUNT_1">%s</xliff:g> မိနစ်လောက် အရေးပေါ် ပြန်ခေါ်ခြင်းမုဒ်တွင် ရှိနေလိမ့်မည်။ ဤမုဒ်တွင် ဒေတာချိတ်ဆက်မှုအသုံးပြုသည့် အက်ပ်များကို အသုံးပြု၍ ရနိုင်မည်မဟုတ်ပါ။ ယခုထွက်လိုပါသလား? </item>
-      <item quantity="one"> ဖုန်းသည် <xliff:g id="COUNT_0">%s</xliff:g> မိနစ်လောက် အရေးပေါ် ပြန်ခေါ်ခြင်းမုဒ်တွင် ရှိနေလိမ့်မည်။ ဤမုဒ်တွင် ဒေတာချိတ်ဆက်မှုအသုံးပြုသည့် အက်ပ်များကို အသုံးပြု၍ ရနိုင်မည်မဟုတ်ပါ။ ယခုထွက်လိုပါသလား?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other"> ရွေးချယ်ထားသော အပြုအမူမှာ အရေပေါ်ခေါ်ဆိုမှုပြုလုပ်နေစဉ် မရှိနိုင်ပါ။ ဖုန်းသည်ဤ မုဒ်တွင် <xliff:g id="COUNT_1">%s</xliff:g> မိနစ်ရှိနေမည်ဖြစ်သည်။ ယခုထွက်လိုပါသလား?</item>
-      <item quantity="one"> အရေးပေါ် ပြန်လည်ခေါ်ဆိုခြင်းမုဒ်တွင် ရွေးချယ်သည့် လုပ်ရပ်မလုပ်ဆောင်နိုင်ပါ။ ဖုန်းသည်ဤ မုဒ်တွင် <xliff:g id="COUNT_0">%s</xliff:g> မိနစ်ရှိနေမည်ဖြစ်သည်။ ယခုထွက်လိုပါသလား?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{ဖုန်းသည် ‘အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်’ အတွင်း တစ်မိနစ်ကြာ ရှိနေပါမည်။ ဤမုဒ်တွင် ရှိနေစဉ် ဒေတာချိတ်ဆက်မှုသုံးသော အက်ပ်များကို အသုံးပြု၍ မရပါ။ ယခု ထွက်လိုပါသလား။}other{ဖုန်းသည် ‘အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်’ အတွင်း %s မိနစ်ကြာ ရှိနေပါမည်။ ဤမုဒ်တွင် ရှိနေစဉ် ဒေတာချိတ်ဆက်မှုသုံးသော အပလီကေးရှင်းများကို အသုံးပြု၍ မရပါ။ ယခု ထွက်လိုပါသလား။}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{‘အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်’ တွင် ရှိနေပါက ရွေးထားသော လုပ်ဆောင်ချက်ကို မရနိုင်ပါ။ ဖုန်းသည် ဤမုဒ်အတွင်း တစ်မိနစ်ကြာ ရှိနေပါမည်။ ယခု ထွက်လိုပါသလား။}other{‘အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်’ တွင် ရှိနေပါက ရွေးထားသော လုပ်ဆောင်ချက်ကို မရနိုင်ပါ။ ဖုန်းသည် ဤမုဒ်အတွင်း %s မိနစ်ကြာ ရှိနေပါမည်။ ယခု ထွက်လိုပါသလား။}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"ရွေးချယ်ထားသော အပြုအမူမှာ အရေပေါ်ခေါ်ဆိုမှုပြုလုပ်နေစဉ် မရှိနိုင်ပါ"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"အရေးပေါ်ပြန်လည်ခေါ်ဆိုမှု အခြေအနေအား ထွက်ပါမည်"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Yes"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"ပယ်ရန်"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ဤဖုန်းသည် အရေးပေါ် ပြန်ခေါ်ရန်မုဒ်တွင် ရှိနေသည်"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> အထိ"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">ဤဖုန်းသည် အရေးပေါ် ပြန်ခေါ်ရန်မုဒ်တွင် <xliff:g id="COUNT_1">%s</xliff:g> မိနစ်ကြာ ရှိနေပါမည်။ \nယခု ထွက်လိုပါသလား။</item>
-      <item quantity="one">ဤဖုန်းသည် အရေးပေါ် ပြန်ခေါ်ရန်မုဒ်တွင် <xliff:g id="COUNT_0">%s</xliff:g> မိနစ်ကြာ ရှိနေပါမည်။ \nယခု ထွက်လိုပါသလား။</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{ဖုန်းသည် အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်အတွင်း တစ်မိနစ်ကြာ ရှိနေပါမည်။\nယခု ထွက်လိုပါသလား။}other{ဖုန်းသည် အရေးပေါ် ပြန်လည်ခေါ်ဆိုမုဒ်အတွင်း %s မိနစ်ကြာ ရှိနေပါမည်။\nယခု ထွက်လိုပါသလား။}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"ဝန်ဆောင်မှု"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"စနစ်သတ်မှတ်ခြင်း"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"သတ်မှတ်မထားပါ"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"အများသုံးနိုင်မှု"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"အောက်ပါမှ Wi-Fi ခေါ်ခြင်း"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ဝိုင်ဖိုင်ခေါ်ဆိုမှု"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"ဖွင့်ရန် ထပ်တို့ပါ"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"စာကို ကုဒ်ဖွင့်နေစဉ် အမှားရှိခဲ့သည်။"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM ကဒ်သည် သင့် ဖုန်းဝန်ဆောင်မှုအား အသက်သွင်းခဲ့ပြီး သင့်ဖုန်း၏ ကွန်ယက်ပြင်ပဒေတာသုံးနိုင်စွမ်းအား ပြင်ဆင်မွမ်းမံပြီးဖြစ်၏။"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"လက်ရှိခေါ်ဆိုမှုများ အလွန်များနေပါသည်။ ခေါ်ဆိုမှုအသစ်တစ်ခု မပြုလုပ်ခင် လက်ရှိဖုန်းခေါ်ဆိုမှုများကို အဆုံးသတ် (သို့) ပေါင်း လိုက်ပါ။"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"အထွက်ခေါ်ဆိုမှု ပြုလုပ်ထားသဖြင့် ဖုန်းထပ်ခေါ်၍ မရနိုင်ပါ။"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"မဖြေကြားရသေးသော အဝင်ခေါ်ဆိုမှု ရှိနေသဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။ ဖုန်းခေါ်ဆိုမှုအသစ် မပြုလုပ်မီ ဖုန်းကိုင်ပါ (သို့) ငြင်းပယ်ပါ။"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call စနစ် မူပိုင်ခွင့် အသုံးပြုပြီး ခေါ်ဆိုခြင်းကို ပိတ်ထားသဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ဖုန်းခေါ်ဆိုမှုနှစ်ခုကို ပြုလုပ်နေဆဲ ဖြစ်သဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။ ခေါ်ဆိုမှုအသစ် မပြုလုပ်မီ ၎င်းတို့ထဲမှ တစ်ခုကို ဖုန်းချပါ (သို့) အဖွဲ့လိုက် ပြောဆိုခြင်းအဖြစ် ပေါင်းစည်းပါ။"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"ဖုန်းခေါ်ဆိုမှုနှစ်ခုကို ပြုလုပ်နေသဖြင့် ဖုန်းထပ်ခေါ်၍ မရနိုင်ပါ။ ခေါ်ဆိုမှုအသစ် မပြုလုပ်မီ ၎င်းတို့ထဲမှ တစ်ခုကို ဖုန်းချပါ သို့မဟုတ် အဖွဲ့လိုက် ပြောဆိုခြင်းအဖြစ် ပေါင်းစည်းပါ။"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> အသုံးပြုရန် မိုဘိုင်းဒေတာကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> အသုံးပြုရန် မိုဘိုင်းဒေတာနှင့် ကွန်ရက်ပြင်ပဒေတာ အသုံးပြုခြင်းတို့ကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာများကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> အသုံးပြုရန် ဆင်းမ်ကတ် <xliff:g id="SIM_NUMBER">%2$d</xliff:g> အတွက် မိုဘိုင်းဒေတာကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"ဤဆက်တင်ကိုပြောင်းရန် သင့်စက်ကို ပြန်စတင်ရပါမည်။"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"ပြန်စရန်"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"မလုပ်တော့ပါ"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"ဖယ်ရှားနိုင်သော eSIM ကို မူရင်းအဖြစ် သတ်မှတ်ရန်"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"မိုဘိုင်း ရေဒီယိုစွမ်းအား"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM ထဲရှိ လိပ်စာ စာအုပ်ကိုကြည့်ပါ"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ခေါ်ဆိုရန် ကန့်သတ် နံပါတ်ကို ကြည့်မည်"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ရေဒီယိုလိုင်း ရွေးချယ်ပါ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"အသံကွန်ရက် အမျိုးအစား −"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ဒေတာကွန်ရက် အမျိုးအစား −"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"အစားထိုး ကွန်ရက်အမျိုးအစား-"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ဖုန်းအညွှန်း ရွေးရန်"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ပိုနှစ်သက်သည့် ကွန်ရက်အမျိုးအစားကို သတ်မှတ်ပါ −"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ပင်ကို လက်ခံဝန်ဆောင်ပေးသူအမည်(www.google.com) မှာ IPv4 -"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ပြန်စရန်"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS စစ်ဆေးမှုခလုတ်ကို နှိပ်ပါ"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ထုတ်လုပ်သူနှင့် သက်ဆိုင်သော အချက်အလက်/ဆက်တင်များ"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC အသုံးပြုနိုင်သည် -"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ကန့်သတ်ထားသည် -"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR အသုံးပြုနိုင်သည် -"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR အခြေအနေ -"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC ရနိုင်သည် (NSA)-"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR ကန့်သတ်ထားသည် (NSA)-"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR ရနိုင်သည် (NSA)-"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR အခြေအနေ (NSA)-"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ကြိမ်နှုန်း -"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ရေဒီယိုလိုင်းမုဒ်အဖြစ် သတ်မှတ်ပါ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ရေဒီယိုလိုင်းစာရင်းကို ဖွင့်နေသည်…"</string>

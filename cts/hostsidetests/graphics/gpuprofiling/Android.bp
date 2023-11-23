@@ -30,4 +30,9 @@ java_test_host {
         "perfetto_config-full",
         "platform-test-annotations-host",
     ],
+    data: [
+        ":CtsGraphicsProfilingDataApp",
+    ],
+    data_device_bins_both: ["ctsgraphicsgpucountersinit"],
+    per_testcase_directory: true,
 }

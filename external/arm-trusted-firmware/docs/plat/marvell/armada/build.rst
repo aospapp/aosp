@@ -26,7 +26,7 @@ BL33 should be ``~/project/u-boot/u-boot.bin``
 
        *u-boot.bin* should be used and not *u-boot-spl.bin*
 
-Set MSS/SCP image path (mandatory only for A7K/8K/CN913x)
+Set MSS/SCP image path (mandatory only for A7K/8K/CN913x when MSS_SUPPORT=1)
 
     .. code:: shell
 
@@ -62,6 +62,7 @@ There are several build options:
             - a80x0_mcbin  - MacchiatoBin
             - a80x0_puzzle - IEI Puzzle-M801
             - t9130        - CN913x
+            - t9130_cex7_eval - CN913x CEx7 Evaluation Board
 
 - DEBUG
 
@@ -98,10 +99,64 @@ There are several build options:
         There is no reason to enable this feature if OP-TEE OS built with CFG_WITH_PAGER=n.
         Only set LLC_SRAM=1 if OP-TEE OS is built with CFG_WITH_PAGER=y.
 
+- MARVELL_SECURE_BOOT
+
+        Build trusted(=1)/non trusted(=0) image, default is non trusted.
+        This parameter is used only for ``mrvl_flash`` and ``mrvl_uart`` targets.
+
+- MV_DDR_PATH
+
+        This parameter is required for ``mrvl_flash`` and ``mrvl_uart`` targets.
+        For A7K/8K/CN913x it is used for BLE build and for Armada37x0 it used
+        for ddr_tool build.
+
+        Specify path to the full checkout of Marvell mv-ddr-marvell git
+        repository. Checkout must contain also .git subdirectory because
+        mv-ddr build process calls git commands.
+
+        Do not remove any parts of git checkout becuase build process and other
+        applications need them for correct building and version determination.
+
+
+CN913x specific build options:
+
+- CP_NUM
+
+        Total amount of CPs (South Bridge) connected to AP. When the parameter is omitted,
+        the build uses the default number of CPs, which is a number of embedded CPs inside the
+        package: 1 or 2 depending on the SoC used. The parameter is valid for OcteonTX2 CN913x SoC
+        family (PLAT=t9130), which can have external CPs connected to the MCI ports. Valid
+        values with CP_NUM are in a range of 1 to 3.
+
+
+A7K/8K/CN913x specific build options:
+
+- BLE_PATH
+
+        Points to BLE (Binary ROM extension) sources folder.
+        The parameter is optional, its default value is ``plat/marvell/armada/a8k/common/ble``
+        which uses TF-A in-tree BLE implementation.
+
+- MSS_SUPPORT
+
+        When ``MSS_SUPPORT=1``, then TF-A includes support for Management SubSystem (MSS).
+        When enabled it is required to specify path to the MSS firmware image via ``SCP_BL2``
+        option.
+
+        This option is by default enabled.
+
+- SCP_BL2
+
+        Specify path to the MSS fimware image binary which will run on Cortex-M3 coprocessor.
+        It is available in Marvell binaries-marvell git repository. Required when ``MSS_SUPPORT=1``.
+
+
+Armada37x0 specific build options:
+
 - CM3_SYSTEM_RESET
 
-        For Armada37x0 only, when ``CM3_SYSTEM_RESET=1``, the Cortex-M3 secure coprocessor will
-        be used for system reset.
+        When ``CM3_SYSTEM_RESET=1``, the Cortex-M3 secure coprocessor will be used for system reset.
+
         TF-A will send command 0x0009 with a magic value via the rWTM mailbox interface to the
         Cortex-M3 secure coprocessor.
         The firmware running in the coprocessor must either implement this functionality or
@@ -112,43 +167,17 @@ There are several build options:
         This option is needed on Turris MOX as a workaround to a HW bug which causes reset to
         sometime hang the board.
 
-- MARVELL_SECURE_BOOT
+- A3720_DB_PM_WAKEUP_SRC
 
-        Build trusted(=1)/non trusted(=0) image, default is non trusted.
+        For Armada 3720 Development Board only, when ``A3720_DB_PM_WAKEUP_SRC=1``,
+        TF-A will setup PM wake up src configuration. This option is disabled by default.
 
-- BLE_PATH
 
-        Points to BLE (Binary ROM extension) sources folder.
-        Only required for A7K/8K/CN913x builds.
-        The parameter is optional, its default value is ``plat/marvell/armada/a8k/common/ble``.
-
-- MV_DDR_PATH
-
-        For A7K/8K/CN913x, use this parameter to point to mv_ddr driver sources to allow BLE build. For A37x0,
-        it is used for ddr_tool build.
-
-        Usage example: MV_DDR_PATH=path/to/mv_ddr
-
-        The parameter is optional for A7K/8K/CN913x, when this parameter is not set, the mv_ddr
-        sources are expected to be located at: drivers/marvell/mv_ddr. However, the parameter
-        is necessary for A37x0.
-
-        For the mv_ddr source location, check the section "Tools and external components installation"
-
-        If MV_DDR_PATH source code is a git snapshot then provide path to the full git
-        repository (including .git subdir) because mv_ddr build process calls git commands.
-
-- CP_NUM
-
-        Total amount of CPs (South Bridge) connected to AP. When the parameter is omitted,
-        the build uses the default number of CPs, which is a number of embedded CPs inside the
-        package: 1 or 2 depending on the SoC used. The parameter is valid for OcteonTX2 CN913x SoC
-        family (PLAT=t9130), which can have external CPs connected to the MCI ports. Valid
-        values with CP_NUM are in a range of 1 to 3.
+Armada37x0 specific build options for ``mrvl_flash`` and ``mrvl_uart`` targets:
 
 - DDR_TOPOLOGY
 
-        For Armada37x0 only, the DDR topology map index/name, default is 0.
+        The DDR topology map index/name, default is 0.
 
         Supported Options:
             -    0 - DDR3 1CS 512MB (DB-88F3720-DDR3-Modular, EspressoBin V3-V5)
@@ -163,7 +192,7 @@ There are several build options:
 
 - CLOCKSPRESET
 
-        For Armada37x0 only, the clock tree configuration preset including CPU and DDR frequency,
+        The clock tree configuration preset including CPU and DDR frequency,
         default is CPU_800_DDR_800.
 
             - CPU_600_DDR_600  - CPU at 600 MHz, DDR at 600 MHz
@@ -180,7 +209,7 @@ There are several build options:
 
 - BOOTDEV
 
-        For Armada37x0 only, the flash boot device, default is ``SPINOR``.
+        The flash boot device, default is ``SPINOR``.
 
         Currently, Armada37x0 only supports ``SPINOR``, ``SPINAND``, ``EMMCNORM`` and ``SATA``:
 
@@ -199,7 +228,7 @@ There are several build options:
 
 - PARTNUM
 
-        For Armada37x0 only, the boot partition number, default is 0.
+        The boot partition number, default is 0.
 
         To boot from eMMC, the value should be aligned with the parameter in
         U-Boot with name of ``CONFIG_SYS_MMC_ENV_PART``, whose value by default is
@@ -208,7 +237,7 @@ There are several build options:
 
 - WTMI_IMG
 
-        For Armada37x0 only, the path of the binary can point to an image which
+        The path of the binary can point to an image which
         does nothing, an image which supports EFUSE or a customized CM3 firmware
         binary. The default image is ``fuse.bin`` that built from sources in WTP
         folder, which is the next option. If the default image is OK, then this
@@ -219,18 +248,31 @@ There are several build options:
         binary and sys-init code from the WTP directory which sets DDR and CPU
         clocks according to DDR_TOPOLOGY and CLOCKSPRESET options.
 
+        CZ.NIC as part of Turris project released free and open source WTMI
+        application firmware ``wtmi_app.bin`` for all Armada 3720 devices.
+        This firmware includes additional features like access to Hardware
+        Random Number Generator of Armada 3720 SoC which original Marvell's
+        ``fuse.bin`` image does not have.
+
+        CZ.NIC's Armada 3720 Secure Firmware is available at website:
+
+            https://gitlab.nic.cz/turris/mox-boot-builder/
+
 - WTP
 
-        For Armada37x0 only, use this parameter to point to wtptools source code
-        directory, which can be found as a3700_utils.zip in the release. Usage
-        example: ``WTP=/path/to/a3700_utils``
+        Specify path to the full checkout of Marvell A3700-utils-marvell git
+        repository. Checkout must contain also .git subdirectory because WTP
+        build process calls git commands.
 
-        If WTP source code is a git snapshot then provide path to the full git
-        repository (including .git subdir) because WTP build process calls git commands.
+        WTP build process uses also Marvell mv-ddr-marvell git repository
+        specified in MV_DDR_PATH option.
+
+        Do not remove any parts of git checkout becuase build process and other
+        applications need them for correct building and version determination.
 
 - CRYPTOPP_PATH
 
-        For Armada37x0 only, use this parameter to point to Crypto++ source code
+        Use this parameter to point to Crypto++ source code
         directory. If this option is specified then Crypto++ source code in
         CRYPTOPP_PATH directory will be automatically compiled. Crypto++ library
         is required for building WTP image tool. Either CRYPTOPP_PATH or
@@ -238,12 +280,12 @@ There are several build options:
 
 - CRYPTOPP_LIBDIR
 
-        For Armada37x0 only, use this parameter to point to the directory with
+        Use this parameter to point to the directory with
         compiled Crypto++ library. By default it points to the CRYPTOPP_PATH.
 
 - CRYPTOPP_INCDIR
 
-        For Armada37x0 only, use this parameter to point to the directory with
+        Use this parameter to point to the directory with
         header files of Crypto++ library. By default it points to the CRYPTOPP_PATH.
 
 
@@ -274,21 +316,25 @@ To build just TF-A without WTMI image (useful for A3720 Turris MOX board), run f
         CROSS_COMPILE=aarch64-linux-gnu- mrvl_bootimage
 
 Here is full example how to build production release of Marvell firmware image (concatenated
-binary of Marvell secure firmware, TF-A and U-Boot) for EspressoBin board (PLAT=a3700) with
-1GHz CPU (CLOCKSPRESET=CPU_1000_DDR_800) and 1GB DDR4 RAM (DDR_TOPOLOGY=5):
+binary of Marvell's A3720 sys-init, CZ.NIC's Armada 3720 Secure Firmware, TF-A and U-Boot) for
+EspressoBin board (PLAT=a3700) with 1GHz CPU (CLOCKSPRESET=CPU_1000_DDR_800) and
+1GB DDR4 RAM (DDR_TOPOLOGY=5):
 
 .. code:: shell
 
-    > git clone https://review.trustedfirmware.org/TF-A/trusted-firmware-a
-    > git clone https://gitlab.denx.de/u-boot/u-boot.git
+    > git clone https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git
+    > git clone https://source.denx.de/u-boot/u-boot.git
     > git clone https://github.com/weidai11/cryptopp.git
-    > git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell.git -b master
-    > git clone https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell.git -b master
+    > git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell.git
+    > git clone https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell.git
+    > git clone https://gitlab.nic.cz/turris/mox-boot-builder.git
     > make -C u-boot CROSS_COMPILE=aarch64-linux-gnu- mvebu_espressobin-88f3720_defconfig u-boot.bin
+    > make -C mox-boot-builder CROSS_CM3=arm-linux-gnueabi- wtmi_app.bin
     > make -C trusted-firmware-a CROSS_COMPILE=aarch64-linux-gnu- CROSS_CM3=arm-linux-gnueabi- \
         USE_COHERENT_MEM=0 PLAT=a3700 CLOCKSPRESET=CPU_1000_DDR_800 DDR_TOPOLOGY=5 \
-        MV_DDR_PATH=$PWD/mv-ddr-marvell/ WTP=$PWD/A3700-utils-marvell/ CRYPTOPP_PATH=$PWD/cryptopp/ \
-        BL33=$PWD/u-boot/u-boot.bin mrvl_flash
+        MV_DDR_PATH=$PWD/mv-ddr-marvell/ WTP=$PWD/A3700-utils-marvell/ \
+        CRYPTOPP_PATH=$PWD/cryptopp/ BL33=$PWD/u-boot/u-boot.bin \
+        WTMI_IMG=$PWD/mox-boot-builder/wtmi_app.bin FIP_ALIGN=0x100 mrvl_flash
 
 Produced Marvell firmware flash image: ``trusted-firmware-a/build/a3700/release/flash-image.bin``
 
@@ -335,8 +381,8 @@ produce ``uart-images.tgz.bin`` file.
 Tools and external components installation
 ------------------------------------------
 
-Armada37x0 Builds require installation of 3 components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Armada37x0 Builds require installation of additional components
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (1) ARM cross compiler capable of building images for the service CPU (CM3).
     This component is usually included in the Linux host packages.
@@ -369,10 +415,19 @@ Armada37x0 Builds require installation of 3 components
 
     https://github.com/weidai11/cryptopp.git
 
-Armada70x0 and Armada80x0 Builds require installation of an additional component
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(5) Optional CZ.NIC's Armada 3720 Secure Firmware:
+
+    https://gitlab.nic.cz/turris/mox-boot-builder.git
+
+Armada70x0, Armada80x0 and CN913x Builds require installation of additional components
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (1) DDR initialization library sources (mv_ddr) available at the following repository
     (use the "master" branch):
 
     https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell.git
+
+(2) MSS Management SubSystem Firmware available at the following repository
+    (use the "binaries-marvell-armada-SDK10.0.1.0" branch):
+
+    https://github.com/MarvellEmbeddedProcessors/binaries-marvell.git

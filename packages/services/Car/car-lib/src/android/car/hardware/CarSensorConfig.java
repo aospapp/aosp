@@ -16,9 +16,14 @@
 
 package android.car.hardware;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import android.car.annotation.AddedInOrBefore;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 /**
  * A CarSensorConfig object corresponds to a single sensor type coming from the car.
@@ -27,18 +32,23 @@ import android.os.Parcelable;
 public class CarSensorConfig implements Parcelable {
     /** List of property specific mapped elements in bundle for WHEEL_TICK_DISTANCE sensor*/
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS =
             "android.car.wheelTickDistanceSupportedWheels";
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK =
             "android.car.wheelTickDistanceFrontLeftUmPerTick";
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String WHEEL_TICK_DISTANCE_FRONT_RIGHT_UM_PER_TICK =
             "android.car.wheelTickDistanceFrontRightUmPerTick";
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String WHEEL_TICK_DISTANCE_REAR_RIGHT_UM_PER_TICK =
             "android.car.wheelTickDistanceRearRightUmPerTick";
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final String WHEEL_TICK_DISTANCE_REAR_LEFT_UM_PER_TICK =
             "android.car.wheelTickDistanceRearLeftUmPerTick";
 
@@ -54,18 +64,22 @@ public class CarSensorConfig implements Parcelable {
 
     /** @hide */
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() {
         return 0;
     }
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mType);
         dest.writeBundle(mConfig);
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final Parcelable.Creator<CarSensorConfig> CREATOR =
             new Parcelable.Creator<CarSensorConfig>() {
 
@@ -95,11 +109,13 @@ public class CarSensorConfig implements Parcelable {
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public Bundle getBundle() {
         return mConfig;
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public int getInt(String key) {
         if (mConfig.containsKey(key)) {
             return mConfig.getInt(key);
@@ -109,12 +125,14 @@ public class CarSensorConfig implements Parcelable {
     }
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public int getType() {
         return mType;
     }
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(getClass().getName() + "[");

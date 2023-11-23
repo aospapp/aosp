@@ -204,6 +204,21 @@ public class BitSetTest extends junit.framework.TestCase {
         assertEquals(-1, bs.previousSetBit(-1));
     }
 
+
+    public void test_previousClearBit() {
+        BitSet bs = new BitSet();
+        assertEquals(0, bs.previousClearBit(0));
+        assertEquals(1, bs.previousClearBit(1));
+        assertEquals(5, bs.previousClearBit(5));
+
+        bs.set(0);
+        assertEquals(-1, bs.previousClearBit(0));
+        bs.set(5);
+        assertEquals(4, bs.previousClearBit(5));
+        bs.set(6);
+        assertEquals(4, bs.previousClearBit(6));
+    }
+
     private static BitSet big() {
         BitSet result = new BitSet();
         result.set(1000);

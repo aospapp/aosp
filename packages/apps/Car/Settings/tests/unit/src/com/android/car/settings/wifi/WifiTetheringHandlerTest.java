@@ -63,8 +63,6 @@ public class WifiTetheringHandlerTest {
     private TetheringManager mTetheringManager;
     @Mock
     private FragmentController mFragmentController;
-    @Mock
-    private androidx.lifecycle.Lifecycle mMockLifecycle;
 
     @Before
     public void setUp() {
@@ -75,13 +73,10 @@ public class WifiTetheringHandlerTest {
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
         mSwitchPreference = new ColoredSwitchPreference(mContext);
-        when(mFragmentController.getSettingsLifecycle()).thenReturn(mMockLifecycle);
         mPreferenceController = new TestWifiTetheringPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions);
-        mWifiTetheringHandler = new WifiTetheringHandler(mContext, mMockLifecycle,
-                mPreferenceController);
-        mWifiTetheringHandler.setCarWifiManager(mCarWifiManager);
-        mWifiTetheringHandler.setTetheringManager(mTetheringManager);
+        mWifiTetheringHandler = new WifiTetheringHandler(mContext, mCarWifiManager,
+                mTetheringManager, mPreferenceController);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mSwitchPreference);
     }
 
@@ -169,7 +164,7 @@ public class WifiTetheringHandlerTest {
         assertThat(mSwitchPreference.isChecked()).isFalse();
     }
 
-    private class TestWifiTetheringPreferenceController
+    private static class TestWifiTetheringPreferenceController
             extends PreferenceController<ColoredSwitchPreference>
             implements WifiTetheringHandler.WifiTetheringAvailabilityListener{
 

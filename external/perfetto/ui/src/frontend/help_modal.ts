@@ -16,6 +16,7 @@
 import * as m from 'mithril';
 
 import {globals} from './globals';
+import {PIVOT_TABLE_FLAG} from './keyboard_event_handler';
 import {hideModel, showModal} from './modal';
 
 let helpModelOpen = false;
@@ -91,6 +92,12 @@ function showHelp() {
                 keycap('m'),
                 ' (with event or area selected)'),
               m('td', 'Mark the area (persistently)')),
+            m('tr',
+              m('td', keycap('Ctrl'), ' + ', keycap('b')),
+              m('td', 'Toggle display of sidebar')),
+            PIVOT_TABLE_FLAG.get() ?
+                m('tr', m('td', keycap('p')), m('td', 'Show pivot table')) :
+                null,
             m('tr', m('td', keycap('?')), m('td', 'Show help')),
             )),
     buttons: [],

@@ -214,6 +214,8 @@ void dumpCameraLogs(int fd, const std::string &destDir) {
     // sessions or starts a new session after the one with performance issues).
     dumpLogs(fd, kCameraLogDir, cameraDestDir, 10, "session-ended-");
     dumpLogs(fd, kCameraLogDir, cameraDestDir, 5, "high-drop-rate-");
+    dumpLogs(fd, kCameraLogDir, cameraDestDir, 5, "watchdog-");
+    dumpLogs(fd, kCameraLogDir, cameraDestDir, 5, "camera-ended-");
 }
 
 timepoint_t startSection(int fd, const std::string &sectionName) {
@@ -249,6 +251,7 @@ void endSection(int fd, const std::string &sectionName, timepoint_t startTime) {
 
 DumpstateDevice::DumpstateDevice()
   : mTextSections{
+        { "pre-touch", [this](int fd) { dumpPreTouchSection(fd); } },
         { "wlan", [this](int fd) { dumpWlanSection(fd); } },
         { "soc", [this](int fd) { dumpSocSection(fd); } },
         { "storage", [this](int fd) { dumpStorageSection(fd); } },
@@ -347,6 +350,9 @@ void DumpstateDevice::dumpPowerSection(int fd) {
         DumpFileToFd(fd, "maxfg_base", "/dev/logbuffer_maxfg_base_monitor");
         DumpFileToFd(fd, "maxfg_flip", "/dev/logbuffer_maxfg_flip_monitor");
     }
+    if (!stat("/sys/class/power_supply/dock", &buffer)) {
+        DumpFileToFd(fd, "Power supply property dock", "/sys/class/power_supply/dock/uevent");
+    }
 
     if (!stat("/dev/logbuffer_tcpm", &buffer)) {
         DumpFileToFd(fd, "Logbuffer TCPM", "/dev/logbuffer_tcpm");
@@ -369,6 +375,7 @@ void DumpstateDevice::dumpPowerSection(int fd) {
 		       "echo \"contaminant_detection_status:\"; cat $f/contaminant_detection_status;  done"});
 
     DumpFileToFd(fd, "PD Engine", "/dev/logbuffer_usbpd");
+    DumpFileToFd(fd, "POGO Transport", "/dev/logbuffer_pogo_transport");
     DumpFileToFd(fd, "PPS-google_cpm", "/dev/logbuffer_cpm");
     DumpFileToFd(fd, "PPS-dc", "/dev/logbuffer_pca9468");
 
@@ -377,6 +384,7 @@ void DumpstateDevice::dumpPowerSection(int fd) {
     DumpFileToFd(fd, "TTF details", "/sys/class/power_supply/battery/ttf_details");
     DumpFileToFd(fd, "TTF stats", "/sys/class/power_supply/battery/ttf_stats");
     DumpFileToFd(fd, "maxq", "/dev/logbuffer_maxq");
+    DumpFileToFd(fd, "aacr_state", "/sys/class/power_supply/battery/aacr_state");
 
     RunCommandToFd(fd, "TRICKLE-DEFEND Config", {"/vendor/bin/sh", "-c",
                         " cd /sys/devices/platform/google,battery/power_supply/battery/;"
@@ -392,6 +400,9 @@ void DumpstateDevice::dumpPowerSection(int fd) {
     if (!PropertiesHelper::IsUserBuild()) {
 
         DumpFileToFd(fd, "DC_registers dump", "/sys/class/power_supply/pca9468-mains/device/registers_dump");
+        DumpFileToFd(fd, "max77759_chg registers dump", "/d/max77759_chg/registers");
+        DumpFileToFd(fd, "max77729_pmic registers dump", "/d/max77729_pmic/registers");
+        DumpFileToFd(fd, "Charging table dump", "/d/google_battery/chg_raw_profile");
 
 
         RunCommandToFd(fd, "fg_model", {"/vendor/bin/sh", "-c",
@@ -420,8 +431,14 @@ void DumpstateDevice::dumpPowerSection(int fd) {
     /* EEPROM State */
     if (!stat("/sys/devices/platform/10970000.hsi2c/i2c-4/4-0050/eeprom", &buffer)) {
         RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/10970000.hsi2c/i2c-4/4-0050/eeprom"});
-    } else {
+    } else if(!stat("/sys/devices/platform/10970000.hsi2c/i2c-5/5-0050/eeprom", &buffer)) {
         RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/10970000.hsi2c/i2c-5/5-0050/eeprom"});
+    } else if(!stat("/sys/devices/platform/10970000.hsi2c/i2c-6/6-0050/eeprom", &buffer)) {
+        RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/10970000.hsi2c/i2c-6/6-0050/eeprom"});
+    } else if(!stat("/sys/devices/platform/10970000.hsi2c/i2c-7/7-0050/eeprom", &buffer)) {
+        RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/10970000.hsi2c/i2c-7/7-0050/eeprom"});
+    } else {
+        RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/10970000.hsi2c/i2c-8/8-0050/eeprom"});
     }
 
     DumpFileToFd(fd, "Charger Stats", "/sys/class/power_supply/battery/charge_details");
@@ -487,10 +504,20 @@ void DumpstateDevice::dumpThermalSection(int fd) {
                    "for f in /sys/class/thermal/cooling* ; do "
                        "type=`cat $f/type` ; temp=`cat $f/cur_state` ; echo \"$type: $temp\" ; "
                        "done"});
+    RunCommandToFd(fd, "Cooling Device User Vote State", {"/vendor/bin/sh", "-c",
+                   "for f in /sys/class/thermal/cooling* ; do "
+                   "if [ ! -f $f/user_vote ]; then continue; fi; "
+                   "type=`cat $f/type` ; temp=`cat $f/user_vote` ; echo \"$type: $temp\" ; "
+                   "done"});
+    RunCommandToFd(fd, "Cooling Device Time in State", {"/vendor/bin/sh", "-c", "for f in /sys/class/thermal/cooling* ; "
+                   "do type=`cat $f/type` ; temp=`cat $f/stats/time_in_state_ms` ; echo \"$type:\n$temp\" ; done"});
+    RunCommandToFd(fd, "Cooling Device Trans Table", {"/vendor/bin/sh", "-c", "for f in /sys/class/thermal/cooling* ; "
+                   "do type=`cat $f/type` ; temp=`cat $f/stats/trans_table` ; echo \"$type:\n$temp\" ; done"});
     RunCommandToFd(fd, "Cooling Device State2Power Table", {"/vendor/bin/sh", "-c",
                    "for f in /sys/class/thermal/cooling* ; do "
-                       "type=`cat $f/type` ; state2power_table=`cat $f/state2power_table` ; echo \"$type: $state2power_table\" ; "
-                       "done"});
+                   "if [ ! -f $f/state2power_table ]; then continue; fi; "
+                   "type=`cat $f/type` ; state2power_table=`cat $f/state2power_table` ; echo \"$type: $state2power_table\" ; "
+                   "done"});
     DumpFileToFd(fd, "TMU state:", "/sys/module/gs101_thermal/parameters/tmu_reg_dump_state");
     DumpFileToFd(fd, "TMU current temperature:", "/sys/module/gs101_thermal/parameters/tmu_reg_dump_current_temp");
     DumpFileToFd(fd, "TMU_TOP rise thresholds:", "/sys/module/gs101_thermal/parameters/tmu_top_reg_dump_rise_thres");
@@ -500,6 +527,42 @@ void DumpstateDevice::dumpThermalSection(int fd) {
 }
 
 // Dump items related to touch
+void DumpstateDevice::dumpPreTouchSection(int fd) {
+    const char nvt_spi_path[] = "/sys/class/spi_master/spi11/spi11.0/input/nvt_touch";
+    char cmd[256];
+
+    /* NVT touch */
+    if (!access(nvt_spi_path, R_OK)) {
+        snprintf(cmd, sizeof(cmd),
+                 "echo %s > %s/%s",
+                 "0x21",
+                 nvt_spi_path,
+                 "force_touch_active");
+        RunCommandToFd(fd, "Force Touch Active(Enable)", {"/vendor/bin/sh", "-c", cmd});
+
+        snprintf(cmd, sizeof(cmd), "/proc/nvt_fw_version");
+        if (!access(cmd, R_OK))
+            DumpFileToFd(fd, "FW version", cmd);
+
+#if 0	/* b/193467774: remove this temporarily */
+        snprintf(cmd, sizeof(cmd), "/proc/nvt_diff");
+        if (!access(cmd, R_OK))
+            DumpFileToFd(fd, "Diff", cmd);
+
+        snprintf(cmd, sizeof(cmd), "%s/nvt_fw_history", nvt_spi_path);
+        if (!access(nvt_spi_path, R_OK))
+            DumpFileToFd(fd, "FW History", cmd);
+#endif
+
+        snprintf(cmd, sizeof(cmd),
+                 "echo %s > %s/%s",
+                 "0x20",
+                 nvt_spi_path,
+                 "force_touch_active");
+        RunCommandToFd(fd, "Force Touch Active(Disable)", {"/vendor/bin/sh", "-c", cmd});
+    }
+}
+
 void DumpstateDevice::dumpTouchSection(int fd) {
     const char stm_cmd_path[4][50] = {"/sys/class/spi_master/spi11/spi11.0",
                                       "/proc/fts/driver_test",
@@ -806,8 +869,7 @@ void DumpstateDevice::dumpMemorySection(int fd) {
                         "fi; "
                         "done"});
     DumpFileToFd(fd, "dmabuf info", "/d/dma_buf/bufinfo");
-    DumpFileToFd(fd, "Page Pinner - longterm pin", "/sys/kernel/debug/page_pinner/longterm_pinner");
-    DumpFileToFd(fd, "Page Pinner - alloc_contig_failed", "/sys/kernel/debug/page_pinner/alloc_contig_failed");
+    DumpFileToFd(fd, "Page Pinner - longterm pin", "/sys/kernel/debug/page_pinner/buffer");
     RunCommandToFd(fd, "Pixel CMA stat", {"/vendor/bin/sh", "-c",
                    "for d in $(ls -d /sys/kernel/pixel_stat/mm/cma/*); do "
                        "if [ -f $d ]; then "
@@ -914,6 +976,21 @@ void DumpstateDevice::dumpAoCSection(int fd) {
     DumpFileToFd(fd, "AoC hotword wake", "/sys/devices/platform/19000000.aoc/control/hotword_wakeup");
     DumpFileToFd(fd, "AoC memory exception wake", "/sys/devices/platform/19000000.aoc/control/memory_exception");
     DumpFileToFd(fd, "AoC memory votes", "/sys/devices/platform/19000000.aoc/control/memory_votes");
+    RunCommandToFd(fd, "AoC Heap Stats (A32)",
+      {"/vendor/bin/sh", "-c", "echo 'dbg heap -c 1' > /dev/acd-debug; timeout 0.1 cat /dev/acd-debug"},
+      CommandOptions::WithTimeout(1).Build());
+    RunCommandToFd(fd, "AoC Heap Stats (F1)",
+      {"/vendor/bin/sh", "-c", "echo 'dbg heap -c 2' > /dev/acd-debug; timeout 0.1 cat /dev/acd-debug"},
+      CommandOptions::WithTimeout(1).Build());
+    RunCommandToFd(fd, "AoC Heap Stats (HF0)",
+      {"/vendor/bin/sh", "-c", "echo 'dbg heap -c 3' > /dev/acd-debug; timeout 0.1 cat /dev/acd-debug"},
+      CommandOptions::WithTimeout(1).Build());
+    RunCommandToFd(fd, "AoC Heap Stats (HF1)",
+      {"/vendor/bin/sh", "-c", "echo 'dbg heap -c 4' > /dev/acd-debug; timeout 0.1 cat /dev/acd-debug"},
+      CommandOptions::WithTimeout(1).Build());
+    RunCommandToFd(fd, "AoC MIF Stats",
+      {"/vendor/bin/sh", "-c", "echo 'mif details' > /dev/acd-debug; timeout 0.1 cat /dev/acd-debug"},
+      CommandOptions::WithTimeout(1).Build());
 }
 
 // Dump items related to sensors usf.
@@ -978,6 +1055,7 @@ void DumpstateDevice::dumpMiscSection(int fd) {
 void DumpstateDevice::dumpGscSection(int fd) {
     RunCommandToFd(fd, "Citadel VERSION", {"vendor/bin/hw/citadel_updater", "-lv"});
     RunCommandToFd(fd, "Citadel STATS", {"vendor/bin/hw/citadel_updater", "--stats"});
+    RunCommandToFd(fd, "GSC DEBUG DUMP", {"vendor/bin/hw/citadel_updater", "-D"});
 }
 
 // Dump essential camera debugging logs

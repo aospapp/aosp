@@ -47,4 +47,7 @@ public class AES256CBCNoPaddingCipherTest extends AESCBCNoPaddingCipherTestBase 
     protected byte[] getKatCiphertext() {
         return KAT_CIPHERTEXT.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

@@ -126,8 +126,7 @@ void IdenticalCodeFolding::findCandidates(FoldingCandidates& pCandidateList) {
     for (sect = (*obj)->context()->sectBegin(); sect != sectEnd; ++sect) {
       switch ((*sect)->kind()) {
         case LDFileFormat::TEXT: {
-          candidate_map.insert(
-              std::make_pair(*sect, reinterpret_cast<LDSection*>(NULL)));
+          candidate_map.insert(std::make_pair(*sect, nullptr));
           break;
         }
         case LDFileFormat::Relocation: {

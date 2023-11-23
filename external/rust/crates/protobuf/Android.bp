@@ -29,6 +29,8 @@ rust_library {
     name: "libprotobuf",
     host_supported: true,
     crate_name: "protobuf",
+    cargo_env_compat: true,
+    cargo_pkg_version: "2.27.1",
     srcs: [
         "src/lib.rs",
         ":copy_protobuf_build_out",
@@ -40,9 +42,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   bytes-1.0.1 "default,std"

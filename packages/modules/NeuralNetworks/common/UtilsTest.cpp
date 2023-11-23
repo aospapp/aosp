@@ -23,7 +23,7 @@
 
 #include "HalInterfaces.h"
 #include "MemoryUtils.h"
-#include "OperationsUtils.cpp"
+#include "OperationsExecutionUtils.h"
 #include "QuantUtils.h"
 #include "Utils.h"
 #include "ValidateHal.h"

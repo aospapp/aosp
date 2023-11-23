@@ -315,15 +315,14 @@ public class RoleControllerServiceImpl extends RoleControllerService {
 
     @WorkerThread
     private boolean addRoleHolderInternal(@NonNull Role role, @NonNull String packageName,
-            boolean overrideUserSetAndFixedPermissions) {
-        return addRoleHolderInternal(role, packageName, false, overrideUserSetAndFixedPermissions,
-                false);
+            boolean overrideUser) {
+        return addRoleHolderInternal(role, packageName, false, overrideUser, false);
     }
 
     @WorkerThread
     private boolean addRoleHolderInternal(@NonNull Role role, @NonNull String packageName,
-            boolean dontKillApp, boolean overrideUserSetAndFixedPermissions, boolean added) {
-        role.grant(packageName, dontKillApp, overrideUserSetAndFixedPermissions, this);
+            boolean dontKillApp, boolean overrideUser, boolean added) {
+        role.grant(packageName, dontKillApp, overrideUser, this);
 
         String roleName = role.getName();
         if (!added) {

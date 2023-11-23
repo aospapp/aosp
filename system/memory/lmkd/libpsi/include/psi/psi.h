@@ -22,10 +22,27 @@
 
 __BEGIN_DECLS
 
+#define PSI_PATH_MEMORY	"/proc/pressure/memory"
+#define PSI_PATH_IO	"/proc/pressure/io"
+#define PSI_PATH_CPU	"/proc/pressure/cpu"
+
 enum psi_stall_type {
     PSI_SOME,
     PSI_FULL,
     PSI_TYPE_COUNT
+};
+
+struct psi_stats {
+    float avg10;
+    float avg60;
+    float avg300;
+    unsigned long total;
+};
+
+struct psi_data {
+    struct psi_stats mem_stats[PSI_TYPE_COUNT];
+    struct psi_stats io_stats[PSI_TYPE_COUNT];
+    struct psi_stats cpu_stats[PSI_TYPE_COUNT];
 };
 
 /*
@@ -62,6 +79,13 @@ int unregister_psi_monitor(int epollfd, int fd);
  * the file descriptor.
  */
 void destroy_psi_monitor(int fd);
+
+/*
+ * Parse psi file line content. Expected file format is:
+ *    some avg10=0.00 avg60=0.00 avg300=0.00 total=0
+ *    full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+ */
+int parse_psi_line(char *line, enum psi_stall_type stall_type, struct psi_stats stats[]);
 
 __END_DECLS
 

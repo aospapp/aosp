@@ -123,22 +123,22 @@ class AutoVsManualTest(its_base_test.ItsBaseTest):
 
       # Check AWB gains & transform in manual results match values from do_3a
       for g, x in [(awb_gains_m1, awb_xform_m1), (awb_gains_m2, awb_xform_m2)]:
-        e_msg = 'awb_xform 3A: %s, manual: %s, ATOL=%.2f' % (
-            str(awb_xform), str(x), AWB_MANUAL_ATOL)
-        assert np.allclose(awb_xform, x, atol=AWB_MANUAL_ATOL, rtol=0), e_msg
-        e_msg = 'awb_gains 3A: %s, manual: %s, ATOL=%.2f' % (
-            str(awb_gains), str(g), AWB_MANUAL_ATOL)
-        assert np.allclose(awb_gains, g, atol=AWB_MANUAL_ATOL, rtol=0), e_msg
+        if not np.allclose(awb_xform, x, atol=AWB_MANUAL_ATOL, rtol=0):
+          raise AssertionError(
+              f'awb_xform 3A: {awb_xform}, manual: {x}, ATOL={AWB_MANUAL_ATOL}')
+        if not np.allclose(awb_gains, g, atol=AWB_MANUAL_ATOL, rtol=0):
+          raise AssertionError(
+              f'awb_gains 3A: {awb_gains}, manual: {g}, ATOL={AWB_MANUAL_ATOL}')
 
       # Check AWB gains & transform in auto results match values from do_3a
-      e_msg = 'awb_xform 3A: %s, auto: %s, RTOL=%.2f, ATOL=%.2f' % (
-          str(awb_xform), str(awb_xform_a), AWB_AUTO_RTOL, AWB_AUTO_ATOL)
-      assert np.allclose(awb_xform_a, awb_xform, atol=AWB_AUTO_ATOL,
-                         rtol=AWB_AUTO_RTOL), e_msg
-      e_msg = 'awb_gains 3A: %s, auto: %s, RTOL=%.2f, ATOL=%.2f' % (
-          str(awb_gains), str(awb_gains_a), AWB_AUTO_RTOL, AWB_AUTO_ATOL)
-      assert np.allclose(awb_gains_a, awb_gains, atol=AWB_AUTO_ATOL,
-                         rtol=AWB_AUTO_RTOL), e_msg
+      if not np.allclose(awb_xform_a, awb_xform, atol=AWB_AUTO_ATOL,
+                         rtol=AWB_AUTO_RTOL):
+        raise AssertionError(f'awb_xform 3A: {awb_xform}, auto: {awb_xform_a},'
+                             f'RTOL={AWB_AUTO_RTOL}, ATOL={AWB_AUTO_ATOL}')
+      if not np.allclose(awb_gains_a, awb_gains, atol=AWB_AUTO_ATOL,
+                         rtol=AWB_AUTO_RTOL):
+        raise AssertionError(f'awb_gains 3A: {awb_gains}, auto: {awb_gains_a},'
+                             f'RTOL={AWB_AUTO_RTOL}, ATOL={AWB_AUTO_ATOL}')
 
 if __name__ == '__main__':
   test_runner.main()

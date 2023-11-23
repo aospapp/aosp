@@ -31,7 +31,6 @@ import android.net.InetAddresses;
 import android.net.IpSecManager;
 import android.net.IpSecTransform;
 import android.net.LinkAddress;
-import android.net.annotations.PolicyDirection;
 import android.net.ipsec.ike.ChildSessionCallback;
 import android.net.ipsec.ike.ChildSessionConfiguration;
 import android.net.ipsec.ike.IkeSessionCallback;
@@ -47,6 +46,7 @@ import android.platform.test.annotations.AppModeFull;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.internal.net.annotations.PolicyDirection;
 import com.android.net.module.util.ArrayTrackRecord;
 
 import org.junit.After;

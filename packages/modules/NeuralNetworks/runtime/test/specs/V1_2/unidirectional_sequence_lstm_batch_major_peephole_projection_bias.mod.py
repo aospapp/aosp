@@ -38,7 +38,7 @@ input_to_cell_weights = Input("input_to_cell_weights", "TENSOR_FLOAT32",
 input_to_output_weights = Input("input_to_output_weights", "TENSOR_FLOAT32",
                                 "{%d, %d}" % (n_cell, n_input))
 
-recurrent_to_input_weights = Input("recurrent_to_intput_weights",
+recurrent_to_input_weights = Input("recurrent_to_input_weights",
                                    "TENSOR_FLOAT32",
                                    "{%d, %d}" % (n_cell, n_output))
 recurrent_to_forget_weights = Input("recurrent_to_forget_weights",

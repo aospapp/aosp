@@ -21,6 +21,7 @@ import acts_contrib.test_utils.bt.bt_test_utils as btutils
 import acts_contrib.test_utils.power.PowerBTBaseTest as PBtBT
 
 EXTRA_PLAY_TIME = 30
+GET_PROPERTY_HARDWARE_PLATFORM = 'getprop ro.boot.hardware.platform'
 
 
 class PowerBTcalibrationTest(PBtBT.PowerBTBaseTest):
@@ -50,20 +51,23 @@ class PowerBTcalibrationTest(PBtBT.PowerBTBaseTest):
         self.media.play()
         time.sleep(EXTRA_PLAY_TIME)
 
-        # Loop through attenuation in 1 dB step until reaching at PL10
+        # Loop through attenuation in 1 dB step
         self.log.info('Starting Calibration Process')
-        pl10_count = 0
         for i in range(int(self.attenuator.get_max_atten())):
-
-            self.attenuator.set_atten(i)
-            bt_metrics_dict = btutils.get_bt_metric(self.dut)
-            pwl = bt_metrics_dict['pwlv'][self.dut.serial]
-            self.log.info('Reach PW {} at attenuation {} dB'.format(pwl, i))
-            self.cal_matrix.append([i, pwl])
-            if pwl == 10:
-                pl10_count += 1
-            if pl10_count > 5:
-                break
+            try:
+                self.attenuator.set_atten(i)
+                bt_metrics_dict = btutils.get_bt_metric(self.dut)
+                pwl = bt_metrics_dict['pwlv'][self.dut.serial]
+                rssi = bt_metrics_dict['rssi'][self.dut.serial]
+                bftx = bt_metrics_dict['bftx'][self.dut.serial]
+                self.log.info(
+                    'Reach PW {}, RSSI {}, BFTX {} at attenuation {} dB'.format(
+                        pwl, rssi, bftx, i))
+            except Exception as e:
+                self.log.warning('Get Exception {} at attenuation {} dB'.format(
+                    str(e), i))
+                continue
+            self.cal_matrix.append([i, pwl, rssi, bftx])
 
         # Write cal results to csv
         with open(self.log_file, 'w', newline='') as f:

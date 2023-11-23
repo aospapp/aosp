@@ -70,12 +70,7 @@ public final class CarSettingsTest extends CarApiTestBase {
         mSettings.put(CarSettings.Secure.KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER, SCOPE_SECURE);
         mSettings.put(CarSettings.Secure.KEY_SETUP_WIZARD_IN_PROGRESS, SCOPE_SECURE);
 
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_A2DP_SINK_DEVICES, SCOPE_SECURE);
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_PAN_DEVICES, SCOPE_SECURE);
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_HFP_CLIENT_DEVICES, SCOPE_SECURE);
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_MAP_CLIENT_DEVICES, SCOPE_SECURE);
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_PBAP_CLIENT_DEVICES, SCOPE_SECURE);
-        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_PROFILES_INHIBITED, SCOPE_SECURE);
+        mSettings.put(CarSettings.Secure.KEY_BLUETOOTH_DEVICES, SCOPE_SECURE);
     }
 
     private boolean checkAllSettingsReadable() throws Exception {

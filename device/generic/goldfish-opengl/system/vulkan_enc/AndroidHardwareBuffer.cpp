@@ -75,8 +75,46 @@ VkResult getAndroidHardwareBufferPropertiesANDROID(
         if (!(desc.usage & (gpu_usage))) {
             return VK_ERROR_INVALID_EXTERNAL_HANDLE;
         }
-
-        ahbFormatProps->format = vk_format_from_android(desc.format);
+        switch(desc.format) {
+            case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_R8G8B8A8_UNORM;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_R8G8B8A8_UNORM;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_R8G8B8_UNORM;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_R5G6B5_UNORM_PACK16;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
+                  ahbFormatProps->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_D16_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_D16_UNORM;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_D24_UNORM:
+                  ahbFormatProps->format = VK_FORMAT_X8_D24_UNORM_PACK32;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
+                  ahbFormatProps->format = VK_FORMAT_D24_UNORM_S8_UINT;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
+                  ahbFormatProps->format = VK_FORMAT_D32_SFLOAT;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT:
+                  ahbFormatProps->format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+                  break;
+            case AHARDWAREBUFFER_FORMAT_S8_UINT:
+                  ahbFormatProps->format = VK_FORMAT_S8_UINT;
+                  break;
+            default:
+                  ahbFormatProps->format = VK_FORMAT_UNDEFINED;
+        }
         ahbFormatProps->externalFormat = desc.format;
 
         // The formatFeatures member must include
@@ -86,9 +124,16 @@ VkResult getAndroidHardwareBufferPropertiesANDROID(
         // VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT and
         // VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT.
 
+        // org.skia.skqp.SkQPRunner#UnitTest_VulkanHardwareBuffer* requires the following:
+        // VK_FORMAT_FEATURE_TRANSFER_SRC_BIT
+        // VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+        // VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
         ahbFormatProps->formatFeatures =
             VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
-            VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT;
+            VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT |
+            VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+            VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+            VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT;
 
         // "Implementations may not always be able to determine the color model,
         // numerical range, or chroma offsets of the image contents, so the values in

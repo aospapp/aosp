@@ -23,6 +23,7 @@ import static com.android.testutils.MiscAsserts.assertFieldCountEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
+import android.annotation.SuppressLint;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
 
@@ -44,6 +45,7 @@ import java.util.function.Consumer;
 public class InitialConfigurationTest {
     private InitialConfiguration mConfig;
 
+    @SuppressLint("NewApi")
     @Before
     public void setUp() {
         mConfig = new InitialConfiguration();
@@ -67,6 +69,7 @@ public class InitialConfigurationTest {
         assertEquals(mConfig, unparceled);
     }
 
+    @SuppressLint("NewApi")
     @Test
     public void testEquals() {
         assertEquals(mConfig, InitialConfiguration.copy(mConfig));

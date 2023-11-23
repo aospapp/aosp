@@ -20,6 +20,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.googlecode.android_scripting"
     android:sharedUserId="android.uid.system">
+
+    <permission android:name="com.googlecode.android_scripting.ACTION_FOUND_PERMISSION" />
+
+    <protected-broadcast android:name="com.googlecode.android_scripting.ACTION_FOUND"
+        android:protectionLevel="signatureOrSystem"/>
+
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE" />
     <uses-permission android:name="android.permission.ACCESS_CHECKIN_PROPERTIES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -27,6 +33,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_RCS_USER_CAPABILITY_EXCHANGE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.BACKUP" />
@@ -77,6 +84,7 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.PACKET_KEEPALIVE_OFFLOAD" />
     <uses-permission android:name="android.permission.PEERS_MAC_ADDRESS" />
+    <uses-permission android:name="android.permission.PERFORM_IMS_SINGLE_REGISTRATION" />
     <uses-permission android:name="android.permission.PERSISTENT_ACTIVITY" />
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -105,6 +113,8 @@
     <uses-permission android:name="android.permission.SET_TIME_ZONE" />
     <uses-permission android:name="android.permission.STATUS_BAR" />
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.UWB_PRIVILEGED" />
+    <uses-permission android:name="android.permission.UWB_RANGING" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_APN_SETTINGS" />
@@ -247,5 +257,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <receiver android:name=".facade.bluetooth.ScanBroadcastReceiver"
+            android:exported="true" >
+            <intent-filter>
+                <action
+                    android:name="com.googlecode.android_scripting.ACTION_FOUND"
+                    android:permission="com.googlecode.android_scripting.ACTION_FOUND_PERMISSION" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -25,6 +25,7 @@ import com.android.timezone.location.validation.Types.KnownDifferences;
 import com.android.timezone.location.validation.Types.Result;
 import com.android.timezone.location.validation.Types.TestCaseId;
 import com.android.timezone.tzids.TimeZoneIds;
+
 import com.google.common.geometry.S2CellId;
 import com.google.common.geometry.S2LatLng;
 
@@ -191,12 +192,12 @@ public class GeonamesComparison {
 
     static class KnownDifferencesRegistry {
 
-        Map<TestCaseId, KnownDifference> knownDifferences = new HashMap<>();
-        Map<TestCaseId, Types.KnownDifference> mutableKnownDifferencesMap = new HashMap<>();
-        List<Types.KnownDifference> newKnownDifferences = new ArrayList<>();
-        List<Types.KnownDifference> confirmedKnownDifferences = new ArrayList<>();
-        List<KnownDifferenceMismatch> incorrectKnownDifferences = new ArrayList<>();
-        List<CityResult> multipleIdAndroidResults = new ArrayList<>();
+        public Map<TestCaseId, KnownDifference> knownDifferences = new HashMap<>();
+        public Map<TestCaseId, Types.KnownDifference> mutableKnownDifferencesMap = new HashMap<>();
+        public List<Types.KnownDifference> newKnownDifferences = new ArrayList<>();
+        public List<Types.KnownDifference> confirmedKnownDifferences = new ArrayList<>();
+        public List<KnownDifferenceMismatch> incorrectKnownDifferences = new ArrayList<>();
+        public List<CityResult> multipleIdAndroidResults = new ArrayList<>();
 
         void addKnownDifferences(File knownDifferencesFile) throws IOException {
             Map<TestCaseId, KnownDifference> knownDifferencesMap =

@@ -207,7 +207,7 @@ class Renderer11 : public RendererD3D
                                       gl::ShaderType type,
                                       const std::vector<D3DVarying> &streamOutVaryings,
                                       bool separatedOutputBuffers,
-                                      const angle::CompilerWorkaroundsD3D &workarounds,
+                                      const CompilerWorkaroundsD3D &workarounds,
                                       ShaderExecutableD3D **outExectuable) override;
     angle::Result ensureHLSLCompilerInitialized(d3d::Context *context) override;
 
@@ -294,6 +294,7 @@ class Renderer11 : public RendererD3D
 
     // D3D11-renderer specific methods
     ID3D11Device *getDevice() { return mDevice; }
+    ID3D11Device1 *getDevice1() { return mDevice1; }
     void *getD3DDevice() override;
     ID3D11DeviceContext *getDeviceContext() { return mDeviceContext; }
     ID3D11DeviceContext1 *getDeviceContext1IfSupported() { return mDeviceContext1; }
@@ -385,7 +386,8 @@ class Renderer11 : public RendererD3D
                              GLint firstVertex,
                              GLsizei vertexCount,
                              GLsizei instanceCount,
-                             GLuint baseInstance);
+                             GLuint baseInstance,
+                             bool isInstancedDraw);
     angle::Result drawElements(const gl::Context *context,
                                gl::PrimitiveMode mode,
                                GLint startVertex,
@@ -394,7 +396,8 @@ class Renderer11 : public RendererD3D
                                const void *indices,
                                GLsizei instanceCount,
                                GLint baseVertex,
-                               GLuint baseInstance);
+                               GLuint baseInstance,
+                               bool isInstancedDraw);
     angle::Result drawArraysIndirect(const gl::Context *context, const void *indirect);
     angle::Result drawElementsIndirect(const gl::Context *context, const void *indirect);
 
@@ -488,7 +491,7 @@ class Renderer11 : public RendererD3D
 
     std::string getRendererDescription() const override;
     std::string getVendorString() const override;
-    std::string getVersionString() const override;
+    std::string getVersionString(bool includeFullVersion) const override;
 
   private:
     void generateCaps(gl::Caps *outCaps,
@@ -591,6 +594,7 @@ class Renderer11 : public RendererD3D
     angle::ComPtr<ID3D12CommandQueue> mCommandQueue;
 
     ID3D11Device *mDevice;
+    ID3D11Device1 *mDevice1;
     Renderer11DeviceCaps mRenderer11DeviceCaps;
     ID3D11DeviceContext *mDeviceContext;
     ID3D11DeviceContext1 *mDeviceContext1;

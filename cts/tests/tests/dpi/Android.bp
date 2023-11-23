@@ -25,12 +25,16 @@ android_test {
         "ctstestrunner-axt",
         "junit",
         "compatibility-device-util-axt",
+        "cts-wm-util",
     ],
     libs: [
         "android.test.runner",
         "android.test.base",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        ":cts-wm-ignore-orientation-request-session",
+    ],
     sdk_version: "test_current",
     // Tag this module as a cts test artifact
     test_suites: [

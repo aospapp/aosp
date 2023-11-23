@@ -17,8 +17,8 @@
 #ifndef CPP_WATCHDOG_SERVER_SRC_IOPERFCOLLECTION_H_
 #define CPP_WATCHDOG_SERVER_SRC_IOPERFCOLLECTION_H_
 
-#include "ProcDiskStats.h"
-#include "ProcStat.h"
+#include "ProcDiskStatsCollector.h"
+#include "ProcStatCollector.h"
 #include "UidStatsCollector.h"
 #include "WatchdogPerfService.h"
 
@@ -123,7 +123,7 @@ struct CollectionInfo {
 };
 
 // IoPerfCollection implements the I/O performance data collection module.
-class IoPerfCollection : public IDataProcessorInterface {
+class IoPerfCollection final : public DataProcessorInterface {
 public:
     IoPerfCollection() :
           mTopNStatsPerCategory(0),
@@ -137,25 +137,26 @@ public:
 
     std::string name() const override { return "IoPerfCollection"; }
 
-    // Implements IDataProcessorInterface.
+    // Implements DataProcessorInterface.
     android::base::Result<void> onBoottimeCollection(
             time_t time, const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) override;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) override;
 
     android::base::Result<void> onPeriodicCollection(
             time_t time, SystemState systemState,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) override;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) override;
 
     android::base::Result<void> onCustomCollection(
             time_t time, SystemState systemState,
             const std::unordered_set<std::string>& filterPackages,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) override;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) override;
 
     android::base::Result<void> onPeriodicMonitor(
             [[maybe_unused]] time_t time,
-            [[maybe_unused]] const android::wp<IProcDiskStatsInterface>& procDiskStats,
+            [[maybe_unused]] const android::wp<ProcDiskStatsCollectorInterface>&
+                    procDiskStatsCollector,
             [[maybe_unused]] const std::function<void()>& alertHandler) override {
         // No monitoring done here as this DataProcessor only collects I/O performance records.
         return {};
@@ -176,7 +177,8 @@ private:
     android::base::Result<void> processLocked(
             time_t time, const std::unordered_set<std::string>& filterPackages,
             const android::sp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::sp<ProcStat>& procStat, CollectionInfo* collectionInfo);
+            const android::sp<ProcStatCollectorInterface>& procStatCollector,
+            CollectionInfo* collectionInfo);
 
     // Processes per-UID performance data.
     void processUidStatsLocked(const std::unordered_set<std::string>& filterPackages,
@@ -184,7 +186,7 @@ private:
                                UserPackageSummaryStats* userPackageSummaryStats);
 
     // Processes system performance data from the `/proc/stats` file.
-    void processProcStatLocked(const android::sp<ProcStat>& procStat,
+    void processProcStatLocked(const android::sp<ProcStatCollectorInterface>& procStatCollector,
                                SystemSummaryStats* systemSummaryStats) const;
 
     // Top N per-UID stats per category.

@@ -238,7 +238,8 @@ impl<T> Pointable for T {
 // [`alloc::alloc::Layout::extend`] instead.
 #[repr(C)]
 struct Array<T> {
-    size: usize,
+    /// The number of elements (not the number of bytes).
+    len: usize,
     elements: [MaybeUninit<T>; 0],
 }
 
@@ -247,28 +248,31 @@ impl<T> Pointable for [MaybeUninit<T>] {
 
     type Init = usize;
 
-    unsafe fn init(size: Self::Init) -> usize {
-        let size = mem::size_of::<Array<T>>() + mem::size_of::<MaybeUninit<T>>() * size;
+    unsafe fn init(len: Self::Init) -> usize {
+        let size = mem::size_of::<Array<T>>() + mem::size_of::<MaybeUninit<T>>() * len;
         let align = mem::align_of::<Array<T>>();
         let layout = alloc::Layout::from_size_align(size, align).unwrap();
         let ptr = alloc::alloc(layout) as *mut Array<T>;
-        (*ptr).size = size;
+        if ptr.is_null() {
+            alloc::handle_alloc_error(layout);
+        }
+        (*ptr).len = len;
         ptr as usize
     }
 
     unsafe fn deref<'a>(ptr: usize) -> &'a Self {
         let array = &*(ptr as *const Array<T>);
-        slice::from_raw_parts(array.elements.as_ptr() as *const _, array.size)
+        slice::from_raw_parts(array.elements.as_ptr() as *const _, array.len)
     }
 
     unsafe fn deref_mut<'a>(ptr: usize) -> &'a mut Self {
         let array = &*(ptr as *mut Array<T>);
-        slice::from_raw_parts_mut(array.elements.as_ptr() as *mut _, array.size)
+        slice::from_raw_parts_mut(array.elements.as_ptr() as *mut _, array.len)
     }
 
     unsafe fn drop(ptr: usize) {
         let array = &*(ptr as *mut Array<T>);
-        let size = mem::size_of::<Array<T>>() + mem::size_of::<MaybeUninit<T>>() * array.size;
+        let size = mem::size_of::<Array<T>>() + mem::size_of::<MaybeUninit<T>>() * array.len;
         let align = mem::align_of::<Array<T>>();
         let layout = alloc::Layout::from_size_align(size, align).unwrap();
         alloc::dealloc(ptr as *mut u8, layout);
@@ -556,6 +560,65 @@ impl<T: ?Sized + Pointable> Atomic<T> {
                     new: P::from_usize(new),
                 }
             })
+    }
+
+    /// Fetches the pointer, and then applies a function to it that returns a new value.
+    /// Returns a `Result` of `Ok(previous_value)` if the function returned `Some`, else `Err(_)`.
+    ///
+    /// Note that the given function may be called multiple times if the value has been changed by
+    /// other threads in the meantime, as long as the function returns `Some(_)`, but the function
+    /// will have been applied only once to the stored value.
+    ///
+    /// `fetch_update` takes two [`Ordering`] arguments to describe the memory
+    /// ordering of this operation. The first describes the required ordering for
+    /// when the operation finally succeeds while the second describes the
+    /// required ordering for loads. These correspond to the success and failure
+    /// orderings of [`Atomic::compare_exchange`] respectively.
+    ///
+    /// Using [`Acquire`] as success ordering makes the store part of this
+    /// operation [`Relaxed`], and using [`Release`] makes the final successful
+    /// load [`Relaxed`]. The (failed) load ordering can only be [`SeqCst`],
+    /// [`Acquire`] or [`Relaxed`] and must be equivalent to or weaker than the
+    /// success ordering.
+    ///
+    /// [`Relaxed`]: Ordering::Relaxed
+    /// [`Acquire`]: Ordering::Acquire
+    /// [`Release`]: Ordering::Release
+    /// [`SeqCst`]: Ordering::SeqCst
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crossbeam_epoch::{self as epoch, Atomic};
+    /// use std::sync::atomic::Ordering::SeqCst;
+    ///
+    /// let a = Atomic::new(1234);
+    /// let guard = &epoch::pin();
+    ///
+    /// let res1 = a.fetch_update(SeqCst, SeqCst, guard, |x| Some(x.with_tag(1)));
+    /// assert!(res1.is_ok());
+    ///
+    /// let res2 = a.fetch_update(SeqCst, SeqCst, guard, |x| None);
+    /// assert!(res2.is_err());
+    /// ```
+    pub fn fetch_update<'g, F>(
+        &self,
+        set_order: Ordering,
+        fail_order: Ordering,
+        guard: &'g Guard,
+        mut func: F,
+    ) -> Result<Shared<'g, T>, Shared<'g, T>>
+    where
+        F: FnMut(Shared<'g, T>) -> Option<Shared<'g, T>>,
+    {
+        let mut prev = self.load(fail_order, guard);
+        while let Some(next) = func(prev) {
+            match self.compare_exchange_weak(prev, next, set_order, fail_order, guard) {
+                Ok(shared) => return Ok(shared),
+                Err(next_prev) => prev = next_prev.current,
+            }
+        }
+        Err(prev)
     }
 
     /// Stores the pointer `new` (either `Shared` or `Owned`) into the atomic pointer if the current
@@ -1221,7 +1284,6 @@ impl<'g, T> Shared<'g, T> {
     /// let p = a.load(SeqCst, guard);
     /// assert_eq!(p.as_raw(), raw);
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn as_raw(&self) -> *const T {
         let (raw, _) = decompose_tag::<T>(self.data);
         raw as *const _
@@ -1260,7 +1322,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     /// a.store(Owned::new(1234), SeqCst);
     /// assert!(!a.load(SeqCst, guard).is_null());
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn is_null(&self) -> bool {
         let (raw, _) = decompose_tag::<T>(self.data);
         raw == 0
@@ -1297,8 +1358,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     ///     assert_eq!(p.deref(), &1234);
     /// }
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    #[allow(clippy::should_implement_trait)]
     pub unsafe fn deref(&self) -> &'g T {
         let (raw, _) = decompose_tag::<T>(self.data);
         T::deref(raw)
@@ -1340,7 +1399,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     ///     assert_eq!(p.deref(), &vec![1, 2, 3, 4, 5]);
     /// }
     /// ```
-    #[allow(clippy::should_implement_trait)]
     pub unsafe fn deref_mut(&mut self) -> &'g mut T {
         let (raw, _) = decompose_tag::<T>(self.data);
         T::deref_mut(raw)
@@ -1377,7 +1435,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     ///     assert_eq!(p.as_ref(), Some(&1234));
     /// }
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub unsafe fn as_ref(&self) -> Option<&'g T> {
         let (raw, _) = decompose_tag::<T>(self.data);
         if raw == 0 {
@@ -1429,7 +1486,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     /// let p = a.load(SeqCst, guard);
     /// assert_eq!(p.tag(), 2);
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn tag(&self) -> usize {
         let (_, tag) = decompose_tag::<T>(self.data);
         tag
@@ -1453,7 +1509,6 @@ impl<'g, T: ?Sized + Pointable> Shared<'g, T> {
     /// assert_eq!(p2.tag(), 2);
     /// assert_eq!(p1.as_raw(), p2.as_raw());
     /// ```
-    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn with_tag(&self, tag: usize) -> Shared<'g, T> {
         unsafe { Self::from_usize(compose_tag::<T>(self.data, tag)) }
     }
@@ -1526,7 +1581,8 @@ impl<T: ?Sized + Pointable> Default for Shared<'_, T> {
 
 #[cfg(all(test, not(crossbeam_loom)))]
 mod tests {
-    use super::Shared;
+    use super::{Owned, Shared};
+    use std::mem::MaybeUninit;
 
     #[test]
     fn valid_tag_i8() {
@@ -1542,6 +1598,13 @@ mod tests {
     #[test]
     fn const_atomic_null() {
         use super::Atomic;
-        const _: Atomic<u8> = Atomic::<u8>::null();
+        static _U: Atomic<u8> = Atomic::<u8>::null();
+    }
+
+    #[test]
+    fn array_init() {
+        let owned = Owned::<[MaybeUninit<usize>]>::init(10);
+        let arr: &[MaybeUninit<usize>] = &*owned;
+        assert_eq!(arr.len(), 10);
     }
 }

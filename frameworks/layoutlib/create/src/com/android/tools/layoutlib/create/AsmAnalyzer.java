@@ -18,6 +18,7 @@ package com.android.tools.layoutlib.create;
 
 import com.android.tools.layoutlib.annotations.NotNull;
 import com.android.tools.layoutlib.annotations.Nullable;
+import com.android.tools.layoutlib.create.ICreateInfo.MethodReplacer;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
@@ -43,10 +44,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -105,27 +104,28 @@ public class AsmAnalyzer {
     private final String[] mIncludeFileGlobs;
     /** Internal names of classes that contain method calls that need to be rewritten. */
     private final Set<String> mReplaceMethodCallClasses = new HashSet<>();
+    /** Internal names of method calls that need to be rewritten. */
+    private final MethodReplacer[] mMethodReplacers;
 
     /**
      * Creates a new analyzer.
-     *
      * @param log The log output.
      * @param osJarPath The input source JARs to parse.
      * @param deriveFrom Keep all classes that derive from these one (these included).
      * @param includeGlobs Glob patterns of classes to keep, e.g. "com.foo.*"
-     *        ("*" does not matches dots whilst "**" does, "." and "$" are interpreted as-is)
+*        ("*" does not matches dots whilst "**" does, "." and "$" are interpreted as-is)
      * @param includeFileGlobs Glob patterns of files which are kept as is. This is only for files
-     *        not ending in .class.
+     * @param methodReplacers names of method calls that need to be rewritten
      */
-    public AsmAnalyzer(Log log, List<String> osJarPath,
-            String[] deriveFrom, String[] includeGlobs, String[] excludedGlobs,
-            String[] includeFileGlobs) {
+    public AsmAnalyzer(Log log, List<String> osJarPath, String[] deriveFrom, String[] includeGlobs,
+            String[] excludedGlobs, String[] includeFileGlobs, MethodReplacer[] methodReplacers) {
         mLog = log;
         mOsSourceJar = osJarPath != null ? osJarPath : new ArrayList<>();
         mDeriveFrom = deriveFrom != null ? deriveFrom : new String[0];
         mIncludeGlobs = includeGlobs != null ? includeGlobs : new String[0];
         mExcludedGlobs = excludedGlobs != null ? excludedGlobs : new String[0];
         mIncludeFileGlobs = includeFileGlobs != null ? includeFileGlobs : new String[0];
+        mMethodReplacers = methodReplacers;
     }
 
     /**
@@ -488,7 +488,7 @@ public class AsmAnalyzer {
             try {
                 // exclude classes that are part of the default JRE (the one executing this program)
                 if (className.startsWith("java.") || className.startsWith("sun.") ||
-                        getClass().getClassLoader().loadClass(className) != null) {
+                        getClass().getClassLoader().getParent().loadClass(className) != null) {
                     return;
                 }
             } catch (ClassNotFoundException e) {
@@ -773,6 +773,24 @@ public class AsmAnalyzer {
                 // pass
             }
 
+            /**
+             * If a method some.package.Class.Method(args) is called from some.other.Class,
+             * @param owner some/package/Class
+             * @param name Method
+             * @param desc (args)returnType
+             * @param sourceClass some/other/Class
+             * @return if the method invocation needs to be replaced by some other class.
+             */
+            private boolean isReplacementNeeded(String owner, String name, String desc,
+                    String sourceClass) {
+                for (MethodReplacer replacer : mMethodReplacers) {
+                    if (replacer.isNeeded(owner, name, desc, sourceClass)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
             // instruction that invokes a method
             @Override
             public void visitMethodInsn(int opcode, String owner, String name, String desc,
@@ -785,7 +803,7 @@ public class AsmAnalyzer {
 
 
                 // Check if method needs to replaced by a call to a different method.
-                if (ReplaceMethodCallsAdapter.isReplacementNeeded(owner, name, desc, mOwnerClass)) {
+                if (isReplacementNeeded(owner, name, desc, mOwnerClass)) {
                     mReplaceMethodCallClasses.add(mOwnerClass);
                 }
             }

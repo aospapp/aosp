@@ -6,7 +6,7 @@
 //!
 //! ```rust,ignore
 //! impl<T> OnceCell<T> {
-//!     fn new() -> OnceCell<T> { ... }
+//!     const fn new() -> OnceCell<T> { ... }
 //!     fn set(&self, value: T) -> Result<(), T> { ... }
 //!     fn get(&self) -> Option<&T> { ... }
 //! }
@@ -24,11 +24,11 @@
 //! [`Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html
 //! [`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
 //!
-//! # Patterns
+//! # Recipes
 //!
 //! `OnceCell` might be useful for a variety of patterns.
 //!
-//! ## Safe Initialization of global data
+//! ## Safe Initialization of Global Data
 //!
 //! ```rust
 //! use std::{env, io};
@@ -59,7 +59,7 @@
 //! }
 //! ```
 //!
-//! ## Lazy initialized global data
+//! ## Lazy Initialized Global Data
 //!
 //! This is essentially the `lazy_static!` macro, but without a macro.
 //!
@@ -96,6 +96,9 @@
 //!     println!("{:?}", GLOBAL_DATA.lock().unwrap());
 //! }
 //! ```
+//!
+//! Note that the variable that holds `Lazy` is declared as `static`, *not*
+//! `const`. This is important: using `const` instead compiles, but works wrong.
 //!
 //! [`sync::Lazy`]: sync/struct.Lazy.html
 //! [`unsync::Lazy`]: unsync/struct.Lazy.html
@@ -139,10 +142,9 @@
 //! }
 //! ```
 //!
-//! ## Building block
+//! ## Lazily Compiled Regex
 //!
-//! Naturally, it is  possible to build other abstractions on top of `OnceCell`.
-//! For example, this is a `regex!` macro which takes a string literal and returns an
+//! This is a `regex!` macro which takes a string literal and returns an
 //! *expression* that evaluates to a `&'static Regex`:
 //!
 //! ```
@@ -156,7 +158,51 @@
 //!
 //! This macro can be useful to avoid the "compile regex on every loop iteration" problem.
 //!
-//! Another pattern would be a `LateInit` type for delayed initialization:
+//! ## Runtime `include_bytes!`
+//!
+//! The `include_bytes` macro is useful to include test resources, but it slows
+//! down test compilation a lot. An alternative is to load the resources at
+//! runtime:
+//!
+//! ```
+//! use std::path::Path;
+//!
+//! use once_cell::sync::OnceCell;
+//!
+//! pub struct TestResource {
+//!     path: &'static str,
+//!     cell: OnceCell<Vec<u8>>,
+//! }
+//!
+//! impl TestResource {
+//!     pub const fn new(path: &'static str) -> TestResource {
+//!         TestResource { path, cell: OnceCell::new() }
+//!     }
+//!     pub fn bytes(&self) -> &[u8] {
+//!         self.cell.get_or_init(|| {
+//!             let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+//!             let path = Path::new(dir.as_str()).join(self.path);
+//!             std::fs::read(&path).unwrap_or_else(|_err| {
+//!                 panic!("failed to load test resource: {}", path.display())
+//!             })
+//!         }).as_slice()
+//!     }
+//! }
+//!
+//! static TEST_IMAGE: TestResource = TestResource::new("test_data/lena.png");
+//!
+//! #[test]
+//! fn test_sobel_filter() {
+//!     let rgb: &[u8] = TEST_IMAGE.bytes();
+//!     // ...
+//! # drop(rgb);
+//! }
+//! ```
+//!
+//! ## `lateinit`
+//!
+//! `LateInit` type for delayed initialization. It is reminiscent of Kotlin's
+//! `lateinit` keyword and allows construction of cyclic data structures:
 //!
 //!
 //! ```
@@ -291,10 +337,11 @@ mod imp;
 #[path = "imp_std.rs"]
 mod imp;
 
+/// Single-threaded version of `OnceCell`.
 pub mod unsync {
     use core::{
         cell::{Cell, UnsafeCell},
-        fmt, mem,
+        fmt, hint, mem,
         ops::{Deref, DerefMut},
     };
 
@@ -394,6 +441,18 @@ pub mod unsync {
         /// Gets a mutable reference to the underlying value.
         ///
         /// Returns `None` if the cell is empty.
+        ///
+        /// This method is allowed to violate the invariant of writing to a `OnceCell`
+        /// at most once because it requires `&mut` access to `self`. As with all
+        /// interior mutability, `&mut` access permits arbitrary modification:
+        ///
+        /// ```
+        /// use once_cell::unsync::OnceCell;
+        ///
+        /// let mut cell: OnceCell<u32> = OnceCell::new();
+        /// cell.set(92).unwrap();
+        /// cell = OnceCell::new();
+        /// ```
         pub fn get_mut(&mut self) -> Option<&mut T> {
             // Safe because we have unique access
             unsafe { &mut *self.inner.get() }.as_mut()
@@ -417,9 +476,29 @@ pub mod unsync {
         /// assert!(cell.get().is_some());
         /// ```
         pub fn set(&self, value: T) -> Result<(), T> {
-            let slot = unsafe { &*self.inner.get() };
-            if slot.is_some() {
-                return Err(value);
+            match self.try_insert(value) {
+                Ok(_) => Ok(()),
+                Err((_, value)) => Err(value),
+            }
+        }
+
+        /// Like [`set`](Self::set), but also returns a referce to the final cell value.
+        ///
+        /// # Example
+        /// ```
+        /// use once_cell::unsync::OnceCell;
+        ///
+        /// let cell = OnceCell::new();
+        /// assert!(cell.get().is_none());
+        ///
+        /// assert_eq!(cell.try_insert(92), Ok(&92));
+        /// assert_eq!(cell.try_insert(62), Err((&92, 62)));
+        ///
+        /// assert!(cell.get().is_some());
+        /// ```
+        pub fn try_insert(&self, value: T) -> Result<&T, (&T, T)> {
+            if let Some(old) = self.get() {
+                return Err((old, value));
             }
             let slot = unsafe { &mut *self.inner.get() };
             // This is the only place where we set the slot, no races
@@ -427,7 +506,10 @@ pub mod unsync {
             // checked that slot is currently `None`, so this write
             // maintains the `inner`'s invariant.
             *slot = Some(value);
-            Ok(())
+            Ok(match &*slot {
+                Some(value) => value,
+                None => unsafe { hint::unreachable_unchecked() },
+            })
         }
 
         /// Gets the contents of the cell, initializing it with `f`
@@ -519,6 +601,18 @@ pub mod unsync {
         /// cell.set("hello".to_string()).unwrap();
         /// assert_eq!(cell.take(), Some("hello".to_string()));
         /// assert_eq!(cell.get(), None);
+        /// ```
+        ///
+        /// This method is allowed to violate the invariant of writing to a `OnceCell`
+        /// at most once because it requires `&mut` access to `self`. As with all
+        /// interior mutability, `&mut` access permits arbitrary modification:
+        ///
+        /// ```
+        /// use once_cell::unsync::OnceCell;
+        ///
+        /// let mut cell: OnceCell<u32> = OnceCell::new();
+        /// cell.set(92).unwrap();
+        /// cell = OnceCell::new();
         /// ```
         pub fn take(&mut self) -> Option<T> {
             mem::replace(self, Self::default()).into_inner()
@@ -657,6 +751,7 @@ pub mod unsync {
     }
 }
 
+/// Thread-safe, blocking version of `OnceCell`.
 #[cfg(feature = "std")]
 pub mod sync {
     use std::{
@@ -666,7 +761,7 @@ pub mod sync {
         panic::RefUnwindSafe,
     };
 
-    use crate::imp::OnceCell as Imp;
+    use crate::{imp::OnceCell as Imp, take_unchecked};
 
     /// A thread-safe cell which can be written to only once.
     ///
@@ -764,6 +859,18 @@ pub mod sync {
         /// Gets the mutable reference to the underlying value.
         ///
         /// Returns `None` if the cell is empty.
+        ///
+        /// This method is allowed to violate the invariant of writing to a `OnceCell`
+        /// at most once because it requires `&mut` access to `self`. As with all
+        /// interior mutability, `&mut` access permits arbitrary modification:
+        ///
+        /// ```
+        /// use once_cell::sync::OnceCell;
+        ///
+        /// let mut cell: OnceCell<u32> = OnceCell::new();
+        /// cell.set(92).unwrap();
+        /// cell = OnceCell::new();
+        /// ```
         pub fn get_mut(&mut self) -> Option<&mut T> {
             self.0.get_mut()
         }
@@ -803,11 +910,33 @@ pub mod sync {
         /// }
         /// ```
         pub fn set(&self, value: T) -> Result<(), T> {
+            match self.try_insert(value) {
+                Ok(_) => Ok(()),
+                Err((_, value)) => Err(value),
+            }
+        }
+
+        /// Like [`set`](Self::set), but also returns a reference to the final cell value.
+        ///
+        /// # Example
+        ///
+        /// ```
+        /// use once_cell::unsync::OnceCell;
+        ///
+        /// let cell = OnceCell::new();
+        /// assert!(cell.get().is_none());
+        ///
+        /// assert_eq!(cell.try_insert(92), Ok(&92));
+        /// assert_eq!(cell.try_insert(62), Err((&92, 62)));
+        ///
+        /// assert!(cell.get().is_some());
+        /// ```
+        pub fn try_insert(&self, value: T) -> Result<&T, (&T, T)> {
             let mut value = Some(value);
-            self.get_or_init(|| value.take().unwrap());
+            let res = self.get_or_init(|| unsafe { take_unchecked(&mut value) });
             match value {
-                None => Ok(()),
-                Some(value) => Err(value),
+                None => Ok(res),
+                Some(value) => Err((res, value)),
             }
         }
 
@@ -906,6 +1035,18 @@ pub mod sync {
         /// assert_eq!(cell.take(), Some("hello".to_string()));
         /// assert_eq!(cell.get(), None);
         /// ```
+        ///
+        /// This method is allowed to violate the invariant of writing to a `OnceCell`
+        /// at most once because it requires `&mut` access to `self`. As with all
+        /// interior mutability, `&mut` access permits arbitrary modification:
+        ///
+        /// ```
+        /// use once_cell::sync::OnceCell;
+        ///
+        /// let mut cell: OnceCell<u32> = OnceCell::new();
+        /// cell.set(92).unwrap();
+        /// cell = OnceCell::new();
+        /// ```
         pub fn take(&mut self) -> Option<T> {
             mem::replace(self, Self::default()).into_inner()
         }
@@ -974,11 +1115,10 @@ pub mod sync {
         }
     }
 
-    // We never create a `&F` from a `&Lazy<T, F>` so it is fine
-    // to not impl `Sync` for `F`
-    // we do create a `&mut Option<F>` in `force`, but this is
-    // properly synchronized, so it only happens once
-    // so it also does not contribute to this impl.
+    // We never create a `&F` from a `&Lazy<T, F>` so it is fine to not impl
+    // `Sync` for `F`. we do create a `&mut Option<F>` in `force`, but this is
+    // properly synchronized, so it only happens once so it also does not
+    // contribute to this impl.
     unsafe impl<T, F: Send> Sync for Lazy<T, F> where OnceCell<T>: Sync {}
     // auto-derived `Send` impl is OK.
 

@@ -74,6 +74,7 @@ python_binary_host {
         "acloud_public",
         "acloud_restart",
         "acloud_setup",
+        "acloud_hostcleanup",
         "py-apitools",
         "py-dateutil",
         "py-google-api-python-client",
@@ -112,6 +113,7 @@ python_test_host {
         "acloud_proto",
         "acloud_restart",
         "acloud_setup",
+        "acloud_hostcleanup",
         "asuite_cc_client",
         "py-apitools",
         "py-dateutil",
@@ -228,6 +230,14 @@ python_library_host{
     defaults: ["acloud_default"],
     srcs: [
          "restart/*.py",
+    ],
+}
+
+python_library_host{
+    name: "acloud_hostcleanup",
+    defaults: ["acloud_default"],
+    srcs: [
+         "hostcleanup/*.py",
     ],
 }
 

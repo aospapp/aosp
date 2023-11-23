@@ -69,13 +69,14 @@
 #include <netinet/sctp.h>
 #include <sys/uio.h>
 #include <sctputil.h>
+#include "tst_kernel.h"
 
 char *TCID = __FILE__;
 int TST_TOTAL = 10;
 int TST_CNT = 0;
 
 int
-main(int argc, char *argv[])
+main(void)
 {
         int error;
 	socklen_t len;
@@ -97,6 +98,9 @@ main(int argc, char *argv[])
 
         struct sockaddr_in conn_addr,lstn_addr,acpt_addr;
 	struct sockaddr_in *addr;
+
+	if (tst_check_driver("sctp"))
+		tst_brkm(TCONF, tst_exit, "sctp driver not available");
 
 	/* Rather than fflush() throughout the code, set stdout to
          * be unbuffered.

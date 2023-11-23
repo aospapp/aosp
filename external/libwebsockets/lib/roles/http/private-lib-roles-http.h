@@ -94,6 +94,8 @@ void
 lws_ranges_reset(struct lws_range_parsing *rp);
 #endif
 
+#define LWS_HTTP_NO_KNOWN_HEADER 0xff
+
 /*
  * these are assigned from a pool held in the context.
  * Both client and server mode uses them for http header analysis
@@ -125,9 +127,9 @@ struct allocated_headers {
 	ah_data_idx_t pos;
 	ah_data_idx_t http_response;
 	ah_data_idx_t current_token_limit;
+	ah_data_idx_t unk_pos; /* to undo speculative unknown header */
 
 #if defined(LWS_WITH_CUSTOM_HEADERS)
-	ah_data_idx_t unk_pos; /* to undo speculative unknown header */
 	ah_data_idx_t unk_value_pos;
 
 	ah_data_idx_t unk_ll_head;
@@ -246,8 +248,11 @@ struct _lws_http_mode_related {
 #ifdef LWS_WITH_ACCESS_LOG
 	struct lws_access_log access_log;
 #endif
+#if defined(LWS_WITH_SERVER)
+	unsigned int response_code;
+#endif
 #ifdef LWS_WITH_CGI
-	struct lws_cgi *cgi; /* wsi being cgi master have one of these */
+	struct lws_cgi *cgi; /* wsi being cgi stream have one of these */
 #endif
 #if defined(LWS_WITH_HTTP_STREAM_COMPRESSION)
 	struct lws_compression_support *lcs;
@@ -326,6 +331,21 @@ lws_sul_http_ah_lifecheck(lws_sorted_usec_list_t *sul);
 
 uint8_t *
 lws_http_multipart_headers(struct lws *wsi, uint8_t *p);
+
+int
+lws_http_string_to_known_header(const char *s, size_t slen);
+
+int
+lws_http_date_render_from_unix(char *buf, size_t len, const time_t *t);
+
+int
+lws_http_date_parse_unix(const char *b, size_t len, time_t *t);
+
+enum {
+	CCTLS_RETURN_ERROR		= -1,
+	CCTLS_RETURN_DONE		= 0,
+	CCTLS_RETURN_RETRY		= 1,
+};
 
 int
 lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1);

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # wakeuptime    Summarize sleep to wakeup time by waker kernel stack
 #               For Linux, uses BCC, eBPF.
@@ -154,7 +154,9 @@ int waker(struct pt_regs *ctx, struct task_struct *p) {
 
 out:
     val = counts.lookup_or_init(&key, &zero);
-    (*val) += delta;
+    if (val) {
+        (*val) += delta;
+    }
     return 0;
 }
 """

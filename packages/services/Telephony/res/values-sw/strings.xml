@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"hali ya kupiga tena simu ya Dharura"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Muunganisho wa data umelemazwa"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Hakuna muunganisho wa data mpaka <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_1">%s</xliff:g>. Ukiwa katika hali hii hakuna programu zinazotumia muunganisho wa data zinazoweza kutumiwa. Je, unataka kuondoka sasa?</item>
-      <item quantity="one">Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_0">%s</xliff:g>. Ukiwa katika hali hii hakuna programu zinazotumia muunganisho wa data zinazoweza kutumiwa. Je, unataka kuondoka sasa?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Kitendo kilichochaguliwa hakipatikani ikiwa katika Simu ya Dharura. Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_1">%s</xliff:g>. Je, unataka kuondoka sasa?</item>
-      <item quantity="one">Kitendo kilichochaguliwa hakipatikani ikiwa katika Simu ya Dharura. Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_0">%s</xliff:g>. Je, unataka kuondoka sasa?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Simu itakuwa katika hali ya Kuomba Upigiwe Simu ya Dharura kwa dakika moja. Ukiwa katika hali hii, programu zinazotumia muunganisho wa data haziwezi kutumika. Je, ungependa kufunga skrini hii sasa?}other{Simu itakuwa katika hali ya Kuomba Upigiwe Simu ya Dharura kwa dakika %s. Ukiwa katika hali hii, programu zinazotumia muunganisho wa data haziwezi kutumika. Je, ungependa kufunga skrini hii sasa?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Kitendo ulichochagua hakipatikana simu ikiwa katika Hali ya Kuomba Upigiwe Simu ya Dharura. Simu itakuwa katika hali hii kwa dakika moja. Je, ungependa kufunga sasa?}other{Kitendo ulichochagua hakipatikana simu ikiwa katika Hali ya Kuomba Upigiwe Simu ya Dharura. Simu itakuwa katika hali hii kwa dakika %s. Je, ungependa kufunga sasa?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Kitendo kilichochaguliwa hakipatikani ikiwa katika simu ya dharura."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Inatoka kwa hali ya Kupiga tena simu ya Dharura"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Ndiyo"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Ondoa"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Simu hii iko katika hali ya kuomba upigiwe simu ya dharura"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Hadi <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Simu hii itakuwa katika hali ya kuomba upigiwe simu ya dharura kwa dakika <xliff:g id="COUNT_1">%s</xliff:g>.\nJe, ungependa kuondoka sasa?</item>
-      <item quantity="one">Simu hii itakuwa katika hali ya kuomba upigiwe simu ya dharura kwa dakika <xliff:g id="COUNT_0">%s</xliff:g>.\nJe, ungependa kuondoka sasa?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Simu itakuwa katika hali ya kuomba upigiwe simu ya dharura kwa dakika moja.\nJe, ungependa kufunga skrini hii sasa?}other{Simu itakuwa katika hali ya kuomba upigiwe simu ya dharura kwa dakika %s.\nJe, ungependa kufunga skrini hii sasa?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Huduma"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Weka mipangilio"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Haijawekwa&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Zana za ufikivu"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Simu ya Wi-Fi kutoka kwa"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Simu ya Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Gusa tena ili ufungue"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Hitilafu imetokea wakati wa usimbuaji wa ujumbe."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM kadi yako imeanzisha huduma yako na kusasisha uwezo wa simu yako wa kutumia mitandao mingine."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Kuna simu nyingi mno zinazoendelea. Tafadhali kata au uunganishe simu zinazoendelea kabla hujapiga nyingine."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Haiwezi kupiga simu kwa sababu tayari unapiga simu nyingine."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Haiwezi kupiga simu kwa sababu kuna simu inayoingia ambayo hujajibu. Jibu au ukatae simu hiyo inayoingia kabla ya kupiga simu mpya."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Haiwezi kupiga simu kwa sababu upigaji simu umezuiwa kupitia kipengele cha mfumo cha ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Haiwezi kupiga simu kwa sababu tayari kuna simu mbili zinazoendelea. Kata mojawapo ya simu hizo au uziunganishe ili ziwe mkutano kabla ya kupiga simu mpya."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Haiwezi kupiga simu kwa sababu tayari kuna simu mbili zinazoendelea. Kata mojawapo ya simu hizo au uziunganishe ili ziwe mkutano kabla ya kupiga simu mpya."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Ili uweze kutumia huduma ya <xliff:g id="SUPP_SERVICE">%s</xliff:g>, hakikisha data ya mtandao wa simu imewashwa. Unaweza kubadilisha hali hii katika mipangilio ya mtandao wa simu."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Ili uweze kutumia huduma ya <xliff:g id="SUPP_SERVICE">%s</xliff:g>, hakikisha vipengele vya data ya mtandao wa simu na matumizi ya mitandao ya ng\'ambo vimewashwa. Unaweza kubadilisha hali hizi kwenye mipangilio ya mtandao wa simu."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Ili uweze kutumia huduma ya <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, hakikisha data ya mtandao wa simu imewashwa katika SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Unaweza kubadilisha hali hii katika mipangilio ya data ya mtandao wa simu."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Unahitaji kuzima kifaa chako na ukiwashe tena ili ubadilishe mipangilio hii."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Zima kisha uwashe"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Ghairi"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Weka eSIM Inayoweza Kuondolewa kama Chaguomsingi"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Nishati ya Redio ya Vifaa vya Mkononi"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Angalia Kitabu cha Anwani katika SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Ona Nambari za Simu Zilizobainishwa"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Chagua Bendi ya Redio"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Aina ya Mtandao wa Sauti:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Aina ya Mtandao wa Data:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Batilisha Aina ya Mtandao:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Chagua faharasa ya simu"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Weka Aina ya Mtandao Unayoiopendelea:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ita Jina la Mpangishaji(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Onyesha upya"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Geuza Ukaguzi wa DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Maelezo/Mipangilio Mahususi kwa Kampuni Inayotengeneza Vifaa (OEM)"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC Inapatikana:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR Imewekewa Vizuizi:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR Inapatikana:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Hali ya NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC Inapatikana (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR Imedhibitiwa (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR Inapatikana (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Hali ya NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Masafa ya NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Weka Hali ya Bendi ya Redio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Inapakia Orodha ya Bendi…"</string>

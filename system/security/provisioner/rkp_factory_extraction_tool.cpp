@@ -22,6 +22,7 @@
 #include <cppbor.h>
 #include <gflags/gflags.h>
 #include <keymaster/cppcose/cppcose.h>
+#include <openssl/base64.h>
 #include <remote_prov/remote_prov_utils.h>
 #include <sys/random.h>
 
@@ -29,6 +30,7 @@ using aidl::android::hardware::security::keymint::DeviceInfo;
 using aidl::android::hardware::security::keymint::IRemotelyProvisionedComponent;
 using aidl::android::hardware::security::keymint::MacedPublicKey;
 using aidl::android::hardware::security::keymint::ProtectedData;
+using aidl::android::hardware::security::keymint::RpcHardwareInfo;
 using aidl::android::hardware::security::keymint::remote_prov::generateEekChain;
 using aidl::android::hardware::security::keymint::remote_prov::getProdEekChain;
 using aidl::android::hardware::security::keymint::remote_prov::jsonEncodeCsrWithBuild;
@@ -49,6 +51,26 @@ constexpr std::string_view kBuildPlusCsr = "build+csr";  // Text-encoded (JSON) 
 
 constexpr size_t kChallengeSize = 16;
 
+std::string toBase64(const std::vector<uint8_t>& buffer) {
+    size_t base64Length;
+    int rc = EVP_EncodedLength(&base64Length, buffer.size());
+    if (!rc) {
+        std::cerr << "Error getting base64 length. Size overflow?" << std::endl;
+        exit(-1);
+    }
+
+    std::string base64(base64Length, ' ');
+    rc = EVP_EncodeBlock(reinterpret_cast<uint8_t*>(base64.data()), buffer.data(), buffer.size());
+    ++rc;  // Account for NUL, which BoringSSL does not for some reason.
+    if (rc != base64Length) {
+        std::cerr << "Error writing base64. Expected " << base64Length
+                  << " bytes to be written, but " << rc << " bytes were actually written."
+                  << std::endl;
+        exit(-1);
+    }
+    return base64;
+}
+
 std::vector<uint8_t> generateChallenge() {
     std::vector<uint8_t> challenge(kChallengeSize);
 
@@ -56,9 +78,13 @@ std::vector<uint8_t> generateChallenge() {
     uint8_t* writePtr = challenge.data();
     while (bytesRemaining > 0) {
         int bytesRead = getrandom(writePtr, bytesRemaining, /*flags=*/0);
-        if (bytesRead < 0 && errno != EINTR) {
-            std::cerr << errno << ": " << strerror(errno) << std::endl;
-            exit(-1);
+        if (bytesRead < 0) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                std::cerr << errno << ": " << strerror(errno) << std::endl;
+                exit(-1);
+            }
         }
         bytesRemaining -= bytesRead;
         writePtr += bytesRead;
@@ -88,27 +114,30 @@ Array composeCertificateRequest(const ProtectedData& protectedData,
     return certificateRequest;
 }
 
-std::vector<uint8_t> getEekChain() {
+std::vector<uint8_t> getEekChain(uint32_t curve) {
     if (FLAGS_test_mode) {
         const std::vector<uint8_t> kFakeEekId = {'f', 'a', 'k', 'e', 0};
-        auto eekOrErr = generateEekChain(3 /* chainlength */, kFakeEekId);
+        auto eekOrErr = generateEekChain(curve, 3 /* chainlength */, kFakeEekId);
         if (!eekOrErr) {
             std::cerr << "Failed to generate test EEK somehow: " << eekOrErr.message() << std::endl;
             exit(-1);
         }
-        auto [eek, ignored_pubkey, ignored_privkey] = eekOrErr.moveValue();
+        auto [eek, pubkey, privkey] = eekOrErr.moveValue();
+        std::cout << "EEK raw keypair:" << std::endl;
+        std::cout << "  pub:  " << toBase64(pubkey) << std::endl;
+        std::cout << "  priv: " << toBase64(privkey) << std::endl;
         return eek;
     }
 
-    return getProdEekChain();
+    return getProdEekChain(curve);
 }
 
-void writeOutput(const Array& csr) {
+void writeOutput(const std::string instance_name, const Array& csr) {
     if (FLAGS_output_format == kBinaryCsrOutput) {
         auto bytes = csr.encode();
         std::copy(bytes.begin(), bytes.end(), std::ostream_iterator<char>(std::cout));
     } else if (FLAGS_output_format == kBuildPlusCsr) {
-        auto [json, error] = jsonEncodeCsrWithBuild(csr);
+        auto [json, error] = jsonEncodeCsrWithBuild(instance_name, csr);
         if (!error.empty()) {
             std::cerr << "Error JSON encoding the output: " << error;
             exit(1);
@@ -134,16 +163,23 @@ void getCsrForInstance(const char* name, void* /*context*/) {
     auto rkp_service = IRemotelyProvisionedComponent::fromBinder(rkp_binder);
     if (!rkp_service) {
         std::cerr << "Unable to get binder object for '" << fullName << "', skipping.";
-        return;
+        exit(-1);
     }
 
     std::vector<uint8_t> keysToSignMac;
     std::vector<MacedPublicKey> emptyKeys;
     DeviceInfo verifiedDeviceInfo;
     ProtectedData protectedData;
-    ::ndk::ScopedAStatus status = rkp_service->generateCertificateRequest(
-        FLAGS_test_mode, emptyKeys, getEekChain(), challenge, &verifiedDeviceInfo, &protectedData,
-        &keysToSignMac);
+    RpcHardwareInfo hwInfo;
+    ::ndk::ScopedAStatus status = rkp_service->getHardwareInfo(&hwInfo);
+    if (!status.isOk()) {
+        std::cerr << "Failed to get hardware info for '" << fullName
+                  << "'. Error code: " << status.getServiceSpecificError() << "." << std::endl;
+        exit(-1);
+    }
+    status = rkp_service->generateCertificateRequest(
+        FLAGS_test_mode, emptyKeys, getEekChain(hwInfo.supportedEekCurve), challenge,
+        &verifiedDeviceInfo, &protectedData, &keysToSignMac);
     if (!status.isOk()) {
         std::cerr << "Bundle extraction failed for '" << fullName
                   << "'. Error code: " << status.getServiceSpecificError() << "." << std::endl;
@@ -151,7 +187,7 @@ void getCsrForInstance(const char* name, void* /*context*/) {
     }
     auto request =
         composeCertificateRequest(protectedData, verifiedDeviceInfo, challenge, keysToSignMac);
-    writeOutput(request);
+    writeOutput(std::string(name), request);
 }
 
 }  // namespace

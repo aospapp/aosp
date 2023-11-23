@@ -11,11 +11,7 @@ func processGccFlags(builder *commandBuilder) {
 
 		// Conversion for flags supported by clang but not gcc.
 		clangToGcc := map[string]string{
-			"-march=goldmont":      "-march=silvermont",
-			"-march=goldmont-plus": "-march=silvermont",
-			"-march=skylake":       "-march=corei7",
-			"-march=tigerlake":     "-march=corei7",
-			"-march=tremont":       "-march=silvermont",
+			"-march=alderlake": "-march=skylake",
 		}
 
 		builder.transformArgs(func(arg builderArg) string {

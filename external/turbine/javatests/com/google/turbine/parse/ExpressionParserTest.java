@@ -39,7 +39,7 @@ public class ExpressionParserTest {
             "14 + 42", "(14 + 42)",
           },
           {
-            "14 + 42 + 123", "((14 + 42) + 123)",
+            "14 + 42 + 123", "(14 + 42 + 123)",
           },
           {
             "14 / 42 + 123", "((14 / 42) + 123)",
@@ -49,7 +49,7 @@ public class ExpressionParserTest {
           },
           {
             "1 + 2 / 3 + 4 / 5 + 6 / 7 / 8 + 9 + 10",
-            "(((((1 + (2 / 3)) + (4 / 5)) + ((6 / 7) / 8)) + 9) + 10)",
+            "(1 + (2 / 3) + (4 / 5) + (6 / 7 / 8) + 9 + 10)",
           },
           {
             "1 >> 2 || 3 ^ 4 << 3", "((1 >> 2) || (3 ^ (4 << 3)))",
@@ -64,7 +64,7 @@ public class ExpressionParserTest {
             "((Object) 1 + 2)", "((Object) 1 + 2)",
           },
           {
-            "(1) + 1 + 2", "((1 + 1) + 2)",
+            "(1) + 1 + 2", "(1 + 1 + 2)",
           },
           {
             "((1 + 2) / (1 + 2))", "((1 + 2) / (1 + 2))",
@@ -82,7 +82,7 @@ public class ExpressionParserTest {
             "(int) +2", "(int) +2",
           },
           {
-            "(1 + 2) +2", "((1 + 2) + 2)",
+            "(1 + 2) + 2", "((1 + 2) + 2)",
           },
           {
             "((1 + (2 / 3)) + (4 / 5))", "((1 + (2 / 3)) + (4 / 5))",
@@ -121,7 +121,7 @@ public class ExpressionParserTest {
             "x.y = z", null,
           },
           {
-            "0b100L + 0100L + 0x100L", "((4L + 64L) + 256L)",
+            "0b100L + 0100L + 0x100L", "(4L + 64L + 256L)",
           },
           {
             "1+-2", "(1 + -2)",
@@ -131,6 +131,9 @@ public class ExpressionParserTest {
           },
           {
             "A ? B : C ? D : E;", "(A ? B : (C ? D : E))",
+          },
+          {
+            "Foo.class", "Foo.class",
           },
         });
   }
@@ -146,7 +149,8 @@ public class ExpressionParserTest {
   @Test
   public void test() {
     StreamLexer lexer = new StreamLexer(new UnicodeEscapePreprocessor(new SourceFile(null, input)));
-    Tree.Expression expression = new ConstExpressionParser(lexer, lexer.next()).expression();
+    Tree.Expression expression =
+        new ConstExpressionParser(lexer, lexer.next(), lexer.position()).expression();
     if (expected == null) {
       assertThat(expression).isNull();
     } else {

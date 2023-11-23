@@ -17,8 +17,7 @@
 #include "KeyStorage.h"
 
 #include "Checkpoint.h"
-#include "Keymaster.h"
-#include "ScryptParameters.h"
+#include "Keystore.h"
 #include "Utils.h"
 
 #include <algorithm>
@@ -44,11 +43,6 @@
 #include <android-base/unique_fd.h>
 
 #include <cutils/properties.h>
-
-extern "C" {
-
-#include "crypto_scrypt.h"
-}
 
 namespace android {
 namespace vold {
@@ -123,51 +117,49 @@ static void hashWithPrefix(char const* prefix, const std::string& tohash, std::s
     SHA512_Final(reinterpret_cast<uint8_t*>(&(*res)[0]), &c);
 }
 
-// Generates a keymaster key, using rollback resistance if supported.
-static bool generateKeymasterKey(Keymaster& keymaster,
-                                 const km::AuthorizationSetBuilder& paramBuilder,
-                                 std::string* key) {
+// Generates a keystore key, using rollback resistance if supported.
+static bool generateKeystoreKey(Keystore& keystore, const km::AuthorizationSetBuilder& paramBuilder,
+                                std::string* key) {
     auto paramsWithRollback = paramBuilder;
     paramsWithRollback.Authorization(km::TAG_ROLLBACK_RESISTANCE);
 
-    if (!keymaster.generateKey(paramsWithRollback, key)) {
-        LOG(WARNING) << "Failed to generate rollback-resistant key.  This is expected if keymaster "
+    if (!keystore.generateKey(paramsWithRollback, key)) {
+        LOG(WARNING) << "Failed to generate rollback-resistant key.  This is expected if keystore "
                         "doesn't support rollback resistance.  Falling back to "
                         "non-rollback-resistant key.";
-        if (!keymaster.generateKey(paramBuilder, key)) return false;
+        if (!keystore.generateKey(paramBuilder, key)) return false;
     }
     return true;
 }
 
-static bool generateKeyStorageKey(Keymaster& keymaster, const std::string& appId,
-                                  std::string* key) {
+static bool generateKeyStorageKey(Keystore& keystore, const std::string& appId, std::string* key) {
     auto paramBuilder = km::AuthorizationSetBuilder()
                                 .AesEncryptionKey(AES_KEY_BYTES * 8)
                                 .GcmModeMinMacLen(GCM_MAC_BYTES * 8)
                                 .Authorization(km::TAG_APPLICATION_ID, appId)
                                 .Authorization(km::TAG_NO_AUTH_REQUIRED);
     LOG(DEBUG) << "Generating \"key storage\" key";
-    return generateKeymasterKey(keymaster, paramBuilder, key);
+    return generateKeystoreKey(keystore, paramBuilder, key);
 }
 
 bool generateWrappedStorageKey(KeyBuffer* key) {
-    Keymaster keymaster;
-    if (!keymaster) return false;
+    Keystore keystore;
+    if (!keystore) return false;
     std::string key_temp;
     auto paramBuilder = km::AuthorizationSetBuilder().AesEncryptionKey(AES_KEY_BYTES * 8);
     paramBuilder.Authorization(km::TAG_STORAGE_KEY);
-    if (!generateKeymasterKey(keymaster, paramBuilder, &key_temp)) return false;
+    if (!generateKeystoreKey(keystore, paramBuilder, &key_temp)) return false;
     *key = KeyBuffer(key_temp.size());
     memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
     return true;
 }
 
-bool exportWrappedStorageKey(const KeyBuffer& kmKey, KeyBuffer* key) {
-    Keymaster keymaster;
-    if (!keymaster) return false;
+bool exportWrappedStorageKey(const KeyBuffer& ksKey, KeyBuffer* key) {
+    Keystore keystore;
+    if (!keystore) return false;
     std::string key_temp;
 
-    if (!keymaster.exportKey(kmKey, &key_temp)) return false;
+    if (!keystore.exportKey(ksKey, &key_temp)) return false;
     *key = KeyBuffer(key_temp.size());
     memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
     return true;
@@ -213,14 +205,15 @@ bool readSecdiscardable(const std::string& filename, std::string* hash) {
 
 static std::mutex key_upgrade_lock;
 
-// List of key directories that have had their Keymaster key upgraded during
+// List of key directories that have had their Keystore key upgraded during
 // this boot and written to "keymaster_key_blob_upgraded", but replacing the old
 // key was delayed due to an active checkpoint.  Protected by key_upgrade_lock.
+// A directory can be in this list at most once.
 static std::vector<std::string> key_dirs_to_commit;
 
 // Replaces |dir|/keymaster_key_blob with |dir|/keymaster_key_blob_upgraded and
-// deletes the old key from Keymaster.
-static bool CommitUpgradedKey(Keymaster& keymaster, const std::string& dir) {
+// deletes the old key from Keystore.
+static bool CommitUpgradedKey(Keystore& keystore, const std::string& dir) {
     auto blob_file = dir + "/" + kFn_keymaster_key_blob;
     auto upgraded_blob_file = dir + "/" + kFn_keymaster_key_blob_upgraded;
 
@@ -231,13 +224,13 @@ static bool CommitUpgradedKey(Keymaster& keymaster, const std::string& dir) {
         PLOG(ERROR) << "Failed to rename " << upgraded_blob_file << " to " << blob_file;
         return false;
     }
-    // Ensure that the rename is persisted before deleting the Keymaster key.
+    // Ensure that the rename is persisted before deleting the Keystore key.
     if (!FsyncDirectory(dir)) return false;
 
-    if (!keymaster || !keymaster.deleteKey(blob)) {
+    if (!keystore || !keystore.deleteKey(blob)) {
         LOG(WARNING) << "Failed to delete old key " << blob_file
-                     << " from Keymaster; continuing anyway";
-        // Continue on, but the space in Keymaster used by the old key won't be freed.
+                     << " from Keystore; continuing anyway";
+        // Continue on, but the space in Keystore used by the old key won't be freed.
     }
     return true;
 }
@@ -245,20 +238,20 @@ static bool CommitUpgradedKey(Keymaster& keymaster, const std::string& dir) {
 static void DeferredCommitKeys() {
     android::base::WaitForProperty("vold.checkpoint_committed", "1");
     LOG(INFO) << "Committing upgraded keys";
-    Keymaster keymaster;
-    if (!keymaster) {
-        LOG(ERROR) << "Failed to open Keymaster; old keys won't be deleted from Keymaster";
-        // Continue on, but the space in Keymaster used by the old keys won't be freed.
+    Keystore keystore;
+    if (!keystore) {
+        LOG(ERROR) << "Failed to open Keystore; old keys won't be deleted from Keystore";
+        // Continue on, but the space in Keystore used by the old keys won't be freed.
     }
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
     for (auto& dir : key_dirs_to_commit) {
         LOG(INFO) << "Committing upgraded key " << dir;
-        CommitUpgradedKey(keymaster, dir);
+        CommitUpgradedKey(keystore, dir);
     }
     key_dirs_to_commit.clear();
 }
 
-// Returns true if the Keymaster key in |dir| has already been upgraded and is
+// Returns true if the Keystore key in |dir| has already been upgraded and is
 // pending being committed.  Assumes that key_upgrade_lock is held.
 static bool IsKeyCommitPending(const std::string& dir) {
     for (const auto& dir_to_commit : key_dirs_to_commit) {
@@ -267,8 +260,9 @@ static bool IsKeyCommitPending(const std::string& dir) {
     return false;
 }
 
-// Schedules the upgraded Keymaster key in |dir| to be committed later.
-// Assumes that key_upgrade_lock is held.
+// Schedules the upgraded Keystore key in |dir| to be committed later.  Assumes
+// that key_upgrade_lock is held and that a commit isn't already pending for the
+// directory.
 static void ScheduleKeyCommit(const std::string& dir) {
     if (key_dirs_to_commit.empty()) std::thread(DeferredCommitKeys).detach();
     key_dirs_to_commit.push_back(dir);
@@ -286,37 +280,41 @@ static void CancelPendingKeyCommit(const std::string& dir) {
     }
 }
 
-// Renames a key directory. Also updates the deferred commit vector
-// (key_dirs_to_commit) appropriately.
-//
-// However, @old_name must be the path to the directory that was used to put that
-// directory into the deferred commit list in the first place (since this function
-// directly compares paths instead of using IsSameFile()).
-static bool RenameKeyDir(const std::string& old_name, const std::string& new_name) {
+bool RenameKeyDir(const std::string& old_name, const std::string& new_name) {
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
 
-    if (rename(old_name.c_str(), new_name.c_str()) != 0) return false;
-
-    // IsSameFile() doesn't work here since we just renamed @old_name.
-    for (auto it = key_dirs_to_commit.begin(); it != key_dirs_to_commit.end(); it++) {
-        if (*it == old_name) *it = new_name;
+    // Find the entry in key_dirs_to_commit (if any) for this directory so that
+    // we can update it if the rename succeeds.  We don't allow duplicates in
+    // this list, so there can be at most one such entry.
+    auto it = key_dirs_to_commit.begin();
+    for (; it != key_dirs_to_commit.end(); it++) {
+        if (IsSameFile(old_name, *it)) break;
     }
+
+    if (rename(old_name.c_str(), new_name.c_str()) != 0) {
+        PLOG(ERROR) << "Failed to rename key directory \"" << old_name << "\" to \"" << new_name
+                    << "\"";
+        return false;
+    }
+
+    if (it != key_dirs_to_commit.end()) *it = new_name;
+
     return true;
 }
 
 // Deletes a leftover upgraded key, if present.  An upgraded key can be left
 // over if an update failed, or if we rebooted before committing the key in a
 // freak accident.  Either way, we can re-upgrade the key if we need to.
-static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
+static void DeleteUpgradedKey(Keystore& keystore, const std::string& path) {
     if (pathExists(path)) {
         LOG(DEBUG) << "Deleting leftover upgraded key " << path;
         std::string blob;
         if (!android::base::ReadFileToString(path, &blob)) {
             LOG(WARNING) << "Failed to read leftover upgraded key " << path
                          << "; continuing anyway";
-        } else if (!keymaster.deleteKey(blob)) {
+        } else if (!keystore.deleteKey(blob)) {
             LOG(WARNING) << "Failed to delete leftover upgraded key " << path
-                         << " from Keymaster; continuing anyway";
+                         << " from Keystore; continuing anyway";
         }
         if (unlink(path.c_str()) != 0) {
             LOG(WARNING) << "Failed to unlink leftover upgraded key " << path
@@ -325,11 +323,11 @@ static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
     }
 }
 
-// Begins a Keymaster operation using the key stored in |dir|.
-static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::string& dir,
-                                           const km::AuthorizationSet& keyParams,
-                                           const km::AuthorizationSet& opParams,
-                                           km::AuthorizationSet* outParams) {
+// Begins a Keystore operation using the key stored in |dir|.
+static KeystoreOperation BeginKeystoreOp(Keystore& keystore, const std::string& dir,
+                                         const km::AuthorizationSet& keyParams,
+                                         const km::AuthorizationSet& opParams,
+                                         km::AuthorizationSet* outParams) {
     km::AuthorizationSet inParams(keyParams);
     inParams.append(opParams.begin(), opParams.end());
 
@@ -344,13 +342,13 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
         LOG(DEBUG)
                 << blob_file
                 << " was already upgraded and is waiting to be committed; using the upgraded blob";
-        if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
+        if (!readFileToString(upgraded_blob_file, &blob)) return KeystoreOperation();
     } else {
-        DeleteUpgradedKey(keymaster, upgraded_blob_file);
-        if (!readFileToString(blob_file, &blob)) return KeymasterOperation();
+        DeleteUpgradedKey(keystore, upgraded_blob_file);
+        if (!readFileToString(blob_file, &blob)) return KeystoreOperation();
     }
 
-    auto opHandle = keymaster.begin(blob, inParams, outParams);
+    auto opHandle = keystore.begin(blob, inParams, outParams);
     if (!opHandle) return opHandle;
 
     // If key blob wasn't upgraded, nothing left to do.
@@ -359,29 +357,29 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
     if (already_upgraded) {
         LOG(ERROR) << "Unexpected case; already-upgraded key " << upgraded_blob_file
                    << " still requires upgrade";
-        return KeymasterOperation();
+        return KeystoreOperation();
     }
     LOG(INFO) << "Upgrading key: " << blob_file;
     if (!writeStringToFile(*opHandle.getUpgradedBlob(), upgraded_blob_file))
-        return KeymasterOperation();
+        return KeystoreOperation();
     if (cp_needsCheckpoint()) {
         LOG(INFO) << "Wrote upgraded key to " << upgraded_blob_file
                   << "; delaying commit due to checkpoint";
         ScheduleKeyCommit(dir);
     } else {
-        if (!CommitUpgradedKey(keymaster, dir)) return KeymasterOperation();
+        if (!CommitUpgradedKey(keystore, dir)) return KeystoreOperation();
         LOG(INFO) << "Key upgraded: " << blob_file;
     }
     return opHandle;
 }
 
-static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
-                                    const km::AuthorizationSet& keyParams,
-                                    const KeyBuffer& message, std::string* ciphertext) {
+static bool encryptWithKeystoreKey(Keystore& keystore, const std::string& dir,
+                                   const km::AuthorizationSet& keyParams, const KeyBuffer& message,
+                                   std::string* ciphertext) {
     km::AuthorizationSet opParams =
             km::AuthorizationSetBuilder().Authorization(km::TAG_PURPOSE, km::KeyPurpose::ENCRYPT);
     km::AuthorizationSet outParams;
-    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, &outParams);
+    auto opHandle = BeginKeystoreOp(keystore, dir, keyParams, opParams, &outParams);
     if (!opHandle) return false;
     auto nonceBlob = outParams.GetTagValue(km::TAG_NONCE);
     if (!nonceBlob) {
@@ -401,15 +399,15 @@ static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
     return true;
 }
 
-static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
-                                    const km::AuthorizationSet& keyParams,
-                                    const std::string& ciphertext, KeyBuffer* message) {
+static bool decryptWithKeystoreKey(Keystore& keystore, const std::string& dir,
+                                   const km::AuthorizationSet& keyParams,
+                                   const std::string& ciphertext, KeyBuffer* message) {
     const std::string nonce = ciphertext.substr(0, GCM_NONCE_BYTES);
     auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
     auto opParams = km::AuthorizationSetBuilder()
                             .Authorization(km::TAG_NONCE, nonce)
                             .Authorization(km::TAG_PURPOSE, km::KeyPurpose::DECRYPT);
-    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, nullptr);
+    auto opHandle = BeginKeystoreOp(keystore, dir, keyParams, opParams, nullptr);
     if (!opHandle) return false;
     if (!opHandle.updateCompletely(bodyAndMac, message)) return false;
     if (!opHandle.finish(nullptr)) return false;
@@ -417,7 +415,7 @@ static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
 }
 
 static std::string getStretching(const KeyAuthentication& auth) {
-    if (auth.usesKeymaster()) {
+    if (auth.usesKeystore()) {
         return kStretch_nopassword;
     } else {
         return kStretch_none;
@@ -467,8 +465,8 @@ static void logOpensslError() {
     LOG(ERROR) << "Openssl error: " << ERR_get_error();
 }
 
-static bool encryptWithoutKeymaster(const std::string& preKey, const KeyBuffer& plaintext,
-                                    std::string* ciphertext) {
+static bool encryptWithoutKeystore(const std::string& preKey, const KeyBuffer& plaintext,
+                                   std::string* ciphertext) {
     std::string key;
     hashWithPrefix(kHashPrefix_keygen, preKey, &key);
     key.resize(AES_KEY_BYTES);
@@ -517,8 +515,8 @@ static bool encryptWithoutKeymaster(const std::string& preKey, const KeyBuffer& 
     return true;
 }
 
-static bool decryptWithoutKeymaster(const std::string& preKey, const std::string& ciphertext,
-                                    KeyBuffer* plaintext) {
+static bool decryptWithoutKeystore(const std::string& preKey, const std::string& ciphertext,
+                                   KeyBuffer* plaintext) {
     if (ciphertext.size() < GCM_NONCE_BYTES + GCM_MAC_BYTES) {
         LOG(ERROR) << "GCM ciphertext too small: " << ciphertext.size();
         return false;
@@ -569,7 +567,12 @@ static bool decryptWithoutKeymaster(const std::string& preKey, const std::string
     return true;
 }
 
-bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBuffer& key) {
+// Creates a directory at the given path |dir| and stores |key| in it, in such a
+// way that it can only be retrieved via Keystore (if no secret is given in
+// |auth|) or with the given secret (if a secret is given in |auth|), and can be
+// securely deleted.  If a storage binding seed has been set, then the storage
+// binding seed will be required to retrieve the key as well.
+static bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBuffer& key) {
     if (TEMP_FAILURE_RETRY(mkdir(dir.c_str(), 0700)) == -1) {
         PLOG(ERROR) << "key mkdir " << dir;
         return false;
@@ -582,16 +585,22 @@ bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBu
     std::string appId;
     if (!generateAppId(auth, stretching, secdiscardable_hash, &appId)) return false;
     std::string encryptedKey;
-    if (auth.usesKeymaster()) {
-        Keymaster keymaster;
-        if (!keymaster) return false;
-        std::string kmKey;
-        if (!generateKeyStorageKey(keymaster, appId, &kmKey)) return false;
-        if (!writeStringToFile(kmKey, dir + "/" + kFn_keymaster_key_blob)) return false;
+    if (auth.usesKeystore()) {
+        Keystore keystore;
+        if (!keystore) return false;
+        std::string ksKey;
+        if (!generateKeyStorageKey(keystore, appId, &ksKey)) return false;
+        if (!writeStringToFile(ksKey, dir + "/" + kFn_keymaster_key_blob)) return false;
         km::AuthorizationSet keyParams = beginParams(appId);
-        if (!encryptWithKeymasterKey(keymaster, dir, keyParams, key, &encryptedKey)) return false;
+        if (!encryptWithKeystoreKey(keystore, dir, keyParams, key, &encryptedKey)) {
+            LOG(ERROR) << "encryptWithKeystoreKey failed";
+            return false;
+        }
     } else {
-        if (!encryptWithoutKeymaster(appId, key, &encryptedKey)) return false;
+        if (!encryptWithoutKeystore(appId, key, &encryptedKey)) {
+            LOG(ERROR) << "encryptWithoutKeystore failed";
+            return false;
+        }
     }
     if (!writeStringToFile(encryptedKey, dir + "/" + kFn_encrypted_key)) return false;
     if (!FsyncDirectory(dir)) return false;
@@ -610,10 +619,8 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
     }
     if (!storeKey(tmp_path, auth, key)) return false;
 
-    if (!RenameKeyDir(tmp_path, key_path)) {
-        PLOG(ERROR) << "Unable to move new key to location: " << key_path;
-        return false;
-    }
+    if (!RenameKeyDir(tmp_path, key_path)) return false;
+
     if (!FsyncParentDirectory(key_path)) return false;
     LOG(DEBUG) << "Created key: " << key_path;
     return true;
@@ -634,25 +641,30 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffe
     if (!generateAppId(auth, stretching, secdiscardable_hash, &appId)) return false;
     std::string encryptedMessage;
     if (!readFileToString(dir + "/" + kFn_encrypted_key, &encryptedMessage)) return false;
-    if (auth.usesKeymaster()) {
-        Keymaster keymaster;
-        if (!keymaster) return false;
+    if (auth.usesKeystore()) {
+        Keystore keystore;
+        if (!keystore) return false;
         km::AuthorizationSet keyParams = beginParams(appId);
-        if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key))
+        if (!decryptWithKeystoreKey(keystore, dir, keyParams, encryptedMessage, key)) {
+            LOG(ERROR) << "decryptWithKeystoreKey failed";
             return false;
+        }
     } else {
-        if (!decryptWithoutKeymaster(appId, encryptedMessage, key)) return false;
+        if (!decryptWithoutKeystore(appId, encryptedMessage, key)) {
+            LOG(ERROR) << "decryptWithoutKeystore failed";
+            return false;
+        }
     }
     return true;
 }
 
-static bool DeleteKeymasterKey(const std::string& blob_file) {
+static bool DeleteKeystoreKey(const std::string& blob_file) {
     std::string blob;
     if (!readFileToString(blob_file, &blob)) return false;
-    Keymaster keymaster;
-    if (!keymaster) return false;
-    LOG(DEBUG) << "Deleting key " << blob_file << " from Keymaster";
-    if (!keymaster.deleteKey(blob)) return false;
+    Keystore keystore;
+    if (!keystore) return false;
+    LOG(DEBUG) << "Deleting key " << blob_file << " from Keystore";
+    if (!keystore.deleteKey(blob)) return false;
     return true;
 }
 
@@ -688,7 +700,7 @@ bool destroyKey(const std::string& dir) {
     for (auto& fn : {kFn_keymaster_key_blob, kFn_keymaster_key_blob_upgraded}) {
         auto blob_file = dir + "/" + fn;
         if (pathExists(blob_file)) {
-            success &= DeleteKeymasterKey(blob_file);
+            success &= DeleteKeystoreKey(blob_file);
             secdiscard_cmd.push_back(blob_file);
         }
     }

@@ -133,10 +133,10 @@ void phNxpLog_InitializeLogLevel() {
  *
  * Description      This function is called by Jni/phNxpEse_open during the
  *                  initialization of the ESE. It initializes protocol stack
- *instance variable
+ *                  instance variable
  *
  * Returns          This function return ESESTATUS_SUCCESS (0) in case of
- *success In case of failure returns other failure value.
+ *                  success In case of failure returns other failure value.
  *
  ******************************************************************************/
 ESESTATUS phNxpEse_init(phNxpEse_initParams initParams) {
@@ -278,6 +278,7 @@ ESESTATUS phNxpEse_init(phNxpEse_initParams initParams) {
  *                  thread for operation.
  * Returns          This function return ESESTATUS_SUCCESS (0) in case of
  *                  success. In case of failure returns other failure values.
+ *
  ******************************************************************************/
 ESESTATUS phNxpEse_open(phNxpEse_initParams initParams) {
   phPalEse_Config_t tPalConfig;
@@ -1381,7 +1382,7 @@ static int phNxpEse_readPacket(void* pDevHandle, uint8_t* pBuffer,
         /*For I-Frame Only*/
         if (0 == pcb_bits.msb) {
           if (pBuffer[2] != EXTENDED_FRAME_MARKER) {
-            nNbBytesToRead = pBuffer[2];
+            nNbBytesToRead = (pBuffer[2] & 0x000000FF);
             headerIndex = 3;
           } else {
             ret = phPalEse_read(pDevHandle, &pBuffer[3], 2);
@@ -1406,7 +1407,7 @@ static int phNxpEse_readPacket(void* pDevHandle, uint8_t* pBuffer,
           }
         } else {
           /*For Non-IFrame*/
-          nNbBytesToRead = (int)pBuffer[2];
+          nNbBytesToRead = (pBuffer[2] & 0x000000FF);
           headerIndex = 3;
         }
         if (!flushData) {
@@ -1535,7 +1536,7 @@ static int phNxpEse_readPacket_legacy(void* pDevHandle, uint8_t* pBuffer,
                poll_sof_chained_delay);
     }
     total_count = 3;
-    nNbBytesToRead = (int)pBuffer[2];
+    nNbBytesToRead = (pBuffer[2] & 0x000000FF);
     /* Read the Complete data + one byte CRC*/
     ret = phPalEse_read(pDevHandle, &pBuffer[3], (nNbBytesToRead + 1));
     if (ret < 0) {

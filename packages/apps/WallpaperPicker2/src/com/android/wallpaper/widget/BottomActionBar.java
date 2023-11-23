@@ -20,6 +20,7 @@ import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -28,6 +29,7 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
@@ -139,7 +141,7 @@ public class BottomActionBar extends FrameLayout {
             return contentView;
         }
 
-        private void setVisibility(boolean isVisible) {
+        protected void setVisibility(boolean isVisible) {
             mIsVisible = isVisible;
             mContentView.setVisibility(mIsVisible ? VISIBLE : GONE);
         }
@@ -153,6 +155,7 @@ public class BottomActionBar extends FrameLayout {
         INFORMATION(R.string.accessibility_info_shown, R.string.accessibility_info_hidden),
         EDIT,
         CUSTOMIZE(R.string.accessibility_customize_shown, R.string.accessibility_customize_hidden),
+        EFFECTS,
         DOWNLOAD,
         PROGRESS,
         APPLY,
@@ -204,6 +207,7 @@ public class BottomActionBar extends FrameLayout {
         mActionMap.put(BottomAction.INFORMATION, findViewById(R.id.action_information));
         mActionMap.put(BottomAction.EDIT, findViewById(R.id.action_edit));
         mActionMap.put(BottomAction.CUSTOMIZE, findViewById(R.id.action_customize));
+        mActionMap.put(BottomAction.EFFECTS, findViewById(R.id.action_effects));
         mActionMap.put(BottomAction.DOWNLOAD, findViewById(R.id.action_download));
         mActionMap.put(BottomAction.PROGRESS, findViewById(R.id.action_progress));
         mActionMap.put(BottomAction.APPLY, findViewById(R.id.action_apply));
@@ -577,14 +581,29 @@ public class BottomActionBar extends FrameLayout {
         ViewGroup actionTabs = findViewById(R.id.action_tabs);
         actionTabs.setBackgroundColor(
                 ResourceUtils.getColorAttr(context, android.R.attr.colorBackground));
+        ColorStateList colorStateList = context.getColorStateList(
+                R.color.bottom_action_button_color_tint);
         for (int i = 0; i < actionTabs.getChildCount(); i++) {
             View v = actionTabs.getChildAt(i);
             if (v instanceof ImageView) {
                 v.setBackground(context.getDrawable(R.drawable.bottom_action_button_background));
-                ImageViewCompat.setImageTintList((ImageView) v,
-                        context.getColorStateList(R.color.bottom_action_button_color_tint));
+                ImageViewCompat.setImageTintList((ImageView) v, colorStateList);
+            } else if (v instanceof ProgressBar) {
+                ((ProgressBar) v).setIndeterminateTintList(colorStateList);
             }
         }
+    }
+
+    /** Sets action button accessibility traversal after. */
+    public void setActionAccessibilityTraversalAfter(BottomAction action, int afterId) {
+        View bottomActionView = mActionMap.get(action);
+        bottomActionView.setAccessibilityTraversalAfter(afterId);
+    }
+
+    /** Sets action button accessibility traversal before. */
+    public void setActionAccessibilityTraversalBefore(BottomAction action, int beforeId) {
+        View bottomActionView = mActionMap.get(action);
+        bottomActionView.setAccessibilityTraversalBefore(beforeId);
     }
 
     private void updateSelectedState(BottomAction bottomAction, boolean selected) {

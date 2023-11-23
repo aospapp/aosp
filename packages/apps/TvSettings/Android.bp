@@ -34,7 +34,7 @@ android_app {
     system_ext_specific: true,
     required: ["privapp_whitelist_com.android.tv.settings"],
     optimize: {
-        proguard_flags_files: ["Settings/proguard.cfg"],
+        proguard_flags_files: ["Settings/proguard.flags"],
     },
     privileged: true,
     static_libs: [
@@ -52,6 +52,7 @@ android_app {
         "tvsettings-logtags",
         "TwoPanelSettingsLib",
         "zxing-core-1.7",
+        "TvSettingsAPI",
     ],
 }
 
@@ -78,7 +79,7 @@ android_app {
     system_ext_specific: true,
     required: ["privapp_whitelist_com.android.tv.settings"],
     optimize: {
-        proguard_flags_files: ["Settings/proguard.cfg"],
+        proguard_flags_files: ["Settings/proguard.flags"],
     },
     privileged: true,
     static_libs: [
@@ -96,6 +97,7 @@ android_app {
         "tvsettings-logtags",
         "TwoPanelSettingsLib",
         "zxing-core-1.7",
+        "TvSettingsAPI",
     ],
     jacoco: {
         include_filter: [

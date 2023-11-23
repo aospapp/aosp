@@ -32,11 +32,7 @@
 #include "tst_test.h"
 #include "tst_safe_pthread.h"
 
-#ifdef TST_ABI32
-#  define DISTANT_MMAP_SIZE (256*1024*1024)
-#else
-#  define DISTANT_MMAP_SIZE (2L*1024*1024*1024)
-#endif
+#define GIGABYTE (1L*1024*1024*1024)
 #define TEST_FILENAME "ashfile"
 
 /* seconds remaining before reaching timeout */
@@ -65,11 +61,6 @@ static int mapcnt, unmapcnt;
 /* stored sequence id before making read attempt */
 static int br_map, br_unmap;
 
-static struct tst_option options[] = {
-	{"x:", &str_exec_time, "Exec time (hours)"},
-	{NULL, NULL, NULL}
-};
-
 /* compare "before read" counters  with "after read" counters */
 static inline int was_area_mapped(int br_m, int br_u, int ar_m, int ar_u)
 {
@@ -95,7 +86,7 @@ static void sig_handler(int signal, siginfo_t *info,
 		longjmp(jmpbuf, 1);
 		break;
 	default:
-		tst_res(TFAIL, "Unexpected signal - %d, addr: %p, exiting\n",
+		tst_res(TFAIL, "Unexpected signal - %d, addr: %p, exiting",
 			signal, info->si_addr);
 		_exit(TBROK);
 	}
@@ -194,17 +185,26 @@ int mkfile(int size)
 static void setup(void)
 {
 	struct sigaction sigptr;
+	size_t distant_mmap_size;
+	size_t mem_total;
 
 	page_sz = getpagesize();
+	mem_total = SAFE_READ_MEMINFO("MemTotal:");
+	mem_total *= 1024;
 
+#ifdef TST_ABI32
+	distant_mmap_size = 256*1024*1024;
+#else
+	distant_mmap_size = (mem_total > 4 * GIGABYTE) ? 2 * GIGABYTE : mem_total / 2;
+#endif
 	/*
 	 * Used as hint for mmap thread, so it doesn't interfere
 	 * with other potential (temporary) mappings from libc
 	 */
-	distant_area = SAFE_MMAP(0, DISTANT_MMAP_SIZE, PROT_WRITE | PROT_READ,
+	distant_area = SAFE_MMAP(0, distant_mmap_size, PROT_WRITE | PROT_READ,
 			MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	SAFE_MUNMAP(distant_area, (size_t)DISTANT_MMAP_SIZE);
-	distant_area += DISTANT_MMAP_SIZE / 2;
+	SAFE_MUNMAP(distant_area, distant_mmap_size);
+	distant_area += distant_mmap_size / 2;
 
 	if (tst_parse_float(str_exec_time, &exec_time, 0, FLT_MAX)) {
 		tst_brk(TBROK, "Invalid number for exec_time '%s'",
@@ -258,6 +258,9 @@ static void run(void)
 static struct tst_test test = {
 	.test_all = run,
 	.setup = setup,
-	.options = options,
+	.options = (struct tst_option[]) {
+		{"x:", &str_exec_time, "Exec time (hours)"},
+		{}
+	},
 	.needs_tmpdir = 1,
 };

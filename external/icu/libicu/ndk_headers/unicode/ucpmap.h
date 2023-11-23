@@ -12,6 +12,8 @@
 U_CDECL_BEGIN
 
 /**
+ * @addtogroup ICU4C
+ * @{
  * \file
  *
  * This file defines an abstract map from Unicode code points to integer values.
@@ -26,7 +28,7 @@ U_CDECL_BEGIN
  *
  * @see UCPTrie
  * @see UMutableCPTrie
- * @stable ICU 63
+ * \xrefitem stable "Stable" "Stable List" ICU 63
  */
 typedef struct UCPMap UCPMap;
 
@@ -37,13 +39,13 @@ typedef struct UCPMap UCPMap;
  * @see ucpmap_getRange
  * @see ucptrie_getRange
  * @see umutablecptrie_getRange
- * @stable ICU 63
+ * \xrefitem stable "Stable" "Stable List" ICU 63
  */
 enum UCPMapRangeOption {
     /**
      * ucpmap_getRange() enumerates all same-value ranges as stored in the map.
      * Most users should use this option.
-     * @stable ICU 63
+     * \xrefitem stable "Stable" "Stable List" ICU 63
      */
     UCPMAP_RANGE_NORMAL,
     /**
@@ -59,7 +61,7 @@ enum UCPMapRangeOption {
      * special values optimized for UTF-16 string processing
      * or for special error behavior for unpaired surrogates,
      * but those values are not to be associated with the lead surrogate code *points*.
-     * @stable ICU 63
+     * \xrefitem stable "Stable" "Stable List" ICU 63
      */
     UCPMAP_RANGE_FIXED_LEAD_SURROGATES,
     /**
@@ -75,7 +77,7 @@ enum UCPMapRangeOption {
      * special values optimized for UTF-16 string processing
      * or for special error behavior for unpaired surrogates,
      * but those values are not to be associated with the lead surrogate code *points*.
-     * @stable ICU 63
+     * \xrefitem stable "Stable" "Stable List" ICU 63
      */
     UCPMAP_RANGE_FIXED_ALL_SURROGATES
 };
@@ -97,7 +99,7 @@ typedef enum UCPMapRangeOption UCPMapRangeOption;
  * @param context an opaque pointer, as passed into the getRange function
  * @param value a value from the map
  * @return the modified value
- * @stable ICU 63
+ * \xrefitem stable "Stable" "Stable List" ICU 63
  */
 typedef uint32_t U_CALLCONV
 UCPMapValueFilter(const void *context, uint32_t value);
@@ -107,3 +109,5 @@ UCPMapValueFilter(const void *context, uint32_t value);
 U_CDECL_END
 
 #endif
+
+/** @} */ // addtogroup

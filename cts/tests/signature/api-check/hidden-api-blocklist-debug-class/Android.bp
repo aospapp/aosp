@@ -27,4 +27,11 @@ android_test {
         "cts",
         "general-tests",
     ],
+
+    // Ensure that the default CtsHiddenApiBlocklistApiDynamicConfig provided for
+    // this test does not collide with the copy provided for other tests.
+    per_testcase_directory: true,
+    data: [
+        ":CtsHiddenApiBlocklistApiDynamicConfig",
+    ],
 }

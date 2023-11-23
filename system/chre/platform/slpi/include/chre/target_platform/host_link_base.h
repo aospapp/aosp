@@ -68,6 +68,14 @@ class HostLinkBase {
                         uint32_t numLogsDropped);
 
   /**
+   * Enqueues a NAN configuration request to be sent to the host.
+   *
+   * @param enable Requests that NAN be enabled or disabled based on the
+   *        boolean's value.
+   */
+  void sendNanConfiguration(bool enable);
+
+  /**
    * Attempts to flush the outbound queue and gracefully inform the host that we
    * are exiting.
    */

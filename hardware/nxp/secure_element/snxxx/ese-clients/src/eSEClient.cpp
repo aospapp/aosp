@@ -17,6 +17,7 @@
  ******************************************************************************/
 
 #include "eSEClient.h"
+
 #include <IChannel.h>
 #include <JcDnld.h>
 #include <LsClient.h>
@@ -29,6 +30,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vendor/nxp/nxpnfc/2.0/INxpNfc.h>
+
 #include "NfcAdaptation.h"
 #include "NxpEse.h"
 #include "hal_nxpese.h"

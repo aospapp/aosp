@@ -85,8 +85,7 @@ class ItemAdapter<T : ItemHolder<*>> : RecyclerView.Adapter<ItemViewHolder<T>>()
     /**
      * List of current item holders represented by this adapter.
      */
-    var items: MutableList<T>? = null
-        private set
+    @JvmField var items: MutableList<T>? = null
 
     /**
      * Convenience for calling [.setHasStableIds] with `true`.

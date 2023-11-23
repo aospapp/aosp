@@ -143,6 +143,104 @@ BENCHMARK(BM_NormalizeHiragana)
     ->Arg(2048000)
     ->Arg(4096000);
 
+void BM_UppercaseSubTokenLength(benchmark::State& state) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<Normalizer> normalizer,
+      normalizer_factory::Create(
+
+          /*max_term_byte_size=*/std::numeric_limits<int>::max()));
+
+  std::string input_string(state.range(0), 'A');
+  std::string normalized_input_string(state.range(0), 'a');
+  for (auto _ : state) {
+    normalizer->FindNormalizedMatchEndPosition(input_string,
+                                               normalized_input_string);
+  }
+}
+BENCHMARK(BM_UppercaseSubTokenLength)
+    ->Arg(1000)
+    ->Arg(2000)
+    ->Arg(4000)
+    ->Arg(8000)
+    ->Arg(16000)
+    ->Arg(32000)
+    ->Arg(64000)
+    ->Arg(128000)
+    ->Arg(256000)
+    ->Arg(384000)
+    ->Arg(512000)
+    ->Arg(1024000)
+    ->Arg(2048000)
+    ->Arg(4096000);
+
+void BM_AccentSubTokenLength(benchmark::State& state) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<Normalizer> normalizer,
+      normalizer_factory::Create(
+          /*max_term_byte_size=*/std::numeric_limits<int>::max()));
+
+  std::string input_string;
+  std::string normalized_input_string;
+  while (input_string.length() < state.range(0)) {
+    input_string.append("àáâãā");
+    normalized_input_string.append("aaaaa");
+  }
+
+  for (auto _ : state) {
+    normalizer->FindNormalizedMatchEndPosition(input_string,
+                                               normalized_input_string);
+  }
+}
+BENCHMARK(BM_AccentSubTokenLength)
+    ->Arg(1000)
+    ->Arg(2000)
+    ->Arg(4000)
+    ->Arg(8000)
+    ->Arg(16000)
+    ->Arg(32000)
+    ->Arg(64000)
+    ->Arg(128000)
+    ->Arg(256000)
+    ->Arg(384000)
+    ->Arg(512000)
+    ->Arg(1024000)
+    ->Arg(2048000)
+    ->Arg(4096000);
+
+void BM_HiraganaSubTokenLength(benchmark::State& state) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<Normalizer> normalizer,
+      normalizer_factory::Create(
+          /*max_term_byte_size=*/std::numeric_limits<int>::max()));
+
+  std::string input_string;
+  std::string normalized_input_string;
+  while (input_string.length() < state.range(0)) {
+    input_string.append("あいうえお");
+    normalized_input_string.append("アイウエオ");
+  }
+
+  for (auto _ : state) {
+    normalizer->FindNormalizedMatchEndPosition(input_string,
+                                               normalized_input_string);
+  }
+}
+BENCHMARK(BM_HiraganaSubTokenLength)
+    ->Arg(1000)
+    ->Arg(2000)
+    ->Arg(4000)
+    ->Arg(8000)
+    ->Arg(16000)
+    ->Arg(32000)
+    ->Arg(64000)
+    ->Arg(128000)
+    ->Arg(256000)
+    ->Arg(384000)
+    ->Arg(512000)
+    ->Arg(1024000)
+    ->Arg(2048000)
+    ->Arg(4096000);
+
 }  // namespace
 
 }  // namespace lib

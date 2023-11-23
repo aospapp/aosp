@@ -7,13 +7,16 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre2-10.33.zip"
+    value: "https://github.com/PhilipHazel/pcre2/releases/download/pcre2-10.40/pcre2-10.40.tar.gz"
   }
-  version: "10.33"
+  version: "pcre2-10.40"
   license_type: NOTICE
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:pcre:pcre2"
+  }
   last_upgrade_date {
-    year: 2019
-    month: 8
-    day: 7
+    year: 2022
+    month: 4
+    day: 15
   }
 }

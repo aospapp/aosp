@@ -34,6 +34,10 @@ using aidl::android::frameworks::stats::IStats;
 // hence the history number is 928/28~33
 #define BATT_HIST_NUM_MAX 33
 
+// New history layout total size is 924 or 900 byte
+// each history data size is 12 bytes: 900/12=75
+#define BATT_HIST_NUM_MAX_V2 75
+
 /**
  * A class to upload battery EEPROM metrics
  */
@@ -95,9 +99,35 @@ class BatteryEEPROMReporter {
         int16_t min_ibatt;
         /* Field used to verify the integrity of the EEPROM data */
         uint16_t checksum;
+        /* Extend data for P21 */
+        /* Temperature compensation information */
+        uint16_t tempco;
+        /* Learned characterization related to the voltage gauge */
+        uint16_t rcomp0;
+        /* For time to monitor the life of cell */
+        uint8_t timer_h;
+         /* The full capacity of the battery learning at the end of every charge cycle */
+        uint16_t full_rep;
     };
-    /* The number of elements in struct BatteryHistory */
+    /* The number of elements in struct BatteryHistory for P20 series */
     const int kNumBatteryHistoryFields = 19;
+
+    /* P21 history format */
+    struct BatteryHistoryExtend {
+        uint16_t tempco;
+        uint16_t rcomp0;
+        uint8_t timer_h;
+        unsigned fullcapnom:10;
+        unsigned fullcaprep:10;
+        unsigned mixsoc:6;
+        unsigned vfsoc:6;
+        unsigned maxvolt:4;
+        unsigned minvolt:4;
+        unsigned maxtemp:4;
+        unsigned mintemp:4;
+        unsigned maxchgcurr:4;
+        unsigned maxdischgcurr:4;
+    };
 
     int64_t report_time_ = 0;
     int64_t getTimeSecs();

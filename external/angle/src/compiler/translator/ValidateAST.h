@@ -48,6 +48,7 @@ struct ValidateASTOptions
     // Implemented:
     //
     //  - Function parameters having one of EvqParam* qualifiers.
+    //  - No const qualifier on opaque function parameters.
     //  - gl_ClipDistance, gl_CullDistance and gl_LastFragData are correctly qualified even when
     //    redeclared in the shader.
     //
@@ -65,10 +66,7 @@ struct ValidateASTOptions
     // Check that there is only one TFunction with each function name referenced in the nodes (no
     // two TFunctions with the same name, taking internal/non-internal namespaces into account).
     bool validateUniqueFunctions = true;  // TODO
-    // Check that references to structs are matched with the corresponding struct declaration.  This
-    // is only done for references to structs inside other struct or interface blocks declarations,
-    // as validateVariableReferences already ensures other references to the struct match the
-    // declaration.
+    // Check that references to structs are matched with the corresponding struct declaration.
     bool validateStructUsage = true;
     // Check that expression nodes have the correct type considering their operand(s).  The
     // following validation is possible:
@@ -76,6 +74,8 @@ struct ValidateASTOptions
     // Implemented:
     //
     //  - Binary node that indexes T[] should have type T
+    //  - Binary nodes with EOpIndexDirect* should have a constant as the right node
+    //  - Switch nodes should have an integer type in the selector
     //
     // TODO:
     //
@@ -83,9 +83,13 @@ struct ValidateASTOptions
     //  - Unary and binary operators have the correct type based on operands
     //  - Swizzle result has same type as the operand except for vector size
     //  - Ternary operator has the same type as the operands
+    //  - Case expressions have the same type as the switch selector
     bool validateExpressionTypes = true;
     // If SeparateDeclarations has been run, check for the absence of multi declarations as well.
     bool validateMultiDeclarations = false;
+    // If PruneNoOps has been run, check that no statements are ever added after branches in the
+    // same block.  Those statements would be dead code.
+    bool validateNoStatementsAfterBranch = false;
 
     // Once set, disallows any further transformations on the tree.  Used before AST post-processing
     // which requires that the tree remains unmodified.

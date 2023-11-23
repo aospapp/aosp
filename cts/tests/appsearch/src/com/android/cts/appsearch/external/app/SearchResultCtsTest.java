@@ -18,9 +18,10 @@ package android.app.appsearch.cts.app;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.app.appsearch.SearchResult;
+import static org.junit.Assert.assertThrows;
 
-import com.android.server.appsearch.testing.AppSearchEmail;
+import android.app.appsearch.SearchResult;
+import android.app.appsearch.testutil.AppSearchEmail;
 
 import org.junit.Test;
 
@@ -29,10 +30,12 @@ public class SearchResultCtsTest {
     @Test
     public void testBuildSearchResult() {
         SearchResult.MatchRange exactMatchRange = new SearchResult.MatchRange(3, 8);
+        SearchResult.MatchRange submatchRange = new SearchResult.MatchRange(3, 5);
         SearchResult.MatchRange snippetMatchRange = new SearchResult.MatchRange(1, 10);
         SearchResult.MatchInfo matchInfo =
                 new SearchResult.MatchInfo.Builder("body")
                         .setExactMatchRange(exactMatchRange)
+                        .setSubmatchRange(submatchRange)
                         .setSnippetRange(snippetMatchRange)
                         .build();
 
@@ -53,8 +56,10 @@ public class SearchResultCtsTest {
         SearchResult.MatchInfo actualMatchInfo = searchResult.getMatchInfos().get(0);
         assertThat(actualMatchInfo.getPropertyPath()).isEqualTo("body");
         assertThat(actualMatchInfo.getExactMatchRange()).isEqualTo(exactMatchRange);
+        assertThat(actualMatchInfo.getSubmatchRange()).isEqualTo(submatchRange);
         assertThat(actualMatchInfo.getSnippetRange()).isEqualTo(snippetMatchRange);
         assertThat(actualMatchInfo.getExactMatch()).isEqualTo("lo Wo");
+        assertThat(actualMatchInfo.getSubmatch()).isEqualTo("lo");
         assertThat(actualMatchInfo.getSnippet()).isEqualTo("ello Worl");
         assertThat(actualMatchInfo.getFullText()).isEqualTo("Hello World.");
     }
@@ -64,5 +69,40 @@ public class SearchResultCtsTest {
         SearchResult.MatchRange matchRange = new SearchResult.MatchRange(13, 47);
         assertThat(matchRange.getStart()).isEqualTo(13);
         assertThat(matchRange.getEnd()).isEqualTo(47);
+    }
+
+    @Test
+    public void testSubmatchRangeNotSet() {
+        AppSearchEmail email =
+                new AppSearchEmail.Builder("namespace1", "id1").setBody("Hello World.").build();
+        SearchResult.MatchInfo matchInfo = new SearchResult.MatchInfo.Builder("body").build();
+        SearchResult searchResult =
+                new SearchResult.Builder("packageName", "databaseName")
+                        .setGenericDocument(email)
+                        .addMatchInfo(matchInfo)
+                        .build();
+
+        // When submatch isn't set, calling getSubmatch and getSubmatchRange should throw.
+        final SearchResult.MatchInfo actualMatchInfoNoSubmatch =
+                searchResult.getMatchInfos().get(0);
+        assertThrows(
+                UnsupportedOperationException.class, () -> actualMatchInfoNoSubmatch.getSubmatch());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> actualMatchInfoNoSubmatch.getSubmatchRange());
+
+        // When submatch is set, calling getSubmatch and getSubmatchRange should return the
+        // submatch without any problems.
+        SearchResult.MatchRange submatchRange = new SearchResult.MatchRange(3, 5);
+        matchInfo =
+                new SearchResult.MatchInfo.Builder("body").setSubmatchRange(submatchRange).build();
+        searchResult =
+                new SearchResult.Builder("packageName", "databaseName")
+                        .setGenericDocument(email)
+                        .addMatchInfo(matchInfo)
+                        .build();
+        final SearchResult.MatchInfo actualMatchInfo = searchResult.getMatchInfos().get(0);
+        assertThat(actualMatchInfo.getSubmatch()).isEqualTo("lo");
+        assertThat(actualMatchInfo.getSubmatchRange()).isEqualTo(submatchRange);
     }
 }

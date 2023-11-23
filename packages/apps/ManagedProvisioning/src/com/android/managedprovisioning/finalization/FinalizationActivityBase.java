@@ -23,8 +23,8 @@ import static com.android.managedprovisioning.finalization.FinalizationControlle
 import static com.android.managedprovisioning.provisioning.Constants.PROVISIONING_SERVICE_INTENT;
 
 import android.app.Activity;
+import android.app.BackgroundServiceStartNotAllowedException;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -32,10 +32,10 @@ import android.os.Bundle;
 import android.os.StrictMode;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.view.WindowManager;
 
-import com.android.managedprovisioning.common.Globals;
+import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.TransitionHelper;
-import com.android.managedprovisioning.provisioning.ProvisioningService;
 
 /**
  * Instances of this base class manage interactions with a Device Policy Controller app after it has
@@ -54,6 +54,7 @@ public abstract class FinalizationActivityBase extends Activity {
     private final TransitionHelper mTransitionHelper;
     private FinalizationController mFinalizationController;
     private boolean mIsReceiverRegistered;
+    private boolean mRestoring;
 
     private final BroadcastReceiver mUserUnlockedReceiver = new BroadcastReceiver() {
         @Override
@@ -83,11 +84,12 @@ public abstract class FinalizationActivityBase extends Activity {
                 .build());
         mTransitionHelper.applyContentScreenTransitions(this);
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         mFinalizationController = createFinalizationController();
 
-        if (savedInstanceState == null) {
-            getApplicationContext().startService(PROVISIONING_SERVICE_INTENT);
-        } else {
+        mRestoring = savedInstanceState != null;
+        if (mRestoring) {
             final Bundle controllerState = savedInstanceState.getBundle(CONTROLLER_STATE_KEY);
             if (controllerState != null) {
                 mFinalizationController.restoreInstanceState(controllerState);
@@ -98,8 +100,19 @@ public abstract class FinalizationActivityBase extends Activity {
             // can execute an onActivityResult() callback before finishing this activity.
             return;
         }
+    }
 
-        tryFinalizeProvisioning();
+    @Override
+    protected void onStart() {
+        super.onStart();
+        try {
+            getApplicationContext().startService(PROVISIONING_SERVICE_INTENT);
+        } catch (BackgroundServiceStartNotAllowedException e) {
+            ProvisionLogger.loge(e);
+        }
+        if (!mRestoring) {
+            tryFinalizeProvisioning();
+        }
     }
 
     protected TransitionHelper getTransitionHelper() {

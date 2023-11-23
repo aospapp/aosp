@@ -22,6 +22,7 @@ import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_HARD_LIFETIME_SEC_MINIMUM;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH;
+import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_RETRANS_TIMEOUT_MS_LIST_DEFAULT;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_SOFT_LIFETIME_SEC_DEFAULT;
 import static android.net.ipsec.test.ike.IkeSessionParams.IkeAuthConfig;
@@ -102,6 +103,8 @@ public final class IkeSessionParamsTest {
 
     private static final String EAP_MSCHAP_V2_USERNAME = "username";
     private static final String EAP_MSCHAP_V2_PASSWORD = "password";
+
+    private static final String DEVICE_IDENTITY_IMEI = "123456789123456";
 
     private Context mMockContext;
     private ConnectivityManager mMockConnectManager;
@@ -246,6 +249,19 @@ public final class IkeSessionParamsTest {
     }
 
     @Test
+    public void testAddInitialContactIkeOption() throws Exception {
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .addIkeOption(IKE_OPTION_INITIAL_CONTACT)
+                        .build();
+
+        verifyIkeSessionParamsCommon(sessionParams);
+        verifyAuthPskConfig(sessionParams);
+
+        assertTrue(sessionParams.hasIkeOption(IKE_OPTION_INITIAL_CONTACT));
+    }
+
+    @Test
     public void testAddAndRemoveIkeOption() throws Exception {
         IkeSessionParams sessionParams =
                 buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
@@ -257,6 +273,20 @@ public final class IkeSessionParamsTest {
         verifyAuthPskConfig(sessionParams);
 
         assertFalse(sessionParams.hasIkeOption(IKE_OPTION_ACCEPT_ANY_REMOTE_ID));
+    }
+
+    @Test
+    public void testAddAndRemoveInitialContactIkeOption() throws Exception {
+        IkeSessionParams sessionParams =
+                buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                        .addIkeOption(IKE_OPTION_INITIAL_CONTACT)
+                        .removeIkeOption(IKE_OPTION_INITIAL_CONTACT)
+                        .build();
+
+        verifyIkeSessionParamsCommon(sessionParams);
+        verifyAuthPskConfig(sessionParams);
+
+        assertFalse(sessionParams.hasIkeOption(IKE_OPTION_INITIAL_CONTACT));
     }
 
     private IkeSessionParams.Builder createIkeParamsBuilderMinimum() {
@@ -706,6 +736,48 @@ public final class IkeSessionParamsTest {
         } catch (IllegalArgumentException expected) {
 
         }
+    }
+
+    IkeSessionParams buildIkeSessionParamsWithDeviceIdentity(EapSessionConfig eapSessionConfig) {
+        Ike3gppParams ike3gppParams =
+                new Ike3gppParams.Builder().setMobileDeviceIdentity(DEVICE_IDENTITY_IMEI).build();
+
+        Ike3gppExtension ike3gppExtension =
+                new Ike3gppExtension(ike3gppParams, mock(Ike3gppDataListener.class));
+
+        return buildWithPskCommon(REMOTE_IPV4_HOST_ADDRESS)
+                .setAuthEap(null, eapSessionConfig)
+                .setIke3gppExtension(ike3gppExtension)
+                .build();
+    }
+
+    @Test
+    public void testExpceptionOnDeviceIdentitySetWithoutEapAkaAuth() throws Exception {
+        try {
+            EapSessionConfig eapSessionConfig =
+                    new EapSessionConfig.Builder()
+                            .setEapMsChapV2Config(EAP_MSCHAP_V2_USERNAME, EAP_MSCHAP_V2_PASSWORD)
+                            .build();
+
+            IkeSessionParams sessionParams =
+                    buildIkeSessionParamsWithDeviceIdentity(eapSessionConfig);
+
+            fail("Expected failure because device identity is set and auth is not EAP AKA");
+        } catch (IllegalArgumentException expected) {
+
+        }
+    }
+
+    @Test
+    public void testBuildWithDeviceIdentityandEapAkaAuth() throws Exception {
+        EapSessionConfig eapSessionConfig =
+                new EapSessionConfig.Builder()
+                        .setEapAkaConfig(0, TelephonyManager.APPTYPE_ISIM)
+                        .build();
+
+        IkeSessionParams sessionParams = buildIkeSessionParamsWithDeviceIdentity(eapSessionConfig);
+
+        assertNotNull(sessionParams.getIke3gppExtension());
     }
 
     @Test

@@ -57,24 +57,14 @@
 </table>
 <!-- ==================== CLASS DESCRIPTION ==================== -->
 <h1 class="epydoc">Class HttpRequest</h1><p class="nomargin-top"><span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest">source&nbsp;code</a></span></p>
-<center>
-<center>  <map id="uml_class_diagram_for_googleap_27" name="uml_class_diagram_for_googleap_27">
-<area shape="rect" id="node1_6" href="googleapiclient.http.HttpRequest-class.html#__init__" title="Constructor for an HttpRequest." alt="" coords="17,38,676,58"/>
-<area shape="rect" id="node1_7" href="googleapiclient.http.HttpRequest-class.html#execute" title="Execute the request." alt="" coords="17,58,676,78"/>
-<area shape="rect" id="node1_8" href="googleapiclient.http.HttpRequest-class.html#add_response_callback" title="add_response_headers_callback" alt="" coords="17,78,676,98"/>
-<area shape="rect" id="node1_9" href="googleapiclient.http.HttpRequest-class.html#next_chunk" title="Execute the next step of a resumable upload." alt="" coords="17,98,676,118"/>
-<area shape="rect" id="node1_10" href="googleapiclient.http.HttpRequest-class.html#to_json" title="Returns a JSON representation of the HttpRequest." alt="" coords="17,118,676,138"/>
-<area shape="rect" id="node1_11" href="googleapiclient.http.HttpRequest-class.html#from_json" title="Returns an HttpRequest populated with info from a JSON object." alt="" coords="17,138,676,158"/>
-<area shape="rect" id="node1" href="googleapiclient.http.HttpRequest-class.html" title="Encapsulates a single HTTP request." alt="" coords="5,5,688,164"/>
-</map>
-  <img src="uml_class_diagram_for_googleap_27.gif" alt='' usemap="#uml_class_diagram_for_googleap_27" ismap="ismap" class="graph-without-title" />
-</center>
-</center>
-<hr />
-<pre class="literalblock">
-Encapsulates a single HTTP request.
-
+<pre class="base-tree">
+object --+
+         |
+        <strong class="uidshort">HttpRequest</strong>
 </pre>
+
+<hr />
+<p>Encapsulates a single HTTP request.</p>
 
 <!-- ==================== INSTANCE METHODS ==================== -->
 <a name="section-InstanceMethods"></a>
@@ -99,15 +89,8 @@ Encapsulates a single HTTP request.
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">http</span>,
-        <span class="summary-sig-arg">postproc</span>,
-        <span class="summary-sig-arg">uri</span>,
-        <span class="summary-sig-arg">method</span>=<span class="summary-sig-default">'GET'</span>,
-        <span class="summary-sig-arg">body</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">headers</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">methodId</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">resumable</span>=<span class="summary-sig-default">None</span>)</span><br />
+          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
       Constructor for an HttpRequest.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.__init__">source&nbsp;code</a></span>
@@ -124,9 +107,8 @@ Encapsulates a single HTTP request.
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#execute" class="summary-sig-name">execute</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">num_retries</span>=<span class="summary-sig-default">0</span>)</span><br />
+          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#execute" class="summary-sig-name">execute</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
       Execute the request.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.execute">source&nbsp;code</a></span>
@@ -143,8 +125,8 @@ Encapsulates a single HTTP request.
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#add_response_callback" class="summary-sig-name">add_response_callback</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">cb</span>)</span><br />
+          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#add_response_callback" class="summary-sig-name">add_response_callback</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
       add_response_headers_callback</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.add_response_callback">source&nbsp;code</a></span>
@@ -161,9 +143,8 @@ Encapsulates a single HTTP request.
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#next_chunk" class="summary-sig-name">next_chunk</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">num_retries</span>=<span class="summary-sig-default">0</span>)</span><br />
+          <td><span class="summary-sig"><a href="googleapiclient.http.HttpRequest-class.html#next_chunk" class="summary-sig-name">next_chunk</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
       Execute the next step of a resumable upload.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.next_chunk">source&nbsp;code</a></span>
@@ -265,6 +246,23 @@ Encapsulates a single HTTP request.
       
     </td>
   </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="null_postproc"></a><span class="summary-sig-name">null_postproc</span>(<span class="summary-sig-arg">resp</span>,
+        <span class="summary-sig-arg">contents</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.null_postproc">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
 </table>
 <!-- ==================== PROPERTIES ==================== -->
 <a name="section-Properties"></a>
@@ -316,15 +314,8 @@ Encapsulates a single HTTP request.
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">http</span>,
-        <span class="sig-arg">postproc</span>,
-        <span class="sig-arg">uri</span>,
-        <span class="sig-arg">method</span>=<span class="sig-default">'GET'</span>,
-        <span class="sig-arg">body</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">headers</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">methodId</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">resumable</span>=<span class="sig-default">None</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
     <br /><em class="fname">(Constructor)</em>
   </h3>
   </td><td align="right" valign="top"
@@ -366,9 +357,8 @@ Args:
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">http</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">num_retries</span>=<span class="sig-default">0</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
   </h3>
   </td><td align="right" valign="top"
     ><span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.execute">source&nbsp;code</a></span>&nbsp;
@@ -392,7 +382,7 @@ Returns:
 
 Raises:
   googleapiclient.errors.HttpError if the response was not a 2xx.
-  httplib2.HttpLib2Error if a transport error has occured.
+  httplib2.HttpLib2Error if a transport error has occurred.
 
 </pre>
   <dl class="fields">
@@ -410,8 +400,8 @@ Raises:
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">add_response_callback</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">cb</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">add_response_callback</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
   </h3>
   </td><td align="right" valign="top"
     ><span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.add_response_callback">source&nbsp;code</a></span>&nbsp;
@@ -443,9 +433,8 @@ Args:
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">next_chunk</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">http</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">num_retries</span>=<span class="sig-default">0</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">next_chunk</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
   </h3>
   </td><td align="right" valign="top"
     ><span class="codelink"><a href="googleapiclient.http-pysrc.html#HttpRequest.next_chunk">source&nbsp;code</a></span>&nbsp;
@@ -488,7 +477,7 @@ Returns:
 
 Raises:
   googleapiclient.errors.HttpError if the response was not a 2xx.
-  httplib2.HttpLib2Error if a transport error has occured.
+  httplib2.HttpLib2Error if a transport error has occurred.
 
 </pre>
   <dl class="fields">
@@ -561,7 +550,7 @@ Raises:
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Fri Jun 14 15:57:28 2019
+    Generated by Epydoc 3.0.1 on Fri Oct  2 20:46:22 2020
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

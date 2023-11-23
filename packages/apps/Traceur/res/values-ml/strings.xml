@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ഡിഫോൾട്ട് വിഭാഗങ്ങൾ പുനഃസ്ഥാപിക്കുക"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"ഡിഫോൾട്ട് വിഭാഗങ്ങൾ പുനഃസ്ഥാപിച്ചു"</string>
     <string name="default_categories" msgid="2117679794687799407">"ഡിഫോൾട്ട്"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d തിരഞ്ഞെടുത്തു</item>
-      <item quantity="one">%d തിരഞ്ഞെടുത്തു</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# എണ്ണം തിരഞ്ഞെടുത്തു}other{# എണ്ണം തിരഞ്ഞെടുത്തു}}"</string>
     <string name="applications" msgid="521776761270770549">"ആപ്പുകൾ"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"ഡീബഗ്ഗ് ചെയ്യാവുന്ന അപ്ലിക്കേഷനുകൾ ലഭ്യമല്ല"</string>
     <string name="buffer_size" msgid="3944311026715111454">"ഓരോ CPU-യുവിനുമുള്ള ബഫർ വലുപ്പം"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto ഉപയോഗിക്കുക (ബീറ്റ)"</string>
     <string name="long_traces" msgid="5110949471775966329">"ദൈർഘ്യമുള്ള ട്രെയ്‌സുകൾ"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ഉപകരണ സ്‌റ്റോറേജിലേക്ക് തുടർച്ചയായി സംരക്ഷിക്കുന്നു"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ഉപകരണ സ്റ്റോറേജിൽ തുടർച്ചയായി സംഭരിച്ചു (ബഗ് റിപ്പോർട്ടുകളിലേക്ക് സ്വയമേവ അറ്റാച്ച് ചെയ്യില്ല)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"പരമാവധി ദൈർഘ്യമുള്ള ട്രെയ്‌സിൻ്റെ വലുപ്പം"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"പരമാവധി ദൈർഘ്യമുള്ള ട്രെയ്‌സിൻ്റെ സമയ ദൈർഘ്യം"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

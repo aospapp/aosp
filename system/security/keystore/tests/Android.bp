@@ -62,7 +62,7 @@ cc_test {
         "libgtest_main",
         "libutils",
         "liblog",
-        "android.security.apc-ndk_platform",
+        "android.security.apc-ndk",
     ],
     shared_libs: [
         "libbinder_ndk",

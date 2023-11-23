@@ -40,7 +40,7 @@ import javax.lang.model.util.Types;
 public final class Apis {
 
     private static final String[] API_FILES =
-            {"current.txt", "test-current.txt", "wifi-current.txt"};
+            {"current.txt", "test-current.txt", "wifi-current.txt", "bluetooth-current.txt"};
 
     private static final Map<String, String> API_TXTS = initialiseApiTxts();
     private static final Map<String, Apis> sPackageToApi = new HashMap<>();
@@ -137,7 +137,11 @@ public final class Apis {
             try {
                 // Strip "method" and semicolon
                 methodLine = methodLine.substring(7, methodLine.length() - 1);
-                methodSignatures.add(MethodSignature.forApiString(methodLine, types, elements));
+                MethodSignature signature =
+                        MethodSignature.forApiString(methodLine, types, elements);
+                if (signature != null) {
+                    methodSignatures.add(signature);
+                }
             } catch (RuntimeException e) {
                 throw new IllegalStateException("Error parsing method " + line, e);
             }

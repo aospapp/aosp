@@ -42,6 +42,8 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.testutils.DevSdkIgnoreRule;
 
 import org.junit.Assert;
@@ -56,6 +58,7 @@ import org.mockito.stubbing.Answer;
 import java.util.HashMap;
 
 /** Unit tests for {@link LocationPermissionChecker}. */
+@RequiresApi(Build.VERSION_CODES.R)
 public class LocationPermissionCheckerTest {
     @Rule
     public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule(

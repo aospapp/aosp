@@ -1,4 +1,4 @@
-#!/usr/bin/python -B
+#!/usr/bin/python3 -B
 
 # Copyright 2017 The Android Open Source Project
 #
@@ -15,8 +15,6 @@
 # limitations under the License.
 
 """Generates a time zone distro file"""
-
-from __future__ import print_function
 
 import argparse
 import os
@@ -73,11 +71,11 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-iana_version', required=True,
       help='The IANA time zone rules release version, e.g. 2017b')
-  parser.add_argument('-revision', type=int, default=1,
-      help='The distro revision for the IANA version, default = 1')
+  parser.add_argument('-revision', type=int, required = True,
+      help='The distro revision for the IANA version')
   parser.add_argument('-tzdata', required=True, help='The location of the tzdata file to include')
-  parser.add_argument('-icu', required=True,
-      help='The location of the ICU overlay .dat file to include')
+  parser.add_argument('-icu_dir', required=True,
+      help='Directory with the ICU overlay .dat and license files')
   parser.add_argument('-tzlookup', required=True,
       help='The location of the tzlookup.xml file to include')
   parser.add_argument('-telephonylookup', required=True,
@@ -90,12 +88,20 @@ def main():
 
   iana_version = args.iana_version
   revision = args.revision
+  icu_dir = args.icu_dir
   tzdata_file = os.path.abspath(args.tzdata)
-  icu_file = os.path.abspath(args.icu)
+  icu_file = os.path.abspath('%s/icu_tzdata.dat' % icu_dir)
+  icu_license = os.path.abspath('%s/LICENSE' % icu_dir)
   tzlookup_file = os.path.abspath(args.tzlookup)
   telephonylookup_file = os.path.abspath(args.telephonylookup)
   output_distro_dir = os.path.abspath(args.output_distro_dir)
   output_version_file = os.path.abspath(args.output_version_file)
+
+  if not os.path.isfile(icu_license):
+    raise Exception("ICU license file was not found in %s" % icu_dir)
+
+  print("Copying %s to %s" % (icu_license, output_distro_dir))
+  shutil.copy(icu_license, output_distro_dir)
 
   CreateTimeZoneDistro(
       iana_version=iana_version,

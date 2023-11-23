@@ -60,7 +60,7 @@ bootstrap_go_package {
         "path.go",
         "proc_sync.go",
         "rbe.go",
-        "signal.go",
+        "sandbox_config.go",
         "soong.go",
         "test_build.go",
         "upload.go",
@@ -85,6 +85,9 @@ bootstrap_go_package {
         srcs: [
             "config_linux.go",
             "sandbox_linux.go",
+        ],
+        testSrcs: [
+            "sandbox_linux_test.go",
         ],
     },
 }

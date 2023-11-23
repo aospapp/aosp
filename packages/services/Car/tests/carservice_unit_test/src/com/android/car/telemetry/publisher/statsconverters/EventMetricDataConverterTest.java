@@ -27,6 +27,7 @@ import android.util.SparseArray;
 
 import com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured;
 import com.android.car.telemetry.AtomsProto.Atom;
+import com.android.car.telemetry.StatsLogProto.AggregatedAtomInfo;
 import com.android.car.telemetry.StatsLogProto.EventMetricData;
 
 import org.junit.Test;
@@ -61,7 +62,7 @@ public class EventMetricDataConverterTest {
                                                 .setRssInBytes(2345L)))
                         .build()
         );
-        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured>> accessorMap =
+        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> accessorMap =
                 new AppStartMemoryStateCapturedConverter().getAtomFieldAccessorMap();
 
         PersistableBundle bundle = EventMetricDataConverter.convertEventDataList(eventDataList);
@@ -76,5 +77,49 @@ public class EventMetricDataConverterTest {
             .containsExactly("activityName1", "activityName2").inOrder();
         assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L, 2345L).inOrder();
+    }
+
+    @Test
+    public void testConvertEventDataList_forAggregatedAtoms_putsCorrectDataIntoPersistableBundle()
+            throws StatsConversionException {
+        List<EventMetricData> eventDataList = Arrays.asList(
+                EventMetricData.newBuilder()
+                        .setAggregatedAtomInfo(AggregatedAtomInfo.newBuilder()
+                                .setAtom(Atom.newBuilder()
+                                        .setAppStartMemoryStateCaptured(
+                                                AppStartMemoryStateCaptured.newBuilder()
+                                                        .setUid(1000)
+                                                        .setActivityName("activityName1")
+                                                        .setRssInBytes(1234L)))
+                                .addElapsedTimestampNanos(12345678L)
+                                .addElapsedTimestampNanos(12345679L))
+                        .build(),
+                EventMetricData.newBuilder()
+                        .setElapsedTimestampNanos(23456789L)
+                        .setAggregatedAtomInfo(AggregatedAtomInfo.newBuilder()
+                                .setAtom(Atom.newBuilder()
+                                        .setAppStartMemoryStateCaptured(
+                                                AppStartMemoryStateCaptured.newBuilder()
+                                                        .setUid(1100)
+                                                        .setActivityName("activityName2")
+                                                        .setRssInBytes(2345L)))
+                                .addElapsedTimestampNanos(23456789L))
+                        .build());
+
+        SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> accessorMap =
+                new AppStartMemoryStateCapturedConverter().getAtomFieldAccessorMap();
+
+        PersistableBundle bundle = EventMetricDataConverter.convertEventDataList(eventDataList);
+
+        assertThat(bundle.size()).isEqualTo(4);
+        assertThat(bundle.getLongArray(EventMetricDataConverter.ELAPSED_TIME_NANOS))
+            .asList().containsExactly(12345678L, 12345679L, 23456789L).inOrder();
+        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+            .asList().containsExactly(1000, 1000, 1100).inOrder();
+        assertThat(Arrays.asList(bundle.getStringArray(
+                accessorMap.get(ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
+            .containsExactly("activityName1", "activityName1", "activityName2").inOrder();
+        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+            .asList().containsExactly(1234L, 1234L, 2345L).inOrder();
     }
 }

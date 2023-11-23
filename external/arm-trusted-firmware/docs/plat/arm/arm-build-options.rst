@@ -91,12 +91,29 @@ Arm Platform Build Options
    platforms. If this option is specified, then the path to the CryptoCell
    SBROM library must be specified via ``CCSBROM_LIB_PATH`` flag.
 
+-  ``ARM_ETHOSN_NPU_DRIVER``: boolean option to enable a SiP service that can
+   configure an Arm Ethos-N NPU. To use this service the target platform's
+   ``HW_CONFIG`` must include the device tree nodes for the NPU. Currently, only
+   the Arm Juno platform has this included in its ``HW_CONFIG`` and the platform
+   only loads the ``HW_CONFIG`` in AArch64 builds. Default is 0.
+
 -  ``ARM_SPMC_MANIFEST_DTS`` : path to an alternate manifest file used as the
    SPMC Core manifest. Valid when ``SPD=spmd`` is selected.
 
 -  ``OPTEE_SP_FW_CONFIG``: DTC build flag to include OP-TEE as SP in tb_fw_config
    device tree. This flag is defined only when ``ARM_SPMC_MANIFEST_DTS`` manifest
    file name contains pattern optee_sp.
+
+-  ``TS_SP_FW_CONFIG``: DTC build flag to include Trusted Services (Crypto and
+   secure-storage) as SP in tb_fw_config device tree.
+
+-  ``ARM_GPT_SUPPORT``: Enable GPT parser to get the entry address and length of
+   the various partitions present in the GPT image. This support is available
+   only for the BL2 component, and it is disabled by default.
+   The following diagram shows the view of the FIP partition inside the GPT
+   image:
+
+   |FIP in a GPT image|
 
 For a better understanding of these options, the Arm development platform memory
 map is explained in the :ref:`Firmware Design`.
@@ -126,6 +143,14 @@ Arm CSS Platform-Specific Build Options
    valid value greater than 1, the platform code performs required configuration
    to support multi-chip operation.
 
+- ``CSS_SGI_PLATFORM_VARIANT``: Selects the variant of a SGI/RD platform. A
+    particular SGI/RD platform may have multiple variants which may differ in
+    core count, cluster count or other peripherals. This build option is used
+    to select the appropriate platform variant for the build. The range of
+    valid values is platform specific.
+
 --------------
 
-*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*
+.. |FIP in a GPT image| image:: ../../resources/diagrams/FIP_in_a_GPT_image.png
+
+*Copyright (c) 2019-2021, Arm Limited. All rights reserved.*

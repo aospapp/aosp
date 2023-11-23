@@ -94,7 +94,7 @@ func (g *gkiApex) validateAndSetMutableProperties(mctx android.LoadHookContext) 
 }
 
 func testApexBundleFactory() android.Module {
-	return apex.ApexBundleFactory(true /* testApex */, false /* art */)
+	return apex.ApexBundleFactory(true /* testApex */)
 }
 
 // Create modules for a real APEX package that contains an OTA payload.

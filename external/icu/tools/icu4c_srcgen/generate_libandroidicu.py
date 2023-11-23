@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -88,19 +88,19 @@ def main():
     with open(android_path('external/icu/libandroidicu/static_shim/shim.cpp'),
               'w') as out_file:
         out_file.write(generate_shim(functions, includes, SYMBOL_SUFFIX,
-                                     'libandroidicu_shim.cpp.j2')
-                       .encode('utf8'))
+                                     'libandroidicu_shim.cpp.j2'))
 
     with open(android_path('external/icu/libandroidicu/libandroidicu.map.txt'),
               'w') as out_file:
-        out_file.write(generate_symbol_txt(functions, [], 'libandroidicu.map.txt.j2')
-                       .encode('utf8'))
+        out_file.write(generate_symbol_txt(functions, [], 'libandroidicu.map.txt.j2'))
 
     for path in parser.header_paths_to_copy:
         basename = os.path.basename(path)
         shutil.copyfile(path, os.path.join(headers_folder, basename))
 
     copy_header_only_files()
+
+    print("Done. See libandroidicu/ for the generated content.")
 
 if __name__ == '__main__':
     main()

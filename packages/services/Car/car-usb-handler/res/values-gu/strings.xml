@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="6963366455471441257">"USB હૅન્ડલર"</string>
-    <string name="usb_saved_devices" msgid="2829442070749964872">"સાચવેલ ડિવાઇસ"</string>
+    <string name="usb_saved_devices" msgid="2829442070749964872">"સાચવેલા ડિવાઇસ"</string>
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"USB ડિવાઇસ માટે હૅન્ડલિંગ ઍપ કાઢી નાખો"</string>
     <string name="usb_pref_delete_message" msgid="5849493572520646218">"શું તમે ખરેખર ડિફૉલ્ટ હેન્ડલિંગ ઍપ્લિકેશન %1$s માટે કાઢી નાખવા માગો છો?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"હા"</string>

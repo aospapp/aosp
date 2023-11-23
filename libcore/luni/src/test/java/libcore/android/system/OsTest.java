@@ -31,12 +31,14 @@ import android.system.StructUcred;
 import android.system.UnixSocketAddress;
 import android.system.VmSocketAddress;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
@@ -56,10 +58,12 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import java.util.stream.Collectors;
 import libcore.io.IoUtils;
 import libcore.testing.io.TestIoUtils;
 import org.junit.Test;
@@ -822,6 +826,41 @@ public class OsTest {
         checkSendToSocketAddress(AF_INET6, InetAddress.getByName("::1"));
     }
 
+    private static short asShort(StructCmsghdr cmsg) {
+        ByteBuffer buf = ByteBuffer.wrap(cmsg.cmsg_data).order(ByteOrder.nativeOrder());
+        assertEquals(Short.BYTES, buf.capacity());
+        return buf.getShort();
+    }
+
+    private static int asInt(StructCmsghdr cmsg) {
+        ByteBuffer buf = ByteBuffer.wrap(cmsg.cmsg_data).order(ByteOrder.nativeOrder());
+        assertEquals(Integer.BYTES, buf.capacity());
+        return buf.getInt();
+    }
+
+    @Test
+    public void test_StructCmsgHdrConstructors() throws Exception {
+        final StructCmsghdr cmsg1 = new StructCmsghdr(1, 2, (short) 32005);
+        assertEquals(1, cmsg1.cmsg_level);
+        assertEquals(2, cmsg1.cmsg_type);
+        assertEquals(32005, asShort(cmsg1));
+
+        ByteBuffer buf = ByteBuffer.allocate(Short.BYTES);
+        buf.order(ByteOrder.nativeOrder());
+        buf.putShort((short) 32005);
+        assertArrayEquals(cmsg1.cmsg_data, buf.array());
+
+        buf = ByteBuffer.allocate(Integer.BYTES);
+        buf.order(ByteOrder.nativeOrder());
+        buf.putInt(1000042);
+
+        final StructCmsghdr cmsg2 = new StructCmsghdr(456789, 123456, buf.array());
+        assertEquals(456789, cmsg2.cmsg_level);
+        assertEquals(123456, cmsg2.cmsg_type);
+        assertEquals(1000042, asInt(cmsg2));
+        assertArrayEquals(buf.array(), cmsg2.cmsg_data);
+    }
+
     /*
      * Test case for sendmsg with/without GSO in loopback iface,
      * recvmsg/gro would not happen since in loopback
@@ -1530,29 +1569,31 @@ public class OsTest {
 
     @Test
     public void test_socket_setSockoptTimeval_effective() throws Exception {
-        // b/176104885 Older devices can return a few ms early, add a tolerance for them
-        long timeoutTolerance = kernelIsAtLeast(3, 18) ? 0 : 10;
-
-        int timeoutValueMillis = 250;
-        int allowedTimeoutMillis = 3000;
+        final int TIMEOUT_VALUE_MILLIS = 250;
+        final int ALLOWED_TIMEOUT_MILLIS = 3000;
+        final int ROUNDING_ERROR_MILLIS = 10;
 
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         try {
-            StructTimeval tv = StructTimeval.fromMillis(timeoutValueMillis);
+            // Configure the receive timeout.
+            StructTimeval tv = StructTimeval.fromMillis(TIMEOUT_VALUE_MILLIS);
             Os.setsockoptTimeval(fd, SOL_SOCKET, SO_RCVTIMEO, tv);
-            Os.bind(fd, InetAddress.getByName("::1"), 0);
 
+            // Bind socket and wait for data (and timeout).
+            Os.bind(fd, InetAddress.getByName("::1"), 0);
             byte[] request = new byte[1];
             long startTime = System.nanoTime();
             expectException(() -> Os.read(fd, request, 0, request.length),
                     ErrnoException.class, EAGAIN, "Expected timeout");
             long durationMillis = Duration.ofNanos(System.nanoTime() - startTime).toMillis();
-            assertTrue("Timeout of " + timeoutValueMillis + "ms returned after "
-                    + durationMillis +"ms",
-                durationMillis >= timeoutValueMillis - timeoutTolerance);
-            assertTrue("Timeout of " + timeoutValueMillis + "ms failed to return within "
-                    + allowedTimeoutMillis  + "ms",
-                durationMillis < allowedTimeoutMillis);
+
+            // Our requested timeout may be rounded by the kernel (b/176104885, b/216667550).
+            // We allow up to 1 scheduling quantum difference (assuming HZ = 100).
+            assertTrue("Timeout of " + tv.toMillis() + "ms returned after " + durationMillis + "ms",
+                       durationMillis >= tv.toMillis() - ROUNDING_ERROR_MILLIS);
+            assertTrue("Timeout of " + TIMEOUT_VALUE_MILLIS + "ms failed to return within "
+                    + ALLOWED_TIMEOUT_MILLIS  + "ms",
+                       durationMillis < ALLOWED_TIMEOUT_MILLIS);
         } finally {
             Os.close(fd);
         }
@@ -2060,5 +2101,161 @@ public class OsTest {
 
         expectException(() -> Os.memfd_create("test_memfd", 0xffff), ErrnoException.class, EINVAL,
                 "memfd_create(\"test_memfd\", 0xffff)");
+    }
+
+    @Test
+    public void environmentsInitiallyEqual() throws Exception {
+        assertEnvironmentsEqual();
+    }
+
+    @Test
+    public void getSetUnsetenvEnviron_Success() throws Exception {
+        String variable1 = "OSTEST_VARIABLE1";
+        String variable2 = "OSTEST_VARIABLE2";
+        String value1 = "value1";
+        String value2 = "value2";
+
+        // Initial state, the test variables should not be set anywhere
+        assertNull(System.getenv(variable1));
+        assertNull(System.getenv(variable2));
+        assertNull(Os.getenv(variable1));
+        assertNull(Os.getenv(variable2));
+
+        // Set and get
+        Os.setenv(variable1, value1, false);
+        Os.setenv(variable2, value2, false);
+        assertEquals(value1, Os.getenv(variable1));
+        assertEquals(value2, Os.getenv(variable2));
+        assertEquals(value1, System.getenv(variable1));
+        assertEquals(value2, System.getenv(variable2));
+        // Comparing environments indirectly tests Os.environ()
+        assertEnvironmentsEqual();
+
+        // Update values with overwrite flag set to false - should be a no-op
+        Os.setenv(variable1, value2, false);
+        Os.setenv(variable2, value1, false);
+        assertEquals(value1, Os.getenv(variable1));
+        assertEquals(value2, Os.getenv(variable2));
+        assertEquals(value1, System.getenv(variable1));
+        assertEquals(value2, System.getenv(variable2));
+        assertEnvironmentsEqual();
+
+        // Update values (swap value1 and value2)
+        Os.setenv(variable1, value2, true);
+        Os.setenv(variable2, value1, true);
+        assertEquals(value2, Os.getenv(variable1));
+        assertEquals(value1, Os.getenv(variable2));
+        assertEquals(value2, System.getenv(variable1));
+        assertEquals(value1, System.getenv(variable2));
+        assertEnvironmentsEqual();
+
+        // Unset
+        Os.unsetenv(variable1);
+        Os.unsetenv(variable2);
+        assertNull(System.getenv(variable1));
+        assertNull(System.getenv(variable2));
+        assertNull(Os.getenv(variable1));
+        assertNull(Os.getenv(variable2));
+        assertEnvironmentsEqual();
+    }
+
+    @Test
+    public void setenv() {
+        expectException(() -> Os.setenv(null, null, true), NullPointerException.class, null,
+            "setenv(null, null, true)");
+
+        expectException(() -> Os.setenv(null, "value", true), NullPointerException.class, null,
+            "setenv(null, value, true)");
+
+        expectException(() -> Os.setenv("a", null, true), NullPointerException.class, null,
+            "setenv(\"a\", null, true)");
+
+        expectException(() -> Os.setenv("", "value", true), ErrnoException.class, EINVAL,
+            "setenv(\"\", value, true)");
+
+        expectException(() -> Os.setenv("a=b", "value", true), ErrnoException.class, EINVAL,
+            "setenv(\"a=b\", value, true)");
+
+        expectException(() -> Os.setenv(null, null, false), NullPointerException.class, null,
+            "setenv(null, null, false)");
+
+        expectException(() -> Os.setenv(null, "value", false), NullPointerException.class, null,
+            "setenv(null, value, false)");
+
+        expectException(() -> Os.setenv("a", null, false), NullPointerException.class, null,
+            "setenv(\"a\", null, false)");
+
+        expectException(() -> Os.setenv("", "value", false), ErrnoException.class, EINVAL,
+            "setenv(\"\", value, false)");
+
+        expectException(() -> Os.setenv("a=b", "value", false), ErrnoException.class, EINVAL,
+            "setenv(\"a=b\", value, false)");
+    }
+
+    @Test
+    public void getenv() {
+        assertNotNull(Os.getenv("PATH"));
+        assertNull(Os.getenv("This can't possibly exist but is valid"));
+        assertNull(Os.getenv("so=is=this"));
+
+        expectException(() ->Os.getenv(null), NullPointerException.class, null,
+            "getenv(null)");
+    }
+
+    @Test
+    public void unsetenv() {
+        expectException(() -> Os.unsetenv(null), NullPointerException.class, null,
+            "unsetenv(null)");
+
+        expectException(() -> Os.unsetenv(""), ErrnoException.class, EINVAL,
+            "unsetenv(\"\")");
+
+        expectException(() -> Os.unsetenv("a=b"), ErrnoException.class, EINVAL,
+            "unsetenv(\"a=b\")");
+    }
+
+    /*
+     * Checks that all ways of accessing the environment are consistent by collecting:
+     * osEnvironment      - The environment returned by Os.environ()
+     * systemEnvironment  - The environment returned by System.getenv()
+     * processEnvironment - The environment that will be passed to sub-processes via
+     *                      ProcessBuilder
+     * execedEnvironment  - The actual environment passed to an execed instance of env
+     *
+     * All are converted to a sorted list of strings of the form "NAME=VALUE" for comparison.
+     */
+    private void assertEnvironmentsEqual() throws IOException {
+        List<String> osEnvironment = stringArrayToList(Os.environ());
+        List<String> systemEnvironment = stringMapToList(System.getenv());
+
+        ProcessBuilder pb = new ProcessBuilder("env");
+        List<String> processEnvironment = stringMapToList(pb.environment());
+
+        BufferedReader reader = new BufferedReader(
+            new InputStreamReader(pb.start().getInputStream()));
+
+        List<String> execedEnvironment = reader
+            .lines()
+            .sorted()
+            .collect(Collectors.toList());
+
+        assertEquals(osEnvironment, systemEnvironment);
+        assertEquals(osEnvironment, processEnvironment);
+        assertEquals(osEnvironment, execedEnvironment);
+    }
+
+    private List<String> stringMapToList(Map<String, String> stringMap) {
+        return stringMap
+            .entrySet()
+            .stream()
+            .map(e -> e.getKey() + "=" + e.getValue())
+            .sorted()
+            .collect(Collectors.toList());
+    }
+
+    private List<String> stringArrayToList(String[] stringArray) {
+        List<String> result = Arrays.asList(stringArray);
+        Collections.sort(result);
+        return result;
     }
 }

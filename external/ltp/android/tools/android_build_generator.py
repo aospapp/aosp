@@ -24,14 +24,14 @@
 import argparse
 import fileinput
 import json
-import os.path
+import os
 import re
 
 import make_parser
 import make_install_parser
 
-MAKE_DRY_RUN_FILE_NAME = 'make_dry_run.dump'
-MAKE_INSTALL_DRY_RUN_FILE_NAME = 'make_install_dry_run.dump'
+MAKE_DRY_RUN_FILE_NAME = os.path.join('dump', 'make_dry_run.dump')
+MAKE_INSTALL_DRY_RUN_FILE_NAME = os.path.join('dump', 'make_install_dry_run.dump')
 DISABLED_TESTS_FILE_NAME = 'disabled_tests.txt'
 DISABLED_LIBS_FILE_NAME = 'disabled_libs.txt'
 DISABLED_CFLAGS_FILE_NAME = 'disabled_cflags.txt'
@@ -110,8 +110,8 @@ class BuildGenerator(object):
         '''
         base_name = os.path.basename(cc_target)
         if base_name in ltp_names_used:
-            print 'ERROR: base name {} of cc_target {} already used. Skipping...'.format(
-                base_name, cc_target)
+            print('ERROR: base name {} of cc_target {} already used. Skipping...'.format(
+                base_name, cc_target))
             return
         ltp_names_used.add(base_name)
 
@@ -135,7 +135,7 @@ class BuildGenerator(object):
             target_bp.append('    srcs: ["%s"],' % list(local_src_files)[0])
         else:
             target_bp.append('    srcs: [')
-            for src in local_src_files:
+            for src in sorted(local_src_files):
                 target_bp.append('        "%s",' % src)
             target_bp.append('    ],')
 
@@ -143,7 +143,7 @@ class BuildGenerator(object):
             target_bp.append('    cflags: ["%s"],' % list(local_cflags)[0])
         elif len(local_cflags) > 1:
             target_bp.append('    cflags: [')
-            for cflag in local_cflags:
+            for cflag in sorted(local_cflags):
                 target_bp.append('        "%s",' % cflag)
             target_bp.append('    ],')
 
@@ -151,7 +151,7 @@ class BuildGenerator(object):
             target_bp.append('    local_include_dirs: ["%s"],' % list(local_c_includes)[0])
         elif len(local_c_includes) > 1:
             target_bp.append('    local_include_dirs: [')
-            for d in local_c_includes:
+            for d in sorted(local_c_includes):
                 target_bp.append('        "%s",' % d)
             target_bp.append('    ],')
 
@@ -163,7 +163,7 @@ class BuildGenerator(object):
             target_bp.append('    static_libs: ["libltp_%s"],' % list(static_libraries)[0])
         elif len(static_libraries) > 1:
             target_bp.append('    static_libs: [')
-            for lib in static_libraries:
+            for lib in sorted(static_libraries):
                 target_bp.append('        "libltp_%s",' % lib)
             target_bp.append('    ],')
 
@@ -175,7 +175,7 @@ class BuildGenerator(object):
             target_bp.append('    shared_libs: ["lib%s"],' % list(shared_libraries)[0])
         elif len(shared_libraries) > 1:
             target_bp.append('    shared_libs: [')
-            for lib in shared_libraries:
+            for lib in sorted(shared_libraries):
                 target_bp.append('        "lib%s",' % lib)
             target_bp.append('    ],')
 
@@ -335,7 +335,7 @@ class BuildGenerator(object):
         for i in cc_libraries:
             if len(set(cc_libraries[i]).intersection(disabled_libs)) > 0:
                 if not os.path.basename(i) in disabled_tests:
-                    print os.path.basename(i)
+                    print(os.path.basename(i))
 
         print("Disabled_cflag tests: Test cases listed here are"
               "suggested to be disabled since they require a disabled cflag. "
@@ -346,7 +346,7 @@ class BuildGenerator(object):
                 idx = module_name.find('_')
                 if idx > 0:
                     module_name = module_name[:idx]
-                print module_name
+                print(module_name)
 
         # Remove include directories that don't exist. They're an error in
         # Soong.
@@ -463,7 +463,7 @@ class BuildGenerator(object):
             output_path: string
         '''
         with open(output_path, 'a') as f:
-            for k in sorted(self._bp_result.iterkeys()):
+            for k in sorted(self._bp_result.keys()):
                 f.write('\n'.join(self._bp_result[k]))
                 f.write('\n')
             self._bp_result = {}
@@ -475,7 +475,7 @@ class BuildGenerator(object):
             output_path: string
         '''
         with open(output_path, 'a') as f:
-            for k in sorted(self._mk_result.iterkeys()):
+            for k in sorted(self._mk_result.keys()):
                 f.write('\n'.join(self._mk_result[k]))
                 f.write('\n')
             self._mk_result = {}
@@ -548,10 +548,10 @@ def main():
 
     unused_cflags_targs = generator.GetUnusedCustomCFlagsTargets()
     if unused_cflags_targs:
-        print 'NOTE: Tests had custom cflags, but were never seen: {}'.format(
-            ', '.join(unused_cflags_targs))
+        print('NOTE: Tests had custom cflags, but were never seen: {}'.format(
+            ', '.join(unused_cflags_targs)))
 
-    print 'Finished!'
+    print('Finished!')
 
 
 if __name__ == '__main__':

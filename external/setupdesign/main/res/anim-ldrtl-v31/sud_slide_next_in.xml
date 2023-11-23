@@ -19,4 +19,4 @@
     android:duration="@integer/sudTransitionDuration"
     android:fromXDelta="-100%"
     android:toXDelta="0%"
-    android:interpolator="@anim/sud_interpolator" />
+    android:interpolator="@interpolator/sud_interpolator" />

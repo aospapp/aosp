@@ -26,5 +26,11 @@ android_test {
     static_libs: ["androidx.test.runner"],
     certificate: "platform",
 
+    test_config: "configs/hello-world.xml",
+
+    test_options: {
+        extra_test_configs: ["configs/hallo-welt.xml",],
+    },
+
     test_suites: ["device-tests"],
 }

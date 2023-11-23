@@ -23,6 +23,7 @@
 #include "src/statsd_config.pb.h"
 #include "guardrail/StatsdStats.h"
 #include "logd/LogEvent.h"
+#include "packages/UidMap.h"
 
 using android::util::ProtoOutputStream;
 
@@ -115,6 +116,10 @@ inline bool isVendorPulledAtom(int atomId) {
 inline bool isPulledAtom(int atomId) {
     return atomId >= StatsdStats::kPullAtomStartTag && atomId < StatsdStats::kVendorAtomStartTag;
 }
+
+void mapIsolatedUidsToHostUidInLogEvent(const sp<UidMap> uidMap, LogEvent& event);
+
+std::string toHexString(const vector<uint8_t>& bytes);
 
 }  // namespace statsd
 }  // namespace os

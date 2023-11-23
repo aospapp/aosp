@@ -16,11 +16,15 @@
 
 package android.server.biometrics.fingerprint;
 
-import static android.server.biometrics.SensorStates.SensorState;
-import static android.server.biometrics.SensorStates.UserState;
+import static android.hardware.fingerprint.FingerprintManager.FINGERPRINT_ERROR_CANCELED;
+import static android.hardware.fingerprint.FingerprintManager.FINGERPRINT_ERROR_USER_CANCELED;
 import static android.server.biometrics.fingerprint.Components.AUTH_ON_CREATE_ACTIVITY;
+import static android.server.biometrics.util.Components.EMPTY_ACTIVITY;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -33,15 +37,21 @@ import android.hardware.biometrics.BiometricTestSession;
 import android.hardware.biometrics.SensorProperties;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.platform.test.annotations.Presubmit;
 import android.server.biometrics.BiometricServiceState;
 import android.server.biometrics.SensorStates;
+import android.server.biometrics.TestSessionList;
 import android.server.biometrics.Utils;
 import android.server.wm.ActivityManagerTestBase;
 import android.server.wm.TestJournalProvider.TestJournal;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
 import android.server.wm.UiDeviceUtils;
-import android.server.wm.WindowManagerState;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.Until;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -54,21 +64,33 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @SuppressWarnings("deprecation")
 @Presubmit
-public class FingerprintServiceTest extends ActivityManagerTestBase {
+public class FingerprintServiceTest extends ActivityManagerTestBase
+        implements TestSessionList.Idler {
     private static final String TAG = "FingerprintServiceTest";
 
     private static final String DUMPSYS_FINGERPRINT = "dumpsys fingerprint --proto --state";
+    private static final int FINGERPRINT_ERROR_VENDOR_BASE = 1000;
+    private static final long WAIT_MS = 2000;
+    private static final BySelector SELECTOR_BIOMETRIC_PROMPT =
+            By.res("com.android.systemui", "biometric_scrollview");
 
     private SensorStates getSensorStates() throws Exception {
         final byte[] dump = Utils.executeShellCommand(DUMPSYS_FINGERPRINT);
         SensorServiceStateProto proto = SensorServiceStateProto.parseFrom(dump);
         return SensorStates.parseFrom(proto);
+    }
+
+    @Override
+    public void waitForIdleSensors() {
+        try {
+            Utils.waitForIdleService(this::getSensorStates);
+        } catch (Exception e) {
+            Log.e(TAG, "Exception when waiting for idle", e);
+        }
     }
 
     @Nullable
@@ -94,10 +116,12 @@ public class FingerprintServiceTest extends ActivityManagerTestBase {
     @NonNull private Instrumentation mInstrumentation;
     @Nullable private FingerprintManager mFingerprintManager;
     @NonNull private List<SensorProperties> mSensorProperties;
+    @NonNull private UiDevice mDevice;
 
     @Before
     public void setUp() throws Exception {
         mInstrumentation = getInstrumentation();
+        mDevice = UiDevice.getInstance(mInstrumentation);
         mFingerprintManager = mInstrumentation.getContext()
                 .getSystemService(FingerprintManager.class);
 
@@ -110,34 +134,20 @@ public class FingerprintServiceTest extends ActivityManagerTestBase {
 
         // Tests can be skipped on devices without fingerprint sensors
         assumeTrue(!mSensorProperties.isEmpty());
+
+        // Turn screen on and dismiss keyguard
+        UiDeviceUtils.pressWakeupButton();
+        UiDeviceUtils.pressUnlockButton();
     }
 
     @After
     public void cleanup() throws Exception {
-        if (mFingerprintManager == null || mSensorProperties.isEmpty()) {
-            // The tests were skipped anyway, nothing to clean up. Maybe we can use JUnit test
-            // annotations in the future.
+        if (mFingerprintManager == null) {
             return;
         }
 
-
         mInstrumentation.waitForIdleSync();
         Utils.waitForIdleService(this::getSensorStates);
-
-        final SensorStates sensorStates = getSensorStates();
-        for (Map.Entry<Integer, SensorState> sensorEntry : sensorStates.sensorStates.entrySet()) {
-            for (Map.Entry<Integer, UserState> userEntry
-                    : sensorEntry.getValue().getUserStates().entrySet()) {
-                if (userEntry.getValue().numEnrolled != 0) {
-                    Log.w(TAG, "Cleaning up for sensor: " + sensorEntry.getKey()
-                            + ", user: " + userEntry.getKey());
-                    BiometricTestSession session =
-                            mFingerprintManager.createTestSession(sensorEntry.getKey());
-                    session.cleanupInternalState(userEntry.getKey());
-                    session.close();
-                }
-            }
-        }
 
         mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
     }
@@ -146,8 +156,8 @@ public class FingerprintServiceTest extends ActivityManagerTestBase {
     public void testEnroll() throws Exception {
         assumeTrue(Utils.isFirstApiLevel29orGreater());
         for (SensorProperties prop : mSensorProperties) {
-            try (BiometricTestSession session
-                         = mFingerprintManager.createTestSession(prop.getSensorId())){
+            try (BiometricTestSession session = mFingerprintManager.createTestSession(
+                    prop.getSensorId())) {
                 testEnrollForSensor(session, prop.getSensorId());
             }
         }
@@ -174,75 +184,165 @@ public class FingerprintServiceTest extends ActivityManagerTestBase {
     @Test
     public void testAuthenticateFromForegroundActivity() throws Exception {
         assumeTrue(Utils.isFirstApiLevel29orGreater());
-        // Turn screen on and dismiss keyguard
-        UiDeviceUtils.pressWakeupButton();
-        UiDeviceUtils.pressUnlockButton();
 
         // Manually keep track and close the sessions, since we want to enroll all sensors before
         // requesting auth.
-        final List<BiometricTestSession> testSessions = new ArrayList<>();
-
         final int userId = 0;
-        for (SensorProperties prop : mSensorProperties) {
-            BiometricTestSession session =
-                    mFingerprintManager.createTestSession(prop.getSensorId());
-            testSessions.add(session);
+        try (TestSessionList testSessions = createTestSessionsWithEnrollments(userId)) {
+            final TestJournal journal = TestJournalContainer.get(AUTH_ON_CREATE_ACTIVITY);
 
-            session.startEnroll(userId);
+            // Launch test activity
+            launchActivity(AUTH_ON_CREATE_ACTIVITY);
+            mWmState.waitForActivityState(AUTH_ON_CREATE_ACTIVITY, STATE_RESUMED);
             mInstrumentation.waitForIdleSync();
-            Utils.waitForIdleService(this::getSensorStates);
 
-            session.finishEnroll(userId);
+            // At least one sensor should be authenticating
+            assertFalse(getSensorStates().areAllSensorsIdle());
+
+            // Nothing happened yet
+            FingerprintCallbackHelper.State callbackState = getCallbackState(journal);
+            assertNotNull(callbackState);
+            assertEquals(0, callbackState.mNumAuthRejected);
+            assertEquals(0, callbackState.mNumAuthAccepted);
+            assertEquals(0, callbackState.mAcquiredReceived.size());
+            assertEquals(0, callbackState.mErrorsReceived.size());
+
+            // Auth and check again now
+            testSessions.first().acceptAuthentication(userId);
             mInstrumentation.waitForIdleSync();
-            Utils.waitForIdleService(this::getSensorStates);
-        }
-
-        final TestJournal journal = TestJournalContainer.get(AUTH_ON_CREATE_ACTIVITY);
-
-        // Launch test activity
-        launchActivity(AUTH_ON_CREATE_ACTIVITY);
-        mWmState.waitForActivityState(AUTH_ON_CREATE_ACTIVITY, WindowManagerState.STATE_RESUMED);
-        mInstrumentation.waitForIdleSync();
-
-        // At least one sensor should be authenticating
-        assertFalse(getSensorStates().areAllSensorsIdle());
-
-        // Nothing happened yet
-        FingerprintCallbackHelper.State callbackState = getCallbackState(journal);
-        assertNotNull(callbackState);
-        assertEquals(0, callbackState.mNumAuthRejected);
-        assertEquals(0, callbackState.mNumAuthAccepted);
-        assertEquals(0, callbackState.mAcquiredReceived.size());
-        assertEquals(0, callbackState.mErrorsReceived.size());
-
-        // Auth and check again now
-        testSessions.get(0).acceptAuthentication(userId);
-        mInstrumentation.waitForIdleSync();
-        callbackState = getCallbackState(journal);
-        assertNotNull(callbackState);
-        assertTrue(callbackState.mErrorsReceived.isEmpty());
-        assertTrue(callbackState.mAcquiredReceived.isEmpty());
-        assertEquals(1, callbackState.mNumAuthAccepted);
-        assertEquals(0, callbackState.mNumAuthRejected);
-
-        // Cleanup
-        for (BiometricTestSession session : testSessions) {
-            session.close();
+            callbackState = getCallbackState(journal);
+            assertNotNull(callbackState);
+            assertTrue(callbackState.mErrorsReceived.isEmpty());
+            assertTrue(callbackState.mAcquiredReceived.isEmpty());
+            assertEquals(1, callbackState.mNumAuthAccepted);
+            assertEquals(0, callbackState.mNumAuthRejected);
         }
     }
 
     @Test
     public void testRejectThenErrorFromForegroundActivity() throws Exception {
         assumeTrue(Utils.isFirstApiLevel29orGreater());
-        // Turn screen on and dismiss keyguard
-        UiDeviceUtils.pressWakeupButton();
-        UiDeviceUtils.pressUnlockButton();
 
         // Manually keep track and close the sessions, since we want to enroll all sensors before
         // requesting auth.
-        final List<BiometricTestSession> testSessions = new ArrayList<>();
+        final int userId = 0;
+        try (TestSessionList testSessions = createTestSessionsWithEnrollments(userId)) {
+            final TestJournal journal = TestJournalContainer.get(AUTH_ON_CREATE_ACTIVITY);
+
+            // Launch test activity
+            launchActivity(AUTH_ON_CREATE_ACTIVITY);
+            mWmState.waitForActivityState(AUTH_ON_CREATE_ACTIVITY,
+                    STATE_RESUMED);
+            mInstrumentation.waitForIdleSync();
+            FingerprintCallbackHelper.State callbackState = getCallbackState(journal);
+            assertNotNull(callbackState);
+
+            // Fingerprint rejected
+            testSessions.first().rejectAuthentication(userId);
+            mInstrumentation.waitForIdleSync();
+            callbackState = getCallbackState(journal);
+            assertNotNull(callbackState);
+            assertEquals(1, callbackState.mNumAuthRejected);
+            assertEquals(0, callbackState.mNumAuthAccepted);
+            assertEquals(0, callbackState.mAcquiredReceived.size());
+            assertEquals(0, callbackState.mErrorsReceived.size());
+
+            // Send an acquire message
+            // skip this check on devices with UDFPS because they prompt to try again
+            // and do not dispatch an acquired event via BiometricPrompt
+            final boolean verifyPartial = !hasUdfps();
+            if (verifyPartial) {
+                final String[] configs = Utils.getSensorConfiguration(mContext);
+                if (configs == null || configs.length == 0) {
+                    // AIDL HAL do not need config_biometric_sensors.
+                    testSessions.first().notifyAcquired(userId, 2 /* AcquiredInfo.PARTIAL */);
+                } else {
+                    // HIDL HAL requires config_biometric_sensors.
+                    testSessions.first().notifyAcquired(userId,
+                            FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL);
+                }
+
+                mInstrumentation.waitForIdleSync();
+                callbackState = getCallbackState(journal);
+                assertNotNull(callbackState);
+                assertEquals(1, callbackState.mNumAuthRejected);
+                assertEquals(0, callbackState.mNumAuthAccepted);
+                assertEquals(1, callbackState.mAcquiredReceived.size());
+                assertEquals(FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL,
+                        (int) callbackState.mAcquiredReceived.get(0));
+                assertEquals(0, callbackState.mErrorsReceived.size());
+            }
+
+            // Send an error
+            testSessions.first().notifyError(userId, FINGERPRINT_ERROR_CANCELED);
+            mInstrumentation.waitForIdleSync();
+            callbackState = getCallbackState(journal);
+            assertNotNull(callbackState);
+            assertEquals(1, callbackState.mNumAuthRejected);
+            assertEquals(0, callbackState.mNumAuthAccepted);
+            if (verifyPartial) {
+                assertEquals(1, callbackState.mAcquiredReceived.size());
+                assertEquals(FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL,
+                        (int) callbackState.mAcquiredReceived.get(0));
+            } else {
+                assertEquals(0, callbackState.mAcquiredReceived.size());
+            }
+            assertEquals(1, callbackState.mErrorsReceived.size());
+            assertEquals(FINGERPRINT_ERROR_CANCELED,
+                    (int) callbackState.mErrorsReceived.get(0));
+
+            // Authentication lifecycle is done
+            assertTrue(getSensorStates().areAllSensorsIdle());
+        }
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 214261879)
+    public void testAuthCancelsWhenAppSwitched() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
 
         final int userId = 0;
+        try (TestSessionList testSessions = createTestSessionsWithEnrollments(userId)) {
+            launchActivity(AUTH_ON_CREATE_ACTIVITY);
+            final UiObject2 prompt = mDevice.wait(
+                    Until.findObject(SELECTOR_BIOMETRIC_PROMPT), WAIT_MS);
+            if (prompt == null) {
+                // some devices do not show a prompt (i.e. rear sensor)
+                mWmState.waitForActivityState(AUTH_ON_CREATE_ACTIVITY, STATE_RESUMED);
+            }
+            assertThat(getSensorStates().areAllSensorsIdle()).isFalse();
+
+            launchActivity(EMPTY_ACTIVITY);
+            if (prompt != null) {
+                assertThat(mDevice.wait(Until.gone(SELECTOR_BIOMETRIC_PROMPT), WAIT_MS)).isTrue();
+            } else {
+                // devices that do not show a sysui prompt may not cancel until an attempt is made
+                mWmState.waitForActivityState(EMPTY_ACTIVITY, STATE_RESUMED);
+                testSessions.first().acceptAuthentication(userId);
+                mInstrumentation.waitForIdleSync();
+            }
+            waitForIdleSensors();
+
+            final TestJournal journal = TestJournalContainer.get(AUTH_ON_CREATE_ACTIVITY);
+            FingerprintCallbackHelper.State callbackState = getCallbackState(journal);
+            assertThat(callbackState).isNotNull();
+            assertThat(callbackState.mNumAuthAccepted).isEqualTo(0);
+            assertThat(callbackState.mNumAuthRejected).isEqualTo(0);
+
+            // FingerprintUtils#isKnownErrorCode does not recognize FINGERPRINT_ERROR_USER_CANCELED
+            // so accept this error as a vendor error or the normal value
+            assertThat(callbackState.mErrorsReceived).hasSize(1);
+            assertThat(callbackState.mErrorsReceived.get(0)).isAnyOf(
+                    FINGERPRINT_ERROR_CANCELED,
+                    FINGERPRINT_ERROR_USER_CANCELED,
+                    FINGERPRINT_ERROR_VENDOR_BASE + FINGERPRINT_ERROR_USER_CANCELED);
+
+            assertThat(getSensorStates().areAllSensorsIdle()).isTrue();
+        }
+    }
+
+    private TestSessionList createTestSessionsWithEnrollments(int userId) {
+        final TestSessionList testSessions = new TestSessionList(this);
         for (SensorProperties prop : mSensorProperties) {
             BiometricTestSession session =
                     mFingerprintManager.createTestSession(prop.getSensorId());
@@ -250,76 +350,13 @@ public class FingerprintServiceTest extends ActivityManagerTestBase {
 
             session.startEnroll(userId);
             mInstrumentation.waitForIdleSync();
-            Utils.waitForIdleService(this::getSensorStates);
+            waitForIdleSensors();
 
             session.finishEnroll(userId);
             mInstrumentation.waitForIdleSync();
-            Utils.waitForIdleService(this::getSensorStates);
+            waitForIdleSensors();
         }
-
-        final TestJournal journal = TestJournalContainer.get(AUTH_ON_CREATE_ACTIVITY);
-
-        // Launch test activity
-        launchActivity(AUTH_ON_CREATE_ACTIVITY);
-        mWmState.waitForActivityState(AUTH_ON_CREATE_ACTIVITY, WindowManagerState.STATE_RESUMED);
-        mInstrumentation.waitForIdleSync();
-        FingerprintCallbackHelper.State callbackState = getCallbackState(journal);
-        assertNotNull(callbackState);
-
-        // Fingerprint rejected
-        testSessions.get(0).rejectAuthentication(userId);
-        mInstrumentation.waitForIdleSync();
-        callbackState = getCallbackState(journal);
-        assertNotNull(callbackState);
-        assertEquals(1, callbackState.mNumAuthRejected);
-        assertEquals(0, callbackState.mNumAuthAccepted);
-        assertEquals(0, callbackState.mAcquiredReceived.size());
-        assertEquals(0, callbackState.mErrorsReceived.size());
-
-        // Send an acquire message
-        // skip this check on devices with UDFPS because they prompt to try again
-        // and do not dispatch an acquired event via BiometricPrompt
-        final boolean verifyPartial = !hasUdfps();
-        if (verifyPartial) {
-            testSessions.get(0).notifyAcquired(userId,
-                    FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL);
-            mInstrumentation.waitForIdleSync();
-            callbackState = getCallbackState(journal);
-            assertNotNull(callbackState);
-            assertEquals(1, callbackState.mNumAuthRejected);
-            assertEquals(0, callbackState.mNumAuthAccepted);
-            assertEquals(1, callbackState.mAcquiredReceived.size());
-            assertEquals(FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL,
-                    (int) callbackState.mAcquiredReceived.get(0));
-            assertEquals(0, callbackState.mErrorsReceived.size());
-        }
-
-        // Send an error
-        testSessions.get(0).notifyError(userId,
-                FingerprintManager.FINGERPRINT_ERROR_CANCELED);
-        mInstrumentation.waitForIdleSync();
-        callbackState = getCallbackState(journal);
-        assertNotNull(callbackState);
-        assertEquals(1, callbackState.mNumAuthRejected);
-        assertEquals(0, callbackState.mNumAuthAccepted);
-        if (verifyPartial) {
-            assertEquals(1, callbackState.mAcquiredReceived.size());
-            assertEquals(FingerprintManager.FINGERPRINT_ACQUIRED_PARTIAL,
-                    (int) callbackState.mAcquiredReceived.get(0));
-        } else {
-            assertEquals(0, callbackState.mAcquiredReceived.size());
-        }
-        assertEquals(1, callbackState.mErrorsReceived.size());
-        assertEquals(FingerprintManager.FINGERPRINT_ERROR_CANCELED,
-                (int) callbackState.mErrorsReceived.get(0));
-
-        // Authentication lifecycle is done
-        assertTrue(getSensorStates().areAllSensorsIdle());
-
-        // Cleanup
-        for (BiometricTestSession session : testSessions) {
-            session.close();
-        }
+        return testSessions;
     }
 
     private boolean hasUdfps() throws Exception {

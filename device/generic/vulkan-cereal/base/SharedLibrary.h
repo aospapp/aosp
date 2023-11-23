@@ -51,12 +51,12 @@ namespace base {
 //
 //  A shared library will be unloaded on program exit.
 class EMUGL_COMMON_API SharedLibrary {
-private:
+   private:
     struct Deleter {
         void operator()(SharedLibrary* lib) const { delete lib; }
     };
 
-public:
+   public:
     typedef std::unordered_map<
             std::string,
             std::unique_ptr<SharedLibrary, SharedLibrary::Deleter>>
@@ -95,13 +95,9 @@ public:
     // Probe a given SharedLibrary instance to find a symbol named
     // |symbolName| in it. Return its address as a FunctionPtr, or
     // NULL if the symbol is not found.
-    FunctionPtr findSymbol(const char* symbolName) const;
+    virtual FunctionPtr findSymbol(const char* symbolName) const;
 
-private:
-
-    static SharedLibrary* do_open(const char* libraryName,
-                               char* error,
-                               size_t errorSize);
+   protected:
 #ifdef _WIN32
     typedef HMODULE HandleType;
 #else
@@ -113,8 +109,10 @@ private:
 
     // Closes an existing SharedLibrary hidden so nobody
     // starts accidently cleaning up these libraries.
-    ~SharedLibrary();
+    virtual ~SharedLibrary();
 
+   private:
+    static SharedLibrary* do_open(const char* libraryName, char* error, size_t errorSize);
 
     HandleType mLib;
 };

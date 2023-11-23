@@ -24,6 +24,7 @@
     <attr name="sudEditTextBackgroundColor" format="color" />
     <attr name="sudButtonHighlightAlpha" format="float" />
 
+    <attr name="sudGlifHeaderTitleStyle" format="reference" />
     <!-- Subset of values in "gravity" in frameworks/base/core/res/res/values/attrs.xml. Only
          horizontal values are listed here as the header does not support vertical gravity. -->
     <attr name="sudGlifHeaderGravity">
@@ -59,9 +60,26 @@
     <attr name="sudGlifIconStyle" format="reference" />
     <attr name="sudGlifIconSize" format="dimension" />
 
+    <attr name="sudGlifDescriptionStyle" format="reference" />
+
     <attr name="sudButtonAllCaps" format="boolean" />
     <attr name="sudButtonCornerRadius" format="dimension" />
     <attr name="sudButtonFontFamily" format="string|reference" />
+    <!-- Values copied from frameworks/base/core/res/res/values/attrs.xml -->
+    <attr name="sudButtonTertiaryGravity">
+        <!-- Push object to the left of its container, not changing its size. -->
+        <flag name="left" value="0x03" />
+        <!-- Push object to the right of its container, not changing its size. -->
+        <flag name="right" value="0x05" />
+        <!-- Place object in the horizontal center of its container, not changing its size. -->
+        <flag name="center_horizontal" value="0x01" />
+        <!-- Grow the horizontal size of the object if needed so it completely fills its container. -->
+        <flag name="fill_horizontal" value="0x07" />
+        <!-- Push object to the beginning of its container, not changing its size. -->
+        <flag name="start" value="0x00800003" />
+        <!-- Push object to the end of its container, not changing its size. -->
+        <flag name="end" value="0x00800005" />
+    </attr>
     <attr name="sudCardBackground" format="color|reference" />
     <attr name="sudDividerCondition">
         <enum name="either" value="0" />
@@ -112,10 +130,27 @@
     <attr name="sudDividerInsetEnd" format="dimension|reference" />
     <attr name="sudDividerInsetStart" format="dimension|reference" />
     <attr name="sudDividerInsetStartNoIcon" format="dimension|reference" />
+    <attr name="sudDividerShown" format="boolean"/>
+    <attr name="sudItemContainerStyle" format="reference"/>
+    <attr name="sudItemIconContainerStyle" format="reference"/>
+    <attr name="sudItemTitleStyle" format="reference"/>
+    <attr name="sudItemSummaryStyle" format="reference"/>
     <attr name="sudItemDescriptionStyle" format="reference" />
     <attr name="sudItemDescriptionTitleStyle" format="reference" />
+    <attr name="sudItemDescriptionTitleTextAppearence" format="reference" />
+    <attr name="sudItemVerboseTitleStyle" format="reference" />
     <attr name="sudContentFramePaddingTop" format="dimension|reference" />
     <attr name="sudContentFramePaddingBottom" format="dimension|reference" />
+
+    <!-- EditBox -->
+    <attr name="sudEditBoxStyle" format="reference" />
+    <attr name="sudEditBoxColor" format="reference" />
+    <attr name="boxCornerRadiusTopStart" format="dimension"/>
+    <attr name="boxCornerRadiusTopEnd" format="dimension"/>
+    <attr name="boxCornerRadiusBottomStart" format="dimension"/>
+    <attr name="boxCornerRadiusBottomEnd" format="dimension"/>
+
+    <attr name="sudGlifContentPaddingTop" format="dimension|reference" />
 
     <attr name="sudHasStableIds" format="boolean|reference" />
 
@@ -216,6 +251,7 @@
         <attr name="sudDividerInset" />
         <attr name="sudDividerInsetEnd" />
         <attr name="sudDividerInsetStart" />
+        <attr name="sudDividerShown" />
     </declare-styleable>
 
     <declare-styleable name="SudRecyclerItemAdapter">

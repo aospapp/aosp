@@ -20,6 +20,25 @@ import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.android.tools.metalava.model.visitors.TypeVisitor
 
 interface PropertyItem : MemberItem {
+    /** The getter for this property, if it exists; inverse of [MethodItem.property] */
+    val getter: MethodItem?
+        get() = null
+
+    /** The setter for this property, if it exists; inverse of [MethodItem.property] */
+    val setter: MethodItem?
+        get() = null
+
+    /** The backing field for this property, if it exists; inverse of [FieldItem.property] */
+    val backingField: FieldItem?
+        get() = null
+
+    /**
+     * The constructor parameter for this property, if declared in a primary constructor; inverse
+     * of [ParameterItem.property]
+     */
+    val constructorParameter: ParameterItem?
+        get() = null
+
     /** The type of this property */
     override fun type(): TypeItem
 

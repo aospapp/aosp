@@ -172,13 +172,13 @@ public class AsyncRingtonePlayer {
             // Use haptic-only ringtone or do not play anything.
             if (!isRingerAudible || Uri.EMPTY.equals(incomingCall.getRingtone())) {
                 if (isVibrationEnabled) {
-                    mRingtone = factory.getHapticOnlyRingtone();
+                    setRingtone(factory.getHapticOnlyRingtone());
                     if (mRingtone == null) {
                         completeHapticFuture(false /* ringtoneHasHaptics */);
                         return;
                     }
                 } else {
-                    mRingtone = null;
+                    setRingtone(null);
                     completeHapticFuture(false /* ringtoneHasHaptics */);
                     return;
                 }
@@ -188,7 +188,7 @@ public class AsyncRingtonePlayer {
             Log.i(this, "handlePlay: Play ringtone.");
 
             if (mRingtone == null) {
-                mRingtone = factory.getRingtone(incomingCall, volumeShaperConfig);
+                setRingtone(factory.getRingtone(incomingCall, volumeShaperConfig));
                 if (mRingtone == null) {
                     Uri ringtoneUri = incomingCall.getRingtone();
                     String ringtoneUriString = (ringtoneUri == null) ? "null" :
@@ -209,7 +209,7 @@ public class AsyncRingtonePlayer {
                         isVibrationEnabled);
                 SystemSettingsUtil systemSettingsUtil = new SystemSettingsUtil();
                 if (hasHaptics && (volumeShaperConfig == null
-                        || systemSettingsUtil.enableAudioCoupledVibrationForRampingRinger())) {
+                        || systemSettingsUtil.isAudioCoupledVibrationForRampingRingerEnabled())) {
                     AudioAttributes attributes = mRingtone.getAudioAttributes();
                     Log.d(this, "handlePlay: %s haptic channel",
                             (isVibrationEnabled ? "unmuting" : "muting"));
@@ -240,11 +240,7 @@ public class AsyncRingtonePlayer {
         ThreadUtil.checkNotOnMainThread();
         Log.i(this, "Stop ringtone.");
 
-        if (mRingtone != null) {
-            Log.d(this, "Ringtone.stop() invoked.");
-            mRingtone.stop();
-            mRingtone = null;
-        }
+        setRingtone(null);
 
         synchronized(this) {
             if (mHandler.hasMessages(EVENT_PLAY)) {
@@ -260,6 +256,17 @@ public class AsyncRingtonePlayer {
 
     public boolean isPlaying() {
         return mRingtone != null;
+    }
+
+    private void setRingtone(@Nullable Ringtone ringtone) {
+        // Make sure that any previously created instance of Ringtone is stopped so the MediaPlayer
+        // can be released, before replacing mRingtone with a new instance. This is always created
+        // as a looping Ringtone, so if not stopped it will keep playing on the background.
+        if (mRingtone != null) {
+            Log.d(this, "Ringtone.stop() invoked.");
+            mRingtone.stop();
+        }
+        mRingtone = ringtone;
     }
 
     private void completeHapticFuture(boolean ringtoneHasHaptics) {

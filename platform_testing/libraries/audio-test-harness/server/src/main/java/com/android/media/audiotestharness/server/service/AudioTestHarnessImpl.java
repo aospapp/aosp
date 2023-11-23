@@ -15,8 +15,10 @@
  */
 package com.android.media.audiotestharness.server.service;
 
+import com.android.media.audiotestharness.proto.AudioDeviceOuterClass;
 import com.android.media.audiotestharness.proto.AudioTestHarnessGrpc;
 import com.android.media.audiotestharness.proto.AudioTestHarnessService;
+import com.android.media.audiotestharness.server.config.SharedHostConfiguration;
 import com.android.media.audiotestharness.server.core.AudioCapturer;
 import com.android.media.audiotestharness.server.core.AudioSystemService;
 
@@ -50,12 +52,16 @@ public final class AudioTestHarnessImpl extends AudioTestHarnessGrpc.AudioTestHa
     /** Factory for StreamObserverOutputStreams used during the procedure handling process. */
     private final AudioCaptureSessionFactory mAudioCaptureSessionFactory;
 
+    private final SharedHostConfiguration mSharedHostConfiguration;
+
     @Inject
     public AudioTestHarnessImpl(
             AudioSystemService audioSystemService,
-            AudioCaptureSessionFactory audioCaptureSessionFactory) {
+            AudioCaptureSessionFactory audioCaptureSessionFactory,
+            SharedHostConfiguration sharedHostConfiguration) {
         mAudioSystemService = audioSystemService;
         mAudioCaptureSessionFactory = audioCaptureSessionFactory;
+        mSharedHostConfiguration = sharedHostConfiguration;
     }
 
     @Override
@@ -68,15 +74,34 @@ public final class AudioTestHarnessImpl extends AudioTestHarnessGrpc.AudioTestHa
 
         // Allocate the default AudioCapturer from the Audio System Service.
         AudioCapturer capturer;
+        AudioDeviceOuterClass.AudioDevice captureDevice =
+                mSharedHostConfiguration.captureDevices().get(0);
         try {
-            capturer = mAudioSystemService.createDefaultCapturer();
+            // Attempt to allocate with the first requested device, this list should always contain
+            // at least one device.
+            capturer = mAudioSystemService.createWithDefaultAudioFormat(captureDevice);
         } catch (IOException ioe) {
-            LOGGER.log(Level.SEVERE, "Failed to allocate default AudioCapturer", ioe);
+            LOGGER.log(
+                    Level.SEVERE,
+                    String.format("Failed to allocate AudioCapturer %s", captureDevice),
+                    ioe);
             serverCallResponseObserver.onError(
                     Status.UNAVAILABLE
                             .withCause(ioe)
-                            .withDescription("Failed to allocate default AudioCapturer")
+                            .withDescription(
+                                    String.format(
+                                            "Failed to allocate AudioCapturer %s", captureDevice))
                             .asException());
+            return;
+        } catch (IndexOutOfBoundsException ioobe) {
+            LOGGER.log(
+                    Level.SEVERE,
+                    "Invalid Shared Host Configuration, no capture device provided. This "
+                            + "indicates there is an issue with the server as this"
+                            + " should never happen.",
+                    ioobe);
+            serverCallResponseObserver.onError(
+                    Status.INTERNAL.withDescription("Internal Configuration Error.").asException());
             return;
         }
 

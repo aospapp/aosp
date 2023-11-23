@@ -87,8 +87,8 @@ class LtpTestCases(object):
         Args:
             arch: String, arch
             n_bit: int, bitness
-            run_staging: bool, whether to use staging configuration
             is_low_mem: bool, whether to use low memory device configuration
+            is_hwasan: bool, whether to use hwasan configuration
 
         Returns:
             String.
@@ -173,7 +173,7 @@ class LtpTestCases(object):
                                                                         is_low_mem,
                                                                         is_hwasan)
         test_case_string = ''
-        run_scritp = self.GenerateLtpRunScript(scenario_groups, is_hwasan=is_hwasan)
+        run_scritp = self.GenerateLtpRunScript(scenario_groups)
         for line in run_scritp:
             items = self.ValidateDefinition(line)
             if not items:
@@ -239,6 +239,11 @@ class LtpTestCases(object):
                     if x[0] == test_display_name and x[1]:
                         testcase.is_mandatory = True
                         break
+
+            if is_hwasan:
+                if x[0] in disabled_tests.DISABLED_TESTS_HWASAN:
+                    continue
+
             if self.IsLtpBinaryExist(command):
                 logging.info("[Parser] Adding test case %s." % testcase.fullname)
                 # Some test cases contain semicolons in their commands,
@@ -301,7 +306,7 @@ class LtpTestCases(object):
                 [testsuite, testname_modified, line[len(testname):].strip()]))
         return result
 
-    def GenerateLtpRunScript(self, scenario_groups, is_hwasan=False):
+    def GenerateLtpRunScript(self, scenario_groups):
         '''Given a scenario group generate test case script.
 
         Args:
@@ -313,8 +318,6 @@ class LtpTestCases(object):
         disabled_tests_path = os.path.join(
             self._android_build_top, ltp_configs.LTP_DISABLED_BUILD_TESTS_CONFIG_PATH)
         disabled_tests_list = self.ReadCommentedTxt(disabled_tests_path)
-        if is_hwasan:
-          disabled_tests_list = disabled_tests_list.union(disabled_tests.DISABLED_TESTS_HWASAN)
 
         result = []
         for testsuite in scenario_groups:

@@ -38,5 +38,8 @@
     <string name="channel_name_download_progress">Download progress</string>
     <!-- Notification channel description (shown in settings) for notifications showing progress of current downloads. -->
     <string name="channel_description_download_progress">Notifications showing the progress of file downloads</string>
-
+    <!-- A toast is shown when the user dismisses the app before downloads can complete. This is the text of this toast. -->
+    <string name="cancel_pending_downloads">Download cancelled</string>
+    <!-- A toast is shown when a download is cancelled because the filesize was too large. This is the text of this toast. -->
+    <string name="file_too_large_cancel_download">File too large, download cancelled.</string>
 </resources>

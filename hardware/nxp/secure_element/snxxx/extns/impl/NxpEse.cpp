@@ -16,12 +16,13 @@
  *
  ******************************************************************************/
 #include "NxpEse.h"
-#include <android-base/logging.h>
-#include <android-base/stringprintf.h>
-#include "phNxpEse_Api.h"
 #ifdef NXP_BOOTTIME_UPDATE
 #include "eSEClient.h"
 #endif
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+
+#include "phNxpEse_Api.h"
 
 namespace vendor {
 namespace nxp {

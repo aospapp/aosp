@@ -17,12 +17,12 @@ package com.android.car.storagemonitoring;
 
 import android.annotation.Nullable;
 import android.annotation.TestApi;
+import android.car.builtin.util.Slogf;
 import android.hardware.health.V2_0.IHealth;
 import android.hardware.health.V2_0.Result;
 import android.hardware.health.V2_0.StorageInfo;
 import android.os.RemoteException;
 import android.util.MutableInt;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 
@@ -78,23 +78,24 @@ public class HealthServiceWearInfoProvider implements WearInformationProvider {
             }};
 
         if (healthService == null) {
-            Slog.w(CarLog.TAG_STORAGE, "No health service is available to fetch wear information.");
+            Slogf.w(CarLog.TAG_STORAGE,
+                    "No health service is available to fetch wear information.");
             return null;
         }
 
         try {
             healthService.getStorageInfo(getStorageInfoCallback);
         } catch (Exception e) {
-            Slog.w(CarLog.TAG_STORAGE, "Failed to get storage information from"
+            Slogf.w(CarLog.TAG_STORAGE, "Failed to get storage information from"
                     + "health service, exception :" + e);
             return null;
         }
 
         if (success.value != Result.SUCCESS) {
-            Slog.w(CarLog.TAG_STORAGE, "Health service returned result :" + success.value);
+            Slogf.w(CarLog.TAG_STORAGE, "Health service returned result :" + success.value);
             return null;
         } else if (foundInternalStorageDeviceInfo.value == 0) {
-            Slog.w(CarLog.TAG_STORAGE, "Failed to find storage information for"
+            Slogf.w(CarLog.TAG_STORAGE, "Failed to find storage information for"
                     + "internal storage device");
             return null;
         } else {

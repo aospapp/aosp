@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,15 @@
  */
 
 package com.google.hardware.pixel.display;
-
+import com.google.hardware.pixel.display.HistogramErrorCode;
 import com.google.hardware.pixel.display.HbmState;
 import com.google.hardware.pixel.display.LbeState;
+import com.google.hardware.pixel.display.Weight;
+import com.google.hardware.pixel.display.HistogramPos;
+import com.google.hardware.pixel.display.PanelCalibrationStatus;
+import com.google.hardware.pixel.display.Priority;
 import android.hardware.common.NativeHandle;
+import android.hardware.graphics.common.Rect;
 
 @VintfStability
 interface IDisplay {
@@ -127,4 +132,45 @@ interface IDisplay {
      * @return errno if there was a problem with the request, zero if successful
      */
     int setRefreshRateThrottle(in int delayMs);
+
+    /**
+     * Collects the luma histograms of the content displayed on screen.
+     *
+     *
+     * @param  roi             input from client, is the regions of interest in the frames that
+     *                         should be sampled to collect the luma values of the roi
+     *                         The sample represents the most-recently posted frames
+     * @param  weight          input from client, the weights for red(weight_r), green(weight_g)
+     *                         and blue(weight_b) colors, which is used in luma calculation formula.
+     *                         The formula:
+     *                               luma = weight_r * red + weight_g * green + weight_b * blue
+     *                         The weight_r + weight_g + weight_b = 1024
+     * @param pos              histogram sample position, could be PRE_DQE or POST_DQE
+     * @param priority         input from client, is the priority of the call.
+     *                         Priority is a num with two values {normal, priority}
+     * @param histogrambuffer  output from histogram server, is a 256 * 16 bits buffer to store the
+     *                         luma counts return by the histogram hardware
+     * @return error           NONE = 0 upon success. Otherwise
+     *                         BAD_ROI = 1  when roi passed in is not in correct format
+     *                         BAD_WEIGHT = 2 when weight passed in is not in correct format
+     *                         BAD_POSITION = 3 when the histogram sampling position is incorrect
+     *                         BAD_PRIORITY = 4 when the priority input is not in correct format
+     *                         ENABLE_HIST_ERROR = 5 when enable histgoram property error
+     *                         DISABLE_HIST_ERROR = 6 when disable histgoram property error
+     *                         BAD_HIST_DATA = 7 when there is error to collect histogram data
+     *                         DRM_PLAYING = 8 when there is DRM content playing,
+     *                                       for content protection, no histogram data sampled
+     *                         DISPLAY_POWEROFF = 9 when the display is power off,
+     *                                       no histogram data is sampled
+     */
+    HistogramErrorCode histogramSample(in Rect roi, in Weight weight, in HistogramPos pos,
+                                       in Priority pri, out char[] histogrambuffer);
+
+    /**
+     * Get the panel calibration status.
+     *
+     * @return status of panel calibration.
+     */
+    PanelCalibrationStatus getPanelCalibrationStatus();
+
 }

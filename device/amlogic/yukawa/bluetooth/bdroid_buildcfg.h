@@ -23,9 +23,9 @@
 
 #define BLE_VND_INCLUDED TRUE
 
-// Turn off BLE_PRIVACY_SPT.  Remote reconnect fails on
+// Turn off BLE_LOCAL_PRIVACY_ENABLED. Remote reconnect fails on
 // often if this is enabled.
-#define BLE_PRIVACY_SPT FALSE
+#define BLE_LOCAL_PRIVACY_ENABLED FALSE
 
 /* minimum acceptable connection interval */
 #define BTM_BLE_CONN_INT_MIN_LIMIT 0x0006  /*7.5ms=6*1.25*/

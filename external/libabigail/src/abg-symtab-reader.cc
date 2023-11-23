@@ -315,10 +315,7 @@ symtab::load_(Elf*	       elf_handle,
 	 elf_helpers::stb_to_elf_symbol_binding(GELF_ST_BIND(sym->st_info)),
 	 sym_is_defined, sym_is_common, ver,
 	 elf_helpers::stv_to_elf_symbol_visibility
-	 (GELF_ST_VISIBILITY(sym->st_other)),
-	 /*is_linux_strings_cstr=*/false); // TODO: remove
-					   // is_linux_strings_cstr
-					   // as it is obsolete
+	 (GELF_ST_VISIBILITY(sym->st_other)));
 
       // We do not take suppressed symbols into our symbol vector to avoid
       // accidental leakage. But we ensure supressed symbols are otherwise set
@@ -354,6 +351,7 @@ symtab::load_(Elf*	       elf_handle,
 	      elf_helpers::maybe_adjust_et_rel_sym_addr_to_abs_addr(elf_handle,
 								    sym);
 
+	  // See also symtab::add_alternative_address_lookups.
 	  if (symbol_sptr->is_function())
 	    {
 	      if (is_arm32)
@@ -375,6 +373,8 @@ symtab::load_(Elf*	       elf_handle,
 	    result.first->second->get_main_symbol()->add_alias(symbol_sptr);
 	}
     }
+
+  add_alternative_address_lookups(elf_handle);
 
   is_kernel_binary_ = elf_helpers::is_linux_kernel(elf_handle);
 
@@ -561,6 +561,101 @@ symtab::update_function_entry_address_symbol_map(
 	// source code (the one named foo). The symbol which name is prefixed
 	// with a "dot" is an artificial one.
 	entry_addr_symbol_map_[fn_entry_point_addr] = symbol_sptr;
+    }
+}
+
+/// Fill up the lookup maps with alternative keys
+///
+/// Due to special features like Control-Flow-Integrity (CFI), the symbol
+/// lookup could be done indirectly. E.g. enabling CFI causes clang to
+/// associate the DWARF information with the actual CFI protected function
+/// (suffix .cfi) instead of with the entry symbol in the symtab.
+///
+/// This function adds additional lookup keys to compensate for that.
+///
+/// So far, this only implements CFI support, by adding addr->symbol pairs
+/// where
+///    addr   :  symbol value of the <foo>.cfi valyue
+///    symbol :  symbol_sptr looked up via "<foo>"
+///
+/// @param elf_handle the ELF handle to operate on
+void
+symtab::add_alternative_address_lookups(Elf* elf_handle)
+{
+  const bool is_arm32 = elf_helpers::architecture_is_arm32(elf_handle);
+  const bool is_ppc64 = elf_helpers::architecture_is_ppc64(elf_handle);
+
+  Elf_Scn* symtab_section = elf_helpers::find_symtab_section(elf_handle);
+  if (!symtab_section)
+    return;
+  GElf_Shdr symtab_sheader;
+  gelf_getshdr(symtab_section, &symtab_sheader);
+
+  const size_t number_syms =
+      symtab_sheader.sh_size / symtab_sheader.sh_entsize;
+
+  Elf_Data* symtab = elf_getdata(symtab_section, 0);
+
+  for (size_t i = 0; i < number_syms; ++i)
+    {
+      GElf_Sym *sym, sym_mem;
+      sym = gelf_getsym(symtab, i, &sym_mem);
+      if (!sym)
+	{
+	  std::cerr << "Could not load symbol with index " << i
+		    << ": Skipping alternative symbol load.\n";
+	  continue;
+	}
+
+      const char* const name_str =
+	  elf_strptr(elf_handle, symtab_sheader.sh_link, sym->st_name);
+
+      // no name, no game
+      if (!name_str)
+	continue;
+
+      const std::string name = name_str;
+      if (name.empty())
+	continue;
+
+      // Add alternative lookup addresses for CFI symbols
+      static const std::string cfi = ".cfi";
+      if (name.size() > cfi.size()
+	  && name.compare(name.size() - cfi.size(), cfi.size(), cfi) == 0)
+	// ... name.ends_with(".cfi")
+	{
+	  const auto candidate_name = name.substr(0, name.size() - cfi.size());
+
+	  auto symbols = lookup_symbol(candidate_name);
+          // lookup_symbol returns a vector of symbols. For this case we handle
+          // only the case that there has been exactly one match. Otherwise we
+          // can't reasonably handle it and need to bail out.
+          ABG_ASSERT(symbols.size() <= 1);
+	  if (symbols.size() == 1)
+	    {
+	      const auto& symbol_sptr = symbols[0];
+	      GElf_Addr	  symbol_value =
+		  elf_helpers::maybe_adjust_et_rel_sym_addr_to_abs_addr(
+		      elf_handle, sym);
+
+	      // See also symtab::load_.
+	      if (symbol_sptr->is_function())
+		{
+		  if (is_arm32)
+		    // Clear bit zero of ARM32 addresses as per "ELF for the Arm
+		    // Architecture" section 5.5.3.
+		    // https://static.docs.arm.com/ihi0044/g/aaelf32.pdf
+		    symbol_value &= ~1;
+		  else if (is_ppc64)
+		    update_function_entry_address_symbol_map(elf_handle, sym,
+							     symbol_sptr);
+		}
+
+	      const auto result =
+		  addr_symbol_map_.emplace(symbol_value, symbol_sptr);
+	      ABG_ASSERT(result.second);
+	    }
+	}
     }
 }
 

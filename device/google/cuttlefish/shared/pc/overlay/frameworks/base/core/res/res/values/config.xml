@@ -20,8 +20,4 @@
   <bool name="config_showNavigationBar" translatable="false">true</bool>
   <!--  Maximum number of supported users -->
   <integer name="config_multiuserMaximumUsers" translatable="false">4</integer>
-  <!-- Restricting eth1 -->
-  <string-array translatable="false" name="config_ethernet_interfaces">
-    <item>eth1;11,12,14;;</item>
-  </string-array>
 </resources>

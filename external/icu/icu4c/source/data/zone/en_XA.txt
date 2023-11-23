@@ -742,6 +742,9 @@ en_XA{
             lg{"[Ýéķåţéŕîñƀûŕĝ Ţîɱé one two three]"}
             ls{"[Ýéķåţéŕîñƀûŕĝ Šţåñðåŕð Ţîɱé one two three four]"}
         }
+        "meta:Yukon"{
+            ls{"[Ýûķöñ Ţîɱé one two]"}
+        }
         gmtFormat{"[ĜṀŢ{0} one]"}
         hourFormat{"[+HH:mm;-HH:mm 'one' 'two']"}
         regionFormat{"[{0} Ţîɱé one two]"}

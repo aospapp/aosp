@@ -110,17 +110,12 @@ func dexpreoptDisabled(ctx android.PathContext, global *GlobalConfig, module *Mo
 		return true
 	}
 
-	// Don't preopt system server jars that are updatable.
-	if global.UpdatableSystemServerJars.ContainsJar(module.Name) {
-		return true
-	}
-
 	// If OnlyPreoptBootImageAndSystemServer=true and module is not in boot class path skip
 	// Also preopt system server jars since selinux prevents system server from loading anything from
 	// /data. If we don't do this they will need to be extracted which is not favorable for RAM usage
 	// or performance. If PreoptExtractedApk is true, we ignore the only preopt boot image options.
 	if global.OnlyPreoptBootImageAndSystemServer && !global.BootJars.ContainsJar(module.Name) &&
-		!global.SystemServerJars.ContainsJar(module.Name) && !module.PreoptExtractedApk {
+		!global.AllSystemServerJars(ctx).ContainsJar(module.Name) && !module.PreoptExtractedApk {
 		return true
 	}
 
@@ -201,6 +196,25 @@ func bootProfileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig,
 	return profilePath
 }
 
+// Returns the dex location of a system server java library.
+func GetSystemServerDexLocation(ctx android.PathContext, global *GlobalConfig, lib string) string {
+	if apex := global.AllApexSystemServerJars(ctx).ApexOfJar(lib); apex != "" {
+		return fmt.Sprintf("/apex/%s/javalib/%s.jar", apex, lib)
+	}
+	return fmt.Sprintf("/system/framework/%s.jar", lib)
+}
+
+// Returns the location to the odex file for the dex file at `path`.
+func ToOdexPath(path string, arch android.ArchType) string {
+	if strings.HasPrefix(path, "/apex/") {
+		return filepath.Join("/system/framework/oat", arch.String(),
+			strings.ReplaceAll(path[1:], "/", "@")+"@classes.odex")
+	}
+
+	return filepath.Join(filepath.Dir(path), "oat", arch.String(),
+		pathtools.ReplaceExtension(filepath.Base(path), "odex"))
+}
+
 func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, global *GlobalConfig,
 	module *ModuleConfig, rule *android.RuleBuilder, archIdx int, profile android.WritablePath,
 	appImage bool, generateDM bool) {
@@ -215,16 +229,8 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 		base = "package.apk"
 	}
 
-	toOdexPath := func(path string) string {
-		return filepath.Join(
-			filepath.Dir(path),
-			"oat",
-			arch.String(),
-			pathtools.ReplaceExtension(filepath.Base(path), "odex"))
-	}
-
 	odexPath := module.BuildPath.InSameDir(ctx, "oat", arch.String(), pathtools.ReplaceExtension(base, "odex"))
-	odexInstallPath := toOdexPath(module.DexLocation)
+	odexInstallPath := ToOdexPath(module.DexLocation, arch)
 	if odexOnSystemOther(module, global) {
 		odexInstallPath = filepath.Join(SystemOtherPartition, odexInstallPath)
 	}
@@ -234,33 +240,58 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	invocationPath := odexPath.ReplaceExtension(ctx, "invocation")
 
-	systemServerJars := NonUpdatableSystemServerJars(ctx, global)
+	systemServerJars := global.AllSystemServerJars(ctx)
+	systemServerClasspathJars := global.AllSystemServerClasspathJars(ctx)
 
 	rule.Command().FlagWithArg("mkdir -p ", filepath.Dir(odexPath.String()))
 	rule.Command().FlagWithOutput("rm -f ", odexPath)
 
-	if jarIndex := android.IndexList(module.Name, systemServerJars); jarIndex >= 0 {
+	if jarIndex := systemServerJars.IndexOfJar(module.Name); jarIndex >= 0 {
 		// System server jars should be dexpreopted together: class loader context of each jar
 		// should include all preceding jars on the system server classpath.
 
 		var clcHost android.Paths
 		var clcTarget []string
-		for _, lib := range systemServerJars[:jarIndex] {
+		endIndex := systemServerClasspathJars.IndexOfJar(module.Name)
+		if endIndex < 0 {
+			// The jar is a standalone one. Use the full classpath as the class loader context.
+			endIndex = systemServerClasspathJars.Len()
+		}
+		for i := 0; i < endIndex; i++ {
+			lib := systemServerClasspathJars.Jar(i)
 			clcHost = append(clcHost, SystemServerDexJarHostPath(ctx, lib))
-			clcTarget = append(clcTarget, filepath.Join("/system/framework", lib+".jar"))
+			clcTarget = append(clcTarget, GetSystemServerDexLocation(ctx, global, lib))
 		}
 
-		// Copy the system server jar to a predefined location where dex2oat will find it.
-		dexPathHost := SystemServerDexJarHostPath(ctx, module.Name)
-		rule.Command().Text("mkdir -p").Flag(filepath.Dir(dexPathHost.String()))
-		rule.Command().Text("cp -f").Input(module.DexPath).Output(dexPathHost)
+		if DexpreoptRunningInSoong {
+			// Copy the system server jar to a predefined location where dex2oat will find it.
+			dexPathHost := SystemServerDexJarHostPath(ctx, module.Name)
+			rule.Command().Text("mkdir -p").Flag(filepath.Dir(dexPathHost.String()))
+			rule.Command().Text("cp -f").Input(module.DexPath).Output(dexPathHost)
+		} else {
+			// For Make modules the copy rule is generated in the makefiles, not in dexpreopt.sh.
+			// This is necessary to expose the rule to Ninja, otherwise it has rules that depend on
+			// the jar (namely, dexpreopt commands for all subsequent system server jars that have
+			// this one in their class loader context), but no rule that creates it (because Ninja
+			// cannot see the rule in the generated dexpreopt.sh script).
+		}
 
-		checkSystemServerOrder(ctx, jarIndex)
+		clcHostString := "PCL[" + strings.Join(clcHost.Strings(), ":") + "]"
+		clcTargetString := "PCL[" + strings.Join(clcTarget, ":") + "]"
+
+		if systemServerClasspathJars.ContainsJar(module.Name) {
+			checkSystemServerOrder(ctx, jarIndex)
+		} else {
+			// Standalone jars are loaded by separate class loaders with SYSTEMSERVERCLASSPATH as the
+			// parent.
+			clcHostString = "PCL[];" + clcHostString
+			clcTargetString = "PCL[];" + clcTargetString
+		}
 
 		rule.Command().
-			Text("class_loader_context_arg=--class-loader-context=PCL[" + strings.Join(clcHost.Strings(), ":") + "]").
+			Text(`class_loader_context_arg=--class-loader-context="` + clcHostString + `"`).
 			Implicits(clcHost).
-			Text("stored_class_loader_context_arg=--stored-class-loader-context=PCL[" + strings.Join(clcTarget, ":") + "]")
+			Text(`stored_class_loader_context_arg=--stored-class-loader-context="` + clcTargetString + `"`)
 
 	} else {
 		// There are three categories of Java modules handled here:
@@ -362,7 +393,7 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	if !android.PrefixInList(preoptFlags, "--compiler-filter=") {
 		var compilerFilter string
-		if global.SystemServerJars.ContainsJar(module.Name) {
+		if systemServerJars.ContainsJar(module.Name) {
 			// Jars of system server, use the product option if it is set, speed otherwise.
 			if global.SystemServerCompilerFilter != "" {
 				compilerFilter = global.SystemServerCompilerFilter
@@ -416,7 +447,7 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	// PRODUCT_SYSTEM_SERVER_DEBUG_INFO overrides WITH_DEXPREOPT_DEBUG_INFO.
 	// PRODUCT_OTHER_JAVA_DEBUG_INFO overrides WITH_DEXPREOPT_DEBUG_INFO.
-	if global.SystemServerJars.ContainsJar(module.Name) {
+	if systemServerJars.ContainsJar(module.Name) {
 		if global.AlwaysSystemServerDebugInfo {
 			debugInfo = true
 		} else if global.NeverSystemServerDebugInfo {
@@ -428,11 +459,6 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 		} else if global.NeverOtherDebugInfo {
 			debugInfo = false
 		}
-	}
-
-	// Never enable on eng.
-	if global.IsEng {
-		debugInfo = false
 	}
 
 	if debugInfo {
@@ -523,16 +549,6 @@ func makefileMatch(pattern, s string) bool {
 	}
 }
 
-var nonUpdatableSystemServerJarsKey = android.NewOnceKey("nonUpdatableSystemServerJars")
-
-// TODO: eliminate the superficial global config parameter by moving global config definition
-// from java subpackage to dexpreopt.
-func NonUpdatableSystemServerJars(ctx android.PathContext, global *GlobalConfig) []string {
-	return ctx.Config().Once(nonUpdatableSystemServerJarsKey, func() interface{} {
-		return android.RemoveListFromList(global.SystemServerJars.CopyOfJars(), global.UpdatableSystemServerJars.CopyOfJars())
-	}).([]string)
-}
-
 // A predefined location for the system server dex jars. This is needed in order to generate
 // class loader context for dex2oat, as the path to the jar in the Soong module may be unknown
 // at that time (Soong processes the jars in dependency order, which may be different from the
@@ -556,12 +572,12 @@ func checkSystemServerOrder(ctx android.PathContext, jarIndex int) {
 	mctx, isModule := ctx.(android.ModuleContext)
 	if isModule {
 		config := GetGlobalConfig(ctx)
-		jars := NonUpdatableSystemServerJars(ctx, config)
+		jars := config.AllSystemServerClasspathJars(ctx)
 		mctx.WalkDeps(func(dep android.Module, parent android.Module) bool {
-			depIndex := android.IndexList(dep.Name(), jars)
+			depIndex := jars.IndexOfJar(dep.Name())
 			if jarIndex < depIndex && !config.BrokenSuboptimalOrderOfSystemServerJars {
-				jar := jars[jarIndex]
-				dep := jars[depIndex]
+				jar := jars.Jar(jarIndex)
+				dep := jars.Jar(depIndex)
 				mctx.ModuleErrorf("non-optimal order of jars on the system server classpath:"+
 					" '%s' precedes its dependency '%s', so dexpreopt is unable to resolve any"+
 					" references from '%s' to '%s'.\n", jar, dep, jar, dep)

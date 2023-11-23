@@ -22,26 +22,20 @@ import static android.provider.Settings.Global.TRANSITION_ANIMATION_SCALE;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.matcher.RootMatchers.isPlatformPopup;
-import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withTagValue;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.hamcrest.CoreMatchers.allOf;
-import static org.hamcrest.CoreMatchers.is;
 
 import android.app.PendingIntent;
 import android.app.RemoteAction;
 import android.content.ContentResolver;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
-import android.os.RemoteException;
 import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -57,9 +51,9 @@ import android.widget.TextView;
 import androidx.core.os.BuildCompat;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.espresso.ViewInteraction;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.ShellUtils;
@@ -73,13 +67,12 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TextViewIntegrationTest {
-    private final static String LOG_TAG = "TextViewIntegrationTest";
-    private final static String TOOLBAR_TAG = "floating_toolbar";
+    private static final String LOG_TAG = "TextViewIntegrationTest";
+    private static final String TOOLBAR_ITEM_LABEL = "TB@#%!";
 
     private SimpleTextClassifier mSimpleTextClassifier;
 
@@ -90,6 +83,9 @@ public class TextViewIntegrationTest {
     private static float sOriginalAnimationDurationScale;
     private static float sOriginalTransitionAnimationDurationScale;
 
+    private static final UiDevice sDevice =
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+
     @Before
     public void setup() throws Exception {
         Assume.assumeTrue(
@@ -97,7 +93,7 @@ public class TextViewIntegrationTest {
                         .hasSystemFeature(FEATURE_TOUCHSCREEN));
         workAroundNotificationShadeWindowIssue();
         mSimpleTextClassifier = new SimpleTextClassifier();
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).wakeUp();
+        sDevice.wakeUp();
         dismissKeyguard();
         closeSystemDialog();
     }
@@ -177,7 +173,6 @@ public class TextViewIntegrationTest {
         onView(withId(R.id.textview)).perform(TextViewActions.tapOnTextAtIndex(clickIndex.get()));
 
         assertFloatingToolbarIsDisplayed();
-        assertFloatingToolbarContainsItem("Test");
     }
 
     @Test
@@ -228,7 +223,6 @@ public class TextViewIntegrationTest {
                 TextViewActions.longTapOnTextAtIndex(clickIndex.get()));
 
         assertFloatingToolbarIsDisplayed();
-        assertFloatingToolbarContainsItem("Test");
     }
 
     private Spannable createLinkifiedText(CharSequence text) {
@@ -248,16 +242,9 @@ public class TextViewIntegrationTest {
         return linkifiedText;
     }
 
-    private static ViewInteraction onFloatingToolBar() {
-        return onView(withTagValue(is(TOOLBAR_TAG))).inRoot(isPlatformPopup());
-    }
-
     private static void assertFloatingToolbarIsDisplayed() {
-        onFloatingToolBar().check(matches(isDisplayed()));
-    }
-
-    private static void assertFloatingToolbarContainsItem(String itemLabel) {
-        onFloatingToolBar().check(matches(hasDescendant(withText(itemLabel))));
+        // Simply check that the toolbar item is visible.
+        assertThat(sDevice.hasObject(By.text(TOOLBAR_ITEM_LABEL))).isTrue();
     }
 
     /**
@@ -320,7 +307,7 @@ public class TextViewIntegrationTest {
                     PendingIntent.FLAG_IMMUTABLE);
 
             RemoteAction remoteAction =
-                    new RemoteAction(NO_ICON, "Test", "content description", pendingIntent);
+                    new RemoteAction(NO_ICON, TOOLBAR_ITEM_LABEL, "cont-descr", pendingIntent);
             remoteAction.setShouldShowIcon(false);
             builder.addAction(remoteAction);
             return builder.build();

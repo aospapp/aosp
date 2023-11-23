@@ -47,6 +47,10 @@ void IntraPredDirectionalInit_NEON();
 #define LIBGAV1_Dsp10bpp_DirectionalIntraPredictorZone1 LIBGAV1_CPU_NEON
 #endif
 
+#ifndef LIBGAV1_Dsp10bpp_DirectionalIntraPredictorZone2
+#define LIBGAV1_Dsp10bpp_DirectionalIntraPredictorZone2 LIBGAV1_CPU_NEON
+#endif
+
 #ifndef LIBGAV1_Dsp10bpp_DirectionalIntraPredictorZone3
 #define LIBGAV1_Dsp10bpp_DirectionalIntraPredictorZone3 LIBGAV1_CPU_NEON
 #endif

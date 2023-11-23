@@ -157,6 +157,24 @@ Status BinderUpdateEngineAndroidService::resetStatus() {
   return Status::ok();
 }
 
+Status BinderUpdateEngineAndroidService::setShouldSwitchSlotOnReboot(
+    const android::String16& metadata_filename) {
+  brillo::ErrorPtr error;
+  if (!service_delegate_->setShouldSwitchSlotOnReboot(
+          android::String8(metadata_filename).string(), &error)) {
+    return ErrorPtrToStatus(error);
+  }
+  return Status::ok();
+}
+
+Status BinderUpdateEngineAndroidService::resetShouldSwitchSlotOnReboot() {
+  brillo::ErrorPtr error;
+  if (!service_delegate_->resetShouldSwitchSlotOnReboot(&error)) {
+    return ErrorPtrToStatus(error);
+  }
+  return Status::ok();
+}
+
 Status BinderUpdateEngineAndroidService::verifyPayloadApplicable(
     const android::String16& metadata_filename, bool* return_value) {
   const std::string payload_metadata{

@@ -102,7 +102,7 @@ bool Thread::tryWait(intptr_t* exitStatus) {
     }
 
     {
-        AutoLock locker(mLock);
+        AutoLock<Lock> locker(mLock);
         if (!mFinished) {
             return false;
         }
@@ -141,7 +141,7 @@ void* Thread::thread_main(void* arg) {
         ret = self->main();
 
         {
-            AutoLock lock(self->mLock);
+            AutoLock<Lock> lock(self->mLock);
             self->mFinished = true;
             self->mExitStatus = ret;
         }

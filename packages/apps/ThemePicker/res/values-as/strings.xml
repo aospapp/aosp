@@ -42,7 +42,7 @@
     <string name="preview_name_shape" msgid="5676971146080968721">"আকৃতি"</string>
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"ৱালপেপাৰ"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
-    <string name="font_card_body" msgid="6790525594503904468">"প্ৰত্যেকখন স্ক্ৰীণত আপোনাৰ প্ৰিয় ফণ্ট যোগ কৰক"</string>
+    <string name="font_card_body" msgid="6790525594503904468">"প্ৰত্যেকখন স্ক্ৰীনত আপোনাৰ প্ৰিয় ফ’ণ্ট যোগ দিয়ক"</string>
     <string name="grid_options_title" msgid="7071930966989877023">"এটা গ্ৰিডৰ আকাৰ বাছনি কৰক"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
     <string name="applied_theme_msg" msgid="3749018706366796244">"শৈলী সফলতাৰে ছেট কৰা হ’ল"</string>
@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"থীমযুক্ত চিহ্ন"</string>
     <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"এপৰ গ্ৰিড সলনি কৰক"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"ৱালপেপাৰৰ ৰং"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"ৱালপেপাৰৰ ৰং"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"প্ৰাথমিক ৰং"</string>
+    <string name="color_changed" msgid="7029571720331641235">"ৰং সলনি কৰা হৈছে"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ডাইনামিক"</string>
 </resources>

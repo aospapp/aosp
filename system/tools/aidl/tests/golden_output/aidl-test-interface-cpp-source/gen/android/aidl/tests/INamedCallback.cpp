@@ -1,18 +1,11 @@
 #include <android/aidl/tests/INamedCallback.h>
 #include <android/aidl/tests/BpNamedCallback.h>
-
 namespace android {
-
 namespace aidl {
-
 namespace tests {
-
 DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE(NamedCallback, "android.aidl.tests.INamedCallback")
-
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android
 #include <android/aidl/tests/BpNamedCallback.h>
 #include <android/aidl/tests/BnNamedCallback.h>
@@ -20,9 +13,7 @@ DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE(NamedCallback, "android.aidl.tes
 #include <android-base/macros.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
 
 BpNamedCallback::BpNamedCallback(const ::android::sp<::android::IBinder>& _aidl_impl)
@@ -63,18 +54,14 @@ BpNamedCallback::BpNamedCallback(const ::android::sp<::android::IBinder>& _aidl_
 }
 
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android
 #include <android/aidl/tests/BnNamedCallback.h>
 #include <binder/Parcel.h>
 #include <binder/Stability.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
 
 BnNamedCallback::BnNamedCallback()
@@ -113,13 +100,11 @@ BnNamedCallback::BnNamedCallback()
   break;
   }
   if (_aidl_ret_status == ::android::UNEXPECTED_NULL) {
-    _aidl_ret_status = ::android::binder::Status::fromExceptionCode(::android::binder::Status::EX_NULL_POINTER).writeToParcel(_aidl_reply);
+    _aidl_ret_status = ::android::binder::Status::fromExceptionCode(::android::binder::Status::EX_NULL_POINTER).writeOverParcel(_aidl_reply);
   }
   return _aidl_ret_status;
 }
 
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android

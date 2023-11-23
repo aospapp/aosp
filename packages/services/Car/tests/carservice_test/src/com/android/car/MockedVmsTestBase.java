@@ -25,23 +25,22 @@ import android.car.vms.VmsLayer;
 import android.car.vms.VmsPublisherClientService;
 import android.car.vms.VmsSubscriberManager;
 import android.car.vms.VmsSubscriptionState;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
-import android.hardware.automotive.vehicle.V2_0.VmsAvailabilityStateIntegerValuesIndex;
-import android.hardware.automotive.vehicle.V2_0.VmsBaseMessageIntegerValuesIndex;
-import android.hardware.automotive.vehicle.V2_0.VmsMessageType;
-import android.hardware.automotive.vehicle.V2_0.VmsStartSessionMessageIntegerValuesIndex;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehiclePropertyAccess;
+import android.hardware.automotive.vehicle.VehiclePropertyChangeMode;
+import android.hardware.automotive.vehicle.VmsAvailabilityStateIntegerValuesIndex;
+import android.hardware.automotive.vehicle.VmsBaseMessageIntegerValuesIndex;
+import android.hardware.automotive.vehicle.VmsMessageType;
+import android.hardware.automotive.vehicle.VmsStartSessionMessageIntegerValuesIndex;
 import android.util.Log;
 import android.util.Pair;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-import com.android.car.vehiclehal.test.MockedVehicleHal;
+import com.android.car.hal.test.AidlMockedVehicleHal;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 
 import org.junit.Before;
 
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -60,9 +59,9 @@ public class MockedVmsTestBase extends MockedCarTestBase {
     private MockHalClient mHalClient;
 
     @Override
-    protected synchronized void configureMockedHal() {
+    protected void configureMockedHal() {
         mHalClient = new MockHalClient();
-        addProperty(VehicleProperty.VEHICLE_MAP_SERVICE, mHalClient)
+        addAidlProperty(VehicleProperty.VEHICLE_MAP_SERVICE, mHalClient)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE)
                 .setAccess(VehiclePropertyAccess.READ_WRITE)
                 .addAreaConfig(VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL, 0, 0);
@@ -83,12 +82,12 @@ public class MockedVmsTestBase extends MockedCarTestBase {
                 mPublisherIsReady.await(PUBLISHER_CLIENT_TIMEOUT, TimeUnit.MILLISECONDS));
 
         // Validate session handshake
-        List<Integer> v = mHalClient.receiveMessage().value.int32Values;
+        int[] v = mHalClient.receiveMessage().value.int32Values;
         assertEquals(VmsMessageType.START_SESSION,
-                (int) v.get(VmsBaseMessageIntegerValuesIndex.MESSAGE_TYPE));
-        int coreId = v.get(VmsStartSessionMessageIntegerValuesIndex.SERVICE_ID);
+                v[VmsBaseMessageIntegerValuesIndex.MESSAGE_TYPE]);
+        int coreId = v[VmsStartSessionMessageIntegerValuesIndex.SERVICE_ID];
         assertTrue(coreId > 0);
-        assertEquals(-1, (int) v.get(VmsStartSessionMessageIntegerValuesIndex.CLIENT_ID));
+        assertEquals(-1, v[VmsStartSessionMessageIntegerValuesIndex.CLIENT_ID]);
 
         // Send handshake acknowledgement
         mHalClient.sendMessage(
@@ -100,11 +99,11 @@ public class MockedVmsTestBase extends MockedCarTestBase {
         // Validate layer availability sent to HAL
         v = mHalClient.receiveMessage().value.int32Values;
         assertEquals(VmsMessageType.AVAILABILITY_CHANGE,
-                (int) v.get(VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE));
+                v[VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE]);
         assertEquals(0,
-                (int) v.get(VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER));
+                v[VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER]);
         assertEquals(0,
-                (int) v.get(VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS));
+                v[VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS]);
     }
 
     VmsSubscriberManager getSubscriberManager() {
@@ -174,7 +173,7 @@ public class MockedVmsTestBase extends MockedCarTestBase {
         }
     }
 
-    class MockHalClient implements MockedVehicleHal.VehicleHalPropertyHandler {
+    class MockHalClient implements AidlMockedVehicleHal.VehicleHalPropertyHandler {
         private BlockingQueue<VehiclePropValue> mMessages = new LinkedBlockingQueue<>();
 
         @Override
@@ -186,17 +185,17 @@ public class MockedVmsTestBase extends MockedCarTestBase {
         }
 
         void sendMessage(int... message) {
-            getMockedVehicleHal().injectEvent(
-                    VehiclePropValueBuilder.newBuilder(VehicleProperty.VEHICLE_MAP_SERVICE)
-                            .addIntValue(message)
+            getAidlMockedVehicleHal().injectEvent(
+                    AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.VEHICLE_MAP_SERVICE)
+                            .addIntValues(message)
                             .build());
         }
 
         void sendMessage(int[] message, byte[] payload) {
-            getMockedVehicleHal().injectEvent(
-                    VehiclePropValueBuilder.newBuilder(VehicleProperty.VEHICLE_MAP_SERVICE)
-                            .addIntValue(message)
-                            .addByteValue(payload)
+            getAidlMockedVehicleHal().injectEvent(
+                    AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.VEHICLE_MAP_SERVICE)
+                            .addIntValues(message)
+                            .addByteValues(payload)
                             .build());
         }
 

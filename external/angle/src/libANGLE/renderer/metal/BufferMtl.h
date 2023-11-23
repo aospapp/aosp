@@ -24,8 +24,17 @@
 
 namespace rx
 {
+
+struct DrawCommandRange
+{
+    uint32_t count;
+    size_t offset;
+};
+
+// Inclusive range of consecutive primitive restart value indexes.
 struct IndexRange
 {
+    IndexRange(size_t begin, size_t end) : restartBegin(begin), restartEnd(end) {}
     size_t restartBegin;
     size_t restartEnd;
 };
@@ -63,12 +72,10 @@ struct IndexConversionBufferMtl : public ConversionBufferMtl
     IndexConversionBufferMtl(ContextMtl *context,
                              gl::DrawElementsType elemType,
                              bool primitiveRestartEnabled,
-                             size_t offsetIn,
-                             std::vector<IndexRange> restartRangesIn = std::vector<IndexRange>());
+                             size_t offsetIn);
     const gl::DrawElementsType elemType;
     const size_t offset;
     bool primitiveRestartEnabled;
-    std::vector<IndexRange> restartRanges;
     IndexRange getRangeForConvertedBuffer(size_t count);
 };
 
@@ -90,7 +97,7 @@ class BufferHolderMtl
     // a queue of mtl::Buffer and only let CPU modifies a free mtl::Buffer.
     // So, in order to let GPU use the most recent modified content, one must call this method
     // right before the draw call to retrieved the most up-to-date mtl::Buffer.
-    mtl::BufferRef getCurrentBuffer() { return mIsWeak ? mBufferWeakRef.lock() : mBuffer; }
+    mtl::BufferRef getCurrentBuffer() const { return mIsWeak ? mBufferWeakRef.lock() : mBuffer; }
 
   protected:
     mtl::BufferRef mBuffer;
@@ -159,6 +166,14 @@ class BufferMtl : public BufferImpl, public BufferHolderMtl
 
     size_t size() const { return static_cast<size_t>(mState.getSize()); }
 
+    const std::vector<IndexRange> &getRestartIndices(ContextMtl *ctx,
+                                                     gl::DrawElementsType indexType);
+
+    static const std::vector<IndexRange> getRestartIndicesFromClientData(
+        ContextMtl *ctx,
+        gl::DrawElementsType indexType,
+        const mtl::BufferRef clientBuffer);
+
   private:
     angle::Result setDataImpl(const gl::Context *context,
                               gl::BufferBinding target,
@@ -174,8 +189,8 @@ class BufferMtl : public BufferImpl, public BufferHolderMtl
     angle::Result commitShadowCopy(const gl::Context *context, size_t size);
 
     void markConversionBuffersDirty();
-
     void clearConversionBuffers();
+
     bool clientShadowCopyDataNeedSync(ContextMtl *contextMtl);
     void ensureShadowCopySyncedFromGPU(ContextMtl *contextMtl);
     uint8_t *syncAndObtainShadowCopy(ContextMtl *contextMtl);
@@ -197,6 +212,21 @@ class BufferMtl : public BufferImpl, public BufferHolderMtl
     std::vector<IndexConversionBufferMtl> mIndexConversionBuffers;
 
     std::vector<UniformConversionBufferMtl> mUniformConversionBuffers;
+
+    struct RestartRangeCache
+    {
+        RestartRangeCache() : indexType(gl::DrawElementsType::InvalidEnum) { isDirty = true; }
+        RestartRangeCache(std::vector<IndexRange> &&ranges_, gl::DrawElementsType indexType_)
+            : ranges(ranges_), indexType(indexType_), isDirty(false)
+        {}
+        void markDirty() { isDirty = true; }
+        operator bool() const { return isDirty; }
+        std::vector<IndexRange> ranges;
+        gl::DrawElementsType indexType;
+        bool isDirty;
+    };
+    RestartRangeCache mRestartRangeCache;
+    std::vector<IndexRange> mRestartIndices;
 };
 
 class SimpleWeakBufferHolderMtl : public BufferHolderMtl

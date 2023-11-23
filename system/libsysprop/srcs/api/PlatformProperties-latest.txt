@@ -183,11 +183,6 @@ props {
     enum_values: "to_tv|broadcast|none"
   }
   prop {
-    api_name: "set_menu_language_enabled"
-    scope: Internal
-    prop_name: "ro.hdmi.cec.source.set_menu_language.enabled"
-  }
-  prop {
     api_name: "system_audio_mode_muting"
     scope: Internal
     prop_name: "ro.hdmi.cec.audio.system_audio_mode_muting.enabled"

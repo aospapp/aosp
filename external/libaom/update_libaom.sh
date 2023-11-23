@@ -132,4 +132,4 @@ echo "$delete" | xargs -I {} git rm --ignore-unmatch {}
 # Find empty directories and remove them.
 find . -type d -empty -exec git rm {} \;
 
-chmod 755 build/cmake/*.sh build/cmake/*.pl
+chmod 755 build/cmake/*.pl

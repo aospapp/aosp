@@ -16,6 +16,7 @@
 
 package com.google.googlejavaformat.java;
 
+import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.CharMatcher;
@@ -31,6 +32,7 @@ import com.google.common.collect.TreeRangeSet;
 import com.google.googlejavaformat.Newlines;
 import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.doctree.ReferenceTree;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
@@ -54,8 +56,10 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 import java.io.IOError;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.tools.Diagnostic;
@@ -114,6 +118,31 @@ public class RemoveUnusedImports {
       return null;
     }
 
+    // TODO(cushon): remove this override when pattern matching in switch is no longer a preview
+    // feature, and TreePathScanner visits CaseTree#getLabels instead of CaseTree#getExpressions
+    @SuppressWarnings("unchecked") // reflection
+    @Override
+    public Void visitCase(CaseTree tree, Void unused) {
+      if (CASE_TREE_GET_LABELS != null) {
+        try {
+          scan((List<? extends Tree>) CASE_TREE_GET_LABELS.invoke(tree), null);
+        } catch (ReflectiveOperationException e) {
+          throw new LinkageError(e.getMessage(), e);
+        }
+      }
+      return super.visitCase(tree, null);
+    }
+
+    private static final Method CASE_TREE_GET_LABELS = caseTreeGetLabels();
+
+    private static Method caseTreeGetLabels() {
+      try {
+        return CaseTree.class.getMethod("getLabels");
+      } catch (NoSuchMethodException e) {
+        return null;
+      }
+    }
+
     @Override
     public Void scan(Tree tree, Void unused) {
       if (tree == null) {
@@ -145,7 +174,9 @@ public class RemoveUnusedImports {
       public Void visitReference(ReferenceTree referenceTree, Void unused) {
         DCReference reference = (DCReference) referenceTree;
         long basePos =
-            reference.getSourcePosition((DCTree.DCDocComment) getCurrentPath().getDocComment());
+            reference
+                .pos((DCTree.DCDocComment) getCurrentPath().getDocComment())
+                .getStartPosition();
         // the position of trees inside the reference node aren't stored, but the qualifier's
         // start position is the beginning of the reference node
         if (reference.qualifierExpression != null) {
@@ -247,7 +278,7 @@ public class RemoveUnusedImports {
       }
       // delete the import
       int endPosition = importTree.getEndPosition(unit.endPositions);
-      endPosition = Math.max(CharMatcher.isNot(' ').indexIn(contents, endPosition), endPosition);
+      endPosition = max(CharMatcher.isNot(' ').indexIn(contents, endPosition), endPosition);
       String sep = Newlines.guessLineSeparator(contents);
       if (endPosition + sep.length() < contents.length()
           && contents.subSequence(endPosition, endPosition + sep.length()).toString().equals(sep)) {

@@ -739,6 +739,15 @@ static VkFormat getAttributeFormat (const glu::DataType dataType)
 
 void FragmentOutExecutor::addAttribute (deUint32 bindingLocation, VkFormat format, deUint32 sizePerElement, deUint32 count, const void* dataPtr)
 {
+	// Portability requires stride to be multiply of minVertexInputBindingStrideAlignment
+	// this value is usually 4 and current tests meet this requirement but
+	// if this changes in future then this limit should be verified in checkSupport
+	if (m_context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		((sizePerElement % m_context.getPortabilitySubsetProperties().minVertexInputBindingStrideAlignment) != 0))
+	{
+		DE_FATAL("stride is not multiply of minVertexInputBindingStrideAlignment");
+	}
+
 	// Add binding specification
 	const deUint32							binding = (deUint32)m_vertexBindingDescriptions.size();
 	const VkVertexInputBindingDescription	bindingDescription =
@@ -854,9 +863,9 @@ static Move<VkDescriptorSetLayout> createEmptyDescriptorSetLayout (const DeviceI
 	return createDescriptorSetLayout(vkd, device, &createInfo);
 }
 
-static Move<VkDescriptorPool> createDummyDescriptorPool (const DeviceInterface& vkd, VkDevice device)
+static Move<VkDescriptorPool> createEmptyDescriptorPool (const DeviceInterface& vkd, VkDevice device)
 {
-	const VkDescriptorPoolSize			dummySize	=
+	const VkDescriptorPoolSize			emptySize	=
 	{
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		1u,
@@ -868,7 +877,7 @@ static Move<VkDescriptorPool> createDummyDescriptorPool (const DeviceInterface& 
 		(VkDescriptorPoolCreateFlags)VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
 		1u,
 		1u,
-		&dummySize
+		&emptySize
 	};
 	return createDescriptorPool(vkd, device, &createInfo);
 }
@@ -925,8 +934,8 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 	Move<VkCommandBuffer>								cmdBuffer;
 
 	Unique<VkDescriptorSetLayout>						emptyDescriptorSetLayout	(createEmptyDescriptorSetLayout(vk, vkDevice));
-	Unique<VkDescriptorPool>							dummyDescriptorPool			(createDummyDescriptorPool(vk, vkDevice));
-	Unique<VkDescriptorSet>								emptyDescriptorSet			(allocateSingleDescriptorSet(vk, vkDevice, *dummyDescriptorPool, *emptyDescriptorSetLayout));
+	Unique<VkDescriptorPool>							emptyDescriptorPool			(createEmptyDescriptorPool(vk, vkDevice));
+	Unique<VkDescriptorSet>								emptyDescriptorSet			(allocateSingleDescriptorSet(vk, vkDevice, *emptyDescriptorPool, *emptyDescriptorSetLayout));
 
 	clearRenderData();
 
@@ -1533,7 +1542,7 @@ static deUint32 getVecStd430ByteAlignment (glu::DataType type)
 	switch (glu::getDataTypeScalarSize(type))
 	{
 		case 1:		return baseSize;
-		case 2:		return baseSize * 2u;;
+		case 2:		return baseSize * 2u;
 		case 3:		// fallthrough.
 		case 4:		return baseSize * 4u;
 		default:
@@ -1988,7 +1997,6 @@ std::string getTypeSpirv(const glu::DataType type, const bool packFloat16Bit = f
 	default:
 		DE_ASSERT(0);
 		return "";
-		break;
 	}
 }
 
@@ -2042,7 +2050,6 @@ std::string scalarComparison(const std::string operation, const int operationNdx
 	default:
 		DE_ASSERT(0);
 		return "";
-		break;
 	}
 
 	src << "\n"
@@ -2124,7 +2131,7 @@ std::string generateSpirv(const ShaderSpec& spec, const bool are16Bit, const boo
 	default:
 		DE_ASSERT(false);
 		break;
-	};
+	}
 
 	std::ostringstream	src;
 	src << "; SPIR-V\n"

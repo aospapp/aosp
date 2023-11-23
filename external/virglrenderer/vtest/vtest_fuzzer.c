@@ -68,7 +68,7 @@ const char* __lsan_default_suppressions() {
 
 typedef int (*vtest_cmd_fptr_t)(uint32_t);
 
-static const vtest_cmd_fptr_t vtest_commands[] = {
+static vtest_cmd_fptr_t vtest_commands[] = {
    NULL /* CMD ids starts at 1 */,
    vtest_send_caps,
    vtest_create_resource,
@@ -76,7 +76,7 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
    vtest_transfer_get_nop,
    vtest_transfer_put_nop,
    vtest_submit_cmd,
-   vtest_resource_busy_wait,
+   NULL, /* VCMD_RESOURCE_BUSY_WAIT is determined by VTEST_FUZZER_FENCES */
    NULL, /* VCMD_CREATE_RENDERER is a specific case */
    vtest_send_caps2,
    vtest_ping_protocol_version,
@@ -87,11 +87,14 @@ static const vtest_cmd_fptr_t vtest_commands[] = {
 };
 
 static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
-                                      int ctx_flags, bool create_fences)
+                                      int ctx_flags, bool wait_fences)
 {
    struct vtest_context *context = NULL;
    int ret;
    uint32_t header[VTEST_HDR_SIZE];
+
+   vtest_commands[VCMD_RESOURCE_BUSY_WAIT] = wait_fences ?
+      vtest_resource_busy_wait : vtest_resource_busy_wait_nop;
 
    do {
       ret = input->read(input, &header, sizeof(header));
@@ -105,7 +108,7 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
             break;
          }
 
-         ret = vtest_init_renderer(ctx_flags, NULL);
+         ret = vtest_init_renderer(false, ctx_flags, NULL);
          if (ret >= 0) {
             ret = vtest_create_context(input, out_fd, header[0], &context);
          }
@@ -116,11 +119,11 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
             break;
          }
          vtest_set_current_context(context);
-         vtest_poll();
+         vtest_poll_resource_busy_wait();
          continue;
       }
 
-      vtest_poll();
+      vtest_poll_resource_busy_wait();
       if (header[1] <= 0 || header[1] >= ARRAY_SIZE(vtest_commands)) {
          break;
       }
@@ -133,12 +136,6 @@ static void vtest_fuzzer_run_renderer(int out_fd, struct vtest_input *input,
       if (ret < 0) {
          break;
       }
-
-      /* GL draws are fenced, while possible fence creations are too */
-      if (create_fences &&
-          (header[1] == VCMD_SUBMIT_CMD || header[1] == VCMD_RESOURCE_CREATE ||
-           header[1] == VCMD_RESOURCE_CREATE2))
-         vtest_renderer_create_fence();
    } while (1);
 
    if (context) {

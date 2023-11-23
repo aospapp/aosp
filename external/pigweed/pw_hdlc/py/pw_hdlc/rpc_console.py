@@ -33,18 +33,42 @@ An example echo RPC command:
 
 import argparse
 import glob
+from inspect import cleandoc
 import logging
 from pathlib import Path
 import sys
-from typing import Any, Collection, Iterable, Iterator
+from types import ModuleType
+from typing import (
+    Any,
+    BinaryIO,
+    Collection,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Union,
+)
 import socket
 
-import IPython  # type: ignore
 import serial  # type: ignore
 
-from pw_hdlc.rpc import HdlcRpcClient, default_channels, write_to_file
+import pw_cli.log
+import pw_console.python_logging
+from pw_console import PwConsoleEmbed
+from pw_console.pyserial_wrapper import SerialWithLogging
+from pw_console.plugins.bandwidth_toolbar import BandwidthToolbar
+
+from pw_log.proto import log_pb2
+from pw_rpc.console_tools.console import ClientInfo, flattened_rpc_completions
+from pw_rpc import callback_client
+from pw_tokenizer.database import LoadTokenDatabases
+from pw_tokenizer.detokenize import Detokenizer, detokenize_base64
+from pw_tokenizer import tokens
+
+from pw_hdlc.rpc import HdlcRpcClient, default_channels
 
 _LOG = logging.getLogger(__name__)
+_DEVICE_LOG = logging.getLogger('rpc_device')
 
 PW_RPC_MAX_PACKET_SIZE = 256
 SOCKET_SERVER = 'localhost'
@@ -63,18 +87,32 @@ def _parse_args():
                         default=115200,
                         help='the baud rate to use')
     parser.add_argument(
+        '--serial-debug',
+        action='store_true',
+        help=('Enable debug log tracing of all data passed through'
+              'pyserial read and write.'))
+    parser.add_argument(
         '-o',
         '--output',
         type=argparse.FileType('wb'),
         default=sys.stdout.buffer,
         help=('The file to which to write device output (HDLC channel 1); '
               'provide - or omit for stdout.'))
+    parser.add_argument('--logfile', help='Console debug log file.')
     group.add_argument('-s',
                        '--socket-addr',
                        type=str,
                        help='use socket to connect to server, type default for\
             localhost:33000, or manually input the server address:port')
-    parser.add_argument('proto_globs',
+    parser.add_argument("--token-databases",
+                        metavar='elf_or_token_database',
+                        nargs="+",
+                        action=LoadTokenDatabases,
+                        help="Path to tokenizer database csv file(s).")
+    parser.add_argument('--config-file',
+                        type=Path,
+                        help='Path to a pw_console yaml config file.')
+    parser.add_argument('--proto-globs',
                         nargs='+',
                         help='glob pattern for .proto files')
     return parser.parse_args()
@@ -86,18 +124,66 @@ def _expand_globs(globs: Iterable[str]) -> Iterator[Path]:
             yield Path(file)
 
 
-def _start_ipython_terminal(client: HdlcRpcClient) -> None:
+def _start_ipython_terminal(client: HdlcRpcClient,
+                            serial_debug: bool = False,
+                            config_file_path: Optional[Path] = None) -> None:
     """Starts an interactive IPython terminal with preset variables."""
     local_variables = dict(
         client=client,
-        channel_client=client.client.channel(1),
+        device=client.client.channel(1),
         rpcs=client.client.channel(1).rpcs,
         protos=client.protos.packages,
+        # Include the active pane logger for creating logs in the repl.
+        DEVICE_LOG=_DEVICE_LOG,
+        LOG=logging.getLogger(),
     )
 
-    print(__doc__)  # Print the banner
-    IPython.terminal.embed.InteractiveShellEmbed().mainloop(
-        local_ns=local_variables, module=argparse.Namespace())
+    welcome_message = cleandoc("""
+        Welcome to the Pigweed Console!
+
+        Help: Press F1 or click the [Help] menu
+        To move focus: Press Shift-Tab or click on a window
+
+        Example Python commands:
+
+          device.rpcs.pw.rpc.EchoService.Echo(msg='hello!')
+          LOG.warning('Message appears in Host Logs window.')
+          DEVICE_LOG.warning('Message appears in Device Logs window.')
+    """)
+
+    client_info = ClientInfo('device',
+                             client.client.channel(1).rpcs, client.client)
+    completions = flattened_rpc_completions([client_info])
+
+    log_windows = {
+        'Device Logs': [_DEVICE_LOG],
+        'Host Logs': [logging.getLogger()],
+    }
+    if serial_debug:
+        log_windows['Serial Debug'] = [
+            logging.getLogger('pw_console.serial_debug_logger')
+        ]
+
+    interactive_console = PwConsoleEmbed(
+        global_vars=local_variables,
+        local_vars=None,
+        loggers=log_windows,
+        repl_startup_message=welcome_message,
+        help_text=__doc__,
+        config_file_path=config_file_path,
+    )
+    interactive_console.hide_windows('Host Logs')
+    interactive_console.add_sentence_completer(completions)
+    if serial_debug:
+        interactive_console.add_bottom_toolbar(BandwidthToolbar())
+
+    # Setup Python logger propagation
+    interactive_console.setup_python_logging()
+
+    # Don't send device logs to the root logger.
+    _DEVICE_LOG.propagate = False
+
+    interactive_console.embed()
 
 
 class SocketClientImpl:
@@ -121,17 +207,40 @@ class SocketClientImpl:
         return self.socket.recv(num_bytes)
 
 
-def console(device: str, baudrate: int, proto_globs: Collection[str],
-            socket_addr: str, output: Any) -> int:
+def console(device: str,
+            baudrate: int,
+            proto_globs: Collection[str],
+            token_databases: Collection[tokens.Database],
+            socket_addr: str,
+            logfile: str,
+            output: Any,
+            serial_debug: bool = False,
+            config_file: Optional[Path] = None) -> int:
     """Starts an interactive RPC console for HDLC."""
     # argparse.FileType doesn't correctly handle '-' for binary files.
     if output is sys.stdout:
         output = sys.stdout.buffer
 
+    if not logfile:
+        # Create a temp logfile to prevent logs from appearing over stdout. This
+        # would corrupt the prompt toolkit UI.
+        logfile = pw_console.python_logging.create_temp_log_file()
+    pw_cli.log.install(logging.INFO, True, False, logfile)
+
+    detokenizer = None
+    if token_databases:
+        detokenizer = Detokenizer(tokens.Database.merged(*token_databases),
+                                  show_errors=False)
+
     if not proto_globs:
         proto_globs = ['**/*.proto']
 
-    protos = list(_expand_globs(proto_globs))
+    protos: List[Union[ModuleType, Path]] = list(_expand_globs(proto_globs))
+
+    # Append compiled log.proto library to avoid include errors when manually
+    # provided, and shadowing errors due to ordering when the default global
+    # search path is used.
+    protos.append(log_pb2)
 
     if not protos:
         _LOG.critical('No .proto files were found with %s',
@@ -142,8 +251,16 @@ def console(device: str, baudrate: int, proto_globs: Collection[str],
     _LOG.debug('Found %d .proto files found with %s', len(protos),
                ', '.join(proto_globs))
 
+    serial_impl = serial.Serial
+    if serial_debug:
+        serial_impl = SerialWithLogging
+
     if socket_addr is None:
-        serial_device = serial.Serial(device, baudrate, timeout=1)
+        serial_device = serial_impl(
+            device,
+            baudrate,
+            timeout=0,  # Non-blocking mode
+        )
         read = lambda: serial_device.read(8192)
         write = serial_device.write
     else:
@@ -155,10 +272,30 @@ def console(device: str, baudrate: int, proto_globs: Collection[str],
             _LOG.exception('Failed to initialize socket at %s', socket_addr)
             return 1
 
+    callback_client_impl = callback_client.Impl(
+        default_unary_timeout_s=5.0,
+        default_stream_timeout_s=None,
+    )
     _start_ipython_terminal(
-        HdlcRpcClient(read, protos, default_channels(write),
-                      lambda data: write_to_file(data, output)))
+        HdlcRpcClient(read,
+                      protos,
+                      default_channels(write),
+                      lambda data: detokenize_and_write_to_output(
+                          data, output, detokenizer),
+                      client_impl=callback_client_impl), serial_debug,
+        config_file)
     return 0
+
+
+def detokenize_and_write_to_output(data: bytes,
+                                   unused_output: BinaryIO = sys.stdout.buffer,
+                                   detokenizer=None):
+    log_line = data
+    if detokenizer:
+        log_line = detokenize_base64(detokenizer, data)
+
+    for line in log_line.decode(errors="surrogateescape").splitlines():
+        _DEVICE_LOG.info(line)
 
 
 def main() -> int:

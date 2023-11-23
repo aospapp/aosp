@@ -8,7 +8,7 @@ The only script that you need to create for your triaging problem is the
 Before running the binary searcher tool you will need to run the setup script:
 
 ```
-./sysroot_wrapper/setup.sh ${board} ${remote_ip} ${package}
+./sysroot_wrapper/setup.sh ${board} ${remote_ip} ${package} ${reboot_option} ${use_flags}
 ```
 
 This setup script will ensure your `$BISECT_DIR` is properly populated and

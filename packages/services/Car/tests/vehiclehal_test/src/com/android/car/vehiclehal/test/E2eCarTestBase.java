@@ -16,7 +16,6 @@
 package com.android.car.vehiclehal.test;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.assumeTrue;
 
 import android.car.Car;
 import android.car.hardware.CarPropertyValue;
@@ -24,15 +23,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
 import android.os.ConditionVariable;
 import android.os.FileUtils;
 import android.os.IBinder;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
-
-import com.google.android.collect.Lists;
 
 import org.json.JSONException;
 import org.junit.After;
@@ -57,9 +53,6 @@ public class E2eCarTestBase {
     @Before
     public void connectToVehicleHal() throws Exception {
         mVehicle = Utils.getVehicleWithTimeout(DEFAULT_WAIT_TIMEOUT_MS);
-        mVehicle.getPropConfigs(
-                Lists.newArrayList(VhalEventGenerator.GENERATE_FAKE_DATA_CONTROLLING_PROPERTY),
-                (status, propConfigs) -> assumeTrue(status == StatusCode.OK));
     }
 
     @Before

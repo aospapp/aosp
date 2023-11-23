@@ -15,10 +15,20 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_DATA_SERVICE_TASK_RUNNER_H_
 #define TENSORFLOW_CORE_DATA_SERVICE_TASK_RUNNER_H_
 
+#include <memory>
+#include <vector>
+
 #include "tensorflow/core/data/service/common.pb.h"
+#include "tensorflow/core/data/service/data_transfer.h"
+#include "tensorflow/core/data/service/thread_safe_buffer.h"
 #include "tensorflow/core/data/service/worker.pb.h"
 #include "tensorflow/core/data/standalone.h"
+#include "tensorflow/core/platform/macros.h"
+#include "tensorflow/core/platform/mutex.h"
 #include "tensorflow/core/platform/status.h"
+#include "tensorflow/core/platform/statusor.h"
+#include "tensorflow/core/platform/thread_annotations.h"
+#include "tensorflow/core/protobuf/service_config.pb.h"
 
 namespace tensorflow {
 namespace data {
@@ -56,13 +66,16 @@ class StandaloneTaskIterator : public TaskIterator {
 class TaskRunner {
  public:
   // Creates a `TaskRunner` and stores it in `out`.
-  static Status Create(const TaskDef& task_def,
+  static Status Create(const experimental::WorkerConfig& worker_config,
+                       const TaskDef& task_def,
                        std::unique_ptr<TaskIterator> iterator,
                        std::unique_ptr<TaskRunner>& out);
   virtual ~TaskRunner() = default;
   // Gets the next element for the given request.
   virtual Status GetNext(const GetElementRequest& req,
-                         GetElementResponse& resp) = 0;
+                         GetElementResult& result) = 0;
+  // Cancels in-progress `GetNext` requests.
+  virtual void Cancel() = 0;
 };
 
 // A task runner which provides elements on a first-come first-served basis.
@@ -71,18 +84,49 @@ class FirstComeFirstServedTaskRunner : public TaskRunner {
  public:
   explicit FirstComeFirstServedTaskRunner(
       std::unique_ptr<TaskIterator> iterator);
+  ~FirstComeFirstServedTaskRunner() override;
+
   Status GetNext(const GetElementRequest& req,
-                 GetElementResponse& resp) override;
+                 GetElementResult& result) override;
+  void Cancel() override;
 
  private:
-  std::unique_ptr<TaskIterator> iterator_;
+  // Function to continually prefetch the next element. Returns an error if the
+  // task has been cancelled.
+  Status PrefetchFn();
+
+  // Runs `PrefetchFn` on a dedicated thread.
+  void RunPrefetchThread();
+
+  // Gets the next element from the input iterator.
+  StatusOr<GetElementResult> GetNextFromInputIterator() TF_LOCKS_EXCLUDED(mu_);
+
+  mutex mu_;
+  std::unique_ptr<TaskIterator> iterator_ TF_GUARDED_BY(mu_);
+  int64 element_index_ TF_GUARDED_BY(mu_) = 0;
+
+  ThreadSafeBuffer<GetElementResult> buffer_;
+  std::unique_ptr<Thread> prefetch_thread_;
+
+  TF_DISALLOW_COPY_AND_ASSIGN(FirstComeFirstServedTaskRunner);
+};
+
+// An element produced by a task.
+struct Element {
+  explicit Element(std::vector<Tensor>&& components, int64_t index)
+      : components(components), index(index) {}
+  // The components of the element.
+  std::vector<Tensor> components;
+  // The element's index within the task, e.g. 0 for the first element produced
+  // by the task, 1 for the second element, etc.
+  int64 index;
 };
 
 // Thread for prefetching a round worth of elements.
 class PrefetchThread {
  public:
   explicit PrefetchThread(std::unique_ptr<TaskIterator> iterator,
-                          int64 round_size);
+                          int64_t round_size);
   ~PrefetchThread();
   // Runs the prefetch thread. It runs until an error is encountered or the
   // destructor is called.
@@ -90,7 +134,8 @@ class PrefetchThread {
   // Fills `out` with a round of data. Waits for up to `wait_us` micoseconds
   // before giving up and returning with `out` empty. A negative `wait_us`
   // signals to wait indefinitely.
-  Status FillBuffer(int64 wait_us, std::vector<std::vector<Tensor>>& out);
+  Status FillBuffer(int64_t wait_us,
+                    std::vector<std::unique_ptr<Element>>& out);
   // Returns the status for any failures encountered by the prefetch thread.
   Status GetStatus();
 
@@ -98,8 +143,9 @@ class PrefetchThread {
   const std::unique_ptr<TaskIterator> iterator_;
   const int64 round_size_;
   mutex mu_;
+  int64 index_ TF_GUARDED_BY(mu_) = 0;
   // Buffered results for the next round.
-  std::vector<std::vector<Tensor>> buffer_ TF_GUARDED_BY(mu_);
+  std::vector<std::unique_ptr<Element>> buffer_ TF_GUARDED_BY(mu_);
   // The status if the prefetch thread fails.
   Status status_ TF_GUARDED_BY(mu_) = Status::OK();
   // Thread which constantly tries to fill `buffer_` up with
@@ -131,15 +177,16 @@ class PrefetchThread {
 class RoundRobinTaskRunner : public TaskRunner {
  public:
   RoundRobinTaskRunner(std::unique_ptr<TaskIterator> iterator,
-                       int64 num_consumers);
+                       int64_t num_consumers, string worker_address);
 
   Status GetNext(const GetElementRequest& req,
-                 GetElementResponse& resp) override;
+                 GetElementResult& result) override;
+  void Cancel() override;
 
  private:
   // Prepares a full round of data. `wait_us` indicates how long to wait before
   // skipping if a full round of data is not yet ready.
-  Status PrepareFullRound(int64 wait_us) TF_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  Status PrepareFullRound(int64_t wait_us) TF_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   // Prepares a partial round to get consumers back in sync.
   Status PreparePartialRound() TF_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   Status ValidateRequest(const GetElementRequest& req);
@@ -147,7 +194,9 @@ class RoundRobinTaskRunner : public TaskRunner {
   // start.
   Status PrepareRound(const GetElementRequest& req);
   const int64 num_consumers_;
+  const string worker_address_;
   mutex mu_;
+  bool cancelled_ TF_GUARDED_BY(mu_) = false;
   // Condition variable notified whenever we start a new round of round-robin.
   condition_variable new_round_cv_;
   // Outstanding requests, indexed by round number and then consumer index.
@@ -160,7 +209,7 @@ class RoundRobinTaskRunner : public TaskRunner {
   int64 current_round_ TF_GUARDED_BY(mu_) = -1;
   bool round_skipped_ TF_GUARDED_BY(mu_) = false;
   // Buffered results for the current round.
-  std::vector<std::vector<Tensor>> buffer_ TF_GUARDED_BY(mu_);
+  std::vector<std::unique_ptr<Element>> buffer_ TF_GUARDED_BY(mu_);
   // Thread which constantly tries to prepare `num_consumers` elements for the
   // next round.
   PrefetchThread prefetch_thread_;

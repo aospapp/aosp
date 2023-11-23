@@ -27,6 +27,12 @@ import (
 
 const maxUnpackErrors = 10
 
+var (
+	// Hard-coded list of allowlisted property names of type map. This is to limit use of maps to
+	// where absolutely necessary.
+	validMapProperties = []string{}
+)
+
 type UnpackError struct {
 	Err error
 	Pos scanner.Position
@@ -45,8 +51,9 @@ type packedProperty struct {
 // unpackContext keeps compound names and their values in a map. It is initialized from
 // parsed properties.
 type unpackContext struct {
-	propertyMap map[string]*packedProperty
-	errs        []error
+	propertyMap        map[string]*packedProperty
+	validMapProperties map[string]bool
+	errs               []error
 }
 
 // UnpackProperties populates the list of runtime values ("property structs") from the parsed properties.
@@ -67,10 +74,18 @@ type unpackContext struct {
 // The same property can initialize fields in multiple runtime values. It is an error if any property
 // value was not used to initialize at least one field.
 func UnpackProperties(properties []*parser.Property, objects ...interface{}) (map[string]*parser.Property, []error) {
+	return unpackProperties(properties, validMapProperties, objects...)
+}
+
+func unpackProperties(properties []*parser.Property, validMapProps []string, objects ...interface{}) (map[string]*parser.Property, []error) {
 	var unpackContext unpackContext
 	unpackContext.propertyMap = make(map[string]*packedProperty)
 	if !unpackContext.buildPropertyMap("", properties) {
 		return nil, unpackContext.errs
+	}
+	unpackContext.validMapProperties = make(map[string]bool, len(validMapProps))
+	for _, p := range validMapProps {
+		unpackContext.validMapProperties[p] = true
 	}
 
 	for _, obj := range objects {
@@ -138,7 +153,33 @@ func (ctx *unpackContext) buildPropertyMap(prefix string, properties []*parser.P
 		ctx.propertyMap[name] = &packedProperty{property, false}
 		switch propValue := property.Value.Eval().(type) {
 		case *parser.Map:
+			// If this is a map and the values are not primitive types, we need to unroll it for further
+			// mapping. Keys are limited to string types.
 			ctx.buildPropertyMap(name, propValue.Properties)
+			if len(propValue.MapItems) == 0 {
+				continue
+			}
+			items := propValue.MapItems
+			keysType := items[0].Key.Type()
+			valsAreBasic := primitiveType(items[0].Value.Type())
+			if keysType != parser.StringType {
+				ctx.addError(&UnpackError{Err: fmt.Errorf("complex key types are unsupported: %s", keysType)})
+				return false
+			} else if valsAreBasic {
+				continue
+			}
+			itemProperties := make([]*parser.Property, len(items), len(items))
+			for i, item := range items {
+				itemProperties[i] = &parser.Property{
+					Name:     fmt.Sprintf("%s{value:%d}", property.Name, i),
+					NamePos:  property.NamePos,
+					ColonPos: property.ColonPos,
+					Value:    item.Value,
+				}
+			}
+			if !ctx.buildPropertyMap(prefix, itemProperties) {
+				return false
+			}
 		case *parser.List:
 			// If it is a list, unroll it unless its elements are of primitive type
 			// (no further mapping will be needed in that case, so we avoid cluttering
@@ -146,7 +187,7 @@ func (ctx *unpackContext) buildPropertyMap(prefix string, properties []*parser.P
 			if len(propValue.Values) == 0 {
 				continue
 			}
-			if t := propValue.Values[0].Type(); t == parser.StringType || t == parser.Int64Type || t == parser.BoolType {
+			if primitiveType(propValue.Values[0].Type()) {
 				continue
 			}
 
@@ -166,6 +207,11 @@ func (ctx *unpackContext) buildPropertyMap(prefix string, properties []*parser.P
 	}
 
 	return len(ctx.errs) == nOldErrors
+}
+
+// primitiveType returns whether typ is a primitive type
+func primitiveType(typ parser.Type) bool {
+	return typ == parser.StringType || typ == parser.Int64Type || typ == parser.BoolType
 }
 
 func fieldPath(prefix, fieldName string) string {
@@ -219,6 +265,15 @@ func (ctx *unpackContext) unpackToStruct(namePrefix string, structValue reflect.
 		switch kind := fieldValue.Kind(); kind {
 		case reflect.Bool, reflect.String, reflect.Struct, reflect.Slice:
 			// Do nothing
+		case reflect.Map:
+			// Restrict names of map properties that _can_ be set in bp files
+			if _, ok := ctx.validMapProperties[propertyName]; !ok {
+				if !HasTag(field, "blueprint", "mutated") {
+					ctx.addError(&UnpackError{
+						Err: fmt.Errorf("Uses of maps for properties must be allowlisted. %q is an unsupported use case", propertyName),
+					})
+				}
+			}
 		case reflect.Interface:
 			if fieldValue.IsNil() {
 				panic(fmt.Errorf("field %s contains a nil interface", propertyName))
@@ -299,6 +354,13 @@ func (ctx *unpackContext) unpackToStruct(namePrefix string, structValue reflect.
 			if len(ctx.errs) >= maxUnpackErrors {
 				return
 			}
+		} else if fieldValue.Type().Kind() == reflect.Map {
+			if unpackedValue, ok := ctx.unpackToMap(propertyName, property, fieldValue.Type()); ok {
+				ExtendBasicType(fieldValue, unpackedValue, Append)
+			}
+			if len(ctx.errs) >= maxUnpackErrors {
+				return
+			}
 
 		} else {
 			unpackedValue, err := propertyToValue(fieldValue.Type(), property)
@@ -308,6 +370,61 @@ func (ctx *unpackContext) unpackToStruct(namePrefix string, structValue reflect.
 			ExtendBasicType(fieldValue, unpackedValue, Append)
 		}
 	}
+}
+
+// unpackToMap unpacks given parser.property into a go map of type mapType
+func (ctx *unpackContext) unpackToMap(mapName string, property *parser.Property, mapType reflect.Type) (reflect.Value, bool) {
+	propValueAsMap, ok := property.Value.Eval().(*parser.Map)
+	// Verify this property is a map
+	if !ok {
+		ctx.addError(&UnpackError{
+			fmt.Errorf("can't assign %q value to map property %q", property.Value.Type(), property.Name),
+			property.Value.Pos(),
+		})
+		return reflect.MakeMap(mapType), false
+	}
+	// And is not a struct
+	if len(propValueAsMap.Properties) > 0 {
+		ctx.addError(&UnpackError{
+			fmt.Errorf("can't assign property to a map (%s) property %q", property.Value.Type(), property.Name),
+			property.Value.Pos(),
+		})
+		return reflect.MakeMap(mapType), false
+	}
+
+	items := propValueAsMap.MapItems
+	m := reflect.MakeMap(mapType)
+	if len(items) == 0 {
+		return m, true
+	}
+	keyConstructor := ctx.itemConstructor(items[0].Key.Type())
+	keyType := mapType.Key()
+	valueConstructor := ctx.itemConstructor(items[0].Value.Type())
+	valueType := mapType.Elem()
+
+	itemProperty := &parser.Property{NamePos: property.NamePos, ColonPos: property.ColonPos}
+	for i, item := range items {
+		itemProperty.Name = fmt.Sprintf("%s{key:%d}", mapName, i)
+		itemProperty.Value = item.Key
+		if packedProperty, ok := ctx.propertyMap[itemProperty.Name]; ok {
+			packedProperty.used = true
+		}
+		keyValue, ok := itemValue(keyConstructor, itemProperty, keyType)
+		if !ok {
+			continue
+		}
+		itemProperty.Name = fmt.Sprintf("%s{value:%d}", mapName, i)
+		itemProperty.Value = item.Value
+		if packedProperty, ok := ctx.propertyMap[itemProperty.Name]; ok {
+			packedProperty.used = true
+		}
+		value, ok := itemValue(valueConstructor, itemProperty, valueType)
+		if ok {
+			m.SetMapIndex(keyValue, value)
+		}
+	}
+
+	return m, true
 }
 
 // unpackSlice creates a value of a given slice type from the property which should be a list
@@ -328,11 +445,50 @@ func (ctx *unpackContext) unpackToSlice(
 		return value, true
 	}
 
+	itemConstructor := ctx.itemConstructor(exprs[0].Type())
+	itemType := sliceType.Elem()
+
+	itemProperty := &parser.Property{NamePos: property.NamePos, ColonPos: property.ColonPos}
+	for i, expr := range exprs {
+		itemProperty.Name = sliceName + "[" + strconv.Itoa(i) + "]"
+		itemProperty.Value = expr
+		if packedProperty, ok := ctx.propertyMap[itemProperty.Name]; ok {
+			packedProperty.used = true
+		}
+		if itemValue, ok := itemValue(itemConstructor, itemProperty, itemType); ok {
+			value = reflect.Append(value, itemValue)
+		}
+	}
+	return value, true
+}
+
+// constructItem is a function to construct a reflect.Value from given parser.Property of reflect.Type
+type constructItem func(*parser.Property, reflect.Type) (reflect.Value, bool)
+
+// itemValue creates a new item of type t with value determined by f
+func itemValue(f constructItem, property *parser.Property, t reflect.Type) (reflect.Value, bool) {
+	isPtr := t.Kind() == reflect.Ptr
+	if isPtr {
+		t = t.Elem()
+	}
+	val, ok := f(property, t)
+	if !ok {
+		return val, ok
+	}
+	if isPtr {
+		ptrValue := reflect.New(val.Type())
+		ptrValue.Elem().Set(val)
+		return ptrValue, true
+	}
+	return val, true
+}
+
+// itemConstructor returns a function  to construct an item of typ
+func (ctx *unpackContext) itemConstructor(typ parser.Type) constructItem {
 	// The function to construct an item value depends on the type of list elements.
-	var getItemFunc func(*parser.Property, reflect.Type) (reflect.Value, bool)
-	switch exprs[0].Type() {
+	switch typ {
 	case parser.BoolType, parser.StringType, parser.Int64Type:
-		getItemFunc = func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
+		return func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
 			value, err := propertyToValue(t, property)
 			if err != nil {
 				ctx.addError(err)
@@ -341,46 +497,26 @@ func (ctx *unpackContext) unpackToSlice(
 			return value, true
 		}
 	case parser.ListType:
-		getItemFunc = func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
+		return func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
 			return ctx.unpackToSlice(property.Name, property, t)
 		}
 	case parser.MapType:
-		getItemFunc = func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
-			itemValue := reflect.New(t).Elem()
-			ctx.unpackToStruct(property.Name, itemValue)
-			return itemValue, true
+		return func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
+			if t.Kind() == reflect.Map {
+				return ctx.unpackToMap(property.Name, property, t)
+			} else {
+				itemValue := reflect.New(t).Elem()
+				ctx.unpackToStruct(property.Name, itemValue)
+				return itemValue, true
+			}
 		}
 	case parser.NotEvaluatedType:
-		getItemFunc = func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
+		return func(property *parser.Property, t reflect.Type) (reflect.Value, bool) {
 			return reflect.New(t), false
 		}
 	default:
-		panic(fmt.Errorf("bizarre property expression type: %v", exprs[0].Type()))
+		panic(fmt.Errorf("bizarre property expression type: %v", typ))
 	}
-
-	itemProperty := &parser.Property{NamePos: property.NamePos, ColonPos: property.ColonPos}
-	elemType := sliceType.Elem()
-	isPtr := elemType.Kind() == reflect.Ptr
-
-	for i, expr := range exprs {
-		itemProperty.Name = sliceName + "[" + strconv.Itoa(i) + "]"
-		itemProperty.Value = expr
-		if packedProperty, ok := ctx.propertyMap[itemProperty.Name]; ok {
-			packedProperty.used = true
-		}
-		if isPtr {
-			if itemValue, ok := getItemFunc(itemProperty, elemType.Elem()); ok {
-				ptrValue := reflect.New(itemValue.Type())
-				ptrValue.Elem().Set(itemValue)
-				value = reflect.Append(value, ptrValue)
-			}
-		} else {
-			if itemValue, ok := getItemFunc(itemProperty, elemType); ok {
-				value = reflect.Append(value, itemValue)
-			}
-		}
-	}
-	return value, true
 }
 
 // propertyToValue creates a value of a given value type from the property.

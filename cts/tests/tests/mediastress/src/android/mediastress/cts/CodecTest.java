@@ -507,14 +507,16 @@ public class CodecTest {
         try {
             BitmapFactory mBitmapFactory = new BitmapFactory();
 
-            MediaMetadataRetriever mMediaMetadataRetriever = new MediaMetadataRetriever();
-            try {
-                mMediaMetadataRetriever.setDataSource(filePath);
-            } catch(Exception e) {
-                e.printStackTrace();
-                return false;
+            Bitmap outThumbnail;
+            try (MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever()) {
+                try {
+                    mediaMetadataRetriever.setDataSource(filePath);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return false;
+                }
+                outThumbnail = mediaMetadataRetriever.getFrameAtTime(-1);
             }
-            Bitmap outThumbnail = mMediaMetadataRetriever.getFrameAtTime(-1);
 
             //Verify the thumbnail
             Bitmap goldenBitmap = mBitmapFactory.decodeFile(goldenPath);

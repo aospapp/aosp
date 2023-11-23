@@ -19,7 +19,7 @@ import "testing"
 func TestGlobCache(t *testing.T) {
 	ctx := NewContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": nil,
+		"Android.bp": nil,
 		"a/a":        nil,
 		"a/b":        nil,
 	})

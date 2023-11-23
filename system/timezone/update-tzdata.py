@@ -1,4 +1,4 @@
-#!/usr/bin/python -B
+#!/usr/bin/python3 -B
 
 # Copyright 2017 The Android Open Source Project
 #
@@ -16,8 +16,7 @@
 
 """Generates the timezone data files used by Android."""
 
-from __future__ import print_function
-
+import argparse
 import glob
 import os
 import re
@@ -113,11 +112,14 @@ def BuildIcuData(iana_data_tar_file):
   # Create ICU system image files.
   icuutil.MakeAndCopyIcuDataFiles(icu_build_dir)
 
-  icu_overlay_dir = '%s/icu_overlay' % timezone_output_data_dir
-
   # Create the ICU overlay time zone file.
+  icu_overlay_dir = '%s/icu_overlay' % timezone_output_data_dir
   icu_overlay_dat_file = '%s/icu_tzdata.dat' % icu_overlay_dir
   icuutil.MakeAndCopyOverlayTzIcuData(icu_build_dir, icu_overlay_dat_file)
+
+  # There are files in ICU which generation depends on ICU itself,
+  # so multiple builds might be needed.
+  icuutil.GenerateIcuDataFiles()
 
   # Copy ICU license file(s)
   icuutil.CopyLicenseFiles(icu_overlay_dir)
@@ -171,7 +173,7 @@ def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
   print('Calling zic...')
   zic_output_dir = '%s/data' % tmp_dir
   os.mkdir(zic_output_dir)
-  zic_cmd = [zic_binary_file, '-d', zic_output_dir, zic_input_file]
+  zic_cmd = [zic_binary_file, '-b', 'fat', '-d', zic_output_dir, zic_input_file]
   subprocess.check_call(zic_cmd)
 
   # ZoneCompactor
@@ -200,10 +202,9 @@ def BuildTzlookupAndTzIds(iana_data_dir):
   tzdatautil.InvokeSoong(android_build_top, ['tzlookup_generator'])
 
   zone_tab_file = '%s/zone.tab' % iana_data_dir
-  backward_file = '%s/backward' % iana_data_dir
   command = '%s/bin/tzlookup_generator' % android_host_out
-  subprocess.check_call([command, countryzones_source_file, zone_tab_file, backward_file,
-                         tzlookup_dest_file, tzids_dest_file])
+  subprocess.check_call([command, countryzones_source_file, zone_tab_file, tzlookup_dest_file,
+                         tzids_dest_file])
 
 
 def BuildTelephonylookup():
@@ -217,11 +218,12 @@ def BuildTelephonylookup():
   subprocess.check_call([command, telephonylookup_source_file, telephonylookup_dest_file])
 
 
-def CreateDistroFiles(iana_data_version, output_distro_dir, output_version_file):
+def CreateDistroFiles(iana_data_version, android_revision,
+                      output_distro_dir, output_version_file):
   create_distro_script = '%s/distro/tools/create-distro.py' % timezone_dir
 
   tzdata_file = '%s/iana/tzdata' % timezone_output_data_dir
-  icu_file = '%s/icu_overlay/icu_tzdata.dat' % timezone_output_data_dir
+  icu_dir = '%s/icu_overlay' % timezone_output_data_dir
   tzlookup_file = '%s/android/tzlookup.xml' % timezone_output_data_dir
   telephonylookup_file = '%s/android/telephonylookup.xml' % timezone_output_data_dir
 
@@ -234,8 +236,9 @@ def CreateDistroFiles(iana_data_version, output_distro_dir, output_version_file)
 
   subprocess.check_call([create_distro_script,
       '-iana_version', iana_data_version,
+      '-revision', str(android_revision),
       '-tzdata', tzdata_file,
-      '-icu', icu_file,
+      '-icu_dir', icu_dir,
       '-tzlookup', tzlookup_file,
       '-telephonylookup', telephonylookup_file,
       '-output_distro_dir', output_distro_dir,
@@ -247,9 +250,18 @@ def UpdateTestFiles():
   subprocess.check_call([update_test_files_script], cwd=testing_data_dir)
 
 
-# Run with no arguments from any directory, with no special setup required.
+# Run from any directory, with no special setup required.
+# In the rare case when tzdata has to be updated, but under the same version,
+# pass "-revision" argument.
 # See http://www.iana.org/time-zones/ for more about the source of this data.
 def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-revision', type=int, default=1,
+      help='The distro revision for the IANA version, default = 1')
+
+  args = parser.parse_args()
+  android_revision = args.revision
+
   print('Source data file structure: %s' % timezone_input_data_dir)
   print('Source tools file structure: %s' % timezone_input_tools_dir)
   print('Intermediate / working dir: %s' % tmp_dir)
@@ -279,7 +291,8 @@ def main():
   # Create a distro file and version file from the output from prior stages.
   output_distro_dir = '%s/distro' % timezone_output_data_dir
   output_version_file = '%s/version/tz_version' % timezone_output_data_dir
-  CreateDistroFiles(iana_data_version, output_distro_dir, output_version_file)
+  CreateDistroFiles(iana_data_version, android_revision,
+                    output_distro_dir, output_version_file)
 
   # Update test versions of distro files too.
   UpdateTestFiles()

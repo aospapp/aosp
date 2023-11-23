@@ -34,6 +34,7 @@ namespace {
 constexpr char COMPONENT_NAME[] = "c2.android.hevc.decoder";
 constexpr uint32_t kDefaultOutputDelay = 8;
 constexpr uint32_t kMaxOutputDelay = 16;
+constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
 }  // namespace
 
 class C2SoftHevcDec::IntfImpl : public SimpleInterface<void>::BaseParams {
@@ -108,7 +109,7 @@ public:
 
         addParameter(
                 DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
-                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, 320 * 240 * 3 / 4))
+                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, kMinInputBufferSize))
                 .withFields({
                     C2F(mMaxInputSize, value).any(),
                 })
@@ -220,8 +221,9 @@ public:
     static C2R MaxInputSizeSetter(bool mayBlock, C2P<C2StreamMaxBufferSizeInfo::input> &me,
                                   const C2P<C2StreamMaxPictureSizeTuning::output> &maxSize) {
         (void)mayBlock;
-        // assume compression ratio of 2
-        me.set().value = (((maxSize.v.width + 63) / 64) * ((maxSize.v.height + 63) / 64) * 3072);
+        // assume compression ratio of 2, but enforce a floor
+        me.set().value = c2_max((((maxSize.v.width + 63) / 64)
+                    * ((maxSize.v.height + 63) / 64) * 3072), kMinInputBufferSize);
         return C2R::Ok();
     }
 
@@ -502,7 +504,7 @@ status_t C2SoftHevcDec::getVersion() {
 status_t C2SoftHevcDec::initDecoder() {
     if (OK != createDecoder()) return UNKNOWN_ERROR;
     mNumCores = MIN(getCpuCoreCount(), MAX_NUM_CORES);
-    mStride = ALIGN32(mWidth);
+    mStride = ALIGN128(mWidth);
     mSignalledError = false;
     resetPlugin();
     (void) setNumCores();
@@ -661,8 +663,7 @@ status_t C2SoftHevcDec::resetDecoder() {
 
 void C2SoftHevcDec::resetPlugin() {
     mSignalledOutputEos = false;
-    gettimeofday(&mTimeStart, nullptr);
-    gettimeofday(&mTimeEnd, nullptr);
+    mTimeStart = mTimeEnd = systemTime();
 }
 
 status_t C2SoftHevcDec::deleteDecoder() {
@@ -768,20 +769,20 @@ c2_status_t C2SoftHevcDec::ensureDecoderState(const std::shared_ptr<C2BlockPool>
         return C2_CORRUPTED;
     }
     if (mOutBlock &&
-            (mOutBlock->width() != ALIGN32(mWidth) || mOutBlock->height() != mHeight)) {
+            (mOutBlock->width() != ALIGN128(mWidth) || mOutBlock->height() != mHeight)) {
         mOutBlock.reset();
     }
     if (!mOutBlock) {
         uint32_t format = HAL_PIXEL_FORMAT_YV12;
         C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
         c2_status_t err =
-            pool->fetchGraphicBlock(ALIGN32(mWidth), mHeight, format, usage, &mOutBlock);
+            pool->fetchGraphicBlock(ALIGN128(mWidth), mHeight, format, usage, &mOutBlock);
         if (err != C2_OK) {
             ALOGE("fetchGraphicBlock for Output failed with status %d", err);
             return err;
         }
         ALOGV("provided (%dx%d) required (%dx%d)",
-              mOutBlock->width(), mOutBlock->height(), ALIGN32(mWidth), mHeight);
+              mOutBlock->width(), mOutBlock->height(), ALIGN128(mWidth), mHeight);
     }
 
     return C2_OK;
@@ -856,14 +857,13 @@ void C2SoftHevcDec::process(
             /* Decode header and get dimensions */
             setParams(mStride, IVD_DECODE_HEADER);
         }
-        WORD32 delay;
-        GETTIME(&mTimeStart, nullptr);
-        TIME_DIFF(mTimeEnd, mTimeStart, delay);
+
+        mTimeStart = systemTime();
+        nsecs_t delay = mTimeStart - mTimeEnd;
         (void) ivdec_api_function(mDecHandle, ps_decode_ip, ps_decode_op);
-        WORD32 decodeTime;
-        GETTIME(&mTimeEnd, nullptr);
-        TIME_DIFF(mTimeStart, mTimeEnd, decodeTime);
-        ALOGV("decodeTime=%6d delay=%6d numBytes=%6d", decodeTime, delay,
+        mTimeEnd = systemTime();
+        nsecs_t decodeTime = mTimeEnd - mTimeStart;
+        ALOGV("decodeTime=%6" PRId64 " delay=%6" PRId64 " numBytes=%6d", decodeTime, delay,
               ps_decode_op->u4_num_bytes_consumed);
         if (IVD_MEM_ALLOC_FAILED == (ps_decode_op->u4_error_code & IVD_ERROR_MASK)) {
             ALOGE("allocation failure in decoder");
@@ -917,7 +917,7 @@ void C2SoftHevcDec::process(
         if (0 < ps_decode_op->u4_pic_wd && 0 < ps_decode_op->u4_pic_ht) {
             if (mHeaderDecoded == false) {
                 mHeaderDecoded = true;
-                setParams(ALIGN32(ps_decode_op->u4_pic_wd), IVD_DECODE_FRAME);
+                setParams(ALIGN128(ps_decode_op->u4_pic_wd), IVD_DECODE_FRAME);
             }
             if (ps_decode_op->u4_pic_wd != mWidth ||  ps_decode_op->u4_pic_ht != mHeight) {
                 mWidth = ps_decode_op->u4_pic_wd;

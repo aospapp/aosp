@@ -14,26 +14,30 @@
 
 #include "icing/file/file-backed-vector.h"
 
-#include <errno.h>
+#include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <memory>
 #include <string_view>
 #include <vector>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-#include "icing/file/filesystem.h"
-#include "icing/file/memory-mapped-file.h"
-#include "icing/testing/common-matchers.h"
-#include "icing/testing/tmp-directory.h"
-#include "icing/util/crc32.h"
-#include "icing/util/logging.h"
+#include "knowledge/cerebra/sense/text_classifier/lib3/utils/base/status.h"
+#include "testing/base/public/gmock.h"
+#include "testing/base/public/gunit.h"
+#include "third_party/icing/file/filesystem.h"
+#include "third_party/icing/file/memory-mapped-file.h"
+#include "third_party/icing/file/mock-filesystem.h"
+#include "third_party/icing/testing/common-matchers.h"
+#include "third_party/icing/testing/tmp-directory.h"
+#include "third_party/icing/util/crc32.h"
+#include "third_party/icing/util/logging.h"
 
 using ::testing::Eq;
 using ::testing::IsTrue;
 using ::testing::Pointee;
+using ::testing::Return;
 
 namespace icing {
 namespace lib {
@@ -73,6 +77,8 @@ class FileBackedVectorTest : public testing::Test {
                        int32_t expected_len) {
     return std::string_view(vector->array() + idx, expected_len);
   }
+
+  const Filesystem& filesystem() const { return filesystem_; }
 
   Filesystem filesystem_;
   std::string file_path_;
@@ -636,6 +642,60 @@ TEST_F(FileBackedVectorTest, InitNormalSucceeds) {
                     MemoryMappedFile::Strategy::READ_WRITE_AUTO_SYNC),
                 IsOk());
   }
+}
+
+TEST_F(FileBackedVectorTest, RemapFailureStillValidInstance) {
+  auto mock_filesystem = std::make_unique<MockFilesystem>();
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<FileBackedVector<int>> vector,
+      FileBackedVector<int>::Create(
+          *mock_filesystem, file_path_,
+          MemoryMappedFile::Strategy::READ_WRITE_AUTO_SYNC));
+
+  // 1. Write data to just before the first block resize. Running the test
+  // locally has determined that we'll first resize at 65531st entry.
+  constexpr int kResizingIndex = 16378;
+  for (int i = 0; i < kResizingIndex; ++i) {
+    ICING_ASSERT_OK(vector->Set(i, 7));
+  }
+
+  // 2. The next Set call should cause a resize and a remap. Make that remap
+  // fail.
+  int num_calls = 0;
+  auto open_lambda = [this, &num_calls](const char* file_name){
+    if (++num_calls == 2) {
+      return -1;
+    }
+    return this->filesystem().OpenForWrite(file_name);
+  };
+  ON_CALL(*mock_filesystem, OpenForWrite(_)).WillByDefault(open_lambda);
+  EXPECT_THAT(vector->Set(kResizingIndex, 7),
+              StatusIs(libtextclassifier3::StatusCode::INTERNAL));
+
+  // 3. We should still be able to call set correctly for earlier regions.
+  ICING_EXPECT_OK(vector->Set(kResizingIndex / 2, 9));
+  EXPECT_THAT(vector->Get(kResizingIndex / 2), IsOkAndHolds(Pointee(Eq(9))));
+}
+
+TEST_F(FileBackedVectorTest, BadFileSizeDuringGrowReturnsError) {
+  auto mock_filesystem = std::make_unique<MockFilesystem>();
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<FileBackedVector<int>> vector,
+      FileBackedVector<int>::Create(
+          *mock_filesystem, file_path_,
+          MemoryMappedFile::Strategy::READ_WRITE_AUTO_SYNC));
+
+  // At first, the vector is empty and has no mapping established. The first Set
+  // call will cause a Grow.
+  // During Grow, we will attempt to check the underlying file size to see if
+  // growing is actually necessary. Return an error on the call to GetFileSize.
+  ON_CALL(*mock_filesystem, GetFileSize(A<const char*>()))
+      .WillByDefault(Return(Filesystem::kBadFileSize));
+
+  // We should fail gracefully and return an INTERNAL error to indicate that
+  // there was an issue retrieving the file size.
+  EXPECT_THAT(vector->Set(0, 7),
+              StatusIs(libtextclassifier3::StatusCode::INTERNAL));
 }
 
 }  // namespace

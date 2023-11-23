@@ -29,9 +29,13 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
+import androidx.annotation.VisibleForTesting;
+import com.google.android.setupcompat.internal.FocusChangedMetricHelper;
 import com.google.android.setupcompat.internal.LifecycleFragment;
 import com.google.android.setupcompat.internal.PersistableBundles;
+import com.google.android.setupcompat.internal.SetupCompatServiceInvoker;
 import com.google.android.setupcompat.internal.TemplateLayout;
 import com.google.android.setupcompat.logging.CustomEvent;
 import com.google.android.setupcompat.logging.MetricKey;
@@ -44,6 +48,7 @@ import com.google.android.setupcompat.template.SystemNavBarMixin;
 import com.google.android.setupcompat.util.BuildCompatUtils;
 import com.google.android.setupcompat.util.Logger;
 import com.google.android.setupcompat.util.WizardManagerHelper;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** A templatization layout with consistent style used in Setup Wizard or app itself. */
 public class PartnerCustomizationLayout extends TemplateLayout {
@@ -71,24 +76,33 @@ public class PartnerCustomizationLayout extends TemplateLayout {
 
   private Activity activity;
 
+  @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context) {
     this(context, 0, 0);
   }
 
+  @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context, int template) {
     this(context, template, 0);
   }
 
+  @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context, int template, int containerId) {
     super(context, template, containerId);
     init(null, R.attr.sucLayoutTheme);
   }
 
+  @VisibleForTesting
+  final ViewTreeObserver.OnWindowFocusChangeListener windowFocusChangeListener =
+      this::onFocusChanged;
+
+  @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context, AttributeSet attrs) {
     super(context, attrs);
     init(attrs, R.attr.sucLayoutTheme);
   }
 
+  @CanIgnoreReturnValue
   @TargetApi(VERSION_CODES.HONEYCOMB)
   public PartnerCustomizationLayout(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
@@ -203,14 +217,17 @@ public class PartnerCustomizationLayout extends TemplateLayout {
   protected void onAttachedToWindow() {
     super.onAttachedToWindow();
     LifecycleFragment.attachNow(activity);
+    if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR2
+        && WizardManagerHelper.isAnySetupWizard(activity.getIntent())) {
+      getViewTreeObserver().addOnWindowFocusChangeListener(windowFocusChangeListener);
+    }
     getMixin(FooterBarMixin.class).onAttachedToWindow();
   }
 
   @Override
   protected void onDetachedFromWindow() {
     super.onDetachedFromWindow();
-    if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP
-        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    if (VERSION.SDK_INT >= Build.VERSION_CODES.Q
         && WizardManagerHelper.isAnySetupWizard(activity.getIntent())) {
       FooterBarMixin footerBarMixin = getMixin(FooterBarMixin.class);
       footerBarMixin.onDetachedFromWindow();
@@ -232,6 +249,10 @@ public class PartnerCustomizationLayout extends TemplateLayout {
       SetupMetricsLogger.logCustomEvent(
           getContext(),
           CustomEvent.create(MetricKey.get("SetupCompatMetrics", activity), persistableBundle));
+    }
+
+    if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR2) {
+      getViewTreeObserver().removeOnWindowFocusChangeListener(windowFocusChangeListener);
     }
   }
 
@@ -297,4 +318,16 @@ public class PartnerCustomizationLayout extends TemplateLayout {
   public boolean useFullDynamicColor() {
     return shouldApplyDynamicColor() && useFullDynamicColorAttr;
   }
+
+  /**
+   * Invoke the method onFocusStatusChanged when onWindowFocusChangeListener receive onFocusChanged.
+   */
+  private void onFocusChanged(boolean hasFocus) {
+    SetupCompatServiceInvoker.get(getContext())
+        .onFocusStatusChanged(
+            FocusChangedMetricHelper.getScreenName(activity),
+            FocusChangedMetricHelper.getExtraBundle(
+                activity, PartnerCustomizationLayout.this, hasFocus));
+  }
 }
+

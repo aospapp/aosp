@@ -33,8 +33,11 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiModifierListOwner
+import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.impl.light.LightElement
-import org.jetbrains.uast.kotlin.KotlinUClass
+import org.jetbrains.kotlin.psi.KtModifierListOwner
+import org.jetbrains.uast.UClass
+import org.jetbrains.uast.UElement
 import java.io.File
 import java.io.PrintWriter
 
@@ -185,9 +188,9 @@ class Reporter(
         item ?: return false
 
         for (annotation in item.modifiers.annotations()) {
-            val annotationName = annotation.qualifiedName()
+            val annotationName = annotation.qualifiedName
             if (annotationName != null && annotationName in SUPPRESS_ANNOTATIONS) {
-                for (attribute in annotation.attributes()) {
+                for (attribute in annotation.attributes) {
                     // Assumption that all annotations in SUPPRESS_ANNOTATIONS only have
                     // one attribute such as value/names that is varargs of String
                     val value = attribute.value
@@ -232,7 +235,7 @@ class Reporter(
     private fun getTextRange(element: PsiElement): TextRange? {
         var range: TextRange? = null
 
-        if (element is KotlinUClass) {
+        if (element is UClass) {
             range = element.sourcePsi?.textRange
         } else if (element is PsiCompiledElement) {
             if (element is LightElement) {
@@ -248,7 +251,7 @@ class Reporter(
         return range
     }
 
-    private fun elementToLocation(element: PsiElement?, includeDocs: Boolean = true): String? {
+    private fun elementToLocation(element: PsiElement?): String? {
         element ?: return null
         val psiFile = element.containingFile ?: return null
         val virtualFile = psiFile.virtualFile ?: return null
@@ -256,17 +259,20 @@ class Reporter(
 
         val path = (rootFolder?.toPath()?.relativize(file.toPath()) ?: file.toPath()).toString()
 
-        // Skip doc comments for classes, methods and fields; we usually want to point right to
-        // the class/method/field definition
-        val rangeElement = if (!includeDocs && element is PsiModifierListOwner) {
-            element.modifierList ?: element
-        } else
-            element
+        // Unwrap UAST for accurate Kotlin line numbers (UAST synthesizes text offsets sometimes)
+        val sourceElement = (element as? UElement)?.sourcePsi ?: element
+
+        // Skip doc comments for classes, methods and fields by pointing at the line where the
+        // element's name is or falling back to the first line of its modifier list (which may
+        // include annotations) or lastly to the start of the element itself
+        val rangeElement = (sourceElement as? PsiNameIdentifierOwner)?.nameIdentifier
+            ?: (sourceElement as? KtModifierListOwner)?.modifierList
+            ?: (sourceElement as? PsiModifierListOwner)?.modifierList
+            ?: sourceElement
 
         val range = getTextRange(rangeElement)
         val lineNumber = if (range == null) {
-            // No source offsets, use invalid line number
-            -1
+            -1 // No source offsets, use invalid line number
         } else {
             getLineNumber(psiFile.text, range.startOffset) + 1
         }
@@ -392,7 +398,8 @@ class Reporter(
                 id,
                 color = false,
                 omitLocations = false
-            ))
+            )
+        )
         return true
     }
 

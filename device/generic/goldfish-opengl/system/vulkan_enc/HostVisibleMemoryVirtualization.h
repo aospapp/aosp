@@ -83,7 +83,9 @@ struct HostMemAlloc {
     VkDeviceSize mappedSize = 0;
     uint8_t* mappedPtr = nullptr;
     android::base::guest::SubAllocator* subAlloc = nullptr;
-    int fd = -1;
+    int rendernodeFd = -1;
+    bool boCreated = false;
+    uint32_t boHandle = 0;
     uint64_t memoryAddr = 0;
     size_t memorySize = 0;
     bool isDeviceAddressMemoryAllocation = false;
@@ -104,7 +106,8 @@ void destroyHostMemAlloc(
     bool freeMemorySyncSupported,
     VkEncoder* enc,
     VkDevice device,
-    HostMemAlloc* toDestroy);
+    HostMemAlloc* toDestroy,
+    bool doLock);
 
 struct SubAlloc {
     uint8_t* mappedPtr = nullptr;

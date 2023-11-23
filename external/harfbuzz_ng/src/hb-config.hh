@@ -58,6 +58,7 @@
 #define HB_NO_BITMAP
 #define HB_NO_CFF
 #define HB_NO_COLOR
+#define HB_NO_DRAW
 #define HB_NO_ERRNO
 #define HB_NO_FACE_COLLECT_UNICODES
 #define HB_NO_GETENV
@@ -75,7 +76,7 @@
 #define HB_NO_SETLOCALE
 #define HB_NO_OT_FONT_GLYPH_NAMES
 #define HB_NO_OT_SHAPE_FRACTIONS
-#define HB_NO_STAT
+#define HB_NO_STYLE
 #define HB_NO_SUBSET_LAYOUT
 #define HB_NO_VAR
 #endif
@@ -85,6 +86,9 @@
 #define HB_NO_LEGACY
 #endif
 
+#ifdef HAVE_CONFIG_OVERRIDE_H
+#include "config-override.h"
+#endif
 
 /* Closure of options. */
 
@@ -116,7 +120,7 @@
 #define HB_NO_CMAP_LEGACY_SUBTABLES
 #define HB_NO_FALLBACK_SHAPE
 #define HB_NO_OT_KERN
-#define HB_NO_OT_LAYOUT_BLACKLIST
+#define HB_NO_OT_LAYOUT_BLOCKLIST
 #define HB_NO_OT_SHAPE_FALLBACK
 #endif
 
@@ -152,10 +156,6 @@
 #ifndef HB_OPTIMIZE_SIZE
 #define HB_OPTIMIZE_SIZE
 #endif
-#endif
-
-#ifdef HAVE_CONFIG_OVERRIDE_H
-#include "config-override.h"
 #endif
 
 

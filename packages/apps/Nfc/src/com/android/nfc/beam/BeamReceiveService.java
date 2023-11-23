@@ -4,14 +4,12 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.util.Log;
-
 
 /**
  * @hide
@@ -94,7 +92,8 @@ public class BeamReceiveService extends Service implements BeamTransferManager.C
         // register Beam status receiver
         mBeamStatusReceiver = new BeamStatusReceiver(this, mTransferManager);
         registerReceiver(mBeamStatusReceiver, mBeamStatusReceiver.getIntentFilter(),
-                BeamStatusReceiver.BEAM_STATUS_PERMISSION, new Handler());
+                BeamStatusReceiver.BEAM_STATUS_PERMISSION, new Handler(),
+                Context.RECEIVER_EXPORTED);
 
         mTransferManager.start();
         mTransferManager.updateNotification();

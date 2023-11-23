@@ -10,6 +10,8 @@ in a folder. It offers two ways to read glyph data, and one way to write
 glyph data. See the class doc string for details.
 """
 
+from __future__ import annotations
+
 import logging
 import enum
 from warnings import warn
@@ -19,7 +21,7 @@ import fs.base
 import fs.errors
 import fs.osfs
 import fs.path
-from fontTools.misc.py23 import tobytes
+from fontTools.misc.textTools import tobytes
 from fontTools.misc import plistlib
 from fontTools.pens.pointPen import AbstractPointPen, PointToSegmentPen
 from fontTools.ufoLib.errors import GlifLibError
@@ -205,7 +207,7 @@ class GlyphSet(_UFOBaseIO):
 		self.glyphNameToFileName = glyphNameToFileNameFunc
 		self._validateRead = validateRead
 		self._validateWrite = validateWrite
-		self._existingFileNames = None
+		self._existingFileNames: set[str] | None = None
 		self._reverseContents = None
 
 		self.rebuildContents()
@@ -358,23 +360,33 @@ class GlyphSet(_UFOBaseIO):
 		'glyphObject' argument can be any kind of object (even None);
 		the readGlyph() method will attempt to set the following
 		attributes on it:
-			"width"      the advance width of the glyph
-			"height"     the advance height of the glyph
-			"unicodes"   a list of unicode values for this glyph
-			"note"       a string
-			"lib"        a dictionary containing custom data
-			"image"      a dictionary containing image data
-			"guidelines" a list of guideline data dictionaries
-			"anchors"    a list of anchor data dictionaries
+
+		width
+			the advance width of the glyph
+		height
+			the advance height of the glyph
+		unicodes
+			a list of unicode values for this glyph
+		note
+			a string
+		lib
+			a dictionary containing custom data
+		image
+			a dictionary containing image data
+		guidelines
+			a list of guideline data dictionaries
+		anchors
+			a list of anchor data dictionaries
 
 		All attributes are optional, in two ways:
-			1) An attribute *won't* be set if the .glif file doesn't
-			   contain data for it. 'glyphObject' will have to deal
-			   with default values itself.
-			2) If setting the attribute fails with an AttributeError
-			   (for example if the 'glyphObject' attribute is read-
-			   only), readGlyph() will not propagate that exception,
-			   but ignore that attribute.
+
+		1) An attribute *won't* be set if the .glif file doesn't
+		   contain data for it. 'glyphObject' will have to deal
+		   with default values itself.
+		2) If setting the attribute fails with an AttributeError
+		   (for example if the 'glyphObject' attribute is read-
+		   only), readGlyph() will not propagate that exception,
+		   but ignore that attribute.
 
 		To retrieve outline information, you need to pass an object
 		conforming to the PointPen protocol as the 'pointPen' argument.
@@ -399,14 +411,23 @@ class GlyphSet(_UFOBaseIO):
 		'glyphObject' argument can be any kind of object (even None);
 		the writeGlyph() method will attempt to get the following
 		attributes from it:
-			"width"      the advance with of the glyph
-			"height"     the advance height of the glyph
-			"unicodes"   a list of unicode values for this glyph
-			"note"       a string
-			"lib"        a dictionary containing custom data
-			"image"      a dictionary containing image data
-			"guidelines" a list of guideline data dictionaries
-			"anchors"    a list of anchor data dictionaries
+
+		width
+			the advance width of the glyph
+		height
+			the advance height of the glyph
+		unicodes
+			a list of unicode values for this glyph
+		note
+			a string
+		lib
+			a dictionary containing custom data
+		image
+			a dictionary containing image data
+		guidelines
+			a list of guideline data dictionaries
+		anchors
+			a list of anchor data dictionaries
 
 		All attributes are optional: if 'glyphObject' doesn't
 		have the attribute, it will simply be skipped.
@@ -455,12 +476,12 @@ class GlyphSet(_UFOBaseIO):
 		fileName = self.contents.get(glyphName)
 		if fileName is None:
 			if self._existingFileNames is None:
-				self._existingFileNames = {}
-				for fileName in self.contents.values():
-					self._existingFileNames[fileName] = fileName.lower()
-			fileName = self.glyphNameToFileName(glyphName, self._existingFileNames.values())
+				self._existingFileNames = {
+					fileName.lower() for fileName in self.contents.values()
+				}
+			fileName = self.glyphNameToFileName(glyphName, self._existingFileNames)
 			self.contents[glyphName] = fileName
-			self._existingFileNames[fileName] = fileName.lower()
+			self._existingFileNames.add(fileName.lower())
 			if self._reverseContents is not None:
 				self._reverseContents[fileName.lower()] = glyphName
 		data = _writeGlyphToBytes(
@@ -485,9 +506,9 @@ class GlyphSet(_UFOBaseIO):
 		fileName = self.contents[glyphName]
 		self.fs.remove(fileName)
 		if self._existingFileNames is not None:
-			del self._existingFileNames[fileName]
+			self._existingFileNames.remove(fileName.lower())
 		if self._reverseContents is not None:
-			del self._reverseContents[self.contents[glyphName].lower()]
+			del self._reverseContents[fileName.lower()]
 		del self.contents[glyphName]
 
 	# dict-like support
@@ -573,9 +594,12 @@ class GlyphSet(_UFOBaseIO):
 def glyphNameToFileName(glyphName, existingFileNames):
 	"""
 	Wrapper around the userNameToFileName function in filenames.py
+
+	Note that existingFileNames should be a set for large glyphsets
+	or performance will suffer.
 	"""
 	if existingFileNames is None:
-		existingFileNames = []
+		existingFileNames = set()
 	return userNameToFileName(glyphName, existing=existingFileNames, suffix=".glif")
 
 # -----------------------
@@ -595,23 +619,33 @@ def readGlyphFromString(
 	The 'glyphObject' argument can be any kind of object (even None);
 	the readGlyphFromString() method will attempt to set the following
 	attributes on it:
-		"width"      the advance with of the glyph
-		"height"     the advance height of the glyph
-		"unicodes"   a list of unicode values for this glyph
-		"note"       a string
-		"lib"        a dictionary containing custom data
-		"image"      a dictionary containing image data
-		"guidelines" a list of guideline data dictionaries
-		"anchors"    a list of anchor data dictionaries
+
+	width
+		the advance width of the glyph
+	height
+		the advance height of the glyph
+	unicodes
+		a list of unicode values for this glyph
+	note
+		a string
+	lib
+		a dictionary containing custom data
+	image
+		a dictionary containing image data
+	guidelines
+		a list of guideline data dictionaries
+	anchors
+		a list of anchor data dictionaries
 
 	All attributes are optional, in two ways:
-		1) An attribute *won't* be set if the .glif file doesn't
-		   contain data for it. 'glyphObject' will have to deal
-		   with default values itself.
-		2) If setting the attribute fails with an AttributeError
-		   (for example if the 'glyphObject' attribute is read-
-		   only), readGlyphFromString() will not propagate that
-		   exception, but ignore that attribute.
+
+	1) An attribute *won't* be set if the .glif file doesn't
+	   contain data for it. 'glyphObject' will have to deal
+	   with default values itself.
+	2) If setting the attribute fails with an AttributeError
+	   (for example if the 'glyphObject' attribute is read-
+	   only), readGlyphFromString() will not propagate that
+	   exception, but ignore that attribute.
 
 	To retrieve outline information, you need to pass an object
 	conforming to the PointPen protocol as the 'pointPen' argument.
@@ -728,14 +762,23 @@ def writeGlyphToString(
 	The 'glyphObject' argument can be any kind of object (even None);
 	the writeGlyphToString() method will attempt to get the following
 	attributes from it:
-		"width"      the advance width of the glyph
-		"height"     the advance height of the glyph
-		"unicodes"   a list of unicode values for this glyph
-		"note"       a string
-		"lib"        a dictionary containing custom data
-		"image"      a dictionary containing image data
-		"guidelines" a list of guideline data dictionaries
-		"anchors"    a list of anchor data dictionaries
+
+	width
+		the advance width of the glyph
+	height
+		the advance height of the glyph
+	unicodes
+		a list of unicode values for this glyph
+	note
+		a string
+	lib
+		a dictionary containing custom data
+	image
+		a dictionary containing image data
+	guidelines
+		a list of guideline data dictionaries
+	anchors
+		a list of anchor data dictionaries
 
 	All attributes are optional: if 'glyphObject' doesn't
 	have the attribute, it will simply be skipped.

@@ -43,6 +43,7 @@ public class LocationRequestTest {
         assertThat(request.getMaxUpdates()).isEqualTo(Integer.MAX_VALUE);
         assertThat(request.getMinUpdateDistanceMeters()).isEqualTo(0f);
         assertThat(request.isHiddenFromAppOps()).isEqualTo(false);
+        assertThat(request.isAdasGnssBypass()).isEqualTo(false);
         assertThat(request.isLocationSettingsIgnored()).isEqualTo(false);
         assertThat(request.isLowPower()).isEqualTo(false);
     }
@@ -56,6 +57,7 @@ public class LocationRequestTest {
                 .setMaxUpdates(7000)
                 .setMinUpdateDistanceMeters(8000f)
                 .setHiddenFromAppOps(true)
+                .setAdasGnssBypass(true)
                 .setLocationSettingsIgnored(true)
                 .setLowPower(true)
                 .build();
@@ -66,6 +68,7 @@ public class LocationRequestTest {
         assertThat(request.getMaxUpdates()).isEqualTo(7000);
         assertThat(request.getMinUpdateDistanceMeters()).isEqualTo(8000f);
         assertThat(request.isHiddenFromAppOps()).isEqualTo(true);
+        assertThat(request.isAdasGnssBypass()).isEqualTo(true);
         assertThat(request.isLocationSettingsIgnored()).isEqualTo(true);
         assertThat(request.isLowPower()).isEqualTo(true);
     }
@@ -79,6 +82,7 @@ public class LocationRequestTest {
                 .setMaxUpdates(7000)
                 .setMinUpdateDistanceMeters(8000f)
                 .setHiddenFromAppOps(true)
+                .setAdasGnssBypass(true)
                 .setLocationSettingsIgnored(true)
                 .setLowPower(true)
                 .build();
@@ -90,6 +94,7 @@ public class LocationRequestTest {
         assertThat(copy.getMaxUpdates()).isEqualTo(7000);
         assertThat(copy.getMinUpdateDistanceMeters()).isEqualTo(8000f);
         assertThat(copy.isHiddenFromAppOps()).isEqualTo(true);
+        assertThat(copy.isAdasGnssBypass()).isEqualTo(true);
         assertThat(copy.isLocationSettingsIgnored()).isEqualTo(true);
         assertThat(copy.isLowPower()).isEqualTo(true);
         assertThat(copy).isEqualTo(original);
@@ -178,6 +183,7 @@ public class LocationRequestTest {
                 .setMaxUpdates(7000)
                 .setMinUpdateDistanceMeters(8000f)
                 .setHiddenFromAppOps(true)
+                .setAdasGnssBypass(true)
                 .setLocationSettingsIgnored(true)
                 .setLowPower(true)
                 .build();

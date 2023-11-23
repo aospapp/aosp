@@ -40,6 +40,20 @@ public final class IkeInternalException extends IkeNonProtocolException {
     }
 
     /**
+     * Constructs a new exception with a descriptive message.
+     *
+     * <p>Except for testing, IKE library users normally do not instantiate this object themselves
+     * but instead get a reference via {@link IkeSessionCallback} or {@link ChildSessionCallback}.
+     *
+     * @param message the descriptive message (which is saved for later retrieval by the {@link
+     *     #getMessage()} method).
+     * @hide
+     */
+    public IkeInternalException(@NonNull String message) {
+        super(message);
+    }
+
+    /**
      * Constructs a new exception with the specified cause.
      *
      * <p>Except for testing, IKE library users normally do not instantiate this object themselves

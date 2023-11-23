@@ -16,15 +16,15 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2008319089248760277">"ការជូនដំណឹងពេល​មានអាសន្ន​ដោយឥតប្រើខ្សែ"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"ការជូនដំណឹងពេល​មានអាសន្ន​ដោយឥតប្រើខ្សែ"</string>
+    <string name="app_label" msgid="2008319089248760277">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"ការជូនដំណឹង​សម្រាប់ជាព័ត៌មាន"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"មិនអាចប្រើ​ការកំណត់ការជូនដំណឹងពេលមាន​អាសន្នដោយឥតប្រើខ្សែ​សម្រាប់អ្នកប្រើប្រាស់នេះ​បានទេ"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"យល់​ព្រម​"</string>
-    <string name="no_cell_broadcasts" msgid="7554779730107421769">"មិន​មាន​ការជូនដំណឹង​ពីមុន​ទេ"</string>
+    <string name="no_cell_broadcasts" msgid="7554779730107421769">"មិន​មាន​ការប្រកាសអាសន្ន​ពីមុន​ទេ"</string>
     <string name="menu_preferences" msgid="3596514894131599202">"ការ​កំណត់"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"លុប​ការ​ផ្សាយ"</string>
     <string name="message_options" msgid="3178489901903589574">"ជម្រើស​សារ"</string>
@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"សារ​សុវត្ថិភាព​សាធារណៈ"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"សកម្មភាព​ដែលណែនាំ​ឱ្យធ្វើ​ដែលអាច​ជួយសង្គ្រោះ​ជីវិត ឬទ្រព្យ​សម្បត្តិ"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"បង្ហាញសារពេញអេក្រង់"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"បិទដើម្បីផ្ញើសារអំពីសុវត្ថិភាពសាធារណៈទៅ​កម្មវិធី​សារ SMS របស់អ្នកតែប៉ុណ្ណោះ"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"នៅពេលបិទ សារសុវត្ថិភាពសាធារណៈក៏នៅតែត្រូវបានបញ្ជូនជាការជូនដំណឹងដដែល"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"ការសាកល្បងក្នុងមូលដ្ឋាន និងរដ្ឋ"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"ទទួល​សារ​សាកល្បង​ពីអាជ្ញាធរ​មូលដ្ឋាន និងរដ្ឋ"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"ការជូន​ដំណឹង​ពេលអាសន្ន"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"បាទ/ចាស"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"ទេ"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"ប្រវត្តិការជូនដំណឹងពេលអាសន្ន"</string>
+    <string name="action_delete" msgid="7435661404543945861">"លុប"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"បង្ហាញ​ព័ត៌មានលម្អិត"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"ម្ដង"</item>
     <item msgid="9097229303902157183">"រាល់ 2​ នាទីម្តង"</item>
@@ -147,7 +149,7 @@
     <item msgid="3863339891188103437">"រាល់ 15 នាទីម្តង"</item>
     <item msgid="7388573183644474611">"កុំឱ្យសោះ"</item>
   </string-array>
-    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"ការជូនដំណឹងអាសន្នដោយឥតប្រើខ្សែ"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"ការប្រកាសអាសន្ន​តាមប្រព័ន្ធឥតខ្សែ"</string>
     <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"ការ​ជូន​ដំណឹង​ផ្លូវការ"</string>
     <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"សារ​ព្រមាន​ថ្នាក់ជាតិ ដែលចេញ​ដោយ​ប្រធានាធិបតី​។ មិនអាច​បិទ​បានទេ​។"</string>
     <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"រយៈពេលរង់ចាំ​អតិបរមា៖"</string>
     <string name="seconds" msgid="141450721520515025">"វិនាទី"</string>
     <string name="message_copied" msgid="6922953753733166675">"បាន​ចម្លង​សារ"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"នៅពេល​ដែលអ្នក​កំពុងរ៉ូមីង អ្នកអាចទទួលបាន​ការជូនដំណឹង​មួយចំនួន ដែលមិនមាននៅក្នុង​ការកំណត់​ទាំងនេះ"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"ការកំណត់​បានផ្លាស់ប្ដូរដោយ​ក្រុមហ៊ុនសេវាទូរសព្ទ"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"ចុច ដើម្បីមើល​ការកំណត់​ការជូនដំណឹង​ពេលមានអាសន្ន​ដោយឥតប្រើខ្សែ"</string>
 </resources>

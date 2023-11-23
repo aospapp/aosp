@@ -17,6 +17,8 @@
 */
 
 /**
+ * @addtogroup ICU4C
+ * @{
  * \file
  * \brief C API: API for accessing ICU version numbers. 
  */
@@ -33,28 +35,28 @@
 #include "unicode/uvernum.h"
 
 /** Maximum length of the copyright string.
- *  @stable ICU 2.4
+ *  \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 #define U_COPYRIGHT_STRING_LENGTH  128
 
 /** An ICU version consists of up to 4 numbers from 0..255.
- *  @stable ICU 2.4
+ *  \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 #define U_MAX_VERSION_LENGTH 4
 
 /** In a string, ICU version fields are delimited by dots.
- *  @stable ICU 2.4
+ *  \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 #define U_VERSION_DELIMITER '.'
 
 /** The maximum length of an ICU version string.
- *  @stable ICU 2.4
+ *  \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 #define U_MAX_VERSION_STRING_LENGTH 20
 
 /** The binary form of a version on ICU APIs is an array of 4 uint8_t.
  *  To compare two versions, use memcmp(v1,v2,sizeof(UVersionInfo)).
- *  @stable ICU 2.4
+ *  \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 typedef uint8_t UVersionInfo[U_MAX_VERSION_LENGTH];
 
@@ -70,7 +72,7 @@ typedef uint8_t UVersionInfo[U_MAX_VERSION_LENGTH];
  * This is used to begin a declaration of a public ICU C++ API within
  * versioned-ICU-namespace block.
  *
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 
 /**
@@ -78,14 +80,14 @@ typedef uint8_t UVersionInfo[U_MAX_VERSION_LENGTH];
  * This is used to end a declaration of a public ICU C++ API.
  * It ends the versioned-ICU-namespace block begun by U_NAMESPACE_BEGIN.
  *
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 
 /**
  * \def U_NAMESPACE_USE
  * This is used to specify that the rest of the code uses the
  * public ICU C++ API namespace.
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 
 /**
@@ -95,7 +97,7 @@ typedef uint8_t UVersionInfo[U_MAX_VERSION_LENGTH];
  *
  * This macro is unnecessary since ICU 49 requires namespace support.
  * You can just use "icu::" instead.
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 
 #   if U_DISABLE_RENAMING
@@ -145,7 +147,7 @@ typedef uint8_t UVersionInfo[U_MAX_VERSION_LENGTH];
  *                      a string corresponding to the numeric version
  *                      information in versionArray.
  *                      The buffer size must be at least U_MAX_VERSION_STRING_LENGTH.
- * @stable ICU 2.4
+ * \xrefitem stable "Stable" "Stable List" ICU 2.4
  */
 U_CAPI void U_EXPORT2
 u_versionToString(const UVersionInfo versionArray, char *versionString) __INTRODUCED_IN(31);
@@ -158,10 +160,12 @@ u_versionToString(const UVersionInfo versionArray, char *versionString) __INTROD
  * Definition of this function lives in putil.c
  *
  * @param versionArray the version # information, the result will be filled in
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 U_CAPI void U_EXPORT2
 u_getVersion(UVersionInfo versionArray) __INTRODUCED_IN(31);
 
 
 #endif
+
+/** @} */ // addtogroup

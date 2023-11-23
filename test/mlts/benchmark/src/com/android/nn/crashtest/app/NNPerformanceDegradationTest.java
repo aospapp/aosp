@@ -22,6 +22,7 @@ import android.test.UiThreadTest;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.nn.benchmark.app.AcceleratorSpecificTestSupport;
 import com.android.nn.benchmark.app.BenchmarkTestBase;
 import com.android.nn.crashtest.core.test.PerformanceDegradationTest;
 
@@ -38,7 +39,7 @@ import java.util.Collections;
 @RunWith(Parameterized.class)
 public class NNPerformanceDegradationTest extends
         ActivityInstrumentationTestCase2<NNPerformanceDegradationTestActivity> implements
-        AcceleratorSpecificTestSupport {
+    AcceleratorSpecificTestSupport {
     public static final String TAG = PerformanceDegradationTest.TAG;
 
 

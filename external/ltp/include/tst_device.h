@@ -1,18 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2016-2019 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_DEVICE_H__
@@ -35,6 +23,13 @@ extern struct tst_device *tst_device;
  * @path: Path to umount
  */
 int tst_umount(const char *path);
+
+/*
+ * Verifies if an earlier mount is successful or not.
+ * @path: Mount path to verify
+ */
+int tst_is_mounted(const char *path);
+int tst_is_mounted_at_tmpdir(const char *path);
 
 /*
  * Clears a first few blocks of the device. This is needed when device has
@@ -63,10 +58,24 @@ int tst_find_free_loopdev(const char *path, size_t path_len);
 int tst_attach_device(const char *dev_path, const char *file_path);
 
 /*
+ * Detaches a file from a loop device fd.
+ *
+ * @dev_path Path to the loop device e.g. /dev/loop0
+ * @dev_fd a open fd for the loop device
+ * @return Zero on succes, non-zero otherwise.
+ */
+int tst_detach_device_by_fd(const char *dev_path, int dev_fd);
+
+/*
  * Detaches a file from a loop device.
  *
  * @dev_path Path to the loop device e.g. /dev/loop0
  * @return Zero on succes, non-zero otherwise.
+ *
+ * Internally this function opens the device and calls
+ * tst_detach_device_by_fd(). If you keep device file descriptor open you
+ * have to call the by_fd() variant since having the device open twice will
+ * prevent it from being detached.
  */
 int tst_detach_device(const char *dev_path);
 
@@ -83,5 +92,17 @@ int tst_dev_sync(int fd);
  * @dev: test block device
  */
 unsigned long tst_dev_bytes_written(const char *dev);
+
+/*
+ * Wipe the contents of given directory but keep the directory itself
+ */
+void tst_purge_dir(const char *path);
+
+/*
+ * Find the file or path belongs to which block dev
+ * @path  Path to find the backing dev
+ * @dev   The block dev
+ */
+void tst_find_backing_dev(const char *path, char *dev);
 
 #endif	/* TST_DEVICE_H__ */

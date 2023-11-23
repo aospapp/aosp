@@ -37,23 +37,8 @@
 #include "bpf/BpfUtils.h"
 
 using android::base::Join;
-using android::base::ReadFileToString;
-using android::base::Split;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
-using android::net::gCtls;
-
-namespace {
-
-// Default maximum valid uid in a normal root user namespace. The maximum valid uid is used in
-// rules that exclude all possible UIDs in the namespace in order to match packets that have
-// no socket associated with them.
-constexpr const uid_t kDefaultMaximumUid = UID_MAX - 1;  // UID_MAX defined as UINT_MAX
-
-// Proc file containing the uid mapping for the user namespace of the current process.
-const char kUidMapProcFile[] = "/proc/self/uid_map";
-
-}  // namespace
 
 namespace android {
 namespace net {
@@ -65,11 +50,6 @@ const char* FirewallController::TABLE = "filter";
 const char* FirewallController::LOCAL_INPUT = "fw_INPUT";
 const char* FirewallController::LOCAL_OUTPUT = "fw_OUTPUT";
 const char* FirewallController::LOCAL_FORWARD = "fw_FORWARD";
-
-const char* FirewallController::LOCAL_DOZABLE = "fw_dozable";
-const char* FirewallController::LOCAL_STANDBY = "fw_standby";
-const char* FirewallController::LOCAL_POWERSAVE = "fw_powersave";
-const char* FirewallController::LOCAL_RESTRICTED = "fw_restricted";
 
 // ICMPv6 types that are required for any form of IPv6 connectivity to work. Note that because the
 // fw_dozable chain is called from both INPUT and OUTPUT, this includes both packets that we need
@@ -83,25 +63,14 @@ const char* FirewallController::ICMPV6_TYPES[] = {
     "redirect",
 };
 
-FirewallController::FirewallController(void) : mMaxUid(discoverMaximumValidUid(kUidMapProcFile)) {
+FirewallController::FirewallController(void) {
     // If no rules are set, it's in DENYLIST mode
     mFirewallType = DENYLIST;
     mIfaceRules = {};
 }
 
 int FirewallController::setupIptablesHooks(void) {
-    int res = flushRules();
-
-    // mUseBpfOwnerMatch should be removed, but it is still depended upon by test code.
-    mUseBpfOwnerMatch = true;
-    if (mUseBpfOwnerMatch) {
-        return res;
-    }
-    res |= createChain(LOCAL_DOZABLE, getFirewallType(DOZABLE));
-    res |= createChain(LOCAL_STANDBY, getFirewallType(STANDBY));
-    res |= createChain(LOCAL_POWERSAVE, getFirewallType(POWERSAVE));
-    res |= createChain(LOCAL_RESTRICTED, getFirewallType(RESTRICTED));
-    return res;
+    return flushRules();
 }
 
 int FirewallController::setFirewallType(FirewallType ftype) {
@@ -145,39 +114,6 @@ int FirewallController::resetFirewall(void) {
     return flushRules();
 }
 
-int FirewallController::enableChildChains(ChildChain chain, bool enable) {
-    int res = 0;
-    const char* name;
-    switch(chain) {
-        case DOZABLE:
-            name = LOCAL_DOZABLE;
-            break;
-        case STANDBY:
-            name = LOCAL_STANDBY;
-            break;
-        case POWERSAVE:
-            name = LOCAL_POWERSAVE;
-            break;
-        case RESTRICTED:
-            name = LOCAL_RESTRICTED;
-            break;
-        default:
-            return res;
-    }
-
-    if (mUseBpfOwnerMatch) {
-        return gCtls->trafficCtrl.toggleUidOwnerMap(chain, enable);
-    }
-
-    std::string command = "*filter\n";
-    for (const char *parent : { LOCAL_INPUT, LOCAL_OUTPUT }) {
-        StringAppendF(&command, "%s %s -j %s\n", (enable ? "-A" : "-D"), parent, name);
-    }
-    StringAppendF(&command, "COMMIT\n");
-
-    return execIptablesRestore(V4V6, command);
-}
-
 int FirewallController::isFirewallEnabled(void) {
     // TODO: verify that rules are still in place near top
     return -1;
@@ -217,77 +153,6 @@ int FirewallController::setInterfaceRule(const char* iface, FirewallRule rule) {
     return (execIptablesRestore(V4V6, command) == 0) ? 0 : -EREMOTEIO;
 }
 
-FirewallType FirewallController::getFirewallType(ChildChain chain) {
-    switch(chain) {
-        case DOZABLE:
-            return ALLOWLIST;
-        case STANDBY:
-            return DENYLIST;
-        case POWERSAVE:
-            return ALLOWLIST;
-        case RESTRICTED:
-            return ALLOWLIST;
-        case NONE:
-            return mFirewallType;
-        default:
-            return DENYLIST;
-    }
-}
-
-int FirewallController::setUidRule(ChildChain chain, int uid, FirewallRule rule) {
-    const char* op;
-    const char* target;
-    FirewallType firewallType = getFirewallType(chain);
-    if (firewallType == ALLOWLIST) {
-        target = "RETURN";
-        // When adding, insert RETURN rules at the front, before the catch-all DROP at the end.
-        op = (rule == ALLOW)? "-I" : "-D";
-    } else {  // DENYLIST mode
-        target = "DROP";
-        // When adding, append DROP rules at the end, after the RETURN rule that matches TCP RSTs.
-        op = (rule == DENY)? "-A" : "-D";
-    }
-
-    std::vector<std::string> chainNames;
-    switch(chain) {
-        case DOZABLE:
-            chainNames = {LOCAL_DOZABLE};
-            break;
-        case STANDBY:
-            chainNames = {LOCAL_STANDBY};
-            break;
-        case POWERSAVE:
-            chainNames = {LOCAL_POWERSAVE};
-            break;
-        case RESTRICTED:
-            chainNames = {LOCAL_RESTRICTED};
-            break;
-        case NONE:
-            chainNames = {LOCAL_INPUT, LOCAL_OUTPUT};
-            break;
-        default:
-            ALOGW("Unknown child chain: %d", chain);
-            return -EINVAL;
-    }
-    if (mUseBpfOwnerMatch) {
-        return gCtls->trafficCtrl.changeUidOwnerRule(chain, uid, rule, firewallType);
-    }
-
-    std::string command = "*filter\n";
-    for (const std::string& chainName : chainNames) {
-        StringAppendF(&command, "%s %s -m owner --uid-owner %d -j %s\n",
-                      op, chainName.c_str(), uid, target);
-    }
-    StringAppendF(&command, "COMMIT\n");
-
-    return (execIptablesRestore(V4V6, command) == 0) ? 0 : -EREMOTEIO;
-}
-
-int FirewallController::createChain(const char* chain, FirewallType type) {
-    static const std::vector<int32_t> NO_UIDS;
-    return replaceUidChain(chain, type == ALLOWLIST, NO_UIDS);
-}
-
 /* static */
 std::string FirewallController::makeCriticalCommands(IptablesTarget target, const char* chainName) {
     // Allow ICMPv6 packets necessary to make IPv6 connectivity work. http://b/23158230 .
@@ -299,113 +164,6 @@ std::string FirewallController::makeCriticalCommands(IptablesTarget target, cons
         }
     }
     return commands;
-}
-
-std::string FirewallController::makeUidRules(IptablesTarget target, const char* name,
-                                             bool isAllowlist, const std::vector<int32_t>& uids) {
-    std::string commands;
-    StringAppendF(&commands, "*filter\n:%s -\n", name);
-
-    // Allowlist chains have UIDs at the beginning, and new UIDs are added with '-I'.
-    if (isAllowlist) {
-        for (auto uid : uids) {
-            StringAppendF(&commands, "-A %s -m owner --uid-owner %d -j RETURN\n", name, uid);
-        }
-
-        // Always allowlist system UIDs.
-        StringAppendF(&commands,
-                "-A %s -m owner --uid-owner %d-%d -j RETURN\n", name, 0, MAX_SYSTEM_UID);
-
-        // This rule inverts the match for all UIDs; ie, if there is no UID match here,
-        // there is no socket to be found
-        StringAppendF(&commands,
-                "-A %s -m owner ! --uid-owner %d-%u -j RETURN\n", name, 0, mMaxUid);
-
-        // Always allowlist traffic with protocol ESP, or no known socket - required for IPSec
-        StringAppendF(&commands, "-A %s -p esp -j RETURN\n", name);
-    }
-
-    // Always allow networking on loopback.
-    StringAppendF(&commands, "-A %s -i lo -j RETURN\n", name);
-    StringAppendF(&commands, "-A %s -o lo -j RETURN\n", name);
-
-    // Allow TCP RSTs so we can cleanly close TCP connections of apps that no longer have network
-    // access. Both incoming and outgoing RSTs are allowed.
-    StringAppendF(&commands, "-A %s -p tcp --tcp-flags RST RST -j RETURN\n", name);
-
-    if (isAllowlist) {
-        commands.append(makeCriticalCommands(target, name));
-    }
-
-    // Denylist chains have UIDs at the end, and new UIDs are added with '-A'.
-    if (!isAllowlist) {
-        for (auto uid : uids) {
-            StringAppendF(&commands, "-A %s -m owner --uid-owner %d -j DROP\n", name, uid);
-        }
-    }
-
-    // If it's an allowlist chain, add a default DROP at the end. This is not necessary for a
-    // denylist chain, because all user-defined chains implicitly RETURN at the end.
-    if (isAllowlist) {
-        StringAppendF(&commands, "-A %s -j DROP\n", name);
-    }
-
-    StringAppendF(&commands, "COMMIT\n");
-
-    return commands;
-}
-
-int FirewallController::replaceUidChain(const std::string& name, bool isAllowlist,
-                                        const std::vector<int32_t>& uids) {
-    if (mUseBpfOwnerMatch) {
-        return gCtls->trafficCtrl.replaceUidOwnerMap(name, isAllowlist, uids);
-    }
-    std::string commands4 = makeUidRules(V4, name.c_str(), isAllowlist, uids);
-    std::string commands6 = makeUidRules(V6, name.c_str(), isAllowlist, uids);
-    return execIptablesRestore(V4, commands4.c_str()) | execIptablesRestore(V6, commands6.c_str());
-}
-
-/* static */
-uid_t FirewallController::discoverMaximumValidUid(const std::string& fileName) {
-    std::string content;
-    if (!ReadFileToString(fileName, &content, false)) {
-        // /proc/self/uid_map only exists if a uid mapping has been set.
-        ALOGD("Could not read %s, max uid defaulting to %u", fileName.c_str(), kDefaultMaximumUid);
-        return kDefaultMaximumUid;
-    }
-
-    std::vector<std::string> lines = Split(content, "\n");
-    if (lines.empty()) {
-        ALOGD("%s was empty, max uid defaulting to %u", fileName.c_str(), kDefaultMaximumUid);
-        return kDefaultMaximumUid;
-    }
-
-    uint32_t maxUid = 0;
-    for (const auto& line : lines) {
-        if (line.empty()) {
-            continue;
-        }
-
-        // Choose the end of the largest range found in the file.
-        uint32_t start;
-        uint32_t ignored;
-        uint32_t rangeLength;
-        int items = sscanf(line.c_str(), "%u %u %u", &start, &ignored, &rangeLength);
-        if (items != 3) {
-            // uid_map lines must have 3 items, see the man page of 'user_namespaces' for details.
-            ALOGD("Format of %s unrecognized, max uid defaulting to %u", fileName.c_str(),
-                  kDefaultMaximumUid);
-            return kDefaultMaximumUid;
-        }
-        maxUid = std::max(maxUid, start + rangeLength - 1);
-    }
-
-    if (maxUid == 0) {
-        ALOGD("No max uid found, max uid defaulting to %u", kDefaultMaximumUid);
-        return kDefaultMaximumUid;
-    }
-
-    return maxUid;
 }
 
 }  // namespace net

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNotNull;
 
 import android.os.PerformanceHintManager;
@@ -30,6 +31,8 @@ import android.os.Process;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.google.common.base.Strings;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,6 +41,10 @@ import org.junit.runner.RunWith;
 public class PerformanceHintManagerTest {
     private final long DEFAULT_TARGET_NS = 16666666L;
     private PerformanceHintManager mPerformanceHintManager;
+
+    static {
+        System.loadLibrary("ctsos_jni");
+    }
 
     @Before
     public void setUp() {
@@ -57,8 +64,18 @@ public class PerformanceHintManagerTest {
         Session b = createSession();
         if (a == null) {
             assertNull(b);
+        } else if (b == null) {
+            assertNull(a);
         } else {
             assertNotEquals(a, b);
+        }
+    }
+
+    @Test
+    public void testNativeCreateHintSession() {
+        final String failureMessage = nativeTestCreateHintSession();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
         }
     }
 
@@ -72,10 +89,26 @@ public class PerformanceHintManagerTest {
     }
 
     @Test
+    public void testNativeGetPreferredUpdateRateNanos() {
+        final String failureMessage = nativeTestGetPreferredUpdateRateNanos();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
+    }
+
+    @Test
     public void testUpdateTargetWorkDuration() {
         Session s = createSession();
         assumeNotNull(s);
         s.updateTargetWorkDuration(100);
+    }
+
+    @Test
+    public void testNativeUpdateTargetWorkDuration() {
+        final String failureMessage = nativeUpdateTargetWorkDuration();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
     }
 
     @Test
@@ -85,6 +118,14 @@ public class PerformanceHintManagerTest {
         assertThrows(IllegalArgumentException.class, () -> {
             s.updateTargetWorkDuration(-1);
         });
+    }
+
+    @Test
+    public void testNativeUpdateTargetWorkDurationWithNegativeDuration() {
+        final String failureMessage = nativeUpdateTargetWorkDurationWithNegativeDuration();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
     }
 
     @Test
@@ -98,6 +139,14 @@ public class PerformanceHintManagerTest {
     }
 
     @Test
+    public void testNativeReportActualWorkDuration() {
+        final String failureMessage = nativeReportActualWorkDuration();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
+    }
+
+    @Test
     public void testReportActualWorkDurationWithIllegalArgument() {
         Session s = createSession();
         assumeNotNull(s);
@@ -108,9 +157,24 @@ public class PerformanceHintManagerTest {
     }
 
     @Test
+    public void testNativeReportActualWorkDurationWithIllegalArgument() {
+        final String failureMessage = nativeReportActualWorkDurationWithIllegalArgument();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
+    }
+
+    @Test
     public void testCloseHintSession() {
         Session s = createSession();
         assumeNotNull(s);
         s.close();
     }
+
+    private native String nativeTestCreateHintSession();
+    private native String nativeTestGetPreferredUpdateRateNanos();
+    private native String nativeUpdateTargetWorkDuration();
+    private native String nativeUpdateTargetWorkDurationWithNegativeDuration();
+    private native String nativeReportActualWorkDuration();
+    private native String nativeReportActualWorkDurationWithIllegalArgument();
 }

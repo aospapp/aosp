@@ -43,18 +43,28 @@ rust_library {
     name: "libandroid_log_sys",
     host_supported: true,
     crate_name: "android_log_sys",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.0",
     srcs: ["src/lib.rs"],
     edition: "2015",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
+        "com.android.resolv",
+        "com.android.uwb",
+        "com.android.virt",
+    ],
+    vendor_available: true,
+    min_sdk_version: "29",
     target: {
         linux_glibc: {
             // liblog is not added as a dependency for linux_glibc target
             enabled: false,
         },
+        linux_musl: {
+            // liblog is not added as a dependency for linux_musl target
+            enabled: false,
+        },
     },
-    apex_available: [
-        "//apex_available:platform",
-        "com.android.resolv",
-        "com.android.virt",
-    ],
-    min_sdk_version: "29",
 }

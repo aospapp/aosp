@@ -48,6 +48,12 @@
 #define PH_TMLNFC_RESETDEVICE (0x00008001)
 
 /*
+ * Fragment Length for SNXXX and PN547
+ */
+#define PH_TMLNFC_FRGMENT_SIZE_SNXXX (0x22A)
+#define PH_TMLNFC_FRGMENT_SIZE_PN557 (0x102)
+
+/*
 ***************************Globals,Structure and Enumeration ******************
 */
 
@@ -109,7 +115,9 @@ typedef enum {
   phTmlNfc_e_EnableNormalMode, /* Hardware setting for normal mode of operation
                                 */
   phTmlNfc_e_EnableDownloadModeWithVenRst,
+  phTmlNfc_e_EnableVen, /* Enable Ven for PN557 chip*/
   phTmlNfc_e_PowerReset = 5,
+  phTmlNfc_e_setFragmentSize,
 } phTmlNfc_ControlCode_t; /* Control code for IOCTL call */
 
 /*
@@ -122,15 +130,6 @@ typedef enum {
   phTmlNfc_e_DisableRetrans = 0x01 /*Disable retransmission of Nci packet */
 } phTmlNfc_ConfigRetrans_t;        /* Configuration for Retransmission */
 
-/*nfc state flags*/
-enum nfc_state_flags {
-  /*nfc in unknown state */
-  NFC_STATE_UNKNOWN = 0,
-  /*nfc booted in download mode */
-  NFC_STATE_FW_DWL = 0x1,
-  /*nfc booted in NCI mode */
-  NFC_STATE_NCI = 0x2,
-};
 /*
  * Structure containing details related to read and write operations
  *
@@ -148,13 +147,6 @@ typedef struct phTmlNfc_ReadWriteInfo {
   NFCSTATUS wWorkStatus; /*Status of the transaction performed */
 } phTmlNfc_ReadWriteInfo_t;
 
-/*nfc platform interface type*/
-enum platform_interface_type {
-  /*I2C physical IF for NFCC*/
-  PLATFORM_IF_I2C = 0,
-  /*I3C physical IF for NFCC*/
-  PLATFORM_IF_I3C,
-};
 /*
  *Base Context Structure containing members required for entire session
  */
@@ -185,8 +177,7 @@ typedef struct phTmlNfc_Context {
   volatile uint8_t gWriterCbflag; /* flag to indicate write callback message is
                                      pushed to queue*/
   long nfc_service_pid; /*NFC Service PID to be used by driver to signal*/
-  int platform_type;    /*for common(i2c or i3c) mw implementation*/
-  int nfc_state;        /*to get the initial boot state*/
+  uint16_t fragment_len;
 } phTmlNfc_Context_t;
 
 /*
@@ -208,6 +199,7 @@ typedef struct phTmlNfc_Config {
    *
    * This is the baudrate of the bus for communication between DH and PN54X */
   uint32_t dwBaudRate;
+  uint16_t fragment_len;
 } phTmlNfc_Config_t, *pphTmlNfc_Config_t; /* pointer to phTmlNfc_Config_t */
 
 /*
@@ -255,5 +247,4 @@ phTmlNfc_i2cfragmentation_t phTmlNfc_get_fragmentation_enabled();
 NFCSTATUS phTmlNfc_ConfigTransport();
 void phTmlNfc_EnableFwDnldMode(bool mode);
 bool phTmlNfc_IsFwDnldModeEnabled(void);
-void phTmlNfc_WaitForIRQLow();
 #endif /*  PHTMLNFC_H  */

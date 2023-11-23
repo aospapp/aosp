@@ -56,7 +56,7 @@ public class FeatureGroupInfoTest extends AndroidTestCase {
         };
 
         PackageInfo pi = mPackageManager.getPackageInfo(getContext().getPackageName(),
-                PackageManager.GET_CONFIGURATIONS);
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_CONFIGURATIONS));
         assertNotNull(pi);
         assertNotNull(pi.reqFeatures);
         assertNotNull(pi.featureGroups);

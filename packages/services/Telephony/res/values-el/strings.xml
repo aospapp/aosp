@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Λειτουργία επιστροφής κλήσης έκτακτης ανάγκης"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Απενεργοποιήθηκε η σύνδεση δεδομένων"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Χωρίς σύνδεση δεδομένων έως <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Το τηλέφωνο θα βρίσκεται σε κατάσταση \"Επείγουσας επιστροφής κλήσης\" για <xliff:g id="COUNT_1">%s</xliff:g> λεπτά. Σε αυτήν την κατάσταση, δεν είναι δυνατή η χρήση εφαρμογών που χρησιμοποιούν σύνδεση δεδομένων. Θέλετε να εξέλθετε τώρα;</item>
-      <item quantity="one">Το τηλέφωνο θα βρίσκεται σε κατάσταση \"Επείγουσας επιστροφής κλήσης\" για <xliff:g id="COUNT_0">%s</xliff:g> λεπτό. Σε αυτήν την κατάσταση, δεν είναι δυνατή η χρήση εφαρμογών που χρησιμοποιούν σύνδεση δεδομένων. Θέλετε να εξέλθετε τώρα;</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Η επιλεγμένη ενέργεια δεν είναι διαθέσιμη όταν η συσκευή βρίσκεται σε κατάσταση \"Επείγουσας επιστροφής κλήσης\". Το τηλέφωνο θα βρίσκεται σε αυτήν την κατάσταση για <xliff:g id="COUNT_1">%s</xliff:g> λεπτά. Θέλετε να εξέλθετε τώρα;</item>
-      <item quantity="one">Η επιλεγμένη ενέργεια δεν είναι διαθέσιμη όταν η συσκευή βρίσκεται σε κατάσταση \"Επείγουσας επιστροφής κλήσης\". Το τηλέφωνο θα βρίσκεται σε αυτήν την κατάσταση για <xliff:g id="COUNT_0">%s</xliff:g> λεπτό. Θέλετε να εξέλθετε τώρα;</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Το τηλέφωνο θα βρίσκεται στη λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για ένα λεπτό. Όσο βρίσκεται σε αυτήν τη λειτουργία, δεν θα μπορούν να χρησιμοποιηθούν εφαρμογές με σύνδεση δεδομένων. Επιθυμείτε έξοδο τώρα;}other{Το τηλέφωνο βρίσκεται στη λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για %s λεπτά. Όσο βρίσκεται σε αυτήν τη λειτουργία, δεν θα μπορούν να χρησιμοποιηθούν εφαρμογές με σύνδεση δεδομένων. Επιθυμείτε έξοδο τώρα;}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Η επιλεγμένη ενέργεια δεν είναι διαθέσιμη σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης. Το τηλέφωνο θα βρίσκεται σε αυτήν τη λειτουργία για ένα λεπτό. Επιθυμείτε έξοδο τώρα;}other{Η επιλεγμένη ενέργεια δεν είναι διαθέσιμη στη λειτουργία επιστροφής κλήσης έκτακτης ανάγκης. Το τηλέφωνο θα βρίσκεται σε αυτήν τη λειτουργία για %s λεπτά. Επιθυμείτε έξοδο τώρα;}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Η επιλεγμένη ενέργεια δεν είναι διαθέσιμη κατά τη διάρκεια κλήσης επείγουσας ανάγκης."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Έξοδος από τη λειτουργία επιστροφής κλήσης έκτακτης ανάγκης"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Ναι"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Απόρριψη"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Το τηλέφωνο βρίσκεται σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Έως <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Το τηλέφωνο θα βρίσκεται σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για <xliff:g id="COUNT_1">%s</xliff:g> λεπτά.\nΕπιθυμείτε έξοδο τώρα;</item>
-      <item quantity="one">Το τηλέφωνο θα βρίσκεται σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για <xliff:g id="COUNT_0">%s</xliff:g> λεπτό.\nΕπιθυμείτε έξοδο τώρα;</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Το τηλέφωνο θα βρίσκεται σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για ένα λεπτό.\nΕπιθυμείτε έξοδο τώρα;}other{Το τηλέφωνο θα βρίσκεται σε λειτουργία επιστροφής κλήσης έκτακτης ανάγκης για %s λεπτά.\nΕπιθυμείτε έξοδο τώρα;}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Υπηρεσία"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Ρυθμίσεις"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Δεν έχει οριστεί&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Προσβασιμότητα"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Κλήση Wi-Fi από"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Κλήση μέσω Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Πατήστε ξανά για άνοιγμα"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Παρουσιάστηκε κάποιο σφάλμα κατά την αποκωδικοποίηση του μηνύματος."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Μια κάρτα SIM ενεργοποίησε την υπηρεσία σας και ενημέρωσε τις δυνατότητες περιαγωγής του τηλεφώνου σας."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Υπάρχουν πάρα πολλές ενεργές κλήσεις. Τερματίστε ή να συγχωνεύστε τις υπάρχουσες κλήσεις πριν πραγματοποιήσετε νέα."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, επειδή βρίσκεται ήδη σε εξέλιξη εξερχόμενη κλήση."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Δεν είναι δυνατή η πραγματοποίηση κλήσης, επειδή υπάρχει αναπάντητη εισερχόμενη κλήση. Απαντήστε ή απορρίψτε την εισερχόμενη κλήση, προτού πραγματοποιήσετε μια νέα κλήση."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Δεν είναι δυνατή η πραγματοποίηση κλήσης επειδή η κλήση έχει απενεργοποιηθεί μέσω της ιδιότητας συστήματος ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Δεν είναι δυνατή η πραγματοποίηση κλήσης, επειδή υπάρχουν ήδη δύο κλήσεις σε εξέλιξη. Αποσυνδέστε μια από τις κλήσεις ή συγχωνεύστε τες σε μια διάσκεψη, προτού πραγματοποιήσετε μια νέα κλήση."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Δεν είναι δυνατή η πραγματοποίηση κλήσης, επειδή υπάρχουν ήδη δύο κλήσεις σε εξέλιξη. Αποσυνδέστε μια από τις κλήσεις ή συγχωνεύστε τες σε μια συνδιάσκεψη, προτού πραγματοποιήσετε μια νέα κλήση."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Για να χρησιμοποιήσετε την υπηρεσία \"<xliff:g id="SUPP_SERVICE">%s</xliff:g>\", βεβαιωθείτε ότι τα δεδομένα κινητής τηλεφωνίας είναι ενεργοποιημένα. Μπορείτε να το αλλάξετε αυτό από τις ρυθμίσεις δικτύου κινητής τηλεφωνίας."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Για να χρησιμοποιήσετε την υπηρεσία \"<xliff:g id="SUPP_SERVICE">%s</xliff:g>\", βεβαιωθείτε ότι τα δεδομένα κινητής τηλεφωνίας, καθώς και η περιαγωγή δεδομένων, είναι ενεργοποιημένα. Μπορείτε να το αλλάξετε αυτό από τις ρυθμίσεις δικτύου κινητής τηλεφωνίας."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Για να χρησιμοποιήσετε την υπηρεσία \"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>\", βεβαιωθείτε ότι τα δεδομένα κινητής τηλεφωνίας είναι ενεργοποιημένα για τη SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Μπορείτε να το αλλάξετε αυτό από τις ρυθμίσεις δικτύου κινητής τηλεφωνίας."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Πρέπει να επανεκκινηθεί η συσκευή για να αλλάξει η ρύθμιση."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Επανεκκίνηση"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Ακύρωση"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Ορισμός αφαιρούμενης eSIM ως προεπιλεγμένης"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Ισχύς πομπού κινητής τηλεφωνίας"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Προβολή βιβλίου διευθύνσεων κάρτας SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Προβολή προκαθορισμένων αριθμών κλήσης"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Επιλογή ζώνης συχνοτήτων πομπού"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Τύπος δικτύου φωνής:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Τύπος δικτύου δεδομένων:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Παράκαμψη τύπου δικτύου:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Επιλογή ευρετηρίου τηλεφώνου"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Ορισμός προτιμώμενου τύπου δικτύου:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Όνομα κεντρικού υπολογιστή Ping (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Ανανέωση"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Εναλλαγή ελέγχου DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Πληροφορίες/ρυθμίσεις για OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC διαθέσιμο:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR με περιορισμό:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR διαθέσιμο:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Κατάσταση NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC διαθέσιμο (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR με περιορισμούς (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR διαθέσιμο (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Κατάσταση NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Συχνότητα NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Ρύθμιση λειτουργίας ζώνης συχνοτήτων πομπού"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Φόρτωση λίστας ζωνών…"</string>

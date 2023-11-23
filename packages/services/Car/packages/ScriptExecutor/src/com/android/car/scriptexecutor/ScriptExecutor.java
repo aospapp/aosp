@@ -18,12 +18,15 @@ package com.android.car.scriptexecutor;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.car.telemetry.scriptexecutorinterface.IScriptExecutor;
@@ -37,7 +40,6 @@ import java.io.InputStream;
  * and input arguments.
  */
 public final class ScriptExecutor extends Service {
-
     static {
         System.loadLibrary("scriptexecutorjni");
     }
@@ -53,7 +55,8 @@ public final class ScriptExecutor extends Service {
         @Override
         public void invokeScript(String scriptBody, String functionName,
                 PersistableBundle publishedData, PersistableBundle savedState,
-                IScriptExecutorListener listener) {
+                IScriptExecutorListener listener) throws SecurityException {
+            ensureCallerIsSystem();
             mNativeHandler.post(() ->
                     nativeInvokeScript(mLuaEnginePtr, scriptBody, functionName, publishedData,
                             savedState, listener));
@@ -62,7 +65,8 @@ public final class ScriptExecutor extends Service {
         @Override
         public void invokeScriptForLargeInput(String scriptBody, String functionName,
                 ParcelFileDescriptor publishedDataFileDescriptor, PersistableBundle savedState,
-                IScriptExecutorListener listener) {
+                IScriptExecutorListener listener) throws SecurityException {
+            ensureCallerIsSystem();
             mNativeHandler.post(() -> {
                 PersistableBundle publishedData;
                 try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(
@@ -115,6 +119,12 @@ public final class ScriptExecutor extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return mScriptExecutorBinder;
+    }
+
+    private void ensureCallerIsSystem() throws SecurityException {
+        if (UserHandle.getAppId(Binder.getCallingUid()) != Process.SYSTEM_UID) {
+            throw new SecurityException("ScriptExecutor called from non-system user");
+        }
     }
 
     /**

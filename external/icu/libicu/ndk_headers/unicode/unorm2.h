@@ -20,6 +20,8 @@
 #define __UNORM2_H__
 
 /**
+ * @addtogroup ICU4C
+ * @{
  * \file
  * \brief C API: New API for Unicode Normalization.
  *
@@ -42,7 +44,7 @@
  * For details about standard Unicode normalization forms
  * and about the algorithms which are also used with custom mapping tables
  * see http://www.unicode.org/unicode/reports/tr15/
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 typedef enum {
     /**
@@ -51,7 +53,7 @@ typedef enum {
      * Same as standard NFKC when using an "nfkc" instance.
      * For details about standard Unicode normalization forms
      * see http://www.unicode.org/unicode/reports/tr15/
-     * @stable ICU 4.4
+     * \xrefitem stable "Stable" "Stable List" ICU 4.4
      */
     UNORM2_COMPOSE,
     /**
@@ -60,7 +62,7 @@ typedef enum {
      * Same as standard NFKD when using an "nfkc" instance.
      * For details about standard Unicode normalization forms
      * see http://www.unicode.org/unicode/reports/tr15/
-     * @stable ICU 4.4
+     * \xrefitem stable "Stable" "Stable List" ICU 4.4
      */
     UNORM2_DECOMPOSE,
     /**
@@ -73,7 +75,7 @@ typedef enum {
      * Not a standard Unicode normalization form.
      * Not a unique form: Different FCD strings can be canonically equivalent.
      * For details see http://www.unicode.org/notes/tn5/#FCD
-     * @stable ICU 4.4
+     * \xrefitem stable "Stable" "Stable List" ICU 4.4
      */
     UNORM2_FCD,
     /**
@@ -83,7 +85,7 @@ typedef enum {
      * The result will conform to FCD which is useful for processing.
      * Not a standard Unicode normalization form.
      * For details see http://www.unicode.org/notes/tn5/#FCC
-     * @stable ICU 4.4
+     * \xrefitem stable "Stable" "Stable List" ICU 4.4
      */
     UNORM2_COMPOSE_CONTIGUOUS
 } UNormalization2Mode;
@@ -91,17 +93,17 @@ typedef enum {
 /**
  * Result values for normalization quick check functions.
  * For details see http://www.unicode.org/reports/tr15/#Detecting_Normalization_Forms
- * @stable ICU 2.0
+ * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
 typedef enum UNormalizationCheckResult {
   /**
    * The input string is not in the normalization form.
-   * @stable ICU 2.0
+   * \xrefitem stable "Stable" "Stable List" ICU 2.0
    */
   UNORM_NO,
   /**
    * The input string is in the normalization form.
-   * @stable ICU 2.0
+   * \xrefitem stable "Stable" "Stable List" ICU 2.0
    */
   UNORM_YES,
   /**
@@ -109,17 +111,17 @@ typedef enum UNormalizationCheckResult {
    * This value is only returned for composition forms like NFC and FCC,
    * when a backward-combining character is found for which the surrounding text
    * would have to be analyzed further.
-   * @stable ICU 2.0
+   * \xrefitem stable "Stable" "Stable List" ICU 2.0
    */
   UNORM_MAYBE
 } UNormalizationCheckResult;
 
 /**
  * Opaque C service object type for the new normalization API.
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 struct UNormalizer2;
-typedef struct UNormalizer2 UNormalizer2;  /**< C typedef for struct UNormalizer2. @stable ICU 4.4 */
+typedef struct UNormalizer2 UNormalizer2;  /**< C typedef for struct UNormalizer2. \xrefitem stable "Stable" "Stable List" ICU 4.4 */
 
 #if !UCONFIG_NO_NORMALIZATION
 
@@ -132,7 +134,7 @@ typedef struct UNormalizer2 UNormalizer2;  /**< C typedef for struct UNormalizer
  *                  immediately. Check for U_FAILURE() on output or use with
  *                  function chaining. (See User Guide for details.)
  * @return the requested Normalizer2, if successful
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI const UNormalizer2 * U_EXPORT2
 unorm2_getNFCInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
@@ -148,7 +150,7 @@ unorm2_getNFCInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
  *                  immediately. Check for U_FAILURE() on output or use with
  *                  function chaining. (See User Guide for details.)
  * @return the requested Normalizer2, if successful
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI const UNormalizer2 * U_EXPORT2
 unorm2_getNFDInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
@@ -164,7 +166,7 @@ unorm2_getNFDInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
  *                  immediately. Check for U_FAILURE() on output or use with
  *                  function chaining. (See User Guide for details.)
  * @return the requested Normalizer2, if successful
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI const UNormalizer2 * U_EXPORT2
 unorm2_getNFKCInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
@@ -180,7 +182,7 @@ unorm2_getNFKCInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
  *                  immediately. Check for U_FAILURE() on output or use with
  *                  function chaining. (See User Guide for details.)
  * @return the requested Normalizer2, if successful
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI const UNormalizer2 * U_EXPORT2
 unorm2_getNFKDInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
@@ -196,7 +198,7 @@ unorm2_getNFKDInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
  *                  immediately. Check for U_FAILURE() on output or use with
  *                  function chaining. (See User Guide for details.)
  * @return the requested Normalizer2, if successful
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI const UNormalizer2 * U_EXPORT2
 unorm2_getNFKCCasefoldInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
@@ -211,7 +213,7 @@ unorm2_getNFKCCasefoldInstance(UErrorCode *pErrorCode) __INTRODUCED_IN(31);
  * Closes a UNormalizer2 instance from unorm2_openFiltered().
  * Do not close instances from unorm2_getInstance()!
  * @param norm2 UNormalizer2 instance to be closed
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI void U_EXPORT2
 unorm2_close(UNormalizer2 *norm2) __INTRODUCED_IN(31);
@@ -229,7 +231,7 @@ U_NAMESPACE_BEGIN
  *
  * @see LocalPointerBase
  * @see LocalPointer
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_DEFINE_LOCAL_OPEN_POINTER(LocalUNormalizer2Pointer, UNormalizer2, unorm2_close);
 
@@ -251,7 +253,7 @@ U_NAMESPACE_END
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return dest
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_normalize(const UNormalizer2 *norm2,
@@ -276,7 +278,7 @@ unorm2_normalize(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return first
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_normalizeSecondAndAppend(const UNormalizer2 *norm2,
@@ -301,7 +303,7 @@ unorm2_normalizeSecondAndAppend(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return first
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_append(const UNormalizer2 *norm2,
@@ -328,7 +330,7 @@ unorm2_append(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return the non-negative length of c's decomposition, if there is one; otherwise a negative value
- * @stable ICU 4.6
+ * \xrefitem stable "Stable" "Stable List" ICU 4.6
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_getDecomposition(const UNormalizer2 *norm2,
@@ -364,7 +366,7 @@ unorm2_getDecomposition(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return the non-negative length of c's raw decomposition, if there is one; otherwise a negative value
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_getRawDecomposition(const UNormalizer2 *norm2,
@@ -386,7 +388,7 @@ unorm2_getRawDecomposition(const UNormalizer2 *norm2,
  * @param a A (normalization starter) code point.
  * @param b Another code point.
  * @return The non-negative composite code point if there is one; otherwise a negative value.
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI UChar32 U_EXPORT2
 unorm2_composePair(const UNormalizer2 *norm2, UChar32 a, UChar32 b) __INTRODUCED_IN(31);
@@ -400,7 +402,7 @@ unorm2_composePair(const UNormalizer2 *norm2, UChar32 a, UChar32 b) __INTRODUCED
  * @param norm2 UNormalizer2 instance
  * @param c code point
  * @return c's combining class
- * @stable ICU 49
+ * \xrefitem stable "Stable" "Stable List" ICU 49
  */
 U_CAPI uint8_t U_EXPORT2
 unorm2_getCombiningClass(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31);
@@ -421,7 +423,7 @@ unorm2_getCombiningClass(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(3
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return true if s is normalized
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI UBool U_EXPORT2
 unorm2_isNormalized(const UNormalizer2 *norm2,
@@ -445,7 +447,7 @@ unorm2_isNormalized(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return UNormalizationCheckResult
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI UNormalizationCheckResult U_EXPORT2
 unorm2_quickCheck(const UNormalizer2 *norm2,
@@ -476,7 +478,7 @@ unorm2_quickCheck(const UNormalizer2 *norm2,
  *                   immediately. Check for U_FAILURE() on output or use with
  *                   function chaining. (See User Guide for details.)
  * @return "yes" span end index
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI int32_t U_EXPORT2
 unorm2_spanQuickCheckYes(const UNormalizer2 *norm2,
@@ -492,7 +494,7 @@ unorm2_spanQuickCheckYes(const UNormalizer2 *norm2,
  * @param norm2 UNormalizer2 instance
  * @param c character to test
  * @return true if c has a normalization boundary before it
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI UBool U_EXPORT2
 unorm2_hasBoundaryBefore(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31);
@@ -506,7 +508,7 @@ unorm2_hasBoundaryBefore(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(3
  * @param norm2 UNormalizer2 instance
  * @param c character to test
  * @return true if c has a normalization boundary after it
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI UBool U_EXPORT2
 unorm2_hasBoundaryAfter(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31);
@@ -519,7 +521,7 @@ unorm2_hasBoundaryAfter(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31
  * @param norm2 UNormalizer2 instance
  * @param c character to test
  * @return true if c is normalization-inert
- * @stable ICU 4.4
+ * \xrefitem stable "Stable" "Stable List" ICU 4.4
  */
 U_CAPI UBool U_EXPORT2
 unorm2_isInert(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31);
@@ -530,3 +532,5 @@ unorm2_isInert(const UNormalizer2 *norm2, UChar32 c) __INTRODUCED_IN(31);
 
 #endif  /* !UCONFIG_NO_NORMALIZATION */
 #endif  /* __UNORM2_H__ */
+
+/** @} */ // addtogroup

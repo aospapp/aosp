@@ -83,9 +83,13 @@
                 android:id="@+id/hint_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
+                android:paddingStart="@dimen/lock_hint_padding"
+                android:paddingEnd="@dimen/lock_hint_padding"
+                android:minHeight="@dimen/lock_hint_min_height"
+                android:gravity="center_horizontal"
                 android:text="@string/choose_lock_pin_hints"
-                android:textAppearance="?android:attr/textAppearanceMedium"/>
+                android:textAppearance="@style/TextAppearance.CarUi.Body3"
+                android:textColor="@color/secondary_text_color"/>
 
         </LinearLayout>
     </LinearLayout>

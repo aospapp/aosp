@@ -19,11 +19,11 @@ This xml contains UX restrictions configuration for testing.
 -->
 <UxRestrictions xmlns:car="http://schemas.android.com/apk/res-auto">
     <RestrictionMapping>
-        <DrivingState car:state="parked">
-            <Restrictions car:requiresDistractionOptimization="false" car:uxr="baseline"/>
+        <DrivingState state="parked">
+            <Restrictions requiresDistractionOptimization="false" uxr="baseline"/>
         </DrivingState>
-        <DrivingState car:state="idling">
-            <Restrictions car:requiresDistractionOptimization="true" car:uxr="no_video"/>
+        <DrivingState state="idling">
+            <Restrictions requiresDistractionOptimization="true" uxr="no_video"/>
         </DrivingState>
     </RestrictionMapping>
 </UxRestrictions>

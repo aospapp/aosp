@@ -10,7 +10,7 @@ genfscon sysfs /firmware/devicetree/base/drmdsim@0x1C2D0000/panel@0/compatible  
 
 genfscon sysfs /module/drm/parameters/vblankoffdelay                                           u:object_r:sysfs_display:s0
 
-genfscon sysfs /devices/platform/1c300000.drmdecon/dqe/atc                                     u:object_r:sysfs_display:s0
+genfscon sysfs /devices/platform/1c300000.drmdecon/dqe0/atc                                     u:object_r:sysfs_display:s0
 genfscon sysfs /devices/platform/1c300000.drmdecon/early_wakeup                                u:object_r:sysfs_display:s0
 
 genfscon sysfs /devices/platform/exynos-drm/tui_status                                         u:object_r:sysfs_display:s0

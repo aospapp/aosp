@@ -112,21 +112,32 @@ void ThrowNullPointerExceptionForCoordinate() REQUIRES_SHARED(Locks::mutator_loc
 }
 
 bool CheckElementIndex(Primitive::Type type,
-                       int32_t relative_index,
+                       int32_t index,
                        int32_t start,
-                       int32_t limit) REQUIRES_SHARED(Locks::mutator_lock_) {
-  int64_t index = start + relative_index;
-  int64_t max_index = limit - Primitive::ComponentSize(type);
-  if (index < start || index > max_index) {
-    ThrowIndexOutOfBoundsException(index, limit - start);
+                       int32_t length) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // The underlying memory may be shared and offset from the start of allocated region,
+  // ie buffers can be created via ByteBuffer.split().
+  //
+  // `type` is the type of the value the caller is attempting to read / write.
+  // `index` represents the position the caller is trying to access in the underlying ByteBuffer
+  //         or byte array. This is an offset from from `start` in bytes.
+  // `start` represents where the addressable memory begins relative to the base of the
+  //         the underlying ByteBuffer or byte array.
+  // `length` represents the length of the addressable region.
+  //
+  // Thus the region being operated on is:
+  //    `base` + `start` + `index` to `base` + `start` + `index` + `sizeof(type)`
+  int32_t max_index = length - start - Primitive::ComponentSize(type);
+  if (index < 0 || index > max_index) {
+    ThrowIndexOutOfBoundsException(index, length - start);
     return false;
   }
   return true;
 }
 
-bool CheckElementIndex(Primitive::Type type, int32_t index, int32_t range_limit)
+bool CheckElementIndex(Primitive::Type type, int32_t index, int32_t length)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return CheckElementIndex(type, index, 0, range_limit);
+  return CheckElementIndex(type, index, 0, length);
 }
 
 // Returns true if access_mode only entails a memory read. False if
@@ -1454,16 +1465,19 @@ bool VarHandle::Access(AccessMode access_mode,
   ObjPtr<ObjectArray<Class>> class_roots = Runtime::Current()->GetClassLinker()->GetClassRoots();
   ObjPtr<Class> klass = GetClass();
   if (klass == GetClassRoot<FieldVarHandle>(class_roots)) {
-    auto vh = reinterpret_cast<FieldVarHandle*>(this);
+    auto vh = ObjPtr<FieldVarHandle>::DownCast(this);
+    return vh->Access(access_mode, shadow_frame, operands, result);
+  } else if (klass == GetClassRoot<StaticFieldVarHandle>(class_roots)) {
+    auto vh = ObjPtr<StaticFieldVarHandle>::DownCast(this);
     return vh->Access(access_mode, shadow_frame, operands, result);
   } else if (klass == GetClassRoot<ArrayElementVarHandle>(class_roots)) {
-    auto vh = reinterpret_cast<ArrayElementVarHandle*>(this);
+    auto vh = ObjPtr<ArrayElementVarHandle>::DownCast(this);
     return vh->Access(access_mode, shadow_frame, operands, result);
   } else if (klass == GetClassRoot<ByteArrayViewVarHandle>(class_roots)) {
-    auto vh = reinterpret_cast<ByteArrayViewVarHandle*>(this);
+    auto vh = ObjPtr<ByteArrayViewVarHandle>::DownCast(this);
     return vh->Access(access_mode, shadow_frame, operands, result);
   } else if (klass == GetClassRoot<ByteBufferViewVarHandle>(class_roots)) {
-    auto vh = reinterpret_cast<ByteBufferViewVarHandle*>(this);
+    auto vh = ObjPtr<ByteBufferViewVarHandle>::DownCast(this);
     return vh->Access(access_mode, shadow_frame, operands, result);
   } else {
     LOG(FATAL) << "Unknown varhandle kind";
@@ -1643,16 +1657,12 @@ int32_t VarHandle::GetNumberOfVarTypeParameters(AccessModeTemplate access_mode_t
   UNREACHABLE();
 }
 
-ArtField* FieldVarHandle::GetField() {
-  return reinterpret_cast64<ArtField*>(GetField64(ArtFieldOffset()));
-}
-
 bool FieldVarHandle::Access(AccessMode access_mode,
                             ShadowFrame* shadow_frame,
                             const InstructionOperands* const operands,
                             JValue* result) {
   ShadowFrameGetter getter(*shadow_frame, operands);
-  ArtField* field = GetField();
+  ArtField* field = GetArtField();
   ObjPtr<Object> obj;
   if (field->IsStatic()) {
     DCHECK_LE(operands->GetNumberOfOperands(),
@@ -1698,6 +1708,29 @@ bool FieldVarHandle::Access(AccessMode access_mode,
   UNREACHABLE();
 }
 
+bool ArrayElementVarHandle::CheckArrayStore(AccessMode access_mode,
+                                            ShadowFrameGetter getter,
+                                            ObjPtr<ObjectArray<Object>> array) {
+  // This method checks the element being inserted into the array is correctly assignable.
+  // NB This method assumes it is called from `ArrayElementVarHandle::Access()` and `getter`
+  // has already consumed the array and index arguments.
+  ObjPtr<Object> new_element;
+  switch (GetAccessModeTemplate(access_mode)) {
+    case AccessModeTemplate::kGet:
+      return true;  // Not a store.
+    case AccessModeTemplate::kCompareAndExchange:
+    case AccessModeTemplate::kCompareAndSet:
+      getter.GetReference();  // Skip the comperand.
+      new_element = getter.GetReference();
+      break;
+    case AccessModeTemplate::kGetAndUpdate:
+    case AccessModeTemplate::kSet:
+      new_element = getter.GetReference();
+      break;
+  }
+  return array->CheckAssignable(new_element);
+}
+
 bool ArrayElementVarHandle::Access(AccessMode access_mode,
                                    ShadowFrame* shadow_frame,
                                    const InstructionOperands* const operands,
@@ -1711,7 +1744,7 @@ bool ArrayElementVarHandle::Access(AccessMode access_mode,
     return false;
   }
 
-  ObjPtr<Array> target_array(raw_array->AsArray());
+  ObjPtr<Array> target_array = raw_array->AsArray();
 
   // The target array element is the second co-ordinate type preceeding var type arguments.
   const int target_element = getter.Get();
@@ -1723,8 +1756,12 @@ bool ArrayElementVarHandle::Access(AccessMode access_mode,
   const Primitive::Type primitive_type = GetVarType()->GetPrimitiveType();
   switch (primitive_type) {
     case Primitive::Type::kPrimNot: {
-      MemberOffset target_element_offset =
-          target_array->AsObjectArray<Object>()->OffsetOfElement(target_element);
+      ObjPtr<ObjectArray<Object>> object_array = target_array->AsObjectArray<Object>();
+      if (!CheckArrayStore(access_mode, getter, object_array)) {
+        DCHECK(Thread::Current()->IsExceptionPending());
+        return false;
+      }
+      MemberOffset target_element_offset = object_array->OffsetOfElement(target_element);
       return FieldAccessor<ObjPtr<Object>>::Dispatch(access_mode,
                                                      target_array,
                                                      target_element_offset,
@@ -1919,9 +1956,10 @@ bool ByteBufferViewVarHandle::Access(AccessMode access_mode,
   }
   const int32_t byte_buffer_limit = byte_buffer->GetField32(
       GetMemberOffset(WellKnownClasses::java_nio_ByteBuffer_limit));
+  const int32_t byte_buffer_length = byte_buffer_offset + byte_buffer_limit;
 
   const Primitive::Type primitive_type = GetVarType()->GetPrimitiveType();
-  if (!CheckElementIndex(primitive_type, byte_index, byte_buffer_offset, byte_buffer_limit)) {
+  if (!CheckElementIndex(primitive_type, byte_index, byte_buffer_offset, byte_buffer_length)) {
     return false;
   }
   const int32_t checked_offset32 = byte_buffer_offset + byte_index;
@@ -1995,15 +2033,23 @@ bool ByteBufferViewVarHandle::Access(AccessMode access_mode,
 }
 
 void FieldVarHandle::VisitTarget(ReflectiveValueVisitor* v) {
-  ArtField* orig = GetField();
+  ArtField* orig = GetArtField();
   ArtField* new_value =
       v->VisitField(orig, HeapReflectiveSourceInfo(kSourceJavaLangInvokeFieldVarHandle, this));
   if (orig != new_value) {
-    SetField64</*kTransactionActive*/ false>(ArtFieldOffset(),
-                                             reinterpret_cast<uintptr_t>(new_value));
+    SetArtField(new_value);
   }
 }
 
+void StaticFieldVarHandle::VisitTarget(ReflectiveValueVisitor* v) {
+  ArtField* orig = GetArtField();
+  ArtField* new_value =
+      v->VisitField(orig, HeapReflectiveSourceInfo(kSourceJavaLangInvokeFieldVarHandle, this));
+  if (orig != new_value) {
+    SetArtField(new_value);
+    SetFieldObject<false>(DeclaringClassOffset(), new_value->GetDeclaringClass());
+  }
+}
 
 }  // namespace mirror
 }  // namespace art

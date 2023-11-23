@@ -250,13 +250,4 @@ public final class StatsLog {
         writeImpl(statsEvent.getBytes(), statsEvent.getNumBytes(), statsEvent.getAtomId());
         statsEvent.release();
     }
-
-    private static void enforceDumpCallingPermission(Context context) {
-        context.enforceCallingPermission(android.Manifest.permission.DUMP, "Need DUMP permission.");
-    }
-
-    private static void enforcesageStatsCallingPermission(Context context) {
-        context.enforceCallingPermission(Manifest.permission.PACKAGE_USAGE_STATS,
-                "Need PACKAGE_USAGE_STATS permission.");
-    }
 }

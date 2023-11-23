@@ -72,11 +72,18 @@ struct child_info {
 	u32 pgofs;
 	u8 dots;
 	u8 dir_level;
-	u32 p_ino;		/*parent ino*/
-	u32 pp_ino;		/*parent parent ino*/
+	u32 p_ino;		/* parent ino */
+	char p_name[F2FS_NAME_LEN + 1]; /* parent name */
+	u32 pp_ino;		/* parent parent ino*/
 	struct extent_info ei;
 	u32 last_blk;
 	u32 i_namelen;  /* dentry namelen */
+};
+
+struct f2fs_dentry {
+	char name[F2FS_NAME_LEN + 1];
+	int depth;
+	struct f2fs_dentry *next;
 };
 
 struct f2fs_fsck {
@@ -84,6 +91,7 @@ struct f2fs_fsck {
 
 	struct orphan_info orphani;
 	struct chk_result {
+		u64 checked_node_cnt;
 		u64 valid_blk_cnt;
 		u32 valid_nat_entry_cnt;
 		u32 valid_node_cnt;
@@ -110,6 +118,8 @@ struct f2fs_fsck {
 	u32 nr_nat_entries;
 
 	u32 dentry_depth;
+	struct f2fs_dentry *dentry;
+	struct f2fs_dentry *dentry_end;
 	struct f2fs_nat_entry *entries;
 	u32 nat_valid_inode_cnt;
 
@@ -160,16 +170,20 @@ extern int fsck_sanity_check_nid(struct f2fs_sb_info *, u32,
 			struct node_info *);
 extern int fsck_chk_node_blk(struct f2fs_sb_info *, struct f2fs_inode *, u32,
 		enum FILE_TYPE, enum NODE_TYPE, u32 *,
-		struct child_info *);
+		struct f2fs_compr_blk_cnt *, struct child_info *);
 extern void fsck_chk_inode_blk(struct f2fs_sb_info *, u32, enum FILE_TYPE,
-		struct f2fs_node *, u32 *, struct node_info *, struct child_info *);
+		struct f2fs_node *, u32 *, struct f2fs_compr_blk_cnt *,
+		struct node_info *, struct child_info *);
 extern int fsck_chk_dnode_blk(struct f2fs_sb_info *, struct f2fs_inode *,
 		u32, enum FILE_TYPE, struct f2fs_node *, u32 *,
-		struct child_info *, struct node_info *);
+		struct f2fs_compr_blk_cnt *, struct child_info *,
+		struct node_info *);
 extern int fsck_chk_idnode_blk(struct f2fs_sb_info *, struct f2fs_inode *,
-		enum FILE_TYPE, struct f2fs_node *, u32 *, struct child_info *);
+		enum FILE_TYPE, struct f2fs_node *, u32 *,
+		struct f2fs_compr_blk_cnt *, struct child_info *);
 extern int fsck_chk_didnode_blk(struct f2fs_sb_info *, struct f2fs_inode *,
-		enum FILE_TYPE, struct f2fs_node *, u32 *, struct child_info *);
+		enum FILE_TYPE, struct f2fs_node *, u32 *,
+		struct f2fs_compr_blk_cnt *, struct child_info *);
 extern int fsck_chk_data_blk(struct f2fs_sb_info *, int,
 		u32, struct child_info *, int, enum FILE_TYPE, u32, u16, u8, int);
 extern int fsck_chk_dentry_blk(struct f2fs_sb_info *, int,
@@ -253,7 +267,7 @@ struct dump_option {
 extern void nat_dump(struct f2fs_sb_info *, nid_t, nid_t);
 extern void sit_dump(struct f2fs_sb_info *, unsigned int, unsigned int);
 extern void ssa_dump(struct f2fs_sb_info *, int, int);
-extern void dump_node(struct f2fs_sb_info *, nid_t, int);
+extern int dump_node(struct f2fs_sb_info *, nid_t, int);
 extern int dump_info_from_blkaddr(struct f2fs_sb_info *, u32);
 extern unsigned int start_bidx_of_node(unsigned int, struct f2fs_node *);
 
@@ -277,6 +291,7 @@ void f2fs_alloc_nid(struct f2fs_sb_info *, nid_t *);
 void set_data_blkaddr(struct dnode_of_data *);
 block_t new_node_block(struct f2fs_sb_info *,
 					struct dnode_of_data *, unsigned int);
+int f2fs_rebuild_qf_inode(struct f2fs_sb_info *sbi, int qtype);
 
 /* segment.c */
 struct quota_file;

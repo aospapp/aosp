@@ -23,7 +23,6 @@
 
 #include <base/logging.h>
 #include <base/macros.h>
-#include <brillo/message_loops/message_loop.h>
 #include <brillo/streams/stream.h>
 
 #include "update_engine/common/http_fetcher.h"

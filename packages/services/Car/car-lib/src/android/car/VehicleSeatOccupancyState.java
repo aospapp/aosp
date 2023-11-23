@@ -15,6 +15,8 @@
  */
 package android.car;
 
+import android.car.annotation.AddedInOrBefore;
+
 /**
  * Used by seat occupancy to enumerate the current occupancy state of the seat.
  * Use getProperty and setProperty in {@link android.car.hardware.property.CarPropertyManager} to
@@ -22,8 +24,11 @@ package android.car;
  * @hide
  */
 public class VehicleSeatOccupancyState {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VACANT = 1;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int OCCUPIED = 2;
 
     private VehicleSeatOccupancyState() {}

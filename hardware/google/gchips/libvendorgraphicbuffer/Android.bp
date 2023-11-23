@@ -42,8 +42,10 @@ cc_library_shared {
 		"libgralloctypes",
 		"libhidlbase",
 	],
+	header_libs: [
+		"libgralloc_headers",
+	],
 	include_dirs: [
-		"hardware/google/gchips/gralloc4/src",
 		"hardware/google/gchips/include",
 	],
 	export_include_dirs: [

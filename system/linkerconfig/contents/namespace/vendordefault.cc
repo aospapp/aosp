@@ -22,14 +22,18 @@
 #include "linkerconfig/common.h"
 #include "linkerconfig/environment.h"
 
-using android::linkerconfig::modules::GetVendorVndkVersion;
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
 namespace linkerconfig {
 namespace contents {
-Namespace BuildVendorDefaultNamespace([[maybe_unused]] const Context& ctx) {
-  Namespace ns("default", /*is_isolated=*/true, /*is_visible=*/true);
+Namespace BuildVendorDefaultNamespace(const Context& ctx) {
+  return BuildVendorNamespace(ctx, "default");
+}
+
+Namespace BuildVendorNamespace([[maybe_unused]] const Context& ctx,
+                               const std::string& name) {
+  Namespace ns(name, /*is_isolated=*/true, /*is_visible=*/true);
 
   ns.AddSearchPath("/odm/${LIB}");
   ns.AddSearchPath("/vendor/${LIB}");
@@ -40,17 +44,22 @@ Namespace BuildVendorDefaultNamespace([[maybe_unused]] const Context& ctx) {
   ns.AddPermittedPath("/vendor");
   ns.AddPermittedPath("/system/vendor");
 
-  ns.GetLink(ctx.GetSystemNamespaceName())
-      .AddSharedLib(
-          {Var("LLNDK_LIBRARIES_VENDOR"), Var("SANITIZER_DEFAULT_VENDOR")});
-  ns.GetLink("vndk").AddSharedLib({Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR"),
-                                   Var("VNDK_CORE_LIBRARIES_VENDOR")});
-  if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
-    ns.GetLink("vndk_in_system")
-        .AddSharedLib(Var("VNDK_USING_CORE_VARIANT_LIBRARIES"));
+  if (ctx.IsVndkAvailable()) {
+    ns.GetLink("rs").AddSharedLib("libRS_internal.so");
+    ns.GetLink(ctx.GetSystemNamespaceName())
+        .AddSharedLib(
+            {Var("LLNDK_LIBRARIES_VENDOR"), Var("SANITIZER_DEFAULT_VENDOR")});
+    ns.GetLink("vndk").AddSharedLib({Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR"),
+                                     Var("VNDK_CORE_LIBRARIES_VENDOR")});
+    if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
+      ns.GetLink("vndk_in_system")
+          .AddSharedLib(Var("VNDK_USING_CORE_VARIANT_LIBRARIES"));
+    }
   }
 
   ns.AddRequires(std::vector{"libneuralnetworks.so"});
+  ns.AddRequires(ctx.GetVendorRequireLibs());
+  ns.AddProvides(ctx.GetVendorProvideLibs());
   return ns;
 }
 }  // namespace contents

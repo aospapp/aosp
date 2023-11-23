@@ -47,6 +47,7 @@ enum VendorTagIds : uint32_t {
   kNonWarpedCropRegion,
   kHdrUsageMode,
   kSwDenoiseEnabled,
+  kVideoSwDenoiseEnabled,
   // This should not be used as a vendor tag ID on its own, but as a placeholder
   // to indicate the end of currently defined vendor tag IDs
   kEndMarker
@@ -66,7 +67,12 @@ enum class SmoothyMode : uint32_t {
 
   // Uses UW camera with a larger margin. In this way, we get a better video
   // stabilization quality, while preserving a similar FoV as the main camera.
-  kSuperstabMode
+  kSuperstabMode,
+
+  // Tracks an object of interest with a frame delay. For example, tracking is
+  // done at app side which is N frame later than HAL where N is the pipeline
+  // depth.
+  kDelayedTrackingMode,
 };
 
 // Logical camera vendor tags
@@ -213,6 +219,15 @@ static const std::vector<VendorTag> kInternalVendorTags = {
     // Payload: SwDenoiseEnabled
     {.tag_id = VendorTagIds::kSwDenoiseEnabled,
      .tag_name = "SwDenoiseEnabled",
+     .tag_type = CameraMetadataType::kByte},
+    // Video software denoise enabled
+    //
+    // Indicates whether the software denoise for video is enabled
+    //
+    // Present in: Characteristics
+    // Payload: VideoSwDenoiseEnabled
+    {.tag_id = VendorTagIds::kVideoSwDenoiseEnabled,
+     .tag_name = "VideoSwDenoiseEnabled",
      .tag_type = CameraMetadataType::kByte},
 };
 

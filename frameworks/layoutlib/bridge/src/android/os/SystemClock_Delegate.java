@@ -16,9 +16,9 @@
 
 package android.os;
 
+import com.android.internal.lang.System_Delegate;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
-import com.android.tools.layoutlib.java.System_Delegate;
 
 /**
  * Delegate implementing the native methods of android.os.SystemClock
@@ -39,7 +39,7 @@ public class SystemClock_Delegate {
      * @return milliseconds of non-sleep uptime since boot.
      */
     @LayoutlibDelegate
-    /*package*/ static long uptimeMillis() {
+    public static long uptimeMillis() {
         return System_Delegate.currentTimeMillis() - System_Delegate.bootTimeMillis();
     }
 

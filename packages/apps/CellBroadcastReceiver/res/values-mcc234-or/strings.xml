@@ -35,5 +35,5 @@
     <string name="enable_alert_speech_summary" msgid="5021926525240750702">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ ମେସେଜ୍ କହିବା ପାଇଁ ଟେକ୍ସଟ୍-ଟୁ-ସ୍ପିଚ୍ ବ୍ୟବହାର କରନ୍ତୁ"</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"ଆପଣ ବର୍ତ୍ତମାନ ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକୁ ପ୍ରାପ୍ତ କରୁଛନ୍ତି। ଆପଣ ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକୁ ପ୍ରାପ୍ତ କରିବା ଜାରି ରଖିବାକୁ ଚାହିଁବେ କି?"</string>
     <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟଗୁଡ଼ିକ"</string>
-    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ ସେଟିଂସ୍ ଦେଖିବାକୁ ଟାପ୍ କରନ୍ତୁ"</string>
+    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"ଜରୁରୀକାଳୀନ ଆଲର୍ଟ ସେଟିଂସ ଦେଖିବାକୁ ଟାପ କରନ୍ତୁ"</string>
 </resources>

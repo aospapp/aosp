@@ -16,12 +16,19 @@
 
 package com.android.queryable.queries;
 
+import static com.android.queryable.util.ParcelableUtils.writeStringSet;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
+import com.android.queryable.util.ParcelableUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /** Implementation of {@link StringQuery}. */
@@ -40,6 +47,12 @@ public final class StringQueryHelper<E extends Queryable>
 
     public StringQueryHelper(E query) {
         mQuery = query;
+    }
+
+    private StringQueryHelper(Parcel in) {
+        mQuery = null;
+        mEqualsValue = in.readString();
+        mNotEqualsValues = ParcelableUtils.readStringSet(in);
     }
 
     @Override
@@ -96,5 +109,41 @@ public final class StringQueryHelper<E extends Queryable>
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeString(mEqualsValue);
+        writeStringSet(out, mNotEqualsValues);
+    }
+
+    public static final Parcelable.Creator<StringQueryHelper> CREATOR =
+            new Parcelable.Creator<StringQueryHelper>() {
+                public StringQueryHelper createFromParcel(Parcel in) {
+                    return new StringQueryHelper(in);
+                }
+
+                public StringQueryHelper[] newArray(int size) {
+                    return new StringQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof StringQueryHelper)) return false;
+        StringQueryHelper<?> that = (StringQueryHelper<?>) o;
+        return Objects.equals(mEqualsValue, that.mEqualsValue) && Objects.equals(
+                mNotEqualsValues, that.mNotEqualsValues);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mEqualsValue, mNotEqualsValues);
     }
 }

@@ -16,6 +16,9 @@
 
 package com.android.settings.intelligence.search.indexing;
 
+import static com.android.settings.intelligence.search.indexing.DevicePolicyResourcesUtils.DEVICE_POLICY_RESOURCES_VERSION_KEY;
+
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -291,11 +294,15 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
         final String fingerprint = Build.FINGERPRINT;
         final String providerVersionedNames =
                 IndexDatabaseHelper.buildProviderVersionedNames(context, providers);
+        final String devicePolicyResourcesVersion = context.getSystemService(
+                DevicePolicyManager.class).getResources().getString(
+                        DEVICE_POLICY_RESOURCES_VERSION_KEY, () -> null);
         context.getSharedPreferences(SHARED_PREFS_TAG, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(localeStr, true)
                 .putBoolean(fingerprint, true)
                 .putString(PREF_KEY_INDEXED_PROVIDERS, providerVersionedNames)
+                .putString(DEVICE_POLICY_RESOURCES_VERSION_KEY, devicePolicyResourcesVersion)
                 .apply();
     }
 
@@ -318,8 +325,19 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
         final boolean isIndexed = prefs.getBoolean(fingerprint, false)
                 && prefs.getBoolean(localeStr, false)
                 && TextUtils.equals(
-                prefs.getString(PREF_KEY_INDEXED_PROVIDERS, null), providerVersionedNames);
+                prefs.getString(PREF_KEY_INDEXED_PROVIDERS, null), providerVersionedNames)
+                && !enterpriseResourcesUpdated(context, prefs);
         return !isIndexed;
+    }
+
+    /**
+     * returns true if device policy resources have been updated and need reindexing.
+     */
+    private static boolean enterpriseResourcesUpdated(Context context, SharedPreferences prefs) {
+        final String currentVersion = context.getSystemService(DevicePolicyManager.class)
+                .getResources().getString(DEVICE_POLICY_RESOURCES_VERSION_KEY, () -> null);
+        return !TextUtils.equals(
+                prefs.getString(DEVICE_POLICY_RESOURCES_VERSION_KEY, null), currentVersion);
     }
 
     private void dropTables(SQLiteDatabase db) {

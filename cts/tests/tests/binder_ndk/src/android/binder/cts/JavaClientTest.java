@@ -188,17 +188,7 @@ public class JavaClientTest {
         assertEquals(null, mInterface.RepeatNullableBinder(null));
     }
 
-    private static class Empty extends IEmpty.Stub {
-        @Override
-        public int getInterfaceVersion() {
-            return this.VERSION;
-        }
-
-        @Override
-        public String getInterfaceHash() {
-            return this.HASH;
-        }
-    }
+    private static class Empty extends IEmpty.Stub {}
 
     @Test
     public void testRepeatInterface() throws RemoteException {
@@ -292,6 +282,9 @@ public class JavaClientTest {
         assertEquals("", mInterface.RepeatString(""));
         assertEquals("a", mInterface.RepeatString("a"));
         assertEquals("foo", mInterface.RepeatString("foo"));
+
+        String stringWithNulls = "a\0df";
+        assertEquals(stringWithNulls, mInterface.RepeatString(stringWithNulls));
     }
 
     @Test
@@ -684,6 +677,33 @@ public class JavaClientTest {
             Assert.assertArrayEquals(baz.d, newBaz.d);
         }
     }
+
+    @Test
+    public void testGetInterfaceVersion() throws RemoteException {
+        ICompatTest compatTest = ICompatTest.Stub.asInterface(mInterface.getICompatTest());
+        if (mShouldBeOld) {
+            assertEquals(1, compatTest.getInterfaceVersion());
+        } else {
+            assertEquals(3, compatTest.getInterfaceVersion());
+        }
+    }
+
+    @Test
+    public void testGetInterfaceHash() throws RemoteException {
+        ICompatTest compatTest = ICompatTest.Stub.asInterface(mInterface.getICompatTest());
+        if (mShouldBeOld) {
+            assertEquals("b663b681b3e0d66f9b5428c2f23365031b7d4ba0", compatTest.getInterfaceHash());
+        } else {
+            assertEquals("notfrozen", compatTest.getInterfaceHash());
+        }
+    }
+
+    @Test
+    public void testLegacyBinder() throws RemoteException {
+        ILegacyBinder compatTest = ILegacyBinder.Stub.asInterface(mInterface.getLegacyBinderTest());
+        assertEquals(42, compatTest.RepeatInt(42));
+    }
+
     @Test
     public void testRenameFoo() throws RemoteException {
         Foo foo = new Foo();

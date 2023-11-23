@@ -357,6 +357,7 @@ BaseTest::BaseTest(deqp::Context& context, const TypeFormat& tf)
 	, m_nonDepthStencilFormatsCount(DE_LENGTH_OF_ARRAY(coreNonDepthStencilFormats))
 	, m_otherBaseFormats(coreOtherBaseFormats)
 	, m_otherBaseFormatsCount(DE_LENGTH_OF_ARRAY(coreOtherBaseFormats))
+	, m_attachmentParamsCount(0)
 	, m_typeFormat(tf)
 	, m_textureProgram(0)
 	, m_colorProgram(0)
@@ -1003,6 +1004,12 @@ bool BaseTest::verifyColorGradient(GLvoid* data, unsigned int texIndex, int func
 			skip			= 0;
 			GLuint color	= ((GLuint*)data)[index];
 			GLuint colorref = 0;
+
+// When data back from glReadPixels with arguments GL_RGBA + GL_UNSIGNED_BYTE,
+// we should reverse byte order in big-endian platform for (GLuint*) pointer.
+#if (DE_ENDIANNESS == DE_BIG_ENDIAN)
+            color = deReverseBytes32(color);
+#endif
 
 			switch (texIndex)
 			{

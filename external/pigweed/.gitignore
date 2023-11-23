@@ -3,17 +3,23 @@ compile_commands.json
 out/
 bazel-*
 .presubmit/
+docs/_build
 
 # Editors
 .idea/
 .project
 .cproject
 .vscode
+# Clangd directories
 .clangd/
+/.cache/clangd/
+# Vim
 *.swp
 *.swo
+# Emacs
 *flycheck_*
 *_flymake.*
+.#*
 
 # Python
 *.pyc
@@ -49,6 +55,7 @@ pw_env_setup/py/oxidizer/build
 # Env Setup
 environment
 .environment
+build_overrides/pigweed_environment.gni
 # TODO(pwbug/216) Remove following lines in this section.
 # Maybe find a way to delete these files before these lines are removed.
 python*-env/

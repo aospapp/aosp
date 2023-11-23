@@ -37,55 +37,23 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "lazy_static_defaults",
-    crate_name: "lazy_static",
+rust_test {
+    name: "lazy_static_test_tests_test",
     // has rustc warnings
-    srcs: ["src/lib.rs"],
+    host_supported: true,
+    crate_name: "lazy_static",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.4.0",
+    srcs: ["tests/test.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2015",
-}
-
-rust_test_host {
-    name: "lazy_static_host_test_src_lib",
-    defaults: ["lazy_static_defaults"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "lazy_static_device_test_src_lib",
-    defaults: ["lazy_static_defaults"],
-}
-
-rust_defaults {
-    name: "lazy_static_defaults_lazy_static",
-    crate_name: "lazy_static",
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
     edition: "2015",
     rustlibs: [
         "liblazy_static",
     ],
-}
-
-rust_test_host {
-    name: "lazy_static_host_test_tests_test",
-    defaults: ["lazy_static_defaults_lazy_static"],
-    // has rustc warnings
-    srcs: ["tests/test.rs"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "lazy_static_device_test_tests_test",
-    defaults: ["lazy_static_defaults_lazy_static"],
-    // has rustc warnings
-    srcs: ["tests/test.rs"],
 }
 
 rust_library {
@@ -93,12 +61,18 @@ rust_library {
     // has rustc warnings
     host_supported: true,
     crate_name: "lazy_static",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.4.0",
     srcs: ["src/lib.rs"],
     edition: "2015",
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }

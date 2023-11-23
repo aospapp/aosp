@@ -29,7 +29,6 @@
 #define MAX_NUM_ARGS 128
 #define MAX_NUM_ELEMENTS 16
 #define MAX_RESP_SIZE 4096
-#define WORDSIZE_BYTES (__WORDSIZE / 8)
 
 // TODO(michael.ensing@leviathansecurity.com):
 //     Ideally, we should add/remove supported types based on

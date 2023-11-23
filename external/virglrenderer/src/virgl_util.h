@@ -25,12 +25,15 @@
 #ifndef VIRGL_UTIL_H
 #define VIRGL_UTIL_H
 
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include "virglrenderer.h"
 
 #define TRACE_WITH_PERFETTO 1
 #define TRACE_WITH_STDERR 2
@@ -62,6 +65,17 @@ int create_eventfd(unsigned int initval);
 int write_eventfd(int fd, uint64_t val);
 void flush_eventfd(int fd);
 
+virgl_debug_callback_type virgl_log_set_logger(virgl_debug_callback_type logger);
+void virgl_logv(const char *fmt, va_list va);
+
+static inline void virgl_log(const char *fmt, ...)
+{
+   va_list va;
+   va_start(va, fmt);
+   virgl_logv(fmt, va);
+   va_end(va);
+}
+
 #ifdef ENABLE_TRACING
 void trace_init(void);
 
@@ -82,6 +96,9 @@ PERCETTO_CATEGORY_DECLARE(VIRGL_PERCETTO_CATEGORIES)
 /* Trace high frequency events (tracing may impact performance). */
 #define TRACE_SCOPE_SLOW(SCOPE) TRACE_EVENT(virgls, SCOPE)
 
+#define TRACE_SCOPE_BEGIN(SCOPE) TRACE_EVENT_BEGIN(virgl, SCOPE)
+#define TRACE_SCOPE_END(SCOPE) do { TRACE_EVENT_END(virgl); (void)SCOPE; } while (0)
+
 #else
 
 const char *trace_begin(const char *scope);
@@ -93,6 +110,9 @@ void trace_end(const char **scope);
 
 #define TRACE_SCOPE_SLOW(SCOPE) TRACE_SCOPE(SCOPE)
 
+#define TRACE_SCOPE_BEGIN(SCOPE) trace_begin(SCOPE);
+#define TRACE_SCOPE_END(SCOPE)  trace_end(&SCOPE);
+
 #endif /* ENABLE_TRACING == TRACE_WITH_PERCETTO */
 
 #else
@@ -100,6 +120,8 @@ void trace_end(const char **scope);
 #define TRACE_FUNC()
 #define TRACE_SCOPE(SCOPE)
 #define TRACE_SCOPE_SLOW(SCOPE)
+#define TRACE_SCOPE_BEGIN(SCOPE, VAR)
+#define TRACE_SCOPE_END(VAR)
 #endif /* ENABLE_TRACING */
 
 #endif /* VIRGL_UTIL_H */

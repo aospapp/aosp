@@ -18,6 +18,7 @@ package android.net.ip;
 import android.net.Layer2PacketParcelable;
 import android.net.LinkProperties;
 import android.net.ip.IIpClient;
+import android.net.networkstack.aidl.ip.ReachabilityLossInfoParcelable;
 import android.net.DhcpResultsParcelable;
 
 /** @hide */
@@ -67,4 +68,8 @@ oneway interface IIpClientCallbacks {
 
     // Invoked on starting preconnection process.
     void onPreconnectionStart(in List<Layer2PacketParcelable> packets);
+
+    // Called when the internal IpReachabilityMonitor (if enabled) has detected the loss of a
+    // critical number of required neighbors or DHCP roaming fails.
+    void onReachabilityFailure(in ReachabilityLossInfoParcelable lossInfo);
 }

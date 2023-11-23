@@ -21,8 +21,16 @@
     <!-- Include tests from statsd native device-tests -->
     <option name="compatibility:include-filter" value="statsd_test" />
 
+    <!-- Include framework statsd host tests -->
+    <!-- Exclude Statsd Framework Host tests until priv-app issue is resolved
+        TODO(b/222124237): remove once tests can run on userdebug build  -->
+    <!-- <option name="compatibility:include-filter" value="FrameworkStatsdHostTest" /> -->
+
     <!-- Enable MainlineTestModuleController. -->
     <option name="compatibility:module-arg" value="libstatspull_test:enable:true" />
     <option name="compatibility:module-arg" value="libstatssocket_test:enable:true" />
     <option name="compatibility:module-arg" value="statsd_test:enable:true" />
+    <!-- Exclude Statsd Framework Host tests until priv-app issue is resolved
+        TODO(b/222124237): remove once tests can run on userdebug build  -->
+    <!-- <option name="compatibility:module-arg" value="FrameworkStatsdHostTest:enable:true" /> -->
 </configuration>

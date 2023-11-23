@@ -28,11 +28,16 @@ namespace hwc {
 using android::hardware::graphics::common::V1_1::RenderIntent;
 using android::hardware::graphics::common::V1_2::ColorMode;
 using android::hardware::graphics::common::V1_2::Dataspace;
+using android::hardware::graphics::common::V1_2::PixelFormat;
 }  // namespace hwc
 
 /**
  * hwc/displaycolor interface history
  *
+ * 6.1.0.2022-05-18 Get calibrated serial number.
+ * 6.0.0.2022-02-22 Get whether dimming in linear.
+ * 5.0.0.2022-02-17 Add layer dim ratio.
+ * 4.0.0.2021-12-20 Get pixel format and dataspace of blending stage.
  * 3.0.0.2021-11-18 calibration info intf
  * 2.0.0.2021-08-27 pass brightness table for hdr10+
  * 1.0.0.2021-08-25 Initial release
@@ -55,8 +60,8 @@ constexpr struct DisplayColorIntfVer {
     }
 
 } kInterfaceVersion {
-    3,
-    0,
+    6,
+    1,
     0,
 };
 
@@ -82,6 +87,15 @@ enum BrightnessMode {
     BM_MAX = 2,
 };
 
+enum class HdrLayerState {
+    /// No HDR layer on screen
+    kHdrNone,
+    /// One or more small HDR layer(s), < 50% display size, take it as portrait mode.
+    kHdrSmall,
+    /// At least one large HDR layer, >= 50% display size, take it as full screen mode.
+    kHdrLarge,
+};
+
 struct DisplayBrightnessTable {
     float nbm_nits_min;
     float nbm_nits_max;
@@ -105,7 +119,8 @@ struct LayerColorData {
     bool operator==(const LayerColorData &rhs) const {
         return dataspace == rhs.dataspace && matrix == rhs.matrix &&
                static_metadata == rhs.static_metadata &&
-               dynamic_metadata == rhs.dynamic_metadata;
+               dynamic_metadata == rhs.dynamic_metadata &&
+               dim_ratio == rhs.dim_ratio;
     }
 
     /**
@@ -210,6 +225,11 @@ struct LayerColorData {
      * indicates this is an HDR layer.
      */
     HdrDynamicMetadata dynamic_metadata;
+
+    /**
+     * @brief the layer's luminance dim ratio
+     */
+    float dim_ratio = 1.0f;
 };
 
 /**
@@ -228,7 +248,7 @@ struct DisplayScene {
                lhbm_on == rhs.lhbm_on &&
                (lhbm_on && dbv == rhs.dbv) &&
                refresh_rate == rhs.refresh_rate &&
-               hdr_full_screen == rhs.hdr_full_screen;
+               hdr_layer_state == rhs.hdr_layer_state;
     }
 
     /// A vector of layer color data.
@@ -264,8 +284,8 @@ struct DisplayScene {
     /// refresh rate
     float refresh_rate;
 
-    /// hdr full screen mode
-    bool hdr_full_screen;
+    /// hdr layer state on screen
+    HdrLayerState hdr_layer_state;
 };
 
 struct CalibrationInfo {
@@ -351,6 +371,25 @@ class IDisplayColorGeneric {
      */
     virtual const ColorModesMap &ColorModesAndRenderIntents(
         DisplayType display) const = 0;
+
+    /**
+     * @brief Get pixel format and dataspace of blending stage.
+     * @param display to read the properties.
+     * @param pixel_format Pixel format of blending stage
+     * @param dataspace Dataspace of blending stage
+     * @return OK if successful, error otherwise.
+     */
+    virtual int GetBlendingProperty(DisplayType display,
+                                    hwc::PixelFormat &pixel_format,
+                                    hwc::Dataspace &dataspace,
+                                    bool &dimming_linear) const = 0;
+
+    /**
+     * @brief Get the serial number for the panel used during calibration.
+     * @param display to get the calibrated serial number.
+     * @return The calibrated serial number.
+     */
+    virtual const std::string& GetCalibratedSerialNumber(DisplayType display) const = 0;
 };
 
 extern "C" {

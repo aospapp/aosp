@@ -62,6 +62,16 @@ soong_config_module_type {
 }
 
 soong_config_module_type {
+    name: "module_prebuilt_systemserverclasspath_fragment",
+    module_type: "prebuilt_systemserverclasspath_fragment",
+    config_namespace: "ANDROID",
+    bool_variables: ["module_build_from_source"],
+    properties: [
+        "prefer",
+    ],
+}
+
+soong_config_module_type {
     name: "module_java_import",
     module_type: "java_import",
     config_namespace: "ANDROID",
@@ -70,6 +80,17 @@ soong_config_module_type {
         "prefer",
     ],
 }
+
+soong_config_module_type {
+    name: "module_java_test_import",
+    module_type: "java_test_import",
+    config_namespace: "ANDROID",
+    bool_variables: ["module_build_from_source"],
+    properties: [
+        "prefer",
+    ],
+}
+
 soong_config_module_type {
     name: "module_java_sdk_library_import",
     module_type: "java_sdk_library_import",

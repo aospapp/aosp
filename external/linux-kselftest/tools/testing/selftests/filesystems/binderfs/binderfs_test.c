@@ -241,7 +241,6 @@ static void __do_binderfs_test(void)
 	/* binder-control device removal failed as expected */
 	ksft_inc_xfail_cnt();
 
-on_error:
 	ret = umount2("/dev/binderfs", MNT_DETACH);
 	keep ?: rmdir_protect_errno("/dev/binderfs");
 	if (ret < 0)
@@ -263,6 +262,13 @@ static void binderfs_test_privileged()
 
 static void binderfs_test_unprivileged()
 {
+	/* This test depends on USER_NS which is not required by Android */
+	if (access("/proc/self/ns/user", F_OK) != 0) {
+		ksft_test_result_skip("%s: user namespace not supported\n",
+				__func__);
+		return;
+	}
+
 	change_to_userns();
 	__do_binderfs_test();
 }

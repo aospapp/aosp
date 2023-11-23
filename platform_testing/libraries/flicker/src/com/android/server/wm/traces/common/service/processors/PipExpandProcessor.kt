@@ -19,7 +19,7 @@ package com.android.server.wm.traces.common.service.processors
 import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformFlagSet
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory.isLayerTransformIdentity
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
@@ -32,7 +32,7 @@ import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 class PipExpandProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) {
     override val transition = Transition.PIP_EXPAND
     private val scalingLayers =
-        HashMap<Int, DeviceStateDump<WindowManagerState, LayerTraceEntry>>()
+        HashMap<Int, DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>>()
 
     override fun getInitialState(tags: MutableMap<Long, MutableList<Tag>>) =
         WaitUntilAppIsNoLongerPinned(tags)
@@ -44,9 +44,9 @@ class PipExpandProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         tags: MutableMap<Long, MutableList<Tag>>
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             // Pinned window is no longer pinned
             val prevPinnedWindows = previous?.wmState?.pinnedWindows?.toList() ?: emptyList()
@@ -71,9 +71,9 @@ class PipExpandProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         private val isScaling = isLayerTransformFlagSet(layerId, Transform.SCALE_VAL)
         private val isIdentity = isLayerTransformIdentity(layerId)
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             if (previous == null) return this
             if (previous.wmState.pinnedWindows.isNotEmpty()) {

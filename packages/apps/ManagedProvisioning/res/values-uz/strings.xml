@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Quyidagi ilova qurilmangizni boshqaradi:"</string>
     <string name="next" msgid="1004321437324424398">"Keyingisi"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Ish profili sozlanmoqda…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"AT administratoringiz bu profilga oid sozlamalar, korporativ kirish huquqi, ilovalar, ruxsatnomalar va maʼlumotlarni, jumladan, tarmoqdagi faollik va qurilmangiz joylashuvi, qo‘ng‘iroqlar tarixi hamda kontakt qidiruv tarixi maʼlumotlarini kuzatishi va boshqarishi mumkin.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Batafsil axborot, jumladan, tashkilotingiz maxfiylik siyosati haqida maʼlumot olish uchun AT administratoringizga murojaat qiling."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"AT administratoringiz sozlamalar, korporativ ruxsat, ilovalar, ruxsatlar, maʼlumotlar va ushbu profil bilan aloqador tarmoq faoliyatini, shuningdek, chaqiruvlar va kontaktlarni qidirish tarixini kuzatishi va boshqarishi mumkin. Batafsil axborot olish va tashkilotingiz maxfiylik siyosati bilan tanishib chiqish uchun AT administratoringizga murojaat qiling."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"AT administratoringiz bu qurilmaga oid sozlamalar, korporativ kirish huquqi, ilovalar, ruxsatnomalar va maʼlumotlarni, jumladan, tarmoqdagi faollik va qurilmangiz joylashuvi, chaqiruvlar tarixi hamda kontakt qidiruv tarixi axborotini kuzatishi va boshqarishi mumkin.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Batafsil axborot, jumladan, tashkilotingiz maxfiylik siyosati haqida maʼlumot olish uchun AT administratoringizga murojaat qiling."</string>
@@ -162,9 +160,9 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Hisobingiz boshqariladi"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Xavfsizlik qoidalarini kuzatish uchun administrator mobil qurilmalarni boshqarish tizimidan foydalanadi."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Sozlash uchun tayyorlanmoqda…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Keling, ishchi profilingizni sozlaymiz"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Keling, ish profilingizni sozlaymiz"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Ishga oid ilovalar ishchi profilda saqlanadi"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Ishni tugatganingizdan keyin ishchi ilovalarni pauza qilish"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Ishni tugatganingizdan keyin ish ilovalarini pauzalash"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Ish profilingizdagi maʼlumotlar faqat administratoringizga koʻrinadi"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Ish profilingiz sozlanmoqda…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Ishga oid ilovalar ish profilida saqlanadi. Ishni tugatganingizdan keyin ishga oid ilovalarni pauza qilishingiz mumkin. Ish profilingizdagi maʼlumotlar faqat AT administratoringizga koʻrinadi."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Bu qurilma toʻlovlarini amalga oshirishingiz uchun <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ilovasini oʻrnatishi mumkin."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Bu qurilmadan foydalanish cheklanishi mumkin"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Agar toʻlovlarni amalga oshirmasangiz, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> bu qurilmadan foydalanishni cheklashi mumkin."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Qurilma sozlanmadi. AT administratoringizga murojaat qiling va Yaroqsiz nazorat summasi haqida fikr almashing."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Keyinroq qayta urining yoki yordam olish uchun AT administratoringizga murojaat qiling."</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Qurilma sozlanmadi. AT administratoringizga murojaat qiling va Yoʻqolgan yoki buzilgan komponentlar haqida fikr almashing."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Sozlanmoqda…"</string>
 </resources>

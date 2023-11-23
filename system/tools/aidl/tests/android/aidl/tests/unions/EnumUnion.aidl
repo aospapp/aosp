@@ -23,4 +23,6 @@ import android.aidl.tests.LongEnum;
 union EnumUnion {
     IntEnum intEnum = IntEnum.FOO;
     LongEnum longEnum;
+    /** @deprecated do not use this */
+    int deprecatedField;
 }

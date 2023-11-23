@@ -40,13 +40,16 @@ cc_test {
         "liblog",
         "libutils",
     ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_static",
+        "keystore2_use_latest_aidl_ndk_static",
+    ],
     static_libs: [
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.system.keystore2-V1-ndk_platform",
         "libdm",
         "libext4_utils",
         "libfs_mgr",
         "libkeymint_support",
+        "liblz4",
         "liblzma",
     ],
     test_suites: [

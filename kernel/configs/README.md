@@ -171,7 +171,7 @@ be frozen. Follow the following steps
   For example, change `kernel_config_current_4.9` in `q/android-4.9/Android.bp`
   to `kernel_config_q_4.9`
 * Under `hardware/interfaces/compatibility_matrices/Android.bp`, edit
-  `kernel_config` field for the `framework_compatibility_matrix.current.xml`
+  `kernel_configs` field for the `framework_compatibility_matrix.current.xml`
   to use the new modules.
   * `framework_compatibility_matrix.current.xml` will be renamed to
     `framework_compatibility_matrix.<level>.xml` as part of the FCM Version

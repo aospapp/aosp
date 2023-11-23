@@ -72,5 +72,8 @@ public class ScanRecordTest extends AndroidTestCase {
                 0x50, 0x64 };
         TestUtils.assertArrayEquals(serviceData, data.getServiceData().get(uuid2));
         TestUtils.assertArrayEquals(serviceData, data.getServiceData(uuid2));
+
+        final byte[] adData = new byte[] {0x01, 0x02};
+        TestUtils.assertArrayEquals(adData, data.getAdvertisingDataMap().get(0x50));
     }
 }

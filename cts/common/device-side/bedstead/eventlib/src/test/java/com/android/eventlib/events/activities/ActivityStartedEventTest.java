@@ -34,6 +34,8 @@ import org.junit.runners.JUnit4;
 public final class ActivityStartedEventTest {
 
     private static final Context sContext = TestApis.context().instrumentedContext();
+    private static final int TASK_ID = 1;
+    private static final int DIFFERENT_TASK_ID = 2;
 
     private static final String ACTIVITY_CLASS_NAME = ActivityContext.class.getName();
     private static final ActivityInfo ACTIVITY_INFO = new ActivityInfo();
@@ -73,6 +75,38 @@ public final class ActivityStartedEventTest {
                         .whereActivity().activityClass().className().isEqualTo(ACTIVITY_CLASS_NAME);
 
         assertThat(eventLogs.poll().activity().className()).isEqualTo(ACTIVITY_CLASS_NAME);
+    }
+
+    @Test
+    public void whereTaskId_works() throws Exception {
+        ActivityContext.runWithContext((activity) ->
+                ActivityStartedEvent.logger(activity, ACTIVITY_INFO)
+                        .setTaskId(TASK_ID)
+                        .log());
+
+        EventLogs<ActivityStartedEvent> eventLogs =
+                ActivityStartedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
+    }
+
+    @Test
+    public void whereTaskId_skipsNonMatching() throws Exception {
+        ActivityContext.runWithContext((activity) -> {
+            ActivityStartedEvent.logger(activity, ACTIVITY_INFO)
+                    .setTaskId(DIFFERENT_TASK_ID)
+                    .log();
+            ActivityStartedEvent.logger(activity, ACTIVITY_INFO)
+                    .setTaskId(TASK_ID)
+                    .log();
+        });
+
+        EventLogs<ActivityStartedEvent> eventLogs =
+                ActivityStartedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
     }
 
 }

@@ -22,11 +22,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.os.SystemClock
 import android.provider.Settings
 import android.support.test.uiautomator.By
 import android.support.test.uiautomator.BySelector
+import android.support.test.uiautomator.StaleObjectException
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.UiObject2
+import android.text.Html
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
 import com.android.compatibility.common.util.DisableAnimationRule
@@ -58,6 +61,10 @@ abstract class BasePermissionTest {
     protected val packageManager: PackageManager = context.packageManager
     private val mPermissionControllerResources: Resources = context.createPackageContext(
             context.packageManager.permissionControllerPackageName, 0).resources
+
+    protected val isTv = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    protected val isWatch = packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
+    protected val isAutomotive = packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
 
     @get:Rule
     val disableAnimationRule = DisableAnimationRule()
@@ -99,11 +106,14 @@ abstract class BasePermissionTest {
         pressHome()
     }
 
-    protected fun getPermissionControllerString(res: String): Pattern =
-            Pattern.compile(Pattern.quote(mPermissionControllerResources.getString(
-                    mPermissionControllerResources.getIdentifier(
-                            res, "string", "com.android.permissioncontroller"))),
-                    Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE)
+    protected fun getPermissionControllerString(res: String, vararg formatArgs: Any): Pattern {
+        val textWithHtml = mPermissionControllerResources.getString(
+                mPermissionControllerResources.getIdentifier(
+                        res, "string", "com.android.permissioncontroller"), *formatArgs)
+        val textWithoutHtml = Html.fromHtml(textWithHtml, 0).toString()
+        return Pattern.compile(Pattern.quote(textWithoutHtml),
+                Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE)
+    }
 
     protected fun installPackage(
         apkPath: String,
@@ -131,22 +141,41 @@ abstract class BasePermissionTest {
 
     protected fun waitFindObject(selector: BySelector): UiObject2 {
         waitForIdle()
-        return UiAutomatorUtils.waitFindObject(selector)
+        return findObjectWithRetry({ t -> UiAutomatorUtils.waitFindObject(selector, t) })!!
     }
 
     protected fun waitFindObject(selector: BySelector, timeoutMillis: Long): UiObject2 {
         waitForIdle()
-        return UiAutomatorUtils.waitFindObject(selector, timeoutMillis)
+        return findObjectWithRetry({ t -> UiAutomatorUtils.waitFindObject(selector, t) },
+                timeoutMillis)!!
     }
 
     protected fun waitFindObjectOrNull(selector: BySelector): UiObject2? {
         waitForIdle()
-        return UiAutomatorUtils.waitFindObjectOrNull(selector)
+        return findObjectWithRetry({ t -> UiAutomatorUtils.waitFindObjectOrNull(selector, t) })
     }
 
     protected fun waitFindObjectOrNull(selector: BySelector, timeoutMillis: Long): UiObject2? {
         waitForIdle()
-        return UiAutomatorUtils.waitFindObjectOrNull(selector, timeoutMillis)
+        return findObjectWithRetry({ t -> UiAutomatorUtils.waitFindObjectOrNull(selector, t) },
+                timeoutMillis)
+    }
+
+    private fun findObjectWithRetry(
+        automatorMethod: (timeoutMillis: Long) -> UiObject2?,
+        timeoutMillis: Long = 20_000L
+    ): UiObject2? {
+        waitForIdle()
+        val startTime = SystemClock.elapsedRealtime()
+        return try {
+            automatorMethod(timeoutMillis)
+        } catch (e: StaleObjectException) {
+            val remainingTime = timeoutMillis - (SystemClock.elapsedRealtime() - startTime)
+            if (remainingTime <= 0) {
+                throw e
+            }
+            automatorMethod(remainingTime)
+        }
     }
 
     protected fun click(selector: BySelector, timeoutMillis: Long = 20_000) {

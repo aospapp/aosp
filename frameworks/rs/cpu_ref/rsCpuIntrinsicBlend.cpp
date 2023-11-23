@@ -109,6 +109,15 @@ extern void rsdIntrinsicBlendSub_K(void *dst, const void *src, uint32_t count8);
 namespace android {
 namespace renderscript {
 
+// Convert vector to uchar4, clipping each value to 255.
+template <typename TI>
+static inline uchar4 convertClipped(TI amount) {
+    return uchar4 { static_cast<uchar>(amount.x > 255 ? 255 : amount.x),
+                    static_cast<uchar>(amount.y > 255 ? 255 : amount.y),
+                    static_cast<uchar>(amount.z > 255 ? 255 : amount.z),
+                    static_cast<uchar>(amount.w > 255 ? 255 : amount.w)};
+}
+
 void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
                                         uint32_t xstart, uint32_t xend,
                                         uint32_t outstep) {
@@ -120,8 +129,11 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
     if (gArchUseSIMD) {
-        if (rsdIntrinsicBlend_K(out, in, info->slot, x1, x2) >= 0)
+        if (rsdIntrinsicBlend_K(out, in, info->slot, 0, x2 - x1) >= 0) {
             return;
+        } else {
+            ALOGW("Intrinsic Blend failed to use SIMD for %d", info->slot);
+        }
     }
 #endif
     switch (info->slot) {
@@ -151,10 +163,10 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
         }
     #endif
         for (;x1 < x2; x1++, out++, in++) {
-            short4 in_s = convert_short4(*in);
-            short4 out_s = convert_short4(*out);
-            in_s = in_s + ((out_s * (short4)(255 - in_s.w)) >> (short4)8);
-            *out = convert_uchar4(in_s);
+            ushort4 in_s = convert_ushort4(*in);
+            ushort4 out_s = convert_ushort4(*out);
+            in_s = in_s + ((out_s * (ushort4)(255 - in_s.w)) >> (ushort4)8);
+            *out = convertClipped(in_s);
         }
         break;
     case BLEND_DST_OVER:
@@ -170,10 +182,10 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
         }
      #endif
         for (;x1 < x2; x1++, out++, in++) {
-            short4 in_s = convert_short4(*in);
-            short4 out_s = convert_short4(*out);
-            in_s = out_s + ((in_s * (short4)(255 - out_s.w)) >> (short4)8);
-            *out = convert_uchar4(in_s);
+            ushort4 in_s = convert_ushort4(*in);
+            ushort4 out_s = convert_ushort4(*out);
+            in_s = out_s + ((in_s * (ushort4)(255 - out_s.w)) >> (ushort4)8);
+            *out = convertClipped(in_s);
         }
         break;
     case BLEND_SRC_IN:
@@ -189,8 +201,8 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
         }
     #endif
         for (;x1 < x2; x1++, out++, in++) {
-            short4 in_s = convert_short4(*in);
-            in_s = (in_s * out->w) >> (short4)8;
+            ushort4 in_s = convert_ushort4(*in);
+            in_s = (in_s * out->w) >> (ushort4)8;
             *out = convert_uchar4(in_s);
         }
         break;
@@ -261,11 +273,14 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
         }
     #endif
         for (;x1 < x2; x1++, out++, in++) {
-            short4 in_s = convert_short4(*in);
-            short4 out_s = convert_short4(*out);
+            // The max value the operation could produce before the shift
+            // is 255 * 255 + 255 * (255 - 0) = 130050, or 0x1FC02.
+            // That value does not fit in a ushort, so we use uint.
+            uint4 in_s = convert_uint4(*in);
+            uint4 out_s = convert_uint4(*out);
             out_s.xyz = ((in_s.xyz * out_s.w) +
-              (out_s.xyz * ((short3)255 - (short3)in_s.w))) >> (short3)8;
-            *out = convert_uchar4(out_s);
+              (out_s.xyz * ((uint3)255 - (uint3)in_s.w))) >> (uint3)8;
+            *out = convertClipped(out_s);
         }
         break;
     case BLEND_DST_ATOP:
@@ -281,12 +296,12 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
         }
      #endif
         for (;x1 < x2; x1++, out++, in++) {
-            short4 in_s = convert_short4(*in);
-            short4 out_s = convert_short4(*out);
+            uint4 in_s = convert_uint4(*in);
+            uint4 out_s = convert_uint4(*out);
             out_s.xyz = ((out_s.xyz * in_s.w) +
-              (in_s.xyz * ((short3)255 - (short3)out_s.w))) >> (short3)8;
+              (in_s.xyz * ((uint3)255 - (uint3)out_s.w))) >> (uint3)8;
             out_s.w = in_s.w;
-            *out = convert_uchar4(out_s);
+            *out = convertClipped(out_s);
         }
         break;
     case BLEND_XOR:

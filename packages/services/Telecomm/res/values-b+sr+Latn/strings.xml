@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Blokirajte pozive sa telefonskih govornica"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Nepoznati brojevi"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Blokirajte pozive neidentifikovanih pozivalaca"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Nedostupno"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Blokirajte pozive ako je broj nedostupan"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Blokiranje poziva"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Blokiranje poziva je onemogućeno"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Upućen je hitni poziv"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Blokiranje poziva je onemogućeno da bi hitne službe mogle da vas kontaktiraju."</string>
     <string name="developer_title" msgid="9146088855661672353">"Meni za programere Telecom-a"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Za vreme hitnog poziva nije moguće preuzimati druge pozive."</string>
+    <string name="cancel" msgid="6733466216239934756">"Otkaži"</string>
 </resources>

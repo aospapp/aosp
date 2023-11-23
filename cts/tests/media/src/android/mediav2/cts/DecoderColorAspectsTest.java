@@ -18,10 +18,12 @@ package android.mediav2.cts;
 
 import android.media.MediaFormat;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SmallTest;
-import androidx.test.rule.ActivityTestRule;
 
+import org.junit.After;
 import org.junit.Assume;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +42,7 @@ public class DecoderColorAspectsTest extends CodecDecoderTestBase {
     private final int mColorStandard;
     private final int mColorTransferCurve;
     private final boolean mCanIgnoreColorBox;
+
     private ArrayList<String> mCheckESList;
 
     public DecoderColorAspectsTest(String decoderName, String mime, String testFile, int range,
@@ -51,10 +54,10 @@ public class DecoderColorAspectsTest extends CodecDecoderTestBase {
         mCheckESList = new ArrayList<>();
         mCheckESList.add(MediaFormat.MIMETYPE_VIDEO_AVC);
         mCheckESList.add(MediaFormat.MIMETYPE_VIDEO_HEVC);
-        /* TODO (b/165492703) Mpeg2 and (b/165787556) AV1 has problems in signalling color
+        /* TODO (b/165492703) Mpeg2 has problems in signalling color
             aspects information via elementary stream. */
         // mCheckESList.add(MediaFormat.MIMETYPE_VIDEO_MPEG2);
-        // mCheckESList.add(MediaFormat.MIMETYPE_VIDEO_AV1);
+        mCheckESList.add(MediaFormat.MIMETYPE_VIDEO_AV1);
         mCanIgnoreColorBox = canIgnoreColorBox;
     }
 
@@ -235,8 +238,19 @@ public class DecoderColorAspectsTest extends CodecDecoderTestBase {
     }
 
     @Rule
-    public ActivityTestRule<CodecTestActivity> mActivityRule =
-            new ActivityTestRule<>(CodecTestActivity.class);
+    public ActivityScenarioRule<CodecTestActivity> mActivityRule =
+            new ActivityScenarioRule<>(CodecTestActivity.class);
+
+    @Before
+    public void setUp() throws IOException, InterruptedException {
+        mActivityRule.getScenario().onActivity(activity -> mActivity = activity);
+        setUpSurface(mActivity);
+    }
+
+    @After
+    public void tearDown() {
+        tearDownSurface();
+    }
 
     @SmallTest
     @Test(timeout = PER_TEST_TIMEOUT_SMALL_TEST_MS)
@@ -246,9 +260,10 @@ public class DecoderColorAspectsTest extends CodecDecoderTestBase {
         ArrayList<MediaFormat> formats = new ArrayList<>();
         formats.add(format);
         Assume.assumeTrue(areFormatsSupported(mCodecName, mMime, formats));
-        CodecTestActivity activity = mActivityRule.getActivity();
-        setUpSurface(activity);
-        activity.setScreenParams(getWidth(format), getHeight(format), true);
+        if (doesAnyFormatHaveHDRProfile(mMime, formats)) {
+            Assume.assumeTrue(canDisplaySupportHDRContent());
+        }
+        mActivity.setScreenParams(getWidth(format), getHeight(format), true);
         {
             validateColorAspects(mCodecName, mInpPrefix, mTestFile, mColorRange, mColorStandard,
                     mColorTransferCurve, false);
@@ -259,6 +274,5 @@ public class DecoderColorAspectsTest extends CodecDecoderTestBase {
                         mColorStandard, mColorTransferCurve, true);
             }
         }
-        tearDownSurface();
     }
 }

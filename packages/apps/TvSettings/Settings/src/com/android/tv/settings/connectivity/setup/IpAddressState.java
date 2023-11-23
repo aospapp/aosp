@@ -131,6 +131,12 @@ public class IpAddressState implements State {
         }
 
         @Override
+        public void onResume() {
+            super.onResume();
+            openInEditMode(mAction);
+        }
+
+        @Override
         public long onGuidedActionEditedAndProceed(GuidedAction action) {
             if (action.getId() == GuidedAction.ACTION_ID_CONTINUE) {
                 mAdvancedOptionsFlowInfo.put(AdvancedOptionsFlowInfo.IP_ADDRESS,

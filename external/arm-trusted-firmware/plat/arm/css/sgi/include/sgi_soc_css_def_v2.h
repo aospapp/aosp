@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -69,6 +69,18 @@
 						SOC_PLATFORM_PERIPH_BASE, 	\
 						SOC_PLATFORM_PERIPH_SIZE, 	\
 						MT_DEVICE | MT_RW | MT_SECURE)
+
+#if SPM_MM
+/*
+ * Memory map definition for the platform peripheral memory region that is
+ * accessible from S-EL0 (with secure user mode access).
+ */
+#define SOC_PLATFORM_PERIPH_MAP_DEVICE_USER				       \
+		MAP_REGION_FLAT(					       \
+			SOC_PLATFORM_PERIPH_BASE,			       \
+			SOC_PLATFORM_PERIPH_SIZE,			       \
+			MT_DEVICE | MT_RW | MT_SECURE | MT_USER)
+#endif
 
 #define SOC_SYSTEM_PERIPH_MAP_DEVICE	MAP_REGION_FLAT(			\
 						SOC_SYSTEM_PERIPH_BASE,		\
@@ -172,8 +184,18 @@
 #define MAX_IO_HANDLES			U(4)
 
 /* Reserve the last block of flash for PSCI MEM PROTECT flag */
-#define PLAT_ARM_FIP_BASE		V2M_FLASH0_BASE
-#define PLAT_ARM_FIP_MAX_SIZE		(V2M_FLASH0_SIZE - V2M_FLASH_BLOCK_SIZE)
+#define PLAT_ARM_FLASH_IMAGE_BASE	V2M_FLASH0_BASE
+#define PLAT_ARM_FLASH_IMAGE_MAX_SIZE	(V2M_FLASH0_SIZE - V2M_FLASH_BLOCK_SIZE)
+
+#if ARM_GPT_SUPPORT
+/*
+ * Offset of the FIP in the GPT image. BL1 component uses this option
+ * as it does not load the partition table to get the FIP base
+ * address. At sector 34 by default (i.e. after reserved sectors 0-33)
+ * Offset = 34 * 512(sector size) = 17408 i.e. 0x4400
+ */
+#define PLAT_ARM_FIP_OFFSET_IN_GPT		0x4400
+#endif /* ARM_GPT_SUPPORT */
 
 #define PLAT_ARM_NVM_BASE		V2M_FLASH0_BASE
 #define PLAT_ARM_NVM_SIZE		(V2M_FLASH0_SIZE - V2M_FLASH_BLOCK_SIZE)

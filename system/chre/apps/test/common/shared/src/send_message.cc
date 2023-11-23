@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "send_message.h"
+
 #include <chre.h>
 #include <pb_encode.h>
 #include <cinttypes>
@@ -43,7 +45,8 @@ bool encodeErrorMessage(pb_ostream_t *stream, const pb_field_t * /*field*/,
 }  // namespace
 
 void sendTestResultWithMsgToHost(uint16_t hostEndpointId, uint32_t messageType,
-                                 bool success, const char *errMessage) {
+                                 bool success, const char *errMessage,
+                                 bool abortOnFailure) {
   // Unspecified endpoint is not allowed in chreSendMessageToHostEndpoint.
   if (hostEndpointId == CHRE_HOST_ENDPOINT_UNSPECIFIED) {
     hostEndpointId = CHRE_HOST_ENDPOINT_BROADCAST;
@@ -80,8 +83,7 @@ void sendTestResultWithMsgToHost(uint16_t hostEndpointId, uint32_t messageType,
     }
   }
 
-  // Abort to ensure test does not continue
-  if (!success) {
+  if (!success && abortOnFailure) {
     chreAbort(0);
   }
 }

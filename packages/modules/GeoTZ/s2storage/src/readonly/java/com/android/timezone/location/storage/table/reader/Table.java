@@ -45,7 +45,11 @@ public interface Table<E extends Table.TableEntry> {
     /** Returns the number of entries in the table. */
     int getEntryCount();
 
-    /** An entry in a {@link Table}. */
+    /**
+     * An entry in a {@link Table}.
+     *
+     * @param <T> the type of the entry
+     */
     interface TableEntry<T extends TableEntry<T>> {
 
         /** Returns the entry's index in the table. */

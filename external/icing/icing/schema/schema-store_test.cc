@@ -21,7 +21,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "icing/absl_ports/str_cat.h"
+#include "icing/document-builder.h"
 #include "icing/file/filesystem.h"
+#include "icing/file/mock-filesystem.h"
 #include "icing/portable/equals-proto.h"
 #include "icing/proto/document.pb.h"
 #include "icing/proto/schema.pb.h"
@@ -33,6 +35,7 @@
 #include "icing/testing/common-matchers.h"
 #include "icing/testing/fake-clock.h"
 #include "icing/testing/tmp-directory.h"
+#include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/util/crc32.h"
 
 namespace icing {
@@ -44,28 +47,35 @@ using ::icing::lib::portable_equals_proto::EqualsProto;
 using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Ge;
+using ::testing::Gt;
+using ::testing::HasSubstr;
 using ::testing::Not;
 using ::testing::Pointee;
+using ::testing::Return;
+using ::testing::SizeIs;
 
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_OPTIONAL =
-    PropertyConfigProto_Cardinality_Code_OPTIONAL;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_REPEATED =
-    PropertyConfigProto_Cardinality_Code_REPEATED;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_OPTIONAL =
+    PropertyConfigProto::Cardinality::OPTIONAL;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REPEATED =
+    PropertyConfigProto::Cardinality::REPEATED;
 
-constexpr StringIndexingConfig_TokenizerType_Code TOKENIZER_PLAIN =
-    StringIndexingConfig_TokenizerType_Code_PLAIN;
+constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_PLAIN =
+    StringIndexingConfig::TokenizerType::PLAIN;
 
-constexpr TermMatchType_Code MATCH_EXACT = TermMatchType_Code_EXACT_ONLY;
+constexpr TermMatchType::Code MATCH_EXACT = TermMatchType::EXACT_ONLY;
+constexpr TermMatchType::Code MATCH_PREFIX = TermMatchType::PREFIX;
 
-constexpr PropertyConfigProto_DataType_Code TYPE_STRING =
-    PropertyConfigProto_DataType_Code_STRING;
-constexpr PropertyConfigProto_DataType_Code TYPE_DOUBLE =
-    PropertyConfigProto_DataType_Code_DOUBLE;
+constexpr PropertyConfigProto::DataType::Code TYPE_STRING =
+    PropertyConfigProto::DataType::STRING;
+constexpr PropertyConfigProto::DataType::Code TYPE_DOUBLE =
+    PropertyConfigProto::DataType::DOUBLE;
 
 class SchemaStoreTest : public ::testing::Test {
  protected:
-  SchemaStoreTest() : test_dir_(GetTestTempDir() + "/icing") {
-    filesystem_.CreateDirectoryRecursively(test_dir_.c_str());
+  void SetUp() override {
+    temp_dir_ = GetTestTempDir() + "/icing";
+    schema_store_dir_ = temp_dir_ + "/schema_store";
+    filesystem_.CreateDirectoryRecursively(schema_store_dir_.c_str());
 
     schema_ =
         SchemaBuilder()
@@ -79,26 +89,112 @@ class SchemaStoreTest : public ::testing::Test {
   }
 
   void TearDown() override {
-    filesystem_.DeleteDirectoryRecursively(test_dir_.c_str());
+    // Check that the schema store directory is the *only* directory in the
+    // schema_store_dir_. IOW, ensure that all temporary directories have been
+    // properly cleaned up.
+    std::vector<std::string> sub_dirs;
+    ASSERT_TRUE(filesystem_.ListDirectory(temp_dir_.c_str(), &sub_dirs));
+    ASSERT_THAT(sub_dirs, ElementsAre("schema_store"));
+
+    // Finally, clean everything up.
+    ASSERT_TRUE(filesystem_.DeleteDirectoryRecursively(temp_dir_.c_str()));
   }
 
-  const Filesystem filesystem_;
-  const std::string test_dir_;
+  Filesystem filesystem_;
+  std::string temp_dir_;
+  std::string schema_store_dir_;
   SchemaProto schema_;
-  const FakeClock fake_clock_;
+  FakeClock fake_clock_;
 };
 
 TEST_F(SchemaStoreTest, CreationWithNullPointerShouldFail) {
   EXPECT_THAT(
-      SchemaStore::Create(/*filesystem=*/nullptr, test_dir_, &fake_clock_),
+      SchemaStore::Create(/*filesystem=*/nullptr, schema_store_dir_, &fake_clock_),
       StatusIs(libtextclassifier3::StatusCode::FAILED_PRECONDITION));
+}
+
+TEST_F(SchemaStoreTest, SchemaStoreMoveConstructible) {
+  // Create an instance of SchemaStore.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder().SetType("TypeA").AddProperty(
+              PropertyConfigBuilder()
+                  .SetName("prop1")
+                  .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
+                  .SetCardinality(CARDINALITY_OPTIONAL)))
+          .Build();
+
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  ICING_ASSERT_OK(schema_store->SetSchema(schema));
+  ICING_ASSERT_OK_AND_ASSIGN(Crc32 expected_checksum,
+                             schema_store->ComputeChecksum());
+
+  // Move construct an instance of SchemaStore
+  SchemaStore move_constructed_schema_store(std::move(*schema_store));
+  EXPECT_THAT(move_constructed_schema_store.GetSchema(),
+              IsOkAndHolds(Pointee(EqualsProto(schema))));
+  EXPECT_THAT(move_constructed_schema_store.ComputeChecksum(),
+              IsOkAndHolds(Eq(expected_checksum)));
+  SectionMetadata expected_metadata(/*id_in=*/0, MATCH_EXACT, TOKENIZER_PLAIN,
+                                    "prop1");
+  EXPECT_THAT(move_constructed_schema_store.GetSectionMetadata("TypeA"),
+              IsOkAndHolds(Pointee(ElementsAre(expected_metadata))));
+}
+
+TEST_F(SchemaStoreTest, SchemaStoreMoveAssignment) {
+  // Create an instance of SchemaStore.
+  SchemaProto schema1 =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder().SetType("TypeA").AddProperty(
+              PropertyConfigBuilder()
+                  .SetName("prop1")
+                  .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
+                  .SetCardinality(CARDINALITY_OPTIONAL)))
+          .Build();
+
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  ICING_ASSERT_OK(schema_store->SetSchema(schema1));
+  ICING_ASSERT_OK_AND_ASSIGN(Crc32 expected_checksum,
+                             schema_store->ComputeChecksum());
+
+  // Construct another instance of SchemaStore
+  SchemaProto schema2 =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder().SetType("TypeB").AddProperty(
+              PropertyConfigBuilder()
+                  .SetName("prop2")
+                  .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
+                  .SetCardinality(CARDINALITY_OPTIONAL)))
+          .Build();
+
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> move_assigned_schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+  ICING_ASSERT_OK(schema_store->SetSchema(schema2));
+
+  // Move assign the first instance into the second one.
+  *move_assigned_schema_store = std::move(*schema_store);
+  EXPECT_THAT(move_assigned_schema_store->GetSchema(),
+              IsOkAndHolds(Pointee(EqualsProto(schema1))));
+  EXPECT_THAT(move_assigned_schema_store->ComputeChecksum(),
+              IsOkAndHolds(Eq(expected_checksum)));
+  SectionMetadata expected_metadata(/*id_in=*/0, MATCH_EXACT, TOKENIZER_PLAIN,
+                                    "prop1");
+  EXPECT_THAT(move_assigned_schema_store->GetSectionMetadata("TypeA"),
+              IsOkAndHolds(Pointee(ElementsAre(expected_metadata))));
 }
 
 TEST_F(SchemaStoreTest, CorruptSchemaError) {
   {
     ICING_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<SchemaStore> schema_store,
-        SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+        SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
     // Set it for the first time
     SchemaStore::SetSchemaResult result;
@@ -119,14 +215,14 @@ TEST_F(SchemaStoreTest, CorruptSchemaError) {
           .AddType(SchemaTypeConfigBuilder().SetType("corrupted"))
           .Build();
 
-  const std::string schema_file = absl_ports::StrCat(test_dir_, "/schema.pb");
+  const std::string schema_file = absl_ports::StrCat(schema_store_dir_, "/schema.pb");
   const std::string serialized_schema = corrupt_schema.SerializeAsString();
 
   filesystem_.Write(schema_file.c_str(), serialized_schema.data(),
                     serialized_schema.size());
 
   // If ground truth was corrupted, we won't know what to do
-  EXPECT_THAT(SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_),
+  EXPECT_THAT(SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_),
               StatusIs(libtextclassifier3::StatusCode::INTERNAL));
 }
 
@@ -134,7 +230,7 @@ TEST_F(SchemaStoreTest, RecoverCorruptDerivedFileOk) {
   {
     ICING_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<SchemaStore> schema_store,
-        SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+        SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
     // Set it for the first time
     SchemaStore::SetSchemaResult result;
@@ -154,12 +250,12 @@ TEST_F(SchemaStoreTest, RecoverCorruptDerivedFileOk) {
   // regenerated from ground truth
 
   const std::string schema_type_mapper_dir =
-      absl_ports::StrCat(test_dir_, "/schema_type_mapper");
+      absl_ports::StrCat(schema_store_dir_, "/schema_type_mapper");
   filesystem_.DeleteDirectoryRecursively(schema_type_mapper_dir.c_str());
 
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Everything looks fine, ground truth and derived data
   ICING_ASSERT_OK_AND_ASSIGN(const SchemaProto* actual_schema,
@@ -172,7 +268,7 @@ TEST_F(SchemaStoreTest, RecoverBadChecksumOk) {
   {
     ICING_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<SchemaStore> schema_store,
-        SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+        SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
     // Set it for the first time
     SchemaStore::SetSchemaResult result;
@@ -191,7 +287,7 @@ TEST_F(SchemaStoreTest, RecoverBadChecksumOk) {
   // the recalculated checksum on initialization. This will force a regeneration
   // of derived files from ground truth.
   const std::string header_file =
-      absl_ports::StrCat(test_dir_, "/schema_store_header");
+      absl_ports::StrCat(schema_store_dir_, "/schema_store_header");
   SchemaStore::Header header;
   header.magic = SchemaStore::Header::kMagic;
   header.checksum = 10;  // Arbitrary garbage checksum
@@ -200,7 +296,7 @@ TEST_F(SchemaStoreTest, RecoverBadChecksumOk) {
 
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Everything looks fine, ground truth and derived data
   ICING_ASSERT_OK_AND_ASSIGN(const SchemaProto* actual_schema,
@@ -212,7 +308,7 @@ TEST_F(SchemaStoreTest, RecoverBadChecksumOk) {
 TEST_F(SchemaStoreTest, CreateNoPreviousSchemaOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // The apis to retrieve information about the schema should fail gracefully.
   EXPECT_THAT(store->GetSchema(),
@@ -245,7 +341,7 @@ TEST_F(SchemaStoreTest, CreateNoPreviousSchemaOk) {
 TEST_F(SchemaStoreTest, CreateWithPreviousSchemaOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaStore::SetSchemaResult result;
   result.success = true;
@@ -254,7 +350,7 @@ TEST_F(SchemaStoreTest, CreateWithPreviousSchemaOk) {
               IsOkAndHolds(EqualsSetSchemaResult(result)));
 
   schema_store.reset();
-  EXPECT_THAT(SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_),
+  EXPECT_THAT(SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_),
               IsOk());
 }
 
@@ -267,7 +363,7 @@ TEST_F(SchemaStoreTest, MultipleCreateOk) {
 
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaStore::SetSchemaResult result;
   result.success = true;
@@ -287,7 +383,7 @@ TEST_F(SchemaStoreTest, MultipleCreateOk) {
 
   schema_store.reset();
   ICING_ASSERT_OK_AND_ASSIGN(
-      schema_store, SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      schema_store, SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Verify that our in-memory structures are ok
   EXPECT_THAT(schema_store->GetSchemaTypeConfig("email"),
@@ -303,7 +399,7 @@ TEST_F(SchemaStoreTest, MultipleCreateOk) {
 TEST_F(SchemaStoreTest, SetNewSchemaOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Set it for the first time
   SchemaStore::SetSchemaResult result;
@@ -319,7 +415,7 @@ TEST_F(SchemaStoreTest, SetNewSchemaOk) {
 TEST_F(SchemaStoreTest, SetSameSchemaOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Set it for the first time
   SchemaStore::SetSchemaResult result;
@@ -343,7 +439,7 @@ TEST_F(SchemaStoreTest, SetSameSchemaOk) {
 TEST_F(SchemaStoreTest, SetIncompatibleSchemaOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Set it for the first time
   SchemaStore::SetSchemaResult result;
@@ -370,7 +466,7 @@ TEST_F(SchemaStoreTest, SetIncompatibleSchemaOk) {
 TEST_F(SchemaStoreTest, SetSchemaWithAddedTypeOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema = SchemaBuilder()
                            .AddType(SchemaTypeConfigBuilder().SetType("email"))
@@ -404,7 +500,7 @@ TEST_F(SchemaStoreTest, SetSchemaWithAddedTypeOk) {
 TEST_F(SchemaStoreTest, SetSchemaWithDeletedTypeOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema =
       SchemaBuilder()
@@ -462,7 +558,7 @@ TEST_F(SchemaStoreTest, SetSchemaWithDeletedTypeOk) {
 TEST_F(SchemaStoreTest, SetSchemaWithReorderedTypesOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema =
       SchemaBuilder()
@@ -505,7 +601,7 @@ TEST_F(SchemaStoreTest, SetSchemaWithReorderedTypesOk) {
 TEST_F(SchemaStoreTest, IndexedPropertyChangeRequiresReindexingOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema =
       SchemaBuilder()
@@ -549,7 +645,7 @@ TEST_F(SchemaStoreTest, IndexedPropertyChangeRequiresReindexingOk) {
 TEST_F(SchemaStoreTest, IndexNestedDocumentsChangeRequiresReindexingOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Make two schemas. One that sets index_nested_properties to false and one
   // that sets it to true.
@@ -618,7 +714,7 @@ TEST_F(SchemaStoreTest, IndexNestedDocumentsChangeRequiresReindexingOk) {
 TEST_F(SchemaStoreTest, SetSchemaWithIncompatibleTypesOk) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema =
       SchemaBuilder()
@@ -677,10 +773,185 @@ TEST_F(SchemaStoreTest, SetSchemaWithIncompatibleTypesOk) {
   EXPECT_THAT(*actual_schema, EqualsProto(schema));
 }
 
+TEST_F(SchemaStoreTest, SetSchemaWithIncompatibleNestedTypesOk) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  // 1. Create a ContactPoint type with a repeated property and set that schema
+  SchemaTypeConfigBuilder contact_point_repeated_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_REPEATED));
+  SchemaProto old_schema =
+      SchemaBuilder().AddType(contact_point_repeated_label).Build();
+  ICING_EXPECT_OK(schema_store->SetSchema(old_schema));
+  ICING_ASSERT_OK_AND_ASSIGN(SchemaTypeId old_contact_point_type_id,
+                             schema_store->GetSchemaTypeId("ContactPoint"));
+
+  // 2. Create a type that references the ContactPoint type and make a backwards
+  // incompatible change to ContactPoint
+  SchemaTypeConfigBuilder contact_point_optional_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_OPTIONAL));
+  SchemaTypeConfigBuilder person =
+      SchemaTypeConfigBuilder().SetType("Person").AddProperty(
+          PropertyConfigBuilder()
+              .SetName("contactPoints")
+              .SetDataTypeDocument("ContactPoint",
+                                   /*index_nested_properties=*/true)
+              .SetCardinality(CARDINALITY_REPEATED));
+  SchemaProto new_schema = SchemaBuilder()
+                               .AddType(contact_point_optional_label)
+                               .AddType(person)
+                               .Build();
+
+  // 3. SetSchema should fail with ignore_errors_and_delete_documents=false and
+  // the old schema should remain
+  SchemaStore::SetSchemaResult expected_result;
+  expected_result.success = false;
+  expected_result.schema_types_incompatible_by_name.insert("ContactPoint");
+  expected_result.schema_types_incompatible_by_id.insert(
+      old_contact_point_type_id);
+  expected_result.schema_types_new_by_name.insert("Person");
+  EXPECT_THAT(
+      schema_store->SetSchema(new_schema,
+                              /*ignore_errors_and_delete_documents=*/false),
+      IsOkAndHolds(EqualsSetSchemaResult(expected_result)));
+  ICING_ASSERT_OK_AND_ASSIGN(const SchemaProto* actual_schema,
+                             schema_store->GetSchema());
+  EXPECT_THAT(*actual_schema, EqualsProto(old_schema));
+
+  // 4. SetSchema should succeed with ignore_errors_and_delete_documents=true
+  // and the new schema should be set
+  expected_result.success = true;
+  EXPECT_THAT(
+      schema_store->SetSchema(new_schema,
+                              /*ignore_errors_and_delete_documents=*/true),
+      IsOkAndHolds(EqualsSetSchemaResult(expected_result)));
+  ICING_ASSERT_OK_AND_ASSIGN(actual_schema, schema_store->GetSchema());
+  EXPECT_THAT(*actual_schema, EqualsProto(new_schema));
+}
+
+TEST_F(SchemaStoreTest, SetSchemaWithIndexIncompatibleNestedTypesOk) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  // 1. Create a ContactPoint type with label that matches prefix and set that
+  // schema
+  SchemaTypeConfigBuilder contact_point_prefix_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_REPEATED));
+  SchemaProto old_schema =
+      SchemaBuilder().AddType(contact_point_prefix_label).Build();
+  ICING_EXPECT_OK(schema_store->SetSchema(old_schema));
+
+  // 2. Create a type that references the ContactPoint type and make a index
+  // backwards incompatible change to ContactPoint
+  SchemaTypeConfigBuilder contact_point_exact_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_REPEATED));
+  SchemaTypeConfigBuilder person =
+      SchemaTypeConfigBuilder().SetType("Person").AddProperty(
+          PropertyConfigBuilder()
+              .SetName("contactPoints")
+              .SetDataTypeDocument("ContactPoint",
+                                   /*index_nested_properties=*/true)
+              .SetCardinality(CARDINALITY_REPEATED));
+  SchemaProto new_schema = SchemaBuilder()
+                               .AddType(contact_point_exact_label)
+                               .AddType(person)
+                               .Build();
+
+  // SetSchema should succeed, and only ContactPoint should be in
+  // schema_types_index_incompatible_by_name.
+  SchemaStore::SetSchemaResult expected_result;
+  expected_result.success = true;
+  expected_result.schema_types_index_incompatible_by_name.insert(
+      "ContactPoint");
+  expected_result.schema_types_new_by_name.insert("Person");
+  EXPECT_THAT(
+      schema_store->SetSchema(new_schema,
+                              /*ignore_errors_and_delete_documents=*/false),
+      IsOkAndHolds(EqualsSetSchemaResult(expected_result)));
+  ICING_ASSERT_OK_AND_ASSIGN(const SchemaProto* actual_schema,
+                             schema_store->GetSchema());
+  EXPECT_THAT(*actual_schema, EqualsProto(new_schema));
+}
+
+TEST_F(SchemaStoreTest, SetSchemaWithCompatibleNestedTypesOk) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  // 1. Create a ContactPoint type with a optional property and set that schema
+  SchemaTypeConfigBuilder contact_point_optional_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_OPTIONAL));
+  SchemaProto old_schema =
+      SchemaBuilder().AddType(contact_point_optional_label).Build();
+  ICING_EXPECT_OK(schema_store->SetSchema(old_schema));
+
+  // 2. Create a type that references the ContactPoint type and make a backwards
+  // compatible change to ContactPoint
+  SchemaTypeConfigBuilder contact_point_repeated_label =
+      SchemaTypeConfigBuilder()
+          .SetType("ContactPoint")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("label")
+                           .SetDataTypeString(MATCH_PREFIX, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_REPEATED));
+  SchemaTypeConfigBuilder person =
+      SchemaTypeConfigBuilder().SetType("Person").AddProperty(
+          PropertyConfigBuilder()
+              .SetName("contactPoints")
+              .SetDataTypeDocument("ContactPoint",
+                                   /*index_nested_properties=*/true)
+              .SetCardinality(CARDINALITY_REPEATED));
+  SchemaProto new_schema = SchemaBuilder()
+                               .AddType(contact_point_repeated_label)
+                               .AddType(person)
+                               .Build();
+
+  // 3. SetSchema should succeed, and only ContactPoint should be in
+  // schema_types_changed_fully_compatible_by_name.
+  SchemaStore::SetSchemaResult expected_result;
+  expected_result.success = true;
+  expected_result.schema_types_changed_fully_compatible_by_name.insert(
+      "ContactPoint");
+  expected_result.schema_types_new_by_name.insert("Person");
+  EXPECT_THAT(schema_store->SetSchema(
+                  new_schema, /*ignore_errors_and_delete_documents=*/false),
+              IsOkAndHolds(EqualsSetSchemaResult(expected_result)));
+  ICING_ASSERT_OK_AND_ASSIGN(const SchemaProto* actual_schema,
+                             schema_store->GetSchema());
+  EXPECT_THAT(*actual_schema, EqualsProto(new_schema));
+}
+
 TEST_F(SchemaStoreTest, GetSchemaTypeId) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   schema_.clear_types();
 
@@ -708,7 +979,7 @@ TEST_F(SchemaStoreTest, GetSchemaTypeId) {
 TEST_F(SchemaStoreTest, ComputeChecksumDefaultOnEmptySchemaStore) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   Crc32 default_checksum;
   EXPECT_THAT(schema_store->ComputeChecksum(), IsOkAndHolds(default_checksum));
@@ -717,7 +988,7 @@ TEST_F(SchemaStoreTest, ComputeChecksumDefaultOnEmptySchemaStore) {
 TEST_F(SchemaStoreTest, ComputeChecksumSameBetweenCalls) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto foo_schema =
       SchemaBuilder().AddType(SchemaTypeConfigBuilder().SetType("foo")).Build();
@@ -733,7 +1004,7 @@ TEST_F(SchemaStoreTest, ComputeChecksumSameBetweenCalls) {
 TEST_F(SchemaStoreTest, ComputeChecksumSameAcrossInstances) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto foo_schema =
       SchemaBuilder().AddType(SchemaTypeConfigBuilder().SetType("foo")).Build();
@@ -746,14 +1017,14 @@ TEST_F(SchemaStoreTest, ComputeChecksumSameAcrossInstances) {
   schema_store.reset();
 
   ICING_ASSERT_OK_AND_ASSIGN(
-      schema_store, SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      schema_store, SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
   EXPECT_THAT(schema_store->ComputeChecksum(), IsOkAndHolds(checksum));
 }
 
 TEST_F(SchemaStoreTest, ComputeChecksumChangesOnModification) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto foo_schema =
       SchemaBuilder().AddType(SchemaTypeConfigBuilder().SetType("foo")).Build();
@@ -777,7 +1048,7 @@ TEST_F(SchemaStoreTest, ComputeChecksumChangesOnModification) {
 TEST_F(SchemaStoreTest, PersistToDiskFineForEmptySchemaStore) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Persisting is fine and shouldn't affect anything
   ICING_EXPECT_OK(schema_store->PersistToDisk());
@@ -786,7 +1057,7 @@ TEST_F(SchemaStoreTest, PersistToDiskFineForEmptySchemaStore) {
 TEST_F(SchemaStoreTest, PersistToDiskPreservesAcrossInstances) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   SchemaProto schema =
       SchemaBuilder().AddType(SchemaTypeConfigBuilder().SetType("foo")).Build();
@@ -811,7 +1082,7 @@ TEST_F(SchemaStoreTest, PersistToDiskPreservesAcrossInstances) {
 
   // And we get the same schema back on reinitialization
   ICING_ASSERT_OK_AND_ASSIGN(
-      schema_store, SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      schema_store, SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
   ICING_ASSERT_OK_AND_ASSIGN(actual_schema, schema_store->GetSchema());
   EXPECT_THAT(*actual_schema, EqualsProto(schema));
 }
@@ -819,7 +1090,7 @@ TEST_F(SchemaStoreTest, PersistToDiskPreservesAcrossInstances) {
 TEST_F(SchemaStoreTest, SchemaStoreStorageInfoProto) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<SchemaStore> schema_store,
-      SchemaStore::Create(&filesystem_, test_dir_, &fake_clock_));
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
 
   // Create a schema with two types: one simple type and one type that uses all
   // 16 sections.
@@ -866,6 +1137,114 @@ TEST_F(SchemaStoreTest, SchemaStoreStorageInfoProto) {
   EXPECT_THAT(storage_info.num_schema_types(), Eq(2));
   EXPECT_THAT(storage_info.num_total_sections(), Eq(17));
   EXPECT_THAT(storage_info.num_schema_types_sections_exhausted(), Eq(1));
+}
+
+TEST_F(SchemaStoreTest, GetDebugInfo) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  // Set schema
+  ASSERT_THAT(
+      schema_store->SetSchema(schema_),
+      IsOkAndHolds(EqualsSetSchemaResult(SchemaStore::SetSchemaResult{
+          .success = true,
+          .schema_types_new_by_name = {schema_.types(0).schema_type()}})));
+
+  // Check debug info
+  ICING_ASSERT_OK_AND_ASSIGN(SchemaDebugInfoProto out,
+                             schema_store->GetDebugInfo());
+  EXPECT_THAT(out.schema(), EqualsProto(schema_));
+  EXPECT_THAT(out.crc(), Gt(0));
+}
+
+TEST_F(SchemaStoreTest, GetDebugInfoForEmptySchemaStore) {
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<SchemaStore> schema_store,
+      SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+
+  // Check debug info before setting a schema
+  ICING_ASSERT_OK_AND_ASSIGN(SchemaDebugInfoProto out,
+                             schema_store->GetDebugInfo());
+  SchemaDebugInfoProto expected_out;
+  expected_out.set_crc(0);
+  EXPECT_THAT(out, EqualsProto(expected_out));
+}
+
+TEST_F(SchemaStoreTest, InitializeRegenerateDerivedFilesFailure) {
+  // This test covers the first point that RegenerateDerivedFiles could fail.
+  // This should simply result in SetSchema::Create returning an INTERNAL error.
+
+  {
+    ICING_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<SchemaStore> schema_store,
+        SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+    SchemaProto schema = SchemaBuilder()
+                             .AddType(SchemaTypeConfigBuilder().SetType("Type"))
+                             .Build();
+    ICING_ASSERT_OK(schema_store->SetSchema(std::move(schema)));
+  }
+
+  auto mock_filesystem = std::make_unique<MockFilesystem>();
+  ON_CALL(*mock_filesystem,
+          CreateDirectoryRecursively(HasSubstr("key_mapper_dir")))
+      .WillByDefault(Return(false));
+  {
+    EXPECT_THAT(SchemaStore::Create(mock_filesystem.get(), schema_store_dir_,
+                                    &fake_clock_),
+                StatusIs(libtextclassifier3::StatusCode::INTERNAL));
+  }
+}
+
+TEST_F(SchemaStoreTest, SetSchemaRegenerateDerivedFilesFailure) {
+  // This test covers the second point that RegenerateDerivedFiles could fail.
+  // If handled correctly, the schema store and section manager should still be
+  // in the original, valid state.
+  SchemaTypeConfigProto type =
+      SchemaTypeConfigBuilder()
+          .SetType("Type")
+          .AddProperty(PropertyConfigBuilder()
+                           .SetName("prop1")
+                           .SetDataTypeString(MATCH_EXACT, TOKENIZER_PLAIN)
+                           .SetCardinality(CARDINALITY_OPTIONAL))
+          .Build();
+  {
+    ICING_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<SchemaStore> schema_store,
+        SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
+    SchemaProto schema = SchemaBuilder().AddType(type).Build();
+    ICING_ASSERT_OK(schema_store->SetSchema(std::move(schema)));
+  }
+
+  {
+    auto mock_filesystem = std::make_unique<MockFilesystem>();
+    ICING_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<SchemaStore> schema_store,
+        SchemaStore::Create(mock_filesystem.get(), schema_store_dir_,
+                            &fake_clock_));
+
+    ON_CALL(*mock_filesystem,
+            CreateDirectoryRecursively(HasSubstr("key_mapper_dir")))
+        .WillByDefault(Return(false));
+    SchemaProto schema =
+        SchemaBuilder()
+            .AddType(type)
+            .AddType(SchemaTypeConfigBuilder().SetType("Type2"))
+            .Build();
+    EXPECT_THAT(schema_store->SetSchema(std::move(schema)),
+                StatusIs(libtextclassifier3::StatusCode::INTERNAL));
+    DocumentProto document = DocumentBuilder()
+                                 .SetSchema("Type")
+                                 .AddStringProperty("prop1", "foo bar baz")
+                                 .Build();
+    SectionMetadata expected_metadata(/*id_in=*/0, MATCH_EXACT, TOKENIZER_PLAIN,
+                                      "prop1");
+    ICING_ASSERT_OK_AND_ASSIGN(std::vector<Section> sections,
+                               schema_store->ExtractSections(document));
+    ASSERT_THAT(sections, SizeIs(1));
+    EXPECT_THAT(sections.at(0).metadata, Eq(expected_metadata));
+    EXPECT_THAT(sections.at(0).content, ElementsAre("foo bar baz"));
+  }
 }
 
 }  // namespace

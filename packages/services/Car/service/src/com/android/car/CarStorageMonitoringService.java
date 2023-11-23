@@ -16,7 +16,10 @@
 
 package com.android.car;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.car.Car;
+import android.car.builtin.util.Slogf;
 import android.car.storagemonitoring.CarStorageMonitoringManager;
 import android.car.storagemonitoring.ICarStorageMonitoring;
 import android.car.storagemonitoring.IIoStatsListener;
@@ -34,13 +37,13 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
-import android.util.IndentingPrintWriter;
 import android.util.JsonWriter;
 import android.util.Log;
-import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.internal.CarPermission;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.car.storagemonitoring.IoStatsTracker;
 import com.android.car.storagemonitoring.UidIoStatsProvider;
 import com.android.car.storagemonitoring.WearEstimateRecord;
@@ -48,6 +51,8 @@ import com.android.car.storagemonitoring.WearHistory;
 import com.android.car.storagemonitoring.WearInformation;
 import com.android.car.storagemonitoring.WearInformationProvider;
 import com.android.car.systeminterface.SystemInterface;
+import com.android.car.util.SlidingWindow;
+import com.android.car.util.SparseArrayStream;
 import com.android.internal.annotations.GuardedBy;
 
 import org.json.JSONArray;
@@ -138,8 +143,8 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         Resources resources = mContext.getResources();
         mConfiguration = new Configuration(resources);
 
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Slog.d(TAG, "service configuration: " + mConfiguration);
+        if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+            Slogf.d(TAG, "service configuration: " + mConfiguration);
         }
 
         mUidIoStatsProvider = systemInterface.getUidIoStatsProvider();
@@ -148,7 +153,9 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         mLifetimeWriteFile = new File(systemInterface.getSystemCarDir(), LIFETIME_WRITES_FILENAME);
         mOnShutdownReboot = new OnShutdownReboot(mContext);
         mSystemInterface = systemInterface;
-        mWearInformationProviders = systemInterface.getFlashWearInformationProviders();
+        mWearInformationProviders = systemInterface.getFlashWearInformationProviders(
+                mConfiguration.eMmcLifetimeFilePath,
+                mConfiguration.eMmcEolFilePath);
         mStorageMonitoringPermission =
                 new CarPermission(mContext, Car.PERMISSION_STORAGE_MONITORING);
         mWearEstimateChanges = Collections.emptyList();
@@ -164,12 +171,12 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         for (WearInformationProvider provider : mWearInformationProviders) {
             WearInformation wearInfo = provider.load();
             if (wearInfo != null) {
-                Slog.d(TAG, "retrieved wear info " + wearInfo + " via provider " + provider);
+                Slogf.d(TAG, "retrieved wear info " + wearInfo + " via provider " + provider);
                 return Optional.of(wearInfo);
             }
         }
 
-        Slog.d(TAG, "no wear info available");
+        Slogf.d(TAG, "no wear info available");
         return Optional.empty();
     }
 
@@ -177,14 +184,14 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         if (mWearInfoFile.exists()) {
             try {
                 WearHistory wearHistory = WearHistory.fromJson(mWearInfoFile);
-                Slog.d(TAG, "retrieved wear history " + wearHistory);
+                Slogf.d(TAG, "retrieved wear history " + wearHistory);
                 return wearHistory;
             } catch (IOException | JSONException e) {
-                Slog.e(TAG, "unable to read wear info file " + mWearInfoFile, e);
+                Slogf.e(TAG, "unable to read wear info file " + mWearInfoFile, e);
             }
         }
 
-        Slog.d(TAG, "no wear history available");
+        Slogf.d(TAG, "no wear history available");
         return new WearHistory();
     }
 
@@ -209,7 +216,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                 currentWearEstimate,
                 mUptimeTracker.getTotalUptime(),
                 Instant.now());
-        Slog.d(TAG, "new wear record generated " + newRecord);
+        Slogf.d(TAG, "new wear record generated " + newRecord);
         wearHistory.add(newRecord);
         return true;
     }
@@ -218,13 +225,13 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         try (JsonWriter jsonWriter = new JsonWriter(new FileWriter(mWearInfoFile))) {
             wearHistory.writeToJson(jsonWriter);
         } catch (IOException e) {
-            Slog.e(TAG, "unable to write wear info file" + mWearInfoFile, e);
+            Slogf.e(TAG, "unable to write wear info file" + mWearInfoFile, e);
         }
     }
 
     @Override
     public void init() {
-        Slog.d(TAG, "CarStorageMonitoringService init()");
+        Slogf.d(TAG, "CarStorageMonitoringService init()");
         synchronized (mLock) {
             mUptimeTracker = new UptimeTracker(mUptimeTrackerFile,
                     mConfiguration.uptimeIntervalBetweenUptimeDataWriteMs,
@@ -243,7 +250,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             mContext.startActivity(intent);
         } catch (ActivityNotFoundException | NullPointerException e) {
-            Slog.e(TAG, "value of activityHandlerForFlashWearChanges invalid non-empty string "
+            Slogf.e(TAG, "value of activityHandlerForFlashWearChanges invalid non-empty string "
                     + activityPath, e);
         }
     }
@@ -252,7 +259,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         if (wearInformation.preEolInfo > WearInformation.PRE_EOL_INFO_NORMAL ||
                 Math.max(wearInformation.lifetimeEstimateA,
                         wearInformation.lifetimeEstimateB) >= MIN_WEAR_ESTIMATE_OF_CONCERN) {
-            Slog.w(TAG, "flash storage reached wear a level that requires attention: "
+            Slogf.w(TAG, "flash storage reached wear a level that requires attention: "
                     + wearInformation);
         }
     }
@@ -280,21 +287,21 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
 
         if (DBG) {
             if (currentSample.size() == 0) {
-                Slog.d(TAG, "no new I/O stat data");
+                Slogf.d(TAG, "no new I/O stat data");
             } else {
                 SparseArrayStream.valueStream(currentSample).forEach(
-                        uidIoStats -> Slog.d(TAG, "updated I/O stat data: " + uidIoStats));
+                        uidIoStats -> Slogf.d(TAG, "updated I/O stat data: " + uidIoStats));
             }
         }
 
         if (needsExcessiveIoBroadcast) {
-            Slog.d(TAG, "about to send " + INTENT_EXCESSIVE_IO);
+            Slogf.d(TAG, "about to send " + INTENT_EXCESSIVE_IO);
             sendExcessiveIoBroadcast();
         }
     }
 
     private void sendExcessiveIoBroadcast() {
-        Slog.w(TAG, "sending " + INTENT_EXCESSIVE_IO);
+        Slogf.w(TAG, "sending " + INTENT_EXCESSIVE_IO);
 
         final String receiverPath = mConfiguration.intentReceiverForUnacceptableIoMetrics;
         if (receiverPath.isEmpty()) return;
@@ -304,7 +311,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
             receiverComponent = Objects.requireNonNull(
                     ComponentName.unflattenFromString(receiverPath));
         } catch (NullPointerException e) {
-            Slog.e(TAG, "value of intentReceiverForUnacceptableIoMetrics non-null but invalid:"
+            Slogf.e(TAG, "value of intentReceiverForUnacceptableIoMetrics non-null but invalid:"
                     + receiverPath, e);
             return;
         }
@@ -334,7 +341,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                     try {
                         mListeners.getBroadcastItem(i).onSnapshot(delta);
                     } catch (RemoteException e) {
-                        Slog.w(TAG, "failed to dispatch snapshot", e);
+                        Slogf.w(TAG, "failed to dispatch snapshot", e);
                     }
                 });
         mListeners.finishBroadcast();
@@ -344,7 +351,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
     private void doInitServiceIfNeededLocked() {
         if (mInitialized) return;
 
-        Slog.d(TAG, "initializing CarStorageMonitoringService");
+        Slogf.d(TAG, "initializing CarStorageMonitoringService");
 
         mWearInformation = loadWearInformation();
 
@@ -354,7 +361,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         if (didWearChangeHappen) {
             storeWearHistory(wearHistory);
         }
-        Slog.d(TAG, "wear history being tracked is " + wearHistory);
+        Slogf.d(TAG, "wear history being tracked is " + wearHistory);
         mWearEstimateChanges = wearHistory.toWearEstimateChanges(
                 mConfiguration.acceptableHoursPerOnePercentFlashWear);
 
@@ -374,7 +381,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                     // been up, since we don't really know any better
                     IoStatsEntry stats = new IoStatsEntry(record, bootUptime);
                     if (DBG) {
-                        Slog.d(TAG, "loaded boot I/O stat data: " + stats);
+                        Slogf.d(TAG, "loaded boot I/O stat data: " + stats);
                     }
                     return stats;
                 }).collect(Collectors.toList());
@@ -387,14 +394,16 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
             mSystemInterface.scheduleAction(this::collectNewIoMetrics,
                     mConfiguration.ioStatsRefreshRateMs);
         } else {
-            Slog.i(TAG, "service configuration disabled I/O sample window. not collecting samples");
+            Slogf.i(TAG, "service configuration disabled I/O sample window. not collecting "
+                    + "samples");
         }
 
         mShutdownCostInfo = computeShutdownCostLocked();
-        Slog.d(TAG, "calculated data written in last shutdown was " + mShutdownCostInfo + " bytes");
+        Slogf.d(TAG, "calculated data written in last shutdown was " + mShutdownCostInfo
+                + " bytes");
         mLifetimeWriteFile.delete();
 
-        Slog.i(TAG, "CarStorageMonitoringService is up");
+        Slogf.i(TAG, "CarStorageMonitoringService is up");
 
         mInitialized = true;
     }
@@ -403,14 +412,14 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
     private long computeShutdownCostLocked() {
         List<LifetimeWriteInfo> shutdownWrites = loadLifetimeWrites();
         if (shutdownWrites.isEmpty()) {
-            Slog.d(TAG, "lifetime write data from last shutdown missing");
+            Slogf.d(TAG, "lifetime write data from last shutdown missing");
             mShutdownCostMissingReason = "no historical writes stored at last shutdown";
             return SHUTDOWN_COST_INFO_MISSING;
         }
         List<LifetimeWriteInfo> currentWrites =
                 Arrays.asList(mSystemInterface.getLifetimeWriteInfoProvider().load());
         if (currentWrites.isEmpty()) {
-            Slog.d(TAG, "current lifetime write data missing");
+            Slogf.d(TAG, "current lifetime write data missing");
             mShutdownCostMissingReason = "current write data cannot be obtained";
             return SHUTDOWN_COST_INFO_MISSING;
         }
@@ -430,7 +439,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                     shutdownLifetimeWrites.getOrDefault(li.partition, li.writtenBytes);
             final long costDelta = li.writtenBytes - writtenAtShutdown;
             if (costDelta >= 0) {
-                Slog.d(TAG, "partition " + li.partition + " had " + costDelta
+                Slogf.d(TAG, "partition " + li.partition + " had " + costDelta
                         + " bytes written to it during shutdown");
                 shutdownCost += costDelta;
             } else {
@@ -440,7 +449,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                 // occur, it's probably safer to just bail out and say we don't know
                 mShutdownCostMissingReason = li.partition + " has a negative write amount ("
                         + costDelta + " bytes)";
-                Slog.e(TAG, "partition " + li.partition + " reported " + costDelta
+                Slogf.e(TAG, "partition " + li.partition + " reported " + costDelta
                         + " bytes written to it during shutdown. assuming we can't"
                         + " determine proper shutdown information.");
                 return SHUTDOWN_COST_INFO_MISSING;
@@ -452,7 +461,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
 
     private List<LifetimeWriteInfo> loadLifetimeWrites() {
         if (!mLifetimeWriteFile.exists() || !mLifetimeWriteFile.isFile()) {
-            Slog.d(TAG, "lifetime write file missing or inaccessible " + mLifetimeWriteFile);
+            Slogf.d(TAG, "lifetime write file missing or inaccessible " + mLifetimeWriteFile);
             return Collections.emptyList();
         }
         try {
@@ -467,7 +476,7 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
             }
             return result;
         } catch (JSONException | IOException e) {
-            Slog.e(TAG, "lifetime write file does not contain valid JSON", e);
+            Slogf.e(TAG, "lifetime write file does not contain valid JSON", e);
             return Collections.emptyList();
         }
     }
@@ -480,29 +489,30 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
             jsonWriter.beginObject();
             jsonWriter.name("lifetimeWriteInfo").beginArray();
             for (LifetimeWriteInfo writeInfo : lifetimeWriteInfos) {
-                Slog.d(TAG, "storing lifetime write info " + writeInfo);
+                Slogf.d(TAG, "storing lifetime write info " + writeInfo);
                 writeInfo.writeToJson(jsonWriter);
             }
             jsonWriter.endArray().endObject();
             jsonWriter.close();
         } catch (IOException e) {
-            Slog.e(TAG, "unable to save lifetime write info on shutdown", e);
+            Slogf.e(TAG, "unable to save lifetime write info on shutdown", e);
         }
     }
 
     @Override
     public void release() {
-        Slog.i(TAG, "tearing down CarStorageMonitoringService");
+        Slogf.i(TAG, "tearing down CarStorageMonitoringService");
         synchronized (mLock) {
             if (mUptimeTracker != null) {
                 mUptimeTracker.onDestroy();
             }
         }
-        mOnShutdownReboot.clearActions();
+        mOnShutdownReboot.release();
         mListeners.kill();
     }
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         writer.println("*CarStorageMonitoringService*");
         synchronized (mLock) {
@@ -552,6 +562,10 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated wear estimate data is unreliable
+     */
+    @Deprecated
     @Override
     public WearEstimate getWearEstimate() {
         mStorageMonitoringPermission.assertGranted();
@@ -564,6 +578,10 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated wear estimate data is unreliable
+     */
+    @Deprecated
     @Override
     public List<WearEstimateChange> getWearEstimateHistory() {
         mStorageMonitoringPermission.assertGranted();
@@ -574,14 +592,30 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated use
+     * {@link com.android.car.watchdog.CarWatchdogService#getResourceOveruseStats(int, int)}
+     * instead.
+     * WARNING: The metrics provided are aggregated through time and could include data retrieved
+     * after system boot. Also, the I/O stats are only for the calling package.
+     */
+    @Deprecated
     @Override
     public List<IoStatsEntry> getBootIoStats() {
         mStorageMonitoringPermission.assertGranted();
-        doInitServiceIfNeededLocked();
+        synchronized (mLock) {
+            doInitServiceIfNeededLocked();
 
-        return Collections.unmodifiableList(mBootIoStats);
+            return Collections.unmodifiableList(mBootIoStats);
+        }
     }
 
+    /**
+     * @deprecated use
+     * {@link com.android.car.watchdog.CarWatchdogService#getResourceOveruseStats(int, int)} instead.
+     * WARNING: The I/O stats returned are only for the calling package.
+     */
+    @Deprecated
     @Override
     public List<IoStatsEntry> getAggregateIoStats() {
         mStorageMonitoringPermission.assertGranted();
@@ -593,6 +627,14 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated use
+     * {@link com.android.car.watchdog.CarWatchdogService#getResourceOveruseStats(int, int)}
+     * instead.
+     * WARNING: The metrics provided are aggregated through time and could include data not related
+     * to system shutdown. Also, the I/O stats are only for the calling package.
+     */
+    @Deprecated
     @Override
     public long getShutdownDiskWriteAmount() {
         mStorageMonitoringPermission.assertGranted();
@@ -603,6 +645,12 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated use
+     * {@link com.android.car.watchdog.CarWatchdogService#getResourceOveruseStats(int, int)} instead.
+     * WARNING: The I/O stats returned are only for the calling package.
+     */
+    @Deprecated
     @Override
     public List<IoStats> getIoStatsDeltas() {
         mStorageMonitoringPermission.assertGranted();
@@ -614,6 +662,10 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
     }
 
+    /**
+     * @deprecated {@link IIoStatsListener} is deprecated
+     */
+    @Deprecated
     @Override
     public void registerListener(IIoStatsListener listener) {
         mStorageMonitoringPermission.assertGranted();
@@ -623,6 +675,10 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         mListeners.register(listener);
     }
 
+    /**
+     * @deprecated {@link IIoStatsListener} is deprecated
+     */
+    @Deprecated
     @Override
     public void unregisterListener(IIoStatsListener listener) {
         mStorageMonitoringPermission.assertGranted();
@@ -641,6 +697,8 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         final int ioStatsRefreshRateMs;
         final int maxExcessiveIoSamplesInWindow;
         final long uptimeIntervalBetweenUptimeDataWriteMs;
+        final String eMmcLifetimeFilePath;
+        final String eMmcEolFilePath;
 
         Configuration(Resources resources) throws Resources.NotFoundException {
             ioStatsNumSamplesToStore = resources.getInteger(R.integer.ioStatsNumSamplesToStore);
@@ -659,6 +717,8 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                     resources.getString(R.string.activityHandlerForFlashWearChanges);
             intentReceiverForUnacceptableIoMetrics =
                     resources.getString(R.string.intentReceiverForUnacceptableIoMetrics);
+            eMmcLifetimeFilePath = resources.getString(R.string.eMmcLifetimeFilePath);
+            eMmcEolFilePath = resources.getString(R.string.eMmcEolFilePath);
         }
 
         @Override
@@ -671,7 +731,9 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                             + "ioStatsNumSamplesToStore = %d, "
                             + "ioStatsRefreshRateMs = %d, "
                             + "maxExcessiveIoSamplesInWindow = %d, "
-                            + "uptimeIntervalBetweenUptimeDataWriteMs = %d",
+                            + "uptimeIntervalBetweenUptimeDataWriteMs = %d, "
+                            + "eMmcLifetimeFilePath = %s, "
+                            + "eMmcEolFilePath = %s",
                     acceptableBytesWrittenPerSample,
                     acceptableFsyncCallsPerSample,
                     acceptableHoursPerOnePercentFlashWear,
@@ -680,7 +742,9 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
                     ioStatsNumSamplesToStore,
                     ioStatsRefreshRateMs,
                     maxExcessiveIoSamplesInWindow,
-                    uptimeIntervalBetweenUptimeDataWriteMs);
+                    uptimeIntervalBetweenUptimeDataWriteMs,
+                    eMmcLifetimeFilePath,
+                    eMmcEolFilePath);
         }
     }
 }

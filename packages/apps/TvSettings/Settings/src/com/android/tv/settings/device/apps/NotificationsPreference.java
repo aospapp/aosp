@@ -139,7 +139,8 @@ public class NotificationsPreference extends SwitchPreference {
 
     private boolean isNonBlockablePackage(Resources resources, String packageName) {
         final String[] nonBlockablePkgs = resources.getStringArray(
-                com.android.internal.R.array.config_nonBlockableNotificationPackages);
+                resources.getIdentifier("config_nonBlockableNotificationPackages",
+                        "array", "android"));
         for (String pkg : nonBlockablePkgs) {
             // The non blockable package list can contain channels in the `package:channelId`
             // format. Since TV settings don't support notifications channels, we'll consider

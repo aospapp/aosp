@@ -183,6 +183,7 @@ status_t FakeCameraDeviceSessionHwl::SubmitRequests(
                                      .message.shutter = {
                                          .frame_number = frame_number,
                                          .timestamp_ns = 0,
+                                         .readout_timestamp_ns = 0,
                                      }};
     callback->second.notify(request.pipeline_id, shutter_message);
 

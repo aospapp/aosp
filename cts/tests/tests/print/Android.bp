@@ -28,4 +28,8 @@ android_test {
     static_libs: ["print-test-util-lib"],
     sdk_version: "test_current",
     required: ["com.android.cts.helpers.aosp"],
+    data: [
+        ":CtsExternalPrintService",
+    ],
+    per_testcase_directory: true,
 }

@@ -16,6 +16,9 @@
 package com.android.compatibility.common.util;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.drm.DrmConvertedStatus;
 import android.drm.DrmManagerClient;
@@ -32,10 +35,16 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Build;
+import android.os.SystemProperties;
 import android.os.ParcelFileDescriptor;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Range;
+import android.view.WindowManager;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
@@ -61,6 +70,11 @@ import java.io.RandomAccessFile;
 
 public class MediaUtils {
     private static final String TAG = "MediaUtils";
+    private static final Context mContext =
+            InstrumentationRegistry.getInstrumentation().getTargetContext();
+    private static final PackageManager pm = mContext.getPackageManager();
+    private static final boolean FIRST_SDK_IS_AT_LEAST_R =
+            ApiLevelUtil.isFirstApiAtLeast(Build.VERSION_CODES.R);
 
     /*
      *  ----------------------- HELPER METHODS FOR SKIPPING TESTS -----------------------
@@ -407,6 +421,9 @@ public class MediaUtils {
             codec = MediaCodec.createByCodecName(codecName);
         } catch (IOException e) {
             Log.w(TAG, "codec not found: " + codecName);
+            return false;
+        } catch (NullPointerException e) {
+            Log.w(TAG, "codec name is null");
             return false;
         }
 
@@ -1409,14 +1426,78 @@ public class MediaUtils {
         return result.toString();
     }
 
+
+    /*
+     *  ------------------- HELPER METHODS FOR DETECTING DEVICE TYPES -------------------
+     */
+
+    public static boolean hasDeviceGotBattery() {
+        final Intent batteryInfo = mContext.registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+    }
+
+    public static double getScreenSizeInInches() {
+        DisplayMetrics dm = mContext.getResources().getDisplayMetrics();
+        double widthInInchesSquared = Math.pow(dm.widthPixels/dm.xdpi,2);
+        double heightInInchesSquared = Math.pow(dm.heightPixels/dm.ydpi,2);
+        double diagonalInInches = Math.sqrt(widthInInchesSquared + heightInInchesSquared);
+        return diagonalInInches;
+    }
+
+    public static boolean isTv() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+                pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION);
+    }
+
+    public static boolean hasMicrophone() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE);
+    }
+
+    public static boolean hasCamera() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+    }
+
+    public static boolean isWatch() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    public static boolean isAutomotive() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    public static boolean isPc() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_PC);
+    }
+
+    public static boolean hasAudioOutput() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
+    public static boolean isHandheld() {
+        double screenSize = getScreenSizeInInches();
+        if (screenSize < (FIRST_SDK_IS_AT_LEAST_R ? 3.3 : 2.5)) return false;
+        if (screenSize > 8.0) return false;
+        if (!hasDeviceGotBattery()) return false;
+        return true;
+    }
+
+    public static boolean isTablet() {
+        double screenSize = getScreenSizeInInches();
+        if (screenSize < 7.0) return false;
+        if (screenSize > 18.0) return false;
+        if (!hasDeviceGotBattery()) return false;
+        return true;
+    }
+
     /*
      *  ------------------- HELPER METHODS FOR DETECTING NON-PRODUCTION DEVICES -------------------
      */
 
     /*
      *  Some parts of media CTS verifies device characterization that does not make sense for
-     *  non-production devices (such as GSI). We call these devices 'frankenDevices'. We may
-     *  also limit test duration on these devices.
+     *  non-production devices (such as GSI and cuttlefish). We call these devices 'frankenDevices'.
+     *  We may also limit test duration on these devices.
      */
     public static boolean onFrankenDevice() throws IOException {
         String systemBrand = PropertyUtil.getProperty("ro.product.system.brand");
@@ -1429,12 +1510,23 @@ public class MediaUtils {
             if (systemExtProduct != null) {
                 systemProduct = systemExtProduct;
             }
+            String systemExtModel = PropertyUtil.getProperty("ro.product.system_ext.model");
+            if (systemExtModel != null) {
+                systemModel = systemExtModel;
+            }
         }
 
         if (("Android".equals(systemBrand) || "generic".equals(systemBrand) ||
                 "mainline".equals(systemBrand)) &&
             (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_") ||
                 systemModel.startsWith("GSI on ") || systemProduct.startsWith("gsi_"))) {
+            return true;
+        }
+
+        // Return true for cuttlefish instances
+        if ((systemBrand.equals("Android") || systemBrand.equals("google")) &&
+                (systemProduct.startsWith("cf_") || systemProduct.startsWith("aosp_cf_") ||
+                        systemModel.startsWith("Cuttlefish "))) {
             return true;
         }
         return false;

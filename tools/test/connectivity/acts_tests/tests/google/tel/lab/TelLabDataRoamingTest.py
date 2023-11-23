@@ -29,12 +29,12 @@ from acts_contrib.test_utils.tel.anritsu_utils import set_usim_parameters
 from acts_contrib.test_utils.tel.anritsu_utils import set_post_sim_params
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_LTE
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_rat
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_rat
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_cell_data_roaming
 from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts.utils import adb_shell_ping
 
 PING_DURATION = 5  # Number of packets to ping

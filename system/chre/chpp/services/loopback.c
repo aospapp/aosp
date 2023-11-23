@@ -41,14 +41,11 @@ bool chppDispatchLoopbackClientRequest(struct ChppAppState *context,
   } else {
     CHPP_LOGI("Looping back len=%" PRIuSIZE, len);
 
-    // Copy received datagram
     memcpy(response, buf, len);
 
-    // Modify response message type per loopback spec.
     struct ChppAppHeader *responseHeader = (struct ChppAppHeader *)response;
     responseHeader->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
 
-    // Send out response datagram
     chppEnqueueTxDatagramOrFail(context->transportContext, response, len);
   }
 

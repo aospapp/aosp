@@ -96,7 +96,7 @@ public class ThirdPartyAppCategory extends Category {
     }
 
     @Override
-    public void show(Activity srcActivity, PickerIntentFactory unused, int requestCode) {
+    public void show(Activity srcActivity, int requestCode) {
         final ComponentName itemComponentName = new ComponentName(
                 mResolveInfo.activityInfo.packageName,
                 mResolveInfo.activityInfo.name);

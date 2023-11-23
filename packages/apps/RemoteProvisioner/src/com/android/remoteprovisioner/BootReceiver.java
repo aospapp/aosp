@@ -18,10 +18,7 @@ package com.android.remoteprovisioner;
 
 import static java.lang.Math.max;
 
-import android.app.job.JobInfo;
-import android.app.job.JobScheduler;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.RemoteException;
@@ -31,7 +28,15 @@ import android.security.remoteprovisioning.ImplInfo;
 import android.security.remoteprovisioning.IRemoteProvisioning;
 import android.util.Log;
 
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A receiver class that listens for boot to be completed and then starts a recurring job that will
@@ -63,17 +68,29 @@ public class BootReceiver extends BroadcastReceiver {
         int estimatedUploadBytes =
                 ESTIMATED_UPLOAD_BYTES_STATIC + (ESTIMATED_CSR_KEY_BYTES * numKeysNeeded);
 
-        JobInfo info = new JobInfo
-                .Builder(1, new ComponentName(context, PeriodicProvisioner.class))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setEstimatedNetworkBytes(estimatedDlBytes, estimatedUploadBytes)
-                .setPeriodic(SCHEDULER_PERIOD.toMillis())
-                .build();
-        if (((JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE)).schedule(info)
-                != JobScheduler.RESULT_SUCCESS) {
-            Log.e(TAG, "Could not start the job scheduler for provisioning");
+        Constraints constraints = new Constraints.Builder()
+               .setRequiredNetworkType(NetworkType.CONNECTED)
+               .build();
+        PeriodicWorkRequest workRequest =
+                new PeriodicWorkRequest.Builder(PeriodicProvisioner.class, 1, TimeUnit.DAYS)
+                        .setConstraints(constraints)
+                        .build();
+        WorkManager
+                .getInstance(context)
+                .enqueueUniquePeriodicWork("ProvisioningJob",
+                                       ExistingPeriodicWorkPolicy.REPLACE, // Replace on reboot.
+                                       workRequest);
+        if (WidevineProvisioner.isWidevineProvisioningNeeded()) {
+            Log.i(TAG, "WV provisioning needed. Queueing a one-time provisioning job.");
+            OneTimeWorkRequest wvRequest =
+                    new OneTimeWorkRequest.Builder(WidevineProvisioner.class)
+                            .setConstraints(constraints)
+                            .build();
+            WorkManager.getInstance(context).enqueue(wvRequest);
         }
     }
+
+
 
     private int calcNumPotentialKeysToDownload() {
         try {

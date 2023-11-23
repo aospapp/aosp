@@ -28,10 +28,8 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"O seguinte app gerenciará seu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Próximo"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando perfil de trabalho…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"O administrador de TI pode monitorar e gerenciar configurações, acesso corporativo, apps, permissões e dados associados a este perfil, incluindo sua atividade de rede, bem como o local do dispositivo, histórico de chamadas e histórico de pesquisa de contatos.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Entre em contato com o administrador de TI para saber mais, inclusive para receber informações sobre as políticas de privacidade da sua organização."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"O administrador de TI pode monitorar e gerenciar configurações, acesso corporativo, apps, permissões e dados associados a este dispositivo, incluindo sua atividade de rede, bem como o local do dispositivo, histórico de chamadas e histórico de pesquisa de contatos.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"O administrador de TI pode monitorar e gerenciar configurações, acesso corporativo, apps, permissões, dados e atividade de rede associada a este perfil, assim como seus históricos de chamadas e de pesquisa de contatos. Entre em contato com o administrador de TI para receber mais informações e saber mais sobre as Políticas de Privacidade da organização."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"O administrador de TI pode monitorar e gerenciar configurações, acesso corporativo, apps, permissões e dados associados a este dispositivo, incluindo sua atividade de rede, bem como o local do dispositivo, histórico de ligações e histórico de pesquisa de contatos.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Entre em contato com o administrador de TI para mais receber mais informações, inclusive sobre as políticas de privacidade da sua organização."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Para usar os recursos de proteção contra roubo, é necessário um bloqueio de tela protegido por senha no dispositivo."</string>
@@ -176,8 +174,8 @@
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Permissões do app"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"O administrador de TI pode definir as permissões para apps neste dispositivo, como as de microfone, câmera e localização."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configurando seu dispositivo…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Use este dispositivo para acessar seus apps de trabalho com facilidade. Ele não é particular e, portanto, o administrador de TI pode ver seus dados e suas atividades."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Use este dispositivo para acessar seus apps de trabalho com facilidade. Ele não é particular e, portanto, o administrador de TI pode ver suas atividades e seus dados. Ele também pode definir as permissões de apps no dispositivo, como as de microfone, câmera e localização."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Use este dispositivo para acessar seus apps de trabalho com facilidade. Ele não é privado e, portanto, o administrador de TI pode ver seus dados e suas atividades."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Use este dispositivo para acessar seus apps de trabalho com facilidade. Ele não é privado e, portanto, o administrador de TI pode ver suas atividades e seus dados. Ele também pode definir as permissões de apps no dispositivo, como as de microfone, câmera e localização."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Devolva o dispositivo para o administrador de TI"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Volte à tela anterior ou redefina o dispositivo e devolva-o para o administrador de TI."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancelar configuração"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> pode instalar o app <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para fazer pagamentos por este dispositivo."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Este dispositivo pode ser restrito"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> poderá restringir o acesso a este dispositivo quando você não fizer pagamentos."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Não é possível configurar o dispositivo. Entre em contato com o administrador de TI e cite o motivo \"Soma de verificação inválida\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Tente novamente mais tarde ou peça ajuda ao seu administrador de TI"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Não é possível configurar o dispositivo. Entre em contato com o administrador de TI e cite o motivo \"Componentes ausentes ou corrompidos\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configurando…"</string>
 </resources>

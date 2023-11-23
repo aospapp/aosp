@@ -23,23 +23,26 @@ import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_O
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.TetheringManager;
+import android.net.wifi.SoftApConfiguration;
 
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.car.ui.preference.CarUiTwoActionSwitchPreference;
+import com.android.settingslib.wifi.WifiUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +55,7 @@ import java.util.concurrent.Executor;
 
 @RunWith(AndroidJUnit4.class)
 public class WifiTetherPreferenceControllerTest {
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
+    private final Context mContext = ApplicationProvider.getApplicationContext();
     private LifecycleOwner mLifecycleOwner;
     private CarUiTwoActionSwitchPreference mPreference;
     private WifiTetherPreferenceController mController;
@@ -64,6 +67,8 @@ public class WifiTetherPreferenceControllerTest {
     private Lifecycle mMockLifecycle;
     @Mock
     private TetheringManager mTetheringManager;
+    @Mock
+    private CarWifiManager mCarWifiManager;
 
     @Before
     public void setUp() {
@@ -73,12 +78,12 @@ public class WifiTetherPreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        when(mContext.getSystemService(TetheringManager.class)).thenReturn(mTetheringManager);
         when(mFragmentController.getSettingsLifecycle()).thenReturn(mMockLifecycle);
 
         mPreference = new CarUiTwoActionSwitchPreference(mContext);
         mController = new WifiTetherPreferenceController(mContext,
-                /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions);
+                /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions,
+                mCarWifiManager, mTetheringManager);
         PreferenceControllerTestUtil.assignPreference(mController, mPreference);
     }
 
@@ -115,12 +120,7 @@ public class WifiTetherPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
         mController.onStart(mLifecycleOwner);
 
-        ArgumentCaptor<TetheringManager.TetheringEventCallback> captor =
-                ArgumentCaptor.forClass(TetheringManager.TetheringEventCallback.class);
-        verify(mTetheringManager).registerTetheringEventCallback(
-                any(Executor.class), captor.capture());
-
-        captor.getValue().onTetheringSupported(false);
+        setTetheringSupported(false);
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(
                 UNSUPPORTED_ON_DEVICE);
@@ -131,14 +131,58 @@ public class WifiTetherPreferenceControllerTest {
         mController.onCreate(mLifecycleOwner);
         mController.onStart(mLifecycleOwner);
 
+        setTetheringSupported(true);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void onTetheringOff_subtitleOff() {
+        when(mCarWifiManager.isWifiApEnabled()).thenReturn(false);
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        setTetheringSupported(true);
+
+        assertThat(mPreference.getSummary()).isEqualTo(
+                mContext.getString(R.string.wifi_hotspot_state_off));
+    }
+
+    @Test
+    public void onTetheringOn_showsSSIDAndPassword() {
+        String testSSID = "TEST_SSID";
+        String testPassword = "TEST_PASSWORD";
+        when(mCarWifiManager.isWifiApEnabled()).thenReturn(true);
+        SoftApConfiguration config = mock(SoftApConfiguration.class);
+        when(config.getSsid()).thenReturn(testSSID);
+        when(config.getSecurityType()).thenReturn(SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+        when(config.getPassphrase()).thenReturn(testPassword);
+        when(mCarWifiManager.getSoftApConfig()).thenReturn(config);
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        setTetheringSupported(true);
+
+        assertThat(mPreference.getSummary()).isEqualTo(
+                testSSID + " / " + testPassword);
+    }
+
+    @Test
+    public void onDeviceConnected_showsDeviceConnectedSubtitle() {
+        int connectedClients = 2;
+        when(mCarWifiManager.isWifiApEnabled()).thenReturn(true);
+        mController.onConnectedClientsChanged(connectedClients);
+        mController.onCreate(mLifecycleOwner);
+        mController.onStart(mLifecycleOwner);
+        setTetheringSupported(true);
+
+        assertThat(mPreference.getSummary()).isEqualTo(
+                WifiUtils.getWifiTetherSummaryForConnectedDevices(mContext, connectedClients));
+    }
+
+    private void setTetheringSupported(boolean supported) {
         ArgumentCaptor<TetheringManager.TetheringEventCallback> captor =
                 ArgumentCaptor.forClass(TetheringManager.TetheringEventCallback.class);
         verify(mTetheringManager).registerTetheringEventCallback(
                 any(Executor.class), captor.capture());
-        captor.getValue().onTetheringSupported(false);
-
-        captor.getValue().onTetheringSupported(true);
-
-        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+        captor.getValue().onTetheringSupported(supported);
     }
 }

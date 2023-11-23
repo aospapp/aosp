@@ -211,7 +211,7 @@ int xnotify_add(struct xnotify *not, int fd, char *path)
   if (not->count == not->max) error_exit("xnotify_add overflow");
   EV_SET(&event, fd, EVFILT_VNODE, EV_ADD|EV_CLEAR, NOTE_WRITE, 0, NULL);
   if (kevent(not->kq, &event, 1, NULL, 0, NULL) == -1 || event.flags & EV_ERROR)
-    return -1;
+    error_exit("xnotify_add failed on %s", path);
   not->paths[not->count] = path;
   not->fds[not->count++] = fd;
 
@@ -257,7 +257,7 @@ int xnotify_add(struct xnotify *not, int fd, char *path)
 
   if (not->max == not->count) error_exit("xnotify_add overflow");
   if ((not->fds[i] = inotify_add_watch(not->kq, path, IN_MODIFY))==-1)
-    return -1;
+    perror_exit("xnotify_add failed on %s", path);
   not->fds[i+1] = fd;
   not->paths[not->count++] = path;
 
@@ -422,6 +422,7 @@ int posix_fallocate(int fd, off_t offset, off_t length)
 #define SIGNIFY(x) {SIG##x, #x}
 
 static const struct signame signames[] = {
+  {0, "0"},
   // POSIX
   SIGNIFY(ABRT), SIGNIFY(ALRM), SIGNIFY(BUS),
   SIGNIFY(FPE), SIGNIFY(HUP), SIGNIFY(ILL), SIGNIFY(INT), SIGNIFY(KILL),
@@ -456,7 +457,6 @@ static const struct signame signames[] = {
   // Non-POSIX signals that don't cause termination
   SIGNIFY(WINCH),
 };
-int signames_len = ARRAY_LEN(signames);
 
 #undef SIGNIFY
 
@@ -464,8 +464,7 @@ void xsignal_all_killers(void *handler)
 {
   int i;
 
-  if (!handler) handler = SIG_DFL;
-  for (i = 0; signames[i].num != SIGCHLD; i++)
+  for (i = 1; signames[i].num != SIGCHLD; i++)
     if (signames[i].num != SIGKILL) xsignal(signames[i].num, handler);
 }
 
@@ -476,8 +475,8 @@ int sig_to_num(char *sigstr)
   char *s;
 
   // Numeric?
-  i = estrtol(sigstr, &s, 10);
-  if (!errno && !*s) return i;
+  offset = estrtol(sigstr, &s, 10);
+  if (!errno && !*s) return offset;
 
   // Skip leading "SIG".
   strcasestart(&sigstr, "sig");
@@ -511,7 +510,7 @@ char *num_to_sig(int sig)
   int i;
 
   // A named signal?
-  for (i=0; i<signames_len; i++)
+  for (i=0; i<ARRAY_LEN(signames); i++)
     if (signames[i].num == sig) return signames[i].name;
 
   // A real-time signal?
@@ -624,26 +623,45 @@ int get_block_device_size(int fd, unsigned long long* size)
 }
 #endif
 
-// TODO copy_file_range
+static ssize_t copy_file_range_wrap(int infd, off_t *inoff, int outfd,
+    off_t *outoff, size_t len, unsigned flags)
+{
+  // glibc added this constant in git at the end of 2017, shipped in 2018-02.
+#if defined(__NR_copy_file_range)
+  return syscall(__NR_copy_file_range, infd, inoff, outfd, outoff, len, flags);
+#else
+  errno = EINVAL;
+  return -1;
+#endif
+}
+
 // Return bytes copied from in to out. If bytes <0 copy all of in to out.
-// If consuemd isn't null, amount read saved there (return is written or error)
+// If consumed isn't null, amount read saved there (return is written or error)
 long long sendfile_len(int in, int out, long long bytes, long long *consumed)
 {
   long long total = 0, len, ww;
+  int copy_file_range = CFG_TOYBOX_COPYFILERANGE;
 
   if (consumed) *consumed = 0;
   if (in<0) return 0;
   while (bytes != total) {
     ww = 0;
     len = bytes-total;
-    if (bytes<0 || len>sizeof(libbuf)) len = sizeof(libbuf);
 
     errno = 0;
-#if CFG_TOYBOX_COPYFILERANGE
-    len = copy_file_range(in, 0, out, 0, bytes, 0);
-#else
-    ww = len = read(in, libbuf, len);
-#endif
+    if (copy_file_range) {
+      if (bytes<0 || bytes>(1<<30)) len = (1<<30);
+      len = copy_file_range_wrap(in, 0, out, 0, len, 0);
+      if (len < 0 && errno == EINVAL) {
+        copy_file_range = 0;
+
+        continue;
+      }
+    }
+    if (!copy_file_range) {
+      if (bytes<0 || len>sizeof(libbuf)) len = sizeof(libbuf);
+      ww = len = read(in, libbuf, len);
+    }
     if (len<1 && errno==EAGAIN) continue;
     if (len<1) break;
     if (consumed) *consumed += len;
@@ -654,3 +672,50 @@ long long sendfile_len(int in, int out, long long bytes, long long *consumed)
   return total;
 }
 
+#ifdef __APPLE__
+// The absolute minimum POSIX timer implementation to build timeout(1).
+// Note that although timeout(1) uses POSIX timers to get the monotonic clock,
+// that doesn't seem to be an option on macOS (without using other libraries),
+// so we just mangle that back into a regular setitimer(ITIMER_REAL) call.
+int timer_create(clock_t c, struct sigevent *se, timer_t *t)
+{
+  if (se->sigev_notify != SIGEV_SIGNAL || se->sigev_signo != SIGALRM)
+    error_exit("unimplemented");
+  *t = 1;
+  return 0;
+}
+
+int timer_settime(timer_t t, int flags, struct itimerspec *new, void *old)
+{
+  struct itimerval mangled;
+
+  if (flags != 0 || old != 0) error_exit("unimplemented");
+  memset(&mangled, 0, sizeof(mangled));
+  mangled.it_value.tv_sec = new->it_value.tv_sec;
+  mangled.it_value.tv_usec = new->it_value.tv_nsec / 1000;
+  return setitimer(ITIMER_REAL, &mangled, NULL);
+}
+// glibc requires -lrt for linux syscalls, which pulls in libgcc_eh.a for
+// static linking, and gcc 9.3 leaks pthread calls from that breaking the build
+// These are both just linux syscalls: wrap them ourselves
+#elif !CFG_TOYBOX_HASTIMERS
+int timer_create_wrap(clockid_t c, struct sigevent *se, timer_t *t)
+{
+  // convert overengineered structure to what kernel actually uses
+  struct ksigevent { void *sv; int signo, notify, tid; } kk = {
+    0, se->sigev_signo, se->sigev_notify, 0
+  };
+  int timer;
+
+  if (syscall(SYS_timer_create, c, &kk, &timer)<0) return -1;
+  *t = (timer_t)(long)timer;
+
+  return 0;
+}
+
+int timer_settime_wrap(timer_t t, int flags, struct itimerspec *val,
+  struct itimerspec *old)
+{
+  return syscall(SYS_timer_settime, t, flags, val, old);
+}
+#endif

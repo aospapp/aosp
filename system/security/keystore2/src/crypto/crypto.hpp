@@ -22,6 +22,8 @@
 #include <stddef.h>
 
 extern "C" {
+  bool hmacSha256(const uint8_t* key, size_t key_size, const uint8_t* msg, size_t msg_size,
+                  uint8_t* out, size_t out_size);
   bool randomBytes(uint8_t* out, size_t len);
   bool AES_gcm_encrypt(const uint8_t* in, uint8_t* out, size_t len,
                        const uint8_t* key, size_t key_size, const uint8_t* iv, uint8_t* tag);

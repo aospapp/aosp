@@ -39,13 +39,13 @@ var (
 	// These variables are the only configuration needed by the bootstrap
 	// modules.
 	srcDirVariable = bootstrapVariable("srcDir", func(c BootstrapConfig) string {
-		return c.SrcDir()
+		return "."
 	})
-	buildDirVariable = bootstrapVariable("buildDir", func(c BootstrapConfig) string {
-		return c.BuildDir()
+	soongOutDirVariable = bootstrapVariable("soongOutDir", func(c BootstrapConfig) string {
+		return c.SoongOutDir()
 	})
-	ninjaBuildDirVariable = bootstrapVariable("ninjaBuildDir", func(c BootstrapConfig) string {
-		return c.NinjaBuildDir()
+	outDirVariable = bootstrapVariable("outDir", func(c BootstrapConfig) string {
+		return c.OutDir()
 	})
 	goRootVariable = bootstrapVariable("goRoot", func(c BootstrapConfig) string {
 		goroot := runtime.GOROOT()
@@ -76,67 +76,39 @@ var (
 )
 
 type BootstrapConfig interface {
-	// The top-level directory of the source tree
-	SrcDir() string
+	// The directory where tools run during the build are located.
+	HostToolDir() string
 
 	// The directory where files emitted during bootstrapping are located.
-	// Usually NinjaBuildDir() + "/soong".
-	BuildDir() string
+	// Usually OutDir() + "/soong".
+	SoongOutDir() string
 
 	// The output directory for the build.
-	NinjaBuildDir() string
+	OutDir() string
 
 	// Whether to compile Go code in such a way that it can be debugged
 	DebugCompilation() bool
-}
 
-type ConfigRemoveAbandonedFilesUnder interface {
-	// RemoveAbandonedFilesUnder should return two slices:
-	// - a slice of path prefixes that will be cleaned of files that are no
-	//   longer active targets, but are listed in the .ninja_log.
-	// - a slice of paths that are exempt from cleaning
-	RemoveAbandonedFilesUnder(buildDir string) (under, except []string)
-}
+	// Whether to run tests for Go code
+	RunGoTests() bool
 
-type ConfigBlueprintToolLocation interface {
-	// BlueprintToolLocation can return a path name to install blueprint tools
-	// designed for end users (bpfmt, bpmodify, and anything else using
-	// blueprint_go_binary).
-	BlueprintToolLocation() string
+	Subninjas() []string
+	PrimaryBuilderInvocations() []PrimaryBuilderInvocation
 }
 
 type StopBefore int
 
 const (
-	StopBeforePrepareBuildActions StopBefore = 1
-	StopBeforeWriteNinja          StopBefore = 2
-)
-
-type ConfigStopBefore interface {
-	StopBefore() StopBefore
-}
-
-type Stage int
-
-const (
-	StagePrimary Stage = iota
-	StageMain
+	DoEverything StopBefore = iota
+	StopBeforePrepareBuildActions
+	StopBeforeWriteNinja
 )
 
 type PrimaryBuilderInvocation struct {
-	Inputs  []string
-	Outputs []string
-	Args    []string
-}
-
-type Config struct {
-	stage Stage
-
-	topLevelBlueprintsFile string
-	globFile               string
-
-	runGoTests     bool
-	useValidations bool
-
-	primaryBuilderInvocations []PrimaryBuilderInvocation
+	Inputs      []string
+	Outputs     []string
+	Args        []string
+	Console     bool
+	Description string
+	Env         map[string]string
 }

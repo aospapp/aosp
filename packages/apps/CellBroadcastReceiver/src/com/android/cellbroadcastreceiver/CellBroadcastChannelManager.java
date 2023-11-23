@@ -18,20 +18,31 @@ package com.android.cellbroadcastreceiver;
 
 import static android.telephony.ServiceState.ROAMING_TYPE_NOT_ROAMING;
 
+import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
+
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
+import android.content.res.Resources;
+import android.os.SystemProperties;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SmsCbMessage;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
+import android.util.Pair;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * CellBroadcastChannelManager handles the additional cell broadcast channels that
@@ -51,6 +62,7 @@ public class CellBroadcastChannelManager {
 
     private static final String TAG = "CBChannelManager";
 
+    private static final int MAX_CACHE_SIZE = 3;
     private static List<Integer> sCellBroadcastRangeResourceKeys = new ArrayList<>(
             Arrays.asList(R.array.additional_cbs_channels_strings,
                     R.array.emergency_alerts_channels_range_strings,
@@ -64,15 +76,24 @@ public class CellBroadcastChannelManager {
                     R.array.etws_alerts_range_strings,
                     R.array.etws_test_alerts_range_strings,
                     R.array.public_safety_messages_channels_range_strings,
-                    R.array.state_local_test_alert_range_strings
+                    R.array.state_local_test_alert_range_strings,
+                    R.array.geo_fencing_trigger_messages_range_strings
             ));
 
-    private static ArrayList<CellBroadcastChannelRange> sAllCellBroadcastChannelRanges = null;
-    private static final Object channelRangesLock = new Object();
+    private static Map<Integer, Map<Integer, List<CellBroadcastChannelRange>>>
+            sAllCellBroadcastChannelRangesPerSub = new ArrayMap<>();
+    private static Map<String, Map<Integer, List<CellBroadcastChannelRange>>>
+            sAllCellBroadcastChannelRangesPerOperator = new ArrayMap<>();
+
+    private static final Object mChannelRangesLock = new Object();
 
     private final Context mContext;
 
     private final int mSubId;
+
+    private final String mOperator;
+
+    private boolean mIsDebugBuild = false;
 
     /**
      * Cell broadcast channel range
@@ -107,9 +128,12 @@ public class CellBroadcastChannelManager {
         private static final String KEY_DISPLAY_ICON = "display_icon";
         /** Define whether to dismiss the alert dialog for outside touches */
         private static final String KEY_DISMISS_ON_OUTSIDE_TOUCH = "dismiss_on_outside_touch";
+        /** Define whether to enable this only in userdebug/eng build. */
+        private static final String KEY_DEBUG_BUILD_ONLY = "debug_build";
         /** Define the ISO-639-1 language code associated with the alert message. */
         private static final String KEY_LANGUAGE_CODE = "language";
-
+        /** Define whether to display dialog and notification */
+        private static final String KEY_DIALOG_WITH_NOTIFICATION = "dialog_with_notification";
 
         /**
          * Defines whether the channel needs language filter or not. True indicates that the alert
@@ -152,18 +176,21 @@ public class CellBroadcastChannelManager {
         // whether to dismiss the alert dialog on outside touch. Typically this should be false
         // to avoid accidental dismisses of emergency messages
         public boolean mDismissOnOutsideTouch = false;
+        // Whether the channels are disabled
+        public boolean mIsDebugBuildOnly = false;
         // This is used to override dialog title language
         public String mLanguageCode;
+        // Display both ways dialog and notification
+        public boolean mDisplayDialogWithNotification = false;
 
-        public CellBroadcastChannelRange(Context context, int subId, String channelRange) {
-
+        public CellBroadcastChannelRange(Context context, int subId,
+                Resources res, String channelRange) {
             mAlertType = AlertType.DEFAULT;
             mEmergencyLevel = LEVEL_UNKNOWN;
             mRanType = SmsCbMessage.MESSAGE_FORMAT_3GPP;
             mScope = SCOPE_UNKNOWN;
-            mVibrationPattern =
-                    CellBroadcastSettings.getResources(context, subId)
-                            .getIntArray(R.array.default_vibration_pattern);
+
+            mVibrationPattern = res.getIntArray(R.array.default_vibration_pattern);
             mFilterLanguage = false;
             // by default all received messages should be displayed.
             mDisplay = true;
@@ -261,8 +288,18 @@ public class CellBroadcastChannelManager {
                                     mDismissOnOutsideTouch = true;
                                 }
                                 break;
+                            case KEY_DEBUG_BUILD_ONLY:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mIsDebugBuildOnly = true;
+                                }
+                                break;
                             case KEY_LANGUAGE_CODE:
                                 mLanguageCode = value;
+                                break;
+                            case KEY_DIALOG_WITH_NOTIFICATION:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mDisplayDialogWithNotification = true;
+                                }
                                 break;
                         }
                     }
@@ -272,8 +309,7 @@ public class CellBroadcastChannelManager {
 
             // If alert type is info, override vibration pattern
             if (!hasVibrationPattern && mAlertType.equals(AlertType.INFO)) {
-                mVibrationPattern = CellBroadcastSettings.getResources(context, subId)
-                        .getIntArray(R.array.default_notification_vibration_pattern);
+                mVibrationPattern = res.getIntArray(R.array.default_notification_vibration_pattern);
             }
 
             // Parse the channel range
@@ -297,7 +333,9 @@ public class CellBroadcastChannelManager {
                     + ",display=" + mDisplay + ",testMode=" + mTestMode + ",mAlwaysOn="
                     + mAlwaysOn + ",ScreenOnDuration=" + mScreenOnDuration + ", displayIcon="
                     + mDisplayIcon + "dismissOnOutsideTouch=" + mDismissOnOutsideTouch
-                    + ", languageCode=" + mLanguageCode + "]";
+                    + ", mIsDebugBuildOnly =" + mIsDebugBuildOnly
+                    + ", languageCode=" + mLanguageCode
+                    + ", mDisplayDialogWithNotification=" + mDisplayDialogWithNotification + "]";
         }
     }
 
@@ -308,8 +346,88 @@ public class CellBroadcastChannelManager {
      * @param subId Subscription index
      */
     public CellBroadcastChannelManager(Context context, int subId) {
+        this(context, subId, CellBroadcastReceiver.getRoamingOperatorSupported(context),
+                SystemProperties.getInt("ro.debuggable", 0) == 1);
+    }
+
+    public CellBroadcastChannelManager(Context context, int subId, @Nullable String operator) {
+        this(context, subId, operator, SystemProperties.getInt("ro.debuggable", 0) == 1);
+    }
+
+    @VisibleForTesting
+    public CellBroadcastChannelManager(Context context, int subId,
+            String operator, boolean isDebugBuild) {
         mContext = context;
         mSubId = subId;
+        mOperator = operator;
+        mIsDebugBuild = isDebugBuild;
+        initAsNeeded();
+    }
+
+    /**
+     * Parse channel ranges from resources, and initialize the cache as needed
+     */
+    private void initAsNeeded() {
+        if (!TextUtils.isEmpty(mOperator)) {
+            synchronized (mChannelRangesLock) {
+                if (!sAllCellBroadcastChannelRangesPerOperator.containsKey(mOperator)) {
+                    if (VDBG) {
+                        log("init for operator: " + mOperator);
+                    }
+                    if (sAllCellBroadcastChannelRangesPerOperator.size() == MAX_CACHE_SIZE) {
+                        sAllCellBroadcastChannelRangesPerOperator.clear();
+                    }
+                    sAllCellBroadcastChannelRangesPerOperator.put(mOperator,
+                            getChannelRangesMapFromResoures(CellBroadcastSettings
+                                    .getResourcesByOperator(mContext, mSubId, mOperator)));
+                }
+            }
+        }
+
+        synchronized (mChannelRangesLock) {
+            if (!sAllCellBroadcastChannelRangesPerSub.containsKey(mSubId)) {
+                if (sAllCellBroadcastChannelRangesPerSub.size() == MAX_CACHE_SIZE) {
+                    sAllCellBroadcastChannelRangesPerSub.clear();
+                }
+                if (VDBG) {
+                    log("init for sub: " + mSubId);
+                }
+                sAllCellBroadcastChannelRangesPerSub.put(mSubId,
+                        getChannelRangesMapFromResoures(CellBroadcastSettings
+                                .getResources(mContext, mSubId)));
+            }
+        }
+    }
+
+    private @NonNull Map<Integer, List<CellBroadcastChannelRange>> getChannelRangesMapFromResoures(
+            @NonNull Resources res) {
+        Map<Integer, List<CellBroadcastChannelRange>> map = new ArrayMap<>();
+
+        for (int key : sCellBroadcastRangeResourceKeys) {
+            String[] ranges = res.getStringArray(key);
+            if (ranges != null) {
+                List<CellBroadcastChannelRange> rangesList = new ArrayList<>();
+                for (String range : ranges) {
+                    try {
+                        if (VDBG) {
+                            log("parse channel range: " + range);
+                        }
+                        CellBroadcastChannelRange r =
+                                new CellBroadcastChannelRange(mContext, mSubId, res, range);
+                        // Bypass if the range is disabled
+                        if (r.mIsDebugBuildOnly && !mIsDebugBuild) {
+                            continue;
+                        }
+                        rangesList.add(r);
+                    } catch (Exception e) {
+                        loge("Failed to parse \"" + range + "\". e=" + e);
+                    }
+                }
+                map.put(key, rangesList);
+            }
+        }
+
+        return map;
     }
 
     /**
@@ -319,20 +437,23 @@ public class CellBroadcastChannelManager {
      *
      * @return The list of channel ranges enabled by the carriers.
      */
-    public @NonNull ArrayList<CellBroadcastChannelRange> getCellBroadcastChannelRanges(int key) {
-        ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
-        String[] ranges =
-                CellBroadcastSettings.getResources(mContext, mSubId).getStringArray(key);
-        if (ranges != null) {
-            for (String range : ranges) {
-                try {
-                    result.add(new CellBroadcastChannelRange(mContext, mSubId, range));
-                } catch (Exception e) {
-                    loge("Failed to parse \"" + range + "\". e=" + e);
-                }
+    public @NonNull List<CellBroadcastChannelRange> getCellBroadcastChannelRanges(int key) {
+        List<CellBroadcastChannelRange> result = null;
+
+        synchronized (mChannelRangesLock) {
+            initAsNeeded();
+
+            // Check the config per network first if applicable
+            if (!TextUtils.isEmpty(mOperator)) {
+                result = sAllCellBroadcastChannelRangesPerOperator.get(mOperator).get(key);
+            }
+
+            if (result == null) {
+                result = sAllCellBroadcastChannelRangesPerSub.get(mSubId).get(key);
             }
         }
-        return result;
+
+        return result == null ? new ArrayList<>() : result;
     }
 
     /**
@@ -340,31 +461,28 @@ public class CellBroadcastChannelManager {
      *
      * @return all cell broadcast channels
      */
-    public @NonNull ArrayList<CellBroadcastChannelRange> getAllCellBroadcastChannelRanges() {
-        synchronized(channelRangesLock) {
-            if (sAllCellBroadcastChannelRanges != null) return sAllCellBroadcastChannelRanges;
-
-            Log.d(TAG, "Create new channel range list");
-            ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
-
-            for (int key : sCellBroadcastRangeResourceKeys) {
-                result.addAll(getCellBroadcastChannelRanges(key));
+    public @NonNull List<CellBroadcastChannelRange> getAllCellBroadcastChannelRanges() {
+        final List<CellBroadcastChannelRange> result = new ArrayList<>();
+        synchronized (mChannelRangesLock) {
+            if (!TextUtils.isEmpty(mOperator)
+                    && sAllCellBroadcastChannelRangesPerOperator.containsKey(mOperator)) {
+                sAllCellBroadcastChannelRangesPerOperator.get(mOperator).forEach(
+                        (k, v)->result.addAll(v));
             }
 
-            sAllCellBroadcastChannelRanges = result;
-            return result;
+            sAllCellBroadcastChannelRangesPerSub.get(mSubId).forEach((k, v)->result.addAll(v));
         }
+        return result;
     }
 
     /**
      * Clear broadcast channel range list
      */
     public static void clearAllCellBroadcastChannelRanges() {
-        synchronized(channelRangesLock) {
-            if (sAllCellBroadcastChannelRanges != null) {
-                Log.d(TAG, "Clear channel range list");
-                sAllCellBroadcastChannelRanges = null;
-            }
+        synchronized (mChannelRangesLock) {
+            Log.d(TAG, "Clear channel range list");
+            sAllCellBroadcastChannelRangesPerSub.clear();
+            sAllCellBroadcastChannelRangesPerOperator.clear();
         }
     }
 
@@ -376,15 +494,59 @@ public class CellBroadcastChannelManager {
      * return {@code FALSE} otherwise
      */
     public boolean checkCellBroadcastChannelRange(int channel, int key) {
-        ArrayList<CellBroadcastChannelRange> ranges = getCellBroadcastChannelRanges(key);
+        return getCellBroadcastChannelResourcesKey(channel) == key;
+    }
 
-        for (CellBroadcastChannelRange range : ranges) {
-            if (channel >= range.mStartId && channel <= range.mEndId) {
-                return checkScope(range.mScope);
+    /**
+     * Get the resources key for the channel
+     * @param channel Cell broadcast message channel
+     *
+     * @return 0 if the key is not found, otherwise the value of the resources key
+     */
+    public int getCellBroadcastChannelResourcesKey(int channel) {
+        Pair<Integer, CellBroadcastChannelRange> p = findChannelRange(channel);
+
+        return p != null ? p.first : 0;
+    }
+
+    /**
+     * Get the CellBroadcastChannelRange for the channel
+     * @param channel Cell broadcast message channel
+     *
+     * @return the CellBroadcastChannelRange for the channel, null if not found
+     */
+    public @Nullable CellBroadcastChannelRange getCellBroadcastChannelRange(int channel) {
+        Pair<Integer, CellBroadcastChannelRange> p = findChannelRange(channel);
+
+        return p != null ? p.second : null;
+    }
+
+    private @Nullable Pair<Integer, CellBroadcastChannelRange> findChannelRange(int channel) {
+        if (!TextUtils.isEmpty(mOperator)) {
+            Pair<Integer, CellBroadcastChannelRange> p = findChannelRange(
+                    sAllCellBroadcastChannelRangesPerOperator.get(mOperator), channel);
+            if (p != null) {
+                return p;
             }
         }
 
-        return false;
+        return findChannelRange(sAllCellBroadcastChannelRangesPerSub.get(mSubId), channel);
+    }
+
+    private @Nullable Pair<Integer, CellBroadcastChannelRange> findChannelRange(
+            Map<Integer, List<CellBroadcastChannelRange>> channelRangeMap, int channel) {
+        if (channelRangeMap != null) {
+            for (Map.Entry<Integer, List<CellBroadcastChannelRange>> entry
+                    : channelRangeMap.entrySet()) {
+                for (CellBroadcastChannelRange range : entry.getValue()) {
+                    if (channel >= range.mStartId && channel <= range.mEndId
+                            && checkScope(range.mScope)) {
+                        return new Pair<>(entry.getKey(), range);
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -439,24 +601,7 @@ public class CellBroadcastChannelManager {
                     + message.getSubscriptionId());
         }
 
-        int channel = message.getServiceCategory();
-        ArrayList<CellBroadcastChannelRange> ranges = null;
-
-        for (int key : sCellBroadcastRangeResourceKeys) {
-            if (checkCellBroadcastChannelRange(channel, key)) {
-                ranges = getCellBroadcastChannelRanges(key);
-                break;
-            }
-        }
-        if (ranges != null) {
-            for (CellBroadcastChannelRange range : ranges) {
-                if (range.mStartId <= message.getServiceCategory()
-                        && range.mEndId >= message.getServiceCategory()) {
-                    return range;
-                }
-            }
-        }
-        return null;
+        return getCellBroadcastChannelRange(message.getServiceCategory());
     }
 
     /**
@@ -476,25 +621,19 @@ public class CellBroadcastChannelManager {
         }
 
         int id = message.getServiceCategory();
+        CellBroadcastChannelRange range = getCellBroadcastChannelRange(id);
 
-        for (int key : sCellBroadcastRangeResourceKeys) {
-            ArrayList<CellBroadcastChannelRange> ranges =
-                    getCellBroadcastChannelRanges(key);
-            for (CellBroadcastChannelRange range : ranges) {
-                if (range.mStartId <= id && range.mEndId >= id) {
-                    switch (range.mEmergencyLevel) {
-                        case CellBroadcastChannelRange.LEVEL_EMERGENCY:
-                            Log.d(TAG, "isEmergencyMessage: true, message id = " + id);
-                            return true;
-                        case CellBroadcastChannelRange.LEVEL_NOT_EMERGENCY:
-                            Log.d(TAG, "isEmergencyMessage: false, message id = " + id);
-                            return false;
-                        case CellBroadcastChannelRange.LEVEL_UNKNOWN:
-                        default:
-                            break;
-                    }
+        if (range != null) {
+            switch (range.mEmergencyLevel) {
+                case CellBroadcastChannelRange.LEVEL_EMERGENCY:
+                    Log.d(TAG, "isEmergencyMessage: true, message id = " + id);
+                    return true;
+                case CellBroadcastChannelRange.LEVEL_NOT_EMERGENCY:
+                    Log.d(TAG, "isEmergencyMessage: false, message id = " + id);
+                    return false;
+                case CellBroadcastChannelRange.LEVEL_UNKNOWN:
+                default:
                     break;
-                }
             }
         }
 
@@ -504,6 +643,10 @@ public class CellBroadcastChannelManager {
         // emergency property from the message itself, which is checking if the channel is between
         // MESSAGE_ID_PWS_FIRST_IDENTIFIER (4352) and MESSAGE_ID_PWS_LAST_IDENTIFIER (6399).
         return message.isEmergencyMessage();
+    }
+
+    private static void log(String msg) {
+        Log.d(TAG, msg);
     }
 
     private static void loge(String msg) {

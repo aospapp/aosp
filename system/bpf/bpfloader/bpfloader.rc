@@ -15,6 +15,9 @@
 # considered to have booted successfully.
 #
 on load_bpf_programs
+    # Linux 5.16-rc1 has changed the default to 2 (disabled but changeable),
+    # but we need 0
+    write /proc/sys/kernel/unprivileged_bpf_disabled 0
     # Enable the eBPF JIT -- but do note that on 64-bit kernels it is likely
     # already force enabled by the kernel config option BPF_JIT_ALWAYS_ON
     write /proc/sys/net/core/bpf_jit_enable 1
@@ -54,6 +57,30 @@ service bpfloader /system/bin/bpfloader
     #
     rlimit memlock 1073741824 1073741824
     oneshot
+    #
+    # How to debug bootloops caused by 'bpfloader-failed'.
+    #
+    # 1. On some lower RAM devices (like wembley) you may need to first enable developer mode
+    #    (from the Settings app UI), and change the developer option "Logger buffer sizes"
+    #    from the default (wembley: 64kB) to the maximum (1M) per log buffer.
+    #    Otherwise buffer will overflow before you manage to dump it and you'll get useless logs.
+    #
+    # 2. comment out 'reboot_on_failure reboot,bpfloader-failed' below
+    # 3. rebuild/reflash/reboot
+    # 4. as the device is booting up capture bpfloader logs via:
+    #    adb logcat -s 'bpfloader:*' 'LibBpfLoader:*'
+    #
+    # something like:
+    #   $ adb reboot; sleep 1; adb wait-for-device; adb root; sleep 1; adb wait-for-device; adb logcat -s 'bpfloader:*' 'LibBpfLoader:*'
+    # will take care of capturing logs as early as possible
+    #
+    # 5. look through the logs from the kernel's bpf verifier that bpfloader dumps out,
+    #    it usually makes sense to search back from the end and find the particular
+    #    bpf verifier failure that caused bpfloader to terminate early with an error code.
+    #    This will probably be something along the lines of 'too many jumps' or
+    #    'cannot prove return value is 0 or 1' or 'unsupported / unknown operation / helper',
+    #    'invalid bpf_context access', etc.
+    #
     reboot_on_failure reboot,bpfloader-failed
     # we're not really updatable, but want to be able to load bpf programs shipped in apexes
     updatable

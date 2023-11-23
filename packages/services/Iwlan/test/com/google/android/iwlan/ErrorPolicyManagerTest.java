@@ -191,7 +191,7 @@ public class ErrorPolicyManagerTest {
     }
 
     @Test
-    public void testInvalidCarrierConfig() throws Exception {
+    public void testDefaultPolicyFallback() throws Exception {
         String apn = "ims";
         String config =
                 "[{"
@@ -217,17 +217,21 @@ public class ErrorPolicyManagerTest {
 
         sleep(1000);
 
-        // IKE_PROTOCOL_ERROR_TYPE(24) and retryArray = 5, 10, 15 as it will fallback due to failed
-        // parsing
+        // Fallback to default Iwlan error policy for IKE_PROTOCOL_ERROR_TYPE(24) because of failed
+        // parsing (or lack of explicit carrier-defined policy).
         IwlanError iwlanError = buildIwlanIkeAuthFailedError();
         long time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
-        assertEquals(5, time);
-        time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
         assertEquals(10, time);
         time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
-        assertEquals(10, time);
+        assertEquals(20, time);
         time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
-        assertEquals(10, time);
+        assertEquals(40, time);
+        time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
+        assertEquals(80, time);
+        time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
+        assertEquals(160, time);
+        time = mErrorPolicyManager.reportIwlanError(apn, iwlanError);
+        assertEquals(86400, time);
     }
 
     @Test

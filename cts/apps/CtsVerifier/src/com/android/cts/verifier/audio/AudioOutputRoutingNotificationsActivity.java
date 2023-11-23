@@ -16,27 +16,25 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.R;
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 import android.content.Context;
-
-import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioManager;
 import android.media.AudioTrack;
-
 import android.os.Bundle;
 import android.os.Handler;
-
 import android.util.Log;
-
 import android.view.View;
 import android.view.View.OnClickListener;
-
 import android.widget.Button;
 import android.widget.TextView;
 
-import org.hyphonate.megaaudio.player.AudioSource;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.CtsVerifierReportLog;
+import com.android.cts.verifier.R;
+
 import org.hyphonate.megaaudio.player.AudioSourceProvider;
 import org.hyphonate.megaaudio.player.JavaPlayer;
 import org.hyphonate.megaaudio.player.PlayerBuilder;
@@ -55,13 +53,26 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
 
     Button playBtn;
     Button stopBtn;
+    TextView mInfoView;
+
+    int mNumRoutingNotifications;
 
     private OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
 
-    int mNumTrackNotifications = 0;
+    // ignore messages sent as a consequence of starting the player
+    private static final int NUM_IGNORE_MESSAGES = 1;
 
     // Mega Player
-    JavaPlayer mAudioPlayer;
+    private JavaPlayer mAudioPlayer;
+    private AudioTrackRoutingChangeListener mRoutingChangeListener;
+    private boolean mIsPlaying;
+
+    private boolean mInitialRoutingMessageHandled;
+
+    boolean mRoutingNotificationReceived;
+
+    // ReportLog schema
+    private static final String SECTION_OUTPUT_ROUTING = "audio_out_routing_notifications";
 
     private class OnBtnClickListener implements OnClickListener {
         @Override
@@ -69,43 +80,97 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
             if (mAudioPlayer == null) {
                 return; // failed to create the player
             }
-            switch (v.getId()) {
-                case R.id.audio_routingnotification_playBtn:
-                {
-                    mAudioPlayer.startStream();
-                    AudioTrack audioTrack = mAudioPlayer.getAudioTrack();
-                    audioTrack.addOnRoutingChangedListener(
-                            new AudioTrackRoutingChangeListener(), new Handler());
-                }
-                    break;
-
-                case R.id.audio_routingnotification_playStopBtn:
-                    mAudioPlayer.stopStream();
-                    break;
+            int id = v.getId();
+            if (id == R.id.audio_routingnotification_playBtn) {
+                startPlayback();
+            } else if (id == R.id.audio_routingnotification_playStopBtn) {
+                stopPlayback();
             }
+        }
+    }
+
+    private void startPlayback() {
+        if (!mIsPlaying) {
+            mNumRoutingNotifications = 0;
+
+            mAudioPlayer.startStream();
+
+            AudioTrack audioTrack = mAudioPlayer.getAudioTrack();
+            audioTrack.addOnRoutingChangedListener(mRoutingChangeListener,
+                    new Handler());
+
+            mIsPlaying = true;
+
+            enableTestButtons(false);
+        }
+    }
+
+    private void stopPlayback() {
+        if (mIsPlaying) {
+            mAudioPlayer.stopStream();
+
+            AudioTrack audioTrack = mAudioPlayer.getAudioTrack();
+            audioTrack.removeOnRoutingChangedListener(mRoutingChangeListener);
+
+            mIsPlaying = false;
+
+            enableTestButtons(true);
         }
     }
 
     private class AudioTrackRoutingChangeListener implements AudioTrack.OnRoutingChangedListener {
         public void onRoutingChanged(AudioTrack audioTrack) {
-            mNumTrackNotifications++;
+            // Starting playback triggers a messages, so ignore the first one.
+            mNumRoutingNotifications++;
+            if (mNumRoutingNotifications <= NUM_IGNORE_MESSAGES) {
+                return;
+            }
+
             TextView textView =
                 (TextView)findViewById(R.id.audio_routingnotification_audioTrack_change);
             String msg = mContext.getResources().getString(
                     R.string.audio_routingnotification_trackRoutingMsg);
             AudioDeviceInfo routedDevice = audioTrack.getRoutedDevice();
             CharSequence deviceName = routedDevice != null ? routedDevice.getProductName() : "none";
+            mConnectedPeripheralName = deviceName.toString();
             int deviceType = routedDevice != null ? routedDevice.getType() : -1;
             textView.setText(msg + " - " +
                              deviceName + " [0x" + Integer.toHexString(deviceType) + "]" +
-                             " - " + mNumTrackNotifications);
+                             " - " + mNumRoutingNotifications);
+
+            mRoutingNotificationReceived = true;
+            calculatePass();
         }
     }
 
     @Override
     protected void enableTestButtons(boolean enabled) {
         playBtn.setEnabled(enabled);
-        stopBtn.setEnabled(enabled);
+        stopBtn.setEnabled(!enabled);
+    }
+
+    @Override
+    protected void calculatePass() {
+        getPassButton().setEnabled(mRoutingNotificationReceived || !mSupportsWiredPeripheral);
+        if (mRoutingNotificationReceived) {
+            ((TextView) findViewById(R.id.audio_routingnotification_testresult)).setText(
+                    "Test PASSES - Routing notification received");
+        } else if (!mSupportsWiredPeripheral) {
+            ((TextView) findViewById(
+                    R.id.audio_routingnotification_testresult)).setText(
+                    "Test PASSES - No peripheral support");
+        }
+    }
+
+    protected void storeTestResults() {
+        super.storeTestResults();
+
+        CtsVerifierReportLog reportLog = getReportLog();
+        reportLog.addValue(
+                KEY_ROUTING_RECEIVED,
+                mRoutingNotificationReceived ? 1 : 0,
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
     }
 
     @Override
@@ -115,10 +180,14 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
 
         mContext = this;
 
-        playBtn = (Button)findViewById(R.id.audio_routingnotification_playBtn);
+        playBtn = (Button) findViewById(R.id.audio_routingnotification_playBtn);
         playBtn.setOnClickListener(mBtnClickListener);
-        stopBtn = (Button)findViewById(R.id.audio_routingnotification_playStopBtn);
+        stopBtn = (Button) findViewById(R.id.audio_routingnotification_playStopBtn);
         stopBtn.setOnClickListener(mBtnClickListener);
+
+        enableTestButtons(false);
+
+        mInfoView = (TextView) findViewById(R.id.info_text);
 
         // Setup Player
         //
@@ -139,17 +208,24 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
             Log.e(TAG, "Failed MegaPlayer build.");
         }
 
+        mRoutingChangeListener = new AudioTrackRoutingChangeListener();
+
         // "Honor System" buttons
         super.setup();
-
+        setInfoResources(R.string.audio_output_routingnotifications_test,
+                R.string.audio_output_routingnotification_instructions, -1);
         setPassFailButtonClickListeners();
+        getPassButton().setEnabled(false);
+    }
+
+    @Override
+    public final String getReportSectionName() {
+        return setTestNameSuffix(sCurrentDisplayMode, SECTION_OUTPUT_ROUTING);
     }
 
     @Override
     public void onBackPressed () {
-        if (mAudioPlayer != null) {
-            mAudioPlayer.stopStream();
-        }
+        stopPlayback();
         super.onBackPressed();
     }
 }

@@ -40,7 +40,7 @@ class WorkDir {
             // user has specified the mediaDirString via instrumentation-arg
             return mediaDirString + ((mediaDirString.endsWith("/")) ? "" : "/");
         } else {
-            return (getTopDirString() + "test/CtsMediaPerformanceClassTestCases-1.1/");
+            return (getTopDirString() + "test/CtsMediaPerformanceClassTestCases-1.2/");
         }
     }
 }

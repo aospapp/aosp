@@ -40,13 +40,13 @@ public final class MoreAsserts {
                 Class<? extends Throwable> actualThrowable = actualThrown.getClass();
                 String actual = formatClass(actualThrowable);
 
-                String mismatchExceptionMessage = "Unexpected exception type thrown: " + actual +
-                        ", expected:" + expected;
+                String mismatchExceptionMessage = "Unexpected exception type thrown: " + actual
+                        + ", expected:" + expected;
                 throw new AssertionError(mismatchExceptionMessage, actualThrown);
             }
         }
-        String notThrownMessage = "Expected " +
-                formatClass(expectedThrowable) + " to be thrown, but nothing was thrown";
+        String notThrownMessage = "Expected " + formatClass(expectedThrowable)
+                + " to be thrown, but nothing was thrown";
         throw new AssertionError(notThrownMessage);
     }
 

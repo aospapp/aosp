@@ -53,26 +53,32 @@ import org.junit.runners.model.Statement;
 import org.junit.rules.RunRules;
 
 /**
- * The {@code Microbenchmark} runner allows you to run test methods repeatedly and with {@link
- * TightMethodRule}s in order to reliably measure a specific test method in isolation. Samples are
- * soon to follow.
+ * The {@code Microbenchmark} runner allows you to run individual JUnit {@code @Test} methods
+ * repeatedly like a benchmark test in order to get more repeatable, reliable measurements, or to
+ * ensure it passes when run many times. This runner supports a number of customized features that
+ * enable better benchmarking and better integration with surrounding tools.
+ *
+ * <p>One iteration represents a single pass of a test method. The number of iterations and how
+ * those iterations get renamed are configurable with options listed at the top of the source code.
+ * Some custom annotations also exist to enable this runner to replicate JUnit's functionality with
+ * modified behaviors related to running repeated methods. These are documented separately below
+ * with the corresponding annotations, {@link @NoMetricBefore}, {@link @NoMetricAfter}, and
+ * {@link @TightMethodRule}.
+ *
+ * <p>Finally, this runner supports some power-specific testing features used to denoise (also
+ * documented below), and can be configured to terminate early if the battery drops too low or if
+ * any test fails.
  */
 public class Microbenchmark extends BlockJUnit4ClassRunner {
 
     private static final String LOG_TAG = Microbenchmark.class.getSimpleName();
 
-    @VisibleForTesting static final String ITERATION_SEP_OPTION = "iteration-separator";
-    @VisibleForTesting static final String ITERATION_SEP_DEFAULT = "$";
-    // A constant to indicate that the iteration number is not set.
-    @VisibleForTesting static final int ITERATION_NOT_SET = -1;
-    public static final String RENAME_ITERATION_OPTION = "rename-iterations";
     private static final Statement EMPTY_STATEMENT =
             new Statement() {
                 @Override
                 public void evaluate() throws Throwable {}
             };
-    @VisibleForTesting static final String MIN_BATTERY_LEVEL_OPTION = "min-battery";
-    @VisibleForTesting static final String MAX_BATTERY_DRAIN_OPTION = "max-battery-drain";
+
     // Use these options to inject rules at runtime via the command line. For details, please see
     // documentation for DynamicRuleChain.
     @VisibleForTesting static final String DYNAMIC_OUTER_CLASS_RULES_OPTION = "outer-class-rules";
@@ -80,14 +86,24 @@ public class Microbenchmark extends BlockJUnit4ClassRunner {
     @VisibleForTesting static final String DYNAMIC_OUTER_TEST_RULES_OPTION = "outer-test-rules";
     @VisibleForTesting static final String DYNAMIC_INNER_TEST_RULES_OPTION = "inner-test-rules";
 
+    // Renames repeated test methods as <description><separator><iteration> (if set to true).
+    public static final String RENAME_ITERATION_OPTION = "rename-iterations";
+    @VisibleForTesting static final String ITERATION_SEP_OPTION = "iteration-separator";
+    @VisibleForTesting static final String ITERATION_SEP_DEFAULT = "$";
+
+    // Stop running tests after any failure is encountered (if set to true).
+    private static final String TERMINATE_ON_TEST_FAIL_OPTION = "terminate-on-test-fail";
+
+    // Don't start new iterations if the battery falls below this value (if set).
+    @VisibleForTesting static final String MIN_BATTERY_LEVEL_OPTION = "min-battery";
+    // Don't start new iterations if the battery already fell more than this value (if set).
+    @VisibleForTesting static final String MAX_BATTERY_DRAIN_OPTION = "max-battery-drain";
     // Options for aligning with the battery charge (coulomb) counter for power tests. We want to
     // start microbenchmarks just after the coulomb counter has decremented to account for the
     // counter being quantized. The counter most accurately reflects the true value just after it
     // decrements.
     private static final String ALIGN_WITH_CHARGE_COUNTER_OPTION = "align-with-charge-counter";
     private static final String COUNTER_DECREMENT_TIMEOUT_OPTION = "counter-decrement-timeout_ms";
-
-    private static final String TERMINATE_ON_TEST_FAIL_OPTION = "terminate-on-test-fail";
 
     private final String mIterationSep;
     private final Bundle mArguments;

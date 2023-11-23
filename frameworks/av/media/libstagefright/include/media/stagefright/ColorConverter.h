@@ -47,14 +47,20 @@ struct ColorConverter {
             size_t dstCropLeft, size_t dstCropTop,
             size_t dstCropRight, size_t dstCropBottom);
 
+    struct Coeffs; // matrix coefficients
+
 private:
     struct ColorSpace {
         uint32_t mStandard;
         uint32_t mRange;
         uint32_t mTransfer;
 
-        bool isBt709();
-        bool isJpeg();
+        bool isBt2020() const;
+
+        // libyuv helper methods
+        bool isH420() const;
+        bool isI420() const;
+        bool isJ420() const;
     };
 
     struct BitmapParams {
@@ -78,8 +84,13 @@ private:
     OMX_COLOR_FORMATTYPE mSrcFormat, mDstFormat;
     ColorSpace mSrcColorSpace;
     uint8_t *mClip;
+    uint16_t *mClip10Bit;
 
     uint8_t *initClip();
+    uint16_t *initClip10Bit();
+
+    // returns the YUV2RGB matrix coefficients according to the color aspects and bit depth
+    const struct Coeffs *getMatrix() const;
 
     status_t convertCbYCrY(
             const BitmapParams &src, const BitmapParams &dst);
@@ -108,8 +119,18 @@ private:
     status_t convertYUV420SemiPlanar(
             const BitmapParams &src, const BitmapParams &dst);
 
+    status_t convertYUV420SemiPlanarBase(
+            const BitmapParams &src, const BitmapParams &dst,
+            const uint8_t *src_y, const uint8_t *src_u, size_t row_inc, bool isNV21 = false);
+
     status_t convertTIYUV420PackedSemiPlanar(
             const BitmapParams &src, const BitmapParams &dst);
+
+    status_t convertYUVP010(
+                const BitmapParams &src, const BitmapParams &dst);
+
+    status_t convertYUVP010ToRGBA1010102(
+                const BitmapParams &src, const BitmapParams &dst);
 
     ColorConverter(const ColorConverter &);
     ColorConverter &operator=(const ColorConverter &);

@@ -28,3 +28,19 @@ javadoc {
     ],
     java_version: "1.8",
 }
+
+java_sdk_library {
+    name: "com.example.android.platform_library",
+
+    // Users of this sample will likely want to leave out this flag and
+    // instead follow the instructions here
+    // https://source.android.com/devices/architecture/java-library#maintaining-backward-compatibility
+    unsafe_ignore_missing_latest_api: true,
+
+    api_packages: ["com.example.android.platform_library"],
+
+    srcs: ["**/*.java"],
+
+    dist_group: "samples",
+    sdk_version: "current",
+}

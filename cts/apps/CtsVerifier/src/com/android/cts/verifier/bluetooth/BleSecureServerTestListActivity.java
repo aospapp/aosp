@@ -37,6 +37,12 @@ public class BleSecureServerTestListActivity extends PassFailButtons.TestListAct
 
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         List<String> disabledTest = new ArrayList<String>();
+        // Temporarily disable this test (b/235763737).
+        disabledTest.add(
+                "com.android.cts.verifier.bluetooth.BleSecureConnectionPriorityServerTestActivity");
+        disabledTest.add(
+                "com.android.cts.verifier.bluetooth.BleSecureEncryptedServerTestActivity");
+
         if (adapter == null || !adapter.isOffloadedFilteringSupported()) {
             disabledTest.add(
                     "com.android.cts.verifier.bluetooth.BleAdvertiserHardwareScanFilterActivity.");

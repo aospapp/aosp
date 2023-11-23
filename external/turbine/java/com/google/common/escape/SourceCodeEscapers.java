@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * A factory for Escaper instances used to escape strings for safe use in Java.
  *
- * <p>This is a subset of source code escapers that are in the process of being open-sources as part
+ * <p>This is a subset of source code escapers that are in the process of being open-sourced as part
  * of guava, see: https://github.com/google/guava/issues/1620
  */
 // TODO(cushon): migrate to the guava version once it is open-sourced, and delete this
@@ -43,8 +43,8 @@ public final class SourceCodeEscapers {
    * safely be included in either a Java character literal or string literal. This is the preferred
    * way to escape Java characters for use in String or character literals.
    *
-   * <p>See: <a href= "http://java.sun.com/docs/books/jls/third_edition/html/lexical.html#101089"
-   * >The Java Language Specification</a> for more details.
+   * <p>See: <a href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-3.html#jls-3.10.6" >The
+   * Java Language Specification</a> for more details.
    */
   public static CharEscaper javaCharEscaper() {
     return JAVA_CHAR_ESCAPER;
@@ -66,7 +66,7 @@ public final class SourceCodeEscapers {
   }
 
   // This escaper does not produce octal escape sequences. See:
-  // http://java.sun.com/docs/books/jls/third_edition/html/lexical.html#101089
+  // https://docs.oracle.com/javase/specs/jls/se14/html/jls-3.html#jls-3.10.6
   //  "Octal escapes are provided for compatibility with C, but can express
   //   only Unicode values \u0000 through \u00FF, so Unicode escapes are
   //   usually preferred."

@@ -45,6 +45,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.hamcrest.Matcher;
 import org.junit.Before;
@@ -162,7 +163,7 @@ public class LocationInWindowTests {
             LayoutParams lp) {
         final T activity = rule.launchActivity(
                 new Intent().putExtra(EXTRA_LAYOUT_PARAMS, lp));
-        PollingCheck.waitFor(activity::hasWindowFocus);
+        WindowUtil.waitForFocus(activity);
         return activity;
     }
 

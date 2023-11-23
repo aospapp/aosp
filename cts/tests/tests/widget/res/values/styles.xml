@@ -438,4 +438,17 @@
     </style>
 
     <style name="ExplicitStyle2" />
+
+    <style name="LineBreakStyle_strict">
+        <item name="android:lineBreakStyle">strict</item>
+    </style>
+
+    <style name="LineBreakWordStyle_phrase">
+        <item name="android:lineBreakWordStyle">phrase</item>
+    </style>
+
+    <style name="LineBreakConfig_loose_phrase">
+        <item name="android:lineBreakStyle">loose</item>
+        <item name="android:lineBreakWordStyle">phrase</item>
+    </style>
 </resources>

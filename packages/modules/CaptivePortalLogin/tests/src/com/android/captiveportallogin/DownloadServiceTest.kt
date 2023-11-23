@@ -17,10 +17,14 @@
 package com.android.captiveportallogin
 
 import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.net.Network
 import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
 import android.os.Parcel
 import android.os.Parcelable
 import android.webkit.MimeTypeMap
@@ -30,21 +34,18 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
+import androidx.test.rule.ServiceTestRule
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject
 import androidx.test.uiautomator.UiScrollable
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
+import com.android.captiveportallogin.DownloadService.DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE
+import com.android.captiveportallogin.DownloadService.DownloadServiceBinder
+import com.android.captiveportallogin.DownloadService.ProgressCallback
+import com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn
 import com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn
-import org.junit.Before
-import org.junit.BeforeClass
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.mockito.Mockito.doReturn
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.timeout
-import org.mockito.Mockito.verify
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -54,7 +55,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLConnection
 import java.nio.charset.StandardCharsets
-import java.text.NumberFormat
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlin.math.min
@@ -63,6 +64,15 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import org.junit.Assert.assertNotNull
+import org.junit.Before
+import org.junit.BeforeClass
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.timeout
+import org.mockito.Mockito.verify
 
 private val TEST_FILESIZE = 1_000_000 // 1MB
 private val TEST_USERAGENT = "Test UserAgent"
@@ -87,6 +97,11 @@ private val NOTIFICATION_SCROLL_DEAD_ZONE_PERCENT = .4
 // point is hard-coded, so the number of points (steps) controls how long the scroll takes.
 private val NOTIFICATION_SCROLL_STEPS = 5
 private val NOTIFICATION_SCROLL_POLL_MS = 100L
+
+private val TEST_WIFI_CONFIG_TYPE = "application/x-wifi-config"
+
+@Rule
+val mServiceRule = ServiceTestRule()
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
@@ -214,7 +229,6 @@ class DownloadServiceTest {
     @Before
     fun setUp() {
         TestNetwork.sTestConnection = connection
-
         doReturn(200).`when`(connection).responseCode
         doReturn(TEST_FILESIZE.toLong()).`when`(connection).contentLengthLong
 
@@ -244,14 +258,6 @@ class DownloadServiceTest {
         }
     }
 
-    private fun makeDownloadIntent(testFile: File) = DownloadService.makeDownloadIntent(
-            context,
-            TestNetwork(),
-            TEST_USERAGENT,
-            TEST_URL,
-            testFile.name,
-            makeFileUri(testFile))
-
     /**
      * Make a file URI based on a file on disk, using a [FileProvider] that is registered for the
      * test app.
@@ -270,13 +276,12 @@ class DownloadServiceTest {
         val testFile1 = createTestFile()
         val testFile2 = createTestFile()
         assertNotEquals(testFile1.name, testFile2.name)
-        val downloadIntent1 = makeDownloadIntent(testFile1)
-        val downloadIntent2 = makeDownloadIntent(testFile2)
         openNotificationShade()
 
         // Queue both downloads immediately: they should be started in order
-        context.startForegroundService(downloadIntent1)
-        context.startForegroundService(downloadIntent2)
+        val binder = bindService(makeDownloadCompleteCallback())
+        startDownloadTask(binder, testFile1, TEST_TEXT_FILE_TYPE)
+        startDownloadTask(binder, testFile2, TEST_TEXT_FILE_TYPE)
 
         verify(connection, timeout(TEST_TIMEOUT_MS)).inputStream
         val dlText1 = resources.getString(R.string.downloading_paramfile, testFile1.name)
@@ -287,10 +292,6 @@ class DownloadServiceTest {
         assertEquals(0, TEST_FILESIZE % 100)
         assertTrue(TEST_FILESIZE / 100 > 0)
         inputStream1.setAvailable(TEST_FILESIZE / 100)
-
-        // 1% progress should be shown in the notification
-        val progressText = NumberFormat.getPercentInstance().format(.01f)
-        findNotification(UiSelector().textContains(progressText))
 
         // Setup the connection for the next download with indeterminate progress
         val inputStream2 = TestInputStream()
@@ -325,6 +326,116 @@ class DownloadServiceTest {
         testFile2.delete()
     }
 
+    fun makeDownloadCompleteCallback(
+        directlyOpenCompleteFuture: CompletableFuture<Boolean> = CompletableFuture<Boolean>(),
+        downloadCompleteFuture: CompletableFuture<Boolean> = CompletableFuture<Boolean>(),
+        downloadAbortedFuture: CompletableFuture<Boolean> = CompletableFuture<Boolean>(),
+        expectReason: Int = -1
+    ): ServiceConnection {
+        // Test callback to receive download completed callback.
+        return object : ServiceConnection {
+            override fun onServiceDisconnected(name: ComponentName) {}
+            override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                val callback = object : ProgressCallback {
+                    override fun onDownloadComplete(
+                        inputFile: Uri,
+                        mimeType: String,
+                        downloadId: Int,
+                        success: Boolean
+                    ) {
+                        if (TEST_WIFI_CONFIG_TYPE.equals(mimeType)) {
+                            directlyOpenCompleteFuture.complete(success)
+                        } else {
+                            downloadCompleteFuture.complete(success)
+                        }
+                    }
+
+                    override fun onDownloadAborted(downloadId: Int, reason: Int) {
+                        if (expectReason == reason) downloadAbortedFuture.complete(true)
+                    }
+                }
+
+                (binder as DownloadServiceBinder).setProgressCallback(callback)
+            }
+        }
+    }
+
+    @Test
+    fun testDirectlyOpenMimeType_fileSizeTooLarge() {
+        val inputStream1 = TestInputStream()
+        doReturn(inputStream1).`when`(connection).inputStream
+        getInstrumentation().waitForIdleSync()
+        val outCfgFile = createTestDirectlyOpenFile()
+        val downloadAbortedFuture = CompletableFuture<Boolean>()
+        val mTestServiceConn = makeDownloadCompleteCallback(
+                downloadAbortedFuture = downloadAbortedFuture,
+                expectReason = DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE)
+
+        try {
+            val binder = bindService(mTestServiceConn)
+            startDownloadTask(binder, outCfgFile, TEST_WIFI_CONFIG_TYPE)
+            inputStream1.setAvailable(TEST_FILESIZE)
+            // File size 1_000_000 is bigger than the limit(100_000). Download is expected to be
+            // aborted. Verify callback called when the download is complete.
+            assertTrue(downloadAbortedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS))
+        } finally {
+            mServiceRule.unbindService()
+        }
+    }
+
+    @Test
+    fun testDirectlyOpenMimeType_cancelTask() {
+        val inputStream1 = TestInputStream()
+        doReturn(inputStream1).`when`(connection).inputStream
+
+        val outCfgFile = createTestDirectlyOpenFile()
+        val outTextFile = createTestFile(extension = ".$TEST_TEXT_FILE_EXTENSION")
+
+        val directlyOpenCompleteFuture = CompletableFuture<Boolean>()
+        val otherCompleteFuture = CompletableFuture<Boolean>()
+        val testServiceConn = makeDownloadCompleteCallback(
+                directlyOpenCompleteFuture = directlyOpenCompleteFuture,
+                downloadCompleteFuture = otherCompleteFuture)
+
+        try {
+            val binder = bindService(testServiceConn)
+            // Start directly open task first then follow with a generic one
+            val directlydlId = startDownloadTask(binder, outCfgFile, TEST_WIFI_CONFIG_TYPE)
+            startDownloadTask(binder, outTextFile, TEST_TEXT_FILE_TYPE)
+
+            inputStream1.setAvailable(TEST_FILESIZE / 100)
+            // Cancel directly open task. The directly open task should result in a failed download
+            // complete. The cancel intent should not affect the other download task.
+            binder.cancelTask(directlydlId)
+            inputStream1.setAvailable(TEST_FILESIZE)
+            assertFalse(directlyOpenCompleteFuture.get(TEST_TIMEOUT_MS, MILLISECONDS))
+            assertTrue(otherCompleteFuture.get(TEST_TIMEOUT_MS, MILLISECONDS))
+        } finally {
+            mServiceRule.unbindService()
+        }
+    }
+
+    private fun createTestDirectlyOpenFile() = createTestFile(extension = ".wificonfig")
+
+    private fun bindService(serviceConn: ServiceConnection): DownloadServiceBinder {
+        val binder = mServiceRule.bindService(Intent(context, DownloadService::class.java),
+                serviceConn, Context.BIND_AUTO_CREATE) as DownloadServiceBinder
+        assertNotNull(binder)
+        return binder
+    }
+
+    private fun startDownloadTask(binder: DownloadServiceBinder, file: File, mimeType: String):
+            Int {
+        return binder.requestDownload(
+                TestNetwork(),
+                TEST_USERAGENT,
+                TEST_URL,
+                file.name,
+                makeFileUri(file),
+                context,
+                mimeType)
+    }
+
     @Test
     fun testTapDoneNotification() {
         val fileContents = "Test file contents"
@@ -333,10 +444,10 @@ class DownloadServiceTest {
 
         // The test extension is handled by OpenTextFileActivity in the test package
         val testFile = createTestFile(extension = ".$TEST_TEXT_FILE_EXTENSION")
-        val downloadIntent = makeDownloadIntent(testFile)
         openNotificationShade()
 
-        context.startForegroundService(downloadIntent)
+        val binder = bindService(makeDownloadCompleteCallback())
+        startDownloadTask(binder, testFile, TEST_TEXT_FILE_TYPE)
 
         // The download completed notification has the filename as contents, and
         // R.string.download_completed as title. Find the contents using the filename as exact match

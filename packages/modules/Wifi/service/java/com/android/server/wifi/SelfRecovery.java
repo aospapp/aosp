@@ -58,13 +58,19 @@ public class SelfRecovery {
             REASON_SUBSYSTEM_RESTART})
     public @interface RecoveryReason {}
 
-    protected static final String[] REASON_STRINGS = {
-            "Last Resort Watchdog",  // REASON_LAST_RESORT_WATCHDOG
-            "WifiNative Failure",    // REASON_WIFINATIVE_FAILURE
-            "Sta Interface Down",    // REASON_STA_IFACE_DOWN
-            "API call (e.g. user)",  // REASON_API_CALL
-            "Subsystem Restart"      // REASON_SUBSYSTEM_RESTART
-    };
+    /**
+     * State for self recovery.
+     */
+    private static final int STATE_NO_RECOVERY = 0;
+    private static final int STATE_DISABLE_WIFI = 1;
+    private static final int STATE_RESTART_WIFI = 2;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"STATE_"}, value = {
+            STATE_NO_RECOVERY,
+            STATE_DISABLE_WIFI,
+            STATE_RESTART_WIFI})
+    private @interface RecoveryState {}
 
     private final Context mContext;
     private final ActiveModeWarden mActiveModeWarden;
@@ -73,29 +79,74 @@ public class SelfRecovery {
     private final LinkedList<Long> mPastRestartTimes;
     private final WifiNative mWifiNative;
     private int mSelfRecoveryReason;
-    private boolean mDidWeTriggerSelfRecovery;
+    // Self recovery state
+    private @RecoveryState int mRecoveryState;
     private SubsystemRestartListenerInternal mSubsystemRestartListener;
+
+    /**
+     * Return the recovery reason code as string.
+     * @param reason the reason code
+     * @return the recovery reason as string
+     */
+    public static String getRecoveryReasonAsString(@RecoveryReason int reason) {
+        switch (reason) {
+            case REASON_LAST_RESORT_WATCHDOG:
+                return "Last Resort Watchdog";
+            case REASON_WIFINATIVE_FAILURE:
+                return "WifiNative Failure";
+            case REASON_STA_IFACE_DOWN:
+                return "Sta Interface Down";
+            case REASON_API_CALL:
+                return "API call (e.g. user)";
+            case REASON_SUBSYSTEM_RESTART:
+                return "Subsystem Restart";
+            default:
+                return "Unknown " + reason;
+        }
+    }
+
+    /**
+     * Invoked when self recovery completed.
+     */
+    public void onRecoveryCompleted() {
+        mRecoveryState = STATE_NO_RECOVERY;
+    }
+
+    /**
+     * Invoked when Wifi is stopped with all client mode managers removed.
+     */
+    public void onWifiStopped() {
+        if (mRecoveryState == STATE_DISABLE_WIFI) {
+            onRecoveryCompleted();
+        }
+    }
+
+    /**
+     * Returns true if recovery is currently in progress.
+     */
+    public boolean isRecoveryInProgress() {
+        // return true if in recovery progress
+        return mRecoveryState != STATE_NO_RECOVERY;
+    }
 
     private class SubsystemRestartListenerInternal
             implements HalDeviceManager.SubsystemRestartListener{
+        public void onSubsystemRestart(@RecoveryReason int reason) {
+            Log.e(TAG, "Restarting wifi for reason: " + getRecoveryReasonAsString(reason));
+            mActiveModeWarden.recoveryRestartWifi(reason,
+                    reason != REASON_LAST_RESORT_WATCHDOG && reason != REASON_API_CALL);
+        }
+
         @Override
         public void onSubsystemRestart() {
-            String reasonString =  "";
-            if (!mDidWeTriggerSelfRecovery) {
+            if (mRecoveryState == STATE_RESTART_WIFI) {
+                // If the wifi restart recovery is triggered then proceed
+                onSubsystemRestart(mSelfRecoveryReason);
+            } else {
                 // We did not trigger recovery, but looks like the firmware crashed?
-                mSelfRecoveryReason = REASON_SUBSYSTEM_RESTART;
+                mRecoveryState = STATE_RESTART_WIFI;
+                onSubsystemRestart(REASON_SUBSYSTEM_RESTART);
             }
-
-            if (mSelfRecoveryReason < REASON_STRINGS.length && mSelfRecoveryReason >= 0) {
-                reasonString = REASON_STRINGS[mSelfRecoveryReason];
-            }
-
-            Log.e(TAG, "Restarting wifi for reason: " + reasonString);
-            mActiveModeWarden.recoveryRestartWifi(mSelfRecoveryReason, reasonString,
-                    mSelfRecoveryReason != REASON_LAST_RESORT_WATCHDOG
-                     && mSelfRecoveryReason != REASON_API_CALL);
-
-            mDidWeTriggerSelfRecovery = false;
         }
     }
 
@@ -108,7 +159,7 @@ public class SelfRecovery {
         mWifiNative = wifiNative;
         mSubsystemRestartListener = new SubsystemRestartListenerInternal();
         mWifiNative.registerSubsystemRestartListener(mSubsystemRestartListener);
-        mDidWeTriggerSelfRecovery = false;
+        mRecoveryState = STATE_NO_RECOVERY;
     }
 
     /**
@@ -132,16 +183,18 @@ public class SelfRecovery {
         if (reason == REASON_STA_IFACE_DOWN) {
             Log.e(TAG, "STA interface down, disable wifi");
             mActiveModeWarden.recoveryDisableWifi();
+            mRecoveryState = STATE_DISABLE_WIFI;
             return;
         }
 
-        Log.e(TAG, "Triggering recovery for reason: " + REASON_STRINGS[reason]);
+        Log.e(TAG, "Triggering recovery for reason: " + getRecoveryReasonAsString(reason));
         if (reason == REASON_WIFINATIVE_FAILURE) {
             int maxRecoveriesPerHour = mContext.getResources().getInteger(
                     R.integer.config_wifiMaxNativeFailureSelfRecoveryPerHour);
             if (maxRecoveriesPerHour == 0) {
                 Log.e(TAG, "Recovery disabled. Disabling wifi");
                 mActiveModeWarden.recoveryDisableWifi();
+                mRecoveryState = STATE_DISABLE_WIFI;
                 return;
             }
             trimPastRestartTimes();
@@ -149,16 +202,17 @@ public class SelfRecovery {
                 Log.e(TAG, "Already restarted wifi " + maxRecoveriesPerHour + " times in"
                         + " last 1 hour. Disabling wifi");
                 mActiveModeWarden.recoveryDisableWifi();
+                mRecoveryState = STATE_DISABLE_WIFI;
                 return;
             }
             mPastRestartTimes.add(mClock.getElapsedSinceBootMillis());
         }
 
         mSelfRecoveryReason = reason;
-        mDidWeTriggerSelfRecovery = true;
+        mRecoveryState = STATE_RESTART_WIFI;
         if (!mWifiNative.startSubsystemRestart()) {
             // HAL call failed, fallback to internal flow.
-            mSubsystemRestartListener.onSubsystemRestart();
+            mSubsystemRestartListener.onSubsystemRestart(reason);
         }
     }
 

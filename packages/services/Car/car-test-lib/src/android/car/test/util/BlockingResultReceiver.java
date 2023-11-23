@@ -16,19 +16,19 @@
 package android.car.test.util;
 
 import android.annotation.Nullable;
+import android.car.ICarResultReceiver;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.android.internal.os.IResultReceiver;
 import com.android.internal.util.Preconditions;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of {@link IResultReceiver} that blocks waiting for the result.
+ * Implementation of {@link ICarResultReceiver} that blocks waiting for the result.
  */
-public final class BlockingResultReceiver extends IResultReceiver.Stub {
+public final class BlockingResultReceiver extends ICarResultReceiver.Stub {
 
     private static final String TAG = BlockingResultReceiver.class.getSimpleName();
 

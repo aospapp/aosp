@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.platform.test.annotations.RequiresDevice;
 import com.android.tradefed.device.DeviceProperties;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
@@ -34,6 +35,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.Assert;
@@ -43,26 +45,32 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /* VTS test to verify userspace fastboot getvar information. */
+@RequiresDevice
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     private static final int PLATFORM_API_LEVEL_R = 30;
     private static final int ANDROID_RELEASE_VERSION_R = 11;
 
-    private static ITestDevice sDevice;
-    private static String sCodeName;
     private static String executeShellKernelARM64 =
             "cat /proc/config.gz | gzip -d | grep CONFIG_ARM64=y";
-    private static boolean isGKI10;
+
+    // IMPORTANT: Multiple instances of this class will be created while sharding
+    // the tests across multiple devices. So it needs to use ConcurrentHashMap to
+    // make these static variables thread-safe.
+    private static ConcurrentHashMap<ITestDevice, String> sDeviceCodeName =
+            new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<ITestDevice, Boolean> sDeviceIsGKI10 =
+            new ConcurrentHashMap<>();
 
     @BeforeClassWithInfo
     public static void setUpClass(TestInformation testInfo) throws Exception {
-        sDevice = testInfo.getDevice();
-
-        boolean isKernelARM64 =
-                sDevice.executeShellCommand(executeShellKernelARM64).contains("CONFIG_ARM64");
-        isGKI10 = false;
+        // Collects information while adb is available, prior to rebooting into fastbootd.
+        boolean isKernelARM64 = testInfo.getDevice()
+                                        .executeShellCommand(executeShellKernelARM64)
+                                        .contains("CONFIG_ARM64");
+        boolean isGKI10 = false;
         if (isKernelARM64) {
-            String output = sDevice.executeShellCommand("uname -r");
+            String output = testInfo.getDevice().executeShellCommand("uname -r");
             Pattern p = Pattern.compile("^(\\d+)\\.(\\d+)");
             Matcher m1 = p.matcher(output);
             assertTrue(m1.find());
@@ -72,26 +80,34 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
         // Gets the code name via adb first. The following test cases might
         // assert different values based on if the build is a final release build
         // or not, where the value of the code name will be "REL" in this case.
-        sCodeName = sDevice.getProperty(DeviceProperties.BUILD_CODENAME);
-        assertNotNull(sCodeName);
-        sCodeName = sCodeName.trim();
+        String codeName = testInfo.getDevice().getProperty(DeviceProperties.BUILD_CODENAME);
+        assertNotNull(codeName);
+        codeName = codeName.trim();
+
+        // Saves the local variables to static variables for later use, because adb
+        // is not available in the following tests.
+        sDeviceIsGKI10.put(testInfo.getDevice(), isGKI10);
+        sDeviceCodeName.put(testInfo.getDevice(), codeName);
 
         // Transfers from adb to fastbootd.
         if (!isGKI10) {
-            sDevice.rebootIntoFastbootd();
+            testInfo.getDevice().rebootIntoFastbootd();
         }
     }
 
     @Before
     public void setUp() throws Exception {
-        Assume.assumeFalse("Skipping test for fastbootd on GKI 1.0", isGKI10);
+        Assume.assumeFalse("Skipping test for fastbootd on GKI 1.0",
+                sDeviceIsGKI10.get(getTestInformation().getDevice()));
     }
 
     @AfterClassWithInfo
     public static void tearDownClass(TestInformation testInfo) throws Exception {
-        if (!isGKI10) {
-            testInfo.getDevice().reboot(); // back to adb.
+        if (!sDeviceIsGKI10.get(testInfo.getDevice())) {
+            testInfo.getDevice().reboot(); // reboot from fastbootd to adb.
         }
+        sDeviceIsGKI10.remove(testInfo.getDevice());
+        sDeviceCodeName.remove(testInfo.getDevice());
     }
 
     /* Devices launching in R and after must export cpu-abi. */
@@ -99,7 +115,7 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     public void testCpuAbiInfo() throws Exception {
         final HashSet<String> allCpuAbis = new HashSet<String>(
                 Arrays.asList("armeabi-v7a", "arm64-v8a", "mips", "mips64", "x86", "x86_64"));
-        String cpuAbi = sDevice.getFastbootVariable("cpu-abi");
+        String cpuAbi = getTestInformation().getDevice().getFastbootVariable("cpu-abi");
         CLog.d("cpuAbi: '%s'", cpuAbi);
         assertTrue(allCpuAbis.contains(cpuAbi));
     }
@@ -107,7 +123,7 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export version-os. */
     @Test
     public void testOsVersion() throws Exception {
-        String osVersion = sDevice.getFastbootVariable("version-os");
+        String osVersion = getTestInformation().getDevice().getFastbootVariable("version-os");
         CLog.d("os version: '%s'", osVersion);
         // The value of osVersion is derived from "ro.build.version.release",
         // which is a user-visible version string. The value does not have
@@ -119,12 +135,13 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export version-vndk. */
     @Test
     public void testVndkVersion() throws Exception {
-        String vndkVersion = sDevice.getFastbootVariable("version-vndk");
-        CLog.d("vndk version: '%s'", vndkVersion);
+        String vndkVersion = getTestInformation().getDevice().getFastbootVariable("version-vndk");
+        String codeName = sDeviceCodeName.get(getTestInformation().getDevice());
+        CLog.d("vndk version: '%s', code name: '%s'", vndkVersion, codeName);
         // The value of vndkVersion might be a letter or a string on pre-release builds,
         // e.g., R or Tiramisu.
         // And it is a number representing the API level on final release builds, e.g., 30.
-        if ("REL".equals(sCodeName)) {
+        if ("REL".equals(codeName)) {
             try {
                 int intVndkVersion = Integer.parseInt(vndkVersion);
                 assertTrue(intVndkVersion >= PLATFORM_API_LEVEL_R);
@@ -139,7 +156,8 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export dynamic-partition. */
     @Test
     public void testDynamicPartition() throws Exception {
-        String dynamic_partition = sDevice.getFastbootVariable("dynamic-partition");
+        String dynamic_partition =
+                getTestInformation().getDevice().getFastbootVariable("dynamic-partition");
         CLog.d("dynamic_partition: '%s'", dynamic_partition);
         assertTrue(dynamic_partition.equals("true"));
     }
@@ -147,7 +165,8 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export treble-enabled. */
     @Test
     public void testTrebleEnable() throws Exception {
-        String treble_enabled = sDevice.getFastbootVariable("treble-enabled");
+        String treble_enabled =
+                getTestInformation().getDevice().getFastbootVariable("treble-enabled");
         CLog.d("treble_enabled: '%s'", treble_enabled);
         assertTrue(treble_enabled.equals("true") || treble_enabled.equals("false"));
     }
@@ -155,7 +174,8 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export first-api-level. */
     @Test
     public void testFirstApiLevel() throws Exception {
-        String first_api_level = sDevice.getFastbootVariable("first-api-level");
+        String first_api_level =
+                getTestInformation().getDevice().getFastbootVariable("first-api-level");
         CLog.d("first_api_level: '%s'", first_api_level);
         try {
             int api_level = Integer.parseInt(first_api_level);
@@ -168,7 +188,7 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export security-patch-level. */
     @Test
     public void testSecurityPatchLevel() throws Exception {
-        String SPL = sDevice.getFastbootVariable("security-patch-level");
+        String SPL = getTestInformation().getDevice().getFastbootVariable("security-patch-level");
         CLog.d("SPL: '%s'", SPL);
         try {
             SimpleDateFormat template = new SimpleDateFormat("yyyy-MM-dd");
@@ -181,7 +201,8 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export system-fingerprint. */
     @Test
     public void testSystemFingerprint() throws Exception {
-        String systemFingerprint = sDevice.getFastbootVariable("system-fingerprint");
+        String systemFingerprint =
+                getTestInformation().getDevice().getFastbootVariable("system-fingerprint");
         CLog.d("system fingerprint: '%s'", systemFingerprint);
         verifyFingerprint(systemFingerprint);
     }
@@ -189,7 +210,8 @@ public class FastbootGetvarUserspaceTest extends BaseHostJUnit4Test {
     /* Devices launching in R and after must export vendor-fingerprint. */
     @Test
     public void testVendorFingerprint() throws Exception {
-        String vendorFingerprint = sDevice.getFastbootVariable("vendor-fingerprint");
+        String vendorFingerprint =
+                getTestInformation().getDevice().getFastbootVariable("vendor-fingerprint");
         CLog.d("vendor fingerprint: '%s'", vendorFingerprint);
         verifyFingerprint(vendorFingerprint);
     }

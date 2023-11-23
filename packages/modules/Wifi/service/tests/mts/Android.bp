@@ -24,7 +24,8 @@ android_test {
     defaults: ["cts_defaults"],
 
     min_sdk_version: "30",
-    target_sdk_version: "30",
+    target_sdk_version: "33",
+    compile_multilib: "both",
 
     libs: [
         "org.apache.http.legacy",

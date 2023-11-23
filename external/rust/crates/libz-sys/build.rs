@@ -53,8 +53,9 @@ fn main() {
     }
 
     // All android compilers should come with libz by default, so let's just use
-    // the one already there.
-    if target.contains("android") {
+    // the one already there. Likewise, Haiku always ships with libz, so we can
+    // link to it even when cross-compiling.
+    if target.contains("android") || target.contains("haiku") {
         println!("cargo:rustc-link-lib=z");
         return;
     }
@@ -70,7 +71,6 @@ fn main() {
         || target.contains("pc-windows-gnu")
         || want_static
         || target != host
-        || target.contains("musl")
     {
         return build_zlib(&mut cfg, &target);
     }
@@ -91,9 +91,9 @@ fn main() {
 
 fn build_zlib(cfg: &mut cc::Build, target: &str) {
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    let build = dst.join("build");
+    let lib = dst.join("lib");
 
-    cfg.warnings(false).out_dir(&build).include("src/zlib");
+    cfg.warnings(false).out_dir(&lib).include("src/zlib");
 
     cfg.file("src/zlib/adler32.c")
         .file("src/zlib/compress.c")
@@ -107,7 +107,7 @@ fn build_zlib(cfg: &mut cc::Build, target: &str) {
         .file("src/zlib/uncompr.c")
         .file("src/zlib/zutil.c");
 
-    if !cfg!(feature = "libc") || target == "wasm32-unknown-unknown" {
+    if !cfg!(feature = "libc") || target.starts_with("wasm32") {
         cfg.define("Z_SOLO", None);
     } else {
         cfg.file("src/zlib/gzclose.c")
@@ -131,13 +131,13 @@ fn build_zlib(cfg: &mut cc::Build, target: &str) {
 
     cfg.compile("z");
 
-    fs::create_dir_all(dst.join("lib/pkgconfig")).unwrap();
     fs::create_dir_all(dst.join("include")).unwrap();
     fs::copy("src/zlib/zlib.h", dst.join("include/zlib.h")).unwrap();
     fs::copy("src/zlib/zconf.h", dst.join("include/zconf.h")).unwrap();
 
+    fs::create_dir_all(lib.join("pkgconfig")).unwrap();
     fs::write(
-        dst.join("lib/pkgconfig/zlib.pc"),
+        lib.join("pkgconfig/zlib.pc"),
         fs::read_to_string("src/zlib/zlib.pc.in")
             .unwrap()
             .replace("@prefix@", dst.to_str().unwrap()),
@@ -145,6 +145,7 @@ fn build_zlib(cfg: &mut cc::Build, target: &str) {
     .unwrap();
 
     println!("cargo:root={}", dst.to_str().unwrap());
+    println!("cargo:rustc-link-search=native={}", lib.to_str().unwrap());
     println!("cargo:include={}/include", dst.to_str().unwrap());
 }
 

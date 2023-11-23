@@ -89,6 +89,7 @@ class MockChamber(OtaChamber):
         self.log = logger.create_tagged_trace_logger('OtaChamber|{}'.format(
             self.device_id))
         self.current_mode = None
+        self.SUPPORTED_BANDS = ['2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', '6GHz']
 
     def set_orientation(self, orientation):
         self.log.info('Setting orientation to {} degrees.'.format(orientation))
@@ -128,6 +129,7 @@ class OctoboxChamber(OtaChamber):
         utils.exe_cmd('sudo {} -d {} -i 0'.format(self.TURNTABLE_FILE_PATH,
                                                   self.device_id))
         self.current_mode = None
+        self.SUPPORTED_BANDS = ['2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3', '6GHz']
 
     def set_orientation(self, orientation):
         self.log.info('Setting orientation to {} degrees.'.format(orientation))
@@ -165,6 +167,7 @@ class BluetestChamber(OtaChamber):
         self.chamber = ChamberAutoConnect(flow.Flow(), self.config)
         self.stirrer_ids = [0, 1, 2]
         self.current_mode = None
+        self.SUPPORTED_BANDS = ['2.4GHz', 'UNII-1', 'UNII-2', 'UNII-3']
 
     # Capture print output decorator
     @staticmethod
@@ -248,8 +251,8 @@ class EInstrumentChamber(OtaChamber):
     def __init__(self, config):
         self.config = config.copy()
         self.device_id = self.config['device_id']
-        self.log = logger.create_tagged_trace_logger('EInstrumentChamber|{}'.format(
-            self.device_id))
+        self.log = logger.create_tagged_trace_logger(
+            'EInstrumentChamber|{}'.format(self.device_id))
         self.current_mode = None
         self.ser = self._get_serial(config['port'])
 

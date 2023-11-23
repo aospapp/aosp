@@ -60,6 +60,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.function.Predicate;
 
 
 public class IntentFilterTest extends AndroidTestCase {
@@ -975,6 +976,14 @@ public class IntentFilterTest extends AndroidTestCase {
                 new String[]{"some.app.domain"},
                 null);
 
+        IntentFilter appWithWildcardWebLink = new Match(
+                new String[]{Intent.ACTION_VIEW},
+                new String[]{Intent.CATEGORY_BROWSABLE},
+                null,
+                new String[]{"http", "https"},
+                new String[]{"*.app.domain"},
+                null);
+
         IntentFilter browserFilterWithWildcard = new Match(
                 new String[]{Intent.ACTION_VIEW},
                 new String[]{Intent.CATEGORY_BROWSABLE},
@@ -1006,6 +1015,13 @@ public class IntentFilterTest extends AndroidTestCase {
                 "https://",
                 true));
         checkMatches(appWithWebLink,
+                new MatchCondition(NO_MATCH_DATA,
+                Intent.ACTION_VIEW,
+                new String[]{Intent.CATEGORY_BROWSABLE},
+                null,
+                "https://",
+                true));
+        checkMatches(appWithWildcardWebLink,
                 new MatchCondition(NO_MATCH_DATA,
                 Intent.ACTION_VIEW,
                 new String[]{Intent.CATEGORY_BROWSABLE},
@@ -1773,5 +1789,21 @@ public class IntentFilterTest extends AndroidTestCase {
         public void println(String x) {
             isPrintlnCalled = true;
         }
+    }
+
+    public void testAsPredicate() throws Exception {
+        final Predicate<Intent> pred = new IntentFilter(ACTION).asPredicate();
+
+        assertTrue(pred.test(new Intent(ACTION)));
+        assertFalse(pred.test(new Intent(CATEGORY)));
+    }
+
+    public void testAsPredicateWithTypeResolution() throws Exception {
+        final ContentResolver resolver = mContext.getContentResolver();
+        final Predicate<Intent> pred = new IntentFilter(ACTION, DATA_STATIC_TYPE)
+                .asPredicateWithTypeResolution(resolver);
+
+        assertTrue(pred.test(new Intent(ACTION).setDataAndType(URI, DATA_STATIC_TYPE)));
+        assertFalse(pred.test(new Intent(ACTION).setDataAndType(URI, DATA_DYNAMIC_TYPE)));
     }
 }

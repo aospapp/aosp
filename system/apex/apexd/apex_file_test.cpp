@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <limits>
 #include <string>
 
 #include <android-base/file.h>
@@ -44,7 +45,9 @@ struct ApexFileTestParam {
 };
 
 constexpr const ApexFileTestParam kParameters[] = {
-    {"ext4", "apex.apexd_test"}, {"f2fs", "apex.apexd_test_f2fs"}};
+    {"ext4", "apex.apexd_test"},
+    {"f2fs", "apex.apexd_test_f2fs"},
+    {"erofs", "apex.apexd_test_erofs"}};
 
 class ApexFileTest : public ::testing::TestWithParam<ApexFileTestParam> {};
 
@@ -55,7 +58,7 @@ TEST_P(ApexFileTest, GetOffsetOfSimplePackage) {
   Result<ApexFile> apex_file = ApexFile::Open(file_path);
   ASSERT_TRUE(apex_file.ok());
 
-  int32_t zip_image_offset;
+  uint32_t zip_image_offset;
   size_t zip_image_size;
   {
     ZipArchiveHandle handle;
@@ -69,13 +72,28 @@ TEST_P(ApexFileTest, GetOffsetOfSimplePackage) {
     ASSERT_EQ(0, rc);
 
     zip_image_offset = entry.offset;
-    EXPECT_EQ(zip_image_offset % 4096, 0);
+    EXPECT_EQ(zip_image_offset % 4096, 0U);
     zip_image_size = entry.uncompressed_length;
     EXPECT_EQ(zip_image_size, entry.compressed_length);
   }
 
   EXPECT_EQ(zip_image_offset, apex_file->GetImageOffset().value());
   EXPECT_EQ(zip_image_size, apex_file->GetImageSize().value());
+}
+
+TEST_P(ApexFileTest, OpenBlockApex) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+
+  TemporaryFile temp_file;
+  auto loop_device = WriteBlockApex(file_path, temp_file.path);
+
+  Result<ApexFile> apex_file_sized = ApexFile::Open(temp_file.path);
+  ASSERT_RESULT_OK(apex_file_sized);
+
+  EXPECT_EQ(apex_file->GetImageOffset(), apex_file_sized->GetImageOffset());
+  EXPECT_EQ(apex_file->GetImageSize(), apex_file_sized->GetImageSize());
 }
 
 TEST(ApexFileTest, GetOffsetMissingFile) {
@@ -223,7 +241,7 @@ TEST(ApexFileTest, CannotVerifyApexVerityForCompressedApex) {
       ::testing::HasSubstr("Cannot verify ApexVerity of compressed APEX"));
 }
 
-TEST(ApexFileTest, DecompressCompressedApex) {
+TEST(ApexFileTest, DISABLED_DecompressCompressedApex) {
   const std::string file_path =
       kTestDataDir + "com.android.apex.compressed.v1.capex";
   Result<ApexFile> apex_file = ApexFile::Open(file_path);

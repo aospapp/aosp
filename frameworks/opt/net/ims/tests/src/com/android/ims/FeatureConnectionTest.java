@@ -53,8 +53,8 @@ public class FeatureConnectionTest extends ImsTestBase {
         public int mNewStatus = ImsFeature.STATE_UNAVAILABLE;
         public long mCapabilities;
 
-        TestFeatureConnection(Context context, int slotId) {
-            super(context, slotId, mConfigBinder, mRegistrationBinder, mSipTransportBinder);
+        TestFeatureConnection(Context context, int slotId, int subId) {
+            super(context, slotId, subId, mConfigBinder, mRegistrationBinder, mSipTransportBinder);
             if (!ImsManager.isImsSupportedOnDevice(context)) {
                 sImsSupportedOnDevice = false;
             }
@@ -87,6 +87,7 @@ public class FeatureConnectionTest extends ImsTestBase {
     @Mock ISipTransport mSipTransportBinder;
 
     public static final int PHONE_ID = 1;
+    public static final int SUB_ID = 2;
 
     @Before
     public void setUp() throws Exception {
@@ -95,7 +96,7 @@ public class FeatureConnectionTest extends ImsTestBase {
         doReturn(null).when(mContext).getMainLooper();
         mContextFixture.addSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS);
 
-        mTestFeatureConnection = new TestFeatureConnection(mContext, PHONE_ID);
+        mTestFeatureConnection = new TestFeatureConnection(mContext, PHONE_ID, SUB_ID);
         mTestFeatureConnection.setBinder(mBinder);
     }
 

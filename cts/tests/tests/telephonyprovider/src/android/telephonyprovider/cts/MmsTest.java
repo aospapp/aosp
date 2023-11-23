@@ -22,6 +22,9 @@ import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -520,6 +523,63 @@ public class MmsTest {
         values.put(Telephony.Mms.SUBJECT, subject);
         values.put(Telephony.Mms.MESSAGE_TYPE, messageType);
         return mContentResolver.insert(uri, values);
+    }
+
+    /**
+     * Verifies that subqueries are not allowed with a restricted view
+     */
+    @Test
+    public void testSubqueryNotAllowed()  throws Throwable  {
+        int messageType = PduHeaders.MESSAGE_TYPE_NOTIFICATION_IND;
+        String expectedSubject = "testMmsQuery_canViewNotificationIndMessages";
+        Uri uri = insertTestMms(expectedSubject, messageType);
+        assertThat(uri).isNotNull();
+
+        DefaultSmsAppHelper.stopBeingDefaultSmsApp();
+        {
+            // selection
+            assertThrows(IllegalArgumentException.class, () -> mContentResolver.query(
+                    Telephony.Mms.CONTENT_URI, null,
+                    "seen=(SELECT seen FROM sms LIMIT 1)", null, null));
+        }
+
+        {
+            // projection
+            assertThrows(IllegalArgumentException.class, () -> mContentResolver.query(
+                    Telephony.Mms.CONTENT_URI,
+                    new String[] {"(SELECT seen from sms LIMIT 1) AS d"},
+                    null, null, null));
+        }
+
+        {
+            // sort order
+            assertThrows(IllegalArgumentException.class, () -> mContentResolver.query(
+                    Telephony.Mms.CONTENT_URI, null, null, null,
+                    "CASE (SELECT count(seen) FROM sms) WHEN 0 THEN 1 ELSE 0 END DESC"));
+        }
+
+        DefaultSmsAppHelper.ensureDefaultSmsApp();
+        {
+            // selection
+            Cursor cursor1 = mContentResolver.query(Telephony.Mms.CONTENT_URI,
+                    null, "seen=(SELECT seen FROM sms LIMIT 1)", null, null);
+            assertNotNull(cursor1);
+        }
+
+        {
+            // projection
+            Cursor cursor1 = mContentResolver.query(Telephony.Mms.CONTENT_URI,
+                    new String[] {"(SELECT seen from sms LIMIT 1) AS d"}, null, null, null);
+            assertNotNull(cursor1);
+        }
+
+        {
+            // sort order
+            Cursor cursor1 = mContentResolver.query(Telephony.Mms.CONTENT_URI,
+                    null, null, null,
+                    "CASE (SELECT count(seen) FROM sms) WHEN 0 THEN 1 ELSE 0 END DESC");
+            assertNotNull(cursor1);
+        }
     }
 }
 

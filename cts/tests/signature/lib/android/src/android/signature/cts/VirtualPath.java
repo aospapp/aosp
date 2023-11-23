@@ -20,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -55,6 +56,24 @@ public abstract class VirtualPath {
 
     public abstract InputStream newInputStream() throws IOException;
 
+    /**
+     * Override as abstract to force sub-classes to implement it.
+     */
+    @Override
+    public abstract int hashCode();
+
+    /**
+     * Override as abstract to force sub-classes to implement it.
+     */
+    @Override
+    public abstract boolean equals(Object obj);
+
+    /**
+     * Override as abstract to force sub-classes to implement it.
+     */
+    @Override
+    public abstract String toString();
+
     public static class LocalFilePath extends VirtualPath {
         private final String path;
 
@@ -73,6 +92,23 @@ public abstract class VirtualPath {
         @Override
         public InputStream newInputStream() throws IOException {
             return new FileInputStream(path);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            LocalFilePath that = (LocalFilePath) o;
+            return path.equals(that.path);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(path);
         }
 
         @Override
@@ -98,6 +134,24 @@ public abstract class VirtualPath {
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ZipEntryPath that = (ZipEntryPath) o;
+            return zip.getName().equals(that.zip.getName())
+                    && entry.getName().equals(that.entry.getName());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(zip.getName(), entry.getName());
+        }
+
+        @Override
         public String toString() {
             return "zip:file:" + zip.getName() + "!/" + entry.getName();
         }
@@ -116,6 +170,23 @@ public abstract class VirtualPath {
         @Override
         public InputStream newInputStream() throws IOException {
             return url.openStream();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ResourcePath that = (ResourcePath) o;
+            return url.equals(that.url);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(url);
         }
 
         @Override

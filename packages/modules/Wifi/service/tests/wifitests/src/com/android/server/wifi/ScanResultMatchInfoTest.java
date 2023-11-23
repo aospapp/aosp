@@ -101,6 +101,11 @@ public class ScanResultMatchInfoTest extends WifiBaseTest {
         assertEquals(ScanResultMatchInfo.fromWifiConfiguration(conf),
                 ScanResultMatchInfo.fromScanResult(scan.getScanResult()));
 
+        conf = WifiConfigurationTestUtil.createPskNetwork("0123456789");
+        scan = createScanDetailForNetwork(conf, "AA:AA:AA:AA:AA:AA");
+        assertEquals(ScanResultMatchInfo.fromWifiConfiguration(conf),
+                ScanResultMatchInfo.fromScanResult(scan.getScanResult()));
+
         conf = WifiConfigurationTestUtil.createOpenNetwork("\"WIFIght the inevitable\"");
         scan = createScanDetailForNetwork(conf, "BB:BB:BB:BB:BB:BB");
         assertEquals(ScanResultMatchInfo.fromWifiConfiguration(conf),

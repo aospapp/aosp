@@ -21,16 +21,15 @@ import time
 
 from acts import utils
 from acts import asserts
-from acts.base_test import BaseTestClass
 from acts.controllers import iperf_server
 from acts.controllers import iperf_client
-from acts.controllers.access_point import setup_ap
+from acts.controllers.access_point import setup_ap, AccessPoint
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts.controllers.ap_lib.hostapd_utils import generate_random_password
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
-ANDROID_DEFAULT_WLAN_INTERFACE = 'wlan0'
 CONNECTIVITY_MODE_LOCAL = 'local_only'
 CONNECTIVITY_MODE_UNRESTRICTED = 'unrestricted'
 DEFAULT_AP_PROFILE = 'whirlwind'
@@ -41,7 +40,6 @@ DEFAULT_IPERF_TIMEOUT = 60
 DEFAULT_NO_ADDR_EXPECTED_TIMEOUT = 5
 INTERFACE_ROLE_AP = 'Ap'
 INTERFACE_ROLE_CLIENT = 'Client'
-INTERFACE_ROLES = {INTERFACE_ROLE_AP, INTERFACE_ROLE_CLIENT}
 OPERATING_BAND_2G = 'only_2_4_ghz'
 OPERATING_BAND_5G = 'only_5_ghz'
 OPERATING_BAND_ANY = 'any'
@@ -134,26 +132,13 @@ class StressTestIterationFailure(Exception):
     pass
 
 
-class SoftApClient(object):
-    def __init__(self, device):
-        self.w_device = create_wlan_device(device)
-        self.ip_client = iperf_client.IPerfClientOverAdb(device.serial)
-
-
-class WlanInterface(object):
-    def __init__(self):
-        self.name = None
-        self.mac_addr = None
-        self.ipv4 = None
-
-
-class SoftApTest(BaseTestClass):
+class SoftApTest(AbstractDeviceWlanDeviceBaseTest):
     """Tests for Fuchsia SoftAP
 
     Testbed requirement:
     * One Fuchsia device
-    * At least one dlient (Android) device
-        * For multi-client tests, at least two dlient (Android) devices are
+    * At least one client (Android) device
+        * For multi-client tests, at least two client (Android) devices are
           required. Test will be skipped if less than two client devices are
           present.
     * For any tests that exercise client-mode (e.g. toggle tests, simultaneous
@@ -164,14 +149,19 @@ class SoftApTest(BaseTestClass):
         self.soft_ap_test_params = self.user_params.get(
             'soft_ap_test_params', {})
         self.dut = create_wlan_device(self.fuchsia_devices[0])
-        self.dut.device.netstack_lib.init()
 
         # TODO(fxb/51313): Add in device agnosticity for clients
+        # Create a wlan device and iperf client for each Android client
         self.clients = []
+        self.iperf_clients_map = {}
         for device in self.android_devices:
-            self.clients.append(SoftApClient(device))
+            client_wlan_device = create_wlan_device(device)
+            self.clients.append(client_wlan_device)
+            self.iperf_clients_map[
+                client_wlan_device] = client_wlan_device.create_iperf_client()
         self.primary_client = self.clients[0]
 
+        # Create an iperf server on the DUT, which will be used for any streaming.
         self.iperf_server_config = {
             'user': self.dut.device.ssh_username,
             'host': self.dut.device.ip,
@@ -181,13 +171,17 @@ class SoftApTest(BaseTestClass):
             self.iperf_server_config, DEFAULT_IPERF_PORT, use_killall=True)
         self.iperf_server.start()
 
+        # Attempt to create an ap iperf server. AP is only required for tests
+        # that use client mode.
         try:
             self.access_point = self.access_points[0]
+            self.ap_iperf_client = iperf_client.IPerfClientOverSsh(
+                self.user_params['AccessPoint'][0]['ssh_config'])
         except AttributeError:
             self.access_point = None
+            self.ap_iperf_client = None
 
-        self.ap_iperf_client = iperf_client.IPerfClientOverSsh(
-            self.user_params['AccessPoint'][0]['ssh_config'])
+        self.iperf_clients_map[self.access_point] = self.ap_iperf_client
 
     def teardown_class(self):
         # Because this is using killall, it will stop all iperf processes
@@ -198,9 +192,9 @@ class SoftApTest(BaseTestClass):
             ad.droid.wakeLockAcquireBright()
             ad.droid.wakeUpNow()
         for client in self.clients:
-            client.w_device.disconnect()
-            client.w_device.reset_wifi()
-            client.w_device.wifi_toggle_state(True)
+            client.disconnect()
+            client.reset_wifi()
+            client.wifi_toggle_state(True)
         self.stop_all_soft_aps()
         if self.access_point:
             self.access_point.stop_all_aps()
@@ -208,18 +202,15 @@ class SoftApTest(BaseTestClass):
 
     def teardown_test(self):
         for client in self.clients:
-            client.w_device.disconnect()
+            client.disconnect()
         for ad in self.android_devices:
             ad.droid.wakeLockRelease()
             ad.droid.goToSleepNow()
         self.stop_all_soft_aps()
         if self.access_point:
+            self.download_ap_logs()
             self.access_point.stop_all_aps()
         self.dut.disconnect()
-
-    def on_fail(self, test_name, begin_time):
-        self.dut.take_bug_report(test_name, begin_time)
-        self.dut.get_log(test_name, begin_time)
 
     def start_soft_ap(self, settings):
         """Starts a softAP on Fuchsia device.
@@ -283,11 +274,11 @@ class SoftApTest(BaseTestClass):
                 'SL4F: Failed to stop all SoftAPs. Err: %s' %
                 response['error'])
 
-    def associate_with_soft_ap(self, w_device, settings):
+    def associate_with_soft_ap(self, device, soft_ap_settings):
         """Associates client device with softAP on Fuchsia device.
 
         Args:
-            w_device: wlan_device to associate with the softAP
+            device: wlan_device to associate with the softAP
             settings: a dict containing softAP config params (see start_soft_ap)
                 for details
 
@@ -296,16 +287,16 @@ class SoftApTest(BaseTestClass):
         """
         self.log.info(
             'Attempting to associate client %s with SoftAP on FuchsiaDevice '
-            '(%s).' % (w_device.device.serial, self.dut.device.ip))
+            '(%s).' % (device.identifier, self.dut.identifier))
 
-        check_connectivity = settings[
+        check_connectivity = soft_ap_settings[
             'connectivity_mode'] == CONNECTIVITY_MODE_UNRESTRICTED
-        associated = w_device.associate(
-            settings['ssid'],
-            target_pwd=settings.get('password'),
+        associated = device.associate(
+            soft_ap_settings['ssid'],
+            target_pwd=soft_ap_settings.get('password'),
             target_security=hostapd_constants.
             SECURITY_STRING_TO_DEFAULT_TARGET_SECURITY.get(
-                settings['security_type'], None),
+                soft_ap_settings['security_type'], None),
             check_connectivity=check_connectivity)
 
         if not associated:
@@ -315,144 +306,87 @@ class SoftApTest(BaseTestClass):
         self.log.info('Client successfully associated with SoftAP.')
         return True
 
-    def disconnect_from_soft_ap(self, w_device):
+    def disconnect_from_soft_ap(self, device):
         """Disconnects client device from SoftAP.
 
         Args:
-            w_device: wlan_device to disconnect from SoftAP
+            device: wlan_device to disconnect from SoftAP
         """
         self.log.info('Disconnecting device %s from SoftAP.' %
-                      w_device.device.serial)
-        w_device.disconnect()
+                      device.identifier)
+        device.disconnect()
 
-    def get_dut_interface_by_role(self,
-                                  role,
-                                  wait_for_addr_timeout=DEFAULT_TIMEOUT):
-        """Retrieves interface information from the FuchsiaDevice DUT based
-        on the role.
+    def get_device_test_interface(self, device, role=None, channel=None):
+        """Retrieves test interface from a provided device, which can be the
+        FuchsiaDevice DUT, the AccessPoint, or an AndroidClient.
 
         Args:
-            role: string, the role of the interface to seek (e.g. Client or Ap)
-
-        Raises:
-            ConnectionError, if SL4F calls fail
-            AttributeError, if device does not have an interface matching role
+            device: the device do get the test interface from. Either
+                FuchsiaDevice (DUT), Android client, or AccessPoint.
+            role: str, either "client" or "ap". Required for FuchsiaDevice (DUT)
+            channel: int, channel of the ap network. Required for AccessPoint.
 
         Returns:
-            WlanInterface object representing the interface matching role
+            String, name of test interface on given device.
         """
-        if not role in INTERFACE_ROLES:
-            raise ValueError('Unsupported interface role %s' % role)
 
-        interface = WlanInterface()
-
-        # Determine WLAN interface with role
-        wlan_ifaces = self.dut.device.wlan_lib.wlanGetIfaceIdList()
-        if wlan_ifaces.get('error'):
-            raise ConnectionError('Failed to get wlan interface IDs: %s' %
-                                  wlan_ifaces['error'])
-
-        for wlan_iface in wlan_ifaces['result']:
-            iface_info = self.dut.device.wlan_lib.wlanQueryInterface(
-                wlan_iface)
-            if iface_info.get('error'):
-                raise ConnectionError('Failed to query wlan iface: %s' %
-                                      iface_info['error'])
-
-            if iface_info['result']['role'] == role:
-                interface.mac_addr = iface_info['result']['mac_addr']
-                break
+        if device is self.dut:
+            device.device.wlan_controller.update_wlan_interfaces()
+            if role == INTERFACE_ROLE_CLIENT:
+                return device.device.wlan_client_test_interface_name
+            elif role == INTERFACE_ROLE_AP:
+                return device.device.wlan_ap_test_interface_name
+            else:
+                raise ValueError('Unsupported interface role: %s' % role)
+        elif isinstance(device, AccessPoint):
+            if not channel:
+                raise ValueError(
+                    'Must provide a channel to get AccessPoint interface')
+            if channel < 36:
+                return device.wlan_2g
+            else:
+                return device.wlan_5g
         else:
-            raise LookupError('Failed to find a %s interface.' % role)
-
-        # Retrieve interface info from netstack
-        netstack_ifaces = self.dut.device.netstack_lib.netstackListInterfaces()
-        if netstack_ifaces.get('error'):
-            raise ConnectionError('Failed to get netstack ifaces: %s' %
-                                  netstack_ifaces['error'])
-
-        # TODO(fxb/51315): Once subnet information is available in
-        # netstackListInterfaces store it to verify the clients ip address.
-        for netstack_iface in netstack_ifaces['result']:
-            if netstack_iface['mac'] == interface.mac_addr:
-                interface.name = netstack_iface['name']
-                if len(netstack_iface['ipv4_addresses']) > 0:
-                    interface.ipv4 = '.'.join(
-                        str(byte)
-                        for byte in netstack_iface['ipv4_addresses'][0])
-                else:
-                    interface.ipv4 = self.wait_for_ipv4_address(
-                        self.dut,
-                        interface.name,
-                        timeout=wait_for_addr_timeout)
-        self.log.info('DUT %s interface: %s. Has ipv4 address %s' %
-                      (role, interface.name, interface.ipv4))
-        return interface
+            return device.get_default_wlan_test_interface()
 
     def wait_for_ipv4_address(self,
-                              w_device,
+                              device,
                               interface_name,
                               timeout=DEFAULT_TIMEOUT):
-        # TODO(fxb/51315): Once subnet information is available in netstack, add a
-        # subnet verification here.
         """ Waits for interface on a wlan_device to get an ipv4 address.
 
         Args:
-            w_device: wlan_device to check interface
+            device: wlan_device or AccessPoint to check interface
             interface_name: name of the interface to check
             timeout: seconds to wait before raising an error
 
         Raises:
             ValueError, if interface does not have an ipv4 address after timeout
         """
-
+        if isinstance(device, AccessPoint):
+            comm_channel = device.ssh
+        else:
+            comm_channel = device.device
         end_time = time.time() + timeout
         while time.time() < end_time:
-            ips = w_device.get_interface_ip_addresses(interface_name)
+            ips = utils.get_interface_ip_addresses(comm_channel,
+                                                   interface_name)
             if len(ips['ipv4_private']) > 0:
                 self.log.info('Device %s interface %s has ipv4 address %s' %
-                              (w_device.device.serial, interface_name,
+                              (device.identifier, interface_name,
                                ips['ipv4_private'][0]))
                 return ips['ipv4_private'][0]
             else:
                 time.sleep(1)
         raise ConnectionError(
             'After %s seconds, device %s still does not have an ipv4 address '
-            'on interface %s.' %
-            (timeout, w_device.device.serial, interface_name))
+            'on interface %s.' % (timeout, device.identifier, interface_name))
 
-    def get_ap_ipv4_address(self, channel, timeout=DEFAULT_TIMEOUT):
-        """Get APs ipv4 address (actual AP, not soft ap on DUT)
-
-        Args:
-            channel: int, channel of the network used to determine
-                which interface to use
-        """
-        lowest_5ghz_channel = 36
-        if channel < lowest_5ghz_channel:
-            ap_interface = self.access_point.wlan_2g
-        else:
-            ap_interface = self.access_point.wlan_5g
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            ap_ipv4_addresses = utils.get_interface_ip_addresses(
-                self.access_point.ssh, ap_interface)['ipv4_private']
-            if len(ap_ipv4_addresses) > 0:
-                return ap_ipv4_addresses[0]
-            else:
-                self.log.debug(
-                    'Access point does not have an ipv4 address on interface '
-                    '%s. Retrying in 1 second.' % ap_interface)
-        else:
-            raise ConnectionError(
-                'Access point never had an ipv4 address on interface %s.' %
-                ap_interface)
-
-    def device_can_ping_addr(self, w_device, dest_ip, timeout=DEFAULT_TIMEOUT):
+    def device_can_ping_addr(self, device, dest_ip, timeout=DEFAULT_TIMEOUT):
         """ Verify wlan_device can ping a destination ip.
 
         Args:
-            w_device: wlan_device to initiate ping
+            device: wlan_device to initiate ping
             dest_ip: ip to ping from wlan_device
 
         Raises:
@@ -461,20 +395,20 @@ class SoftApTest(BaseTestClass):
         end_time = time.time() + timeout
         while time.time() < end_time:
             with utils.SuppressLogOutput():
-                ping_result = w_device.can_ping(dest_ip)
+                ping_result = device.can_ping(dest_ip)
 
             if ping_result:
                 self.log.info('Ping successful from device %s to dest ip %s.' %
-                              (w_device.identifier, dest_ip))
+                              (device.identifier, dest_ip))
                 return True
             else:
                 self.log.debug(
                     'Device %s could not ping dest ip %s. Retrying in 1 second.'
-                    % (w_device.identifier, dest_ip))
+                    % (device.identifier, dest_ip))
                 time.sleep(1)
         else:
             self.log.info('Failed to ping from device %s to dest ip %s.' %
-                          (w_device.identifier, dest_ip))
+                          (device.identifier, dest_ip))
             return False
 
     def run_iperf_traffic(self, ip_client, server_address, server_port=5201):
@@ -556,104 +490,66 @@ class SoftApTest(BaseTestClass):
             ip_client: iperf client to grab identifier from
         """
         if type(ip_client) == iperf_client.IPerfClientOverAdb:
-            return ip_client._android_device_or_serial
+            return ip_client._android_device_or_serial.serial
         return ip_client._ssh_settings.hostname
 
-    def dut_is_connected_as_client(self,
-                                   channel,
-                                   check_traffic=False,
-                                   wait_for_addr_timeout=DEFAULT_TIMEOUT):
-        """Checks if DUT is successfully connected to AP.
+    def device_is_connected_to_ap(self,
+                                  client,
+                                  ap,
+                                  channel=None,
+                                  check_traffic=False,
+                                  timeout=DEFAULT_TIMEOUT):
+        """ Returns whether client device can ping (and optionally pass traffic)
+        to the ap device.
 
         Args:
-            channel: int, channel of the AP network (to retrieve interfaces)
-            check_traffic: bool, if true, verifies traffic between DUT and AP,
-                else just checks ping.
-            wait_for_addr_timeout: int, time, in seconds, to wait when getting
-                DUT and AP addresses
-
-        Returns:
-            True, if connected correctly
-            False, otherwise
+            client: device that should be associated. Either FuchsiaDevice (DUT)
+                or Android client
+            ap: device acting as AP. Either FuchsiaDevice (DUT) or AccessPoint.
+            channel: int, channel the AP is using. Required if ap is an
+                AccessPoint object.
+            check_traffic: bool, whether to attempt to pass traffic between
+                client and ap devices.
+            timeout: int, time in seconds to wait for devices to have ipv4
+                addresses
         """
         try:
-            dut_client_interface = self.get_dut_interface_by_role(
-                INTERFACE_ROLE_CLIENT,
-                wait_for_addr_timeout=wait_for_addr_timeout)
-            ap_ipv4 = self.get_ap_ipv4_address(channel,
-                                               timeout=wait_for_addr_timeout)
+            # Get interfaces
+            client_interface = self.get_device_test_interface(
+                client, INTERFACE_ROLE_CLIENT)
+            ap_interface = self.get_device_test_interface(
+                ap, role=INTERFACE_ROLE_AP, channel=channel)
+
+            # Get addresses
+            client_ipv4 = self.wait_for_ipv4_address(client,
+                                                     client_interface,
+                                                     timeout=timeout)
+            ap_ipv4 = self.wait_for_ipv4_address(ap,
+                                                 ap_interface,
+                                                 timeout=timeout)
         except ConnectionError as err:
             self.log.error(
                 'Failed to retrieve interfaces and addresses. Err: %s' % err)
             return False
 
-        if not self.device_can_ping_addr(self.dut, ap_ipv4):
-            self.log.error('Failed to ping from DUT to AP.')
+        if not self.device_can_ping_addr(client, ap_ipv4):
+            self.log.error('Failed to ping from client to ap.')
             return False
 
-        if not self.device_can_ping_addr(self.access_point,
-                                         dut_client_interface.ipv4):
-            self.log.error('Failed to ping from AP to DUT.')
+        if not self.device_can_ping_addr(ap, client_ipv4):
+            self.log.error('Failed to ping from ap to client.')
             return False
 
         if check_traffic:
             try:
-                self.run_iperf_traffic(self.ap_iperf_client,
-                                       dut_client_interface.ipv4)
+                if client is self.dut:
+                    self.run_iperf_traffic(self.iperf_clients_map[ap],
+                                           client_ipv4)
+                else:
+                    self.run_iperf_traffic(self.iperf_clients_map[client],
+                                           ap_ipv4)
             except ConnectionError as err:
                 self.log.error('Failed to run traffic between DUT and AP.')
-                return False
-        return True
-
-    def client_is_connected_to_soft_ap(
-            self,
-            client,
-            client_interface=ANDROID_DEFAULT_WLAN_INTERFACE,
-            check_traffic=False,
-            wait_for_addr_timeout=DEFAULT_TIMEOUT):
-        """Checks if client is successfully connected to DUT SoftAP.
-
-        Args:
-            client: SoftApClient to check
-            client_interface: string, wlan interface name of client
-            check_traffic: bool, if true, verifies traffic between client and
-                DUT, else just checks ping.
-            wait_for_addr_timeout: int, time, in seconds, to wait when getting
-                DUT and client addresses
-
-        Returns:
-            True, if connected correctly
-            False, otherwise
-        """
-
-        try:
-            dut_ap_interface = self.get_dut_interface_by_role(
-                INTERFACE_ROLE_AP, wait_for_addr_timeout=wait_for_addr_timeout)
-            client_ipv4 = self.wait_for_ipv4_address(
-                client.w_device,
-                client_interface,
-                timeout=wait_for_addr_timeout)
-        except ConnectionError as err:
-            self.log.error(
-                'Failed to retrieve interfaces and addresses. Err: %s' % err)
-            return False
-
-        if not self.device_can_ping_addr(self.dut, client_ipv4):
-            self.log.error('Failed to ping client (%s) from DUT.' %
-                           client_ipv4)
-            return False
-        if not self.device_can_ping_addr(client.w_device,
-                                         dut_ap_interface.ipv4):
-            self.log.error('Failed to ping DUT from client (%s)' % client_ipv4)
-            return False
-
-        if check_traffic:
-            try:
-                self.run_iperf_traffic(client.ip_client, dut_ap_interface.ipv4)
-            except ConnectionError as err:
-                self.log.error(
-                    'Failed to pass traffic between client (%s) and DUT.' %
-                    client_ipv4)
                 return False
         return True
 
@@ -665,13 +561,14 @@ class SoftApTest(BaseTestClass):
             client: SoftApClient, to verify connectivity (or lack therof)
         """
         if state == STATE_UP:
-            return self.client_is_connected_to_soft_ap(client)
+            return self.device_is_connected_to_ap(client, self.dut)
         else:
             with utils.SuppressLogOutput():
                 try:
-                    return not self.client_is_connected_to_soft_ap(
+                    return not self.device_is_connected_to_ap(
                         client,
-                        wait_for_addr_timeout=DEFAULT_NO_ADDR_EXPECTED_TIMEOUT)
+                        self.dut,
+                        timeout=DEFAULT_NO_ADDR_EXPECTED_TIMEOUT)
                 # Allow a failed to find ap interface error
                 except LookupError as err:
                     self.log.debug('Hit expected LookupError: %s' % err)
@@ -685,13 +582,17 @@ class SoftApTest(BaseTestClass):
             channel: int, channel of the APs network
         """
         if state == STATE_UP:
-            return self.dut_is_connected_as_client(channel)
+            return self.device_is_connected_to_ap(self.dut,
+                                                  self.access_point,
+                                                  channel=channel)
         else:
             with utils.SuppressLogOutput():
                 try:
-                    return not self.dut_is_connected_as_client(
-                        channel,
-                        wait_for_addr_timeout=DEFAULT_NO_ADDR_EXPECTED_TIMEOUT)
+                    return not self.device_is_connected_to_ap(
+                        self.dut,
+                        self.access_point,
+                        channel=channel,
+                        timeout=DEFAULT_NO_ADDR_EXPECTED_TIMEOUT)
                 # Allow a failed to find client interface error
                 except LookupError as err:
                     self.log.debug('Hit expected LookupError: %s' % err)
@@ -699,18 +600,19 @@ class SoftApTest(BaseTestClass):
 
 # Test Types
 
-    def verify_soft_ap_associate_only(self, client, settings):
-        if not self.associate_with_soft_ap(client.w_device, settings):
+    def verify_soft_ap_associate_only(self, client, soft_ap_settings):
+        if not self.associate_with_soft_ap(client, soft_ap_settings):
             asserts.fail('Failed to associate client with SoftAP.')
 
-    def verify_soft_ap_associate_and_ping(self, client, settings):
-        self.verify_soft_ap_associate_only(client, settings)
-        if not self.client_is_connected_to_soft_ap(client):
+    def verify_soft_ap_associate_and_ping(self, client, soft_ap_settings):
+        self.verify_soft_ap_associate_only(client, soft_ap_settings)
+        if not self.device_is_connected_to_ap(client, self.dut):
             asserts.fail('Client and SoftAP could not ping eachother.')
 
     def verify_soft_ap_associate_and_pass_traffic(self, client, settings):
         self.verify_soft_ap_associate_only(client, settings)
-        if not self.client_is_connected_to_soft_ap(client, check_traffic=True):
+        if not self.device_is_connected_to_ap(
+                client, self.dut, check_traffic=True):
             asserts.fail(
                 'Client and SoftAP not responding to pings and passing traffic '
                 'as expected.')
@@ -784,7 +686,6 @@ class SoftApTest(BaseTestClass):
         """
         iterations = settings['iterations']
         pass_count = 0
-        client = self.primary_client
         current_soft_ap_state = STATE_DOWN
         current_client_mode_state = STATE_DOWN
 
@@ -792,7 +693,8 @@ class SoftApTest(BaseTestClass):
         for iteration in range(iterations):
             passes = True
 
-            # Attempt to toggle SoftAP on, then off
+            # Attempt to toggle SoftAP on, then off. If the first toggle fails
+            # to occur, exit early.
             for _ in range(2):
                 (current_soft_ap_state, err) = self.run_toggle_iteration_func(
                     self.soft_ap_toggle_test_iteration, settings,
@@ -804,7 +706,8 @@ class SoftApTest(BaseTestClass):
                 if current_soft_ap_state == STATE_DOWN:
                     break
 
-            # Attempt to toggle Client mode on, then off
+            # Attempt to toggle Client mode on, then off. If the first toggle,
+            # fails to occur, exit early.
             for _ in range(2):
                 (current_client_mode_state,
                  err) = self.run_toggle_iteration_func(
@@ -919,8 +822,7 @@ class SoftApTest(BaseTestClass):
         soft_ap_params['ssid'] = utils.rand_ascii_str(
             hostapd_constants.AP_SSID_LENGTH_2G)
         self.start_soft_ap(soft_ap_params)
-        associated = self.associate_with_soft_ap(client.w_device,
-                                                 soft_ap_params)
+        associated = self.associate_with_soft_ap(client, soft_ap_params)
         if not associated:
             raise StressTestIterationFailure(
                 'Failed to associated client to DUT SoftAP. '
@@ -1049,7 +951,9 @@ class SoftApTest(BaseTestClass):
                  profile_name=ap_profile,
                  **ap_params)
         # Confirms AP assigned itself an address
-        self.get_ap_ipv4_address(ap_channel)
+        ap_interface = self.get_device_test_interface(self.access_point,
+                                                      channel=ap_channel)
+        self.wait_for_ipv4_address(self.access_point, ap_interface)
 
     def client_mode_toggle_test_iteration(self, settings, current_state):
         """Runs a single iteration of client mode toggle stress test
@@ -1064,7 +968,6 @@ class SoftApTest(BaseTestClass):
                 functioning correctly.
             EnvironmentError, if toggle fails to occur at all
         """
-        # TODO(b/168054673): Use client connections and policy connect
         ap_params = settings['ap_params']
         self.log.info('Toggling client mode %s' %
                       ('off' if current_state else 'on'))
@@ -1114,7 +1017,8 @@ class SoftApTest(BaseTestClass):
         ap_params = settings['ap_params']
         ap_channel = ap_params['channel']
         self.soft_ap_toggle_test_iteration(settings, current_state)
-        if not self.dut_is_connected_as_client(ap_channel):
+        if not self.device_is_connected_to_ap(
+                self.dut, self.access_point, channel=ap_channel):
             raise StressTestIterationFailure(
                 'DUT client mode is no longer functional after SoftAP toggle.')
 
@@ -1153,7 +1057,7 @@ class SoftApTest(BaseTestClass):
             EnvironmentError, if toggle fails to occur at all
         """
         self.client_mode_toggle_test_iteration(settings, current_state)
-        if not self.client_is_connected_to_soft_ap(self.primary_client):
+        if not self.device_is_connected_to_ap(self.primary_client, self.dut):
             raise StressTestIterationFailure(
                 'SoftAP is no longer functional after client mode toggle.')
 
@@ -1596,7 +1500,6 @@ class SoftApTest(BaseTestClass):
             }
         }
         """
-        # TODO(fxb/59335): Validate clients on network can reach eachother.
         asserts.skip_if(
             len(self.clients) < 2, 'Test requires at least 2 SoftAPClients')
 
@@ -1607,55 +1510,67 @@ class SoftApTest(BaseTestClass):
 
         self.start_soft_ap(soft_ap_params)
 
-        dut_ap_interface = self.get_dut_interface_by_role(INTERFACE_ROLE_AP)
         associated = []
 
         for client in self.clients:
             # Associate new client
             self.verify_soft_ap_associate_and_ping(client, soft_ap_params)
-            client_ipv4 = self.wait_for_ipv4_address(
-                client.w_device, ANDROID_DEFAULT_WLAN_INTERFACE)
 
             # Verify previously associated clients still behave as expected
-            for client_map in associated:
-                associated_client = client_map['client']
-                associated_client_ipv4 = client_map['ipv4']
+            for associated_client in associated:
                 self.log.info(
                     'Verifying previously associated client %s still functions correctly.'
-                    % associated_client.w_device.device.serial)
-                if not self.client_is_connected_to_soft_ap(associated_client,
-                                                           check_traffic=True):
+                    % associated_client['device'].identifier)
+                if not self.device_is_connected_to_ap(
+                        associated_client['device'], self.dut,
+                        check_traffic=True):
                     asserts.fail(
                         'Previously associated client %s failed checks after '
                         'client %s associated.' %
-                        (associated_client.w_device.device.serial,
-                         client.w_device.device.serial))
+                        (associated_client['device'].identifier,
+                         client.identifier))
 
-            associated.append({'client': client, 'ipv4': client_ipv4})
+            client_interface = self.get_device_test_interface(client)
+            client_ipv4 = self.wait_for_ipv4_address(client, client_interface)
+            associated.append({"device": client, "address": client_ipv4})
+
+        self.log.info('All devices successfully associated.')
+
+        self.log.info('Verifying all associated clients can ping eachother.')
+        for transmitter in associated:
+            for receiver in associated:
+                if transmitter != receiver:
+                    if not transmitter['device'].can_ping(receiver['address']):
+                        asserts.fail(
+                            'Could not ping from one associated client (%s) to another (%s).'
+                            % (transmitter['address'], receiver['address']))
+                    else:
+                        self.log.info(
+                            'Successfully pinged from associated client (%s) to another (%s)'
+                            % (transmitter['address'], receiver['address']))
 
         self.log.info(
-            'All devices successfully associated. Beginning disassociations.')
+            'All associated clients can ping eachother. Beginning disassociations.'
+        )
 
         while len(associated) > 0:
             # Disassociate client
-            client = associated.pop()['client']
-            self.disconnect_from_soft_ap(client.w_device)
+            client = associated.pop()['device']
+            self.disconnect_from_soft_ap(client)
 
             # Verify still connected clients still behave as expected
-            for client_map in associated:
-                associated_client = client_map['client']
-                associated_client_ipv4 = client_map['ipv4']
-
+            for associated_client in associated:
                 self.log.info(
                     'Verifying still associated client %s still functions '
-                    'correctly.' % associated_client.w_device.device.serial)
-                if not self.client_is_connected_to_soft_ap(associated_client,
-                                                           check_traffic=True):
+                    'correctly.' % associated_client['device'].identifier)
+                if not self.device_is_connected_to_ap(
+                        associated_client['device'], self.dut,
+                        check_traffic=True):
                     asserts.fail(
                         'Previously associated client %s failed checks after'
                         ' client %s disassociated.' %
-                        (associated_client.w_device.device.serial,
-                         client.w_device.device.serial))
+                        (associated_client['device'].identifier,
+                         client.identifier))
 
         self.log.info('All disassociations occurred smoothly.')
 
@@ -1669,7 +1584,6 @@ class SoftApTest(BaseTestClass):
             TestFailure: if DUT fails to pass traffic as either a client or an
                 AP
         """
-        # TODO(fxb/59306): Fix flakey parallel streams.
         asserts.skip_if(not self.access_point, 'No access point provided.')
 
         self.log.info('Setting up AP using hostapd.')
@@ -1696,10 +1610,16 @@ class SoftApTest(BaseTestClass):
         self.start_soft_ap_and_verify_connected(self.primary_client,
                                                 soft_ap_params)
 
-        # Get FuchsiaDevice's AP interface info
-        dut_ap_interface = self.get_dut_interface_by_role(INTERFACE_ROLE_AP)
-        dut_client_interface = self.get_dut_interface_by_role(
-            INTERFACE_ROLE_CLIENT)
+        # Get FuchsiaDevice test interfaces
+        dut_ap_interface = self.get_device_test_interface(
+            self.dut, role=INTERFACE_ROLE_AP)
+        dut_client_interface = self.get_device_test_interface(
+            self.dut, role=INTERFACE_ROLE_CLIENT)
+
+        # Get FuchsiaDevice addresses
+        dut_ap_ipv4 = self.wait_for_ipv4_address(self.dut, dut_ap_interface)
+        dut_client_ipv4 = self.wait_for_ipv4_address(self.dut,
+                                                     dut_client_interface)
 
         # Set up secondary iperf server of FuchsiaDevice
         self.log.info('Setting up second iperf server on FuchsiaDevice DUT.')
@@ -1719,13 +1639,13 @@ class SoftApTest(BaseTestClass):
         iperf_soft_ap = mp.Process(
             target=self.run_iperf_traffic_parallel_process,
             args=[
-                self.primary_client.ip_client, dut_ap_interface.ipv4,
+                self.iperf_clients_map[self.primary_client], dut_ap_ipv4,
                 process_errors
             ])
 
         iperf_fuchsia_client = mp.Process(
             target=self.run_iperf_traffic_parallel_process,
-            args=[ap_iperf_client, dut_client_interface.ipv4, process_errors],
+            args=[ap_iperf_client, dut_client_ipv4, process_errors],
             kwargs={'server_port': 5202})
 
         # Run iperf processes simultaneously
@@ -1793,11 +1713,19 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
-                'client': self.primary_client,
-                'soft_ap_params': soft_ap_params,
-                'test_type': test_type,
-                'iterations': iterations
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_soft_ap_association_stress_%s_iterations' %
+                    iterations),
+                'client':
+                self.primary_client,
+                'soft_ap_params':
+                soft_ap_params,
+                'test_type':
+                test_type,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
 
@@ -1854,10 +1782,17 @@ class SoftApTest(BaseTestClass):
                                              DEFAULT_STRESS_TEST_ITERATIONS)
 
             test_settings = {
-                'test_name': config_settings['test_name'],
-                'iterations': iterations,
-                'soft_ap_params': soft_ap_params,
-                'ap_params': ap_params,
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_soft_ap_and_client_mode_alternating_stress_%s_iterations'
+                    % iterations),
+                'iterations':
+                iterations,
+                'soft_ap_params':
+                soft_ap_params,
+                'ap_params':
+                ap_params,
             }
 
             test_settings_list.append(test_settings)
@@ -1901,10 +1836,16 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
-                'test_runner_func': self.soft_ap_toggle_test_iteration,
-                'soft_ap_params': soft_ap_params,
-                'iterations': iterations
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_soft_ap_toggle_stress_%s_iterations' % iterations),
+                'test_runner_func':
+                self.soft_ap_toggle_test_iteration,
+                'soft_ap_params':
+                soft_ap_params,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
 
@@ -1948,11 +1889,19 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
-                'test_runner_func': self.client_mode_toggle_test_iteration,
-                'pre_test_func': self.client_mode_toggle_pre_test,
-                'ap_params': ap_params,
-                'iterations': iterations
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_client_mode_toggle_stress_%s_iterations' %
+                    iterations),
+                'test_runner_func':
+                self.client_mode_toggle_test_iteration,
+                'pre_test_func':
+                self.client_mode_toggle_pre_test,
+                'ap_params':
+                ap_params,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
         self.run_generated_testcases(self.run_toggle_stress_test,
@@ -1978,13 +1927,21 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_soft_ap_toggle_stress_with_client_mode_%s_iterations'
+                    % iterations),
                 'test_runner_func':
                 self.soft_ap_toggle_with_client_mode_iteration,
-                'pre_test_func': self.soft_ap_toggle_with_client_mode_pre_test,
-                'soft_ap_params': soft_ap_params,
-                'ap_params': ap_params,
-                'iterations': iterations
+                'pre_test_func':
+                self.soft_ap_toggle_with_client_mode_pre_test,
+                'soft_ap_params':
+                soft_ap_params,
+                'ap_params':
+                ap_params,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
         self.run_generated_testcases(self.run_toggle_stress_test,
@@ -2010,13 +1967,21 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_client_mode_toggle_stress_with_soft_ap_%s_iterations'
+                    % iterations),
                 'test_runner_func':
                 self.client_mode_toggle_with_soft_ap_iteration,
-                'pre_test_func': self.client_mode_toggle_with_soft_ap_pre_test,
-                'soft_ap_params': soft_ap_params,
-                'ap_params': ap_params,
-                'iterations': iterations
+                'pre_test_func':
+                self.client_mode_toggle_with_soft_ap_pre_test,
+                'soft_ap_params':
+                soft_ap_params,
+                'ap_params':
+                ap_params,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
         self.run_generated_testcases(self.run_toggle_stress_test,
@@ -2044,10 +2009,17 @@ class SoftApTest(BaseTestClass):
             iterations = config_settings.get('iterations',
                                              DEFAULT_STRESS_TEST_ITERATIONS)
             test_settings = {
-                'test_name': config_settings['test_name'],
-                'soft_ap_params': soft_ap_params,
-                'ap_params': ap_params,
-                'iterations': iterations
+                'test_name':
+                config_settings.get(
+                    'test_name',
+                    'test_soft_ap_and_client_mode_random_toggle_stress_%s_iterations'
+                    % iterations),
+                'soft_ap_params':
+                soft_ap_params,
+                'ap_params':
+                ap_params,
+                'iterations':
+                iterations
             }
             test_settings_list.append(test_settings)
         self.run_generated_testcases(

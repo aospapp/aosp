@@ -23,6 +23,7 @@ android_test_helper_app {
     static_libs: [
         "androidx.test.rules",
         "ub-uiautomator",
+        "compatibility-device-util-axt",
         "CtsStorageAppLib",
     ],
     libs: ["android.test.base"],

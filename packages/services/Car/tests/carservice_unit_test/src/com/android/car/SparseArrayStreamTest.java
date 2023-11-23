@@ -23,6 +23,8 @@ import static java.util.stream.Collectors.toList;
 import android.util.Pair;
 import android.util.SparseArray;
 
+import com.android.car.util.SparseArrayStream;
+
 import com.google.common.collect.ImmutableList;
 
 import org.junit.Test;

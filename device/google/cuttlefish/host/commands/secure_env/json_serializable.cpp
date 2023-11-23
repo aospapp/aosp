@@ -24,6 +24,8 @@
 #include "host/commands/secure_env/hmac_serializable.h"
 #include "host/commands/secure_env/primary_key_builder.h"
 
+namespace cuttlefish {
+
 static constexpr char kUniqueKey[] = "JsonSerializable";
 
 class JsonSerializable : public keymaster::Serializable {
@@ -89,8 +91,9 @@ bool WriteProtectedJsonToFile(
   EncryptedSerializable encryption(
       resource_manager, parent_key_fn, sensitive_material);
   auto signing_key_fn = SigningKeyCreator(kUniqueKey);
-  HmacSerializable sign_check(
-      resource_manager, signing_key_fn, TPM2_SHA256_DIGEST_SIZE, &encryption);
+  HmacSerializable sign_check(resource_manager, signing_key_fn,
+                              TPM2_SHA256_DIGEST_SIZE, &encryption,
+                              /*aad=*/nullptr);
 
   auto size = sign_check.SerializedSize();
   LOG(INFO) << "size : " << size;
@@ -139,8 +142,9 @@ Json::Value ReadProtectedJsonFromFile(
   EncryptedSerializable encryption(
       resource_manager, parent_key_fn, sensitive_material);
   auto signing_key_fn = SigningKeyCreator(kUniqueKey);
-  HmacSerializable sign_check(
-      resource_manager, signing_key_fn, TPM2_SHA256_DIGEST_SIZE, &encryption);
+  HmacSerializable sign_check(resource_manager, signing_key_fn,
+                              TPM2_SHA256_DIGEST_SIZE, &encryption,
+                              /*aad=*/nullptr);
 
   auto buf = reinterpret_cast<const uint8_t*>(buffer.data());
   auto buf_end = buf + buffer.size();
@@ -151,3 +155,5 @@ Json::Value ReadProtectedJsonFromFile(
 
   return json;
 }
+
+}  // namespace cuttlefish

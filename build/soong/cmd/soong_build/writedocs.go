@@ -15,12 +15,13 @@
 package main
 
 import (
-	"android/soong/android"
 	"bytes"
 	"html/template"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
+
+	"android/soong/android"
 
 	"github.com/google/blueprint/bootstrap"
 	"github.com/google/blueprint/bootstrap/bpdoc"
@@ -95,13 +96,13 @@ func moduleTypeDocsToTemplates(moduleTypeList []*bpdoc.ModuleType) []moduleTypeT
 	return result
 }
 
-func getPackages(ctx *android.Context, config interface{}) ([]*bpdoc.Package, error) {
+func getPackages(ctx *android.Context) ([]*bpdoc.Package, error) {
 	moduleTypeFactories := android.ModuleTypeFactoriesForDocs()
-	return bootstrap.ModuleTypeDocs(ctx.Context, config, moduleTypeFactories)
+	return bootstrap.ModuleTypeDocs(ctx.Context, moduleTypeFactories)
 }
 
-func writeDocs(ctx *android.Context, config interface{}, filename string) error {
-	packages, err := getPackages(ctx, config)
+func writeDocs(ctx *android.Context, filename string) error {
+	packages, err := getPackages(ctx)
 	if err != nil {
 		return err
 	}
@@ -371,6 +372,7 @@ li a:hover:not(.active) {
     {{if .Properties -}}
       <div class="accordion"  id="{{getModule}}.{{.Name}}">
         <span class="fixed">&#x2295</span><b>{{.Name}}</b>
+        <i>{{.Type}}</i>
         {{- range .OtherNames -}}, {{.}}{{- end -}}
       </div>
       <div class="collapsible">

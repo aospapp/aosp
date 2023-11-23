@@ -27,9 +27,11 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <bpf/BpfMap.h>
 #include <cputimeinstate.h>
+#include <cutils/android_filesystem_config.h>
 #include <libbpf.h>
 
 namespace android {
@@ -40,24 +42,31 @@ static constexpr uint64_t NSEC_PER_YEAR = NSEC_PER_SEC * 60 * 60 * 24 * 365;
 
 using std::vector;
 
-TEST(TimeInStateTest, IsTrackingSupported) {
-    isTrackingUidTimesSupported();
-    SUCCEED();
-}
+class TimeInStateTest : public testing::Test {
+  protected:
+    TimeInStateTest() {};
 
-TEST(TimeInStateTest, TotalTimeInState) {
+    void SetUp() {
+        if (!isTrackingUidTimesSupported() ||
+            !android::base::GetBoolProperty("sys.init.perf_lsm_hooks", false)) {
+            GTEST_SKIP();
+        }
+    }
+};
+
+TEST_F(TimeInStateTest, TotalTimeInState) {
     auto times = getTotalCpuFreqTimes();
     ASSERT_TRUE(times.has_value());
     EXPECT_FALSE(times->empty());
 }
 
-TEST(TimeInStateTest, SingleUidTimeInState) {
+TEST_F(TimeInStateTest, SingleUidTimeInState) {
     auto times = getUidCpuFreqTimes(0);
     ASSERT_TRUE(times.has_value());
     EXPECT_FALSE(times->empty());
 }
 
-TEST(TimeInStateTest, SingleUidConcurrentTimes) {
+TEST_F(TimeInStateTest, SingleUidConcurrentTimes) {
     auto concurrentTimes = getUidConcurrentTimes(0);
     ASSERT_TRUE(concurrentTimes.has_value());
     ASSERT_FALSE(concurrentTimes->active.empty());
@@ -117,7 +126,7 @@ static void TestUidTimesConsistent(const std::vector<std::vector<uint64_t>> &tim
     EXPECT_EQ(activeSum, policySum);
 }
 
-TEST(TimeInStateTest, SingleUidTimesConsistent) {
+TEST_F(TimeInStateTest, SingleUidTimesConsistent) {
     auto times = getUidCpuFreqTimes(0);
     ASSERT_TRUE(times.has_value());
 
@@ -127,7 +136,7 @@ TEST(TimeInStateTest, SingleUidTimesConsistent) {
     ASSERT_NO_FATAL_FAILURE(TestUidTimesConsistent(*times, *concurrentTimes));
 }
 
-TEST(TimeInStateTest, AllUidTimeInState) {
+TEST_F(TimeInStateTest, AllUidTimeInState) {
     uint64_t zero = 0;
     auto maps = {getUidsCpuFreqTimes(), getUidsUpdatedCpuFreqTimes(&zero)};
     for (const auto &map : maps) {
@@ -163,7 +172,7 @@ void TestCheckUpdate(const std::vector<std::vector<uint64_t>> &before,
     ASSERT_LE(sumAfter - sumBefore, NSEC_PER_SEC);
 }
 
-TEST(TimeInStateTest, AllUidUpdatedTimeInState) {
+TEST_F(TimeInStateTest, AllUidUpdatedTimeInState) {
     uint64_t lastUpdate = 0;
     auto map1 = getUidsUpdatedCpuFreqTimes(&lastUpdate);
     ASSERT_TRUE(map1.has_value());
@@ -197,7 +206,7 @@ TEST(TimeInStateTest, AllUidUpdatedTimeInState) {
     }
 }
 
-TEST(TimeInStateTest, TotalAndAllUidTimeInStateConsistent) {
+TEST_F(TimeInStateTest, TotalAndAllUidTimeInStateConsistent) {
     auto allUid = getUidsCpuFreqTimes();
     auto total = getTotalCpuFreqTimes();
 
@@ -211,6 +220,7 @@ TEST(TimeInStateTest, TotalAndAllUidTimeInStateConsistent) {
         uint32_t totalFreqsCount = totalTimes.size();
         std::vector<uint64_t> allUidTimes(totalFreqsCount, 0);
         for (auto const &[uid, uidTimes]: *allUid) {
+            if (uid == AID_SDK_SANDBOX) continue;
             for (uint32_t freqIdx = 0; freqIdx < uidTimes[policyIdx].size(); ++freqIdx) {
                 allUidTimes[std::min(freqIdx, totalFreqsCount - 1)] += uidTimes[policyIdx][freqIdx];
             }
@@ -222,7 +232,7 @@ TEST(TimeInStateTest, TotalAndAllUidTimeInStateConsistent) {
     }
 }
 
-TEST(TimeInStateTest, SingleAndAllUidTimeInStateConsistent) {
+TEST_F(TimeInStateTest, SingleAndAllUidTimeInStateConsistent) {
     uint64_t zero = 0;
     auto maps = {getUidsCpuFreqTimes(), getUidsUpdatedCpuFreqTimes(&zero)};
     for (const auto &map : maps) {
@@ -246,7 +256,7 @@ TEST(TimeInStateTest, SingleAndAllUidTimeInStateConsistent) {
     }
 }
 
-TEST(TimeInStateTest, AllUidConcurrentTimes) {
+TEST_F(TimeInStateTest, AllUidConcurrentTimes) {
     uint64_t zero = 0;
     auto maps = {getUidsConcurrentTimes(), getUidsUpdatedConcurrentTimes(&zero)};
     for (const auto &map : maps) {
@@ -264,7 +274,7 @@ TEST(TimeInStateTest, AllUidConcurrentTimes) {
     }
 }
 
-TEST(TimeInStateTest, AllUidUpdatedConcurrentTimes) {
+TEST_F(TimeInStateTest, AllUidUpdatedConcurrentTimes) {
     uint64_t lastUpdate = 0;
     auto map1 = getUidsUpdatedConcurrentTimes(&lastUpdate);
     ASSERT_TRUE(map1.has_value());
@@ -299,7 +309,7 @@ TEST(TimeInStateTest, AllUidUpdatedConcurrentTimes) {
     }
 }
 
-TEST(TimeInStateTest, SingleAndAllUidConcurrentTimesConsistent) {
+TEST_F(TimeInStateTest, SingleAndAllUidConcurrentTimesConsistent) {
     uint64_t zero = 0;
     auto maps = {getUidsConcurrentTimes(), getUidsUpdatedConcurrentTimes(&zero)};
     for (const auto &map : maps) {
@@ -328,7 +338,7 @@ void TestCheckDelta(uint64_t before, uint64_t after) {
     ASSERT_LE(after - before, NSEC_PER_SEC * 2 * get_nprocs_conf());
 }
 
-TEST(TimeInStateTest, TotalTimeInStateMonotonic) {
+TEST_F(TimeInStateTest, TotalTimeInStateMonotonic) {
     auto before = getTotalCpuFreqTimes();
     ASSERT_TRUE(before.has_value());
     sleep(1);
@@ -344,7 +354,7 @@ TEST(TimeInStateTest, TotalTimeInStateMonotonic) {
     }
 }
 
-TEST(TimeInStateTest, AllUidTimeInStateMonotonic) {
+TEST_F(TimeInStateTest, AllUidTimeInStateMonotonic) {
     auto map1 = getUidsCpuFreqTimes();
     ASSERT_TRUE(map1.has_value());
     sleep(1);
@@ -365,7 +375,7 @@ TEST(TimeInStateTest, AllUidTimeInStateMonotonic) {
     }
 }
 
-TEST(TimeInStateTest, AllUidConcurrentTimesMonotonic) {
+TEST_F(TimeInStateTest, AllUidConcurrentTimesMonotonic) {
     auto map1 = getUidsConcurrentTimes();
     ASSERT_TRUE(map1.has_value());
     ASSERT_FALSE(map1->empty());
@@ -393,7 +403,7 @@ TEST(TimeInStateTest, AllUidConcurrentTimesMonotonic) {
     }
 }
 
-TEST(TimeInStateTest, AllUidTimeInStateSanityCheck) {
+TEST_F(TimeInStateTest, AllUidTimeInStateSanityCheck) {
     uint64_t zero = 0;
     auto maps = {getUidsCpuFreqTimes(), getUidsUpdatedCpuFreqTimes(&zero)};
     for (const auto &map : maps) {
@@ -414,7 +424,7 @@ TEST(TimeInStateTest, AllUidTimeInStateSanityCheck) {
     }
 }
 
-TEST(TimeInStateTest, AllUidConcurrentTimesSanityCheck) {
+TEST_F(TimeInStateTest, AllUidConcurrentTimesSanityCheck) {
     uint64_t zero = 0;
     auto maps = {getUidsConcurrentTimes(), getUidsUpdatedConcurrentTimes(&zero)};
     for (const auto &concurrentMap : maps) {
@@ -441,7 +451,7 @@ TEST(TimeInStateTest, AllUidConcurrentTimesSanityCheck) {
     }
 }
 
-TEST(TimeInStateTest, AllUidConcurrentTimesFailsOnInvalidBucket) {
+TEST_F(TimeInStateTest, AllUidConcurrentTimesFailsOnInvalidBucket) {
     uint32_t uid = 0;
     {
         // Find an unused UID
@@ -463,7 +473,7 @@ TEST(TimeInStateTest, AllUidConcurrentTimesFailsOnInvalidBucket) {
     ASSERT_FALSE(deleteMapEntry(fd, &key));
 }
 
-TEST(TimeInStateTest, AllUidTimesConsistent) {
+TEST_F(TimeInStateTest, AllUidTimesConsistent) {
     auto tisMap = getUidsCpuFreqTimes();
     ASSERT_TRUE(tisMap.has_value());
 
@@ -481,7 +491,7 @@ TEST(TimeInStateTest, AllUidTimesConsistent) {
     }
 }
 
-TEST(TimeInStateTest, RemoveUid) {
+TEST_F(TimeInStateTest, RemoveUid) {
     uint32_t uid = 0;
     {
         // Find an unused UID
@@ -547,7 +557,7 @@ TEST(TimeInStateTest, RemoveUid) {
     ASSERT_EQ(allConcurrentTimes->find(uid), allConcurrentTimes->end());
 }
 
-TEST(TimeInStateTest, GetCpuFreqs) {
+TEST_F(TimeInStateTest, GetCpuFreqs) {
     auto freqs = getCpuFreqs();
     ASSERT_TRUE(freqs.has_value());
 
@@ -583,7 +593,7 @@ void *testThread(void *) {
     return nullptr;
 }
 
-TEST(TimeInStateTest, GetAggregatedTaskCpuFreqTimes) {
+TEST_F(TimeInStateTest, GetAggregatedTaskCpuFreqTimes) {
     uint64_t startTimeNs = timeNanos();
 
     sem_init(&pingsem, 0, 1);
@@ -636,6 +646,56 @@ TEST(TimeInStateTest, GetAggregatedTaskCpuFreqTimes) {
         ASSERT_GT(totalCpuTime, 0ul);
         ASSERT_LE(totalCpuTime, testDurationNs);
     }
+}
+
+void *forceSwitchWithUid(void *uidPtr) {
+    if (!uidPtr) return nullptr;
+    setuid(*(uint32_t *)uidPtr);
+
+    // Sleep briefly to trigger a context switch, ensuring we see at least one update.
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 1000000;
+    nanosleep(&ts, NULL);
+    return nullptr;
+}
+
+TEST_F(TimeInStateTest, SdkSandboxUid) {
+    // Find an unused app UID and its corresponding SDK sandbox uid.
+    uint32_t appUid = AID_APP_START, sandboxUid;
+    {
+        auto times = getUidsCpuFreqTimes();
+        ASSERT_TRUE(times.has_value());
+        ASSERT_FALSE(times->empty());
+        for (const auto &kv : *times) {
+            if (kv.first > AID_APP_END) break;
+            appUid = std::max(appUid, kv.first);
+        }
+        appUid++;
+        sandboxUid = appUid + (AID_SDK_SANDBOX_PROCESS_START - AID_APP_START);
+    }
+
+    // Create a thread to run with the fake sandbox uid.
+    pthread_t thread;
+    ASSERT_EQ(pthread_create(&thread, NULL, &forceSwitchWithUid, &sandboxUid), 0);
+    pthread_join(thread, NULL);
+
+    // Confirm we recorded stats for appUid and AID_SDK_SANDBOX but not sandboxUid
+    auto allTimes = getUidsCpuFreqTimes();
+    ASSERT_TRUE(allTimes.has_value());
+    ASSERT_FALSE(allTimes->empty());
+    ASSERT_NE(allTimes->find(appUid), allTimes->end());
+    ASSERT_NE(allTimes->find(AID_SDK_SANDBOX), allTimes->end());
+    ASSERT_EQ(allTimes->find(sandboxUid), allTimes->end());
+
+    auto allConcurrentTimes = getUidsConcurrentTimes();
+    ASSERT_TRUE(allConcurrentTimes.has_value());
+    ASSERT_FALSE(allConcurrentTimes->empty());
+    ASSERT_NE(allConcurrentTimes->find(appUid), allConcurrentTimes->end());
+    ASSERT_NE(allConcurrentTimes->find(AID_SDK_SANDBOX), allConcurrentTimes->end());
+    ASSERT_EQ(allConcurrentTimes->find(sandboxUid), allConcurrentTimes->end());
+
+    ASSERT_TRUE(clearUidTimes(appUid));
 }
 
 } // namespace bpf

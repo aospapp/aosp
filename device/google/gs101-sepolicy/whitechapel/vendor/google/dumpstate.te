@@ -1,6 +1,6 @@
 dump_hal(hal_telephony)
 dump_hal(hal_graphics_composer)
-dump_hal(hal_uwb)
+dump_hal(hal_uwb_vendor)
 
 userdebug_or_eng(`
   allow dumpstate media_rw_data_file:file append;

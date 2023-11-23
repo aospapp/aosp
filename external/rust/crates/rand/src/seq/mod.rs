@@ -991,8 +991,8 @@ mod test {
                 move_last(&mut arr, pos);
                 assert_eq!(arr[3], i);
             }
-            for i in 0..4 {
-                assert_eq!(arr[i], i);
+            for (i, &a) in arr.iter().enumerate() {
+                assert_eq!(a, i);
             }
             counts[permutation] += 1;
         }
@@ -1252,11 +1252,10 @@ mod test {
 
         // Case 2: All of the weights are 0
         let choices = [('a', 0), ('b', 0), ('c', 0)];
-        let result = choices
+
+        assert_eq!(choices
             .choose_multiple_weighted(&mut rng, 2, |item| item.1)
-            .unwrap()
-            .collect::<Vec<_>>();
-        assert_eq!(result.len(), 2);
+            .unwrap().count(), 2);
 
         // Case 3: Negative weights
         let choices = [('a', -1), ('b', 1), ('c', 1)];
@@ -1269,11 +1268,9 @@ mod test {
 
         // Case 4: Empty list
         let choices = [];
-        let result = choices
+        assert_eq!(choices
             .choose_multiple_weighted(&mut rng, 0, |_: &()| 0)
-            .unwrap()
-            .collect::<Vec<_>>();
-        assert_eq!(result.len(), 0);
+            .unwrap().count(), 0);
 
         // Case 5: NaN weights
         let choices = [('a', core::f64::NAN), ('b', 1.0), ('c', 1.0)];

@@ -41,6 +41,9 @@ static const uint64_t gen12_modifier_order[] = { I915_FORMAT_MOD_Y_TILED_GEN12_R
 						 I915_FORMAT_MOD_Y_TILED, I915_FORMAT_MOD_X_TILED,
 						 DRM_FORMAT_MOD_LINEAR };
 
+static const uint64_t gen11_modifier_order[] = { I915_FORMAT_MOD_Y_TILED, I915_FORMAT_MOD_X_TILED,
+						 DRM_FORMAT_MOD_LINEAR };
+
 struct modifier_support_t {
 	const uint64_t *order;
 	uint32_t count;
@@ -102,7 +105,8 @@ static void i915_info_from_device_id(struct i915_device *i915)
 	};
 	const uint16_t adlp_ids[] = { 0x46A0, 0x46A1, 0x46A2, 0x46A3, 0x46A6, 0x46A8,
 				      0x46AA, 0x462A, 0x4626, 0x4628, 0x46B0, 0x46B1,
-				      0x46B2, 0x46B3, 0x46C0, 0x46C1, 0x46C2, 0x46C3 };
+				      0x46B2, 0x46B3, 0x46C0, 0x46C1, 0x46C2, 0x46C3,
+				      0x46D0, 0x46D1, 0x46D2 };
 	unsigned i;
 	i915->gen = 4;
 	i915->is_adlp = false;
@@ -163,6 +167,10 @@ static void i915_get_modifier_order(struct i915_device *i915)
 	if (i915->gen == 12) {
 		i915->modifier.order = gen12_modifier_order;
 		i915->modifier.count = ARRAY_SIZE(gen12_modifier_order);
+	}
+	else if (i915->gen == 11) {
+		i915->modifier.order = gen11_modifier_order;
+		i915->modifier.count = ARRAY_SIZE(gen11_modifier_order);
 	} else {
 		i915->modifier.order = gen_modifier_order;
 		i915->modifier.count = ARRAY_SIZE(gen_modifier_order);
@@ -433,6 +441,19 @@ static int i915_bo_from_format(struct bo *bo, uint32_t width, uint32_t height, u
 	return 0;
 }
 
+static size_t i915_num_planes_from_modifier(struct driver *drv, uint32_t format,
+					    uint64_t modifier)
+{
+	size_t num_planes = drv_num_planes_from_format(format);
+	if (modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    modifier == I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS) {
+		assert(num_planes == 1);
+		return 2;
+	}
+
+	return num_planes;
+}
+
 static int i915_bo_compute_metadata(struct bo *bo, uint32_t width, uint32_t height, uint32_t format,
 				    uint64_t use_flags, const uint64_t *modifiers, uint32_t count)
 {
@@ -557,7 +578,7 @@ static int i915_bo_compute_metadata(struct bo *bo, uint32_t width, uint32_t heig
 		bo->meta.offsets[1] = offset;
 		offset += ccs_size;
 
-		bo->meta.num_planes = 2;
+		bo->meta.num_planes = i915_num_planes_from_modifier(bo->drv, format, modifier);
 		bo->meta.total_size = offset;
 	} else if (modifier == I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS) {
 
@@ -592,7 +613,7 @@ static int i915_bo_compute_metadata(struct bo *bo, uint32_t width, uint32_t heig
 		bo->meta.sizes[1] = ALIGN(bo->meta.sizes[0] / 256, getpagesize());
 		bo->meta.offsets[1] = bo->meta.sizes[0];
 		/* Total number of planes & sizes */
-		bo->meta.num_planes = 2;
+		bo->meta.num_planes = i915_num_planes_from_modifier(bo->drv, format, modifier);
 		bo->meta.total_size = bo->meta.sizes[0] + bo->meta.sizes[1];
 	} else {
 		i915_bo_from_format(bo, width, height, format);
@@ -669,6 +690,9 @@ static int i915_bo_import(struct bo *bo, struct drv_import_fd_data *data)
 {
 	int ret;
 	struct drm_i915_gem_get_tiling gem_get_tiling = { 0 };
+
+	bo->meta.num_planes = i915_num_planes_from_modifier(bo->drv, data->format,
+		data->format_modifier);
 
 	ret = drv_prime_bo_import(bo, data);
 	if (ret)
@@ -800,6 +824,7 @@ const struct backend backend_i915 = {
 	.bo_invalidate = i915_bo_invalidate,
 	.bo_flush = i915_bo_flush,
 	.resolve_format_and_use_flags = drv_resolve_format_and_use_flags_helper,
+	.num_planes_from_modifier = i915_num_planes_from_modifier,
 };
 
 #endif

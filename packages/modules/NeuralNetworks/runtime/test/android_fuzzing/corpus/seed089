@@ -1,75 +1,89 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 2
-      }
-      scale: 1
-      zero_point: 128
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_QUANT8_ASYMM_SIGNED
+        dimensions {
+          dimension: 1
+          dimension: 4
+          dimension: 4
+          dimension: 1
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 3110338872
-      }
-    }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 1829403936
-      }
-      scale: 1
-      zero_point: 128
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+        scale: 0.5
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2950986797
-      }
-    }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 2
-      }
-      scale: 0.5
-      zero_point: 128
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+        data {
+          random_seed: 2492084002
         }
-        channel_dim: 0
       }
-      data {
-        random_seed: 1269319645
+      operand {
+        type: INT32
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 2
+        }
+      }
+      operand {
+        type: BOOL
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 965637500
+        }
+      }
+      operand {
+        type: TENSOR_QUANT8_ASYMM_SIGNED
+        dimensions {
+          dimension: 1
+          dimension: 2
+          dimension: 2
+          dimension: 4
+        }
+        scale: 0.5
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2708425133
+        }
       }
     }
-  }
-  operations {
-    operation {
-      type: MINIMUM
-      inputs {
-        index: 0
-        index: 1
-      }
-      outputs {
-        index: 2
+    operations {
+      operation {
+        type: SPACE_TO_DEPTH
+        inputs {
+          index: 0
+          index: 1
+          index: 2
+        }
+        outputs {
+          index: 3
+        }
       }
     }
+    input_indexes {
+      index: 0
+    }
+    output_indexes {
+      index: 3
+    }
   }
-  input_indexes {
-    index: 0
-    index: 1
+  referenced {
   }
-  output_indexes {
-    index: 2
-  }
-  is_relaxed: false
 }

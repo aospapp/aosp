@@ -20,6 +20,7 @@
 #include <openssl/evp.h>
 
 #include <keymaster/key.h>
+#include <keymaster/km_openssl/openssl_utils.h>
 
 namespace keymaster {
 
@@ -30,11 +31,15 @@ class AsymmetricKey : public Key {
         : Key(move(hw_enforced), move(sw_enforced), key_factory) {}
     virtual ~AsymmetricKey() {}
 
+    virtual int evp_key_type() const = 0;
+
     keymaster_error_t formatted_key_material(keymaster_key_format_t format,
                                              UniquePtr<uint8_t[]>* material,
                                              size_t* size) const override;
 
-    virtual bool InternalToEvp(EVP_PKEY* pkey) const = 0;
+    // Create an OpenSSL EVP_PKEY for the key.
+    virtual EVP_PKEY_Ptr InternalToEvp() const = 0;
+    // Set the contents from an OpenSSL EVP_PKEY.
     virtual bool EvpToInternal(const EVP_PKEY* pkey) = 0;
 };
 

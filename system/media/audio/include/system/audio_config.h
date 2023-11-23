@@ -52,11 +52,21 @@ static inline std::string audio_find_readable_configuration_file(const char* fil
     }
     return {};
 }
-
+/*
+ * audio_get_audio_policy_config_file() Rules
+ * 1) A2DP offload NOT supported IMPLIES LE Audio offload NOT supported
+ * 2) A2DP offload disabled is ignored if A2DP offload is NOT supported
+ * 3) LE Audio disabled is ignored if LE audio offload is NOT supported
+ * 4) A2DP offload disabled IMPLIES LE audio offload disabled
+ * 5) LE Audio offload NOT supported is possible with A2DP offload supported
+ * 6) LE Audio offload disabled is possible with A2DP offload NOT disabled
+ */
 static inline std::string audio_get_audio_policy_config_file() {
     static constexpr const char *apmXmlConfigFileName = "audio_policy_configuration.xml";
     static constexpr const char *apmA2dpOffloadDisabledXmlConfigFileName =
             "audio_policy_configuration_a2dp_offload_disabled.xml";
+    static constexpr const char *apmLeOffloadDisabledXmlConfigFileName =
+            "audio_policy_configuration_le_offload_disabled.xml";
     static constexpr const char *apmBluetoothLegacyHalXmlConfigFileName =
             "audio_policy_configuration_bluetooth_legacy_hal.xml";
 
@@ -71,8 +81,14 @@ static inline std::string audio_get_audio_policy_config_file() {
                     apmBluetoothLegacyHalXmlConfigFileName);
         } else if (property_get_bool("persist.bluetooth.a2dp_offload.disabled", false)) {
             // A2DP offload supported but disabled: try to use special XML file
+            // assume that if a2dp offload is not supported, le offload is not supported as well
             audioPolicyXmlConfigFile = audio_find_readable_configuration_file(
                     apmA2dpOffloadDisabledXmlConfigFileName);
+        } else if (!property_get_bool("ro.bluetooth.leaudio_offload.supported", false) ||
+            property_get_bool("persist.bluetooth.leaudio_offload.disabled", false)) {
+            // A2DP offload supported but LE offload disabled: try to use special XML file
+            audioPolicyXmlConfigFile = audio_find_readable_configuration_file(
+                    apmLeOffloadDisabledXmlConfigFileName);
         }
     } else if (property_get_bool("persist.bluetooth.bluetooth_audio_hal.disabled", false)) {
         audioPolicyXmlConfigFile = audio_find_readable_configuration_file(

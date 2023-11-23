@@ -20,4 +20,9 @@
 
 <resources>
     <style name="CellBroadcastAlertTheme" parent="@android:style/Theme.DeviceDefault.Dialog.Alert"/>
+    <style name="CellBroadcastOptOutTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar.TranslucentDecor">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
 </resources>

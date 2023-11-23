@@ -20,20 +20,41 @@
 #include <string>
 #include <utility>
 
+#include <fcntl.h>
+#include <sys/sendfile.h>
+#include <unistd.h>
+
 #include <android-base/properties.h>
 #include <base/time/time.h>
+#include <brillo/data_encoding.h>
+#include <brillo/message_loops/fake_message_loop.h>
 #include <gtest/gtest.h>
+#include <liblp/builder.h>
+#include <fs_mgr.h>
+#include <liblp/liblp.h>
 
-#include "common/constants.h"
+#include "update_engine/aosp/boot_control_android.h"
 #include "update_engine/aosp/daemon_state_android.h"
+#include "update_engine/common/constants.h"
 #include "update_engine/common/fake_boot_control.h"
 #include "update_engine/common/fake_clock.h"
 #include "update_engine/common/fake_hardware.h"
 #include "update_engine/common/fake_prefs.h"
+#include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/mock_action_processor.h"
 #include "update_engine/common/mock_metrics_reporter.h"
+#include "update_engine/common/prefs.h"
 #include "update_engine/common/test_utils.h"
+#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/payload_consumer/install_plan.h"
+#include "update_engine/payload_consumer/payload_constants.h"
+#include "update_engine/payload_generator/delta_diff_generator.h"
+#include "update_engine/payload_generator/extent_ranges.h"
+#include "update_engine/payload_generator/payload_file.h"
+#include "update_engine/payload_generator/payload_signer.h"
+#include "update_engine/update_metadata.pb.h"
+#include "update_engine/update_status_utils.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -41,6 +62,11 @@ using testing::_;
 using update_engine::UpdateStatus;
 
 namespace chromeos_update_engine {
+
+// Compare the value of builtin array for download source parameter.
+MATCHER_P(DownloadSourceMatcher, source_array, "") {
+  return std::equal(source_array, source_array + kNumDownloadSources, arg);
+}
 
 class UpdateAttempterAndroidTest : public ::testing::Test {
  protected:
@@ -76,6 +102,8 @@ class UpdateAttempterAndroidTest : public ::testing::Test {
   testing::NiceMock<MockMetricsReporter>* metrics_reporter_;
 };
 
+namespace {
+
 TEST_F(UpdateAttempterAndroidTest, UpdatePrefsSameBuildVersionOnInit) {
   std::string build_version =
       android::base::GetProperty("ro.build.version.incremental", "");
@@ -106,6 +134,7 @@ TEST_F(UpdateAttempterAndroidTest, UpdatePrefsBuildVersionChangeOnInit) {
   prefs_.SetString(kPrefsPreviousVersion, "00001");  // Set the fake version
   prefs_.SetInt64(kPrefsPayloadAttemptNumber, 1);
   prefs_.SetInt64(kPrefsSystemUpdatedMarker, 23456);
+  prefs_.SetInt64(kPrefsPreviousSlot, 1);
 
   EXPECT_CALL(*metrics_reporter_,
               ReportAbnormallyTerminatedUpdateAttemptMetrics())
@@ -186,18 +215,10 @@ TEST_F(UpdateAttempterAndroidTest, ReportMetricsForBytesDownloaded) {
 
   int64_t total_bytes[kNumDownloadSources] = {};
   total_bytes[kDownloadSourceHttpsServer] = 90;
-  EXPECT_CALL(*metrics_reporter_,
-              ReportSuccessfulUpdateMetrics(
-                  _,
-                  _,
-                  _,
-                  50,
-                  test_utils::DownloadSourceMatcher(total_bytes),
-                  80,
-                  _,
-                  _,
-                  _,
-                  _))
+  EXPECT_CALL(
+      *metrics_reporter_,
+      ReportSuccessfulUpdateMetrics(
+          _, _, _, 50, DownloadSourceMatcher(total_bytes), 80, _, _, _, _))
       .Times(1);
 
   // Adds a payload of 50 bytes to the InstallPlan.
@@ -226,5 +247,7 @@ TEST_F(UpdateAttempterAndroidTest, ReportMetricsForBytesDownloaded) {
   EXPECT_EQ(
       0, metrics_utils::GetPersistedValue(kPrefsTotalBytesDownloaded, &prefs_));
 }
+
+}  // namespace
 
 }  // namespace chromeos_update_engine

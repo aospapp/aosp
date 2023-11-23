@@ -1,30 +1,22 @@
 # Block Devices
-type efs_block_device, dev_type, bdev_type;
-type fat_block_device, dev_type, bdev_type;
-type modem_block_device, dev_type, bdev_type;
-type modem_userdata_block_device, dev_type, bdev_type;
-type persist_block_device, dev_type, bdev_type;
-type vendor_block_device, dev_type, bdev_type;
-type sda_block_device, dev_type, bdev_type;
-type mfg_data_block_device, dev_type, bdev_type;
+type efs_block_device, dev_type;
+type modem_block_device, dev_type;
+type modem_userdata_block_device, dev_type;
+type persist_block_device, dev_type;
+type sda_block_device, dev_type;
+type mfg_data_block_device, dev_type;
 
 # Exynos devices
-type vendor_m2m1shot_device, dev_type;
 type vendor_gnss_device, dev_type;
-type vendor_nanohub_device, dev_type;
-type vendor_secmem_device, dev_type;
 type vendor_toe_device, dev_type;
-type custom_ab_block_device, dev_type, bdev_type;
-type devinfo_block_device, dev_type, bdev_type;
+type custom_ab_block_device, dev_type;
+type devinfo_block_device, dev_type;
 
 # usbpd
 type logbuffer_device, dev_type;
 
 #cpuctl
 type cpuctl_device, dev_type;
-
-# Bt Wifi Coexistence device
-type wb_coexistence_dev, dev_type;
 
 # LWIS (Lightweight Imaging Subsystem) devices, used by Lyric camera HAL
 type lwis_device, dev_type;
@@ -55,4 +47,8 @@ type battery_history_device, dev_type;
 
 # Raw HID device
 type hidraw_device, dev_type;
+
+# SecureElement SPI device
+type st54spi_device, dev_type;
+type st33spi_device, dev_type;
 

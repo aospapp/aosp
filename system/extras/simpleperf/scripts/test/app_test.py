@@ -14,10 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
+from typing import List, Tuple
 
 from simpleperf_utils import remove
 from . test_utils import TestBase, TestHelper, AdbHelper, INFERNO_SCRIPT
@@ -30,12 +34,12 @@ class TestExampleBase(TestBase):
         cls.example_path = TestHelper.testdata_path(example_name)
         if not os.path.isdir(cls.example_path):
             log_fatal("can't find " + cls.example_path)
-        for root, _, files in os.walk(cls.example_path):
-            if 'app-profiling.apk' in files:
-                cls.apk_path = os.path.join(root, 'app-profiling.apk')
-                break
-        if not hasattr(cls, 'apk_path'):
-            log_fatal("can't find app-profiling.apk under " + cls.example_path)
+        apk_files = list(Path(cls.example_path).glob('**/app-profiling.apk'))
+        if not apk_files:
+            apk_files = list(Path(cls.example_path).glob('**/app-debug.apk'))
+        if not apk_files:
+            log_fatal("can't find apk under " + cls.example_path)
+        cls.apk_path = apk_files[0]
         cls.package_name = package_name
         cls.activity_name = activity_name
         args = ["install", "-r"]
@@ -104,7 +108,8 @@ class TestExampleBase(TestBase):
                     return
         self.fail("Failed to call check_file_under_dir(dir=%s, file=%s)" % (dirname, filename))
 
-    def check_annotation_summary(self, summary_file, check_entries):
+    def check_annotation_summary(
+            self, summary_file: str, check_entries: List[Tuple[str, float, float]]):
         """ check_entries is a list of (name, accumulated_period, period).
             This function checks for each entry, if the line containing [name]
             has at least required accumulated_period and period.
@@ -113,7 +118,7 @@ class TestExampleBase(TestBase):
         with open(summary_file, 'r') as fh:
             summary = fh.read()
         fulfilled = [False for x in check_entries]
-        summary_check_re = re.compile(r'accumulated_period:\s*([\d.]+)%.*period:\s*([\d.]+)%')
+        summary_check_re = re.compile(r'^\|\s*([\d.]+)%\s*\|\s*([\d.]+)%\s*\|')
         for line in summary.split('\n'):
             for i, (name, need_acc_period, need_period) in enumerate(check_entries):
                 if not fulfilled[i] and name in line:
@@ -167,13 +172,13 @@ class TestExampleBase(TestBase):
     def common_test_annotate(self):
         self.run_cmd(["annotate.py", "-h"])
         remove("annotated_files")
-        self.run_cmd(["annotate.py", "-s", self.example_path])
+        self.run_cmd(["annotate.py", "-s", self.example_path, '--summary-width', '1000'])
         self.check_exist(dirname="annotated_files")
 
     def common_test_report_sample(self, check_strings):
         self.run_cmd(["report_sample.py", "-h"])
         self.run_cmd(["report_sample.py"])
-        output = self.run_cmd(["report_sample.py", "perf.data"], return_output=True)
+        output = self.run_cmd(["report_sample.py", "-i", "perf.data"], return_output=True)
         self.check_strings_in_content(output, check_strings)
 
     def common_test_pprof_proto_generator(self, check_strings_with_lines,

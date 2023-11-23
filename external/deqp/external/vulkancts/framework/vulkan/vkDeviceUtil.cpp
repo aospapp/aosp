@@ -42,19 +42,32 @@ Move<VkInstance> createDefaultInstance (const PlatformInterface&		vkPlatform,
 										deUint32						apiVersion,
 										const vector<string>&			enabledLayers,
 										const vector<string>&			enabledExtensions,
+										DebugReportRecorder*			recorder,
 										const VkAllocationCallbacks*	pAllocator)
 {
 	bool			validationEnabled	= (!enabledLayers.empty());
 	vector<string>	actualExtensions	= enabledExtensions;
 
+    // Enumerate once, pass it in to the various functions that require the list of available extensions
+	vector<vk::VkExtensionProperties> availableExtensions = enumerateInstanceExtensionProperties(vkPlatform, DE_NULL);
+
 	if (validationEnabled)
 	{
 		// Make sure the debug report extension is enabled when validation is enabled.
-		if (!isDebugReportSupported(vkPlatform))
+		if (!isExtensionSupported(availableExtensions, RequiredExtension("VK_EXT_debug_report")))
 			TCU_THROW(NotSupportedError, "VK_EXT_debug_report is not supported");
 
 		if (!de::contains(begin(actualExtensions), end(actualExtensions), "VK_EXT_debug_report"))
 			actualExtensions.push_back("VK_EXT_debug_report");
+
+		DE_ASSERT(recorder);
+	}
+
+	// Make sure portability enumeration is enabled whenever it is available
+	bool portability_enumeration_available = isExtensionSupported(availableExtensions, RequiredExtension("VK_KHR_portability_enumeration"));
+	if (portability_enumeration_available)
+	{
+		actualExtensions.push_back("VK_KHR_portability_enumeration");
 	}
 
 	vector<const char*>		layerNamePtrs		(enabledLayers.size());
@@ -76,16 +89,19 @@ Move<VkInstance> createDefaultInstance (const PlatformInterface&		vkPlatform,
 		qpGetReleaseId(),						// engineVersion
 		apiVersion								// apiVersion
 	};
+
+	const VkDebugReportCallbackCreateInfoEXT callbackInfo = (validationEnabled ? recorder->makeCreateInfo() : initVulkanStructure());
+
 	const struct VkInstanceCreateInfo	instanceInfo	=
 	{
 		VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-		DE_NULL,
+		(validationEnabled ? &callbackInfo : nullptr),
 		(VkInstanceCreateFlags)0,
 		&appInfo,
 		(deUint32)layerNamePtrs.size(),
-		(validationEnabled ? layerNamePtrs.data() : DE_NULL),
+		(validationEnabled ? layerNamePtrs.data() : nullptr),
 		(deUint32)extensionNamePtrs.size(),
-		(extensionNamePtrs.empty() ? DE_NULL : extensionNamePtrs.data()),
+		(extensionNamePtrs.empty() ? nullptr : extensionNamePtrs.data()),
 	};
 
 	return createInstance(vkPlatform, &instanceInfo, pAllocator);
@@ -93,7 +109,7 @@ Move<VkInstance> createDefaultInstance (const PlatformInterface&		vkPlatform,
 
 Move<VkInstance> createDefaultInstance (const PlatformInterface& vkPlatform, deUint32 apiVersion)
 {
-	return createDefaultInstance(vkPlatform, apiVersion, vector<string>(), vector<string>(), DE_NULL);
+	return createDefaultInstance(vkPlatform, apiVersion, vector<string>(), vector<string>(), nullptr, nullptr);
 }
 
 deUint32 chooseDeviceIndex (const InstanceInterface& vkInstance, const VkInstance instance, const tcu::CommandLine& cmdLine)

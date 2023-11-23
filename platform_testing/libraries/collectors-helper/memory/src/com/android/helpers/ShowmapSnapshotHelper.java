@@ -32,8 +32,11 @@ import java.util.InputMismatchException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -55,6 +58,10 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
     public static final String OUTPUT_CHILD_PROCESS_COUNT_KEY = CHILD_PROCESS_COUNT_PREFIX + "_%s";
     public static final String PROCESS_WITH_CHILD_PROCESS_COUNT =
             "process_with_child_process_count";
+    private static final String CHILD_PROCESS_NAME_REGEX = "(\\S+)$";
+    private static final String METRIC_VALUE_SEPARATOR = "_";
+    public static final String PARENT_PROCESS_STRING = "parent_process";
+    public static final String CHILD_PROCESS_STRING = "child_process";
 
     private String[] mProcessNames = null;
     private String mTestOutputDir = null;
@@ -63,19 +70,21 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
     private int mDropCacheOption;
     private boolean mCollectForAllProcesses = false;
     private UiDevice mUiDevice;
+    private boolean mRunGcPrecollection;
 
     // Map to maintain per-process memory info
     private Map<String, String> mMemoryMap = new HashMap<>();
 
     // Maintain metric name and the index it corresponds to in the showmap output
     // summary
-    private Map<Integer, String> mMetricNameIndexMap = new HashMap<>();
+    private Map<String, List<Integer>> mMetricNameIndexMap = new HashMap<>();
 
     public void setUp(String testOutputDir, String... processNames) {
-        mProcessNames = processNames;
-        mTestOutputDir = testOutputDir;
-        mDropCacheOption = 0;
-        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+      mProcessNames = processNames;
+      mTestOutputDir = testOutputDir;
+      mDropCacheOption = 0;
+      mRunGcPrecollection = false;
+      mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }
 
     @Override
@@ -139,6 +148,16 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
                 return mMemoryMap;
             }
 
+            // Force Garbage collect to trim transient objects before taking memory measurements
+            // as memory tests aim to track persistent memory regression instead of transient
+            // memory which also allows for de-noising and reducing likelihood of false alerts.
+            if (mRunGcPrecollection) {
+              Log.i(TAG, "Running GC precollect");
+              android.os.Trace.beginSection("GCPriorToShowmap");
+              Runtime.getRuntime().gc();
+              android.os.Trace.endSection();
+            }
+
             FileWriter writer = new FileWriter(new File(mTestOutputFile), true);
             for (String processName : mProcessNames) {
                 List<Integer> pids = new ArrayList<>();
@@ -155,7 +174,7 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
                         // Parse number of child processes for the given pid and update the
                         // total number of child process count for the process name that pid
                         // is associated with.
-                        updateChildProcessesCount(processName, pid);
+                        updateChildProcessesDetails(processName, pid);
                     }
                 } catch (RuntimeException e) {
                     Log.e(TAG, e.getMessage(), e.getCause());
@@ -188,6 +207,15 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
     @Override
     public boolean stopCollecting() {
         return true;
+    }
+
+    /**
+     * Sets option for running GC prior to collection.
+     *
+     * @param shouldGcOnPrecollect whether it should run GC prior to showmap collection
+     */
+    public void setGcOnPrecollectOption(boolean shouldGcOnPrecollect) {
+        mRunGcPrecollection = shouldGcOnPrecollect;
     }
 
     /**
@@ -282,19 +310,21 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
             int pos = showmapOutput.lastIndexOf("----");
             String summarySplit[] = showmapOutput.substring(pos).trim().split("\\s+");
 
-            for (Map.Entry<Integer, String> entry : mMetricNameIndexMap.entrySet()) {
+            for (Map.Entry<String, List<Integer>> entry : mMetricNameIndexMap.entrySet()) {
+                Long metricValue = 0L;
                 String metricKey = constructKey(
-                        String.format(OUTPUT_METRIC_PATTERN, entry.getValue()),
+                        String.format(OUTPUT_METRIC_PATTERN, entry.getKey()),
                         processName);
+                for (int index = 0; index < entry.getValue().size(); index++) {
+                    metricValue += Long.parseLong(summarySplit[entry.getValue().get(index) + 1]);
+                }
                 // If there are multiple pids associated with the process name then update the
                 // existing entry in the map otherwise add new entry in the map.
                 if (mMemoryMap.containsKey(metricKey)) {
                     long currValue = Long.parseLong(mMemoryMap.get(metricKey));
-                    mMemoryMap.put(metricKey, Long.toString(currValue +
-                            (Long.parseLong(summarySplit[entry.getKey() + 1]) * 1024)));
+                    mMemoryMap.put(metricKey, Long.toString(currValue + metricValue * 1024));
                 } else {
-                    mMemoryMap.put(metricKey, Long.toString(Long.parseLong(
-                            summarySplit[entry.getKey() + 1]) * 1024));
+                    mMemoryMap.put(metricKey, Long.toString(metricValue * 1024));
                 }
             }
         } catch (IndexOutOfBoundsException | InputMismatchException e) {
@@ -330,13 +360,20 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
      *            map and pass the map to this method.
      */
     public void setMetricNameIndex(String metricNameIndexStr) {
+        /**
+         * example: metricNameIndexStr rss:1,pss:2,privatedirty:6:7
+         * converted to Map: {'rss': [1], 'pss': [2], 'privatedirty': [6, 7]}
+         */
         Log.i(TAG, String.format("Metric Name index %s", metricNameIndexStr));
         String metricDetails[] = metricNameIndexStr.split(",");
         for (String metricDetail : metricDetails) {
+            List<Integer> indexList = new ArrayList<>();
             String metricDetailsSplit[] = metricDetail.split(":");
-            if (metricDetailsSplit.length == 2) {
-                mMetricNameIndexMap.put(Integer.parseInt(
-                        metricDetailsSplit[1]), metricDetailsSplit[0]);
+            for (int index = 1; index < metricDetailsSplit.length; index++) {
+                indexList.add(Integer.parseInt(metricDetailsSplit[index]));
+            }
+            if (!indexList.isEmpty()) {
+                mMetricNameIndexMap.put(metricDetailsSplit[0], indexList);
             }
         }
         Log.i(TAG, String.format("Metric Name index map size %s", mMetricNameIndexMap.size()));
@@ -344,12 +381,16 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
 
     /**
      * Retrieves the number of child processes for the given process id and updates the total
-     * process count for the process name that pid is associated with.
+     * process count and adds a child process metric for the process name that pid is associated
+     * with.
      *
      * @param processName
      * @param pid
      */
-    private void updateChildProcessesCount(String processName, long pid) {
+    private void updateChildProcessesDetails(String processName, long pid) {
+        String childProcessName;
+        String completeChildProcessMetric;
+        Pattern childProcessPattern = Pattern.compile(CHILD_PROCESS_NAME_REGEX);
         try {
             Log.i(TAG,
                     String.format("Retrieving child processes count for process name: %s with"
@@ -368,8 +409,29 @@ public class ShowmapSnapshotHelper implements ICollectorHelper<String> {
                                 Long.parseLong(mMemoryMap.getOrDefault(childCountMetricKey, "0"))
                                         + childProcessCount));
             }
+            for (String line : childProcessStrSplit) {
+                // To discard the header line in the command output.
+                if (Objects.equals(line, childProcessStrSplit[0])) continue;
+                Matcher childProcessMatcher = childProcessPattern.matcher(line);
+                if (childProcessMatcher.find()) {
+                    /**
+                     * final metric will be of following format
+                     * parent_process_<process>_child_process_<process>
+                     * parent_process_zygote64_child_process_system_server
+                     */
+                    childProcessName = childProcessMatcher.group(1);
+                    completeChildProcessMetric =
+                            String.join(
+                                    METRIC_VALUE_SEPARATOR,
+                                    PARENT_PROCESS_STRING,
+                                    processName,
+                                    CHILD_PROCESS_STRING,
+                                    childProcessName);
+                    mMemoryMap.put(completeChildProcessMetric, "1");
+                }
+            }
         } catch (IOException e) {
-            throw new RuntimeException("Unable to run child process count command.", e);
+            throw new RuntimeException("Unable to run child process command.", e);
         }
     }
 

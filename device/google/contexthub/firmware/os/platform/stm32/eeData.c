@@ -171,7 +171,7 @@ bool eeDataEraseOldVersion(uint32_t name, void *vaddr)
     uint32_t *addr = (uint32_t*)vaddr;
     uint32_t v;
 
-    // sanity check
+    // validate name and address
     if (!eeIsValidName(name) || addr < __eedata_start || addr >= (__eedata_end - 1))
         return false;
 

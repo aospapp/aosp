@@ -78,6 +78,8 @@ public class WifiConfigHelperTest {
         assertEquals(R.string.proxy_error_invalid_exclusion_list,
                 WifiConfigHelper.validate("abc", "1234", "&8"));
         assertEquals(0, WifiConfigHelper.validate("Android-TV", "1234", "*.abc"));
+        assertEquals(R.string.proxy_error_invalid_exclusion_list,
+                WifiConfigHelper.validate("abc", "1234", ".google.com", true));
     }
 
     private boolean isDoubleQuoted(String s) {

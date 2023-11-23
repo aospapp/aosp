@@ -19,6 +19,7 @@
 #include "libANGLE/Version.h"
 #include "libANGLE/angletypes.h"
 #include "libANGLE/formatutils.h"
+#include "libANGLE/renderer/d3d/ShaderD3D.h"
 #include "libANGLE/renderer/d3d/VertexDataManager.h"
 #include "libANGLE/renderer/d3d/formatutilsD3D.h"
 #include "libANGLE/renderer/renderer_utils.h"
@@ -160,9 +161,9 @@ class RendererD3D : public BufferFactoryD3D
 
     virtual ContextImpl *createContext(const gl::State &state, gl::ErrorSet *errorSet) = 0;
 
-    virtual std::string getRendererDescription() const = 0;
-    virtual std::string getVendorString() const        = 0;
-    virtual std::string getVersionString() const       = 0;
+    virtual std::string getRendererDescription() const                  = 0;
+    virtual std::string getVendorString() const                         = 0;
+    virtual std::string getVersionString(bool includeFullVersion) const = 0;
 
     virtual int getMinorShaderModel() const          = 0;
     virtual std::string getShaderModelSuffix() const = 0;
@@ -277,7 +278,7 @@ class RendererD3D : public BufferFactoryD3D
                                               gl::ShaderType type,
                                               const std::vector<D3DVarying> &streamOutVaryings,
                                               bool separatedOutputBuffers,
-                                              const angle::CompilerWorkaroundsD3D &workarounds,
+                                              const CompilerWorkaroundsD3D &workarounds,
                                               ShaderExecutableD3D **outExectuable) = 0;
     virtual angle::Result ensureHLSLCompilerInitialized(d3d::Context *context)     = 0;
 

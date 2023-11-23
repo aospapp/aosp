@@ -18,15 +18,25 @@ package android.telephony.ims.cts;
 
 import android.telephony.ims.RcsClientConfiguration;
 import android.telephony.ims.stub.ImsConfigImplBase;
+import android.util.Log;
 
 import java.util.HashMap;
+import java.util.concurrent.Executor;
 
 public class TestImsConfig extends ImsConfigImplBase {
 
+    private static final String TAG = "TestImsConfig";
     private HashMap<Integer, Integer> mIntHashMap = new HashMap<>();
     private HashMap<Integer, String> mStringHashMap = new HashMap<>();
 
     TestImsConfig() {
+        Log.d(TAG, "TestImsConfig with default constructor");
+        TestAcsClient.getInstance().setImsConfigImpl(this);
+    }
+
+    TestImsConfig(Executor executor) {
+        super(executor);
+        Log.d(TAG, "TestImsConfig with Executor constructor");
         TestAcsClient.getInstance().setImsConfigImpl(this);
     }
 

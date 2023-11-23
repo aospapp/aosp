@@ -72,7 +72,7 @@ public class AnrOccurredConverterTest {
             throws StatsConversionException {
         List<AtomsProto.Atom> atomsList = Arrays.asList(ATOM_A, ATOM_B);
 
-        SparseArray<AtomFieldAccessor<ANROccurred>> accessorMap =
+        SparseArray<AtomFieldAccessor<ANROccurred, ?>> accessorMap =
                 mConverter.getAtomFieldAccessorMap();
 
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);

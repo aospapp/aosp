@@ -32,7 +32,7 @@ enum class Arch : size_t {
     ARCH_32_64
 };
 
-static const std::array<std::string, 4> gArchStrings = {
+static constexpr std::array<const char*, 4> gArchStrings = {
     {
         "",
         "32",

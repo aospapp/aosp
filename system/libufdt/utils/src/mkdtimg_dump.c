@@ -89,19 +89,19 @@ static void free_fdt(void *fdt) {
 
 
 static void output_prop_int(FILE *out_fp, const char *name, uint32_t value) {
-  fprintf(out_fp, "%+20s = %d\n", name, fdt32_to_cpu(value));
+  fprintf(out_fp, "%20s = %d\n", name, fdt32_to_cpu(value));
 }
 
 static void output_prop_int_cpu(FILE *out_fp, const char *name, uint32_t value) {
-  fprintf(out_fp, "%+20s = %d\n", name, value);
+  fprintf(out_fp, "%20s = %d\n", name, value);
 }
 
 static void output_prop_hex(FILE *out_fp, const char *name, uint32_t value) {
-  fprintf(out_fp, "%+20s = %08x\n", name, fdt32_to_cpu(value));
+  fprintf(out_fp, "%20s = %08x\n", name, fdt32_to_cpu(value));
 }
 
 static void output_prop_str(FILE *out_fp, const char *name, const char *value) {
-  fprintf(out_fp, "%+20s = %s\n", name, value);
+  fprintf(out_fp, "%20s = %s\n", name, value);
 }
 
 static void output_table_header(FILE *out_fp, const struct dt_table_header *header) {

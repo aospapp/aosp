@@ -60,6 +60,7 @@ license {
 build = [
     "JavaLibrary.bp",
     "NativeCode.bp",
+    "Extras.bp",
 ]
 
 java_genrule {

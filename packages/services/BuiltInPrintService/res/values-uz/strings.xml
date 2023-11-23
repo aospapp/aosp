@@ -41,7 +41,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Printer qo‘shish"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"IP manzil asosida printer qo‘shish"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"Host nomi yoki IP manzil"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"Xost nomi yoki IP manzil"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Qo‘shish"</string>
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> printerini qo‘shish"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Ulanishlar"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Asosiy chop etish xizmati Wi-Fi Direct printerlarini topa olmadi"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Directni oʻchirish"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Birlamchi chop etish xizmati yaqin-atrofdagi printerlarni ishlatishi uchun ruxsat berilishi kerak."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Birlamchi chop etish xizmati atrofdagi printerlarni qidirishi uchun yaqin-atrofdagi qurilmalarga ruxsat olishi lozim."</string>
     <string name="fix" msgid="7784394272611365393">"Ruxsatni tekshirish"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Asosiy chop etish xizmati yaqin-atrofdagi qurilmalarni topishi uchun joylashuvni aniqlash xizmati yoqilishi lozim."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Geolokatsiyani yoqish"</string>
     <string name="print" msgid="7851318072404916362">"Chop etish"</string>
 </resources>

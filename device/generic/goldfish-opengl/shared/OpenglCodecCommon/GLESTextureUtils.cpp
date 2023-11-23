@@ -1,5 +1,7 @@
 #include "GLESTextureUtils.h"
 
+#include <algorithm>
+
 #include "glUtils.h"
 #include "etc.h"
 #include "astc-codec.h"
@@ -254,7 +256,8 @@ void computeTextureStartEnd(
         int unpackSkipRows,
         int unpackSkipImages,
         int* start,
-        int* end) {
+        int* end,
+        int ignoreTrailing) {
 
     GLsizei inputWidth = (unpackRowLength == 0) ? width : unpackRowLength;
     GLsizei inputPitch = computePitch(inputWidth, format, type, unpackAlignment);
@@ -263,7 +266,17 @@ void computeTextureStartEnd(
     ALOGV("%s: input idim %d %d %d w p h %d %d %d:", __FUNCTION__, width, height, depth, inputWidth, inputPitch, inputHeight);
 
     int startVal = computePackingOffset(format, type, inputWidth, inputHeight, unpackAlignment, unpackSkipPixels, unpackSkipRows, unpackSkipImages);
-    int endVal = startVal + inputPitch * inputHeight * depth;
+    int endVal;
+    if (ignoreTrailing) {
+        // The last row needs to have just enough data per spec, and could
+        // ignore alignment.
+        // b/223402256
+        endVal = startVal + inputPitch * inputHeight * (depth - 1);
+        endVal += inputPitch * (std::min(height, inputHeight) - 1);
+        endVal += computePitch(std::min(width, inputWidth), format, type, 1);
+    } else {
+        endVal = startVal + inputPitch * inputHeight * depth;
+    }
 
     if (start) *start = startVal;
     if (end) *end = endVal;
@@ -293,7 +306,8 @@ int computeTotalImageSize(
             unpackSkipRows,
             unpackSkipImages,
             &start,
-            &end);
+            &end,
+            0);
     return end;
 }
 
@@ -305,7 +319,8 @@ int computeNeededBufferSize(
         int unpackImageHeight,
         int unpackSkipPixels,
         int unpackSkipRows,
-        int unpackSkipImages) {
+        int unpackSkipImages,
+        int ignoreTrailing) {
 
     int start, end;
     computeTextureStartEnd(
@@ -318,7 +333,8 @@ int computeNeededBufferSize(
             unpackSkipRows,
             unpackSkipImages,
             &start,
-            &end);
+            &end,
+            ignoreTrailing);
     return end - start;
 }
 
@@ -470,6 +486,18 @@ bool isBptcFormat(GLenum internalformat) {
     }
 }
 
+bool isRgtcFormat(GLenum internalformat) {
+    switch(internalformat)
+    {
+        case GL_COMPRESSED_RED_RGTC1_EXT:
+        case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+        case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
+            return true;
+    }
+    return false;
+}
+
 bool isS3tcFormat(GLenum internalformat) {
     switch (internalformat) {
         case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
@@ -586,11 +614,15 @@ GLsizei getCompressedImageBlocksize(GLenum internalformat) {
         case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
         case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
         case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RED_RGTC1_EXT:
+        case GL_COMPRESSED_SIGNED_RED_RGTC1_EXT:
             return 8;
         case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
         case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT:
         case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
         case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+        case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
             return 16;
     }
 
@@ -617,7 +649,7 @@ GLsizei getCompressedImageSize(GLenum internalformat, GLsizei width, GLsizei hei
         return getAstcCompressedSize(internalformat, width, height, depth, error);
     }
 
-    if (isBptcFormat(internalformat) || isS3tcFormat(internalformat)) {
+    if (isBptcFormat(internalformat) || isS3tcFormat(internalformat) || isRgtcFormat(internalformat)) {
         GLsizei blocksize = getCompressedImageBlocksize(internalformat);
         return get4x4CompressedSize(width, height, depth, blocksize, error);
     }

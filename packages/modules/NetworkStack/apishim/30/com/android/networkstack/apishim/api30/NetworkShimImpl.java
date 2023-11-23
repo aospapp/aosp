@@ -16,17 +16,20 @@
 
 package com.android.networkstack.apishim.api30;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastR;
+
 import android.net.Network;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.NetworkShim;
-import com.android.networkstack.apishim.common.ShimUtils;
 
 /**
  * Implementation of {@link NetworkShim} for API 30.
  */
+@RequiresApi(Build.VERSION_CODES.R)
 public class NetworkShimImpl extends com.android.networkstack.apishim.api29.NetworkShimImpl {
     protected NetworkShimImpl(@NonNull Network network) {
         super(network);
@@ -35,8 +38,9 @@ public class NetworkShimImpl extends com.android.networkstack.apishim.api29.Netw
     /**
      * Get a new instance of {@link NetworkShim}.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     public static NetworkShim newInstance(@NonNull Network network) {
-        if (!ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q)) {
+        if (!isAtLeastR()) {
             return com.android.networkstack.apishim.api29.NetworkShimImpl.newInstance(network);
         }
         return new NetworkShimImpl(network);

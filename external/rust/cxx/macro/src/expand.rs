@@ -14,7 +14,7 @@ use crate::{derive, generics};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::mem;
-use syn::{parse_quote, punctuated, Lifetime, Result, Token};
+use syn::{parse_quote, punctuated, Generics, Lifetime, Result, Token};
 
 pub fn bridge(mut ffi: Module) -> Result<TokenStream> {
     let ref mut errors = Errors::new();
@@ -32,10 +32,14 @@ pub fn bridge(mut ffi: Module) -> Result<TokenStream> {
     let content = mem::take(&mut ffi.content);
     let trusted = ffi.unsafety.is_some();
     let namespace = &ffi.namespace;
-    let ref apis = syntax::parse_items(errors, content, trusted, namespace);
+    let ref mut apis = syntax::parse_items(errors, content, trusted, namespace);
+    #[cfg(feature = "experimental")]
+    crate::load::load(errors, apis);
     let ref types = Types::collect(errors, apis);
     errors.propagate()?;
-    check::typecheck(errors, apis, types);
+
+    let generator = check::Generator::Macro;
+    check::typecheck(errors, apis, types, generator);
     errors.propagate()?;
 
     Ok(expand(ffi, doc, attrs, apis, types))
@@ -130,8 +134,9 @@ fn expand(ffi: Module, doc: Doc, attrs: OtherAttrs, apis: &[Api], types: &Types)
     quote! {
         #doc
         #attrs
-        #[deny(improper_ctypes)]
-        #[allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms, clippy::unknown_clippy_lints)]
+        #[deny(improper_ctypes, improper_ctypes_definitions)]
+        #[allow(clippy::unknown_clippy_lints)]
+        #[allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
         #vis #mod_token #ident #expanded
     }
 }
@@ -288,7 +293,7 @@ fn expand_enum(enm: &Enum) -> TokenStream {
     let ident = &enm.name.rust;
     let doc = &enm.doc;
     let attrs = &enm.attrs;
-    let repr = enm.repr;
+    let repr = &enm.repr;
     let type_id = type_id(&enm.name);
     let variants = enm.variants.iter().map(|variant| {
         let doc = &variant.doc;
@@ -419,18 +424,19 @@ fn expand_cxx_function_decl(efn: &ExternFn, types: &Types) -> TokenStream {
         quote!(_: #receiver_type)
     });
     let args = efn.args.iter().map(|arg| {
-        let ident = &arg.name.rust;
+        let var = &arg.name.rust;
+        let colon = arg.colon_token;
         let ty = expand_extern_type(&arg.ty, types, true);
         if arg.ty == RustString {
-            quote!(#ident: *const #ty)
+            quote!(#var #colon *const #ty)
         } else if let Type::RustVec(_) = arg.ty {
-            quote!(#ident: *const #ty)
+            quote!(#var #colon *const #ty)
         } else if let Type::Fn(_) = arg.ty {
-            quote!(#ident: ::cxx::private::FatFunction)
+            quote!(#var #colon ::cxx::private::FatFunction)
         } else if types.needs_indirect_abi(&arg.ty) {
-            quote!(#ident: *mut #ty)
+            quote!(#var #colon *mut #ty)
         } else {
-            quote!(#ident: #ty)
+            quote!(#var #colon #ty)
         }
     });
     let all_args = receiver.chain(args);
@@ -459,8 +465,9 @@ fn expand_cxx_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
     let receiver = efn.receiver.iter().map(|receiver| {
         let var = receiver.var;
         if receiver.pinned {
+            let colon = receiver.colon_token;
             let ty = receiver.ty_self();
-            quote!(#var: #ty)
+            quote!(#var #colon #ty)
         } else {
             let ampersand = receiver.ampersand;
             let lifetime = &receiver.lifetime;
@@ -486,53 +493,66 @@ fn expand_cxx_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
         .map(|receiver| receiver.var.to_token_stream());
     let arg_vars = efn.args.iter().map(|arg| {
         let var = &arg.name.rust;
+        let span = var.span();
         match &arg.ty {
             Type::Ident(ident) if ident.rust == RustString => {
-                quote!(#var.as_mut_ptr() as *const ::cxx::private::RustString)
+                quote_spanned!(span=> #var.as_mut_ptr() as *const ::cxx::private::RustString)
             }
-            Type::RustBox(_) => quote!(::std::boxed::Box::into_raw(#var)),
-            Type::UniquePtr(_) => quote!(::cxx::UniquePtr::into_raw(#var)),
-            Type::RustVec(_) => quote!(#var.as_mut_ptr() as *const ::cxx::private::RustVec<_>),
+            Type::RustBox(ty) => {
+                if types.is_considered_improper_ctype(&ty.inner) {
+                    quote_spanned!(span=> ::std::boxed::Box::into_raw(#var).cast())
+                } else {
+                    quote_spanned!(span=> ::std::boxed::Box::into_raw(#var))
+                }
+            }
+            Type::UniquePtr(ty) => {
+                if types.is_considered_improper_ctype(&ty.inner) {
+                    quote_spanned!(span=> ::cxx::UniquePtr::into_raw(#var).cast())
+                } else {
+                    quote_spanned!(span=> ::cxx::UniquePtr::into_raw(#var))
+                }
+            }
+            Type::RustVec(_) => quote_spanned!(span=> #var.as_mut_ptr() as *const ::cxx::private::RustVec<_>),
             Type::Ref(ty) => match &ty.inner {
                 Type::Ident(ident) if ident.rust == RustString => match ty.mutable {
-                    false => quote!(::cxx::private::RustString::from_ref(#var)),
-                    true => quote!(::cxx::private::RustString::from_mut(#var)),
+                    false => quote_spanned!(span=> ::cxx::private::RustString::from_ref(#var)),
+                    true => quote_spanned!(span=> ::cxx::private::RustString::from_mut(#var)),
                 },
                 Type::RustVec(vec) if vec.inner == RustString => match ty.mutable {
-                    false => quote!(::cxx::private::RustVec::from_ref_vec_string(#var)),
-                    true => quote!(::cxx::private::RustVec::from_mut_vec_string(#var)),
+                    false => quote_spanned!(span=> ::cxx::private::RustVec::from_ref_vec_string(#var)),
+                    true => quote_spanned!(span=> ::cxx::private::RustVec::from_mut_vec_string(#var)),
                 },
                 Type::RustVec(_) => match ty.mutable {
-                    false => quote!(::cxx::private::RustVec::from_ref(#var)),
-                    true => quote!(::cxx::private::RustVec::from_mut(#var)),
+                    false => quote_spanned!(span=> ::cxx::private::RustVec::from_ref(#var)),
+                    true => quote_spanned!(span=> ::cxx::private::RustVec::from_mut(#var)),
                 },
                 inner if types.is_considered_improper_ctype(inner) => {
                     let var = match ty.pinned {
                         false => quote!(#var),
-                        true => quote!(::std::pin::Pin::into_inner_unchecked(#var)),
+                        true => quote_spanned!(span=> ::std::pin::Pin::into_inner_unchecked(#var)),
                     };
                     match ty.mutable {
                         false => {
-                            quote!(#var as *const #inner as *const ::std::ffi::c_void)
+                            quote_spanned!(span=> #var as *const #inner as *const ::std::ffi::c_void)
                         }
-                        true => quote!(#var as *mut #inner as *mut ::std::ffi::c_void),
+                        true => quote_spanned!(span=> #var as *mut #inner as *mut ::std::ffi::c_void),
                     }
                 }
                 _ => quote!(#var),
             },
             Type::Ptr(ty) => {
                 if types.is_considered_improper_ctype(&ty.inner) {
-                    quote!(#var.cast())
+                    quote_spanned!(span=> #var.cast())
                 } else {
                     quote!(#var)
                 }
             }
-            Type::Str(_) => quote!(::cxx::private::RustStr::from(#var)),
+            Type::Str(_) => quote_spanned!(span=> ::cxx::private::RustStr::from(#var)),
             Type::SliceRef(ty) => match ty.mutable {
-                false => quote!(::cxx::private::RustSlice::from_ref(#var)),
-                true => quote!(::cxx::private::RustSlice::from_mut(#var)),
+                false => quote_spanned!(span=> ::cxx::private::RustSlice::from_ref(#var)),
+                true => quote_spanned!(span=> ::cxx::private::RustSlice::from_mut(#var)),
             },
-            ty if types.needs_indirect_abi(ty) => quote!(#var.as_mut_ptr()),
+            ty if types.needs_indirect_abi(ty) => quote_spanned!(span=> #var.as_mut_ptr()),
             _ => quote!(#var),
         }
     });
@@ -555,35 +575,37 @@ fn expand_cxx_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
         .filter(|arg| types.needs_indirect_abi(&arg.ty))
         .map(|arg| {
             let var = &arg.name.rust;
+            let span = var.span();
             // These are arguments for which C++ has taken ownership of the data
             // behind the mut reference it received.
-            quote! {
+            quote_spanned! {span=>
                 let mut #var = ::std::mem::MaybeUninit::new(#var);
             }
         })
         .collect::<TokenStream>();
     let local_name = format_ident!("__{}", efn.name.rust);
+    let span = efn.semi_token.span;
     let call = if indirect_return {
         let ret = expand_extern_type(efn.ret.as_ref().unwrap(), types, true);
-        setup.extend(quote! {
+        setup.extend(quote_spanned! {span=>
             let mut __return = ::std::mem::MaybeUninit::<#ret>::uninit();
         });
         setup.extend(if efn.throws {
-            quote! {
+            quote_spanned! {span=>
                 #local_name(#(#vars,)* __return.as_mut_ptr()).exception()?;
             }
         } else {
-            quote! {
+            quote_spanned! {span=>
                 #local_name(#(#vars,)* __return.as_mut_ptr());
             }
         });
-        quote!(__return.assume_init())
+        quote_spanned!(span=> __return.assume_init())
     } else if efn.throws {
-        quote! {
+        quote_spanned! {span=>
             #local_name(#(#vars),*).exception()
         }
     } else {
-        quote! {
+        quote_spanned! {span=>
             #local_name(#(#vars),*)
         }
     };
@@ -594,72 +616,88 @@ fn expand_cxx_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
         expr = match &efn.ret {
             None => call,
             Some(ret) => match ret {
-                Type::Ident(ident) if ident.rust == RustString => quote!(#call.into_string()),
-                Type::RustBox(_) => quote!(::std::boxed::Box::from_raw(#call)),
-                Type::RustVec(vec) => {
-                    if vec.inner == RustString {
-                        quote!(#call.into_vec_string())
+                Type::Ident(ident) if ident.rust == RustString => {
+                    quote_spanned!(span=> #call.into_string())
+                }
+                Type::RustBox(ty) => {
+                    if types.is_considered_improper_ctype(&ty.inner) {
+                        quote_spanned!(span=> ::std::boxed::Box::from_raw(#call.cast()))
                     } else {
-                        quote!(#call.into_vec())
+                        quote_spanned!(span=> ::std::boxed::Box::from_raw(#call))
                     }
                 }
-                Type::UniquePtr(_) => quote!(::cxx::UniquePtr::from_raw(#call)),
+                Type::RustVec(vec) => {
+                    if vec.inner == RustString {
+                        quote_spanned!(span=> #call.into_vec_string())
+                    } else {
+                        quote_spanned!(span=> #call.into_vec())
+                    }
+                }
+                Type::UniquePtr(ty) => {
+                    if types.is_considered_improper_ctype(&ty.inner) {
+                        quote_spanned!(span=> ::cxx::UniquePtr::from_raw(#call.cast()))
+                    } else {
+                        quote_spanned!(span=> ::cxx::UniquePtr::from_raw(#call))
+                    }
+                }
                 Type::Ref(ty) => match &ty.inner {
                     Type::Ident(ident) if ident.rust == RustString => match ty.mutable {
-                        false => quote!(#call.as_string()),
-                        true => quote!(#call.as_mut_string()),
+                        false => quote_spanned!(span=> #call.as_string()),
+                        true => quote_spanned!(span=> #call.as_mut_string()),
                     },
                     Type::RustVec(vec) if vec.inner == RustString => match ty.mutable {
-                        false => quote!(#call.as_vec_string()),
-                        true => quote!(#call.as_mut_vec_string()),
+                        false => quote_spanned!(span=> #call.as_vec_string()),
+                        true => quote_spanned!(span=> #call.as_mut_vec_string()),
                     },
                     Type::RustVec(_) => match ty.mutable {
-                        false => quote!(#call.as_vec()),
-                        true => quote!(#call.as_mut_vec()),
+                        false => quote_spanned!(span=> #call.as_vec()),
+                        true => quote_spanned!(span=> #call.as_mut_vec()),
                     },
                     inner if types.is_considered_improper_ctype(inner) => {
                         let mutability = ty.mutability;
-                        let deref_mut = quote!(&#mutability *#call.cast());
+                        let deref_mut = quote_spanned!(span=> &#mutability *#call.cast());
                         match ty.pinned {
                             false => deref_mut,
-                            true => quote!(::std::pin::Pin::new_unchecked(#deref_mut)),
+                            true => {
+                                quote_spanned!(span=> ::std::pin::Pin::new_unchecked(#deref_mut))
+                            }
                         }
                     }
                     _ => call,
                 },
                 Type::Ptr(ty) => {
                     if types.is_considered_improper_ctype(&ty.inner) {
-                        quote!(#call.cast())
+                        quote_spanned!(span=> #call.cast())
                     } else {
                         call
                     }
                 }
-                Type::Str(_) => quote!(#call.as_str()),
+                Type::Str(_) => quote_spanned!(span=> #call.as_str()),
                 Type::SliceRef(slice) => {
                     let inner = &slice.inner;
                     match slice.mutable {
-                        false => quote!(#call.as_slice::<#inner>()),
-                        true => quote!(#call.as_mut_slice::<#inner>()),
+                        false => quote_spanned!(span=> #call.as_slice::<#inner>()),
+                        true => quote_spanned!(span=> #call.as_mut_slice::<#inner>()),
                     }
                 }
                 _ => call,
             },
         };
         if efn.throws {
-            expr = quote!(::std::result::Result::Ok(#expr));
+            expr = quote_spanned!(span=> ::std::result::Result::Ok(#expr));
         }
     };
     let mut dispatch = quote!(#setup #expr);
     let visibility = efn.visibility;
     let unsafety = &efn.sig.unsafety;
     if unsafety.is_none() {
-        dispatch = quote!(unsafe { #dispatch });
+        dispatch = quote_spanned!(span=> unsafe { #dispatch });
     }
     let fn_token = efn.sig.fn_token;
     let ident = &efn.name.rust;
     let generics = &efn.generics;
     let arg_list = quote_spanned!(efn.sig.paren_token.span=> (#(#all_args,)*));
-    let fn_body = quote_spanned!(efn.semi_token.span=> {
+    let fn_body = quote_spanned!(span=> {
         extern "C" {
             #decl
         }
@@ -697,7 +735,7 @@ fn expand_cxx_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
                 };
                 &elided_generics
             };
-            quote! {
+            quote_spanned! {ident.span()=>
                 impl #generics #receiver_ident #receiver_generics {
                     #doc
                     #attrs
@@ -718,6 +756,7 @@ fn expand_function_pointer_trampoline(
     let r_trampoline = mangle::r_trampoline(efn, var, types);
     let local_name = parse_quote!(__);
     let catch_unwind_label = format!("::{}::{}", efn.name.rust, var.rust);
+    let body_span = efn.semi_token.span;
     let shim = expand_rust_function_shim_impl(
         sig,
         types,
@@ -725,6 +764,8 @@ fn expand_function_pointer_trampoline(
         local_name,
         catch_unwind_label,
         None,
+        Some(&efn.generics),
+        body_span,
     );
     let var = &var.rust;
 
@@ -736,9 +777,9 @@ fn expand_function_pointer_trampoline(
                     fn trampoline();
                 }
                 #shim
-                trampoline as usize as *const ()
+                trampoline as usize as *const ::std::ffi::c_void
             },
-            ptr: #var as usize as *const (),
+            ptr: #var as usize as *const ::std::ffi::c_void,
         };
     }
 }
@@ -857,6 +898,7 @@ fn expand_rust_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
         Some(receiver) => format!("::{}::{}", receiver.ty.rust, efn.name.rust),
     };
     let invoke = Some(&efn.name.rust);
+    let body_span = efn.semi_token.span;
     expand_rust_function_shim_impl(
         efn,
         types,
@@ -864,6 +906,8 @@ fn expand_rust_function_shim(efn: &ExternFn, types: &Types) -> TokenStream {
         local_name,
         catch_unwind_label,
         invoke,
+        None,
+        body_span,
     )
 }
 
@@ -874,138 +918,166 @@ fn expand_rust_function_shim_impl(
     local_name: Ident,
     catch_unwind_label: String,
     invoke: Option<&Ident>,
+    outer_generics: Option<&Generics>,
+    body_span: Span,
 ) -> TokenStream {
-    let generics = &sig.generics;
+    let generics = outer_generics.unwrap_or(&sig.generics);
     let receiver_var = sig
         .receiver
         .as_ref()
         .map(|receiver| quote_spanned!(receiver.var.span=> __self));
     let receiver = sig.receiver.as_ref().map(|receiver| {
+        let colon = receiver.colon_token;
         let receiver_type = receiver.ty();
-        quote!(#receiver_var: #receiver_type)
+        quote!(#receiver_var #colon #receiver_type)
     });
     let args = sig.args.iter().map(|arg| {
-        let ident = &arg.name.rust;
+        let var = &arg.name.rust;
+        let colon = arg.colon_token;
         let ty = expand_extern_type(&arg.ty, types, false);
         if types.needs_indirect_abi(&arg.ty) {
-            quote!(#ident: *mut #ty)
+            quote!(#var #colon *mut #ty)
         } else {
-            quote!(#ident: #ty)
+            quote!(#var #colon #ty)
         }
     });
     let all_args = receiver.into_iter().chain(args);
 
     let arg_vars = sig.args.iter().map(|arg| {
-        let ident = &arg.name.rust;
+        let var = &arg.name.rust;
+        let span = var.span();
         match &arg.ty {
             Type::Ident(i) if i.rust == RustString => {
-                quote!(::std::mem::take((*#ident).as_mut_string()))
+                quote_spanned!(span=> ::std::mem::take((*#var).as_mut_string()))
             }
-            Type::RustBox(_) => quote!(::std::boxed::Box::from_raw(#ident)),
+            Type::RustBox(_) => quote_spanned!(span=> ::std::boxed::Box::from_raw(#var)),
             Type::RustVec(vec) => {
                 if vec.inner == RustString {
-                    quote!(::std::mem::take((*#ident).as_mut_vec_string()))
+                    quote_spanned!(span=> ::std::mem::take((*#var).as_mut_vec_string()))
                 } else {
-                    quote!(::std::mem::take((*#ident).as_mut_vec()))
+                    quote_spanned!(span=> ::std::mem::take((*#var).as_mut_vec()))
                 }
             }
-            Type::UniquePtr(_) => quote!(::cxx::UniquePtr::from_raw(#ident)),
+            Type::UniquePtr(_) => quote_spanned!(span=> ::cxx::UniquePtr::from_raw(#var)),
             Type::Ref(ty) => match &ty.inner {
                 Type::Ident(i) if i.rust == RustString => match ty.mutable {
-                    false => quote!(#ident.as_string()),
-                    true => quote!(#ident.as_mut_string()),
+                    false => quote_spanned!(span=> #var.as_string()),
+                    true => quote_spanned!(span=> #var.as_mut_string()),
                 },
                 Type::RustVec(vec) if vec.inner == RustString => match ty.mutable {
-                    false => quote!(#ident.as_vec_string()),
-                    true => quote!(#ident.as_mut_vec_string()),
+                    false => quote_spanned!(span=> #var.as_vec_string()),
+                    true => quote_spanned!(span=> #var.as_mut_vec_string()),
                 },
                 Type::RustVec(_) => match ty.mutable {
-                    false => quote!(#ident.as_vec()),
-                    true => quote!(#ident.as_mut_vec()),
+                    false => quote_spanned!(span=> #var.as_vec()),
+                    true => quote_spanned!(span=> #var.as_mut_vec()),
                 },
-                _ => quote!(#ident),
+                _ => quote!(#var),
             },
-            Type::Str(_) => quote!(#ident.as_str()),
+            Type::Str(_) => quote_spanned!(span=> #var.as_str()),
             Type::SliceRef(slice) => {
                 let inner = &slice.inner;
                 match slice.mutable {
-                    false => quote!(#ident.as_slice::<#inner>()),
-                    true => quote!(#ident.as_mut_slice::<#inner>()),
+                    false => quote_spanned!(span=> #var.as_slice::<#inner>()),
+                    true => quote_spanned!(span=> #var.as_mut_slice::<#inner>()),
                 }
             }
-            ty if types.needs_indirect_abi(ty) => quote!(::std::ptr::read(#ident)),
-            _ => quote!(#ident),
+            ty if types.needs_indirect_abi(ty) => quote_spanned!(span=> ::std::ptr::read(#var)),
+            _ => quote!(#var),
         }
     });
-    let vars = receiver_var.into_iter().chain(arg_vars);
+    let vars: Vec<_> = receiver_var.into_iter().chain(arg_vars).collect();
 
     let wrap_super = invoke.map(|invoke| expand_rust_function_shim_super(sig, &local_name, invoke));
 
+    let mut requires_closure;
     let mut call = match invoke {
-        Some(_) => quote!(#local_name),
-        None => quote!(::std::mem::transmute::<*const (), #sig>(__extern)),
+        Some(_) => {
+            requires_closure = false;
+            quote!(#local_name)
+        }
+        None => {
+            requires_closure = true;
+            quote!(::std::mem::transmute::<*const (), #sig>(__extern))
+        }
     };
+    requires_closure |= !vars.is_empty();
     call.extend(quote! { (#(#vars),*) });
 
+    let span = body_span;
     let conversion = sig.ret.as_ref().and_then(|ret| match ret {
         Type::Ident(ident) if ident.rust == RustString => {
-            Some(quote!(::cxx::private::RustString::from))
+            Some(quote_spanned!(span=> ::cxx::private::RustString::from))
         }
-        Type::RustBox(_) => Some(quote!(::std::boxed::Box::into_raw)),
+        Type::RustBox(_) => Some(quote_spanned!(span=> ::std::boxed::Box::into_raw)),
         Type::RustVec(vec) => {
             if vec.inner == RustString {
-                Some(quote!(::cxx::private::RustVec::from_vec_string))
+                Some(quote_spanned!(span=> ::cxx::private::RustVec::from_vec_string))
             } else {
-                Some(quote!(::cxx::private::RustVec::from))
+                Some(quote_spanned!(span=> ::cxx::private::RustVec::from))
             }
         }
-        Type::UniquePtr(_) => Some(quote!(::cxx::UniquePtr::into_raw)),
+        Type::UniquePtr(_) => Some(quote_spanned!(span=> ::cxx::UniquePtr::into_raw)),
         Type::Ref(ty) => match &ty.inner {
             Type::Ident(ident) if ident.rust == RustString => match ty.mutable {
-                false => Some(quote!(::cxx::private::RustString::from_ref)),
-                true => Some(quote!(::cxx::private::RustString::from_mut)),
+                false => Some(quote_spanned!(span=> ::cxx::private::RustString::from_ref)),
+                true => Some(quote_spanned!(span=> ::cxx::private::RustString::from_mut)),
             },
             Type::RustVec(vec) if vec.inner == RustString => match ty.mutable {
-                false => Some(quote!(::cxx::private::RustVec::from_ref_vec_string)),
-                true => Some(quote!(::cxx::private::RustVec::from_mut_vec_string)),
+                false => Some(quote_spanned!(span=> ::cxx::private::RustVec::from_ref_vec_string)),
+                true => Some(quote_spanned!(span=> ::cxx::private::RustVec::from_mut_vec_string)),
             },
             Type::RustVec(_) => match ty.mutable {
-                false => Some(quote!(::cxx::private::RustVec::from_ref)),
-                true => Some(quote!(::cxx::private::RustVec::from_mut)),
+                false => Some(quote_spanned!(span=> ::cxx::private::RustVec::from_ref)),
+                true => Some(quote_spanned!(span=> ::cxx::private::RustVec::from_mut)),
             },
             _ => None,
         },
-        Type::Str(_) => Some(quote!(::cxx::private::RustStr::from)),
+        Type::Str(_) => Some(quote_spanned!(span=> ::cxx::private::RustStr::from)),
         Type::SliceRef(ty) => match ty.mutable {
-            false => Some(quote!(::cxx::private::RustSlice::from_ref)),
-            true => Some(quote!(::cxx::private::RustSlice::from_mut)),
+            false => Some(quote_spanned!(span=> ::cxx::private::RustSlice::from_ref)),
+            true => Some(quote_spanned!(span=> ::cxx::private::RustSlice::from_mut)),
         },
         _ => None,
     });
 
     let mut expr = match conversion {
         None => call,
-        Some(conversion) if !sig.throws => quote!(#conversion(#call)),
-        Some(conversion) => quote!(::std::result::Result::map(#call, #conversion)),
+        Some(conversion) if !sig.throws => {
+            requires_closure = true;
+            quote_spanned!(span=> #conversion(#call))
+        }
+        Some(conversion) => {
+            requires_closure = true;
+            quote_spanned!(span=> ::std::result::Result::map(#call, #conversion))
+        }
     };
 
     let mut outparam = None;
     let indirect_return = indirect_return(sig, types);
     if indirect_return {
         let ret = expand_extern_type(sig.ret.as_ref().unwrap(), types, false);
-        outparam = Some(quote!(__return: *mut #ret,));
+        outparam = Some(quote_spanned!(span=> __return: *mut #ret,));
     }
     if sig.throws {
         let out = match sig.ret {
-            Some(_) => quote!(__return),
-            None => quote!(&mut ()),
+            Some(_) => quote_spanned!(span=> __return),
+            None => quote_spanned!(span=> &mut ()),
         };
-        expr = quote!(::cxx::private::r#try(#out, #expr));
+        requires_closure = true;
+        expr = quote_spanned!(span=> ::cxx::private::r#try(#out, #expr));
     } else if indirect_return {
-        expr = quote!(::std::ptr::write(__return, #expr));
+        requires_closure = true;
+        expr = quote_spanned!(span=> ::std::ptr::write(__return, #expr));
     }
 
-    expr = quote!(::cxx::private::catch_unwind(__fn, move || #expr));
+    let closure = if requires_closure {
+        quote_spanned!(span=> move || #expr)
+    } else {
+        quote!(#local_name)
+    };
+
+    expr = quote_spanned!(span=> ::cxx::private::catch_unwind(__fn, #closure));
 
     let ret = if sig.throws {
         quote!(-> ::cxx::private::Result)
@@ -1014,11 +1086,11 @@ fn expand_rust_function_shim_impl(
     };
 
     let pointer = match invoke {
-        None => Some(quote!(__extern: *const ())),
+        None => Some(quote_spanned!(span=> __extern: *const ())),
         Some(_) => None,
     };
 
-    quote! {
+    quote_spanned! {span=>
         #[doc(hidden)]
         #[export_name = #link_name]
         unsafe extern "C" fn #local_name #generics(#(#all_args,)* #outparam #pointer) #ret {
@@ -1055,9 +1127,11 @@ fn expand_rust_function_shim_super(
             Some(ret) => quote!(#ret),
             None => quote!(()),
         };
-        let impl_trait = quote_spanned!(result.span=> impl);
-        let display = quote_spanned!(rangle.span=> ::std::fmt::Display);
-        quote!(-> ::std::result::Result<#ok, #impl_trait #display>)
+        // Set spans that result in the `Result<...>` written by the user being
+        // highlighted as the cause if their error type has no Display impl.
+        let result_begin = quote_spanned!(result.span=> ::std::result::Result<#ok, impl);
+        let result_end = quote_spanned!(rangle.span=> ::std::fmt::Display>);
+        quote!(-> #result_begin #result_end)
     } else {
         expand_return_type(&sig.ret)
     };
@@ -1227,8 +1301,8 @@ fn expand_rust_vec(key: NamedImplKey, types: &Types, explicit_impl: Option<&Impl
         }
         #[doc(hidden)]
         #[export_name = #link_reserve_total]
-        unsafe extern "C" fn #local_reserve_total #impl_generics(this: *mut ::cxx::private::RustVec<#elem #ty_generics>, cap: usize) {
-            (*this).reserve_total(cap);
+        unsafe extern "C" fn #local_reserve_total #impl_generics(this: *mut ::cxx::private::RustVec<#elem #ty_generics>, new_cap: usize) {
+            (*this).reserve_total(new_cap);
         }
         #[doc(hidden)]
         #[export_name = #link_set_len]
@@ -1256,18 +1330,16 @@ fn expand_unique_ptr(
 
     let (impl_generics, ty_generics) = generics::split_for_impl(key, explicit_impl, resolve);
 
-    let can_construct_from_value = types.structs.contains_key(ident)
-        || types.enums.contains_key(ident)
-        || types.aliases.contains_key(ident);
+    let can_construct_from_value = types.is_maybe_trivial(ident);
     let new_method = if can_construct_from_value {
         Some(quote! {
             #[doc(hidden)]
-            fn __new(value: Self) -> *mut ::std::ffi::c_void {
+            fn __new(value: Self) -> ::std::mem::MaybeUninit<*mut ::std::ffi::c_void> {
                 extern "C" {
                     #[link_name = #link_uninit]
-                    fn __uninit(this: *mut *mut ::std::ffi::c_void) -> *mut ::std::ffi::c_void;
+                    fn __uninit(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *mut ::std::ffi::c_void;
                 }
-                let mut repr = ::std::ptr::null_mut::<::std::ffi::c_void>();
+                let mut repr = ::std::mem::MaybeUninit::uninit();
                 unsafe { __uninit(&mut repr).cast::<#ident #ty_generics>().write(value) }
                 repr
             }
@@ -1287,47 +1359,47 @@ fn expand_unique_ptr(
                 f.write_str(#name)
             }
             #[doc(hidden)]
-            fn __null() -> *mut ::std::ffi::c_void {
+            fn __null() -> ::std::mem::MaybeUninit<*mut ::std::ffi::c_void> {
                 extern "C" {
                     #[link_name = #link_null]
-                    fn __null(this: *mut *mut ::std::ffi::c_void);
+                    fn __null(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>);
                 }
-                let mut repr = ::std::ptr::null_mut::<::std::ffi::c_void>();
+                let mut repr = ::std::mem::MaybeUninit::uninit();
                 unsafe { __null(&mut repr) }
                 repr
             }
             #new_method
             #[doc(hidden)]
-            unsafe fn __raw(raw: *mut Self) -> *mut ::std::ffi::c_void {
+            unsafe fn __raw(raw: *mut Self) -> ::std::mem::MaybeUninit<*mut ::std::ffi::c_void> {
                 extern "C" {
                     #[link_name = #link_raw]
-                    fn __raw(this: *mut *mut ::std::ffi::c_void, raw: *mut ::std::ffi::c_void);
+                    fn __raw(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>, raw: *mut ::std::ffi::c_void);
                 }
-                let mut repr = ::std::ptr::null_mut::<::std::ffi::c_void>();
+                let mut repr = ::std::mem::MaybeUninit::uninit();
                 __raw(&mut repr, raw.cast());
                 repr
             }
             #[doc(hidden)]
-            unsafe fn __get(repr: *mut ::std::ffi::c_void) -> *const Self {
+            unsafe fn __get(repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *const Self {
                 extern "C" {
                     #[link_name = #link_get]
-                    fn __get(this: *const *mut ::std::ffi::c_void) -> *const ::std::ffi::c_void;
+                    fn __get(this: *const ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *const ::std::ffi::c_void;
                 }
                 __get(&repr).cast()
             }
             #[doc(hidden)]
-            unsafe fn __release(mut repr: *mut ::std::ffi::c_void) -> *mut Self {
+            unsafe fn __release(mut repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *mut Self {
                 extern "C" {
                     #[link_name = #link_release]
-                    fn __release(this: *mut *mut ::std::ffi::c_void) -> *mut ::std::ffi::c_void;
+                    fn __release(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *mut ::std::ffi::c_void;
                 }
                 __release(&mut repr).cast()
             }
             #[doc(hidden)]
-            unsafe fn __drop(mut repr: *mut ::std::ffi::c_void) {
+            unsafe fn __drop(mut repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) {
                 extern "C" {
                     #[link_name = #link_drop]
-                    fn __drop(this: *mut *mut ::std::ffi::c_void);
+                    fn __drop(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>);
                 }
                 __drop(&mut repr);
             }
@@ -1352,9 +1424,7 @@ fn expand_shared_ptr(
 
     let (impl_generics, ty_generics) = generics::split_for_impl(key, explicit_impl, resolve);
 
-    let can_construct_from_value = types.structs.contains_key(ident)
-        || types.enums.contains_key(ident)
-        || types.aliases.contains_key(ident);
+    let can_construct_from_value = types.is_maybe_trivial(ident);
     let new_method = if can_construct_from_value {
         Some(quote! {
             #[doc(hidden)]
@@ -1495,6 +1565,8 @@ fn expand_cxx_vector(
     let prefix = format!("cxxbridge1$std$vector${}$", resolve.name.to_symbol());
     let link_size = format!("{}size", prefix);
     let link_get_unchecked = format!("{}get_unchecked", prefix);
+    let link_push_back = format!("{}push_back", prefix);
+    let link_pop_back = format!("{}pop_back", prefix);
     let unique_ptr_prefix = format!(
         "cxxbridge1$unique_ptr$std$vector${}$",
         resolve.name.to_symbol(),
@@ -1510,6 +1582,42 @@ fn expand_cxx_vector(
     let begin_span = explicit_impl.map_or(key.begin_span, |explicit| explicit.impl_token.span);
     let end_span = explicit_impl.map_or(key.end_span, |explicit| explicit.brace_token.span);
     let unsafe_token = format_ident!("unsafe", span = begin_span);
+
+    let can_pass_element_by_value = types.is_maybe_trivial(elem);
+    let by_value_methods = if can_pass_element_by_value {
+        Some(quote_spanned! {end_span=>
+            #[doc(hidden)]
+            unsafe fn __push_back(
+                this: ::std::pin::Pin<&mut ::cxx::CxxVector<Self>>,
+                value: &mut ::std::mem::ManuallyDrop<Self>,
+            ) {
+                extern "C" {
+                    #[link_name = #link_push_back]
+                    fn __push_back #impl_generics(
+                        this: ::std::pin::Pin<&mut ::cxx::CxxVector<#elem #ty_generics>>,
+                        value: *mut ::std::ffi::c_void,
+                    );
+                }
+                __push_back(this, value as *mut ::std::mem::ManuallyDrop<Self> as *mut ::std::ffi::c_void);
+            }
+            #[doc(hidden)]
+            unsafe fn __pop_back(
+                this: ::std::pin::Pin<&mut ::cxx::CxxVector<Self>>,
+                out: &mut ::std::mem::MaybeUninit<Self>,
+            ) {
+                extern "C" {
+                    #[link_name = #link_pop_back]
+                    fn __pop_back #impl_generics(
+                        this: ::std::pin::Pin<&mut ::cxx::CxxVector<#elem #ty_generics>>,
+                        out: *mut ::std::ffi::c_void,
+                    );
+                }
+                __pop_back(this, out as *mut ::std::mem::MaybeUninit<Self> as *mut ::std::ffi::c_void);
+            }
+        })
+    } else {
+        None
+    };
 
     quote_spanned! {end_span=>
         #unsafe_token impl #impl_generics ::cxx::private::VectorElement for #elem #ty_generics {
@@ -1529,51 +1637,55 @@ fn expand_cxx_vector(
             unsafe fn __get_unchecked(v: *mut ::cxx::CxxVector<Self>, pos: usize) -> *mut Self {
                 extern "C" {
                     #[link_name = #link_get_unchecked]
-                    fn __get_unchecked #impl_generics(_: *mut ::cxx::CxxVector<#elem #ty_generics>, _: usize) -> *mut #elem #ty_generics;
+                    fn __get_unchecked #impl_generics(
+                        v: *mut ::cxx::CxxVector<#elem #ty_generics>,
+                        pos: usize,
+                    ) -> *mut ::std::ffi::c_void;
                 }
-                __get_unchecked(v, pos)
+                __get_unchecked(v, pos) as *mut Self
             }
+            #by_value_methods
             #[doc(hidden)]
-            fn __unique_ptr_null() -> *mut ::std::ffi::c_void {
+            fn __unique_ptr_null() -> ::std::mem::MaybeUninit<*mut ::std::ffi::c_void> {
                 extern "C" {
                     #[link_name = #link_unique_ptr_null]
-                    fn __unique_ptr_null(this: *mut *mut ::std::ffi::c_void);
+                    fn __unique_ptr_null(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>);
                 }
-                let mut repr = ::std::ptr::null_mut::<::std::ffi::c_void>();
+                let mut repr = ::std::mem::MaybeUninit::uninit();
                 unsafe { __unique_ptr_null(&mut repr) }
                 repr
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_raw(raw: *mut ::cxx::CxxVector<Self>) -> *mut ::std::ffi::c_void {
+            unsafe fn __unique_ptr_raw(raw: *mut ::cxx::CxxVector<Self>) -> ::std::mem::MaybeUninit<*mut ::std::ffi::c_void> {
                 extern "C" {
                     #[link_name = #link_unique_ptr_raw]
-                    fn __unique_ptr_raw #impl_generics(this: *mut *mut ::std::ffi::c_void, raw: *mut ::cxx::CxxVector<#elem #ty_generics>);
+                    fn __unique_ptr_raw #impl_generics(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>, raw: *mut ::cxx::CxxVector<#elem #ty_generics>);
                 }
-                let mut repr = ::std::ptr::null_mut::<::std::ffi::c_void>();
+                let mut repr = ::std::mem::MaybeUninit::uninit();
                 __unique_ptr_raw(&mut repr, raw);
                 repr
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_get(repr: *mut ::std::ffi::c_void) -> *const ::cxx::CxxVector<Self> {
+            unsafe fn __unique_ptr_get(repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *const ::cxx::CxxVector<Self> {
                 extern "C" {
                     #[link_name = #link_unique_ptr_get]
-                    fn __unique_ptr_get #impl_generics(this: *const *mut ::std::ffi::c_void) -> *const ::cxx::CxxVector<#elem #ty_generics>;
+                    fn __unique_ptr_get #impl_generics(this: *const ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *const ::cxx::CxxVector<#elem #ty_generics>;
                 }
                 __unique_ptr_get(&repr)
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_release(mut repr: *mut ::std::ffi::c_void) -> *mut ::cxx::CxxVector<Self> {
+            unsafe fn __unique_ptr_release(mut repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *mut ::cxx::CxxVector<Self> {
                 extern "C" {
                     #[link_name = #link_unique_ptr_release]
-                    fn __unique_ptr_release #impl_generics(this: *mut *mut ::std::ffi::c_void) -> *mut ::cxx::CxxVector<#elem #ty_generics>;
+                    fn __unique_ptr_release #impl_generics(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) -> *mut ::cxx::CxxVector<#elem #ty_generics>;
                 }
                 __unique_ptr_release(&mut repr)
             }
             #[doc(hidden)]
-            unsafe fn __unique_ptr_drop(mut repr: *mut ::std::ffi::c_void) {
+            unsafe fn __unique_ptr_drop(mut repr: ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>) {
                 extern "C" {
                     #[link_name = #link_unique_ptr_drop]
-                    fn __unique_ptr_drop(this: *mut *mut ::std::ffi::c_void);
+                    fn __unique_ptr_drop(this: *mut ::std::mem::MaybeUninit<*mut ::std::ffi::c_void>);
                 }
                 __unique_ptr_drop(&mut repr);
             }
@@ -1596,43 +1708,72 @@ fn indirect_return(sig: &Signature, types: &Types) -> bool {
 
 fn expand_extern_type(ty: &Type, types: &Types, proper: bool) -> TokenStream {
     match ty {
-        Type::Ident(ident) if ident.rust == RustString => quote!(::cxx::private::RustString),
+        Type::Ident(ident) if ident.rust == RustString => {
+            let span = ident.rust.span();
+            quote_spanned!(span=> ::cxx::private::RustString)
+        }
         Type::RustBox(ty) | Type::UniquePtr(ty) => {
-            let inner = expand_extern_type(&ty.inner, types, proper);
-            quote!(*mut #inner)
+            let span = ty.name.span();
+            if proper && types.is_considered_improper_ctype(&ty.inner) {
+                quote_spanned!(span=> *mut ::std::ffi::c_void)
+            } else {
+                let inner = expand_extern_type(&ty.inner, types, proper);
+                quote_spanned!(span=> *mut #inner)
+            }
         }
         Type::RustVec(ty) => {
+            let span = ty.name.span();
+            let langle = ty.langle;
             let elem = expand_extern_type(&ty.inner, types, proper);
-            quote!(::cxx::private::RustVec<#elem>)
+            let rangle = ty.rangle;
+            quote_spanned!(span=> ::cxx::private::RustVec #langle #elem #rangle)
         }
         Type::Ref(ty) => {
+            let ampersand = ty.ampersand;
+            let lifetime = &ty.lifetime;
             let mutability = ty.mutability;
             match &ty.inner {
                 Type::Ident(ident) if ident.rust == RustString => {
-                    quote!(&#mutability ::cxx::private::RustString)
+                    let span = ident.rust.span();
+                    quote_spanned!(span=> #ampersand #lifetime #mutability ::cxx::private::RustString)
                 }
                 Type::RustVec(ty) => {
+                    let span = ty.name.span();
+                    let langle = ty.langle;
                     let inner = expand_extern_type(&ty.inner, types, proper);
-                    quote!(&#mutability ::cxx::private::RustVec<#inner>)
+                    let rangle = ty.rangle;
+                    quote_spanned!(span=> #ampersand #lifetime #mutability ::cxx::private::RustVec #langle #inner #rangle)
                 }
-                inner if proper && types.is_considered_improper_ctype(inner) => match ty.mutable {
-                    false => quote!(*const ::std::ffi::c_void),
-                    true => quote!(*#mutability ::std::ffi::c_void),
-                },
+                inner if proper && types.is_considered_improper_ctype(inner) => {
+                    let star = Token![*](ampersand.span);
+                    match ty.mutable {
+                        false => quote!(#star const ::std::ffi::c_void),
+                        true => quote!(#star #mutability ::std::ffi::c_void),
+                    }
+                }
                 _ => quote!(#ty),
             }
         }
         Type::Ptr(ty) => {
             if proper && types.is_considered_improper_ctype(&ty.inner) {
+                let star = ty.star;
                 let mutability = ty.mutability;
                 let constness = ty.constness;
-                quote!(*#mutability #constness ::std::ffi::c_void)
+                quote!(#star #mutability #constness ::std::ffi::c_void)
             } else {
                 quote!(#ty)
             }
         }
-        Type::Str(_) => quote!(::cxx::private::RustStr),
-        Type::SliceRef(_) => quote!(::cxx::private::RustSlice),
+        Type::Str(ty) => {
+            let span = ty.ampersand.span;
+            let rust_str = Ident::new("RustStr", syn::spanned::Spanned::span(&ty.inner));
+            quote_spanned!(span=> ::cxx::private::#rust_str)
+        }
+        Type::SliceRef(ty) => {
+            let span = ty.ampersand.span;
+            let rust_slice = Ident::new("RustSlice", ty.bracket.span);
+            quote_spanned!(span=> ::cxx::private::#rust_slice)
+        }
         _ => quote!(#ty),
     }
 }

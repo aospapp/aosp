@@ -86,21 +86,30 @@
 
         If empty, all ringtones will default to the default ringtone uri.
     -->
-    <string-array name="config_ringtone_uri_map_value">
+    <string-array name="config_ringtone_uri_map_value" translatable="false">
         <item>content://settings/system/notification_sound</item>
         <item>content://settings/system/alarm_alert</item>
     </string-array>
     <!-- Whether all preferences should always ignore UX Restrictions -->
     <bool name="config_always_ignore_ux_restrictions">false</bool>
     <!-- Array of Preference Keys that ignore UX Restrictions -->
-    <string-array name="config_ignore_ux_restrictions">
+    <string-array name="config_ignore_ux_restrictions" translatable="false">
         <item>@string/pk_display_settings_entry</item>
         <item>@string/pk_brightness_level</item>
+        <item>@string/pk_adaptive_brightness_switch</item>
         <item>@string/pk_sound_settings_entry</item>
         <item>@string/pk_volume_settings</item>
         <item>@string/pk_network_and_internet_entry</item>
+        <item>@string/pk_wifi_tether_settings_entry</item>
+        <item>@string/pk_wifi_tether_state_switch</item>
+        <item>@string/pk_mobile_network_settings_entry</item>
+        <item>@string/pk_mobile_data_toggle</item>
+        <item>@string/pk_wifi_entry_group</item>
+        <item>@string/pk_wifi_entry_state_switch</item>
         <item>@string/pk_wifi_settings_entry</item>
+        <item>@string/pk_wifi_state_switch</item>
         <item>@string/pk_bluetooth_settings_entry</item>
+        <item>@string/pk_bluetooth_state_switch</item>
         <item>@string/pk_bluetooth_paired_devices</item>
     </string-array>
 
@@ -135,9 +144,25 @@
         com.android.settings.intelligence
     </string>
 
+    <!-- Package Installer package name -->
+    <string name="config_package_installer_package_name" translatable="false">
+        com.android.packageinstaller
+    </string>
+
     <!--
         Maximum number of devices to show for paired bluetooth device quick control.
         Set to -1 for unlimited.
      -->
     <integer name="config_qc_bluetooth_device_limit">3</integer>
+
+    <!--
+         The value here should be the component name of the system default screen reader if one
+         exists. If it is left blank then no screen reader will show up in settings.
+    -->
+    <string name="config_default_screen_reader" translatable="false"></string>
+
+    <!--
+        Delay in milliseconds between preference onclick calls
+    -->
+    <integer name="config_preference_onclick_debounce_ms">200</integer>
 </resources>

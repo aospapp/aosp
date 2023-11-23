@@ -28,11 +28,12 @@ SERVICE_FIREWALL = "firewall"
 SERVICE_IPSEC = "ipsec"
 SERVICE_XL2TPD = "xl2tpd"
 SERVICE_ODHCPD = "odhcpd"
-SERVICE_NODOGSPLASH = "nodogsplash"
+SERVICE_OPENNDS = "opennds"
+SERVICE_UHTTPD = "uhttpd"
 PPTP_PACKAGE = "pptpd kmod-nf-nathelper-extra"
 L2TP_PACKAGE = "strongswan-full openssl-util xl2tpd"
 NAT6_PACKAGE = "ip6tables kmod-ipt-nat6"
-CAPTIVE_PORTAL_PACKAGE = "nodogsplash"
+CAPTIVE_PORTAL_PACKAGE = "opennds php7-cli php7-mod-openssl php7-cgi php7"
 MDNS_PACKAGE = "avahi-utils avahi-daemon-service-http avahi-daemon-service-ssh libavahi-client avahi-dbus-daemon"
 STUNNEL_CONFIG_PATH = "/etc/stunnel/DoTServer.conf"
 HISTORY_CONFIG_PATH = "/etc/dirty_configs"
@@ -41,6 +42,7 @@ XL2TPD_CONFIG_PATH = "/etc/xl2tpd/xl2tpd.conf"
 XL2TPD_OPTION_CONFIG_PATH = "/etc/ppp/options.xl2tpd"
 FIREWALL_CUSTOM_OPTION_PATH = "/etc/firewall.user"
 PPP_CHAP_SECRET_PATH = "/etc/ppp/chap-secrets"
+IKEV2_VPN_CERT_KEYS_PATH = "/var/ikev2_cert.sh"
 TCPDUMP_DIR = "/tmp/tcpdump/"
 LOCALHOST = "192.168.1.1"
 DEFAULT_PACKAGE_INSTALL_TIMEOUT = 200
@@ -89,6 +91,7 @@ class NetworkSettings(object):
             "ipv6_prefer_option": self.remove_ipv6_prefer_option,
             "block_dns_response": self.unblock_dns_response,
             "setup_mdns": self.remove_mdns,
+            "add_dhcp_rapid_commit": self.remove_dhcp_rapid_commit,
             "setup_captive_portal": self.remove_cpative_portal
         }
         # This map contains cleanup functions to restore the configuration to
@@ -188,12 +191,27 @@ class NetworkSettings(object):
         return False
 
     def path_exists(self, abs_path):
-        """Check if dir exist on OpenWrt."""
+        """Check if dir exist on OpenWrt.
+
+        Args:
+            abs_path: absolutely path for create folder.
+        """
         try:
             self.ssh.run("ls %s" % abs_path)
         except:
             return False
         return True
+
+    def create_folder(self, abs_path):
+        """If dir not exist, create it.
+
+        Args:
+            abs_path: absolutely path for create folder.
+        """
+        if not self.path_exists(abs_path):
+            self.ssh.run("mkdir %s" % abs_path)
+        else:
+            self.log.info("%s already existed." %abs_path)
 
     def count(self, config, key):
         """Count in uci config.
@@ -446,7 +464,11 @@ class NetworkSettings(object):
         # setup vpn server local ip
         self.setup_vpn_local_ip()
         # generate cert and key for rsa
-        self.generate_vpn_cert_keys(country, org)
+        if self.l2tp.name == "ikev2-server":
+            self.generate_ikev2_vpn_cert_keys(country, org)
+            self.add_resource_record(self.l2tp.hostname, LOCALHOST)
+        else:
+            self.generate_vpn_cert_keys(country, org)
         # restart service
         self.service_manager.need_restart(SERVICE_IPSEC)
         self.service_manager.need_restart(SERVICE_XL2TPD)
@@ -458,6 +480,8 @@ class NetworkSettings(object):
         self.config.discard("setup_vpn_l2tp_server")
         self.restore_firewall_rules_for_l2tp()
         self.remove_vpn_local_ip()
+        if self.l2tp.name == "ikev2-server":
+            self.clear_resource_record()
         self.service_manager.need_restart(SERVICE_IPSEC)
         self.service_manager.need_restart(SERVICE_XL2TPD)
         self.service_manager.need_restart(SERVICE_FIREWALL)
@@ -491,6 +515,12 @@ class NetworkSettings(object):
                 config.append("")
 
         config = []
+        load_ipsec_config(network_const.IPSEC_IKEV2_MSCHAPV2, True)
+        load_ipsec_config(network_const.IPSEC_IKEV2_PSK, True)
+        load_ipsec_config(network_const.IPSEC_IKEV2_RSA, True)
+        load_ipsec_config(network_const.IPSEC_IKEV2_MSCHAPV2_HOSTNAME, True)
+        load_ipsec_config(network_const.IPSEC_IKEV2_PSK_HOSTNAME, True)
+        load_ipsec_config(network_const.IPSEC_IKEV2_RSA_HOSTNAME, True)
         load_ipsec_config(network_const.IPSEC_CONF)
         load_ipsec_config(network_const.IPSEC_L2TP_PSK)
         load_ipsec_config(network_const.IPSEC_L2TP_RSA)
@@ -583,6 +613,54 @@ class NetworkSettings(object):
             self.ssh.run("mkdir /www/downloads/")
         self.ssh.run("mv clientPkcs.p12 /www/downloads/")
         self.ssh.run("chmod 664 /www/downloads/clientPkcs.p12")
+
+    def generate_ikev2_vpn_cert_keys(self, country, org):
+        rsa = "--type rsa"
+        lifetime = "--lifetime 365"
+        size = "--size 4096"
+
+        if not self.path_exists("/www/downloads/"):
+            self.ssh.run("mkdir /www/downloads/")
+
+        ikev2_vpn_cert_keys = [
+            "ipsec pki --gen %s %s --outform der > caKey.der" % (rsa, size),
+            "ipsec pki --self --ca %s --in caKey.der %s --dn "
+            "\"C=%s, O=%s, CN=%s\" --outform der > caCert.der" %
+            (lifetime, rsa, country, org, self.l2tp.hostname),
+            "ipsec pki --gen %s %s --outform der > serverKey.der" % (size, rsa),
+            "ipsec pki --pub --in serverKey.der %s | ipsec pki --issue %s "
+            r"--cacert caCert.der --cakey caKey.der --dn \"C=%s, O=%s, CN=%s\" "
+            "--san %s --san %s --flag serverAuth --flag ikeIntermediate "
+            "--outform der > serverCert.der" % (rsa, lifetime, country, org,
+                                                self.l2tp.hostname, LOCALHOST,
+                                                self.l2tp.hostname),
+            "ipsec pki --gen %s %s --outform der > clientKey.der" % (size, rsa),
+            "ipsec pki --pub --in clientKey.der %s | ipsec pki --issue %s "
+            r"--cacert caCert.der --cakey caKey.der --dn \"C=%s, O=%s, CN=%s@%s\" "
+            r"--san \"%s\" --san \"%s@%s\" --san \"%s@%s\" --outform der "
+            "> clientCert.der" % (rsa, lifetime, country, org, self.l2tp.username,
+                                  self.l2tp.hostname, self.l2tp.username,
+                                  self.l2tp.username, LOCALHOST,
+                                  self.l2tp.username, self.l2tp.hostname),
+            "openssl rsa -inform DER -in clientKey.der "
+            "-out clientKey.pem -outform PEM",
+            "openssl x509 -inform DER -in clientCert.der "
+            "-out clientCert.pem -outform PEM",
+            "openssl x509 -inform DER -in caCert.der "
+            "-out caCert.pem -outform PEM",
+            "openssl pkcs12 -in clientCert.pem -inkey  clientKey.pem "
+            "-certfile caCert.pem -export -out clientPkcs.p12 -passout pass:",
+            "mv caCert.pem /etc/ipsec.d/cacerts/",
+            "mv *Cert* /etc/ipsec.d/certs/",
+            "mv *Key* /etc/ipsec.d/private/",
+            "mv clientPkcs.p12 /www/downloads/",
+            "chmod 664 /www/downloads/clientPkcs.p12",
+        ]
+        file_string = "\n".join(ikev2_vpn_cert_keys)
+        self.create_config_file(file_string, IKEV2_VPN_CERT_KEYS_PATH)
+
+        self.ssh.run("chmod +x %s" % IKEV2_VPN_CERT_KEYS_PATH)
+        self.ssh.run("%s" % IKEV2_VPN_CERT_KEYS_PATH)
 
     def update_firewall_rules_list(self):
         """Update rule list in /etc/config/firewall."""
@@ -838,6 +916,18 @@ class NetworkSettings(object):
         self.service_manager.need_restart(SERVICE_DNSMASQ)
         self.commit_changes()
 
+    def add_dhcp_rapid_commit(self):
+        self.create_config_file("dhcp-rapid-commit\n","/etc/dnsmasq.conf")
+        self.config.add("add_dhcp_rapid_commit")
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
+    def remove_dhcp_rapid_commit(self):
+        self.create_config_file("","/etc/dnsmasq.conf")
+        self.config.discard("add_dhcp_rapid_commit")
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
     def start_tcpdump(self, test_name, args="", interface="br-lan"):
         """"Start tcpdump on OpenWrt.
 
@@ -849,6 +939,7 @@ class NetworkSettings(object):
             tcpdump_file_name: tcpdump file name on OpenWrt.
             pid: tcpdump process id.
         """
+        self.package_install("tcpdump")
         if not self.path_exists(TCPDUMP_DIR):
             self.ssh.run("mkdir %s" % TCPDUMP_DIR)
         tcpdump_file_name = "openwrt_%s_%s.pcap" % (test_name,
@@ -889,9 +980,11 @@ class NetworkSettings(object):
         return tcpdump_remote_path if pull_dir else None
 
     def clear_tcpdump(self):
-        self.ssh.run("killall tpcdump", ignore_status=True)
-        if self.ssh.run("pgrep tpcdump", ignore_status=True).stdout:
+        self.ssh.run("killall tcpdump", ignore_status=True)
+        if self.ssh.run("pgrep tcpdump", ignore_status=True).stdout:
             raise signals.TestFailure("Failed to clean up tcpdump process.")
+        if self.path_exists(TCPDUMP_DIR):
+            self.ssh.run("rm -f  %s/*" % TCPDUMP_DIR)
 
     def _get_tcpdump_pid(self, tcpdump_file_name):
         """Check tcpdump process on OpenWrt."""
@@ -920,15 +1013,54 @@ class NetworkSettings(object):
         self.service_manager.need_restart(SERVICE_FIREWALL)
         self.commit_changes()
 
-    def setup_captive_portal(self):
+    def setup_captive_portal(self, fas_fdqn,fas_port=2080):
+        """Create captive portal with Forwarding Authentication Service.
+
+        Args:
+             fas_fdqn: String for captive portal page's fdqn add to local dns server.
+             fas_port: Port for captive portal page.
+        """
         self.package_install(CAPTIVE_PORTAL_PACKAGE)
-        self.config.add("setup_captive_portal")
-        self.service_manager.need_restart(SERVICE_NODOGSPLASH)
+        self.config.add("setup_captive_portal %s" % fas_port)
+        self.ssh.run("uci set opennds.@opennds[0].fas_secure_enabled=2")
+        self.ssh.run("uci set opennds.@opennds[0].gatewayport=2050")
+        self.ssh.run("uci set opennds.@opennds[0].fasport=%s" % fas_port)
+        self.ssh.run("uci set opennds.@opennds[0].fasremotefqdn=%s" % fas_fdqn)
+        self.ssh.run("uci set opennds.@opennds[0].faspath=\"/nds/fas-aes.php\"")
+        self.ssh.run("uci set opennds.@opennds[0].faskey=1234567890")
+        self.service_manager.need_restart(SERVICE_OPENNDS)
+        # Config uhttpd
+        self.ssh.run("uci set uhttpd.main.interpreter=.php=/usr/bin/php-cgi")
+        self.ssh.run("uci add_list uhttpd.main.listen_http=0.0.0.0:%s" % fas_port)
+        self.ssh.run("uci add_list uhttpd.main.listen_http=[::]:%s" % fas_port)
+        self.service_manager.need_restart(SERVICE_UHTTPD)
+        # cp fas-aes.php
+        self.create_folder("/www/nds/")
+        self.ssh.run("cp /etc/opennds/fas-aes.php /www/nds")
+        # Add fdqn
+        self.add_resource_record(fas_fdqn, LOCALHOST)
         self.commit_changes()
 
-    def remove_cpative_portal(self):
+    def remove_cpative_portal(self, fas_port=2080):
+        """Remove captive portal.
+
+        Args:
+             fas_port: Port for captive portal page.
+        """
+        # Remove package
         self.package_remove(CAPTIVE_PORTAL_PACKAGE)
-        self.config.discard("setup_captive_portal")
+        # Clean up config
+        self.ssh.run("rm /etc/config/opennds")
+        # Remove fdqn
+        self.clear_resource_record()
+        # Restore uhttpd
+        self.ssh.run("uci del uhttpd.main.interpreter")
+        self.ssh.run("uci del_list uhttpd.main.listen_http=\'0.0.0.0:%s\'" % fas_port)
+        self.ssh.run("uci del_list uhttpd.main.listen_http=\'[::]:%s\'" % fas_port)
+        self.service_manager.need_restart(SERVICE_UHTTPD)
+        # Clean web root
+        self.ssh.run("rm -r /www/nds")
+        self.config.discard("setup_captive_portal %s" % fas_port)
         self.commit_changes()
 
 

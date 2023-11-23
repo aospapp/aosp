@@ -64,7 +64,7 @@ type cilCompatMapProperties struct {
 	// compatibility mapping file. bottom_half may reference the outputs of
 	// other modules that produce source files like genrule or filegroup using
 	// the syntax ":module". srcs has to be non-empty.
-	Bottom_half []string
+	Bottom_half []string `android:"path"`
 	// name of the output
 	Stem *string
 }
@@ -97,7 +97,7 @@ func expandSeSources(ctx android.ModuleContext, srcFiles []string) android.Paths
 	expandedSrcFiles := make(android.Paths, 0, len(srcFiles))
 	for _, s := range srcFiles {
 		if m := android.SrcIsModule(s); m != "" {
-			module := ctx.GetDirectDepWithTag(m, android.SourceDepTag)
+			module := android.GetModuleFromPathDep(ctx, m, "")
 			if module == nil {
 				// Error will have been handled by ExtractSourcesDeps
 				continue
@@ -161,7 +161,6 @@ func (c *cilCompatMap) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 }
 
 func (c *cilCompatMap) DepsMutator(ctx android.BottomUpMutatorContext) {
-	android.ExtractSourcesDeps(ctx, c.properties.Bottom_half)
 	if c.properties.Top_half != nil {
 		ctx.AddDependency(c, TopHalfDepTag, String(c.properties.Top_half))
 	}
@@ -173,7 +172,7 @@ func (c *cilCompatMap) AndroidMk() android.AndroidMkData {
 		Class:      "ETC",
 	}
 	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
-		fmt.Fprintln(w, "LOCAL_MODULE_PATH :=", c.installPath.ToMakePath().String())
+		fmt.Fprintln(w, "LOCAL_MODULE_PATH :=", c.installPath.String())
 		if c.properties.Stem != nil {
 			fmt.Fprintln(w, "LOCAL_INSTALLED_MODULE_STEM :=", String(c.properties.Stem))
 		}
@@ -182,7 +181,15 @@ func (c *cilCompatMap) AndroidMk() android.AndroidMkData {
 }
 
 var _ CilCompatMapGenerator = (*cilCompatMap)(nil)
+var _ android.OutputFileProducer = (*cilCompatMap)(nil)
 
 func (c *cilCompatMap) GeneratedMapFile() android.Path {
 	return c.installSource
+}
+
+func (c *cilCompatMap) OutputFiles(tag string) (android.Paths, error) {
+	if tag == "" {
+		return android.Paths{c.installSource}, nil
+	}
+	return nil, fmt.Errorf("Unknown tag %q", tag)
 }

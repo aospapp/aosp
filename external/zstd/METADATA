@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/facebook/zstd"
   }
-  version: "v1.4.7"
+  version: "v1.5.1"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2020
-    month: 12
-    day: 17
+    year: 2022
+    month: 1
+    day: 13
   }
 }

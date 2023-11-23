@@ -260,4 +260,14 @@ public class NumberFormatTest extends junit.framework.TestCase {
         format.setCurrency(Currency.getInstance("USD"));
         assertEquals("$10", format.format(10d));
     }
+
+    public void test_getInstance_withLocaleExtension() {
+        Locale locale = Locale.US;
+        NumberFormat numberFormat = NumberFormat.getNumberInstance(locale);
+        assertEquals("123", numberFormat.format(123));
+
+        locale = Locale.forLanguageTag("en-US-u-nu-arab");
+        numberFormat = NumberFormat.getNumberInstance(locale);
+        assertEquals("١٢٣", numberFormat.format(123));
+    }
 }

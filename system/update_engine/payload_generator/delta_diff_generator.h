@@ -23,7 +23,8 @@
 
 namespace chromeos_update_engine {
 
-extern const size_t kBlockSize;
+constexpr size_t kBlockSize = 4096;
+
 extern const size_t kRootFSPartitionSize;
 
 // The |config| describes the payload generation request, describing both

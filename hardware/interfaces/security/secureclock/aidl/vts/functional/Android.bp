@@ -27,6 +27,7 @@ cc_test {
     name: "VtsAidlSecureClockTargetTest",
     defaults: [
         "VtsHalTargetTestDefaults",
+        "keymint_use_latest_hal_aidl_ndk_static",
         "use_libaidlvintf_gtest_helper_static",
     ],
     cflags: [
@@ -41,8 +42,7 @@ cc_test {
         "libcrypto",
     ],
     static_libs: [
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.hardware.security.secureclock-V1-ndk_platform",
+        "android.hardware.security.secureclock-V1-ndk",
         "libkeymint",
     ],
     test_suites: [

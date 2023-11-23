@@ -40,7 +40,6 @@
     <option name="compatibility:include-filter" value="CtsTelephonyTestCases" />
     <option name="compatibility:include-filter" value="CtsTelephony2TestCases" />
     <option name="compatibility:include-filter" value="CtsTelephony3TestCases" />
-    <option name="compatibility:include-filter" value="CtsTelephonySdk28TestCases" />
     <option name="compatibility:include-filter" value="CtsTetheringTest" />
     <option name="compatibility:include-filter" value="CtsUsageStatsTestCases" />
     <option name="compatibility:include-filter" value="CtsVcnTestCases" />

@@ -39,7 +39,6 @@
 namespace art {
 
 class ClassLinker;
-class CompilerCallbacks;
 class DexFile;
 class Instruction;
 struct ReferenceMap2Visitor;
@@ -64,25 +63,6 @@ class RegType;
 struct ScopedNewLine;
 class VerifierDeps;
 
-// We don't need to store the register data for many instructions, because we either only need
-// it at branch points (for verification) or GC points and branches (for verification +
-// type-precise register analysis).
-enum RegisterTrackingMode {
-  kTrackRegsBranches,
-  kTrackCompilerInterestPoints,
-  kTrackRegsAll,
-};
-
-// A class used by the verifier to tell users about what options need to be set for given methods.
-class VerifierCallback {
- public:
-  virtual ~VerifierCallback() {}
-  virtual void SetDontCompile(ArtMethod* method, bool value)
-      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
-  virtual void SetMustCountLocks(ArtMethod* method, bool value)
-      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
-};
-
 // A mapping from a dex pc to the register line statuses as they are immediately prior to the
 // execution of that instruction.
 class PcToRegisterLineTable {
@@ -93,12 +73,12 @@ class PcToRegisterLineTable {
   // Initialize the RegisterTable. Every instruction address can have a different set of information
   // about what's in which register, but for verification purposes we only need to store it at
   // branch target addresses (because we merge into that).
-  void Init(RegisterTrackingMode mode,
-            InstructionFlags* flags,
+  void Init(InstructionFlags* flags,
             uint32_t insns_size,
             uint16_t registers_size,
             ScopedArenaAllocator& allocator,
-            RegTypeCache* reg_types);
+            RegTypeCache* reg_types,
+            uint32_t interesting_dex_pc);
 
   bool IsInitialized() const {
     return !register_lines_.empty();
@@ -124,19 +104,16 @@ class MethodVerifier {
                                              Handle<mirror::DexCache> dex_cache,
                                              Handle<mirror::ClassLoader> class_loader,
                                              const dex::ClassDef& class_def,
-                                             const dex::CodeItem* code_item, ArtMethod* method,
+                                             const dex::CodeItem* code_item,
                                              uint32_t method_access_flags,
                                              uint32_t api_level)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Calculates the verification information for every instruction of the given method. The given
-  // dex-cache and class-loader will be used for lookups. No classes will be loaded. If verification
-  // fails hard nullptr will be returned. This should only be used if one needs to examine what the
-  // verifier believes about the registers of a given method.
+  // Calculates the type information at the given `dex_pc`.
+  // No classes will be loaded.
   static MethodVerifier* CalculateVerificationInfo(Thread* self,
                                                    ArtMethod* method,
-                                                   Handle<mirror::DexCache> dex_cache,
-                                                   Handle<mirror::ClassLoader> class_loader)
+                                                   uint32_t dex_pc)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   const DexFile& GetDexFile() const {
@@ -188,7 +165,6 @@ class MethodVerifier {
   void VisitRoots(RootVisitor* visitor, const RootInfo& roots)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Accessors used by the compiler via CompilerCallback
   const CodeItemDataAccessor& CodeItem() const {
     return code_item_accessor_;
   }
@@ -198,7 +174,7 @@ class MethodVerifier {
   MethodReference GetMethodReference() const;
   bool HasFailures() const;
   bool HasInstructionThatWillThrow() const {
-    return flags_.have_any_pending_runtime_throw_failure_;
+    return (encountered_failure_types_ & VERIFY_ERROR_RUNTIME_THROW) != 0;
   }
 
   virtual const RegType& ResolveCheckedClass(dex::TypeIndex class_idx)
@@ -231,7 +207,6 @@ class MethodVerifier {
                  uint32_t dex_method_idx,
                  bool can_load_classes,
                  bool allow_thread_suspension,
-                 bool allow_soft_failures,
                  bool aot_mode)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -266,13 +241,8 @@ class MethodVerifier {
                                   Handle<mirror::ClassLoader> class_loader,
                                   const dex::ClassDef& class_def_idx,
                                   const dex::CodeItem* code_item,
-                                  ArtMethod* method,
                                   uint32_t method_access_flags,
-                                  CompilerCallbacks* callbacks,
-                                  VerifierCallback* verifier_callback,
-                                  bool allow_soft_failures,
                                   HardFailLogMode log_level,
-                                  bool need_precise_constants,
                                   uint32_t api_level,
                                   bool aot_mode,
                                   std::string* hard_failure_msg)
@@ -289,13 +259,8 @@ class MethodVerifier {
                                   Handle<mirror::ClassLoader> class_loader,
                                   const dex::ClassDef& class_def_idx,
                                   const dex::CodeItem* code_item,
-                                  ArtMethod* method,
                                   uint32_t method_access_flags,
-                                  CompilerCallbacks* callbacks,
-                                  VerifierCallback* verifier_callback,
-                                  bool allow_soft_failures,
                                   HardFailLogMode log_level,
-                                  bool need_precise_constants,
                                   uint32_t api_level,
                                   bool aot_mode,
                                   std::string* hard_failure_msg)
@@ -314,15 +279,14 @@ class MethodVerifier {
                                         const dex::ClassDef& class_def,
                                         const dex::CodeItem* code_item,
                                         uint32_t method_idx,
-                                        ArtMethod* method,
                                         uint32_t access_flags,
                                         bool can_load_classes,
-                                        bool allow_soft_failures,
-                                        bool need_precise_constants,
                                         bool verify_to_dump,
                                         bool allow_thread_suspension,
                                         uint32_t api_level)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  virtual bool PotentiallyMarkRuntimeThrow() = 0;
 
   // The thread we're verifying on.
   Thread* const self_;
@@ -369,13 +333,6 @@ class MethodVerifier {
     // Note: this flag is reset after processing each instruction.
     bool have_pending_runtime_throw_failure_ : 1;
 
-    // Is there a pending experimental failure?
-    bool have_pending_experimental_failure_ : 1;
-
-    // A version of the above that is not reset and thus captures if there were *any* throw
-    // failures.
-    bool have_any_pending_runtime_throw_failure_ : 1;
-
     // Verify in AoT mode?
     bool aot_mode_ : 1;
   } flags_;
@@ -387,10 +344,6 @@ class MethodVerifier {
   uint32_t encountered_failure_types_;
 
   const bool can_load_classes_;
-
-  // Converts soft failures to hard failures when false. Only false when the compiler isn't
-  // running and the verifier is called from the class linker.
-  const bool allow_soft_failures_;
 
   // Classlinker to use when resolving.
   ClassLinker* class_linker_;

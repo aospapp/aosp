@@ -247,7 +247,11 @@ def create_latest_log_alias(actual_path):
     link_path = os.path.join(os.path.dirname(actual_path), "latest")
     if os.path.islink(link_path):
         os.remove(link_path)
-    os.symlink(actual_path, link_path)
+    try:
+        os.symlink(actual_path, link_path)
+    except OSError:
+        logging.warning('Failed to create symlink to latest logs dir.',
+                        exc_info=True)
 
 
 def setup_test_logger(log_path, prefix=None):

@@ -5,6 +5,7 @@
 package android.icu.lang;
 
 import android.icu.impl.CharacterPropertiesImpl;
+import android.icu.impl.EmojiProps;
 import android.icu.text.UnicodeSet;
 import android.icu.util.CodePointMap;
 import android.icu.util.CodePointTrie;
@@ -30,6 +31,15 @@ public final class CharacterProperties {
 
     private static UnicodeSet makeSet(int property) {
         UnicodeSet set = new UnicodeSet();
+        if (UProperty.BASIC_EMOJI <= property && property <= UProperty.RGI_EMOJI) {
+            // property of strings
+            EmojiProps.INSTANCE.addStrings(property, set);
+            if (property != UProperty.BASIC_EMOJI && property != UProperty.RGI_EMOJI) {
+                // property of _only_ strings
+                return set.freeze();
+            }
+        }
+
         UnicodeSet inclusions = CharacterPropertiesImpl.getInclusionsForProperty(property);
         int numRanges = inclusions.getRangeCount();
         int startHasProperty = -1;

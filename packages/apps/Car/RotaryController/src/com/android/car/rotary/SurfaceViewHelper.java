@@ -16,8 +16,6 @@
 
 package com.android.car.rotary;
 
-import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
-
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -28,7 +26,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.util.dump.DualDumpOutputStream;
 
 import java.util.HashSet;
@@ -96,7 +93,6 @@ class SurfaceViewHelper {
         return mClientApps.contains(node.getPackageName());
     }
 
-    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(@NonNull DualDumpOutputStream dumpOutputStream, boolean dumpAsProto,
             @NonNull String fieldName, long fieldId) {
         long fieldToken = dumpOutputStream.start(fieldName, fieldId);

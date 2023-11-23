@@ -30,17 +30,16 @@ class SensorRequestMultiplexer : public RequestMultiplexer<SensorRequest> {
  public:
   /**
    * Searches through the list of sensor requests for a request owned by the
-   * given nanoapp. The provided non-null index pointer is populated with the
-   * index of the request if it is found.
+   * given nanoapp.
    *
    * @param instanceId The instance ID of the nanoapp whose request is being
    *        searched for.
-   * @param index A non-null pointer to an index that is populated if a
-   *        request for this nanoapp is found.
+   * @param index A pointer to an index that is populated if a request for this
+   *        nanoapp is found and the pointer is not null.
    * @return A pointer to a SensorRequest that is owned by the provided
    *         nanoapp if one is found otherwise nullptr.
    */
-  const SensorRequest *findRequest(uint32_t instanceId, size_t *index) const;
+  const SensorRequest *findRequest(uint16_t instanceId, size_t *index) const;
 };
 
 }  // namespace chre

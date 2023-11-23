@@ -16,7 +16,6 @@
 
 from acts import signals
 
-from acts.base_test import BaseTestClass
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
@@ -36,9 +35,6 @@ class WlanInterfaceTest(AbstractDeviceWlanDeviceBaseTest):
         else:
             # Default is an Fuchsia device
             self.dut = create_wlan_device(self.fuchsia_devices[0])
-
-    def on_fail(self, test_name, begin_time):
-        super().on_fail(test_name, begin_time)
 
     def test_destroy_iface(self):
         """Test that we don't error out when destroying the WLAN interface.

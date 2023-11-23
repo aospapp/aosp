@@ -92,4 +92,21 @@
     <style name="SplashScreenOverrideTheme" parent="ReplaceIconTheme">
         <item name="android:windowSplashScreenBackground">@drawable/red</item>
     </style>
+
+    <style name="SplashScreenStyleTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBehavior">icon_preferred</item>
+    </style>
+
+    <style name="Theme.CustomTransitionTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:background">#ffffff</item>
+        <item name="android:windowBackground">#ffffff</item>
+        <item name="android:colorBackground">#ffffff</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="NoInsetsTheme" parent="@android:style/Theme.NoTitleBar">
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+    </style>
 </resources>

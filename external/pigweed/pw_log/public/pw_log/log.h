@@ -61,23 +61,15 @@
 //
 #include "pw_log_backend/log_backend.h"
 
-// For compatibility with code that uses the deprecated PW_LOG_USE_SHORT_NAMES
-// and PW_LOG_USE_ULTRA_SHORT_NAMES, include the appropriate headers.
-// TODO(hepler): Remove this workaround when all users have migrated.
-#if defined(PW_LOG_USE_SHORT_NAMES) && PW_LOG_USE_SHORT_NAMES == 1
-#include "pw_log/short.h"
-#endif  // PW_LOG_USE_SHORT_NAMES
-
-#if defined(PW_LOG_USE_ULTRA_SHORT_NAMES) && PW_LOG_USE_ULTRA_SHORT_NAMES == 1
-#include "pw_log/shorter.h"
-#endif  // PW_LOG_USE_ULTRA_SHORT_NAMES
-
+// The PW_LOG macro accepts the format string and its arguments in a variadic
+// macro. The format string is not listed as a separate argument to avoid adding
+// a comma after the format string when it has no arguments.
 #ifndef PW_LOG
-#define PW_LOG(level, flags, message, ...)               \
-  do {                                                   \
-    if (PW_LOG_ENABLE_IF(level, flags)) {                \
-      PW_HANDLE_LOG(level, flags, message, __VA_ARGS__); \
-    }                                                    \
+#define PW_LOG(level, flags, /* format string and arguments */...) \
+  do {                                                             \
+    if (PW_LOG_ENABLE_IF(level, flags)) {                          \
+      PW_HANDLE_LOG(level, flags, __VA_ARGS__);                    \
+    }                                                              \
   } while (0)
 #endif  // PW_LOG
 
@@ -85,38 +77,25 @@
 // specialized versions, define the standard PW_LOG_<level>() macros in terms
 // of the general PW_LOG().
 #ifndef PW_LOG_DEBUG
-#define PW_LOG_DEBUG(message, ...) \
-  PW_LOG(PW_LOG_LEVEL_DEBUG, PW_LOG_DEFAULT_FLAGS, message, __VA_ARGS__)
+#define PW_LOG_DEBUG(...) PW_LOG(PW_LOG_LEVEL_DEBUG, PW_LOG_FLAGS, __VA_ARGS__)
 #endif  // PW_LOG_DEBUG
 
 #ifndef PW_LOG_INFO
-#define PW_LOG_INFO(message, ...) \
-  PW_LOG(PW_LOG_LEVEL_INFO, PW_LOG_DEFAULT_FLAGS, message, __VA_ARGS__)
+#define PW_LOG_INFO(...) PW_LOG(PW_LOG_LEVEL_INFO, PW_LOG_FLAGS, __VA_ARGS__)
 #endif  // PW_LOG_INFO
 
 #ifndef PW_LOG_WARN
-#define PW_LOG_WARN(message, ...) \
-  PW_LOG(PW_LOG_LEVEL_WARN, PW_LOG_DEFAULT_FLAGS, message, __VA_ARGS__)
+#define PW_LOG_WARN(...) PW_LOG(PW_LOG_LEVEL_WARN, PW_LOG_FLAGS, __VA_ARGS__)
 #endif  // PW_LOG_WARN
 
 #ifndef PW_LOG_ERROR
-#define PW_LOG_ERROR(message, ...) \
-  PW_LOG(PW_LOG_LEVEL_ERROR, PW_LOG_DEFAULT_FLAGS, message, __VA_ARGS__)
+#define PW_LOG_ERROR(...) PW_LOG(PW_LOG_LEVEL_ERROR, PW_LOG_FLAGS, __VA_ARGS__)
 #endif  // PW_LOG_ERROR
 
 #ifndef PW_LOG_CRITICAL
-#define PW_LOG_CRITICAL(message, ...) \
-  PW_LOG(PW_LOG_LEVEL_CRITICAL, PW_LOG_DEFAULT_FLAGS, message, __VA_ARGS__)
+#define PW_LOG_CRITICAL(...) \
+  PW_LOG(PW_LOG_LEVEL_CRITICAL, PW_LOG_FLAGS, __VA_ARGS__)
 #endif  // PW_LOG_CRITICAL
-
-// Default: Number of bits available for the log level
-//
-// All log statements have a level, and this define is the number of bits
-// available for the level. Some backends restrict this for better efficiency.
-// By default, pick a restricted but large enough value to work for most cases.
-#ifndef PW_LOG_LEVEL_BITS
-#define PW_LOG_LEVEL_BITS 6
-#endif  // PW_LOG_LEVEL_BITS
 
 // Default: Number of bits available for the log flags
 //
@@ -124,5 +103,5 @@
 // available for the flags. Some backends restrict this for better efficiency.
 // By default, pick a restricted but large enough value to work for most cases.
 #ifndef PW_LOG_FLAG_BITS
-#define PW_LOG_FLAG_BITS 10
+#define PW_LOG_FLAG_BITS 2
 #endif  // PW_LOG_FLAG_BITS

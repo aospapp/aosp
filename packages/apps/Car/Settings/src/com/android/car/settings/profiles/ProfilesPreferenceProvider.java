@@ -132,7 +132,7 @@ public class ProfilesPreferenceProvider {
         CarUiPreference preference = new CarUiPreference(mContext);
         preference.setIcon(
                 new ProfileIconProvider().getRoundedGuestDefaultIcon(mContext.getResources()));
-        preference.setTitle(R.string.user_guest);
+        preference.setTitle(com.android.internal.R.string.guest_name);
         return preference;
     }
 

@@ -37,7 +37,7 @@ public class D8BuildStep extends BuildStep {
         D8Command.builder()
             .setMode(CompilationMode.DEBUG)
             .setMinApiLevel(1000)
-            .setEnableDesugaring(false);
+            .setDisableDesugaring(true);
   }
 
   @Override

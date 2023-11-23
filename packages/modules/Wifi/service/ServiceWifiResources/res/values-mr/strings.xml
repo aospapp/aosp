@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"सेटिंग अपडेट केले. पुन्हा कनेक्ट करण्याचा प्रयत्न करा."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"गोपनीयता सेटिंग्ज बदलू शकत नाही"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"नेटवर्क मिळाला नाही आहे"</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७५६"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६०"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्ही Verizon कव्हरेज क्षेत्राच्या बाहेरून Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करू शकत नाही. (एरर = ३२७६०)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६१"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्ही Verizon वाय-फाय अ‍ॅक्सेस चे सदस्यत्व घेतलेले नाही. कृपया आम्हाला ८००-९२२-०२०४ वर कॉल करा. (एरर = ३२७६१)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६२"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुमच्या Verizon वाय-फाय अ‍ॅक्सेस खात्यामध्ये समस्या आहे. कृपया आम्हाला ८००-९२२-०२०४ वर कॉल करा. (एरर = ३२७६२)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६३"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्ही आधीपासून Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट केलेले आहे. (एरर = ३२७६३)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६४"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्हाला Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करताना समस्या आली. कृपया आम्हाला ८००-९२२-०२०४ वर कॉल करा. (एरर = ३२७६४)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६५"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुमच्या Verizon वाय-फाय अ‍ॅक्सेस खात्यामध्ये समस्या आहे. कृपया आम्हाला ८००-९२२-०२०४ वर कॉल करा. (एरर = ३२७६५)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर ३२७६६"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुमच्या स्थानावरून Verizon वाय-फाय अ‍ॅक्सेस उपलब्ध नाही. नंतर पुन्हा प्रयत्न करा किंवा वेगळ्या स्थानावरून प्रयत्न करा. (एरर = ३२७६६)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्हाला Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करताना समस्या आली. नंतर पुन्हा प्रयत्न करा किंवा वेगळ्या स्थानावरून प्रयत्न करा."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : १६३८४ एरर आल्यामुळे तुम्हाला Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करताना समस्या आली."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : १६३८५ एरर आल्यामुळे तुम्हाला Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करताना समस्या आली."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP ऑथेंटिकेशन एरर, अज्ञात एरर कोड"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : तुम्हाला Verizon वाय-फाय अ‍ॅक्सेस शी कनेक्ट करताना समस्या आली."</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"हॉटस्पॉट बंद आहे"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"कोणतीही डिव्हाइस कनेक्ट केलेली नाहीत. सुधारित करण्यासाठी टॅप करा."</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"वाय-फाय डिस्कनेक्ट झाले"</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"<xliff:g id="SSID">%1$s</xliff:g> शी कनेक्ट करण्यासाठी, एक <xliff:g id="CARRIER_NAME">%2$s</xliff:g> सिम घाला"</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"<xliff:g id="APP">%1$s</xliff:g> ला नेटवर्किंग स्रोत वापरायचे आहे"</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"यामुळे <xliff:g id="APPS">%3$s</xliff:g> ला समस्या येऊ शकतात."</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"यामुळे पुढील अ‍ॅप्सना समस्या येऊ शकतात : <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"अनुमती द्या"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"अनुमती देऊ नका"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"हे नेटवर्क विश्वसनीय आहे का?"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"होय, कनेक्ट करा"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"नाही, कनेक्ट करू नका"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"खालील माहिती योग्य वाटत असेल, तरच या नेटवर्कला कनेक्ट करण्याची अनुमती द्या.\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"सर्व्हरचे नाव:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"जारीकर्त्याचे नाव:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"संस्था:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"संपर्क:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"स्वाक्षरी:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"नेटवर्कची पडताळणी करणे आवश्यक आहे"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"कनेक्ट करण्यापूर्वी <xliff:g id="SSID">%1$s</xliff:g> च्या नेटवर्कशी संबंधित तपशिलांचे पुनरावलोकन करा. सुरू ठेवण्यासाठी टॅप करा."</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"प्रमाणपत्र इंस्टॉल करता आले नाही."</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"या नेटवर्कची पडताळणी करता आली नाही"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"तरीही कनेक्ट करा"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"कनेक्ट करू नका"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"<xliff:g id="SSID">%1$s</xliff:g> नेटवर्कचे प्रमाणपत्र उपलब्ध नाही."</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"प्रमाणपत्रे कशी जोडायची ते जाणून घ्या"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"या नेटवर्कची पडताळणी करता आली नाही"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"<xliff:g id="SSID">%1$s</xliff:g> नेटवर्कचे प्रमाणपत्र उपलब्ध नाही. प्रमाणपत्रे कशी जोडावी हे जाणून घेण्यासाठी, टॅप करा."</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"तरीही कनेक्ट करा"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"कनेक्ट करू नका"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"<xliff:g id="APP_NAME">%1$s</xliff:g> ला वाय-फाय सुरू करण्याची अनुमती द्यायची आहे का?"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"तुम्ही क्विक सेटिंग्ज मध्ये वाय-फाय बंद करू शकता"</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"अनुमती द्या"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"अनुमती देऊ नका"</string>
 </resources>

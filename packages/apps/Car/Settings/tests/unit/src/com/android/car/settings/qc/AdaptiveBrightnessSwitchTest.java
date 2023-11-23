@@ -22,9 +22,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 import android.provider.Settings;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCActionItem;
@@ -40,8 +40,7 @@ import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
-public class AdaptiveBrightnessSwitchTest {
-    private Context mContext = ApplicationProvider.getApplicationContext();
+public class AdaptiveBrightnessSwitchTest extends BaseSettingsQCItemTestCase {
     private AdaptiveBrightnessSwitch mSwitch;
     private boolean mIsAdaptiveBrightnessSupported;
     private boolean mInitialAdaptiveBrightnessState;
@@ -102,6 +101,26 @@ public class AdaptiveBrightnessSwitchTest {
         QCRow row = getQCRow();
         QCActionItem actionItem = row.getEndItems().get(0);
         assertThat(actionItem.isChecked()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_switchDisabled() {
+        setAdaptiveBrightnessEnabled(false);
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_BRIGHTNESS, /* restricted= */ true);
+        QCRow row = getQCRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_switchClickableWhileDisabled() {
+        setAdaptiveBrightnessEnabled(false);
+        setUserRestriction(UserManager.DISALLOW_CONFIG_BRIGHTNESS, /* restricted= */ true);
+        QCRow row = getQCRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

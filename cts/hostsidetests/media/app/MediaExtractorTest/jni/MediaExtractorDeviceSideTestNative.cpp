@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <NdkMediaExtractor.h>
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include <jni.h>
+#include <media/NdkMediaExtractor.h>
 #include <nativehelper/ScopedUtfChars.h>
+
 #include <thread>
 
 extern "C" JNIEXPORT void JNICALL

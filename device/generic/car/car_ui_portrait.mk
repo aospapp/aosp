@@ -34,6 +34,7 @@ $(call inherit-product, device/generic/car/emulator/aosp_car_emulator.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_x86_64.mk)
 $(call inherit-product, packages/services/Car/car_product/car_ui_portrait/apps/car_ui_portrait_apps.mk)
 $(call inherit-product, packages/services/Car/car_product/car_ui_portrait/rro/car_ui_portrait_rro.mk)
+$(call inherit-product, packages/services/Car/car_product/car_ui_portrait/emu/car_ui_portrait_emu.mk)
 
 PRODUCT_SDK_ADDON_NAME := car_emu_x86_64
 

@@ -16,26 +16,20 @@
 
 package dagger.internal.codegen.componentgenerator;
 
-import static dagger.internal.codegen.base.Util.reentrantComputeIfAbsent;
 import static dagger.internal.codegen.componentgenerator.ComponentGenerator.componentName;
 
-import dagger.internal.codegen.base.ClearableCache;
 import dagger.internal.codegen.binding.BindingGraph;
 import dagger.internal.codegen.binding.KeyFactory;
 import dagger.internal.codegen.compileroption.CompilerOptions;
 import dagger.internal.codegen.writing.ComponentImplementation;
 import dagger.internal.codegen.writing.SubcomponentNames;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.lang.model.element.TypeElement;
 
 /** Factory for {@link ComponentImplementation}s. */
 @Singleton
-final class ComponentImplementationFactory implements ClearableCache {
-  private final Map<TypeElement, ComponentImplementation> topLevelComponentCache = new HashMap<>();
+final class ComponentImplementationFactory {
   private final KeyFactory keyFactory;
   private final CompilerOptions compilerOptions;
   private final TopLevelImplementationComponent.Builder topLevelImplementationComponentBuilder;
@@ -54,13 +48,6 @@ final class ComponentImplementationFactory implements ClearableCache {
    * Returns a top-level (non-nested) component implementation for a binding graph.
    */
   ComponentImplementation createComponentImplementation(BindingGraph bindingGraph) {
-    return reentrantComputeIfAbsent(
-        topLevelComponentCache,
-        bindingGraph.componentTypeElement(),
-        component -> createComponentImplementationUncached(bindingGraph));
-  }
-
-  private ComponentImplementation createComponentImplementationUncached(BindingGraph bindingGraph) {
     ComponentImplementation componentImplementation =
         ComponentImplementation.topLevelComponentImplementation(
             bindingGraph,
@@ -81,10 +68,5 @@ final class ComponentImplementationFactory implements ClearableCache {
         .build()
         .componentImplementationBuilder()
         .build();
-  }
-
-  @Override
-  public void clearCache() {
-    topLevelComponentCache.clear();
   }
 }

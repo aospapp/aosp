@@ -32,7 +32,6 @@ static const struct dispatch {
 	{"mbadblocks",mbadblocks, 0},
 	{"mcat",mcat, 0},
 	{"mcd",mcd, 0},
-	{"mclasserase",mclasserase, 0},
 	{"mcopy",mcopy, 0},
 	{"mdel",mdel, 0},
 	{"mdeltree",mdel, 2},
@@ -78,10 +77,10 @@ int main(int argc,char **argv)
 /*#define PRIV_TEST*/
 
 #ifdef PRIV_TEST
-	{ 
+	{
 		int euid;
 		char command[100];
-	
+
 		printf("INIT: %d %d\n", getuid(), geteuid());
 		drop_privs();
 		printf("DROP: %d %d\n", getuid(), geteuid());
@@ -105,7 +104,7 @@ int main(int argc,char **argv)
 
 #ifdef __EMX__
        _wildcard(&argc,&argv);
-#endif 
+#endif
 
 
 	/* check whether the compiler lays out structures in a sane way */
@@ -132,7 +131,7 @@ int main(int argc,char **argv)
 	** Mainly done for the BeOS, which doesn't support links yet.
 	*/
 
-	if(argc >= 3 && 
+	if(argc >= 3 &&
 	   !strcmp(argv[1], "-c") &&
 	   !strcmp(name, "mtools")) {
 		argc-=2;
@@ -143,9 +142,9 @@ int main(int argc,char **argv)
 
 
 	/* print the version */
-	if(argc >= 2 && 
+	if(argc >= 2 &&
 	   (strcmp(argv[1], "-V") == 0 || strcmp(argv[1], "--version") ==0)) {
-		printf("%s (GNU mtools) %s\n", 
+		printf("%s (GNU mtools) %s\n",
 		       name, mversion);
 		printf("configured with the following options: ");
 #ifdef USE_XDF

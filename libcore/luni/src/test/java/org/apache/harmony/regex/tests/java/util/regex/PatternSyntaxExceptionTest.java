@@ -37,6 +37,7 @@ public class PatternSyntaxExceptionTest extends TestCase {
     assertTrue(s.contains("Foo"));
     assertTrue(s.contains("Bar"));
     assertTrue(s.contains("0"));
+    assertTrue(s.contains("^"));
 
     // No description specified
     e = new PatternSyntaxException(null, "Bar", 0);
@@ -48,6 +49,7 @@ public class PatternSyntaxExceptionTest extends TestCase {
     assertFalse(s.contains("Foo"));
     assertTrue(s.contains("Bar"));
     assertTrue(s.contains("0"));
+    assertTrue(s.contains("^"));
 
     // No pattern specified
     e = new PatternSyntaxException("Foo", null, 0);
@@ -84,7 +86,6 @@ public class PatternSyntaxExceptionTest extends TestCase {
     assertEquals(0, e.getIndex());
 
     s = e.getMessage();
-    assertTrue(s.contains("^"));
     assertTrue(s.contains("null"));
   }
 

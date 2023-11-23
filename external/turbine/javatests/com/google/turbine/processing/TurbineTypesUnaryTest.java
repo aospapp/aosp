@@ -18,10 +18,11 @@ package com.google.turbine.processing;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.TruthJUnit.assume;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.google.turbine.types.Deannotate;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -68,12 +69,10 @@ public class TurbineTypesUnaryTest extends AbstractTurbineTypesTest {
       thrown = e;
     }
     if (thrown != null) {
-      try {
-        turbineTypes.unboxedType(turbineA).toString();
-        fail(String.format("expected unboxedType(`%s`) to throw", turbineA));
-      } catch (IllegalArgumentException expected) {
-        // expected
-      }
+      assertThrows(
+          String.format("expected unboxedType(`%s`) to throw", turbineA),
+          IllegalArgumentException.class,
+          () -> turbineTypes.unboxedType(turbineA).toString());
     } else {
       String actual = turbineTypes.unboxedType(turbineA).toString();
       assertWithMessage("unboxedClass(`%s`) = unboxedClass(`%s`)", javacA, turbineA)
@@ -121,16 +120,8 @@ public class TurbineTypesUnaryTest extends AbstractTurbineTypesTest {
   public void directSupertypesThrows() {
     assume().that(UNSUPPORTED_BY_DIRECT_SUPERTYPES).contains(javacA.getKind());
 
-    try {
-      javacTypes.directSupertypes(turbineA);
-      fail();
-    } catch (IllegalArgumentException expected) {
-    }
-    try {
-      turbineTypes.directSupertypes(turbineA);
-      fail();
-    } catch (IllegalArgumentException expected) {
-    }
+    assertThrows(IllegalArgumentException.class, () -> javacTypes.directSupertypes(turbineA));
+    assertThrows(IllegalArgumentException.class, () -> turbineTypes.directSupertypes(turbineA));
   }
 
   @Test
@@ -143,5 +134,17 @@ public class TurbineTypesUnaryTest extends AbstractTurbineTypesTest {
     assertWithMessage("asElement(`%s`) = asElement(`%s`)", javacA, turbineA)
         .that(actual)
         .isEqualTo(expected);
+  }
+
+  @Test
+  public void deannotate() {
+    String toString = turbineA.toString();
+    String deannotated =
+        Deannotate.deannotate(((TurbineTypeMirror) turbineA).asTurbineType()).toString();
+    if (toString.contains("@")) {
+      assertWithMessage("deannotate(`%s`) = `%s`", toString, deannotated)
+          .that(deannotated)
+          .doesNotContain("@");
+    }
   }
 }

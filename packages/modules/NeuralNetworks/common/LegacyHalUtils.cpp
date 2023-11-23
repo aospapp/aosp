@@ -23,7 +23,6 @@
 #include <nnapi/hal/1.1/Conversions.h>
 #include <nnapi/hal/1.2/Conversions.h>
 #include <nnapi/hal/1.3/Conversions.h>
-#include <nnapi/hal/aidl/Conversions.h>
 
 #include <algorithm>
 #include <limits>
@@ -41,7 +40,9 @@
 namespace android {
 namespace nn {
 
-constexpr V1_0::PerformanceInfo kNoPerformanceInfo = {.execTime = FLT_MAX, .powerUsage = FLT_MAX};
+constexpr V1_0::PerformanceInfo kNoPerformanceInfo = {
+        .execTime = std::numeric_limits<float>::max(),
+        .powerUsage = std::numeric_limits<float>::max()};
 
 template <typename Type>
 static Type handleError(GeneralResult<Type> result) {
@@ -813,6 +814,8 @@ static bool compliantWith(HalVersion version, const V1_3::Model& model,
                            case HalVersion::V1_3:
                                is_operand_compliant = compliantWithV1_3(op);
                                break;
+                           case HalVersion::AIDL_V1:
+                           case HalVersion::AIDL_V2:
                            case HalVersion::AIDL_UNSTABLE:
                                is_operand_compliant = compliantWithAidl(op);
                                break;
@@ -1562,7 +1565,7 @@ Model::Subgraph uncheckedConvert(const V1_3::Subgraph& subgraph) {
     return handleError(unvalidatedConvert(subgraph));
 }
 
-Model::ExtensionNameAndPrefix uncheckedConvert(const V1_2::Model::ExtensionNameAndPrefix& x) {
+ExtensionNameAndPrefix uncheckedConvert(const V1_2::Model::ExtensionNameAndPrefix& x) {
     return handleError(unvalidatedConvert(x));
 }
 
@@ -1717,7 +1720,7 @@ V1_3::Subgraph convertToV1_3(const Model::Subgraph& subgraph) {
     return handleError(V1_3::utils::unvalidatedConvert(subgraph));
 }
 
-V1_2::Model::ExtensionNameAndPrefix convertToV1_2(const Model::ExtensionNameAndPrefix& x) {
+V1_2::Model::ExtensionNameAndPrefix convertToV1_2(const ExtensionNameAndPrefix& x) {
     return handleError(V1_2::utils::unvalidatedConvert(x));
 }
 

@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"Notificaciones que muestran las descargas completadas o canceladas"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"Progreso de descargas"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"Notificaciones que muestran el progreso de las descargas de archivos"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"Descarga cancelada"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"El archivo es demasiado grande. Se ha cancelado la descarga."</string>
 </resources>

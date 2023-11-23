@@ -178,7 +178,9 @@ public class InitialConfiguration {
     }
 
     private static boolean isDirectlyConnectedRoute(RouteInfo route, IpPrefix prefix) {
-        return !route.hasGateway() && prefix.equals(route.getDestination());
+        return !route.hasGateway()
+                && route.getType() == RouteInfo.RTN_UNICAST
+                && prefix.equals(route.getDestination());
     }
 
     private static boolean isPrefixLengthCompliant(LinkAddress addr) {

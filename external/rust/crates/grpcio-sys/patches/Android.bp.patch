@@ -2,10 +2,10 @@ diff --git a/Android.bp b/Android.bp
 index 45707bc..d0369e6 100644
 --- a/Android.bp
 +++ b/Android.bp
-@@ -38,7 +38,10 @@ rust_library {
-     name: "libgrpcio_sys",
+@@ -40,7 +40,10 @@
      host_supported: true,
      crate_name: "grpcio_sys",
+     cargo_env_compat: true,
 -    srcs: ["src/lib.rs"],
 +    srcs: [
 +        "src/lib.rs",
@@ -14,7 +14,7 @@ index 45707bc..d0369e6 100644
      edition: "2018",
      features: [
          "bindgen",
-@@ -50,50 +53,58 @@ rust_library {
+@@ -55,52 +55,75 @@
          "liblibc",
          "liblibz_sys",
      ],
@@ -48,6 +48,7 @@ index 45707bc..d0369e6 100644
 -        "libabsl_throw_delegate",
 -        "libabsl_time",
 -        "libabsl_time_zone",
+-        "libabsl_wyhash",
 -        "libaddress_sorting",
 -        "libcares",
 -        "libcrypto",
@@ -61,17 +62,27 @@ index 45707bc..d0369e6 100644
 +    shared_libs: [
 +        "libgrpc++",
 +        "libgrpc_wrap"
-+     ],
-+}
+     ],
+-    shared_libs: ["libstdc++"],
+     apex_available: [
+         "//apex_available:platform",
+         "com.android.bluetooth",
+     ],
+     min_sdk_version: "29",
+ }
 +
 +cc_defaults {
 +    name: "libgrpcio_sys_defaults",
 +    cflags: [
 +        "-DGRPC_SYS_SECURE",
-     ],
--    shared_libs: ["libstdc++"],
++    ],
 +    cpp_std: "c++11",
 +    shared_libs: ["libgrpc++"],
++    apex_available: [
++        "//apex_available:platform",
++        "com.android.bluetooth",
++    ],
++    min_sdk_version: "29",
 +}
 +
 +cc_library {
@@ -79,8 +90,8 @@ index 45707bc..d0369e6 100644
 +    defaults: ["libgrpcio_sys_defaults"],
 +    host_supported: true,
 +    srcs: ["grpc_wrap.cc"],
- }
- 
++}
++
 +rust_bindgen {
 +    name: "libgrpc_bindgen",
 +    defaults: ["libgrpcio_sys_defaults"],
@@ -108,9 +119,16 @@ index 45707bc..d0369e6 100644
 +        "--blocklist-type=gpr_mu",
 +        "--blocklist-type=gpr_cv",
 +        "--blocklist-type=gpr_once",
-+    ]
-+ }
++    ],
++    min_sdk_version: "29",
++}
 +
- // dependent_library ["feature_list"]
- //   bindgen-0.57.0 "runtime"
- //   bitflags-1.2.1 "default"
++rust_test {
++    name: "libgrpc_bindgen_test",
++    srcs: [":libgrpc_bindgen"],
++    crate_name: "grpc_bindgen_test",
++    test_suites: ["general-tests"],
++    auto_gen_config: true,
++    clippy_lints: "none",
++    lints: "none",
++}

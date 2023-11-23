@@ -18,13 +18,36 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library {
-
-    name: "com.android.car.procfsinspector-client",
-
+filegroup {
+    name: "com.android.car.procfsinspector-client-src",
     srcs: [
         "src/**/*.java",
         "src/**/I*.aidl",
     ],
+    visibility: [
+        "//packages/services/Car/car-lib",
+        "//packages/services/Car/service",
+    ],
+}
+
+java_library {
+
+    name: "com.android.car.procfsinspector-client",
+
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework",
+    ],
+
+    srcs: [
+        ":com.android.car.procfsinspector-client-src",
+    ],
+
+    libs: [
+        "android.car.builtin",
+        "framework-annotations-lib",
+    ]
 
 }

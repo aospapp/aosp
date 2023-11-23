@@ -34,4 +34,17 @@ public class ConstantsShim extends com.android.networkstack.apishim.api30.Consta
     // When removing this shim, the version in NetworkMonitorUtils should be removed too.
     // TODO: add TRANSPORT_TEST to system API in API 31 (it is only a test API as of R)
     public static final int TRANSPORT_TEST = 7;
+
+    /**
+     * Flag for {@link #registerReceiver}: The receiver can receive broadcasts from other apps;
+     * has the same behavior as marking a statically registered receiver with "exported=true".
+     */
+    public static final int RECEIVER_EXPORTED = 0x2;
+
+    /**
+     * Flag for {@link android.content.Context#registerReceiver}: The receiver cannot receive
+     * broadcasts from other apps; has the same behavior as marking a statically registered receiver
+     * with "exported=false".
+     */
+    public static final int RECEIVER_NOT_EXPORTED = 0x4;
 }

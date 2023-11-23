@@ -330,7 +330,7 @@ func (j *Javadoc) genSources(ctx android.ModuleContext, srcFiles android.Paths,
 
 	// Process all aidl files together to support sharding them into one or more rules that produce srcjars.
 	if len(aidlSrcs) > 0 {
-		srcJarFiles := genAidl(ctx, aidlSrcs, flags.aidlFlags+aidlIncludeFlags, flags.aidlDeps)
+		srcJarFiles := genAidl(ctx, aidlSrcs, flags.aidlFlags+aidlIncludeFlags, nil, flags.aidlDeps)
 		outSrcFiles = append(outSrcFiles, srcJarFiles...)
 	}
 
@@ -769,8 +769,8 @@ func (d *Droiddoc) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 
 	d.Javadoc.docZip = android.PathForModuleOut(ctx, ctx.ModuleName()+"-"+"docs.zip")
 
-	jsilver := android.PathForOutput(ctx, "host", ctx.Config().PrebuiltOS(), "framework", "jsilver.jar")
-	doclava := android.PathForOutput(ctx, "host", ctx.Config().PrebuiltOS(), "framework", "doclava.jar")
+	jsilver := ctx.Config().HostJavaToolPath(ctx, "jsilver.jar")
+	doclava := ctx.Config().HostJavaToolPath(ctx, "doclava.jar")
 
 	outDir := android.PathForModuleOut(ctx, "out")
 	srcJarDir := android.PathForModuleOut(ctx, "srcjars")

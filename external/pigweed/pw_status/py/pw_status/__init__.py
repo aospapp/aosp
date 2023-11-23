@@ -25,7 +25,6 @@ class Status(enum.Enum):
     NOT_FOUND = 5
     ALREADY_EXISTS = 6
     PERMISSION_DENIED = 7
-    UNAUTHENTICATED = 16
     RESOURCE_EXHAUSTED = 8
     FAILED_PRECONDITION = 9
     ABORTED = 10
@@ -34,6 +33,7 @@ class Status(enum.Enum):
     INTERNAL = 13
     UNAVAILABLE = 14
     DATA_LOSS = 15
+    UNAUTHENTICATED = 16
 
     def ok(self) -> bool:
         return self is self.OK

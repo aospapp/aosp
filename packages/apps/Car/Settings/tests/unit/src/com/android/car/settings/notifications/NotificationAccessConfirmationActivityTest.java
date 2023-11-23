@@ -17,10 +17,10 @@
 package com.android.car.settings.notifications;
 
 import static com.android.internal.notification.NotificationAccessConfirmationActivityContract.EXTRA_COMPONENT_NAME;
-import static com.android.internal.notification.NotificationAccessConfirmationActivityContract.EXTRA_PACKAGE_TITLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.spy;
@@ -34,6 +34,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 
@@ -75,31 +76,35 @@ public final class NotificationAccessConfirmationActivityTest {
         return info;
     }
 
+    private static ApplicationInfo createApplicationInfo() {
+        ApplicationInfo info = new ApplicationInfo();
+        info.name = TEMP_COMPONENT_NAME.getClassName();
+        info.packageName = TEMP_COMPONENT_NAME.getPackageName();
+        return info;
+    }
+
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
     }
 
     @Test
-    public void packageTitleEmpty_finishes() {
-        Intent intent = new Intent(mContext, TestActivity.class)
-                .putExtra(EXTRA_COMPONENT_NAME, TEMP_COMPONENT_NAME);
+    public void componentNameEmpty_finishes() {
+        Intent intent = new Intent(mContext, TestActivity.class);
         mActivityScenario = ActivityScenario.launch(intent);
-
         assertThat(mActivityScenario.getState()).isEqualTo(Lifecycle.State.DESTROYED);
     }
 
     @Test
-    public void packageTitleNonEmpty_showsConfirmationDialog() {
+    public void componentNameNonEmpty_showsConfirmationDialog() {
         launchActivityWithValidIntent();
-
-        assertThat(mActivityScenario.getState()).isEqualTo(Lifecycle.State.RESUMED);
+        assertThat(mActivityScenario.getState()).isAtLeast(Lifecycle.State.CREATED);
     }
 
     @Test
     public void onAllow_permissionMissing_finishes() throws Exception {
         launchActivityWithValidIntent();
-        assertThat(mActivityScenario.getState()).isEqualTo(Lifecycle.State.RESUMED);
+        assertThat(mActivityScenario.getState()).isAtLeast(Lifecycle.State.CREATED);
         ServiceInfo info = createServiceInfoForTempComponent(/* permission = */ "");
         doReturn(info).when(mPackageManager).getServiceInfo(info.getComponentName(), 0);
 
@@ -116,7 +121,7 @@ public final class NotificationAccessConfirmationActivityTest {
     @Test
     public void onAllow_permissionAvailable_callsNotificationManager() throws Exception {
         launchActivityWithValidIntent();
-        assertThat(mActivityScenario.getState()).isEqualTo(Lifecycle.State.RESUMED);
+        assertThat(mActivityScenario.getState()).isAtLeast(Lifecycle.State.CREATED);
         ServiceInfo info = createServiceInfoForTempComponent(
                 Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE);
         doReturn(info).when(mPackageManager).getServiceInfo(info.getComponentName(), 0);
@@ -133,7 +138,7 @@ public final class NotificationAccessConfirmationActivityTest {
     @Test
     public void onDeny_finishes() throws Exception {
         launchActivityWithValidIntent();
-        assertThat(mActivityScenario.getState()).isEqualTo(Lifecycle.State.RESUMED);
+        assertThat(mActivityScenario.getState()).isAtLeast(Lifecycle.State.CREATED);
 
         AndroidMockitoHelper.syncRunOnUiThread(mActivity, () -> {
             getConfirmationDialog().getButton(DialogInterface.BUTTON_NEGATIVE).performClick();
@@ -153,16 +158,14 @@ public final class NotificationAccessConfirmationActivityTest {
 
     private void launchActivityWithValidIntent() {
         Intent intent = new Intent(mContext, TestActivity.class)
-                .putExtra(EXTRA_COMPONENT_NAME, TEMP_COMPONENT_NAME)
-                .putExtra(EXTRA_PACKAGE_TITLE, "my_package_title");
+                .putExtra(EXTRA_COMPONENT_NAME, TEMP_COMPONENT_NAME);
 
         mActivityScenario = ActivityScenario.launch(intent);
         mActivityScenario.onActivity(
                 activity -> {
                     mActivity = activity;
-                    mPackageManager = spy(mActivity.getPackageManager());
-                    mNotificationManager = spy(
-                            mActivity.getSystemService(NotificationManager.class));
+                    mPackageManager = mActivity.getPackageManager();
+                    mNotificationManager = mActivity.getSystemService(NotificationManager.class);
                     mActivity.setPackageManagerSpy(mPackageManager);
                     mActivity.setNotificationManagerSpy(mNotificationManager);
                 });
@@ -183,15 +186,28 @@ public final class NotificationAccessConfirmationActivityTest {
 
         @Override
         public PackageManager getPackageManager() {
-            return mPackageManagerSpy != null ? mPackageManagerSpy : super.getPackageManager();
+            if (mPackageManagerSpy == null) {
+                mPackageManagerSpy = spy(super.getPackageManager());
+                try {
+                    ApplicationInfo info = createApplicationInfo();
+                    doReturn(info).when(mPackageManagerSpy).getApplicationInfo(any(), any());
+                } catch (PackageManager.NameNotFoundException e) {
+                    // do nothing... tests will fail when activity finishes during onCreate()
+                }
+            }
+            return mPackageManagerSpy;
         }
 
         @Override
         public Object getSystemService(String name) {
-            return mNotificationManagerSpy != null
-                    && name.toLowerCase(Locale.ROOT).contains("notification")
-                    ? mNotificationManagerSpy
-                    : super.getSystemService(name);
+            if (!name.toLowerCase(Locale.ROOT).contains("notification")) {
+                return super.getSystemService(name);
+            }
+
+            if (mNotificationManagerSpy == null) {
+                mNotificationManagerSpy = spy(super.getSystemService(NotificationManager.class));
+            }
+            return mNotificationManagerSpy;
         }
 
         @Override

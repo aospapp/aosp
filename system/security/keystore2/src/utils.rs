@@ -15,11 +15,17 @@
 //! This module implements utility functions used by the Keystore 2.0 service
 //! implementation.
 
-use crate::error::{map_binder_status, Error, ErrorCode};
+use crate::error::{map_binder_status, map_km_error, Error, ErrorCode};
+use crate::key_parameter::KeyParameter;
 use crate::permission;
 use crate::permission::{KeyPerm, KeyPermSet, KeystorePerm};
+use crate::{
+    database::{KeyType, KeystoreDB},
+    globals::LEGACY_IMPORTER,
+};
 use android_hardware_security_keymint::aidl::android::hardware::security::keymint::{
-    KeyCharacteristics::KeyCharacteristics, Tag::Tag,
+    IKeyMintDevice::IKeyMintDevice, KeyCharacteristics::KeyCharacteristics,
+    KeyParameter::KeyParameter as KmKeyParameter, Tag::Tag,
 };
 use android_os_permissions_aidl::aidl::android::os::IPermissionController;
 use android_security_apc::aidl::android::security::apc::{
@@ -27,16 +33,17 @@ use android_security_apc::aidl::android::security::apc::{
     ResponseCode::ResponseCode as ApcResponseCode,
 };
 use android_system_keystore2::aidl::android::system::keystore2::{
-    Authorization::Authorization, KeyDescriptor::KeyDescriptor,
+    Authorization::Authorization, Domain::Domain, KeyDescriptor::KeyDescriptor,
 };
-use anyhow::{anyhow, Context};
-use binder::{FromIBinder, SpIBinder, ThreadState};
+use anyhow::{Context, Result};
+use binder::{Strong, ThreadState};
 use keystore2_apc_compat::{
     ApcCompatUiOptions, APC_COMPAT_ERROR_ABORTED, APC_COMPAT_ERROR_CANCELLED,
     APC_COMPAT_ERROR_IGNORED, APC_COMPAT_ERROR_OK, APC_COMPAT_ERROR_OPERATION_PENDING,
     APC_COMPAT_ERROR_SYSTEM_ERROR,
 };
-use std::sync::Mutex;
+use keystore2_crypto::{aes_gcm_decrypt, aes_gcm_encrypt, ZVec};
+use std::iter::IntoIterator;
 
 /// This function uses its namesake in the permission module and in
 /// combination with with_calling_sid from the binder crate to check
@@ -44,7 +51,7 @@ use std::sync::Mutex;
 pub fn check_keystore_permission(perm: KeystorePerm) -> anyhow::Result<()> {
     ThreadState::with_calling_sid(|calling_sid| {
         permission::check_keystore_permission(
-            &calling_sid.ok_or_else(Error::sys).context(
+            calling_sid.ok_or_else(Error::sys).context(
                 "In check_keystore_permission: Cannot check permission without calling_sid.",
             )?,
             perm,
@@ -58,7 +65,7 @@ pub fn check_keystore_permission(perm: KeystorePerm) -> anyhow::Result<()> {
 pub fn check_grant_permission(access_vec: KeyPermSet, key: &KeyDescriptor) -> anyhow::Result<()> {
     ThreadState::with_calling_sid(|calling_sid| {
         permission::check_grant_permission(
-            &calling_sid.ok_or_else(Error::sys).context(
+            calling_sid.ok_or_else(Error::sys).context(
                 "In check_grant_permission: Cannot check permission without calling_sid.",
             )?,
             access_vec,
@@ -78,7 +85,7 @@ pub fn check_key_permission(
     ThreadState::with_calling_sid(|calling_sid| {
         permission::check_key_permission(
             ThreadState::get_calling_uid(),
-            &calling_sid
+            calling_sid
                 .ok_or_else(Error::sys)
                 .context("In check_key_permission: Cannot check permission without calling_sid.")?,
             perm,
@@ -100,10 +107,21 @@ pub fn is_device_id_attestation_tag(tag: Tag) -> bool {
 }
 
 /// This function checks whether the calling app has the Android permissions needed to attest device
-/// identifiers. It throws an error if the permissions cannot be verified, or if the caller doesn't
-/// have the right permissions, and returns silently otherwise.
+/// identifiers. It throws an error if the permissions cannot be verified or if the caller doesn't
+/// have the right permissions. Otherwise it returns silently.
 pub fn check_device_attestation_permissions() -> anyhow::Result<()> {
-    let permission_controller: binder::Strong<dyn IPermissionController::IPermissionController> =
+    check_android_permission("android.permission.READ_PRIVILEGED_PHONE_STATE")
+}
+
+/// This function checks whether the calling app has the Android permissions needed to attest the
+/// device-unique identifier. It throws an error if the permissions cannot be verified or if the
+/// caller doesn't have the right permissions. Otherwise it returns silently.
+pub fn check_unique_id_attestation_permissions() -> anyhow::Result<()> {
+    check_android_permission("android.permission.REQUEST_UNIQUE_ID_ATTESTATION")
+}
+
+fn check_android_permission(permission: &str) -> anyhow::Result<()> {
+    let permission_controller: Strong<dyn IPermissionController::IPermissionController> =
         binder::get_interface("permission")?;
 
     let binder_result = {
@@ -112,7 +130,7 @@ pub fn check_device_attestation_permissions() -> anyhow::Result<()> {
             500,
         );
         permission_controller.checkPermission(
-            "android.permission.READ_PRIVILEGED_PHONE_STATE",
+            permission,
             ThreadState::get_calling_pid(),
             ThreadState::get_calling_uid() as i32,
         )
@@ -128,53 +146,62 @@ pub fn check_device_attestation_permissions() -> anyhow::Result<()> {
     }
 }
 
-/// Thread safe wrapper around SpIBinder. It is safe to have SpIBinder smart pointers to the
-/// same object in multiple threads, but cloning a SpIBinder is not thread safe.
-/// Keystore frequently hands out binder tokens to the security level interface. If this
-/// is to happen from a multi threaded thread pool, the SpIBinder needs to be protected by a
-/// Mutex.
-#[derive(Debug)]
-pub struct Asp(Mutex<SpIBinder>);
-
-impl Asp {
-    /// Creates a new instance owning a SpIBinder wrapped in a Mutex.
-    pub fn new(i: SpIBinder) -> Self {
-        Self(Mutex::new(i))
-    }
-
-    /// Clones the owned SpIBinder and attempts to convert it into the requested interface.
-    pub fn get_interface<T: FromIBinder + ?Sized>(&self) -> anyhow::Result<binder::Strong<T>> {
-        // We can use unwrap here because we never panic when locked, so the mutex
-        // can never be poisoned.
-        let lock = self.0.lock().unwrap();
-        (*lock)
-            .clone()
-            .into_interface()
-            .map_err(|e| anyhow!(format!("get_interface failed with error code {:?}", e)))
-    }
-}
-
-impl Clone for Asp {
-    fn clone(&self) -> Self {
-        let lock = self.0.lock().unwrap();
-        Self(Mutex::new((*lock).clone()))
-    }
-}
-
 /// Converts a set of key characteristics as returned from KeyMint into the internal
 /// representation of the keystore service.
 pub fn key_characteristics_to_internal(
     key_characteristics: Vec<KeyCharacteristics>,
-) -> Vec<crate::key_parameter::KeyParameter> {
+) -> Vec<KeyParameter> {
     key_characteristics
         .into_iter()
         .flat_map(|aidl_key_char| {
             let sec_level = aidl_key_char.securityLevel;
-            aidl_key_char.authorizations.into_iter().map(move |aidl_kp| {
-                crate::key_parameter::KeyParameter::new(aidl_kp.into(), sec_level)
-            })
+            aidl_key_char
+                .authorizations
+                .into_iter()
+                .map(move |aidl_kp| KeyParameter::new(aidl_kp.into(), sec_level))
         })
         .collect()
+}
+
+/// This function can be used to upgrade key blobs on demand. The return value of
+/// `km_op` is inspected and if ErrorCode::KEY_REQUIRES_UPGRADE is encountered,
+/// an attempt is made to upgrade the key blob. On success `new_blob_handler` is called
+/// with the upgraded blob as argument. Then `km_op` is called a second time with the
+/// upgraded blob as argument. On success a tuple of the `km_op`s result and the
+/// optional upgraded blob is returned.
+pub fn upgrade_keyblob_if_required_with<T, KmOp, NewBlobHandler>(
+    km_dev: &dyn IKeyMintDevice,
+    key_blob: &[u8],
+    upgrade_params: &[KmKeyParameter],
+    km_op: KmOp,
+    new_blob_handler: NewBlobHandler,
+) -> Result<(T, Option<Vec<u8>>)>
+where
+    KmOp: Fn(&[u8]) -> Result<T, Error>,
+    NewBlobHandler: FnOnce(&[u8]) -> Result<()>,
+{
+    match km_op(key_blob) {
+        Err(Error::Km(ErrorCode::KEY_REQUIRES_UPGRADE)) => {
+            let upgraded_blob = {
+                let _wp = watchdog::watch_millis(
+                    "In utils::upgrade_keyblob_if_required_with: calling upgradeKey.",
+                    500,
+                );
+                map_km_error(km_dev.upgradeKey(key_blob, upgrade_params))
+            }
+            .context("In utils::upgrade_keyblob_if_required_with: Upgrade failed.")?;
+
+            new_blob_handler(&upgraded_blob)
+                .context("In utils::upgrade_keyblob_if_required_with: calling new_blob_handler.")?;
+
+            km_op(&upgraded_blob)
+                .map(|v| (v, Some(upgraded_blob)))
+                .context("In utils::upgrade_keyblob_if_required_with: Calling km_op after upgrade.")
+        }
+        r => r
+            .map(|v| (v, None))
+            .context("In utils::upgrade_keyblob_if_required_with: Calling km_op."),
+    }
 }
 
 /// Converts a set of key characteristics from the internal representation into a set of
@@ -222,16 +249,37 @@ pub fn ui_opts_2_compat(opt: i32) -> ApcCompatUiOptions {
 }
 
 /// AID offset for uid space partitioning.
-pub const AID_USER_OFFSET: u32 = cutils_bindgen::AID_USER_OFFSET;
+pub const AID_USER_OFFSET: u32 = rustutils::users::AID_USER_OFFSET;
 
 /// AID of the keystore process itself, used for keys that
 /// keystore generates for its own use.
-pub const AID_KEYSTORE: u32 = cutils_bindgen::AID_KEYSTORE;
+pub const AID_KEYSTORE: u32 = rustutils::users::AID_KEYSTORE;
 
 /// Extracts the android user from the given uid.
 pub fn uid_to_android_user(uid: u32) -> u32 {
-    // Safety: No memory access
-    unsafe { cutils_bindgen::multiuser_get_user_id(uid) }
+    rustutils::users::multiuser_get_user_id(uid)
+}
+
+/// List all key aliases for a given domain + namespace.
+pub fn list_key_entries(
+    db: &mut KeystoreDB,
+    domain: Domain,
+    namespace: i64,
+) -> Result<Vec<KeyDescriptor>> {
+    let mut result = Vec::new();
+    result.append(
+        &mut LEGACY_IMPORTER
+            .list_uid(domain, namespace)
+            .context("In list_key_entries: Trying to list legacy keys.")?,
+    );
+    result.append(
+        &mut db
+            .list(domain, namespace, KeyType::Client)
+            .context("In list_key_entries: Trying to list keystore database.")?,
+    );
+    result.sort_unstable();
+    result.dedup();
+    Ok(result)
 }
 
 /// This module provides helpers for simplified use of the watchdog module.
@@ -261,6 +309,36 @@ pub mod watchdog {
         callback: impl Fn() -> String + Send + 'static,
     ) -> Option<WatchPoint> {
         Watchdog::watch_with(&WD, id, Duration::from_millis(millis), callback)
+    }
+}
+
+/// Trait implemented by objects that can be used to decrypt cipher text using AES-GCM.
+pub trait AesGcm {
+    /// Deciphers `data` using the initialization vector `iv` and AEAD tag `tag`
+    /// and AES-GCM. The implementation provides the key material and selects
+    /// the implementation variant, e.g., AES128 or AES265.
+    fn decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec>;
+
+    /// Encrypts `data` and returns the ciphertext, the initialization vector `iv`
+    /// and AEAD tag `tag`. The implementation provides the key material and selects
+    /// the implementation variant, e.g., AES128 or AES265.
+    fn encrypt(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)>;
+}
+
+/// Marks an object as AES-GCM key.
+pub trait AesGcmKey {
+    /// Provides access to the raw key material.
+    fn key(&self) -> &[u8];
+}
+
+impl<T: AesGcmKey> AesGcm for T {
+    fn decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec> {
+        aes_gcm_decrypt(data, iv, tag, self.key())
+            .context("In AesGcm<T>::decrypt: Decryption failed")
+    }
+
+    fn encrypt(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
+        aes_gcm_encrypt(plaintext, self.key()).context("In AesGcm<T>::encrypt: Encryption failed.")
     }
 }
 

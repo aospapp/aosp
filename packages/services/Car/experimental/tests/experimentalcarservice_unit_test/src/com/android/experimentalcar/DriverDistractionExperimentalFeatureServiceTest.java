@@ -65,6 +65,7 @@ import com.android.internal.annotations.GuardedBy;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -488,6 +489,7 @@ public class DriverDistractionExperimentalFeatureServiceTest {
         assertThat(waitForCallbackEvent(eventWaitTimeMs)).isFalse();
     }
 
+    @Ignore("TODO(b/201654588): fix it")
     @Test
     public void testManagerRegister_multipleEventsOutsideThrottleWindow_emitsAllEvents()
             throws Exception {

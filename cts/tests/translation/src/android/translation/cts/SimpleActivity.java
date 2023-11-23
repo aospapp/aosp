@@ -17,6 +17,7 @@
 package android.translation.cts;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.autofill.AutofillId;
 import android.widget.TextView;
@@ -51,5 +52,10 @@ public class SimpleActivity extends Activity {
 
     TextView getHelloText() {
         return mHelloText;
+    }
+
+    void startEmptyActivity() {
+        Intent intent = new Intent(this, EmptyActivity.class);
+        startActivity(intent);
     }
 }

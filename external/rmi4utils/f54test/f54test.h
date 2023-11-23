@@ -143,10 +143,39 @@
 #define CONTROL_147_SIZE 1
 #define CONTROL_148_SIZE 1
 #define CONTROL_149_SIZE 1
+#define CONTROL_150_SIZE 1
+#define CONTROL_151_SIZE 1
+#define CONTROL_152_SIZE 1
+#define CONTROL_153_SIZE 1
+#define CONTROL_154_SIZE 1
+#define CONTROL_155_SIZE 1
+#define CONTROL_156_SIZE 1
+#define CONTROL_157_158_SIZE 2
+#define CONTROL_163_SIZE 1
+#define CONTROL_165_SIZE 1
+#define CONTROL_166_SIZE 1
+#define CONTROL_167_SIZE 1
+#define CONTROL_168_SIZE 1
+#define CONTROL_169_SIZE 1
+#define CONTROL_171_SIZE 1
+#define CONTROL_172_SIZE 1
+#define CONTROL_173_SIZE 1
+#define CONTROL_174_SIZE 1
+#define CONTROL_175_SIZE 1
+#define CONTROL_176_SIZE 1
+#define CONTROL_177_178_SIZE 2
+#define CONTROL_179_SIZE 1
+#define CONTROL_182_SIZE 1
+#define CONTROL_183_SIZE 1
+#define CONTROL_185_SIZE 1
+#define CONTROL_186_SIZE 1
+#define CONTROL_187_SIZE 1
+#define CONTROL_188_SIZE 1
 
 #define HIGH_RESISTANCE_DATA_SIZE 6
 #define FULL_RAW_CAP_MIN_MAX_DATA_SIZE 4
-#define TRX_OPEN_SHORT_DATA_SIZE 7
+#define TRX_OPEN_SHORT_DATA_SIZE 15
+#define GUARD_PIN_SHORT_DATA_SIZE 15
 
 enum f54_report_types {
 	F54_8BIT_IMAGE = 1,
@@ -171,6 +200,7 @@ enum f54_report_types {
 	F54_TRX_SHORTS = 26,
 	F54_ABS_RAW_CAP = 38,
 	F54_ABS_DELTA_CAP = 40,
+	F54_GUARD_PIN_SHORT = 50,
 	INVALID_REPORT_TYPE = -1,
 };
 
@@ -493,13 +523,278 @@ struct f54_query_38 {
 			unsigned char has_ctrl147:1;
 			unsigned char has_ctrl148:1;
 			unsigned char has_ctrl149:1;
-			unsigned char f54_query38_b3:1;
-			unsigned char f54_query38_b4:1;
-			unsigned char f54_query38_b5:1;
-			unsigned char f54_query38_b6:1;
-			unsigned char f54_query38_b7:1;
+			unsigned char has_ctrl150:1;
+			unsigned char has_ctrl151:1;
+			unsigned char has_ctrl152:1;
+			unsigned char has_ctrl153:1;
+			unsigned char has_query39:1;
 		} __attribute__((packed));
 		unsigned char data[1];
+	};
+};
+
+struct f54_query_39 {
+	union {
+		struct {
+			unsigned char has_ctrl154:1;
+			unsigned char has_ctrl155:1;
+			unsigned char has_ctrl156:1;
+			unsigned char has_ctrl160:1;
+			unsigned char has_ctrl157_ctrl158:1;
+			unsigned char f54_query39_b5__6:2;
+			unsigned char has_query40:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_40 {
+	union {
+		struct {
+			unsigned char has_ctrl169:1;
+			unsigned char has_ctrl163_query41:1;
+			unsigned char f54_query40_b2:1;
+			unsigned char has_ctrl165_query42:1;
+			unsigned char has_ctrl166:1;
+			unsigned char has_ctrl167:1;
+			unsigned char has_ctrl168:1;
+			unsigned char has_query43:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_43 {
+	union {
+		struct {
+			unsigned char f54_query43_b0__1:2;
+			unsigned char has_ctrl171:1;
+			unsigned char has_ctrl172_query44_query45:1;
+			unsigned char has_ctrl173:1;
+			unsigned char has_ctrl174:1;
+			unsigned char has_ctrl175:1;
+			unsigned char has_query46:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_46 {
+	union {
+		struct {
+			unsigned char has_ctrl176:1;
+			unsigned char has_ctrl177_ctrl178:1;
+			unsigned char has_ctrl179:1;
+			unsigned char f54_query46_b3:1;
+			unsigned char has_data27:1;
+			unsigned char has_data28:1;
+			unsigned char f54_query46_b6:1;
+			unsigned char has_query47:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_47 {
+	union {
+		struct {
+			unsigned char f54_query47_b0:1;
+			unsigned char has_ctrl182:1;
+			unsigned char has_ctrl183:1;
+			unsigned char f54_query47_b3:1;
+			unsigned char has_ctrl185:1;
+			unsigned char has_ctrl186:1;
+			unsigned char has_ctrl187:1;
+			unsigned char has_query49:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_49 {
+	union {
+		struct {
+			unsigned char f54_query49_b0__1:2;
+			unsigned char has_ctrl188:1;
+			unsigned char has_data31:1;
+			unsigned char f54_query49_b4__6:3;
+			unsigned char has_query50:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_50 {
+	union {
+		struct {
+			unsigned char f54_query50_b0__6:7;
+			unsigned char has_query51:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_51 {
+	union {
+		struct {
+			unsigned char f54_query51_b0__4:5;
+			unsigned char has_query53_query54_ctrl198:1;
+			unsigned char has_ctrl199:1;
+			unsigned char has_query55:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_55 {
+	union {
+		struct {
+			unsigned char has_query56:1;
+			unsigned char has_data33_data34:1;
+			unsigned char has_alt_report_rate:1;
+			unsigned char has_ctrl200:1;
+			unsigned char has_ctrl201_ctrl202:1;
+			unsigned char has_ctrl203:1;
+			unsigned char has_ctrl204:1;
+			unsigned char has_query57:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_57 {
+	union {
+		struct {
+			unsigned char has_ctrl205:1;
+			unsigned char has_ctrl206:1;
+			unsigned char has_usb_bulk_read:1;
+			unsigned char has_ctrl207:1;
+			unsigned char has_ctrl208:1;
+			unsigned char has_ctrl209:1;
+			unsigned char has_ctrl210:1;
+			unsigned char has_query58:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_58 {
+	union {
+		struct {
+			unsigned char has_query59:1;
+			unsigned char has_query60:1;
+			unsigned char has_ctrl211:1;
+			unsigned char has_ctrl212:1;
+			unsigned char has_hybrid_abs_tx_axis_filtering:1;
+			unsigned char has_hybrid_abs_tx_interpolation:1;
+			unsigned char has_ctrl213:1;
+			unsigned char has_query61:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_61 {
+	union {
+		struct {
+			unsigned char has_ctrl214:1;
+			unsigned char has_ctrl215_query62_query63:1;
+			unsigned char f54_query_61_b2:1;
+			unsigned char has_ctrl216:1;
+			unsigned char has_ctrl217:1;
+			unsigned char has_misc_host_ctrl:1;
+			unsigned char hybrid_abs_buttons:1;
+			unsigned char has_query64:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_64 {
+	union {
+		struct {
+			unsigned char has_ctrl101_sub1:1;
+			unsigned char has_ctrl220:1;
+			unsigned char has_ctrl221:1;
+			unsigned char has_ctrl222:1;
+			unsigned char has_ctrl219_sub1:1;
+			unsigned char has_ctrl103_sub3:1;
+			unsigned char has_ctrl224_ctrl226_ctrl227:1;
+			unsigned char has_query65:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_65 {
+	union {
+		struct {
+			unsigned char f54_query_65_b0__1:2;
+			unsigned char has_ctrl101_sub2:1;
+			unsigned char f54_query_65_b3__4:2;
+			unsigned char has_query66_ctrl231:1;
+			unsigned char has_ctrl232:1;
+			unsigned char has_query67:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_67 {
+	union {
+		struct {
+			unsigned char has_abs_doze_spatial_filter_en:1;
+			unsigned char has_abs_doze_avg_filter_enhancement_en:1;
+			unsigned char has_single_display_pulse:1;
+			unsigned char f54_query_67_b3__4:2;
+			unsigned char has_ctrl235_ctrl236:1;
+			unsigned char f54_query_67_b6:1;
+			unsigned char has_query68:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_68 {
+	union {
+		struct {
+			unsigned char f54_query_68_b0:1;
+			unsigned char has_ctrl238:1;
+			unsigned char has_ctrl238_sub1:1;
+			unsigned char has_ctrl238_sub2:1;
+			unsigned char has_ctrl239:1;
+			unsigned char has_freq_filter_bw_ext:1;
+			unsigned char is_tddi_hic:1;
+			unsigned char has_query69:1;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_query_69 {
+	union {
+		struct {
+			unsigned char has_ctrl240_sub0:1;
+			unsigned char has_ctrl240_sub1_sub2:1;
+			unsigned char has_ctrl240_sub3:1;
+			unsigned char has_ctrl240_sub4:1;
+			unsigned char f54_query_69_b4__7:4;
+		} __attribute__((packed));
+		unsigned char data[1];
+	};
+};
+
+struct f54_data_31 {
+	union {
+		struct {
+			unsigned char is_calibration_crc:1;
+			unsigned char calibration_crc:1;
+			unsigned char short_test_row_number:5;
+		} __attribute__((packed));
+		struct {
+			unsigned char data[1];
+			unsigned short address;
+		} __attribute__((packed));
 	};
 };
 
@@ -602,6 +897,23 @@ struct f54_control_149 {
 	};
 };
 
+struct f54_control_188 {
+	union {
+		struct {
+			unsigned char start_calibration:1;
+			unsigned char start_is_calibration:1;
+			unsigned char frequency:2;
+			unsigned char start_production_test:1;
+			unsigned char short_test_calibration:1;
+			unsigned char f54_ctrl188_b7:1;
+		} __attribute__((packed));
+		struct {
+			unsigned char data[1];
+			unsigned short address;
+		} __attribute__((packed));
+	};
+};
+
 struct f54_control {
 	struct f54_control_7 reg_7;
 	struct f54_control_41 reg_41;
@@ -609,7 +921,9 @@ struct f54_control {
 	struct f54_control_88 reg_88;
 	struct f54_control_110 reg_110;
 	struct f54_control_149 reg_149;
+	struct f54_control_188 reg_188;
 };
+
 
 struct f55_query {
 	union {
@@ -663,6 +977,7 @@ private:
 	int WaitForF54CommandCompletion();
 	int ReadF54Report();
 	int ShowF54Report();
+	int DoPreparation();
 
 private:
 	RMIDevice & m_device;
@@ -687,9 +1002,26 @@ private:
 	f54_query_35 m_f54Query_35;
 	f54_query_36 m_f54Query_36;
 	f54_query_38 m_f54Query_38;
+	f54_query_39 m_f54Query_39;
+	f54_query_40 m_f54Query_40;
+	f54_query_43 m_f54Query_43;
+	f54_query_46 m_f54Query_46;
+	f54_query_47 m_f54Query_47;
+	f54_query_49 m_f54Query_49;
+	f54_query_50 m_f54Query_50;
+	f54_query_51 m_f54Query_51;
+	f54_query_55 m_f54Query_55;
+	f54_query_57 m_f54Query_57;
+	f54_query_58 m_f54Query_58;
+	f54_query_61 m_f54Query_61;
+	f54_query_64 m_f54Query_64;
+	f54_query_65 m_f54Query_65;
+	f54_query_67 m_f54Query_67;
+	f54_query_68 m_f54Query_68;
+	f54_query_69 m_f54Query_69;
 
 	f54_control m_f54Control;
-
+	f54_data_31 m_f54Data_31;
 	f55_query m_f55Query;
 
 	f54_report_types m_reportType;

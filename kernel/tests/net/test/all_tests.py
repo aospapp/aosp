@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import importlib
+import os
 import sys
 import unittest
 
@@ -48,8 +49,9 @@ test_modules = [
 ]
 
 if __name__ == '__main__':
-  # Check whether ADB over TCP is occupying TCP port 5555.
-  if namespace.HasEstablishedTcpSessionOnPort(5555):
+  # Check whether ADB over TCP is occupying TCP port 5555,
+  # or if we're on a real Android device
+  if os.path.isdir('/system') or namespace.HasEstablishedTcpSessionOnPort(5555):
     namespace.IfPossibleEnterNewNetworkNamespace()
   # First, run InjectTests on all modules, to ensure that any parameterized
   # tests in those modules are injected.

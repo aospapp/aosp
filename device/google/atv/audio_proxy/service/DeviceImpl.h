@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <set>
+
 // clang-format off
 #include PATH(android/hardware/audio/FILE_VERSION/IDevice.h)
 // clang-format on
@@ -33,10 +35,10 @@ using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hardware::audio::common::CPP_VERSION::AudioConfig;
-using ::android::hardware::audio::common::CPP_VERSION::AudioInputFlag;
-using ::android::hardware::audio::common::CPP_VERSION::AudioOutputFlag;
+using ::android::hardware::audio::common::CPP_VERSION::AudioPatchHandle;
 using ::android::hardware::audio::common::CPP_VERSION::AudioPort;
 using ::android::hardware::audio::common::CPP_VERSION::AudioPortConfig;
+using ::android::hardware::audio::common::CPP_VERSION::AudioPortHandle;
 using ::android::hardware::audio::common::CPP_VERSION::DeviceAddress;
 using ::android::hardware::audio::common::CPP_VERSION::SinkMetadata;
 using ::android::hardware::audio::common::CPP_VERSION::SourceMetadata;
@@ -44,11 +46,23 @@ using ::android::hardware::audio::CPP_VERSION::IDevice;
 using ::android::hardware::audio::CPP_VERSION::ParameterValue;
 using ::android::hardware::audio::CPP_VERSION::Result;
 
-class BusDeviceProvider;
+#if MAJOR_VERSION >= 7
+using ::android::hardware::audio::CPP_VERSION::AudioInOutFlag;
+#else
+using ::android::hardware::audio::common::CPP_VERSION::AudioInputFlag;
+using ::android::hardware::audio::common::CPP_VERSION::AudioOutputFlag;
+#endif
 
+class BusStreamProvider;
+struct ServiceConfig;
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+class DeviceImpl : public android::hardware::audio::V7_1::IDevice {
+#else
 class DeviceImpl : public IDevice {
+#endif
  public:
-  explicit DeviceImpl(BusDeviceProvider& busDeviceProvider);
+  DeviceImpl(BusStreamProvider& busStreamProvider, const ServiceConfig& config);
 
   // Methods from ::android::hardware::audio::V5_0::IDevice follow.
   Return<Result> initCheck() override;
@@ -60,6 +74,19 @@ class DeviceImpl : public IDevice {
   Return<void> getMasterMute(getMasterMute_cb _hidl_cb) override;
   Return<void> getInputBufferSize(const AudioConfig& config,
                                   getInputBufferSize_cb _hidl_cb) override;
+
+#if MAJOR_VERSION >= 7
+  Return<void> openOutputStream(int32_t ioHandle, const DeviceAddress& device,
+                                const AudioConfig& config,
+                                const hidl_vec<AudioInOutFlag>& flags,
+                                const SourceMetadata& sourceMetadata,
+                                openOutputStream_cb _hidl_cb) override;
+  Return<void> openInputStream(int32_t ioHandle, const DeviceAddress& device,
+                               const AudioConfig& config,
+                               const hidl_vec<AudioInOutFlag>& flags,
+                               const SinkMetadata& sinkMetadata,
+                               openInputStream_cb _hidl_cb) override;
+#else
   Return<void> openOutputStream(int32_t ioHandle, const DeviceAddress& device,
                                 const AudioConfig& config,
                                 hidl_bitfield<AudioOutputFlag> flags,
@@ -70,11 +97,13 @@ class DeviceImpl : public IDevice {
                                hidl_bitfield<AudioInputFlag> flags,
                                const SinkMetadata& sinkMetadata,
                                openInputStream_cb _hidl_cb) override;
+#endif
+
   Return<bool> supportsAudioPatches() override;
   Return<void> createAudioPatch(const hidl_vec<AudioPortConfig>& sources,
                                 const hidl_vec<AudioPortConfig>& sinks,
                                 createAudioPatch_cb _hidl_cb) override;
-  Return<Result> releaseAudioPatch(int32_t patch) override;
+  Return<Result> releaseAudioPatch(AudioPatchHandle patch) override;
   Return<void> getAudioPort(const AudioPort& port,
                             getAudioPort_cb _hidl_cb) override;
   Return<Result> setAudioPortConfig(const AudioPortConfig& config) override;
@@ -90,8 +119,43 @@ class DeviceImpl : public IDevice {
   Return<Result> setConnectedState(const DeviceAddress& address,
                                    bool connected) override;
 
+#if MAJOR_VERSION >= 6
+  Return<void> updateAudioPatch(AudioPatchHandle previousPatch,
+                                const hidl_vec<AudioPortConfig>& sources,
+                                const hidl_vec<AudioPortConfig>& sinks,
+                                updateAudioPatch_cb _hidl_cb) override;
+  Return<Result> close() override;
+  Return<Result> addDeviceEffect(AudioPortHandle device,
+                                 uint64_t effectId) override;
+  Return<Result> removeDeviceEffect(AudioPortHandle device,
+                                    uint64_t effectId) override;
+#endif
+
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+  Return<void> openOutputStream_7_1(int32_t ioHandle,
+                                    const DeviceAddress& device,
+                                    const AudioConfig& config,
+                                    const hidl_vec<AudioInOutFlag>& flags,
+                                    const SourceMetadata& sourceMetadata,
+                                    openOutputStream_7_1_cb _hidl_cb) override;
+  Return<Result> setConnectedState_7_1(const AudioPort& devicePort,
+                                       bool connected) override;
+#endif
+
  private:
-  BusDeviceProvider& mBusDeviceProvider;
+#if MAJOR_VERSION >= 7
+  template<typename CallbackType>
+  Return<void> openOutputStreamImpl(int32_t ioHandle,
+                                    const DeviceAddress& device,
+                                    const AudioConfig& config,
+                                    const hidl_vec<AudioInOutFlag>& flags,
+                                    const SourceMetadata& sourceMetadata,
+                                    CallbackType _hidl_cb);
+#endif
+
+  BusStreamProvider& mBusStreamProvider;
+  const ServiceConfig& mServiceConfig;
+  std::set<AudioPatchHandle> mAudioPatchHandles;
 };
 
 }  // namespace service

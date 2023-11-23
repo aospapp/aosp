@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Teie seadet haldab järgmine rakendus:"</string>
     <string name="next" msgid="1004321437324424398">"Järgmine"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Tööprofiili seadistamine …"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Teie IT-administraator saab jälgida ja hallata selle seadmega seotud seadeid, ettevõtte juurdepääsu, rakendusi, lube ja andmeid, sh võrgutegevusi ning ka seadme asukohta, kõneajalugu ja kontaktide otsinguajalugu.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Lisateabe saamiseks, sh organisatsiooni privaatsuseeskirjadega tutvumiseks, võtke ühendust administraatoriga."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Teie IT-administraator saab jälgida ning hallata selle profiiliga seotud seadeid, ettevõtte juurdepääsu, rakendusi, lube, andmeid ja võrgutegevusi ning ka kõneajalugu ja kontaktide otsinguajalugu. Lisateabe saamiseks (sh organisatsiooni privaatsuseeskirjade kohta) võtke ühendust IT-administraatoriga."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Teie IT-administraator saab jälgida ning hallata selle seadmega seotud seadeid, ettevõtte juurdepääsu, rakendusi, lube ja andmeid, sh võrgutegevusi ning ka seadme asukohta, kõneajalugu ja kontaktide otsinguajalugu.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Lisateabe saamiseks, sh organisatsiooni privaatsuseeskirjadega tutvumiseks, võtke ühendust administraatoriga."</string>
@@ -107,7 +105,7 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Seda seadet haldab, jälgib ja hoiab turvalisena <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Kehtivad tingimused. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Seda seadet haldab, jälgib ja hoiab turvalisena <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Kehtivad teenuste <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> tingimused. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"See link ei ole turvaline ja seda ei saa avada enne, kui seadme seadistamine on lõpetatud: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="2843488903902493030">"Lisateabe saamiseks võtke ühendust administraatoriga <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Lisateabe saamiseks võtke ühendust <xliff:g id="IT_ADMIN">%1$s</xliff:g>iga."</string>
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Küsimuste korral võtke ühendust IT-administraatoriga"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Seadistamine pole lõpetatud. Abi saamiseks võtke ühendust IT-administraatoriga."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Abi saamiseks võtke ühendust IT-administraatoriga"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> saab installida krediidipakkuja <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> rakenduse, et saaksite selle seadme eest makseid teha."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Seda seadet saab piirata"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Kui te nõutavaid makseid ei tee, saab <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> piirata juurdepääsu sellele seadmele."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Seadet ei saa seadistada. Võtke ühendust oma IT-administraatoriga ja mainige viga „Sobimatu kontrollsumma“."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Proovige hiljem uuesti või pöörduge abi saamiseks IT-administraatori poole"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Seadet ei saa seadistada. Võtke ühendust oma IT-administraatoriga ja mainige viga „Puuduvad või rikutud komponendid“."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Seadistamine …"</string>
 </resources>

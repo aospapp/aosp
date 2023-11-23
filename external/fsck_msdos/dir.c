@@ -400,8 +400,21 @@ checksize(struct fat_descriptor *fat, u_char *p, struct dosDirEntry *dir)
 	if (dir->head == CLUST_FREE) {
 		physicalSize = 0;
 	} else {
-		if (!fat_is_valid_cl(fat, dir->head))
-			return FSERROR;
+		if (!fat_is_valid_cl(fat, dir->head) || !fat_is_cl_head(fat, dir->head)) {
+			pwarn("Directory entry %s of size %u referencing invalid cluster %u\n",
+			    fullpath(dir), dir->size, dir->head);
+			if (ask(1, "Truncate")) {
+				p[28] = p[29] = p[30] = p[31] = 0;
+				p[26] = p[27] = 0;
+				if (boot->ClustMask == CLUST32_MASK)
+					p[20] = p[21] = 0;
+				dir->size = 0;
+				dir->head = CLUST_FREE;
+				return FSDIRMOD;
+			} else {
+				return FSERROR;
+			}
+		}
 		ret = checkchain(fat, dir->head, &chainsize);
 		/*
 		 * Upon return, chainsize would hold the chain length
@@ -422,8 +435,8 @@ checksize(struct fat_descriptor *fat, u_char *p, struct dosDirEntry *dir)
 		physicalSize = (u_int64_t)chainsize * boot->ClusterSize;
 	}
 	if (physicalSize < dir->size) {
-		pwarn("size of %s is %u, should at most be %" PRIu64 "\n",
-		      fullpath(dir), dir->size, physicalSize);
+		pwarn("size of %s is %u, should at most be %ju\n",
+		      fullpath(dir), dir->size, (uintmax_t)physicalSize);
 		if (ask(1, "Truncate")) {
 			dir->size = physicalSize;
 			p[28] = (u_char)physicalSize;

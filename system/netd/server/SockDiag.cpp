@@ -133,7 +133,10 @@ int SockDiag::sendDumpRequest(uint8_t proto, uint8_t family, uint8_t extensions,
     }
     request.nlh.nlmsg_len = len;
 
-    if (writev(mSock, iov, iovcnt) != (ssize_t) len) {
+    ssize_t writevRet = writev(mSock, iov, iovcnt);
+    // Don't let pointers to the stack escape.
+    iov[0] = {nullptr, 0};
+    if (writevRet != (ssize_t)len) {
         return -errno;
     }
 
@@ -315,11 +318,12 @@ int SockDiag::destroySockets(uint8_t proto, int family, const char* addrstr, int
         return ret;
     }
 
-    auto destroyAll = [ifindex](uint8_t, const inet_diag_msg* msg) {
+    // Destroy all sockets on the address, except link-local sockets where ifindex doesn't match.
+    auto shouldDestroy = [ifindex](uint8_t, const inet_diag_msg* msg) {
         return ifindex == 0 || ifindex == (int)msg->id.idiag_if;
     };
 
-    return readDiagMsg(proto, destroyAll);
+    return readDiagMsg(proto, shouldDestroy);
 }
 
 int SockDiag::destroySockets(const char* addrstr, int ifindex) {

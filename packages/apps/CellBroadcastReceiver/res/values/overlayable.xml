@@ -297,6 +297,10 @@
             <item type="string" name="enable_exercise_test_alerts_summary" />
             <item type="string" name="enable_operator_defined_test_alerts_title" />
             <item type="string" name="enable_operator_defined_test_alerts_summary" />
+
+            <!-- START GENERAL CONFIGS -->
+            <item type="string" name="config_headlineFontFamily" />
+            <!-- END GENERAL CONFIGS -->
         </policy>
         <!-- END VENDOR CUSTOMIZATION -->
 

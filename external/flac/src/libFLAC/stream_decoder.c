@@ -2996,7 +2996,7 @@ FLAC__bool seek_to_absolute_sample_(FLAC__StreamDecoder *decoder, FLAC__uint64 s
 	FLAC__uint64 first_frame_offset = decoder->private_->first_frame_offset, lower_bound, upper_bound, lower_bound_sample, upper_bound_sample, this_frame_sample;
 	FLAC__int64 pos = -1;
 	int i;
-	uint32_t approx_bytes_per_frame;
+	FLAC__int64 approx_bytes_per_frame;
 	FLAC__bool first_seek = true;
 	const FLAC__uint64 total_samples = FLAC__stream_decoder_get_total_samples(decoder);
 	const uint32_t min_blocksize = decoder->private_->stream_info.data.stream_info.min_blocksize;
@@ -3040,6 +3040,12 @@ FLAC__bool seek_to_absolute_sample_(FLAC__StreamDecoder *decoder, FLAC__uint64 s
 	lower_bound_sample = 0;
 	upper_bound = stream_length;
 	upper_bound_sample = total_samples > 0 ? total_samples : target_sample /*estimate it*/;
+
+	/* seeking beyond the end of the stream */
+	if(target_sample > upper_bound_sample) {
+		decoder->protected_->state = FLAC__STREAM_DECODER_SEEK_ERROR;
+		return false;
+	}
 
 	/*
 	 * Now we refine the bounds if we have a seektable with
@@ -3169,7 +3175,7 @@ FLAC__bool seek_to_absolute_sample_(FLAC__StreamDecoder *decoder, FLAC__uint64 s
 				return false;
 			}
 			/* our last move backwards wasn't big enough, try again */
-			approx_bytes_per_frame = approx_bytes_per_frame? approx_bytes_per_frame * 2 : 16;
+			approx_bytes_per_frame = (approx_bytes_per_frame > (upper_bound - lower_bound)) ? (upper_bound - lower_bound) : approx_bytes_per_frame ? approx_bytes_per_frame * 2 : 16;
 			continue;
 		}
 		/* allow one seek over upper bound, so we can get a correct upper_bound_sample for streams with unknown total_samples */

@@ -240,7 +240,8 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
         // removeDeviceOwner
         adapter.add(createInteractiveTestItem(this, REMOVE_DEVICE_OWNER_TEST_ID,
                 R.string.device_owner_remove_device_owner_test,
-                R.string.device_owner_remove_device_owner_test_info,
+                Utils.isTV(this) ? R.string.device_owner_remove_device_owner_test_info_on_tv
+                        : R.string.device_owner_remove_device_owner_test_info,
                 new ButtonInfo(
                         R.string.remove_device_owner_button,
                         createTearDownIntent())));

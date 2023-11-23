@@ -7,50 +7,51 @@ use std::os::raw::c_char;
 
 macro_rules! rust_vec_shims {
     ($segment:expr, $ty:ty) => {
-        const_assert_eq!(mem::size_of::<[usize; 3]>(), mem::size_of::<Vec<$ty>>());
-        const_assert_eq!(mem::align_of::<usize>(), mem::align_of::<Vec<$ty>>());
+        const_assert_eq!(mem::size_of::<[usize; 3]>(), mem::size_of::<RustVec<$ty>>());
+        const_assert_eq!(mem::size_of::<Vec<$ty>>(), mem::size_of::<RustVec<$ty>>());
+        const_assert_eq!(mem::align_of::<Vec<$ty>>(), mem::align_of::<RustVec<$ty>>());
 
         const _: () = {
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$new")]
                 unsafe extern "C" fn __new(this: *mut RustVec<$ty>) {
-                    ptr::write(this, RustVec { repr: Vec::new() });
+                    unsafe { ptr::write(this, RustVec::new()) }
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$drop")]
                 unsafe extern "C" fn __drop(this: *mut RustVec<$ty>) {
-                    ptr::drop_in_place(this);
+                    unsafe { ptr::drop_in_place(this) }
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$len")]
                 unsafe extern "C" fn __len(this: *const RustVec<$ty>) -> usize {
-                    (*this).repr.len()
+                    unsafe { &*this }.len()
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$capacity")]
                 unsafe extern "C" fn __capacity(this: *const RustVec<$ty>) -> usize {
-                    (*this).repr.capacity()
+                    unsafe { &*this }.capacity()
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$data")]
                 unsafe extern "C" fn __data(this: *const RustVec<$ty>) -> *const $ty {
-                    (*this).repr.as_ptr()
+                    unsafe { &*this }.as_ptr()
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$reserve_total")]
-                unsafe extern "C" fn __reserve_total(this: *mut RustVec<$ty>, cap: usize) {
-                    (*this).reserve_total(cap);
+                unsafe extern "C" fn __reserve_total(this: *mut RustVec<$ty>, new_cap: usize) {
+                    unsafe { &mut *this }.reserve_total(new_cap);
                 }
             }
             attr! {
                 #[export_name = concat!("cxxbridge1$rust_vec$", $segment, "$set_len")]
                 unsafe extern "C" fn __set_len(this: *mut RustVec<$ty>, len: usize) {
-                    (*this).repr.set_len(len);
+                    unsafe { (*this).set_len(len) }
                 }
             }
         };

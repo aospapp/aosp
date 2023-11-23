@@ -36,6 +36,8 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
@@ -49,8 +51,6 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
     private static final Logger LOG = new Logger(BrightnessLevelPreferenceController.class);
     private static final Uri BRIGHTNESS_URI = Settings.System.getUriFor(
             Settings.System.SCREEN_BRIGHTNESS);
-    private final int mMaximumBacklight;
-    private final int mMinimumBacklight;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private final ContentObserver mBrightnessObserver = new ContentObserver(mHandler) {
@@ -59,6 +59,11 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
             refreshUi();
         }
     };
+
+    @VisibleForTesting
+    final int mMaximumBacklight;
+    @VisibleForTesting
+    final int mMinimumBacklight;
 
     public BrightnessLevelPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {

@@ -18,10 +18,9 @@
 <resources>
     <color name="default_audio_background_image_color">#DADCE0</color>
     <color name="default_audio_background_color">#BDC1C6</color>
-    <color name="title_bar_display_area_handle_bar_color">#9aa0a6</color>
-    <color name="title_bar_display_area_background_color">#ffffff</color>
 
     <color name="icon_tint">#000000</color>
     <color name="media_button_tint">@color/icon_tint</color>
     <color name="dialer_button_icon_color">@color/icon_tint</color>
+    <color name="recent_apps_line_divider_color">#2E3134</color>
 </resources>

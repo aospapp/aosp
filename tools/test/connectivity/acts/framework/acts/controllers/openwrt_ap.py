@@ -3,21 +3,25 @@
 import random
 import re
 import time
+
 from acts import logger
 from acts import signals
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.openwrt_lib import network_settings
 from acts.controllers.openwrt_lib import wireless_config
 from acts.controllers.openwrt_lib import wireless_settings_applier
+from acts.controllers.openwrt_lib.openwrt_constants import OpenWrtModelMap as modelmap
+from acts.controllers.openwrt_lib.openwrt_constants import OpenWrtWifiSetting
+from acts.controllers.openwrt_lib.openwrt_constants import SYSTEM_INFO_CMD
 from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
-from acts.controllers.openwrt_lib.openwrt_constants import OpenWrtWifiSetting
 import yaml
+
 
 MOBLY_CONTROLLER_CONFIG_NAME = "OpenWrtAP"
 ACTS_CONTROLLER_REFERENCE_NAME = "access_points"
 OPEN_SECURITY = "none"
-PSK1_SECURITY = 'psk'
+PSK1_SECURITY = "psk"
 PSK_SECURITY = "psk2"
 WEP_SECURITY = "wep"
 ENT_SECURITY = "wpa2"
@@ -99,7 +103,9 @@ class OpenWrtAP(object):
     ssh_settings: The ssh settings being used by the ssh connection.
     log: Logging object for AccessPoint.
     wireless_setting: object holding wireless configuration.
-    network_setting: Object for network configuration
+    network_setting: Object for network configuration.
+    model: OpenWrt HW model.
+    radios: Fit interface for test.
   """
 
   def __init__(self, config):
@@ -111,6 +117,11 @@ class OpenWrtAP(object):
     self.wireless_setting = None
     self.network_setting = network_settings.NetworkSettings(
         self.ssh, self.ssh_settings, self.log)
+    self.model = self.get_model_name()
+    if self.model in modelmap.__dict__:
+      self.radios = modelmap.__dict__[self.model]
+    else:
+      self.radios = DEFAULT_RADIOS
 
   def configure_ap(self, wifi_configs, channel_2g, channel_5g):
     """Configure AP with the required settings.
@@ -150,7 +161,7 @@ class OpenWrtAP(object):
     # generate wifi configs to configure
     wireless_configs = self.generate_wireless_configs(wifi_configs)
     self.wireless_setting = wireless_settings_applier.WirelessSettingsApplier(
-        self.ssh, wireless_configs, channel_2g, channel_5g)
+        self.ssh, wireless_configs, channel_2g, channel_5g, self.radios[1], self.radios[0])
     self.wireless_setting.apply_wireless_settings()
 
   def start_ap(self):
@@ -182,30 +193,15 @@ class OpenWrtAP(object):
       Dictionary of SSID - BSSID map for both bands.
     """
     bssid_map = {"2g": {}, "5g": {}}
-    for radio in ["radio0", "radio1"]:
+    for radio in self.radios:
       ssid_ifname_map = self.get_ifnames_for_ssids(radio)
-      if radio == "radio0":
+      if radio == self.radios[0]:
         for ssid, ifname in ssid_ifname_map.items():
           bssid_map["5g"][ssid] = self.get_bssid(ifname)
-      elif radio == "radio1":
+      elif radio == self.radios[1]:
         for ssid, ifname in ssid_ifname_map.items():
           bssid_map["2g"][ssid] = self.get_bssid(ifname)
     return bssid_map
-
-  def get_wifi_status(self):
-    """Check if radios are up for both 2G and 5G bands.
-
-    Returns:
-      True if both radios are up. False if not.
-    """
-    radios = ["radio0", "radio1"]
-    status = True
-    for radio in radios:
-      str_output = self.ssh.run("wifi status %s" % radio).stdout
-      wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
-                              Loader=yaml.FullLoader)
-      status = wifi_status[radio]["up"] and status
-    return status
 
   def get_ifnames_for_ssids(self, radio):
     """Get interfaces for wifi networks.
@@ -219,7 +215,7 @@ class OpenWrtAP(object):
     ssid_ifname_map = {}
     str_output = self.ssh.run("wifi status %s" % radio).stdout
     wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
-                            Loader=yaml.FullLoader)
+                            Loader=yaml.SafeLoader)
     wifi_status = wifi_status[radio]
     if wifi_status["up"]:
       interfaces = wifi_status["interfaces"]
@@ -250,32 +246,32 @@ class OpenWrtAP(object):
     """
     str_output = self.ssh.run("wifi status").stdout
     wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
-                            Loader=yaml.FullLoader)
+                            Loader=yaml.SafeLoader)
 
     # Counting how many interface are enabled.
     total_interface = 0
-    for radio in ["radio0", "radio1"]:
-      num_interface = len(wifi_status[radio]['interfaces'])
+    for radio in self.radios:
+      num_interface = len(wifi_status[radio]["interfaces"])
       total_interface += num_interface
 
     # Iterates every interface to get and set wpa encryption.
     default_extra_interface = 2
     for i in range(total_interface + default_extra_interface):
       origin_encryption = self.ssh.run(
-          'uci get wireless.@wifi-iface[{}].encryption'.format(i)).stdout
-      origin_psk_pattern = re.match(r'psk\b', origin_encryption)
-      target_psk_pattern = re.match(r'psk\b', encryption)
-      origin_psk2_pattern = re.match(r'psk2\b', origin_encryption)
-      target_psk2_pattern = re.match(r'psk2\b', encryption)
+          "uci get wireless.@wifi-iface[{}].encryption".format(i)).stdout
+      origin_psk_pattern = re.match(r"psk\b", origin_encryption)
+      target_psk_pattern = re.match(r"psk\b", encryption)
+      origin_psk2_pattern = re.match(r"psk2\b", origin_encryption)
+      target_psk2_pattern = re.match(r"psk2\b", encryption)
 
       if origin_psk_pattern == target_psk_pattern:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].encryption={}'.format(
+            "uci set wireless.@wifi-iface[{}].encryption={}".format(
                 i, encryption))
 
       if origin_psk2_pattern == target_psk2_pattern:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].encryption={}'.format(
+            "uci set wireless.@wifi-iface[{}].encryption={}".format(
                 i, encryption))
 
     self.ssh.run("uci commit wireless")
@@ -296,7 +292,7 @@ class OpenWrtAP(object):
         self.log.error("Password must only contains ascii letters and digits")
       else:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].key={}'.format(3, pwd_5g))
+            "uci set wireless.@wifi-iface[{}].key={}".format(3, pwd_5g))
         self.log.info("Set 5G password to :{}".format(pwd_5g))
 
     if pwd_2g:
@@ -307,7 +303,7 @@ class OpenWrtAP(object):
         self.log.error("Password must only contains ascii letters and digits")
       else:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].key={}'.format(2, pwd_2g))
+            "uci set wireless.@wifi-iface[{}].key={}".format(2, pwd_2g))
         self.log.info("Set 2G password to :{}".format(pwd_2g))
 
     self.ssh.run("uci commit wireless")
@@ -326,7 +322,7 @@ class OpenWrtAP(object):
       # Only accept ascii letters and digits
       else:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].ssid={}'.format(3, ssid_5g))
+            "uci set wireless.@wifi-iface[{}].ssid={}".format(3, ssid_5g))
         self.log.info("Set 5G SSID to :{}".format(ssid_5g))
 
     if ssid_2g:
@@ -335,42 +331,44 @@ class OpenWrtAP(object):
       # Only accept ascii letters and digits
       else:
         self.ssh.run(
-            'uci set wireless.@wifi-iface[{}].ssid={}'.format(2, ssid_2g))
+            "uci set wireless.@wifi-iface[{}].ssid={}".format(2, ssid_2g))
         self.log.info("Set 2G SSID to :{}".format(ssid_2g))
 
     self.ssh.run("uci commit wireless")
     self.ssh.run("wifi")
 
   def generate_mobility_domain(self):
-      """Generate 4-character hexadecimal ID
+    """Generate 4-character hexadecimal ID.
 
-      Returns: String; a 4-character hexadecimal ID.
-      """
-      md = "{:04x}".format(random.getrandbits(16))
-      self.log.info("Mobility Domain ID: {}".format(md))
-      return md
+    Returns:
+      String; a 4-character hexadecimal ID.
+    """
+    md = "{:04x}".format(random.getrandbits(16))
+    self.log.info("Mobility Domain ID: {}".format(md))
+    return md
 
   def enable_80211r(self, iface, md):
     """Enable 802.11r for one single radio.
 
-     Args:
-       iface: index number of wifi-iface.
+    Args:
+      iface: index number of wifi-iface.
               2: radio1
               3: radio0
-       md: mobility domain. a 4-character hexadecimal ID.
-    Raises: TestSkip if 2g or 5g radio is not up or 802.11r is not enabled.
-     """
+      md: mobility domain. a 4-character hexadecimal ID.
+    Raises:
+      TestSkip if 2g or 5g radio is not up or 802.11r is not enabled.
+    """
     str_output = self.ssh.run("wifi status").stdout
     wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
-                            Loader=yaml.FullLoader)
+                            Loader=yaml.SafeLoader)
     # Check if the radio is up.
     if iface == OpenWrtWifiSetting.IFACE_2G:
-      if wifi_status['radio1']['up']:
+      if wifi_status[self.radios[1]]["up"]:
         self.log.info("2g network is ENABLED")
       else:
         raise signals.TestSkip("2g network is NOT ENABLED")
     elif iface == OpenWrtWifiSetting.IFACE_5G:
-      if wifi_status['radio0']['up']:
+      if wifi_status[self.radios[0]]["up"]:
         self.log.info("5g network is ENABLED")
       else:
         raise signals.TestSkip("5g network is NOT ENABLED")
@@ -380,10 +378,10 @@ class OpenWrtAP(object):
         "uci set wireless.@wifi-iface[{}].ieee80211r='1'".format(iface))
     self.ssh.run(
         "uci set wireless.@wifi-iface[{}].ft_psk_generate_local='1'"
-          .format(iface))
+        .format(iface))
     self.ssh.run(
         "uci set wireless.@wifi-iface[{}].mobility_domain='{}'"
-          .format(iface, md))
+        .format(iface, md))
     self.ssh.run(
         "uci commit wireless")
     self.ssh.run("wifi")
@@ -391,7 +389,7 @@ class OpenWrtAP(object):
     # Check if 802.11r is enabled.
     result = self.ssh.run(
         "uci get wireless.@wifi-iface[{}].ieee80211r".format(iface)).stdout
-    if result == '1':
+    if result == "1":
       self.log.info("802.11r is ENABLED")
     else:
       raise signals.TestSkip("802.11r is NOT ENABLED")
@@ -588,27 +586,28 @@ class OpenWrtAP(object):
         return wifi_network
     return None
 
-  def get_wifi_status(self, radios=DEFAULT_RADIOS):
+  def get_wifi_status(self):
     """Check if radios are up. Default are 2G and 5G bands.
 
-    Args:
-      radios: Wifi interfaces for check status.
     Returns:
       True if both radios are up. False if not.
     """
     status = True
-    for radio in radios:
-      str_output = self.ssh.run("wifi status %s" % radio).stdout
-      wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
-                              Loader=yaml.FullLoader)
-      status = wifi_status[radio]["up"] and status
+    for radio in self.radios:
+      try:
+        str_output = self.ssh.run("wifi status %s" % radio).stdout
+        wifi_status = yaml.load(str_output.replace("\t", "").replace("\n", ""),
+                                Loader=yaml.SafeLoader)
+        status = wifi_status[radio]["up"] and status
+      except:
+        self.log.info("Failed to make ssh connection to the OpenWrt")
+        return False
     return status
 
-  def verify_wifi_status(self, radios=DEFAULT_RADIOS, timeout=20):
+  def verify_wifi_status(self, timeout=20):
     """Ensure wifi interfaces are ready.
 
     Args:
-      radios: Wifi interfaces for check status.
       timeout: An integer that is the number of times to try
                wait for interface ready.
     Returns:
@@ -617,10 +616,24 @@ class OpenWrtAP(object):
     start_time = time.time()
     end_time = start_time + timeout
     while time.time() < end_time:
-      if self.get_wifi_status(radios):
+      if self.get_wifi_status():
         return True
       time.sleep(1)
     return False
+
+  def get_model_name(self):
+    """Get Openwrt model name.
+
+    Returns:
+      A string include device brand and model. e.g. NETGEAR_R8000
+    """
+    out = self.ssh.run(SYSTEM_INFO_CMD).stdout.split("\n")
+    for line in out:
+      if "board_name" in line:
+        model = (line.split()[1].strip("\",").split(","))
+        return "_".join(map(lambda i: i.upper(), model))
+    self.log.info("Failed to retrieve OpenWrt model information.")
+    return None
 
   def close(self):
     """Reset wireless and network settings to default and stop AP."""
@@ -632,3 +645,8 @@ class OpenWrtAP(object):
   def close_ssh(self):
     """Close SSH connection to AP."""
     self.ssh.close()
+
+  def reboot(self):
+    """Reboot Openwrt."""
+    self.ssh.run("reboot")
+

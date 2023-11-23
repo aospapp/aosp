@@ -42,7 +42,6 @@ cc_binary {
 
     // arch-specific static libraries depend on libmcldTarget.
     // Can be removed once soong supports transitive static library dependencies
-    group_static_libs: true,
     static_libs: [
         "libmcldADT",
         "libmcldCore",

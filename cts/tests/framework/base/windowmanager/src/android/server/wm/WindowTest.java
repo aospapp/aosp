@@ -315,7 +315,7 @@ public class WindowTest {
         v.clearFocus();
         assertNull(mWindow.getCurrentFocus());
 
-        v.setFocusable(true);
+        v.setFocusableInTouchMode(true);
         assertTrue(v.isFocusable());
         assertTrue(v.requestFocus());
         View focus = mWindow.getCurrentFocus();

@@ -236,4 +236,11 @@ public interface IYouTubeHelper extends IAppHelper {
      * <p>presses the video name to play.
      */
     public void playYourVideo(String videoName);
+
+    /**
+     * Setup expectation: YouTube is in the PIP mode on launcher.
+     *
+     * @return true if pip mode in launhcer.
+     */
+    public boolean isYouTubePipModeOnLauncher();
 }

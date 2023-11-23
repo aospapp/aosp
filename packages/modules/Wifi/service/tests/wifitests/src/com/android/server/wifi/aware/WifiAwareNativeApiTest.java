@@ -18,6 +18,8 @@ package com.android.server.wifi.aware;
 
 import static android.hardware.wifi.V1_0.NanCipherSuiteType.SHARED_KEY_128_MASK;
 import static android.hardware.wifi.V1_0.NanCipherSuiteType.SHARED_KEY_256_MASK;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
 
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.Assert.assertTrue;
@@ -44,6 +46,7 @@ import android.net.MacAddress;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
+import android.net.wifi.aware.WifiAwareDataPathSecurityConfig;
 import android.os.RemoteException;
 import android.util.Pair;
 
@@ -87,6 +90,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
 
     private MockableWifiAwareNativeApi mDut;
     private boolean mIsInterface12;
+    private static final Capabilities CAP = new Capabilities();
 
     /**
      * Initializes mocks.
@@ -114,6 +118,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
         mIsInterface12 = false;
 
         mDut = new MockableWifiAwareNativeApi(mWifiAwareNativeManagerMock);
+        CAP.supportedCipherSuites = WIFI_AWARE_CIPHER_SUITE_NCS_SK_128
+                | WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
     }
 
     /**
@@ -439,8 +445,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePmk */ false,
                 /* usePassphrase */ false,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_256_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+                /* publicCipherSuites */ 0,
+                /* halCipherSuite */ 0);
     }
 
     /**
@@ -452,8 +458,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePmk */ true,
                 /* usePassphrase */ false,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_128_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_128_MASK);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_256,
+                /* halCipherSuite */ SHARED_KEY_256_MASK);
 
     }
 
@@ -466,8 +472,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePmk */ false,
                 /* usePassphrase */ true,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_256_MASK | SHARED_KEY_128_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_128,
+                /* halCipherSuite */ SHARED_KEY_128_MASK);
     }
 
     /**
@@ -479,8 +485,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePmk */ true,
                 /* usePassphrase */ false,
                 /* isOutOfBand */ true,
-                /* supportedCipherSuites */ 0,
-                /* expectedCipherSuite */ 0);
+                /* supportedCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_128,
+                /* expectedCipherSuite */ SHARED_KEY_128_MASK);
     }
 
     /**
@@ -493,8 +499,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePassphrase */ false,
                 /* accept */ true,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_128_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_128_MASK);
+                /* publicCipherSuites */  WIFI_AWARE_CIPHER_SUITE_NCS_SK_256,
+                /* halCipherSuite */ SHARED_KEY_256_MASK);
     }
 
     /**
@@ -507,8 +513,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePassphrase */ false,
                 /* accept */ true,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_256_MASK | SHARED_KEY_128_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_128,
+                /* halCipherSuite */ SHARED_KEY_128_MASK);
     }
 
     /**
@@ -522,8 +528,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePassphrase */ true,
                 /* accept */ true,
                 /* isOutOfBand */ false,
-                /* supportedCipherSuites */ SHARED_KEY_256_MASK,
-                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_256,
+                /* halCipherSuite */ SHARED_KEY_256_MASK);
     }
 
     /**
@@ -536,8 +542,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePassphrase */ false,
                 /* accept */ true,
                 /* isOutOfBand */ true,
-                /* supportedCipherSuites */ 0,
-                /* expectedCipherSuite */ 0);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_128,
+                /* halCipherSuite */ SHARED_KEY_128_MASK);
     }
 
     /**
@@ -550,8 +556,8 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 /* usePassphrase */ false,
                 /* accept */ false,
                 /* isOutOfBand */ true,
-                /* supportedCipherSuites */ 0,
-                /* expectedCipherSuite */ 0);
+                /* publicCipherSuites */ WIFI_AWARE_CIPHER_SUITE_NCS_SK_128,
+                /* halCipherSuite */ 0);
     }
 
     /**
@@ -610,7 +616,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
         mIsInterface12 = isHal12;
 
         mDut.enableAndConfigure(transactionId, configRequest, notifyIdentityChange,
-                initialConfiguration, isInteractive, isIdle, false, false);
+                initialConfiguration, isInteractive, isIdle, false, false, 2437);
 
         ArgumentCaptor<NanEnableRequest> enableReqCaptor = ArgumentCaptor.forClass(
                 NanEnableRequest.class);
@@ -654,7 +660,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
     }
 
     private void validateInitiateDataPath(boolean usePmk, boolean usePassphrase,
-            boolean isOutOfBand, int supportedCipherSuites, int expectedCipherSuite)
+            boolean isOutOfBand, int publicCipherSuites, int halCipherSuite)
             throws Exception {
         short tid = 44;
         int peerId = 555;
@@ -667,15 +673,24 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
         String passphrase = "blahblah";
         final byte[] appInfo = "Out-of-band info".getBytes();
 
-        Capabilities cap = new Capabilities();
-        cap.supportedCipherSuites = supportedCipherSuites;
-
         ArgumentCaptor<android.hardware.wifi.V1_0.NanInitiateDataPathRequest> captor =
                 ArgumentCaptor.forClass(
                         android.hardware.wifi.V1_0.NanInitiateDataPathRequest.class);
+        WifiAwareDataPathSecurityConfig securityConfig = null;
+        if (usePassphrase) {
+            securityConfig = new WifiAwareDataPathSecurityConfig
+                    .Builder(publicCipherSuites)
+                    .setPskPassphrase(passphrase)
+                    .build();
+        } else if (usePmk) {
+            securityConfig = new WifiAwareDataPathSecurityConfig
+                    .Builder(publicCipherSuites)
+                    .setPmk(pmk)
+                    .build();
+        }
 
         mDut.initiateDataPath(tid, peerId, channelRequestType, channel, peer, interfaceName,
-                usePmk ? pmk : null, usePassphrase ? passphrase : null, isOutOfBand, appInfo, cap);
+                isOutOfBand, appInfo, CAP, securityConfig);
 
         verify(mIWifiNanIfaceMock).initiateDataPathRequest(eq(tid), captor.capture());
 
@@ -691,7 +706,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
             collector.checkThat("securityConfig.securityType",
                     NanDataPathSecurityType.PMK,
                     equalTo(nidpr.securityConfig.securityType));
-            collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+            collector.checkThat("securityConfig.cipherType", halCipherSuite,
                     equalTo(nidpr.securityConfig.cipherType));
             collector.checkThat("securityConfig.pmk", pmk, equalTo(nidpr.securityConfig.pmk));
             collector.checkThat("securityConfig.passphrase.length", 0,
@@ -702,7 +717,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
             collector.checkThat("securityConfig.securityType",
                     NanDataPathSecurityType.PASSPHRASE,
                     equalTo(nidpr.securityConfig.securityType));
-            collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+            collector.checkThat("securityConfig.cipherType", halCipherSuite,
                     equalTo(nidpr.securityConfig.cipherType));
             collector.checkThat("securityConfig.passphrase", passphrase.getBytes(),
                     equalTo(convertArrayListToNativeByteArray(nidpr.securityConfig.passphrase)));
@@ -722,7 +737,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
     }
 
     private void validateRespondToDataPathRequest(boolean usePmk, boolean usePassphrase,
-            boolean accept, boolean isOutOfBand, int supportedCipherSuites, int expectedCipherSuite)
+            boolean accept, boolean isOutOfBand, int publicCipherSuites, int halCipherSuite)
             throws Exception {
         short tid = 33;
         int ndpId = 44;
@@ -731,15 +746,24 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
         String passphrase = "blahblah";
         final byte[] appInfo = "Out-of-band info".getBytes();
 
-        Capabilities cap = new Capabilities();
-        cap.supportedCipherSuites = supportedCipherSuites;
-
         ArgumentCaptor<android.hardware.wifi.V1_0.NanRespondToDataPathIndicationRequest> captor =
                 ArgumentCaptor.forClass(
                         android.hardware.wifi.V1_0.NanRespondToDataPathIndicationRequest.class);
+        WifiAwareDataPathSecurityConfig securityConfig = null;
+        if (usePassphrase) {
+            securityConfig = new WifiAwareDataPathSecurityConfig
+                    .Builder(publicCipherSuites)
+                    .setPskPassphrase(passphrase)
+                    .build();
+        } else if (usePmk) {
+            securityConfig = new WifiAwareDataPathSecurityConfig
+                    .Builder(publicCipherSuites)
+                    .setPmk(pmk)
+                    .build();
+        }
 
-        mDut.respondToDataPathRequest(tid, accept, ndpId, interfaceName, usePmk ? pmk : null,
-                usePassphrase ? passphrase : null, appInfo, isOutOfBand, cap);
+        mDut.respondToDataPathRequest(tid, accept, ndpId, interfaceName,
+                appInfo, isOutOfBand, CAP, securityConfig);
 
         verify(mIWifiNanIfaceMock).respondToDataPathIndicationRequest(eq(tid), captor.capture());
 
@@ -754,7 +778,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 collector.checkThat("securityConfig.securityType",
                         NanDataPathSecurityType.PMK,
                         equalTo(nrtdpir.securityConfig.securityType));
-                collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                collector.checkThat("securityConfig.cipherType", halCipherSuite,
                         equalTo(nrtdpir.securityConfig.cipherType));
                 collector.checkThat("securityConfig.pmk", pmk, equalTo(nrtdpir.securityConfig.pmk));
                 collector.checkThat("securityConfig.passphrase.length", 0,
@@ -765,7 +789,7 @@ public class WifiAwareNativeApiTest extends WifiBaseTest {
                 collector.checkThat("securityConfig.securityType",
                         NanDataPathSecurityType.PASSPHRASE,
                         equalTo(nrtdpir.securityConfig.securityType));
-                collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                collector.checkThat("securityConfig.cipherType", halCipherSuite,
                         equalTo(nrtdpir.securityConfig.cipherType));
                 collector.checkThat("securityConfig.passphrase", passphrase.getBytes(),
                         equalTo(convertArrayListToNativeByteArray(

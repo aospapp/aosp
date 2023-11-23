@@ -16,6 +16,7 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
 import android.os.PersistableBundle;
 
 import com.android.car.telemetry.StatsLogProto;
@@ -74,8 +75,10 @@ public class ConfigMetricsReportListConverter {
      * @return a {@link PersistableBundle} containing mapping of metric id to metric data.
      * @throws StatsConversionException if atom field mismatch or can't convert dimension value.
      */
+    @NonNull
     public static Map<Long, PersistableBundle> convert(
-            StatsLogProto.ConfigMetricsReportList reportList) throws StatsConversionException {
+            @NonNull StatsLogProto.ConfigMetricsReportList reportList)
+            throws StatsConversionException {
         // Map metric id to StatsLogReport list so that separate reports can be combined.
         Map<Long, List<StatsLogProto.StatsLogReport>> metricsStatsReportMap = new HashMap<>();
         Set<String> stringsSet = new HashSet<>();
@@ -139,7 +142,9 @@ public class ConfigMetricsReportListConverter {
      * @param dimensionStrings the strings that were encoded in dimension values.
      * @return hash to string mapping.
      */
-    private static Map<Long, String> createDimensionHashToStringMap(Set<String> dimensionStrings) {
+    @NonNull
+    private static Map<Long, String> createDimensionHashToStringMap(
+            @NonNull Set<String> dimensionStrings) {
         Map<Long, String> hashToStringMap = new HashMap<>();
         for (String str : dimensionStrings) {
             Long hash = HashUtils.murmur2Hash64(str);
@@ -154,8 +159,9 @@ public class ConfigMetricsReportListConverter {
      * @param dimensionsPath the root level DimensionsValue. Contains field ids instead of values.
      * @return list of atom field ids.
      */
+    @NonNull
     private static List<Integer> extractDimensionFieldsIds(
-            StatsLogProto.DimensionsValue dimensionsPath) {
+            @NonNull StatsLogProto.DimensionsValue dimensionsPath) {
         List<Integer> dimensionsFieldsIds = new ArrayList<>();
         StatsLogProto.DimensionsValueTuple dimensionTuple = dimensionsPath.getValueTuple();
         for (StatsLogProto.DimensionsValue dv : dimensionTuple.getDimensionsValueList()) {

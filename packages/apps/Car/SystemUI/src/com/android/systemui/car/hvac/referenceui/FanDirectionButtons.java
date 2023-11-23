@@ -137,12 +137,10 @@ public class FanDirectionButtons extends LinearLayout implements HvacView {
             }
 
             if (mCurrentDirection != INVALID_ID) {
-                mButtons.get(mButtonIndicesByDirection.get(mCurrentDirection))
-                        .setSelected(false);
+                updateFanDirectionButtonSelectedOnUiThread(mCurrentDirection, false);
             }
             mCurrentDirection = newDirection;
-            mButtons.get(mButtonIndicesByDirection.get(mCurrentDirection))
-                    .setSelected(true);
+            updateFanDirectionButtonSelectedOnUiThread(mCurrentDirection, true);
 
             return;
         }
@@ -156,6 +154,14 @@ public class FanDirectionButtons extends LinearLayout implements HvacView {
         }
 
         updateViewPerAvailability();
+    }
+
+    private void updateFanDirectionButtonSelectedOnUiThread(int currentDirection,
+            boolean selected) {
+        mContext.getMainExecutor().execute(() -> {
+            mButtons.get(mButtonIndicesByDirection.get(currentDirection))
+                    .setSelected(selected);
+        });
     }
 
     @Override

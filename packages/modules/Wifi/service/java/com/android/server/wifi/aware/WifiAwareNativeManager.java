@@ -83,6 +83,15 @@ public class WifiAwareNativeManager {
     }
 
     /**
+     * (HIDL) Cast the input to a 1.6 NAN interface (possibly resulting in a null).
+     *
+     * Separate function so can be mocked in unit tests.
+     */
+    public android.hardware.wifi.V1_6.IWifiNanIface mockableCastTo_1_6(IWifiNanIface iface) {
+        return android.hardware.wifi.V1_6.IWifiNanIface.castFrom(iface);
+    }
+
+    /**
      * Initialize the class - intended for late initialization.
      *
      * @param handler Handler on which to execute interface available callbacks.
@@ -100,7 +109,7 @@ public class WifiAwareNativeManager {
                         if (mHalDeviceManager.isStarted()) {
                             mWifiAwareStateManager.tryToGetAwareCapability();
                         } else {
-                            awareIsDown();
+                            awareIsDown(false);
                         }
                     }
                 }, mHandler);
@@ -136,7 +145,7 @@ public class WifiAwareNativeManager {
             }
             if (mHalDeviceManager == null) {
                 Log.e(TAG, "tryToGetAware: mHalDeviceManager is null!?");
-                awareIsDown();
+                awareIsDown(false);
                 return;
             }
 
@@ -145,15 +154,21 @@ public class WifiAwareNativeManager {
                     mHandler, requestorWs);
             if (iface == null) {
                 Log.e(TAG, "Was not able to obtain an IWifiNanIface (even though enabled!?)");
-                awareIsDown();
+                awareIsDown(true);
             } else {
                 if (mDbg) Log.v(TAG, "Obtained an IWifiNanIface");
 
                 try {
                     android.hardware.wifi.V1_2.IWifiNanIface iface12 = mockableCastTo_1_2(iface);
                     android.hardware.wifi.V1_5.IWifiNanIface iface15 = mockableCastTo_1_5(iface);
+                    android.hardware.wifi.V1_6.IWifiNanIface iface16 = mockableCastTo_1_6(iface);
                     WifiStatus status;
-                    if (iface15 != null) {
+                    if (iface16 != null) {
+                        mWifiAwareNativeCallback.mIsHal12OrLater = true;
+                        mWifiAwareNativeCallback.mIsHal15OrLater = true;
+                        mWifiAwareNativeCallback.mIsHal16OrLater = true;
+                        status = iface16.registerEventCallback_1_6(mWifiAwareNativeCallback);
+                    } else if (iface15 != null) {
                         mWifiAwareNativeCallback.mIsHal12OrLater = true;
                         mWifiAwareNativeCallback.mIsHal15OrLater = true;
                         status = iface15.registerEventCallback_1_5(mWifiAwareNativeCallback);
@@ -167,12 +182,12 @@ public class WifiAwareNativeManager {
                         Log.e(TAG, "IWifiNanIface.registerEventCallback error: " + statusString(
                                 status));
                         mHalDeviceManager.removeIface(iface);
-                        awareIsDown();
+                        awareIsDown(false);
                         return;
                     }
                 } catch (RemoteException e) {
                     Log.e(TAG, "IWifiNanIface.registerEventCallback exception: " + e);
-                    awareIsDown();
+                    awareIsDown(false);
                     return;
                 }
                 mWifiNanIface = iface;
@@ -226,7 +241,7 @@ public class WifiAwareNativeManager {
             }
             if (mHalDeviceManager == null) {
                 Log.e(TAG, "tryToGetAware: mHalDeviceManager is null!?");
-                awareIsDown();
+                awareIsDown(false);
                 return false;
             }
 
@@ -234,7 +249,7 @@ public class WifiAwareNativeManager {
         }
     }
 
-    private void awareIsDown() {
+    private void awareIsDown(boolean markAsAvailable) {
         synchronized (mLock) {
             if (mDbg) {
                 Log.d(TAG, "awareIsDown: mWifiNanIface=" + mWifiNanIface + ", mReferenceCount ="
@@ -242,7 +257,7 @@ public class WifiAwareNativeManager {
             }
             mWifiNanIface = null;
             mReferenceCount = 0;
-            mWifiAwareStateManager.disableUsage(true);
+            mWifiAwareStateManager.disableUsage(markAsAvailable);
         }
     }
 
@@ -257,7 +272,7 @@ public class WifiAwareNativeManager {
                         + active);
             }
             if (active && mWifiNanIface != null) {
-                awareIsDown();
+                awareIsDown(true);
             } // else: we released it locally so no need to disable usage
         }
     }

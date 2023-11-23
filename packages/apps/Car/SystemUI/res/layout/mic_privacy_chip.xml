@@ -15,152 +15,19 @@
   ~ limitations under the License.
   -->
 
-
 <com.android.systemui.car.privacy.MicPrivacyChip
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/privacy_chip"
+    android:id="@+id/mic_privacy_chip"
     android:layout_width="@dimen/privacy_chip_width"
     android:layout_height="match_parent"
     android:visibility="gone"
     android:paddingTop="@dimen/car_padding_1"
     android:paddingBottom="@dimen/car_padding_1"
-    android:paddingStart="@dimen/privacy_chip_horizontal_padding"
     android:paddingEnd="@dimen/privacy_chip_horizontal_padding"
     android:focusable="false"
     app:layoutDescription="@xml/mic_privacy_chip_scene">
 
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/max_width_guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_end="@dimen/privacy_chip_width" />
+    <include layout="@layout/privacy_chip_content"/>
 
-    <View
-        android:id="@+id/inactive_background"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:alpha="0.0"
-        android:background="@drawable/mic_privacy_chip_inactive_background_pill"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
-
-    <View
-        android:id="@+id/inactive_selected_background"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:alpha="0.0"
-        android:background="@drawable/mic_privacy_chip_inactive_selected_background_pill"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/circular_active_indicator_vertical_guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_end="@dimen/privacy_chip_indicator_circle_diameter" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/circular_active_indicator_horizontal_guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintGuide_end="@dimen/privacy_chip_indicator_circle_diameter" />
-
-    <View
-        android:id="@+id/active_background"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:alpha="0.0"
-        android:background="@drawable/mic_privacy_chip_active_background_pill"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
-
-    <ImageView
-        android:id="@+id/light_muted_icon"
-        android:src="@drawable/ic_mic_off_light"
-        android:visibility="gone"
-        android:layout_width="@dimen/privacy_chip_icon_size"
-        android:layout_height="@dimen/privacy_chip_icon_size"
-        android:alpha="0.0"
-        android:gravity="center"
-        android:scaleType="centerInside"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent"
-    />
-
-    <ImageView
-        android:id="@+id/dark_muted_icon"
-        android:src="@drawable/ic_mic_off_dark"
-        android:visibility="gone"
-        android:layout_width="@dimen/privacy_chip_icon_size"
-        android:layout_height="@dimen/privacy_chip_icon_size"
-        android:alpha="0.0"
-        android:gravity="center"
-        android:scaleType="centerInside"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent"
-    />
-
-    <ImageView
-        android:id="@+id/light_icon"
-        android:src="@drawable/ic_mic_light"
-        android:visibility="gone"
-        android:layout_width="@dimen/privacy_chip_icon_size"
-        android:layout_height="@dimen/privacy_chip_icon_size"
-        android:alpha="0.0"
-        android:gravity="center"
-        android:scaleType="centerInside"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent"
-    />
-
-    <ImageView
-        android:id="@+id/dark_icon"
-        android:src="@drawable/ic_mic_dark"
-        android:visibility="gone"
-        android:layout_width="@dimen/privacy_chip_icon_size"
-        android:layout_height="@dimen/privacy_chip_icon_size"
-        android:alpha="0.0"
-        android:gravity="center"
-        android:scaleType="centerInside"
-        android:focusable="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent"
-    />
-
-    <!-- Vew to properly show rotary focus highlight for mic privacy chip. -->
-    <View
-        android:id="@+id/focus_view"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:alpha="0.0"
-        android:background="@drawable/system_bar_pill_rotary_background"
-        android:focusable="true"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
 </com.android.systemui.car.privacy.MicPrivacyChip>

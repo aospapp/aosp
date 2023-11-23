@@ -437,7 +437,8 @@ struct ClassificationResult {
   ContactPointer contact_pointer;
   std::string contact_name, contact_given_name, contact_family_name,
       contact_nickname, contact_email_address, contact_phone_number,
-      contact_account_type, contact_account_name, contact_id;
+      contact_account_type, contact_account_name, contact_id,
+      contact_alternate_name;
   std::string app_name, app_package_name;
   int64 numeric_value;
   double numeric_double_value;
@@ -614,11 +615,6 @@ struct AnnotationOptions : public BaseOptions, public DatetimeOptions {
 
   // If true, trigger dictionary on words that are of beginner level.
   bool trigger_dictionary_on_beginner_words = false;
-
-  // If true, enables an optimized code path for annotation.
-  // The optimization caused crashes previously, which is why we are rolling it
-  // out using this temporary flag. See: b/178503899
-  bool enable_optimization = false;
 
   bool operator==(const AnnotationOptions& other) const {
     return this->is_serialized_entity_data_enabled ==

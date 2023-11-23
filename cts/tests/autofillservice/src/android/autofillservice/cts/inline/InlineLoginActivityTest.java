@@ -33,7 +33,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.PendingIntent;
+import android.app.UiAutomation;
 import android.autofillservice.cts.activities.DummyActivity;
 import android.autofillservice.cts.activities.NonAutofillableActivity;
 import android.autofillservice.cts.activities.UsernameOnlyActivity;
@@ -50,12 +52,18 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillContext;
 import android.support.test.uiautomator.Direction;
+import android.view.accessibility.AccessibilityManager;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.MockImeSession;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @Presubmit
 public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
@@ -282,6 +290,7 @@ public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
     }
 
     @Test
+    @AppModeFull(reason = "BROADCAST_STICKY permission cannot be granted to instant apps")
     public void testAutofill_noInvalid() throws Exception {
         final String keyInvalid = "invalid";
         final String keyValid = "valid";
@@ -371,6 +380,71 @@ public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
 
         // Confirm new fill request
         sReplier.getNextFillRequest();
+    }
+
+    @Test
+    @AppModeFull(reason = "BROADCAST_STICKY permission cannot be granted to instant apps")
+    public void testImeDisableInlineSuggestions_fallbackDropdownUi() throws Exception {
+        // Set service.
+        enableService();
+
+        final MockImeSession mockImeSession = sMockImeSessionRule.getMockImeSession();
+        assumeTrue("MockIME not available", mockImeSession != null);
+
+        // Disable inline suggestions for the default service.
+        final Bundle bundle = new Bundle();
+        bundle.putBoolean("InlineSuggestions", false);
+        mockImeSession.callSetInlineSuggestionsExtras(bundle);
+
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setPresentation(createPresentation("The Username"))
+                        .setInlinePresentation(createInlinePresentation("The Username"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill.
+        mUiBot.selectByRelativeId(ID_USERNAME);
+        mUiBot.waitForIdleSync();
+
+        // Check that no inline requests are sent to the service.
+        final InstrumentedAutoFillService.FillRequest request = sReplier.getNextFillRequest();
+        assertThat(request.inlineRequest).isNull();
+
+        // Check dropdown UI shown.
+        getDropdownUiBot().assertDatasets("The Username");
+    }
+
+    @Test
+    public void testTouchExplorationEnabledImeSupportInline_inlineShown() throws Exception {
+        enableTouchExploration();
+
+        enableService();
+
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setPresentation(createPresentation("The Username"))
+                        .setInlinePresentation(createInlinePresentation("The Username"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        try {
+            // Trigger auto-fill.
+            mUiBot.selectByRelativeId(ID_USERNAME);
+            mUiBot.waitForIdleSync();
+
+            final InstrumentedAutoFillService.FillRequest request = sReplier.getNextFillRequest();
+            assertThat(request.inlineRequest).isNotNull();
+
+            // Check datasets shown.
+            mUiBot.assertDatasets("The Username");
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            resetTouchExploration();
+        }
     }
 
     @Test
@@ -517,5 +591,56 @@ public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
         // .RemoteInlineSuggestionUi} to timeout.
         SystemClock.sleep(500);
         Helper.assertActiveViewCountFromInlineSuggestionRenderService(0);
+    }
+
+    private void enableTouchExploration() throws InterruptedException {
+        toggleTouchExploration(/*enable=*/ true);
+    }
+
+    private void resetTouchExploration() throws InterruptedException {
+        toggleTouchExploration(/*enable=*/ false);
+    }
+
+    private void toggleTouchExploration(boolean enable)
+            throws InterruptedException {
+        final AccessibilityManager manager =
+                getContext().getSystemService(AccessibilityManager.class);
+        if (isTouchExplorationEnabled(manager) == enable) {
+            return;
+        }
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        AccessibilityManager.TouchExplorationStateChangeListener serviceListener =
+                (boolean newState) -> {
+                    if (newState == enable) {
+                        latch.countDown();
+                    }
+                };
+        manager.addTouchExplorationStateChangeListener(serviceListener);
+
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        final AccessibilityServiceInfo info = uiAutomation.getServiceInfo();
+        assert info != null;
+        if (enable) {
+            info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE;
+        } else {
+            info.flags &= ~AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE;
+        }
+        uiAutomation.setServiceInfo(info);
+
+        // Wait for touch exploration state to be toggled
+        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+
+        if (enable) {
+            assertThat(isTouchExplorationEnabled(manager)).isTrue();
+        } else {
+            assertThat(isTouchExplorationEnabled(manager)).isFalse();
+        }
+        manager.removeTouchExplorationStateChangeListener(serviceListener);
+    }
+
+    private static boolean isTouchExplorationEnabled(AccessibilityManager manager) {
+        return manager.isEnabled() && manager.isTouchExplorationEnabled();
     }
 }

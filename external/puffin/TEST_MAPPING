@@ -3,5 +3,10 @@
     {
       "name": "puffin_unittest"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "puffin_unittest"
+    }
   ]
 }

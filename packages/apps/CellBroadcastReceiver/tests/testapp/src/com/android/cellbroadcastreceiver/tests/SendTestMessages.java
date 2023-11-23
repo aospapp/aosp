@@ -427,120 +427,118 @@ public class SendTestMessages {
         }
     }
 
-    private static void sendBroadcast(Activity activity, int serialNumber, int category,
+    private static void sendBroadcast(Context context, int serialNumber, int category,
                                       byte[] pdu) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
-        intent.putExtra("message", createFromPdu(activity, pdu, serialNumber, category));
-        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
-                activity.getApplicationContext()));
-        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
+        intent.putExtra("message", createFromPdu(context, pdu, serialNumber, category));
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(context));
+        context.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendMessage7bit(Activity activity, int serialNumber,
+    public static void testSendMessage7bit(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTest);
+        sendBroadcast(context, serialNumber, category, gsm7BitTest);
     }
 
-    public static void testSendMessage7bitUmts(Activity activity, int serialNumber,
+    public static void testSendMessage7bitUmts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestUmts);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestUmts);
     }
 
-    public static void testSendMessage7bitNoPadding(Activity activity, int serialNumber,
+    public static void testSendMessage7bitNoPadding(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestNoPadding);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestNoPadding);
     }
 
-    public static void testSendMessage7bitNoPaddingUmts(Activity activity, int serialNumber,
+    public static void testSendMessage7bitNoPaddingUmts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestNoPaddingUmts);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestNoPaddingUmts);
     }
 
-    public static void testSendMessage7bitMultipageGsm(Activity activity, int serialNumber,
+    public static void testSendMessage7bitMultipageGsm(Context context, int serialNumber,
             int category) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         byte[][] pdus = new byte[2][];
         pdus[0] = gsm7BitTestMultipage1;
         pdus[1] = gsm7BitTestMultipage2;
-        intent.putExtra("message", createFromPdus(activity, pdus, serialNumber, category));
-        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
-                activity.getApplicationContext()));
-        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
+        intent.putExtra("message", createFromPdus(context, pdus, serialNumber, category));
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(context));
+        context.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendMessage7bitMultipageUmts(Activity activity, int serialNumber,
+    public static void testSendMessage7bitMultipageUmts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestMultipageUmts);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestMultipageUmts);
     }
 
-    public static void testSendMessage7bitWithLanguage(Activity activity, int serialNumber,
+    public static void testSendMessage7bitWithLanguage(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestWithLanguage);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestWithLanguage);
     }
 
-    public static void testSendMessage7bitWithLanguageInBody(Activity activity, int serialNumber,
+    public static void testSendMessage7bitWithLanguageInBody(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestWithLanguageInBody);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestWithLanguageInBody);
     }
 
-    public static void testSendMessage7bitWithLanguageInBodyUmts(Activity activity,
+    public static void testSendMessage7bitWithLanguageInBodyUmts(Context context,
             int serialNumber, int category) {
-        sendBroadcast(activity, serialNumber, category, gsm7BitTestWithLanguageInBodyUmts);
+        sendBroadcast(context, serialNumber, category, gsm7BitTestWithLanguageInBodyUmts);
     }
 
-    public static void testSendMessageUcs2(Activity activity, int serialNumber,
+    public static void testSendMessageUcs2(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsmUcs2Test);
+        sendBroadcast(context, serialNumber, category, gsmUcs2Test);
     }
 
-    public static void testSendMessageUcs2Umts(Activity activity, int serialNumber,
+    public static void testSendMessageUcs2Umts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsmUcs2TestUmts);
+        sendBroadcast(context, serialNumber, category, gsmUcs2TestUmts);
     }
 
-    public static void testSendMessageUcs2MultipageUmts(Activity activity, int serialNumber,
+    public static void testSendMessageUcs2MultipageUmts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsmUcs2TestMultipageUmts);
+        sendBroadcast(context, serialNumber, category, gsmUcs2TestMultipageUmts);
     }
 
-    public static void testSendMessageUcs2WithLanguageInBody(Activity activity, int serialNumber,
+    public static void testSendMessageUcs2WithLanguageInBody(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsmUcs2TestWithLanguageInBody);
+        sendBroadcast(context, serialNumber, category, gsmUcs2TestWithLanguageInBody);
     }
 
-    public static void testSendMessageUcs2WithLanguageUmts(Activity activity, int serialNumber,
+    public static void testSendMessageUcs2WithLanguageUmts(Context context, int serialNumber,
             int category) {
-        sendBroadcast(activity, serialNumber, category, gsmUcs2TestWithLanguageInBodyUmts);
+        sendBroadcast(context, serialNumber, category, gsmUcs2TestWithLanguageInBodyUmts);
     }
 
-    public static void testSendEtwsMessageEarthquake(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING,
+    public static void testSendEtwsMessageEarthquake(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING,
                 etwsMessageNormal);
     }
 
-    public static void testSendEtwsMessageTsunami(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_TSUNAMI_WARNING,
+    public static void testSendEtwsMessageTsunami(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_TSUNAMI_WARNING,
                 etwsMessageNormal);
     }
 
-    public static void testSendEtwsMessageEarthquakeTsunami(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber,
+    public static void testSendEtwsMessageEarthquakeTsunami(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber,
                 SmsCbConstants.MESSAGE_ID_ETWS_EARTHQUAKE_AND_TSUNAMI_WARNING, etwsMessageNormal);
     }
 
-    public static void testSendEtwsMessageOther(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE,
+    public static void testSendEtwsMessageOther(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_OTHER_EMERGENCY_TYPE,
                 etwsMessageNormal);
     }
 
-    public static void testSendEtwsMessageCancel(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber, 0, etwsMessageCancel);
+    public static void testSendEtwsMessageCancel(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber, 0, etwsMessageCancel);
     }
 
-    public static void testSendEtwsMessageTest(Activity activity, int serialNumber) {
-        sendBroadcast(activity, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE,
+    public static void testSendEtwsMessageTest(Context context, int serialNumber) {
+        sendBroadcast(context, serialNumber, SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE,
                 etwsMessageTest);
     }
 }

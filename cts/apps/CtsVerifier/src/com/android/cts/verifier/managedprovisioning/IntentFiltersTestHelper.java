@@ -16,34 +16,27 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
-import android.app.Activity;
-import android.app.admin.DevicePolicyManager;
 import android.app.DownloadManager;
-import android.content.ComponentName;
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.media.audiofx.AudioEffect;
 import android.net.Uri;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Environment;
-import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.AlarmClock;
 import android.provider.CalendarContract.Events;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.speech.RecognizerIntent;
 import android.util.Log;
-import android.widget.Toast;
 
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -161,7 +154,7 @@ public class IntentFiltersTestHelper {
         PackageManager pm = mContext.getPackageManager();
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-                && pm.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE)) {
+                && pm.hasSystemFeature(PackageManager.FEATURE_TELECOM)) {
             forwardedIntentsFromManaged.addAll(Arrays.asList(
                     new Intent("android.intent.action.CALL_EMERGENCY").setData(
                             Uri.parse("tel:123")),
@@ -206,7 +199,7 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
-            forwardedIntentsFromManaged.addAll(Arrays.asList(
+            forwardingOptionalIntentsFromManaged.addAll(Arrays.asList(
                     new Intent(MediaStore.ACTION_IMAGE_CAPTURE),
                     new Intent(MediaStore.ACTION_VIDEO_CAPTURE),
                     new Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA),
@@ -228,7 +221,8 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
-            forwardedIntentsFromManaged.add(new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION));
+            forwardingOptionalIntentsFromManaged.add(
+                    new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION));
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_LOCATION)) {

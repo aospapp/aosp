@@ -428,6 +428,27 @@ stuff {
 }
 `,
 	},
+	{
+		input: `
+// test
+stuff {
+    namespace: "google",
+    list_of_structs: [{ key1: "a", key2: "b" }],
+}
+`,
+		output: `
+// test
+stuff {
+    namespace: "google",
+    list_of_structs: [
+        {
+            key1: "a",
+            key2: "b",
+        },
+    ],
+}
+`,
+	},
 }
 
 func TestPrinter(t *testing.T) {

@@ -84,7 +84,6 @@ struct Interface : public Scope {
 
     // aliases for corresponding methods in this->fqName()
     std::string getBaseName() const;
-    std::string getAdapterName() const;
     std::string getProxyName() const;
     std::string getStubName() const;
     std::string getPassthroughName() const;

@@ -29,7 +29,30 @@ constexpr bool kFuzzLog = false;
 
 using android::aidl::test::FakeIoDelegate;
 
-void fuzz(const FakeIoDelegate& io, const std::vector<std::string>& args) {
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+  if (size <= 1) return 0;  // no use
+
+  // b/145447540, large nested expressions sometimes hit the stack depth limit.
+  // Fuzzing things of this size don't provide any additional meaningful
+  // coverage. This is an approximate value which should allow us to explore all
+  // of the language w/o hitting a stack overflow.
+  if (size > 2000) return 0;
+
+  FuzzedDataProvider provider = FuzzedDataProvider(data, size);
+  FakeIoDelegate io;
+  std::vector<std::string> args;
+
+  size_t numArgs = provider.ConsumeIntegralInRange(0, 20);
+  for (size_t i = 0; i < numArgs; i++) {
+    args.emplace_back(provider.ConsumeRandomLengthString());
+  }
+
+  while (provider.remaining_bytes() > 0) {
+    const std::string name = provider.ConsumeRandomLengthString();
+    const std::string contents = provider.ConsumeRandomLengthString();
+    io.SetFileContents(name, contents);
+  }
+
   if (kFuzzLog) {
     std::cout << "cmd: ";
     for (const std::string& arg : args) {
@@ -43,70 +66,15 @@ void fuzz(const FakeIoDelegate& io, const std::vector<std::string>& args) {
   }
 
   int ret = android::aidl::aidl_entry(Options::From(args), io);
-  if (ret != 0) return;
 
   if (kFuzzLog) {
-    for (const auto& [f, output] : io.OutputFiles()) {
-      std::cout << "OUTPUT " << f << ": " << std::endl;
-      std::cout << output << std::endl;
+    std::cout << "RET: " << ret << std::endl;
+    if (ret != 0) {
+      for (const auto& [f, output] : io.OutputFiles()) {
+        std::cout << "OUTPUT " << f << ": " << std::endl;
+        std::cout << output << std::endl;
+      }
     }
-  }
-}
-
-void fuzzLang(const std::string& langOpt, const std::string& content) {
-  FakeIoDelegate io;
-  io.SetFileContents("a/path/Foo.aidl", content);
-
-  std::vector<std::string> args;
-  args.emplace_back("aidl");
-  args.emplace_back("--lang=" + langOpt);
-  args.emplace_back("-b");
-  args.emplace_back("-I .");
-  args.emplace_back("-o out");
-  // corresponding package also in aidl_parser_fuzzer.dict
-  args.emplace_back("a/path/Foo.aidl");
-
-  fuzz(io, args);
-}
-
-void fuzzCheckApi(const std::string& a, const std::string& b) {
-  FakeIoDelegate io;
-  io.SetFileContents("a/path/Foo.aidl", a);
-  io.SetFileContents("b/path/Foo.aidl", b);
-
-  std::vector<std::string> args;
-  args.emplace_back("aidl");
-  args.emplace_back("--checkapi");
-  // corresponding package also in aidl_parser_fuzzer.dict
-  args.emplace_back("a/path/");
-  args.emplace_back("b/path/");
-
-  fuzz(io, args);
-}
-
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  if (size <= 1) return 0;  // no use
-
-  // b/145447540, large nested expressions sometimes hit the stack depth limit.
-  // Fuzzing things of this size don't provide any additional meaningful
-  // coverage. This is an approximate value which should allow us to explore all
-  // of the language w/o hitting a stack overflow.
-  if (size > 2000) return 0;
-
-  FuzzedDataProvider provider = FuzzedDataProvider(data, size);
-
-  if (provider.ConsumeBool()) {
-    std::string content = provider.ConsumeRemainingBytesAsString();
-
-    fuzzLang("ndk", content);
-    fuzzLang("cpp", content);
-    fuzzLang("java", content);
-    fuzzLang("rust", content);
-  } else {
-    std::string contentA = provider.ConsumeRandomLengthString();
-    std::string contentB = provider.ConsumeRemainingBytesAsString();
-
-    fuzzCheckApi(contentA, contentB);
   }
 
   return 0;

@@ -45,6 +45,8 @@ rust_library {
     name: "libfutures_channel",
     host_supported: true,
     crate_name: "futures_channel",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.21",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -57,9 +59,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   futures-core-0.3.14 "alloc,std"

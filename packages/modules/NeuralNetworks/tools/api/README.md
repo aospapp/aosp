@@ -1,14 +1,13 @@
 # API File Generation
 
 There are certain pieces of `NeuralNetworksTypes.h`, `Types.h`,
-`OperandTypes.h`, `OperationTypes.h`, and of our various `*.hal` files that
-ought to be kept in sync -- most notably the operand type and operation type
-definitions and descriptions.  To avoid having to do this manually, a tool
+`OperandTypes.h`, `OperationTypes.h`, and of our various `*.hal`/`*.aidl` files
+that ought to be kept in sync -- most notably the operand type and operation
+type definitions and descriptions. To avoid having to do this manually, a tool
 `generate_api.py` is employed to combine a single *specification file* with one
-*template file* per API file (`NeuralNetworksTypes.h`, `Types.h`,
-`OperandTypes.h`, `OperationTypes.h`, or `types.hal`) to produce that API file.
-The script `generate_api.sh` invokes `generate_api.py` once per API file,
-passing appropriate arguments.
+*template file* per API file to produce that API file. The
+script `generate_api.sh` invokes `generate_api.py` once per API file, passing
+appropriate arguments.
 
 ## `generate_api.sh`
 
@@ -18,9 +17,8 @@ Invoked with no arguments or with the `--mode=update` argument, this script
 regenerates each API file in place, by invoking `generate_api.py` once per
 generated file.
 
-Invoked with the `--mode=hook` argument, this script checks whether
-`NeuralNetworksTypes.h`, `Types.h`, `OperandTypes.h`, or `OperationTypes.h`
-needs to be regenerated.
+Invoked with the `--mode=hook` argument, this script checks whether NDK and
+Canonical files need to be regenerated.
 
 When the `--dryrun` argument is present, this script shows how it would invoke
 `generate_api.py` but does not actually regenerate files or check whether they
@@ -41,7 +39,8 @@ the `%kind` directive to help generate different text in different situations.
 It has no meaning to the tool itself.  Today, the following kinds are used:
 `ndk` (when generating `NeuralNetworksTypes.h`), `canonical` (when generating
 `Types.h`, `OperandTypes.h`, and `OperationTypes.h`), `hal_1.0` (when generating
-`1.0/types.hal`), `hal_1.1`, `hal_1.2`, and `hal_1.3`.
+`1.0/types.hal`), `hal_1.1`, `hal_1.2`, `hal_1.3` and `aidl` (when
+generating `OperandType.aidl` and `OperationType.aidl`).
 
 ## Template File Syntax
 
@@ -132,7 +131,7 @@ generated output file.
 
 Defines a macro identified by the token *name*.  The *body* is separated from
 the *name* by exactly one whitespace character, and extends to the end of the
-line -- it may contain whitespace itself. For example,
+line -- it may contain whitespace itself.  For example,
 
   %define test  this body begins and ends with a space character 
 
@@ -190,7 +189,7 @@ Permitted in regions: section
 
 The *list* consists of a space-delimited list of tokens, any of which may end in
 `*` to indicate a *wildcard pattern* or `+` to indicate a *lowest version
-pattern*. Any other pattern is a *simple pattern*. The condition is **on** in
+pattern*.  Any other pattern is a *simple pattern*.  The condition is **on** in
 three cases:
 * One of the simple pattern tokens equals the "kind"
 * One of the wildcard pattern tokens less the `*` is a prefix of the "kind"
@@ -209,7 +208,7 @@ Permitted in regions: null, section
 
 This directive has two purposes:
 
-* Validity-checking. If the "kind" is not on the space-delimited *list* of tokens,
+* Validity-checking.  If the "kind" is not on the space-delimited *list* of tokens,
   `generate_api.py` terminates with an error.
 * Ordering the possible kinds for the *lowest version pattern* (see the section
   above for the explanation of the pattern).

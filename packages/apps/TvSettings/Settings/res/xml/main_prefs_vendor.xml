@@ -47,6 +47,15 @@
             android:fragment="com.android.tv.settings.vendor.ChannelsAndInputFragment">
             <!-- This is an example. Change to your intent for display and preview-->
         </Preference>
+        <com.android.tv.twopanelsettings.slices.SlicePreference
+            android:icon="@drawable/ic_photo_size_select_actual"
+            android:key="channels_and_inputs_slice"
+            android:title="@string/channels_and_inputs_title"
+            android:summary="@string/channels_and_inputs_summary"
+            android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+            custom:isPreferenceVisible="false"
+            custom:uri="@string/channels_and_inputs_slice_uri">
+        </com.android.tv.twopanelsettings.slices.SlicePreference>
 
         <Preference
             android:icon="@drawable/ic_photo_size_select_actual"

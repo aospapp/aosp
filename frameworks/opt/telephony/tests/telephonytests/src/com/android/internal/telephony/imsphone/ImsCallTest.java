@@ -22,6 +22,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,20 +45,27 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.concurrent.Executor;
+
 public class ImsCallTest extends TelephonyTest {
 
     private Bundle mBundle;
     private ImsCallProfile mTestCallProfile;
+
+    private final Executor mExecutor = Runnable::run;
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
         mTestCallProfile = new ImsCallProfile();
         mBundle = mTestCallProfile.mCallExtras;
+        doReturn(mExecutor).when(mContext).getMainExecutor();
     }
 
     @After
     public void tearDown() throws Exception {
+        mBundle = null;
+        mTestCallProfile = null;
         super.tearDown();
     }
 
@@ -70,7 +80,7 @@ public class ImsCallTest extends TelephonyTest {
 
         ArgumentCaptor<ImsCallSession.Listener> listenerCaptor =
                 ArgumentCaptor.forClass(ImsCallSession.Listener.class);
-        verify(mockSession).setListener(listenerCaptor.capture());
+        verify(mockSession).setListener(listenerCaptor.capture(), any());
         ImsCallSession.Listener listener = listenerCaptor.getValue();
         assertNotNull(listener);
 
@@ -133,6 +143,39 @@ public class ImsCallTest extends TelephonyTest {
 
         imsCall.setCallProfile(null);
         assertTrue(imsCall.wasVideoCall());
+    }
+
+    @Test
+    @SmallTest
+    public void testCloseImsCallRtt() throws Exception {
+        ImsCallSession mockSession = mock(ImsCallSession.class);
+        ImsStreamMediaProfile streamProfile = new ImsStreamMediaProfile(
+                ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB,
+                ImsStreamMediaProfile.DIRECTION_SEND_RECEIVE,
+                ImsStreamMediaProfile.VIDEO_QUALITY_NONE,
+                ImsStreamMediaProfile.DIRECTION_INACTIVE,
+                // Full RTT mode
+                ImsStreamMediaProfile.RTT_MODE_FULL);
+        ImsCallProfile profile = new ImsCallProfile(ImsCallProfile.SERVICE_TYPE_NORMAL,
+                ImsCallProfile.CALL_TYPE_VOICE, null /*extras*/, streamProfile);
+        profile.mCallType = ImsCallProfile.CALL_TYPE_VOICE;
+        ImsCall imsCall = new ImsCall(mContext, profile);
+        imsCall.attachSession(mockSession);
+
+        imsCall.sendRttMessage("test");
+        verify(mockSession).sendRttMessage("test");
+
+        //called by ImsPhoneCallTracker when the call is terminated
+        imsCall.close();
+
+        try {
+            // Ensure RTT cases are handled gracefully.
+            imsCall.sendRttMessage("test");
+            imsCall.sendRttModifyRequest(true);
+            imsCall.sendRttModifyResponse(true);
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e);
+        }
     }
 
     @Test

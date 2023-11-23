@@ -46,4 +46,22 @@ public interface IClockHelper extends IAppHelper {
     default public void goToTimer() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    /**
+     * Setup expectations: Clock widget is open.
+     *
+     * <p>Create clock widget.
+     */
+    public default void createWidget() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Clock is open.
+     *
+     * <p>Clicks Clock widget to go to Clock page.
+     */
+    public default void goToClockFromWidget() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

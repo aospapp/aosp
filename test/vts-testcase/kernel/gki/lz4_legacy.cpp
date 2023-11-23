@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <iostream>
 #include <vector>
 
 #include <android-base/file.h>
@@ -41,13 +42,24 @@ android::base::Result<void> Lz4DecompressLegacy(const char* input,
   constexpr uint32_t lz4_legacy_magic = 0x184C2102;
   constexpr auto lz4_legacy_block_size = 8_MiB;
 
+  struct stat st_buf {};
+  if (stat(input, &st_buf) != 0) {
+    return ErrnoError() << "stat(" << input << ")";
+  }
+
   unique_fd ifd(TEMP_FAILURE_RETRY(open(input, O_RDONLY | O_CLOEXEC)));
+  if (!ifd.ok()) {
+    return ErrnoError() << "open(" << input << ", O_RDONLY)";
+  }
   unique_fd ofd(TEMP_FAILURE_RETRY(
       open(output, O_WRONLY | O_CREAT | O_CLOEXEC | O_TRUNC, 0640)));
+  if (!ofd.ok()) {
+    return ErrnoError() << "open(" << output << ", O_WRONLY | O_CREAT)";
+  }
 
-  uint32_t magic;
+  uint32_t magic{};
   if (!ReadFully(ifd, &magic, sizeof(magic))) {
-    return ErrnoError() << "read magic";
+    return ErrnoError() << "read lz4 magic " << input;
   }
   // Android is little-endian. No need to convert magic.
   if (magic != lz4_legacy_magic) {
@@ -59,7 +71,7 @@ android::base::Result<void> Lz4DecompressLegacy(const char* input,
   std::vector<char> obuf(lz4_legacy_block_size);
 
   while (true) {
-    uint32_t block_size;
+    uint32_t block_size{};
     ssize_t read_bytes =
         TEMP_FAILURE_RETRY(read(ifd.get(), &block_size, sizeof(block_size)));
     if (read_bytes == 0) break;

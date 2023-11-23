@@ -27,8 +27,8 @@ android_test {
     srcs: [
         "src/**/*.java",
         "app/src/**/*.java",
-        "app30/src/**/*.java",
         ":CtsAlarmUtils",
+        ":CtsAlarmTestHelperCommon",
     ],
     test_suites: [
         "cts",
@@ -36,4 +36,11 @@ android_test {
         "mts-scheduling",
     ],
     platform_apis: true,
+    data: [
+        ":AlarmTestApp30",
+        ":AlarmTestAppWithPolicyPermissionSdk32",
+        ":AlarmTestApp",
+        ":AlarmTestAppWithUserPermissionSdk32",
+    ],
+    per_testcase_directory: true,
 }

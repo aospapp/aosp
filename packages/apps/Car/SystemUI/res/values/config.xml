@@ -57,11 +57,11 @@
 
     <!-- If set to true, the corresponding system bar will be hidden when Keyboard (IME) appears.
          NOTE: hideBottomSystemBarKeyboard must not be overlaid directly here. To change its value,
-         overlay config_automotiveHideNavBarForKeyboard in framework/base/core/res/res. -->
+         overlay config_hideNavBarForKeyboard in framework/base/core/res/res. -->
     <bool name="config_hideTopSystemBarForKeyboard">false</bool>
     <bool name="config_hideLeftSystemBarForKeyboard">false</bool>
     <bool name="config_hideRightSystemBarForKeyboard">false</bool>
-    <bool name="config_hideBottomSystemBarForKeyboard">@*android:bool/config_automotiveHideNavBarForKeyboard</bool>
+    <bool name="config_hideBottomSystemBarForKeyboard">@*android:bool/config_hideNavBarForKeyboard</bool>
 
     <!-- If set to false, requests CarSystemBarViews to not intercept touch events to make it easier
         to touch the buttons without accidentally expanding the notification panel.-->
@@ -117,6 +117,7 @@
         <item>@string/config_notificationPanelViewMediator</item>
         <item>com.android.systemui.car.hvac.HvacPanelOverlayViewMediator</item>
         <item>com.android.systemui.car.keyguard.CarKeyguardViewMediator</item>
+        <item>com.android.systemui.car.systemdialogs.SystemDialogsViewMediator</item>
         <item>com.android.systemui.car.userswitcher.FullscreenUserSwitcherViewMediator</item>
         <item>com.android.systemui.car.userswitcher.UserSwitchTransitionViewMediator</item>
     </string-array>
@@ -140,32 +141,6 @@
         <item>com.android.vending</item>
     </string-array>
 
-    <!-- The list of components to exclude from config_systemUIServiceComponents. -->
-    <string-array name="config_systemUIServiceComponentsExclude" translatable="false">
-        <item>com.android.systemui.recents.Recents</item>
-        <item>com.android.systemui.volume.VolumeUI</item>
-        <item>com.android.systemui.statusbar.phone.StatusBar</item>
-        <item>com.android.systemui.keyboard.KeyboardUI</item>
-        <item>com.android.systemui.shortcut.ShortcutKeyDispatcher</item>
-        <item>com.android.systemui.LatencyTester</item>
-        <item>com.android.systemui.globalactions.GlobalActionsComponent</item>
-        <item>com.android.systemui.SliceBroadcastRelayHandler</item>
-        <item>com.android.systemui.statusbar.notification.InstantAppNotifier</item>
-        <item>com.android.systemui.accessibility.WindowMagnification</item>
-        <item>com.android.systemui.accessibility.SystemActions</item>
-        <item>com.android.systemui.toast.ToastUI</item>
-    </string-array>
-
-    <!-- The list of components to append to config_systemUIServiceComponents. -->
-    <string-array name="config_systemUIServiceComponentsInclude" translatable="false">
-        <item>com.android.systemui.car.systembar.CarSystemBar</item>
-        <item>com.android.systemui.car.voicerecognition.ConnectedDeviceVoiceRecognitionNotifier</item>
-        <item>com.android.systemui.car.window.SystemUIOverlayWindowManager</item>
-        <item>com.android.systemui.car.toast.CarToastUI</item>
-        <item>com.android.systemui.car.volume.VolumeUI</item>
-        <item>com.android.systemui.car.cluster.ClusterDisplayController</item>
-    </string-array>
-
     <!-- Defines system icons to be excluded from the display. That is to say, the icons in the
          status bar that are part of this list are never displayed. Each item in the list must be a
          string defined in core/res/res/config.xml to properly exclude the icon.
@@ -183,6 +158,7 @@
         <item>android.server.wm.app</item>
         <item>android.server.wm.cts</item>
         <item>android.server.wm.second</item>
+        <item>com.android.cts.verifier</item>
     </string-array>
 
     <!-- Specifies the component name of the app grid activity -->

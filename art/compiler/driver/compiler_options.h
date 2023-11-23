@@ -26,6 +26,7 @@
 #include "base/globals.h"
 #include "base/hash_set.h"
 #include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/utils.h"
 #include "optimizing/register_allocator.h"
 
@@ -48,7 +49,6 @@ enum class InstructionSet;
 class InstructionSetFeatures;
 class ProfileCompilationInfo;
 class VerificationResults;
-class VerifiedMethod;
 
 // Enum for CheckProfileMethodsCompiled. Outside CompilerOptions so it can be forward-declared.
 enum class ProfileMethodsCheck : uint8_t {
@@ -234,6 +234,10 @@ class CompilerOptions final {
     return image_type_ == ImageType::kAppImage;
   }
 
+  bool IsMultiImage() const {
+    return multi_image_;
+  }
+
   // Returns whether we are running ART tests.
   // The compiler will use that information for checking invariants.
   bool CompileArtTest() const {
@@ -297,14 +301,6 @@ class CompilerOptions final {
   bool IsImageClass(const char* descriptor) const;
 
   const VerificationResults* GetVerificationResults() const;
-
-  const VerifiedMethod* GetVerifiedMethod(const DexFile* dex_file, uint32_t method_idx) const;
-
-  // Checks if the specified method has been verified without failures. Returns
-  // false if the method is not in the verification results (GetVerificationResults).
-  bool IsMethodVerifiedWithoutFailures(uint32_t method_idx,
-                                       uint16_t class_def_idx,
-                                       const DexFile& dex_file) const;
 
   bool ParseCompilerOptions(const std::vector<std::string>& options,
                             bool ignore_unrecognized,
@@ -382,6 +378,11 @@ class CompilerOptions final {
     return initialize_app_image_classes_;
   }
 
+  // Returns true if `dex_file` is within an oat file we're producing right now.
+  bool WithinOatFile(const DexFile* dex_file) const {
+    return ContainsElement(GetDexFilesForOatFile(), dex_file);
+  }
+
  private:
   bool ParseDumpInitFailures(const std::string& option, std::string* error_msg);
   bool ParseRegisterAllocationStrategy(const std::string& option, std::string* error_msg);
@@ -412,6 +413,7 @@ class CompilerOptions final {
 
   CompilerType compiler_type_;
   ImageType image_type_;
+  bool multi_image_;
   bool compile_art_test_;
   bool baseline_;
   bool debuggable_;
@@ -490,7 +492,6 @@ class CompilerOptions final {
   const std::vector<std::string>* passes_to_run_;
 
   friend class Dex2Oat;
-  friend class DexToDexDecompilerTest;
   friend class CommonCompilerDriverTest;
   friend class CommonCompilerTestImpl;
   friend class jit::JitCompiler;

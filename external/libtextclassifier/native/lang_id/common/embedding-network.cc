@@ -16,6 +16,8 @@
 
 #include "lang_id/common/embedding-network.h"
 
+#include <vector>
+
 #include "lang_id/common/lite_base/integral-types.h"
 #include "lang_id/common/lite_base/logging.h"
 

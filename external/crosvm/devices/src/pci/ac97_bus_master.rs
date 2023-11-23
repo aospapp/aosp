@@ -4,7 +4,6 @@
 
 use std::collections::VecDeque;
 use std::convert::TryInto;
-use std::fmt::{self, Display};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -15,14 +14,17 @@ use audio_streams::{
     BoxError, NoopStreamControl, SampleFormat, StreamControl, StreamDirection, StreamEffect,
 };
 use base::{
-    self, error, set_rt_prio_limit, set_rt_round_robin, warn, AsRawDescriptors, Event,
-    RawDescriptor,
+    self, error, set_rt_prio_limit, set_rt_round_robin, warn, AsRawDescriptor, AsRawDescriptors,
+    FromRawDescriptor, RawDescriptor, SharedMemoryUnix,
 };
+use remain::sorted;
 use sync::{Condvar, Mutex};
+use thiserror::Error;
 use vm_memory::{GuestAddress, GuestMemory};
 
 use crate::pci::ac97_mixer::Ac97Mixer;
 use crate::pci::ac97_regs::*;
+use crate::IrqLevelEvent;
 
 const INPUT_SAMPLE_RATE: u32 = 48000;
 const DEVICE_INPUT_CHANNEL_COUNT: usize = 2;
@@ -38,7 +40,7 @@ struct Ac97BusMasterRegs {
     glob_sta: u32,
 
     // IRQ event - driven by the glob_sta register.
-    irq_evt: Option<Event>,
+    irq_evt: Option<IrqLevelEvent>,
 }
 
 impl Ac97BusMasterRegs {
@@ -97,24 +99,12 @@ impl Ac97BusMasterRegs {
 }
 
 // Internal error type used for reporting errors from guest memory reading.
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 enum GuestMemoryError {
     // Failure getting the address of the audio buffer.
+    #[error("Failed to get the address of the audio buffer: {0}.")]
     ReadingGuestBufferAddress(vm_memory::GuestMemoryError),
-}
-
-impl std::error::Error for GuestMemoryError {}
-
-impl Display for GuestMemoryError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::GuestMemoryError::*;
-
-        match self {
-            ReadingGuestBufferAddress(e) => {
-                write!(f, "Failed to get the address of the audio buffer: {}.", e)
-            }
-        }
-    }
 }
 
 impl From<GuestMemoryError> for AudioError {
@@ -126,40 +116,36 @@ impl From<GuestMemoryError> for AudioError {
 type GuestMemoryResult<T> = std::result::Result<T, GuestMemoryError>;
 
 // Internal error type used for reporting errors from the audio thread.
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 enum AudioError {
+    // Failed to clone a descriptor.
+    #[error("Failed to clone a descriptor: {0}")]
+    CloneDescriptor(base::Error),
+    // Failed to create a shared memory.
+    #[error("Failed to create a shared memory: {0}.")]
+    CreateSharedMemory(base::Error),
     // Failed to create a new stream.
+    #[error("Failed to create audio stream: {0}.")]
     CreateStream(BoxError),
     // Failure to get regions from guest memory.
+    #[error("Failed to get guest memory region: {0}.")]
     GuestRegion(GuestMemoryError),
     // Invalid buffer offset received from the audio server.
+    #[error("Offset > max usize")]
     InvalidBufferOffset,
     // Guest did not provide a buffer when needed.
+    #[error("No buffer was available from the Guest")]
     NoBufferAvailable,
     // Failure to read guest memory.
+    #[error("Failed to read guest memory: {0}.")]
     ReadingGuestError(GuestMemoryError),
     // Failure to respond to the ServerRequest.
+    #[error("Failed to respond to the ServerRequest: {0}")]
     RespondRequest(BoxError),
     // Failure to wait for a request from the stream.
+    #[error("Failed to wait for a message from the stream: {0}")]
     WaitForAction(BoxError),
-}
-
-impl std::error::Error for AudioError {}
-
-impl Display for AudioError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::AudioError::*;
-
-        match self {
-            CreateStream(e) => write!(f, "Failed to create audio stream: {}.", e),
-            GuestRegion(e) => write!(f, "Failed to get guest memory region: {}.", e),
-            InvalidBufferOffset => write!(f, "Offset > max usize"),
-            NoBufferAvailable => write!(f, "No buffer was available from the Guest"),
-            ReadingGuestError(e) => write!(f, "Failed to read guest memory: {}.", e),
-            RespondRequest(e) => write!(f, "Failed to respond to the ServerRequest: {}", e),
-            WaitForAction(e) => write!(f, "Failed to wait for a message from the stream: {}", e),
-        }
-    }
 }
 
 type AudioResult<T> = std::result::Result<T, AudioError>;
@@ -231,7 +217,7 @@ pub struct Ac97BusMaster {
     pmic_info: AudioThreadInfo,
 
     // Audio server used to create playback or capture streams.
-    audio_server: Box<dyn ShmStreamSource>,
+    audio_server: Box<dyn ShmStreamSource<base::Error>>,
 
     // Thread for hadlind IRQ resample events from the guest.
     irq_resample_thread: Option<thread::JoinHandle<()>>,
@@ -240,7 +226,7 @@ pub struct Ac97BusMaster {
 impl Ac97BusMaster {
     /// Creates an Ac97BusMaster` object that plays audio from `mem` to streams provided by
     /// `audio_server`.
-    pub fn new(mem: GuestMemory, audio_server: Box<dyn ShmStreamSource>) -> Self {
+    pub fn new(mem: GuestMemory, audio_server: Box<dyn ShmStreamSource<base::Error>>) -> Self {
         Ac97BusMaster {
             mem,
             regs: Arc::new(Mutex::new(Ac97BusMasterRegs::new())),
@@ -263,12 +249,12 @@ impl Ac97BusMaster {
     }
 
     /// Provides the events needed to raise interrupts in the guest.
-    pub fn set_irq_event(&mut self, irq_evt: Event, irq_resample_evt: Event) {
+    pub fn set_irq_event(&mut self, irq_evt: IrqLevelEvent) {
         let thread_regs = self.regs.clone();
-        self.regs.lock().irq_evt = Some(irq_evt);
+        self.regs.lock().irq_evt = Some(irq_evt.try_clone().expect("cloning irq_evt failed"));
         self.irq_resample_thread = Some(thread::spawn(move || {
             loop {
-                if let Err(e) = irq_resample_evt.read() {
+                if let Err(e) = irq_evt.get_resample().read() {
                     error!(
                         "Failed to read the irq event from the resample thread: {}.",
                         e,
@@ -279,11 +265,9 @@ impl Ac97BusMaster {
                     // Scope for the lock on thread_regs.
                     let regs = thread_regs.lock();
                     if regs.has_irq() {
-                        if let Some(irq_evt) = regs.irq_evt.as_ref() {
-                            if let Err(e) = irq_evt.write(1) {
-                                error!("Failed to set the irq from the resample thread: {}.", e);
-                                break;
-                            }
+                        if let Err(e) = irq_evt.trigger() {
+                            error!("Failed to set the irq from the resample thread: {}.", e);
+                            break;
                         }
                     }
                 }
@@ -582,6 +566,21 @@ impl Ac97BusMaster {
             }
             StreamDirection::Playback => [0, 0],
         };
+
+        // Create a `base::SharedMemory` object from a descriptor backing `self.mem`.
+        // This creation is expected to succeed because we can assume that `self.mem` was created
+        // from a `SharedMemory` object and its type was generalized to `dyn AsRawDescriptor`.
+        let desc: &dyn AsRawDescriptor = self
+            .mem
+            .offset_region(starting_offsets[0])
+            .map_err(|e| AudioError::GuestRegion(GuestMemoryError::ReadingGuestBufferAddress(e)))?;
+        let shm = {
+            let rd = base::clone_descriptor(desc).map_err(AudioError::CloneDescriptor)?;
+            // Safe because the fd is owned.
+            let sd = unsafe { base::SafeDescriptor::from_raw_descriptor(rd) };
+            base::SharedMemory::from_safe_descriptor(sd).map_err(AudioError::CreateSharedMemory)?
+        };
+
         let stream = self
             .audio_server
             .new_stream(
@@ -591,12 +590,7 @@ impl Ac97BusMaster {
                 sample_rate,
                 buffer_frames,
                 &Self::stream_effects(func),
-                self.mem
-                    .offset_region(starting_offsets[0])
-                    .map_err(|e| {
-                        AudioError::GuestRegion(GuestMemoryError::ReadingGuestBufferAddress(e))
-                    })?
-                    .inner(),
+                &shm,
                 starting_offsets,
             )
             .map_err(AudioError::CreateStream)?;
@@ -607,7 +601,7 @@ impl Ac97BusMaster {
             pending_buffers,
             message_interval: Duration::from_secs_f64(buffer_frames as f64 / sample_rate as f64),
         };
-        Ok(AudioWorker::new(&self, params))
+        Ok(AudioWorker::new(self, params))
     }
 
     fn thread_info(&self, func: Ac97Function) -> &AudioThreadInfo {
@@ -662,7 +656,6 @@ impl Ac97BusMaster {
 
 #[derive(Debug)]
 struct GuestBuffer {
-    index: u8,
     offset: usize,
     frames: usize,
 }
@@ -739,11 +732,7 @@ fn next_guest_buffer(
         .map_err(|_| AudioError::InvalidBufferOffset)?;
     let frames = get_buffer_samples(func_regs, mem, index)? / regs.tube_count(func);
 
-    Ok(Some(GuestBuffer {
-        index,
-        offset,
-        frames,
-    }))
+    Ok(Some(GuestBuffer { offset, frames }))
 }
 
 // Marks the current buffer completed and moves to the next buffer for the given
@@ -776,7 +765,7 @@ fn buffer_completed(
 
     update_sr(regs, func, new_sr);
 
-    regs.func_regs_mut(func).picb = current_buffer_size(regs.func_regs(func), &mem)? as u16;
+    regs.func_regs_mut(func).picb = current_buffer_size(regs.func_regs(func), mem)? as u16;
     if func == Ac97Function::Output {
         regs.po_pointer_update_time = Instant::now();
     }
@@ -949,9 +938,9 @@ fn update_sr(regs: &mut Ac97BusMasterRegs, func: Ac97Function, val: u16) {
 
     if interrupt_high {
         regs.glob_sta |= int_mask;
-        if let Some(irq_evt) = regs.irq_evt.as_ref() {
+        if let Some(ref irq_evt) = regs.irq_evt {
             // Ignore write failure, nothing can be done about it from here.
-            let _ = irq_evt.write(1);
+            let _ = irq_evt.trigger();
         }
     } else {
         regs.glob_sta &= !int_mask;
@@ -1088,7 +1077,7 @@ mod test {
                 mem.write_obj_at_addr(GUEST_ADDR_BASE + FRAGMENT_SIZE as u32, pointer_addr)
                     .expect("Writing guest memory failed.");
             };
-            mem.write_obj_at_addr(IOC_MASK | (FRAGMENT_SIZE as u32) / 2, control_addr)
+            mem.write_obj_at_addr(IOC_MASK | ((FRAGMENT_SIZE as u32) / 2), control_addr)
                 .expect("Writing guest memory failed.");
         }
 
@@ -1226,8 +1215,7 @@ mod test {
                 GS_MINT,
             ),
             _ => {
-                assert!(false, "Invalid Ac97Function.");
-                (0, 0, 0, 0, 0, 0, 0)
+                panic!("Invalid Ac97Function.");
             }
         };
 
@@ -1241,7 +1229,7 @@ mod test {
             let control_addr = GuestAddress(GUEST_ADDR_BASE as u64 + i as u64 * 8 + 4);
             mem.write_obj_at_addr(GUEST_ADDR_BASE + FRAGMENT_SIZE as u32, pointer_addr)
                 .expect("Writing guest memory failed.");
-            mem.write_obj_at_addr(IOC_MASK | (FRAGMENT_SIZE as u32) / 2, control_addr)
+            mem.write_obj_at_addr(IOC_MASK | ((FRAGMENT_SIZE as u32) / 2), control_addr)
                 .expect("Writing guest memory failed.");
         }
 

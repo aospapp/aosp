@@ -17,6 +17,7 @@
 package android.view.inputmethod.cts;
 
 import static android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
 import static android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND;
 import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
@@ -48,6 +49,7 @@ import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.NavigationBarInfo;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.view.inputmethod.cts.util.UnlockScreenRule;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -58,7 +60,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.ImeAwareEditText;
 import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.ImeLayoutInfo;
 import com.android.cts.mockime.ImeSettings;
@@ -140,12 +141,12 @@ public class NavigationBarColorTest extends EndToEndImeTestBase {
                 case DIMMING_DIALOG_ABOVE_IME: {
                     final LinearLayout layout = new LinearLayout(activity);
                     layout.setOrientation(LinearLayout.VERTICAL);
-                    final ImeAwareEditText editText = new ImeAwareEditText(activity);
+                    final EditText editText = new EditText(activity);
                     editText.setPrivateImeOptions(TEST_MARKER);
                     editText.setHint("editText");
                     editText.requestFocus();
-                    editText.scheduleShowSoftInput();
                     layout.addView(editText);
+                    activity.getWindow().getDecorView().getWindowInsetsController().show(ime());
                     contentView = layout;
                     break;
                 }
@@ -193,17 +194,17 @@ public class NavigationBarColorTest extends EndToEndImeTestBase {
             }
             case DIMMING_DIALOG_BEHIND_IME: {
                 final AlertDialog alertDialog = getOnMainSync(() -> {
-                    final ImeAwareEditText editText = new ImeAwareEditText(activity);
+                    final EditText editText = new EditText(activity);
                     editText.setPrivateImeOptions(TEST_MARKER);
                     editText.setHint("editText");
                     editText.requestFocus();
-                    editText.scheduleShowSoftInput();
                     final AlertDialog dialog = new AlertDialog.Builder(activity)
                             .setView(editText)
                             .create();
                     dialog.getWindow().setFlags(FLAG_DIM_BEHIND,
                             FLAG_DIM_BEHIND | FLAG_NOT_FOCUSABLE | FLAG_ALT_FOCUSABLE_IM);
                     dialog.show();
+                    activity.getWindow().getDecorView().getWindowInsetsController().show(ime());
                     return dialog;
                 });
                 // Note: Dialog#dismiss() is a thread safe method so we don't need to call this from

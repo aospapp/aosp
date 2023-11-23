@@ -35,6 +35,11 @@
         <option name="test-file-name" value="CtsCarPermissionCarPowertrainTest.apk"/>
         <option name="test-file-name" value="CtsCarPermissionCarEnergyPortsTest.apk"/>
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="setprop log.tag.CAR.TEST VERBOSE" />
+        <!-- Can't find the way to specify the empty string in 'value', so set the highest level -->
+        <option name="teardown-command" value="setprop log.tag.CAR.TEST ASSERT" />
+    </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.car.cts"/>

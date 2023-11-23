@@ -17,6 +17,7 @@
 package android.security.metrics;
 
 import android.security.metrics.RkpError;
+import android.security.metrics.SecurityLevel;
 /**
  * Atom that encapsulates error information in remote key provisioning events.
  * @hide
@@ -24,4 +25,5 @@ import android.security.metrics.RkpError;
 @RustDerive(Clone=true, Eq=true, PartialEq=true, Ord=true, PartialOrd=true, Hash=true)
 parcelable RkpErrorStats {
     RkpError rkpError;
+    SecurityLevel security_level;
 }

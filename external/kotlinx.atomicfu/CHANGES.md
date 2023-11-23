@@ -1,5 +1,30 @@
 # Change log for kotlinx.atomicfu
 
+# Version 0.16.0
+
+* Update Kotlin to 1.5.0.
+* Supported x86_64-based watchOS simulator target. (#177).
+
+# Version 0.15.2
+
+* Update kotlinx-metadata to 0.2.0.
+* Update Kotlin to 1.4.30.
+* Added kotlin space repository.
+
+# Version 0.15.1
+
+* Maven central publication (#173).
+* Binary compatibility with IR (#170).
+* Supported garbage-free multi-append in debug trace (#172).
+
+# Version 0.15.0
+
+* Tracing atomic operations (#20).
+* Supported delegated properties (#83).
+* Fixed visibility modifiers of synthetic fields and classes (#144).
+* Introduced `size` method for atomic arrays (#149).
+* Update Kotlin to 1.4.10.
+
 # Version 0.14.4
 
 * Fixed bug when Maven plugin wasn't published

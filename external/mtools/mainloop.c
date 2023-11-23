@@ -85,7 +85,7 @@ static const char *fix_mcwd(char *ans)
 	return ans;
 }
 
-int unix_dir_loop(Stream_t *Stream, MainParam_t *mp); 
+int unix_dir_loop(Stream_t *Stream, MainParam_t *mp);
 int unix_loop(Stream_t *Stream UNUSEDP, MainParam_t *mp, char *arg,
 	      int follow_dir_link);
 
@@ -100,7 +100,7 @@ int unix_loop(Stream_t *Stream UNUSEDP, MainParam_t *mp,
 {
 	int ret;
 	int isdir=0;
-	int unixNameLength;
+	size_t unixNameLength;
 
 	mp->File = NULL;
 	mp->direntry = NULL;
@@ -142,7 +142,7 @@ int unix_loop(Stream_t *Stream UNUSEDP, MainParam_t *mp,
 				fprintf(stderr,
 					"skipping directory symlink %s\n",
 					arg);
-				return 0;				
+				return 0;
 			}
 #endif
 			if(! (mp->lookupflags & ACCEPT_DIR))
@@ -168,7 +168,7 @@ int isSpecial(const char *name)
 		return 1;
 	if(!strcmp(name,".."))
 		return 1;
-	return 0;			
+	return 0;
 }
 
 #ifdef HAVE_WCHAR_H
@@ -180,7 +180,7 @@ int isSpecialW(const wchar_t *name)
 		return 1;
 	if(!wcscmp(name,L".."))
 		return 1;
-	return 0;			
+	return 0;
 }
 #endif
 
@@ -247,7 +247,7 @@ static int handle_leaf(direntry_t *direntry, MainParam_t *mp,
 }
 
 static int _dos_loop(Stream_t *Dir, MainParam_t *mp, const char *filename)
-{	
+{
 	Stream_t *MyFile=0;
 	direntry_t entry;
 	int ret;
@@ -257,10 +257,10 @@ static int _dos_loop(Stream_t *Dir, MainParam_t *mp, const char *filename)
 	r=0;
 	initializeDirentry(&entry, Dir);
 	while(!got_signal &&
-	      (r=vfat_lookup(&entry, filename, -1,
-			     mp->lookupflags,
-			     mp->shortname.data, mp->shortname.len,
-			     mp->longname.data, mp->longname.len)) == 0 ){
+	      (r=vfat_lookup_zt(&entry, filename,
+				mp->lookupflags,
+				mp->shortname.data, mp->shortname.len,
+				mp->longname.data, mp->longname.len)) == 0 ){
 		mp->File = NULL;
 		if(!checkForDot(mp->lookupflags,entry.name)) {
 			MyFile = 0;
@@ -297,7 +297,7 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 	/* Dir is de-allocated by the same entity which allocated it */
 	const char *ptr;
 	direntry_t entry;
-	int length;
+	size_t length;
 	int lookupflags;
 	int ret;
 	int have_one;
@@ -338,12 +338,12 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 	doing_mcwd = !!filename1;
 
 	ptr = strchr(filename0, '/');
-	if(!ptr) {			
-		length = strlen(filename0);		
+	if(!ptr) {
+		length = strlen(filename0);
 		ptr = filename1;
 		filename1 = 0;
 	} else {
-		length = ptr - filename0;
+		length = ptrdiff(ptr, filename0);
 		ptr++;
 	}
 	if(!ptr) {
@@ -354,7 +354,7 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 			mp->targetName = 0;
 			return ret;
 		}
-		
+
 		if(!strcmp(filename0, ".") || !filename0[0]) {
 			return handle_leaf(getDirentry(mp->File),
 					   mp, lookupState);
@@ -366,7 +366,7 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 		}
 
 		lookupflags = mp->lookupflags;
-		
+
 		if(lookupState) {
 			lookupState->filename = filename0;
 			if(lookupState->nbContainers + lookupState->nbDirs > 0){
@@ -431,7 +431,7 @@ static int common_dos_loop(MainParam_t *mp, const char *pathname,
 
 	int ret;
 	mp->loop = _dos_loop;
-	
+
 	drive='\0';
 	cwd = "";
 	if(*pathname && pathname[1] == ':') {
@@ -507,8 +507,23 @@ static int dos_target_lookup(MainParam_t *mp, const char *arg)
 		default:
 			/* too much */
 			fprintf(stderr, "Ambiguous %s\n", arg);
-			return ERROR_ONE;			
+			return ERROR_ONE;
 	}
+}
+
+/*
+ * Is target a Unix directory
+ * -1 error occured
+ * 0 regular file
+ * 1 directory
+ */
+static int unix_is_dir(const char *name)
+{
+	struct stat buf;
+	if(stat(name, &buf) < 0)
+		return -1;
+	else
+		return 1 && S_ISDIR(buf.st_mode);
 }
 
 static int unix_target_lookup(MainParam_t *mp, const char *arg)
@@ -516,8 +531,16 @@ static int unix_target_lookup(MainParam_t *mp, const char *arg)
 	char *ptr;
 	mp->unixTarget = strdup(arg);
 	/* try complete filename */
-	if(access(mp->unixTarget, F_OK) == 0)
+	if(access(mp->unixTarget, F_OK) == 0) {
+		switch(unix_is_dir(mp->unixTarget)) {
+		case -1:
+			return ERROR_ONE;
+		case 0:
+			mp->targetName="";
+			break;
+		}
 		return GOT_ONE;
+	}
 	ptr = strrchr(mp->unixTarget, '/');
 	if(!ptr) {
 		mp->targetName = mp->unixTarget;
@@ -542,12 +565,14 @@ int main_loop(MainParam_t *mp, char **argv, int argc)
 {
 	int i;
 	int ret, Bret;
-	
+
 	Bret = 0;
 
 	if(argc != 1 && mp->targetName) {
 		fprintf(stderr,
 			"Several file names given, but last argument (%s) not a directory\n", mp->targetName);
+		FREE(&mp->targetDir);
+		return 1;
 	}
 
 	for (i = 0; i < argc; i++) {
@@ -565,7 +590,7 @@ int main_loop(MainParam_t *mp, char **argv, int argc)
 			ret = unix_loop(0, mp, argv[i], 1);
 		else
 			ret = dos_loop(mp, argv[i]);
-		
+
 		if (! (ret & (GOT_ONE | ERROR_ONE)) ) {
 			/* one argument was unmatched */
 			fprintf(stderr, "%s: File \"%s\" not found\n",
@@ -650,13 +675,9 @@ char *mpBuildUnixFilename(MainParam_t *mp)
 		return 0;
 	strcpy(ret, mp->unixTarget);
 	if(*target) {
-#if 1 /* fix for 'mcopy -n x:file existingfile' -- H. Lermen 980816 */
-		if(!mp->targetName && !mp->targetDir) {
-			struct MT_STAT buf;
-			if (!MT_STAT(ret, &buf) && !S_ISDIR(buf.st_mode))
-				return ret;
-		}
-#endif
+		/* fix for 'mcopy -n x:file existingfile' -- H. Lermen 980816 */
+		if(!mp->targetName && !mp->targetDir && !unix_is_dir(ret))
+			return ret;
 		strcat(ret, "/");
 		if(!strcmp(target, ".")) {
 		  target="DOT";
@@ -664,7 +685,7 @@ char *mpBuildUnixFilename(MainParam_t *mp)
 		  target="DOTDOT";
 		}
 		while( (tmp=strchr(target, '/')) ) {
-		  strncat(ret, target, tmp-target);
+		  strncat(ret, target, ptrdiff(tmp,target));
 		  strcat(ret, "\\");
 		  target=tmp+1;
 		}

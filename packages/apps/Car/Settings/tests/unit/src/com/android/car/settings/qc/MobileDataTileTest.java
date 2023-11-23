@@ -20,15 +20,14 @@ import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 import android.telephony.TelephonyManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCItem;
@@ -43,10 +42,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
-public class MobileDataTileTest {
+public class MobileDataTileTest extends BaseSettingsQCItemTestCase {
     private static final String TEST_NETWORK_NAME = "TEST_NETWORK";
 
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private MobileDataTile mMobileDataTile;
 
     @Mock
@@ -103,6 +101,38 @@ public class MobileDataTileTest {
         when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
         QCTile tile = getTile();
         assertThat(tile.getSubtitle()).isEqualTo(TEST_NETWORK_NAME);
+    }
+
+    @Test
+    public void getQCItem_dataDisabled_setsSubtitle() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(false);
+        QCTile tile = getTile();
+        assertThat(tile.getSubtitle()).isEqualTo(
+                mContext.getString(R.string.mobile_network_state_off));
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_tileDisabled() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, /* restricted= */ true);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_tileClickableWhileDisabled() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
+        setUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, /* restricted= */ true);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

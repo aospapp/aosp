@@ -315,13 +315,13 @@ const std::unordered_map<uint32_t, std::vector<PlaneLayout>>& GetPlaneLayoutsMap
 
                     {DRM_FORMAT_XBGR8888,
                      {{
-                             .components = {{.type = android::gralloc4::PlaneLayoutComponentType_B,
+                             .components = {{.type = android::gralloc4::PlaneLayoutComponentType_R,
                                              .offsetInBits = 0,
                                              .sizeInBits = 8},
                                             {.type = android::gralloc4::PlaneLayoutComponentType_G,
                                              .offsetInBits = 8,
                                              .sizeInBits = 8},
-                                            {.type = android::gralloc4::PlaneLayoutComponentType_R,
+                                            {.type = android::gralloc4::PlaneLayoutComponentType_B,
                                              .offsetInBits = 16,
                                              .sizeInBits = 8}},
                              .sampleIncrementInBits = 32,

@@ -40,4 +40,8 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsEmptyTestApp",
+    ],
+    per_testcase_directory: true,
 }

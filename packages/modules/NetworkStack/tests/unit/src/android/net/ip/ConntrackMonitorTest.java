@@ -16,14 +16,15 @@
 package android.net.ip;
 
 import static android.net.ip.ConntrackMonitor.ConntrackEvent;
-import static android.net.netlink.ConntrackMessage.Tuple;
-import static android.net.netlink.ConntrackMessage.TupleIpv4;
-import static android.net.netlink.ConntrackMessage.TupleProto;
-import static android.net.netlink.NetlinkConstants.IPCTNL_MSG_CT_DELETE;
-import static android.net.netlink.NetlinkConstants.IPCTNL_MSG_CT_NEW;
 import static android.system.OsConstants.AF_UNIX;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.SOCK_DGRAM;
+
+import static com.android.net.module.util.netlink.ConntrackMessage.Tuple;
+import static com.android.net.module.util.netlink.ConntrackMessage.TupleIpv4;
+import static com.android.net.module.util.netlink.ConntrackMessage.TupleProto;
+import static com.android.net.module.util.netlink.NetlinkConstants.IPCTNL_MSG_CT_DELETE;
+import static com.android.net.module.util.netlink.NetlinkConstants.IPCTNL_MSG_CT_NEW;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -33,8 +34,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import android.net.InetAddresses;
-import android.net.netlink.NetlinkConstants;
-import android.net.netlink.NetlinkSocket;
 import android.net.util.SharedLog;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -45,6 +44,9 @@ import android.system.Os;
 import androidx.annotation.NonNull;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.netlink.NetlinkConstants;
+import com.android.net.module.util.netlink.NetlinkSocket;
 
 import libcore.util.HexEncoding;
 

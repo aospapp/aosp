@@ -34,6 +34,6 @@ android_test_helper_app {
 
     test_suites: [
         "device-tests",
-        "mts",
+        "mts-permission",
     ],
 }

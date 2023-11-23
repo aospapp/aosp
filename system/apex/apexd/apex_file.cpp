@@ -16,25 +16,25 @@
 
 #include "apex_file.h"
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <filesystem>
-#include <fstream>
-#include <span>
-
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <fcntl.h>
 #include <libavb/libavb.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <ziparchive/zip_archive.h>
+
+#include <filesystem>
+#include <fstream>
+#include <span>
 
 #include "apex_constants.h"
 #include "apexd_utils.h"
+#include "apexd_verity.h"
 
 using android::base::borrowed_fd;
 using android::base::ErrnoError;
@@ -60,9 +60,10 @@ struct FsMagic {
   const char* magic;
 };
 constexpr const FsMagic kFsType[] = {{"f2fs", 1024, 4, "\x10\x20\xf5\xf2"},
-                                     {"ext4", 1024 + 0x38, 2, "\123\357"}};
+                                     {"ext4", 1024 + 0x38, 2, "\123\357"},
+                                     {"erofs", 1024, 4, "\xe2\xe1\xf5\xe0"}};
 
-Result<std::string> RetrieveFsType(borrowed_fd fd, int32_t image_offset) {
+Result<std::string> RetrieveFsType(borrowed_fd fd, uint32_t image_offset) {
   for (const auto& fs : kFsType) {
     char buf[fs.len];
     if (!ReadFullyAtOffset(fd, buf, fs.len, image_offset + fs.offset)) {
@@ -78,7 +79,7 @@ Result<std::string> RetrieveFsType(borrowed_fd fd, int32_t image_offset) {
 }  // namespace
 
 Result<ApexFile> ApexFile::Open(const std::string& path) {
-  std::optional<int32_t> image_offset;
+  std::optional<uint32_t> image_offset;
   std::optional<size_t> image_size;
   std::string manifest_content;
   std::string pubkey;
@@ -87,14 +88,15 @@ Result<ApexFile> ApexFile::Open(const std::string& path) {
 
   unique_fd fd(open(path.c_str(), O_RDONLY | O_BINARY | O_CLOEXEC));
   if (fd < 0) {
-    return Error() << "Failed to open package " << path << ": "
-                   << "I/O error";
+    return ErrnoError() << "Failed to open package " << path << ": "
+                        << "I/O error";
   }
 
   ZipArchiveHandle handle;
   auto handle_guard =
       android::base::make_scope_guard([&handle] { CloseArchive(handle); });
-  int ret = OpenArchiveFd(fd.get(), path.c_str(), &handle, false);
+  int ret = OpenArchiveFd(fd.get(), path.c_str(), &handle,
+                          /*assume_ownership=*/false);
   if (ret < 0) {
     return Error() << "Failed to open package " << path << ": "
                    << ErrorCodeString(ret);
@@ -180,16 +182,6 @@ Result<ApexFile> ApexFile::Open(const std::string& path) {
 namespace {
 
 static constexpr int kVbMetaMaxSize = 64 * 1024;
-
-std::string BytesToHex(const uint8_t* bytes, size_t bytes_len) {
-  std::ostringstream s;
-
-  s << std::hex << std::setfill('0');
-  for (size_t i = 0; i < bytes_len; i++) {
-    s << std::setw(2) << static_cast<int>(bytes[i]);
-  }
-  return s.str();
-}
 
 std::string GetSalt(const AvbHashtreeDescriptor& desc,
                     const uint8_t* trailing_data) {

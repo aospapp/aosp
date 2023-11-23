@@ -16,15 +16,8 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.CtsVerifierReportLog;
-import com.android.cts.verifier.R;
-import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
-
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
@@ -35,12 +28,27 @@ import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.audio.soundio.SoundPlayerObject;
+import com.android.cts.verifier.CtsVerifierReportLog;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.wavelib.DspBufferComplex;
+import com.android.cts.verifier.audio.wavelib.DspBufferDouble;
+import com.android.cts.verifier.audio.wavelib.DspBufferMath;
+import com.android.cts.verifier.audio.wavelib.DspFftServer;
+import com.android.cts.verifier.audio.wavelib.DspWindow;
+import com.android.cts.verifier.audio.wavelib.PipeShort;
+import com.android.cts.verifier.audio.wavelib.VectorAverage;
 
 /**
  * Tests Audio built in Microphone response for Unprocessed audio source feature.
  */
+@CddTest(requirement = "5.11/C-1-1,C-1-2,C-1-3,C-1-4,C-1-5")
 public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity implements Runnable,
     AudioRecord.OnRecordPositionUpdateListener {
     private static final String TAG = "AudioFrequencyUnprocessedActivity";
@@ -220,7 +228,7 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
         //Init bands for Mic test
         mBandSpecsMic[0] = new AudioBandSpecs(
-                5, 100,          /* frequency start,stop */
+                30, 100,          /* frequency start,stop */
                 20.0, -20.0,     /* start top,bottom value */
                 20.0, -20.0      /* stop top,bottom value */);
 
@@ -236,7 +244,7 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
         //Init bands for Tone test
         mBandSpecsTone[0] = new AudioBandSpecs(
-                5, 900,          /* frequency start,stop */
+                30, 900,          /* frequency start,stop */
                 -10.0, -100.0,     /* start top,bottom value */
                 -10.0, -100.0      /* stop top,bottom value */);
 
@@ -252,7 +260,7 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
       //Init bands for Background test
         mBandSpecsBack[0] = new AudioBandSpecs(
-                5, 100,          /* frequency start,stop */
+                30, 100,          /* frequency start,stop */
                 10.0, -120.0,     /* start top,bottom value */
                 -10.0, -120.0      /* stop top,bottom value */);
 
@@ -306,28 +314,20 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         @Override
         public void onClick(View v) {
             int id = v.getId();
-            switch (id) {
-            case R.id.unprocessed_test_tone_btn:
+            if (id == R.id.unprocessed_test_tone_btn) {
                 startTest(TEST_TONE);
-                break;
-            case R.id.unprocessed_play_tone_btn:
+            } else if (id == R.id.unprocessed_play_tone_btn) {
                 playerToggleButton(id, SOURCE_TONE);
-                break;
-            case R.id.unprocessed_test_noise_btn:
+            } else if (id == R.id.unprocessed_test_noise_btn) {
                 startTest(TEST_NOISE);
-                break;
-            case R.id.unprocessed_play_noise_btn:
+            } else if (id == R.id.unprocessed_play_noise_btn) {
                 playerToggleButton(id, SOURCE_NOISE);
-                break;
-            case R.id.unprocessed_test_usb_background_btn:
+            } else if (id == R.id.unprocessed_test_usb_background_btn) {
                 startTest(TEST_USB_BACKGROUND);
-                break;
-            case R.id.unprocessed_test_usb_noise_btn:
+            } else if (id == R.id.unprocessed_test_usb_noise_btn) {
                 startTest(TEST_USB_NOISE);
-                break;
-            case R.id.unprocessed_play_usb_noise_btn:
+            } else if (id == R.id.unprocessed_play_usb_noise_btn) {
                 playerToggleButton(id, SOURCE_NOISE);
-                break;
             }
         }
     }

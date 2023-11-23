@@ -16,16 +16,48 @@
 
 package android.smartspace.cts;
 
+import android.app.PendingIntent;
+import android.app.TaskStackBuilder;
 import android.app.smartspace.SmartspaceTarget;
+import android.app.smartspace.uitemplatedata.Icon;
+import android.app.smartspace.uitemplatedata.TapAction;
 import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.os.Bundle;
+import android.os.Process;
 import android.os.UserHandle;
 
 public class SmartspaceTestUtils {
-    public static SmartspaceTarget getBasicSmartspaceTarget(String id, ComponentName componentName, UserHandle userHandle){
+    public static SmartspaceTarget getBasicSmartspaceTarget(String id, ComponentName componentName,
+            UserHandle userHandle) {
         return new SmartspaceTarget.Builder(id, componentName, userHandle).build();
     }
 
     public static ComponentName getTestComponentName() {
         return new ComponentName("package name", "class name");
+    }
+
+    public static Icon createSmartspaceIcon(String contentDescription) {
+        android.graphics.drawable.Icon icon = android.graphics.drawable.Icon.createWithBitmap(
+                Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8));
+        return new Icon.Builder(icon).setContentDescription(contentDescription).build();
+    }
+
+    public static TapAction createSmartspaceTapAction(Context context, CharSequence id) {
+        Bundle extras = new Bundle();
+        extras.putString("key", "value");
+
+        Intent intent = new Intent();
+        PendingIntent pendingIntent = TaskStackBuilder.create(context)
+                .addNextIntent(intent)
+                .getPendingIntent(0, PendingIntent.FLAG_IMMUTABLE);
+
+        return new TapAction.Builder(id)
+                .setIntent(intent)
+                .setPendingIntent(pendingIntent)
+                .setUserHandle(Process.myUserHandle())
+                .setExtras(extras).build();
     }
 }

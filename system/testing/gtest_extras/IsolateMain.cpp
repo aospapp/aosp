@@ -15,10 +15,10 @@
  */
 
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <cstring>
@@ -77,7 +77,7 @@ static void PrintHelpInfo() {
 }
 
 static int GtestRun(std::vector<const char*>* args) {
-  int argc = args->size();
+  int argc = static_cast<int>(args->size());
   args->push_back(nullptr);
   ::testing::InitGoogleTest(&argc, const_cast<char**>(args->data()));
   return RUN_ALL_TESTS();
@@ -102,7 +102,7 @@ static bool RunInIsolationMode(std::vector<const char*>& args) {
     pid_t ppid = getppid();
     std::string exe_path = std::string("/proc/") + std::to_string(ppid) + "/exe";
     char buf[PATH_MAX + 1];
-    size_t len;
+    ssize_t len;
     // NB We can't use things like android::base::* or std::filesystem::* due to linking
     // issues.
     // Since PATH_MAX is the longest a symlink can be in posix we don't need to

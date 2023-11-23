@@ -18,12 +18,10 @@
 
 #include "AppInfoFetcher.h"
 
-#include <PackageInfo.h>
 #include <Utils.h>
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <binder/IServiceManager.h>
-#include <procpartition/procpartition.h>
 
 #include <algorithm>
 #include <limits>
@@ -33,9 +31,15 @@
 #include <string_view>
 #include <vector>
 
+#ifdef __ANDROID__
+#include <PackageInfo.h>
+#include <procpartition/procpartition.h>
+#endif  // __ANDROID__
+
 namespace android {
 namespace nn {
 
+#ifdef __ANDROID__
 namespace {
 
 // Query PackageManagerNative service about Android app properties.
@@ -69,6 +73,17 @@ AppInfoFetcher::AppInfoFetcher()
         }
     }
 }
+
+#else  // __ANDROID__
+
+AppInfoFetcher::AppInfoFetcher()
+    : appInfo({.binaryPath = "/system/bin/app_process64",
+               .appPackageName = "",
+               .appIsSystemApp = false,
+               .appIsOnVendorImage = false,
+               .appIsOnProductImage = false}) {}
+
+#endif  // __ANDROID__
 
 }  // namespace nn
 }  // namespace android

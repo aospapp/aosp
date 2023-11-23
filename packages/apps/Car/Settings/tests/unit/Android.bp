@@ -28,6 +28,7 @@ android_test {
         "platform-test-annotations",
         "truth-prebuilt",
         "testng",
+        "car-helper-lib",
     ],
 
     jni_libs: ["libdexmakerjvmtiagent", "libstaticjvmtiagent"],

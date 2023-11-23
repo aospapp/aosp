@@ -33,11 +33,14 @@
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsFullBackupApp.apk" />
         <option name="test-file-name" value="CtsKeyValueBackupApp.apk" />
         <option name="test-file-name" value="CtsBackupTestCases.apk" />
         <option name="test-file-name" value="CtsPermissionBackupApp.apk" />
         <option name="test-file-name" value="CtsPermissionBackupApp22.apk" />
+        <option name="test-file-name" value="CtsAppLocalesBackupApp1.apk" />
+        <option name="test-file-name" value="CtsAppLocalesBackupApp2.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/backup" />
@@ -48,6 +51,8 @@
         <option name="cleanup" value="true" />
         <option name="push" value="CtsPermissionBackupApp.apk->/data/local/tmp/cts/backup/CtsPermissionBackupApp.apk" />
         <option name="push" value="CtsPermissionBackupApp22.apk->/data/local/tmp/cts/backup/CtsPermissionBackupApp22.apk" />
+        <option name="push" value="CtsAppLocalesBackupApp1.apk->/data/local/tmp/cts/backup/CtsAppLocalesBackupApp1.apk" />
+        <option name="push" value="CtsAppLocalesBackupApp2.apk->/data/local/tmp/cts/backup/CtsAppLocalesBackupApp2.apk" />
     </target_preparer>
     <target_preparer class="android.cts.backup.BackupPreparer">
         <option name="enable-backup-if-needed" value="true" />

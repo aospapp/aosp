@@ -25,9 +25,9 @@ MatchingState EventMatcherWizard::matchLogEvent(const LogEvent& event, int match
     if (matcher_index < 0 || matcher_index >= (int)mAllEventMatchers.size()) {
         return MatchingState::kNotComputed;
     }
-    vector<MatchingState> matcherCache(mAllEventMatchers.size(), MatchingState::kNotComputed);
-    mAllEventMatchers[matcher_index]->onLogEvent(event, mAllEventMatchers, matcherCache);
-    return matcherCache[matcher_index];
+    std::fill(mMatcherCache.begin(), mMatcherCache.end(), MatchingState::kNotComputed);
+    mAllEventMatchers[matcher_index]->onLogEvent(event, mAllEventMatchers, mMatcherCache);
+    return mMatcherCache[matcher_index];
 }
 
 }  // namespace statsd

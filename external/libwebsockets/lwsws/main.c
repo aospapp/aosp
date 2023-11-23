@@ -57,14 +57,14 @@ int fork(void)
 
 static struct lws_context *context;
 static lws_sorted_usec_list_t sul_lwsws;
-static char config_dir[128];
+static char config_dir[128], default_plugin_path = 1;
 static int opts = 0, do_reload = 1;
 static uv_loop_t loop;
 static uv_signal_t signal_outer[2];
 static int pids[32];
 void lwsl_emit_stderr(int level, const char *line);
 
-#define LWSWS_CONFIG_STRING_SIZE (32 * 1024)
+#define LWSWS_CONFIG_STRING_SIZE (64 * 1024)
 
 static const struct lws_extension exts[] = {
 #if !defined(LWS_WITHOUT_EXTENSIONS)
@@ -77,16 +77,19 @@ static const struct lws_extension exts[] = {
 	{ NULL, NULL, NULL /* terminator */ }
 };
 
+#if defined(LWS_WITH_PLUGINS)
 static const char * const plugin_dirs[] = {
 	INSTALL_DATADIR"/libwebsockets-test-server/plugins/",
 	NULL
 };
+#endif
 
 #if defined(LWS_HAS_GETOPT_LONG) || defined(WIN32)
 static struct option options[] = {
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "debug",	required_argument,	NULL, 'd' },
 	{ "configdir",  required_argument,	NULL, 'c' },
+	{ "no-default-plugins",  no_argument,	NULL, 'n' },
 	{ NULL, 0, 0, 0 }
 };
 #endif
@@ -146,11 +149,14 @@ context_creation(void)
 
 	info.external_baggage_free_on_destroy = config_strings;
 	info.pt_serv_buf_size = 8192;
-	info.options = opts | LWS_SERVER_OPTION_VALIDATE_UTF8 |
+	info.options = (uint64_t)((uint64_t)opts | LWS_SERVER_OPTION_VALIDATE_UTF8 |
 			      LWS_SERVER_OPTION_EXPLICIT_VHOSTS |
-			      LWS_SERVER_OPTION_LIBUV;
+			      LWS_SERVER_OPTION_LIBUV);
 
-	info.plugin_dirs = plugin_dirs;
+#if defined(LWS_WITH_PLUGINS)
+	if (default_plugin_path)
+		info.plugin_dirs = plugin_dirs;
+#endif
 	lwsl_notice("Using config dir: \"%s\"\n", config_dir);
 
 	/*
@@ -216,7 +222,7 @@ reload_handler(int signum)
 	case SIGINT:
 	case SIGTERM:
 	case SIGKILL:
-		fprintf(stderr, "master process waiting 2s...\n");
+		fprintf(stderr, "parent process waiting 2s...\n");
 		sleep(2); /* give children a chance to deal with the signal */
 		fprintf(stderr, "killing service processes\n");
 		for (m = 0; m < (int)LWS_ARRAY_SIZE(pids); m++)
@@ -240,9 +246,9 @@ int main(int argc, char **argv)
 	strcpy(config_dir, "/etc/lwsws");
 	while (n >= 0) {
 #if defined(LWS_HAS_GETOPT_LONG) || defined(WIN32)
-		n = getopt_long(argc, argv, "hd:c:", options, NULL);
+		n = getopt_long(argc, argv, "hd:c:n", options, NULL);
 #else
-		n = getopt(argc, argv, "hd:c:");
+		n = getopt(argc, argv, "hd:c:n");
 #endif
 		if (n < 0)
 			continue;
@@ -250,12 +256,16 @@ int main(int argc, char **argv)
 		case 'd':
 			debug_level = atoi(optarg);
 			break;
+		case 'n':
+			default_plugin_path = 0;
+			break;
 		case 'c':
 			lws_strncpy(config_dir, optarg, sizeof(config_dir));
 			break;
 		case 'h':
 			fprintf(stderr, "Usage: lwsws [-c <config dir>] "
-					"[-d <log bitfield>] [--help]\n");
+					"[-d <log bitfield>] [--help] "
+					"[-n]\n");
 			exit(1);
 		}
 	}
@@ -335,7 +345,7 @@ int main(int argc, char **argv)
 	}
 
 	/* cancel the per-minute sul */
-	lws_sul_schedule(context, 0, &sul_lwsws, NULL, LWS_SET_TIMER_USEC_CANCEL);
+	lws_sul_cancel(&sul_lwsws);
 
 	lws_context_destroy(context);
 	(void)budget;

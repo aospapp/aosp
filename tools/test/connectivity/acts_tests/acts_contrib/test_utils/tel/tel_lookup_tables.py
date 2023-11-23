@@ -158,7 +158,10 @@ class _TelTables():
         "Ntt Docomo" : tel_defines.CARRIER_NTT_DOCOMO,
         "KDDI" : tel_defines.CARRIER_KDDI,
         "Rakuten": tel_defines.CARRIER_RAKUTEN,
-        "SBM": tel_defines.CARRIER_SBM
+        "SBM": tel_defines.CARRIER_SBM,
+        "SK Telecom": tel_defines.CARRIER_SKT,
+        "KT": tel_defines.CARRIER_KT,
+        "LG U+": tel_defines.CARRIER_LG_UPLUS
     }
     operator_id_to_name = {
 
@@ -277,7 +280,40 @@ class _TelTables():
 
         #Telstra (Australia)
         '52501': tel_defines.CARRIER_SING,
-        '50501': tel_defines.CARRIER_TSA
+        '50501': tel_defines.CARRIER_TSA,
+
+        #KT (South Korea)
+        '45002': tel_defines.CARRIER_KT,
+        '45004': tel_defines.CARRIER_KT,
+        '45008': tel_defines.CARRIER_KT,
+
+        #Softbank (Japan)
+        '44004': tel_defines.CARRIER_SBM,
+        '44006': tel_defines.CARRIER_SBM,
+        '44020': tel_defines.CARRIER_SBM,
+        '44040': tel_defines.CARRIER_SBM,
+        '44041': tel_defines.CARRIER_SBM,
+        '44042': tel_defines.CARRIER_SBM,
+        '44043': tel_defines.CARRIER_SBM,
+        '44044': tel_defines.CARRIER_SBM,
+        '44045': tel_defines.CARRIER_SBM,
+        '44046': tel_defines.CARRIER_SBM,
+        '44047': tel_defines.CARRIER_SBM,
+        '44048': tel_defines.CARRIER_SBM,
+        '44090': tel_defines.CARRIER_SBM,
+        '44092': tel_defines.CARRIER_SBM,
+        '44093': tel_defines.CARRIER_SBM,
+        '44094': tel_defines.CARRIER_SBM,
+        '44095': tel_defines.CARRIER_SBM,
+        '44096': tel_defines.CARRIER_SBM,
+        '44097': tel_defines.CARRIER_SBM,
+        '44098': tel_defines.CARRIER_SBM,
+
+        #SK Telecom (South Korea)
+        '45005': tel_defines.CARRIER_SKT,
+
+        #LG U+ (South Korea)
+        '45006': tel_defines.CARRIER_LG_UPLUS
     }
 
     technology_gen_tbl = [
@@ -624,7 +660,10 @@ class _TelTables():
         tel_defines.CARRIER_ESP: default_umts_operator_network_tbl,
         tel_defines.CARRIER_ORG: default_umts_operator_network_tbl,
         tel_defines.CARRIER_TEL: default_umts_operator_network_tbl,
-        tel_defines.CARRIER_TSA: default_umts_operator_network_tbl
+        tel_defines.CARRIER_TSA: default_umts_operator_network_tbl,
+        tel_defines.CARRIER_KT: default_umts_operator_network_tbl,
+        tel_defines.CARRIER_SKT: default_umts_operator_network_tbl,
+        tel_defines.CARRIER_LG_UPLUS: default_umts_operator_network_tbl
     }
     operator_network_tbl_by_phone_type = {
         tel_defines.PHONE_TYPE_GSM: default_umts_operator_network_tbl,
@@ -653,7 +692,10 @@ class _TelTables():
         tel_defines.CARRIER_VZW: cdma_allowable_network_preference_tbl,
         tel_defines.CARRIER_SPT: cdma_allowable_network_preference_tbl,
         tel_defines.CARRIER_EEUK: umts_allowable_network_preference_tbl,
-        tel_defines.CARRIER_VFUK: umts_allowable_network_preference_tbl
+        tel_defines.CARRIER_VFUK: umts_allowable_network_preference_tbl,
+        tel_defines.CARRIER_KT: umts_allowable_network_preference_tbl,
+        tel_defines.CARRIER_SKT: umts_allowable_network_preference_tbl,
+        tel_defines.CARRIER_LG_UPLUS: umts_allowable_network_preference_tbl
     }
     allowable_network_preference_tbl_by_phone_type = {
         tel_defines.PHONE_TYPE_GSM: umts_allowable_network_preference_tbl,

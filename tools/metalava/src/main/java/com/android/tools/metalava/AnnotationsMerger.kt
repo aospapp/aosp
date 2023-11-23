@@ -43,10 +43,7 @@ import com.android.tools.lint.annotations.Extractor.IDEA_NOTNULL
 import com.android.tools.lint.annotations.Extractor.IDEA_NULLABLE
 import com.android.tools.lint.annotations.Extractor.SUPPORT_NOTNULL
 import com.android.tools.lint.annotations.Extractor.SUPPORT_NULLABLE
-import com.android.tools.lint.checks.AnnotationDetector
 import com.android.tools.lint.detector.api.getChildren
-import com.android.tools.metalava.model.text.ApiFile
-import com.android.tools.metalava.model.text.ApiParseException
 import com.android.tools.metalava.model.AnnotationAttribute
 import com.android.tools.metalava.model.AnnotationAttributeValue
 import com.android.tools.metalava.model.AnnotationItem
@@ -63,6 +60,8 @@ import com.android.tools.metalava.model.parseDocument
 import com.android.tools.metalava.model.psi.PsiAnnotationItem
 import com.android.tools.metalava.model.psi.PsiBasedCodebase
 import com.android.tools.metalava.model.psi.PsiTypeItem
+import com.android.tools.metalava.model.text.ApiFile
+import com.android.tools.metalava.model.text.ApiParseException
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.google.common.io.ByteStreams
 import com.google.common.io.Closeables
@@ -125,7 +124,8 @@ class AnnotationsMerger(
                 javaStubFiles,
                 "Codebase loaded from stubs",
                 sourcePath = roots,
-                classpath = options.classpath)
+                classpath = options.classpath
+            )
             mergeJavaStubsCodebase(javaStubsCodebase)
         }
     }
@@ -273,7 +273,7 @@ class AnnotationsMerger(
                     }
                 } else {
                     // TODO: Check for other incompatibilities than nullness?
-                    val qualifiedName = annotation.qualifiedName() ?: return
+                    val qualifiedName = annotation.qualifiedName ?: return
                     if (newModifiers.findAnnotation(qualifiedName) == null) {
                         addAnnotation = true
                     }
@@ -321,7 +321,7 @@ class AnnotationsMerger(
                 override fun compare(old: Item, new: Item) {
                     // Transfer any show/hide annotations from the external to the main codebase.
                     for (annotation in old.modifiers.annotations()) {
-                        val qualifiedName = annotation.qualifiedName() ?: continue
+                        val qualifiedName = annotation.qualifiedName ?: continue
                         if ((showAnnotations.matches(annotation) || hideAnnotations.matches(annotation) || hideMetaAnnotations.contains(qualifiedName)) &&
                             new.modifiers.findAnnotation(qualifiedName) == null
                         ) {
@@ -541,7 +541,7 @@ class AnnotationsMerger(
         var haveNullable = false
         var haveNotNull = false
         for (existing in item.modifiers.annotations()) {
-            val name = existing.qualifiedName() ?: continue
+            val name = existing.qualifiedName ?: continue
             if (isNonNull(name)) {
                 haveNotNull = true
             }
@@ -563,7 +563,7 @@ class AnnotationsMerger(
 
     /** Reads in annotation data from an XML item (using IntelliJ IDE's external annotations XML format) and
      * creates a corresponding [AnnotationItem], performing some "translations" in the process (e.g. mapping
-     * from IntelliJ annotations like `org.jetbrains.annotations.Nullable` to `android.support.annotation.Nullable`. */
+     * from IntelliJ annotations like `org.jetbrains.annotations.Nullable` to `androidx.annotation.Nullable`. */
     private fun createAnnotation(annotationElement: Element): AnnotationItem? {
         val tagName = annotationElement.tagName
         assert(tagName == "annotation") { tagName }
@@ -580,8 +580,10 @@ class AnnotationsMerger(
                 val valName2 = valueElement2.getAttribute(ATTR_NAME)
                 val value2 = valueElement2.getAttribute(ATTR_VAL)
                 return PsiAnnotationItem.create(
-                    codebase, XmlBackedAnnotationItem(
-                        codebase, AnnotationDetector.INT_RANGE_ANNOTATION.newName(),
+                    codebase,
+                    XmlBackedAnnotationItem(
+                        codebase,
+                        "androidx.annotation.IntRange",
                         listOf(
                             // Add "L" suffix to ensure that we don't for example interpret "-1" as
                             // an integer -1 and then end up recording it as "ffffffff" instead of -1L
@@ -663,7 +665,8 @@ class AnnotationsMerger(
                     attributes.add(XmlBackedAnnotationAttribute(TYPE_DEF_FLAG_ATTRIBUTE, VALUE_TRUE))
                 }
                 return PsiAnnotationItem.create(
-                    codebase, XmlBackedAnnotationItem(
+                    codebase,
+                    XmlBackedAnnotationItem(
                         codebase,
                         if (valName == "stringValues") STRING_DEF_ANNOTATION.newName() else INT_DEF_ANNOTATION.newName(),
                         attributes
@@ -677,28 +680,34 @@ class AnnotationsMerger(
                 name == INT_DEF_ANNOTATION.oldName() ||
                 name == INT_DEF_ANNOTATION.newName() ||
                 name == ANDROID_INT_DEF -> {
+
+                val attributes = mutableListOf<XmlBackedAnnotationAttribute>()
+                val parseChild: (Element) -> Unit = { child: Element ->
+                    val elementName = child.getAttribute(ATTR_NAME)
+                    val value = child.getAttribute(ATTR_VAL)
+                    when (elementName) {
+                        TYPE_DEF_VALUE_ATTRIBUTE -> {
+                            attributes.add(XmlBackedAnnotationAttribute(TYPE_DEF_VALUE_ATTRIBUTE, value))
+                        }
+                        TYPE_DEF_FLAG_ATTRIBUTE -> {
+                            if (VALUE_TRUE == value) {
+                                attributes.add(XmlBackedAnnotationAttribute(TYPE_DEF_FLAG_ATTRIBUTE, VALUE_TRUE))
+                            }
+                        }
+                        else -> { error("Unrecognized element: " + elementName) }
+                    }
+                }
                 val children = getChildren(annotationElement)
-                var valueElement = children[0]
-                val valName = valueElement.getAttribute(ATTR_NAME)
-                assert(TYPE_DEF_VALUE_ATTRIBUTE == valName)
-                val value = valueElement.getAttribute(ATTR_VAL)
-                var flag = false
+                parseChild(children[0])
                 if (children.size == 2) {
-                    valueElement = children[1]
-                    assert(TYPE_DEF_FLAG_ATTRIBUTE == valueElement.getAttribute(ATTR_NAME))
-                    flag = VALUE_TRUE == valueElement.getAttribute(ATTR_VAL)
+                    parseChild(children[1])
                 }
                 val intDef = INT_DEF_ANNOTATION.oldName() == name ||
                     INT_DEF_ANNOTATION.newName() == name ||
                     ANDROID_INT_DEF == name
-
-                val attributes = mutableListOf<XmlBackedAnnotationAttribute>()
-                attributes.add(XmlBackedAnnotationAttribute(TYPE_DEF_VALUE_ATTRIBUTE, value))
-                if (flag) {
-                    attributes.add(XmlBackedAnnotationAttribute(TYPE_DEF_FLAG_ATTRIBUTE, VALUE_TRUE))
-                }
                 return PsiAnnotationItem.create(
-                    codebase, XmlBackedAnnotationItem(
+                    codebase,
+                    XmlBackedAnnotationItem(
                         codebase,
                         if (intDef) INT_DEF_ANNOTATION.newName() else STRING_DEF_ANNOTATION.newName(), attributes
                     )
@@ -712,7 +721,8 @@ class AnnotationsMerger(
                 val pure = valueElement.getAttribute(ATTR_PURE)
                 return if (pure != null && pure.isNotEmpty()) {
                     PsiAnnotationItem.create(
-                        codebase, XmlBackedAnnotationItem(
+                        codebase,
+                        XmlBackedAnnotationItem(
                             codebase, name,
                             listOf(
                                 XmlBackedAnnotationAttribute(TYPE_DEF_VALUE_ATTRIBUTE, value),
@@ -722,7 +732,8 @@ class AnnotationsMerger(
                     )
                 } else {
                     PsiAnnotationItem.create(
-                        codebase, XmlBackedAnnotationItem(
+                        codebase,
+                        XmlBackedAnnotationItem(
                             codebase, name,
                             listOf(XmlBackedAnnotationAttribute(TYPE_DEF_VALUE_ATTRIBUTE, value))
                         )
@@ -793,14 +804,10 @@ data class XmlBackedAnnotationAttribute(
 // TODO: Replace with usage of DefaultAnnotationAttribute?
 class XmlBackedAnnotationItem(
     codebase: Codebase,
-    private val qualifiedName: String,
-    private val attributes: List<XmlBackedAnnotationAttribute> = emptyList()
+    override val originalName: String,
+    override val attributes: List<XmlBackedAnnotationAttribute> = emptyList()
 ) : DefaultAnnotationItem(codebase) {
-
-    override fun originalName(): String? = qualifiedName
-    override fun qualifiedName(): String? = AnnotationItem.mapName(codebase, qualifiedName)
-
-    override fun attributes() = attributes
+    override val qualifiedName: String? = AnnotationItem.mapName(codebase, originalName)
 
     override fun toSource(target: AnnotationTarget, showDefaultAttrs: Boolean): String {
         val qualifiedName = AnnotationItem.mapName(codebase, qualifiedName, null, target) ?: return ""

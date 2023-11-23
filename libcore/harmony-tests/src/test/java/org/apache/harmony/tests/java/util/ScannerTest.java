@@ -1600,7 +1600,7 @@ public class ScannerTest extends TestCase {
         assertEquals((float)23456.7, s.nextFloat());
 
         s = new Scanner("-123.4 123.4- -123.4-");
-        s.useLocale(new Locale("ar", "AE"));
+        s.useLocale(new Locale("ar", "EG"));
         // FIXME
 //        assertEquals((float)-123.4, s.nextFloat());
 //        //The following test case fails on RI

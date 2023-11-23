@@ -33,7 +33,7 @@ class TestNetworkStackServiceClient private constructor() : NetworkStackClientBa
     companion object {
         private val context by lazy { InstrumentationRegistry.getInstrumentation().context }
         private val networkStackVersion by lazy {
-            val component = getNetworkStackComponent()
+            val component = getNetworkStackComponent(INetworkStackConnector::class.java.name)
             val info = context.packageManager.getPackageInfo(component.packageName, 0 /* flags */)
             info.longVersionCode
         }
@@ -54,8 +54,8 @@ class TestNetworkStackServiceClient private constructor() : NetworkStackClientBa
             return networkStackVersion == 300000000L || networkStackVersion >= 301100000L
         }
 
-        private fun getNetworkStackComponent(): ComponentName {
-            val connectorIntent = Intent(INetworkStackConnector::class.java.name)
+        private fun getNetworkStackComponent(connectorAction: String): ComponentName {
+            val connectorIntent = Intent(connectorAction)
             return connectorIntent.resolveSystemService(context.packageManager, MATCH_SYSTEM_ONLY)
                     ?: fail("TestNetworkStackService not found")
         }
@@ -71,7 +71,7 @@ class TestNetworkStackServiceClient private constructor() : NetworkStackClientBa
 
     private fun init() {
         val bindIntent = Intent(INetworkStackConnector::class.java.name + ".Test")
-        bindIntent.component = getNetworkStackComponent()
+        bindIntent.component = getNetworkStackComponent(bindIntent.action)
         context.bindService(bindIntent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 

@@ -30,6 +30,8 @@ ffi.error
 confuse it with ``ffi.errno``.)
 
 
+.. _new:
+
 ffi.new()
 +++++++++
 
@@ -37,7 +39,7 @@ ffi.new()
 allocate an instance according to the specified C type and return a
 pointer to it.  The specified C type must be either a pointer or an
 array: ``new('X *')`` allocates an X and returns a pointer to it,
-whereas ``new('X[n]')`` allocates an array of n X'es and returns an
+whereas ``new('X[10]')`` allocates an array of 10 X'es and returns an
 array referencing it (which works mostly like a pointer, like in C).
 You can also use ``new('X[]', n)`` to allocate an array of a
 non-constant length n.  See the `detailed documentation`__ for other
@@ -51,9 +53,13 @@ the value of type ``cdecl`` that it points to.  This means that the raw
 data can be used as long as this object is kept alive, but must not be
 used for a longer time.  Be careful about that when copying the
 pointer to the memory somewhere else, e.g. into another structure.
-Also, this means that a line like ``x = ffi.new(...)[0]`` is *always
-wrong:* the newly allocated object goes out of scope instantly, and so
-is freed immediately, and ``x`` is garbage.
+Also, this means that a line like ``x = ffi.cast("B *", ffi.new("A *"))``
+or ``x = ffi.new("struct s[1]")[0]`` is wrong: the newly allocated object
+goes out of scope instantly, and so is freed immediately, and ``x`` is
+garbage.  The only case where this is fine comes from a special case for
+pointers-to-struct and pointers-to-union types: after
+``p = ffi.new("struct-or-union *", ..)``, then either ``p`` or ``p[0]``
+keeps the memory alive.
 
 The returned memory is initially cleared (filled with zeroes), before
 the optional initializer is applied.  For performance, see
@@ -231,7 +237,8 @@ memory); and byte strings were supported in version 1.8 onwards.
 *New in version 1.12:* added the optional *first* argument ``cdecl``, and
 the keyword argument ``require_writable``:
 
-* ``cdecl`` defaults to ``"char[]"``, but a different array type can be
+* ``cdecl`` defaults to ``"char[]"``, but a different array
+  or (from version 1.13) pointer type can be
   specified for the result.  A value like ``"int[]"`` will return an array of
   ints instead of chars, and its length will be set to the number of ints
   that fit in the buffer (rounded down if the division is not exact).  Values
@@ -242,6 +249,12 @@ the keyword argument ``require_writable``:
   needs to keep ``p1`` alive as long as ``p2`` is in use, because only ``p1``
   keeps the underlying Python object alive and locked.  (In addition,
   ``ffi.from_buffer("int[]", x)`` gives better array bound checking.)
+
+  *New in version 1.13:* ``cdecl`` can be a pointer type.  If it points
+  to a struct or union, you can, as usual, write ``p.field`` instead of
+  ``p[0].field``.  You can also access ``p[n]``; note that CFFI does not
+  perform any bounds checking in this case.  Note also that ``p[0]`` cannot
+  be used to keep the buffer alive (unlike what occurs with ``ffi.new()``).
 
 * if ``require_writable`` is set to True, the function fails if the buffer
   obtained from ``python_buffer`` is read-only (e.g. if ``python_buffer`` is
@@ -297,7 +310,7 @@ performance difference).  It can still be useful in writing typechecks,
 e.g.:
 
 .. code-block:: python
-  
+
     def myfunction(ptr):
         assert ffi.typeof(ptr) is ffi.typeof("foo_t*")
         ...
@@ -448,7 +461,7 @@ destructors will be called in a random order.  If you need a particular
 order, see the discussion in `issue 340`__.
 
 .. __: http://bugs.python.org/issue31105
-.. __: https://bitbucket.org/cffi/cffi/issues/340/resources-release-issues
+.. __: https://foss.heptapod.net/pypy/cffi/-/issues/340
 
 
 .. _ffi-new-handle:
@@ -608,6 +621,14 @@ called at a known point.  The above is equivalent to this code::
     with my_new("int[]", n) as my_array:
         ...
 
+**Warning:** due to a bug, ``p = ffi.new_allocator(..)("struct-or-union *")``
+might not follow the rule that either ``p`` or ``p[0]`` keeps the memory
+alive, which holds for the normal ``ffi.new("struct-or-union *")`` allocator.
+It may sometimes be the case that if there is only a reference to ``p[0]``,
+the memory is freed.  The cause is that the rule doesn't hold for
+``ffi.gc()``, which is sometimes used in the implementation of
+``ffi.new_allocator()()``; this might be fixed in a future release.
+
 
 .. _ffi-release:
 
@@ -712,7 +733,7 @@ example::
            raise IndexError("index too large!")
        ...
 
-.. __: https://bitbucket.org/cffi/cffi/issues/233/
+.. __: https://foss.heptapod.net/pypy/cffi/-/issues/233
 
 
 .. _ffi-getctype:

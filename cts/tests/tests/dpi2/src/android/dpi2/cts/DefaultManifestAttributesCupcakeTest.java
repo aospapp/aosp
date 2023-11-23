@@ -32,7 +32,7 @@ public class DefaultManifestAttributesCupcakeTest extends DefaultManifestAttribu
         return "android.dpi2.cts";
     }
 
-    // This is a sanity test to make sure that we're instrumenting the proper package
+    // This is a software test to make sure that we're instrumenting the proper package
     public void testPackageHasExpectedSdkVersion() {
         assertEquals(3, getAppInfo().minSdkVersion);
     }

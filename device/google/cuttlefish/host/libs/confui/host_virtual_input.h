@@ -23,13 +23,13 @@ namespace confui {
 enum class ConfUiKeys : std::uint32_t { Confirm = 7, Cancel = 8 };
 
 /**
- * vnc, webrtc will deliver the user inputs from their client
+ * webrtc will deliver the user inputs from their client
  * to this class object
  */
 class HostVirtualInput {
  public:
-  virtual void PressConfirmButton(const bool is_down) = 0;
-  virtual void PressCancelButton(const bool is_down) = 0;
+  virtual void TouchEvent(const int x, const int y, const bool is_down) = 0;
+  virtual void UserAbortEvent() = 0;
   virtual ~HostVirtualInput() = default;
   // guarantees that if this returns true, it is confirmation UI mode
   virtual bool IsConfUiActive() = 0;

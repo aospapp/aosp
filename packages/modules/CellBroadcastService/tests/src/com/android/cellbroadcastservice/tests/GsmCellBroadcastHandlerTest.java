@@ -45,10 +45,13 @@ import android.telephony.AccessNetworkConstants;
 import android.telephony.CbGeoUtils;
 import android.telephony.CellIdentityLte;
 import android.telephony.NetworkRegistrationInfo;
+import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
@@ -85,6 +88,9 @@ public class GsmCellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
 
     @Mock
     private Map<Integer, Resources> mMockedResourcesCache;
+
+    @Mock
+    private SubscriptionInfo mSubInfo;
 
     private CellBroadcastHandlerTest.CbSendMessageCalculatorFactoryFacade mSendMessageFactory;
 
@@ -189,7 +195,11 @@ public class GsmCellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
         putResources(
                 com.android.cellbroadcastservice.R.array.config_area_info_receiver_packages,
                 new String[]{"fake.inforeceiver.pkg"});
-
+        putResources(com.android.cellbroadcastservice.R.bool.reset_area_info_on_oos, true);
+        doReturn(1).when(mMockedTelephonyManager).getActiveModemCount();
+        doReturn(mSubInfo).when(mMockedSubscriptionManager)
+                .getActiveSubscriptionInfoForSimSlotIndex(anyInt());
+        doReturn(FAKE_SUBID).when(mSubInfo).getSubscriptionId();
         mGsmCellBroadcastHandler = new GsmCellBroadcastHandler(mMockedContext,
                 mTestableLooper.getLooper(), mSendMessageFactory, mHandlerHelper, mMockedResources,
                 FAKE_SUBID);
@@ -449,6 +459,38 @@ public class GsmCellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
 
         assertLocationRequestCancelled();
         verifyBroadcastNotSent(mockCalculator);
+    }
+
+    @Test
+    @SmallTest
+    public void testResetAreaInfoOnOutOfService() {
+        String areaInfo = "0000000000000000";
+        mGsmCellBroadcastHandler.setCellBroadcastAreaInfo(0, areaInfo);
+        assertEquals(areaInfo, mGsmCellBroadcastHandler.getCellBroadcastAreaInfo(0));
+
+        Intent intent = new Intent(SubscriptionManager.ACTION_DEFAULT_SUBSCRIPTION_CHANGED);
+        intent.putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, FAKE_SUBID);
+        sendBroadcast(intent);
+        ArgumentCaptor<PhoneStateListener> listenerCaptor =
+                ArgumentCaptor.forClass(PhoneStateListener.class);
+        mTestableLooper.processAllMessages();
+        verify(mMockedTelephonyManager).listen(listenerCaptor.capture(), anyInt());
+
+        PhoneStateListener listener = listenerCaptor.getValue();
+        ServiceState ss = mock(ServiceState.class);
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(ss).getState();
+        listener.onServiceStateChanged(ss);
+
+        assertEquals("", mGsmCellBroadcastHandler.getCellBroadcastAreaInfo(0));
+    }
+
+    @Test
+    @SmallTest
+    public void testDoNotResetAreaInfoWithInvalidSubId() {
+        new GsmCellBroadcastHandler(mMockedContext,
+                mTestableLooper.getLooper(), mSendMessageFactory, mHandlerHelper, mMockedResources,
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mMockedContext, never()).getResources();
     }
 
     /* Below are helper methods for setting up mocks, verifying actions, etc. */

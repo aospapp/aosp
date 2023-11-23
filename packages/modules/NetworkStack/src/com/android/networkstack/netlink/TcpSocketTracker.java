@@ -15,13 +15,6 @@
  */
 package com.android.networkstack.netlink;
 
-import static android.net.netlink.InetDiagMessage.InetDiagReqV2;
-import static android.net.netlink.NetlinkConstants.INET_DIAG_MEMINFO;
-import static android.net.netlink.NetlinkConstants.NLMSG_DONE;
-import static android.net.netlink.NetlinkConstants.SOCKDIAG_MSG_HEADER_SIZE;
-import static android.net.netlink.NetlinkConstants.SOCK_DIAG_BY_FAMILY;
-import static android.net.netlink.StructNlMsgHdr.NLM_F_DUMP;
-import static android.net.netlink.StructNlMsgHdr.NLM_F_REQUEST;
 import static android.net.util.DataStallUtils.CONFIG_MIN_PACKETS_THRESHOLD;
 import static android.net.util.DataStallUtils.CONFIG_TCP_PACKETS_FAIL_PERCENTAGE;
 import static android.net.util.DataStallUtils.DEFAULT_DATA_STALL_MIN_PACKETS_THRESHOLD;
@@ -38,14 +31,18 @@ import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_SNDTIMEO;
 
+import static com.android.net.module.util.netlink.InetDiagMessage.inetDiagReqV2;
+import static com.android.net.module.util.netlink.NetlinkConstants.INET_DIAG_MEMINFO;
+import static com.android.net.module.util.netlink.NetlinkConstants.NLMSG_DONE;
+import static com.android.net.module.util.netlink.NetlinkConstants.SOCKDIAG_MSG_HEADER_SIZE;
+import static com.android.net.module.util.netlink.NetlinkConstants.SOCK_DIAG_BY_FAMILY;
+import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_DUMP;
+import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_REQUEST;
+
 import android.content.Context;
 import android.net.INetd;
 import android.net.MarkMaskParcel;
 import android.net.Network;
-import android.net.netlink.NetlinkConstants;
-import android.net.netlink.NetlinkSocket;
-import android.net.netlink.StructInetDiagMsg;
-import android.net.netlink.StructNlMsgHdr;
 import android.net.util.NetworkStackUtils;
 import android.net.util.SocketUtils;
 import android.os.AsyncTask;
@@ -66,6 +63,10 @@ import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.netlink.NetlinkConstants;
+import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.StructInetDiagMsg;
+import com.android.net.module.util.netlink.StructNlMsgHdr;
 import com.android.networkstack.apishim.NetworkShimImpl;
 import com.android.networkstack.apishim.common.ShimUtils;
 import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
@@ -85,8 +86,8 @@ import java.util.List;
  * This is not thread-safe. This should be only accessed from one thread.
  */
 public class TcpSocketTracker {
-    private static final String TAG = "TcpSocketTracker";
-    private static final boolean DBG = false;
+    private static final String TAG = TcpSocketTracker.class.getSimpleName();
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private static final int[] ADDRESS_FAMILIES = new int[] {AF_INET6, AF_INET};
     // Enough for parsing v1 tcp_info for more than 200 sockets per time.
     private static final int DEFAULT_RECV_BUFSIZE = 60_000;
@@ -114,7 +115,7 @@ public class TcpSocketTracker {
      * Request to send to kernel to request tcp info.
      *
      *   Key: Ip family type.
-     * Value: Bytes array represent the {@Code InetDiagReqV2}.
+     * Value: Bytes array represent the {@Code inetDiagReqV2}.
      */
     private final SparseArray<byte[]> mSockDiagMsg = new SparseArray<>();
     private final Dependencies mDependencies;
@@ -160,7 +161,7 @@ public class TcpSocketTracker {
         for (final int family : ADDRESS_FAMILIES) {
             mSockDiagMsg.put(
                     family,
-                    InetDiagReqV2(IPPROTO_TCP,
+                    inetDiagReqV2(IPPROTO_TCP,
                             null /* local addr */,
                             null /* remote addr */,
                             family,
@@ -354,7 +355,7 @@ public class TcpSocketTracker {
             stat.lostCount -= previous.tcpInfo.mLost;
             stat.retransmitCount -= previous.tcpInfo.mRetransmits;
         }
-
+        log("calculateLatestPacketsStat, stat:" + stat);
         return stat;
     }
 
@@ -517,6 +518,12 @@ public class TcpSocketTracker {
             lostCount += stat.lostCount;
             receivedCount += stat.receivedCount;
             retransmitCount += stat.retransmitCount;
+        }
+
+        @Override
+        public String toString() {
+            return "TcpStat {sent=" + sentCount + ", lost=" + lostCount
+                    + ", retransmit=" + retransmitCount + ", received=" + receivedCount + "}";
         }
     }
 

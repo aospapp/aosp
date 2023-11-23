@@ -10,9 +10,9 @@ third_party {
   }
   url {
     type: GIT
-    value: "https://github.googlesource.com/abseil/abseil-cpp/+/refs/heads/lts_2020_02_25"
+    value: "https://github.com/abseil/abseil-cpp"
   }
-  version: "fcb104594b0bb4b8ac306cb2f55ecdad40974683"
-  last_upgrade_date { year: 2020 month: 04 day: 27 }
+  version: "20211102.0"
+  last_upgrade_date { year: 2021 month: 12 day: 21 }
 }
 

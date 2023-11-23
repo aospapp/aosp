@@ -20,17 +20,17 @@ import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.hardware.wifi.V1_0.IWifiRttController;
 import android.hardware.wifi.V1_0.IWifiRttControllerEventCallback;
-import android.hardware.wifi.V1_0.RttBw;
 import android.hardware.wifi.V1_0.RttCapabilities;
 import android.hardware.wifi.V1_0.RttConfig;
 import android.hardware.wifi.V1_0.RttPeerType;
-import android.hardware.wifi.V1_0.RttPreamble;
 import android.hardware.wifi.V1_0.RttResult;
 import android.hardware.wifi.V1_0.RttStatus;
 import android.hardware.wifi.V1_0.RttType;
-import android.hardware.wifi.V1_0.WifiChannelWidthInMhz;
 import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
+import android.hardware.wifi.V1_6.RttBw;
+import android.hardware.wifi.V1_6.RttPreamble;
+import android.hardware.wifi.V1_6.WifiChannelWidthInMhz;
 import android.net.MacAddress;
 import android.net.wifi.rtt.RangingRequest;
 import android.net.wifi.rtt.RangingResult;
@@ -115,7 +115,9 @@ public class RttNative {
     private volatile Capabilities mRttCapabilities;
     private final WifiRttControllerEventCallback mWifiRttControllerEventCallback;
     private volatile android.hardware.wifi.V1_4.IWifiRttController mIWifiRttController14;
+    private volatile android.hardware.wifi.V1_6.IWifiRttController mIWifiRttController16;
     private final WifiRttControllerEventCallback14 mWifiRttControllerEventCallback14;
+    private final WifiRttControllerEventCallback16 mWifiRttControllerEventCallback16;
     private static final int CONVERSION_US_TO_MS = 1_000;
 
     private final HalDeviceManager.InterfaceRttControllerLifecycleCallback mRttLifecycleCb =
@@ -126,9 +128,13 @@ public class RttNative {
                     synchronized (mLock) {
                         mIWifiRttController = controller;
                         mIWifiRttController14 = getWifiRttControllerV1_4();
+                        mIWifiRttController16 = getWifiRttControllerV1_6();
 
                         try {
-                            if (mIWifiRttController14 != null) {
+                            if (mIWifiRttController16 != null) {
+                                mIWifiRttController16.registerEventCallback_1_6(
+                                        mWifiRttControllerEventCallback16);
+                            } else if (mIWifiRttController14 != null) {
                                 mIWifiRttController14.registerEventCallback_1_4(
                                         mWifiRttControllerEventCallback14);
                             } else {
@@ -140,6 +146,7 @@ public class RttNative {
                             if (mIWifiRttController != null) {
                                 mIWifiRttController = null;
                                 mIWifiRttController14 = null;
+                                mIWifiRttController16 = null;
                                 mRttService.disable();
                             }
                             return;
@@ -155,6 +162,7 @@ public class RttNative {
                     synchronized (mLock) {
                         mIWifiRttController = null;
                         mIWifiRttController14 = null;
+                        mIWifiRttController16 = null;
                         mRttCapabilities = null;
                         mRttService.disable();
                     }
@@ -166,6 +174,7 @@ public class RttNative {
         mHalDeviceManager = halDeviceManager;
         mWifiRttControllerEventCallback = new WifiRttControllerEventCallback();
         mWifiRttControllerEventCallback14 = new WifiRttControllerEventCallback14();
+        mWifiRttControllerEventCallback16 = new WifiRttControllerEventCallback16();
     }
 
     /**
@@ -217,7 +226,22 @@ public class RttNative {
 
         synchronized (mLock) {
             try {
-                if (mIWifiRttController14 != null) {
+                if (mIWifiRttController16 != null) {
+                    mIWifiRttController16.getCapabilities_1_6(
+                            (status, capabilities16) -> {
+                                if (status.code != WifiStatusCode.SUCCESS) {
+                                    Log.e(TAG, "updateRttCapabilities:"
+                                            + " error requesting capabilities "
+                                            + "-- code=" + status.code);
+                                    return;
+                                }
+                                if (mDbg) {
+                                    Log.v(TAG, "updateRttCapabilities: RTT capabilities="
+                                            + capabilities16);
+                                }
+                                mRttCapabilities = new Capabilities(capabilities16);
+                            });
+                } else if (mIWifiRttController14 != null) {
                     mIWifiRttController14.getCapabilities_1_4(
                             (status, capabilities14) -> {
                                 if (status.code != WifiStatusCode.SUCCESS) {
@@ -284,7 +308,9 @@ public class RttNative {
             }
             updateRttCapabilities();
 
-            if (mIWifiRttController14 != null) {
+            if (mIWifiRttController16 != null) {
+                return sendRangeRequest16(cmdId, request, isCalledFromPrivilegedContext);
+            } else if (mIWifiRttController14 != null) {
                 return sendRangeRequest14(cmdId, request, isCalledFromPrivilegedContext);
             } else {
                 return sendRangeRequest(cmdId, request, isCalledFromPrivilegedContext);
@@ -344,6 +370,36 @@ public class RttNative {
             }
         } catch (RemoteException e) {
             Log.e(TAG, "sendRangeRequest14: exception issuing range request: " + e);
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean sendRangeRequest16(int cmdId, RangingRequest request,
+            boolean isCalledFromPrivilegedContext) {
+        ArrayList<android.hardware.wifi.V1_6.RttConfig> rttConfig =
+                convertRangingRequestToRttConfigs16(request,
+                isCalledFromPrivilegedContext, mRttCapabilities);
+        if (rttConfig == null) {
+            Log.e(TAG, "sendRangeRequest16: invalid request parameters");
+            return false;
+        }
+        if (rttConfig.size() == 0) {
+            Log.e(TAG, "sendRangeRequest16: all requests invalidated");
+            mRttService.onRangingResults(cmdId, new ArrayList<>());
+            return true;
+        }
+
+        try {
+            WifiStatus status = mIWifiRttController16.rangeRequest_1_6(cmdId, rttConfig);
+            if (status.code != WifiStatusCode.SUCCESS) {
+                Log.e(TAG, "sendRangeRequest16: cannot issue range request -- code="
+                        + status.code);
+                return false;
+            }
+        } catch (RemoteException e) {
+            Log.e(TAG, "sendRangeRequest16: exception issuing range request: " + e);
             return false;
         }
 
@@ -454,7 +510,10 @@ public class RttNative {
         if (bw == RttBw.BW_40MHZ && preamble >= RttPreamble.HT) {
             return;
         }
-        if (bw >= RttBw.BW_80MHZ && preamble >= RttPreamble.VHT) {
+        if (bw == RttBw.BW_320MHZ && preamble == RttPreamble.EHT) {
+            return;
+        }
+        if (bw >= RttBw.BW_80MHZ && bw < RttBw.BW_320MHZ && preamble >= RttPreamble.VHT) {
             return;
         }
         throw new IllegalArgumentException(
@@ -473,6 +532,75 @@ public class RttNative {
 
             android.hardware.wifi.V1_4.RttConfig config =
                     new android.hardware.wifi.V1_4.RttConfig();
+
+            System.arraycopy(responder.macAddress.toByteArray(), 0, config.addr, 0,
+                    config.addr.length);
+
+            try {
+                config.type = responder.supports80211mc ? RttType.TWO_SIDED : RttType.ONE_SIDED;
+                if (config.type == RttType.ONE_SIDED && cap != null && !cap.oneSidedRttSupported) {
+                    Log.w(TAG, "Device does not support one-sided RTT");
+                    continue;
+                }
+
+                config.peer = halRttPeerTypeFromResponderType(responder.responderType);
+                config.channel.width = halChannelWidthFromResponderChannelWidth(
+                        responder.channelWidth);
+                config.channel.centerFreq = responder.frequency;
+                config.channel.centerFreq0 = responder.centerFreq0;
+                config.channel.centerFreq1 = responder.centerFreq1;
+                config.bw = halRttChannelBandwidthFromResponderChannelWidth(responder.channelWidth);
+                config.preamble = halRttPreamble14FromResponderPreamble(responder.preamble);
+
+                if (config.peer == RttPeerType.NAN) {
+                    config.mustRequestLci = false;
+                    config.mustRequestLcr = false;
+                    config.burstPeriod = 0;
+                    config.numBurst = 0;
+                    config.numFramesPerBurst = request.mRttBurstSize;
+                    config.numRetriesPerRttFrame = 0; // irrelevant for 2-sided RTT
+                    config.numRetriesPerFtmr = 3;
+                    config.burstDuration = 9;
+                } else { // AP + all non-NAN requests
+                    config.mustRequestLci = true;
+                    config.mustRequestLcr = true;
+                    config.burstPeriod = 0;
+                    config.numBurst = 0;
+                    config.numFramesPerBurst = request.mRttBurstSize;
+                    config.numRetriesPerRttFrame = (config.type == RttType.TWO_SIDED ? 0 : 3);
+                    config.numRetriesPerFtmr = 3;
+                    config.burstDuration = 9;
+
+                    if (cap != null) { // constrain parameters per device capabilities
+                        config.mustRequestLci = config.mustRequestLci && cap.lciSupported;
+                        config.mustRequestLcr = config.mustRequestLcr && cap.lcrSupported;
+                        config.bw = halRttChannelBandwidthCapabilityLimiter(config.bw, cap);
+                        config.preamble = halRttPreambleCapabilityLimiter(config.preamble, cap);
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Invalid configuration: " + e.getMessage());
+                continue;
+            }
+
+            rttConfigs.add(config);
+        }
+
+        return rttConfigs;
+    }
+
+    private static ArrayList<android.hardware.wifi.V1_6.RttConfig>
+            convertRangingRequestToRttConfigs16(
+            RangingRequest request, boolean isCalledFromPrivilegedContext, Capabilities cap) {
+        ArrayList<android.hardware.wifi.V1_6.RttConfig> rttConfigs =
+                new ArrayList<>(request.mRttPeers.size());
+
+        // Skipping any configurations which have an error (printing out a message).
+        // The caller will only get results for valid configurations.
+        for (ResponderConfig responder: request.mRttPeers) {
+
+            android.hardware.wifi.V1_6.RttConfig config =
+                    new android.hardware.wifi.V1_6.RttConfig();
 
             System.arraycopy(responder.macAddress.toByteArray(), 0, config.addr, 0,
                     config.addr.length);
@@ -560,6 +688,8 @@ public class RttNative {
                 return WifiChannelWidthInMhz.WIDTH_160;
             case ResponderConfig.CHANNEL_WIDTH_80MHZ_PLUS_MHZ:
                 return WifiChannelWidthInMhz.WIDTH_80P80;
+            case ResponderConfig.CHANNEL_WIDTH_320MHZ:
+                return WifiChannelWidthInMhz.WIDTH_320;
             default:
                 throw new IllegalArgumentException(
                         "halChannelWidthFromResponderChannelWidth: bad " + responderChannelWidth);
@@ -577,6 +707,8 @@ public class RttNative {
             case ResponderConfig.CHANNEL_WIDTH_160MHZ:
             case ResponderConfig.CHANNEL_WIDTH_80MHZ_PLUS_MHZ:
                 return RttBw.BW_160MHZ;
+            case ResponderConfig.CHANNEL_WIDTH_320MHZ:
+                return RttBw.BW_320MHZ;
             default:
                 throw new IllegalArgumentException(
                         "halRttChannelBandwidthFromHalBandwidth: bad " + responderChannelWidth);
@@ -591,6 +723,10 @@ public class RttNative {
                 return RttPreamble.HT;
             case ResponderConfig.PREAMBLE_VHT:
                 return RttPreamble.VHT;
+            case ResponderConfig.PREAMBLE_HE:
+                return RttPreamble.HE;
+            case ResponderConfig.PREAMBLE_EHT:
+                return RttPreamble.EHT;
             default:
                 throw new IllegalArgumentException(
                         "halRttPreambleFromResponderPreamble: bad " + responderPreamble);
@@ -606,7 +742,7 @@ public class RttNative {
             case ResponderConfig.PREAMBLE_VHT:
                 return RttPreamble.VHT;
             case ResponderConfig.PREAMBLE_HE:
-                return android.hardware.wifi.V1_4.RttPreamble.HE;
+                return RttPreamble.HE;
             default:
                 throw new IllegalArgumentException(
                         "halRttPreamble14FromResponderPreamble: bad " + responderPreamble);
@@ -669,6 +805,19 @@ public class RttNative {
             return null;
         }
         return android.hardware.wifi.V1_4.IWifiRttController.castFrom(mIWifiRttController);
+    }
+
+    /**
+     * Check if HAL Interface 1.6 is running
+     *
+     * @return 1.6 IWifiRttController object if the device is running the 1.6 hal service, null
+     * otherwise
+     */
+    private android.hardware.wifi.V1_6.IWifiRttController getWifiRttControllerV1_6() {
+        if (mIWifiRttController == null) {
+            return null;
+        }
+        return android.hardware.wifi.V1_6.IWifiRttController.castFrom(mIWifiRttController);
     }
 
     /**
@@ -735,6 +884,41 @@ public class RttNative {
         }
     }
 
+    /**
+     *  Callback for events on 1.6 WifiRttController
+     */
+    private class WifiRttControllerEventCallback16 extends
+            android.hardware.wifi.V1_6.IWifiRttControllerEventCallback.Stub {
+        @Override
+        public void onResults(int cmdId, ArrayList<RttResult> halResults) {
+            // This callback is not supported on this version of the interface
+            return;
+        }
+
+        @Override
+        public void onResults_1_4(int cmdId,
+                ArrayList<android.hardware.wifi.V1_4.RttResult> halResults) {
+            // This callback is not supported on this version of the interface
+            return;
+        }
+
+        @Override
+        public void onResults_1_6(int cmdId,
+                ArrayList<android.hardware.wifi.V1_6.RttResult> halResults) {
+            if (mDbg) {
+                Log.v(TAG,
+                        "onResults_1_6: cmdId=" + cmdId + ", # of results=" + halResults.size());
+            }
+            // sanitize HAL results
+            if (halResults == null) {
+                halResults = new ArrayList<>();
+            }
+            halResults.removeIf(Objects::isNull);
+            ArrayList<RangingResult> rangingResults = convertHalResultsRangingResults16(halResults);
+            mRttService.onRangingResults(cmdId, rangingResults);
+        }
+    }
+
     private ArrayList<RangingResult> convertHalResultsRangingResults(
             ArrayList<RttResult> halResults) {
         ArrayList<RangingResult> rangingResults = new ArrayList<>();
@@ -776,6 +960,43 @@ public class RttNative {
             ArrayList<android.hardware.wifi.V1_4.RttResult> halResults) {
         ArrayList<RangingResult> rangingResults = new ArrayList<>();
         for (android.hardware.wifi.V1_4.RttResult rttResult : halResults) {
+            byte[] lci = NativeUtil.byteArrayFromArrayList(rttResult.lci.data);
+            byte[] lcr = NativeUtil.byteArrayFromArrayList(rttResult.lcr.data);
+            ResponderLocation responderLocation;
+            try {
+                responderLocation = new ResponderLocation(lci, lcr);
+                if (!responderLocation.isValid()) {
+                    responderLocation = null;
+                }
+            } catch (Exception e) {
+                responderLocation = null;
+                Log.e(TAG,
+                        "ResponderLocation: lci/lcr parser failed exception -- " + e);
+            }
+            if (rttResult.successNumber <= 1
+                    && rttResult.distanceSdInMm != 0) {
+                if (mDbg) {
+                    Log.w(TAG, "postProcessResults: non-zero distance stdev with 0||1 num "
+                            + "samples!? result=" + rttResult);
+                }
+                rttResult.distanceSdInMm = 0;
+            }
+            rangingResults.add(new RangingResult(
+                    convertHalStatusToFrameworkStatus(rttResult.status),
+                    MacAddress.fromBytes(rttResult.addr),
+                    rttResult.distanceInMm, rttResult.distanceSdInMm,
+                    rttResult.rssi / -2, rttResult.numberPerBurstPeer,
+                    rttResult.successNumber, lci, lcr, responderLocation,
+                    rttResult.timeStampInUs / CONVERSION_US_TO_MS,
+                    rttResult.type == RttType.TWO_SIDED));
+        }
+        return rangingResults;
+    }
+
+    private ArrayList<RangingResult> convertHalResultsRangingResults16(
+            ArrayList<android.hardware.wifi.V1_6.RttResult> halResults) {
+        ArrayList<RangingResult> rangingResults = new ArrayList<>();
+        for (android.hardware.wifi.V1_6.RttResult rttResult : halResults) {
             byte[] lci = NativeUtil.byteArrayFromArrayList(rttResult.lci.data);
             byte[] lcr = NativeUtil.byteArrayFromArrayList(rttResult.lcr.data);
             ResponderLocation responderLocation;
@@ -882,6 +1103,17 @@ public class RttNative {
         }
 
         public Capabilities(android.hardware.wifi.V1_4.RttCapabilities rttHalCapabilities) {
+            oneSidedRttSupported = rttHalCapabilities.rttOneSidedSupported;
+            lciSupported = rttHalCapabilities.lciSupported;
+            lcrSupported = rttHalCapabilities.lcrSupported;
+            responderSupported = rttHalCapabilities.responderSupported;
+            preambleSupported = rttHalCapabilities.preambleSupport;
+            mcVersion = rttHalCapabilities.mcVersion;
+            bwSupported = rttHalCapabilities.bwSupport;
+            rttFtmSupported = rttHalCapabilities.rttFtmSupported;
+        }
+
+        public Capabilities(android.hardware.wifi.V1_6.RttCapabilities rttHalCapabilities) {
             oneSidedRttSupported = rttHalCapabilities.rttOneSidedSupported;
             lciSupported = rttHalCapabilities.lciSupported;
             lcrSupported = rttHalCapabilities.lcrSupported;

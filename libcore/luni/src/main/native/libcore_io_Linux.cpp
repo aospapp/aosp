@@ -57,6 +57,7 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/macros.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <nativehelper/JNIPlatformHelp.h>
@@ -1638,11 +1639,9 @@ static jbyteArray Linux_getxattr(JNIEnv* env, jobject, jstring javaPath,
 }
 
 static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
-    static jmethodID ctor = env->GetMethodID(JniConstants::GetStructIfaddrsClass(env), "<init>",
+    jmethodID ctor = env->GetMethodID(JniConstants::GetStructIfaddrsClass(env), "<init>",
             "(Ljava/lang/String;ILjava/net/InetAddress;Ljava/net/InetAddress;Ljava/net/InetAddress;[B)V");
-    if (ctor == NULL) {
-        return NULL;
-    }
+    CHECK(ctor != NULL);
 
     ifaddrs* ifaddr;
     int rc = TEMP_FAILURE_RETRY(getifaddrs(&ifaddr));
@@ -1659,8 +1658,10 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
     }
 
     // Prepare output array.
-    jobjectArray result = env->NewObjectArray(ifCount, JniConstants::GetStructIfaddrsClass(env), NULL);
+    jclass ifAddrsClass = JniConstants::GetStructIfaddrsClass(env);
+    jobjectArray result = env->NewObjectArray(ifCount, ifAddrsClass, NULL);
     if (result == NULL) {
+        DCHECK(env->ExceptionCheck());
         return NULL;
     }
 
@@ -1669,12 +1670,9 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
     for (ifaddrs* ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next, ++index) {
         TO_JAVA_STRING(name, ifa->ifa_name);
         jint flags = ifa->ifa_flags;
-        sockaddr_storage* interfaceAddr =
-            reinterpret_cast<sockaddr_storage*>(ifa->ifa_addr);
-        sockaddr_storage* netmaskAddr =
-            reinterpret_cast<sockaddr_storage*>(ifa->ifa_netmask);
-        sockaddr_storage* broadAddr =
-            reinterpret_cast<sockaddr_storage*>(ifa->ifa_broadaddr);
+        sockaddr_storage* interfaceAddr = reinterpret_cast<sockaddr_storage*>(ifa->ifa_addr);
+        sockaddr_storage* netmaskAddr = reinterpret_cast<sockaddr_storage*>(ifa->ifa_netmask);
+        sockaddr_storage* broadAddr = reinterpret_cast<sockaddr_storage*>(ifa->ifa_broadaddr);
 
         jobject addr, netmask, broad;
         jbyteArray hwaddr = NULL;
@@ -1684,14 +1682,18 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
             case AF_INET6:
                 // IPv4 / IPv6.
                 // interfaceAddr and netmaskAddr are never null.
+                // sockaddrToInetAddress is not expected to return null.
                 if ((addr = sockaddrToInetAddress(env, *interfaceAddr, NULL)) == NULL) {
+                    DCHECK(env->ExceptionCheck());
                     return NULL;
                 }
                 if ((netmask = sockaddrToInetAddress(env, *netmaskAddr, NULL)) == NULL) {
+                    DCHECK(env->ExceptionCheck());
                     return NULL;
                 }
                 if (broadAddr != NULL && (ifa->ifa_flags & IFF_BROADCAST)) {
                     if ((broad = sockaddrToInetAddress(env, *broadAddr, NULL)) == NULL) {
+                        DCHECK(env->ExceptionCheck());
                         return NULL;
                     }
                 } else {
@@ -1713,6 +1715,7 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
                 if (!allZero) {
                     hwaddr = env->NewByteArray(sll->sll_halen);
                     if (hwaddr == NULL) {
+                        DCHECK(env->ExceptionCheck());
                         return NULL;
                     }
                     env->SetByteArrayRegion(hwaddr, 0, sll->sll_halen,
@@ -1727,9 +1730,9 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
             addr = netmask = broad = NULL;
         }
 
-        jobject o = env->NewObject(JniConstants::GetStructIfaddrsClass(env), ctor, name, flags,
-                                   addr, netmask, broad, hwaddr);
+        jobject o = env->NewObject(ifAddrsClass, ctor, name, flags, addr, netmask, broad, hwaddr);
         if (o == NULL) {
+            DCHECK(env->ExceptionCheck());
             return NULL;
         }
         env->SetObjectArrayElement(result, index, o);
@@ -2321,13 +2324,18 @@ static jint Linux_sendmsg(JNIEnv* env, jobject, jobject javaFd, jobject structMs
         return -1;
     }
 
+    // Determine if the socket address is an internet address. We need to do this before invoking
+    // NET_FAILURE_RETRY(sendmsg) because that can throw and we can't call env->IsInstanceOf
+    // with a pending exception (b/194980932).
+    const bool isInetSocketAddressClass =
+            env->IsInstanceOf(sockAddrObj, JniConstants::GetInetSocketAddressClass(env));
+
     sockaddr* _sa = sa_len ? reinterpret_cast<sockaddr*>(&ss) : NULL;
     scopedMsghdrValue.setMsgNameAndLen(_sa, sa_len);
     rc  = NET_FAILURE_RETRY(env, ssize_t, sendmsg, javaFd, \
                                  &(scopedMsghdrValue.getObject()), flags);
 
-    if (sockAddrObj &&
-        !env->IsInstanceOf(sockAddrObj, JniConstants::GetInetSocketAddressClass(env))) {
+    if (sockAddrObj && !isInetSocketAddressClass) {
         // non InetSockAddress case, return now;
         return rc;
     }
@@ -2645,8 +2653,17 @@ static jobject Linux_statvfs(JNIEnv* env, jobject, jstring javaPath) {
 
 static jstring Linux_strerror(JNIEnv* env, jobject, jint errnum) {
     char buffer[BUFSIZ];
+#ifdef ANDROID_HOST_MUSL
+    /* musl only provides the posix version of strerror_r that returns int */
+    int ret = strerror_r(errnum, buffer, sizeof(buffer));
+    if (ret != 0) {
+      return env->NewStringUTF(android::base::StringPrintf("Unknown error %d", errnum).c_str());
+    }
+    return env->NewStringUTF(buffer);
+#else
     const char* message = strerror_r(errnum, buffer, sizeof(buffer));
     return env->NewStringUTF(message);
+#endif
 }
 
 static jstring Linux_strsignal(JNIEnv* env, jobject, jint signal) {

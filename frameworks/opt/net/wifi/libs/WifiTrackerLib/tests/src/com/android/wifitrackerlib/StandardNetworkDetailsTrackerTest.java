@@ -35,7 +35,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
-import android.net.NetworkScoreManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
@@ -67,7 +66,6 @@ public class StandardNetworkDetailsTrackerTest {
     @Mock private Context mMockContext;
     @Mock private WifiManager mMockWifiManager;
     @Mock private ConnectivityManager mMockConnectivityManager;
-    @Mock private NetworkScoreManager mMockNetworkScoreManager;
     @Mock private Clock mMockClock;
 
     private TestLooper mTestLooper;
@@ -85,7 +83,6 @@ public class StandardNetworkDetailsTrackerTest {
                 mMockContext,
                 mMockWifiManager,
                 mMockConnectivityManager,
-                mMockNetworkScoreManager,
                 testHandler,
                 testHandler,
                 mMockClock,
@@ -106,8 +103,6 @@ public class StandardNetworkDetailsTrackerTest {
         when(mMockWifiManager.getScanResults()).thenReturn(new ArrayList<>());
         when(mMockWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
         when(mMockClock.millis()).thenReturn(START_MILLIS);
-        when(mMockContext.getSystemService(Context.NETWORK_SCORE_SERVICE))
-                .thenReturn(mMockNetworkScoreManager);
     }
 
     /**
@@ -129,7 +124,6 @@ public class StandardNetworkDetailsTrackerTest {
      */
     @Test
     public void testHandleOnStart_scanResultUpdaterUpdateCorrectly() throws Exception {
-        final ScanResult chosen = buildScanResult("ssid", "bssid", START_MILLIS);
         final StandardWifiEntryKey key =
                 ssidAndSecurityTypeToStandardWifiEntryKey("ssid", SECURITY_NONE);
         final StandardNetworkDetailsTracker tracker =
@@ -158,9 +152,9 @@ public class StandardNetworkDetailsTrackerTest {
                 createTestStandardNetworkDetailsTracker(key.toString());
 
         tracker.onStart();
+        mTestLooper.dispatchAll();
         verify(mMockContext).registerReceiver(mBroadcastReceiverCaptor.capture(),
                 any(), any(), any());
-        mTestLooper.dispatchAll();
         final WifiEntry wifiEntry = tracker.getWifiEntry();
 
         assertThat(wifiEntry.getLevel()).isEqualTo(WIFI_LEVEL_UNREACHABLE);
@@ -197,9 +191,9 @@ public class StandardNetworkDetailsTrackerTest {
                 createTestStandardNetworkDetailsTracker(key.toString());
 
         tracker.onStart();
+        mTestLooper.dispatchAll();
         verify(mMockContext).registerReceiver(mBroadcastReceiverCaptor.capture(),
                 any(), any(), any());
-        mTestLooper.dispatchAll();
         final WifiEntry wifiEntry = tracker.getWifiEntry();
 
         assertThat(wifiEntry.isSaved()).isFalse();
@@ -238,9 +232,9 @@ public class StandardNetworkDetailsTrackerTest {
         final StandardNetworkDetailsTracker tracker =
                 createTestStandardNetworkDetailsTracker(key.toString());
         tracker.onStart();
+        mTestLooper.dispatchAll();
         verify(mMockContext).registerReceiver(mBroadcastReceiverCaptor.capture(),
                 any(), any(), any());
-        mTestLooper.dispatchAll();
         final WifiEntry wifiEntry = tracker.getWifiEntry();
 
         assertThat(wifiEntry.getLevel()).isNotEqualTo(WIFI_LEVEL_UNREACHABLE);

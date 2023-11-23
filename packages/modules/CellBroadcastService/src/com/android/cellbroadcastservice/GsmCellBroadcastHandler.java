@@ -36,7 +36,6 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Telephony.CellBroadcasts;
 import android.telephony.AccessNetworkConstants;
-import android.telephony.CarrierConfigManager;
 import android.telephony.CbGeoUtils;
 import android.telephony.CbGeoUtils.Geometry;
 import android.telephony.CellBroadcastIntents;
@@ -64,6 +63,8 @@ import com.android.cellbroadcastservice.GsmSmsCbMessage.GeoFencingTriggerMessage
 import com.android.cellbroadcastservice.GsmSmsCbMessage.GeoFencingTriggerMessage.CellBroadcastIdentity;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -113,6 +114,8 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
     private final HashMap<SmsCbConcatInfo, byte[][]> mSmsCbPageMap =
             new HashMap<>(4);
 
+    private boolean mIsResetAreaInfoOnOos;
+
     @VisibleForTesting
     public GsmCellBroadcastHandler(Context context, Looper looper,
             CbSendMessageCalculatorFactory cbSendMessageCalculatorFactory,
@@ -120,14 +123,11 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         super("GsmCellBroadcastHandler", context, looper, cbSendMessageCalculatorFactory,
                 handlerHelper);
         mContext.registerReceiver(mGsmReceiver, new IntentFilter(ACTION_AREA_UPDATE_ENABLED),
-                CBR_MODULE_PERMISSION, null);
-        // Some OEMs want us to reset the area info updates when going out of service
-        // (Okay to use res for slot 0 here because this should not be carrier specific)
-        if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
-            mContext.registerReceiver(mGsmReceiver,
-                    new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED), null,
-                    null);
-        }
+                CBR_MODULE_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
+        mContext.registerReceiver(mGsmReceiver,
+                new IntentFilter(SubscriptionManager.ACTION_DEFAULT_SUBSCRIPTION_CHANGED),
+                null, null);
+        loadConfig(SubscriptionManager.getDefaultSubscriptionId());
     }
 
     /**
@@ -142,30 +142,41 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         super("GsmCellBroadcastHandler", context, looper, cbSendMessageCalculatorFactory,
                 handlerHelper);
         mContext.registerReceiver(mGsmReceiver, new IntentFilter(ACTION_AREA_UPDATE_ENABLED),
-                CBR_MODULE_PERMISSION, null);
+                CBR_MODULE_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
+        mContext.registerReceiver(mGsmReceiver,
+                new IntentFilter(SubscriptionManager.ACTION_DEFAULT_SUBSCRIPTION_CHANGED),
+                null, null);
 
         // set the resources cache here for unit tests
         mResourcesCache.put(subId, resources);
-
-        // Some OEMs want us to reset the area info updates when going out of service
-        // (Okay to use res for slot 0 here because this should not be carrier specific)
-        if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
-            mContext.registerReceiver(mGsmReceiver,
-                    new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED), null,
-                    null);
-        }
+        loadConfig(subId);
     }
 
     @Override
     public void cleanup() {
         log("cleanup");
-        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
-        int size = mServiceStateListener.size();
-        for (int i = 0; i < size; i++) {
-            tm.listen(mServiceStateListener.valueAt(i), PhoneStateListener.LISTEN_NONE);
-        }
+        unregisterServiceStateListeners();
         mContext.unregisterReceiver(mGsmReceiver);
         super.cleanup();
+    }
+
+    private void loadConfig(int subId) {
+        // Some OEMs want us to reset the area info updates when going out of service.
+        // The config is loaded from the resource of the default sub id.
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            log("subId[" + subId + "] is not valid");
+            return;
+        }
+        boolean isResetAreaInfoOnOos = getResources(subId)
+                .getBoolean(R.bool.reset_area_info_on_oos);
+        if (mIsResetAreaInfoOnOos != isResetAreaInfoOnOos) {
+            mIsResetAreaInfoOnOos = isResetAreaInfoOnOos;
+            if (mIsResetAreaInfoOnOos) {
+                registerServiceStateListeners();
+            } else {
+                unregisterServiceStateListeners();
+            }
+        }
     }
 
     private void registerServiceStateListeners() {
@@ -185,6 +196,14 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         }
     }
 
+    private void unregisterServiceStateListeners() {
+        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+        int size = mServiceStateListener.size();
+        for (int i = 0; i < size; i++) {
+            tm.listen(mServiceStateListener.valueAt(i), PhoneStateListener.LISTEN_NONE);
+        }
+    }
+
     private class ServiceStateListener extends PhoneStateListener {
         // subId is not needed for clearing area info, only used for debugging purposes
         private int mSubId;
@@ -199,10 +218,11 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         public void onServiceStateChanged(@NonNull ServiceState serviceState) {
             int state = serviceState.getState();
             if (state == ServiceState.STATE_POWER_OFF
-                    || state == ServiceState.STATE_OUT_OF_SERVICE) {
+                    || state == ServiceState.STATE_OUT_OF_SERVICE
+                    || state == ServiceState.STATE_EMERGENCY_ONLY) {
                 synchronized (mAreaInfos) {
                     if (mAreaInfos.contains(mSlotId)) {
-                        log("OOS mSubId=" + mSubId + " mSlotId=" + mSlotId
+                        log("OOS state=" + state + " mSubId=" + mSubId + " mSlotId=" + mSlotId
                                 + ", clearing area infos");
                         mAreaInfos.remove(mSlotId);
                     }
@@ -237,6 +257,19 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
             info = mAreaInfos.get(slotIndex);
         }
         return info == null ? "" : info;
+    }
+
+    /**
+     * Set the area information
+     *
+     * @param slotIndex SIM slot index
+     * @param info area info for the slot
+     */
+    @VisibleForTesting
+    public void setCellBroadcastAreaInfo(int slotIndex, String info) {
+        synchronized (mAreaInfos) {
+            mAreaInfos.put(slotIndex, info);
+        }
     }
 
     /**
@@ -721,10 +754,10 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
                         }
                     }
                     break;
-                case CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED:
-                    // (Okay to use res for slot 0 here because this should not be carrier specific)
-                    if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
-                        registerServiceStateListeners();
+                case SubscriptionManager.ACTION_DEFAULT_SUBSCRIPTION_CHANGED:
+                    if (intent.hasExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX)) {
+                        loadConfig(intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
+                                  SubscriptionManager.DEFAULT_SUBSCRIPTION_ID));
                     }
                     break;
                 default:
@@ -781,5 +814,13 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         public boolean matchesLocation(String plmn, int lac, int cid) {
             return mLocation.isInLocationArea(plmn, lac, cid);
         }
+    }
+
+    @Override
+    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        pw.println("GsmCellBroadcastHandler:");
+        pw.println("  mAreaInfos=:" + mAreaInfos);
+        pw.println("  mSmsCbPageMap=:" + mSmsCbPageMap);
+        super.dump(fd, pw, args);
     }
 }

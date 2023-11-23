@@ -15,18 +15,26 @@
  */
 package android.security.cts;
 
-import org.junit.Test;
+import static android.os.Process.BLUETOOTH_UID;
 
 import android.content.ComponentName;
 import android.content.Intent;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
 
-public class BluetoothIntentsTest extends AndroidTestCase {
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(AndroidJUnit4.class)
+public class BluetoothIntentsTest extends StsExtraBusinessLogicTestCase {
   /**
    * b/35258579
    */
   @AsbSecurityTest(cveBugId = 35258579)
+  @Test
   public void testAcceptIntent() {
     genericIntentTest("ACCEPT");
   }
@@ -35,6 +43,7 @@ public class BluetoothIntentsTest extends AndroidTestCase {
    * b/35258579
    */
   @AsbSecurityTest(cveBugId = 35258579)
+  @Test
   public void testDeclineIntent() {
       genericIntentTest("DECLINE");
   }
@@ -43,11 +52,16 @@ public class BluetoothIntentsTest extends AndroidTestCase {
   private void genericIntentTest(String action) throws SecurityException {
     try {
       Intent should_be_protected_broadcast = new Intent();
-      should_be_protected_broadcast.setComponent(
-          new ComponentName("com.android.bluetooth",
-            "com.android.bluetooth.opp.BluetoothOppReceiver"));
+
+      String bluetoothPackageName = getInstrumentation().getContext().getPackageManager()
+          .getPackagesForUid(BLUETOOTH_UID)[0];
+
+      ComponentName oppLauncherComponent = new ComponentName(bluetoothPackageName,
+          "com.android.bluetooth.opp.BluetoothOppReceiver");
+
+      should_be_protected_broadcast.setComponent(oppLauncherComponent);
       should_be_protected_broadcast.setAction(prefix + action);
-      mContext.sendBroadcast(should_be_protected_broadcast);
+      getInstrumentation().getContext().sendBroadcast(should_be_protected_broadcast);
     }
     catch (SecurityException e) {
       return;

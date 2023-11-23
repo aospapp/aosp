@@ -71,7 +71,8 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
 
       # Calculate a center crop region.
       zoom = min(3.0, camera_properties_utils.get_max_digital_zoom(props))
-      assert zoom >= 1, 'zoom: %.2f' % zoom
+      if zoom < 1:
+        raise AssertionError(f'zoom: {zoom:.2f}')
       crop_w = aw // zoom
       crop_h = ah // zoom
 
@@ -129,13 +130,13 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
           ex = aw * err_delta
           ey = ah * err_delta
         logging.debug('error X, Y: %.2f, %.2f', ex, ey)
-        e_msg = 'expected: %s, reported: %s, ex: %.2f, ex: %.2f' % (
-            str(cr_expected), str(cr_reported), ex, ey)
-        assert (
+        if not (
             (abs(cr_expected['left'] - cr_reported['left']) <= ex) and
             (abs(cr_expected['right'] - cr_reported['right']) <= ex) and
             (abs(cr_expected['top'] - cr_reported['top']) <= ey) and
-            (abs(cr_expected['bottom'] - cr_reported['bottom']) <= ey)), e_msg
+            (abs(cr_expected['bottom'] - cr_reported['bottom']) <= ey)):
+          raise AssertionError(f'expected: {cr_expected}, reported: '
+                               f'{cr_reported}, ex: {ex:.2f}, ey: {ey:.2f}')
 
       # Also check the image content; 3 of the 4 shots should match.
       # Note that all the shots are RGB below; the variable names correspond
@@ -178,10 +179,12 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
       logging.debug('YUV diff (crop vs. non-crop): %.3f', diff_yuv)
       logging.debug('RAW diff (crop vs. non-crop): %.3f', diff_raw)
 
-      assert diff_yuv > DIFF_THRESH, 'diff_yuv: %.3f, THRESH: %.2f' % (
-          diff_yuv, DIFF_THRESH)
-      assert diff_raw < DIFF_THRESH, 'diff_raw: %.3f, THRESH: %.2f' % (
-          diff_raw, DIFF_THRESH)
+      if diff_yuv <= DIFF_THRESH:
+        raise AssertionError('YUV diff too small! '
+                             f'diff_yuv: {diff_yuv:.3f}, THRESH: {DIFF_THRESH}')
+      if diff_raw >= DIFF_THRESH:
+        raise AssertionError('RAW diff too big! '
+                             f'diff_raw: {diff_raw:.3f}, THRESH: {DIFF_THRESH}')
 
 if __name__ == '__main__':
   test_runner.main()

@@ -22,10 +22,11 @@ android_test_helper_app {
     sdk_version: "current",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
-    min_sdk_version : "29"
+    min_sdk_version: "29",
 }
 
 android_test_helper_app {
@@ -35,10 +36,11 @@ android_test_helper_app {
     manifest: "AndroidManifestLongPackageName.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
-    aaptflags: ["--warn-manifest-validation"]
+    aaptflags: ["--warn-manifest-validation"],
 }
 
 android_test_helper_app {
@@ -48,10 +50,11 @@ android_test_helper_app {
     manifest: "AndroidManifestLongSharedUserId.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
-    aaptflags: ["--warn-manifest-validation"]
+    aaptflags: ["--warn-manifest-validation"],
 }
 
 android_test_helper_app {
@@ -61,6 +64,7 @@ android_test_helper_app {
     manifest: "AndroidManifestMaxPackageName.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -73,6 +77,7 @@ android_test_helper_app {
     manifest: "AndroidManifestMaxSharedUserId.xml",
     // tag this module as a cts test artifact
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -88,5 +93,21 @@ android_test_helper_app {
         "cts",
         "general-tests",
     ],
-    min_sdk_version : "29"
+    min_sdk_version: "29",
+}
+
+android_test_helper_app {
+    name: "CtsContentNoApplicationTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestEmpty.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    // using 22 (< 23) to avoid soong adds application tag with attr extract-native-libs
+    min_sdk_version: "22",
+    // using 29 (< 30) to allow install an app without application tag
+    target_sdk_version: "29",
 }

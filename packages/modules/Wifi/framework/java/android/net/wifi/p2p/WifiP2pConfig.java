@@ -268,6 +268,14 @@ public class WifiP2pConfig implements Parcelable {
     /**
      * Builder used to build {@link WifiP2pConfig} objects for
      * creating or joining a group.
+     *
+     * The WifiP2pConfig can be constructed for two use-cases:
+     * <ul>
+     * <li>SSID + Passphrase are known: use {@link #setNetworkName(String)} and
+     *   {@link #setPassphrase(String)}.</li>
+     * <li>SSID or Passphrase is unknown, in such a case the MAC address must be known and
+     *   specified using {@link #setDeviceAddress(MacAddress)}.</li>
+     * </ul>
      */
     public static final class Builder {
 
@@ -292,6 +300,8 @@ public class WifiP2pConfig implements Parcelable {
          * reset the peer's MAC address to "02:00:00:00:00:00".
          * <p>
          *     Optional. "02:00:00:00:00:00" by default.
+         *
+         * <p> If the network name is not set, the peer's MAC address is mandatory.
          *
          * @param deviceAddress the peer's MAC address.
          * @return The builder to facilitate chaining
@@ -475,13 +485,15 @@ public class WifiP2pConfig implements Parcelable {
          * @return {@link WifiP2pConfig} constructed based on builder method calls.
          */
         public @NonNull WifiP2pConfig build() {
-            if (TextUtils.isEmpty(mNetworkName)) {
+            if ((TextUtils.isEmpty(mNetworkName) && !TextUtils.isEmpty(mPassphrase))
+                    || (!TextUtils.isEmpty(mNetworkName) && TextUtils.isEmpty(mPassphrase))) {
                 throw new IllegalStateException(
-                        "network name must be non-empty.");
+                        "network name and passphrase must be non-empty or empty both.");
             }
-            if (TextUtils.isEmpty(mPassphrase)) {
+            if (TextUtils.isEmpty(mNetworkName)
+                    && mDeviceAddress.equals(MAC_ANY_ADDRESS)) {
                 throw new IllegalStateException(
-                        "passphrase must be non-empty.");
+                        "peer address must be set if network name and pasphrase are not set.");
             }
 
             if (mGroupOperatingFrequency > 0 && mGroupOperatingBand > 0) {

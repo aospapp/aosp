@@ -147,7 +147,7 @@ public class MediaPerfUtils {
      *  one measurement falls within the margins of the reported range. Otherwise, returns
      *  an error message to display.*/
     public static String verifyAchievableFrameRates(
-            String name, String mime, int w, int h, double... measuredFps) {
+            String name, String mime, int w, int h, boolean fasterIsOk, double... measuredFps) {
         Range<Double> reported =
             MediaUtils.getVideoCapabilities(name, mime).getAchievableFrameRatesFor(w, h);
         String kind = "achievable frame rates for " + name + " " + mime + " " + w + "x" + h;
@@ -163,10 +163,20 @@ public class MediaPerfUtils {
                 " lowerBoundary2 " + lowerBoundary2 + " upperBoundary2 " + upperBoundary2 +
                 " measured " + Arrays.toString(measuredFps));
 
-        for (double measured : measuredFps) {
-            if (measured >= lowerBoundary1 && measured <= upperBoundary1
-                    && measured >= lowerBoundary2 && measured <= upperBoundary2) {
-                return null;
+        if (fasterIsOk) {
+            double lower = Math.max(lowerBoundary1, lowerBoundary2);
+            for (double measured : measuredFps) {
+                if (measured >= lower) {
+                    return null;
+                }
+            }
+        } else {
+            double lower = Math.max(lowerBoundary1, lowerBoundary2);
+            double upper = Math.min(upperBoundary1, upperBoundary2);
+            for (double measured : measuredFps) {
+                if (measured >= lower && measured <= upper) {
+                    return null;
+                }
             }
         }
 

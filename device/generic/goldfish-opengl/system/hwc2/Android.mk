@@ -70,6 +70,7 @@ emulator_hwcomposer2_src_files := \
     HostComposer.cpp \
     HostUtils.cpp \
     Layer.cpp \
+    NoOpComposer.cpp \
     VsyncThread.cpp \
 
 include $(CLEAR_VARS)

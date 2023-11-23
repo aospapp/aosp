@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # xdp_redirect_map.py Redirect the incoming packet to another interface
 #                     with the helper: bpf_redirect_map()
@@ -29,7 +29,6 @@ out_idx = ip.link_lookup(ifname=out_if)[0]
 
 # load BPF program
 b = BPF(text = """
-#define KBUILD_MODNAME "foo"
 #include <uapi/linux/bpf.h>
 #include <linux/in.h>
 #include <linux/if_ether.h>
@@ -101,7 +100,7 @@ while 1:
         time.sleep(1)
     except KeyboardInterrupt:
         print("Removing filter from device")
-        break;
+        break
 
 b.remove_xdp(in_if, flags)
 b.remove_xdp(out_if, flags)

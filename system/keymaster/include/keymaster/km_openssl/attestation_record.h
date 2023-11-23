@@ -416,6 +416,8 @@ inline static uint version_to_attestation_km_version(KmVersion version) {
         return 41;
     case KmVersion::KEYMINT_1:
         return 100;
+    case KmVersion::KEYMINT_2:
+        return 200;
     }
 }
 
@@ -437,6 +439,8 @@ inline static uint version_to_attestation_version(KmVersion version) {
         return 4;
     case KmVersion::KEYMINT_1:
         return 100;
+    case KmVersion::KEYMINT_2:
+        return 200;
     }
 }
 

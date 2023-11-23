@@ -28,3 +28,10 @@ filegroup {
         "x86_64/*",
     ],
 }
+
+filegroup {
+    name: "CtsApkVerityTestPrebuiltFilesArm64",
+    srcs: [
+        "arm64/*",
+    ],
+}

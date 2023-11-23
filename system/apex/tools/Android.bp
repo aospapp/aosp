@@ -91,3 +91,46 @@ python_test_host {
         unit_test: true,
     },
 }
+
+cc_binary_host {
+    name: "host_apex_verifier",
+    srcs: ["host_apex_verifier.cc"],
+    defaults: [
+        "libapex-deps",
+    ],
+    shared_libs: [
+        "libhidl-gen-utils",
+        "libprocessgroup",
+    ],
+    static_libs: [
+        "libapex",
+        "libinit_host",
+    ],
+}
+
+sh_test_host {
+    name: "host-apex-verifier",
+    src: "host-apex-verifier.sh",
+    test_suites: ["device-tests"],
+    test_config: "host-apex-verifier.xml",
+    test_options: {
+        unit_test: false,
+    },
+    data_bins: [
+        "deapexer",
+        "debugfs_static",
+        "host_apex_verifier",
+    ],
+    data_libs: [
+        "libbase",
+        "libc++",
+        "libcgrouprc",
+        "libcrypto",
+        "libcutils",
+        "liblog",
+        "libprocessgroup",
+        "libprotobuf-cpp-full",
+        "libz",
+        "libziparchive",
+    ],
+}

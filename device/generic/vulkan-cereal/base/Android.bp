@@ -14,6 +14,7 @@ package {
 cc_library_static {
     name: "gfxstream_base",
     defaults: ["gfxstream_defaults"],
+    header_libs: ["gfxstream_renderdoc_headers"],
     srcs: [
         "AlignedBuf.cpp",
         "CompressingStream.cpp",
@@ -27,6 +28,7 @@ cc_library_static {
         "StdioStream.cpp",
         "MemoryTracker.cpp",
         "MessageChannel.cpp",
+        "MetricsNoOp.cpp",
         "PathUtils.cpp",
         "ring_buffer.cpp",
         "SharedLibrary.cpp",
@@ -39,5 +41,6 @@ cc_library_static {
         "Thread_pthread.cpp",
     ],
     whole_static_libs: ["perfetto-tracing-only"],
-    static_libs: ["gfxstream_lz4"]
+    static_libs: ["gfxstream_lz4"],
+    export_header_lib_headers: ["gfxstream_renderdoc_headers"]
 }

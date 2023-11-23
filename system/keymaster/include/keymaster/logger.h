@@ -55,15 +55,15 @@ class Logger {
     static Logger* instance_;
 };
 
-#define STR(x) #x
-#define STRINGIFY(x) STR(x)
-#define FILE_LINE __FILE__ ", Line " STRINGIFY(__LINE__) ": "
+#define __KM_STR(x) #x
+#define __KM_STRINGIFY(x) __KM_STR(x)
+#define __KM_FILE_LINE __FILE__ ", Line " __KM_STRINGIFY(__LINE__) ": "
 
-#define LOG_D(fmt, ...) Logger::Debug(FILE_LINE fmt, __VA_ARGS__)
-#define LOG_I(fmt, ...) Logger::Info(FILE_LINE fmt, __VA_ARGS__)
-#define LOG_W(fmt, ...) Logger::Warning(FILE_LINE fmt, __VA_ARGS__)
-#define LOG_E(fmt, ...) Logger::Error(FILE_LINE fmt, __VA_ARGS__)
-#define LOG_S(fmt, ...) Logger::Severe(FILE_LINE fmt, __VA_ARGS__)
+#define LOG_D(fmt, ...) Logger::Debug(__KM_FILE_LINE fmt, __VA_ARGS__)
+#define LOG_I(fmt, ...) Logger::Info(__KM_FILE_LINE fmt, __VA_ARGS__)
+#define LOG_W(fmt, ...) Logger::Warning(__KM_FILE_LINE fmt, __VA_ARGS__)
+#define LOG_E(fmt, ...) Logger::Error(__KM_FILE_LINE fmt, __VA_ARGS__)
+#define LOG_S(fmt, ...) Logger::Severe(__KM_FILE_LINE fmt, __VA_ARGS__)
 
 }  // namespace keymaster
 

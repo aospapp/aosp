@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2020 The Khronos Group Inc.
+# Copyright 2013-2021 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -31,6 +31,7 @@ SPECIAL_WORDS = set((
     'Int64',  # VkPhysicalDeviceShaderAtomicInt64FeaturesKHR
     'Int8',  # VkPhysicalDeviceShaderFloat16Int8FeaturesKHR
     'MacOS',  # VkMacOSSurfaceCreateInfoMVK
+    'RGBA10X6', # VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT
     'Uint8',  # VkPhysicalDeviceIndexTypeUint8FeaturesEXT
     'Win32',  # VkWin32SurfaceCreateInfoKHR
 ))
@@ -87,6 +88,7 @@ class VulkanConventions(ConventionsBase):
 
     def generate_structure_type_from_name(self, structname):
         """Generate a structure type name, like VK_STRUCTURE_TYPE_CREATE_INSTANCE_INFO"""
+
         structure_type_parts = []
         # Tokenize into "words"
         for elem in MAIN_RE.findall(structname):
@@ -95,7 +97,18 @@ class VulkanConventions(ConventionsBase):
                 structure_type_parts.append('VK_STRUCTURE_TYPE')
             else:
                 structure_type_parts.append(word.upper())
-        return '_'.join(structure_type_parts)
+        name = '_'.join(structure_type_parts)
+
+        # The simple-minded rules need modification for some structure names
+        subpats = [
+            [ r'_H_(26[45])_',              r'_H\1_' ],
+            [ r'_VULKAN_([0-9])([0-9])_',   r'_VULKAN_\1_\2_' ],
+            [ r'_DIRECT_FB_',               r'_DIRECTFB_' ],
+        ]
+
+        for subpat in subpats:
+            name = re.sub(subpat[0], subpat[1], name)
+        return name
 
     @property
     def warning_comment(self):
@@ -156,11 +169,11 @@ class VulkanConventions(ConventionsBase):
     def specURL(self, spectype='api'):
         """Return public registry URL which ref pages should link to for the
            current all-extensions HTML specification, so xrefs in the
-           asciidoc source that aren't to ref pages can link into it
+           asciidoc source that are not to ref pages can link into it
            instead. N.b. this may need to change on a per-refpage basis if
            there are multiple documents involved.
         """
-        return 'https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html'
+        return 'https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html'
 
     @property
     def xml_api_name(self):
@@ -196,7 +209,7 @@ class VulkanConventions(ConventionsBase):
     @property
     def unified_flag_refpages(self):
         """Return True if Flags/FlagBits refpages are unified, False if
-           they're separate.
+           they are separate.
         """
         return False
 
@@ -219,7 +232,8 @@ class VulkanConventions(ConventionsBase):
     def category_requires_validation(self, category):
         """Return True if the given type 'category' always requires validation.
 
-        Overridden because Vulkan doesn't require "valid" text for basetype in the spec right now."""
+        Overridden because Vulkan does not require "valid" text for basetype
+        in the spec right now."""
         return category in CATEGORIES_REQUIRING_VALIDATION
 
     @property

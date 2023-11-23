@@ -17,8 +17,14 @@ package com.android.car.procfsinspector;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import java.util.Objects;
 
+/**
+ * @deprecated use {@link com.android.car.watchdog.CarWatchdogService} and its related classes
+ * for I/O related tasks.
+ */
+@Deprecated
 public class ProcessInfo implements Parcelable {
     public static final Parcelable.Creator<ProcessInfo> CREATOR =
         new Parcelable.Creator<ProcessInfo>() {

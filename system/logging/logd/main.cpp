@@ -60,6 +60,7 @@
 #include "LogUtils.h"
 #include "SerializedLogBuffer.h"
 #include "SimpleLogBuffer.h"
+#include "TrustyLog.h"
 
 using android::base::GetBoolProperty;
 using android::base::GetProperty;
@@ -162,17 +163,13 @@ static int issueReinit() {
     ssize_t ret = TEMP_FAILURE_RETRY(write(sock, reinitStr, sizeof(reinitStr)));
     if (ret < 0) return -errno;
 
-    struct pollfd p;
-    memset(&p, 0, sizeof(p));
-    p.fd = sock;
-    p.events = POLLIN;
+    struct pollfd p = {.fd = sock, .events = POLLIN};
     ret = TEMP_FAILURE_RETRY(poll(&p, 1, 1000));
     if (ret < 0) return -errno;
     if ((ret == 0) || !(p.revents & POLLIN)) return -ETIME;
 
     static const char success[] = "success";
-    char buffer[sizeof(success) - 1];
-    memset(buffer, 0, sizeof(buffer));
+    char buffer[sizeof(success) - 1] = {};
     ret = TEMP_FAILURE_RETRY(read(sock, buffer, sizeof(buffer)));
     if (ret < 0) return -errno;
 
@@ -282,6 +279,9 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Notify that others can now interact with logd
+    SetProperty("logd.ready", "true");
+
     // LogAudit listens on NETLINK_AUDIT socket for selinux
     // initiated log messages. New log entries are added to LogBuffer
     // and LogReader is notified to send updates to connected clients.
@@ -306,6 +306,8 @@ int main(int argc, char* argv[]) {
     if (al && al->startListener()) {
         delete al;
     }
+
+    TrustyLog::create(log_buffer);
 
     TEMP_FAILURE_RETRY(pause());
 

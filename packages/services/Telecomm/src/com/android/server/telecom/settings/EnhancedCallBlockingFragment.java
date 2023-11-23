@@ -42,6 +42,8 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
             "block_private_number_calls_setting";
     private static final String BLOCK_UNKNOWN_NUMBERS_KEY =
             "block_unknown_calls_setting";
+    private static final String BLOCK_UNAVAILABLE_NUMBERS_KEY =
+            "block_unavailable_calls_setting";
     private boolean mIsCombiningRestrictedAndUnknownOption = false;
 
     @Override
@@ -55,6 +57,7 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
         setOnPreferenceChangeListener(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE);
         setOnPreferenceChangeListener(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE);
         setOnPreferenceChangeListener(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN);
+        setOnPreferenceChangeListener(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNAVAILABLE);
         if (!showPayPhoneBlocking()) {
             Preference payPhoneOption = getPreferenceScreen().findPreference(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE);
             getPreferenceScreen().removePreference(payPhoneOption);
@@ -90,8 +93,10 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
         mIsCombiningRestrictedAndUnknownOption = getResources().getBoolean(
                         R.bool.combine_options_to_block_restricted_and_unknown_callers);
         if (mIsCombiningRestrictedAndUnknownOption) {
-            Preference pref = findPreference(BLOCK_RESTRICTED_NUMBERS_KEY);
-            screen.removePreference(pref);
+            Preference restricted_pref = findPreference(BLOCK_RESTRICTED_NUMBERS_KEY);
+            Preference unavailable_pref = findPreference(BLOCK_UNAVAILABLE_NUMBERS_KEY);
+            screen.removePreference(restricted_pref);
+            screen.removePreference(unavailable_pref);
             Log.i(this, "onCreate: removed block restricted preference.");
         }
     }
@@ -116,6 +121,7 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
             updateEnhancedBlockPref(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE);
         }
         updateEnhancedBlockPref(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN);
+        updateEnhancedBlockPref(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNAVAILABLE);
     }
 
     /**
@@ -136,6 +142,8 @@ public class EnhancedCallBlockingFragment extends PreferenceFragment
                     preference.getKey(), BLOCK_RESTRICTED_NUMBERS_KEY, (boolean) objValue);
             BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(), BLOCK_RESTRICTED_NUMBERS_KEY,
                     (boolean) objValue);
+            BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(),
+                    BLOCK_UNAVAILABLE_NUMBERS_KEY, (boolean) objValue);
         }
         BlockedNumbersUtil.setEnhancedBlockSetting(getActivity(), preference.getKey(),
                 (boolean) objValue);

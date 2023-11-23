@@ -23,6 +23,8 @@
 #include <android-base/logging.h>
 #include <android-base/thread_annotations.h>
 
+#include "Experiments.h"
+
 namespace android {
 namespace netdutils {
 
@@ -43,8 +45,7 @@ namespace netdutils {
 template <typename KeyType>
 class OperationLimiter {
   public:
-    OperationLimiter(int limitPerKey, int globalLimit = INT_MAX)
-        : mLimitPerKey(limitPerKey), mGlobalLimit(globalLimit) {}
+    OperationLimiter(int limitPerKey) : mLimitPerKey(limitPerKey) {}
 
     ~OperationLimiter() {
         DCHECK(mCounters.empty()) << "Destroying OperationLimiter with active operations";
@@ -57,15 +58,22 @@ class OperationLimiter {
     // finish(key).
     bool start(KeyType key) EXCLUDES(mMutex) {
         std::lock_guard lock(mMutex);
-
-        if (mGlobalCounter >= mGlobalLimit) {
+        int globalLimit =
+                android::net::Experiments::getInstance()->getFlag("max_queries_global", INT_MAX);
+        if (globalLimit < mLimitPerKey) {
+            LOG(ERROR) << "Misconfiguration on max_queries_global " << globalLimit;
+            globalLimit = INT_MAX;
+        }
+        if (mGlobalCounter >= globalLimit) {
             // Oh, no!
+            LOG(ERROR) << "Query from " << key << " denied due to global limit: " << globalLimit;
             return false;
         }
 
         auto& cnt = mCounters[key];  // operator[] creates new entries as needed.
         if (cnt >= mLimitPerKey) {
             // Oh, no!
+            LOG(ERROR) << "Query from " << key << " denied due to limit: " << mLimitPerKey;
             return false;
         }
 
@@ -109,9 +117,6 @@ class OperationLimiter {
 
     // Maximum number of outstanding queries from a single key.
     const int mLimitPerKey;
-
-    // Maximum number of outstanding queries, globally.
-    const int mGlobalLimit;
 };
 
 }  // namespace netdutils

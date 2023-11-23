@@ -14,8 +14,7 @@
 
 #include "icing/index/iterator/doc-hit-info-iterator-and.h"
 
-#include <stddef.h>
-
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>

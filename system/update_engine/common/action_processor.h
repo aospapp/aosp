@@ -130,18 +130,19 @@ class ActionProcessorDelegate {
   // Called when all processing in an ActionProcessor has completed. A pointer
   // to the ActionProcessor is passed. |code| is set to the exit code of the
   // last completed action.
-  virtual void ProcessingDone(const ActionProcessor* processor,
-                              ErrorCode code) {}
+  virtual void ProcessingDone([[maybe_unused]] const ActionProcessor* processor,
+                              [[maybe_unused]] ErrorCode code) {}
 
   // Called when processing has stopped. Does not mean that all Actions have
   // completed. If/when all Actions complete, ProcessingDone() will be called.
-  virtual void ProcessingStopped(const ActionProcessor* processor) {}
+  virtual void ProcessingStopped(
+      [[maybe_unused]] const ActionProcessor* processor) {}
 
   // Called whenever an action has finished processing, either successfully
   // or otherwise.
-  virtual void ActionCompleted(ActionProcessor* processor,
-                               AbstractAction* action,
-                               ErrorCode code) {}
+  virtual void ActionCompleted([[maybe_unused]] ActionProcessor* processor,
+                               [[maybe_unused]] AbstractAction* action,
+                               [[maybe_unused]] ErrorCode code) {}
 };
 
 }  // namespace chromeos_update_engine

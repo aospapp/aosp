@@ -18,11 +18,13 @@
     <style name="Widget.Car.SetupWizard.Button" parent="Widget.Car.Button.DarkText">
         <item name="android:fontFamily">@font/sans_medium</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:background">@drawable/primary_button_background</item>
     </style>
 
     <style name="Widget.Car.SetupWizard.Button.Borderless.Colored"
            parent="Widget.Car.Button.Borderless.Colored">
         <item name="android:fontFamily">@font/sans_medium</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:background">@drawable/flat_button_background</item>
     </style>
 </resources>

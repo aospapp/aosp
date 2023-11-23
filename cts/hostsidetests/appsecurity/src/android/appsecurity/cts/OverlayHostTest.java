@@ -15,10 +15,11 @@
  */
 package android.appsecurity.cts;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -27,6 +28,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.HashMap;
+
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 @AppModeFull(reason = "Overlays cannot be instant apps")
 public class OverlayHostTest extends BaseAppSecurityTest {
@@ -60,11 +64,16 @@ public class OverlayHostTest extends BaseAppSecurityTest {
     private static final String TEST_APP_APK = "CtsOverlayApp.apk";
     private static final String TEST_APP_PACKAGE = "com.android.cts.overlay.app";
     private static final String TEST_APP_CLASS = "com.android.cts.overlay.app.OverlayableTest";
+    private static final String OVERLAY_TARGET_TEST_APP_CLASS =
+            "com.android.cts.overlay.target.OverlayTargetTest";
 
     // Overlay states
     private static final String STATE_DISABLED = "STATE_DISABLED";
     private static final String STATE_ENABLED = "STATE_ENABLED";
     private static final String STATE_NO_IDMAP = "STATE_NO_IDMAP";
+
+    // test arguments
+    private static final String PARAM_START_SERVICE = "start_service";
 
     private static final long OVERLAY_WAIT_TIMEOUT = 10000; // 10 seconds
 
@@ -155,6 +164,12 @@ public class OverlayHostTest extends BaseAppSecurityTest {
             getDevice().uninstallPackage(TARGET_PACKAGE);
             getDevice().uninstallPackage(overlayPackage);
         }
+    }
+
+    private void runDeviceTests(String packageName, String testClassName, String testMethodName,
+            HashMap<String, String> testArgs) throws Exception {
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), packageName, testClassName, testMethodName,
+                testArgs);
     }
 
     /**
@@ -312,5 +327,69 @@ public class OverlayHostTest extends BaseAppSecurityTest {
         String testMethod = "testCannotOverlayAssets";
         runOverlayDeviceTest(TARGET_OVERLAYABLE_APK, OVERLAY_ALL_APK, OVERLAY_ALL_PACKAGE,
                 testMethod);
+    }
+
+    @Test
+    public void testOverlayEnabled_activityInForeground() throws Exception {
+        final HashMap<String, String> testArgs = new HashMap<>();
+        testArgs.put(PARAM_START_SERVICE, Boolean.FALSE.toString());
+        try {
+            new InstallMultiple().addFile(OVERLAY_ALL_APK).run();
+            new InstallMultiple().addFile(TARGET_OVERLAYABLE_APK).run();
+
+            runDeviceTests(TARGET_PACKAGE, OVERLAY_TARGET_TEST_APP_CLASS,
+                    "overlayEnabled_activityInForeground", testArgs);
+        } finally {
+            getDevice().uninstallPackage(TARGET_PACKAGE);
+            getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
+        }
+    }
+
+    @Test
+    public void testOverlayEnabled_activityInBackground_toForeground() throws Exception {
+        final HashMap<String, String> testArgs = new HashMap<>();
+        testArgs.put(PARAM_START_SERVICE, Boolean.FALSE.toString());
+        try {
+            new InstallMultiple().addFile(OVERLAY_ALL_APK).run();
+            new InstallMultiple().addFile(TARGET_OVERLAYABLE_APK).run();
+
+            runDeviceTests(TARGET_PACKAGE, OVERLAY_TARGET_TEST_APP_CLASS,
+                    "overlayEnabled_activityInBackground_toForeground", testArgs);
+        } finally {
+            getDevice().uninstallPackage(TARGET_PACKAGE);
+            getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
+        }
+    }
+
+    @Test
+    public void testOverlayEnabled_activityWithServiceInForeground() throws Exception {
+        final HashMap<String, String> testArgs = new HashMap<>();
+        testArgs.put(PARAM_START_SERVICE, Boolean.TRUE.toString());
+        try {
+            new InstallMultiple().addFile(OVERLAY_ALL_APK).run();
+            new InstallMultiple().addFile(TARGET_OVERLAYABLE_APK).run();
+
+            runDeviceTests(TARGET_PACKAGE, OVERLAY_TARGET_TEST_APP_CLASS,
+                    "overlayEnabled_activityInForeground", testArgs);
+        } finally {
+            getDevice().uninstallPackage(TARGET_PACKAGE);
+            getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
+        }
+    }
+
+    @Test
+    public void testOverlayEnabled_activityWithServiceInBackground_toForeground() throws Exception {
+        final HashMap<String, String> testArgs = new HashMap<>();
+        testArgs.put(PARAM_START_SERVICE, Boolean.TRUE.toString());
+        try {
+            new InstallMultiple().addFile(OVERLAY_ALL_APK).run();
+            new InstallMultiple().addFile(TARGET_OVERLAYABLE_APK).run();
+
+            runDeviceTests(TARGET_PACKAGE, OVERLAY_TARGET_TEST_APP_CLASS,
+                    "overlayEnabled_activityInBackground_toForeground", testArgs);
+        } finally {
+            getDevice().uninstallPackage(TARGET_PACKAGE);
+            getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
+        }
     }
 }

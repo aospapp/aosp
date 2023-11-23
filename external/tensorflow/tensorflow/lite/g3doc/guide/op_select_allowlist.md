@@ -19,12 +19,12 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.All`
 *   `raw_ops.Angle`
 *   `raw_ops.Any`
-*   `raw_ops.ApplyAdaMax`
 *   `raw_ops.ApplyAdadelta`
 *   `raw_ops.ApplyAdagrad`
 *   `raw_ops.ApplyAdagradDA`
 *   `raw_ops.ApplyAdagradV2`
 *   `raw_ops.ApplyAdam`
+*   `raw_ops.ApplyAdaMax`
 *   `raw_ops.ApplyAddSign`
 *   `raw_ops.ApplyCenteredRMSProp`
 *   `raw_ops.ApplyFtrl`
@@ -38,6 +38,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.ApproximateEqual`
 *   `raw_ops.ArgMax`
 *   `raw_ops.ArgMin`
+*   `raw_ops.AsString`
 *   `raw_ops.Assert`
 *   `raw_ops.Assign`
 *   `raw_ops.AssignAdd`
@@ -53,8 +54,10 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.AvgPool3DGrad`
 *   `raw_ops.AvgPoolGrad`
 *   `raw_ops.BatchCholesky`
+*   `raw_ops.BatchDatasetV2`
 *   `raw_ops.BatchMatMul`
 *   `raw_ops.BatchMatMulV2`
+*   `raw_ops.BatchMatrixBandPart`
 *   `raw_ops.BatchMatrixDiag`
 *   `raw_ops.BatchMatrixDiagPart`
 *   `raw_ops.BatchMatrixInverse`
@@ -115,6 +118,8 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.CropAndResize`
 *   `raw_ops.CropAndResizeGradBoxes`
 *   `raw_ops.CropAndResizeGradImage`
+*   `raw_ops.CTCBeamSearchDecoder`
+*   `raw_ops.CTCGreedyDecoder`
 *   `raw_ops.Cumprod`
 *   `raw_ops.Cumsum`
 *   `raw_ops.CumulativeLogsumexp`
@@ -128,6 +133,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.DecodeGif`
 *   `raw_ops.DecodeImage`
 *   `raw_ops.DecodeJpeg`
+*   `raw_ops.DecodePaddedRaw`
 *   `raw_ops.DecodePng`
 *   `raw_ops.DecodeRaw`
 *   `raw_ops.DecodeWav`
@@ -171,11 +177,6 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Exp`
 *   `raw_ops.ExpandDims`
 *   `raw_ops.ExtractImagePatches`
-*   `raw_ops.FFT`
-*   `raw_ops.FFT2D`
-*   `raw_ops.FFT3D`
-*   `raw_ops.FIFOQueue`
-*   `raw_ops.FIFOQueueV2`
 *   `raw_ops.FakeQuantWithMinMaxArgs`
 *   `raw_ops.FakeQuantWithMinMaxArgsGradient`
 *   `raw_ops.FakeQuantWithMinMaxVars`
@@ -183,8 +184,15 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.FakeQuantWithMinMaxVarsPerChannel`
 *   `raw_ops.FakeQuantWithMinMaxVarsPerChannelGradient`
 *   `raw_ops.FakeQueue`
+*   `raw_ops.FFT`
+*   `raw_ops.FFT2D`
+*   `raw_ops.FFT3D`
+*   `raw_ops.FIFOQueue`
+*   `raw_ops.FIFOQueueV2`
 *   `raw_ops.Fill`
+*   `raw_ops.FinalizeDataset`
 *   `raw_ops.Fingerprint`
+*   `raw_ops.FlatMapDataset`
 *   `raw_ops.Floor`
 *   `raw_ops.FloorDiv`
 *   `raw_ops.FloorMod`
@@ -204,28 +212,36 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.GetSessionTensor`
 *   `raw_ops.Greater`
 *   `raw_ops.GreaterEqual`
+*   `raw_ops.HSVToRGB`
+*   `raw_ops.HashTable`
+*   `raw_ops.HashTableV2`
 *   `raw_ops.HistogramSummary`
+*   `raw_ops.Identity`
+*   `raw_ops.IdentityN`
 *   `raw_ops.IFFT`
 *   `raw_ops.IFFT2D`
 *   `raw_ops.IFFT3D`
-*   `raw_ops.IRFFT`
-*   `raw_ops.IRFFT2D`
-*   `raw_ops.IRFFT3D`
-*   `raw_ops.Identity`
-*   `raw_ops.IdentityN`
 *   `raw_ops.Imag`
 *   `raw_ops.ImageProjectiveTransformV2`
 *   `raw_ops.ImageProjectiveTransformV3`
 *   `raw_ops.ImmutableConst`
-*   `raw_ops.InTopK`
-*   `raw_ops.InTopKV2`
 *   `raw_ops.InplaceAdd`
 *   `raw_ops.InplaceSub`
 *   `raw_ops.InplaceUpdate`
+*   `raw_ops.InTopK`
+*   `raw_ops.InTopKV2`
+*   `raw_ops.InitializeTable`
+*   `raw_ops.InitializeTableFromDataset`
+*   `raw_ops.InitializeTableFromTextFile`
+*   `raw_ops.InitializeTableFromTextFileV2`
+*   `raw_ops.InitializeTableV2`
 *   `raw_ops.Inv`
-*   `raw_ops.InvGrad`
 *   `raw_ops.Invert`
 *   `raw_ops.InvertPermutation`
+*   `raw_ops.InvGrad`
+*   `raw_ops.IRFFT`
+*   `raw_ops.IRFFT2D`
+*   `raw_ops.IRFFT3D`
 *   `raw_ops.IsBoostedTreesQuantileStreamResourceInitialized`
 *   `raw_ops.IsFinite`
 *   `raw_ops.IsNan`
@@ -239,12 +255,27 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.LinSpace`
 *   `raw_ops.ListDiff`
 *   `raw_ops.Log`
+*   `raw_ops.LogMatrixDeterminant`
 *   `raw_ops.LogSoftmax`
 *   `raw_ops.LogicalAnd`
 *   `raw_ops.LogicalNot`
 *   `raw_ops.LogicalOr`
+*   `raw_ops.LookupTableExport`
+*   `raw_ops.LookupTableExportV2`
+*   `raw_ops.LookupTableFind`
+*   `raw_ops.LookupTableFindV2`
+*   `raw_ops.LookupTableImport`
+*   `raw_ops.LookupTableImportV2`
+*   `raw_ops.LookupTableInsert`
+*   `raw_ops.LookupTableInsertV2`
+*   `raw_ops.LookupTableRemoveV2`
+*   `raw_ops.LookupTableSize`
+*   `raw_ops.LookupTableSizeV2`
 *   `raw_ops.LoopCond`
+*   `raw_ops.LRN`
+*   `raw_ops.MapDataset`
 *   `raw_ops.MatMul`
+*   `raw_ops.MatrixBandPart`
 *   `raw_ops.MatrixDiag`
 *   `raw_ops.MatrixDiagPart`
 *   `raw_ops.MatrixDiagPartV2`
@@ -257,6 +288,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.MatrixSetDiagV3`
 *   `raw_ops.MatrixTriangularSolve`
 *   `raw_ops.Max`
+*   `raw_ops.Maximum`
 *   `raw_ops.MaxPool`
 *   `raw_ops.MaxPool3D`
 *   `raw_ops.MaxPool3DGrad`
@@ -268,7 +300,6 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.MaxPoolGradWithArgmax`
 *   `raw_ops.MaxPoolV2`
 *   `raw_ops.MaxPoolWithArgmax`
-*   `raw_ops.Maximum`
 *   `raw_ops.Mean`
 *   `raw_ops.Merge`
 *   `raw_ops.MergeSummary`
@@ -278,26 +309,39 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Minimum`
 *   `raw_ops.MirrorPad`
 *   `raw_ops.MirrorPadGrad`
+*   `raw_ops.ModelDataset`
 *   `raw_ops.Mul`
 *   `raw_ops.MulNoNan`
 *   `raw_ops.Multinomial`
+*   `raw_ops.MutableDenseHashTable`
+*   `raw_ops.MutableDenseHashTableV2`
+*   `raw_ops.MutableHashTable`
+*   `raw_ops.MutableHashTableOfTensors`
+*   `raw_ops.MutableHashTableOfTensorsV2`
+*   `raw_ops.MutableHashTableV2`
 *   `raw_ops.Neg`
 *   `raw_ops.NextIteration`
-*   `raw_ops.NoOp`
 *   `raw_ops.NonMaxSuppression`
 *   `raw_ops.NonMaxSuppressionV2`
 *   `raw_ops.NonMaxSuppressionV3`
 *   `raw_ops.NonMaxSuppressionV4`
 *   `raw_ops.NonMaxSuppressionV5`
 *   `raw_ops.NonMaxSuppressionWithOverlaps`
+*   `raw_ops.NoOp`
 *   `raw_ops.NotEqual`
 *   `raw_ops.OneHot`
 *   `raw_ops.OnesLike`
+*   `raw_ops.OptimizeDatasetV2`
+*   `raw_ops.OptionalFromValue`
+*   `raw_ops.OptionalGetValue`
+*   `raw_ops.OptionalHasValue`
+*   `raw_ops.OptionalNone`
 *   `raw_ops.Pack`
 *   `raw_ops.Pad`
 *   `raw_ops.PadV2`
 *   `raw_ops.PaddingFIFOQueue`
 *   `raw_ops.PaddingFIFOQueueV2`
+*   `raw_ops.PadV2`
 *   `raw_ops.ParallelConcat`
 *   `raw_ops.ParallelDynamicStitch`
 *   `raw_ops.ParseExample`
@@ -315,8 +359,6 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Print`
 *   `raw_ops.PrintV2`
 *   `raw_ops.Prod`
-*   `raw_ops.QuantizeDownAndShrinkRange`
-*   `raw_ops.QuantizeV2`
 *   `raw_ops.QuantizedAdd`
 *   `raw_ops.QuantizedAvgPool`
 *   `raw_ops.QuantizedBatchNormWithGlobalNormalization`
@@ -327,10 +369,12 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.QuantizedMatMul`
 *   `raw_ops.QuantizedMaxPool`
 *   `raw_ops.QuantizedMul`
+*   `raw_ops.QuantizeDownAndShrinkRange`
 *   `raw_ops.QuantizedRelu`
 *   `raw_ops.QuantizedRelu6`
 *   `raw_ops.QuantizedReshape`
 *   `raw_ops.QuantizedResizeBilinear`
+*   `raw_ops.QuantizeV2`
 *   `raw_ops.QueueClose`
 *   `raw_ops.QueueCloseV2`
 *   `raw_ops.QueueDequeue`
@@ -350,14 +394,19 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.RFFT`
 *   `raw_ops.RFFT2D`
 *   `raw_ops.RFFT3D`
+*   `raw_ops.RGBToHSV`
 *   `raw_ops.RaggedBincount`
 *   `raw_ops.RaggedGather`
 *   `raw_ops.RaggedRange`
+*   `raw_ops.RaggedTensorFromVariant`
 *   `raw_ops.RaggedTensorToSparse`
 *   `raw_ops.RaggedTensorToTensor`
+*   `raw_ops.RaggedTensorToVariant`
+*   `raw_ops.RaggedTensorToVariantGradient`
 *   `raw_ops.RandomGamma`
 *   `raw_ops.RandomPoisson`
 *   `raw_ops.RandomPoissonV2`
+*   `raw_ops.RandomShuffle`
 *   `raw_ops.RandomStandardNormal`
 *   `raw_ops.RandomUniform`
 *   `raw_ops.RandomUniformInt`
@@ -369,6 +418,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Reciprocal`
 *   `raw_ops.ReciprocalGrad`
 *   `raw_ops.Recv`
+*   `raw_ops.ReduceDataset`
 *   `raw_ops.ReduceJoin`
 *   `raw_ops.RefEnter`
 *   `raw_ops.RefExit`
@@ -384,6 +434,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Relu6Grad`
 *   `raw_ops.ReluGrad`
 *   `raw_ops.RemoteCall`
+*   `raw_ops.RepeatDataset`
 *   `raw_ops.RequantizationRange`
 *   `raw_ops.Requantize`
 *   `raw_ops.Reshape`
@@ -393,12 +444,12 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.ResizeBilinearGrad`
 *   `raw_ops.ResizeNearestNeighbor`
 *   `raw_ops.ResizeNearestNeighborGrad`
-*   `raw_ops.ResourceApplyAdaMax`
 *   `raw_ops.ResourceApplyAdadelta`
 *   `raw_ops.ResourceApplyAdagrad`
 *   `raw_ops.ResourceApplyAdagradDA`
 *   `raw_ops.ResourceApplyAdagradV2`
 *   `raw_ops.ResourceApplyAdam`
+*   `raw_ops.ResourceApplyAdaMax`
 *   `raw_ops.ResourceApplyAdamWithAmsgrad`
 *   `raw_ops.ResourceApplyAddSign`
 *   `raw_ops.ResourceApplyCenteredRMSProp`
@@ -472,6 +523,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Selu`
 *   `raw_ops.SeluGrad`
 *   `raw_ops.Send`
+*   `raw_ops.SerializeTensor`
 *   `raw_ops.Shape`
 *   `raw_ops.ShapeN`
 *   `raw_ops.ShardedFilename`
@@ -492,6 +544,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.SpaceToBatch`
 *   `raw_ops.SpaceToBatchND`
 *   `raw_ops.SpaceToDepth`
+*   `raw_ops.SparseAdd`
 *   `raw_ops.SparseApplyAdadelta`
 *   `raw_ops.SparseApplyAdagrad`
 *   `raw_ops.SparseApplyAdagradDA`
@@ -509,7 +562,9 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.SparseCrossV2`
 *   `raw_ops.SparseFillEmptyRows`
 *   `raw_ops.SparseFillEmptyRowsGrad`
+*   `raw_ops.SparseReduceSum`
 *   `raw_ops.SparseReshape`
+*   `raw_ops.SparseReorder`
 *   `raw_ops.SparseSegmentMean`
 *   `raw_ops.SparseSegmentMeanGrad`
 *   `raw_ops.SparseSegmentMeanWithNumSegments`
@@ -517,7 +572,11 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.SparseSegmentSqrtNGrad`
 *   `raw_ops.SparseSegmentSqrtNWithNumSegments`
 *   `raw_ops.SparseSegmentSum`
+*   `raw_ops.SparseSegmentSumGrad`
 *   `raw_ops.SparseSegmentSumWithNumSegments`
+*   `raw_ops.SparseSlice`
+*   `raw_ops.SparseSoftmaxCrossEntropyWithLogits`
+*   `raw_ops.SparseTensorDenseMatMul`
 *   `raw_ops.SparseToDense`
 *   `raw_ops.SparseToSparseSetOperation`
 *   `raw_ops.Split`
@@ -537,6 +596,8 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.StackV2`
 *   `raw_ops.StatelessMultinomial`
 *   `raw_ops.StatelessRandomGammaV2`
+*   `raw_ops.StatelessRandomGetAlg`
+*   `raw_ops.StatelessRandomGetKeyCounter`
 *   `raw_ops.StatelessRandomGetKeyCounterAlg`
 *   `raw_ops.StatelessRandomNormal`
 *   `raw_ops.StatelessRandomNormalV2`
@@ -572,6 +633,7 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.Sum`
 *   `raw_ops.Switch`
 *   `raw_ops.SymbolicGradient`
+*   `raw_ops.TakeDataset`
 *   `raw_ops.Tan`
 *   `raw_ops.Tanh`
 *   `raw_ops.TanhGrad`
@@ -639,10 +701,12 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.TensorScatterMin`
 *   `raw_ops.TensorScatterSub`
 *   `raw_ops.TensorScatterUpdate`
+*   `raw_ops.TensorSliceDataset`
 *   `raw_ops.TensorStridedSliceUpdate`
 *   `raw_ops.Tile`
 *   `raw_ops.TileGrad`
 *   `raw_ops.Timestamp`
+*   `raw_ops.TokenizerFromLogits`
 *   `raw_ops.TopK`
 *   `raw_ops.TopKV2`
 *   `raw_ops.Transpose`
@@ -663,10 +727,10 @@ supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
 *   `raw_ops.UnsortedSegmentSum`
 *   `raw_ops.UnwrapDatasetVariant`
 *   `raw_ops.VarHandleOp`
-*   `raw_ops.VarIsInitializedOp`
 *   `raw_ops.Variable`
 *   `raw_ops.VariableShape`
 *   `raw_ops.VariableV2`
+*   `raw_ops.VarIsInitializedOp`
 *   `raw_ops.Where`
 *   `raw_ops.WrapDatasetVariant`
 *   `raw_ops.Xdivy`
@@ -730,8 +794,7 @@ SentencePiece library into the final app or binary.
 
 ## User's defined Operators
 
-*Note: This feature is only available in tf-nightly and the upcoming v2.5.0
-version*
+*Note: This feature is only available from TensorFlow 2.5 version*
 
 If you
 [created your own TensorFlow operators](https://www.tensorflow.org/guide/create_op),
@@ -756,3 +819,99 @@ model_data = converter.convert()
 
 On the runtime side, it is also required to link your operators library into the
 final app or binary.
+
+## Add TensorFlow core operators to the allowed list.
+
+If you hit the case where the TensorFlow core operators are not in the above
+allowed
+[list](https://www.tensorflow.org/lite/guide/op_select_allowlist#tensorflow_core_operators),
+you can report the feature request at
+[here](https://github.com/tensorflow/tensorflow/issues) with the names of the
+TensorFlow core operators, not listed in the allowed list.
+
+You can also create own your pull request from the source code. For example, if
+you want to add the `raw_ops.StringToNumber` op in the allowed list, there are
+three places to update like this
+[commit](https://github.com/tensorflow/tensorflow/commit/02e691329517eb5e76522ed8d8bef79ceb082ff8).
+
+(1) Add the operator kernel source code to the `portable_extended_ops_group2`
+BUILD rule.
+
+```
+filegroup(
+    name = "portable_extended_ops_group2",
+    srcs = [
+        ...
++       "string_to_number_op.cc",
+
+        ...
+    ],
+)
+```
+
+In order to find the relvant operator kernel source file under the
+`tensorflow/core/kernels` directory, you can search the source code location,
+which contains the following kernel declaration with the operator name:
+
+```
+REGISTER_KERNEL_BUILDER(Name("StringToNumber")                 \
+                            .Device(DEVICE_CPU)                \
+                            .TypeConstraint<type>("out_type"), \
+                        StringToNumberOp<type>)
+```
+
+If there are any header files under the `tensorflow/core/kernels` directory,
+required in the operator kernel source code, you need to add the header file
+into the `portable_extended_ops_headers` BUILD rule as the follows:
+
+```
+filegroup(
+    name = "portable_extended_ops_headers",
+    srcs = [
+        ...
++       "string_util.h",
+
+        ...
+    ],
+)
+```
+
+(2) Add the operator name to the allowed list.
+
+The allowed list is defined in the
+`tensorflow/lite/delegates/flex/allowlisted_flex_ops.cc`. The TensorFlow core
+operator name is need to be listed in order to be allowed through the Select TF
+option.
+
+```
+static const std::set<std::string>* allowlisted_flex_ops =
+    new std::set<std::string>({
+        ...
++       "StringToNumber",
+
+        ...
+    });
+```
+
+Since the above list is sorted in alphabetical order, it makes sure to place the
+name in the right place.
+
+(3) Add the operator name to this guide page.
+
+To show the operator inclusion to the other developers, this guide page should
+be updated as well. This page is located at the
+`tensorflow/lite/g3doc/guide/op_select_allowlist.md`.
+
+```
+## TensorFlow core operators
+
+The following is an exhaustive list of TensorFlow core operations that are
+supported by TensorFlow Lite runtime with the Select TensorFlow Ops feature.
+
+...
++*   `raw_ops.StringToNumber`
+...
+```
+
+Since the above list is sorted in alphabetical order, it makes sure to place the
+name in the right place.

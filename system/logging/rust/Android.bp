@@ -11,6 +11,7 @@ rust_library {
         "libenv_logger",
         "liblog_rust",
     ],
+    vendor_available: true,
     target: {
         android: {
             rustlibs: [
@@ -18,6 +19,11 @@ rust_library {
             ]
         },
     },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.uwb",
+    ],
+    min_sdk_version: "29",
 }
 
 rust_library {
@@ -58,49 +64,29 @@ rust_test_host {
 
 // The following tests are each run as separate targets because they all require a clean init state.
 rust_test {
-    name: "logger_device_test_default_init",
+    name: "logger_test_default_init",
     defaults: ["liblogger_test_defaults"],
-    srcs: ["tests/default_init.rs"],
-}
-
-rust_test_host {
-    name: "logger_host_test_default_init",
-    defaults: ["liblogger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/default_init.rs"],
 }
 
 rust_test {
-    name: "logger_device_test_env_log_level",
+    name: "logger_test_env_log_level",
     defaults: ["liblogger_test_defaults"],
-    srcs: ["tests/env_log_level.rs"],
-}
-
-rust_test_host {
-    name: "logger_host_test_env_log_level",
-    defaults: ["liblogger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/env_log_level.rs"],
 }
 
 rust_test {
-    name: "logger_device_test_config_log_level",
+    name: "logger_test_config_log_level",
     defaults: ["liblogger_test_defaults"],
-    srcs: ["tests/config_log_level.rs"],
-}
-
-rust_test_host {
-    name: "logger_host_test_config_log_level",
-    defaults: ["liblogger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/config_log_level.rs"],
 }
 
 rust_test {
-    name: "logger_device_test_multiple_init",
+    name: "logger_test_multiple_init",
     defaults: ["liblogger_test_defaults"],
-    srcs: ["tests/multiple_init.rs"],
-}
-
-rust_test_host {
-    name: "logger_host_test_multiple_init",
-    defaults: ["liblogger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/multiple_init.rs"],
 }

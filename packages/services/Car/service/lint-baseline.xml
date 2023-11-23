@@ -147,7 +147,7 @@
     <issue
         id="NewApi"
         message="Call requires API level 26 (current min is 25): `java.lang.String#join`"
-        errorLine1="            Slog.d(TAG, String.join(&quot; &quot;, msgParts));"
+        errorLine1="            Slogf.d(TAG, String.join(&quot; &quot;, msgParts));"
         errorLine2="                               ~~~~">
         <location
             file="packages/services/Car/service/src/com/android/car/BluetoothDeviceConnectionPolicy.java"

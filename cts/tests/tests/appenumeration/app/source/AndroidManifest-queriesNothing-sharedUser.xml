@@ -20,7 +20,7 @@
           android:sharedUserId="android.appenumeration.shareduid">
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
-        <activity android:name="android.appenumeration.cts.query.TestActivity"
+        <activity android:name="android.appenumeration.cts.TestActivity"
                   android:exported="true" />
     </application>
 </manifest>

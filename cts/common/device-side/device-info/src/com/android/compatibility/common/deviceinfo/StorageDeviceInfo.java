@@ -16,6 +16,7 @@
 package com.android.compatibility.common.deviceinfo;
 
 import android.os.Environment;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.compatibility.common.util.DeviceInfoStore;
@@ -57,12 +58,15 @@ public class StorageDeviceInfo extends DeviceInfo {
         store.addResult("num_emulated", emulated);
 
         store.addListResult("raw_partition", scanPartitions());
+
+        boolean hasCompress = SystemProperties.getInt("vold.has_compress", 0) != 0 ? true : false;
+        store.addResult("compression", hasCompress);
     }
 
     private List<String> scanPartitions() {
         List<String> partitionList = new ArrayList<>();
         try {
-            Process df = new ProcessBuilder("df -k").start();
+            Process df = Runtime.getRuntime().exec("df -k");
             Scanner scanner = new Scanner(df.getInputStream());
             try {
                 while (scanner.hasNextLine()) {

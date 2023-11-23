@@ -16,6 +16,7 @@
 
 package com.android.car.settings.sound;
 
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING;
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 import static android.os.UserManager.DISALLOW_ADJUST_VOLUME;
 
@@ -121,6 +122,8 @@ public class VolumeSettingsPreferenceControllerTest {
         when(mCarAudioManager.getGroupVolume(GROUP_ID)).thenReturn(TEST_VOLUME);
         when(mCarAudioManager.getGroupMaxVolume(GROUP_ID)).thenReturn(TEST_MAX_VOLUME);
         when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(false);
+        when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING))
+                .thenReturn(true);
 
         when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
         when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
@@ -264,6 +267,22 @@ public class VolumeSettingsPreferenceControllerTest {
         VolumeSeekBarPreference preference =
                 (VolumeSeekBarPreference) mPreferenceGroup.getPreference(0);
         assertThat(preference.isMuted()).isEqualTo(true);
+    }
+
+    @Test
+    public void onGroupMuteChanged_differentValue_muteFeatureDisabled_doesNotUpdatesMutedState() {
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.refreshUi();
+        when(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, GROUP_ID)).thenReturn(true);
+        when(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING))
+                .thenReturn(false);
+        mPreferenceController.mVolumeChangeCallback.onGroupMuteChanged(ZONE_ID,
+                GROUP_ID, /* flags= */ 0);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        VolumeSeekBarPreference preference =
+                (VolumeSeekBarPreference) mPreferenceGroup.getPreference(0);
+        assertThat(preference.isMuted()).isEqualTo(false);
     }
 
     @Test

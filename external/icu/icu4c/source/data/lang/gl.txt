@@ -97,6 +97,7 @@ gl{
         de_CH{"alto alemán suízo"}
         dgr{"dogrib"}
         dje{"zarma"}
+        doi{"dogri"}
         dsb{"baixo sorbio"}
         dua{"duala"}
         dv{"divehi"}
@@ -317,12 +318,12 @@ gl{
         quc{"quiché"}
         rap{"rapanui"}
         rar{"rarotongano"}
+        rhg{"rohingya"}
         rm{"romanche"}
         rn{"rundi"}
         ro{"romanés"}
         ro_MD{"moldavo"}
         rof{"rombo"}
-        root{"raíz"}
         ru{"ruso"}
         rup{"aromanés"}
         rw{"kiñaruanda"}

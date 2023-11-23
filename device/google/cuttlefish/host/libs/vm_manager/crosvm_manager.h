@@ -31,11 +31,11 @@ namespace vm_manager {
 class CrosvmManager : public VmManager {
  public:
   static std::string name() { return "crosvm"; }
-  CrosvmManager(Arch arch) : VmManager(arch) {}
   virtual ~CrosvmManager() = default;
 
   bool IsSupported() override;
-  std::vector<std::string> ConfigureGpuMode(const std::string&) override;
+  std::vector<std::string> ConfigureGraphics(
+      const CuttlefishConfig& config) override;
   std::string ConfigureBootDevices(int num_disks) override;
 
   std::vector<cuttlefish::Command> StartCommands(

@@ -210,7 +210,7 @@
         <!-- Toolbar attributes -->
         <item name="android:toolbarStyle">@*android:style/Widget.DeviceDefault.Toolbar</item>
 
-        <item name="*android:toastFrameBackground">@*android:drawable/toast_frame</item>
+        <item name="*android:toastFrameBackground">@drawable/toast_frame</item>
         <item name="android:textAppearanceListItem">@android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSmall">@android:style/TextAppearance.DeviceDefault.Large</item>
         <item name="android:textAppearanceListItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>

@@ -83,8 +83,10 @@ def metadata_checks(metadata, props):
     logging.debug('AWB region: %s', str(metadata['android.control.awbRegions']))
 
   # Color correction gains and transform should be the same size
-  assert len(awb_gains) == AWB_GAINS_NUM
-  assert len(awb_xform) == AWB_XFORM_NUM
+  if len(awb_gains) != AWB_GAINS_NUM:
+    raise AssertionError(f'AWB gains wrong length! {awb_gains}')
+  if len(awb_xform) != AWB_XFORM_NUM:
+    raise AssertionError(f'AWB transform wrong length! {awb_xform}')
 
 
 def test_auto(cam, props, log_path):
@@ -110,23 +112,33 @@ def test_auto(cam, props, log_path):
 
   ctrl_mode = metadata['android.control.mode']
   logging.debug('Control mode: %d', ctrl_mode)
-  assert ctrl_mode == 1, 'ctrl_mode: %d' % ctrl_mode
+  if ctrl_mode != 1:
+    raise AssertionError(f'ctrl_mode != 1: {ctrl_mode}')
 
   # Color correction gain and transform must be valid.
   metadata_checks(metadata, props)
   awb_gains = metadata['android.colorCorrection.gains']
   awb_xform = metadata['android.colorCorrection.transform']
-  assert all([g > 0 for g in awb_gains])
-  assert all([t['denominator'] != 0 for t in awb_xform])
+  if not all([g > 0 for g in awb_gains]):
+    raise AssertionError(f'AWB gains has negative terms: {awb_gains}')
+  if not all([t['denominator'] != 0 for t in awb_xform]):
+    raise AssertionError(f'AWB transform has 0 denominators: {awb_xform}')
 
   # Color correction should not match the manual settings.
-  assert not np.allclose(awb_gains, MANUAL_AWB_GAINS, atol=ISCLOSE_ATOL)
-  assert not all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
-                  for i in range(AWB_XFORM_NUM)])
+  if np.allclose(awb_gains, MANUAL_AWB_GAINS, atol=ISCLOSE_ATOL):
+    raise AssertionError('Manual and automatic AWB gains are same! '
+                         f'manual: {MANUAL_AWB_GAINS}, auto: {awb_gains}, '
+                         f'ATOL: {ISCLOSE_ATOL}')
+  if all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
+          for i in range(AWB_XFORM_NUM)]):
+    raise AssertionError('Manual and automatic AWB transforms are same! '
+                         f'manual: {MANUAL_AWB_XFORM}, auto: {awb_xform}, '
+                         f'ATOL: {ISCLOSE_ATOL}')
 
   # Exposure time must be valid.
   exp_time = metadata['android.sensor.exposureTime']
-  assert exp_time > 0
+  if exp_time <= 0:
+    raise AssertionError(f'exposure time is <= 0! {exp_time}')
 
   # Draw lens shading correction map
   lsc_obj = metadata['android.statistics.lensShadingCorrectionMap']
@@ -173,35 +185,47 @@ def test_manual(cam, props, log_path):
 
   ctrl_mode = metadata['android.control.mode']
   logging.debug('Control mode: %d', ctrl_mode)
-  assert ctrl_mode == 0, 'ctrl_mode: %d' % ctrl_mode
+  if ctrl_mode != 0:
+    raise AssertionError(f'ctrl_mode: {ctrl_mode}')
 
   # Color correction gains and transform should be the same size and
   # values as the manually set values.
   metadata_checks(metadata, props)
   awb_gains = metadata['android.colorCorrection.gains']
   awb_xform = metadata['android.colorCorrection.transform']
-  assert (all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[0][i],
+  if not (all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[0][i],
                           atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)]) or
           all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[1][i],
                           atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)]) or
           all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[2][i],
-                          atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)]))
-  assert (all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
-               for i in range(AWB_XFORM_NUM)]))
+                          atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)])):
+    raise AssertionError('request/capture mismatch in AWB gains! '
+                         f'req: {MANUAL_GAINS_OK}, cap: {awb_gains}, '
+                         f'ATOL: {ISCLOSE_ATOL}')
+  if not (all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
+               for i in range(AWB_XFORM_NUM)])):
+    raise AssertionError('request/capture mismatch in AWB transforms! '
+                         f'req: {MANUAL_AWB_XFORM}, cap: {awb_xform}, '
+                         f'ATOL: {ISCLOSE_ATOL}')
 
   # The returned tonemap must be linear.
   curves = [metadata['android.tonemap.curve']['red'],
             metadata['android.tonemap.curve']['green'],
             metadata['android.tonemap.curve']['blue']]
   logging.debug('Tonemap: %s', str(curves[0][1::16]))
-  for c in curves:
-    assert c, 'c in curves is empty.'
-    assert all([np.isclose(c[i], c[i+1], atol=ISCLOSE_ATOL)
-                for i in range(0, len(c), 2)])
+  for _, c in enumerate(curves):
+    if not c:
+      raise AssertionError('c in curves is empty.')
+    if not all([np.isclose(c[i], c[i+1], atol=ISCLOSE_ATOL)
+                for i in range(0, len(c), 2)]):
+      raise AssertionError(f"tonemap 'RGB'[i] is not linear! {c}")
 
   # Exposure time must be close to the requested exposure time.
   exp_time = metadata['android.sensor.exposureTime']
-  assert np.isclose(exp_time*1.0E-6, exp_min*1.0E-6, atol=ISCLOSE_ATOL)
+  if not np.isclose(exp_time, exp_min, atol=ISCLOSE_ATOL/1E-06):
+    raise AssertionError('request/capture exposure time mismatch! '
+                         f'req: {exp_min}, cap: {exp_time}, '
+                         f'ATOL: {ISCLOSE_ATOL/1E-6}')
 
   # Lens shading map must be valid
   lsc_obj = metadata['android.statistics.lensShadingCorrectionMap']
@@ -209,9 +233,11 @@ def test_manual(cam, props, log_path):
   lsc_map_w = lsc_obj['width']
   lsc_map_h = lsc_obj['height']
   logging.debug('LSC map: %dx%d, %s', lsc_map_w, lsc_map_h, str(lsc_map[:8]))
-  assert (lsc_map_w > 0 and lsc_map_h > 0 and
-          lsc_map_w*lsc_map_h*4 == len(lsc_map))
-  assert all([m >= 1 for m in lsc_map])
+  if not (lsc_map_w > 0 and lsc_map_h > 0 and
+          lsc_map_w*lsc_map_h*4 == len(lsc_map)):
+    raise AssertionError(f'Incorrect lens shading map size! {lsc_map}')
+  if not all([m >= 1 for m in lsc_map]):
+    raise AssertionError(f'Lens shading map has negative vals! {lsc_map}')
 
   # Draw lens shading correction map
   draw_lsc_plot(lsc_map_w, lsc_map_h, lsc_map, 'manual', log_path)

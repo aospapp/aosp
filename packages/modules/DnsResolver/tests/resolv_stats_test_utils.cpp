@@ -78,7 +78,7 @@ NetworkDnsEventReported fromNetworkDnsEventReportedStr(const std::string& str) {
             }
             continue;
         }
-        if (match_str == "}" | match_str == "},") {
+        if (match_str == "}" || match_str == "},") {
             strproto--;
             continue;
         }

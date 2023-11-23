@@ -4,10 +4,10 @@
 //  "presubmit": [
 //    {
 //      "host": true,
-//      "name": "gpu_buffer_host_test_src_lib"
+//      "name": "gpu_buffer_test_src_lib"
 //    },
 //    {
-//      "name": "gpu_buffer_device_test_src_lib"
+//      "name": "gpu_buffer_test_src_lib"
 //    }
 //  ]
 }

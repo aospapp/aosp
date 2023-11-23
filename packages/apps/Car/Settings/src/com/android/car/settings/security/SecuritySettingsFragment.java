@@ -16,6 +16,8 @@
 
 package com.android.car.settings.security;
 
+import android.content.Context;
+import android.os.UserManager;
 import android.provider.Settings;
 
 import com.android.car.settings.R;
@@ -36,5 +38,14 @@ public class SecuritySettingsFragment extends SettingsFragment {
 
     public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new CarBaseSearchIndexProvider(R.xml.security_settings_fragment,
-                    Settings.ACTION_SECURITY_SETTINGS);
+                    Settings.ACTION_SECURITY_SETTINGS) {
+                @Override
+                protected boolean isPageSearchEnabled(Context context) {
+                    UserManager userManager = context.getSystemService(UserManager.class);
+                    if (userManager == null) {
+                        return false;
+                    }
+                    return !userManager.isGuestUser();
+                }
+            };
 }

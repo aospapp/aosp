@@ -45,6 +45,8 @@ bool						isDepthStencilFormat		(VkFormat format);
 bool						isCompressedFormat			(VkFormat format);
 bool						isSrgbFormat				(VkFormat format);
 
+bool						is64BitIntegerFormat		(VkFormat format);
+
 bool						isSupportedByFramework		(VkFormat format);
 void						checkImageSupport			(const InstanceInterface& vki, VkPhysicalDevice physicalDevice, const VkImageCreateInfo& imageCreateInfo);
 
@@ -78,6 +80,9 @@ deUint32					getFormatComponentWidth		(const VkFormat format, const deUint32 com
 deUint32					getBlockSizeInBytes			(const VkFormat compressedFormat);
 deUint32					getBlockWidth				(const VkFormat compressedFormat);
 deUint32					getBlockHeight				(const VkFormat compressedFormat);
+
+bool						hasSpirvFormat				(VkFormat fmt);
+const std::string			getSpirvFormat				(VkFormat fmt);
 
 const deUint32 BUFFER_IMAGE_COPY_OFFSET_GRANULARITY = 4u;
 
@@ -131,6 +136,7 @@ struct PlanarFormatDescription
 
 bool							isYCbCrFormat					(VkFormat						format);
 bool							isYCbCrExtensionFormat			(VkFormat						format);
+bool							isYCbCrConversionFormat			(VkFormat						format);
 PlanarFormatDescription			getPlanarFormatDescription		(VkFormat						format);
 int								getPlaneCount					(VkFormat						format);
 deUint32						getMipmapCount					(VkFormat						format,
@@ -243,6 +249,19 @@ void	copyImageToBuffer						(const DeviceInterface&							vk,
 												 VkImageAspectFlags								barrierAspect = VK_IMAGE_ASPECT_COLOR_BIT,
 												 VkImageAspectFlags								copyAspect = VK_IMAGE_ASPECT_COLOR_BIT);
 
+void	copyImageToBuffer						(const DeviceInterface&							vk,
+												 vk::VkCommandBuffer							cmdBuffer,
+												 vk::VkImage									image,
+												 vk::VkBuffer									buffer,
+												 vk::VkFormat									format,
+												 tcu::IVec2										size,
+												 deUint32										mipLevel = 0u,
+												 vk::VkAccessFlags								srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+												 vk::VkImageLayout								oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+												 deUint32										numLayers = 1u,
+												 VkImageAspectFlags								barrierAspect = VK_IMAGE_ASPECT_COLOR_BIT,
+												 VkImageAspectFlags								copyAspect = VK_IMAGE_ASPECT_COLOR_BIT);
+
 /*--------------------------------------------------------------------*//*!
  * Clear a color image
 *//*--------------------------------------------------------------------*/
@@ -254,7 +273,22 @@ void	clearColorImage							(const DeviceInterface&							vk,
 												 tcu::Vec4										clearColor,
 												 vk::VkImageLayout								oldLayout,
 												 vk::VkImageLayout								newLayout,
-												 vk::VkPipelineStageFlags						dstStageFlags);
+												 vk::VkPipelineStageFlags						dstStageFlags,
+												 deUint32										baseArrayLayer = 0u,
+												 deUint32										layerCount = 1u);
+
+void	clearColorImage							(const DeviceInterface&							vk,
+												 const vk::VkDevice								device,
+												 const vk::VkQueue								queue,
+												 deUint32										queueFamilyIndex,
+												 vk::VkImage									image,
+												 vk::VkClearColorValue							clearColor,
+												 vk::VkImageLayout								oldLayout,
+												 vk::VkImageLayout								newLayout,
+												 vk::VkAccessFlags								dstAccessFlags,
+												 vk::VkPipelineStageFlags						dstStageFlags,
+												 deUint32										baseArrayLayer = 0u,
+												 deUint32										layerCount = 1u);
 
 /*--------------------------------------------------------------------*//*!
  * Initialize color image with a chessboard pattern
@@ -297,10 +331,12 @@ void	clearDepthStencilImage					(const DeviceInterface&							vk,
 												 const vk::VkQueue								queue,
 												 deUint32										queueFamilyIndex,
 												 vk::VkImage									image,
+												 vk::VkFormat									format,
 												 float											depthValue,
 												 deUint32										stencilValue,
 												 vk::VkImageLayout								oldLayout,
 												 vk::VkImageLayout								newLayout,
+												 vk::VkAccessFlags								dstAccessFlags,
 												 vk::VkPipelineStageFlags						dstStageFlags);
 
 /*--------------------------------------------------------------------*//*!

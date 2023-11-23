@@ -71,10 +71,10 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(float) * (w_elements + c_elements));
 
-  std::vector<float, AlignedAllocator<float, 32>> w(w_elements * num_buffers);
+  std::vector<float, AlignedAllocator<float, 64>> w(w_elements * num_buffers);
   std::fill(w.begin(), w.end(), 0.0f);
   xnn_pack_f32_gemm_goi_w(1 /* groups */, group_output_channels, group_input_channels * kernel_size,
-    nr, kr, sr, k.data(), b.data(), w.data(), nullptr);
+    nr, kr, sr, k.data(), b.data(), w.data(), 0, nullptr);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
@@ -84,8 +84,9 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
   std::vector<float> c(c_elements * num_buffers);
   std::fill(c.begin(), c.end(), std::nanf(""));
 
-  xnn_f32_minmax_params params =
-    xnn_init_f32_minmax_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
+  xnn_f32_minmax_params params;
+  xnn_init_f32_minmax_params(
+    &params, -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -137,12 +138,13 @@ static void Im2ColGEMMBenchmark(benchmark::State& state,
 
 
 #if XNN_ARCH_ARM64 && XNN_ENABLE_ASSEMBLY
-  static void f32_gemm_4x8__aarch64_neonfma_cortex_a75(benchmark::State& state, const char* net) {
-    Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x8__aarch64_neonfma_cortex_a75, 4, 8, 1, 1);
+  static void f32_gemm_4x8__aarch64_neonfma_prfm_cortex_a75(benchmark::State& state, const char* net) {
+    Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_4x8__aarch64_neonfma_prfm_cortex_a75, 4, 8, 1, 1);
   }
 
-  BENCHMARK_CONV(f32_gemm_4x8__aarch64_neonfma_cortex_a75)
-#endif  // XNN_ARCH_ARM64
+  BENCHMARK_CONV(f32_gemm_4x8__aarch64_neonfma_prfm_cortex_a75)
+#endif  // XNN_ARCH_ARM64 && XNN_ENABLE_ASSEMBLY
+
 
 static void f32_gemm_2x4__scalar(benchmark::State& state, const char* net) {
   Im2ColGEMMBenchmark(state, xnn_f32_gemm_minmax_ukernel_2x4__scalar, 2, 4, 1, 1);

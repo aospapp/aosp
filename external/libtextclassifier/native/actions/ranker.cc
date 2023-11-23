@@ -20,6 +20,8 @@
 #include <set>
 #include <vector>
 
+#include "actions/actions_model_generated.h"
+
 #if !defined(TC3_DISABLE_LUA)
 #include "actions/lua-ranker.h"
 #endif
@@ -34,11 +36,22 @@ namespace libtextclassifier3 {
 namespace {
 
 void SortByScoreAndType(std::vector<ActionSuggestion>* actions) {
-  std::sort(actions->begin(), actions->end(),
-            [](const ActionSuggestion& a, const ActionSuggestion& b) {
-              return a.score > b.score ||
-                     (a.score >= b.score && a.type < b.type);
-            });
+  std::stable_sort(actions->begin(), actions->end(),
+                   [](const ActionSuggestion& a, const ActionSuggestion& b) {
+                     return a.score > b.score ||
+                            (a.score >= b.score && a.type < b.type);
+                   });
+}
+
+void SortByPriorityAndScoreAndType(std::vector<ActionSuggestion>* actions) {
+  std::stable_sort(
+      actions->begin(), actions->end(),
+      [](const ActionSuggestion& a, const ActionSuggestion& b) {
+        return a.priority_score > b.priority_score ||
+               (a.priority_score >= b.priority_score && a.score > b.score) ||
+               (a.priority_score >= b.priority_score && a.score >= b.score &&
+                a.type < b.type);
+      });
 }
 
 template <typename T>
@@ -241,13 +254,8 @@ bool ActionsSuggestionsRanker::RankActions(
     const reflection::Schema* annotations_entity_data_schema) const {
   if (options_->deduplicate_suggestions() ||
       options_->deduplicate_suggestions_by_span()) {
-    // First order suggestions by priority score for deduplication.
-    std::sort(
-        response->actions.begin(), response->actions.end(),
-        [](const ActionSuggestion& a, const ActionSuggestion& b) {
-          return a.priority_score > b.priority_score ||
-                 (a.priority_score >= b.priority_score && a.score > b.score);
-        });
+    // Order suggestions by [priority score -> score] for deduplication
+    SortByPriorityAndScoreAndType(&response->actions);
 
     // Deduplicate, keeping the higher score actions.
     if (options_->deduplicate_suggestions()) {
@@ -275,6 +283,8 @@ bool ActionsSuggestionsRanker::RankActions(
     }
   }
 
+  bool sort_by_priority =
+      options_->sort_type() == RankingOptionsSortType_SORT_TYPE_PRIORITY_SCORE;
   // Suppress smart replies if actions are present.
   if (options_->suppress_smart_replies_with_actions()) {
     std::vector<ActionSuggestion> non_smart_reply_actions;
@@ -316,17 +326,35 @@ bool ActionsSuggestionsRanker::RankActions(
 
     // Sort within each group by score.
     for (std::vector<ActionSuggestion>& group : groups) {
-      SortByScoreAndType(&group);
+      if (sort_by_priority) {
+        SortByPriorityAndScoreAndType(&group);
+      } else {
+        SortByScoreAndType(&group);
+      }
     }
 
-    // Sort groups by maximum score.
-    std::sort(groups.begin(), groups.end(),
-              [](const std::vector<ActionSuggestion>& a,
-                 const std::vector<ActionSuggestion>& b) {
-                return a.begin()->score > b.begin()->score ||
-                       (a.begin()->score >= b.begin()->score &&
-                        a.begin()->type < b.begin()->type);
-              });
+    // Sort groups by maximum score or priority score.
+    if (sort_by_priority) {
+      std::stable_sort(
+          groups.begin(), groups.end(),
+          [](const std::vector<ActionSuggestion>& a,
+             const std::vector<ActionSuggestion>& b) {
+            return (a.begin()->priority_score > b.begin()->priority_score) ||
+                   (a.begin()->priority_score >= b.begin()->priority_score &&
+                    a.begin()->score > b.begin()->score) ||
+                   (a.begin()->priority_score >= b.begin()->priority_score &&
+                    a.begin()->score >= b.begin()->score &&
+                    a.begin()->type < b.begin()->type);
+          });
+    } else {
+      std::stable_sort(groups.begin(), groups.end(),
+                       [](const std::vector<ActionSuggestion>& a,
+                          const std::vector<ActionSuggestion>& b) {
+                         return a.begin()->score > b.begin()->score ||
+                                (a.begin()->score >= b.begin()->score &&
+                                 a.begin()->type < b.begin()->type);
+                       });
+    }
 
     // Flatten result.
     const size_t num_actions = response->actions.size();
@@ -336,9 +364,9 @@ bool ActionsSuggestionsRanker::RankActions(
       response->actions.insert(response->actions.end(), actions.begin(),
                                actions.end());
     }
-
+  } else if (sort_by_priority) {
+    SortByPriorityAndScoreAndType(&response->actions);
   } else {
-    // Order suggestions independently by score.
     SortByScoreAndType(&response->actions);
   }
 

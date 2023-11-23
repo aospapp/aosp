@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.auto.value.processor.AutoAnnotationProcessor;
+import com.google.auto.value.processor.AutoBuilderProcessor;
 import com.google.auto.value.processor.AutoOneOfProcessor;
 import com.google.auto.value.processor.AutoValueProcessor;
 import com.google.common.collect.ImmutableList;
@@ -58,25 +59,28 @@ public class CompileWithEclipseTest {
   @BeforeClass
   public static void setSourceRoot() {
     assertWithMessage("basedir property must be set - test must be run from Maven")
-        .that(SOURCE_ROOT).isNotNull();
+        .that(SOURCE_ROOT)
+        .isNotNull();
   }
 
   public @Rule TemporaryFolder tmp = new TemporaryFolder();
 
   private static final ImmutableSet<String> IGNORED_TEST_FILES =
-      ImmutableSet.of("AutoValueNotEclipseTest.java", "CompileWithEclipseTest.java");
+      ImmutableSet.of(
+          "AutoValueNotEclipseTest.java", "CompileWithEclipseTest.java", "GradleTest.java");
 
   private static final Predicate<File> JAVA_FILE =
       f -> f.getName().endsWith(".java") && !IGNORED_TEST_FILES.contains(f.getName());
 
   private static final Predicate<File> JAVA8_TEST =
-      f -> f.getName().equals("AutoValueJava8Test.java")
-          || f.getName().equals("AutoOneOfJava8Test.java")
-          || f.getName().equals("EmptyExtension.java");
+      f ->
+          f.getName().equals("AutoValueJava8Test.java")
+              || f.getName().equals("AutoOneOfJava8Test.java")
+              || f.getName().equals("EmptyExtension.java");
 
   @Test
-  public void compileWithEclipseJava6() throws Exception {
-    compileWithEclipse("6", JAVA_FILE.and(JAVA8_TEST.negate()));
+  public void compileWithEclipseJava7() throws Exception {
+    compileWithEclipse("7", JAVA_FILE.and(JAVA8_TEST.negate()));
   }
 
   @Test
@@ -103,17 +107,28 @@ public class CompileWithEclipseTest {
     // fileManager.getLocation(SYSTEM_MODULES).
     File rtJar = new File(JAVA_HOME.value() + "/lib/rt.jar");
     if (rtJar.exists()) {
-      List<File> bootClassPath = ImmutableList.<File>builder()
-          .add(rtJar)
-          .addAll(fileManager.getLocation(StandardLocation.PLATFORM_CLASS_PATH))
-          .build();
+      List<File> bootClassPath =
+          ImmutableList.<File>builder()
+              .add(rtJar)
+              .addAll(fileManager.getLocation(StandardLocation.PLATFORM_CLASS_PATH))
+              .build();
       fileManager.setLocation(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
     }
     Iterable<? extends JavaFileObject> sourceFileObjects =
         fileManager.getJavaFileObjectsFromFiles(sources);
     String outputDir = tmp.getRoot().toString();
     ImmutableList<String> options =
-        ImmutableList.of("-d", outputDir, "-s", outputDir, "-source", version, "-target", version);
+        ImmutableList.of(
+            "-d",
+            outputDir,
+            "-s",
+            outputDir,
+            "-source",
+            version,
+            "-target",
+            version,
+            "-warn:-warningToken,-intfAnnotation",
+            "-Acom.google.auto.value.AutoBuilderIsUnstable");
     JavaCompiler.CompilationTask task =
         compiler.getTask(null, fileManager, null, options, null, sourceFileObjects);
     // Explicitly supply an empty list of extensions for AutoValueProcessor, because otherwise this
@@ -121,7 +136,10 @@ public class CompileWithEclipseTest {
     AutoValueProcessor autoValueProcessor = new AutoValueProcessor(ImmutableList.of());
     ImmutableList<? extends Processor> processors =
         ImmutableList.of(
-            autoValueProcessor, new AutoOneOfProcessor(), new AutoAnnotationProcessor());
+            autoValueProcessor,
+            new AutoOneOfProcessor(),
+            new AutoAnnotationProcessor(),
+            new AutoBuilderProcessor());
     task.setProcessors(processors);
     assertWithMessage("Compilation should succeed").that(task.call()).isTrue();
   }

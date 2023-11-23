@@ -307,6 +307,20 @@ struct eapol_ctx {
 	 * Automatically triggers a reconnect when not.
 	 */
 	int (*confirm_auth_cb)(void *ctx);
+
+	/**
+	 * eap_method_selected_cb - Notification of EAP method selection
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @reason_string: Information to log about the event
+	 */
+	void (*eap_method_selected_cb)(void *ctx, const char* reason_string);
+
+	/**
+	 * open_ssl_failure_cb - Notification of an OpenSSL failure
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @reason_string: Information to log about the event
+	 */
+	void (*open_ssl_failure_cb)(void *ctx, const char* reason_string);
 };
 
 

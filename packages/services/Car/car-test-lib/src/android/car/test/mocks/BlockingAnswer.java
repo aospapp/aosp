@@ -20,7 +20,7 @@ import android.annotation.Nullable;
 import android.car.test.util.Visitor;
 import android.util.Log;
 
-import com.android.internal.util.FunctionalUtils;
+import com.android.car.internal.util.FunctionalUtils;
 
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;

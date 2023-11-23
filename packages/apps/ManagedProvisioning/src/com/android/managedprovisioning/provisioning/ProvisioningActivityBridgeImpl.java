@@ -16,7 +16,7 @@
 
 package com.android.managedprovisioning.provisioning;
 
-import static com.google.android.setupdesign.util.ThemeHelper.shouldApplyExtendedPartnerConfig;
+import static com.google.android.setupdesign.util.ThemeHelper.shouldApplyMaterialYouStyle;
 
 import android.app.Activity;
 import android.view.View;
@@ -31,7 +31,6 @@ import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.InitializeLayoutConsumerHandler;
 import com.android.managedprovisioning.common.StylerHelper;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity.ProvisioningMode;
 import com.android.managedprovisioning.provisioning.ProvisioningModeWrapperProvider.ProvisioningModeWrapper;
@@ -73,10 +72,8 @@ abstract class ProvisioningActivityBridgeImpl implements ProvisioningActivityBri
                 ? R.layout.empty_loading_layout
                 : R.layout.provisioning_progress;
 
-        CustomizationParams customizationParams =
-                CustomizationParams.createInstance(getParams(), activity, getUtils());
         getInitializeLayoutParamsConsumer().initializeLayoutParams(
-                layoutResId, /* headerResId */ null, customizationParams);
+                layoutResId, /* headerResId */ null);
         activity.setTitle(titleResId);
 
         GlifLayout layout = activity.findViewById(R.id.setup_wizard_layout);
@@ -222,7 +219,7 @@ abstract class ProvisioningActivityBridgeImpl implements ProvisioningActivityBri
         TextView progressLabel = getRelevantProgressLabel(activity);
         DescriptionStyler.applyPartnerCustomizationHeavyStyle(progressLabel);
         progressLabel.setTextColor(
-                shouldApplyExtendedPartnerConfig(activity)
+                shouldApplyMaterialYouStyle(activity)
                         ? getUtils().getTextSecondaryColor(activity)
                         : getUtils().getAccentColor(activity));
         progressLabel.setText(progressLabelResId);

@@ -18,11 +18,16 @@ import unittest
 from unittest import mock
 
 from acloud import errors
+from acloud.internal.lib import auth
 from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import gcompute_client
+from acloud.internal.lib import ssh
 from acloud.internal.lib import utils
+from acloud.internal.lib import adb_tools
 from acloud.list import list as list_instance
 from acloud.list import instance
+from acloud.public import config
 
 
 class InstanceObject:
@@ -34,6 +39,19 @@ class InstanceObject:
 
 class ListTest(driver_test_lib.BaseDriverTest):
     """Test list."""
+
+    def setUp(self):
+        """Set up the test."""
+        super().setUp()
+        self.Patch(instance, "_GetElapsedTime", return_value=0)
+        self.Patch(instance.RemoteInstance, "_GetZoneName")
+        self.Patch(instance, "GetInstanceIP", return_value=ssh.IP())
+        self.Patch(instance.RemoteInstance, "GetAdbVncPortFromSSHTunnel")
+        self.Patch(adb_tools, "AdbTools")
+        self.Patch(adb_tools.AdbTools, "IsAdbConnected", return_value=False)
+        self.Patch(auth, "CreateCredentials")
+        self.Patch(gcompute_client, "ComputeClient")
+        self.Patch(gcompute_client.ComputeClient, "ListInstances")
 
     def testGetInstancesFromInstanceNames(self):
         """test get instances from instance names."""
@@ -184,6 +202,8 @@ class ListTest(driver_test_lib.BaseDriverTest):
         )
         self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
                    return_value=cf_config)
+        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+                   return_value=None)
 
         ins = instance.LocalInstance("fake_cf_path")
         list_instance.PrintInstancesDetails([ins], verbose=True)
@@ -197,6 +217,137 @@ class ListTest(driver_test_lib.BaseDriverTest):
         # Test Summary shouldn't be called if no instance found.
         list_instance.PrintInstancesDetails([], verbose=True)
         instance.Instance.Summary.assert_not_called()
+
+    def testRun(self):
+        """test Run."""
+        cfg = mock.MagicMock()
+        self.Patch(config, "GetAcloudConfig", return_value=cfg)
+        args = mock.MagicMock()
+        # local instance
+        args.local_only = True
+        args.verbose = False
+        self.Patch(utils, "IsSupportedPlatform", return_value=True)
+        self.Patch(list_instance, "PrintInstancesDetails")
+        self.Patch(instance, "GetAllLocalInstanceConfigs")
+        fake_local_ins1 = "local_ins1"
+        fake_local_ins2 = "local_ins2"
+        fake_local_gf_ins1 = "local_gf_ins1"
+        self.Patch(list_instance, "_GetLocalCuttlefishInstances",
+                   return_value=[fake_local_ins1, fake_local_ins2])
+        self.Patch(instance.LocalGoldfishInstance, "GetExistingInstances",
+                   return_value=[fake_local_gf_ins1])
+        list_instance.Run(args)
+        list_instance.PrintInstancesDetails.assert_called_with(
+            [fake_local_ins1, fake_local_ins2, fake_local_gf_ins1], False)
+
+        # remote instance
+        args.local_only = False
+        fake_remote_ins1= "remote_ins1"
+        fake_remote_ins2 = "remote_ins2"
+        self.Patch(list_instance, "GetRemoteInstances",
+                   return_value=[fake_remote_ins1, fake_remote_ins2])
+        list_instance.Run(args)
+        list_instance.PrintInstancesDetails.assert_called_with(
+            [fake_local_ins1, fake_local_ins2, fake_local_gf_ins1,
+             fake_remote_ins1, fake_remote_ins2], False)
+
+    def testGetRemoteInstances(self):
+        """test GetRemoteInstances."""
+        fake_remote_ins1 = {"name": "fake_remote_ins1_name",
+                            "creationTimestamp": "2021-01-14T13:00:00.000-07:00",
+                            "status": "Active"}
+        fake_remote_ins2 = {"name": "fake_remote_ins2_name",
+                            "creationTimestamp": "2021-01-14T13:00:00.000-07:00",
+                            "status": "Active"}
+        gcompute_client.ComputeClient(None, None).ListInstances.return_value = [
+            fake_remote_ins1, fake_remote_ins2]
+        self.assertEqual(list_instance.GetRemoteInstances(None)[0].name,
+                         instance.RemoteInstance(fake_remote_ins1).name)
+        self.assertEqual(len(list_instance.GetRemoteInstances(None)), 2)
+
+    def testGetCFRemoteInstances(self):
+        """test GetCFRemoteInstances."""
+        fake_remote_ins1 = {"name": "cf-fake_remote_ins1_name",
+                            "avd_type": "cuttlefish",
+                            "creationTimestamp": "2021-01-14T13:00:00.000-07:00",
+                            "status": "Active"}
+        fake_remote_ins2 = {"name": "nonecf-fake_remote_ins2_name",
+                            "avd_type": "goldfish",
+                            "creationTimestamp": "2021-01-14T13:00:00.000-07:00",
+                            "status": "Active"}
+        remote_ins_list = [instance.RemoteInstance(fake_remote_ins1),
+                           instance.RemoteInstance(fake_remote_ins2)]
+        self.Patch(list_instance, "GetRemoteInstances",
+                   return_value=remote_ins_list)
+        self.assertEqual(len(list_instance.GetCFRemoteInstances(None)), 1)
+
+    def testGetActiveCVD(self):
+        """test GetActiveCVD."""
+        # get local instance config
+        self.Patch(instance, "GetLocalInstanceConfig",
+                   return_value="fake_local_cfg_path")
+        fake_local_ins = mock.MagicMock()
+        self.Patch(instance, "LocalInstance", return_value=fake_local_ins)
+        fake_local_ins.CvdStatus.return_value = True
+        self.assertEqual(list_instance.GetActiveCVD(1), fake_local_ins)
+
+        fake_local_ins.CvdStatus.return_value = False
+        self.Patch(instance, "GetDefaultCuttlefishConfig",
+                   return_value=None)
+        self.assertEqual(list_instance.GetActiveCVD(1), None)
+
+        # get default cf config
+        fake_local_ins.CvdStatus.return_value = True
+        self.Patch(instance, "GetLocalInstanceConfig",
+                   return_value=None)
+        self.Patch(instance, "GetDefaultCuttlefishConfig",
+                   return_value="fake_cf_config")
+        self.assertEqual(list_instance.GetActiveCVD(1), fake_local_ins)
+        self.assertEqual(list_instance.GetActiveCVD(2), None)
+
+        fake_local_ins.CvdStatus.return_value = False
+        self.assertEqual(list_instance.GetActiveCVD(1), None)
+
+        fake_local_ins.CvdStatus.return_value = True
+        self.Patch(instance, "GetDefaultCuttlefishConfig",
+                   return_value=None)
+        self.assertEqual(list_instance.GetActiveCVD(1), None)
+
+    def testChooseInstances(self):
+        """test ChooseInstances."""
+        self.Patch(list_instance, "GetLocalInstances",
+                   return_value=["local_ins1", "local_ins2"])
+        self.Patch(list_instance, "GetRemoteInstances",
+                   return_value=["remote_ins1", "remote_ins2"])
+        self.assertEqual(len(list_instance.ChooseInstances(None, True)), 4)
+
+        self.Patch(utils, "GetAnswerFromList", return_value=["remote_ins1"])
+        choose_instance = ["remote_ins1"]
+        self.assertEqual(list_instance.ChooseInstances(None), choose_instance)
+
+        list_instance.GetLocalInstances.return_value = []
+        list_instance.GetRemoteInstances.return_value = ["only_one_ins"]
+        self.assertEqual(list_instance.ChooseInstances(None), ["only_one_ins"])
+
+    def testGetLocalInstanceLockByName(self):
+        """test GetLocalInstanceLockByName."""
+        self.Patch(instance, "GetLocalInstanceIdByName",
+                   return_value="local_ins_id")
+        self.Patch(instance, "GetLocalInstanceLock")
+        list_instance.GetLocalInstanceLockByName("query_name")
+        instance.GetLocalInstanceLock.assert_called_once()
+
+        instance.GetLocalInstanceIdByName.return_value = None
+        self.Patch(instance.LocalGoldfishInstance,
+                   "GetIdByName", return_value="gf_ins_id")
+        self.Patch(instance.LocalGoldfishInstance, "GetLockById")
+        list_instance.GetLocalInstanceLockByName("query_name")
+        instance.LocalGoldfishInstance.GetLockById.assert_called_once()
+
+        self.Patch(instance.LocalGoldfishInstance,
+                   "GetIdByName", return_value= None)
+        self.assertEqual(
+            list_instance.GetLocalInstanceLockByName("query_name"), None)
 
 
 if __name__ == "__main__":

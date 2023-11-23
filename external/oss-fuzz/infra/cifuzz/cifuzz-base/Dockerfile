@@ -14,19 +14,20 @@
 #
 ################################################################################
 
-# Don't bother with a slimmer base image.
-# When we pull base-builder to build project builder image we need to pull
-# ubuntu:16.04 anyway. So in the long run we probably would waste time if
-# we pulled something like alpine here instead.
-FROM ubuntu:16.04
+FROM gcr.io/oss-fuzz-base/base-runner
 
 RUN apt-get update && \
-    apt-get install ca-certificates wget python3 git-core --no-install-recommends -y && \
-    wget https://download.docker.com/linux/ubuntu/dists/xenial/pool/stable/amd64/docker-ce-cli_20.10.5~3-0~ubuntu-xenial_amd64.deb -O /tmp/docker-ce.deb && \
-    dpkg -i /tmp/docker-ce.deb && rm /tmp/docker-ce.deb && \
-    apt-get remove wget -y --purge
-
+    apt-get install -y systemd && \
+    apt-get install -y --no-install-recommends nodejs npm && \
+    wget https://download.docker.com/linux/ubuntu/dists/focal/pool/stable/amd64/docker-ce-cli_20.10.8~3-0~ubuntu-focal_amd64.deb -O /tmp/docker-ce.deb && \
+    dpkg -i /tmp/docker-ce.deb && rm /tmp/docker-ce.deb
 
 ENV OSS_FUZZ_ROOT=/opt/oss-fuzz
 ADD . ${OSS_FUZZ_ROOT}
-RUN rm -rf ${OSS_FUZZ_ROOT}/infra
+RUN python3 -m pip install -r ${OSS_FUZZ_ROOT}/infra/cifuzz/requirements.txt
+RUN npm install ${OSS_FUZZ_ROOT}/infra/cifuzz
+
+# Python file to execute when the docker container starts up.
+# We can't use the env var $OSS_FUZZ_ROOT here. Since it's a constant env var,
+# just expand to '/opt/oss-fuzz'.
+ENTRYPOINT ["python3", "/opt/oss-fuzz/infra/cifuzz/cifuzz_combined_entrypoint.py"]

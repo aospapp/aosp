@@ -76,6 +76,7 @@ extern "C" {
  * but effort should be made to come up with a generic name that still captures
  * the meaning of the error.
  */
+// LINT.IfChange
 enum chreError {
     //! No error occurred
     CHRE_ERROR_NONE = 0,
@@ -113,9 +114,14 @@ enum chreError {
     CHRE_ERROR_FUNCTION_RESTRICTED_TO_OTHER_MASTER = 9,
     CHRE_ERROR_FUNCTION_RESTRICTED_TO_OTHER_CLIENT = 9,
 
+    //! This request is no longer valid. It may have been replaced by a newer
+    //! request before taking effect.
+    CHRE_ERROR_OBSOLETE_REQUEST = 10,
+
     //!< Do not exceed this value when adding new error codes
     CHRE_ERROR_LAST = UINT8_MAX,
 };
+// LINT.ThenChange(core/include/chre/core/api_manager_common.h)
 
 /**
  * Generic data structure to indicate the result of an asynchronous operation.

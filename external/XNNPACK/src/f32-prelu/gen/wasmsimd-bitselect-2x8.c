@@ -22,7 +22,7 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
     size_t input_stride,
     const float*restrict weights,
     float*restrict output,
-    size_t output_stride) XNN_DISABLE_TSAN
+    size_t output_stride) XNN_OOB_READS
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -32,16 +32,16 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
   float* o0 = output;
   const float* i1 = (const float*) ((uintptr_t) i0 + input_stride);
   float* o1 = (float*) ((uintptr_t) o0 + output_stride);
-  if XNN_UNPREDICTABLE(rows < 2) {
-    i1 = i0;
-    o1 = o0;
-  }
 
   const size_t input_increment = input_stride * 2 - channels;
   const size_t output_increment = output_stride * 2 - channels;
 
-  const v128_t vzero = wasm_i32x4_splat(0);
   do {
+    if XNN_UNPREDICTABLE(rows < 2) {
+      i1 = i0;
+      o1 = o0;
+    }
+
     const float* w = weights;
     size_t c = channels;
     for (; c >= 8 * sizeof(float); c -= 8 * sizeof(float)) {
@@ -57,13 +57,13 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
       i1 += 8;
 
       v128_t vacc0x0123 = wasm_f32x4_mul(vi0x0123, vw0123);
-      const v128_t vmask0x0123 = wasm_i32x4_lt(vi0x0123, vzero);
+      const v128_t vmask0x0123 = wasm_i32x4_shr(vi0x0123, 31);
       v128_t vacc0x4567 = wasm_f32x4_mul(vi0x4567, vw4567);
-      const v128_t vmask0x4567 = wasm_i32x4_lt(vi0x4567, vzero);
+      const v128_t vmask0x4567 = wasm_i32x4_shr(vi0x4567, 31);
       v128_t vacc1x0123 = wasm_f32x4_mul(vi1x0123, vw0123);
-      const v128_t vmask1x0123 = wasm_i32x4_lt(vi1x0123, vzero);
+      const v128_t vmask1x0123 = wasm_i32x4_shr(vi1x0123, 31);
       v128_t vacc1x4567 = wasm_f32x4_mul(vi1x4567, vw4567);
-      const v128_t vmask1x4567 = wasm_i32x4_lt(vi1x4567, vzero);
+      const v128_t vmask1x4567 = wasm_i32x4_shr(vi1x4567, 31);
 
       vacc0x0123 = wasm_v128_bitselect(vacc0x0123, vi0x0123, vmask0x0123);
       vacc0x4567 = wasm_v128_bitselect(vacc0x4567, vi0x4567, vmask0x4567);
@@ -87,9 +87,9 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
       i1 += 4;
 
       v128_t vacc0x0123 = wasm_f32x4_mul(vi0x0123, vw0123);
-      const v128_t vmask0x0123 = wasm_i32x4_lt(vi0x0123, vzero);
+      const v128_t vmask0x0123 = wasm_i32x4_shr(vi0x0123, 31);
       v128_t vacc1x0123 = wasm_f32x4_mul(vi1x0123, vw0123);
-      const v128_t vmask1x0123 = wasm_i32x4_lt(vi1x0123, vzero);
+      const v128_t vmask1x0123 = wasm_i32x4_shr(vi1x0123, 31);
 
       vacc0x0123 = wasm_v128_bitselect(vacc0x0123, vi0x0123, vmask0x0123);
       vacc1x0123 = wasm_v128_bitselect(vacc1x0123, vi1x0123, vmask1x0123);
@@ -109,9 +109,9 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
       i1 = (const float*) ((uintptr_t) i1 + c);
 
       v128_t vacc0x0123 = wasm_f32x4_mul(vi0x0123, vw0123);
-      const v128_t vmask0x0123 = wasm_i32x4_lt(vi0x0123, vzero);
+      const v128_t vmask0x0123 = wasm_i32x4_shr(vi0x0123, 31);
       v128_t vacc1x0123 = wasm_f32x4_mul(vi1x0123, vw0123);
-      const v128_t vmask1x0123 = wasm_i32x4_lt(vi1x0123, vzero);
+      const v128_t vmask1x0123 = wasm_i32x4_shr(vi1x0123, 31);
 
       vacc0x0123 = wasm_v128_bitselect(vacc0x0123, vi0x0123, vmask0x0123);
       vacc1x0123 = wasm_v128_bitselect(vacc1x0123, vi1x0123, vmask1x0123);
@@ -138,10 +138,6 @@ void xnn_f32_prelu_ukernel__wasmsimd_bitselect_2x8(
     o0 = (float*) ((uintptr_t) o0 + output_increment);
     i1 = (const float*) ((uintptr_t) i1 + input_increment);
     o1 = (float*) ((uintptr_t) o1 + output_increment);
-    if XNN_UNPREDICTABLE(rows < 4) {
-      i1 = i0;
-      o1 = o0;
-    }
     rows = doz(rows, 2);
   } while (rows != 0);
 }

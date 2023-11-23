@@ -16,27 +16,32 @@
 
 package android.app.cts;
 
+import static org.junit.Assert.assertSame;
+
 import android.os.Parcel;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
 
 public class UserHandleTest extends AndroidTestCase {
     private static final int TEST_APP_ID = 1234;
+
     private static void assertSameUserHandle(int userId) {
         assertSame(UserHandle.of(userId), UserHandle.of(userId));
     }
 
     public void testOf() {
-        for (int i = -1000; i < 100; i++) {
-            assertEquals(i, UserHandle.of(i).getIdentifier());
-        }
-
-        // Ensure common objects are cached.
+        // We test them separately since technically it's possible for these constants to have
+        // different values than the AOSP contains and are out of the [-1000, 1000] range.
         assertSameUserHandle(UserHandle.USER_SYSTEM);
         assertSameUserHandle(UserHandle.USER_ALL);
         assertSameUserHandle(UserHandle.USER_NULL);
-        assertSameUserHandle(UserHandle.MIN_SECONDARY_USER_ID);
-        assertSameUserHandle(UserHandle.MIN_SECONDARY_USER_ID + 1);
+
+        for (int userId = -1000; userId <= 1000; userId++) {
+            assertEquals(userId, UserHandle.of(userId).getIdentifier());
+
+            // Because of the cache, this should always be true.
+            assertSameUserHandle(userId);
+        }
     }
 
     private static void assertParcel(int userId) {

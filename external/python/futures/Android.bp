@@ -41,11 +41,3 @@ license {
         "LICENSE",
     ],
 }
-
-python_library {
-  name: "py2-futures",
-  srcs: [
-    "concurrent/**/*.py",
-  ],
-  defaults: ["py2_only"],
-}

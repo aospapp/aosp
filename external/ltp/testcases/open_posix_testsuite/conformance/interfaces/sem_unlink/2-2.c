@@ -76,14 +76,14 @@
 #define VERBOSE 1
 #endif
 
-#define SEM_NAME  "/sem_unlink_9_1"
+#define SEM_NAME  "/sem_unlink_2_2"
 
 /******************************************************************************/
 /***************************    Test case   ***********************************/
 /******************************************************************************/
 
 /* Operations common to all processes on the semaphore*/
-sem_t *common()
+static sem_t *common()
 {
 	int ret;
 	sem_t *sem;

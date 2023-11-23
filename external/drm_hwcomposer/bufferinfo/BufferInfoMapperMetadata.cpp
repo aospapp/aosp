@@ -47,42 +47,54 @@ BufferInfoGetter *BufferInfoMapperMetadata::CreateInstance() {
  */
 int __attribute__((weak))
 BufferInfoMapperMetadata::GetFds(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  int num_fds = handle->numFds;
+  int fd_index = 0;
 
-  if (num_fds >= 1 && num_fds <= 2) {
-    if (IsDrmFormatRgb(bo->format)) {
-      bo->prime_fds[0] = handle->data[0];
-    } else {
-      bo->prime_fds[0] = bo->prime_fds[1] = bo->prime_fds[2] = handle->data[0];
-    }
-    if (bo->prime_fds[0] <= 0) {
-      ALOGE("Encountered invalid fd %d", bo->prime_fds[0]);
-      return android::BAD_VALUE;
+  if (handle->numFds <= 0) {
+    ALOGE("Handle has no fds");
+    return android::BAD_VALUE;
+  }
+
+  for (int i = 0; i < kHwcDrmBoMaxPlanes; i++) {
+    /* If no size, we're out of usable planes */
+    if (bo->sizes[i] <= 0) {
+      if (i == 0) {
+        ALOGE("Bad handle metadata");
+        return android::BAD_VALUE;
+      }
+      break;
     }
 
-  } else if (num_fds >= 3) {
-    bo->prime_fds[0] = handle->data[0];
-    bo->prime_fds[1] = handle->data[1];
-    bo->prime_fds[2] = handle->data[2];
-    for (int i = 0; i < 3; i++) {
-      if (bo->prime_fds[i] <= 0) {
-        ALOGE("Encountered invalid fd %d", bo->prime_fds[i]);
+    /*
+     * If the offset is zero, its multi-buffer
+     * so move to the next fd
+     */
+    if (i != 0 && bo->offsets[i] == 0) {
+      fd_index++;
+      if (fd_index >= handle->numFds) {
+        ALOGE("Handle has no more fds");
         return android::BAD_VALUE;
       }
     }
+
+    bo->prime_fds[i] = handle->data[fd_index];
+    if (bo->prime_fds[i] <= 0) {
+      ALOGE("Invalid prime fd");
+      return android::BAD_VALUE;
+    }
   }
+
   return 0;
 }
 
 int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
                                             hwc_drm_bo_t *bo) {
   GraphicBufferMapper &mapper = GraphicBufferMapper::getInstance();
-  if (!handle)
+  if (handle == nullptr)
     return -EINVAL;
 
   uint64_t usage = 0;
   int err = mapper.getUsage(handle, &usage);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get usage err=%d", err);
     return err;
   }
@@ -90,27 +102,27 @@ int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
 
   ui::PixelFormat hal_format;
   err = mapper.getPixelFormatRequested(handle, &hal_format);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get HAL Pixel Format err=%d", err);
     return err;
   }
   bo->hal_format = static_cast<uint32_t>(hal_format);
 
   err = mapper.getPixelFormatFourCC(handle, &bo->format);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get FourCC format err=%d", err);
     return err;
   }
 
   err = mapper.getPixelFormatModifier(handle, &bo->modifiers[0]);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get DRM Modifier err=%d", err);
     return err;
   }
 
   uint64_t width = 0;
   err = mapper.getWidth(handle, &width);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get Width err=%d", err);
     return err;
   }
@@ -118,7 +130,7 @@ int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
 
   uint64_t height = 0;
   err = mapper.getHeight(handle, &height);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get Height err=%d", err);
     return err;
   }
@@ -126,7 +138,7 @@ int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
 
   std::vector<ui::PlaneLayout> layouts;
   err = mapper.getPlaneLayouts(handle, &layouts);
-  if (err) {
+  if (err != 0) {
     ALOGE("Failed to get Plane Layouts err=%d", err);
     return err;
   }
@@ -135,6 +147,7 @@ int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
     bo->modifiers[i] = bo->modifiers[0];
     bo->pitches[i] = layouts[i].strideInBytes;
     bo->offsets[i] = layouts[i].offsetInBytes;
+    bo->sizes[i] = layouts[i].totalSizeInBytes;
   }
 
   return GetFds(handle, bo);

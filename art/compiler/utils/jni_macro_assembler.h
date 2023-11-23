@@ -111,8 +111,13 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
   virtual void IncreaseFrameSize(size_t adjust) = 0;
   virtual void DecreaseFrameSize(size_t adjust) = 0;
 
+  // Return the same core register but with correct size if the architecture-specific
+  // ManagedRegister has different representation for different sizes.
+  virtual ManagedRegister CoreRegisterWithSize(ManagedRegister src, size_t size) = 0;
+
   // Store routines
   virtual void Store(FrameOffset offs, ManagedRegister src, size_t size) = 0;
+  virtual void Store(ManagedRegister base, MemberOffset offs, ManagedRegister src, size_t size) = 0;
   virtual void StoreRef(FrameOffset dest, ManagedRegister src) = 0;
   virtual void StoreRawPtr(FrameOffset dest, ManagedRegister src) = 0;
 
@@ -129,6 +134,7 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
 
   // Load routines
   virtual void Load(ManagedRegister dest, FrameOffset src, size_t size) = 0;
+  virtual void Load(ManagedRegister dest, ManagedRegister base, MemberOffset offs, size_t size) = 0;
 
   virtual void LoadFromThread(ManagedRegister dest,
                               ThreadOffset<kPointerSize> src,
@@ -146,7 +152,16 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
   virtual void LoadRawPtrFromThread(ManagedRegister dest, ThreadOffset<kPointerSize> offs) = 0;
 
   // Copying routines
-  virtual void MoveArguments(ArrayRef<ArgumentLocation> dests, ArrayRef<ArgumentLocation> srcs) = 0;
+
+  // Move arguments from `srcs` locations to `dests` locations.
+  //
+  // References shall be spilled to `refs` frame offsets (kInvalidReferenceOffset indicates
+  // a non-reference type) if they are in registers and corresponding `dests` shall be
+  // filled with `jobject` replacements. If the first argument is a reference, it is
+  // assumed to be `this` and cannot be null, all other reference arguments can be null.
+  virtual void MoveArguments(ArrayRef<ArgumentLocation> dests,
+                             ArrayRef<ArgumentLocation> srcs,
+                             ArrayRef<FrameOffset> refs) = 0;
 
   virtual void Move(ManagedRegister dest, ManagedRegister src, size_t size) = 0;
 
@@ -233,12 +248,29 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
 
   // Call to address held at [base+offset]
   virtual void Call(ManagedRegister base, Offset offset) = 0;
-  virtual void Call(FrameOffset base, Offset offset) = 0;
   virtual void CallFromThread(ThreadOffset<kPointerSize> offset) = 0;
 
+  // Generate fast-path for transition to Native. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be callee save core registers
+  // (already saved before this call) and must preserve all argument registers.
+  virtual void TryToTransitionFromRunnableToNative(
+      JNIMacroLabel* label, ArrayRef<const ManagedRegister> scratch_regs) = 0;
+
+  // Generate fast-path for transition to Runnable. Go to `label` if any thread flag is set.
+  // The implementation can use `scratch_regs` which should be core argument registers
+  // not used as return registers and it must preserve the `return_reg` if any.
+  virtual void TryToTransitionFromNativeToRunnable(JNIMacroLabel* label,
+                                                   ArrayRef<const ManagedRegister> scratch_regs,
+                                                   ManagedRegister return_reg) = 0;
+
+  // Generate suspend check and branch to `label` if there is a pending suspend request.
+  virtual void SuspendCheck(JNIMacroLabel* label) = 0;
+
   // Generate code to check if Thread::Current()->exception_ is non-null
-  // and branch to a ExceptionSlowPath if it is.
-  virtual void ExceptionPoll(size_t stack_adjust) = 0;
+  // and branch to the `label` if it is.
+  virtual void ExceptionPoll(JNIMacroLabel* label) = 0;
+  // Deliver pending exception.
+  virtual void DeliverPendingException() = 0;
 
   // Create a new label that can be used with Jump/Bind calls.
   virtual std::unique_ptr<JNIMacroLabel> CreateLabel() = 0;
@@ -246,6 +278,10 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
   virtual void Jump(JNIMacroLabel* label) = 0;
   // Emit a conditional jump to the label by applying a unary condition test to the GC marking flag.
   virtual void TestGcMarking(JNIMacroLabel* label, JNIMacroUnaryCondition cond) = 0;
+  // Emit a conditional jump to the label by applying a unary condition test to object's mark bit.
+  virtual void TestMarkBit(ManagedRegister ref,
+                           JNIMacroLabel* label,
+                           JNIMacroUnaryCondition cond) = 0;
   // Code at this offset will serve as the target for the Jump call.
   virtual void Bind(JNIMacroLabel* label) = 0;
 
@@ -260,6 +296,8 @@ class JNIMacroAssembler : public DeletableArenaObject<kArenaAllocAssembler> {
   void SetEmitRunTimeChecksInDebugMode(bool value) {
     emit_run_time_checks_in_debug_mode_ = value;
   }
+
+  static constexpr FrameOffset kInvalidReferenceOffset = FrameOffset(0);
 
  protected:
   JNIMacroAssembler() {}

@@ -1,13 +1,19 @@
 import init.${ro.hardware}.usb.rc
 import init.${ro.hardware}.power.rc
 
+on early-fs
+    start vold
+
 on fs
-    mount_all /vendor/etc/fstab.${ro.hardware}
+    mount_all /vendor/etc/fstab.${ro.hardware} --early
     swapon_all /vendor/etc/fstab.${ro.hardware}
 
 on post-fs
     # set RLIMIT_MEMLOCK to 64MB
     setrlimit 8 67108864 67108864
+
+on late-fs
+    mount_all /vendor/etc/fstab.${ro.hardware} --late
 
 on init
     # For legacy support

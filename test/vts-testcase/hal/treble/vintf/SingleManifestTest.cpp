@@ -17,6 +17,7 @@
 #include "SingleManifestTest.h"
 
 #include <aidl/metadata.h>
+#include <android-base/hex.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android/apex/ApexInfo.h>
@@ -271,7 +272,8 @@ TEST_P(SingleManifestTest, HalsAreBinderized) {
       std::inserter(passthrough_not_allowed, passthrough_not_allowed.begin()));
 
   EXPECT_TRUE(passthrough_not_allowed.empty())
-      << "The following HALs can't be passthrough under Treble rules: ["
+      << "The following HALs can't be passthrough under Treble rules (or they "
+         "can't be retrieved): ["
       << InstancesToString(passthrough_not_allowed) << "].";
 }
 
@@ -455,10 +457,9 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
     vector<string> hash_chain{};
     hal_service->getHashChain(
         [&hash_chain](const hidl_vec<HashCharArray> &chain) {
-          for (const HashCharArray &hash_array : chain) {
-            vector<uint8_t> hash{hash_array.data(),
-                                 hash_array.data() + hash_array.size()};
-            hash_chain.push_back(Hash::hexString(hash));
+          for (const HashCharArray &hash : chain) {
+            hash_chain.push_back(
+                android::base::HexString(hash.data(), hash.size()));
           }
         });
 
@@ -471,7 +472,8 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
         return;
       }
       string hash = hash_chain[i];
-      if (hash == Hash::hexString(Hash::kEmptyHash)) {
+      if (hash == android::base::HexString(Hash::kEmptyHash.data(),
+                                           Hash::kEmptyHash.size())) {
         FailureHashMissing(fq_iface_name);
       } else if (IsAndroidPlatformInterface(fq_iface_name)) {
         set<string> released_hashes = ReleasedHashes(fq_iface_name);
@@ -486,14 +488,15 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
   ForEachHidlHalInstance(GetParam(), is_released);
 }
 
-static std::vector<std::string> hashesForInterface(const std::string &name) {
+static std::optional<AidlInterfaceMetadata> metadataForInterface(
+    const std::string &name) {
   for (const auto &module : AidlInterfaceMetadata::all()) {
     if (std::find(module.types.begin(), module.types.end(), name) !=
         module.types.end()) {
-      return module.hashes;
+      return module;
     }
   }
-  return {};
+  return std::nullopt;
 }
 
 // TODO(b/150155678): using standard code to do this
@@ -573,9 +576,13 @@ static void CheckAidlVersionMatchesDeclared(sp<IBinder> binder,
     return;
   }
 
-  ADD_FAILURE() << "For " << name << ", manifest (" << shipping_fcm_version
-                << ") declares version " << declared_version
-                << ", but the actual version is " << actual_version;
+  ADD_FAILURE()
+      << "For " << name << ", manifest (" << shipping_fcm_version
+      << ") declares version " << declared_version
+      << ", but the actual version is " << actual_version << std::endl
+      << "Either the VINTF manifest <hal> entry needs to be updated with a "
+         "version tag for the actual version, or the implementation should be "
+         "changed to use the declared version";
 }
 
 // An AIDL HAL with VINTF stability can only be registered if it is in the
@@ -600,17 +607,30 @@ TEST_P(SingleManifestTest, ManifestAidlHalsServed) {
     CheckAidlVersionMatchesDeclared(binder, name, version, allow_upgrade);
 
     const std::string hash = getInterfaceHash(binder);
-    const std::vector<std::string> hashes = hashesForInterface(type);
+    const std::optional<AidlInterfaceMetadata> metadata =
+        metadataForInterface(type);
 
     const bool is_aosp = base::StartsWith(package, "android.");
+    ASSERT_TRUE(!is_aosp || metadata)
+        << "AOSP interface must have metadata: " << package;
+
     const bool is_release =
         base::GetProperty("ro.build.version.codename", "") == "REL";
+
+    const bool is_existing =
+        metadata
+            ? std::find(metadata->versions.begin(), metadata->versions.end(),
+                        version) != metadata->versions.end()
+            : false;
+
+    const std::vector<std::string> hashes =
+        metadata ? metadata->hashes : std::vector<std::string>();
     const bool found_hash =
         std::find(hashes.begin(), hashes.end(), hash) != hashes.end();
 
     if (is_aosp) {
       if (!found_hash) {
-        if (is_release) {
+        if (is_release || is_existing) {
           ADD_FAILURE() << "Interface " << name
                         << " has an unrecognized hash: '" << hash
                         << "'. The following hashes are known:\n"

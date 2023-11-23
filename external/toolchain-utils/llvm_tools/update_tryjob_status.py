@@ -16,7 +16,6 @@ import subprocess
 import sys
 
 import chroot
-from subprocess_helpers import ChrootRunCommand
 from test_helpers import CreateTemporaryJsonFile
 
 
@@ -31,17 +30,6 @@ class TryjobStatus(enum.Enum):
   # Executes the script passed into the command line (this script's exit code
   # determines the 'status' value of the tryjob).
   CUSTOM_SCRIPT = 'custom_script'
-
-  # Uses the result returned by 'cros buildresult'.
-  AUTO = 'auto'
-
-
-class BuilderStatus(enum.Enum):
-  """Actual values given via 'cros buildresult'."""
-
-  PASS = 'pass'
-  FAIL = 'fail'
-  RUNNING = 'running'
 
 
 class CustomScriptStatus(enum.Enum):
@@ -64,12 +52,6 @@ custom_script_exit_value_mapping = {
     CustomScriptStatus.GOOD.value: TryjobStatus.GOOD.value,
     CustomScriptStatus.BAD.value: TryjobStatus.BAD.value,
     CustomScriptStatus.SKIP.value: TryjobStatus.SKIP.value
-}
-
-builder_status_mapping = {
-    BuilderStatus.PASS.value: TryjobStatus.GOOD.value,
-    BuilderStatus.FAIL.value: TryjobStatus.BAD.value,
-    BuilderStatus.RUNNING.value: TryjobStatus.PENDING.value
 }
 
 
@@ -106,12 +88,6 @@ def GetCommandLineArgs():
       type=int,
       help='The revision to set its status.')
 
-  # Add argument for a specific chroot path.
-  parser.add_argument(
-      '--chroot_path',
-      default=cros_root,
-      help='the path to the chroot (default: %(default)s)')
-
   # Add argument for the custom script to execute for the 'custom_script'
   # option in '--set_status'.
   parser.add_argument(
@@ -123,13 +99,14 @@ def GetCommandLineArgs():
 
   args_output = parser.parse_args()
 
-  if not os.path.isfile(args_output.status_file) or \
-      not args_output.status_file.endswith('.json'):
+  if not (os.path.isfile(
+      args_output.status_file and
+      not args_output.status_file.endswith('.json'))):
     raise ValueError('File does not exist or does not ending in ".json" '
                      ': %s' % args_output.status_file)
 
-  if args_output.set_status == TryjobStatus.CUSTOM_SCRIPT.value and \
-      not args_output.custom_script:
+  if (args_output.set_status == TryjobStatus.CUSTOM_SCRIPT.value and
+      not args_output.custom_script):
     raise ValueError('Please provide the absolute path to the script to '
                      'execute.')
 
@@ -163,35 +140,6 @@ def FindTryjobIndex(revision, tryjobs_list):
       return cur_index
 
   return None
-
-
-def GetStatusFromCrosBuildResult(chroot_path, buildbucket_id):
-  """Retrieves the 'status' using 'cros buildresult'."""
-
-  get_buildbucket_id_cmd = [
-      'cros', 'buildresult', '--buildbucket-id',
-      str(buildbucket_id), '--report', 'json'
-  ]
-
-  tryjob_json = ChrootRunCommand(chroot_path, get_buildbucket_id_cmd)
-
-  tryjob_contents = json.loads(tryjob_json)
-
-  return str(tryjob_contents['%d' % buildbucket_id]['status'])
-
-
-def GetAutoResult(chroot_path, buildbucket_id):
-  """Returns the conversion of the result of 'cros buildresult'."""
-
-  # Calls 'cros buildresult' to get the status of the tryjob.
-  build_result = GetStatusFromCrosBuildResult(chroot_path, buildbucket_id)
-
-  # The string returned by 'cros buildresult' might not be in the mapping.
-  if build_result not in builder_status_mapping:
-    raise ValueError(
-        '"cros buildresult" return value is invalid: %s' % build_result)
-
-  return builder_status_mapping[build_result]
 
 
 def GetCustomScriptResult(custom_script, status_file, tryjob_contents):
@@ -245,18 +193,15 @@ def GetCustomScriptResult(custom_script, status_file, tryjob_contents):
   return custom_script_exit_value_mapping[exec_script_cmd_obj.returncode]
 
 
-def UpdateTryjobStatus(revision, set_status, status_file, chroot_path,
-                       custom_script):
+def UpdateTryjobStatus(revision, set_status, status_file, custom_script):
   """Updates a tryjob's 'status' field based off of 'set_status'.
 
   Args:
     revision: The revision associated with the tryjob.
     set_status: What to update the 'status' field to.
       Ex: TryjobStatus.Good, TryjobStatus.BAD, TryjobStatus.PENDING, or
-      TryjobStatus.AUTO where TryjobStatus.AUTO uses the result of
-      'cros buildresult'.
+      TryjobStatus.
     status_file: The .JSON file that contains the tryjobs.
-    chroot_path: The absolute path to the chroot (used by 'cros buildresult').
     custom_script: The absolute path to a script that will be executed which
     will determine the 'status' value of the tryjob.
   """
@@ -282,8 +227,8 @@ def UpdateTryjobStatus(revision, set_status, status_file, chroot_path,
 
   # 'FindTryjobIndex()' returns None if the revision was not found.
   if tryjob_index is None:
-    raise ValueError(
-        'Unable to find tryjob for %d in %s' % (revision, status_file))
+    raise ValueError('Unable to find tryjob for %d in %s' %
+                     (revision, status_file))
 
   # Set 'status' depending on 'set_status' for the tryjob.
   if set_status == TryjobStatus.GOOD:
@@ -292,9 +237,6 @@ def UpdateTryjobStatus(revision, set_status, status_file, chroot_path,
     bisect_contents['jobs'][tryjob_index]['status'] = TryjobStatus.BAD.value
   elif set_status == TryjobStatus.PENDING:
     bisect_contents['jobs'][tryjob_index]['status'] = TryjobStatus.PENDING.value
-  elif set_status == TryjobStatus.AUTO:
-    bisect_contents['jobs'][tryjob_index]['status'] = GetAutoResult(
-        chroot_path, bisect_contents['jobs'][tryjob_index]['buildbucket_id'])
   elif set_status == TryjobStatus.SKIP:
     bisect_contents['jobs'][tryjob_index]['status'] = TryjobStatus.SKIP.value
   elif set_status == TryjobStatus.CUSTOM_SCRIPT:
@@ -315,8 +257,7 @@ def main():
   args_output = GetCommandLineArgs()
 
   UpdateTryjobStatus(args_output.revision, TryjobStatus(args_output.set_status),
-                     args_output.status_file, args_output.chroot_path,
-                     args_output.custom_script)
+                     args_output.status_file, args_output.custom_script)
 
 
 if __name__ == '__main__':

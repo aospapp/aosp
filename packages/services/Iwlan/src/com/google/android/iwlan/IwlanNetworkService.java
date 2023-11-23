@@ -220,7 +220,6 @@ public class IwlanNetworkService extends NetworkService {
 
             NetworkRegistrationInfo.Builder nriBuilder = new NetworkRegistrationInfo.Builder();
             nriBuilder
-                    .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
                     .setAvailableServices(Arrays.asList(NetworkRegistrationInfo.SERVICE_TYPE_DATA))
                     .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
                     .setEmergencyOnly(!mIsSubActive)
@@ -229,11 +228,15 @@ public class IwlanNetworkService extends NetworkService {
             if (!IwlanNetworkService.isNetworkConnected(
                     IwlanHelper.isDefaultDataSlot(mContext, getSlotIndex()),
                     IwlanHelper.isCrossSimCallingEnabled(mContext, getSlotIndex()))) {
-                nriBuilder.setRegistrationState(
-                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_SEARCHING);
+                nriBuilder
+                        .setRegistrationState(
+                                NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_SEARCHING)
+                        .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_UNKNOWN);
                 Log.d(SUB_TAG, "reg state REGISTRATION_STATE_NOT_REGISTERED_SEARCHING");
             } else {
-                nriBuilder.setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_HOME);
+                nriBuilder
+                        .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                        .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN);
                 Log.d(SUB_TAG, "reg state REGISTRATION_STATE_HOME");
             }
 

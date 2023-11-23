@@ -27,63 +27,66 @@ typedef enum fatAccessMode_t {
 } fatAccessMode_t;
 
 typedef struct Fs_t {
-	Class_t *Class;
-	int refs;
-	Stream_t *Next;
-	Stream_t *Buffer;
-	
+	struct Stream_t head;
+
 	int serialized;
 	unsigned long serial_number;
-	unsigned int cluster_size;
-	unsigned int sector_size;
+	uint8_t cluster_size;
+	uint16_t sector_size;
+	
 	int fat_error;
 
 	unsigned int (*fat_decode)(struct Fs_t *This, unsigned int num);
 	void (*fat_encode)(struct Fs_t *This, unsigned int num,
 			   unsigned int code);
 
-	Stream_t *Direct;
 	int fat_dirty;
-	unsigned int fat_start;
-	unsigned int fat_len;
+	uint16_t fat_start;
+	uint32_t fat_len;
 
-	unsigned int num_fat;
-	unsigned int end_fat;
-	unsigned int last_fat;
-	int fat_bits; /* must be signed, because we use negative values
-		       * for special purposes */
+	uint8_t num_fat;
+	uint32_t end_fat;
+	uint32_t last_fat;
+	unsigned int fat_bits; /* When it ends up here, all negative
+				  special values have been
+				  eliminated */
+
 	struct FatMap_t *FatMap;
 
-	unsigned int dir_start;
-	unsigned int dir_len;
-	unsigned int clus_start;
+	uint32_t dir_start;
+	uint16_t dir_len;
+	uint32_t clus_start;
 
-	unsigned int num_clus;
+	uint32_t num_clus;
 	char drive; /* for error messages */
 
 	/* fat 32 */
-	unsigned int primaryFat;
-	unsigned int writeAllFats;
-	unsigned int rootCluster;
-	unsigned int infoSectorLoc;
-	unsigned int last; /* last sector allocated, or MAX32 if unknown */
-	unsigned int freeSpace; /* free space, or MAX32 if unknown */
-	int preallocatedClusters;
+	uint32_t primaryFat;
+	uint32_t writeAllFats;
+	uint32_t rootCluster;
+	uint32_t infoSectorLoc;
+	uint16_t backupBoot;
+	uint32_t last; /* last sector allocated, or MAX32 if unknown */
+	uint32_t freeSpace; /* free space, or MAX32 if unknown */
+	unsigned int preallocatedClusters;
 
-	int lastFatSectorNr;
+	uint32_t lastFatSectorNr;
 	unsigned char *lastFatSectorData;
 	fatAccessMode_t lastFatAccessMode;
-	int sectorMask;
-	int sectorShift;
+	unsigned int sectorMask;
+	unsigned int sectorShift;
 
 	doscp_t *cp;
 } Fs_t;
 
+#ifndef abs
+#define abs(x) ((unsigned int)((x)>0?(x):-(x)))
+#endif
+
+mt_off_t sectorsToBytes(Fs_t *This, uint32_t off);
 int fs_free(Stream_t *Stream);
 
-void set_fat12(Fs_t *Fs);
-void set_fat16(Fs_t *Fs);
-void set_fat32(Fs_t *Fs);
+void set_fat(Fs_t *This);
 unsigned int get_next_free_cluster(Fs_t *Fs, unsigned int last);
 unsigned int fatDecode(Fs_t *This, unsigned int pos);
 void fatAppend(Fs_t *This, unsigned int pos, unsigned int newpos);
@@ -91,13 +94,26 @@ void fatDeallocate(Fs_t *This, unsigned int pos);
 void fatAllocate(Fs_t *This, unsigned int pos, unsigned int value);
 void fatEncode(Fs_t *This, unsigned int pos, unsigned int value);
 
-int fat_read(Fs_t *This, union bootsector *boot,
-			 size_t tot_sectors, int nodups);
+int fat_read(Fs_t *This, union bootsector *boot, int nodups);
 void fat_write(Fs_t *This);
-int zero_fat(Fs_t *Fs, int media_descriptor);
+int zero_fat(Fs_t *Fs, uint8_t media_descriptor);
 extern Class_t FsClass;
-int fsPreallocateClusters(Fs_t *Fs, long);
+int fsPreallocateClusters(Fs_t *Fs, uint32_t);
+void fsReleasePreallocateClusters(Fs_t *Fs, uint32_t);
 Fs_t *getFs(Stream_t *Stream);
 
+int calc_fs_parameters(struct device *dev, bool fat32, uint32_t tot_sectors,
+		       struct Fs_t *Fs, uint8_t *descr);
+
+/* Fs_t *makeFsForFormat(void); */
+void initFsForFormat(Fs_t *Fs);
+void setFsSectorSize(Fs_t *Fs, struct device *dev, uint16_t msize);
+
+uint32_t parseFsParams(	Fs_t *This,
+			union bootsector *boot,
+			int media,
+			unsigned int cylinder_size);
+uint32_t calc_clus_start(Fs_t *Fs);
+int calc_num_clus(Fs_t *Fs, uint32_t tot_sectors);
 
 #endif

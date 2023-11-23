@@ -23,10 +23,15 @@
 #include <utils/KeyedVector.h>
 #include <utils/Vector.h>
 
+#include <atomic>
+#include <chrono>
+#include <set>
+
 #include "ExynosDisplayInterface.h"
 #include "ExynosHWC.h"
 #include "ExynosHWCDebug.h"
 #include "ExynosHWCHelper.h"
+#include "ExynosHwc3Types.h"
 #include "ExynosMPP.h"
 #include "ExynosResourceManager.h"
 #include "worker.h"
@@ -35,9 +40,9 @@
 #define HWC_PRINT_FRAME_NUM     10
 
 #define LOW_FPS_THRESHOLD     5
-#define MAX_BRIGHTNESS_LEN 5
 
 using ::android::hardware::graphics::composer::V2_4::VsyncPeriodNanos;
+using namespace std::chrono_literals;
 
 #ifndef SECOND_DISPLAY_START_BIT
 #define SECOND_DISPLAY_START_BIT   4
@@ -45,6 +50,7 @@ using ::android::hardware::graphics::composer::V2_4::VsyncPeriodNanos;
 
 typedef hwc2_composition_t exynos_composition;
 
+class BrightnessController;
 class ExynosLayer;
 class ExynosDevice;
 class ExynosMPP;
@@ -65,6 +71,21 @@ class IPowerExt;
 } // namespace hardware
 } // namespace google
 } // namespace aidl
+namespace aidl {
+namespace android {
+namespace hardware {
+namespace power {
+
+class IPower;
+class IPowerHintSession;
+class WorkDuration;
+
+} // namespace power
+} // namespace hardware
+} // namespace android
+} // namespace aidl
+
+using WorkDuration = aidl::android::hardware::power::WorkDuration;
 
 enum dynamic_recomp_mode {
     NO_MODE_SWITCH,
@@ -125,6 +146,13 @@ enum class hwc_request_state_t {
     SET_CONFIG_STATE_REQUESTED,
 };
 
+enum class DispIdleTimerRequester : uint32_t {
+    SF = 0,
+    PIXEL_DISP,
+    TEST,
+    MAX,
+};
+
 #define NUM_SKIP_STATIC_LAYER  5
 struct ExynosFrameInfo
 {
@@ -157,6 +185,7 @@ struct exynos_win_config_data
         WIN_STATE_BUFFER,
         WIN_STATE_UPDATE,
         WIN_STATE_CURSOR,
+        WIN_STATE_RCD,
     } state = WIN_STATE_DISABLED;
 
     uint32_t color = 0;
@@ -192,23 +221,22 @@ struct exynos_dpu_data
 {
     int retire_fence = -1;
     std::vector<exynos_win_config_data> configs;
+    std::vector<exynos_win_config_data> rcdConfigs;
+
     bool enable_win_update = false;
     std::atomic<bool> enable_readback = false;
     struct decon_frame win_update_region = {0, 0, 0, 0, 0, 0};
     struct exynos_readback_info readback_info;
 
-    void init(uint32_t configNum) {
-        for(uint32_t i = 0; i < configNum; i++)
-        {
-            exynos_win_config_data config_data;
-            configs.push_back(config_data);
-        }
+    void init(size_t configNum, size_t rcdConfigNum) {
+        configs.resize(configNum);
+        rcdConfigs.resize(rcdConfigNum);
     };
 
     void reset() {
         retire_fence = -1;
-        for (uint32_t i = 0; i < configs.size(); i++)
-            configs[i].reset();
+        for (auto& config : configs) config.reset();
+        for (auto& config : rcdConfigs) config.reset();
 
         /*
          * Should not initialize readback_info
@@ -222,6 +250,11 @@ struct exynos_dpu_data
             return *this;
         }
         configs = configs_data.configs;
+        if (rcdConfigs.size() != configs_data.rcdConfigs.size()) {
+            HWC_LOGE(NULL, "invalid config, it has different rcdConfigs size");
+            return *this;
+        }
+        rcdConfigs = configs_data.rcdConfigs;
         return *this;
     };
 };
@@ -330,63 +363,6 @@ struct DisplayControl {
     bool skipM2mProcessing = true;
 };
 
-typedef struct brightnessState {
-    enum MipiSyncType {
-        MIPI_SYNC_NONE,
-        MIPI_SYNC_GHBM_ON,
-        MIPI_SYNC_GHBM_OFF,
-        MIPI_SYNC_LHBM_ON,
-        MIPI_SYNC_LHBM_OFF,
-    };
-    static constexpr size_t kNumofBrightnessState = 3;
-    static constexpr float kSdrDimRatioNone = 1.0;
-    union {
-        std::array<bool, kNumofBrightnessState> mData;
-        struct {
-            bool instant_hbm;
-            bool peak_hbm;
-            bool local_hbm;
-        };
-    };
-    /** dim ratio calculated from current layer stack but will be delayed to apply **/
-    float dim_sdr_target_ratio = kSdrDimRatioNone;
-    /** dim ratio to apply to current frame and is 'dim_delay' frames behind
-     * dim_sdr_target_ratio **/
-    float dim_sdr_ratio = kSdrDimRatioNone;
-
-    // current Brightness value
-    float brightness_value;
-
-    // HDR layer is covering most of the screen
-    bool hdr_full_screen;
-
-    bool enhanced_hbm;
-
-    void reset() {
-        mData = {false, false, false};
-        dim_sdr_target_ratio = kSdrDimRatioNone;
-        hdr_full_screen = false;
-    }
-    bool dimSdrTransition() {
-        return dim_sdr_target_ratio != dim_sdr_ratio &&
-            (dim_sdr_target_ratio == kSdrDimRatioNone || dim_sdr_ratio == kSdrDimRatioNone);
-    }
-    brightnessState& operator=(const brightnessState& a) {
-        mData = a.mData;
-        dim_sdr_target_ratio = a.dim_sdr_target_ratio;
-        dim_sdr_ratio = a.dim_sdr_ratio;
-        brightness_value = a.brightness_value;
-        enhanced_hbm = a.enhanced_hbm;
-        return *this;
-    }
-    // TODO: add hdr_full_screen comparison
-    bool operator==(const brightnessState& a) const {
-        return a.mData == mData && a.dim_sdr_ratio == dim_sdr_ratio &&
-                a.dim_sdr_target_ratio == dim_sdr_target_ratio &&
-                a.brightness_value == brightness_value && a.enhanced_hbm == enhanced_hbm;
-    }
-} brightnessState_t;
-
 class ExynosDisplay {
     public:
         uint32_t mDisplayId;
@@ -411,7 +387,7 @@ class ExynosDisplay {
         ExynosDevice *mDevice;
 
         String8 mDisplayName;
-
+        HwcMountOrientation mMountOrientation = HwcMountOrientation::ROT_0;
         Mutex mDisplayMutex;
 
         /** State variables */
@@ -525,6 +501,8 @@ class ExynosDisplay {
         float mMaxAverageLuminance;
         float mMinLuminance;
 
+        std::unique_ptr<BrightnessController> mBrightnessController;
+
         /* For debugging */
         hwc_display_contents_1_t *mHWC1LayerList;
 
@@ -542,10 +520,6 @@ class ExynosDisplay {
 
         // Skip present frame if there was no validate after power on
         bool mSkipFrame;
-
-        FILE *mBrightnessFd;
-        FILE *mEarlyWakeupFd;
-        uint32_t mMaxBrightness;
 
         hwc_vsync_period_change_constraints_t mVsyncPeriodChangeConstraints;
         hwc_vsync_period_change_timeline_t mVsyncAppliedTimeLine;
@@ -863,11 +837,12 @@ class ExynosDisplay {
          */
         int32_t getDisplayBrightnessSupport(bool* outSupport);
 
-        /* setDisplayBrightness(displayToken, brightnesss)
+        /* setDisplayBrightness(displayToken, brightnesss, waitPresent)
          * Descriptor: HWC2_FUNCTION_SET_DISPLAY_BRIGHTNESS
          * Parameters:
          *   brightness - a number between 0.0f (minimum brightness) and 1.0f (maximum brightness), or
          *          -1.0f to turn the backlight off.
+         *   waitPresent - apply this brightness change at next Present time.
          *
          * Returns HWC2_ERROR_NONE or one of the following errors:
          *   HWC2_ERROR_BAD_DISPLAY   when the display is invalid, or
@@ -875,7 +850,7 @@ class ExynosDisplay {
          *   HWC2_ERROR_BAD_PARAMETER when the brightness is invalid, or
          *   HWC2_ERROR_NO_RESOURCES  when the brightness cannot be applied.
          */
-        virtual int32_t setDisplayBrightness(float brightness);
+        virtual int32_t setDisplayBrightness(float brightness, bool waitPresent = false);
 
         /* getDisplayConnectionType(..., outType)
          * Descriptor: HWC2_FUNCTION_GET_DISPLAY_CONNECTION_TYPE
@@ -956,6 +931,68 @@ class ExynosDisplay {
                 hwc_vsync_period_change_constraints_t* __unused vsyncPeriodChangeConstraints,
                 hwc_vsync_period_change_timeline_t* __unused outTimeline);
 
+        /**
+         * setBootDisplayConfig(..., config)
+         * Descriptor: HWC2_FUNCTION_SET_BOOT_DISPLAY_CONFIG
+         * Optional for HWC2 devices
+         *
+         * Sets the display config in which the device boots.
+         * If the device is unable to boot in this config for any reason (example HDMI display
+         * changed), the implementation should try to find a config which matches the resolution
+         * and refresh-rate of this config. If no such config exists, the implementation's
+         * preferred display config should be used.
+         *
+         * See also:
+         *     getPreferredBootDisplayConfig
+         *
+         * Parameters:
+         *     config - is the new boot time config for the display.
+         *
+         * Returns HWC2_ERROR_NONE or one of the following errors:
+         *     HWC2_ERROR_BAD_DISPLAY - when the display is invalid
+         *     HWC2_ERROR_BAD_CONFIG - when the configuration is invalid
+         *     HWC2_ERROR_UNSUPPORTED - when the display does not support boot display config
+         */
+        virtual int32_t setBootDisplayConfig(int32_t config);
+
+        /**
+         * clearBootDisplayConfig(...)
+         * Descriptor: HWC2_FUNCTION_CLEAR_BOOT_DISPLAY_CONFIG
+         * Optional for HWC2 devices
+         *
+         * Clears the boot display config.
+         * The device should boot in the implementation's preferred display config.
+         *
+         * Returns HWC2_ERROR_NONE or one of the following errors:
+         *     HWC2_ERROR_BAD_DISPLAY - when the display is invalid
+         *     HWC2_ERROR_UNSUPPORTED - when the display does not support boot display config
+         */
+        virtual int32_t clearBootDisplayConfig();
+
+        /**
+         * getPreferredBootDisplayConfig(..., config*)
+         * Descriptor: HWC2_FUNCTION_GET_PREFERRED_DISPLAY_CONFIG
+         * Optional for HWC2 devices
+         *
+         * Returns the implementation's preferred display config.
+         * This is display config used by the implementation at boot time, if the boot
+         * display config has not been requested yet, or if it has been previously cleared.
+         *
+         * See also:
+         *     setBootDisplayConfig
+         *
+         * Parameters:
+         *     outConfig - is the implementation's preferred display config
+         *
+         * Returns HWC2_ERROR_NONE or one of the following errors:
+         *     HWC2_ERROR_BAD_DISPLAY - when the display is invalid
+         *     HWC2_ERROR_BAD_CONFIG - when the configuration is invalid
+         *     HWC2_ERROR_UNSUPPORTED - when the display does not support boot display config
+         */
+        int32_t getPreferredBootDisplayConfig(int32_t* outConfig);
+
+        virtual int32_t getPreferredDisplayConfigInternal(int32_t *outConfig);
+
         /* setAutoLowLatencyMode(displayToken, on)
          * Descriptor: HWC2_FUNCTION_SET_AUTO_LOW_LATENCY_MODE
          * Optional for HWC2 devices
@@ -1034,20 +1071,37 @@ class ExynosDisplay {
          *       composer requests. If dataspace field is set to UNKNOWN, it means
          *       the hardware composer requests nothing, the client must ignore the
          *       returned client target property structure.
-         *
+         *   outDimmingStage - where should the SDR dimming happen. HWC3 only.
          * Returns HWC2_ERROR_NONE or one of the following errors:
          *   HWC2_ERROR_BAD_DISPLAY - an invalid display handle was passed in
          *   HWC2_ERROR_NOT_VALIDATED - validateDisplay has not been called for this
          *       display
          */
-        int32_t getClientTargetProperty(hwc_client_target_property_t* outClientTargetProperty);
+        virtual int32_t getClientTargetProperty(
+                hwc_client_target_property_t* outClientTargetProperty,
+                HwcDimmingStage *outDimmingStage = nullptr);
+
+        /*
+         * HWC3
+         *
+         * Execute any pending brightness changes.
+         */
+        int32_t flushDisplayBrightnessChange();
+
+        /*
+         * HWC3
+         *
+         * Get display mount orientation.
+         *
+         */
+        int32_t getMountOrientation(HwcMountOrientation *orientation);
 
         /* setActiveConfig MISCs */
         bool isBadConfig(hwc2_config_t config);
         bool needNotChangeConfig(hwc2_config_t config);
         int32_t updateInternalDisplayConfigVariables(
                 hwc2_config_t config, bool updateVsync = true);
-        int32_t resetConfigRequestStateLocked();
+        int32_t resetConfigRequestStateLocked(hwc2_config_t config);
         int32_t updateConfigRequestAppliedTime();
         int32_t updateVsyncAppliedTimeLine(int64_t actualChangeTime);
         int32_t getDisplayVsyncPeriodInternal(
@@ -1057,8 +1111,10 @@ class ExynosDisplay {
         int32_t getConfigAppliedTime(const uint64_t desiredTime,
                 const uint64_t actualChangeTime,
                 int64_t &appliedTime, int64_t &refreshTime);
-        void updateBtsVsyncPeriod(uint32_t vsyncPeriod, bool forceUpdate = false);
+        void updateBtsVsyncPeriod(uint32_t vsyncPeriod, bool configApplied = false);
         uint32_t getBtsRefreshRate() const;
+        virtual void checkBtsReassignResource(const uint32_t __unused vsyncPeriod,
+                                              const uint32_t __unused btsVsyncPeriod) {}
 
         /* TODO : TBD */
         int32_t setCursorPositionAsync(uint32_t x_pos, uint32_t y_pos);
@@ -1115,6 +1171,7 @@ class ExynosDisplay {
         virtual bool checkRrCompensationEnabled() { return false; };
         virtual bool isColorCalibratedByDevice() { return false; };
         virtual int32_t getColorAdjustedDbv(uint32_t &) { return NO_ERROR; }
+
         virtual int32_t SetCurrentPanelGammaSource(const displaycolor::DisplayType /* type */,
                                                    const PanelGammaSource& /* source */) {
             return HWC2_ERROR_UNSUPPORTED;
@@ -1129,11 +1186,21 @@ class ExynosDisplay {
 
         int32_t checkPowerHalExtHintSupport(const std::string& mode);
 
-        virtual bool isLhbmSupported() { return false; }
         virtual int32_t setLhbmState(bool __unused enabled) { return NO_ERROR; }
         virtual bool getLhbmState() { return false; };
-        virtual void notifyLhbmState(bool __unused enabled) {}
-        virtual void setWakeupDisplay() {}
+        virtual void setEarlyWakeupDisplay() {}
+        virtual void setExpectedPresentTime(uint64_t __unused timestamp) {}
+        virtual uint64_t getPendingExpectedPresentTime() { return 0; }
+        virtual void applyExpectedPresentTime() {}
+        virtual int32_t getDisplayIdleTimerSupport(bool& outSupport);
+        virtual int32_t setDisplayIdleTimer(const int32_t __unused timeoutMs) {
+            return HWC2_ERROR_UNSUPPORTED;
+        }
+        virtual void handleDisplayIdleEnter(const uint32_t __unused idleTeRefreshRate) {}
+
+        virtual PanelCalibrationStatus getPanelCalibrationStatus() {
+            return PanelCalibrationStatus::UNCALIBRATED;
+        }
 
         /* getDisplayPreAssignBit support mIndex up to 1.
            It supports only dual LCD and 2 external displays */
@@ -1141,9 +1208,10 @@ class ExynosDisplay {
             uint32_t type = SECOND_DISPLAY_START_BIT * mIndex + mType;
             return 1 << type;
         }
-        void requestEnhancedHbm(bool on) { mBrightnessState.enhanced_hbm = on; };
 
         void cleanupAfterClientDeath();
+        int32_t getRCDLayerSupport(bool& outSupport) const;
+        int32_t setDebugRCDLayerEnabled(bool enable);
 
     protected:
         virtual bool getHDRException(ExynosLayer *layer);
@@ -1151,6 +1219,7 @@ class ExynosDisplay {
         virtual int32_t setActiveConfigInternal(hwc2_config_t config, bool force);
 
         void updateRefreshRateHint();
+        bool isFullScreenComposition();
 
     public:
         /**
@@ -1159,27 +1228,26 @@ class ExynosDisplay {
          * interface type.
          */
         std::unique_ptr<ExynosDisplayInterface> mDisplayInterface;
-
-        const brightnessState_t& getBrightnessState() const { return mBrightnessState; }
-        void updateForMipiSync(brightnessState_t::MipiSyncType type) {
-            if (type == brightnessState_t::MIPI_SYNC_GHBM_ON ||
-                type == brightnessState_t::MIPI_SYNC_GHBM_OFF) {
-                mBrightnessState.dim_sdr_ratio = mBrightnessState.dim_sdr_target_ratio;
-            }
-        }
-        float getBrightnessValue() const { return mBrightnessState.brightness_value; }
-        void requestLhbm(bool on) {
-            mReqLhbm = on;
-            mDevice->invalidate();
-        }
+        void requestLhbm(bool on);
 
         virtual int setMinIdleRefreshRate(const int __unused fps) { return NO_ERROR; }
-        virtual int setRefreshRateThrottleNanos(const int64_t __unused delayNanos) {
+        virtual int setRefreshRateThrottleNanos(const int64_t __unused delayNanos,
+                                                const DispIdleTimerRequester __unused requester) {
             return NO_ERROR;
         }
 
         virtual void updateAppliedActiveConfig(const hwc2_config_t /*newConfig*/,
                                                const int64_t /*ts*/) {}
+
+        // is the hint session both enabled and supported
+        bool usePowerHintSession();
+
+        void setMinDisplayVsyncPeriod(uint32_t period) { mMinDisplayVsyncPeriod = period; }
+
+        bool isCurrentPeakRefreshRate(void) {
+            return ((mConfigRequestState == hwc_request_state_t::SET_CONFIG_STATE_NONE) &&
+                    (mVsyncPeriod == mMinDisplayVsyncPeriod));
+        }
 
     private:
         bool skipStaticLayerChanged(ExynosCompositionInfo& compositionInfo);
@@ -1195,11 +1263,8 @@ class ExynosDisplay {
         static constexpr float kHdrFullScreen = 0.5;
         uint32_t mHdrFullScrenAreaThreshold;
 
-       // Brightness state
-        brightnessState_t mBrightnessState;
-
-        // request lhbm state
-        bool mReqLhbm = false;
+        // vsync period of peak refresh rate
+        uint32_t mMinDisplayVsyncPeriod;
 
         /* Display hint to notify power hal */
         class PowerHalHintWorker : public Worker {
@@ -1210,12 +1275,26 @@ class ExynosDisplay {
 
             void signalRefreshRate(hwc2_power_mode_t powerMode, uint32_t vsyncPeriod);
             void signalIdle();
+            void signalActualWorkDuration(nsecs_t actualDurationNanos);
+            void signalTargetWorkDuration(nsecs_t targetDurationNanos);
+
+            void addBinderTid(pid_t tid);
+            void removeBinderTid(pid_t tid);
+
+            bool signalStartHintSession();
+            void trackThisThread();
+
+            // is the hint session both enabled and supported
+            bool usePowerHintSession();
+            // is it known if the hint session is enabled + supported yet
+            bool checkPowerHintSessionReady();
 
         protected:
             void Routine() override;
 
         private:
             static void BinderDiedCallback(void*);
+            int32_t connectPowerHal();
             int32_t connectPowerHalExt();
             int32_t checkPowerHalExtHintSupport(const std::string& mode);
             int32_t sendPowerHalExtHint(const std::string& mode, bool enabled);
@@ -1230,13 +1309,25 @@ class ExynosDisplay {
             int32_t updateIdleHint(int64_t deadlineTime, bool forceUpdate);
             bool needUpdateIdleHintLocked(int64_t& timeout) REQUIRES(mutex_);
 
+            // for adpf cpu hints
+            int32_t sendActualWorkDuration();
+            int32_t updateTargetWorkDuration();
+
+            // Update checking methods
+            bool needUpdateTargetWorkDurationLocked() REQUIRES(mutex_);
+            bool needSendActualWorkDurationLocked() REQUIRES(mutex_);
+
+            // is it known if the hint session is enabled + supported yet
+            bool checkPowerHintSessionReadyLocked();
+            // Hint session lifecycle management
+            int32_t startHintSession();
+
+            int32_t checkPowerHintSessionSupport();
             bool mNeedUpdateRefreshRateHint;
 
-            // previous refresh rate
-            int mPrevRefreshRate;
-
-            // the refresh rate whose hint failed to be disabled
-            int mPendingPrevRefreshRate;
+            // The last refresh rate hint that is still being enabled
+            // If all refresh rate hints are disabled, then mLastRefreshRateHint = 0
+            int mLastRefreshRateHint;
 
             // support list of refresh rate hints
             std::map<int, bool> mRefreshRateHintSupportMap;
@@ -1254,13 +1345,110 @@ class ExynosDisplay {
             hwc2_power_mode_t mPowerModeState;
             uint32_t mVsyncPeriod;
 
+            ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
+
             // for power HAL extension hints
             std::shared_ptr<aidl::google::hardware::power::extension::pixel::IPowerExt>
                     mPowerHalExtAidl;
-            ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
+
+            // for normal power HAL hints
+            std::shared_ptr<aidl::android::hardware::power::IPower> mPowerHalAidl;
+            // Max amount the error term can vary without causing an actual value report,
+            // as well as the target durations if not normalized
+            static constexpr const std::chrono::nanoseconds kAllowedDeviation = 300us;
+            // Target value used for initialization and normalization,
+            // the actual value does not really matter
+            static constexpr const std::chrono::nanoseconds kDefaultTarget = 50ms;
+            // Whether to normalize all the actual values as error terms relative to a constant
+            // target. This saves a binder call by not setting the target
+            static const bool sNormalizeTarget;
+            // Whether we should emit ATRACE_INT data for hint sessions
+            static const bool sTraceHintSessionData;
+            // Whether we use or disable the rate limiter for target and actual values
+            static const bool sUseRateLimiter;
+            std::shared_ptr<aidl::android::hardware::power::IPowerHintSession> mPowerHintSession;
+            // queue of actual durations waiting to be reported
+            std::vector<WorkDuration> mPowerHintQueue;
+            // display-specific binder thread tids
+            std::set<pid_t> mBinderTids;
+            // indicates that the tid list has changed, so the session must be rebuilt
+            bool mTidsUpdated = false;
+
+            static std::mutex sSharedDisplayMutex;
+            struct SharedDisplayData {
+                std::optional<bool> hintSessionEnabled;
+                std::optional<int32_t> hintSessionSupported;
+            };
+            // caches the output of usePowerHintSession to avoid sSharedDisplayMutex
+            std::atomic<std::optional<bool>> mUsePowerHintSession{std::nullopt};
+            // this lets us know if we can skip calling checkPowerHintSessionSupport
+            bool mHintSessionSupportChecked = false;
+            // used to indicate to all displays whether hint sessions are enabled/supported
+            static SharedDisplayData sSharedDisplayData GUARDED_BY(sSharedDisplayMutex);
+            // latest target that was signalled
+            nsecs_t mTargetWorkDuration = kDefaultTarget.count();
+            // last target duration reported to PowerHAL
+            nsecs_t mLastTargetDurationReported = kDefaultTarget.count();
+            // latest actual duration signalled
+            std::optional<nsecs_t> mActualWorkDuration;
+            // last error term reported to PowerHAL, used for rate limiting
+            std::optional<nsecs_t> mLastErrorSent;
+            // timestamp of the last report we sent, used to avoid stale sessions
+            nsecs_t mLastActualReportTimestamp = 0;
+            // amount of time after the last message was sent before the session goes stale
+            // actually 100ms but we use 80 here to ideally avoid going stale
+            static constexpr const std::chrono::nanoseconds kStaleTimeout = 80ms;
+            // An adjustable safety margin which moves the "target" earlier to allow flinger to
+            // go a bit over without dropping a frame, especially since we can't measure
+            // the exact time HWC finishes composition so "actual" durations are measured
+            // from the end of present() instead, which is a bit later.
+            static constexpr const std::chrono::nanoseconds kTargetSafetyMargin = 2ms;
         };
 
+        // union here permits use as a key in the unordered_map without a custom hash
+        union AveragesKey {
+            struct {
+                uint16_t layers;
+                bool validated;
+                bool beforeReleaseFence;
+            };
+            uint32_t value;
+            AveragesKey(size_t layers, bool validated, bool beforeReleaseFence)
+                  : layers(static_cast<uint16_t>(layers)),
+                    validated(validated),
+                    beforeReleaseFence(beforeReleaseFence) {}
+            operator uint32_t() const { return value; }
+        };
+
+        static const constexpr int kAveragesBufferSize = 3;
+        static const constexpr nsecs_t SIGNAL_TIME_PENDING = INT64_MAX;
+        static const constexpr nsecs_t SIGNAL_TIME_INVALID = -1;
+        std::unordered_map<uint32_t, RollingAverage<kAveragesBufferSize>> mRollingAverages;
         PowerHalHintWorker mPowerHalHint;
+
+        std::optional<nsecs_t> mValidateStartTime;
+        nsecs_t mPresentStartTime;
+        std::optional<nsecs_t> mValidationDuration;
+        // cached value used to skip evaluation once set
+        std::optional<bool> mUsePowerHintSession;
+        // tracks the time right before we start to wait for the fence
+        std::optional<nsecs_t> mRetireFenceWaitTime;
+        // tracks the time right after we finish waiting for the fence
+        std::optional<nsecs_t> mRetireFenceAcquireTime;
+        // tracks the time when the retire fence previously signaled
+        std::optional<nsecs_t> mRetireFencePreviousSignalTime;
+        // tracks the expected present time of the last frame
+        std::optional<nsecs_t> mLastExpectedPresentTime;
+        // tracks the expected present time of the current frame
+        nsecs_t mExpectedPresentTime;
+        // set once at the start of composition to ensure consistency
+        bool mUsePowerHints = false;
+        nsecs_t getExpectedPresentTime(nsecs_t startTime);
+        nsecs_t getPredictedPresentTime(nsecs_t startTime);
+        nsecs_t getSignalTime(int32_t fd) const;
+        void updateAverages(nsecs_t endTime);
+        std::optional<nsecs_t> getPredictedDuration(bool duringValidation);
+        atomic_bool mDebugRCDLayerEnabled = true;
 
     protected:
         inline uint32_t getDisplayVsyncPeriodFromConfig(hwc2_config_t config) {

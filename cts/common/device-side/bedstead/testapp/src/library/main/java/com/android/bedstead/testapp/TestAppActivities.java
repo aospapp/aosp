@@ -16,14 +16,11 @@
 
 package com.android.bedstead.testapp;
 
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-
-import com.android.bedstead.nene.TestApis;
 import com.android.queryable.info.ActivityInfo;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Entry point to activity querying.
@@ -48,24 +45,10 @@ public final class TestAppActivities {
             return mActivities;
         }
 
-        mActivities = new HashSet<>();
-
-        PackageManager p = TestApis.context().instrumentedContext().getPackageManager();
-        try {
-            PackageInfo packageInfo = p.getPackageInfo(
-                    mInstance.packageName(), /* flags= */ PackageManager.GET_ACTIVITIES);
-            for (android.content.pm.ActivityInfo activityInfo : packageInfo.activities) {
-                if (activityInfo.name.startsWith("androidx")) {
-                    // Special case: androidx adds non-logging activities
-                    continue;
-                }
-                mActivities.add(com.android.queryable.info.ActivityInfo.builder(
-                        activityInfo).build());
-            }
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IllegalStateException("Cannot query activities if app is not installed");
-        }
-
+        mActivities = new HashSet<>(
+                mInstance.testApp().mDetails.mActivities.stream().filter(
+                        m -> !m.className().startsWith("androidx")).collect(
+                Collectors.toSet()));
         return mActivities;
     }
 

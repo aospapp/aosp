@@ -44,6 +44,7 @@ inline int32_t DexFile::GetStringLength(const dex::StringId& string_id) const {
   return DecodeUnsignedLeb128(&ptr);
 }
 
+ALWAYS_INLINE
 inline const char* DexFile::GetStringDataAndUtf16Length(const dex::StringId& string_id,
                                                         uint32_t* utf16_length) const {
   DCHECK(utf16_length != nullptr) << GetLocation();
@@ -52,11 +53,13 @@ inline const char* DexFile::GetStringDataAndUtf16Length(const dex::StringId& str
   return reinterpret_cast<const char*>(ptr);
 }
 
+ALWAYS_INLINE
 inline const char* DexFile::GetStringData(const dex::StringId& string_id) const {
   uint32_t ignored;
   return GetStringDataAndUtf16Length(string_id, &ignored);
 }
 
+ALWAYS_INLINE
 inline const char* DexFile::StringDataAndUtf16LengthByIdx(dex::StringIndex idx,
                                                           uint32_t* utf16_length) const {
   if (!idx.IsValid()) {
@@ -67,11 +70,13 @@ inline const char* DexFile::StringDataAndUtf16LengthByIdx(dex::StringIndex idx,
   return GetStringDataAndUtf16Length(string_id, utf16_length);
 }
 
+ALWAYS_INLINE
 inline const char* DexFile::StringDataByIdx(dex::StringIndex idx) const {
   uint32_t unicode_length;
   return StringDataAndUtf16LengthByIdx(idx, &unicode_length);
 }
 
+ALWAYS_INLINE
 inline std::string_view DexFile::StringViewByIdx(dex::StringIndex idx) const {
   uint32_t unicode_length;
   const char* data = StringDataAndUtf16LengthByIdx(idx, &unicode_length);
@@ -98,13 +103,26 @@ inline const char* DexFile::GetTypeDescriptor(const dex::TypeId& type_id) const 
   return StringDataByIdx(type_id.descriptor_idx_);
 }
 
+inline std::string_view DexFile::GetTypeDescriptorView(const dex::TypeId& type_id) const {
+  return StringViewByIdx(type_id.descriptor_idx_);
+}
+
 inline const char* DexFile::GetFieldTypeDescriptor(const dex::FieldId& field_id) const {
   const dex::TypeId& type_id = GetTypeId(field_id.type_idx_);
   return GetTypeDescriptor(type_id);
 }
 
+inline std::string_view DexFile::GetFieldTypeDescriptorView(const dex::FieldId& field_id) const {
+  const dex::TypeId& type_id = GetTypeId(field_id.type_idx_);
+  return GetTypeDescriptorView(type_id);
+}
+
 inline const char* DexFile::GetFieldName(const dex::FieldId& field_id) const {
   return StringDataByIdx(field_id.name_idx_);
+}
+
+inline std::string_view DexFile::GetFieldNameView(const dex::FieldId& field_id) const {
+  return StringViewByIdx(field_id.name_idx_);
 }
 
 inline const char* DexFile::GetMethodDeclaringClassDescriptor(const dex::MethodId& method_id)
@@ -138,6 +156,16 @@ inline const char* DexFile::GetMethodName(uint32_t idx, uint32_t* utf_length) co
   return StringDataAndUtf16LengthByIdx(GetMethodId(idx).name_idx_, utf_length);
 }
 
+ALWAYS_INLINE
+inline std::string_view DexFile::GetMethodNameView(const dex::MethodId& method_id) const {
+  return StringViewByIdx(method_id.name_idx_);
+}
+
+ALWAYS_INLINE
+inline std::string_view DexFile::GetMethodNameView(uint32_t idx) const {
+  return GetMethodNameView(GetMethodId(idx));
+}
+
 inline const char* DexFile::GetMethodShorty(uint32_t idx) const {
   return StringDataByIdx(GetProtoId(GetMethodId(idx).proto_idx_).shorty_idx_);
 }
@@ -163,6 +191,15 @@ inline const char* DexFile::GetReturnTypeDescriptor(const dex::ProtoId& proto_id
 inline const char* DexFile::GetShorty(dex::ProtoIndex proto_idx) const {
   const dex::ProtoId& proto_id = GetProtoId(proto_idx);
   return StringDataByIdx(proto_id.shorty_idx_);
+}
+
+ALWAYS_INLINE
+inline std::string_view DexFile::GetShortyView(const dex::ProtoId& proto_id) const {
+  uint32_t lhs_shorty_len;
+  const char* lhs_shorty_data =
+      StringDataAndUtf16LengthByIdx(proto_id.shorty_idx_, &lhs_shorty_len);
+  DCHECK_EQ(lhs_shorty_data[lhs_shorty_len], '\0');  // For a shorty utf16 length == mutf8 length.
+  return std::string_view(lhs_shorty_data, lhs_shorty_len);
 }
 
 inline const dex::TryItem* DexFile::GetTryItems(const DexInstructionIterator& code_item_end,

@@ -60,6 +60,8 @@ cc_defaults {
                 "-DANDROID_LINK_SHARED_ICU4C",
                 // Do not set the data directory explicitly on Android because libicuuc has set it.
                 "-DANDROID_USE_ICU_REG",
+                // Used by loadSourceTestData() to find the testdata.
+                "-DU_TOPSRCDIR=\"/data/local/tmp\"",
             ],
         },
     },

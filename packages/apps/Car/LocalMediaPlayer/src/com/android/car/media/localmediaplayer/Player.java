@@ -16,6 +16,7 @@
 package com.android.car.media.localmediaplayer;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -31,6 +32,7 @@ import android.media.session.MediaSession;
 import android.media.session.MediaSession.QueueItem;
 import android.media.session.PlaybackState;
 import android.media.session.PlaybackState.CustomAction;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -55,6 +57,7 @@ public class Player extends MediaSession.Callback {
     private static final String TAG = "LMPlayer";
     private static final String SHARED_PREFS_NAME = "com.android.car.media.localmediaplayer.prefs";
     private static final String CURRENT_PLAYLIST_KEY = "__CURRENT_PLAYLIST_KEY__";
+    private static final String CHANNEL_ID = "com.android.car.media.localmediaplayer.player";
     private static final int NOTIFICATION_ID = 42;
     private static final int REQUEST_CODE = 94043;
 
@@ -143,6 +146,8 @@ public class Player extends MediaSession.Callback {
                 .addAction(prevAction)
                 .addAction(playAction)
                 .addAction(nextAction);
+
+        createNotificationChannel();
     }
 
     private Notification.Action makeNotificationAction(String action, int iconId, int stringId) {
@@ -380,7 +385,9 @@ public class Player extends MediaSession.Callback {
         if (mQueue == null) {
             return;
         }
-
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder.setChannelId(CHANNEL_ID);
+        }
         MediaDescription current = mQueue.get(mCurrentQueueIdx).getDescription();
         Notification notification = builder
                 .setStyle(new Notification.MediaStyle().setMediaSession(mSession.getSessionToken()))
@@ -639,4 +646,15 @@ public class Player extends MediaSession.Callback {
             safeAdvance();
         }
     };
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = mContext.getString(R.string.notification_channel_name);
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            mNotificationManager.createNotificationChannel(channel);
+        }
+    }
 }

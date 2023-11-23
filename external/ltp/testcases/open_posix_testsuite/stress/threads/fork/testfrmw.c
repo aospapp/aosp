@@ -37,13 +37,13 @@ static pthread_mutex_t m_trace = PTHREAD_MUTEX_INITIALIZER;
 /*****************************************************************************************/
 /* The following functions will output to stdout */
 #if (1)
-void output_init()
+static void output_init()
 {
 	/* do nothing */
 	return;
 }
 
-void output(char *string, ...)
+static void output(char *string, ...)
 {
 	va_list ap;
 	char *ts = "[??:??:??]";
@@ -56,7 +56,7 @@ void output(char *string, ...)
 	if (now == NULL)
 		printf(ts);
 	else
-		printf("[%2.2d:%2.2d:%2.2d]", now->tm_hour, now->tm_min,
+		printf("[%2.2d:%2.2d:%2.2d]\n", now->tm_hour, now->tm_min,
 		       now->tm_sec);
 	va_start(ap, string);
 	vprintf(string, ap);
@@ -64,7 +64,7 @@ void output(char *string, ...)
 	pthread_mutex_unlock(&m_trace);
 }
 
-void output_fini()
+static void output_fini()
 {
 	/*do nothing */
 	return;

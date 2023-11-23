@@ -16,7 +16,6 @@
 
 package com.android.imsserviceentitlement;
 
-import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__CANCELED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__DISABLED;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__FAILED;
@@ -26,7 +25,6 @@ import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IM
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNEXPECTED_RESULT;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNKNOWN_RESULT;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__ACTIVATION;
-import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__UNKNOWN_PURPOSE;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__UPDATE;
 import static com.android.imsserviceentitlement.ImsServiceEntitlementStatsLog.IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__VOWIFI;
 
@@ -44,7 +42,10 @@ import androidx.annotation.StringRes;
 import com.android.imsserviceentitlement.entitlement.EntitlementResult;
 import com.android.imsserviceentitlement.ts43.Ts43VowifiStatus;
 import com.android.imsserviceentitlement.utils.ImsUtils;
+import com.android.imsserviceentitlement.utils.MetricsLogger;
 import com.android.imsserviceentitlement.utils.TelephonyUtils;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import java.time.Duration;
 
@@ -67,14 +68,10 @@ public class WfcActivationController {
     private final ImsEntitlementApi mImsEntitlementApi;
     private final ImsUtils mImsUtils;
     private final Intent mStartIntent;
+    private final MetricsLogger mMetricsLogger;
 
     // States
     private int mEvaluateTimes = 0;
-
-    // States for metrics
-    private long mStartTime;
-    private long mDurationMillis;
-    private int mPurpose = IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__UNKNOWN_PURPOSE;
     private int mAppResult = IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNKNOWN_RESULT;
 
     @MainThread
@@ -88,6 +85,23 @@ public class WfcActivationController {
         this.mImsEntitlementApi = imsEntitlementApi;
         this.mTelephonyUtils = new TelephonyUtils(context, getSubId());
         this.mImsUtils = ImsUtils.getInstance(context, getSubId());
+        this.mMetricsLogger = new MetricsLogger(mTelephonyUtils);
+    }
+
+    @VisibleForTesting
+    WfcActivationController(
+            Context context,
+            WfcActivationUi wfcActivationUi,
+            ImsEntitlementApi imsEntitlementApi,
+            Intent intent,
+            ImsUtils imsUtils,
+            MetricsLogger metricsLogger) {
+        this.mStartIntent = intent;
+        this.mActivationUi = wfcActivationUi;
+        this.mImsEntitlementApi = imsEntitlementApi;
+        this.mTelephonyUtils = new TelephonyUtils(context, getSubId());
+        this.mImsUtils = imsUtils;
+        this.mMetricsLogger = metricsLogger;
     }
 
     /** Indicates the controller to start WFC activation or emergency address update flow. */
@@ -96,11 +110,10 @@ public class WfcActivationController {
         showGeneralWaitingUi();
         evaluateEntitlementStatus();
         if (isActivationFlow()) {
-            mPurpose = IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__ACTIVATION;
+            mMetricsLogger.start(IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__ACTIVATION);
         } else {
-            mPurpose = IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__UPDATE;
+            mMetricsLogger.start(IMS_SERVICE_ENTITLEMENT_UPDATED__PURPOSE__UPDATE);
         }
-        mStartTime = mTelephonyUtils.getUptimeMillis();
     }
 
     /** Evaluates entitlement status for activation or update. */
@@ -141,22 +154,11 @@ public class WfcActivationController {
     public void finish() {
         EntitlementUtils.cancelEntitlementCheck();
 
-        // If no duration set, set now.
-        if (mDurationMillis == 0L) {
-            mDurationMillis = mTelephonyUtils.getUptimeMillis() - mStartTime;
-        }
         // If no result set, it must be cancelled by user pressing back button.
         if (mAppResult == IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNKNOWN_RESULT) {
             mAppResult = IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__CANCELED;
         }
-        ImsServiceEntitlementStatsLog.write(
-                IMS_SERVICE_ENTITLEMENT_UPDATED,
-                /* carrier_id= */ mTelephonyUtils.getCarrierId(),
-                /* actual_carrier_id= */ mTelephonyUtils.getSpecificCarrierId(),
-                mPurpose,
-                IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__VOWIFI,
-                mAppResult,
-                mDurationMillis);
+        mMetricsLogger.write(IMS_SERVICE_ENTITLEMENT_UPDATED__SERVICE_TYPE__VOWIFI, mAppResult);
     }
 
     /**
@@ -268,9 +270,10 @@ public class WfcActivationController {
         } else {
             if (vowifiStatus.incompatible()) {
                 showErrorUi(R.string.failure_contact_carrier);
-                turnOffWfc(() -> {
-                    finishStatsLog(IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__INCOMPATIBLE);
-                });
+                mImsUtils.turnOffWfc(
+                        () -> finishStatsLog(
+                                IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__INCOMPATIBLE)
+                );
             } else {
                 Log.e(TAG, "Unexpected status. Show error UI.");
                 finishStatsLog(IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__UNEXPECTED_RESULT);
@@ -334,10 +337,11 @@ public class WfcActivationController {
             finishStatsLog(IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__SUCCESSFUL);
         } else if (vowifiStatus.serverDataMissing()) {
             // Some carrier allows de-activating in updating flow.
-            turnOffWfc(() -> {
-                finishStatsLog(IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__DISABLED);
-                mActivationUi.setResultAndFinish(Activity.RESULT_OK);
-            });
+            mImsUtils.turnOffWfc(
+                    () -> {
+                        finishStatsLog(IMS_SERVICE_ENTITLEMENT_UPDATED__APP_RESULT__DISABLED);
+                        mActivationUi.setResultAndFinish(Activity.RESULT_OK);
+                    });
         } else {
             Log.e(TAG, "Unexpected status. Show error UI.");
             showGeneralErrorUi();
@@ -361,14 +365,7 @@ public class WfcActivationController {
         }.start();
     }
 
-    /** Turns WFC off and then runs {@code action} on main thread. */
-    @MainThread
-    private void turnOffWfc(Runnable action) {
-        ImsUtils.turnOffWfc(mImsUtils, action);
-    }
-
     private void finishStatsLog(int result) {
         mAppResult = result;
-        mDurationMillis = mTelephonyUtils.getUptimeMillis() - mStartTime;
     }
 }

@@ -512,7 +512,7 @@ def decode_vkFlushMappedMemoryRanges(typeInfo, api, cgen):
     cgen.stmt("uint64_t readStream = 0")
     cgen.stmt("memcpy(&readStream, *readStreamPtrPtr, sizeof(uint64_t)); *readStreamPtrPtr += sizeof(uint64_t)")
     cgen.stmt("auto hostPtr = m_state->getMappedHostPointer(memory)")
-    cgen.stmt("if (!hostPtr && readStream > 0) abort()")
+    cgen.stmt("if (!hostPtr && readStream > 0) GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER))")
     cgen.stmt("if (!hostPtr) continue")
     cgen.stmt("uint8_t* targetRange = hostPtr + offset")
     cgen.stmt("memcpy(targetRange, *readStreamPtrPtr, readStream); *readStreamPtrPtr += readStream")
@@ -554,6 +554,11 @@ def decode_vkInvalidateMappedMemoryRanges(typeInfo, api, cgen):
     emit_snapshot(typeInfo, api, cgen);
     emit_pool_free(cgen)
     emit_seqno_incr(api, cgen)
+
+def decode_unsupported_api(typeInfo, api, cgen):
+    cgen.line(f"// Decoding {api.name} is not supported. This should not run.")
+    cgen.stmt(f"fprintf(stderr, \"stream %p: fatal: decoding unsupported API {api.name}\\n\", ioStream)");
+    cgen.stmt("__builtin_trap()")
 
 custom_decodes = {
     "vkEnumerateInstanceVersion" : emit_global_state_wrapped_decoding,
@@ -630,6 +635,7 @@ custom_decodes = {
     "vkQueueSubmit" : emit_global_state_wrapped_decoding,
     "vkQueueWaitIdle" : emit_global_state_wrapped_decoding,
     "vkBeginCommandBuffer" : emit_global_state_wrapped_decoding,
+    "vkEndCommandBuffer" : emit_global_state_wrapped_decoding,
     "vkResetCommandBuffer" : emit_global_state_wrapped_decoding,
     "vkFreeCommandBuffers" : emit_global_state_wrapped_decoding,
     "vkCreateCommandPool" : emit_global_state_wrapped_decoding,
@@ -653,6 +659,7 @@ custom_decodes = {
     "vkDestroySemaphore" : emit_global_state_wrapped_decoding,
 
     "vkCreateFence" : emit_global_state_wrapped_decoding,
+    "vkResetFences" : emit_global_state_wrapped_decoding,
     "vkDestroyFence" : emit_global_state_wrapped_decoding,
 
     # VK_GOOGLE_gfxstream
@@ -683,9 +690,20 @@ custom_decodes = {
     "vkQueueWaitIdleAsyncGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueBindSparseAsyncGOOGLE" : emit_global_state_wrapped_decoding,
     "vkGetLinearImageLayoutGOOGLE" : emit_global_state_wrapped_decoding,
+    "vkGetLinearImageLayout2GOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueFlushCommandsGOOGLE" : emit_global_state_wrapped_decoding,
     "vkQueueCommitDescriptorSetUpdatesGOOGLE" : emit_global_state_wrapped_decoding,
     "vkCollectDescriptorPoolIdsGOOGLE" : emit_global_state_wrapped_decoding,
+    "vkQueueSignalReleaseImageANDROIDAsyncGOOGLE" : emit_global_state_wrapped_decoding,
+
+    "vkQueueBindSparse" : emit_global_state_wrapped_decoding,
+
+    # VK_KHR_xcb_surface
+    "vkCreateXcbSurfaceKHR": decode_unsupported_api,
+    "vkGetPhysicalDeviceXcbPresentationSupportKHR": decode_unsupported_api,
+
+    # VK_EXT_metal_surface
+    "vkCreateMetalSurfaceEXT": decode_unsupported_api,
 }
 
 class VulkanDecoder(VulkanWrapperGenerator):
@@ -716,7 +734,7 @@ class VulkanDecoder(VulkanWrapperGenerator):
         self.cgen.beginBlock() # while loop
 
         self.cgen.stmt("uint32_t opcode = *(uint32_t *)ptr")
-        self.cgen.stmt("int32_t packetLen = *(int32_t *)(ptr + 4)")
+        self.cgen.stmt("uint32_t packetLen = *(uint32_t *)(ptr + 4)")
         self.cgen.stmt("if (end - ptr < packetLen) return ptr - (unsigned char*)buf")
 
         self.cgen.stmt("stream()->setStream(ioStream)")

@@ -110,7 +110,7 @@ const std::string& Device::getVersionString() const {
 }
 
 Version Device::getFeatureLevel() const {
-    return Version::ANDROID_S;
+    return kVersionFeatureLevel8;
 }
 
 DeviceType Device::getType() const {
@@ -158,7 +158,9 @@ GeneralResult<std::vector<bool>> Device::getSupportedOperations(const Model& mod
 GeneralResult<SharedPreparedModel> Device::prepareModel(
         const Model& model, ExecutionPreference preference, Priority priority,
         OptionalTimePoint deadline, const std::vector<SharedHandle>& /*modelCache*/,
-        const std::vector<SharedHandle>& /*dataCache*/, const CacheToken& /*token*/) const {
+        const std::vector<SharedHandle>& /*dataCache*/, const CacheToken& /*token*/,
+        const std::vector<TokenValuePair>& /*hints*/,
+        const std::vector<ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     if (VLOG_IS_ON(DRIVER)) {
         VLOG(DRIVER) << "sample::Device::prepareModel";
         logModelToInfo(model);

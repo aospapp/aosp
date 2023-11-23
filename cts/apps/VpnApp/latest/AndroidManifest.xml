@@ -26,6 +26,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <action android:name="com.android.cts.vpnfirewall.action.CONNECT_AND_FINISH"/>
+                <action android:name="com.android.cts.vpnfirewall.action.DISCONNECT_AND_FINISH"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>

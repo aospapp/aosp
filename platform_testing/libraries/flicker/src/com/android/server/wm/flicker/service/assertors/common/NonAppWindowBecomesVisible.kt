@@ -20,7 +20,11 @@ import com.android.server.wm.flicker.traces.layers.LayersTraceSubject
 import com.android.server.wm.flicker.traces.windowmanager.WindowManagerTraceSubject
 import com.android.server.wm.traces.common.tags.Tag
 
-open class NonAppWindowBecomesVisible(windowName: String) : ComponentBaseTest(windowName) {
+/**
+ * Checks that non-app window [component] is invisible at the start of the transition and
+ * becomes visible
+ */
+class NonAppWindowBecomesVisible(windowName: String) : ComponentBaseTest(windowName) {
     /** {@inheritDoc} */
     override fun doEvaluate(
         tag: Tag,
@@ -30,5 +34,6 @@ open class NonAppWindowBecomesVisible(windowName: String) : ComponentBaseTest(wi
         wmSubject.isNonAppWindowInvisible(component)
             .then()
             .isAppWindowVisible(component)
+            .forAllEntries()
     }
 }

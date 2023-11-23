@@ -562,11 +562,12 @@ c2_status_t C2VdaBqBlockPool::Impl::fetchGraphicBlock(
     }
 
     std::shared_ptr<C2SurfaceSyncMemory> syncMem;
+    // TODO: the |owner| argument should be set correctly.
     std::shared_ptr<C2GraphicAllocation> allocation =
             mTrackedGraphicBuffers.getRegisteredAllocation(uniqueId);
     auto poolData = std::make_shared<C2BufferQueueBlockPoolData>(
-            slotBuffer->getGenerationNumber(), mProducerId, slot,
-            mProducer->getBase(), syncMem, 0);
+            slotBuffer->getGenerationNumber(), mProducerId, slot, std::make_shared<int>(0),
+            mProducer->getBase(), syncMem);
     mTrackedGraphicBuffers.updatePoolData(slot, poolData);
     *block = _C2BlockFactory::CreateGraphicBlock(std::move(allocation), std::move(poolData));
     if (*block == nullptr) {

@@ -91,4 +91,10 @@ interface ICarProjection {
 
     /** Returns a list of available Wi-Fi channels */
     int[] getAvailableWifiChannels(int band) = 12;
+
+    /**
+     * Resets projection access point credentials if system was configured to persist local-only
+     * hotspot credentials.
+     */
+    void resetProjectionAccessPointCredentials() = 13;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright 2010-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
     return -1;
   }
 
-  if (bFwDnldFlag == false) {
+  if (false == bFwDnldFlag) {
     totalBtyesToRead = NORMAL_MODE_HEADER_LEN;
   } else {
     totalBtyesToRead = FW_DNLD_HEADER_LEN;
@@ -162,15 +162,15 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
       return -1;
     }
 
-    if (bFwDnldFlag == false) {
+    if (false == bFwDnldFlag) {
       totalBtyesToRead = NORMAL_MODE_HEADER_LEN;
     } else {
       totalBtyesToRead = FW_DNLD_HEADER_LEN;
     }
 
     if (numRead < totalBtyesToRead) {
-      ret_Read =
-          read((intptr_t)pDevHandle, pBuffer, totalBtyesToRead - numRead);
+      ret_Read = read((intptr_t)pDevHandle, pBuffer + numRead,
+                      totalBtyesToRead - numRead);
       if (ret_Read != totalBtyesToRead - numRead) {
         NXPLOG_TML_E("_i2c_read() [hdr] errno : %x", errno);
         return -1;
@@ -178,7 +178,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
         numRead += ret_Read;
       }
     }
-    if (bFwDnldFlag == true) {
+    if (true == bFwDnldFlag) {
       totalBtyesToRead =
           pBuffer[FW_DNLD_LEN_OFFSET] + FW_DNLD_HEADER_LEN + CRC_LEN;
     } else {
@@ -194,7 +194,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
         NXPLOG_TML_E("_i2c_read() [pyld] EOF");
         return -1;
       } else {
-        if (bFwDnldFlag == false) {
+        if (false == bFwDnldFlag) {
           NXPLOG_TML_D("_i2c_read() [hdr] received");
           phNxpNciHal_print_packet("RECV", pBuffer, NORMAL_MODE_HEADER_LEN);
         }

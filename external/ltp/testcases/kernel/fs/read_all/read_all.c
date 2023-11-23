@@ -85,26 +85,9 @@ static char *blacklist[] = {
 	NULL, /* reserved for -e parameter */
 	"/sys/power/wakeup_count",
 	"/sys/kernel/debug/*",
-};
-
-static struct tst_option options[] = {
-	{"v", &verbose,
-	 "-v       Print information about successful reads."},
-	{"q", &quiet,
-	 "-q       Don't print file read or open errors."},
-	{"d:", &root_dir,
-	 "-d path  Path to the directory to read from, defaults to /sys."},
-	{"e:", &blacklist[0],
-	 "-e pattern Ignore files which match an 'extended' pattern, see fnmatch(3)."},
-	{"r:", &str_reads,
-	 "-r count The number of times to schedule a file for reading."},
-	{"w:", &str_max_workers,
-	 "-w count Set the worker count limit, the default is 15."},
-	{"W:", &str_worker_count,
-	 "-W count Override the worker count. Ignores (-w) and the processor count."},
-	{"p", &drop_privs,
-	 "-p       Drop privileges; switch to the nobody user."},
-	{NULL, NULL, NULL}
+	"/sys/devices/platform/*/eeprom",
+	"/sys/devices/platform/*/nvmem",
+	"/sys/*/cpu??*(?)/*",	/* cpu* entries with 2 or more digits */
 };
 
 static int queue_pop(struct queue *q, char *buf)
@@ -465,7 +448,25 @@ static void run(void)
 }
 
 static struct tst_test test = {
-	.options = options,
+	.options = (struct tst_option[]) {
+		{"v", &verbose,
+		 "-v       Print information about successful reads."},
+		{"q", &quiet,
+		 "-q       Don't print file read or open errors."},
+		{"d:", &root_dir,
+		 "-d path  Path to the directory to read from, defaults to /sys."},
+		{"e:", &blacklist[0],
+		 "-e pattern Ignore files which match an 'extended' pattern, see fnmatch(3)."},
+		{"r:", &str_reads,
+		 "-r count The number of times to schedule a file for reading."},
+		{"w:", &str_max_workers,
+		 "-w count Set the worker count limit, the default is 15."},
+		{"W:", &str_worker_count,
+		 "-W count Override the worker count. Ignores (-w) and the processor count."},
+		{"p", &drop_privs,
+		 "-p       Drop privileges; switch to the nobody user."},
+		{}
+	},
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = run,

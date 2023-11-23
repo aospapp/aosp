@@ -16,6 +16,8 @@
 
 package com.android.queryable.info;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.admin.DeviceAdminReceiver;
@@ -72,5 +74,13 @@ public class DeviceAdminReceiverInfoTest {
 
         assertThat(deviceAdminReceiverInfo.simpleName())
                 .isEqualTo(TEST_DEVICE_ADMIN_RECEIVER_SIMPLE_NAME);
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        DeviceAdminReceiverInfo deviceAdminReceiverInfo = new DeviceAdminReceiverInfo(
+                TEST_DEVICE_ADMIN_RECEIVER_CLASS_NAME);
+
+        assertParcelsCorrectly(DeviceAdminReceiverInfo.class, deviceAdminReceiverInfo);
     }
 }

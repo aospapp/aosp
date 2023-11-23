@@ -126,11 +126,11 @@ public class WidgetCtsProvider extends AppWidgetProvider {
     }
 
     private boolean shouldPerformTest(int state) {
-        if (state == STATE_VERIFY_SIZE_CALLBACK
-                && sSDKLevel < android.os.Build.VERSION_CODES.JELLY_BEAN) {
+        if (state == STATE_VERIFY_SIZE_CALLBACK) {
+            // TODO: revert when b/228227212 is fixed (underlying cause of b/204831731)
             return false;
-        } else if (state == STATE_VERIFY_RESIZE
-                && sSDKLevel < android.os.Build.VERSION_CODES.HONEYCOMB) {
+        } else if (state == STATE_VERIFY_RESIZE) {
+            // TODO: revert when b/228227212 is fixed (underlying cause of b/204831731)
             return false;
         } else if (state == STATE_VERIFY_COLLECTIONS
                 && sSDKLevel < android.os.Build.VERSION_CODES.HONEYCOMB) {

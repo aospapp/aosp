@@ -21,6 +21,7 @@
 #include <aidl/test_package/ByteEnum.h>
 #include <aidl/test_package/ExtendableParcelable.h>
 #include <aidl/test_package/FixedSize.h>
+#include <aidl/test_package/FixedSizeUnion.h>
 #include <aidl/test_package/Foo.h>
 #include <aidl/test_package/IntEnum.h>
 #include <aidl/test_package/LongEnum.h>
@@ -28,7 +29,6 @@
 #include <android/binder_ibinder_jni.h>
 #include <android/log.h>
 #include <gtest/gtest.h>
-
 #include "itest_impl.h"
 #include "utilities.h"
 
@@ -42,6 +42,7 @@ using ::aidl::test_package::BpTest;
 using ::aidl::test_package::ByteEnum;
 using ::aidl::test_package::ExtendableParcelable;
 using ::aidl::test_package::FixedSize;
+using ::aidl::test_package::FixedSizeUnion;
 using ::aidl::test_package::Foo;
 using ::aidl::test_package::GenericBar;
 using ::aidl::test_package::ICompatTest;
@@ -59,6 +60,14 @@ using ::ndk::SpAIBinder;
 static_assert(sizeof(FixedSize) == 16);
 static_assert(offsetof(FixedSize, a) == 0);
 static_assert(offsetof(FixedSize, b) == 8);
+
+static_assert(sizeof(FixedSizeUnion) == 16);  // tag(uint8_t), value(union of {int32_t, long64_t})
+static_assert(alignof(FixedSizeUnion) == 8);
+
+static_assert(FixedSizeUnion::fixed_size::value);
+
+class MyEmpty : public ::aidl::test_package::BnEmpty {};
+class YourEmpty : public ::aidl::test_package::BnEmpty {};
 
 // AIDL tests which are independent of the service
 class NdkBinderTest_AidlLocal : public NdkBinderTest {};
@@ -331,16 +340,16 @@ TEST_P(NdkBinderTest_Aidl, RepeatBinder) {
 }
 
 TEST_P(NdkBinderTest_Aidl, RepeatInterface) {
-  class MyEmpty : public ::aidl::test_package::BnEmpty {};
-
   std::shared_ptr<IEmpty> empty = SharedRefBase::make<MyEmpty>();
 
   std::shared_ptr<IEmpty> ret;
   ASSERT_OK(iface->RepeatInterface(empty, &ret));
   EXPECT_EQ(empty.get(), ret.get());
 
-  // interfaces are always nullable in AIDL C++, and that behavior was carried
-  // over to the NDK backend for consistency
+  // b/210547999
+  // interface writes are always nullable in AIDL C++ (but reads are not
+  // nullable by default). However, the NDK backend follows the Java behavior
+  // and always allows interfaces to be nullable (for reads and writes).
   ASSERT_OK(iface->RepeatInterface(nullptr, &ret));
   EXPECT_EQ(nullptr, ret.get());
 
@@ -456,6 +465,12 @@ TEST_P(NdkBinderTest_Aidl, RepeatString) {
 
   EXPECT_OK(iface->RepeatString("say what?", &res));
   EXPECT_EQ("say what?", res);
+
+  std::string stringWithNulls = "asdf";
+  stringWithNulls[1] = '\0';
+
+  EXPECT_OK(iface->RepeatString(stringWithNulls, &res));
+  EXPECT_EQ(stringWithNulls, res);
 }
 
 TEST_P(NdkBinderTest_Aidl, RepeatNullableString) {
@@ -728,6 +743,23 @@ TEST_P(NdkBinderTest_Aidl, Arrays) {
                                  {{"hexagon", 6, 2.0f}},
                                  {{"hexagon", 6, 2.0f}, {"square", 4, 7.0f}, {"pentagon", 5, 4.2f}},
                              });
+  std::shared_ptr<IEmpty> my_empty = SharedRefBase::make<MyEmpty>();
+  testRepeat<SpAIBinder>(iface, &ITest::RepeatBinderArray,
+                         {
+                             {},
+                             {iface->asBinder()},
+                             {iface->asBinder(), my_empty->asBinder()},
+                         });
+
+  std::shared_ptr<IEmpty> your_empty = SharedRefBase::make<YourEmpty>();
+  testRepeat<std::shared_ptr<IEmpty>>(iface, &ITest::RepeatInterfaceArray,
+                                      {
+                                          {},
+                                          {my_empty},
+                                          {my_empty, your_empty},
+                                          // Legacy behavior: allow null for non-nullable interface
+                                          {my_empty, your_empty, nullptr},
+                                      });
 }
 
 TEST_P(NdkBinderTest_Aidl, Lists) {
@@ -876,6 +908,26 @@ TEST_P(NdkBinderTest_Aidl, NullableArrays) {
                               {{"aoeu", "lol", "brb"}},
                               {{"", "aoeu", std::nullopt, "brb"}},
                           });
+  std::shared_ptr<IEmpty> my_empty = SharedRefBase::make<MyEmpty>();
+  testRepeat<SpAIBinder>(iface, &ITest::RepeatNullableBinderArray,
+                         {
+                             std::nullopt,
+                             {{}},
+                             {{iface->asBinder()}},
+                             {{nullptr}},
+                             {{iface->asBinder(), my_empty->asBinder()}},
+                             {{iface->asBinder(), nullptr, my_empty->asBinder()}},
+                         });
+  std::shared_ptr<IEmpty> your_empty = SharedRefBase::make<YourEmpty>();
+  testRepeat<std::shared_ptr<IEmpty>>(iface, &ITest::RepeatNullableInterfaceArray,
+                                      {
+                                          std::nullopt,
+                                          {{}},
+                                          {{my_empty}},
+                                          {{nullptr}},
+                                          {{my_empty, your_empty}},
+                                          {{my_empty, nullptr, your_empty}},
+                                      });
 }
 
 class DefaultImpl : public ::aidl::test_package::ICompatTestDefault {
@@ -960,6 +1012,27 @@ TEST_P(NdkBinderTest_Aidl, GetInterfaceHash) {
   }
 }
 
+TEST_P(NdkBinderTest_Aidl, LegacyBinder) {
+  SpAIBinder binder;
+  iface->getLegacyBinderTest(&binder);
+  ASSERT_NE(nullptr, binder.get());
+
+  ASSERT_TRUE(AIBinder_associateClass(binder.get(), kLegacyBinderClass));
+
+  constexpr int32_t kVal = 42;
+
+  ::ndk::ScopedAParcel in;
+  ::ndk::ScopedAParcel out;
+  ASSERT_EQ(STATUS_OK, AIBinder_prepareTransaction(binder.get(), in.getR()));
+  ASSERT_EQ(STATUS_OK, AParcel_writeInt32(in.get(), kVal));
+  ASSERT_EQ(STATUS_OK,
+            AIBinder_transact(binder.get(), FIRST_CALL_TRANSACTION, in.getR(), out.getR(), 0));
+
+  int32_t output;
+  ASSERT_EQ(STATUS_OK, AParcel_readInt32(out.get(), &output));
+  EXPECT_EQ(kVal, output);
+}
+
 TEST_P(NdkBinderTest_Aidl, ParcelableHolderTest) {
   ExtendableParcelable ep;
   MyExt myext1;
@@ -984,6 +1057,28 @@ TEST_P(NdkBinderTest_Aidl, ParcelableHolderTest) {
   EXPECT_EQ("mystr", myext3->b);
   AParcel_delete(parcel);
 }
+
+TEST_P(NdkBinderTest_Aidl, ParcelableHolderCopyTest) {
+  ndk::AParcelableHolder ph1{ndk::STABILITY_LOCAL};
+  MyExt myext1;
+  myext1.a = 42;
+  myext1.b = "mystr";
+  ph1.setParcelable(myext1);
+
+  ndk::AParcelableHolder ph2{ph1};
+  std::optional<MyExt> myext2;
+  ph2.getParcelable(&myext2);
+  EXPECT_TRUE(myext2);
+  EXPECT_EQ(42, myext2->a);
+  EXPECT_EQ("mystr", myext2->b);
+
+  std::optional<MyExt> myext3;
+  ph1.getParcelable(&myext3);
+  EXPECT_TRUE(myext3);
+  EXPECT_EQ(42, myext3->a);
+  EXPECT_EQ("mystr", myext3->b);
+}
+
 TEST_P(NdkBinderTest_Aidl, ParcelableHolderCommunicationTest) {
   ExtendableParcelable ep;
   ep.c = 42L;

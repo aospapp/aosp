@@ -29,11 +29,14 @@ import android.animation.AnimatorInflater;
 import android.annotation.CallSuper;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
@@ -51,11 +54,13 @@ import androidx.preference.PreferenceViewHolder;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.settingslib.core.lifecycle.Lifecycle;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 import com.android.tv.settings.util.SettingsPreferenceUtil;
 import com.android.tv.settings.widget.SettingsViewModel;
 import com.android.tv.settings.widget.TsPreference;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
+
+import java.util.Collections;
 
 /**
  * A {@link LeanbackPreferenceFragmentCompat} that has hooks to observe fragment lifecycle events
@@ -104,6 +109,12 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        // Set list view listeners after the fragment view is created
+        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+            TwoPanelSettingsFragment parentFragment =
+                    (TwoPanelSettingsFragment) getCallbackFragment();
+            parentFragment.addListenerForFragment(this);
+        }
         if (view != null) {
             TextView titleView = view.findViewById(R.id.decor_title);
             // We rely on getResources().getConfiguration().getLayoutDirection() instead of
@@ -111,14 +122,13 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
             // it is RTL.
             if (titleView != null
                     && getResources().getConfiguration().getLayoutDirection()
-                        == View.LAYOUT_DIRECTION_RTL) {
+                    == View.LAYOUT_DIRECTION_RTL) {
                 titleView.setGravity(Gravity.RIGHT);
             }
             if (FlavorUtils.isTwoPanel(getContext())) {
                 ViewGroup decor = view.findViewById(R.id.decor_title_container);
                 if (decor != null) {
                     decor.setOutlineProvider(null);
-                    decor.setBackgroundResource(R.color.tp_preference_panel_background_color);
                 }
             } else {
                 // We only want to set the title in this location for one-panel settings.
@@ -130,6 +140,14 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
                     getActivity().getWindow().setTitle(getPreferenceScreen().getTitle());
                     view.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
                 }
+
+                // Only the one-panel settings should be set as unrestricted keep-clear areas
+                // because they are a side panel, so the PiP can be moved next to it.
+                view.addOnLayoutChangeListener((v, l, t, r, b, oldL, oldT, oldR, oldB) -> {
+                    view.setUnrestrictedPreferKeepClearRects(
+                            Collections.singletonList(new Rect(0, 0, r - l, b - t)));
+                });
+
             }
             removeAnimationClipping(view);
         }
@@ -168,20 +186,34 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
 
     @Override
     protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
-        if (FlavorUtils.isTwoPanel(getContext())) {
-            return new PreferenceGroupAdapter(preferenceScreen) {
-                @Override
-                @NonNull
-                public PreferenceViewHolder onCreateViewHolder(@NonNull ViewGroup parent,
-                        int viewType) {
-                    PreferenceViewHolder vh = super.onCreateViewHolder(parent, viewType);
+        return new PreferenceGroupAdapter(preferenceScreen) {
+            @Override
+            @NonNull
+            public PreferenceViewHolder onCreateViewHolder(@NonNull ViewGroup parent,
+                    int viewType) {
+                PreferenceViewHolder vh = super.onCreateViewHolder(parent, viewType);
+                if (FlavorUtils.isTwoPanel(getContext())) {
                     vh.itemView.setStateListAnimator(AnimatorInflater.loadStateListAnimator(
                             getContext(), R.animator.preference));
-                    return vh;
                 }
-            };
-        }
-        return new PreferenceGroupAdapter(preferenceScreen);
+                vh.itemView.setOnTouchListener((v, e) -> {
+                    if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                        vh.itemView.requestFocus();
+                        v.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,
+                                KeyEvent.KEYCODE_DPAD_CENTER));
+                        return true;
+                    } else if (e.getActionMasked() == MotionEvent.ACTION_UP) {
+                        v.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,
+                                KeyEvent.KEYCODE_DPAD_CENTER));
+                        return true;
+                    }
+                    return false;
+                });
+                vh.itemView.setFocusable(true);
+                vh.itemView.setFocusableInTouchMode(true);
+                return vh;
+            }
+        };
     }
 
     @Override
@@ -209,11 +241,6 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
     public void onResume() {
         super.onResume();
         mLifecycle.handleLifecycleEvent(ON_RESUME);
-        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
-            TwoPanelSettingsFragment parentFragment =
-                    (TwoPanelSettingsFragment) getCallbackFragment();
-            parentFragment.addListenerForFragment(this);
-        }
     }
 
     // This should only be invoked if the parent Fragment is TwoPanelSettingsFragment.
@@ -228,11 +255,6 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
     public void onPause() {
         mLifecycle.handleLifecycleEvent(ON_PAUSE);
         super.onPause();
-        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
-            TwoPanelSettingsFragment parentFragment =
-                    (TwoPanelSettingsFragment) getCallbackFragment();
-            parentFragment.removeListenerForFragment(this);
-        }
     }
 
     @CallSuper
@@ -247,6 +269,16 @@ public abstract class SettingsPreferenceFragment extends LeanbackPreferenceFragm
     public void onDestroy() {
         mLifecycle.handleLifecycleEvent(ON_DESTROY);
         super.onDestroy();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (getCallbackFragment() instanceof TwoPanelSettingsFragment) {
+            TwoPanelSettingsFragment parentFragment =
+                    (TwoPanelSettingsFragment) getCallbackFragment();
+            parentFragment.removeListenerForFragment(this);
+        }
     }
 
     @CallSuper

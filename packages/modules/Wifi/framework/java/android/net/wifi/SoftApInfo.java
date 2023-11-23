@@ -41,6 +41,13 @@ import java.util.Objects;
 public final class SoftApInfo implements Parcelable {
 
     /**
+     * AP Channel bandwidth is automatically selected by the chip.
+     *
+     * @see #getBandwidth()
+     */
+    public static final int CHANNEL_WIDTH_AUTO = -1;
+
+   /**
      * AP Channel bandwidth is invalid.
      *
      * @see #getBandwidth()
@@ -117,6 +124,14 @@ public final class SoftApInfo implements Parcelable {
      */
     public static final int CHANNEL_WIDTH_8640MHZ = 10;
 
+    /**
+     * AP Channel bandwidth is 320 MHZ.
+     *
+     * @see #getBandwidth()
+     */
+    public static final int CHANNEL_WIDTH_320MHZ = 11;
+
+
     /** The frequency which AP resides on.  */
     private int mFrequency = 0;
 
@@ -161,9 +176,10 @@ public final class SoftApInfo implements Parcelable {
      *
      * @return One of {@link #CHANNEL_WIDTH_20MHZ}, {@link #CHANNEL_WIDTH_40MHZ},
      * {@link #CHANNEL_WIDTH_80MHZ}, {@link #CHANNEL_WIDTH_160MHZ},
-     * {@link #CHANNEL_WIDTH_80MHZ_PLUS_MHZ}, {@link #CHANNEL_WIDTH_2160MHZ},
-     * {@link #CHANNEL_WIDTH_4320MHZ}, {@link #CHANNEL_WIDTH_6480MHZ},
-     * {@link #CHANNEL_WIDTH_8640MHZ}, or {@link #CHANNEL_WIDTH_INVALID}.
+     * {@link #CHANNEL_WIDTH_80MHZ_PLUS_MHZ}, {@link #CHANNEL_WIDTH_320MHZ},
+     * {@link #CHANNEL_WIDTH_2160MHZ}, {@link #CHANNEL_WIDTH_4320MHZ},
+     * {@link #CHANNEL_WIDTH_6480MHZ}, {@link #CHANNEL_WIDTH_8640MHZ},
+     * {@link #CHANNEL_WIDTH_AUTO} ,or {@link #CHANNEL_WIDTH_INVALID}.
      */
     @WifiAnnotations.Bandwidth
     public int getBandwidth() {

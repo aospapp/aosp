@@ -24,6 +24,7 @@ allow hal_audio_default dmabuf_heap_device:chr_file r_file_perms;
 get_prop(hal_audio_default, vendor_audio_prop);
 
 hal_client_domain(hal_audio_default, hal_health);
+hal_client_domain(hal_audio_default, hal_thermal);
 allow hal_audio_default fwk_sensor_hwservice:hwservice_manager find;
 
 userdebug_or_eng(`

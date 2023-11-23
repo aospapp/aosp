@@ -20,6 +20,8 @@ import android.car.drivingstate.CarUxRestrictions;
 
 /**
  * Binder callback for onUxRestrictionsChanged.
+ *
+ * @hide
  */
 oneway interface ICarUxRestrictionsChangeListener {
     void onUxRestrictionsChanged(in CarUxRestrictions event) = 0;

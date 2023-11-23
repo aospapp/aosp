@@ -15,10 +15,12 @@
  */
 package com.android.wallpaper.module;
 
+import android.app.WallpaperColors;
 import android.app.backup.BackupManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.graphics.Color;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -862,6 +864,43 @@ public class DefaultWallpaperPreferences implements WallpaperPreferences {
     @Override
     public int getFirstWallpaperApplyDateSinceSetup() {
         return mNoBackupPrefs.getInt(NoBackupKeys.KEY_FIRST_WALLPAPER_APPLY_DATE_SINCE_SETUP, 0);
+    }
+
+    @Override
+    public void storeWallpaperColors(String storedWallpaperId, WallpaperColors wallpaperColors) {
+        Color primaryColor = wallpaperColors.getPrimaryColor();
+        String value = new String(String.valueOf(primaryColor.toArgb()));
+        Color secondaryColor = wallpaperColors.getSecondaryColor();
+        if (secondaryColor != null) {
+            value += "," + secondaryColor.toArgb();
+        }
+        Color tertiaryColor = wallpaperColors.getTertiaryColor();
+        if (tertiaryColor != null) {
+            value += "," + tertiaryColor.toArgb();
+        }
+        mNoBackupPrefs.edit().putString(
+                NoBackupKeys.KEY_PREVIEW_WALLPAPER_COLOR_ID + storedWallpaperId, value).apply();
+    }
+
+    @Override
+    public WallpaperColors getWallpaperColors(String storedWallpaperId) {
+        String value = mNoBackupPrefs.getString(
+                NoBackupKeys.KEY_PREVIEW_WALLPAPER_COLOR_ID + storedWallpaperId, "");
+        if (value.equals("")) {
+            return null;
+        }
+        String[] colorStrings = value.split(",");
+        Color colorPrimary = Color.valueOf(Integer.parseInt(colorStrings[0]));
+        Color colorSecondary = null;
+        if (colorStrings.length >= 2) {
+            colorSecondary = Color.valueOf(Integer.parseInt(colorStrings[1]));
+        }
+        Color colorTerTiary = null;
+        if (colorStrings.length >= 3) {
+            colorTerTiary = Color.valueOf(Integer.parseInt(colorStrings[2]));
+        }
+        return new WallpaperColors(colorPrimary, colorSecondary, colorTerTiary,
+                WallpaperColors.HINT_FROM_BITMAP);
     }
 
     private void setFirstWallpaperApplyDateSinceSetup(int firstApplyDate) {

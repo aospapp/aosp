@@ -17,10 +17,12 @@
 package com.android.networkstack.apishim.api29;
 
 import android.net.NetworkRequest;
+import android.os.Build;
 import android.util.Range;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.NetworkRequestShim;
 import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
@@ -30,6 +32,7 @@ import java.util.Set;
 /**
  * Implementation of {@link NetworkRequestShim} for API 29.
  */
+@RequiresApi(Build.VERSION_CODES.Q)
 public class NetworkRequestShimImpl implements NetworkRequestShim {
     protected NetworkRequestShimImpl() {}
 

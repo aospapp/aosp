@@ -520,8 +520,8 @@ file) has to be signed with `Signapk`.
 
 ```
 $ java \
-  -Djava.library.path=$(dirname out/soong/host/linux-x86/lib64/libconscrypt_openjdk_jni.so)\
-  -jar out/soong/host/linux-x86/framework/signapk.jar \
+  -Djava.library.path=$(dirname out/host/linux-x86/lib64/libconscrypt_openjdk_jni.so)\
+  -jar out/host/linux-x86/framework/signapk.jar \
   -a 4096 \
   <apk_certificate_file> \
   <apk_private_key_file> \

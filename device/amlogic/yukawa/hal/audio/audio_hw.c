@@ -103,10 +103,14 @@ static bool is_aec_input(const struct alsa_stream_in* in) {
 
 static int get_audio_output_port(audio_devices_t devices) {
     /* Prefer HDMI, default to internal speaker */
+#ifndef USE_HDMI_AUDIO
     int port = PORT_INTERNAL_SPEAKER;
     if (devices & AUDIO_DEVICE_OUT_HDMI) {
         port = PORT_HDMI;
     }
+#else
+    int port = PORT_HDMI;
+#endif
 
     return port;
 }

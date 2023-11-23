@@ -39,7 +39,7 @@ import java.util.Map;
 @SmallTest
 public class OsuProviderTest {
     private static final WifiSsid TEST_SSID =
-            WifiSsid.createFromByteArray("TEST SSID".getBytes(StandardCharsets.UTF_8));
+            WifiSsid.fromBytes("TEST SSID".getBytes(StandardCharsets.UTF_8));
     private static final String TEST_FRIENDLY_NAME = "Friendly Name";
     private static final Map<String, String> TEST_FRIENDLY_NAMES =
             new HashMap<String, String>() {

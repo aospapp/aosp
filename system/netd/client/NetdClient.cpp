@@ -516,14 +516,12 @@ extern "C" int untagSocket(int socketFd) {
     return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
-extern "C" int setCounterSet(uint32_t counterSet, uid_t uid) {
-    FwmarkCommand command = {FwmarkCommand::SET_COUNTERSET, 0, uid, counterSet};
-    return FwmarkClient().send(&command, -1, nullptr);
+extern "C" int setCounterSet(uint32_t, uid_t) {
+    return -ENOTSUP;
 }
 
-extern "C" int deleteTagData(uint32_t tag, uid_t uid) {
-    FwmarkCommand command = {FwmarkCommand::DELETE_TAGDATA, 0, uid, tag};
-    return FwmarkClient().send(&command, -1, nullptr);
+extern "C" int deleteTagData(uint32_t, uid_t) {
+    return -ENOTSUP;
 }
 
 extern "C" int resNetworkQuery(unsigned netId, const char* dname, int ns_class, int ns_type,

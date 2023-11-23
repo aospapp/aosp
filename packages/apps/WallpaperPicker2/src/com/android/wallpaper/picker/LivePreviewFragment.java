@@ -37,8 +37,10 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.service.wallpaper.IWallpaperConnection;
@@ -64,8 +66,8 @@ import androidx.slice.widget.SliceLiveData;
 import androidx.slice.widget.SliceView;
 
 import com.android.wallpaper.R;
-import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.model.SetWallpaperViewModel;
+import com.android.wallpaper.model.WallpaperInfo.ColorInfo;
 import com.android.wallpaper.util.FullScreenAnimation;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.ScreenSizeCalculator;
@@ -117,14 +119,14 @@ public class LivePreviewFragment extends PreviewFragment implements
     private ViewGroup mPreviewContainer;
     private TouchForwardingLayout mTouchForwardingLayout;
     private SurfaceView mWallpaperSurface;
-    private Future<Integer> mPlaceholderColorFuture;
+    private Future<ColorInfo> mColorFuture;
     private WallpaperColors mWallpaperColors;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         android.app.WallpaperInfo info = mWallpaper.getWallpaperComponent();
-        mPlaceholderColorFuture = mWallpaper.computePlaceholderColor(getContext());
+        mColorFuture = mWallpaper.computeColorInfo(getContext());
 
         String deleteAction = getDeleteAction(info);
         if (!TextUtils.isEmpty(deleteAction)) {
@@ -165,12 +167,11 @@ public class LivePreviewFragment extends PreviewFragment implements
         Activity activity = requireActivity();
         mScreenSize = ScreenSizeCalculator.getInstance().getScreenSize(
                 activity.getWindowManager().getDefaultDisplay());
-        mPreviewContainer = view.findViewById(R.id.live_wallpaper_preview);
+        mPreviewContainer = view.findViewById(R.id.container);
         mTouchForwardingLayout = view.findViewById(R.id.touch_forwarding_layout);
 
         // Update preview header color which covers toolbar and status bar area.
-        View previewHeader = view.findViewById(R.id.preview_header);
-        previewHeader.setBackgroundColor(activity.getColor(R.color.settingslib_colorSurfaceHeader));
+        updatePreviewHeader(view);
 
         // Set aspect ratio on the preview card.
         ConstraintSet set = new ConstraintSet();
@@ -197,8 +198,8 @@ public class LivePreviewFragment extends PreviewFragment implements
         mWorkspaceSurface = mHomePreviewCard.findViewById(R.id.workspace_surface);
 
         mWorkspaceSurfaceCallback = createWorkspaceSurfaceCallback(mWorkspaceSurface);
-        mWallpaperSurfaceCallback = new WallpaperSurfaceCallback(getContext(),
-                mHomePreviewCard, mWallpaperSurface, mPlaceholderColorFuture,
+        mWallpaperSurfaceCallback = new WallpaperSurfaceCallback(getContext(), mHomePreviewCard,
+                mWallpaperSurface, mColorFuture,
                 new WallpaperSurfaceCallback.SurfaceListener() {
                     @Override
                     public void onSurfaceCreated() {
@@ -302,12 +303,8 @@ public class LivePreviewFragment extends PreviewFragment implements
                 return;
             }
             if (mWallpaperSurfaceCallback.getHomeImageWallpaper() != null) {
-                Integer placeholderColor = null;
-                try {
-                    placeholderColor = mPlaceholderColorFuture.get(50, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                    Log.i(TAG, "Couldn't obtain placeholder color", e);
-                }
+                ColorInfo colorInfo = getColorInfo();
+                Integer placeholderColor = colorInfo.getPlaceholderColor();
                 mWallpaper.getThumbAsset(activity.getApplicationContext())
                         .loadLowResDrawable(activity,
                                 mWallpaperSurfaceCallback.getHomeImageWallpaper(),
@@ -319,6 +316,21 @@ public class LivePreviewFragment extends PreviewFragment implements
             }
             setUpLiveWallpaperPreview(mWallpaper);
         });
+    }
+
+    private ColorInfo getColorInfo() {
+        ColorInfo colorInfo = null;
+        try {
+            colorInfo = mColorFuture.get(50, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            Log.i(TAG, "Couldn't obtain placeholder color", e);
+        }
+        if (colorInfo == null) {
+            colorInfo = new ColorInfo(new WallpaperColors(Color.valueOf(Color.TRANSPARENT),
+                    /* secondaryColor= */ null, /* tertiaryColor= */ null),
+                    /* placeholderColor= */ null);
+        }
+        return colorInfo;
     }
 
     protected void setUpLiveWallpaperPreview(
@@ -358,8 +370,14 @@ public class LivePreviewFragment extends PreviewFragment implements
     @Override
     protected void onBottomActionBarReady(BottomActionBar bottomActionBar) {
         super.onBottomActionBarReady(bottomActionBar);
-        mBottomActionBar.showActionsOnly(INFORMATION, DELETE, EDIT, CUSTOMIZE, APPLY);
-        mBottomActionBar.setActionClickListener(APPLY, unused -> onSetWallpaperClicked(null));
+        Activity activity = getActivity();
+        if (activity != null && activity.isInMultiWindowMode()) {
+            mBottomActionBar.showActionsOnly(INFORMATION, DELETE, CUSTOMIZE, APPLY);
+        } else {
+            mBottomActionBar.showActionsOnly(INFORMATION, DELETE, EDIT, CUSTOMIZE, APPLY);
+        }
+        mBottomActionBar.setActionClickListener(APPLY,
+                unused -> onSetWallpaperClicked(null, mWallpaper));
         mBottomActionBar.bindBottomSheetContentWithAction(
                 new WallpaperInfoContent(getContext()), INFORMATION);
 
@@ -448,7 +466,7 @@ public class LivePreviewFragment extends PreviewFragment implements
 
     @SuppressLint("NewApi") //Already checking with isAtLeastQ
     protected Uri getSettingsSliceUri(android.app.WallpaperInfo info) {
-        if (BuildCompat.isAtLeastQ()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return info.getSettingsSliceUri();
         }
         return null;
@@ -462,7 +480,8 @@ public class LivePreviewFragment extends PreviewFragment implements
     @Override
     protected void setCurrentWallpaper(int destination) {
         mWallpaperSetter.setCurrentWallpaper(getActivity(), mWallpaper, null,
-                destination, 0, null, mWallpaperColors,
+                destination, 0, null,
+                mWallpaperColors != null ? mWallpaperColors : getColorInfo().getWallpaperColors(),
                 SetWallpaperViewModel.getCallback(mViewModelProvider));
     }
 

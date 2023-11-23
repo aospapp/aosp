@@ -58,12 +58,12 @@ public final class QosSession implements Parcelable {
     }
 
     /**
-     * Gets the session id that is unique within that type.
+     * Gets the {@link QosSession} identifier which is set by the actor providing the QoS.
      * <p/>
-     * Note: The session id is set by the actor providing the qos.  It can be either manufactured by
-     * the actor, but also may have a particular meaning within that type.  For example, using the
-     * bearer id as the session id for {@link android.telephony.data.EpsBearerQosSessionAttributes}
-     * is a straight forward way to keep the sessions unique from one another within that type.
+     * Note: It can be either manufactured by the actor, but also may have a particular meaning
+     * within that type.  For example, using the bearer id as the session id for
+     * {@link android.telephony.data.EpsBearerQosSessionAttributes} is a straight forward way to
+     * keep the sessions unique from one another within that type.
      *
      * @return the id of the session
      */

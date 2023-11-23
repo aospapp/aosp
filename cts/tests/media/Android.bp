@@ -21,6 +21,7 @@ android_test {
     defaults: ["cts_defaults"],
     compile_multilib: "both",
     static_libs: [
+        "androidx.test.core",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "ctstestserver",
@@ -36,6 +37,7 @@ android_test {
         "libctsmediav2muxer_jni",
         "libctsmediav2extractor_jni",
         "libctsmediav2codec_jni",
+        "libctsmediav2utils_jni",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact

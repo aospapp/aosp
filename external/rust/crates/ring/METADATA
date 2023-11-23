@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/ring/ring-0.16.19.crate"
+    value: "https://static.crates.io/crates/ring/ring-0.16.20.crate"
   }
-  version: "0.16.19"
+  version: "0.16.20"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 12
-    day: 7
+    year: 2021
+    month: 6
+    day: 24
   }
 }

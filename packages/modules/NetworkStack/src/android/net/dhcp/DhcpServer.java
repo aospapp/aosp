@@ -211,7 +211,8 @@ public class DhcpServer extends StateMachine {
             return new DhcpLeaseRepository(
                     DhcpServingParams.makeIpPrefix(servingParams.serverAddr),
                     servingParams.excludedAddrs, servingParams.dhcpLeaseTimeSecs * 1000,
-                    servingParams.singleClientAddr, log.forSubComponent(REPO_TAG), clock);
+                    servingParams.singleClientAddr, servingParams.leasesSubnetPrefixLength,
+                    log.forSubComponent(REPO_TAG), clock);
         }
 
         @Override
@@ -388,7 +389,8 @@ public class DhcpServer extends StateMachine {
                 DhcpServingParams.makeIpPrefix(params.serverAddr),
                 params.excludedAddrs,
                 params.dhcpLeaseTimeSecs * 1000,
-                params.singleClientAddr);
+                params.singleClientAddr,
+                params.leasesSubnetPrefixLength);
         maybeNotifyStatus(cb, STATUS_SUCCESS);
     }
 

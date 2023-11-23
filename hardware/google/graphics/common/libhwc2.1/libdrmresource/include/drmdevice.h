@@ -70,18 +70,25 @@ class DrmDevice {
   int GetConnectorProperty(const DrmConnector &connector, const char *prop_name,
                            DrmProperty *property);
   int UpdateCrtcProperty(const DrmCrtc &crtc, DrmProperty *property);
+  int UpdateConnectorProperty(const DrmConnector &conn, DrmProperty *property);
 
   const std::vector<std::unique_ptr<DrmCrtc>> &crtcs() const;
   uint32_t next_mode_id();
 
-  int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id);
+  int CreatePropertyBlob(const void *data, size_t length, uint32_t *blob_id);
   int DestroyPropertyBlob(uint32_t blob_id);
   bool HandlesDisplay(int display) const;
   void RegisterHotplugHandler(DrmEventHandler *handler) {
     event_listener_.RegisterHotplugHandler(handler);
   }
+  void RegisterHistogramHandler(DrmHistogramEventHandler *handler) {
+      event_listener_.RegisterHistogramHandler(handler);
+  }
 
- private:
+  int CallVendorIoctl(unsigned long request, void *arg);
+
+  private:
+  int UpdateObjectProperty(int id, int type, DrmProperty *property);
   int TryEncoderForDisplay(int display, DrmEncoder *enc);
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
                   DrmProperty *property);

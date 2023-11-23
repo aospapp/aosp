@@ -95,16 +95,19 @@ bool Backtrace::Unwind(unwindstack::Regs* regs, BacktraceMap* back_map,
         error->error_code = BACKTRACE_UNWIND_ERROR_INVALID_ELF;
         break;
 
-      case unwindstack::ERROR_SYSTEM_CALL:
-        error->error_code = BACKTRACE_UNWIND_ERROR_INTERNAL;
-        break;
-
       case unwindstack::ERROR_THREAD_DOES_NOT_EXIST:
         error->error_code = BACKTRACE_UNWIND_ERROR_THREAD_DOESNT_EXIST;
         break;
 
       case unwindstack::ERROR_THREAD_TIMEOUT:
         error->error_code = BACKTRACE_UNWIND_ERROR_THREAD_TIMEOUT;
+        break;
+
+      case unwindstack::ERROR_SYSTEM_CALL:
+      case unwindstack::ERROR_MAPS_PARSE:
+      case unwindstack::ERROR_BAD_ARCH:
+      case unwindstack::ERROR_INVALID_PARAMETER:
+        error->error_code = BACKTRACE_UNWIND_ERROR_INTERNAL;
         break;
     }
   }
@@ -137,12 +140,20 @@ bool Backtrace::Unwind(unwindstack::Regs* regs, BacktraceMap* back_map,
     }
     back_frame->func_offset = frame->function_offset;
 
-    back_frame->map.name = frame->map_name;
-    back_frame->map.start = frame->map_start;
-    back_frame->map.end = frame->map_end;
-    back_frame->map.offset = frame->map_elf_start_offset;
-    back_frame->map.load_bias = frame->map_load_bias;
-    back_frame->map.flags = frame->map_flags;
+    if (frame->map_info != nullptr) {
+      back_frame->map.name = frame->map_info->name();
+      back_frame->map.start = frame->map_info->start();
+      back_frame->map.end = frame->map_info->end();
+      back_frame->map.offset = frame->map_info->elf_start_offset();
+      back_frame->map.load_bias = frame->map_info->load_bias();
+      back_frame->map.flags = frame->map_info->flags();
+    } else {
+      back_frame->map.start = 0;
+      back_frame->map.end = 0;
+      back_frame->map.offset = 0;
+      back_frame->map.load_bias = 0;
+      back_frame->map.flags = 0;
+    }
   }
 
   return true;

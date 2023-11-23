@@ -26,8 +26,12 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import com.android.compatibility.common.util.FileUtil;
+import com.android.compatibility.common.util.ICaseResult;
 import com.android.compatibility.common.util.IInvocationResult;
+import com.android.compatibility.common.util.IModuleResult;
+import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.ResultHandler;
+import com.android.compatibility.common.util.ScreenshotsMetadataHandler;
 import com.android.compatibility.common.util.ZipUtil;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -49,7 +53,7 @@ import java.util.logging.Logger;
 /**
  * Background task to generate a report and save it to external storage.
  */
-class ReportExporter extends AsyncTask<Void, Void, String> {
+public class ReportExporter extends AsyncTask<Void, Void, String> {
     private static final String TAG = ReportExporter.class.getSimpleName();
     private static final boolean DEBUG = true;
 
@@ -154,6 +158,11 @@ class ReportExporter extends AsyncTask<Void, Void, String> {
                     result, tempDir, START_MS, END_MS, REFERENCE_URL, LOG_URL,
                     COMMAND_LINE_ARGS, null);
 
+            // Serialize the screenshots metadata if at least one exists
+            if (containsScreenshotMetadata(result)) {
+                ScreenshotsMetadataHandler.writeResults(result, tempDir);
+            }
+
             // copy formatting files to the temporary report directory
             copyFormattingFiles(tempDir);
 
@@ -168,6 +177,22 @@ class ReportExporter extends AsyncTask<Void, Void, String> {
         }
         saveReportOnInternalStorage(reportZipFile);
         return mContext.getString(R.string.report_saved, reportZipFile.getPath());
+    }
+
+    private boolean containsScreenshotMetadata(IInvocationResult result) {
+        for (IModuleResult module : result.getModules()) {
+            for (ICaseResult cr : module.getResults()) {
+                for (ITestResult r : cr.getResults()) {
+                    if (r.getResultStatus() == null) {
+                        continue; // test was not executed, don't report
+                    }
+                    if (r.getTestScreenshotsMetadata() != null) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private void saveReportOnInternalStorage(File reportZipFile) {

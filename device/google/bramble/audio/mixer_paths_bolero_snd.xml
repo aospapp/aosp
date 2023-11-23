@@ -47,6 +47,7 @@
     <ctl name="Voip Dtx Mode" value="0" />
     <ctl name="TTY Mode" value="OFF" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia1" value="0" />
+    <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia2" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia4" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia5" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia7" value="0" />
@@ -58,6 +59,7 @@
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia14" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia15" value="0" />
     <ctl name="SLIMBUS_7_RX Audio Mixer MultiMedia16" value="0" />
+    <ctl name="MultiMedia2 Mixer TX_CDC_DMA_TX_3" value="0" />
     <ctl name="MultiMedia5 Mixer AFE_PCM_TX" value="0" />
     <ctl name="MultiMedia5 Mixer TX_CDC_DMA_TX_3" value="0" />
     <ctl name="MultiMedia1 Mixer TX_CDC_DMA_TX_3" value="0" />
@@ -133,12 +135,9 @@
     <ctl name="WSA_CDC_DMA_RX_0 Channels" value="One" />
     <ctl name="RX_CDC_DMA_RX_0 Channels" value="One" />
     <ctl name="VI_FEED_TX Channels" value="Two" />
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="0" />
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="0" />
-    <ctl name="WSA_CDC_DMA_RX_0 Format" value="UNPACKED" />
-    <ctl name="WSA_CDC_DMA_TX_0 Format" value="UNPACKED" />
-    <ctl name="RX_CDC_DMA_RX_0 Format" value="UNPACKED" />
-    <ctl name="TX_CDC_DMA_TX_3 Format" value="UNPACKED" />
+    <ctl name="WSA_CDC_DMA_RX_0 Format" value="S16_LE" />
+    <ctl name="RX_CDC_DMA_RX_0 Format" value="S16_LE" />
+    <ctl name="TX_CDC_DMA_TX_3 Format" value="S16_LE" />
 
     <ctl name="MultiMedia1 Mixer PRI_TDM_TX_0" value="0" />
     <ctl name="MultiMedia2 Mixer PRI_TDM_TX_0" value="0" />
@@ -147,14 +146,8 @@
     <ctl name="MultiMedia5 Mixer PRI_TDM_TX_0" value="0" />
     <ctl name="MultiMedia6 Mixer PRI_TDM_TX_0" value="0" />
     <ctl name="MultiMedia8 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia9 Mixer PRI_TDM_TX_0" value="0" />
     <ctl name="MultiMedia10 Mixer PRI_TDM_TX_0" value="0" />
     <ctl name="MultiMedia16 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia17 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia18 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia19 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia28 Mixer PRI_TDM_TX_0" value="0" />
-    <ctl name="MultiMedia29 Mixer PRI_TDM_TX_0" value="0" />
 
     <ctl name="QUIN_TDM_RX_0 Audio Mixer MultiMedia1" value="0"/>
     <ctl name="QUIN_TDM_RX_0 Audio Mixer MultiMedia2" value="0"/>
@@ -173,8 +166,6 @@
 
     <!-- HFP start -->
     <ctl name="HFP_SLIM7_UL_HL Switch" value="0" />
-    <ctl name="WSA_CDC_DMA_RX_0 Port Mixer SLIM_7_TX" value="0" />
-    <ctl name="RX_CDC_DMA_RX_0 Port Mixer SLIM_7_TX" value="0" />
     <!-- HFP end -->
     <!-- echo reference -->
     <ctl name="AUDIO_REF_EC_UL1 MUX" value="None" />
@@ -185,6 +176,7 @@
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia2" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia4" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia7" value="0" />
+    <ctl name="AFE_PCM_RX Audio Mixer MultiMedia8" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia10" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia11" value="0" />
     <ctl name="AFE_PCM_RX Audio Mixer MultiMedia12" value="0" />
@@ -268,6 +260,7 @@
     <!-- Incall Music -->
     <ctl name="Incall_Music Audio Mixer MultiMedia2" value="0" />
     <ctl name="Incall_Music Audio Mixer MultiMedia9" value="0" />
+    <ctl name="Incall_Music_2 Audio Mixer MultiMedia9" value="0" />
     <!-- Incall Music End -->
 
     <!-- compress-voip-call start -->
@@ -309,22 +302,8 @@
 
     <!-- Codec controls -->
     <!-- WSA controls -->
-    <ctl name="WSA RX0 MUX" value="ZERO" />
-    <ctl name="WSA RX1 MUX" value="ZERO" />
-    <ctl name="WSA_RX0 INP0" value="ZERO" />
-    <ctl name="WSA_RX1 INP0" value="ZERO" />
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="0" />
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="0" />
     <ctl name="WSA_RX_0_VI_FB_LCH_MUX" value="ZERO" />
     <ctl name="WSA_RX_0_VI_FB_RCH_MUX" value="ZERO" />
-    <ctl name="SpkrLeft COMP Switch" value="0" />
-    <ctl name="SpkrRight COMP Switch" value="0" />
-    <ctl name="SpkrLeft BOOST Switch" value="0" />
-    <ctl name="SpkrRight BOOST Switch" value="0" />
-    <ctl name="SpkrLeft VISENSE Switch" value="0" />
-    <ctl name="SpkrRight VISENSE Switch" value="0" />
-    <ctl name="SpkrLeft SWR DAC_Port Switch" value="0" />
-    <ctl name="SpkrRight SWR DAC_Port Switch" value="0" />
 
     <!-- RX Controls -->
     <ctl name="RX_MACRO RX0 MUX" value="ZERO" />
@@ -347,14 +326,14 @@
     <ctl name="HPHL_RDAC Switch" value="0" />
     <ctl name="HPHR_RDAC Switch" value="0" />
     <ctl name="AUX_RDAC Switch" value="0" />
-    <ctl name="RDAC3_MUX" value="ZERO" />
+    <ctl name="RDAC3_MUX" value="RX1" />
     <ctl name="RX_EAR Mode" value="OFF" />
 
     <!-- TX Controls -->
     <ctl name="TX_CDC_DMA_TX_3 Channels" value="One" />
     <ctl name="MultiMedia1 Mixer TX_CDC_DMA_TX_3" value="0" />
     <ctl name="ADC2_MIXER Switch" value="0" />
-    <ctl name="ADC2 MUX" value="ZERO" />
+    <ctl name="ADC2 MUX" value="INP2" />
     <ctl name="TX_AIF1_CAP Mixer DEC0" value="0" />
     <ctl name="TX_AIF1_CAP Mixer DEC1" value="0" />
     <ctl name="TX_AIF1_CAP Mixer DEC2" value="0" />
@@ -390,14 +369,11 @@
     <ctl name="DEC0_BCS Switch" value="1" />
 
     <!-- Volume controls -->
-    <ctl name="WSA_RX0 Digital Volume" value="84" />
-    <ctl name="WSA_RX1 Digital Volume" value="84" />
     <ctl name="RX_RX0 Digital Volume" value="84" />
     <ctl name="RX_RX1 Digital Volume" value="84" />
     <ctl name="RX_RX2 Digital Volume" value="84" />
     <ctl name="HPHL Volume" value="20" />
     <ctl name="HPHR Volume" value="20" />
-    <ctl name="EAR SPKR PA Gain" value="G_DEFAULT" />
 
     <ctl name="TX_DEC0 Volume" value="102" />
     <ctl name="TX_DEC1 Volume" value="102" />
@@ -412,11 +388,6 @@
     <ctl name="ADC2 Volume" value="12" />
     <ctl name="ADC3 Volume" value="12" />
 
-    <!-- Compander controls -->
-    <ctl name="WSA_COMP1 Switch" value="0" />
-    <ctl name="WSA_COMP2 Switch" value="0" />
-    <ctl name="COMP7 Switch" value="0" />
-    <ctl name="COMP8 Switch" value="0" />
 
     <!-- Headphone class-H mode -->
     <ctl name="RX_HPH_PWR_MODE" value="ULP" />
@@ -459,19 +430,10 @@
     <ctl name="IIR0 INP2 MUX" value="ZERO" />
     <ctl name="IIR0 INP3 MUX" value="ZERO" />
 
-    <!-- vbat related data -->
-    <ctl name="GSM mode Enable" value="OFF" />
-    <ctl name="WSA_Softclip0 Enable" value="0" />
-    <ctl name="WSA_Softclip1 Enable" value="0" />
-    <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="0" />
-    <ctl name="WSA_RX INT1 VBAT WSA RX1 VBAT Enable" value="0" />
-
     <!-- Codec controls end -->
 
     <!-- defaults for mmap record -->
     <ctl name="MultiMedia16 Mixer TX_CDC_DMA_TX_3" value="0" />
-    <ctl name="MultiMedia16 Mixer SLIM_7_TX" value="0" />
-    <ctl name="MultiMedia16 Mixer SLIM_8_TX" value="0" />
     <ctl name="MultiMedia16 Mixer USB_AUDIO_TX" value="0" />
 
     <!-- ALC5513 config -->
@@ -569,9 +531,21 @@
     <!-- CS35L41 VP brownout end-->
     <!-- CS35L41 config end-->
 
+    <!-- add initial value-->
+    <ctl name="HDMI Mixer MultiMedia1" value="0" />
+    <ctl name="HDMI Mixer MultiMedia4" value="0" />
+    <ctl name="HDMI Mixer MultiMedia5" value="0" />
+    <ctl name="HDMI Mixer MultiMedia8" value="0" />
+    <ctl name="HDMI Mixer MultiMedia9" value="0" />
+    <ctl name="HDMI Mixer MultiMedia10" value="0" />
+    <ctl name="HDMI Mixer MultiMedia16" value="0" />
+    <ctl name="RX INT0 MIX2 INP" value="0" />
+    <ctl name="RX INT1 MIX2 INP" value="0" />
+    <ctl name="RX INT2 MIX2 INP" value="0" />
+    <!-- add initial value end-->
+
     <!-- These are audio route (FE to BE) specific mixer settings -->
     <path name="gsm-mode">
-        <ctl name="GSM mode Enable" value="ON" />
     </path>
 
     <path name="echo-reference">
@@ -937,7 +911,6 @@
     </path>
 
     <path name="low-latency-playback resume">
-        <ctl name="MultiMedia5_RX QOS Vote" value="Enable" />
     </path>
 
     <path name="audio-ull-playback">
@@ -1309,7 +1282,6 @@
     </path>
 
     <path name="low-latency-record capture-fm">
-      <ctl name="MultiMedia8 Mixer SLIM_8_TX" value="1" />
     </path>
 
     <path name="spkr-vi-record vi-feedback">
@@ -1958,7 +1930,6 @@
     </path>
 
     <path name="spkr-rx-calib">
-        <ctl name="QUIN_TDM_RX_DL_HL Switch" value="1" />
     </path>
 
     <path name="spkr-vi-record">
@@ -2081,7 +2052,6 @@
         <ctl name="IIR0 INP0 Volume" value="54" />
         <ctl name="IIR0 INP0 MUX" value="DEC0" />
         <ctl name="RX INT2 MIX2 INP" value="SRC0" />
-        <ctl name="WSA_RX0 INT0 SIDETONE MIX" value="SRC0" />
     </path>
 
     <path name="afe-sidetone">
@@ -2253,11 +2223,9 @@
     </path>
 
     <path name="voice-speaker-vbat">
-        <path name="speaker-vbat-mono" />
     </path>
 
     <path name="voice-speaker-2-vbat">
-        <path name="speaker-vbat-mono-2" />
     </path>
 
     <path name="voice-speaker-mic">
@@ -2430,7 +2398,7 @@
 
     <path name="dmic-endfire-liquid">
         <path name="handset-dmic-endfire" />
-        <ctl name="IIR0 INP0 MUX" value="DEC7" />
+        <ctl name="IIR0 INP0 MUX" value="DEC0" />
     </path>
 
     <path name="handset-stereo-dmic-ef">
@@ -2863,7 +2831,6 @@
     </path>
 
     <path name="mmap-record bt-sco">
-      <ctl name="MultiMedia16 Mixer SLIM_7_TX" value="1" />
     </path>
 
     <path name="mmap-record bt-sco-wb">
@@ -2876,7 +2843,6 @@
     </path>
 
     <path name="mmap-record capture-fm">
-      <ctl name="MultiMedia16 Mixer SLIM_8_TX" value="1" />
     </path>
 
     <path name="mmap-record usb-headset-mic">

@@ -63,6 +63,27 @@ class SessionTest : PackageInstallerTestBase() {
     }
 
     /**
+     * Check that we can install an app via a package-installer session
+     */
+    @Test
+    fun confirmMultiPackageInstallation() {
+        val installation = startInstallationViaMultiPackageSession(
+                installFlags = 0,
+                PackageInstallerTestBase.TEST_APK_NAME
+        )
+        clickInstallerUIButton(INSTALL_BUTTON_ID)
+
+        // Install should have succeeded
+        assertEquals(STATUS_SUCCESS, getInstallSessionResult())
+        assertInstalled()
+
+        // Even when the install succeeds the install confirm dialog returns 'canceled'
+        assertEquals(RESULT_CANCELED, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
+
+        assertTrue(AppOpsUtils.allowedOperationLogged(context.packageName, APP_OP_STR))
+    }
+
+    /**
      * Check that we can set an app category for an app we installed
      */
     @Test

@@ -17,6 +17,7 @@
 package com.android.layoutlib.bridge.intensive.util;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,7 +50,11 @@ public class ModuleClassLoader extends ClassLoader {
         if (clazz == null) {
             String path = name.replace('.', '/').concat(".class");
             try {
-                byte[] b = Streams.readFully(getResourceAsStream(myModuleRoot + path));
+                InputStream classStream = getResourceAsStream(myModuleRoot + path);
+                if (classStream == null) {
+                    throw new IOException("Cannot find resource stream for class " + name);
+                }
+                byte[] b = Streams.readFully(classStream);
                 clazz = defineClass(name, b, 0, b.length);
                 mClasses.put(name, clazz);
             } catch (IOException ignore) {

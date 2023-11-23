@@ -100,9 +100,6 @@
            be checked via NL80211 interface -->
     <bool translatable="false" name="config_wifi11axSupportOverride">true</bool>
 
-    <!-- Wifi driver supports 6GHz band for softap -->
-    <bool translatable="false" name="config_wifiSoftap6ghzSupported">true</bool>
-
     <!-- Wifi driver supports WPA3 Simultaneous Authentication of Equals (WPA3-SAE) for softap -->
     <bool translatable="false" name="config_wifi_softap_sae_supported">true</bool>
 
@@ -132,4 +129,16 @@
     <bool translatable="false" name="config_wifiDefaultCoexAlgorithmEnabled">true</bool>
     <!-- Whether to use the explicit vendor HAL API: IWifiStaIface.setRoamingState for disabling fw roaming. -->
     <bool translatable="false" name="config_wifiUseHalApiToDisableFwRoaming">true</bool>
+
+    <!-- Indicate the driver doesn't support NL80211 Reg changed event -->
+    <bool translatable="false" name="config_wifiDriverSupportedNl80211RegChangedEvent">false</bool>
+
+    <!-- Indicate whether the verbose logging is always on -->
+    <!-- 0: verbose logging controlled by user
+         1: verbose logging on by default for userdebug
+         2: verbose logging on by default for all builds -->
+    <integer translatable="false" name="config_wifiVerboseLoggingAlwaysOnLevel">1</integer>
+
+    <!-- Enable aggregation of Wifi link layer radio stats from all radios -->
+    <bool translatable="false" name="config_wifiLinkLayerAllRadiosStatsAggregationEnabled">true</bool>
 </resources>

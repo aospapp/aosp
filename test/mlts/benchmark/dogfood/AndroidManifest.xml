@@ -25,6 +25,12 @@
 	android:permission="android.permission.BIND_JOB_SERVICE" >
 
     </service>
+    <!--provider entry is a workaround for b/195309961-->
+    <provider
+            xmlns:tools="http://schemas.android.com/tools"
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="com.google.android.storagemanager.androidx-startup"
+            tools:replace="android:authorities" />
   </application>
 
 </manifest>

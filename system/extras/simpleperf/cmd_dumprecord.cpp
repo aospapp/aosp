@@ -284,10 +284,6 @@ void DumpRecordCommand::DumpFileHeader() {
                   << "doesn't match expected header size " << sizeof(header);
   }
   printf("attr_size: %" PRId64 "\n", header.attr_size);
-  if (header.attr_size != sizeof(FileAttr)) {
-    LOG(WARNING) << "record file attr size " << header.attr_size
-                 << " doesn't match expected attr size " << sizeof(FileAttr);
-  }
   printf("attrs[file section]: offset %" PRId64 ", size %" PRId64 "\n", header.attrs.offset,
          header.attrs.size);
   printf("data[file section]: offset %" PRId64 ", size %" PRId64 "\n", header.data.offset,
@@ -423,7 +419,7 @@ bool DumpRecordCommand::DumpAuxData(const AuxRecord& aux) {
     if (!record_file_reader_->ReadAuxData(aux.Cpu(), aux.data->aux_offset, data.get(), size)) {
       return false;
     }
-    return etm_decoder_->ProcessData(data.get(), size);
+    return etm_decoder_->ProcessData(data.get(), size, !aux.Unformatted(), aux.Cpu());
   }
   return true;
 }
@@ -471,7 +467,7 @@ bool DumpRecordCommand::DumpFeatureSection() {
     } else if (feature == FEAT_CMDLINE) {
       std::vector<std::string> cmdline = record_file_reader_->ReadCmdlineFeature();
       PrintIndented(1, "cmdline: %s\n", android::base::Join(cmdline, ' ').c_str());
-    } else if (feature == FEAT_FILE) {
+    } else if (feature == FEAT_FILE || feature == FEAT_FILE2) {
       FileFeature file;
       size_t read_pos = 0;
       PrintIndented(1, "file:\n");

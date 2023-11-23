@@ -1,7 +1,9 @@
 # Bug component: 533220
-adamhe@google.com
-augale@google.com
-joannechung@google.com
-lpeter@google.com
-svetoslavganov@google.com
-tymtsai@google.com
+volnov@google.com
+andreaambu@google.com
+eugeniom@google.com
+schfan@google.com
+
+# Framework team as backup
+
+include platform/frameworks/base:/core/java/android/service/voice/OWNERS

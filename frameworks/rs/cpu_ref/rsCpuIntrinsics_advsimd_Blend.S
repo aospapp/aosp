@@ -593,7 +593,7 @@
 ENTRY(rsdIntrinsicBlend_K)
     adrp    x5, blendtable
     add     x5, x5, :lo12:blendtable
-    cmp     w2, tablesize >> 1
+    cmp     w2, tablesize
     bhs     1f
     ldrsh   x6, [x5, w2, uxtw #1]
     add     x0, x0, w3, uxtw #2
@@ -615,4 +615,3 @@ blendtable:
 #define BLEND_X(d, n) .rept d-off ; .hword 0 ; .endr ; .hword blend_line_##n - 2b ; .set off, d+1 ;
         BLEND_LIST(BLEND_X)
 #undef BLEND_X
-

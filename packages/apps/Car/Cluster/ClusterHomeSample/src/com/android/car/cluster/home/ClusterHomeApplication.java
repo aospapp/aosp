@@ -43,6 +43,7 @@ import android.car.input.CarInputManager;
 import android.car.input.CarInputManager.CarInputCaptureCallback;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleListener;
+import android.car.user.UserLifecycleEventFilter;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Rect;
@@ -62,6 +63,7 @@ public final class ClusterHomeApplication extends Application {
     private static final int UI_TYPE_MAPS = UI_TYPE_HOME + 1;
     private static final int UI_TYPE_MUSIC = UI_TYPE_HOME + 2;
     private static final int UI_TYPE_PHONE = UI_TYPE_HOME + 3;
+    private static final int UI_TYPE_START = UI_TYPE_MAPS;
 
     private static final byte HOME_AVAILABILITY = 1;
     private static final byte MAPS_AVAILABILITY = 1;
@@ -114,16 +116,26 @@ public final class ClusterHomeApplication extends Application {
     }
 
     private void initClusterHome() {
-        mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeListener);
+        if (mHomeManager == null) {
+            Log.e(TAG, "ClusterHome is null (ClusterHomeService may not be enabled), "
+                    + "Stopping ClusterHomeSample.");
+            return;
+        }
+        mHomeManager.registerClusterStateListener(getMainExecutor(),mClusterHomeCalback);
         mClusterState = mHomeManager.getClusterState();
         if (!mClusterState.on) {
             mHomeManager.requestDisplay(UI_TYPE_HOME);
         }
         mUiAvailability = buildUiAvailability();
         mHomeManager.reportState(mClusterState.uiType, UI_TYPE_CLUSTER_NONE, mUiAvailability);
-        mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeListener);
+        mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeCalback);
 
-        mUserManager.addListener(getMainExecutor(), mUserLifecycleListener);
+        // Using the filter, only listens to the current user starting or unlocked events.
+        UserLifecycleEventFilter filter = new UserLifecycleEventFilter.Builder()
+                .addUser(UserHandle.CURRENT)
+                .addEventType(USER_LIFECYCLE_EVENT_TYPE_STARTING)
+                .addEventType(USER_LIFECYCLE_EVENT_TYPE_UNLOCKED).build();
+        mUserManager.addListener(getMainExecutor(), filter, mUserLifecycleListener);
 
         int r = mCarInputManager.requestInputEventCapture(
                 DISPLAY_TYPE_INSTRUMENT_CLUSTER,
@@ -143,7 +155,7 @@ public final class ClusterHomeApplication extends Application {
     public void onTerminate() {
         mCarInputManager.releaseInputEventCapture(DISPLAY_TYPE_INSTRUMENT_CLUSTER);
         mUserManager.removeListener(mUserLifecycleListener);
-        mHomeManager.unregisterClusterStateListener(mClusterHomeListener);
+        mHomeManager.unregisterClusterStateListener(mClusterHomeCalback);
         try {
             mAtm.unregisterTaskStackListener(mTaskStackListener);
         } catch (RemoteException e) {
@@ -153,7 +165,8 @@ public final class ClusterHomeApplication extends Application {
     }
 
     private void startClusterActivity(int uiType) {
-        if (mUserLifeCycleEvent != USER_LIFECYCLE_EVENT_TYPE_UNLOCKED) {
+        // Because ClusterHomeActivity runs as a user 0, so it can run in the locked state.
+        if (uiType != UI_TYPE_HOME && mUserLifeCycleEvent != USER_LIFECYCLE_EVENT_TYPE_UNLOCKED) {
             Log.i(TAG, "Ignore to start Activity(" + uiType + ") during user-switching");
             return;
         }
@@ -189,7 +202,7 @@ public final class ClusterHomeApplication extends Application {
         };
     }
 
-    private final ClusterStateListener mClusterHomeListener = new ClusterStateListener() {
+    private final ClusterStateListener mClusterHomeCalback = new ClusterStateListener() {
         @Override
         public void onClusterStateChanged(
                 ClusterState state, @ClusterHomeManager.Config int changes) {
@@ -214,7 +227,7 @@ public final class ClusterHomeApplication extends Application {
     };
 
     private void handleTaskStackChanged() {
-        if (mClusterState.displayId == Display.INVALID_DISPLAY) {
+        if (mClusterState == null || mClusterState.displayId == Display.INVALID_DISPLAY) {
             return;
         }
         TaskInfo taskInfo;
@@ -251,9 +264,14 @@ public final class ClusterHomeApplication extends Application {
     }
 
     private final UserLifecycleListener mUserLifecycleListener = (event) -> {
+        if (DBG) Log.d(TAG, "UserLifecycleListener.onEvent: event=" + event);
+
         mUserLifeCycleEvent = event.getEventType();
         if (mUserLifeCycleEvent == USER_LIFECYCLE_EVENT_TYPE_STARTING) {
             startClusterActivity(UI_TYPE_HOME);
+        } else if (UI_TYPE_HOME != UI_TYPE_START
+                && mUserLifeCycleEvent == USER_LIFECYCLE_EVENT_TYPE_UNLOCKED) {
+            startClusterActivity(UI_TYPE_START);
         }
     };
 
@@ -266,6 +284,7 @@ public final class ClusterHomeApplication extends Application {
     };
 
     private void onKeyEvent(KeyEvent keyEvent) {
+        if (DBG) Log.d(TAG, "onKeyEvent: " + keyEvent);
         if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_MENU) {
             if (keyEvent.getAction() != KeyEvent.ACTION_DOWN) return;
             int nextUiType = (mLastLaunchedUiType + 1) % mUiAvailability.length;

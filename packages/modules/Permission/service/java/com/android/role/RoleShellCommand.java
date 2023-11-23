@@ -80,6 +80,8 @@ class RoleShellCommand extends BasicShellCommandHandler {
                     return runRemoveRoleHolder();
                 case "clear-role-holders":
                     return runClearRoleHolders();
+                case "set-bypassing-role-qualification":
+                    return runSetBypassingRoleQualification();
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -140,6 +142,12 @@ class RoleShellCommand extends BasicShellCommandHandler {
         return future.waitForResult();
     }
 
+    private int runSetBypassingRoleQualification() throws RemoteException {
+        Boolean value = Boolean.parseBoolean(getNextArgRequired());
+        mRoleManager.setBypassingRoleQualification(value);
+        return 0;
+    }
+
     @Override
     public void onHelp() {
         PrintWriter pw = getOutPrintWriter();
@@ -150,6 +158,7 @@ class RoleShellCommand extends BasicShellCommandHandler {
         pw.println("  add-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]");
         pw.println("  remove-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]");
         pw.println("  clear-role-holders [--user USER_ID] ROLE [FLAGS]");
+        pw.println("  set-bypassing-role-qualification true|false");
         pw.println();
     }
 }

@@ -16,24 +16,25 @@
 
 package com.android.car.audio.hal;
 
+import static android.car.builtin.media.AudioManagerHelper.usageToString;
+
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.car.builtin.util.Slogf;
 import android.hardware.automotive.audiocontrol.MutingInfo;
 import android.hardware.automotive.audiocontrol.V2_0.IAudioControl;
 import android.hardware.automotive.audiocontrol.V2_0.ICloseHandle;
 import android.hardware.automotive.audiocontrol.V2_0.IFocusListener;
-import android.media.AudioAttributes;
-import android.media.AudioAttributes.AttributeUsage;
 import android.os.RemoteException;
-import android.util.IndentingPrintWriter;
 import android.util.Log;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 import com.android.car.audio.CarDuckingInfo;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.annotation.AttributeUsage;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -70,7 +71,7 @@ public final class AudioControlWrapperV2 implements AudioControlWrapper {
             try {
                 mCloseHandle.close();
             } catch (RemoteException e) {
-                Slog.e(TAG, "Failed to close focus listener", e);
+                Slogf.e(TAG, "Failed to close focus listener", e);
             } finally {
                 mCloseHandle = null;
             }
@@ -87,20 +88,32 @@ public final class AudioControlWrapperV2 implements AudioControlWrapper {
 
     @Override
     public void registerFocusListener(HalFocusListener focusListener) {
-        Slog.d(TAG, "Registering focus listener on AudioControl HAL");
+        Slogf.d(TAG, "Registering focus listener on AudioControl HAL");
         IFocusListener listenerWrapper = new FocusListenerWrapper(focusListener);
         try {
             mCloseHandle = mAudioControlV2.registerFocusListener(listenerWrapper);
         } catch (RemoteException e) {
-            Slog.e(TAG, "Failed to register focus listener");
+            Slogf.e(TAG, "Failed to register focus listener");
             throw new IllegalStateException("IAudioControl#registerFocusListener failed", e);
         }
     }
 
     @Override
+    public void registerAudioGainCallback(HalAudioGainCallback gainCallback) {
+        throw new UnsupportedOperationException(
+                "Audio Gain Callback is unsupported for IAudioControl@2.0");
+    }
+
+    @Override
+    public void unregisterAudioGainCallback() {
+        throw new UnsupportedOperationException(
+                "Audio Gain Callback is unsupported for IAudioControl@2.0");
+    }
+
+    @Override
     public void onAudioFocusChange(@AttributeUsage int usage, int zoneId, int focusChange) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Slog.d(TAG, "onAudioFocusChange: usage " + AudioAttributes.usageToString(usage)
+        if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+            Slogf.d(TAG, "onAudioFocusChange: usage " + usageToString(usage)
                     + ", zoneId " + zoneId + ", focusChange " + focusChange);
         }
         try {
@@ -130,7 +143,7 @@ public final class AudioControlWrapperV2 implements AudioControlWrapper {
         try {
             mAudioControlV2.setFadeTowardFront(value);
         } catch (RemoteException e) {
-            Slog.e(TAG, "setFadeTowardFront failed", e);
+            Slogf.e(TAG, "setFadeTowardFront failed", e);
         }
     }
 
@@ -139,7 +152,7 @@ public final class AudioControlWrapperV2 implements AudioControlWrapper {
         try {
             mAudioControlV2.setBalanceTowardRight(value);
         } catch (RemoteException e) {
-            Slog.e(TAG, "setBalanceTowardRight failed", e);
+            Slogf.e(TAG, "setBalanceTowardRight failed", e);
         }
     }
 
@@ -174,7 +187,7 @@ public final class AudioControlWrapperV2 implements AudioControlWrapper {
     }
 
     private void serviceDied(long cookie) {
-        Slog.w(TAG, "IAudioControl@2.0 died. Fetching new handle");
+        Slogf.w(TAG, "IAudioControl@2.0 died. Fetching new handle");
         mAudioControlV2 = AudioControlWrapperV2.getService();
         linkToDeath(mDeathRecipient);
         if (mDeathRecipient != null) {

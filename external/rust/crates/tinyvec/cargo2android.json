@@ -3,9 +3,10 @@
     "//apex_available:platform",
     "com.android.resolv"
   ],
-  "min_sdk_version": "29",
   "dependencies": true,
-  "features": "alloc,default,tinyvec_macros",
   "device": true,
-  "run": true
+  "features": "alloc,default,tinyvec_macros",
+  "min-sdk-version": "29",
+  "run": true,
+  "tests": true
 }

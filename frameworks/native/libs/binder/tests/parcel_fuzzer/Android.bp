@@ -9,7 +9,6 @@ package {
 
 cc_fuzz {
     name: "binder_parcel_fuzzer",
-    defaults: ["libbinder_ndk_host_user"],
     host_supported: true,
 
     fuzz_config: {
@@ -23,19 +22,13 @@ cc_fuzz {
         "main.cpp",
         "random_fd.cpp",
         "random_parcel.cpp",
-        "util.cpp",
     ],
     static_libs: [
         "libbase",
         "libbinder_random_parcel",
-        "libcgrouprc",
-        "libcgrouprc_format",
         "libcutils",
         "libhidlbase",
         "liblog",
-        "libprocessgroup",
-        "libjsoncpp",
-        "libutils",
     ],
 
     target: {
@@ -43,13 +36,18 @@ cc_fuzz {
             shared_libs: [
                 "libbinder_ndk",
                 "libbinder",
+                "libutils",
             ],
         },
         host: {
             static_libs: [
                 "libbinder_ndk",
                 "libbinder",
+                "libutils",
             ],
+        },
+        darwin: {
+            enabled: false,
         },
     },
     // This flag enables verbose output in the fuzz target, and is very useful
@@ -64,15 +62,18 @@ cc_library_static {
     target: {
         darwin: {
             enabled: false,
-        }
+        },
     },
     srcs: [
         "random_fd.cpp",
         "random_parcel.cpp",
+        "libbinder_driver.cpp",
+        "libbinder_ndk_driver.cpp",
     ],
     shared_libs: [
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libcutils",
         "libutils",
     ],

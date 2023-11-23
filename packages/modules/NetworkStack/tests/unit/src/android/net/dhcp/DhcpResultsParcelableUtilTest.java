@@ -25,6 +25,7 @@ import static com.android.testutils.MiscAsserts.assertFieldCountEquals;
 import static org.junit.Assert.assertEquals;
 
 import android.net.DhcpResults;
+import android.net.DhcpResultsParcelable;
 import android.net.LinkAddress;
 import android.net.shared.IpConfigurationParcelableUtil;
 
@@ -124,7 +125,8 @@ public class DhcpResultsParcelableUtilTest {
     @Test
     public void testToString() {
         final String expected = ""
-                + "android.net.DhcpResultsParcelable{baseConfiguration: IP address 192.168.42.19/25"
+                + DhcpResultsParcelable.class.getName()
+                + "{baseConfiguration: IP address 192.168.42.19/25"
                 + " Gateway 192.168.42.42  DNS servers: [ 8.8.8.8 192.168.43.43 ]"
                 + " Domains example.com, leaseDuration: 3600, mtu: 1450,"
                 + " serverAddress: 192.168.44.44, vendorInfo: TEST_VENDOR_INFO,"

@@ -2444,6 +2444,7 @@ int omx_venc::async_message_process (void *context, void* message)
                     OMX_COMPONENT_GENERATE_START_DONE);
             break;
         case VEN_MSG_STOP:
+            omx->is_stop_in_progress = true;
             omx->post_event (0,m_sVenc_msg->statuscode,\
                     OMX_COMPONENT_GENERATE_STOP_DONE);
             break;

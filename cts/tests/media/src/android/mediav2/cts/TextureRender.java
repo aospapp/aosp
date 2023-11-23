@@ -49,7 +49,7 @@ class TextureRender {
 
     private FloatBuffer mTriangleVertices;
 
-    private static final String VERTEX_SHADER =
+    private static final String VERTEX_SHADER_RGB =
             "uniform mat4 uMVPMatrix;\n" +
             "uniform mat4 uSTMatrix;\n" +
             "attribute vec4 aPosition;\n" +
@@ -60,13 +60,37 @@ class TextureRender {
             "  vTextureCoord = (uSTMatrix * aTextureCoord).xy;\n" +
             "}\n";
 
-    private static final String FRAGMENT_SHADER =
+    private static final String FRAGMENT_SHADER_RGB =
             "#extension GL_OES_EGL_image_external : require\n" +
             "precision mediump float;\n" +      // highp here doesn't seem to matter
             "varying vec2 vTextureCoord;\n" +
             "uniform samplerExternalOES sTexture;\n" +
             "void main() {\n" +
             "  gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
+            "}\n";
+
+    private static final String VERTEX_SHADER_YUV =
+            "#version 300 es\n" +
+            "uniform mat4 uMVPMatrix;\n" +
+            "uniform mat4 uSTMatrix;\n" +
+            "in vec4 aPosition;\n" +
+            "in vec4 aTextureCoord;\n" +
+            "out vec2 vTextureCoord;\n" +
+            "void main() {\n" +
+            "  gl_Position = uMVPMatrix * aPosition;\n" +
+            "  vTextureCoord = (uSTMatrix * aTextureCoord).xy;\n" +
+            "}\n";
+
+    private static final String FRAGMENT_SHADER_YUV =
+            "#version 300 es\n" +
+            "#extension GL_OES_EGL_image_external : require\n" +
+            "#extension GL_EXT_YUV_target : require\n" +
+            "precision mediump float;\n" +      // highp here doesn't seem to matter
+            "uniform __samplerExternal2DY2YEXT uTexSampler;\n" +
+            "in vec2 vTextureCoord;\n" +
+            "out vec4 outColor;\n" +
+            "void main() {\n" +
+            "    outColor = texture(uTexSampler, vTextureCoord);\n" +
             "}\n";
 
     private float[] mMVPMatrix = new float[16];
@@ -78,6 +102,7 @@ class TextureRender {
     private int muSTMatrixHandle;
     private int maPositionHandle;
     private int maTextureHandle;
+    private boolean mUseYuvSampling;
 
     public TextureRender() {
         mTriangleVertices = ByteBuffer.allocateDirect(
@@ -86,6 +111,11 @@ class TextureRender {
         mTriangleVertices.put(mTriangleVerticesData).position(0);
 
         Matrix.setIdentityM(mSTMatrix, 0);
+        mUseYuvSampling = false;
+    }
+
+    public void setUseYuvSampling(boolean useYuvSampling) {
+        mUseYuvSampling = useYuvSampling;
     }
 
     public int getTextureId() {
@@ -132,7 +162,11 @@ class TextureRender {
      * Initializes GL state.  Call this after the EGL surface has been created and made current.
      */
     public void surfaceCreated() {
-        mProgram = createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+        if (mUseYuvSampling == false) {
+            mProgram = createProgram(VERTEX_SHADER_RGB, FRAGMENT_SHADER_RGB);
+        } else {
+            mProgram = createProgram(VERTEX_SHADER_YUV, FRAGMENT_SHADER_YUV);
+        }
         if (mProgram == 0) {
             throw new RuntimeException("failed creating program");
         }
@@ -183,7 +217,7 @@ class TextureRender {
      */
     public void changeFragmentShader(String fragmentShader) {
         GLES20.glDeleteProgram(mProgram);
-        mProgram = createProgram(VERTEX_SHADER, fragmentShader);
+        mProgram = createProgram(VERTEX_SHADER_RGB, fragmentShader);
         if (mProgram == 0) {
             throw new RuntimeException("failed creating program");
         }

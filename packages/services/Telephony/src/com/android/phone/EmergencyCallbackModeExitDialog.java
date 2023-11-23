@@ -30,6 +30,7 @@ import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.icu.text.MessageFormat;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -42,6 +43,9 @@ import android.util.Log;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.TelephonyIntents;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Displays dialog that enables users to exit Emergency Callback Mode
@@ -297,20 +301,22 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
         int minutes = (int)(millisUntilFinished / 60000);
         String time = String.format("%d:%02d", minutes,
                 (millisUntilFinished % 60000) / 1000);
+        Map<String, Object> msgArgs = new HashMap<>();
+        msgArgs.put("count", minutes);
 
         switch (mDialogType) {
         case EXIT_ECM_BLOCK_OTHERS:
-            return String.format(getResources().getQuantityText(
-                    R.plurals.alert_dialog_not_avaialble_in_ecm, minutes).toString(), time);
+            return MessageFormat.format(getResources().getString(
+                    R.string.alert_dialog_not_avaialble_in_ecm, time), msgArgs);
         case EXIT_ECM_DIALOG:
                 boolean shouldRestrictData = mPhone.getImsPhone() != null
                         && mPhone.getImsPhone().isInImsEcm();
-                return String.format(getResources().getQuantityText(
+                return MessageFormat.format(getResources().getString(
                         // During IMS ECM, data restriction hint should be removed.
                         shouldRestrictData
-                        ? R.plurals.alert_dialog_exit_ecm_without_data_restriction_hint
-                        : R.plurals.alert_dialog_exit_ecm,
-                        minutes).toString(), time);
+                        ? R.string.alert_dialog_exit_ecm_without_data_restriction_hint
+                        : R.string.alert_dialog_exit_ecm,
+                        time), msgArgs);
         }
         return null;
     }

@@ -113,7 +113,7 @@ public class HelperTestUtility {
         // Check whether lockscreen is dismissed using KeyguardManager.
         KeyguardManager keyguardManager =
                 (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
-        boolean displayIsUnlocked = (!keyguardManager.isKeyguardLocked());
+        boolean displayIsUnlocked = !keyguardManager.isKeyguardLocked();
         if (!(displayIsOn && displayIsUnlocked)) {
             sendKeyCode(KEYCODE_WAKEUP);
             executeShellCommand(UNLOCK_CMD);

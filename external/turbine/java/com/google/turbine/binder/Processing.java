@@ -16,6 +16,8 @@
 
 package com.google.turbine.binder;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -56,9 +58,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -71,12 +71,12 @@ import javax.annotation.processing.Processor;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Top level annotation processing logic, see also {@link Binder}. */
 public class Processing {
 
-  static BindingResult process(
+  static @Nullable BindingResult process(
       TurbineLog log,
       final ImmutableList<CompUnit> initialSources,
       final ClassPath classpath,
@@ -95,10 +95,9 @@ public class Processing {
     TurbineFiler filer =
         new TurbineFiler(
             seen,
-            new Function<String, Supplier<byte[]>>() {
-              @Nullable
+            new Function<String, @Nullable Supplier<byte[]>>() {
               @Override
-              public Supplier<byte[]> apply(@Nullable String input) {
+              public @Nullable Supplier<byte[]> apply(String input) {
                 // TODO(cushon): should annotation processors be allowed to generate code with
                 // dependencies between source and bytecode, or vice versa?
                 // Currently generated classes are not available on the classpath when compiling
@@ -131,19 +130,13 @@ public class Processing {
       try (Timers.Timer unused = timers.start(processor)) {
         processor.init(processingEnv);
       } catch (Throwable t) {
-        reportProcessorCrash(log, processor, t);
+        logProcessorCrash(log, processor, t);
+        return null;
       }
     }
 
-    Map<Processor, Pattern> wanted = new HashMap<>();
-    for (Processor processor : processorInfo.processors()) {
-      List<String> patterns = new ArrayList<>();
-      for (String supportedAnnotationType : processor.getSupportedAnnotationTypes()) {
-        // TODO(b/139026291): this handling of getSupportedAnnotationTypes isn't correct
-        patterns.add(supportedAnnotationType.replace("*", ".*"));
-      }
-      wanted.put(processor, Pattern.compile(Joiner.on('|').join(patterns)));
-    }
+    ImmutableMap<Processor, SupportedAnnotationTypes> wanted =
+        initializeSupportedAnnotationTypes(processorInfo);
 
     Set<ClassSymbol> allSymbols = new HashSet<>();
 
@@ -163,12 +156,14 @@ public class Processing {
       }
       ImmutableSetMultimap<ClassSymbol, Symbol> allAnnotations = getAllAnnotations(env, syms);
       TurbineRoundEnvironment roundEnv = null;
-      for (Processor processor : processorInfo.processors()) {
+      for (Map.Entry<Processor, SupportedAnnotationTypes> e : wanted.entrySet()) {
+        Processor processor = e.getKey();
+        SupportedAnnotationTypes supportedAnnotationTypes = e.getValue();
         Set<TypeElement> annotations = new HashSet<>();
-        Pattern pattern = wanted.get(processor);
-        boolean run = toRun.contains(processor);
+        boolean run = supportedAnnotationTypes.everything() || toRun.contains(processor);
         for (ClassSymbol a : allAnnotations.keys()) {
-          if (pattern.matcher(a.toString()).matches()) {
+          if (supportedAnnotationTypes.everything()
+              || supportedAnnotationTypes.pattern().matcher(a.toString()).matches()) {
             annotations.add(factory.typeElement(a));
             run = true;
           }
@@ -184,7 +179,8 @@ public class Processing {
             // TODO(cushon): consider disallowing this, or reporting a diagnostic
             processor.process(annotations, roundEnv);
           } catch (Throwable t) {
-            reportProcessorCrash(log, processor, t);
+            logProcessorCrash(log, processor, t);
+            return null;
           }
         }
       }
@@ -197,7 +193,7 @@ public class Processing {
       }
       errorRaised = log.errorRaised();
       if (errorRaised) {
-        log.maybeThrow();
+        break;
       }
       log.clear();
       result =
@@ -228,7 +224,8 @@ public class Processing {
       try (Timers.Timer unused = timers.start(processor)) {
         processor.process(ImmutableSet.of(), roundEnv);
       } catch (Throwable t) {
-        reportProcessorCrash(log, processor, t);
+        logProcessorCrash(log, processor, t);
+        return null;
       }
     }
 
@@ -249,7 +246,9 @@ public class Processing {
               classpath,
               bootclasspath,
               moduleVersion);
-      log.maybeThrow();
+      if (log.anyErrors()) {
+        return null;
+      }
     }
 
     if (!filer.generatedClasses().isEmpty()) {
@@ -267,13 +266,44 @@ public class Processing {
     return result;
   }
 
-  private static void reportProcessorCrash(TurbineLog log, Processor processor, Throwable t) {
+  private static ImmutableMap<Processor, SupportedAnnotationTypes>
+      initializeSupportedAnnotationTypes(ProcessorInfo processorInfo) {
+    ImmutableMap.Builder<Processor, SupportedAnnotationTypes> result = ImmutableMap.builder();
+    for (Processor processor : processorInfo.processors()) {
+      result.put(processor, SupportedAnnotationTypes.create(processor));
+    }
+    return result.buildOrThrow();
+  }
+
+  @AutoValue
+  abstract static class SupportedAnnotationTypes {
+
+    abstract boolean everything();
+
+    abstract Pattern pattern();
+
+    static SupportedAnnotationTypes create(Processor processor) {
+      List<String> patterns = new ArrayList<>();
+      boolean everything = false;
+      for (String supportedAnnotationType : processor.getSupportedAnnotationTypes()) {
+        if (supportedAnnotationType.equals("*")) {
+          everything = true;
+        } else {
+          // TODO(b/139026291): this handling of getSupportedAnnotationTypes isn't correct
+          patterns.add(supportedAnnotationType);
+        }
+      }
+      return new AutoValue_Processing_SupportedAnnotationTypes(
+          everything, Pattern.compile(Joiner.on('|').join(patterns)));
+    }
+  }
+
+  private static void logProcessorCrash(TurbineLog log, Processor processor, Throwable t) {
     log.diagnostic(
         Diagnostic.Kind.ERROR,
         String.format(
             "An exception occurred in %s:\n%s",
             processor.getClass().getCanonicalName(), Throwables.getStackTraceAsString(t)));
-    log.maybeThrow();
   }
 
   /** Returns a map from annotations present in the compilation to the annotated elements. */
@@ -281,7 +311,7 @@ public class Processing {
       Env<ClassSymbol, TypeBoundClass> env, Iterable<ClassSymbol> syms) {
     ImmutableSetMultimap.Builder<ClassSymbol, Symbol> result = ImmutableSetMultimap.builder();
     for (ClassSymbol sym : syms) {
-      TypeBoundClass info = env.get(sym);
+      TypeBoundClass info = env.getNonNull(sym);
       for (AnnoInfo annoInfo : info.annotations()) {
         if (sym.simpleName().equals("package-info")) {
           addAnno(result, annoInfo, sym.owner());
@@ -313,8 +343,8 @@ public class Processing {
   }
 
   // TODO(cushon): consider memoizing this (or isAnnotationInherited) if they show up in profiles
-  private static Set<ClassSymbol> inheritedAnnotations(
-      Set<ClassSymbol> seen, ClassSymbol sym, Env<ClassSymbol, TypeBoundClass> env) {
+  private static ImmutableSet<ClassSymbol> inheritedAnnotations(
+      Set<ClassSymbol> seen, @Nullable ClassSymbol sym, Env<ClassSymbol, TypeBoundClass> env) {
     ImmutableSet.Builder<ClassSymbol> result = ImmutableSet.builder();
     ClassSymbol curr = sym;
     while (curr != null && seen.add(curr)) {
@@ -359,88 +389,63 @@ public class Processing {
   }
 
   public static ProcessorInfo initializeProcessors(
+      SourceVersion sourceVersion,
       ImmutableList<String> javacopts,
-      ImmutableList<String> processorPath,
       ImmutableSet<String> processorNames,
-      ImmutableSet<String> builtinProcessors)
-      throws MalformedURLException {
-    ClassLoader processorLoader = null;
+      ClassLoader processorLoader) {
+    if (processorNames.isEmpty() || javacopts.contains("-proc:none")) {
+      return ProcessorInfo.empty();
+    }
+    ImmutableList<Processor> processors = instantiateProcessors(processorNames, processorLoader);
+    ImmutableMap<String, String> processorOptions = processorOptions(javacopts);
+    return ProcessorInfo.create(processors, processorLoader, processorOptions, sourceVersion);
+  }
+
+  private static ImmutableList<Processor> instantiateProcessors(
+      ImmutableSet<String> processorNames, ClassLoader processorLoader) {
     ImmutableList.Builder<Processor> processors = ImmutableList.builder();
-    ImmutableMap<String, String> processorOptions;
-    if (!processorNames.isEmpty() && !javacopts.contains("-proc:none")) {
-      if (!processorPath.isEmpty()) {
-        processorLoader =
-            new URLClassLoader(
-                toUrls(processorPath),
-                new ClassLoader(getPlatformClassLoader()) {
-                  @Override
-                  protected Class<?> findClass(String name) throws ClassNotFoundException {
-                    if (name.startsWith("com.sun.source.")
-                        || name.startsWith("com.sun.tools.")
-                        || name.startsWith("com.google.common.collect.")
-                        || name.startsWith("com.google.common.base.")
-                        || name.startsWith("com.google.common.graph.")
-                        || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
-                        || name.startsWith("dagger.model.")
-                        || name.startsWith("dagger.spi.")
-                        || name.equals("com.google.turbine.processing.TurbineProcessingEnvironment")
-                        || builtinProcessors.contains(name)) {
-                      return Class.forName(name);
-                    }
-                    throw new ClassNotFoundException(name);
-                  }
-                });
-      } else {
-        processorLoader = Processing.class.getClassLoader();
+    for (String processor : processorNames) {
+      try {
+        Class<? extends Processor> clazz =
+            Class.forName(processor, false, processorLoader).asSubclass(Processor.class);
+        processors.add(clazz.getConstructor().newInstance());
+      } catch (ReflectiveOperationException e) {
+        throw new LinkageError(e.getMessage(), e);
       }
-      for (String processor : processorNames) {
-        try {
-          Class<? extends Processor> clazz =
-              Class.forName(processor, false, processorLoader).asSubclass(Processor.class);
-          processors.add(clazz.getConstructor().newInstance());
-        } catch (ReflectiveOperationException e) {
-          throw new LinkageError(e.getMessage(), e);
-        }
-      }
-      processorOptions = processorOptions(javacopts);
-    } else {
-      processorOptions = ImmutableMap.of();
     }
-    SourceVersion sourceVersion = SourceVersion.latestSupported();
-    Iterator<String> it = javacopts.iterator();
-    while (it.hasNext()) {
-      String option = it.next();
-      switch (option) {
-        case "-target":
-          if (it.hasNext()) {
-            String value = it.next();
-            switch (value) {
-              case "5":
-              case "1.5":
-                sourceVersion = SourceVersion.RELEASE_5;
-                break;
-              case "6":
-              case "1.6":
-                sourceVersion = SourceVersion.RELEASE_6;
-                break;
-              case "7":
-              case "1.7":
-                sourceVersion = SourceVersion.RELEASE_7;
-                break;
-              case "8":
-                sourceVersion = SourceVersion.RELEASE_8;
-                break;
-              default:
-                break;
+    return processors.build();
+  }
+
+  public static ClassLoader processorLoader(
+      ImmutableList<String> processorPath, ImmutableSet<String> builtinProcessors)
+      throws MalformedURLException {
+    if (processorPath.isEmpty()) {
+      return Processing.class.getClassLoader();
+    }
+    return new URLClassLoader(
+        toUrls(processorPath),
+        new ClassLoader(ClassLoader.getPlatformClassLoader()) {
+          @Override
+          protected Class<?> findClass(String name) throws ClassNotFoundException {
+            if (name.equals("com.google.turbine.processing.TurbineProcessingEnvironment")) {
+              return Class.forName(name);
             }
+            if (!builtinProcessors.isEmpty()) {
+              if (name.startsWith("com.sun.source.")
+                  || name.startsWith("com.sun.tools.")
+                  || name.startsWith("com.google.common.collect.")
+                  || name.startsWith("com.google.common.base.")
+                  || name.startsWith("com.google.common.graph.")
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || name.startsWith("dagger.model.")
+                  || name.startsWith("dagger.spi.")
+                  || builtinProcessors.contains(name)) {
+                return Class.forName(name);
+              }
+            }
+            throw new ClassNotFoundException(name);
           }
-          break;
-        default:
-          break;
-      }
-    }
-    return ProcessorInfo.create(
-        processors.build(), processorLoader, processorOptions, sourceVersion);
+        });
   }
 
   private static URL[] toUrls(ImmutableList<String> processorPath) throws MalformedURLException {
@@ -450,15 +455,6 @@ public class Processing {
       urls[i++] = Paths.get(path).toUri().toURL();
     }
     return urls;
-  }
-
-  public static ClassLoader getPlatformClassLoader() {
-    try {
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
-      return null;
-    }
   }
 
   private static ImmutableMap<String, String> processorOptions(ImmutableList<String> javacopts) {
@@ -492,8 +488,7 @@ public class Processing {
      * The classloader to use for annotation processor implementations, and any annotations they
      * access reflectively.
      */
-    @Nullable
-    abstract ClassLoader loader();
+    abstract @Nullable ClassLoader loader();
 
     /** Command line annotation processing options, passed to javac with {@code -Akey=value}. */
     abstract ImmutableMap<String, String> options();
@@ -548,9 +543,12 @@ public class Processing {
     ImmutableMap<String, Duration> build() {
       ImmutableMap.Builder<String, Duration> result = ImmutableMap.builder();
       for (Map.Entry<Class<?>, Stopwatch> e : processorTimers.entrySet()) {
-        result.put(e.getKey().getCanonicalName(), e.getValue().elapsed());
+        // requireNonNull is safe, barring bizarre processor implementations (e.g., anonymous class)
+        result.put(requireNonNull(e.getKey().getCanonicalName()), e.getValue().elapsed());
       }
-      return result.build();
+      return result.buildOrThrow();
     }
   }
+
+  private Processing() {}
 }

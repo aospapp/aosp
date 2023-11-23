@@ -27,21 +27,28 @@ namespace chromeos_update_engine {
 // Virtual AB Compression enabled device. This is intended to be used by update
 // generators to put an estimate cow size in OTA payload. When installing an OTA
 // update, libsnapshot will take this estimate as a hint to allocate spaces.
+// If |xor_enabled| is true, then |source_fd| must be non-null.
 size_t EstimateCowSize(
+    FileDescriptorPtr source_fd,
     FileDescriptorPtr target_fd,
     const google::protobuf::RepeatedPtrField<InstallOperation>& operations,
     const google::protobuf::RepeatedPtrField<CowMergeOperation>&
         merge_operations,
-    size_t block_size,
-    std::string compression);
+    const size_t block_size,
+    std::string compression,
+    const size_t partition_size,
+    bool xor_enabled);
 
 // Convert InstallOps to CowOps and apply the converted cow op to |cow_writer|
 bool CowDryRun(
+    FileDescriptorPtr source_fd,
     FileDescriptorPtr target_fd,
     const google::protobuf::RepeatedPtrField<InstallOperation>& operations,
     const google::protobuf::RepeatedPtrField<CowMergeOperation>&
         merge_operations,
     size_t block_size,
-    android::snapshot::CowWriter* cow_writer);
+    android::snapshot::CowWriter* cow_writer,
+    size_t partition_size,
+    bool xor_enabled);
 
 }  // namespace chromeos_update_engine

@@ -36,4 +36,8 @@ java_test_host {
     ],
     java_resources: ["DynamicConfig.xml"],
     required: ["cts-dynamic-config"],
+    data: [
+        ":CtsMediaBitstreamsDeviceSideTestApp",
+    ],
+    per_testcase_directory: true,
 }

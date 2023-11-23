@@ -2,17 +2,17 @@ name: "golang-protobuf"
 third_party {
   url {
     type: HOMEPAGE
-    value: "https://github.com/golang/protobuf"
+    value: "https://github.com/protocolbuffers/protobuf-go"
   }
   url {
     type: GIT
-    value: "https://github.com/golang/protobuf"
+    value: "https://github.com/protocolbuffers/protobuf-go"
   }
+  version: "v1.28.0"
   license_type: NOTICE
-  version: "v1.3.5"
   last_upgrade_date {
-    year: 2020
+    year: 2022
     month: 3
-    day: 12
+    day: 29
   }
 }

@@ -12,5 +12,11 @@
     {
       "name": "CtsPerfettoTestCases"
     }
+  ],
+
+  "hwasan-postsubmit": [
+    {
+      "name": "libunwindstack_unit_test"
+    }
   ]
 }

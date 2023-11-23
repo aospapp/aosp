@@ -19,7 +19,8 @@ enum class TExtension : uint8_t
 {
     UNDEFINED,  // Special value used to indicate no extension.
 
-    ANGLE_base_vertex_base_instance,
+    ANDROID_extension_pack_es31a,
+    ANGLE_base_vertex_base_instance_shader_builtin,
     ANGLE_multi_draw,
     ANGLE_texture_multisample,
     APPLE_clip_distance,
@@ -35,6 +36,7 @@ enum class TExtension : uint8_t
     EXT_shader_io_blocks,
     EXT_gpu_shader5,
     EXT_primitive_bounding_box,
+    OES_primitive_bounding_box,
     EXT_shader_framebuffer_fetch,
     EXT_shader_framebuffer_fetch_non_coherent,
     EXT_shader_non_constant_global_initializers,
@@ -44,6 +46,7 @@ enum class TExtension : uint8_t
     EXT_texture_buffer,
     EXT_texture_cube_map_array,
     EXT_YUV_target,
+    KHR_blend_equation_advanced,
     NV_EGL_stream_consumer_external,
     NV_shader_framebuffer_fetch,
     NV_shader_noperspective_interpolation,

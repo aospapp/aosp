@@ -28,10 +28,7 @@
     <!-- Whether to show header for the notifications center -->
     <bool name="config_showHeaderForNotifications">true</bool>
 
-    <!-- Whether to show footer for the notifications center -->
-    <bool name="config_showFooterForNotifications">false</bool>
-
     <!-- Whether to show Recents/Older header for notifications list -->
     <bool name="config_showRecentAndOldHeaders">false</bool>
-
 </resources>
+

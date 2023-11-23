@@ -19,7 +19,8 @@ package com.android.car;
 import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
 import static android.car.input.CustomInputEvent.INPUT_CODE_F1;
 
-import static com.android.compatibility.common.util.SystemUtil.eventually;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -28,59 +29,51 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.ignoreStubs;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothProfile;
 import android.car.CarOccupantZoneManager;
 import android.car.CarProjectionManager;
+import android.car.builtin.util.AssistUtilsHelper;
 import android.car.input.CarInputManager;
 import android.car.input.CustomInputEvent;
 import android.car.input.ICarInputCallback;
 import android.car.input.RotaryEvent;
-import android.content.ComponentName;
+import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.UserHandle;
-import android.service.voice.VoiceInteractionSession;
+import android.provider.Settings;
 import android.telecom.TelecomManager;
 import android.view.KeyEvent;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import com.android.car.bluetooth.CarBluetoothService;
 import com.android.car.hal.InputHalService;
 import com.android.car.user.CarUserService;
-import com.android.internal.app.AssistUtils;
 
 import com.google.common.collect.Range;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.junit.MockitoJUnitRunner;
 import org.testng.Assert;
 
 import java.util.BitSet;
@@ -88,12 +81,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-@RunWith(MockitoJUnitRunner.class)
-public class CarInputServiceTest {
+public class CarInputServiceTest extends AbstractExtendedMockitoTestCase {
 
     @Mock InputHalService mInputHalService;
     @Mock TelecomManager mTelecomManager;
-    @Mock AssistUtils mAssistUtils;
     @Mock CarInputService.KeyEventListener mDefaultMainListener;
     @Mock CarInputService.KeyEventListener mInstrumentClusterKeyListener;
     @Mock Supplier<String> mLastCallSupplier;
@@ -101,20 +92,25 @@ public class CarInputServiceTest {
     @Mock BooleanSupplier mShouldCallButtonEndOngoingCallSupplier;
     @Mock InputCaptureClientController mCaptureController;
     @Mock CarOccupantZoneService mCarOccupantZoneService;
-    @Mock BluetoothAdapter mBluetoothAdapter;
+    @Mock CarBluetoothService mCarBluetoothService;
 
     @Spy Context mContext = ApplicationProvider.getApplicationContext();
+    @Mock private Resources mMockResources;
     @Spy Handler mHandler = new Handler(Looper.getMainLooper());
 
     @Mock CarUserService mCarUserService;
     private CarInputService mCarInputService;
 
+    public CarInputServiceTest() {
+        super(CarInputService.TAG);
+    }
+
     @Before
     public void setUp() {
         mCarInputService = new CarInputService(mContext, mInputHalService, mCarUserService,
-                mCarOccupantZoneService, mHandler, mTelecomManager, mAssistUtils,
+                mCarOccupantZoneService, mCarBluetoothService, mHandler, mTelecomManager,
                 mDefaultMainListener, mLastCallSupplier, mLongPressDelaySupplier,
-                mShouldCallButtonEndOngoingCallSupplier, mCaptureController, mBluetoothAdapter);
+                mShouldCallButtonEndOngoingCallSupplier, mCaptureController);
         mCarInputService.setInstrumentClusterKeyListener(mInstrumentClusterKeyListener);
 
         when(mInputHalService.isKeyInputSupported()).thenReturn(true);
@@ -124,6 +120,13 @@ public class CarInputServiceTest {
         doReturn(true).when(mHandler).sendMessageAtTime(any(), anyLong());
 
         when(mShouldCallButtonEndOngoingCallSupplier.getAsBoolean()).thenReturn(false);
+
+        when(mContext.getResources()).thenReturn(mMockResources);
+    }
+
+    @Override
+    protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
+        session.spyStatic(AssistUtilsHelper.class);
     }
 
     @After
@@ -131,6 +134,16 @@ public class CarInputServiceTest {
         if (mCarInputService != null) {
             mCarInputService.release();
         }
+    }
+
+    @Test
+    public void testConstantValueMatching() {
+        assertWithMessage(
+                "CarInputService.LONG_PRESS_TIMEOUT ('%s') must match the string defined in "
+                        + "Settings.Secure.LONG_PRESS_TIMEOUT",
+                CarInputService.LONG_PRESS_TIMEOUT).that(
+                CarInputService.LONG_PRESS_TIMEOUT).isEqualTo(
+                Settings.Secure.LONG_PRESS_TIMEOUT);
     }
 
     @Test
@@ -226,13 +239,6 @@ public class CarInputServiceTest {
 
         verify(mCaptureController).releaseInputEventCapture(same(callback),
                 eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
-    }
-
-    @Test
-    public void ensureBluetoothAdapterWasInitialized() {
-        eventually(() -> verify(mBluetoothAdapter).getProfileProxy(same(mContext),
-                any(BluetoothProfile.ServiceListener.class),
-                same(BluetoothProfile.HEADSET_CLIENT)));
     }
 
     @Test
@@ -344,41 +350,85 @@ public class CarInputServiceTest {
 
     @Test
     public void voiceKey_shortPress_withoutRegisteredEventHandler_triggersAssistUtils() {
-        when(mAssistUtils.getAssistComponentForUser(anyInt()))
-                .thenReturn(new ComponentName("pkg", "cls"));
+        doReturn(true).when(
+                () -> AssistUtilsHelper.showPushToTalkSessionForActiveService(eq(mContext), any()));
 
         send(Key.DOWN, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
         send(Key.UP, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
-
-        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
-        verify(mAssistUtils).showSessionForActiveService(
-                bundleCaptor.capture(),
-                eq(VoiceInteractionSession.SHOW_SOURCE_PUSH_TO_TALK),
-                any(),
-                isNull());
-        assertThat(bundleCaptor.getValue().getBoolean(CarInputService.EXTRA_CAR_PUSH_TO_TALK))
-                .isTrue();
     }
 
     @Test
     public void voiceKey_longPress_withoutRegisteredEventHandler_triggersAssistUtils() {
-        when(mAssistUtils.getAssistComponentForUser(anyInt()))
-                .thenReturn(new ComponentName("pkg", "cls"));
+        doReturn(true).when(
+                () -> AssistUtilsHelper.showPushToTalkSessionForActiveService(eq(mContext), any()));
 
         send(Key.DOWN, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
         flushHandler();
 
-        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
-        verify(mAssistUtils).showSessionForActiveService(
-                bundleCaptor.capture(),
-                eq(VoiceInteractionSession.SHOW_SOURCE_PUSH_TO_TALK),
-                any(),
-                isNull());
-        assertThat(bundleCaptor.getValue().getBoolean(CarInputService.EXTRA_CAR_PUSH_TO_TALK))
-                .isTrue();
+        send(Key.UP, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
+
+        // NOTE: extend mockito doesn't provide verifyNoMoreInteractions(), so we'd need to
+        // explicitly call verify() and verify(never()). But since AssistUtilHelper only has one
+        // static method, we don't need the latter.
+        verify(() -> AssistUtilsHelper.showPushToTalkSessionForActiveService(eq(mContext), any()));
+    }
+
+    /**
+     * Testing long press triggers Bluetooth voice recognition.
+     *
+     * Based on current implementation of {@link CarInputService#handleVoiceAssistLongPress},
+     * long press of the button should trigger Bluetooth voice recognition if:
+     *   (a) {@link CarProjectionManager.ProjectionKeyEventHandler} did not subscribe for the
+     *       event, or if the key event handler does not exit; and
+     *   (b) Bluetooth voice recognition is enabled.
+     *
+     * Preconditions:
+     *     - Bluetooth voice recognition is enabled.
+     *     - No {@link CarProjectionManager.ProjectionKeyEventHandler} registered for the key event.
+     * Action:
+     *     - Long press the voice assistant key.
+     * Results:
+     *     - Bluetooth voice recognition is invoked.
+     */
+    @Test
+    public void voiceKey_longPress_bluetoothVoiceRecognitionIsEnabled_triggersBluetoothAssist() {
+        mockEnableLongPressBluetoothVoiceRecognitionProperty(true);
+
+        send(Key.DOWN, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
+        flushHandler();
 
         send(Key.UP, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
-        verifyNoMoreInteractions(ignoreStubs(mAssistUtils));
+
+        verify(mCarBluetoothService, times(1)).startBluetoothVoiceRecognition();
+    }
+
+    /**
+     * Testing short press does not trigger Bluetooth voice recognition.
+     *
+     * Based on current implementation of {@link CarInputService#handleVoiceAssistKey},
+     * short press of the button should not trigger Bluetooth, and instead launch the default
+     * voice assistant handler.
+     *
+     * Preconditions:
+     *     - Bluetooth voice recognition is enabled.
+     * Action:
+     *     - Short press the voice assistant key.
+     * Results:
+     *     - Bluetooth voice recognition is not invoked.
+     *     - Default assistant handler is invoked instead.
+     */
+    @Test
+    public void voiceKey_shortPress_bluetoothVoiceRecognitionIsEnabled_triggersAssistUtils() {
+        mockEnableLongPressBluetoothVoiceRecognitionProperty(true);
+
+        doReturn(true).when(
+                () -> AssistUtilsHelper.showPushToTalkSessionForActiveService(eq(mContext), any()));
+
+        send(Key.DOWN, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
+        send(Key.UP, KeyEvent.KEYCODE_VOICE_ASSIST, Display.MAIN);
+
+        verify(mCarBluetoothService, never()).startBluetoothVoiceRecognition();
+        verify(() -> AssistUtilsHelper.showPushToTalkSessionForActiveService(eq(mContext), any()));
     }
 
     @Test
@@ -424,13 +474,13 @@ public class CarInputServiceTest {
     public void callKey_shortPress_withoutEventHandler_launchesDialer() {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
 
-        doNothing().when(mContext).startActivityAsUser(any(), any(), any());
+        doNothing().when(mContext).startActivityAsUser(any(), any());
 
         send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
         send(Key.UP, KeyEvent.KEYCODE_CALL, Display.MAIN);
 
         verify(mContext).startActivityAsUser(
-                intentCaptor.capture(), any(), eq(UserHandle.CURRENT_OR_SELF));
+                intentCaptor.capture(), eq(UserHandle.CURRENT));
         assertThat(intentCaptor.getValue().getAction()).isEqualTo(Intent.ACTION_DIAL);
     }
 
@@ -443,7 +493,7 @@ public class CarInputServiceTest {
 
         verify(mTelecomManager).acceptRingingCall();
         // Ensure default handler does not run.
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -458,7 +508,7 @@ public class CarInputServiceTest {
         verify(eventHandler).onKeyEvent(CarProjectionManager.KEY_EVENT_CALL_SHORT_PRESS_KEY_UP);
         // Ensure default handlers do not run.
         verify(mTelecomManager, never()).acceptRingingCall();
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -501,13 +551,13 @@ public class CarInputServiceTest {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
 
         when(mLastCallSupplier.get()).thenReturn("1234567890");
-        doNothing().when(mContext).startActivityAsUser(any(), any(), any());
+        doNothing().when(mContext).startActivityAsUser(any(), any());
 
         send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
         flushHandler();
 
         verify(mContext).startActivityAsUser(
-                intentCaptor.capture(), any(), eq(UserHandle.CURRENT_OR_SELF));
+                intentCaptor.capture(), eq(UserHandle.CURRENT));
 
         Intent intent = intentCaptor.getValue();
         assertThat(intent.getAction()).isEqualTo(Intent.ACTION_CALL);
@@ -515,7 +565,7 @@ public class CarInputServiceTest {
 
         clearInvocations(mContext);
         send(Key.UP, KeyEvent.KEYCODE_CALL, Display.MAIN);
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -525,7 +575,7 @@ public class CarInputServiceTest {
         send(Key.DOWN, KeyEvent.KEYCODE_CALL, Display.MAIN);
         flushHandler();
 
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -540,7 +590,7 @@ public class CarInputServiceTest {
         send(Key.UP, KeyEvent.KEYCODE_CALL, Display.MAIN);
         // Ensure that default handler does not run, either after accepting ringing call,
         // or as a result of key-up.
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -553,7 +603,7 @@ public class CarInputServiceTest {
         flushHandler();
 
         verify(eventHandler).onKeyEvent(CarProjectionManager.KEY_EVENT_CALL_LONG_PRESS_KEY_DOWN);
-        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 
     @Test
@@ -781,5 +831,10 @@ public class CarInputServiceTest {
         }
 
         clearInvocations(mHandler);
+    }
+
+    private void mockEnableLongPressBluetoothVoiceRecognitionProperty(boolean enabledOrNot) {
+        when(mMockResources.getBoolean(R.bool.enableLongPressBluetoothVoiceRecognition))
+                .thenReturn(enabledOrNot);
     }
 }

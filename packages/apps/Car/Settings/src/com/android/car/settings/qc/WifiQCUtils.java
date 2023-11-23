@@ -19,6 +19,7 @@ package com.android.car.settings.qc;
 import android.content.Context;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.text.TextUtils;
 
 import androidx.annotation.DrawableRes;
 
@@ -42,8 +43,18 @@ public class WifiQCUtils {
             return context.getString(stringId);
         }
         if (wifiState == WifiManager.WIFI_STATE_ENABLED) {
-            String wifiName = wifiManager.getConnectionInfo().getSSID();
-            if (wifiName.equals(WifiManager.UNKNOWN_SSID)) {
+            String wifiName;
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            if (wifiInfo.isPasspointAp() || wifiInfo.isOsuAp()) {
+                wifiName = wifiInfo.getPasspointProviderFriendlyName();
+                if (TextUtils.isEmpty(wifiName)) {
+                    wifiName = wifiInfo.getSSID();
+                }
+            } else {
+                wifiName = wifiInfo.getSSID();
+            }
+
+            if (wifiName == null || wifiName.equals(WifiManager.UNKNOWN_SSID)) {
                 return context.getString(R.string.wifi_disconnected);
             }
             return WifiInfo.sanitizeSsid(wifiName);

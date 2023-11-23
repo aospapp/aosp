@@ -1,0 +1,32 @@
+# Bluejay specific init.rc
+import /vendor/etc/init/hw/init.gs101.rc
+import /vendor/etc/init/hw/init.blueport.rc
+
+# Start the twoshay touch service
+on late-init && property:vendor.device.modules.ready=1
+    start twoshay
+
+# Toggle glove_mode according to touch_sensitivity_mode
+on property:persist.vendor.touch_sensitivity_mode=0 && property:sys.boot_completed=1
+    write /sys/class/spi_master/spi11/spi11.0/glove_mode 00
+
+on property:persist.vendor.touch_sensitivity_mode=1 && property:sys.boot_completed=1
+    write /sys/class/spi_master/spi11/spi11.0/glove_mode 01
+
+on post-fs-data
+    # Fingerprint
+    chown system system /dev/goodix_fp
+    exec_background - system shell -- /vendor/bin/trusty_apploader /vendor/firmware/g7.app
+
+    # Speaker amp permission
+    chmod 644 /mnt/vendor/persist/audio/speaker.cal
+
+# Ensure Camera sound is enforced audible for JP SKU
+on property:ro.boot.hardware.sku=GB17L
+    setprop audio.camerasound.force true
+
+# charger driver exposes now finer grain control, map demo mode to those properties
+# NOTE: demo mode can only be exit wiping data (which reset the persist properties)
+on property:sys.retaildemo.enabled=1
+    setprop persist.vendor.charge.stop.level 35
+    setprop persist.vendor.charge.start.level 30

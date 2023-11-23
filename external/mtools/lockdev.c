@@ -29,7 +29,7 @@
 
 
 #if (defined(HAVE_FLOCK) && defined (LOCK_EX) && (defined(LOCK_NB) || defined(ALRM)))
-     
+
 # ifdef ALRM
 #  define USE_FLOCK_W
 # else
@@ -45,7 +45,7 @@
 # else
 #  define USE_LOCKF
 # endif
-     
+
 #else /* LOCKF */
 
 #if (defined(F_SETLK) && defined(F_WRLCK))
@@ -77,7 +77,7 @@ int lock_dev(int fd, int mode, struct device *dev)
 		int ret=0;
 #if defined(USE_FLOCK_W) || defined(USE_LOCKF_W) || defined (USE_SETLK_W)
 		struct sigaction alrm_action, old_alrm_action;
-		int old_alrm = alarm(0);
+		unsigned int old_alrm = alarm(0);
 		memset(&alrm_action, 0, sizeof(alrm_action));
 		alrm_action.sa_handler = alrm;
 		alrm_action.sa_flags = 0;
@@ -88,7 +88,7 @@ int lock_dev(int fd, int mode, struct device *dev)
 #ifdef USE_FLOCK
 		ret = flock(fd, (mode ? LOCK_EX : LOCK_SH)|LOCK_NB);
 #endif
-		
+
 #ifdef USE_FLOCK_W
 		ret = flock(fd, (mode ? LOCK_EX : LOCK_SH));
 #endif
@@ -103,7 +103,7 @@ int lock_dev(int fd, int mode, struct device *dev)
 		else
 			ret = 0;
 #endif
-		
+
 #if (defined(USE_SETLK) || defined(USE_SETLK_W))
 		{
 			struct flock flk;
@@ -119,7 +119,7 @@ int lock_dev(int fd, int mode, struct device *dev)
 # endif
 		}
 #endif
-		
+
 #if defined(USE_FLOCK_W) || defined(USE_LOCKF_W) || defined (USE_SETLK_W)
 		/* Cancel the alarm */
 		sigaction(SIGALRM, &old_alrm_action, NULL);
@@ -133,7 +133,7 @@ int lock_dev(int fd, int mode, struct device *dev)
 				return 1;
 			}
 #endif
-			
+
 			if(
 #ifdef EWOULDBLOCK
 				(errno != EWOULDBLOCK)

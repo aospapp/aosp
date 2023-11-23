@@ -17,6 +17,7 @@
 package com.android.server.wm.flicker.layers
 
 import com.android.server.wm.flicker.IMAGINARY_COMPONENT
+import com.android.server.wm.flicker.assertThatErrorContainsDebugInfo
 import com.android.server.wm.flicker.assertThrows
 import com.android.server.wm.flicker.readLayerTraceFromFile
 import com.android.server.wm.flicker.traces.layers.LayersTraceSubject.Companion.assertThat
@@ -40,10 +41,7 @@ class LayersTraceEntryTest {
                 .first()
                 .contains(IMAGINARY_COMPONENT)
         }
-        Truth.assertThat(error).hasMessageThat().contains("Trace start")
-        Truth.assertThat(error).hasMessageThat().contains("Trace end")
-        Truth.assertThat(error).hasMessageThat().contains("Entry")
-        Truth.assertThat(error).hasMessageThat().contains("Trace file")
+        assertThatErrorContainsDebugInfo(error)
     }
 
     @Test
@@ -120,6 +118,8 @@ class LayersTraceEntryTest {
     fun canDetectOrphanLayers() {
         try {
             readLayerTraceFromFile("layers_trace_orphanlayers.pb", ignoreOrphanLayers = false)
+                .first()
+                .flattenedLayers
             error("Failed to detect orphaned layers.")
         } catch (exception: RuntimeException) {
             Truth.assertThat(exception.message)
@@ -139,6 +139,7 @@ class LayersTraceEntryTest {
         val layer = entry.flattenedLayers.first { it.name == layerName }
         Truth.assertWithMessage("$layerName should be invisible because of HWC region")
             .that(layer.visibilityReason)
+            .asList()
             .contains("Visible region calculated by Composition Engine is empty")
     }
 
@@ -159,5 +160,19 @@ class LayersTraceEntryTest {
         Truth.assertWithMessage("Should have visible layers in all trace entries")
             .that(entry.flattenedLayers.map { it.name })
             .doesNotContain(messagesApp)
+    }
+
+    @Test
+    fun canParseTraceEmptyState() {
+        val layersTrace = readLayerTraceFromFile("layers_trace_empty_state.winscope")
+        val emptyStates = layersTrace.filter { it.flattenedLayers.isEmpty() }
+
+        Truth.assertWithMessage("Some states in the trace should be empty")
+            .that(emptyStates)
+            .isNotEmpty()
+
+        Truth.assertWithMessage("Expected state 4d4h41m14s193ms to be empty")
+            .that(emptyStates.first().timestamp)
+            .isEqualTo(362474193519965)
     }
 }

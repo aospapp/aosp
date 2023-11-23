@@ -101,7 +101,7 @@ main(int argc, char* argv[])
 
   if (!opts.elf1.empty() && !opts.elf2.empty())
     {
-      dwarf_reader::status c1_status, c2_status;
+      elf_reader::status c1_status, c2_status;
       corpus_sptr c1, c2;
 
       environment_sptr env(new environment);
@@ -109,7 +109,7 @@ main(int argc, char* argv[])
       c1 = dwarf_reader::read_corpus_from_elf(opts.elf1, di_roots, env.get(),
 					      /*load_all_types=*/false,
 					      c1_status);
-      if (c1_status != dwarf_reader::STATUS_OK)
+      if (c1_status != elf_reader::STATUS_OK)
 	{
 	  cerr << "Failed to read elf file " << opts.elf1 << "\n";
 	  return 1;
@@ -118,7 +118,7 @@ main(int argc, char* argv[])
       c2 = dwarf_reader::read_corpus_from_elf(opts.elf2, di_roots, env.get(),
 					      /*load_all_types=*/false,
 					      c2_status);
-      if (c2_status != dwarf_reader::STATUS_OK)
+      if (c2_status != elf_reader::STATUS_OK)
 	{
 	  cerr << "Failed to read elf file " << opts.elf2 << "\n";
 	  return 1;

@@ -29,6 +29,7 @@ import static android.server.wm.StateLogger.logE;
 import static android.server.wm.TestTaskOrganizer.INVALID_TASK_ID;
 import static android.util.DisplayMetrics.DENSITY_DEFAULT;
 import static android.view.Display.DEFAULT_DISPLAY;
+import static android.window.DisplayAreaOrganizer.FEATURE_IME;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
@@ -42,10 +43,10 @@ import android.content.ComponentName;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.nano.RectProto;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.util.SparseArray;
-import android.view.WindowManager;
 import android.view.nano.DisplayInfoProto;
 import android.view.nano.ViewProtoEnums;
 
@@ -144,7 +145,6 @@ public class WindowManagerState {
     private String mFocusedWindow = null;
     private String mFocusedApp = null;
     private Boolean mIsHomeRecentsComponent;
-    private int mDefaultMinSizeOfResizableTaskDp;
     private String mTopResumedActivityRecord = null;
     final List<String> mResumedActivitiesInRootTasks = new ArrayList<>();
     final List<String> mResumedActivitiesInDisplays = new ArrayList<>();
@@ -153,6 +153,7 @@ public class WindowManagerState {
     private String mInputMethodWindowAppToken = null;
     private boolean mDisplayFrozen;
     private boolean mSanityCheckFocusedWindow = true;
+    private boolean mWindowFramesValid;
 
     static String appStateToString(int appState) {
         switch (appState) {
@@ -323,6 +324,7 @@ public class WindowManagerState {
 
             retry = mRootTasks.isEmpty() || mTopFocusedTaskId == -1 || mWindowStates.isEmpty()
                     || mFocusedApp == null || (mSanityCheckFocusedWindow && mFocusedWindow == null)
+                    || !mWindowFramesValid
                     || (mTopResumedActivityRecord == null
                     || mResumedActivitiesInRootTasks.isEmpty())
                     && !mKeyguardControllerState.keyguardShowing;
@@ -348,6 +350,9 @@ public class WindowManagerState {
         }
         if (mFocusedApp == null) {
             logE("No Focused App...");
+        }
+        if (!mWindowFramesValid) {
+            logE("Window Frames Invalid...");
         }
     }
 
@@ -421,7 +426,6 @@ public class WindowManagerState {
             mTopResumedActivityRecord = focusedDisplay.mResumedActivity;
         }
         mIsHomeRecentsComponent = new Boolean(root.isHomeRecentsComponent);
-        mDefaultMinSizeOfResizableTaskDp = root.defaultMinSizeResizableTask;
 
         for (int i = 0; i < root.pendingActivities.length; i++) {
             mPendingActivities.add(root.pendingActivities[i].title);
@@ -433,6 +437,7 @@ public class WindowManagerState {
             mInputMethodWindowAppToken = Integer.toHexString(state.inputMethodWindow.hashCode);
         }
         mDisplayFrozen = state.displayFrozen;
+        mWindowFramesValid = state.windowFramesValid;
     }
 
     private void reset() {
@@ -454,6 +459,7 @@ public class WindowManagerState {
         mPinnedStackMovementBounds.setEmpty();
         mInputMethodWindowAppToken = null;
         mDisplayFrozen = false;
+        mWindowFramesValid = false;
     }
 
     public String getFocusedApp() {
@@ -509,6 +515,15 @@ public class WindowManagerState {
                 .that(result.size()).isAtMost(1);
 
         return result.stream().findFirst().orElse(null);
+    }
+
+    @Nullable
+    public DisplayArea getImeContainer(int displayId) {
+        final DisplayContent displayContent = getDisplay(displayId);
+        if (displayContent == null) {
+            return null;
+        }
+        return displayContent.getImeContainer();
     }
 
     int getFrontRootTaskId(int displayId) {
@@ -1095,6 +1110,10 @@ public class WindowManagerState {
         return mFocusedDisplayId;
     }
 
+    public boolean isFixedToUserRotation() {
+        return getDisplay(DEFAULT_DISPLAY).mIsFixedToUserRotation;
+    }
+
     public static class DisplayContent extends DisplayArea {
         public int mId;
         ArrayList<Task> mRootTasks = new ArrayList<>();
@@ -1103,6 +1122,7 @@ public class WindowManagerState {
         boolean mSingleTaskInstance;
         Rect mDefaultPinnedStackBounds = null;
         Rect mPinnedStackMovementBounds = null;
+        int mMinSizeOfResizeableTaskDp;
 
         private Rect mDisplayRect = new Rect();
         private Rect mAppRect = new Rect();
@@ -1118,6 +1138,8 @@ public class WindowManagerState {
         private int mUserRotation;
         private int mFixedToUserRotationMode;
         private int mLastOrientation;
+        private boolean mIsFixedToUserRotation;
+        private List<Rect> mKeepClearRects;
 
         DisplayContent(DisplayContentProto proto) {
             super(proto.rootDisplayArea);
@@ -1140,6 +1162,7 @@ public class WindowManagerState {
             final DisplayFramesProto displayFramesProto = proto.displayFrames;
             mSurfaceSize = proto.surfaceSize;
             mFocusedApp = proto.focusedApp;
+            mMinSizeOfResizeableTaskDp = proto.minSizeOfResizeableTaskDp;
 
             final AppTransitionProto appTransitionProto = proto.appTransition;
             int appState = 0;
@@ -1164,6 +1187,11 @@ public class WindowManagerState {
                 mUserRotation = rotationProto.userRotation;
                 mFixedToUserRotationMode = rotationProto.fixedToUserRotationMode;
                 mLastOrientation = rotationProto.lastOrientation;
+                mIsFixedToUserRotation = rotationProto.isFixedToUserRotation;
+            }
+            mKeepClearRects = new ArrayList();
+            for (RectProto r : proto.keepClearAreas) {
+                mKeepClearRects.add(new Rect(r.left, r.top, r.right, r.bottom));
             }
         }
 
@@ -1251,6 +1279,18 @@ public class WindowManagerState {
             return result.stream().findFirst().orElse(null);
         }
 
+        @NonNull
+        DisplayArea getImeContainer() {
+            final List<DisplayArea> imeContainers = new ArrayList<>();
+            final Predicate<DisplayArea> p = da -> da.getFeatureId() == FEATURE_IME;
+            collectDescendantsOfTypeIf(DisplayArea.class, p, this, imeContainers);
+
+            assertWithMessage("There must be exactly one ImeContainer per DisplayContent.")
+                    .that(imeContainers.size()).isEqualTo(1);
+
+            return imeContainers.get(0);
+        }
+
         ArrayList<Task> getRootTasks() {
             return mRootTasks;
         }
@@ -1283,10 +1323,70 @@ public class WindowManagerState {
 
         String getAppTransitionState() { return mAppTransitionState; }
 
+        List<Rect> getKeepClearRects() { return mKeepClearRects; }
+
         @Override
         public String toString() {
             return "Display #" + mId + ": name=" + mName + " mDisplayRect=" + mDisplayRect
                     + " mAppRect=" + mAppRect + " mFlags=" + mFlags;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) {
+                return true;
+            }
+            if (o == null) {
+                return false;
+            }
+            if (!(o instanceof DisplayContent)) {
+                return false;
+            }
+
+            DisplayContent dc = (DisplayContent) o;
+
+            return (dc.mDisplayRect == null ? mDisplayRect == null
+                    : dc.mDisplayRect.equals(mDisplayRect))
+                && (dc.mAppRect == null ? mAppRect == null : dc.mAppRect.equals(mAppRect))
+                && dc.mDpi == mDpi
+                && dc.mFlags == mFlags
+                && (dc.mName == null ? mName == null : dc.mName.equals(mName))
+                && dc.mSurfaceSize == mSurfaceSize
+                && (dc.mAppTransitionState == null ? mAppTransitionState == null
+                    : dc.mAppTransitionState.equals(mAppTransitionState))
+                && dc.mRotation == mRotation
+                && dc.mFrozenToUserRotation == mFrozenToUserRotation
+                && dc.mUserRotation == mUserRotation
+                && dc.mFixedToUserRotationMode == mFixedToUserRotationMode
+                && dc.mLastOrientation == mLastOrientation
+                && dc.mIsFixedToUserRotation == mIsFixedToUserRotation;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = 0;
+            if (mDisplayRect != null) {
+                result = 31 * result + mDisplayRect.hashCode();
+            }
+            if (mAppRect != null) {
+                result = 31 * result + mAppRect.hashCode();
+            }
+            result = 31 * result + mDpi;
+            result = 31 * result + mFlags;
+            if (mName != null) {
+                result = 31 * result + mName.hashCode();
+            }
+            result = 31 * result + mSurfaceSize;
+            if (mAppTransitionState != null) {
+                result = 31 * result + mAppTransitionState.hashCode();
+            }
+            result = 31 * result + mRotation;
+            result = 31 * result + Boolean.hashCode(mFrozenToUserRotation);
+            result = 31 * result + mUserRotation;
+            result = 31 * result + mFixedToUserRotationMode;
+            result = 31 * result + mLastOrientation;
+            result = 31 * result + Boolean.hashCode(mIsFixedToUserRotation);
+            return result;
         }
     }
 
@@ -1470,6 +1570,17 @@ public class WindowManagerState {
             return getActivity(activityName) != null;
         }
 
+        public int getActivityCount() {
+            int count = mActivities.size();
+            for (TaskFragment taskFragment : mTaskFragments) {
+                count += taskFragment.getActivityCount();
+            }
+            for (Task task : mTasks) {
+                count += task.getActivityCount();
+            }
+            return count;
+        }
+
         @Override
         int getActivityType() {
             return mTaskType;
@@ -1531,6 +1642,17 @@ public class WindowManagerState {
             return null;
         }
 
+        public int getActivityCount() {
+            int count = mActivities.size();
+            for (TaskFragment taskFragment : mTaskFragments) {
+                count += taskFragment.getActivityCount();
+            }
+            for (Task task : mTasks) {
+                count += task.getActivityCount();
+            }
+            return count;
+        }
+
         @Override
         int getActivityType() {
             return mTaskFragmentType;
@@ -1549,6 +1671,8 @@ public class WindowManagerState {
         int procId = -1;
         public boolean translucent;
         private WindowContainer mParent;
+        private boolean mEnableRecentsScreenshot;
+        private int mLastDropInputMode;
 
         Activity(ActivityRecordProto proto, WindowContainer parent) {
             super(proto.windowToken.windowContainer);
@@ -1563,6 +1687,8 @@ public class WindowManagerState {
                 procId = proto.procId;
             }
             translucent = proto.translucent;
+            mEnableRecentsScreenshot = proto.enableRecentsScreenshot;
+            mLastDropInputMode = proto.lastDropInputMode;
             mParent = parent;
         }
 
@@ -1600,6 +1726,14 @@ public class WindowManagerState {
 
         public boolean providesMaxBounds() {
             return providesMaxBounds;
+        }
+
+        public boolean enableRecentsScreenshot() {
+            return mEnableRecentsScreenshot;
+        }
+
+        public int getLastDropInputMode() {
+            return mLastDropInputMode;
         }
 
         @Override
@@ -1656,9 +1790,9 @@ public class WindowManagerState {
             if (proto != null) {
                 aodShowing = proto.aodShowing;
                 keyguardShowing = proto.keyguardShowing;
-                for (int i = 0;  i < proto.keyguardOccludedStates.length; i++) {
-                    mKeyguardOccludedStates.append(proto.keyguardOccludedStates[i].displayId,
-                            proto.keyguardOccludedStates[i].keyguardOccluded);
+                for (int i = 0;  i < proto.keyguardPerDisplay.length; i++) {
+                    mKeyguardOccludedStates.append(proto.keyguardPerDisplay[i].displayId,
+                            proto.keyguardPerDisplay[i].keyguardOccluded);
                 }
             }
         }
@@ -1745,7 +1879,7 @@ public class WindowManagerState {
             return mFeatureId;
         }
 
-        boolean isOrganized() {
+        public boolean isOrganized() {
             return mIsOrganized;
         }
 
@@ -1904,17 +2038,18 @@ public class WindowManagerState {
         private int mStackId;
         private int mLayer;
         private boolean mShown;
-        private Rect mContainingFrame;
         private Rect mParentFrame;
         private Rect mFrame;
         private Rect mCompatFrame;
-        private Rect mSurfaceInsets = new Rect();
-        private Rect mGivenContentInsets = new Rect();
+        private Rect mSurfaceInsets;
+        private Rect mGivenContentInsets;
         private Rect mCrop = new Rect();
         private boolean mHasCompatScale;
         private float mGlobalScale;
         private int mRequestedWidth;
         private int mRequestedHeight;
+        private List<Rect> mKeepClearRects;
+        private List<Rect> mUnrestrictedKeepClearRects;
 
         WindowState(WindowStateProto proto) {
             super(proto.windowContainer);
@@ -1936,7 +2071,6 @@ public class WindowManagerState {
             WindowFramesProto windowFramesProto = proto.windowFrames;
             if (windowFramesProto != null) {
                 mFrame = extract(windowFramesProto.frame);
-                mContainingFrame = extract(windowFramesProto.containingFrame);
                 mParentFrame = extract(windowFramesProto.parentFrame);
                 mCompatFrame = extract(windowFramesProto.compatFrame);
             }
@@ -1958,6 +2092,14 @@ public class WindowManagerState {
             mGlobalScale = proto.globalScale;
             mRequestedWidth = proto.requestedWidth;
             mRequestedHeight = proto.requestedHeight;
+            mKeepClearRects = new ArrayList();
+            for (RectProto r : proto.keepClearAreas) {
+                mKeepClearRects.add(new Rect(r.left, r.top, r.right, r.bottom));
+            }
+            mUnrestrictedKeepClearRects = new ArrayList();
+            for (RectProto r : proto.unrestrictedKeepClearAreas) {
+                mUnrestrictedKeepClearRects.add(new Rect(r.left, r.top, r.right, r.bottom));
+            }
         }
 
         boolean isStartingWindow() {
@@ -1978,10 +2120,6 @@ public class WindowManagerState {
 
         int getStackId() {
             return mStackId;
-        }
-
-        Rect getContainingFrame() {
-            return mContainingFrame;
         }
 
         public Rect getFrame() {
@@ -2032,6 +2170,14 @@ public class WindowManagerState {
             return mRequestedHeight;
         }
 
+        public List<Rect> getKeepClearRects() {
+            return mKeepClearRects;
+        }
+
+        public List<Rect> getUnrestrictedKeepClearRects() {
+            return mUnrestrictedKeepClearRects;
+        }
+
         private String getWindowTypeSuffix(int windowType) {
             switch (windowType) {
                 case WINDOW_TYPE_STARTING:
@@ -2050,7 +2196,7 @@ public class WindowManagerState {
         public String toString() {
             return "WindowState: {" + mAppToken + " " + mName
                     + getWindowTypeSuffix(mWindowType) + "}" + " type=" + mType
-                    + " cf=" + mContainingFrame + " pf=" + mParentFrame;
+                    + " pf=" + mParentFrame;
         }
 
         public String toLongString() {
@@ -2064,7 +2210,8 @@ public class WindowManagerState {
     }
 
     int defaultMinimalTaskSize(int displayId) {
-        return dpToPx(mDefaultMinSizeOfResizableTaskDp, getDisplay(displayId).getDpi());
+        final DisplayContent dc = getDisplay(displayId);
+        return dpToPx(dc.mMinSizeOfResizeableTaskDp, dc.getDpi());
     }
 
     int defaultMinimalDisplaySizeForSplitScreen(int displayId) {

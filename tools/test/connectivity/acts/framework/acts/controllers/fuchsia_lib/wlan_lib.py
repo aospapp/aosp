@@ -25,6 +25,7 @@ COMMAND_GET_IFACE_ID_LIST = "wlan.get_iface_id_list"
 COMMAND_GET_PHY_ID_LIST = "wlan.get_phy_id_list"
 COMMAND_DESTROY_IFACE = "wlan.destroy_iface"
 COMMAND_GET_COUNTRY = "wlan_phy.get_country"
+COMMAND_GET_DEV_PATH = "wlan_phy.get_dev_path"
 COMMAND_QUERY_IFACE = "wlan.query_iface"
 
 
@@ -130,18 +131,25 @@ class FuchsiaWlanLib(BaseLib):
 
         return self.send_command(test_id, test_cmd, {})
 
-    def wlanStatus(self):
+    def wlanStatus(self, iface_id=None):
         """ Request connection status
+
+        Args:
+            iface_id: unsigned 16-bit int, the wlan interface id
+                (defaults to None)
 
         Returns:
             Client state summary containing WlanClientState and
             status of various networks connections
         """
         test_cmd = COMMAND_STATUS
+        test_args = {}
+        if iface_id:
+            test_args = {'iface_id': iface_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_id, test_cmd, test_args)
 
     def wlanGetCountry(self, phy_id):
         """ Reads the currently configured country for `phy_id`.
@@ -153,6 +161,22 @@ class FuchsiaWlanLib(BaseLib):
             Dictionary, String if success, error if error.
         """
         test_cmd = COMMAND_GET_COUNTRY
+        test_args = {"phy_id": phy_id}
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
+    def wlanGetDevPath(self, phy_id):
+        """ Queries the device path for `phy_id`.
+
+        Args:
+            phy_id: unsigned 16-bit integer.
+
+        Returns:
+            Dictionary, String if success, error if error.
+        """
+        test_cmd = COMMAND_GET_DEV_PATH
         test_args = {"phy_id": phy_id}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1

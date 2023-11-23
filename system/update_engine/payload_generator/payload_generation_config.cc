@@ -17,6 +17,7 @@
 #include "update_engine/payload_generator/payload_generation_config.h"
 
 #include <algorithm>
+#include <charconv>
 #include <map>
 #include <utility>
 
@@ -25,11 +26,14 @@
 #include <brillo/strings/string_utils.h>
 #include <libsnapshot/cow_format.h>
 
+#include "bsdiff/constants.h"
+#include "payload_consumer/payload_constants.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_generator/boot_img_filesystem.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/delta_diff_utils.h"
+#include "update_engine/payload_generator/erofs_filesystem.h"
 #include "update_engine/payload_generator/ext2_filesystem.h"
 #include "update_engine/payload_generator/mapfile_filesystem.h"
 #include "update_engine/payload_generator/raw_filesystem.h"
@@ -72,6 +76,11 @@ bool PartitionConfig::OpenFilesystem() {
       TEST_AND_RETURN_FALSE(fs_interface->GetBlockSize() == kBlockSize);
       return true;
     }
+  }
+  fs_interface = ErofsFilesystem::CreateFromFile(path, erofs_compression_param);
+  if (fs_interface) {
+    TEST_AND_RETURN_FALSE(fs_interface->GetBlockSize() == kBlockSize);
+    return true;
   }
 
   if (!mapfile_path.empty()) {
@@ -185,7 +194,15 @@ bool ImageConfig::LoadDynamicPartitionMetadata(
   }
   // We use "gz" compression by default for VABC.
   if (metadata->vabc_enabled()) {
-    metadata->set_vabc_compression_param("gz");
+    std::string compression_method;
+    if (store.GetString("virtual_ab_compression_method", &compression_method)) {
+      LOG(INFO) << "Using VABC compression method '" << compression_method
+                << "'";
+    } else {
+      LOG(INFO) << "No VABC compression method specified. Defaulting to 'gz'";
+      compression_method = "gz";
+    }
+    metadata->set_vabc_compression_param(compression_method);
     metadata->set_cow_version(android::snapshot::kCowVersionManifest);
   }
   dynamic_partition_metadata = std::move(metadata);
@@ -238,7 +255,9 @@ bool PayloadVersion::Validate() const {
                         minor == kBrotliBsdiffMinorPayloadVersion ||
                         minor == kPuffdiffMinorPayloadVersion ||
                         minor == kVerityMinorPayloadVersion ||
-                        minor == kPartialUpdateMinorPayloadVersion);
+                        minor == kPartialUpdateMinorPayloadVersion ||
+                        minor == kZucchiniMinorPayloadVersion ||
+                        minor == kLZ4DIFFMinorPayloadVersion);
   return true;
 }
 
@@ -269,6 +288,12 @@ bool PayloadVersion::OperationAllowed(InstallOperation::Type operation) const {
 
     case InstallOperation::PUFFDIFF:
       return minor >= kPuffdiffMinorPayloadVersion;
+
+    case InstallOperation::ZUCCHINI:
+      return minor >= kZucchiniMinorPayloadVersion;
+    case InstallOperation::LZ4DIFF_BSDIFF:
+    case InstallOperation::LZ4DIFF_PUFFDIFF:
+      return minor >= kLZ4DIFFMinorPayloadVersion;
 
     case InstallOperation::MOVE:
     case InstallOperation::BSDIFF:
@@ -320,6 +345,72 @@ bool PayloadGenerationConfig::Validate() const {
   TEST_AND_RETURN_FALSE(rootfs_partition_size % block_size == 0);
 
   return true;
+}
+
+void PayloadGenerationConfig::ParseCompressorTypes(
+    const std::string& compressor_types) {
+  auto types = brillo::string_utils::Split(compressor_types, ":");
+  CHECK_LE(types.size(), 2UL)
+      << "Only two compressor types are allowed: bz2 and brotli";
+  CHECK_GT(types.size(), 0UL) << "Please pass in at least 1 valid compressor. "
+                                 "Allowed values are bz2 and brotli.";
+  compressors.clear();
+  for (const auto& type : types) {
+    if (type == "bz2") {
+      compressors.emplace_back(bsdiff::CompressorType::kBZ2);
+    } else if (type == "brotli") {
+      compressors.emplace_back(bsdiff::CompressorType::kBrotli);
+    } else {
+      LOG(FATAL) << "Unknown compressor type: " << type;
+    }
+  }
+}
+
+bool PayloadGenerationConfig::OperationEnabled(
+    InstallOperation::Type op) const noexcept {
+  if (!version.OperationAllowed(op)) {
+    return false;
+  }
+  switch (op) {
+    case InstallOperation::ZUCCHINI:
+      return enable_zucchini;
+    case InstallOperation::LZ4DIFF_BSDIFF:
+    case InstallOperation::LZ4DIFF_PUFFDIFF:
+      return enable_lz4diff;
+    default:
+      return true;
+  }
+}
+
+CompressionAlgorithm PartitionConfig::ParseCompressionParam(
+    std::string_view param) {
+  CompressionAlgorithm algo;
+  auto algo_name = param;
+  const auto pos = param.find_first_of(',');
+  if (pos != std::string::npos) {
+    algo_name = param.substr(0, pos);
+  }
+  if (algo_name == "lz4") {
+    algo.set_type(CompressionAlgorithm::LZ4);
+    CHECK_EQ(pos, std::string::npos)
+        << "Invalid compression param " << param
+        << ", compression level not supported for lz4";
+  } else if (algo_name == "lz4hc") {
+    algo.set_type(CompressionAlgorithm::LZ4HC);
+    if (pos != std::string::npos) {
+      const auto level = param.substr(pos + 1);
+      int level_num = 0;
+      const auto [ptr, ec] =
+          std::from_chars(level.data(), level.data() + level.size(), level_num);
+      CHECK_EQ(ec, std::errc()) << "Failed to parse compression level " << level
+                                << ", compression param: " << param;
+      algo.set_level(level_num);
+    } else {
+      LOG(FATAL) << "Unrecognized compression type: " << algo_name
+                 << ", param: " << param;
+    }
+  }
+  return algo;
 }
 
 }  // namespace chromeos_update_engine

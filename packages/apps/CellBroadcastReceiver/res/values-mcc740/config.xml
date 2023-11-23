@@ -21,15 +21,15 @@
     </string-array>
     <!-- Channel 6400 -->
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
-        <item>0x1900:rat=gsm, emergency=true, type=info</item>
+        <item>0x1900:rat=gsm, emergency=false, type=info</item>
     </string-array>
     <!-- Channel 4380 -->
     <string-array name="required_monthly_test_range_strings" translatable="false">
-        <item>0x111C:rat=gsm, emergency=true, type=info</item>
+        <item>0x111C:rat=gsm, emergency=false, type=info</item>
     </string-array>
     <!-- Channel 4381 -->
     <string-array name="exercise_alert_range_strings" translatable="false">
-        <item>0x111D:rat=gsm, emergency=true, type=info</item>
+        <item>0x111D:rat=gsm, emergency=false, type=info</item>
     </string-array>
     <string-array name="additional_cbs_channels_strings" translatable="false">
         <!-- Channel 50 for area update info -->
@@ -48,7 +48,9 @@
     <bool name="test_alerts_enabled_default">true</bool>
     <!-- Exercise test alerts toggle default value -->
     <bool name="test_exercise_alerts_enabled_default">true</bool>
-    <string name="date_time_format" translatable="false">yyyy-MM-dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">yyyy-MM-dd HH:mm</string>
     <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
     <bool name="config_showAreaUpdateInfoSettings">true</bool>
+    <!-- Whether the user can mute the alert by physical button -->
+    <bool name="mute_by_physical_button">false</bool>
 </resources>

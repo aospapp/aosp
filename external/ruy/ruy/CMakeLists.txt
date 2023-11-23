@@ -376,6 +376,7 @@ ruy_cc_library(
   DEPS
     ruy_blocking_counter
     ruy_check_macros
+    ruy_denormal
     ruy_time
     ruy_trace
     ruy_wait
@@ -451,6 +452,20 @@ ruy_cc_library(
   DEPS
     ruy_platform
     ruy_size_util
+)
+
+ruy_cc_library(
+  NAME
+    ruy_denormal
+  SRCS
+    denormal.cc
+  HDRS
+    denormal.h
+  COPTS
+    ${ruy_0_Wall_Wcxx14_compat_Wextra_Wundef}
+    ${ruy_1_mfpu_neon}
+    ${ruy_2_O3}
+  PUBLIC
 )
 
 ruy_cc_library(
@@ -1102,6 +1117,7 @@ ruy_cc_library(
     ruy_cpu_cache_params
     ruy_cpuinfo
     ruy_ctx
+    ruy_denormal
     ruy_mat
     ruy_matrix
     ruy_mul_params
@@ -1691,6 +1707,24 @@ ruy_cc_test(
     gtest_main
   TAGS
     slow
+)
+
+ruy_cc_test(
+  NAME
+    ruy_test_overflow_dst_zero_point
+  SRCS
+    test_overflow_dst_zero_point.cc
+  COPTS
+    ${ruy_0_Wall_Wcxx14_compat_Wextra_Wundef}
+    ${ruy_1_mfpu_neon}
+    ${ruy_2_O3}
+  DEPS
+    ruy_gtest_wrapper
+    ruy_matrix
+    ruy
+    ruy_path
+    ruy_test_lib
+    ruy_tune
 )
 
 ruy_add_all_subdirs()

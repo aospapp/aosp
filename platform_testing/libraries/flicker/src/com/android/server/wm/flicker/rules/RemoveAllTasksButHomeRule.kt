@@ -18,6 +18,8 @@ package com.android.server.wm.flicker.rules
 
 import android.app.ActivityTaskManager
 import android.app.WindowConfiguration
+import android.util.Log
+import com.android.server.wm.flicker.FLICKER_TAG
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 
@@ -26,6 +28,7 @@ import org.junit.runner.Description
  */
 class RemoveAllTasksButHomeRule : TestWatcher() {
     override fun starting(description: Description?) {
+        Log.v(FLICKER_TAG, "Removing all tasks (except home)")
         removeAllTasksButHome()
     }
 

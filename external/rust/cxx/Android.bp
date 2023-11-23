@@ -51,6 +51,13 @@ rust_library {
     ],
     shared_libs: ["libc++"],
     host_supported: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
+        "com.android.virt",
+    ],
+    min_sdk_version: "29",
 }
 
 cc_library_static {
@@ -60,8 +67,11 @@ cc_library_static {
     srcs: ["src/cxx.cc"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth.updatable",
+        "com.android.bluetooth",
+        "com.android.compos",
+        "com.android.virt",
     ],
+    min_sdk_version: "29",
 }
 
 cc_library_static {

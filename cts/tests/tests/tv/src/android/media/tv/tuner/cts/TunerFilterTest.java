@@ -85,6 +85,7 @@ public class TunerFilterTest {
                 AvSettings
                         .builder(Filter.TYPE_TS, true) // is Audio
                         .setPassthrough(false)
+                        .setUseSecureMemory(false)
                         .setAudioStreamType(AvSettings.AUDIO_STREAM_TYPE_MPEG1)
                         .build();
 
@@ -94,10 +95,14 @@ public class TunerFilterTest {
         } else {
             assertEquals(settings.getAudioStreamType(), AvSettings.AUDIO_STREAM_TYPE_UNDEFINED);
         }
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_2_0)) {
+            assertEquals(settings.useSecureMemory(), false);
+        }
 
         settings = AvSettings
                 .builder(Filter.TYPE_TS, false) // is Video
                 .setPassthrough(false)
+                .setUseSecureMemory(true)
                 .setVideoStreamType(AvSettings.VIDEO_STREAM_TYPE_MPEG1)
                 .build();
 
@@ -106,6 +111,9 @@ public class TunerFilterTest {
             assertEquals(settings.getVideoStreamType(), AvSettings.VIDEO_STREAM_TYPE_MPEG1);
         } else {
             assertEquals(settings.getVideoStreamType(), AvSettings.VIDEO_STREAM_TYPE_UNDEFINED);
+        }
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_2_0)) {
+            assertEquals(settings.useSecureMemory(), true);
         }
     }
 
@@ -188,6 +196,48 @@ public class TunerFilterTest {
         assertEquals(11, settings.getTableId());
         assertEquals(2, settings.getVersion());
         assertFalse(settings.isCrcEnabled());
+        assertTrue(settings.isRepeat());
+        assertTrue(settings.isRaw());
+    }
+
+    @Test
+    public void testMmtpSectionSettingsWithSectionBits() throws Exception {
+        SectionSettingsWithSectionBits settings =
+                SectionSettingsWithSectionBits.builder(Filter.TYPE_MMTP)
+                        .setCrcEnabled(true)
+                        .setBitWidthOfLengthField(16)
+                        .setRepeat(false)
+                        .setRaw(false)
+                        .setFilter(new byte[] {2, 3, 4})
+                        .setMask(new byte[] {7, 6, 5, 4})
+                        .setMode(new byte[] {22, 55, 33})
+                        .build();
+
+        assertTrue(settings.isCrcEnabled());
+        assertFalse(settings.isRepeat());
+        assertFalse(settings.isRaw());
+        assertEquals(settings.getLengthFieldBitWidth(), 16);
+        Assert.assertArrayEquals(new byte[] {2, 3, 4}, settings.getFilterBytes());
+        Assert.assertArrayEquals(new byte[] {7, 6, 5, 4}, settings.getMask());
+        Assert.assertArrayEquals(new byte[] {22, 55, 33}, settings.getMode());
+    }
+
+    @Test
+    public void testMMtpSectionSettingsWithTableInfo() throws Exception {
+        SectionSettingsWithTableInfo settings =
+                SectionSettingsWithTableInfo.builder(Filter.TYPE_MMTP)
+                        .setTableId(11)
+                        .setVersion(2)
+                        .setCrcEnabled(true)
+                        .setBitWidthOfLengthField(32)
+                        .setRepeat(true)
+                        .setRaw(true)
+                        .build();
+
+        assertEquals(11, settings.getTableId());
+        assertEquals(2, settings.getVersion());
+        assertTrue(settings.isCrcEnabled());
+        assertEquals(settings.getLengthFieldBitWidth(), 32);
         assertTrue(settings.isRepeat());
         assertTrue(settings.isRaw());
     }

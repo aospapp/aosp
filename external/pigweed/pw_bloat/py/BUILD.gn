@@ -17,15 +17,21 @@ import("//build_overrides/pigweed.gni")
 import("$dir_pw_build/python.gni")
 
 pw_python_package("py") {
-  setup = [ "setup.py" ]
+  setup = [
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+  ]
   sources = [
     "pw_bloat/__init__.py",
     "pw_bloat/binary_diff.py",
     "pw_bloat/bloat.py",
     "pw_bloat/bloat_output.py",
+    "pw_bloat/bloaty_config.py",
     "pw_bloat/no_bloaty.py",
     "pw_bloat/no_toolchains.py",
   ]
+  tests = [ "bloaty_config_test.py" ]
   pylintrc = "$dir_pigweed/.pylintrc"
   python_deps = [ "$dir_pw_cli/py" ]
 }

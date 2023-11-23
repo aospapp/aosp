@@ -28,7 +28,9 @@ android_test {
 
     static_libs: [
         "androidx.appcompat_appcompat",
+        "androidx.test.core",
         "androidx.test.rules",
+        "androidx.test.uiautomator_uiautomator",
         "cts-wm-util",
         "cts-wm-app-base",
         "cts-core-test-runner-axt",
@@ -39,4 +41,9 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsBackgroundActivityAppA",
+        ":CtsBackgroundActivityAppB",
+    ],
+    per_testcase_directory: true,
 }

@@ -27,16 +27,13 @@ import android.os.UserHandle;
 import android.os.UserManager;
 
 import com.android.car.admin.ui.UserAvatarView;
+import com.android.car.settings.R;
 import com.android.internal.util.UserIcons;
 
 /**
  * Simple class for providing icons for profiles in Settings.
  */
 public class ProfileIconProvider {
-    // TODO (b/179802719) define this constant as MenuItem's attribute in 'Chassis' library
-    // Width of managed profile's badge in ratio to profile icon's width
-    private static final float BADGE_WIDTH_TO_ICON_RATIO = 0.09f;
-    private static final float BADGE_PADDING = 1f;
 
     /**
      * Gets a scaled rounded icon for the given profile to use in settings.  If a profile does
@@ -93,11 +90,20 @@ public class ProfileIconProvider {
      */
     public Drawable getDrawableWithBadge(Context context, UserInfo userInfo) {
         Drawable userIcon = getRoundedProfileIcon(userInfo, context);
+        int iconSize = userIcon.getIntrinsicWidth();
         UserAvatarView userAvatarView = new UserAvatarView(context);
-        userAvatarView.setBadgeDiameter(userIcon.getIntrinsicWidth() * BADGE_WIDTH_TO_ICON_RATIO);
-        userAvatarView.setBadgeMargin(BADGE_PADDING);
+        float badgeToIconSizeRatio =
+                context.getResources().getDimension(R.dimen.profile_switcher_managed_badge_size)
+                        / context.getResources().getDimension(
+                        R.dimen.profile_switcher_image_avatar_size);
+        userAvatarView.setBadgeDiameter(iconSize * badgeToIconSizeRatio);
+        float badgePadding = context.getResources().getDimension(
+                R.dimen.profile_switcher_managed_badge_margin);
+        userAvatarView.setBadgeMargin(badgePadding);
         userAvatarView.setDrawableWithBadge(userIcon, userInfo.id);
-        return (Drawable) userAvatarView.getUserIconDrawable();
+        Drawable badgedIcon = userAvatarView.getUserIconDrawable();
+        badgedIcon.setBounds(0, 0, iconSize, iconSize);
+        return badgedIcon;
     }
 
     /**

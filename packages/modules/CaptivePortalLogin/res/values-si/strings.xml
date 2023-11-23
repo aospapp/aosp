@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"සම්පූර්ණ කළ හෝ අවලංගු කළ බාගැනීම් පෙන්වන දැනුම් දීම්"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"බාගැනීමේ ප්‍රගතිය"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"ගොනු බාගැනීම්වල ප්‍රගතිය පෙන්වන දැනුම් දීම්"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"බාගැනීම අවලංගු කරන ලදී"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ගොනුව විශාල වැඩියි, බාගැනීම අවලංගු කරන ලදි."</string>
 </resources>

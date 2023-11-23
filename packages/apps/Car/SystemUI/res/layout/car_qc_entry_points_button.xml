@@ -26,3 +26,4 @@
         android:layout_gravity="center"
         android:tag="@string/qc_icon_tag"/>
 </FrameLayout>
+

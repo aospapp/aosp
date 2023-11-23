@@ -62,7 +62,8 @@ def ParseArgs(argv):
   parser.add_argument(
     '--modules',
     metavar='MODULES',
-    help='Comma-separated list of modules providing new APIs. Required for action=new_sdk.'
+    help='Comma-separated list of modules providing new APIs. Used for action=new_sdk to create a '
+         'new SDK that only requires new versions of some modules.'
   )
   return parser.parse_args(argv)
 
@@ -99,6 +100,14 @@ def ValidateDatabase(database, dbname):
           if prev.version > requirement.version.version:
             return 'Found module requirement moving backwards: %s in %s' % (requirement, version)
         prev_requirements[requirement.module] = requirement.version
+
+    for version in database.versions:
+      required_modules = [r.module for r in version.requirements]
+      if SdkModule.UNKNOWN in required_modules:
+        return 'SDK %d has a requirement on the UNKNOWN module' % version.version
+      if not all([m in SdkModule.values() for m in required_modules]):
+        return 'SDK %d has a requirement on an undefined module value' % version.version
+
     return None
 
   err = find_bug()
@@ -107,7 +116,19 @@ def ValidateDatabase(database, dbname):
     sys.exit(1)
 
 
-def NewSdk(database, new_version, modules):
+def NewSdk(database, args):
+  if not args.sdk:
+    print('Missing required argument --sdk for action new_sdk')
+    sys.exit(1)
+
+  new_version = args.sdk
+  if args.modules:
+    module_names = args.modules.split(',')
+  else:
+    # Default: require all modules
+    module_names = [m for m in SdkModule.keys() if not m == 'UNKNOWN']
+
+  module_values = [SdkModule.Value(m) for m in module_names]
   new_requirements = {}
 
   # Gather the previous highest requirement of each module
@@ -116,7 +137,7 @@ def NewSdk(database, new_version, modules):
       new_requirements[prev_requirement.module] = prev_requirement.version
 
   # Add new requirements of this version
-  for module in modules:
+  for module in module_values:
     new_requirements[module] = SdkVersion(version=new_version)
 
   to_proto = lambda m : ExtensionVersion.ModuleRequirement(module=m, version=new_requirements[m])
@@ -124,8 +145,7 @@ def NewSdk(database, new_version, modules):
   extension_version = ExtensionVersion(version=new_version, requirements=module_requirements)
   database.versions.append(extension_version)
 
-  module_names = ','.join([SdkModule.Name(m) for m in modules])
-  print('Created a new extension SDK level %d with modules %s' % (new_version, module_names))
+  print('Created a new extension SDK level %d with modules %s' % (new_version, ','.join(module_names)))
 
 
 def main(argv):
@@ -133,15 +153,12 @@ def main(argv):
   with args.database.open('r') as f:
     database = google.protobuf.text_format.Parse(f.read(), ExtensionDatabase())
 
-  if args.modules:
-    modules = [SdkModule.Value(m) for m in args.modules.split(',')]
-
   ValidateDatabase(database, 'Input database')
 
   {
     'validate': lambda : print('Validated database'),
     'print_binary': lambda : PrintBinary(database),
-    'new_sdk': lambda : NewSdk(database, args.sdk, modules)
+    'new_sdk': lambda : NewSdk(database, args)
   }[args.action]()
 
   if args.action in ['new_sdk']:

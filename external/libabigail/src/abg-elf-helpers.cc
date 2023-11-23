@@ -331,6 +331,51 @@ find_section(Elf* elf_handle, const std::string& name, Elf64_Word section_type)
   return 0;
 }
 
+/// Find and return a section by its type.
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @param section_type the type of the section.  This is the
+/// Elf32_Shdr::sh_type (or Elf64_Shdr::sh_type) data member.
+/// Examples of values of this parameter are SHT_PROGBITS or SHT_NOBITS.
+///
+/// @return the section found, or nil if none was found.
+Elf_Scn*
+find_section(Elf* elf_handle, Elf64_Word section_type)
+{
+  Elf_Scn* section = nullptr;
+  while ((section = elf_nextscn(elf_handle, section)) != 0)
+    {
+      GElf_Shdr header_mem, *header;
+      header = gelf_getshdr(section, &header_mem);
+      if (header->sh_type == section_type)
+	break;
+    }
+  return section;
+}
+
+/// Find and return the .symtab section
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @return the section found, or nil if none was found
+Elf_Scn*
+find_symtab_section(Elf* elf_handle)
+{
+  return find_section(elf_handle, SHT_SYMTAB);
+}
+
+/// Find and return the .symtab section
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @return the section found, or nil if none was found
+Elf_Scn*
+find_dynsym_section(Elf* elf_handle)
+{
+  return find_section(elf_handle, SHT_DYNSYM);
+}
+
 /// Find the symbol table.
 ///
 /// If we are looking at a relocatable or executable file, this
@@ -346,16 +391,8 @@ find_section(Elf* elf_handle, const std::string& name, Elf64_Word section_type)
 Elf_Scn*
 find_symbol_table_section(Elf* elf_handle)
 {
-  Elf_Scn* section = 0, *dynsym = 0, *sym_tab = 0;
-  while ((section = elf_nextscn(elf_handle, section)) != 0)
-    {
-      GElf_Shdr header_mem, *header;
-      header = gelf_getshdr(section, &header_mem);
-      if (header->sh_type == SHT_DYNSYM)
-	dynsym = section;
-      else if (header->sh_type == SHT_SYMTAB)
-	sym_tab = section;
-    }
+  Elf_Scn *dynsym = find_dynsym_section(elf_handle),
+	  *sym_tab = find_symtab_section(elf_handle);
 
   if (dynsym || sym_tab)
     {
@@ -367,7 +404,7 @@ find_symbol_table_section(Elf* elf_handle)
       else
 	return dynsym ? dynsym : sym_tab;
     }
-  return NULL;
+  return nullptr;
 }
 
 /// Find the index (in the section headers table) of the symbol table
@@ -610,6 +647,29 @@ find_relocation_section(Elf* elf_handle, Elf_Scn* target_section)
 	}
     }
   return NULL;
+}
+
+/// Return the string table used by the given symbol table.
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @param symtab_section section containing a symbol table.
+///
+/// @return the string table linked by the symtab, if it is not NULL.
+Elf_Scn*
+find_strtab_for_symtab_section(Elf* elf_handle, Elf_Scn* symtab_section)
+{
+  Elf_Scn *strtab_section = NULL;
+
+  if (symtab_section)
+    {
+      GElf_Shdr symtab_shdr_mem, *symtab_shdr;
+
+      symtab_shdr = gelf_getshdr(symtab_section, &symtab_shdr_mem);
+      strtab_section = elf_getscn(elf_handle, symtab_shdr->sh_link);
+    }
+
+  return strtab_section;
 }
 
 /// Get the version definition (from the SHT_GNU_verdef section) of a

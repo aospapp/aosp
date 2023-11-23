@@ -18,8 +18,8 @@ package android.telephony.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.hardware.radio.V1_6.RouteSelectionDescriptor;
-import android.hardware.radio.V1_6.TrafficDescriptor;
+import android.telephony.data.RouteSelectionDescriptor;
+import android.telephony.data.TrafficDescriptor;
 import android.telephony.data.UrspRule;
 
 import org.junit.Test;
@@ -32,8 +32,8 @@ public class UrspRuleTest {
 
     @Test
     public void testConstructorAndGetters() {
-        List<TrafficDescriptor> tds = new ArrayList<TrafficDescriptor>();
-        List<RouteSelectionDescriptor> rsds = new ArrayList<RouteSelectionDescriptor>();
+        List<TrafficDescriptor> tds = new ArrayList<>();
+        List<RouteSelectionDescriptor> rsds = new ArrayList<>();
         UrspRule ur = new UrspRule(TEST_PRECEDENCE, tds, rsds);
         assertThat(ur.getPrecedence()).isEqualTo(TEST_PRECEDENCE);
         assertThat(ur.getTrafficDescriptors()).isNotEqualTo(null);

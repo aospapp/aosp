@@ -1,4 +1,17 @@
-#!/usr/bin/python -B
+#!/usr/bin/python3 -B
+# Copyright 2018 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """Regenerates (just) ICU data source files used to build ICU data files."""
 
@@ -8,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import i18nutil
 import icuutil
@@ -18,6 +32,11 @@ import icuutil
 def main():
   if subprocess.call(["which", "mvn"]) != 0 or subprocess.call(["which", "ant"]) != 0:
     print("Can't find the required tools. Run `sudo apt-get install maven ant` to install")
+    exit(1)
+
+  if not os.path.exists(os.path.join(Path.home(), ".m2/settings.xml")):
+    print("Can\'t find `~/.m2/settings.xml`. Please follow the instructions at "
+          "http://cldr.unicode.org/development/maven to create one and the github token.")
     exit(1)
 
   cldr_dir = icuutil.cldrDir()
@@ -103,6 +122,14 @@ def main():
     icu_dir, 'icu4c/source/test/testdata/localeCanonicalization.txt'))
   shutil.copy(localeCanonicalization_src, os.path.join(
     icu_dir, 'icu4j/main/tests/core/src/com/ibm/icu/dev/data/unicode/localeCanonicalization.txt'))
+
+  # Apply a patch on icu4c/source/data/brkitr/ja.txt because we didn't
+  # cherry-pick the data to CLDR, but only to ICU.
+  # See https://r.android.com/1985568
+  # This patch will not needed when ICU is upgraded to version 71.
+  os.chdir(icu_dir)
+  subprocess.check_call(['patch', '-p0', '-s', '-i',
+                         'tools/data_patches/brkitr/ja.txt.patch'])
 
   print('Look in %s for new data source files' % icu4c_data_source_dir)
   sys.exit(0)

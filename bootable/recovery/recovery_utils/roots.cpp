@@ -33,7 +33,7 @@
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
-#include <cryptfs.h>
+#include <ext4_utils/ext4_utils.h>
 #include <ext4_utils/wipe.h>
 #include <fs_mgr.h>
 #include <fs_mgr/roots.h>
@@ -154,39 +154,43 @@ int format_volume(const std::string& volume, const std::string& directory) {
   }
 
   bool needs_casefold = false;
-  bool needs_projid = false;
 
   if (volume == "/data") {
     needs_casefold = android::base::GetBoolProperty("external_storage.casefold.enabled", false);
-    needs_projid = android::base::GetBoolProperty("external_storage.projid.enabled", false);
-  }
-
-  // If there's a key_loc that looks like a path, it should be a block device for storing encryption
-  // metadata. Wipe it too.
-  if (!v->key_loc.empty() && v->key_loc[0] == '/') {
-    LOG(INFO) << "Wiping " << v->key_loc;
-    int fd = open(v->key_loc.c_str(), O_WRONLY | O_CREAT, 0644);
-    if (fd == -1) {
-      PLOG(ERROR) << "format_volume: Failed to open " << v->key_loc;
-      return -1;
-    }
-    wipe_block_device(fd, get_file_size(fd));
-    close(fd);
   }
 
   int64_t length = 0;
   if (v->length > 0) {
     length = v->length;
-  } else if (v->length < 0 || v->key_loc == "footer") {
+  } else if (v->length < 0) {
     android::base::unique_fd fd(open(v->blk_device.c_str(), O_RDONLY));
     if (fd == -1) {
       PLOG(ERROR) << "format_volume: failed to open " << v->blk_device;
       return -1;
     }
-    length = get_file_size(fd.get(), v->length ? -v->length : CRYPT_FOOTER_OFFSET);
+    length = get_file_size(fd.get(), -v->length);
     if (length <= 0) {
       LOG(ERROR) << "get_file_size: invalid size " << length << " for " << v->blk_device;
       return -1;
+    }
+  }
+
+  // If the raw disk will be used as a metadata encrypted device mapper target,
+  // next boot will do encrypt_in_place the raw disk which gives a subtle duration
+  // to get any failure in the process. In order to avoid it, let's simply wipe
+  // the raw disk if we don't reserve any space, which behaves exactly same as booting
+  // after "fastboot -w".
+  if (!v->metadata_key_dir.empty() && length == 0) {
+    android::base::unique_fd fd(open(v->blk_device.c_str(), O_RDWR));
+    if (fd == -1) {
+      PLOG(ERROR) << "format_volume: failed to open " << v->blk_device;
+      return -1;
+    }
+    int64_t device_size = get_file_size(fd.get(), 0);
+    if (device_size > 0 && !wipe_block_device(fd.get(), device_size)) {
+      LOG(INFO) << "format_volume: wipe metadata encrypted " << v->blk_device << " with size "
+                << device_size;
+      return 0;
     }
   }
 
@@ -196,11 +200,10 @@ int format_volume(const std::string& volume, const std::string& directory) {
       "/system/bin/mke2fs", "-F", "-t", "ext4", "-b", std::to_string(kBlockSize),
     };
 
-    // Project ID's require wider inodes. The Quotas themselves are enabled by tune2fs on boot.
-    if (needs_projid) {
-      mke2fs_args.push_back("-I");
-      mke2fs_args.push_back("512");
-    }
+    // Following is added for Project ID's quota as they require wider inodes.
+    // The Quotas themselves are enabled by tune2fs on boot.
+    mke2fs_args.push_back("-I");
+    mke2fs_args.push_back("512");
 
     if (v->fs_mgr_flags.ext_meta_csum) {
       mke2fs_args.push_back("-O");
@@ -249,10 +252,10 @@ int format_volume(const std::string& volume, const std::string& directory) {
     "-g",
     "android",
   };
-  if (needs_projid) {
-    make_f2fs_cmd.push_back("-O");
-    make_f2fs_cmd.push_back("project_quota,extra_attr");
-  }
+
+  make_f2fs_cmd.push_back("-O");
+  make_f2fs_cmd.push_back("project_quota,extra_attr");
+
   if (needs_casefold) {
     make_f2fs_cmd.push_back("-O");
     make_f2fs_cmd.push_back("casefold");

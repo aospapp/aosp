@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+set -e
+
 # Run ART APEX tests.
 
 SCRIPT_DIR=$(dirname $0)
@@ -33,21 +35,24 @@ function die {
   exit 1
 }
 
-function setup_die {
-  die "You need to run lunch, banchan, or tapas before you can use this script."
-}
+if [[ -z "$ANDROID_BUILD_TOP" ]]; then
+  export ANDROID_BUILD_TOP=$(pwd)
+  if [[ ! -x "$ANDROID_BUILD_TOP/build/soong/soong_ui.bash" ]]; then
+    die "Run from the root of the Android tree, or run lunch/banchan/tapas first."
+  fi
+fi
 
-[[ -n "$ANDROID_BUILD_TOP" ]] || setup_die
-[[ -n "$ANDROID_PRODUCT_OUT" ]] || setup_die
-[[ -n "$ANDROID_HOST_OUT" ]] || setup_die
-
-flattened_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash \
-    --dumpvar-mode TARGET_FLATTEN_APEX) \
-  || setup_die
-
-compressed_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash \
-    --dumpvar-mode PRODUCT_COMPRESSED_APEX) \
-  || setup_die
+query_build_vars=(
+  HOST_OUT
+  PRODUCT_COMPRESSED_APEX
+  PRODUCT_OUT
+  TARGET_FLATTEN_APEX
+)
+vars="$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash \
+        --dumpvars-mode --vars="${query_build_vars[*]}")"
+# Assign to a variable and eval that, since bash ignores any error status from
+# the command substitution if it's directly on the eval line.
+eval $vars
 
 # Switch the build system to unbundled mode in the reduced manifest branch.
 if [ ! -d $ANDROID_BUILD_TOP/frameworks/base ]; then
@@ -55,8 +60,8 @@ if [ ! -d $ANDROID_BUILD_TOP/frameworks/base ]; then
 fi
 
 have_deapexer_p=false
-if $flattened_apex_p; then :; else
-  if [ ! -e "$ANDROID_HOST_OUT/bin/deapexer" -o ! -e "$ANDROID_HOST_OUT/bin/debugfs_static" ] ; then
+if [[ "$TARGET_FLATTEN_APEX" != true ]]; then
+  if [ ! -e "$HOST_OUT/bin/deapexer" -o ! -e "$HOST_OUT/bin/debugfs_static" ] ; then
     say "Could not find deapexer and/or debugfs_static, building now."
     build/soong/soong_ui.bash --make-mode deapexer debugfs_static-host || \
       die "Cannot build deapexer and debugfs_static"
@@ -82,12 +87,14 @@ applicable APEXes if none is given on the command line.
   -l, --list-files    list the contents of the ext4 image (\`find\`-like style)
   -t, --print-tree    list the contents of the ext4 image (\`tree\`-like style)
   -s, --print-sizes   print the size in bytes of each file when listing contents
+  --bitness=32|64|multilib|auto  passed on to art_apex_test.py for non-host APEXes
   -h, --help          display this help and exit
 
 EOF
   exit
 }
 
+device_bitness_arg=""
 apex_modules=()
 
 while [[ $# -gt 0 ]]; do
@@ -96,6 +103,7 @@ while [[ $# -gt 0 ]]; do
     (-l|--list-files)  list_image_files_p=true;;
     (-t|--print-tree)  print_image_tree_p=true;;
     (-s|--print-sizes) print_file_sizes_p=true;;
+    (--bitness=*)      device_bitness_arg=$1;;
     (-h|--help) usage;;
     (-*) die "Unknown option: '$1'
 Try '$0 --help' for more information.";;
@@ -177,24 +185,27 @@ for apex_module in ${apex_modules[@]}; do
   art_apex_test_args="--tmpdir $work_dir"
   test_only_args=""
   if [[ $apex_module = *.host ]]; then
-    apex_path="$ANDROID_HOST_OUT/apex/${apex_module}.zipapex"
+    apex_path="$HOST_OUT/apex/${apex_module}.zipapex"
     art_apex_test_args="$art_apex_test_args --host"
     test_only_args="--flavor debug"
+    # The host APEX is always built multilib.
+    art_apex_test_args="$art_apex_test_args --bitness=multilib"
   else
-    if $flattened_apex_p; then
-      apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}"
+    art_apex_test_args="$art_apex_test_args $device_bitness_arg"
+    if [[ "$TARGET_FLATTEN_APEX" = true ]]; then
+      apex_path="$PRODUCT_OUT/system/apex/${apex_module}"
       art_apex_test_args="$art_apex_test_args --flattened"
     else
       # Note: The Testing ART APEX is never built as a Compressed APEX.
-      if $compressed_apex_p && [[ $apex_module != *.testing ]]; then
-        apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.capex"
+      if [[ "$PRODUCT_COMPRESSED_APEX" = true && $apex_module != *.testing ]]; then
+        apex_path="$PRODUCT_OUT/system/apex/${apex_module}.capex"
       else
-        apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.apex"
+        apex_path="$PRODUCT_OUT/system/apex/${apex_module}.apex"
       fi
     fi
     if $have_deapexer_p; then
-      art_apex_test_args="$art_apex_test_args --deapexer $ANDROID_HOST_OUT/bin/deapexer"
-      art_apex_test_args="$art_apex_test_args --debugfs $ANDROID_HOST_OUT/bin/debugfs_static"
+      art_apex_test_args="$art_apex_test_args --deapexer $HOST_OUT/bin/deapexer"
+      art_apex_test_args="$art_apex_test_args --debugfs $HOST_OUT/bin/debugfs_static"
     fi
     case $apex_module in
       (*.debug)   test_only_args="--flavor debug";;

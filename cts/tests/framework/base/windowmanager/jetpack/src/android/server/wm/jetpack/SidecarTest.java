@@ -46,7 +46,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.pm.ActivityInfo;
 import android.graphics.Rect;
 import android.os.IBinder;
-import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.jetpack.utils.WindowManagerJetpackTestBase;
 import android.server.wm.jetpack.utils.SidecarCallbackCounter;
@@ -55,6 +54,7 @@ import android.server.wm.jetpack.utils.TestConfigChangeHandlingActivity;
 import android.server.wm.jetpack.utils.TestGetWindowLayoutInfoActivity;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.LargeTest;
 
 import androidx.window.sidecar.SidecarDeviceState;
@@ -79,7 +79,6 @@ import java.util.List;
  *     atest CtsWindowManagerJetpackTestCases:SidecarTest
  */
 @LargeTest
-@Presubmit
 @RunWith(AndroidJUnit4.class)
 public class SidecarTest extends WindowManagerJetpackTestBase {
     private static final String TAG = "SidecarTest";
@@ -103,6 +102,7 @@ public class SidecarTest extends WindowManagerJetpackTestBase {
     /**
      * Test adding and removing a sidecar interface window layout change listener.
      */
+    @FlakyTest(bugId = 206697963)
     @Test
     public void testSidecarInterface_onWindowLayoutChangeListener() {
         // Set activity to portrait

@@ -15,7 +15,6 @@
  */
 package com.android.wallpaper.picker;
 
-import android.app.Activity;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.ViewGroup;
@@ -24,7 +23,6 @@ import androidx.cardview.widget.CardView;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.util.ScreenSizeCalculator;
-import com.android.wallpaper.util.SizeCalculator;
 
 /** The wallpaper section view in the customization picker fragment. */
 public final class WallpaperSectionView extends SectionView {
@@ -63,8 +61,8 @@ public final class WallpaperSectionView extends SectionView {
         ViewGroup.LayoutParams layoutParams = cardView.getLayoutParams();
         layoutParams.height = cardHeight;
 
-        // Match device corner
+        // TODO(b/218951518): Make corner radius proportional to the card's
         cardView.setRadius(
-                SizeCalculator.getPreviewCornerRadius((Activity) getContext(), cardWidth));
+                getResources().getDimension(R.dimen.wallpaper_picker_entry_card_corner_radius));
     }
 }

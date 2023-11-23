@@ -20,6 +20,7 @@ from __future__ import print_function
 
 from tensorflow.python.data.benchmarks import benchmark_base
 from tensorflow.python.data.ops import dataset_ops
+from tensorflow.python.data.ops import options as options_lib
 from tensorflow.python.ops import math_ops
 
 
@@ -42,7 +43,7 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
     for _ in range(chain_length):
       dataset = dataset.map(lambda x: x)
     if optimize_dataset:
-      options = dataset_ops.Options()
+      options = options_lib.Options()
       options.experimental_optimization.apply_default_optimizations = False
       options.experimental_optimization.map_fusion = True
       dataset = dataset.with_options(options)
@@ -53,6 +54,10 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
         num_elements=100,
         iters=10,
         warmup=True,
+        extras={
+            "model_name": "optimize.benchmark.1",
+            "parameters": "%d.%s" % (chain_length, optimize_dataset),
+        },
         name="map_fusion_{}_chain_length_{}".format(opt_mark, chain_length))
 
   def benchmark_map_and_filter_fusion(self):
@@ -72,7 +77,7 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
       dataset = dataset.map(lambda x: x + 5).filter(
           lambda x: math_ops.greater_equal(x - 5, 0))
     if optimize_dataset:
-      options = dataset_ops.Options()
+      options = options_lib.Options()
       options.experimental_optimization.apply_default_optimizations = False
       options.experimental_optimization.map_and_filter_fusion = True
       dataset = dataset.with_options(options)
@@ -83,6 +88,10 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
         num_elements=100,
         iters=10,
         warmup=True,
+        extras={
+            "model_name": "optimize.benchmark.2",
+            "parameters": "%d.%s" % (chain_length, optimize_dataset),
+        },
         name="map_and_filter_fusion_{}_chain_length_{}".format(
             opt_mark, chain_length))
 
@@ -103,7 +112,7 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
     for _ in range(chain_length):
       dataset = dataset.filter(lambda x: math_ops.greater_equal(x - 5, 0))
     if optimize_dataset:
-      options = dataset_ops.Options()
+      options = options_lib.Options()
       options.experimental_optimization.apply_default_optimizations = False
       options.experimental_optimization.filter_fusion = True
       dataset = dataset.with_options(options)
@@ -114,6 +123,10 @@ class OptimizationBenchmark(benchmark_base.DatasetBenchmarkBase):
         num_elements=100,
         iters=10,
         warmup=True,
+        extras={
+            "model_name": "optimize.benchmark.3",
+            "parameters": "%d.%s" % (chain_length, optimize_dataset),
+        },
         name="filter_fusion_{}_chain_length_{}".format(opt_mark, chain_length))
 
 

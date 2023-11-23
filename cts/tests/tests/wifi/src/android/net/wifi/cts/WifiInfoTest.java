@@ -22,6 +22,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.MloLink;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiInfo;
@@ -280,5 +281,24 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         builder.setCurrentSecurityType(WifiInfo.SECURITY_TYPE_SAE);
         info = builder.build();
         assertEquals(WifiInfo.SECURITY_TYPE_SAE, info.getCurrentSecurityType());
+    }
+
+    /**
+     * Test MLO Attributes (WiFi-7)
+     */
+    public void testWifiInfoMloAttributes() {
+        // Verify that MLO Attributes are initialzed correctly
+        WifiInfo.Builder builder = new WifiInfo.Builder()
+                .setSsid(TEST_SSID.getBytes(StandardCharsets.UTF_8))
+                .setBssid(TEST_BSSID)
+                .setRssi(TEST_RSSI)
+                .setNetworkId(TEST_NETWORK_ID);
+
+        WifiInfo wifiInfo = builder.build();
+
+        assertNull(wifiInfo.getApMldMacAddress());
+        assertEquals(MloLink.INVALID_MLO_LINK_ID, wifiInfo.getApMloLinkId());
+        assertNotNull(wifiInfo.getAffiliatedMloLinks());
+        assertTrue(wifiInfo.getAffiliatedMloLinks().isEmpty());
     }
 }

@@ -182,7 +182,7 @@ QueryProcessor::ParseRawQuery(const SearchSpecProto& search_spec) {
     const Token& token = tokens.at(i);
     std::unique_ptr<DocHitInfoIterator> result_iterator;
 
-    // TODO(cassiewang): Handle negation tokens
+    // TODO(b/202076890): Handle negation tokens
     switch (token.type) {
       case Token::Type::QUERY_LEFT_PARENTHESES: {
         frames.emplace(ParserStateFrame());

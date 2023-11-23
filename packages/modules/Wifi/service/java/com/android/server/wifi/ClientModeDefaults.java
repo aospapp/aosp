@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.annotation.NonNull;
 import android.net.DhcpResultsParcelable;
 import android.net.Network;
 import android.net.wifi.IWifiConnectedNetworkScorer;
@@ -44,13 +45,13 @@ public interface ClientModeDefaults extends ClientMode {
     default void dump(FileDescriptor fd, PrintWriter pw, String[] args) { }
 
     default void connectNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper,
-            int callingUid) {
+            int callingUid, @NonNull String packageName) {
         // wifi off, can't connect.
-        wrapper.sendFailure(WifiManager.BUSY);
+        wrapper.sendFailure(WifiManager.ActionListener.FAILURE_BUSY);
     }
 
     default void saveNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper,
-            int callingUid) {
+            int callingUid, @NonNull String packageName) {
         // wifi off, nothing more to do here.
         wrapper.sendSuccess();
     }
@@ -130,7 +131,11 @@ public interface ClientModeDefaults extends ClientMode {
         return null;
     }
 
-    default boolean setPowerSave(boolean ps) {
+    default boolean setPowerSave(@PowerSaveClientType int client, boolean ps) {
+        return false;
+    }
+
+    default boolean enablePowerSave() {
         return false;
     }
 
@@ -219,4 +224,7 @@ public interface ClientModeDefaults extends ClientMode {
 
     @Override
     default void setShouldReduceNetworkScore(boolean shouldReduceNetworkScore) { }
+
+    @Override
+    default void updateCapabilities() { }
 }

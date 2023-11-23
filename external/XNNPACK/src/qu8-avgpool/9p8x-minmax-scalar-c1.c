@@ -8,8 +8,8 @@
 
 #include <assert.h>
 
-#include <xnnpack/scalar-utils.h>
 #include <xnnpack/avgpool.h>
+#include <xnnpack/math.h>
 
 
 void xnn_qu8_avgpool_minmax_ukernel_9p8x__scalar_c1(
@@ -23,7 +23,7 @@ void xnn_qu8_avgpool_minmax_ukernel_9p8x__scalar_c1(
     uint8_t* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_qu8_avgpool_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_qu8_avgpool_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(output_pixels != 0);
   assert(kernel_elements > 9);

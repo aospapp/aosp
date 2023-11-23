@@ -26,6 +26,7 @@ import static com.android.permissioncontroller.permission.ui.ManagePermissionsAc
 import static com.android.permissioncontroller.permission.ui.ManagePermissionsActivity.EXTRA_RESULT_PERMISSION_RESULT;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -54,8 +55,10 @@ import androidx.preference.TwoStatePreference;
 import com.android.car.ui.AlertDialogBuilder;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
+import com.android.permissioncontroller.permission.ui.AdvancedConfirmDialogArgs;
 import com.android.permissioncontroller.permission.ui.GrantPermissionsViewHandler;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel;
+import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel.ChangeRequest;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.PackageRemovalMonitor;
@@ -190,28 +193,28 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
         mAllowPermissionPreference.setOnPreferenceClickListener(v -> {
             checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW);
             setResult(GrantPermissionsViewHandler.GRANTED_ALWAYS);
-            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_FOREGROUND,
+            requestChange(ChangeRequest.GRANT_FOREGROUND,
                     APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW);
             return true;
         });
         mAlwaysPermissionPreference.setOnPreferenceClickListener(v -> {
             checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW_ALWAYS);
             setResult(GrantPermissionsViewHandler.GRANTED_ALWAYS);
-            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_BOTH,
+            requestChange(ChangeRequest.GRANT_BOTH,
                     APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_ALWAYS);
             return true;
         });
         mForegroundOnlyPermissionPreference.setOnPreferenceClickListener(v -> {
             checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW_FOREGROUND);
             setResult(GrantPermissionsViewHandler.GRANTED_FOREGROUND_ONLY);
-            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_FOREGROUND_ONLY,
+            requestChange(ChangeRequest.GRANT_FOREGROUND_ONLY,
                     APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_FOREGROUND);
             return true;
         });
         mDenyPermissionPreference.setOnPreferenceClickListener(v -> {
             checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.DENY);
             setResult(GrantPermissionsViewHandler.DENIED);
-            requestChange(AppPermissionViewModel.ChangeRequest.REVOKE_BOTH,
+            requestChange(ChangeRequest.REVOKE_BOTH,
                     APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__DENY);
             return true;
         });
@@ -267,19 +270,19 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
     }
 
     @Override
-    public void showConfirmDialog(AppPermissionViewModel.ChangeRequest changeRequest, int messageId,
+    public void showConfirmDialog(ChangeRequest changeRequest, int messageId,
             int buttonPressed, boolean oneTime) {
         Bundle args = new Bundle();
 
-        args.putInt(DefaultDenyDialog.MSG, messageId);
-        args.putSerializable(DefaultDenyDialog.CHANGE_REQUEST, changeRequest);
-        args.putSerializable(DefaultDenyDialog.BUTTON, buttonPressed);
+        args.putInt(ConfirmDialog.MSG, messageId);
+        args.putSerializable(ConfirmDialog.CHANGE_REQUEST, changeRequest);
+        args.putSerializable(ConfirmDialog.BUTTON, buttonPressed);
 
-        DefaultDenyDialog defaultDenyDialog = new DefaultDenyDialog();
-        defaultDenyDialog.setArguments(args);
-        defaultDenyDialog.setTargetFragment(this, 0);
-        defaultDenyDialog.show(requireFragmentManager().beginTransaction(),
-                DefaultDenyDialog.class.getName());
+        ConfirmDialog confirmDialog = new ConfirmDialog();
+        confirmDialog.setArguments(args);
+        confirmDialog.setTargetFragment(this, 0);
+        confirmDialog.show(requireFragmentManager().beginTransaction(),
+                ConfirmDialog.class.getName());
     }
 
     private void setResult(@GrantPermissionsViewHandler.Result int result) {
@@ -369,7 +372,7 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
     /**
      * Request to grant/revoke permissions group.
      */
-    private void requestChange(AppPermissionViewModel.ChangeRequest changeRequest,
+    private void requestChange(ChangeRequest changeRequest,
             int buttonClicked) {
         mViewModel.requestChange(/* setOneTime= */false, /* fragment= */ this,
                 /* defaultDeny= */this, changeRequest, buttonClicked);
@@ -399,30 +402,50 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
      * A dialog warning the user that they are about to deny a permission that was granted by
      * default.
      *
-     * @see #showConfirmDialog(AppPermissionViewModel.ChangeRequest, int, int, boolean)
+     * @see #showConfirmDialog(ChangeRequest, int, int, boolean)
      */
-    public static class DefaultDenyDialog extends DialogFragment {
-        private static final String MSG = DefaultDenyDialog.class.getName() + ".arg.msg";
-        private static final String CHANGE_REQUEST = DefaultDenyDialog.class.getName()
+    public static class ConfirmDialog extends DialogFragment {
+        private static final String MSG = ConfirmDialog.class.getName() + ".arg.msg";
+        private static final String CHANGE_REQUEST = ConfirmDialog.class.getName()
                 + ".arg.changeRequest";
-        private static final String BUTTON = DefaultDenyDialog.class.getName()
+        private static final String BUTTON = ConfirmDialog.class.getName()
                 + ".arg.button";
+        private static int sCode =  APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW;
 
         @NonNull
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // TODO(b/229024576): This code is duplicated, refactor ConfirmDialog for easier
+            // NFF sharing
+            boolean isGrantFileAccess = getArguments().getSerializable(CHANGE_REQUEST)
+                    == ChangeRequest.GRANT_All_FILE_ACCESS;
+            boolean isGrantStorageSupergroup = getArguments().getSerializable(CHANGE_REQUEST)
+                    == ChangeRequest.GRANT_STORAGE_SUPERGROUP;
+            int positiveButtonStringResId = R.string.grant_dialog_button_deny_anyway;
+            if (isGrantFileAccess || isGrantStorageSupergroup) {
+                positiveButtonStringResId = R.string.grant_dialog_button_allow;
+            }
             AutoAppPermissionFragment fragment = (AutoAppPermissionFragment) getTargetFragment();
             return new AlertDialogBuilder(getContext())
                     .setMessage(requireArguments().getInt(MSG))
                     .setNegativeButton(R.string.cancel,
                             (dialog, which) -> dialog.cancel())
-                    .setPositiveButton(R.string.grant_dialog_button_deny_anyway,
-                            (dialog, which) ->
-                                    fragment.mViewModel.onDenyAnyWay(
-                                            (AppPermissionViewModel.ChangeRequest)
+                    .setPositiveButton(positiveButtonStringResId,
+                            (dialog, which) -> {
+                                if (isGrantFileAccess) {
+                                    fragment.mViewModel.setAllFilesAccess(true);
+                                    fragment.mViewModel.requestChange(false, fragment,
+                                            fragment, ChangeRequest.GRANT_BOTH, sCode);
+                                } else if (isGrantStorageSupergroup) {
+                                    fragment.mViewModel.requestChange(false, fragment,
+                                            fragment, ChangeRequest.GRANT_BOTH, sCode);
+                                } else {
+                                    fragment.mViewModel.onDenyAnyWay((ChangeRequest)
                                                     getArguments().getSerializable(CHANGE_REQUEST),
                                             getArguments().getInt(BUTTON),
-                                            false))
+                                            /* oneTime= */ false);
+                                }
+                            })
                     .create();
         }
 
@@ -431,5 +454,26 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
             AutoAppPermissionFragment fragment = (AutoAppPermissionFragment) getTargetFragment();
             fragment.setRadioButtonsState(fragment.mViewModel.getButtonStateLiveData().getValue());
         }
+    }
+
+    @Override
+    public void showAdvancedConfirmDialog(AdvancedConfirmDialogArgs args) {
+        AlertDialog.Builder b = new AlertDialog.Builder(getContext())
+                .setIcon(args.getIconId())
+                .setMessage(args.getMessageId())
+                .setNegativeButton(args.getNegativeButtonTextId(),
+                        (DialogInterface dialog, int which) -> {
+                            setRadioButtonsState(mViewModel.getButtonStateLiveData().getValue());
+                        })
+                .setPositiveButton(args.getPositiveButtonTextId(),
+                        (DialogInterface dialog, int which) -> {
+                            mViewModel.requestChange(args.getSetOneTime(),
+                                    AutoAppPermissionFragment.this, AutoAppPermissionFragment.this,
+                                    args.getChangeRequest(), args.getButtonClicked());
+                        });
+        if (args.getTitleId() != 0) {
+            b.setTitle(args.getTitleId());
+        }
+        b.show();
     }
 }

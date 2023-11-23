@@ -25,13 +25,17 @@ import com.android.car.storagemonitoring.UfsWearInformationProvider;
 import com.android.car.storagemonitoring.UidIoStatsProvider;
 import com.android.car.storagemonitoring.WearInformationProvider;
 
+import java.io.File;
+
 /**
  * Interface that abstracts storage monitoring operations
  */
 public interface StorageMonitoringInterface {
-    default WearInformationProvider[] getFlashWearInformationProviders() {
+    default WearInformationProvider[] getFlashWearInformationProviders(
+            String lifetimePath, String eolPath) {
         return new WearInformationProvider[] {
-            new EMmcWearInformationProvider(),
+            new EMmcWearInformationProvider(
+                    new File(lifetimePath), new File(eolPath)),
             new UfsWearInformationProvider(),
             new HealthServiceWearInfoProvider()
         };

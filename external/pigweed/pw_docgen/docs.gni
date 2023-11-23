@@ -20,6 +20,9 @@ import("$dir_pw_build/python_action.gni")
 declare_args() {
   # Whether or not the current target should build docs.
   pw_docgen_BUILD_DOCS = false
+
+  # Set to enable Google Analytics tracking of generated docs.
+  pw_docs_google_analytics_id = ""
 }
 
 # Defines a group of documentation files and assets.
@@ -97,18 +100,27 @@ template("pw_doc_gen") {
     "--gn-gen-root",
     rebase_path(root_gen_dir, root_build_dir) + "/",
     "--sphinx-build-dir",
-    rebase_path("$target_gen_dir/pw_docgen_tree"),
+    rebase_path("$target_gen_dir/pw_docgen_tree", root_build_dir),
     "--conf",
-    rebase_path(invoker.conf),
+    rebase_path(invoker.conf, root_build_dir),
     "--out-dir",
-    rebase_path(invoker.output_directory),
-    "--metadata",
+    rebase_path(invoker.output_directory, root_build_dir),
   ]
 
-  # Metadata JSON file path.
-  _script_args += rebase_path(get_target_outputs(":$_metadata_file_target"))
+  # Enable Google Analytics if a measurement ID is provided
+  if (pw_docs_google_analytics_id != "") {
+    _script_args += [
+      "--google-analytics-id",
+      pw_docs_google_analytics_id,
+    ]
+  }
 
-  _script_args += rebase_path(invoker.sources)
+  # Metadata JSON file path.
+  _script_args += [ "--metadata" ]
+  _script_args +=
+      rebase_path(get_target_outputs(":$_metadata_file_target"), root_build_dir)
+
+  _script_args += rebase_path(invoker.sources, root_build_dir)
 
   if (pw_docgen_BUILD_DOCS) {
     pw_python_action(target_name) {

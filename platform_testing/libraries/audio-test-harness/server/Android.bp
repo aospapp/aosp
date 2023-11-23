@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,13 +51,14 @@ java_binary_host {
 java_library_host {
     name: "audiotestharness-serverlib",
     srcs: [
-        "src/main/java/com/android/media/audiotestharness/server/AudioTestHarnessGrpcServer.java",
-        "src/main/java/com/android/media/audiotestharness/server/AudioTestHarnessServerModule.java",
+        "src/main/java/com/android/media/audiotestharness/server/*.java",
     ],
     static_libs: [
         "audiotestharness-servicelib",
         "audiotestharness-utilitylib",
         "audiotestharness-javasoundlib",
+        "audiotestharness-corelib",
+        "audiotestharness-configlib",
         "audiotestharness-servicegrpclib-full",
         "grpc-java-netty-shaded",
     ],
@@ -76,6 +77,25 @@ java_library_host {
 }
 
 java_library_host {
+    name: "audiotestharness-configlib",
+    srcs: [
+        "src/main/java/com/android/media/audiotestharness/server/config/*.java",
+    ],
+    libs: [
+        "auto_value_annotations",
+    ],
+    static_libs: [
+        "audiotestharness-commonlib-full",
+        "audiotestharness-commonprotolib-full",
+        "guava",
+        "guice",
+    ],
+    plugins: [
+        "auto_value_plugin",
+    ],
+}
+
+java_library_host {
     name: "audiotestharness-servicelib",
     srcs: [
         "src/main/java/com/android/media/audiotestharness/server/service/*.java",
@@ -85,6 +105,7 @@ java_library_host {
         "audiotestharness-commonprotolib-full",
         "audiotestharness-servicegrpclib-full",
         "audiotestharness-corelib",
+        "audiotestharness-configlib",
         "guava",
         "guice",
     ],
@@ -115,11 +136,8 @@ java_library_host {
 
 java_test_host {
     name: "audiotestharness-serverlib-tests",
-    test_suites: ["general-tests"],
     srcs: [
-        "src/test/java/com/android/media/audiotestharness/server/AudioTestHarnessServerModuleTests.java",
-        "src/test/java/com/android/media/audiotestharness/server/AudioTestHarnessGrpcServerTests.java",
-        "src/test/java/com/android/media/audiotestharness/server/AudioTestHarnessTestImpl.java",
+        "src/test/java/com/android/media/audiotestharness/server/*.java",
     ],
     static_libs: [
         "audiotestharness-serverlib",
@@ -139,7 +157,6 @@ java_test_host {
 
 java_test_host {
     name: "audiotestharness-servicelib-tests",
-    test_suites: ["general-tests"],
     srcs: [
         "src/test/java/com/android/media/audiotestharness/server/service/*.java",
     ],
@@ -161,7 +178,6 @@ java_test_host {
 
 java_test_host {
     name: "audiotestharness-javasoundlib-tests",
-    test_suites: ["general-tests"],
     srcs: [
         "src/test/java/com/android/media/audiotestharness/server/javasound/*.java",
     ],
@@ -184,7 +200,6 @@ java_test_host {
 
 java_test_host {
     name: "audiotestharness-utilitylib-tests",
-    test_suites: ["general-tests"],
     srcs: [
         "src/test/java/com/android/media/audiotestharness/server/utility/*.java",
     ],

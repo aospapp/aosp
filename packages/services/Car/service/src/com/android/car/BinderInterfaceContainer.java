@@ -175,8 +175,8 @@ public class BinderInterfaceContainer<T extends IInterface> {
                 IBinder binder = bInterface.binderInterface.asBinder();
                 binder.unlinkToDeath(bInterface, 0);
             }
+            mBinders.clear();
         }
-        mBinders.clear();
     }
 
     private void handleBinderDeath(BinderInterface<T> bInterface) {

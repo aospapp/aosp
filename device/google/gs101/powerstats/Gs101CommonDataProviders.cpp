@@ -79,6 +79,23 @@ void addAoC(std::shared_ptr<PowerStats> p) {
     };
     p->addStateResidencyDataProvider(
             std::make_unique<AocStateResidencyDataProvider>(monitorIds, monitorStates));
+
+    // Add AoC restart count
+    const GenericStateResidencyDataProvider::StateResidencyConfig restartCountConfig = {
+            .entryCountSupported = true,
+            .entryCountPrefix = "",
+            .totalTimeSupported = false,
+            .lastEntrySupported = false,
+    };
+    const std::vector<std::pair<std::string, std::string>> restartCountHeaders = {
+            std::make_pair("RESTART", ""),
+    };
+    std::vector<GenericStateResidencyDataProvider::PowerEntityConfig> cfgs;
+    cfgs.emplace_back(
+            generateGenericStateResidencyConfigs(restartCountConfig, restartCountHeaders),
+            "AoC-Count", "");
+    p->addStateResidencyDataProvider(std::make_unique<GenericStateResidencyDataProvider>(
+            "/sys/devices/platform/19000000.aoc/restart_count", cfgs));
 }
 
 void addDvfsStats(std::shared_ptr<PowerStats> p) {
@@ -588,17 +605,33 @@ void addPowerDomains(std::shared_ptr<PowerStats> p) {
 }
 
 void addDevfreq(std::shared_ptr<PowerStats> p) {
-    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>("INT",
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "INT",
             "/sys/devices/platform/17000020.devfreq_int/devfreq/17000020.devfreq_int"));
 
-    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>("INTCAM",
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "INTCAM",
             "/sys/devices/platform/17000030.devfreq_intcam/devfreq/17000030.devfreq_intcam"));
 
-    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>("CAM",
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "DISP",
+            "/sys/devices/platform/17000040.devfreq_disp/devfreq/17000040.devfreq_disp"));
+
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "CAM",
             "/sys/devices/platform/17000050.devfreq_cam/devfreq/17000050.devfreq_cam"));
 
-    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>("TNR",
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "TNR",
             "/sys/devices/platform/17000060.devfreq_tnr/devfreq/17000060.devfreq_tnr"));
+
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "MFC",
+            "/sys/devices/platform/17000070.devfreq_mfc/devfreq/17000070.devfreq_mfc"));
+
+    p->addStateResidencyDataProvider(std::make_unique<DevfreqStateResidencyDataProvider>(
+            "BO",
+            "/sys/devices/platform/17000080.devfreq_bo/devfreq/17000080.devfreq_bo"));
 }
 
 void addTPU(std::shared_ptr<PowerStats> p) {
@@ -613,7 +646,7 @@ void addTPU(std::shared_ptr<PowerStats> p) {
 
     p->addEnergyConsumer(PowerStatsEnergyConsumer::createMeterAndAttrConsumer(p,
             EnergyConsumerType::OTHER, "TPU", {"S10M_VDD_TPU"},
-            {{UID_TIME_IN_STATE, "/sys/class/edgetpu/abrolhos/device/tpu_usage"}},
+            {{UID_TIME_IN_STATE, "/sys/class/edgetpu/edgetpu-soc/device/tpu_usage"}},
             stateCoeffs));
 }
 

@@ -30,7 +30,6 @@ class EcKeyFactory : public AsymmetricKeyFactory, public SoftKeyFactoryMixin {
         : AsymmetricKeyFactory(context), SoftKeyFactoryMixin(blob_maker) {}
 
     keymaster_algorithm_t keymaster_key_type() const override { return KM_ALGORITHM_EC; }
-    int evp_key_type() const override { return EVP_PKEY_EC; }
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
                                   UniquePtr<Key> attest_key,            //
@@ -48,6 +47,15 @@ class EcKeyFactory : public AsymmetricKeyFactory, public SoftKeyFactoryMixin {
                                 AuthorizationSet* hw_enforced,      //
                                 AuthorizationSet* sw_enforced,
                                 CertificateChain* cert_chain) const override;
+
+    keymaster_error_t ImportRawKey(const AuthorizationSet& key_description,
+                                   const KeymasterKeyBlob& input_key_material,
+                                   UniquePtr<Key> attest_key,  //
+                                   const KeymasterBlob& issuer_subject,
+                                   KeymasterKeyBlob* output_key_blob,  //
+                                   AuthorizationSet* hw_enforced,      //
+                                   AuthorizationSet* sw_enforced,
+                                   CertificateChain* cert_chain) const;
 
     keymaster_error_t CreateEmptyKey(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                                      UniquePtr<AsymmetricKey>* key) const override;

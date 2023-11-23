@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"Anwani za dharura"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"Mawasiliano ya dharura"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Ongeza anwani"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"Imeshindwa kupata kiteua anwani"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"Imeshindwa kuonyesha anwani"</string>
@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"Sawa"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Hatuna maelezo kuhusu mwenye simu hii"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Ikiwa hii ni simu yako, gusa aikoni ya penseli ili uongeze maelezo ambayo yataonekana hapa wakati wa dharura."</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Ukitumia simu yako iliyofunguliwa, gusa aikoni ya penseli ili uongeze maelezo ambayo yataonyeshwa hapa wakati wa dharura"</string>
     <string name="clear_all" msgid="8899013032870561633">"Futa yote"</string>
     <string name="clear" msgid="3648880442502887163">"Futa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Je, ungependa kufuta maelezo na anwani zote?"</string>

@@ -15,10 +15,6 @@
  */
 package android.app.time.cts.shell;
 
-import static android.app.time.cts.shell.DeviceConfigKeys.LocationTimeZoneManager.KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE;
-import static android.app.time.cts.shell.DeviceConfigKeys.LocationTimeZoneManager.KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE;
-import static android.app.time.cts.shell.DeviceConfigKeys.NAMESPACE_SYSTEM_TIME;
-
 import static org.junit.Assume.assumeTrue;
 
 import java.io.BufferedReader;
@@ -30,47 +26,6 @@ import java.util.Objects;
  * command-line interface.
  */
 public class LocationTimeZoneManagerShellHelper {
-    /**
-     * The index of the primary location time zone provider, used for shell commands.
-     */
-    public static final int PRIMARY_PROVIDER_INDEX = 0;
-
-    /**
-     * The index of the secondary location time zone provider, used for shell commands.
-     */
-    public static final int SECONDARY_PROVIDER_INDEX = 1;
-
-    /**
-     * The "disabled" provider mode (equivalent to there being no provider configured).
-     */
-    public static final String PROVIDER_MODE_DISABLED =
-            DeviceConfigKeys.LocationTimeZoneManager.PROVIDER_MODE_DISABLED;
-
-    /**
-     * The "simulated" provider mode.
-     */
-    public static final String PROVIDER_MODE_SIMULATED =
-            DeviceConfigKeys.LocationTimeZoneManager.PROVIDER_MODE_SIMULATED;
-
-    /**
-     * Simulated provider test command that simulates the bind succeeding.
-     */
-    public static final String SIMULATED_PROVIDER_TEST_COMMAND_ON_BIND = "on_bind";
-
-    /**
-     * Simulated provider test command that simulates the provider reporting uncertainty.
-     */
-    public static final String SIMULATED_PROVIDER_TEST_COMMAND_UNCERTAIN = "uncertain";
-
-    /**
-     * Simulated provider test command that simulates a successful time zone detection.
-     */
-    public static final String SIMULATED_PROVIDER_TEST_COMMAND_SUCCESS = "success";
-
-    /**
-     * Argument for {@link #SIMULATED_PROVIDER_TEST_COMMAND_SUCCESS} to specify TZDB time zone IDs.
-     */
-    public static final String SIMULATED_PROVIDER_TEST_COMMAND_SUCCESS_ARG_KEY_TZ = "tz";
 
     /**
      * The name of the service for shell commands.
@@ -88,10 +43,10 @@ public class LocationTimeZoneManagerShellHelper {
     private static final String SHELL_COMMAND_STOP = "stop";
 
     /**
-     * A shell command that tells the service to record state information during tests. The next
-     * argument value is "true" or "false".
+     * A shell command that clears recorded provider state information during tests.
      */
-    private static final String SHELL_COMMAND_RECORD_PROVIDER_STATES = "record_provider_states";
+    private static final String SHELL_COMMAND_CLEAR_RECORDED_PROVIDER_STATES =
+            "clear_recorded_provider_states";
 
     /**
      * A shell command that tells the service to dump its current state.
@@ -103,20 +58,22 @@ public class LocationTimeZoneManagerShellHelper {
      */
     private static final String DUMP_STATE_OPTION_PROTO = "proto";
 
+    /** A shell command that starts the location_time_zone_manager with named test providers. */
+    public static final String SHELL_COMMAND_START_WITH_TEST_PROVIDERS =
+            "start_with_test_providers";
+
     /**
-     * A shell command that sends test commands to a provider
+     * The token that can be passed to {@link #SHELL_COMMAND_START_WITH_TEST_PROVIDERS} to indicate
+     * there is no provider.
      */
-    private static final String SHELL_COMMAND_SEND_PROVIDER_TEST_COMMAND =
-            "send_provider_test_command";
+    public static final String NULL_PACKAGE_NAME_TOKEN = "@null";
 
     private static final String SHELL_CMD_PREFIX = "cmd " + SERVICE_NAME + " ";
 
     private final DeviceShellCommandExecutor mShellCommandExecutor;
-    private final DeviceConfigShellHelper mDeviceConfigShellHelper;
 
     public LocationTimeZoneManagerShellHelper(DeviceShellCommandExecutor shellCommandExecutor) {
         mShellCommandExecutor = Objects.requireNonNull(shellCommandExecutor);
-        mDeviceConfigShellHelper = new DeviceConfigShellHelper(shellCommandExecutor);
     }
 
     /**
@@ -156,66 +113,38 @@ public class LocationTimeZoneManagerShellHelper {
         mShellCommandExecutor.executeToTrimmedString(SHELL_CMD_PREFIX + SHELL_COMMAND_STOP);
     }
 
-    /** Executes "record_provider_states". */
-    public void recordProviderStates(boolean enabled) throws Exception {
-        String cmd = String.format("%s %s", SHELL_COMMAND_RECORD_PROVIDER_STATES, enabled);
+    /** Executes "clear_recorded_provider_states". */
+    public void clearRecordedProviderStates() throws Exception {
+        String cmd = SHELL_COMMAND_CLEAR_RECORDED_PROVIDER_STATES;
         mShellCommandExecutor.executeToTrimmedString(SHELL_CMD_PREFIX + cmd);
     }
 
-    /** Executes "dump_state". */
+    /**
+     * Executes "dump_state". Raw proto bytes are returned as host protos tend to use "full" proto,
+     * device protos use "lite".
+     **/
     public byte[] dumpState() throws Exception {
         String cmd = String.format("%s --%s", SHELL_COMMAND_DUMP_STATE, DUMP_STATE_OPTION_PROTO);
         return mShellCommandExecutor.executeToBytes(SHELL_CMD_PREFIX + cmd);
     }
 
-    /** Modifies a provider's mode using "device_config" commands. */
-    public void setProviderModeOverride(int providerIndex, String mode) throws Exception {
-        String deviceConfigKey;
-        if (providerIndex == PRIMARY_PROVIDER_INDEX) {
-            deviceConfigKey = KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE;
-        } else {
-            deviceConfigKey = KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE;
-        }
-
-        if (mode == null) {
-            mDeviceConfigShellHelper.delete(NAMESPACE_SYSTEM_TIME, deviceConfigKey);
-        } else {
-            mDeviceConfigShellHelper.put(NAMESPACE_SYSTEM_TIME, deviceConfigKey, mode);
-        }
-    }
-
-    /**
-     * Simulates a provider successfully binding using the "send_provider_test_command" command.
-     */
-    public void simulateProviderBind(int providerIndex) throws Exception {
-        sendProviderTestCommand(providerIndex, SIMULATED_PROVIDER_TEST_COMMAND_ON_BIND);
-    }
-
-    /**
-     * Simulates a provider generating an uncertain report using the "send_provider_test_command"
-     * command.
-     */
-    public void simulateProviderUncertain(int providerIndex) throws Exception {
-        sendProviderTestCommand(providerIndex, SIMULATED_PROVIDER_TEST_COMMAND_UNCERTAIN);
-    }
-
-    /**
-     * Simulates a provider generating a suggestion using the "send_provider_test_command" command.
-     */
-    public void simulateProviderSuggestion(int providerIndex, String... zoneIds)
+    /** Executes "start_with_test_providers". */
+    public void startWithTestProviders(String testPrimaryLocationTimeZoneProviderPackageName,
+            String testSecondaryLocationTimeZoneProviderPackageName, boolean recordProviderStates)
             throws Exception {
-        String timeZoneIds = String.join("&", zoneIds);
-        String testCommand = String.format("%s %s=string_array:%s",
-                SIMULATED_PROVIDER_TEST_COMMAND_SUCCESS,
-                SIMULATED_PROVIDER_TEST_COMMAND_SUCCESS_ARG_KEY_TZ,
-                timeZoneIds);
-        sendProviderTestCommand(providerIndex, testCommand);
+        testPrimaryLocationTimeZoneProviderPackageName =
+                replaceNullPackageNameWithToken(testPrimaryLocationTimeZoneProviderPackageName);
+        testSecondaryLocationTimeZoneProviderPackageName =
+                replaceNullPackageNameWithToken(testSecondaryLocationTimeZoneProviderPackageName);
+        String cmd = String.format("%s %s %s %s",
+                SHELL_COMMAND_START_WITH_TEST_PROVIDERS,
+                testPrimaryLocationTimeZoneProviderPackageName,
+                testSecondaryLocationTimeZoneProviderPackageName,
+                recordProviderStates);
+        mShellCommandExecutor.executeToBytes(SHELL_CMD_PREFIX + cmd);
     }
 
-    /** Executes "send_provider_test_command". */
-    private void sendProviderTestCommand(int providerIndex, String testCommand) throws Exception {
-        String cmd = String.format("%s %s %s",
-                SHELL_COMMAND_SEND_PROVIDER_TEST_COMMAND, providerIndex, testCommand);
-        mShellCommandExecutor.executeToTrimmedString(SHELL_CMD_PREFIX + cmd);
+    private static String replaceNullPackageNameWithToken(String packageName) {
+        return packageName == null ? NULL_PACKAGE_NAME_TOKEN : packageName;
     }
 }

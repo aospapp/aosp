@@ -151,9 +151,11 @@ void SuspendControlServiceInternal::setSuspendService(const wp<SystemSuspend>& s
     mSuspend = suspend;
 }
 
-binder::Status SuspendControlServiceInternal::enableAutosuspend(bool* _aidl_return) {
+binder::Status SuspendControlServiceInternal::enableAutosuspend(const sp<IBinder>& token,
+                                                                bool* _aidl_return) {
     const auto suspendService = mSuspend.promote();
-    return retOk(suspendService != nullptr && suspendService->enableAutosuspend(), _aidl_return);
+    return retOk(suspendService != nullptr && suspendService->enableAutosuspend(token),
+                 _aidl_return);
 }
 
 binder::Status SuspendControlServiceInternal::forceSuspend(bool* _aidl_return) {

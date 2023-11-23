@@ -24,6 +24,7 @@ class BaselineTest : DriverTest() {
     @Test
     fun `Check baseline`() {
         check(
+            format = FileFormat.V1,
             extraArguments = arrayOf(
                 ARG_HIDE,
                 "HiddenSuperclass",
@@ -145,7 +146,7 @@ class BaselineTest : DriverTest() {
                     method public <S extends test.pkg.Hidden1, T extends test.pkg.Hidden2> S get(T);
                     method public test.pkg.Hidden1 getHidden1();
                     method public test.pkg.Hidden2 getHidden2();
-                    method public void method(test.pkg.Hidden1, test.pkg.Hidden2) throws test.pkg.Hidden3;
+                    method public void method(test.pkg.Hidden1, test.pkg.Hidden2);
                     field public test.pkg.Hidden1 hidden1;
                     field public test.pkg.Hidden2 hidden2;
                   }
@@ -158,11 +159,11 @@ class BaselineTest : DriverTest() {
     fun `Check baseline with show annotations`() {
         // When using show annotations we should only reference errors that are present in the delta
         check(
+            format = FileFormat.V1,
             includeSystemApiAnnotations = true,
             extraArguments = arrayOf(
                 ARG_SHOW_ANNOTATION, "android.annotation.TestApi",
                 ARG_HIDE_PACKAGE, "android.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation",
                 ARG_API_LINT
             ),
             baseline = """
@@ -224,10 +225,10 @@ class BaselineTest : DriverTest() {
             api = """
                 package android.pkg {
                   public class RegistrationMethods {
-                    method public void registerOk2Callback(java.lang.Runnable);
-                    method public void registerUnpaired2Callback(java.lang.Runnable);
-                    method public void unregisterOk2Callback(java.lang.Runnable);
-                    method public void unregisterOk3Callback(java.lang.Runnable);
+                    method public void registerOk2Callback(@Nullable Runnable);
+                    method public void registerUnpaired2Callback(@Nullable Runnable);
+                    method public void unregisterOk2Callback(@Nullable Runnable);
+                    method public void unregisterOk3Callback(@Nullable Runnable);
                   }
                 }
                 """

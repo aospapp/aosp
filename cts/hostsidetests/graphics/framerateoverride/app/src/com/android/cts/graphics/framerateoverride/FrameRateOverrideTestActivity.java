@@ -25,6 +25,7 @@ import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 import android.view.Choreographer;
 import android.view.Surface;
@@ -32,6 +33,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -417,39 +419,80 @@ public class FrameRateOverrideTestActivity extends Activity {
         }
     }
 
-    private void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
-            float initialRefreshRate) throws InterruptedException {
-        Log.i(TAG, "Staring testFrameRateOverride");
-        float halfFrameRate = initialRefreshRate / 2;
+    interface FrameRateOverrideBehavior{
+        void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
+                float initialRefreshRate) throws InterruptedException, IOException;
+    }
 
-        waitForRefreshRateChange(initialRefreshRate);
-        frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Initial");
+    class SurfaceFrameRateOverrideBehavior implements FrameRateOverrideBehavior {
 
-        Log.i(TAG, String.format("Setting Frame Rate to %.2f with default compatibility",
-                halfFrameRate));
-        mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-        waitForRefreshRateChange(halfFrameRate);
-        frameRateObserver.observe(initialRefreshRate, halfFrameRate, "setFrameRate(default)");
+        @Override
+        public void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
+                float initialRefreshRate) throws InterruptedException {
+            Log.i(TAG, "Staring testFrameRateOverride");
+            float halfFrameRate = initialRefreshRate / 2;
 
-        Log.i(TAG, String.format("Setting Frame Rate to %.2f with fixed source compatibility",
-                halfFrameRate));
-        mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-        waitForRefreshRateChange(halfFrameRate);
-        frameRateObserver.observe(initialRefreshRate, halfFrameRate, "setFrameRate(fixed source)");
+            waitForRefreshRateChange(initialRefreshRate);
+            frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Initial");
 
-        Log.i(TAG, "Resetting Frame Rate setting");
-        mSurface.setFrameRate(0, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
-        waitForRefreshRateChange(initialRefreshRate);
-        frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Reset");
+            Log.i(TAG, String.format("Setting Frame Rate to %.2f with default compatibility",
+                    halfFrameRate));
+            mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
+            waitForRefreshRateChange(halfFrameRate);
+            frameRateObserver.observe(initialRefreshRate, halfFrameRate, "setFrameRate(default)");
+
+            Log.i(TAG, String.format("Setting Frame Rate to %.2f with fixed source compatibility",
+                    halfFrameRate));
+            mSurface.setFrameRate(halfFrameRate, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
+            waitForRefreshRateChange(halfFrameRate);
+            frameRateObserver.observe(initialRefreshRate, halfFrameRate,
+                    "setFrameRate(fixed source)");
+
+            Log.i(TAG, "Resetting Frame Rate setting");
+            mSurface.setFrameRate(0, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
+            waitForRefreshRateChange(initialRefreshRate);
+            frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Reset");
+        }
+    }
+
+    class GameModeFrameRateOverrideBehavior implements FrameRateOverrideBehavior {
+        private UiDevice mUiDevice;
+        GameModeFrameRateOverrideBehavior(UiDevice uiDevice) {
+            mUiDevice = uiDevice;
+        }
+        @Override
+        public void testFrameRateOverrideBehavior(FrameRateObserver frameRateObserver,
+                float initialRefreshRate) throws InterruptedException, IOException {
+            Log.i(TAG, "Starting testGameModeFrameRateOverride");
+
+            int initialRefreshRateInt = (int) initialRefreshRate;
+            for (int divisor = 1; initialRefreshRateInt / divisor >= 30; ++divisor) {
+                int overrideFrameRate = initialRefreshRateInt / divisor;
+                Log.i(TAG, String.format("Setting Frame Rate to %d using Game Mode",
+                        overrideFrameRate));
+
+                mUiDevice.executeShellCommand(String.format("cmd game set --mode 2 --fps %d %s",
+                        overrideFrameRate, getPackageName()));
+                waitForRefreshRateChange(overrideFrameRate);
+                frameRateObserver.observe(initialRefreshRate, overrideFrameRate,
+                        String.format("Game Mode Override(%d)", overrideFrameRate));
+            }
+
+            Log.i(TAG, "Resetting Frame Rate setting");
+            mUiDevice.executeShellCommand(String.format("cmd game reset %s", getPackageName()));
+            waitForRefreshRateChange(initialRefreshRate);
+            frameRateObserver.observe(initialRefreshRate, initialRefreshRate, "Reset");
+        }
     }
 
     // The activity being intermittently paused/resumed has been observed to
     // cause test failures in practice, so we run the test with retry logic.
-    public void testFrameRateOverride(FrameRateObserver frameRateObserver, float initialRefreshRate)
-            throws InterruptedException {
+    public void testFrameRateOverride(FrameRateOverrideBehavior frameRateOverrideBehavior,
+            FrameRateObserver frameRateObserver, float initialRefreshRate)
+            throws InterruptedException, IOException {
         synchronized (mLock) {
             Log.i(TAG, "testFrameRateOverride started");
             int attempts = 0;
@@ -458,7 +501,8 @@ public class FrameRateOverrideTestActivity extends Activity {
                 while (!testPassed) {
                     waitForPreconditions();
                     try {
-                        testFrameRateOverrideBehavior(frameRateObserver, initialRefreshRate);
+                        frameRateOverrideBehavior.testFrameRateOverrideBehavior(frameRateObserver,
+                                initialRefreshRate);
                         testPassed = true;
                     } catch (PreconditionViolatedException exc) {
                         // The logic below will retry if we're below max attempts.

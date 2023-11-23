@@ -31,8 +31,6 @@
 #include <android-base/macros.h>
 #include <cutils/ashmem.h>
 #include <cutils/trace.h>
-#include <processgroup/processgroup.h>
-#include <processgroup/sched_policy.h>
 #include <selinux/selinux.h>
 #include <tombstoned/tombstoned.h>
 #include <utils/Thread.h>
@@ -67,12 +65,6 @@ palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t managed_priority) 
 
     if (curr_nice == new_nice) {
         return PALETTE_STATUS_OK;
-    }
-
-    if (new_nice >= ANDROID_PRIORITY_BACKGROUND) {
-        SetTaskProfiles(tid, {"SCHED_SP_SYSTEM"}, true);
-    } else if (curr_nice >= ANDROID_PRIORITY_BACKGROUND) {
-        SetTaskProfiles(tid, {"SCHED_SP_FOREGROUND"}, true);
     }
 
     if (setpriority(PRIO_PROCESS, tid, new_nice) != 0) {

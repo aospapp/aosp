@@ -21,39 +21,19 @@
 
 #include "android/base/Optional.h"
 #include "android/base/threads/AndroidWorkPool.h"
+#include "android/base/Tracing.h"
 
 #include "goldfish_vk_private_defs.h"
 
 #include "../OpenglSystemCommon/EmulatorFeatureInfo.h"
 #include "../OpenglSystemCommon/HostConnection.h"
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
-
-#include "../egl/goldfish_sync.h"
-
-typedef uint32_t zx_handle_t;
-typedef uint64_t zx_koid_t;
-#define ZX_HANDLE_INVALID         ((zx_handle_t)0)
-#define ZX_KOID_INVALID ((zx_koid_t)0)
-void zx_handle_close(zx_handle_t) { }
-void zx_event_create(int, zx_handle_t*) { }
-
-#include "AndroidHardwareBuffer.h"
-
-#ifndef HOST_BUILD
-#include <drm/virtgpu_drm.h>
-#include <xf86drm.h>
-#endif
-
-#include "VirtioGpuNext.h"
-
-#endif // VK_USE_PLATFORM_ANDROID_KHR
-
+/// Use installed headers or locally defined Fuchsia-specific bits
 #ifdef VK_USE_PLATFORM_FUCHSIA
 
 #include <cutils/native_handle.h>
-#include <fuchsia/hardware/goldfish/llcpp/fidl.h>
-#include <fuchsia/sysmem/llcpp/fidl.h>
+#include <fidl/fuchsia.hardware.goldfish/cpp/wire.h>
+#include <fidl/fuchsia.sysmem/cpp/wire.h>
 #include <lib/zx/channel.h>
 #include <lib/zx/vmo.h>
 #include <zircon/errors.h>
@@ -71,9 +51,30 @@ void zx_event_create(int, zx_handle_t*) { }
 #define GET_STATUS_SAFE(result, member) \
     ((result).ok() ? ((result).Unwrap()->member) : ZX_OK)
 
-struct AHardwareBuffer;
+#else
 
-void AHardwareBuffer_release(AHardwareBuffer*) { }
+typedef uint32_t zx_handle_t;
+typedef uint64_t zx_koid_t;
+#define ZX_HANDLE_INVALID         ((zx_handle_t)0)
+#define ZX_KOID_INVALID ((zx_koid_t)0)
+void zx_handle_close(zx_handle_t) { }
+void zx_event_create(int, zx_handle_t*) { }
+#endif // VK_USE_PLATFORM_FUCHSIA
+
+/// Use installed headers or locally defined Android-specific bits
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+
+/// Goldfish sync only used for AEMU -- should replace in virtio-gpu when possibe
+#include "../egl/goldfish_sync.h"
+#include "AndroidHardwareBuffer.h"
+
+#else
+
+#if defined(__linux__)
+#include "../egl/goldfish_sync.h"
+#endif
+
+#include <android/hardware_buffer.h>
 
 native_handle_t *AHardwareBuffer_getNativeHandle(AHardwareBuffer*) { return NULL; }
 
@@ -117,7 +118,7 @@ VkResult getAndroidHardwareBufferPropertiesANDROID(
 
 VkResult getMemoryAndroidHardwareBufferANDROID(struct AHardwareBuffer **) { return VK_SUCCESS; }
 
-#endif // VK_USE_PLATFORM_FUCHSIA
+#endif // VK_USE_PLATFORM_ANDROID_KHR
 
 #include "HostVisibleMemoryVirtualization.h"
 #include "Resources.h"
@@ -142,13 +143,17 @@ VkResult getMemoryAndroidHardwareBufferANDROID(struct AHardwareBuffer **) { retu
 #include <stdlib.h>
 #include <sync/sync.h>
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(__ANDROID__) || defined(__linux__) || defined(__APPLE__)
 
 #include <sys/mman.h>
+#include <unistd.h>
 #include <sys/syscall.h>
 
 #ifdef HOST_BUILD
 #include "android/utils/tempfile.h"
+#else
+#include "virtgpu_drm.h"
+#include <xf86drm.h>
 #endif
 
 static inline int
@@ -161,8 +166,9 @@ inline_memfd_create(const char *name, unsigned int flags) {
     return syscall(SYS_memfd_create, name, flags);
 #endif
 }
+
 #define memfd_create inline_memfd_create
-#endif // !VK_USE_PLATFORM_ANDROID_KHR
+#endif
 
 #define RESOURCE_TRACKER_DEBUG 0
 
@@ -253,14 +259,14 @@ struct StagingInfo {
     }
 
     void pushStaging(CommandBufferStagingStream* stream, VkEncoder* encoder) {
-        AutoLock lock(mLock);
+        AutoLock<Lock> lock(mLock);
         stream->reset();
         streams.push_back(stream);
         encoders.push_back(encoder);
     }
 
     void popStaging(CommandBufferStagingStream** streamOut, VkEncoder** encoderOut) {
-        AutoLock lock(mLock);
+        AutoLock<Lock> lock(mLock);
         CommandBufferStagingStream* stream;
         VkEncoder* encoder;
         if (streams.empty()) {
@@ -356,6 +362,10 @@ public:
         VkDeviceSize currentBackingSize = 0;
         bool baseRequirementsKnown = false;
         VkMemoryRequirements baseRequirements;
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+        bool hasExternalFormat = false;
+        unsigned androidFormat = 0;
+#endif
 #ifdef VK_USE_PLATFORM_FUCHSIA
         bool isSysmemBackedMemory = false;
 #endif
@@ -402,7 +412,7 @@ public:
         VkDevice device;
         bool external = false;
         VkExportFenceCreateInfo exportFenceCreateInfo;
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         int syncFd = -1;
 #endif
     };
@@ -432,7 +442,20 @@ public:
         android::base::Optional<
             fuchsia_sysmem::wire::BufferCollectionConstraints>
             constraints;
-        android::base::Optional<VkBufferCollectionProperties2FUCHSIA>
+        android::base::Optional<VkBufferCollectionPropertiesFUCHSIA> properties;
+
+        // the index of corresponding createInfo for each image format
+        // constraints in |constraints|.
+        std::vector<uint32_t> createInfoIndex;
+#endif  // VK_USE_PLATFORM_FUCHSIA
+    };
+
+    struct VkBufferCollectionFUCHSIAX_Info {
+#ifdef VK_USE_PLATFORM_FUCHSIA
+        android::base::Optional<
+            fuchsia_sysmem::wire::BufferCollectionConstraints>
+            constraints;
+        android::base::Optional<VkBufferCollectionProperties2FUCHSIAX>
             properties;
 
         // the index of corresponding createInfo for each image format
@@ -444,13 +467,13 @@ public:
 #define HANDLE_REGISTER_IMPL_IMPL(type) \
     std::unordered_map<type, type##_Info> info_##type; \
     void register_##type(type obj) { \
-        AutoLock lock(mLock); \
+        AutoLock<RecursiveLock> lock(mLock); \
         info_##type[obj] = type##_Info(); \
     } \
 
 #define HANDLE_UNREGISTER_IMPL_IMPL(type) \
     void unregister_##type(type obj) { \
-        AutoLock lock(mLock); \
+        AutoLock<RecursiveLock> lock(mLock); \
         info_##type.erase(obj); \
     } \
 
@@ -458,7 +481,7 @@ public:
     GOLDFISH_VK_LIST_TRIVIAL_HANDLE_TYPES(HANDLE_UNREGISTER_IMPL_IMPL)
 
     void unregister_VkInstance(VkInstance instance) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkInstance.find(instance);
         if (it == info_VkInstance.end()) return;
@@ -468,7 +491,7 @@ public:
     }
 
     void unregister_VkDevice(VkDevice device) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDevice.find(device);
         if (it == info_VkDevice.end()) return;
@@ -482,14 +505,14 @@ public:
 
         clearCommandPool(pool);
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkCommandPool.erase(pool);
     }
 
     void unregister_VkSampler(VkSampler sampler) {
         if (!sampler) return;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkSampler.erase(sampler);
     }
 
@@ -511,7 +534,7 @@ public:
             delete pendingSets;
         }
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkCommandBuffer.erase(commandBuffer);
     }
 
@@ -520,12 +543,12 @@ public:
         if (!q) return;
         if (q->lastUsedEncoder) { q->lastUsedEncoder->decRef(); }
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkQueue.erase(queue);
     }
 
     void unregister_VkDeviceMemory(VkDeviceMemory mem) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDeviceMemory.find(mem);
         if (it == info_VkDeviceMemory.end()) return;
@@ -557,7 +580,7 @@ public:
     }
 
     void unregister_VkImage(VkImage img) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkImage.find(img);
         if (it == info_VkImage.end()) return;
@@ -568,7 +591,7 @@ public:
     }
 
     void unregister_VkBuffer(VkBuffer buf) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkBuffer.find(buf);
         if (it == info_VkBuffer.end()) return;
@@ -577,7 +600,7 @@ public:
     }
 
     void unregister_VkSemaphore(VkSemaphore sem) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkSemaphore.find(sem);
         if (it == info_VkSemaphore.end()) return;
@@ -588,7 +611,7 @@ public:
             zx_handle_close(semInfo.eventHandle);
         }
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (semInfo.syncFd >= 0) {
             close(semInfo.syncFd);
         }
@@ -599,7 +622,7 @@ public:
 
     void unregister_VkDescriptorUpdateTemplate(VkDescriptorUpdateTemplate templ) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto it = info_VkDescriptorUpdateTemplate.find(templ);
         if (it == info_VkDescriptorUpdateTemplate.end())
             return;
@@ -622,14 +645,14 @@ public:
     }
 
     void unregister_VkFence(VkFence fence) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto it = info_VkFence.find(fence);
         if (it == info_VkFence.end()) return;
 
         auto& fenceInfo = it->second;
         (void)fenceInfo;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (fenceInfo.syncFd >= 0) {
             close(fenceInfo.syncFd);
         }
@@ -641,8 +664,16 @@ public:
 #ifdef VK_USE_PLATFORM_FUCHSIA
     void unregister_VkBufferCollectionFUCHSIA(
         VkBufferCollectionFUCHSIA collection) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkBufferCollectionFUCHSIA.erase(collection);
+    }
+#endif
+
+#ifdef VK_USE_PLATFORM_FUCHSIA
+    void unregister_VkBufferCollectionFUCHSIAX(
+        VkBufferCollectionFUCHSIAX collection) {
+        AutoLock<RecursiveLock> lock(mLock);
+        info_VkBufferCollectionFUCHSIAX.erase(collection);
     }
 #endif
 
@@ -655,14 +686,14 @@ public:
     void unregister_VkDescriptorSet(VkDescriptorSet set) {
         if (!set) return;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         unregister_VkDescriptorSet_locked(set);
     }
 
     void unregister_VkDescriptorSetLayout(VkDescriptorSetLayout setLayout) {
         if (!setLayout) return;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         delete as_goldfish_VkDescriptorSetLayout(setLayout)->layoutInfo;
         info_VkDescriptorSetLayout.erase(setLayout);
     }
@@ -781,7 +812,7 @@ public:
     void unregister_VkDescriptorPool(VkDescriptorPool pool) {
         if (!pool) return;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         struct goldfish_VkDescriptorPool* dp = as_goldfish_VkDescriptorPool(pool);
         delete dp->allocInfo;
@@ -800,7 +831,7 @@ public:
                          uint32_t enabledExtensionCount,
                          const char* const* ppEnabledExtensionNames,
                          uint32_t apiVersion) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto& info = info_VkInstance[instance];
         info.highestApiVersion = apiVersion;
 
@@ -818,7 +849,7 @@ public:
                        uint32_t enabledExtensionCount,
                        const char* const* ppEnabledExtensionNames,
                        const void* pNext) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto& info = info_VkDevice[device];
         info.physdev = physdev;
         info.props = props;
@@ -887,7 +918,7 @@ public:
                              AHardwareBuffer* ahw = nullptr,
                              bool imported = false,
                              zx_handle_t vmoHandle = ZX_HANDLE_INVALID) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto& deviceInfo = info_VkDevice[device];
         auto& info = info_VkDeviceMemory[memory];
 
@@ -903,26 +934,15 @@ public:
     void setImageInfo(VkImage image,
                       VkDevice device,
                       const VkImageCreateInfo *pCreateInfo) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto& info = info_VkImage[image];
 
         info.device = device;
         info.createInfo = *pCreateInfo;
     }
 
-    bool isMemoryTypeHostVisible(VkDevice device, uint32_t typeIndex) const {
-        AutoLock lock(mLock);
-        const auto it = info_VkDevice.find(device);
-
-        if (it == info_VkDevice.end()) return false;
-
-        const auto& info = it->second;
-        return info.memProps.memoryTypes[typeIndex].propertyFlags &
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    }
-
     uint8_t* getMappedPointer(VkDeviceMemory memory) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         const auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) return nullptr;
 
@@ -931,7 +951,7 @@ public:
     }
 
     VkDeviceSize getMappedSize(VkDeviceMemory memory) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         const auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) return 0;
 
@@ -940,7 +960,7 @@ public:
     }
 
     VkDeviceSize getNonCoherentExtendedSize(VkDevice device, VkDeviceSize basicSize) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         const auto it = info_VkDevice.find(device);
         if (it == info_VkDevice.end()) return basicSize;
         const auto& info = it->second;
@@ -953,7 +973,7 @@ public:
     }
 
     bool isValidMemoryRange(const VkMappedMemoryRange& range) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         const auto it = info_VkDeviceMemory.find(range.memory);
         if (it == info_VkDeviceMemory.end()) return false;
         const auto& info = it->second;
@@ -984,14 +1004,14 @@ public:
 #ifdef VK_USE_PLATFORM_FUCHSIA
         if (mFeatureInfo->hasVulkan) {
             fidl::ClientEnd<fuchsia_hardware_goldfish::ControlDevice> channel{
-                zx::channel(GetConnectToServiceFunction()("/dev/class/goldfish-control/000"))};
+                zx::channel(GetConnectToServiceFunction()("/loader-gpu-devices/class/goldfish-control/000"))};
             if (!channel) {
                 ALOGE("failed to open control device");
                 abort();
             }
-            mControlDevice = std::make_unique<
-                fidl::WireSyncClient<fuchsia_hardware_goldfish::ControlDevice>>(
-                std::move(channel));
+            mControlDevice =
+                fidl::WireSyncClient<fuchsia_hardware_goldfish::ControlDevice>(
+                    std::move(channel));
 
             fidl::ClientEnd<fuchsia_sysmem::Allocator> sysmem_channel{
                 zx::channel(GetConnectToServiceFunction()("/svc/fuchsia.sysmem.Allocator"))};
@@ -999,7 +1019,7 @@ public:
                 ALOGE("failed to open sysmem connection");
             }
             mSysmemAllocator =
-                std::make_unique<fidl::WireSyncClient<fuchsia_sysmem::Allocator>>(
+                fidl::WireSyncClient<fuchsia_sysmem::Allocator>(
                     std::move(sysmem_channel));
             char name[ZX_MAX_NAME_LEN] = {};
             zx_object_get_property(zx_process_self(), ZX_PROP_NAME, name, sizeof(name));
@@ -1025,11 +1045,11 @@ public:
         if (mFeatureInfo->hasVulkanQueueSubmitWithCommands) {
             ResourceTracker::streamFeatureBits |= VULKAN_STREAM_FEATURE_QUEUE_SUBMIT_WITH_COMMANDS_BIT;
         }
-#if !defined(HOST_BUILD) && defined(VK_USE_PLATFORM_ANDROID_KHR)
-       if (mFeatureInfo->hasVirtioGpuNext) {
-           ALOGD("%s: has virtio-gpu-next; create hostmem rendernode\n", __func__);
-           mRendernodeFd = drmOpenRender(128 /* RENDERNODE_MINOR */);
-       }
+#if !defined(HOST_BUILD) && defined(VIRTIO_GPU)
+        if (mFeatureInfo->hasVirtioGpuNext) {
+            mRendernodeFd =
+                ResourceTracker::threadingCallbacks.hostConnectionGetFunc()->getRendernodeFd();
+        }
 #endif
     }
 
@@ -1105,7 +1125,7 @@ public:
         if (!hostVirt.virtualizationSupported) return;
 
         if (memory) {
-            AutoLock lock (mLock);
+            AutoLock<RecursiveLock> lock (mLock);
 
             for (uint32_t i = 0; i < memoryCount; ++i) {
                 VkDeviceMemory mem = memory[i];
@@ -1169,7 +1189,7 @@ public:
 
         if (!hostVirt.virtualizationSupported) return;
 
-        AutoLock lock (mLock);
+        AutoLock<RecursiveLock> lock (mLock);
 
         for (uint32_t i = 0; i < memoryCount; ++i) {
             // TODO
@@ -1205,8 +1225,7 @@ public:
         VkExternalMemoryHandleTypeFlags supportedHandleType = 0u;
 #ifdef VK_USE_PLATFORM_FUCHSIA
         supportedHandleType |=
-            VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA |
-            VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA;
+                VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA;
 #endif  // VK_USE_PLATFORM_FUCHSIA
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
         supportedHandleType |=
@@ -1228,7 +1247,7 @@ public:
         std::vector<const char*> allowedExtensionNames = {
             "VK_KHR_get_physical_device_properties2",
             "VK_KHR_sampler_ycbcr_conversion",
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
             "VK_KHR_external_semaphore_capabilities",
             "VK_KHR_external_memory_capabilities",
             "VK_KHR_external_fence_capabilities",
@@ -1328,7 +1347,6 @@ public:
             "VK_KHR_bind_memory2",
             "VK_KHR_dedicated_allocation",
             "VK_KHR_get_memory_requirements2",
-            "VK_KHR_image_format_list",
             "VK_KHR_sampler_ycbcr_conversion",
             "VK_KHR_shader_float16_int8",
             // Timeline semaphores buggy in newer NVIDIA drivers
@@ -1340,8 +1358,22 @@ public:
             "VK_NV_shader_subgroup_partitioned",
             "VK_KHR_shader_subgroup_extended_types",
             "VK_EXT_subgroup_size_control",
+            "VK_EXT_provoking_vertex",
+            "VK_EXT_line_rasterization",
+            "VK_KHR_shader_terminate_invocation",
+            "VK_EXT_transform_feedback",
+            "VK_EXT_primitive_topology_list_restart",
+            "VK_EXT_index_type_uint8",
+            "VK_EXT_load_store_op_none",
+            "VK_EXT_swapchain_colorspace",
+            "VK_EXT_image_robustness",
+            "VK_EXT_custom_border_color",
+            "VK_EXT_shader_stencil_export",
+            "VK_KHR_image_format_list",
+            "VK_KHR_incremental_present",
             "VK_KHR_pipeline_executable_properties",
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+            "VK_EXT_queue_family_foreign",
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
             "VK_KHR_external_semaphore",
             "VK_KHR_external_semaphore_fd",
             // "VK_KHR_external_semaphore_win32", not exposed because it's translated to fd
@@ -1408,20 +1440,21 @@ public:
             filteredExts.push_back(anbExtProp);
         }
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         bool hostSupportsExternalFenceFd =
             getHostDeviceExtensionIndex(
                 "VK_KHR_external_fence_fd") != -1;
         if (!hostSupportsExternalFenceFd) {
-            filteredExts.push_back({ "VK_KHR_external_fence_fd", 1});
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_KHR_external_fence_fd", 1});
         }
 #endif
 
-#ifndef VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (hostSupportsExternalSemaphore &&
             !hostHasPosixExternalSemaphore) {
             filteredExts.push_back(
-                { "VK_KHR_external_semaphore_fd", 1});
+                VkExtensionProperties { "VK_KHR_external_semaphore_fd", 1});
         }
 #endif
 
@@ -1440,20 +1473,28 @@ public:
 
         if (hostHasExternalMemorySupport) {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
-            filteredExts.push_back({
-                "VK_ANDROID_external_memory_android_hardware_buffer", 7
-            });
-            filteredExts.push_back({
-                "VK_EXT_queue_family_foreign", 1
-            });
+            filteredExts.push_back(
+                VkExtensionProperties {
+                   "VK_ANDROID_external_memory_android_hardware_buffer", 7
+                });
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_EXT_queue_family_foreign", 1 });
 #endif
 #ifdef VK_USE_PLATFORM_FUCHSIA
-            filteredExts.push_back({
-                "VK_FUCHSIA_external_memory", 1
-            });
-            filteredExts.push_back({
-                "VK_FUCHSIA_buffer_collection", 1
-            });
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_FUCHSIA_external_memory", 1});
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_FUCHSIA_buffer_collection", 1 });
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_FUCHSIA_buffer_collection_x", 1});
+#endif
+#if !defined(VK_USE_PLATFORM_ANDROID_KHR) && defined(__linux__)
+            filteredExts.push_back(
+                VkExtensionProperties {
+                   "VK_KHR_external_memory_fd", 1
+                });
+            filteredExts.push_back(
+                VkExtensionProperties { "VK_EXT_external_memory_dma_buf", 1 });
 #endif
         }
 
@@ -1515,7 +1556,7 @@ public:
 
         if (!pPhysicalDeviceCount) return VK_ERROR_INITIALIZATION_FAILED;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         // When this function is called, we actually need to do two things:
         // - Get full information about physical devices from the host,
@@ -1600,12 +1641,20 @@ public:
         void*,
         VkPhysicalDevice,
         VkPhysicalDeviceProperties* pProperties) {
-        // We have host properties at this point
         if (pProperties) {
-            // We need this to ignore some cts tests when using Swiftshader Vk
-            if (pProperties->deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
-                // Otherwise, if not CPU type, mark as virtual type
-                pProperties->deviceType = VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
+            pProperties->deviceType = VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
+        }
+    }
+
+    void on_vkGetPhysicalDeviceFeatures2(
+        void*,
+        VkPhysicalDevice,
+        VkPhysicalDeviceFeatures2* pFeatures) {
+        if (pFeatures) {
+            VkPhysicalDeviceDeviceMemoryReportFeaturesEXT* memoryReportFeaturesEXT =
+                vk_find_struct<VkPhysicalDeviceDeviceMemoryReportFeaturesEXT>(pFeatures);
+            if (memoryReportFeaturesEXT) {
+                memoryReportFeaturesEXT->deviceMemoryReport = VK_TRUE;
             }
         }
     }
@@ -1615,11 +1664,8 @@ public:
         VkPhysicalDevice,
         VkPhysicalDeviceProperties2* pProperties) {
         if (pProperties) {
-            // We need this to ignore some cts tests when using Swiftshader Vk
-            if (pProperties->properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
-                // Otherwise, if not CPU type, mark as virtual type
-                pProperties->properties.deviceType = VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
-            }
+            pProperties->properties.deviceType =
+                VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU;
 
             VkPhysicalDeviceDeviceMemoryReportFeaturesEXT* memoryReportFeaturesEXT =
                 vk_find_struct<VkPhysicalDeviceDeviceMemoryReportFeaturesEXT>(pProperties);
@@ -1666,7 +1712,7 @@ public:
                              uint32_t,
                              uint32_t,
                              VkQueue* pQueue) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkQueue[*pQueue].device = device;
     }
 
@@ -1674,7 +1720,7 @@ public:
                               VkDevice device,
                               const VkDeviceQueueInfo2*,
                               VkQueue* pQueue) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         info_VkQueue[*pQueue].device = device;
     }
 
@@ -1732,7 +1778,7 @@ public:
         VkDevice device,
         const VkAllocationCallbacks*) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDevice.find(device);
         if (it == info_VkDevice.end()) return;
@@ -1748,7 +1794,7 @@ public:
             for (auto& block : info.hostMemBlocks[i]) {
                 destroyHostMemAlloc(
                     freeMemorySyncSupported,
-                    enc, device, &block);
+                    enc, device, &block, false);
             }
         }
     }
@@ -1775,7 +1821,7 @@ public:
         if (!pInfo) return VK_ERROR_INITIALIZATION_FAILED;
         if (!pInfo->memory) return VK_ERROR_INITIALIZATION_FAILED;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto deviceIt = info_VkDevice.find(device);
 
@@ -1811,7 +1857,7 @@ public:
         if (!pInfo) return VK_ERROR_INITIALIZATION_FAILED;
         if (!pInfo->memory) return VK_ERROR_INITIALIZATION_FAILED;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto deviceIt = info_VkDevice.find(device);
 
@@ -1846,8 +1892,8 @@ public:
         using fuchsia_hardware_goldfish::wire::kMemoryPropertyDeviceLocal;
         using fuchsia_hardware_goldfish::wire::kMemoryPropertyHostVisible;
 
-        if (handleType != VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA &&
-            handleType != VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA) {
+        if (handleType !=
+            VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA) {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
@@ -1859,7 +1905,7 @@ public:
             return VK_ERROR_INVALID_EXTERNAL_HANDLE;
         }
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto deviceIt = info_VkDevice.find(device);
 
@@ -1943,7 +1989,7 @@ public:
         if (!pInfo) return VK_ERROR_INITIALIZATION_FAILED;
         if (!pInfo->semaphore) return VK_ERROR_INITIALIZATION_FAILED;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto deviceIt = info_VkDevice.find(device);
 
@@ -1983,7 +2029,7 @@ public:
         if (!pInfo) return VK_ERROR_INITIALIZATION_FAILED;
         if (!pInfo->semaphore) return VK_ERROR_INITIALIZATION_FAILED;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto deviceIt = info_VkDevice.find(device);
 
@@ -2009,10 +2055,68 @@ public:
     }
 
     VkResult on_vkCreateBufferCollectionFUCHSIA(
-        void*, VkResult, VkDevice,
+        void*,
+        VkResult,
+        VkDevice,
         const VkBufferCollectionCreateInfoFUCHSIA* pInfo,
         const VkAllocationCallbacks*,
         VkBufferCollectionFUCHSIA* pCollection) {
+        fidl::ClientEnd<::fuchsia_sysmem::BufferCollectionToken> token_client;
+
+        if (pInfo->collectionToken) {
+            token_client =
+                fidl::ClientEnd<::fuchsia_sysmem::BufferCollectionToken>(
+                    zx::channel(pInfo->collectionToken));
+        } else {
+            auto endpoints = fidl::CreateEndpoints<
+                ::fuchsia_sysmem::BufferCollectionToken>();
+            if (!endpoints.is_ok()) {
+                ALOGE("zx_channel_create failed: %d", endpoints.status_value());
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+
+            auto result = mSysmemAllocator->AllocateSharedCollection(
+                std::move(endpoints->server));
+            if (!result.ok()) {
+                ALOGE("AllocateSharedCollection failed: %d", result.status());
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+            token_client = std::move(endpoints->client);
+        }
+
+        auto endpoints =
+            fidl::CreateEndpoints<::fuchsia_sysmem::BufferCollection>();
+        if (!endpoints.is_ok()) {
+            ALOGE("zx_channel_create failed: %d", endpoints.status_value());
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+        auto [collection_client, collection_server] =
+            std::move(endpoints.value());
+
+        auto result = mSysmemAllocator->BindSharedCollection(
+            std::move(token_client), std::move(collection_server));
+        if (!result.ok()) {
+            ALOGE("BindSharedCollection failed: %d", result.status());
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        auto* sysmem_collection =
+            new fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>(
+                std::move(collection_client));
+        *pCollection =
+            reinterpret_cast<VkBufferCollectionFUCHSIA>(sysmem_collection);
+
+        register_VkBufferCollectionFUCHSIA(*pCollection);
+        return VK_SUCCESS;
+    }
+
+    VkResult on_vkCreateBufferCollectionFUCHSIAX(
+        void*,
+        VkResult,
+        VkDevice,
+        const VkBufferCollectionCreateInfoFUCHSIAX* pInfo,
+        const VkAllocationCallbacks*,
+        VkBufferCollectionFUCHSIAX* pCollection) {
         fidl::ClientEnd<::fuchsia_sysmem::BufferCollectionToken> token_client;
 
         if (pInfo->collectionToken) {
@@ -2052,24 +2156,44 @@ public:
         auto* sysmem_collection =
             new fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>(
                 std::move(collection_client));
-        *pCollection = reinterpret_cast<VkBufferCollectionFUCHSIA>(sysmem_collection);
+        *pCollection =
+            reinterpret_cast<VkBufferCollectionFUCHSIAX>(sysmem_collection);
 
-        register_VkBufferCollectionFUCHSIA(*pCollection);
+        register_VkBufferCollectionFUCHSIAX(*pCollection);
         return VK_SUCCESS;
     }
 
     void on_vkDestroyBufferCollectionFUCHSIA(
-        void*, VkResult, VkDevice,
+        void*,
+        VkResult,
+        VkDevice,
         VkBufferCollectionFUCHSIA collection,
         const VkAllocationCallbacks*) {
         auto sysmem_collection = reinterpret_cast<
-            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
+            collection);
         if (sysmem_collection) {
-            sysmem_collection->Close();
+            (*sysmem_collection)->Close();
         }
         delete sysmem_collection;
 
         unregister_VkBufferCollectionFUCHSIA(collection);
+    }
+
+    void on_vkDestroyBufferCollectionFUCHSIAX(
+        void*,
+        VkResult,
+        VkDevice,
+        VkBufferCollectionFUCHSIAX collection,
+        const VkAllocationCallbacks*) {
+        auto sysmem_collection = reinterpret_cast<
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
+        if (sysmem_collection) {
+            (*sysmem_collection)->Close();
+        }
+        delete sysmem_collection;
+
+        unregister_VkBufferCollectionFUCHSIAX(collection);
     }
 
     inline fuchsia_sysmem::wire::BufferCollectionConstraints
@@ -2134,10 +2258,8 @@ public:
     }
 
     uint32_t getBufferCollectionConstraintsVulkanBufferUsage(
-        const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo) {
+        VkBufferUsageFlags bufferUsage) {
         uint32_t usage = 0u;
-        VkBufferUsageFlags bufferUsage =
-            pBufferConstraintsInfo->pBufferCreateInfo->usage;
 
 #define SetUsageBit(BIT, VALUE)                                            \
     if (bufferUsage & VK_BUFFER_USAGE_##BIT##_BIT) {                \
@@ -2156,6 +2278,20 @@ public:
 
 #undef SetUsageBit
         return usage;
+    }
+
+    uint32_t getBufferCollectionConstraintsVulkanBufferUsage(
+        const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo) {
+        VkBufferUsageFlags bufferUsage =
+            pBufferConstraintsInfo->createInfo.usage;
+        return getBufferCollectionConstraintsVulkanBufferUsage(bufferUsage);
+    }
+
+    uint32_t getBufferCollectionConstraintsVulkanBufferUsage(
+        const VkBufferConstraintsInfoFUCHSIAX* pBufferConstraintsInfo) {
+        VkBufferUsageFlags bufferUsage =
+            pBufferConstraintsInfo->pBufferCreateInfo->usage;
+        return getBufferCollectionConstraintsVulkanBufferUsage(bufferUsage);
     }
 
     static fuchsia_sysmem::wire::PixelFormatType vkFormatTypeToSysmem(
@@ -2258,8 +2394,82 @@ public:
         }
     }
 
-    VkResult setBufferCollectionConstraints(
-        VkEncoder* enc, VkDevice device,
+    // TODO(fxbug.dev/90856): This is currently only used for allocating
+    // memory for dedicated external images. It should be migrated to use
+    // SetBufferCollectionImageConstraintsFUCHSIA.
+    VkResult setBufferCollectionConstraintsFUCHSIA(
+        VkEncoder* enc,
+        VkDevice device,
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* collection,
+        const VkImageCreateInfo* pImageInfo) {
+        if (pImageInfo == nullptr) {
+            ALOGE("setBufferCollectionConstraints: pImageInfo cannot be null.");
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+
+        const VkSysmemColorSpaceFUCHSIA kDefaultColorSpace = {
+            .sType = VK_STRUCTURE_TYPE_SYSMEM_COLOR_SPACE_FUCHSIA,
+            .pNext = nullptr,
+            .colorSpace = static_cast<uint32_t>(
+                fuchsia_sysmem::wire::ColorSpaceType::kSrgb),
+        };
+
+        std::vector<VkImageFormatConstraintsInfoFUCHSIA> formatInfos;
+        if (pImageInfo->format == VK_FORMAT_UNDEFINED) {
+            const auto kFormats = {
+                VK_FORMAT_B8G8R8A8_SRGB,
+                VK_FORMAT_R8G8B8A8_SRGB,
+            };
+            for (auto format : kFormats) {
+                // shallow copy, using pNext from pImageInfo directly.
+                auto createInfo = *pImageInfo;
+                createInfo.format = format;
+                formatInfos.push_back(VkImageFormatConstraintsInfoFUCHSIA{
+                    .sType =
+                        VK_STRUCTURE_TYPE_IMAGE_FORMAT_CONSTRAINTS_INFO_FUCHSIA,
+                    .pNext = nullptr,
+                    .imageCreateInfo = createInfo,
+                    .colorSpaceCount = 1,
+                    .pColorSpaces = &kDefaultColorSpace,
+                });
+            }
+        } else {
+            formatInfos.push_back(VkImageFormatConstraintsInfoFUCHSIA{
+                .sType =
+                    VK_STRUCTURE_TYPE_IMAGE_FORMAT_CONSTRAINTS_INFO_FUCHSIA,
+                .pNext = nullptr,
+                .imageCreateInfo = *pImageInfo,
+                .colorSpaceCount = 1,
+                .pColorSpaces = &kDefaultColorSpace,
+            });
+        }
+
+        VkImageConstraintsInfoFUCHSIA imageConstraints = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIA,
+            .pNext = nullptr,
+            .formatConstraintsCount = static_cast<uint32_t>(formatInfos.size()),
+            .pFormatConstraints = formatInfos.data(),
+            .bufferCollectionConstraints =
+                VkBufferCollectionConstraintsInfoFUCHSIA{
+                    .sType =
+                        VK_STRUCTURE_TYPE_BUFFER_COLLECTION_CONSTRAINTS_INFO_FUCHSIA,
+                    .pNext = nullptr,
+                    .minBufferCount = 1,
+                    .maxBufferCount = 0,
+                    .minBufferCountForCamping = 0,
+                    .minBufferCountForDedicatedSlack = 0,
+                    .minBufferCountForSharedSlack = 0,
+                },
+            .flags = 0u,
+        };
+
+        return setBufferCollectionImageConstraintsFUCHSIA(
+            enc, device, collection, &imageConstraints);
+    }
+
+    VkResult setBufferCollectionConstraintsFUCHSIAX(
+        VkEncoder* enc,
+        VkDevice device,
         fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* collection,
         const VkImageCreateInfo* pImageInfo) {
         if (pImageInfo == nullptr) {
@@ -2283,9 +2493,9 @@ public:
             createInfos.push_back(*pImageInfo);
         }
 
-        VkImageConstraintsInfoFUCHSIA imageConstraints;
+        VkImageConstraintsInfoFUCHSIAX imageConstraints;
         imageConstraints.sType =
-            VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIA;
+            VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIAX;
         imageConstraints.pNext = nullptr;
         imageConstraints.createInfoCount = createInfos.size();
         imageConstraints.pCreateInfos = createInfos.data();
@@ -2297,20 +2507,21 @@ public:
         imageConstraints.minBufferCountForSharedSlack = 0;
         imageConstraints.flags = 0u;
 
-        return setBufferCollectionImageConstraints(enc, device, collection,
-                                                   &imageConstraints);
+        return setBufferCollectionImageConstraintsFUCHSIAX(
+            enc, device, collection, &imageConstraints);
     }
 
-    VkResult addImageBufferCollectionConstraints(
+    VkResult addImageBufferCollectionConstraintsFUCHSIA(
         VkEncoder* enc,
         VkDevice device,
         VkPhysicalDevice physicalDevice,
-        const VkImageCreateInfo* createInfo,
-        const VkImageFormatConstraintsInfoFUCHSIA* formatConstraints,
+        const VkImageFormatConstraintsInfoFUCHSIA*
+            formatConstraints,  // always non-zero
         VkImageTiling tiling,
         fuchsia_sysmem::wire::BufferCollectionConstraints* constraints) {
         // First check if the format, tiling and usage is supported on host.
         VkImageFormatProperties imageFormatProperties;
+        auto createInfo = &formatConstraints->imageCreateInfo;
         auto result = enc->vkGetPhysicalDeviceImageFormatProperties(
             physicalDevice, createInfo->format, createInfo->imageType, tiling,
             createInfo->usage, createInfo->flags, &imageFormatProperties,
@@ -2329,7 +2540,7 @@ public:
         }
 
         // Check if format constraints contains unsupported format features.
-        if (formatConstraints) {
+        {
             VkFormatProperties formatProperties;
             enc->vkGetPhysicalDeviceFormatProperties(
                 physicalDevice, createInfo->format, &formatProperties,
@@ -2355,15 +2566,15 @@ public:
         }
 
         fuchsia_sysmem::wire::ImageFormatConstraints imageConstraints;
-        if (formatConstraints && formatConstraints->sysmemFormat != 0) {
+        if (formatConstraints->sysmemPixelFormat != 0) {
             auto pixelFormat =
                 static_cast<fuchsia_sysmem::wire::PixelFormatType>(
-                    formatConstraints->sysmemFormat);
+                    formatConstraints->sysmemPixelFormat);
             if (createInfo->format != VK_FORMAT_UNDEFINED &&
                 !vkFormatMatchesSysmemFormat(createInfo->format, pixelFormat)) {
                 ALOGW("%s: VkFormat %u doesn't match sysmem pixelFormat %lu",
                       __func__, static_cast<uint32_t>(createInfo->format),
-                      formatConstraints->sysmemFormat);
+                      formatConstraints->sysmemPixelFormat);
                 return VK_ERROR_FORMAT_NOT_SUPPORTED;
             }
             imageConstraints.pixel_format.type = pixelFormat;
@@ -2378,30 +2589,29 @@ public:
             imageConstraints.pixel_format.type = pixel_format;
         }
 
-        if (!formatConstraints || formatConstraints->colorSpaceCount == 0u) {
-            imageConstraints.color_spaces_count = 1;
+        imageConstraints.color_spaces_count =
+            formatConstraints->colorSpaceCount;
+        for (size_t i = 0; i < formatConstraints->colorSpaceCount; i++) {
             imageConstraints.color_space[0].type =
-                fuchsia_sysmem::wire::ColorSpaceType::kSrgb;
-        } else {
-            imageConstraints.color_spaces_count =
-                formatConstraints->colorSpaceCount;
-            for (size_t i = 0; i < formatConstraints->colorSpaceCount; i++) {
-                imageConstraints.color_space[0].type =
-                    static_cast<fuchsia_sysmem::wire::ColorSpaceType>(
-                        formatConstraints->pColorSpaces[i].colorSpace);
-            }
+                static_cast<fuchsia_sysmem::wire::ColorSpaceType>(
+                    formatConstraints->pColorSpaces[i].colorSpace);
         }
 
         // Get row alignment from host GPU.
-        VkDeviceSize offset;
-        VkDeviceSize rowPitchAlignment;
-        enc->vkGetLinearImageLayoutGOOGLE(device, createInfo->format, &offset,
-                                          &rowPitchAlignment,
-                                          true /* do lock */);
-        ALOGD(
-            "vkGetLinearImageLayoutGOOGLE: format %d offset %lu "
-            "rowPitchAlignment = %lu",
-            (int)createInfo->format, offset, rowPitchAlignment);
+        VkDeviceSize offset = 0;
+        VkDeviceSize rowPitchAlignment = 1u;
+
+        if (tiling == VK_IMAGE_TILING_LINEAR) {
+            VkImageCreateInfo createInfoDup = *createInfo;
+            createInfoDup.pNext = nullptr;
+            enc->vkGetLinearImageLayout2GOOGLE(device, &createInfoDup, &offset,
+                                            &rowPitchAlignment,
+                                            true /* do lock */);
+            ALOGD(
+                "vkGetLinearImageLayout2GOOGLE: format %d offset %lu "
+                "rowPitchAlignment = %lu",
+                (int)createInfo->format, offset, rowPitchAlignment);
+        }
 
         imageConstraints.min_coded_width = createInfo->extent.width;
         imageConstraints.max_coded_width = 0xfffffff;
@@ -2427,45 +2637,61 @@ public:
                 : fuchsia_sysmem::wire::kFormatModifierGoogleGoldfishOptimal;
 
         constraints->image_format_constraints
-            [constraints->image_format_constraints_count++] =
-            std::move(imageConstraints);
+            [constraints->image_format_constraints_count++] = imageConstraints;
         return VK_SUCCESS;
     }
 
-    VkResult setBufferCollectionImageConstraints(
+    struct SetBufferCollectionImageConstraintsResult {
+        VkResult result;
+        fuchsia_sysmem::wire::BufferCollectionConstraints constraints;
+        std::vector<uint32_t> createInfoIndex;
+    };
+
+    SetBufferCollectionImageConstraintsResult
+    setBufferCollectionImageConstraintsImpl(
         VkEncoder* enc,
         VkDevice device,
-        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* collection,
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
         const VkImageConstraintsInfoFUCHSIA* pImageConstraintsInfo) {
+        const auto& collection = *pCollection;
         if (!pImageConstraintsInfo ||
-            pImageConstraintsInfo->sType !=
-                VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIA) {
+            (pImageConstraintsInfo->sType !=
+                 VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIAX &&
+             pImageConstraintsInfo->sType !=
+                 VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIA)) {
             ALOGE("%s: invalid pImageConstraintsInfo", __func__);
-            return VK_ERROR_INITIALIZATION_FAILED;
+            return {VK_ERROR_INITIALIZATION_FAILED};
         }
 
-        if (pImageConstraintsInfo->createInfoCount == 0) {
-            ALOGE("%s: createInfoCount must be greater than 0", __func__);
-            return VK_ERROR_INITIALIZATION_FAILED;
+        if (pImageConstraintsInfo->formatConstraintsCount == 0) {
+            ALOGE("%s: formatConstraintsCount must be greater than 0",
+                  __func__);
+            abort();
         }
 
         fuchsia_sysmem::wire::BufferCollectionConstraints constraints =
             defaultBufferCollectionConstraints(
-                /* min_size_bytes */ 0, pImageConstraintsInfo->minBufferCount,
-                pImageConstraintsInfo->maxBufferCount,
-                pImageConstraintsInfo->minBufferCountForCamping,
-                pImageConstraintsInfo->minBufferCountForDedicatedSlack,
-                pImageConstraintsInfo->minBufferCountForSharedSlack);
+                /* min_size_bytes */ 0,
+                pImageConstraintsInfo->bufferCollectionConstraints
+                    .minBufferCount,
+                pImageConstraintsInfo->bufferCollectionConstraints
+                    .maxBufferCount,
+                pImageConstraintsInfo->bufferCollectionConstraints
+                    .minBufferCountForCamping,
+                pImageConstraintsInfo->bufferCollectionConstraints
+                    .minBufferCountForDedicatedSlack,
+                pImageConstraintsInfo->bufferCollectionConstraints
+                    .minBufferCountForSharedSlack);
 
         std::vector<fuchsia_sysmem::wire::ImageFormatConstraints>
             format_constraints;
 
         VkPhysicalDevice physicalDevice;
         {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto deviceIt = info_VkDevice.find(device);
             if (deviceIt == info_VkDevice.end()) {
-                return VK_ERROR_INITIALIZATION_FAILED;
+                return {VK_ERROR_INITIALIZATION_FAILED};
             }
             physicalDevice = deviceIt->second.physdev;
         }
@@ -2473,19 +2699,18 @@ public:
         std::vector<uint32_t> createInfoIndex;
 
         bool hasOptimalTiling = false;
-        for (uint32_t i = 0; i < pImageConstraintsInfo->createInfoCount; i++) {
+        for (uint32_t i = 0; i < pImageConstraintsInfo->formatConstraintsCount;
+             i++) {
             const VkImageCreateInfo* createInfo =
-                &pImageConstraintsInfo->pCreateInfos[i];
+                &pImageConstraintsInfo->pFormatConstraints[i].imageCreateInfo;
             const VkImageFormatConstraintsInfoFUCHSIA* formatConstraints =
-                pImageConstraintsInfo->pFormatConstraints
-                    ? &pImageConstraintsInfo->pFormatConstraints[i]
-                    : nullptr;
+                &pImageConstraintsInfo->pFormatConstraints[i];
 
             // add ImageFormatConstraints for *optimal* tiling
             VkResult optimalResult = VK_ERROR_FORMAT_NOT_SUPPORTED;
             if (createInfo->tiling == VK_IMAGE_TILING_OPTIMAL) {
-                optimalResult = addImageBufferCollectionConstraints(
-                    enc, device, physicalDevice, createInfo, formatConstraints,
+                optimalResult = addImageBufferCollectionConstraintsFUCHSIA(
+                    enc, device, physicalDevice, formatConstraints,
                     VK_IMAGE_TILING_OPTIMAL, &constraints);
                 if (optimalResult == VK_SUCCESS) {
                     createInfoIndex.push_back(i);
@@ -2494,8 +2719,8 @@ public:
             }
 
             // Add ImageFormatConstraints for *linear* tiling
-            VkResult linearResult = addImageBufferCollectionConstraints(
-                enc, device, physicalDevice, createInfo, formatConstraints,
+            VkResult linearResult = addImageBufferCollectionConstraintsFUCHSIA(
+                enc, device, physicalDevice, formatConstraints,
                 VK_IMAGE_TILING_LINEAR, &constraints);
             if (linearResult == VK_SUCCESS) {
                 createInfoIndex.push_back(i);
@@ -2554,7 +2779,7 @@ public:
         if (constraints.image_format_constraints_count == 0) {
             ALOGE("%s: none of the specified formats is supported by device",
                   __func__);
-            return VK_ERROR_FORMAT_NOT_SUPPORTED;
+            return {VK_ERROR_FORMAT_NOT_SUPPORTED};
         }
 
         constexpr uint32_t kVulkanPriority = 5;
@@ -2565,39 +2790,162 @@ public:
         if (!result.ok()) {
             ALOGE("setBufferCollectionConstraints: SetConstraints failed: %d",
                   result.status());
-            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            return {VK_ERROR_INITIALIZATION_FAILED};
+        }
+
+        return {VK_SUCCESS, constraints, std::move(createInfoIndex)};
+    }
+
+    VkResult setBufferCollectionImageConstraintsFUCHSIA(
+        VkEncoder* enc,
+        VkDevice device,
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
+        const VkImageConstraintsInfoFUCHSIA* pImageConstraintsInfo) {
+        const auto& collection = *pCollection;
+
+        auto setConstraintsResult = setBufferCollectionImageConstraintsImpl(
+            enc, device, pCollection, pImageConstraintsInfo);
+        if (setConstraintsResult.result != VK_SUCCESS) {
+            return setConstraintsResult.result;
         }
 
         // copy constraints to info_VkBufferCollectionFUCHSIA if
         // |collection| is a valid VkBufferCollectionFUCHSIA handle.
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         VkBufferCollectionFUCHSIA buffer_collection =
-            reinterpret_cast<VkBufferCollectionFUCHSIA>(collection);
+            reinterpret_cast<VkBufferCollectionFUCHSIA>(pCollection);
         if (info_VkBufferCollectionFUCHSIA.find(buffer_collection) !=
             info_VkBufferCollectionFUCHSIA.end()) {
             info_VkBufferCollectionFUCHSIA[buffer_collection].constraints =
-                android::base::makeOptional(std::move(constraints));
+                android::base::makeOptional(
+                    std::move(setConstraintsResult.constraints));
             info_VkBufferCollectionFUCHSIA[buffer_collection].createInfoIndex =
-                std::move(createInfoIndex);
+                std::move(setConstraintsResult.createInfoIndex);
         }
 
         return VK_SUCCESS;
     }
 
-    VkResult setBufferCollectionBufferConstraints(
-        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* collection,
+    VkResult setBufferCollectionImageConstraintsFUCHSIAX(
+        VkEncoder* enc,
+        VkDevice device,
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
+        const VkImageConstraintsInfoFUCHSIAX* pImageConstraintsInfo) {
+        const auto& collection = *pCollection;
+
+        const VkSysmemColorSpaceFUCHSIA kDefaultColorSpace = {
+            .sType = VK_STRUCTURE_TYPE_SYSMEM_COLOR_SPACE_FUCHSIA,
+            .pNext = nullptr,
+            .colorSpace = static_cast<uint32_t>(
+                fuchsia_sysmem::wire::ColorSpaceType::kSrgb),
+        };
+
+        std::vector<VkImageFormatConstraintsInfoFUCHSIA> formatConstraints;
+        for (size_t i = 0; i < pImageConstraintsInfo->createInfoCount; i++) {
+            VkImageFormatConstraintsInfoFUCHSIA constraints = {
+                .sType =
+                    VK_STRUCTURE_TYPE_IMAGE_FORMAT_CONSTRAINTS_INFO_FUCHSIA,
+                .pNext = nullptr,
+                .imageCreateInfo = pImageConstraintsInfo->pCreateInfos[i],
+                .requiredFormatFeatures = {},
+                .flags = {},
+                .sysmemPixelFormat = 0u,
+                .colorSpaceCount = 1u,
+                .pColorSpaces = &kDefaultColorSpace,
+            };
+
+            if (pImageConstraintsInfo->pFormatConstraints) {
+                const auto* formatConstraintsFUCHSIAX =
+                    &pImageConstraintsInfo->pFormatConstraints[i];
+                constraints.pNext = formatConstraintsFUCHSIAX->pNext;
+                constraints.requiredFormatFeatures =
+                    formatConstraintsFUCHSIAX->requiredFormatFeatures;
+                constraints.flags =
+                    reinterpret_cast<VkImageFormatConstraintsFlagsFUCHSIA>(
+                        formatConstraintsFUCHSIAX->flags);
+                constraints.sysmemPixelFormat =
+                    formatConstraintsFUCHSIAX->sysmemFormat;
+                constraints.colorSpaceCount =
+                    formatConstraintsFUCHSIAX->colorSpaceCount > 0
+                        ? formatConstraintsFUCHSIAX->colorSpaceCount
+                        : 1;
+                // VkSysmemColorSpaceFUCHSIA and VkSysmemColorSpaceFUCHSIAX have
+                // identical definitions so we can just do a reinterpret_cast.
+                constraints.pColorSpaces =
+                    formatConstraintsFUCHSIAX->colorSpaceCount > 0
+                        ? reinterpret_cast<const VkSysmemColorSpaceFUCHSIA*>(
+                              formatConstraintsFUCHSIAX->pColorSpaces)
+                        : &kDefaultColorSpace;
+            }
+            formatConstraints.push_back(constraints);
+        }
+
+        VkImageConstraintsInfoFUCHSIA imageConstraintsInfoFUCHSIA = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIA,
+            .pNext = pImageConstraintsInfo->pNext,
+            .formatConstraintsCount = pImageConstraintsInfo->createInfoCount,
+            .pFormatConstraints = formatConstraints.data(),
+            .bufferCollectionConstraints =
+                VkBufferCollectionConstraintsInfoFUCHSIA{
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_CONSTRAINTS_INFO_FUCHSIA,
+                    .pNext = nullptr,
+                    .minBufferCount = pImageConstraintsInfo->minBufferCount,
+                    .maxBufferCount = pImageConstraintsInfo->maxBufferCount,
+                    .minBufferCountForCamping =
+                        pImageConstraintsInfo->minBufferCountForCamping,
+                    .minBufferCountForDedicatedSlack =
+                        pImageConstraintsInfo->minBufferCountForDedicatedSlack,
+                    .minBufferCountForSharedSlack =
+                        pImageConstraintsInfo->minBufferCountForSharedSlack,
+                },
+            .flags = pImageConstraintsInfo->flags,
+        };
+
+        auto setConstraintsResult = setBufferCollectionImageConstraintsImpl(
+            enc, device, pCollection, &imageConstraintsInfoFUCHSIA);
+        if (setConstraintsResult.result != VK_SUCCESS) {
+            return setConstraintsResult.result;
+        }
+
+        // copy constraints to info_VkBufferCollectionFUCHSIAX if
+        // |collection| is a valid VkBufferCollectionFUCHSIAX handle.
+        AutoLock<RecursiveLock> lock(mLock);
+        VkBufferCollectionFUCHSIAX buffer_collection =
+            reinterpret_cast<VkBufferCollectionFUCHSIAX>(pCollection);
+        if (info_VkBufferCollectionFUCHSIAX.find(buffer_collection) !=
+            info_VkBufferCollectionFUCHSIAX.end()) {
+            info_VkBufferCollectionFUCHSIAX[buffer_collection].constraints =
+                android::base::makeOptional(
+                    std::move(setConstraintsResult.constraints));
+            info_VkBufferCollectionFUCHSIAX[buffer_collection].createInfoIndex =
+                std::move(setConstraintsResult.createInfoIndex);
+        }
+
+        return VK_SUCCESS;
+    }
+
+    struct SetBufferCollectionBufferConstraintsResult {
+        VkResult result;
+        fuchsia_sysmem::wire::BufferCollectionConstraints constraints;
+    };
+
+    SetBufferCollectionBufferConstraintsResult
+    setBufferCollectionBufferConstraintsImpl(
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
         const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo) {
+        const auto& collection = *pCollection;
         if (pBufferConstraintsInfo == nullptr) {
             ALOGE(
                 "setBufferCollectionBufferConstraints: "
                 "pBufferConstraintsInfo cannot be null.");
-            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            return {VK_ERROR_OUT_OF_DEVICE_MEMORY};
         }
 
         fuchsia_sysmem::wire::BufferCollectionConstraints constraints =
             defaultBufferCollectionConstraints(
-                /* min_size_bytes */ pBufferConstraintsInfo->pBufferCreateInfo->size,
-                /* buffer_count */ pBufferConstraintsInfo->minCount);
+                /* min_size_bytes */ pBufferConstraintsInfo->createInfo.size,
+                /* buffer_count */ pBufferConstraintsInfo
+                    ->bufferCollectionConstraints.minBufferCount);
         constraints.usage.vulkan =
             getBufferCollectionConstraintsVulkanBufferUsage(
                 pBufferConstraintsInfo);
@@ -2610,31 +2958,74 @@ public:
         if (!result.ok()) {
             ALOGE("setBufferCollectionConstraints: SetConstraints failed: %d",
                   result.status());
-            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            return {VK_ERROR_OUT_OF_DEVICE_MEMORY};
+        }
+
+        return {VK_SUCCESS, constraints};
+    }
+
+    VkResult setBufferCollectionBufferConstraintsFUCHSIA(
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
+        const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo) {
+        auto setConstraintsResult = setBufferCollectionBufferConstraintsImpl(
+            pCollection, pBufferConstraintsInfo);
+        if (setConstraintsResult.result != VK_SUCCESS) {
+            return setConstraintsResult.result;
         }
 
         // copy constraints to info_VkBufferCollectionFUCHSIA if
         // |collection| is a valid VkBufferCollectionFUCHSIA handle.
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         VkBufferCollectionFUCHSIA buffer_collection =
-            reinterpret_cast<VkBufferCollectionFUCHSIA>(collection);
+            reinterpret_cast<VkBufferCollectionFUCHSIA>(pCollection);
         if (info_VkBufferCollectionFUCHSIA.find(buffer_collection) !=
             info_VkBufferCollectionFUCHSIA.end()) {
             info_VkBufferCollectionFUCHSIA[buffer_collection].constraints =
-                android::base::makeOptional(std::move(constraints));
+                android::base::makeOptional(setConstraintsResult.constraints);
         }
 
         return VK_SUCCESS;
     }
 
-    VkResult on_vkSetBufferCollectionConstraintsFUCHSIA(
-        void* context, VkResult, VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        const VkImageCreateInfo* pImageInfo) {
-        VkEncoder* enc = (VkEncoder*)context;
-        auto sysmem_collection = reinterpret_cast<
-            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
-        return setBufferCollectionConstraints(enc, device, sysmem_collection, pImageInfo);
+    VkResult setBufferCollectionBufferConstraintsFUCHSIAX(
+        fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>* pCollection,
+        const VkBufferConstraintsInfoFUCHSIAX* pBufferConstraintsInfo) {
+        VkBufferConstraintsInfoFUCHSIA bufferConstraintsInfoFUCHSIA = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CONSTRAINTS_INFO_FUCHSIA,
+            .pNext = pBufferConstraintsInfo->pNext,
+            .createInfo = *pBufferConstraintsInfo->pBufferCreateInfo,
+            .requiredFormatFeatures =
+                pBufferConstraintsInfo->requiredFormatFeatures,
+            .bufferCollectionConstraints =
+                VkBufferCollectionConstraintsInfoFUCHSIA{
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_CONSTRAINTS_INFO_FUCHSIA,
+                    .pNext = nullptr,
+                    .minBufferCount = pBufferConstraintsInfo->minCount,
+                    .maxBufferCount = 0,
+                    .minBufferCountForCamping = 0,
+                    .minBufferCountForDedicatedSlack = 0,
+                    .minBufferCountForSharedSlack = 0,
+                },
+        };
+
+        auto setConstraintsResult = setBufferCollectionBufferConstraintsImpl(
+            pCollection, &bufferConstraintsInfoFUCHSIA);
+        if (setConstraintsResult.result != VK_SUCCESS) {
+            return setConstraintsResult.result;
+        }
+
+        // copy constraints to info_VkBufferCollectionFUCHSIAX if
+        // |collection| is a valid VkBufferCollectionFUCHSIAX handle.
+        AutoLock<RecursiveLock> lock(mLock);
+        VkBufferCollectionFUCHSIAX buffer_collection =
+            reinterpret_cast<VkBufferCollectionFUCHSIAX>(pCollection);
+        if (info_VkBufferCollectionFUCHSIAX.find(buffer_collection) !=
+            info_VkBufferCollectionFUCHSIAX.end()) {
+            info_VkBufferCollectionFUCHSIAX[buffer_collection].constraints =
+                android::base::makeOptional(setConstraintsResult.constraints);
+        }
+
+        return VK_SUCCESS;
     }
 
     VkResult on_vkSetBufferCollectionImageConstraintsFUCHSIA(
@@ -2645,8 +3036,9 @@ public:
         const VkImageConstraintsInfoFUCHSIA* pImageConstraintsInfo) {
         VkEncoder* enc = (VkEncoder*)context;
         auto sysmem_collection = reinterpret_cast<
-            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
-        return setBufferCollectionImageConstraints(
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
+            collection);
+        return setBufferCollectionImageConstraintsFUCHSIA(
             enc, device, sysmem_collection, pImageConstraintsInfo);
     }
 
@@ -2657,21 +3049,60 @@ public:
         VkBufferCollectionFUCHSIA collection,
         const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo) {
         auto sysmem_collection = reinterpret_cast<
-            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
-        return setBufferCollectionBufferConstraints(sysmem_collection,
-                                                    pBufferConstraintsInfo);
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
+            collection);
+        return setBufferCollectionBufferConstraintsFUCHSIA(
+            sysmem_collection, pBufferConstraintsInfo);
     }
 
-    VkResult on_vkGetBufferCollectionPropertiesFUCHSIA(
+    VkResult on_vkSetBufferCollectionConstraintsFUCHSIAX(
         void* context,
         VkResult,
         VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        VkBufferCollectionPropertiesFUCHSIA* pProperties) {
-        VkBufferCollectionProperties2FUCHSIA properties2 = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_COLLECTION_PROPERTIES2_FUCHSIA,
+        VkBufferCollectionFUCHSIAX collection,
+        const VkImageCreateInfo* pImageInfo) {
+        VkEncoder* enc = (VkEncoder*)context;
+        auto sysmem_collection = reinterpret_cast<
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
+        return setBufferCollectionConstraintsFUCHSIAX(
+            enc, device, sysmem_collection, pImageInfo);
+    }
+
+    VkResult on_vkSetBufferCollectionImageConstraintsFUCHSIAX(
+        void* context,
+        VkResult,
+        VkDevice device,
+        VkBufferCollectionFUCHSIAX collection,
+        const VkImageConstraintsInfoFUCHSIAX* pImageConstraintsInfo) {
+        VkEncoder* enc = (VkEncoder*)context;
+        auto sysmem_collection = reinterpret_cast<
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
+        return setBufferCollectionImageConstraintsFUCHSIAX(
+            enc, device, sysmem_collection, pImageConstraintsInfo);
+    }
+
+    VkResult on_vkSetBufferCollectionBufferConstraintsFUCHSIAX(
+        void*,
+        VkResult,
+        VkDevice,
+        VkBufferCollectionFUCHSIAX collection,
+        const VkBufferConstraintsInfoFUCHSIAX* pBufferConstraintsInfo) {
+        auto sysmem_collection = reinterpret_cast<
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
+        return setBufferCollectionBufferConstraintsFUCHSIAX(
+            sysmem_collection, pBufferConstraintsInfo);
+    }
+
+    VkResult on_vkGetBufferCollectionPropertiesFUCHSIAX(
+        void* context,
+        VkResult,
+        VkDevice device,
+        VkBufferCollectionFUCHSIAX collection,
+        VkBufferCollectionPropertiesFUCHSIAX* pProperties) {
+        VkBufferCollectionProperties2FUCHSIAX properties2 = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_COLLECTION_PROPERTIES2_FUCHSIAX,
             .pNext = nullptr};
-        auto result = on_vkGetBufferCollectionProperties2FUCHSIA(
+        auto result = on_vkGetBufferCollectionProperties2FUCHSIAX(
             context, VK_SUCCESS, device, collection, &properties2);
         if (result != VK_SUCCESS) {
             return result;
@@ -2701,6 +3132,240 @@ public:
             *info_VkBufferCollectionFUCHSIA[collection].constraints;
         const auto& createInfoIndices =
             info_VkBufferCollectionFUCHSIA[collection].createInfoIndex;
+        const auto& out = info.settings.image_format_constraints;
+        bool foundCreateInfo = false;
+
+        for (size_t imageFormatIndex = 0;
+             imageFormatIndex < constraints.image_format_constraints_count;
+             imageFormatIndex++) {
+            const auto& in =
+                constraints.image_format_constraints[imageFormatIndex];
+            // These checks are sorted in order of how often they're expected to
+            // mismatch, from most likely to least likely. They aren't always
+            // equality comparisons, since sysmem may change some values in
+            // compatible ways on behalf of the other participants.
+            if ((out.pixel_format.type != in.pixel_format.type) ||
+                (out.pixel_format.has_format_modifier !=
+                 in.pixel_format.has_format_modifier) ||
+                (out.pixel_format.format_modifier.value !=
+                 in.pixel_format.format_modifier.value) ||
+                (out.min_bytes_per_row < in.min_bytes_per_row) ||
+                (out.required_max_coded_width < in.required_max_coded_width) ||
+                (out.required_max_coded_height <
+                 in.required_max_coded_height) ||
+                (in.bytes_per_row_divisor != 0 &&
+                 out.bytes_per_row_divisor % in.bytes_per_row_divisor != 0)) {
+                continue;
+            }
+            // Check if the out colorspaces are a subset of the in color spaces.
+            bool all_color_spaces_found = true;
+            for (uint32_t j = 0; j < out.color_spaces_count; j++) {
+                bool found_matching_color_space = false;
+                for (uint32_t k = 0; k < in.color_spaces_count; k++) {
+                    if (out.color_space[j].type == in.color_space[k].type) {
+                        found_matching_color_space = true;
+                        break;
+                    }
+                }
+                if (!found_matching_color_space) {
+                    all_color_spaces_found = false;
+                    break;
+                }
+            }
+            if (!all_color_spaces_found) {
+                continue;
+            }
+
+            // Choose the first valid format for now.
+            *outCreateInfoIndex = createInfoIndices[imageFormatIndex];
+            return VK_SUCCESS;
+        }
+
+        ALOGE("%s: cannot find a valid image format in constraints", __func__);
+        return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+    }
+
+    VkResult on_vkGetBufferCollectionPropertiesFUCHSIA(
+        void* context,
+        VkResult,
+        VkDevice device,
+        VkBufferCollectionFUCHSIA collection,
+        VkBufferCollectionPropertiesFUCHSIA* pProperties) {
+        VkEncoder* enc = (VkEncoder*)context;
+        const auto& sysmem_collection = *reinterpret_cast<
+            fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
+            collection);
+
+        auto result = sysmem_collection->WaitForBuffersAllocated();
+        if (!result.ok() || result.Unwrap()->status != ZX_OK) {
+            ALOGE("Failed wait for allocation: %d %d", result.status(),
+                  GET_STATUS_SAFE(result, status));
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+        fuchsia_sysmem::wire::BufferCollectionInfo2 info =
+            std::move(result.Unwrap()->buffer_collection_info);
+
+        bool is_host_visible =
+            info.settings.buffer_settings.heap ==
+            fuchsia_sysmem::wire::HeapType::kGoldfishHostVisible;
+        bool is_device_local =
+            info.settings.buffer_settings.heap ==
+            fuchsia_sysmem::wire::HeapType::kGoldfishDeviceLocal;
+        if (!is_host_visible && !is_device_local) {
+            ALOGE("buffer collection uses a non-goldfish heap (type 0x%lu)",
+                  static_cast<uint64_t>(info.settings.buffer_settings.heap));
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        // memoryTypeBits
+        // ====================================================================
+        {
+            AutoLock<RecursiveLock> lock(mLock);
+            auto deviceIt = info_VkDevice.find(device);
+            if (deviceIt == info_VkDevice.end()) {
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+            auto& deviceInfo = deviceIt->second;
+
+            // Device local memory type supported.
+            pProperties->memoryTypeBits = 0;
+            for (uint32_t i = 0; i < deviceInfo.memProps.memoryTypeCount; ++i) {
+                if ((is_device_local &&
+                     (deviceInfo.memProps.memoryTypes[i].propertyFlags &
+                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) ||
+                    (is_host_visible &&
+                     (deviceInfo.memProps.memoryTypes[i].propertyFlags &
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))) {
+                    pProperties->memoryTypeBits |= 1ull << i;
+                }
+            }
+        }
+
+        // bufferCount
+        // ====================================================================
+        pProperties->bufferCount = info.buffer_count;
+
+        auto storeProperties = [this, collection, pProperties]() -> VkResult {
+            // store properties to storage
+            AutoLock<RecursiveLock> lock(mLock);
+            if (info_VkBufferCollectionFUCHSIA.find(collection) ==
+                info_VkBufferCollectionFUCHSIA.end()) {
+                return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+            }
+
+            info_VkBufferCollectionFUCHSIA[collection].properties =
+                android::base::makeOptional(*pProperties);
+
+            // We only do a shallow copy so we should remove all pNext pointers.
+            info_VkBufferCollectionFUCHSIA[collection].properties->pNext =
+                nullptr;
+            info_VkBufferCollectionFUCHSIA[collection]
+                .properties->sysmemColorSpaceIndex.pNext = nullptr;
+            return VK_SUCCESS;
+        };
+
+        // The fields below only apply to buffer collections with image formats.
+        if (!info.settings.has_image_format_constraints) {
+            ALOGD("%s: buffer collection doesn't have image format constraints",
+                  __func__);
+            return storeProperties();
+        }
+
+        // sysmemFormat
+        // ====================================================================
+
+        pProperties->sysmemPixelFormat = static_cast<uint64_t>(
+            info.settings.image_format_constraints.pixel_format.type);
+
+        // colorSpace
+        // ====================================================================
+        if (info.settings.image_format_constraints.color_spaces_count == 0) {
+            ALOGE(
+                "%s: color space missing from allocated buffer collection "
+                "constraints",
+                __func__);
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+        // Only report first colorspace for now.
+        pProperties->sysmemColorSpaceIndex.colorSpace = static_cast<uint32_t>(
+            info.settings.image_format_constraints.color_space[0].type);
+
+        // createInfoIndex
+        // ====================================================================
+        {
+            AutoLock<RecursiveLock> lock(mLock);
+            auto getIndexResult = getBufferCollectionImageCreateInfoIndexLocked(
+                collection, info, &pProperties->createInfoIndex);
+            if (getIndexResult != VK_SUCCESS) {
+                return getIndexResult;
+            }
+        }
+
+        // formatFeatures
+        // ====================================================================
+        VkPhysicalDevice physicalDevice;
+        {
+            AutoLock<RecursiveLock> lock(mLock);
+            auto deviceIt = info_VkDevice.find(device);
+            if (deviceIt == info_VkDevice.end()) {
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+            physicalDevice = deviceIt->second.physdev;
+        }
+
+        VkFormat vkFormat = sysmemPixelFormatTypeToVk(
+            info.settings.image_format_constraints.pixel_format.type);
+        VkFormatProperties formatProperties;
+        enc->vkGetPhysicalDeviceFormatProperties(
+            physicalDevice, vkFormat, &formatProperties, true /* do lock */);
+        if (is_device_local) {
+            pProperties->formatFeatures =
+                formatProperties.optimalTilingFeatures;
+        }
+        if (is_host_visible) {
+            pProperties->formatFeatures = formatProperties.linearTilingFeatures;
+        }
+
+        // YCbCr properties
+        // ====================================================================
+        // TODO(59804): Implement this correctly when we support YUV pixel
+        // formats in goldfish ICD.
+        pProperties->samplerYcbcrConversionComponents.r =
+            VK_COMPONENT_SWIZZLE_IDENTITY;
+        pProperties->samplerYcbcrConversionComponents.g =
+            VK_COMPONENT_SWIZZLE_IDENTITY;
+        pProperties->samplerYcbcrConversionComponents.b =
+            VK_COMPONENT_SWIZZLE_IDENTITY;
+        pProperties->samplerYcbcrConversionComponents.a =
+            VK_COMPONENT_SWIZZLE_IDENTITY;
+        pProperties->suggestedYcbcrModel =
+            VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY;
+        pProperties->suggestedYcbcrRange = VK_SAMPLER_YCBCR_RANGE_ITU_FULL;
+        pProperties->suggestedXChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
+        pProperties->suggestedYChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
+
+        return storeProperties();
+    }
+
+    VkResult getBufferCollectionImageCreateInfoIndexLocked(
+        VkBufferCollectionFUCHSIAX collection,
+        fuchsia_sysmem::wire::BufferCollectionInfo2& info,
+        uint32_t* outCreateInfoIndex) {
+        if (!info_VkBufferCollectionFUCHSIAX[collection]
+                 .constraints.hasValue()) {
+            ALOGE("%s: constraints not set", __func__);
+            return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+        }
+
+        if (!info.settings.has_image_format_constraints) {
+            // no image format constraints, skip getting createInfoIndex.
+            return VK_SUCCESS;
+        }
+
+        const auto& constraints =
+            *info_VkBufferCollectionFUCHSIAX[collection].constraints;
+        const auto& createInfoIndices =
+            info_VkBufferCollectionFUCHSIAX[collection].createInfoIndex;
         const auto& out = info.settings.image_format_constraints;
         bool foundCreateInfo = false;
 
@@ -2753,14 +3418,14 @@ public:
         return VK_ERROR_OUT_OF_DEVICE_MEMORY;
     }
 
-    VkResult on_vkGetBufferCollectionProperties2FUCHSIA(
+    VkResult on_vkGetBufferCollectionProperties2FUCHSIAX(
         void* context,
         VkResult,
         VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        VkBufferCollectionProperties2FUCHSIA* pProperties) {
+        VkBufferCollectionFUCHSIAX collection,
+        VkBufferCollectionProperties2FUCHSIAX* pProperties) {
         VkEncoder* enc = (VkEncoder*)context;
-        auto sysmem_collection = reinterpret_cast<
+        const auto& sysmem_collection = *reinterpret_cast<
             fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(collection);
 
         auto result = sysmem_collection->WaitForBuffersAllocated();
@@ -2785,7 +3450,7 @@ public:
         // memoryTypeBits
         // ====================================================================
         {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto deviceIt = info_VkDevice.find(device);
             if (deviceIt == info_VkDevice.end()) {
                 return VK_ERROR_INITIALIZATION_FAILED;
@@ -2812,19 +3477,19 @@ public:
 
         auto storeProperties = [this, collection, pProperties]() -> VkResult {
             // store properties to storage
-            AutoLock lock(mLock);
-            if (info_VkBufferCollectionFUCHSIA.find(collection) ==
-                info_VkBufferCollectionFUCHSIA.end()) {
+            AutoLock<RecursiveLock> lock(mLock);
+            if (info_VkBufferCollectionFUCHSIAX.find(collection) ==
+                info_VkBufferCollectionFUCHSIAX.end()) {
                 return VK_ERROR_OUT_OF_DEVICE_MEMORY;
             }
 
-            info_VkBufferCollectionFUCHSIA[collection].properties =
+            info_VkBufferCollectionFUCHSIAX[collection].properties =
                 android::base::makeOptional(*pProperties);
 
             // We only do a shallow copy so we should remove all pNext pointers.
-            info_VkBufferCollectionFUCHSIA[collection].properties->pNext =
+            info_VkBufferCollectionFUCHSIAX[collection].properties->pNext =
                 nullptr;
-            info_VkBufferCollectionFUCHSIA[collection]
+            info_VkBufferCollectionFUCHSIAX[collection]
                 .properties->colorSpace.pNext = nullptr;
             return VK_SUCCESS;
         };
@@ -2858,7 +3523,7 @@ public:
         // createInfoIndex
         // ====================================================================
         {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto getIndexResult = getBufferCollectionImageCreateInfoIndexLocked(
                 collection, info, &pProperties->createInfoIndex);
             if (getIndexResult != VK_SUCCESS) {
@@ -2870,7 +3535,7 @@ public:
         // ====================================================================
         VkPhysicalDevice physicalDevice;
         {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto deviceIt = info_VkDevice.find(device);
             if (deviceIt == info_VkDevice.end()) {
                 return VK_ERROR_INITIALIZATION_FAILED;
@@ -3048,11 +3713,8 @@ public:
                       (unsigned long long)directMappedAddr);
                 mLock.lock();
             } else if (mFeatureInfo->hasVirtioGpuNext) {
-#if !defined(HOST_BUILD) && defined(VK_USE_PLATFORM_ANDROID_KHR)
+#if !defined(HOST_BUILD) && defined(VIRTIO_GPU)
                 uint64_t hvaSizeId[3];
-
-                int rendernodeFdForMem = drmOpenRender(128 /* RENDERNODE_MINOR */);
-                ALOGE("%s: render fd = %d\n", __func__, rendernodeFdForMem);
 
                 mLock.unlock();
                 enc->vkGetMemoryHostAddressInfoGOOGLE(
@@ -3065,47 +3727,51 @@ public:
                 mLock.lock();
 
                 struct drm_virtgpu_resource_create_blob drm_rc_blob = { 0 };
-                drm_rc_blob.blob_mem = VIRTGPU_BLOB_MEM_HOST;
-                drm_rc_blob.blob_flags = VIRTGPU_BLOB_FLAG_MAPPABLE;
+                drm_rc_blob.blob_mem = VIRTGPU_BLOB_MEM_HOST3D;
+                drm_rc_blob.blob_flags = VIRTGPU_BLOB_FLAG_USE_MAPPABLE;
                 drm_rc_blob.blob_id = hvaSizeId[2];
                 drm_rc_blob.size = hvaSizeId[1];
 
                 int res = drmIoctl(
-                    rendernodeFdForMem, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB, &drm_rc_blob);
+                    mRendernodeFd, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB, &drm_rc_blob);
 
                 if (res) {
-                    ALOGE("%s: Failed to resource create v2: sterror: %s errno: %d\n", __func__,
+                    ALOGE("%s: Failed to resource create blob: sterror: %s errno: %d\n", __func__,
                             strerror(errno), errno);
                     abort();
                 }
+                hostMemAlloc.boCreated = true;
+                hostMemAlloc.boHandle = drm_rc_blob.bo_handle;
 
                 drm_virtgpu_map map_info;
                 memset(&map_info, 0, sizeof(map_info));
                 map_info.handle = drm_rc_blob.bo_handle;
 
-                res = drmIoctl(rendernodeFdForMem, DRM_IOCTL_VIRTGPU_MAP, &map_info);
+                res = drmIoctl(mRendernodeFd, DRM_IOCTL_VIRTGPU_MAP, &map_info);
                 if (res) {
                     ALOGE("%s: Failed to virtgpu map: sterror: %s errno: %d\n", __func__,
                             strerror(errno), errno);
                     abort();
                 }
 
-                directMappedAddr = (uint64_t)(uintptr_t)
-                    mmap64(0, hvaSizeId[1], PROT_WRITE, MAP_SHARED, rendernodeFdForMem, map_info.offset);
+                void* mapRes = mmap64(
+                    0, hvaSizeId[1], PROT_WRITE, MAP_SHARED, mRendernodeFd, map_info.offset);
 
-                if (!directMappedAddr) {
-                    ALOGE("%s: mmap of virtio gpu resource failed\n", __func__);
-                    abort();
+                if (mapRes == MAP_FAILED || mapRes == nullptr) {
+                    ALOGE("%s: mmap of virtio gpu resource failed: sterror: %s errno: %d\n\n",
+                            __func__, strerror(errno), errno);
+                     directMapResult = VK_ERROR_OUT_OF_DEVICE_MEMORY;
+                } else {
+                    directMappedAddr = (uint64_t)(uintptr_t)mapRes;
+                    // Does not take  ownership for the device.
+                    hostMemAlloc.rendernodeFd = mRendernodeFd;
+                    hostMemAlloc.memoryAddr = directMappedAddr;
+                    hostMemAlloc.memorySize = hvaSizeId[1];
+                    // add the host's page offset
+                    directMappedAddr += (uint64_t)(uintptr_t)(hvaSizeId[0]) & (PAGE_SIZE - 1);
+                    directMapResult = VK_SUCCESS;
                 }
 
-                hostMemAlloc.memoryAddr = directMappedAddr;
-                hostMemAlloc.memorySize = hvaSizeId[1];
-
-                // add the host's page offset
-                directMappedAddr += (uint64_t)(uintptr_t)(hvaSizeId[0]) & (PAGE_SIZE - 1);
-				directMapResult = VK_SUCCESS;
-
-                hostMemAlloc.fd = rendernodeFdForMem;
 #endif // VK_USE_PLATFORM_ANDROID_KHR
             }
 
@@ -3114,7 +3780,12 @@ public:
                 hostMemAlloc.initialized = true;
                 hostMemAlloc.initResult = directMapResult;
                 mLock.unlock();
-                enc->vkFreeMemory(device, hostMemAlloc.memory, nullptr, true /* do lock */);
+                destroyHostMemAlloc(
+                    mFeatureInfo->hasDirectMem,
+                    enc,
+                    device,
+                    &hostMemAlloc,
+                    true) /* doLock */;
                 mLock.lock();
                 return INVALID_HOST_MEM_BLOCK;
             }
@@ -3246,32 +3917,42 @@ public:
         const VkImportAndroidHardwareBufferInfoANDROID* importAhbInfoPtr =
             vk_find_struct<VkImportAndroidHardwareBufferInfoANDROID>(pAllocateInfo);
 
-        const VkImportMemoryBufferCollectionFUCHSIA* importBufferCollectionInfoPtr =
-            vk_find_struct<VkImportMemoryBufferCollectionFUCHSIA>(pAllocateInfo);
+#ifdef VK_USE_PLATFORM_FUCHSIA
+        const VkImportMemoryBufferCollectionFUCHSIA*
+            importBufferCollectionInfoPtr =
+                vk_find_struct<VkImportMemoryBufferCollectionFUCHSIA>(
+                    pAllocateInfo);
+
+        const VkImportMemoryBufferCollectionFUCHSIAX*
+            importBufferCollectionInfoPtrX =
+                vk_find_struct<VkImportMemoryBufferCollectionFUCHSIAX>(
+                    pAllocateInfo);
 
         const VkImportMemoryZirconHandleInfoFUCHSIA* importVmoInfoPtr =
-            vk_find_struct<VkImportMemoryZirconHandleInfoFUCHSIA>(pAllocateInfo);
-        if (!importVmoInfoPtr) {
-            importVmoInfoPtr = reinterpret_cast<const VkImportMemoryZirconHandleInfoFUCHSIA*>(
-                __vk_find_struct(const_cast<void*>(pAllocateInfo->pNext),
-                    VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA));
-        }
+                vk_find_struct<VkImportMemoryZirconHandleInfoFUCHSIA>(
+                        pAllocateInfo);
+#else
+        const void* importBufferCollectionInfoPtr = nullptr;
+        const void* importBufferCollectionInfoPtrX = nullptr;
+        const void* importVmoInfoPtr = nullptr;
+#endif  // VK_USE_PLATFORM_FUCHSIA
 
         const VkMemoryDedicatedAllocateInfo* dedicatedAllocInfoPtr =
             vk_find_struct<VkMemoryDedicatedAllocateInfo>(pAllocateInfo);
 
         bool shouldPassThroughDedicatedAllocInfo =
             !exportAllocateInfoPtr && !importAhbInfoPtr &&
-            !importBufferCollectionInfoPtr && !importVmoInfoPtr;
+            !importBufferCollectionInfoPtr && !importBufferCollectionInfoPtrX &&
+            !importVmoInfoPtr;
 
-#ifndef VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         shouldPassThroughDedicatedAllocInfo &=
             !isHostVisibleMemoryTypeIndexForGuest(
                 &mHostVisibleMemoryVirtInfo, pAllocateInfo->memoryTypeIndex);
 
         if (!exportAllocateInfoPtr &&
             (importAhbInfoPtr || importBufferCollectionInfoPtr ||
-             importVmoInfoPtr) &&
+             importBufferCollectionInfoPtrX || importVmoInfoPtr) &&
             dedicatedAllocInfoPtr &&
             isHostVisibleMemoryTypeIndexForGuest(
                 &mHostVisibleMemoryVirtInfo, pAllocateInfo->memoryTypeIndex)) {
@@ -3293,6 +3974,7 @@ public:
         bool exportVmo = false;
         bool importAhb = false;
         bool importBufferCollection = false;
+        bool importBufferCollectionX = false;
         bool importVmo = false;
         (void)exportVmo;
 
@@ -3311,19 +3993,21 @@ public:
             exportAhb =
                 exportAllocateInfoPtr->handleTypes &
                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
-            exportVmo =
-                (exportAllocateInfoPtr->handleTypes &
-                    VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) ||
-                (exportAllocateInfoPtr->handleTypes &
-                    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA);
+#ifdef VK_USE_PLATFORM_FUCHSIA
+            exportVmo = exportAllocateInfoPtr->handleTypes &
+                        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA;
+#endif  // VK_USE_PLATFORM_FUCHSIA
         } else if (importAhbInfoPtr) {
             importAhb = true;
         } else if (importBufferCollectionInfoPtr) {
             importBufferCollection = true;
+        } else if (importBufferCollectionInfoPtrX) {
+            importBufferCollectionX = true;
         } else if (importVmoInfoPtr) {
             importVmo = true;
         }
-        bool isImport = importAhb || importBufferCollection || importVmo;
+        bool isImport = importAhb || importBufferCollection ||
+                        importBufferCollectionX || importVmo;
 
         if (exportAhb) {
             bool hasDedicatedImage = dedicatedAllocInfoPtr &&
@@ -3340,7 +4024,7 @@ public:
                 finalAllocInfo.allocationSize;
 
             if (hasDedicatedImage) {
-                AutoLock lock(mLock);
+                AutoLock<RecursiveLock> lock(mLock);
 
                 auto it = info_VkImage.find(
                     dedicatedAllocInfoPtr->image);
@@ -3356,7 +4040,7 @@ public:
             }
 
             if (hasDedicatedBuffer) {
-                AutoLock lock(mLock);
+                AutoLock<RecursiveLock> lock(mLock);
 
                 auto it = info_VkBuffer.find(
                     dedicatedAllocInfoPtr->buffer);
@@ -3403,10 +4087,9 @@ public:
 
         zx_handle_t vmo_handle = ZX_HANDLE_INVALID;
 
-        if (importBufferCollection) {
-
 #ifdef VK_USE_PLATFORM_FUCHSIA
-            auto collection = reinterpret_cast<
+        if (importBufferCollection) {
+            const auto& collection = *reinterpret_cast<
                 fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
                 importBufferCollectionInfoPtr->collection);
             auto result = collection->WaitForBuffersAllocated();
@@ -3423,15 +4106,34 @@ public:
                 _RETURN_FAILURE_WITH_DEVICE_MEMORY_REPORT(VK_ERROR_INITIALIZATION_FAILED);
             }
             vmo_handle = info.buffers[index].vmo.release();
-#endif
+        }
 
+        if (importBufferCollectionX) {
+            const auto& collection = *reinterpret_cast<
+                fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
+                importBufferCollectionInfoPtrX->collection);
+            auto result = collection->WaitForBuffersAllocated();
+            if (!result.ok() || result.Unwrap()->status != ZX_OK) {
+                ALOGE("WaitForBuffersAllocated failed: %d %d", result.status(),
+                      GET_STATUS_SAFE(result, status));
+                _RETURN_FAILURE_WITH_DEVICE_MEMORY_REPORT(
+                    VK_ERROR_INITIALIZATION_FAILED);
+            }
+            fuchsia_sysmem::wire::BufferCollectionInfo2& info =
+                result.Unwrap()->buffer_collection_info;
+            uint32_t index = importBufferCollectionInfoPtrX->index;
+            if (info.buffer_count < index) {
+                ALOGE("Invalid buffer index: %d %d", index);
+                _RETURN_FAILURE_WITH_DEVICE_MEMORY_REPORT(
+                    VK_ERROR_INITIALIZATION_FAILED);
+            }
+            vmo_handle = info.buffers[index].vmo.release();
         }
 
         if (importVmo) {
             vmo_handle = importVmoInfoPtr->handle;
         }
 
-#ifdef VK_USE_PLATFORM_FUCHSIA
         if (exportVmo) {
             bool hasDedicatedImage = dedicatedAllocInfoPtr &&
                 (dedicatedAllocInfoPtr->image != VK_NULL_HANDLE);
@@ -3452,15 +4154,25 @@ public:
                 .sType =
                     VK_STRUCTURE_TYPE_BUFFER_COLLECTION_CREATE_INFO_FUCHSIA,
                 .pNext = nullptr,
-                .pBufferCreateInfo = nullptr,
+                .createInfo = {},
                 .requiredFormatFeatures = 0,
-                .minCount = 1,
+                .bufferCollectionConstraints =
+                    VkBufferCollectionConstraintsInfoFUCHSIA{
+                        .sType =
+                            VK_STRUCTURE_TYPE_BUFFER_COLLECTION_CONSTRAINTS_INFO_FUCHSIA,
+                        .pNext = nullptr,
+                        .minBufferCount = 1,
+                        .maxBufferCount = 0,
+                        .minBufferCountForCamping = 0,
+                        .minBufferCountForDedicatedSlack = 0,
+                        .minBufferCountForSharedSlack = 0,
+                    },
             };
             const VkBufferConstraintsInfoFUCHSIA* pBufferConstraintsInfo =
                 nullptr;
 
             if (hasDedicatedImage) {
-                AutoLock lock(mLock);
+                AutoLock<RecursiveLock> lock(mLock);
 
                 auto it = info_VkImage.find(dedicatedAllocInfoPtr->image);
                 if (it == info_VkImage.end()) return VK_ERROR_INITIALIZATION_FAILED;
@@ -3470,15 +4182,14 @@ public:
             }
 
             if (hasDedicatedBuffer) {
-                AutoLock lock(mLock);
+                AutoLock<RecursiveLock> lock(mLock);
 
                 auto it = info_VkBuffer.find(dedicatedAllocInfoPtr->buffer);
                 if (it == info_VkBuffer.end())
                     return VK_ERROR_INITIALIZATION_FAILED;
                 const auto& bufferInfo = it->second;
 
-                bufferConstraintsInfo.pBufferCreateInfo =
-                    &bufferInfo.createInfo;
+                bufferConstraintsInfo.createInfo = bufferInfo.createInfo;
                 pBufferConstraintsInfo = &bufferConstraintsInfo;
             }
 
@@ -3528,7 +4239,8 @@ public:
                 fidl::WireSyncClient<fuchsia_sysmem::BufferCollection> collection(
                     std::move(collection_ends->client));
                 if (hasDedicatedImage) {
-                    VkResult res = setBufferCollectionConstraints(
+                    // TODO(fxbug.dev/90856): Use setBufferCollectionImageConstraintsFUCHSIA.
+                    VkResult res = setBufferCollectionConstraintsFUCHSIA(
                         enc, device, &collection, pImageCreateInfo);
                     if (res == VK_ERROR_FORMAT_NOT_SUPPORTED) {
                       ALOGE("setBufferCollectionConstraints failed: format %u is not supported",
@@ -3542,7 +4254,7 @@ public:
                 }
 
                 if (hasDedicatedBuffer) {
-                    VkResult res = setBufferCollectionBufferConstraints(
+                    VkResult res = setBufferCollectionBufferConstraintsFUCHSIA(
                         &collection, pBufferConstraintsInfo);
                     if (res != VK_SUCCESS) {
                         ALOGE("setBufferCollectionBufferConstraints failed: %d",
@@ -3552,7 +4264,7 @@ public:
                 }
 
                 {
-                    auto result = collection.WaitForBuffersAllocated();
+                    auto result = collection->WaitForBuffersAllocated();
                     if (result.ok() && result.Unwrap()->status == ZX_OK) {
                         fuchsia_sysmem::wire::BufferCollectionInfo2& info =
                             result.Unwrap()->buffer_collection_info;
@@ -3571,7 +4283,7 @@ public:
                     }
                 }
 
-                collection.Close();
+                collection->Close();
 
                 zx::vmo vmo_copy;
                 zx_status_t status = zx_handle_duplicate(vmo_handle, ZX_RIGHT_SAME_RIGHTS,
@@ -3637,13 +4349,13 @@ public:
                                 abort();
                         }
 
-                        fidl::FidlAllocator allocator;
+                        fidl::Arena arena;
                         fuchsia_hardware_goldfish::wire::CreateColorBuffer2Params createParams(
-                            allocator);
-                        createParams.set_width(allocator, pImageCreateInfo->extent.width)
-                            .set_height(allocator, pImageCreateInfo->extent.height)
-                            .set_format(allocator, format)
-                            .set_memory_property(allocator,
+                            arena);
+                        createParams.set_width(pImageCreateInfo->extent.width)
+                            .set_height(pImageCreateInfo->extent.height)
+                            .set_format(format)
+                            .set_memory_property(
                                 fuchsia_hardware_goldfish::wire::kMemoryPropertyDeviceLocal);
 
                         auto result = mControlDevice->CreateColorBuffer2(
@@ -3665,12 +4377,13 @@ public:
                 }
 
                 if (pBufferConstraintsInfo) {
-                    fidl::FidlAllocator allocator;
-                    fuchsia_hardware_goldfish::wire::CreateBuffer2Params createParams(allocator);
-                    createParams.set_size(allocator,
-                            pBufferConstraintsInfo->pBufferCreateInfo->size)
-                        .set_memory_property(allocator,
-                            fuchsia_hardware_goldfish::wire::kMemoryPropertyDeviceLocal);
+                    fidl::Arena arena;
+                    fuchsia_hardware_goldfish::wire::CreateBuffer2Params createParams(arena);
+                    createParams
+                        .set_size(arena,
+                                  pBufferConstraintsInfo->createInfo.size)
+                        .set_memory_property(fuchsia_hardware_goldfish::wire::
+                                                 kMemoryPropertyDeviceLocal);
 
                     auto result =
                         mControlDevice->CreateBuffer2(std::move(vmo_copy), std::move(createParams));
@@ -3821,7 +4534,7 @@ public:
         // }
 
         // Host visible memory with direct mapping
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDevice.find(device);
         if (it == info_VkDevice.end()) _RETURN_FAILURE_WITH_DEVICE_MEMORY_REPORT(VK_ERROR_DEVICE_LOST);
@@ -3874,7 +4587,7 @@ public:
         VkDeviceMemory memory,
         const VkAllocationCallbacks* pAllocateInfo) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) return;
@@ -3959,7 +4672,8 @@ public:
             destroyHostMemAlloc(
                 freeMemorySyncSupported,
                 enc, device,
-                hostMemBlocksForTypeIndex.data() + indexToRemove);
+                hostMemBlocksForTypeIndex.data() + indexToRemove,
+                false);
 
             ALOGV("%s: Destroying host mem alloc block at index %zu (done)\n", __func__, indexToRemove);
 
@@ -3982,7 +4696,7 @@ public:
             return host_result;
         }
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) {
@@ -4035,7 +4749,7 @@ public:
         uint32_t res = 0;
         for (uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; ++i) {
             bool shouldAcceptMemoryIndex = normalBits & (1 << i);
-#ifndef VK_USE_PLATFORM_FUCHSIA
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
             shouldAcceptMemoryIndex &= !isHostVisibleMemoryTypeIndexForGuest(
                 &mHostVisibleMemoryVirtInfo, i);
 #endif  // VK_USE_PLATFORM_FUCHSIA
@@ -4107,7 +4821,7 @@ public:
         VkImage image,
         VkMemoryRequirements2* reqs2) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkImage.find(image);
         if (it == info_VkImage.end()) return;
@@ -4139,7 +4853,7 @@ public:
         VkBuffer buffer,
         VkMemoryRequirements2* reqs2) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkBuffer.find(buffer);
         if (it == info_VkBuffer.end()) return;
@@ -4211,19 +4925,25 @@ public:
 
 #ifdef VK_USE_PLATFORM_FUCHSIA
         const VkBufferCollectionImageCreateInfoFUCHSIA* extBufferCollectionPtr =
-            vk_find_struct<VkBufferCollectionImageCreateInfoFUCHSIA>(pCreateInfo);
+            vk_find_struct<VkBufferCollectionImageCreateInfoFUCHSIA>(
+                pCreateInfo);
+
+        if (!extBufferCollectionPtr) {
+            extBufferCollectionPtr = reinterpret_cast<
+                const VkBufferCollectionImageCreateInfoFUCHSIA*>(
+                vk_find_struct<VkBufferCollectionImageCreateInfoFUCHSIAX>(
+                    pCreateInfo));
+        }
         bool isSysmemBackedMemory = false;
 
         if (extImgCiPtr &&
-            ((extImgCiPtr->handleTypes &
-                VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) ||
             (extImgCiPtr->handleTypes &
-                VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA))) {
+             VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA)) {
             isSysmemBackedMemory = true;
         }
 
         if (extBufferCollectionPtr) {
-            auto collection = reinterpret_cast<
+            const auto& collection = *reinterpret_cast<
                 fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
                 extBufferCollectionPtr->collection);
             uint32_t index = extBufferCollectionPtr->index;
@@ -4279,21 +4999,24 @@ public:
                             ? fuchsia_hardware_goldfish::wire::kMemoryPropertyDeviceLocal
                             : fuchsia_hardware_goldfish::wire::kMemoryPropertyHostVisible;
 
-                    fidl::FidlAllocator allocator;
+                    fidl::Arena arena;
                     fuchsia_hardware_goldfish::wire::CreateColorBuffer2Params createParams(
-                        allocator);
-                    createParams.set_width(allocator,
+                        arena);
+                    createParams.set_width(
                             info.settings.image_format_constraints.min_coded_width)
-                        .set_height(allocator,
+                        .set_height(
                             info.settings.image_format_constraints.min_coded_height)
-                        .set_format(allocator, format)
-                        .set_memory_property(allocator, memory_property);
+                        .set_format(format)
+                        .set_memory_property(memory_property);
 
                     auto result =
                         mControlDevice->CreateColorBuffer2(std::move(vmo), std::move(createParams));
-                    if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+                    if (result.ok() && result.Unwrap()->res == ZX_ERR_ALREADY_EXISTS) {
+                        ALOGD(
+                            "CreateColorBuffer: color buffer already exists\n");
+                    } else if (!result.ok() || result.Unwrap()->res != ZX_OK) {
                         ALOGE("CreateColorBuffer failed: %d:%d", result.status(),
-                              GET_STATUS_SAFE(result, res));
+                            GET_STATUS_SAFE(result, res));
                     }
                 }
 
@@ -4325,7 +5048,7 @@ public:
 
         if (res != VK_SUCCESS) return res;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkImage.find(*pImage);
         if (it == info_VkImage.end()) return VK_ERROR_INITIALIZATION_FAILED;
@@ -4335,6 +5058,11 @@ public:
         info.device = device;
         info.createInfo = *pCreateInfo;
         info.createInfo.pNext = nullptr;
+
+        if (extFormatAndroidPtr && extFormatAndroidPtr->externalFormat) {
+            info.hasExternalFormat = true;
+            info.androidFormat = extFormatAndroidPtr->externalFormat;
+        }
 
         if (supportsCreateResourcesWithRequirements()) {
             info.baseRequirementsKnown = true;
@@ -4417,7 +5145,7 @@ public:
 
         VkSamplerYcbcrConversionCreateInfo localCreateInfo = vk_make_orphan_copy(*pCreateInfo);
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
         const VkExternalFormatANDROID* extFormatAndroidPtr =
             vk_find_struct<VkExternalFormatANDROID>(pCreateInfo);
         if (extFormatAndroidPtr) {
@@ -4464,7 +5192,6 @@ public:
         const VkSamplerCreateInfo* pCreateInfo,
         const VkAllocationCallbacks* pAllocator,
         VkSampler* pSampler) {
-
         VkSamplerCreateInfo localCreateInfo = vk_make_orphan_copy(*pCreateInfo);
         vk_struct_chain_iterator structChainIter = vk_make_chain_iterator(&localCreateInfo);
 
@@ -4474,9 +5201,19 @@ public:
             vk_find_struct<VkSamplerYcbcrConversionInfo>(pCreateInfo);
         if (samplerYcbcrConversionInfo) {
             if (samplerYcbcrConversionInfo->conversion != VK_YCBCR_CONVERSION_DO_NOTHING) {
-                localVkSamplerYcbcrConversionInfo = vk_make_orphan_copy(*samplerYcbcrConversionInfo);
+                localVkSamplerYcbcrConversionInfo =
+                    vk_make_orphan_copy(*samplerYcbcrConversionInfo);
                 vk_append_struct(&structChainIter, &localVkSamplerYcbcrConversionInfo);
             }
+        }
+
+        VkSamplerCustomBorderColorCreateInfoEXT localVkSamplerCustomBorderColorCreateInfo;
+        const VkSamplerCustomBorderColorCreateInfoEXT* samplerCustomBorderColorCreateInfo =
+            vk_find_struct<VkSamplerCustomBorderColorCreateInfoEXT>(pCreateInfo);
+        if (samplerCustomBorderColorCreateInfo) {
+            localVkSamplerCustomBorderColorCreateInfo =
+                vk_make_orphan_copy(*samplerCustomBorderColorCreateInfo);
+            vk_append_struct(&structChainIter, &localVkSamplerCustomBorderColorCreateInfo);
         }
 #endif
 
@@ -4505,7 +5242,7 @@ public:
             return;
         }
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         pExternalFenceProperties->exportFromImportedHandleTypes =
             VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
         pExternalFenceProperties->compatibleHandleTypes =
@@ -4531,7 +5268,7 @@ public:
         const VkExportFenceCreateInfo* exportFenceInfoPtr =
             vk_find_struct<VkExportFenceCreateInfo>(pCreateInfo);
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         bool exportSyncFd =
             exportFenceInfoPtr &&
             (exportFenceInfoPtr->handleTypes &
@@ -4548,7 +5285,7 @@ public:
 
         if (input_result != VK_SUCCESS) return input_result;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (exportSyncFd) {
             if (!mFeatureInfo->hasVirtioGpuNativeSync) {
                 ALOGV("%s: ensure sync device\n", __func__);
@@ -4556,7 +5293,7 @@ public:
             }
 
             ALOGV("%s: getting fence info\n", __func__);
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto it = info_VkFence.find(*pFence);
 
             if (it == info_VkFence.end())
@@ -4601,14 +5338,14 @@ public:
         // Permanence: temporary
         // on fence reset, close the fence fd
         // and act like we need to GetFenceFdKHR/ImportFenceFdKHR again
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         for (uint32_t i = 0; i < fenceCount; ++i) {
             VkFence fence = pFences[i];
             auto it = info_VkFence.find(fence);
             auto& info = it->second;
             if (!info.external) continue;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
             if (info.syncFd >= 0) {
                 ALOGV("%s: resetting fence. make fd -1\n", __func__);
                 goldfish_sync_signal(info.syncFd);
@@ -4640,7 +5377,7 @@ public:
 
         if (!hasFence) return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
 
         bool syncFdImport =
             pImportFenceFdInfo->handleType & VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
@@ -4650,7 +5387,7 @@ public:
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto it = info_VkFence.find(pImportFenceFdInfo->fence);
         if (it == info_VkFence.end()) {
             ALOGV("%s: VK_ERROR_OUT_OF_HOST_MEMORY: no fence info\n", __func__);
@@ -4700,7 +5437,7 @@ public:
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         bool syncFdExport =
             pGetFdInfo->handleType & VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
 
@@ -4711,20 +5448,18 @@ public:
 
         VkResult currentFenceStatus = enc->vkGetFenceStatus(device, pGetFdInfo->fence, true /* do lock */);
 
-        if (VK_SUCCESS == currentFenceStatus) { // Fence already signaled
-            ALOGV("%s: VK_SUCCESS: already signaled\n", __func__);
-            *pFd = -1;
-            return VK_SUCCESS;
-        }
-
         if (VK_ERROR_DEVICE_LOST == currentFenceStatus) { // Other error
             ALOGV("%s: VK_ERROR_DEVICE_LOST: Other error\n", __func__);
             *pFd = -1;
             return VK_ERROR_DEVICE_LOST;
         }
 
-        if (VK_NOT_READY == currentFenceStatus) { // Fence unsignaled; create fd here
-            AutoLock lock(mLock);
+        if (VK_NOT_READY == currentFenceStatus || VK_SUCCESS == currentFenceStatus) {
+            // Fence is valid. We also create a new sync fd for a signaled
+            // fence, because ANGLE will use the returned fd directly to
+            // implement eglDupNativeFenceFDANDROID, where -1 is only returned
+            // when error occurs.
+            AutoLock<RecursiveLock> lock(mLock);
 
             auto it = info_VkFence.find(pGetFdInfo->fence);
             if (it == info_VkFence.end()) {
@@ -4764,13 +5499,16 @@ public:
                     hostFenceHandleHi,
                 };
 
-                drm_virtgpu_execbuffer execbuffer = {
-                    .flags = VIRTGPU_EXECBUF_FENCE_FD_OUT,
+                struct drm_virtgpu_execbuffer execbuffer = {
+                    .flags = (uint32_t)(mFeatureInfo->hasVulkanAsyncQsri ?
+                                        (VIRTGPU_EXECBUF_FENCE_FD_OUT | VIRTGPU_EXECBUF_RING_IDX) :
+                                        VIRTGPU_EXECBUF_FENCE_FD_OUT),
                     .size = 5 * sizeof(uint32_t),
                     .command = (uint64_t)(cmdDwords),
                     .bo_handles = 0,
                     .num_bo_handles = 0,
                     .fence_fd = -1,
+                    .ring_idx = 0,
                 };
 
                 int res = drmIoctl(mRendernodeFd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
@@ -4812,12 +5550,12 @@ public:
 
         VkEncoder* enc = (VkEncoder*)context;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         std::vector<VkFence> fencesExternal;
         std::vector<int> fencesExternalWaitFds;
         std::vector<VkFence> fencesNonExternal;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         for (uint32_t i = 0; i < fenceCount; ++i) {
             auto it = info_VkFence.find(pFences[i]);
@@ -4994,7 +5732,7 @@ public:
         // (people expect VK_SUCCESS to always be returned by vkFreeDescriptorSets)
         std::vector<VkDescriptorSet> toActuallyFree;
         {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
 
             // Pool was destroyed
             if (info_VkDescriptorPool.find(descriptorPool) == info_VkDescriptorPool.end()) {
@@ -5118,7 +5856,7 @@ public:
 
         {
             // Validate and filter samplers
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             size_t imageInfoIndex = 0;
             for (uint32_t i = 0; i < descriptorWriteCount; ++i) {
 
@@ -5189,7 +5927,7 @@ public:
         void *context, VkDevice device, VkImage image,
         VkMemoryRequirements *pMemoryRequirements) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkImage.find(image);
         if (it == info_VkImage.end()) return;
@@ -5273,19 +6011,24 @@ public:
         const VkExternalMemoryBufferCreateInfo* extBufCiPtr =
             vk_find_struct<VkExternalMemoryBufferCreateInfo>(pCreateInfo);
         if (extBufCiPtr &&
-            ((extBufCiPtr->handleTypes &
-             VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA) ||
             (extBufCiPtr->handleTypes &
-             VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA))) {
+             VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA)) {
             isSysmemBackedMemory = true;
         }
 
         const auto* extBufferCollectionPtr =
-                vk_find_struct<VkBufferCollectionBufferCreateInfoFUCHSIA>(
-                        pCreateInfo);
+            vk_find_struct<VkBufferCollectionBufferCreateInfoFUCHSIA>(
+                pCreateInfo);
+
+        if (extBufferCollectionPtr == nullptr) {
+            extBufferCollectionPtr = reinterpret_cast<
+                const VkBufferCollectionBufferCreateInfoFUCHSIA*>(
+                vk_find_struct<VkBufferCollectionBufferCreateInfoFUCHSIAX>(
+                    pCreateInfo));
+        }
 
         if (extBufferCollectionPtr) {
-            auto collection = reinterpret_cast<
+            const auto& collection = *reinterpret_cast<
                 fidl::WireSyncClient<fuchsia_sysmem::BufferCollection>*>(
                 extBufferCollectionPtr->collection);
             uint32_t index = extBufferCollectionPtr->index;
@@ -5303,14 +6046,14 @@ public:
             }
 
             if (vmo && vmo->is_valid()) {
-                fidl::FidlAllocator allocator;
-                fuchsia_hardware_goldfish::wire::CreateBuffer2Params createParams(allocator);
-                createParams.set_size(allocator, pCreateInfo->size)
-                    .set_memory_property(allocator,
+                fidl::Arena arena;
+                fuchsia_hardware_goldfish::wire::CreateBuffer2Params createParams(arena);
+                createParams.set_size(arena, pCreateInfo->size)
+                    .set_memory_property(
                         fuchsia_hardware_goldfish::wire::kMemoryPropertyDeviceLocal);
 
                 auto result =
-                    mControlDevice->CreateBuffer2(std::move(*vmo), std::move(createParams));
+                    mControlDevice->CreateBuffer2(std::move(*vmo), createParams);
                 if (!result.ok() ||
                     (result.Unwrap()->result.is_err() != ZX_OK &&
                      result.Unwrap()->result.err() != ZX_ERR_ALREADY_EXISTS)) {
@@ -5333,7 +6076,7 @@ public:
 
         if (res != VK_SUCCESS) return res;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkBuffer.find(*pBuffer);
         if (it == info_VkBuffer.end()) return VK_ERROR_INITIALIZATION_FAILED;
@@ -5379,7 +6122,7 @@ public:
     void on_vkGetBufferMemoryRequirements(
         void* context, VkDevice device, VkBuffer buffer, VkMemoryRequirements *pMemoryRequirements) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkBuffer.find(buffer);
         if (it == info_VkBuffer.end()) return;
@@ -5448,8 +6191,9 @@ public:
     }
 
     void ensureSyncDeviceFd() {
-        if (mSyncDeviceFd >= 0) return;
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
+        if (mSyncDeviceFd >= 0)
+            return;
         mSyncDeviceFd = goldfish_sync_open();
         if (mSyncDeviceFd >= 0) {
             ALOGD("%s: created sync device for current Vulkan process: %d\n", __func__, mSyncDeviceFd);
@@ -5473,11 +6217,10 @@ public:
             vk_find_struct<VkExportSemaphoreCreateInfoKHR>(pCreateInfo);
 
 #ifdef VK_USE_PLATFORM_FUCHSIA
-        bool exportEvent = exportSemaphoreInfoPtr &&
-            ((exportSemaphoreInfoPtr->handleTypes &
-             VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA) ||
-            (exportSemaphoreInfoPtr->handleTypes &
-             VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA));
+        bool exportEvent =
+                exportSemaphoreInfoPtr &&
+                (exportSemaphoreInfoPtr->handleTypes &
+                 VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA);
 
         if (exportEvent) {
             finalCreateInfo.pNext = nullptr;
@@ -5488,7 +6231,7 @@ public:
         }
 #endif
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         bool exportSyncFd = exportSemaphoreInfoPtr &&
             (exportSemaphoreInfoPtr->handleTypes &
              VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT);
@@ -5512,7 +6255,7 @@ public:
         }
 #endif
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkSemaphore.find(*pSemaphore);
         if (it == info_VkSemaphore.end()) return VK_ERROR_INITIALIZATION_FAILED;
@@ -5525,7 +6268,7 @@ public:
         info.eventKoid = getEventKoid(info.eventHandle);
 #endif
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (exportSyncFd) {
             if (mFeatureInfo->hasVirtioGpuNativeSync) {
 #if !defined(HOST_BUILD)
@@ -5547,13 +6290,16 @@ public:
                     hostFenceHandleHi,
                 };
 
-                drm_virtgpu_execbuffer execbuffer = {
-                    .flags = VIRTGPU_EXECBUF_FENCE_FD_OUT,
+                struct drm_virtgpu_execbuffer execbuffer = {
+                    .flags = (uint32_t)(mFeatureInfo->hasVulkanAsyncQsri ?
+                                        (VIRTGPU_EXECBUF_FENCE_FD_OUT | VIRTGPU_EXECBUF_RING_IDX) :
+                                        VIRTGPU_EXECBUF_FENCE_FD_OUT),
                     .size = 5 * sizeof(uint32_t),
                     .command = (uint64_t)(cmdDwords),
                     .bo_handles = 0,
                     .num_bo_handles = 0,
                     .fence_fd = -1,
+                    .ring_idx = 0,
                 };
 
                 int res = drmIoctl(mRendernodeFd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
@@ -5599,13 +6345,13 @@ public:
         void* context, VkResult,
         VkDevice device, const VkSemaphoreGetFdInfoKHR* pGetFdInfo,
         int* pFd) {
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         VkEncoder* enc = (VkEncoder*)context;
         bool getSyncFd =
             pGetFdInfo->handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
 
         if (getSyncFd) {
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
             auto it = info_VkSemaphore.find(pGetFdInfo->semaphore);
             if (it == info_VkSemaphore.end()) return VK_ERROR_OUT_OF_HOST_MEMORY;
             auto& semInfo = it->second;
@@ -5635,7 +6381,7 @@ public:
         void* context, VkResult input_result,
         VkDevice device,
         const VkImportSemaphoreFdInfoKHR* pImportSemaphoreFdInfo) {
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         VkEncoder* enc = (VkEncoder*)context;
         if (input_result != VK_SUCCESS) {
             return input_result;
@@ -5645,7 +6391,7 @@ public:
             VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT) {
             VkImportSemaphoreFdInfoKHR tmpInfo = *pImportSemaphoreFdInfo;
 
-            AutoLock lock(mLock);
+            AutoLock<RecursiveLock> lock(mLock);
 
             auto semaphoreIt = info_VkSemaphore.find(pImportSemaphoreFdInfo->semaphore);
             auto& info = semaphoreIt->second;
@@ -5819,7 +6565,7 @@ public:
         }
 
         enc->vkQueueCommitDescriptorSetUpdatesGOOGLE(
-            queue, 
+            queue,
             (uint32_t)pools.size(), pools.data(),
             (uint32_t)sets.size(),
             setLayouts.data(),
@@ -5930,7 +6676,7 @@ public:
 
         VkEncoder* enc = (VkEncoder*)context;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         for (uint32_t i = 0; i < submitCount; ++i) {
             for (uint32_t j = 0; j < pSubmits[i].waitSemaphoreCount; ++j) {
@@ -5943,7 +6689,7 @@ public:
                         pre_signal_semaphores.push_back(pSubmits[i].pWaitSemaphores[j]);
                     }
 #endif
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
                     if (semInfo.syncFd >= 0) {
                         pre_signal_sync_fds.push_back(semInfo.syncFd);
                         pre_signal_semaphores.push_back(pSubmits[i].pWaitSemaphores[j]);
@@ -5972,7 +6718,7 @@ public:
 #endif
                     }
 #endif
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
                     if (semInfo.syncFd >= 0) {
                         post_wait_sync_fds.push_back(semInfo.syncFd);
                     }
@@ -6007,7 +6753,7 @@ public:
                 });
             }
 #endif
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
             for (auto fd : pre_signal_sync_fds) {
                 preSignalTasks.push_back([fd] {
                     sync_wait(fd, 3000);
@@ -6044,7 +6790,7 @@ public:
         lock.lock();
         int externalFenceFdToSignal = -1;
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (fence != VK_NULL_HANDLE) {
             auto it = info_VkFence.find(fence);
             if (it != info_VkFence.end()) {
@@ -6080,7 +6826,7 @@ public:
                     zx_object_signal(event, 0, ZX_EVENT_SIGNALED);
                 }
 #endif
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
                 for (auto& fd : post_wait_sync_fds) {
                     goldfish_sync_signal(fd);
                 }
@@ -6105,7 +6851,7 @@ public:
 
         VkEncoder* enc = (VkEncoder*)context;
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         std::vector<WorkPool::WaitGroupHandle> toWait =
             mQueueSensitiveWorkPoolItems[queue];
         mQueueSensitiveWorkPoolItems[queue].clear();
@@ -6157,8 +6903,9 @@ public:
     }
 
     void unwrap_vkAcquireImageANDROID_nativeFenceFd(int fd, int*) {
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
         if (fd != -1) {
+            AEMU_SCOPED_TRACE("waitNativeFenceInAcquire");
             // Implicit Synchronization
             sync_wait(fd, 3000);
             // From libvulkan's swapchain.cpp:
@@ -6197,7 +6944,7 @@ public:
         VkDeviceMemory memory,
         uint64_t* pAddress) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) {
@@ -6230,7 +6977,7 @@ public:
         }
 
         // Now pAddress points to the gpu addr from host.
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDeviceMemory.find(memory);
         if (it == info_VkDeviceMemory.end()) {
@@ -6260,7 +7007,7 @@ public:
         const VkDescriptorUpdateTemplateCreateInfo* pCreateInfo,
         VkDescriptorUpdateTemplate descriptorUpdateTemplate) {
 
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDescriptorUpdateTemplate.find(descriptorUpdateTemplate);
         if (it == info_VkDescriptorUpdateTemplate.end()) {
@@ -6382,7 +7129,7 @@ public:
         if (!userBuffer) return;
 
         // TODO: Make this thread safe
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDescriptorUpdateTemplate.find(descriptorUpdateTemplate);
         if (it == info_VkDescriptorUpdateTemplate.end()) {
@@ -6438,19 +7185,19 @@ public:
                         (const VkDescriptorImageInfo*)(userBuffer + offset + j * stride);
 
                     memcpy(((uint8_t*)imageInfos) + currImageInfoOffset,
-                           userBuffer + offset + j * stride,
-                           sizeof(VkDescriptorImageInfo));
+                           user, sizeof(VkDescriptorImageInfo));
                     currImageInfoOffset += sizeof(VkDescriptorImageInfo);
                 }
 
-                if (batched) doEmulatedDescriptorImageInfoWriteFromTemplate(
+                if (batched) {
+                  doEmulatedDescriptorImageInfoWriteFromTemplate(
                         descType,
                         dstBinding,
                         dstArrayElement,
                         descCount,
                         currImageInfoBegin,
                         reified);
-
+                }
             } else if (isDescriptorTypeBufferInfo(descType)) {
 
 
@@ -6464,18 +7211,19 @@ public:
                         (const VkDescriptorBufferInfo*)(userBuffer + offset + j * stride);
 
                     memcpy(((uint8_t*)bufferInfos) + currBufferInfoOffset,
-                           userBuffer + offset + j * stride,
-                           sizeof(VkDescriptorBufferInfo));
+                           user, sizeof(VkDescriptorBufferInfo));
                     currBufferInfoOffset += sizeof(VkDescriptorBufferInfo);
                 }
 
-                if (batched) doEmulatedDescriptorBufferInfoWriteFromTemplate(
+                if (batched) {
+                  doEmulatedDescriptorBufferInfoWriteFromTemplate(
                         descType,
                         dstBinding,
                         dstArrayElement,
                         descCount,
                         currBufferInfoBegin,
                         reified);
+                }
 
             } else if (isDescriptorTypeBufferView(descType)) {
                 if (!stride) stride = sizeof(VkBufferView);
@@ -6484,19 +7232,23 @@ public:
                     (const VkBufferView*)((uint8_t*)bufferViews + currBufferViewOffset);
 
                 for (uint32_t j = 0; j < descCount; ++j) {
+                  const VkBufferView* user =
+                        (const VkBufferView*)(userBuffer + offset + j * stride);
+
                     memcpy(((uint8_t*)bufferViews) + currBufferViewOffset,
-                           userBuffer + offset + j * stride,
-                           sizeof(VkBufferView));
+                           user, sizeof(VkBufferView));
                     currBufferViewOffset += sizeof(VkBufferView);
                 }
 
-                if (batched) doEmulatedDescriptorBufferViewWriteFromTemplate(
+                if (batched) {
+                  doEmulatedDescriptorBufferViewWriteFromTemplate(
                         descType,
                         dstBinding,
                         dstArrayElement,
                         descCount,
                         currBufferViewBegin,
                         reified);
+                }
             } else {
                 ALOGE("%s: FATAL: Unknown descriptor type %d\n", __func__, descType);
                 abort();
@@ -6596,27 +7348,17 @@ public:
             const VkPhysicalDeviceExternalImageFormatInfo* ext_img_info =
                 vk_find_struct<VkPhysicalDeviceExternalImageFormatInfo>(pImageFormatInfo);
             if (ext_img_info) {
-                switch (static_cast<uint32_t>(ext_img_info->handleType)) {
-                case VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA:
+                if (static_cast<uint32_t>(ext_img_info->handleType) ==
+                    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA) {
                     ext_img_properties->externalMemoryProperties = {
-                        .externalMemoryFeatures = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
-                                                  VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT,
-                        .exportFromImportedHandleTypes =
-                            VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA,
-                        .compatibleHandleTypes =
-                            VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA,
+                            .externalMemoryFeatures =
+                                    VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+                                    VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT,
+                            .exportFromImportedHandleTypes =
+                                    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA,
+                            .compatibleHandleTypes =
+                                    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA,
                     };
-                    break;
-                case VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA:
-                    ext_img_properties->externalMemoryProperties = {
-                        .externalMemoryFeatures = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
-                                                  VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT,
-                        .exportFromImportedHandleTypes =
-                            VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA,
-                        .compatibleHandleTypes =
-                            VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA,
-                    };
-                    break;
                 }
             }
         }
@@ -6661,16 +7403,6 @@ public:
         (void)pExternalSemaphoreProperties;
 #ifdef VK_USE_PLATFORM_FUCHSIA
         if (pExternalSemaphoreInfo->handleType ==
-            VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA) {
-            pExternalSemaphoreProperties->compatibleHandleTypes |=
-                VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA;
-            pExternalSemaphoreProperties->exportFromImportedHandleTypes |=
-                VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA;
-            pExternalSemaphoreProperties->externalSemaphoreFeatures |=
-                VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT |
-                VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT;
-        }
-        if (pExternalSemaphoreInfo->handleType ==
             static_cast<uint32_t>(VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA)) {
             pExternalSemaphoreProperties->compatibleHandleTypes |=
                 VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA;
@@ -6680,8 +7412,7 @@ public:
                 VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT |
                 VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT;
         }
-#endif  // VK_USE_PLATFORM_FUCHSIA
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#else
         if (pExternalSemaphoreInfo->handleType ==
             VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT) {
             pExternalSemaphoreProperties->compatibleHandleTypes |=
@@ -6692,22 +7423,22 @@ public:
                 VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT |
                 VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT;
         }
-#endif  // VK_USE_PLATFORM_ANDROID_KHR
+#endif  // VK_USE_PLATFORM_FUCHSIA
     }
 
     void registerEncoderCleanupCallback(const VkEncoder* encoder, void* object, CleanupCallback callback) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         auto& callbacks = mEncoderCleanupCallbacks[encoder];
         callbacks[object] = callback;
     }
 
     void unregisterEncoderCleanupCallback(const VkEncoder* encoder, void* object) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         mEncoderCleanupCallbacks[encoder].erase(object);
     }
 
     void onEncoderDeleted(const VkEncoder* encoder) {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         if (mEncoderCleanupCallbacks.find(encoder) == mEncoderCleanupCallbacks.end()) return;
 
         std::unordered_map<void*, CleanupCallback> callbackCopies = mEncoderCleanupCallbacks[encoder];
@@ -6854,14 +7585,24 @@ public:
         (void)input_result;
 
         VkImageViewCreateInfo localCreateInfo = vk_make_orphan_copy(*pCreateInfo);
+        vk_struct_chain_iterator structChainIter = vk_make_chain_iterator(&localCreateInfo);
 
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
-        const VkExternalFormatANDROID* extFormatAndroidPtr =
-            vk_find_struct<VkExternalFormatANDROID>(pCreateInfo);
-        if (extFormatAndroidPtr) {
-            if (extFormatAndroidPtr->externalFormat) {
-                localCreateInfo.format =
-                    vk_format_from_android(extFormatAndroidPtr->externalFormat);
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
+        if (pCreateInfo->format == VK_FORMAT_UNDEFINED) {
+            AutoLock<RecursiveLock> lock(mLock);
+
+            auto it = info_VkImage.find(pCreateInfo->image);
+            if (it != info_VkImage.end() && it->second.hasExternalFormat) {
+                localCreateInfo.format = vk_format_from_android(it->second.androidFormat);
+            }
+        }
+        VkSamplerYcbcrConversionInfo localVkSamplerYcbcrConversionInfo;
+        const VkSamplerYcbcrConversionInfo* samplerYcbcrConversionInfo =
+            vk_find_struct<VkSamplerYcbcrConversionInfo>(pCreateInfo);
+        if (samplerYcbcrConversionInfo) {
+            if (samplerYcbcrConversionInfo->conversion != VK_YCBCR_CONVERSION_DO_NOTHING) {
+                localVkSamplerYcbcrConversionInfo = vk_make_orphan_copy(*samplerYcbcrConversionInfo);
+                vk_append_struct(&structChainIter, &localVkSamplerYcbcrConversionInfo);
             }
         }
 #endif
@@ -6977,13 +7718,163 @@ public:
         for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; ++i) {
             struct goldfish_VkCommandBuffer* cb = as_goldfish_VkCommandBuffer(pCommandBuffers[i]);
             cb->isSecondary = pAllocateInfo->level == VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+            cb->device = device;
         }
 
         return res;
     }
 
+    int exportSyncFdForQSRI(VkImage image) {
+        int fd = -1;
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
+        ALOGV("%s: call for image %p hos timage handle 0x%llx\n", __func__, (void*)image,
+                (unsigned long long)get_host_u64_VkImage(image));
+        if (mFeatureInfo->hasVirtioGpuNativeSync) {
+#ifndef HOST_BUILD
+            uint64_t hostImageHandle = get_host_u64_VkImage(image);
+            uint32_t hostImageHandleLo = (uint32_t)hostImageHandle;
+            uint32_t hostImageHandleHi = (uint32_t)(hostImageHandle >> 32);
+
+#define VIRTIO_GPU_NATIVE_SYNC_VULKAN_QSRI_EXPORT 0xa002
+
+            uint32_t cmdDwords[3] = {
+                VIRTIO_GPU_NATIVE_SYNC_VULKAN_QSRI_EXPORT,
+                hostImageHandleLo,
+                hostImageHandleHi,
+            };
+
+            struct drm_virtgpu_execbuffer execbuffer = {
+                // Assume fence context support if we enabled hasVulkanAsyncQsri
+                .flags = VIRTGPU_EXECBUF_FENCE_FD_OUT | VIRTGPU_EXECBUF_RING_IDX,
+                .size = sizeof(cmdDwords),
+                .command = (uint64_t)(cmdDwords),
+                .bo_handles = 0,
+                .num_bo_handles = 0,
+                .fence_fd = -1,
+                .ring_idx = 0,
+            };
+
+            int res = drmIoctl(mRendernodeFd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
+            if (res) {
+                ALOGE("%s: Failed to virtgpu execbuffer: sterror: %s errno: %d\n", __func__,
+                        strerror(errno), errno);
+                abort();
+            }
+
+            fd = execbuffer.fence_fd;
+#endif // !defined(HOST_BUILD)
+        } else {
+            goldfish_sync_queue_work(
+                    mSyncDeviceFd,
+                    get_host_u64_VkImage(image) /* the handle */,
+                    GOLDFISH_SYNC_VULKAN_QSRI /* thread handle (doubling as type field) */,
+                    &fd);
+        }
+        ALOGV("%s: got fd: %d\n", __func__, fd);
+#endif
+        return fd;
+    }
+
+    VkResult on_vkQueueSignalReleaseImageANDROID(
+        void* context,
+        VkResult input_result,
+        VkQueue queue,
+        uint32_t waitSemaphoreCount,
+        const VkSemaphore* pWaitSemaphores,
+        VkImage image,
+        int* pNativeFenceFd) {
+
+        (void)input_result;
+
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
+        VkEncoder* enc = (VkEncoder*)context;
+
+        if (!mFeatureInfo->hasVulkanAsyncQsri) {
+            return enc->vkQueueSignalReleaseImageANDROID(queue, waitSemaphoreCount, pWaitSemaphores, image, pNativeFenceFd, true /* lock */);
+        }
+
+        AutoLock<RecursiveLock> lock(mLock);
+
+        auto it = info_VkImage.find(image);
+        if (it == info_VkImage.end()) {
+            if (pNativeFenceFd) *pNativeFenceFd = -1;
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        auto& imageInfo = it->second;
+
+        enc->vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(queue, waitSemaphoreCount, pWaitSemaphores, image, true /* lock */);
+
+        if (pNativeFenceFd) {
+            *pNativeFenceFd =
+                exportSyncFdForQSRI(image);
+        } else {
+            int syncFd = exportSyncFdForQSRI(image);
+            if (syncFd >= 0) close(syncFd);
+        }
+#endif
+        return VK_SUCCESS;
+    }
+
+    VkResult on_vkCreateGraphicsPipelines(
+        void* context,
+        VkResult input_result,
+        VkDevice device,
+        VkPipelineCache pipelineCache,
+        uint32_t createInfoCount,
+        const VkGraphicsPipelineCreateInfo* pCreateInfos,
+        const VkAllocationCallbacks* pAllocator,
+        VkPipeline* pPipelines) {
+        (void)input_result;
+        VkEncoder* enc = (VkEncoder*)context;
+        std::vector<VkGraphicsPipelineCreateInfo> localCreateInfos(
+                pCreateInfos, pCreateInfos + createInfoCount);
+        for (VkGraphicsPipelineCreateInfo& graphicsPipelineCreateInfo : localCreateInfos) {
+            // dEQP-VK.api.pipeline.pipeline_invalid_pointers_unused_structs#graphics
+            bool requireViewportState = false;
+            // VUID-VkGraphicsPipelineCreateInfo-rasterizerDiscardEnable-00750
+            requireViewportState |= graphicsPipelineCreateInfo.pRasterizationState != nullptr &&
+                    graphicsPipelineCreateInfo.pRasterizationState->rasterizerDiscardEnable
+                        == VK_FALSE;
+            // VUID-VkGraphicsPipelineCreateInfo-pViewportState-04892
+#ifdef VK_EXT_extended_dynamic_state2
+            if (!requireViewportState && graphicsPipelineCreateInfo.pDynamicState) {
+                for (uint32_t i = 0; i <
+                            graphicsPipelineCreateInfo.pDynamicState->dynamicStateCount; i++) {
+                    if (VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT ==
+                                graphicsPipelineCreateInfo.pDynamicState->pDynamicStates[i]) {
+                        requireViewportState = true;
+                        break;
+                    }
+                }
+            }
+#endif // VK_EXT_extended_dynamic_state2
+            if (!requireViewportState) {
+                graphicsPipelineCreateInfo.pViewportState = nullptr;
+            }
+
+            // It has the same requirement as for pViewportState.
+            bool shouldIncludeFragmentShaderState = requireViewportState;
+
+            // VUID-VkGraphicsPipelineCreateInfo-rasterizerDiscardEnable-00751
+            if (!shouldIncludeFragmentShaderState) {
+                graphicsPipelineCreateInfo.pMultisampleState = nullptr;
+            }
+
+            // VUID-VkGraphicsPipelineCreateInfo-renderPass-06043
+            // VUID-VkGraphicsPipelineCreateInfo-renderPass-06044
+            if (graphicsPipelineCreateInfo.renderPass == VK_NULL_HANDLE
+                    || !shouldIncludeFragmentShaderState) {
+                graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+                graphicsPipelineCreateInfo.pColorBlendState = nullptr;
+            }
+        }
+        return enc->vkCreateGraphicsPipelines(device, pipelineCache, localCreateInfos.size(),
+                localCreateInfos.data(), pAllocator, pPipelines, true /* do lock */);
+    }
+
     uint32_t getApiVersionFromInstance(VkInstance instance) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
         uint32_t api = kDefaultApiVersion;
 
         auto it = info_VkInstance.find(instance);
@@ -6995,7 +7886,7 @@ public:
     }
 
     uint32_t getApiVersionFromDevice(VkDevice device) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         uint32_t api = kDefaultApiVersion;
 
@@ -7008,7 +7899,7 @@ public:
     }
 
     bool hasInstanceExtension(VkInstance instance, const std::string& name) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkInstance.find(instance);
         if (it == info_VkInstance.end()) return false;
@@ -7018,7 +7909,7 @@ public:
     }
 
     bool hasDeviceExtension(VkDevice device, const std::string& name) const {
-        AutoLock lock(mLock);
+        AutoLock<RecursiveLock> lock(mLock);
 
         auto it = info_VkDevice.find(device);
         if (it == info_VkDevice.end()) return false;
@@ -7027,8 +7918,17 @@ public:
                it->second.enabledExtensions.end();
     }
 
+    VkDevice getDevice(VkCommandBuffer commandBuffer) const {
+        struct goldfish_VkCommandBuffer* cb = as_goldfish_VkCommandBuffer(commandBuffer);
+        if (!cb) {
+            return nullptr;
+        }
+        return cb->device;
+    }
+
     // Resets staging stream for this command buffer and primary command buffers
-    // where this command buffer has been recorded.
+    // where this command buffer has been recorded. If requested, also clears the pending
+    // descriptor sets.
     void resetCommandBufferStagingInfo(VkCommandBuffer commandBuffer, bool alsoResetPrimaries, bool alsoClearPendingDescriptorSets) {
         struct goldfish_VkCommandBuffer* cb = as_goldfish_VkCommandBuffer(commandBuffer);
         if (!cb) {
@@ -7104,16 +8004,15 @@ private:
     std::vector<VkExtensionProperties> mHostInstanceExtensions;
     std::vector<VkExtensionProperties> mHostDeviceExtensions;
 
+#if defined(VK_USE_PLATFORM_ANDROID_KHR) || defined(__linux__)
     int mSyncDeviceFd = -1;
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
     int mRendernodeFd = -1;
 #endif
 
 #ifdef VK_USE_PLATFORM_FUCHSIA
-    std::unique_ptr<
-        fidl::WireSyncClient<fuchsia_hardware_goldfish::ControlDevice>>
+    fidl::WireSyncClient<fuchsia_hardware_goldfish::ControlDevice>
         mControlDevice;
-    std::unique_ptr<fidl::WireSyncClient<fuchsia_sysmem::Allocator>>
+    fidl::WireSyncClient<fuchsia_sysmem::Allocator>
         mSysmemAllocator;
 #endif
 
@@ -7158,11 +8057,6 @@ ResourceTracker* ResourceTracker::get() {
     } \
 
 GOLDFISH_VK_LIST_HANDLE_TYPES(HANDLE_REGISTER_IMPL)
-
-bool ResourceTracker::isMemoryTypeHostVisible(
-    VkDevice device, uint32_t typeIndex) const {
-    return mImpl->isMemoryTypeHostVisible(device, typeIndex);
-}
 
 uint8_t* ResourceTracker::getMappedPointer(VkDeviceMemory memory) {
     return mImpl->getMappedPointer(memory);
@@ -7213,6 +8107,9 @@ bool ResourceTracker::hasInstanceExtension(VkInstance instance, const std::strin
 bool ResourceTracker::hasDeviceExtension(VkDevice device, const std::string &name) const {
     return mImpl->hasDeviceExtension(device, name);
 }
+VkDevice ResourceTracker::getDevice(VkCommandBuffer commandBuffer) const {
+    return mImpl->getDevice(commandBuffer);
+}
 void ResourceTracker::addToCommandPool(VkCommandPool commandPool,
                       uint32_t commandBufferCount,
                       VkCommandBuffer* pCommandBuffers) {
@@ -7224,7 +8121,7 @@ void ResourceTracker::resetCommandPoolStagingInfo(VkCommandPool commandPool) {
 
 
 // static
-__attribute__((always_inline)) VkEncoder* ResourceTracker::getCommandBufferEncoder(VkCommandBuffer commandBuffer) {
+ALWAYS_INLINE VkEncoder* ResourceTracker::getCommandBufferEncoder(VkCommandBuffer commandBuffer) {
     if (!(ResourceTracker::streamFeatureBits & VULKAN_STREAM_FEATURE_QUEUE_SUBMIT_WITH_COMMANDS_BIT)) {
         auto enc = ResourceTracker::getThreadLocalEncoder();
         ResourceTracker::get()->syncEncodersForCommandBuffer(commandBuffer, enc);
@@ -7241,7 +8138,7 @@ __attribute__((always_inline)) VkEncoder* ResourceTracker::getCommandBufferEncod
 }
 
 // static
-__attribute__((always_inline)) VkEncoder* ResourceTracker::getQueueEncoder(VkQueue queue) {
+ALWAYS_INLINE VkEncoder* ResourceTracker::getQueueEncoder(VkQueue queue) {
     auto enc = ResourceTracker::getThreadLocalEncoder();
     if (!(ResourceTracker::streamFeatureBits & VULKAN_STREAM_FEATURE_QUEUE_SUBMIT_WITH_COMMANDS_BIT)) {
         ResourceTracker::get()->syncEncodersForQueue(queue, enc);
@@ -7250,7 +8147,7 @@ __attribute__((always_inline)) VkEncoder* ResourceTracker::getQueueEncoder(VkQue
 }
 
 // static
-__attribute__((always_inline)) VkEncoder* ResourceTracker::getThreadLocalEncoder() {
+ALWAYS_INLINE VkEncoder* ResourceTracker::getThreadLocalEncoder() {
     auto hostConn = ResourceTracker::threadingCallbacks.hostConnectionGetFunc();
     auto vkEncoder = ResourceTracker::threadingCallbacks.vkEncoderGetFunc(hostConn);
     return vkEncoder;
@@ -7262,13 +8159,13 @@ void ResourceTracker::setSeqnoPtr(uint32_t* seqnoptr) {
 }
 
 // static
-__attribute__((always_inline)) uint32_t ResourceTracker::nextSeqno() {
+ALWAYS_INLINE uint32_t ResourceTracker::nextSeqno() {
     uint32_t res = __atomic_add_fetch(sSeqnoPtr, 1, __ATOMIC_SEQ_CST);
     return res;
 }
 
 // static
-__attribute__((always_inline)) uint32_t ResourceTracker::getSeqno() {
+ALWAYS_INLINE uint32_t ResourceTracker::getSeqno() {
     uint32_t res = __atomic_load_n(sSeqnoPtr, __ATOMIC_SEQ_CST);
     return res;
 }
@@ -7309,6 +8206,22 @@ void ResourceTracker::on_vkGetPhysicalDeviceProperties(
     VkPhysicalDeviceProperties* pProperties) {
     mImpl->on_vkGetPhysicalDeviceProperties(context, physicalDevice,
         pProperties);
+}
+
+void ResourceTracker::on_vkGetPhysicalDeviceFeatures2(
+    void* context,
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceFeatures2* pFeatures) {
+    mImpl->on_vkGetPhysicalDeviceFeatures2(context, physicalDevice,
+        pFeatures);
+}
+
+void ResourceTracker::on_vkGetPhysicalDeviceFeatures2KHR(
+    void* context,
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceFeatures2* pFeatures) {
+    mImpl->on_vkGetPhysicalDeviceFeatures2(context, physicalDevice,
+        pFeatures);
 }
 
 void ResourceTracker::on_vkGetPhysicalDeviceProperties2(
@@ -7646,7 +8559,8 @@ VkResult ResourceTracker::on_vkImportSemaphoreZirconHandleFUCHSIA(
 }
 
 VkResult ResourceTracker::on_vkCreateBufferCollectionFUCHSIA(
-    void* context, VkResult input_result,
+    void* context,
+    VkResult input_result,
     VkDevice device,
     const VkBufferCollectionCreateInfoFUCHSIA* pInfo,
     const VkAllocationCallbacks* pAllocator,
@@ -7656,28 +8570,21 @@ VkResult ResourceTracker::on_vkCreateBufferCollectionFUCHSIA(
 }
 
 void ResourceTracker::on_vkDestroyBufferCollectionFUCHSIA(
-        void* context, VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        const VkAllocationCallbacks* pAllocator) {
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIA collection,
+    const VkAllocationCallbacks* pAllocator) {
     return mImpl->on_vkDestroyBufferCollectionFUCHSIA(
         context, input_result, device, collection, pAllocator);
 }
 
-VkResult ResourceTracker::on_vkSetBufferCollectionConstraintsFUCHSIA(
-        void* context, VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        const VkImageCreateInfo* pImageInfo) {
-    return mImpl->on_vkSetBufferCollectionConstraintsFUCHSIA(
-        context, input_result, device, collection, pImageInfo);
-}
-
 VkResult ResourceTracker::on_vkSetBufferCollectionBufferConstraintsFUCHSIA(
-        void* context, VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        const VkBufferConstraintsInfoFUCHSIA* pBufferDConstraintsInfo) {
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIA collection,
+    const VkBufferConstraintsInfoFUCHSIA* pBufferDConstraintsInfo) {
     return mImpl->on_vkSetBufferCollectionBufferConstraintsFUCHSIA(
         context, input_result, device, collection, pBufferDConstraintsInfo);
 }
@@ -7693,21 +8600,83 @@ VkResult ResourceTracker::on_vkSetBufferCollectionImageConstraintsFUCHSIA(
 }
 
 VkResult ResourceTracker::on_vkGetBufferCollectionPropertiesFUCHSIA(
-        void* context, VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIA collection,
-        VkBufferCollectionPropertiesFUCHSIA* pProperties) {
-    return mImpl->on_vkGetBufferCollectionPropertiesFUCHSIA(
-        context, input_result, device, collection, pProperties);
-}
-
-VkResult ResourceTracker::on_vkGetBufferCollectionProperties2FUCHSIA(
     void* context,
     VkResult input_result,
     VkDevice device,
     VkBufferCollectionFUCHSIA collection,
-    VkBufferCollectionProperties2FUCHSIA* pProperties) {
-    return mImpl->on_vkGetBufferCollectionProperties2FUCHSIA(
+    VkBufferCollectionPropertiesFUCHSIA* pProperties) {
+    return mImpl->on_vkGetBufferCollectionPropertiesFUCHSIA(
+        context, input_result, device, collection, pProperties);
+}
+
+VkResult ResourceTracker::on_vkCreateBufferCollectionFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    const VkBufferCollectionCreateInfoFUCHSIAX* pInfo,
+    const VkAllocationCallbacks* pAllocator,
+    VkBufferCollectionFUCHSIAX* pCollection) {
+    return mImpl->on_vkCreateBufferCollectionFUCHSIAX(
+        context, input_result, device, pInfo, pAllocator, pCollection);
+}
+
+void ResourceTracker::on_vkDestroyBufferCollectionFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    const VkAllocationCallbacks* pAllocator) {
+    return mImpl->on_vkDestroyBufferCollectionFUCHSIAX(
+        context, input_result, device, collection, pAllocator);
+}
+
+VkResult ResourceTracker::on_vkSetBufferCollectionConstraintsFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    const VkImageCreateInfo* pImageInfo) {
+    return mImpl->on_vkSetBufferCollectionConstraintsFUCHSIAX(
+        context, input_result, device, collection, pImageInfo);
+}
+
+VkResult ResourceTracker::on_vkSetBufferCollectionBufferConstraintsFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    const VkBufferConstraintsInfoFUCHSIAX* pBufferDConstraintsInfo) {
+    return mImpl->on_vkSetBufferCollectionBufferConstraintsFUCHSIAX(
+        context, input_result, device, collection, pBufferDConstraintsInfo);
+}
+
+VkResult ResourceTracker::on_vkSetBufferCollectionImageConstraintsFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    const VkImageConstraintsInfoFUCHSIAX* pImageConstraintsInfo) {
+    return mImpl->on_vkSetBufferCollectionImageConstraintsFUCHSIAX(
+        context, input_result, device, collection, pImageConstraintsInfo);
+}
+
+VkResult ResourceTracker::on_vkGetBufferCollectionPropertiesFUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    VkBufferCollectionPropertiesFUCHSIAX* pProperties) {
+    return mImpl->on_vkGetBufferCollectionPropertiesFUCHSIAX(
+        context, input_result, device, collection, pProperties);
+}
+
+VkResult ResourceTracker::on_vkGetBufferCollectionProperties2FUCHSIAX(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkBufferCollectionFUCHSIAX collection,
+    VkBufferCollectionProperties2FUCHSIAX* pProperties) {
+    return mImpl->on_vkGetBufferCollectionProperties2FUCHSIAX(
         context, input_result, device, collection, pProperties);
 }
 #endif
@@ -8097,7 +9066,7 @@ void ResourceTracker::on_vkCmdBindDescriptorSets(
     mImpl->on_vkCmdBindDescriptorSets(
         context,
         commandBuffer,
-        pipelineBindPoint, 
+        pipelineBindPoint,
         layout,
         firstSet,
         descriptorSetCount,
@@ -8121,6 +9090,29 @@ VkResult ResourceTracker::on_vkAllocateCommandBuffers(
     const VkCommandBufferAllocateInfo* pAllocateInfo,
     VkCommandBuffer* pCommandBuffers) {
     return mImpl->on_vkAllocateCommandBuffers(context, input_result, device, pAllocateInfo, pCommandBuffers);
+}
+
+VkResult ResourceTracker::on_vkQueueSignalReleaseImageANDROID(
+    void* context,
+    VkResult input_result,
+    VkQueue queue,
+    uint32_t waitSemaphoreCount,
+    const VkSemaphore* pWaitSemaphores,
+    VkImage image,
+    int* pNativeFenceFd) {
+    return mImpl->on_vkQueueSignalReleaseImageANDROID(context, input_result, queue, waitSemaphoreCount, pWaitSemaphores, image, pNativeFenceFd);
+}
+
+VkResult ResourceTracker::on_vkCreateGraphicsPipelines(
+    void* context,
+    VkResult input_result,
+    VkDevice device,
+    VkPipelineCache pipelineCache,
+    uint32_t createInfoCount,
+    const VkGraphicsPipelineCreateInfo* pCreateInfos,
+    const VkAllocationCallbacks* pAllocator,
+    VkPipeline* pPipelines) {
+    return mImpl->on_vkCreateGraphicsPipelines(context, input_result, device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
 }
 
 void ResourceTracker::deviceMemoryTransform_tohost(
@@ -8160,6 +9152,11 @@ void ResourceTracker::transformImpl_VkExternalMemoryProperties_fromhost(
 
 void ResourceTracker::transformImpl_VkExternalMemoryProperties_tohost(
     VkExternalMemoryProperties*, uint32_t) {}
+
+void ResourceTracker::transformImpl_VkImageCreateInfo_fromhost(const VkImageCreateInfo*,
+                                                               uint32_t) {}
+void ResourceTracker::transformImpl_VkImageCreateInfo_tohost(const VkImageCreateInfo*,
+                                                             uint32_t) {}
 
 #define DEFINE_TRANSFORMED_TYPE_IMPL(type)                                  \
     void ResourceTracker::transformImpl_##type##_tohost(type*, uint32_t) {} \

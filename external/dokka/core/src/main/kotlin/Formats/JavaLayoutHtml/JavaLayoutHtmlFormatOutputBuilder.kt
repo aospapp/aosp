@@ -392,14 +392,14 @@ open class JavaLayoutHtmlFormatOutputBuilder(
         bodyContent = {
             h1 { +page.node.name }
             nodeContent(page.node)
-            summaryNodeGroup(page.interfaces, "Interfaces", headerAsRow = false) { classLikeRow(it) }
-            summaryNodeGroup(page.classes, "Classes", headerAsRow = false) { classLikeRow(it) }
-            summaryNodeGroup(page.exceptions, "Exceptions", headerAsRow = false) { classLikeRow(it) }
-            summaryNodeGroup(page.typeAliases, "Type-aliases", headerAsRow = false) { classLikeRow(it) }
-            summaryNodeGroup(page.annotations, "Annotations", headerAsRow = false) { classLikeRow(it) }
-            summaryNodeGroup(page.enums, "Enums", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.interfaces, "Interfaces", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.classes, "Classes", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.exceptions, "Exceptions", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.typeAliases, "Type-aliases", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.annotations, "Annotations", headerAsRow = false) { classLikeRow(it) }
+            this@composePage.summaryNodeGroup(page.enums, "Enums", headerAsRow = false) { classLikeRow(it) }
 
-            summaryNodeGroup(
+            this@composePage.summaryNodeGroup(
                 page.constants,
                 "Top-level constants summary",
                 headerAsRow = false
@@ -407,7 +407,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 propertyLikeSummaryRow(it)
             }
 
-            summaryNodeGroup(
+            this@composePage.summaryNodeGroup(
                 page.functions,
                 "Top-level functions summary",
                 headerAsRow = false
@@ -415,7 +415,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 functionLikeSummaryRow(it)
             }
 
-            summaryNodeGroup(
+            this@composePage.summaryNodeGroup(
                 page.properties,
                 "Top-level properties summary",
                 headerAsRow = false
@@ -423,7 +423,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 propertyLikeSummaryRow(it)
             }
 
-            summaryNodeGroup(
+            this@composePage.summaryNodeGroup(
                 page.extensionFunctions.entries,
                 "Extension functions summary",
                 headerAsRow = false
@@ -433,7 +433,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 }
             }
 
-            summaryNodeGroup(
+            this@composePage.summaryNodeGroup(
                 page.extensionProperties.entries,
                 "Extension properties summary",
                 headerAsRow = false
@@ -528,7 +528,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
     }
 
     protected open fun FlowContent.classLikeSummaries(page: Page.ClassPage) = with(page) {
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             nestedClasses,
             "Nested classes",
             headerAsRow = true
@@ -536,14 +536,14 @@ open class JavaLayoutHtmlFormatOutputBuilder(
             nestedClassSummaryRow(it)
         }
 
-        summaryNodeGroup(enumValues, "Enum values") {
+        this@classLikeSummaries.summaryNodeGroup(enumValues, "Enum values") {
             propertyLikeSummaryRow(it)
         }
 
-        summaryNodeGroup(constants, "Constants") { propertyLikeSummaryRow(it) }
+        this@classLikeSummaries.summaryNodeGroup(constants, "Constants") { propertyLikeSummaryRow(it) }
 
         constructors.forEach { (visibility, group) ->
-            summaryNodeGroup(
+            this@classLikeSummaries.summaryNodeGroup(
                     group,
                     "${visibility.capitalize()} constructors",
                     headerAsRow = true
@@ -553,7 +553,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
         }
 
         functions.forEach { (visibility, group) ->
-            summaryNodeGroup(
+            this@classLikeSummaries.summaryNodeGroup(
                     group,
                     "${visibility.capitalize()} functions",
                     headerAsRow = true
@@ -562,14 +562,14 @@ open class JavaLayoutHtmlFormatOutputBuilder(
             }
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             companionFunctions,
             "Companion functions",
             headerAsRow = true
         ) {
             functionLikeSummaryRow(it)
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             inheritedFunctionsByReceiver.entries,
             "Inherited functions",
             headerAsRow = true
@@ -578,7 +578,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 functionLikeSummaryRow(it)
             }
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             extensionFunctions.entries,
             "Extension functions",
             headerAsRow = true
@@ -587,7 +587,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 functionLikeSummaryRow(it)
             }
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             inheritedExtensionFunctions.entries,
             "Inherited extension functions",
             headerAsRow = true
@@ -598,8 +598,8 @@ open class JavaLayoutHtmlFormatOutputBuilder(
         }
 
 
-        summaryNodeGroup(properties, "Properties", headerAsRow = true) { propertyLikeSummaryRow(it) }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(properties, "Properties", headerAsRow = true) { propertyLikeSummaryRow(it) }
+        this@classLikeSummaries.summaryNodeGroup(
             companionProperties,
             "Companion properties",
             headerAsRow = true
@@ -607,7 +607,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
             propertyLikeSummaryRow(it)
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             inheritedPropertiesByReceiver.entries,
             "Inherited properties",
             headerAsRow = true
@@ -616,7 +616,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 propertyLikeSummaryRow(it)
             }
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             extensionProperties.entries,
             "Extension properties",
             headerAsRow = true
@@ -625,7 +625,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 propertyLikeSummaryRow(it)
             }
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             inheritedExtensionProperties.entries,
             "Inherited extension properties",
             headerAsRow = true

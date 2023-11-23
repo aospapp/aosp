@@ -16,9 +16,14 @@
 
 package com.android.networkstack.apishim.api31;
 
+import android.os.Build;
+
+import androidx.annotation.RequiresApi;
+
 /**
- * Implementation of {@link NetworkShim} for API 30.
+ * Implementation of {@link SocketUtilsShim} for API 31.
  */
+@RequiresApi(Build.VERSION_CODES.S)
 public class SocketUtilsShimImpl
         extends com.android.networkstack.apishim.api30.SocketUtilsShimImpl {
     // Currently, this is the same as the API 30 shim, so inherit everything from that.

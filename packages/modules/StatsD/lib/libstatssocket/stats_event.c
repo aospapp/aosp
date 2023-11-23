@@ -50,6 +50,7 @@
 #define ERROR_INVALID_VALUE_TYPE 0x400
 #define ERROR_STRING_NOT_NULL_TERMINATED 0x800
 #define ERROR_ATOM_ID_INVALID_POSITION 0x2000
+#define ERROR_LIST_TOO_LONG 0x4000
 
 /* TYPE IDS */
 #define INT32_TYPE 0x00
@@ -261,6 +262,69 @@ void AStatsEvent_writeAttributionChain(AStatsEvent* event, const uint32_t* uids,
     for (uint8_t i = 0; i < numNodes; i++) {
         append_int32(event, uids[i]);
         append_string(event, tags[i] == NULL ? "" : tags[i]);
+    }
+}
+
+static bool writeArrayMetadata(AStatsEvent* event, size_t numElements, uint8_t elementTypeId) {
+    if (numElements > MAX_BYTE_VALUE) {
+        event->errors |= ERROR_LIST_TOO_LONG;
+        return false;
+    }
+
+    start_field(event, LIST_TYPE);
+    append_byte(event, numElements);
+    append_byte(event, elementTypeId);
+    return true;
+}
+
+void AStatsEvent_writeInt32Array(AStatsEvent* event, const int32_t* elements, size_t numElements) {
+    if (!writeArrayMetadata(event, numElements, INT32_TYPE)) {
+        return;
+    }
+
+    for (size_t i = 0; i < numElements; i++) {
+        append_int32(event, elements[i]);
+    }
+}
+
+void AStatsEvent_writeInt64Array(AStatsEvent* event, const int64_t* elements, size_t numElements) {
+    if (!writeArrayMetadata(event, numElements, INT64_TYPE)) {
+        return;
+    }
+
+    for (size_t i = 0; i < numElements; i++) {
+        append_int64(event, elements[i]);
+    }
+}
+
+void AStatsEvent_writeFloatArray(AStatsEvent* event, const float* elements, size_t numElements) {
+    if (!writeArrayMetadata(event, numElements, FLOAT_TYPE)) {
+        return;
+    }
+
+    for (size_t i = 0; i < numElements; i++) {
+        append_float(event, elements[i]);
+    }
+}
+
+void AStatsEvent_writeBoolArray(AStatsEvent* event, const bool* elements, size_t numElements) {
+    if (!writeArrayMetadata(event, numElements, BOOL_TYPE)) {
+        return;
+    }
+
+    for (size_t i = 0; i < numElements; i++) {
+        append_bool(event, elements[i]);
+    }
+}
+
+void AStatsEvent_writeStringArray(AStatsEvent* event, const char* const* elements,
+                                  size_t numElements) {
+    if (!writeArrayMetadata(event, numElements, STRING_TYPE)) {
+        return;
+    }
+
+    for (size_t i = 0; i < numElements; i++) {
+        append_string(event, elements[i] == NULL ? "" : elements[i]);
     }
 }
 

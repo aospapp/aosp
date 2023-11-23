@@ -16,6 +16,19 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library_host {
+    name: "catbox-tradefed-lib",
+    java_resource_dirs: ["res"],
+    static_libs: [
+        "cts-tradefed-harness",
+        "catbox-common",
+        "catbox-preparer-lib",
+        "catbox-report-lib"
+    ],
+    required: ["compatibility-host-util"],
+}
+
+
 tradefed_binary_host {
     name: "catbox-tradefed",
     java_resource_dirs: ["res"],
@@ -23,6 +36,13 @@ tradefed_binary_host {
     short_name: "CATBOX",
     full_name: "Complete Automotive Test in a Box",
     version: "1.0",
-    static_libs: ["cts-tradefed-harness", "catbox-common"],
-    required: ["compatibility-host-util", "catbox-report-lib"],
+    static_libs: [
+        "cts-tradefed-harness",
+        "catbox-common",
+        "catbox-preparer-lib"
+    ],
+    required: [
+        "compatibility-host-util",
+        "catbox-report-lib"
+    ],
 }

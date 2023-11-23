@@ -16,25 +16,6 @@ license {
 }
 
 python_library {
-    name: "py2-jinja",
-    host_supported: true,
-    srcs: ["src/jinja2/*.py"],
-    exclude_srcs: ["src/jinja2/async*.py"],
-    libs: [
-        "py-markupsafe",
-        "py-setuptools",
-    ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: false,
-        },
-    },
-}
-
-python_library {
     name: "py-jinja",
     host_supported: true,
     srcs: ["src/jinja2/*.py"],

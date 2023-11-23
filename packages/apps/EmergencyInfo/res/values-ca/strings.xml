@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"D\'acord"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"No hi ha informació sobre el propietari del telèfon"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Si el telèfon és teu, toca la icona de llapis per afegir la informació que es mostrarà aquí en cas d\'emergència"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Amb el telèfon desbloquejat, toca la icona de llapis per afegir la informació que es mostrarà aquí en cas d\'emergència"</string>
     <string name="clear_all" msgid="8899013032870561633">"Esborra-ho tot"</string>
     <string name="clear" msgid="3648880442502887163">"Esborra"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vols esborrar tota la informació i tots els contactes?"</string>

@@ -143,58 +143,62 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
     pylab.xticks(NR_MODES_LIST)
     matplotlib.pyplot.savefig('%s_plot_SNRs.png' % os.path.join(log_path, NAME))
 
-    assert nr_modes_reported == NR_MODES_LIST
+    if nr_modes_reported != NR_MODES_LIST:
+      raise AssertionError(f'{nr_modes_reported} != {NR_MODES_LIST}')
 
     for j in range(NUM_COLORS):
       # Higher SNR is better
       # Verify OFF is not better than FAST
-      e_msg = '%s OFF: %.3f, FAST: %.3f, TOL: %.3f' % (
-          COLORS[j], snrs[j][NR_MODES['OFF']], snrs[j][NR_MODES['FAST']],
-          SNR_TOLERANCE)
-      assert (snrs[j][NR_MODES['OFF']] < snrs[j][NR_MODES['FAST']] +
-              SNR_TOLERANCE), e_msg
+      if (snrs[j][NR_MODES['OFF']] >= snrs[j][NR_MODES['FAST']] +
+          SNR_TOLERANCE):
+        raise AssertionError(
+            f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
+            f"FAST: {snrs[j][NR_MODES['FAST']]:.3f}, TOL: {SNR_TOLERANCE}")
 
       # Verify FAST is not better than HQ
-      e_msg = '%s FAST: %.3f, HQ: %.3f, TOL: %.3f' % (
-          COLORS[j], snrs[j][NR_MODES['FAST']], snrs[j][NR_MODES['HQ']],
-          SNR_TOLERANCE)
-      assert (snrs[j][NR_MODES['FAST']] < snrs[j][NR_MODES['HQ']] +
-              SNR_TOLERANCE), e_msg
+      if (snrs[j][NR_MODES['FAST']] >= snrs[j][NR_MODES['HQ']] +
+          SNR_TOLERANCE):
+        raise AssertionError(
+            f"{COLORS[j]} FAST: {snrs[j][NR_MODES['FAST']]:.3f}, "
+            f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}, TOL: {SNR_TOLERANCE}")
 
       # Verify HQ is better than OFF
-      e_msg = '%s OFF: %.3f, HQ: %.3f' % (
-          COLORS[j], snrs[j][NR_MODES['OFF']], snrs[j][NR_MODES['HQ']])
-      assert snrs[j][NR_MODES['HQ']] > snrs[j][NR_MODES['OFF']], e_msg
+      if snrs[j][NR_MODES['HQ']] <= snrs[j][NR_MODES['OFF']]:
+        raise AssertionError(
+            f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
+            f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}")
 
       if camera_properties_utils.noise_reduction_mode(props, NR_MODES['MIN']):
         # Verify OFF is not better than MINIMAL
-        e_msg = '%s OFF: %.3f, MIN: %.3f, TOL: %.3f' % (
-            COLORS[j], snrs[j][NR_MODES['OFF']], snrs[j][NR_MODES['MIN']],
-            SNR_TOLERANCE)
-        assert (snrs[j][NR_MODES['OFF']] < snrs[j][NR_MODES['MIN']] +
-                SNR_TOLERANCE), e_msg
+        if not(snrs[j][NR_MODES['OFF']] < snrs[j][NR_MODES['MIN']] +
+               SNR_TOLERANCE):
+          raise AssertionError(
+              f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
+              f"MIN: {snrs[j][NR_MODES['MIN']]:.3f}, TOL: {SNR_TOLERANCE}")
 
         # Verify MINIMAL is not better than HQ
-        e_msg = '%s MIN: %.3f, HQ: %.3f, TOL: %.3f' % (
-            COLORS[j], snrs[j][NR_MODES['MIN']], snrs[j][NR_MODES['HQ']],
-            SNR_TOLERANCE)
-        assert (snrs[j][NR_MODES['MIN']] < snrs[j][NR_MODES['HQ']] +
-                SNR_TOLERANCE), e_msg
+        if not (snrs[j][NR_MODES['MIN']] < snrs[j][NR_MODES['HQ']] +
+                SNR_TOLERANCE):
+          raise AssertionError(
+              f"{COLORS[j]} MIN: {snrs[j][NR_MODES['MIN']]:.3f}, "
+              f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}, TOL: {SNR_TOLERANCE}")
 
+        # Verify ZSL is close to MINIMAL
         if camera_properties_utils.noise_reduction_mode(props, NR_MODES['ZSL']):
-          # Verify ZSL is close to MINIMAL
-          e_msg = '%s ZSL: %.3f, MIN: %.3f, TOL: %.3f' % (
-              COLORS[j], snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['MIN']],
-              SNR_TOLERANCE)
-          assert np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['MIN']],
-                            atol=SNR_TOLERANCE), e_msg
+          if not np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['MIN']],
+                            atol=SNR_TOLERANCE):
+            raise AssertionError(
+                f"{COLORS[j]} ZSL: {snrs[j][NR_MODES['ZSL']]:.3f}, "
+                f"MIN: {snrs[j][NR_MODES['MIN']]:.3f}, TOL: {SNR_TOLERANCE}")
+
       elif camera_properties_utils.noise_reduction_mode(props, NR_MODES['ZSL']):
         # Verify ZSL is close to OFF
-        e_msg = '%s OFF: %.3f, ZSL: %.3f, TOL: %.3f' % (
-            COLORS[j], snrs[j][NR_MODES['OFF']], snrs[j][NR_MODES['ZSL']],
-            SNR_TOLERANCE)
-        assert np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['OFF']],
-                          atol=SNR_TOLERANCE), e_msg
+        if not np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['OFF']],
+                          atol=SNR_TOLERANCE):
+          raise AssertionError(
+              f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:3f}, "
+              f"ZSL: {snrs[j][NR_MODES['ZSL']]:3f}, TOL: {SNR_TOLERANCE}")
+
 
 if __name__ == '__main__':
   test_runner.main()

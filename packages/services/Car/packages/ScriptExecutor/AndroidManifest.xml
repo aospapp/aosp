@@ -17,6 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="com.android.car.scriptexecutor">
 
+    <uses-sdk android:minSdkVersion="33"/>
     <application android:label="@string/app_title"
          android:allowBackup="false">
 

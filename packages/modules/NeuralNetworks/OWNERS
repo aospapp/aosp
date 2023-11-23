@@ -1,13 +1,3 @@
-butlermichael@google.com
-dgross@google.com
-jeanluc@google.com
-levp@google.com
-miaowang@google.com
-mikie@google.com
-mks@google.com
-pszczepaniak@google.com
-slavash@google.com
-vddang@google.com
-xusongw@google.com
-
+# Bug component: 195575
+include /NNAPI_OWNERS  # Neuralnetworks team
 include platform/packages/modules/common:/MODULES_OWNERS  # see go/mainline-owners-policy

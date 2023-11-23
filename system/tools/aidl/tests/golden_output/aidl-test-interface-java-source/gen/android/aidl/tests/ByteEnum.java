@@ -2,9 +2,7 @@
  * This file is auto-generated.  DO NOT MODIFY.
  */
 package android.aidl.tests;
-/**
- * Hello, world!
- */
+/** Hello, world! */
 public @interface ByteEnum {
   // Comment about FOO.
   public static final byte FOO = 1;

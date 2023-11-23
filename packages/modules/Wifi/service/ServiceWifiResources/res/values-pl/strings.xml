@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Zaktualizowano ustawienie. Spróbuj połączyć się ponownie."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Nie można zmienić ustawienia prywatności"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"Nie znaleziono sieci"</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP 32756"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32760"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : nie możesz połączyć się z Wi-Fi Verizon poza obszarem obsługiwanym przez Verizon. (Błąd = 32760)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32761"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : nie subskrybujesz Wi-Fi Verizon. Zadzwoń pod numer +1 800-922-0204. (Błąd = 32761)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32762"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z Twoim kontem Wi-Fi Verizon. Zadzwoń pod numer +1 800-922-0204. (Błąd = 32762)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32763"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : połączenie z Wi-Fi Verizon jest już aktywne. (Błąd = 32763)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32764"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z połączeniem z Wi-Fi Verizon. Zadzwoń pod numer +1 800-922-0204. (Błąd = 32764)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP 32765"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z Twoim kontem Wi-Fi Verizon. Zadzwoń pod numer +1 800-922-0204. (Błąd = 32765)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g>: błąd uwierzytelniania EAP 32766"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : usługa Wi-Fi Verizon jest niedostępna w Twojej lokalizacji. Spróbuj ponownie później lub z innej lokalizacji. (Błąd = 32766)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z połączeniem z Wi-Fi Verizon. Spróbuj ponownie później lub z innej lokalizacji."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z połączeniem z Wi-Fi Verizon z powodu błędu 16384."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z połączeniem z Wi-Fi Verizon z powodu błędu 16385."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : błąd uwierzytelniania EAP, nieznany kod błędu"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> : wystąpił problem z połączeniem z Wi-Fi Verizon."</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"Hotspot jest wyłączony"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"Brak połączonych urządzeń. Kliknij, by zmodyfikować."</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"Wi-Fi rozłączone"</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"Aby połączyć się z siecią <xliff:g id="SSID">%1$s</xliff:g>, włóż kartę SIM operatora <xliff:g id="CARRIER_NAME">%2$s</xliff:g>"</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"Aplikacja <xliff:g id="APP">%1$s</xliff:g> chce użyć zasobu sieciowego"</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"Może to spowodować problem z aplikacjami <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"Może to spowodować problemy w tych aplikacjach: <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"Zezwól"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"Nie zezwalaj"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"Czy to zaufana sieć?"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"Tak, połącz"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"Nie, nie łącz"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"Zezwól na połączenie z tą siecią tylko w sytuacji, gdy poniższe informacje będą wyglądały na prawidłowe.\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"Nazwa serwera:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"Nazwa wydawcy:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"Organizacja:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"Kontakt:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"Podpis:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"Sieć wymaga weryfikacji"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"Przed połączeniem sprawdź szczegóły sieci <xliff:g id="SSID">%1$s</xliff:g>. Kliknij, aby kontynuować."</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"Nie udało się zainstalować certyfikatu."</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"Nie można zweryfikować tej sieci"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"Połącz mimo to"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"Nie łącz"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"W przypadku sieci <xliff:g id="SSID">%1$s</xliff:g> brakuje certyfikatu."</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"Jak dodawać certyfikaty"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"Nie można zweryfikować tej sieci"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"W przypadku sieci <xliff:g id="SSID">%1$s</xliff:g> brakuje certyfikatu. Kliknij, aby dowiedzieć się, jak dodawać certyfikaty."</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"Połącz mimo to"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"Nie łącz"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"Zezwolić aplikacji <xliff:g id="APP_NAME">%1$s</xliff:g> na włączanie Wi‑Fi?"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"Możesz wyłączyć Wi‑Fi w Szybkich ustawieniach"</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"Zezwól"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"Nie zezwalaj"</string>
 </resources>

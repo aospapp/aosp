@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import enum
+import glob
 import multiprocessing
 import os
 import subprocess
@@ -24,7 +25,8 @@ def get_default_host():
         raise RuntimeError('Unsupported host: {}'.format(sys.platform))
 
 
-def build_autoconf_target(host, python_src, build_dir, install_dir):
+def build_autoconf_target(host, python_src, build_dir, install_dir,
+                          extra_ldflags):
     print('## Building Python ##')
     print('## Build Dir   : {}'.format(build_dir))
     print('## Install Dir : {}'.format(install_dir))
@@ -51,7 +53,7 @@ def build_autoconf_target(host, python_src, build_dir, install_dir):
             config_cmd.append('--enable-universalsdk')
         config_cmd.append('--with-universal-archs=universal2')
 
-        MAC_MIN_VERSION = '10.9'
+        MAC_MIN_VERSION = '10.14'
         cflags.append('-mmacosx-version-min={}'.format(MAC_MIN_VERSION))
         cflags.append('-DMACOSX_DEPLOYMENT_TARGET={}'.format(MAC_MIN_VERSION))
         cflags.extend(['-arch', 'arm64'])
@@ -62,22 +64,25 @@ def build_autoconf_target(host, python_src, build_dir, install_dir):
         # Disable functions to support old macOS. See https://bugs.python.org/issue31359
         # Fails the build if any new API is used.
         cflags.append('-Werror=unguarded-availability')
-        # Disables unavailable functions.
-        disable_funcs = [
-            # New in 10.13
-            'utimensat', 'futimens',
-            # New in 10.12
-            'getentropy', 'clock_getres', 'clock_gettime', 'clock_settime',
-            # New in 10.10
-            'fstatat', 'faccessat', 'fchmodat', 'fchownat', 'linkat', 'fdopendir',
-            'mkdirat', 'renameat', 'unlinkat', 'readlinkat', 'symlinkat', 'openat',
-        ]
-        config_cmd.extend('ac_cv_func_{}=no'.format(f) for f in disable_funcs)
+        # We're building with a macOS 11+ SDK, so this should be set, but
+        # configure doesn't find it because of the unguarded-availability error
+        # combined with and older -mmacosx-version-min
+        cflags.append('-DHAVE_DYLD_SHARED_CACHE_CONTAINS_PATH=1')
     elif host == Host.Linux:
-        ldflags.append("-Wl,-rpath,'$$ORIGIN/../lib'")
+        # Quoting for -Wl,-rpath,$ORIGIN:
+        #  - To link some binaries, make passes -Wl,-rpath,\$ORIGIN to shell.
+        #  - To build stdlib extension modules, make invokes:
+        #        setup.py LDSHARED='... -Wl,-rpath,\$ORIGIN ...'
+        #  - distutils.util.split_quoted then splits LDSHARED into
+        #    [... "-Wl,-rpath,$ORIGIN", ...].
+        ldflags.append("-Wl,-rpath,\\$$ORIGIN/../lib")
+
+        # Omit DT_NEEDED entries for unused dynamic libraries. This is implicit
+        # with Debian's gcc driver but not with CentOS's gcc driver.
+        ldflags.append('-Wl,--as-needed')
 
     config_cmd.append('CFLAGS={}'.format(' '.join(cflags)))
-    config_cmd.append('LDFLAGS={}'.format(' '.join(cflags + ldflags)))
+    config_cmd.append('LDFLAGS={}'.format(' '.join(cflags + ldflags + [extra_ldflags])))
 
     subprocess.check_call(config_cmd, cwd=build_dir, env=env)
 
@@ -86,7 +91,7 @@ def build_autoconf_target(host, python_src, build_dir, install_dir):
         # Linker will embed this path to all binaries linking this library.
         # Since configure does not give us a chance to set -install_name, we have
         # to edit the library afterwards.
-        libpython = 'libpython3.9.dylib'
+        libpython = 'libpython3.10.dylib'
         subprocess.check_call(['make',
                                '-j{}'.format(multiprocessing.cpu_count()),
                                libpython],
@@ -99,6 +104,15 @@ def build_autoconf_target(host, python_src, build_dir, install_dir):
                            'install'],
                           cwd=build_dir)
     return (build_dir, install_dir)
+
+
+def install_licenses(host, install_dir, extra_notices):
+    (license_path,) = glob.glob(f'{install_dir}/lib/python*/LICENSE.txt')
+    with open(license_path, 'a') as out:
+        for notice in extra_notices:
+            out.write('\n-------------------------------------------------------------------\n\n')
+            with open(notice) as inp:
+                out.write(inp.read())
 
 
 def package_target(host, install_dir, dest_dir, build_id):
@@ -123,7 +137,7 @@ def package_target(host, install_dir, dest_dir, build_id):
       # IDLE_DIRS_ONLY
       "idlelib",
       # VENV_DIRS_ONLY
-      "venv", "ensurepip",
+      "ensurepip",
       # TCLTK_FILES_ONLY
       "turtle.py",
       # BDIST_WININST_FILES_ONLY
@@ -151,13 +165,17 @@ def main(argv):
     out_dir = argv[2]
     dest_dir = argv[3]
     build_id = argv[4]
+    extra_ldflags = argv[5]
+    extra_notices = argv[6].split()
     host = get_default_host()
 
     build_dir = os.path.join(out_dir, 'build')
     install_dir = os.path.join(out_dir, 'install')
 
     try:
-        build_autoconf_target(host, python_src, build_dir, install_dir)
+        build_autoconf_target(host, python_src, build_dir, install_dir,
+                              extra_ldflags)
+        install_licenses(host, install_dir, extra_notices)
         package_target(host, install_dir, dest_dir, build_id)
     except:
         # Keep logs before exit.

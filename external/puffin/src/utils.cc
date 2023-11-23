@@ -12,12 +12,12 @@
 #include <string>
 #include <vector>
 
+#include "puffin/file_stream.h"
 #include "puffin/src/bit_reader.h"
-#include "puffin/src/file_stream.h"
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/logging.h"
-#include "puffin/src/memory_stream.h"
+#include "puffin/memory_stream.h"
 #include "puffin/src/puff_writer.h"
 
 using std::set;
@@ -185,7 +185,7 @@ bool IsValidGzipHeader(const uint8_t* header, size_t size) {
   // 0      1     0x1F
   // 1      1     0x8B
   // 2      1     compression method (8 denotes deflate)
-  static const uint8_t magic[] = {0x1F, 0x8B, 8};
+  static constexpr uint8_t magic[] = {0x1F, 0x8B, 8};
   return size >= 10 && std::equal(std::begin(magic), std::end(magic), header);
 }
 }  // namespace
@@ -240,10 +240,10 @@ bool LocateDeflatesInGzip(const Buffer& data, vector<BitExtent>* deflates) {
     offset += compressed_size;
 
     // Ignore CRC32 and uncompressed size.
-    TEST_AND_RETURN_FALSE(offset + 8 <= data.size());
     offset += 8;
     member_start = offset;
-  } while (IsValidGzipHeader(&data[member_start], data.size() - member_start));
+  } while (member_start < data.size() &&
+           IsValidGzipHeader(&data[member_start], data.size() - member_start));
   return true;
 }
 

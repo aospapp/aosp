@@ -17,15 +17,18 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.checks.infrastructure.TestFile
-import com.android.tools.metalava.Compatibility
+import com.android.tools.metalava.ARG_CLASS_PATH
 import com.android.tools.metalava.DriverTest
-import com.android.tools.metalava.compatibility
+import com.android.tools.metalava.Options
+import com.android.tools.metalava.java
+import com.android.tools.metalava.kotlin
 import com.android.tools.metalava.libcoreNonNullSource
 import com.android.tools.metalava.libcoreNullableSource
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.nonNullSource
 import com.android.tools.metalava.nullableSource
+import com.android.tools.metalava.options
 import com.android.tools.metalava.parseSources
 import com.intellij.psi.JavaRecursiveElementVisitor
 import com.intellij.psi.PsiAnnotation
@@ -559,7 +562,8 @@ class PsiTypePrinterTest : DriverTest() {
             Type: PsiClassReferenceType
             Canonical: java.util.Collection<? extends T>
             Annotated: java.util.Collection<? extends @Nullable T>
-            Printed: java.util.Collection<? extends T?>!
+            Merged: [@Nullable]
+            Printed: java.util.Collection<? extends T?>?
 
             Type: PsiWildcardType
             Canonical: ? extends T
@@ -808,10 +812,10 @@ class PsiTypePrinterTest : DriverTest() {
                 classPath.add(file)
             }
         }
-        classPath.add(getPlatformFile("android.jar"))
+        classPath.add(getAndroidJar())
 
+        options = Options(arrayOf(ARG_CLASS_PATH, getAndroidJar().path))
         // TestDriver#check normally sets this for all the other tests
-        compatibility = Compatibility(false)
         val codebase = parseSources(
             sourceFiles, "test project",
             sourcePath = sourcePath, classpath = classPath
@@ -923,9 +927,12 @@ class PsiTypePrinterTest : DriverTest() {
             }
             val elementAnnotations = entry.elementAnnotations
             if (elementAnnotations != null && elementAnnotations.isNotEmpty()) {
-                printWriter.printf("Merged: %s\n", elementAnnotations.toString()
-                    .replace("androidx.annotation.", "")
-                    .replace("libcore.util.", ""))
+                printWriter.printf(
+                    "Merged: %s\n",
+                    elementAnnotations.toString()
+                        .replace("androidx.annotation.", "")
+                        .replace("libcore.util.", "")
+                )
             }
             printWriter.printf("Printed: %s\n\n", string)
         }

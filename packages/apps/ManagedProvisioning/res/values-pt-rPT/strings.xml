@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A app seguinte vai gerir o seu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Seguinte"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"A configurar o perfil de trabalho..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"O seu administrador de TI tem a capacidade de monitorizar e gerir as definições, o acesso empresarial, as aplicações, as autorizações e os dados associados a este dispositivo, incluindo a atividade da rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Contacte o administrador de TI para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"O administrador de TI pode monitorizar e gerir as definições, o acesso empresarial, as apps, as autorizações, os dados e a atividade de rede associados a este perfil, bem como o seu histórico de chamadas e histórico de pesquisas de contactos. Contacte o administrador de TI para obter mais informações e saber mais sobre as políticas de privacidade da sua organização."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"O administrador de TI tem a capacidade de monitorizar e gerir as definições, o acesso empresarial, as aplicações, as autorizações e os dados associados a este dispositivo, incluindo a atividade da rede, bem como a localização, o histórico de chamadas e o histórico de pesquisas de contactos do dispositivo.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Contacte o administrador de TI para obter mais informações, incluindo as políticas de privacidade da sua entidade."</string>
@@ -46,7 +44,7 @@
     <string name="work_profile_info" msgid="5433388376309583996">"Informações do perfil de trabalho"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informações do dispositivo gerido"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Perfil de trabalho"</string>
-    <string name="delete_profile_title" msgid="2841349358380849525">"Pretende eliminar o perfil existente?"</string>
+    <string name="delete_profile_title" msgid="2841349358380849525">"Eliminar o perfil existente?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Já tem um perfil de trabalho. É gerido através da seguinte app:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Antes de continuar, "<a href="#read_this_link">"leia isto"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Se continuar, todas as aplicações e todos os dados neste perfil são eliminados."</string>
@@ -157,14 +155,14 @@
     <string name="device_owner_description" msgid="168013145812679664">"A proteção e a gestão deste dispositivo serão efetuadas pela sua entidade."</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"A preparar a configuração do dispositivo de trabalho…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"A configurar a app de administrador…"</string>
-    <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertence à sua entidade"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertence à sua organização"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Será utilizada a seguinte app para gerir e monitorizar este telemóvel."</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"A sua conta é gerida"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"O seu administrador de TI utiliza a gestão de dispositivos móveis para aplicar as políticas de segurança."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"A preparar-se para a configuração de trabalho…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Vamos configurar o seu perfil de trabalho"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"As aplicações de trabalho são mantidas no seu perfil de trabalho"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Coloque as aplicações de trabalho em pausa quando terminar o seu dia"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"As apps de trabalho são mantidas no seu perfil de trabalho"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pause as apps de trabalho quando terminar o seu dia"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Os dados no seu perfil de trabalho estão visíveis para o seu administrador de TI"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"A configurar o perfil de trabalho…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"As apps de trabalho são mantidas no seu perfil de trabalho. Pode colocá-las em pausa quando terminar o seu dia. Os dados no seu perfil de trabalho estão visíveis para o administrador de TI."</string>
@@ -182,9 +180,9 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Volte ao ecrã anterior ou reponha este dispositivo e devolva-o ao seu administrador de TI."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancelar configuração"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Repor e devolver dispositivo"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Apps de trab. são do perfil de trab. e geridas pelo administrador"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Apps de trabalho são do perfil de trabalho e geridas pelo administrador de TI"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"As apps pessoais são separadas e ocultas das de trabalho"</string>
-    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"O administrador pode controlar o dispositivo e bloquear apps"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"O administrador de TI pode controlar o dispositivo e bloquear certas apps"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"As apps de trabalho são mantidas no seu perfil de trabalho e geridas pelo seu administrador de TI. As apps pessoais são separadas e ocultas das apps de trabalho. O seu administrador de TI pode controlar este dispositivo e bloquear determinadas apps."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Aguarde um segundo…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Lembrete de privacidade"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> pode instalar a app <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para poder efetuar pagamentos relativos a este dispositivo."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Este dispositivo pode ser restrito"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pode restringir o acesso a este dispositivo se não efetuar pagamentos."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Não é possível configurar o dispositivo. Contacte o administrador de TI e indique o motivo \"Soma de verificação inválida\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Tente novamente mais tarde ou peça ajuda ao administrador de TI"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Não é possível configurar o dispositivo. Contacte o administrador de TI e indique o motivo \"Componentes danificados ou em falta\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"A configurar…"</string>
 </resources>

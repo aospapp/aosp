@@ -30,12 +30,14 @@ import android.graphics.drawable.Icon;
 import android.icu.text.NumberFormat;
 import android.net.Network;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.util.Log;
 
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -44,10 +46,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -61,17 +67,7 @@ public class DownloadService extends Service {
     private static final String TAG = DownloadService.class.getSimpleName();
 
     @VisibleForTesting
-    static final String ARG_NETWORK = "network";
-    @VisibleForTesting
-    static final String ARG_USERAGENT = "useragent";
-    @VisibleForTesting
-    static final String ARG_URL = "url";
-    @VisibleForTesting
-    static final String ARG_DISPLAY_NAME = "displayname";
-    @VisibleForTesting
-    static final String ARG_OUTFILE = "outfile";
-
-    private static final String ARG_CANCEL = "cancel";
+    static final String ARG_CANCEL = "cancel";
 
     private static final String CHANNEL_DOWNLOADS = "downloads";
     private static final String CHANNEL_DOWNLOAD_PROGRESS = "downloads_progress";
@@ -83,19 +79,36 @@ public class DownloadService extends Service {
     private static final long MAX_PROGRESS_UPDATE_RATE_MS = 500L;
     private static final long CONTENT_LENGTH_UNKNOWN = -1L;
 
+    static final int DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE = 1;
+    @IntDef(value = { DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface AbortedReason {}
+
     // All download job IDs <= this value should be cancelled
     private volatile int mMaxCancelDownloadId;
-
     @GuardedBy("mQueue")
-    private final Queue<DownloadTask> mQueue = new ArrayDeque<>(1);
+    private final Queue<DownloadTask> mQueue = new LinkedList<>();
     @GuardedBy("mQueue")
     private boolean mProcessing = false;
 
+    @Nullable
+    @GuardedBy("mBinder")
+    private ProgressCallback mProgressCallback;
+    @NonNull
+    private final DownloadServiceBinder mBinder = new DownloadServiceBinder();
     // Tracker for the ID to assign to the next download. The service startId is not used because it
     // is not guaranteed to be monotonically increasing; increasing download IDs are convenient to
     // allow cancelling current downloads when the user tapped the cancel button, but not subsequent
     // download jobs.
     private final AtomicInteger mNextDownloadId = new AtomicInteger(1);
+
+    // Key is the directly open MIME type with an int as it max length bytes. The value is an int is
+    // enough since it's no point if > 2**31.
+    private static final HashMap<String, Integer> sDirectlyOpenMimeType =
+            new HashMap<String, Integer>();
+    static {
+        sDirectlyOpenMimeType.put("application/x-wifi-config", 100_000);
+    }
 
     private static class DownloadTask {
         private final int mId;
@@ -104,18 +117,18 @@ public class DownloadService extends Service {
         private final String mUrl;
         private final String mDisplayName;
         private final Uri mOutFile;
-
+        private final String mMimeType;
         private final Notification.Builder mCachedNotificationBuilder;
 
         private DownloadTask(int id, Network network, String userAgent, String url,
-                String displayName, Uri outFile, Context context) {
+                String displayName, Uri outFile, Context context, String mimeType) {
             this.mId = id;
             this.mNetwork = network;
             this.mUserAgent = userAgent;
             this.mUrl = url;
             this.mDisplayName = displayName;
             this.mOutFile = outFile;
-
+            this.mMimeType = mimeType;
             final Resources res = context.getResources();
             final Intent cancelIntent = new Intent(context, DownloadService.class)
                     .putExtra(ARG_CANCEL, mId)
@@ -134,30 +147,6 @@ public class DownloadService extends Service {
                     .setOnlyAlertOnce(true)
                     .addAction(cancelAction);
         }
-    }
-
-    /**
-     * Create an intent to be used to start the service.
-     *
-     * <p>The intent can then be used with {@link Context#startForegroundService(Intent)}.
-     * @param packageContext Context to use to resolve the {@link DownloadService}.
-     * @param network Network that the download should be done on. No other network will be
-     *                considered for the download.
-     * @param userAgent UserAgent to use for the download request.
-     * @param url URL to download from.
-     * @param displayName Name of the downloaded file, to be used when displaying progress UI (does
-     *                    not affect the actual output file).
-     * @param outFile Output file of the download.
-     */
-    public static Intent makeDownloadIntent(Context packageContext, Network network,
-            String userAgent, String url, String displayName, Uri outFile) {
-        final Intent intent = new Intent(packageContext, DownloadService.class);
-        intent.putExtra(ARG_NETWORK, network);
-        intent.putExtra(ARG_USERAGENT, userAgent);
-        intent.putExtra(ARG_URL, url);
-        intent.putExtra(ARG_DISPLAY_NAME, displayName);
-        intent.putExtra(ARG_OUTFILE, outFile);
-        return intent;
     }
 
     /**
@@ -201,23 +190,18 @@ public class DownloadService extends Service {
             mMaxCancelDownloadId = cancelDownloadId;
             return START_NOT_STICKY;
         }
+        // If the service is killed the download is lost, which is fine because it is unlikely for a
+        // foreground service to be killed, and there is no easy way to know whether the download
+        // was really not yet completed if the service is restarted with e.g. START_REDELIVER_INTENT
+        return START_NOT_STICKY;
+    }
 
-        final Network network = intent.getParcelableExtra(ARG_NETWORK);
-        final String userAgent = intent.getStringExtra(ARG_USERAGENT);
-        final String url = intent.getStringExtra(ARG_URL);
-        final String filename = intent.getStringExtra(ARG_DISPLAY_NAME);
-        final Uri outFile = intent.getParcelableExtra(ARG_OUTFILE);
-
-        if (network == null || userAgent == null || url == null || filename == null
-                || outFile == null) {
-            Log.e(TAG, String.format("Missing parameters; network: %s, userAgent: %s, url: %s, "
-                    + "filename: %s, outFile: %s", network, userAgent, url, filename, outFile));
-            return START_NOT_STICKY;
-        }
-
+    private int enqueueDownloadTask(Network network, String userAgent, String url, String filename,
+            Uri outFile, Context context, String mimeType) {
+        final DownloadTask task = new DownloadTask(mNextDownloadId.getAndIncrement(),
+                network.getPrivateDnsBypassingCopy(), userAgent, url, filename, outFile,
+                context, mimeType);
         synchronized (mQueue) {
-            final DownloadTask task = new DownloadTask(mNextDownloadId.getAndIncrement(),
-                    network.getPrivateDnsBypassingCopy(), userAgent, url, filename, outFile, this);
             mQueue.add(task);
             if (!mProcessing) {
                 startForeground(NOTE_DOWNLOAD_PROGRESS, makeProgressNotification(task,
@@ -226,11 +210,7 @@ public class DownloadService extends Service {
             }
             mProcessing = true;
         }
-
-        // If the service is killed the download is lost, which is fine because it is unlikely for a
-        // foreground service to be killed, and there is no easy way to know whether the download
-        // was really not yet completed if the service is restarted with e.g. START_REDELIVER_INTENT
-        return START_NOT_STICKY;
+        return task.mId;
     }
 
     private void createNotificationChannels() {
@@ -253,7 +233,42 @@ public class DownloadService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return mBinder;
+    }
+
+    class DownloadServiceBinder extends Binder {
+        public int requestDownload(Network network, String userAgent, String url, String filename,
+                Uri outFile, Context context, String mimeType) {
+            return enqueueDownloadTask(network, userAgent, url, filename, outFile, context,
+                    mimeType);
+        }
+
+        public void cancelTask(int taskId) {
+            synchronized (mQueue) {
+                // If the task is no longer in the queue, it mean the download is in progress or
+                // already completed. Set the cancel id to this requested id.
+                if (!mQueue.removeIf(e -> e.mId == taskId)) {
+                    mMaxCancelDownloadId = taskId;
+                }
+            }
+        }
+
+        public void setProgressCallback(ProgressCallback callback) {
+            synchronized (mBinder) {
+                mProgressCallback = callback;
+            }
+        }
+    }
+
+    /**
+     * Callback for notifying the download progress change.
+     */
+    interface ProgressCallback {
+        /** Notify the requested download task is completed. */
+        void onDownloadComplete(@NonNull Uri inputFile, @NonNull String mimeType, int downloadId,
+                boolean success);
+        /** Notify the requested download task is aborted. */
+        void onDownloadAborted(int downloadId, @AbortedReason int reason);
     }
 
     private class ProcessingRunnable implements Runnable {
@@ -277,8 +292,10 @@ public class DownloadService extends Service {
         private void processDownload(@NonNull final DownloadTask task) {
             final NotificationManager nm = getSystemService(NotificationManager.class);
             // Start by showing an indeterminate progress notification
-            nm.notify(NOTE_DOWNLOAD_PROGRESS, makeProgressNotification(task, null /* progress */));
+            updateNotification(nm, NOTE_DOWNLOAD_PROGRESS, task.mMimeType,
+                    makeProgressNotification(task, null /* progress */));
             URLConnection connection = null;
+            boolean downloadSuccess = false;
             try {
                 final URL url = new URL(task.mUrl);
 
@@ -315,17 +332,34 @@ public class DownloadService extends Service {
                     }
                 }
 
-                nm.notify(NOTE_DOWNLOAD_DONE,
+                downloadSuccess = true;
+                updateNotification(nm, NOTE_DOWNLOAD_DONE, task.mMimeType,
                         makeDoneNotification(task.mId, task.mDisplayName, task.mOutFile));
             } catch (IOException e) {
                 Log.e(DownloadService.class.getSimpleName(), "Download error", e);
-                nm.notify(NOTE_DOWNLOAD_DONE, makeErrorNotification(task.mDisplayName));
+                updateNotification(nm, NOTE_DOWNLOAD_DONE, task.mMimeType,
+                        makeErrorNotification(task.mDisplayName));
                 tryDeleteFile(task.mOutFile);
             } finally {
+                synchronized (mBinder) {
+                    if (mProgressCallback != null) {
+                        mProgressCallback.onDownloadComplete(task.mOutFile, task.mMimeType,
+                                task.mId, downloadSuccess);
+                    }
+                }
                 if (connection instanceof HttpURLConnection) {
                     ((HttpURLConnection) connection).disconnect();
                 }
             }
+        }
+
+        private void updateNotification(@NonNull NotificationManager nm, int eventId,
+                String mimeType, @NonNull Notification notification) {
+            // Skip showing the download notification for the directly open mime types.
+            if (eventId == NOTE_DOWNLOAD_DONE && isDirectlyOpenType(mimeType)) {
+                return;
+            }
+            nm.notify(eventId, notification);
         }
 
         /**
@@ -337,13 +371,21 @@ public class DownloadService extends Service {
                 long contentLength, @NonNull DownloadTask task,
                 @NonNull NotificationManager nm) throws IOException {
             final byte[] buffer = new byte[1500];
-            int allRead = 0;
+            long allRead = 0L;
             final long maxRead = contentLength == CONTENT_LENGTH_UNKNOWN
                     ? Long.MAX_VALUE : contentLength;
+            final boolean isDirectlyOpenType = isDirectlyOpenType(task.mMimeType);
+            final int maxDirectlyOpenLen = Objects.requireNonNullElse(
+                    sDirectlyOpenMimeType.get(task.mMimeType), Integer.MAX_VALUE);
             int lastProgress = -1;
             long lastUpdateTime = -1L;
             while (allRead < maxRead) {
                 if (task.mId <= mMaxCancelDownloadId) {
+                    return false;
+                }
+                if (isDirectlyOpenType && allRead > maxDirectlyOpenLen) {
+                    notifyDownloadAborted(task.mId, task.mMimeType,
+                            DOWNLOAD_ABORTED_REASON_FILE_TOO_LARGE);
                     return false;
                 }
 
@@ -366,6 +408,16 @@ public class DownloadService extends Service {
                 lastProgress = progress;
             }
             return true;
+        }
+
+        private void notifyDownloadAborted(int dlId, String mimeType, @AbortedReason int reason) {
+            Log.d(TAG, "Abort downloading the " + mimeType
+                    + " type file because of reason(" + reason + ")");
+            synchronized (mBinder) {
+                if (mProgressCallback != null) {
+                    mProgressCallback.onDownloadAborted(dlId, reason);
+                }
+            }
         }
 
         private void tryDeleteFile(@NonNull Uri file) {
@@ -402,9 +454,14 @@ public class DownloadService extends Service {
                 return false;
             }
             final Notification note = makeProgressNotification(task, progress);
-            nm.notify(NOTE_DOWNLOAD_PROGRESS, note);
+            updateNotification(nm, NOTE_DOWNLOAD_PROGRESS, task.mMimeType, note);
+
             return true;
         }
+    }
+
+    static boolean isDirectlyOpenType(String type) {
+        return sDirectlyOpenMimeType.get(type) != null;
     }
 
     @NonNull
@@ -430,7 +487,7 @@ public class DownloadService extends Service {
                 .setIdentifier(String.valueOf(taskId));
 
         final PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0 /* requestCode */, intent, 0 /* flags */);
+                this, 0 /* requestCode */, intent, PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_DOWNLOADS)
                 .setContentTitle(getResources().getString(R.string.download_completed))
                 .setContentText(displayName)

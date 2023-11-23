@@ -8,8 +8,10 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.android.customization.model.CustomizationManager.OptionsFetchedListener;
 import com.android.customization.model.clock.Clockface.Builder;
@@ -21,8 +23,18 @@ import com.bumptech.glide.request.RequestOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ContentProviderClockProvider implements ClockProvider {
+
+    private static final String TAG = "ContentProviderClockProvider";
+    private static final ExecutorService sExecutorService = Executors.newSingleThreadExecutor();
+    private static final String LIST_OPTIONS = "list_options";
+    private static final String COL_TITLE = "title";
+    private static final String COL_ID = "id";
+    private static final String COL_THUMBNAIL = "thumbnail";
+    private static final String COL_PREVIEW = "preview";
 
     private final Context mContext;
     private final ProviderInfo mProviderInfo;
@@ -75,42 +87,7 @@ public class ContentProviderClockProvider implements ClockProvider {
             }
             return;
         }
-        new ClocksFetchTask(mContext, mProviderInfo, options -> {
-            mClocks = options;
-            if (callback != null) {
-                if (!mClocks.isEmpty()) {
-                    callback.onOptionsLoaded(mClocks);
-                } else {
-                    callback.onError(null);
-                }
-            }
-        }).execute();
-    }
-
-    private static class ClocksFetchTask extends AsyncTask<Void, Void, List<Clockface>> {
-
-        private static final String LIST_OPTIONS = "list_options";
-
-        private static final String COL_NAME = "name";
-        private static final String COL_TITLE = "title";
-        private static final String COL_ID = "id";
-        private static final String COL_THUMBNAIL = "thumbnail";
-        private static final String COL_PREVIEW = "preview";
-
-        private final OptionsFetchedListener<Clockface> mCallback;
-        private Context mContext;
-        private final ProviderInfo mProviderInfo;
-
-        public ClocksFetchTask(Context context, ProviderInfo providerInfo,
-                OptionsFetchedListener<Clockface> callback) {
-            super();
-            mContext = context;
-            mProviderInfo = providerInfo;
-            mCallback = callback;
-        }
-
-        @Override
-        protected List<Clockface> doInBackground(Void... voids) {
+        sExecutorService.submit(() -> {
             Uri optionsUri = new Uri.Builder()
                     .scheme(ContentResolver.SCHEME_CONTENT)
                     .authority(mProviderInfo.authority)
@@ -121,7 +98,7 @@ public class ContentProviderClockProvider implements ClockProvider {
 
             List<Clockface> clockfaces = new ArrayList<>();
             try (Cursor c = resolver.query(optionsUri, null, null, null, null)) {
-                while(c.moveToNext()) {
+                while (c != null && c.moveToNext()) {
                     String id = c.getString(c.getColumnIndex(COL_ID));
                     String title = c.getString(c.getColumnIndex(COL_TITLE));
                     String thumbnailUri = c.getString(c.getColumnIndex(COL_THUMBNAIL));
@@ -140,16 +117,19 @@ public class ContentProviderClockProvider implements ClockProvider {
                 Glide.get(mContext).clearDiskCache();
             } catch (Exception e) {
                 clockfaces = null;
-            } finally {
-                mContext = null;
+                Log.e(TAG, "Failed to query clock face options.", e);
             }
-            return clockfaces;
-        }
-
-        @Override
-        protected void onPostExecute(List<Clockface> clockfaces) {
-            super.onPostExecute(clockfaces);
-            mCallback.onOptionsLoaded(clockfaces);
-        }
+            final List<Clockface> clockfaceList = clockfaces;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                mClocks = clockfaceList;
+                if (callback != null) {
+                    if (!mClocks.isEmpty()) {
+                        callback.onOptionsLoaded(mClocks);
+                    } else {
+                        callback.onError(null);
+                    }
+                }
+            });
+        });
     }
 }

@@ -21,7 +21,7 @@
 
 #include <android/log.h>
 
-#include "include/authorization_set.h"
+#include "keymaster_tags.h"
 
 #include <keymaster/android_keymaster.h>
 #include <keymaster/android_keymaster_messages.h>
@@ -85,7 +85,7 @@ inline keymaster_tag_type_t typeFromTag(const keymaster_tag_t tag) {
 class KmParamSet : public keymaster_key_param_set_t {
   public:
     explicit KmParamSet(const hidl_vec<KeyParameter>& keyParams) {
-        params = new keymaster_key_param_t[keyParams.size()];
+        params = new (std::nothrow) keymaster_key_param_t[keyParams.size()];
         length = keyParams.size();
         for (size_t i = 0; i < keyParams.size(); ++i) {
             auto tag = legacy_enum_conversion(keyParams[i].tag);
@@ -220,10 +220,16 @@ void addClientAndAppData(const hidl_vec<uint8_t>& clientId, const hidl_vec<uint8
 }  // anonymous namespace
 
 AndroidKeymaster3Device::AndroidKeymaster3Device()
-    : impl_(new ::keymaster::AndroidKeymaster(
-          []() -> auto {
-              auto context = new PureSoftKeymasterContext(KmVersion::KEYMASTER_3);
+    : impl_(new (std::nothrow)::keymaster::AndroidKeymaster(
+          []() -> auto{
+              auto context = new (std::nothrow) PureSoftKeymasterContext(KmVersion::KEYMASTER_3);
               context->SetSystemVersion(GetOsVersion(), GetOsPatchlevel());
+              context->SetVendorPatchlevel(GetVendorPatchlevel());
+              // Software devices cannot be configured by the boot loader but they have
+              // to return a boot patch level. So lets just return the OS patch level.
+              // The OS patch level only has a year and a month so we just add the 1st
+              // of the month as day field.
+              context->SetBootPatchlevel(GetOsPatchlevel() * 100 + 1);
               return context;
           }(),
           kOperationTableSize)),
@@ -231,7 +237,8 @@ AndroidKeymaster3Device::AndroidKeymaster3Device()
 
 AndroidKeymaster3Device::AndroidKeymaster3Device(KeymasterContext* context,
                                                  KeymasterHardwareProfile profile)
-    : impl_(new ::keymaster::AndroidKeymaster(context, kOperationTableSize)), profile_(profile) {}
+    : impl_(new (std::nothrow)::keymaster::AndroidKeymaster(context, kOperationTableSize)),
+      profile_(profile) {}
 
 AndroidKeymaster3Device::~AndroidKeymaster3Device() {}
 
@@ -498,20 +505,22 @@ Return<ErrorCode> AndroidKeymaster3Device::abort(uint64_t operationHandle) {
 }
 
 IKeymasterDevice* CreateKeymasterDevice() {
-    return new AndroidKeymaster3Device();
+    return new (std::nothrow) AndroidKeymaster3Device();
 }
 
 IKeymasterDevice* CreateKeymasterDevice(keymaster2_device_t* km2_device) {
     if (ConfigureDevice(km2_device) != KM_ERROR_OK) return nullptr;
-    auto context = new Keymaster2PassthroughContext(KmVersion::KEYMASTER_3, km2_device);
+    auto context =
+        new (std::nothrow) Keymaster2PassthroughContext(KmVersion::KEYMASTER_3, km2_device);
     context->SetSystemVersion(GetOsVersion(), GetOsPatchlevel());
-    return new AndroidKeymaster3Device(context, KeymasterHardwareProfile::KM2);
+    return new (std::nothrow) AndroidKeymaster3Device(context, KeymasterHardwareProfile::KM2);
 }
 
 IKeymasterDevice* CreateKeymasterDevice(keymaster1_device_t* km1_device) {
-    auto context = new Keymaster1PassthroughContext(KmVersion::KEYMASTER_3, km1_device);
+    auto context =
+        new (std::nothrow) Keymaster1PassthroughContext(KmVersion::KEYMASTER_3, km1_device);
     context->SetSystemVersion(GetOsVersion(), GetOsPatchlevel());
-    return new AndroidKeymaster3Device(context, KeymasterHardwareProfile::KM1);
+    return new (std::nothrow) AndroidKeymaster3Device(context, KeymasterHardwareProfile::KM1);
 }
 
 }  // namespace ng

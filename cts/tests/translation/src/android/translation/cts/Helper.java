@@ -18,17 +18,24 @@ package android.translation.cts;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
+import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.ContentCaptureOptions;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.UserHandle;
 import android.util.Log;
-import android.view.contentcapture.ContentCaptureContext;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
+
+import com.android.compatibility.common.util.BitmapUtils;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * Helper for common funcionalities.
@@ -55,9 +62,13 @@ public final class Helper {
     public static final String EXTRA_FINISH_COMMAND = "finish_command";
     public static final String EXTRA_SOURCE_LOCALE = "source_locale";
     public static final String EXTRA_TARGET_LOCALE = "target_locale";
-    public static final String EXTRA_VERIFY_RESULT = "verify_result";
+    public static final String EXTRA_PACKAGE_NAME = "package_name";
+    public static final String EXTRA_CALL_COUNT = "call_count";
 
     public static final String CUSTOM_TRANSLATION_ID_MY_TAG = "myTag";
+    public static final String LOCAL_TEST_FILES_DIR = "/sdcard/CtsTranslationTestCases";
+    public static final int TEMP_SERVICE_DURATION_MS = 30_000;
+
     private static final String LOG_TAG = "log.tag.UiTranslation";
 
     /**
@@ -68,7 +79,8 @@ public final class Helper {
     public static void setTemporaryTranslationService(String service) {
         Log.d(TAG, "Setting translation service to " + service);
         final int userId = UserHandle.myUserId();
-        runShellCommand("cmd translation set temporary-service %d %s 12000", userId, service);
+        runShellCommand("cmd translation set temporary-service %d %s %d", userId, service,
+                TEMP_SERVICE_DURATION_MS);
     }
 
     /**
@@ -88,7 +100,8 @@ public final class Helper {
     public static void setTemporaryContentCaptureService(String service) {
         Log.d(TAG, "Setting content capture service to " + service);
         final int userId = UserHandle.myUserId();
-        runShellCommand("cmd content_capture set temporary-service %d %s 12000", userId, service);
+        runShellCommand("cmd content_capture set temporary-service %d %s %d", userId, service,
+                TEMP_SERVICE_DURATION_MS);
     }
 
     /**
@@ -165,5 +178,70 @@ public final class Helper {
     public static void disableDebugLog(String level) {
         Log.d(TAG, "disableDebugLog(), set level  " + level);
         System.setProperty(LOG_TAG, level);
+    }
+
+    // TODO: Move to a library that can be shared for smart os components.
+    /**
+     * Takes a screenshot and save it in the file system for analysis.
+     */
+    public static void takeScreenshotAndSave(Context context, String testName,
+            String targetFolder) {
+        File file = null;
+        try {
+            file = createTestFile(testName,"sreenshot.png", targetFolder);
+            if (file != null) {
+                Log.i(TAG, "Taking screenshot on " + file);
+                final Bitmap screenshot = takeScreenshot();
+                saveBitmapToFile(screenshot, file);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error taking screenshot and saving on " + file, e);
+        }
+    }
+
+    public static File saveBitmapToFile(Bitmap bitmap, File file) {
+        Log.i(TAG, "Saving bitmap at " + file);
+        BitmapUtils.saveBitmap(bitmap, file.getParent(), file.getName());
+        return file;
+    }
+
+    private static Bitmap takeScreenshot() {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        UiAutomation automan = instrumentation.getUiAutomation();
+        final Bitmap bitmap = automan.takeScreenshot();
+        return bitmap;
+    }
+
+    public static File createTestFile(String testName, String name, String targetFolder)
+            throws IOException {
+        final File dir = getLocalDirectory(targetFolder);
+        if (dir == null) return null;
+        final String prefix = testName.replaceAll("\\.|\\(|\\/", "_").replaceAll("\\)", "");
+        final String filename = prefix + "-" + name;
+
+        return createFile(dir, filename);
+    }
+
+    private static File getLocalDirectory(String targetFolder) {
+        final File dir = new File(targetFolder);
+        dir.mkdirs();
+        if (!dir.exists()) {
+            Log.e(TAG, "Could not create directory " + dir);
+            return null;
+        }
+        return dir;
+    }
+
+    private static File createFile(File dir, String filename) throws IOException {
+        final File file = new File(dir, filename);
+        if (file.exists()) {
+            Log.v(TAG, "Deleting file " + file);
+            file.delete();
+        }
+        if (!file.createNewFile()) {
+            Log.e(TAG, "Could not create file " + file);
+            return null;
+        }
+        return file;
     }
 }

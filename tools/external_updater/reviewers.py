@@ -31,6 +31,7 @@ ProjMapping = Mapping[str, Union[str, List[str], Set[str]]]
 RUST_CRATE_OWNERS: ProjMapping = {
     'rust/crates/anyhow': 'mmaurer@google.com',
     # more rust crate owners could be added later
+    # if so, consider modifying the quotas in RUST_REVIEWERS
 }
 
 PROJ_REVIEWERS: ProjMapping = {
@@ -40,20 +41,14 @@ PROJ_REVIEWERS: ProjMapping = {
 # Combine all roject reviewers.
 PROJ_REVIEWERS.update(RUST_CRATE_OWNERS)
 
-# Estimated number of rust projects, not the actual number.
-# It is only used to make random distribution "fair" among RUST_REVIEWERS.
-# It should not be too small, to spread nicely to multiple reviewers.
-# It should be larger or equal to len(RUST_CRATES_OWNERS).
-NUM_RUST_PROJECTS = 120
-
 # Reviewers for external/rust/crates projects not found in PROJ_REVIEWER.
 # Each person has a quota, the number of projects to review.
-# Sum of these numbers should be greater or equal to NUM_RUST_PROJECTS
-# to avoid error cases in the creation of RUST_REVIEWER_LIST.
+# The sum of these quotas should ideally be at least the number of Rust
+# projects, but this only matters if we have many entries in RUST_CRATE_OWNERS,
+# as we subtract a person's owned crates from their quota.
 RUST_REVIEWERS: Mapping[str, int] = {
     'ivanlozano@google.com': 20,
     'jeffv@google.com': 20,
-    'jgalenson@google.com': 20,
     'mmaurer@google.com': 20,
     'srhines@google.com': 20,
     'tweek@google.com': 20,

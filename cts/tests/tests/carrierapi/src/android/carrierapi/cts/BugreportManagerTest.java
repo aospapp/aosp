@@ -39,6 +39,7 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.After;
@@ -61,6 +62,9 @@ import java.util.concurrent.TimeUnit;
  * <p>Test using `atest CtsCarrierApiTestCases:BugreportManagerTest` or `make cts -j64 &&
  * cts-tradefed run cts -m CtsCarrierApiTestCases --test
  * android.carrierapi.cts.BugreportManagerTest`
+ *
+ * <p>TODO(b/211774553) consider enforcing BR content. Will likely have to be a host-side test for
+ * performance reasons.
  */
 @SystemUserOnly(reason = "BugreportManager requires calls to originate from the primary user")
 @RunWith(AndroidJUnit4.class)
@@ -111,6 +115,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     }
 
     @Test
+    @CddTest(requirement = "9.8.10/C-1-1")
     public void startConnectivityBugreport() throws Exception {
         BugreportCallbackImpl callback = new BugreportCallbackImpl();
 
@@ -127,6 +132,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     }
 
     @Test
+    @CddTest(requirement = "9.8.10/C-1-3")
     public void startConnectivityBugreport_consentDenied() throws Exception {
         BugreportCallbackImpl callback = new BugreportCallbackImpl();
 
@@ -142,6 +148,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     }
 
     @Test
+    @CddTest(requirement = "9.8.10/C-1-3")
     public void startConnectivityBugreport_consentTimeout() throws Exception {
         BugreportCallbackImpl callback = new BugreportCallbackImpl();
         long startTimeMillis = System.currentTimeMillis();
@@ -202,6 +209,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     }
 
     @Test
+    @CddTest(requirement = "9.8.10/C-1-3")
     public void cancelBugreport() throws Exception {
         BugreportCallbackImpl callback = new BugreportCallbackImpl();
 
@@ -221,6 +229,7 @@ public class BugreportManagerTest extends BaseCarrierApiTest {
     }
 
     @Test
+    @CddTest(requirement = "9.8.10/C-1-1")
     public void startBugreport_connectivityBugreport() throws Exception {
         BugreportCallbackImpl callback = new BugreportCallbackImpl();
 

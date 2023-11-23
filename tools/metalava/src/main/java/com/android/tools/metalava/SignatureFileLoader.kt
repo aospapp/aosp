@@ -16,9 +16,9 @@
 
 package com.android.tools.metalava
 
+import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.text.ApiFile
 import com.android.tools.metalava.model.text.ApiParseException
-import com.android.tools.metalava.model.Codebase
 import java.io.File
 
 object SignatureFileLoader {

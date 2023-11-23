@@ -15,7 +15,7 @@
  */
 package com.android.wallpaper.model;
 
-import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.READ_MEDIA_IMAGES;
 
 import android.animation.Animator;
 import android.app.Activity;
@@ -51,6 +51,7 @@ import androidx.lifecycle.OnLifecycleEvent;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.BitmapCachingAsset;
+import com.android.wallpaper.model.WallpaperInfo.ColorInfo;
 import com.android.wallpaper.module.CurrentWallpaperInfoFactory;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.UserEventLogger;
@@ -166,11 +167,12 @@ public class WallpaperSectionController implements
                 mWorkspaceSurface, mAppContext);
         mHomeWallpaperSurface = mHomePreviewCard.findViewById(R.id.wallpaper_surface);
 
-        Future<Integer> placeholderColor = CompletableFuture.completedFuture(
-                ResourceUtils.getColorAttr(mActivity, android.R.attr.colorSecondary));
+        Future<ColorInfo> colorFuture = CompletableFuture.completedFuture(
+                new ColorInfo(/* wallpaperColors= */ null,
+                        ResourceUtils.getColorAttr(mActivity, android.R.attr.colorSecondary)));
 
         mHomeWallpaperSurfaceCallback = new WallpaperSurfaceCallback(mActivity, mHomePreviewCard,
-                mHomeWallpaperSurface, placeholderColor, () -> {
+                mHomeWallpaperSurface, colorFuture, () -> {
             if (mHomePreviewWallpaperInfo != null) {
                 maybeLoadThumbnail(mHomePreviewWallpaperInfo, mHomeWallpaperSurfaceCallback);
             }
@@ -184,7 +186,7 @@ public class WallpaperSectionController implements
         mLockscreenPreviewCard.findViewById(R.id.workspace_surface).setVisibility(View.GONE);
         mLockWallpaperSurface = mLockscreenPreviewCard.findViewById(R.id.wallpaper_surface);
         mLockWallpaperSurfaceCallback = new WallpaperSurfaceCallback(mActivity,
-                mLockscreenPreviewCard, mLockWallpaperSurface, placeholderColor, () -> {
+                mLockscreenPreviewCard, mLockWallpaperSurface, colorFuture, () -> {
             if (mLockPreviewWallpaperInfo != null) {
                 maybeLoadThumbnail(mLockPreviewWallpaperInfo, mLockWallpaperSurfaceCallback);
             }
@@ -285,7 +287,7 @@ public class WallpaperSectionController implements
 
     private boolean canShowCurrentWallpaper() {
         return isPermissionGranted(mAppContext, PERMISSION_READ_WALLPAPER_INTERNAL)
-                || isPermissionGranted(mAppContext, READ_EXTERNAL_STORAGE);
+                || isPermissionGranted(mAppContext, READ_MEDIA_IMAGES);
     }
 
     private boolean isPermissionGranted(Context context, String permission) {
@@ -343,9 +345,9 @@ public class WallpaperSectionController implements
                     mLockPreviewWallpaperInfo =
                             lockWallpaper == null ? homeWallpaper : lockWallpaper;
 
-                    mHomePreviewWallpaperInfo.computePlaceholderColor(mAppContext);
+                    mHomePreviewWallpaperInfo.computeColorInfo(mAppContext);
                     if (lockWallpaper != null) {
-                        lockWallpaper.computePlaceholderColor(mAppContext);
+                        lockWallpaper.computeColorInfo(mAppContext);
                     }
                     updatePreview(mHomePreviewWallpaperInfo, true);
                     updatePreview(mLockPreviewWallpaperInfo, false);

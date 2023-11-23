@@ -19,17 +19,19 @@ package {
 cc_fuzz {
     name: "fmq_fuzzer",
 
-    defaults: [
-        "libbinder_ndk_host_user",
-    ],
-
     srcs: [
         "fmq_fuzzer.cpp",
     ],
 
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+
     static_libs: [
         "libfmq",
-        "android.hardware.common.fmq-V1-ndk_platform",
+        "android.hardware.common.fmq-V1-ndk",
     ],
 
     shared_libs: [
@@ -54,9 +56,9 @@ cc_fuzz {
     host_supported: true,
 
     sanitize: {
-        hwaddress: true,
         scs: true,
         cfi: true,
+        address: true,
         memtag_heap: true,
         // undefined behavior is expected
         all_undefined: false,

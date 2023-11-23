@@ -31,7 +31,7 @@ enum class KernelConfigType : size_t {
     TRISTATE
 };
 
-static const std::array<std::string, 4> gKernelConfigTypeStrings = {
+static constexpr std::array<const char*, 4> gKernelConfigTypeStrings = {
     {
         "string",
         "int",

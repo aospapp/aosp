@@ -14,5 +14,13 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
-pw_auto_add_simple_module(pw_span PUBLIC_DEPS pw_polyfill)
-target_include_directories(pw_span PUBLIC public_overrides)
+pw_auto_add_simple_module(pw_span
+  PUBLIC_DEPS
+    pw_polyfill
+    pw_polyfill.standard_library
+)
+target_include_directories(pw_span INTERFACE public_overrides)
+
+if(Zephyr_FOUND AND CONFIG_PIGWEED_SPAN)
+  zephyr_link_libraries(pw_span)
+endif()

@@ -294,7 +294,11 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
 
         // Disconnect & disable auto-join on the saved network to prevent auto-connect from
         // interfering with the test.
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> mWifiManager.allowAutojoinGlobal(false));
         disableAllSavedNetworks(mWifiManager);
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> mWifiManager.allowAutojoinGlobal(true));
 
         // Wait for Wifi to be disconnected.
         PollingCheck.check(

@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/matches/matches-0.1.8.crate"
+    value: "https://static.crates.io/crates/matches/matches-0.1.9.crate"
   }
-  version: "0.1.8"
+  version: "0.1.9"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 12
-    day: 15
+    year: 2021
+    month: 9
+    day: 23
   }
 }

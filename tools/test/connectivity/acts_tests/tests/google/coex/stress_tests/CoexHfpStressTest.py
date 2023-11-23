@@ -26,7 +26,7 @@ from acts_contrib.test_utils.coex.coex_test_utils import pair_and_connect_headse
 from acts_contrib.test_utils.tel.tel_defines import AUDIO_ROUTE_BLUETOOTH
 from acts_contrib.test_utils.tel.tel_defines import AUDIO_ROUTE_SPEAKER
 
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
 from acts_contrib.test_utils.tel.tel_voice_utils import set_audio_route
 
 

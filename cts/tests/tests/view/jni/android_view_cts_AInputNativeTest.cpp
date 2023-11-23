@@ -37,6 +37,8 @@ static struct MotionEventMethodId {
     jmethodID getPointerCount;
     jmethodID getRawX;
     jmethodID getRawY;
+    jmethodID getActionButton;
+    jmethodID getClassification;
 } gMotionEventMethodIds;
 
 static struct KeyEventMethodId {
@@ -55,6 +57,8 @@ void nativeMotionEventTest(JNIEnv *env, jclass /* clazz */, jobject obj) {
     jlong eventTime = env->CallLongMethod(obj, gMotionEventMethodIds.getEventTime) * NS_PER_MS;
     jint metaState = env->CallIntMethod(obj, gMotionEventMethodIds.getMetaState);
     jint pointerCount = env->CallIntMethod(obj, gMotionEventMethodIds.getPointerCount);
+    jint actionButton = env->CallIntMethod(obj, gMotionEventMethodIds.getActionButton);
+    jint classification = env->CallIntMethod(obj, gMotionEventMethodIds.getClassification);
 
     ASSERT(AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION, "Wrong event type %d.",
            AInputEvent_getType(event));
@@ -76,6 +80,14 @@ void nativeMotionEventTest(JNIEnv *env, jclass /* clazz */, jobject obj) {
     ASSERT(AMotionEvent_getPointerCount(event) == pointerCount,
            "Wrong pointer count %zu not equal to %d", AMotionEvent_getPointerCount(event),
            pointerCount);
+
+    ASSERT(AMotionEvent_getActionButton(event) == actionButton,
+           "Wrong action button %d not equal to %d", AMotionEvent_getActionButton(event),
+           actionButton);
+
+    ASSERT(AMotionEvent_getClassification(event) == classification,
+           "Wrong classification %hhd not equal to %hhd", AMotionEvent_getClassification(event),
+           classification);
 
     for (int i = 0; i < pointerCount; i++) {
         jfloat rawX = env->CallFloatMethod(obj, gMotionEventMethodIds.getRawX, i);
@@ -135,6 +147,8 @@ jint register_android_view_cts_AMotionEventNativeTest(JNIEnv *env) {
     gMotionEventMethodIds.getPointerCount = env->GetMethodID(clazz, "getPointerCount", "()I");
     gMotionEventMethodIds.getRawX = env->GetMethodID(clazz, "getRawX", "(I)F");
     gMotionEventMethodIds.getRawY = env->GetMethodID(clazz, "getRawY", "(I)F");
+    gMotionEventMethodIds.getActionButton = env->GetMethodID(clazz, "getActionButton", "()I");
+    gMotionEventMethodIds.getClassification = env->GetMethodID(clazz, "getClassification", "()I");
     jclass clazzTest = env->FindClass("android/view/cts/MotionEventTest");
     return env->RegisterNatives(clazzTest, JNI_METHODS_MOTION.data(), JNI_METHODS_MOTION.size());
 }

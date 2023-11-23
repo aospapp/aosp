@@ -316,7 +316,8 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
                 latch.countDown();
             }
         };
-        getContext().registerReceiver(onResult, myFilter);
+        getContext().registerReceiver(onResult, myFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         assertTrue(getManager().requestPinShortcut(ms2,
                 PendingIntent.getBroadcast(getContext(), 0, new Intent(myIntentAction),
                         PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED).getIntentSender()));

@@ -34,9 +34,9 @@ public final class IkeUdp6SocketTest extends IkeSocketTestBase {
             new IkeSocketFactory() {
                 @Override
                 public IkeSocket getIkeSocket(
-                        IkeSocketConfig ikeSockConfig, IkeSessionStateMachine ikeSession)
+                        IkeSocketConfig ikeSockConfig, IkeSocket.Callback callback)
                         throws ErrnoException, IOException {
-                    return IkeUdp6Socket.getInstance(ikeSockConfig, ikeSession, mHandler);
+                    return IkeUdp6Socket.getInstance(ikeSockConfig, callback, mHandler);
                 }
             };
 

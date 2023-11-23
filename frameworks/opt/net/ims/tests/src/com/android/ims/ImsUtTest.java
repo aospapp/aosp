@@ -97,7 +97,7 @@ public class ImsUtTest extends ImsTestBase {
     public void testClirConversionCompat() throws Exception {
         ArgumentCaptor<ImsUt.IImsUtListenerProxy> captor =
                 ArgumentCaptor.forClass(ImsUt.IImsUtListenerProxy.class);
-        ImsUt mImsUt = new ImsUt(mImsUtBinder);
+        ImsUt mImsUt = new ImsUt(mImsUtBinder, Runnable::run);
         verify(mImsUtBinder).setListener(captor.capture());
         ImsUt.IImsUtListenerProxy proxy = captor.getValue();
         assertNotNull(proxy);
@@ -125,7 +125,7 @@ public class ImsUtTest extends ImsTestBase {
     public void testClipConversionCompat() throws Exception {
         ArgumentCaptor<ImsUt.IImsUtListenerProxy> captor =
                 ArgumentCaptor.forClass(ImsUt.IImsUtListenerProxy.class);
-        ImsUt mImsUt = new ImsUt(mImsUtBinder);
+        ImsUt mImsUt = new ImsUt(mImsUtBinder, Runnable::run);
         verify(mImsUtBinder).setListener(captor.capture());
         ImsUt.IImsUtListenerProxy proxy = captor.getValue();
         assertNotNull(proxy);

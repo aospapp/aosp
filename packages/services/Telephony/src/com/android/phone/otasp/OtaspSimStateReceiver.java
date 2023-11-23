@@ -92,14 +92,22 @@ public class OtaspSimStateReceiver extends BroadcastReceiver {
         mContext = context;
         if(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(intent.getAction())) {
             if (DBG) logd("Received intent: " + intent.getAction());
-            if (PhoneGlobals.getPhone().getIccRecordsLoaded() && isCarrierSupported()) {
-                registerOtaspChangedHandler();
-            }
+            // Allow the receiver to keep active after returning from onReceive().
+            final PendingResult result = goAsync();
+            // Do the actual work on another thread to prevent ANR.
+            new Thread(() -> {
+                if (DBG) logd("Start to process ACTION_CARRIER_CONFIG_CHANGED.");
+                if (PhoneGlobals.getPhone().getIccRecordsLoaded() && isCarrierSupported()) {
+                    registerOtaspChangedHandler();
+                }
+                result.finish();
+            }).start();
         }
     }
 
-    // It's fine to call mutiple times, as the registrants are de-duped by Handler object.
+    // It's fine to call multiple times, as the registrants are de-duped by Handler object.
     private void registerOtaspChangedHandler() {
+        if (DBG) logd("registerOtaspChangedHandler");
         final Phone phone = PhoneGlobals.getPhone();
         phone.registerForOtaspChange(mOtaspHandler, EVENT_OTASP_CHANGED, null);
     }

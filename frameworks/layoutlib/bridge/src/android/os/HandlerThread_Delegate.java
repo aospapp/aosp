@@ -35,7 +35,7 @@ import java.util.Map;
  */
 public class HandlerThread_Delegate {
 
-    private static Map<BridgeContext, List<HandlerThread>> sThreads =
+    private static final Map<BridgeContext, List<HandlerThread>> sThreads =
             new HashMap<BridgeContext, List<HandlerThread>>();
 
     public static void cleanUp(BridgeContext context) {

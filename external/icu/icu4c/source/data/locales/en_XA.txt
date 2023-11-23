@@ -30,6 +30,16 @@ en_XA{
                 "[{1}, {0} 'one' 'two']",
                 "[{1}, {0} 'one' 'two']",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "[rMMMMEEEEd 'one' 'two']",
+                "[rMMMMd 'one']",
+                "[rMMMd 'one']",
+                "[rMd 'one']",
+            }
             availableFormats{
                 Bh{"[h B 'one']"}
                 Bhm{"[h:mm B 'one']"}
@@ -43,8 +53,11 @@ en_XA{
                 Ehm{"[E h:mm a 'one' 'two']"}
                 Ehms{"[E h:mm:ss a 'one' 'two']"}
                 Gy{"[r(U) 'one']"}
-                GyMMM{"[MMM r(U) 'one' 'two']"}
-                GyMMMEd{"[E, MMM d, r(U) 'one' 'two']"}
+                GyMMM{"[MMM r 'one']"}
+                GyMMMEd{"[E, MMM d, r 'one' 'two']"}
+                GyMMMM{"[MMMM r(U) 'one' 'two']"}
+                GyMMMMEd{"[E, MMMM d, r(U) 'one' 'two' 'three']"}
+                GyMMMMd{"[MMMM d, r(U) 'one' 'two']"}
                 GyMMMd{"[MMM d, r 'one' 'two']"}
                 H{"[HH 'one']"}
                 Hm{"[HH:mm 'one']"}
@@ -66,13 +79,14 @@ en_XA{
                 hms{"[h:mm:ss a 'one' 'two']"}
                 ms{"[mm:ss 'one']"}
                 y{"[r(U) 'one']"}
-                yMd{"[M/d/r 'one']"}
                 yyyy{"[r(U) 'one']"}
                 yyyyM{"[M/r 'one']"}
                 yyyyMEd{"[E, M/d/r 'one' 'two']"}
-                yyyyMMM{"[MMM r(U) 'one' 'two']"}
-                yyyyMMMEd{"[E, MMM d, r(U) 'one' 'two']"}
+                yyyyMMM{"[MMM r 'one']"}
+                yyyyMMMEd{"[E, MMM d, r 'one' 'two']"}
                 yyyyMMMM{"[MMMM r(U) 'one' 'two']"}
+                yyyyMMMMEd{"[E, MMMM d, r(U) 'one' 'two' 'three']"}
+                yyyyMMMMd{"[MMMM d, r(U) 'one' 'two']"}
                 yyyyMMMd{"[MMM d, r 'one' 'two']"}
                 yyyyMd{"[M/d/r 'one']"}
                 yyyyQQQ{"[QQQ r(U) 'one' 'two']"}
@@ -251,6 +265,16 @@ en_XA{
                 "[{1}, {0} 'one' 'two']",
                 "[{1}, {0} 'one' 'two']",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "[GyMMMMEEEEd 'one' 'two']",
+                "[GyMMMMd 'one' 'two']",
+                "[GyMMMd 'one']",
+                "[GGGGGyMd 'one' 'two']",
+            }
             appendItems{
                 Day{"[{0} ({2}: {1}) 'one' 'two']"}
                 Day-Of-Week{"[{0} {1} 'one' 'two']"}
@@ -280,6 +304,7 @@ en_XA{
                 GyMMM{"[MMM y G 'one' 'two']"}
                 GyMMMEd{"[E, MMM d, y G 'one' 'two']"}
                 GyMMMd{"[MMM d, y G 'one' 'two']"}
+                GyMd{"[M/d/y GGGGG 'one' 'two']"}
                 H{"[HH 'one']"}
                 Hm{"[HH:mm 'one']"}
                 Hms{"[HH:mm:ss 'one' 'two']"}
@@ -482,6 +507,16 @@ en_XA{
                 "[{1}, {0} 'one' 'two']",
                 "[{1}, {0} 'one' 'two']",
             }
+            DateTimeSkeletons{
+                "[ahmmsszzzz 'one' 'two']",
+                "[ahmmssz 'one' 'two']",
+                "[ahmmss 'one']",
+                "[ahmm 'one']",
+                "[yMMMMEEEEd 'one' 'two']",
+                "[yMMMMd 'one']",
+                "[yMMMd 'one']",
+                "[yyMd 'one']",
+            }
             appendItems{
                 Day{"[{0} ({2}: {1}) 'one' 'two']"}
                 Day-Of-Week{"[{0} {1} 'one' 'two']"}
@@ -511,6 +546,7 @@ en_XA{
                 GyMMM{"[MMM y G 'one' 'two']"}
                 GyMMMEd{"[E, MMM d, y G 'one' 'two']"}
                 GyMMMd{"[MMM d, y G 'one' 'two']"}
+                GyMd{"[M/d/y GGGGG 'one' 'two']"}
                 H{"[HH 'one']"}
                 Hm{"[HH:mm 'one']"}
                 Hms{"[HH:mm:ss 'one' 'two']"}
@@ -817,6 +853,22 @@ en_XA{
                         "[Ðéçéɱƀéŕ one two]",
                     }
                 }
+                stand-alone{
+                    abbreviated{
+                        "Jan",
+                        "Feb",
+                        "Mar",
+                        "Apr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Aug",
+                        "[Šéþ one]",
+                        "Oct",
+                        "Nov",
+                        "Dec",
+                    }
+                }
             }
             quarters{
                 format{
@@ -851,11 +903,22 @@ en_XA{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "[yMMMMEEEEd 'one' 'two']",
+                "[yMMMMd 'one']",
+                "[yMMMd 'one']",
+                "[yMMMd 'one']",
+            }
             availableFormats{
                 Gy{"[y G 'one']"}
                 GyMMM{"[MMM y G 'one' 'two']"}
                 GyMMMEd{"[E, d MMM y G 'one' 'two']"}
                 GyMMMd{"[d MMM y G 'one' 'two']"}
+                GyMd{"[d MMM y GGGGG 'one' 'two']"}
                 M{"[L 'one']"}
                 MEd{"[E, d MMM 'one' 'two']"}
                 MMM{"[LLL 'one']"}
@@ -966,11 +1029,21 @@ en_XA{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "[GyMMMMEEEEd 'one' 'two']",
+                "[GyMMMMd 'one' 'two']",
+                "[GyMMMd 'one']",
+                "[GGGGGyMd 'one' 'two']",
+            }
         }
         roc{
             eras{
                 abbreviated{
-                    "[Ɓéƒöŕé Ŕ·Ö·Ç· one two]",
+                    "[Ɓ·Ŕ·Ö·Ç· one two]",
                     "[Ṁîñĝûö one]",
                 }
             }

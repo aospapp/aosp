@@ -13,10 +13,9 @@
 # limitations under the License.
 
 ifneq ($(filter flame,$(TARGET_DEVICE)),)
-LOCAL_STEM := flame/BoardConfigPartial.mk
+-include vendor/google_devices/flame/BoardConfigPartial.mk
+-include vendor/qcom/flame/BoardConfigPartial.mk
 else
-LOCAL_STEM := coral/BoardConfigPartial.mk
+-include vendor/google_devices/coral/BoardConfigPartial.mk
+-include vendor/qcom/coral/BoardConfigPartial.mk
 endif
-
--include vendor/google_devices/$(LOCAL_STEM)
--include vendor/qcom/$(LOCAL_STEM)

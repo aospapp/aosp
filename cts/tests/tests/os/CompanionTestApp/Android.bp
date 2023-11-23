@@ -30,7 +30,7 @@ android_test_helper_app {
         "cts",
         "vts",
         "vts10",
-        "mts",
+        "mts-permission",
         "general-tests",
         "sts",
     ],

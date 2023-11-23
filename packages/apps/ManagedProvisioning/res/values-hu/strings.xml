@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A következő alkalmazás kezelni fogja az eszközt:"</string>
     <string name="next" msgid="1004321437324424398">"Tovább"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Munkaprofil beállítása…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"A rendszergazda figyelheti és kezelheti a beállításokat, a vállalati hozzáférést, az alkalmazásokat, az engedélyeket, az ehhez a profilhoz tartozó adatokat, például a hálózati tevékenységet, az eszköz helyadatait, a híváselőzményeket és a névjegykeresési előzményeket.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Ha további információra van szüksége (például a szervezete adatvédelmi irányelveivel kapcsolatban), vegye fel a kapcsolatot a rendszergazdával."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"A rendszergazda felügyelheti és kezelheti a profillal kapcsolatos beállításokat, vállalati hozzáférést, alkalmazásokat, engedélyeket, adatokat és hálózati tevékenységeket, valamint a híváslistát és névjegykeresési előzményeket. Vegye fel a kapcsolatot rendszergazdájával, ha további információt szeretne megtudni, és tájékozódni szeretne szervezete adatvédelmi irányelveiről."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"A rendszergazda figyelheti és kezelheti a beállításokat, a vállalati hozzáférést, az alkalmazásokat, az engedélyeket, az ehhez az eszközhöz tartozó adatokat, például a hálózati tevékenységet, az eszköz helyadatait, a híváselőzményeket és a névjegykeresési előzményeket.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ha további információra van szüksége (például a szervezete adatvédelmi irányelveivel kapcsolatban), vegye fel a kapcsolatot a rendszergazdával."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"A(z) <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> telepítheti a(z) <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> alkalmazást annak érdekében, hogy Ön kifizethesse az eszközre vonatkozó tartozását."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Ez az eszköz le lehet tiltva"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"A(z) <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> korlátozhatja az Ön eszközhöz való hozzáférését, ha nem fizet."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Nem sikerült beállítani az eszközt. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Érvénytelen ellenőrző összeg”."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Próbálja újra később, vagy kérjen segítséget a rendszergazdától"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Nem sikerült beállítani az eszközt. Vegye fel a kapcsolatot a rendszergazdával, és hivatkozzon a következőre: „Hiányzó vagy sérült összetevők”."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Beállítás…"</string>
 </resources>

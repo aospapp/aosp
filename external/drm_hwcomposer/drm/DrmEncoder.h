@@ -17,43 +17,52 @@
 #ifndef ANDROID_DRM_ENCODER_H_
 #define ANDROID_DRM_ENCODER_H_
 
-#include <stdint.h>
 #include <xf86drmMode.h>
 
+#include <cstdint>
 #include <set>
 #include <vector>
 
 #include "DrmCrtc.h"
+#include "DrmDisplayPipeline.h"
 
 namespace android {
 
-class DrmEncoder {
+class DrmEncoder : public PipelineBindable<DrmEncoder> {
  public:
-  DrmEncoder(drmModeEncoderPtr e, DrmCrtc *current_crtc,
-             std::vector<DrmCrtc *> possible_crtcs);
+  static auto CreateInstance(DrmDevice &dev, uint32_t encoder_id,
+                             uint32_t index) -> std::unique_ptr<DrmEncoder>;
+
   DrmEncoder(const DrmEncoder &) = delete;
   DrmEncoder &operator=(const DrmEncoder &) = delete;
 
-  uint32_t id() const;
+  auto GetId() const {
+    return enc_->encoder_id;
+  };
 
-  DrmCrtc *crtc() const;
-  void set_crtc(DrmCrtc *crtc);
-  bool can_bind(int display) const;
-  int display() const;
-
-  const std::vector<DrmCrtc *> &possible_crtcs() const {
-    return possible_crtcs_;
+  auto GetIndexInResArray() const {
+    return index_in_res_array_;
   }
-  bool CanClone(DrmEncoder *encoder);
-  void AddPossibleClone(DrmEncoder *possible_clone);
+
+  auto CanClone(DrmEncoder &encoder) {
+    return (enc_->possible_clones & (1 << encoder.GetIndexInResArray())) != 0;
+  }
+
+  auto SupportsCrtc(DrmCrtc &crtc) {
+    return (enc_->possible_crtcs & (1 << crtc.GetIndexInResArray())) != 0;
+  }
+
+  auto GetCurrentCrtcId() {
+    return enc_->crtc_id;
+  }
 
  private:
-  uint32_t id_;
-  DrmCrtc *crtc_;
-  int display_;
+  DrmEncoder(DrmModeEncoderUnique enc, uint32_t index)
+      : enc_(std::move(enc)), index_in_res_array_(index){};
 
-  std::vector<DrmCrtc *> possible_crtcs_;
-  std::set<DrmEncoder *> possible_clones_;
+  DrmModeEncoderUnique enc_;
+
+  const uint32_t index_in_res_array_;
 };
 }  // namespace android
 

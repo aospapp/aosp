@@ -20,10 +20,9 @@ import errno
 import os
 import stat
 import sys
-import time
 import unittest
 
-from pyfakefs.helpers import IN_DOCKER
+from pyfakefs.helpers import IN_DOCKER, IS_PYPY
 
 from pyfakefs import fake_filesystem
 from pyfakefs.fake_filesystem import FakeFileOpen, is_root
@@ -31,7 +30,7 @@ from pyfakefs.extra_packages import (
     use_scandir, use_scandir_package, use_builtin_scandir
 )
 
-from pyfakefs.tests.test_utils import DummyTime, TestCase, RealFsTestCase
+from pyfakefs.tests.test_utils import TestCase, RealFsTestCase
 
 
 class FakeOsModuleTestBase(RealFsTestCase):
@@ -177,12 +176,14 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
             fake_file2 = self.os.fdopen(fileno)
             self.assertNotEqual(fake_file2, fake_file1)
 
-        self.assertRaises(TypeError, self.os.fdopen, None)
-        self.assertRaises(TypeError, self.os.fdopen, 'a string')
+        with self.assertRaises(TypeError):
+            self.os.fdopen(None)
+        with self.assertRaises(TypeError):
+            self.os.fdopen('a string')
 
     def test_out_of_range_fdopen(self):
         # test some file descriptor that is clearly out of range
-        self.assert_raises_os_error(errno.EBADF, self.os.fdopen, 100)
+        self.assert_raises_os_error(errno.EBADF, self.os.fdopen, 500)
 
     def test_closed_file_descriptor(self):
         first_path = self.make_path('some_file1')
@@ -221,7 +222,8 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.fdopen(fileno1)
         self.os.fdopen(fileno1, 'r')
         if not is_root():
-            self.assertRaises(OSError, self.os.fdopen, fileno1, 'w')
+            with self.assertRaises(OSError):
+                self.os.fdopen(fileno1, 'w')
         else:
             self.os.fdopen(fileno1, 'w')
             self.os.close(fileno1)
@@ -238,6 +240,28 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def test_stat(self):
         directory = self.make_path('xyzzy')
+        file_path = self.os.path.join(directory, 'plugh')
+        self.create_file(file_path, contents='ABCDE')
+        self.assertTrue(stat.S_IFDIR & self.os.stat(directory)[stat.ST_MODE])
+        self.assertTrue(stat.S_IFREG & self.os.stat(file_path)[stat.ST_MODE])
+        self.assertTrue(stat.S_IFREG & self.os.stat(file_path).st_mode)
+        self.assertEqual(5, self.os.stat(file_path)[stat.ST_SIZE])
+
+    def test_stat_with_unc_path(self):
+        self.skip_real_fs()
+        self.check_windows_only()
+        directory = '//root/share/dir'
+        file_path = self.os.path.join(directory, 'plugh')
+        self.create_file(file_path, contents='ABCDE')
+        self.assertTrue(stat.S_IFDIR & self.os.stat(directory)[stat.ST_MODE])
+        self.assertTrue(stat.S_IFREG & self.os.stat(file_path)[stat.ST_MODE])
+        self.assertTrue(stat.S_IFREG & self.os.stat(file_path).st_mode)
+        self.assertEqual(5, self.os.stat(file_path)[stat.ST_SIZE])
+
+    def test_stat_with_drive(self):
+        self.skip_real_fs()
+        self.check_windows_only()
+        directory = 'C:/foo/dir'
         file_path = self.os.path.join(directory, 'plugh')
         self.create_file(file_path, contents='ABCDE')
         self.assertTrue(stat.S_IFDIR & self.os.stat(directory)[stat.ST_MODE])
@@ -329,10 +353,10 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def test_lstat_trailing_sep(self):
         # regression test for #342
-        stat = self.os.lstat(self.base_path)
-        self.assertEqual(stat,
+        stat_result = self.os.lstat(self.base_path)
+        self.assertEqual(stat_result,
                          self.os.lstat(self.base_path + self.path_separator()))
-        self.assertEqual(stat, self.os.lstat(
+        self.assertEqual(stat_result, self.os.lstat(
             self.base_path + self.path_separator() + self.path_separator()))
 
     def test_stat_with_byte_string(self):
@@ -544,6 +568,11 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.create_file(file_path)
         self.assertFalse(self.os.path.isfile(file_path + self.os.sep))
 
+    def test_isfile_not_readable_file(self):
+        file_path = self.make_path('foo')
+        self.create_file(file_path, perm=0)
+        self.assertTrue(self.os.path.isfile(file_path))
+
     def check_stat_with_trailing_separator(self, error_nr):
         # regression test for #376
         file_path = self.make_path('foo')
@@ -618,7 +647,8 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def test_readlink_raises_if_path_is_none(self):
         self.skip_if_symlink_not_supported()
-        self.assertRaises(TypeError, self.os.readlink, None)
+        with self.assertRaises(TypeError):
+            self.os.readlink(None)
 
     def test_broken_symlink_with_trailing_separator_linux(self):
         self.check_linux_only()
@@ -1115,7 +1145,8 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         # not testing specific subtype:
         # raises errno.ENOTEMPTY under Ubuntu 16.04, MacOS and pyfakefs
         # but raises errno.EEXIST at least under Ubunto 14.04
-        self.assertRaises(OSError, self.os.rename, old_path, new_path)
+        with self.assertRaises(OSError):
+            self.os.rename(old_path, new_path)
 
     def test_rename_to_another_device_should_raise(self):
         """Renaming to another filesystem device raises OSError."""
@@ -1702,7 +1733,8 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
         directory = self.make_path('a', 'b')
         if not is_root():
-            self.assertRaises(Exception, self.os.makedirs, directory)
+            with self.assertRaises(Exception):
+                self.os.makedirs(directory)
         else:
             self.os.makedirs(directory)
             self.assertTrue(self.os.path.exists(directory))
@@ -1739,20 +1771,21 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     # test fsync and fdatasync
     def test_fsync_raises_on_non_int(self):
-        self.assertRaises(TypeError, self.os.fsync, "zero")
+        with self.assertRaises(TypeError):
+            self.os.fsync("zero")
 
     def test_fdatasync_raises_on_non_int(self):
         self.check_linux_only()
         self.assertRaises(TypeError, self.os.fdatasync, "zero")
 
     def test_fsync_raises_on_invalid_fd(self):
-        self.assert_raises_os_error(errno.EBADF, self.os.fsync, 100)
+        self.assert_raises_os_error(errno.EBADF, self.os.fsync, 500)
 
     def test_fdatasync_raises_on_invalid_fd(self):
         # No open files yet
         self.check_linux_only()
         self.assert_raises_os_error(errno.EINVAL, self.os.fdatasync, 0)
-        self.assert_raises_os_error(errno.EBADF, self.os.fdatasync, 100)
+        self.assert_raises_os_error(errno.EBADF, self.os.fdatasync, 500)
 
     def test_fsync_pass_posix(self):
         self.check_posix_only()
@@ -1764,7 +1797,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
             self.os.fsync(test_fd)
             # And just for sanity, double-check that this still raises
             self.assert_raises_os_error(errno.EBADF,
-                                        self.os.fsync, test_fd + 10)
+                                        self.os.fsync, test_fd + 500)
 
     def test_fsync_pass_windows(self):
         self.check_windows_only()
@@ -1776,7 +1809,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
             self.os.fsync(test_fd)
             # And just for sanity, double-check that this still raises
             self.assert_raises_os_error(errno.EBADF,
-                                        self.os.fsync, test_fd + 10)
+                                        self.os.fsync, test_fd + 500)
         with self.open(test_file_path, 'r') as test_file:
             test_fd = test_file.fileno()
             self.assert_raises_os_error(errno.EBADF, self.os.fsync, test_fd)
@@ -1792,7 +1825,7 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.fdatasync(test_fd)
         # And just for sanity, double-check that this still raises
         self.assert_raises_os_error(errno.EBADF,
-                                    self.os.fdatasync, test_fd + 10)
+                                    self.os.fdatasync, test_fd + 500)
 
     def test_access700(self):
         # set up
@@ -1889,6 +1922,12 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.assertFalse(self.os.access(path, self.rwx))
         self.assertFalse(self.os.access(path, self.rw))
 
+    def test_effective_ids_not_supported_under_windows(self):
+        self.check_windows_only()
+        path = self.make_path('foo', 'bar')
+        with self.assertRaises(NotImplementedError):
+            self.os.access(path, self.os.F_OK, effective_ids=True)
+
     def test_chmod(self):
         # set up
         self.check_posix_only()
@@ -1916,8 +1955,6 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def test_chmod_follow_symlink(self):
         self.check_posix_only()
-        if self.use_real_fs() and 'chmod' not in os.supports_follow_symlinks:
-            raise unittest.SkipTest('follow_symlinks not available')
         path = self.make_path('some_file')
         self.createTestFile(path)
         link_path = self.make_path('link_to_some_file')
@@ -1927,22 +1964,24 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         st = self.os.stat(link_path)
         self.assert_mode_equal(0o6543, st.st_mode)
         st = self.os.stat(link_path, follow_symlinks=False)
-        self.assert_mode_equal(0o777, st.st_mode)
+        # the exact mode depends on OS and Python version
+        self.assertEqual(stat.S_IMODE(0o700), stat.S_IMODE(st.st_mode) & 0o700)
 
     def test_chmod_no_follow_symlink(self):
         self.check_posix_only()
-        if self.use_real_fs() and 'chmod' not in os.supports_follow_symlinks:
-            raise unittest.SkipTest('follow_symlinks not available')
         path = self.make_path('some_file')
         self.createTestFile(path)
         link_path = self.make_path('link_to_some_file')
         self.create_symlink(link_path, path)
-        self.os.chmod(link_path, 0o6543, follow_symlinks=False)
-
-        st = self.os.stat(link_path)
-        self.assert_mode_equal(0o666, st.st_mode)
-        st = self.os.stat(link_path, follow_symlinks=False)
-        self.assert_mode_equal(0o6543, st.st_mode)
+        if os.chmod not in os.supports_follow_symlinks or IS_PYPY:
+            with self.assertRaises(NotImplementedError):
+                self.os.chmod(link_path, 0o6543, follow_symlinks=False)
+        else:
+            self.os.chmod(link_path, 0o6543, follow_symlinks=False)
+            st = self.os.stat(link_path)
+            self.assert_mode_equal(0o666, st.st_mode)
+            st = self.os.stat(link_path, follow_symlinks=False)
+            self.assert_mode_equal(0o6543, st.st_mode)
 
     def test_lchmod(self):
         """lchmod shall behave like chmod with follow_symlinks=True."""
@@ -2144,6 +2183,9 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
 
     def test_mknod_raises_if_unsupported_options(self):
         self.check_posix_only()
+        # behavior seems to have changed in ubuntu-20.04, version 20210606.1
+        # skipping real fs tests for now
+        self.skip_real_fs()
         filename = 'abcde'
         if not is_root():
             self.assert_raises_os_error(errno.EPERM, self.os.mknod, filename,
@@ -2687,6 +2729,31 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
         self.os.close(write_fd)
         self.os.close(fd)
 
+    def test_read_write_pipe(self):
+        read_fd, write_fd = self.os.pipe()
+        self.assertEqual(4, self.os.write(write_fd, b'test'))
+        self.assertEqual(b'test', self.os.read(read_fd, 4))
+        self.os.close(read_fd)
+        self.os.close(write_fd)
+
+    def test_open_existing_pipe(self):
+        # create some regular files to ensure that real and fake fd
+        # are out of sync (see #581)
+        fds = []
+        for i in range(5):
+            path = self.make_path('file' + str(i))
+            fds.append(self.os.open(path, os.O_CREAT))
+        file_path = self.make_path('file.txt')
+        self.create_file(file_path)
+        with self.open(file_path):
+            read_fd, write_fd = self.os.pipe()
+            with self.open(write_fd, 'wb') as f:
+                self.assertEqual(4, f.write(b'test'))
+            with self.open(read_fd, 'rb') as f:
+                self.assertEqual(b'test', f.read())
+        for fd in fds:
+            self.os.close(fd)
+
     def test_write_to_pipe(self):
         read_fd, write_fd = self.os.pipe()
         self.os.write(write_fd, b'test')
@@ -2700,6 +2767,52 @@ class FakeOsModuleTest(FakeOsModuleTestBase):
                                     self.os.write, read_fd, b'test')
         self.os.close(read_fd)
         self.os.close(write_fd)
+
+    def test_truncate(self):
+        file_path = self.make_path('foo', 'bar')
+        self.create_file(file_path, contents='012345678901234567')
+        self.os.truncate(file_path, 10)
+        with self.open(file_path) as f:
+            self.assertEqual('0123456789', f.read())
+
+    def test_truncate_non_existing(self):
+        self.assert_raises_os_error(errno.ENOENT, self.os.truncate, 'foo', 10)
+
+    def test_truncate_to_larger(self):
+        file_path = self.make_path('foo', 'bar')
+        self.create_file(file_path, contents='0123456789')
+        fd = self.os.open(file_path, os.O_RDWR)
+        self.os.truncate(fd, 20)
+        self.assertEqual(20, self.os.stat(file_path).st_size)
+        with self.open(file_path) as f:
+            self.assertEqual('0123456789' + '\0' * 10, f.read())
+
+    def test_truncate_with_fd(self):
+        if os.truncate not in os.supports_fd:
+            self.skip_real_fs()
+        self.assert_raises_os_error(errno.EBADF, self.os.ftruncate, 50, 10)
+        file_path = self.make_path('some_file')
+        self.create_file(file_path, contents='01234567890123456789')
+
+        fd = self.os.open(file_path, os.O_RDWR)
+        self.os.truncate(fd, 10)
+        self.assertEqual(10, self.os.stat(file_path).st_size)
+        with self.open(file_path) as f:
+            self.assertEqual('0123456789', f.read())
+
+    def test_ftruncate(self):
+        if self.is_pypy:
+            # not correctly supported
+            self.skip_real_fs()
+        self.assert_raises_os_error(errno.EBADF, self.os.ftruncate, 50, 10)
+        file_path = self.make_path('some_file')
+        self.create_file(file_path, contents='0123456789012345')
+
+        fd = self.os.open(file_path, os.O_RDWR)
+        self.os.truncate(fd, 10)
+        self.assertEqual(10, self.os.stat(file_path).st_size)
+        with self.open(file_path) as f:
+            self.assertEqual('0123456789', f.read())
 
 
 class RealOsModuleTest(FakeOsModuleTest):
@@ -2991,6 +3104,8 @@ class FakeOsModuleTestCaseInsensitiveFS(FakeOsModuleTestBase):
         # Regression test for #317
         self.check_posix_only()
         dest_dir_path = self.make_path('Dest')
+        # seems to behave differently under different MacOS versions
+        self.skip_real_fs()
         new_dest_dir_path = self.make_path('dest')
         self.os.mkdir(dest_dir_path)
         source_dir_path = self.make_path('src')
@@ -3537,6 +3652,7 @@ class FakeOsModuleTestCaseInsensitiveFS(FakeOsModuleTestBase):
         self.os.fsync(test_fd)
         # And just for sanity, double-check that this still raises
         self.assert_raises_os_error(errno.EBADF, self.os.fsync, test_fd + 10)
+        test_file.close()
 
     def test_chmod(self):
         # set up
@@ -3615,118 +3731,107 @@ class RealOsModuleTestCaseInsensitiveFS(FakeOsModuleTestCaseInsensitiveFS):
 
 
 class FakeOsModuleTimeTest(FakeOsModuleTestBase):
-    def setUp(self):
-        super(FakeOsModuleTimeTest, self).setUp()
-        self.orig_time = time.time
-        self.dummy_time = None
-        self.setDummyTime(200)
-
-    def tearDown(self):
-        time.time = self.orig_time
-        super(FakeOsModuleTimeTest, self).tearDown()
-
-    def setDummyTime(self, start):
-        self.dummy_time = DummyTime(start, 20)
-        time.time = self.dummy_time
-
     def test_chmod_st_ctime(self):
-        # set up
-        file_path = 'some_file'
-        self.filesystem.create_file(file_path)
-        self.assertTrue(self.os.path.exists(file_path))
-        self.dummy_time.start()
+        with self.mock_time(start=200):
+            file_path = 'some_file'
+            self.filesystem.create_file(file_path)
+            self.assertTrue(self.os.path.exists(file_path))
 
-        st = self.os.stat(file_path)
-        self.assertEqual(200, st.st_ctime)
-        # tests
-        self.os.chmod(file_path, 0o765)
-        st = self.os.stat(file_path)
-        self.assertEqual(220, st.st_ctime)
+            st = self.os.stat(file_path)
+            self.assertEqual(200, st.st_ctime)
+            # tests
+            self.os.chmod(file_path, 0o765)
+            st = self.os.stat(file_path)
+            self.assertEqual(220, st.st_ctime)
 
     def test_utime_sets_current_time_if_args_is_none(self):
-        # set up
         path = self.make_path('some_file')
         self.createTestFile(path)
-        self.dummy_time.start()
 
-        st = self.os.stat(path)
-        # 200 is the current time established in setUp().
-        self.assertEqual(200, st.st_atime)
-        self.assertEqual(200, st.st_mtime)
-        # actual tests
-        self.os.utime(path, times=None)
-        st = self.os.stat(path)
-        self.assertEqual(220, st.st_atime)
-        self.assertEqual(220, st.st_mtime)
+        with self.mock_time(start=200):
+            self.os.utime(path, times=None)
+            st = self.os.stat(path)
+            self.assertEqual(200, st.st_atime)
+            self.assertEqual(200, st.st_mtime)
 
     def test_utime_sets_current_time_if_args_is_none_with_floats(self):
-        # set up
         # we set os.stat_float_times() to False, so atime/ctime/mtime
         # are converted as ints (seconds since epoch)
-        self.setDummyTime(200.9123)
-        path = '/some_file'
+        stat_float_times = fake_filesystem.FakeOsModule.stat_float_times()
         fake_filesystem.FakeOsModule.stat_float_times(False)
-        self.createTestFile(path)
-        self.dummy_time.start()
+        try:
+            with self.mock_time(start=200.9124):
+                path = '/some_file'
+                self.createTestFile(path)
 
-        st = self.os.stat(path)
-        # 200 is the current time established above (if converted to int).
-        self.assertEqual(200, st.st_atime)
-        self.assertTrue(isinstance(st.st_atime, int))
-        self.assertEqual(200, st.st_mtime)
-        self.assertTrue(isinstance(st.st_mtime, int))
+                st = self.os.stat(path)
+                # 200 is the current time established above
+                # (if converted to int)
+                self.assertEqual(200, st.st_atime)
+                self.assertTrue(isinstance(st.st_atime, int))
+                self.assertEqual(220, st.st_mtime)
+                self.assertTrue(isinstance(st.st_mtime, int))
 
-        self.assertEqual(200912300000, st.st_atime_ns)
-        self.assertEqual(200912300000, st.st_mtime_ns)
+                self.assertEqual(200912400000, st.st_atime_ns)
+                self.assertEqual(220912400000, st.st_mtime_ns)
 
-        self.assertEqual(200, st.st_mtime)
-        # actual tests
-        self.os.utime(path, times=None)
-        st = self.os.stat(path)
-        self.assertEqual(220, st.st_atime)
-        self.assertTrue(isinstance(st.st_atime, int))
-        self.assertEqual(220, st.st_mtime)
-        self.assertTrue(isinstance(st.st_mtime, int))
-        self.assertEqual(220912300000, st.st_atime_ns)
-        self.assertEqual(220912300000, st.st_mtime_ns)
+                self.assertEqual(220, st.st_mtime)
+                self.assertEqual(240, st.st_ctime)
+                # actual tests
+                self.os.utime(path, times=None)
+                st = self.os.stat(path)
+                self.assertEqual(260, st.st_atime)
+                self.assertTrue(isinstance(st.st_atime, int))
+                self.assertEqual(260, st.st_mtime)
+                self.assertTrue(isinstance(st.st_mtime, int))
+                self.assertEqual(260912400000, st.st_atime_ns)
+                self.assertEqual(260912400000, st.st_mtime_ns)
+        finally:
+            fake_filesystem.FakeOsModule.stat_float_times(stat_float_times)
 
     def test_utime_sets_current_time_if_args_is_none_with_floats_n_sec(self):
+        stat_float_times = fake_filesystem.FakeOsModule.stat_float_times()
         fake_filesystem.FakeOsModule.stat_float_times(False)
+        try:
+            with self.mock_time(start=200.9123):
+                path = self.make_path('some_file')
+                self.createTestFile(path)
+                test_file = self.filesystem.get_object(path)
 
-        self.setDummyTime(200.9123)
-        path = self.make_path('some_file')
-        self.createTestFile(path)
-        test_file = self.filesystem.get_object(path)
+                st = self.os.stat(path)
+                self.assertEqual(200, st.st_atime)
+                self.assertEqual(220, st.st_mtime)
+                self.assertEqual(240, st.st_ctime)
+                self.assertEqual(240, test_file.st_ctime)
+                self.assertTrue(isinstance(st.st_ctime, int))
+                self.assertTrue(isinstance(test_file.st_ctime, int))
 
-        self.dummy_time.start()
-        st = self.os.stat(path)
-        self.assertEqual(200, st.st_ctime)
-        self.assertEqual(200, test_file.st_ctime)
-        self.assertTrue(isinstance(st.st_ctime, int))
-        self.assertTrue(isinstance(test_file.st_ctime, int))
+                self.os.stat_float_times(True)  # first time float time
+                self.assertEqual(240, st.st_ctime)  # st does not change
+                self.assertEqual(240.9123, test_file.st_ctime)  # but the file
+                self.assertTrue(isinstance(st.st_ctime, int))
+                self.assertTrue(isinstance(test_file.st_ctime, float))
 
-        self.os.stat_float_times(True)  # first time float time
-        self.assertEqual(200, st.st_ctime)  # st does not change
-        self.assertEqual(200.9123, test_file.st_ctime)  # but the file does
-        self.assertTrue(isinstance(st.st_ctime, int))
-        self.assertTrue(isinstance(test_file.st_ctime, float))
+                self.os.stat_float_times(False)  # reverting to int
+                self.assertEqual(240, test_file.st_ctime)
+                self.assertTrue(isinstance(test_file.st_ctime, int))
 
-        self.os.stat_float_times(False)  # reverting to int
-        self.assertEqual(200, test_file.st_ctime)
-        self.assertTrue(isinstance(test_file.st_ctime, int))
+                self.assertEqual(240, st.st_ctime)
+                self.assertTrue(isinstance(st.st_ctime, int))
 
-        self.assertEqual(200, st.st_ctime)
-        self.assertTrue(isinstance(st.st_ctime, int))
-
-        self.os.stat_float_times(True)
-        st = self.os.stat(path)
-        # 200.9123 not converted to int
-        self.assertEqual(200.9123, test_file.st_atime, test_file.st_mtime)
-        self.assertEqual(200.9123, st.st_atime, st.st_mtime)
-        self.os.utime(path, times=None)
-        st = self.os.stat(path)
-        self.assertEqual(220.9123, st.st_atime)
-        self.assertEqual(220.9123, st.st_mtime)
+                self.os.stat_float_times(True)
+                st = self.os.stat(path)
+                # float time not converted to int
+                self.assertAlmostEqual(200.9123, st.st_atime)
+                self.assertAlmostEqual(220.9123, st.st_mtime)
+                self.assertAlmostEqual(240.9123, test_file.st_ctime,
+                                       st.st_ctime)
+                self.os.utime(path, times=None)
+                st = self.os.stat(path)
+                self.assertAlmostEqual(260.9123, st.st_atime)
+                self.assertAlmostEqual(260.9123, st.st_mtime)
+        finally:
+            fake_filesystem.FakeOsModule.stat_float_times(stat_float_times)
 
     def test_utime_sets_specified_time(self):
         # set up
@@ -3792,7 +3897,6 @@ class FakeOsModuleTimeTest(FakeOsModuleTestBase):
         # set up
         path = self.make_path('some_file')
         self.createTestFile(path)
-        self.dummy_time.start()
 
         self.os.stat(path)
         # actual tests
@@ -4025,6 +4129,7 @@ class FakeOsModuleLowLevelFileOpTest(FakeOsModuleTestBase):
         file_des = self.os.open(file_path, os.O_WRONLY | os.O_CREAT, 0o442)
         self.assert_mode_equal(0o444, self.os.stat(file_path).st_mode)
         self.os.close(file_des)
+        self.os.chmod(file_path, 0o666)
 
     def testOpenCreateMode666Windows(self):
         self.check_windows_only()
@@ -4093,6 +4198,7 @@ class FakeOsModuleLowLevelFileOpTest(FakeOsModuleTestBase):
         self.create_dir(dir_path)
         file_des = self.os.open(dir_path, os.O_RDONLY)
         self.assertEqual(3, file_des)
+        self.os.close(file_des)
 
     def test_opening_existing_directory_in_creation_mode(self):
         self.check_linux_only()
@@ -4500,6 +4606,20 @@ class FakeOsModuleWalkTest(FakeOsModuleTestBase):
                                self.os.path.join(base_dir, 'created_link'),
                                followlinks=True)
 
+    def test_walk_linked_file_in_subdir(self):
+        # regression test for #559 (tested for link on incomplete path)
+        self.check_posix_only()
+        # need to have a top-level link to reproduce the bug - skip real fs
+        self.skip_real_fs()
+        file_path = '/foo/bar/baz'
+        self.create_file(file_path)
+        self.create_symlink('bar', file_path)
+        expected = [
+            ('/foo', ['bar'], []),
+            ('/foo/bar', [], ['baz'])
+        ]
+        self.assertWalkResults(expected, '/foo')
+
     def test_base_dirpath(self):
         # regression test for #512
         file_path = self.make_path('foo', 'bar', 'baz')
@@ -4513,14 +4633,12 @@ class FakeOsModuleWalkTest(FakeOsModuleTestBase):
         ]
         for base_dir in variants:
             for dirpath, dirnames, filenames in self.os.walk(base_dir):
-                print(dirpath, filenames)
                 self.assertEqual(dirpath, base_dir)
 
         file_path = self.make_path('foo', 'bar', 'dir', 'baz')
         self.create_file(file_path)
         for base_dir in variants:
             for dirpath, dirnames, filenames in self.os.walk(base_dir):
-                print(dirpath, filenames)
                 self.assertTrue(dirpath.startswith(base_dir))
 
 
@@ -4592,6 +4710,7 @@ class FakeOsModuleDirFdTest(FakeOsModuleTestBase):
         self.assertTrue(self.os.path.exists('/bat'))
 
     def test_readlink(self):
+        self.skip_if_symlink_not_supported()
         self.filesystem.create_symlink('/meyer/lemon/pie', '/foo/baz')
         self.filesystem.create_symlink('/geo/metro', '/meyer')
         self.assertRaises(
@@ -4874,7 +4993,7 @@ class FakeScandirTest(FakeOsModuleTestBase):
 
     def tearDown(self):
         self.os.chdir(self.pretest_cwd)
-        super(FakeScandirTest, self).tearDown()
+        super().tearDown()
 
     def do_scandir(self):
         """Hook to override how scandir is called."""
@@ -5152,6 +5271,9 @@ class FakeExtendedAttributeTest(FakeOsModuleTestBase):
 
 class FakeOsUnreadableDirTest(FakeOsModuleTestBase):
     def setUp(self):
+        if self.use_real_fs():
+            # make sure no dir is created if skipped
+            self.check_posix_only()
         super(FakeOsUnreadableDirTest, self).setUp()
         self.check_posix_only()
         self.dir_path = self.make_path('some_dir')

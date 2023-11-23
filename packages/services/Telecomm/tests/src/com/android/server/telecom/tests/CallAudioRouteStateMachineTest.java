@@ -21,6 +21,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.IAudioService;
 import android.os.HandlerThread;
@@ -505,6 +506,37 @@ public class CallAudioRouteStateMachineTest extends TelecomTestCase {
 
     @SmallTest
     @Test
+    public void testDockWhenInQuiescentState() {
+        CallAudioRouteStateMachine stateMachine = new CallAudioRouteStateMachine(
+                mContext,
+                mockCallsManager,
+                mockBluetoothRouteManager,
+                mockWiredHeadsetManager,
+                mockStatusBarNotifier,
+                mAudioServiceFactory,
+                CallAudioRouteStateMachine.EARPIECE_FORCE_ENABLED,
+                mThreadHandler.getLooper());
+        stateMachine.setCallAudioManager(mockCallAudioManager);
+        when(mockAudioManager.isSpeakerphoneOn()).thenReturn(false);
+        CallAudioState initState = new CallAudioState(false, CallAudioState.ROUTE_SPEAKER,
+                CallAudioState.ROUTE_EARPIECE | CallAudioState.ROUTE_SPEAKER);
+        stateMachine.initialize(initState);
+
+        // Raise a dock connect event.
+        stateMachine.sendMessageWithSessionInfo(CallAudioRouteStateMachine.CONNECT_DOCK);
+        waitForHandlerAction(stateMachine.getHandler(), TEST_TIMEOUT);
+        assertTrue(!stateMachine.isInActiveState());
+        verify(mockAudioManager, never()).setSpeakerphoneOn(eq(true));
+
+        // Raise a dock disconnect event.
+        stateMachine.sendMessageWithSessionInfo(CallAudioRouteStateMachine.DISCONNECT_DOCK);
+        waitForHandlerAction(stateMachine.getHandler(), TEST_TIMEOUT);
+        assertTrue(!stateMachine.isInActiveState());
+        verify(mockAudioManager, never()).setSpeakerphoneOn(eq(false));
+    }
+
+    @SmallTest
+    @Test
     public void testFocusChangeFromQuiescentSpeaker() {
         CallAudioRouteStateMachine stateMachine = new CallAudioRouteStateMachine(
                 mContext,
@@ -531,7 +563,10 @@ public class CallAudioRouteStateMachineTest extends TelecomTestCase {
         // Make sure that we've successfully switched to the active speaker route and that we've
         // called setSpeakerOn
         assertTrue(stateMachine.isInActiveState());
-        verify(mockAudioManager).setSpeakerphoneOn(true);
+        ArgumentCaptor<AudioDeviceInfo> infoArgumentCaptor = ArgumentCaptor.forClass(
+                AudioDeviceInfo.class);
+        verify(mockAudioManager).setCommunicationDevice(infoArgumentCaptor.capture());
+        assertEquals(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, infoArgumentCaptor.getValue().getType());
     }
 
     @SmallTest

@@ -41,8 +41,8 @@ EVP_PKEY* RsaOperationFactory::GetRsaKey(const Key& key, keymaster_error_t* erro
         return nullptr;
     }
 
-    UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (!rsa_key.InternalToEvp(pkey.get())) {
+    EVP_PKEY_Ptr pkey(rsa_key.InternalToEvp());
+    if (pkey.get() == nullptr) {
         *error = KM_ERROR_UNKNOWN_ERROR;
         return nullptr;
     }

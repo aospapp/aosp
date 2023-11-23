@@ -1,2 +1,0 @@
-# b/149063229
-dontaudit untrusted_app sysfs_msm_subsys:dir search;

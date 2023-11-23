@@ -41,7 +41,7 @@ constexpr TransformSize kTransformSizesLargerThan32x32[] = {
 // |alpha| can be -16 to 16 (inclusive).
 template <int block_width, int block_height, int bitdepth, typename Pixel>
 void CflIntraPredictor_C(
-    void* const dest, ptrdiff_t stride,
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
     const int16_t luma[kCflLumaBufferStride][kCflLumaBufferStride],
     const int alpha) {
   auto* dst = static_cast<Pixel*>(dest);
@@ -66,7 +66,8 @@ template <int block_width, int block_height, int bitdepth, typename Pixel,
           int subsampling_x, int subsampling_y>
 void CflSubsampler_C(int16_t luma[kCflLumaBufferStride][kCflLumaBufferStride],
                      const int max_luma_width, const int max_luma_height,
-                     const void* const source, ptrdiff_t stride) {
+                     const void* LIBGAV1_RESTRICT const source,
+                     ptrdiff_t stride) {
   assert(max_luma_width >= 4);
   assert(max_luma_height >= 4);
   const auto* src = static_cast<const Pixel*>(source);

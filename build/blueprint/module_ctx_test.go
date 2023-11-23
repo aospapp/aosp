@@ -91,12 +91,12 @@ func TestAliasVariation(t *testing.T) {
 		`
 
 		mockFS := map[string][]byte{
-			"Blueprints": []byte(bp),
+			"Android.bp": []byte(bp),
 		}
 
 		ctx.MockFileSystem(mockFS)
 
-		_, errs := ctx.ParseFileList(".", []string{"Blueprints"}, nil)
+		_, errs := ctx.ParseFileList(".", []string{"Android.bp"}, nil)
 		if len(errs) > 0 {
 			t.Errorf("unexpected parse errors:")
 			for _, err := range errs {
@@ -218,12 +218,12 @@ func TestCreateAliasVariations(t *testing.T) {
 		`
 
 		mockFS := map[string][]byte{
-			"Blueprints": []byte(bp),
+			"Android.bp": []byte(bp),
 		}
 
 		ctx.MockFileSystem(mockFS)
 
-		_, errs := ctx.ParseFileList(".", []string{"Blueprints"}, nil)
+		_, errs := ctx.ParseFileList(".", []string{"Android.bp"}, nil)
 		if len(errs) > 0 {
 			t.Errorf("unexpected parse errors:")
 			for _, err := range errs {
@@ -339,12 +339,12 @@ func TestAddVariationDependencies(t *testing.T) {
 		`
 
 		mockFS := map[string][]byte{
-			"Blueprints": []byte(bp),
+			"Android.bp": []byte(bp),
 		}
 
 		ctx.MockFileSystem(mockFS)
 
-		_, errs := ctx.ParseFileList(".", []string{"Blueprints"}, nil)
+		_, errs := ctx.ParseFileList(".", []string{"Android.bp"}, nil)
 		if len(errs) > 0 {
 			t.Errorf("unexpected parse errors:")
 			for _, err := range errs {
@@ -530,4 +530,104 @@ test2 {
 			`path/Blueprint:6:1: unrecognized module type "test2"`,
 		)
 	})
+}
+
+type addNinjaDepsTestModule struct {
+	SimpleName
+}
+
+func addNinjaDepsTestModuleFactory() (Module, []interface{}) {
+	module := &addNinjaDepsTestModule{}
+	AddLoadHook(module, func(ctx LoadHookContext) {
+		ctx.AddNinjaFileDeps("LoadHookContext")
+	})
+	return module, []interface{}{&module.SimpleName.Properties}
+}
+
+func (m *addNinjaDepsTestModule) GenerateBuildActions(ctx ModuleContext) {
+	ctx.AddNinjaFileDeps("GenerateBuildActions")
+}
+
+func addNinjaDepsTestBottomUpMutator(ctx BottomUpMutatorContext) {
+	ctx.AddNinjaFileDeps("BottomUpMutator")
+}
+
+func addNinjaDepsTestTopDownMutator(ctx TopDownMutatorContext) {
+	ctx.AddNinjaFileDeps("TopDownMutator")
+}
+
+type addNinjaDepsTestPreSingleton struct{}
+
+func addNinjaDepsTestPreSingletonFactory() Singleton {
+	return &addNinjaDepsTestPreSingleton{}
+}
+
+func (s *addNinjaDepsTestPreSingleton) GenerateBuildActions(ctx SingletonContext) {
+	ctx.AddNinjaFileDeps("PreSingleton")
+}
+
+type addNinjaDepsTestSingleton struct{}
+
+func addNinjaDepsTestSingletonFactory() Singleton {
+	return &addNinjaDepsTestSingleton{}
+}
+
+func (s *addNinjaDepsTestSingleton) GenerateBuildActions(ctx SingletonContext) {
+	ctx.AddNinjaFileDeps("Singleton")
+}
+
+func TestAddNinjaFileDeps(t *testing.T) {
+	ctx := NewContext()
+	ctx.MockFileSystem(map[string][]byte{
+		"Android.bp": []byte(`
+			test {
+			    name: "test",
+			}
+		`),
+	})
+
+	ctx.RegisterModuleType("test", addNinjaDepsTestModuleFactory)
+	ctx.RegisterBottomUpMutator("testBottomUpMutator", addNinjaDepsTestBottomUpMutator)
+	ctx.RegisterTopDownMutator("testTopDownMutator", addNinjaDepsTestTopDownMutator)
+	ctx.RegisterPreSingletonType("testPreSingleton", addNinjaDepsTestPreSingletonFactory)
+	ctx.RegisterSingletonType("testSingleton", addNinjaDepsTestSingletonFactory)
+	parseDeps, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
+	if len(errs) > 0 {
+		t.Errorf("unexpected parse errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	resolveDeps, errs := ctx.ResolveDependencies(nil)
+	if len(errs) > 0 {
+		t.Errorf("unexpected dep errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	prepareDeps, errs := ctx.PrepareBuildActions(nil)
+	if len(errs) > 0 {
+		t.Errorf("unexpected prepare errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	if g, w := parseDeps, []string{"Android.bp", "LoadHookContext"}; !reflect.DeepEqual(g, w) {
+		t.Errorf("ParseBlueprintsFiles: wanted deps %q, got %q", w, g)
+	}
+
+	if g, w := resolveDeps, []string{"PreSingleton", "BottomUpMutator", "TopDownMutator"}; !reflect.DeepEqual(g, w) {
+		t.Errorf("ResolveDependencies: wanted deps %q, got %q", w, g)
+	}
+
+	if g, w := prepareDeps, []string{"GenerateBuildActions", "Singleton"}; !reflect.DeepEqual(g, w) {
+		t.Errorf("PrepareBuildActions: wanted deps %q, got %q", w, g)
+	}
+
 }

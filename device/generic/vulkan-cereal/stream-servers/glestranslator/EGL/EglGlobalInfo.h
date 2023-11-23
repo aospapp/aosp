@@ -45,7 +45,7 @@ public:
     // Returns a pointer to the process' single instance, which will be
     // created on demand. This can be called multiple times, each call will
     // increment an internal reference-count.
-    static EglGlobalInfo* getInstance();
+    static EglGlobalInfo* getInstance(bool nullEgl = false);
 
     // Create a new EglDisplay instance from an existing native |dpy| value.
     // |idpy| is the corresponding native internal display type. See
@@ -112,14 +112,14 @@ public:
 
     // setEgl2Egl(true) to enable egl on top of another egl.
     // Must be called before instantiation.
-    static void setEgl2Egl(EGLBoolean enable);
+    static void setEgl2Egl(EGLBoolean enable, bool nullEgl = false);
     static bool isEgl2Egl();
 
     // isEgl2EglSyncSafeToUse
     static void setEgl2EglSyncSafeToUse(EGLBoolean enable);
     static bool isEgl2EglSyncSafeToUse();
 
-    EglGlobalInfo();
+    EglGlobalInfo(bool nullEgl);
     ~EglGlobalInfo();
 
 private:

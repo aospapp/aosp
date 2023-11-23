@@ -53,11 +53,26 @@ TEST(VerifiedBootTest, avbHashtreeNotUsingSha1) {
       return;
   }
 
+  android::fs_mgr::Fstab mounted_fstab;
+  ASSERT_TRUE(ReadFstabFromFile("/proc/mounts", &mounted_fstab))
+      << "Failed to read the mounted fstab";
+  // Build a list of mount points that are either mounted or known to have
+  // importance.
+  std::set<std::string> mount_points = {"/", "/system"};
+  for (const auto& entry : mounted_fstab) {
+    mount_points.insert(entry.mount_point);
+  }
   android::fs_mgr::Fstab fstab;
   ASSERT_TRUE(ReadDefaultFstab(&fstab)) << "Failed to read default fstab";
 
   for (const auto& entry : fstab) {
-    if (!entry.fs_mgr_flags.verify && !entry.fs_mgr_flags.avb) {
+    if (!entry.fs_mgr_flags.avb) {
+      continue;
+    }
+
+    if (mount_points.find(entry.mount_point) == mount_points.end()) {
+      GTEST_LOG_(INFO) << entry.mount_point << " isn't mounted, skipping"
+          << " hashtree algorithm verification";
       continue;
     }
 
@@ -67,7 +82,7 @@ TEST(VerifiedBootTest, avbHashtreeNotUsingSha1) {
       continue;
     }
 
-    GTEST_LOG_(ERROR) << "partition enabled verity " << entry.mount_point;
+    GTEST_LOG_(INFO) << "partition enabled verity " << entry.mount_point;
 
     // The verity sysprop use "system" as the partition name in the system as
     // root case.

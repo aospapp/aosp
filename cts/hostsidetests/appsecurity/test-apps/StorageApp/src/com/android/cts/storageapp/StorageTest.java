@@ -122,7 +122,8 @@ public class StorageTest extends InstrumentationTestCase {
             UiScrollable localObject = new UiScrollable(new UiSelector().scrollable(true).instance(j));
             ((UiScrollable) localObject).setMaxSearchSwipes(10);
             try {
-                 ((UiScrollable) localObject).scrollTextIntoView("internal storage");
+                 ((UiScrollable) localObject).scrollIntoView(
+                   new UiSelector().textContains("internal storage"));
             } catch (UiObjectNotFoundException localUiObjectNotFoundException) {
                 // Scrolling can fail if the UI is not scrollable
             }
@@ -133,7 +134,7 @@ public class StorageTest extends InstrumentationTestCase {
         device.findObject(new UiSelector().textContains("Clear")).click();
         device.waitForIdle();
 
-        device.findObject(new UiSelector().text("OK")).click();
+        device.findObject(new UiSelector().text("DELETE")).click();
     }
 
     private void clearSpaceWatch(UiDevice device) throws UiObjectNotFoundException {

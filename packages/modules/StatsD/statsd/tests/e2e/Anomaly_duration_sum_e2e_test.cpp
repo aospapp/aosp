@@ -432,7 +432,8 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket) {
     int64_t bucketSizeNs = TimeUnitToBucketSizeInMillis(config.duration_metric(0).bucket()) * 1e6;
 
     service->mUidMap->updateMap(bucketStartTimeNs, {1}, {1}, {String16("v1")},
-                                {String16("randomApp")}, {String16("")});
+                                {String16("randomApp")}, {String16("")},
+                                /* certificateHash */ {{}});
 
     sp<AnomalyTracker> anomalyTracker =
             processor->mMetricsManagers.begin()->second->mAllAnomalyTrackers[0];
@@ -468,7 +469,7 @@ TEST(AnomalyDetectionE2eTest, TestDurationMetric_SUM_partial_bucket) {
     // Partial bucket split.
     int64_t appUpgradeTimeNs = bucketStartTimeNs + 500;
     service->mUidMap->updateApp(appUpgradeTimeNs, String16("randomApp"), 1, 2, String16("v2"),
-                                String16(""));
+                                String16(""), /* certificateHash */ {});
     EXPECT_EQ(0u, anomalyTracker->getAlarmTimestampSec(dimensionKey1));
     EXPECT_EQ(0u, anomalyTracker->getRefractoryPeriodEndsSec(dimensionKey1));
     EXPECT_EQ((bucketStartTimeNs + 110 + threshold_ns) / NS_PER_SEC + 1,

@@ -64,7 +64,7 @@ public class DataEnabledSettingsTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
-
+        doReturn(false).when(mPhone).isUsingNewDataStack();
         doReturn(mRules).when(mSubscriptionController).getDataEnabledOverrideRules(anyInt());
 
         doAnswer(invocation -> {
@@ -82,6 +82,10 @@ public class DataEnabledSettingsTest extends TelephonyTest {
 
     @After
     public void tearDown() throws Exception {
+        mDataEnabledSettingsTestHandler.quit();
+        mDataEnabledSettingsTestHandler.join();
+        mDataEnabledSettingsTestHandler = null;
+        mDataEnabledSettingsUT = null;
         super.tearDown();
     }
 

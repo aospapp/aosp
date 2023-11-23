@@ -45,7 +45,7 @@
 
 #define LIBXKBCOMMON_TOOL_PATH "/usr/local/libexec/xkbcommon"
 
-#define LIBXKBCOMMON_VERSION "1.0.3"
+#define LIBXKBCOMMON_VERSION "1.4.0"
 
 #define WIN32_LEAN_AND_MEAN 1
 

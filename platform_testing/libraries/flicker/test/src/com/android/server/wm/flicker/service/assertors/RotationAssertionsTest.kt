@@ -21,7 +21,6 @@ import com.android.server.wm.flicker.readTestFile
 import com.android.server.wm.flicker.readWmTraceFromFile
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
-import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.google.common.truth.Truth
 import org.junit.FixMethodOrder
 import org.junit.Test
@@ -41,7 +40,7 @@ class RotationAssertionsTest {
     private val rotationAssertor = TransitionAssertor(assertions) { }
 
     @Test
-    fun testValidRotationWmTrace() {
+    fun testValidRotationTrace() {
         val wmTrace = readWmTraceFromFile("assertors/rotation/WindowManagerTrace.winscope")
         val layersTrace = readLayerTraceFromFile("assertors/rotation/SurfaceFlingerTrace.winscope")
         val errorTrace = rotationAssertor.analyze(ROTATION_TAG, wmTrace, layersTrace)
@@ -49,26 +48,7 @@ class RotationAssertionsTest {
         Truth.assertThat(errorTrace).isEmpty()
     }
 
-    @Test
-    fun testValidRotationLayersTrace() {
-        val trace = readLayerTraceFromFile("assertors/rotation/SurfaceFlingerTrace.winscope")
-        val errorTrace = rotationAssertor.analyze(ROTATION_TAG, EMPTY_WM_TRACE, trace)
-
-        Truth.assertThat(errorTrace).isEmpty()
-    }
-
-    @Test
-    fun testInvalidRotationLayersTrace() {
-        val trace = readLayerTraceFromFile(
-            "assertors/rotation/SurfaceFlingerInvalidTrace.winscope")
-        val errorTrace = rotationAssertor.analyze(ROTATION_TAG, EMPTY_WM_TRACE, trace)
-
-        Truth.assertThat(errorTrace).isNotEmpty()
-        Truth.assertThat(errorTrace.entries.size).isEqualTo(1)
-    }
-
     companion object {
-        private val EMPTY_WM_TRACE = WindowManagerTrace(emptyArray(), source = "")
         private val ROTATION_TAG = Tag(1, Transition.ROTATION, true)
     }
 }

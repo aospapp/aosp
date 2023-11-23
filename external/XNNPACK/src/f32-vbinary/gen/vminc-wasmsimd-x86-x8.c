@@ -20,7 +20,7 @@ void xnn_f32_vminc_ukernel__wasmsimd_x86_x8(
     const float* a,
     const float* b,
     float* y,
-    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
@@ -28,17 +28,15 @@ void xnn_f32_vminc_ukernel__wasmsimd_x86_x8(
   assert(b != NULL);
   assert(y != NULL);
 
-  const v128_t vb = wasm_v32x4_load_splat(b);
+  const v128_t vb = wasm_v128_load32_splat(b);
   for (; n >= 8 * sizeof(float); n -= 8 * sizeof(float)) {
     const v128_t va0123 = wasm_v128_load(a);
     const v128_t va4567 = wasm_v128_load(a + 4);
     a += 8;
 
-    const v128_t vm0123 = wasm_f32x4_lt(va0123, vb);
-    const v128_t vm4567 = wasm_f32x4_lt(va4567, vb);
+    v128_t vy0123 = wasm_f32x4_pmin(vb, va0123);
+    v128_t vy4567 = wasm_f32x4_pmin(vb, va4567);
 
-    v128_t vy0123 = wasm_v128_bitselect(va0123, vb, vm0123);
-    v128_t vy4567 = wasm_v128_bitselect(va4567, vb, vm4567);
 
 
     wasm_v128_store(y, vy0123);
@@ -49,8 +47,7 @@ void xnn_f32_vminc_ukernel__wasmsimd_x86_x8(
     const v128_t va = wasm_v128_load(a);
     a += 4;
 
-    const v128_t vm = wasm_f32x4_lt(va, vb);
-    v128_t vy = wasm_v128_bitselect(va, vb, vm);
+    v128_t vy = wasm_f32x4_pmin(vb, va);
 
 
     wasm_v128_store(y, vy);
@@ -59,8 +56,7 @@ void xnn_f32_vminc_ukernel__wasmsimd_x86_x8(
   if XNN_UNLIKELY(n != 0) {
     const v128_t va = wasm_v128_load(a);
 
-    const v128_t vm = wasm_f32x4_lt(va, vb);
-    v128_t vy = wasm_v128_bitselect(va, vb, vm);
+    v128_t vy = wasm_f32x4_pmin(vb, va);
 
 
     if (n & (2 * sizeof(float))) {

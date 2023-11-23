@@ -25,27 +25,24 @@ package metrics
 // that captures the metrics and is them added as a perfInfo into the set
 // of the collected metrics. Finally, when soong_ui has finished the build,
 // the defer Dump function is invoked to store the collected metrics to the
-// raw protobuf file in the $OUT directory.
-//
-// There is one additional step that occurs after the raw protobuf file is written.
-// If the configuration environment variable ANDROID_ENABLE_METRICS_UPLOAD is
-// set with the path, the raw protobuf file is uploaded to the destination. See
-// ui/build/upload.go for more details. The filename of the raw protobuf file
-// and the list of files to be uploaded is defined in cmd/soong_ui/main.go.
-//
-// See ui/metrics/event.go for the explanation of what an event is and how
-// the metrics system is a stack based system.
+// raw protobuf file in the $OUT directory and this raw protobuf file will be
+// uploaded to the destination. See ui/build/upload.go for more details. The
+// filename of the raw protobuf file and the list of files to be uploaded is
+// defined in cmd/soong_ui/main.go. See ui/metrics/event.go for the explanation
+// of what an event is and how the metrics system is a stack based system.
 
 import (
-	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"android/soong/shared"
 
-	"android/soong/ui/metrics/metrics_proto"
+	"google.golang.org/protobuf/proto"
+
+	soong_metrics_proto "android/soong/ui/metrics/metrics_proto"
+	mk_metrics_proto "android/soong/ui/metrics/mk_metrics_proto"
 )
 
 const (
@@ -67,13 +64,21 @@ const (
 	Total = "total"
 )
 
-// Metrics is a struct that stores collected metrics during the course
-// of a build which later is dumped to a MetricsBase protobuf file.
-// See ui/metrics/metrics_proto/metrics.proto for further details
-// on what information is collected.
+// Metrics is a struct that stores collected metrics during the course of a
+// build. It is later dumped to protobuf files. See underlying metrics protos
+// for further details on what information is collected.
 type Metrics struct {
-	// The protobuf message that is later written to the file.
+	// Protobuf containing various top-level build metrics. These include:
+	// 1. Build identifiers (ex: branch ID, requested product, hostname,
+	//    originating command)
+	// 2. Per-subprocess top-level metrics (ex: ninja process IO and runtime).
+	//    Note that, since these metrics are reported by soong_ui, there is little
+	//    insight that can be provided into performance breakdowns of individual
+	//    subprocesses.
 	metrics soong_metrics_proto.MetricsBase
+
+	// Protobuf containing metrics pertaining to number of makefiles in a build.
+	mkMetrics mk_metrics_proto.MkMetrics
 
 	// A list of pending build events.
 	EventTracer *EventTracer
@@ -83,9 +88,22 @@ type Metrics struct {
 func New() (metrics *Metrics) {
 	m := &Metrics{
 		metrics:     soong_metrics_proto.MetricsBase{},
+		mkMetrics:   mk_metrics_proto.MkMetrics{},
 		EventTracer: &EventTracer{},
 	}
 	return m
+}
+
+func (m *Metrics) SetTotalMakefiles(total int) {
+	m.mkMetrics.TotalMakefiles = uint32(total)
+}
+
+func (m *Metrics) SetToplevelMakefiles(total int) {
+	m.mkMetrics.ToplevelMakefiles = uint32(total)
+}
+
+func (m *Metrics) DumpMkMetrics(outPath string) {
+	shared.Save(&m.mkMetrics, outPath)
 }
 
 // SetTimeMetrics stores performance information from an executed block of
@@ -116,6 +134,11 @@ func (m *Metrics) BuildConfig(b *soong_metrics_proto.BuildConfig) {
 // as total CPU and memory.
 func (m *Metrics) SystemResourceInfo(b *soong_metrics_proto.SystemResourceInfo) {
 	m.metrics.SystemResourceInfo = b
+}
+
+// ExpConfigFetcher stores information about the expconfigfetcher.
+func (m *Metrics) ExpConfigFetcher(b *soong_metrics_proto.ExpConfigFetcher) {
+	m.metrics.ExpConfigFetcher = b
 }
 
 // SetMetadataMetrics sets information about the build such as the target
@@ -201,7 +224,7 @@ func (m *Metrics) Dump(out string) error {
 	}
 	m.metrics.HostOs = proto.String(runtime.GOOS)
 
-	return save(&m.metrics, out)
+	return shared.Save(&m.metrics, out)
 }
 
 // SetSoongBuildMetrics sets the metrics collected from the soong_build
@@ -233,25 +256,5 @@ func (c *CriticalUserJourneysMetrics) Add(name string, metrics *Metrics) {
 
 // Dump saves the collected CUJs metrics to the raw protobuf file.
 func (c *CriticalUserJourneysMetrics) Dump(filename string) (err error) {
-	return save(&c.cujs, filename)
-}
-
-// save takes a protobuf message, marshals to an array of bytes
-// and is then saved to a file.
-func save(pb proto.Message, filename string) (err error) {
-	data, err := proto.Marshal(pb)
-	if err != nil {
-		return err
-	}
-
-	tempFilename := filename + ".tmp"
-	if err := ioutil.WriteFile(tempFilename, []byte(data), 0644 /* rw-r--r-- */); err != nil {
-		return err
-	}
-
-	if err := os.Rename(tempFilename, filename); err != nil {
-		return err
-	}
-
-	return nil
+	return shared.Save(&c.cujs, filename)
 }

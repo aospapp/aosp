@@ -218,7 +218,10 @@ public class TupleTest extends ImsTestBase {
         String resultNote = null;
         List<Note> noteList = tuple.getNoteList();
         if (noteList != null && !noteList.isEmpty()) {
-            resultNote = noteList.get(0).getNote();
+            Note eachNote = noteList.get(0);
+            if (eachNote != null) {
+                resultNote = eachNote.getNote();
+            }
         }
 
         assertTrue(note.equals(resultNote));

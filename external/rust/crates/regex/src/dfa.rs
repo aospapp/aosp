@@ -42,9 +42,9 @@ use std::iter::repeat;
 use std::mem;
 use std::sync::Arc;
 
-use exec::ProgramCache;
-use prog::{Inst, Program};
-use sparse::SparseSet;
+use crate::exec::ProgramCache;
+use crate::prog::{Inst, Program};
+use crate::sparse::SparseSet;
 
 /// Return true if and only if the given program can be executed by a DFA.
 ///
@@ -55,7 +55,7 @@ use sparse::SparseSet;
 /// This function will also return false if the given program has any Unicode
 /// instructions (Char or Ranges) since the DFA operates on bytes only.
 pub fn can_exec(insts: &Program) -> bool {
-    use prog::Inst::*;
+    use crate::prog::Inst::*;
     // If for some reason we manage to allocate a regex program with more
     // than i32::MAX instructions, then we can't execute the DFA because we
     // use 32 bit instruction pointer deltas for memory savings.
@@ -306,7 +306,7 @@ impl State {
         StateFlags(self.data[0])
     }
 
-    fn inst_ptrs(&self) -> InstPtrs {
+    fn inst_ptrs(&self) -> InstPtrs<'_> {
         InstPtrs { base: 0, data: &self.data[1..] }
     }
 }
@@ -894,7 +894,7 @@ impl<'a> Fsm<'a> {
         mut si: StatePtr,
         b: Byte,
     ) -> Option<StatePtr> {
-        use prog::Inst::*;
+        use crate::prog::Inst::*;
 
         // Initialize a queue with the current DFA state's NFA states.
         qcur.clear();
@@ -1056,8 +1056,8 @@ impl<'a> Fsm<'a> {
         q: &mut SparseSet,
         flags: EmptyFlags,
     ) {
-        use prog::EmptyLook::*;
-        use prog::Inst::*;
+        use crate::prog::EmptyLook::*;
+        use crate::prog::Inst::*;
 
         // We need to traverse the NFA to follow epsilon transitions, so avoid
         // recursion with an explicit stack.
@@ -1190,7 +1190,7 @@ impl<'a> Fsm<'a> {
         q: &SparseSet,
         state_flags: &mut StateFlags,
     ) -> Option<State> {
-        use prog::Inst::*;
+        use crate::prog::Inst::*;
 
         // We need to build up enough information to recognize pre-built states
         // in the DFA. Generally speaking, this includes every instruction
@@ -1754,7 +1754,7 @@ impl Byte {
 }
 
 impl fmt::Debug for State {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ips: Vec<usize> = self.inst_ptrs().collect();
         f.debug_struct("State")
             .field("flags", &self.flags())
@@ -1764,7 +1764,7 @@ impl fmt::Debug for State {
 }
 
 impl fmt::Debug for Transitions {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtd = f.debug_map();
         for si in 0..self.num_states() {
             let s = si * self.num_byte_classes;
@@ -1778,7 +1778,7 @@ impl fmt::Debug for Transitions {
 struct TransitionsRow<'a>(&'a [StatePtr]);
 
 impl<'a> fmt::Debug for TransitionsRow<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtd = f.debug_map();
         for (b, si) in self.0.iter().enumerate() {
             match *si {
@@ -1796,7 +1796,7 @@ impl<'a> fmt::Debug for TransitionsRow<'a> {
 }
 
 impl fmt::Debug for StateFlags {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StateFlags")
             .field("is_match", &self.is_match())
             .field("is_word", &self.is_word())
@@ -1889,7 +1889,6 @@ fn read_varu32(data: &[u8]) -> (u32, usize) {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
 
     use super::{
         push_inst_ptr, read_vari32, read_varu32, write_vari32, write_varu32,

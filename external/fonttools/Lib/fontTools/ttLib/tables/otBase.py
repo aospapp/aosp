@@ -1,9 +1,10 @@
-from fontTools.misc.py23 import Tag, bytesjoin
+from fontTools.misc.textTools import Tag, bytesjoin
 from .DefaultTable import DefaultTable
 import sys
 import array
 import struct
 import logging
+from typing import Iterator, NamedTuple, Optional
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class BaseTTXConverter(DefaultTable):
 	"""
 
 	def decompile(self, data, font):
+		"""Create an object from the binary data. Called automatically on access."""
 		from . import otTables
 		reader = OTTableReader(data, tableTag=self.tableTag)
 		tableClass = getattr(otTables, self.tableTag)
@@ -41,26 +43,28 @@ class BaseTTXConverter(DefaultTable):
 		self.table.decompile(reader, font)
 
 	def compile(self, font):
-		""" Create a top-level OTTableWriter for the GPOS/GSUB table.
-			Call the compile method for the the table
-				for each 'converter' record in the table converter list
-					call converter's write method for each item in the value.
-						- For simple items, the write method adds a string to the
-						writer's self.items list.
-						- For Struct/Table/Subtable items, it add first adds new writer to the
-						to the writer's self.items, then calls the item's compile method.
-						This creates a tree of writers, rooted at the GUSB/GPOS writer, with
-						each writer representing a table, and the writer.items list containing
-						the child data strings and writers.
-			call the getAllData method
-				call _doneWriting, which removes duplicates
-				call _gatherTables. This traverses the tables, adding unique occurences to a flat list of tables
-				Traverse the flat list of tables, calling getDataLength on each to update their position
-				Traverse the flat list of tables again, calling getData each get the data in the table, now that
-				pos's and offset are known.
+		"""Compiles the table into binary. Called automatically on save."""
 
-				If a lookup subtable overflows an offset, we have to start all over.
-		"""
+		# General outline:
+		# Create a top-level OTTableWriter for the GPOS/GSUB table.
+		# 	Call the compile method for the the table
+		# 		for each 'converter' record in the table converter list
+		# 			call converter's write method for each item in the value.
+		# 				- For simple items, the write method adds a string to the
+		# 				writer's self.items list.
+		# 				- For Struct/Table/Subtable items, it add first adds new writer to the
+		# 				to the writer's self.items, then calls the item's compile method.
+		# 				This creates a tree of writers, rooted at the GUSB/GPOS writer, with
+		# 				each writer representing a table, and the writer.items list containing
+		# 				the child data strings and writers.
+		# 	call the getAllData method
+		# 		call _doneWriting, which removes duplicates
+		# 		call _gatherTables. This traverses the tables, adding unique occurences to a flat list of tables
+		# 		Traverse the flat list of tables, calling getDataLength on each to update their position
+		# 		Traverse the flat list of tables again, calling getData each get the data in the table, now that
+		# 		pos's and offset are known.
+
+		# 		If a lookup subtable overflows an offset, we have to start all over.
 		overflowRecord = None
 
 		while True:
@@ -105,6 +109,13 @@ class BaseTTXConverter(DefaultTable):
 		self.table.fromXML(name, attrs, content, font)
 		self.table.populateDefaults()
 
+	def ensureDecompiled(self):
+		self.table.ensureDecompiled(recurse=True)
+
+
+# https://github.com/fonttools/fonttools/pull/2285#issuecomment-834652928
+assert len(struct.pack('i', 0)) == 4
+assert array.array('i').itemsize == 4, "Oops, file a bug against fonttools."
 
 class OTTableReader(object):
 
@@ -140,32 +151,43 @@ class OTTableReader(object):
 		value, = struct.unpack(f">{typecode}", self.data[pos:newpos])
 		self.pos = newpos
 		return value
-
-	def readUShort(self):
-		return self.readValue("H", staticSize=2)
-
 	def readArray(self, typecode, staticSize, count):
 		pos = self.pos
 		newpos = pos + count * staticSize
 		value = array.array(typecode, self.data[pos:newpos])
 		if sys.byteorder != "big": value.byteswap()
 		self.pos = newpos
-		return value
-
-	def readUShortArray(self, count):
-		return self.readArray("H", staticSize=2, count=count)
+		return value.tolist()
 
 	def readInt8(self):
 		return self.readValue("b", staticSize=1)
+	def readInt8Array(self, count):
+		return self.readArray("b", staticSize=1, count=count)
 
 	def readShort(self):
 		return self.readValue("h", staticSize=2)
+	def readShortArray(self, count):
+		return self.readArray("h", staticSize=2, count=count)
 
 	def readLong(self):
-		return self.readValue("l", staticSize=4)
+		return self.readValue("i", staticSize=4)
+	def readLongArray(self, count):
+		return self.readArray("i", staticSize=4, count=count)
 
 	def readUInt8(self):
 		return self.readValue("B", staticSize=1)
+	def readUInt8Array(self, count):
+		return self.readArray("B", staticSize=1, count=count)
+
+	def readUShort(self):
+		return self.readValue("H", staticSize=2)
+	def readUShortArray(self, count):
+		return self.readArray("H", staticSize=2, count=count)
+
+	def readULong(self):
+		return self.readValue("I", staticSize=4)
+	def readULongArray(self, count):
+		return self.readArray("I", staticSize=4, count=count)
 
 	def readUInt24(self):
 		pos = self.pos
@@ -173,9 +195,8 @@ class OTTableReader(object):
 		value, = struct.unpack(">l", b'\0'+self.data[pos:newpos])
 		self.pos = newpos
 		return value
-
-	def readULong(self):
-		return self.readValue("L", staticSize=4)
+	def readUInt24Array(self, count):
+		return [self.readUInt24() for _ in range(count)]
 
 	def readTag(self):
 		pos = self.pos
@@ -316,6 +337,12 @@ class OTTableWriter(object):
 				items[i] = item.getCountData()
 			elif hasattr(item, "getData"):
 				item._doneWriting(internedTables)
+				# At this point, all subwriters are hashable based on their items.
+				# (See hash and comparison magic methods above.) So the ``setdefault``
+				# call here will return the first writer object we've seen with
+				# equal content, or store it in the dictionary if it's not been
+				# seen yet. We therefore replace the subwriter object with an equivalent
+				# object, which deduplicates the tree.
 				if not dontShare:
 					items[i] = item = internedTables.setdefault(item, item)
 		self.items = tuple(items)
@@ -344,13 +371,13 @@ class OTTableWriter(object):
 			tables, extTables, done = extTables, None, {}
 
 		# add Coverage table if it is sorted last.
-		sortCoverageLast = 0
+		sortCoverageLast = False
 		if hasattr(self, "sortCoverageLast"):
 			# Find coverage table
 			for i in range(numItems):
 				item = self.items[i]
-				if hasattr(item, "name") and (item.name == "Coverage"):
-					sortCoverageLast = 1
+				if getattr(item, 'name', None) == "Coverage":
+					sortCoverageLast = True
 					break
 			if id(item) not in done:
 				item._gatherTables(tables, extTables, done)
@@ -363,7 +390,7 @@ class OTTableWriter(object):
 			if not hasattr(item, "getData"):
 				continue
 
-			if sortCoverageLast and (i==1) and item.name == 'Coverage':
+			if sortCoverageLast and (i==1) and getattr(item, 'name', None) == 'Coverage':
 				# we've already 'gathered' it above
 				continue
 
@@ -419,33 +446,52 @@ class OTTableWriter(object):
 
 	def writeValue(self, typecode, value):
 		self.items.append(struct.pack(f">{typecode}", value))
-
-	def writeUShort(self, value):
-		assert 0 <= value < 0x10000, value
-		self.items.append(struct.pack(">H", value))
-
-	def writeShort(self, value):
-		assert -32768 <= value < 32768, value
-		self.items.append(struct.pack(">h", value))
-
-	def writeUInt8(self, value):
-		assert 0 <= value < 256, value
-		self.items.append(struct.pack(">B", value))
+	def writeArray(self, typecode, values):
+		a = array.array(typecode, values)
+		if sys.byteorder != "big": a.byteswap()
+		self.items.append(a.tobytes())
 
 	def writeInt8(self, value):
 		assert -128 <= value < 128, value
 		self.items.append(struct.pack(">b", value))
+	def writeInt8Array(self, values):
+		self.writeArray('b', values)
+
+	def writeShort(self, value):
+		assert -32768 <= value < 32768, value
+		self.items.append(struct.pack(">h", value))
+	def writeShortArray(self, values):
+		self.writeArray('h', values)
+
+	def writeLong(self, value):
+		self.items.append(struct.pack(">i", value))
+	def writeLongArray(self, values):
+		self.writeArray('i', values)
+
+	def writeUInt8(self, value):
+		assert 0 <= value < 256, value
+		self.items.append(struct.pack(">B", value))
+	def writeUInt8Array(self, values):
+		self.writeArray('B', values)
+
+	def writeUShort(self, value):
+		assert 0 <= value < 0x10000, value
+		self.items.append(struct.pack(">H", value))
+	def writeUShortArray(self, values):
+		self.writeArray('H', values)
+
+	def writeULong(self, value):
+		self.items.append(struct.pack(">I", value))
+	def writeULongArray(self, values):
+		self.writeArray('I', values)
 
 	def writeUInt24(self, value):
 		assert 0 <= value < 0x1000000, value
 		b = struct.pack(">L", value)
 		self.items.append(b[1:])
-
-	def writeLong(self, value):
-		self.items.append(struct.pack(">l", value))
-
-	def writeULong(self, value):
-		self.items.append(struct.pack(">L", value))
+	def writeUInt24Array(self, values):
+		for value in values:
+			self.writeUInt24(value)
 
 	def writeTag(self, tag):
 		tag = Tag(tag).tobytes()
@@ -532,11 +578,11 @@ def packUShort(value):
 
 def packULong(value):
 	assert 0 <= value < 0x100000000, value
-	return struct.pack(">L", value)
+	return struct.pack(">I", value)
 
 def packUInt24(value):
 	assert 0 <= value < 0x1000000, value
-	return struct.pack(">L", value)[1:]
+	return struct.pack(">I", value)[1:]
 
 
 class BaseTable(object):
@@ -554,13 +600,16 @@ class BaseTable(object):
 
 		raise AttributeError(attr)
 
-	def ensureDecompiled(self):
+	def ensureDecompiled(self, recurse=False):
 		reader = self.__dict__.get("reader")
 		if reader:
 			del self.reader
 			font = self.font
 			del self.font
 			self.decompile(reader, font)
+		if recurse:
+			for subtable in self.iterSubTables():
+				subtable.value.ensureDecompiled(recurse)
 
 	@classmethod
 	def getRecordSize(cls, reader):
@@ -571,7 +620,7 @@ class BaseTable(object):
 			countValue = 1
 			if conv.repeat:
 				if conv.repeat in reader:
-					countValue = reader[conv.repeat]
+					countValue = reader[conv.repeat] + conv.aux
 				else:
 					return NotImplemented
 			totalSize += size * countValue
@@ -698,14 +747,11 @@ class BaseTable(object):
 				else:
 					# conv.repeat is a propagated count
 					writer[conv.repeat].setValue(countValue)
-				values = value
-				for i, value in enumerate(values):
-					try:
-						conv.write(writer, font, table, value, i)
-					except Exception as e:
-						name = value.__class__.__name__ if value is not None else conv.name
-						e.args = e.args + (name+'['+str(i)+']',)
-						raise
+				try:
+					conv.writeArray(writer, font, table, value)
+				except Exception as e:
+					e.args = e.args + (conv.name+'[]',)
+					raise
 			elif conv.isCount:
 				# Special-case Count values.
 				# Assumption: a Count field will *always* precede
@@ -812,6 +858,37 @@ class BaseTable(object):
 
 		return self.__dict__ == other.__dict__
 
+	class SubTableEntry(NamedTuple):
+		"""See BaseTable.iterSubTables()"""
+		name: str
+		value: "BaseTable"
+		index: Optional[int] = None  # index into given array, None for single values
+
+	def iterSubTables(self) -> Iterator[SubTableEntry]:
+		"""Yield (name, value, index) namedtuples for all subtables of current table.
+
+		A sub-table is an instance of BaseTable (or subclass thereof) that is a child
+		of self, the current parent table.
+		The tuples also contain the attribute name (str) of the of parent table to get
+		a subtable, and optionally, for lists of subtables (i.e. attributes associated
+		with a converter that has a 'repeat'), an index into the list containing the
+		given subtable value.
+		This method can be useful to traverse trees of otTables.
+		"""
+		for conv in self.getConverters():
+			name = conv.name
+			value = getattr(self, name, None)
+			if value is None:
+				continue
+			if isinstance(value, BaseTable):
+				yield self.SubTableEntry(name, value)
+			elif isinstance(value, list):
+				yield from (
+					self.SubTableEntry(name, v, index=i)
+					for i, v in enumerate(value)
+					if isinstance(v, BaseTable)
+				)
+
 
 class FormatSwitchingBaseTable(BaseTable):
 
@@ -823,6 +900,15 @@ class FormatSwitchingBaseTable(BaseTable):
 		return NotImplemented
 
 	def getConverters(self):
+		try:
+			fmt = self.Format
+		except AttributeError:
+			# some FormatSwitchingBaseTables (e.g. Coverage) no longer have 'Format'
+			# attribute after fully decompiled, only gain one in preWrite before being
+			# recompiled. In the decompiled state, these hand-coded classes defined in
+			# otTables.py lose their format-specific nature and gain more high-level
+			# attributes that are not tied to converters.
+			return []
 		return self.converters.get(self.Format, [])
 
 	def getConverterByName(self, name):
@@ -968,6 +1054,13 @@ class ValueRecord(object):
 		format = 0
 		for name in self.__dict__.keys():
 			format = format | valueRecordFormatDict[name][0]
+		return format
+
+	def getEffectiveFormat(self):
+		format = 0
+		for name,value in self.__dict__.items():
+			if value:
+				format = format | valueRecordFormatDict[name][0]
 		return format
 
 	def toXML(self, xmlWriter, font, valueName, attrs=None):

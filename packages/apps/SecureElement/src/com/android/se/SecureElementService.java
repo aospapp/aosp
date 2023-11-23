@@ -34,6 +34,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.ServiceSpecificException;
+import android.os.UserHandle;
 import android.se.omapi.ISecureElementChannel;
 import android.se.omapi.ISecureElementListener;
 import android.se.omapi.ISecureElementReader;
@@ -45,6 +46,7 @@ import android.util.Log;
 
 import com.android.se.Terminal.SecureElementReader;
 import com.android.se.internal.ByteArrayConverter;
+import com.android.se.security.HalRefDoParser;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -54,6 +56,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Vector;
 
 /**
  * Underlying implementation for OMAPI SEService
@@ -62,51 +65,110 @@ public final class SecureElementService extends Service {
 
     public static final String UICC_TERMINAL = "SIM";
     public static final String ESE_TERMINAL = "eSE";
+    public static final String VSTABLE_SECURE_ELEMENT_SERVICE =
+            "android.se.omapi.ISecureElementService/default";
     private final String mTag = "SecureElementService";
     private static final boolean DEBUG = Build.IS_DEBUGGABLE;
     // LinkedHashMap will maintain the order of insertion
     private LinkedHashMap<String, Terminal> mTerminals = new LinkedHashMap<String, Terminal>();
     private int mActiveSimCount = 0;
+    private class SecureElementServiceBinder extends ISecureElementService.Stub {
+
+        @Override
+        public String[] getReaders() throws RemoteException {
+            try {
+                // This determines calling process is application/framework
+                String packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+                Log.d(mTag, "getReaders() for " + packageName);
+                return mTerminals.keySet().toArray(new String[mTerminals.size()]);
+            } catch (AccessControlException e) {
+                // since packagename not found, UUID might be used to access
+                // allow only to use eSE readers with UUID based requests
+                Vector<String> eSEReaders = new Vector<String>();
+                for (String reader : mTerminals.keySet()) {
+                    if (reader.startsWith(SecureElementService.ESE_TERMINAL)) {
+                        Log.i(mTag, "Adding Reader: " + reader);
+                        eSEReaders.add(reader);
+                    }
+                }
+
+                return eSEReaders.toArray(new String[eSEReaders.size()]);
+            }
+        }
+
+        @Override
+        public ISecureElementReader getReader(String reader) throws RemoteException {
+            Log.d(mTag, "getReader() " + reader);
+            Terminal terminal = null;
+            try {
+                // This determines calling process is application/framework
+                String packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+                Log.d(mTag, "getReader() for " + packageName);
+                terminal = getTerminal(reader);
+            } catch (AccessControlException e) {
+                // since packagename not found, UUID might be used to access
+                // allow only to use eSE readers with UUID based requests
+                if (reader.startsWith(SecureElementService.ESE_TERMINAL)) {
+                    terminal = getTerminal(reader);
+                } else {
+                    Log.d(mTag, "only eSE readers can access SE using UUID");
+                }
+            }
+            if (terminal != null) {
+                return terminal.new SecureElementReader(SecureElementService.this);
+            } else {
+                throw new IllegalArgumentException("Reader: " + reader + " not supported");
+            }
+        }
+
+        @Override
+        public synchronized boolean[] isNfcEventAllowed(String reader, byte[] aid,
+                String[] packageNames, int userId) throws RemoteException {
+            if (aid == null || aid.length == 0) {
+                aid = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00};
+            }
+            if (aid.length < 5 || aid.length > 16) {
+                throw new IllegalArgumentException("AID out of range");
+            }
+            if (packageNames == null || packageNames.length == 0) {
+                throw new IllegalArgumentException("package names not specified");
+            }
+            Terminal terminal = getTerminal(reader);
+            Context context;
+            try {
+                context = createContextAsUser(UserHandle.of(userId), /*flags=*/0);
+            } catch (IllegalStateException e) {
+                context = null;
+                Log.d(mTag, "fail to call createContextAsUser for userId:" + userId);
+            }
+            return context == null ? null : terminal.isNfcEventAllowed(
+                    context.getPackageManager(), aid, packageNames);
+
+        }
+
+        @Override
+        protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+            for (Terminal terminal : mTerminals.values()) {
+                terminal.dump(writer);
+            }
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ISecureElementService.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ISecureElementService.VERSION;
+        }
+    }
+
     private final ISecureElementService.Stub mSecureElementServiceBinder =
-            new ISecureElementService.Stub() {
+            new SecureElementServiceBinder();
 
-                @Override
-                public String[] getReaders() throws RemoteException {
-                    return mTerminals.keySet().toArray(new String[mTerminals.size()]);
-                }
-
-                @Override
-                public ISecureElementReader getReader(String reader)
-                        throws RemoteException {
-                    Log.d(mTag, "getReader() " + reader);
-                    Terminal terminal = getTerminal(reader);
-                    return terminal.new SecureElementReader(SecureElementService.this);
-                }
-
-                @Override
-                public synchronized boolean[] isNFCEventAllowed(String reader, byte[] aid,
-                        String[] packageNames)
-                        throws RemoteException {
-                    if (aid == null || aid.length == 0) {
-                        aid = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00};
-                    }
-                    if (aid.length < 5 || aid.length > 16) {
-                        throw new IllegalArgumentException("AID out of range");
-                    }
-                    if (packageNames == null || packageNames.length == 0) {
-                        throw new IllegalArgumentException("package names not specified");
-                    }
-                    Terminal terminal = getTerminal(reader);
-                    return terminal.isNfcEventAllowed(getPackageManager(), aid, packageNames);
-                }
-
-                @Override
-                protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-                    for (Terminal terminal : mTerminals.values()) {
-                        terminal.dump(writer);
-                    }
-                }
-            };
+    private final ISecureElementService.Stub mSecureElementServiceBinderVntf =
+            new SecureElementServiceBinder();
 
     public SecureElementService() {
         super();
@@ -148,6 +210,17 @@ public final class SecureElementService extends Service {
         Log.i(mTag, Thread.currentThread().getName() + " onCreate");
         initialize();
         createTerminals();
+
+        // Add vendor stable service only if it is configured
+        if (getResources().getBoolean(R.bool.secure_element_vintf_enabled)) {
+            ServiceManager.addService(VSTABLE_SECURE_ELEMENT_SERVICE,
+                    mSecureElementServiceBinderVntf);
+        }
+
+        // Since ISecureElementService is marked with VINTF stability
+        // to use this same interface within the system partition, will use
+        // forceDowngradeToSystemStability and register it.
+        mSecureElementServiceBinder.forceDowngradeToSystemStability();
         ServiceManager.addService(Context.SECURE_ELEMENT_SERVICE, mSecureElementServiceBinder);
     }
 
@@ -232,6 +305,16 @@ public final class SecureElementService extends Service {
         throw new AccessControlException("PackageName can not be determined");
     }
 
+    private byte[] getUUIDFromCallingUid(int uid) {
+        byte[] uuid = HalRefDoParser.getInstance().findUUID(Binder.getCallingUid());
+
+        if (uuid != null) {
+            return uuid;
+        }
+
+        return null;
+    }
+
     final class SecureElementSession extends ISecureElementSession.Stub {
 
         private final SecureElementReader mReader;
@@ -314,12 +397,29 @@ public final class SecureElementService extends Service {
                         + String.format("%02x ", p2 & 0xFF));
             }
 
-            String packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+            String packageName = null;
+            byte[] uuid = null;
+            try {
+                packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+            } catch (AccessControlException e) {
+                // Since packageName not found for calling process, try to find UUID mapping
+                // provided by vendors for the calling process UID
+                // (vendor provide UUID mapping for native services to access secure element)
+                Log.d(mTag, "openBasicChannel() trying to find mapping uuid");
+                // Allow UUID based access only on embedded secure elements eSE.
+                if (mReader.getTerminal().getName().startsWith(SecureElementService.ESE_TERMINAL)) {
+                    uuid = getUUIDFromCallingUid(Binder.getCallingUid());
+                }
+                if (uuid == null) {
+                    Log.e(mTag, "openBasicChannel() uuid mapping for calling uid is not found");
+                    throw e;
+                }
+            }
             Channel channel = null;
 
             try {
                 channel = mReader.getTerminal().openBasicChannel(this, aid, p2, listener,
-                        packageName, Binder.getCallingPid());
+                        packageName, uuid, Binder.getCallingPid());
             } catch (IOException e) {
                 throw new ServiceSpecificException(SEService.IO_ERROR, e.getMessage());
             } catch (NoSuchElementException e) {
@@ -356,12 +456,29 @@ public final class SecureElementService extends Service {
                         + String.format("%02x ", p2 & 0xFF));
             }
 
-            String packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+            String packageName = null;
+            byte[] uuid = null;
+            try {
+                packageName = getPackageNameFromCallingUid(Binder.getCallingUid());
+            } catch (AccessControlException e) {
+                // Since packageName not found for calling process, try to find UUID mapping
+                // provided by vendors for the calling process UID
+                // (vendor provide UUID mapping for native services to access secure element)
+                Log.d(mTag, "openLogicalChannel() trying to find mapping uuid");
+                // Allow UUID based access only on embedded secure elements eSE.
+                if (mReader.getTerminal().getName().startsWith(SecureElementService.ESE_TERMINAL)) {
+                    uuid = getUUIDFromCallingUid(Binder.getCallingUid());
+                }
+                if (uuid == null) {
+                    Log.e(mTag, "openLogicalChannel() uuid mapping for calling uid is not found");
+                    throw e;
+                }
+            }
             Channel channel = null;
 
             try {
                 channel = mReader.getTerminal().openLogicalChannel(this, aid, p2, listener,
-                        packageName, Binder.getCallingPid());
+                        packageName, uuid, Binder.getCallingPid());
             } catch (IOException e) {
                 throw new ServiceSpecificException(SEService.IO_ERROR, e.getMessage());
             } catch (NoSuchElementException e) {
@@ -379,6 +496,16 @@ public final class SecureElementService extends Service {
                 mChannels.add(channel);
             }
             return channel.new SecureElementChannel();
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ISecureElementSession.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ISecureElementSession.VERSION;
         }
     }
 

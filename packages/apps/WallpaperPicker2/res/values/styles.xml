@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!--
      Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -191,4 +192,27 @@
         <item name="android:lineHeight">@dimen/option_title_line_height</item>
     </style>
 
+    <!-- Preview header -->
+    <style name="PreviewHeaderStyle">
+        <item name="android:paddingBottom">?android:attr/actionBarSize</item>
+    </style>
+
+    <!-- Screen preview layout -->
+    <style name="ScreenPreviewLayoutStyle">
+        <item name="android:layout_marginTop">?android:attr/actionBarSize</item>
+    </style>
+
+    <!-- CollapsingToolbarTitle -->
+    <style name="CollapsingToolbar.Collapsed"
+        parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title">
+        <item name="android:fontFamily">google-sans</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/settingslib_text_color_primary_device_default</item>
+    </style>
+
+    <style name="CollapsingToolbar.Expanded" parent="CollapsingToolbarTitle.Collapsed">
+        <item name="android:fontFamily">google-sans</item>
+        <item name="android:textSize">36sp</item>
+        <item name="android:textColor">@color/settingslib_text_color_primary_device_default</item>
+    </style>
 </resources>

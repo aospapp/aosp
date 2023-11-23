@@ -97,6 +97,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
     private transient boolean decimalPatternMatchRequired;
     private transient boolean decimalSeparatorAlwaysShown;
     private transient boolean exponentSignAlwaysShown;
+    private transient boolean currencyAsDecimal;
     private transient int formatWidth;
     private transient int groupingSize;
     private transient boolean groupingUsed;
@@ -169,6 +170,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         decimalPatternMatchRequired = false;
         decimalSeparatorAlwaysShown = false;
         exponentSignAlwaysShown = false;
+        currencyAsDecimal = false;
         formatWidth = -1;
         groupingSize = -1;
         groupingUsed = true;
@@ -215,6 +217,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         decimalPatternMatchRequired = other.decimalPatternMatchRequired;
         decimalSeparatorAlwaysShown = other.decimalSeparatorAlwaysShown;
         exponentSignAlwaysShown = other.exponentSignAlwaysShown;
+        currencyAsDecimal = other.currencyAsDecimal;
         formatWidth = other.formatWidth;
         groupingSize = other.groupingSize;
         groupingUsed = other.groupingUsed;
@@ -262,6 +265,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         eq = eq && _equalsHelper(decimalPatternMatchRequired, other.decimalPatternMatchRequired);
         eq = eq && _equalsHelper(decimalSeparatorAlwaysShown, other.decimalSeparatorAlwaysShown);
         eq = eq && _equalsHelper(exponentSignAlwaysShown, other.exponentSignAlwaysShown);
+        eq = eq && _equalsHelper(currencyAsDecimal, other.currencyAsDecimal);
         eq = eq && _equalsHelper(formatWidth, other.formatWidth);
         eq = eq && _equalsHelper(groupingSize, other.groupingSize);
         eq = eq && _equalsHelper(groupingUsed, other.groupingUsed);
@@ -325,6 +329,7 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         hashCode ^= _hashCodeHelper(decimalPatternMatchRequired);
         hashCode ^= _hashCodeHelper(decimalSeparatorAlwaysShown);
         hashCode ^= _hashCodeHelper(exponentSignAlwaysShown);
+        hashCode ^= _hashCodeHelper(currencyAsDecimal);
         hashCode ^= _hashCodeHelper(formatWidth);
         hashCode ^= _hashCodeHelper(groupingSize);
         hashCode ^= _hashCodeHelper(groupingUsed);
@@ -446,6 +451,10 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
 
     public boolean getExponentSignAlwaysShown() {
         return exponentSignAlwaysShown;
+    }
+
+    public boolean getCurrencyAsDecimal() {
+        return currencyAsDecimal;
     }
 
     public int getFormatWidth() {
@@ -771,6 +780,18 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
      */
     public DecimalFormatProperties setExponentSignAlwaysShown(boolean exponentSignAlwaysShown) {
         this.exponentSignAlwaysShown = exponentSignAlwaysShown;
+        return this;
+    }
+
+    /**
+     * Sets whether the currency symbol should replace the decimal separator.
+     *
+     * @param currencyAsDecimal
+     *              Whether the currency symbol should replace the decimal separator.
+     * @return The property bag, for chaining.
+     */
+    public DecimalFormatProperties setCurrencyAsDecimal(boolean currencyAsDecimal) {
+        this.currencyAsDecimal = currencyAsDecimal;
         return this;
     }
 

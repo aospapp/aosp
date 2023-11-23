@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "StatsPuller.h"
@@ -42,7 +42,8 @@ StatsPuller::StatsPuller(const int tagId, const int64_t coolDownNs, const int64_
       mLastEventTimeNs(0) {
 }
 
-bool StatsPuller::Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<LogEvent>>* data) {
+PullErrorCode StatsPuller::Pull(const int64_t eventTimeNs,
+                                std::vector<std::shared_ptr<LogEvent>>* data) {
     lock_guard<std::mutex> lock(mLock);
     const int64_t elapsedTimeNs = getElapsedRealtimeNs();
     const int64_t systemUptimeMillis = getSystemUptimeMillis();
@@ -55,7 +56,7 @@ bool StatsPuller::Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<Lo
             StatsdStats::getInstance().notePullFromCache(mTagId);
 
         }
-        return mHasGoodData;
+        return mHasGoodData ? PULL_SUCCESS : PULL_FAIL;
     }
     if (mLastPullTimeNs > 0) {
         StatsdStats::getInstance().updateMinPullIntervalSec(
@@ -64,9 +65,10 @@ bool StatsPuller::Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<Lo
     mCachedData.clear();
     mLastPullTimeNs = elapsedTimeNs;
     mLastEventTimeNs = eventTimeNs;
-    mHasGoodData = PullInternal(&mCachedData);
+    PullErrorCode status = PullInternal(&mCachedData);
+    mHasGoodData = (status == PULL_SUCCESS);
     if (!mHasGoodData) {
-        return mHasGoodData;
+        return status;
     }
     const int64_t pullElapsedDurationNs = getElapsedRealtimeNs() - elapsedTimeNs;
     const int64_t pullSystemUptimeDurationMillis = getSystemUptimeMillis() - systemUptimeMillis;
@@ -80,7 +82,7 @@ bool StatsPuller::Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<Lo
                 mTagId, pullSystemUptimeDurationMillis, NanoToMillis(pullElapsedDurationNs));
         ALOGW("Pull for atom %d exceeds timeout %lld nano seconds.", mTagId,
               (long long)pullElapsedDurationNs);
-        return mHasGoodData;
+        return PULL_FAIL;
     }
 
     if (mCachedData.size() > 0) {
@@ -93,7 +95,7 @@ bool StatsPuller::Pull(const int64_t eventTimeNs, std::vector<std::shared_ptr<Lo
     }
 
     (*data) = mCachedData;
-    return mHasGoodData;
+    return PULL_SUCCESS;
 }
 
 int StatsPuller::ForceClearCache() {

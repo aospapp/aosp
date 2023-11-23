@@ -31,13 +31,14 @@ namespace perfmgr {
 // FileNode represents file
 class FileNode : public Node {
   public:
-    FileNode(std::string name, std::string node_path,
-             std::vector<RequestGroup> req_sorted, std::size_t default_val_index,
-             bool reset_on_init, bool hold_fd = false);
+    FileNode(std::string name, std::string node_path, std::vector<RequestGroup> req_sorted,
+             std::size_t default_val_index, bool reset_on_init, bool truncate,
+             bool hold_fd = false);
 
     std::chrono::milliseconds Update(bool log_error) override;
 
     bool GetHoldFd() const;
+    bool GetTruncate() const;
 
     void DumpToFd(int fd) const override;
 
@@ -46,6 +47,7 @@ class FileNode : public Node {
     FileNode& operator=(Node const&) = delete;
 
     const bool hold_fd_;
+    const bool truncate_;
     const std::chrono::milliseconds warn_timeout_;
     android::base::unique_fd fd_;
 };

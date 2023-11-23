@@ -36,6 +36,7 @@ import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 
 import java.time.Duration;
+import com.android.compatibility.common.util.PollingCheck;
 
 /**
  * Test class that is meant to be driven from the host and can't be run alone, which is required
@@ -124,8 +125,10 @@ public class LockTaskHostDrivenTest extends BaseDeviceAdminTest {
         String activityName =
                 mActivityManager.getAppTasks().get(0).getTaskInfo().topActivity.getClassName();
         assertEquals(LOCK_TASK_ACTIVITY, activityName);
-        assertEquals(
-                ActivityManager.LOCK_TASK_MODE_LOCKED, mActivityManager.getLockTaskModeState());
+
+        PollingCheck.waitFor(
+                () -> (mActivityManager.getLockTaskModeState()
+                        == ActivityManager.LOCK_TASK_MODE_LOCKED));
     }
 
     /**

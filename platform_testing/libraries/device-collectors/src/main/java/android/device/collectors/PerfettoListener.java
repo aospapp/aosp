@@ -46,6 +46,8 @@ public class PerfettoListener extends BaseMetricListener {
 
     // Default perfetto config file name.
     private static final String DEFAULT_CONFIG_FILE = "trace_config.pb";
+    // Default perfetto config file name when text proto config is used.
+    private static final String DEFAULT_TEXT_CONFIG_FILE = "trace_config.textproto";
     // Default wait time before stopping the perfetto trace.
     private static final String DEFAULT_WAIT_TIME_MSECS = "3000";
     // Option to pass the folder name which contains the perfetto trace config file.
@@ -301,8 +303,12 @@ public class PerfettoListener extends BaseMetricListener {
         mIsConfigTextProto = Boolean.parseBoolean(args.getString(PERFETTO_CONFIG_TEXT_PROTO));
 
         // Perfetto config file has to be under /data/misc/perfetto-traces/
-        // defaulted to trace_config.pb is perfetto_config_file is not passed.
-        mConfigFileName = args.getString(PERFETTO_CONFIG_FILE_ARG, DEFAULT_CONFIG_FILE);
+        // defaulted to DEFAULT_TEXT_CONFIG_FILE or DEFAULT_CONFIG_FILE if perfetto_config_file is
+        // not passed.
+        mConfigFileName =
+                args.getString(
+                        PERFETTO_CONFIG_FILE_ARG,
+                        mIsConfigTextProto ? DEFAULT_TEXT_CONFIG_FILE : DEFAULT_CONFIG_FILE);
 
         // Whether to hold wakelocks on all Prefetto tracing functions. You may want to enable
         // this if your device is not USB connected. This option prevents the device from

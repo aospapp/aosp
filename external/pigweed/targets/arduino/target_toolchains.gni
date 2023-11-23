@@ -32,7 +32,7 @@ _target_config = {
       get_path_info("arduino_executable.gni", "abspath")
 
   # Path to the bloaty config file for the output binaries.
-  pw_bloat_BLOATY_CONFIG = "$dir_pw_boot_armv7m/bloaty_config.bloaty"
+  pw_bloat_BLOATY_CONFIG = "$dir_pw_boot_cortex_m/bloaty_config.bloaty"
 
   if (pw_arduino_use_test_server) {
     _test_runner_script =
@@ -46,10 +46,16 @@ _target_config = {
   pw_log_BACKEND = dir_pw_log_basic
   pw_sync_INTERRUPT_SPIN_LOCK_BACKEND =
       "$dir_pw_sync_baremetal:interrupt_spin_lock"
+  pw_sync_MUTEX_BACKEND = "$dir_pw_sync_baremetal:mutex"
   pw_sys_io_BACKEND = dir_pw_sys_io_arduino
   pw_rpc_system_server_BACKEND =
       "$dir_pigweed/targets/arduino:system_rpc_server"
   pw_arduino_build_INIT_BACKEND = "$dir_pigweed/targets/arduino:pre_init"
+
+  pw_build_LINK_DEPS = [
+    "$dir_pw_assert:impl",
+    "$dir_pw_log:impl",
+  ]
 
   current_cpu = "arm"
   current_os = ""

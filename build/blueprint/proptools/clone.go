@@ -78,6 +78,18 @@ func copyProperties(dstValue, srcValue reflect.Value) {
 			} else {
 				dstFieldValue.Set(srcFieldValue)
 			}
+		case reflect.Map:
+			if !srcFieldValue.IsNil() {
+				newMap := reflect.MakeMap(field.Type)
+
+				iter := srcFieldValue.MapRange()
+				for iter.Next() {
+					newMap.SetMapIndex(iter.Key(), iter.Value())
+				}
+				dstFieldValue.Set(newMap)
+			} else {
+				dstFieldValue.Set(srcFieldValue)
+			}
 		case reflect.Interface:
 			if srcFieldValue.IsNil() {
 				dstFieldValue.Set(srcFieldValue)
@@ -158,7 +170,7 @@ func zeroProperties(structValue reflect.Value) {
 		fieldValue := structValue.Field(i)
 
 		switch fieldValue.Kind() {
-		case reflect.Bool, reflect.String, reflect.Slice, reflect.Int, reflect.Uint:
+		case reflect.Bool, reflect.String, reflect.Slice, reflect.Int, reflect.Uint, reflect.Map:
 			fieldValue.Set(reflect.Zero(fieldValue.Type()))
 		case reflect.Interface:
 			if fieldValue.IsNil() {
@@ -220,7 +232,7 @@ func cloneEmptyProperties(dstValue, srcValue reflect.Value) {
 		dstFieldInterfaceValue := reflect.Value{}
 
 		switch srcFieldValue.Kind() {
-		case reflect.Bool, reflect.String, reflect.Slice, reflect.Int, reflect.Uint:
+		case reflect.Bool, reflect.String, reflect.Slice, reflect.Map, reflect.Int, reflect.Uint:
 			// Nothing
 		case reflect.Struct:
 			cloneEmptyProperties(dstFieldValue, srcFieldValue)

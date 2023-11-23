@@ -28,6 +28,9 @@ android_test {
     static_libs: [
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
+        "Nene",
+        "Harrier",
+        "TestApp",
     ],
     libs: ["android.test.base"],
     sdk_version: "test_current",

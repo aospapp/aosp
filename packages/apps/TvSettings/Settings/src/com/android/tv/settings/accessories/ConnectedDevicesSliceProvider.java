@@ -106,6 +106,7 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
     static final String KEY_PAIR_REMOTE = "pair_remote";
     static final String KEY_ACCESSORIES = "accessories";
     static final String KEY_OFFICIAL_REMOTE = "official_remote";
+    static final String KEY_IR = "ir";
     static final String KEY_CONNECT = "connect";
     static final String KEY_DISCONNECT = "disconnect";
     static final String KEY_RENAME = "rename";
@@ -460,17 +461,25 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
     private void updateOfficialRemoteSettings(PreferenceSliceBuilder psb) {
         String officialRemoteSettingsUri =
                 getString(R.string.bluetooth_official_remote_entry_slice_uri);
-        if (TextUtils.isEmpty(officialRemoteSettingsUri)) {
-            return;
-        }
-        if (ConnectedDevicesSliceUtils.isSliceProviderValid(
-                getContext(), officialRemoteSettingsUri)) {
+        String irSettingsUri =
+                getString(R.string.bluetooth_ir_entry_slice_uri);
+        boolean isOfficialRemoteSettingsUriValid = isSliceProviderValid(officialRemoteSettingsUri);
+        boolean isIrSettingsUriValid = isSliceProviderValid(irSettingsUri);
+        if (isOfficialRemoteSettingsUriValid || isIrSettingsUriValid) {
             psb.addPreferenceCategory(new RowBuilder()
-                    .setTitle(getContext().getString(R.string.bluetooth_official_remote_category)));
+                    .setTitle(getString(R.string.bluetooth_official_remote_category)));
+        }
+        if (isIrSettingsUriValid) {
+            psb.addPreference(new RowBuilder()
+                    .setKey(KEY_IR)
+                    .setTitle(getString(R.string.bluetooth_ir_entry_title))
+                    .setSubtitle(getString(R.string.bluetooth_ir_entry_subtitle))
+                    .setTargetSliceUri(irSettingsUri));
+        }
+        if (isOfficialRemoteSettingsUriValid) {
             psb.addPreference(new RowBuilder()
                     .setKey(KEY_OFFICIAL_REMOTE)
-                    .setTitle(getContext().getString(
-                            R.string.bluetooth_official_remote_entry_title))
+                    .setTitle(getString(R.string.bluetooth_official_remote_entry_title))
                     .setTargetSliceUri(officialRemoteSettingsUri));
         }
     }
@@ -554,5 +563,10 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
 
     private String getString(@IntegerRes int resId) {
         return getContext().getString(resId);
+    }
+
+    private boolean isSliceProviderValid(String uri) {
+        return !TextUtils.isEmpty(uri)
+                && ConnectedDevicesSliceUtils.isSliceProviderValid(getContext(), uri);
     }
 }

@@ -38,6 +38,8 @@
 #  --disable_fec_computation  Disable the on device fec data computation for
 #                             incremental update. This feature is enabled by
 #                             default
+#  --force_minor_version      Override the minor version used for delta
+#                             generation.
 #
 #  Hash command arguments:
 #  --unsigned_payload    the input unsigned payload to generate the hash from
@@ -204,6 +206,20 @@ a subset of partitions on device."
   DEFINE_string full_boot "" "Will include full boot image"
   DEFINE_string disable_vabc "" \
     "Optional: Disables Virtual AB Compression when installing the OTA"
+  DEFINE_string enable_vabc_xor "" \
+    "Optional: Enable the use of Virtual AB Compression XOR feature"
+  DEFINE_string force_minor_version "" \
+    "Optional: Override the minor version for the delta generation."
+  DEFINE_string compressor_types "" \
+    "Optional: allowed compressor types. Colon separated, allowe values are bz2 and brotli"
+  DEFINE_string enable_zucchini "" \
+    "Optional: Whether to enable zucchini diffing"
+  DEFINE_string enable_lz4diff "" \
+    "Optional: Whether to enable lz4 diffing for EROFS"
+  DEFINE_string liblz4_path "" \
+    "Required if --enabled_lz4diff true is passed. Path to liblz4.so. delta_generator will use this copy of liblz4.so for compression. It is important that this copy of liblz4.so is the same as the one on source build."
+  DEFINE_string erofs_compression_param "" \
+    "Compression parameter passed to mkfs.erofs's -z option."
 fi
 if [[ "${COMMAND}" == "hash" || "${COMMAND}" == "sign" ]]; then
   DEFINE_string unsigned_payload "" "Path to the input unsigned payload."
@@ -547,6 +563,9 @@ using payload minor version 2"
     # old updater.
     FORCE_MINOR_VERSION=$(read_option_uint "${ue_config}" \
       "PAYLOAD_MINOR_VERSION" 2)
+    if [[ -n "${FLAGS_force_minor_version}" ]]; then
+      FORCE_MINOR_VERSION="${FLAGS_force_minor_version}"
+    fi
     FORCE_MAJOR_VERSION=$(read_option_uint "${ue_config}" \
       "PAYLOAD_MAJOR_VERSION" 2)
 
@@ -708,6 +727,31 @@ cmd_generate() {
       GENERATOR_ARGS+=(
         --disable_verity_computation="${FLAGS_disable_verity_computation}" )
     fi
+    if [[ -n "${FLAGS_compressor_types}" ]]; then
+      GENERATOR_ARGS+=(
+        --compressor_types="${FLAGS_compressor_types}" )
+    fi
+    if [[ -n "${FLAGS_enable_zucchini}" ]]; then
+      GENERATOR_ARGS+=(
+        --enable_zucchini="${FLAGS_enable_zucchini}" )
+    fi
+    if [[ -n "${FLAGS_enable_lz4diff}" ]]; then
+      if [[ "${FLAGS_enable_lz4diff}" == "true" && -z "${FLAGS_liblz4_path}" ]]; then
+        echo "--liblz4_path is required when enable_lz4diff is set to true."
+        exit 1
+      fi
+      GENERATOR_ARGS+=(
+        --enable_lz4diff="${FLAGS_enable_lz4diff}" )
+    fi
+    if [[ -n "${FLAGS_erofs_compression_param}" ]]; then
+      GENERATOR_ARGS+=(
+        --erofs_compression_param="${FLAGS_erofs_compression_param}" )
+    fi
+  fi
+
+  if [[ -n "${FLAGS_enable_vabc_xor}" ]]; then
+    GENERATOR_ARGS+=(
+      --enable_vabc_xor="${FLAGS_enable_vabc_xor}" )
   fi
 
   if [[ -n "${FLAGS_disable_vabc}" ]]; then
@@ -754,7 +798,11 @@ cmd_generate() {
   fi
 
   echo "Running delta_generator with args: ${GENERATOR_ARGS[@]}"
-  "${GENERATOR}" "${GENERATOR_ARGS[@]}"
+  if [[ -n "${FLAGS_enable_lz4diff}" ]]; then
+    LD_PRELOAD=${LD_PRELOAD}:${FLAGS_liblz4_path} "${GENERATOR}" "${GENERATOR_ARGS[@]}"
+  else
+    "${GENERATOR}" "${GENERATOR_ARGS[@]}"
+  fi
 
   echo "Done generating ${payload_type} update."
 }

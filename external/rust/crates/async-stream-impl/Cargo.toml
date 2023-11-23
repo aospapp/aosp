@@ -13,11 +13,11 @@
 [package]
 edition = "2018"
 name = "async-stream-impl"
-version = "0.3.0"
+version = "0.3.2"
 authors = ["Carl Lerche <me@carllerche.com>"]
 description = "proc macros for async-stream crate"
 homepage = "https://github.com/tokio-rs/async-stream"
-documentation = "https://docs.rs/async-stream-impl/0.3.0/async-stream-impl"
+documentation = "https://docs.rs/async-stream-impl"
 license = "MIT"
 repository = "https://github.com/tokio-rs/async-stream"
 
@@ -39,5 +39,5 @@ version = "0.3"
 version = "0.3"
 
 [dev-dependencies.tokio]
-version = "0.2"
+version = "1"
 features = ["full"]

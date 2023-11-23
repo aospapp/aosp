@@ -17,7 +17,7 @@
 ## script to install mediav2 test files manually
 
 adbOptions=" "
-resLabel=CtsMediaV2TestCases-1.14
+resLabel=CtsMediaV2TestCases-2.4
 srcDir="/tmp/$resLabel"
 tgtDir="/sdcard/test"
 usage="Usage: $0 [-h] [-s serial]"

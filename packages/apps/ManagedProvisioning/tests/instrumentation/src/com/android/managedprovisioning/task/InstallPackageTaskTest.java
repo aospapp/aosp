@@ -79,7 +79,8 @@ public class InstallPackageTaskTest {
                 () -> appToInstallFile,
                 sContext,
                 createProvisioningParams(testApp.packageName()),
-                mInstallPackageBlockingCallback);
+                mInstallPackageBlockingCallback,
+                testApp.packageName());
         int resultCode;
 
         try {
@@ -99,7 +100,8 @@ public class InstallPackageTaskTest {
                 FILE_NULL_PATH_PROVIDER,
                 sContext,
                 createProvisioningParams(TEST_PACKAGE_NAME),
-                mInstallPackageBlockingCallback);
+                mInstallPackageBlockingCallback,
+                TEST_PACKAGE_NAME);
 
         task.run(USER_ID);
         int resultCode = mInstallPackageBlockingCallback.await();
@@ -113,7 +115,8 @@ public class InstallPackageTaskTest {
                 FILE_INVALID_PATH_PROVIDER,
                 sContext,
                 createProvisioningParams(TEST_PACKAGE_NAME),
-                mInstallPackageBlockingCallback);
+                mInstallPackageBlockingCallback,
+                TEST_PACKAGE_NAME);
 
         sInstrumentation.runOnMainSync(() -> task.run(USER_ID));
         int resultCode = mInstallPackageBlockingCallback.await();
@@ -132,7 +135,8 @@ public class InstallPackageTaskTest {
                 () -> appToInstallFile,
                 sContext,
                 createProvisioningParams(testApp.packageName()),
-                mInstallPackageBlockingCallback);
+                mInstallPackageBlockingCallback,
+                testApp.packageName());
         int resultCode;
 
         try {
@@ -155,7 +159,8 @@ public class InstallPackageTaskTest {
                 () -> appToInstallFile,
                 sContext,
                 createProvisioningParams(TEST_PACKAGE_NAME),
-                mInstallPackageBlockingCallback);
+                mInstallPackageBlockingCallback,
+                TEST_PACKAGE_NAME);
         int resultCode;
 
         sInstrumentation.runOnMainSync(() -> task.run(USER_ID));
@@ -211,7 +216,8 @@ public class InstallPackageTaskTest {
         }
 
         @Override
-        public void onError(AbstractProvisioningTask task, int errorCode) {
+        public void onError(
+                AbstractProvisioningTask task, int errorCode, String errorMessage) {
             callbackTriggered(errorCode);
         }
     }

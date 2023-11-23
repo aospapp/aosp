@@ -8,6 +8,7 @@
 
 from __future__ import print_function
 
+import json
 import os
 import subprocess
 import time
@@ -19,140 +20,59 @@ import auto_llvm_bisection
 import chroot
 import llvm_bisection
 import test_helpers
+import update_tryjob_status
 
 
 class AutoLLVMBisectionTest(unittest.TestCase):
   """Unittests for auto bisection of LLVM."""
 
-  # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
-  # the script outside of the chroot.
   @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
-  # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
-  # by `llvm_bisection.main()` (e.g. network issue, etc.).
-  @mock.patch.object(time, 'sleep')
-  # Simulate behavior of `traceback.print_exc()` when an exception happened in
-  # `llvm_bisection.main()`.
-  @mock.patch.object(traceback, 'print_exc')
-  # Simulate behavior of `llvm_bisection.main()` when failed to launch tryjobs
-  # (exception happened along the way, etc.).
-  @mock.patch.object(llvm_bisection, 'main')
-  # Simulate behavior of `os.path.isfile()` when starting a new bisection.
-  @mock.patch.object(os.path, 'isfile', return_value=False)
-  # Simulate behavior of `GetPathToUpdateAllTryjobsWithAutoScript()` when
-  # returning the absolute path to that script that updates all 'pending'
-  # tryjobs to the result of `cros buildresult`.
-  @mock.patch.object(
-      auto_llvm_bisection,
-      'GetPathToUpdateAllTryjobsWithAutoScript',
-      return_value='/abs/path/to/update_tryjob.py')
-  # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
-  # arguments required by the bisection script.
   @mock.patch.object(
       llvm_bisection,
       'GetCommandLineArgs',
       return_value=test_helpers.ArgsOutputTest())
-  def testFailedToStartBisection(
-      self, mock_get_args, mock_get_auto_script, mock_is_file,
-      mock_llvm_bisection, mock_traceback, mock_sleep, mock_outside_chroot):
-
-    def MockLLVMBisectionRaisesException(_args_output):
-      raise ValueError('Failed to launch more tryjobs.')
-
-    # Use the test function to simulate the behavior of an exception happening
-    # when launching more tryjobs.
-    mock_llvm_bisection.side_effect = MockLLVMBisectionRaisesException
-
-    # Verify the exception is raised when the number of attempts to launched
-    # more tryjobs is exceeded, so unable to continue
-    # bisection.
-    with self.assertRaises(SystemExit) as err:
-      auto_llvm_bisection.main()
-
-    self.assertEqual(err.exception.code, 1)
-
-    mock_outside_chroot.assert_called_once()
-    mock_get_args.assert_called_once()
-    mock_get_auto_script.assert_called_once()
-    self.assertEqual(mock_is_file.call_count, 2)
-    self.assertEqual(mock_llvm_bisection.call_count, 3)
-    self.assertEqual(mock_traceback.call_count, 3)
-    self.assertEqual(mock_sleep.call_count, 2)
-
-  # Simulate the behavior of `subprocess.call()` when successfully updated all
-  # tryjobs whose 'status' value is 'pending'.
-  @mock.patch.object(subprocess, 'call', return_value=0)
-  # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
-  # the script outside of the chroot.
-  @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
-  # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
-  # by `llvm_bisection.main()` (e.g. network issue, etc.).
   @mock.patch.object(time, 'sleep')
-  # Simulate behavior of `traceback.print_exc()` when an exception happened in
-  # `llvm_bisection.main()`.
   @mock.patch.object(traceback, 'print_exc')
-  # Simulate behavior of `llvm_bisection.main()` when failed to launch tryjobs
-  # (exception happened along the way, etc.).
   @mock.patch.object(llvm_bisection, 'main')
-  # Simulate behavior of `os.path.isfile()` when starting a new bisection.
   @mock.patch.object(os.path, 'isfile')
-  # Simulate behavior of `GetPathToUpdateAllTryjobsWithAutoScript()` when
-  # returning the absolute path to that script that updates all 'pending'
-  # tryjobs to the result of `cros buildresult`.
-  @mock.patch.object(
-      auto_llvm_bisection,
-      'GetPathToUpdateAllTryjobsWithAutoScript',
-      return_value='/abs/path/to/update_tryjob.py')
-  # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
-  # arguments required by the bisection script.
-  @mock.patch.object(
-      llvm_bisection,
-      'GetCommandLineArgs',
-      return_value=test_helpers.ArgsOutputTest())
-  def testSuccessfullyBisectedLLVMRevision(
-      self, mock_get_args, mock_get_auto_script, mock_is_file,
-      mock_llvm_bisection, mock_traceback, mock_sleep, mock_outside_chroot,
-      mock_update_tryjobs):
+  @mock.patch.object(auto_llvm_bisection, 'open')
+  @mock.patch.object(json, 'load')
+  @mock.patch.object(auto_llvm_bisection, 'GetBuildResult')
+  @mock.patch.object(os, 'rename')
+  def testAutoLLVMBisectionPassed(
+      self,
+      # pylint: disable=unused-argument
+      mock_rename,
+      mock_get_build_result,
+      mock_json_load,
+      # pylint: disable=unused-argument
+      mock_open,
+      mock_isfile,
+      mock_llvm_bisection,
+      mock_traceback,
+      mock_sleep,
+      mock_get_args,
+      mock_outside_chroot):
 
-    # Simulate the behavior of `os.path.isfile()` when checking whether the
-    # status file provided exists.
-    @test_helpers.CallCountsToMockFunctions
-    def MockStatusFileCheck(call_count, _last_tested):
-      # Simulate that the status file does not exist, so the LLVM bisection
-      # script would create the status file and launch tryjobs.
-      if call_count < 2:
-        return False
-
-      # Simulate when the status file exists and `subprocess.call()` executes
-      # the script that updates all the 'pending' tryjobs to the result of `cros
-      # buildresult`.
-      if call_count == 2:
-        return True
-
-      assert False, 'os.path.isfile() called more times than expected.'
-
-    # Simulate behavior of `llvm_bisection.main()` when successfully bisected
-    # between the good and bad LLVM revision.
-    @test_helpers.CallCountsToMockFunctions
-    def MockLLVMBisectionReturnValue(call_count, _args_output):
-      # Simulate that successfully launched more tryjobs.
-      if call_count == 0:
-        return 0
-
-      # Simulate that failed to launch more tryjobs.
-      if call_count == 1:
-        raise ValueError('Failed to launch more tryjobs.')
-
-      # Simulate that the bad revision has been found.
-      if call_count == 2:
-        return llvm_bisection.BisectionExitStatus.BISECTION_COMPLETE.value
-
-      assert False, 'Called `llvm_bisection.main()` more than expected.'
-
-    # Use the test function to simulate the behavior of `llvm_bisection.main()`.
-    mock_llvm_bisection.side_effect = MockLLVMBisectionReturnValue
-
-    # Use the test function to simulate the behavior of `os.path.isfile()`.
-    mock_is_file.side_effect = MockStatusFileCheck
+    mock_isfile.side_effect = [False, False, True, True]
+    mock_llvm_bisection.side_effect = [
+        0,
+        ValueError('Failed to launch more tryjobs.'),
+        llvm_bisection.BisectionExitStatus.BISECTION_COMPLETE.value
+    ]
+    mock_json_load.return_value = {
+        'start':
+            369410,
+        'end':
+            369420,
+        'jobs': [{
+            'buildbucket_id': 12345,
+            'rev': 369411,
+            'status': update_tryjob_status.TryjobStatus.PENDING.value,
+        }]
+    }
+    mock_get_build_result.return_value = (
+        update_tryjob_status.TryjobStatus.GOOD.value)
 
     # Verify the excpetion is raised when successfully found the bad revision.
     # Uses `sys.exit(0)` to indicate success.
@@ -163,43 +83,65 @@ class AutoLLVMBisectionTest(unittest.TestCase):
 
     mock_outside_chroot.assert_called_once()
     mock_get_args.assert_called_once()
-    mock_get_auto_script.assert_called_once()
-    self.assertEqual(mock_is_file.call_count, 3)
+    self.assertEqual(mock_isfile.call_count, 3)
     self.assertEqual(mock_llvm_bisection.call_count, 3)
     mock_traceback.assert_called_once()
     mock_sleep.assert_called_once()
-    mock_update_tryjobs.assert_called_once()
 
-  # Simulate behavior of `subprocess.call()` when failed to update tryjobs to
-  # `cros buildresult` (script failed).
-  @mock.patch.object(subprocess, 'call', return_value=1)
-  # Simulate behavior of `time.time()` when determining the time passed when
-  # updating tryjobs whose 'status' is 'pending'.
-  @mock.patch.object(time, 'time')
-  # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
-  # the script outside of the chroot.
   @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
-  # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
-  # by `llvm_bisection.main()` (e.g. network issue, etc.).
   @mock.patch.object(time, 'sleep')
-  # Simulate behavior of `traceback.print_exc()` when resuming bisection.
-  @mock.patch.object(os.path, 'isfile', return_value=True)
-  # Simulate behavior of `GetPathToUpdateAllTryjobsWithAutoScript()` when
-  # returning the absolute path to that script that updates all 'pending'
-  # tryjobs to the result of `cros buildresult`.
-  @mock.patch.object(
-      auto_llvm_bisection,
-      'GetPathToUpdateAllTryjobsWithAutoScript',
-      return_value='/abs/path/to/update_tryjob.py')
-  # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
-  # arguments required by the bisection script.
+  @mock.patch.object(traceback, 'print_exc')
+  @mock.patch.object(llvm_bisection, 'main')
+  @mock.patch.object(os.path, 'isfile')
   @mock.patch.object(
       llvm_bisection,
       'GetCommandLineArgs',
       return_value=test_helpers.ArgsOutputTest())
+  def testFailedToStartBisection(self, mock_get_args, mock_isfile,
+                                 mock_llvm_bisection, mock_traceback,
+                                 mock_sleep, mock_outside_chroot):
+
+    mock_isfile.return_value = False
+    mock_llvm_bisection.side_effect = ValueError(
+        'Failed to launch more tryjobs.')
+
+    # Verify the exception is raised when the number of attempts to launched
+    # more tryjobs is exceeded, so unable to continue
+    # bisection.
+    with self.assertRaises(SystemExit) as err:
+      auto_llvm_bisection.main()
+
+    self.assertEqual(err.exception.code, 'Unable to continue bisection.')
+
+    mock_outside_chroot.assert_called_once()
+    mock_get_args.assert_called_once()
+    self.assertEqual(mock_isfile.call_count, 2)
+    self.assertEqual(mock_llvm_bisection.call_count, 3)
+    self.assertEqual(mock_traceback.call_count, 3)
+    self.assertEqual(mock_sleep.call_count, 2)
+
+  @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
+  @mock.patch.object(
+      llvm_bisection,
+      'GetCommandLineArgs',
+      return_value=test_helpers.ArgsOutputTest())
+  @mock.patch.object(time, 'time')
+  @mock.patch.object(time, 'sleep')
+  @mock.patch.object(os.path, 'isfile')
+  @mock.patch.object(auto_llvm_bisection, 'open')
+  @mock.patch.object(json, 'load')
+  @mock.patch.object(auto_llvm_bisection, 'GetBuildResult')
   def testFailedToUpdatePendingTryJobs(
-      self, mock_get_args, mock_get_auto_script, mock_is_file, mock_sleep,
-      mock_outside_chroot, mock_time, mock_update_tryjobs):
+      self,
+      mock_get_build_result,
+      mock_json_load,
+      # pylint: disable=unused-argument
+      mock_open,
+      mock_isfile,
+      mock_sleep,
+      mock_time,
+      mock_get_args,
+      mock_outside_chroot):
 
     # Simulate behavior of `time.time()` for time passed.
     @test_helpers.CallCountsToMockFunctions
@@ -209,9 +151,20 @@ class AutoLLVMBisectionTest(unittest.TestCase):
 
       assert False, 'Called `time.time()` more than expected.'
 
-    # Use the test function to simulate the behavior of `time.time()`.
+    mock_isfile.return_value = True
+    mock_json_load.return_value = {
+        'start':
+            369410,
+        'end':
+            369420,
+        'jobs': [{
+            'buildbucket_id': 12345,
+            'rev': 369411,
+            'status': update_tryjob_status.TryjobStatus.PENDING.value,
+        }]
+    }
+    mock_get_build_result.return_value = None
     mock_time.side_effect = MockTimePassed
-
     # Reduce the polling limit for the test case to terminate faster.
     auto_llvm_bisection.POLLING_LIMIT_SECS = 1
 
@@ -220,15 +173,80 @@ class AutoLLVMBisectionTest(unittest.TestCase):
     with self.assertRaises(SystemExit) as err:
       auto_llvm_bisection.main()
 
-    self.assertEqual(err.exception.code, 1)
+    self.assertEqual(err.exception.code, 'Failed to update pending tryjobs.')
 
     mock_outside_chroot.assert_called_once()
     mock_get_args.assert_called_once()
-    mock_get_auto_script.assert_called_once()
-    self.assertEqual(mock_is_file.call_count, 2)
+    self.assertEqual(mock_isfile.call_count, 2)
     mock_sleep.assert_called_once()
     self.assertEqual(mock_time.call_count, 3)
-    self.assertEqual(mock_update_tryjobs.call_count, 2)
+
+  @mock.patch.object(subprocess, 'check_output')
+  def testGetBuildResult(self, mock_chroot_command):
+    buildbucket_id = 192
+    status = auto_llvm_bisection.BuilderStatus.PASS.value
+    tryjob_contents = {buildbucket_id: {'status': status}}
+    mock_chroot_command.return_value = json.dumps(tryjob_contents)
+    chroot_path = '/some/path/to/chroot'
+
+    self.assertEqual(
+        auto_llvm_bisection.GetBuildResult(chroot_path, buildbucket_id),
+        update_tryjob_status.TryjobStatus.GOOD.value)
+
+    mock_chroot_command.assert_called_once_with(
+        [
+            'cros_sdk', '--', 'cros', 'buildresult', '--buildbucket-id',
+            str(buildbucket_id), '--report', 'json'
+        ],
+        cwd='/some/path/to/chroot',
+        stderr=subprocess.STDOUT,
+        encoding='UTF-8',
+    )
+
+  @mock.patch.object(subprocess, 'check_output')
+  def testGetBuildResultPassedWithUnstartedTryjob(self, mock_chroot_command):
+    buildbucket_id = 192
+    chroot_path = '/some/path/to/chroot'
+    mock_chroot_command.side_effect = subprocess.CalledProcessError(
+        returncode=1, cmd=[], output='No build found. Perhaps not started')
+    auto_llvm_bisection.GetBuildResult(chroot_path, buildbucket_id)
+    mock_chroot_command.assert_called_once_with(
+        [
+            'cros_sdk', '--', 'cros', 'buildresult', '--buildbucket-id', '192',
+            '--report', 'json'
+        ],
+        cwd=chroot_path,
+        stderr=subprocess.STDOUT,
+        encoding='UTF-8',
+    )
+
+  @mock.patch.object(subprocess, 'check_output')
+  def testGetBuildReusultFailedWithInvalidBuildStatus(self,
+                                                      mock_chroot_command):
+    chroot_path = '/some/path/to/chroot'
+    buildbucket_id = 50
+    invalid_build_status = 'querying'
+    tryjob_contents = {buildbucket_id: {'status': invalid_build_status}}
+    mock_chroot_command.return_value = json.dumps(tryjob_contents)
+
+    # Verify the exception is raised when the return value of `cros buildresult`
+    # is not in the `builder_status_mapping`.
+    with self.assertRaises(ValueError) as err:
+      auto_llvm_bisection.GetBuildResult(chroot_path, buildbucket_id)
+
+    self.assertEqual(
+        str(err.exception),
+        '"cros buildresult" return value is invalid: %s' % invalid_build_status)
+
+    mock_chroot_command.assert_called_once_with(
+        [
+            'cros_sdk', '--', 'cros', 'buildresult', '--buildbucket-id',
+            str(buildbucket_id), '--report', 'json'
+        ],
+        cwd=chroot_path,
+        stderr=subprocess.STDOUT,
+        encoding='UTF-8',
+    )
 
 
 if __name__ == '__main__':

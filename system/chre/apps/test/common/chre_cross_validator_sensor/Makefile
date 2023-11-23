@@ -27,9 +27,7 @@ NANOAPP_PATH = $(CHRE_PREFIX)/apps/test/common/chre_cross_validator_sensor
 NANOPB_EXTENSION = nanopb
 
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_cross_validation_sensor.proto
-NANOPB_PROTO_PATH = $(NANOAPP_PATH)/../proto
-NANOPB_INCLUDES = $(NANOPB_PROTO_PATH)
-NANOPB_FLAGS += --proto_path=$(NANOPB_PROTO_PATH)
+NANOPB_INCLUDES = $(NANOAPP_PATH)/../proto
 
 # Source Code ##################################################################
 

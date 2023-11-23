@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from io import StringIO
+
 import datetime
-import StringIO
 import unittest
 import update_crypto_support
 
@@ -80,7 +81,7 @@ class TestUpdateData(unittest.TestCase):
 
     def test_get_current_data(self):
         self.assertEqual(update_crypto_support.get_current_data(
-            StringIO.StringIO(
+            StringIO(
                 '''
                 BEGIN ALGORITHM LIST
                 Mac Bob
@@ -97,7 +98,7 @@ class TestUpdateData(unittest.TestCase):
               'JONES': 'Jones',
               'JIM': 'Jim'}))
         self.assertEqual(update_crypto_support.get_current_data(
-            StringIO.StringIO(
+            StringIO(
                 '''
                 BEGIN ALGORITHM LIST
                 Mac Dupe
@@ -115,7 +116,7 @@ class TestUpdateData(unittest.TestCase):
               'JONES': 'Jones',
               'JIM': 'Jim'}))
         self.assertEqual(update_crypto_support.get_current_data(
-            StringIO.StringIO(
+            StringIO(
                 '''
                 Mac NotAValue
                 BEGIN ALGORITHM LIST
@@ -134,7 +135,7 @@ class TestUpdateData(unittest.TestCase):
               'JONES': 'Jones',
               'JIM': 'Jim'}))
         self.assertEqual(update_crypto_support.get_current_data(
-            StringIO.StringIO(
+            StringIO(
                 '''
                 BEGIN ALGORITHM LIST OF LISTS
                 Mac NotAValue
@@ -153,7 +154,7 @@ class TestUpdateData(unittest.TestCase):
               'JONES': 'Jones',
               'JIM': 'Jim'}))
         with self.assertRaises(EOFError):
-            update_crypto_support.get_current_data(StringIO.StringIO(
+            update_crypto_support.get_current_data(StringIO(
                 '''
                 NOTBEGIN ALGORITHM LIST
                 Mac Bob
@@ -164,7 +165,7 @@ class TestUpdateData(unittest.TestCase):
                 END ALGORITHM LIST
                 '''))
         with self.assertRaises(EOFError):
-            update_crypto_support.get_current_data(StringIO.StringIO(
+            update_crypto_support.get_current_data(StringIO(
                 '''
                 BEGIN ALGORITHM LIST
                 Mac Bob
@@ -173,7 +174,7 @@ class TestUpdateData(unittest.TestCase):
                 Mac Amy
                 OtherThing Mary'''))
         with self.assertRaises(ValueError):
-            update_crypto_support.get_current_data(StringIO.StringIO(
+            update_crypto_support.get_current_data(StringIO(
                 '''
                 BEGIN ALGORITHM LIST
                 Mac Bob
@@ -184,7 +185,7 @@ class TestUpdateData(unittest.TestCase):
                 END ALGORITHM LIST
                 '''))
         with self.assertRaises(ValueError):
-            update_crypto_support.get_current_data(StringIO.StringIO(
+            update_crypto_support.get_current_data(StringIO(
                 '''
                 BEGIN ALGORITHM LIST
                 Mac Bob

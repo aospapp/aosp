@@ -104,6 +104,9 @@ public class LauncherAppsSingleUserTest extends BaseLauncherAppsTest {
         }
         installAppAsUser(SIMPLE_APP_APK, mCurrentUserId);
         startCallbackService(mCurrentUserId);
+        while (!isCallbackServiceReady()) {
+            Thread.sleep(100);
+        }
         getDevice().uninstallPackage(SIMPLE_APP_PKG);
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,

@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#define PW_LOG_MODULE_NAME "KVS"
+#define PW_LOG_MODULE_NAME "PW_FLASH"
 #define PW_LOG_LEVEL PW_KVS_LOG_LEVEL
 
 #include "pw_kvs/flash_memory.h"
@@ -21,7 +21,7 @@
 #include <cinttypes>
 #include <cstring>
 
-#include "pw_assert/assert.h"
+#include "pw_assert/check.h"
 #include "pw_kvs_private/config.h"
 #include "pw_log/log.h"
 #include "pw_status/status_with_size.h"
@@ -30,6 +30,44 @@
 namespace pw::kvs {
 
 using std::byte;
+
+#if PW_CXX_STANDARD_IS_SUPPORTED(17)
+
+Status FlashPartition::Writer::DoWrite(ConstByteSpan data) {
+  if (partition_.size_bytes() <= position_) {
+    return Status::OutOfRange();
+  }
+  if (data.size_bytes() > (partition_.size_bytes() - position_)) {
+    return Status::ResourceExhausted();
+  }
+  if (data.size_bytes() == 0) {
+    return OkStatus();
+  }
+
+  const StatusWithSize sws = partition_.Write(position_, data);
+  if (sws.ok()) {
+    position_ += data.size_bytes();
+  }
+  return sws.status();
+}
+
+StatusWithSize FlashPartition::Reader::DoRead(ByteSpan data) {
+  if (position_ >= partition_.size_bytes()) {
+    return StatusWithSize::OutOfRange();
+  }
+
+  size_t bytes_to_read =
+      std::min(data.size_bytes(), partition_.size_bytes() - position_);
+
+  const StatusWithSize sws =
+      partition_.Read(position_, data.first(bytes_to_read));
+  if (sws.ok()) {
+    position_ += bytes_to_read;
+  }
+  return sws;
+}
+
+#endif  // PW_CXX_STANDARD_IS_SUPPORTED(17)
 
 StatusWithSize FlashPartition::Output::DoWrite(std::span<const byte> data) {
   PW_TRY_WITH_SIZE(flash_.Write(address_, data));
@@ -150,9 +188,11 @@ bool FlashPartition::AppearsErased(std::span<const byte> data) const {
 Status FlashPartition::CheckBounds(Address address, size_t length) const {
   if (address + length > size_bytes()) {
     PW_LOG_ERROR(
-        "Attempted out-of-bound flash memory access (address: %u length: %u)",
+        "FlashPartition - Attempted access (address: %u length: %u), exceeds "
+        "partition size %u bytes",
         unsigned(address),
-        unsigned(length));
+        unsigned(length),
+        unsigned(size_bytes()));
     return Status::OutOfRange();
   }
   return OkStatus();

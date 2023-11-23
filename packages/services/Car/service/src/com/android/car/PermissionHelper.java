@@ -16,8 +16,8 @@
 package com.android.car;
 
 import android.annotation.NonNull;
-import android.app.ActivityManager;
-import android.os.Binder;
+import android.content.Context;
+import android.content.pm.PackageManager;
 
 import java.util.Arrays;
 
@@ -31,8 +31,9 @@ public final class PermissionHelper {
      *
      * @throws SecurityException if it doesn't.
      */
-    public static void checkHasDumpPermissionGranted(@NonNull String message) {
-        checkHasAtLeastOnePermissionGranted(message, android.Manifest.permission.DUMP);
+    public static void checkHasDumpPermissionGranted(@NonNull Context context,
+            @NonNull String message) {
+        checkHasAtLeastOnePermissionGranted(context, message, android.Manifest.permission.DUMP);
     }
 
     /**
@@ -40,10 +41,9 @@ public final class PermissionHelper {
      *
      * @throws SecurityException if it doesn't.
      */
-    public static void checkHasAtLeastOnePermissionGranted(@NonNull String message,
-            @NonNull String...permissions) {
-        int callingUid = Binder.getCallingUid();
-        if (!hasAtLeastOnePermissionGranted(callingUid, permissions)) {
+    public static void checkHasAtLeastOnePermissionGranted(@NonNull Context context,
+            @NonNull String message, @NonNull String...permissions) {
+        if (!hasAtLeastOnePermissionGranted(context, permissions)) {
             if (permissions.length == 1) {
                 throw new SecurityException("You need " + permissions[0] + " to: " + message);
             }
@@ -55,11 +55,11 @@ public final class PermissionHelper {
     /**
      * Returns whether the given {@code uids} has at least one of the give permissions.
      */
-    public static boolean hasAtLeastOnePermissionGranted(int uid, @NonNull String... permissions) {
+    public static boolean hasAtLeastOnePermissionGranted(@NonNull Context context,
+            @NonNull String... permissions) {
         for (String permission : permissions) {
-            if (ActivityManager.checkComponentPermission(permission, uid, /* owningUid = */-1,
-                    /* exported = */ true)
-                    == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (context.checkCallingOrSelfPermission(permission)
+                    == PackageManager.PERMISSION_GRANTED) {
                 return true;
             }
         }

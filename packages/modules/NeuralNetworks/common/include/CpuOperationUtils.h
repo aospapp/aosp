@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_OPERATION_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_OPERATION_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_OPERATION_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_OPERATION_UTILS_H
 
 #include <android-base/logging.h>
 #include <tensorflow/lite/kernels/internal/types.h>
@@ -25,7 +25,7 @@
 #include <limits>
 #include <vector>
 
-#include "OperationsUtils.h"
+#include "OperationsExecutionUtils.h"
 
 namespace android {
 namespace nn {
@@ -61,14 +61,14 @@ inline tflite::RuntimeShape convertShapeToTflshape(const Shape& shape) {
 inline void convertFloat16ToFloat32(const _Float16* input, std::vector<float>* output) {
     CHECK(input != nullptr);
     CHECK(output != nullptr);
-    for (int i = 0; i < output->size(); ++i) {
+    for (size_t i = 0; i < output->size(); ++i) {
         (*output)[i] = static_cast<float>(input[i]);
     }
 }
 
 inline void convertFloat32ToFloat16(const std::vector<float>& input, _Float16* output) {
     CHECK(output != nullptr);
-    for (int i = 0; i < input.size(); ++i) {
+    for (size_t i = 0; i < input.size(); ++i) {
         output[i] = input[i];
     }
 }
@@ -78,7 +78,7 @@ inline void convertFloat32ToFloat16(const std::vector<float>& input, _Float16* o
 inline void convertInt8ToUInt8(const int8_t* input, std::vector<uint8_t>* output) {
     CHECK(input != nullptr);
     CHECK(output != nullptr);
-    for (int i = 0; i < output->size(); ++i) {
+    for (size_t i = 0; i < output->size(); ++i) {
         (*output)[i] = static_cast<uint8_t>(static_cast<int32_t>(input[i]) + 128);
     }
 }
@@ -87,7 +87,7 @@ inline void convertInt8ToUInt8(const int8_t* input, std::vector<uint8_t>* output
 // and the distance between offsets is 128.
 inline void convertUInt8ToInt8(const std::vector<uint8_t>& input, int8_t* output) {
     CHECK(output != nullptr);
-    for (int i = 0; i < input.size(); ++i) {
+    for (size_t i = 0; i < input.size(); ++i) {
         output[i] = static_cast<int8_t>(static_cast<int32_t>(input[i]) - 128);
     }
 }
@@ -97,7 +97,7 @@ inline void convertQuantToFloat32(const T* input, float scale, int32_t zeroPoint
                                   std::vector<float>* output) {
     CHECK(input != nullptr);
     CHECK(output != nullptr);
-    for (int i = 0; i < output->size(); ++i) {
+    for (size_t i = 0; i < output->size(); ++i) {
         (*output)[i] = (static_cast<float>(input[i]) - zeroPoint) * scale;
     }
 }
@@ -106,7 +106,7 @@ template <typename T>
 inline void convertFloat32ToQuant(const std::vector<float>& input, float scale, int32_t zeroPoint,
                                   T* output) {
     CHECK(output != nullptr);
-    for (int i = 0; i < input.size(); ++i) {
+    for (size_t i = 0; i < input.size(); ++i) {
         int32_t intVal = std::round(input[i] / scale + zeroPoint);
         intVal = std::min<int32_t>(std::max<int32_t>(intVal, std::numeric_limits<T>::min()),
                                    std::numeric_limits<T>::max());
@@ -117,7 +117,7 @@ inline void convertFloat32ToQuant(const std::vector<float>& input, float scale, 
 template <typename T>
 inline bool convertNchwToNhwc(const T* nchw, const Shape& nchwShape, std::vector<T>* nhwc,
                               Shape* nhwcShape) {
-    NN_RET_CHECK_EQ(getNumberOfDimensions(nchwShape), 4)
+    NN_RET_CHECK_EQ(getNumberOfDimensions(nchwShape), 4u)
             << "Error converting a non-4-D tensor to NHWC layout";
     *nhwcShape = nchwShape;
     const auto& fromDim = nchwShape.dimensions;
@@ -138,7 +138,7 @@ inline bool convertNchwToNhwc(const T* nchw, const Shape& nchwShape, std::vector
 
 template <typename T>
 inline bool convertNhwcToNchw(const std::vector<T>& nhwc, const Shape& nhwcShape, T* nchw) {
-    NN_RET_CHECK_EQ(getNumberOfDimensions(nhwcShape), 4)
+    NN_RET_CHECK_EQ(getNumberOfDimensions(nhwcShape), 4u)
             << "Error converting a non-4-D tensor to NCHW layout";
     const auto& fromDim = nhwcShape.dimensions;
     const auto from = nhwc.data();
@@ -184,7 +184,7 @@ class OutputWithLayout {
     OutputWithLayout(bool useNchw) : mDataOriginal(nullptr), mUseNchw(useNchw) {}
 
     bool initialize(T* data, const Shape& shape) {
-        NN_RET_CHECK_EQ(getNumberOfDimensions(shape), 4);
+        NN_RET_CHECK_EQ(getNumberOfDimensions(shape), 4u);
         mDataOriginal = data;
         mShape = shape;
         if (mUseNchw) {
@@ -233,4 +233,4 @@ inline void CalculateActivationRange<int8_t>(int32_t activation, const Shape& ou
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_OPERATION_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_OPERATION_UTILS_H

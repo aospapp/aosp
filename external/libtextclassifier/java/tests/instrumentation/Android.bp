@@ -23,6 +23,22 @@ package {
     default_applicable_licenses: ["external_libtextclassifier_license"],
 }
 
+java_library {
+    name: "TextClassifierServiceTestingLib",
+
+    srcs: [
+        "src/com/android/textclassifier/testing/*.java",
+    ],
+
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.rules",
+        "TextClassifierServiceLib",
+        "androidx.test.espresso.core",
+        "mockito-target-minus-junit4",
+    ],
+}
+
 android_test {
     name: "TextClassifierServiceTest",
 
@@ -32,9 +48,14 @@ android_test {
         "src/**/*.java",
     ],
 
+    exclude_srcs: [
+        "src/**/ModelDownloaderIntegrationTest.java",
+        "src/com/android/textclassifier/testing/*.java",
+    ],
+
+
     static_libs: [
         "androidx.test.ext.junit",
-        "androidx.test.rules",
         "androidx.test.espresso.core",
         "androidx.test.ext.truth",
         "mockito-target-minus-junit4",
@@ -45,7 +66,9 @@ android_test {
         "TextClassifierServiceLib",
         "statsdprotolite",
         "textclassifierprotoslite",
-        "TextClassifierCoverageLib"
+        "TextClassifierCoverageLib",
+        "androidx.work_work-testing",
+        "TextClassifierServiceTestingLib",
     ],
 
     jni_libs: [
@@ -66,4 +89,37 @@ android_test {
     instrumentation_for: "TextClassifierService",
 
     data: ["testdata/*"],
+
+    test_config: "AndroidTest.xml",
+}
+
+android_test {
+    name: "TCSModelDownloaderIntegrationTest",
+
+    manifest: "AndroidManifest_TCSModelDownloaderIntegrationTest.xml",
+
+    srcs: [
+        "src/**/ModelDownloaderIntegrationTest.java",
+    ],
+
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.espresso.core",
+        "androidx.test.ext.truth",
+        "ub-uiautomator",
+        "TextClassifierServiceTestingLib",
+    ],
+
+    jni_libs: [
+        "libtextclassifier",
+    ],
+
+    test_suites: [
+        "general-tests"
+    ],
+
+    min_sdk_version: "30",
+    sdk_version: "system_current",
+
+    test_config: "AndroidTest_TCSModelDownloaderIntegrationTest.xml",
 }

@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 #include "icing/document-builder.h"
 #include "icing/file/mock-filesystem.h"
-#include "icing/helpers/icu/icu-data-file-helper.h"
 #include "icing/portable/equals-proto.h"
 #include "icing/portable/platform.h"
 #include "icing/proto/document.pb.h"
@@ -36,6 +35,7 @@
 #include "icing/store/document-id.h"
 #include "icing/testing/common-matchers.h"
 #include "icing/testing/fake-clock.h"
+#include "icing/testing/icu-data-file-helper.h"
 #include "icing/testing/snippet-helpers.h"
 #include "icing/testing/test-data.h"
 #include "icing/testing/tmp-directory.h"
@@ -55,14 +55,14 @@ using ::testing::IsEmpty;
 using ::testing::Return;
 using ::testing::SizeIs;
 
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_OPTIONAL =
-    PropertyConfigProto_Cardinality_Code_OPTIONAL;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_OPTIONAL =
+    PropertyConfigProto::Cardinality::OPTIONAL;
 
-constexpr StringIndexingConfig_TokenizerType_Code TOKENIZER_PLAIN =
-    StringIndexingConfig_TokenizerType_Code_PLAIN;
+constexpr StringIndexingConfig::TokenizerType::Code TOKENIZER_PLAIN =
+    StringIndexingConfig::TokenizerType::PLAIN;
 
-constexpr TermMatchType_Code MATCH_EXACT = TermMatchType_Code_EXACT_ONLY;
-constexpr TermMatchType_Code MATCH_PREFIX = TermMatchType_Code_PREFIX;
+constexpr TermMatchType::Code MATCH_EXACT = TermMatchType::EXACT_ONLY;
+constexpr TermMatchType::Code MATCH_PREFIX = TermMatchType::PREFIX;
 
 class ResultRetrieverTest : public testing::Test {
  protected:
@@ -160,7 +160,7 @@ ResultSpecProto::SnippetSpecProto CreateSnippetSpec() {
   ResultSpecProto::SnippetSpecProto snippet_spec;
   snippet_spec.set_num_to_snippet(std::numeric_limits<int>::max());
   snippet_spec.set_num_matches_per_property(std::numeric_limits<int>::max());
-  snippet_spec.set_max_window_bytes(1024);
+  snippet_spec.set_max_window_utf32_length(1024);
   return snippet_spec;
 }
 
@@ -362,8 +362,8 @@ TEST_F(ResultRetrieverTest, NotIgnoreErrors) {
 
 TEST_F(ResultRetrieverTest, IOErrorShouldReturnInternalError) {
   MockFilesystem mock_filesystem;
-  ON_CALL(mock_filesystem, OpenForRead(_)).WillByDefault(Return(false));
-
+  ON_CALL(mock_filesystem, PRead(A<int>(), A<void*>(), A<size_t>(), A<off_t>()))
+      .WillByDefault(Return(false));
   ICING_ASSERT_OK_AND_ASSIGN(
       DocumentStore::CreateResult create_result,
       DocumentStore::Create(&mock_filesystem, test_dir_, &fake_clock_,

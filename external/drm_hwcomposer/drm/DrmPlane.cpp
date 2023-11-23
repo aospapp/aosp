@@ -29,25 +29,38 @@
 
 namespace android {
 
-DrmPlane::DrmPlane(DrmDevice *drm, drmModePlanePtr p)
-    : drm_(drm),
-      id_(p->plane_id),
-      possible_crtc_mask_(p->possible_crtcs),
-      formats_(p->formats, p->formats + p->count_formats) {
+auto DrmPlane::CreateInstance(DrmDevice &dev, uint32_t plane_id)
+    -> std::unique_ptr<DrmPlane> {
+  auto p = MakeDrmModePlaneUnique(dev.GetFd(), plane_id);
+  if (!p) {
+    ALOGE("Failed to get plane %d", plane_id);
+    return {};
+  }
+
+  auto plane = std::unique_ptr<DrmPlane>(new DrmPlane(dev, std::move(p)));
+
+  if (plane->Init() != 0) {
+    ALOGE("Failed to init plane %d", plane_id);
+    return {};
+  }
+
+  return plane;
 }
 
 int DrmPlane::Init() {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  formats_ = {plane_->formats, plane_->formats + plane_->count_formats};
+
   DrmProperty p;
 
-  int ret = drm_->GetPlaneProperty(*this, "type", &p);
-  if (ret) {
-    ALOGE("Could not get plane type property");
-    return ret;
+  if (!GetPlaneProperty("type", p)) {
+    return -ENOTSUP;
   }
 
+  int ret = 0;
   uint64_t type = 0;
   std::tie(ret, type) = p.value();
-  if (ret) {
+  if (ret != 0) {
     ALOGE("Failed to get plane type property value");
     return ret;
   }
@@ -62,187 +75,115 @@ int DrmPlane::Init() {
       return -EINVAL;
   }
 
-  ret = drm_->GetPlaneProperty(*this, "CRTC_ID", &crtc_property_);
-  if (ret) {
-    ALOGE("Could not get CRTC_ID property");
-    return ret;
+  if (!GetPlaneProperty("CRTC_ID", crtc_property_) ||
+      !GetPlaneProperty("FB_ID", fb_property_) ||
+      !GetPlaneProperty("CRTC_X", crtc_x_property_) ||
+      !GetPlaneProperty("CRTC_Y", crtc_y_property_) ||
+      !GetPlaneProperty("CRTC_W", crtc_w_property_) ||
+      !GetPlaneProperty("CRTC_H", crtc_h_property_) ||
+      !GetPlaneProperty("SRC_X", src_x_property_) ||
+      !GetPlaneProperty("SRC_Y", src_y_property_) ||
+      !GetPlaneProperty("SRC_W", src_w_property_) ||
+      !GetPlaneProperty("SRC_H", src_h_property_)) {
+    return -ENOTSUP;
   }
 
-  ret = drm_->GetPlaneProperty(*this, "FB_ID", &fb_property_);
-  if (ret) {
-    ALOGE("Could not get FB_ID property");
-    return ret;
+  GetPlaneProperty("zpos", zpos_property_, Presence::kOptional);
+
+  if (GetPlaneProperty("rotation", rotation_property_, Presence::kOptional)) {
+    rotation_property_.AddEnumToMap("rotate-0", DrmHwcTransform::kIdentity,
+                                    transform_enum_map_);
+    rotation_property_.AddEnumToMap("rotate-90", DrmHwcTransform::kRotate90,
+                                    transform_enum_map_);
+    rotation_property_.AddEnumToMap("rotate-180", DrmHwcTransform::kRotate180,
+                                    transform_enum_map_);
+    rotation_property_.AddEnumToMap("rotate-270", DrmHwcTransform::kRotate270,
+                                    transform_enum_map_);
+    rotation_property_.AddEnumToMap("reflect-x", DrmHwcTransform::kFlipH,
+                                    transform_enum_map_);
+    rotation_property_.AddEnumToMap("reflect-y", DrmHwcTransform::kFlipV,
+                                    transform_enum_map_);
   }
 
-  ret = drm_->GetPlaneProperty(*this, "CRTC_X", &crtc_x_property_);
-  if (ret) {
-    ALOGE("Could not get CRTC_X property");
-    return ret;
+  GetPlaneProperty("alpha", alpha_property_, Presence::kOptional);
+
+  if (GetPlaneProperty("pixel blend mode", blend_property_,
+                       Presence::kOptional)) {
+    blend_property_.AddEnumToMap("Pre-multiplied", DrmHwcBlending::kPreMult,
+                                 blending_enum_map_);
+    blend_property_.AddEnumToMap("Coverage", DrmHwcBlending::kCoverage,
+                                 blending_enum_map_);
+    blend_property_.AddEnumToMap("None", DrmHwcBlending::kNone,
+                                 blending_enum_map_);
   }
 
-  ret = drm_->GetPlaneProperty(*this, "CRTC_Y", &crtc_y_property_);
-  if (ret) {
-    ALOGE("Could not get CRTC_Y property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "CRTC_W", &crtc_w_property_);
-  if (ret) {
-    ALOGE("Could not get CRTC_W property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "CRTC_H", &crtc_h_property_);
-  if (ret) {
-    ALOGE("Could not get CRTC_H property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "SRC_X", &src_x_property_);
-  if (ret) {
-    ALOGE("Could not get SRC_X property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "SRC_Y", &src_y_property_);
-  if (ret) {
-    ALOGE("Could not get SRC_Y property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "SRC_W", &src_w_property_);
-  if (ret) {
-    ALOGE("Could not get SRC_W property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "SRC_H", &src_h_property_);
-  if (ret) {
-    ALOGE("Could not get SRC_H property");
-    return ret;
-  }
-
-  ret = drm_->GetPlaneProperty(*this, "zpos", &zpos_property_);
-  if (ret)
-    ALOGE("Could not get zpos property for plane %u", id());
-
-  ret = drm_->GetPlaneProperty(*this, "rotation", &rotation_property_);
-  if (ret)
-    ALOGE("Could not get rotation property");
-
-  ret = drm_->GetPlaneProperty(*this, "alpha", &alpha_property_);
-  if (ret)
-    ALOGI("Could not get alpha property");
-
-  ret = drm_->GetPlaneProperty(*this, "pixel blend mode", &blend_property_);
-  if (ret)
-    ALOGI("Could not get pixel blend mode property");
-
-  ret = drm_->GetPlaneProperty(*this, "IN_FENCE_FD", &in_fence_fd_property_);
-  if (ret)
-    ALOGI("Could not get IN_FENCE_FD property");
+  GetPlaneProperty("IN_FENCE_FD", in_fence_fd_property_, Presence::kOptional);
 
   if (HasNonRgbFormat()) {
-    ret = drm_->GetPlaneProperty(*this, "COLOR_ENCODING",
-                                 &color_encoding_propery_);
-    if (ret)
-      ALOGI("Could not get COLOR_ENCODING property");
+    if (GetPlaneProperty("COLOR_ENCODING", color_encoding_propery_,
+                         Presence::kOptional)) {
+      color_encoding_propery_.AddEnumToMap("ITU-R BT.709 YCbCr",
+                                           DrmHwcColorSpace::kItuRec709,
+                                           color_encoding_enum_map_);
+      color_encoding_propery_.AddEnumToMap("ITU-R BT.601 YCbCr",
+                                           DrmHwcColorSpace::kItuRec601,
+                                           color_encoding_enum_map_);
+      color_encoding_propery_.AddEnumToMap("ITU-R BT.2020 YCbCr",
+                                           DrmHwcColorSpace::kItuRec2020,
+                                           color_encoding_enum_map_);
+    }
 
-    ret = drm_->GetPlaneProperty(*this, "COLOR_RANGE", &color_range_property_);
-    if (ret)
-      ALOGI("Could not get COLOR_RANGE property");
+    if (GetPlaneProperty("COLOR_RANGE", color_range_property_,
+                         Presence::kOptional)) {
+      color_range_property_.AddEnumToMap("YCbCr full range",
+                                         DrmHwcSampleRange::kFullRange,
+                                         color_range_enum_map_);
+      color_range_property_.AddEnumToMap("YCbCr limited range",
+                                         DrmHwcSampleRange::kLimitedRange,
+                                         color_range_enum_map_);
+    }
   }
 
   return 0;
 }
 
-uint32_t DrmPlane::id() const {
-  return id_;
-}
-
-bool DrmPlane::GetCrtcSupported(const DrmCrtc &crtc) const {
-  return ((1 << crtc.pipe()) & possible_crtc_mask_) != 0;
+bool DrmPlane::IsCrtcSupported(const DrmCrtc &crtc) const {
+  return ((1 << crtc.GetIndexInResArray()) & plane_->possible_crtcs) != 0;
 }
 
 bool DrmPlane::IsValidForLayer(DrmHwcLayer *layer) {
-  if (rotation_property_.id() == 0) {
+  if (!rotation_property_) {
     if (layer->transform != DrmHwcTransform::kIdentity) {
-      ALOGV("Rotation is not supported on plane %d", id_);
+      ALOGV("No rotation property on plane %d", GetId());
       return false;
     }
   } else {
-    // For rotation checks, we assume the hardware reports its capabilities
-    // consistently (e.g. a 270 degree rotation is a 90 degree rotation + H
-    // flip + V flip; it wouldn't make sense to support all of the latter but
-    // not the former).
-    int ret = 0;
-    const std::pair<enum DrmHwcTransform, std::string> transforms[] =
-        {{kFlipH, "reflect-x"},
-         {kFlipV, "reflect-y"},
-         {kRotate90, "rotate-90"},
-         {kRotate180, "rotate-180"},
-         {kRotate270, "rotate-270"}};
-
-    for (const auto &[transform, name] : transforms) {
-      if (layer->transform & transform) {
-        std::tie(std::ignore,
-                 ret) = rotation_property_.GetEnumValueWithName(name);
-        if (ret) {
-          ALOGV("Rotation '%s' is not supported on plane %d", name.c_str(),
-                id_);
-          return false;
-        }
-      }
+    if (transform_enum_map_.count(layer->transform) == 0) {
+      ALOGV("Transform is not supported on plane %d", GetId());
+      return false;
     }
   }
 
-  if (alpha_property_.id() == 0 && layer->alpha != 0xffff) {
-    ALOGV("Alpha is not supported on plane %d", id_);
+  if (alpha_property_.id() == 0 && layer->alpha != UINT16_MAX) {
+    ALOGV("Alpha is not supported on plane %d", GetId());
     return false;
   }
 
-  if (blend_property_.id() == 0) {
-    if ((layer->blending != DrmHwcBlending::kNone) &&
-        (layer->blending != DrmHwcBlending::kPreMult)) {
-      ALOGV("Blending is not supported on plane %d", id_);
-      return false;
-    }
-  } else {
-    int ret = 0;
-
-    switch (layer->blending) {
-      case DrmHwcBlending::kPreMult:
-        std::tie(std::ignore,
-                 ret) = blend_property_.GetEnumValueWithName("Pre-multiplied");
-        break;
-      case DrmHwcBlending::kCoverage:
-        std::tie(std::ignore,
-                 ret) = blend_property_.GetEnumValueWithName("Coverage");
-        break;
-      case DrmHwcBlending::kNone:
-      default:
-        std::tie(std::ignore,
-                 ret) = blend_property_.GetEnumValueWithName("None");
-        break;
-    }
-    if (ret) {
-      ALOGV("Expected a valid blend mode on plane %d", id_);
-      return false;
-    }
+  if (blending_enum_map_.count(layer->blending) == 0 &&
+      layer->blending != DrmHwcBlending::kNone &&
+      layer->blending != DrmHwcBlending::kPreMult) {
+    ALOGV("Blending is not supported on plane %d", GetId());
+    return false;
   }
 
   uint32_t format = layer->buffer_info.format;
   if (!IsFormatSupported(format)) {
-    ALOGV("Plane %d does not supports %c%c%c%c format", id_, format,
+    ALOGV("Plane %d does not supports %c%c%c%c format", GetId(), format,
           format >> 8, format >> 16, format >> 24);
     return false;
   }
 
   return true;
-}
-
-uint32_t DrmPlane::type() const {
-  return type_;
 }
 
 bool DrmPlane::IsFormatSupported(uint32_t format) const {
@@ -257,71 +198,123 @@ bool DrmPlane::HasNonRgbFormat() const {
                           }) != std::end(formats_);
 }
 
-const DrmProperty &DrmPlane::crtc_property() const {
-  return crtc_property_;
+static uint64_t ToDrmRotation(DrmHwcTransform transform) {
+  uint64_t rotation = 0;
+  if ((transform & DrmHwcTransform::kFlipH) != 0)
+    rotation |= DRM_MODE_REFLECT_X;
+  if ((transform & DrmHwcTransform::kFlipV) != 0)
+    rotation |= DRM_MODE_REFLECT_Y;
+  if ((transform & DrmHwcTransform::kRotate90) != 0)
+    rotation |= DRM_MODE_ROTATE_90;
+  else if ((transform & DrmHwcTransform::kRotate180) != 0)
+    rotation |= DRM_MODE_ROTATE_180;
+  else if ((transform & DrmHwcTransform::kRotate270) != 0)
+    rotation |= DRM_MODE_ROTATE_270;
+  else
+    rotation |= DRM_MODE_ROTATE_0;
+
+  return rotation;
 }
 
-const DrmProperty &DrmPlane::fb_property() const {
-  return fb_property_;
+/* Convert float to 16.16 fixed point */
+static int To1616FixPt(float in) {
+  constexpr int kBitShift = 16;
+  return int(in * (1 << kBitShift));
 }
 
-const DrmProperty &DrmPlane::crtc_x_property() const {
-  return crtc_x_property_;
+auto DrmPlane::AtomicSetState(drmModeAtomicReq &pset, DrmHwcLayer &layer,
+                              uint32_t zpos, uint32_t crtc_id) -> int {
+  if (!layer.fb_id_handle) {
+    ALOGE("Expected a valid framebuffer for pset");
+    return -EINVAL;
+  }
+
+  if (zpos_property_ && !zpos_property_.is_immutable()) {
+    uint64_t min_zpos = 0;
+
+    // Ignore ret and use min_zpos as 0 by default
+    std::tie(std::ignore, min_zpos) = zpos_property_.range_min();
+
+    if (!zpos_property_.AtomicSet(pset, zpos + min_zpos)) {
+      return -EINVAL;
+    }
+  }
+
+  if (layer.acquire_fence &&
+      !in_fence_fd_property_.AtomicSet(pset, layer.acquire_fence.Get())) {
+    return -EINVAL;
+  }
+
+  if (!crtc_property_.AtomicSet(pset, crtc_id) ||
+      !fb_property_.AtomicSet(pset, layer.fb_id_handle->GetFbId()) ||
+      !crtc_x_property_.AtomicSet(pset, layer.display_frame.left) ||
+      !crtc_y_property_.AtomicSet(pset, layer.display_frame.top) ||
+      !crtc_w_property_.AtomicSet(pset, layer.display_frame.right -
+                                            layer.display_frame.left) ||
+      !crtc_h_property_.AtomicSet(pset, layer.display_frame.bottom -
+                                            layer.display_frame.top) ||
+      !src_x_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.left)) ||
+      !src_y_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.top)) ||
+      !src_w_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.right -
+                                                   layer.source_crop.left)) ||
+      !src_h_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.bottom -
+                                                   layer.source_crop.top))) {
+    return -EINVAL;
+  }
+
+  if (rotation_property_ &&
+      !rotation_property_.AtomicSet(pset, ToDrmRotation(layer.transform))) {
+    return -EINVAL;
+  }
+
+  if (alpha_property_ && !alpha_property_.AtomicSet(pset, layer.alpha)) {
+    return -EINVAL;
+  }
+
+  if (blending_enum_map_.count(layer.blending) != 0 &&
+      !blend_property_.AtomicSet(pset, blending_enum_map_[layer.blending])) {
+    return -EINVAL;
+  }
+
+  if (color_encoding_enum_map_.count(layer.color_space) != 0 &&
+      !color_encoding_propery_
+           .AtomicSet(pset, color_encoding_enum_map_[layer.color_space])) {
+    return -EINVAL;
+  }
+
+  if (color_range_enum_map_.count(layer.sample_range) != 0 &&
+      !color_range_property_
+           .AtomicSet(pset, color_range_enum_map_[layer.sample_range])) {
+    return -EINVAL;
+  }
+
+  return 0;
 }
 
-const DrmProperty &DrmPlane::crtc_y_property() const {
-  return crtc_y_property_;
+auto DrmPlane::AtomicDisablePlane(drmModeAtomicReq &pset) -> int {
+  if (!crtc_property_.AtomicSet(pset, 0) || !fb_property_.AtomicSet(pset, 0)) {
+    return -EINVAL;
+  }
+
+  return 0;
 }
 
-const DrmProperty &DrmPlane::crtc_w_property() const {
-  return crtc_w_property_;
+auto DrmPlane::GetPlaneProperty(const char *prop_name, DrmProperty &property,
+                                Presence presence) -> bool {
+  int err = drm_->GetProperty(GetId(), DRM_MODE_OBJECT_PLANE, prop_name,
+                              &property);
+  if (err != 0) {
+    if (presence == Presence::kMandatory) {
+      ALOGE("Could not get mandatory property \"%s\" from plane %d", prop_name,
+            GetId());
+    } else {
+      ALOGV("Could not get optional property \"%s\" from plane %d", prop_name,
+            GetId());
+    }
+    return false;
+  }
+
+  return true;
 }
 
-const DrmProperty &DrmPlane::crtc_h_property() const {
-  return crtc_h_property_;
-}
-
-const DrmProperty &DrmPlane::src_x_property() const {
-  return src_x_property_;
-}
-
-const DrmProperty &DrmPlane::src_y_property() const {
-  return src_y_property_;
-}
-
-const DrmProperty &DrmPlane::src_w_property() const {
-  return src_w_property_;
-}
-
-const DrmProperty &DrmPlane::src_h_property() const {
-  return src_h_property_;
-}
-
-const DrmProperty &DrmPlane::zpos_property() const {
-  return zpos_property_;
-}
-
-const DrmProperty &DrmPlane::rotation_property() const {
-  return rotation_property_;
-}
-
-const DrmProperty &DrmPlane::alpha_property() const {
-  return alpha_property_;
-}
-
-const DrmProperty &DrmPlane::blend_property() const {
-  return blend_property_;
-}
-
-const DrmProperty &DrmPlane::in_fence_fd_property() const {
-  return in_fence_fd_property_;
-}
-
-const DrmProperty &DrmPlane::color_encoding_propery() const {
-  return color_encoding_propery_;
-}
-
-const DrmProperty &DrmPlane::color_range_property() const {
-  return color_range_property_;
-}
 }  // namespace android

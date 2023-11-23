@@ -41,7 +41,6 @@ extern jclass inputStreamClass;
 extern jclass outputStreamClass;
 extern jclass stringClass;
 extern jclass byteBufferClass;
-extern jclass bufferClass;
 
 extern jfieldID nativeRef_address;
 
@@ -53,6 +52,19 @@ extern jmethodID outputStream_writeMethod;
 extern jmethodID outputStream_flushMethod;
 extern jmethodID buffer_positionMethod;
 extern jmethodID buffer_limitMethod;
+extern jmethodID buffer_isDirectMethod;
+extern jmethodID cryptoUpcallsClass_rawSignMethod;
+extern jmethodID cryptoUpcallsClass_rsaSignMethod;
+extern jmethodID cryptoUpcallsClass_rsaDecryptMethod;
+extern jmethodID sslHandshakeCallbacks_verifyCertificateChain;
+extern jmethodID sslHandshakeCallbacks_onSSLStateChange;
+extern jmethodID sslHandshakeCallbacks_clientCertificateRequested;
+extern jmethodID sslHandshakeCallbacks_serverCertificateRequested;
+extern jmethodID sslHandshakeCallbacks_clientPSKKeyRequested;
+extern jmethodID sslHandshakeCallbacks_serverPSKKeyRequested;
+extern jmethodID sslHandshakeCallbacks_onNewSessionEstablished;
+extern jmethodID sslHandshakeCallbacks_selectApplicationProtocol;
+extern jmethodID sslHandshakeCallbacks_serverSessionRequested;
 
 /**
  * Initializes the JNI constants from the environment.
@@ -135,6 +147,11 @@ void jniRegisterNativeMethods(JNIEnv* env, const char* className, const JNINativ
 extern int jniGetFDFromFileDescriptor(JNIEnv* env, jobject fileDescriptor);
 
 /**
+ * Returns true if buffer is a non-null direct ByteBuffer instance.
+ */
+extern bool isDirectByteBufferInstance(JNIEnv* env, jobject buffer);
+
+/**
  * Returns true if the VM's JNI GetByteArrayElements method is likely to create a copy when
  * invoked on an array of the provided size.
  */
@@ -159,10 +176,12 @@ extern int throwException(JNIEnv* env, const char* className, const char* msg);
  */
 extern int throwRuntimeException(JNIEnv* env, const char* msg);
 
+#ifdef CONSCRYPT_CHECK_ERROR_QUEUE
 /**
  * Throw a java.lang.AssertionError, with an optional message.
  */
 extern int throwAssertionError(JNIEnv* env, const char* msg);
+#endif
 
 /*
  * Throw a java.lang.NullPointerException, with an optional message.

@@ -23,7 +23,7 @@ namespace lib {
 // Returns a map containing normalization mappings. A mapping (A -> B) means
 // that we'll transform every character 'A' into 'B'. See normalization-map.cc
 // for mapping details.
-const std::unordered_map<char16_t, char16_t>& GetNormalizationMap();
+const std::unordered_map<char16_t, char16_t>* GetNormalizationMap();
 
 }  // namespace lib
 }  // namespace icing

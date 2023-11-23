@@ -170,9 +170,7 @@ public class CbSendMessageCalculator {
      * 3. Otherwise we keep an overlap with AMBIGUOUS
      * @param coordinate the geo location
      * @param accuracyMeters the accuracy from location manager
-     * @return the action
      */
-    @SendMessageAction
     private void calculatePersistentAction(CbGeoUtils.LatLng coordinate, float accuracyMeters) {
         // If we already marked this as a send, we don't need to check anything.
         if (this.mAction != SEND_MESSAGE_ACTION_SEND) {

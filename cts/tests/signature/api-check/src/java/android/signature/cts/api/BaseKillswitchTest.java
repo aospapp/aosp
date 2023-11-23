@@ -23,14 +23,14 @@ import android.signature.cts.DexMember;
 import android.signature.cts.DexMemberChecker;
 import android.signature.cts.DexMethod;
 import android.signature.cts.FailureType;
-import repackaged.android.test.InstrumentationTestRunner;
+import org.junit.Test;
 
 public abstract class BaseKillswitchTest extends AbstractApiTest {
 
     protected String mErrorMessageAppendix;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         DexMemberChecker.init();
     }
@@ -44,18 +44,22 @@ public abstract class BaseKillswitchTest extends AbstractApiTest {
     private final static Predicate<DexMember> FIELD_FILTER =
             dexMember -> (dexMember instanceof DexField);
 
+    @Test
     public void testKillswitchMechanismMethodsThroughReflection() {
         doTestKillswitchMechanism(METHOD_FILTER, /* reflection= */ true, /* jni= */ false);
     }
 
+    @Test
     public void testKillswitchMechanismMethodsThroughJni() {
         doTestKillswitchMechanism(METHOD_FILTER, /* reflection= */ false, /* jni= */ true);
     }
 
+    @Test
     public void testKillswitchMechanismFieldsThroughReflection() {
         doTestKillswitchMechanism(FIELD_FILTER, /* reflection= */ true, /* jni= */ false);
     }
 
+    @Test(timeout = 900000)
     public void testKillswitchMechanismFieldsThroughJni() {
         doTestKillswitchMechanism(FIELD_FILTER, /* reflection= */ false, /* jni= */ true);
     }

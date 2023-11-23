@@ -16,22 +16,9 @@
 
 package com.android.cts.verifier.audio.peripheralprofile;
 
-import android.os.Environment;
 import androidx.annotation.Nullable;
-import android.util.Log;
-import android.util.Xml;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.DefaultHandler;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -39,6 +26,12 @@ import java.util.ArrayList;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
 public class ProfileManager {
     private static final String TAG = "ProfileManager";
@@ -73,12 +66,12 @@ public class ProfileManager {
                 "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"21,4\" SampleRates=\"44100,48000,88200,96000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Behringer UMC204HD\" ProfileDescription=\"Behringer UMC204HD\" ProductName=\"USB-Audio - UMC204HD 192k\">" +
-                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"22,4,2\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
                 "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"16,12\" ChanIndexMasks=\"1,3\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Roland Rubix24\" ProfileDescription=\"Roland Rubix24\" ProductName=\"USB-Audio - Rubix24\">" +
-                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"4\" SampleRates=\"44100,48000,96000,192000\"/>" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,96000,192000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"22,4\" SampleRates=\"44100,48000,96000,192000\"/>" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"22,4\" SampleRates=\"44100,48000,96000,192000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Pixel USB-C Dongle + Wired Analog Headset\" ProfileDescription=\"Reference USB Dongle\" ProductName=\"USB-Audio - USB-C to 3.5mm-Headphone Adapte\">" +
                 "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"48000\" />" +
@@ -98,6 +91,11 @@ public class ProfileManager {
             "<PeripheralProfile ProfileName=\"Libratone Q Adapt\" ProfileDescription=\"Libratone Q Adapt Headset\" ProductName=\"USB-Audio - Libratone_INEAR\">" +
                 "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"2\" SampleRates=\"48000\" />" +
                 "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"48000\" />"+
+                "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
+            "</PeripheralProfile>" +
+            "<PeripheralProfile ProfileName=\"Vantec\" ProfileDescription=\"Vantec 7.1 USB Interface\" ProductName=\"USB-Audio - USB Sound Device\">" +
+                "<OutputDevInfo ChanCounts=\"2,3,4,5,6,7,8\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15,31,63,127,255\" Encodings=\"2\" SampleRates=\"48000,96000,44100\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"16,12\" ChanIndexMasks=\"1,3\" Encodings=\"2\" SampleRates=\"48000,44100\" />" +
                 "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
             "</PeripheralProfile>" +
         "</ProfileList>";

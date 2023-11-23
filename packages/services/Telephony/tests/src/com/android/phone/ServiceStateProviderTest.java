@@ -27,6 +27,9 @@ import static android.provider.Telephony.ServiceStateTable.VOICE_REG_STATE;
 import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionId;
 import static android.telephony.NetworkRegistrationInfo.REGISTRATION_STATE_HOME;
 
+import static com.android.phone.ServiceStateProvider.ENFORCE_LOCATION_PERMISSION_CHECK;
+import static com.android.phone.ServiceStateProvider.NETWORK_ID;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -38,10 +41,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.Manifest;
 import android.app.AppOpsManager;
+import android.compat.testing.PlatformCompatChangeRule;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -62,10 +68,14 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import libcore.junit.util.compat.CoreCompatChangeRule;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -90,6 +100,9 @@ public class ServiceStateProviderTest {
     @Mock AppOpsManager mAppOpsManager;
     @Mock LocationManager mLocationManager;
     @Mock PackageManager mPackageManager;
+
+    @Rule
+    public TestRule compatChangeRule = new PlatformCompatChangeRule();
 
     // Exception used internally to verify if the Resolver#notifyChange has been called.
     private class TestNotifierException extends RuntimeException {
@@ -170,6 +183,7 @@ public class ServiceStateProviderTest {
     // TODO(b/191995565): Turn this on when location access can be off
     @Ignore
     @SmallTest
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
     public void testQueryServiceState_withNoSubId_withoutLocation() {
         setLocationPermissions(false);
 
@@ -239,7 +253,19 @@ public class ServiceStateProviderTest {
      * public columns of ServiceStateTable.
      */
     @Test
-    public void query_publicColumns_targetS_noReadPrivilege_getPublicColumns() {
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void
+    query_publicColumns_enforceLocatoinEnabled_targetS_noReadPrivilege_getPublicColumns() {
+        setTargetSdkVersion(Build.VERSION_CODES.S);
+        setCanReadPrivilegedPhoneState(false);
+
+        verifyServiceStateWithPublicColumns(mTestServiceState, null /*projection*/);
+    }
+
+    @Test
+    @CoreCompatChangeRule.DisableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void
+    query_publicColumns_enforceLocationDisabled_targetS_noReadPrivilege_getPublicColumns() {
         setTargetSdkVersion(Build.VERSION_CODES.S);
         setCanReadPrivilegedPhoneState(false);
 
@@ -251,6 +277,7 @@ public class ServiceStateProviderTest {
      * non-public columns should throw IllegalArgumentException.
      */
     @Test
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
     public void query_hideColumn_targetS_noReadPrivilege_throwIllegalArgumentException() {
         setTargetSdkVersion(Build.VERSION_CODES.S);
         setCanReadPrivilegedPhoneState(false);
@@ -263,11 +290,30 @@ public class ServiceStateProviderTest {
     }
 
     /**
-     * Verify that apps target S+ with READ_PRIVILEGED_PHONE_STATE and location permissions should
-     * be able to access all columns.
+     * Verify that with changeId ENFORCE_LOCATION_PERMISSION_CHECK enabled, apps target S+ with
+     * READ_PRIVILEGED_PHONE_STATE and location permissions should be able to access all columns.
      */
     @Test
-    public void query_allColumn_targetS_withReadPrivilegedAndLocation_getAllStateUnredacted() {
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void
+    query_allColumn_enforceLocationEnabled_targetS_withReadPrivilegedAndLocation_getUnredacted() {
+        setTargetSdkVersion(Build.VERSION_CODES.S);
+        setCanReadPrivilegedPhoneState(true);
+        setLocationPermissions(true);
+
+        verifyServiceStateForSubId(
+                getUriForSubscriptionId(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID),
+                mTestServiceState, true /*hasPermission*/);
+    }
+
+    /**
+     * Verify that with changeId ENFORCE_LOCATION_PERMISSION_CHECK disabled, apps target S+ with
+     * READ_PRIVILEGED_PHONE_STATE and location permissions should be able to access all columns.
+     */
+    @Test
+    @CoreCompatChangeRule.DisableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void
+    query_allColumn_enforceLocationDisabled_targetS_withReadPrivilegedAndLocation_getUnredacted() {
         setTargetSdkVersion(Build.VERSION_CODES.S);
         setCanReadPrivilegedPhoneState(true);
         setLocationPermissions(true);
@@ -283,23 +329,23 @@ public class ServiceStateProviderTest {
      */
     // TODO(b/191995565): Turn this on once b/191995565 is integrated
     @Ignore
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
     public void query_locationColumn_targetS_withReadPrivilegeNoLocation_throwSecurityExecption() {
         setTargetSdkVersion(Build.VERSION_CODES.S);
         setCanReadPrivilegedPhoneState(true);
         setLocationPermissions(false);
 
-        // NETWORK_ID is a location-sensitive column
-        String[] projection = new String[]{"network_id"};
-
         assertThrows(SecurityException.class,
-                () -> verifyServiceStateWithLocationColumns(mTestServiceState, projection));
+                () -> verifyServiceStateWithLocationColumns(mTestServiceState));
     }
 
     /**
-     * Verify that apps target R- with location permissions should be able to access all columns.
+     * Verify that when changeId ENFORCE_LOCATION_PERMISSION_CHECK is enabled, apps target R- with
+     * location permissions should be able to access all columns.
      */
     @Test
-    public void query_allColumn_targetR_withLocation_getAllStateUnredacted() {
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void query_allColumn_enforceLocationEnabled_targetR_withLocation_getUnredacted() {
         setTargetSdkVersion(Build.VERSION_CODES.R);
         setLocationPermissions(true);
 
@@ -309,12 +355,28 @@ public class ServiceStateProviderTest {
     }
 
     /**
-     * Verify that apps target R- w/o location permissions should be able to access all columns but
-     * with redacted ServiceState.
+     * Verify that when changeId ENFORCE_LOCATION_PERMISSION_CHECK is disabled, apps target R- with
+     * location permissions should be able to access all columns.
+     */
+    @Test
+    @CoreCompatChangeRule.DisableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void query_allColumn_enforceLocationDisabled_targetR_withLocation_getUnredacted() {
+        setTargetSdkVersion(Build.VERSION_CODES.R);
+        setLocationPermissions(true);
+
+        verifyServiceStateForSubId(
+                getUriForSubscriptionId(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID),
+                mTestServiceState, true /*hasPermission*/);
+    }
+
+    /**
+     * Verify that changeId ENFORCE_LOCATION_PERMISSION_CHECK is enabled, apps target R- w/o
+     * location permissions should be able to access all columns but with redacted ServiceState.
      */
     // TODO(b/191995565): Turn case on when location access can be off
     @Ignore
-    public void query_allColumn_targetR_noLocation_getRedacted() {
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void query_allColumn_enforceLocationEnabled_targetR_noLocation_getRedacted() {
         setTargetSdkVersion(Build.VERSION_CODES.R);
         setLocationPermissions(false);
 
@@ -324,9 +386,40 @@ public class ServiceStateProviderTest {
                 true /*hasPermission*/);
     }
 
-    private void verifyServiceStateWithLocationColumns(ServiceState ss, String[] projection) {
-        try (Cursor cursor = mContentResolver.query(ServiceStateTable.CONTENT_URI, projection, null,
-                null)) {
+    /**
+     * Verify that changeId ENFORCE_LOCATION_PERMISSION_CHECK is disabled, apps target R- w/o
+     * location permissions should be able to access all columns and with unredacted ServiceState.
+     */
+    // TODO(b/191995565): Turn case on when location access can be off
+    @Ignore
+    @CoreCompatChangeRule.DisableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void query_allColumn_enforceLocationDisabled_targetR_noLocation_getUnredacted() {
+        setTargetSdkVersion(Build.VERSION_CODES.R);
+        setLocationPermissions(false);
+
+        verifyServiceStateForSubId(
+                getUriForSubscriptionId(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID),
+                mTestServiceState, true /*hasPermission*/);
+    }
+
+    /**
+     * Verify that when caller with targetSDK S+ has location permission and try to query
+     * location non-sensitive info, it should not get blamed.
+     */
+    @Test
+    @CoreCompatChangeRule.EnableCompatChanges({ENFORCE_LOCATION_PERMISSION_CHECK})
+    public void testQuery_noLocationBlamed_whenQueryNonLocationInfo_withPermission() {
+        setTargetSdkVersion(Build.VERSION_CODES.S);
+        setLocationPermissions(true);
+
+        verifyServiceStateWithPublicColumns(mTestServiceState, null /*projection*/);
+        verify(mAppOpsManager, never()).noteOpNoThrow(any(), anyInt(), any(), any(), any());
+    }
+
+    private void verifyServiceStateWithLocationColumns(ServiceState ss) {
+        // NETWORK_ID is a location-sensitive column
+        try (Cursor cursor = mContentResolver.query(ServiceStateTable.CONTENT_URI,
+                new String[]{NETWORK_ID}, null, null)) {
             assertNotNull(cursor);
         }
     }
@@ -335,7 +428,6 @@ public class ServiceStateProviderTest {
         try (Cursor cursor = mContentResolver.query(ServiceStateTable.CONTENT_URI, projection, null,
                 null)) {
             assertNotNull(cursor);
-            assertEquals(cursor.getColumnCount(), ServiceStateProvider.PUBLIC_COLUMNS.length);
 
             cursor.moveToFirst();
             assertEquals(ss.getVoiceRegState(),

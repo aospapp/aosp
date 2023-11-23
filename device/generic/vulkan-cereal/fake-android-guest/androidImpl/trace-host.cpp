@@ -17,7 +17,7 @@
 
 #include "base/Tracing.h"
 
-atomic_bool             atrace_is_ready      = ATOMIC_VAR_INIT(false);
+std::atomic_bool atrace_is_ready(false);
 int                     atrace_marker_fd     = -1;
 uint64_t                atrace_enabled_tags  = 0;
 
@@ -35,7 +35,8 @@ void atrace_setup() {
             ATRACE_TAG_VIDEO |
             ATRACE_TAG_HAL;
     }
-    atomic_store_explicit(&atrace_is_ready, true, memory_order_release);
+    std::atomic_store_explicit(&atrace_is_ready, true,
+                               std::memory_order_release);
 }
 
 void atrace_begin_body(const char* name) {

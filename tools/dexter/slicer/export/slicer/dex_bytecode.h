@@ -18,6 +18,7 @@
 
 #include "dex_format.h"
 
+#include <iosfwd>
 #include <stddef.h>
 
 // .dex bytecode definitions and helpers:
@@ -35,50 +36,26 @@ constexpr u2 kPackedSwitchSignature = 0x0100;
 constexpr u2 kSparseSwitchSignature = 0x0200;
 constexpr u2 kArrayDataSignature = 0x0300;
 
+// Include for  DEX_INSTRUCTION_LIST and DEX_INSTRUCTION_FORMAT_LIST
+#include "dex_instruction_list.h"
+
 // Enumeration of all Dalvik opcodes
 enum Opcode : u1 {
 #define INSTRUCTION_ENUM(opcode, cname, ...) OP_##cname = (opcode),
-#include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_ENUM)
-#undef DEX_INSTRUCTION_LIST
 #undef INSTRUCTION_ENUM
 };
 
 // Instruction formats associated with Dalvik opcodes
 enum InstructionFormat : u1 {
-  k10x,   // op
-  k12x,   // op vA, vB
-  k11n,   // op vA, #+B
-  k11x,   // op vAA
-  k10t,   // op +AA
-  k20t,   // op +AAAA
-  k20bc,  // [opt] op AA, thing@BBBB
-  k22x,   // op vAA, vBBBB
-  k21t,   // op vAA, +BBBB
-  k21s,   // op vAA, #+BBBB
-  k21h,   // op vAA, #+BBBB00000[00000000]
-  k21c,   // op vAA, thing@BBBB
-  k23x,   // op vAA, vBB, vCC
-  k22b,   // op vAA, vBB, #+CC
-  k22t,   // op vA, vB, +CCCC
-  k22s,   // op vA, vB, #+CCCC
-  k22c,   // op vA, vB, thing@CCCC
-  k22cs,  // [opt] op vA, vB, field offset CCCC
-  k30t,   // op +AAAAAAAA
-  k32x,   // op vAAAA, vBBBB
-  k31i,   // op vAA, #+BBBBBBBB
-  k31t,   // op vAA, +BBBBBBBB
-  k31c,   // op vAA, string@BBBBBBBB
-  k35c,   // op {vC,vD,vE,vF,vG}, thing@BBBB
-  k35ms,  // [opt] invoke-virtual+super
-  k3rc,   // op {vCCCC .. v(CCCC+AA-1)}, thing@BBBB
-  k3rms,  // [opt] invoke-virtual+super/range
-  k35mi,  // [opt] inline invoke
-  k3rmi,  // [opt] inline invoke/range
-  k45cc,  // op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH
-  k4rcc,  // op {VCCCC .. v(CCCC+AA-1)}, meth@BBBB, proto@HHHH
-  k51l,   // op vAA, #+BBBBBBBBBBBBBBBB
+#define INSTRUCTION_FORMAT_ENUM(name) k##name,
+#include "dex_instruction_list.h"
+  DEX_INSTRUCTION_FORMAT_LIST(INSTRUCTION_FORMAT_ENUM)
+#undef INSTRUCTION_FORMAT_ENUM
 };
+
+#undef DEX_INSTRUCTION_FORMAT_LIST
+#undef DEX_INSTRUCTION_LIST
 
 using OpcodeFlags = u1;
 enum : OpcodeFlags {
@@ -212,5 +189,11 @@ size_t GetWidthFromBytecode(const u2* bytecode);
 
 // Decode a .dex bytecode
 Instruction DecodeInstruction(const u2* bytecode);
+
+// Writes a hex formatted opcode to an output stream.
+std::ostream& operator<<(std::ostream& os, Opcode opcode);
+
+// Writes name of format to an outputstream.
+std::ostream& operator<<(std::ostream& os, InstructionFormat format);
 
 }  // namespace dex

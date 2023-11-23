@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "puller_util.h"
+#include "stats_log_util.h"
 
 namespace android {
 namespace os {
@@ -50,11 +51,11 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
                                       int tagId, const vector<int>& additiveFieldsVec) {
     // Check the first LogEvent for attribution chain or a uid field as either all atoms with this
     // tagId have them or none of them do.
-    std::pair<int, int> attrIndexRange;
+    std::pair<size_t, size_t> attrIndexRange;
     const bool hasAttributionChain = data[0]->hasAttributionChain(&attrIndexRange);
-    bool hasUidField = (data[0]->getUidFieldIndex() != -1);
+    const uint8_t numUidFields = data[0]->getNumUidFields();
 
-    if (!hasAttributionChain && !hasUidField) {
+    if (!hasAttributionChain && numUidFields == 0) {
         VLOG("No uid or attribution chain to merge, atom %d", tagId);
         return;
     }
@@ -67,7 +68,7 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
         }
         if (hasAttributionChain) {
             vector<FieldValue>* const fieldValues = event->getMutableValues();
-            for (int i = attrIndexRange.first; i <= attrIndexRange.second; i++) {
+            for (size_t i = attrIndexRange.first; i <= attrIndexRange.second; i++) {
                 FieldValue& fieldValue = fieldValues->at(i);
                 if (isAttributionUidField(fieldValue)) {
                     const int hostUid = uidMap->getHostUidOrSelf(fieldValue.mValue.int_value);
@@ -75,14 +76,7 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
                 }
             }
         } else {
-            int uidFieldIndex = event->getUidFieldIndex();
-            if (uidFieldIndex != -1) {
-                Value& value = (*event->getMutableValues())[uidFieldIndex].mValue;
-                const int hostUid = uidMap->getHostUidOrSelf(value.int_value);
-                value.setInt(hostUid);
-            } else {
-                ALOGE("Malformed log, uid not found. %s", event->ToString().c_str());
-            }
+            mapIsolatedUidsToHostUidInLogEvent(uidMap, *event);
         }
     }
 
@@ -107,12 +101,15 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
     bool needMerge = true;
 
     // 3. do the merge.
-    // The loop invariant is this: for every event, check if it differs on
-    // non-additive fields, or have different attribution chain length.
-    // If so, no need to merge, add itself to the result.
-    // Otherwise, merge the value onto the one immediately next to it.
+    // The loop invariant is this: for every event,
+    // - check if it has a different length (means different attribution chains or repeated fields)
+    // - check if fields are different
+    // - check if non-additive field values are different (non-additive is default for repeated
+    // fields)
+    // If any are true, no need to merge, add itself to the result. Otherwise, merge the
+    // value onto the one immediately next to it.
     for (int i = 0; i < (int)data.size() - 1; i++) {
-        // Size different, must be different chains.
+        // Size different, must be different chains or repeated fields.
         if (data[i]->size() != data[i + 1]->size()) {
             mergedData.push_back(data[i]);
             continue;
@@ -121,10 +118,16 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
         vector<FieldValue>* rhsValues = data[i + 1]->getMutableValues();
         needMerge = true;
         for (int p = 0; p < (int)lhsValues->size(); p++) {
-            if ((*lhsValues)[p] != (*rhsValues)[p]) {
+            if ((*lhsValues)[p].mField != (*rhsValues)[p].mField) {
+                needMerge = false;
+                break;
+            }
+            if ((*lhsValues)[p].mValue != (*rhsValues)[p].mValue) {
                 int pos = (*lhsValues)[p].mField.getPosAtDepth(0);
                 // Differ on non-additive field, abort.
-                if (additiveFields.find(pos) == additiveFields.end()) {
+                // Repeated additive fields are treated as non-additive fields.
+                if (isPrimitiveRepeatedField((*lhsValues)[p].mField) ||
+                    (additiveFields.find(pos) == additiveFields.end())) {
                     needMerge = false;
                     break;
                 }
@@ -137,7 +140,9 @@ void mapAndMergeIsolatedUidsToHostUid(vector<shared_ptr<LogEvent>>& data, const 
         // This should be infrequent operation.
         for (int p = 0; p < (int)lhsValues->size(); p++) {
             int pos = (*lhsValues)[p].mField.getPosAtDepth(0);
-            if (additiveFields.find(pos) != additiveFields.end()) {
+            // Don't merge repeated fields.
+            if (!isPrimitiveRepeatedField((*lhsValues)[p].mField) &&
+                (additiveFields.find(pos) != additiveFields.end())) {
                 (*rhsValues)[p].mValue += (*lhsValues)[p].mValue;
             }
         }

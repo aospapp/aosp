@@ -19,15 +19,20 @@
 
 #include "EvsStateControl.h"
 
+#include <IVhalClient.h>
+
+#include <vector>
+
 /*
  * This class listens for asynchronous updates from the Vehicle HAL.  While the EVS
  * applications is active, it can poll the vehicle state directly.  However, when it goes to
  * sleep, we need these notifications to bring it active again.
  */
-class EvsVehicleListener : public IVehicleCallback {
+class EvsVehicleListener : public android::frameworks::automotive::vhal::ISubscriptionCallback {
 public:
-    // Methods from ::android::hardware::automotive::vehicle::V2_0::IVehicleCallback follow.
-    Return<void> onPropertyEvent(const hidl_vec <VehiclePropValue> & /*values*/) override {
+    void onPropertyEvent([[maybe_unused]] const std::vector<
+                         std::unique_ptr<android::frameworks::automotive::vhal::IHalPropValue>>&
+                                 values) override {
         {
             // Our use case is so simple, we don't actually need to update a variable,
             // but the docs seem to say we have to take the lock anyway to keep
@@ -35,19 +40,13 @@ public:
             std::lock_guard<std::mutex> g(mLock);
         }
         mEventCond.notify_one();
-        return Return<void>();
+        return;
     }
 
-    Return<void> onPropertySet(const VehiclePropValue & /*value*/) override {
-        // Ignore the direct set calls (we don't expect to make any anyway)
-        return Return<void>();
-    }
-
-    Return<void> onPropertySetError(StatusCode      /* errorCode */,
-                                    int32_t         /* propId */,
-                                    int32_t         /* areaId */) override {
-        // We don't set values, so we don't listen for set errors
-        return Return<void>();
+    void onPropertySetError(
+            [[maybe_unused]] const std::vector<android::frameworks::automotive::vhal::HalPropError>&
+                    errors) override {
+        return;
     }
 
     bool waitForEvents(int timeout_ms) {

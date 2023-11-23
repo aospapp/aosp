@@ -197,10 +197,10 @@ bool PfwHandler::createCriteria(const PfwCriterion criteriaArray[], size_t crite
         assert(type != nullptr);
         // Add criterion values
         for (size_t valueIndex = 0; criterion.values[valueIndex] != nullptr; ++valueIndex) {
-            int value;
+            uint64_t value;
             if (criterion.inclusive) {
                 // Check that (int)1 << valueIndex would not overflow (UB)
-                if (std::numeric_limits<int>::max() >> valueIndex == 0) {
+                if (std::numeric_limits<uint64_t>::max() >> valueIndex == 0) {
                     return status.failure("Too many values for criterion " +
                                           string(criterion.name));
                 }
@@ -253,7 +253,7 @@ static pfw::Criterion *getCriterion(const pfw::Criteria &criteria, const string 
     return it == criteria.end() ? nullptr : it->second;
 }
 
-bool pfwSetCriterion(PfwHandler *handle, const char name[], int value)
+bool pfwSetCriterion(PfwHandler *handle, const char name[], uint64_t value)
 {
     Status &status = handle->lastStatus;
     if (handle->pfw == nullptr) {
@@ -267,7 +267,7 @@ bool pfwSetCriterion(PfwHandler *handle, const char name[], int value)
     criterion->setCriterionState(value);
     return status.success();
 }
-bool pfwGetCriterion(const PfwHandler *handle, const char name[], int *value)
+bool pfwGetCriterion(const PfwHandler *handle, const char name[], uint64_t *value)
 {
     Status &status = handle->lastStatus;
     if (handle->pfw == nullptr) {

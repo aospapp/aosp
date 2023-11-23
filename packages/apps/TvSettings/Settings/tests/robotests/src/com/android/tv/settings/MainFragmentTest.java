@@ -23,12 +23,14 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.robolectric.shadow.api.Shadow.extract;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.icu.text.MessageFormat;
 import android.telephony.SignalStrength;
 
 import androidx.preference.Preference;
@@ -44,7 +46,11 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowAccountManager;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @RunWith(RobolectricTestRunner.class)
@@ -65,7 +71,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(false).when(listener).isEthernetAvailable();
         doReturn(false).when(listener).isCellConnected();
@@ -82,7 +88,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(true).when(listener).isEthernetAvailable();
         doReturn(false).when(listener).isCellConnected();
@@ -99,7 +105,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(true).when(listener).isEthernetAvailable();
         doReturn(false).when(listener).isCellConnected();
@@ -116,7 +122,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(false).when(listener).isEthernetAvailable();
         doReturn(false).when(listener).isCellConnected();
@@ -165,7 +171,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(false).when(listener).isEthernetAvailable();
         doReturn(false).when(listener).isCellConnected();
@@ -182,7 +188,7 @@ public class MainFragmentTest {
         final Preference networkPref = mock(Preference.class);
         doReturn(networkPref).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
         final ConnectivityListener listener = mock(ConnectivityListener.class);
-        mMainFragment.mConnectivityListener = listener;
+        mMainFragment.mConnectivityListenerOptional = Optional.of(listener);
 
         doReturn(false).when(listener).isEthernetAvailable();
         doReturn(true).when(listener).isCellConnected();
@@ -269,8 +275,13 @@ public class MainFragmentTest {
         mMainFragment.updateAccountPrefInfo();
 
         verify(accountsPref, atLeastOnce()).setIcon(R.drawable.ic_accounts_and_sign_in);
-        String summary = RuntimeEnvironment.application.getResources()
-                .getQuantityString(R.plurals.accounts_category_summary, 2, 2);
+        MessageFormat msgFormat = new MessageFormat(
+                RuntimeEnvironment.application.getResources().getString(
+                        R.string.accounts_category_summary),
+                Locale.getDefault());
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("count", 2);
+        String summary = msgFormat.format(arguments);
         verify(accountsPref, atLeastOnce()).setSummary(summary);
         assertTrue(mMainFragment.mHasAccounts);
     }
@@ -304,5 +315,25 @@ public class MainFragmentTest {
         mMainFragment.updateAccessoryPref();
 
         assertTrue(mMainFragment.mHasBtAccessories);
+    }
+
+    @Test
+    public void
+            updateConnectivity_givenConnectivityListenerNull_thenNetworkPreferenceIsNotUpdated() {
+        /*
+        Currently this is only a unit test that verifies that MainFragment
+        does not try to update network preference when ConnectivityListener
+        is null.
+        TODO:
+        Add test to verify that ConnectivityListener is null when wifi scan
+        optimisation is enabled.
+         */
+        final Preference networkPreference = mock(Preference.class);
+        doReturn(networkPreference).when(mMainFragment).findPreference(MainFragment.KEY_NETWORK);
+        mMainFragment.mConnectivityListenerOptional = Optional.empty();
+
+        mMainFragment.updateConnectivity();
+
+        verifyZeroInteractions(networkPreference);
     }
 }

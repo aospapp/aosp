@@ -50,7 +50,6 @@
 #![doc(test(attr(allow(unused_variables), deny(warnings))))]
 #![no_std]
 #![cfg_attr(feature = "simd_support", feature(stdsimd))]
-#![cfg_attr(feature = "nightly", feature(slice_partition_at_index))]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![allow(
     clippy::float_cmp,
@@ -201,10 +200,10 @@ mod test {
     #[test]
     #[cfg(all(feature = "std", feature = "std_rng"))]
     fn test_random() {
-        // not sure how to test this aside from just getting some values
         let _n: usize = random();
         let _f: f32 = random();
         let _o: Option<Option<i8>> = random();
+        #[allow(clippy::type_complexity)]
         let _many: (
             (),
             (usize, isize, Option<(u32, (bool,))>),

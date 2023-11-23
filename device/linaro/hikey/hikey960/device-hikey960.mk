@@ -42,35 +42,17 @@ PRODUCT_BUILD_SUPER_PARTITION := true
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 PRODUCT_USE_DYNAMIC_PARTITION_SIZE :=true
 
-# Copy BT firmware
-PRODUCT_COPY_FILES += \
-	device/linaro/hikey/bt-wifi-firmware-util/TIInit_11.8.32-pcm-960.bts:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/TIInit_11.8.32.bts
-
-# Copy wlan firmware
-PRODUCT_COPY_FILES += \
-	device/linaro/hikey/bt-wifi-firmware-util/wl18xx-fw-4.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/wl18xx-fw-4.bin \
-	device/linaro/hikey/bt-wifi-firmware-util/wl18xx-conf-wl1837mod.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/ti-connectivity/wl18xx-conf.bin
-
-# Copy hifi firmware
-PRODUCT_COPY_FILES += \
-	device/linaro/hikey/hifi/firmware/hifi-hikey960.img:$(TARGET_COPY_OUT_VENDOR)/firmware/hifi/hifi.img
-
-PRODUCT_PACKAGES += \
-	dhifimesg
-
-
 # Build HiKey960 HDMI audio HAL. Experimental only may not work. FIXME
 PRODUCT_PACKAGES += audio.primary.hikey960
 
 PRODUCT_PACKAGES += gralloc.hikey960
 
 #binary blobs from ARM
-PRODUCT_PACKAGES +=	libGLES_mali.so \
-			vulkan.hikey960.so \
-			libbccArm.so \
-			libRSDriverArm.so \
-			libmalicore.bc \
-			END_USER_LICENCE_AGREEMENT.txt
+PRODUCT_PACKAGES +=	libGLES_mali \
+			vulkan.hikey960 \
+			libbccArm \
+			libRSDriverArm \
+			libmalicore.bc
 
 ifdef MALI_RS_DRIVER_AVAILABLE
 PRODUCT_COPY_FILES += \
@@ -92,9 +74,7 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += sys.usb.controller=ff100000.dwc3
 
 PRODUCT_PACKAGES += sensors.hikey960
 
-ifeq ($(HIKEY_USE_DRM_HWCOMPOSER), true)
-  PRODUCT_PACKAGES += hwcomposer.drm_hikey960
-endif
+PRODUCT_PACKAGES += hwcomposer.drm_hikey960
 
 ifneq ($(TARGET_NO_RECOVERY),true)
 PRODUCT_COPY_FILES += \

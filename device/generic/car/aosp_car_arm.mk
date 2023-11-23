@@ -20,6 +20,6 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_arm.mk)
 
 EMULATOR_VENDOR_NO_SOUND := true
 PRODUCT_NAME := aosp_car_arm
-PRODUCT_DEVICE := emulator_arm
+PRODUCT_DEVICE := generic
 PRODUCT_BRAND := Android
 PRODUCT_MODEL := Car on ARM emulator

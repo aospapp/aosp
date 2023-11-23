@@ -19,7 +19,6 @@ package com.android.tv.settings.device.apps.specialaccess;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.system.SecurityFragment;
 
 /**
@@ -33,8 +32,9 @@ public class AppUsageAccessActivity extends TvSettingsActivity {
             finish();
             return null;
         } else {
-            return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
-                .newSettingsFragment(AppUsageAccess.class.getName(), null);
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
+                    .newSettingsFragment(AppUsageAccess.class.getName(), null);
         }
     }
 }

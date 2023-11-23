@@ -26,11 +26,21 @@ public class LyricMemProfilerCollector extends BaseCollectionListener<Integer> {
 
     private static final String TAG = LyricMemProfilerCollector.class.getSimpleName();
     private static final String PROFILE_PERIOD_KEY = "profile-period-ms-enable";
-    private static final String PROFILE_PID_NAME = "profile-pid-name";
-    private LyricMemProfilerHelper mHelper = new LyricMemProfilerHelper();
+
+    // separate PID name by ',' character
+    private static final String PROFILE_PID_NAME_LIST = "profile-camera-pid-name-list";
+    private static final String PROFILE_METRIC_NAME_LIST = "profile-camera-metric-name-list";
+
+    private static final String[] DEFAULT_PID_NAME_LIST = {
+        "provider@", "cameraserver", "id.GoogleCamera"
+    };
+    private static final String[] DEFAULT_METRIC_NAME_LIST = {
+        "CameraProvider", "CameraServer", "CameraApp"
+    };
+    private LyricMemProfilerHelper mLyricMemProfilerHelper = new LyricMemProfilerHelper();
 
     public LyricMemProfilerCollector() {
-        createHelperInstance(mHelper);
+        createHelperInstance(mLyricMemProfilerHelper);
     }
 
     /** Adds the options for total pss collector. */
@@ -38,12 +48,20 @@ public class LyricMemProfilerCollector extends BaseCollectionListener<Integer> {
     public void setupAdditionalArgs() {
         Bundle args = getArgsBundle();
         String argString = args.getString(PROFILE_PERIOD_KEY);
+        String[] pidNameList = DEFAULT_PID_NAME_LIST;
+        String[] metricNameList = DEFAULT_METRIC_NAME_LIST;
         if (argString != null) {
-            mHelper.setProfilePeriodMs(Integer.parseInt(argString));
+            mLyricMemProfilerHelper.setProfilePeriodMs(Integer.parseInt(argString));
         }
-        argString = args.getString(PROFILE_PID_NAME);
+        argString = args.getString(PROFILE_PID_NAME_LIST);
         if (argString != null) {
-            mHelper.setProfilePidName(argString);
+            pidNameList = argString.split(",");
         }
+        argString = args.getString(PROFILE_METRIC_NAME_LIST);
+        if (argString != null) {
+            metricNameList = argString.split(",");
+        }
+        mLyricMemProfilerHelper.setProfileCameraProcName(pidNameList);
+        mLyricMemProfilerHelper.setProfileMetricName(metricNameList);
     }
 }

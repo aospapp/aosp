@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 
 #ifdef RUY_MAKEBLOCKMAP_DEBUG
 #include <cstdio>
@@ -330,7 +331,7 @@ bool IsObviouslyLinearTraversal(int rows, int cols, int depth,
   // as that requires knowing the kernel block layout. Since we just want
   // a coarse estimate with only the guarantee that if we return `true` then
   // linear traversal will be used, it is OK here to over-estimate `rows` and
-  // `cols`, by omitting to divide them by the rectangularness factors.ß
+  // `cols`, by omitting to divide them by the rectangularness factors.
   return GetTraversalOrder(rows, cols, depth, lhs_scalar_size, rhs_scalar_size,
                            cpu_cache_params) == BlockMapTraversalOrder::kLinear;
 }

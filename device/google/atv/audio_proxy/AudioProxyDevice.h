@@ -14,40 +14,32 @@
 
 #pragma once
 
+#include <aidl/device/google/atv/audio_proxy/AudioConfig.h>
+
 #include <memory>
 
 #include "public/audio_proxy.h"
 
-// clang-format off
-#include PATH(android/hardware/audio/FILE_VERSION/types.h)
-#include PATH(android/hardware/audio/common/FILE_VERSION/types.h)
-// clang-format on
-
 namespace audio_proxy {
-namespace AUDIO_PROXY_CPP_VERSION {
-
-using ::android::hardware::hidl_bitfield;
-using namespace ::android::hardware::audio::CPP_VERSION;
-using namespace ::android::hardware::audio::common::CPP_VERSION;
 
 class AudioProxyStreamOut;
 
-// C++ friendly wrapper of audio_proxy_device.
+// C++ friendly wrapper of audio_proxy_device. It handles type conversion
+// between C type and aidl type.
 class AudioProxyDevice final {
  public:
   explicit AudioProxyDevice(audio_proxy_device_t* device);
   ~AudioProxyDevice();
 
-  const char* getAddress();
+  const char* getServiceName();
 
-  Result openOutputStream(hidl_bitfield<AudioOutputFlag> flags,
-                          const AudioConfig& config,
-                          std::unique_ptr<AudioProxyStreamOut>* streamOut,
-                          AudioConfig* configOut);
+  std::unique_ptr<AudioProxyStreamOut> openOutputStream(
+      const std::string& address,
+      const aidl::device::google::atv::audio_proxy::AudioConfig& config,
+      int32_t flags);
 
  private:
   audio_proxy_device_t* const mDevice;
 };
 
-}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

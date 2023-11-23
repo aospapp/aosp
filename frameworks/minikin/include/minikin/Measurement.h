@@ -17,10 +17,11 @@
 #ifndef MINIKIN_MEASUREMENT_H
 #define MINIKIN_MEASUREMENT_H
 
+#include <minikin/Layout.h>
+#include <minikin/MinikinExtent.h>
+
 #include <cstddef>
 #include <cstdint>
-
-#include <minikin/Layout.h>
 
 namespace minikin {
 
@@ -33,6 +34,9 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
 void getBounds(const U16StringPiece& str, const Range& range, Bidi bidiFlags,
                const MinikinPaint& paint, StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
                MinikinRect* out);
+
+MinikinExtent getFontExtent(const U16StringPiece& str, const Range& range, Bidi bidiFlags,
+                            const MinikinPaint& paint);
 
 }  // namespace minikin
 

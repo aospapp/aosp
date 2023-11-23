@@ -16,8 +16,8 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.DefaultModifierList
+import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterItem
 import com.android.tools.metalava.model.TypeParameterListOwner
 
@@ -26,7 +26,7 @@ class TextTypeParameterItem(
     private val owner: TypeParameterListOwner?,
     private val typeParameterString: String,
     name: String,
-    private var bounds: List<ClassItem>? = null
+    private var bounds: List<TypeItem>? = null
 ) :
     TextClassItem(
         codebase = codebase,
@@ -36,19 +36,14 @@ class TextTypeParameterItem(
     ),
     TypeParameterItem {
 
-    override fun bounds(): List<ClassItem> {
+    override fun typeBounds(): List<TypeItem> {
         if (bounds == null) {
             val boundsString = bounds(typeParameterString, owner)
             bounds = if (boundsString.isEmpty()) {
                 emptyList()
             } else {
                 boundsString.mapNotNull {
-                    val clz = codebase.findClass(it)
-                    if (clz == null && it.contains(".")) {
-                        codebase.getOrCreateClass(it)
-                    } else {
-                        clz
-                    }
+                    codebase.obtainTypeFromString(it)
                 }.filter {
                     !it.isJavaLangObject()
                 }
@@ -66,7 +61,7 @@ class TextTypeParameterItem(
             codebase: TextCodebase,
             owner: TypeParameterListOwner?,
             typeParameterString: String,
-            bounds: List<ClassItem>? = null
+            bounds: List<TypeItem>? = null
         ): TextTypeParameterItem {
             val length = typeParameterString.length
             var nameEnd = length
@@ -96,29 +91,27 @@ class TextTypeParameterItem(
                     ?: return emptyList()
                 for (p in parameters) {
                     if (p.simpleName() == s) {
-                        return p.bounds().filter { !it.isJavaLangObject() }.map { it.qualifiedName() }
+                        return p.typeBounds().filter { !it.isJavaLangObject() }.map { it.toTypeString() }
                     }
                 }
 
                 return emptyList()
             }
             val list = mutableListOf<String>()
-            var balance = 0
+            var angleBracketBalance = 0
             var start = index + "extends ".length
             val length = s.length
             for (i in start until length) {
                 val c = s[i]
-                if (c == '&' && balance == 0) {
+                if (c == '&' && angleBracketBalance == 0) {
                     add(list, typeString, start, i)
                     start = i + 1
                 } else if (c == '<') {
-                    balance++
-                    if (balance == 1) {
-                        add(list, typeString, start, i)
-                    }
+                    angleBracketBalance++
                 } else if (c == '>') {
-                    balance--
-                    if (balance == 0) {
+                    angleBracketBalance--
+                    if (angleBracketBalance == 0) {
+                        add(list, typeString, start, i + 1)
                         start = i + 1
                     }
                 }

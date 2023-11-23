@@ -35,7 +35,7 @@ namespace statsd {
 /**
  * Keeps track of which configurations have been set from various sources.
  */
-class ConfigManager : public virtual android::RefBase {
+class ConfigManager : public virtual RefBase {
 public:
     ConfigManager();
     virtual ~ConfigManager();
@@ -83,6 +83,12 @@ public:
     void RemoveConfigReceiver(const ConfigKey& key);
 
     /**
+     * Erase the broadcast receiver for this config key if it is equal to the provided broadcast
+     * receiver.
+     */
+    void RemoveConfigReceiver(const ConfigKey& key, const shared_ptr<IPendingIntentRef>& pir);
+
+    /**
      * Sets the broadcast receiver that is notified whenever the list of active configs
      * changes for this uid.
      */
@@ -98,6 +104,13 @@ public:
      * Erase any active configs changed broadcast receiver associated with this uid.
      */
     void RemoveActiveConfigsChangedReceiver(const int uid);
+
+    /**
+     * Erase the active configs changed broadcast receiver associated with this uid if it is equal
+     * to the provided broadcast receiver.
+     */
+    void RemoveActiveConfigsChangedReceiver(const int uid,
+                                            const shared_ptr<IPendingIntentRef>& pir);
 
     /**
      * A configuration was removed.
@@ -150,30 +163,12 @@ private:
      * Each uid can be subscribed by up to one receiver to notify that the list of active configs
      * for this uid has changed. The receiver is specified as IPendingIntentRef.
      */
-     std::map<int, shared_ptr<IPendingIntentRef>> mActiveConfigsChangedReceivers;
+    std::map<int, shared_ptr<IPendingIntentRef>> mActiveConfigsChangedReceivers;
 
     /**
      * The ConfigListeners that will be told about changes.
      */
     std::vector<sp<ConfigListener>> mListeners;
-
-    // Death recipients that are triggered when the host process holding an
-    // IPendingIntentRef dies.
-    ::ndk::ScopedAIBinder_DeathRecipient mConfigReceiverDeathRecipient;
-    ::ndk::ScopedAIBinder_DeathRecipient mActiveConfigChangedReceiverDeathRecipient;
-
-    /**
-     * Death recipient callback that is called when a config receiver dies.
-     * The cookie is a pointer to a ConfigReceiverDeathCookie.
-     */
-    static void configReceiverDied(void* cookie);
-
-    /**
-     * Death recipient callback that is called when an active config changed
-     * receiver dies. The cookie is a pointer to an
-     * ActiveConfigChangedReceiverDeathCookie.
-     */
-    static void activeConfigChangedReceiverDied(void* cookie);
 };
 
 }  // namespace statsd

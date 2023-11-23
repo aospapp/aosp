@@ -124,8 +124,9 @@ class AppPermGroupUiInfoLiveData private constructor(
         val requestedPermissionInfos =
             allPermInfos.filter { permissionState.containsKey(it.key) }.values
 
-        val shouldShow = packageInfo.enabled && isGrantableAndNotLegacyPlatform(packageInfo,
-            groupInfo, requestedPermissionInfos)
+        val shouldShow = packageInfo.enabled &&
+            isGrantableAndNotLegacyPlatform(packageInfo, groupInfo, requestedPermissionInfos) &&
+            (!isStorage || Utils.shouldShowStorage(packageInfo))
 
         val isSystemApp = !isUserSensitive(permissionState)
 
@@ -252,27 +253,35 @@ class AppPermGroupUiInfoLiveData private constructor(
 
         var hasPermWithBackground = false
         var isUserFixed = false
+
         for ((permName, permState) in permissionState) {
             val permInfo = allPermInfos[permName] ?: continue
             permInfo.backgroundPermission?.let { backgroundPerm ->
                 hasPermWithBackground = true
                 if (permissionState[backgroundPerm]?.granted == true &&
-                    specialLocationState != false) {
+                        (permissionState[backgroundPerm]!!.permFlags and
+                                PackageManager.FLAG_PERMISSION_ONE_TIME == 0) &&
+                        specialLocationState != false) {
                     return PermGrantState.PERMS_ALLOWED_ALWAYS
                 }
             }
             isUserFixed = isUserFixed ||
                     permState.permFlags and PackageManager.FLAG_PERMISSION_USER_FIXED != 0
         }
-        // isOneTime indicates whether permission states contain any one-time permission and
-        // none of the permissions are granted (not one-time)
+
+        // isOneTime indicates whether all granted permissions in permission states are one-time
+        // permissions
         val isOneTime = permissionState.any {
             it.value.permFlags and PackageManager.FLAG_PERMISSION_ONE_TIME != 0 } &&
                 !permissionState.any {
                     it.value.permFlags and PackageManager.FLAG_PERMISSION_ONE_TIME == 0 &&
                             it.value.granted }
 
-        val anyAllowed = specialLocationState ?: permissionState.any { it.value.granted }
+        val supportsRuntime = pkg.targetSdkVersion >= Build.VERSION_CODES.M
+        val anyAllowed = specialLocationState ?: permissionState.any { (_, state) ->
+            state.granted || (supportsRuntime &&
+                (state.permFlags and PackageManager.FLAG_PERMISSION_REVIEW_REQUIRED) != 0)
+        }
         if (anyAllowed && (hasPermWithBackground || shouldShowAsForegroundGroup())) {
             return if (isOneTime) {
                 PermGrantState.PERMS_ASK

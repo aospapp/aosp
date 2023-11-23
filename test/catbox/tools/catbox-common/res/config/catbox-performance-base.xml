@@ -31,7 +31,6 @@
   <option name="test-tag-suffix" value="performance" />
 
   <!-- Performance Specific Target Preparers -->
-  <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer" />
   <target_preparer class="com.android.tradefed.targetprep.PerfettoPreparer" />
   <target_preparer class="com.android.tradefed.targetprep.TimeWaster" />
   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ReportLogCollector">

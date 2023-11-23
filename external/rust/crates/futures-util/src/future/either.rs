@@ -5,8 +5,25 @@ use futures_core::stream::{FusedStream, Stream};
 #[cfg(feature = "sink")]
 use futures_sink::Sink;
 
-/// Combines two different futures, streams, or sinks having the same associated types into a single
-/// type.
+/// Combines two different futures, streams, or sinks having the same associated types into a single type.
+///
+/// This is useful when conditionally choosing between two distinct future types:
+///
+/// ```rust
+/// use futures::future::Either;
+///
+/// # futures::executor::block_on(async {
+/// let cond = true;
+///
+/// let fut = if cond {
+///     Either::Left(async move { 12 })
+/// } else {
+///     Either::Right(async move { 44 })
+/// };
+///
+/// assert_eq!(fut.await, 12);
+/// # })
+/// ```
 #[derive(Debug, Clone)]
 pub enum Either<A, B> {
     /// First branch of the type
@@ -167,8 +184,6 @@ mod if_std {
 
     use core::pin::Pin;
     use core::task::{Context, Poll};
-    #[cfg(feature = "read-initializer")]
-    use futures_io::Initializer;
     use futures_io::{
         AsyncBufRead, AsyncRead, AsyncSeek, AsyncWrite, IoSlice, IoSliceMut, Result, SeekFrom,
     };
@@ -178,14 +193,6 @@ mod if_std {
         A: AsyncRead,
         B: AsyncRead,
     {
-        #[cfg(feature = "read-initializer")]
-        unsafe fn initializer(&self) -> Initializer {
-            match self {
-                Either::Left(x) => x.initializer(),
-                Either::Right(x) => x.initializer(),
-            }
-        }
-
         fn poll_read(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,

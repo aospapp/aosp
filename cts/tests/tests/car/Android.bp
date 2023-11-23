@@ -16,6 +16,18 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library {
+    name: "vehicle-property-verifier",
+    static_libs: [
+        "androidx.test.rules",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.car-test-stubs",
+    ],
+    srcs: ["src/android/car/cts/utils/VehiclePropertyVerifier.java"],
+}
+
 android_test {
     name: "CtsCarTestCases",
     defaults: ["cts_defaults"],
@@ -28,6 +40,7 @@ android_test {
         // which provides assertThrows
         "testng",
         "libprotobuf-java-lite",
+        "vehicle-property-verifier",
     ],
     libs: [
         "android.test.base",
@@ -35,12 +48,25 @@ android_test {
     ],
     srcs: [
         "src/**/*.java",
+        ":cartelemetryservice-proto-srcs",
         ":rotary-service-proto-source",
     ],
+    exclude_srcs: ["src/android/car/cts/utils/VehiclePropertyVerifier.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
     sdk_version: "test_current",
+    data: [
+        ":CtsCarPermissionReadCarDisplayUnitsTest",
+        ":CtsCarPermissionCarPowertrainTest",
+        ":CtsCarPermissionCarInfoTest",
+        ":CtsCarPermissionCarExteriorEnvironmentTest",
+        ":CtsCarPermissionCarEnergyTest",
+        ":CtsCarNoPropertyPermissionsTest",
+        ":CtsCarPermissionCarEnergyPortsTest",
+        ":CtsCarPermissionCarSpeedTest",
+    ],
+    per_testcase_directory: true,
 }

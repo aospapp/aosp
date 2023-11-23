@@ -81,4 +81,9 @@ android_test {
         "general-tests",
     ],
     sdk_version: "test_current",
+    data: [
+        ":CtsWindowManagerJetpackSecondUidApp",
+        ":CtsWindowManagerJetpackSignedApp",
+    ],
+    per_testcase_directory: true,
 }

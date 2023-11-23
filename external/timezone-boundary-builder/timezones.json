@@ -528,15 +528,6 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Argentina"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-60,-23],[-59,-32],[-50,-24],[-60,-23]]],
-      "description": "Intersect with a long section of the Paraná and Uruguay Rivers because there were holes.  Whatever OSM thinks Uruguay's border is will be diffed as the last operation for this zone."
-    }, {
-      "op": "union",
-      "source": "overpass",
       "id": "Córdoba"
     }, {
       "op": "union",
@@ -566,10 +557,6 @@
       "op": "union",
       "source": "overpass",
       "id": "Formosa"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Uruguay"
     }
   ],
   "America/Argentina/Jujuy": [
@@ -693,10 +680,6 @@
       "op": "init",
       "source": "overpass",
       "id": "Paraguay"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Argentina"
     }
   ],
   "America/Atikokan": [
@@ -704,10 +687,6 @@
       "op": "init",
       "source": "overpass",
       "id": "Atikokan-tz"
-    }, {
-      "op": "union",
-      "source": "overpass",
-      "id": "Coral Harbour-tz"
     }, {
       "op": "difference",
       "source": "overpass",
@@ -762,17 +741,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Quebec"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-61.25,53],[-61.25,48],[-51,53],[-61.25,53]]],
-      "description": "Grab eastern section of Quebec"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-58.9,46.8],[-63.37,47.66],[-60.4768198,48.7813802],[-58.9,46.8]]],
-      "description": "Exclude a section of area that should be America/Halifax"
+      "id": "Blanc Sablon-tz"
     }
   ],
   "America/Boa_Vista": [
@@ -928,7 +897,7 @@
     }, {
       "op": "union",
       "source": "overpass",
-      "id": "Overton County, TN"
+      "id": "Fentress County, TN"
     }, {
       "op": "union",
       "source": "overpass",
@@ -1148,9 +1117,13 @@
   "America/Dawson": [
     {
       "op": "init",
+      "source": "overpass",
+      "id": "Yukon"
+    }, {
+      "op": "difference",
       "source": "manual-polygon",
-      "data": [[[-139.446, 64.0893], [-139.4126, 64.0888], [-139.4105, 64.0688], [-139.3765, 64.0609], [-139.3758, 64.0556], [-139.2775, 64.0534], [-139.2854, 64.0208], [-139.4496, 64.0278], [-139.4546, 64.0254], [-139.4824, 64.0219], [-139.4838, 64.0314], [-139.4738, 64.034], [-139.4747, 64.0369], [-139.4737, 64.0404], [-139.4713, 64.0419], [-139.4677, 64.0469], [-139.4663, 64.0487], [-139.4572, 64.0515], [-139.4538, 64.0546], [-139.4417, 64.0736], [-139.4476, 64.0789], [-139.4477, 64.0807], [-139.44, 64.0819], [-139.446, 64.0893]]],
-      "description": "Manually create polygon based off of best guess of city limits of Dawson as shown in this map: http://dawson.planyukon.ca/index.php/the-dawson-region/resource-maps/6-01-regional-overview-map/file"
+      "data": [[[-138,75],[-138,56],[-95,62],[-138,75]]],
+      "description": "Difference against a manually created polygon to create an east-west split at the 138th meridian."
     }
   ],
   "America/Dawson_Creek": [
@@ -1316,38 +1289,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Canada"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-58,46],[-59,45.428],[-60.1323124,45.7017791],[-60.3408651,46.3601573],[-60.0238,46.5],[-58,46]]],
-      "description": "intersect part of Canada in Cape Breton County to preserve terriritorial waters"
-    }, {
-      "op": "union",
-      "source": "overpass",
-      "id": "Cape Breton County"
-    }
-  ],
-  "America/Godthab": [
-    {
-      "op": "init",
-      "source": "overpass",
-      "id": "Greenland"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-24,72.4],[-19,71],[-18,70],[-25,70.5],[-24,72.4]]],
-      "description": "Exclude area from Greenland used to make America/Scoresbysund"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-24.2,73.5],[-15,71.8],[-14,77],[-24.2,73.5]]],
-      "description": "Exclude area from Greenland used to make America/Danmarkshavn"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-81,82],[-60,78],[-81,60],[-81,82]]],
-      "description": "Exclude area from Greenland used to make America/Thule"
+      "id": "Glace Bay-tz"
     }
   ],
   "America/Goose_Bay": [
@@ -1421,21 +1363,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Canada"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-58.9,46.8],[-60.0238,46.5],[-60.3408651,46.3601573],[-60.1323124,45.7017791],[-59,45.428],[-59,34],[-67,44.06],[-66.4878,44.482],[-66.21,44.83],[-65.3,45.2],[-65.13,45.38],[-64.98,45.47],[-64.80607,45.5364896],[-64.5,46],[-63.7491191,46.2295464],[-64.34,46.36],[-64.56,46.6],[-64.58,46.69],[-64.46,47.07],[-63.37,47.66],[-60.4768198,48.7813802],[-60.4037717,47.7610985],[-58.9,46.8]]],
-      "description": "Grab area of Canada including New Brunswick and an area of the Gulf of St Lawrence including Prince Edward Island and the Magdalen Islands"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Cape Breton County"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "New Brunswick",
-      "description": "Exclude New Brunswick to get exact boundary between Nova Scotia and New Brunswick"
+      "id": "Halifax-tz"
     }
   ],
   "America/Havana": [
@@ -1525,9 +1453,13 @@
   "America/Inuvik": [
     {
       "op": "init",
+      "source": "overpass",
+      "id": "Northwest Territories"
+    }, {
+      "op": "difference",
       "source": "manual-polygon",
-      "data": [[[-133.7991, 68.4161], [-133.73, 68.4165], [-133.7297, 68.3955], [-133.6343, 68.3464], [-133.3888, 68.3166], [-133.3843, 68.2982], [-133.4485, 68.297], [-133.4482, 68.2901], [-133.4719, 68.29], [-133.4726, 68.2926], [-133.4911, 68.2966], [-133.535, 68.2973], [-133.5556, 68.3015], [-133.5546, 68.3043], [-133.5653, 68.3074], [-133.6772, 68.3176], [-133.6734, 68.3226], [-133.7046, 68.3379], [-133.7225, 68.3508], [-133.7524, 68.3625], [-133.7709, 68.3749], [-133.7733, 68.3827], [-133.7695, 68.3874], [-133.775, 68.3906], [-133.7884, 68.394], [-133.7956, 68.4007], [-133.7956, 68.4092], [-133.7991, 68.4161]]],
-      "description": "This is a manual trace of what appears to be the boundary of the city limits of Inuvik.  Boundary is based off of this document: http://www.inuvik.ca/en/living-here/resources/By-laws/2582_Community_Plan_Map.pdf"
+      "data": [[[-120,85],[-120,56],[-55,62],[-120,85]]],
+      "description": "Difference against a manually created polygon to create an east-west split at the 120th meridian."
     }
   ],
   "America/Iqaluit": [
@@ -1776,27 +1708,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Canada"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-70,46],[-67,44.06],[-66.4878,44.482],[-66.21,44.83],[-65.3,45.2],[-65.13,45.38],[-64.98,45.47],[-64.80607,45.5364896],[-64.5,46],[-63.7491191,46.2295464],[-64.34,46.36],[-64.56,46.6],[-64.58,46.69],[-64.46,47.07],[-63.37,47.66],[-61.69,48.52],[-60,52],[-70,50],[-70,46]]],
-      "description": "Grab area of Canada around New Brunswick including part of Gulf of St Lawrence"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Quebec",
-      "description": "Exclude Quebec territory including parts of Gulf of St Lawrence"
-    }, {
-      "op": "union",
-      "source": "overpass",
-      "id": "New Brunswick",
-      "description": "Union to get exact border between New Brunswick and Nova Scotia"
-    }, {
-      "op": "union",
-      "source": "manual-polygon",
-      "data": [[[-66.681,48.01],[-66.685,48.0158],[-66.6864,48.0166],[-66.723,48.029],[-66.7179,48.0363],[-66.7407,48.0623],[-66.733,48.0728],[-66.756,48.1022],[-66.802,48.086],[-66.754,48.0305],[-66.737,48.0274],[-66.73,48.0309],[-66.71,47.996],[-66.681,48.01]]],
-      "description": "Include terroritory belonging to Listuguj Mi'gmaq First Nation"
+      "id": "New Brunswick"
     }
   ],
   "America/Monterrey": [
@@ -1892,7 +1804,7 @@
     }, {
       "op": "difference",
       "source": "overpass",
-      "id": "Overton County, TN"
+      "id": "Fentress County, TN"
     }, {
       "op": "difference",
       "source": "overpass",
@@ -1997,6 +1909,28 @@
       "id": "Morton County, ND"
     }
   ],
+  "America/Nuuk": [
+    {
+      "op": "init",
+      "source": "overpass",
+      "id": "Greenland"
+    }, {
+      "op": "difference",
+      "source": "manual-polygon",
+      "data": [[[-24,72.4],[-19,71],[-18,70],[-25,70.5],[-24,72.4]]],
+      "description": "Exclude area from Greenland used to make America/Scoresbysund"
+    }, {
+      "op": "difference",
+      "source": "manual-polygon",
+      "data": [[[-24.2,73.5],[-15,71.8],[-14,77],[-24.2,73.5]]],
+      "description": "Exclude area from Greenland used to make America/Danmarkshavn"
+    }, {
+      "op": "difference",
+      "source": "manual-polygon",
+      "data": [[[-81,82],[-60,78],[-81,60],[-81,82]]],
+      "description": "Exclude area from Greenland used to make America/Thule"
+    }
+  ],
   "America/Ojinaga": [
     {
       "op": "init",
@@ -2090,12 +2024,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Canada"
-    }, {
-      "op": "intersect",
-      "source": "manual-polygon",
-      "data": [[[-94.5402,48.7369],[-94.5405,48.69],[-94.648,48.7369],[-94.5402,48.7369]]],
-      "description": "Intersect part of Canada near Rainy River.  Includes arbitrary boundary of 2 farm roads to the east and north of the town."
+      "id": "Rainy River-tz"
     }
   ],
   "America/Rankin_Inlet": [
@@ -2122,10 +2051,6 @@
       "op": "init",
       "source": "overpass",
       "id": "Regina-tz"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Swift Current"
     }
   ],
   "America/Resolute": [
@@ -2259,6 +2184,10 @@
       "op": "difference",
       "source": "overpass",
       "id": "Quebec"
+    }, {
+      "op": "difference",
+      "source": "overpass",
+      "id": "Glace Bay-tz"
     }
   ],
   "America/St_Kitts": [
@@ -2298,7 +2227,7 @@
     {
       "op": "init",
       "source": "overpass",
-      "id": "Swift Current"
+      "id": "Swift Current-tz"
     }
   ],
   "America/Tegucigalpa": [
@@ -2348,33 +2277,6 @@
       "op": "init",
       "source": "overpass",
       "id": "Toronto-tz"
-    }, {
-      "op": "union",
-      "source": "overpass",
-      "id": "Quebec"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-61.25,53],[-61.25,48],[-51,53],[-61.25,53]]],
-      "description": "Exclude part of Quebec belonging to timezone America/Blanc-Sablon."
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-58.9,46.8],[-60.4768198,48.7813802],[-63.37,47.66],[-64,45],[-58.9,46.8]]],
-      "description": "Exclude Magdalen Islands"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-66.681,48.01],[-66.685,48.0158],[-66.6864,48.0166],[-66.723,48.029],[-66.7179,48.0363],[-66.7407,48.0623],[-66.733,48.0728],[-66.756,48.1022],[-66.802,48.086],[-66.754,48.0305],[-66.737,48.0274],[-66.73,48.0309],[-66.71,47.996],[-66.681,48.01]]],
-      "description": "Exclude terroritory belonging to Listuguj Mi'gmaq First Nation"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Nipigon-tz"
-    }, {
-      "op": "difference",
-      "source": "overpass",
-      "id": "Thunder Bay-tz"
     }
   ],
   "America/Tortola": [
@@ -2412,8 +2314,8 @@
     }, {
       "op": "difference",
       "source": "manual-polygon",
-      "data": [[[-139.446, 64.0893], [-139.4126, 64.0888], [-139.4105, 64.0688], [-139.3765, 64.0609], [-139.3758, 64.0556], [-139.2775, 64.0534], [-139.2854, 64.0208], [-139.4496, 64.0278], [-139.4546, 64.0254], [-139.4824, 64.0219], [-139.4838, 64.0314], [-139.4738, 64.034], [-139.4747, 64.0369], [-139.4737, 64.0404], [-139.4713, 64.0419], [-139.4677, 64.0469], [-139.4663, 64.0487], [-139.4572, 64.0515], [-139.4538, 64.0546], [-139.4417, 64.0736], [-139.4476, 64.0789], [-139.4477, 64.0807], [-139.44, 64.0819], [-139.446, 64.0893]]],
-      "description": "Difference against a manually created polygon based off of best guess of city limits of Dawson as shown in this map: http://dawson.planyukon.ca/index.php/the-dawson-region/resource-maps/6-01-regional-overview-map/file"
+      "data": [[[-138,75],[-138,56],[-165,62],[-138,75]]],
+      "description": "Difference against a manually created polygon to create an east-west split at the 138th meridian."
     }
   ],
   "America/Winnipeg": [
@@ -2421,11 +2323,6 @@
       "op": "init",
       "source": "overpass",
       "id": "Winnipeg-tz"
-    }, {
-      "op": "difference",
-      "source": "manual-polygon",
-      "data": [[[-94.5402,48.7369],[-94.5405,48.69],[-94.648,48.7369],[-94.5402,48.7369]]],
-      "description": "Difference part of this timezone near Rainy River.  Includes arbitrary boundary of 2 farm roads to the east and north of the town."
     }
   ],
   "America/Yakutat": [
@@ -2448,8 +2345,8 @@
     }, {
       "op": "difference",
       "source": "manual-polygon",
-      "data": [[[-133.7991, 68.4161], [-133.73, 68.4165], [-133.7297, 68.3955], [-133.6343, 68.3464], [-133.3888, 68.3166], [-133.3843, 68.2982], [-133.4485, 68.297], [-133.4482, 68.2901], [-133.4719, 68.29], [-133.4726, 68.2926], [-133.4911, 68.2966], [-133.535, 68.2973], [-133.5556, 68.3015], [-133.5546, 68.3043], [-133.5653, 68.3074], [-133.6772, 68.3176], [-133.6734, 68.3226], [-133.7046, 68.3379], [-133.7225, 68.3508], [-133.7524, 68.3625], [-133.7709, 68.3749], [-133.7733, 68.3827], [-133.7695, 68.3874], [-133.775, 68.3906], [-133.7884, 68.394], [-133.7956, 68.4007], [-133.7956, 68.4092], [-133.7991, 68.4161]]],
-      "description": "This is a manual trace of what appears to be the boundary of the city limits of Inuvik.  Boundary is based off of this document: http://www.inuvik.ca/en/living-here/resources/By-laws/2582_Community_Plan_Map.pdf"
+      "data": [[[-120,85],[-120,56],[-165,62],[-120,85]]],
+      "description": "Difference against a manually created polygon to create an east-west split at the 120th meridian."
     }
   ],
   "Antarctica/Casey": [
@@ -3233,23 +3130,28 @@
     }, {
       "op": "union",
       "source": "overpass",
-      "id": "Doklam 洞郎地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "id": "Doklam 洞朗地区",
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "鲁林地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "查马普地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "基伍地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+    }, {
+      "op": "union",
+      "source": "overpass",
+      "id": "中国实控白玉地区",
+      "description": "Add disputed area along Northwest Bhutan-China border.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE"
     }, {
       "op": "difference",
       "source": "overpass",
@@ -3311,23 +3213,28 @@
     }, {
       "op": "union",
       "source": "overpass",
-      "id": "Doklam 洞郎地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "id": "Doklam 洞朗地区",
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "鲁林地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "查马普地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
     }, {
       "op": "union",
       "source": "overpass",
       "id": "基伍地区",
-      "description": "Add dispuated area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+      "description": "Add disputed area in Doklam.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE and https://en.wikipedia.org/wiki/Doklam"
+    }, {
+      "op": "union",
+      "source": "overpass",
+      "id": "中国实控白玉地区",
+      "description": "Add disputed area along Northwest Bhutan-China border.  See https://zh.wikipedia.org/wiki/%E4%B8%AD%E4%B8%8D%E8%BE%B9%E7%95%8C%E4%BA%89%E8%AE%AE"
     }
   ],
   "Asia/Tokyo": [
@@ -3972,6 +3879,10 @@
       "op": "init",
       "source": "overpass",
       "id": "United Kingdom"
+    }, {
+      "op": "difference",
+      "source": "overpass",
+      "id": "Isle of Man"
     }
   ],
   "Europe/Luxembourg": [
@@ -4030,6 +3941,11 @@
       "op": "difference",
       "source": "overpass",
       "id": "Kirov"
+    }, {
+      "op": "union",
+      "source": "manual-polygon",
+      "data": [[[46.7,52.7],[46.5,52.65],[46.7,52.65],[46.7,52.7]]],
+      "description": "Union with part of Moscow timezone along a river to cover holes between the OSM boundaries of Saratov and the Moscow timezone"
     }, {
       "op": "difference",
       "source": "overpass",
@@ -4113,6 +4029,11 @@
       "op": "union",
       "source": "overpass",
       "id": "Udmurtia"
+    }, {
+      "op": "union",
+      "source": "manual-polygon",
+      "data": [[[53.05,56.185],[53.11,56.18],[53.1,56.23],[53.05,56.185]]],
+      "description": "Union this area to add some exclaves that probably don't belong to Moscow timezone"
     }
   ],
   "Europe/San_Marino": [

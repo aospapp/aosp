@@ -65,16 +65,19 @@ using android::base::StringPrintf;
 // If true, we attempt to load the application image if it exists.
 static constexpr bool kEnableAppImage = true;
 
-const OatFile* OatFileManager::RegisterOatFile(std::unique_ptr<const OatFile> oat_file) {
+const OatFile* OatFileManager::RegisterOatFile(std::unique_ptr<const OatFile> oat_file,
+                                               bool in_memory) {
   // Use class_linker vlog to match the log for dex file registration.
   VLOG(class_linker) << "Registered oat file " << oat_file->GetLocation();
   PaletteNotifyOatFileLoaded(oat_file->GetLocation().c_str());
 
   WriterMutexLock mu(Thread::Current(), *Locks::oat_file_manager_lock_);
-  CHECK(!only_use_system_oat_files_ ||
+  CHECK(in_memory ||
+        !only_use_system_oat_files_ ||
         LocationIsTrusted(oat_file->GetLocation(), !Runtime::Current()->DenyArtApexDataFiles()) ||
         !oat_file->IsExecutable())
-      << "Registering a non /system oat file: " << oat_file->GetLocation();
+      << "Registering a non /system oat file: " << oat_file->GetLocation() << " android-root="
+      << GetAndroidRoot();
   DCHECK(oat_file != nullptr);
   if (kIsDebugBuild) {
     CHECK(oat_files_.find(oat_file) == oat_files_.end());
@@ -155,7 +158,9 @@ std::vector<const OatFile*> OatFileManager::RegisterImageOatFiles(
   std::vector<const OatFile*> oat_files;
   oat_files.reserve(spaces.size());
   for (gc::space::ImageSpace* space : spaces) {
-    oat_files.push_back(RegisterOatFile(space->ReleaseOatFile()));
+    // The oat file was generated in memory if the image space has a profile.
+    bool in_memory = !space->GetProfileFiles().empty();
+    oat_files.push_back(RegisterOatFile(space->ReleaseOatFile(), in_memory));
   }
   return oat_files;
 }
@@ -258,7 +263,7 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
             // Add image space has a race condition since other threads could be reading from the
             // spaces array.
             {
-              ScopedThreadSuspension sts(self, kSuspended);
+              ScopedThreadSuspension sts(self, ThreadState::kSuspended);
               gc::ScopedGCCriticalSection gcs(self,
                                               gc::kGcCauseAddRemoveAppImageSpace,
                                               gc::kCollectorTypeAddRemoveAppImageSpace);
@@ -285,7 +290,7 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
               LOG(INFO) << "Failed to add image file " << temp_error_msg;
               dex_files.clear();
               {
-                ScopedThreadSuspension sts(self, kSuspended);
+                ScopedThreadSuspension sts(self, ThreadState::kSuspended);
                 gc::ScopedGCCriticalSection gcs(self,
                                                 gc::kGcCauseAddRemoveAppImageSpace,
                                                 gc::kCollectorTypeAddRemoveAppImageSpace);
@@ -303,7 +308,7 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
         if (oat_file->RequiresImage()) {
           LOG(WARNING) << "Loading "
                        << oat_file->GetLocation()
-                       << "non-executable as it requires an image which we failed to load";
+                       << " non-executable as it requires an image which we failed to load";
           // file as non-executable.
           OatFileAssistant nonexecutable_oat_file_assistant(dex_location,
                                                             kRuntimeISA,
@@ -334,11 +339,23 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat(
       } else {
         // Opened dex files from an oat file, madvise them to their loaded state.
          for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
-           OatDexFile::MadviseDexFile(*dex_file, MadviseState::kMadviseStateAtLoad);
+           OatDexFile::MadviseDexFileAtLoad(*dex_file);
          }
       }
 
       if (oat_file != nullptr) {
+        VdexFile* vdex_file = oat_file->GetVdexFile();
+        if (vdex_file != nullptr) {
+          // Opened vdex file from an oat file, madvise it to its loaded state.
+          // TODO(b/196052575): Unify dex and vdex madvise knobs and behavior.
+          const size_t madvise_size_limit = Runtime::Current()->GetMadviseWillNeedSizeVdex();
+          Runtime::MadviseFileForRange(madvise_size_limit,
+                                       vdex_file->Size(),
+                                       vdex_file->Begin(),
+                                       vdex_file->End(),
+                                       vdex_file->GetName());
+        }
+
         VLOG(class_linker) << "Registering " << oat_file->GetLocation();
         *out_oat_file = RegisterOatFile(std::move(oat_file));
       }
@@ -480,7 +497,6 @@ std::vector<std::unique_ptr<const DexFile>> OatFileManager::OpenDexFilesFromOat_
     vdex_file = VdexFile::Open(vdex_path,
                                /* writable= */ false,
                                /* low_4gb= */ false,
-                               /* unquicken= */ false,
                                &error_msg);
     if (vdex_file == nullptr) {
       LOG(WARNING) << "Failed to open vdex " << vdex_path << ": " << error_msg;
@@ -722,6 +738,20 @@ void OatFileManager::RunBackgroundVerification(const std::vector<const DexFile*>
     return;
   }
 
+  {
+    // Temporarily create a class loader context to see if we recognize the
+    // chain.
+    std::unique_ptr<ClassLoaderContext> context(
+        ClassLoaderContext::CreateContextForClassLoader(class_loader, nullptr));
+    if (context == nullptr) {
+      // We only run background verification for class loaders we know the lookup
+      // chain. Because the background verification runs on runtime threads,
+      // which do not call Java, we won't be able to load classes when
+      // verifying, which is something the current verifier relies on.
+      return;
+    }
+  }
+
   if (!IsSdkVersionSetAndAtLeast(runtime->GetTargetSdkVersion(), SdkVersion::kQ)) {
     // Do not run for legacy apps as they may depend on the previous class loader behaviour.
     return;
@@ -795,29 +825,14 @@ void OatFileManager::WaitForBackgroundVerificationTasks() {
   }
 }
 
+void OatFileManager::ClearOnlyUseTrustedOatFiles() {
+  only_use_system_oat_files_ = false;
+}
+
 void OatFileManager::SetOnlyUseTrustedOatFiles() {
   ReaderMutexLock mu(Thread::Current(), *Locks::oat_file_manager_lock_);
-  // Make sure all files that were loaded up to this point are on /system.
-  // Skip the image files as they can encode locations that don't exist (eg not
-  // containing the arch in the path, or for JIT zygote /nonx/existent).
-  std::vector<const OatFile*> boot_vector = GetBootOatFiles();
-  std::unordered_set<const OatFile*> boot_set(boot_vector.begin(), boot_vector.end());
-
-  for (const std::unique_ptr<const OatFile>& oat_file : oat_files_) {
-    if (boot_set.find(oat_file.get()) == boot_set.end()) {
-      // This method is called during runtime initialization before we can call
-      // Runtime::Current()->DenyArtApexDataFiles(). Since we don't want to fail hard if
-      // the ART APEX data files are untrusted, just treat them as trusted for the check here.
-      const bool trust_art_apex_data_files = true;
-      if (!LocationIsTrusted(oat_file->GetLocation(), trust_art_apex_data_files)) {
-        // When the file is not in a trusted location, we check whether the oat file has any
-        // AOT or DEX code. It is a fatal error if it has.
-        if (CompilerFilter::IsAotCompilationEnabled(oat_file->GetCompilerFilter()) ||
-            oat_file->ContainsDexCode()) {
-          LOG(FATAL) << "Executing untrusted code from " << oat_file->GetLocation();
-        }
-      }
-    }
+  if (!oat_files_.empty()) {
+    LOG(FATAL) << "Unexpected non-empty loaded oat files ";
   }
   only_use_system_oat_files_ = true;
 }
@@ -831,6 +846,17 @@ void OatFileManager::DumpForSigQuit(std::ostream& os) {
     }
     os << oat_file->GetLocation() << ": " << oat_file->GetCompilerFilter() << "\n";
   }
+}
+
+bool OatFileManager::ContainsPc(const void* code) {
+  ReaderMutexLock mu(Thread::Current(), *Locks::oat_file_manager_lock_);
+  std::vector<const OatFile*> boot_oat_files = GetBootOatFiles();
+  for (const std::unique_ptr<const OatFile>& oat_file : oat_files_) {
+    if (oat_file->Contains(code)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace art

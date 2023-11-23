@@ -2,9 +2,9 @@
 
 The goal of this project is to produce a shapefile with the boundaries of the world's timezones using OpenStreetMap data.
 
-<p align="center"><img src="2018i.png" /></p>
+<p align="center"><img src="2020d.png" /></p>
 
-[![Github downloads for all releases](https://img.shields.io/github/downloads/evansiroky/timezone-boundary-builder/total.svg)](https://www.somsubhra.com/github-release-stats/?username=evansiroky&repository=timezone-boundary-builder)  [![GitHub release](https://img.shields.io/github/release/evansiroky/timezone-boundary-builder.svg)](https://github.com/evansiroky/timezone-boundary-builder/releases/latest)
+[![Github downloads for all releases](https://img.shields.io/github/downloads/evansiroky/timezone-boundary-builder/total.svg)](https://tooomm.github.io/github-release-stats/?username=evansiroky&repository=timezone-boundary-builder)  [![GitHub release](https://img.shields.io/github/release/evansiroky/timezone-boundary-builder.svg)](https://github.com/evansiroky/timezone-boundary-builder/releases/latest)
 
 
 ## Shapefiles and data
@@ -30,11 +30,12 @@ A few common languages already have libraries with an API that can be used to lo
 | [Timeshape](https://github.com/RomanIakovlev/timeshape) | Java |
 | [node-geo-tz](https://github.com/evansiroky/node-geo-tz/) | JavaScript (node.js only) |
 | [timespace](https://github.com/mapbox/timespace) | JavaScript (node.js and in browser) |
-| [tz-lookup](https://github.com/darkskyapp/tz-lookup/) | JavaScript (node.js and in browser) |
+| [tz-lookup](https://github.com/darkskyapp/tz-lookup-oss) | JavaScript (node.js and in browser) |
 | [GeoTimezone](https://github.com/mj1856/GeoTimeZone) | .NET |
 | [Geo-Timezone](https://github.com/minube/geo-timezone) | php |
 | [timezonefinder](https://github.com/MrMinimal64/timezonefinder) | Python |
 | [lutz](https://github.com/ateucher/lutz) | R |
+| [wheretz](https://github.com/zverok/wheretz) | Ruby |
 
 Another common way to use the data for lookup purposes is to load the shapefile into a spatially-aware database.  See this [blog post](https://simonwillison.net/2017/Dec/12/location-time-zone-api/) for an example of how that can be done.
 
@@ -51,16 +52,47 @@ node --max-old-space-size=8192 index.js
 **Run the script to generate timezones for only specified timezones.**
 
 ```shell
-node --max-old-space-size=8192 index.js --filtered-zones "America/New_York,America/Chicago"
+node --max-old-space-size=8192 index.js --included_zones America/New_York America/Chicago
 ```
+
+**Run the script to generate timezones while excluding specified timezones.**
+
+```shell
+node --max-old-space-size=8192 index.js --excluded_zones America/New_York America/Chicago
+```
+
+**Run the script with custom working / output directories.**
+
+timezone-boundary-builder downloads boundaries from OpenStreetMap and places them in the `./downloads` directory by default. It generates output files in the `./dist` directory by default.
+
+If you want to use different directories, you can do so with the `--downloads_dir` and `--dist_dir` flags.
+
+```shell
+node --max-old-space-size=8192 index.js --downloads_dir ./downloads2 --dist_dir ./dist2
+```
+
+**Other command line flags**
+
+Other command line flags:
+
+  + `--help` - show some basic usage information
+  + `--skip_analyze_diffs` - do not analyze differences between the current output and another version
+  + `--skip_shapefile` - do not create the shapefile from the geojson file
+  + `--skip_validation` - do not validate the time zone boundaries
+  + `--skip_zip` - do not zip the generated geojson files
+
 
 ### What the script does
 
-There are three config files that describe the boundary building process.  The `osmBoundarySources.json` file lists all of the needed boundaries to extract via queries to the Overpass API.  The `timezones.json` file lists all of the timezones and various operations to perform to build the boundaries.  The `expectedZoneOverlaps.json` file lists all timezones that are allowed to overlap each other and the acceptable bounds of a particular overlap.  
+There are three config files that describe the boundary building process.  The `osmBoundarySources.json` file lists all of the needed boundaries to extract via queries to the Overpass API.  The `timezones.json` file lists all of the timezones and various operations to perform to build the boundaries.  The `expectedZoneOverlaps.json` file lists all timezones that are allowed to overlap each other and the acceptable bounds of a particular overlap.
 
-The `index.js` file downloads all of the required geometries, builds the specified geometries, validates that there aren't large areas of overlap (other than those that are expected), outputs one huge geojson file, and finally zips up the geojson file using the `zip` cli and also converts the geojson to a shapefile using the `ogr2ogr` cli.  The script has only been verified to run with Node.js 10 on the MacOS platform.
+The `index.js` file downloads all of the required geometries, builds the specified geometries, validates that there aren't large areas of overlap (other than those that are expected), analyzes the difference between the current output and the last release, outputs one huge geojson file, and finally zips up the geojson file using the `zip` cli and also converts the geojson to a shapefile using the `ogr2ogr` cli.  The script has only been verified to run with Node.js 10 on the MacOS platform.
 
 The code does query the publicly available Overpass API, but it self-throttles the making of requests to have a minimum of 4 seconds gap between requests.  If the Overpass API throttles the download, then the gap will be increased exponentially.
+
+The validation and difference analysis can take a really long time to compute. If these tasks are not needed, be sure to add the `--skip_analyze_diffs` and `--skip_validation` flags.
+
+As of release 2020a, it is possible to run the script with the underlying input data that was used to build the timezone geometries at the time of the release. In the release files, the `input-data.zip` will have all of the necessary input data including the downloaded files from overpass, the `timezones.json` file and the `osmBoundarySources.json` file as well.
 
 ## Limitations of this project
 

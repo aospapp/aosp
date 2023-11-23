@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import collections
-import selenium
 import time
 from acts_contrib.test_utils.wifi.wifi_retail_ap import WifiRetailAP
 from acts_contrib.test_utils.wifi.wifi_retail_ap import BlockingBrowser
@@ -119,7 +118,7 @@ class NetgearRAX200AP(WifiRetailAP):
                 'VHT20': 'Up to 433 Mbps',
                 'VHT40': 'Up to 1000 Mbps',
                 'VHT80': 'Up to 2165 Mbps',
-                'VHT160': 'Up to 4330'
+                'VHT160': 'Up to 4330 Mbps'
             },
             '5G_2': {
                 'HE20': 'Up to 600 Mbps',
@@ -129,7 +128,7 @@ class NetgearRAX200AP(WifiRetailAP):
                 'VHT20': 'Up to 433 Mbps',
                 'VHT40': 'Up to 1000 Mbps',
                 'VHT80': 'Up to 2165 Mbps',
-                'VHT160': 'Up to 4330'
+                'VHT160': 'Up to 4330 Mbps'
             }
         }
         self.bw_mode_values = {
@@ -181,20 +180,34 @@ class NetgearRAX200AP(WifiRetailAP):
             '4': '25%'
         }
 
-    def set_bandwidth(self, network, bandwidth):
-        """Function that sets network bandwidth/mode.
+    def _set_channel_and_bandwidth(self,
+                                   network,
+                                   channel=None,
+                                   bandwidth=None):
+        """Helper function that sets network bandwidth and channel.
 
         Args:
             network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: desired channel
             bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
         """
+        setting_to_update = {network: {}}
+        if channel:
+            if channel not in self.capabilities['channels'][network]:
+                self.log.error('Ch{} is not supported on {} interface.'.format(
+                    channel, network))
+            setting_to_update[network]['channel'] = channel
+
+        if bandwidth is None:
+            return setting_to_update
+
         if 'bw' in bandwidth:
             bandwidth = bandwidth.replace('bw',
                                           self.capabilities['default_mode'])
         if bandwidth not in self.capabilities['modes'][network]:
             self.log.error('{} mode is not supported on {} interface.'.format(
                 bandwidth, network))
-        setting_to_update = {network: {'bandwidth': str(bandwidth)}}
+        setting_to_update[network]['bandwidth'] = str(bandwidth)
         setting_to_update['enable_ax'] = int('HE' in bandwidth)
         # Check if other interfaces need to be changed too
         requested_mode = 'HE' if 'HE' in bandwidth else 'VHT'
@@ -214,7 +227,41 @@ class NetgearRAX200AP(WifiRetailAP):
                                      other_network, updated_mode))
                 setting_to_update.setdefault(other_network, {})
                 setting_to_update[other_network]['bandwidth'] = updated_mode
+        return setting_to_update
 
+    def set_bandwidth(self, network, bandwidth):
+        """Function that sets network bandwidth/mode.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
+        """
+
+        setting_to_update = self._set_channel_and_bandwidth(
+            network, bandwidth=bandwidth)
+        self.update_ap_settings(setting_to_update)
+
+    def set_channel(self, network, channel):
+        """Function that sets network channel.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: string or int containing channel
+        """
+        setting_to_update = self._set_channel_and_bandwidth(network,
+                                                            channel=channel)
+        self.update_ap_settings(setting_to_update)
+
+    def set_channel_and_bandwidth(self, network, channel, bandwidth):
+        """Function that sets network bandwidth/mode.
+
+        Args:
+            network: string containing network identifier (2G, 5G_1, 5G_2)
+            channel: desired channel
+            bandwidth: string containing mode, e.g. 11g, VHT20, VHT40, VHT80.
+        """
+        setting_to_update = self._set_channel_and_bandwidth(
+            network, channel=channel, bandwidth=bandwidth)
         self.update_ap_settings(setting_to_update)
 
     def read_ap_settings(self):
@@ -252,6 +299,10 @@ class NetgearRAX200AP(WifiRetailAP):
                         for item in config_item:
                             if item.checked:
                                 self.ap_settings[key[0]][key[1]] = item.value
+                    elif 'channel' in key:
+                        config_item = browser.find_by_name(value)
+                        self.ap_settings[key[0]][key[1]] = int(
+                            config_item.first.value)
                     else:
                         config_item = browser.find_by_name(value)
                         self.ap_settings[key[0]][
@@ -321,8 +372,10 @@ class NetgearRAX200AP(WifiRetailAP):
                         self.log.warning(
                             'Cannot select channel. Keeping AP default.')
                     try:
-                        alert = browser.get_alert()
-                        alert.accept()
+                        for idx in range(0, 2):
+                            alert = browser.get_alert()
+                            alert.accept()
+                            time.sleep(BROWSER_WAIT_SHORT)
                     except:
                         pass
             time.sleep(BROWSER_WAIT_SHORT)
@@ -336,7 +389,6 @@ class NetgearRAX200AP(WifiRetailAP):
                 time.sleep(BROWSER_WAIT_SHORT)
             browser.visit_persistent(self.config_page, BROWSER_WAIT_EXTRA_LONG,
                                      10)
-        self.validate_ap_settings()
 
     def configure_radio_on_off(self):
         """Helper configuration function to turn radios on/off."""

@@ -22,6 +22,8 @@
 #include <utils/String16.h>
 #include <utils/Vector.h>
 
+#include <functional>
+
 // linux/binder.h defines this, but we don't want to include it here in order to
 // avoid exporting the kernel headers
 #ifndef B_PACK_CHARS
@@ -60,6 +62,7 @@ public:
         SYSPROPS_TRANSACTION = B_PACK_CHARS('_', 'S', 'P', 'R'),
         EXTENSION_TRANSACTION = B_PACK_CHARS('_', 'E', 'X', 'T'),
         DEBUG_PID_TRANSACTION = B_PACK_CHARS('_', 'P', 'I', 'D'),
+        SET_RPC_CLIENT_TRANSACTION = B_PACK_CHARS('_', 'R', 'P', 'C'),
 
         // See android.os.IBinder.TWEET_TRANSACTION
         // Most importantly, messages can be anything not exceeding 130 UTF-8
@@ -152,6 +155,27 @@ public:
      */
     status_t                getDebugPid(pid_t* outPid);
 
+    /**
+     * Set the RPC client fd to this binder service, for debugging. This is only available on
+     * debuggable builds.
+     *
+     * When this is called on a binder service, the service:
+     * 1. sets up RPC server
+     * 2. spawns 1 new thread that calls RpcServer::join()
+     *    - join() spawns some number of threads that accept() connections; see RpcServer
+     *
+     * setRpcClientDebug() may be called multiple times. Each call will add a new RpcServer
+     * and opens up a TCP port.
+     *
+     * Note: A thread is spawned for each accept()'ed fd, which may call into functions of the
+     * interface freely. See RpcServer::join(). To avoid such race conditions, implement the service
+     * functions with multithreading support.
+     *
+     * On death of @a keepAliveBinder, the RpcServer shuts down.
+     */
+    [[nodiscard]] status_t setRpcClientDebug(android::base::unique_fd socketFd,
+                                             const sp<IBinder>& keepAliveBinder);
+
     // NOLINTNEXTLINE(google-default-arguments)
     virtual status_t        transact(   uint32_t code,
                                         const Parcel& data,
@@ -233,26 +257,30 @@ public:
      * objects are invoked with their respective objectID, object, and
      * cleanupCookie. Access to these APIs can be made from multiple threads,
      * but calls from different threads are allowed to be interleaved.
+     *
+     * This returns the object which is already attached. If this returns a
+     * non-null value, it means that attachObject failed (a given objectID can
+     * only be used once).
      */
-    virtual void            attachObject(   const void* objectID,
-                                            void* object,
-                                            void* cleanupCookie,
-                                            object_cleanup_func func) = 0;
+    [[nodiscard]] virtual void* attachObject(const void* objectID, void* object,
+                                             void* cleanupCookie, object_cleanup_func func) = 0;
     /**
      * Returns object attached with attachObject.
      */
-    virtual void*           findObject(const void* objectID) const = 0;
+    [[nodiscard]] virtual void* findObject(const void* objectID) const = 0;
     /**
-     * WARNING: this API does not call the cleanup function for legacy reasons.
-     * It also does not return void* for legacy reasons. If you need to detach
-     * an object and destroy it, there are two options:
-     * - if you can, don't call detachObject and instead wait for the destructor
-     *   to clean it up.
-     * - manually retrieve and destruct the object (if multiple of your threads
-     *   are accessing these APIs, you must guarantee that attachObject isn't
-     *   called after findObject and before detachObject is called).
+     * Returns object attached with attachObject, and detaches it. This does not
+     * delete the object.
      */
-    virtual void            detachObject(const void* objectID) = 0;
+    [[nodiscard]] virtual void* detachObject(const void* objectID) = 0;
+
+    /**
+     * Use the lock that this binder contains internally. For instance, this can
+     * be used to modify an attached object without needing to add an additional
+     * lock (though, that attached object must be retrieved before calling this
+     * method). Calling (most) IBinder methods inside this will deadlock.
+     */
+    void withLock(const std::function<void()>& doWithLock);
 
     virtual BBinder*        localBinder();
     virtual BpBinder*       remoteBinder();

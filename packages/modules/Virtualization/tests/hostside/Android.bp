@@ -5,6 +5,48 @@ package {
 java_test_host {
     name: "MicrodroidHostTestCases",
     srcs: ["java/**/*.java"],
-    test_suites: ["device-tests"],
-    libs: ["tradefed"],
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    libs: [
+        "tradefed",
+    ],
+    static_libs: [
+        "VirtualizationTestHelper",
+    ],
+    per_testcase_directory: true,
+    data: [
+        ":MicrodroidTestApp",
+        ":microdroid_general_sepolicy.conf",
+        ":test.com.android.virt.pem",
+        ":test2.com.android.virt.pem",
+        ":test-payload-metadata",
+        ":com.android.adbd{.apex}",
+        ":com.android.os.statsd{.apex}",
+    ],
+    data_native_bins: [
+        "sepolicy-analyze",
+        // For re-sign test
+        "avbtool",
+        "img2simg",
+        "lpmake",
+        "lpunpack",
+        "sign_virt_apex",
+        "simg2img",
+    ],
+    // java_test_host doesn't have data_native_libs but jni_libs can be used to put
+    // native modules under ./lib directory.
+    // This works because host tools have rpath (../lib and ./lib).
+    jni_libs: [
+        "libbase",
+        "libc++",
+        "libcrypto_utils",
+        "libcrypto",
+        "libext4_utils",
+        "liblog",
+        "liblp",
+        "libsparse",
+        "libz",
+    ],
 }

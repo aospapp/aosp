@@ -16,19 +16,24 @@
  *
  ******************************************************************************/
 #define LOG_TAG "nxpese@1.2-service"
+#include <android/hardware/nfc/1.2/INfc.h>
 #include <android/hardware/secure_element/1.2/ISecureElement.h>
-#include <log/log.h>
-#include <vendor/nxp/nxpese/1.0/INxpEse.h>
-#include "VirtualISO.h"
-
 #include <hidl/LegacySupport.h>
+#include <log/log.h>
 #include <string.h>
+#include <vendor/nxp/nxpese/1.0/INxpEse.h>
+
 #include <regex>
+
 #include "NxpEse.h"
 #include "SecureElement.h"
+#include "VirtualISO.h"
 #ifdef NXP_BOOTTIME_UPDATE
 #include "eSEClient.h"
 #endif
+
+#define MAX_NFC_GET_RETRY 30
+#define NFC_GET_SERVICE_DELAY_MS 100
 
 // Generated HIDL files
 using android::OK;
@@ -37,6 +42,7 @@ using android::hardware::configureRpcThreadpool;
 using android::hardware::defaultPassthroughServiceImplementation;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::registerPassthroughServiceImplementation;
+using android::hardware::nfc::V1_2::INfc;
 using android::hardware::secure_element::V1_2::ISecureElement;
 using android::hardware::secure_element::V1_2::implementation::SecureElement;
 using vendor::nxp::nxpese::V1_0::INxpEse;
@@ -46,6 +52,25 @@ using vendor::nxp::virtual_iso::V1_0::implementation::VirtualISO;
 using android::OK;
 using android::sp;
 using android::status_t;
+
+static inline void waitForNFCHAL() {
+  int retry = 0;
+  android::sp<INfc> nfc_service = nullptr;
+
+  ALOGI("Waiting for NFC HAL .. ");
+  do {
+    nfc_service = INfc::tryGetService();
+    if (nfc_service != nullptr) {
+      ALOGI("NFC HAL service is registered");
+      break;
+    }
+    /* Wait for 100 MS for HAL RETRY*/
+    usleep(NFC_GET_SERVICE_DELAY_MS * 1000);
+  } while (retry++ < MAX_NFC_GET_RETRY);
+  if (nfc_service == nullptr) {
+    ALOGE("Failed to get NFC HAL Service");
+  }
+}
 
 int main() {
   status_t status;
@@ -58,8 +83,9 @@ int main() {
   android::sp<INxpEse> nxp_se_service = nullptr;
   android::sp<ISecureElement> virtual_iso_service = nullptr;
 
-  ALOGI("Secure Element HAL Service 1.2 is starting.");
   try {
+    waitForNFCHAL();
+    ALOGI("Secure Element HAL Service 1.2 is starting.");
     se_service = new SecureElement();
     if (se_service == nullptr) {
       ALOGE("Can not create an instance of Secure Element HAL Iface, exiting.");
@@ -104,6 +130,7 @@ int main() {
       ALOGI("Secure Element Service is ready");
     }
 
+#ifdef NXP_VISO_ENABLE
     ALOGI("Virtual ISO HAL Service 1.0 is starting.");
     virtual_iso_service = new VirtualISO();
     if (virtual_iso_service == nullptr) {
@@ -121,11 +148,12 @@ int main() {
       if (status != OK) {
         ALOGE("Could not register service for Virtual ISO HAL Iface (%d).",
               status);
-      } else {
-        ALOGI("Virtual ISO: Secure Element Service is ready");
+        goto shutdown;
       }
     }
 
+    ALOGI("Virtual ISO: Secure Element Service is ready");
+#endif
 #ifdef NXP_BOOTTIME_UPDATE
     perform_eSEClientUpdate();
 #endif

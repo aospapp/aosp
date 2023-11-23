@@ -76,7 +76,7 @@ public class WifiEntryPreference extends CarUiTwoActionIconPreference
     }
 
     private void refresh() {
-        setTitle(mWifiEntry.getSsid());
+        setTitle(mWifiEntry.getTitle());
         setSummary(mWifiEntry.getSummary(/* concise= */ false));
         setIcon(getWifiEntryIcon());
     }

@@ -18,14 +18,8 @@ are available at `Read the Docs <https://fonttools.readthedocs.io/>`_.
 Installation
 ~~~~~~~~~~~~
 
-FontTools 4.x requires `Python <http://www.python.org/download/>`__ 3.6
-or later. FontTools 3.x requires Python 2.7 or later.
-
-**NOTE** From August 2019, until no later than January 1 2020, the support
-for *Python 2.7* will be limited to only critical bug fixes, and no new features
-will be added to the ``py27`` branch. You can read more `here <https://python3statement.org>`__
-and `here <https://github.com/fonttools/fonttools/issues/765>`__ for the
-reasons behind this decision.
+FontTools requires `Python <http://www.python.org/download/>`__ 3.7
+or later.
 
 The package is listed in the Python Package Index (PyPI), so you can
 install it with `pip <https://pip.pypa.io>`__:
@@ -125,8 +119,8 @@ are required to unlock the extra features named "ufo", etc.
   To use the latest available data, you can install:
 
   * `unicodedata2 <https://pypi.python.org/pypi/unicodedata2>`__:
-    ``unicodedata`` backport for Python 2.7 and 3.x updated to the latest
-    Unicode version 12.0. Note this is not necessary if you use Python 3.8
+    ``unicodedata`` backport for Python 3.x updated to the latest Unicode
+    version 14.0. Note this is not necessary if you use Python 3.11
     as the latter already comes with an up-to-date ``unicodedata``.
 
   *Extra:* ``unicode``
@@ -205,19 +199,56 @@ are required to unlock the extra features named "ufo", etc.
   * `reportlab <https://pypi.python.org/pypi/reportlab>`__: Python toolkit
     for generating PDFs and graphics.
 
+- ``Lib/fontTools/pens/freetypePen.py``
+
+  Pen to drawing glyphs with FreeType as raster images, requires:
+
+  * `freetype-py <https://pypi.python.org/pypi/freetype-py>`__: Python binding 
+    for the FreeType library.
+
+How to make a new release
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1) Update ``NEWS.rst`` with all the changes since the last release. Write a
+   changelog entry for each PR, with one or two short sentences summarizing it,
+   as well as links to the PR and relevant issues addressed by the PR.
+2) Use semantic versioning to decide whether the new release will be a 'major',
+   'minor' or 'patch' release. It's usually one of the latter two, depending on
+   whether new backward compatible APIs were added, or simply some bugs were fixed.
+3) Run ``python setup.py release`` command from the tip of the ``main`` branch.
+   By default this bumps the third or 'patch' digit only, unless you pass ``--major``
+   or ``--minor`` to bump respectively the first or second digit.
+   This bumps the package version string, extracts the changes since the latest
+   version from ``NEWS.rst``, and uses that text to create an annotated git tag
+   (or a signed git tag if you pass the ``--sign`` option and your git and Github
+   account are configured for `signing commits <https://docs.github.com/en/github/authenticating-to-github/managing-commit-signature-verification/signing-commits>`__
+   using a GPG key).
+   It also commits an additional version bump which opens the main branch for
+   the subsequent developmental cycle
+4) Push both the tag and commit to the upstream repository, by running the command
+   ``git push --follow-tags``.
+5) Let the CI build the wheel and source distribution packages and verify both
+   get uploaded to the Python Package Index (PyPI).
+6) [Optional] Go to fonttools `Github Releases <https://github.com/fonttools/fonttools/releases>`__
+   page and create a new release, copy-pasting the content of the git tag
+   message. This way, the release notes are nicely formatted as markdown, and
+   users watching the repo will get an email notification. One day we shall
+   automate that too.
+
+
 Acknowledgements
 ~~~~~~~~~~~~~~~~
 
 In alphabetical order:
 
-Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
+aschmitz, Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
 Jelle Bosma, Sascha Brawer, Tom Byrer, Antonio Cavedoni, Frédéric 
 Coiffier, Vincent Connare, David Corbett, Simon Cozens, Dave Crossland, 
 Simon Daniels, Peter Dekkers, Behdad Esfahbod, Behnam Esfahbod, Hannes 
-Famira, Sam Fishman, Matt Fontaine, Yannis Haralambous, Greg Hitchcock, 
-Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, Jack 
-Jansen, Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal 
-Leming, Peter Lofting, Cosimo Lupo, Masaya Nakamura, Dave Opstad, 
+Famira, Sam Fishman, Matt Fontaine, Takaaki Fuji, Yannis Haralambous, Greg 
+Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, 
+Jack Jansen, Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal 
+Leming, Peter Lofting, Cosimo Lupo, Olli Meier, Masaya Nakamura, Dave Opstad,
 Laurence Penney, Roozbeh Pournader, Garret Rieger, Read Roberts, Guido 
 van Rossum, Just van Rossum, Andreas Seidel, Georg Seifert, Chris 
 Simpkins, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, 

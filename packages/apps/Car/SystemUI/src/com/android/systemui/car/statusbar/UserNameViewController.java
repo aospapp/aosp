@@ -16,8 +16,11 @@
 
 package com.android.systemui.car.statusbar;
 
+import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
+
 import android.car.Car;
 import android.car.user.CarUserManager;
+import android.car.user.UserLifecycleEventFilter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -61,16 +64,9 @@ public class UserNameViewController {
 
     private boolean mUserLifecycleListenerRegistered = false;
 
-    private final CarUserManager.UserLifecycleListener mUserLifecycleListener =
-            new CarUserManager.UserLifecycleListener() {
-                @Override
-                public void onEvent(CarUserManager.UserLifecycleEvent event) {
-                    if (event.getEventType()
-                            == CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING) {
-                        updateUser(event.getUserId());
-                    }
-                }
-            };
+    private final CarUserManager.UserLifecycleListener mUserLifecycleListener = event -> {
+        updateUser(event.getUserId());
+    };
 
     @Inject
     public UserNameViewController(Context context, CarServiceProvider carServiceProvider,
@@ -117,7 +113,10 @@ public class UserNameViewController {
         mCarServiceProvider.addListener(car -> {
             mCarUserManager = (CarUserManager) car.getCarManager(Car.CAR_USER_SERVICE);
             if (mCarUserManager != null && !mUserLifecycleListenerRegistered) {
-                mCarUserManager.addListener(Runnable::run, mUserLifecycleListener);
+                UserLifecycleEventFilter filter = new UserLifecycleEventFilter.Builder()
+                        .addEventType(USER_LIFECYCLE_EVENT_TYPE_SWITCHING).build();
+                mCarUserManager.addListener(mContext.getMainExecutor(), filter,
+                        mUserLifecycleListener);
                 mUserLifecycleListenerRegistered = true;
             } else {
                 Log.e(TAG, "CarUserManager could not be obtained.");

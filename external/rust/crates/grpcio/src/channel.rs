@@ -31,7 +31,7 @@ pub use crate::grpc_sys::{
 
 /// Ref: http://www.grpc.io/docs/guides/wire.html#user-agents
 fn format_user_agent_string(agent: &str) -> CString {
-    let version = "0.8.2";
+    let version = "0.9.1";
     let trimed_agent = agent.trim();
     let val = if trimed_agent.is_empty() {
         format!("grpc-rust/{}", version)
@@ -395,6 +395,7 @@ impl ChannelBuilder {
 
     /// Build `ChannelArgs` from the current configuration.
     #[allow(clippy::useless_conversion)]
+    #[allow(clippy::cmp_owned)]
     pub fn build_args(&self) -> ChannelArgs {
         let args = unsafe { grpc_sys::grpcwrap_channel_args_create(self.options.len()) };
         for (i, (k, v)) in self.options.iter().enumerate() {

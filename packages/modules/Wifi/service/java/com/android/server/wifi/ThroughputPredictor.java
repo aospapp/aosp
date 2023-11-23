@@ -55,10 +55,11 @@ public class ThroughputPredictor {
     private static final int NUM_TONE_PER_SYM_11AC_40MHZ = 108;
     private static final int NUM_TONE_PER_SYM_11AC_80MHZ = 234;
     private static final int NUM_TONE_PER_SYM_11AC_160MHZ = 468;
-    private static final int NUM_TONE_PER_SYM_11AX_20MHZ = 234;
-    private static final int NUM_TONE_PER_SYM_11AX_40MHZ = 468;
-    private static final int NUM_TONE_PER_SYM_11AX_80MHZ = 980;
-    private static final int NUM_TONE_PER_SYM_11AX_160MHZ = 1960;
+    private static final int NUM_TONE_PER_SYM_11AX_BE_20MHZ = 234;
+    private static final int NUM_TONE_PER_SYM_11AX_BE_40MHZ = 468;
+    private static final int NUM_TONE_PER_SYM_11AX_BE_80MHZ = 980;
+    private static final int NUM_TONE_PER_SYM_11AX_BE_160MHZ = 1960;
+    private static final int NUM_TONE_PER_SYM_11BE_320MHZ = 1960 * 2;
 
     // 11ag OFDM symbol duration in ns
     private static final int SYM_DURATION_LEGACY_NS = 4000;
@@ -66,8 +67,8 @@ public class ThroughputPredictor {
     private static final int SYM_DURATION_11N_NS = 3600;
     // 11ac OFDM symbol duration in ns with 0.4us guard interval
     private static final int SYM_DURATION_11AC_NS = 3600;
-    // 11ax OFDM symbol duration in ns with 0.8us guard interval
-    private static final int SYM_DURATION_11AX_NS = 13600;
+    // 11ax/be OFDM symbol duration in ns with 0.8us guard interval
+    private static final int SYM_DURATION_11AX_BE_NS = 13600;
     private static final int MICRO_TO_NANO_RATIO = 1000;
 
     // The scaling factor for integer representation of bitPerTone and MAX_BITS_PER_TONE_XXX
@@ -80,6 +81,8 @@ public class ThroughputPredictor {
             (int) Math.round((8 * 5.0 * BIT_PER_TONE_SCALE) / 6.0);
     private static final int MAX_BITS_PER_TONE_11AX =
             (int) Math.round((10 * 5.0 * BIT_PER_TONE_SCALE) / 6.0);
+    private static final int MAX_BITS_PER_TONE_11BE =
+            (int) Math.round((12 * 5.0 * BIT_PER_TONE_SCALE) / 6.0);
 
     // snrDb-to-bitPerTone lookup table (LUT) used at low SNR
     // snr = Math.pow(10.0, snrDb / 10.0);
@@ -95,6 +98,7 @@ public class ThroughputPredictor {
     // A fudge factor to represent HW implementation margin in dB.
     // Predicted throughput matches pretty well with OTA throughput with this fudge factor.
     private static final int SNR_MARGIN_DB = 16;
+    private static final int MAX_NUM_SPATIAL_STREAM_11BE = 16;
     private static final int MAX_NUM_SPATIAL_STREAM_11AX = 8;
     private static final int MAX_NUM_SPATIAL_STREAM_11AC = 8;
     private static final int MAX_NUM_SPATIAL_STREAM_11N = 4;
@@ -123,8 +127,8 @@ public class ThroughputPredictor {
      */
     public int predictMaxTxThroughput(@NonNull WifiNative.ConnectionCapabilities capabilities) {
         return predictThroughputInternal(capabilities.wifiStandard, capabilities.is11bMode,
-                capabilities.channelBandwidth,
-                WifiInfo.MAX_RSSI, capabilities.maxNumberTxSpatialStreams, MIN_CHANNEL_UTILIZATION);
+                capabilities.channelBandwidth, WifiInfo.MAX_RSSI,
+                capabilities.maxNumberTxSpatialStreams, MIN_CHANNEL_UTILIZATION, 0);
     }
 
     /**
@@ -134,8 +138,8 @@ public class ThroughputPredictor {
      */
     public int predictMaxRxThroughput(@NonNull WifiNative.ConnectionCapabilities capabilities) {
         return predictThroughputInternal(capabilities.wifiStandard, capabilities.is11bMode,
-                capabilities.channelBandwidth,
-                WifiInfo.MAX_RSSI, capabilities.maxNumberRxSpatialStreams, MIN_CHANNEL_UTILIZATION);
+                capabilities.channelBandwidth, WifiInfo.MAX_RSSI,
+                capabilities.maxNumberRxSpatialStreams, MIN_CHANNEL_UTILIZATION, 0);
     }
 
     /**
@@ -147,8 +151,8 @@ public class ThroughputPredictor {
         int channelUtilizationFinal = getValidChannelUtilization(frequency,
                 INVALID, channelUtilization, false);
         return predictThroughputInternal(capabilities.wifiStandard, capabilities.is11bMode,
-                capabilities.channelBandwidth,
-                rssiDbm, capabilities.maxNumberTxSpatialStreams, channelUtilizationFinal);
+                capabilities.channelBandwidth, rssiDbm, capabilities.maxNumberTxSpatialStreams,
+                channelUtilizationFinal, frequency);
     }
 
     /**
@@ -160,8 +164,8 @@ public class ThroughputPredictor {
         int channelUtilizationFinal = getValidChannelUtilization(frequency,
                 INVALID, channelUtilization, false);
         return predictThroughputInternal(capabilities.wifiStandard, capabilities.is11bMode,
-                capabilities.channelBandwidth,
-                rssiDbm, capabilities.maxNumberRxSpatialStreams, channelUtilizationFinal);
+                capabilities.channelBandwidth, rssiDbm, capabilities.maxNumberRxSpatialStreams,
+                channelUtilizationFinal, frequency);
     }
 
     /**
@@ -202,6 +206,12 @@ public class ThroughputPredictor {
         // Get minimum standard support between device and AP
         int wifiStandard;
         switch (wifiStandardAp) {
+            case ScanResult.WIFI_STANDARD_11BE:
+                if (deviceCapabilities.isWifiStandardSupported(ScanResult.WIFI_STANDARD_11BE)) {
+                    wifiStandard = ScanResult.WIFI_STANDARD_11BE;
+                    break;
+                }
+                //FALL THROUGH
             case ScanResult.WIFI_STANDARD_11AX:
                 if (deviceCapabilities.isWifiStandardSupported(ScanResult.WIFI_STANDARD_11AX)) {
                     wifiStandard = ScanResult.WIFI_STANDARD_11AX;
@@ -227,6 +237,12 @@ public class ThroughputPredictor {
         // Calculate channel width
         int channelWidth;
         switch (channelWidthAp) {
+            case ScanResult.CHANNEL_WIDTH_320MHZ:
+                if (deviceCapabilities.isChannelWidthSupported(ScanResult.CHANNEL_WIDTH_320MHZ)) {
+                    channelWidth = ScanResult.CHANNEL_WIDTH_320MHZ;
+                    break;
+                }
+                // FALL THROUGH
             case ScanResult.CHANNEL_WIDTH_160MHZ:
                 if (deviceCapabilities.isChannelWidthSupported(ScanResult.CHANNEL_WIDTH_160MHZ)) {
                     channelWidth = ScanResult.CHANNEL_WIDTH_160MHZ;
@@ -263,11 +279,12 @@ public class ThroughputPredictor {
                 isBluetoothConnected);
 
         return predictThroughputInternal(wifiStandard, false/* is11bMode */, channelWidth,
-                rssiDbm, maxNumSpatialStream, channelUtilization);
+                rssiDbm, maxNumSpatialStream, channelUtilization, frequency);
     }
 
     private int predictThroughputInternal(@WifiStandard int wifiStandard, boolean is11bMode,
-            int channelWidth, int rssiDbm, int maxNumSpatialStream,  int channelUtilization) {
+            int channelWidth, int rssiDbm, int maxNumSpatialStream,  int channelUtilization,
+            int frequency) {
 
         // channel bandwidth in MHz = 20MHz * (2 ^ channelWidthFactor);
         int channelWidthFactor;
@@ -278,9 +295,7 @@ public class ThroughputPredictor {
             Log.e(TAG, "maxNumSpatialStream < 1 due to wrong implementation. Overridden to 1");
             maxNumSpatialStream = 1;
         }
-        if (wifiStandard == ScanResult.WIFI_STANDARD_UNKNOWN) {
-            return WifiInfo.LINK_SPEED_UNKNOWN;
-        } else if (wifiStandard == ScanResult.WIFI_STANDARD_LEGACY) {
+        if (wifiStandard == ScanResult.WIFI_STANDARD_LEGACY) {
             // For simplicity, use legacy OFDM parameters to predict 11b rate
             numTonePerSym = NUM_TONE_PER_SYM_LEGACY;
             channelWidthFactor = 0;
@@ -315,24 +330,68 @@ public class ThroughputPredictor {
             maxNumSpatialStream = Math.min(maxNumSpatialStream, MAX_NUM_SPATIAL_STREAM_11AC);
             maxBitsPerTone = MAX_BITS_PER_TONE_11AC;
             symDurationNs = SYM_DURATION_11AC_NS;
-        } else { // ScanResult.WIFI_STANDARD_11AX
+        } else if (wifiStandard == ScanResult.WIFI_STANDARD_11AX) {
             if (channelWidth == ScanResult.CHANNEL_WIDTH_20MHZ) {
-                numTonePerSym = NUM_TONE_PER_SYM_11AX_20MHZ;
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_20MHZ;
                 channelWidthFactor = 0;
             } else if (channelWidth == ScanResult.CHANNEL_WIDTH_40MHZ) {
-                numTonePerSym = NUM_TONE_PER_SYM_11AX_40MHZ;
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_40MHZ;
                 channelWidthFactor = 1;
             } else if (channelWidth == ScanResult.CHANNEL_WIDTH_80MHZ) {
-                numTonePerSym = NUM_TONE_PER_SYM_11AX_80MHZ;
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_80MHZ;
                 channelWidthFactor = 2;
             } else {
-                numTonePerSym = NUM_TONE_PER_SYM_11AX_160MHZ;
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_160MHZ;
                 channelWidthFactor = 3;
             }
             maxNumSpatialStream = Math.min(maxNumSpatialStream, MAX_NUM_SPATIAL_STREAM_11AX);
             maxBitsPerTone = MAX_BITS_PER_TONE_11AX;
-            symDurationNs = SYM_DURATION_11AX_NS;
+            symDurationNs = SYM_DURATION_11AX_BE_NS;
+        } else if (wifiStandard == ScanResult.WIFI_STANDARD_11BE) {
+            if (channelWidth == ScanResult.CHANNEL_WIDTH_20MHZ) {
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_20MHZ;
+                channelWidthFactor = 0;
+            } else if (channelWidth == ScanResult.CHANNEL_WIDTH_40MHZ) {
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_40MHZ;
+                channelWidthFactor = 1;
+            } else if (channelWidth == ScanResult.CHANNEL_WIDTH_80MHZ) {
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_80MHZ;
+                channelWidthFactor = 2;
+            } else if (channelWidth == ScanResult.CHANNEL_WIDTH_160MHZ) {
+                numTonePerSym = NUM_TONE_PER_SYM_11AX_BE_160MHZ;
+                channelWidthFactor = 3;
+            } else {
+                numTonePerSym = NUM_TONE_PER_SYM_11BE_320MHZ;
+                channelWidthFactor = 4;
+            }
+            maxNumSpatialStream = Math.min(maxNumSpatialStream, MAX_NUM_SPATIAL_STREAM_11BE);
+            maxBitsPerTone = MAX_BITS_PER_TONE_11BE;
+            symDurationNs = SYM_DURATION_11AX_BE_NS;
+        } else {
+            return WifiInfo.LINK_SPEED_UNKNOWN;
         }
+
+        // 6Ghz RSSI boost
+        if (mContext.getResources().getBoolean(R.bool.config_wifiEnable6GhzBeaconRssiBoost)
+                && ScanResult.is6GHz(frequency)) {
+            switch (channelWidth) {
+                case ScanResult.CHANNEL_WIDTH_40MHZ:
+                    rssiDbm += 3;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_80MHZ:
+                    rssiDbm += 6;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_160MHZ:
+                    rssiDbm += 9;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_320MHZ:
+                    rssiDbm += 12;
+                    break;
+                default:
+                    // do nothing
+            }
+        }
+
         // noiseFloorDbBoost = 10 * log10 * (2 ^ channelWidthFactor)
         int noiseFloorDbBoost = TWO_IN_DB * channelWidthFactor;
         int noiseFloorDbm = NOISE_FLOOR_20MHZ_DBM + noiseFloorDbBoost + SNR_MARGIN_DB;

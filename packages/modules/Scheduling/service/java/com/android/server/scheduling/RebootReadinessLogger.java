@@ -338,13 +338,17 @@ final class RebootReadinessLogger {
     }
 
     private void writeRebootStatsToFile(RebootStats rebootStats, AtomicFile rebootStatsFile) {
-        try (FileOutputStream stream = rebootStatsFile.startWrite()) {
-            XmlWriter writer = new XmlWriter(new PrintWriter(stream));
+        FileOutputStream stream = null;
+        try {
+            stream = rebootStatsFile.startWrite();
+            PrintWriter pw = new PrintWriter(stream);
+            XmlWriter writer = new XmlWriter(pw);
             XmlWriter.write(writer, rebootStats);
-            writer.close();
+            pw.flush();
             rebootStatsFile.finishWrite(stream);
         } catch (Exception e) {
             Log.e(TAG, "Could not write reboot readiness stats: " + e);
+            rebootStatsFile.failWrite(stream);
         }
     }
 

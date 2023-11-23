@@ -19,6 +19,8 @@
 
 static constexpr const char kEnabled[] = "ro.virtual_ab.enabled";
 static constexpr const char kRetrofit[] = "ro.virtual_ab.retrofit";
+static constexpr const char kUserspaceSnapshots[] =
+    "ro.virtual_ab.userspace.snapshots.enabled";
 
 using android::base::GetBoolProperty;
 
@@ -27,4 +29,13 @@ TEST(VirtualAbRequirementTest, EnabledOnLaunchR) {
       << "Device must use Virtual A/B.";
   EXPECT_FALSE(GetBoolProperty(kRetrofit, false))
       << "Device must not retrofit Virtual A/B.";
+}
+
+TEST(VirtualAbRequirementTest, EnabledOnLaunchT) {
+  int vsr_level = android::base::GetIntProperty("ro.vendor.api_level", -1);
+
+  if (vsr_level >= __ANDROID_API_T__) {
+    EXPECT_TRUE(GetBoolProperty(kUserspaceSnapshots, false))
+        << "Device must use Virtual A/B with Userspace snapshots";
+  }
 }

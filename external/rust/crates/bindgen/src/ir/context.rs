@@ -29,7 +29,7 @@ use clang_sys;
 use proc_macro2::{Ident, Span};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap as StdHashMap;
+use std::collections::{BTreeSet, HashMap as StdHashMap};
 use std::iter::IntoIterator;
 use std::mem;
 
@@ -299,7 +299,7 @@ where
 /// types.
 #[derive(Eq, PartialEq, Hash, Debug)]
 enum TypeKey {
-    USR(String),
+    Usr(String),
     Declaration(Cursor),
 }
 
@@ -353,6 +353,9 @@ pub struct BindgenContext {
     ///
     /// This needs to be an std::HashMap because the cexpr API requires it.
     parsed_macros: StdHashMap<Vec<u8>, cexpr::expr::EvalResult>,
+
+    /// A set of all the included filenames.
+    deps: BTreeSet<String>,
 
     /// The active replacements collected from replaces="xxx" annotations.
     replacements: HashMap<Vec<String>, ItemId>,
@@ -545,8 +548,16 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let root_module = Self::build_root_module(ItemId(0));
         let root_module_id = root_module.id().as_module_id_unchecked();
 
+        // depfiles need to include the explicitly listed headers too
+        let mut deps = BTreeSet::default();
+        if let Some(filename) = &options.input_header {
+            deps.insert(filename.clone());
+        }
+        deps.extend(options.extra_input_headers.iter().cloned());
+
         BindgenContext {
             items: vec![Some(root_module)],
+            deps,
             types: Default::default(),
             type_params: Default::default(),
             modules: Default::default(),
@@ -629,7 +640,20 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Get the user-provided callbacks by reference, if any.
     pub fn parse_callbacks(&self) -> Option<&dyn ParseCallbacks> {
-        self.options().parse_callbacks.as_ref().map(|t| &**t)
+        self.options().parse_callbacks.as_deref()
+    }
+
+    /// Add another path to the set of included files.
+    pub fn include_file(&mut self, filename: String) {
+        if let Some(cbs) = self.parse_callbacks() {
+            cbs.include_file(&filename);
+        }
+        self.deps.insert(filename);
+    }
+
+    /// Get any included files.
+    pub fn deps(&self) -> &BTreeSet<String> {
+        &self.deps
     }
 
     /// Define a new item.
@@ -678,8 +702,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         // Unnamed items can have an USR, but they can't be referenced from
         // other sites explicitly and the USR can match if the unnamed items are
         // nested, so don't bother tracking them.
-        if is_type && !is_template_instantiation && declaration.is_some() {
-            let mut declaration = declaration.unwrap();
+        if !is_type || is_template_instantiation {
+            return;
+        }
+        if let Some(mut declaration) = declaration {
             if !declaration.is_valid() {
                 if let Some(location) = location {
                     if location.is_template_like() {
@@ -708,7 +734,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             let key = if is_unnamed {
                 TypeKey::Declaration(declaration)
             } else if let Some(usr) = declaration.usr() {
-                TypeKey::USR(usr)
+                TypeKey::Usr(usr)
             } else {
                 warn!(
                     "Valid declaration with no USR: {:?}, {:?}",
@@ -805,31 +831,32 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     // TODO: Move all this syntax crap to other part of the code.
 
     /// Mangles a name so it doesn't conflict with any keyword.
+    #[rustfmt::skip]
     pub fn rust_mangle<'a>(&self, name: &'a str) -> Cow<'a, str> {
-        if name.contains("@") ||
-            name.contains("?") ||
-            name.contains("$") ||
-            match name {
+        if name.contains('@') ||
+            name.contains('?') ||
+            name.contains('$') ||
+            matches!(
+                name,
                 "abstract" | "alignof" | "as" | "async" | "become" |
-                "box" | "break" | "const" | "continue" | "crate" | "do" |
-                "dyn" | "else" | "enum" | "extern" | "false" | "final" |
-                "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" |
-                "macro" | "match" | "mod" | "move" | "mut" | "offsetof" |
-                "override" | "priv" | "proc" | "pub" | "pure" | "ref" |
-                "return" | "Self" | "self" | "sizeof" | "static" |
-                "struct" | "super" | "trait" | "true" | "type" | "typeof" |
-                "unsafe" | "unsized" | "use" | "virtual" | "where" |
-                "while" | "yield" | "str" | "bool" | "f32" | "f64" |
-                "usize" | "isize" | "u128" | "i128" | "u64" | "i64" |
-                "u32" | "i32" | "u16" | "i16" | "u8" | "i8" | "_" => true,
-                _ => false,
-            }
+                    "box" | "break" | "const" | "continue" | "crate" | "do" |
+                    "dyn" | "else" | "enum" | "extern" | "false" | "final" |
+                    "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" |
+                    "macro" | "match" | "mod" | "move" | "mut" | "offsetof" |
+                    "override" | "priv" | "proc" | "pub" | "pure" | "ref" |
+                    "return" | "Self" | "self" | "sizeof" | "static" |
+                    "struct" | "super" | "trait" | "true" | "try" | "type" | "typeof" |
+                    "unsafe" | "unsized" | "use" | "virtual" | "where" |
+                    "while" | "yield" | "str" | "bool" | "f32" | "f64" |
+                    "usize" | "isize" | "u128" | "i128" | "u64" | "i64" |
+                    "u32" | "i32" | "u16" | "i16" | "u8" | "i8" | "_"
+            )
         {
             let mut s = name.to_owned();
             s = s.replace("@", "_");
             s = s.replace("?", "_");
             s = s.replace("$", "_");
-            s.push_str("_");
+            s.push('_');
             return Cow::Owned(s);
         }
         Cow::Borrowed(name)
@@ -879,11 +906,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 None => continue,
             };
 
-            match *ty.kind() {
-                TypeKind::UnresolvedTypeRef(ref ty, loc, parent_id) => {
-                    typerefs.push((id, ty.clone(), loc, parent_id));
-                }
-                _ => {}
+            if let TypeKind::UnresolvedTypeRef(ref ty, loc, parent_id) =
+                *ty.kind()
+            {
+                typerefs.push((id, *ty, loc, parent_id));
             };
         }
         typerefs
@@ -954,15 +980,14 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         assert!(self.collected_typerefs());
 
         let need_bitfield_allocation =
-            mem::replace(&mut self.need_bitfield_allocation, vec![]);
+            mem::take(&mut self.need_bitfield_allocation);
         for id in need_bitfield_allocation {
             self.with_loaned_item(id, |ctx, item| {
-                item.kind_mut()
-                    .as_type_mut()
+                let ty = item.kind_mut().as_type_mut().unwrap();
+                let layout = ty.layout(ctx);
+                ty.as_comp_mut()
                     .unwrap()
-                    .as_comp_mut()
-                    .unwrap()
-                    .compute_bitfield_units(ctx);
+                    .compute_bitfield_units(ctx, layout.as_ref());
             });
         }
     }
@@ -1098,7 +1123,8 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                     .ancestors(immut_self)
                     .find(|id| immut_self.resolve_item(*id).is_module())
             };
-            let new_module = new_module.unwrap_or(self.root_module.into());
+            let new_module =
+                new_module.unwrap_or_else(|| self.root_module.into());
 
             if new_module == old_module {
                 // Already in the correct module.
@@ -1306,12 +1332,12 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             // any sense of template parameter usage, and you're on your own.
             let mut used_params = HashMap::default();
             for &id in self.allowlisted_items() {
-                used_params.entry(id).or_insert(
+                used_params.entry(id).or_insert_with(|| {
                     id.self_template_params(self)
                         .into_iter()
                         .map(|p| p.into())
-                        .collect(),
-                );
+                        .collect()
+                });
             }
             self.used_template_parameters = Some(used_params);
         }
@@ -1397,7 +1423,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     fn build_root_module(id: ItemId) -> Item {
         let module = Module::new(Some("root".into()), ModuleKind::Normal);
-        Item::new(id, None, None, id, ItemKind::Module(module))
+        Item::new(id, None, None, id, ItemKind::Module(module), None)
     }
 
     /// Get the root module.
@@ -1707,6 +1733,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                             None,
                             self.current_module.into(),
                             ItemKind::Type(sub_ty),
+                            Some(child.location()),
                         );
 
                         // Bypass all the validations in add_item explicitly.
@@ -1771,6 +1798,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             None,
             self.current_module.into(),
             ItemKind::Type(ty),
+            Some(location.location()),
         );
 
         // Bypass all the validations in add_item explicitly.
@@ -1792,7 +1820,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             .or_else(|| {
                 decl.cursor()
                     .usr()
-                    .and_then(|usr| self.types.get(&TypeKey::USR(usr)))
+                    .and_then(|usr| self.types.get(&TypeKey::Usr(usr)))
             })
             .cloned()
     }
@@ -1808,8 +1836,8 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     ) -> Option<TypeId> {
         use clang_sys::{CXCursor_TypeAliasTemplateDecl, CXCursor_TypeRef};
         debug!(
-            "builtin_or_resolved_ty: {:?}, {:?}, {:?}",
-            ty, location, parent_id
+            "builtin_or_resolved_ty: {:?}, {:?}, {:?}, {:?}",
+            ty, location, with_id, parent_id
         );
 
         if let Some(decl) = ty.canonical_declaration(location.as_ref()) {
@@ -1825,32 +1853,32 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 //     of it, or
                 //   * we have already parsed and resolved this type, and
                 //     there's nothing left to do.
-                if decl.cursor().is_template_like() &&
-                    *ty != decl.cursor().cur_type() &&
-                    location.is_some()
-                {
-                    let location = location.unwrap();
-
-                    // For specialized type aliases, there's no way to get the
-                    // template parameters as of this writing (for a struct
-                    // specialization we wouldn't be in this branch anyway).
-                    //
-                    // Explicitly return `None` if there aren't any
-                    // unspecialized parameters (contains any `TypeRef`) so we
-                    // resolve the canonical type if there is one and it's
-                    // exposed.
-                    //
-                    // This is _tricky_, I know :(
-                    if decl.cursor().kind() == CXCursor_TypeAliasTemplateDecl &&
-                        !location.contains_cursor(CXCursor_TypeRef) &&
-                        ty.canonical_type().is_valid_and_exposed()
+                if let Some(location) = location {
+                    if decl.cursor().is_template_like() &&
+                        *ty != decl.cursor().cur_type()
                     {
-                        return None;
-                    }
+                        // For specialized type aliases, there's no way to get the
+                        // template parameters as of this writing (for a struct
+                        // specialization we wouldn't be in this branch anyway).
+                        //
+                        // Explicitly return `None` if there aren't any
+                        // unspecialized parameters (contains any `TypeRef`) so we
+                        // resolve the canonical type if there is one and it's
+                        // exposed.
+                        //
+                        // This is _tricky_, I know :(
+                        if decl.cursor().kind() ==
+                            CXCursor_TypeAliasTemplateDecl &&
+                            !location.contains_cursor(CXCursor_TypeRef) &&
+                            ty.canonical_type().is_valid_and_exposed()
+                        {
+                            return None;
+                        }
 
-                    return self
-                        .instantiate_template(with_id, id, ty, location)
-                        .or_else(|| Some(id));
+                        return self
+                            .instantiate_template(with_id, id, ty, location)
+                            .or(Some(id));
+                    }
                 }
 
                 return Some(self.build_ty_wrapper(with_id, id, parent_id, ty));
@@ -1904,14 +1932,16 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     ) -> TypeId {
         let spelling = ty.spelling();
         let layout = ty.fallible_layout(self).ok();
+        let location = ty.declaration().location();
         let type_kind = TypeKind::ResolvedTypeRef(wrapped_id);
         let ty = Type::new(Some(spelling), layout, type_kind, is_const);
         let item = Item::new(
             with_id,
             None,
             None,
-            parent_id.unwrap_or(self.current_module.into()),
+            parent_id.unwrap_or_else(|| self.current_module.into()),
             ItemKind::Type(ty),
+            Some(location),
         );
         self.add_builtin_item(item);
         with_id.as_type_id_unchecked()
@@ -1972,6 +2002,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let spelling = ty.spelling();
         let is_const = ty.is_const();
         let layout = ty.fallible_layout(self).ok();
+        let location = ty.declaration().location();
         let ty = Type::new(Some(spelling), layout, type_kind, is_const);
         let id = self.next_item_id();
         let item = Item::new(
@@ -1980,6 +2011,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             None,
             self.root_module.into(),
             ItemKind::Type(ty),
+            Some(location),
         );
         self.add_builtin_item(item);
         Some(id.as_type_id_unchecked())
@@ -2051,10 +2083,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         id: Id,
     ) -> bool {
         let id = id.into();
-        match self.replacements.get(path) {
-            Some(replaced_by) if *replaced_by != id => true,
-            _ => false,
-        }
+        matches!(self.replacements.get(path), Some(replaced_by) if *replaced_by != id)
     }
 
     /// Is the type with the given `name` marked as opaque?
@@ -2089,11 +2118,9 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             module_name = Some(spelling)
         }
 
-        let tokens = cursor.tokens();
-        let mut iter = tokens.iter();
         let mut kind = ModuleKind::Normal;
         let mut found_namespace_keyword = false;
-        while let Some(token) = iter.next() {
+        for token in cursor.tokens().iter() {
             match token.spelling() {
                 b"inline" => {
                     assert!(!found_namespace_keyword);
@@ -2173,6 +2200,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             None,
             self.current_module.into(),
             ItemKind::Module(module),
+            Some(cursor.location()),
         );
 
         let module_id = module.id().as_module_id_unchecked();
@@ -2220,11 +2248,6 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         assert!(self.in_codegen_phase());
         assert!(self.current_module == self.root_module);
 
-        let cb = match self.options.parse_callbacks {
-            Some(ref cb) => cb,
-            None => return CanDerive::No,
-        };
-
         *self
             .blocklisted_types_implement_traits
             .borrow_mut()
@@ -2234,8 +2257,27 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             .or_insert_with(|| {
                 item.expect_type()
                     .name()
-                    .and_then(|name| {
-                        cb.blocklisted_type_implements_trait(name, derive_trait)
+                    .and_then(|name| match self.options.parse_callbacks {
+                        Some(ref cb) => cb.blocklisted_type_implements_trait(
+                            name,
+                            derive_trait,
+                        ),
+                        // Sized integer types from <stdint.h> get mapped to Rust primitive
+                        // types regardless of whether they are blocklisted, so ensure that
+                        // standard traits are considered derivable for them too.
+                        None => match name {
+                            "int8_t" | "uint8_t" | "int16_t" | "uint16_t" |
+                            "int32_t" | "uint32_t" | "int64_t" |
+                            "uint64_t" | "uintptr_t" | "intptr_t" |
+                            "ptrdiff_t" => Some(CanDerive::Yes),
+                            "size_t" if self.options.size_t_is_usize => {
+                                Some(CanDerive::Yes)
+                            }
+                            "ssize_t" if self.options.size_t_is_usize => {
+                                Some(CanDerive::Yes)
+                            }
+                            _ => Some(CanDerive::No),
+                        },
                     })
                     .unwrap_or(CanDerive::No)
             })
@@ -2376,7 +2418,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let codegen_items = if self.options().allowlist_recursively {
             AllowlistedItemsTraversal::new(
                 self,
-                roots.clone(),
+                roots,
                 traversal::codegen_edges,
             )
             .collect::<ItemSet>()
@@ -2640,6 +2682,12 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let name = item.path_for_allowlisting(self)[1..].join("::");
         self.options().no_hash_types.matches(&name)
     }
+
+    /// Check if `--must-use-type` flag is enabled for this item.
+    pub fn must_use_type_by_name(&self, item: &Item) -> bool {
+        let name = item.path_for_allowlisting(self)[1..].join("::");
+        self.options().must_use_types.matches(&name)
+    }
 }
 
 /// A builder struct for configuring item resolution options.
@@ -2671,7 +2719,7 @@ impl ItemResolver {
     pub fn new<Id: Into<ItemId>>(id: Id) -> ItemResolver {
         let id = id.into();
         ItemResolver {
-            id: id,
+            id,
             through_type_refs: false,
             through_type_aliases: false,
         }
@@ -2694,8 +2742,16 @@ impl ItemResolver {
         assert!(ctx.collected_typerefs());
 
         let mut id = self.id;
+        let mut seen_ids = HashSet::default();
         loop {
             let item = ctx.resolve_item(id);
+
+            // Detect cycles and bail out. These can happen in certain cases
+            // involving incomplete qualified dependent types (#2085).
+            if !seen_ids.insert(id) {
+                return item;
+            }
+
             let ty_kind = item.as_type().map(|t| t.kind());
             match ty_kind {
                 Some(&TypeKind::ResolvedTypeRef(next_id))
@@ -2730,7 +2786,7 @@ impl PartialType {
     /// Construct a new `PartialType`.
     pub fn new(decl: Cursor, id: ItemId) -> PartialType {
         // assert!(decl == decl.canonical());
-        PartialType { decl: decl, id: id }
+        PartialType { decl, id }
     }
 
     /// The cursor pointing to this partial type's declaration location.

@@ -157,7 +157,7 @@ class CodeGenerator:
         for annotation in member_info['annotations']:
             if annotation['annotation'] == "rewrite_type":
                 return annotation['type_override']
-            elif not underlying_vla_type and annotation['annotation'] == "var_len_array":
+            elif not underlying_vla_type and annotation['annotation'] in ["var_len_array", "string"]:
                 return "struct ChppOffset"
 
         if not underlying_vla_type and len(member_info['type'].declarators) > 0 and \
@@ -323,6 +323,12 @@ class CodeGenerator:
                     out.append("  encodedSize += {}->{} * sizeof({});\n".format(
                         parameter_name, annotation['length_field'],
                         self._get_member_type(member_info, True)))
+                elif annotation['annotation'] == "string":
+                    out.append("  if ({}->{} != NULL) {{".format(
+                        parameter_name, annotation['field']))
+                    out.append("    encodedSize += strlen({}->{}) + 1;\n".format(
+                        parameter_name, annotation['field']))
+                    out.append("  }\n")
 
         out.append("  return encodedSize;\n}\n\n")
         return out
@@ -365,6 +371,27 @@ class CodeGenerator:
         out.append(")")
         return out
 
+    def _gen_string_encoding(self, member_info, annotation):
+        out = []
+        # Might want to revisit this if we ever end up supporting NULL strings
+        # in our API. We can assert here since there's currently no API that
+        # does so.
+        member_name = member_info['name']
+        out.append("  if (in->{} != NULL) {{\n".format(member_name))
+        out.append("    size_t strSize = strlen(in->{}) + 1;\n".format(member_name))
+        out.append("    memcpy(&payload[*vlaOffset], in->{}, strSize);\n".format(
+            member_name))
+        out.append("    out->{}.length = (uint16_t)(strSize);\n".format(
+            member_name))
+        out.append("    out->{}.offset = *vlaOffset;\n".format(member_name))
+        out.append("    *vlaOffset += out->{}.length;\n".format(member_name))
+        out.append("  } else {\n")
+        out.append("    out->{}.length = 0;\n".format(member_name))
+        out.append("    out->{}.offset = 0;\n".format(member_name))
+        out.append("  }\n\n")
+
+        return out
+
     def _gen_vla_encoding(self, member_info, annotation):
         out = []
 
@@ -375,7 +402,7 @@ class CodeGenerator:
             out.append("\n  {} *{} = ({} *) &payload[*vlaOffset];\n".format(
                 chpp_type, variable_name, chpp_type))
 
-        out.append("  out->{}.length = in->{} * {};\n".format(
+        out.append("  out->{}.length = (uint16_t)(in->{} * {});\n".format(
             member_info['name'], annotation['length_field'],
             self._get_chpp_member_sizeof_call(member_info)))
 
@@ -409,7 +436,8 @@ class CodeGenerator:
     # Encoder / decoder function generation methods (CHRE <--> CHPP)
     # ----------------------------------------------------------------------------------------------
 
-    def _get_assignment_statement_for_field(self, member_info, in_vla_loop=False,
+    def _get_assignment_statement_for_field(self, member_info,
+                                            in_vla_loop=False,
                                             containing_field_name=None,
                                             decode_mode=False):
         """Returns a statement to assign the provided member
@@ -558,6 +586,13 @@ class CodeGenerator:
                         out.extend(self._gen_vla_encoding(member_info, annotation))
                     generated_by_annotation = True
                     break
+                elif annotation['annotation'] == "string":
+                    if decode_mode:
+                        out.extend(self._gen_string_decoding(member_info, annotation))
+                    else:
+                        out.extend(self._gen_string_encoding(member_info, annotation))
+                    generated_by_annotation = True
+                    break
                 elif annotation['annotation'] == "union_variant":
                     out.extend(self._gen_union_variant_conversion_code(
                         member_info, annotation, decode_mode))
@@ -640,7 +675,6 @@ class CodeGenerator:
 
     def _gen_encode_allocation_function(self, chre_type):
         out = []
-
         out.extend(self._gen_encode_allocation_function_signature(chre_type))
         out.append(" {\n")
         out.append("  CHPP_NOT_NULL(out);\n")
@@ -700,6 +734,27 @@ class CodeGenerator:
             out.append("    size_t inSize")
         out.append(")")
         return out
+
+    def _gen_string_decoding(self, member_info, annotation):
+        out = []
+        variable_name = member_info['name']
+        out.append("\n")
+        out.append("  if (in->{}.length == 0) {{\n".format(variable_name))
+        out.append("    out->{} = NULL;\n".format(variable_name))
+        out.append("  } else {\n")
+        out.append("    char *{}Out = chppMalloc(in->{}.length);\n".format(
+            variable_name, variable_name))
+        out.append("    if ({}Out == NULL) {{\n".format(variable_name))
+        out.append("      return false;\n")
+        out.append("    }\n\n")
+        out.append("    memcpy({}Out, &((const uint8_t *)in)[in->{}.offset],\n".format(
+            variable_name, variable_name))
+        out.append("      in->{}.length);\n".format(variable_name))
+        out.append("    out->{} = {}Out;\n".format(variable_name, variable_name))
+        out.append("  }\n")
+
+        return out
+
 
     def _gen_vla_decoding(self, member_info, annotation):
         out = []

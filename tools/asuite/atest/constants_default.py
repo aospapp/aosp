@@ -54,37 +54,34 @@ ITERATIONS = 'ITERATIONS'
 RERUN_UNTIL_FAILURE = 'RERUN_UNTIL_FAILURE'
 RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
 TF_DEBUG = 'TF_DEBUG'
+DEFAULT_DEBUG_PORT = '10888'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
 FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
+BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
+NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
+VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
+SKIP_VARS = [VERIFY_ENV_VARIABLE]
+AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
+ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
+ANNOTATION_FILTER = 'ANNOTATION_FILTER'
+BAZEL_ARG = 'BAZEL_ARG'
+TEST_FILTER = 'TEST_FILTER'
+TEST_TIMEOUT = 'TEST_TIMEOUT'
 
-# Application exit codes.
-EXIT_CODE_SUCCESS = 0
-EXIT_CODE_ENV_NOT_SETUP = 1
-EXIT_CODE_BUILD_FAILURE = 2
-EXIT_CODE_ERROR = 3
-EXIT_CODE_TEST_NOT_FOUND = 4
-EXIT_CODE_TEST_FAILURE = 5
-EXIT_CODE_VERIFY_FAILURE = 6
-EXIT_CODE_OUTSIDE_ROOT = 7
-EXIT_CODE_AVD_CREATE_FAILURE = 8
-EXIT_CODE_AVD_INVALID_ARGS = 9
-# Conditions that atest should exit without sending result to metrics.
-EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
-                          EXIT_CODE_TEST_NOT_FOUND,
-                          EXIT_CODE_OUTSIDE_ROOT,
-                          EXIT_CODE_AVD_CREATE_FAILURE,
-                          EXIT_CODE_AVD_INVALID_ARGS]
+# Robolectric Types:
+ROBOTYPE_MODERN = 1
+ROBOTYPE_LEGACY = 2
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
 ACCESS_CACHE_FAILURE = 101
 ACCESS_HISTORY_FAILURE = 102
 IMPORT_FAILURE = 103
-MLOCATEDB_LOCKED = 104
+PLOCATEDB_LOCKED = 104
 
 # Test finder constants.
 MODULE_CONFIG = 'AndroidTest.xml'
@@ -101,6 +98,11 @@ MODULE_MAINLINE_MODULES = 'test_mainline_modules'
 MODULE_DEPENDENCIES = 'dependencies'
 MODULE_SRCS = 'srcs'
 MODULE_IS_UNIT_TEST = 'is_unit_test'
+MODULE_SHARED_LIBS = 'shared_libs'
+MODULE_RUNTIME_DEPS = 'runtime_dependencies'
+MODULE_DATA_DEPS = 'data_dependencies'
+MODULE_SUPPORTED_VARIANTS = 'supported_variants'
+
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
@@ -110,6 +112,8 @@ ANDROID_OUT_DIR_COMMON_BASE = 'OUT_DIR_COMMON_BASE'
 ANDROID_HOST_OUT = 'ANDROID_HOST_OUT'
 ANDROID_PRODUCT_OUT = 'ANDROID_PRODUCT_OUT'
 ANDROID_TARGET_PRODUCT = 'TARGET_PRODUCT'
+TARGET_BUILD_VARIANT = 'TARGET_BUILD_VARIANT'
+ANDROID_TARGET_OUT_TESTCASES = 'ANDROID_TARGET_OUT_TESTCASES'
 
 # Test Info data keys
 # Value of include-filter option.
@@ -130,7 +134,8 @@ TEST_GROUP_PRESUBMIT = 'presubmit'
 TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
-DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT,
+                       TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
@@ -146,6 +151,9 @@ TF_MODULE_ARG_VALUE_FMT = '{test_name}:{option_name}:{option_value}'
 TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
 TF_MODULE_FILTER = '--module'
+TF_ENABLE_MAINLINE_PARAMETERIZED_MODULES = '--enable-mainline-parameterized-modules'
+TF_ENABLE_PARAMETERIZED_MODULES = '--enable-parameterized-modules'
+TF_MODULE_PARAMETER = '--module-parameter'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
@@ -185,20 +193,12 @@ CONTRIBUTOR_AGREEMENT_URL = {
 PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
 TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
+SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
+USER_FROM_SUB_TOOL = 'USER_FROM_SUB_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 8
-DETECT_TYPE_BUG_DETECTED = 0
-DETECT_TYPE_ACLOUD_CREATE = 1
-DETECT_TYPE_FIND_BUILD = 2
-DETECT_TYPE_NO_FLAKE = 3
-DETECT_TYPE_HAS_FLAKE = 4
-DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
-DETECT_TYPE_REBUILD_MODULE_INFO = 6
-DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
-DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
 # XTS suite types encode from 100 to 199
 DETECT_TYPE_XTS_SUITE = {'cts': 101,
                          'vts': 104}
@@ -224,37 +224,40 @@ VTS_CORE_TF_MODULE = 'vts-tradefed'
 # VTS suite set
 VTS_CORE_SUITE = 'vts'
 
+# MTS suite set
+MTS_SUITE = 'mts'
+
+# CTS tradefed jar
+CTS_JAR = "cts-tradefed"
+
 # ATest TF
 ATEST_TF_MODULE = 'atest-tradefed'
 
-# Build environment variable for each build on ATest
-# With RECORD_ALL_DEPS enabled, ${ANDROID_PRODUCT_OUT}/module-info.json will
-# generate modules' dependencies info when make.
-# With SOONG_COLLECT_JAVA_DEPS enabled, out/soong/module_bp_java_deps.json will
-# be generated when make.
-ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
-                   'SOONG_COLLECT_CC_DEPS':'true'}
-
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
-LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
+LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
+BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
 PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
-MODULE_INDEX = os.path.join(INDEX_DIR, 'modules.idx')
+MODULE_INDEX = 'modules.idx'
+MODULE_INFO_MD5 = 'module-info.md5'
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
 JAVA_EXT_RE = re.compile(r'.*\.(java|kt)$')
-# e.g. /path/to/ccfile.cc: TEST_F(test_name, method_name){
-CC_OUTPUT_RE = re.compile(r'(?P<file_path>/.*):\s*TEST(_F|_P)?[ ]*\('
-                          r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)'
-                          r'\s*\{')
-CC_GREP_RE = r'^[ ]*TEST(_P|_F)?[ ]*\([[:alnum:]].*,'
+# e.g. /path/to/ccfile.cc: TYPED_TEST_P(test_name, method_name){
+CC_OUTPUT_RE = re.compile(
+    r'(?P<file_path>/.*):\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\('
+    r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
+# Used by locate command.
+CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
+# Used by find command.
+CC_GREP_KWRE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({2},'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
@@ -318,13 +321,30 @@ CREDENTIAL_FILE_NAME = ''
 TOKEN_FILE_PATH = ''
 INVOCATION_ID = 'INVOCATION_ID'
 WORKUNIT_ID = 'WORKUNIT_ID'
+LOCAL_BUILD_ID = 'LOCAL_BUILD_ID'
+BUILD_TARGET = 'BUILD_TARGET'
 RESULT_LINK = ''
 TF_GLOBAL_CONFIG = ''
 UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
+DISCOVERY_SERVICE = ''
+STORAGE2_TEST_URI = ''
 
 # messages that share among libraries.
 REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
                            ' is new. Running with "{}" may resolve the issue.)')
+
+# Example arguments used in ~/.atest/config
+ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
+                      '## Option that follows a "#" will be ignored.\n'
+                      'hello_world_test   # Test name will be skipped WITHOUT warning.\n'
+                      '# -- --module-arg Foo:variable:value   # Only support atest arguments so "--" will be ignored.\n'
+                      '                                       # and will stop running tests.\n'
+                      '# --iterations=3\n'
+                      '# --retry-any-failure=5\n'
+                      '# --rerun-until-failure=5\n'
+                      '# --start-avd        # also run "acloud create" concurrently.\n'
+                      '# --all-abi          # Set to run tests for all abis.\n'
+                      '# --verbose          # turn on verbose mode for debugging.\n')
 
 # AndroidJUnitTest related argument.
 ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
@@ -335,6 +355,7 @@ SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
 # Tradefed config-descriptor metadata.
 CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
 PARAMETER_KEY = 'parameter'
+MAINLINE_PARAM_KEY = 'mainline-param'
 
 # Tradefed related constant.
 TF_TEST_ARG = '--test-arg'
@@ -351,3 +372,31 @@ DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
 DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_SECOND_USR,
                             'not_' + TF_PARA_MULTIABI}
+
+# ATest integration test related constants.
+INTEGRATION_TESTS = [os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
+VERIFY_DATA_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/test_commands.json')
+VERIFY_ENV_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/test_environ.json')
+
+# Gtest Types
+GTEST_REGULAR = 'regular native test'
+GTEST_TYPED = 'typed test'
+GTEST_TYPED_PARAM = 'typed-parameterized test'
+GTEST_PARAM = 'value-parameterized test'
+
+# Tradefed log saver template for ATest
+ATEST_TF_LOG_SAVER = 'template/log/atest_log_saver'
+DEVICE_SETUP_PREPARER = 'template/preparers/device-preparer'
+LOG_ROOT_OPTION_NAME = 'atest-log-file-path'
+LOG_SAVER_EXT_OPTION = ''
+
+# Log messages here.
+REQUIRE_DEVICES_MSG = (
+    'Please ensure there is at least one connected device via:\n'
+    '    $ adb devices')

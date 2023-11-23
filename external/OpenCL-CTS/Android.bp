@@ -374,6 +374,17 @@ cc_test {
 
 
 cc_test {
+    name: "ocl-test-spir",
+    srcs: [ "test_conformance/spir/*.cpp", "test_conformance/math_brute_force/function_list.cpp", "test_common/miniz/miniz.c" ],
+    data: [ "test_conformance/spir/*.zip" ],
+    cflags: [ "-DFUNCTION_LIST_ULPS_ONLY", "-Wno-unused-private-field" ],
+    defaults: [ "ocl-test-defaults" ],
+    rtti: true,
+    gtest: false
+}
+
+
+cc_test {
     name: "ocl-test-spirv-new",
     srcs: [ "test_conformance/spirv_new/*.cpp", "test_conformance/math_brute_force/reference_math.cpp", "test_conformance/math_brute_force/utility.cpp" ],
     data: [ "test_conformance/spirv_new/spirv_asm/*", "test_conformance/spirv_new/spirv_bin/*" ],
@@ -499,3 +510,19 @@ python_test_host {
         unit_test: false,
     },
 }
+
+python_test {
+    name: "run_conformance",
+    main: "test_conformance/run_conformance.py",
+    srcs: [ "test_conformance/run_conformance.py" ],
+    version: {
+        py2: {
+            enabled: true,
+            embedded_launcher: true,
+        },
+        py3: {
+            enabled: false,
+       }
+    },
+}
+

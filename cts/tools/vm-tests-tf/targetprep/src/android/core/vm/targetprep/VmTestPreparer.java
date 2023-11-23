@@ -39,7 +39,7 @@ import java.util.zip.ZipFile;
 @OptionClass(alias="vm-test-preparer")
 public class VmTestPreparer implements ITargetCleaner {
 
-    private static final String JAR_FILE = "android.core.vm-tests-tf.jar";
+    private static final String JAR_FILE = "vm-tests-tf.jar";
     private static final String TEMP_DIR = "/data/local/tmp";
     private static final String VM_TEMP_DIR = TEMP_DIR +"/vm-tests";
 
@@ -50,10 +50,11 @@ public class VmTestPreparer implements ITargetCleaner {
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
         CompatibilityBuildHelper helper = new CompatibilityBuildHelper(buildInfo);
-        if (!installVmPrereqs(device, helper)) {
-            throw new RuntimeException(String.format(
-                    "Failed to install vm-tests prereqs on device %s",
-                    device.getSerialNumber()));
+        try {
+            installVmPrereqs(device, helper);
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to install vm-tests prereqs on device "
+                    + device.getSerialNumber(), ex);
         }
     }
 
@@ -71,10 +72,10 @@ public class VmTestPreparer implements ITargetCleaner {
      *
      * @param device the {@link ITestDevice}
      * @param ctsBuild the {@link CompatibilityBuildHelper}
-     * @throws DeviceNotAvailableException
-     * @return true if test jar files are extracted and pushed to device successfully
+     * @throws DeviceNotAvailableException if device is unavailable
+     * @throws RuntimeException if there is another failure
      */
-    private boolean installVmPrereqs(ITestDevice device, CompatibilityBuildHelper ctsBuild)
+    private void installVmPrereqs(ITestDevice device, CompatibilityBuildHelper ctsBuild)
             throws DeviceNotAvailableException {
         cleanupDeviceFiles(device);
         // Creates temp directory recursively. We also need to create the dalvik-cache directory
@@ -84,14 +85,13 @@ public class VmTestPreparer implements ITargetCleaner {
         try {
             File jarFile = ctsBuild.getTestFile(JAR_FILE);
             if (!jarFile.exists()) {
-                CLog.e("Missing jar file %s", jarFile.getPath());
-                return false;
+                throw new RuntimeException("Missing jar file " + jarFile.getPath());
             }
 
             String jarOnDevice = VM_TEMP_DIR + "/" + JAR_FILE;
             if (!device.pushFile(jarFile, jarOnDevice)) {
-                CLog.e("Failed to push vm test jar");
-                return false;
+                throw new RuntimeException("Failed to push vm test jar " + jarFile + " to "
+                        + jarOnDevice);
             }
 
             // TODO: Only extract tests directory, avoid rm.
@@ -99,17 +99,17 @@ public class VmTestPreparer implements ITargetCleaner {
                     + " && rm -rf " + VM_TEMP_DIR + "/dot*"
                     + " && mv " + VM_TEMP_DIR + "/tests/* " + VM_TEMP_DIR + "/"
                     + " && echo Success";
+
             CommandResult result = device.executeShellV2Command(cmd);
+
             if (result.getStatus() != CommandStatus.SUCCESS) {
-                CLog.e("Failed to extract and prepare vm tests jar");
-                return false;
+                throw new RuntimeException("Failed to extract and prepare vm tests jar: [" + cmd
+                        + "] with stderr: " + result.getStderr());
             }
         } catch (IOException e) {
-            CLog.e("Failed to extract jar file %s and sync it to device %s.",
-                    JAR_FILE, device.getSerialNumber());
-            return false;
+            throw new RuntimeException("Failed to extract jar file " + JAR_FILE
+                    + " and sync it to device.", e);
         }
-        return true;
     }
 
     /**

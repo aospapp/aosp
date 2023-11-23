@@ -16,13 +16,13 @@
  *
  ******************************************************************************/
 #pragma once
-#include <pthread.h>
-
 #include <android/hardware/nfc/1.0/types.h>
 #include <phEseStatus.h>
 #include <phNxpEseFeatures.h>
+#include <pthread.h>
 #include <utils/RefBase.h>
 #include <vendor/nxp/nxpnfc/2.0/INxpNfc.h>
+
 #include "hal_nxpese.h"
 using vendor::nxp::nxpnfc::V2_0::INxpNfc;
 

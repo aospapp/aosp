@@ -16,9 +16,12 @@
 
 package com.android.cts.mediastorageapp;
 
+import static android.provider.MediaStore.VOLUME_EXTERNAL;
+
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -70,6 +73,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.Callable;
@@ -124,7 +129,7 @@ public class MediaStorageTest {
 
         final HashSet<Long> seen = new HashSet<>();
         try (Cursor c = mContentResolver.query(
-                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
+                MediaStore.Files.getContentUri(VOLUME_EXTERNAL),
                 new String[] { MediaColumns._ID }, null, null)) {
             while (c.moveToNext()) {
                 seen.add(c.getLong(0));
@@ -217,10 +222,191 @@ public class MediaStorageTest {
     }
 
     /**
-     * Test prefix and non-prefix uri grant for all packages
+     * If the app grants read UriPermission to the uri without id (E.g.
+     * MediaStore.Audio.Media.EXTERNAL_CONTENT_URI), the query result of the uri should be the
+     * same without granting permission.
      */
     @Test
-    public void testGrantUriPermission() {
+    public void testReadUriPermissionOnUriWithoutId_sameQueryResult() throws Exception {
+        // For Audio, Image, Video, If the app doesn't have delete access to the uri,
+        // MediaProvider throws SecurityException to give callers interacting with a specific media
+        // item a chance to escalate access if they don't already have it. Check SecurityException
+        // for them.
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createAudio, /* checkExceptionForDelete= */ true);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createVideo,/* checkExceptionForDelete= */  true);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createImage,/* checkExceptionForDelete= */  true);
+
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createAudio, /* checkExceptionForDelete= */ true);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Audio.Artists.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createAudio, /* checkExceptionForDelete= */ true);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createAudio, /* checkExceptionForDelete= */ true);
+
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createDownload,/* checkExceptionForDelete= */  false);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Files.getContentUri(VOLUME_EXTERNAL),
+                MediaStorageTest::createFile,/* checkExceptionForDelete= */  false);
+        doReadUriPermissionOnUriWithoutId_sameQueryResult(
+                MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createPlaylist,/* checkExceptionForDelete= */  false);
+    }
+
+    /**
+     * If the app grants read UriPermission to the uri without id (E.g.
+     * MediaStore.Audio.Media.EXTERNAL_CONTENT_URI), the query result of the uri should be the
+     * same without granting permission.
+     */
+    private void doReadUriPermissionOnUriWithoutId_sameQueryResult(Uri collectionUri,
+            Callable<Uri> create, boolean checkExceptionForDelete) throws Exception {
+        final int flagGrantRead = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+        final Uri red = create.call();
+        final Uri blue = create.call();
+        clearMediaOwner(blue, mUserId);
+        final int originalCount;
+
+        try {
+            try (Cursor c = mContentResolver.query(collectionUri, new String[]{MediaColumns._ID},
+                    null, null)) {
+                originalCount = c.getCount();
+            }
+
+            mContext.grantUriPermission(mContext.getPackageName(), collectionUri, flagGrantRead);
+            try (Cursor c = mContentResolver.query(collectionUri, new String[]{MediaColumns._ID},
+                    null, null)) {
+                assertWithMessage("After grant read UriPermission to " + collectionUri.toString()
+                        + ", the item count of the query result" ).that(c.getCount()).isEqualTo(
+                        originalCount);
+            }
+
+            try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "rw")) {
+            }
+
+            try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(blue, "r")) {
+                fail("Expected read access to " + blue.toString() + " be blocked");
+            } catch (SecurityException | FileNotFoundException expected) {
+            }
+
+            try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(blue, "w")) {
+                fail("Expected write access to " + blue.toString() + " be blocked");
+            } catch (SecurityException | FileNotFoundException expected) {
+            }
+
+            // If checkExceptionForDelete is true, throws SecurityException is as we expected.
+            // Otherwise, the app doesn't have delete access to the file, the deleted count is 0.
+            if (checkExceptionForDelete) {
+                try {
+                    mContentResolver.delete(blue, null);
+                    fail("Expected delete access to " + blue.toString() + " be blocked");
+                } catch (SecurityException expected) {
+                }
+            } else {
+                final int count = mContentResolver.delete(blue, null);
+                assertThat(count).isEqualTo(0);
+            }
+        } finally {
+            mContext.revokeUriPermission(mContext.getPackageName(), collectionUri, flagGrantRead);
+        }
+    }
+
+    /**
+     * b/197302116. The apps can't be granted prefix UriPermissions to the uri, when the query
+     * result of the uri is 1.
+     */
+    @Test
+    public void testOwningOneFileNotGrantPrefixUriPermission() throws Exception {
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createAudio);
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createVideo);
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createImage);
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createDownload);
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Files.getContentUri(VOLUME_EXTERNAL),
+                MediaStorageTest::createFile);
+        doOwningOneFileNotGrantPrefixUriPermission(MediaStore.Audio.Playlists.EXTERNAL_CONTENT_URI,
+                MediaStorageTest::createPlaylist);
+    }
+
+    /**
+     * The apps can't be granted prefix UriPermissions to the uri without id, when the query result
+     * of the uri is 1.
+     */
+    private void doOwningOneFileNotGrantPrefixUriPermission(Uri collectionUri, Callable<Uri> create)
+            throws Exception {
+
+        clearOwnFiles(collectionUri);
+
+        final Uri red = create.call();
+        final Uri blue = create.call();
+        clearMediaOwner(blue, mUserId);
+
+        try (Cursor c = mContentResolver.query(collectionUri, new String[]{MediaColumns._ID}, null,
+                null)) {
+            assertThat(c.getCount()).isEqualTo(1);
+            c.moveToFirst();
+            assertThat(c.getLong(0)).isEqualTo(ContentUris.parseId(red));
+        }
+
+        final int flagGrantReadPrefix =
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+        try {
+            mContext.grantUriPermission(mContext.getPackageName(), collectionUri,
+                    flagGrantReadPrefix);
+            fail("Expected granting to " + collectionUri.toString() + " be blocked for flag 0x"
+                    + Integer.toHexString(flagGrantReadPrefix));
+        } catch (SecurityException expected) {
+        }
+
+        try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "r")) {
+        }
+
+        try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(blue, "r")) {
+            fail("Expected read access to " + blue.toString() + " be blocked");
+        } catch (SecurityException | FileNotFoundException expected) {
+        }
+
+        final int flagGrantWritePrefix = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+        try {
+            mContext.grantUriPermission(mContext.getPackageName(), collectionUri,
+                    flagGrantWritePrefix);
+            fail("Expected granting to " + collectionUri.toString() + " be blocked for flag 0x"
+                    + Integer.toHexString(flagGrantWritePrefix));
+        } catch (SecurityException expected) {
+        }
+
+        try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "rw")) {
+        }
+
+        try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(blue, "w")) {
+            fail("Expected write access to " + blue.toString() + " be blocked");
+        } catch (SecurityException | FileNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGrantUriPermission() throws Exception {
+        doGrantUriPermission_nonPrefixAndPrefix();
+        doGrantUriPermission_prefix();
+    }
+
+    /**
+     * Test prefix and non-prefix uri grant for all packages
+     */
+    private void doGrantUriPermission_nonPrefixAndPrefix() {
         final int flagGrantRead = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         final int flagGrantWrite = Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
         final int flagGrantReadPrefix =
@@ -228,20 +414,44 @@ public class MediaStorageTest {
         final int flagGrantWritePrefix =
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
 
-        for (Uri uri : new Uri[] {
+        for (Uri uri : new Uri[]{
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                MediaStore.Files.getContentUri(VOLUME_EXTERNAL)
         }) {
             // Non-prefix grant
-            checkGrantUriPermission(uri, flagGrantRead, true);
-            checkGrantUriPermission(uri, flagGrantWrite, true);
+            checkGrantUriPermission(uri, flagGrantRead, /* isGrantAllowed */ true);
+            checkGrantUriPermission(uri, flagGrantWrite, /* isGrantAllowed */ true);
 
             // Prefix grant
-            checkGrantUriPermission(uri, flagGrantReadPrefix, false);
-            checkGrantUriPermission(uri, flagGrantWritePrefix, false);
+            checkGrantUriPermission(uri, flagGrantReadPrefix, /* isGrantAllowed */ false);
+            checkGrantUriPermission(uri, flagGrantWritePrefix, /* isGrantAllowed */ false);
+
+            // revoke granted permissions
+            mContext.revokeUriPermission(uri, flagGrantRead | flagGrantWrite);
+        }
+    }
+
+    /**
+     * b/194539422. Test prefix uri grant for all packages
+     */
+    private void doGrantUriPermission_prefix() {
+        final int flagGrantReadPrefix =
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+        final int flagGrantWritePrefix =
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+
+        for (Uri uri : new Uri[]{
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                MediaStore.Files.getContentUri(VOLUME_EXTERNAL)
+        }) {
+            checkGrantUriPermission(uri, flagGrantReadPrefix, /* isGrantAllowed */ false);
+            checkGrantUriPermission(uri, flagGrantWritePrefix, /* isGrantAllowed */ false);
         }
     }
 
@@ -251,7 +461,8 @@ public class MediaStorageTest {
         } else {
             try {
                 mContext.grantUriPermission(mContext.getPackageName(), uri, mode);
-                fail("Expected granting to be blocked for flag 0x" + Integer.toHexString(mode));
+                fail("Expected granting to " + uri.toString() + " be blocked for flag 0x"
+                        + Integer.toHexString(mode));
             } catch (SecurityException expected) {
             }
         }
@@ -438,15 +649,14 @@ public class MediaStorageTest {
 
         try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "w")) {
         }
-        // Wait for MediaStore to be idle to avoid flakiness due to race conditions between
-        // MediaStore.scanFile (which is called above in #openFileDescriptor) and rename (which is
-        // called below). This is a known issue: b/158982091
+        // Wait for MediaStore to be idle to avoid flakiness due to race conditions
         MediaStore.waitForIdle(mContentResolver);
 
         // Check File API support
         assertAccessFileAPISupport(file);
         assertReadWriteFileAPISupport(file);
         assertRenameFileAPISupport(file);
+        assertRenameAndReplaceFileAPISupport(file, create);
         assertDeleteFileAPISupport(file);
     }
 
@@ -471,15 +681,52 @@ public class MediaStorageTest {
     public void assertRenameFileAPISupport(File oldFile) throws Exception {
         final String oldName = oldFile.getAbsolutePath();
         final String extension = oldName.substring(oldName.lastIndexOf('.')).trim();
-        // TODO(b/178816495): Changing the extension changes the media-type and hence the media-URI
-        // corresponding to the new file is not accessible to the caller. Rename to the same
-        // extension so that the test app does not lose access and is able to delete the file.
-        final String newName = "cts" + System.nanoTime() + extension;
-        final File newFile = Environment.buildPath(Environment.getExternalStorageDirectory(),
-                Environment.DIRECTORY_DOWNLOADS, newName);
-        assertThat(oldFile.renameTo(newFile)).isTrue();
+        // Rename to same extension so test app does not lose access to file.
+        final String newRelativeName = "cts" + System.nanoTime() + extension;
+        final File newFile = Environment.buildPath(
+            Environment.getExternalStorageDirectory(),
+            Environment.DIRECTORY_DOWNLOADS,
+            newRelativeName);
+        final String newName = newFile.getAbsolutePath();
+        assertWithMessage("Rename from oldName [%s] to newName [%s]", oldName, newName)
+            .that(oldFile.renameTo(newFile))
+            .isTrue();
         // Rename back to oldFile for other ops like delete
-        assertThat(newFile.renameTo(oldFile)).isTrue();
+        assertWithMessage("Rename back from newName [%s] to oldName [%s]", newName, oldName)
+            .that(newFile.renameTo(oldFile))
+            .isTrue();
+    }
+
+    public void assertRenameAndReplaceFileAPISupport(File oldFile, Callable<Uri> create)
+            throws Exception {
+        final String oldName = oldFile.getAbsolutePath();
+
+        // Create new file to which we do not have any access.
+        final Uri newUri = create.call();
+        assertWithMessage("Check newFile created").that(newUri).isNotNull();
+        File newFile = new File(queryForSingleColumn(newUri, MediaColumns.DATA));
+        final String newName = newFile.getAbsolutePath();
+        clearMediaOwner(newUri, mUserId);
+
+        assertWithMessage(
+            "Rename should fail without newFile grant from oldName [%s] to newName [%s]",
+            oldName, newName)
+            .that(oldFile.renameTo(newFile))
+            .isFalse();
+
+        // Grant access to newFile and rename should succeed.
+        doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
+        assertWithMessage("Rename from oldName [%s] to newName [%s]", oldName, newName)
+            .that(oldFile.renameTo(newFile))
+            .isTrue();
+
+        // We need to request grant on newUri again, since the rename above caused the URI grant
+        // to be revoked.
+        doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
+        // Rename back to oldFile for other ops like delete
+        assertWithMessage("Rename back from newName [%s] to oldName [%s]", newName, oldName)
+            .that(newFile.renameTo(oldFile))
+            .isTrue();
     }
 
     private void assertDeleteFileAPISupport(File file) throws Exception {
@@ -783,12 +1030,38 @@ public class MediaStorageTest {
         }
     }
 
+    private static Uri createDownload() throws IOException {
+        final String content = "<html><body>Content</body></html>";
+        final String displayName = "cts" + System.nanoTime();
+        final String mimeType = "text/html";
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final PendingParams params = new PendingParams(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI, displayName, mimeType);
+
+        final Uri pendingUri = MediaStoreUtils.createPending(context, params);
+        assertNotNull(pendingUri);
+        try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
+            try (PrintWriter pw = new PrintWriter(session.openOutputStream())) {
+                pw.print(content);
+            }
+            try (OutputStream out = session.openOutputStream()) {
+                out.write(content.getBytes(StandardCharsets.UTF_8));
+            }
+            return session.publish();
+        }
+    }
+
+    private static Uri createFile() throws IOException {
+        return createSubtitle();
+    }
+
     private static Uri createAudio() throws IOException {
         final Context context = InstrumentationRegistry.getTargetContext();
         final String displayName = "cts" + System.nanoTime();
         final PendingParams params = new PendingParams(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, displayName, "audio/mpeg");
         final Uri pendingUri = MediaStoreUtils.createPending(context, params);
+
         try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
             try (InputStream in = context.getResources().getAssets().open("testmp3.mp3");
                     OutputStream out = session.openOutputStream()) {
@@ -843,7 +1116,7 @@ public class MediaStorageTest {
         final Context context = InstrumentationRegistry.getTargetContext();
         final String displayName = "cts" + System.nanoTime();
         final PendingParams params = new PendingParams(
-                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), displayName,
+                MediaStore.Files.getContentUri(VOLUME_EXTERNAL), displayName,
                 "application/x-subrip");
         final Uri pendingUri = MediaStoreUtils.createPending(context, params);
         try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
@@ -862,6 +1135,18 @@ public class MediaStorageTest {
             assertEquals(1, c.getCount());
             assertTrue(c.moveToFirst());
             return c.getString(0);
+        }
+    }
+
+    private static void clearOwnFiles(Uri uri) throws Exception {
+        final ContentResolver resolver = InstrumentationRegistry.getTargetContext()
+                .getContentResolver();
+        try (Cursor c = resolver.query(uri, new String[]{MediaColumns._ID}, null, null)) {
+            while(c.moveToNext()) {
+                final long id = c.getLong(0);
+                final Uri contentUri = ContentUris.withAppendedId(uri, id);
+                resolver.delete(contentUri, null);
+            }
         }
     }
 

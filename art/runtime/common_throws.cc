@@ -23,6 +23,7 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "art_method.h"
 #include "class_linker-inl.h"
 #include "debug_print.h"
 #include "dex/dex_file-inl.h"
@@ -257,29 +258,13 @@ void ThrowIllegalStateException(const char* msg) {
 
 // IncompatibleClassChangeError
 
-void ThrowIncompatibleClassChangeError(InvokeType expected_type, InvokeType found_type,
-                                       ArtMethod* method, ArtMethod* referrer) {
+void ThrowIncompatibleClassChangeError(InvokeType expected_type,
+                                       InvokeType found_type,
+                                       ArtMethod* method,
+                                       ArtMethod* referrer) {
   std::ostringstream msg;
   msg << "The method '" << ArtMethod::PrettyMethod(method) << "' was expected to be of type "
       << expected_type << " but instead was found to be of type " << found_type;
-  ThrowException("Ljava/lang/IncompatibleClassChangeError;",
-                 referrer != nullptr ? referrer->GetDeclaringClass() : nullptr,
-                 msg.str().c_str());
-}
-
-void ThrowIncompatibleClassChangeErrorClassForInterfaceSuper(ArtMethod* method,
-                                                             ObjPtr<mirror::Class> target_class,
-                                                             ObjPtr<mirror::Object> this_object,
-                                                             ArtMethod* referrer) {
-  // Referrer is calling interface_method on this_object, however, the interface_method isn't
-  // implemented by this_object.
-  CHECK(this_object != nullptr);
-  std::ostringstream msg;
-  msg << "Class '" << mirror::Class::PrettyDescriptor(this_object->GetClass())
-      << "' does not implement interface '" << mirror::Class::PrettyDescriptor(target_class)
-      << "' in call to '"
-      << ArtMethod::PrettyMethod(method) << "'";
-  DumpB77342775DebugData(target_class, this_object->GetClass());
   ThrowException("Ljava/lang/IncompatibleClassChangeError;",
                  referrer != nullptr ? referrer->GetDeclaringClass() : nullptr,
                  msg.str().c_str());
@@ -302,7 +287,8 @@ void ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(ArtMethod* inter
                  msg.str().c_str());
 }
 
-void ThrowIncompatibleClassChangeErrorField(ArtField* resolved_field, bool is_static,
+void ThrowIncompatibleClassChangeErrorField(ArtField* resolved_field,
+                                            bool is_static,
                                             ArtMethod* referrer) {
   std::ostringstream msg;
   msg << "Expected '" << ArtField::PrettyField(resolved_field) << "' to be a "
@@ -421,10 +407,11 @@ void ThrowNoSuchMethodError(InvokeType type,
 
 // NullPointerException
 
-void ThrowNullPointerExceptionForFieldAccess(ArtField* field, bool is_read) {
+void ThrowNullPointerExceptionForFieldAccess(ArtField* field, ArtMethod* method, bool is_read) {
   std::ostringstream msg;
-  msg << "Attempt to " << (is_read ? "read from" : "write to")
-      << " field '" << ArtField::PrettyField(field, true) << "' on a null object reference";
+  msg << "Attempt to " << (is_read ? "read from" : "write to") << " field '"
+      << ArtField::PrettyField(field) << "' on a null object reference in method '"
+      << ArtMethod::PrettyMethod(method) << "'";
   ThrowException("Ljava/lang/NullPointerException;", nullptr, msg.str().c_str());
 }
 
@@ -600,7 +587,7 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
       ArtField* field =
           Runtime::Current()->GetClassLinker()->ResolveField(instr.VRegC_22c(), method, false);
       Thread::Current()->ClearException();  // Resolution may fail, ignore.
-      ThrowNullPointerExceptionForFieldAccess(field, /* is_read= */ true);
+      ThrowNullPointerExceptionForFieldAccess(field, method, /* is_read= */ true);
       break;
     }
     case Instruction::IPUT:
@@ -613,7 +600,7 @@ void ThrowNullPointerExceptionFromDexPC(bool check_address, uintptr_t addr) {
       ArtField* field = Runtime::Current()->GetClassLinker()->ResolveField(
           instr.VRegC_22c(), method, /* is_static= */ false);
       Thread::Current()->ClearException();  // Resolution may fail, ignore.
-      ThrowNullPointerExceptionForFieldAccess(field, /* is_read= */ false);
+      ThrowNullPointerExceptionForFieldAccess(field, method, /* is_read= */ false);
       break;
     }
     case Instruction::AGET:
@@ -786,11 +773,10 @@ void ThrowStackOverflowError(Thread* self) {
   create_and_throw();
   CHECK(self->IsExceptionPending());
 
-  bool explicit_overflow_check = Runtime::Current()->ExplicitStackOverflowChecks();
   self->ResetDefaultStackEnd();  // Return to default stack size.
 
   // And restore protection if implicit checks are on.
-  if (!explicit_overflow_check) {
+  if (Runtime::Current()->GetImplicitStackOverflowChecks()) {
     self->ProtectStack();
   }
 }

@@ -26,6 +26,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -88,18 +90,18 @@ public class SmsMessageTest {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_MESSAGING));
+        mPackageManager = getContext().getPackageManager();
         mTelephonyManager =
             (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
-        mPackageManager = getContext().getPackageManager();
     }
 
     @Test
     public void testCreateFromPdu() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-                || mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA)) {
-            // TODO: temp workaround, need to adjust test to use CDMA pdus
-            return;
-        }
+        // TODO: temp workaround, need to adjust test to use CDMA pdus
+        assumeFalse(mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA));
 
         String pdu = "07916164260220F0040B914151245584F600006060605130308A04D4F29C0E";
         SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu),
@@ -159,6 +161,14 @@ public class SmsMessageTest {
         assertEquals(sms.getMessageBody().length(), result[1]);
         assertRemaining(sms.getMessageBody().length(), result[2], SmsMessage.MAX_USER_DATA_SEPTETS);
         assertEquals(SmsMessage.ENCODING_7BIT, result[3]);
+
+        // Test createFromPdu to test ENCODING_KSC5601 (0x84 as DCS in pdu)
+        // The only way of retrieving the Data Coding Scheme is via SmsMessage#calculateLength,
+        // but it never returns ENCODING_KSC5601, so we're testing for ENCODING_16BIT instead.
+        pdu = "07916164260220F0040B914151245584F600846060605130308A04D4F29C0E";
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
+        result = SmsMessage.calculateLength(sms.getMessageBody(), false);
+        assertEquals(SmsMessage.ENCODING_16BIT, result[3]);
     }
 
     private void assertRemaining(int messageLength, int remaining, int maxChars) {
@@ -179,11 +189,9 @@ public class SmsMessageTest {
 
     @Test
     public void testCPHSVoiceMail() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-                || mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA)) {
-            // TODO: temp workaround, need to adjust test to use CDMA pdus
-            return;
-        }
+        // TODO: temp workaround, need to adjust test to use CDMA pdus
+        assumeFalse(mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA));
 
         // "set MWI flag"
         String pdu = "07912160130310F20404D0110041006060627171118A0120";
@@ -223,11 +231,9 @@ public class SmsMessageTest {
 
     @Test
     public void testGetUserData() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-                || mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA)) {
-            // TODO: temp workaround, need to adjust test to use CDMA pdus
-            return;
-        }
+        // TODO: temp workaround, need to adjust test to use CDMA pdus
+        assumeFalse(mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA));
 
         String pdu = "07914140279510F6440A8111110301003BF56080207130138A8C0B05040B8423F"
             + "000032A02010106276170706C69636174696F6E2F766E642E7761702E6D6D732D"
@@ -243,10 +249,6 @@ public class SmsMessageTest {
 
     @Test
     public void testGetSubmitPdu() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
-
         SmsMessage.SubmitPdu smsPdu;
         String scAddress = null, destinationAddress = null;
         String message = null;
@@ -284,11 +286,9 @@ public class SmsMessageTest {
 
     @Test
     public void testEmailGateway() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
-                || mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA)) {
-            // TODO: temp workaround, need to adjust test to use CDMA pdus
-            return;
-        }
+        // TODO: temp workaround, need to adjust test to use CDMA pdus
+        assumeFalse(mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA));
 
         String pdu = "07914151551512f204038105f300007011103164638a28e6f71b50c687db" +
                          "7076d9357eb7412f7a794e07cdeb6275794c07bde8e5391d247e93f3";
@@ -317,10 +317,6 @@ public class SmsMessageTest {
 
     @Test
     public void testCalculateLength() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
-
         int[] result = SmsMessage.calculateLength(LONG_TEXT_WITH_32BIT_CHARS, false);
         assertEquals(6, result.length);
         assertEquals(3, result[0]);
@@ -343,19 +339,12 @@ public class SmsMessageTest {
 
     @Test
     public void testCalculateLengthFlags() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
         int[] result = SmsMessage.calculateLength(LONG_TEXT_WITH_FLAGS, false);
         assertEquals(2, result[0]);
     }
 
     @Test
     public void testGetSmsPdu() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
-
         SmsMessage.SubmitPdu smsPdu;
         String scAddress = null;
         String destinationAddress = null;
@@ -391,9 +380,6 @@ public class SmsMessageTest {
 
     @Test
     public void testGetSubmitPduEncodedMessage() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
         String destinationAddress = "18004664411";
         String message = "This is a test message";
 
@@ -433,9 +419,6 @@ public class SmsMessageTest {
 
     @Test
     public void testCreateFromNativeSmsSubmitPdu() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
         // Short message with status RECEIVED_READ and size 0. See 3GPP2 C.S0023 3.4.27
         byte[] submitPdu = {1, 0};
         SmsMessage sms = SmsMessage.createFromNativeSmsSubmitPdu(submitPdu, true);

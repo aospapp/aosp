@@ -29,6 +29,8 @@ public final class ShellCommandUtils {
     // Copied from android.content.pm.PackageManager#FEATURE_INPUT_METHODS.
     public static final String FEATURE_INPUT_METHODS = "android.software.input_methods";
 
+    public static final String FEATURE_TV_OPERATOR_TIER = "com.google.android.tv.operator_tier";
+
     private static final String SETTING_DEFAULT_IME = "secure default_input_method";
 
     /** Command to get ID of current IME. */

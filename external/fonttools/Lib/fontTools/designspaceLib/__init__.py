@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from fontTools.misc.py23 import tobytes, tostr
 from fontTools.misc.loggingTools import LogMixin
+from fontTools.misc.textTools import tobytes, tostr
 import collections
 from io import BytesIO, StringIO
 import os
@@ -33,6 +33,9 @@ def posix(path):
     if path.startswith('/'):
         # The above transformation loses absolute paths
         new_path = '/' + new_path
+    elif path.startswith(r'\\'):
+        # The above transformation loses leading slashes of UNC path mounts
+        new_path = '//' + new_path
     return new_path
 
 
@@ -157,18 +160,22 @@ class SourceDescriptor(SimpleDescriptor):
 
 
 class RuleDescriptor(SimpleDescriptor):
-    """<!-- optional: list of substitution rules -->
-    <rules>
-        <rule name="vertical.bars">
-            <conditionset>
-                <condition minimum="250.000000" maximum="750.000000" name="weight"/>
-                <condition minimum="100" name="width"/>
-                <condition minimum="10" maximum="40" name="optical"/>
-            </conditionset>
-            <sub name="cent" with="cent.alt"/>
-            <sub name="dollar" with="dollar.alt"/>
-        </rule>
-    </rules>
+    """Represents the rule descriptor element
+
+    .. code-block:: xml
+
+        <!-- optional: list of substitution rules -->
+        <rules>
+            <rule name="vertical.bars">
+                <conditionset>
+                    <condition minimum="250.000000" maximum="750.000000" name="weight"/>
+                    <condition minimum="100" name="width"/>
+                    <condition minimum="10" maximum="40" name="optical"/>
+                </conditionset>
+                <sub name="cent" with="cent.alt"/>
+                <sub name="dollar" with="dollar.alt"/>
+            </rule>
+        </rules>
     """
     _attrs = ['name', 'conditionSets', 'subs']   # what do we need here
 
@@ -993,7 +1000,10 @@ class BaseDocReader(LogMixin):
 
     def readGlyphElement(self, glyphElement, instanceObject):
         """
-        Read the glyph element.
+        Read the glyph element:
+
+        .. code-block:: xml
+
             <glyph name="b" unicode="0x62"/>
             <glyph name="b"/>
             <glyph name="b">

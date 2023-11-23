@@ -73,7 +73,9 @@ public class TestDrive {
             "com.google.android.providers.media.module",
             "com.android.imsserviceentitlement",
             "com.google.android.cellbroadcastreceiver",
+            "com.google.android.apps.nexuslauncher",
             "AID_KEYSTORE",
+            "AID_VIRTUALIZATIONSERVICE",
     };
     private static final String[] DEFAULT_PULL_SOURCES = {
             "AID_KEYSTORE",
@@ -362,6 +364,9 @@ public class TestDrive {
                     .addPullAtomPackages(PullAtomPackages.newBuilder()
                             .setAtomId(Atom.GENERAL_EXTERNAL_STORAGE_ACCESS_STATS_FIELD_NUMBER)
                             .addPackages("com.google.android.providers.media.module"))
+                    .addPullAtomPackages(PullAtomPackages.newBuilder()
+                            .setAtomId(Atom.LAUNCHER_LAYOUT_SNAPSHOT_FIELD_NUMBER)
+                            .addPackages("com.google.android.apps.nexuslauncher"))
                     .setHashStringsInMetricReport(false);
         }
     }
@@ -388,7 +393,7 @@ public class TestDrive {
             }
         }
         void dumpEventMetrics(StatsLogReport report) {
-            final List<StatsLog.EventMetricData> data = report.getEventMetrics().getDataList();
+            final List<StatsLog.EventMetricData> data = Utils.getEventMetricData(report);
             if (data.isEmpty()) {
                 return;
             }

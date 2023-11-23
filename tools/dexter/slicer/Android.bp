@@ -71,3 +71,18 @@ cc_library {
     ],
     host_supported: true,
 }
+
+cc_test_host {
+    name: "slicer_tests",
+    srcs: [
+        "tests/src/*_test.cpp",
+    ],
+    test_options: {
+        unit_test: true,
+    },
+    static_libs: [
+        "slicer",
+        "libgmock",
+    ],
+    test_suites: ["general-tests"],
+}

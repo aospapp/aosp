@@ -16,80 +16,6 @@ soong_namespace {
 }
 
 cc_prebuilt_library_shared {
-    name: "libadsprpc_system",
-    arch: {
-        arm: {
-            srcs: ["libadsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-        arm64: {
-            srcs: ["lib64/libadsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
-    check_elf_files: false,
-    compile_multilib: "both",
-    system_ext_specific: true,
-    owner: "qcom",
-    strip: {
-        none: true,
-    },
-}
-
-cc_prebuilt_library_shared {
-    name: "libcdsprpc_system",
-    arch: {
-        arm: {
-            srcs: ["libcdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-        arm64: {
-            srcs: ["lib64/libcdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
-    check_elf_files: false,
-    compile_multilib: "both",
-    system_ext_specific: true,
-    owner: "qcom",
-    strip: {
-        none: true,
-    },
-}
-
-cc_prebuilt_library_shared {
     name: "libdiag_system",
     arch: {
         arm: {
@@ -169,43 +95,6 @@ cc_prebuilt_library_shared {
 }
 
 cc_prebuilt_library_shared {
-    name: "libmdsprpc_system",
-    arch: {
-        arm: {
-            srcs: ["libmdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-        arm64: {
-            srcs: ["lib64/libmdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
-    check_elf_files: false,
-    compile_multilib: "both",
-    system_ext_specific: true,
-    owner: "qcom",
-    strip: {
-        none: true,
-    },
-}
-
-cc_prebuilt_library_shared {
     name: "libmmosal",
     arch: {
         arm: {
@@ -241,39 +130,3 @@ cc_prebuilt_library_shared {
     },
 }
 
-cc_prebuilt_library_shared {
-    name: "libsdsprpc_system",
-    arch: {
-        arm: {
-            srcs: ["libsdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-        arm64: {
-            srcs: ["lib64/libsdsprpc_system.so"],
-            shared_libs: [
-                "liblog",
-                "libcutils",
-                "libc++",
-                "libc",
-                "libion",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
-    check_elf_files: false,
-    compile_multilib: "both",
-    system_ext_specific: true,
-    owner: "qcom",
-    strip: {
-        none: true,
-    },
-}

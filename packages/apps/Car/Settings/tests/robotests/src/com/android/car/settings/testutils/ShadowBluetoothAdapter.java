@@ -20,6 +20,7 @@ import static android.bluetooth.BluetoothAdapter.SCAN_MODE_NONE;
 import static android.bluetooth.BluetoothAdapter.STATE_ON;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothStatusCodes;
 import android.os.ParcelUuid;
 
 import org.robolectric.annotation.Implementation;
@@ -80,12 +81,12 @@ public class ShadowBluetoothAdapter extends org.robolectric.shadows.ShadowBlueto
     }
 
     @Implementation
-    protected boolean setScanMode(int scanMode) {
+    protected Object setScanMode(int scanMode) {
         if (getState() != STATE_ON) {
-            return false;
+            return BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED;
         }
         mScanMode = scanMode;
-        return true;
+        return BluetoothStatusCodes.SUCCESS;
     }
 
     @Implementation

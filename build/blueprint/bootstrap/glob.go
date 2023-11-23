@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,15 +44,16 @@ import (
 // in a build failure with a "missing and no known rule to make it" error.
 
 var (
-	globCmd = filepath.Join(miniBootstrapDir, "bpglob")
+	_ = pctx.VariableFunc("globCmd", func(config interface{}) (string, error) {
+		return filepath.Join(config.(BootstrapConfig).SoongOutDir(), "bpglob"), nil
+	})
 
 	// globRule rule traverses directories to produce a list of files that match $glob
 	// and writes it to $out if it has changed, and writes the directories to $out.d
 	GlobRule = pctx.StaticRule("GlobRule",
 		blueprint.RuleParams{
-			Command: fmt.Sprintf(`%s -o $out -v %d $args`,
-				globCmd, pathtools.BPGlobArgumentVersion),
-			CommandDeps: []string{globCmd},
+			Command:     "$globCmd -o $out $args",
+			CommandDeps: []string{"$globCmd"},
 			Description: "glob",
 
 			Restat:  true,
@@ -144,77 +146,87 @@ func joinWithPrefixAndQuote(strs []string, prefix string) string {
 	return string(ret)
 }
 
-// globSingleton collects any glob patterns that were seen by Context and writes out rules to
+// GlobSingleton collects any glob patterns that were seen by Context and writes out rules to
 // re-evaluate them whenever the contents of the searched directories change, and retrigger the
 // primary builder if the results change.
-type globSingleton struct {
-	config     *Config
-	globLister func() pathtools.MultipleGlobResults
-	writeRule  bool
+type GlobSingleton struct {
+	// A function that returns the glob results of individual glob buckets
+	GlobLister func() pathtools.MultipleGlobResults
+
+	// Ninja file that contains instructions for validating the glob list files
+	GlobFile string
+
+	// Directory containing the glob list files
+	GlobDir string
+
+	// The source directory
+	SrcDir string
 }
 
-func globSingletonFactory(config *Config, ctx *blueprint.Context) func() blueprint.Singleton {
-	return func() blueprint.Singleton {
-		return &globSingleton{
-			config:     config,
-			globLister: ctx.Globs,
-		}
-	}
+func globBucketName(globDir string, globBucket int) string {
+	return filepath.Join(globDir, strconv.Itoa(globBucket))
 }
 
-func (s *globSingleton) GenerateBuildActions(ctx blueprint.SingletonContext) {
+// Returns the directory where glob list files live
+func GlobDirectory(buildDir, globListDir string) string {
+	return filepath.Join(buildDir, "globs", globListDir)
+}
+
+func (s *GlobSingleton) GenerateBuildActions(ctx blueprint.SingletonContext) {
 	// Sort the list of globs into buckets.  A hash function is used instead of sharding so that
 	// adding a new glob doesn't force rerunning all the buckets by shifting them all by 1.
 	globBuckets := make([]pathtools.MultipleGlobResults, numGlobBuckets)
-	for _, g := range s.globLister() {
+	for _, g := range s.GlobLister() {
 		bucket := globToBucket(g)
 		globBuckets[bucket] = append(globBuckets[bucket], g)
 	}
 
-	// The directory for the intermediates needs to be different for bootstrap and the primary
-	// builder.
-	globsDir := globsDir(ctx.Config().(BootstrapConfig), s.config.stage)
-
 	for i, globs := range globBuckets {
-		fileListFile := filepath.Join(globsDir, strconv.Itoa(i))
+		fileListFile := globBucketName(s.GlobDir, i)
 
-		if s.writeRule {
-			// Called from generateGlobNinjaFile.  Write out the file list to disk, and add a ninja
-			// rule to run bpglob if any of the dependencies (usually directories that contain
-			// globbed files) have changed.  The file list produced by bpglob should match exactly
-			// with the file written here so that restat can prevent rerunning the primary builder.
-			//
-			// We need to write the file list here so that it has an older modified date
-			// than the build.ninja (otherwise we'd run the primary builder twice on
-			// every new glob)
-			//
-			// We don't need to write the depfile because we're guaranteed that ninja
-			// will run the command at least once (to record it into the ninja_log), so
-			// the depfile will be loaded from that execution.
-			err := pathtools.WriteFileIfChanged(absolutePath(fileListFile), globs.FileList(), 0666)
-			if err != nil {
-				panic(fmt.Errorf("error writing %s: %s", fileListFile, err))
-			}
-
-			// Write out the ninja rule to run bpglob.
-			multipleGlobFilesRule(ctx, fileListFile, i, globs)
-		} else {
-			// Called from the main Context, make build.ninja depend on the fileListFile.
-			ctx.AddNinjaFileDeps(fileListFile)
+		// Called from generateGlobNinjaFile.  Write out the file list to disk, and add a ninja
+		// rule to run bpglob if any of the dependencies (usually directories that contain
+		// globbed files) have changed.  The file list produced by bpglob should match exactly
+		// with the file written here so that restat can prevent rerunning the primary builder.
+		//
+		// We need to write the file list here so that it has an older modified date
+		// than the build.ninja (otherwise we'd run the primary builder twice on
+		// every new glob)
+		//
+		// We don't need to write the depfile because we're guaranteed that ninja
+		// will run the command at least once (to record it into the ninja_log), so
+		// the depfile will be loaded from that execution.
+		absoluteFileListFile := joinPath(s.SrcDir, fileListFile)
+		err := pathtools.WriteFileIfChanged(absoluteFileListFile, globs.FileList(), 0666)
+		if err != nil {
+			panic(fmt.Errorf("error writing %s: %s", fileListFile, err))
 		}
+
+		// Write out the ninja rule to run bpglob.
+		multipleGlobFilesRule(ctx, fileListFile, i, globs)
 	}
 }
 
-func generateGlobNinjaFile(bootstrapConfig *Config, config interface{},
-	globLister func() pathtools.MultipleGlobResults) ([]byte, []error) {
+// Writes a .ninja file that contains instructions for regenerating the glob
+// files that contain the results of every glob that was run. The list of files
+// is available as the result of GlobFileListFiles().
+func WriteBuildGlobsNinjaFile(glob *GlobSingleton, config interface{}) {
+	buffer, errs := generateGlobNinjaFile(glob, config)
+	if len(errs) > 0 {
+		fatalErrors(errs)
+	}
+
+	const outFilePermissions = 0666
+	err := ioutil.WriteFile(joinPath(glob.SrcDir, glob.GlobFile), buffer, outFilePermissions)
+	if err != nil {
+		fatalf("error writing %s: %s", glob.GlobFile, err)
+	}
+}
+func generateGlobNinjaFile(glob *GlobSingleton, config interface{}) ([]byte, []error) {
 
 	ctx := blueprint.NewContext()
 	ctx.RegisterSingletonType("glob", func() blueprint.Singleton {
-		return &globSingleton{
-			config:     bootstrapConfig,
-			globLister: globLister,
-			writeRule:  true,
-		}
+		return glob
 	})
 
 	extraDeps, errs := ctx.ResolveDependencies(config)
@@ -242,23 +254,15 @@ func generateGlobNinjaFile(bootstrapConfig *Config, config interface{},
 	return buf.Bytes(), nil
 }
 
-// globsDir returns a different directory to store glob intermediates for the bootstrap and
-// primary builder executions.
-func globsDir(config BootstrapConfig, stage Stage) string {
-	buildDir := config.BuildDir()
-	if stage == StageMain {
-		return filepath.Join(buildDir, mainSubDir, "globs")
-	} else {
-		return filepath.Join(buildDir, bootstrapSubDir, "globs")
-	}
-}
-
-// GlobFileListFiles returns the list of sharded glob file list files for the main stage.
-func GlobFileListFiles(config BootstrapConfig) []string {
-	globsDir := globsDir(config, StageMain)
+// GlobFileListFiles returns the list of files that contain the result of globs
+// in the build. It is suitable for inclusion in build.ninja.d (so that
+// build.ninja is regenerated if the globs change). The instructions to
+// regenerate these files are written by WriteBuildGlobsNinjaFile().
+func GlobFileListFiles(globDir string) []string {
 	var fileListFiles []string
 	for i := 0; i < numGlobBuckets; i++ {
-		fileListFiles = append(fileListFiles, filepath.Join(globsDir, strconv.Itoa(i)))
+		fileListFile := globBucketName(globDir, i)
+		fileListFiles = append(fileListFiles, fileListFile)
 	}
 	return fileListFiles
 }

@@ -28,14 +28,15 @@ import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /** A helper class for IMS relevant APIs with subscription id. */
 public class ImsUtils {
     private static final String TAG = "IMSSE-ImsUtils";
 
-    private final CarrierConfigManager mCarrierConfigManager;
+    @Nullable private final PersistableBundle mCarrierConfigs;
     private final ImsMmTelManager mImsMmTelManager;
     private final ProvisioningManager mProvisioningManager;
-    private final int mSubId;
 
     /**
      * Turns Volte provisioning status ON/OFF.
@@ -63,11 +64,20 @@ public class ImsUtils {
     private static SparseArray<ImsUtils> sInstances = new SparseArray<ImsUtils>();
 
     private ImsUtils(Context context, int subId) {
-        mCarrierConfigManager =
-                (CarrierConfigManager) context.getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        mImsMmTelManager = getImsMmTelManager(context, subId);
-        mProvisioningManager = getProvisioningManager(subId);
-        this.mSubId = subId;
+        this(
+                context.getSystemService(CarrierConfigManager.class).getConfigForSubId(subId),
+                getImsMmTelManager(subId),
+                getProvisioningManager(subId));
+    }
+
+    @VisibleForTesting
+    ImsUtils(
+            PersistableBundle carrierConfigs,
+            ImsMmTelManager imsMmTelManager,
+            ProvisioningManager provisioningManager) {
+        mCarrierConfigs = carrierConfigs;
+        mImsMmTelManager = imsMmTelManager;
+        mProvisioningManager = provisioningManager;
     }
 
     /** Returns {@link ImsUtils} instance. */
@@ -83,7 +93,7 @@ public class ImsUtils {
     }
 
     /** Changes persistent WFC enabled setting. */
-    public void setWfcSetting(boolean enabled) {
+    private void setWfcSetting(boolean enabled) {
         try {
             mImsMmTelManager.setVoWiFiSettingEnabled(enabled);
         } catch (RuntimeException e) {
@@ -132,21 +142,19 @@ public class ImsUtils {
     }
 
     /** Disables WFC and reset WFC mode to carrier default value */
-    public void disableAndResetVoWiFiImsSettings() {
+    @VisibleForTesting
+    void disableAndResetVoWiFiImsSettings() {
         try {
             disableWfc();
 
             // Reset WFC mode to carrier default value
-            if (mCarrierConfigManager != null) {
-                PersistableBundle b = mCarrierConfigManager.getConfigForSubId(mSubId);
-                if (b != null) {
-                    mImsMmTelManager.setVoWiFiModeSetting(
-                            b.getInt(CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_MODE_INT));
-                    mImsMmTelManager.setVoWiFiRoamingModeSetting(
-                            b.getInt(
-                                    CarrierConfigManager
-                                            .KEY_CARRIER_DEFAULT_WFC_IMS_ROAMING_MODE_INT));
-                }
+            if (mCarrierConfigs != null) {
+                mImsMmTelManager.setVoWiFiModeSetting(
+                        mCarrierConfigs.getInt(
+                                CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_MODE_INT));
+                mImsMmTelManager.setVoWiFiRoamingModeSetting(
+                        mCarrierConfigs.getInt(
+                                CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_ROAMING_MODE_INT));
             }
         } catch (RuntimeException e) {
             // ignore this exception, possible exception should be NullPointerException or
@@ -159,7 +167,7 @@ public class ImsUtils {
      * Returns {@code null} if provided subscription id invalid.
      */
     @Nullable
-    public static ImsMmTelManager getImsMmTelManager(Context context, int subId) {
+    private static ImsMmTelManager getImsMmTelManager(int subId) {
         try {
             return ImsMmTelManager.createForSubscriptionId(subId);
         } catch (IllegalArgumentException e) {
@@ -174,7 +182,7 @@ public class ImsUtils {
      * Returns {@code null} if provided subscription id invalid.
      */
     @Nullable
-    public static ProvisioningManager getProvisioningManager(int subId) {
+    private static ProvisioningManager getProvisioningManager(int subId) {
         try {
             return ProvisioningManager.createForSubscriptionId(subId);
         } catch (IllegalArgumentException e) {
@@ -195,11 +203,11 @@ public class ImsUtils {
     }
 
     /** Calls {@link #disableAndResetVoWiFiImsSettings()} in background thread. */
-    public static void turnOffWfc(ImsUtils imsUtils, Runnable action) {
+    public void turnOffWfc(Runnable action) {
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
-                imsUtils.disableAndResetVoWiFiImsSettings();
+                disableAndResetVoWiFiImsSettings();
                 return null; // To satisfy compiler
             }
 

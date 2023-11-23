@@ -19,7 +19,7 @@ package com.android.car.telemetry;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.car.telemetry.MetricsConfigKey;
+import android.car.telemetry.TelemetryProto;
 import android.os.PersistableBundle;
 
 import org.junit.Before;
@@ -32,12 +32,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ResultStoreTest {
     private static final PersistableBundle TEST_INTERIM_BUNDLE = new PersistableBundle();
     private static final PersistableBundle TEST_FINAL_BUNDLE = new PersistableBundle();
+    private static final PersistableBundle TEST_PUBLISHER_BUNDLE = new PersistableBundle();
     private static final TelemetryProto.TelemetryError TEST_TELEMETRY_ERROR =
             TelemetryProto.TelemetryError.newBuilder().setMessage("test error").build();
 
@@ -45,17 +47,20 @@ public class ResultStoreTest {
     private File mTestInterimResultDir;
     private File mTestErrorResultDir;
     private File mTestFinalResultDir;
+    private File mTestPublisherDataDir;
     private ResultStore mResultStore;
 
     @Before
     public void setUp() throws Exception {
         TEST_INTERIM_BUNDLE.putString("test key", "interim value");
         TEST_FINAL_BUNDLE.putString("test key", "final value");
+        TEST_PUBLISHER_BUNDLE.putString("test key", "publisher provided string");
 
         mTestRootDir = Files.createTempDirectory("car_telemetry_test").toFile();
         mTestInterimResultDir = new File(mTestRootDir, ResultStore.INTERIM_RESULT_DIR);
         mTestErrorResultDir = new File(mTestRootDir, ResultStore.ERROR_RESULT_DIR);
         mTestFinalResultDir = new File(mTestRootDir, ResultStore.FINAL_RESULT_DIR);
+        mTestPublisherDataDir = new File(mTestRootDir, ResultStore.PUBLISHER_STORAGE_DIR);
 
         mResultStore = new ResultStore(mTestRootDir);
     }
@@ -65,6 +70,8 @@ public class ResultStoreTest {
         // constructor is called in setUp()
         assertThat(mTestInterimResultDir.exists()).isTrue();
         assertThat(mTestFinalResultDir.exists()).isTrue();
+        assertThat(mTestErrorResultDir.exists()).isTrue();
+        assertThat(mTestPublisherDataDir.exists()).isTrue();
     }
 
     @Test
@@ -101,6 +108,15 @@ public class ResultStoreTest {
         assertThat(activeTestFile3.exists()).isTrue();
     }
 
+    @Test
+    public void testPutInterimResult_shouldNotWriteToDisk() {
+        String metricsConfigName = "my_metrics_config";
+
+        mResultStore.putInterimResult(metricsConfigName, TEST_INTERIM_BUNDLE);
+
+        assertThat(mTestInterimResultDir.list()).asList().doesNotContain(metricsConfigName);
+        assertThat(mResultStore.getInterimResult(metricsConfigName)).isNotNull();
+    }
 
     @Test
     public void testPutInterimResultAndFlushToDisk_shouldReplaceExistingFile() throws Exception {
@@ -182,33 +198,77 @@ public class ResultStoreTest {
     }
 
     @Test
-    public void testGetError_whenNoError_shouldReceiveNull() {
+    public void testGetFinalResults_whenHasData_shouldReturnMapWithBundle() throws Exception {
+        writeBundleToFile(mTestFinalResultDir, "my_metrics_config", TEST_FINAL_BUNDLE);
+
+        assertThat(mResultStore.getAllFinalResults().get("my_metrics_config").toString())
+                .isEqualTo(TEST_FINAL_BUNDLE.toString());
+    }
+
+    @Test
+    public void testGetFinalResults_whenNoData_shouldReceiveEmptyMap() throws Exception {
+        assertThat(mResultStore.getAllFinalResults()).isEmpty();
+    }
+
+    @Test
+    public void testGetFinalResults_whenDataCorrupt_shouldReceiveEmptyMap() throws Exception {
+        Files.write(new File(mTestFinalResultDir, "my_metrics_config").toPath(),
+                "not a bundle".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(mResultStore.getAllFinalResults()).isEmpty();
+    }
+
+    @Test
+    public void testGetErrorResult_whenNoError_shouldReceiveNull() {
         String metricsConfigName = "my_metrics_config";
 
-        TelemetryProto.TelemetryError error = mResultStore.getError(metricsConfigName, true);
+        TelemetryProto.TelemetryError error = mResultStore.getErrorResult(metricsConfigName, true);
 
         assertThat(error).isNull();
     }
 
     @Test
-    public void testGetError_shouldReceiveError() throws Exception {
+    public void testGetErrorResult_shouldReceiveError() throws Exception {
         String metricsConfigName = "my_metrics_config";
-        // write serialized error object to file
-        Files.write(
-                new File(mTestErrorResultDir, metricsConfigName).toPath(),
-                TEST_TELEMETRY_ERROR.toByteArray());
+        writeErrorToFile(metricsConfigName, TEST_TELEMETRY_ERROR);
 
-        TelemetryProto.TelemetryError error = mResultStore.getError(metricsConfigName, true);
+        TelemetryProto.TelemetryError error = mResultStore.getErrorResult(metricsConfigName, true);
 
         assertThat(error).isEqualTo(TEST_TELEMETRY_ERROR);
     }
 
     @Test
-    public void testPutFinalResult_shouldWriteResultAndRemoveInterim() throws Exception {
+    public void testGetErrorResults_whenNoError_shouldReceiveEmptyMap() {
+        assertThat(mResultStore.getAllErrorResults()).isEmpty();
+    }
+
+    @Test
+    public void testGetErrorResults_shouldReceiveErrors() throws Exception {
+        String metricsConfigName = "my_metrics_config";
+        writeErrorToFile(metricsConfigName, TEST_TELEMETRY_ERROR);
+
+        assertThat(mResultStore.getAllErrorResults().get("my_metrics_config"))
+                .isEqualTo(TEST_TELEMETRY_ERROR);
+    }
+
+    @Test
+    public void testPutFinalResult_shouldNotWriteToDisk() {
+        String metricsConfigName = "my_metrics_config";
+
+        mResultStore.putFinalResult(metricsConfigName, TEST_FINAL_BUNDLE);
+
+        assertThat(mTestFinalResultDir.list()).asList().doesNotContain(metricsConfigName);
+        assertThat(mResultStore.getFinalResult(metricsConfigName, false)).isNotNull();
+    }
+
+    @Test
+    public void testPutFinalResultAndFlushToDisk_shouldWriteResultAndRemoveInterim()
+            throws Exception {
         String metricsConfigName = "my_metrics_config";
         writeBundleToFile(mTestInterimResultDir, metricsConfigName, TEST_INTERIM_BUNDLE);
 
         mResultStore.putFinalResult(metricsConfigName, TEST_FINAL_BUNDLE);
+        mResultStore.flushToDisk();
 
         assertThat(mResultStore.getInterimResult(metricsConfigName)).isNull();
         assertThat(new File(mTestInterimResultDir, metricsConfigName).exists()).isFalse();
@@ -216,23 +276,45 @@ public class ResultStoreTest {
     }
 
     @Test
-    public void testPutError_shouldWriteErrorAndRemoveInterimResultFile() throws Exception {
+    public void testPutErrorResult_shouldNotWriteToDisk() {
+        String metricsConfigName = "my_metrics_config";
+
+        mResultStore.putErrorResult(metricsConfigName, TEST_TELEMETRY_ERROR);
+
+        assertThat(mTestErrorResultDir.list()).asList().doesNotContain(metricsConfigName);
+        assertThat(mResultStore.getErrorResult(metricsConfigName, false)).isNotNull();
+    }
+
+    @Test
+    public void testPutErrorResultAndFlushToDisk_shouldWriteErrorAndRemoveInterimResultFile()
+            throws Exception {
         String metricsConfigName = "my_metrics_config";
         writeBundleToFile(mTestInterimResultDir, metricsConfigName, TEST_INTERIM_BUNDLE);
 
-        mResultStore.putError(metricsConfigName, TEST_TELEMETRY_ERROR);
+        mResultStore.putErrorResult(metricsConfigName, TEST_TELEMETRY_ERROR);
+        mResultStore.flushToDisk();
 
         assertThat(new File(mTestInterimResultDir, metricsConfigName).exists()).isFalse();
         assertThat(new File(mTestErrorResultDir, metricsConfigName).exists()).isTrue();
     }
 
     @Test
+    public void testRemovePublisherData_shouldDelete() throws Exception {
+        String publisherName = "publisher 1";
+        writeBundleToFile(mTestPublisherDataDir, publisherName, TEST_PUBLISHER_BUNDLE);
+        mResultStore = new ResultStore(mTestRootDir); // reload data
+
+        mResultStore.removePublisherData(publisherName);
+
+        assertThat(mResultStore.getPublisherData(publisherName, true)).isNull();
+    }
+
+    @Test
     public void testRemoveResult_whenInterimResult_shouldDelete() throws Exception {
         String metricsConfigName = "my_metrics_config";
-        MetricsConfigKey key = new MetricsConfigKey(metricsConfigName, 1);
         writeBundleToFile(mTestInterimResultDir, metricsConfigName, TEST_INTERIM_BUNDLE);
 
-        mResultStore.removeResult(key);
+        mResultStore.removeResult(metricsConfigName);
 
         assertThat(new File(mTestInterimResultDir, metricsConfigName).exists()).isFalse();
     }
@@ -240,25 +322,55 @@ public class ResultStoreTest {
     @Test
     public void testRemoveResult_whenFinalResult_shouldDelete() throws Exception {
         String metricsConfigName = "my_metrics_config";
-        MetricsConfigKey key = new MetricsConfigKey(metricsConfigName, 1);
         writeBundleToFile(mTestFinalResultDir, metricsConfigName, TEST_FINAL_BUNDLE);
 
-        mResultStore.removeResult(key);
+        mResultStore.removeResult(metricsConfigName);
 
         assertThat(new File(mTestFinalResultDir, metricsConfigName).exists()).isFalse();
+    }
+
+    @Test
+    public void testRemoveResult_whenErrorResult_shouldDelete() throws Exception {
+        String metricsConfigName = "my_metrics_config";
+        writeBundleToFile(mTestErrorResultDir, metricsConfigName, TEST_FINAL_BUNDLE);
+
+        mResultStore.removeResult(metricsConfigName);
+
+        assertThat(new File(mTestErrorResultDir, metricsConfigName).exists()).isFalse();
     }
 
     @Test
     public void testRemoveAllResults_shouldDeleteAll() throws Exception {
         mResultStore.putInterimResult("config 1", TEST_INTERIM_BUNDLE);
         mResultStore.putFinalResult("config 2", TEST_FINAL_BUNDLE);
-        mResultStore.putError("config 3", TEST_TELEMETRY_ERROR);
+        mResultStore.putErrorResult("config 3", TEST_TELEMETRY_ERROR);
+        mResultStore.putPublisherData("publisher 1", TEST_PUBLISHER_BUNDLE);
         mResultStore.flushToDisk();
 
         mResultStore.removeAllResults();
 
         assertThat(mTestInterimResultDir.listFiles()).isEmpty();
         assertThat(mTestFinalResultDir.listFiles()).isEmpty();
+        assertThat(mTestErrorResultDir.listFiles()).isEmpty();
+        assertThat(mTestPublisherDataDir.listFiles()).isEmpty();
+    }
+
+    @Test
+    public void testGetFinishedMetricsConfigNames() throws Exception {
+        mResultStore.putInterimResult("name0", TEST_INTERIM_BUNDLE);
+        mResultStore.putFinalResult("name1", TEST_FINAL_BUNDLE);
+        mResultStore.putErrorResult("name2", TEST_TELEMETRY_ERROR);
+        writeBundleToFile(mTestFinalResultDir, "name3", TEST_FINAL_BUNDLE);
+        writeErrorToFile("name4", TEST_TELEMETRY_ERROR);
+
+        Set<String> names = mResultStore.getFinishedMetricsConfigNames();
+
+        assertThat(names).containsExactly("name1", "name2", "name3", "name4");
+    }
+
+    private void writeErrorToFile(String fileName, TelemetryProto.TelemetryError error)
+            throws Exception {
+        Files.write(new File(mTestErrorResultDir, fileName).toPath(), error.toByteArray());
     }
 
     private void writeBundleToFile(

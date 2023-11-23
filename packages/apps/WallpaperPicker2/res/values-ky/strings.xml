@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Тушкагазды төмөнкүгө коюу:"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Башкы экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Кулпуланган экран"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Башкы экран жана кулпуланган экран"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Башкы экран жана кулпуланган экрандар"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Алмаштырма тушкагаз сүрөтү"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Учурдагы тушкагазды бул жерден көрсөтүү үчүн <xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосуна түзмөгүңүздүн сактагычын колдонуу мүмкүнчүлүгү керек."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Учурдагы тушкагазды бул жерден көрсөтүү үчүн Тушкагаздар колдонмосу түзмөгүңүздүн сактагычын колдонуу мүмкүнчүлүгүн алышы керек.\n\nБул жөндөөнү өзгөртүү үчүн Тушкагаздар колдонмосу жөнүндө маалыматтын \"Уруксаттар\" бөлүмүнө өтүңүз."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Алдын ала көрүү"</string>
     <string name="tab_info" msgid="818614080690111416">"Маалымат"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Ыңгайлаштыруу"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Кубулуштар"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Сүрөттөрүм"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Жөндөөлөр…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Жок кылуу"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Бул тушкагаз телефонуңуздан өчүрүлсүнбү?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Тушкагаз"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Тушкагазды алдын ала көрүү"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Мындай жыйнак жок"</string>
+    <string name="cancel" msgid="4970902691067201584">"Кереги жок"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Алдын ала көрүү экранын жашыруу"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Эки жолу басып, интерфейсти алдын ала көрүңүз."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Алдын ала көрүү экранын көрсөтүү"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Ыңгайлаштыруу тактасы көрсөтүлдү"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Маалымат жашырылды"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Маалымат көрсөтүлдү"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Жөндөөлөрдөн файлдарды жана медианы иштетиңиз."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Иштетүү"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Сүрөттөрүмдү ачуу"</string>
 </resources>

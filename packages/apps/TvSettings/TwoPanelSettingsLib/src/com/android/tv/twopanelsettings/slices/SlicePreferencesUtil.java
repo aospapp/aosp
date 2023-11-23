@@ -38,8 +38,8 @@ import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFE
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TEXT;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TITLE_ICON;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.RADIO;
-import static com.android.tv.twopanelsettings.slices.SlicesConstants.SWITCH;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.SEEKBAR;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.SWITCH;
 
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
@@ -51,7 +51,6 @@ import android.view.ContextThemeWrapper;
 
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.preference.Preference;
-import androidx.preference.PreferenceCategory;
 import androidx.slice.Slice;
 import androidx.slice.SliceItem;
 import androidx.slice.core.SliceActionImpl;
@@ -79,7 +78,8 @@ public final class SlicePreferencesUtil {
         if (item.getSubType() != null) {
             String subType = item.getSubType();
             if (subType.equals(SlicesConstants.TYPE_PREFERENCE)
-                    || subType.equals(SlicesConstants.TYPE_PREFERENCE_EMBEDDED)) {
+                    || subType.equals(SlicesConstants.TYPE_PREFERENCE_EMBEDDED)
+                    || subType.equals(SlicesConstants.TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER)) {
                 // TODO: Figure out all the possible cases and reorganize the logic
                 if (data.mInfoItems.size() > 0) {
                     preference = new InfoPreference(
@@ -142,17 +142,19 @@ public final class SlicePreferencesUtil {
                 CharSequence uri = getText(data.mTargetSliceItem);
                 if (uri == null || TextUtils.isEmpty(uri)) {
                     if (preference == null) {
-                        // if contains info text
-                        if (getInfoSummary(item) != null) {
-                            preference = new CustomContentDescriptionPreference(
-                                        contextThemeWrapper);
-                        } else {
-                            preference = new Preference(contextThemeWrapper);
-                        }
+                        preference = new CustomContentDescriptionPreference(contextThemeWrapper);
                     }
                 } else {
                     if (preference == null) {
-                        preference = new SlicePreference(contextThemeWrapper);
+                        if (subType.equals(SlicesConstants.TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER)) {
+                            preference = new EmbeddedSlicePreference(contextThemeWrapper,
+                                    String.valueOf(uri));
+                        } else {
+                            preference = new SlicePreference(contextThemeWrapper);
+                        }
+                        if (hasEndIcon(data.mHasEndIconItem)) {
+                            preference.setLayoutResource(R.layout.preference_reversed_icon);
+                        }
                     }
                     ((HasSliceUri) preference).setUri(uri.toString());
                     if (preference instanceof HasSliceAction) {
@@ -161,7 +163,7 @@ public final class SlicePreferencesUtil {
                     preference.setFragment(className);
                 }
             } else if (item.getSubType().equals(SlicesConstants.TYPE_PREFERENCE_CATEGORY)) {
-                preference = new PreferenceCategory(contextThemeWrapper);
+                preference = new CustomContentDescriptionPreferenceCategory(contextThemeWrapper);
             }
         }
 
@@ -245,18 +247,25 @@ public final class SlicePreferencesUtil {
             if (infoSummary != null) {
                 b.putCharSequence(EXTRA_PREFERENCE_INFO_SUMMARY, infoSummary);
                 fallbackInfoContentDescription +=
-                        CONTENT_DESCRIPTION_SEPARATOR + infoSummary.toString();
+                        CONTENT_DESCRIPTION_SEPARATOR + infoSummary;
             }
-            if (infoText != null || infoSummary != null) {
-                if (preference instanceof SlicePreference) {
-                    ((SlicePreference) preference).setContentDescription(
-                            getInfoContentDescription(item, fallbackInfoContentDescription));
-                } else if (preference instanceof SliceSwitchPreference) {
-                    ((SliceSwitchPreference) preference).setContentDescription(
-                            getInfoContentDescription(item, fallbackInfoContentDescription));
-                } else if (preference instanceof CustomContentDescriptionPreference) {
-                    ((CustomContentDescriptionPreference) preference).setContentDescription(
-                            getInfoContentDescription(item, fallbackInfoContentDescription));
+            String contentDescription = getInfoContentDescription(item);
+            // Respect the content description values provided by slice.
+            // If not provided, for SlicePreference, SliceSwitchPreference,
+            // CustomContentDescriptionPreference, use the fallback value.
+            // Otherwise, do not set the contentDescription for preference. Rely on the talkback
+            // framework to generate the value itself.
+            if (!TextUtils.isEmpty(contentDescription)) {
+                if (preference instanceof HasCustomContentDescription) {
+                    ((HasCustomContentDescription) preference).setContentDescription(
+                            contentDescription);
+                }
+            } else {
+                if ((preference instanceof SlicePreference)
+                        || (preference instanceof SliceSwitchPreference)
+                        || (preference instanceof CustomContentDescriptionPreference)) {
+                    ((HasCustomContentDescription) preference).setContentDescription(
+                            fallbackInfoContentDescription);
                 }
             }
             if (infoImage != null || infoText != null || infoSummary != null) {
@@ -276,6 +285,7 @@ public final class SlicePreferencesUtil {
         SliceItem mRadioGroupItem;
         SliceItem mIntentItem;
         SliceItem mFollowupIntentItem;
+        SliceItem mHasEndIconItem;
         List<SliceItem> mEndItems = new ArrayList<>();
         List<SliceItem> mInfoItems = new ArrayList<>();
     }
@@ -313,6 +323,9 @@ public final class SlicePreferencesUtil {
                         break;
                     case SlicesConstants.TAG_TARGET_URI :
                         data.mTargetSliceItem = item;
+                        break;
+                    case SlicesConstants.EXTRA_HAS_END_ICON:
+                        data.mHasEndIconItem = item;
                         break;
                 }
             } else if (FORMAT_TEXT.equals(item.getFormat()) && (item.getSubType() == null)) {
@@ -500,6 +513,29 @@ public final class SlicePreferencesUtil {
         return true;
     }
 
+    private static boolean hasEndIcon(SliceItem item) {
+        return item != null && item.getInt() > 0;
+    }
+
+    /**
+     * Checks if custom content description should be forced to be used if provided. This function
+     * can be extended with more cases if needed.
+     *
+     * @param item The {@link SliceItem} containing the necessary information.
+     * @return <code>true</code> if custom content description should be used.
+     */
+    private static boolean shouldForceContentDescription(SliceItem sliceItem) {
+        List<SliceItem> items = sliceItem.getSlice().getItems();
+        for (SliceItem item : items)  {
+            // Checks if an end icon has been set.
+            if (item.getSubType() != null
+                    && item.getSubType().equals(SlicesConstants.EXTRA_HAS_END_ICON)) {
+                return hasEndIcon(item);
+            }
+        }
+        return false;
+    }
+
     /**
      * Get the text from the SliceItem.
      */
@@ -566,7 +602,7 @@ public final class SlicePreferencesUtil {
      * Get the content description from SliceItem if available
      */
     private static String getInfoContentDescription(
-            SliceItem sliceItem, String contentDescription) {
+            SliceItem sliceItem) {
         List<SliceItem> items = sliceItem.getSlice().getItems();
         for (SliceItem item : items)  {
             if (item.getSubType() != null
@@ -574,6 +610,6 @@ public final class SlicePreferencesUtil {
                 return item.getText().toString();
             }
         }
-        return contentDescription;
+        return null;
     }
 }

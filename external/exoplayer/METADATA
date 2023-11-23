@@ -16,7 +16,7 @@ third_party {
     type: GIT
     value: "https://github.com/google/ExoPlayer.git"
   }
-  version: "2e9ed51503ba491a19f605e6994fa5839633c74f"
-  last_upgrade_date { year: 2020 month: 4 day: 29 }
+  version: "8e57d3715f9092d5ec54ebe2e538f34bfcc34479"
+  last_upgrade_date { year: 2022 month: 4 day: 11 }
   license_type: NOTICE
 }

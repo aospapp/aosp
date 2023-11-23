@@ -99,9 +99,8 @@ class SwapChainStateVkTest : public ::testing::Test {
                         *k_vk, device, m_vkSurface, queueFamilyIndex)) {
                     continue;
                 }
-                if (SwapChainStateVk::createSwapChainCi(
-                        *k_vk, m_vkSurface, device, k_width, k_height,
-                        {queueFamilyIndex}) == nullptr) {
+                if (!SwapChainStateVk::createSwapChainCi(*k_vk, m_vkSurface, device, k_width,
+                                                         k_height, {queueFamilyIndex})) {
                     continue;
                 }
                 break;
@@ -149,6 +148,6 @@ TEST_F(SwapChainStateVkTest, init) {
     auto swapChainCi = SwapChainStateVk::createSwapChainCi(
         *k_vk, m_vkSurface, m_vkPhysicalDevice, k_width, k_height,
         {m_swapChainQueueFamilyIndex});
-    ASSERT_NE(swapChainCi, nullptr);
-    SwapChainStateVk swapChainState(*k_vk, m_vkDevice, *swapChainCi);
+    ASSERT_NE(swapChainCi, std::nullopt);
+    SwapChainStateVk swapChainState(*k_vk, m_vkDevice, swapChainCi->mCreateInfo);
 }

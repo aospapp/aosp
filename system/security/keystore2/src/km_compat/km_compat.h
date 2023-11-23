@@ -50,41 +50,55 @@ using ::aidl::android::security::compat::BnKeystoreCompatService;
 using ::android::hardware::keymaster::V4_1::support::Keymaster;
 using ::ndk::ScopedAStatus;
 
-class OperationSlots {
-  private:
-    uint8_t mNumFreeSlots;
-    std::mutex mNumFreeSlotsMutex;
-
-  public:
-    void setNumFreeSlots(uint8_t numFreeSlots);
-    bool claimSlot();
-    void freeSlot();
-};
-
+class OperationSlot;
+class OperationSlotManager;
 // An abstraction for a single operation slot.
 // This contains logic to ensure that we do not free the slot multiple times,
 // e.g., if we call abort twice on the same operation.
 class OperationSlot {
+    friend OperationSlotManager;
+
   private:
-    OperationSlots* mOperationSlots;
-    bool mIsActive;
+    std::shared_ptr<OperationSlotManager> mOperationSlots;
+    std::optional<std::unique_lock<std::mutex>> mReservedGuard;
+
+  protected:
+    OperationSlot(std::shared_ptr<OperationSlotManager>,
+                  std::optional<std::unique_lock<std::mutex>> reservedGuard);
+    OperationSlot(const OperationSlot&) = delete;
+    OperationSlot& operator=(const OperationSlot&) = delete;
 
   public:
-    OperationSlot(OperationSlots* slots, bool isActive)
-        : mOperationSlots(slots), mIsActive(isActive) {}
+    OperationSlot() : mOperationSlots(nullptr), mReservedGuard(std::nullopt) {}
+    OperationSlot(OperationSlot&&) = default;
+    OperationSlot& operator=(OperationSlot&&) = default;
+    ~OperationSlot();
+};
 
+class OperationSlotManager {
+  private:
+    uint8_t mNumFreeSlots;
+    std::mutex mNumFreeSlotsMutex;
+    std::mutex mReservedSlotMutex;
+
+  public:
+    void setNumFreeSlots(uint8_t numFreeSlots);
+    static std::optional<OperationSlot>
+    claimSlot(std::shared_ptr<OperationSlotManager> operationSlots);
+    static OperationSlot claimReservedSlot(std::shared_ptr<OperationSlotManager> operationSlots);
     void freeSlot();
-    bool hasSlot() { return mIsActive; }
 };
 
 class KeyMintDevice : public aidl::android::hardware::security::keymint::BnKeyMintDevice {
   private:
     ::android::sp<Keymaster> mDevice;
-    OperationSlots mOperationSlots;
+    std::shared_ptr<OperationSlotManager> mOperationSlots;
 
   public:
     explicit KeyMintDevice(::android::sp<Keymaster>, KeyMintSecurityLevel);
-    static std::shared_ptr<KeyMintDevice> createKeyMintDevice(KeyMintSecurityLevel securityLevel);
+    static std::shared_ptr<IKeyMintDevice> createKeyMintDevice(KeyMintSecurityLevel securityLevel);
+    static std::shared_ptr<KeyMintDevice>
+    getWrappedKeymasterDevice(KeyMintSecurityLevel securityLevel);
 
     ScopedAStatus getHardwareInfo(KeyMintHardwareInfo* _aidl_return) override;
     ScopedAStatus addRngEntropy(const std::vector<uint8_t>& in_data) override;
@@ -107,10 +121,15 @@ class KeyMintDevice : public aidl::android::hardware::security::keymint::BnKeyMi
     ScopedAStatus deleteKey(const std::vector<uint8_t>& in_inKeyBlob) override;
     ScopedAStatus deleteAllKeys() override;
     ScopedAStatus destroyAttestationIds() override;
+
     ScopedAStatus begin(KeyPurpose in_inPurpose, const std::vector<uint8_t>& in_inKeyBlob,
                         const std::vector<KeyParameter>& in_inParams,
                         const std::optional<HardwareAuthToken>& in_inAuthToken,
                         BeginResult* _aidl_return) override;
+    ScopedAStatus beginInternal(KeyPurpose in_inPurpose, const std::vector<uint8_t>& in_inKeyBlob,
+                                const std::vector<KeyParameter>& in_inParams,
+                                const std::optional<HardwareAuthToken>& in_inAuthToken,
+                                bool useReservedSlot, BeginResult* _aidl_return);
     ScopedAStatus deviceLocked(bool passwordOnly,
                                const std::optional<TimeStampToken>& timestampToken) override;
     ScopedAStatus earlyBootEnded() override;
@@ -122,6 +141,11 @@ class KeyMintDevice : public aidl::android::hardware::security::keymint::BnKeyMi
     getKeyCharacteristics(const std::vector<uint8_t>& storageKeyBlob,
                           const std::vector<uint8_t>& appId, const std::vector<uint8_t>& appData,
                           std::vector<KeyCharacteristics>* keyCharacteristics) override;
+
+    ScopedAStatus getRootOfTrustChallenge(std::array<uint8_t, 16>* challenge);
+    ScopedAStatus getRootOfTrust(const std::array<uint8_t, 16>& challenge,
+                                 std::vector<uint8_t>* rootOfTrust);
+    ScopedAStatus sendRootOfTrust(const std::vector<uint8_t>& rootOfTrust);
 
     // These are public to allow testing code to use them directly.
     // This class should not be used publicly anyway.
@@ -141,9 +165,8 @@ class KeyMintDevice : public aidl::android::hardware::security::keymint::BnKeyMi
 
 class KeyMintOperation : public aidl::android::hardware::security::keymint::BnKeyMintOperation {
   public:
-    KeyMintOperation(::android::sp<Keymaster> device, uint64_t operationHandle,
-                     OperationSlots* slots, bool isActive)
-        : mDevice(device), mOperationHandle(operationHandle), mOperationSlot(slots, isActive) {}
+    KeyMintOperation(::android::sp<Keymaster> device, uint64_t operationHandle, OperationSlot slot)
+        : mDevice(device), mOperationHandle(operationHandle), mOperationSlot(std::move(slot)) {}
     ~KeyMintOperation();
 
     ScopedAStatus updateAad(const std::vector<uint8_t>& input,
@@ -181,7 +204,7 @@ class KeyMintOperation : public aidl::android::hardware::security::keymint::BnKe
     std::vector<uint8_t> mUpdateBuffer;
     ::android::sp<Keymaster> mDevice;
     uint64_t mOperationHandle;
-    OperationSlot mOperationSlot;
+    std::optional<OperationSlot> mOperationSlot;
 };
 
 class SharedSecret : public aidl::android::hardware::security::sharedsecret::BnSharedSecret {

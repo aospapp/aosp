@@ -19,6 +19,7 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="array" name="off_screen_nudge_global_actions"/>
       <item type="array" name="off_screen_nudge_intents"/>
       <item type="array" name="off_screen_nudge_key_codes"/>
+      <item type="array" name="projected_apps"/>
       <item type="bool" name="clear_focus_area_history_when_rotating"/>
       <item type="bool" name="config_showHeadsUpNotificationOnBottom"/>
       <item type="dimen" name="notification_headsup_card_margin_horizontal"/>

@@ -14,7 +14,7 @@ To update the symbols in this file, 'cd' to the top directory of
 the python source tree and run:
 
     PYTHONPATH=Tools/peg_generator python3 -m pegen.keywordgen \
-        Grammar/Grammar \
+        Grammar/python.gram \
         Grammar/Tokens \
         Lib/keyword.py
 
@@ -46,9 +46,7 @@ def main():
         "grammar", type=str, help="The file with the grammar definition in PEG format"
     )
     parser.add_argument(
-        "tokens_file",
-        type=argparse.FileType("r"),
-        help="The file with the token definitions"
+        "tokens_file", type=argparse.FileType("r"), help="The file with the token definitions"
     )
     parser.add_argument(
         "keyword_file",

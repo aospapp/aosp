@@ -14,9 +14,9 @@
 
 #include "icing/legacy/index/icing-storage-file.h"
 
-#include <inttypes.h>
 #include <unistd.h>
 
+#include <cinttypes>
 #include <string>
 
 #include "icing/legacy/core/icing-compat.h"

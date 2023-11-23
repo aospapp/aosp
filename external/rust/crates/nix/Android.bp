@@ -25,20 +25,22 @@ rust_library {
     name: "libnix",
     host_supported: true,
     crate_name: "nix",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.23.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libbitflags",
         "libcfg_if",
         "liblibc",
+        "libmemoffset",
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.virt",
     ],
+    vendor_available: true,
+    min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   bitflags-1.2.1 "default"
-//   cfg-if-1.0.0
-//   libc-0.2.94 "default,extra_traits,std"

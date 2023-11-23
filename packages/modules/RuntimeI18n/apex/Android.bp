@@ -48,7 +48,8 @@ apex_defaults {
         "i18n-bootclasspath-fragment",
     ],
     updatable: false,
-    generate_hashtree: false,
+    // Need hash tree so that CompOS can use dm-verity to verify the image in the Protected VM.
+    generate_hashtree: true,
 }
 
 apex_key {
@@ -65,6 +66,8 @@ android_app_certificate {
 // The com.android.i18n's contribution to the bootclasspath.
 bootclasspath_fragment {
     name: "i18n-bootclasspath-fragment",
+    // b/191127295: keep i18n in platform's classpath config and boot image.
+    generate_classpaths_proto: false,
     contents: [
         "core-icu4j",
     ],
@@ -92,6 +95,23 @@ bootclasspath_fragment {
         max_target_o_low_priority: [
             "hiddenapi/hiddenapi-max-target-o-low-priority.txt",
         ],
+
+        // This module does not contain any split packages.
+        split_packages: [],
+
+        // The following packages and all their subpackages currently only
+        // contain classes from this bootclasspath_fragment. Listing a package
+        // here won't prevent other bootclasspath modules from adding classes in
+        // any of those packages but it will prevent them from adding those
+        // classes into an API surface, e.g. public, system, etc.. Doing so will
+        // result in a build failure due to inconsistent flags.
+        package_prefixes: [
+            "android.icu",
+            "com.android.i18n.system",
+            "com.android.i18n.timezone",
+            "com.android.i18n.util",
+            "com.android.icu",
+        ],
     },
 }
 
@@ -110,12 +130,7 @@ sdk {
             ],
         },
     },
-    native_header_libs: [
-        "libandroidicu_headers",
-        "libicuuc_headers",
-    ],
     native_shared_libs: [
-        "libandroidicu",
         "libicu",
     ],
 }

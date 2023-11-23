@@ -68,6 +68,12 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
      */
     private static final String EXTRA_OUTPUT_IS_EPHEMERAL_DATASET = "output_is_ephemeral_dataset";
 
+    /**
+     * When launched with a non-null intent associated with this extra, the intent will be returned
+     * as the response.
+     */
+    private static final String EXTRA_RESPONSE_INTENT = "response_intent";
+
 
     private static final int MSG_WAIT_FOR_LATCH = 1;
     private static final int MSG_REQUEST_AUTOFILL = 2;
@@ -117,6 +123,10 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         return createSender(context, id, dataset, null);
     }
 
+    public static IntentSender createSender(Context context, Intent responseIntent) {
+        return createSender(context, null, 1, null, null, responseIntent);
+    }
+
     public static IntentSender createSender(Context context, int id,
             CannedDataset dataset, Bundle outClientState) {
         return createSender(context, id, dataset, outClientState, null);
@@ -127,14 +137,14 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         Preconditions.checkArgument(id > 0, "id must be positive");
         Preconditions.checkState(sDatasets.get(id) == null, "already have id");
         sDatasets.put(id, dataset);
-        return createSender(context, EXTRA_DATASET_ID, id, outClientState, isEphemeralDataset);
+        return createSender(context, EXTRA_DATASET_ID, id, outClientState, isEphemeralDataset,
+                null);
     }
 
     /**
      * Creates an {@link IntentSender} with the given unique id for the given fill response.
      */
-    public static IntentSender createSender(Context context, int id,
-            CannedFillResponse response) {
+    public static IntentSender createSender(Context context, int id, CannedFillResponse response) {
         return createSender(context, id, response, null);
     }
 
@@ -143,12 +153,12 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         Preconditions.checkArgument(id > 0, "id must be positive");
         Preconditions.checkState(sResponses.get(id) == null, "already have id");
         sResponses.put(id, response);
-        return createSender(context, EXTRA_RESPONSE_ID, id, outData, null);
+        return createSender(context, EXTRA_RESPONSE_ID, id, outData, null, null);
     }
 
     private static IntentSender createSender(Context context, String extraName, int id,
-            Bundle outClientState, Boolean isEphemeralDataset) {
-        final Intent intent = new Intent(context, AuthenticationActivity.class);
+            Bundle outClientState, Boolean isEphemeralDataset, Intent responseIntent) {
+        Intent intent = new Intent(context, AuthenticationActivity.class);
         intent.putExtra(extraName, id);
         if (outClientState != null) {
             Log.d(TAG, "Create with " + outClientState + " as " + EXTRA_OUTPUT_CLIENT_STATE);
@@ -159,6 +169,7 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
                     + EXTRA_OUTPUT_IS_EPHEMERAL_DATASET);
             intent.putExtra(EXTRA_OUTPUT_IS_EPHEMERAL_DATASET, isEphemeralDataset);
         }
+        intent.putExtra(EXTRA_RESPONSE_INTENT, responseIntent);
         final PendingIntent pendingIntent =
                 PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_MUTABLE);
         sPendingIntents.add(pendingIntent);
@@ -267,6 +278,20 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
     }
 
     private void doIt() {
+        final int resultCode;
+        synchronized (sLock) {
+            resultCode = sResultCode;
+        }
+
+        // If responseIntent is provided, use that to return, otherwise contstruct the response.
+        Intent responseIntent = getIntent().getParcelableExtra(EXTRA_RESPONSE_INTENT, Intent.class);
+        if (responseIntent != null) {
+            Log.d(TAG, "Returning code " + resultCode);
+            setResult(resultCode, responseIntent);
+            finish();
+            return;
+        }
+
         // We should get the assist structure...
         final AssistStructure structure = getIntent().getParcelableExtra(
                 AutofillManager.EXTRA_ASSIST_STRUCTURE);
@@ -312,11 +337,6 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
                     + AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET);
             intent.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT_EPHEMERAL_DATASET,
                     isEphemeralDataset);
-        }
-
-        final int resultCode;
-        synchronized (sLock) {
-            resultCode = sResultCode;
         }
         Log.d(TAG, "Returning code " + resultCode);
         setResult(resultCode, intent);

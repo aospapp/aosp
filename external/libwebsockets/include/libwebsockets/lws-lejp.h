@@ -153,11 +153,12 @@ enum lejp_callbacks {
  *
  *  LEJPCB_VAL_STR_START: We are starting to parse a string, no data yet
  *
- *  LEJPCB_VAL_STR_CHUNK: We parsed LEJP_STRING_CHUNK -1 bytes of string data in
- *			ctx->buf, which is as much as we can buffer, so we are
- *			spilling it.  If all your strings are less than
- *			LEJP_STRING_CHUNK - 1 bytes, you will never see this
- *			callback.
+ *  LEJPCB_VAL_STR_CHUNK: We filled the string buffer in the ctx, but it's not
+ *			  the end of the string.  We produce this to spill the
+ *			  intermediate buffer to the user code, so we can handle
+ *			  huge JSON strings using only the small buffer in the
+ *			  ctx.  If the whole JSON string fits in the ctx buffer,
+ *			  you won't get these callbacks.
  *
  *  LEJPCB_VAL_STR_END:	String parsing has completed, the last chunk of the
  *			string is in ctx->buf.
@@ -181,7 +182,7 @@ typedef signed char (*lejp_callback)(struct lejp_ctx *ctx, char reason);
 #define LEJP_MAX_DEPTH 12
 #endif
 #ifndef LEJP_MAX_INDEX_DEPTH
-#define LEJP_MAX_INDEX_DEPTH 5
+#define LEJP_MAX_INDEX_DEPTH 8
 #endif
 #ifndef LEJP_MAX_PATH
 #define LEJP_MAX_PATH 128
@@ -192,26 +193,26 @@ typedef signed char (*lejp_callback)(struct lejp_ctx *ctx, char reason);
 #endif
 
 enum num_flags {
-	LEJP_SEEN_MINUS = (1 << 0),
-	LEJP_SEEN_POINT = (1 << 1),
-	LEJP_SEEN_POST_POINT = (1 << 2),
-	LEJP_SEEN_EXP = (1 << 3)
+	LEJP_SEEN_MINUS		= (1 << 0),
+	LEJP_SEEN_POINT		= (1 << 1),
+	LEJP_SEEN_POST_POINT	= (1 << 2),
+	LEJP_SEEN_EXP		= (1 << 3)
 };
 
 struct _lejp_stack {
-	char s; /* lejp_state stack*/
-	char p;	/* path length */
-	char i; /* index array length */
-	char b; /* user bitfield */
+	char			s; /* lejp_state stack*/
+	char			p;	/* path length */
+	char			i; /* index array length */
+	char			b; /* user bitfield */
 };
 
 struct _lejp_parsing_stack {
-	void *user;	/* private to the stack level */
-	signed char (*callback)(struct lejp_ctx *ctx, char reason);
-	const char * const *paths;
-	uint8_t count_paths;
-	uint8_t ppos;
-	uint8_t path_match;
+	void			*user;	/* private to the stack level */
+	signed char 		(*callback)(struct lejp_ctx *ctx, char reason);
+	const char * const	*paths;
+	uint8_t			count_paths;
+	uint8_t			ppos;
+	uint8_t			path_match;
 };
 
 struct lejp_ctx {
@@ -255,6 +256,7 @@ struct lejp_ctx {
 	uint8_t path_match_len;
 	uint8_t wildcount;
 	uint8_t pst_sp; /* parsing stack head */
+	uint8_t outer_array;
 };
 
 LWS_VISIBLE LWS_EXTERN void

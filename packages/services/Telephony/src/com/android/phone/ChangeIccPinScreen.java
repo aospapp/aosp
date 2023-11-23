@@ -277,7 +277,7 @@ public class ChangeIccPinScreen extends Activity {
     private AlertDialog mPUKAlert;
     private void displayPUKAlert () {
         if (mPUKAlert == null) {
-            mPUKAlert = new AlertDialog.Builder(this)
+            mPUKAlert = FrameworksUtils.makeAlertDialogBuilder(this)
             .setMessage (R.string.puk_requested)
             .setCancelable(false)
             .show();

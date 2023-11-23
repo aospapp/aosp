@@ -24,9 +24,7 @@ cc_defaults {
     "-DDC_ENABLED=0",
     "-DBC_ENABLE_EXTRA_MATH=0",
     "-DBC_ENABLE_HISTORY=0",
-    "-DBC_ENABLE_LONG_OPTIONS=1",
     "-DBC_ENABLE_NLS=0",
-    "-DBC_ENABLE_SIGNALS=1",
     "-Os",
   ],
   generated_headers: ["bc-version.h"],
@@ -88,7 +86,7 @@ sh_test {
   host_supported: true,
   device_supported: false,
   data: [
-    "functions.sh",
+    "scripts/functions.sh",
     "tests/**/*",
   ],
 }

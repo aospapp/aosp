@@ -267,6 +267,10 @@ enum ErrorCode {
   STORAGE_KEY_UNSUPPORTED = 81;
   INCOMPATIBLE_MGF_DIGEST = 82;
   UNSUPPORTED_MGF_DIGEST = 83;
+  INVALID_MAC = 84;                       // RKP specific.
+  PRODUCTION_KEY_IN_TEST_REQUEST = 85;    // RKP specific.
+  TEST_KEY_IN_PRODUCTION_REQUEST = 86;    // RKP specific.
+  INVALID_EEK = 87;                       // RKP specific.
 };
 
 enum SecurityLevel {
@@ -317,6 +321,7 @@ enum ChipFusing {
     FUSING_PVT_1 = 3;   // Strongbox gen v1 certs.
     FUSING_D_PVT = 4;   // Dauntless gen v0 certs.
     FUSING_D_PVT_1 = 5; // Dauntless gen v1 certs.
+    FUSING_D_PVT_2 = 6; // Dauntless gen v2 certs (D3M2).
 }
 
 enum CertificateStatus {

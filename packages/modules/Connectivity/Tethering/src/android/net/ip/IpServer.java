@@ -21,12 +21,12 @@ import static android.net.TetheringManager.TetheringRequest.checkStaticAddressCo
 import static android.net.dhcp.IDhcpServer.STATUS_SUCCESS;
 import static android.net.util.NetworkConstants.RFC7421_PREFIX_LENGTH;
 import static android.net.util.NetworkConstants.asByte;
-import static android.net.util.PrefixUtils.asIpPrefix;
-import static android.net.util.TetheringMessageBase.BASE_IPSERVER;
 import static android.system.OsConstants.RT_SCOPE_UNIVERSE;
 
 import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
 import static com.android.networkstack.tethering.UpstreamNetworkState.isVcnInterface;
+import static com.android.networkstack.tethering.util.PrefixUtils.asIpPrefix;
+import static com.android.networkstack.tethering.util.TetheringMessageBase.BASE_IPSERVER;
 
 import android.net.INetd;
 import android.net.INetworkStackStatusCallback;
@@ -46,13 +46,7 @@ import android.net.dhcp.IDhcpEventCallbacks;
 import android.net.dhcp.IDhcpServer;
 import android.net.ip.IpNeighborMonitor.NeighborEvent;
 import android.net.ip.RouterAdvertisementDaemon.RaParams;
-import android.net.shared.NetdUtils;
-import android.net.shared.RouteUtils;
-import android.net.util.InterfaceParams;
-import android.net.util.InterfaceSet;
-import android.net.util.PrefixUtils;
 import android.net.util.SharedLog;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -67,10 +61,16 @@ import androidx.annotation.Nullable;
 import com.android.internal.util.MessageUtils;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.modules.utils.build.SdkLevel;
+import com.android.net.module.util.InterfaceParams;
+import com.android.net.module.util.NetdUtils;
 import com.android.networkstack.tethering.BpfCoordinator;
 import com.android.networkstack.tethering.BpfCoordinator.ClientInfo;
 import com.android.networkstack.tethering.BpfCoordinator.Ipv6ForwardingRule;
 import com.android.networkstack.tethering.PrivateAddressCoordinator;
+import com.android.networkstack.tethering.TetheringConfiguration;
+import com.android.networkstack.tethering.util.InterfaceSet;
+import com.android.networkstack.tethering.util.PrefixUtils;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -241,6 +241,7 @@ public class IpServer extends StateMachine {
     private final LinkProperties mLinkProperties;
     private final boolean mUsingLegacyDhcp;
     private final boolean mUsingBpfOffload;
+    private final int mP2pLeasesSubnetPrefixLength;
 
     private final Dependencies mDeps;
 
@@ -286,8 +287,8 @@ public class IpServer extends StateMachine {
     public IpServer(
             String ifaceName, Looper looper, int interfaceType, SharedLog log,
             INetd netd, @NonNull BpfCoordinator coordinator, Callback callback,
-            boolean usingLegacyDhcp, boolean usingBpfOffload,
-            PrivateAddressCoordinator addressCoordinator, Dependencies deps) {
+            TetheringConfiguration config, PrivateAddressCoordinator addressCoordinator,
+            Dependencies deps) {
         super(ifaceName, looper);
         mLog = log.forSubComponent(ifaceName);
         mNetd = netd;
@@ -297,8 +298,9 @@ public class IpServer extends StateMachine {
         mIfaceName = ifaceName;
         mInterfaceType = interfaceType;
         mLinkProperties = new LinkProperties();
-        mUsingLegacyDhcp = usingLegacyDhcp;
-        mUsingBpfOffload = usingBpfOffload;
+        mUsingLegacyDhcp = config.useLegacyDhcpServer();
+        mUsingBpfOffload = config.isBpfOffloadEnabled();
+        mP2pLeasesSubnetPrefixLength = config.getP2pLeasesSubnetPrefixLength();
         mPrivateAddressCoordinator = addressCoordinator;
         mDeps = deps;
         resetLinkProperties();
@@ -527,6 +529,9 @@ public class IpServer extends StateMachine {
             @Nullable Inet4Address clientAddr) {
         final boolean changePrefixOnDecline =
                 (mInterfaceType == TetheringManager.TETHERING_NCM && clientAddr == null);
+        final int subnetPrefixLength = mInterfaceType == TetheringManager.TETHERING_WIFI_P2P
+                ? mP2pLeasesSubnetPrefixLength : 0 /* default value */;
+
         return new DhcpServingParamsParcelExt()
             .setDefaultRouters(defaultRouter)
             .setDhcpLeaseTimeSecs(DHCP_LEASE_TIME_SECS)
@@ -534,7 +539,8 @@ public class IpServer extends StateMachine {
             .setServerAddr(serverAddr)
             .setMetered(true)
             .setSingleClientAddr(clientAddr)
-            .setChangePrefixOnDecline(changePrefixOnDecline);
+            .setChangePrefixOnDecline(changePrefixOnDecline)
+            .setLeasesSubnetPrefixLength(subnetPrefixLength);
             // TODO: also advertise link MTU
     }
 
@@ -615,10 +621,8 @@ public class IpServer extends StateMachine {
             return false;
         }
 
-        if (mInterfaceType == TetheringManager.TETHERING_BLUETOOTH) {
-            // BT configures the interface elsewhere: only start DHCP.
-            // TODO: make all tethering types behave the same way, and delete the bluetooth
-            // code that calls into NetworkManagementService directly.
+        if (shouldNotConfigureBluetoothInterface()) {
+            // Interface was already configured elsewhere, only start DHCP.
             return configureDhcp(enabled, mIpv4Address, null /* clientAddress */);
         }
 
@@ -652,12 +656,15 @@ public class IpServer extends StateMachine {
         return configureDhcp(enabled, mIpv4Address, mStaticIpv4ClientAddr);
     }
 
+    private boolean shouldNotConfigureBluetoothInterface() {
+        // Before T, bluetooth tethering configures the interface elsewhere.
+        return (mInterfaceType == TetheringManager.TETHERING_BLUETOOTH) && !SdkLevel.isAtLeastT();
+    }
+
     private LinkAddress requestIpv4Address(final boolean useLastAddress) {
         if (mStaticIpv4ServerAddr != null) return mStaticIpv4ServerAddr;
 
-        if (mInterfaceType == TetheringManager.TETHERING_BLUETOOTH) {
-            return new LinkAddress(BLUETOOTH_IFACE_ADDR);
-        }
+        if (shouldNotConfigureBluetoothInterface()) return new LinkAddress(BLUETOOTH_IFACE_ADDR);
 
         return mPrivateAddressCoordinator.requestDownstreamAddress(this, useLastAddress);
     }
@@ -676,9 +683,7 @@ public class IpServer extends StateMachine {
             return false;
         }
 
-        // TODO: use ShimUtils instead of explicitly checking the version here.
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R || "S".equals(Build.VERSION.CODENAME)
-                    || "T".equals(Build.VERSION.CODENAME)) {
+        if (SdkLevel.isAtLeastS()) {
             // DAD Proxy starts forwarding packets after IPv6 upstream is present.
             mDadProxy = mDeps.getDadProxy(getHandler(), mInterfaceParams);
         }
@@ -769,7 +774,7 @@ public class IpServer extends StateMachine {
     }
 
     private void removeRoutesFromLocalNetwork(@NonNull final List<RouteInfo> toBeRemoved) {
-        final int removalFailures = RouteUtils.removeRoutesFromLocalNetwork(
+        final int removalFailures = NetdUtils.removeRoutesFromLocalNetwork(
                 mNetd, toBeRemoved);
         if (removalFailures > 0) {
             mLog.e(String.format("Failed to remove %d IPv6 routes from local table.",
@@ -787,7 +792,7 @@ public class IpServer extends StateMachine {
             try {
                 // Add routes from local network. Note that adding routes that
                 // already exist does not cause an error (EEXIST is silently ignored).
-                RouteUtils.addRoutesToLocalNetwork(mNetd, mIfaceName, toBeAdded);
+                NetdUtils.addRoutesToLocalNetwork(mNetd, mIfaceName, toBeAdded);
             } catch (IllegalStateException e) {
                 mLog.e("Failed to add IPv4/v6 routes to local table: " + e);
                 return;

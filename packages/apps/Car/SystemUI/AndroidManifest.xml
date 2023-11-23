@@ -42,4 +42,24 @@
     <uses-permission android:name="android.permission.OBSERVE_ROLE_HOLDERS"/>
     <!-- This permission is required to observe microphone sensor privacy changes. -->
     <uses-permission android:name="android.permission.OBSERVE_SENSOR_PRIVACY" />
+
+    <application>
+        <activity
+            android:name=".car.activity.ActivityBlockingActivity"
+            android:documentLaunchMode="always"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".car.activity.ContinuousBlankActivity"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:exported="false"
+            android:launchMode="singleTask">
+        </activity>
+    </application>
 </manifest>

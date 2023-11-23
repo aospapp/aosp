@@ -353,8 +353,10 @@ public class CameraSettingsActivity extends FragmentActivity {
                 Context context = this.getActivity().getApplicationContext();
                 if (context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
                         != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[] {Manifest.permission.ACCESS_COARSE_LOCATION},
-                        PERMISSION_REQUEST_CODE);
+                    requestPermissions(
+                            new String[] {Manifest.permission.ACCESS_COARSE_LOCATION,
+                                    Manifest.permission.ACCESS_FINE_LOCATION},
+                            PERMISSION_REQUEST_CODE);
                 }
             }
         }

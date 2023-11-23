@@ -20,7 +20,7 @@ import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.common.RectF
 import com.android.server.wm.traces.common.WindowManagerConditionsFactory
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
@@ -43,9 +43,9 @@ class RotationProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         tags: MutableMap<Long, MutableList<Tag>>
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val currDisplayRect = current.wmState.displaySize()
             logger.invoke("(${current.wmState.timestamp}) Initial state. " +
@@ -62,9 +62,9 @@ class RotationProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         private val currDisplayRect: RectF
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val newWmDisplayRect = current.wmState.displaySize()
             val newLayersDisplayRect = current.layerState.screenBounds()
@@ -89,7 +89,7 @@ class RotationProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         }
 
         private fun processDisplaySizeChange(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
             newDisplayRect: RectF
         ): FSMState {
             logger.invoke("(${previous.wmState.timestamp}) Display size changed " +
@@ -115,9 +115,9 @@ class RotationProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
         private val wmStateComplete = WindowManagerConditionsFactory.isWMStateComplete()
 
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             val anyLayerAnimating = areLayersAnimating.isSatisfied(current)
             val rotationLayerExists = rotationLayerExists.isSatisfied(current)
@@ -153,7 +153,7 @@ class RotationProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) 
     }
 
     companion object {
-        private fun LayerTraceEntry.screenBounds() = this.displays.minByOrNull { it.id }
+        private fun BaseLayerTraceEntry.screenBounds() = this.displays.minByOrNull { it.id }
             ?.layerStackSpace?.toRectF() ?: this.children
             .sortedBy { it.id }
             .firstOrNull { it.isRootLayer }

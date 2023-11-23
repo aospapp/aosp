@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Подключения"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Службе печати по умолчанию не удалось найти принтеры Wi-Fi Direct."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Отключить Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Службе печати по умолчанию требуется доступ к данным о местоположении, чтобы найти устройства поблизости."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Службе печати по умолчанию требуется разрешение \"Устройства поблизости\", чтобы найти находящиеся рядом принтеры."</string>
     <string name="fix" msgid="7784394272611365393">"Настроить разрешения"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Службе печати по умолчанию требуется доступ к данным о местоположении, чтобы найти устройства поблизости."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Включить геолокацию"</string>
     <string name="print" msgid="7851318072404916362">"Печать"</string>
 </resources>

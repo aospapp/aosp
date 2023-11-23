@@ -16,6 +16,8 @@
 
 package com.google.turbine.types;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.turbine.binder.bound.TypeBoundClass;
@@ -44,7 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Canonicalizes qualified type names so qualifiers are always the declaring class of the qualified
@@ -208,7 +210,8 @@ public class Canonicalize {
       return ClassTy.create(ImmutableList.of(ty));
     }
     ImmutableList.Builder<ClassTy.SimpleClassTy> simples = ImmutableList.builder();
-    ClassSymbol owner = getInfo(ty.sym()).owner();
+    // this inner class is known to have an owner
+    ClassSymbol owner = requireNonNull(getInfo(ty.sym()).owner());
     if (owner.equals(base.sym())) {
       // if the canonical prefix is the owner the next symbol in the qualified name,
       // the type is already in canonical form
@@ -281,7 +284,7 @@ public class Canonicalize {
   }
 
   /** Instantiates a type argument using the given mapping. */
-  private static Type instantiate(Map<TyVarSymbol, Type> mapping, Type type) {
+  private static @Nullable Type instantiate(Map<TyVarSymbol, Type> mapping, Type type) {
     if (type == null) {
       return null;
     }
@@ -328,7 +331,8 @@ public class Canonicalize {
     for (SimpleClassTy simple : type.classes()) {
       ImmutableList.Builder<Type> args = ImmutableList.builder();
       for (Type arg : simple.targs()) {
-        args.add(instantiate(mapping, arg));
+        // result is non-null if arg is
+        args.add(requireNonNull(instantiate(mapping, arg)));
       }
       simples.add(SimpleClassTy.create(simple.sym(), args.build(), simple.annos()));
     }
@@ -339,8 +343,7 @@ public class Canonicalize {
    * Returns the type variable symbol for a concrete type argument whose type is a type variable
    * reference, or else {@code null}.
    */
-  @Nullable
-  private static TyVarSymbol tyVarSym(Type type) {
+  private static @Nullable TyVarSymbol tyVarSym(Type type) {
     if (type.tyKind() == TyKind.TY_VAR) {
       return ((TyVar) type).sym();
     }

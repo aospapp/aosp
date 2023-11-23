@@ -16,12 +16,14 @@
 
 package com.android.permissioncontroller.role.model;
 
+import android.app.admin.DevicePolicyResources.Strings.DefaultAppSettings;
 import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.UserHandle;
@@ -34,6 +36,7 @@ import androidx.preference.Preference;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.utils.CollectionUtils;
+import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.permissioncontroller.role.ui.TwoTargetPreference;
 import com.android.permissioncontroller.role.utils.UserUtils;
 
@@ -60,7 +63,7 @@ public class HomeRoleBehavior implements RoleBehavior {
     @Override
     public boolean isAvailableAsUser(@NonNull Role role, @NonNull UserHandle user,
             @NonNull Context context) {
-        return !UserUtils.isWorkProfile(user, context);
+        return !UserUtils.isProfile(user, context);
     }
 
     /**
@@ -145,7 +148,8 @@ public class HomeRoleBehavior implements RoleBehavior {
             @NonNull UserHandle user, @NonNull Context context) {
         boolean missingWorkProfileSupport = isMissingWorkProfileSupport(applicationInfo, context);
         preference.setEnabled(!missingWorkProfileSupport);
-        preference.setSummary(missingWorkProfileSupport ? context.getString(
+        preference.setSummary(missingWorkProfileSupport ? Utils.getEnterpriseString(context,
+                DefaultAppSettings.HOME_MISSING_WORK_PROFILE_SUPPORT_MESSAGE,
                 R.string.home_missing_work_profile_support) : null);
     }
 
@@ -190,13 +194,41 @@ public class HomeRoleBehavior implements RoleBehavior {
             Permissions.grant(packageName, AUTOMOTIVE_PERMISSIONS,
                     true, false, true, false, false, context);
         }
+
+        // Before T, ALLOW_SLIPPERY_TOUCHES may either not exist, or may not be a role permission
+        if (isRolePermission(android.Manifest.permission.ALLOW_SLIPPERY_TOUCHES, context)) {
+            Permissions.grant(packageName,
+                    Arrays.asList(android.Manifest.permission.ALLOW_SLIPPERY_TOUCHES),
+                    true, false, true, false, false, context);
+        }
     }
 
     @Override
-    public void revoke(@NonNull Role role, @NonNull String packageName,
-            @NonNull Context context) {
+    public void revoke(@NonNull Role role, @NonNull String packageName, @NonNull Context context) {
         if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
             Permissions.revoke(packageName, AUTOMOTIVE_PERMISSIONS, true, false, false, context);
         }
+
+        // Before T, ALLOW_SLIPPERY_TOUCHES may either not exist, or may not be a role permission
+        if (isRolePermission(android.Manifest.permission.ALLOW_SLIPPERY_TOUCHES, context)) {
+            Permissions.revoke(packageName,
+                    Arrays.asList(android.Manifest.permission.ALLOW_SLIPPERY_TOUCHES),
+                    true, false, false, context);
+        }
+    }
+
+    /**
+     * Return true if the permission exists, and has 'role' protection level.
+     * Return false otherwise.
+     */
+    private boolean isRolePermission(@NonNull String permissionName, @NonNull Context context) {
+        PermissionInfo permissionInfo;
+        try {
+            permissionInfo = context.getPackageManager().getPermissionInfo(permissionName, 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+        final int flags = permissionInfo.getProtectionFlags();
+        return (flags & PermissionInfo.PROTECTION_FLAG_ROLE) == PermissionInfo.PROTECTION_FLAG_ROLE;
     }
 }

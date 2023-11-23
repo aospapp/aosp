@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"您無法在駕駛時使用此功能"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"如要以安全應用程式功能重新啟動，請選擇 <xliff:g id="EXIT_BUTTON">%s</xliff:g>。"</string>
+    <string name="exit_button" msgid="3491899413031549265">"返回"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"關閉應用程式"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"返回"</string>
+    <string name="importance_default" msgid="8017186728206153704">"預設重要性"</string>
+    <string name="importance_high" msgid="3393374688015554727">"重要性：高"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Android 系統"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"需要回復原廠設定"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"系統將會清除資訊娛樂系統中的所有資料。重設後，您可以設定新設定檔。"</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"更多"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"您的裝置將被清除"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"無法使用管理員應用程式。系統會現在清除您的裝置。\n\n如有任何疑問，請聯絡您的機構管理員。"</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> 正在影響系統效能"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"停用應用程式即可改善系統效能。您可以在「設定」中再次啟用應用程式。"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"優先處理應用程式即可繼續使用應用程式。"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"解除安裝應用程式即可改善系統效能。"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"停用應用程式"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"優先處理應用程式"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"解除安裝應用程式"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"「<xliff:g id="ID_1">^1</xliff:g>」已停用。您可以在「設定」中再次啟用。"</string>
+</resources>

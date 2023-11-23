@@ -1629,7 +1629,13 @@ TEST(FontCollectionItemizeTest, customFallbackTest) {
     EXPECT_EQ(customFallbackFamily->getFont(0), runs[0].fakedFont.font.get());
 }
 
-std::string itemizeEmojiAndFontPostScriptName(const std::string& txt) {
+struct ItemizeResult {
+    int start;
+    int end;
+    std::string psName;
+};
+
+std::vector<ItemizeResult> itemizeEmojiAndFontPostScriptNames(const std::string& txt) {
     auto firstFamily = buildFontFamily(kAsciiFont);
     auto OverrideEmojiFamily = buildFontFamily("OverrideEmoji.ttf", "und-Zsye");
     auto emojiBaseFamily = buildFontFamily("EmojiBase.ttf", "und-Zsye");
@@ -1640,21 +1646,29 @@ std::string itemizeEmojiAndFontPostScriptName(const std::string& txt) {
     auto collection = std::make_shared<FontCollection>(families);
     auto runs = itemize(collection, txt.c_str());
 
-    EXPECT_EQ(1u, runs.size());
-    return FontFileParser(runs[0].fakedFont.font->baseFont()).getPostScriptName().value();
+    std::vector<ItemizeResult> out;
+    for (const auto& run : runs) {
+        auto psName = FontFileParser(run.fakedFont.font->baseFont()).getPostScriptName().value();
+        out.push_back({run.start, run.end, psName});
+    }
+    return out;
+}
+
+std::string itemizeEmojiAndFontPostScriptName(const std::string& txt) {
+    auto results = itemizeEmojiAndFontPostScriptNames(txt);
+    EXPECT_EQ(1u, results.size());
+    return results[0].psName;
 }
 
 TEST(FontCollectionItemizeTest, emojiFallback) {
-    // OverrideEmojiFont supports U+1F9B0, U+E0000, U+1F3FB and U+1F9B0 U+1F3FB sequence.
+    // OverrideEmojiFont supports U+1F9B0, U+1F3FB and U+1F9B0 U+1F3FB sequence.
     // Use Override font.
     EXPECT_EQ("OverrideEmojiFont", itemizeEmojiAndFontPostScriptName("U+1F9B0"));
-    EXPECT_EQ("OverrideEmojiFont", itemizeEmojiAndFontPostScriptName("U+E0000"));
     EXPECT_EQ("OverrideEmojiFont", itemizeEmojiAndFontPostScriptName("U+1F9B0 U+1F3FB"));
     EXPECT_EQ("OverrideEmojiFont", itemizeEmojiAndFontPostScriptName("U+1F9B0 U+FE0F U+1F3FB"));
 
-    // OverrideEmojiFont doesn't suppot U+1F9B6 U+E0001 and U+1F3FC.
+    // OverrideEmojiFont doesn't suppot U+1F9B6 and U+1F3FC.
     EXPECT_EQ("EmojiBaseFont", itemizeEmojiAndFontPostScriptName("U+1F9B6"));
-    EXPECT_EQ("EmojiBaseFont", itemizeEmojiAndFontPostScriptName("U+E0001"));
     EXPECT_EQ("EmojiBaseFont", itemizeEmojiAndFontPostScriptName("U+1F9B6 U+1F3FC"));
     EXPECT_EQ("EmojiBaseFont", itemizeEmojiAndFontPostScriptName("U+1F9B6 U+FE0F U+1F3FC"));
 
@@ -1668,6 +1682,94 @@ TEST(FontCollectionItemizeTest, emojiFallback) {
     EXPECT_EQ("OverrideEmojiFont", itemizeEmojiAndFontPostScriptName("U+1F9B2 U+200D U+1F9B3"));
     EXPECT_EQ("EmojiBaseFont",
               itemizeEmojiAndFontPostScriptName("U+1F9B2 U+200D U+1F9B3 U+200D U+1F9B4"));
+}
+
+TEST(FontCollectionItemizeTest, customEmojiFallback) {
+    auto results = itemizeEmojiAndFontPostScriptNames("U+1F9B6 U+1F9B0");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(2, results[0].end);
+    EXPECT_EQ("EmojiBaseFont", results[0].psName);
+
+    EXPECT_EQ(2, results[1].start);
+    EXPECT_EQ(4, results[1].end);
+    EXPECT_EQ("OverrideEmojiFont", results[1].psName);
+
+    results = itemizeEmojiAndFontPostScriptNames("U+1F9B0 U+1F9B6");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(2, results[0].end);
+    EXPECT_EQ("OverrideEmojiFont", results[0].psName);
+
+    EXPECT_EQ(2, results[1].start);
+    EXPECT_EQ(4, results[1].end);
+    EXPECT_EQ("EmojiBaseFont", results[1].psName);
+}
+
+TEST(FontCollectionItemizeTest, customEmojiFallback_modifier) {
+    auto results = itemizeEmojiAndFontPostScriptNames("U+1F9B0 U+1F3FC U+1F9B0 U+1F3FB");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(4, results[0].end);
+    EXPECT_EQ("EmojiBaseFont", results[0].psName);
+
+    EXPECT_EQ(4, results[1].start);
+    EXPECT_EQ(8, results[1].end);
+    EXPECT_EQ("OverrideEmojiFont", results[1].psName);
+
+    results = itemizeEmojiAndFontPostScriptNames("U+1F9B0 U+1F3FB U+1F9B0 U+1F3FC");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(4, results[0].end);
+    EXPECT_EQ("OverrideEmojiFont", results[0].psName);
+
+    EXPECT_EQ(4, results[1].start);
+    EXPECT_EQ(8, results[1].end);
+    EXPECT_EQ("EmojiBaseFont", results[1].psName);
+}
+
+TEST(FontCollectionItemizeTest, customEmojiFallback_zwj) {
+    auto results = itemizeEmojiAndFontPostScriptNames(
+            "U+1F9B4 U+200D U+1F9B3 U+200D U+1F9B4 "
+            "U+1F9B3 U+200D U+1F9B3 U+200D U+1F9B4 ");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(8, results[0].end);
+    EXPECT_EQ("EmojiBaseFont", results[0].psName);
+
+    EXPECT_EQ(8, results[1].start);
+    EXPECT_EQ(16, results[1].end);
+    EXPECT_EQ("OverrideEmojiFont", results[1].psName);
+
+    results = itemizeEmojiAndFontPostScriptNames(
+            "U+1F9B3 U+200D U+1F9B3 U+200D U+1F9B4 "
+            "U+1F9B4 U+200D U+1F9B3 U+200D U+1F9B4 ");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(8, results[0].end);
+    EXPECT_EQ("OverrideEmojiFont", results[0].psName);
+
+    EXPECT_EQ(8, results[1].start);
+    EXPECT_EQ(16, results[1].end);
+    EXPECT_EQ("EmojiBaseFont", results[1].psName);
+}
+
+TEST(FontCollectionItemizeTest, customEmojiFallback_tagSequence) {
+    auto results = itemizeEmojiAndFontPostScriptNames(
+            "U+1F9BA U+E0003 U+E0004 U+E007F "
+            "U+1F9BA U+E0001 U+E0002 U+E007F");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(8, results[0].end);
+    EXPECT_EQ("EmojiBaseFont", results[0].psName);
+
+    EXPECT_EQ(8, results[1].start);
+    EXPECT_EQ(16, results[1].end);
+    EXPECT_EQ("OverrideEmojiFont", results[1].psName);
+
+    results = itemizeEmojiAndFontPostScriptNames(
+            "U+1F9BA U+E0001 U+E0002 U+E007F "
+            "U+1F9BA U+E0003 U+E0004 U+E007F");
+    EXPECT_EQ(0, results[0].start);
+    EXPECT_EQ(8, results[0].end);
+    EXPECT_EQ("OverrideEmojiFont", results[0].psName);
+
+    EXPECT_EQ(8, results[1].start);
+    EXPECT_EQ(16, results[1].end);
+    EXPECT_EQ("EmojiBaseFont", results[1].psName);
 }
 
 TEST(FontCollectionItemizeTest, emojiFlagFallback) {

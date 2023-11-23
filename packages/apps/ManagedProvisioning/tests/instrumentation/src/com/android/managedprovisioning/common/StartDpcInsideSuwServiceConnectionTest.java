@@ -36,8 +36,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
@@ -53,7 +51,6 @@ import com.android.managedprovisioning.provisioning.Constants;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 public class StartDpcInsideSuwServiceConnectionTest extends AndroidTestCase {
@@ -517,8 +514,8 @@ public class StartDpcInsideSuwServiceConnectionTest extends AndroidTestCase {
         mStartDpcInsideSuwServiceConnection.dpcFinished();
         mStartDpcInsideSuwServiceConnection.unbind(mActivity);
 
-        // THEN we don't unbind from the NetworkInterceptService
-        verify(mActivity, never()).unbindService(eq(mStartDpcInsideSuwServiceConnection));
+        // THEN we unbind from the NetworkInterceptService even if binding failed
+        verify(mActivity).unbindService(eq(mStartDpcInsideSuwServiceConnection));
     }
 
     @SmallTest
@@ -541,8 +538,8 @@ public class StartDpcInsideSuwServiceConnectionTest extends AndroidTestCase {
         mStartDpcInsideSuwServiceConnection.saveInstanceState(savedInstanceState);
         mStartDpcInsideSuwServiceConnection.unbind(mActivity);
 
-        // THEN we do not unbind from the NetworkInterceptService
-        verify(mActivity, never()).unbindService(eq(mStartDpcInsideSuwServiceConnection));
+        // THEN we unbind from the NetworkInterceptService even if binding failed
+        verify(mActivity).unbindService(eq(mStartDpcInsideSuwServiceConnection));
 
         // GIVEN that a restored activity could now bind to the SUW NetworkInterceptService
         when(mRestoredActivity.bindService(

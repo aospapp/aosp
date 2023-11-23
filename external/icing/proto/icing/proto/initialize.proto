@@ -30,19 +30,6 @@ message IcingSearchEngineOptions {
   // the index saved by the last instance.
   optional string base_dir = 1;
 
-  // The maximum number of tokens to be allowed per document. If a document
-  // exceeds this number of tokens, then only the first max_tokens_per_doc
-  // will be indexed.
-  //
-  // Clients may use this value to prevent the possibility of a select few
-  // documents from exhausting limits in the index that are shared between all
-  // documents (ie max allowed index size).
-  //
-  // Valid values: [1, INT_MAX], Current default is 1/5 of the default of
-  // max_document_size.
-  // Optional.
-  optional int32 max_tokens_per_doc = 2 [default = 13107];
-
   // The maximum allowable token length. All tokens in excess of this size
   // will be truncated to max_token_length before being indexed.
   //
@@ -70,6 +57,8 @@ message IcingSearchEngineOptions {
   // Valid values: [1, INT_MAX]
   // Optional.
   optional int32 index_merge_size = 4 [default = 1048576];  // 1 MiB
+
+  reserved 2;
 }
 
 // Result of a call to IcingSearchEngine.Initialize

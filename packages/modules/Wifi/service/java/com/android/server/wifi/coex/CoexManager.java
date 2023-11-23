@@ -33,22 +33,24 @@ import static com.android.server.wifi.coex.CoexUtils.CHANNEL_SET_5_GHZ_80_MHZ;
 import static com.android.server.wifi.coex.CoexUtils.NUM_24_GHZ_CHANNELS;
 import static com.android.server.wifi.coex.CoexUtils.get2gHarmonicCoexUnsafeChannels;
 import static com.android.server.wifi.coex.CoexUtils.get5gHarmonicCoexUnsafeChannels;
+import static com.android.server.wifi.coex.CoexUtils.getCoexUnsafeChannelsForGpsL1;
 import static com.android.server.wifi.coex.CoexUtils.getIntermodCoexUnsafeChannels;
 import static com.android.server.wifi.coex.CoexUtils.getNeighboringCoexUnsafeChannels;
 
+import android.annotation.AnyThread;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.net.wifi.CoexUnsafeChannel;
 import android.net.wifi.ICoexCallback;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.CoexRestriction;
 import android.os.Build;
 import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.PersistableBundle;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
@@ -66,7 +68,9 @@ import android.util.SparseBooleanArray;
 
 import androidx.annotation.RequiresApi;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.HandlerExecutor;
 import com.android.server.wifi.WifiNative;
 import com.android.wifi.resources.R;
 
@@ -106,6 +110,10 @@ import javax.annotation.concurrent.NotThreadSafe;
 public class CoexManager {
     private static final String TAG = "WifiCoexManager";
     private boolean mVerboseLoggingEnabled = false;
+
+    // Delay in millis before updating cell channels to empty in case of a temporary idle.
+    @VisibleForTesting
+    static final int CELL_CHANNEL_IDLE_DELAY_MILLIS = 2_000;
 
     @NonNull
     private final Context mContext;
@@ -174,6 +182,12 @@ public class CoexManager {
     /* package */ class CoexTelephonyCallback extends TelephonyCallback
             implements TelephonyCallback.PhysicalChannelConfigListener {
         private final int mSubId;
+        private boolean mIsEmpty = true;
+        private boolean mIsPendingEmpty = false;
+        private final Runnable mClearCellChannelsRunnable = () -> {
+            mIsPendingEmpty = false;
+            updateCellChannels(new ArrayList<>());
+        };
 
         private CoexTelephonyCallback(int subId) {
             super();
@@ -191,6 +205,25 @@ public class CoexManager {
             for (PhysicalChannelConfig config : configs) {
                 cellChannels.add(new CoexUtils.CoexCellChannel(config, mSubId));
             }
+            // Delay updating an empty cell channel list in case this is a temporary idle to avoid
+            // recalculating the unsafe channels and sending them to the driver again.
+            if (configs.isEmpty()) {
+                if (!mIsEmpty && !mIsPendingEmpty) {
+                    mIsPendingEmpty = true;
+                    mCallbackHandler.postDelayed(
+                            mClearCellChannelsRunnable, CELL_CHANNEL_IDLE_DELAY_MILLIS);
+                }
+                return;
+            }
+            if (mIsPendingEmpty) {
+                mIsPendingEmpty = false;
+                mCallbackHandler.removeCallbacks(mClearCellChannelsRunnable);
+            }
+            updateCellChannels(cellChannels);
+        }
+
+        private void updateCellChannels(List<CoexUtils.CoexCellChannel> cellChannels) {
+            mIsEmpty = cellChannels.isEmpty();
             if (cellChannels.equals(mCellChannelsPerSubId.get(mSubId))) {
                 // No change to cell channels, so no need to recalculate
                 return;
@@ -224,6 +257,9 @@ public class CoexManager {
     private final List<CoexUtils.CoexCellChannel> mMockCellChannels = new ArrayList<>();
     private boolean mIsUsingMockCellChannels = false;
 
+    private final Object mLock = new Object();
+
+    @GuardedBy("mLock")
     @NonNull
     private final List<CoexUnsafeChannel> mCurrentCoexUnsafeChannels = new ArrayList<>();
     private int mCoexRestrictions;
@@ -273,9 +309,12 @@ public class CoexManager {
      *
      * @return Set of current CoexUnsafeChannels.
      */
+    @AnyThread
     @NonNull
     public List<CoexUnsafeChannel> getCoexUnsafeChannels() {
-        return mCurrentCoexUnsafeChannels;
+        synchronized (mLock) {
+            return new ArrayList<>(mCurrentCoexUnsafeChannels);
+        }
     }
 
     /**
@@ -309,14 +348,21 @@ public class CoexManager {
             Log.e(TAG, "setCoexUnsafeChannels called with undefined restriction flags");
             return;
         }
-        mCurrentCoexUnsafeChannels.clear();
-        mCurrentCoexUnsafeChannels.addAll(coexUnsafeChannels);
-        mCoexRestrictions = coexRestrictions;
-        if (mVerboseLoggingEnabled) {
-            Log.v(TAG, "Current unsafe channels: " + mCurrentCoexUnsafeChannels
-                    + ", restrictions: " + mCoexRestrictions);
+        synchronized (mLock) {
+            if (new HashSet(mCurrentCoexUnsafeChannels).equals(new HashSet(coexUnsafeChannels))
+                    && mCoexRestrictions == coexRestrictions) {
+                // Do not update if the unsafe channels haven't changed since the last time
+                return;
+            }
+            mCurrentCoexUnsafeChannels.clear();
+            mCurrentCoexUnsafeChannels.addAll(coexUnsafeChannels);
+            mCoexRestrictions = coexRestrictions;
+            if (mVerboseLoggingEnabled) {
+                Log.v(TAG, "Current unsafe channels: " + mCurrentCoexUnsafeChannels
+                        + ", restrictions: " + mCoexRestrictions);
+            }
+            mWifiNative.setCoexUnsafeChannels(mCurrentCoexUnsafeChannels, mCoexRestrictions);
         }
-        mWifiNative.setCoexUnsafeChannels(mCurrentCoexUnsafeChannels, mCoexRestrictions);
         notifyListeners();
         notifyRemoteCallbacks();
     }
@@ -356,7 +402,9 @@ public class CoexManager {
     public void registerRemoteCoexCallback(ICoexCallback callback) {
         mRemoteCallbackList.register(callback);
         try {
-            callback.onCoexUnsafeChannelsChanged(mCurrentCoexUnsafeChannels, mCoexRestrictions);
+            synchronized (mLock) {
+                callback.onCoexUnsafeChannelsChanged(mCurrentCoexUnsafeChannels, mCoexRestrictions);
+            }
         } catch (RemoteException e) {
             Log.e(TAG, "onCoexUnsafeChannelsChanged: remote exception -- " + e);
         }
@@ -381,8 +429,10 @@ public class CoexManager {
         final int itemCount = mRemoteCallbackList.beginBroadcast();
         for (int i = 0; i < itemCount; i++) {
             try {
-                mRemoteCallbackList.getBroadcastItem(i)
-                        .onCoexUnsafeChannelsChanged(mCurrentCoexUnsafeChannels, mCoexRestrictions);
+                synchronized (mLock) {
+                    mRemoteCallbackList.getBroadcastItem(i).onCoexUnsafeChannelsChanged(
+                            mCurrentCoexUnsafeChannels, mCoexRestrictions);
+                }
             } catch (RemoteException e) {
                 Log.e(TAG, "onCoexUnsafeChannelsChanged: remote exception -- " + e);
             }
@@ -432,6 +482,10 @@ public class CoexManager {
                 default:
                     entry = null;
             }
+            final int downlinkFreqKhz = cellChannel.getDownlinkFreqKhz();
+            final int downlinkBandwidthKhz = cellChannel.getDownlinkBandwidthKhz();
+            final int uplinkFreqKhz = cellChannel.getUplinkFreqKhz();
+            final int uplinkBandwidthKhz = cellChannel.getUplinkBandwidthKhz();
             final List<CoexUnsafeChannel> currentBandUnsafeChannels = new ArrayList<>();
             if (entry != null) {
                 final int powerCapDbm;
@@ -447,10 +501,6 @@ public class CoexManager {
                 final Override override = entry.getOverride();
                 if (params != null) {
                     // Add all of the CoexUnsafeChannels calculated with the given parameters.
-                    final int downlinkFreqKhz = cellChannel.getDownlinkFreqKhz();
-                    final int downlinkBandwidthKhz = cellChannel.getDownlinkBandwidthKhz();
-                    final int uplinkFreqKhz = cellChannel.getUplinkFreqKhz();
-                    final int uplinkBandwidthKhz = cellChannel.getUplinkBandwidthKhz();
                     final NeighborThresholds neighborThresholds = params.getNeighborThresholds();
                     final HarmonicParams harmonicParams2g = params.getHarmonicParams2g();
                     final HarmonicParams harmonicParams5g = params.getHarmonicParams5g();
@@ -670,6 +720,16 @@ public class CoexManager {
                         }
                         coexRestrictions |= COEX_RESTRICTION_WIFI_DIRECT;
                     }
+                }
+            }
+            // Add all of the CoexUnsafeChannels that cause intermod on GPS L1 with the current
+            // uplink cell channels.
+            Resources res = mContext.getResources();
+            if (res.getBoolean(R.bool.config_wifiCoexForGpsL1)) {
+                if (uplinkFreqKhz >= 0 && uplinkBandwidthKhz >= 0) {
+                    currentBandUnsafeChannels.addAll(getCoexUnsafeChannelsForGpsL1(
+                            uplinkFreqKhz, uplinkBandwidthKhz,
+                            res.getInteger(R.integer.config_wifiCoexGpsL1ThresholdKhz)));
                 }
             }
             // Add all of the CoexUnsafeChannels calculated from this cell channel to the total.

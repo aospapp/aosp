@@ -26,6 +26,12 @@
         android:layout_height="match_parent" />
 
     <SurfaceView
+        android:id="@+id/wallpaper_surface_cinematic"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <SurfaceView
         android:id="@+id/workspace_surface"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

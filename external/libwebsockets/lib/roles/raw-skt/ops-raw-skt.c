@@ -55,12 +55,12 @@ rops_handle_POLLIN_raw_skt(struct lws_context_per_thread *pt, struct lws *wsi,
 #if defined(LWS_WITH_SERVER)
 	if (!lwsi_role_client(wsi) &&  lwsi_state(wsi) != LRS_ESTABLISHED) {
 
-		lwsl_debug("%s: %p: wsistate 0x%x\n", __func__, wsi,
-			   (int)wsi->wsistate);
+		lwsl_wsi_debug(wsi, "wsistate 0x%x\n", (int)wsi->wsistate);
 
 		if (lwsi_state(wsi) != LRS_SSL_INIT)
 			if (lws_server_socket_service_ssl(wsi,
-							  LWS_SOCK_INVALID))
+							  LWS_SOCK_INVALID,
+				!!(pollfd->revents & pollfd->events & LWS_POLLIN)))
 				return LWS_HPI_RET_PLEASE_CLOSE_ME;
 
 		return LWS_HPI_RET_HANDLED;
@@ -71,8 +71,7 @@ rops_handle_POLLIN_raw_skt(struct lws_context_per_thread *pt, struct lws *wsi,
 	    !(wsi->favoured_pollin &&
 	      (pollfd->revents & pollfd->events & LWS_POLLOUT))) {
 
-		lwsl_debug("%s: POLLIN: wsi %p, state 0x%x\n", __func__,
-			   wsi, lwsi_state(wsi));
+		lwsl_wsi_debug(wsi, "POLLIN: state 0x%x", lwsi_state(wsi));
 
 		switch (lwsi_state(wsi)) {
 
@@ -119,7 +118,9 @@ rops_handle_POLLIN_raw_skt(struct lws_context_per_thread *pt, struct lws *wsi,
 			buffered = lws_buflist_aware_read(pt, wsi, &ebuf, 1, __func__);
 			switch (ebuf.len) {
 			case 0:
-				lwsl_info("%s: read 0 len\n", __func__);
+				if (wsi->unix_skt)
+					break;
+				lwsl_wsi_info(wsi, "read 0 len");
 				wsi->seen_zero_length_recv = 1;
 				if (lws_change_pollfd(wsi, LWS_POLLIN, 0))
 					goto fail;
@@ -139,32 +140,21 @@ rops_handle_POLLIN_raw_skt(struct lws_context_per_thread *pt, struct lws *wsi,
 			}
 
 #if defined(LWS_WITH_UDP)
-			if (wsi->context->udp_loss_sim_rx_pc) {
-				uint16_t u16;
-				/*
-				 * We should randomly drop some of these
-				 */
-
-				if (lws_get_random(wsi->context, &u16, 2) == 2 &&
-				    ((u16 * 100) / 0xffff) <=
-					    wsi->context->udp_loss_sim_rx_pc) {
-					lwsl_warn("%s: dropping udp rx\n", __func__);
-					/* pretend it was handled */
-					n = ebuf.len;
-					goto post_rx;
-				}
+			if (lws_fi(&wsi->fic, "udp_rx_loss")) {
+				n = ebuf.len;
+				goto post_rx;
 			}
 #endif
 
-			n = user_callback_handle_rxflow(wsi->protocol->callback,
+			n = user_callback_handle_rxflow(wsi->a.protocol->callback,
 							wsi, LWS_CALLBACK_RAW_RX,
 							wsi->user_space, ebuf.token,
-							ebuf.len);
+							(unsigned int)ebuf.len);
 #if defined(LWS_WITH_UDP) || defined(LWS_WITH_SOCKS5)
 post_rx:
 #endif
 			if (n < 0) {
-				lwsl_info("LWS_CALLBACK_RAW_RX_fail\n");
+				lwsl_wsi_info(wsi, "LWS_CALLBACK_RAW_RX_fail");
 				goto fail;
 			}
 
@@ -201,19 +191,7 @@ try_pollout:
 	/* clear back-to-back write detection */
 	wsi->could_have_pending = 0;
 
-	lws_stats_bump(pt, LWSSTATS_C_WRITEABLE_CB, 1);
-#if defined(LWS_WITH_STATS)
-	if (wsi->active_writable_req_us) {
-		uint64_t ul = lws_now_usecs() -
-				wsi->active_writable_req_us;
-
-		lws_stats_bump(pt, LWSSTATS_US_WRITABLE_DELAY_AVG, ul);
-		lws_stats_max(pt,
-			  LWSSTATS_US_WORST_WRITABLE_DELAY, ul);
-		wsi->active_writable_req_us = 0;
-	}
-#endif
-	n = user_callback_handle_rxflow(wsi->protocol->callback,
+	n = user_callback_handle_rxflow(wsi->a.protocol->callback,
 			wsi, LWS_CALLBACK_RAW_WRITEABLE,
 			wsi->user_space, NULL, 0);
 	if (n < 0) {
@@ -233,28 +211,35 @@ fail:
 static int
 rops_adoption_bind_raw_skt(struct lws *wsi, int type, const char *vh_prot_name)
 {
+
+	// lwsl_notice("%s: bind type %d\n", __func__, type);
+
 	/* no http but socket... must be raw skt */
 	if ((type & LWS_ADOPT_HTTP) || !(type & LWS_ADOPT_SOCKET) ||
-	    (type & _LWS_ADOPT_FINISH))
+	    ((type & _LWS_ADOPT_FINISH) && (!(type & LWS_ADOPT_FLAG_UDP))))
 		return 0; /* no match */
 
 #if defined(LWS_WITH_UDP)
-	if (type & LWS_ADOPT_FLAG_UDP)
+	if ((type & LWS_ADOPT_FLAG_UDP) && !wsi->udp) {
 		/*
 		 * these can be >128 bytes, so just alloc for UDP
 		 */
 		wsi->udp = lws_malloc(sizeof(*wsi->udp), "udp struct");
+		if (!wsi->udp)
+			return 0;
+		memset(wsi->udp, 0, sizeof(*wsi->udp));
+	}
 #endif
 
 	lws_role_transition(wsi, 0, (type & LWS_ADOPT_ALLOW_SSL) ? LRS_SSL_INIT :
 				LRS_ESTABLISHED, &role_ops_raw_skt);
 
 	if (vh_prot_name)
-		lws_bind_protocol(wsi, wsi->protocol, __func__);
+		lws_bind_protocol(wsi, wsi->a.protocol, __func__);
 	else
 		/* this is the only time he will transition */
 		lws_bind_protocol(wsi,
-			&wsi->vhost->protocols[wsi->vhost->raw_protocol_index],
+			&wsi->a.vhost->protocols[wsi->a.vhost->raw_protocol_index],
 			__func__);
 
 	return 1; /* bound */
@@ -288,37 +273,55 @@ rops_client_bind_raw_skt(struct lws *wsi,
 }
 #endif
 
+static const lws_rops_t rops_table_raw_skt[] = {
+	/*  1 */ { .handle_POLLIN	  = rops_handle_POLLIN_raw_skt },
+#if defined(LWS_WITH_SERVER)
+	/*  2 */ { .adoption_bind	  = rops_adoption_bind_raw_skt },
+#else
+	/*  2 */ { .adoption_bind	  = NULL },
+#endif
+#if defined(LWS_WITH_CLIENT)
+	/*  3 */ { .client_bind		  = rops_client_bind_raw_skt },
+#endif
+};
+
 const struct lws_role_ops role_ops_raw_skt = {
 	/* role name */			"raw-skt",
 	/* alpn id */			NULL,
-	/* check_upgrades */		NULL,
-	/* pt_init_destroy */		NULL,
-	/* init_vhost */		NULL,
-	/* destroy_vhost */		NULL,
-	/* service_flag_pending */	NULL,
-	/* handle_POLLIN */		rops_handle_POLLIN_raw_skt,
-	/* handle_POLLOUT */		NULL,
-	/* perform_user_POLLOUT */	NULL,
-	/* callback_on_writable */	NULL,
-	/* tx_credit */			NULL,
-	/* write_role_protocol */	NULL,
-	/* encapsulation_parent */	NULL,
-	/* alpn_negotiated */		NULL,
-	/* close_via_role_protocol */	NULL,
-	/* close_role */		NULL,
-	/* close_kill_connection */	NULL,
-	/* destroy_role */		NULL,
+
+	/* rops_table */		rops_table_raw_skt,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00,
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x01,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x00,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x00,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x00,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00,
+	  /* LWS_ROPS_destroy_role */
 #if defined(LWS_WITH_SERVER)
-	/* adoption_bind */		rops_adoption_bind_raw_skt,
+	  /* LWS_ROPS_adoption_bind */			0x02,
 #else
-					NULL,
+	  /* LWS_ROPS_adoption_bind */			0x00,
 #endif
 #if defined(LWS_WITH_CLIENT)
-	/* client_bind */		rops_client_bind_raw_skt,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x30,
 #else
-					NULL,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x00,
 #endif
-	/* issue_keepalive */		NULL,
+					},
+
 	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_RAW_CONNECTED,
 					  LWS_CALLBACK_RAW_ADOPT },
 	/* rx_cb clnt, srv */		{ LWS_CALLBACK_RAW_RX,

@@ -37,7 +37,10 @@ cc_test_library {
 
 cc_test_library {
     name: "libnetd_test_unsol_service",
-    defaults: ["netd_defaults"],
+    defaults: [
+        "netd_aidl_interface_lateststable_cpp_shared",
+        "netd_defaults",
+    ],
     srcs: [
         "TestUnsolService.cpp"
     ],
@@ -52,7 +55,6 @@ cc_test_library {
         "libnetutils",
         "libsysutils",
         "libutils",
-        "netd_aidl_interface-V7-cpp",
     ],
 }
 
@@ -74,17 +76,21 @@ cc_test {
         "vts"
     ],
     require_root: true,
-    defaults: ["netd_defaults"],
+    defaults: [
+        "netd_aidl_interface_lateststable_cpp_static",
+        "netd_defaults",
+    ],
     tidy: false,  // cuts test build time by almost 1 minute
     srcs: [
         ":netd_integration_test_shared",
         "binder_test.cpp",
         "bpf_base_test.cpp",
+        "kernel_test.cpp",
         "netd_client_test.cpp",
         "netd_test.cpp",
-        "netlink_listener_test.cpp",
     ],
     include_dirs: ["system/netd/server"],
+    header_libs: ["bpf_connectivity_headers"],
     shared_libs: [
         "libbase",
         "libbinder",
@@ -97,17 +103,17 @@ cc_test {
         "libssl",
         "libsysutils",
         "libutils",
+        "libvintf",
     ],
     static_libs: [
         "libcap",
         "libnetd_test_tun_interface",
         "libnetd_test_unsol_service",
         "libnetd_test_utils",
-        "libbpf_android",
-        "libnetdbpf",
         "libnetdutils",
-        "libqtaguid",
-        "netd_aidl_interface-V7-cpp",
+        "libnettestutils",
+        "libtcutils",
+        "mdns_aidl_interface-V1-cpp",
         "netd_event_listener_interface-V1-cpp",
         "oemnetd_aidl_interface-cpp",
     ],

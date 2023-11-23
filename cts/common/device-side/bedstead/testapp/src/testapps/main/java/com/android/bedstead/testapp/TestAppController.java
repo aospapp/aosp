@@ -39,10 +39,19 @@ public final class TestAppController {
      */
     @CrossUser
     public void registerReceiver(Context context, long receiverId, IntentFilter intentFilter) {
+        registerReceiver(context, receiverId, intentFilter, 0);
+    }
+
+    /**
+     * See {@link registerReceiver(Context, long, IntentFilter)}.
+     */
+    @CrossUser
+    public void registerReceiver(Context context, long receiverId, IntentFilter intentFilter,
+            int flags) {
         BaseTestAppBroadcastReceiver broadcastReceiver = new BaseTestAppBroadcastReceiver();
         sBroadcastReceivers.put(receiverId, broadcastReceiver);
 
-        context.registerReceiver(broadcastReceiver, intentFilter);
+        context.registerReceiver(broadcastReceiver, intentFilter, flags);
     }
 
     /**

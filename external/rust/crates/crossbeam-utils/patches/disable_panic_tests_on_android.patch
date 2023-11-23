@@ -1,5 +1,5 @@
---- tests/sharded_lock.rs
-+++ tests/sharded_lock.rs
+--- a/tests/sharded_lock.rs
++++ b/tests/sharded_lock.rs
 @@ -46,6 +46,8 @@ fn frob() {
  }
  
@@ -63,8 +63,8 @@
  fn test_get_mut_poison() {
      let m = Arc::new(ShardedLock::new(NonCopy(10)));
      let m2 = m.clone();
---- tests/thread.rs
-+++ tests/thread.rs
+--- a/tests/thread.rs
++++ b/tests/thread.rs
 @@ -9,6 +9,8 @@ const THREADS: usize = 10;
  const SMALL_STACK_SIZE: usize = 20;
  

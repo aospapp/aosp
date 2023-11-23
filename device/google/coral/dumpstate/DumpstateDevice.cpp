@@ -647,10 +647,12 @@ Return<DumpstateStatus> DumpstateDevice::dumpstateBoard_1_1(const hidl_handle& h
     DumpFileToFd(fd, "TTF", "/d/logbuffer/ttf");
     DumpFileToFd(fd, "TTF details", "/sys/class/power_supply/battery/ttf_details");
     DumpFileToFd(fd, "TTF stats", "/sys/class/power_supply/battery/ttf_stats");
+    DumpFileToFd(fd, "aacr_state", "/sys/class/power_supply/battery/aacr_state");
     DumpFileToFd(fd, "batt_ce", "/d/logbuffer/batt_ce");
     DumpFileToFd(fd, "maxfg", "/d/logbuffer/maxfg");
     DumpFileToFd(fd, "WLC logs", "/d/logbuffer/wireless");
     DumpFileToFd(fd, "ipc-local-ports", "/d/msm_ipc_router/dump_local_ports");
+    DumpFileToFd(fd, "Charging table dump", "/d/google_battery/chg_raw_profile");
     RunCommandToFd(fd, "TRICKLE-DEFEND Config", {"/vendor/bin/sh", "-c", " cd /sys/devices/platform/soc/soc:google,battery/power_supply/battery/; echo \"bd_trickle_enable: `cat bd_trickle_enable`\"; echo \"bd_trickle_cnt: `cat bd_trickle_cnt`\";  echo \"bd_trickle_recharge_soc: `cat bd_trickle_recharge_soc`\";  echo \"bd_trickle_dry_run: `cat bd_trickle_dry_run`\"; echo \"bd_trickle_reset_sec: `cat bd_trickle_reset_sec`\""});
     RunCommandToFd(fd, "DWELL-DEFEND Config", {"/vendor/bin/sh", "-c", " cd /sys/devices/platform/soc/soc:google,charger/; for f in `ls charge_s*` ; do echo \"$f: `cat $f`\" ; done"});
     RunCommandToFd(fd, "TEMP-DEFEND Config", {"/vendor/bin/sh", "-c", " cd /sys/devices/platform/soc/soc:google,charger/; for f in `ls bd_*` ; do echo \"$f: `cat $f`\" ; done"});

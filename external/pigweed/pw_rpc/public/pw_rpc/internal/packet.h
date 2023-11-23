@@ -18,6 +18,7 @@
 #include <span>
 
 #include "pw_bytes/span.h"
+#include "pw_protobuf/serialized_size.h"
 #include "pw_rpc/internal/packet.pwpb.h"
 #include "pw_status/status_with_size.h"
 
@@ -26,6 +27,17 @@ namespace pw::rpc::internal {
 class Packet {
  public:
   static constexpr uint32_t kUnassignedId = 0;
+
+  static constexpr size_t kMinEncodedSizeWithoutPayload =
+      protobuf::SizeOfFieldEnum(RpcPacket::Fields::TYPE, 7) +
+      protobuf::SizeOfFieldUint32(RpcPacket::Fields::CHANNEL_ID) +
+      protobuf::SizeOfFieldUint32(RpcPacket::Fields::SERVICE_ID) +
+      protobuf::SizeOfFieldUint32(RpcPacket::Fields::METHOD_ID) +
+      protobuf::SizeOfDelimitedFieldWithoutValue(RpcPacket::Fields::PAYLOAD) +
+      protobuf::SizeOfFieldUint32(RpcPacket::Fields::STATUS,
+                                  Status::Unauthenticated().code()) +
+      protobuf::SizeOfFieldUint32(RpcPacket::Fields::CALL_ID);
+  ;
 
   // Parses a packet from a protobuf message. Missing or malformed fields take
   // their default values.
@@ -39,6 +51,7 @@ class Packet {
                   request.channel_id(),
                   request.service_id(),
                   request.method_id(),
+                  request.call_id(),
                   {},
                   status);
   }
@@ -50,6 +63,7 @@ class Packet {
                   packet.channel_id(),
                   packet.service_id(),
                   packet.method_id(),
+                  packet.call_id(),
                   {},
                   status);
   }
@@ -61,6 +75,7 @@ class Packet {
                   packet.channel_id(),
                   packet.service_id(),
                   packet.method_id(),
+                  packet.call_id(),
                   {},
                   status);
   }
@@ -73,12 +88,14 @@ class Packet {
                    uint32_t channel_id,
                    uint32_t service_id,
                    uint32_t method_id,
+                   uint32_t call_id = kUnassignedId,
                    ConstByteSpan payload = {},
                    Status status = OkStatus())
       : type_(type),
         channel_id_(channel_id),
         service_id_(service_id),
         method_id_(method_id),
+        call_id_(call_id),
         payload_(payload),
         status_(status) {}
 
@@ -88,6 +105,9 @@ class Packet {
   // Determines the space required to encode the packet proto fields for a
   // response, excluding the payload. This may be used to split the buffer into
   // reserved space and available space for the payload.
+  //
+  // This method allocates two bytes for the status. Status code 0 (OK) is not
+  // encoded since 0 is the default value.
   size_t MinEncodedSizeBytes() const;
 
   enum Destination : bool { kServer, kClient };
@@ -100,8 +120,9 @@ class Packet {
   constexpr uint32_t channel_id() const { return channel_id_; }
   constexpr uint32_t service_id() const { return service_id_; }
   constexpr uint32_t method_id() const { return method_id_; }
+  constexpr uint32_t call_id() const { return call_id_; }
   constexpr const ConstByteSpan& payload() const { return payload_; }
-  constexpr Status status() const { return status_; }
+  constexpr const Status& status() const { return status_; }
 
   constexpr void set_type(PacketType type) { type_ = type; }
   constexpr void set_channel_id(uint32_t channel_id) {
@@ -111,6 +132,7 @@ class Packet {
     service_id_ = service_id;
   }
   constexpr void set_method_id(uint32_t method_id) { method_id_ = method_id; }
+  constexpr void set_call_id(uint32_t call_id) { call_id_ = call_id; }
   constexpr void set_payload(ConstByteSpan payload) { payload_ = payload; }
   constexpr void set_status(Status status) { status_ = status; }
 
@@ -119,6 +141,7 @@ class Packet {
   uint32_t channel_id_;
   uint32_t service_id_;
   uint32_t method_id_;
+  uint32_t call_id_;
   ConstByteSpan payload_;
   Status status_;
 };

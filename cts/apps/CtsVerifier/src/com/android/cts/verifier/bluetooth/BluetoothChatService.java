@@ -16,6 +16,9 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static org.junit.Assert.assertTrue;
+
+import android.annotation.NonNull;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
@@ -216,9 +219,17 @@ public class BluetoothChatService {
      * @param socket  The BluetoothSocket on which the connection was made
      * @param device  The BluetoothDevice that has been connected
      */
-    public synchronized void connected(BluetoothSocket socket, BluetoothDevice
+    public synchronized void connected(@NonNull BluetoothSocket socket, BluetoothDevice
             device, final String socketType) {
-        if (D) Log.d(TAG, "connected, Socket Type: " + socketType);
+        if (D) {
+            Log.d(TAG, "connected, Socket Type: " + socketType
+                    + ", MaxReceivePacketSize: " + socket.getMaxReceivePacketSize()
+                    + ", MaxTransmitPacketSize: " + socket.getMaxTransmitPacketSize());
+        }
+        assertTrue("socket.getMaxReceivePacketSize() expected to be non negative value instead of "
+                + socket.getMaxReceivePacketSize(), socket.getMaxReceivePacketSize() >= 0);
+        assertTrue("socket.getMaxTransmitPacketSize() expected to be non negative value instead of "
+                + socket.getMaxTransmitPacketSize(), socket.getMaxTransmitPacketSize() >= 0);
 
         // Cancel the thread that completed the connection
         if (mConnectThread != null) {mConnectThread.cancel(); mConnectThread = null;}

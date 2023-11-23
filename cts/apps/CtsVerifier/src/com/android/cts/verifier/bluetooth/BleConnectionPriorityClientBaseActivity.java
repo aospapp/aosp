@@ -19,8 +19,6 @@ package com.android.cts.verifier.bluetooth;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -28,6 +26,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -39,11 +39,14 @@ import java.util.List;
 
 public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Activity {
 
+    public static final int DISABLE_ADAPTER = 0;
+
     private TestAdapter mTestAdapter;
     private boolean mPassed = false;
     private Dialog mDialog;
 
     private static final int BLE_CONNECTION_UPDATE = 0;
+    public static final String TAG = BleConnectionPriorityClientBaseActivity.class.getSimpleName();
 
     private static final int ALL_PASSED = 0x1;
 
@@ -57,8 +60,10 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
         super.onCreate(savedInstanceState);
         setContentView(R.layout.ble_connection_priority_client_test);
         setPassFailButtonClickListeners();
-        setInfoResources(R.string.ble_connection_priority_client_name,
-                R.string.ble_connection_priority_client_info, -1);
+        setInfoResources(
+                R.string.ble_connection_priority_client_name,
+                R.string.ble_connection_priority_client_info,
+                -1);
         getPassButton().setEnabled(false);
 
         mHandler = new Handler();
@@ -117,16 +122,16 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
     }
 
     private void showErrorDialog(int titleId, int messageId, boolean finish) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle(titleId)
-                .setMessage(messageId);
+        AlertDialog.Builder builder =
+                new AlertDialog.Builder(this).setTitle(titleId).setMessage(messageId);
         if (finish) {
-            builder.setOnCancelListener(new Dialog.OnCancelListener() {
-                @Override
-                public void onCancel(DialogInterface dialog) {
-                    finish();
-                }
-            });
+            builder.setOnCancelListener(
+                    new Dialog.OnCancelListener() {
+                        @Override
+                        public void onCancel(DialogInterface dialog) {
+                            finish();
+                        }
+                    });
         }
         builder.create().show();
     }
@@ -138,25 +143,31 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
     }
 
     private void executeNextTest(long delay) {
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                executeNextTestImpl();
-            }
-        }, delay);
+        mHandler.postDelayed(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        executeNextTestImpl();
+                    }
+                },
+                delay);
     }
+
     private void executeNextTestImpl() {
         switch (mCurrentTest) {
-            case -1: {
+            case -1:
+            {
                 mCurrentTest = BLE_CONNECTION_UPDATE;
                 Intent intent = new Intent(this, BleConnectionPriorityClientService.class);
-                intent.setAction(BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_START);
+                intent.setAction(
+                        BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_START);
                 startService(intent);
                 String msg = getString(R.string.ble_client_connection_priority);
                 Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-            }
                 break;
-            case BLE_CONNECTION_UPDATE: {
+            }
+            case BLE_CONNECTION_UPDATE:
+            {
                 // all test done
                 closeDialog();
                 if (mPassed == true) {
@@ -177,95 +188,96 @@ public class BleConnectionPriorityClientBaseActivity extends PassFailButtons.Act
         return false;
     }
 
-    private BroadcastReceiver mBroadcast = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            switch (action) {
-            case BleConnectionPriorityClientService.ACTION_BLUETOOTH_DISABLED:
-                new AlertDialog.Builder(context)
-                        .setTitle(R.string.ble_bluetooth_disable_title)
-                        .setMessage(R.string.ble_bluetooth_disable_message)
-                        .setOnCancelListener(new Dialog.OnCancelListener() {
-                            @Override
-                            public void onCancel(DialogInterface dialog) {
-                                finish();
+    private BroadcastReceiver mBroadcast =
+            new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    String action = intent.getAction();
+                    switch (action) {
+                        case BleConnectionPriorityClientService.ACTION_BLUETOOTH_DISABLED:
+                            new AlertDialog.Builder(context)
+                                    .setTitle(R.string.ble_bluetooth_disable_title)
+                                    .setMessage(R.string.ble_bluetooth_disable_message)
+                                    .setOnCancelListener(
+                                            new Dialog.OnCancelListener() {
+                                                @Override
+                                                public void onCancel(DialogInterface dialog) {
+                                                    finish();
+                                                }
+                                            })
+                                    .create()
+                                    .show();
+                            break;
+                        case BleConnectionPriorityClientService
+                                .ACTION_CONNECTION_SERVICES_DISCOVERED:
+                            showProgressDialog();
+                            executeNextTest(3000);
+                            break;
+                        case BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_FINISH:
+                            mTestAdapter.setTestPass(BLE_CONNECTION_UPDATE);
+                            mPassed = true;
+                            executeNextTest(1000);
+                            break;
+                        case BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_SECURE:
+                            showErrorDialog(
+                                    R.string.ble_bluetooth_mismatch_title,
+                                    R.string.ble_bluetooth_mismatch_secure_message,
+                                    true);
+                            break;
+                        case BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_INSECURE:
+                            showErrorDialog(
+                                    R.string.ble_bluetooth_mismatch_title,
+                                    R.string.ble_bluetooth_mismatch_insecure_message,
+                                    true);
+                            break;
+                        case BleConnectionPriorityClientService.ACTION_FINISH_DISCONNECT:
+                            if (shouldRebootBluetoothAfterTest()) {
+                                mBtPowerSwitcher.executeSwitching();
+                            } else {
+                                getPassButton().setEnabled(true);
                             }
-                        })
-                        .create().show();
-                break;
-            case BleConnectionPriorityClientService.ACTION_CONNECTION_SERVICES_DISCOVERED:
-                showProgressDialog();
-                executeNextTest(3000);
-                break;
-            case BleConnectionPriorityClientService.ACTION_CONNECTION_PRIORITY_FINISH:
-                mTestAdapter.setTestPass(BLE_CONNECTION_UPDATE);
-                mPassed = true;
-                executeNextTest(1000);
-                break;
-            case BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_SECURE:
-                showErrorDialog(R.string.ble_bluetooth_mismatch_title, R.string.ble_bluetooth_mismatch_secure_message, true);
-                break;
-            case BleConnectionPriorityClientService.ACTION_BLUETOOTH_MISMATCH_INSECURE:
-                showErrorDialog(R.string.ble_bluetooth_mismatch_title, R.string.ble_bluetooth_mismatch_insecure_message, true);
-                break;
-            case BleConnectionPriorityClientService.ACTION_FINISH_DISCONNECT:
-                if (shouldRebootBluetoothAfterTest()) {
-                    mBtPowerSwitcher.executeSwitching();
-                } else {
-                    getPassButton().setEnabled(true);
+                            break;
+                    }
+                    mTestAdapter.notifyDataSetChanged();
                 }
-                break;
-            }
-            mTestAdapter.notifyDataSetChanged();
-        }
-    };
+            };
 
-    private static final long BT_ON_DELAY = 10000;
     private final BluetoothPowerSwitcher mBtPowerSwitcher = new BluetoothPowerSwitcher();
+
     private class BluetoothPowerSwitcher extends BroadcastReceiver {
 
         private boolean mIsSwitching = false;
-        private BluetoothAdapter mAdapter;
 
-        public void executeSwitching() {
-            if (mAdapter == null) {
-                BluetoothManager btMgr = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-                mAdapter = btMgr.getAdapter();
+        private class BluetoothHandler extends Handler {
+            BluetoothHandler(Looper looper) {
+                super(looper);
             }
 
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what) {
+                    case BleConnectionPriorityClientBaseActivity.DISABLE_ADAPTER:
+                        mIsSwitching = false;
+                        getPassButton().setEnabled(true);
+                        closeDialog();
+                        break;
+                }
+            }
+        }
+
+        public void executeSwitching() {
+            mHandler = new BluetoothHandler(Looper.getMainLooper());
             if (!mIsSwitching) {
-                IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-                registerReceiver(this, filter);
                 mIsSwitching = true;
-                mHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        mAdapter.disable();
-                    }
-                }, 1000);
+                Message msg =
+                        mHandler.obtainMessage(
+                                BleConnectionPriorityClientBaseActivity.DISABLE_ADAPTER);
+                mHandler.sendMessageDelayed(msg, 5000);
                 showProgressDialog();
             }
         }
 
         @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
-                if (state == BluetoothAdapter.STATE_OFF) {
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            mAdapter.enable();
-                        }
-                    }, BT_ON_DELAY);
-                } else if (state == BluetoothAdapter.STATE_ON) {
-                    mIsSwitching = false;
-                    unregisterReceiver(this);
-                    getPassButton().setEnabled(true);
-                    closeDialog();
-                }
-            }
-        }
+        public void onReceive(Context context, Intent intent) {}
     }
 }

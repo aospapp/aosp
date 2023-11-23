@@ -17,10 +17,16 @@ package android.smartspace.cts;
 
 import static android.app.smartspace.SmartspaceTarget.FEATURE_ALARM;
 
+import static androidx.test.InstrumentationRegistry.getContext;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.smartspace.SmartspaceAction;
 import android.app.smartspace.SmartspaceTarget;
+import android.app.smartspace.uitemplatedata.BaseTemplateData;
+import android.app.smartspace.uitemplatedata.BaseTemplateData.SubItemInfo;
+import android.app.smartspace.uitemplatedata.BaseTemplateData.SubItemLoggingInfo;
+import android.app.smartspace.uitemplatedata.Text;
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.ComponentName;
 import android.net.Uri;
@@ -65,6 +71,7 @@ public class SmartspaceTargetTest {
                 .setSourceNotificationKey("source_notification_key")
                 .setAssociatedSmartspaceTargetId("associated_target_id")
                 .setSliceUri(Uri.EMPTY)
+                .setTemplateData(createBaseTemplateData())
                 .build();
 
 
@@ -86,6 +93,7 @@ public class SmartspaceTargetTest {
         assertThat(testTarget.getComponentName()).isEqualTo(testComponentName);
         assertThat(testTarget.getUserHandle()).isEqualTo(Process.myUserHandle());
         assertThat(testTarget.getSliceUri()).isEqualTo(Uri.EMPTY);
+        assertThat(testTarget.getTemplateData()).isEqualTo(createBaseTemplateData());
         Parcel parcel = Parcel.obtain();
         parcel.setDataPosition(0);
         testTarget.writeToParcel(parcel, 0);
@@ -118,4 +126,63 @@ public class SmartspaceTargetTest {
         return new SmartspaceAction.Builder(id, "test title").build();
     }
 
+    private BaseTemplateData createBaseTemplateData() {
+        SubItemInfo primaryItem = new SubItemInfo.Builder()
+                .setText(new Text.Builder("title").build())
+                .setIcon(SmartspaceTestUtils.createSmartspaceIcon("title icon"))
+                .setTapAction(
+                        SmartspaceTestUtils.createSmartspaceTapAction(getContext(),
+                                "primary action"))
+                .setLoggingInfo(new SubItemLoggingInfo.Builder(0, 0).setPackageName(
+                        "package name 0").build())
+                .build();
+        SubItemInfo subtitleItem = new SubItemInfo.Builder()
+                .setText(new Text.Builder("subtitle").build())
+                .setIcon(SmartspaceTestUtils.createSmartspaceIcon("subtitle icon"))
+                .setTapAction(
+                        SmartspaceTestUtils.createSmartspaceTapAction(getContext(),
+                                "subtitle action"))
+                .setLoggingInfo(new SubItemLoggingInfo.Builder(1, 1).setPackageName(
+                        "package name 1").build())
+                .build();
+        SubItemInfo subtitleSupplementalItem = new SubItemInfo.Builder()
+                .setText(new Text.Builder("subtitle supplemental").build())
+                .setIcon(SmartspaceTestUtils.createSmartspaceIcon(
+                        "subtitle supplemental icon"))
+                .setTapAction(
+                        SmartspaceTestUtils.createSmartspaceTapAction(getContext(),
+                                "subtitle supplemental action"))
+                .setLoggingInfo(new SubItemLoggingInfo.Builder(2, 2).setPackageName(
+                        "package name 2").build())
+                .build();
+        SubItemInfo supplementalLineItem = new SubItemInfo.Builder()
+                .setText(new Text.Builder("supplemental line").build())
+                .setIcon(SmartspaceTestUtils.createSmartspaceIcon(
+                        "supplemental line icon"))
+                .setTapAction(
+                        SmartspaceTestUtils.createSmartspaceTapAction(getContext(),
+                                "supplemental line action"))
+                .setLoggingInfo(new SubItemLoggingInfo.Builder(3, 3).setPackageName(
+                        "package name 3").build())
+                .build();
+        SubItemInfo supplementalAlarmItem = new SubItemInfo.Builder()
+                .setText(new Text.Builder("alarm supplemental").build())
+                .setIcon(SmartspaceTestUtils.createSmartspaceIcon("alarm icon"))
+                .setTapAction(
+                        SmartspaceTestUtils.createSmartspaceTapAction(getContext(),
+                                "alarm action"))
+                .setLoggingInfo(new SubItemLoggingInfo.Builder(4, 4).setPackageName(
+                        "package name 4").build())
+                .build();
+
+        return new BaseTemplateData.Builder(
+                SmartspaceTarget.UI_TEMPLATE_DEFAULT)
+                .setPrimaryItem(primaryItem)
+                .setSubtitleItem(subtitleItem)
+                .setSubtitleSupplementalItem(subtitleSupplementalItem)
+                .setSupplementalLineItem(supplementalLineItem)
+                .setSupplementalAlarmItem(supplementalAlarmItem)
+                .setLayoutWeight(1)
+                .build();
+    }
 }

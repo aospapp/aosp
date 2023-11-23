@@ -1,5 +1,16 @@
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
 package {
-    default_applicable_licenses: ["packages_apps_SafetyRegulatoryInfo_license"],
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+        "packages_apps_SafetyRegulatoryInfo_license", // (by exception only)
+    ],
+}
+
+license_kind {
+    name: "SafetyRegulatoryInfo_mpeg_and_avc_license_kinds",
+    conditions: ["by_exception_only"],
 }
 
 // Added automatically by a large-scale-change
@@ -8,10 +19,10 @@ license {
     name: "packages_apps_SafetyRegulatoryInfo_license",
     visibility: [":__subpackages__"],
     license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
+        "SafetyRegulatoryInfo_mpeg_and_avc_license_kinds", // (by exception only)
     ],
     license_text: [
-        "NOTICE",
+        "LICENSE",
     ],
 }
 

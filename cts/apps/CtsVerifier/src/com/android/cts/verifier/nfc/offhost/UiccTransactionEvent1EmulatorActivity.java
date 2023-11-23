@@ -16,31 +16,15 @@
 
 package com.android.cts.verifier.nfc.offhost;
 
-import android.annotation.TargetApi;
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.ProgressDialog;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
-import android.nfc.cardemulation.CardEmulation;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.TextView;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
-
 import com.android.cts.verifier.nfc.hce.HceUtils;
 
 public class UiccTransactionEvent1EmulatorActivity extends PassFailButtons.Activity {
@@ -106,9 +90,9 @@ public class UiccTransactionEvent1EmulatorActivity extends PassFailButtons.Activ
     private void initProcess() {
 
         Bundle bundle = getIntent().getExtras();
-        if(bundle != null){
+        if (bundle != null && getIntent().getAction() != null) {
             byte[] transactionData = bundle.getByteArray(NfcAdapter.EXTRA_DATA);
-            if(transactionData != null){
+            if (transactionData != null) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {

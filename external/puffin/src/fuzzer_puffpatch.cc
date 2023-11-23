@@ -9,7 +9,7 @@
 
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/puffpatch.h"
-#include "puffin/src/memory_stream.h"
+#include "puffin/memory_stream.h"
 
 using puffin::BitExtent;
 using puffin::Buffer;

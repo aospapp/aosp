@@ -17,9 +17,15 @@
 #include <nativehelper/JNIHelp.h>
 #include <log/log.h>
 
+#include <android-modules-utils/sdk_level.h>
+
 namespace android {
 
-int register_android_server_TestNetworkService(JNIEnv* env);
+int register_com_android_server_TestNetworkService(JNIEnv* env);
+int register_com_android_server_connectivity_ClatCoordinator(JNIEnv* env);
+int register_com_android_server_BpfNetMaps(JNIEnv* env);
+int register_android_server_net_NetworkStatsFactory(JNIEnv* env);
+int register_android_server_net_NetworkStatsService(JNIEnv* env);
 
 extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
     JNIEnv *env;
@@ -28,8 +34,26 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
         return JNI_ERR;
     }
 
-    if (register_android_server_TestNetworkService(env) < 0) {
+    if (register_com_android_server_TestNetworkService(env) < 0) {
         return JNI_ERR;
+    }
+
+    if (register_com_android_server_connectivity_ClatCoordinator(env) < 0) {
+        return JNI_ERR;
+    }
+
+    if (register_com_android_server_BpfNetMaps(env) < 0) {
+        return JNI_ERR;
+    }
+
+    if (android::modules::sdklevel::IsAtLeastT()) {
+        if (register_android_server_net_NetworkStatsFactory(env) < 0) {
+            return JNI_ERR;
+        }
+
+        if (register_android_server_net_NetworkStatsService(env) < 0) {
+            return JNI_ERR;
+        }
     }
 
     return JNI_VERSION_1_6;

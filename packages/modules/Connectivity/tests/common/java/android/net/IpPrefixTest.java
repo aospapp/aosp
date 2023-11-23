@@ -30,6 +30,8 @@ import static org.junit.Assert.fail;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.testutils.ConnectivityModuleTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,6 +40,7 @@ import java.util.Random;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@ConnectivityModuleTest
 public class IpPrefixTest {
 
     private static InetAddress address(String addr) {
@@ -121,6 +124,9 @@ public class IpPrefixTest {
 
         p = new IpPrefix("[2001:db8::123]/64");
         assertEquals("2001:db8::/64", p.toString());
+
+        p = new IpPrefix(InetAddresses.parseNumericAddress("::128"), 64);
+        assertEquals("::/64", p.toString());
     }
 
     @Test

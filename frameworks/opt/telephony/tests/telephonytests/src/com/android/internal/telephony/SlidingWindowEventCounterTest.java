@@ -75,5 +75,12 @@ public class SlidingWindowEventCounterTest {
         counter.addOccurrence(mInitialTime + 101);
         counter.addOccurrence(mInitialTime + 102);
         assertFalse(counter.isInWindow());
+
+        counter = new SlidingWindowEventCounter(0, 2);
+        counter.addOccurrence(mInitialTime);
+        counter.addOccurrence(mInitialTime);
+        assertFalse(counter.isInWindow());
+        assertFalse(counter.addOccurrence(mInitialTime));
+        assertFalse(counter.addOccurrence(mInitialTime));
     }
 }

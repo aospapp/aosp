@@ -36,7 +36,9 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
 import android.car.util.concurrent.AndroidAsyncFuture;
+import android.car.util.concurrent.AndroidFuture;
 import android.content.Context;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleOwner;
@@ -52,7 +54,6 @@ import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
 import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
-import com.android.internal.infra.AndroidFuture;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -119,8 +120,10 @@ public class AddProfileHandlerTest {
     public void newProfileConfirmed_invokesCreateNewUser()
             throws ExecutionException, InterruptedException, TimeoutException {
         AndroidFuture<UserCreationResult> future = new AndroidFuture<>();
+        UserHandle newUserHandle = UserHandle.of(1001);
         future.complete(new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL,
-                /* user= */ null, /* errorMessage= */ null));
+                newUserHandle));
+        when(mUserManager.getUserInfo(anyInt())).thenReturn(null);
         when(mCarUserManager.createUser(anyString(), anyInt()))
                 .thenReturn(new AndroidAsyncFuture<>(future));
 

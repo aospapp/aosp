@@ -30,6 +30,7 @@
 #include "HalUtils.h"
 #include "Manager.h"
 #include "TestNeuralNetworksWrapper.h"
+#include "TmpDirectoryUtils.h"
 
 using namespace android::nn;
 namespace hardware = android::hardware;
@@ -359,8 +360,7 @@ using CompilationCachingTestParam = std::tuple<uint32_t, uint32_t, V1_3::ErrorSt
 class CompilationCachingTest : public ::testing::TestWithParam<CompilationCachingTestParam> {
    protected:
     virtual void SetUp() override {
-        char cacheDirTemp[] =
-                "/data/local/tmp/AVeryLongDirectoryNameForTestCompilationCachingXXXXXX";
+        char cacheDirTemp[] = NN_TMP_DIR "/AVeryLongDirectoryNameForTestCompilationCachingXXXXXX";
         char* cacheDir = mkdtemp(cacheDirTemp);
         ASSERT_NE(cacheDir, nullptr);
         mCacheDir = cacheDir;

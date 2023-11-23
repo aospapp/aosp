@@ -20,6 +20,8 @@ limitations under the License.
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "tensorflow/compiler/tf2tensorrt/common/utils.h"
+#include "tensorflow/compiler/tf2tensorrt/utils/trt_tensor_proxy.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/graph/graph.h"
@@ -71,14 +73,6 @@ struct VectorTensorShapeHasher {
 using absl::StrAppend;
 using absl::StrCat;
 
-#define IS_TRT_VERSION_GE(major, minor, patch, build)           \
-  ((NV_TENSORRT_MAJOR > major) ||                               \
-   (NV_TENSORRT_MAJOR == major && NV_TENSORRT_MINOR > minor) || \
-   (NV_TENSORRT_MAJOR == major && NV_TENSORRT_MINOR == minor && \
-    NV_TENSORRT_PATCH > patch) ||                               \
-   (NV_TENSORRT_MAJOR == major && NV_TENSORRT_MINOR == minor && \
-    NV_TENSORRT_PATCH == patch && NV_TENSORRT_BUILD >= build))
-
 // This utility template converts an arithmetic type to a string. This function
 // is necessary to allow the following function to behave recursively:
 // `string DebugString(const std::vector<CType>&)`.
@@ -100,12 +94,12 @@ string DebugString(const std::vector<CType>& vector) {
   }
   return StrCat("{", tmp_s.substr(0, tmp_s.length() - 2), "}");
 }
-string DebugString(const nvinfer1::DimensionType type);
 string DebugString(const nvinfer1::Dims& dims);
 string DebugString(const nvinfer1::DataType trt_dtype);
 string DebugString(const TrtPrecisionMode mode);
 string DebugString(const DataType tf_type);
 string DebugString(const nvinfer1::Permutation& permutation, int len);
+string DebugString(const ITensorProxyPtr& tensor);
 string DebugString(const nvinfer1::ITensor& tensor);
 string DebugString(const std::vector<nvinfer1::Dims>& dimvec);
 string DebugString(const std::vector<TensorShape>& shapes);
@@ -119,7 +113,8 @@ inline bool HasStaticShape(const nvinfer1::Dims& dims) {
   return true;
 }
 
-inline bool HasStaticShape(std::vector<int> dims) {
+template <typename T>
+bool HasStaticShape(const T& dims) {
   return !absl::c_any_of(dims, [](int i) { return i < 0; });
 }
 
@@ -137,16 +132,34 @@ inline bool IsTrtShapeTensorCompatible(const Tensor& tensor) {
          IsTrtShapeTensorCompatible(tensor.shape());
 }
 
-template <typename TensorShapeType>
-inline nvinfer1::Dims TensorShapeToTrtDims(const TensorShapeType& shape,
-                                           bool ignore_first_dim) {
-  nvinfer1::Dims trt_dims;
-  const int offset = (ignore_first_dim ? 1 : 0);
-  for (int i = offset; i < shape.dims(); i++) {
-    trt_dims.d[i - offset] = shape.dim_size(i);
+template <typename Container>
+Status ContainerToTrtDims(const Container& shape, nvinfer1::Dims* trt_dims,
+                          bool ignore_first_dim = false) {
+  if (shape.size() == 0) {
+    // scalar
+    if (ignore_first_dim) {
+      return errors::Internal(
+          "Scalars cannot be represented in implicit batch mode");
+    }
+    *trt_dims = {0, {1}};
+  } else {
+    const int offset = (ignore_first_dim ? 1 : 0);
+    for (int i = offset; i < shape.size(); i++) {
+      trt_dims->d[i - offset] = shape.at(i);
+    }
+    trt_dims->nbDims = shape.size() - offset;
   }
-  trt_dims.nbDims = shape.dims() - offset;
-  return trt_dims;
+  return Status::OK();
+}
+
+template <typename TensorShapeType>
+Status TensorShapeToTrtDims(const TensorShapeType& shape, bool ignore_first_dim,
+                            nvinfer1::Dims* trt_dims) {
+  if (shape.dims() == -1) {
+    trt_dims->nbDims = -1;
+    return Status::OK();
+  }
+  return ContainerToTrtDims(shape.dim_sizes(), trt_dims, ignore_first_dim);
 }
 
 Status GetNetworkInputShapes(const nvinfer1::INetworkDefinition* network,
@@ -199,6 +212,17 @@ absl::optional<DeviceNameUtils::ParsedName> MergeIfCompatible(
 // by a string_view.
 absl::optional<DeviceNameUtils::ParsedName> MergeIfCompatible(
     const DeviceNameUtils::ParsedName& a, absl::string_view b);
+
+// Optimization profile generation strategies.
+enum class ProfileStrategy {
+  kRange,
+  kOptimal,
+  kRangeOptimal,
+  kImplicitBatchModeCompatible,
+};
+
+string ProfileStrategyToName(const ProfileStrategy strategy);
+Status ProfileStrategyFromName(const string& name, ProfileStrategy* strategy);
 
 #endif  // GOOGLE_CUDA && GOOGLE_TENSORRT
 

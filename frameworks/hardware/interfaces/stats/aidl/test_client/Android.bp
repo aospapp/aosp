@@ -31,7 +31,7 @@ cc_binary {
         "AidlStatsClient.cpp",
     ],
     shared_libs: [
-        "android.frameworks.stats-V1-ndk_platform",
+        "android.frameworks.stats-V1-ndk",
         "libbase",
         "libbinder_ndk",
         "libutils",

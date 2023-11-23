@@ -73,8 +73,10 @@ class ModuleNetworkStackClientTest {
     @Before
     fun setUp() {
         MockitoAnnotations.initMocks(this)
+        // Use DESCRIPTOR and not class name, as the descriptor is the original class name before
+        // jarjar, and is always what is used to query the interface.
         doReturn(mConnector).`when`(mConnectorBinder).queryLocalInterface(
-                INetworkStackConnector::class.qualifiedName!!)
+                INetworkStackConnector.DESCRIPTOR)
     }
 
     @After

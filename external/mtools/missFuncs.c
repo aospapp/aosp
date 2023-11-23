@@ -123,7 +123,7 @@ char * strchr (const char* s, int c)
 {
 	if (!s) return NULL;
 	while (*s && *s != c) s++;
-	if (*s) 
+	if (*s)
 		return (char*) s;
 	else
 		return NULL;
@@ -133,7 +133,7 @@ char * strchr (const char* s, int c)
 
 #ifndef HAVE_STRRCHR
 
-char * strrchr (const char* s1, int c) 
+char * strrchr (const char* s1, int c)
 {
 	char* s = (char*) s1;
 	char* start = (char*) s;
@@ -175,7 +175,7 @@ char *strpbrk(const char *string, const char *brkset)
 static int getdigit(char a, int max)
 {
 	int dig;
-	
+
 	if(a < '0')
 		return -1;
 	if(a <= '9') {
@@ -412,7 +412,7 @@ static exitCallback_t *callback = 0;
 int atexit(void (*function) (void))
 {
 	exitCallback_t *newCallback;
-		
+
 	newCallback = New(exitCallback_t);
 	if(!newCallback) {
 		printOom();

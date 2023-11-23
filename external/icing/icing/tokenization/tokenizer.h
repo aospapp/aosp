@@ -40,14 +40,6 @@ class Tokenizer {
  public:
   virtual ~Tokenizer() = default;
 
-  enum Type {
-    // Index tokenizers
-    PLAIN,  // Used to tokenize plain text input
-
-    // Query tokenizers
-    RAW_QUERY,  // Used to tokenize raw queries
-  };
-
   // An iterator helping to get tokens.
   // Example usage:
   //
@@ -83,22 +75,26 @@ class Tokenizer {
     // offset.
     // Ex.
     // auto iterator = tokenizer.Tokenize("foo bar baz").ValueOrDie();
-    // iterator.ResetToTokenAfter(4);
+    // iterator.ResetToTokenStartingAfter(4);
     // // The first full token starting after position 4 (the 'b' in "bar") is
     // // "baz".
     // PrintToken(iterator.GetToken());  // prints "baz"
-    virtual bool ResetToTokenAfter(int32_t offset) { return false; }
+    virtual bool ResetToTokenStartingAfter(int32_t utf32_offset) {
+      return false;
+    }
 
     // Sets the tokenizer to point at the first token that *ends* *before*
     // offset. Returns false if there are no valid tokens ending
     // before offset.
     // Ex.
     // auto iterator = tokenizer.Tokenize("foo bar baz").ValueOrDie();
-    // iterator.ResetToTokenBefore(4);
+    // iterator.ResetToTokenEndingBefore(4);
     // // The first full token ending before position 4 (the 'b' in "bar") is
     // // "foo".
     // PrintToken(iterator.GetToken());  // prints "foo"
-    virtual bool ResetToTokenBefore(int32_t offset) { return false; }
+    virtual bool ResetToTokenEndingBefore(int32_t utf32_offset) {
+      return false;
+    }
 
     virtual bool ResetToStart() { return false; }
   };

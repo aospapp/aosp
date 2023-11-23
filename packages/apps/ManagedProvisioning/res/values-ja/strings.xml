@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"お使いのデバイスは次のアプリによって管理されます。"</string>
     <string name="next" msgid="1004321437324424398">"次へ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"仕事用プロファイルを設定中…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT 管理者は、このプロフィールに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">
-
-</xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"IT 管理者は、このプロファイルに関連付けられた設定、コーポレート アクセス、アプリ、権限、データ、ネットワーク アクティビティと、通話履歴、連絡先の検索履歴を監視および管理できます。組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT 管理者は、このデバイスに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">
 
 </xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> によってインストールされる <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> アプリで、このデバイスのお支払いを行えます。"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"このデバイスを制限できます"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> は、お支払いが行われなかった場合、このデバイスへのアクセスを制限することがあります。"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"デバイスをセットアップできません。「無効なチェックサム」エラーについて、IT 管理者にお問い合わせください。"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"しばらくしてからもう一度試すか、IT 管理者にお問い合わせください"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"デバイスをセットアップできません。「コンポーネントの欠落または破損」エラーについて、IT 管理者にお問い合わせください。"</string>
+    <string name="setting_up" msgid="1478847967385506664">"セットアップしています…"</string>
 </resources>

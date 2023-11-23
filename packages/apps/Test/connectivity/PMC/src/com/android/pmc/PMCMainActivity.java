@@ -109,11 +109,16 @@ public class PMCMainActivity extends Activity {
         mBtnStart = (Button) findViewById(R.id.btnstart);
         mBtnStop = (Button) findViewById(R.id.btnstop);
         addListenerOnButton();
-        registerReceiver(mPMCReceiver, new IntentFilter(AUTOPOWER_INTENT_STRING));
-        registerReceiver(mPMCReceiver, new IntentFilter(SETPARAMS_INTENT_STRING));
-        registerReceiver(mBleScanReceiver, new IntentFilter(BleScanReceiver.BLE_SCAN_INTENT));
-        registerReceiver(mGattPMCReceiver, new IntentFilter(GattPMCReceiver.GATTPMC_INTENT));
-        registerReceiver(mA2dpReceiver, new IntentFilter(A2dpReceiver.A2DP_INTENT));
+        registerReceiver(mPMCReceiver, new IntentFilter(AUTOPOWER_INTENT_STRING),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        registerReceiver(mPMCReceiver, new IntentFilter(SETPARAMS_INTENT_STRING),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        registerReceiver(mBleScanReceiver, new IntentFilter(BleScanReceiver.BLE_SCAN_INTENT),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        registerReceiver(mGattPMCReceiver, new IntentFilter(GattPMCReceiver.GATTPMC_INTENT),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        registerReceiver(mA2dpReceiver, new IntentFilter(A2dpReceiver.A2DP_INTENT),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
     @Override
@@ -201,7 +206,8 @@ public class PMCMainActivity extends Activity {
             mDR = new WifiDownloadReceiver(PMCMainActivity.this,
                     "http://" + mServerIP + ":" + mServerPort + "/" + filename, mIntervalMillis,
                     mAlarmManager, mPIDownload);
-            registerReceiver(mDR, new IntentFilter(sDownloadAction));
+            registerReceiver(mDR, new IntentFilter(sDownloadAction),
+                    Context.RECEIVER_EXPORTED_UNAUDITED);
             Log.d(TAG, "Setting download data alarm. Interval: " + mIntervalMillis);
             mDR.scheduleDownload();
             mBtnStart.setEnabled(false);
@@ -225,7 +231,8 @@ public class PMCMainActivity extends Activity {
         // Stop any ongoing scans before starting a new instance.
         stopConnectivityScan();
         mConnSR = new WifiConnScanReceiver(this, mIntervalMillis, mAlarmManager, mPIConnScan);
-        registerReceiver(mConnSR, new IntentFilter(sConnScanAction));
+        registerReceiver(mConnSR, new IntentFilter(sConnScanAction),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Log.d(TAG, "Setting connectivity scan alarm. Interval: " + mIntervalMillis);
         mConnSR.scheduleConnScan();
         mBtnStart.setEnabled(false);
@@ -262,7 +269,8 @@ public class PMCMainActivity extends Activity {
         }
         mGScanR = new WifiGScanReceiver(
                 this, scanSettings, mIntervalMillis, mAlarmManager, mPIGScan);
-        registerReceiver(mGScanR, new IntentFilter(sGScanAction));
+        registerReceiver(mGScanR, new IntentFilter(sGScanAction),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Log.d(TAG, "Setting Gscan alarm. Interval: " + mIntervalMillis);
         mGScanR.scheduleGscan();
         mBtnStart.setEnabled(false);

@@ -41,6 +41,8 @@ rust_library {
     name: "libstructopt",
     host_supported: true,
     crate_name: "structopt",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.26",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: ["default"],
@@ -54,25 +56,3 @@ rust_library {
         "com.android.virt",
     ],
 }
-
-// dependent_library ["feature_list"]
-//   ansi_term-0.11.0
-//   atty-0.2.14
-//   bitflags-1.2.1 "default"
-//   clap-2.33.3 "ansi_term,atty,color,default,strsim,suggestions,vec_map"
-//   heck-0.3.2
-//   lazy_static-1.4.0
-//   libc-0.2.94
-//   proc-macro-error-1.0.4 "default,syn,syn-error"
-//   proc-macro-error-attr-1.0.4
-//   proc-macro2-1.0.26 "default,proc-macro"
-//   quote-1.0.9 "default,proc-macro"
-//   strsim-0.8.0
-//   structopt-derive-0.4.14
-//   syn-1.0.71 "clone-impls,default,derive,full,parsing,printing,proc-macro,quote"
-//   textwrap-0.11.0
-//   unicode-segmentation-1.7.1
-//   unicode-width-0.1.8 "default"
-//   unicode-xid-0.2.1 "default"
-//   vec_map-0.8.2
-//   version_check-0.9.3

@@ -1,7 +1,7 @@
 #==============================================================================
 #       init.qti.media.rc
 #
-# Copyright (c) 2020, The Linux Foundation. All rights reserved.
+# Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@ service qti-media /vendor/bin/init.qti.media.sh
     seclabel u:r:vendor_qti_media:s0
 
 on early-init
+    setprop vendor.media.system.build_codename ${ro.build.version.release_or_codename}
     start qti-media
 
 on post-fs-data

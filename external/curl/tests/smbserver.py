@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 #  Project                     ___| | | |  _ \| |
@@ -6,11 +6,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2017 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2017 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -21,20 +21,22 @@
 #
 """Server for testing SMB"""
 
-from __future__ import (absolute_import, division, print_function)
-# NOTE: the impacket configuration is not unicode_literals compatible!
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 import argparse
+import logging
 import os
 import sys
-import logging
 import tempfile
+
+# Import our curl test data helper
+from util import ClosingFileHandler, TestData
+
 if sys.version_info.major >= 3:
     import configparser
 else:
     import ConfigParser as configparser
-
-# Import our curl test data helper
-import curl_test_data
 
 # impacket needs to be installed in the Python environment
 try:
@@ -43,10 +45,10 @@ except ImportError:
     sys.stderr.write('Python package impacket needs to be installed!\n')
     sys.stderr.write('Use pip or your package manager to install it.\n')
     sys.exit(1)
-from impacket import smbserver as imp_smbserver
 from impacket import smb as imp_smb
-from impacket.nt_errors import (STATUS_ACCESS_DENIED, STATUS_SUCCESS,
-                                STATUS_NO_SUCH_FILE)
+from impacket import smbserver as imp_smbserver
+from impacket.nt_errors import (STATUS_ACCESS_DENIED, STATUS_NO_SUCH_FILE,
+                                STATUS_SUCCESS)
 
 log = logging.getLogger(__name__)
 SERVER_MAGIC = "SERVER_MAGIC"
@@ -120,7 +122,7 @@ class TestSmbServer(imp_smbserver.SMBSERVER):
                                          config_parser=config_parser)
 
         # Set up a test data object so we can get test data later.
-        self.ctd = curl_test_data.TestData(test_data_directory)
+        self.ctd = TestData(test_data_directory)
 
         # Override smbComNtCreateAndX so we can pretend to have files which
         # don't exist.
@@ -199,7 +201,8 @@ class TestSmbServer(imp_smbserver.SMBSERVER):
 
             # Get this file's information
             resp_info, error_code = imp_smbserver.queryPathInformation(
-                "", full_path, level=imp_smb.SMB_QUERY_FILE_ALL_INFO)
+                os.path.dirname(full_path), os.path.basename(full_path),
+                level=imp_smb.SMB_QUERY_FILE_ALL_INFO)
 
             if error_code != STATUS_SUCCESS:
                 raise SmbException(error_code, "Failed to query path info")
@@ -353,7 +356,7 @@ def setup_logging(options):
 
     # Write out to a logfile
     if options.logfile:
-        handler = logging.FileHandler(options.logfile, mode="w")
+        handler = ClosingFileHandler(options.logfile)
         handler.setFormatter(formatter)
         handler.setLevel(logging.DEBUG)
         root_logger.addHandler(handler)
@@ -388,6 +391,9 @@ if __name__ == '__main__':
     except Exception as e:
         log.exception(e)
         rc = ScriptRC.EXCEPTION
+
+    if options.pidfile and os.path.isfile(options.pidfile):
+        os.unlink(options.pidfile)
 
     log.info("[SMB] Returning %d", rc)
     sys.exit(rc)

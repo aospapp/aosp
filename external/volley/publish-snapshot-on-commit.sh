@@ -1,13 +1,15 @@
 set -eu
 
-if [ "$TRAVIS_REPO_SLUG" == "google/volley" ] && \
-   [ "$TRAVIS_PULL_REQUEST" == "false" ] && \
-   [ "$TRAVIS_BRANCH" == "master" ]; then
-  echo -e "Publishing snapshot build to OJO...\n"
+GITHUB_BRANCH=${GITHUB_REF#refs/heads/}
 
-  ./gradlew artifactoryPublish
+if [ "$GITHUB_REPOSITORY" == "google/volley" ] && \
+   [ "$GITHUB_EVENT_NAME" == "push" ] && \
+   [ "$GITHUB_BRANCH" == "master" ]; then
+  echo -e "Publishing snapshot build...\n"
 
-  echo -e "Published snapshot build to OJO"
+  ./gradlew publish
+
+  echo -e "Published snapshot build"
 else
   echo -e "Not publishing snapshot"
 fi

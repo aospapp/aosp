@@ -88,7 +88,7 @@ public class AoapPhoneCompanionActivity extends Activity {
         filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
         filter.addAction(ACTION_USB_ACCESSORY_PERMISSION);
         mReceiver = new AccessoryReceiver();
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     @Override

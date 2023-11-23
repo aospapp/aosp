@@ -74,6 +74,14 @@ class AudioRequestManager : public NonCopyable {
                        uint64_t bufferDuration, uint64_t deliveryInterval);
 
   /**
+   * Disables all the active requests for a nanoapp.
+   *
+   * @param nanoapp A non-null pointer to the nanoapp.
+   * @return the number of requests cancelled.
+   */
+  uint32_t disableAllAudioRequests(const Nanoapp *nanoapp);
+
+  /**
    * Handles a new batch of audio from the PlatformAudio interface.
    *
    * @param event The audio data event provided to the audio request manager.
@@ -107,9 +115,9 @@ class AudioRequestManager : public NonCopyable {
    * disabled via the user settings.
    *
    * @param setting The setting that changed.
-   * @param state The new setting state.
+   * @param enabled Whether setting is enabled or not.
    */
-  void onSettingChanged(Setting setting, SettingState state);
+  void onSettingChanged(Setting setting, bool enabled);
 
   /**
    * @return the instance of platform audio to allow platform-specific
@@ -131,7 +139,7 @@ class AudioRequestManager : public NonCopyable {
           nextEventTimestamp(nextEventTimestamp) {}
 
     //! The nanoapp instance IDs that own this request.
-    DynamicVector<uint32_t> instanceIds;
+    DynamicVector<uint16_t> instanceIds;
 
     //! The number of samples requested for this request.
     uint32_t numSamples;
@@ -240,7 +248,7 @@ class AudioRequestManager : public NonCopyable {
    * @param deliveryInterval When to deliver the samples.
    * @return true if successful, false otherwise.
    */
-  bool doConfigureSource(uint32_t instanceId, uint32_t handle, bool enable,
+  bool doConfigureSource(uint16_t instanceId, uint32_t handle, bool enable,
                          uint32_t numSamples, Nanoseconds deliveryInterval);
 
   /**
@@ -262,7 +270,7 @@ class AudioRequestManager : public NonCopyable {
    * @param deliveryInterval When to deliver the samples.
    * @return true if successful, false otherwise.
    */
-  bool createAudioRequest(uint32_t handle, uint32_t instanceId,
+  bool createAudioRequest(uint32_t handle, uint16_t instanceId,
                           uint32_t numSamples, Nanoseconds deliveryInterval);
 
   /**
@@ -280,7 +288,7 @@ class AudioRequestManager : public NonCopyable {
    *     found.
    */
   AudioRequest *findAudioRequestByInstanceId(uint32_t handle,
-                                             uint32_t instanceId, size_t *index,
+                                             uint16_t instanceId, size_t *index,
                                              size_t *instanceIdIndex);
 
   /**
@@ -350,7 +358,7 @@ class AudioRequestManager : public NonCopyable {
    *        otherwise.
    * @param suspended Boolean value that indicates if the source is suspended
    */
-  void postAudioSamplingChangeEvent(uint32_t instanceId, uint32_t handle,
+  void postAudioSamplingChangeEvent(uint16_t instanceId, uint32_t handle,
                                     bool available, bool suspended);
 
   /**
@@ -363,7 +371,7 @@ class AudioRequestManager : public NonCopyable {
    * @param instanceIds The list of nanoapp instance IDs to direct the event to.
    */
   void postAudioDataEventFatal(struct chreAudioDataEvent *event,
-                               const DynamicVector<uint32_t> &instanceIds);
+                               const DynamicVector<uint16_t> &instanceIds);
 
   /**
    * Invoked by the freeAudioDataEventCallback to decrement the reference count

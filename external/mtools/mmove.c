@@ -54,7 +54,7 @@ static int renameit(dos_name_t *dosname,
 		    direntry_t *targetEntry)
 {
 	Arg_t *arg = (Arg_t *) arg0;
-	int fat;
+	uint32_t fat;
 
 	targetEntry->dir = arg->entry->dir;
 	dosnameToDirentry(dosname, &targetEntry->dir);
@@ -65,7 +65,7 @@ static int renameit(dos_name_t *dosname,
 		/* get old direntry. It is important that we do this
 		 * on the actual direntry which is stored in the file,
 		 * and not on a copy, because we will modify it, and the
-		 * modification should be visible at file 
+		 * modification should be visible at file
 		 * de-allocation time */
 		movedEntry = getDirentry(arg->mp.File);
 		if(movedEntry->Dir != targetEntry->Dir) {
@@ -73,7 +73,7 @@ static int renameit(dos_name_t *dosname,
 			direntry_t subEntry;
 			Stream_t *oldDir;
 			/* we have a directory here. Change its parent link */
-			
+
 			initializeDirentry(&subEntry, arg->mp.File);
 
 			switch(vfat_lookup(&subEntry, "..", 2, ACCEPT_DIR,
@@ -101,7 +101,7 @@ static int renameit(dos_name_t *dosname,
 			}
 
 			wipeEntry(movedEntry);
-			
+
 			/* free the old parent, allocate the new one. */
 			oldDir = movedEntry->Dir;
 			*movedEntry = *targetEntry;
@@ -174,7 +174,7 @@ static int rename_directory(direntry_t *entry, MainParam_t *mp)
 	ret = rename_file(entry, mp);
 	if(ret & ERROR_ONE)
 		return ret;
-	
+
 	return ret;
 }
 
@@ -220,7 +220,7 @@ static void usage(int ret)
 	fprintf(stderr,
 		"Usage: %s [-vV] [-D clash_option] file targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-vV] [-D clash_option] file [files...] target_directory\n", 
+		"       %s [-vV] [-D clash_option] file [files...] target_directory\n",
 		progname);
 	exit(ret);
 }
@@ -252,7 +252,7 @@ void mmove(int argc, char **argv, int oldsyntax)
 				arg.verbose = 1;
 				break;
 			case 'o':
-				handle_clash_options(&arg.ch, c);
+				handle_clash_options(&arg.ch, (char)c);
 				break;
 			case 'D':
 				if(handle_clash_options(&arg.ch, *optarg))
@@ -270,7 +270,7 @@ void mmove(int argc, char **argv, int oldsyntax)
 	if (argc - optind < 2)
 		usage(1);
 
-	init_mp(&arg.mp);		
+	init_mp(&arg.mp);
 	arg.mp.arg = (void *) &arg;
 	arg.mp.openflags = O_RDWR;
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <android-base/properties.h>
 #include <cmath>
 #include <chrono>
@@ -23,8 +22,10 @@
 #include <audio_utils/channels.h>
 #include <audio_utils/format.h>
 #include <log/log.h>
+#include <utils/Mutex.h>
 #include <utils/ThreadDefs.h>
 #include <utils/Timers.h>
+#include PATH(APM_XSD_ENUMS_H_FILENAME)
 #include "device_port_source.h"
 #include "talsa.h"
 #include "ring_buffer.h"
@@ -35,13 +36,13 @@
 using ::android::base::GetBoolProperty;
 
 namespace xsd {
-using namespace ::android::audio::policy::configuration::V7_0;
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
 }
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 namespace {
@@ -63,7 +64,12 @@ struct TinyalsaSource : public DevicePortSource {
                                   cfg.base.sampleRateHz,
                                   cfg.frameCount,
                                   false /* isOut */)) {
-        mProduceThread = std::thread(&TinyalsaSource::producerThread, this);
+        if (mPcm) {
+            LOG_ALWAYS_FATAL_IF(!talsa::pcmPrepare(mPcm.get()));
+            mProduceThread = std::thread(&TinyalsaSource::producerThread, this);
+        } else {
+            mProduceThread = std::thread([](){});
+        }
     }
 
     ~TinyalsaSource() {
@@ -72,8 +78,10 @@ struct TinyalsaSource : public DevicePortSource {
     }
 
     Result getCapturePosition(uint64_t &frames, uint64_t &time) override {
+        const AutoMutex lock(mFrameCountersMutex);
+
         const nsecs_t nowNs = systemTime(SYSTEM_TIME_MONOTONIC);
-        const uint64_t nowFrames = getCaptureFrames(nowNs);
+        const uint64_t nowFrames = getCaptureFramesLocked(nowNs);
         mFrames += (nowFrames - mPreviousFrames);
         mPreviousFrames = nowFrames;
 
@@ -82,26 +90,28 @@ struct TinyalsaSource : public DevicePortSource {
         return Result::OK;
     }
 
-    uint64_t getCaptureFrames(const nsecs_t nowNs) const {
+    uint64_t getCaptureFramesLocked(const nsecs_t nowNs) const {
         return uint64_t(mSampleRateHz) * ns2us(nowNs - mStartNs) / 1000000;
     }
 
-    uint64_t getAvailableFrames(const nsecs_t nowNs) const {
-        return getCaptureFrames(nowNs) - mSentFrames;
+    uint64_t getAvailableFramesLocked(const nsecs_t nowNs) const {
+        return getCaptureFramesLocked(nowNs) - mSentFrames;
     }
 
-    uint64_t getAvailableFramesNow() const {
-        return getAvailableFrames(systemTime(SYSTEM_TIME_MONOTONIC));
+    uint64_t getAvailableFramesNowLocked() const {
+        return getAvailableFramesLocked(systemTime(SYSTEM_TIME_MONOTONIC));
     }
 
-    size_t getWaitFramesNow(const size_t requestedFrames) const {
-        const size_t availableFrames = getAvailableFramesNow();
+    size_t getWaitFramesNowLocked(const size_t requestedFrames) const {
+        const size_t availableFrames = getAvailableFramesNowLocked();
         return (requestedFrames > availableFrames)
             ? (requestedFrames - availableFrames) : 0;
     }
 
     size_t read(float volume, size_t bytesToRead, IWriter &writer) override {
-        const size_t waitFrames = getWaitFramesNow(bytesToRead / mFrameSize);
+        const AutoMutex lock(mFrameCountersMutex);
+
+        const size_t waitFrames = getWaitFramesNowLocked(bytesToRead / mFrameSize);
         const auto blockUntil =
             std::chrono::high_resolution_clock::now() +
                 + std::chrono::microseconds(waitFrames * 1000000 / mSampleRateHz);
@@ -142,8 +152,8 @@ struct TinyalsaSource : public DevicePortSource {
                     const size_t nZeroBytes = nZeroFrames * mFrameSize;
 
                     writer(zeroes, nZeroBytes);
-                    mSentFrames += nZeroFrames;
                     bytesToRead -= nZeroBytes;
+                    mSentFrames += nZeroFrames;
                 }
                 break;
             }
@@ -176,14 +186,7 @@ struct TinyalsaSource : public DevicePortSource {
     }
 
     size_t doRead(void *dst, size_t sz) {
-        const int res = ::pcm_read(mPcm.get(), dst, sz);
-        if (res < 0) {
-            ALOGW("TinyalsaSource::%s:%d pcm_read failed with res=%d",
-                  __func__, __LINE__, res);
-            return 0;
-        }
-
-        return sz;
+        return talsa::pcmRead(mPcm.get(), dst, sz) ? sz : 0;
     }
 
     static std::unique_ptr<TinyalsaSource> create(unsigned pcmCard,
@@ -207,15 +210,16 @@ private:
     const unsigned mSampleRateHz;
     const unsigned mFrameSize;
     const unsigned mReadSizeFrames;
-    uint64_t &mFrames;
-    uint64_t mPreviousFrames = 0;
-    uint64_t mSentFrames = 0;
+    uint64_t &mFrames GUARDED_BY(mFrameCountersMutex);
+    uint64_t mPreviousFrames GUARDED_BY(mFrameCountersMutex) = 0;
+    uint64_t mSentFrames GUARDED_BY(mFrameCountersMutex) = 0;
     std::atomic<uint32_t> mFramesLost = 0;
     RingBuffer mRingBuffer;
     talsa::Mixer mMixer;
     talsa::PcmPtr mPcm;
     std::thread mProduceThread;
     std::atomic<bool> mProduceThreadRunning = true;
+    mutable Mutex mFrameCountersMutex;
 };
 
 template <class G> struct GeneratedSource : public DevicePortSource {
@@ -231,8 +235,10 @@ template <class G> struct GeneratedSource : public DevicePortSource {
             , mGenerator(std::move(generator)) {}
 
     Result getCapturePosition(uint64_t &frames, uint64_t &time) override {
+        const AutoMutex lock(mFrameCountersMutex);
+
         const nsecs_t nowNs = systemTime(SYSTEM_TIME_MONOTONIC);
-        const uint64_t nowFrames = getCaptureFrames(nowNs);
+        const uint64_t nowFrames = getCaptureFramesLocked(nowNs);
         mFrames += (nowFrames - mPreviousFrames);
         mPreviousFrames = nowFrames;
         frames = mFrames;
@@ -240,15 +246,16 @@ template <class G> struct GeneratedSource : public DevicePortSource {
         return Result::OK;
     }
 
-    uint64_t getCaptureFrames(const nsecs_t nowNs) const {
+    uint64_t getCaptureFramesLocked(const nsecs_t nowNs) const {
         return uint64_t(mSampleRateHz) * ns2us(nowNs - mStartNs) / 1000000;
     }
 
-    uint64_t getAvailableFrames(const nsecs_t nowNs) const {
-        return getCaptureFrames(nowNs) - mSentFrames;
+    uint64_t getAvailableFramesLocked(const nsecs_t nowNs) const {
+        return getCaptureFramesLocked(nowNs) - mSentFrames;
     }
 
     size_t read(float volume, size_t bytesToRead, IWriter &writer) override {
+        const AutoMutex lock(mFrameCountersMutex);
         mWriteBuffer.resize(bytesToRead / sizeof(int16_t));
 
         int16_t *samples = mWriteBuffer.data();
@@ -258,7 +265,7 @@ template <class G> struct GeneratedSource : public DevicePortSource {
         unsigned availableFrames;
         while (true) {
             const nsecs_t nowNs = systemTime(SYSTEM_TIME_MONOTONIC);
-            availableFrames = getAvailableFrames(nowNs);
+            availableFrames = getAvailableFramesLocked(nowNs);
             if (availableFrames < requestedFrames / 2) {
                 const unsigned neededMoreFrames = requestedFrames / 2 - availableFrames;
 
@@ -276,25 +283,27 @@ template <class G> struct GeneratedSource : public DevicePortSource {
             adjust_channels(samples, 1, samples, nChannels,
                             sizeof(*samples), nFrames * sizeof(*samples));
         }
-        mSentFrames += nFrames;
 
         aops::multiplyByVolume(volume,
                                mWriteBuffer.data(),
                                nSamples);
 
         writer(mWriteBuffer.data(), nSamples * sizeof(*samples));
+        mSentFrames += nFrames;
+
         return 0;
     }
 
 private:
     std::vector<int16_t> mWriteBuffer;
-    uint64_t &mFrames;
+    uint64_t &mFrames GUARDED_BY(mFrameCountersMutex);
     const nsecs_t mStartNs;
     const unsigned mSampleRateHz;
     const unsigned mNChannels;
-    uint64_t mPreviousFrames = 0;
-    uint64_t mSentFrames = 0;
+    uint64_t mPreviousFrames GUARDED_BY(mFrameCountersMutex) = 0;
+    uint64_t mSentFrames GUARDED_BY(mFrameCountersMutex) = 0;
     G mGenerator;
+    mutable Mutex mFrameCountersMutex;
 };
 
 std::vector<int16_t> convertFloatsToInt16(const std::vector<float> &pcmFloat) {
@@ -472,7 +481,7 @@ bool DevicePortSource::validateDeviceAddress(const DeviceAddress& address) {
 }
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

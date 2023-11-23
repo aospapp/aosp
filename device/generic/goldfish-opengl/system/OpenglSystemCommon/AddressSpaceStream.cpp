@@ -29,6 +29,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <sys/mman.h>
+
 static const size_t kReadSize = 512 * 1024;
 static const size_t kWriteOffset = kReadSize;
 
@@ -145,32 +147,9 @@ AddressSpaceStream* createAddressSpaceStream(size_t ignored_bufSize) {
     return res;
 }
 
-#if defined(HOST_BUILD) || defined(__Fuchsia__)
-AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
-    // Ignore incoming ignored_bufSize
-    (void)ignored_bufSize;
-    return nullptr;
-}
-#else
-static address_space_handle_t openVirtGpuAddressSpace() {
-    address_space_handle_t ret;
-    uint8_t retryCount = 64;
-    do {
-        ret = virtgpu_address_space_open();
-    } while(ret < 0 && retryCount-- > 0 && errno == EINTR);
-    return ret;
-}
-
-AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
-    // Ignore incoming ignored_bufSize
-    (void)ignored_bufSize;
-
-    auto handle = openVirtGpuAddressSpace();
-    if (handle <= reinterpret_cast<address_space_handle_t>(-1)) {
-        ALOGE("AddressSpaceStream::create failed (open device) %d (%s)\n", errno, strerror(errno));
-        return nullptr;
-    }
-
+#if defined(VIRTIO_GPU) && !defined(HOST_BUILD)
+AddressSpaceStream* createVirtioGpuAddressSpaceStream(const struct StreamCreate &streamCreate) {
+    auto handle = reinterpret_cast<address_space_handle_t>(streamCreate.streamHandle);
     struct address_space_virtgpu_info virtgpu_info;
 
     ALOGD("%s: create subdevice and get resp\n", __func__);
@@ -178,6 +157,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
             handle, GoldfishAddressSpaceSubdeviceType::VirtioGpuGraphics,
             &virtgpu_info)) {
         ALOGE("AddressSpaceStream::create failed (create subdevice)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -191,6 +173,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
     if (!virtgpu_address_space_ping_with_response(
         &virtgpu_info, &request)) {
         ALOGE("AddressSpaceStream::create failed (get ring version)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -200,6 +185,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
     if (!virtgpu_address_space_ping_with_response(
         &virtgpu_info, &request)) {
         ALOGE("AddressSpaceStream::create failed (get ring version)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -211,6 +199,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
     if (!virtgpu_address_space_ping_with_response(
         &virtgpu_info, &request)) {
         ALOGE("AddressSpaceStream::create failed (set version)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -232,6 +223,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
             hostmem_id,
             &hostmem_info)) {
         ALOGE("AddressSpaceStream::create failed (alloc hostmem)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -240,6 +234,9 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
     if (!virtgpu_address_space_ping_with_response(
         &virtgpu_info, &request)) {
         ALOGE("AddressSpaceStream::create failed (get config)\n");
+        if (virtgpu_info.resp_mapped_ptr) {
+            munmap(virtgpu_info.resp_mapped_ptr, 4096);
+        }
         virtgpu_address_space_close(handle);
         return nullptr;
     }
@@ -263,6 +260,10 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
         .ping_with_response = virtgpu_address_space_ping_with_response,
     };
 
+    if (virtgpu_info.resp_mapped_ptr) {
+        munmap(virtgpu_info.resp_mapped_ptr, 4096);
+    }
+
     AddressSpaceStream* res =
         new AddressSpaceStream(
             handle, version, context,
@@ -270,7 +271,7 @@ AddressSpaceStream* createVirtioGpuAddressSpaceStream(size_t ignored_bufSize) {
 
     return res;
 }
-#endif // HOST_BUILD || __Fuchsia__
+#endif // VIRTIO_GPU && !HOST_BUILD
 
 
 AddressSpaceStream::AddressSpaceStream(
@@ -304,7 +305,8 @@ AddressSpaceStream::AddressSpaceStream(
     m_notifs(0),
     m_written(0),
     m_backoffIters(0),
-    m_backoffFactor(1) {
+    m_backoffFactor(1),
+    m_ringStorageSize(sizeof(struct asg_ring_storage) + m_writeBufferSize) {
     // We'll use this in the future, but at the moment,
     // it's a potential compile Werror.
     (void)m_version;
@@ -314,7 +316,11 @@ AddressSpaceStream::~AddressSpaceStream() {
     flush();
     ensureType3Finished();
     ensureType1Finished();
-    if (!m_virtioMode) {
+    if (m_virtioMode) {
+        if (m_context.to_host) {
+            munmap(m_context.to_host, m_ringStorageSize);
+        }
+    } else {
         m_ops.unmap(m_context.to_host, sizeof(struct asg_ring_storage));
         m_ops.unmap(m_context.buffer, m_writeBufferSize);
         m_ops.unclaim_shared(m_handle, m_ringOffset);
@@ -368,7 +374,7 @@ void *AddressSpaceStream::allocBuffer(size_t minSize) {
 
         return m_writeStart;
     }
-};
+}
 
 int AddressSpaceStream::commitBuffer(size_t size)
 {
@@ -821,7 +827,7 @@ int AddressSpaceStream::type1Write(uint32_t bufferOffset, size_t size) {
 }
 
 void AddressSpaceStream::backoff() {
-#if defined(HOST_BUILD) || defined(__APPLE__) || defined(__MACOSX) || defined(__Fuchsia__)
+#if defined(HOST_BUILD) || defined(__APPLE__) || defined(__MACOSX) || defined(__Fuchsia__) || defined(__linux__)
     static const uint32_t kBackoffItersThreshold = 50000000;
     static const uint32_t kBackoffFactorDoublingIncrement = 50000000;
 #else

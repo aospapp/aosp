@@ -32,6 +32,8 @@
                 <action android:name="com.android.testapp.GENERATED_BROADCAST_RECEIVER"/>
             </intent-filter>
         </receiver>
+
+        <service android:name="com.android.GeneratedTestAppService" />
     </application>
     <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

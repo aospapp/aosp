@@ -19,7 +19,9 @@
 #
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/handheld_vendor.mk)
+ifneq ($(EMULATOR_DISABLE_RADIO),true)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_vendor.mk)
+endif
 
 # need this for gles libraries to load properly
 # after moving to /vendor/lib/

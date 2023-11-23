@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"તમારી કારના કૅમેરાને ઍક્સેસ કરવાની મંજૂરી આપો."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"કારની ઊર્જાની માહિતીને ઍક્સેસ કરો"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"તમારી કારની ઊર્જાની માહિતી ઍક્સેસ કરવાની મંજૂરી આપો."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"કારના EV ચાર્જ સેટિંગનું નિયંત્રણ કરો"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"તમારી કારના EV ચાર્જ સેટિંગનું નિયંત્રણ કરો."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"કારની રેંજનું બાકીનું મૂલ્ય ગોઠવો"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"કારની રેંજનું બાકીનું મૂલ્ય ગોઠવો."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"કારના HVACને ઍક્સેસ કરો"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"પ્રવૃત્તિઓ ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટરમાં પ્રદર્શિત થાય તેવું જાહેર કરવાની ઍપ્લિકેશનને મંજૂરી આપો"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટર નિયંત્રણ"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટરમાં ઍપ્લિકેશન લૉન્ચ કરો"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટરનું નૅવિગેશન સ્ટેટસ"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટરના નૅવિગેશન સ્ટેટસમાં થતા ફેરફારો માટે સાંભળો"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટર રેન્ડર કરી રહ્યું છે"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ઇન્સ્ટ્રુમેન્ટ ક્લસ્ટરનો ડેટા પ્રાપ્ત કરો"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX પ્રતિબંધોની ગોઠવણી"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"\'કારમાં સવાર લોકોની જાગરૂકતા સંબંધિત સિસ્ટમ\'ની જાણકારીના ગ્રાફનું નિયંત્રણ શરૂ કરવાની અને રોકવાની મંજૂરી આપે છે"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"કારની ઇનપુટ સેવા"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ઇનપુટ ઇવેન્ટ્સને હૅન્ડલ કરો"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN બસ નિષ્ફળ રહી"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN બસ પ્રતિસાદ આપતી નથી. હેડયુનિટ બોક્સને અનપ્લગ કરી ફરી પ્લગ કરો અને કારને ફરી શરૂ કરો"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"ડ્રાઇવ કરતી વખતે તમે આ સુવિધાનો ઉપયોગ કરી શકતા નથી"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"સુરક્ષિત ઍપ્લિકેશન સુવિધાઓ સાથે ફરી શરૂ કરવા, <xliff:g id="EXIT_BUTTON">%s</xliff:g> પસંદ કરો."</string>
-    <string name="exit_button" msgid="5829638404777671253">"પાછળ"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"ઍપ બંધ કરો"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"પાછળ"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"નિદાનનો ડેટા વાંચો"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"કારમાંથી નિદાનનો ડેટા વાંચો."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"નિદાનનો ડેટા સાફ કરો"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"કારની સીટને નિયંત્રિત કરો."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"કારની પ્રાથમિક માહિતીને ઍક્સેસ કરો"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"કારની મૂળભૂત માહિતીને ઍક્સેસ કરો."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"કારની વિશિષ્ટ માહિતીને ઍક્સેસ કરો"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"કારની વિશિષ્ટ માહિતીને ઍક્સેસ કરો."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"કારના વિક્રેતાની પરવાનગી વિશેની માહિતીને ઍક્સેસ કરો"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"કારના વિક્રેતાની પરવાનગી વિશેની માહિતીને ઍક્સેસ કરો."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"કારની બહારની લાઇટની સ્થિતિને વાંચો"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"કારની સુવિધાઓ ચાલુ/બંધ રહેવા વિશેની પૉલિસી વાંચો."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"કારની સુવિધાઓ ચાલુ/બંધ રહેવા વિશેની નીતિને નિયંત્રિત કરો"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"કારની સુવિધાઓ ચાલુ/બંધ રહેવા વિશેની નીતિને નિયંત્રિત કરો."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"શટડાઉન પ્રક્રિયાને ગોઠવો"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"શટડાઉન પ્રક્રિયાને ગોઠવો."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"નમૂના જનરેટ કરો"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"નમૂના જનરેટ કરો."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"લૉન્ચિંગ ઍપ્લિકેશનો નિયંત્રિત કરો"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"લૉન્ચિંગ ઍપ્લિકેશનો નિયંત્રિત કરો."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN બસ નિષ્ફળ રહી"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN બસ પ્રતિસાદ આપતી નથી. હેડયુનિટ બોક્સને અનપ્લગ કરી ફરી પ્લગ કરો અને કારને ફરી શરૂ કરો"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"મારું ડિવાઇસ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"અતિથિ"</string>
-    <string name="importance_default" msgid="8587741629268312938">"ડિફૉલ્ટ મહત્ત્વ"</string>
-    <string name="importance_high" msgid="3141530792377745041">"ખૂબ જ મહત્ત્વની"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"ફેક્ટરી રીસેટ આવશ્યક છે"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"ઇન્ફોટેનમેન્ટ સિસ્ટમનો બધો ડેટા કાઢી નાખવામાં આવશે. રીસેટ કર્યા પછી તમે નવી પ્રોફાઇલ સેટઅપ કરી શકો છો."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"વધુ"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"ઇન્ફોટેનમેન્ટ સિસ્ટમ રીસેટ કરો"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"તમારી સિસ્ટમને ફેક્ટરી રીસેટની અને બધો ડેટા કાઢી નાખવાની વિનંતી મળી છે. તમે હમણાં રીસેટ કરી શકો છો અથવા આગલી વખતે જ્યારે કારને ચાલુ કરવામાં આવે ત્યારે તે રીસેટ થશે. ત્યાર પછી તમે નવી પ્રોફાઇલ સેટઅપ કરી શકો છો."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"હમણાં રીસેટ કરો"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"પછીથી રીસેટ કરો"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"આગલી વખતે જ્યારે કારને ચાલુ કરવામાં આવે ત્યારે ઇન્ફોટેનમેન્ટ સિસ્ટમ રીસેટ થશે."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"રીસેટ શરૂ કરવા માટે કાર પાર્ક કરેલી હોવી જરૂરી છે."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> તમારી સિસ્ટમની કાર્યક્ષમતાને અસર કરી રહી છે"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"સિસ્ટમની કાર્યક્ષમતા બહેતર બનાવવા માટે, ઍપ બંધ કરો. તમે સેટિંગમાંથી ઍપ ફરીથી ચાલુ કરી શકશો."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ઍપનો ઉપયોગ કરવાનું ચાલુ રાખવા માટે, ઍપને પ્રાધાન્યતા આપો."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"સિસ્ટમની કાર્યક્ષમતા બહેતર બનાવવા માટે, ઍપ અનઇન્સ્ટૉલ કરો."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ઍપ બંધ કરો"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ઍપને પ્રાધાન્યતા આપો"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ઍપ અનઇન્સ્ટૉલ કરો"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> બંધ કરવામાં આવી છે. તમે સેટિંગમાંથી તેને ફરીથી ચાલુ કરી શકો છો."</string>
 </resources>

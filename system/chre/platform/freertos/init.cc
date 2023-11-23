@@ -58,7 +58,7 @@ uint8_t gPrimaryLogBufferData[CHRE_LOG_BUFFER_DATA_SIZE];
 // runs on, CHRE might create additional threads, which are cleaned up when
 // CHRE exits.
 void chreThreadEntry(void *context) {
-  DramVoteClientSingleton::init();
+  UNUSED_VAR(context);
 
   chre::init();
   chre::EventLoopManagerSingleton::get()->lateInit();
@@ -77,6 +77,8 @@ void chreThreadEntry(void *context) {
 
 #ifdef CHRE_USE_BUFFERED_LOGGING
 void chreFlushLogsToHostThreadEntry(void *context) {
+  UNUSED_VAR(context);
+
   // Never exits
   chre::LogBufferManagerSingleton::get()->startSendLogsToHostLoop();
 }
@@ -90,6 +92,8 @@ const char *getChreFlushTaskName();
 
 BaseType_t init() {
   BaseType_t rc = pdPASS;
+
+  DramVoteClientSingleton::init();
 
 #ifdef CHRE_USE_BUFFERED_LOGGING
   chre::LogBufferManagerSingleton::init(gPrimaryLogBufferData,

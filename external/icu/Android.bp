@@ -67,7 +67,6 @@ cc_defaults {
         "-Wno-unused-const-variable",
         "-Wno-unneeded-internal-declaration",
         "-Wno-deprecated-declarations",
-        "-Wno-ignored-attributes",
     ],
     // Upstream requires C++11 as the minimum version.
     cppflags: [

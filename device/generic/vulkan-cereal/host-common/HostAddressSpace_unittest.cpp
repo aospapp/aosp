@@ -17,6 +17,7 @@
 #include "host-common/AndroidAgentFactory.h"
 #include "host-common/address_space_device.h"
 #include "host-common/address_space_device.hpp"
+#include "host-common/testing/MockAndroidAgentFactory.h"
 
 #include <gtest/gtest.h>
 
@@ -24,11 +25,13 @@ namespace android {
 
 class HostAddressSpaceTest : public ::testing::Test {
 protected:
-    static void SetUpTestCase() {
+    static void SetUpTestSuite() {
+        android::emulation::injectConsoleAgents(
+                android::emulation::MockAndroidConsoleFactory());
         emulation::goldfish_address_space_set_vm_operations(getConsoleAgents()->vm);
     }
 
-    static void TearDownTestCase() { }
+    static void TearDownTestSuite() { }
 
     void SetUp() override {
         mDevice = HostAddressSpaceDevice::get();

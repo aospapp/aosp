@@ -24,6 +24,7 @@
 #include "chre/platform/shared/host_protocol_common.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/flatbuffers/helpers.h"
+#include "chre_api/chre/event.h"
 #include "flatbuffers/flatbuffers.h"
 
 namespace chre {
@@ -76,6 +77,8 @@ class HostMessageHandlers {
                                          fbs::SettingState state);
 
   static void handleSelfTestRequest(uint16_t hostClientId);
+
+  static void handleNanConfigurationUpdate(bool enabled);
 };
 
 /**
@@ -131,7 +134,8 @@ class HostProtocolChre : public HostProtocolCommon {
       ChreFlatBufferBuilder &builder,
       DynamicVector<NanoappListEntryOffset> &offsetVector, uint64_t appId,
       uint32_t appVersion, bool enabled, bool isSystemNanoapp,
-      uint32_t appPermissions);
+      uint32_t appPermissions,
+      const DynamicVector<struct chreNanoappRpcService> &rpcServices);
 
   /**
    * Finishes encoding a NanoappListResponse message after all NanoappListEntry
@@ -223,19 +227,35 @@ class HostProtocolChre : public HostProtocolCommon {
 
   /**
    * @param state The fbs::SettingState value.
-   * @param chreSettingState If success, stores the corresponding
-   * chre::SettingState value.
+   * @param chreSettingEnabled If success, stores the value indicating whether
+   *     the setting is enabled or not.
    *
    * @return true if state was a valid fbs::SettingState value.
    */
-  static bool getSettingStateFromFbs(fbs::SettingState state,
-                                     SettingState *chreSettingState);
+  static bool getSettingEnabledFromFbs(fbs::SettingState state,
+                                       bool *chreSettingEnabled);
 
   /**
    * Encodes a message notifying the result of a self test.
    */
   static void encodeSelfTestResponse(ChreFlatBufferBuilder &builder,
                                      uint16_t hostClientId, bool success);
+
+  /**
+   * Encodes a metric message using custon-defined protocol
+   */
+  static void encodeMetricLog(ChreFlatBufferBuilder &builder, uint32_t metricId,
+                              const uint8_t *encodedMsg, size_t metricSize);
+
+  /**
+   * Encodes a NAN configuration request.
+   *
+   * @param builder An instance of the CHRE Flatbuffer builder.
+   * @param enable Boolean to indicate the enable/disable operation being
+   *        requested.
+   */
+  static void encodeNanConfigurationRequest(ChreFlatBufferBuilder &builder,
+                                            bool enable);
 };
 
 }  // namespace chre

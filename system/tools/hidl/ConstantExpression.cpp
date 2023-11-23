@@ -137,6 +137,11 @@ T handleBinaryCommon(T lval, const std::string& op, T rval) {
     return static_cast<T>(0xdeadbeef);
 }
 
+// The compiler doesn't know T is at least KIND_INT32, and will instantiate bool
+// version of this function, and will warn about converting the result of '<<'
+// to a boolean.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-in-bool-context"
 template <class T>
 T handleShift(T lval, const std::string& op, int64_t rval) {
     // just cast rval to int64_t and it should fit.
@@ -147,6 +152,7 @@ T handleShift(T lval, const std::string& op, int64_t rval) {
                        << lval << " " << op << " " << rval;
     return static_cast<T>(0xdeadbeef);
 }
+#pragma GCC diagnostic pop
 
 bool handleLogical(bool lval, const std::string& op, bool rval) {
     COMPUTE_BINARY(||);

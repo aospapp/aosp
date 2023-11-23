@@ -23,9 +23,10 @@ java_defaults {
     jni_libs: [
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
-        "libtetherutilsjni",
+        "libcom_android_networkstack_tethering_util_jni",
     ],
     jni_uses_sdk_apis: true,
+    jarjar_rules: ":TetheringTestsJarJarRules",
     visibility: ["//visibility:private"],
 }
 
@@ -33,6 +34,7 @@ android_test {
     name: "TetheringPrivilegedTests",
     defaults: [
         "TetheringPrivilegedTestsJniDefaults",
+        "ConnectivityNextEnableDefaults",
     ],
     srcs: [
         "src/**/*.java",
@@ -42,7 +44,7 @@ android_test {
     platform_apis: true,
     test_suites: [
         "device-tests",
-        "mts",
+        "mts-tethering",
     ],
     static_libs: [
         "androidx.test.rules",

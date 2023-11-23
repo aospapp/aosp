@@ -127,6 +127,7 @@ class RewriteAnnotations {
                 qualifiedName == RECENTLY_NONNULL ||
                 qualifiedName == ANDROID_NULLABLE ||
                 qualifiedName == ANDROID_NONNULL -> return false
+            qualifiedName.equals(ANDROID_SDK_CONSTANT) -> return true
             qualifiedName.startsWith("androidx.annotation.") -> return true
         }
 
@@ -134,9 +135,9 @@ class RewriteAnnotations {
         if (codebase != null) {
             val cls = codebase.findClass(qualifiedName) ?: return true
             return cls.isAnnotationType() && cls.getRetention() == AnnotationRetention.SOURCE
+        } else {
+            error("Found annotation with unknown desired retention: " + qualifiedName)
         }
-
-        return false
     }
 
     /** Writes the bytecode for the compiled annotations in the given file such that they are package private */

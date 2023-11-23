@@ -17,12 +17,15 @@
 
 #define LOG_TAG "RILC"
 
+#include <android-base/logging.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
 #include <android/hardware/radio/config/1.1/IRadioConfig.h>
-#include <android/hardware/radio/config/1.2/IRadioConfigResponse.h>
-#include <android/hardware/radio/config/1.3/IRadioConfigResponse.h>
-#include <android/hardware/radio/config/1.3/IRadioConfig.h>
 #include <android/hardware/radio/config/1.2/IRadioConfigIndication.h>
-#include <android/hardware/radio/1.1/types.h>
+#include <android/hardware/radio/config/1.2/IRadioConfigResponse.h>
+#include <android/hardware/radio/config/1.3/IRadioConfig.h>
+#include <android/hardware/radio/config/1.3/IRadioConfigResponse.h>
+#include <libradiocompat/RadioConfig.h>
 
 #include <ril.h>
 #include <guest/hals/ril/reference-libril/ril_service.h>
@@ -32,8 +35,6 @@ using namespace android::hardware::radio::V1_0;
 using namespace android::hardware::radio::config;
 using namespace android::hardware::radio::config::V1_0;
 using namespace android::hardware::radio::config::V1_3;
-using ::android::hardware::configureRpcThreadpool;
-using ::android::hardware::joinRpcThreadpool;
 using ::android::hardware::Return;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
@@ -111,7 +112,7 @@ Return<void> RadioConfigImpl::setResponseFunctions(
         const ::android::sp<V1_0::IRadioConfigIndication>& radioConfigIndication) {
     pthread_rwlock_t *radioServiceRwlockPtr = radio_1_6::getRadioServiceRwlock(RIL_SOCKET_1);
     int ret = pthread_rwlock_wrlock(radioServiceRwlockPtr);
-    assert(ret == 0);
+    CHECK_EQ(ret, 0);
 
     mRadioConfigResponse = radioConfigResponse;
     mRadioConfigIndication = radioConfigIndication;
@@ -141,7 +142,7 @@ Return<void> RadioConfigImpl::setResponseFunctions(
     mCounterRadioConfig++;
 
     ret = pthread_rwlock_unlock(radioServiceRwlockPtr);
-    assert(ret == 0);
+    CHECK_EQ(ret, 0);
 
     return Void();
 }
@@ -166,14 +167,14 @@ Return<void> RadioConfigImpl::setSimSlotsMapping(int32_t serial, const hidl_vec<
     }
     size_t slotNum = slotMap.size();
 
-    if (slotNum > RIL_SOCKET_NUM) {
+    if (slotNum > MAX_LOGICAL_MODEM_NUM) {
         RLOGE("setSimSlotsMapping: invalid parameter");
         sendErrorResponse(pRI, RIL_E_INVALID_ARGUMENTS);
         return Void();
     }
 
     for (size_t socket_id = 0; socket_id < slotNum; socket_id++) {
-        if (slotMap[socket_id] >= RIL_SOCKET_NUM) {
+        if (slotMap[socket_id] >= MAX_LOGICAL_MODEM_NUM) {
             RLOGE("setSimSlotsMapping: invalid parameter[%zu]", socket_id);
             sendErrorResponse(pRI, RIL_E_INVALID_ARGUMENTS);
             return Void();
@@ -258,6 +259,9 @@ Return<void> RadioConfigImpl::getHalDeviceCapabilities(int32_t serial) {
 
 void radio_1_6::registerConfigService(RIL_RadioFunctions *callbacks, CommandInfo *commands) {
     using namespace android::hardware;
+    using namespace std::string_literals;
+    namespace compat = android::hardware::radio::compat;
+
     RLOGD("Entry %s", __FUNCTION__);
     const char *serviceNames = "default";
 
@@ -268,7 +272,7 @@ void radio_1_6::registerConfigService(RIL_RadioFunctions *callbacks, CommandInfo
 
     pthread_rwlock_t *radioServiceRwlockPtr = getRadioServiceRwlock(0);
     int ret = pthread_rwlock_wrlock(radioServiceRwlockPtr);
-    assert(ret == 0);
+    CHECK_EQ(ret, 0);
     RLOGD("registerConfigService: starting V1_2::IConfigRadio %s", serviceNames);
     radioConfigService = new RadioConfigImpl;
 
@@ -279,10 +283,17 @@ void radio_1_6::registerConfigService(RIL_RadioFunctions *callbacks, CommandInfo
     radioConfigService->mRadioConfigResponseV1_2 = NULL;
     radioConfigService->mRadioConfigResponseV1_3 = NULL;
     radioConfigService->mRadioConfigIndicationV1_2 = NULL;
-    android::status_t status = radioConfigService->registerAsService(serviceNames);
-    RLOGD("registerConfigService registerService: status %d", status);
+
+    // use a compat shim to convert HIDL interface to AIDL and publish it
+    // PLEASE NOTE this is a temporary solution
+    static auto aidlHal = ndk::SharedRefBase::make<compat::RadioConfig>(radioConfigService);
+    const auto instance = compat::RadioConfig::descriptor + "/"s + std::string(serviceNames);
+    const auto status = AServiceManager_addService(aidlHal->asBinder().get(), instance.c_str());
+    RLOGD("registerConfigService addService: status %d", status);
+    CHECK_EQ(status, STATUS_OK);
+
     ret = pthread_rwlock_unlock(radioServiceRwlockPtr);
-    assert(ret == 0);
+    CHECK_EQ(ret, 0);
 }
 
 void checkReturnStatus(Return<void>& ret) {
@@ -298,11 +309,11 @@ void checkReturnStatus(Return<void>& ret) {
         int counter = mCounterRadioConfig;
         pthread_rwlock_t *radioServiceRwlockPtr = radio_1_6::getRadioServiceRwlock(0);
         int ret = pthread_rwlock_unlock(radioServiceRwlockPtr);
-        assert(ret == 0);
+        CHECK_EQ(ret, 0);
 
         // acquire wrlock
         ret = pthread_rwlock_wrlock(radioServiceRwlockPtr);
-        assert(ret == 0);
+        CHECK_EQ(ret, 0);
 
         // make sure the counter value has not changed
         if (counter == mCounterRadioConfig) {
@@ -320,11 +331,11 @@ void checkReturnStatus(Return<void>& ret) {
 
         // release wrlock
         ret = pthread_rwlock_unlock(radioServiceRwlockPtr);
-        assert(ret == 0);
+        CHECK_EQ(ret, 0);
 
         // Reacquire rdlock
         ret = pthread_rwlock_rdlock(radioServiceRwlockPtr);
-        assert(ret == 0);
+        CHECK_EQ(ret, 0);
     }
 }
 

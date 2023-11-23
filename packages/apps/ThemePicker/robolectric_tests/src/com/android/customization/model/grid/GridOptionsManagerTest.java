@@ -31,7 +31,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 
 @RunWith(RobolectricTestRunner.class)
@@ -69,7 +68,6 @@ public class GridOptionsManagerTest {
     @Test
     public void testFetch_backgroundThread() {
         mManager.fetchOptions(null, false);
-        Robolectric.flushBackgroundThreadScheduler();
         verify(mProvider).fetch(anyBoolean());
     }
 }

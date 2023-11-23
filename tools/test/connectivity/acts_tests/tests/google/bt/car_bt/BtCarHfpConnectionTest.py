@@ -27,9 +27,9 @@ from acts_contrib.test_utils.bt import bt_test_utils
 from acts_contrib.test_utils.car import car_bt_utils
 from acts_contrib.test_utils.car import car_telecom_utils
 from acts_contrib.test_utils.tel import tel_defines
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 
 BLUETOOTH_PKG_NAME = "com.android.bluetooth"
 CALL_TYPE_OUTGOING = "CALL_TYPE_OUTGOING"

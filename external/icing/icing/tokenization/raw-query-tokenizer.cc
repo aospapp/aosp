@@ -14,9 +14,8 @@
 
 #include "icing/tokenization/raw-query-tokenizer.h"
 
-#include <stddef.h>
-
 #include <cctype>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -103,7 +102,7 @@ enum State {
   // When seeing right parentheses
   CLOSING_PARENTHESES = 8,
 
-  PROCESSING_NON_ASCII_ALPHABETIC_TERM = 9,
+  PROCESSING_NON_ASCII_ALPHANUMERIC_TERM = 9,
 
   PROCESSING_PROPERTY_TERM_APPENDING = 10,
 
@@ -120,7 +119,7 @@ enum TermType {
   // A term that consists of unicode alphabetic and numeric characters
   ASCII_ALPHANUMERIC_TERM = 1,
 
-  NON_ASCII_ALPHABETIC_TERM = 2,
+  NON_ASCII_ALPHANUMERIC_TERM = 2,
 
   // "("
   LEFT_PARENTHESES = 3,
@@ -209,7 +208,7 @@ std::string_view GetErrorMessage(ActionOrError maybe_error) {
 // PROCESSING_OR = 6
 // OPENING_PARENTHESES = 7
 // CLOSING_PARENTHESES = 8
-// PROCESSING_NON_ASCII_ALPHABETIC_TERM = 9
+// PROCESSING_NON_ASCII_ALPHANUMERIC_TERM = 9
 // PROCESSING_PROPERTY_TERM_APPENDING = 10
 //
 // Actions:
@@ -253,40 +252,40 @@ std::string_view GetErrorMessage(ActionOrError maybe_error) {
 // like "+", "&", "@", "#" in indexing and query tokenizers.
 constexpr State state_transition_rules[STATE_COUNT][TYPE_COUNT] = {
     /*State: Ready*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, PROCESSING_EXCLUSION,
      PROCESSING_OR, READY, READY},
     /*State: PROCESSING_ALPHANUMERIC_TERM*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, READY, INVALID,
      PROCESSING_PROPERTY_RESTRICT, READY},
     /*State: PROCESSING_EXCLUSION*/
     {READY, PROCESSING_EXCLUSION_TERM, PROCESSING_EXCLUSION_TERM, INVALID,
      CLOSING_PARENTHESES, PROCESSING_EXCLUSION, INVALID, INVALID, READY},
     /*State: PROCESSING_EXCLUSION_TERM*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, READY, INVALID, INVALID, READY},
     /*State: PROCESSING_PROPERTY_RESTRICT*/
     {READY, PROCESSING_PROPERTY_TERM, PROCESSING_PROPERTY_TERM, INVALID,
      CLOSING_PARENTHESES, INVALID, INVALID, PROCESSING_PROPERTY_RESTRICT,
      READY},
     /*State: PROCESSING_PROPERTY_TERM*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, READY, INVALID,
      PROCESSING_PROPERTY_TERM_APPENDING, READY},
     /*State: PROCESSING_OR*/
     {READY, INVALID, INVALID, OPENING_PARENTHESES, CLOSING_PARENTHESES, INVALID,
      INVALID, INVALID, READY},
     /*State: OPENING_PARENTHESES*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, PROCESSING_EXCLUSION,
      OPENING_PARENTHESES, READY, READY},
     /*State: CLOSING_PARENTHESES*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, PROCESSING_EXCLUSION,
      PROCESSING_OR, INVALID, READY},
-    /*State: PROCESSING_NON_ASCII_ALPHABETIC_TERM*/
-    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHABETIC_TERM,
+    /*State: PROCESSING_NON_ASCII_ALPHANUMERIC_TERM*/
+    {READY, PROCESSING_ALPHANUMERIC_TERM, PROCESSING_NON_ASCII_ALPHANUMERIC_TERM,
      OPENING_PARENTHESES, CLOSING_PARENTHESES, READY, INVALID, INVALID, READY},
     /*State: PROCESSING_PROPERTY_TERM_APPENDING*/
     {READY, PROCESSING_PROPERTY_TERM_APPENDING,
@@ -327,7 +326,7 @@ constexpr ActionOrError action_rules[STATE_COUNT][TYPE_COUNT] = {
     /*State: CLOSING_PARENTHESES*/
     {OUTPUT, OUTPUT, OUTPUT, OUTPUT, OUTPUT, OUTPUT, OUTPUT,
      ERROR_GROUP_AS_PROPERTY_NAME, OUTPUT},
-    /*State: PROCESSING_NON_ASCII_ALPHABETIC_TERM*/
+    /*State: PROCESSING_NON_ASCII_ALPHANUMERIC_TERM*/
     {OUTPUT, OUTPUT, OUTPUT, OUTPUT, OUTPUT, OUTPUT,
      ERROR_NO_WHITESPACE_AROUND_OR, ERROR_NON_ASCII_AS_PROPERTY_NAME, OUTPUT},
     /*State: PROCESSING_PROPERTY_TERM_APPENDING*/
@@ -346,6 +345,40 @@ std::pair<TermType, std::string_view> GetWhitespaceTerm(std::string_view text,
   return std::make_pair(WHITESPACE, text.substr(pos, cur - pos));
 }
 
+TermType GetContentTermType(std::string_view text, size_t pos) {
+  if (i18n_utils::IsPunctuationAt(text, pos)) {
+    return OTHER;
+  } else if (i18n_utils::IsAscii(text[pos])) {
+    return ASCII_ALPHANUMERIC_TERM;
+  }
+  return NON_ASCII_ALPHANUMERIC_TERM;
+}
+
+bool IsContentTermType(TermType term_type) {
+  switch (term_type) {
+    case ASCII_ALPHANUMERIC_TERM:
+      [[fallthrough]];
+    case NON_ASCII_ALPHANUMERIC_TERM:
+      [[fallthrough]];
+    case OTHER:
+      return true;
+    case WHITESPACE:
+      [[fallthrough]];
+    case LEFT_PARENTHESES:
+      [[fallthrough]];
+    case RIGHT_PARENTHESES:
+      [[fallthrough]];
+    case EXCLUSION_OPERATOR:
+      [[fallthrough]];
+    case OR_OPERATOR:
+      [[fallthrough]];
+    case COLON:
+      [[fallthrough]];
+    case TYPE_COUNT:
+      return false;
+  }
+}
+
 // Determines the length of the potential content term beginning at text[pos]
 // and returns a pair with the appropriate TermType and a string_view of the
 // content term.
@@ -358,12 +391,7 @@ std::pair<TermType, std::string_view> GetContentTerm(std::string_view text,
                                                      size_t pos) {
   size_t len = 0;
   // Checks the first char to see if it's an ASCII term
-  TermType type = ASCII_ALPHANUMERIC_TERM;
-  if (!i18n_utils::IsAscii(text[pos])) {
-    type = NON_ASCII_ALPHABETIC_TERM;
-  } else if (std::isalnum(text[pos])) {
-    type = OTHER;
-  }
+  TermType type = GetContentTermType(text, pos);
   for (size_t cur = pos; cur < text.length() && len == 0; ++cur) {
     switch (text[cur]) {
       case kLeftParentheses:
@@ -423,7 +451,7 @@ std::pair<TermType, std::string_view> GetTerm(std::string_view text,
 // and [(cat OR)]. This helps assert extra rule 3: "OR" is ignored if there's no
 // valid token on its right.
 void RemoveLastTokenIfOrOperator(std::vector<Token>* tokens) {
-  if (!tokens->empty() && tokens->back().type == Token::QUERY_OR) {
+  if (!tokens->empty() && tokens->back().type == Token::Type::QUERY_OR) {
     tokens->pop_back();
   }
 }
@@ -437,11 +465,11 @@ libtextclassifier3::Status OutputOrOperatorToken(std::vector<Token>* tokens) {
   }
   Token::Type last_token_type = tokens->back().type;
   switch (last_token_type) {
-    case Token::REGULAR:
-    case Token::QUERY_RIGHT_PARENTHESES:
-      tokens->emplace_back(Token::QUERY_OR);
+    case Token::Type::REGULAR:
+    case Token::Type::QUERY_RIGHT_PARENTHESES:
+      tokens->emplace_back(Token::Type::QUERY_OR);
       break;
-    case Token::QUERY_OR:
+    case Token::Type::QUERY_OR:
       // Ignores "OR" because there's already an "OR", e.g. "term1 OR OR term2"
       break;
     default:
@@ -471,7 +499,7 @@ libtextclassifier3::Status OutputToken(State new_state,
   switch (current_term_type) {
     case ASCII_ALPHANUMERIC_TERM:
       [[fallthrough]];
-    case NON_ASCII_ALPHABETIC_TERM:
+    case NON_ASCII_ALPHANUMERIC_TERM:
       if (new_state == PROCESSING_PROPERTY_TERM) {
         // Asserts extra rule 1: each property name in the property path is a
         // valid term.
@@ -482,21 +510,21 @@ libtextclassifier3::Status OutputToken(State new_state,
                 GetErrorMessage(ERROR_NON_ASCII_AS_PROPERTY_NAME));
           }
         }
-        tokens->emplace_back(Token::QUERY_PROPERTY, current_term);
+        tokens->emplace_back(Token::Type::QUERY_PROPERTY, current_term);
       } else {
-        tokens->emplace_back(Token::REGULAR, current_term);
+        tokens->emplace_back(Token::Type::REGULAR, current_term);
       }
       break;
     case LEFT_PARENTHESES:
-      tokens->emplace_back(Token::QUERY_LEFT_PARENTHESES);
+      tokens->emplace_back(Token::Type::QUERY_LEFT_PARENTHESES);
       break;
     case RIGHT_PARENTHESES:
       // Ignores "OR" if it's followed by right parentheses.
       RemoveLastTokenIfOrOperator(tokens);
-      tokens->emplace_back(Token::QUERY_RIGHT_PARENTHESES);
+      tokens->emplace_back(Token::Type::QUERY_RIGHT_PARENTHESES);
       break;
     case EXCLUSION_OPERATOR:
-      tokens->emplace_back(Token::QUERY_EXCLUSION);
+      tokens->emplace_back(Token::Type::QUERY_EXCLUSION);
       break;
     case OR_OPERATOR:
       return OutputOrOperatorToken(tokens);
@@ -541,10 +569,8 @@ libtextclassifier3::Status ProcessTerm(
         ICING_ASSIGN_OR_RETURN(std::vector<std::string_view> content_terms,
                                language_segmenter->GetAllTerms(*current_term));
         for (std::string_view term : content_terms) {
-          TermType type = ASCII_ALPHANUMERIC_TERM;
-          if (!i18n_utils::IsAscii(term[0])) {
-            type = NON_ASCII_ALPHABETIC_TERM;
-          } else if (!std::isalnum(term[0])) {
+          TermType type = GetContentTermType(term, 0);
+          if (type == OTHER) {
             // Skip OTHER tokens here.
             continue;
           }
@@ -590,9 +616,7 @@ libtextclassifier3::StatusOr<std::vector<Token>> ProcessTerms(
   for (int i = 0; i < prescanned_terms.size(); ++i) {
     const std::pair<TermType, std::string_view>& prescanned_term =
         prescanned_terms.at(i);
-    if (prescanned_term.first != ASCII_ALPHANUMERIC_TERM &&
-        prescanned_term.first != NON_ASCII_ALPHABETIC_TERM &&
-        prescanned_term.first != OTHER) {
+    if (!IsContentTermType(prescanned_term.first)) {
       // This can't be a property restrict. Just pass it in.
       ICING_RETURN_IF_ERROR(
           ProcessTerm(&current_state, &current_term, &current_term_type,
@@ -604,18 +628,15 @@ libtextclassifier3::StatusOr<std::vector<Token>> ProcessTerms(
           std::vector<std::string_view> content_terms,
           language_segmenter->GetAllTerms(prescanned_term.second));
       for (std::string_view term : content_terms) {
-        TermType type = ASCII_ALPHANUMERIC_TERM;
+        TermType type = GetContentTermType(term, 0);
         if (term == kOrOperator) {
           // TODO(tjbarron) Decide whether we should revise this and other
           // handled syntax. This is used to allow queries like "term1,OR,term2"
           // to succeed. It's not clear if we should allow this or require
           // clients to ensure that OR operators are always surrounded by
           // whitespace.
+          // Override the type if this is actually an OR operator.
           type = OR_OPERATOR;
-        } else if (!i18n_utils::IsAscii(term[0])) {
-          type = NON_ASCII_ALPHABETIC_TERM;
-        } else if (!std::isalnum(term[0])) {
-          type = OTHER;
         }
         ICING_RETURN_IF_ERROR(ProcessTerm(&current_state, &current_term,
                                           &current_term_type,
@@ -649,7 +670,7 @@ class RawQueryTokenIterator : public Tokenizer::Iterator {
 
   Token GetToken() const override {
     if (current_ < 0 || current_ >= tokens_.size()) {
-      return Token(Token::INVALID);
+      return Token(Token::Type::INVALID);
     }
     return tokens_.at(current_);
   }

@@ -20,6 +20,7 @@ package libcore.java.io;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -77,7 +78,7 @@ public class OldFileWriterTest extends TestCase {
         }
     }
 
-    public void test_handleEarlyEOFChar_1() {
+    public void test_handleEarlyEOFChar_1() throws IOException {
         String str = "All work and no play makes Jack a dull boy\n";
         int NUMBER = 2048;
         int j = 0;
@@ -91,27 +92,23 @@ public class OldFileWriterTest extends TestCase {
         }
         File f = null;
         FileWriter fw = null;
-        try {
-            f = File.createTempFile("ony", "by_one");
-            fw = new FileWriter(f);
-            fw.write(strChars);
-            fw.close();
-            InputStreamReader in = null;
-            FileInputStream fis = new FileInputStream(f);
-            in = new InputStreamReader(fis);
-            int b;
-            int errors = 0;
-            for (int offset = 0; offset < strChars.length; ++offset) {
-                b = in.read();
-                if (b == -1) {
-                    fail("Early EOF at offset " + offset + "\n");
-                    return;
-                }
+        f = File.createTempFile("ony", "by_one");
+        fw = new FileWriter(f);
+        fw.write(strChars);
+        fw.close();
+        InputStreamReader in = null;
+        FileInputStream fis = new FileInputStream(f);
+        in = new InputStreamReader(fis);
+        int b;
+        int errors = 0;
+        for (int offset = 0; offset < strChars.length; ++offset) {
+            b = in.read();
+            if (b == -1) {
+                fail("Early EOF at offset " + offset + "\n");
+                return;
             }
-            assertEquals(0, errors);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+        assertEquals(0, errors);
     }
 
     public void test_handleEarlyEOFChar_2() throws IOException {
@@ -139,6 +136,40 @@ public class OldFileWriterTest extends TestCase {
         f.deleteOnExit();
         assertEquals(len, flen);
         assertEquals(inputStr, outStr);
+    }
+
+    public void test_handleExternalFileDescriptor() throws IOException {
+        String str = "All work and no play makes Jack a dull boy\n";
+        int NUMBER = 2048;
+        int j = 0;
+        int len = str.length() * NUMBER;
+        /* == 88064 *//* NUMBER compulsively written copies of the same string */
+        char[] strChars = new char[len];
+        for (int i = 0; i < NUMBER; ++i) {
+            for (int k = 0; k < str.length(); ++k) {
+                strChars[j++] = str.charAt(k);
+            }
+        }
+        File f = null;
+        FileWriter fw = null;
+        f = File.createTempFile("ony", "by_one");
+        FileOutputStream stream = new FileOutputStream(f);
+        fw = new FileWriter(stream.getFD());
+        fw.write(strChars);
+        fw.close();
+        InputStreamReader in = null;
+        FileInputStream fis = new FileInputStream(f);
+        in = new InputStreamReader(fis);
+        int b;
+        int errors = 0;
+        for (int offset = 0; offset < strChars.length; ++offset) {
+            b = in.read();
+            if (b == -1) {
+                fail("Early EOF at offset " + offset + "\n");
+                return;
+            }
+        }
+        assertEquals(0, errors);
     }
 
     protected void setUp() throws Exception {

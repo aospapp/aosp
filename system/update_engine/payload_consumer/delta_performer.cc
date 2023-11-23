@@ -32,8 +32,6 @@
 #include <base/format_macros.h>
 #include <base/metrics/histogram_macros.h>
 #include <base/strings/string_number_conversions.h>
-#include <base/strings/string_util.h>
-#include <base/strings/stringprintf.h>
 #include <base/time/time.h>
 #include <brillo/data_encoding.h>
 #include <bsdiff/bspatch.h>
@@ -249,8 +247,8 @@ bool DeltaPerformer::OpenCurrentPartition() {
       IsDynamicPartition(install_part.name, install_plan_->target_slot));
   // Open source fds if we have a delta payload, or for partitions in the
   // partial update.
-  bool source_may_exist = manifest_.partial_update() ||
-                          payload_->type == InstallPayloadType::kDelta;
+  const bool source_may_exist = manifest_.partial_update() ||
+                                payload_->type == InstallPayloadType::kDelta;
   const size_t partition_operation_num = GetPartitionOperationNum();
 
   TEST_AND_RETURN_FALSE(partition_writer_->Init(
@@ -267,7 +265,7 @@ size_t DeltaPerformer::GetPartitionOperationNum() {
 namespace {
 
 void LogPartitionInfoHash(const PartitionInfo& info, const string& tag) {
-  string sha256 = brillo::data_encoding::Base64Encode(info.hash());
+  string sha256 = HexEncode(info.hash());
   LOG(INFO) << "PartitionInfo " << tag << " sha256: " << sha256
             << " size: " << info.size();
 }
@@ -391,12 +389,13 @@ MetadataParseResult DeltaPerformer::ParsePayloadMetadata(
   return MetadataParseResult::kSuccess;
 }
 
-#define OP_DURATION_HISTOGRAM(_op_name, _start_time)                         \
-  LOCAL_HISTOGRAM_CUSTOM_TIMES(                                              \
-      "UpdateEngine.DownloadAction.InstallOperation::" _op_name ".Duration", \
-      (base::TimeTicks::Now() - _start_time),                                \
-      base::TimeDelta::FromMilliseconds(10),                                 \
-      base::TimeDelta::FromMinutes(5),                                       \
+#define OP_DURATION_HISTOGRAM(_op_name, _start_time)                        \
+  LOCAL_HISTOGRAM_CUSTOM_TIMES(                                             \
+      "UpdateEngine.DownloadAction.InstallOperation::" + string(_op_name) + \
+          ".Duration",                                                      \
+      (base::TimeTicks::Now() - _start_time),                               \
+      base::TimeDelta::FromMilliseconds(10),                                \
+      base::TimeDelta::FromMinutes(5),                                      \
       20);
 
 // Wrapper around write. Returns true if all requested bytes
@@ -499,7 +498,10 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     // |num_total_operations_| limit yet.
     if (next_operation_num_ >= acc_num_operations_[current_partition_]) {
       if (partition_writer_) {
-        TEST_AND_RETURN_FALSE(partition_writer_->FinishedInstallOps());
+        if (!partition_writer_->FinishedInstallOps()) {
+          *error = ErrorCode::kDownloadWriteError;
+          return false;
+        }
       }
       CloseCurrentPartition();
       // Skip until there are operations for current_partition_.
@@ -548,6 +550,7 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     base::TimeTicks op_start_time = base::TimeTicks::Now();
 
     bool op_result;
+    const string op_name = InstallOperationTypeName(op.type());
     switch (op.type()) {
       case InstallOperation::REPLACE:
       case InstallOperation::REPLACE_BZ:
@@ -566,17 +569,17 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
         break;
       case InstallOperation::SOURCE_BSDIFF:
       case InstallOperation::BROTLI_BSDIFF:
-        op_result = PerformSourceBsdiffOperation(op, error);
-        OP_DURATION_HISTOGRAM("SOURCE_BSDIFF", op_start_time);
-        break;
       case InstallOperation::PUFFDIFF:
-        op_result = PerformPuffDiffOperation(op, error);
-        OP_DURATION_HISTOGRAM("PUFFDIFF", op_start_time);
+      case InstallOperation::ZUCCHINI:
+      case InstallOperation::LZ4DIFF_PUFFDIFF:
+      case InstallOperation::LZ4DIFF_BSDIFF:
+        op_result = PerformDiffOperation(op, error);
+        OP_DURATION_HISTOGRAM(op_name, op_start_time);
         break;
       default:
         op_result = false;
     }
-    if (!HandleOpResult(op_result, InstallOperationTypeName(op.type()), error))
+    if (!HandleOpResult(op_result, op_name.c_str(), error))
       return false;
 
     next_operation_num_++;
@@ -626,10 +629,8 @@ bool DeltaPerformer::IsManifestValid() {
 }
 
 bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
-  partitions_.clear();
-  for (const PartitionUpdate& partition : manifest_.partitions()) {
-    partitions_.push_back(partition);
-  }
+  partitions_.assign(manifest_.partitions().begin(),
+                     manifest_.partitions().end());
 
   // For VAB and partial updates, the partition preparation will copy the
   // dynamic partitions metadata to the target metadata slot, and rename the
@@ -687,87 +688,11 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
     }
   }
 
-  // Fill in the InstallPlan::partitions based on the partitions from the
-  // payload.
-  for (const auto& partition : partitions_) {
-    InstallPlan::Partition install_part;
-    install_part.name = partition.partition_name();
-    install_part.run_postinstall =
-        partition.has_run_postinstall() && partition.run_postinstall();
-    if (install_part.run_postinstall) {
-      install_part.postinstall_path =
-          (partition.has_postinstall_path() ? partition.postinstall_path()
-                                            : kPostinstallDefaultScript);
-      install_part.filesystem_type = partition.filesystem_type();
-      install_part.postinstall_optional = partition.postinstall_optional();
-    }
-
-    if (partition.has_old_partition_info()) {
-      const PartitionInfo& info = partition.old_partition_info();
-      install_part.source_size = info.size();
-      install_part.source_hash.assign(info.hash().begin(), info.hash().end());
-    }
-
-    if (!partition.has_new_partition_info()) {
-      LOG(ERROR) << "Unable to get new partition hash info on partition "
-                 << install_part.name << ".";
-      *error = ErrorCode::kDownloadNewPartitionInfoError;
-      return false;
-    }
-    const PartitionInfo& info = partition.new_partition_info();
-    install_part.target_size = info.size();
-    install_part.target_hash.assign(info.hash().begin(), info.hash().end());
-
-    install_part.block_size = block_size_;
-    if (partition.has_hash_tree_extent()) {
-      Extent extent = partition.hash_tree_data_extent();
-      install_part.hash_tree_data_offset = extent.start_block() * block_size_;
-      install_part.hash_tree_data_size = extent.num_blocks() * block_size_;
-      extent = partition.hash_tree_extent();
-      install_part.hash_tree_offset = extent.start_block() * block_size_;
-      install_part.hash_tree_size = extent.num_blocks() * block_size_;
-      uint64_t hash_tree_data_end =
-          install_part.hash_tree_data_offset + install_part.hash_tree_data_size;
-      if (install_part.hash_tree_offset < hash_tree_data_end) {
-        LOG(ERROR) << "Invalid hash tree extents, hash tree data ends at "
-                   << hash_tree_data_end << ", but hash tree starts at "
-                   << install_part.hash_tree_offset;
-        *error = ErrorCode::kDownloadNewPartitionInfoError;
-        return false;
-      }
-      install_part.hash_tree_algorithm = partition.hash_tree_algorithm();
-      install_part.hash_tree_salt.assign(partition.hash_tree_salt().begin(),
-                                         partition.hash_tree_salt().end());
-    }
-    if (partition.has_fec_extent()) {
-      Extent extent = partition.fec_data_extent();
-      install_part.fec_data_offset = extent.start_block() * block_size_;
-      install_part.fec_data_size = extent.num_blocks() * block_size_;
-      extent = partition.fec_extent();
-      install_part.fec_offset = extent.start_block() * block_size_;
-      install_part.fec_size = extent.num_blocks() * block_size_;
-      uint64_t fec_data_end =
-          install_part.fec_data_offset + install_part.fec_data_size;
-      if (install_part.fec_offset < fec_data_end) {
-        LOG(ERROR) << "Invalid fec extents, fec data ends at " << fec_data_end
-                   << ", but fec starts at " << install_part.fec_offset;
-        *error = ErrorCode::kDownloadNewPartitionInfoError;
-        return false;
-      }
-      install_part.fec_roots = partition.fec_roots();
-    }
-
-    install_plan_->partitions.push_back(install_part);
-  }
-
-  // TODO(xunchang) only need to load the partitions for those in payload.
-  // Because we have already loaded the other once when generating SOURCE_COPY
-  // operations.
-  if (!install_plan_->LoadPartitionsFromSlots(boot_control_)) {
-    LOG(ERROR) << "Unable to determine all the partition devices.";
-    *error = ErrorCode::kInstallDeviceOpenError;
+  if (!install_plan_->ParsePartitions(
+          partitions_, boot_control_, block_size_, error)) {
     return false;
   }
+
   LogPartitionInfo(partitions_);
   return true;
 }
@@ -873,44 +798,6 @@ bool DeltaPerformer::PerformZeroOrDiscardOperation(
   return partition_writer_->PerformZeroOrDiscardOperation(operation);
 }
 
-bool PartitionWriter::ValidateSourceHash(const brillo::Blob& calculated_hash,
-                                         const InstallOperation& operation,
-                                         const FileDescriptorPtr source_fd,
-                                         ErrorCode* error) {
-  brillo::Blob expected_source_hash(operation.src_sha256_hash().begin(),
-                                    operation.src_sha256_hash().end());
-  if (calculated_hash != expected_source_hash) {
-    LOG(ERROR) << "The hash of the source data on disk for this operation "
-               << "doesn't match the expected value. This could mean that the "
-               << "delta update payload was targeted for another version, or "
-               << "that the source partition was modified after it was "
-               << "installed, for example, by mounting a filesystem.";
-    LOG(ERROR) << "Expected:   sha256|hex = "
-               << base::HexEncode(expected_source_hash.data(),
-                                  expected_source_hash.size());
-    LOG(ERROR) << "Calculated: sha256|hex = "
-               << base::HexEncode(calculated_hash.data(),
-                                  calculated_hash.size());
-
-    vector<string> source_extents;
-    for (const Extent& ext : operation.src_extents()) {
-      source_extents.push_back(
-          base::StringPrintf("%" PRIu64 ":%" PRIu64,
-                             static_cast<uint64_t>(ext.start_block()),
-                             static_cast<uint64_t>(ext.num_blocks())));
-    }
-    LOG(ERROR) << "Operation source (offset:size) in blocks: "
-               << base::JoinString(source_extents, ",");
-
-    // Log remount history if this device is an ext4 partition.
-    LogMountHistory(source_fd);
-
-    *error = ErrorCode::kDownloadStateInitializationError;
-    return false;
-  }
-  return true;
-}
-
 bool DeltaPerformer::PerformSourceCopyOperation(
     const InstallOperation& operation, ErrorCode* error) {
   if (operation.has_src_length())
@@ -942,8 +829,8 @@ bool DeltaPerformer::ExtentsToBsdiffPositionsString(
   return true;
 }
 
-bool DeltaPerformer::PerformSourceBsdiffOperation(
-    const InstallOperation& operation, ErrorCode* error) {
+bool DeltaPerformer::PerformDiffOperation(const InstallOperation& operation,
+                                          ErrorCode* error) {
   // Since we delete data off the beginning of the buffer as we use it,
   // the data we need should be exactly at the beginning of the buffer.
   TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
@@ -953,19 +840,7 @@ bool DeltaPerformer::PerformSourceBsdiffOperation(
   if (operation.has_dst_length())
     TEST_AND_RETURN_FALSE(operation.dst_length() % block_size_ == 0);
 
-  TEST_AND_RETURN_FALSE(partition_writer_->PerformSourceBsdiffOperation(
-      operation, error, buffer_.data(), buffer_.size()));
-  DiscardBuffer(true, buffer_.size());
-  return true;
-}
-
-bool DeltaPerformer::PerformPuffDiffOperation(const InstallOperation& operation,
-                                              ErrorCode* error) {
-  // Since we delete data off the beginning of the buffer as we use it,
-  // the data we need should be exactly at the beginning of the buffer.
-  TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
-  TEST_AND_RETURN_FALSE(buffer_.size() >= operation.data_length());
-  TEST_AND_RETURN_FALSE(partition_writer_->PerformPuffDiffOperation(
+  TEST_AND_RETURN_FALSE(partition_writer_->PerformDiffOperation(
       operation, error, buffer_.data(), buffer_.size()));
   DiscardBuffer(true, buffer_.size());
   return true;
@@ -1022,6 +897,7 @@ DeltaPerformer::CreatePayloadVerifier() {
   if (public_key.empty()) {
     return {nullptr, false};
   }
+  LOG(INFO) << "Verifing using public key: " << public_key;
   return {PayloadVerifier::CreateInstance(public_key), true};
 }
 
@@ -1241,11 +1117,11 @@ ErrorCode DeltaPerformer::ValidateOperationHash(
 
   if (calculated_op_hash != expected_op_hash) {
     LOG(ERROR) << "Hash verification failed for operation "
-               << next_operation_num_ << ". Expected hash = ";
-    utils::HexDumpVector(expected_op_hash);
+               << next_operation_num_
+               << ". Expected hash = " << HexEncode(expected_op_hash);
     LOG(ERROR) << "Calculated hash over " << operation.data_length()
-               << " bytes at offset: " << operation.data_offset() << " = ";
-    utils::HexDumpVector(calculated_op_hash);
+               << " bytes at offset: " << operation.data_offset() << " = "
+               << HexEncode(calculated_op_hash);
     return ErrorCode::kDownloadOperationHashMismatch;
   }
 
@@ -1276,9 +1152,12 @@ ErrorCode DeltaPerformer::VerifyPayload(
   // Verifies the payload hash.
   TEST_AND_RETURN_VAL(ErrorCode::kDownloadPayloadVerificationError,
                       !payload_hash_calculator_.raw_hash().empty());
-  TEST_AND_RETURN_VAL(
-      ErrorCode::kPayloadHashMismatchError,
-      payload_hash_calculator_.raw_hash() == update_check_response_hash);
+  if (payload_hash_calculator_.raw_hash() != update_check_response_hash) {
+    LOG(ERROR) << "Actual hash: "
+               << HexEncode(payload_hash_calculator_.raw_hash())
+               << ", expected hash: " << HexEncode(update_check_response_hash);
+    return ErrorCode::kPayloadHashMismatchError;
+  }
 
   // NOLINTNEXTLINE(whitespace/braces)
   auto [payload_verifier, perform_verification] = CreatePayloadVerifier();
@@ -1531,7 +1410,7 @@ bool DeltaPerformer::IsDynamicPartition(const std::string& part_name,
       part_name, slot);
 }
 
-std::unique_ptr<PartitionWriter> DeltaPerformer::CreatePartitionWriter(
+std::unique_ptr<PartitionWriterInterface> DeltaPerformer::CreatePartitionWriter(
     const PartitionUpdate& partition_update,
     const InstallPlan::Partition& install_part,
     DynamicPartitionControlInterface* dynamic_control,

@@ -23,6 +23,7 @@ import androidx.preference.Preference;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settingslib.enterprise.EnterprisePrivacyFeatureProvider;
 
 /**
 * Controller to show whether the device owner changed the keyboard for the user.
@@ -38,8 +39,9 @@ public final class ImePreferenceController
     @VisibleForTesting
     ImePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions,
-            EnterprisePrivacyFeatureProvider provider) {
-        super(context, preferenceKey, fragmentController, uxRestrictions, provider);
+            EnterprisePrivacyFeatureProvider enterprisePrivacyFeatureProvider) {
+        super(context, preferenceKey, fragmentController, uxRestrictions,
+                enterprisePrivacyFeatureProvider, /* applicationFeatureProvider= */ null);
     }
 
     @Override
@@ -51,11 +53,8 @@ public final class ImePreferenceController
 
     @Override
     protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) return superStatus;
-
         return mEnterprisePrivacyFeatureProvider.getImeLabelIfOwnerSet() != null
                 ? AVAILABLE
-                : CONDITIONALLY_UNAVAILABLE;
+                : DISABLED_FOR_PROFILE;
     }
 }

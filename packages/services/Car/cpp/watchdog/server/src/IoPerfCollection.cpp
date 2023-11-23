@@ -206,15 +206,15 @@ bool cacheTopNProcStats(ProcStatType procStatType, const UidStats& uidStats, int
 }
 
 Result<void> checkDataCollectors(const sp<UidStatsCollectorInterface>& uidStatsCollector,
-                                 const sp<ProcStat>& procStat) {
-    if (uidStatsCollector != nullptr && procStat != nullptr) {
+                                 const sp<ProcStatCollectorInterface>& procStatCollector) {
+    if (uidStatsCollector != nullptr && procStatCollector != nullptr) {
         return {};
     }
     std::string error;
     if (uidStatsCollector == nullptr) {
         error = "Per-UID stats collector must not be null";
     }
-    if (procStat == nullptr) {
+    if (procStatCollector == nullptr) {
         StringAppendF(&error, "%s%s", error.empty() ? "" : ", ",
                       "Proc stats collector must not be null");
     }
@@ -404,50 +404,53 @@ Result<void> IoPerfCollection::onCustomCollectionDump(int fd) {
 
 Result<void> IoPerfCollection::onBoottimeCollection(
         time_t time, const wp<UidStatsCollectorInterface>& uidStatsCollector,
-        const wp<ProcStat>& procStat) {
+        const wp<ProcStatCollectorInterface>& procStatCollector) {
     const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
-    const sp<ProcStat> procStatSp = procStat.promote();
-    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
+    const sp<ProcStatCollectorInterface> procStatCollectorSp = procStatCollector.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatCollectorSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp, procStatSp,
-                         &mBoottimeCollection);
+    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp,
+                         procStatCollectorSp, &mBoottimeCollection);
 }
 
 Result<void> IoPerfCollection::onPeriodicCollection(
         time_t time, [[maybe_unused]] SystemState systemState,
-        const wp<UidStatsCollectorInterface>& uidStatsCollector, const wp<ProcStat>& procStat) {
+        const wp<UidStatsCollectorInterface>& uidStatsCollector,
+        const wp<ProcStatCollectorInterface>& procStatCollector) {
     const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
-    const sp<ProcStat> procStatSp = procStat.promote();
-    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
+    const sp<ProcStatCollectorInterface> procStatCollectorSp = procStatCollector.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatCollectorSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp, procStatSp,
-                         &mPeriodicCollection);
+    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp,
+                         procStatCollectorSp, &mPeriodicCollection);
 }
 
 Result<void> IoPerfCollection::onCustomCollection(
         time_t time, [[maybe_unused]] SystemState systemState,
         const std::unordered_set<std::string>& filterPackages,
-        const wp<UidStatsCollectorInterface>& uidStatsCollector, const wp<ProcStat>& procStat) {
+        const wp<UidStatsCollectorInterface>& uidStatsCollector,
+        const wp<ProcStatCollectorInterface>& procStatCollector) {
     const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
-    const sp<ProcStat> procStatSp = procStat.promote();
-    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
+    const sp<ProcStatCollectorInterface> procStatCollectorSp = procStatCollector.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatCollectorSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, filterPackages, uidStatsCollectorSp, procStatSp, &mCustomCollection);
+    return processLocked(time, filterPackages, uidStatsCollectorSp, procStatCollectorSp,
+                         &mCustomCollection);
 }
 
 Result<void> IoPerfCollection::processLocked(
         time_t time, const std::unordered_set<std::string>& filterPackages,
-        const sp<UidStatsCollectorInterface>& uidStatsCollector, const sp<ProcStat>& procStat,
-        CollectionInfo* collectionInfo) {
+        const sp<UidStatsCollectorInterface>& uidStatsCollector,
+        const sp<ProcStatCollectorInterface>& procStatCollector, CollectionInfo* collectionInfo) {
     if (collectionInfo->maxCacheSize == 0) {
         return Error() << "Maximum cache size cannot be 0";
     }
@@ -455,7 +458,7 @@ Result<void> IoPerfCollection::processLocked(
             .time = time,
     };
     processUidStatsLocked(filterPackages, uidStatsCollector, &record.userPackageSummaryStats);
-    processProcStatLocked(procStat, &record.systemSummaryStats);
+    processProcStatLocked(procStatCollector, &record.systemSummaryStats);
     if (collectionInfo->records.size() > collectionInfo->maxCacheSize) {
         collectionInfo->records.erase(collectionInfo->records.begin());  // Erase the oldest record.
     }
@@ -532,9 +535,10 @@ void IoPerfCollection::processUidStatsLocked(
     removeEmptyStats(userPackageSummaryStats->topNMajorFaults);
 }
 
-void IoPerfCollection::processProcStatLocked(const sp<ProcStat>& procStat,
-                                             SystemSummaryStats* systemSummaryStats) const {
-    const ProcStatInfo& procStatInfo = procStat->deltaStats();
+void IoPerfCollection::processProcStatLocked(
+        const sp<ProcStatCollectorInterface>& procStatCollector,
+        SystemSummaryStats* systemSummaryStats) const {
+    const ProcStatInfo& procStatInfo = procStatCollector->deltaStats();
     systemSummaryStats->cpuIoWaitTime = procStatInfo.cpuStats.ioWaitTime;
     systemSummaryStats->totalCpuTime = procStatInfo.totalCpuTime();
     systemSummaryStats->ioBlockedProcessCount = procStatInfo.ioBlockedProcessCount;

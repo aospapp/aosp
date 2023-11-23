@@ -95,7 +95,7 @@ func init() {
 
 func TransformSrcToBinary(ctx ModuleContext, mainSrc android.Path, deps PathDeps, flags Flags,
 	outputFile android.WritablePath) buildOutput {
-	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto")
+	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto=thin")
 
 	return transformSrctoCrate(ctx, mainSrc, deps, flags, outputFile, "bin")
 }
@@ -112,13 +112,13 @@ func TransformSrctoDylib(ctx ModuleContext, mainSrc android.Path, deps PathDeps,
 
 func TransformSrctoStatic(ctx ModuleContext, mainSrc android.Path, deps PathDeps, flags Flags,
 	outputFile android.WritablePath) buildOutput {
-	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto")
+	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto=thin")
 	return transformSrctoCrate(ctx, mainSrc, deps, flags, outputFile, "staticlib")
 }
 
 func TransformSrctoShared(ctx ModuleContext, mainSrc android.Path, deps PathDeps, flags Flags,
 	outputFile android.WritablePath) buildOutput {
-	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto")
+	flags.GlobalRustFlags = append(flags.GlobalRustFlags, "-C lto=thin")
 	return transformSrctoCrate(ctx, mainSrc, deps, flags, outputFile, "cdylib")
 }
 
@@ -185,7 +185,7 @@ func rustEnvVars(ctx ModuleContext, deps PathDeps) []string {
 }
 
 func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, flags Flags,
-	outputFile android.WritablePath, crate_type string) buildOutput {
+	outputFile android.WritablePath, crateType string) buildOutput {
 
 	var inputs android.Paths
 	var implicits android.Paths
@@ -204,7 +204,7 @@ func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, fl
 	// Collect rustc flags
 	rustcFlags = append(rustcFlags, flags.GlobalRustFlags...)
 	rustcFlags = append(rustcFlags, flags.RustFlags...)
-	rustcFlags = append(rustcFlags, "--crate-type="+crate_type)
+	rustcFlags = append(rustcFlags, "--crate-type="+crateType)
 	if crateName != "" {
 		rustcFlags = append(rustcFlags, "--crate-name="+crateName)
 	}
@@ -216,9 +216,25 @@ func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, fl
 	// Suppress an implicit sysroot
 	rustcFlags = append(rustcFlags, "--sysroot=/dev/null")
 
+	// Enable incremental compilation if requested by user
+	if ctx.Config().IsEnvTrue("SOONG_RUSTC_INCREMENTAL") {
+		incrementalPath := android.PathForOutput(ctx, "rustc").String()
+
+		rustcFlags = append(rustcFlags, "-C incremental="+incrementalPath)
+	}
+
 	// Collect linker flags
 	linkFlags = append(linkFlags, flags.GlobalLinkFlags...)
 	linkFlags = append(linkFlags, flags.LinkFlags...)
+
+	// Check if this module needs to use the bootstrap linker
+	if ctx.RustModule().Bootstrap() && !ctx.RustModule().InRecovery() && !ctx.RustModule().InRamdisk() && !ctx.RustModule().InVendorRamdisk() {
+		dynamicLinker := "-Wl,-dynamic-linker,/system/bin/bootstrap/linker"
+		if ctx.toolchain().Is64Bit() {
+			dynamicLinker += "64"
+		}
+		linkFlags = append(linkFlags, dynamicLinker)
+	}
 
 	libFlags := makeLibFlags(deps)
 
@@ -229,10 +245,10 @@ func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, fl
 	implicits = append(implicits, deps.StaticLibs...)
 	implicits = append(implicits, deps.SharedLibDeps...)
 	implicits = append(implicits, deps.srcProviderFiles...)
+	implicits = append(implicits, deps.AfdoProfiles...)
 
-	if deps.CrtBegin.Valid() {
-		implicits = append(implicits, deps.CrtBegin.Path(), deps.CrtEnd.Path())
-	}
+	implicits = append(implicits, deps.CrtBegin...)
+	implicits = append(implicits, deps.CrtEnd...)
 
 	if len(deps.SrcDeps) > 0 {
 		moduleGenDir := ctx.RustModule().compiler.CargoOutDir()
@@ -258,7 +274,18 @@ func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, fl
 		implicits = append(implicits, outputs.Paths()...)
 	}
 
-	envVars = append(envVars, "ANDROID_RUST_VERSION="+config.RustDefaultVersion)
+	envVars = append(envVars, "ANDROID_RUST_VERSION="+config.GetRustVersion(ctx))
+
+	if ctx.RustModule().compiler.CargoEnvCompat() {
+		if _, ok := ctx.RustModule().compiler.(*binaryDecorator); ok {
+			envVars = append(envVars, "CARGO_BIN_NAME="+strings.TrimSuffix(outputFile.Base(), outputFile.Ext()))
+		}
+		envVars = append(envVars, "CARGO_CRATE_NAME="+ctx.RustModule().CrateName())
+		pkgVersion := ctx.RustModule().compiler.CargoPkgVersion()
+		if pkgVersion != "" {
+			envVars = append(envVars, "CARGO_PKG_VERSION="+pkgVersion)
+		}
+	}
 
 	if flags.Clippy {
 		clippyFile := android.PathForModuleOut(ctx, outputFile.Base()+".clippy")
@@ -291,8 +318,8 @@ func transformSrctoCrate(ctx ModuleContext, main android.Path, deps PathDeps, fl
 			"rustcFlags": strings.Join(rustcFlags, " "),
 			"linkFlags":  strings.Join(linkFlags, " "),
 			"libFlags":   strings.Join(libFlags, " "),
-			"crtBegin":   deps.CrtBegin.String(),
-			"crtEnd":     deps.CrtEnd.String(),
+			"crtBegin":   strings.Join(deps.CrtBegin.Strings(), " "),
+			"crtEnd":     strings.Join(deps.CrtEnd.Strings(), " "),
 			"envVars":    strings.Join(envVars, " "),
 		},
 	})
@@ -323,6 +350,12 @@ func Rustdoc(ctx ModuleContext, main android.Path, deps PathDeps,
 	rustdocFlags = append(rustdocFlags, makeLibFlags(deps)...)
 	docTimestampFile := android.PathForModuleOut(ctx, "rustdoc.timestamp")
 
+	// Silence warnings about renamed lints for third-party crates
+	modulePath := android.PathForModuleSrc(ctx).String()
+	if android.IsThirdPartyPath(modulePath) {
+		rustdocFlags = append(rustdocFlags, " -A renamed_and_removed_lints")
+	}
+
 	// Yes, the same out directory is used simultaneously by all rustdoc builds.
 	// This is what cargo does. The docs for individual crates get generated to
 	// a subdirectory named for the crate, and rustdoc synchronizes writes to
@@ -335,7 +368,7 @@ func Rustdoc(ctx ModuleContext, main android.Path, deps PathDeps,
 		Description: "rustdoc " + main.Rel(),
 		Output:      docTimestampFile,
 		Input:       main,
-		Implicit:    ctx.RustModule().unstrippedOutputFile.Path(),
+		Implicit:    ctx.RustModule().UnstrippedOutputFile(),
 		Args: map[string]string{
 			"rustdocFlags": strings.Join(rustdocFlags, " "),
 			"outDir":       docDir.String(),

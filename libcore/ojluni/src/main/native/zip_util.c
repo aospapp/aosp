@@ -775,6 +775,8 @@ ZIP_Open_Generic(const char *name, char **pmsg, int mode, jlong lastModified)
     jzfile *zip = NULL;
 
     /* Clear zip error message */
+    // BEGIN Android-changed: Don't crash crash if `pmsg` is NULL and getting from the cache fails.
+    /*
     if (pmsg != 0) {
         *pmsg = NULL;
     }
@@ -785,6 +787,26 @@ ZIP_Open_Generic(const char *name, char **pmsg, int mode, jlong lastModified)
         ZFILE zfd = ZFILE_Open(name, mode);
         zip = ZIP_Put_In_Cache(name, zfd, pmsg, lastModified);
     }
+    */
+    /*
+     * We want to know if ZIP_Get_From_Cache fails, which isn't possible to
+     * distinguish without passing a non-null message value. Hence, if the user
+     * didn't supply a `pmsg`, we make and manage our own.
+     */
+    char *localPmsg = NULL;
+    zip = ZIP_Get_From_Cache(name, &localPmsg, lastModified);
+
+    if (zip == NULL && localPmsg == NULL) {
+        ZFILE zfd = ZFILE_Open(name, mode);
+        zip = ZIP_Put_In_Cache(name, zfd, &localPmsg, lastModified);
+    }
+
+    if (pmsg == NULL) {
+      free(localPmsg);
+    } else {
+      *pmsg = localPmsg;
+    }
+    // END Android-changed: Don't crash crash if `pmsg` is NULL and getting from the cache fails.
     return zip;
 }
 

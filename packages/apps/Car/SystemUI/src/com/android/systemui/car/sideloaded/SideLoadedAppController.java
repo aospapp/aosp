@@ -21,7 +21,7 @@ import android.content.Context;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.android.systemui.SystemUI;
+import com.android.systemui.CoreStartable;
 import com.android.systemui.dagger.SysUISingleton;
 
 import javax.inject.Inject;
@@ -30,7 +30,7 @@ import javax.inject.Inject;
  * Controller responsible for detecting unsafe apps.
  */
 @SysUISingleton
-public class SideLoadedAppController extends SystemUI {
+public class SideLoadedAppController extends CoreStartable {
     private static final String TAG = SideLoadedAppController.class.getSimpleName();
 
     private IActivityTaskManager mActivityTaskManager;

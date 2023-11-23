@@ -130,7 +130,7 @@ impl Deref for Context {
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Raw(p) => unsafe { CStr::from_ptr(*p) },
-            Self::CString(cstr) => &cstr,
+            Self::CString(cstr) => cstr,
         }
     }
 }
@@ -319,6 +319,323 @@ pub fn check_access(source: &CStr, target: &CStr, tclass: &str, perm: &str) -> R
             })
         }
     }
+}
+
+/// Safe wrapper around setcon.
+pub fn setcon(target: &CStr) -> std::io::Result<()> {
+    // SAFETY: `setcon` takes a const char* and only performs read accesses on it
+    // using strdup and strcmp. `setcon` does not retain a pointer to `target`
+    // and `target` outlives the call to `setcon`.
+    if unsafe { selinux::setcon(target.as_ptr()) } != 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+/// Represents an SEPolicy permission belonging to a specific class.
+pub trait ClassPermission {
+    /// The permission string of the given instance as specified in the class vector.
+    fn name(&self) -> &'static str;
+    /// The class of the permission.
+    fn class_name(&self) -> &'static str;
+}
+
+/// This macro implements an enum with values mapped to SELinux permission names.
+/// The example below implements `enum MyPermission with public visibility:
+///  * From<i32> and Into<i32> are implemented. Where the implementation of From maps
+///    any variant not specified to the default `None` with value `0`.
+///  * `MyPermission` implements ClassPermission.
+///  * An implicit default values `MyPermission::None` is created with a numeric representation
+///    of `0` and a string representation of `"none"`.
+///  * Specifying a value is optional. If the value is omitted it is set to the value of the
+///    previous variant left shifted by 1.
+///
+/// ## Example
+/// ```
+/// implement_class!(
+///     /// MyPermission documentation.
+///     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+///     #[selinux(class_name = my_class)]
+///     pub enum MyPermission {
+///         #[selinux(name = foo)]
+///         Foo = 1,
+///         #[selinux(name = bar)]
+///         Bar = 2,
+///         #[selinux(name = snafu)]
+///         Snafu, // Implicit value: MyPermission::Bar << 1 -> 4
+///     }
+///     assert_eq!(MyPermission::Foo.name(), &"foo");
+///     assert_eq!(MyPermission::Foo.class_name(), &"my_class");
+///     assert_eq!(MyPermission::Snafu as i32, 4);
+/// );
+/// ```
+#[macro_export]
+macro_rules! implement_class {
+    // First rule: Public interface.
+    (
+        $(#[$($enum_meta:tt)+])*
+        $enum_vis:vis enum $enum_name:ident $body:tt
+    ) => {
+        implement_class! {
+            @extract_class
+            []
+            [$(#[$($enum_meta)+])*]
+            $enum_vis enum $enum_name $body
+        }
+    };
+
+    // The next two rules extract the #[selinux(class_name = <name>)] meta field from
+    // the types meta list.
+    // This first rule finds the field and terminates the recursion through the meta fields.
+    (
+        @extract_class
+        [$(#[$mout:meta])*]
+        [
+            #[selinux(class_name = $class_name:ident)]
+            $(#[$($mtail:tt)+])*
+        ]
+        $enum_vis:vis enum $enum_name:ident {
+            $(
+                $(#[$($emeta:tt)+])*
+                $vname:ident$( = $vval:expr)?
+            ),* $(,)?
+        }
+    ) => {
+        implement_class!{
+            @extract_perm_name
+            $class_name
+            $(#[$mout])*
+            $(#[$($mtail)+])*
+            $enum_vis enum $enum_name {
+                1;
+                []
+                [$(
+                    [] [$(#[$($emeta)+])*]
+                    $vname$( = $vval)?,
+                )*]
+            }
+        }
+    };
+
+    // The second rule iterates through the type global meta fields.
+    (
+        @extract_class
+        [$(#[$mout:meta])*]
+        [
+            #[$front:meta]
+            $(#[$($mtail:tt)+])*
+        ]
+        $enum_vis:vis enum $enum_name:ident $body:tt
+    ) => {
+        implement_class!{
+            @extract_class
+            [
+                $(#[$mout])*
+                #[$front]
+            ]
+            [$(#[$($mtail)+])*]
+            $enum_vis enum $enum_name $body
+        }
+    };
+
+    // The next four rules implement two nested recursions. The outer iterates through
+    // the enum variants and the inner iterates through the meta fields of each variant.
+    // The first two rules find the #[selinux(name = <name>)] stanza, terminate the inner
+    // recursion and descend a level in the outer recursion.
+    // The first rule matches variants with explicit initializer $vval. And updates the next
+    // value to ($vval << 1).
+    (
+        @extract_perm_name
+        $class_name:ident
+        $(#[$enum_meta:meta])*
+        $enum_vis:vis enum $enum_name:ident {
+            $next_val:expr;
+            [$($out:tt)*]
+            [
+                [$(#[$mout:meta])*]
+                [
+                    #[selinux(name = $selinux_name:ident)]
+                    $(#[$($mtail:tt)+])*
+                ]
+                $vname:ident = $vval:expr,
+                $($tail:tt)*
+            ]
+        }
+    ) => {
+        implement_class!{
+            @extract_perm_name
+            $class_name
+            $(#[$enum_meta])*
+            $enum_vis enum $enum_name {
+                ($vval << 1);
+                [
+                    $($out)*
+                    $(#[$mout])*
+                    $(#[$($mtail)+])*
+                    $selinux_name $vname = $vval,
+                ]
+                [$($tail)*]
+            }
+        }
+    };
+
+    // The second rule differs form the previous in that there is no explicit initializer.
+    // Instead $next_val is used as initializer and the next value is set to (&next_val << 1).
+    (
+        @extract_perm_name
+        $class_name:ident
+        $(#[$enum_meta:meta])*
+        $enum_vis:vis enum $enum_name:ident {
+            $next_val:expr;
+            [$($out:tt)*]
+            [
+                [$(#[$mout:meta])*]
+                [
+                    #[selinux(name = $selinux_name:ident)]
+                    $(#[$($mtail:tt)+])*
+                ]
+                $vname:ident,
+                $($tail:tt)*
+            ]
+        }
+    ) => {
+        implement_class!{
+            @extract_perm_name
+            $class_name
+            $(#[$enum_meta])*
+            $enum_vis enum $enum_name {
+                ($next_val << 1);
+                [
+                    $($out)*
+                    $(#[$mout])*
+                    $(#[$($mtail)+])*
+                    $selinux_name $vname = $next_val,
+                ]
+                [$($tail)*]
+            }
+        }
+    };
+
+    // The third rule descends a step in the inner recursion.
+    (
+        @extract_perm_name
+        $class_name:ident
+        $(#[$enum_meta:meta])*
+        $enum_vis:vis enum $enum_name:ident {
+            $next_val:expr;
+            [$($out:tt)*]
+            [
+                [$(#[$mout:meta])*]
+                [
+                    #[$front:meta]
+                    $(#[$($mtail:tt)+])*
+                ]
+                $vname:ident$( = $vval:expr)?,
+                $($tail:tt)*
+            ]
+        }
+    ) => {
+        implement_class!{
+            @extract_perm_name
+            $class_name
+            $(#[$enum_meta])*
+            $enum_vis enum $enum_name {
+                $next_val;
+                [$($out)*]
+                [
+                    [
+                        $(#[$mout])*
+                        #[$front]
+                    ]
+                    [$(#[$($mtail)+])*]
+                    $vname$( = $vval)?,
+                    $($tail)*
+                ]
+            }
+        }
+    };
+
+    // The fourth rule terminates the outer recursion and transitions to the
+    // implementation phase @spill.
+    (
+        @extract_perm_name
+        $class_name:ident
+        $(#[$enum_meta:meta])*
+        $enum_vis:vis enum $enum_name:ident {
+            $next_val:expr;
+            [$($out:tt)*]
+            []
+        }
+    ) => {
+        implement_class!{
+            @spill
+            $class_name
+            $(#[$enum_meta])*
+            $enum_vis enum $enum_name {
+                $($out)*
+            }
+        }
+    };
+
+    (
+        @spill
+        $class_name:ident
+        $(#[$enum_meta:meta])*
+        $enum_vis:vis enum $enum_name:ident {
+            $(
+                $(#[$emeta:meta])*
+                $selinux_name:ident $vname:ident = $vval:expr,
+            )*
+        }
+    ) => {
+        $(#[$enum_meta])*
+        $enum_vis enum $enum_name {
+            /// The default variant of the enum.
+            None = 0,
+            $(
+                $(#[$emeta])*
+                $vname = $vval,
+            )*
+        }
+
+        impl From<i32> for $enum_name {
+            #[allow(non_upper_case_globals)]
+            fn from (p: i32) -> Self {
+                // Creating constants forces the compiler to evaluate the value expressions
+                // so that they can be used in the match statement below.
+                $(const $vname: i32 = $vval;)*
+                match p {
+                    0 => Self::None,
+                    $($vname => Self::$vname,)*
+                    _ => Self::None,
+                }
+            }
+        }
+
+        impl From<$enum_name> for i32 {
+            fn from(p: $enum_name) -> i32 {
+                p as i32
+            }
+        }
+
+        impl ClassPermission for $enum_name {
+            fn name(&self) -> &'static str {
+                match self {
+                    Self::None => &"none",
+                    $(Self::$vname => stringify!($selinux_name),)*
+                }
+            }
+            fn class_name(&self) -> &'static str {
+                stringify!($class_name)
+            }
+        }
+    };
+}
+
+/// Calls `check_access` on the given class permission.
+pub fn check_permission<T: ClassPermission>(source: &CStr, target: &CStr, perm: T) -> Result<()> {
+    check_access(source, target, perm.class_name(), perm.name())
 }
 
 #[cfg(test)]

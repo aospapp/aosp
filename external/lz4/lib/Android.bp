@@ -27,6 +27,8 @@ cc_library {
     recovery_available: true,
     vendor_available: true,
     product_available: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
     vndk: {
         enabled: true,
     },

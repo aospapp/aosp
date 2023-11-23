@@ -579,7 +579,7 @@ std::string Utils::getFPVariableTypeStringForVariableType(_variable_type type)
 	{
 		TCU_FAIL("Unrecognized variable type");
 	}
-	}; /* switch (type) */
+	} /* switch (type) */
 
 	return result;
 }
@@ -1458,7 +1458,7 @@ std::string Utils::getVariableTypeString(_variable_type type)
 	{
 		TCU_FAIL("Unrecognized variable type");
 	}
-	}; /* switch (type) */
+	} /* switch (type) */
 
 	return result;
 }
@@ -1551,7 +1551,7 @@ bool Utils::isScalarVariableType(_variable_type type)
 		break;
 	default:
 		break;
-	}; /* switch (type) */
+	} /* switch (type) */
 
 	return result;
 }
@@ -3395,11 +3395,9 @@ glw::GLenum GPUShaderFP64Test2::getCapturedPrimitiveType(shaderStage shader_stag
 	case TESS_EVAL_SHADER:
 	case VERTEX_SHADER:
 		return GL_POINTS;
-		break;
 
 	default:
 		return GL_NONE;
-		break;
 	}
 }
 
@@ -3415,21 +3413,17 @@ glw::GLenum GPUShaderFP64Test2::getDrawPrimitiveType(shaderStage shader_stage) c
 	{
 	case FRAGMENT_SHADER:
 		return GL_TRIANGLE_FAN;
-		break;
 
 	case GEOMETRY_SHADER:
 	case VERTEX_SHADER:
 		return GL_POINTS;
-		break;
 
 	case TESS_CTRL_SHADER:
 	case TESS_EVAL_SHADER:
 		return GL_PATCHES;
-		break;
 
 	default:
 		return GL_NONE;
-		break;
 	}
 }
 
@@ -3558,22 +3552,16 @@ const glw::GLchar* GPUShaderFP64Test2::getShaderStageName(shaderStage shader_sta
 	{
 	case COMPUTE_SHADER:
 		return "compute shader";
-		break;
 	case FRAGMENT_SHADER:
 		return "fragment shader";
-		break;
 	case GEOMETRY_SHADER:
 		return "geometry shader";
-		break;
 	case TESS_CTRL_SHADER:
 		return "tesselation control shader";
-		break;
 	case TESS_EVAL_SHADER:
 		return "tesselation evaluation shader";
-		break;
 	case VERTEX_SHADER:
 		return "vertex shader";
-		break;
 	}
 
 	return 0;
@@ -3588,7 +3576,7 @@ const glw::GLchar* GPUShaderFP64Test2::getShaderStageName(shaderStage shader_sta
  **/
 void GPUShaderFP64Test2::inspectProgram(glw::GLuint program_id, glw::GLint n_uniforms,
 										const uniformTypeDetails& uniform_type, glw::GLint& out_buffer_size,
-										uniformDetails& out_uniform_details, glw::GLuint uniform_block_index) const
+										uniformDetails& out_uniform_details, glw::GLuint& uniform_block_index) const
 {
 	glw::GLint				 array_stride = 0;
 	std::vector<glw::GLchar> extracted_uniform_name;
@@ -3923,7 +3911,7 @@ void GPUShaderFP64Test2::prepareProgram(shaderStage shader_stage, const uniformT
 
 	default:
 		break;
-	};
+	}
 
 	/* Select shaders that will be used by program */
 	const glw::GLchar* cs_c_str  = 0;
@@ -5316,27 +5304,27 @@ void GPUShaderFP64Test3::testInit()
 
 	/* Uniform block declaration with std140 offsets calculated
 	 *                       | align | loc_req | begins | ends | offset in bytes | imp |
-	 * ivec3   dummy1[3]     |     4 |      12 |      0 |   12 |               0 |     |
+	 * ivec3   unused1[3]    |     4 |      12 |      0 |   12 |               0 |     |
 	 * double  double_value  |     2 |       2 |     12 |   14 |              48 | XXX |
-	 * bool    dummy2        |     1 |       1 |     14 |   15 |              56 |     |
+	 * bool    unused2       |     1 |       1 |     14 |   15 |              56 |     |
 	 * dvec2   dvec2_value   |     4 |       4 |     16 |   20 |              64 | XXX |
-	 * bvec3   dummy3        |     4 |       4 |     20 |   24 |              80 |     |
+	 * bvec3   unused3       |     4 |       4 |     20 |   24 |              80 |     |
 	 * dvec3   dvec3_value   |     8 |       8 |     24 |   32 |              96 | XXX |
-	 * int     dummy4[3]     |     4 |      12 |     32 |   44 |             128 |     |
+	 * int     unused4[3]    |     4 |      12 |     32 |   44 |             128 |     |
 	 * dvec4   dvec4_value   |     8 |       8 |     48 |   56 |             192 | XXX |
-	 * bool    dummy5        |     1 |       1 |     56 |   57 |             224 |     |
-	 * bool    dummy6[2]     |     4 |       8 |     60 |   68 |             240 |     |
+	 * bool    unused5       |     1 |       1 |     56 |   57 |             224 |     |
+	 * bool    unused6[2]    |     4 |       8 |     60 |   68 |             240 |     |
 	 * dmat2   dmat2_value   |     4 |       8 |     68 |   76 |             272 | XXX |
 	 * dmat3   dmat3_value   |     8 |      24 |     80 |  104 |             320 | XXX |
-	 * bool    dummy7        |     1 |       1 |    104 |  105 |             416 |     |
+	 * bool    unused7       |     1 |       1 |    104 |  105 |             416 |     |
 	 * dmat4   dmat4_value   |     8 |      32 |    112 |  144 |             448 | XXX |
 	 * dmat2x3 dmat2x3_value |     8 |      16 |    144 |  160 |             576 | XXX |
-	 * uvec3   dummy8        |     4 |       4 |    160 |  164 |             640 |     |
+	 * uvec3   unused8       |     4 |       4 |    160 |  164 |             640 |     |
 	 * dmat2x4 dmat2x4_value |     8 |      16 |    168 |  184 |             672 | XXX |
 	 * dmat3x2 dmat3x2_value |     4 |      12 |    184 |  196 |             736 | XXX |
-	 * bool    dummy9        |     1 |       1 |    196 |  197 |             784 |     |
+	 * bool    unused9       |     1 |       1 |    196 |  197 |             784 |     |
 	 * dmat3x4 dmat3x4_value |     8 |      24 |    200 |  224 |             800 | XXX |
-	 * int     dummy10       |     1 |       1 |    224 |  225 |             896 |     |
+	 * int     unused10      |     1 |       1 |    224 |  225 |             896 |     |
 	 * dmat4x2 dmat4x2_value |     4 |      16 |    228 |  244 |             912 | XXX |
 	 * dmat4x3 dmat4x3_value |     8 |      32 |    248 |  280 |             992 | XXX |
 	 */
@@ -5702,27 +5690,27 @@ void GPUShaderFP64Test3::writeUniformBlock(std::ostream& stream, uniformDataLayo
 
 	stream << "layout(" << layout << ") uniform " << m_uniform_block_name << "\n"
 																			 "{\n"
-																			 "    ivec3   dummy1[3];\n"
+																			 "    ivec3   unused1[3];\n"
 																			 "    double  double_value;\n"
-																			 "    bool    dummy2;\n"
+																			 "    bool    unused2;\n"
 																			 "    dvec2   dvec2_value;\n"
-																			 "    bvec3   dummy3;\n"
+																			 "    bvec3   unused3;\n"
 																			 "    dvec3   dvec3_value;\n"
-																			 "    int     dummy4[3];\n"
+																			 "    int     unused4[3];\n"
 																			 "    dvec4   dvec4_value;\n"
-																			 "    bool    dummy5;\n"
-																			 "    bool    dummy6[2];\n"
+																			 "    bool    unused5;\n"
+																			 "    bool    unused6[2];\n"
 																			 "    dmat2   dmat2_value;\n"
 																			 "    dmat3   dmat3_value;\n"
-																			 "    bool    dummy7;\n"
+																			 "    bool    unused7;\n"
 																			 "    dmat4   dmat4_value;\n"
 																			 "    dmat2x3 dmat2x3_value;\n"
-																			 "    uvec3   dummy8;\n"
+																			 "    uvec3   unused8;\n"
 																			 "    dmat2x4 dmat2x4_value;\n"
 																			 "    dmat3x2 dmat3x2_value;\n"
-																			 "    bool    dummy9;\n"
+																			 "    bool    unused9;\n"
 																			 "    dmat3x4 dmat3x4_value;\n"
-																			 "    int     dummy10;\n"
+																			 "    int     unused10;\n"
 																			 "    dmat4x2 dmat4x2_value;\n"
 																			 "    dmat4x3 dmat4x3_value;\n"
 																			 "} "
@@ -5994,43 +5982,25 @@ void GPUShaderFP64Test4::generateUniformValues()
 			stage_ptr->uniform_structure_arrays[0].uniform_double_arr + 1,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec2 + 0,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec2 + 1,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec2 + 2,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec2 + 3,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 0,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 1,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 2,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 3,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 4,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec3 + 5,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 0,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 1,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 2,
 			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 3,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 4,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 5,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 6,
-			stage_ptr->uniform_structure_arrays[0].uniform_dvec4 + 7,
 			&stage_ptr->uniform_structure_arrays[1].uniform_double,
 			stage_ptr->uniform_structure_arrays[1].uniform_double_arr + 0,
 			stage_ptr->uniform_structure_arrays[1].uniform_double_arr + 1,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec2 + 0,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec2 + 1,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec2 + 2,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec2 + 3,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 0,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 1,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 2,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 3,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 4,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec3 + 5,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 0,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 1,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 2,
 			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 3,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 4,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 5,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 6,
-			stage_ptr->uniform_structure_arrays[1].uniform_dvec4 + 7,
 			&stage_ptr->uniforms.uniform_double,
 			stage_ptr->uniforms.uniform_double_arr + 0,
 			stage_ptr->uniforms.uniform_double_arr + 1,
@@ -10319,7 +10289,6 @@ void GPUShaderFP64Test7::releaseXFBVaryingNames()
 void GPUShaderFP64Test7::setInputAttributeValues(const _variables& variables)
 {
 	const glw::Functions& gl	  = m_context.getRenderContext().getFunctions();
-	unsigned int		  counter = 6;
 
 	for (_variables_const_iterator variable_iterator = variables.begin(); variable_iterator != variables.end();
 		 variable_iterator++)
@@ -10391,8 +10360,6 @@ void GPUShaderFP64Test7::setInputAttributeValues(const _variables& variables)
 			/* Make sure VAAs are disabled */
 			gl.disableVertexAttribArray(variable.attribute_location + index);
 			GLU_EXPECT_NO_ERROR(gl.getError(), "glDisableVertexAttribArray() call failed.");
-
-			counter += n_components;
 		} /* for (all array indices) */
 	}	 /* for (all variables) */
 }
@@ -12382,32 +12349,45 @@ template <int Size>
 static tcu::Matrix<glw::GLdouble, Size - 1, Size - 1> eliminate(const tcu::Matrix<glw::GLdouble, Size, Size>& matrix,
 																glw::GLuint column, glw::GLuint row)
 {
+	// GCC sometimes diagnoses an incorrect out of bounds write here. The code has been verified to be correct.
+#if (DE_COMPILER == DE_COMPILER_GCC)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
+	const glw::GLint eCol = static_cast<glw::GLint>(column);
+	const glw::GLint eRow = static_cast<glw::GLint>(row);
+
 	tcu::Matrix<glw::GLdouble, Size - 1, Size - 1> result;
 
-	for (glw::GLuint c = 0; c < Size; ++c)
+	for (glw::GLint c = 0; c < Size; ++c)
 	{
 		/* Skip eliminated column */
-		if (column == c)
+		if (eCol == c)
 		{
 			continue;
 		}
 
-		for (glw::GLuint r = 0; r < Size; ++r)
+		for (glw::GLint r = 0; r < Size; ++r)
 		{
 			/* Skip eliminated row */
-			if (row == r)
+			if (eRow == r)
 			{
 				continue;
 			}
 
-			const glw::GLint r_offset = (r > row) ? -1 : 0;
-			const glw::GLint c_offset = (c > column) ? -1 : 0;
+			const glw::GLint r_offset = (r > eRow) ? -1 : 0;
+			const glw::GLint c_offset = (c > eCol) ? -1 : 0;
 
 			result(r + r_offset, c + c_offset) = matrix(r, c);
 		}
 	}
 
 	return result;
+
+#if (DE_COMPILER == DE_COMPILER_GCC)
+#	pragma GCC diagnostic pop
+#endif
 }
 
 template <int Size>
@@ -13274,13 +13254,10 @@ public:
 		{
 		case 0:
 			return m_arg_1_type;
-			break;
 		case 1:
 			return m_arg_2_type;
-			break;
 		default:
 			return Utils::VARIABLE_TYPE_UNKNOWN;
-			break;
 		}
 	}
 
@@ -13397,16 +13374,12 @@ public:
 		{
 		case 0:
 			return m_arg_1_type;
-			break;
 		case 1:
 			return m_arg_2_type;
-			break;
 		case 2:
 			return m_arg_3_type;
-			break;
 		default:
 			return Utils::VARIABLE_TYPE_UNKNOWN;
-			break;
 		}
 	}
 
@@ -13904,8 +13877,6 @@ bool BuiltinFunctionTest::compare(Utils::_variable_type type, const glw::GLvoid*
 	default:
 
 		TCU_FAIL("Not implemented");
-
-		break;
 	}
 
 	return result;
@@ -13945,35 +13916,27 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "abs", de::abs, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_CEIL:
 
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "ceil", ceil, variable_type /* res_type */, variable_type /* arg_type */);
-
-		break;
 
 	case FUNCTION_CLAMP:
 
 		return new FunctionObject::tenaryByComponent(function, "clamp", Math::clamp, variable_type /* res_type  */,
 													 variable_type /* arg1_type */, variable_type /* arg2_type */,
 													 variable_type /* arg3_type */);
-		break;
 
 	case FUNCTION_CLAMP_AGAINST_SCALAR:
 
 		return new FunctionObject::tenaryByComponent(function, "clamp", Math::clamp, variable_type /* res_type  */,
 													 variable_type /* arg1_type */, scalar_type /* arg2_type */,
 													 scalar_type /* arg3_type */);
-		break;
 
 	case FUNCTION_CROSS:
 
 		return new FunctionObject::binary<tcu::DVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 			function, "cross", tcu::cross);
-
-		break;
 
 	case FUNCTION_DETERMINANT:
 
@@ -13990,10 +13953,7 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 																						 Math::determinant);
 		default:
 			TCU_FAIL("Not implemented");
-			break;
 		}
-
-		break;
 
 	case FUNCTION_DISTANCE:
 
@@ -14002,15 +13962,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "distance", tcu::distance);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "distance", tcu::distance);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "distance", tcu::distance);
-			break;
 		default:
 			break;
 		}
@@ -14024,15 +13981,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "dot", tcu::dot);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "dot", tcu::dot);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<glw::GLdouble /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "dot", tcu::dot);
-			break;
 		default:
 			break;
 		}
@@ -14046,15 +14000,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "equal", Math::equal);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "equal", Math::equal);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "equal", Math::equal);
-			break;
 		default:
 			break;
 		}
@@ -14069,17 +14020,14 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			return new FunctionObject::tenary<tcu::DVec2 /* ResT */, const tcu::DVec2& /* Arg1T */,
 											  const tcu::DVec2& /* Arg2T */, const tcu::DVec2& /* Arg3T */>(
 				function, "faceforward", tcu::faceForward);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::tenary<tcu::DVec3 /* ResT */, const tcu::DVec3& /* Arg1T */,
 											  const tcu::DVec3& /* Arg2T */, const tcu::DVec3& /* Arg3T */>(
 				function, "faceforward", tcu::faceForward);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::tenary<tcu::DVec4 /* ResT */, const tcu::DVec4& /* Arg1T */,
 											  const tcu::DVec4& /* Arg2T */, const tcu::DVec4& /* Arg3T */>(
 				function, "faceforward", tcu::faceForward);
-			break;
 		default:
 			break;
 		}
@@ -14091,22 +14039,16 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "floor", floor, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_FMA:
 
 		return new FunctionObject::tenaryByComponent(function, "fma", Math::fma, variable_type /* res_type  */,
 													 variable_type /* arg1_type */, variable_type /* arg2_type */,
 													 variable_type /* arg3_type */);
 
-		break;
-
 	case FUNCTION_FRACT:
 
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "fract", Math::fract, variable_type /* res_type */, variable_type /* arg_type */);
-
-		break;
 
 	case FUNCTION_FREXP:
 
@@ -14115,8 +14057,6 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "frexp", Math::frexp, variable_type /* res_type */, variable_type /* arg_type */,
 			int_type /* out_type */);
 
-		break;
-
 	case FUNCTION_GREATERTHAN:
 
 		switch (variable_type)
@@ -14124,15 +14064,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "greaterThan", Math::greaterThan);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "greaterThan", Math::greaterThan);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "greaterThan", Math::greaterThan);
-			break;
 		default:
 			break;
 		}
@@ -14146,15 +14083,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "greaterThanEqual", Math::greaterThanEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "greaterThanEqual", Math::greaterThanEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "greaterThanEqual", Math::greaterThanEqual);
-			break;
 		default:
 			break;
 		}
@@ -14167,13 +14101,10 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		{
 		case Utils::VARIABLE_TYPE_DMAT2:
 			return new FunctionObject::unary<DMat2 /* ResT */, DMat2 /* ArgT */>(function, "inverse", Math::inverse);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3:
 			return new FunctionObject::unary<DMat3 /* ResT */, DMat3 /* ArgT */>(function, "inverse", Math::inverse);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4:
 			return new FunctionObject::unary<DMat4 /* ResT */, DMat4 /* ArgT */>(function, "inverse", Math::inverse);
-			break;
 		default:
 			break;
 		}
@@ -14185,16 +14116,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "inversesqrt", Math::inverseSqrt, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_LDEXP:
 
 		return new FunctionObject::binaryByComponent<glw::GLdouble /* ResT */, glw::GLdouble /* Arg1T */,
 													 glw::GLint /* Arg2T */>(
 			function, "ldexp", ::ldexp, variable_type /* res_type  */, variable_type /* arg1_type */,
 			int_type /* arg2_type */);
-
-		break;
 
 	case FUNCTION_LESSTHAN:
 
@@ -14203,15 +14130,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "lessThan", Math::lessThan);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "lessThan", Math::lessThan);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "lessThan", Math::lessThan);
-			break;
 		default:
 			break;
 		}
@@ -14225,15 +14149,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "lessThanEqual", Math::lessThanEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "lessThanEqual", Math::lessThanEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "lessThanEqual", Math::lessThanEqual);
-			break;
 		default:
 			break;
 		}
@@ -14247,15 +14168,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::unary<glw::GLdouble /* ResT */, tcu::DVec2 /* ArgT */>(function, "length",
 																							  tcu::length);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::unary<glw::GLdouble /* ResT */, tcu::DVec3 /* ArgT */>(function, "length",
 																							  tcu::length);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::unary<glw::GLdouble /* ResT */, tcu::DVec4 /* ArgT */>(function, "length",
 																							  tcu::length);
-			break;
 		default:
 			break;
 		}
@@ -14269,16 +14187,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "matrixCompMult", Math::multiply, variable_type /* res_type  */, variable_type /* arg1_type */,
 			variable_type /* arg2_type */);
 
-		break;
-
 	case FUNCTION_MAX:
 
 		return new FunctionObject::binaryByComponent<glw::GLdouble /* ResT */, glw::GLdouble /* Arg1T */,
 													 glw::GLdouble /* Arg2T */>(
 			function, "max", Math::max, variable_type /* res_type  */, variable_type /* arg1_type */,
 			variable_type /* arg2_type */);
-
-		break;
 
 	case FUNCTION_MAX_AGAINST_SCALAR:
 
@@ -14287,16 +14201,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "max", Math::max, variable_type /* res_type  */, variable_type /* arg1_type */,
 			scalar_type /* arg2_type */);
 
-		break;
-
 	case FUNCTION_MIN:
 
 		return new FunctionObject::binaryByComponent<glw::GLdouble /* ResT */, glw::GLdouble /* Arg1T */,
 													 glw::GLdouble /* Arg2T */>(
 			function, "min", Math::min, variable_type /* res_type  */, variable_type /* arg1_type */,
 			variable_type /* arg2_type */);
-
-		break;
 
 	case FUNCTION_MIN_AGAINST_SCALAR:
 
@@ -14305,15 +14215,11 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "min", Math::min, variable_type /* res_type  */, variable_type /* arg1_type */,
 			scalar_type /* arg2_type */);
 
-		break;
-
 	case FUNCTION_MIX:
 
 		return new FunctionObject::tenaryByComponent(function, "mix", Math::mix, variable_type /* res_type  */,
 													 variable_type /* arg1_type */, variable_type /* arg2_type */,
 													 variable_type /* arg3_type */);
-
-		break;
 
 	case FUNCTION_MOD:
 
@@ -14322,16 +14228,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "mod", Math::mod, variable_type /* res_type  */, variable_type /* arg1_type */,
 			variable_type /* arg2_type */);
 
-		break;
-
 	case FUNCTION_MOD_AGAINST_SCALAR:
 
 		return new FunctionObject::binaryByComponent<glw::GLdouble /* ResT */, glw::GLdouble /* Arg1T */,
 													 glw::GLdouble /* Arg2T */>(
 			function, "mod", Math::mod, variable_type /* res_type  */, variable_type /* arg1_type */,
 			scalar_type /* arg2_type */);
-
-		break;
 
 	case FUNCTION_MODF:
 
@@ -14340,8 +14242,6 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "modf", Math::modf, variable_type /* res_type */, variable_type /* arg_type */,
 			variable_type /* out_type */);
 
-		break;
-
 	case FUNCTION_NORMALIZE:
 
 		switch (variable_type)
@@ -14349,15 +14249,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::unary<tcu::DVec2 /* ResT */, tcu::DVec2 /* ArgT */>(function, "normalize",
 																						   tcu::normalize);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::unary<tcu::DVec3 /* ResT */, tcu::DVec3 /* ArgT */>(function, "normalize",
 																						   tcu::normalize);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::unary<tcu::DVec4 /* ResT */, tcu::DVec4 /* ArgT */>(function, "normalize",
 																						   tcu::normalize);
-			break;
 		default:
 			break;
 		}
@@ -14371,15 +14268,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::UVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "notEqual", Math::notEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::UVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "notEqual", Math::notEqual);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::UVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "notEqual", Math::notEqual);
-			break;
 		default:
 			break;
 		}
@@ -14393,39 +14287,30 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DMAT2:
 			return new FunctionObject::binary<DMat2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT2X3:
 			return new FunctionObject::binary<DMat2x3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT2X4:
 			return new FunctionObject::binary<DMat2x4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3:
 			return new FunctionObject::binary<DMat3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3X2:
 			return new FunctionObject::binary<DMat3x2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3X4:
 			return new FunctionObject::binary<DMat3x4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4:
 			return new FunctionObject::binary<DMat4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4X2:
 			return new FunctionObject::binary<DMat4x2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4X3:
 			return new FunctionObject::binary<DMat4x3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "outerProduct", Math::outerProduct);
-			break;
 		default:
 			break;
 		}
@@ -14437,8 +14322,6 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unary<glw::GLdouble /* ResT */, tcu::UVec2 /* ArgT */>(function, "packDouble2x32",
 																						  Math::packDouble2x32);
 
-		break;
-
 	case FUNCTION_REFLECT:
 
 		switch (variable_type)
@@ -14446,15 +14329,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DVEC2:
 			return new FunctionObject::binary<tcu::DVec2 /* ResT */, tcu::DVec2 /* Arg1T */, tcu::DVec2 /* Arg2T */>(
 				function, "reflect", tcu::reflect);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::binary<tcu::DVec3 /* ResT */, tcu::DVec3 /* Arg1T */, tcu::DVec3 /* Arg2T */>(
 				function, "reflect", tcu::reflect);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::binary<tcu::DVec4 /* ResT */, tcu::DVec4 /* Arg1T */, tcu::DVec4 /* Arg2T */>(
 				function, "reflect", tcu::reflect);
-			break;
 		default:
 			break;
 		}
@@ -14469,17 +14349,14 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			return new FunctionObject::tenary<tcu::DVec2 /* ResT */, const tcu::DVec2& /* Arg1T */,
 											  const tcu::DVec2& /* Arg2T */, glw::GLdouble /* Arg3T */>(
 				function, "refract", tcu::refract);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC3:
 			return new FunctionObject::tenary<tcu::DVec3 /* ResT */, const tcu::DVec3& /* Arg1T */,
 											  const tcu::DVec3& /* Arg2T */, glw::GLdouble /* Arg3T */>(
 				function, "refract", tcu::refract);
-			break;
 		case Utils::VARIABLE_TYPE_DVEC4:
 			return new FunctionObject::tenary<tcu::DVec4 /* ResT */, const tcu::DVec4& /* Arg1T */,
 											  const tcu::DVec4& /* Arg2T */, glw::GLdouble /* Arg3T */>(
 				function, "refract", tcu::refract);
-			break;
 		default:
 			break;
 		}
@@ -14491,21 +14368,15 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "round", Math::round, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_ROUNDEVEN:
 
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "roundEven", Math::roundEven, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_SIGN:
 
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "sign", Math::sign, variable_type /* res_type */, variable_type /* arg_type */);
-
-		break;
 
 	case FUNCTION_SMOOTHSTEP:
 
@@ -14513,22 +14384,16 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 													 variable_type /* res_type  */, variable_type /* arg1_type */,
 													 variable_type /* arg2_type */, variable_type /* arg3_type */);
 
-		break;
-
 	case FUNCTION_SMOOTHSTEP_AGAINST_SCALAR:
 
 		return new FunctionObject::tenaryByComponent(function, "smoothstep", Math::smoothStep,
 													 variable_type /* res_type  */, scalar_type /* arg1_type */,
 													 scalar_type /* arg2_type */, variable_type /* arg3_type */);
 
-		break;
-
 	case FUNCTION_SQRT:
 
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "sqrt", sqrt, variable_type /* res_type */, variable_type /* arg_type */);
-
-		break;
 
 	case FUNCTION_STEP:
 
@@ -14537,16 +14402,12 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 			function, "step", Math::step, variable_type /* res_type  */, variable_type /* arg1_type */,
 			variable_type /* arg2_type */);
 
-		break;
-
 	case FUNCTION_STEP_AGAINST_SCALAR:
 
 		return new FunctionObject::binaryByComponent<glw::GLdouble /* ResT */, glw::GLdouble /* Arg1T */,
 													 glw::GLdouble /* Arg2T */>(
 			function, "step", Math::step, variable_type /* res_type  */, scalar_type /* arg1_type */,
 			variable_type /* arg2_type */);
-
-		break;
 
 	case FUNCTION_TRANSPOSE:
 
@@ -14555,39 +14416,30 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		case Utils::VARIABLE_TYPE_DMAT2:
 			return new FunctionObject::unary<DMat2 /* ResT */, DMat2 /* ArgT */>(function, "transpose",
 																				 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT2X3:
 			return new FunctionObject::unary<DMat2x3 /* ResT */, DMat3x2 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT2X4:
 			return new FunctionObject::unary<DMat2x4 /* ResT */, DMat4x2 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3:
 			return new FunctionObject::unary<DMat3 /* ResT */, DMat3 /* ArgT */>(function, "transpose",
 																				 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3X2:
 			return new FunctionObject::unary<DMat3x2 /* ResT */, DMat2x3 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT3X4:
 			return new FunctionObject::unary<DMat3x4 /* ResT */, DMat4x3 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4:
 			return new FunctionObject::unary<DMat4 /* ResT */, DMat4 /* ArgT */>(function, "transpose",
 																				 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4X2:
 			return new FunctionObject::unary<DMat4x2 /* ResT */, DMat2x4 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		case Utils::VARIABLE_TYPE_DMAT4X3:
 			return new FunctionObject::unary<DMat4x3 /* ResT */, DMat3x4 /* ArgT */>(function, "transpose",
 																					 Math::transpose);
-			break;
 		default:
 			break;
 		}
@@ -14599,33 +14451,24 @@ BuiltinFunctionTest::functionObject* BuiltinFunctionTest::getFunctionObject(Func
 		return new FunctionObject::unaryByComponent<glw::GLdouble /* ResT */>(
 			function, "trunc", Math::trunc, variable_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_UNPACKDOUBLE2X32:
 
 		return new FunctionObject::unary<tcu::UVec2 /* ResT */, glw::GLdouble /* ArgT */>(function, "unpackDouble2x32",
 																						  Math::unpackDouble2x32);
-
-		break;
 
 	case FUNCTION_ISNAN:
 
 		return new FunctionObject::unaryByComponent<glw::GLuint /* ResT */>(
 			function, "isnan", Math::isnan_impl, uint_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	case FUNCTION_ISINF:
 
 		return new FunctionObject::unaryByComponent<glw::GLuint /* ResT */>(
 			function, "isinf", Math::isinf_impl, uint_type /* res_type */, variable_type /* arg_type */);
 
-		break;
-
 	default:
 		TCU_FAIL("Not implemented");
 		return 0;
-		break;
 	}
 
 	TCU_FAIL("Not implemented");
@@ -14649,31 +14492,22 @@ BuiltinFunctionTest::uniformDMatFunctionPointer BuiltinFunctionTest::getUniformF
 	{
 	case Utils::VARIABLE_TYPE_DMAT2:
 		return gl.uniformMatrix2dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT2X3:
 		return gl.uniformMatrix2x3dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT2X4:
 		return gl.uniformMatrix2x4dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT3:
 		return gl.uniformMatrix3dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT3X2:
 		return gl.uniformMatrix3x2dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT3X4:
 		return gl.uniformMatrix3x4dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT4:
 		return gl.uniformMatrix4dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT4X2:
 		return gl.uniformMatrix4x2dv;
-		break;
 	case Utils::VARIABLE_TYPE_DMAT4X3:
 		return gl.uniformMatrix4x3dv;
-		break;
 	default:
 		break;
 	}
@@ -14699,19 +14533,14 @@ BuiltinFunctionTest::uniformDVecFunctionPointer BuiltinFunctionTest::getUniformF
 	{
 	case Utils::VARIABLE_TYPE_DOUBLE:
 		return gl.uniform1dv;
-		break;
 	case Utils::VARIABLE_TYPE_DVEC2:
 		return gl.uniform2dv;
-		break;
 	case Utils::VARIABLE_TYPE_DVEC3:
 		return gl.uniform3dv;
-		break;
 	case Utils::VARIABLE_TYPE_DVEC4:
 		return gl.uniform4dv;
-		break;
 	default:
 		TCU_FAIL("Not implemented");
-		break;
 	}
 
 	return 0;
@@ -14734,19 +14563,14 @@ BuiltinFunctionTest::uniformIVecFunctionPointer BuiltinFunctionTest::getUniformF
 	{
 	case Utils::VARIABLE_TYPE_INT:
 		return gl.uniform1iv;
-		break;
 	case Utils::VARIABLE_TYPE_IVEC2:
 		return gl.uniform2iv;
-		break;
 	case Utils::VARIABLE_TYPE_IVEC3:
 		return gl.uniform3iv;
-		break;
 	case Utils::VARIABLE_TYPE_IVEC4:
 		return gl.uniform4iv;
-		break;
 	default:
 		TCU_FAIL("Not implemented");
-		break;
 	}
 
 	return 0;
@@ -14769,10 +14593,8 @@ BuiltinFunctionTest::uniformUVecFunctionPointer BuiltinFunctionTest::getUniformF
 	{
 	case Utils::VARIABLE_TYPE_UVEC2:
 		return gl.uniform2uiv;
-		break;
 	default:
 		TCU_FAIL("Not implemented");
-		break;
 	}
 
 	return 0;
@@ -14790,17 +14612,13 @@ const glw::GLchar* BuiltinFunctionTest::getUniformName(glw::GLuint argument) con
 	{
 	case 0:
 		return "uniform_0";
-		break;
 	case 1:
 		return "uniform_1";
-		break;
 	case 2:
 		return "uniform_2";
-		break;
 	default:
 		TCU_FAIL("Not implemented");
 		return 0;
-		break;
 	}
 }
 
@@ -14816,17 +14634,13 @@ const glw::GLchar* BuiltinFunctionTest::getVaryingName(glw::GLuint result) const
 	{
 	case 0:
 		return "result_0";
-		break;
 	case 1:
 		return "result_1";
-		break;
 	case 2:
 		return "result_2";
-		break;
 	default:
 		TCU_FAIL("Not implemented");
 		return 0;
-		break;
 	}
 }
 
@@ -15023,8 +14837,7 @@ void BuiltinFunctionTest::prepareComponents(const functionObject& function_objec
 	default:
 		TCU_FAIL("Not implemented");
 		return;
-		break;
-	};
+	}
 
 	switch (function_object.getFunctionEnum())
 	{
@@ -15115,7 +14928,6 @@ void BuiltinFunctionTest::prepareComponents(const functionObject& function_objec
 	default:
 		TCU_FAIL("Not implemented");
 		return;
-		break;
 	}
 }
 
@@ -15414,7 +15226,6 @@ void BuiltinFunctionTest::testBegin(const functionObject& function_object, glw::
 			break;
 			default:
 				TCU_FAIL("Not implemented");
-				break;
 			}
 		}
 		else

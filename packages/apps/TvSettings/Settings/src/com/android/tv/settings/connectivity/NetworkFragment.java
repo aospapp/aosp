@@ -16,10 +16,10 @@
 
 package com.android.tv.settings.connectivity;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
@@ -31,7 +31,6 @@ import android.content.pm.ResolveInfo;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -51,8 +50,8 @@ import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
-import com.android.tv.settings.util.SliceUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.library.util.SliceUtils;
 import com.android.tv.settings.widget.CustomContentDescriptionSwitchPreference;
 import com.android.tv.settings.widget.TvAccessPointPreference;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
@@ -186,11 +185,7 @@ public class NetworkFragment extends SettingsPreferenceFragment implements
         mEthernetCategory = (PreferenceCategory) findPreference(KEY_ETHERNET);
         mEthernetStatusPref = findPreference(KEY_ETHERNET_STATUS);
         mEthernetProxyPref = findPreference(KEY_ETHERNET_PROXY);
-        mEthernetProxyPref.setIntent(EditProxySettingsActivity.createIntent(getContext(),
-                WifiConfiguration.INVALID_NETWORK_ID));
         mEthernetDhcpPref = findPreference(KEY_ETHERNET_DHCP);
-        mEthernetDhcpPref.setIntent(EditIpSettingsActivity.createIntent(getContext(),
-                WifiConfiguration.INVALID_NETWORK_ID));
 
         if (!mIsWifiHardwarePresent) {
             mEnableWifiPref.setVisible(false);
@@ -303,7 +298,7 @@ public class NetworkFragment extends SettingsPreferenceFragment implements
         mCollapsePref.setVisible(wifiEnabled && mWifiNetworksCategory.shouldShowCollapsePref());
         mAddPref.setVisible(wifiEnabled);
         if (mAddEasyConnectPref != null) {
-            mAddEasyConnectPref.setVisible(wifiEnabled && mWifiManager.isEasyConnectSupported());
+            mAddEasyConnectPref.setVisible(isEasyConnectEnabled());
         }
 
         if (!wifiEnabled) {
@@ -329,12 +324,24 @@ public class NetworkFragment extends SettingsPreferenceFragment implements
         mEthernetCategory.setVisible(ethernetAvailable);
         mEthernetStatusPref.setVisible(ethernetAvailable);
         mEthernetProxyPref.setVisible(ethernetAvailable);
+        if (ethernetAvailable) {
+            mEthernetProxyPref.setIntent(EditProxySettingsActivity.createEthernetIntent(
+                    getContext(),
+                    mConnectivityListener.getEthernetInterfaceName(),
+                    mConnectivityListener.getEthernetIpConfiguration()));
+        }
         mEthernetProxyPref.setOnPreferenceClickListener(
                 preference -> {
                     logEntrySelected(TvSettingsEnums.NETWORK_ETHERNET_PROXY_SETTINGS);
                     return false;
                 });
+
         mEthernetDhcpPref.setVisible(ethernetAvailable);
+        if (ethernetAvailable) {
+            mEthernetDhcpPref.setIntent(EditIpSettingsActivity.createEthernetIntent(getContext(),
+                    mConnectivityListener.getEthernetInterfaceName(),
+                    mConnectivityListener.getEthernetIpConfiguration()));
+        }
         mEthernetDhcpPref.setOnPreferenceClickListener(
                 preference -> {
                     logEntrySelected(TvSettingsEnums.NETWORK_ETHERNET_IP_SETTINGS);
@@ -476,5 +483,16 @@ public class NetworkFragment extends SettingsPreferenceFragment implements
     @Override
     protected int getPageId() {
         return TvSettingsEnums.NETWORK;
+    }
+
+    private boolean isEasyConnectEnabled() {
+        final boolean wifiEnabled = mIsWifiHardwarePresent
+                && mConnectivityListener.isWifiEnabledOrEnabling();
+
+        if (!wifiEnabled || !mWifiManager.isEasyConnectSupported()) {
+            return false;
+        }
+
+        return getContext().getResources().getBoolean(R.bool.config_easyconnect_enabled);
     }
 }

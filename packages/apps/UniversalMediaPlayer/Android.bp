@@ -21,7 +21,7 @@ package {
 android_app {
     name: "UniversalMediaPlayer",
     min_sdk_version: "24", // TODO(b/123716038) Sync min SDK version with build.gradle
-    sdk_version: "28",
+    sdk_version: "31",
     srcs: [
         "gen/**/*.java", // TODO(b/123702784) Remove gen/ (either generate or remove dependencies)
         "java/**/*.java"

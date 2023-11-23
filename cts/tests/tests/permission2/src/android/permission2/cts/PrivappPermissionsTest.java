@@ -70,7 +70,6 @@ import java.util.TreeSet;
 @AppModeFull(reason = "This test test platform properties, not capabilities of an apps")
 @RunWith(AndroidJUnit4.class)
 public class PrivappPermissionsTest {
-
     private static final String TAG = "PrivappPermissionsTest";
 
     private static final String PLATFORM_PACKAGE_NAME = "android";
@@ -105,12 +104,6 @@ public class PrivappPermissionsTest {
             String packageName = pkg.packageName;
             if (!pkg.applicationInfo.isPrivilegedApp()
                     || PLATFORM_PACKAGE_NAME.equals(packageName)) {
-                continue;
-            }
-
-            // Exempt apk-in-apex as there is currently no way to get the PackageInfo of the
-            // preinstalled APK
-            if (pkg.applicationInfo.sourceDir.startsWith("/apex")) {
                 continue;
             }
 

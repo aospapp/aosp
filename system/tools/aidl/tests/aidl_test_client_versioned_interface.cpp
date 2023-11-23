@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <android/aidl/versioned/tests/BnFooInterface.h>
 #include <android/aidl/versioned/tests/IFooInterface.h>
 #include <binder/IServiceManager.h>
 #include <gtest/gtest.h>
@@ -27,6 +28,7 @@ using android::String16;
 using android::aidl::versioned::tests::BazUnion;
 using android::aidl::versioned::tests::Foo;
 using android::aidl::versioned::tests::IFooInterface;
+using android::aidl::versioned::tests::IFooInterfaceDelegator;
 
 class VersionedInterfaceTest : public AidlTest {
  public:
@@ -79,8 +81,22 @@ TEST_F(VersionedInterfaceTest, arrayOfParcelableWithNewParam) {
 
 TEST_F(VersionedInterfaceTest, readDataCorrectlyAfterParcelableWithNewField) {
   Foo inFoo, inoutFoo, outFoo;
+  inoutFoo.intDefault42 = 0;
+  outFoo.intDefault42 = 0;
   int32_t ret;
   auto status = versioned->ignoreParcelablesAndRepeatInt(inFoo, &inoutFoo, &outFoo, 43, &ret);
   EXPECT_TRUE(status.isOk());
   EXPECT_EQ(43, ret);
+  EXPECT_EQ(0, inoutFoo.intDefault42);
+  EXPECT_EQ(0, outFoo.intDefault42);
+}
+
+TEST_F(VersionedInterfaceTest, newerDelegatorReturnsImplVersion) {
+  auto delegator = sp<IFooInterfaceDelegator>::make(versioned);
+  EXPECT_EQ(1, delegator->getInterfaceVersion());
+}
+
+TEST_F(VersionedInterfaceTest, newerDelegatorReturnsImplHash) {
+  auto delegator = sp<IFooInterfaceDelegator>::make(versioned);
+  EXPECT_EQ("9e7be1859820c59d9d55dd133e71a3687b5d2e5b", delegator->getInterfaceHash());
 }

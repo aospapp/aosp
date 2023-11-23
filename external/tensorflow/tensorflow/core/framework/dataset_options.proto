@@ -2,28 +2,51 @@ syntax = "proto3";
 
 package tensorflow.data;
 
+option go_package = "github.com/tensorflow/tensorflow/tensorflow/go/core/framework/dataset_options_go_proto";
+
 // Represents the type of auto-sharding we enable.
 enum AutoShardPolicy {
+  // AUTO: Attempts FILE-based sharding, falling back to DATA-based sharding.
   AUTO = 0;
+  // FILE: Shards by input files (i.e. each worker will get a set of files to
+  // process). When this option is selected, make sure that there is at least as
+  // many files as workers. If there are fewer input files than workers, a
+  // runtime error will be raised.
   FILE = 1;
+  // DATA: Shards by elements produced by the dataset. Each worker will process
+  // the whole dataset and discard the portion that is not for itself. Note that
+  // for this mode to correctly partitions the dataset elements, the dataset
+  // needs to produce elements in a deterministic order.
   DATA = 2;
+  // HINT: Looks for the presence of `shard(SHARD_HINT, ...)` which is treated
+  // as a placeholder to replace with `shard(num_workers, worker_index)`.
+  HINT = 3;
+  // OFF: No sharding will be performed.
   OFF = -1;
 }
 
+// next: 4
+message AutotuneOptions {
+  // Whether to automatically tune performance knobs.
+  oneof optional_enabled {
+    bool enabled = 1;
+  }
+  // When autotuning is enabled (through autotune), determines the CPU budget to
+  // use. Values greater than the number of schedulable CPU cores are allowed
+  // but may result in CPU contention.
+  oneof optional_cpu_budget {
+    int32 cpu_budget = 2;
+  }
+  // When autotuning is enabled (through autotune), determines the RAM budget to
+  // use. Values greater than the available RAM in bytes may result in OOM. If
+  // 0, defaults to half of the available RAM in bytes.
+  oneof optional_ram_budget {
+    int64 ram_budget = 3;
+  }
+}
+
+// next: 3
 message DistributeOptions {
-  // The type of sharding that auto-shard should attempt. If this is set to
-  // FILE, then we will attempt to shard by files (each worker will get a set of
-  // files to process). If we cannot find a set of files to shard for at least
-  // one file per worker, we will error out. When this option is selected, make
-  // sure that you have enough files so that each worker gets at least one file.
-  // There will be a runtime error thrown if there are insufficient files. If
-  // this is set to DATA, then we will shard by elements produced by the
-  // dataset, and each worker will process the whole dataset and discard the
-  // portion that is not for itself. If this is set to OFF, then we will not
-  // autoshard, and each worker will receive a copy of the full dataset. This
-  // option is set to AUTO by default, AUTO will attempt to first shard by FILE,
-  // and fall back to sharding by DATA if we cannot find a set of files to
-  // shard.
   AutoShardPolicy auto_shard_policy = 1;
   // The number of devices attached to this input pipeline.
   oneof optional_num_devices {
@@ -31,59 +54,25 @@ message DistributeOptions {
   }
 }
 
-message MapVectorization {
-  // Whether to vectorize map transformations.
-  oneof optional_enabled {
-    bool enabled = 1;
-  }
-  // Whether to use ChooseFastestBranchDataset with this transformation. If
-  // True, the pipeline picks between the vectorized and original segment at
-  // runtime based on their iterations speed.
-  oneof optional_use_choose_fastest {
-    bool use_choose_fastest = 2;
-  }
-}
-
+// next: 18
 message OptimizationOptions {
   // Whether to apply default graph optimizations. If False, only graph
   // optimizations that have been explicitly enabled will be applied.
   oneof optional_apply_default_optimizations {
     bool apply_default_optimizations = 1;
   }
-  // Whether to automatically tune performance knobs.
-  oneof optional_autotune {
-    bool autotune = 2;
-  }
-  // When autotuning is enabled (through autotune), determines whether to also
-  // autotune buffer sizes for datasets with parallelism.
-  oneof optional_autotune_buffers {
-    bool autotune_buffers = 3;
-  }
-  // When autotuning is enabled (through autotune), determines the CPU budget to
-  // use. Values greater than the number of schedulable CPU cores are allowed
-  // but may result in CPU contention.
-  oneof optional_autotune_cpu_budget {
-    int32 autotune_cpu_budget = 4;
-  }
-  // When autotuning is enabled (through autotune), determines the RAM budget to
-  // use. Values greater than the available RAM in bytes may result in OOM. If
-  // 0, defaults to half of the available RAM in bytes.
-  oneof optional_autotune_ram_budget {
-    int32 autotune_ram_budget = 5;
-  }
+  reserved 2;
+  reserved 3;
+  reserved 4;
+  reserved 5;
   // Whether to fuse filter transformations.
   oneof optional_filter_fusion {
     bool filter_fusion = 6;
   }
-  // Whether to fuse filter dataset that predicts random_uniform < rate into a
-  // sampling dataset.
-  oneof optional_filter_with_random_uniform_fusion {
-    bool filter_with_random_uniform_fusion = 7;
-  }
-  // Whether to hoist tf.random_uniform() ops out of map transformations.
-  oneof optional_hoist_random_uniform {
-    bool hoist_random_uniform = 8;
-  }
+  // NOTE: field id 7 deleted in June 2021.
+  reserved 7;
+  // NOTE: field id 8 deleted in June 2021.
+  reserved 8;
   // Whether to fuse map and batch transformations.
   oneof optional_map_and_batch_fusion {
     bool map_and_batch_fusion = 9;
@@ -100,8 +89,10 @@ message OptimizationOptions {
   oneof optional_map_parallelization {
     bool map_parallelization = 12;
   }
-  // The map vectorization options associated with the dataset.
-  MapVectorization map_vectorization = 13;
+
+  // NOTE: field id 13 deleted in June 2021.
+  reserved 13;
+
   // Whether to eliminate no-op transformations.
   oneof optional_noop_elimination {
     bool noop_elimination = 14;
@@ -115,21 +106,15 @@ message OptimizationOptions {
   oneof optional_parallel_batch {
     bool parallel_batch = 15;
   }
-  // Whether to reorder ops that will discard data to the front of unary
-  // cardinality preserving transformations, e.g. dataset.map(...).take(3) will
-  // be optimized to dataset.take(3).map(...). For now this optimization will
-  // move `skip`, `shard` and `take` to the front of `map` and `prefetch`. This
-  // optimization is only for performance; it will not affect the output of the
-  // dataset.
-  oneof optional_reorder_data_discarding_ops {
-    bool reorder_data_discarding_ops = 16;
-  }
+  // Field id 16 was removed in 06/2021.
+  reserved 16;
   // Whether to fuse shuffle and repeat transformations.
   oneof optional_shuffle_and_repeat_fusion {
     bool shuffle_and_repeat_fusion = 17;
   }
 }
 
+// next: 3
 message ThreadingOptions {
   // If set, it overrides the maximum degree of intra-op parallelism.
   oneof optional_max_intra_op_parallelism {
@@ -143,18 +128,22 @@ message ThreadingOptions {
 
 // Represents how to handle external state during serialization.
 enum ExternalStatePolicy {
-  WARN = 0;
-  IGNORE = 1;
-  FAIL = 2;
+  POLICY_WARN = 0;
+  POLICY_IGNORE = 1;
+  POLICY_FAIL = 2;
 }
 
 // Message stored with Dataset objects to control how datasets are processed and
 // optimized.
+//
+// next: 8
 message Options {
   // Whether the outputs need to be produced in deterministic order.
   oneof optional_deterministic {
     bool deterministic = 1;
   }
+  // The distribution strategy options associated with the dataset.
+  AutotuneOptions autotune_options = 7;
   // The distribution strategy options associated with the dataset.
   DistributeOptions distribute_options = 2;
   // The optimization options associated with the dataset.

@@ -19,6 +19,7 @@
 
 #include "base/casts.h"
 #include "base/macros.h"
+#include "class_root-inl.h"
 #include "code_generator.h"
 #include "data_type-inl.h"
 #include "dex/dex_file-inl.h"
@@ -111,8 +112,8 @@ static inline size_t GetExpectedVarHandleCoordinatesCount(HInvoke *invoke) {
 
 static inline DataType::Type GetDataTypeFromShorty(HInvoke* invoke, uint32_t index) {
   DCHECK(invoke->IsInvokePolymorphic());
-  const DexFile& dex_file = invoke->GetBlock()->GetGraph()->GetDexFile();
-  const char* shorty = dex_file.GetShorty(invoke->AsInvokePolymorphic()->GetProtoIndex());
+  const DexFile* dex_file = invoke->GetMethodReference().dex_file;
+  const char* shorty = dex_file->GetShorty(invoke->AsInvokePolymorphic()->GetProtoIndex());
   DCHECK_LT(index, strlen(shorty));
 
   return DataType::FromShorty(shorty[index]);
@@ -144,6 +145,78 @@ static inline bool IsVarHandleGetAndAdd(HInvoke* invoke) {
     default:
       return false;
   }
+}
+
+static inline bool IsVarHandleGet(HInvoke* invoke) {
+  mirror::VarHandle::AccessModeTemplate access_mode =
+      mirror::VarHandle::GetAccessModeTemplateByIntrinsic(invoke->GetIntrinsic());
+  return access_mode == mirror::VarHandle::AccessModeTemplate::kGet;
+}
+
+static inline bool IsUnsafeGetObject(HInvoke* invoke) {
+  switch (invoke->GetIntrinsic()) {
+    case Intrinsics::kUnsafeGetObject:
+    case Intrinsics::kUnsafeGetObjectVolatile:
+    case Intrinsics::kJdkUnsafeGetObject:
+    case Intrinsics::kJdkUnsafeGetObjectVolatile:
+    case Intrinsics::kJdkUnsafeGetObjectAcquire:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static inline bool IsUnsafeCASObject(HInvoke* invoke) {
+  switch (invoke->GetIntrinsic()) {
+    case Intrinsics::kUnsafeCASObject:
+    case Intrinsics::kJdkUnsafeCASObject:
+    case Intrinsics::kJdkUnsafeCompareAndSetObject:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static inline bool IsVarHandleCASFamily(HInvoke* invoke) {
+  mirror::VarHandle::AccessModeTemplate access_mode =
+      mirror::VarHandle::GetAccessModeTemplateByIntrinsic(invoke->GetIntrinsic());
+  return access_mode == mirror::VarHandle::AccessModeTemplate::kCompareAndSet ||
+      access_mode == mirror::VarHandle::AccessModeTemplate::kGetAndUpdate ||
+      access_mode == mirror::VarHandle::AccessModeTemplate::kCompareAndExchange;
+}
+
+static inline DataType::Type GetVarHandleExpectedValueType(HInvoke* invoke,
+                                                           size_t expected_coordinates_count) {
+  DCHECK_EQ(expected_coordinates_count, GetExpectedVarHandleCoordinatesCount(invoke));
+  uint32_t number_of_arguments = invoke->GetNumberOfArguments();
+  DCHECK_GE(number_of_arguments, /* VarHandle object */ 1u + expected_coordinates_count);
+  if (number_of_arguments == /* VarHandle object */ 1u + expected_coordinates_count) {
+    return invoke->GetType();
+  } else {
+    return GetDataTypeFromShorty(invoke, number_of_arguments - 1u);
+  }
+}
+
+static inline ArtField* GetBootImageVarHandleField(HInvoke* invoke)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK_LE(GetExpectedVarHandleCoordinatesCount(invoke), 1u);
+  DCHECK(VarHandleOptimizations(invoke).GetUseKnownBootImageVarHandle());
+  HInstruction* var_handle_instruction = invoke->InputAt(0);
+  if (var_handle_instruction->IsNullCheck()) {
+    var_handle_instruction = var_handle_instruction->InputAt(0);
+  }
+  DCHECK(var_handle_instruction->IsStaticFieldGet());
+  ArtField* field = var_handle_instruction->AsStaticFieldGet()->GetFieldInfo().GetField();
+  DCHECK(field->IsStatic());
+  DCHECK(field->IsFinal());
+  DCHECK(var_handle_instruction->InputAt(0)->AsLoadClass()->IsInBootImage());
+  ObjPtr<mirror::Object> var_handle = field->GetObject(field->GetDeclaringClass());
+  DCHECK(var_handle->GetClass() ==
+         (GetExpectedVarHandleCoordinatesCount(invoke) == 0u
+             ? GetClassRoot<mirror::StaticFieldVarHandle>()
+             : GetClassRoot<mirror::FieldVarHandle>()));
+  static_assert(std::is_base_of_v<mirror::FieldVarHandle, mirror::StaticFieldVarHandle>);
+  return ObjPtr<mirror::FieldVarHandle>::DownCast(var_handle)->GetArtField();
 }
 
 }  // namespace art

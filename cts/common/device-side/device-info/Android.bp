@@ -19,7 +19,10 @@ package {
 java_library {
     name: "compatibility-device-info",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
 
     static_libs: [
         "androidx.test.rules",

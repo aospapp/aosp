@@ -34,8 +34,6 @@ BOOT_V3_ARGS_OFFSET = 44
 VENDOR_BOOT_ARGS_OFFSET = 28
 VENDOR_BOOT_ARGS_SIZE = 2048
 
-BOOT_IMAGE_V4_SIGNATURE_SIZE = 4096
-
 TEST_KERNEL_CMDLINE = (
     'printk.devkmsg=on firmware_class.path=/vendor/etc/ init=/init '
     'kfence.sample_interval=500 loop.max_part=7 bootconfig'
@@ -86,7 +84,7 @@ class MkbootimgTest(unittest.TestCase):
         # C0103: invalid-name for maxDiff.
         self.maxDiff = None  # pylint: disable=C0103
 
-    def _test_boot_image_v4_signature(self, avbtool_path):
+    def _test_legacy_boot_image_v4_signature(self, avbtool_path):
         """Tests the boot_signature in boot.img v4."""
         with tempfile.TemporaryDirectory() as temp_out_dir:
             boot_img = os.path.join(temp_out_dir, 'boot.img')
@@ -162,15 +160,16 @@ class MkbootimgTest(unittest.TestCase):
 
             self.assertEqual(result.stdout, expected_boot_signature_info)
 
-    def test_boot_image_v4_signature_without_avbtool_path(self):
+    def test_legacy_boot_image_v4_signature_without_avbtool_path(self):
         """Boot signature generation without --gki_signing_avbtool_path."""
-        self._test_boot_image_v4_signature(avbtool_path=None)
+        self._test_legacy_boot_image_v4_signature(avbtool_path=None)
 
-    def test_boot_image_v4_signature_with_avbtool_path(self):
+    def test_legacy_boot_image_v4_signature_with_avbtool_path(self):
         """Boot signature generation with --gki_signing_avbtool_path."""
-        self._test_boot_image_v4_signature(avbtool_path=self._avbtool_path)
+        self._test_legacy_boot_image_v4_signature(
+            avbtool_path=self._avbtool_path)
 
-    def test_boot_image_v4_signature_exceed_size(self):
+    def test_legacy_boot_image_v4_signature_exceed_size(self):
         """Tests the boot signature size exceeded in a boot image version 4."""
         with tempfile.TemporaryDirectory() as temp_out_dir:
             boot_img = os.path.join(temp_out_dir, 'boot.img')
@@ -205,7 +204,7 @@ class MkbootimgTest(unittest.TestCase):
                 self.assertIn('ValueError: boot sigature size is > 4096',
                               e.stderr)
 
-    def test_boot_image_v4_signature_zeros(self):
+    def test_boot_image_v4_signature_empty(self):
         """Tests no boot signature in a boot image version 4."""
         with tempfile.TemporaryDirectory() as temp_out_dir:
             boot_img = os.path.join(temp_out_dir, 'boot.img')
@@ -214,8 +213,6 @@ class MkbootimgTest(unittest.TestCase):
             ramdisk = generate_test_file(os.path.join(temp_out_dir, 'ramdisk'),
                                          0x1000)
 
-            # The boot signature will be zeros if no
-            # --gki_signing_[algorithm|key] is provided.
             mkbootimg_cmds = [
                 'mkbootimg',
                 '--header_version', '4',
@@ -235,11 +232,10 @@ class MkbootimgTest(unittest.TestCase):
             subprocess.run(mkbootimg_cmds, check=True)
             subprocess.run(unpack_bootimg_cmds, check=True)
 
-            boot_signature = os.path.join(
-                temp_out_dir, 'out', 'boot_signature')
-            with open(boot_signature) as f:
-                zeros = '\x00' * BOOT_IMAGE_V4_SIGNATURE_SIZE
-                self.assertEqual(f.read(), zeros)
+            # The boot signature will be empty if no
+            # --gki_signing_[algorithm|key] is provided.
+            boot_signature = os.path.join(temp_out_dir, 'out', 'boot_signature')
+            self.assertFalse(os.path.exists(boot_signature))
 
     def test_vendor_boot_v4(self):
         """Tests vendor_boot version 4."""
@@ -417,6 +413,45 @@ class MkbootimgTest(unittest.TestCase):
             self.assertTrue(
                 filecmp.cmp(vendor_boot_img, vendor_boot_img_reconstructed),
                 'reconstructed vendor_boot image differ from the original')
+
+    def test_unpack_boot_image_v4(self):
+        """Tests that mkbootimg(unpack_bootimg(image)) is an identity."""
+        with tempfile.TemporaryDirectory() as temp_out_dir:
+            boot_img = os.path.join(temp_out_dir, 'boot.img')
+            boot_img_reconstructed = os.path.join(
+                temp_out_dir, 'boot.img.reconstructed')
+            kernel = generate_test_file(os.path.join(temp_out_dir, 'kernel'),
+                                        0x1000)
+            ramdisk = generate_test_file(os.path.join(temp_out_dir, 'ramdisk'),
+                                         0x1000)
+            mkbootimg_cmds = [
+                'mkbootimg',
+                '--header_version', '4',
+                '--kernel', kernel,
+                '--ramdisk', ramdisk,
+                '--cmdline', TEST_KERNEL_CMDLINE,
+                '--output', boot_img,
+            ]
+            unpack_bootimg_cmds = [
+                'unpack_bootimg',
+                '--boot_img', boot_img,
+                '--out', os.path.join(temp_out_dir, 'out'),
+                '--format=mkbootimg',
+            ]
+
+            subprocess.run(mkbootimg_cmds, check=True)
+            result = subprocess.run(unpack_bootimg_cmds, check=True,
+                                    capture_output=True, encoding='utf-8')
+            mkbootimg_cmds = [
+                'mkbootimg',
+                '--out', boot_img_reconstructed,
+            ]
+            mkbootimg_cmds.extend(shlex.split(result.stdout))
+
+            subprocess.run(mkbootimg_cmds, check=True)
+            self.assertTrue(
+                filecmp.cmp(boot_img, boot_img_reconstructed),
+                'reconstructed boot image differ from the original')
 
     def test_unpack_boot_image_v3(self):
         """Tests that mkbootimg(unpack_bootimg(image)) is an identity."""
@@ -724,6 +759,80 @@ class MkbootimgTest(unittest.TestCase):
                                   [:VENDOR_BOOT_ARGS_SIZE])
             self.assertEqual(raw_vendor_cmdline,
                              vendor_cmdline.encode() + b'\x00')
+
+    def test_vendor_boot_v4_without_dtb(self):
+        """Tests building vendor_boot version 4 without dtb image."""
+        with tempfile.TemporaryDirectory() as temp_out_dir:
+            vendor_boot_img = os.path.join(temp_out_dir, 'vendor_boot.img')
+            ramdisk = generate_test_file(
+                os.path.join(temp_out_dir, 'ramdisk'), 0x1000)
+            mkbootimg_cmds = [
+                'mkbootimg',
+                '--header_version', '4',
+                '--vendor_boot', vendor_boot_img,
+                '--vendor_ramdisk', ramdisk,
+            ]
+            unpack_bootimg_cmds = [
+                'unpack_bootimg',
+                '--boot_img', vendor_boot_img,
+                '--out', os.path.join(temp_out_dir, 'out'),
+            ]
+            expected_output = [
+                'boot magic: VNDRBOOT',
+                'vendor boot image header version: 4',
+                'dtb size: 0',
+            ]
+
+            subprocess.run(mkbootimg_cmds, check=True)
+            result = subprocess.run(unpack_bootimg_cmds, check=True,
+                                    capture_output=True, encoding='utf-8')
+            output = [line.strip() for line in result.stdout.splitlines()]
+            if not subsequence_of(expected_output, output):
+                msg = '\n'.join([
+                    'Unexpected unpack_bootimg output:',
+                    'Expected:',
+                    ' ' + '\n '.join(expected_output),
+                    '',
+                    'Actual:',
+                    ' ' + '\n '.join(output),
+                ])
+                self.fail(msg)
+
+    def test_unpack_vendor_boot_image_v4_without_dtb(self):
+        """Tests that mkbootimg(unpack_bootimg(image)) is an identity when no dtb image."""
+        with tempfile.TemporaryDirectory() as temp_out_dir:
+            vendor_boot_img = os.path.join(temp_out_dir, 'vendor_boot.img')
+            vendor_boot_img_reconstructed = os.path.join(
+                temp_out_dir, 'vendor_boot.img.reconstructed')
+            ramdisk = generate_test_file(
+                os.path.join(temp_out_dir, 'ramdisk'), 0x121212)
+
+            mkbootimg_cmds = [
+                'mkbootimg',
+                '--header_version', '4',
+                '--vendor_boot', vendor_boot_img,
+                '--vendor_ramdisk', ramdisk,
+            ]
+            unpack_bootimg_cmds = [
+                'unpack_bootimg',
+                '--boot_img', vendor_boot_img,
+                '--out', os.path.join(temp_out_dir, 'out'),
+                '--format=mkbootimg',
+            ]
+            subprocess.run(mkbootimg_cmds, check=True)
+            result = subprocess.run(unpack_bootimg_cmds, check=True,
+                                    capture_output=True, encoding='utf-8')
+            mkbootimg_cmds = [
+                'mkbootimg',
+                '--vendor_boot', vendor_boot_img_reconstructed,
+            ]
+            unpack_format_args = shlex.split(result.stdout)
+            mkbootimg_cmds.extend(unpack_format_args)
+
+            subprocess.run(mkbootimg_cmds, check=True)
+            self.assertTrue(
+                filecmp.cmp(vendor_boot_img, vendor_boot_img_reconstructed),
+                'reconstructed vendor_boot image differ from the original')
 
 
 # I don't know how, but we need both the logger configuration and verbosity

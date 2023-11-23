@@ -112,6 +112,7 @@
             android:pointerIcon="hand">
 
             <ImageView
+                android:id="@+id/icon_id"
                 android:layout_height="@dimen/briefcase_icon_size_photo"
                 android:layout_width="@dimen/briefcase_icon_size_photo"
                 android:src="@drawable/ic_briefcase_white"

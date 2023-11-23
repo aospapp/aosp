@@ -18,7 +18,6 @@ package android.hdmicec.cts.playback;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
@@ -27,7 +26,6 @@ import android.hdmicec.cts.CecOperand;
 import android.hdmicec.cts.HdmiCecConstants;
 import android.hdmicec.cts.LogicalAddress;
 
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Rule;
@@ -43,10 +41,11 @@ public final class HdmiCecSystemInformationTest extends BaseHdmiCecCtsTest {
 
     @Rule
     public RuleChain ruleChain =
-            RuleChain
-                    .outerRule(CecRules.requiresCec(this))
+            RuleChain.outerRule(CecRules.requiresCec(this))
                     .around(CecRules.requiresLeanback(this))
-                    .around(CecRules.requiresDeviceType(this, LogicalAddress.PLAYBACK_1))
+                    .around(
+                            CecRules.requiresDeviceType(
+                                    this, HdmiCecConstants.CEC_DEVICE_TYPE_PLAYBACK_DEVICE))
                     .around(hdmiCecClient);
 
     public HdmiCecSystemInformationTest() {
@@ -64,27 +63,6 @@ public final class HdmiCecSystemInformationTest extends BaseHdmiCecCtsTest {
         int abortedOpcode = CecMessage.getParams(message,
                 CecOperand.GET_MENU_LANGUAGE.toString().length());
         assertThat(CecOperand.getOperand(abortedOpcode)).isEqualTo(CecOperand.GET_MENU_LANGUAGE);
-    }
-
-    /**
-     * Test 11.2.6-3
-     * Tests that the device handles a <SET_MENU_LANGUAGE> with a valid language correctly.
-     */
-    @Test
-    public void cect_11_2_6_3_SetValidMenuLanguage() throws Exception {
-        assumeTrue(isLanguageEditable());
-        final String locale = getSystemLocale();
-        final String originalLanguage = extractLanguage(locale);
-        final String language = originalLanguage.equals("spa") ? "eng" : "spa";
-        final String newLanguage = originalLanguage.equals("spa") ? "en" : "es";
-        try {
-            hdmiCecClient.sendCecMessage(LogicalAddress.TV, LogicalAddress.BROADCAST,
-                    CecOperand.SET_MENU_LANGUAGE, CecMessage.convertStringToHexParams(language));
-            TimeUnit.SECONDS.sleep(5);
-            assertThat(extractLanguage(getSystemLocale())).isEqualTo(newLanguage);
-        } finally {
-            setSystemLocale(locale);
-        }
     }
 
     /**
@@ -127,31 +105,46 @@ public final class HdmiCecSystemInformationTest extends BaseHdmiCecCtsTest {
     }
 
     /**
-     * ro.hdmi.set_menu_language should always be false, due to issues with misbehaving TVs.
-     * To be removed when better handling for <SET MENU LANGUAGE> is implemented in b/195504595.
+     * Test HF4-11-4 (CEC 2.0)
+     *
+     * <p>Tests that the DUT responds to {@code <Give Features>} with "Sink supports ARC Tx" bit not
+     * set.
      */
     @Test
-    public void setMenuLanguageIsDisabled() throws Exception {
-        assertThat(isLanguageEditable()).isFalse();
+    public void cect_hf_4_11_4_SinkArcTxBitReset() throws Exception {
+        setCec20();
+        hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.GIVE_FEATURES);
+        String message = hdmiCecClient.checkExpectedOutput(CecOperand.REPORT_FEATURES);
+        int params = CecMessage.getParams(message, 6, 8);
+        assertThat(params & HdmiCecConstants.FEATURES_SINK_SUPPORTS_ARC_TX_BIT).isEqualTo(0);
     }
 
     /**
-     * Tests that <SET MENU LANGUAGE> from a valid source is ignored when ro.hdmi.set_menu_language
-     * is false.
+     * Test HF4-11-5 (CEC 2.0)
+     *
+     * <p>Tests that the DUT responds to {@code <Give Features>} with "Sink supports ARC Tx" bit not
+     * set and "Sink support ARC Rx" bit set/reset appropriately.
      */
     @Test
-    public void setMenuLanguageNotHandledWhenDisabled() throws Exception {
-        assumeFalse(isLanguageEditable());
-        final String locale = getSystemLocale();
-        final String originalLanguage = extractLanguage(locale);
-        final String language = originalLanguage.equals("spa") ? "eng" : "spa";
-        try {
-            hdmiCecClient.sendCecMessage(LogicalAddress.TV, LogicalAddress.BROADCAST,
-                    CecOperand.SET_MENU_LANGUAGE, CecMessage.convertStringToHexParams(language));
-            TimeUnit.SECONDS.sleep(5);
-            assertThat(extractLanguage(getSystemLocale())).isEqualTo(originalLanguage);
-        } finally {
-            setSystemLocale(locale);
+    public void cect_hf_4_11_5_CheckArcTxRxBits() throws Exception {
+        setCec20();
+        hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.GIVE_FEATURES);
+        String message = hdmiCecClient.checkExpectedOutput(CecOperand.REPORT_FEATURES);
+        int params = CecMessage.getParams(message, 6, 8);
+        assertThat(params & HdmiCecConstants.FEATURES_SINK_SUPPORTS_ARC_TX_BIT).isEqualTo(0);
+
+        boolean hasAudioSystem =
+                getDevice()
+                        .getProperty(HdmiCecConstants.HDMI_DEVICE_TYPE_PROPERTY)
+                        .contains(Integer.toString(HdmiCecConstants.CEC_DEVICE_TYPE_AUDIO_SYSTEM));
+        boolean isArcSupported =
+                getDevice().getBooleanProperty(HdmiCecConstants.PROPERTY_ARC_SUPPORT, false);
+        if (hasAudioSystem && isArcSupported) {
+            // This has an Audio System as well, so ARC Rx bit has to be set.
+            assertThat(params & HdmiCecConstants.FEATURES_SINK_SUPPORTS_ARC_RX_BIT).isEqualTo(1);
+        } else {
+            // No Audio System, so ARC Rx bit has to be reset.
+            assertThat(params & HdmiCecConstants.FEATURES_SINK_SUPPORTS_ARC_RX_BIT).isEqualTo(0);
         }
     }
 }

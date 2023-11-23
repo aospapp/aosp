@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Blokovať hovory z verejných telefónov"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Neznáme číslo"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Blokovať hovory od nerozpoznaných volajúcich"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Nedostupné"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Blokovať hovory, ak je číslo nedostupné"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Blokovanie hovorov"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Blokovanie hovorov je vypnuté"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Bolo uskutočnené tiesňové volanie"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Blokovanie hovorov bolo vypnuté, aby vás mohli kontaktovať pracovníci tiesňových služieb."</string>
     <string name="developer_title" msgid="9146088855661672353">"Ponuka pre vývojárov Telecomu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Počas tiesňového volania nie je možné prijímať hovory."</string>
+    <string name="cancel" msgid="6733466216239934756">"Zrušiť"</string>
 </resources>

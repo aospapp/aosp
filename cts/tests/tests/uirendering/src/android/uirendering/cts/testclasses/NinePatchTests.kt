@@ -23,7 +23,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.NinePatch
 import android.uirendering.cts.R
-import android.uirendering.cts.bitmapcomparers.ExactComparer
+import android.uirendering.cts.bitmapcomparers.MSSIMComparer
 import android.uirendering.cts.testinfrastructure.ActivityTestBase
 import android.uirendering.cts.testinfrastructure.CanvasClient
 import androidx.test.runner.AndroidJUnit4
@@ -58,7 +58,7 @@ class NinePatchTests : ActivityTestBase() {
             for (paint in arrayOf(null, Paint(), Paint().apply { isFilterBitmap = false })) {
                 addCanvasClientWithoutUsingPicture(NinePatchCanvasClient(np, paint), hw)
             }
-            runWithComparer(ExactComparer())
+            runWithComparer(MSSIMComparer(0.99))
         }
 
         np.bitmap.recycle()

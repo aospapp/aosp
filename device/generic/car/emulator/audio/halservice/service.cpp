@@ -47,6 +47,7 @@ using android::hardware::registerPassthroughServiceImplementation;
 
 int main(int /* argc */, char* /* argv */ []) {
     // Setup HIDL Audio HAL
+    LOG(INFO) << "AudioControl start audio HAL.";
     configureRpcThreadpool(16, false /*callerWillJoin*/);
     android::status_t status;
     status = registerPassthroughServiceImplementation<IDevicesFactory>();
@@ -55,14 +56,17 @@ int main(int /* argc */, char* /* argv */ []) {
     LOG_ALWAYS_FATAL_IF(status != OK, "Error while registering audio effects service: %d", status);
 
     // Setup AudioControl HAL
-    ABinderProcess_setThreadPoolMaxThreadCount(0);
+    ABinderProcess_setThreadPoolMaxThreadCount(16);
     std::shared_ptr<AudioControl> audioControl = ::ndk::SharedRefBase::make<AudioControl>();
 
     const std::string instance = std::string() + AudioControl::descriptor + "/default";
-    binder_status_t aidlStatus =
-            AServiceManager_addService(audioControl->asBinder().get(), instance.c_str());
+    binder_status_t aidlStatus = AServiceManager_addService(audioControl->asBinder().get(),
+            instance.c_str());
     CHECK(aidlStatus == STATUS_OK);
 
+    LOG(INFO) << "AudioControl status: status " << aidlStatus;
+
     ABinderProcess_joinThreadPool();
+    LOG(ERROR) << "ABinderProcess_joinThreadPool should never get here ";
     return EXIT_FAILURE;  // should not reach
 }

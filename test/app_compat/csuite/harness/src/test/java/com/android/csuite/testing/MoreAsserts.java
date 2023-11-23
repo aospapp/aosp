@@ -38,8 +38,6 @@ public final class MoreAsserts {
      * <p>This is mostly intended as a drop-in replacement of assertThrows that is only available in
      * JUnit 4.13 and later.
      *
-     * @param message the identifying message for the {@link AssertionError}
-     * @param expectedThrowable the expected type of the exception
      * @param runnable a function that is expected to throw an exception when executed
      * @return the exception thrown by {@code runnable}
      */

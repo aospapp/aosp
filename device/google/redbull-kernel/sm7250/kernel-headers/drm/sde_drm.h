@@ -192,4 +192,5 @@ struct sde_drm_roi_v1 {
 #define SDE_RECOVERY_SUCCESS 0
 #define SDE_RECOVERY_CAPTURE 1
 #define SDE_RECOVERY_HARD_RESET 2
+#define DRM_FORMAT_MOD_QCOM_FSC_TILE fourcc_mod_code(QCOM, 0x10)
 #endif

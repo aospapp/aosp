@@ -157,4 +157,27 @@ void getBounds(const U16StringPiece& str, const Range& range, Bidi bidiFlag,
     *out = bc.mBounds;
 }
 
+struct ExtentComposer {
+    ExtentComposer() {}
+
+    void operator()(const LayoutPiece& layoutPiece, const MinikinPaint&) {
+        extent.extendBy(layoutPiece.extent());
+    }
+
+    MinikinExtent extent;
+};
+
+MinikinExtent getFontExtent(const U16StringPiece& textBuf, const Range& range, Bidi bidiFlag,
+                            const MinikinPaint& paint) {
+    ExtentComposer composer;
+    for (const BidiText::RunInfo info : BidiText(textBuf, range, bidiFlag)) {
+        for (const auto [context, piece] : LayoutSplitter(textBuf, info.range, info.isRtl)) {
+            LayoutCache::getInstance().getOrCreate(
+                    textBuf.substr(context), piece - context.getStart(), paint, info.isRtl,
+                    StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, composer);
+        }
+    }
+    return composer.extent;
+}
+
 }  // namespace minikin

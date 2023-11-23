@@ -123,7 +123,6 @@ public class DevicePickerActivity extends Activity {
     }
 
     private void scan() {
-        mBluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, 60);
         populatePairedDevices();
         mNewDevicesAdapter.clear();
         if (mBluetoothAdapter.isDiscovering()) {

@@ -43,7 +43,7 @@
   <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
   <string name="setting_up_workspace">Setting up work profile\u2026</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the profile they are creating. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_profile">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_profile">Your IT admin can monitor and manage settings, corporate access, apps, permissions, data, and network activity associated with this profile, as well as your call history and contact search history. Contact your IT admin for more information and to learn more about your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the device. [CHAR LIMIT=NONE]-->
   <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">\n\n</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that theft protection will only be enabled after a password-protected screen lock was chosen. [CHAR LIMIT=NONE]-->
@@ -412,4 +412,14 @@
   <string name="financed_restrict_device_subheader_title">This device can be restricted</string>
   <!-- This text is letting the user know that the credit provider can restrict this device if the user doesn't make payments. The placeholder is the name of the credit provider. [CHAR LIMIT=NONE]-->
   <string name="financed_restrict_device_subheader_description"><xliff:g id="creditor_name" example="creditor_name">%1$s</xliff:g> can restrict access to this device if you don\’t make payments.</string>
+
+  <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin and reference the reason for the error. [CHAR LIMIT=NONE] -->
+  <string name="error_role_holder_hash_mismatch">Can\'t set up device. Contact your IT admin and reference \"Invalid checksum\".</string>
+  <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin or try again later. [CHAR LIMIT=NONE] -->
+  <string name="error_role_holder_download_install_failed">Try again later or ask your IT admin for help</string>
+  <!-- Error message. This message shows up when a user can't set up their device, and they're encouraged to contact their IT admin and reference the reason for the error. [CHAR LIMIT=NONE] -->
+  <string name="error_role_holder_package_invalid">Can\'t set up device. Contact your IT admin and reference \"Missing or corrupted components\".</string>
+
+  <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
+  <string name="setting_up">Setting up\u2026</string>
 </resources>

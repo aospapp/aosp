@@ -2,6 +2,8 @@
 #define USE_TOYBOX_ANDROID_SCHEDPOLICY(...)
 #define CFG_TOYBOX_CONTAINER 0
 #define USE_TOYBOX_CONTAINER(...)
+#define CFG_TOYBOX_COPYFILERANGE 0
+#define USE_TOYBOX_COPYFILERANGE(...)
 #define CFG_TOYBOX_DEBUG 0
 #define USE_TOYBOX_DEBUG(...)
 #define CFG_TOYBOX_FALLOCATE 0
@@ -238,6 +240,16 @@
 #define USE_GETOPT(...) __VA_ARGS__
 #define CFG_GETTY 0
 #define USE_GETTY(...)
+#define CFG_GPIODETECT 0
+#define USE_GPIODETECT(...)
+#define CFG_GPIOFIND 0
+#define USE_GPIOFIND(...)
+#define CFG_GPIOGET 0
+#define USE_GPIOGET(...)
+#define CFG_GPIOINFO 0
+#define USE_GPIOINFO(...)
+#define CFG_GPIOSET 0
+#define USE_GPIOSET(...)
 #define CFG_GREP 1
 #define USE_GREP(...) __VA_ARGS__
 #define CFG_GROUPADD 0
@@ -258,8 +270,12 @@
 #define USE_HELP_EXTRAS(...)
 #define CFG_HELP 0
 #define USE_HELP(...)
+#define CFG_HEXDUMP 0
+#define USE_HEXDUMP(...)
 #define CFG_HEXEDIT 0
 #define USE_HEXEDIT(...)
+#define CFG_HD 0
+#define USE_HD(...)
 #define CFG_HOSTID 0
 #define USE_HOSTID(...)
 #define CFG_HOST 0
@@ -290,8 +306,8 @@
 #define USE_INOTIFYD(...)
 #define CFG_INSMOD 0
 #define USE_INSMOD(...)
-#define CFG_INSTALL 0
-#define USE_INSTALL(...)
+#define CFG_INSTALL 1
+#define USE_INSTALL(...) __VA_ARGS__
 #define CFG_IONICE 0
 #define USE_IONICE(...)
 #define CFG_IORENICE 0
@@ -318,6 +334,8 @@
 #define USE_LAST(...)
 #define CFG_LINK 0
 #define USE_LINK(...)
+#define CFG_LINUX32 0
+#define USE_LINUX32(...)
 #define CFG_LN 1
 #define USE_LN(...) __VA_ARGS__
 #define CFG_LOAD_POLICY 0
@@ -330,6 +348,8 @@
 #define USE_LOG(...)
 #define CFG_LOGNAME 0
 #define USE_LOGNAME(...)
+#define CFG_LOGPATH 0
+#define USE_LOGPATH(...)
 #define CFG_LOGWRAPPER 0
 #define USE_LOGWRAPPER(...)
 #define CFG_LOSETUP 0
@@ -538,6 +558,8 @@
 #define USE_SPLIT(...)
 #define CFG_STAT 1
 #define USE_STAT(...) __VA_ARGS__
+#define CFG_STRACE 0
+#define USE_STRACE(...)
 #define CFG_STRINGS 0
 #define USE_STRINGS(...)
 #define CFG_STTY 0
@@ -602,6 +624,8 @@
 #define USE_TTY(...)
 #define CFG_TUNCTL 0
 #define USE_TUNCTL(...)
+#define CFG_UCLAMPSET 0
+#define USE_UCLAMPSET(...)
 #define CFG_ULIMIT 0
 #define USE_ULIMIT(...)
 #define CFG_UMOUNT 0

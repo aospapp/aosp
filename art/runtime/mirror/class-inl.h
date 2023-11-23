@@ -32,10 +32,10 @@
 #include "dex/dex_file-inl.h"
 #include "dex/invoke_type.h"
 #include "dex_cache.h"
+#include "hidden_api.h"
 #include "iftable-inl.h"
 #include "imtable.h"
 #include "object-inl.h"
-#include "object_array.h"
 #include "read_barrier-inl.h"
 #include "runtime.h"
 #include "string.h"
@@ -412,6 +412,18 @@ inline void Class::SetObjectSize(uint32_t new_object_size) {
   return SetField32<false>(OFFSET_OF_OBJECT_MEMBER(Class, object_size_), new_object_size);
 }
 
+template<typename T>
+inline bool Class::IsDiscoverable(bool public_only,
+                                  const hiddenapi::AccessContext& access_context,
+                                  T* member) {
+  if (public_only && ((member->GetAccessFlags() & kAccPublic) == 0)) {
+    return false;
+  }
+
+  return !hiddenapi::ShouldDenyAccessToMember(
+      member, access_context, hiddenapi::AccessMethod::kNone);
+}
+
 // Determine whether "this" is assignable from "src", where both of these
 // are array classes.
 //
@@ -468,7 +480,7 @@ inline bool Class::ResolvedFieldAccessTest(ObjPtr<Class> access_to,
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
         class_idx,
         dex_cache,
-        access_to->GetClassLoader());
+        GetClassLoader());
     DCHECK(dex_access_to != nullptr);
     if (UNLIKELY(!this->CanAccess(dex_access_to))) {
       if (throw_on_failure) {
@@ -504,8 +516,10 @@ inline bool Class::ResolvedMethodAccessTest(ObjPtr<Class> access_to,
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
         class_idx,
         dex_cache,
-        access_to->GetClassLoader());
-    DCHECK(dex_access_to != nullptr);
+        GetClassLoader());
+    DCHECK(dex_access_to != nullptr)
+        << " Could not resolve " << dex_cache->GetDexFile()->StringByTypeIdx(class_idx)
+        << " when checking access to " << method->PrettyMethod() << " from " << PrettyDescriptor();
     if (UNLIKELY(!this->CanAccess(dex_access_to))) {
       if (throw_on_failure) {
         ThrowIllegalAccessErrorClassForMethodDispatch(this,
@@ -884,6 +898,34 @@ inline bool Class::DescriptorEquals(const char* match) {
   }
 }
 
+inline uint32_t Class::DescriptorHash() {
+  // No read barriers needed, we're reading a chain of constant references for comparison with null
+  // and retrieval of constant primitive data. See `ReadBarrierOption` and `Class::GetDescriptor()`.
+  ObjPtr<mirror::Class> klass = this;
+  uint32_t hash = StartModifiedUtf8Hash();
+  while (klass->IsArrayClass()) {
+    klass = klass->GetComponentType<kDefaultVerifyFlags, kWithoutReadBarrier>();
+    hash = UpdateModifiedUtf8Hash(hash, '[');
+  }
+  if (UNLIKELY(klass->IsProxyClass())) {
+    hash = UpdateHashForProxyClass(hash, klass);
+  } else if (klass->IsPrimitive()) {
+    hash = UpdateModifiedUtf8Hash(hash, Primitive::Descriptor(klass->GetPrimitiveType())[0]);
+  } else {
+    const DexFile& dex_file = klass->GetDexFile();
+    const dex::TypeId& type_id = dex_file.GetTypeId(klass->GetDexTypeIndex());
+    std::string_view descriptor = dex_file.GetTypeDescriptorView(type_id);
+    hash = UpdateModifiedUtf8Hash(hash, descriptor);
+  }
+
+  if (kIsDebugBuild) {
+    std::string temp;
+    CHECK_EQ(hash, ComputeModifiedUtf8Hash(GetDescriptor(&temp)));
+  }
+
+  return hash;
+}
+
 inline void Class::AssertInitializedOrInitializingInThread(Thread* self) {
   if (kIsDebugBuild && !IsInitialized()) {
     CHECK(IsInitializing()) << PrettyClass() << " is not initializing: " << GetStatus();
@@ -937,9 +979,6 @@ inline void Class::SetAccessFlagsDuringLinking(uint32_t new_access_flags) {
 }
 
 inline void Class::SetAccessFlags(uint32_t new_access_flags) {
-  if (kIsDebugBuild) {
-    SetAccessFlagsDCheck(new_access_flags);
-  }
   // Called inside a transaction when setting pre-verified flag during boot image compilation.
   if (Runtime::Current()->IsActiveTransaction()) {
     SetField32<true>(AccessFlagsOffset(), new_access_flags);

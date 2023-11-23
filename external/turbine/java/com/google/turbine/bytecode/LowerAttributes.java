@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Lower information in {@link ClassFile} structures to attributes. */
-public class LowerAttributes {
+public final class LowerAttributes {
 
   /** Collects the {@link Attribute}s for a {@link ClassFile}. */
   static List<Attribute> classAttributes(ClassFile classfile) {
@@ -45,7 +45,37 @@ public class LowerAttributes {
     if (classfile.module() != null) {
       attributes.add(new Attribute.Module(classfile.module()));
     }
+    if (classfile.nestHost() != null) {
+      attributes.add(new Attribute.NestHost(classfile.nestHost()));
+    }
+    if (!classfile.nestMembers().isEmpty()) {
+      attributes.add(new Attribute.NestMembers(classfile.nestMembers()));
+    }
+    if (classfile.record() != null) {
+      attributes.add(recordAttribute(classfile.record()));
+    }
+    if (!classfile.permits().isEmpty()) {
+      attributes.add(new Attribute.PermittedSubclasses(classfile.permits()));
+    }
+    if (classfile.transitiveJar() != null) {
+      attributes.add(new Attribute.TurbineTransitiveJar(classfile.transitiveJar()));
+    }
     return attributes;
+  }
+
+  private static Attribute recordAttribute(ClassFile.RecordInfo record) {
+    ImmutableList.Builder<Attribute.Record.Component> components = ImmutableList.builder();
+    for (ClassFile.RecordInfo.RecordComponentInfo component : record.recordComponents()) {
+      List<Attribute> attributes = new ArrayList<>();
+      if (component.signature() != null) {
+        attributes.add(new Attribute.Signature(component.signature()));
+      }
+      addAllAnnotations(attributes, component.annotations());
+      addAllTypeAnnotations(attributes, component.typeAnnotations());
+      components.add(
+          new Attribute.Record.Component(component.name(), component.descriptor(), attributes));
+    }
+    return new Attribute.Record(components.build());
   }
 
   /** Collects the {@link Attribute}s for a {@link MethodInfo}. */
@@ -146,4 +176,6 @@ public class LowerAttributes {
       attributes.add(new Attribute.RuntimeInvisibleParameterAnnotations(invisibles));
     }
   }
+
+  private LowerAttributes() {}
 }

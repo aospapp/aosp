@@ -19,7 +19,8 @@
      package="com.android.cts.mockime">
 
     <application android:multiArch="true"
-         android:supportsRtl="true">
+         android:supportsRtl="true"
+         android:debuggable="true">
 
         <meta-data android:name="instantapps.clients.allowed"
              android:value="true"/>

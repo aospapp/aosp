@@ -16,4 +16,5 @@
 
 <resources>
     <integer name="hvac_seat_heat_level_count">3</integer>
+    <integer name="enter_exit_animation_foreground_display_area_duration_ms">500</integer>
 </resources>

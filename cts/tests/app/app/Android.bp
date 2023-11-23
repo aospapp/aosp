@@ -36,10 +36,15 @@ android_test_helper_app {
         "testng",
         "CtsAppTestStubsShared",
     ],
+    aidl: {
+        local_include_dirs: [
+            "src",
+        ],
+    },
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
-        "src/android/app/stubs/ISecondary.aidl",
+        "src/**/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -70,9 +75,14 @@ android_test_helper_app {
         "androidx.test.core",
         "CtsAppTestStubsShared",
     ],
+    aidl: {
+        local_include_dirs: [
+            "src",
+        ],
+    },
     srcs: [
         "src/**/*.java",
-        "src/android/app/stubs/ISecondary.aidl",
+        "src/**/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -105,9 +115,14 @@ android_test {
         "androidx.test.core",
         "CtsAppTestStubsShared",
     ],
+    aidl: {
+        local_include_dirs: [
+            "src",
+        ],
+    },
     srcs: [
         "src/**/*.java",
-        "src/android/app/stubs/ISecondary.aidl",
+        "src/**/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -140,9 +155,14 @@ android_test_helper_app {
         "androidx.test.core",
         "CtsAppTestStubsShared",
     ],
+    aidl: {
+        local_include_dirs: [
+            "src",
+        ],
+    },
     srcs: [
         "src/**/*.java",
-        "src/android/app/stubs/ISecondary.aidl",
+        "src/**/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -175,9 +195,14 @@ android_test_helper_app {
         "androidx.test.core",
         "CtsAppTestStubsShared",
     ],
+    aidl: {
+        local_include_dirs: [
+            "src",
+        ],
+    },
     srcs: [
         "src/**/*.java",
-        "src/android/app/stubs/ISecondary.aidl",
+        "src/**/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [

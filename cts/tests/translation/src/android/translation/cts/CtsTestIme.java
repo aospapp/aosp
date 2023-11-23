@@ -22,10 +22,11 @@ import static android.translation.cts.Helper.ACTION_ASSERT_UI_TRANSLATION_CALLBA
 import static android.translation.cts.Helper.ACTION_ASSERT_UI_TRANSLATION_CALLBACK_ON_START;
 import static android.translation.cts.Helper.ACTION_REGISTER_UI_TRANSLATION_CALLBACK;
 import static android.translation.cts.Helper.ACTION_UNREGISTER_UI_TRANSLATION_CALLBACK;
+import static android.translation.cts.Helper.EXTRA_CALL_COUNT;
 import static android.translation.cts.Helper.EXTRA_FINISH_COMMAND;
+import static android.translation.cts.Helper.EXTRA_PACKAGE_NAME;
 import static android.translation.cts.Helper.EXTRA_SOURCE_LOCALE;
 import static android.translation.cts.Helper.EXTRA_TARGET_LOCALE;
-import static android.translation.cts.Helper.EXTRA_VERIFY_RESULT;
 
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
@@ -33,16 +34,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.icu.util.ULocale;
 import android.inputmethodservice.InputMethodService;
-import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.view.translation.UiTranslationManager;
-import android.view.translation.UiTranslationStateCallback;
-import android.widget.LinearLayout;
 import android.util.Log;
-import android.util.Pair;
-import java.util.concurrent.CountDownLatch;
+import android.view.View;
+import android.view.translation.UiTranslationManager;
+import android.widget.LinearLayout;
+
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -100,37 +97,42 @@ public final class CtsTestIme extends InputMethodService {
     }
 
     void assertOnStart(Intent intent) {
-        final Pair<ULocale, ULocale> startedLanguagePair = mCallback.getStartedLanguagePair();
         final Intent result = new Intent();
-        result.putExtra(EXTRA_SOURCE_LOCALE, startedLanguagePair.first);
-        result.putExtra(EXTRA_TARGET_LOCALE, startedLanguagePair.second);
+        result.putExtra(EXTRA_SOURCE_LOCALE, mCallback.getStartedSourceLocale());
+        result.putExtra(EXTRA_TARGET_LOCALE, mCallback.getStartedTargetLocale());
+        result.putExtra(EXTRA_CALL_COUNT, mCallback.getStartedCallCount());
+        result.putExtra(EXTRA_PACKAGE_NAME, mCallback.getStartedPackageName());
         notifyCommandDone(intent, result);
     }
 
     void assertOnFinish(Intent intent) {
         final Intent result = new Intent();
-        result.putExtra(EXTRA_VERIFY_RESULT, mCallback.isOnFinishedCalled());
+        result.putExtra(EXTRA_CALL_COUNT, mCallback.getFinishedCallCount());
+        result.putExtra(EXTRA_PACKAGE_NAME, mCallback.getFinishedPackageName());
         notifyCommandDone(intent, result);
     }
 
     void assertOnResume(Intent intent) {
         final Intent result = new Intent();
-        result.putExtra(EXTRA_VERIFY_RESULT, mCallback.isOnResumedCalled());
+        result.putExtra(EXTRA_CALL_COUNT, mCallback.getResumedCallCount());
+        result.putExtra(EXTRA_PACKAGE_NAME, mCallback.getResumedPackageName());
         notifyCommandDone(intent, result);
     }
 
     void assertOnPause(Intent intent) {
         final Intent result = new Intent();
-        result.putExtra(EXTRA_VERIFY_RESULT, mCallback.isOnPausedCalled());
+        result.putExtra(EXTRA_CALL_COUNT, mCallback.getPausedCallCount());
+        result.putExtra(EXTRA_PACKAGE_NAME, mCallback.getPausedPackageName());
         notifyCommandDone(intent, result);
     }
 
     private void notifyCommandDone(Intent sourceIntent, Intent resultIntent) {
-        final PendingIntent pendingIntent = sourceIntent.getParcelableExtra(EXTRA_FINISH_COMMAND);
+        final PendingIntent pendingIntent = sourceIntent.getParcelableExtra(EXTRA_FINISH_COMMAND,
+                PendingIntent.class);
         if (pendingIntent != null) {
             try {
                 final String action = sourceIntent.getAction();
-                switch(action) {
+                switch (action) {
                     case ACTION_REGISTER_UI_TRANSLATION_CALLBACK:
                     case ACTION_UNREGISTER_UI_TRANSLATION_CALLBACK:
                         pendingIntent.send();
@@ -164,7 +166,7 @@ public final class CtsTestIme extends InputMethodService {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            switch(action) {
+            switch (action) {
                 case ACTION_REGISTER_UI_TRANSLATION_CALLBACK:
                     registerUiTranslationStateCallback(intent);
                     break;
@@ -194,7 +196,7 @@ public final class CtsTestIme extends InputMethodService {
             filter.addAction(ACTION_ASSERT_UI_TRANSLATION_CALLBACK_ON_FINISH);
             filter.addAction(ACTION_ASSERT_UI_TRANSLATION_CALLBACK_ON_RESUME);
             filter.addAction(ACTION_ASSERT_UI_TRANSLATION_CALLBACK_ON_PAUSE);
-            mContext.registerReceiver(this, filter);
+            mContext.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED);
         }
 
         void unRegister() {

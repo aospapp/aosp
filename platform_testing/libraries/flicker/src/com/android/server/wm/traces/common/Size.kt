@@ -16,6 +16,11 @@
 
 package com.android.server.wm.traces.common
 
+/**
+ * Wrapper for SizeProto (frameworks/native/services/surfaceflinger/layerproto/common.proto)
+ *
+ * This class is used by flicker and Winscope
+ */
 open class Size(val width: Int, val height: Int) {
     open val isEmpty: Boolean
         get() = height == 0 || width == 0
@@ -23,7 +28,7 @@ open class Size(val width: Int, val height: Int) {
     val isNotEmpty: Boolean
         get() = !isEmpty
 
-    open fun prettyPrint(): String = prettyPrint(this)
+    open fun prettyPrint(): String = "$width x $height"
 
     override fun toString(): String = if (isEmpty) "[empty]" else prettyPrint()
 
@@ -40,7 +45,5 @@ open class Size(val width: Int, val height: Int) {
 
     companion object {
         val EMPTY: Size = Size(0, 0)
-
-        fun prettyPrint(bounds: Size): String = "${bounds.width} x ${bounds.height}"
     }
 }

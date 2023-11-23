@@ -15,10 +15,11 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "rutabaga_gfx",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     features: [
-        "gfxstream",
         "virgl_renderer",
         "virgl_renderer_next",
     ],
@@ -27,56 +28,16 @@ rust_library {
         "libdata_model",
         "liblibc",
         "libsync_rust",
+        "libthiserror",
     ],
-    shared_libs: ["libgfxstream_backend"],
+    proc_macros: ["libremain"],
     target: {
         host: {
-            shared_libs: ["libvirglrenderer"],
-        },
-        android: {
+            features: ["gfxstream"],
             shared_libs: [
-                "libdrm",
-            ],
-            static_libs: [
-                "libepoxy",
-                "libgbm",
+                "libgfxstream_backend",
                 "libvirglrenderer",
             ],
-        },
-    },
-}
-
-rust_defaults {
-    name: "rutabaga_gfx_test_defaults",
-    defaults: ["crosvm_defaults"],
-    crate_name: "rutabaga_gfx",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    features: [
-        "gfxstream",
-        "virgl_renderer",
-        "virgl_renderer_next",
-    ],
-    rustlibs: [
-        "libbase_rust",
-        "libdata_model",
-        "liblibc",
-        "libsync_rust",
-    ],
-}
-
-rust_test_host {
-    name: "rutabaga_gfx_host_test_src_lib",
-    defaults: ["rutabaga_gfx_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-    shared_libs: ["libgfxstream_backend"],
-    target: {
-        host: {
-            shared_libs: ["libvirglrenderer"],
         },
         android: {
             shared_libs: [
@@ -92,12 +53,38 @@ rust_test_host {
 }
 
 rust_test {
-    name: "rutabaga_gfx_device_test_src_lib",
-    defaults: ["rutabaga_gfx_test_defaults"],
-    shared_libs: ["libgfxstream_backend"],
+    name: "rutabaga_gfx_test_src_lib",
+    defaults: ["crosvm_defaults"],
+    host_supported: true,
+    crate_name: "rutabaga_gfx",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
+    srcs: ["src/lib.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2021",
+    features: [
+        "virgl_renderer",
+        "virgl_renderer_next",
+    ],
+    rustlibs: [
+        "libbase_rust",
+        "libdata_model",
+        "liblibc",
+        "libsync_rust",
+        "libthiserror",
+    ],
+    proc_macros: ["libremain"],
     target: {
         host: {
-            shared_libs: ["libvirglrenderer"],
+            features: ["gfxstream"],
+            shared_libs: [
+                "libgfxstream_backend",
+                "libvirglrenderer",
+            ],
         },
         android: {
             shared_libs: [

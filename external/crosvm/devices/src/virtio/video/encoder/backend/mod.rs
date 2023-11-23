@@ -2,21 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#[cfg(feature = "libvda")]
 pub mod vda;
-
-use std::fs::File;
 
 use base::AsRawDescriptor;
 
 use crate::virtio::video::error::VideoResult;
-use crate::virtio::video::format::{Bitrate, FramePlane};
+use crate::virtio::video::{
+    format::Bitrate,
+    resource::{GuestResource, GuestResourceHandle},
+};
 
 use super::encoder::{
     EncoderCapabilities, EncoderEvent, InputBufferId, OutputBufferId, SessionConfig,
 };
 
 pub trait EncoderSession {
-    /// Encodes the frame provided by `resource`, with planes specified by `plane`.
+    /// Encodes the frame provided by `resource`.
     /// `force_keyframe` forces the frame to be encoded as a keyframe.
     /// When the buffer has been successfully processed, a `ProcessedInputBuffer` event will
     /// be readable from the event pipe, with the same `InputBufferId` as returned by this
@@ -25,20 +27,18 @@ pub trait EncoderSession {
     /// readable from the event pipe, with the same timestamp as provided `timestamp`.
     fn encode(
         &mut self,
-        resource: File,
-        planes: &[FramePlane],
+        resource: GuestResource,
         timestamp: u64,
         force_keyframe: bool,
     ) -> VideoResult<InputBufferId>;
 
-    /// Provides an output buffer `file` to store encoded output, where `offset` and `size`
-    /// define the region of memory to use.
-    /// When the buffer has been filled with encoded output, a `ProcessedOutputBuffer` event
-    /// will be readable from the event pipe, with the same `OutputBufferId` as returned by this
-    /// function.
+    /// Provides an output `resource` to store encoded output, where `offset` and `size` define the
+    /// region of memory to use.
+    /// When the buffer has been filled with encoded output, a `ProcessedOutputBuffer` event will be
+    /// readable from the event pipe, with the same `OutputBufferId` as returned by this function.
     fn use_output_buffer(
         &mut self,
-        file: File,
+        resource: GuestResourceHandle,
         offset: u32,
         size: u32,
     ) -> VideoResult<OutputBufferId>;

@@ -15,10 +15,10 @@
 #include "icing/tokenization/reverse_jni/reverse-jni-break-iterator.h"
 
 #include <jni.h>
-#include <math.h>
 
 #include <cassert>
 #include <cctype>
+#include <cmath>
 #include <map>
 
 #include "icing/jni/jni-cache.h"

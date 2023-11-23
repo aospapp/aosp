@@ -107,9 +107,8 @@ class OtaRunnerFactoryTests(unittest.TestCase):
     def test_create_raise_on_ota_package_not_a_list_or_string(self):
         with mock.patch('acts.libs.ota.ota_tools.ota_tool_factory.create'):
             with self.assertRaises(TypeError):
-                ota_runner_factory.create({
-                    'ota': 'pkg'
-                }, {'ota': 'sl4a'}, self.device)
+                ota_runner_factory.create({'ota': 'pkg'}, {'ota': 'sl4a'},
+                                          self.device)
 
     def test_create_returns_single_ota_runner_on_ota_package_being_a_str(self):
         with mock.patch('acts.libs.ota.ota_tools.ota_tool_factory.create'):
@@ -131,8 +130,14 @@ class OtaRunnerFactoryTests(unittest.TestCase):
 
     def test_create_returns_different_ota_runner_on_second_request(self):
         with mock.patch('acts.libs.ota.ota_tools.ota_tool_factory.create'):
-            first_return = ota_runner_factory.create(
-                [], [], self.device, use_cached_runners=False)
-            second_return = ota_runner_factory.create(
-                [], [], self.device, use_cached_runners=False)
+            first_return = ota_runner_factory.create([], [],
+                                                     self.device,
+                                                     use_cached_runners=False)
+            second_return = ota_runner_factory.create([], [],
+                                                      self.device,
+                                                      use_cached_runners=False)
             self.assertNotEqual(first_return, second_return)
+
+
+if __name__ == '__main__':
+    unittest.main()

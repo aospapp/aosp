@@ -54,6 +54,7 @@
 
 #include <net/if.h>
 #include <time.h>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -75,9 +76,10 @@
 #define RES_TIMEOUT 5000 /* min. milliseconds between retries */
 #define RES_DFLRETRY 2    /* Default #/tries. */
 
-// Flags for res_state->_flags
+// Flags for ResState::flags
 #define RES_F_VC 0x00000001        // socket is TCP
 #define RES_F_EDNS0ERR 0x00000004  // EDNS0 caused errors
+#define RES_F_MDNS 0x00000008      // MDNS packet
 
 // Holds either a sockaddr_in or a sockaddr_in6.
 union sockaddr_union {
@@ -92,7 +94,7 @@ struct ResState {
         : netid(netcontext->dns_netid),
           uid(netcontext->uid),
           pid(netcontext->pid),
-          _mark(netcontext->dns_mark),
+          mark(netcontext->dns_mark),
           event(dnsEvent),
           netcontext_flags(netcontext->flags) {}
 
@@ -106,8 +108,8 @@ struct ResState {
         copy.search_domains = search_domains;
         copy.nsaddrs = nsaddrs;
         copy.ndots = ndots;
-        copy._mark = _mark;
-        copy._flags = _flags;
+        copy.mark = mark;
+        copy.flags = flags;
         copy.event = (dnsEvent == nullptr) ? event : dnsEvent;
         copy.netcontext_flags = netcontext_flags;
         copy.tc_mode = tc_mode;
@@ -117,9 +119,9 @@ struct ResState {
     }
     void closeSockets() {
         tcp_nssock.reset();
-        _flags &= ~RES_F_VC;
+        flags &= ~RES_F_VC;
 
-        for (auto& sock : nssocks) {
+        for (auto& sock : udpsocks) {
             sock.reset();
         }
     }
@@ -132,24 +134,21 @@ struct ResState {
     pid_t pid;                                  // pid of the app that sent the DNS lookup
     std::vector<std::string> search_domains{};  // domains to search
     std::vector<android::netdutils::IPSockAddr> nsaddrs;
-    android::base::unique_fd nssocks[MAXNS];    // UDP sockets to nameservers
+    android::base::unique_fd udpsocks[MAXNS];   // UDP sockets to nameservers
     unsigned ndots : 4 = 1;                     // threshold for initial abs. query
-    unsigned _mark;                             // If non-0 SET_MARK to _mark on all request sockets
+    unsigned mark;                              // Socket mark to be used by all DNS query sockets
     android::base::unique_fd tcp_nssock;        // TCP socket (but why not one per nameserver?)
-    uint32_t _flags = 0;                        // See RES_F_* defines below
+    uint32_t flags = 0;                         // See RES_F_* defines below
     android::net::NetworkDnsEventReported* event;
     uint32_t netcontext_flags;
     int tc_mode = 0;
     bool enforce_dns_uid = false;
-    bool sort_nameservers = false;              // A flag to indicate whether nsaddrs has been
-                                                // sorted or not.
+    bool sort_nameservers = false;              // True if nsaddrs has been sorted.
     // clang-format on
+
   private:
     ResState() {}
 };
-
-// TODO: remove these legacy aliases
-typedef ResState* res_state;
 
 /* End of stats related definitions */
 
@@ -168,20 +167,26 @@ extern const char* const _res_opcodes[];
 int res_nameinquery(const char*, int, int, const uint8_t*, const uint8_t*);
 int res_queriesmatch(const uint8_t*, const uint8_t*, const uint8_t*, const uint8_t*);
 
-int res_nquery(res_state, const char*, int, int, uint8_t*, int, int*);
-int res_nsearch(res_state, const char*, int, int, uint8_t*, int, int*);
-int res_nquerydomain(res_state, const char*, const char*, int, int, uint8_t*, int, int*);
-int res_nmkquery(int op, const char* qname, int cl, int type, const uint8_t* data, int datalen,
-                 uint8_t* buf, int buflen, int netcontext_flags);
-int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int anssiz, int* rcode,
+int res_nquery(ResState*, const char*, int, int, std::span<uint8_t>, int*);
+int res_nsearch(ResState*, const char*, int, int, std::span<uint8_t>, int*);
+int res_nquerydomain(ResState*, const char*, const char*, int, int, std::span<uint8_t>, int*);
+int res_nmkquery(int op, const char* qname, int cl, int type, std::span<const uint8_t> data,
+                 std::span<uint8_t> msg, int netcontext_flags);
+int res_nsend(ResState* statp, std::span<const uint8_t> msg, std::span<uint8_t> ans, int* rcode,
               uint32_t flags, std::chrono::milliseconds sleepTimeMs = {});
-int res_nopt(res_state, int, uint8_t*, int, int);
+int res_nopt(ResState*, int, std::span<uint8_t>, int);
 
 int getaddrinfo_numeric(const char* hostname, const char* servname, addrinfo hints,
                         addrinfo** result);
 
 // Helper function for converting h_errno to the error codes visible to netd
 int herrnoToAiErrno(int herrno);
+
+// Helper function to enable MDNS resolution.
+void setMdnsFlag(std::string_view hostname, unsigned netid, uint32_t* flags);
+
+// Helper function for checking MDNS resolution is enabled or not.
+bool isMdnsResolution(uint32_t flags);
 
 // switch resolver log severity
 android::base::LogSeverity logSeverityStrToEnum(const std::string& logSeverityStr);
@@ -194,7 +199,34 @@ Dest saturate_cast(int64_t x) {
     return static_cast<Dest>(x);
 }
 
-android::net::NsType getQueryType(const uint8_t* msg, size_t msgLen);
+constexpr bool is_power_of_2(size_t n) {
+    return n != 0 && (n & (n - 1)) == 0;
+}
+
+// Rounds up a pointer to a char buffer |p| to a multiple of |Alignment| bytes.
+// Requirements:
+//   |p| must be a pointer to a byte-sized type (e.g.: uint8_t)
+//   |Alignment| must be a power of 2
+template<uintptr_t Alignment = sizeof(void*), typename T>
+        requires (sizeof(T) == 1) && (is_power_of_2(Alignment))
+constexpr T* align_ptr(T* const p) {
+    // Written this way to sidestep the performance-no-int-to-ptr clang-tidy warning.
+    constexpr uintptr_t mask = Alignment - 1;
+    const uintptr_t uintptr = reinterpret_cast<uintptr_t>(p);
+    const uintptr_t aligned = (uintptr + mask) & ~mask;
+    const uintptr_t bias = aligned - uintptr;
+    return p + bias;
+}
+
+// Testcases for align_ptr()
+// TODO: enable when libc++ has std::bit_cast - reinterpret_cast isn't allowed in consteval context
+// static_assert(align_ptr((char*)1000) == (char*)1000);
+// static_assert(align_ptr((char*)1001) == (char*)1000 + sizeof(void*));
+// static_assert(align_ptr((char*)1003) == (char*)1000 + sizeof(void*));
+// static_assert(align_ptr<sizeof(uint32_t)>((char*)1004) == (char*)1004);
+// static_assert(align_ptr<sizeof(uint64_t)>((char*)1004) == (char*)1008);
+
+android::net::NsType getQueryType(std::span<const uint8_t> msg);
 
 android::net::IpVersion ipFamilyToIPVersion(int ipFamily);
 

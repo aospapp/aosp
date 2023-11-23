@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -32,6 +32,8 @@ import sys
 import tempfile
 import uuid
 import xml.etree.ElementTree as ET
+import zipfile
+import glob
 from apex_manifest import ValidateApexManifest
 from apex_manifest import ApexManifestError
 from manifest import android_ns
@@ -78,7 +80,7 @@ def ParseArgs(argv):
   parser.add_argument(
       '--canned_fs_config',
       help='canned_fs_config specifies uid/gid/mode of files. Required for ' +
-      '"image" APEXS.')
+           '"image" APEXS.')
   parser.add_argument(
       '--key', help='path to the private key file. Required for "image" APEXs.')
   parser.add_argument(
@@ -106,8 +108,8 @@ def ParseArgs(argv):
       metavar='FS_TYPE',
       required=False,
       default='ext4',
-      choices=['ext4', 'f2fs'],
-      help='type of filesystem being used for payload image "ext4" or "f2fs"')
+      choices=['ext4', 'f2fs', 'erofs'],
+      help='type of filesystem being used for payload image "ext4", "f2fs" or "erofs"')
   parser.add_argument(
       '--override_apk_package_name',
       required=False,
@@ -178,6 +180,14 @@ def ParseArgs(argv):
       action='store_true',
       help="""Skip signing the apex payload. Used only for testing purposes."""
   )
+  parser.add_argument(
+      '--test_only',
+      action='store_true',
+      help=(
+          'Add testOnly=true attribute to application element in '
+          'AndroidManifest file.')
+  )
+
   return parser.parse_args(argv)
 
 
@@ -201,6 +211,7 @@ def RunCommand(cmd, verbose=False, env=None, expected_return_values={0}):
   p = subprocess.Popen(
       cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
   output, _ = p.communicate()
+  output = output.decode()
 
   if verbose or p.returncode not in expected_return_values:
     print(output.rstrip())
@@ -234,16 +245,19 @@ def RoundUp(size, unit):
   return (size + unit - 1) & (~(unit - 1))
 
 
-def PrepareAndroidManifest(package, version):
+def PrepareAndroidManifest(package, version, test_only):
   template = """\
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="{package}" android:versionCode="{version}">
   <!-- APEX does not have classes.dex -->
-  <application android:hasCode="false" />
+  <application android:hasCode="false" {test_only_attribute}/>
 </manifest>
 """
-  return template.format(package=package, version=version)
+
+  test_only_attribute = 'android:testOnly="true"' if test_only else ''
+  return template.format(package=package, version=version,
+                         test_only_attribute=test_only_attribute)
 
 
 def ValidateAndroidManifest(package, android_manifest):
@@ -256,6 +270,17 @@ def ValidateAndroidManifest(package, android_manifest):
                     "' in the apex_manifest.pb")
 
 
+def ValidateGeneratedAndroidManifest(android_manifest, test_only):
+  tree = ET.parse(android_manifest)
+  manifest_tag = tree.getroot()
+  application_tag = manifest_tag.find('./application')
+  if test_only:
+    test_only_in_xml = application_tag.attrib[
+      '{http://schemas.android.com/apk/res/android}testOnly']
+    if test_only_in_xml != 'true':
+      raise Exception('testOnly attribute must be equal to true.')
+
+
 def ValidateArgs(args):
   build_info = None
 
@@ -263,7 +288,7 @@ def ValidateArgs(args):
     if not os.path.exists(args.build_info):
       print("Build info file '" + args.build_info + "' does not exist")
       return False
-    with open(args.build_info) as buildInfoFile:
+    with open(args.build_info, 'rb') as buildInfoFile:
       build_info = apex_build_info_pb2.ApexBuildInfo()
       build_info.ParseFromString(buildInfoFile.read())
 
@@ -357,18 +382,19 @@ def ValidateArgs(args):
 
   return True
 
+
 def GenerateBuildInfo(args):
   build_info = apex_build_info_pb2.ApexBuildInfo()
   if (args.include_cmd_line_in_build_info):
     build_info.apexer_command_line = str(sys.argv)
 
-  with open(args.file_contexts) as f:
+  with open(args.file_contexts, 'rb') as f:
     build_info.file_contexts = f.read()
 
-  with open(args.canned_fs_config) as f:
+  with open(args.canned_fs_config, 'rb') as f:
     build_info.canned_fs_config = f.read()
 
-  with open(args.android_manifest) as f:
+  with open(args.android_manifest, 'rb') as f:
     build_info.android_manifest = f.read()
 
   if args.target_sdk_version:
@@ -390,6 +416,7 @@ def GenerateBuildInfo(args):
     build_info.payload_fs_type = args.payload_fs_type
 
   return build_info
+
 
 def AddLoggingParent(android_manifest, logging_parent_value):
   """Add logging parent as an additional <meta-data> tag.
@@ -435,202 +462,257 @@ def AddLoggingParent(android_manifest, logging_parent_value):
     indent = get_indent(application.previousSibling, 1)
     application.appendChild(doc.createTextNode(indent))
 
-  with tempfile.NamedTemporaryFile(delete=False) as temp:
-      write_xml(temp, doc)
-      return temp.name
+  with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp:
+    write_xml(temp, doc)
+    return temp.name
 
-def CreateApex(args, work_dir):
-  if not ValidateArgs(args):
-    return False
 
-  if args.verbose:
-    print 'Using tools from ' + str(tool_path_list)
+def ShaHashFiles(file_paths):
+  """get hash for a number of files."""
+  h = hashlib.sha256()
+  for file_path in file_paths:
+    with open(file_path, 'rb') as file:
+      while True:
+        chunk = file.read(h.block_size)
+        if not chunk:
+          break
+        h.update(chunk)
+  return h.hexdigest()
 
-  def copyfile(src, dst):
-    if args.verbose:
-      print('Copying ' + src + ' to ' + dst)
-    shutil.copyfile(src, dst)
 
-  try:
-    manifest_apex = ValidateApexManifest(args.manifest)
-  except ApexManifestError as err:
-    print("'" + args.manifest + "' is not a valid manifest file")
-    print err.errmessage
-    return False
-  except IOError:
-    print("Cannot read manifest file: '" + args.manifest + "'")
-    return False
+def CreateImageExt4(args, work_dir, manifests_dir, img_file):
+  """Create image for ext4 file system."""
 
-  # create an empty image that is sufficiently big
-  size_in_mb = (GetDirSize(args.input_dir) / (1024 * 1024))
+  lost_found_location = os.path.join(args.input_dir, 'lost+found')
+  if os.path.exists(lost_found_location):
+    print('Warning: input_dir contains a lost+found/ root folder, which '
+          'has been known to cause non-deterministic apex builds.')
 
-  content_dir = os.path.join(work_dir, 'content')
-  os.mkdir(content_dir)
+  # sufficiently big = size + 16MB margin
+  size_in_mb = (GetDirSize(args.input_dir) // (1024 * 1024))
+  size_in_mb += 16
 
-  # APEX manifest is also included in the image. The manifest is included
-  # twice: once inside the image and once outside the image (but still
-  # within the zip container).
-  manifests_dir = os.path.join(work_dir, 'manifests')
-  os.mkdir(manifests_dir)
-  copyfile(args.manifest, os.path.join(manifests_dir, 'apex_manifest.pb'))
-  if args.manifest_json:
-    # manifest_json is for compatibility
-    copyfile(args.manifest_json, os.path.join(manifests_dir, 'apex_manifest.json'))
+  # Margin is for files that are not under args.input_dir. this consists of
+  # n inodes for apex_manifest files and 11 reserved inodes for ext4.
+  # TOBO(b/122991714) eliminate these details. Use build_image.py which
+  # determines the optimal inode count by first building an image and then
+  # count the inodes actually used.
+  inode_num_margin = GetFilesAndDirsCount(manifests_dir) + 11
+  inode_num = GetFilesAndDirsCount(args.input_dir) + inode_num_margin
 
+  cmd = ['mke2fs']
+  cmd.extend(['-O', '^has_journal'])  # because image is read-only
+  cmd.extend(['-b', str(BLOCK_SIZE)])
+  cmd.extend(['-m', '0'])  # reserved block percentage
+  cmd.extend(['-t', 'ext4'])
+  cmd.extend(['-I', '256'])  # inode size
+  cmd.extend(['-N', str(inode_num)])
+  uu = str(uuid.uuid5(uuid.NAMESPACE_URL, 'www.android.com'))
+  cmd.extend(['-U', uu])
+  cmd.extend(['-E', 'hash_seed=' + uu])
+  cmd.append(img_file)
+  cmd.append(str(size_in_mb) + 'M')
+  with tempfile.NamedTemporaryFile(dir=work_dir,
+                                   suffix='mke2fs.conf') as conf_file:
+    conf_data = pkgutil.get_data('apexer', 'mke2fs.conf')
+    conf_file.write(conf_data)
+    conf_file.flush()
+    RunCommand(cmd, args.verbose,
+               {'MKE2FS_CONFIG': conf_file.name, 'E2FSPROGS_FAKE_TIME': '1'})
+
+    # Compile the file context into the binary form
+    compiled_file_contexts = os.path.join(work_dir, 'file_contexts.bin')
+    cmd = ['sefcontext_compile']
+    cmd.extend(['-o', compiled_file_contexts])
+    cmd.append(args.file_contexts)
+    RunCommand(cmd, args.verbose)
+
+    # Add files to the image file
+    cmd = ['e2fsdroid']
+    cmd.append('-e')  # input is not android_sparse_file
+    cmd.extend(['-f', args.input_dir])
+    cmd.extend(['-T', '0'])  # time is set to epoch
+    cmd.extend(['-S', compiled_file_contexts])
+    cmd.extend(['-C', args.canned_fs_config])
+    cmd.extend(['-a', '/'])
+    cmd.append('-s')  # share dup blocks
+    cmd.append(img_file)
+    RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
+
+    cmd = ['e2fsdroid']
+    cmd.append('-e')  # input is not android_sparse_file
+    cmd.extend(['-f', manifests_dir])
+    cmd.extend(['-T', '0'])  # time is set to epoch
+    cmd.extend(['-S', compiled_file_contexts])
+    cmd.extend(['-C', args.canned_fs_config])
+    cmd.extend(['-a', '/'])
+    cmd.append('-s')  # share dup blocks
+    cmd.append(img_file)
+    RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
+
+    # Resize the image file to save space
+    cmd = ['resize2fs']
+    cmd.append('-M')  # shrink as small as possible
+    cmd.append(img_file)
+    RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
+
+
+def CreateImageF2fs(args, manifests_dir, img_file):
+  """Create image for f2fs file system."""
+  # F2FS requires a ~100M minimum size (necessary for ART, could be reduced
+  # a bit for other)
+  # TODO(b/158453869): relax these requirements for readonly devices
+  size_in_mb = (GetDirSize(args.input_dir) // (1024 * 1024))
+  size_in_mb += 100
+
+  # Create an empty image
+  cmd = ['/usr/bin/fallocate']
+  cmd.extend(['-l', str(size_in_mb) + 'M'])
+  cmd.append(img_file)
+  RunCommand(cmd, args.verbose)
+
+  # Format the image to F2FS
+  cmd = ['make_f2fs']
+  cmd.extend(['-g', 'android'])
+  uu = str(uuid.uuid5(uuid.NAMESPACE_URL, 'www.android.com'))
+  cmd.extend(['-U', uu])
+  cmd.extend(['-T', '0'])
+  cmd.append('-r')  # sets checkpointing seed to 0 to remove random bits
+  cmd.append(img_file)
+  RunCommand(cmd, args.verbose)
+
+  # Add files to the image
+  cmd = ['sload_f2fs']
+  cmd.extend(['-C', args.canned_fs_config])
+  cmd.extend(['-f', manifests_dir])
+  cmd.extend(['-s', args.file_contexts])
+  cmd.extend(['-T', '0'])
+  cmd.append(img_file)
+  RunCommand(cmd, args.verbose, expected_return_values={0, 1})
+
+  cmd = ['sload_f2fs']
+  cmd.extend(['-C', args.canned_fs_config])
+  cmd.extend(['-f', args.input_dir])
+  cmd.extend(['-s', args.file_contexts])
+  cmd.extend(['-T', '0'])
+  cmd.append(img_file)
+  RunCommand(cmd, args.verbose, expected_return_values={0, 1})
+
+  # TODO(b/158453869): resize the image file to save space
+
+
+def CreateImageErofs(args, work_dir, manifests_dir, img_file):
+  """Create image for erofs file system."""
+  # mkfs.erofs doesn't support multiple input
+
+  tmp_input_dir = os.path.join(work_dir, 'tmp_input_dir')
+  os.mkdir(tmp_input_dir)
+  cmd = ['/bin/cp', '-ra']
+  cmd.extend(glob.glob(manifests_dir + '/*'))
+  cmd.extend(glob.glob(args.input_dir + '/*'))
+  cmd.append(tmp_input_dir)
+  RunCommand(cmd, args.verbose)
+
+  cmd = ['make_erofs']
+  cmd.extend(['-z', 'lz4hc'])
+  cmd.extend(['--fs-config-file', args.canned_fs_config])
+  cmd.extend(['--file-contexts', args.file_contexts])
+  uu = str(uuid.uuid5(uuid.NAMESPACE_URL, 'www.android.com'))
+  cmd.extend(['-U', uu])
+  cmd.extend(['-T', '0'])
+  cmd.extend([img_file, tmp_input_dir])
+  RunCommand(cmd, args.verbose)
+  shutil.rmtree(tmp_input_dir)
+
+  # The minimum image size of erofs is 4k, which will cause an error
+  # when execute generate_hash_tree in avbtool
+  cmd = ['/bin/ls', '-lgG', img_file]
+  output, _ = RunCommand(cmd, verbose=False)
+  image_size = int(output.split()[2])
+  if image_size == 4096:
+    cmd = ['/usr/bin/fallocate', '-l', '8k', img_file]
+    RunCommand(cmd, verbose=False)
+
+
+def CreateImage(args, work_dir, manifests_dir, img_file):
+  """create payload image."""
+  if args.payload_fs_type == 'ext4':
+    CreateImageExt4(args, work_dir, manifests_dir, img_file)
+  elif args.payload_fs_type == 'f2fs':
+    CreateImageF2fs(args, manifests_dir, img_file)
+  elif args.payload_fs_type == 'erofs':
+    CreateImageErofs(args, work_dir, manifests_dir, img_file)
+
+
+def SignImage(args, manifest_apex, img_file):
+  """sign payload image.
+
+  Args:
+    args: apexer options
+    manifest_apex: apex manifest proto
+    img_file: unsigned payload image file
+  """
+
+  if args.do_not_check_keyname or args.unsigned_payload:
+    key_name = manifest_apex.name
+  else:
+    key_name = os.path.basename(os.path.splitext(args.key)[0])
+
+  cmd = ['avbtool']
+  cmd.append('add_hashtree_footer')
+  cmd.append('--do_not_generate_fec')
+  cmd.extend(['--algorithm', 'SHA256_RSA4096'])
+  cmd.extend(['--hash_algorithm', 'sha256'])
+  cmd.extend(['--key', args.key])
+  cmd.extend(['--prop', 'apex.key:' + key_name])
+  # Set up the salt based on manifest content which includes name
+  # and version
+  salt = hashlib.sha256(manifest_apex.SerializeToString()).hexdigest()
+  cmd.extend(['--salt', salt])
+  cmd.extend(['--image', img_file])
+  if args.no_hashtree:
+    cmd.append('--no_hashtree')
+  if args.signing_args:
+    cmd.extend(shlex.split(args.signing_args))
+  RunCommand(cmd, args.verbose)
+
+  # Get the minimum size of the partition required.
+  # TODO(b/113320014) eliminate this step
+  info, _ = RunCommand(['avbtool', 'info_image', '--image', img_file],
+                       args.verbose)
+  vbmeta_offset = int(re.search('VBMeta\ offset:\ *([0-9]+)', info).group(1))
+  vbmeta_size = int(re.search('VBMeta\ size:\ *([0-9]+)', info).group(1))
+  partition_size = RoundUp(vbmeta_offset + vbmeta_size,
+                           BLOCK_SIZE) + BLOCK_SIZE
+
+  # Resize to the minimum size
+  # TODO(b/113320014) eliminate this step
+  cmd = ['avbtool']
+  cmd.append('resize_image')
+  cmd.extend(['--image', img_file])
+  cmd.extend(['--partition_size', str(partition_size)])
+  RunCommand(cmd, args.verbose)
+
+
+def CreateApexPayload(args, work_dir, content_dir, manifests_dir,
+                      manifest_apex):
+  """Create payload.
+
+  Args:
+    args: apexer options
+    work_dir: apex container working directory
+    content_dir: the working directory for payload contents
+    manifests_dir: manifests directory
+    manifest_apex: apex manifest proto
+
+  Returns:
+    payload file
+  """
   if args.payload_type == 'image':
-    if args.do_not_check_keyname or args.unsigned_payload:
-      key_name = manifest_apex.name
-    else:
-      key_name = os.path.basename(os.path.splitext(args.key)[0])
-
     img_file = os.path.join(content_dir, 'apex_payload.img')
-
-    if args.payload_fs_type == 'ext4':
-      # sufficiently big = size + 16MB margin
-      size_in_mb += 16
-
-      # margin is for files that are not under args.input_dir. this consists of
-      # n inodes for apex_manifest files and 11 reserved inodes for ext4.
-      # TOBO(b/122991714) eliminate these details. use build_image.py which
-      # determines the optimal inode count by first building an image and then
-      # count the inodes actually used.
-      inode_num_margin = GetFilesAndDirsCount(manifests_dir) + 11
-      inode_num = GetFilesAndDirsCount(args.input_dir) + inode_num_margin
-
-      cmd = ['mke2fs']
-      cmd.extend(['-O', '^has_journal'])  # because image is read-only
-      cmd.extend(['-b', str(BLOCK_SIZE)])
-      cmd.extend(['-m', '0'])  # reserved block percentage
-      cmd.extend(['-t', 'ext4'])
-      cmd.extend(['-I', '256'])  # inode size
-      cmd.extend(['-N', str(inode_num)])
-      uu = str(uuid.uuid5(uuid.NAMESPACE_URL, 'www.android.com'))
-      cmd.extend(['-U', uu])
-      cmd.extend(['-E', 'hash_seed=' + uu])
-      cmd.append(img_file)
-      cmd.append(str(size_in_mb) + 'M')
-      with tempfile.NamedTemporaryFile(dir=work_dir, suffix="mke2fs.conf") as conf_file:
-        conf_data = pkgutil.get_data('apexer', 'mke2fs.conf')
-        conf_file.write(conf_data)
-        conf_file.flush()
-        RunCommand(cmd, args.verbose,
-            {"MKE2FS_CONFIG": conf_file.name, 'E2FSPROGS_FAKE_TIME': '1'})
-
-      # Compile the file context into the binary form
-      compiled_file_contexts = os.path.join(work_dir, 'file_contexts.bin')
-      cmd = ['sefcontext_compile']
-      cmd.extend(['-o', compiled_file_contexts])
-      cmd.append(args.file_contexts)
-      RunCommand(cmd, args.verbose)
-
-      # Add files to the image file
-      cmd = ['e2fsdroid']
-      cmd.append('-e')  # input is not android_sparse_file
-      cmd.extend(['-f', args.input_dir])
-      cmd.extend(['-T', '0'])  # time is set to epoch
-      cmd.extend(['-S', compiled_file_contexts])
-      cmd.extend(['-C', args.canned_fs_config])
-      cmd.append('-s')  # share dup blocks
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
-
-      cmd = ['e2fsdroid']
-      cmd.append('-e')  # input is not android_sparse_file
-      cmd.extend(['-f', manifests_dir])
-      cmd.extend(['-T', '0'])  # time is set to epoch
-      cmd.extend(['-S', compiled_file_contexts])
-      cmd.extend(['-C', args.canned_fs_config])
-      cmd.append('-s')  # share dup blocks
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
-
-      # Resize the image file to save space
-      cmd = ['resize2fs']
-      cmd.append('-M')  # shrink as small as possible
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose, {'E2FSPROGS_FAKE_TIME': '1'})
-
-    elif args.payload_fs_type == 'f2fs':
-      # F2FS requires a ~100M minimum size (necessary for ART, could be reduced a bit for other)
-      # TODO(b/158453869): relax these requirements for readonly devices
-      size_in_mb += 100
-
-      # Create an empty image
-      cmd = ['/usr/bin/fallocate']
-      cmd.extend(['-l', str(size_in_mb)+'M'])
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose)
-
-      # Format the image to F2FS
-      cmd = ['make_f2fs']
-      cmd.extend(['-g', 'android'])
-      uu = str(uuid.uuid5(uuid.NAMESPACE_URL, 'www.android.com'))
-      cmd.extend(['-U', uu])
-      cmd.extend(['-T', '0'])
-      cmd.append('-r') # sets checkpointing seed to 0 to remove random bits
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose)
-
-      # Add files to the image
-      cmd = ['sload_f2fs']
-      cmd.extend(['-C', args.canned_fs_config])
-      cmd.extend(['-f', manifests_dir])
-      cmd.extend(['-s', args.file_contexts])
-      cmd.extend(['-T', '0'])
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose, expected_return_values={0,1})
-
-      cmd = ['sload_f2fs']
-      cmd.extend(['-C', args.canned_fs_config])
-      cmd.extend(['-f', args.input_dir])
-      cmd.extend(['-s', args.file_contexts])
-      cmd.extend(['-T', '0'])
-      cmd.append(img_file)
-      RunCommand(cmd, args.verbose, expected_return_values={0,1})
-
-      # TODO(b/158453869): resize the image file to save space
-
-    if args.unsigned_payload_only:
-      shutil.copyfile(img_file, args.output)
-      if (args.verbose):
-        print('Created (unsigned payload only) ' + args.output)
-      return True
-
+    CreateImage(args, work_dir, manifests_dir, img_file)
     if not args.unsigned_payload:
-      cmd = ['avbtool']
-      cmd.append('add_hashtree_footer')
-      cmd.append('--do_not_generate_fec')
-      cmd.extend(['--algorithm', 'SHA256_RSA4096'])
-      cmd.extend(['--hash_algorithm', 'sha256'])
-      cmd.extend(['--key', args.key])
-      cmd.extend(['--prop', 'apex.key:' + key_name])
-      # Set up the salt based on manifest content which includes name
-      # and version
-      salt = hashlib.sha256(manifest_apex.SerializeToString()).hexdigest()
-      cmd.extend(['--salt', salt])
-      cmd.extend(['--image', img_file])
-      if args.no_hashtree:
-        cmd.append('--no_hashtree')
-      if args.signing_args:
-        cmd.extend(shlex.split(args.signing_args))
-      RunCommand(cmd, args.verbose)
-
-      # Get the minimum size of the partition required.
-      # TODO(b/113320014) eliminate this step
-      info, _ = RunCommand(['avbtool', 'info_image', '--image', img_file],
-                           args.verbose)
-      vbmeta_offset = int(re.search('VBMeta\ offset:\ *([0-9]+)', info).group(1))
-      vbmeta_size = int(re.search('VBMeta\ size:\ *([0-9]+)', info).group(1))
-      partition_size = RoundUp(vbmeta_offset + vbmeta_size,
-                               BLOCK_SIZE) + BLOCK_SIZE
-
-      # Resize to the minimum size
-      # TODO(b/113320014) eliminate this step
-      cmd = ['avbtool']
-      cmd.append('resize_image')
-      cmd.extend(['--image', img_file])
-      cmd.extend(['--partition_size', str(partition_size)])
-      RunCommand(cmd, args.verbose)
+      SignImage(args, manifest_apex, img_file)
   else:
     img_file = os.path.join(content_dir, 'apex_payload.zip')
     cmd = ['soong_zip']
@@ -640,37 +722,102 @@ def CreateApex(args, work_dir):
     cmd.extend(['-C', manifests_dir])
     cmd.extend(['-D', manifests_dir])
     RunCommand(cmd, args.verbose)
+  return img_file
 
-  if args.payload_only:
-    shutil.copyfile(img_file, args.output)
-    if (args.verbose):
-      print('Created (payload only) ' + args.output)
-    return True
 
-  # package the image file and APEX manifest as an APK.
-  # The AndroidManifest file is automatically generated if not given.
+def CreateAndroidManifestXml(args, work_dir, manifest_apex):
+  """Create AndroidManifest.xml file.
+
+  Args:
+    args: apexer options
+    work_dir: apex container working directory
+    manifest_apex: apex manifest proto
+
+  Returns:
+    AndroidManifest.xml file inside the work dir
+  """
   android_manifest_file = os.path.join(work_dir, 'AndroidManifest.xml')
   if not args.android_manifest:
     if args.verbose:
       print('Creating AndroidManifest ' + android_manifest_file)
-    with open(android_manifest_file, 'w+') as f:
+    with open(android_manifest_file, 'w') as f:
       app_package_name = manifest_apex.name
-      f.write(PrepareAndroidManifest(app_package_name, manifest_apex.version))
+      f.write(PrepareAndroidManifest(app_package_name, manifest_apex.version,
+                                     args.test_only))
     args.android_manifest = android_manifest_file
+    ValidateGeneratedAndroidManifest(args.android_manifest, args.test_only)
   else:
     ValidateAndroidManifest(manifest_apex.name, args.android_manifest)
     shutil.copyfile(args.android_manifest, android_manifest_file)
 
   # If logging parent is specified, add it to the AndroidManifest.
-  if args.logging_parent != "":
+  if args.logging_parent:
     android_manifest_file = AddLoggingParent(android_manifest_file,
                                              args.logging_parent)
+  return android_manifest_file
 
-  # copy manifest to the content dir so that it is also accessible
-  # without mounting the image
-  copyfile(args.manifest, os.path.join(content_dir, 'apex_manifest.pb'))
+
+def CreateApex(args, work_dir):
+  if not ValidateArgs(args):
+    return False
+
+  if args.verbose:
+    print('Using tools from ' + str(tool_path_list))
+
+  def CopyFile(src, dst):
+    if args.verbose:
+      print('Copying ' + src + ' to ' + dst)
+    shutil.copyfile(src, dst)
+
+  try:
+    manifest_apex = ValidateApexManifest(args.manifest)
+  except ApexManifestError as err:
+    print("'" + args.manifest + "' is not a valid manifest file")
+    print(err.errmessage)
+    return False
+  except IOError:
+    print("Cannot read manifest file: '" + args.manifest + "'")
+    return False
+
+  # Create content dir and manifests dir, the manifests dir is used to
+  # create the payload image
+  content_dir = os.path.join(work_dir, 'content')
+  os.mkdir(content_dir)
+  manifests_dir = os.path.join(work_dir, 'manifests')
+  os.mkdir(manifests_dir)
+
+  # Create AndroidManifest.xml file first so that we can hash the file
+  # and store the hashed value in the manifest proto buf that goes into
+  # the payload image. So any change in this file will ensure changes
+  # in payload image file
+  android_manifest_file = CreateAndroidManifestXml(
+      args, work_dir, manifest_apex)
+
+  # APEX manifest is also included in the image. The manifest is included
+  # twice: once inside the image and once outside the image (but still
+  # within the zip container).
+  with open(os.path.join(manifests_dir, 'apex_manifest.pb'), 'wb') as f:
+    f.write(manifest_apex.SerializeToString())
+  with open(os.path.join(content_dir, 'apex_manifest.pb'), 'wb') as f:
+    f.write(manifest_apex.SerializeToString())
   if args.manifest_json:
-    copyfile(args.manifest_json, os.path.join(content_dir, 'apex_manifest.json'))
+    CopyFile(args.manifest_json,
+             os.path.join(manifests_dir, 'apex_manifest.json'))
+    CopyFile(args.manifest_json,
+             os.path.join(content_dir, 'apex_manifest.json'))
+
+  # Create payload
+  img_file = CreateApexPayload(args, work_dir, content_dir, manifests_dir,
+                               manifest_apex)
+
+  if args.unsigned_payload_only or args.payload_only:
+    shutil.copyfile(img_file, args.output)
+    if args.verbose:
+      if args.unsigned_payload_only:
+        print('Created (unsigned payload only) ' + args.output)
+      else:
+        print('Created (payload only) ' + args.output)
+    return True
 
   # copy the public key, if specified
   if args.pubkey:
@@ -678,7 +825,7 @@ def CreateApex(args, work_dir):
 
   if args.include_build_info:
     build_info = GenerateBuildInfo(args)
-    with open(os.path.join(content_dir, 'apex_build_info.pb'), "wb") as f:
+    with open(os.path.join(content_dir, 'apex_build_info.pb'), 'wb') as f:
       f.write(build_info.SerializeToString())
 
   apk_file = os.path.join(work_dir, 'apex.apk')
@@ -706,33 +853,10 @@ def CreateApex(args, work_dir):
   RunCommand(cmd, args.verbose)
 
   zip_file = os.path.join(work_dir, 'apex.zip')
-  cmd = ['soong_zip']
-  cmd.append('-d')  # include directories
-  cmd.extend(['-C', content_dir])  # relative root
-  cmd.extend(['-D', content_dir])  # input dir
-  for file_ in os.listdir(content_dir):
-    if os.path.isfile(os.path.join(content_dir, file_)):
-      cmd.extend(['-s', file_])  # don't compress any files
-  cmd.extend(['-o', zip_file])
-  RunCommand(cmd, args.verbose)
+  CreateZip(content_dir, zip_file)
+  MergeZips([apk_file, zip_file], args.output)
 
-  unaligned_apex_file = os.path.join(work_dir, 'unaligned.apex')
-  cmd = ['merge_zips']
-  cmd.append('-j')  # sort
-  cmd.append(unaligned_apex_file)  # output
-  cmd.append(apk_file)  # input
-  cmd.append(zip_file)  # input
-  RunCommand(cmd, args.verbose)
-
-  # Align the files at page boundary for efficient access
-  cmd = ['zipalign']
-  cmd.append('-f')
-  cmd.append(str(BLOCK_SIZE))
-  cmd.append(unaligned_apex_file)
-  cmd.append(args.output)
-  RunCommand(cmd, args.verbose)
-
-  if (args.verbose):
+  if args.verbose:
     print('Created ' + args.output)
 
   return True
@@ -746,6 +870,39 @@ class TempDirectory(object):
 
   def __exit__(self, *unused):
     shutil.rmtree(self.name)
+
+
+def CreateZip(content_dir, apex_zip):
+  with zipfile.ZipFile(apex_zip, 'w', compression=zipfile.ZIP_DEFLATED) as out:
+    for root, _, files in os.walk(content_dir):
+      for file in files:
+        path = os.path.join(root, file)
+        rel_path = os.path.relpath(path, content_dir)
+        # "apex_payload.img" shouldn't be compressed
+        if rel_path == 'apex_payload.img':
+          out.write(path, rel_path, compress_type=zipfile.ZIP_STORED)
+        else:
+          out.write(path, rel_path)
+
+
+def MergeZips(zip_files, output_zip):
+  with zipfile.ZipFile(output_zip, 'w') as out:
+    for file in zip_files:
+      # copy to output_zip
+      with zipfile.ZipFile(file, 'r') as inzip:
+        for info in inzip.infolist():
+          # reset timestamp for deterministic output
+          info.date_time = (1980, 1, 1, 0, 0, 0)
+          # reset filemode for deterministic output. The high 16 bits are for
+          # filemode. 0x81A4 corresponds to 0o100644(a regular file with
+          # '-rw-r--r--' permission).
+          info.external_attr = 0x81A40000
+          # "apex_payload.img" should be 4K aligned
+          if info.filename == 'apex_payload.img':
+            data_offset = out.fp.tell() + len(info.FileHeader())
+            info.extra = b'\0' * (BLOCK_SIZE - data_offset % BLOCK_SIZE)
+          data = inzip.read(info)
+          out.writestr(info, data)
 
 
 def main(argv):

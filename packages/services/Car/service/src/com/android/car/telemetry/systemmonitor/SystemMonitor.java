@@ -16,15 +16,15 @@
 
 package com.android.car.telemetry.systemmonitor;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
-import android.content.Context;
+import android.car.builtin.util.Slogf;
 import android.os.Handler;
 
 import com.android.car.CarLog;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.utils.Slogf;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -48,7 +48,6 @@ public class SystemMonitor {
 
     private final Handler mTelemetryHandler;
 
-    private final Context mContext;
     private final ActivityManager mActivityManager;
     private final String mLoadavgPath;
     private final Runnable mSystemLoadRunnable = this::getSystemLoadRepeated;
@@ -65,7 +64,7 @@ public class SystemMonitor {
          *
          * @param event the system monitor event.
          */
-        void onSystemMonitorEvent(SystemMonitorEvent event);
+        void onSystemMonitorEvent(@NonNull SystemMonitorEvent event);
     }
 
     /**
@@ -75,16 +74,18 @@ public class SystemMonitor {
      * @param workerHandler a handler for running monitoring jobs.
      * @return SystemMonitor instance.
      */
-    public static SystemMonitor create(Context context, Handler workerHandler) {
-        return new SystemMonitor(context, workerHandler, LOADAVG_PATH);
+    public static SystemMonitor create(
+            @NonNull ActivityManager activityManager, @NonNull Handler workerHandler) {
+        return new SystemMonitor(activityManager, workerHandler, LOADAVG_PATH);
     }
 
     @VisibleForTesting
-    SystemMonitor(Context context, Handler telemetryHandler, String loadavgPath) {
-        mContext = context;
+    SystemMonitor(
+            @NonNull ActivityManager activityManager,
+            @NonNull Handler telemetryHandler,
+            @NonNull String loadavgPath) {
         mTelemetryHandler = telemetryHandler;
-        mActivityManager = (ActivityManager)
-                mContext.getSystemService(Context.ACTIVITY_SERVICE);
+        mActivityManager = activityManager;
         mLoadavgPath = loadavgPath;
     }
 
@@ -93,7 +94,7 @@ public class SystemMonitor {
      *
      * @param callback the callback to nofify state changes on.
      */
-    public void setSystemMonitorCallback(SystemMonitorCallback callback) {
+    public void setSystemMonitorCallback(@NonNull SystemMonitorCallback callback) {
         mCallback = callback;
         if (!mSystemMonitorRunning) {
             startSystemLoadMonitoring();
@@ -147,6 +148,7 @@ public class SystemMonitor {
      *
      * @return {@link MemoryInfo} for the system.
      */
+    @NonNull
     private MemoryInfo getMemoryLoad() {
         MemoryInfo mi = new ActivityManager.MemoryInfo();
         mActivityManager.getMemoryInfo(mi);
@@ -160,7 +162,7 @@ public class SystemMonitor {
      * @param cpuLoadPerCore the CPU load average per CPU core.
      */
     @VisibleForTesting
-    void setEventCpuUsageLevel(SystemMonitorEvent event, double cpuLoadPerCore) {
+    void setEventCpuUsageLevel(@NonNull SystemMonitorEvent event, double cpuLoadPerCore) {
         if (cpuLoadPerCore > HI_CPU_LOAD_PER_CORE_BASE_LEVEL) {
             event.setCpuUsageLevel(SystemMonitorEvent.USAGE_LEVEL_HI);
         } else if (cpuLoadPerCore > MED_CPU_LOAD_PER_CORE_BASE_LEVEL
@@ -178,7 +180,7 @@ public class SystemMonitor {
      * @param memLoadRatio ratio of used memory to total memory.
      */
     @VisibleForTesting
-    void setEventMemUsageLevel(SystemMonitorEvent event, double memLoadRatio) {
+    void setEventMemUsageLevel(@NonNull SystemMonitorEvent event, double memLoadRatio) {
         if (memLoadRatio > HI_MEM_LOAD_BASE_LEVEL) {
             event.setMemoryUsageLevel(SystemMonitorEvent.USAGE_LEVEL_HI);
         } else if (memLoadRatio > MED_MEM_LOAD_BASE_LEVEL

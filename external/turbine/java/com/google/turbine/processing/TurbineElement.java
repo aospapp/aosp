@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -32,6 +33,7 @@ import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.FieldInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.MethodInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.ParamInfo;
+import com.google.turbine.binder.bound.TypeBoundClass.RecordComponentInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.TyVarInfo;
 import com.google.turbine.binder.lookup.PackageScope;
 import com.google.turbine.binder.sym.ClassSymbol;
@@ -39,6 +41,7 @@ import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.MethodSymbol;
 import com.google.turbine.binder.sym.PackageSymbol;
 import com.google.turbine.binder.sym.ParamSymbol;
+import com.google.turbine.binder.sym.RecordComponentSymbol;
 import com.google.turbine.binder.sym.Symbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
 import com.google.turbine.diag.TurbineError;
@@ -46,7 +49,7 @@ import com.google.turbine.diag.TurbineError.ErrorKind;
 import com.google.turbine.model.Const;
 import com.google.turbine.model.Const.ArrayInitValue;
 import com.google.turbine.model.TurbineFlag;
-import com.google.turbine.model.TurbineTyKind;
+import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.MethDecl;
 import com.google.turbine.tree.Tree.TyDecl;
 import com.google.turbine.tree.Tree.VarDecl;
@@ -79,9 +82,10 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** An {@link Element} implementation backed by a {@link Symbol}. */
+@SuppressWarnings("nullness") // TODO(cushon): Address nullness diagnostics.
 public abstract class TurbineElement implements Element {
 
   public abstract Symbol sym();
@@ -92,7 +96,7 @@ public abstract class TurbineElement implements Element {
   public abstract int hashCode();
 
   @Override
-  public abstract boolean equals(Object obj);
+  public abstract boolean equals(@Nullable Object obj);
 
   protected final ModelFactory factory;
   private final Supplier<ImmutableList<AnnotationMirror>> annotationMirrors;
@@ -158,7 +162,8 @@ public abstract class TurbineElement implements Element {
         continue;
       }
       if (anno.sym().equals(metadata.repeatable())) {
-        ArrayInitValue arrayValue = (ArrayInitValue) anno.values().get("value");
+        // requireNonNull is safe because java.lang.annotation.Repeatable declares `value`.
+        ArrayInitValue arrayValue = (ArrayInitValue) requireNonNull(anno.values().get("value"));
         for (Const element : arrayValue.elements()) {
           result.add(
               TurbineAnnotationProxy.create(
@@ -258,15 +263,21 @@ public abstract class TurbineElement implements Element {
                 switch (info.kind()) {
                   case CLASS:
                   case ENUM:
+                  case RECORD:
                     if (info.superclass() != null) {
                       return factory.asTypeMirror(info.superClassType());
                     }
                     if (info instanceof SourceTypeBoundClass) {
-                      // support simple name for stuff that doesn't exist
+                      // support simple names for stuff that doesn't exist
                       TyDecl decl = ((SourceTypeBoundClass) info).decl();
                       if (decl.xtnds().isPresent()) {
-                        return factory.asTypeMirror(
-                            ErrorTy.create(decl.xtnds().get().name().value()));
+                        ArrayDeque<Tree.Ident> flat = new ArrayDeque<>();
+                        for (Tree.ClassTy curr = decl.xtnds().get();
+                            curr != null;
+                            curr = curr.base().orElse(null)) {
+                          flat.addFirst(curr.name());
+                        }
+                        return factory.asTypeMirror(ErrorTy.create(flat));
                       }
                     }
                     return factory.noType();
@@ -369,9 +380,20 @@ public abstract class TurbineElement implements Element {
           return ElementKind.ENUM;
         case ANNOTATION:
           return ElementKind.ANNOTATION_TYPE;
+        case RECORD:
+          return RECORD.get();
       }
       throw new AssertionError(info.kind());
     }
+
+    private static final Supplier<ElementKind> RECORD =
+        Suppliers.memoize(
+            new Supplier<ElementKind>() {
+              @Override
+              public ElementKind get() {
+                return ElementKind.valueOf("RECORD");
+              }
+            });
 
     @Override
     public Set<Modifier> getModifiers() {
@@ -420,6 +442,9 @@ public abstract class TurbineElement implements Element {
               public ImmutableList<Element> get() {
                 TypeBoundClass info = infoNonNull();
                 ImmutableList.Builder<Element> result = ImmutableList.builder();
+                for (RecordComponentInfo component : info.components()) {
+                  result.add(factory.recordComponentElement(component.sym()));
+                }
                 for (FieldInfo field : info.fields()) {
                   result.add(factory.fieldElement(field.sym()));
                 }
@@ -458,7 +483,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbineTypeElement && sym.equals(((TurbineTypeElement) obj).sym);
     }
 
@@ -546,7 +571,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbineTypeParameterElement
           && sym.equals(((TurbineTypeParameterElement) obj).sym);
     }
@@ -567,8 +592,7 @@ public abstract class TurbineElement implements Element {
               }
             });
 
-    @Nullable
-    private TyVarInfo info() {
+    private @Nullable TyVarInfo info() {
       return info.get();
     }
 
@@ -680,7 +704,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbineExecutableElement
           && sym.equals(((TurbineExecutableElement) obj).sym);
     }
@@ -785,18 +809,12 @@ public abstract class TurbineElement implements Element {
 
     @Override
     public ElementKind getKind() {
-      return info().name().equals("<init>") ? ElementKind.CONSTRUCTOR : ElementKind.METHOD;
+      return sym.name().equals("<init>") ? ElementKind.CONSTRUCTOR : ElementKind.METHOD;
     }
 
     @Override
     public Set<Modifier> getModifiers() {
-      int access = info().access();
-      if (factory.getSymbol(info().sym().owner()).kind() == TurbineTyKind.INTERFACE) {
-        if ((access & (TurbineFlag.ACC_ABSTRACT | TurbineFlag.ACC_STATIC)) == 0) {
-          access |= TurbineFlag.ACC_DEFAULT;
-        }
-      }
-      return asModifierSet(ModifierOwner.METHOD, access);
+      return asModifierSet(ModifierOwner.METHOD, info().access());
     }
 
     @Override
@@ -834,7 +852,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbineFieldElement && sym.equals(((TurbineFieldElement) obj).sym);
     }
 
@@ -1032,6 +1050,7 @@ public abstract class TurbineElement implements Element {
     public List<TurbineTypeElement> getEnclosedElements() {
       ImmutableSet.Builder<TurbineTypeElement> result = ImmutableSet.builder();
       PackageScope scope = factory.tli().lookupPackage(Splitter.on('/').split(sym.binaryName()));
+      requireNonNull(scope); // the current package exists
       for (ClassSymbol key : scope.classes()) {
         if (key.binaryName().contains("$") && factory.getSymbol(key).owner() != null) {
           // Skip member classes: only top-level classes are enclosed by the package.
@@ -1067,7 +1086,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbinePackageElement && sym.equals(((TurbinePackageElement) obj).sym);
     }
 
@@ -1112,7 +1131,7 @@ public abstract class TurbineElement implements Element {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       return obj instanceof TurbineParameterElement
           && sym.equals(((TurbineParameterElement) obj).sym);
     }
@@ -1175,6 +1194,120 @@ public abstract class TurbineElement implements Element {
     @Override
     public Element getEnclosingElement() {
       return factory.executableElement(sym.owner());
+    }
+
+    @Override
+    public List<? extends Element> getEnclosedElements() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public <R, P> R accept(ElementVisitor<R, P> v, P p) {
+      return v.visitVariable(this, p);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(sym.name());
+    }
+
+    @Override
+    protected ImmutableList<AnnoInfo> annos() {
+      return info().annotations();
+    }
+  }
+
+  /** A {@link VariableElement} implementation for a record info. */
+  static class TurbineRecordComponentElement extends TurbineElement implements VariableElement {
+
+    @Override
+    public RecordComponentSymbol sym() {
+      return sym;
+    }
+
+    @Override
+    public String javadoc() {
+      return null;
+    }
+
+    @Override
+    public int hashCode() {
+      return sym.hashCode();
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      return obj instanceof TurbineRecordComponentElement
+          && sym.equals(((TurbineRecordComponentElement) obj).sym);
+    }
+
+    private final RecordComponentSymbol sym;
+
+    private final Supplier<RecordComponentInfo> info =
+        memoize(
+            new Supplier<RecordComponentInfo>() {
+              @Override
+              public RecordComponentInfo get() {
+                return factory.getRecordComponentInfo(sym);
+              }
+            });
+
+    @Nullable
+    RecordComponentInfo info() {
+      return info.get();
+    }
+
+    public TurbineRecordComponentElement(ModelFactory factory, RecordComponentSymbol sym) {
+      super(factory);
+      this.sym = sym;
+    }
+
+    @Override
+    public Object getConstantValue() {
+      return null;
+    }
+
+    private final Supplier<TypeMirror> type =
+        memoize(
+            new Supplier<TypeMirror>() {
+              @Override
+              public TypeMirror get() {
+                return factory.asTypeMirror(info().type());
+              }
+            });
+
+    @Override
+    public TypeMirror asType() {
+      return type.get();
+    }
+
+    @Override
+    public ElementKind getKind() {
+      return RECORD_COMPONENT.get();
+    }
+
+    private static final Supplier<ElementKind> RECORD_COMPONENT =
+        Suppliers.memoize(
+            new Supplier<ElementKind>() {
+              @Override
+              public ElementKind get() {
+                return ElementKind.valueOf("RECORD_COMPONENT");
+              }
+            });
+
+    @Override
+    public Set<Modifier> getModifiers() {
+      return asModifierSet(ModifierOwner.PARAMETER, info().access());
+    }
+
+    @Override
+    public Name getSimpleName() {
+      return new TurbineName(sym.name());
+    }
+
+    @Override
+    public Element getEnclosingElement() {
+      return factory.typeElement(sym.owner());
     }
 
     @Override

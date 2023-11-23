@@ -107,6 +107,6 @@ static JNINativeMethod gMethods[] = {
 };
 
 int register_android_view_cts_InputDeviceKeyLayoutMapTest(JNIEnv* env) {
-    jclass clazz = env->FindClass("android/view/cts/InputDeviceKeyLayoutMapTest");
+    jclass clazz = env->FindClass("android/view/cts/input/InputDeviceKeyLayoutMapTest");
     return env->RegisterNatives(clazz, gMethods, sizeof(gMethods) / sizeof(JNINativeMethod));
 }

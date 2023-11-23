@@ -22,7 +22,11 @@ android_test_helper_app {
     name: "CtsHostsideNetworkTestsApp2",
     defaults: ["cts_support_defaults"],
     sdk_version: "test_current",
-    static_libs: ["CtsHostsideNetworkTestsAidl"],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "CtsHostsideNetworkTestsAidl",
+        "NetworkStackApiStableShims",
+    ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [

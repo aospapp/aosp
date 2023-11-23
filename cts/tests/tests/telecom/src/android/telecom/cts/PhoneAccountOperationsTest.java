@@ -27,7 +27,6 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
-import android.text.TextUtils;
 
 import com.android.compatibility.common.util.ShellIdentityUtils;
 
@@ -103,6 +102,17 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
             .setSupportedUriSchemes(Arrays.asList(
                     PhoneAccount.SCHEME_TEL, PhoneAccount.SCHEME_VOICEMAIL))
             .build();
+
+    private static PhoneAccount copyPhoneAccountAndOverrideCapabilities(
+            PhoneAccount base, int newCapabilities) {
+        return base.toBuilder().setCapabilities(newCapabilities).build();
+    }
+
+    private static PhoneAccount copyPhoneAccountAndAddCapabilities(
+            PhoneAccount base, int capabilitiesToAdd) {
+        return copyPhoneAccountAndOverrideCapabilities(
+                base, base.getCapabilities() | capabilitiesToAdd);
+    }
 
     private Context mContext;
     private TelecomManager mTelecomManager;
@@ -303,5 +313,89 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
         } finally {
             TestUtils.setDefaultDialer(getInstrumentation(), previousDefaultDialer);
         }
+    }
+
+    public void testRegisterPhoneAccount_VoiceIndicationCapabilities_NoPrerequisiteCapabilities()
+            throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        try {
+            mTelecomManager.registerPhoneAccount(
+                    copyPhoneAccountAndAddCapabilities(
+                            TEST_NO_SIM_PHONE_ACCOUNT,
+                            PhoneAccount.CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS));
+            fail("TelecomManager.registerPhoneAccount should throw SecurityException if "
+                    + "PhoneAccounts declare CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS but not "
+                    + "CAPABILITY_SIM_SUBSCRIPTION or CAPABILITY_CONNECTION_MANAGER");
+        } catch (SecurityException e) {
+            // expected
+        }
+        try {
+            mTelecomManager.registerPhoneAccount(
+                    copyPhoneAccountAndAddCapabilities(
+                            TEST_NO_SIM_PHONE_ACCOUNT,
+                            PhoneAccount.CAPABILITY_VOICE_CALLING_AVAILABLE));
+            fail("TelecomManager.registerPhoneAccount should throw SecurityException if "
+                    + "PhoneAccounts declare CAPABILITY_VOICE_CALLING_AVAILABLE but not "
+                    + "CAPABILITY_SIM_SUBSCRIPTION or CAPABILITY_CONNECTION_MANAGER");
+        } catch (SecurityException e) {
+            // expected
+        }
+        try {
+            mTelecomManager.registerPhoneAccount(
+                    copyPhoneAccountAndAddCapabilities(
+                            TEST_NO_SIM_PHONE_ACCOUNT,
+                            PhoneAccount.CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS
+                                    | PhoneAccount.CAPABILITY_VOICE_CALLING_AVAILABLE));
+            fail("TelecomManager.registerPhoneAccount should throw SecurityException if "
+                    + "PhoneAccounts declare CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS and "
+                    + "CAPABILITY_VOICE_CALLING_AVAILABLE but not CAPABILITY_SIM_SUBSCRIPTION or "
+                    + "CAPABILITY_CONNECTION_MANAGER");
+        } catch (SecurityException e) {
+            // expected
+        }
+    }
+
+    public void testRegisterPhoneAccount_VoiceIndicationCapabilities_SimSubscription()
+            throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mTelecomManager,
+                tm ->
+                        tm.registerPhoneAccount(
+                                copyPhoneAccountAndAddCapabilities(
+                                        TEST_SIM_PHONE_ACCOUNT,
+                                        PhoneAccount
+                                                .CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS)),
+                "android.permission.REGISTER_SIM_SUBSCRIPTION");
+        PhoneAccount retrievedPhoneAccount =
+                mTelecomManager.getPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE);
+        assertTrue(
+                "Phone account should have call SIM subscription & voice indication capability.",
+                retrievedPhoneAccount.hasCapabilities(
+                        PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION
+                                | PhoneAccount.CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS));
+
+        // Adding in CAPABILITY_VOICE_CALLING_AVAILABLE is how the account dynamically indicates
+        // whether it can _currently_ place voice calls or not.
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mTelecomManager,
+                tm ->
+                        tm.registerPhoneAccount(
+                                copyPhoneAccountAndAddCapabilities(
+                                        TEST_SIM_PHONE_ACCOUNT,
+                                        PhoneAccount.CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS
+                                                | PhoneAccount.CAPABILITY_VOICE_CALLING_AVAILABLE)),
+                "android.permission.REGISTER_SIM_SUBSCRIPTION");
+        retrievedPhoneAccount = mTelecomManager.getPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE);
+        assertTrue(
+                "Phone account should have call SIM subscription & voice indication capabilities.",
+                retrievedPhoneAccount.hasCapabilities(
+                        PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION
+                                | PhoneAccount.CAPABILITY_SUPPORTS_VOICE_CALLING_INDICATIONS
+                                | PhoneAccount.CAPABILITY_VOICE_CALLING_AVAILABLE));
     }
 }

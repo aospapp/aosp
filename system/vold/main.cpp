@@ -16,6 +16,8 @@
 
 #define ATRACE_TAG ATRACE_TAG_PACKAGE_MANAGER
 
+#include "FsCrypt.h"
+#include "MetadataCrypt.h"
 #include "NetlinkManager.h"
 #include "VoldNativeService.h"
 #include "VoldUtil.h"
@@ -51,8 +53,11 @@ typedef struct vold_configs {
 static int process_config(VolumeManager* vm, VoldConfigs* configs);
 static void coldboot(const char* path);
 static void parse_args(int argc, char** argv);
+static void VoldLogger(android::base::LogId log_buffer_id, android::base::LogSeverity severity,
+                       const char* tag, const char* file, unsigned int line, const char* message);
 
 struct selabel_handle* sehandle;
+android::base::LogdLogger logd_logger(android::base::SYSTEM);
 
 using android::base::StringPrintf;
 using android::fs_mgr::ReadDefaultFstab;
@@ -60,7 +65,7 @@ using android::fs_mgr::ReadDefaultFstab;
 int main(int argc, char** argv) {
     atrace_set_tracing_enabled(false);
     setenv("ANDROID_LOG_TAGS", "*:d", 1);  // Do not submit with verbose logs enabled
-    android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
+    android::base::InitLogging(argv, &VoldLogger);
 
     LOG(INFO) << "Vold 3.0 (the awakening) firing up";
 
@@ -247,6 +252,11 @@ static int process_config(VolumeManager* vm, VoldConfigs* configs) {
             PLOG(FATAL) << "could not find logical partition " << entry.blk_device;
         }
 
+        if (entry.mount_point == "/data" && !entry.metadata_key_dir.empty()) {
+            // Pre-populate userdata dm-devices since the uevents are asynchronous (b/198405417).
+            android::vold::defaultkey_precreate_dm_device();
+        }
+
         if (entry.fs_mgr_flags.vold_managed) {
             if (entry.fs_mgr_flags.nonremovable) {
                 LOG(WARNING) << "nonremovable no longer supported; ignoring volume";
@@ -271,4 +281,30 @@ static int process_config(VolumeManager* vm, VoldConfigs* configs) {
         }
     }
     return 0;
+}
+
+static void VoldLogger(android::base::LogId log_buffer_id, android::base::LogSeverity severity,
+                       const char* tag, const char* file, unsigned int line, const char* message) {
+    logd_logger(log_buffer_id, severity, tag, file, line, message);
+
+    if (severity >= android::base::WARNING) {
+        static bool early_boot_done = false;
+
+        // If metadata encryption setup (fscrypt_mount_metadata_encrypted) or
+        // basic FBE setup (fscrypt_init_user0) fails, then the boot will fail
+        // before adb can be started, so logcat won't be available.  To allow
+        // debugging these early boot failures, log early errors and warnings to
+        // the kernel log.  This allows diagnosing failures via the serial log,
+        // or via last dmesg/"fastboot oem dmesg" on devices that support it.
+        //
+        // As a very quick-and-dirty test for whether /data has been mounted,
+        // check whether /data/misc/vold exists.
+        if (!early_boot_done) {
+            if (access("/data/misc/vold", F_OK) == 0 && fscrypt_init_user0_done) {
+                early_boot_done = true;
+                return;
+            }
+            android::base::KernelLogger(log_buffer_id, severity, tag, file, line, message);
+        }
+    }
 }

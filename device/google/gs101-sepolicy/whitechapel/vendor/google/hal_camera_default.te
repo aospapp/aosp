@@ -1,6 +1,7 @@
 type hal_camera_default_tmpfs, file_type;
 
 allow hal_camera_default self:global_capability_class_set sys_nice;
+allow hal_camera_default kernel:process setsched;
 
 binder_use(hal_camera_default);
 vndbinder_use(hal_camera_default);
@@ -83,12 +84,15 @@ allow hal_camera_default apex_info_file:file r_file_perms;
 # Allow camera HAL to query current device clock frequencies.
 allow hal_camera_default sysfs_devfreq_cur:file r_file_perms;
 
-# allow camera HAL to read backlight of display
+# Allow camera HAL to read backlight of display
 allow hal_camera_default sysfs_leds:dir r_dir_perms;
 allow hal_camera_default sysfs_leds:file r_file_perms;
 
-# allow camera HAL to query interrupts and set interrupt affinity
+# Allow camera HAL to query interrupts and set interrupt affinity
 allow hal_camera_default proc_irq:dir r_dir_perms;
 allow hal_camera_default proc_irq:file rw_file_perms;
 allow hal_camera_default proc_interrupts:dir r_dir_perms;
 allow hal_camera_default proc_interrupts:file r_file_perms;
+
+# Allow camera HAL to send trace packets to Perfetto
+userdebug_or_eng(`perfetto_producer(hal_camera_default)')

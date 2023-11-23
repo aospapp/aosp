@@ -1,20 +1,14 @@
+use std::marker;
+
+use float;
+use inside::protobuf_crate_path;
+use message::RustTypeMessage;
+use oneof::OneofField;
 use protobuf::descriptor::*;
 use protobuf::rt;
 use protobuf::rust;
 use protobuf::text_format;
 use protobuf::wire_format;
-
-use super::code_writer::CodeWriter;
-use super::enums::*;
-use super::rust_types_values::*;
-
-use super::customize::customize_from_rustproto_for_field;
-use super::customize::Customize;
-use oneof::OneofField;
-
-use float;
-use inside::protobuf_crate_path;
-use message::RustTypeMessage;
 use protobuf_name::ProtobufAbsolutePath;
 use rust_name::RustIdent;
 use rust_name::RustIdentWithPath;
@@ -22,8 +16,13 @@ use scope::FieldWithContext;
 use scope::MessageOrEnumWithScope;
 use scope::RootScope;
 use scope::WithScope;
-use std::marker;
 use syntax::Syntax;
+
+use super::code_writer::CodeWriter;
+use super::customize::customize_from_rustproto_for_field;
+use super::customize::Customize;
+use super::enums::*;
+use super::rust_types_values::*;
 
 fn type_is_copy(field_type: FieldDescriptorProto_Type) -> bool {
     match field_type {
@@ -189,7 +188,7 @@ impl<'a> RepeatedField<'a> {
 
 #[derive(Clone)]
 pub struct MapField<'a> {
-    name: String,
+    _name: String,
     key: FieldElem<'a>,
     value: FieldElem<'a>,
 }
@@ -428,7 +427,7 @@ impl AccessorFn {
 
 #[derive(Clone)]
 pub(crate) struct FieldGen<'a> {
-    root_scope: &'a RootScope<'a>,
+    _root_scope: &'a RootScope<'a>,
     syntax: Syntax,
     pub proto_field: FieldWithContext<'a>,
     // field name in generated code
@@ -472,7 +471,7 @@ impl<'a> FieldGen<'a> {
                 // map field
                 (FieldElem::Message(name, _, Some(key_value), _), true) => {
                     FieldKind::Map(MapField {
-                        name: name,
+                        _name: name,
                         key: key_value.0.clone(),
                         value: key_value.1.clone(),
                     })
@@ -499,7 +498,7 @@ impl<'a> FieldGen<'a> {
         };
 
         FieldGen {
-            root_scope,
+            _root_scope: root_scope,
             syntax: field.message.get_scope().file_scope.syntax(),
             rust_name: field.rust_name(),
             proto_type: field.field.get_field_type(),

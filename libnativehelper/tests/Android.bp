@@ -61,7 +61,7 @@ cc_defaults {
 cc_test {
     name: "libnativehelper_tests",
     defaults: ["libnativehelper_test_defaults"],
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
     srcs: [
         "scoped_local_frame_test.cpp",
         "scoped_local_ref_test.cpp",
@@ -75,7 +75,7 @@ cc_test {
 cc_test {
     name: "libnativehelper_lazy_tests",
     defaults: ["libnativehelper_test_defaults"],
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
     srcs: ["libnativehelper_lazy_test.cpp"],
     shared_libs: ["liblog"],
     static_libs: ["libnativehelper_lazy"],

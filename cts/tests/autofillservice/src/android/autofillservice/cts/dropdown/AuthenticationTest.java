@@ -38,6 +38,7 @@ import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
 import android.autofillservice.cts.testcore.MyAutofillCallback;
+import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
@@ -977,7 +978,20 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
         fillResponseAuthServiceHasNoDataTest(false);
     }
 
+    // Tests fix for bug in Android 11 where app crashes when autofill provider return empty Intent
+    // with success from authentication activity.
+    @Test
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
+    public void testFillResponseAuthServiceReturnsEmptyIntent() throws Exception {
+        fillResponseAuthServiceHasNoDataTest(false, new Intent());
+    }
+
     private void fillResponseAuthServiceHasNoDataTest(boolean canSave) throws Exception {
+        fillResponseAuthServiceHasNoDataTest(canSave, null);
+    }
+
+    private void fillResponseAuthServiceHasNoDataTest(boolean canSave, Intent responseIntent)
+            throws Exception {
         // Set service.
         enableService();
         final MyAutofillCallback callback = mActivity.registerCallback();
@@ -989,8 +1003,12 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
                         .build()
                 : CannedFillResponse.NO_RESPONSE;
 
-        final IntentSender authentication =
-                AuthenticationActivity.createSender(mContext, 1, response);
+        final IntentSender authentication;
+        if (responseIntent != null) {
+            authentication = AuthenticationActivity.createSender(mContext, responseIntent);
+        } else {
+            authentication = AuthenticationActivity.createSender(mContext, 1, response);
+        }
 
         // Configure the service behavior
         sReplier.addResponse(new CannedFillResponse.Builder()

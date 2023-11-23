@@ -19,6 +19,7 @@ package com.android;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -29,6 +30,7 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PersistableBundle;
+import android.os.Process;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
@@ -93,6 +95,11 @@ public class TestContext extends MockContext {
     @Override
     public String getAttributionTag() {
         return "";
+    }
+
+    @Override
+    public AttributionSource getAttributionSource() {
+        return new AttributionSource(Process.myUid(), getPackageName(), "");
     }
 
     @Override

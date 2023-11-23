@@ -16,6 +16,12 @@
 
 package android.net.shared;
 
+import static android.net.ip.IIpClient.PROV_IPV4_DHCP;
+import static android.net.ip.IIpClient.PROV_IPV4_DISABLED;
+import static android.net.ip.IIpClient.PROV_IPV4_STATIC;
+import static android.net.ip.IIpClient.PROV_IPV6_DISABLED;
+import static android.net.ip.IIpClient.PROV_IPV6_LINKLOCAL;
+import static android.net.ip.IIpClient.PROV_IPV6_SLAAC;
 import static android.net.shared.ParcelableUtil.fromParcelableArray;
 import static android.net.shared.ParcelableUtil.toParcelableArray;
 
@@ -30,6 +36,8 @@ import android.net.apf.ApfCapabilities;
 import android.net.ip.IIpClient;
 import android.net.networkstack.aidl.dhcp.DhcpOption;
 import android.util.Log;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -82,6 +90,10 @@ public class ProvisioningConfiguration {
     public static final int IPV6_ADDR_GEN_MODE_EUI64 = 0;
     public static final int IPV6_ADDR_GEN_MODE_STABLE_PRIVACY = 2;
 
+    // ipv4ProvisioningMode and ipv6ProvisioningMode members are introduced since
+    // networkstack-aidl-interfaces-v12.
+    public static final int VERSION_ADDED_PROVISIONING_ENUM = 12;
+
     /**
      * Builder to create a {@link ProvisioningConfiguration}.
      */
@@ -92,7 +104,7 @@ public class ProvisioningConfiguration {
          * Specify that the configuration should not enable IPv4. It is enabled by default.
          */
         public Builder withoutIPv4() {
-            mConfig.mEnableIPv4 = false;
+            mConfig.mIPv4ProvisioningMode = PROV_IPV4_DISABLED;
             return this;
         }
 
@@ -100,7 +112,7 @@ public class ProvisioningConfiguration {
          * Specify that the configuration should not enable IPv6. It is enabled by default.
          */
         public Builder withoutIPv6() {
-            mConfig.mEnableIPv6 = false;
+            mConfig.mIPv6ProvisioningMode = PROV_IPV6_DISABLED;
             return this;
         }
 
@@ -162,6 +174,7 @@ public class ProvisioningConfiguration {
          * Specify a static configuration for provisioning.
          */
         public Builder withStaticConfiguration(StaticIpConfiguration staticConfig) {
+            mConfig.mIPv4ProvisioningMode = PROV_IPV4_STATIC;
             mConfig.mStaticIpConfig = staticConfig;
             return this;
         }
@@ -239,8 +252,20 @@ public class ProvisioningConfiguration {
          *
          * @param: options customized DHCP option stable parcelable list.
          */
-        public Builder withDhcpOptions(List<DhcpOption> options) {
+        public Builder withDhcpOptions(@Nullable List<DhcpOption> options) {
             mConfig.mDhcpOptions = options;
+            return this;
+        }
+
+        /**
+         * Specify that the configuration should enable IPv6 link-local only mode used for
+         * WiFi Neighbor Aware Networking and other link-local-only technologies. It's not
+         * used by default, and IPv4 must be disabled when this mode is enabled.
+         *
+         * @note This API is only supported since Android T.
+         */
+        public Builder withIpv6LinkLocalOnly() {
+            mConfig.mIPv6ProvisioningMode = PROV_IPV6_LINKLOCAL;
             return this;
         }
 
@@ -248,6 +273,11 @@ public class ProvisioningConfiguration {
          * Build the configuration using previously specified parameters.
          */
         public ProvisioningConfiguration build() {
+            if (mConfig.mIPv6ProvisioningMode == PROV_IPV6_LINKLOCAL
+                    && mConfig.mIPv4ProvisioningMode != PROV_IPV4_DISABLED) {
+                throw new IllegalArgumentException("IPv4 must be disabled in IPv6 link-local"
+                        + "only mode.");
+            }
             return new ProvisioningConfiguration(mConfig);
         }
     }
@@ -433,8 +463,6 @@ public class ProvisioningConfiguration {
         }
     }
 
-    public boolean mEnableIPv4 = true;
-    public boolean mEnableIPv6 = true;
     public boolean mEnablePreconnection = false;
     public boolean mUsingMultinetworkPolicyTracker = true;
     public boolean mUsingIpReachabilityMonitor = true;
@@ -449,12 +477,12 @@ public class ProvisioningConfiguration {
     public ScanResultInfo mScanResultInfo;
     public Layer2Information mLayer2Info;
     public List<DhcpOption> mDhcpOptions;
+    public int mIPv4ProvisioningMode = PROV_IPV4_DHCP;
+    public int mIPv6ProvisioningMode = PROV_IPV6_SLAAC;
 
     public ProvisioningConfiguration() {} // used by Builder
 
     public ProvisioningConfiguration(ProvisioningConfiguration other) {
-        mEnableIPv4 = other.mEnableIPv4;
-        mEnableIPv6 = other.mEnableIPv6;
         mEnablePreconnection = other.mEnablePreconnection;
         mUsingMultinetworkPolicyTracker = other.mUsingMultinetworkPolicyTracker;
         mUsingIpReachabilityMonitor = other.mUsingIpReachabilityMonitor;
@@ -471,6 +499,8 @@ public class ProvisioningConfiguration {
         mScanResultInfo = other.mScanResultInfo;
         mLayer2Info = other.mLayer2Info;
         mDhcpOptions = other.mDhcpOptions;
+        mIPv4ProvisioningMode = other.mIPv4ProvisioningMode;
+        mIPv6ProvisioningMode = other.mIPv6ProvisioningMode;
     }
 
     /**
@@ -478,8 +508,10 @@ public class ProvisioningConfiguration {
      */
     public ProvisioningConfigurationParcelable toStableParcelable() {
         final ProvisioningConfigurationParcelable p = new ProvisioningConfigurationParcelable();
-        p.enableIPv4 = mEnableIPv4;
-        p.enableIPv6 = mEnableIPv6;
+        p.enableIPv4 = (mIPv4ProvisioningMode != PROV_IPV4_DISABLED);
+        p.ipv4ProvisioningMode = mIPv4ProvisioningMode;
+        p.enableIPv6 = (mIPv6ProvisioningMode != PROV_IPV6_DISABLED);
+        p.ipv6ProvisioningMode = mIPv6ProvisioningMode;
         p.enablePreconnection = mEnablePreconnection;
         p.usingMultinetworkPolicyTracker = mUsingMultinetworkPolicyTracker;
         p.usingIpReachabilityMonitor = mUsingIpReachabilityMonitor;
@@ -501,13 +533,16 @@ public class ProvisioningConfiguration {
 
     /**
      * Create a ProvisioningConfiguration from a ProvisioningConfigurationParcelable.
+     *
+     * @param p stable parcelable instance to be converted to a {@link ProvisioningConfiguration}.
+     * @param interfaceVersion IIpClientCallbacks interface version called by the remote peer,
+     *                         which is used to determine the appropriate parcelable members for
+     *                         backwards compatibility.
      */
     public static ProvisioningConfiguration fromStableParcelable(
-            @Nullable ProvisioningConfigurationParcelable p) {
+            @Nullable ProvisioningConfigurationParcelable p, int interfaceVersion) {
         if (p == null) return null;
         final ProvisioningConfiguration config = new ProvisioningConfiguration();
-        config.mEnableIPv4 = p.enableIPv4;
-        config.mEnableIPv6 = p.enableIPv6;
         config.mEnablePreconnection = p.enablePreconnection;
         config.mUsingMultinetworkPolicyTracker = p.usingMultinetworkPolicyTracker;
         config.mUsingIpReachabilityMonitor = p.usingIpReachabilityMonitor;
@@ -524,14 +559,49 @@ public class ProvisioningConfiguration {
         config.mScanResultInfo = ScanResultInfo.fromStableParcelable(p.scanResultInfo);
         config.mLayer2Info = Layer2Information.fromStableParcelable(p.layer2Info);
         config.mDhcpOptions = (p.options == null) ? null : new ArrayList<>(p.options);
+        if (interfaceVersion < VERSION_ADDED_PROVISIONING_ENUM) {
+            config.mIPv4ProvisioningMode = p.enableIPv4 ? PROV_IPV4_DHCP : PROV_IPV4_DISABLED;
+            config.mIPv6ProvisioningMode = p.enableIPv6 ? PROV_IPV6_SLAAC : PROV_IPV6_DISABLED;
+        } else {
+            config.mIPv4ProvisioningMode = p.ipv4ProvisioningMode;
+            config.mIPv6ProvisioningMode = p.ipv6ProvisioningMode;
+        }
         return config;
+    }
+
+    @VisibleForTesting
+    static String ipv4ProvisioningModeToString(int mode) {
+        switch (mode) {
+            case PROV_IPV4_DISABLED:
+                return "disabled";
+            case PROV_IPV4_STATIC:
+                return "static";
+            case PROV_IPV4_DHCP:
+                return "dhcp";
+            default:
+                return "unknown";
+        }
+    }
+
+    @VisibleForTesting
+    static String ipv6ProvisioningModeToString(int mode) {
+        switch (mode) {
+            case PROV_IPV6_DISABLED:
+                return "disabled";
+            case PROV_IPV6_SLAAC:
+                return "slaac";
+            case PROV_IPV6_LINKLOCAL:
+                return "link-local";
+            default:
+                return "unknown";
+        }
     }
 
     @Override
     public String toString() {
+        final String ipv4ProvisioningMode = ipv4ProvisioningModeToString(mIPv4ProvisioningMode);
+        final String ipv6ProvisioningMode = ipv6ProvisioningModeToString(mIPv6ProvisioningMode);
         return new StringJoiner(", ", getClass().getSimpleName() + "{", "}")
-                .add("mEnableIPv4: " + mEnableIPv4)
-                .add("mEnableIPv6: " + mEnableIPv6)
                 .add("mEnablePreconnection: " + mEnablePreconnection)
                 .add("mUsingMultinetworkPolicyTracker: " + mUsingMultinetworkPolicyTracker)
                 .add("mUsingIpReachabilityMonitor: " + mUsingIpReachabilityMonitor)
@@ -546,6 +616,8 @@ public class ProvisioningConfiguration {
                 .add("mScanResultInfo: " + mScanResultInfo)
                 .add("mLayer2Info: " + mLayer2Info)
                 .add("mDhcpOptions: " + mDhcpOptions)
+                .add("mIPv4ProvisioningMode: " + ipv4ProvisioningMode)
+                .add("mIPv6ProvisioningMode: " + ipv6ProvisioningMode)
                 .toString();
     }
 
@@ -575,9 +647,7 @@ public class ProvisioningConfiguration {
     public boolean equals(Object obj) {
         if (!(obj instanceof ProvisioningConfiguration)) return false;
         final ProvisioningConfiguration other = (ProvisioningConfiguration) obj;
-        return mEnableIPv4 == other.mEnableIPv4
-                && mEnableIPv6 == other.mEnableIPv6
-                && mEnablePreconnection == other.mEnablePreconnection
+        return mEnablePreconnection == other.mEnablePreconnection
                 && mUsingMultinetworkPolicyTracker == other.mUsingMultinetworkPolicyTracker
                 && mUsingIpReachabilityMonitor == other.mUsingIpReachabilityMonitor
                 && mRequestedPreDhcpActionMs == other.mRequestedPreDhcpActionMs
@@ -590,7 +660,9 @@ public class ProvisioningConfiguration {
                 && Objects.equals(mDisplayName, other.mDisplayName)
                 && Objects.equals(mScanResultInfo, other.mScanResultInfo)
                 && Objects.equals(mLayer2Info, other.mLayer2Info)
-                && dhcpOptionListEquals(mDhcpOptions, other.mDhcpOptions);
+                && dhcpOptionListEquals(mDhcpOptions, other.mDhcpOptions)
+                && mIPv4ProvisioningMode == other.mIPv4ProvisioningMode
+                && mIPv6ProvisioningMode == other.mIPv6ProvisioningMode;
     }
 
     public boolean isValid() {

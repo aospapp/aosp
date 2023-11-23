@@ -17,65 +17,159 @@ package android.car;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Units used for int or float type with no attached enum types.
- * @hide
+ * Units used for int or float {@link VehiclePropertyIds} with no attached enum types.
  */
-@SystemApi
 public final class VehicleUnit {
     /**
-     * List of Unit Types from VHAL
+     * @hide
      */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int SHOULD_NOT_USE = 0x000;
 
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int RPM = 0x02;
 
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int HERTZ = 0x03;
 
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int PERCENTILE = 0x10;
 
-    public static final int MILLIMETER = 0x20;
-    public static final int METER = 0x21;
-    public static final int KILOMETER = 0x23;
-    public static final int MILE = 0x24;
-
-    public static final int METER_PER_SEC = 0x01;
-
-    public static final int CELSIUS = 0x30;
-    public static final int FAHRENHEIT = 0x31;
-    public static final int KELVIN = 0x32;
-
-    public static final int MILLILITER = 0x40;
-    public static final int LITER = 0x41;
-    public static final int US_GALLON  = 0x42;
-    public static final int IMPERIAL_GALLON = 0x43;
-
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int NANO_SECS = 0x50;
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int SECS = 0x53;
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int YEAR = 0x59;
 
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MILLIAMPERE = 0x61;
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MILLIVOLT = 0x62;
+
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MILLIWATTS = 0x63;
-    public static final int WATT_HOUR = 0x60;
-    public static final int AMPERE_HOURS = 0x64;
-    public static final int KILOWATT_HOUR = 0x65;
 
-    public static final int KILOPASCAL = 0x70;
-    public static final int PSI = 0x71;
-    public static final int BAR = 0x72;
-
+    /**
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DEGREES = 0x80;
 
-    /** @hide */
-    public static final int MILES_PER_HOUR = 0x90;
+    /**
+     * Units used by {@link VehiclePropertyIds#DISTANCE_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int MILLIMETER = 0x20;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int METER = 0x21;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int KILOMETER = 0x23;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int MILE = 0x24;
 
-    /** @hide */
+    /**
+     * Units used by {@link VehiclePropertyIds#HVAC_TEMPERATURE_VALUE_SUGGESTION} and {@link
+     * VehiclePropertyIds#HVAC_TEMPERATURE_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int CELSIUS = 0x30;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int FAHRENHEIT = 0x31;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int KELVIN = 0x32;
+
+    /**
+     * Units used by {@link VehiclePropertyIds#FUEL_VOLUME_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int MILLILITER = 0x40;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int LITER = 0x41;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int US_GALLON = 0x42;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int IMPERIAL_GALLON = 0x43;
+
+    /**
+     * Units used by {@link VehiclePropertyIds#EV_BATTERY_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int WATT_HOUR = 0x60;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int AMPERE_HOURS = 0x64;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int KILOWATT_HOUR = 0x65;
+
+    /**
+     * Units used by {@link VehiclePropertyIds#TIRE_PRESSURE_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int KILOPASCAL = 0x70;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int PSI = 0x71;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int BAR = 0x72;
+
+    /**
+     * Units used by {@link VehiclePropertyIds#VEHICLE_SPEED_DISPLAY_UNITS}.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int METER_PER_SEC = 0x01;
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int MILES_PER_HOUR = 0x90;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int KILOMETERS_PER_HOUR = 0x91;
+
+    private VehicleUnit() {
+    }
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -112,7 +206,6 @@ public final class VehicleUnit {
             MILES_PER_HOUR,
             KILOMETERS_PER_HOUR
     })
-    public @interface Enum {}
-
-    private VehicleUnit() {}
+    public @interface Enum {
+    }
 }

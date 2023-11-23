@@ -61,16 +61,12 @@ abstract class DomainVerificationIntentTestBase(
     protected val userId = context.userId
     protected val manager = context.getSystemService(DomainVerificationManager::class.java)!!
 
-    protected lateinit var intent: Intent
-
     protected lateinit var browsers: List<ComponentName>
     protected lateinit var allResults: List<ComponentName>
 
     @Before
     fun findBrowsers() {
         SharedVerifications.reset(context, resetEnable)
-        intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://$domain"))
-            .applyIntentVariant(intentVariant)
 
         browsers = Intent(Intent.ACTION_VIEW, Uri.parse("https://$DOMAIN_UNHANDLED"))
             .applyIntentVariant(intentVariant)
@@ -107,15 +103,23 @@ abstract class DomainVerificationIntentTestBase(
         assertThat(ShellUtils.runShellCommand(it)).isEmpty()
     }
 
-    protected fun assertResolvesTo(result: ComponentName) = assertResolvesTo(listOf(result))
+    protected fun assertResolvesTo(result: ComponentName, domain: String = this.domain) =
+            assertResolvesTo(listOf(result), domain)
 
-    protected fun assertResolvesTo(components: Collection<ComponentName>, debug: Boolean = false) {
+    protected fun assertResolvesTo(
+            components: Collection<ComponentName>,
+            domain: String = this.domain,
+            debug: Boolean = false
+    ) {
         val message = if (debug) {
             ShellUtils.runShellCommand(
                 "pm get-app-links --user ${context.userId} $DECLARING_PKG_NAME_1")
         } else {
             ""
         }
+
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://$domain"))
+                .applyIntentVariant(intentVariant)
 
         // Pass MATCH_DEFAULT_ONLY to mirror startActivity resolution
         assertWithMessage(message)

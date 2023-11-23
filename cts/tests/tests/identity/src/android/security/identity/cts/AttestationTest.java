@@ -40,6 +40,10 @@ import java.util.Optional;
 public class AttestationTest {
     private static final String TAG = "AttestationTest";
 
+    // An implementation must support challenges at least this big in the attestations
+    // for CredentialKey.
+    private static final int ATTESTATION_MINIMUM_SUPPORTED_CHALLENGE_SIZE = 32;
+
     // The subset of Keymaster tags we care about. See
     //
     //   https://source.android.com/security/keystore/tags
@@ -51,15 +55,13 @@ public class AttestationTest {
 
     @Test
     public void attestationTest() throws Exception {
-        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
 
         Context appContext = InstrumentationRegistry.getTargetContext();
         IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
 
-        // Use a random challenge of length between 16 and 32.
         SecureRandom random = new SecureRandom();
-        int challengeLength = 16 + random.nextInt(16);
-        byte[] challenge = new byte[challengeLength];
+        byte[] challenge = new byte[ATTESTATION_MINIMUM_SUPPORTED_CHALLENGE_SIZE];
         random.nextBytes(challenge);
 
         String credentialName = "test";

@@ -64,6 +64,7 @@ enum event_id {
   EVENT_REBOOTED = 2,  // Device rebooted.
   EVENT_UPGRADED = 3,  // Device has upgraded.
   EVENT_ALERT_V2 = 4,  // Globalsec Alertv2 fired
+  EVENT_SEC_CH_STATE = 5,  // Update GSA-GSC secure channel state.
 };
 
 /*
@@ -103,6 +104,9 @@ struct event_record {
       uint16_t temp_max;
       uint32_t bus_err;
     } alert_v2;
+    struct {
+      uint32_t state;
+    } sec_ch_state;
 
     /* uninterpreted */
     union {

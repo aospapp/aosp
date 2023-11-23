@@ -18,12 +18,10 @@ package com.android.car.hal;
 
 import static android.os.SystemClock.elapsedRealtime;
 
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.IVehicleCallback;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.SubscribeOptions;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.car.builtin.util.Slogf;
+import android.hardware.automotive.vehicle.StatusCode;
+import android.hardware.automotive.vehicle.SubscribeOptions;
+import android.hardware.automotive.vehicle.VehiclePropError;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -31,12 +29,13 @@ import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 
 import com.android.car.CarLog;
+import com.android.car.VehicleStub;
+import com.android.car.VehicleStub.SubscriptionClient;
+import com.android.car.internal.util.DebugUtils;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.utils.Slogf;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Vehicle HAL client. Interacts directly with Vehicle HAL interface {@link IVehicle}. Contains
@@ -44,7 +43,8 @@ import java.util.Arrays;
  */
 final class HalClient {
 
-    private static final String TAG = CarLog.tagFor(HalClient.class);
+    @VisibleForTesting
+    static final String TAG = CarLog.tagFor(HalClient.class);
 
     /**
      * If call to vehicle HAL returns StatusCode.TRY_AGAIN, than {@link HalClient} will retry to
@@ -54,8 +54,9 @@ final class HalClient {
 
     private static final int SLEEP_BETWEEN_RETRIABLE_INVOKES_MS = 50;
 
-    private final IVehicle mVehicle;
-    private final IVehicleCallback mInternalCallback;
+    private final VehicleStub mVehicle;
+    private final SubscriptionClient mSubscriptionClient;
+    private final VehicleCallback mInternalCallback;
     private final int mWaitCapMs;
     private final int mSleepMs;
 
@@ -66,104 +67,127 @@ final class HalClient {
      * @param looper looper that will be used to propagate notifications from vehicle HAL
      * @param callback to propagate notifications from Vehicle HAL in the provided looper thread
      */
-    HalClient(IVehicle vehicle, Looper looper, IVehicleCallback callback) {
-        this(vehicle, looper, callback, WAIT_CAP_FOR_RETRIABLE_RESULT_MS,
+    HalClient(VehicleStub vehicle, Looper looper, HalClientCallback callback) {
+        this(
+                vehicle,
+                looper,
+                callback,
+                WAIT_CAP_FOR_RETRIABLE_RESULT_MS,
                 SLEEP_BETWEEN_RETRIABLE_INVOKES_MS);
     }
 
     @VisibleForTesting
-    HalClient(IVehicle vehicle, Looper looper, IVehicleCallback callback,
-            int waitCapMs, int sleepMs) {
+    HalClient(VehicleStub vehicle, Looper looper, HalClientCallback callback, int waitCapMs,
+            int sleepMs) {
         mVehicle = vehicle;
         Handler handler = new CallbackHandler(looper, callback);
         mInternalCallback = new VehicleCallback(handler);
+        mSubscriptionClient = vehicle.newSubscriptionClient(mInternalCallback);
         mWaitCapMs = waitCapMs;
         mSleepMs = sleepMs;
     }
 
-    ArrayList<VehiclePropConfig> getAllPropConfigs() throws RemoteException {
+    HalClientCallback getInternalCallback() {
+        return mInternalCallback;
+    }
+
+    HalPropConfig[] getAllPropConfigs()
+            throws RemoteException, ServiceSpecificException {
         return mVehicle.getAllPropConfigs();
     }
 
-    public void subscribe(SubscribeOptions... options) throws RemoteException {
-        mVehicle.subscribe(mInternalCallback, new ArrayList<>(Arrays.asList(options)));
+    public void subscribe(SubscribeOptions... options)
+            throws RemoteException, ServiceSpecificException {
+        mSubscriptionClient.subscribe(options);
     }
 
-    public void unsubscribe(int prop) throws RemoteException {
-        mVehicle.unsubscribe(mInternalCallback, prop);
+    public void unsubscribe(int prop) throws RemoteException, ServiceSpecificException {
+        mSubscriptionClient.unsubscribe(prop);
     }
 
-    public void setValue(VehiclePropValue propValue) {
+    public void setValue(HalPropValue propValue)
+            throws IllegalArgumentException, ServiceSpecificException {
+        ObjectWrapper<String> errorMsgWrapper = new ObjectWrapper<>();
+        errorMsgWrapper.object = new String();
+
         int status = invokeRetriable(() -> {
             try {
-                return mVehicle.set(propValue);
+                mVehicle.set(propValue);
+                errorMsgWrapper.object = new String();
+                return StatusCode.OK;
             } catch (RemoteException e) {
-                Slogf.e(TAG, getValueErrorMessage("set", propValue), e);
+                errorMsgWrapper.object = e.toString();
                 return StatusCode.TRY_AGAIN;
+            } catch (ServiceSpecificException e) {
+                errorMsgWrapper.object = e.toString();
+                return e.errorCode;
             }
         }, mWaitCapMs, mSleepMs);
 
+        String errorMsg = errorMsgWrapper.object;
+
         if (StatusCode.INVALID_ARG == status) {
-            throw new IllegalArgumentException(getValueErrorMessage("set", propValue));
+            throw new IllegalArgumentException(getValueErrorMessage("set", propValue, errorMsg));
         }
 
         if (StatusCode.OK != status) {
-            Slogf.e(TAG, getPropertyErrorMessage("set", propValue, status));
-            throw new ServiceSpecificException(status,
-                    "Failed to set property: 0x" + Integer.toHexString(propValue.prop)
-                            + " in areaId: 0x" + Integer.toHexString(propValue.areaId));
+            throw new ServiceSpecificException(
+                    status, getValueErrorMessage("set", propValue, errorMsg));
         }
     }
 
-    private String getValueErrorMessage(String action, VehiclePropValue propValue) {
-        return String.format("Failed to %s value for: 0x%s, areaId: 0x%s", action,
-                Integer.toHexString(propValue.prop), Integer.toHexString(propValue.areaId));
+    public HalPropValueBuilder getHalPropValueBuilder() {
+        return mVehicle.getHalPropValueBuilder();
     }
 
-    private String getPropertyErrorMessage(String action, VehiclePropValue propValue, int status) {
-        return String.format("Failed to %s property: 0x%s, areaId: 0x%s, code: %d (%s)", action,
-                Integer.toHexString(propValue.prop), Integer.toHexString(propValue.areaId),
-                status, StatusCode.toString(status));
+    private String getValueErrorMessage(String action, HalPropValue propValue, String errorMsg) {
+        return "Failed to " + action + " value for: 0x"
+                + Integer.toHexString(propValue.getPropId()) + ", areaId: 0x"
+                + Integer.toHexString(propValue.getAreaId()) + ", error: " + errorMsg;
     }
 
-    VehiclePropValue getValue(VehiclePropValue requestedPropValue) {
-        final ObjectWrapper<VehiclePropValue> valueWrapper = new ObjectWrapper<>();
+    HalPropValue getValue(HalPropValue requestedPropValue)
+            throws IllegalArgumentException, ServiceSpecificException {
+        // Use a wrapper to create a final object passed to lambda.
+        ObjectWrapper<ValueResult> resultWrapper = new ObjectWrapper<>();
+        resultWrapper.object = new ValueResult();
         int status = invokeRetriable(() -> {
-            ValueResult res = internalGet(requestedPropValue);
-            valueWrapper.object = res.propValue;
-            return res.status;
+            resultWrapper.object = internalGet(requestedPropValue);
+            return resultWrapper.object.status;
         }, mWaitCapMs, mSleepMs);
 
+        ValueResult result = resultWrapper.object;
+
         if (StatusCode.INVALID_ARG == status) {
-            throw new IllegalArgumentException(getValueErrorMessage("get", requestedPropValue));
+            throw new IllegalArgumentException(
+                    getValueErrorMessage("get", requestedPropValue, result.errorMsg));
         }
 
-        if (StatusCode.OK != status || valueWrapper.object == null) {
-            // If valueWrapper.object is null and status is StatusCode.Ok, change the status to be
+        if (StatusCode.OK != status || result.propValue == null) {
+            // If propValue is null and status is StatusCode.Ok, change the status to be
             // NOT_AVAILABLE.
             if (StatusCode.OK == status) {
                 status = StatusCode.NOT_AVAILABLE;
             }
-            Slogf.e(TAG, getPropertyErrorMessage("get", requestedPropValue, status));
-            throw new ServiceSpecificException(status,
-                    "Failed to get property: 0x" + Integer.toHexString(requestedPropValue.prop)
-                            + " in areaId: 0x" + Integer.toHexString(requestedPropValue.areaId));
+            throw new ServiceSpecificException(
+                    status, getValueErrorMessage("get", requestedPropValue, result.errorMsg));
         }
 
-        return valueWrapper.object;
+        return result.propValue;
     }
 
-    private ValueResult internalGet(VehiclePropValue requestedPropValue) {
+    private ValueResult internalGet(HalPropValue requestedPropValue) {
         final ValueResult result = new ValueResult();
         try {
-            mVehicle.get(requestedPropValue,
-                    (status, propValue) -> {
-                        result.status = status;
-                        result.propValue = propValue;
-                    });
+            result.propValue = mVehicle.get(requestedPropValue);
+            result.status = StatusCode.OK;
+            result.errorMsg = new String();
+        } catch (ServiceSpecificException e) {
+            result.status = e.errorCode;
+            result.errorMsg = e.toString();
         } catch (RemoteException e) {
-            Slogf.e(TAG, getValueErrorMessage("get", requestedPropValue), e);
             result.status = StatusCode.TRY_AGAIN;
+            result.errorMsg = e.toString();
         }
 
         return result;
@@ -178,19 +202,21 @@ final class HalClient {
         int status = callback.action();
         long startTime = elapsedRealtime();
         while (StatusCode.TRY_AGAIN == status && (elapsedRealtime() - startTime) < timeoutMs) {
-            Slogf.d(TAG, "Status before sleeping %d ms: %s", sleepMs, StatusCode.toString(status));
+            Slogf.d(TAG, "Status before sleeping %d ms: %d", sleepMs, status);
             try {
                 Thread.sleep(sleepMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                Slogf.e(TAG, "Thread was interrupted while waiting for vehicle HAL.", e);
+                Slogf.w(TAG, "Thread was interrupted while waiting for vehicle HAL.", e);
                 break;
             }
 
             status = callback.action();
-            Slogf.d(TAG, "Status after waking up: %s", StatusCode.toString(status));
+            Slogf.d(TAG, "Status after waking up: %s", DebugUtils.constantToString(
+                    StatusCode.class, status));
         }
-        Slogf.d(TAG, "Returning status: %s", StatusCode.toString(status));
+        Slogf.d(TAG, "Returning status: %s", DebugUtils.constantToString(
+                StatusCode.class, status));
         return status;
     }
 
@@ -200,63 +226,44 @@ final class HalClient {
 
     private static final class ValueResult {
         public int status;
-        public VehiclePropValue propValue;
-    }
-
-    private static final class PropertySetError {
-        public final int errorCode;
-        public final int propId;
-        public final int areaId;
-
-        PropertySetError(int errorCode, int propId, int areaId) {
-            this.errorCode = errorCode;
-            this.propId = propId;
-            this.areaId = areaId;
-        }
+        public String errorMsg = new String();
+        public HalPropValue propValue;
     }
 
     private static final class CallbackHandler extends Handler {
-        private static final int MSG_ON_PROPERTY_SET = 1;
-        private static final int MSG_ON_PROPERTY_EVENT = 2;
-        private static final int MSG_ON_SET_ERROR = 3;
+        private static final int MSG_ON_PROPERTY_EVENT = 1;
+        private static final int MSG_ON_SET_ERROR = 2;
 
-        private final WeakReference<IVehicleCallback> mCallback;
+        private final WeakReference<HalClientCallback> mCallback;
 
-        CallbackHandler(Looper looper, IVehicleCallback callback) {
+        CallbackHandler(Looper looper, HalClientCallback callback) {
             super(looper);
-            mCallback = new WeakReference<IVehicleCallback>(callback);
+            mCallback = new WeakReference<HalClientCallback>(callback);
         }
 
         @Override
         public void handleMessage(Message msg) {
-            IVehicleCallback callback = mCallback.get();
+            HalClientCallback callback = mCallback.get();
             if (callback == null) {
                 Slogf.i(TAG, "handleMessage null callback");
                 return;
             }
 
-            try {
-                switch (msg.what) {
-                    case MSG_ON_PROPERTY_EVENT:
-                        callback.onPropertyEvent((ArrayList<VehiclePropValue>) msg.obj);
-                        break;
-                    case MSG_ON_PROPERTY_SET:
-                        callback.onPropertySet((VehiclePropValue) msg.obj);
-                        break;
-                    case MSG_ON_SET_ERROR:
-                        PropertySetError obj = (PropertySetError) msg.obj;
-                        callback.onPropertySetError(obj.errorCode, obj.propId, obj.areaId);
-                        break;
-                    default:
-                        Slogf.e(TAG, "Unexpected message: %d", msg.what);
-                }
-            } catch (RemoteException e) {
-                Slogf.e(TAG, e, "Message failed: %d", msg.what);
+            switch (msg.what) {
+                case MSG_ON_PROPERTY_EVENT:
+                    callback.onPropertyEvent((ArrayList<HalPropValue>) msg.obj);
+                    break;
+                case MSG_ON_SET_ERROR:
+                    callback.onPropertySetError((ArrayList<VehiclePropError>) msg.obj);
+                    break;
+                default:
+                    Slogf.e(TAG, "Unexpected message: %d", msg.what);
             }
         }
     }
 
-    private static final class VehicleCallback extends IVehicleCallback.Stub {
+    @VisibleForTesting
+    static final class VehicleCallback implements HalClientCallback {
         private final Handler mHandler;
 
         VehicleCallback(Handler handler) {
@@ -264,22 +271,15 @@ final class HalClient {
         }
 
         @Override
-        public void onPropertyEvent(ArrayList<VehiclePropValue> propValues) {
+        public void onPropertyEvent(ArrayList<HalPropValue> propValues) {
             mHandler.sendMessage(Message.obtain(
                     mHandler, CallbackHandler.MSG_ON_PROPERTY_EVENT, propValues));
         }
 
         @Override
-        public void onPropertySet(VehiclePropValue propValue) {
+        public void onPropertySetError(ArrayList<VehiclePropError> errors) {
             mHandler.sendMessage(Message.obtain(
-                    mHandler, CallbackHandler.MSG_ON_PROPERTY_SET, propValue));
-        }
-
-        @Override
-        public void onPropertySetError(int errorCode, int propId, int areaId) {
-            mHandler.sendMessage(Message.obtain(
-                    mHandler, CallbackHandler.MSG_ON_SET_ERROR,
-                    new PropertySetError(errorCode, propId, areaId)));
+                        mHandler, CallbackHandler.MSG_ON_SET_ERROR, errors));
         }
     }
 }

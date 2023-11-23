@@ -92,7 +92,11 @@
 
 use crate::error::Error;
 use crate::io;
-use crate::lib::*;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::{self, Debug, Display};
+use core::mem;
+use core::str;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 
@@ -191,7 +195,7 @@ impl Debug for Value {
     }
 }
 
-impl fmt::Display for Value {
+impl Display for Value {
     /// Display a JSON value as a string.
     ///
     /// ```
@@ -758,25 +762,15 @@ impl Value {
         if !pointer.starts_with('/') {
             return None;
         }
-        let tokens = pointer
+        pointer
             .split('/')
             .skip(1)
-            .map(|x| x.replace("~1", "/").replace("~0", "~"));
-        let mut target = self;
-
-        for token in tokens {
-            let target_opt = match *target {
-                Value::Object(ref map) => map.get(&token),
-                Value::Array(ref list) => parse_index(&token).and_then(|x| list.get(x)),
-                _ => return None,
-            };
-            if let Some(t) = target_opt {
-                target = t;
-            } else {
-                return None;
-            }
-        }
-        Some(target)
+            .map(|x| x.replace("~1", "/").replace("~0", "~"))
+            .try_fold(self, |target, token| match target {
+                Value::Object(map) => map.get(&token),
+                Value::Array(list) => parse_index(&token).and_then(|x| list.get(x)),
+                _ => None,
+            })
     }
 
     /// Looks up a value by a JSON Pointer and returns a mutable reference to
@@ -823,30 +817,15 @@ impl Value {
         if !pointer.starts_with('/') {
             return None;
         }
-        let tokens = pointer
+        pointer
             .split('/')
             .skip(1)
-            .map(|x| x.replace("~1", "/").replace("~0", "~"));
-        let mut target = self;
-
-        for token in tokens {
-            // borrow checker gets confused about `target` being mutably borrowed too many times because of the loop
-            // this once-per-loop binding makes the scope clearer and circumvents the error
-            let target_once = target;
-            let target_opt = match *target_once {
-                Value::Object(ref mut map) => map.get_mut(&token),
-                Value::Array(ref mut list) => {
-                    parse_index(&token).and_then(move |x| list.get_mut(x))
-                }
-                _ => return None,
-            };
-            if let Some(t) = target_opt {
-                target = t;
-            } else {
-                return None;
-            }
-        }
-        Some(target)
+            .map(|x| x.replace("~1", "/").replace("~0", "~"))
+            .try_fold(self, |target, token| match target {
+                Value::Object(map) => map.get_mut(&token),
+                Value::Array(list) => parse_index(&token).and_then(move |x| list.get_mut(x)),
+                _ => None,
+            })
     }
 
     /// Takes the value out of the `Value`, leaving a `Null` in its place.

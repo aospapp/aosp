@@ -16,17 +16,19 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
 import android.util.SparseArray;
 
 import com.android.car.telemetry.AtomsProto;
 import com.android.car.telemetry.AtomsProto.AppCrashOccurred;
+import com.android.internal.util.Preconditions;
 
 /**
  * Atom data converter for atoms of type {@link AppCrashOccurred}.
  */
 public class AppCrashOccurredConverter extends AbstractAtomConverter<AppCrashOccurred> {
 
-    private static final SparseArray<AtomFieldAccessor<AppCrashOccurred>> sAtomFieldAccessorMap =
+    private static final SparseArray<AtomFieldAccessor<AppCrashOccurred, ?>> sAtomFieldAccessorMap =
             new SparseArray<>();
     static {
         sAtomFieldAccessorMap.append(1, new AtomFieldAccessor<>(
@@ -146,16 +148,21 @@ public class AppCrashOccurredConverter extends AbstractAtomConverter<AppCrashOcc
     }
 
     @Override
-    SparseArray<AtomFieldAccessor<AppCrashOccurred>> getAtomFieldAccessorMap() {
+    @NonNull
+    SparseArray<AtomFieldAccessor<AppCrashOccurred, ?>> getAtomFieldAccessorMap() {
         return sAtomFieldAccessorMap;
     }
 
     @Override
-    AppCrashOccurred getAtomData(AtomsProto.Atom atom) {
+    @NonNull
+    AppCrashOccurred getAtomData(@NonNull AtomsProto.Atom atom) {
+        Preconditions.checkArgument(
+                atom.hasAppCrashOccurred(), "Atom doesn't contain AppCrashOccurred");
         return atom.getAppCrashOccurred();
     }
 
     @Override
+    @NonNull
     String getAtomDataClassName() {
         return AppCrashOccurred.class.getSimpleName();
     }

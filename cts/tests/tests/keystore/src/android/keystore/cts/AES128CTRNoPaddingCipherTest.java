@@ -22,10 +22,10 @@ public class AES128CTRNoPaddingCipherTest extends AESCTRNoPaddingCipherTestBase 
     private static final byte[] KAT_IV = HexEncoding.decode("ebfa19b0ebf3d57feabd4c4bd04bea01");
     private static final byte[] KAT_PLAINTEXT = HexEncoding.decode(
             "6d2c07e1fc86f99c6e2a8f6567828b4262a9c23d0f3ed8ab32482283c79796f0adba1bcd3736084996452a"
-            +"917fae98005aebe61f9e91c3");
+                    + "917fae98005aebe61f9e91c3");
     private static final byte[] KAT_CIPHERTEXT = HexEncoding.decode(
             "345deb1d67b95e600e05cad4c32ec381aadb3e2c1ec7e0fb956dc38e6860cf0553535566e1b12fa9f87d29"
-            + "266ca26df427233df035df28");
+                    + "266ca26df427233df035df28");
 
     @Override
     protected byte[] getKatKey() {
@@ -46,4 +46,7 @@ public class AES128CTRNoPaddingCipherTest extends AESCTRNoPaddingCipherTestBase 
     protected byte[] getKatCiphertext() {
         return KAT_CIPHERTEXT.clone();
     }
+
+    @Override
+    protected boolean isStrongbox() { return false; }
 }

@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Пораки за јавна безбедност"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Препорачани дејства што може да спасат живот или имот"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Прикажувај пораки на цел екран"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Исклучете за да ви се испраќаат пораки за јавна безбедност само на апликацијата за SMS"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"Кога е исклучено, пораките за јавна безбедност сѐ уште се испраќаат како известување"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Државни и локални тестови"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Добијте тест пораки од државните и локалните власти"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Предупредувања за итни случаи"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Да"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Не"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Историја на предупредувањата за итни случаи"</string>
+    <string name="action_delete" msgid="7435661404543945861">"Избриши"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"Прикажи детално"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Еднаш"</item>
     <item msgid="9097229303902157183">"На 2 минути"</item>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"Максимално време на чекање:"</string>
     <string name="seconds" msgid="141450721520515025">"секунди"</string>
     <string name="message_copied" msgid="6922953753733166675">"Пораката е копирана"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"Кога сте во роаминг, може да добивате некои предупредувања што не се вклучени во поставкиве"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Операторот ги променил поставките"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Допрете за да ги видите поставките за безжичните предупредувања за итни случаи"</string>
 </resources>

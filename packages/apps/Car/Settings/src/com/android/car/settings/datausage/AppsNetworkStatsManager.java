@@ -18,14 +18,11 @@ package com.android.car.settings.datausage;
 
 import static android.net.NetworkPolicyManager.POLICY_REJECT_METERED_BACKGROUND;
 
+import android.app.usage.NetworkStats;
+import android.app.usage.NetworkStatsManager;
 import android.content.Context;
-import android.net.INetworkStatsService;
-import android.net.INetworkStatsSession;
 import android.net.NetworkPolicyManager;
-import android.net.NetworkStats;
 import android.os.Bundle;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.loader.app.LoaderManager;
@@ -59,28 +56,22 @@ public class AppsNetworkStatsManager {
 
     private final Context mContext;
     private final NetworkPolicyManager mNetworkPolicyManager;
+    private final NetworkStatsManager mNetworkStatsManager;
     private final List<AppsNetworkStatsManager.Callback> mAppsNetworkStatsListeners =
             new ArrayList<>();
-
-    private INetworkStatsSession mStatsSession;
 
     AppsNetworkStatsManager(Context context) {
         mContext = context;
         mNetworkPolicyManager = NetworkPolicyManager.from(context);
-        try {
-            mStatsSession = INetworkStatsService.Stub.asInterface(
-                    ServiceManager.getService(Context.NETWORK_STATS_SERVICE)).openSession();
-        } catch (RemoteException e) {
-            LOG.e("Could not open a network session", e);
-        }
+        mNetworkStatsManager = context.getSystemService(NetworkStatsManager.class);
     }
 
     @VisibleForTesting
     AppsNetworkStatsManager(Context context, NetworkPolicyManager networkPolicyManager,
-            INetworkStatsSession iNetworkStatsSession) {
+            NetworkStatsManager networkStatsManager) {
         mContext = context;
         mNetworkPolicyManager = networkPolicyManager;
-        mStatsSession = iNetworkStatsSession;
+        mNetworkStatsManager = networkStatsManager;
     }
 
     /**
@@ -118,7 +109,7 @@ public class AppsNetworkStatsManager {
     private class AppsNetworkStatsResult implements LoaderManager.LoaderCallbacks<NetworkStats> {
         @Override
         public Loader<NetworkStats> onCreateLoader(int id, Bundle args) {
-            return new SummaryForAllUidLoader(mContext, mStatsSession, args);
+            return new SummaryForAllUidLoader(mContext, mNetworkStatsManager, args);
         }
 
         @Override

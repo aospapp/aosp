@@ -14,32 +14,19 @@
 
 
 package {
-    default_applicable_licenses: ["frameworks_opt_telephony_license"],
+    // See: http://go/android-license-faq
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+        "frameworks_opt_telephony_license",
+    ],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-// See: http://go/android-license-faq
 license {
     name: "frameworks_opt_telephony_license",
     visibility: [":__subpackages__"],
     license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-BSD",
         "legacy_not_a_contribution",
     ],
-    // large-scale-change unable to identify any license_text files
 }
 
 filegroup {
@@ -70,14 +57,6 @@ filegroup {
     srcs: ["jarjar-rules-shared.txt"],
 }
 
-genrule {
-    name: "statslog-telephony-java-gen",
-    tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --java $(out) --module telephony"
-        + " --javaPackage com.android.internal.telephony --javaClass TelephonyStatsLog",
-    out: ["com/android/internal/telephony/TelephonyStatsLog.java"],
-}
-
 java_library {
     name: "telephony-common",
     installable: true,
@@ -89,7 +68,6 @@ java_library {
         ":opt-telephony-common-srcs",
         ":framework-telephony-common-shared-srcs",
         ":net-utils-telephony-common-srcs",
-        ":statslog-telephony-java-gen",
         ":statslog-cellbroadcast-java-gen",
         "src/java/**/I*.aidl",
         "src/java/**/*.logtags",
@@ -105,6 +83,13 @@ java_library {
         "android.hardware.radio-V1.4-java",
         "android.hardware.radio-V1.5-java",
         "android.hardware.radio-V1.6-java",
+        "android.hardware.radio.config-V1-java",
+        "android.hardware.radio.data-V1-java",
+        "android.hardware.radio.messaging-V1-java",
+        "android.hardware.radio.modem-V1-java",
+        "android.hardware.radio.network-V1-java",
+        "android.hardware.radio.sim-V1-java",
+        "android.hardware.radio.voice-V1-java",
         "voip-common",
         "ims-common",
         "unsupportedappusage",
@@ -121,6 +106,7 @@ java_library {
         "net-utils-framework-common",
         "telephony-protos",
         "modules-utils-build_system",
+        "modules-utils-statemachine",
     ],
 
     product_variables: {
@@ -128,5 +114,12 @@ java_library {
             // enable this build only when platform library is available
             enabled: false,
         },
+    },
+
+    optimize: {
+        enabled: true,
+        shrink: true,
+        obfuscate: false,
+        proguard_flags_files: ["proguard.flags"],
     },
 }

@@ -42,7 +42,7 @@
 
 #define RING_BUFFER_VERSION 1
 
-static inline void ring_buffer_pause() {
+static inline void ring_buffer_pause(void) {
 #if RING_BUFFER_X86
     _mm_pause();
 #else
@@ -405,7 +405,7 @@ long ring_buffer_view_read(
     return (long)steps;
 }
 
-void ring_buffer_yield() { }
+void ring_buffer_yield(void) { }
 
 bool ring_buffer_wait_write(
     const struct ring_buffer* r,

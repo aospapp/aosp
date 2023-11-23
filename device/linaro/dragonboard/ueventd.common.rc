@@ -1,5 +1,3 @@
-modalias_handling enabled
-
 subsystem usbmisc
     devname uevent_devname
 
@@ -11,3 +9,7 @@ subsystem usbmisc
 
 # media.codec2
 /dev/ion 0664 system system
+
+# usb webcam?
+/dev/video0 0660 system camera
+/dev/video1 0660 system camera

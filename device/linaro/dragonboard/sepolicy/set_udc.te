@@ -1,0 +1,11 @@
+type set_udc, domain;
+type set_udc_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(set_udc);
+
+vendor_public_prop(vendor_usb_prop)
+set_prop(set_udc, vendor_usb_prop)
+get_prop(vendor_init, vendor_usb_prop)
+
+allow set_udc vendor_shell_exec:file rx_file_perms;
+allow set_udc vendor_toolbox_exec:file rx_file_perms;
+allow set_udc sysfs_udc:dir { open read search };

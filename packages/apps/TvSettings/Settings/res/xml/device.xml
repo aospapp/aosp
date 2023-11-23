@@ -16,6 +16,7 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+                  xmlns:custom="http://schemas.android.com/apk/res-auto"
                   android:title="@string/device_pref_category_title">
     <Preference
         android:fragment="com.android.tv.settings.about.AboutFragment"
@@ -65,6 +66,13 @@
         android:title="@string/system_cast" >
         <intent android:action="com.google.android.settings.CAST_RECEIVER_SETTINGS" />
     </Preference>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_devices_other"
+        android:key="fastpair_slice"
+        android:title="@string/device_fastpair"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/fastpair_slice_uri"/>
     <Preference
         android:fragment="com.android.tv.settings.device.display.daydream.DaydreamFragment"
         android:icon="@drawable/ic_settings_system_daydream"
@@ -92,7 +100,7 @@
         android:fragment="com.android.tv.settings.privacy.SensorFragment" />
     <Preference
         android:key="camera"
-        android:icon="@drawable/ic_camera"
+        android:icon="@drawable/ic_camera_on"
         android:title="@string/camera"
         android:fragment="com.android.tv.settings.privacy.SensorFragment" />
     <Preference
@@ -102,6 +110,13 @@
         <intent
             android:action="com.google.android.settings.USAGE_AND_DIAGNOSTICS_SETTING"/>
     </Preference>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_internal_settings"
+        android:key="overlay_internal"
+        android:title="@string/overlay_internal_slice_title"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/overlay_internal_slice_uri"/>
     <Preference
         android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment"
         android:icon="@drawable/ic_accessibility_new"

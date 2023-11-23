@@ -16,7 +16,6 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.log.LogUtil.CLog;
 
 /**
@@ -33,6 +32,8 @@ public abstract class BaseLauncherAppsTest extends BaseDevicePolicyTest {
     protected static final String LAUNCHER_TESTS_APK = "CtsLauncherAppsTests.apk";
     protected static final String LAUNCHER_TESTS_SUPPORT_PKG =
             "com.android.cts.launchertests.support";
+    protected static final String LAUNCHER_TESTS_SUPPORT_COMPONENT =
+            LAUNCHER_TESTS_SUPPORT_PKG + "/.LauncherCallbackTestsService";
     protected static final String LAUNCHER_TESTS_SUPPORT_APK = "CtsLauncherAppsTestsSupport.apk";
 
     protected void installTestApps(int userId) throws Exception {
@@ -49,7 +50,18 @@ public abstract class BaseLauncherAppsTest extends BaseDevicePolicyTest {
     protected void startCallbackService(int userId) throws Exception {
         String command = "am startservice --user " + userId
                 + " -a " + LAUNCHER_TESTS_SUPPORT_PKG + ".REGISTER_CALLBACK "
-                + LAUNCHER_TESTS_SUPPORT_PKG + "/.LauncherCallbackTestsService";
+                + LAUNCHER_TESTS_SUPPORT_COMPONENT;
         CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
+    }
+
+    protected boolean isCallbackServiceReady() throws Exception {
+        String command = "dumpsys activity services " + LAUNCHER_TESTS_SUPPORT_COMPONENT
+                + " | grep 'app=ProcessRecord'";
+        String result = getDevice().executeShellCommand(command);
+        CLog.d("Check service started by " + command + ": " + result);
+        if (result.isEmpty()) {
+            return false;
+        }
+        return true;
     }
 }

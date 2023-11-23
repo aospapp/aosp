@@ -281,7 +281,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
     }
 
     override fun FlowContent.classLikeSummaries(page: Page.ClassPage) = with(page) {
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 nestedClasses,
                 header = "Nested classes",
                 summaryId = "nestedclasses",
@@ -291,7 +291,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             nestedClassSummaryRow(it)
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             attributes,
             header="XML attributes",
             summaryId="lattrs",
@@ -301,7 +301,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             xmlAttributeRow(it)
         }
 
-        expandableSummaryNodeGroupForInheritedMembers(
+        this@classLikeSummaries.expandableSummaryNodeGroupForInheritedMembers(
                 superClasses = inheritedAttributes.entries,
                 header="Inherited XML attributes",
                 tableId="inhattrs",
@@ -309,7 +309,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                 row = { inheritedXmlAttributeRow(it)}
         )
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 constants,
                 header = "Constants",
                 summaryId = "constants",
@@ -317,7 +317,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                 headerAsRow = true
         ) { propertyLikeSummaryRow(it) }
 
-        expandableSummaryNodeGroupForInheritedMembers(
+        this@classLikeSummaries.expandableSummaryNodeGroupForInheritedMembers(
                 superClasses = inheritedConstants.entries,
                 header = "Inherited constants",
                 tableId = "inhconstants",
@@ -326,7 +326,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
         )
 
         constructors.forEach { (visibility, group) ->
-            summaryNodeGroup(
+            this@classLikeSummaries.summaryNodeGroup(
                     group,
                     header = "${visibility.capitalize()} constructors",
                     summaryId = "${visibility.take(3)}ctors",
@@ -337,7 +337,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             }
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
             enumValues,
             header = "Enum values",
             summaryId = "enumvalues",
@@ -348,7 +348,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
         }
 
         functions.forEach { (visibility, group) ->
-            summaryNodeGroup(
+            this@classLikeSummaries.summaryNodeGroup(
                     group,
                     header = "${visibility.capitalize()} methods",
                     summaryId = "${visibility.take(3)}methods",
@@ -359,7 +359,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             }
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 companionFunctions,
                 header = "Companion functions",
                 summaryId = "compmethods",
@@ -369,7 +369,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             functionLikeSummaryRow(it)
         }
 
-        expandableSummaryNodeGroupForInheritedMembers(
+        this@classLikeSummaries.expandableSummaryNodeGroupForInheritedMembers(
                 superClasses = inheritedFunctionsByReceiver.entries,
                 header = "Inherited functions",
                 tableId = "inhmethods",
@@ -377,7 +377,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                 row = { inheritedMemberRow(it) }
         )
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 extensionFunctions.entries,
                 header = "Extension functions",
                 summaryId = "extmethods",
@@ -388,7 +388,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                 functionLikeSummaryRow(it)
             }
         }
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 inheritedExtensionFunctions.entries,
                 header = "Inherited extension functions",
                 summaryId = "inhextmethods",
@@ -401,7 +401,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
         }
 
         fields.forEach { (visibility, group) ->
-            summaryNodeGroup(
+            this@classLikeSummaries.summaryNodeGroup(
                 group,
                 header = "${visibility.capitalize()} fields",
                 summaryId = "${visibility.take(3)}fields",
@@ -410,7 +410,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             ) { propertyLikeSummaryRow(it) }
         }
 
-        expandableSummaryNodeGroupForInheritedMembers(
+        this@classLikeSummaries.expandableSummaryNodeGroupForInheritedMembers(
             superClasses = inheritedFieldsByReceiver.entries,
             header = "Inherited fields",
             tableId = "inhfields",
@@ -418,7 +418,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             row = { inheritedMemberRow(it) }
         )
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 properties,
                 header = "Properties",
                 summaryId = "properties",
@@ -427,7 +427,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
         ) { propertyLikeSummaryRow(it) }
 
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 companionProperties,
                 "Companion properties",
                 headerAsRow = true
@@ -435,7 +435,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             propertyLikeSummaryRow(it)
         }
 
-        expandableSummaryNodeGroupForInheritedMembers(
+        this@classLikeSummaries.expandableSummaryNodeGroupForInheritedMembers(
                 superClasses = inheritedPropertiesByReceiver.entries,
                 header = "Inherited properties",
                 tableId = "inhfields",
@@ -443,7 +443,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                 row = { inheritedMemberRow(it) }
         )
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 extensionProperties.entries,
                 "Extension properties",
                 headerAsRow = true
@@ -453,7 +453,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             }
         }
 
-        summaryNodeGroup(
+        this@classLikeSummaries.summaryNodeGroup(
                 inheritedExtensionProperties.entries,
                 "Inherited extension properties",
                 headerAsRow = true
@@ -514,14 +514,14 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
             bodyContent = {
                 h1 { +page.node.name }
                 nodeContent(page.node)
-                summaryNodeGroup(page.interfaces.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Interfaces", headerAsRow = false) { classLikeRow(it) }
-                summaryNodeGroup(page.classes.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Classes", headerAsRow = false) { classLikeRow(it) }
-                summaryNodeGroup(page.exceptions.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Exceptions", headerAsRow = false) { classLikeRow(it) }
-                summaryNodeGroup(page.typeAliases.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Type-aliases", headerAsRow = false) { classLikeRow(it) }
-                summaryNodeGroup(page.annotations.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Annotations", headerAsRow = false) { classLikeRow(it) }
-                summaryNodeGroup(page.enums.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Enums", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.interfaces.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Interfaces", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.classes.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Classes", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.exceptions.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Exceptions", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.typeAliases.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Type-aliases", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.annotations.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Annotations", headerAsRow = false) { classLikeRow(it) }
+                this@composePage.summaryNodeGroup(page.enums.sortedBy { it.nameWithOuterClass().toLowerCase() }, "Enums", headerAsRow = false) { classLikeRow(it) }
 
-                summaryNodeGroup(
+                this@composePage.summaryNodeGroup(
                         page.constants.sortedBy { it.name },
                         "Top-level constants summary",
                         headerAsRow = false
@@ -529,7 +529,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                     propertyLikeSummaryRow(it)
                 }
 
-                summaryNodeGroup(
+                this@composePage.summaryNodeGroup(
                         page.functions.sortedBy { it.name },
                         "Top-level functions summary",
                         headerAsRow = false
@@ -537,7 +537,7 @@ class DevsiteLayoutHtmlFormatOutputBuilder(
                     functionLikeSummaryRow(it)
                 }
 
-                summaryNodeGroup(
+                this@composePage.summaryNodeGroup(
                         page.properties.sortedBy { it.name },
                         "Top-level properties summary",
                         headerAsRow = false

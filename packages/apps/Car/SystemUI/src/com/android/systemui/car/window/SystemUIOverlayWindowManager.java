@@ -19,8 +19,8 @@ package com.android.systemui.car.window;
 import android.content.Context;
 import android.util.Log;
 
+import com.android.systemui.CoreStartable;
 import com.android.systemui.R;
-import com.android.systemui.SystemUI;
 import com.android.systemui.dagger.SysUISingleton;
 
 import java.lang.reflect.Constructor;
@@ -35,7 +35,7 @@ import javax.inject.Provider;
  * OverlayViewController}(s) to allow for the correct visibility of system bars.
  */
 @SysUISingleton
-public class SystemUIOverlayWindowManager extends SystemUI {
+public class SystemUIOverlayWindowManager extends CoreStartable {
     private static final String TAG = "SystemUIOverlayWM";
     private final Map<Class<?>, Provider<OverlayViewMediator>>
             mContentMediatorCreators;

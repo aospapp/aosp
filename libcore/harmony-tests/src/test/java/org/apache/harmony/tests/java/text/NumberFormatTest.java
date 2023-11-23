@@ -148,7 +148,7 @@ public class NumberFormatTest extends junit.framework.TestCase {
         // Test for method java.text.NumberFormat
         // getIntegerInstance(java.util.Locale)
         Locale usLocale = Locale.US;
-        Locale arLocale = new Locale("ar", "AE");
+        Locale arLocale = new Locale("ar", "EG");
 
         DecimalFormat format = (DecimalFormat) NumberFormat
                 .getIntegerInstance(usLocale);

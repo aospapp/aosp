@@ -33,7 +33,7 @@ public class ConfigurationInfoTest extends AndroidTestCase {
         // Test constructors
         new ConfigurationInfo();
         PackageInfo pkgInfo = pm.getPackageInfo(getContext().getPackageName(),
-                PackageManager.GET_CONFIGURATIONS);
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_CONFIGURATIONS));
         ConfigurationInfo[] configInfoArray = pkgInfo.configPreferences;
         assertTrue(configInfoArray.length > 0);
         ConfigurationInfo configInfo = configInfoArray[0];

@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}";)" &> /dev/null && pwd 2> /dev/null;)"
+
 # Generating the APKs for certain methods
 # Run this script from the repo's top-level directory.
 
@@ -40,3 +43,8 @@ apksigner sign --v2-signing-enabled true --v3-signing-enabled false --v4-signing
 
 # testInstallV4With* tests
 apksigner sign --v2-signing-enabled false --v3-signing-enabled true --v4-signing-enabled --key vendor/google/certs/devkeys/devkey.pk8 --cert vendor/google/certs/devkeys/devkey.x509.pem -out cts/hostsidetests/appsecurity/res/pkgsigverify/v4-digest-v3-128bytes-additional-data.apk cts/hostsidetests/appsecurity/res/pkgsigverify/original.apk
+
+# testInstallV41* tests
+apksigner sign --in "${DIR}"/CtsSignatureQueryService_v2-tgt-33.apk --cert "${DIR}"/../../certs/pkgsigverify/ec-p256.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256.pk8 --next-signer --cert "${DIR}"/../../certs/pkgsigverify/ec-p256_2.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256_2.pk8 --lineage "${DIR}"/../../certs/pkgsigverify/ec-p256-por_1_2-default-caps --rotation-min-sdk-version 33 --v4-signing-enabled
+apksigner sign --in "${DIR}"/CtsSignatureQueryService_v3-tgt-33.apk --cert "${DIR}"/../../certs/pkgsigverify/ec-p256.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256.pk8 --next-signer --cert "${DIR}"/../../certs/pkgsigverify/ec-p256_2.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256_2.pk8 --lineage "${DIR}"/../../certs/pkgsigverify/ec-p256-por_1_2-default-caps --rotation-min-sdk-version 33 --v4-signing-enabled
+apksigner sign --in "${DIR}"/CtsSignatureQueryServiceTest_v2-tgt-33.apk --cert "${DIR}"/../../certs/pkgsigverify/ec-p256.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256.pk8 --next-signer --cert "${DIR}"/../../certs/pkgsigverify/ec-p256_2.x509.pem --key "${DIR}"/../../certs/pkgsigverify/ec-p256_2.pk8 --lineage "${DIR}"/../../certs/pkgsigverify/ec-p256-por_1_2-default-caps --rotation-min-sdk-version 33 --v4-signing-enabled

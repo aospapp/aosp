@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Veze"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Zadana usluga štampanja ne može pronaći štampače s opcijom Wi-Fi Direct"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Onemog. Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Zadanoj usluzi štampanja je potrebno odobrenje za lokaciju da pronađe uređaje u blizini."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Zadanoj usluzi štampanja je potrebno odobrenje za uređaje u blizini da pronađe štampače u blizini."</string>
     <string name="fix" msgid="7784394272611365393">"Pregledaj odobrenje"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Zadanoj usluzi štampanja je potrebno da omogućite usluge lokacije radi pronalaska uređaja u blizini."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Omogući lokaciju"</string>
     <string name="print" msgid="7851318072404916362">"Štampaj"</string>
 </resources>

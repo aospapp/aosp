@@ -43,6 +43,8 @@ rust_library {
     // has rustc warnings
     host_supported: true,
     crate_name: "log",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.4.14",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: ["std"],
@@ -57,8 +59,6 @@ rust_library {
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   cfg-if-1.0.0

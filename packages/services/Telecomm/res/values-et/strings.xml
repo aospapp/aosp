@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Kõnede blokeerimine telefoniautomaatidest"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Tundmatud"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Kõnede blokeerimine tuvastamata helistajatelt"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Pole kättesaadav"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Kõned blokeeritakse numbritelt, mis ei ole kättesaadavad"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Kõnede blokeerimine"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Kõnede blokeerimine on keelatud"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Tehti hädaabikõne"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Kõnede blokeerimine on keelatud, et lubada hädaabiteenustel teiega ühendust võtta."</string>
     <string name="developer_title" msgid="9146088855661672353">"Teenuse Telecom arendaja menüü"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Hädaabikõne ajal ei saa kõnesid vastu võtta."</string>
+    <string name="cancel" msgid="6733466216239934756">"Tühista"</string>
 </resources>

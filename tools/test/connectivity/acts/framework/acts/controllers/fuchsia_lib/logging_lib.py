@@ -53,9 +53,7 @@ class FuchsiaLoggingLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "logging_facade.LogInfo"
-        test_args = {
-            "message": '[%s] %s' % (datetime.datetime.now(), message)
-        }
+        test_args = {"message": '[%s] %s' % (datetime.datetime.now(), message)}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 
@@ -71,9 +69,7 @@ class FuchsiaLoggingLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "logging_facade.LogWarn"
-        test_args = {
-            "message": '[%s] %s' % (datetime.datetime.now(), message)
-        }
+        test_args = {"message": '[%s] %s' % (datetime.datetime.now(), message)}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 

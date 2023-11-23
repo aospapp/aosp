@@ -43,9 +43,11 @@ import android.util.Log;
 
 import com.android.server.biometrics.nano.SensorStateProto;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.io.File;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -98,9 +100,12 @@ public class BiometricSimpleTests extends BiometricTestBase {
         if (mSensorProperties.isEmpty()) {
             assertTrue(state.mSensorStates.sensorStates.isEmpty());
 
-            assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT));
-            assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_FACE));
-            assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_IRIS));
+            final File initGsiRc = new File("/system/system_ext/etc/init/init.gsi.rc");
+            if (!initGsiRc.exists()) {
+                assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT));
+                assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_FACE));
+                assertFalse(pm.hasSystemFeature(PackageManager.FEATURE_IRIS));
+            }
 
             assertTrue(state.mSensorStates.sensorStates.isEmpty());
         } else {
@@ -174,13 +179,29 @@ public class BiometricSimpleTests extends BiometricTestBase {
         // Third case above. Since the deprecated API is intended to allow credential in addition
         // to biometrics, we should be receiving BIOMETRIC_ERROR_NO_BIOMETRICS.
         final boolean noSensors = mSensorProperties.isEmpty();
+        int expectedError;
+        if (noSensors) {
+            expectedError = BiometricPrompt.BIOMETRIC_ERROR_NO_DEVICE_CREDENTIAL;
+        } else if (hasOnlyConvenienceSensors()) {
+            expectedError = BiometricPrompt.BIOMETRIC_ERROR_HW_NOT_PRESENT;
+        } else {
+            expectedError = BiometricPrompt.BIOMETRIC_ERROR_NO_BIOMETRICS;
+        }
         callback = mock(BiometricPrompt.AuthenticationCallback.class);
         showDeviceCredentialAllowedBiometricPrompt(callback, new CancellationSignal(),
                 false /* shouldShow */);
         verify(callback).onAuthenticationError(
-                eq(noSensors ? BiometricPrompt.BIOMETRIC_ERROR_NO_DEVICE_CREDENTIAL
-                        : BiometricPrompt.BIOMETRIC_ERROR_NO_BIOMETRICS),
+                eq(expectedError),
                 any());
+    }
+
+    private boolean hasOnlyConvenienceSensors() {
+        for (SensorProperties sensor : mSensorProperties) {
+            if (sensor.getSensorStrength() != SensorProperties.STRENGTH_CONVENIENCE) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -238,6 +259,7 @@ public class BiometricSimpleTests extends BiometricTestBase {
 
     @Test
     public void testSimpleBiometricAuth_convenience() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         for (SensorProperties props : mSensorProperties) {
             if (props.getSensorStrength() != SensorProperties.STRENGTH_CONVENIENCE) {
                 continue;
@@ -280,7 +302,10 @@ public class BiometricSimpleTests extends BiometricTestBase {
      *
      * Upon successful authentication, checks that the result is
      * {@link BiometricPrompt#AUTHENTICATION_RESULT_TYPE_BIOMETRIC}
+     *
+     * TODO(b/236763921): fix this test and unignore.
      */
+    @Ignore
     @Test
     public void testSimpleBiometricAuth_nonConvenience() throws Exception {
         assumeTrue(Utils.isFirstApiLevel29orGreater());

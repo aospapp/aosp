@@ -16,6 +16,27 @@
 
 LOCAL_PATH := $(call my-dir)
 
+$(eval $(call declare-1p-copy-files,device/generic/goldfish/data,))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish/input,))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish/wifi,))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish/camera,))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,hals.conf))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,init.qemu-adb-keys.sh))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,init.system_ext.rc))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,.json))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,ueventd.rc))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,wpa_supplicant.conf))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,media_profiles_V1_0.xml))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,init.ranchu.rc))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,fstab.ranchu))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,display_settings.xml))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,display_settings_freeform.xml))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,device_state_configuration.xml))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,init.ranchu-core.sh))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,init.ranchu-net.sh))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,task_profiles.json))
+$(eval $(call declare-1p-copy-files,device/generic/goldfish,audio_policy_configuration.xml))
+
 ifeq ($(BUILD_QEMU_IMAGES),true)
   QEMU_CUSTOMIZATIONS := true
 endif

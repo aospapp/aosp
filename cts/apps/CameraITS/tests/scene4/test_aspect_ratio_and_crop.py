@@ -15,31 +15,21 @@
 
 
 import logging
-import math
 import os.path
 from mobly import test_runner
 import numpy as np
 
-import cv2
 import its_base_test
 import camera_properties_utils
 import capture_request_utils
 import image_processing_utils
+import image_fov_utils
 import its_session_utils
 import opencv_processing_utils
 
 _ANDROID11_API_LEVEL = 30
-_CIRCLE_COLOR = 0  # [0: black, 255: white].
-_CIRCLE_MIN_AREA = 0.01  # 1% of image size.
-_FOV_PERCENT_RTOL = 0.15  # Relative tolerance on circle FoV % to expected.
-_LARGE_SIZE = 2000  # Size of a large image (compared against max(w, h)).
 _NAME = os.path.splitext(os.path.basename(__file__))[0]
 _PREVIEW_SIZE = (1920, 1080)
-_THRESH_AR_L = 0.02  # Aspect ratio test threshold of large images.
-_THRESH_AR_S = 0.075  # Aspect ratio test threshold of mini images.
-_THRESH_CROP_L = 0.02  # Crop test threshold of large images.
-_THRESH_CROP_S = 0.075  # Crop test threshold of mini images.
-_THRESH_MIN_PIXEL = 4  # Crop test allowed offset.
 
 # Before API level 30, only resolutions with the following listed aspect ratio
 # are checked. Device launched after API level 30 will need to pass the test
@@ -149,259 +139,6 @@ def _is_checked_aspect_ratio(first_api_level, w, h):
   return False
 
 
-def _calc_expected_circle_image_ratio(ref_fov, img_w, img_h):
-  """Determine the circle image area ratio in percentage for a given image size.
-
-  Cropping happens either horizontally or vertically. In both cases crop results
-  in the visble area reduced by a ratio r (r < 1) and the circle will in turn
-  occupy ref_pct/r (percent) on the target image size.
-
-  Args:
-    ref_fov: dict with {fmt, % coverage, w, h, circle_w, circle_h}
-    img_w: the image width
-    img_h: the image height
-
-  Returns:
-    chk_percent: the expected circle image area ratio in percentage
-  """
-  ar_ref = ref_fov['w'] / ref_fov['h']
-  ar_target = img_w / img_h
-
-  r = ar_ref / ar_target
-  if r < 1.0:
-    r = 1.0 / r
-  return ref_fov['percent'] * r
-
-
-def _find_raw_fov_reference(cam, req, props, log_path):
-  """Determine the circle coverage of the image in RAW reference image.
-
-  Captures a full-frame RAW and uses its aspect ratio and circle center
-  location as ground truth for the other jpeg or yuv images.
-
-  The intrinsics and distortion coefficients are meant for full-sized RAW,
-  so convert_capture_to_rgb_image returns a 2x downsampled version, so resizes
-  RGB back to full size.
-
-  If the device supports lens distortion correction, applies the coefficients on
-  the RAW image so it can be compared to YUV/JPEG outputs which are subject
-  to the same correction via ISP.
-
-  Finds circle size and location for reference values in calculations for other
-  formats.
-
-  Args:
-    cam: camera object
-    req: camera request
-    props: camera properties
-    log_path: location to save data
-
-  Returns:
-    ref_fov: dict with [fmt, % coverage, w, h, circle_w, circle_h]
-    cc_ct_gt: circle center position relative to the center of image.
-    aspect_ratio_gt: aspect ratio of the detected circle in float.
-  """
-  logging.debug('Creating references for fov_coverage from RAW')
-  out_surface = {'format': 'raw'}
-  cap_raw = cam.do_capture(req, out_surface)
-  logging.debug('Captured RAW %dx%d', cap_raw['width'], cap_raw['height'])
-  img_raw = image_processing_utils.convert_capture_to_rgb_image(
-      cap_raw, props=props)
-  # Resize back up to full scale.
-  img_raw = cv2.resize(img_raw, (0, 0), fx=2.0, fy=2.0)
-
-  if (camera_properties_utils.distortion_correction(props) and
-      camera_properties_utils.intrinsic_calibration(props)):
-    logging.debug('Applying intrinsic calibration and distortion params')
-    fd = float(cap_raw['metadata']['android.lens.focalLength'])
-    k = camera_properties_utils.get_intrinsic_calibration(props, True, fd)
-    opencv_dist = camera_properties_utils.get_distortion_matrix(props)
-    k_new = cv2.getOptimalNewCameraMatrix(
-        k, opencv_dist, (img_raw.shape[1], img_raw.shape[0]), 0)[0]
-    scale = max(k_new[0][0] / k[0][0], k_new[1][1] / k[1][1])
-    if scale > 1:
-      k_new[0][0] = k[0][0] * scale
-      k_new[1][1] = k[1][1] * scale
-      img_raw = cv2.undistort(img_raw, k, opencv_dist, None, k_new)
-    else:
-      img_raw = cv2.undistort(img_raw, k, opencv_dist)
-
-  # Get image size.
-  size_raw = img_raw.shape
-  w_raw = size_raw[1]
-  h_raw = size_raw[0]
-  img_name = '%s_%s_w%d_h%d.png' % (
-      os.path.join(log_path, _NAME), 'raw', w_raw, h_raw)
-  image_processing_utils.write_image(img_raw, img_name, True)
-
-  # Find circle.
-  img_raw *= 255  # cv2 needs images between [0,255].
-  circle_raw = opencv_processing_utils.find_circle(
-      img_raw, img_name, _CIRCLE_MIN_AREA, _CIRCLE_COLOR)
-  opencv_processing_utils.append_circle_center_to_img(circle_raw, img_raw,
-                                                      img_name)
-
-  # Determine final return values.
-  aspect_ratio_gt = circle_raw['w'] / circle_raw['h']
-  cc_ct_gt = {'hori': circle_raw['x_offset'], 'vert': circle_raw['y_offset']}
-  raw_fov_percent = _calc_circle_image_ratio(circle_raw['r'], w_raw, h_raw)
-  ref_fov = {}
-  ref_fov['fmt'] = 'RAW'
-  ref_fov['percent'] = raw_fov_percent
-  ref_fov['w'] = w_raw
-  ref_fov['h'] = h_raw
-  ref_fov['circle_w'] = circle_raw['w']
-  ref_fov['circle_h'] = circle_raw['h']
-  logging.debug('Using RAW reference: %s', str(ref_fov))
-  return ref_fov, cc_ct_gt, aspect_ratio_gt
-
-
-def _find_jpeg_fov_reference(cam, req, props, log_path):
-  """Determine the circle coverage of the image in JPEG reference image.
-
-  Similar to _find_raw_fov_reference() and used when RAW is not available.
-
-  Args:
-    cam: camera object
-    req: camera request
-    props: camera properties
-    log_path: location to save data
-
-  Returns:
-    ref_fov: dict with [fmt, % coverage, w, h, circle_w, circle_h]
-    cc_ct_gt: circle center position relative to the center of image.
-  """
-  ref_fov = {}
-  fmt = capture_request_utils.get_largest_jpeg_format(props)
-  # Capture and determine circle area in image.
-  cap = cam.do_capture(req, fmt)
-  w = cap['width']
-  h = cap['height']
-
-  img = image_processing_utils.convert_capture_to_rgb_image(cap, props)
-  img *= 255  # cv2 works with [0,255] images.
-  logging.debug('Captured JPEG %dx%d', w, h)
-  img_name = '%s_jpeg_w%d_h%d.png' % (os.path.join(log_path, _NAME), w, h)
-  circle_jpg = opencv_processing_utils.find_circle(
-      img, img_name, _CIRCLE_MIN_AREA, _CIRCLE_COLOR)
-  opencv_processing_utils.append_circle_center_to_img(circle_jpg, img,
-                                                      img_name)
-
-  # Determine final return values.
-  cc_ct_gt = {'hori': circle_jpg['x_offset'], 'vert': circle_jpg['y_offset']}
-  fov_percent = _calc_circle_image_ratio(circle_jpg['r'], w, h)
-  ref_fov = {}
-  ref_fov['fmt'] = 'JPEG'
-  ref_fov['percent'] = fov_percent
-  ref_fov['w'] = w
-  ref_fov['h'] = h
-  ref_fov['circle_w'] = circle_jpg['w']
-  ref_fov['circle_h'] = circle_jpg['h']
-  logging.debug('Using JPEG reference: %s', str(ref_fov))
-  return ref_fov, cc_ct_gt
-
-
-def _calc_circle_image_ratio(radius, img_w, img_h):
-  """Calculate the percent of area the input circle covers in input image.
-
-  Args:
-    radius: radius of circle
-    img_w: int width of image
-    img_h: int height of image
-  Returns:
-    fov_percent: float % of image covered by circle
-  """
-  return 100 * math.pi * math.pow(radius, 2) / (img_w * img_h)
-
-
-def _check_fov(circle, ref_fov, w, h, first_api_level):
-  """Check the FoV for correct size."""
-  fov_percent = _calc_circle_image_ratio(circle['r'], w, h)
-  chk_percent = _calc_expected_circle_image_ratio(ref_fov, w, h)
-  chk_enabled = _is_checked_aspect_ratio(first_api_level, w, h)
-  if chk_enabled and not np.isclose(fov_percent, chk_percent,
-                                    rtol=_FOV_PERCENT_RTOL):
-    e_msg = 'FoV %%: %.2f, Ref FoV %%: %.2f, ' % (fov_percent, chk_percent)
-    e_msg += 'TOL=%.f%%, img: %dx%d, ref: %dx%d' % (
-        _FOV_PERCENT_RTOL*100, w, h, ref_fov['w'], ref_fov['h'])
-    return e_msg
-
-
-def _check_ar(circle, ar_gt, w, h, fmt_iter, fmt_cmpr):
-  """Check the aspect ratio of the circle.
-
-  size is the larger of w or h.
-  if size >= LARGE_SIZE: use THRESH_AR_L
-  elif size == 0 (extreme case): THRESH_AR_S
-  elif 0 < image size < LARGE_SIZE: scale between THRESH_AR_S & THRESH_AR_L
-
-  Args:
-    circle: dict with circle parameters
-    ar_gt: aspect ratio ground truth to compare against
-    w: width of image
-    h: height of image
-    fmt_iter: format of primary capture
-    fmt_cmpr: format of secondary capture
-
-  Returns:
-    error string if check fails
-  """
-  thresh_ar = max(_THRESH_AR_L, _THRESH_AR_S +
-                  max(w, h) * (_THRESH_AR_L-_THRESH_AR_S) / _LARGE_SIZE)
-  ar = circle['w'] / circle['h']
-  if not np.isclose(ar, ar_gt, atol=thresh_ar):
-    e_msg = (f'{fmt_iter} with {fmt_cmpr} {w}x{h}: aspect_ratio {ar:.3f}, '
-             f'thresh {thresh_ar:.3f}')
-    return e_msg
-
-
-def _check_crop(circle, cc_gt, w, h, fmt_iter, fmt_cmpr, crop_thresh_factor):
-  """Check cropping.
-
-  if size >= LARGE_SIZE: use thresh_crop_l
-  elif size == 0 (extreme case): thresh_crop_s
-  elif 0 < size < LARGE_SIZE: scale between thresh_crop_s & thresh_crop_l
-  Also allow at least THRESH_MIN_PIXEL to prevent threshold being too tight
-  for very small circle.
-
-  Args:
-    circle: dict of circle values
-    cc_gt: circle center {'hori', 'vert'}  ground truth (ref'd to img center)
-    w: width of image
-    h: height of image
-    fmt_iter: format of primary capture
-    fmt_cmpr: format of secondary capture
-    crop_thresh_factor: scaling factor for crop thresholds
-
-  Returns:
-    error string if check fails
-  """
-  thresh_crop_l = _THRESH_CROP_L * crop_thresh_factor
-  thresh_crop_s = _THRESH_CROP_S * crop_thresh_factor
-  thresh_crop_hori = max(
-      [thresh_crop_l,
-       thresh_crop_s + w * (thresh_crop_l - thresh_crop_s) / _LARGE_SIZE,
-       _THRESH_MIN_PIXEL / circle['w']])
-  thresh_crop_vert = max(
-      [thresh_crop_l,
-       thresh_crop_s + h * (thresh_crop_l - thresh_crop_s) / _LARGE_SIZE,
-       _THRESH_MIN_PIXEL / circle['h']])
-
-  if (not np.isclose(circle['x_offset'], cc_gt['hori'],
-                     atol=thresh_crop_hori) or
-      not np.isclose(circle['y_offset'], cc_gt['vert'],
-                     atol=thresh_crop_vert)):
-    valid_x_range = (cc_gt['hori'] - thresh_crop_hori,
-                     cc_gt['hori'] + thresh_crop_hori)
-    valid_y_range = (cc_gt['vert'] - thresh_crop_vert,
-                     cc_gt['vert'] + thresh_crop_vert)
-    e_msg = (f'{fmt_iter} with {fmt_cmpr} {w}x{h} '
-             f"offset X {circle['x_offset']:.3f}, Y {circle['y_offset']:.3f}, "
-             f'valid X range: {valid_x_range[0]:.3f} ~ {valid_x_range[1]:.3f}, '
-             f'valid Y range: {valid_y_range[0]:.3f} ~ {valid_y_range[1]:.3f}')
-    return e_msg
-
-
 class AspectRatioAndCropTest(its_base_test.ItsBaseTest):
   """Test aspect ratio/field of view/cropping for each tested fmt combinations.
 
@@ -499,12 +236,11 @@ class AspectRatioAndCropTest(its_base_test.ItsBaseTest):
       req = capture_request_utils.auto_capture_request()
 
       # If raw is available and main camera, use it as ground truth.
-      if raw_avlb and (fls_physical == fls_logical):
-        ref_fov, cc_ct_gt, aspect_ratio_gt = _find_raw_fov_reference(
-            cam, req, props, log_path)
-      else:
-        aspect_ratio_gt = 1.0  # Ground truth circle width/height ratio.
-        ref_fov, cc_ct_gt = _find_jpeg_fov_reference(cam, req, props, log_path)
+      ref_img_name_stem = f'{os.path.join(log_path, _NAME)}'
+      raw_bool = raw_avlb and (fls_physical == fls_logical)
+      ref_fov, cc_ct_gt, aspect_ratio_gt = (
+          image_fov_utils.find_fov_reference(
+              cam, req, props, raw_bool, ref_img_name_stem))
 
       run_crop_test = full_or_better and raw_avlb
       if run_crop_test:
@@ -545,30 +281,34 @@ class AspectRatioAndCropTest(its_base_test.ItsBaseTest):
           img_name = '%s_%s_with_%s_w%d_h%d.png' % (
               os.path.join(log_path, _NAME), fmt_iter, fmt_cmpr, w_iter, h_iter)
           circle = opencv_processing_utils.find_circle(
-              img, img_name, _CIRCLE_MIN_AREA, _CIRCLE_COLOR)
+              img, img_name, image_fov_utils.CIRCLE_MIN_AREA,
+              image_fov_utils.CIRCLE_COLOR)
           if debug:
             opencv_processing_utils.append_circle_center_to_img(circle, img,
                                                                 img_name)
 
           # Check pass/fail for fov coverage for all fmts in AR_CHECKED
           img /= 255  # image_processing_utils uses [0, 1].
-          fov_chk_msg = _check_fov(circle, ref_fov, w_iter, h_iter,
-                                   first_api_level)
-          if fov_chk_msg:
-            failed_fov.append(fov_chk_msg)
-            image_processing_utils.write_image(img, img_name, True)
+          if _is_checked_aspect_ratio(first_api_level, w_iter, h_iter):
+            fov_chk_msg = image_fov_utils.check_fov(
+                circle, ref_fov, w_iter, h_iter)
+            if fov_chk_msg:
+              failed_fov.append(fov_chk_msg)
+              image_processing_utils.write_image(img, img_name, True)
 
           # Check pass/fail for aspect ratio.
-          ar_chk_msg = _check_ar(
-              circle, aspect_ratio_gt, w_iter, h_iter, fmt_iter, fmt_cmpr)
+          ar_chk_msg = image_fov_utils.check_ar(
+              circle, aspect_ratio_gt, w_iter, h_iter,
+              f'{fmt_iter} with {fmt_cmpr}')
           if ar_chk_msg:
             failed_ar.append(ar_chk_msg)
             image_processing_utils.write_image(img, img_name, True)
 
           # Check pass/fail for crop.
           if run_crop_test:
-            crop_chk_msg = _check_crop(circle, cc_ct_gt, w_iter, h_iter,
-                                       fmt_iter, fmt_cmpr, crop_thresh_factor)
+            crop_chk_msg = image_fov_utils.check_crop(
+                circle, cc_ct_gt, w_iter, h_iter,
+                f'{fmt_iter} with {fmt_cmpr}', crop_thresh_factor)
             if crop_chk_msg:
               failed_crop.append(crop_chk_msg)
               image_processing_utils.write_image(img, img_name, True)

@@ -57,7 +57,7 @@ unique_ptr<BootImgFilesystem> BootImgFilesystem::CreateFromFile(
   }
   uint32_t header_version =
       *reinterpret_cast<uint32_t*>(header_version_blob.data());
-  if (header_version > 3) {
+  if (header_version > 4) {
     LOG(WARNING) << "Boot image header version " << header_version
                  << " isn't supported for parsing";
     return nullptr;
@@ -80,13 +80,22 @@ unique_ptr<BootImgFilesystem> BootImgFilesystem::CreateFromFile(
     result->kernel_size_ = hdr_v0->kernel_size;
     result->ramdisk_size_ = hdr_v0->ramdisk_size;
     result->page_size_ = hdr_v0->page_size;
-  } else {
+  } else if (header_version == 3) {
     auto hdr_v3 = reinterpret_cast<boot_img_hdr_v3*>(header_blob.data());
     CHECK_EQ(0, memcmp(hdr_v3->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE));
     CHECK_EQ(3u, hdr_v3->header_version);
     result->kernel_size_ = hdr_v3->kernel_size;
     result->ramdisk_size_ = hdr_v3->ramdisk_size;
     result->page_size_ = 4096;
+  } else {
+    auto hdr_v4 = reinterpret_cast<boot_img_hdr_v4*>(header_blob.data());
+    CHECK_EQ(0, memcmp(hdr_v4->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE));
+    CHECK_EQ(hdr_v4->header_version, 4u);
+    result->kernel_size_ = hdr_v4->kernel_size;
+    result->ramdisk_size_ = hdr_v4->ramdisk_size;
+    // In boot image v3 and v4, page size is hard coded as 4096
+    result->page_size_ = 4096;
+    result->signature_size_ = hdr_v4->signature_size;
   }
 
   CHECK_GT(result->page_size_, 0u);
@@ -140,6 +149,10 @@ bool BootImgFilesystem::GetFiles(vector<File>* files) const {
   offset += utils::RoundUp(kernel_size_, page_size_);
   if (ramdisk_size_ > 0 && offset + ramdisk_size_ <= file_size) {
     files->emplace_back(GetFile("<ramdisk>", offset, ramdisk_size_));
+  }
+  offset += utils::RoundUp(ramdisk_size_, page_size_);
+  if (signature_size_ > 0) {
+    files->emplace_back(GetFile("<boot signature>", offset, signature_size_));
   }
   return true;
 }

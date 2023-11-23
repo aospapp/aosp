@@ -18,50 +18,33 @@ package android.server.wm.jetpack;
 
 import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
-import static android.server.wm.jetpack.utils.ExtensionUtil.MINIMUM_EXTENSION_VERSION;
 import static android.server.wm.jetpack.utils.ExtensionUtil.assertEqualWindowLayoutInfo;
 import static android.server.wm.jetpack.utils.ExtensionUtil.assumeExtensionSupportedDevice;
 import static android.server.wm.jetpack.utils.ExtensionUtil.assumeHasDisplayFeatures;
 import static android.server.wm.jetpack.utils.ExtensionUtil.getExtensionWindowLayoutComponent;
 import static android.server.wm.jetpack.utils.ExtensionUtil.getExtensionWindowLayoutInfo;
-import static android.server.wm.jetpack.utils.ExtensionUtil.getWindowExtensions;
-import static android.server.wm.jetpack.utils.ExtensionUtil.isExtensionVersionValid;
 import static android.server.wm.jetpack.utils.SidecarUtil.assumeSidecarSupportedDevice;
 import static android.server.wm.jetpack.utils.SidecarUtil.getSidecarInterface;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.areExtensionAndSidecarDeviceStateEqual;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.assertNotBothDimensionsZero;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.assertHasNonNegativeDimensions;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.doesDisplayRotateForOrientation;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getActivityBounds;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getActivityWindowToken;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getMaximumActivityBounds;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.setActivityOrientationActivityDoesNotHandleOrientationChanges;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.setActivityOrientationActivityHandlesOrientationChanges;
+
+import static androidx.window.extensions.layout.FoldingFeature.STATE_FLAT;
+import static androidx.window.extensions.layout.FoldingFeature.STATE_HALF_OPENED;
+import static androidx.window.extensions.layout.FoldingFeature.TYPE_FOLD;
+import static androidx.window.extensions.layout.FoldingFeature.TYPE_HINGE;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
-import static org.junit.Assume.assumeTrue;
 
-import static androidx.window.extensions.layout.FoldingFeature.TYPE_FOLD;
-import static androidx.window.extensions.layout.FoldingFeature.TYPE_HINGE;
-import static androidx.window.extensions.layout.FoldingFeature.STATE_FLAT;
-import static androidx.window.extensions.layout.FoldingFeature.STATE_HALF_OPENED;
-
-import android.app.Activity;
 import android.graphics.Rect;
-import android.server.wm.jetpack.utils.WindowManagerJetpackTestBase;
+import android.platform.test.annotations.Presubmit;
 import android.server.wm.jetpack.utils.TestActivity;
 import android.server.wm.jetpack.utils.TestConfigChangeHandlingActivity;
 import android.server.wm.jetpack.utils.TestValueCountConsumer;
-import android.platform.test.annotations.Presubmit;
+import android.server.wm.jetpack.utils.WindowManagerJetpackTestBase;
 
-import androidx.annotation.NonNull;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.window.extensions.layout.DisplayFeature;
@@ -78,7 +61,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -93,7 +75,6 @@ import java.util.stream.Collectors;
  *     atest CtsWindowManagerJetpackTestCases:ExtensionWindowLayoutComponentTest
  */
 @LargeTest
-@Presubmit
 @RunWith(AndroidJUnit4.class)
 public class ExtensionWindowLayoutComponentTest extends WindowManagerJetpackTestBase {
 
@@ -109,6 +90,41 @@ public class ExtensionWindowLayoutComponentTest extends WindowManagerJetpackTest
         mActivity = (TestActivity) startActivityNewTask(TestActivity.class);
         mWindowLayoutComponent = getExtensionWindowLayoutComponent();
         assumeNotNull(mWindowLayoutComponent);
+    }
+
+    /**
+     * Test adding and removing a window layout change listener.
+     */
+    @Test
+    public void testWindowLayoutComponent_onWindowLayoutChangeListener() throws Exception {
+        // Set activity to portrait
+        setActivityOrientationActivityDoesNotHandleOrientationChanges(mActivity,
+                ORIENTATION_PORTRAIT);
+
+        // Create the callback, onWindowLayoutChanged should only be called twice in this
+        // test, not the third time when the orientation will change because the listener will be
+        // removed.
+        TestValueCountConsumer<WindowLayoutInfo> windowLayoutInfoConsumer =
+                new TestValueCountConsumer<>();
+        windowLayoutInfoConsumer.setCount(2);
+
+        // Add window layout listener for mWindowToken - onWindowLayoutChanged should be called
+        mWindowLayoutComponent.addWindowLayoutInfoListener(mActivity, windowLayoutInfoConsumer);
+
+        // Change the activity orientation - onWindowLayoutChanged should be called
+        setActivityOrientationActivityDoesNotHandleOrientationChanges(mActivity,
+                ORIENTATION_LANDSCAPE);
+
+        // Remove the listener
+        mWindowLayoutComponent.removeWindowLayoutInfoListener(windowLayoutInfoConsumer);
+
+        // Change the activity orientation - onWindowLayoutChanged should NOT be called
+        setActivityOrientationActivityDoesNotHandleOrientationChanges(mActivity,
+                ORIENTATION_PORTRAIT);
+
+        // Check that the countdown is zero
+        WindowLayoutInfo lastValue = windowLayoutInfoConsumer.waitAndGet();
+        assertNotNull(lastValue);
     }
 
     @Test

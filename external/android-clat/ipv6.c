@@ -15,12 +15,10 @@
  *
  * ipv6.c - takes ipv6 packets, finds their headers, and then calls translation functions on them
  */
+#include <arpa/inet.h>
 #include <string.h>
 
-#include <arpa/inet.h>
-
-#include "netutils/checksum.h"
-
+#include "checksum.h"
 #include "config.h"
 #include "debug.h"
 #include "dump.h"

@@ -53,7 +53,7 @@
 #define COE_SLIGHT_OVER 0.3
 
 static void init_meminfo(void);
-static void do_alloc(void);
+static void do_alloc(int allow_raise);
 static void check_swapping(void);
 
 static long mem_available_init;
@@ -72,7 +72,8 @@ static void test_swapping(void)
 
 	switch (pid = SAFE_FORK()) {
 		case 0:
-			do_alloc();
+			do_alloc(0);
+			do_alloc(1);
 			exit(0);
 		default:
 			check_swapping();
@@ -95,23 +96,27 @@ static void init_meminfo(void)
 		tst_brk(TCONF, "Not enough available mem to test.");
 
 	if (swap_free_init < mem_over_max)
-		tst_brk(TCONF, "Not enough swap space to test.");
+		tst_brk(TCONF, "Not enough swap space to test: swap_free_init(%ldkB) < mem_over_max(%ldkB)",
+				swap_free_init, mem_over_max);
 }
 
-static void do_alloc(void)
+static void do_alloc(int allow_raise)
 {
 	long mem_count;
 	void *s;
 
-	tst_res(TINFO, "available physical memory: %ld MB",
-		mem_available_init / 1024);
+	if (allow_raise == 1)
+		tst_res(TINFO, "available physical memory: %ld MB",
+				mem_available_init / 1024);
 	mem_count = mem_available_init + mem_over;
-	tst_res(TINFO, "try to allocate: %ld MB", mem_count / 1024);
+	if (allow_raise == 1)
+		tst_res(TINFO, "try to allocate: %ld MB", mem_count / 1024);
 	s = SAFE_MALLOC(mem_count * 1024);
 	memset(s, 1, mem_count * 1024);
-	tst_res(TINFO, "memory allocated: %ld MB", mem_count / 1024);
-	if (raise(SIGSTOP) == -1)
+	if ((allow_raise == 1) && (raise(SIGSTOP) == -1)) {
+		tst_res(TINFO, "memory allocated: %ld MB", mem_count / 1024);
 		tst_brk(TBROK | TERRNO, "kill");
+	}
 	free(s);
 }
 
@@ -127,17 +132,16 @@ static void check_swapping(void)
 
 	/* Still occupying memory, loop for a while */
 	i = 0;
-	while (i < 10) {
+	while (i < 30) {
 		swap_free_now = SAFE_READ_MEMINFO("SwapFree:");
 		sleep(1);
-		if (abs(swap_free_now - SAFE_READ_MEMINFO("SwapFree:")) < 512)
+		if (labs(swap_free_now - SAFE_READ_MEMINFO("SwapFree:")) < 10)
 			break;
 
 		i++;
 	}
 
-	swap_free_now = SAFE_READ_MEMINFO("SwapFree:");
-	swapped = swap_free_init - swap_free_now;
+	swapped = SAFE_READ_PROC_STATUS(pid, "VmSwap:");
 	if (swapped > mem_over_max) {
 		kill(pid, SIGCONT);
 		tst_brk(TFAIL, "heavy swapping detected: "

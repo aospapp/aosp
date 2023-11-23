@@ -23,6 +23,41 @@ public class IntSummaryStatisticsTest extends junit.framework.TestCase {
     private static final int data1[] = {2, -5, 7, -1, 1, 0, 100};
     private static final int data2[] = {1, 3, 2, 1, 7};
 
+    public void test_bad_count() {
+        try {
+            new IntSummaryStatistics(-1, 0, 0, 0);
+            fail();
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Negative count value");
+        }
+    }
+
+    public void test_bad_min_max() {
+        try {
+            new IntSummaryStatistics(2, 2, 0, 0);
+            fail();
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Minimum greater than maximum");
+        }
+    }
+
+    public void test_defaults_when_count_is_zero() {
+        IntSummaryStatistics iss = new IntSummaryStatistics(0, 1, 10, 30);
+        assertEquals(0, iss.getCount());
+        assertEquals(0, iss.getSum());
+        assertEquals(0.0d, iss.getAverage());
+        assertEquals(Integer.MAX_VALUE, iss.getMin());
+        assertEquals(Integer.MIN_VALUE, iss.getMax());
+    }
+
+    public void test_filled_constructor() {
+        IntSummaryStatistics iss = new IntSummaryStatistics(9, 1, 5, 25);
+        assertEquals(9, iss.getCount());
+        assertEquals(25, iss.getSum());
+        assertEquals(1, iss.getMin());
+        assertEquals(5, iss.getMax());
+    }
+
     public void test_empty() {
         IntSummaryStatistics iss = new IntSummaryStatistics();
         assertEquals(0, iss.getCount());

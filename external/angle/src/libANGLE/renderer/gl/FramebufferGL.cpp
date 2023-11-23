@@ -76,7 +76,8 @@ static BlitFramebufferBounds GetBlitFramebufferBounds(const gl::Context *context
 
 void BindFramebufferAttachment(const FunctionsGL *functions,
                                GLenum attachmentPoint,
-                               const FramebufferAttachment *attachment)
+                               const FramebufferAttachment *attachment,
+                               const angle::FeaturesGL &features)
 {
     if (attachment)
     {
@@ -159,6 +160,12 @@ void BindFramebufferAttachment(const FunctionsGL *functions,
         {
             const Renderbuffer *renderbuffer     = attachment->getRenderbuffer();
             const RenderbufferGL *renderbufferGL = GetImplAs<RenderbufferGL>(renderbuffer);
+
+            if (features.alwaysUnbindFramebufferTexture2D.enabled)
+            {
+                functions->framebufferTexture2D(GL_FRAMEBUFFER, attachmentPoint, GL_TEXTURE_2D, 0,
+                                                0);
+            }
 
             functions->framebufferRenderbuffer(GL_FRAMEBUFFER, attachmentPoint, GL_RENDERBUFFER,
                                                renderbufferGL->getRenderbufferID());
@@ -255,7 +262,7 @@ bool IsEmulatedAlphaChannelTextureAttachment(const FramebufferAttachment *attach
     return textureGL->hasEmulatedAlphaChannel(attachment->getTextureImageIndex());
 }
 
-class ScopedEXTTextureNorm16ReadbackWorkaround
+class ANGLE_NO_DISCARD ScopedEXTTextureNorm16ReadbackWorkaround
 {
   public:
     ScopedEXTTextureNorm16ReadbackWorkaround()
@@ -305,8 +312,9 @@ class ScopedEXTTextureNorm16ReadbackWorkaround
                 checkedAllocatedBytes += area.width * pixelBytes - rowBytes;
             }
             ANGLE_CHECK_GL_MATH(contextGL, checkedAllocatedBytes.IsValid());
-            tmpPixels = new GLubyte[checkedAllocatedBytes.ValueOrDie()];
-            memset(tmpPixels, 0, checkedAllocatedBytes.ValueOrDie());
+            const GLuint allocatedBytes = checkedAllocatedBytes.ValueOrDie();
+            tmpPixels                   = new GLubyte[allocatedBytes];
+            memset(tmpPixels, 0, allocatedBytes);
         }
 
         return angle::Result::Continue;
@@ -714,7 +722,7 @@ angle::Result FramebufferGL::readPixels(const gl::Context *context,
 
     // We want to use rowLength, but that might not be supported.
     bool cannotSetDesiredRowLength =
-        packState.rowLength && !GetImplAs<ContextGL>(context)->getNativeExtensions().packSubimage;
+        packState.rowLength && !GetImplAs<ContextGL>(context)->getNativeExtensions().packSubimageNV;
 
     bool usePackSkipWorkaround = features.emulatePackSkipRowsAndPackSkipPixels.enabled &&
                                  (packState.skipRows != 0 || packState.skipPixels != 0);
@@ -839,7 +847,7 @@ angle::Result FramebufferGL::blit(const gl::Context *context,
     gl::Rectangle finalSourceArea(sourceArea);
     gl::Rectangle finalDestArea(destArea);
 
-    if (features.adjustSrcDstRegionBlitFramebuffer.enabled)
+    if (features.adjustSrcDstRegionForBlitFramebuffer.enabled)
     {
         angle::Result result = adjustSrcDstRegion(context, finalSourceArea, finalDestArea,
                                                   &finalSourceArea, &finalDestArea);
@@ -848,7 +856,7 @@ angle::Result FramebufferGL::blit(const gl::Context *context,
             return result;
         }
     }
-    if (features.clipSrcRegionBlitFramebuffer.enabled)
+    if (features.clipSrcRegionForBlitFramebuffer.enabled)
     {
         angle::Result result = clipSrcRegion(context, finalSourceArea, finalDestArea,
                                              &finalSourceArea, &finalDestArea);
@@ -1265,7 +1273,8 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
             case Framebuffer::DIRTY_BIT_DEPTH_ATTACHMENT:
             {
                 const FramebufferAttachment *newAttachment = mState.getDepthAttachment();
-                BindFramebufferAttachment(functions, GL_DEPTH_ATTACHMENT, newAttachment);
+                BindFramebufferAttachment(functions, GL_DEPTH_ATTACHMENT, newAttachment,
+                                          GetFeaturesGL(context));
                 if (newAttachment)
                 {
                     attachment = newAttachment;
@@ -1275,7 +1284,8 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
             case Framebuffer::DIRTY_BIT_STENCIL_ATTACHMENT:
             {
                 const FramebufferAttachment *newAttachment = mState.getStencilAttachment();
-                BindFramebufferAttachment(functions, GL_STENCIL_ATTACHMENT, newAttachment);
+                BindFramebufferAttachment(functions, GL_STENCIL_ATTACHMENT, newAttachment,
+                                          GetFeaturesGL(context));
                 if (newAttachment)
                 {
                     attachment = newAttachment;
@@ -1314,6 +1324,10 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
                 functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_LAYERS_EXT,
                                                  mState.getDefaultLayers());
                 break;
+            case Framebuffer::DIRTY_BIT_FLIP_Y:
+                functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
+                                                 gl::ConvertToGLBoolean(mState.getFlipY()));
+                break;
             default:
             {
                 static_assert(Framebuffer::DIRTY_BIT_COLOR_ATTACHMENT_0 == 0, "FB dirty bits");
@@ -1324,7 +1338,7 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
                     const FramebufferAttachment *newAttachment = mState.getColorAttachment(index);
                     BindFramebufferAttachment(functions,
                                               static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + index),
-                                              newAttachment);
+                                              newAttachment, GetFeaturesGL(context));
                     if (newAttachment)
                     {
                         attachment = newAttachment;

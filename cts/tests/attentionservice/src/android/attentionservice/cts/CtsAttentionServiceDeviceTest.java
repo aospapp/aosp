@@ -15,6 +15,8 @@
  */
 package android.attentionservice.cts;
 
+import static android.service.attention.AttentionService.PROXIMITY_UNKNOWN;
+
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
@@ -34,20 +36,24 @@ import com.android.compatibility.common.util.DeviceConfigStateChangerRule;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.FixMethodOrder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.MethodSorters;
 
 /**
  * This suite of test ensures that AttentionManagerService behaves correctly when properly bound
  * to an AttentionService implementation
  */
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "PM will not recognize CtsTestAttentionService in instantMode.")
 public class CtsAttentionServiceDeviceTest {
     private static final String SERVICE_ENABLED = "service_enabled";
     private static final String FAKE_SERVICE_PACKAGE =
             CtsTestAttentionService.class.getPackage().getName();
+    private static final double SUCCESSFUL_PROXIMITY_DISTANCE = 1.0;
     private final boolean isTestable =
             !TextUtils.isEmpty(getAttentionServiceComponent());
 
@@ -69,6 +75,47 @@ public class CtsAttentionServiceDeviceTest {
     @After
     public void tearDown() {
         clearTestableAttentionService();
+    }
+
+    @Test
+    public void testProximityUpdates_OnSuccess() {
+        assertThat(CtsTestAttentionService.hasCurrentProximityUpdates()).isFalse();
+
+        /** From manager, call onStartProximityUpdates() on test service */
+        callStartProximityUpdates();
+
+        /** From test service, verify that onStartProximityUpdate was called */
+        assertThat(CtsTestAttentionService.hasCurrentProximityUpdates()).isTrue();
+
+        /** From test service, respond with a range */
+        CtsTestAttentionService.respondProximity(
+                SUCCESSFUL_PROXIMITY_DISTANCE);
+
+        /** From manager, verify proximity update callback was received*/
+        assertThat(getLastTestProximityUpdateCallbackCode())
+                .isEqualTo(SUCCESSFUL_PROXIMITY_DISTANCE);
+    }
+
+    @Test
+    public void testProximityUpdates_OnCancelledFromManager() {
+        assertThat(CtsTestAttentionService.hasPendingChecks()).isFalse();
+
+        /** From manager, call onStartProximityUpdates() on test service */
+        callStartProximityUpdates();
+
+        /** From test service, verify that onStartProximityUpdate was called */
+        assertThat(CtsTestAttentionService.hasCurrentProximityUpdates()).isTrue();
+
+        /** From manager, cancel the update */
+        callStopProximityUpdates();
+
+        /** From test service, verify that the update was cancelled */
+        assertThat(CtsTestAttentionService.hasCurrentProximityUpdates()).isFalse();
+
+        /** From manager, verify that the proximity callback was called with
+         * PRXIMITY_UNKNOWN */
+        assertThat(getLastTestProximityUpdateCallbackCode()).isEqualTo(
+                PROXIMITY_UNKNOWN);
     }
 
     @Test
@@ -145,6 +192,11 @@ public class CtsAttentionServiceDeviceTest {
         return Integer.parseInt(runShellCommand("cmd attention getLastTestCallbackCode"));
     }
 
+    private double getLastTestProximityUpdateCallbackCode() {
+        return Double.parseDouble(
+                runShellCommand("cmd attention getLastTestProximityUpdateCallbackCode"));
+    }
+
     /**
      * This call is asynchronous (manager spawns + binds to service and then asynchronously makes a
      * check attention call).
@@ -161,6 +213,19 @@ public class CtsAttentionServiceDeviceTest {
 
     private void callCancelAttention() {
         runShellCommand("cmd attention call cancelCheckAttention");
+        CtsTestAttentionService.onReceivedResponse();
+    }
+
+    private void callStartProximityUpdates() {
+        wakeUpScreen();
+        Boolean isSuccess = runShellCommand("cmd attention call onStartProximityUpdates")
+                .equals("true");
+        assertThat(isSuccess).isTrue();
+        CtsTestAttentionService.onReceivedResponse();
+    }
+
+    private void callStopProximityUpdates() {
+        runShellCommand("cmd attention call onStopProximityUpdates");
         CtsTestAttentionService.onReceivedResponse();
     }
 

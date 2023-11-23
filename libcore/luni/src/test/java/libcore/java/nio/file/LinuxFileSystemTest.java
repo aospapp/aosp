@@ -17,6 +17,7 @@
 package libcore.java.nio.file;
 
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -89,8 +90,59 @@ public class LinuxFileSystemTest {
     @Test
     public void test_getFileStores() {
         Iterable<FileStore> fileStores = fileSystem.getFileStores();
-        // Asserting if the the list has non zero number stores.
+        // The FileSystem should have at least one FileStore
         assertTrue(fileStores.iterator().hasNext());
+    }
+
+    // It's difficult to make assumptions that are true across all test targets.
+    // The root FileStore may or may not be full (on devices the System image is usually
+    // 100% full and read-only, on hosts usable space will be positive).
+    // /data should *usually* exist (on devices, at least), be writable and have some
+    // usable space.
+    @Test
+    public void rootFilestore() throws Exception {
+        FileStore filestore = getFilestore("/");
+        assertEquals(0, filestore.getBlockSize() % 512);
+        assertTrue(filestore.getTotalSpace() > 0);
+        assertTrue(filestore.getUnallocatedSpace() >= 0);
+        assertTrue(filestore.getUsableSpace() >= 0);
+    }
+
+    // See explanation for rootFilestore()
+    @Test
+    public void dataFilestore() throws Exception {
+        FileStore filestore = null;
+        try {
+            filestore = getFilestore("/data");
+        } catch (IOException e) {
+            // Ignored
+        }
+        Assume.assumeNotNull(filestore);
+        assertEquals(0, filestore.getBlockSize() % 512);
+        assertTrue(filestore.getTotalSpace() > 0);
+        assertTrue(filestore.getUnallocatedSpace() > 0);
+        assertTrue(filestore.getUsableSpace() > 0);
+        assertFalse(filestore.isReadOnly());
+    }
+
+    // File.getFileStore(path) throws a SecurityException on Android, so we
+    // iterate over all file stores until we find a matching mount point.
+    private FileStore getFilestore(String mountPoint) throws IOException {
+        for (FileStore filestore : fileSystem.getFileStores()) {
+            if (mountPoint.equals(getMountPoint(filestore))) {
+                return filestore;
+            }
+        }
+        fail("Unable to find FileStore for " + mountPoint);
+        return null;
+    }
+
+    // Naturally there is no official API to get the mount point for a FileStore,
+    // so we rely on the fact that the string representation is always "<mountpoint> (<device>)"
+    private String getMountPoint(FileStore fileStore) {
+        String description = fileStore.toString();
+        int index = description.indexOf(" (");
+        return description.substring(0, index);
     }
 
     @Test

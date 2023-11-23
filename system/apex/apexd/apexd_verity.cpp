@@ -17,13 +17,16 @@
 
 #include "apexd_verity.h"
 
-#include <filesystem>
-#include <vector>
-
 #include <android-base/file.h>
 #include <android-base/result.h>
 #include <android-base/unique_fd.h>
 #include <verity/hash_tree_builder.h>
+
+#include <filesystem>
+#include <iomanip>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "apex_constants.h"
 #include "apex_file.h"
@@ -197,6 +200,16 @@ Result<PrepareHashTreeResult> PrepareHashTree(
 
 void RemoveObsoleteHashTrees() {
   // TODO(b/120058143): on boot complete, remove unused hashtree files
+}
+
+std::string BytesToHex(const uint8_t* bytes, size_t bytes_len) {
+  std::ostringstream s;
+
+  s << std::hex << std::setfill('0');
+  for (size_t i = 0; i < bytes_len; i++) {
+    s << std::setw(2) << static_cast<int>(bytes[i]);
+  }
+  return s.str();
 }
 
 }  // namespace apex

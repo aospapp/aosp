@@ -81,13 +81,13 @@
     <string name="blocked_numbers_number_already_blocked_message" msgid="2301270825735665458">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> blokeatuta dago dagoeneko."</string>
     <string name="toast_personal_call_msg" msgid="5817631570381795610">"Telefono pertsonala erabiltzen ari zara deia egiteko"</string>
     <string name="notification_incoming_call" msgid="1233481138362230894">"<xliff:g id="CALL_VIA">%1$s</xliff:g> deia (deitzailea: <xliff:g id="CALL_FROM">%2$s</xliff:g>)"</string>
-    <string name="notification_incoming_video_call" msgid="5795968314037063900">"<xliff:g id="CALL_VIA">%1$s</xliff:g> bideo-deia (deitzailea: <xliff:g id="CALL_FROM">%2$s</xliff:g>)"</string>
+    <string name="notification_incoming_video_call" msgid="5795968314037063900">"<xliff:g id="CALL_VIA">%1$s</xliff:g> bideodeia (deitzailea: <xliff:g id="CALL_FROM">%2$s</xliff:g>)"</string>
     <string name="answering_ends_other_call" msgid="8653544281903986641">"Erantzuten baduzu, amaitu egingo da <xliff:g id="CALL_VIA">%1$s</xliff:g> deia"</string>
     <string name="answering_ends_other_calls" msgid="3702302838456922535">"Erantzuten baduzu, amaitu egingo dira <xliff:g id="CALL_VIA">%1$s</xliff:g> deiak"</string>
-    <string name="answering_ends_other_video_call" msgid="8572022039304239958">"Erantzuten baduzu, amaitu egingo da <xliff:g id="CALL_VIA">%1$s</xliff:g> bideo-deia"</string>
+    <string name="answering_ends_other_video_call" msgid="8572022039304239958">"Erantzuten baduzu, amaitu egingo da <xliff:g id="CALL_VIA">%1$s</xliff:g> bideodeia"</string>
     <string name="answering_ends_other_managed_call" msgid="4031778317409881805">"Erantzuten baduzu, amaitu egingo da oraingo deia"</string>
     <string name="answering_ends_other_managed_calls" msgid="3974069768615307659">"Erantzuten baduzu, amaitu egingo dira oraingo deiak"</string>
-    <string name="answering_ends_other_managed_video_call" msgid="1988508241432031327">"Erantzuten baduzu, amaitu egingo da oraingo bideo-deia"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1988508241432031327">"Erantzuten baduzu, amaitu egingo da oraingo bideodeia"</string>
     <string name="answer_incoming_call" msgid="2045888814782215326">"Erantzun"</string>
     <string name="decline_incoming_call" msgid="922147089348451310">"Baztertu"</string>
     <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"Ezin da egin deia, ez dagoelako mota honetako deiak onartzen duen deiak egiteko konturik."</string>
@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Blokeatu telefono publikoen deiak"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Ezezagunak"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Blokeatu identifikatu gabeko deitzaileen deiak"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Zenbakia agerian ez dutenak"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Blokeatu zenbakia agerian ez duten deiak"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Deiak blokeatzeko aukera"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Desgaitu da deiak blokeatzeko aukera"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Larrialdi-deia egin da"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Desgaitu da deiak blokeatzeko aukera, larrialdietako zerbitzuak zurekin harremanetan jarri ahal daitezen."</string>
     <string name="developer_title" msgid="9146088855661672353">"Telekomunikazioen garatzaileen menua"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Ezin duzu hartu deirik larrialdi-dei bat abian den bitartean."</string>
+    <string name="cancel" msgid="6733466216239934756">"Utzi"</string>
 </resources>

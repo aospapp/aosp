@@ -1,3 +1,2 @@
-# b/193084798
-dontaudit dumpstate incident:process signal;
-dontaudit dumpstate incident:process sigkill;
+# b/192197221
+dontaudit dumpstate artd:binder call;

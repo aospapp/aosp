@@ -51,20 +51,15 @@ def pigweed_environment_parser() -> envparse.EnvironmentParser:
                    type=envparse.strict_bool,
                    default=False)
 
-    # TODO(pwbug/274) Remove after some transition time. These are no longer
-    # used but may be set by users or downstream projects, or just in currently
-    # active shells.
-    parser.add_var('PW_CIPD_PACKAGE_FILES')
-    parser.add_var('PW_VIRTUALENV_REQUIREMENTS')
-    parser.add_var('PW_VIRTUALENV_REQUIREMENTS_APPEND_DEFAULT')
-    parser.add_var('PW_VIRTUALENV_SETUP_PY_ROOTS')
-    parser.add_var('PW_CARGO_PACKAGE_FILES')
-    parser.add_var('PW_CARGO_SETUP', type=envparse.strict_bool, default=False)
-    parser.add_var('PW_VIRTUALENV_REQUIREMENTS_APPEND_DEFAULT')
-
     parser.add_var('PW_BANNER_FUNC')
     parser.add_var('PW_BRANDING_BANNER')
     parser.add_var('PW_BRANDING_BANNER_COLOR', default='magenta')
+
+    parser.add_var('PW_PRESUBMIT_DISABLE_SUBPROCESS_CAPTURE',
+                   type=envparse.strict_bool)
+
+    parser.add_var('PW_CONSOLE_CONFIG_FILE')
+    parser.add_var('PW_ENVIRONMENT_NO_ERROR_ON_UNRECOGNIZED')
 
     return parser
 

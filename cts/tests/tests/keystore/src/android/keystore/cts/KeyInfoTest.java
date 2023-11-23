@@ -16,9 +16,13 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.TestCase;
 
@@ -32,8 +36,13 @@ import java.security.Signature;
 import java.util.Arrays;
 import java.util.Date;
 
-public class KeyInfoTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(AndroidJUnit4.class)
+public class KeyInfoTest {
+
+    @Test
     public void testImmutabilityViaGetterReturnValues() throws Exception {
         // Assert that none of the mutable return values from getters modify the state of the
         // instance.
@@ -103,6 +112,7 @@ public class KeyInfoTest extends TestCase {
         assertEquals(KeyProperties.UNRESTRICTED_USAGE_COUNT, remainingUsageCount);
     }
 
+    @Test
     public void testLimitedUseKey() throws Exception {
         Date keyValidityStartDate = new Date(System.currentTimeMillis() - 2222222);
         Date keyValidityEndDateForOrigination = new Date(System.currentTimeMillis() + 11111111);

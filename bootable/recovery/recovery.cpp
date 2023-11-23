@@ -48,12 +48,12 @@
 #include "install/adb_install.h"
 #include "install/fuse_install.h"
 #include "install/install.h"
-#include "install/package.h"
 #include "install/snapshot_utils.h"
 #include "install/wipe_data.h"
 #include "install/wipe_device.h"
 #include "otautil/boot_state.h"
 #include "otautil/error_code.h"
+#include "otautil/package.h"
 #include "otautil/paths.h"
 #include "otautil/sysutil.h"
 #include "recovery_ui/screen_ui.h"
@@ -207,8 +207,7 @@ static InstallResult prompt_and_wipe_data(Device* device) {
 
     if (ask_to_wipe_data(device)) {
       CHECK(device->GetReason().has_value());
-      bool convert_fbe = device->GetReason().value() == "convert_fbe";
-      if (WipeData(device, convert_fbe)) {
+      if (WipeData(device)) {
         return INSTALL_SUCCESS;
       } else {
         return INSTALL_ERROR;
@@ -437,10 +436,10 @@ static Device::BuiltinAction PromptAndWait(Device* device, InstallResult status)
         save_current_log = true;
         if (ui->IsTextVisible()) {
           if (ask_to_wipe_data(device)) {
-            WipeData(device, false);
+            WipeData(device);
           }
         } else {
-          WipeData(device, false);
+          WipeData(device);
           return Device::NO_ACTION;
         }
         break;
@@ -752,20 +751,20 @@ Device::BuiltinAction start_recovery(Device* device, const std::vector<std::stri
         status = INSTALL_ERROR;
       } else if (install_with_fuse || should_use_fuse) {
         LOG(INFO) << "Installing package " << update_package << " with fuse";
-        status = InstallWithFuseFromPath(update_package, ui);
+        status = InstallWithFuseFromPath(update_package, device);
       } else if (auto memory_package = Package::CreateMemoryPackage(
                      update_package,
                      std::bind(&RecoveryUI::SetProgress, ui, std::placeholders::_1));
                  memory_package != nullptr) {
         status = InstallPackage(memory_package.get(), update_package, should_wipe_cache,
-                                retry_count, ui);
+                                retry_count, device);
       } else {
         // We may fail to memory map the package on 32 bit builds for packages with 2GiB+ size.
         // In such cases, we will try to install the package with fuse. This is not the default
         // installation method because it introduces a layer of indirection from the kernel space.
         LOG(WARNING) << "Failed to memory map package " << update_package
                      << "; falling back to install with fuse";
-        status = InstallWithFuseFromPath(update_package, ui);
+        status = InstallWithFuseFromPath(update_package, device);
       }
       if (status != INSTALL_SUCCESS) {
         ui->Print("Installation aborted.\n");
@@ -794,8 +793,7 @@ Device::BuiltinAction start_recovery(Device* device, const std::vector<std::stri
   } else if (should_wipe_data) {
     save_current_log = true;
     CHECK(device->GetReason().has_value());
-    bool convert_fbe = device->GetReason().value() == "convert_fbe";
-    if (!WipeData(device, convert_fbe)) {
+    if (!WipeData(device)) {
       status = INSTALL_ERROR;
     }
   } else if (should_prompt_and_wipe_data) {

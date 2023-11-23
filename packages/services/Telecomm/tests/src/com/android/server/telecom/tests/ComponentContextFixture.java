@@ -51,24 +51,22 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.hardware.SensorPrivacyManager;
-import android.location.Country;
 import android.location.CountryDetector;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IInterface;
 import android.os.PersistableBundle;
-import android.os.PowerWhitelistManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.permission.PermissionCheckerManager;
-import android.telecom.CallAudioState;
 import android.telecom.ConnectionService;
 import android.telecom.Log;
 import android.telecom.InCallService;
-import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
@@ -120,6 +118,11 @@ public class ComponentContextFixture implements TestFixture<Context> {
             // TODO: This doesn't actually execute anything as we don't need to do so for now, but
             //  future users might need it.
             return mMainExecutor;
+        }
+
+        @Override
+        public Context createContextAsUser(UserHandle userHandle, int flags) {
+            return this;
         }
 
         @Override
@@ -218,6 +221,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
                     return mTelephonyRegistryManager;
                 case Context.UI_MODE_SERVICE:
                     return mUiModeManager;
+                case Context.VIBRATOR_SERVICE:
+                    return mVibrator;
                 case Context.VIBRATOR_MANAGER_SERVICE:
                     return mVibratorManager;
                 case Context.PERMISSION_CHECKER_SERVICE:
@@ -247,6 +252,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
                 return Context.TELEPHONY_REGISTRY_SERVICE;
             } else if (svcClass == UiModeManager.class) {
                 return Context.UI_MODE_SERVICE;
+            } else if (svcClass == Vibrator.class) {
+                return Context.VIBRATOR_SERVICE;
             } else if (svcClass == VibratorManager.class) {
                 return Context.VIBRATOR_MANAGER_SERVICE;
             } else if (svcClass == PermissionCheckerManager.class) {
@@ -327,8 +334,19 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }
 
         @Override
+        public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter, int flags) {
+            return null;
+        }
+
+        @Override
         public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
                 String broadcastPermission, Handler scheduler) {
+            return null;
+        }
+
+        @Override
+        public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
+                String broadcastPermission, Handler scheduler, int flags) {
             return null;
         }
 
@@ -419,6 +437,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
         private int mAudioStreamValue = 1;
         private int mMode = AudioManager.MODE_NORMAL;
         private int mRingerMode = AudioManager.RINGER_MODE_NORMAL;
+        private AudioDeviceInfo mCommunicationDevice;
 
         public FakeAudioManager(Context context) {
             super(context);
@@ -473,6 +492,22 @@ public class ComponentContextFixture implements TestFixture<Context> {
         public int getStreamVolume(int streamValueUnused) {
             return mAudioStreamValue;
         }
+
+        @Override
+        public void clearCommunicationDevice() {
+            mCommunicationDevice = null;
+        }
+
+        @Override
+        public AudioDeviceInfo getCommunicationDevice() {
+            return mCommunicationDevice;
+        }
+
+        @Override
+        public boolean setCommunicationDevice(AudioDeviceInfo device) {
+            mCommunicationDevice = device;
+            return true;
+        }
     }
 
     private static final String PACKAGE_NAME = "com.android.server.telecom.tests";
@@ -518,7 +553,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final NotificationManager mNotificationManager = mock(NotificationManager.class);
     private final UserManager mUserManager = mock(UserManager.class);
     private final StatusBarManager mStatusBarManager = mock(StatusBarManager.class);
-    private final SubscriptionManager mSubscriptionManager = mock(SubscriptionManager.class);
+    private SubscriptionManager mSubscriptionManager = mock(SubscriptionManager.class);
     private final CarrierConfigManager mCarrierConfigManager = mock(CarrierConfigManager.class);
     private final CountryDetector mCountryDetector = mock(CountryDetector.class);
     private final Map<String, IContentProvider> mIContentProviderByUri = new HashMap<>();
@@ -527,6 +562,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final RoleManager mRoleManager = mock(RoleManager.class);
     private final TelephonyRegistryManager mTelephonyRegistryManager =
             mock(TelephonyRegistryManager.class);
+    private final Vibrator mVibrator = mock(Vibrator.class);
     private final VibratorManager mVibratorManager = mock(VibratorManager.class);
     private final UiModeManager mUiModeManager = mock(UiModeManager.class);
     private final PermissionCheckerManager mPermissionCheckerManager =
@@ -598,7 +634,10 @@ public class ComponentContextFixture implements TestFixture<Context> {
         }
 
         when(mPermissionInfo.isAppOp()).thenReturn(true);
+        when(mVibrator.getDefaultVibrationIntensity(anyInt()))
+                .thenReturn(Vibrator.VIBRATION_INTENSITY_MEDIUM);
         when(mVibratorManager.getVibratorIds()).thenReturn(new int[0]);
+        when(mVibratorManager.getDefaultVibrator()).thenReturn(mVibrator);
 
         // Used in CreateConnectionProcessor to rank emergency numbers by viability.
         // For the test, make them all equal to INVALID so that the preferred PhoneAccount will be
@@ -630,6 +669,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
         // Make sure we do not hide PII during testing.
         Log.setTag("TelecomTEST");
         Log.setIsExtendedLoggingEnabled(true);
+        Log.setUnitTestingEnabled(true);
         Log.VERBOSE = true;
     }
 
@@ -713,8 +753,16 @@ public class ComponentContextFixture implements TestFixture<Context> {
         mTelecomManager = telecomManager;
     }
 
+    public void setSubscriptionManager(SubscriptionManager subscriptionManager) {
+        mSubscriptionManager = subscriptionManager;
+    }
+
     public TelephonyManager getTelephonyManager() {
         return mTelephonyManager;
+    }
+
+    public CarrierConfigManager getCarrierConfigManager() {
+        return mCarrierConfigManager;
     }
 
     public NotificationManager getNotificationManager() {

@@ -25,6 +25,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.Manifest;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -149,6 +150,8 @@ public class MicrophoneRecentAccessViewAllPreferenceControllerTest {
 
         Intent intent = captor.getValue();
         assertThat(intent.getAction()).isEqualTo(Intent.ACTION_MANAGE_APP_PERMISSION);
+        assertThat(intent.getStringExtra(Intent.EXTRA_PERMISSION_GROUP_NAME))
+            .isEqualTo(Manifest.permission_group.MICROPHONE);
     }
 
     @Test

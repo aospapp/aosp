@@ -17,7 +17,10 @@
 package android.content.pm.cts;
 
 import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.checkIncrementalDeliveryFeature;
+import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.installNonIncremental;
 import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.isAppInstalledForUser;
+import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.setDeviceProperty;
+import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.setSystemProperty;
 import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.uninstallPackageSilently;
 
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -47,6 +50,7 @@ import com.example.helloworld.lib.TestUtils;
 
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,6 +86,12 @@ public class ResourcesHardeningTest {
     @Before
     public void onBefore() throws Exception {
         checkIncrementalDeliveryFeature();
+
+        setDeviceProperty("incfs_default_timeouts", "1:1:1");
+        setDeviceProperty("known_digesters_list", TestUtils.TEST_APP_PACKAGE);
+        setSystemProperty("debug.incremental.always_enable_read_timeouts_for_system_dataloaders",
+                "1");
+        setSystemProperty("debug.incremental.enable_read_timeouts_after_install", "0");
 
         // Set up the blocks that need to be restricted in order to test resource hardening.
         if (!mRestrictedRanges.isEmpty()) {
@@ -119,6 +129,14 @@ public class ResourcesHardeningTest {
         }
     }
 
+    @After
+    public void onAfter() throws Exception {
+        setSystemProperty("debug.incremental.always_enable_read_timeouts_for_system_dataloaders",
+                "1");
+        setSystemProperty("debug.incremental.enable_read_timeouts_after_install", "1");
+    }
+
+    @LargeTest
     @Test
     public void checkGetIdentifier() throws Exception {
         testIncrementalForeignPackageResources(TestUtils::checkGetIdentifier);
@@ -252,6 +270,8 @@ public class ResourcesHardeningTest {
         try (ShellInstallSession session = startInstallSession()) {
             test.apply(session.getPackageResources(), TestUtils.AssertionType.ASSERT_SUCCESS);
         }
+        // To disable verification.
+        installNonIncremental(TEST_APKS[0]);
         try (ShellInstallSession session = startInstallSession()) {
             session.enableBlockRestrictions();
             test.apply(session.getPackageResources(), TestUtils.AssertionType.ASSERT_READ_FAILURE);
@@ -268,7 +288,8 @@ public class ResourcesHardeningTest {
             session.mSession.getPackageResources();
             session.start(true /* assertSuccess */);
         }
-
+        // To disable verification.
+        installNonIncremental(TEST_APKS[0]);
         try (RemoteTest session = new RemoteTest(startInstallSession(), testName)) {
             session.mSession.getPackageResources();
             session.mSession.enableBlockRestrictions();
@@ -290,7 +311,7 @@ public class ResourcesHardeningTest {
 
     private static class RemoteTest implements AutoCloseable {
         private static final int SPIN_SLEEP_MS = 500;
-        private static final long RESPONSE_TIMEOUT_MS = 60 * 1000;
+        private static final long RESPONSE_TIMEOUT_MS = 120 * 1000;
 
         private final ShellInstallSession mSession;
         private final String mTestName;
@@ -327,7 +348,7 @@ public class ResourcesHardeningTest {
 
             // Start the test app and indicate which test to run.
             try (pidDetector; finishDetector) {
-                final Intent launchIntent = new Intent(Intent.ACTION_VIEW);
+                final Intent launchIntent = new Intent(Intent.ACTION_MAIN);
                 launchIntent.setClassName(TestUtils.TEST_APP_PACKAGE, TestUtils.TEST_ACTIVITY_NAME);
                 launchIntent.putExtra(TestUtils.TEST_NAME_EXTRA_KEY, mTestName);
                 launchIntent.putExtra(TestUtils.TEST_ASSERT_SUCCESS_EXTRA_KEY, assertSuccess);
@@ -374,7 +395,8 @@ public class ResourcesHardeningTest {
         final TestBlockFilter filter = new TestBlockFilter();
         final IncrementalInstallSession.Builder builder = new IncrementalInstallSession.Builder()
                 .addExtraArgs("--user", String.valueOf(getContext().getUserId()),
-                              "-t", "-i", getContext().getPackageName())
+                              "-t", "-i", getContext().getPackageName(),
+                              "--skip-verification")
                 .setLogger(new IncrementalDeviceConnection.Logger())
                 .setBlockFilter(filter);
         for (final String apk : apks) {

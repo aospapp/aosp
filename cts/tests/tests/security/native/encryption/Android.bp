@@ -17,6 +17,7 @@ cc_test {
     ],
     static_libs: [
         "libctssecurity_native_test_utils",
+        "libfscrypt",
     ],
     multilib: {
         lib32: {

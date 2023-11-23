@@ -62,6 +62,9 @@ class WifiPnoTest(WifiBaseTest):
         self.dut.droid.goToSleepNow()
         wutils.reset_wifi(self.dut)
         self.dut.ed.clear_all_events()
+        # DUT to the saved networks so they won't be excluded from PNO scan.
+        wutils.connect_to_wifi_network(self.dut, self.pno_network_a)
+        wutils.connect_to_wifi_network(self.dut, self.pno_network_b)
 
     def teardown_test(self):
         super().teardown_test()
@@ -197,9 +200,6 @@ class WifiPnoTest(WifiBaseTest):
         self.add_network_and_enable(self.pno_network_b)
         # Force single scan so that both networks become preferred before PNO.
         wutils.start_wifi_connection_scan_and_return_status(self.dut)
-        self.dut.droid.goToSleepNow()
-        wutils.wifi_toggle_state(self.dut, False)
-        wutils.wifi_toggle_state(self.dut, True)
         time.sleep(10)
         self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
 

@@ -23,8 +23,8 @@
  * @file NeuralNetworksTypes.h
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
 
 /******************************************************************
  *
@@ -42,11 +42,14 @@
  *   - DO NOT CHANGE THE LAYOUT OR SIZE OF STRUCTURES
  */
 
-#include <android/hardware_buffer.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/cdefs.h>
+
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#endif  // __ANDROID__
 
 __BEGIN_DECLS
 
@@ -194,7 +197,6 @@ typedef enum {
      * Available since NNAPI feature level 4.
      */
     ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED = 14,
-
     /**
      * A reference to a model.
      *
@@ -1705,6 +1707,7 @@ typedef enum {
      * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
      * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM}
      * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} (since NNAPI feature level 4)
+     * * {@link ANEURALNETWORKS_TENSOR_INT32} (since NNAPI feature level 6)
      *
      * Supported tensor rank: up to 4.
      *
@@ -4685,6 +4688,8 @@ typedef enum {
      * Supported tensor {@link OperandCode}:
      * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
      * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM} (since NNAPI feature level 7)
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} (since NNAPI feature level 7)
      *
      * Supported tensor rank: from 1.
      *
@@ -4693,6 +4698,9 @@ typedef enum {
      *
      * Outputs:
      * * 0: The output tensor of same shape as input0.
+     *      For a {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM} and
+     *      {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} tensor,
+     *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      *
      * Available since NNAPI feature level 3.
      */
@@ -5578,7 +5586,7 @@ typedef enum {
      * The output is calculated using the following formula:
      *
      *     h-swish(x) = x * max(0, min(6, (x + 3))) / 6
-
+     *
      * Supported tensor {@link OperandCode}:
      * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
      * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
@@ -5656,6 +5664,184 @@ typedef enum {
      * Available since NNAPI feature level 4.
      */
     ANEURALNETWORKS_RANK = 101,
+
+    // Operations below are available since NNAPI feature level 6.
+
+    /**
+     * Performs multiplication of two tensors in batches.
+     *
+     * Multiplies all slices of two input tensors and arranges the individual
+     * results in a single output tensor of the same batch size. Each pair of
+     * slices in the same batch have identical {@link OperandCode}. Each
+     * slice can optionally be adjointed (transpose and conjugate) before
+     * multiplication.
+     *
+     * The two input tensors and the output tensor must be 2-D or higher and
+     * have the same batch size.
+     *
+     * Supported tensor {@link OperandCode}:
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link ANEURALNETWORKS_TENSOR_INT32}
+     *
+     * Supported tensor rank: at least 2 and up to 4
+     *
+     * Inputs:
+     * * 0: A tensor with 2-D or higher shape [..., r_x, c_x].
+     * * 1: A tensor with 2-D or higher shape [..., r_y, c_y]. It has the same
+     *      {@link OperandCode} and batch size as input0.
+     * * 2: An optional {@link ANEURALNETWORKS_BOOL} scalar adj_x, default
+     *      to false. Set to true to adjoint the slices of input0.
+     * * 3: An optional {@link ANEURALNETWORKS_BOOL} scalar adj_y, default
+     *      to false. Set to true to adjoint the slices of input1.
+     *
+     * Outputs:
+     * * 0: A tensor with 2-D or higher shape [..., r_o, c_o], where
+     *      r_o = c_x if adj_x else r_x
+     *      c_o = r_y if adj_y else c_y
+     *
+     * Available since NNAPI feature level 6.
+     */
+    ANEURALNETWORKS_BATCH_MATMUL = 102,
+
+    /**
+     * Packs N input tensors (N >= 1) of rank R into one output tensor of rank R+1.
+     * The tensors are packed along a given axis.
+     *
+     * The input tensors must have identical {@link OperandCode} and dimensions.
+     *
+     * For example, suppose there are N input tensors of shape (A, B, C).
+     * If axis is 0, the output tensor will have shape (N, A, B, C).
+     * If axis is 1, the output tensor will have shape (A, N, B, C).
+     *
+     * All dimensions through the axis dimension determine the output tile count;
+     * the remaining dimensions determine the tile shape.
+     *
+     * Return to the example of N input tensors of shape (A, B, C).
+     * If axis is 0, there are N tiles in the output, each of shape (A, B, C).
+     * If axis is 1, there are A*N tiles in the output, each of shape (B, C).
+     *
+     * The coordinates of a tile within the output tensor are (t[0],...,t[axis]).
+     * The coordinates of a tile within an input tensor are (t[0],...,t[axis-1]).
+     * (If axis is 0, an input tensor consists of a single tile.)
+     * If we index input tensors starting with 0 (rather than by operand number),
+     * then output_tile[t[0],...,t[axis]] = input_tile[t[axis]][t[0],...,t[axis-1]].
+     * That is, all output tile coordinates except for the axis coordinate select
+     * the corresponding location within some input tensor; and the axis coordinate
+     * selects the input tensor.
+     *
+     * Supported tensor {@link OperandCode}:
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link ANEURALNETWORKS_TENSOR_INT32}
+     *
+     * Supported input tensor rank: from 1
+     *
+     * Inputs:
+     * * 0: A scalar of type {@link ANEURALNETWORKS_INT32}, specifying
+     *      the axis along which to pack.  The valid range is [0, R+1).
+     * * 1 ~ N: Input tensors to be packed together.
+     *          For {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM} and
+     *          {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} tensors,
+     *          the scales and zeroPoint must be the same for all input tensors,
+     *          and will be the same for the output tensor.
+     *
+     * Outputs:
+     * * 0: The packed tensor.
+     *
+     * Available since NNAPI feature level 6.
+     */
+    ANEURALNETWORKS_PACK = 103,
+
+    // Operations below are available since NNAPI feature level 7.
+
+    /**
+     * Pads a tensor with mirrored values.
+     *
+     * This operator specifies one of two padding modes: REFLECT or SYMMETRIC.
+     * In the case of REFLECT mode, the mirroring excludes the border element
+     * on the padding side.
+     * In the case of SYMMETRIC mode, the mirroring includes the border element
+     * on the padding side.
+     *
+     * For example, if the input is the 1-D tensor `[1, 2, 3]` and the padding
+     * is `[0, 2]` (i.e., pad no elements before the first (and only) dimension,
+     * and two elements after the first (and only) dimension), then:
+     *     - REFLECT mode produces the output `[1, 2, 3, 2, 1]`
+     *     - SYMMETRIC mode produces the output `[1, 2, 3, 3, 2]`
+     *
+     * Supported tensor {@link OperandCode}:
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link ANEURALNETWORKS_TENSOR_INT32}
+     *
+     * Supported tensor rank: from 1.
+     *
+     * Inputs:
+     * * 0: An n-D tensor, specifying the tensor to be padded.
+     * * 1: A 2-D tensor of {@link ANEURALNETWORKS_TENSOR_INT32}, the paddings
+     *      for each spatial dimension of the input tensor. The shape of the
+     *      tensor must be {rank(input0), 2}.
+     *      padding[i, 0] specifies the number of elements to be padded in the
+     *      front of dimension i.
+     *      padding[i, 1] specifies the number of elements to be padded after the
+     *      end of dimension i.
+     *      Each padding value must be nonnegative.
+     *      In the case of REFLECT mode, each padding value must be less than the
+     *      corresponding dimension.
+     *      In the case of SYMMETRIC mode, each padding value must be less than or
+     *      equal to the corresponding dimension.
+     * * 2: An {@link ANEURALNETWORKS_INT32} scalar, specifying the mode.
+     *      Options are 0:REFLECT and 1:SYMMETRIC.
+     *
+     * Outputs:
+     * * 0: A tensor of the same {@link OperandCode} as input0. The
+     *      output tensor has the same rank as input0, and each
+     *      dimension of the output tensor has the same size as the
+     *      corresponding dimension of the input tensor plus the size
+     *      of the padding:
+     *          output0.dimension[i] =
+     *              padding[i, 0] + input0.dimension[i] + padding[i, 1]
+     *      For a {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM} and
+     *      {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} tensor,
+     *      the scale and zeroPoint must be the same as input0.
+     *
+     * Available since NNAPI feature level 7.
+     */
+    ANEURALNETWORKS_MIRROR_PAD = 104,
+
+    /**
+     * Reverses a specified dimension of a tensor.
+     *
+     * Supported tensor {@link OperandCode}:
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
+     * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM}
+     * * {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link ANEURALNETWORKS_TENSOR_INT32}
+     *
+     * Supported tensor rank: up to 8.
+     *
+     * Inputs:
+     * * 0: Input tensor of rank n.
+     * * 1: Axis tensor of type {@link ANEURALNETWORKS_TENSOR_INT32} and shape [1],
+     *      specifying which dimension of the input tensor is to be reversed. The dimension
+     *      must be in the range [0, n).
+     *
+     * Outputs:
+     * * 0: The reversed tensor of the same shape as the input tensor.
+     *      For {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM} and
+     *      {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED} tensors,
+     *      the scales and zeroPoint must be the same as input0.
+     *
+     * Available since NNAPI feature level 7.
+     */
+    ANEURALNETWORKS_REVERSE = 105,
 } OperationCode;
 
 /**
@@ -5781,6 +5967,12 @@ typedef enum {
      * API releases.
      */
     ANEURALNETWORKS_FEATURE_LEVEL_5 = 31,
+    /** Android NNAPI feature level 6 */
+    ANEURALNETWORKS_FEATURE_LEVEL_6 = 1000006,
+    /** Android NNAPI feature level 7 */
+    ANEURALNETWORKS_FEATURE_LEVEL_7 = 1000007,
+    /** Android NNAPI feature level 8 */
+    ANEURALNETWORKS_FEATURE_LEVEL_8 = 1000008,
 } FeatureLevelCode;
 
 /**
@@ -6367,6 +6559,6 @@ typedef struct ANeuralNetworksMemoryDesc ANeuralNetworksMemoryDesc;
 
 __END_DECLS
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
 
 /** @} */

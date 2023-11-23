@@ -16,18 +16,17 @@
 package com.android.permissioncontroller.permission.ui.auto
 
 import android.app.Application
-import android.content.Context
 import android.os.Bundle
 import android.os.UserHandle
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import com.android.car.ui.utils.ViewUtils
+import com.android.car.ui.utils.ViewUtils.LazyLayoutView
 import com.android.permissioncontroller.R
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment
 import com.android.permissioncontroller.hibernation.isHibernationEnabled
 import com.android.permissioncontroller.permission.ui.UnusedAppsFragment
 import com.android.permissioncontroller.permission.ui.UnusedAppsFragment.Companion.INFO_MSG_CATEGORY
-import com.android.car.ui.utils.ViewUtils
-import com.android.car.ui.utils.ViewUtils.LazyLayoutView
 
 /**
  * Auto wrapper, with customizations, around [UnusedAppsFragment].
@@ -70,8 +69,8 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
         ViewUtils.initFocus(lazyLayoutView)
     }
 
-    override fun createFooterPreference(context: Context): Preference {
-        val preference = Preference(context)
+    override fun createFooterPreference(): Preference {
+        val preference = Preference(context!!)
         if (isHibernationEnabled()) {
             preference.summary = getString(R.string.unused_apps_page_summary)
         } else {
@@ -92,10 +91,9 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
     override fun createUnusedAppPref(
         app: Application,
         packageName: String,
-        user: UserHandle,
-        context: Context
+        user: UserHandle
     ): AutoUnusedAppsPreference {
-        return AutoUnusedAppsPreference(app, packageName, user, context)
+        return AutoUnusedAppsPreference(app, packageName, user, requireContext())
     }
 
     override fun setTitle(title: CharSequence) {
@@ -115,7 +113,7 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
     }
 
     private fun createNoUnusedAppsPreference(): Preference {
-        val preference = Preference(context)
+        val preference = Preference(context!!)
         preference.title = getString(R.string.zero_unused_apps)
         preference.key = UNUSED_PREFERENCE_KEY
         preference.isSelectable = false

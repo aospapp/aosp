@@ -25,11 +25,11 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SRC_FILES := vr.c
 
-ifeq ($(call is-board-platform-in-list,msm8998), true)
+ifneq (,$(call is-board-platform-in-list2,msm8998))
 LOCAL_SRC_FILES += vr-8998.c
 endif
 
-ifeq ($(call is-board-platform-in-list,sdm845), true)
+ifneq (,$(call is-board-platform-in-list2,sdm845))
 LOCAL_SRC_FILES += vr-845.c
 endif
 

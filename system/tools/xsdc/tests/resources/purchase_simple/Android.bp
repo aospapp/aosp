@@ -9,3 +9,11 @@ xsd_config {
     package_name: "purchase.simple",
     gen_writer: true,
 }
+
+xsd_config {
+    name: "xsdc_purchase_simple_tinyxml_tests",
+    srcs: ["purchase_simple.xsd"],
+    package_name: "purchase.simple",
+    gen_writer: true,
+    tinyxml: true,
+}

@@ -28,6 +28,11 @@ namespace pixel {
 namespace display {
 
 using aidl::android::hardware::common::NativeHandle;
+using RoiRect = ::aidl::android::hardware::graphics::common::Rect;
+using Weight = ::aidl::com::google::hardware::pixel::display::Weight;
+using HistogramPos = ::aidl::com::google::hardware::pixel::display::HistogramPos;
+using Priority = ::aidl::com::google::hardware::pixel::display::Priority;
+using HistogramErrorCode = ::aidl::com::google::hardware::pixel::display::HistogramErrorCode;
 
 // Default implementation
 class Display : public BnDisplay {
@@ -49,6 +54,10 @@ public:
                                                   int *_aidl_return) override;
     ndk::ScopedAStatus setMinIdleRefreshRate(int fps, int *_aidl_return) override;
     ndk::ScopedAStatus setRefreshRateThrottle(int delayMs, int *_aidl_return) override;
+    ndk::ScopedAStatus histogramSample(const RoiRect &roi, const Weight &weight, HistogramPos pos,
+                                       Priority pri, std::vector<char16_t> *histogrambuffer,
+                                       HistogramErrorCode *_aidl_return) override;
+    ndk::ScopedAStatus getPanelCalibrationStatus(PanelCalibrationStatus *_aidl_return) override;
 
 private:
     ExynosDevice *mDevice = nullptr;

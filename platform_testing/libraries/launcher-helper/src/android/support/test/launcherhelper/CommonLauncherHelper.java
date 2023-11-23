@@ -201,7 +201,7 @@ public class CommonLauncherHelper {
         }
 
         // Go to the home page
-        final Workspace workspace = launcher.pressHome();
+        final Workspace workspace = launcher.goHome();
         AppIcon icon = workspace.tryGetWorkspaceAppIcon(appName);
         if (icon == null) {
             icon = workspace.switchToAllApps().getAppIcon(appName);

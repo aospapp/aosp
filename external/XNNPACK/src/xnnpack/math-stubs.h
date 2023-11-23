@@ -29,6 +29,32 @@ typedef void (*xnn_f32_ext_unary_math_function)(
     const float* input,                          \
     float* output);
 
+#define DECLARE_F16_F32_CVT_MATH_FUNCTION(fn_name) \
+  void fn_name(                                    \
+    size_t n,                                      \
+    const void* input,                             \
+    float* output);
+
+#define DECLARE_F32_F16_CVT_MATH_FUNCTION(fn_name) \
+  void fn_name(                                    \
+    size_t n,                                      \
+    const float* input,                            \
+    void* output);
+
+#define DECLARE_F32_QS8_CVT_MATH_FUNCTION(fn_name) \
+  void fn_name(                                    \
+    size_t n,                                      \
+    const float* input,                            \
+    int8_t* output,                                \
+    int8_t output_zero_point);
+
+#define DECLARE_F32_QU8_CVT_MATH_FUNCTION(fn_name) \
+  void fn_name(                                    \
+    size_t n,                                      \
+    const float* input,                            \
+    uint8_t* output,                               \
+    uint8_t output_zero_point);
+
 #define DECLARE_F32_EXT_UNARY_MATH_FUNCTION(fn_name) \
   void fn_name(                                      \
     size_t n,                                        \
@@ -36,12 +62,39 @@ typedef void (*xnn_f32_ext_unary_math_function)(
     float* output_mantissa,                          \
     float* output_exponent);
 
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__neon_int16)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__neon_int32)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__neonfp16)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__sse2_int16)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__sse2_int32)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__sse41_int16)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__sse41_int32)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__f16c)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__wasmsimd_int16)
+DECLARE_F16_F32_CVT_MATH_FUNCTION(xnn_math_f16_f32_cvt__wasmsimd_int32)
+
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__neon)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__neonfp16)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__sse2)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__sse41)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__f16c)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__wasmsimd)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__scalar_bitcast)
+DECLARE_F32_F16_CVT_MATH_FUNCTION(xnn_math_f32_f16_cvt__scalar_fabsf)
+
+DECLARE_F32_QS8_CVT_MATH_FUNCTION(xnn_math_f32_qs8_cvt__neon)
+DECLARE_F32_QS8_CVT_MATH_FUNCTION(xnn_math_f32_qs8_cvt__neonv8)
+
+DECLARE_F32_QU8_CVT_MATH_FUNCTION(xnn_math_f32_qu8_cvt__neon)
+DECLARE_F32_QU8_CVT_MATH_FUNCTION(xnn_math_f32_qu8_cvt__neonv8)
+
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__neon_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__neonv8)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__sse_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__sse2_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__sse41)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__wasmsimd_addsub)
+DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__wasmsimd_native)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__scalar_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__scalar_nearbyint)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundne__scalar_rint)
@@ -54,6 +107,7 @@ DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__sse2_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__sse41)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__wasmsimd_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__wasmsimd_cvt)
+DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__wasmsimd_native)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__scalar_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__scalar_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundd__scalar_floor)
@@ -66,6 +120,7 @@ DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__sse2_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__sse41)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__wasmsimd_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__wasmsimd_cvt)
+DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__wasmsimd_native)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__scalar_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__scalar_ceil)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundu__scalar_cvt)
@@ -78,6 +133,7 @@ DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__sse2_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__sse41)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__wasmsimd_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__wasmsimd_cvt)
+DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__wasmsimd_native)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__scalar_addsub)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__scalar_cvt)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_roundz__scalar_trunc)
@@ -101,6 +157,7 @@ DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__neonfma_rr2_p5)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__neonfma_rr2_lut64_p2)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__neonfma_rr2_lut2048_p1)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__sse2_rr2_p5)
+DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__avx2_rr1_p5)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__avx2_rr2_p5)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__scalar_rr2_p5)
 DECLARE_F32_UNARY_MATH_FUNCTION(xnn_math_f32_expminus__scalar_rr2_lut64_p2)

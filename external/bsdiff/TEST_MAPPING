@@ -3,5 +3,10 @@
     {
       "name": "bsdiff_unittest"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "bsdiff_unittest"
+    }
   ]
 }

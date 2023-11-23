@@ -43,8 +43,11 @@ from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_FOR_ER_DB_CHANGE
 from acts_contrib.test_utils.tel.tel_defines import CARRIER_ID_METADATA_URL_P
 from acts_contrib.test_utils.tel.tel_defines import CARRIER_ID_CONTENT_URL_P
 from acts_contrib.test_utils.tel.tel_defines import CARRIER_ID_VERSION_P
+from acts_contrib.test_utils.tel.tel_bootloader_utils import fastboot_wipe
 from acts_contrib.test_utils.tel.tel_lookup_tables import device_capabilities
 from acts_contrib.test_utils.tel.tel_lookup_tables import operator_capabilities
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_cbrs_and_default_sub_id
 from acts_contrib.test_utils.tel.tel_test_utils import lock_lte_band_by_mds
 from acts_contrib.test_utils.tel.tel_test_utils import get_model_name
 from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
@@ -52,7 +55,6 @@ from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts_contrib.test_utils.tel.tel_test_utils import trigger_modem_crash_by_modem
 from acts_contrib.test_utils.tel.tel_test_utils import bring_up_sl4a
-from acts_contrib.test_utils.tel.tel_test_utils import fastboot_wipe
 from acts_contrib.test_utils.tel.tel_test_utils import get_carrier_config_version
 from acts_contrib.test_utils.tel.tel_test_utils import get_carrier_id_version
 from acts_contrib.test_utils.tel.tel_test_utils import get_er_db_id_version
@@ -61,14 +63,13 @@ from acts_contrib.test_utils.tel.tel_test_utils import install_googleaccountutil
 from acts_contrib.test_utils.tel.tel_test_utils import add_whitelisted_account
 from acts_contrib.test_utils.tel.tel_test_utils import adb_disable_verity
 from acts_contrib.test_utils.tel.tel_test_utils import install_carriersettings_apk
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
 from acts_contrib.test_utils.tel.tel_test_utils import cleanup_configupdater
 from acts_contrib.test_utils.tel.tel_test_utils import pull_carrier_id_files
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_toggle_state
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts_contrib.test_utils.tel.tel_subscription_utils import get_cbrs_and_default_sub_id
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_toggle_state
 from acts.utils import get_current_epoch_time
 from acts.keys import Config
+
 
 class TelLiveNoQXDMLogTest(TelephonyBaseTest):
     def setup_class(self):

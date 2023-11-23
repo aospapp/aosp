@@ -17,11 +17,13 @@
 package android.net.ipsec.ike.ike3gpp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
 public class Ike3gppParamsTest {
     public static final byte PDU_SESSION_ID = (byte) 5;
+    private static final String DEVICE_IDENTITY_IMEI = "123456789123456";
 
     @Test
     public void testBuildIke3gppParams() {
@@ -36,5 +38,25 @@ public class Ike3gppParamsTest {
         final Ike3gppParams params = new Ike3gppParams.Builder().build();
 
         assertEquals(Ike3gppParams.PDU_SESSION_ID_UNSET, params.getPduSessionId());
+    }
+
+    @Test
+    public void testBuildIke3gppParamsWithoutDeviceIdentity() {
+        final Ike3gppParams params = new Ike3gppParams.Builder().build();
+        assertNull(params.getMobileDeviceIdentity());
+    }
+
+    @Test
+    public void testBuildIke3gppParamsWithNullDeviceIdentity() {
+        final Ike3gppParams params =
+                new Ike3gppParams.Builder().setMobileDeviceIdentity(null).build();
+        assertNull(params.getMobileDeviceIdentity());
+    }
+
+    @Test
+    public void testBuildIke3gppParamsWithDeviceIdentity() {
+        final Ike3gppParams params =
+                new Ike3gppParams.Builder().setMobileDeviceIdentity(DEVICE_IDENTITY_IMEI).build();
+        assertEquals(DEVICE_IDENTITY_IMEI, params.getMobileDeviceIdentity());
     }
 }

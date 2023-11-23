@@ -24,7 +24,8 @@ import android.os.HandlerThread;
 import android.os.Process;
 import android.util.Log;
 
-import com.android.wallpaper.compat.BuildCompat;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -40,9 +41,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
 /**
  * Logs messages to logcat and for debuggable build types ("eng" or "userdebug") also mirrors logs
@@ -72,7 +70,8 @@ public class DiskBasedLogger {
             if (sLoggerThread != null && sLoggerThread.isAlive()) {
 
                 // HandlerThread#quitSafely was added in JB-MR2, so prefer to use that instead of #quit.
-                boolean isQuitSuccessful = BuildCompat.isAtLeastJBMR2()
+                boolean isQuitSuccessful =
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2
                         ? sLoggerThread.quitSafely()
                         : sLoggerThread.quit();
 

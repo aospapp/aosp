@@ -1,7 +1,0 @@
-{
-  "presubmit": [
-    {
-      "name": "CtsTelephonySdk28TestCases"
-    }
-  ]
-}

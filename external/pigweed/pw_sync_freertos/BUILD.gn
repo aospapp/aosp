@@ -14,9 +14,18 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_build/error.gni")
+import("$dir_pw_build/module_config.gni")
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_chrono/backend.gni")
 import("$dir_pw_docgen/docs.gni")
+
+declare_args() {
+  # The build target that overrides the default configuration options for this
+  # module. This should point to a source set that provides defines through a
+  # public config (which may -include a file or add defines directly).
+  pw_sync_freertos_CONFIG = pw_build_DEFAULT_MODULE_CONFIG
+}
 
 config("public_include_path") {
   include_dirs = [ "public" ]
@@ -25,6 +34,24 @@ config("public_include_path") {
 
 config("backend_config") {
   include_dirs = [ "public_overrides" ]
+  visibility = [ ":*" ]
+}
+
+pw_source_set("config") {
+  public = [ "public/pw_sync_freertos/config.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    "$dir_pw_third_party/freertos",
+    pw_sync_freertos_CONFIG,
+  ]
+}
+
+pw_build_assert("check_system_clock_backend") {
+  condition =
+      pw_chrono_SYSTEM_CLOCK_BACKEND == "" ||
+      pw_chrono_SYSTEM_CLOCK_BACKEND == "$dir_pw_chrono_freertos:system_clock"
+  message = "The FreeRTOS pw_sync backends only work with the FreeRTOS " +
+            "pw::chrono::SystemClock backend."
   visibility = [ ":*" ]
 }
 
@@ -48,12 +75,10 @@ pw_source_set("binary_semaphore") {
     "$dir_pw_third_party/freertos",
   ]
   sources = [ "binary_semaphore.cc" ]
-  deps = [ "$dir_pw_sync:binary_semaphore.facade" ]
-  assert(pw_chrono_SYSTEM_CLOCK_BACKEND == "" ||
-             pw_chrono_SYSTEM_CLOCK_BACKEND ==
-                 "$dir_pw_chrono_freertos:system_clock",
-         "The FreeRTOS pw::sync::BinarySemaphore backend only works with the " +
-             "FreeRTOS pw::chrono::SystemClock backend.")
+  deps = [
+    ":check_system_clock_backend",
+    "$dir_pw_sync:binary_semaphore.facade",
+  ]
 }
 
 # This target provides the backend for pw::sync::CountingSemaphore.
@@ -76,12 +101,10 @@ pw_source_set("counting_semaphore") {
     "$dir_pw_third_party/freertos",
   ]
   sources = [ "counting_semaphore.cc" ]
-  deps = [ "$dir_pw_sync:counting_semaphore.facade" ]
-  assert(pw_chrono_SYSTEM_CLOCK_BACKEND == "" ||
-             pw_chrono_SYSTEM_CLOCK_BACKEND ==
-                 "$dir_pw_chrono_freertos:system_clock",
-         "The FreeRTOS pw::sync::CountingSemaphore backend only works with " +
-             "the FreeRTOS pw::chrono::SystemClock backend.")
+  deps = [
+    ":check_system_clock_backend",
+    "$dir_pw_sync:counting_semaphore.facade",
+  ]
 }
 
 # This target provides the backend for pw::sync::Mutex.
@@ -120,16 +143,73 @@ pw_source_set("timed_mutex") {
   ]
   sources = [ "timed_mutex.cc" ]
   deps = [
+    ":check_system_clock_backend",
     "$dir_pw_assert",
     "$dir_pw_chrono_freertos:system_clock",
     "$dir_pw_interrupt:context",
     "$dir_pw_third_party/freertos",
   ]
-  assert(pw_chrono_SYSTEM_CLOCK_BACKEND == "" ||
-             pw_chrono_SYSTEM_CLOCK_BACKEND ==
-                 "$dir_pw_chrono_freertos:system_clock",
-         "The FreeRTOS pw::sync::Mutex backend only works with the FreeRTOS " +
-             "pw::chrono::SystemClock backend.")
+}
+
+config("public_overrides_thread_notification_include_path") {
+  include_dirs = [ "public_overrides/thread_notification" ]
+  visibility = [ ":thread_notification" ]
+}
+
+# This target provides the backend for pw::sync::ThreadNotification based on
+# task notifications.
+pw_source_set("thread_notification") {
+  public_configs = [
+    ":public_include_path",
+    ":public_overrides_thread_notification_include_path",
+  ]
+  public = [
+    "public/pw_sync_freertos/thread_notification_inline.h",
+    "public/pw_sync_freertos/thread_notification_native.h",
+    "public_overrides/thread_notification/pw_sync_backend/thread_notification_inline.h",
+    "public_overrides/thread_notification/pw_sync_backend/thread_notification_native.h",
+  ]
+  public_deps = [
+    "$dir_pw_interrupt:context",
+    "$dir_pw_sync:thread_notification.facade",
+    "$dir_pw_third_party/freertos",
+  ]
+  sources = [ "thread_notification.cc" ]
+  deps = [
+    ":config",
+    dir_pw_assert,
+  ]
+}
+
+config("public_overrides_timed_thread_notification_include_path") {
+  include_dirs = [ "public_overrides/timed_thread_notification" ]
+  visibility = [ ":timed_thread_notification" ]
+}
+
+# This target provides the backend for pw::sync::TimedThreadNotification based
+# on task notifications.
+pw_source_set("timed_thread_notification") {
+  public_configs = [
+    ":public_include_path",
+    ":public_overrides_timed_thread_notification_include_path",
+  ]
+  public = [
+    "public/pw_sync_freertos/timed_thread_notification_inline.h",
+    "public_overrides/timed_thread_notification/pw_sync_backend/timed_thread_notification_inline.h",
+  ]
+  public_deps = [
+    "$dir_pw_chrono:system_clock",
+    "$dir_pw_sync:timed_thread_notification.facade",
+  ]
+  sources = [ "timed_thread_notification.cc" ]
+  deps = [
+    ":check_system_clock_backend",
+    ":config",
+    "$dir_pw_assert",
+    "$dir_pw_chrono_freertos:system_clock",
+    "$dir_pw_interrupt:context",
+    "$dir_pw_third_party/freertos",
+  ]
 }
 
 # This target provides the backend for pw::sync::InterruptSpinLock.
@@ -150,7 +230,6 @@ pw_source_set("interrupt_spin_lock") {
     "$dir_pw_assert",
     "$dir_pw_interrupt:context",
     "$dir_pw_sync:interrupt_spin_lock.facade",
-    "$dir_pw_third_party/freertos",
   ]
 }
 

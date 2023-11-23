@@ -31,7 +31,7 @@
     <string name="printer_not_encrypted" msgid="1913051469275483673">"ఎన్‌క్రిప్ట్ చేయబడలేదు"</string>
     <string name="printer_check" msgid="6428369671197132828">"ప్రింటర్‌ని తనిఖీ చేయి"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"పంపడానికి వేచి ఉంది"</string>
-    <string name="unreadable_input" msgid="2199948329556527912">"పత్రాన్ని చదవడం సాధ్యం కాలేదు"</string>
+    <string name="unreadable_input" msgid="2199948329556527912">"డాక్యుమెంట్‌ను చదవడం సాధ్యం కాలేదు"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 అం."</string>
     <string name="media_size_89x119mm" msgid="6828167243395807385">"89x119 మి.మీ."</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"కనెక్షన్‌లు"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"ఆటోమేటిక్ ప్రింట్ సర్వీస్, Wi-Fi Direct ప్రింటర్‌లను కనుగొనలేకపోయింది"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Directను డిజేబుల్ చేయి"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"సమీపంలో ఉన్న పరికరాలను కనుగొనడానికి ఆటోమేటిక్‌ ప్రింట్ సర్వీస్‌కు లొకేషన్ అనుమతి అవసరం."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"సమీపంలోని ప్రింటర్‌లను కనుగొనడానికి ఆటోమేటిక్ ప్రింట్ సర్వీస్‌కు సమీపంలోని పరికరాల అనుమతి అవసరం."</string>
     <string name="fix" msgid="7784394272611365393">"అనుమతిని సమీక్షించు"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"సమీపంలోని పరికరాలను కనుగొనడానికి ఆటోమేటిక్ ప్రింట్ సర్వీస్ పని చేయాలంటే లొకేషన్ సర్వీస్‌లు ఎనేబుల్ చేసి ఉండడం అవసరం."</string>
-    <string name="enable_location" msgid="3627841004298863140">"లొకేషన్‌ను ఎనేబుల్ చేయి"</string>
     <string name="print" msgid="7851318072404916362">"ప్రింట్ చేయి"</string>
 </resources>

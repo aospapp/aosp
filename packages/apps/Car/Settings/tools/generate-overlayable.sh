@@ -18,7 +18,7 @@ if [[ -z "$ANDROID_BUILD_TOP" ]]; then
   exit 1
 fi
 PROJECT_TOP=$ANDROID_BUILD_TOP/packages/apps/Car/Settings
-python3 $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
+python3 $ANDROID_BUILD_TOP/packages/apps/Car/systemlibs/tools/rro/generate-overlayable.py \
     -n CarSettings \
     -r $PROJECT_TOP/res \
     -e $PROJECT_TOP/res/values/overlayable.xml $PROJECT_TOP/res/values/preference_keys.xml $PROJECT_TOP/res/values/preference_screen_keys.xml \

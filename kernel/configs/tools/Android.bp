@@ -1,10 +1,6 @@
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "kernel_configs_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: ["kernel_configs_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 python_binary_host {
@@ -14,13 +10,4 @@ python_binary_host {
     srcs: [
         "kconfig_xml_fixup.py",
     ],
-
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: false,
-        },
-    },
 }

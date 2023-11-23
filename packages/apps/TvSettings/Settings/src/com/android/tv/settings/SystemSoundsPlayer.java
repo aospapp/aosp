@@ -76,7 +76,8 @@ public class SystemSoundsPlayer implements LifecycleObserver {
     public SystemSoundsPlayer(Context context) {
         mContext = context.getApplicationContext();
         float attenuationDb = mContext.getResources().getInteger(
-                com.android.internal.R.integer.config_soundEffectVolumeDb);
+                mContext.getResources().getIdentifier("config_soundEffectVolumeDb",
+                        "integer", "android"));
         // This is the same value that is used for framework system sounds as set by
         // com.android.server.audio.SoundEffectsHelper#onPlaySoundEffect()
         mVolumeAttenuation = (float) Math.pow(10, attenuationDb / 20);

@@ -3,5 +3,10 @@
     {
       "name": "CtsHostsideWebViewTests"
     }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsHostsideWebViewTests"
+    }
   ]
 }

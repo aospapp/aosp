@@ -20,8 +20,10 @@
 //#define LOG_NDEBUG 0
 
 #include <cutils/native_handle.h>
+#include <cutils/properties.h>
 #include <hwbinder/IPCThreadState.h>
 #include <media/AudioContainers.h>
+#include <mediautils/TimeCheck.h>
 #include <utils/Log.h>
 
 #include PATH(android/hardware/audio/FILE_VERSION/IPrimaryDevice.h)
@@ -30,27 +32,43 @@
 #include <util/CoreUtils.h>
 
 #include "DeviceHalHidl.h"
-#include "EffectHalHidl.h"
 #include "ParameterUtils.h"
 #include "StreamHalHidl.h"
 
-using ::android::hardware::audio::common::CPP_VERSION::implementation::HidlUtils;
+using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::implementation::HidlUtils;
 using ::android::hardware::audio::common::utils::EnumBitfield;
-using ::android::hardware::audio::CPP_VERSION::implementation::CoreUtils;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::implementation::CoreUtils;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 
 namespace android {
-namespace CPP_VERSION {
 
-using namespace ::android::hardware::audio::common::CPP_VERSION;
-using namespace ::android::hardware::audio::CPP_VERSION;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
+using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
-using EffectHalHidl = ::android::effect::CPP_VERSION::EffectHalHidl;
+#define TIME_CHECK() auto timeCheck = \
+        mediautils::makeTimeCheckStatsForClassMethod(getClassName(), __func__)
 
-DeviceHalHidl::DeviceHalHidl(const sp<IDevice>& device)
-        : ConversionHelperHidl("Device"), mDevice(device),
-          mPrimaryDevice(IPrimaryDevice::castFrom(device)) {
+DeviceHalHidl::DeviceHalHidl(const sp<::android::hardware::audio::CPP_VERSION::IDevice>& device)
+        : CoreConversionHelperHidl("DeviceHalHidl"), mDevice(device) {
+}
+
+DeviceHalHidl::DeviceHalHidl(
+        const sp<::android::hardware::audio::CPP_VERSION::IPrimaryDevice>& device)
+        : CoreConversionHelperHidl("DeviceHalHidl"),
+#if MAJOR_VERSION <= 6 || (MAJOR_VERSION == 7 && MINOR_VERSION == 0)
+          mDevice(device),
+#endif
+          mPrimaryDevice(device) {
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+    auto getDeviceRet = mPrimaryDevice->getDevice();
+    if (getDeviceRet.isOk()) {
+        mDevice = getDeviceRet;
+    } else {
+        ALOGE("Call to IPrimaryDevice.getDevice has failed: %s",
+                getDeviceRet.description().c_str());
+    }
+#endif
 }
 
 DeviceHalHidl::~DeviceHalHidl() {
@@ -70,22 +88,26 @@ status_t DeviceHalHidl::getSupportedDevices(uint32_t*) {
 }
 
 status_t DeviceHalHidl::initCheck() {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("initCheck", mDevice->initCheck());
 }
 
 status_t DeviceHalHidl::setVoiceVolume(float volume) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     if (mPrimaryDevice == 0) return INVALID_OPERATION;
     return processReturn("setVoiceVolume", mPrimaryDevice->setVoiceVolume(volume));
 }
 
 status_t DeviceHalHidl::setMasterVolume(float volume) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("setMasterVolume", mDevice->setMasterVolume(volume));
 }
 
 status_t DeviceHalHidl::getMasterVolume(float *volume) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mDevice->getMasterVolume(
@@ -99,17 +121,20 @@ status_t DeviceHalHidl::getMasterVolume(float *volume) {
 }
 
 status_t DeviceHalHidl::setMode(audio_mode_t mode) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     if (mPrimaryDevice == 0) return INVALID_OPERATION;
     return processReturn("setMode", mPrimaryDevice->setMode(AudioMode(mode)));
 }
 
 status_t DeviceHalHidl::setMicMute(bool state) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("setMicMute", mDevice->setMicMute(state));
 }
 
 status_t DeviceHalHidl::getMicMute(bool *state) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mDevice->getMicMute(
@@ -123,11 +148,13 @@ status_t DeviceHalHidl::getMicMute(bool *state) {
 }
 
 status_t DeviceHalHidl::setMasterMute(bool state) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("setMasterMute", mDevice->setMasterMute(state));
 }
 
 status_t DeviceHalHidl::getMasterMute(bool *state) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mDevice->getMasterMute(
@@ -141,6 +168,7 @@ status_t DeviceHalHidl::getMasterMute(bool *state) {
 }
 
 status_t DeviceHalHidl::setParameters(const String8& kvPairs) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     hidl_vec<ParameterValue> hidlParams;
     status_t status = parametersFromHal(kvPairs, &hidlParams);
@@ -151,6 +179,7 @@ status_t DeviceHalHidl::setParameters(const String8& kvPairs) {
 }
 
 status_t DeviceHalHidl::getParameters(const String8& keys, String8 *values) {
+    TIME_CHECK();
     values->clear();
     if (mDevice == 0) return NO_INIT;
     hidl_vec<hidl_string> hidlKeys;
@@ -171,6 +200,7 @@ status_t DeviceHalHidl::getParameters(const String8& keys, String8 *values) {
 
 status_t DeviceHalHidl::getInputBufferSize(
         const struct audio_config *config, size_t *size) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     AudioConfig hidlConfig;
     HidlUtils::audioConfigFromHal(*config, true /*isInput*/, &hidlConfig);
@@ -193,6 +223,7 @@ status_t DeviceHalHidl::openOutputStream(
         struct audio_config *config,
         const char *address,
         sp<StreamOutHalInterface> *outStream) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     DeviceAddress hidlDevice;
     if (status_t status = CoreUtils::deviceAddressFromHal(deviceType, address, &hidlDevice);
@@ -204,17 +235,32 @@ status_t DeviceHalHidl::openOutputStream(
             status != OK) {
         return status;
     }
+
+#if !(MAJOR_VERSION == 7 && MINOR_VERSION == 1)
+    //TODO: b/193496180 use spatializer flag at audio HAL when available
+    if ((flags & AUDIO_OUTPUT_FLAG_SPATIALIZER) != 0) {
+        flags = (audio_output_flags_t)(flags & ~AUDIO_OUTPUT_FLAG_SPATIALIZER);
+        flags = (audio_output_flags_t)
+                (flags | AUDIO_OUTPUT_FLAG_FAST | AUDIO_OUTPUT_FLAG_DEEP_BUFFER);
+    }
+#endif
+
     CoreUtils::AudioOutputFlags hidlFlags;
     if (status_t status = CoreUtils::audioOutputFlagsFromHal(flags, &hidlFlags); status != OK) {
         return status;
     }
     Result retval = Result::NOT_INITIALIZED;
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+    Return<void> ret = mDevice->openOutputStream_7_1(
+#else
     Return<void> ret = mDevice->openOutputStream(
+#endif
             handle, hidlDevice, hidlConfig, hidlFlags,
 #if MAJOR_VERSION >= 4
             {} /* metadata */,
 #endif
-            [&](Result r, const sp<IStreamOut>& result, const AudioConfig& suggestedConfig) {
+            [&](Result r, const sp<::android::hardware::audio::CPP_VERSION::IStreamOut>& result,
+                    const AudioConfig& suggestedConfig) {
                 retval = r;
                 if (retval == Result::OK) {
                     *outStream = new StreamOutHalHidl(result);
@@ -234,6 +280,7 @@ status_t DeviceHalHidl::openInputStream(
         audio_devices_t outputDevice,
         const char *outputDeviceAddress,
         sp<StreamInHalInterface> *inStream) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     DeviceAddress hidlDevice;
     if (status_t status = CoreUtils::deviceAddressFromHal(devices, address, &hidlDevice);
@@ -284,7 +331,9 @@ status_t DeviceHalHidl::openInputStream(
 #endif
     Return<void> ret = mDevice->openInputStream(
             handle, hidlDevice, hidlConfig, hidlFlags, sinkMetadata,
-            [&](Result r, const sp<IStreamIn>& result, const AudioConfig& suggestedConfig) {
+            [&](Result r,
+                const sp<::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn>& result,
+                    const AudioConfig& suggestedConfig) {
                 retval = r;
                 if (retval == Result::OK) {
                     *inStream = new StreamInHalHidl(result);
@@ -295,6 +344,7 @@ status_t DeviceHalHidl::openInputStream(
 }
 
 status_t DeviceHalHidl::supportsAudioPatches(bool *supportsPatches) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("supportsAudioPatches", mDevice->supportsAudioPatches(), supportsPatches);
 }
@@ -305,6 +355,7 @@ status_t DeviceHalHidl::createAudioPatch(
         unsigned int num_sinks,
         const struct audio_port_config *sinks,
         audio_patch_handle_t *patch) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     if (patch == nullptr) return BAD_VALUE;
 
@@ -350,6 +401,7 @@ status_t DeviceHalHidl::createAudioPatch(
 }
 
 status_t DeviceHalHidl::releaseAudioPatch(audio_patch_handle_t patch) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("releaseAudioPatch", mDevice->releaseAudioPatch(patch));
 }
@@ -372,10 +424,12 @@ status_t DeviceHalHidl::getAudioPortImpl(HalPort *port) {
 }
 
 status_t DeviceHalHidl::getAudioPort(struct audio_port *port) {
+    TIME_CHECK();
     return getAudioPortImpl(port);
 }
 
 status_t DeviceHalHidl::getAudioPort(struct audio_port_v7 *port) {
+    TIME_CHECK();
 #if MAJOR_VERSION >= 7
     return getAudioPortImpl(port);
 #else
@@ -396,6 +450,7 @@ status_t DeviceHalHidl::getAudioPort(struct audio_port_v7 *port) {
 }
 
 status_t DeviceHalHidl::setAudioPortConfig(const struct audio_port_config *config) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     AudioPortConfig hidlConfig;
     HidlUtils::audioPortConfigFromHal(*config, &hidlConfig);
@@ -410,6 +465,7 @@ status_t DeviceHalHidl::getMicrophones(
 }
 #elif MAJOR_VERSION >= 4
 status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *microphonesInfo) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     Result retval;
     Return<void> ret = mDevice->getMicrophones(
@@ -430,10 +486,10 @@ status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *micro
 #if MAJOR_VERSION >= 6
 status_t DeviceHalHidl::addDeviceEffect(
         audio_port_handle_t device, sp<EffectHalInterface> effect) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("addDeviceEffect", mDevice->addDeviceEffect(
-            static_cast<AudioPortHandle>(device),
-            static_cast<EffectHalHidl*>(effect.get())->effectId()));
+            static_cast<AudioPortHandle>(device), effect->effectId()));
 }
 #else
 status_t DeviceHalHidl::addDeviceEffect(
@@ -445,10 +501,10 @@ status_t DeviceHalHidl::addDeviceEffect(
 #if MAJOR_VERSION >= 6
 status_t DeviceHalHidl::removeDeviceEffect(
         audio_port_handle_t device, sp<EffectHalInterface> effect) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     return processReturn("removeDeviceEffect", mDevice->removeDeviceEffect(
-            static_cast<AudioPortHandle>(device),
-            static_cast<EffectHalHidl*>(effect.get())->effectId()));
+            static_cast<AudioPortHandle>(device), effect->effectId()));
 }
 #else
 status_t DeviceHalHidl::removeDeviceEffect(
@@ -457,7 +513,48 @@ status_t DeviceHalHidl::removeDeviceEffect(
 }
 #endif
 
+status_t DeviceHalHidl::setConnectedState(const struct audio_port_v7 *port, bool connected) {
+    TIME_CHECK();
+    if (mDevice == 0) return NO_INIT;
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+    if (supportsSetConnectedState7_1) {
+        AudioPort hidlPort;
+        if (status_t result = HidlUtils::audioPortFromHal(*port, &hidlPort); result != NO_ERROR) {
+            return result;
+        }
+        Return<Result> ret = mDevice->setConnectedState_7_1(hidlPort, connected);
+        if (!ret.isOk() || ret != Result::NOT_SUPPORTED) {
+            return processReturn("setConnectedState_7_1", ret);
+        } else if (ret == Result::OK) {
+            return NO_ERROR;
+        }
+        supportsSetConnectedState7_1 = false;
+    }
+#endif
+    DeviceAddress hidlAddress;
+    if (status_t result = CoreUtils::deviceAddressFromHal(
+                    port->ext.device.type, port->ext.device.address, &hidlAddress);
+            result != NO_ERROR) {
+        return result;
+    }
+    return processReturn("setConnectedState", mDevice->setConnectedState(hidlAddress, connected));
+}
+
+error::Result<audio_hw_sync_t> DeviceHalHidl::getHwAvSync() {
+    TIME_CHECK();
+    if (mDevice == 0) return NO_INIT;
+    audio_hw_sync_t value;
+    Result result;
+    Return<void> ret = mDevice->getHwAvSync([&value, &result](Result r, audio_hw_sync_t v) {
+        value = v;
+        result = r;
+    });
+    RETURN_IF_ERROR(processReturn("getHwAvSync", ret, result));
+    return value;
+}
+
 status_t DeviceHalHidl::dump(int fd, const Vector<String16>& args) {
+    TIME_CHECK();
     if (mDevice == 0) return NO_INIT;
     native_handle_t* hidlHandle = native_handle_create(1, 0);
     hidlHandle->data[0] = fd;
@@ -480,5 +577,4 @@ status_t DeviceHalHidl::dump(int fd, const Vector<String16>& args) {
     return processReturn("dump", ret);
 }
 
-} // namespace CPP_VERSION
 } // namespace android

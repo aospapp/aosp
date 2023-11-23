@@ -29,16 +29,15 @@ enum class Transport : size_t {
     EMPTY = 0,
     PASSTHROUGH,
     HWBINDER,
+    INET,
 };
 
-static const std::array<std::string, 3> gTransportStrings = {
-    {
-        "",
-        "passthrough",
-        "hwbinder",
-    }
-};
-
+static constexpr std::array<const char*, 4> gTransportStrings = {{
+    "",
+    "passthrough",
+    "hwbinder",
+    "inet",
+}};
 
 } // namespace vintf
 } // namespace android

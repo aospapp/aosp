@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_HAL_INTERFACES_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_HAL_INTERFACES_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_HAL_INTERFACES_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_HAL_INTERFACES_H
 
 #include <android/hardware/neuralnetworks/1.0/IDevice.h>
 #include <android/hardware/neuralnetworks/1.0/IExecutionCallback.h>
@@ -56,4 +56,4 @@ inline constexpr V1_3::Priority kDefaultPriority13 = V1_3::Priority::MEDIUM;
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_HAL_INTERFACES_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_HAL_INTERFACES_H

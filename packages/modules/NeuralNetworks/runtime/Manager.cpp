@@ -22,11 +22,13 @@
 #include <LegacyUtils.h>
 #include <MetaModel.h>
 #include <Tracing.h>
+#include <android-base/properties.h>
 #include <nnapi/IBurst.h>
 #include <nnapi/IDevice.h>
 #include <nnapi/IExecution.h>
 #include <nnapi/IPreparedModel.h>
 #include <nnapi/SharedMemory.h>
+#include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
 #include <nnapi/Validation.h>
 
@@ -35,15 +37,17 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "ExecutionCallback.h"
-#include "FeatureLevel.h"
 #include "Memory.h"
 #include "ModelArgumentInfo.h"
+#include "ServerFlag.h"
 #include "TypeManager.h"
 
 #ifndef NN_COMPATIBILITY_LIBRARY_BUILD
@@ -51,28 +55,64 @@
 #include <cutils/native_handle.h>
 #include <nnapi/hal/1.3/Buffer.h>
 #include <nnapi/hal/Service.h>
-
-#include "AppInfoFetcher.h"
 #endif  // NN_COMPATIBILITY_LIBRARY_BUILD
+
+#ifdef NN_EXPERIMENTAL_FEATURE
+#include "NeuralNetworksExperimentalFeatures.h"
+#endif  // NN_EXPERIMENTAL_FEATURE
 
 namespace android {
 namespace nn {
+namespace {
+
+Version getRuntimeFeatureLevelVersionHelper() {
+#if defined(NN_EXPERIMENTAL_FEATURE) && defined(NN_COMPATIBILITY_LIBRARY_BUILD)
+#error "NN_EXPERIMENTAL_FEATURE is not supported when NN_COMPATIBILITY_LIBRARY_BUILD is defined"
+#elif defined(NN_EXPERIMENTAL_FEATURE)
+    auto version = kVersionFeatureLevelExperimental;
+    // Enable "runtimeOnlyFeatures" to indicate that the runtime feature level version supports
+    // features that are only available in the runtime.
+    version.runtimeOnlyFeatures = true;
+#elif defined(NN_COMPATIBILITY_LIBRARY_BUILD)
+    auto version = serverFeatureLevelToVersion(kMaxFeatureLevelNum);
+#else   // !defined(NN_COMPATIBILITY_LIBRARY_BUILD) && !defined(NN_EXPERIMENTAL_FEATURE)
+    auto version = serverFeatureLevelToVersion(getServerFeatureLevelFlag());
+    // Enable "runtimeOnlyFeatures" to indicate that the runtime feature level version supports
+    // features that are only available in the runtime.
+    version.runtimeOnlyFeatures = true;
+#endif  // !defined(NN_COMPATIBILITY_LIBRARY_BUILD) && !defined(NN_EXPERIMENTAL_FEATURE)
+    return version;
+}
+
+Version getRuntimeFeatureLevelVersion() {
+    static const Version version = getRuntimeFeatureLevelVersionHelper();
+    return version;
+}
+
+bool getWhetherPlatformTelemetryIsEnabled() {
+#if !defined(NN_COMPATIBILITY_LIBRARY_BUILD) && !defined(NN_EXPERIMENTAL_FEATURE)
+    return getServerTelemetryEnableFlag();
+#else   // !defined(NN_COMPATIBILITY_LIBRARY_BUILD) && !defined(NN_EXPERIMENTAL_FEATURE)
+    return false;
+#endif  // !defined(NN_COMPATIBILITY_LIBRARY_BUILD) && !defined(NN_EXPERIMENTAL_FEATURE)
+}
+
+}  // namespace
 
 // A Device with actual underlying driver
 class DriverDevice : public Device {
    public:
     // Create a DriverDevice from a name and a DeviceFactory function.
     // Returns nullptr on failure.
-    static std::shared_ptr<DriverDevice> create(SharedDevice device, bool isUpdatable = false);
+    static std::shared_ptr<DriverDevice> create(SharedDevice device);
 
     // Prefer using DriverDevice::create
-    explicit DriverDevice(SharedDevice device, bool isUpdatable);
+    explicit DriverDevice(SharedDevice device);
 
     const std::string& getName() const override { return kInterface->getName(); }
     const std::string& getVersionString() const override { return kInterface->getVersionString(); }
-    int64_t getFeatureLevel() const override;
+    Version getFeatureLevel() const override { return kInterface->getFeatureLevel(); }
     int32_t getType() const override { return static_cast<int32_t>(kInterface->getType()); }
-    bool isUpdatable() const override { return kIsUpdatable; }
     const std::vector<Extension>& getSupportedExtensions() const override {
         return kInterface->getSupportedExtensions();
     }
@@ -113,14 +153,15 @@ class DriverDevice : public Device {
     std::pair<int, std::shared_ptr<RuntimePreparedModel>> prepareModel(
             const ModelFactory& makeModel, ExecutionPreference preference, Priority priority,
             const OptionalTimePoint& deadline, const CacheInfo& cacheInfo,
-            const std::optional<CacheToken>& maybeToken) const override;
+            const std::optional<CacheToken>& maybeToken,
+            const std::vector<TokenValuePair>& metaData,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameAndPrefix) const override;
 
     std::pair<int, std::unique_ptr<RuntimeMemory>> allocate(const MemoryDescriptor& desc,
                                                             OperandType) const override;
 
    private:
     const SharedDevice kInterface;
-    const bool kIsUpdatable;
 
     GeneralResult<std::vector<bool>> getSupportedOperationsImpl(const MetaModel& metaModel) const;
     GeneralResult<SharedPreparedModel> prepareModelFromCacheInternal(
@@ -152,7 +193,8 @@ class DriverPreparedModel : public RuntimePreparedModel {
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, const SharedBurst& burstController,
             MeasureTiming measure, const OptionalTimePoint& deadline,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     std::tuple<int, int, ExecuteFencedInfoCallback, Timing> executeFenced(
             const std::vector<ModelArgumentInfo>& inputs,
@@ -160,20 +202,22 @@ class DriverPreparedModel : public RuntimePreparedModel {
             const std::vector<const RuntimeMemory*>& memories, const std::vector<int>& waitFor,
             MeasureTiming measure, const OptionalTimePoint& deadline,
             const OptionalDuration& loopTimeoutDuration,
-            const OptionalDuration& timeoutDurationAfterFence) const override;
+            const OptionalDuration& timeoutDurationAfterFence,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     std::pair<int, std::shared_ptr<RuntimeExecution>> createReusableExecution(
             const std::vector<ModelArgumentInfo>& inputs,
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, MeasureTiming measure,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     GeneralResult<SharedBurst> configureExecutionBurst() const override {
         return mPreparedModel->configureExecutionBurst();
     }
 
     MemoryPreference getMemoryPreference() const override {
-        if (mDevice->getFeatureLevel() >= ANEURALNETWORKS_FEATURE_LEVEL_5) {
+        if (isCompliantVersion(kVersionFeatureLevel5, mDevice->getFeatureLevel())) {
             return {kDefaultRequestMemoryAlignment, kDefaultRequestMemoryPadding};
         } else {
             // We are not able to pass memory padding information to HIDL drivers, so return the
@@ -191,13 +235,15 @@ class DriverExecution : public RuntimeExecution {
    public:
     DriverExecution(SharedExecution execution, Request request,
                     std::vector<const RuntimeMemory*> memories, MeasureTiming measure,
-                    OptionalDuration loopTimeoutDuration, int64_t deviceFeatureLevel)
+                    OptionalDuration loopTimeoutDuration, Version deviceFeatureLevel,
+                    const std::vector<TokenValuePair>& metaData)
         : kExecution(std::move(execution)),
           kRequest(std::move(request)),
           kMemories(std::move(memories)),
           kMeasure(measure),
           kLoopTimeoutDuration(std::move(loopTimeoutDuration)),
-          kDeviceFeatureLevel(deviceFeatureLevel) {
+          kDeviceFeatureLevel(deviceFeatureLevel),
+          kMetaData(metaData) {
         CHECK(kExecution != nullptr);
     }
 
@@ -219,11 +265,13 @@ class DriverExecution : public RuntimeExecution {
     mutable std::map<const IBurst*, SharedExecution> mCachedBurstExecutions;
 
     // For fenced execution.
-    const int64_t kDeviceFeatureLevel;
+    const Version kDeviceFeatureLevel;
+
+    // Execution metadata.
+    std::vector<TokenValuePair> kMetaData;
 };
 
-DriverDevice::DriverDevice(SharedDevice device, bool isUpdatable)
-    : kInterface(std::move(device)), kIsUpdatable(isUpdatable) {
+DriverDevice::DriverDevice(SharedDevice device) : kInterface(std::move(device)) {
     CHECK(kInterface != nullptr);
 #ifdef NN_DEBUGGABLE
     static const char samplePrefix[] = "sample";
@@ -233,32 +281,39 @@ DriverDevice::DriverDevice(SharedDevice device, bool isUpdatable)
 #endif  // NN_DEBUGGABLE
 }
 
-std::shared_ptr<DriverDevice> DriverDevice::create(SharedDevice device, bool isUpdatable) {
+std::shared_ptr<DriverDevice> DriverDevice::create(SharedDevice device) {
     if (device == nullptr) {
         LOG(ERROR) << "DriverDevice::create called with nullptr";
         return nullptr;
     }
 
-    return std::make_shared<DriverDevice>(std::move(device), isUpdatable);
+    return std::make_shared<DriverDevice>(std::move(device));
 }
 
-int64_t DriverDevice::getFeatureLevel() const {
-    Version featureLevel = kInterface->getFeatureLevel();
-    switch (featureLevel) {
-        case Version::ANDROID_OC_MR1:
+int64_t DeviceManager::versionToFeatureLevel(Version::Level versionLevel) {
+    switch (versionLevel) {
+        case Version::Level::FEATURE_LEVEL_1:
             return ANEURALNETWORKS_FEATURE_LEVEL_1;
-        case Version::ANDROID_P:
+        case Version::Level::FEATURE_LEVEL_2:
             return ANEURALNETWORKS_FEATURE_LEVEL_2;
-        case Version::ANDROID_Q:
+        case Version::Level::FEATURE_LEVEL_3:
             return ANEURALNETWORKS_FEATURE_LEVEL_3;
-        case Version::ANDROID_R:
+        case Version::Level::FEATURE_LEVEL_4:
             return ANEURALNETWORKS_FEATURE_LEVEL_4;
-        case Version::ANDROID_S:
+        case Version::Level::FEATURE_LEVEL_5:
             return ANEURALNETWORKS_FEATURE_LEVEL_5;
-        case Version::CURRENT_RUNTIME:
-            break;
+        case Version::Level::FEATURE_LEVEL_6:
+            return ANEURALNETWORKS_FEATURE_LEVEL_6;
+        case Version::Level::FEATURE_LEVEL_7:
+            return ANEURALNETWORKS_FEATURE_LEVEL_7;
+        case Version::Level::FEATURE_LEVEL_8:
+            return ANEURALNETWORKS_FEATURE_LEVEL_8;
+#ifdef NN_EXPERIMENTAL_FEATURE
+        case Version::Level::FEATURE_LEVEL_EXPERIMENTAL:
+            return ANEURALNETWORKS_FEATURE_LEVEL_EXPERIMENTAL;
+#endif  // NN_EXPERIMENTAL_FEATURE
     }
-    LOG(FATAL) << "Unsupported driver feature level: " << featureLevel;
+    LOG(FATAL) << "Unrecognized version " << versionLevel;
     return -1;
 }
 
@@ -346,17 +401,12 @@ static GeneralResult<SharedHandle> createCacheHandle(const std::string& filename
                                                      bool createIfNotExist) {
     auto fd = base::unique_fd(open(filename.c_str(), createIfNotExist ? (O_RDWR | O_CREAT) : O_RDWR,
                                    S_IRUSR | S_IWUSR));
-    if (fd.get() == -1) {
+    if (!fd.ok()) {
         return NN_ERROR(ErrorStatus::GENERAL_FAILURE)
                << "Failed to " << (createIfNotExist ? "open or create" : "open") << " cache file "
                << filename;
     }
-    std::vector<base::unique_fd> fds;
-    fds.push_back(std::move(fd));
-    return std::make_shared<const Handle>(Handle{
-            .fds = std::move(fds),
-            .ints = {},
-    });
+    return std::make_shared<const Handle>(std::move(fd));
 }
 
 // Opens a list of cache files and returns a vector of shared handles. The files
@@ -432,11 +482,13 @@ GeneralResult<SharedPreparedModel> DriverDevice::prepareModelFromCacheInternal(
 std::pair<int, std::shared_ptr<RuntimePreparedModel>> DriverDevice::prepareModel(
         const ModelFactory& makeModel, ExecutionPreference preference, Priority priority,
         const OptionalTimePoint& deadline, const CacheInfo& cacheInfo,
-        const std::optional<CacheToken>& maybeToken) const {
+        const std::optional<CacheToken>& maybeToken, const std::vector<TokenValuePair>& metaData,
+        const std::vector<ExtensionNameAndPrefix>& extensionNameAndPrefix) const {
     // Attempt to compile from cache if token is present.
     if (maybeToken.has_value()) {
         auto result = prepareModelFromCacheInternal(deadline, cacheInfo, *maybeToken);
         if (result.has_value()) {
+            LOG(INFO) << "prepareModelFromCache: successfully prepared model from cache";
             return {ANEURALNETWORKS_NO_ERROR,
                     std::make_shared<DriverPreparedModel>(this, std::move(result).value())};
         } else {
@@ -466,8 +518,9 @@ std::pair<int, std::shared_ptr<RuntimePreparedModel>> DriverDevice::prepareModel
     // Fallback to full compilation (possibly with token) if
     // prepareModelFromCache could not be used or failed.
     const Model model = makeModel();
-    auto result = kInterface->prepareModel(model, preference, priority, deadline, cache.modelCache,
-                                           cache.dataCache, token);
+    auto result =
+            kInterface->prepareModel(model, preference, priority, deadline, cache.modelCache,
+                                     cache.dataCache, token, metaData, extensionNameAndPrefix);
     if (!result.ok()) {
         LOG(ERROR) << "IDevice::prepareModel() error: " << result.error().message;
         return {convertErrorStatusToResultCode(result.error().code), nullptr};
@@ -525,7 +578,8 @@ std::tuple<int, std::vector<OutputShape>, Timing> DriverPreparedModel::execute(
         const std::vector<ModelArgumentInfo>& inputs, const std::vector<ModelArgumentInfo>& outputs,
         const std::vector<const RuntimeMemory*>& memories, const SharedBurst& burstController,
         MeasureTiming measure, const OptionalTimePoint& deadline,
-        const OptionalDuration& loopTimeoutDuration) const {
+        const OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& metaData) const {
     NNTRACE_RT(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "DriverPreparedModel::execute");
 
     auto request = createDriverRequest(inputs, outputs, memories);
@@ -546,10 +600,11 @@ std::tuple<int, std::vector<OutputShape>, Timing> DriverPreparedModel::execute(
         }
 
         VLOG(EXECUTION) << "Before burstController->execute() " << SHOW_IF_DEBUG(request);
-
-        result = burstController->execute(request, measure, deadline, loopTimeoutDuration);
+        result = burstController->execute(request, measure, deadline, loopTimeoutDuration, metaData,
+                                          TypeManager::get()->getExtensionNameAndPrefix(metaData));
     } else {
-        result = mPreparedModel->execute(request, measure, deadline, loopTimeoutDuration);
+        result = mPreparedModel->execute(request, measure, deadline, loopTimeoutDuration, metaData,
+                                         TypeManager::get()->getExtensionNameAndPrefix(metaData));
     }
 
     int n = ANEURALNETWORKS_OP_FAILED;
@@ -580,7 +635,8 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverPreparedModel::exe
         const std::vector<const RuntimeMemory*>& memories, const std::vector<int>& waitFor,
         MeasureTiming measure, const OptionalTimePoint& deadline,
         const OptionalDuration& loopTimeoutDuration,
-        const OptionalDuration& timeoutDurationAfterFence) const {
+        const OptionalDuration& timeoutDurationAfterFence,
+        const std::vector<TokenValuePair>& metaData) const {
     NNTRACE_RT(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "DriverPreparedModel::executeFenced");
     CHECK(std::all_of(waitFor.begin(), waitFor.end(), [](int fd) { return fd >= 0; }));
 
@@ -602,9 +658,11 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverPreparedModel::exe
     SyncFence syncFence = SyncFence::createAsSignaled();
     ExecuteFencedInfoCallback executeFencedInfoCallback = nullptr;
     Timing timing = {};
-    if (mDevice->getFeatureLevel() >= kHalVersionV1_3ToApi.featureLevel) {
-        auto result = mPreparedModel->executeFenced(request, waitForHandles, measure, deadline,
-                                                    loopTimeoutDuration, timeoutDurationAfterFence);
+    if (isCompliantVersion(kHalVersionV1_3ToApi.canonical, mDevice->getFeatureLevel())) {
+        auto result = mPreparedModel->executeFenced(
+                request, waitForHandles, measure, deadline, loopTimeoutDuration,
+                timeoutDurationAfterFence, metaData,
+                TypeManager::get()->getExtensionNameAndPrefix(metaData));
         if (!result.ok()) {
             LOG(ERROR) << "IPreparedModel::executeFenced() error: " << result.error().message;
             VLOG(EXECUTION) << "**executeFenced failed**";
@@ -625,7 +683,9 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverPreparedModel::exe
                 return {ANEURALNETWORKS_OP_FAILED, -1, nullptr, {}};
             }
         }
-        auto result = mPreparedModel->execute(request, measure, deadline, loopTimeoutDuration);
+        auto result =
+                mPreparedModel->execute(request, measure, deadline, loopTimeoutDuration, metaData,
+                                        TypeManager::get()->getExtensionNameAndPrefix(metaData));
         if (!result.ok()) {
             LOG(ERROR) << "IPreparedModel::execute() error: " << result.error().message;
             return {convertErrorStatusToResultCode(result.error().code), -1, nullptr, {}};
@@ -649,11 +709,14 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverPreparedModel::exe
 std::pair<int, std::shared_ptr<RuntimeExecution>> DriverPreparedModel::createReusableExecution(
         const std::vector<ModelArgumentInfo>& inputs, const std::vector<ModelArgumentInfo>& outputs,
         const std::vector<const RuntimeMemory*>& memories, MeasureTiming measure,
-        const OptionalDuration& loopTimeoutDuration) const {
+        const OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& metaData) const {
     NNTRACE_RT(NNTRACE_PHASE_INPUTS_AND_OUTPUTS, "DriverPreparedModel::createReusableExecution");
 
     auto request = createDriverRequest(inputs, outputs, memories);
-    auto result = mPreparedModel->createReusableExecution(request, measure, loopTimeoutDuration);
+    auto result = mPreparedModel->createReusableExecution(
+            request, measure, loopTimeoutDuration, metaData,
+            TypeManager::get()->getExtensionNameAndPrefix(metaData));
     if (!result.ok()) {
         LOG(ERROR) << "IPreparedModel::createReusableExecution() error: " << result.error().message;
         const int n = convertErrorStatusToResultCode(result.error().code);
@@ -661,7 +724,7 @@ std::pair<int, std::shared_ptr<RuntimeExecution>> DriverPreparedModel::createReu
     }
     auto execution = std::make_shared<DriverExecution>(
             std::move(result).value(), std::move(request), memories, measure, loopTimeoutDuration,
-            mDevice->getFeatureLevel());
+            mDevice->getFeatureLevel(), metaData);
     return {ANEURALNETWORKS_NO_ERROR, std::move(execution)};
 }
 
@@ -683,8 +746,9 @@ std::tuple<int, std::vector<OutputShape>, Timing> DriverExecution::compute(
                     memory->hold(cacheHold);
                 }
             }
-            auto createResult = burstController->createReusableExecution(kRequest, kMeasure,
-                                                                         kLoopTimeoutDuration);
+            auto createResult = burstController->createReusableExecution(
+                    kRequest, kMeasure, kLoopTimeoutDuration, kMetaData,
+                    TypeManager::get()->getExtensionNameAndPrefix(kMetaData));
             if (!createResult.ok()) {
                 LOG(ERROR) << "IBurst::createReusableExecution() error: "
                            << createResult.error().message;
@@ -740,7 +804,7 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverExecution::compute
     SyncFence syncFence = SyncFence::createAsSignaled();
     ExecuteFencedInfoCallback executeFencedInfoCallback = nullptr;
     Timing timing = {};
-    if (kDeviceFeatureLevel >= kHalVersionV1_3ToApi.featureLevel) {
+    if (isCompliantVersion(kHalVersionV1_3ToApi.canonical, kDeviceFeatureLevel)) {
         auto result =
                 kExecution->computeFenced(waitForHandles, deadline, timeoutDurationAfterFence);
         if (!result.ok()) {
@@ -786,41 +850,7 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> DriverExecution::compute
 
 static Capabilities createCpuCapabilities() {
     constexpr Capabilities::PerformanceInfo kPerf = {.execTime = 1.0f, .powerUsage = 1.0f};
-    constexpr OperandType operandTypes[] = {
-            OperandType::FLOAT32,
-            OperandType::INT32,
-            OperandType::UINT32,
-            OperandType::TENSOR_FLOAT32,
-            OperandType::TENSOR_INT32,
-            OperandType::TENSOR_QUANT8_ASYMM,
-            OperandType::BOOL,
-            OperandType::TENSOR_QUANT16_SYMM,
-            OperandType::TENSOR_FLOAT16,
-            OperandType::TENSOR_BOOL8,
-            OperandType::FLOAT16,
-            OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL,
-            OperandType::TENSOR_QUANT16_ASYMM,
-            OperandType::TENSOR_QUANT8_SYMM,
-            OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
-    };
-
-    std::vector<Capabilities::OperandPerformance> operandPerformance;
-    operandPerformance.reserve(std::size(operandTypes));
-    std::transform(std::begin(operandTypes), std::end(operandTypes),
-                   std::back_inserter(operandPerformance), [kPerf](OperandType type) {
-                       return Capabilities::OperandPerformance{.type = type, .info = kPerf};
-                   });
-
-    auto table =
-            Capabilities::OperandPerformanceTable::create(std::move(operandPerformance)).value();
-
-    return Capabilities{
-            .relaxedFloat32toFloat16PerformanceScalar = kPerf,
-            .relaxedFloat32toFloat16PerformanceTensor = kPerf,
-            .operandPerformance = std::move(table),
-            .ifPerformance = kPerf,
-            .whilePerformance = kPerf,
-    };
+    return makeCapabilities(kPerf, kPerf, kPerf);
 }
 
 // A special abstracted device for the CPU. Only one instance of this class will exist.
@@ -835,9 +865,8 @@ class CpuDevice : public Device {
 
     const std::string& getName() const override { return kName; }
     const std::string& getVersionString() const override { return kVersionString; }
-    int64_t getFeatureLevel() const override { return kFeatureLevel; }
+    Version getFeatureLevel() const override { return kVersion; }
     int32_t getType() const override { return ANEURALNETWORKS_DEVICE_CPU; }
-    bool isUpdatable() const override { return false; }
     const std::vector<Extension>& getSupportedExtensions() const override {
         return kSupportedExtensions;
     }
@@ -863,14 +892,16 @@ class CpuDevice : public Device {
     std::pair<int, std::shared_ptr<RuntimePreparedModel>> prepareModel(
             const ModelFactory& makeModel, ExecutionPreference preference, Priority priority,
             const OptionalTimePoint& deadline, const CacheInfo& cacheInfo,
-            const std::optional<CacheToken>& maybeToken) const override;
+            const std::optional<CacheToken>& maybeToken,
+            const std::vector<TokenValuePair>& metaData,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameAndPrefix) const override;
 
     std::pair<int, std::unique_ptr<RuntimeMemory>> allocate(const MemoryDescriptor& desc,
                                                             OperandType type) const override;
 
    private:
     CpuDevice() = default;
-    const int64_t kFeatureLevel = kCurrentNNAPIRuntimeFeatureLevel;
+    const Version kVersion = getRuntimeFeatureLevelVersion();
     const std::string kName = "nnapi-reference";
 #ifndef NN_COMPATIBILITY_LIBRARY_BUILD
     const std::string kVersionString = build::GetBuildNumber();
@@ -900,7 +931,8 @@ class CpuPreparedModel : public RuntimePreparedModel {
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, const SharedBurst& burstController,
             MeasureTiming measure, const OptionalTimePoint& deadline,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     GeneralResult<SharedBurst> configureExecutionBurst() const override { return nullptr; }
 
@@ -910,13 +942,15 @@ class CpuPreparedModel : public RuntimePreparedModel {
             const std::vector<const RuntimeMemory*>& memories, const std::vector<int>& waitFor,
             MeasureTiming measure, const OptionalTimePoint& deadline,
             const OptionalDuration& loopTimeoutDuration,
-            const OptionalDuration& timeoutDurationAfterFence) const override;
+            const OptionalDuration& timeoutDurationAfterFence,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     std::pair<int, std::shared_ptr<RuntimeExecution>> createReusableExecution(
             const std::vector<ModelArgumentInfo>& inputs,
             const std::vector<ModelArgumentInfo>& outputs,
             const std::vector<const RuntimeMemory*>& memories, MeasureTiming measure,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration,
+            const std::vector<TokenValuePair>& metaData) const override;
 
     MemoryPreference getMemoryPreference() const override {
         return {kPreferredAlignment, kPreferredPadding};
@@ -976,23 +1010,36 @@ std::vector<bool> CpuDevice::getSupportedOperations(const MetaModel& metaModel) 
     return result;
 }
 
+template <typename Type>
+static Result<void> validateAndCheckCompliance(const Type& object) {
+    const auto version = NN_TRY(validate(object));
+    if (!isCompliantVersion(version, DeviceManager::get()->getRuntimeVersion())) {
+        return NN_ERROR() << "Object than is newer what is allowed. Version needed: " << version
+                          << ", current runtime version supported: "
+                          << DeviceManager::get()->getRuntimeVersion();
+    }
+    return {};
+}
+
 std::pair<int, std::shared_ptr<RuntimePreparedModel>> CpuDevice::prepareModel(
         const ModelFactory& makeModel, ExecutionPreference preference, Priority priority,
         const OptionalTimePoint& deadline, const CacheInfo& /*cacheInfo*/,
-        const std::optional<CacheToken>& maybeToken) const {
+        const std::optional<CacheToken>& maybeToken,
+        const std::vector<TokenValuePair>& /*metaData*/,
+        const std::vector<ExtensionNameAndPrefix>& /*extensionNameAndPrefix*/) const {
     CHECK(!maybeToken.has_value())
             << "Should never call prepareModel with cache information on CpuDevice";
 
     const Model model = makeModel();
-    if (auto result = validate(model); !result.ok()) {
+    if (auto result = validateAndCheckCompliance(model); !result.ok()) {
         LOG(ERROR) << "Invalid Model: " << result.error();
         return {ANEURALNETWORKS_OP_FAILED, nullptr};
     }
-    if (auto result = validate(preference); !result.ok()) {
+    if (auto result = validateAndCheckCompliance(preference); !result.ok()) {
         LOG(ERROR) << "Invalid ExecutionPreference: " << result.error();
         return {ANEURALNETWORKS_OP_FAILED, nullptr};
     }
-    if (auto result = validate(priority); !result.ok()) {
+    if (auto result = validateAndCheckCompliance(priority); !result.ok()) {
         LOG(ERROR) << "Invalid Priority: " << result.error();
         return {ANEURALNETWORKS_OP_FAILED, nullptr};
     }
@@ -1046,7 +1093,8 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> CpuPreparedModel::execut
         const std::vector<ModelArgumentInfo>& inputs, const std::vector<ModelArgumentInfo>& outputs,
         const std::vector<const RuntimeMemory*>& memories, const std::vector<int>& waitFor,
         MeasureTiming measure, const OptionalTimePoint& deadline,
-        const OptionalDuration& loopTimeoutDuration, const OptionalDuration& duration) const {
+        const OptionalDuration& loopTimeoutDuration, const OptionalDuration& duration,
+        const std::vector<TokenValuePair>& /*metaData*/) const {
     VLOG(EXECUTION)
             << "CpuPreparedModel::executeFenced wait for sync fences to signal before execution";
     for (int syncFd : waitFor) {
@@ -1069,7 +1117,7 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> CpuPreparedModel::execut
     }
 
     const auto [result, outputShapes, timing] = execute(inputs, outputs, memories, nullptr, measure,
-                                                        closestDeadline, loopTimeoutDuration);
+                                                        closestDeadline, loopTimeoutDuration, {});
     return {result, -1, nullptr, timing};
 }
 
@@ -1122,7 +1170,8 @@ std::tuple<int, std::vector<OutputShape>, Timing> CpuPreparedModel::execute(
         const std::vector<ModelArgumentInfo>& inputs, const std::vector<ModelArgumentInfo>& outputs,
         const std::vector<const RuntimeMemory*>& memories, const SharedBurst& /*burstController*/,
         MeasureTiming /*measure*/, const OptionalTimePoint& deadline,
-        const OptionalDuration& loopTimeoutDuration) const {
+        const OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& /*metaData*/) const {
     if (hasDeadlinePassed(deadline)) {
         return {ANEURALNETWORKS_MISSED_DEADLINE_PERSISTENT, {}, {}};
     }
@@ -1155,7 +1204,8 @@ std::tuple<int, std::vector<OutputShape>, Timing> CpuPreparedModel::execute(
 std::pair<int, std::shared_ptr<RuntimeExecution>> CpuPreparedModel::createReusableExecution(
         const std::vector<ModelArgumentInfo>& inputs, const std::vector<ModelArgumentInfo>& outputs,
         const std::vector<const RuntimeMemory*>& memories, MeasureTiming /*measure*/,
-        const OptionalDuration& loopTimeoutDuration) const {
+        const OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& /*metaData*/) const {
     auto [nCreateRequest, request, requestPoolInfos] = createCpuRequest(inputs, outputs, memories);
     if (nCreateRequest != ANEURALNETWORKS_NO_ERROR) {
         return {nCreateRequest, nullptr};
@@ -1216,6 +1266,10 @@ std::tuple<int, int, ExecuteFencedInfoCallback, Timing> CpuExecution::computeFen
     return {result, -1, nullptr, timing};
 }
 
+int64_t DeviceManager::getRuntimeFeatureLevel() const {
+    return versionToFeatureLevel(mRuntimeVersion.level);
+}
+
 DeviceManager* DeviceManager::get() {
     static DeviceManager manager;
     return &manager;
@@ -1233,24 +1287,24 @@ std::shared_ptr<Device> DeviceManager::forTest_makeDriverDevice(const SharedDevi
 }
 
 #ifndef NN_COMPATIBILITY_LIBRARY_BUILD
-std::vector<std::shared_ptr<DriverDevice>> getDriverDevices() {
-    const auto& appInfo = AppInfoFetcher::get()->getAppInfo();
-    const bool currentProcessIsOnThePlatform =
-            appInfo.appIsSystemApp || appInfo.appIsOnVendorImage || appInfo.appIsOnProductImage;
-
-    const bool includeUpdatableDrivers = !currentProcessIsOnThePlatform;
-    auto devicesAndUpdatability =
-            hardware::neuralnetworks::service::getDevices(includeUpdatableDrivers);
+std::vector<std::shared_ptr<DriverDevice>> getDriverDevices(
+        [[maybe_unused]] Version::Level maxFeatureLevelAllowed) {
+#ifdef __ANDROID__
+    auto devices = hardware::neuralnetworks::service::getDevices(maxFeatureLevelAllowed);
 
     std::vector<std::shared_ptr<DriverDevice>> driverDevices;
-    driverDevices.reserve(devicesAndUpdatability.size());
-    for (auto& [device, isDeviceUpdatable] : devicesAndUpdatability) {
-        driverDevices.push_back(DriverDevice::create(std::move(device), isDeviceUpdatable));
+    driverDevices.reserve(devices.size());
+    for (auto& device : devices) {
+        driverDevices.push_back(DriverDevice::create(std::move(device)));
     }
     return driverDevices;
+#else   // __ANDROID__
+    return {};
+#endif  // __ANDROID__
 }
 #else
-std::vector<std::shared_ptr<DriverDevice>> getDriverDevices() {
+std::vector<std::shared_ptr<DriverDevice>> getDriverDevices(
+        Version::Level /*maxFeatureLevelAllowed*/) {
     auto devices = getDevices();
     std::vector<std::shared_ptr<DriverDevice>> driverDevices;
     driverDevices.reserve(devices.size());
@@ -1264,10 +1318,28 @@ std::vector<std::shared_ptr<DriverDevice>> getDriverDevices() {
 void DeviceManager::findAvailableDevices() {
     VLOG(MANAGER) << "findAvailableDevices";
 
+#ifdef NN_DEBUGGABLE
+    // debug.nn.enabled-devices defines a regex pattern. For all available driver devices, only the
+    // ones with name matching the pattern are enabled. Driver devices with unmatched names are
+    // ignored. If this property is not set, all available driver devices are enabled by default.
+    // This filter only applies to driver devices. nnapi-reference is always enabled.
+    std::string patternStr = base::GetProperty("debug.nn.enabled-devices", ".*");
+    LOG(INFO) << "Enabled devices: " << patternStr;
+    const std::regex pattern(patternStr);
+#endif  // NN_DEBUGGABLE
+
     // register driver devices
-    auto driverDevices = getDriverDevices();
+    auto driverDevices = getDriverDevices(mRuntimeVersion.level);
     for (auto& driverDevice : driverDevices) {
-        VLOG(MANAGER) << "Found interface " << driverDevice->getName();
+#ifdef NN_DEBUGGABLE
+        if (!std::regex_match(driverDevice->getName(), pattern)) {
+            LOG(INFO) << "Ignored interface " << driverDevice->getName()
+                      << " (version = " << driverDevice->getVersionString() << ")";
+            continue;
+        }
+#endif  // NN_DEBUGGABLE
+        LOG(INFO) << "Found interface " << driverDevice->getName()
+                  << " (version = " << driverDevice->getVersionString() << ")";
         mDevices.push_back(std::move(driverDevice));
     }
 
@@ -1286,6 +1358,8 @@ void DeviceManager::registerDevice(const SharedDevice& device) {
 
 DeviceManager::DeviceManager() {
     VLOG(MANAGER) << "DeviceManager::DeviceManager";
+    mRuntimeVersion = getRuntimeFeatureLevelVersion();
+    mIsPlatformTelemetryEnabled = getWhetherPlatformTelemetryIsEnabled();
     findAvailableDevices();
 #ifdef NN_DEBUGGABLE
     mStrictSlicing = (getProp("debug.nn.strict-slicing") != 0);

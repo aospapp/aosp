@@ -22,10 +22,30 @@
 
 #include <android-base/logging.h>
 
+namespace cuttlefish {
+
+namespace {
+using VerifiedBootParams = keymaster::AttestationContext::VerifiedBootParams;
 using keymaster::AuthorizationSet;
 
+VerifiedBootParams MakeVbParams() {
+  VerifiedBootParams vb_params;
+
+  // TODO: If Cuttlefish ever supports a boot state other than "orange", we'll
+  // also need to plumb in the public key.
+  static uint8_t empty_vb_key[32] = {};
+  vb_params.verified_boot_key = {empty_vb_key, sizeof(empty_vb_key)};
+  vb_params.verified_boot_hash = {empty_vb_key, sizeof(empty_vb_key)};
+  vb_params.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+  vb_params.device_locked = false;
+  return vb_params;
+}
+
+}  // namespace
+
 TpmAttestationRecordContext::TpmAttestationRecordContext()
-    : keymaster::AttestationContext(::keymaster::KmVersion::KEYMINT_1),
+    : keymaster::AttestationContext(::keymaster::KmVersion::KEYMINT_2),
+      vb_params_(MakeVbParams()),
       unique_id_hbk_(16) {
   RAND_bytes(unique_id_hbk_.data(), unique_id_hbk_.size());
 }
@@ -35,15 +55,10 @@ keymaster_security_level_t TpmAttestationRecordContext::GetSecurityLevel() const
 }
 
 keymaster_error_t TpmAttestationRecordContext::VerifyAndCopyDeviceIds(
-    const AuthorizationSet& attestation_params,
-    AuthorizationSet* attestation) const {
+    const AuthorizationSet& /*attestation_params*/,
+    AuthorizationSet* /*attestation*/) const {
   LOG(DEBUG) << "TODO(schuffelen): Implement VerifyAndCopyDeviceIds";
-  attestation->Difference(attestation_params);
-  attestation->Union(attestation_params);
-  if (int index = attestation->find(keymaster::TAG_ATTESTATION_APPLICATION_ID)) {
-    attestation->erase(index);
-  }
-  return KM_ERROR_OK;
+  return KM_ERROR_UNIMPLEMENTED;
 }
 
 keymaster::Buffer TpmAttestationRecordContext::GenerateUniqueId(
@@ -54,28 +69,10 @@ keymaster::Buffer TpmAttestationRecordContext::GenerateUniqueId(
                                        application_id, reset_since_rotation);
 }
 
-const keymaster::AttestationContext::VerifiedBootParams*
-TpmAttestationRecordContext::GetVerifiedBootParams(keymaster_error_t* error) const {
-  LOG(DEBUG) << "TODO(schuffelen): Implement GetVerifiedBootParams";
-  if (!vb_params_) {
-      vb_params_.reset(new VerifiedBootParams{});
-
-      // TODO(schuffelen): Get this data out of vbmeta
-      static uint8_t fake_vb_key[32];
-      static bool fake_vb_key_initialized = false;
-      if (!fake_vb_key_initialized) {
-        for (int i = 0; i < sizeof(fake_vb_key); i++) {
-          fake_vb_key[i] = rand();
-        }
-        fake_vb_key_initialized = true;
-      }
-      vb_params_->verified_boot_key = {fake_vb_key, sizeof(fake_vb_key)};
-      vb_params_->verified_boot_hash = {fake_vb_key, sizeof(fake_vb_key)};
-      vb_params_->verified_boot_state = KM_VERIFIED_BOOT_VERIFIED;
-      vb_params_->device_locked = true;
-  }
+const VerifiedBootParams* TpmAttestationRecordContext::GetVerifiedBootParams(
+    keymaster_error_t* error) const {
   *error = KM_ERROR_OK;
-  return vb_params_.get();
+  return &vb_params_;
 }
 
 keymaster::KeymasterKeyBlob
@@ -89,3 +86,25 @@ TpmAttestationRecordContext::GetAttestationChain(keymaster_algorithm_t algorithm
                                                  keymaster_error_t* error) const {
   return keymaster::getAttestationChain(algorithm, error);
 }
+
+void TpmAttestationRecordContext::SetVerifiedBootInfo(
+    std::string_view verified_boot_state, std::string_view bootloader_state,
+    const std::vector<uint8_t>& vbmeta_digest) {
+  vbmeta_digest_ = vbmeta_digest;
+  vb_params_.verified_boot_hash = {vbmeta_digest_.data(),
+                                   vbmeta_digest_.size()};
+
+  if (verified_boot_state == "green") {
+    vb_params_.verified_boot_state = KM_VERIFIED_BOOT_VERIFIED;
+  } else if (verified_boot_state == "yellow") {
+    vb_params_.verified_boot_state = KM_VERIFIED_BOOT_SELF_SIGNED;
+  } else if (verified_boot_state == "red") {
+    vb_params_.verified_boot_state = KM_VERIFIED_BOOT_FAILED;
+  } else {  // Default to orange
+    vb_params_.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+  }
+
+  vb_params_.device_locked = bootloader_state == "locked";
+}
+
+}  // namespace cuttlefish

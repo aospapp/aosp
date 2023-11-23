@@ -32,17 +32,17 @@ namespace android {
 
 BufferInfoGetter *BufferInfoGetter::GetInstance() {
   static std::unique_ptr<BufferInfoGetter> inst;
-  if (inst == nullptr) {
-#if PLATFORM_SDK_VERSION >= 30
+  if (!inst) {
+#if PLATFORM_SDK_VERSION >= 30 && defined(USE_IMAPPER4_METADATA_API)
     inst.reset(BufferInfoMapperMetadata::CreateInstance());
-    if (inst == nullptr) {
+    if (!inst) {
       ALOGW(
           "Generic buffer getter is not available. Falling back to legacy...");
-#endif
-      inst = LegacyBufferInfoGetter::CreateInstance();
-#if PLATFORM_SDK_VERSION >= 30
     }
 #endif
+    if (!inst) {
+      inst = LegacyBufferInfoGetter::CreateInstance();
+    }
   }
 
   return inst.get();
@@ -62,9 +62,11 @@ bool BufferInfoGetter::IsHandleUsable(buffer_handle_t handle) {
 }
 
 int LegacyBufferInfoGetter::Init() {
-  int ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
-                          (const hw_module_t **)&gralloc_);
-  if (ret) {
+  int ret = hw_get_module(
+      GRALLOC_HARDWARE_MODULE_ID,
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+      reinterpret_cast<const hw_module_t **>(&gralloc_));
+  if (ret != 0) {
     ALOGE("Failed to open gralloc module");
     return ret;
   }

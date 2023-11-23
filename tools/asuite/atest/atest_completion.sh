@@ -14,36 +14,23 @@
 
 ATEST_REL_DIR="tools/asuite/atest"
 
-_atest_completion_ready() {
-    # Not support completion on systems of which the out-of-box bash version
-    # is too old to fully support required built-in commands/functions.
-    # For MacOS users, atest tab completion can be enabled via:
-    #    brew install bash bash-completion@2
-    # and configure code below in ~/.bashrc
-    #    completion_file="/usr/local/etc/profile.d/bash_completion.sh"
-    #    [[ -r "$completion_file" ]] && source "$completion_file"
-    # Open a new terminal, source/lunch and try again.
-    reqs=(compopt _get_comp_words_by_ref __ltrim_colon_completions)
-    for _cmd in "${reqs[@]}"; do
-        if ! type "$_cmd" >/dev/null 2>&1; then
-            return 1
-        fi
-    done
-}
-
 _fetch_testable_modules() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    $PYTHON - << END
+    /usr/bin/env python3 - << END
 import os
 import pickle
 import sys
 
+from pathlib import Path
+
 sys.path.append(os.getenv('ATEST_DIR'))
 import constants
 
-if os.path.isfile(constants.MODULE_INDEX):
-    with open(constants.MODULE_INDEX, 'rb') as cache:
+index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT)).joinpath('indexes')
+module_index = index_dir.joinpath(constants.MODULE_INDEX)
+if os.path.isfile(module_index):
+    with open(module_index, 'rb') as cache:
         try:
             print("\n".join(pickle.load(cache, encoding="utf-8")))
         except:
@@ -59,7 +46,7 @@ END
 _fetch_atest_args() {
     [[ -z $ANDROID_BUILD_TOP ]] && return 0
     export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    $PYTHON - << END
+    /usr/bin/env python3 - << END
 import os
 import sys
 
@@ -143,20 +130,7 @@ function _atest_main() {
     # adapts both conditions.
     [[ ! $- =~ 'i' ]] && return 0
 
-    # If required functions are not available, exit gracefully.
-    if ! _atest_completion_ready; then
-        return 0
-    fi
-
-    # Use Py3 as the default interpreter. This script is aiming for being
-    # compatible with both Py2 and Py3.
-    if [ -x "$(which python3)" ]; then
-        PYTHON=$(which python3)
-    elif [ -x "$(which python2)" ]; then
-        PYTHON=$(which python2)
-    else
-        PYTHON="/usr/bin/env python3"
-    fi
+    local T="$(gettop)"
 
     # Complete file/dir name first by using option "nosort".
     # BASH version <= 4.3 doesn't have nosort option.
@@ -169,8 +143,19 @@ function _atest_main() {
     done
 
     # Install atest-src for the convenience of debugging.
-    local atest_src="$(gettop)/$ATEST_REL_DIR/atest.py"
+    local atest_src="$T/$ATEST_REL_DIR/atest.py"
     [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
+
+    # Use prebuilt python3 for atest-dev
+    function atest-dev() {
+        atest_dev="$ANDROID_BUILD_TOP/out/host/$(uname -s | tr '[:upper:]' '[:lower:]')-x86/bin/atest-dev"
+        if [ ! -f $atest_dev ]; then
+            echo "Cannot find atest-dev. Run 'm atest' to generate one."
+            return 1
+        fi
+        PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
+        PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
+    }
 }
 
 _atest_main

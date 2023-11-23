@@ -320,7 +320,7 @@ NFCSTATUS phFriNfc_MifareStdMap_H_Reset(phFriNfc_NdefMap_t* NdefMap) {
  ******************************************************************************/
 NFCSTATUS phFriNfc_MifareStdMap_ChkNdef(phFriNfc_NdefMap_t* NdefMap) {
   NFCSTATUS status = NFCSTATUS_PENDING;
-  uint8_t atq, sak;
+  uint8_t sak;
 
   if (NdefMap == NULL) {
     status = PHNFCSTVAL(CID_FRI_NFC_NDEF_MAP, NFCSTATUS_INVALID_PARAMETER);
@@ -331,7 +331,6 @@ NFCSTATUS phFriNfc_MifareStdMap_ChkNdef(phFriNfc_NdefMap_t* NdefMap) {
     /* Get the Select Response and Sense Response to get
         the exact Card Type either Mifare 1k or 4k */
     sak = NdefMap->psRemoteDevInfo->RemoteDevInfo.Iso14443A_Info.Sak;
-    atq = NdefMap->psRemoteDevInfo->RemoteDevInfo.Iso14443A_Info.AtqA[0];
 
     if (0x08 == (sak & 0x18)) {
       /* Total Number of Blocks in Mifare 1k Card */

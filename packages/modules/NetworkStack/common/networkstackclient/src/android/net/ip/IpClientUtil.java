@@ -21,6 +21,7 @@ import android.net.DhcpResultsParcelable;
 import android.net.Layer2PacketParcelable;
 import android.net.LinkProperties;
 import android.net.networkstack.ModuleNetworkStackClient;
+import android.net.networkstack.aidl.ip.ReachabilityLossInfoParcelable;
 import android.os.ConditionVariable;
 
 import java.io.FileDescriptor;
@@ -119,19 +120,27 @@ public class IpClientUtil {
             mCb.onNewDhcpResults(dhcpResults);
         }
 
+        // LinkProperties always have parcelSensitiveFields=false after parceling
+        // and unparceling, so the IIpClientCallback caller's side will always receive
+        // LinkProperties that do not have the flag set, except on Go devices where
+        // IpClient is running in the system_server, it's possible that no parceling
+        // happens and the object is sent as true, which results in wifi throws the
+        // UnsupportedOperationException when calling LinkProperties.clear() and then
+        // reboot. To keep the consistent behavior, deliver LinkProperties with
+        // mParcelSensitiveFields=false to wifi upon callback is triggered.
         @Override
         public void onProvisioningSuccess(LinkProperties newLp) {
-            mCb.onProvisioningSuccess(newLp);
+            mCb.onProvisioningSuccess(new LinkProperties(newLp));
         }
         @Override
         public void onProvisioningFailure(LinkProperties newLp) {
-            mCb.onProvisioningFailure(newLp);
+            mCb.onProvisioningFailure(new LinkProperties(newLp));
         }
 
         // Invoked on LinkProperties changes.
         @Override
         public void onLinkPropertiesChange(LinkProperties newLp) {
-            mCb.onLinkPropertiesChange(newLp);
+            mCb.onLinkPropertiesChange(new LinkProperties(newLp));
         }
 
         // Called when the internal IpReachabilityMonitor (if enabled) has
@@ -180,6 +189,13 @@ public class IpClientUtil {
         @Override
         public void onPreconnectionStart(List<Layer2PacketParcelable> packets) {
             mCb.onPreconnectionStart(packets);
+        }
+
+        // Called when the internal IpReachabilityMonitor (if enabled) has detected the loss of a
+        // critical number of required neighbors or DHCP roaming fails.
+        @Override
+        public void onReachabilityFailure(ReachabilityLossInfoParcelable lossInfo) {
+            mCb.onReachabilityFailure(lossInfo);
         }
 
         @Override

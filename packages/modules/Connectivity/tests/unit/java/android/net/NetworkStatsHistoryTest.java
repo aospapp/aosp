@@ -270,7 +270,7 @@ public class NetworkStatsHistoryTest {
     }
 
     @Test
-    public void testRemove() throws Exception {
+    public void testRemoveStartingBefore() throws Exception {
         stats = new NetworkStatsHistory(HOUR_IN_MILLIS);
 
         // record some data across 24 buckets
@@ -278,28 +278,28 @@ public class NetworkStatsHistoryTest {
         assertEquals(24, stats.size());
 
         // try removing invalid data; should be no change
-        stats.removeBucketsBefore(0 - DAY_IN_MILLIS);
+        stats.removeBucketsStartingBefore(0 - DAY_IN_MILLIS);
         assertEquals(24, stats.size());
 
         // try removing far before buckets; should be no change
-        stats.removeBucketsBefore(TEST_START - YEAR_IN_MILLIS);
+        stats.removeBucketsStartingBefore(TEST_START - YEAR_IN_MILLIS);
         assertEquals(24, stats.size());
 
         // try removing just moments into first bucket; should be no change
-        // since that bucket contains data beyond the cutoff
-        stats.removeBucketsBefore(TEST_START + SECOND_IN_MILLIS);
+        // since that bucket doesn't contain data starts before the cutoff
+        stats.removeBucketsStartingBefore(TEST_START);
         assertEquals(24, stats.size());
 
         // try removing single bucket
-        stats.removeBucketsBefore(TEST_START + HOUR_IN_MILLIS);
+        stats.removeBucketsStartingBefore(TEST_START + HOUR_IN_MILLIS);
         assertEquals(23, stats.size());
 
         // try removing multiple buckets
-        stats.removeBucketsBefore(TEST_START + (4 * HOUR_IN_MILLIS));
+        stats.removeBucketsStartingBefore(TEST_START + (4 * HOUR_IN_MILLIS));
         assertEquals(20, stats.size());
 
         // try removing all buckets
-        stats.removeBucketsBefore(TEST_START + YEAR_IN_MILLIS);
+        stats.removeBucketsStartingBefore(TEST_START + YEAR_IN_MILLIS);
         assertEquals(0, stats.size());
     }
 
@@ -349,7 +349,7 @@ public class NetworkStatsHistoryTest {
                         stats.recordData(start, end, entry);
                     } else {
                         // trim something
-                        stats.removeBucketsBefore(r.nextLong());
+                        stats.removeBucketsStartingBefore(r.nextLong());
                     }
                 }
                 assertConsistent(stats);

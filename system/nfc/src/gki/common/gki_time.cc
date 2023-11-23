@@ -188,6 +188,12 @@ void GKI_start_timer(uint8_t tnum, int32_t ticks, bool is_continuous) {
   uint8_t task_id = GKI_get_taskid();
   bool bad_timer = false;
 
+  if (task_id >= GKI_MAX_TASKS) {
+    LOG(ERROR) << StringPrintf("%s: invalid task_id:0x%02x. start timer failed",
+                               __func__, task_id);
+    return;
+  }
+
   if (ticks <= 0) ticks = 1;
 
   orig_ticks = ticks; /* save the ticks in case adjustment is necessary */
@@ -286,35 +292,36 @@ void GKI_stop_timer(uint8_t tnum) {
   uint8_t task_id = GKI_get_taskid();
 
   GKI_disable();
-
-  switch (tnum) {
+  if (task_id < GKI_MAX_TASKS) {
+    switch (tnum) {
 #if (GKI_NUM_TIMERS > 0)
-    case TIMER_0:
-      gki_cb.com.OSTaskTmr0R[task_id] = 0;
-      gki_cb.com.OSTaskTmr0[task_id] = 0;
-      break;
+      case TIMER_0:
+        gki_cb.com.OSTaskTmr0R[task_id] = 0;
+        gki_cb.com.OSTaskTmr0[task_id] = 0;
+        break;
 #endif
 
 #if (GKI_NUM_TIMERS > 1)
-    case TIMER_1:
-      gki_cb.com.OSTaskTmr1R[task_id] = 0;
-      gki_cb.com.OSTaskTmr1[task_id] = 0;
-      break;
+      case TIMER_1:
+        gki_cb.com.OSTaskTmr1R[task_id] = 0;
+        gki_cb.com.OSTaskTmr1[task_id] = 0;
+        break;
 #endif
 
 #if (GKI_NUM_TIMERS > 2)
-    case TIMER_2:
-      gki_cb.com.OSTaskTmr2R[task_id] = 0;
-      gki_cb.com.OSTaskTmr2[task_id] = 0;
-      break;
+      case TIMER_2:
+        gki_cb.com.OSTaskTmr2R[task_id] = 0;
+        gki_cb.com.OSTaskTmr2[task_id] = 0;
+        break;
 #endif
 
 #if (GKI_NUM_TIMERS > 3)
-    case TIMER_3:
-      gki_cb.com.OSTaskTmr3R[task_id] = 0;
-      gki_cb.com.OSTaskTmr3[task_id] = 0;
-      break;
+      case TIMER_3:
+        gki_cb.com.OSTaskTmr3R[task_id] = 0;
+        gki_cb.com.OSTaskTmr3[task_id] = 0;
+        break;
 #endif
+    }
   }
 
   if (gki_timers_is_timer_running() == false) {
@@ -681,6 +688,14 @@ uint16_t GKI_update_timer_list(TIMER_LIST_Q* p_timer_listq,
   }
 
   return (num_time_out);
+}
+
+bool GKI_timer_list_empty(TIMER_LIST_Q* p_timer_listq) {
+  return p_timer_listq->p_first == nullptr;
+}
+
+TIMER_LIST_ENT* GKI_timer_list_first(TIMER_LIST_Q* p_timer_listq) {
+  return p_timer_listq->p_first;
 }
 
 /*******************************************************************************

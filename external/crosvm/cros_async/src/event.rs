@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use sys_util::EventFd;
+use base::EventFd;
 
-use crate::{AsyncResult, Executor, IntoAsync, IoSourceExt};
+use super::{AsyncResult, Executor, IntoAsync, IoSourceExt};
 
-/// An async version of `sys_util::EventFd`.
+/// An async version of `base::EventFd`.
 pub struct EventAsync {
     io_source: Box<dyn IoSourceExt<EventFd>>,
 }
@@ -18,13 +18,13 @@ impl EventAsync {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_poll(event: EventFd, ex: &crate::FdExecutor) -> AsyncResult<EventAsync> {
-        crate::executor::async_poll_from(event, ex).map(|io_source| EventAsync { io_source })
+    pub(crate) fn new_poll(event: EventFd, ex: &super::FdExecutor) -> AsyncResult<EventAsync> {
+        super::executor::async_poll_from(event, ex).map(|io_source| EventAsync { io_source })
     }
 
     #[cfg(test)]
-    pub(crate) fn new_uring(event: EventFd, ex: &crate::URingExecutor) -> AsyncResult<EventAsync> {
-        crate::executor::async_uring_from(event, ex).map(|io_source| EventAsync { io_source })
+    pub(crate) fn new_uring(event: EventFd, ex: &super::URingExecutor) -> AsyncResult<EventAsync> {
+        super::executor::async_uring_from(event, ex).map(|io_source| EventAsync { io_source })
     }
 
     /// Gets the next value from the eventfd.
@@ -40,7 +40,7 @@ impl IntoAsync for EventFd {}
 mod tests {
     use super::*;
 
-    use crate::{Executor, FdExecutor, URingExecutor};
+    use super::super::{uring_executor::use_uring, Executor, FdExecutor, URingExecutor};
 
     #[test]
     fn next_val_reads_value() {
@@ -58,6 +58,10 @@ mod tests {
 
     #[test]
     fn next_val_reads_value_poll_and_ring() {
+        if !use_uring() {
+            return;
+        }
+
         async fn go(event_async: EventAsync) -> u64 {
             event_async.next_val().await.unwrap()
         }

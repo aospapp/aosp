@@ -25,12 +25,17 @@ import android.net.IpConfiguration;
 import android.net.LinkAddress;
 import android.net.ProxyInfo;
 import android.net.StaticIpConfiguration;
+import android.os.Build;
 
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.testutils.ConnectivityModuleTest;
+import com.android.testutils.DevSdkIgnoreRule;
 
 import libcore.net.InetAddressUtils;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,6 +54,9 @@ public final class IpConfigurationTest {
 
     private StaticIpConfiguration mStaticIpConfig;
     private ProxyInfo mProxy;
+
+    @Rule
+    public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
 
     @Before
     public void setUp() {
@@ -97,6 +105,22 @@ public final class IpConfigurationTest {
         ipConfig.setIpAssignment(IpConfiguration.IpAssignment.DHCP);
         ipConfig.setProxySettings(IpConfiguration.ProxySettings.NONE);
         assertIpConfigurationEqual(ipConfig, new IpConfiguration(ipConfig));
+    }
+
+    @ConnectivityModuleTest // The builder was added in an S+ module update.
+    // This whole class is not skipped (marked @ConnectivityModuleTest) in MTS for non-connectivity
+    // modules like NetworkStack, as NetworkStack uses IpConfiguration a lot on Q+, so tests that
+    // cover older APIs are still useful to provide used API coverage for NetworkStack.
+    @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
+    public void testBuilder() {
+        final IpConfiguration c = new IpConfiguration.Builder()
+                .setStaticIpConfiguration(mStaticIpConfig)
+                .setHttpProxy(mProxy)
+                .build();
+
+        assertEquals(mStaticIpConfig, c.getStaticIpConfiguration());
+        assertEquals(mProxy, c.getHttpProxy());
     }
 
     private void checkEmpty(IpConfiguration config) {

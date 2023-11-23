@@ -28,7 +28,7 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
 /**
- * Tests {@link TelephonyManager.EXTRA_HIDE_PUBLIC_SETTINGS}
+ * Tests {@link android.telephony.TelephonyManager#EXTRA_HIDE_PUBLIC_SETTINGS}
  */
 public class VoicemailSettingsCheckActivity extends PassFailButtons.Activity {
 

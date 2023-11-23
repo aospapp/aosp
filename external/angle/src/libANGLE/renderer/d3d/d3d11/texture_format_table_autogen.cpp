@@ -1285,7 +1285,7 @@ const Format &Format::Get(GLenum internalFormat, const Renderer11DeviceCaps &dev
                                          DXGI_FORMAT_UNKNOWN,
                                          DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
                                          GL_SRGB8_ALPHA8,
-                                         nullptr);
+                                         Initialize4ComponentData<GLubyte, 0x00, 0x00, 0x00, 0xFF>);
             return info;
         }
         case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_LOSSY_DECODE_ETC2_ANGLE:
@@ -2596,6 +2596,37 @@ const Format &Format::Get(GLenum internalFormat, const Renderer11DeviceCaps &dev
                                          GL_RGBA8_SNORM,
                                          nullptr);
             return info;
+        }
+        case GL_RGBX8_ANGLE:
+        {
+            if (OnlyFL11_1Plus(deviceCaps))
+            {
+                static constexpr Format info(GL_RGBX8_ANGLE,
+                                             angle::FormatID::R8G8B8X8_UNORM,
+                                             DXGI_FORMAT_B8G8R8X8_UNORM,
+                                             DXGI_FORMAT_B8G8R8X8_UNORM,
+                                             DXGI_FORMAT_UNKNOWN,
+                                             DXGI_FORMAT_B8G8R8X8_UNORM,
+                                             DXGI_FORMAT_UNKNOWN,
+                                             DXGI_FORMAT_B8G8R8X8_UNORM,
+                                             GL_RGBX8_ANGLE,
+                                             nullptr);
+                return info;
+            }
+            else
+            {
+                static constexpr Format info(GL_RGBX8_ANGLE,
+                                             angle::FormatID::R8G8B8A8_UNORM,
+                                             DXGI_FORMAT_R8G8B8A8_UNORM,
+                                             DXGI_FORMAT_R8G8B8A8_UNORM,
+                                             DXGI_FORMAT_R8G8B8A8_UNORM,
+                                             DXGI_FORMAT_R8G8B8A8_UNORM,
+                                             DXGI_FORMAT_UNKNOWN,
+                                             DXGI_FORMAT_R8G8B8A8_UNORM,
+                                             GL_RGBA8,
+                                             nullptr);
+                return info;
+            }
         }
         case GL_SR8_EXT:
         {

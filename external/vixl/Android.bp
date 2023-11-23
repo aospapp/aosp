@@ -249,5 +249,8 @@ cc_test_host {
         linux_glibc_x86_64: {
             enabled: true,
         },
+        linux_musl_x86_64: {
+            enabled: true,
+        },
     },
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # stackcount    Count kernel function calls and their stack traces.
 #               For Linux, uses BCC, eBPF.
@@ -118,7 +118,9 @@ int trace_count(struct pt_regs *ctx) {
 
 out:
     val = counts.lookup_or_init(&key, &zero);
-    (*val)++;
+    if (val) {
+        (*val)++;
+    }
     return 0;
 }
 """

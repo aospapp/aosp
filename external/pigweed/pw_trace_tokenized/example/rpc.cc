@@ -13,19 +13,27 @@
 // the License.
 //==============================================================================
 /*
+
+NOTE
+To use this example you need to enable nanopb, one option is to set this in
+either your out/args.gn or the root .gn:
+default_args = {
+  dir_pw_third_party_nanopb = "<path to nanopb repo>"
+}
+
 BUILD
 ninja -C out
-host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
+pw_strict_host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
 
 RUN
-.out/host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
+./out/pw_strict_host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
 
 DECODE
 python pw_trace_tokenized/py/pw_trace_tokenized/get_trace.py
  -s localhost:33000
  -o trace.json
  -t
- out/host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
+ out/pw_strict_host_clang_debug/obj/pw_trace_tokenized/bin/trace_tokenized_example_rpc
  pw_trace_tokenized/pw_trace_protos/trace_rpc.proto
 
 VIEW
@@ -33,6 +41,7 @@ In chrome navigate to chrome://tracing, and load the trace.json file.
 */
 #include <thread>
 
+#include "pw_assert/check.h"
 #include "pw_log/log.h"
 #include "pw_rpc/server.h"
 #include "pw_rpc_system_server/rpc_server.h"
@@ -49,7 +58,7 @@ void RpcThread() {
 
   // Set up the server and start processing data.
   pw::rpc::system_server::Server().RegisterService(trace_service);
-  pw::rpc::system_server::Start();
+  PW_CHECK_OK(pw::rpc::system_server::Start());
 }
 
 }  // namespace

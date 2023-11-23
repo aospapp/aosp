@@ -1200,7 +1200,7 @@ TEST_F(SystemTests, verify_memory) {
       memory_iteration++;
     }
   }
-  ASSERT_EQ(400, memory_iteration)
+  ASSERT_EQ(400U, memory_iteration)
       << "Did not find the expected 400 lines of memory data." << std::endl
       << "Raw output:" << std::endl
       << raw_output_;
@@ -1328,6 +1328,89 @@ TEST_F(SystemTests, verify_gtest_flagfile) {
       Verify("*.DISABLED_pass", expected, 0, std::vector<const char*>{flagfile.c_str()}));
 }
 
+TEST_F(SystemTests, verify_repeat_stop_on_error) {
+  std::string expected =
+      "Note: Google Test filter = *.DISABLED_fail\n"
+      "[==========] Running 1 test from 1 test suite (20 jobs).\n"
+      "[ RUN      ] SystemTests.DISABLED_fail\n"
+      "file:(XX) Failure in test SystemTests.DISABLED_fail\n"
+      "Expected equality of these values:\n"
+      "  1\n"
+      "  0\n"
+      "SystemTests.DISABLED_fail exited with exitcode 1.\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail (XX ms)\n"
+      "[==========] 1 test from 1 test suite ran. (XX ms total)\n"
+      "[  PASSED  ] 0 tests.\n"
+      "[  FAILED  ] 1 test, listed below:\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail\n"
+      "\n"
+      " 1 FAILED TEST\n"
+      "\n"
+      "Terminating repeat run due to failing tests (iteration 1).\n";
+  ASSERT_NO_FATAL_FAILURE(
+      Verify("*.DISABLED_fail", expected, 1,
+             std::vector<const char*>{"--gtest_repeat=2", "--gtest_break_on_failure"}));
+}
+
+TEST_F(SystemTests, verify_repeat_no_stop_on_error) {
+  std::string expected =
+      "Note: Google Test filter = *.DISABLED_fail\n"
+      "[==========] Running 1 test from 1 test suite (20 jobs).\n"
+      "[ RUN      ] SystemTests.DISABLED_fail\n"
+      "file:(XX) Failure in test SystemTests.DISABLED_fail\n"
+      "Expected equality of these values:\n"
+      "  1\n"
+      "  0\n"
+      "SystemTests.DISABLED_fail exited with exitcode 1.\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail (XX ms)\n"
+      "[==========] 1 test from 1 test suite ran. (XX ms total)\n"
+      "[  PASSED  ] 0 tests.\n"
+      "[  FAILED  ] 1 test, listed below:\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail\n"
+      "\n"
+      " 1 FAILED TEST\n"
+      "\n"
+      "Repeating all tests (iteration 2) . . .\n"
+      "\n"
+      "[==========] Running 1 test from 1 test suite (20 jobs).\n"
+      "[ RUN      ] SystemTests.DISABLED_fail\n"
+      "file:(XX) Failure in test SystemTests.DISABLED_fail\n"
+      "Expected equality of these values:\n"
+      "  1\n"
+      "  0\n"
+      "SystemTests.DISABLED_fail exited with exitcode 1.\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail (XX ms)\n"
+      "[==========] 1 test from 1 test suite ran. (XX ms total)\n"
+      "[  PASSED  ] 0 tests.\n"
+      "[  FAILED  ] 1 test, listed below:\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail\n"
+      "\n"
+      " 1 FAILED TEST\n";
+  ASSERT_NO_FATAL_FAILURE(
+      Verify("*.DISABLED_fail", expected, 1, std::vector<const char*>{"--gtest_repeat=2"}));
+}
+
+TEST_F(SystemTests, verify_single_no_terminate_message) {
+  std::string expected =
+      "Note: Google Test filter = *.DISABLED_fail\n"
+      "[==========] Running 1 test from 1 test suite (20 jobs).\n"
+      "[ RUN      ] SystemTests.DISABLED_fail\n"
+      "file:(XX) Failure in test SystemTests.DISABLED_fail\n"
+      "Expected equality of these values:\n"
+      "  1\n"
+      "  0\n"
+      "SystemTests.DISABLED_fail exited with exitcode 1.\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail (XX ms)\n"
+      "[==========] 1 test from 1 test suite ran. (XX ms total)\n"
+      "[  PASSED  ] 0 tests.\n"
+      "[  FAILED  ] 1 test, listed below:\n"
+      "[  FAILED  ] SystemTests.DISABLED_fail\n"
+      "\n"
+      " 1 FAILED TEST\n";
+  ASSERT_NO_FATAL_FAILURE(
+      Verify("*.DISABLED_fail", expected, 1, std::vector<const char*>{"--gtest_break_on_failure"}));
+}
+
 // These tests are used by the verify_disabled tests.
 TEST_F(SystemTests, always_pass) {}
 
@@ -1341,7 +1424,7 @@ TEST_F(SystemTests, DISABLED_fail) {
   ASSERT_EQ(1, 0);
 }
 
-TEST_F(SystemTests, DISABLED_crash) {
+TEST_F(SystemTests, DISABLED_crash) __attribute__((optnone)) {
   char* p = reinterpret_cast<char*>(static_cast<intptr_t>(atoi("0")));
   *p = 3;
 }

@@ -19,12 +19,15 @@ package android.car.hardware.power;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
 import android.annotation.CallbackExecutor;
+import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.annotation.AddedInOrBefore;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
@@ -34,9 +37,12 @@ import android.util.SparseIntArray;
 
 import com.android.internal.annotations.GuardedBy;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
@@ -44,7 +50,10 @@ import java.util.concurrent.Executor;
  */
 public class CarPowerManager extends CarManagerBase {
     private static final boolean DBG = false;
-    private static final String TAG = CarPowerManager.class.getSimpleName();
+
+    /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final String TAG = CarPowerManager.class.getSimpleName();
 
     private static final int FIRST_POWER_COMPONENT = PowerComponentUtil.FIRST_POWER_COMPONENT;
     private static final int LAST_POWER_COMPONENT = PowerComponentUtil.LAST_POWER_COMPONENT;
@@ -71,9 +80,223 @@ public class CarPowerManager extends CarManagerBase {
     @GuardedBy("mLock")
     private CarPowerStateListenerWithCompletion mListenerWithCompletion;
     @GuardedBy("mLock")
-    private CompletableFuture<Void> mFuture;
+    private CompletablePowerStateChangeFutureImpl mFuture;
     @GuardedBy("mLock")
     private ICarPowerStateListener mListenerToService;
+    @GuardedBy("mLock")
+    private Executor mExecutor;
+
+    // The following power state definitions must match the ones located in the native
+    // CarPowerManager: packages/services/Car/car-lib/native/include/CarPowerManager.h
+    /**
+     * Power state to represent the current one is unavailable, unknown, or invalid.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_INVALID = 0;
+
+    /**
+     * Power state to represent Android is up, but waits for the vendor to give a signal to start
+     * main functionality.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_WAIT_FOR_VHAL = 1;
+
+    /**
+     * Power state to represent the system enters deep sleep (suspend to RAM).
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for suspend
+     * enter is 5 seconds by default and can be configured by setting
+     * {@code config_shutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_SUSPEND_ENTER = 2;
+
+    /**
+     * Power state to represent the system wakes up from suspend.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_SUSPEND_EXIT = 3;
+
+    /**
+     * Power state to represent the system enters shutdown state.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for shutdown
+     * enter is 5 seconds by default and can be configured by setting
+     * {@code config_shutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_SHUTDOWN_ENTER = 5;
+
+    /**
+     * Power state to represent the system is at on state.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_ON = 6;
+
+    /**
+     * Power state to represent the system is getting ready for shutdown or suspend. Application is
+     * expected to cleanup and be ready to suspend.
+     *
+     * <p>The maximum duration of shutdown preprare is 15 minutes by default, and can be increased
+     * by setting {@code maxGarageModeRunningDurationInSecs} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_SHUTDOWN_PREPARE = 7;
+
+    /**
+     * Power state to represent shutdown is cancelled, returning to normal state.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_SHUTDOWN_CANCELLED = 8;
+
+    /**
+     * Power state to represent the system enters hibernation (suspend to disk) state.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for hibernation
+     * enter is 5 seconds by default and can be configured by setting
+     * {@code config_shutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_HIBERNATION_ENTER = 9;
+
+    /**
+     * Power state to represent the system wakes up from hibernation.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_HIBERNATION_EXIT = 10;
+
+    /**
+     * Power state to represent system shutdown is initiated, but output components such as display
+     * is still on. UI to show a device is about to shutdown can be presented at this state.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for pre shutdown
+     * prepare is 5 seconds by default and can be configured by setting
+     * {@code config_preShutdownPrepareTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_PRE_SHUTDOWN_PREPARE = 11;
+
+    /**
+     * Power state to represent car power management service and VHAL finish processing to enter
+     * deep sleep and the device is about to sleep.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for post suspend
+     * enter is 5 seconds by default and can be configured by setting
+     * {@code config_postShutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_POST_SUSPEND_ENTER = 12;
+
+    /**
+     * Power state to represent car power management service and VHAL finish processing to shutdown
+     * and the device is about to power off.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for post
+     * shutdown enter is 5 seconds by default and can be configured by setting
+     * {@code config_postShutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_POST_SHUTDOWN_ENTER = 13;
+
+    /**
+     * Power state to represent car power management service and VHAL finish processing to enter
+     * hibernation and the device is about to hibernate.
+     *
+     * <p>In case of using {@link CarPowerStateListenerWithCompletion}, the timeout for post
+     * hibernation enter is 5 seconds by default and can be configured by setting
+     * {@code config_postShutdownEnterTimeout} in the car service resource.
+     *
+     * @hide
+     */
+    @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static final int STATE_POST_HIBERNATION_ENTER = 14;
+
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = "STATE_", value = {
+            STATE_INVALID,
+            STATE_WAIT_FOR_VHAL,
+            STATE_SUSPEND_ENTER,
+            STATE_SUSPEND_EXIT,
+            STATE_SHUTDOWN_ENTER,
+            STATE_ON,
+            STATE_SHUTDOWN_PREPARE,
+            STATE_SHUTDOWN_CANCELLED,
+            STATE_HIBERNATION_ENTER,
+            STATE_HIBERNATION_EXIT,
+            STATE_PRE_SHUTDOWN_PREPARE,
+            STATE_POST_SUSPEND_ENTER,
+            STATE_POST_SHUTDOWN_ENTER,
+            STATE_POST_HIBERNATION_ENTER,
+    })
+    @Target({ElementType.TYPE_USE})
+    public @interface CarPowerState {}
+
+    /**
+     * An interface passed from {@link CarPowerStateListenerWithCompletion}.
+     *
+     * <p>The listener uses this interface to tell {@link CarPowerManager} that it completed the
+     * task relevant to the power state change.
+     *
+     * @hide
+     */
+    @SystemApi
+    public interface CompletablePowerStateChangeFuture {
+        /**
+         * Tells {@link CarPowerManager} that the listener completed the task to handle the power
+         * state change.
+         */
+        @AddedInOrBefore(majorVersion = 33)
+        void complete();
+
+        /**
+         * Gets the timestamp when the timeout happens.
+         *
+         * <p>The timestamp is system elapsed time in milliseconds.
+         */
+        @AddedInOrBefore(majorVersion = 33)
+        long getExpirationTime();
+    }
 
     /**
      * Applications set a {@link CarPowerStateListener} for power state event updates.
@@ -83,104 +306,57 @@ public class CarPowerManager extends CarManagerBase {
     @SystemApi
     public interface CarPowerStateListener {
         /**
-         * onStateChanged() states. These definitions must match the ones located in the native
-         * CarPowerManager:  packages/services/Car/car-lib/native/include/CarPowerManager.h
-         */
-
-        /**
-         * The current power state is unavailable, unknown, or invalid.
+         * Called when power state changes.
          *
-         * @hide
+         * @param state New power state of the system.
          */
-        int INVALID = 0;
-
-        /**
-         * Android is up, but vendor is controlling the audio / display.
-         *
-         * @hide
-         */
-        int WAIT_FOR_VHAL = 1;
-
-        /**
-         * Enter suspend state. CPMS is switching to WAIT_FOR_FINISHED state.
-         *
-         * @hide
-         */
-        int SUSPEND_ENTER = 2;
-
-        /**
-         * Wake up from suspend.
-         *
-         * @hide
-         */
-        int SUSPEND_EXIT = 3;
-
-        /**
-         * Enter shutdown state. CPMS is switching to WAIT_FOR_FINISHED state.
-         *
-         * @hide
-         */
-        int SHUTDOWN_ENTER = 5;
-
-        /**
-         * On state.
-         *
-         * @hide
-         */
-        int ON = 6;
-
-        /**
-         * State where system is getting ready for shutdown or suspend. Application is expected to
-         * cleanup and be ready to suspend.
-         *
-         * @hide
-         */
-        int SHUTDOWN_PREPARE = 7;
-
-        /**
-         * Shutdown is cancelled, returning to normal state.
-         *
-         * @hide
-         */
-        int SHUTDOWN_CANCELLED = 8;
-
-        /**
-         * Called when power state changes. This callback is available to
-         * any listener, even if it is not running in the system process.
-         *
-         * @param state New power state of device.
-         *
-         * @hide
-         */
-        void onStateChanged(int state);
+        @AddedInOrBefore(majorVersion = 33)
+        void onStateChanged(@CarPowerState int state);
     }
 
     /**
      * Applications set a {@link CarPowerStateListenerWithCompletion} for power state
-     * event updates where a CompletableFuture is used.
+     * event updates where a {@link CompletablePowerStateChangeFuture} is used.
      *
      * @hide
      */
     @SystemApi
     public interface CarPowerStateListenerWithCompletion {
         /**
-         * Called when power state changes. This callback is only for listeners
-         * that are running in the system process.
+         * Called when power state changes.
          *
-         * @param state New power state of device.
-         * @param future CompletableFuture used by Car modules to notify CPMS that they
-         *               are ready to continue shutting down. CPMS will wait until this
-         *               future is completed.
+         * <p>Some {@code state}s allow for completion and the listeners are supposed to tell the
+         * completion of handling the power state change. Those states include:
+         * <ul>
+         * <li>{@link STATE_PRE_SHUTDOWN_PREPARE}</li>
+         * <li>{@link STATE_SHUTDOWN_ENTER}</li>
+         * <li>{@link STATE_SUSPEND_ENTER}</li>
+         * <li>{@link STATE_HIBERNATION_ENTER}</li>
+         * <li>{@link STATE_POST_SHUTDOWN_ENTER}</li>
+         * <li>{@link STATE_POST_SUSPEND_ENTER}</li>
+         * <li>{@link STATE_POST_HIBERNATION_ENTER}</li>
+         * </ul>
+         * If the listeners don't complete before the timeout expires, car power management service
+         * moves to the next step, anyway. The timeout given to the listener can be queried by
+         * {@link CompletablePowerStateChangeFuture#getExpirationTime()}.
          *
-         * @hide
+         * @param state New power state of the system.
+         * @param future CompletablePowerStateChangeFuture used by listeners to notify
+         *               CarPowerManager that they are ready to move to the next step. Car power
+         *               management service waits until the listeners call
+         *               {@code CompletablePowerStateChangeFuture#complete()} or timeout happens.
+         *               In the case {@code state} doesn't allow for completion, {@code future} is
+         *               {@code null}.
          */
-        void onStateChanged(int state, CompletableFuture<Void> future);
+        @AddedInOrBefore(majorVersion = 33)
+        void onStateChanged(@CarPowerState int state,
+                @Nullable CompletablePowerStateChangeFuture future);
     }
 
     /**
      * Listeners to receive power policy change.
      *
-     * <p> Applications interested in power policy change register
+     * <p>Applications interested in power policy change register
      * {@code CarPowerPolicyListener} and will be notified when power policy changes.
      */
     public interface CarPowerPolicyListener {
@@ -189,6 +365,7 @@ public class CarPowerManager extends CarManagerBase {
          *
          * @param policy The current power policy.
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onPolicyChanged(@NonNull CarPowerPolicy policy);
     }
 
@@ -210,6 +387,7 @@ public class CarPowerManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    @AddedInOrBefore(majorVersion = 33)
     public void requestShutdownOnNextSuspend() {
         try {
             mService.requestShutdownOnNextSuspend();
@@ -224,6 +402,7 @@ public class CarPowerManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    @AddedInOrBefore(majorVersion = 33)
     public void scheduleNextWakeupTime(int seconds) {
         try {
             mService.scheduleNextWakeupTime(seconds);
@@ -241,59 +420,75 @@ public class CarPowerManager extends CarManagerBase {
      */
     @SystemApi
     @RequiresPermission(Car.PERMISSION_CAR_POWER)
-    public int getPowerState() {
+    @AddedInOrBefore(majorVersion = 33)
+    public @CarPowerState int getPowerState() {
         try {
             return mService.getPowerState();
         } catch (RemoteException e) {
-            return handleRemoteExceptionFromCarService(e, CarPowerStateListener.INVALID);
+            return handleRemoteExceptionFromCarService(e, STATE_INVALID);
         }
     }
 
     /**
      * Sets a listener to receive power state changes. Only one listener may be set at a
      * time for an instance of CarPowerManager.
-     * The listener is assumed to completely handle the 'onStateChanged' before returning.
      *
-     * @param listener
-     * @throws IllegalStateException
+     * <p>The listener is assumed to completely handle the {@code onStateChanged} before returning.
+     *
+     * @param listener The listener which will receive the power state change.
+     * @throws IllegalStateException When a listener is already set for the power state change.
+     * @throws IllegalArgumentException When the given listener is null.
      *
      * @hide
      */
     @SystemApi
     @RequiresPermission(Car.PERMISSION_CAR_POWER)
-    public void setListener(@Nullable CarPowerStateListener listener) {
+    @AddedInOrBefore(majorVersion = 33)
+    public void setListener(@NonNull @CallbackExecutor Executor executor,
+            @NonNull CarPowerStateListener listener) {
+        checkArgument(executor != null, "excutor cannot be null");
+        checkArgument(listener != null, "listener cannot be null");
         synchronized (mLock) {
             if (mListener != null || mListenerWithCompletion != null) {
                 throw new IllegalStateException("Listener must be cleared first");
             }
-            // Update listener
+            // Updates listener
             mListener = listener;
+            mExecutor = executor;
             setServiceForListenerLocked(false);
         }
     }
 
     /**
-     * Sets a listener to receive power state changes. Only one listener may be set at a
-     * time for an instance of CarPowerManager.
-     * For calls that require completion before continue, we attach a {@link CompletableFuture}
-     * which is being used as a signal that caller is finished and ready to proceed.
-     * Once future is completed, the {@link finished} method will automatically be called to notify
-     * {@link CarPowerManagementService} that the application has handled the
-     * {@link #SHUTDOWN_PREPARE} state transition.
+     * Sets a listener to receive power state changes. Only one listener may be set at a time for an
+     * instance of CarPowerManager.
      *
-     * @param listener
-     * @throws IllegalStateException
+     * <p>For calls that require completion before continue, we attach a
+     * {@link CompletablePowerStateChangeFuture} which is being used as a signal that caller is
+     * finished and ready to proceed.
+     * Once the future is completed, car power management service knows that the application has
+     * handled the power state transition and moves to the next state.
+     *
+     * @param listener The listener which will receive the power state change.
+     * @throws IllegalStateException When a listener is already set for the power state change.
+     * @throws IllegalArgumentException When the given listener is null.
      *
      * @hide
      */
-    @RequiresPermission(Car.PERMISSION_CAR_POWER)
-    public void setListenerWithCompletion(@Nullable CarPowerStateListenerWithCompletion listener) {
+    @SystemApi
+    @RequiresPermission(Car.PERMISSION_CONTROL_SHUTDOWN_PROCESS)
+    @AddedInOrBefore(majorVersion = 33)
+    public void setListenerWithCompletion(@NonNull @CallbackExecutor Executor executor,
+            @NonNull CarPowerStateListenerWithCompletion listener) {
+        checkArgument(executor != null, "executor cannot be null");
+        checkArgument(listener != null, "listener cannot be null");
         synchronized (mLock) {
             if (mListener != null || mListenerWithCompletion != null) {
                 throw new IllegalStateException("Listener must be cleared first");
             }
-            // Update listener
+            // Updates listener
             mListenerWithCompletion = listener;
+            mExecutor = executor;
             setServiceForListenerLocked(true);
         }
     }
@@ -305,6 +500,7 @@ public class CarPowerManager extends CarManagerBase {
      */
     @SystemApi
     @RequiresPermission(Car.PERMISSION_CAR_POWER)
+    @AddedInOrBefore(majorVersion = 33)
     public void clearListener() {
         ICarPowerStateListener listenerToService;
         synchronized (mLock) {
@@ -312,11 +508,12 @@ public class CarPowerManager extends CarManagerBase {
             mListenerToService = null;
             mListener = null;
             mListenerWithCompletion = null;
+            mExecutor = null;
             cleanupFutureLocked();
         }
 
         if (listenerToService == null) {
-            Log.w(TAG, "unregisterListener: listener was not registered");
+            Log.w(TAG, "clearListener: listener was not registered");
             return;
         }
 
@@ -340,6 +537,7 @@ public class CarPowerManager extends CarManagerBase {
      */
     @RequiresPermission(Car.PERMISSION_READ_CAR_POWER_POLICY)
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public CarPowerPolicy getCurrentPowerPolicy() {
         try {
             return mService.getCurrentPowerPolicy();
@@ -351,7 +549,7 @@ public class CarPowerManager extends CarManagerBase {
     /**
      * Applies the given power policy.
      *
-     * <p> Power components are turned on or off as specified in the given power policy. Power
+     * <p>Power components are turned on or off as specified in the given power policy. Power
      * policies are defined at {@code /vendor/etc/power_policy.xml}. If the given power policy
      * doesn't exist, this method throws {@link java.lang.IllegalArgumentException}.
      *
@@ -362,6 +560,7 @@ public class CarPowerManager extends CarManagerBase {
      */
     @SystemApi
     @RequiresPermission(Car.PERMISSION_CONTROL_CAR_POWER_POLICY)
+    @AddedInOrBefore(majorVersion = 33)
     public void applyPowerPolicy(@NonNull String policyId) {
         checkArgument(policyId != null, "Null policyId");
         try {
@@ -374,7 +573,7 @@ public class CarPowerManager extends CarManagerBase {
     /**
      * Sets the current power policy group.
      *
-     * Power policy group defines a rule to apply a certain power policy according to the power
+     * <p>Power policy group defines a rule to apply a certain power policy according to the power
      * state transition. For example, a power policy named "default_for_on" is supposed to be
      * applied when the power state becomes ON. This rule is specified in the power policy group.
      * Many power policy groups can be pre-defined, and one of them is set for the current one using
@@ -387,6 +586,7 @@ public class CarPowerManager extends CarManagerBase {
      */
     @SystemApi
     @RequiresPermission(Car.PERMISSION_CONTROL_CAR_POWER_POLICY)
+    @AddedInOrBefore(majorVersion = 33)
     public void setPowerPolicyGroup(@NonNull String policyGroupId) {
         checkArgument(policyGroupId != null, "Null policyGroupId");
         try {
@@ -409,6 +609,7 @@ public class CarPowerManager extends CarManagerBase {
      *                                  null.
      */
     @RequiresPermission(Car.PERMISSION_READ_CAR_POWER_POLICY)
+    @AddedInOrBefore(majorVersion = 33)
     public void addPowerPolicyListener(@NonNull @CallbackExecutor Executor executor,
             @NonNull CarPowerPolicyFilter filter, @NonNull CarPowerPolicyListener listener) {
         assertPermission(Car.PERMISSION_READ_CAR_POWER_POLICY);
@@ -449,6 +650,7 @@ public class CarPowerManager extends CarManagerBase {
      * @throws IllegalArgumentException if {@code listener} is null.
      */
     @RequiresPermission(Car.PERMISSION_READ_CAR_POWER_POLICY)
+    @AddedInOrBefore(majorVersion = 33)
     public void removePowerPolicyListener(@NonNull CarPowerPolicyListener listener) {
         assertPermission(Car.PERMISSION_READ_CAR_POWER_POLICY);
         checkArgument(listener != null, "Null listener");
@@ -479,32 +681,62 @@ public class CarPowerManager extends CarManagerBase {
         }
     }
 
+    /**
+     * Returns whether listen completion is allowed for {@code state}.
+     *
+     * @hide
+     */
+    @TestApi
+    @AddedInOrBefore(majorVersion = 33)
+    public static boolean isCompletionAllowed(@CarPowerState int state) {
+        switch (state) {
+            case CarPowerManager.STATE_PRE_SHUTDOWN_PREPARE:
+            case CarPowerManager.STATE_SHUTDOWN_ENTER:
+            case CarPowerManager.STATE_SUSPEND_ENTER:
+            case CarPowerManager.STATE_HIBERNATION_ENTER:
+            case CarPowerManager.STATE_POST_SHUTDOWN_ENTER:
+            case CarPowerManager.STATE_POST_SUSPEND_ENTER:
+            case CarPowerManager.STATE_POST_HIBERNATION_ENTER:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    @GuardedBy("mLock")
     private void setServiceForListenerLocked(boolean useCompletion) {
         if (mListenerToService == null) {
             ICarPowerStateListener listenerToService = new ICarPowerStateListener.Stub() {
                 @Override
-                public void onStateChanged(int state) throws RemoteException {
+                public void onStateChanged(int state, long expirationTimeMs)
+                        throws RemoteException {
                     if (useCompletion) {
                         CarPowerStateListenerWithCompletion listenerWithCompletion;
-                        CompletableFuture<Void> future;
+                        CompletablePowerStateChangeFuture future;
+                        Executor executor;
                         synchronized (mLock) {
-                            // Update CompletableFuture. This will recreate it or just clean it up.
-                            updateFutureLocked(state);
+                            // Updates CompletablePowerStateChangeFuture. This will recreate it or
+                            // just clean it up.
+                            updateFutureLocked(state, expirationTimeMs);
                             listenerWithCompletion = mListenerWithCompletion;
                             future = mFuture;
+                            executor = mExecutor;
                         }
-                        // Notify user that the state has changed and supply a future
-                        if (listenerWithCompletion != null) {
-                            listenerWithCompletion.onStateChanged(state, future);
+                        // Notifies the user that the state has changed and supply a future.
+                        if (listenerWithCompletion != null && executor != null) {
+                            executor.execute(
+                                    () -> listenerWithCompletion.onStateChanged(state, future));
                         }
                     } else {
                         CarPowerStateListener listener;
+                        Executor executor;
                         synchronized (mLock) {
                             listener = mListener;
+                            executor = mExecutor;
                         }
-                        // Notify the user without supplying a future
-                        if (listener != null) {
-                            listener.onStateChanged(state);
+                        // Notifies the user without supplying a future.
+                        if (listener != null && executor != null) {
+                            executor.execute(() -> listener.onStateChanged(state));
                         }
                     }
                 }
@@ -522,39 +754,37 @@ public class CarPowerManager extends CarManagerBase {
         }
     }
 
-    private void updateFutureLocked(int state) {
+    @GuardedBy("mLock")
+    private void updateFutureLocked(@CarPowerState int state, long expirationTimeMs) {
         cleanupFutureLocked();
-        if (state == CarPowerStateListener.SHUTDOWN_PREPARE) {
-            // Create a CompletableFuture and pass it to the listener.
-            // When the listener completes the future, tell
-            // CarPowerManagementService that this action is finished.
-            mFuture = new CompletableFuture<>();
-            mFuture.whenComplete((result, exception) -> {
-                if (exception != null && !(exception instanceof CancellationException)) {
-                    Log.e(TAG, "Exception occurred while waiting for future", exception);
-                }
+        if (isCompletionAllowed(state)) {
+            // Creates a CompletablePowerStateChangeFuture and passes it to the listener.
+            // When the listener completes, tells CarPowerManagementService that this action is
+            // finished.
+            mFuture = new CompletablePowerStateChangeFutureImpl(() -> {
                 ICarPowerStateListener listenerToService;
                 synchronized (mLock) {
                     listenerToService = mListenerToService;
                 }
                 try {
-                    mService.finished(listenerToService);
+                    mService.finished(state, listenerToService);
                 } catch (RemoteException e) {
                     handleRemoteExceptionFromCarService(e);
                 }
-            });
+            }, expirationTimeMs);
         }
     }
 
+    @GuardedBy("mLock")
     private void cleanupFutureLocked() {
         if (mFuture != null) {
-            if (!mFuture.isDone()) {
-                mFuture.cancel(false);
-            }
+            mFuture.invalidate();
+            Log.w(TAG, "The current future becomes invalid");
             mFuture = null;
         }
     }
 
+    @GuardedBy("mLock")
     private CarPowerPolicyFilter createFilterFromInterestedComponentsLocked() {
         CarPowerPolicyFilter newFilter = null;
         int componentCount = mInterestedComponentMap.size();
@@ -613,10 +843,51 @@ public class CarPowerManager extends CarManagerBase {
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         synchronized (mLock) {
             mListener = null;
             mListenerWithCompletion = null;
+        }
+    }
+
+    private static final class CompletablePowerStateChangeFutureImpl
+            implements CompletablePowerStateChangeFuture {
+
+        private final Runnable mRunnableForCompletion;
+        private final long mExpirationTimeMs;
+        private final Object mCompletionLock = new Object();
+
+        @GuardedBy("mCompletionLock")
+        private boolean mCanBeCompleted = true;
+
+        private CompletablePowerStateChangeFutureImpl(Runnable runnable, long expirationTimeMs) {
+            mRunnableForCompletion = Objects.requireNonNull(runnable);
+            mExpirationTimeMs = expirationTimeMs;
+        }
+
+        @Override
+        public void complete() {
+            synchronized (mCompletionLock) {
+                if (!mCanBeCompleted) {
+                    Log.w(TAG, "Cannot complete: already completed or invalid state");
+                    return;
+                }
+                // Once completed, this instance cannot be completed again.
+                mCanBeCompleted = false;
+            }
+            mRunnableForCompletion.run();
+        }
+
+        @Override
+        public long getExpirationTime() {
+            return mExpirationTimeMs;
+        }
+
+        private void invalidate() {
+            synchronized (mCompletionLock) {
+                mCanBeCompleted = false;
+            }
         }
     }
 }

@@ -17,6 +17,7 @@
 package com.google.turbine.binder.bytecode;
 
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
@@ -31,6 +32,7 @@ import com.google.turbine.binder.bound.TypeBoundClass.MethodInfo;
 import com.google.turbine.binder.env.CompoundEnv;
 import com.google.turbine.binder.env.Env;
 import com.google.turbine.binder.sym.ClassSymbol;
+import com.google.turbine.model.TurbineFlag;
 import com.google.turbine.type.Type;
 import com.google.turbine.type.Type.ClassTy;
 import java.io.IOException;
@@ -40,6 +42,7 @@ import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -81,9 +84,11 @@ public class BytecodeBoundClassTest {
         .isEqualTo(new ClassSymbol("java/lang/String"));
   }
 
+  @SuppressWarnings({"deprecation", "TypeNameShadowing", "InlineMeSuggester"})
   static class HasMethod {
     @Deprecated
-    <X, Y extends X, Z extends Throwable> X foo(@Deprecated X bar, Y baz) throws IOException, Z {
+    <X, Y extends X, Z extends Throwable> @Nullable X foo(@Deprecated X bar, Y baz)
+        throws IOException, Z {
       return null;
     }
 
@@ -175,6 +180,19 @@ public class BytecodeBoundClassTest {
     assertThat(getBytecodeBoundClass(C.class, B.class, A.class).methods()).hasSize(1);
   }
 
+  interface D {
+    default void f() {}
+  }
+
+  @Test
+  public void defaultMethods() {
+    assertThat(
+            (getOnlyElement(getBytecodeBoundClass(D.class).methods()).access()
+                    & TurbineFlag.ACC_DEFAULT)
+                == TurbineFlag.ACC_DEFAULT)
+        .isTrue();
+  }
+
   private static byte[] toByteArrayOrDie(InputStream is) {
     try {
       return ByteStreams.toByteArray(is);
@@ -201,7 +219,7 @@ public class BytecodeBoundClassTest {
             .append(
                 new Env<ClassSymbol, BytecodeBoundClass>() {
                   @Override
-                  public BytecodeBoundClass get(ClassSymbol sym) {
+                  public @Nullable BytecodeBoundClass get(ClassSymbol sym) {
                     return map.get(sym);
                   }
                 });

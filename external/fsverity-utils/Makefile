@@ -25,6 +25,9 @@
 # Define LIBDIR to override where to install libraries, like './configure
 # --libdir' in autotools-based projects (default: PREFIX/lib)
 #
+# Define MANDIR to override where to install man pages, like './configure
+# --mandir' in autotools-based projects (default: PREFIX/share/man)
+#
 # Define DESTDIR to override the installation destination directory
 # (default: empty string)
 #
@@ -41,8 +44,13 @@ ifneq ($(findstring -mingw,$(shell $(CC) -dumpmachine 2>/dev/null)),)
 MINGW = 1
 endif
 
+# Set the CFLAGS.  First give the warning-related flags (unconditionally, though
+# the user can override any of them by specifying the opposite flag); then give
+# the user-specified CFLAGS, defaulting to -O2 if none were specified.
+#
+# Use -Wno-deprecated-declarations to avoid warnings about the Engine API having
+# been deprecated in OpenSSL 3.0; the replacement isn't ready yet.
 CFLAGS ?= -O2
-
 override CFLAGS := -Wall -Wundef				\
 	$(call cc-option,-Wdeclaration-after-statement)		\
 	$(call cc-option,-Wimplicit-fallthrough)		\
@@ -51,6 +59,7 @@ override CFLAGS := -Wall -Wundef				\
 	$(call cc-option,-Wstrict-prototypes)			\
 	$(call cc-option,-Wunused-parameter)			\
 	$(call cc-option,-Wvla)					\
+	$(call cc-option,-Wno-deprecated-declarations)		\
 	$(CFLAGS)
 
 override CPPFLAGS := -Iinclude -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $(CPPFLAGS)
@@ -61,12 +70,14 @@ QUIET_CCLD      = @echo '  CCLD    ' $@;
 QUIET_AR        = @echo '  AR      ' $@;
 QUIET_LN        = @echo '  LN      ' $@;
 QUIET_GEN       = @echo '  GEN     ' $@;
+QUIET_PANDOC    = @echo '  PANDOC  ' $@;
 endif
 USE_SHARED_LIB  ?=
 PREFIX          ?= /usr/local
 BINDIR          ?= $(PREFIX)/bin
 INCDIR          ?= $(PREFIX)/include
 LIBDIR          ?= $(PREFIX)/lib
+MANDIR          ?= $(PREFIX)/share/man
 DESTDIR         ?=
 ifneq ($(MINGW),1)
 PKGCONF         ?= pkg-config
@@ -92,6 +103,7 @@ FSVERITY        := fsverity$(EXEEXT)
 	fi
 
 DEFAULT_TARGETS :=
+EXTRA_TARGETS   :=
 COMMON_HEADERS  := $(wildcard common/*.h)
 LDLIBS          := $(shell "$(PKGCONF)" libcrypto --libs 2>/dev/null || echo -lcrypto)
 CFLAGS          += $(shell "$(PKGCONF)" libcrypto --cflags 2>/dev/null || echo)
@@ -160,6 +172,7 @@ FSVERITY_PROG_OBJ := $(PROG_COMMON_OBJ)		\
 		     programs/fsverity.o
 ifneq ($(MINGW),1)
 FSVERITY_PROG_OBJ += \
+		     programs/cmd_dump_metadata.o \
 		     programs/cmd_enable.o	\
 		     programs/cmd_measure.o
 endif
@@ -186,9 +199,37 @@ DEFAULT_TARGETS += $(FSVERITY)
 $(TEST_PROGRAMS): %$(EXEEXT): programs/%.o $(PROG_COMMON_OBJ) libfsverity.a
 	$(QUIET_CCLD) $(CC) -o $@ $+ $(CFLAGS) $(LDFLAGS) $(LDLIBS)
 
+EXTRA_TARGETS += $(TEST_PROGRAMS)
+
 ##############################################################################
 
-SPECIAL_TARGETS := all test_programs check install uninstall help clean
+#### Manual pages
+
+man/fsverity.1:man/fsverity.1.md
+	$(QUIET_PANDOC) pandoc $+ -s -t man > $@
+
+MAN_PAGES := man/fsverity.1
+EXTRA_TARGETS += $(MAN_PAGES)
+
+##############################################################################
+
+# Support for downloading and building BoringSSL.  The purpose of this is to
+# allow testing builds of fsverity-utils that link to BoringSSL instead of
+# OpenSSL, without having to use a system that uses BoringSSL natively.
+
+boringssl:
+	rm -rf boringssl boringssl.tar.gz
+	curl -s -o boringssl.tar.gz \
+		https://boringssl.googlesource.com/boringssl/+archive/refs/heads/master.tar.gz
+	mkdir boringssl
+	tar xf boringssl.tar.gz -C boringssl
+	cmake -B boringssl/build boringssl
+	$(MAKE) -C boringssl/build $(MAKEFLAGS)
+
+##############################################################################
+
+SPECIAL_TARGETS := all test_programs check install install-man uninstall \
+		   help clean
 
 FORCE:
 
@@ -232,6 +273,10 @@ install:all
 		> $(DESTDIR)$(LIBDIR)/pkgconfig/libfsverity.pc
 	chmod 644 $(DESTDIR)$(LIBDIR)/pkgconfig/libfsverity.pc
 
+install-man:$(MAN_PAGES)
+	install -d $(DESTDIR)$(MANDIR)/man1
+	install -m644 $+ $(DESTDIR)$(MANDIR)/man1/
+
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(FSVERITY)
 	rm -f $(DESTDIR)$(LIBDIR)/libfsverity.a
@@ -239,15 +284,18 @@ uninstall:
 	rm -f $(DESTDIR)$(LIBDIR)/libfsverity.so
 	rm -f $(DESTDIR)$(LIBDIR)/pkgconfig/libfsverity.pc
 	rm -f $(DESTDIR)$(INCDIR)/libfsverity.h
+	for page in $(notdir $(MAN_PAGES)); do \
+		rm -f $(DESTDIR)$(MANDIR)/man1/$$page; \
+	done
 
 help:
 	@echo "Available targets:"
 	@echo "------------------"
-	@for target in $(DEFAULT_TARGETS) $(TEST_PROGRAMS) $(SPECIAL_TARGETS); \
+	@for target in $(DEFAULT_TARGETS) $(EXTRA_TARGETS) $(SPECIAL_TARGETS); \
 	do \
 		echo $$target; \
 	done
 
 clean:
-	rm -f $(DEFAULT_TARGETS) $(TEST_PROGRAMS) \
+	rm -f $(DEFAULT_TARGETS) $(EXTRA_TARGETS) \
 		lib/*.o programs/*.o .build-config fsverity.sig

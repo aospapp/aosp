@@ -173,6 +173,7 @@ python_library_host {
     srcs: [
         "atest_error.py",
         "atest_decorator.py",
+        "atest_enum.py",
         "atest_utils.py",
         "constants.py",
         "constants_default.py",
@@ -209,6 +210,7 @@ python_test_host {
     ],
     libs: [
         "atest_proto",
+        "pyfakefs",
         "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
@@ -224,7 +226,7 @@ python_test_host {
         "atest_integration_tests.py",
     ],
     data: [
-        "INTEGRATION_TESTS",
+        "test_plans/INTEGRATION_TESTS",
     ],
     test_config: "atest_integration_tests.xml",
     test_suites: ["null-suite"],

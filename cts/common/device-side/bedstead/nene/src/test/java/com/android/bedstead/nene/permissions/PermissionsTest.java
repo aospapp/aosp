@@ -16,6 +16,7 @@
 
 package com.android.bedstead.nene.permissions;
 
+import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
 import static android.Manifest.permission.MANAGE_EXTERNAL_STORAGE;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
@@ -23,6 +24,8 @@ import static android.os.Build.VERSION_CODES.P;
 import static android.os.Build.VERSION_CODES.Q;
 import static android.os.Build.VERSION_CODES.R;
 import static android.os.Build.VERSION_CODES.S;
+
+import static com.android.bedstead.nene.appops.CommonAppOps.OPSTR_FINE_LOCATION;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -32,6 +35,10 @@ import android.content.Context;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.EnsureDoesNotHaveAppOp;
+import com.android.bedstead.harrier.annotations.EnsureDoesNotHavePermission;
+import com.android.bedstead.harrier.annotations.EnsureHasAppOp;
+import com.android.bedstead.harrier.annotations.EnsureHasPermission;
 import com.android.bedstead.harrier.annotations.RequireSdkVersion;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.NeneException;
@@ -48,6 +55,7 @@ public class PermissionsTest {
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
+    private static final String APP_OP = OPSTR_FINE_LOCATION;
     private static final String PERMISSION_HELD_BY_SHELL =
             "android.permission.INTERACT_ACROSS_PROFILES";
     private static final String DIFFERENT_PERMISSION_HELD_BY_SHELL =
@@ -250,4 +258,61 @@ public class PermissionsTest {
                     .isNotEqualTo(PERMISSION_GRANTED);
         }
     }
+
+    @Test
+    @EnsureHasPermission(INTERACT_ACROSS_USERS_FULL)
+    public void hasPermission_permissionIsGranted_returnsTrue() {
+        assertThat(TestApis.permissions().hasPermission(INTERACT_ACROSS_USERS_FULL)).isTrue();
+    }
+
+    @Test
+    @EnsureDoesNotHavePermission(INTERACT_ACROSS_USERS_FULL)
+    public void hasPermission_permissionIsNotGranted_returnsFalse() {
+        assertThat(TestApis.permissions().hasPermission(INTERACT_ACROSS_USERS_FULL)).isFalse();
+    }
+
+    @Test
+    public void withAppOp_appOpIsGranted() {
+        try (PermissionContext p = TestApis.permissions().withAppOp(APP_OP)) {
+            assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isTrue();
+        }
+    }
+
+    @Test
+    public void withoutAppOp_appOpIsNotGranted() {
+        try (PermissionContext p = TestApis.permissions().withoutAppOp(APP_OP)) {
+            assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isFalse();
+        }
+    }
+
+    @Test
+    public void withAppOpAndPermission_hasBoth() {
+        try (PermissionContext p = TestApis.permissions().withAppOp(APP_OP)
+                .withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isTrue();
+            assertThat(TestApis.permissions().hasPermission(INTERACT_ACROSS_USERS_FULL)).isTrue();
+        }
+    }
+
+    @Test
+    public void withoutAppOpAndWithPermission_hasPermissionButNotAppOp() {
+        try (PermissionContext p = TestApis.permissions().withoutAppOp(APP_OP)
+                .withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isFalse();
+            assertThat(TestApis.permissions().hasPermission(INTERACT_ACROSS_USERS_FULL)).isTrue();
+        }
+    }
+
+    @Test
+    @EnsureHasAppOp(APP_OP)
+    public void hasAppOpAllowed_appOpAllowed_isTrue() {
+        assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isTrue();
+    }
+
+    @Test
+    @EnsureDoesNotHaveAppOp(APP_OP)
+    public void hasAppOpAllowed_appOpNotAllowed_isFalse() {
+        assertThat(TestApis.permissions().hasAppOpAllowed(APP_OP)).isFalse();
+    }
+
 }

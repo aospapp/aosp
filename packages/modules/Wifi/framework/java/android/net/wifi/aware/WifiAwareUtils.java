@@ -103,4 +103,18 @@ public class WifiAwareUtils {
         }
         return false;
     }
+
+    /**
+     * Validates that the PMKID is a non-null byte array of the right size (16 bytes per spec).
+     *
+     * @param pmkId PMK to test
+     * @return true if PMK is valid, false if not
+     */
+    public static boolean validatePmkId(byte[] pmkId) {
+        if (pmkId == null || pmkId.length != 16) {
+            return false;
+        }
+
+        return true;
+    }
 }

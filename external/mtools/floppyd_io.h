@@ -30,16 +30,16 @@ typedef uint64_t Qword;
 #define DWORD_ERR ((Dword) -1)
 
 /*extern int ConnectToFloppyd(const char* name, Class_t** ioclass);*/
-Stream_t *FloppydOpen(struct device *dev, 
-		      char *name, int mode, char *errmsg,
-		      mt_size_t *maxSize);
+Stream_t *FloppydOpen(struct device *dev,
+		      const char *name, int mode, char *errmsg,
+		      mt_off_t *maxSize);
 
 #define FLOPPYD_DEFAULT_PORT 5703
 
 #define FLOPPYD_PROTOCOL_VERSION_OLD 10
 #define FLOPPYD_PROTOCOL_VERSION 11
 
-#define FLOPPYD_CAP_EXPLICIT_OPEN 1 /* explicit open. Useful for 
+#define FLOPPYD_CAP_EXPLICIT_OPEN 1 /* explicit open. Useful for
 				     * clean signalling of readonly disks */
 #define FLOPPYD_CAP_LARGE_SEEK 2    /* large seeks */
 
@@ -69,13 +69,13 @@ enum AuthErrorsEnum {
 UNUSED(static inline void cork(int sockhandle, int on))
 {
 #ifdef TCP_CORK
-	if(setsockopt(sockhandle, IPPROTO_TCP, 
+	if(setsockopt(sockhandle, IPPROTO_TCP,
 		      TCP_CORK, (char *)&on, sizeof(on)) < 0) {
 		perror("setsockopt cork");
 	}
 #else
 	on = 1 ^ on;
-	if(setsockopt(sockhandle, IPPROTO_TCP, 
+	if(setsockopt(sockhandle, IPPROTO_TCP,
 		      TCP_NODELAY, (char *)&on, sizeof(on)) < 0) {
 		perror("setsockopt nodelay");
 	}

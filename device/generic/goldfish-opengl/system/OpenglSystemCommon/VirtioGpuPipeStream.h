@@ -31,6 +31,7 @@ public:
     typedef enum { ERR_INVALID_SOCKET = -1000 } QemuPipeStreamError;
 
     explicit VirtioGpuPipeStream(size_t bufsize = 10000);
+    explicit VirtioGpuPipeStream(size_t bufsize, int stream_handle);
     ~VirtioGpuPipeStream();
     int connect(const char* serviceName = 0);
     static int openRendernode();
@@ -59,6 +60,8 @@ private:
     ssize_t transferFromHost(void* buffer, size_t len);
 
     int m_fd; // rendernode fd
+    int m_fd_owned; // Do we own the fd? We should consider using
+                    // modern C++ for this.
 
     uint32_t m_virtio_rh; // transfer buffer res handle
     uint32_t m_virtio_bo; // transfer bo handle
@@ -71,6 +74,4 @@ private:
     size_t m_readLeft;
 
     size_t m_writtenPos;
-
-    VirtioGpuPipeStream(int sock, size_t bufSize);
 };

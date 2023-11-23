@@ -16,6 +16,8 @@
 
 package com.google.turbine.bytecode;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -37,7 +39,7 @@ import com.google.turbine.model.Const;
 import com.google.turbine.model.TurbineFlag;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A JVMS §4 class file reader. */
 public class ClassReader {
@@ -53,7 +55,7 @@ public class ClassReader {
     return new ClassReader(path, bytes).read();
   }
 
-  @Nullable private final String path;
+  private final @Nullable String path;
   private final ByteReader reader;
 
   private ClassReader(@Nullable String path, byte[] bytes) {
@@ -106,6 +108,7 @@ public class ClassReader {
     List<ClassFile.InnerClass> innerclasses = ImmutableList.of();
     ImmutableList.Builder<ClassFile.AnnotationInfo> annotations = ImmutableList.builder();
     ClassFile.ModuleInfo module = null;
+    String transitiveJar = null;
     int attributesCount = reader.u2();
     for (int j = 0; j < attributesCount; j++) {
       int attributeNameIndex = reader.u2();
@@ -124,6 +127,9 @@ public class ClassReader {
         case "Module":
           module = readModule(constantPool);
           break;
+        case "TurbineTransitiveJar":
+          transitiveJar = readTurbineTransitiveJar(constantPool);
+          break;
         default:
           reader.skip(reader.u4());
           break;
@@ -132,16 +138,22 @@ public class ClassReader {
 
     return new ClassFile(
         accessFlags,
+        majorVersion,
         thisClass,
         signature,
         superClass,
         interfaces,
+        /* permits= */ ImmutableList.of(),
         methodinfos,
         fieldinfos,
         annotations.build(),
         innerclasses,
         ImmutableList.of(),
-        module);
+        module,
+        /* nestHost= */ null,
+        /* nestMembers= */ ImmutableList.of(),
+        /* record= */ null,
+        transitiveJar);
   }
 
   /** Reads a JVMS 4.7.9 Signature attribute. */
@@ -168,6 +180,7 @@ public class ClassReader {
       String innerName = innerNameIndex != 0 ? constantPool.utf8(innerNameIndex) : null;
       int innerClassAccessFlags = reader.u2();
       if (innerName != null && (thisClass.equals(innerClass) || thisClass.equals(outerClass))) {
+        requireNonNull(outerClass);
         innerclasses.add(
             new ClassFile.InnerClass(innerClass, outerClass, innerName, innerClassAccessFlags));
       }
@@ -322,18 +335,18 @@ public class ClassReader {
         // The runtimeVisible bit in AnnotationInfo is only used during lowering; earlier passes
         // read the meta-annotations.
         /* runtimeVisible= */ false,
-        values.build());
+        values.buildOrThrow());
   }
 
   private ElementValue readElementValue(ConstantPoolReader constantPool) {
     int tag = reader.u1();
     switch (tag) {
       case 'B':
-        return new ConstValue(readConst(constantPool).asByte());
+        return new ConstValue(new Const.ByteValue((byte) readInt(constantPool)));
       case 'C':
-        return new ConstValue(readConst(constantPool).asChar());
+        return new ConstValue(new Const.CharValue((char) readInt(constantPool)));
       case 'S':
-        return new ConstValue(readConst(constantPool).asShort());
+        return new ConstValue(new Const.ShortValue((short) readInt(constantPool)));
       case 'D':
       case 'F':
       case 'I':
@@ -341,11 +354,8 @@ public class ClassReader {
       case 's':
         return new ConstValue(readConst(constantPool));
       case 'Z':
-        {
-          Const.Value value = readConst(constantPool);
-          // boolean constants are encoded as integers
-          return new ConstValue(new Const.BooleanValue(value.asInteger().value() != 0));
-        }
+        // boolean constants are encoded as integers
+        return new ConstValue(new Const.BooleanValue(readInt(constantPool) != 0));
       case 'e':
         {
           int typeNameIndex = reader.u2();
@@ -374,6 +384,10 @@ public class ClassReader {
       default: // fall out
     }
     throw new AssertionError(String.format("bad tag value %c", tag));
+  }
+
+  private int readInt(ConstantPoolReader constantPool) {
+    return ((Const.IntValue) readConst(constantPool)).value();
   }
 
   private Const.Value readConst(ConstantPoolReader constantPool) {
@@ -508,5 +522,10 @@ public class ClassReader {
               /* typeAnnotations= */ ImmutableList.of()));
     }
     return fields;
+  }
+
+  private String readTurbineTransitiveJar(ConstantPoolReader constantPool) {
+    reader.u4(); // length
+    return constantPool.utf8(reader.u2());
   }
 }

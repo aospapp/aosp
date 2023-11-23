@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"JOAKTIVE"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"JOAKTIVE"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Njohja zanore trajtohet nga pajisja me Bluetooth-in e lidhur"</string>
-    <string name="car_guest" msgid="768913000117469596">"I ftuar"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"I ftuar"</string>
     <string name="car_add_user" msgid="6182764665687382136">"Shto një profil"</string>
     <string name="car_new_user" msgid="6766334721724989964">"Profili i ri"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"Të shtohet një profil i ri?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"Pasi të krijosh një profil të ri, ai person duhet ta personalizojë vetë atë."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"Aplikacionet mund të përditësohen nga çdo profil për t\'u përdorur nga të gjitha profilet e tjera."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"Është arritur kufiri i profileve"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="other">Mund të shtosh deri në <xliff:g id="COUNT">%d</xliff:g> profile.</item>
-      <item quantity="one">Mund të krijohet vetëm një profil.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{Mund të krijohet vetëm një profil.}other{Mund të shtosh deri në # profile.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"Po ngarkohet"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Përdoruesi po ngarkohet (nga <xliff:g id="FROM_USER">%1$d</xliff:g> te <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofoni është joaktiv."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Përdor mikrofonin"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Për aplikacionet që kanë leje"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> është çaktivizuar."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"Përdor <xliff:g id="SENSOR">%1$s</xliff:g>"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"Për aplikacionet që kanë leje"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Cilësimet e mikrofonit"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> po përdor mikrofonin"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> po përdor <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> po përdorin mikrofonin"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> ka përdorur mikrofonin së fundi"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> dhe <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> të tjera përdorën mikrofonin së fundi"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> ka përdorur <xliff:g id="SENSOR">%2$s</xliff:g> së fundi"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> dhe <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> të tjera përdorën <xliff:g id="SENSOR">%3$s</xliff:g> së fundi"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofoni është aktivizuar"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofoni është çaktivizuar"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"Në rregull"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Të aktivizohet mikrofoni i automjetit?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Për të vazhduar, aktivizo mikrofonin e sistemit info-argëtues. Kjo do të aktivizojë mikrofonin për të gjitha aplikacionet që kanë leje."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"Cilësimet e kamerës"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> po përdor kamerën"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> po përdorin kamerën"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> ka përdorur kamerën së fundi"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> dhe <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> të tjera përdorën kamerën së fundi"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"Kamera u aktivizua"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"Kamera u çaktivizua"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"Në rregull"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"Të aktivizohet kamera e automjetit?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"Për të vazhduar, aktivizo kamerën e sistemit info-argëtues. Kjo do të aktivizojë kamerën për të gjitha aplikacionet që kanë leje."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"Nuk mund ta përdorësh këtë veçori gjatë drejtimit të makinës"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"Mbyll aplikacionin"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"Pas"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"Cilësimet"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Cilësimet e Bluetooth-it"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Cilësimet e rrjetit dhe internetit"</string>

@@ -73,10 +73,10 @@ public interface RemoteLayoutLog extends Remote {
     void error(String tag, String message, Throwable throwable, Object viewCookie, Serializable data)
             throws RemoteException;
 
-    /** 
-     * Logs messages coming from the Android Framework. 
+    /**
+     * Logs messages coming from the Android Framework.
      *
-     * @param priority the priority level of the message 
+     * @param priority the priority level of the message
      * @param tag a tag describing the type of the error
      * @param message the message of the error
      */

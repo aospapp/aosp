@@ -96,10 +96,10 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     private boolean mPanelVisible;
     private boolean mPanelExpanded;
 
-    private float mOpeningVelocity = DEFAULT_FLING_VELOCITY;
-    private float mClosingVelocity = DEFAULT_FLING_VELOCITY;
+    protected float mOpeningVelocity = DEFAULT_FLING_VELOCITY;
+    protected float mClosingVelocity = DEFAULT_FLING_VELOCITY;
 
-    private boolean mIsAnimating;
+    protected boolean mIsAnimating;
     private boolean mIsTracking;
 
     public OverlayPanelViewController(
@@ -342,7 +342,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     }
 
     /** Returns the start position if we are in the middle of swiping. */
-    private int getCurrentStartPosition(Rect clipBounds) {
+    protected int getCurrentStartPosition(Rect clipBounds) {
         return mAnimateDirection > 0 ? clipBounds.bottom : clipBounds.top;
     }
 
@@ -352,7 +352,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
                 : 0;
     }
 
-    private void animate(float from, float to, float velocity, boolean isClosing) {
+    protected void animate(float from, float to, float velocity, boolean isClosing) {
         if (mIsAnimating) {
             return;
         }
@@ -384,7 +384,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
         animator.start();
     }
 
-    private void resetPanelVisibility() {
+    protected void resetPanelVisibility() {
         setPanelVisible(false);
         getLayout().setClipBounds(null);
         onCollapseAnimationEnd();
@@ -425,10 +425,10 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             Log.e(TAG, "onPanelVisible: " + visible);
         }
 
-        if (visible && !getOverlayViewGlobalStateController().isWindowVisible()) {
+        if (visible) {
             getOverlayViewGlobalStateController().showView(/* panelViewController= */ this);
         }
-        if (!visible && getOverlayViewGlobalStateController().isWindowVisible()) {
+        else if (getOverlayViewGlobalStateController().isWindowVisible()) {
             getOverlayViewGlobalStateController().hideView(/* panelViewController= */ this);
         }
         getLayout().setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
@@ -475,7 +475,8 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     protected void calculatePercentageFromEndingEdge(float y) {
         if (getLayout().getHeight() > 0) {
             float height = getVisiblePanelHeight(y);
-            mPercentageFromEndingEdge = (int) Math.abs(height / getLayout().getHeight() * 100);
+            mPercentageFromEndingEdge = Math.round(
+                    Math.abs(height / getLayout().getHeight() * 100));
         }
     }
 

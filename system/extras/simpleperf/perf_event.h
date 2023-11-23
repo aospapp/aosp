@@ -23,4 +23,8 @@
 #include <linux/perf_event.h>
 #endif
 
+#if !defined(PERF_AUX_FLAG_CORESIGHT_FORMAT_RAW)
+#define PERF_AUX_FLAG_CORESIGHT_FORMAT_RAW 0x0100
+#endif
+
 #endif  // SIMPLE_PERF_PERF_EVENT_H_

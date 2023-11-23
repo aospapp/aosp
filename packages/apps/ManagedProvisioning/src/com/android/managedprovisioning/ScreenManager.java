@@ -17,23 +17,31 @@
 package com.android.managedprovisioning;
 
 import static com.android.managedprovisioning.ManagedProvisioningScreens.ADMIN_INTEGRATED_PREPARE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.DOWNLOAD_ROLE_HOLDER;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.ENCRYPT;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.ESTABLISH_NETWORK_CONNECTION;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.FINALIZATION_INSIDE_SUW;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.FINANCED_DEVICE_LANDING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.LANDING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.POST_ENCRYPT;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING_VIA_NFC;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PROVISIONING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_AND_RETURN_DEVICE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.RETRY_LAUNCH;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.TERMS;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.WEB;
 
 import android.app.Activity;
 
+import com.android.managedprovisioning.common.RetryLaunchActivity;
 import com.android.managedprovisioning.finalization.FinalizationInsideSuwActivity;
+import com.android.managedprovisioning.networkconnection.EstablishNetworkConnectionActivity;
+import com.android.managedprovisioning.preprovisioning.DownloadRoleHolderActivity;
 import com.android.managedprovisioning.preprovisioning.EncryptDeviceActivity;
 import com.android.managedprovisioning.preprovisioning.PostEncryptionActivity;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivity;
+import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityViaNfc;
 import com.android.managedprovisioning.preprovisioning.WebActivity;
 import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
 import com.android.managedprovisioning.provisioning.AdminIntegratedFlowPrepareActivity;
@@ -53,7 +61,7 @@ import java.util.Map;
  * #setOverrideActivity(ManagedProvisioningScreens, Class)} if they want the screens to map to
  * their own {@link Activity} implementations.
  */
-final class ScreenManager {
+public final class ScreenManager {
     static final Map<ManagedProvisioningScreens, Class<? extends Activity>>
             DEFAULT_SCREEN_TO_ACTIVITY_MAP = createBaseScreenMap();
 
@@ -92,6 +100,7 @@ final class ScreenManager {
                 new HashMap<>(ManagedProvisioningScreens.values().length);
         map.put(LANDING, LandingActivity.class);
         map.put(PRE_PROVISIONING, PreProvisioningActivity.class);
+        map.put(PRE_PROVISIONING_VIA_NFC, PreProvisioningActivityViaNfc.class);
         map.put(PROVISIONING, ProvisioningActivity.class);
         map.put(ADMIN_INTEGRATED_PREPARE, AdminIntegratedFlowPrepareActivity.class);
         map.put(RESET_AND_RETURN_DEVICE, ResetAndReturnDeviceActivity.class);
@@ -101,6 +110,9 @@ final class ScreenManager {
         map.put(FINALIZATION_INSIDE_SUW, FinalizationInsideSuwActivity.class);
         map.put(TERMS, TermsActivity.class);
         map.put(FINANCED_DEVICE_LANDING, FinancedDeviceLandingActivity.class);
+        map.put(RETRY_LAUNCH, RetryLaunchActivity.class);
+        map.put(DOWNLOAD_ROLE_HOLDER, DownloadRoleHolderActivity.class);
+        map.put(ESTABLISH_NETWORK_CONNECTION, EstablishNetworkConnectionActivity.class);
         return map;
     }
 

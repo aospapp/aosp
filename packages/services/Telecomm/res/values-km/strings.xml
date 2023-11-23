@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ទប់ស្កាត់​ការហៅ​ពី​ទូរសព្ទ​ដែល​បង់ប្រាក់"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"មិនស្គាល់"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"ទប់ស្កាត់​ការហៅ​ទូរសព្ទពី​អ្នក​ហៅ​ដែល​មិន​ស្គាល់អត្តសញ្ញាណ"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"មិន​អាច​ប្រើ​បាន"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ទប់ស្កាត់​ការហៅ​ទូរសព្ទ​នៅ​កន្លែង​ដែល​មិន​អាច​ប្រើ​លេខ​នេះ​បាន"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ការទប់ស្កាត់​ការហៅ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"បាន​បិទ​ការទប់ស្កាត់​ការហៅ"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"បាន​ធ្វើការហៅ​បន្ទាន់"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ការទប់ស្កាត់​ការហៅ​ត្រូវបាន​បិទ ដើម្បី​អនុញ្ញាត​ឲ្យ​អ្នក​ឆ្លើយតប​បន្ទាន់​អាច​ទាក់ទង​អ្នក​បាន។"</string>
     <string name="developer_title" msgid="9146088855661672353">"ម៉ឺនុយ​អ្នក​អភិវឌ្ឍន៍​ទូរគមនាគមន៍"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"មិន​អាច​ទទួល​ការហៅ​ទូរសព្ទ​បាន​ទេ ពេល​កំពុង​ហៅ​ទៅ​លេខ​សង្គ្រោះ​បន្ទាន់។"</string>
+    <string name="cancel" msgid="6733466216239934756">"បោះបង់"</string>
 </resources>

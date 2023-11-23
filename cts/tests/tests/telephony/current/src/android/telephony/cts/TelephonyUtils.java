@@ -37,6 +37,19 @@ public class TelephonyUtils {
     public static final String ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION_STRING =
             "ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION";
 
+    /**
+     * See com.android.services.telephony.rcs.DelegateStateTracker#
+     * SUPPORT_REGISTERING_DELEGATE_STATE
+     */
+    public static final String SUPPORT_REGISTERING_DELEGATE_STATE_STRING =
+            "SUPPORT_REGISTERING_DELEGATE_STATE";
+    /**
+     * See com.android.services.telephony.rcs.DelegateStateTracker#
+     * SUPPORT_DEREGISTERING_LOSING_PDN_STATE
+     */
+    public static final String SUPPORT_DEREGISTERING_LOSING_PDN_STATE_STRING =
+            "SUPPORT_DEREGISTERING_LOSING_PDN_STATE";
+
     private static final String COMMAND_ADD_TEST_EMERGENCY_NUMBER =
             "cmd phone emergency-number-test-mode -a ";
 

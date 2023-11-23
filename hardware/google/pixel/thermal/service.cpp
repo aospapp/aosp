@@ -50,6 +50,8 @@ int main(int /* argc */, char ** /* argv */) {
 
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
+    android::hardware::setMinSchedulerPolicy(service, SCHED_NORMAL, -20);
+
     status = service->registerAsService();
     if (status != OK) {
         LOG(ERROR) << "Could not register service for ThermalHAL (" << status << ")";

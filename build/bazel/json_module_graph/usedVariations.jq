@@ -1,3 +1,5 @@
+# CMD: Prints the set of variations and their values used in the input
+
 [[.[] | .Variations | select(. != null) | to_entries] |
   flatten |
   group_by(.key) |

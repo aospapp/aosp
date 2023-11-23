@@ -74,6 +74,10 @@ struct renderControl_server_context_t {
 	rcComposeAsyncWithoutPost_server_proc_t rcComposeAsyncWithoutPost;
 	rcCreateDisplayById_server_proc_t rcCreateDisplayById;
 	rcSetDisplayPoseDpi_server_proc_t rcSetDisplayPoseDpi;
+	rcReadColorBufferDMA_server_proc_t rcReadColorBufferDMA;
+	rcGetFBDisplayConfigsCount_server_proc_t rcGetFBDisplayConfigsCount;
+	rcGetFBDisplayConfigsParam_server_proc_t rcGetFBDisplayConfigsParam;
+	rcGetFBDisplayActiveConfig_server_proc_t rcGetFBDisplayActiveConfig;
 	virtual ~renderControl_server_context_t() {}
 	int initDispatchByName( void *(*getProc)(const char *name, void *userData), void *userData);
 };

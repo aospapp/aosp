@@ -17,7 +17,6 @@
 package com.android.permissioncontroller.permission.ui.handheld
 
 import android.app.Application
-import android.content.Context
 import android.os.Bundle
 import android.os.UserHandle
 import android.view.MenuItem
@@ -79,13 +78,13 @@ class HandheldUnusedAppsFragment : PermissionsFrameFragment(),
         return if (isHibernationEnabled()) R.string.no_unused_apps else super.getEmptyViewString()
     }
 
-    override fun createFooterPreference(context: Context): Preference {
+    override fun createFooterPreference(): Preference {
         var preference: Preference
         if (isHibernationEnabled()) {
-            preference = Preference(context)
+            preference = com.android.settingslib.widget.FooterPreference(requireContext())
             preference.summary = getString(R.string.unused_apps_page_summary)
         } else {
-            preference = FooterPreference(context)
+            preference = FooterPreference(requireContext())
 
             preference.summary = getString(R.string.auto_revoked_apps_page_summary)
             preference.secondSummary = getString(R.string.auto_revoke_open_app_message)
@@ -102,10 +101,9 @@ class HandheldUnusedAppsFragment : PermissionsFrameFragment(),
     override fun createUnusedAppPref(
         app: Application,
         packageName: String,
-        user: UserHandle,
-        context: Context
+        user: UserHandle
     ): UnusedAppPreference {
-        return UnusedAppPreference(app, packageName, user, context)
+        return UnusedAppPreference(app, packageName, user, requireContext())
     }
 
     override fun setTitle(title: CharSequence) {

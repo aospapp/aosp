@@ -208,10 +208,10 @@ public class ScanDetailCache {
                     ageDay   = (milli / (24 * 60 * 60 * 1000));
                 }
                 sbuf.append("{").append(result.BSSID).append(",").append(result.frequency);
-                sbuf.append(",").append(String.format("%3d", result.level));
+                sbuf.append(",").append(result.level);
                 if (ageSec > 0 || ageMilli > 0) {
-                    sbuf.append(String.format(",%4d.%02d.%02d.%02d.%03dms", ageDay,
-                            ageHour, ageMin, ageSec, ageMilli));
+                    sbuf.append("," + ageDay + "." + ageHour + "." + ageMin + "." + ageSec + "."
+                            + ageMilli + "ms");
                 }
                 NetworkDetail networkDetail = scanDetail.getNetworkDetail();
                 if (networkDetail != null && networkDetail.isInterworking()) {

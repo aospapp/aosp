@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"Obavijesti koje prikazuju dovršena ili otkazana preuzimanja"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"Tijek preuzimanja"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"Obavijesti koje prikazuju tijek preuzimanja datoteka"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"Preuzimanje je otkazano"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"Datoteka je prevelika, preuzimanje je otkazano."</string>
 </resources>

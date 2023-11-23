@@ -17,6 +17,7 @@
 #include "lang_id/common/fel/feature-extractor.h"
 
 #include <string>
+#include <vector>
 
 #include "lang_id/common/fel/feature-types.h"
 #include "lang_id/common/fel/fel-parser.h"

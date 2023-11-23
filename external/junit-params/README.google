@@ -18,3 +18,6 @@ Local Modifications:
                  and prevent use of @TestCaseName.
                  Ignore tests broken by the above change.
       38419944 - Fix sharding on CTS.
+      36541809 - Partially revert 36541809 to allow @TestCaseName to be
+                 used as long as it generates a name that is compatible
+                 with CTS and AJUR.

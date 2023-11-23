@@ -23,6 +23,7 @@ cc_test {
         "libbase",
         "liblog",
         "libcutils",
+        "libprocessgroup",
     ],
 
     static_libs: [
@@ -32,6 +33,37 @@ cc_test {
     target: {
         android: {
             srcs: ["lmkd_test.cpp"],
+        },
+    },
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+
+    compile_multilib: "first",
+}
+
+cc_test {
+    name: "lmkd_tests",
+    test_suites: ["device-tests"],
+    require_root: true,
+
+    shared_libs: [
+        "libbase",
+        "liblog",
+        "libcutils",
+        "libprocessgroup",
+    ],
+
+    static_libs: [
+        "liblmkd_utils",
+    ],
+
+    target: {
+        android: {
+            srcs: ["lmkd_tests.cpp"],
         },
     },
 

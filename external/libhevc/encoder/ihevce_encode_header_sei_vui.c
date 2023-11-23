@@ -2682,6 +2682,15 @@ WORD32 ihevce_populate_vui(
                 }
 
                 u8_bit_rate_val >>= (6 + ps_vui->s_vui_hrd_parameters.u4_bit_rate_scale);
+                /************************************************************************/
+                /* u8_bit_rate_value forced >= 4096 as the shift is always of 12        */
+                /* because u4_bit_rate_scale = 6.                                       */
+                /************************************************************************/
+                if (u8_bit_rate_val == 0)
+                {
+                    return IHEVCE_BITRATE_NOT_SUPPORTED;
+                }
+
                 u8_max_cpb_size >>= (4 + ps_vui->s_vui_hrd_parameters.u4_cpb_size_scale);
 
                 ps_vui->s_vui_hrd_parameters.as_sub_layer_hrd_params[i]

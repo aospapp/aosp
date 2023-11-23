@@ -78,6 +78,10 @@ public abstract class CarApiTestBase {
         }
     }
 
+    public void startUser(int userId) throws Exception {
+        executeShellCommand("am start-user %d", userId);
+    }
+
     protected synchronized Car getCar() {
         return mCar;
     }

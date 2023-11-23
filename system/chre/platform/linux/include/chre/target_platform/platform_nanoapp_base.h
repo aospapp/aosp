@@ -22,8 +22,6 @@
 
 #include "chre/platform/shared/nanoapp_support_lib_dso.h"
 
-#include "chre/util/entry_points.h"
-
 namespace chre {
 
 /**

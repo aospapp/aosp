@@ -32,6 +32,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Typeface;
+import android.graphics.text.LineBreakConfig;
 import android.os.LocaleList;
 import android.platform.test.annotations.AsbSecurityTest;
 import android.text.Editable;
@@ -235,6 +236,38 @@ public class StaticLayoutTest {
             builder.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
             builder.setIncludePad(true);
             builder.setIndents(null, null);
+            StaticLayout layout = builder.build();
+            assertNotNull(layout);
+        }
+        {
+            // setLineBreakConfig
+            LineBreakConfig lineBreakConfig = new LineBreakConfig.Builder()
+                    .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                    .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+
+            StaticLayout.Builder builder = StaticLayout.Builder.obtain(LAYOUT_TEXT, 0,
+                    LAYOUT_TEXT.length(), mDefaultPaint, DEFAULT_OUTER_WIDTH);
+            builder.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY);
+            builder.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
+            builder.setIncludePad(true);
+            builder.setIndents(null, null);
+            builder.setLineBreakConfig(lineBreakConfig);
+            StaticLayout layout = builder.build();
+            assertNotNull(layout);
+        }
+        {
+            // setLineBreakConfig with word style(lw=phrase)
+            LineBreakConfig lineBreakConfig = new LineBreakConfig.Builder()
+                    .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                    .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+
+            StaticLayout.Builder builder = StaticLayout.Builder.obtain(LAYOUT_TEXT, 0,
+                    LAYOUT_TEXT.length(), mDefaultPaint, DEFAULT_OUTER_WIDTH);
+            builder.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY);
+            builder.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
+            builder.setIncludePad(true);
+            builder.setIndents(null, null);
+            builder.setLineBreakConfig(lineBreakConfig);
             StaticLayout layout = builder.build();
             assertNotNull(layout);
         }

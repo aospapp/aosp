@@ -16,6 +16,8 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import com.android.queryable.Queryable;
@@ -98,6 +100,15 @@ public class BooleanQueryHelperTest {
         booleanQueryHelper.isEqualTo(false);
 
         assertThat(booleanQueryHelper.matches(false)).isTrue();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
+
+        booleanQueryHelper.isTrue();
+
+        assertParcelsCorrectly(BooleanQueryHelper.class, booleanQueryHelper);
     }
 
 }

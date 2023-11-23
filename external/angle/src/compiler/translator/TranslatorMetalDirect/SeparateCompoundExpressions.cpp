@@ -42,6 +42,30 @@ bool IsIndex(TIntermTyped &expr)
     return expr.getAsSwizzleNode();
 }
 
+bool IsCompoundAssignment(TOperator op)
+{
+    switch (op)
+    {
+        case EOpAddAssign:
+        case EOpSubAssign:
+        case EOpMulAssign:
+        case EOpVectorTimesMatrixAssign:
+        case EOpVectorTimesScalarAssign:
+        case EOpMatrixTimesScalarAssign:
+        case EOpMatrixTimesMatrixAssign:
+        case EOpDivAssign:
+        case EOpIModAssign:
+        case EOpBitShiftLeftAssign:
+        case EOpBitShiftRightAssign:
+        case EOpBitwiseAndAssign:
+        case EOpBitwiseXorAssign:
+        case EOpBitwiseOrAssign:
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool ViewBinaryChain(TOperator op, TIntermTyped &node, std::vector<TIntermTyped *> &out)
 {
     TIntermBinary *binary = node.getAsBinaryNode();
@@ -216,7 +240,11 @@ class Separator : public TIntermRebuild
         {
             return true;
         }
-        ASSERT(expr.getType().getBasicType() != TBasicType::EbtVoid);
+        // https://bugs.webkit.org/show_bug.cgi?id=227723: Fix for sequence operator.
+        if ((expr.getType().getBasicType() == TBasicType::EbtVoid))
+        {
+            return true;
+        }
         return false;
     }
 
@@ -421,10 +449,10 @@ class Separator : public TIntermRebuild
             return node;
         }
 
-        const bool isAssign    = IsAssignment(op);
-        TIntermTyped *newLeft  = pullMappedExpr(left, false);
-        TIntermTyped *newRight = pullMappedExpr(right, isAssign);
-
+        const bool isAssign         = IsAssignment(op);
+        const bool isCompoundAssign = IsCompoundAssignment(op);
+        TIntermTyped *newLeft       = pullMappedExpr(left, false);
+        TIntermTyped *newRight      = pullMappedExpr(right, isAssign && !isCompoundAssign);
         if (op == TOperator::EOpComma)
         {
             pushBinding(node, *newRight);
@@ -615,7 +643,8 @@ class Separator : public TIntermRebuild
 
     PostResult visitGlobalQualifierDeclarationPost(TIntermGlobalQualifierDeclaration &node) override
     {
-        ASSERT(false);  // These should be scrubbed from AST before rewriter is called.
+        // With the removal of RewriteGlobalQualifierDecls, we may encounter globals while
+        // seperating compound expressions.
         pushStmt(node);
         return node;
     }

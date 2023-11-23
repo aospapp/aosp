@@ -21,6 +21,7 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.session.PlaybackState;
+import android.util.IndentingPrintWriter;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
@@ -80,7 +81,7 @@ public class AudioStreamController {
      *
      * It may be ducked, transiently lost or delayed.
      */
-    private boolean mHasSomeFocus = false;
+    private boolean mHasSomeFocus;
 
     private int mCurrentPlaybackState = PlaybackState.STATE_NONE;
     private Object mTuningToken;
@@ -231,6 +232,7 @@ public class AudioStreamController {
      * @return true, if request has succeeded (maybe delayed)
      */
     public boolean requestMuted(boolean muted) {
+        Log.v(TAG, "requestMuted(" + muted + ")");
         synchronized (mLock) {
             if (muted) {
                 if (mTuningToken == null) {
@@ -271,5 +273,20 @@ public class AudioStreamController {
                     Log.w(TAG, "Unexpected audio focus state: " + focusChange);
             }
         }
+    }
+
+    /**
+     * Dumps the current audio stream controller state
+     */
+    public void dump(IndentingPrintWriter writer) {
+        writer.println("AudioStreamController");
+        writer.increaseIndent();
+        synchronized (mLock) {
+            writer.printf("Focus Request: %s\n", mGainFocusReq);
+            writer.printf("Has Some Focus: %b\n", mHasSomeFocus);
+            writer.printf("PlayBack State: %d\n", mCurrentPlaybackState);
+            writer.printf("Is Tuning Token Available: %s\n", mTuningToken != null);
+        }
+        writer.decreaseIndent();
     }
 }

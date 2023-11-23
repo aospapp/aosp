@@ -25,6 +25,12 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
+    <!-- included in mainline testing, so must run back on 29.
+         Transcoding was introduced in 31 -->
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="31"/>
+
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.media.mediatranscoding.cts"
             android:label="Tests for MediaTranscoding.">

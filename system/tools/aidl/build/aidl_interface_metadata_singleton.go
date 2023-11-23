@@ -31,11 +31,13 @@ var (
 			`echo "\"name\": \"${name}\"," && ` +
 			`echo "\"stability\": \"${stability}\"," && ` +
 			`echo "\"types\": [${types}]," && ` +
-			`echo "\"hashes\": [${hashes}]" && ` +
+			`echo "\"hashes\": [${hashes}]," && ` +
+			`echo "\"has_development\": ${has_development}," && ` +
+			`echo "\"versions\": [${versions}]" && ` +
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes")
+	}, "name", "stability", "types", "hashes", "has_development", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -78,9 +80,11 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	}
 
 	type ModuleInfo struct {
-		Stability     string
-		ComputedTypes []string
-		HashFiles     []string
+		Stability      string
+		ComputedTypes  []string
+		HashFiles      []string
+		HasDevelopment android.WritablePath
+		Versions       []string
 	}
 
 	// name -> ModuleInfo
@@ -95,12 +99,17 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			info := moduleInfos[t.ModuleBase.Name()]
 			info.Stability = proptools.StringDefault(t.properties.Stability, "")
 			info.ComputedTypes = t.computedTypes
+			info.Versions = t.getVersions()
 			moduleInfos[t.ModuleBase.Name()] = info
 		case *aidlGenRule:
 			info := moduleInfos[t.properties.BaseName]
 			if t.hashFile != nil {
 				info.HashFiles = append(info.HashFiles, t.hashFile.String())
 			}
+			moduleInfos[t.properties.BaseName] = info
+		case *aidlApi:
+			info := moduleInfos[t.properties.BaseName]
+			info.HasDevelopment = t.hasDevelopment
 			moduleInfos[t.properties.BaseName] = info
 		}
 
@@ -116,21 +125,31 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		// objects per version and sub-objects per backend, we could
 		// avoid needing to filter out duplicates.
 		info.HashFiles = android.FirstUniqueStrings(info.HashFiles)
+		readHashes := ""
+		if len(info.HashFiles) > 0 {
+			readHashes = "$$(sed 's/.*/\"&\",/' " + strings.Join(info.HashFiles, " ") +
+				"| tr '\\n' ' ' | sed 's/, $$//')"
+		}
 
 		implicits := android.PathsForSource(ctx, info.HashFiles)
+		hasDevelopmentValue := "true"
+		if info.HasDevelopment != nil {
+			hasDevelopmentValue = "$$(if [ \"$$(cat " + info.HasDevelopment.String() +
+				")\" = \"1\" ]; then echo true; else echo false; fi)"
+		}
 
 		ctx.Build(pctx, android.BuildParams{
 			Rule:      aidlMetadataRule,
 			Implicits: implicits,
+			Input:     info.HasDevelopment,
 			Output:    metadataPath,
 			Args: map[string]string{
-				"name":      name,
-				"stability": info.Stability,
-				"types":     strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
-				"hashes": strings.Join(
-					wrap(`\"$$(read -r < `,
-						info.HashFiles,
-						` hash extra; printf '%s' $$hash)\"`), ", "),
+				"name":            name,
+				"stability":       info.Stability,
+				"types":           strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
+				"hashes":          readHashes,
+				"has_development": hasDevelopmentValue,
+				"versions":        strings.Join(info.Versions, ", "),
 			},
 		})
 	}

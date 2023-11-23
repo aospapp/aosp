@@ -19,6 +19,6 @@
     <!-- APEX does not have classes.dex -->
     <application android:hasCode="false" />
     <!-- TODO: Uncomment this when the R API level is fixed. b/148281152 -->
-    <!-- Setting maxSdk to lock the module to R. minSdk is auto-set by build system -->
-    <uses-sdk android:targetSdkVersion="31" />
+    <!-- Setting targetSdk to T. minSdk is auto-set by build system -->
+    <uses-sdk android:targetSdkVersion="33" />
 </manifest>

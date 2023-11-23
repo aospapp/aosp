@@ -10,7 +10,7 @@ use crate::{
 use base::{AsRawDescriptor, Event, RawDescriptor};
 use data_model::VolatileSlice;
 
-#[allow(dead_code, unused_variables)]
+#[allow(dead_code)]
 struct Buffer {
     width: u32,
     height: u32,

@@ -29,7 +29,9 @@ import com.android.cellbroadcastservice.BearerData;
 import com.android.cellbroadcastservice.DefaultCellBroadcastService;
 import com.android.internal.telephony.GsmAlphabet;
 import com.android.internal.telephony.cdma.SmsMessage;
-import com.android.internal.telephony.cdma.SmsMessageConverter;
+import com.android.internal.telephony.cdma.sms.CdmaSmsAddress;
+import com.android.internal.telephony.cdma.sms.CdmaSmsSubaddress;
+import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 import com.android.internal.util.BitwiseOutputStream;
 
 import org.junit.After;
@@ -199,6 +201,106 @@ public class CdmaSmsMessageTest extends CellBroadcastServiceTestBase {
     }
 
     /**
+     * Convert CdmaSmsMessage defined in radio/1.0/types.hal to SmsMessage
+     * Note only primitive fields are set
+     * @param cdmaSmsMessage CdmaSmsMessage defined in radio/1.0/types.hal
+     * @return A converted SmsMessage
+     * TODO: remove this method and use the one in RILUtils
+     */
+    private static SmsMessage convertHalCdmaSmsMessage(
+            android.hardware.radio.V1_0.CdmaSmsMessage cdmaSmsMessage) {
+        // Note: Parcel.readByte actually reads one Int and masks to byte
+        SmsEnvelope env = new SmsEnvelope();
+        CdmaSmsAddress addr = new CdmaSmsAddress();
+        CdmaSmsSubaddress subaddr = new CdmaSmsSubaddress();
+        byte[] data;
+        byte count;
+        int countInt;
+        int addressDigitMode;
+
+        //currently not supported by the modem-lib: env.mMessageType
+        env.teleService = cdmaSmsMessage.teleserviceId;
+
+        if (cdmaSmsMessage.isServicePresent) {
+            env.messageType = SmsEnvelope.MESSAGE_TYPE_BROADCAST;
+        } else {
+            if (SmsEnvelope.TELESERVICE_NOT_SET == env.teleService) {
+                // assume type ACK
+                env.messageType = SmsEnvelope.MESSAGE_TYPE_ACKNOWLEDGE;
+            } else {
+                env.messageType = SmsEnvelope.MESSAGE_TYPE_POINT_TO_POINT;
+            }
+        }
+        env.serviceCategory = cdmaSmsMessage.serviceCategory;
+
+        // address
+        addressDigitMode = cdmaSmsMessage.address.digitMode;
+        addr.digitMode = (byte) (0xFF & addressDigitMode);
+        addr.numberMode = (byte) (0xFF & cdmaSmsMessage.address.numberMode);
+        addr.ton = cdmaSmsMessage.address.numberType;
+        addr.numberPlan = (byte) (0xFF & cdmaSmsMessage.address.numberPlan);
+        count = (byte) cdmaSmsMessage.address.digits.size();
+        addr.numberOfDigits = count;
+        data = new byte[count];
+        for (int index = 0; index < count; index++) {
+            data[index] = cdmaSmsMessage.address.digits.get(index);
+
+            // convert the value if it is 4-bit DTMF to 8 bit
+            if (addressDigitMode == CdmaSmsAddress.DIGIT_MODE_4BIT_DTMF) {
+                data[index] = SmsMessage.convertDtmfToAscii(data[index]);
+            }
+        }
+
+        addr.origBytes = data;
+
+        subaddr.type = cdmaSmsMessage.subAddress.subaddressType;
+        subaddr.odd = (byte) (cdmaSmsMessage.subAddress.odd ? 1 : 0);
+        count = (byte) cdmaSmsMessage.subAddress.digits.size();
+
+        if (count < 0) {
+            count = 0;
+        }
+
+        // p_cur->sSubAddress.digits[digitCount] :
+
+        data = new byte[count];
+
+        for (int index = 0; index < count; ++index) {
+            data[index] = cdmaSmsMessage.subAddress.digits.get(index);
+        }
+
+        subaddr.origBytes = data;
+
+        /* currently not supported by the modem-lib:
+            env.bearerReply
+            env.replySeqNo
+            env.errorClass
+            env.causeCode
+        */
+
+        // bearer data
+        countInt = cdmaSmsMessage.bearerData.size();
+        if (countInt < 0) {
+            countInt = 0;
+        }
+
+        data = new byte[countInt];
+        for (int index = 0; index < countInt; index++) {
+            data[index] = cdmaSmsMessage.bearerData.get(index);
+        }
+        // BD gets further decoded when accessed in SMSDispatcher
+        env.bearerData = data;
+
+        // link the filled objects to the SMS
+        env.origAddress = addr;
+        env.origSubaddress = subaddr;
+
+        SmsMessage msg = new SmsMessage(addr, env);
+
+        return msg;
+    }
+
+    /**
      * Write the bearer data array to the parcel, then return a new SmsMessage from the parcel.
      *
      * @param msg        CdmaSmsMessage containing the CDMA SMS headers
@@ -209,7 +311,7 @@ public class CdmaSmsMessageTest extends CellBroadcastServiceTestBase {
         for (byte b : bearerData) {
             msg.bearerData.add(b);
         }
-        SmsMessage message = SmsMessageConverter.newCdmaSmsMessageFromRil(msg);
+        SmsMessage message = convertHalCdmaSmsMessage(msg);
         return message;
     }
 

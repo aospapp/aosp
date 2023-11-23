@@ -1,12 +1,16 @@
 use crate::checker::CompositeChecker;
 use crate::error::*;
-use either::Either;
 #[cfg(windows)]
 use crate::helper::has_executable_extension;
+use either::Either;
+#[cfg(feature = "regex")]
+use regex::Regex;
+#[cfg(feature = "regex")]
+use std::borrow::Borrow;
 use std::env;
 use std::ffi::OsStr;
-#[cfg(windows)]
-use std::ffi::OsString;
+#[cfg(feature = "regex")]
+use std::fs;
 use std::iter;
 use std::path::{Path, PathBuf};
 
@@ -52,7 +56,7 @@ impl Finder {
         &self,
         binary_name: T,
         paths: Option<U>,
-        cwd: V,
+        cwd: Option<V>,
         binary_checker: CompositeChecker,
     ) -> Result<impl Iterator<Item = PathBuf>>
     where
@@ -62,18 +66,52 @@ impl Finder {
     {
         let path = PathBuf::from(&binary_name);
 
-        let binary_path_candidates = if path.has_separator() {
-            // Search binary in cwd if the path have a path separator.
-            Either::Left(Self::cwd_search_candidates(path, cwd).into_iter())
-        } else {
-            // Search binary in PATHs(defined in environment variable).
-            let p = paths.ok_or(Error::CannotFindBinaryPath)?;
-            let paths: Vec<_> = env::split_paths(&p).collect();
+        let binary_path_candidates = match cwd {
+            Some(cwd) if path.has_separator() => {
+                // Search binary in cwd if the path have a path separator.
+                Either::Left(Self::cwd_search_candidates(path, cwd).into_iter())
+            }
+            _ => {
+                // Search binary in PATHs(defined in environment variable).
+                let p = paths.ok_or(Error::CannotFindBinaryPath)?;
+                let paths: Vec<_> = env::split_paths(&p).collect();
 
-            Either::Right(Self::path_search_candidates(path, paths).into_iter())
+                Either::Right(Self::path_search_candidates(path, paths).into_iter())
+            }
         };
 
         Ok(binary_path_candidates.filter(move |p| binary_checker.is_valid(p)))
+    }
+
+    #[cfg(feature = "regex")]
+    pub fn find_re<T>(
+        &self,
+        binary_regex: impl Borrow<Regex>,
+        paths: Option<T>,
+        binary_checker: CompositeChecker,
+    ) -> Result<impl Iterator<Item = PathBuf>>
+    where
+        T: AsRef<OsStr>,
+    {
+        let p = paths.ok_or(Error::CannotFindBinaryPath)?;
+        let paths: Vec<_> = env::split_paths(&p).collect();
+
+        let matching_re = paths
+            .into_iter()
+            .flat_map(fs::read_dir)
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(move |p| {
+                if let Some(unicode_file_name) = p.file_name().unwrap().to_str() {
+                    binary_regex.borrow().is_match(unicode_file_name)
+                } else {
+                    false
+                }
+            })
+            .filter(move |p| binary_checker.is_valid(p));
+
+        Ok(matching_re)
     }
 
     fn cwd_search_candidates<C>(binary_name: PathBuf, cwd: C) -> impl IntoIterator<Item = PathBuf>
@@ -110,19 +148,35 @@ impl Finder {
     where
         P: IntoIterator<Item = PathBuf>,
     {
-        // Read PATHEXT env variable and split it into vector of String
-        let path_exts =
-            env::var_os("PATHEXT").unwrap_or(OsString::from(env::consts::EXE_EXTENSION));
-
-        let exe_extension_vec = env::split_paths(&path_exts)
-            .filter_map(|e| e.to_str().map(|e| e.to_owned()))
-            .collect::<Vec<_>>();
+        // Sample %PATHEXT%: .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+        // PATH_EXTENSIONS is then [".COM", ".EXE", ".BAT", …].
+        // (In one use of PATH_EXTENSIONS we skip the dot, but in the other we need it;
+        // hence its retention.)
+        lazy_static! {
+            static ref PATH_EXTENSIONS: Vec<String> =
+                env::var("PATHEXT")
+                    .map(|pathext| {
+                        pathext.split(';')
+                            .filter_map(|s| {
+                                if s.as_bytes().first() == Some(&b'.') {
+                                    Some(s.to_owned())
+                                } else {
+                                    // Invalid segment; just ignore it.
+                                    None
+                                }
+                            })
+                            .collect()
+                    })
+                    // PATHEXT not being set or not being a proper Unicode string is exceedingly
+                    // improbable and would probably break Windows badly. Still, don't crash:
+                    .unwrap_or(vec![]);
+        }
 
         paths
             .into_iter()
             .flat_map(move |p| -> Box<dyn Iterator<Item = _>> {
                 // Check if path already have executable extension
-                if has_executable_extension(&p, &exe_extension_vec) {
+                if has_executable_extension(&p, &PATH_EXTENSIONS) {
                     Box::new(iter::once(p))
                 } else {
                     // Appended paths with windows executable extensions.
@@ -131,15 +185,13 @@ impl Finder {
                     // c:/windows/bin.EXE
                     // c:/windows/bin.CMD
                     // ...
-                    let ps = exe_extension_vec.clone().into_iter().map(move |e| {
+                    Box::new(PATH_EXTENSIONS.iter().map(move |e| {
                         // Append the extension.
-                        let mut p = p.clone().to_path_buf().into_os_string();
+                        let mut p = p.clone().into_os_string();
                         p.push(e);
 
                         PathBuf::from(p)
-                    });
-
-                    Box::new(ps)
+                    }))
                 }
             })
     }

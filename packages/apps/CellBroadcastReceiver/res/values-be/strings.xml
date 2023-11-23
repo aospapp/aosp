@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2008319089248760277">"Абвесткі па бесправадных сетках пра надзвычайныя сітуацыі"</string>
+    <string name="app_label" msgid="2008319089248760277">"Абвесткі пра надзвычайныя сітуацыі"</string>
     <string name="sms_cb_settings" msgid="9021266457863671070">"Абвесткі па бесправадных сетках пра надзвычайныя сітуацыі"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Аварыйныя абвесткі па бесправадных сетках"</string>
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Аварыйныя абвесткі па бесправадных сетках"</string>
@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Паведамленні аб пагрозе грамадскай бяспецы"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Рэкамендаваныя дзеянні, якія могуць выратаваць жыцці або маёмасць"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Паказваць паведамленні ў поўнаэкранным рэжыме"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Выключыце, каб паведамленні аб пагрозе грамадскай бяспецы адпраўляліся толькі ў праграму для SMS"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"Паведамленні пра пагрозу грамадскай бяспецы ў любым выпадку будуць адпраўляцца як апавяшчэнні"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Дзяржаўныя і мясцовыя тэставыя паведамленні"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Атрымліваць тэставыя паведамленні ад дзяржаўных і мясцовых органаў улады"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Абвесткі аб надзвычайных сітуацыях"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Так"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Не"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Гісторыя экстранных абвестак"</string>
+    <string name="action_delete" msgid="7435661404543945861">"Выдаліць"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"Паказаць падрабязныя звесткі"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Адзiн раз"</item>
     <item msgid="9097229303902157183">"Кожныя 2 хвіліны"</item>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"Максімальна дапушчальны час чакання:"</string>
     <string name="seconds" msgid="141450721520515025">"секунды"</string>
     <string name="message_copied" msgid="6922953753733166675">"Паведамленне скапіравана"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"Знаходзячыся ў роўмінгу, вы можаце атрымліваць абвесткі, не ўключаныя ў гэтых наладах"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Налады зменены аператарам"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Націсніце, каб убачыць налады бесправаднога экстраннага апавяшчэння"</string>
 </resources>

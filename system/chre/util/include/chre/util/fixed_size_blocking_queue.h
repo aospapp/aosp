@@ -33,6 +33,8 @@ namespace chre {
 template <typename ElementType, size_t kSize>
 class FixedSizeBlockingQueue : public NonCopyable {
  public:
+  typedef ElementType value_type;
+
   /**
    * Pushes an element into the queue and notifies any waiting threads that an
    * element is available.

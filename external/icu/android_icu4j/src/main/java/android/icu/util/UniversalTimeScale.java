@@ -47,7 +47,7 @@ import android.icu.math.BigDecimal;
  * datetime time scale.
  *
  * <p>For more details and background, see the
- * <a href="http://www.icu-project.org/userguide/universalTimeScale.html">Universal Time Scale</a>
+ * <a href="https://unicode-org.github.io/icu/userguide/datetime/universaltimescale">Universal Time Scale</a>
  * chapter in the ICU User Guide.
  */
 

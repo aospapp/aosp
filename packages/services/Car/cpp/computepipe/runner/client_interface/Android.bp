@@ -40,8 +40,8 @@ cc_library {
         "liblog",
         "libnativewindow",
         "libutils",
-        "android.automotive.computepipe.runner-V2-ndk_platform",
-        "android.automotive.computepipe.registry-V2-ndk_platform",
+        "android.automotive.computepipe.runner-V2-ndk",
+        "android.automotive.computepipe.registry-V2-ndk",
         "libprotobuf-cpp-lite",
     ],
     include_dirs: [

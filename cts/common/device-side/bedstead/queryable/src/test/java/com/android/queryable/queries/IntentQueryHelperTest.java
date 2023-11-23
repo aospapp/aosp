@@ -16,6 +16,8 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
@@ -89,5 +91,16 @@ public class IntentQueryHelperTest {
                 .isEqualTo(DIFFERENT_STRING_VALUE);
 
         assertThat(intentQueryHelper.matches(intent)).isFalse();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        IntentQueryHelper<Queryable> intentQueryHelper =
+                new IntentQueryHelper<>(mQuery);
+
+        intentQueryHelper.action().isEqualTo("");
+        intentQueryHelper.extras().key("").stringValue().isEqualTo("");
+
+        assertParcelsCorrectly(IntentQueryHelper.class, intentQueryHelper);
     }
 }

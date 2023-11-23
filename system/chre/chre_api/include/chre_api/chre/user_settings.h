@@ -37,10 +37,15 @@ extern "C" {
 /**
  * The user settings that nanoapps can request notifications for on a status
  * change.
- * Note that the WIFI Available setting indicates the overall availability
+ *
+ * NOTE: The WIFI available setting indicates the overall availability
  * of WIFI related functionality. For example, if wifi is disabled for
- * connectivity but enabled for location, the WIFI Available setting is
+ * connectivity but enabled for location, the WIFI available setting is
  * enabled.
+ *
+ * NOTE: The BLE available setting indicates the overall availability of
+ * BLE related functionality. For example, if BLE is disabled for connectivity,
+ * but enabled for location, the BLE available setting is enabled.
  *
  * @defgroup CHRE_USER_SETTINGS
  * @{
@@ -49,6 +54,7 @@ extern "C" {
 #define CHRE_USER_SETTING_WIFI_AVAILABLE       UINT8_C(1)
 #define CHRE_USER_SETTING_AIRPLANE_MODE        UINT8_C(2)
 #define CHRE_USER_SETTING_MICROPHONE           UINT8_C(3)
+#define CHRE_USER_SETTING_BLE_AVAILABLE        UINT8_C(4)
 
 /** @} */
 
@@ -70,8 +76,9 @@ extern "C" {
 #define CHRE_EVENT_SETTING_CHANGED_WIFI_AVAILABLE   CHRE_SETTING_EVENT_ID(1)
 #define CHRE_EVENT_SETTING_CHANGED_AIRPLANE_MODE    CHRE_SETTING_EVENT_ID(2)
 #define CHRE_EVENT_SETTING_CHANGED_MICROPHONE       CHRE_SETTING_EVENT_ID(3)
+#define CHRE_EVENT_SETTING_CHANGED_BLE_AVAILABLE    CHRE_SETTING_EVENT_ID(4)
 
-#if CHRE_EVENT_SETTING_CHANGED_MICROPHONE > CHRE_EVENT_SETTING_CHANGED_LAST_EVENT
+#if CHRE_EVENT_SETTING_CHANGED_BLE_AVAILABLE > CHRE_EVENT_SETTING_CHANGED_LAST_EVENT
 #error Too many setting changed events.
 #endif
 

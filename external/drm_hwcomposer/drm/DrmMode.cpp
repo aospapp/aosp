@@ -49,79 +49,56 @@ bool DrmMode::operator==(const drmModeModeInfo &m) const {
          v_scan_ == m.vscan && flags_ == m.flags && type_ == m.type;
 }
 
-void DrmMode::ToDrmModeModeInfo(drm_mode_modeinfo *m) const {
-  m->clock = clock_;
-  m->hdisplay = h_display_;
-  m->hsync_start = h_sync_start_;
-  m->hsync_end = h_sync_end_;
-  m->htotal = h_total_;
-  m->hskew = h_skew_;
-  m->vdisplay = v_display_;
-  m->vsync_start = v_sync_start_;
-  m->vsync_end = v_sync_end_;
-  m->vtotal = v_total_;
-  m->vscan = v_scan_;
-  m->vrefresh = v_refresh_;
-  m->flags = flags_;
-  m->type = type_;
-  strncpy(m->name, name_.c_str(), DRM_DISPLAY_MODE_LEN);
-}
-
-uint32_t DrmMode::id() const {
-  return id_;
-}
-
-void DrmMode::set_id(uint32_t id) {
-  id_ = id;
-}
-
 uint32_t DrmMode::clock() const {
   return clock_;
 }
 
-uint32_t DrmMode::h_display() const {
+uint16_t DrmMode::h_display() const {
   return h_display_;
 }
 
-uint32_t DrmMode::h_sync_start() const {
+uint16_t DrmMode::h_sync_start() const {
   return h_sync_start_;
 }
 
-uint32_t DrmMode::h_sync_end() const {
+uint16_t DrmMode::h_sync_end() const {
   return h_sync_end_;
 }
 
-uint32_t DrmMode::h_total() const {
+uint16_t DrmMode::h_total() const {
   return h_total_;
 }
 
-uint32_t DrmMode::h_skew() const {
+uint16_t DrmMode::h_skew() const {
   return h_skew_;
 }
 
-uint32_t DrmMode::v_display() const {
+uint16_t DrmMode::v_display() const {
   return v_display_;
 }
 
-uint32_t DrmMode::v_sync_start() const {
+uint16_t DrmMode::v_sync_start() const {
   return v_sync_start_;
 }
 
-uint32_t DrmMode::v_sync_end() const {
+uint16_t DrmMode::v_sync_end() const {
   return v_sync_end_;
 }
 
-uint32_t DrmMode::v_total() const {
+uint16_t DrmMode::v_total() const {
   return v_total_;
 }
 
-uint32_t DrmMode::v_scan() const {
+uint16_t DrmMode::v_scan() const {
   return v_scan_;
 }
 
 float DrmMode::v_refresh() const {
+  if (clock_ == 0) {
+    return v_refresh_;
+  }
   // Always recalculate refresh to report correct float rate
-  return clock_ / (float)(v_total_ * h_total_) * 1000.0F;
+  return static_cast<float>(clock_) / (float)(v_total_ * h_total_) * 1000.0F;
 }
 
 uint32_t DrmMode::flags() const {
@@ -133,6 +110,31 @@ uint32_t DrmMode::type() const {
 }
 
 std::string DrmMode::name() const {
-  return name_;
+  return name_ + "@" + std::to_string(v_refresh());
 }
+
+auto DrmMode::CreateModeBlob(const DrmDevice &drm)
+    -> DrmModeUserPropertyBlobUnique {
+  struct drm_mode_modeinfo drm_mode = {
+      .clock = clock_,
+      .hdisplay = h_display_,
+      .hsync_start = h_sync_start_,
+      .hsync_end = h_sync_end_,
+      .htotal = h_total_,
+      .hskew = h_skew_,
+      .vdisplay = v_display_,
+      .vsync_start = v_sync_start_,
+      .vsync_end = v_sync_end_,
+      .vtotal = v_total_,
+      .vscan = v_scan_,
+      .vrefresh = v_refresh_,
+      .flags = flags_,
+      .type = type_,
+  };
+  strncpy(drm_mode.name, name_.c_str(), DRM_DISPLAY_MODE_LEN);
+
+  return drm.RegisterUserPropertyBlob(&drm_mode,
+                                       sizeof(struct drm_mode_modeinfo));
+}
+
 }  // namespace android

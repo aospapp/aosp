@@ -2,10 +2,10 @@
 name = "integration_tests"
 version = "0.1.0"
 authors = ["The Chromium OS Authors"]
-edition = "2018"
+edition = "2021"
 
 [dev-dependencies]
-tempfile = { path = "../tempfile" }
+tempfile = "3"
 crosvm = { path = ".." }
 arch = { path = "../arch" }
 base = "*"

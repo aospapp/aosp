@@ -63,39 +63,64 @@ public final class InstallUpdateTest extends BaseDeviceAdminTest {
                 InstallSystemUpdateCallback.UPDATE_ERROR_FILE_NOT_FOUND);
     }
 
-    public void testInstallUpdate_failNoZipOtaFile() throws InterruptedException {
+    public void testInstallUpdate_failNoZipOtaFile() throws Exception {
         if (!isDeviceAB()) {
             return;
         }
-        assertUpdateError("notZip.zi", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        try {
+            setupBatteryState();
+            assertUpdateError("notZip.zi", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        } finally {
+            teardownBatteryState();
+        }
     }
 
-    public void testInstallUpdate_failWrongPayloadFile() throws InterruptedException {
+    public void testInstallUpdate_failWrongPayloadFile() throws Exception {
         if (!isDeviceAB()) {
             return;
         }
-        assertUpdateError("wrongPayload.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        try {
+            setupBatteryState();
+            assertUpdateError("wrongPayload.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        } finally {
+            teardownBatteryState();
+        }
     }
 
-    public void testInstallUpdate_failEmptyOtaFile() throws InterruptedException {
+    public void testInstallUpdate_failEmptyOtaFile() throws Exception {
         if (!isDeviceAB()) {
             return;
         }
-        assertUpdateError("empty.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        try {
+            setupBatteryState();
+            assertUpdateError("empty.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        } finally {
+            teardownBatteryState();
+        }
     }
 
-    public void testInstallUpdate_failWrongHash() throws InterruptedException {
+    public void testInstallUpdate_failWrongHash() throws Exception {
         if (!isDeviceAB()) {
             return;
         }
-        assertUpdateError("wrongHash.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        try {
+            setupBatteryState();
+            assertUpdateError("wrongHash.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        } finally {
+            teardownBatteryState();
+        }
     }
 
-    public void testInstallUpdate_failWrongSize() throws InterruptedException {
+    public void testInstallUpdate_failWrongSize() throws Exception {
         if (!isDeviceAB()) {
             return;
         }
-        assertUpdateError("wrongSize.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        try {
+            setupBatteryState();
+            assertUpdateError("wrongSize.zip", UPDATE_ERROR_UPDATE_FILE_INVALID);
+        } finally {
+            teardownBatteryState();
+        }
     }
 
     public void testInstallUpdate_notCharging_belowThreshold_failsBatteryCheck() throws Exception {
@@ -250,5 +275,32 @@ public final class InstallUpdateTest extends BaseDeviceAdminTest {
 
     private boolean isDeviceAB() {
         return "true".equalsIgnoreCase(SystemProperties.get(AB_DEVICE_KEY, ""));
+    }
+
+    private boolean deviceHasBattery() {
+        final Intent batteryInfo = mContext.registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo != null
+               && batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+    }
+
+    /**
+     * This is just for batteryless device，as we know from above that remaining capacity
+     * is 0 on Android 9 and higher. We need set battery status to meet the test conditions
+     * of InstallUpdateTest for batteryless device.
+     * For device has a battery, the test conditions follow the real status of the battery.
+     */
+    private void setupBatteryState() throws Exception {
+        if (!deviceHasBattery()) {
+            setChargingBatteryThreshold(TEST_BATTERY_THRESHOLD);
+            setChargingBatteryLevelAndWait(TEST_BATTERY_THRESHOLD);
+        }
+    }
+
+    private void teardownBatteryState() {
+        if (!deviceHasBattery()) {
+            resetBatteryState();
+            resetDevicePolicyConstants();
+        }
     }
 }

@@ -15,8 +15,15 @@ get_prop(euiccpixel_app, dck_prop)
 userdebug_or_eng(`
     net_domain(euiccpixel_app)
 
-    # Access to directly upgrade firmware on secure_element used for engineering devices
-    typeattribute secure_element_device mlstrustedobject;
-    allow euiccpixel_app secure_element_device:chr_file rw_file_perms;
+    # Access to directly upgrade firmware on st54spi_device used for engineering devices
+    typeattribute st54spi_device mlstrustedobject;
+    allow euiccpixel_app st54spi_device:chr_file rw_file_perms;
+    # Access to directly upgrade firmware on st33spi_device used for engineering devices
+    typeattribute st33spi_device mlstrustedobject;
+    allow euiccpixel_app st33spi_device:chr_file rw_file_perms;
+
+    allow euiccpixel_app sysfs_st33spi:dir search;
+    allow euiccpixel_app sysfs_st33spi:file rw_file_perms;
+    allow euiccpixel_app sysfs_touch:dir search;
 ')
 

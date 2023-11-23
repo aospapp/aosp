@@ -16,6 +16,15 @@ java_test_host {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":DeviceKernelHelpers",
+        ":CtsHostsideTaggingManifestDisabledApp",
+        ":CtsHostsideTaggingManifestEnabledSdk29App",
+        ":CtsHostsideTaggingManifestEnabledSdk30App",
+        ":CtsHostsideTaggingSdk29App",
+        ":CtsHostsideTaggingSdk30App",
+        ":CtsHostsideTaggingSdk30MemtagApp",
+    ],
 }
 
 java_defaults {

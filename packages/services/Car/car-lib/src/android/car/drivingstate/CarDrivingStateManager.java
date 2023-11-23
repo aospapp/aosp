@@ -22,6 +22,7 @@ import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -60,6 +61,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public synchronized void onCarDisconnected() {
         mListenerToService = null;
         mDrvStateEventListener = null;
@@ -76,6 +78,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
          * Called when the car's driving state changes.
          * @param event Car's driving state.
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onDrivingStateChanged(CarDrivingStateEvent event);
     }
 
@@ -87,6 +90,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * @hide
      */
     @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public synchronized void registerListener(@NonNull CarDrivingStateEventListener listener) {
         if (listener == null) {
             if (VDBG) {
@@ -120,6 +124,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * @hide
      */
     @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public synchronized void unregisterListener() {
         if (mDrvStateEventListener == null) {
             if (DBG) {
@@ -145,6 +150,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      */
     @Nullable
     @SystemApi
+    @AddedInOrBefore(majorVersion = 33)
     public CarDrivingStateEvent getCurrentCarDrivingState() {
         try {
             return mDrivingService.getCurrentDrivingState();
@@ -164,6 +170,7 @@ public final class CarDrivingStateManager extends CarManagerBase {
      * @hide
      */
     @TestApi
+    @AddedInOrBefore(majorVersion = 33)
     public void injectDrivingState(int drivingState) {
         CarDrivingStateEvent event = new CarDrivingStateEvent(
                 drivingState, SystemClock.elapsedRealtimeNanos());

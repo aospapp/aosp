@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Келесі қолданба құрылғыңызды басқарады:"</string>
     <string name="next" msgid="1004321437324424398">"Келесі"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Жұмыс профилі реттелуде…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы профильмен байланысты деректерді, соның ішінде желідегі белсенділікті, құрылғының орналасқан жерін, қоңыраулар тарихы мен контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Қосымша ақпарат, соның ішінде ұйымның құпиялылық саясаттары туралы ақпарат алу үшін әкімшіге хабарласыңыз."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды, деректерді және осы профильмен байланысты желідегі әрекеттерді, сондай-ақ қоңыраулар тарихы мен контактілерді іздеу тарихын бақылай және басқара алады. Қосымша ақпарат алу және ұйымның құпиялылық саясаттары туралы толығырақ білу үшін әкімшіге хабарласыңыз."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Әкімші параметрлерді, корпоративтік ресурстарды пайдалануды, қолданбаларды, рұқсаттарды және осы құрылғымен байланысты деректерді, соның ішінде желідегі белсенділікті әрі құрылғының орналасқан жерін, қоңыраулар тарихын және контактілерді іздеу тарихын бақылай және басқара алады.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Қосымша ақпаратты, соның ішінде ұйымның құпиялылық саясаттары туралы мәліметті алу үшін әкімшіге хабарласыңыз."</string>
@@ -162,7 +160,7 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Аккаунтыңыз басқарылады"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Қауіпсіздік саясатының талаптарын іске асыру үшін жүйе әкімшісі мобильдік құрылғыны басқару процесін қолданады."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Жұмысқа реттеуге дайындалуда…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Алдымен жұмыс профиліңізді реттеп алайық."</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Жұмыс профиліңізді реттеп алайық"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Жұмыс қолданбалары жұмыс профилінде сақталады"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Күннің соңында жұмыс қолданбаларын тоқтатып қою"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Әкімші жұмыс профиліңіздегі деректерді көреді"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Құрылғының ақшасын төлеу үшін <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> қолданбасын орната алады."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Бұл құрылғыға шектеу қойылуы мүмкін"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Егер төлемесеңіз, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> құрылғыны пайдалануды шектей алады."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Құрылғыны реттеу мүмкін емес. Әкімшіге \"жарамсыз бақылау сомасы\" қатесі туралы хабарлаңыз."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Кейінірек қайталап көріңіз немесе әкімшіге хабарласыңыз."</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Құрылғыны реттеу мүмкін емес. Әкімшіге \"жоғалған немесе бүлінген құрамдастар\" қатесі туралы хабарлаңыз."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Реттелуде…"</string>
 </resources>

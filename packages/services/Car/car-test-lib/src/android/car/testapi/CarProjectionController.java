@@ -19,11 +19,21 @@ package android.car.testapi;
 import android.car.CarProjectionManager;
 import android.car.projection.ProjectionOptions;
 import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 
 /** Controller to change behavior of {@link CarProjectionManager} */
 public interface CarProjectionController {
     /** Set SoftApConfiguration for wireless projection or null to simulate failure to start AP */
     void setSoftApConfiguration(SoftApConfiguration softApConfiguration);
+
+    /**
+     * Set WifiConfiguration for wireless projection or null to simulate failure to start AP
+     *
+     * @deprecated use {@link CarProjectionController#setSoftApConfiguration(SoftApConfiguration)}
+     * on R and above.
+     */
+    @Deprecated
+    void setWifiConfiguration(WifiConfiguration wifiConfiguration);
 
     /**
      * Sets {@link ProjectionOptions} object returns by

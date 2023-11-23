@@ -34,8 +34,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.Manifest.permission;
 import android.app.UiAutomation;
 import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.IntentFilter;
 import android.os.Process;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
@@ -238,27 +241,43 @@ public class PermissionsTest extends BaseDeviceAdminTest {
 
     private void assertCanSetPermissionGrantStatePreMApp(String permission, int value)
             throws Exception {
-        assertTrue(mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
-                PRE_M_APP_PACKAGE_NAME, permission, value));
-        assertEquals(mDevicePolicyManager.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
-                PRE_M_APP_PACKAGE_NAME, permission), value);
+        Log.d(TAG, "Calling " + mDevicePolicyManager + ".setPermissionGrantState("
+                + PRE_M_APP_PACKAGE_NAME + ", " + permission + ", "
+                + permissionGrantStateToString(value) + ")");
+        boolean result = mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
+                PRE_M_APP_PACKAGE_NAME, permission, value);
+        Log.d(TAG, "Result: " + result);
+
+        assertWithMessage("%s.setPermissionGrantState(%s, %s, %s)", mDevicePolicyManager,
+                ADMIN_RECEIVER_COMPONENT, PRE_M_APP_PACKAGE_NAME,
+                permissionGrantStateToString(value)).that(result).isTrue();
+
+        assertPermissionGrantState(mDevicePolicyManager, PRE_M_APP_PACKAGE_NAME, permission, value);
+
+        Context context = mContext;
+        if (mIsDeviceOwnerTest && UserManager.isHeadlessSystemUserMode()) {
+            Log.d(TAG, "Using context for system user on device owner test because device uses "
+                    + "headless system user mode");
+            context = mContext.createContextAsUser(UserHandle.SYSTEM, /* flags= */ 0);
+        }
 
         // Install time permissions should always be granted
-        PermissionUtils.checkPermission(permission, PERMISSION_GRANTED, PRE_M_APP_PACKAGE_NAME);
+        PermissionUtils.checkPermission(context, permission, PERMISSION_GRANTED,
+                PRE_M_APP_PACKAGE_NAME);
 
         // For pre-M apps the access to the data might be prevented via app-ops. Hence check that
         // they are correctly set
         switch (value) {
             case PERMISSION_GRANT_STATE_GRANTED:
-                PermissionUtils.checkPermissionAndAppOps(permission, PERMISSION_GRANTED,
+                PermissionUtils.checkPermissionAndAppOps(context, permission, PERMISSION_GRANTED,
                         PRE_M_APP_PACKAGE_NAME);
                 break;
             case PERMISSION_GRANT_STATE_DENIED:
-                PermissionUtils.checkPermissionAndAppOps(permission, PERMISSION_DENIED,
+                PermissionUtils.checkPermissionAndAppOps(context, permission, PERMISSION_DENIED,
                         PRE_M_APP_PACKAGE_NAME);
                 break;
             default:
-                fail("unsupported policy value");
+                fail("unsupported policy value (" + value + ")");
         }
     }
 
@@ -438,9 +457,10 @@ public class PermissionsTest extends BaseDeviceAdminTest {
             int grantState) {
         boolean result = dpm.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
                 PERMISSION_APP_PACKAGE_NAME, permission, grantState);
-        Log.d(TAG, "setPermissionGrantState(" + permission + "): requested " + grantState + " ("
-                + permissionGrantStateToString(grantState) + ") using DPM " + mDevicePolicyManager
-                + " on uid " + Process.myUid() + ", got " + result);
+        Log.d(TAG, "setPermissionGrantState(" + PERMISSION_APP_PACKAGE_NAME + ", " + permission
+                + "): requested " + grantState + " (" + permissionGrantStateToString(grantState)
+                + ") using DPM " + mDevicePolicyManager + " on uid " + Process.myUid()
+                + ", got " + result);
         return result;
     }
 
@@ -450,12 +470,17 @@ public class PermissionsTest extends BaseDeviceAdminTest {
 
     private void assertPermissionGrantState(DevicePolicyManager dpm, String permission,
             int expectedState) {
+        assertPermissionGrantState(dpm, PERMISSION_APP_PACKAGE_NAME, permission, expectedState);
+    }
+
+    private void assertPermissionGrantState(DevicePolicyManager dpm, String packageName,
+            String permission, int expectedState) {
         int actualState = dpm.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
-                PERMISSION_APP_PACKAGE_NAME, permission);
+                packageName, permission);
 
         assertWithMessage("%s.getPermissionGrantState(%s, %s, %s) (where %s=%s and %s=%s)",
-                mDevicePolicyManager, ADMIN_RECEIVER_COMPONENT, PERMISSION_APP_PACKAGE_NAME,
-                permission, expectedState, permissionGrantStateToString(expectedState),
+                mDevicePolicyManager, ADMIN_RECEIVER_COMPONENT, packageName, permission,
+                expectedState, permissionGrantStateToString(expectedState),
                 actualState, permissionGrantStateToString(actualState))
                         .that(actualState)
                         .isEqualTo(expectedState);

@@ -16,14 +16,12 @@ pub enum KeycodeTypes {
 }
 
 /// Translates scancodes of a particular type into Linux keycodes.
-#[allow(dead_code)]
 pub struct KeycodeTranslator {
     keycode_map: HashMap<u32, MapEntry>,
 }
 
 impl KeycodeTranslator {
     /// Create a new KeycodeTranslator that translates from the `from_type` type to Linux keycodes.
-    #[allow(dead_code)]
     pub fn new(from_type: KeycodeTypes) -> KeycodeTranslator {
         let mut kcm: HashMap<u32, MapEntry> = HashMap::new();
         for entry in KEYCODE_MAP.iter() {
@@ -40,7 +38,6 @@ impl KeycodeTranslator {
     }
 
     /// Translates the scancode in `from_code` into a Linux keycode.
-    #[allow(dead_code)]
     pub fn translate(&self, from_code: u32) -> Option<u16> {
         Some(self.keycode_map.get(&from_code)?.linux_keycode)
     }

@@ -16,6 +16,9 @@
 
 package android.app.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
+import static android.Manifest.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL;
+import static android.Manifest.permission.REVOKE_RUNTIME_PERMISSIONS;
 import static android.app.stubs.LocalForegroundService.COMMAND_START_FOREGROUND;
 import static android.app.stubs.LocalForegroundService.COMMAND_START_FOREGROUND_DEFER_NOTIFICATION;
 import static android.app.stubs.LocalForegroundService.COMMAND_STOP_FOREGROUND_DETACH_NOTIFICATION;
@@ -53,6 +56,8 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.permission.PermissionManager;
+import android.permission.cts.PermissionUtils;
 import android.service.notification.StatusBarNotification;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -698,6 +703,7 @@ public class ServiceTest extends ActivityTestsBase {
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getContext();
+        PermissionUtils.grantPermission(mContext.getPackageName(), POST_NOTIFICATIONS);
         mLocalService = new Intent(mContext, LocalService.class);
         mExternalService = new Intent();
         mExternalService.setComponent(ComponentName.unflattenFromString(EXTERNAL_SERVICE_COMPONENT));
@@ -745,6 +751,15 @@ public class ServiceTest extends ActivityTestsBase {
         }
         mBackgroundThread = null;
         mBackgroundThreadExecutor = null;
+        // Use test API to prevent PermissionManager from killing the test process when revoking
+        // permission.
+        SystemUtil.runWithShellPermissionIdentity(
+                () -> mContext.getSystemService(PermissionManager.class)
+                        .revokePostNotificationPermissionWithoutKillForTest(
+                                mContext.getPackageName(),
+                                Process.myUserHandle().getIdentifier()),
+                REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL,
+                REVOKE_RUNTIME_PERMISSIONS);
     }
 
     private class MockBinder extends Binder {

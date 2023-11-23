@@ -89,7 +89,7 @@ class UnicodeText {
     const_iterator();
 
     // It's safe to make multiple passes over a UnicodeText.
-    const_iterator& operator=(const const_iterator& other);
+    const_iterator& operator=(const const_iterator&) = default;
 
     char32 operator*() const;  // Dereference
 

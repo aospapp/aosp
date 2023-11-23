@@ -43,7 +43,7 @@ class UnsolicitedEventListener
             const ::aidl::android::net::resolv::aidl::PrivateDnsValidationEventParcel&) override;
 
     // Wait for the expected private DNS validation result until timeout.
-    bool waitForPrivateDnsValidation(const std::string& serverAddr, int validation);
+    bool waitForPrivateDnsValidation(const std::string& serverAddr, int validation, int protocol);
 
     // Wait for expected NAT64 prefix operation until timeout.
     bool waitForNat64Prefix(int operation, const std::chrono::milliseconds& timeout)
@@ -53,9 +53,9 @@ class UnsolicitedEventListener
     android::base::Result<int> popDnsHealthResult() EXCLUDES(mMutex);
 
     // Return true if a validation result for |serverAddr| is found; otherwise, return false.
-    bool findValidationRecord(const std::string& serverAddr) const EXCLUDES(mMutex) {
+    bool findValidationRecord(const std::string& serverAddr, int protocol) const EXCLUDES(mMutex) {
         std::lock_guard lock(mMutex);
-        return mValidationRecords.find({mNetId, serverAddr}) != mValidationRecords.end();
+        return mValidationRecords.find({mNetId, serverAddr, protocol}) != mValidationRecords.end();
     }
 
     // Returns the number of updates to the NAT64 prefix that have not yet been waited for.
@@ -74,7 +74,8 @@ class UnsolicitedEventListener
     }
 
   private:
-    typedef std::pair<int32_t, std::string> ServerKey;
+    //  Stores (netId, ipAddress, protocol) from onPrivateDnsValidationEvent.
+    using ServerKey = std::tuple<int, std::string, int>;
 
     // Search mValidationRecords. Return true if |key| exists and its value is equal to
     // |value|, and then remove it; otherwise, return false.

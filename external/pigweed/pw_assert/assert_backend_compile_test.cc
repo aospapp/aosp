@@ -35,13 +35,9 @@
 //
 // TODO(pwbug/88): Add verification of the actually recorded asserts statements.
 
-// clang-format off
-#define PW_ASSERT_USE_SHORT_NAMES 1
-#include "pw_assert/assert.h"
-// clang-format on
-
-#include "pw_status/status.h"
 #include "gtest/gtest.h"
+#include "pw_assert/short.h"
+#include "pw_status/status.h"
 
 // This is a global constant to feed into the formatter for tests.
 // Intended to pair with FAIL_IF_DISPLAYED_ARGS or FAIL_IF_HIDDEN_ARGS.
@@ -171,7 +167,6 @@ TEST(Check, ComparisonArgumentsWithCommas) {
   PW_CHECK_INT_LE(x_int, y_int, "INT: " FAIL_IF_DISPLAYED_ARGS, z);
 }
 
-// Note: This requires enabling PW_ASSERT_USE_SHORT_NAMES 1 above.
 TEST(Check, ShortNamesWork) {
   MAYBE_SKIP_TEST;
 

@@ -29,6 +29,7 @@
 #include "Common.h"
 #include "Composer.h"
 #include "Display.h"
+#include "DrmPresenter.h"
 #include "Layer.h"
 
 namespace android {
@@ -144,8 +145,9 @@ class Device : public hwc2_device_t {
     hwc2_function_pointer_t pointer;
   };
   std::unordered_map<HWC2::Callback, CallbackInfo> mCallbacks;
-
   std::map<hwc2_display_t, std::unique_ptr<Display>> mDisplays;
+
+  std::unique_ptr<DrmPresenter> mDrmPresenter;
 };
 
 }  // namespace android

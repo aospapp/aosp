@@ -27,6 +27,7 @@ import android.net.util.KeepalivePacketDataUtil;
 import android.os.Build;
 import android.util.Log;
 
+import com.android.server.connectivity.TcpKeepaliveController;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRunner;
 
@@ -81,7 +82,7 @@ public final class KeepalivePacketDataUtilTest {
         testInfo.tos = tos;
         testInfo.ttl = ttl;
         try {
-            resultData = KeepalivePacketDataUtil.fromStableParcelable(testInfo);
+            resultData = TcpKeepaliveController.fromStableParcelable(testInfo);
         } catch (InvalidPacketException e) {
             fail("InvalidPacketException: " + e);
         }
@@ -155,7 +156,7 @@ public final class KeepalivePacketDataUtilTest {
         testInfo.ttl = ttl;
         TcpKeepalivePacketData testData = null;
         TcpKeepalivePacketDataParcelable resultData = null;
-        testData = KeepalivePacketDataUtil.fromStableParcelable(testInfo);
+        testData = TcpKeepaliveController.fromStableParcelable(testInfo);
         resultData = KeepalivePacketDataUtil.toStableParcelable(testData);
         assertArrayEquals(resultData.srcAddress, IPV4_KEEPALIVE_SRC_ADDR);
         assertArrayEquals(resultData.dstAddress, IPV4_KEEPALIVE_DST_ADDR);
@@ -168,8 +169,8 @@ public final class KeepalivePacketDataUtilTest {
         assertEquals(resultData.tos, tos);
         assertEquals(resultData.ttl, ttl);
 
-        final String expected = ""
-                + "android.net.TcpKeepalivePacketDataParcelable{srcAddress: [10, 0, 0, 1],"
+        final String expected = TcpKeepalivePacketDataParcelable.class.getName()
+                + "{srcAddress: [10, 0, 0, 1],"
                 + " srcPort: 1234, dstAddress: [10, 0, 0, 5], dstPort: 4321, seq: 286331153,"
                 + " ack: 572662306, rcvWnd: 48000, rcvWndScale: 2, tos: 4, ttl: 64}";
         assertEquals(expected, resultData.toString());
@@ -198,11 +199,11 @@ public final class KeepalivePacketDataUtilTest {
         testParcel.ttl = ttl;
 
         final KeepalivePacketData testData =
-                KeepalivePacketDataUtil.fromStableParcelable(testParcel);
+                TcpKeepaliveController.fromStableParcelable(testParcel);
         final TcpKeepalivePacketDataParcelable parsedParcelable =
                 KeepalivePacketDataUtil.parseTcpKeepalivePacketData(testData);
         final TcpKeepalivePacketData roundTripData =
-                KeepalivePacketDataUtil.fromStableParcelable(parsedParcelable);
+                TcpKeepaliveController.fromStableParcelable(parsedParcelable);
 
         // Generated packet is the same, but rcvWnd / wndScale will differ if scale is non-zero
         assertTrue(testData.getPacket().length > 0);
@@ -210,11 +211,11 @@ public final class KeepalivePacketDataUtilTest {
 
         testParcel.rcvWndScale = 0;
         final KeepalivePacketData noScaleTestData =
-                KeepalivePacketDataUtil.fromStableParcelable(testParcel);
+                TcpKeepaliveController.fromStableParcelable(testParcel);
         final TcpKeepalivePacketDataParcelable noScaleParsedParcelable =
                 KeepalivePacketDataUtil.parseTcpKeepalivePacketData(noScaleTestData);
         final TcpKeepalivePacketData noScaleRoundTripData =
-                KeepalivePacketDataUtil.fromStableParcelable(noScaleParsedParcelable);
+                TcpKeepaliveController.fromStableParcelable(noScaleParsedParcelable);
         assertEquals(noScaleTestData, noScaleRoundTripData);
         assertTrue(noScaleTestData.getPacket().length > 0);
         assertArrayEquals(noScaleTestData.getPacket(), noScaleRoundTripData.getPacket());

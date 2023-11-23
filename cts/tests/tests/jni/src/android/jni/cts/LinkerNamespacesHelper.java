@@ -41,8 +41,8 @@ import java.util.regex.Pattern;
 
 class LinkerNamespacesHelper {
     private final static String PUBLIC_CONFIG_DIR = "/system/etc/";
+    private final static String SYSTEM_EXT_CONFIG_DIR = "/system_ext/etc/";
     private final static String PRODUCT_CONFIG_DIR = "/product/etc/";
-    private final static String SYSTEM_CONFIG_FILE = PUBLIC_CONFIG_DIR + "public.libraries.txt";
     private final static Pattern EXTENSION_CONFIG_FILE_PATTERN = Pattern.compile(
             "public\\.libraries-([A-Za-z0-9\\-_.]+)\\.txt");
     private final static String VENDOR_CONFIG_FILE = "/vendor/etc/public.libraries.txt";
@@ -204,16 +204,21 @@ class LinkerNamespacesHelper {
 
         Collections.addAll(apexLibs, PUBLIC_APEX_LIBRARIES);
 
-        // Check if /system/etc/public.libraries-company.txt and /product/etc/public.libraries
-        // -company.txt files are well-formed. The libraries however are not loaded for test;
-        // It is done in another test CtsUsesNativeLibraryTest because since Android S those libs
-        // are not available unless they are explicited listed in the app manifest.
-
+        // Check if /system/etc/public.libraries-company.txt,
+        // /system_ext/etc/public.libraries-company.txt
+        // and /product/etc/public.libraries-company.txt files are well-formed. The
+        // libraries however are not loaded for test;
+        // It is done in another test CtsUsesNativeLibraryTest because since Android S
+        // those libs are not available unless they are explicited listed in the app
+        // manifest.
         List<String> oemLibs = new ArrayList<>();
         String oemLibsError = readExtensionConfigFiles(PUBLIC_CONFIG_DIR, oemLibs);
         if (oemLibsError != null) return oemLibsError;
 
-        // PRODUCT libs that passed are also available
+        List<String> systemextLibs = new ArrayList<>();
+        String systemextLibsError = readExtensionConfigFiles(SYSTEM_EXT_CONFIG_DIR, systemextLibs);
+        if (systemextLibsError != null) return systemextLibsError;
+
         List<String> productLibs = new ArrayList<>();
         String productLibsError = readExtensionConfigFiles(PRODUCT_CONFIG_DIR, productLibs);
         if (productLibsError != null) return productLibsError;

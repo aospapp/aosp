@@ -76,6 +76,7 @@ const char* AHBFormatAsString(int32_t format) {
         FORMAT_CASE(D32_FLOAT_S8_UINT);
         FORMAT_CASE(S8_UINT);
         FORMAT_CASE(Y8Cb8Cr8_420);
+        FORMAT_CASE(R8_UNORM);
         GL_FORMAT_CASE(GL_RGB8);
         GL_FORMAT_CASE(GL_RGBA8);
         GL_FORMAT_CASE(GL_RGB565);
@@ -85,6 +86,7 @@ const char* AHBFormatAsString(int32_t format) {
         GL_FORMAT_CASE(GL_DEPTH_COMPONENT16);
         GL_FORMAT_CASE(GL_DEPTH24_STENCIL8);
         GL_FORMAT_CASE(GL_STENCIL_INDEX8);
+        GL_FORMAT_CASE(GL_R8);
     }
     return "";
 }
@@ -1501,11 +1503,6 @@ void AHardwareBufferGLTest::SetUpTexture(const AHardwareBuffer_Desc& desc, int u
             // Compatibility code for ES 2.0 goes here.
             GLenum internal_format = 0, format = 0, type = 0;
             switch (desc.format) {
-                case GL_RGB565:
-                    internal_format = GL_RGB;
-                    format = GL_RGB;
-                    type = GL_UNSIGNED_SHORT_5_6_5;
-                    break;
                 case GL_RGB8:
                     internal_format = GL_RGB;
                     format = GL_RGB;
@@ -1521,6 +1518,11 @@ void AHardwareBufferGLTest::SetUpTexture(const AHardwareBuffer_Desc& desc, int u
                     internal_format = GL_SRGB_ALPHA_EXT;
                     format = GL_RGBA;
                     type = GL_UNSIGNED_BYTE;
+                    break;
+                case GL_RGB565:
+                    internal_format = GL_RGB;
+                    format = GL_RGB;
+                    type = GL_UNSIGNED_SHORT_5_6_5;
                     break;
                 case GL_DEPTH_COMPONENT16:
                     // Available through GL_OES_depth_texture.
@@ -2645,6 +2647,29 @@ INSTANTIATE_TEST_CASE_P(
         AHardwareBuffer_Desc{26, 29, 5, AHARDWAREBUFFER_FORMAT_S8_UINT, 0, 0, 0, 0},
         AHardwareBuffer_Desc{57, 33, 4, AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT, 0, 0, 0, 0},
         AHardwareBuffer_Desc{17, 23, 7, AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT, 0, 0, 0, 0}),
+    &GetTestName);
+
+class R8Test : public AHardwareBufferGLTest {};
+
+// Verify that if we can allocate an R8 AHB we can render to it.
+TEST_P(R8Test, Write) {
+    AHardwareBuffer_Desc desc = GetParam();
+    if (!SetUpBuffer(desc)) {
+        return;
+    }
+
+    ASSERT_NO_FATAL_FAILURE(SetUpFramebuffer(desc.width, desc.height, 0, kBufferAsRenderbuffer));
+    ASSERT_NO_FATAL_FAILURE(
+        SetUpProgram(kVertexShader, kColorFragmentShader, kPyramidPositions, 0.5f));
+
+    glDrawArrays(GL_TRIANGLES, 0, kPyramidVertexCount);
+    ASSERT_EQ(GLenum{GL_NO_ERROR}, glGetError());
+}
+
+INSTANTIATE_TEST_CASE_P(
+    SingleLayer, R8Test,
+    ::testing::Values(
+        AHardwareBuffer_Desc{57, 33, 1, AHARDWAREBUFFER_FORMAT_R8_UNORM, 0, 0, 0, 0}),
     &GetTestName);
 
 }  // namespace android

@@ -1,16 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) International Business Machines  Corp., 2004
- * Copyright (c) Linux Test Project, 2004-2017
- *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;  without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- * the GNU General Public License for more details.
+ * Copyright (c) Linux Test Project, 2004-2020
  */
 
 /*
@@ -43,13 +34,6 @@ static int shm_id_2 = -1;
 static int shm_id_3 = -1;
 static struct shmid_ds buf;
 
-static long hugepages = 128;
-
-static struct tst_option options[] = {
-	{"s:", &nr_opt, "-s   num  Set the number of the been allocated hugepages"},
-	{NULL, NULL, NULL}
-};
-
 struct tcase {
 	int *shmid;
 	int cmd;
@@ -66,41 +50,34 @@ struct tcase {
 	{&shm_id_2, -1, &buf, EINVAL},
 };
 
-static void test_hugeshmctl(void)
+static void test_hugeshmctl(unsigned int i)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(tcases); i++) {
-		TEST(shmctl(*(tcases[i].shmid), tcases[i].cmd, tcases[i].sbuf));
-		if (TST_RET != -1) {
-			tst_res(TFAIL, "shmctl succeeded "
-					"unexpectedly");
-			continue;
-		}
-		if (TST_ERR == tcases[i].error) {
-			tst_res(TPASS | TTERRNO, "shmctl failed "
-					"as expected");
-		} else {
-			tst_res(TFAIL | TTERRNO, "shmctl failed "
-					"unexpectedly - expect errno = "
-					"%d, got", tcases[i].error);
-		}
+	TEST(shmctl(*(tcases[i].shmid), tcases[i].cmd, tcases[i].sbuf));
+	if (TST_RET != -1) {
+		tst_res(TFAIL, "shmctl succeeded unexpectedly");
+		return;
 	}
+
+	if (TST_ERR == tcases[i].error) {
+		tst_res(TPASS | TTERRNO, "shmctl failed as expected");
+		return;
+	}
+
+	tst_res(TFAIL | TTERRNO,
+			"shmctl failed unexpectedly - expect errno = %d, got",
+			tcases[i].error);
 }
 
 static void setup(void)
 {
 	long hpage_size;
 
-	save_nr_hugepages();
-	if (nr_opt)
-		hugepages = SAFE_STRTOL(nr_opt, 0, LONG_MAX);
+	if (tst_hugepages == 0)
+		tst_brk(TCONF, "No enough hugepages for testing.");
 
-	limit_hugepages(&hugepages);
-	set_sys_tune("nr_hugepages", hugepages, 1);
 	hpage_size = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 
-	shm_size = hpage_size * (hugepages / 2);
+	shm_size = hpage_size * (tst_hugepages / 2);
 	update_shm_size(&shm_size);
 	shmkey = getipckey();
 
@@ -120,14 +97,18 @@ static void cleanup(void)
 {
 	rm_shm(shm_id_1);
 	rm_shm(shm_id_2);
-	restore_nr_hugepages();
 }
 
 static struct tst_test test = {
+	.test = test_hugeshmctl,
+	.tcnt = ARRAY_SIZE(tcases),
 	.needs_root = 1,
 	.needs_tmpdir = 1,
-	.options = options,
+	.options = (struct tst_option[]) {
+		{"s:", &nr_opt, "-s num   Set the number of the been allocated hugepages"},
+		{}
+	},
 	.setup = setup,
 	.cleanup = cleanup,
-	.test_all = test_hugeshmctl,
+	.request_hugepages = 128,
 };

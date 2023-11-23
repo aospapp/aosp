@@ -16,7 +16,15 @@
 package android.sample.cts;
 
 import android.sample.SampleDeviceActivity;
-import android.test.ActivityInstrumentationTestCase2;
+
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
@@ -27,8 +35,8 @@ import com.android.compatibility.common.util.ResultUnit;
  *
  * This class has 3 no-op tests that create report logs and log fake metrics.
  */
-public class SampleDeviceReportLogTest
-        extends ActivityInstrumentationTestCase2<SampleDeviceActivity> {
+@RunWith(AndroidJUnit4.class)
+public class SampleDeviceReportLogTest {
 
     /**
      * Name of the report log. Test metrics will be written out to ths report. The name must match
@@ -51,19 +59,13 @@ public class SampleDeviceReportLogTest
     private static final String END_TAG = "actual_end";
 
     /**
-     * Constructor which passes the class of the activity to be instrumented.
-     */
-    public SampleDeviceReportLogTest() {
-        super(SampleDeviceActivity.class);
-    }
-
-    /**
      * Sample test that creates and logs test metrics into a report log.
      */
+    @Test
     public void testMultiplication() {
         // Perform test.
         int product = MULTIPLICATION_NUMBER_1 * MULTIPLICATION_NUMBER_2;
-        assertTrue("Multiplication result do not match", product == MULTIPLICATION_RESULT);
+        Assert.assertTrue("Multiplication result do not match", product == MULTIPLICATION_RESULT);
 
         // Log metrics from the test.
         String streamName = "test_multiplication";
@@ -72,12 +74,13 @@ public class SampleDeviceReportLogTest
                 ResultUnit.NONE);
         reportLog.addValue(ACTUAL_PRODUCT_TAG, 1.0 * product, ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.setSummary(ACTUAL_PRODUCT_TAG, 1.0 * product, ResultType.NEUTRAL, ResultUnit.NONE);
-        reportLog.submit(getInstrumentation());
+        reportLog.submit(InstrumentationRegistry.getInstrumentation());
     }
 
     /**
      * Sample test to check counting up.
      */
+    @Test
     public void testCountUp() {
         String streamName = "test_count_up";
         countHelper(1, streamName);
@@ -86,6 +89,7 @@ public class SampleDeviceReportLogTest
     /**
      * Sample test to check counting down.
      */
+    @Test
     public void testCountDown() {
         String streamName = "test_count_down";
         countHelper(2, streamName);
@@ -120,6 +124,6 @@ public class SampleDeviceReportLogTest
         reportLog.addValue(START_TAG, 1.0 * start, ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.addValue(END_TAG, 1.0 * end, ResultType.NEUTRAL, ResultUnit.NONE);
         reportLog.setSummary(END_TAG, 1.0 * end, ResultType.NEUTRAL, ResultUnit.NONE);
-        reportLog.submit(getInstrumentation());
+        reportLog.submit(InstrumentationRegistry.getInstrumentation());
     }
 }

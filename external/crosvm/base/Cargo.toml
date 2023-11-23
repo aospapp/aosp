@@ -2,18 +2,32 @@
 name = "base"
 version = "0.1.0"
 authors = ["The Chromium OS Authors"]
-edition = "2018"
+edition = "2021"
 
 [features]
-chromeos = ["sys_util/chromeos"]
+chromeos = []
 
 [dependencies]
-cros_async = { path = "../cros_async" }
-data_model = { path = "../data_model" }
+audio_streams = { path = "../common/audio_streams" }
+data_model = { path = "../common/data_model" }
 libc = "*"
+remain = "0.2"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "*"
 smallvec = "1.6.1"
-sync = { path = "../sync" }
-sys_util = { path = "../sys_util" }
+sync = { path = "../common/sync" }
 thiserror = "1.0.20"
+tempfile = "3"
+base_poll_token_derive = { path = "base_poll_token_derive" }
+cfg-if = "*"
+rand = "*"
+chrono = "*"
+regex = "*"
+
+[target.'cfg(windows)'.dependencies]
+lazy_static = "*"
+winapi = "*"
+win_util = { path = "../win_util"}
+
+[build-dependencies]
+cc = "*"

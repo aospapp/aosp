@@ -1,12 +1,12 @@
-#[cfg(feature = "with-serde")]
-use serde;
-
 use std::default::Default;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
 use std::option;
+
+#[cfg(feature = "with-serde")]
+use serde;
 
 use crate::clear::Clear;
 
@@ -341,7 +341,9 @@ impl<T: Default + Clear> SingularField<T> {
     /// Get contained data, consume self. Return default value for type if this is empty.
     #[inline]
     pub fn unwrap_or_default(mut self) -> T {
-        self.value.clear();
+        if !self.set {
+            self.value.clear();
+        }
         self.value
     }
 
@@ -576,5 +578,17 @@ mod test {
         // without clear
         x.set_default();
         assert_eq!(0, x.as_ref().unwrap().b);
+    }
+
+    #[test]
+    fn unwrap_or_default() {
+        assert_eq!(
+            "abc",
+            SingularField::some("abc".to_owned()).unwrap_or_default()
+        );
+        assert_eq!("", SingularField::<String>::none().unwrap_or_default());
+        let mut some = SingularField::some("abc".to_owned());
+        some.clear();
+        assert_eq!("", some.unwrap_or_default());
     }
 }

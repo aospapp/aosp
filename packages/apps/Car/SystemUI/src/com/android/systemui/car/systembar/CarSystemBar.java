@@ -27,6 +27,7 @@ import static com.android.systemui.statusbar.phone.BarTransitions.MODE_TRANSPARE
 import android.app.StatusBarManager.Disable2Flags;
 import android.app.StatusBarManager.DisableFlags;
 import android.content.Context;
+import android.graphics.Rect;
 import android.inputmethodservice.InputMethodService;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -42,7 +43,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.RegisterStatusBarResult;
 import com.android.internal.view.AppearanceRegion;
-import com.android.systemui.SystemUI;
+import com.android.systemui.CoreStartable;
 import com.android.systemui.car.CarDeviceProvisionedController;
 import com.android.systemui.car.CarDeviceProvisionedListener;
 import com.android.systemui.car.hvac.HvacController;
@@ -62,8 +63,8 @@ import com.android.systemui.statusbar.phone.SysuiDarkIconDispatcher;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 
-import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.concurrent.Executor;
 
 import javax.inject.Inject;
@@ -71,7 +72,7 @@ import javax.inject.Inject;
 import dagger.Lazy;
 
 /** Navigation bars customized for the automotive use case. */
-public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
+public class CarSystemBar extends CoreStartable implements CommandQueue.Callbacks {
     private final CarSystemBarController mCarSystemBarController;
     private final SysuiDarkIconDispatcher mStatusBarIconController;
     private final WindowManager mWindowManager;
@@ -85,6 +86,7 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
     private final Lazy<KeyguardStateController> mKeyguardStateControllerLazy;
     private final Lazy<PhoneStatusBarPolicy> mIconPolicyLazy;
     private final HvacController mHvacController;
+
     private final int mDisplayId;
     private final SystemBarConfigs mSystemBarConfigs;
 
@@ -138,8 +140,8 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
             IStatusBarService barService,
             Lazy<KeyguardStateController> keyguardStateControllerLazy,
             Lazy<PhoneStatusBarPolicy> iconPolicyLazy,
-            StatusBarSignalPolicy signalPolicy,
             HvacController hvacController,
+            StatusBarSignalPolicy signalPolicy,
             SystemBarConfigs systemBarConfigs
     ) {
         super(context);
@@ -258,7 +260,7 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
         mActivityManagerWrapper.registerTaskStackListener(new TaskStackChangeListener() {
             @Override
             public void onLockTaskModeChanged(int mode) {
-                mCarSystemBarController.refreshSystemBarByLockTaskFeatures();
+                mCarSystemBarController.refreshSystemBar();
             }
         });
 
@@ -423,7 +425,7 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
     /**
      * We register for soft keyboard visibility events such that we can hide the navigation bar
      * giving more screen space to the IME. Note: this is optional and controlled by
-     * {@code com.android.internal.R.bool.config_automotiveHideNavBarForKeyboard}.
+     * {@code com.android.internal.R.bool.config_hideNavBarForKeyboard}.
      */
     @Override
     public void setImeWindowStatus(int displayId, IBinder token, int vis, int backDisposition,
@@ -477,7 +479,7 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
             mAppearanceRegions = appearanceRegions;
             updateStatusBarAppearance();
         }
-        mCarSystemBarController.refreshSystemBarByLockTaskFeatures();
+        mCarSystemBarController.refreshSystemBar();
     }
 
     @Override
@@ -486,36 +488,32 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
         if (displayId != mDisplayId) {
             return;
         }
-        mCarSystemBarController.setStatusBarState(state1);
+        mCarSystemBarController.setSystemBarStates(state1, state2);
     }
 
     private void updateStatusBarAppearance() {
         int numStacks = mAppearanceRegions.length;
-        int numLightStacks = 0;
-
-        // We can only have maximum one light stack.
-        int indexLightStack = -1;
+        final ArrayList<Rect> lightBarBounds = new ArrayList<>();
 
         for (int i = 0; i < numStacks; i++) {
-            if (isLight(mAppearanceRegions[i].getAppearance())) {
-                numLightStacks++;
-                indexLightStack = i;
+            final AppearanceRegion ar = mAppearanceRegions[i];
+            if (isLight(ar.getAppearance())) {
+                lightBarBounds.add(ar.getBounds());
             }
         }
 
         // If all stacks are light, all icons become dark.
-        if (numLightStacks == numStacks) {
+        if (lightBarBounds.size() == numStacks) {
             mStatusBarIconController.setIconsDarkArea(null);
             mStatusBarIconController.getTransitionsController().setIconsDark(
                     /* dark= */ true, /* animate= */ false);
-        } else if (numLightStacks == 0) {
+        } else if (lightBarBounds.isEmpty()) {
             // If no one is light, all icons become white.
             mStatusBarIconController.getTransitionsController().setIconsDark(
                     /* dark= */ false, /* animate= */ false);
         } else {
             // Not the same for every stack, update icons in area only.
-            mStatusBarIconController.setIconsDarkArea(
-                    mAppearanceRegions[indexLightStack].getBounds());
+            mStatusBarIconController.setIconsDarkArea(lightBarBounds);
             mStatusBarIconController.getTransitionsController().setIconsDark(
                     /* dark= */ true, /* animate= */ false);
         }
@@ -582,7 +580,7 @@ public class CarSystemBar extends SystemUI implements CommandQueue.Callbacks {
     }
 
     @Override
-    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+    public void dump(PrintWriter pw, String[] args) {
         pw.print("  mTaskStackListener=");
         pw.println(mButtonSelectionStateListener);
         pw.print("  mBottomSystemBarView=");

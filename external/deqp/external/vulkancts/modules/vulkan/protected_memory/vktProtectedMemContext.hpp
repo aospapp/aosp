@@ -87,8 +87,8 @@ private:
 	const vk::Move<vk::VkSurfaceKHR>	m_surface;
 	deUint32							m_queueFamilyIndex;
 	vk::Move<vk::VkDevice>				m_device;
-	const de::UniquePtr<vk::Allocator>	m_allocator;
 	vk::DeviceDriver					m_deviceDriver;
+	const de::UniquePtr<vk::Allocator>	m_allocator;
 	vk::VkQueue							m_queue;
 };
 

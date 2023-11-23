@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <android/hardware/audio/7.0/IStreamIn.h>
-#include <android/hardware/audio/7.0/IDevice.h>
+#include PATH(android/hardware/audio/CORE_TYPES_FILE_VERSION/IStreamIn.h)
+#include PATH(android/hardware/audio/FILE_VERSION/IDevice.h)
 #include "stream_common.h"
 #include "io_thread.h"
 #include "primary_device.h"
@@ -24,7 +24,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::sp;
@@ -32,11 +32,12 @@ using ::android::hardware::hidl_bitfield;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using namespace ::android::hardware::audio::common::V7_0;
-using namespace ::android::hardware::audio::V7_0;
+using namespace ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION;
+using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
+using ::android::hardware::audio::CORE_TYPES_CPP_VERSION::IStreamIn;
 
 struct StreamIn : public IStreamIn {
-    StreamIn(sp<PrimaryDevice> dev,
+    StreamIn(sp<Device> dev,
              int32_t ioHandle,
              const DeviceAddress& device,
              const AudioConfig& config,
@@ -96,7 +97,7 @@ struct StreamIn : public IStreamIn {
 private:
     Result closeImpl(bool fromDctor);
 
-    sp<PrimaryDevice> mDev;
+    sp<Device> mDev;
     const StreamCommon mCommon;
     const SinkMetadata mSinkMetadata;
     std::unique_ptr<IOThread> mReadThread;
@@ -109,7 +110,7 @@ private:
 };
 
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

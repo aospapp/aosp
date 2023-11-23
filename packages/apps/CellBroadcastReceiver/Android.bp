@@ -1,35 +1,25 @@
 // Copyright 2011 The Android Open Source Project
 package {
-    default_applicable_licenses: [
-        "packages_apps_CellBroadcastReceiver_license",
-    ],
-}
-
-// Added automatically by a large-scale-change
-// See: http://go/android-license-faq
-license {
-    name: "packages_apps_CellBroadcastReceiver_license",
-    visibility: [":__subpackages__"],
-    license_kinds: [
-        "SPDX-license-identifier-Apache-2.0",
-    ],
-    license_text: [
-        "NOTICE",
-    ],
+    // See: http://go/android-license-faq
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_defaults {
     name: "CellBroadcastCommon",
     min_sdk_version: "30",
     target_sdk_version: "31",
-    sdk_version: "system_current",
+    sdk_version: "module_current",
     privileged: true,
     srcs: [
       "src/**/*.java",
-      ":framework-annotations",
       ":cellbroadcast-constants-shared-srcs",
       ":statslog-cellbroadcast-java-gen",
-   ],
+    ],
+    libs: [
+        "framework-annotations-lib",
+        "framework-statsd",
+        "framework-bluetooth",
+    ],
     static_libs: [
         "androidx.legacy_legacy-support-v4",
         "androidx.legacy_legacy-support-v13",
@@ -40,6 +30,7 @@ java_defaults {
         "SettingsLibSettingsTheme",
         "SettingsLibCollapsingToolbarBaseActivity",
         "SettingsLibMainSwitchPreference",
+	"SettingsLibTopIntroPreference",
         "modules-utils-build_system",
     ],
     optimize: {
@@ -59,6 +50,7 @@ android_app {
     aaptflags: ["--custom-package com.android.cellbroadcastreceiver"],
     manifest: "AndroidManifest.xml",
     apex_available: ["com.android.cellbroadcast"],
+    required: ["privapp_allowlist_com.android.cellbroadcastreceiver.module.xml"],
 }
 
 // filegroup used to include source into unit tests
@@ -66,7 +58,6 @@ filegroup {
     name: "cellbroadcastreceiver-sources",
     srcs: [
       "src/**/*.java",
-      ":framework-annotations",
       ":cellbroadcast-constants-shared-srcs",
     ],
 }
@@ -81,7 +72,7 @@ android_app {
      manifest: "AndroidManifest_Platform.xml",
      system_ext_specific: true,
      privileged: true,
-     required: ["privapp_whitelist_com.android.cellbroadcastreceiver"],
+     required: ["privapp_allowlist_com.android.cellbroadcastreceiver.xml"],
 }
 
 // source file shared with legacy cellbroadcast app

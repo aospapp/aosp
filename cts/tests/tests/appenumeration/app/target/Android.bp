@@ -16,228 +16,209 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_defaults {
+    name: "CtsAppEnumerationTargetDefaults",
+    defaults: ["cts_support_defaults"],
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    static_libs: ["CtsAppEnumerationTestLib"],
+    sdk_version: "test_current",
+}
+
 android_test_helper_app {
     name: "CtsAppEnumerationForceQueryable",
     manifest: "AndroidManifest-forceQueryable.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationForceQueryableNormalInstall",
     manifest: "AndroidManifest-forceQueryable-normalInstall.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationFilters",
     manifest: "AndroidManifest-filters.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationNoApi",
     manifest: "AndroidManifest-noapi.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationStub",
     manifest: "AndroidManifest-stub.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationSharedUidTarget",
     manifest: "AndroidManifest-noapi-sharedUser.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationContactsActivityTarget",
     manifest: "AndroidManifest-contactsActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationDocumentsActivityTarget",
     manifest: "AndroidManifest-documentEditorActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationShareActivityTarget",
     manifest: "AndroidManifest-shareActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationWebActivityTarget",
     manifest: "AndroidManifest-webActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
+}
+
+android_test_helper_app {
+    name: "CtsAppEnumerationPrefixWildcardWebActivityTarget",
+    manifest: "AndroidManifest-prefixWildcardWebActivity.xml",
+    defaults: ["CtsAppEnumerationTargetDefaults"],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationBrowserActivityTarget",
     manifest: "AndroidManifest-browserActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationBrowserWildcardActivityTarget",
     manifest: "AndroidManifest-browserWildcardActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationSyncadapterTarget",
     manifest: "AndroidManifest-syncadapter.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
-    resource_dirs: ["res"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationSyncadapterSharedUidTarget",
     manifest: "AndroidManifest-syncadapter-sharedUser.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
-    resource_dirs: ["res"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationAppWidgetProviderTarget",
     manifest: "AndroidManifest-appWidgetProvider.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
-    resource_dirs: ["res"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationAppWidgetProviderSharedUidTarget",
     manifest: "AndroidManifest-appWidgetProvider-sharedUser.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
-    resource_dirs: ["res"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }
 
 android_test_helper_app {
     name: "CtsAppEnumerationPreferredActivityTarget",
     manifest: "AndroidManifest-preferredActivity.xml",
-    defaults: ["cts_support_defaults"],
-    srcs: ["src/**/*.java"],
-    resource_dirs: ["res"],
+    defaults: ["CtsAppEnumerationTargetDefaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
 }

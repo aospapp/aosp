@@ -16,18 +16,5 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.test.notificationtrampoline.current">
-    <application>
-        <activity
-            android:name=".BrowserActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http"/>
-                <data android:scheme="https"/>
-            </intent-filter>
-        </activity>
-    </application>
-    <!-- Rest of app is in NotificationTrampolineBase -->
+    <!-- App is in NotificationTrampolineBase -->
 </manifest>

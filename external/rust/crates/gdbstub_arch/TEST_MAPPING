@@ -2,7 +2,12 @@
 {
   "presubmit": [
     {
-      "name": "gdbstub_arch_device_test_src_lib"
+      "name": "gdbstub_arch_test_src_lib"
+    }
+  ],
+  "presubmit-rust": [
+    {
+      "name": "gdbstub_arch_test_src_lib"
     }
   ]
 }

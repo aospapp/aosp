@@ -12,3 +12,7 @@
 
 # logcat virtconsole
 /dev/hvc1                 0660   system     logd
+
+# bluetooth
+/dev/vhci                 0660   system  bluetooth
+

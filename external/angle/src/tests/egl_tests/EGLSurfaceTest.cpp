@@ -473,6 +473,47 @@ TEST_P(EGLSurfaceTest, MakeCurrentTwice)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
+// This is a regression test to verify that surfaces are not prematurely destroyed.
+TEST_P(EGLSurfaceTest, SurfaceUseAfterFreeBug)
+{
+    initializeDisplay();
+
+    // Initialize an RGBA8 window and pbuffer surface
+    constexpr EGLint kSurfaceAttributes[] = {EGL_RED_SIZE,     8,
+                                             EGL_GREEN_SIZE,   8,
+                                             EGL_BLUE_SIZE,    8,
+                                             EGL_ALPHA_SIZE,   8,
+                                             EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+                                             EGL_NONE};
+
+    EGLint configCount      = 0;
+    EGLConfig surfaceConfig = nullptr;
+    ASSERT_EGL_TRUE(eglChooseConfig(mDisplay, kSurfaceAttributes, &surfaceConfig, 1, &configCount));
+    ASSERT_NE(configCount, 0);
+    ASSERT_NE(surfaceConfig, nullptr);
+
+    initializeSurface(surfaceConfig);
+    ASSERT_EGL_SUCCESS();
+    ASSERT_NE(mWindowSurface, EGL_NO_SURFACE);
+    ASSERT_NE(mPbufferSurface, EGL_NO_SURFACE);
+
+    eglMakeCurrent(mDisplay, mWindowSurface, mWindowSurface, mSecondContext);
+    ASSERT_EGL_SUCCESS();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    eglMakeCurrent(mDisplay, mPbufferSurface, mPbufferSurface, mContext);
+    ASSERT_EGL_SUCCESS();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    eglDestroySurface(mDisplay, mPbufferSurface);
+    ASSERT_EGL_SUCCESS();
+    mPbufferSurface = EGL_NO_SURFACE;
+
+    eglDestroyContext(mDisplay, mSecondContext);
+    ASSERT_EGL_SUCCESS();
+    mSecondContext = EGL_NO_CONTEXT;
+}
+
 // Test that the window surface is correctly resized after calling swapBuffers
 TEST_P(EGLSurfaceTest, ResizeWindow)
 {
@@ -927,14 +968,14 @@ TEST_P(EGLSurfaceTest3, MakeCurrentDifferentSurfaces)
     // Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && IsAndroid());
 
-    glClearColor(GLColor::red.R, GLColor::red.G, GLColor::red.B, GLColor::red.A);
+    glClearColor(kFloatRed.R, kFloatRed.G, kFloatRed.B, kFloatRed.A);
     glClear(GL_COLOR_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
 
     // Use different surfaces for draw and read, read should stay the same
     EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, secondPbufferSurface, firstPbufferSurface, mContext));
-    glClearColor(GLColor::blue.R, GLColor::blue.G, GLColor::blue.B, GLColor::blue.A);
+    glClearColor(kFloatBlue.R, kFloatBlue.G, kFloatBlue.B, kFloatBlue.A);
     glClear(GL_COLOR_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
@@ -1012,8 +1053,6 @@ TEST_P(EGLSurfaceTestD3D11, CreateDirectCompositionSurface)
                                         100,
                                         EGL_HEIGHT,
                                         100,
-                                        EGL_FLEXIBLE_SURFACE_COMPATIBILITY_SUPPORTED_ANGLE,
-                                        EGL_TRUE,
                                         EGL_TEXTURE_OFFSET_X_ANGLE,
                                         updateOffset.x,
                                         EGL_TEXTURE_OFFSET_Y_ANGLE,
@@ -1091,8 +1130,6 @@ TEST_P(EGLSurfaceTestD3D11, CreateSurfaceWithTextureOffset)
                                         kTextureWidth,
                                         EGL_HEIGHT,
                                         kTextureHeight,
-                                        EGL_FLEXIBLE_SURFACE_COMPATIBILITY_SUPPORTED_ANGLE,
-                                        EGL_TRUE,
                                         EGL_TEXTURE_OFFSET_X_ANGLE,
                                         50,
                                         EGL_TEXTURE_OFFSET_Y_ANGLE,
@@ -1260,7 +1297,7 @@ TEST_P(EGLSurfaceTest3, BlitBetweenSurfaces)
     // Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && (IsAndroid() || IsWindows()));
 
-    glClearColor(GLColor::red.R, GLColor::red.G, GLColor::red.B, GLColor::red.A);
+    glClearColor(kFloatRed.R, kFloatRed.G, kFloatRed.B, kFloatRed.A);
     glClear(GL_COLOR_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
 
@@ -1310,14 +1347,14 @@ TEST_P(EGLSurfaceTest3, BlitBetweenSurfacesWithDeferredClear)
     // Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && (IsAndroid() || IsWindows()));
 
-    glClearColor(GLColor::red.R, GLColor::red.G, GLColor::red.B, GLColor::red.A);
+    glClearColor(kFloatRed.R, kFloatRed.G, kFloatRed.B, kFloatRed.A);
     glClear(GL_COLOR_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
     // Force the clear to be flushed
     EXPECT_PIXEL_COLOR_EQ(32, 32, GLColor::red);
 
     // Clear to green, but don't read it back so the clear is deferred.
-    glClearColor(GLColor::green.R, GLColor::green.G, GLColor::green.B, GLColor::green.A);
+    glClearColor(kFloatGreen.R, kFloatGreen.G, kFloatGreen.B, kFloatGreen.A);
     glClear(GL_COLOR_BUFFER_BIT);
     ASSERT_GL_NO_ERROR();
 

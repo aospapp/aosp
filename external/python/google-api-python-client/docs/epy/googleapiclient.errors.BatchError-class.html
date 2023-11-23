@@ -57,36 +57,22 @@
 </table>
 <!-- ==================== CLASS DESCRIPTION ==================== -->
 <h1 class="epydoc">Class BatchError</h1><p class="nomargin-top"><span class="codelink"><a href="googleapiclient.errors-pysrc.html#BatchError">source&nbsp;code</a></span></p>
-<center>
-<center>  <map id="uml_class_diagram_for_googleap_10" name="uml_class_diagram_for_googleap_10">
-<area shape="rect" id="node1_14" href="googleapiclient.errors.BatchError-class.html#__init__" title="x.__init__(...) initializes x; see help(type(x)) for signature" alt="" coords="18,492,307,512"/>
-<area shape="rect" id="node1_15" href="googleapiclient.errors.BatchError-class.html#__repr__" title="str(x)" alt="" coords="18,512,307,532"/>
-<area shape="rect" id="node1_16" href="googleapiclient.errors.BatchError-class.html#__str__" title="str(x)" alt="" coords="18,532,307,552"/>
-<area shape="rect" id="node1" href="googleapiclient.errors.BatchError-class.html" title="Error occured during batch operations." alt="" coords="5,460,319,559"/>
-<area shape="rect" id="node2" href="googleapiclient.errors.HttpError-class.html" title="HTTP data was invalid or unexpected." alt="" coords="125,397,202,441"/>
-<area shape="rect" id="node3_17" href="javascript:void(0);" title="exceptions.BaseException.args" alt="" coords="85,30,241,50"/>
-<area shape="rect" id="node3_18" href="javascript:void(0);" title="exceptions.BaseException.message" alt="" coords="85,50,241,70"/>
-<area shape="rect" id="node3_19" href="javascript:void(0);" title="x.__delattr__(&#39;name&#39;) &lt;==&gt; del x.name" alt="" coords="85,73,241,93"/>
-<area shape="rect" id="node3_20" href="javascript:void(0);" title="x.__getattribute__(&#39;name&#39;) &lt;==&gt; x.name" alt="" coords="85,93,241,113"/>
-<area shape="rect" id="node3_21" href="javascript:void(0);" title="x[y]" alt="" coords="85,113,241,133"/>
-<area shape="rect" id="node3_22" href="javascript:void(0);" title="x[i:j]" alt="" coords="85,133,241,153"/>
-<area shape="rect" id="node3_23" href="javascript:void(0);" title="helper for pickle" alt="" coords="85,153,241,173"/>
-<area shape="rect" id="node3_24" href="javascript:void(0);" title="x.__setattr__(&#39;name&#39;, value) &lt;==&gt; x.name = value" alt="" coords="85,173,241,193"/>
-<area shape="rect" id="node3_25" href="javascript:void(0);" title="exceptions.BaseException.__setstate__" alt="" coords="85,193,241,213"/>
-<area shape="rect" id="node3_26" href="javascript:void(0);" title="exceptions.BaseException.__unicode__" alt="" coords="85,213,241,233"/>
-<area shape="rect" id="node3" href="javascript:void(0);" title="Common base class for all exceptions" alt="" coords="72,5,252,239"/>
-<area shape="rect" id="node5_27" href="javascript:void(0);" title="exceptions.Exception.__new__" alt="" coords="101,289,226,309"/>
-<area shape="rect" id="node5" href="javascript:void(0);" title="Common base class for all non&#45;exit exceptions." alt="" coords="89,257,238,316"/>
-<area shape="rect" id="node4" href="googleapiclient.errors.Error-class.html" title="Base error for this module." alt="" coords="137,335,190,379"/>
-</map>
-  <img src="uml_class_diagram_for_googleap_10.gif" alt='' usemap="#uml_class_diagram_for_googleap_10" ismap="ismap" class="graph-without-title" />
-</center>
-</center>
-<hr />
-<pre class="literalblock">
-Error occured during batch operations.
-
+<pre class="base-tree">
+              object --+                
+                       |                
+exceptions.BaseException --+            
+                           |            
+        exceptions.Exception --+        
+                               |        
+                           <a href="googleapiclient.errors.Error-class.html">Error</a> --+    
+                                   |    
+                           <a href="googleapiclient.errors.HttpError-class.html">HttpError</a> --+
+                                       |
+                                      <strong class="uidshort">BatchError</strong>
 </pre>
+
+<hr />
+<p>Error occurred during batch operations.</p>
 
 <!-- ==================== INSTANCE METHODS ==================== -->
 <a name="section-InstanceMethods"></a>
@@ -111,10 +97,8 @@ Error occured during batch operations.
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="googleapiclient.errors.BatchError-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">reason</span>,
-        <span class="summary-sig-arg">resp</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">content</span>=<span class="summary-sig-default">None</span>)</span><br />
+          <td><span class="summary-sig"><a href="googleapiclient.errors.BatchError-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">*args</span>,
+        <span class="summary-sig-arg">**kwargs</span>)</span><br />
       x.__init__(...) initializes x; see help(type(x)) for signature</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="googleapiclient.errors-pysrc.html#BatchError.__init__">source&nbsp;code</a></span>
@@ -241,10 +225,8 @@ Error occured during batch operations.
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">reason</span>,
-        <span class="sig-arg">resp</span>=<span class="sig-default">None</span>,
-        <span class="sig-arg">content</span>=<span class="sig-default">None</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">*args</span>,
+        <span class="sig-arg">**kwargs</span>)</span>
     <br /><em class="fname">(Constructor)</em>
   </h3>
   </td><td align="right" valign="top"
@@ -252,10 +234,7 @@ Error occured during batch operations.
     </td>
   </tr></table>
   
-  <pre class="literalblock">
-x.__init__(...) initializes x; see help(type(x)) for signature
-
-</pre>
+  <p>x.__init__(...) initializes x; see help(type(x)) for signature</p>
   <dl class="fields">
     <dt>Decorators:</dt>
     <dd><ul class="nomargin-top">
@@ -283,10 +262,7 @@ x.__init__(...) initializes x; see help(type(x)) for signature
     </td>
   </tr></table>
   
-  <pre class="literalblock">
-str(x)
-
-</pre>
+  <p>str(x)</p>
   <dl class="fields">
     <dt>Overrides:
         object.__repr__
@@ -310,10 +286,7 @@ str(x)
     </td>
   </tr></table>
   
-  <pre class="literalblock">
-str(x)
-
-</pre>
+  <p>str(x)</p>
   <dl class="fields">
     <dt>Overrides:
         object.__str__
@@ -349,7 +322,7 @@ str(x)
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Fri Jun 14 15:57:27 2019
+    Generated by Epydoc 3.0.1 on Fri Oct  2 20:46:22 2020
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

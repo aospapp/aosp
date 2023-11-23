@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
+ * Copyright (c) Linux Test Project, 2010-2020
  * Copyright (c) International Business Machines Corp., 2009
  *
  * Authors:
@@ -15,12 +16,6 @@ static char *filename;
 static void *file;
 static int fd;
 
-static struct tst_option options[] = {
-	{"f:", &filename,
-	 "-f file  File to mmap"},
-	{NULL, NULL, NULL}
-};
-
 static void cleanup(void)
 {
 	if (file)
@@ -33,7 +28,7 @@ static void cleanup(void)
 static void run(void)
 {
 	if (!filename)
-		tst_brk(TBROK, "Usage: %s -f filename", TCID);
+		tst_brk(TBROK, "missing filename (-f filename)");
 
 	fd = SAFE_OPEN(filename, O_CREAT | O_RDWR, S_IRWXU);
 
@@ -47,7 +42,10 @@ static void run(void)
 }
 
 static struct tst_test test = {
-	.options = options,
+	.options = (struct tst_option[]) {
+		{"f:", &filename, "-f file  File to mmap"},
+		{}
+	},
 	.test_all = run,
 	.cleanup = cleanup,
 };

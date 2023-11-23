@@ -82,7 +82,7 @@ function create_llvm_extra_ebuild() {
 
 
 set -e
-# Sanity checks.
+# Confidence checks.
 check_cmd "${@}"
 # Create llvm-extra ebuild.
 create_llvm_extra_ebuild "${@}"

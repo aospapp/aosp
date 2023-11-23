@@ -10,7 +10,7 @@ Usage
 =====
 To enable nanopb code generation, the build argument
 ``dir_pw_third_party_nanopb`` must be set to point to a local nanopb
-installation.
+installation. Nanopb 0.4 is recommended, but Nanopb 0.3 is also supported.
 
 Define a ``pw_proto_library`` containing the .proto file defining your service
 (and optionally other related protos), then depend on the ``nanopb_rpc``
@@ -27,7 +27,7 @@ version of that library in the code implementing the service.
     sources = [ "chat_protos/chat_service.proto" ]
   }
 
-  # Library that implements the ChatService.
+  # Library that implements the Chat service.
   pw_source_set("chat_service") {
     sources = [
       "chat_service.cc",
@@ -43,7 +43,7 @@ at the include path ``"chat_protos/chat_service.rpc.pb.h"``.
 
 Generated code API
 ==================
-Take the following RPC service as an example.
+All examples in this document use the following RPC service definition.
 
 .. code:: protobuf
 
@@ -51,7 +51,7 @@ Take the following RPC service as an example.
 
   syntax = "proto3";
 
-  service ChatService {
+  service Chat {
     // Returns information about a chatroom.
     rpc GetRoomInformation(RoomInfoRequest) returns (RoomInfoResponse) {}
 
@@ -69,7 +69,7 @@ Take the following RPC service as an example.
 Server-side
 -----------
 A C++ class is generated for each service in the .proto file. The class is
-located within a special ``generated`` sub-namespace of the file's package.
+located within a special ``pw_rpc::nanopb`` sub-namespace of the file's package.
 
 The generated class is a base class which must be derived to implement the
 service's methods. The base class is templated on the derived class.
@@ -78,7 +78,7 @@ service's methods. The base class is templated on the derived class.
 
   #include "chat_protos/chat_service.rpc.pb.h"
 
-  class ChatService final : public generated::ChatService<ChatService> {
+  class ChatService final : public pw_rpc::nanopb::Chat::Service<ChatService> {
    public:
     // Implementations of the service's RPC methods; see below.
   };
@@ -91,7 +91,7 @@ the request succeeded.
 
 .. code:: c++
 
-  pw::Status GetRoomInformation(pw::rpc::ServerContext& ctx,
+  pw::Status GetRoomInformation(pw::rpc::
                                 const RoomInfoRequest& request,
                                 RoomInfoResponse& response);
 
@@ -102,7 +102,7 @@ A server streaming RPC receives the client's request message alongside a
 
 .. code:: c++
 
-  void ListUsersInRoom(pw::rpc::ServerContext& ctx,
+  void ListUsersInRoom(pw::rpc::
                        const ListUsersRequest& request,
                        pw::rpc::ServerWriter<ListUsersResponse>& writer);
 
@@ -140,151 +140,85 @@ Bidirectional streaming RPC
 Client-side
 -----------
 A corresponding client class is generated for every service defined in the proto
-file. Like the service class, it is placed under the ``generated`` namespace.
-The class is named after the service, with a ``Client`` suffix. For example, the
-``ChatService`` would create a ``generated::ChatServiceClient``.
+file. To allow multiple types of clients to exist, it is placed under the
+``pw_rpc::nanopb`` namespace. The ``Client`` class is nested under
+``pw_rpc::nanopb::ServiceName``. For example, the ``Chat`` service would create
+``pw_rpc::nanopb::Chat::Client``.
 
-The client class contains static methods to call each of the service's methods.
-It is not meant to be instantiated. The signatures for the methods all follow
-the same format, taking a channel through which to communicate, the initial
-request struct, and a response handler.
-
-.. code-block:: c++
-
-  static NanopbClientCall<UnaryResponseHandler<RoomInfoResponse>>
-  GetRoomInformation(Channel& channel,
-                     const RoomInfoRequest& request,
-                     UnaryResponseHandler<RoomInfoResponse> handler);
-
-The ``NanopbClientCall`` object returned by the RPC invocation stores the active
-RPC's context. For more information on ``ClientCall`` objects, refer to the
-:ref:`core RPC documentation <module-pw_rpc-making-calls>`.
-
-Response handlers
-^^^^^^^^^^^^^^^^^
-RPC responses are sent back to the caller through a response handler object.
-These are classes with virtual callback functions implemented by the RPC caller
-to handle RPC events.
-
-There are two types of response handlers: unary and server-streaming, which are
-used depending whether the method's responses are a stream or not.
-
-Unary / client streaming RPC
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-A ``UnaryResponseHandler`` is used by methods where the server returns a single
-response. It contains a callback for the response, which is only called once.
+Service clients are instantiated with a reference to the RPC client through
+which they will send requests, and the channel ID they will use.
 
 .. code-block:: c++
 
-  template <typename Response>
-  class UnaryResponseHandler {
+  // Nested under pw_rpc::nanopb::ServiceName.
+  class Client {
    public:
-    virtual ~UnaryResponseHandler() = default;
+    Client(::pw::rpc::Client& client, uint32_t channel_id);
 
-    // Called when the response is received from the server with the method's
-    // status and the deserialized response struct.
-    virtual void ReceivedResponse(Status status, const Response& response) = 0;
+    GetRoomInformationCall GetRoomInformation(
+        const RoomInfoRequest& request,
+        ::pw::Function<void(Status, const RoomInfoResponse&)> on_response,
+        ::pw::Function<void(Status)> on_rpc_error = nullptr);
 
-    // Called when an error occurs internally in the RPC client or server.
-    virtual void RpcError(Status) {}
+    // ...and more (see below).
   };
 
-.. cpp:class:: template <typename Response> UnaryResponseHandler
-
-  A handler for RPC methods which return a single response (i.e. unary and
-  client streaming).
-
-.. cpp:function:: virtual void UnaryResponseHandler::ReceivedResponse(Status status, const Response& response)
-
-  Callback invoked when the response is recieved from the server. Guaranteed to
-  only be called once.
-
-.. cpp:function:: virtual void UnaryResponseHandler::RpcError(Status status)
-
-  Callback invoked if an internal error occurs in the RPC system. Optional;
-  defaults to a no-op.
-
-**Example implementation**
+RPCs can also be invoked individually as free functions:
 
 .. code-block:: c++
 
-  class RoomInfoHandler : public UnaryResponseHandler<RoomInfoResponse> {
-   public:
-    void ReceivedResponse(Status status,
-                          const RoomInfoResponse& response) override {
-      if (status.ok()) {
-        response_ = response;
-      }
-    }
+    GetRoomInformationCall call = pw_rpc::nanopb::Chat::GetRoomInformation(
+        client, channel_id, request, on_response, on_rpc_error);
 
-    constexpr RoomInfoResponse& response() { return response_; }
+The client class has member functions for each method defined within the
+service's protobuf descriptor. The arguments to these methods vary depending on
+the type of RPC. Each method returns a ``NanopbClientCall`` object which stores
+the context of the ongoing RPC call. For more information on ``ClientCall``
+objects, refer to the :ref:`core RPC docs <module-pw_rpc-making-calls>`. The
+type of the returned object is complex, so it is aliased using the method
+name.
 
-   private:
-    RoomInfoResponse response_;
-  };
+.. admonition:: Callback invocation
 
-Server streaming / bidirectional streaming RPC
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-For methods which return a response stream, a ``ServerStreamingResponseHandler``
-is used.
+  RPC callbacks are invoked synchronously from ``Client::ProcessPacket``.
 
-.. code:: c++
+Method APIs
+^^^^^^^^^^^
+The arguments provided when invoking a method depend on its type.
 
-  class ServerStreamingResponseHandler {
-   public:
-    virtual ~ServerStreamingResponseHandler() = default;
+Unary RPC
+~~~~~~~~~
+A unary RPC call takes the request struct and a callback to invoke when a
+response is received. The callback receives the RPC's status and response
+struct.
 
-    // Called on every response received from the server with the deserialized
-    // response struct.
-    virtual void ReceivedResponse(const Response& response) = 0;
-
-    // Called when the server ends the stream with the overall RPC status.
-    virtual void Complete(Status status) = 0;
-
-    // Called when an error occurs internally in the RPC client or server.
-    virtual void RpcError(Status) {}
-  };
-
-.. cpp:class:: template <typename Response> ServerStreamingResponseHandler
-
-  A handler for RPC methods which return zero or more responses (i.e. server
-  and bidirectional streaming).
-
-.. cpp:function:: virtual void ServerStreamingResponseHandler::ReceivedResponse(const Response& response)
-
-  Callback invoked whenever a response is received from the server.
-
-.. cpp:function:: virtual void ServerStreamingResponseHandler::Complete(Status status)
-
-  Callback invoked when the server ends the stream, with the overall status for
-  the RPC.
-
-.. cpp:function:: virtual void ServerStreamingResponseHandler::RpcError(Status status)
-
-  Callback invoked if an internal error occurs in the RPC system. Optional;
-  defaults to a no-op.
-
-**Example implementation**
+An optional second callback can be provided to handle internal errors.
 
 .. code-block:: c++
 
-  class ChatHandler : public UnaryResponseHandler<ChatMessage> {
-   public:
-    void ReceivedResponse(const ChatMessage& response) override {
-      gui_.RenderChatMessage(response);
-    }
+  GetRoomInformationCall GetRoomInformation(
+      const RoomInfoRequest& request,
+      ::pw::Function<void(const RoomInfoResponse&, Status)> on_response,
+      ::pw::Function<void(Status)> on_rpc_error = nullptr);
 
-    void Complete(Status status) override {
-      client_.Exit(status);
-    }
+Server streaming RPC
+~~~~~~~~~~~~~~~~~~~~
+A server streaming RPC call takes the initial request struct and two callbacks.
+The first is invoked on every stream response received, and the second is
+invoked once the stream is complete with its overall status.
 
-   private:
-    ChatGui& gui_;
-    ChatClient& client_;
-  };
+An optional third callback can be provided to handle internal errors.
+
+.. code-block:: c++
+
+  ListUsersInRoomCall ListUsersInRoom(
+      const ListUsersRequest& request,
+      ::pw::Function<void(const ListUsersResponse&)> on_response,
+      ::pw::Function<void(Status)> on_stream_end,
+      ::pw::Function<void(Status)> on_rpc_error = nullptr);
 
 Example usage
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 The following example demonstrates how to call an RPC method using a nanopb
 service client and receive the response.
 
@@ -293,24 +227,55 @@ service client and receive the response.
   #include "chat_protos/chat_service.rpc.pb.h"
 
   namespace {
+
+    using ChatClient = pw_rpc::nanopb::Chat::Client;
+
     MyChannelOutput output;
-    pw::rpc::Channel channels[] = {pw::rpc::Channel::Create<0>(&output)};
+    pw::rpc::Channel channels[] = {pw::rpc::Channel::Create<1>(&output)};
     pw::rpc::Client client(channels);
-  }
+
+    // Callback function for GetRoomInformation.
+    void LogRoomInformation(const RoomInfoResponse& response, Status status);
+
+  }  // namespace
 
   void InvokeSomeRpcs() {
-    RoomInfoHandler handler;
+    // Instantiate a service client to call Chat service methods on channel 1.
+    ChatClient chat_client(client, 1);
 
     // The RPC will remain active as long as `call` is alive.
-    auto call = ChatServiceClient::GetRoomInformation(channels[0],
-                                                      {.room = "pigweed"},
-                                                      handler);
+    auto call = chat_client.GetRoomInformation(
+        {.room = "pigweed"}, LogRoomInformation);
+    if (!call.active()) {
+      // The invocation may fail. This could occur due to an invalid channel ID,
+      // for example. The failure status is forwarded to the to call's
+      // on_rpc_error callback.
+      return;
+    }
 
-    // For simplicity, block here. An actual implementation would likely
-    // std::move the call somewhere to keep it active while doing other work.
+    // For simplicity, block until the call completes. An actual implementation
+    // would likely std::move the call somewhere to keep it active while doing
+    // other work.
     while (call.active()) {
       Wait();
     }
 
-    DoStuff(handler.response());
+    // Do other stuff now that we have the room information.
   }
+
+Zephyr
+======
+To enable ``pw_rpc.nanopb.*`` for Zephyr add ``CONFIG_PIGWEED_RPC_NANOPB=y`` to
+the project's configuration. This will enable the Kconfig menu for the
+following:
+
+* ``pw_rpc.nanopb.method`` which can be enabled via
+  ``CONFIG_PIGWEED_RPC_NANOPB_METHOD=y``.
+* ``pw_rpc.nanopb.method_union`` which can be enabled via
+  ``CONFIG_PIGWEED_RPC_NANOPB_METHOD_UNION=y``.
+* ``pw_rpc.nanopb.client`` which can be enabled via
+  ``CONFIG_PIGWEED_RPC_NANOPB_CLIENT=y``.
+* ``pw_rpc.nanopb.common`` which can be enabled via
+  ``CONFIG_PIGWEED_RPC_NANOPB_COMMON=y``.
+* ``pw_rpc.nanopb.echo_service`` which can be enabled via
+  ``CONFIG_PIGWEED_RPC_NANOPB_ECHO_SERVICE=y``.

@@ -8,13 +8,13 @@ Defines two public classes:
 used automatically by ttLib.TTFont.)
 
 The reading and writing of sfnt files is separated in two distinct
-classes, since whenever to number of tables changes or whenever
-a table's length chages you need to rewrite the whole file anyway.
+classes, since whenever the number of tables changes or whenever
+a table's length changes you need to rewrite the whole file anyway.
 """
 
 from io import BytesIO
 from types import SimpleNamespace
-from fontTools.misc.py23 import Tag
+from fontTools.misc.textTools import Tag
 from fontTools.misc import sstruct
 from fontTools.ttLib import TTLibError
 import struct
@@ -571,9 +571,6 @@ class WOFFFlavorData():
 
 def calcChecksum(data):
 	"""Calculate the checksum for an arbitrary block of data.
-	Optionally takes a 'start' argument, which allows you to
-	calculate a checksum in chunks by feeding it a previous
-	result.
 
 	If the data length is not a multiple of four, it assumes
 	it is to be padded with null byte.

@@ -23,7 +23,8 @@
 #include <pthread.h>
 #include <sys/syscall.h>
 
-#include <android/hardware/camera/device/3.5/types.h>
+#include <aidl/android/hardware/camera/device/CameraBlob.h>
+#include <aidl/android/hardware/camera/device/CameraBlobId.h>
 #include <libyuv.h>
 #include <gui/Surface.h>
 #include <utils/Log.h>
@@ -41,8 +42,8 @@
 #include "HeicEncoderInfoManager.h"
 #include "HeicCompositeStream.h"
 
-using android::hardware::camera::device::V3_5::CameraBlob;
-using android::hardware::camera::device::V3_5::CameraBlobId;
+using aidl::android::hardware::camera::device::CameraBlob;
+using aidl::android::hardware::camera::device::CameraBlobId;
 
 namespace android {
 namespace camera3 {
@@ -441,6 +442,10 @@ void HeicCompositeStream::onHeicFormatChanged(sp<AMessage>& newFormat) {
             newFormat->setInt32(KEY_TILE_HEIGHT, mGridHeight);
             newFormat->setInt32(KEY_GRID_ROWS, mGridRows);
             newFormat->setInt32(KEY_GRID_COLUMNS, mGridCols);
+            int32_t left, top, right, bottom;
+            if (newFormat->findRect("crop", &left, &top, &right, &bottom)) {
+                newFormat->setRect("crop", 0, 0, mOutputWidth - 1, mOutputHeight - 1);
+            }
         }
     }
     newFormat->setInt32(KEY_IS_DEFAULT, 1 /*isPrimary*/);
@@ -1130,7 +1135,8 @@ status_t HeicCompositeStream::processCompletedInputFrame(int64_t frameNumber,
     // Copy the content of the file to memory.
     sp<GraphicBuffer> gb = GraphicBuffer::from(inputFrame.anb);
     void* dstBuffer;
-    auto res = gb->lockAsync(GRALLOC_USAGE_SW_WRITE_OFTEN, &dstBuffer, inputFrame.fenceFd);
+    GraphicBufferLocker gbLocker(gb);
+    auto res = gbLocker.lockAsync(&dstBuffer, inputFrame.fenceFd);
     if (res != OK) {
         ALOGE("%s: Error trying to lock output buffer fence: %s (%d)", __FUNCTION__,
                 strerror(-res), res);
@@ -1156,10 +1162,10 @@ status_t HeicCompositeStream::processCompletedInputFrame(int64_t frameNumber,
 
     // Fill in HEIC header
     uint8_t *header = static_cast<uint8_t*>(dstBuffer) + mMaxHeicBufferSize - sizeof(CameraBlob);
-    struct CameraBlob *blobHeader = (struct CameraBlob *)header;
+    CameraBlob *blobHeader = (CameraBlob *)header;
     // Must be in sync with CAMERA3_HEIC_BLOB_ID in android_media_Utils.cpp
     blobHeader->blobId = static_cast<CameraBlobId>(0x00FE);
-    blobHeader->blobSize = fSize;
+    blobHeader->blobSizeBytes = fSize;
 
     res = native_window_set_buffers_timestamp(mOutputSurface.get(), inputFrame.timestamp);
     if (res != OK) {
@@ -1421,15 +1427,15 @@ size_t HeicCompositeStream::findAppSegmentsSize(const uint8_t* appSegmentBuffer,
 
     size_t expectedSize = 0;
     // First check for EXIF transport header at the end of the buffer
-    const uint8_t *header = appSegmentBuffer + (maxSize - sizeof(struct CameraBlob));
-    const struct CameraBlob *blob = (const struct CameraBlob*)(header);
+    const uint8_t *header = appSegmentBuffer + (maxSize - sizeof(CameraBlob));
+    const CameraBlob *blob = (const CameraBlob*)(header);
     if (blob->blobId != CameraBlobId::JPEG_APP_SEGMENTS) {
-        ALOGE("%s: Invalid EXIF blobId %hu", __FUNCTION__, blob->blobId);
+        ALOGE("%s: Invalid EXIF blobId %d", __FUNCTION__, blob->blobId);
         return 0;
     }
 
-    expectedSize = blob->blobSize;
-    if (expectedSize == 0 || expectedSize > maxSize - sizeof(struct CameraBlob)) {
+    expectedSize = blob->blobSizeBytes;
+    if (expectedSize == 0 || expectedSize > maxSize - sizeof(CameraBlob)) {
         ALOGE("%s: Invalid blobSize %zu.", __FUNCTION__, expectedSize);
         return 0;
     }
@@ -1632,7 +1638,7 @@ size_t HeicCompositeStream::calcAppSegmentMaxSize(const CameraMetadata& info) {
         maxAppsSegment = entry.data.u8[0] < 1 ? 1 :
                 entry.data.u8[0] > 16 ? 16 : entry.data.u8[0];
     }
-    return maxAppsSegment * (2 + 0xFFFF) + sizeof(struct CameraBlob);
+    return maxAppsSegment * (2 + 0xFFFF) + sizeof(CameraBlob);
 }
 
 void HeicCompositeStream::updateCodecQualityLocked(int32_t quality) {

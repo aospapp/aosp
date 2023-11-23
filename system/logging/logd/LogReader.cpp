@@ -26,10 +26,13 @@
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+#include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 #include <cutils/sockets.h>
 #include <private/android_filesystem_config.h>
 #include <private/android_logger.h>
 
+#include "LogdNativeService.h"
 #include "LogBuffer.h"
 #include "LogBufferElement.h"
 #include "LogPermissions.h"
@@ -37,12 +40,35 @@
 #include "LogUtils.h"
 #include "LogWriter.h"
 
+using android::defaultServiceManager;
+using android::ProcessState;
+using android::sp;
+using android::String16;
+
 static bool CanReadSecurityLogs(SocketClient* client) {
     return client->getUid() == AID_SYSTEM || client->getGid() == AID_SYSTEM;
 }
 
 static std::string SocketClientToName(SocketClient* client) {
     return android::base::StringPrintf("pid %d, fd %d", client->getPid(), client->getSocket());
+}
+
+static bool InitLogdBinderServiceStatus(LogReaderList* reader_list) {
+    sp<LogdNativeService> service = new LogdNativeService(reader_list);
+    auto service_status = defaultServiceManager()->addService(String16("logd"), service);
+    if (service_status != android::OK) {
+        LOG(ERROR) << "Failed to add logd binder service.";
+        return false;
+    }
+
+    sp<ProcessState> proc(ProcessState::self());
+    proc->startThreadPool();
+    return true;
+}
+
+static bool GetLogdBinderServiceStatus(LogReaderList* reader_list) {
+    static bool service_status = InitLogdBinderServiceStatus(reader_list);
+    return service_status;
 }
 
 class SocketLogWriter : public LogWriter {
@@ -220,7 +246,30 @@ bool LogReader::onDataAvailable(SocketClient* cli) {
                                                    logMask, pid, start, sequence, deadline);
     // release client and entry reference counts once done
     cli->incRef();
-    reader_list_->reader_threads().emplace_front(std::move(entry));
+
+    entry->set_pending_reader_thread_key(cli->getUid(), cli->getGid(), cli->getPid(),
+                                         cli->getSocket());
+
+    bool only_read_event_logs = (logMask ^ (1 << LOG_ID_EVENTS)) == 0;
+
+    // The logd access will be granted when any of the following three
+    // conditions is satisfied:
+    // 1. the client (native processes) is exempted from user consent check.
+    // 2. the client doesn't have log credentials and so can only access its own log data anyway
+    // 3. the client (for EventLog API) only wants to access the event log.
+    if (clientIsExemptedFromUserConsent(cli) || !clientHasLogCredentials(cli) ||
+        only_read_event_logs) {
+        reader_list_->AddAndRunThread(std::move(entry));
+    } else {
+        if (GetLogdBinderServiceStatus(reader_list_)) {
+            reader_list_->AddPendingThread(std::move(entry));
+        } else {
+            // The logd binder service is not available, we are not able to
+            // check user consent. So we revoke the privileges.
+            entry->Revoke();
+            reader_list_->AddAndRunThread(std::move(entry));
+        }
+    }
 
     // Set acceptable upper limit to wait for slow reader processing b/27242723
     struct timeval t = { LOGD_SNDTIMEO, 0 };
@@ -233,13 +282,7 @@ bool LogReader::onDataAvailable(SocketClient* cli) {
 bool LogReader::DoSocketDelete(SocketClient* cli) {
     auto cli_name = SocketClientToName(cli);
     auto lock = std::lock_guard{logd_lock};
-    for (const auto& reader : reader_list_->reader_threads()) {
-        if (reader->name() == cli_name) {
-            reader->Release();
-            return true;
-        }
-    }
-    return false;
+    return reader_list_->ReleaseThreadByName(cli_name);
 }
 
 int LogReader::getLogSocket() {

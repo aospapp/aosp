@@ -21,6 +21,8 @@
     <string name="permission_search_keyword" msgid="1214451577494730543">"άδειες"</string>
     <string name="cancel" msgid="8943320028373963831">"Ακύρωση"</string>
     <string name="back" msgid="6249950659061523680">"Πίσω"</string>
+    <string name="available" msgid="6007778121920339498">"Διαθέσιμο"</string>
+    <string name="blocked" msgid="9195547604866033708">"Αποκλεισμένο"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Απεγκατάσταση ή απενεργοποίηση"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Η εφαρμογή δεν βρέθηκε"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Να μην επιτρέπεται"</string>
@@ -31,7 +33,7 @@
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Να μην επιτρέπεται καθόλου"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Παράβλεψη"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g> από <xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
-    <string name="permission_warning_template" msgid="2247087781222679458">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να <xliff:g id="ACTION">%2$s</xliff:g>;"</string>
+    <string name="permission_warning_template" msgid="2247087781222679458">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να <xliff:g id="ACTION">%2$s</xliff:g>;"</string>
     <string name="permission_add_background_warning_template" msgid="1812914855915092273">"Να επιτρέπεται πάντα στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να <xliff:g id="ACTION">%2$s</xliff:g>;"</string>
     <string name="allow_permission_foreground_only" msgid="116465816039675404">"Μόνο κατά τη χρήση της εφαρμογής"</string>
     <string name="allow_permission_always" msgid="5194342531206054051">"Πάντα"</string>
@@ -53,6 +55,13 @@
     <string name="unused_apps" msgid="2058057455175955094">"Εφαρ. που δεν χρησιμοποιούνται"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Όλες οι εφαρμογές χρησ/νται"</string>
     <string name="zero_unused_apps" msgid="9024448554157499748">"0 εφαρμογές που δεν χρησ/νται"</string>
+    <string name="review_permission_decisions" msgid="309559429150613632">"Πρόσφατες αποφάσεις για άδειες"</string>
+    <string name="review_permission_decisions_view_all" msgid="90391040431566130">"Προβολή όλων των πρόσφατων αποφάσεων για άδειες"</string>
+    <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Δεν υπάρχουν πρόσφατες αποφάσεις για άδειες"</string>
+    <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Διαχείριση της πρόσβασης δεδομένων σε ημερολόγιο, αρχεία καταγραφής κλήσεων κ.ά."</string>
+    <string name="granted_permission_decision" msgid="7824827491551861365">"Παραχωρήσατε στην εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> πρόσβαση στην άδεια <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"Δεν επιτρέψατε στην εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> να έχει πρόσβαση στην άδεια <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
+    <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Σήμερα}=1{Πριν από 1 ημέρα}other{Πριν από # ημέρες}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Απενεργοποίηση εφαρμογής"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Εάν απενεργοποιήσετε αυτήν την εφαρμογή, η λειτουργία του Android και άλλων εφαρμογών ενδέχεται να μην είναι η αναμενόμενη. Λάβετε υπόψη ότι δεν είναι δυνατή η διαγραφή αυτής της εφαρμογής καθώς ήταν προεγκατεστημένη στη συσκευή σας. Με την απενεργοποίηση, απενεργοποιείτε αυτήν την εφαρμογή και την αποκρύπτετε στη συσκευή σας."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Διαχείριση αδειών"</string>
@@ -60,21 +69,24 @@
     <string name="no_permissions" msgid="3881676756371148563">"Δεν υπάρχουν άδειες"</string>
     <string name="additional_permissions" msgid="5801285469338873430">"Πρόσθετες άδειες"</string>
     <string name="app_permissions_info_button_label" msgid="7633312050729974623">"Άνοιγμα πληροφοριών εφαρμογής"</string>
-    <plurals name="additional_permissions_more" formatted="false" msgid="5297511511961335277">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ακόμα</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> ακόμα</item>
-    </plurals>
+    <string name="additional_permissions_more" msgid="5681220714755304407">"{count,plural, =1{# ακόμη}other{# ακόμη}}"</string>
     <string name="old_sdk_deny_warning" msgid="2382236998845153919">"Αυτή η εφαρμογή σχεδιάστηκε για παλαιότερη έκδοση του Android. Η άρνηση παραχώρησης άδειας μπορεί να έχει ως αποτέλεσμα να διακοπεί η κανονική λειτουργία της."</string>
+    <string name="storage_supergroup_warning_allow" msgid="103093462784523190">"Αυτή η εφαρμογή σχεδιάστηκε για παλαιότερη έκδοση του Android. Εάν επιτρέψετε αυτήν την άδεια, τότε θα επιτρέπεται η πρόσβαση σε όλο τον αποθηκευτικό χώρο (συμπεριλαμβανομένων φωτογραφιών, βίντεο, μουσικής, ήχου και άλλων αρχείων)."</string>
+    <string name="storage_supergroup_warning_deny" msgid="6420765672683284347">"Αυτή η εφαρμογή σχεδιάστηκε για παλαιότερη έκδοση του Android. Εάν δεν επιτρέψετε αυτήν την άδεια, τότε δεν θα επιτρέπεται η πρόσβαση σε όλο τον αποθηκευτικό χώρο (συμπεριλαμβανομένων φωτογραφιών, βίντεο, μουσικής, ήχου και άλλων αρχείων)."</string>
     <string name="default_permission_description" msgid="4624464917726285203">"εκτέλεση άγνωστης ενέργειας"</string>
     <string name="app_permissions_group_summary" msgid="8788419008958284002">"Επιτρέπονται <xliff:g id="COUNT_0">%1$d</xliff:g> από <xliff:g id="COUNT_1">%2$d</xliff:g> εφαρμογές"</string>
     <string name="app_permissions_group_summary2" msgid="4329922444840521150">"Επιτρέπονται <xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> εφαρμογές"</string>
     <string name="menu_show_system" msgid="4254021607027872504">"Εμφάνιση συστήματος"</string>
     <string name="menu_hide_system" msgid="3855390843744028465">"Απόκρυψη συστήματος"</string>
+    <string name="menu_show_7_days_data" msgid="8979611198508523706">"Εμφάνιση επτά ημερών"</string>
+    <string name="menu_show_24_hours_data" msgid="8228054833323380780">"Εμφάνιση 24 ωρών"</string>
     <string name="manage_permission" msgid="2895385393037061964">"Διαχείριση άδειας"</string>
     <string name="no_apps" msgid="2412612731628386816">"Δεν υπάρχουν εφαρμογές"</string>
     <string name="location_settings" msgid="3624412509133422562">"Ρυθμίσεις τοποθεσίας"</string>
     <string name="location_warning" msgid="2381649060929040962">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> είναι ο πάροχος των υπηρεσιών τοποθεσίας για τη συγκεκριμένη συσκευή. Μπορείτε να τροποποιήσετε την πρόσβαση τοποθεσίας από τις ρυθμίσεις τοποθεσίας."</string>
     <string name="system_warning" msgid="1173400963234358816">"Εάν αρνηθείτε να παραχωρήσετε αυτήν την άδεια, ορισμένες βασικές λειτουργίες της συσκευής σας μπορεί να μην εκτελούνται πλέον με τον αναμενόμενο τρόπο."</string>
+    <string name="deny_read_media_visual_warning" msgid="3982586279917232827">"Αυτή η εφαρμογή σχεδιάστηκε για παλαιότερη έκδοση του Android. Εάν δεν επιτρέψετε την πρόσβαση αυτής της εφαρμογής στις φωτογραφίες και τα βίντεο, δεν θα επιτρέπεται επίσης η πρόσβαση στη μουσική και άλλους ήχους."</string>
+    <string name="deny_read_media_aural_warning" msgid="8928699919508646732">"Αυτή η εφαρμογή σχεδιάστηκε για παλαιότερη έκδοση του Android. Εάν δεν επιτρέψετε την πρόσβαση αυτής της εφαρμογής στη μουσική και άλλους ήχους, δεν θα επιτρέπεται επίσης η πρόσβαση στις φωτογραφίες και τα βίντεο."</string>
     <string name="cdm_profile_revoke_warning" msgid="4443893270719106700">"Εάν απορρίψετε αυτήν την άδεια, ορισμένες λειτουργίες της συσκευής σας τις οποίες διαχειρίζεται αυτή η εφαρμογή, ενδέχεται να μην λειτουργούν με τον αναμενόμενο τρόπο."</string>
     <string name="permission_summary_enforced_by_policy" msgid="4443598170942950519">"Επιβάλλεται βάσει πολιτικής"</string>
     <string name="permission_summary_disabled_by_policy_background_only" msgid="221995005556362660">"Η πρόσβαση στο παρασκήνιο απενεργοποιήθηκε βάσει πολιτικής"</string>
@@ -109,47 +121,23 @@
     <string name="message_staging" msgid="9110563899955511866">"Σταδιακή διάθεση εφαρμογής…"</string>
     <string name="app_name_unknown" msgid="1319665005754048952">"Άγνωστο"</string>
     <string name="permission_usage_title" msgid="1568233336351734538">"Πίνακας ελέγχου απορρήτου"</string>
+    <string name="auto_permission_usage_summary" msgid="7335667266743337075">"Δείτε ποιες εφαρμογές χρησιμοποίησαν πρόσφατα άδειες"</string>
     <string name="permission_group_usage_title" msgid="2595013198075285173">"Χρήση άδειας \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\""</string>
     <string name="perm_usage_adv_info_title" msgid="3357831829538873708">"Δείτε άλλες άδειες"</string>
     <string name="perm_usage_adv_info_summary_2_items" msgid="3702175198750127822">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>, <xliff:g id="PERMGROUP_1">%2$s</xliff:g>"</string>
     <string name="perm_usage_adv_info_summary_more_items" msgid="949055326299562218">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>, <xliff:g id="PERMGROUP_1">%2$s</xliff:g> και <xliff:g id="NUM">%3$s</xliff:g> ακόμη"</string>
-    <string name="permission_group_usage_subtitle" msgid="712843174810251274">"Χρονολόγιο των περιπτώσεων που οι εφαρμογές χρησιμοποίησαν την ομάδα αδειών \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\" τις τελευταίες 24 ώρες"</string>
+    <string name="permission_group_usage_subtitle_24h" msgid="5120155996322114181">"Χρονολόγιο των περιπτώσεων που οι εφαρμογές χρησιμοπ. την ομάδα αδειών \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\" τις τελευταίες 24 ώρες"</string>
+    <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Χρονολόγιο των περιπτώσεων που οι εφαρμογές χρησιμοπ. την ομάδα αδειών \"<xliff:g id="PERMGROUP">%1$s</xliff:g>\" τις τελευταίες επτά ημέρες"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Πότε η συγκεκριμένη εφαρμογή χρησιμοποίησε την άδεια <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Μάθετε περισσότερα"</string>
-    <string name="permission_usage_duration_and_proxy" msgid="573959201368716399">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
-    <plurals name="duration_used_days" formatted="false" msgid="1993098309578536308">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> ημέρες</item>
-      <item quantity="one">1 ημέρα</item>
-    </plurals>
-    <plurals name="duration_used_hours" formatted="false" msgid="1020075479447003242">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> ώρες</item>
-      <item quantity="one">1 ώρα</item>
-    </plurals>
-    <plurals name="duration_used_minutes" formatted="false" msgid="3422338854436291744">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> λεπτά</item>
-      <item quantity="one">1 λεπτό</item>
-    </plurals>
-    <plurals name="duration_used_seconds" formatted="false" msgid="2726799598314248110">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> δευτερόλεπτα</item>
-      <item quantity="one">1 δευτερόλεπτο</item>
-    </plurals>
-    <plurals name="permission_usage_summary" formatted="false" msgid="2837021459986644819">
-      <item quantity="other">Τελευταία πρόσβαση: <xliff:g id="TIME_2">%1$s</xliff:g>\n<xliff:g id="NUM_3">%2$s</xliff:g> προσβάσεις</item>
-      <item quantity="one">Τελευταία πρόσβαση: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> πρόσβαση</item>
-    </plurals>
-    <plurals name="permission_usage_summary_background" formatted="false" msgid="8810001960357233836">
-      <item quantity="other">Τελευταία πρόσβαση: <xliff:g id="TIME_3">%1$s</xliff:g>\n<xliff:g id="NUM_4">%2$s</xliff:g> προσβάσεις (<xliff:g id="NUM_5">%3$s</xliff:g> στο παρασκήνιο)</item>
-      <item quantity="one">Τελευταία πρόσβαση: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> πρόσβαση (<xliff:g id="NUM_2">%3$s</xliff:g> στο παρασκήνιο)</item>
-    </plurals>
-    <plurals name="permission_usage_summary_duration" formatted="false" msgid="2223071401812931873">
-      <item quantity="other">Τελευταία πρόσβαση: <xliff:g id="TIME_3">%1$s</xliff:g>\n<xliff:g id="NUM_4">%2$s</xliff:g> προσβάσεις\nΔιάρκεια: <xliff:g id="TIME_5">%3$s</xliff:g></item>
-      <item quantity="one">Τελευταία πρόσβαση: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> πρόσβαση\nΔιάρκεια: <xliff:g id="TIME_2">%3$s</xliff:g></item>
-    </plurals>
-    <plurals name="permission_usage_summary_background_duration" formatted="false" msgid="6893924292010006727">
-      <item quantity="other">Τελευταία πρόσβαση: <xliff:g id="TIME_4">%1$s</xliff:g>\n<xliff:g id="NUM_5">%2$s</xliff:g> προσβάσεις (<xliff:g id="NUM_6">%3$s</xliff:g> στο παρασκήνιο)\nΔιάρκεια: <xliff:g id="TIME_7">%3$s</xliff:g></item>
-      <item quantity="one">Τελευταία πρόσβαση: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> πρόσβαση (<xliff:g id="NUM_2">%3$s</xliff:g> στο παρασκήνιο)\nΔιάρκεια: <xliff:g id="TIME_3">%3$s</xliff:g></item>
-    </plurals>
-    <string name="permission_usage_summary_background" msgid="6136171928959340697">"Τελευταία πρόσβαση: <xliff:g id="TIME">%1$s</xliff:g>\nΤελευταία πρόσβαση στο παρασκήνιο"</string>
+    <string name="manage_permission_summary" msgid="4117555482684114317">"Έλεγχος της πρόσβασης εφαρμογών σε <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
+    <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
+    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 ημέρα}other{# ημέρες}}"</string>
+    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 ώρα}other{# ώρες}}"</string>
+    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 λεπτό}other{# λεπτά}}"</string>
+    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 δευτ.}other{# δευτ.}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Οποιαδήποτε άδεια"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"οποιαδήποτε στιγμή"</string>
     <string name="permission_usage_last_7_days" msgid="7386221251886130065">"τελευταίες 7 ημέρες"</string>
@@ -170,15 +158,9 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Χρήση άδειας την τελευταία 1 ώρα"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Χρήση αδειών τα τελευταία 15 λεπτά"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Χρήση άδειας το τελευταίο 1 λεπτό"</string>
-    <plurals name="permission_usage_bar_label" formatted="false" msgid="2316692513662993785">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> εφαρμογές</item>
-      <item quantity="one">1 εφαρμογή</item>
-    </plurals>
-    <string name="permission_usage_preference_summary_not_used" msgid="8806755646449754282">"Δεν έχει χρησιμοποιηθεί τις τελευταίες 24 ώρες"</string>
-    <plurals name="permission_usage_preference_label" formatted="false" msgid="9033113721294293706">
-      <item quantity="other">Χρησιμοποιείται από <xliff:g id="NUMBER">%1$d</xliff:g> εφαρμογές</item>
-      <item quantity="one">Χρησιμοποιείται από 1 εφαρμογή</item>
-    </plurals>
+    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Δεν έχει χρησιμοποιηθεί τις τελευταίες 24 ώρες"</string>
+    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Δεν έχει χρησιμοποιηθεί τις τελευταίες επτά ημέρες"</string>
+    <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{Χρησιμοποιείται από 1 εφαρμογή}other{Χρησιμοποιείται από # εφαρμογές}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Εμφάνιση όλων στον Πίνακα ελέγχου"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Φιλτράρισμα κατά: <xliff:g id="PERM">%1$s</xliff:g>"</string>
     <string name="app_permission_usage_remove_filter" msgid="2926157607436428207">"Κατάργηση φίλτρου"</string>
@@ -192,10 +174,6 @@
     <string name="sort_by_time" msgid="5435045320002150456">"Ταξινόμηση κατά ώρα"</string>
     <string name="item_separator" msgid="4030255389809224513">", "</string>
     <string name="permission_usage_refresh" msgid="2264056346561305420">"Ανανέωση"</string>
-    <plurals name="permission_usage_permission_filter_subtitle" formatted="false" msgid="2452104463317798268">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> εφαρμογές</item>
-      <item quantity="one">1 εφαρμογή</item>
-    </plurals>
     <string name="permission_history_title" msgid="8340081285133025225">"Ιστορικό αδειών"</string>
     <string name="permission_history_category_today" msgid="7496389369158806620">"Σήμερα"</string>
     <string name="permission_history_category_yesterday" msgid="7242517121222012521">"Χθες"</string>
@@ -218,8 +196,11 @@
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"Εμφάνιση όλων των αδειών της εφαρμογής <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"Εμφάνιση όλων των εφαρμογών με αυτήν την άδεια"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"Εμφάνιση χρήσης μικροφώνου βοηθού"</string>
+    <string name="unused_apps_category_title" msgid="2988455616845243901">"Ρυθμίσεις μη χρησιμοποιούμενων εφαρμογών"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"Καταργήστε τις άδειες, εάν η εφαρμογή δεν χρησιμοποιείται."</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"Κατάργηση αδειών και απελευθέρωση χώρου"</string>
+    <string name="unused_apps_label_v2" msgid="7058776770056517980">"Παύση δραστηριότητας αδρανούς εφαρμογής"</string>
+    <string name="unused_apps_summary" msgid="8839466950318403115">"Κατάργηση αδειών, διαγραφή προσωρινών αρχείων και διακοπή ειδοποιήσεων"</string>
     <string name="auto_revoke_summary" msgid="5867548789805911683">"Για την προστασία των δεδομένων σας, οι άδειες για αυτήν την εφαρμογή θα καταργηθούν εάν η εφαρμογή δεν χρησιμοποιηθεί για μερικούς μήνες."</string>
     <string name="auto_revoke_summary_with_permissions" msgid="389712086597285013">"Για την προστασία των δεδομένων σας, εάν δεν έχει χρησιμοποιηθεί η εφαρμογή για μερικούς μήνες, οι παρακάτω άδειες θα καταργηθούν: <xliff:g id="PERMS">%1$s</xliff:g>"</string>
     <string name="auto_revoked_apps_page_summary" msgid="6594753657893756536">"Για την προστασία των δεδομένων σας, έχουν καταργηθεί οι άδειες εφαρμογών που δεν έχετε χρησιμοποιήσει κατά τους τελευταίους μήνες."</string>
@@ -236,6 +217,7 @@
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"Καταργήθηκε η άδεια <xliff:g id="PERMISSION_NAME">%1$s</xliff:g> και <xliff:g id="NUMBER">%2$s</xliff:g> ακόμη άδειες"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Εφαρμογές που δεν χρησιμοποιούνται"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Εάν μια εφαρμογή δεν χρησιμοποιηθεί για λίγους μήνες:\n\n• Οι άδειες καταργούνται για την προστασία των δεδομένων σας\n• Οι ειδοποιήσεις διακόπτονται για την εξοικονόμηση μπαταρίας\n• Τα προσωρινά αρχεία καταργούνται για την απελευθέρωση χώρου\n\nΓια να επιτρέψετε ξανά τις άδειες και τις ειδοποιήσεις, ανοίξτε την εφαρμογή."</string>
+    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Εάν μια εφαρμογή δεν χρησιμοποιηθεί για λίγους μήνες:\n\n• Οι άδειες καταργούνται για την προστασία των δεδομένων σας\n• Τα προσωρινά αρχεία καταργούνται για την απελευθέρωση χώρου\n\nΓια να επιτρέψετε ξανά τις άδειες, ανοίξτε την εφαρμογή."</string>
     <string name="last_opened_category_title" msgid="7871347400611202595">"Τελευταίο άνοιγμα πάνω από <xliff:g id="NUMBER">%s</xliff:g> μήνες πριν"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Τελευταίο άνοιγμα εφαρμογής <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Τελευταίο άνοιγμα <xliff:g id="DATE">%s</xliff:g>"</string>
@@ -254,6 +236,8 @@
     <string name="permission_description_summary_sensors" msgid="1836045815643119949">"Οι εφαρμογές με αυτήν την άδεια μπορούν να αποκτήσουν πρόσβαση στα δεδομένα αισθητήρα σχετικά με τις ζωτικές ενδείξεις σας"</string>
     <string name="permission_description_summary_sms" msgid="725999468547768517">"Οι εφαρμογές με αυτήν την άδεια μπορούν να στέλνουν και να προβάλλουν μηνύματα SMS"</string>
     <string name="permission_description_summary_storage" msgid="6575759089065303346">"Οι εφαρμογές με αυτήν την άδεια έχουν πρόσβαση σε φωτογραφίες, μέσα και αρχεία στη συσκευή σας"</string>
+    <string name="permission_description_summary_read_media_aural" msgid="3354728149930482199">"Οι εφαρμογές με αυτήν την άδεια μπορούν να αποκτήσουν πρόσβαση στη μουσική και σε άλλα αρχεία ήχου αυτής της συσκευής"</string>
+    <string name="permission_description_summary_read_media_visual" msgid="4991801977881732641">"Οι εφαρμογές με αυτήν την άδεια μπορούν να αποκτήσουν πρόσβαση στις φωτογραφίες και τα βίντεο αυτής της συσκευής"</string>
     <string name="app_permission_most_recent_summary" msgid="4292074449384040590">"Τελευταία πρόσβαση: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_most_recent_denied_summary" msgid="7659497197737708112">"Απορρίφθηκε αυτήν τη φορά/Τελευταία πρόσβαση: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_never_accessed_summary" msgid="401346181461975090">"Δεν έγινε ποτέ πρόσβαση"</string>
@@ -265,42 +249,26 @@
     <string name="allowed_storage_full" msgid="5356699280625693530">"Επιτρέπεται η διαχείριση όλων των αρχείων"</string>
     <string name="ask_header" msgid="2633816846459944376">"Ερώτηση κάθε φορά"</string>
     <string name="denied_header" msgid="903209608358177654">"Δεν επιτρέπεται"</string>
-    <plurals name="days" formatted="false" msgid="7882807103511175827">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> ημέρες</item>
-      <item quantity="one">1 ημέρα</item>
-    </plurals>
-    <plurals name="hours" formatted="false" msgid="2100550424145061396">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> ώρες</item>
-      <item quantity="one">1 ώρα</item>
-    </plurals>
-    <plurals name="minutes" formatted="false" msgid="2154398822027154606">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> λεπτά</item>
-      <item quantity="one">1 λεπτό</item>
-    </plurals>
-    <plurals name="seconds" formatted="false" msgid="1564519426522404832">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> δευτερόλεπτα</item>
-      <item quantity="one">1 δευτερόλεπτο</item>
-    </plurals>
+    <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Δείτε περισσότερες εφαρμογές με πρόσβαση σε όλα τα αρχεία"</string>
+    <string name="days" msgid="609563020985571393">"{count,plural, =1{1 ημέρα}other{# ημέρες}}"</string>
+    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 ώρα}other{# ώρες}}"</string>
+    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 λεπτό}other{# λεπτά}}"</string>
+    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 δευτερόλεπτο}other{# δευτερόλεπτα}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Υπενθυμίσεις άδειας"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 εφαρμογή που δεν χρησιμοποιείται"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> εφαρμογές που δεν χρησιμοποιούνται"</string>
     <string name="auto_revoke_permission_reminder_notification_content" msgid="4492228990462107487">"Οι άδειες καταργήθηκαν για την προστασία του απορρήτου σας. Πατήστε για έλεγχο"</string>
     <string name="auto_revoke_permission_notification_title" msgid="2629844160853454657">"Κατάργηση αδειών για εφαρμογές που δεν χρησιμοποιούνται"</string>
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Ορισμένες εφαρμογές δεν έχουν χρησιμοποιηθεί τους τελευταίους μήνες. Πατήστε για έλεγχο."</string>
-    <plurals name="auto_revoke_permission_notification_content_count" formatted="false" msgid="9159794096518540350">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> εφαρμογές δεν έχουν χρησιμοποιηθεί τους τελευταίους μήνες. Πατήστε για έλεγχο.</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> εφαρμογή δεν έχει χρησιμοποιηθεί τους τελευταίους μήνες. Πατήστε για έλεγχο.</item>
-    </plurals>
-    <plurals name="unused_apps_notification_title" formatted="false" msgid="8046612559038762856">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> εφαρμογές που δεν χρησιμοποιούνται</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> εφαρμογή που δεν χρησιμοποιείται</item>
-    </plurals>
+    <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# εφαρμογή που δεν χρησιμοποιείται}other{# εφαρμογές που δεν χρησιμοποιούνται}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Οι άδειες και τα προσωρινά αρχεία καταργήθηκαν και οι ειδοποιήσεις διακόπηκαν. Πατήστε για έλεγχο."</string>
+    <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Έλεγχος πρόσφατων αδειών"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Ενώ οδηγούσατε, εκχωρήσατε στην εφαρμογή <xliff:g id="APP">%1$s</xliff:g> πρόσβαση στην άδεια <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Ενώ οδηγούσατε, εκχωρήσατε στην εφαρμογή <xliff:g id="APP">%1$s</xliff:g> πρόσβαση στις άδειες <xliff:g id="PERMISSION_1">%2$s</xliff:g> και <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Ενώ οδηγούσατε, εκχωρήσατε <xliff:g id="COUNT">%1$d</xliff:g> άδειες στην εφαρμογή <xliff:g id="APP">%2$s</xliff:g>"</string>
+    <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{Ενώ οδηγούσατε, εκχωρήσατε πρόσβαση στην εφαρμογή <xliff:g id="APP_0">%1$s</xliff:g> και σε # άλλη εφαρμογή}other{Ενώ οδηγούσατε, εκχωρήσατε πρόσβαση στην εφαρμογή <xliff:g id="APP_1">%1$s</xliff:g> και σε # άλλες εφαρμογές}}"</string>
+    <string name="go_to_settings" msgid="1053735612211228335">"Μετάβαση στις Ρυθμίσεις"</string>
     <string name="auto_revoke_setting_subtitle" msgid="8631720570723050460">"Ορισμένες εφαρμογές δεν έχουν χρησιμοποιηθεί τους τελευταίους μήνες."</string>
-    <plurals name="auto_revoke_setting_subtitle_count" formatted="false" msgid="85594789277193087">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> εφαρμογές δεν έχουν χρησιμοποιηθεί τους τελευταίους μήνες.</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> εφαρμογή δεν έχει χρησιμοποιηθεί τους τελευταίους μήνες.</item>
-    </plurals>
     <string name="permissions_removed_category_title" msgid="1064754271178447643">"Άδειες που καταργήθηκαν"</string>
     <string name="permission_removed_page_title" msgid="2627436155091001209">"Άδειες που καταργήθηκαν"</string>
     <string name="all_unused_apps_category_title" msgid="755663524704745414">"Όλες οι εφαρμογές που δεν χρησιμοποιούνται"</string>
@@ -330,16 +298,24 @@
     <string name="permission_subtitle_background" msgid="8916750995309083180">"Επιτρέπεται πάντα"</string>
     <string name="app_perms_24h_access" msgid="99069906850627181">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_perms_24h_access_yest" msgid="5411926024794555022">"Τελευταία πρόσβαση χθες στις <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
-    <string name="app_perms_content_provider" msgid="6996750793881252778">"Πρόσβαση τις τελευταίες 24 ώρες"</string>
+    <string name="app_perms_7d_access" msgid="4945055548894683751">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE_0">%1$s</xliff:g> στις <xliff:g id="TIME_DATE_1">%2$s</xliff:g>"</string>
+    <string name="app_perms_content_provider_24h" msgid="1055526027667508972">"Πρόσβαση τις τελευταίες 24 ώρες"</string>
+    <string name="app_perms_content_provider_7d" msgid="3215454898257814868">"Πρόσβαση τις τελευταίες επτά ημέρες"</string>
     <string name="app_perms_24h_access_background" msgid="3413674718969576843">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE">%1$s</xliff:g> • Επιτρέπεται πάντα"</string>
     <string name="app_perms_24h_access_yest_background" msgid="9174750810998076725">"Τελευταία πρόσβαση χθες στις <xliff:g id="TIME_DATE">%1$s</xliff:g> • Επιτρέπεται πάντα"</string>
-    <string name="app_perms_content_provider_background" msgid="7793984056711923997">"Πρόσβαση τις τελευταίες 24 ώρες • Επιτρέπεται πάντα"</string>
+    <string name="app_perms_7d_access_background" msgid="408099213372185627">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE_0">%1$s</xliff:g> στις <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Επιτρέπεται πάντα"</string>
+    <string name="app_perms_content_provider_24h_background" msgid="3825902995186961496">"Πρόσβαση τις τελευταίες 24 ώρες • Επιτρέπεται πάντα"</string>
+    <string name="app_perms_content_provider_7d_background" msgid="4818839672116463542">"Πρόσβαση τις τελευταίες επτά ημέρες • Επιτρέπεται πάντα"</string>
     <string name="app_perms_24h_access_media_only" msgid="6651699644199132054">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE">%1$s</xliff:g> • Μέσα"</string>
     <string name="app_perms_24h_access_yest_media_only" msgid="7213187706424998792">"Τελευταία πρόσβαση χθες στις <xliff:g id="TIME_DATE">%1$s</xliff:g> • Μέσα"</string>
-    <string name="app_perms_content_provider_media_only" msgid="6206759230589923421">"Πρόσβαση τις τελευταίες 24 ώρες • Μέσα"</string>
+    <string name="app_perms_7d_access_media_only" msgid="1031096653668235200">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE_0">%1$s</xliff:g> στις <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Μέσα"</string>
+    <string name="app_perms_content_provider_24h_media_only" msgid="7797963000596179491">"Πρόσβαση τις τελευταίες 24 ώρες • Μέσα"</string>
+    <string name="app_perms_content_provider_7d_media_only" msgid="8446239884570262243">"Πρόσβαση τις τελευταίες επτά ημέρες • Μέσα"</string>
     <string name="app_perms_24h_access_all_files" msgid="8902360456978159091">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE">%1$s</xliff:g> • Όλα τα αρχεία"</string>
     <string name="app_perms_24h_access_yest_all_files" msgid="5708424073126844909">"Τελευταία πρόσβαση χθες στις <xliff:g id="TIME_DATE">%1$s</xliff:g> • Όλα τα αρχεία"</string>
-    <string name="app_perms_content_provider_all_files" msgid="3315281519230304799">"Πρόσβαση τις τελευταίες 24 ώρες • Όλα τα αρχεία"</string>
+    <string name="app_perms_7d_access_all_files" msgid="8246193786397635824">"Τελευταία πρόσβαση <xliff:g id="TIME_DATE_0">%1$s</xliff:g> στις <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Όλα τα αρχεία"</string>
+    <string name="app_perms_content_provider_24h_all_files" msgid="573104317727770850">"Πρόσβαση τις τελευταίες 24 ώρες • Όλα τα αρχεία"</string>
+    <string name="app_perms_content_provider_7d_all_files" msgid="7962416229708835558">"Πρόσβαση τις τελευταίες επτά ημέρες • Όλα τα αρχεία"</string>
     <string name="no_permissions_allowed" msgid="6081976856354669209">"Δεν επιτρέπονται άδειες"</string>
     <string name="no_permissions_denied" msgid="8159923922804043282">"Δεν απορρίφθηκαν άδειες"</string>
     <string name="no_apps_allowed" msgid="7718822655254468631">"Δεν επιτρέπονται εφαρμογές"</string>
@@ -355,8 +331,6 @@
     <string name="role_assistant_label" msgid="4727586018198208128">"Προεπ. εφαρμ. ψηφιακού βοηθού"</string>
     <string name="role_assistant_short_label" msgid="3369003713187703399">"Εφαρμογή ψηφιακού βοηθού"</string>
     <string name="role_assistant_description" msgid="6622458130459922952">"Οι εφαρμογές υποβοήθειας σάς προσφέρουν βοήθεια βάσει των πληροφοριών από την οθόνη που προβάλετε. Ορισμένες εφαρμογές υποστηρίζουν τόσο την εφαρμογή εκκίνησης όσο και τις υπηρεσίες εισόδου φωνής για να λαμβάνετε ολοκληρωμένη βοήθεια."</string>
-    <string name="role_assistant_request_title" msgid="5964976301922776060">"Ορισμός εφαρμογής <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής υποβοήθειας;"</string>
-    <string name="role_assistant_request_description" msgid="6836644847620178483">"Αποκτά πρόσβαση στα SMS και το αρχείο καταγραφής κλήσεων"</string>
     <string name="role_browser_label" msgid="2877796144554070207">"Προεπιλ. πρόγρ. περιήγησης"</string>
     <string name="role_browser_short_label" msgid="6745009127123292296">"Πρόγραμμα περιήγησης"</string>
     <string name="role_browser_description" msgid="3465253637499842671">"Εφαρμογές που σας προσφέρουν πρόσβαση στο διαδίκτυο και εμφανίζουν τους συνδέσμους που πατάτε"</string>
@@ -366,13 +340,13 @@
     <string name="role_dialer_short_label" msgid="7186888549465352489">"Εφαρμογή Τηλέφωνο"</string>
     <string name="role_dialer_description" msgid="8768708633696539612">"Εφαρμογές που σας επιτρέπουν να πραγματοποιείτε και να λαμβάνετε τηλεφωνικές κλήσεις στη συσκευή σας"</string>
     <string name="role_dialer_request_title" msgid="5959618560705912058">"Ορισμός εφαρμογής <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής τηλεφώνου;"</string>
-    <string name="role_dialer_request_description" msgid="2264219375528345270">"Αποκτά πρόσβαση στο αρχείο καταγραφής κλήσεων, αποστολή SMS"</string>
+    <string name="role_dialer_request_description" msgid="6288839625724909320">"Αυτή η εφαρμογή θα έχει πρόσβαση στην κάμερα, τις επαφές, το μικρόφωνο, το τηλέφωνο και τα SMS."</string>
     <string name="role_dialer_search_keywords" msgid="3324448983559188087">"dialer"</string>
     <string name="role_sms_label" msgid="8456999857547686640">"Προεπιλεγμένη εφαρμογή SMS"</string>
     <string name="role_sms_short_label" msgid="4371444488034692243">"Εφαρμογή SMS"</string>
     <string name="role_sms_description" msgid="3424020199148153513">"Εφαρμογές που σας επιτρέπουν να χρησιμοποιείτε τον αριθμό τηλεφώνου σας για την αποστολή και τη λήψη σύντομων μηνυμάτων κειμένου, φωτογραφιών, βίντεο και άλλων"</string>
     <string name="role_sms_request_title" msgid="7953552109601185602">"Ορισμός της εφαρμογής <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής SMS;"</string>
-    <string name="role_sms_request_description" msgid="983371022668134198">"Αποκτά πρόσβαση στις επαφές, τα SMS, το τηλέφωνο"</string>
+    <string name="role_sms_request_description" msgid="2691004766132144886">"Αυτή η εφαρμογή έχει πρόσβαση στην κάμερα, τις επαφές, τα αρχεία και μέσα, το μικρόφωνο, το τηλέφωνο και τα SMS."</string>
     <string name="role_sms_search_keywords" msgid="8022048144395047352">"μήνυμα κειμένου, αποστολή SMS, μηνύματα, ανταλλαγή μηνυμάτων"</string>
     <string name="role_emergency_label" msgid="7028825857206842366">"Προεπ. εφαρ. έκτακτης ανάγκης"</string>
     <string name="role_emergency_short_label" msgid="2388431453335350348">"Εφαρμογή έκτακτης ανάγκης"</string>
@@ -391,12 +365,19 @@
     <string name="role_call_redirection_description" msgid="6091669882014664420">"Εφαρμογές που σας επιτρέπουν να προωθήσετε εξερχόμενες κλήσεις σε έναν άλλο αριθμό τηλεφώνου"</string>
     <string name="role_call_redirection_request_title" msgid="2816244455003562925">"Ορισμός εφαρμογής <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής ανακατεύθυνσης κλήσεων;"</string>
     <string name="role_call_redirection_request_description" msgid="3118895714178527164">"Δεν απαιτούνται άδειες"</string>
-    <string name="role_call_screening_label" msgid="883935222060878724">"Προεπ. εφαρ. αναγνώρισης κλήσης/ανεπ. περιεχ."</string>
+    <string name="role_call_screening_label" msgid="883935222060878724">"Προεπιλεγμένη εφαρ. αναγνώρ. κλήσης/ανεπιθ."</string>
     <string name="role_call_screening_short_label" msgid="2048465565063130834">"Εφ. αναγν. κλήσης/προστ. από ανεπιθ. περιεχ."</string>
     <string name="role_call_screening_description" msgid="2349431420497468981">"Εφαρμογές που σας επιτρέπουν να αναγνωρίσετε κλήσεις, να αποκλείσετε ανεπιθύμητες, αυτοματοποιημένες κλήσεις και ανεπιθύμητους αριθμούς."</string>
     <string name="role_call_screening_request_title" msgid="7358309224566977290">"Ορισμός εφαρμογής <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής αναγνώρισης κλήσης και ανεπιθύμητου περιεχομένου;"</string>
     <string name="role_call_screening_request_description" msgid="7338511921032446006">"Δεν απαιτούνται άδειες"</string>
+    <string name="role_automotive_navigation_label" msgid="2701890757955474751">"Προεπιλεγμένη εφαρμογή πλοήγησης"</string>
+    <string name="role_automotive_navigation_short_label" msgid="5165823092506922457">"Εφαρμογή πλοήγησης"</string>
+    <string name="role_automotive_navigation_description" msgid="7834601873792870134">"Εφαρμογές που μπορούν να παρέχουν αναζήτηση σημείων ενδιαφέροντος και καθοδήγηση πλοήγησης με λεπτομέρεια."</string>
+    <string name="role_automotive_navigation_request_title" msgid="7525693151489384300">"Ορισμός <xliff:g id="APP_NAME">%1$s</xliff:g> ως προεπιλεγμένης εφαρμογής πλοήγησης;"</string>
+    <string name="role_automotive_navigation_request_description" msgid="7073023813249245540">"Δεν απαιτούνται άδειες"</string>
     <string name="role_watch_description" msgid="267003778693177779">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> θα επιτρέπεται να αλληλεπιδρά με τις ειδοποιήσεις σας και να έχει πρόσβαση στις άδειες Τηλεφώνου, SMS, Επαφών και Ημερολογίου."</string>
+    <string name="role_app_streaming_description" msgid="7341638576226183992">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> θα επιτρέπεται να αλληλεπιδρά με τις ειδοποιήσεις σας και να μεταδίδει τις εφαρμογές σας μέσω ροής στη συνδεδεμένη συσκευή."</string>
+    <string name="role_companion_device_computer_description" msgid="416099879217066377">"Αυτή η υπηρεσία κοινοποιεί τις φωτογραφίες, τα μέσα και τις ειδοποιήσεις από το τηλέφωνό σας στις άλλες συσκευές σας."</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Τρέχουσα προεπιλογή"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Να μην ερωτηθώ ξανά"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Προεπιλογή"</string>
@@ -439,7 +420,7 @@
     <string name="incident_report_notification_text" msgid="3376480583513587923">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> θέλει να ανεβάσει πληροφορίες εντοπισμού σφαλμάτων."</string>
     <string name="incident_report_dialog_title" msgid="669104389325204095">"Κοινοπ. δεδομ. εντοπισμού και διόρθωσης σφαλμάτων;"</string>
     <string name="incident_report_dialog_intro" msgid="5897733669850951832">"Το σύστημα εντόπισε ένα πρόβλημα."</string>
-    <string name="incident_report_dialog_text" msgid="5675553296891757523">"Η εφαρμογή <xliff:g id="APP_NAME_0">%1$s</xliff:g> ζητάει να ανεβάσει μια αναφορά σφαλμάτων από αυτήν τη συσκευή η οποία λήφθηκε στις <xliff:g id="DATE">%2$s</xliff:g>, <xliff:g id="TIME">%3$s</xliff:g>. Οι αναφορές σφαλμάτων περιλαμβάνουν προσωπικά στοιχεία σχετικά με τη συσκευή σας ή στοιχεία που έχουν καταγράψει οι εφαρμογές σας, για παράδειγμα, ονόματα χρηστών, δεδομένα τοποθεσίας, αναγνωριστικά συσκευών και πληροφορίες δικτύου. Να κοινοποιείτε αναφορές σφαλμάτων μόνο σε άτομα και εφαρμογές που θεωρείτε ότι μπορείτε να εμπιστευτείτε με αυτές τις πληροφορίες. Επιτρέπετε στην εφαρμογή <xliff:g id="APP_NAME_1">%4$s</xliff:g> να ανεβάσει μια αναφορά σφαλμάτων;"</string>
+    <string name="incident_report_dialog_text" msgid="5675553296891757523">"Η εφαρμογή <xliff:g id="APP_NAME_0">%1$s</xliff:g> ζητάει να ανεβάσει μια αναφορά σφαλμάτων από αυτήν τη συσκευή η οποία λήφθηκε στις <xliff:g id="DATE">%2$s</xliff:g>, <xliff:g id="TIME">%3$s</xliff:g>. Οι αναφορές σφαλμάτων περιλαμβάνουν προσωπικά στοιχεία σχετικά με τη συσκευή σας ή στοιχεία που έχουν καταγράψει οι εφαρμογές σας, για παράδειγμα, ονόματα χρηστών, δεδομένα τοποθεσίας, αναγνωριστικά συσκευών και πληροφορίες δικτύου. Να κοινοποιείτε αναφορές σφαλμάτων μόνο σε άτομα και εφαρμογές που θεωρείτε ότι μπορείτε να εμπιστευτείτε με αυτές τις πληροφορίες. Επιτρέπετε στο <xliff:g id="APP_NAME_1">%4$s</xliff:g> να ανεβάσει μια αναφορά σφαλμάτων;"</string>
     <string name="incident_report_error_dialog_text" msgid="4189647113387092272">"Παρουσιάστηκε ένα σφάλμα κατά την επεξεργασία της αναφοράς σφάλματος για την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g>. Γι\' αυτόν τον λόγο, η κοινοποίηση λεπτομερών δεδομένων εντοπισμού και διόρθωσης σφαλμάτων απορρίφθηκε. Λυπούμαστε για τη διακοπή."</string>
     <string name="incident_report_dialog_allow_label" msgid="2970242967721155239">"Να επιτρέπεται"</string>
     <string name="incident_report_dialog_deny_label" msgid="3535314290677579383">"Να μην επιτρέπεται"</string>
@@ -450,39 +431,48 @@
     <string name="adjust_user_sensitive_per_app_header" msgid="4543506440989005648">"Επισήμανση χρήσης για τα παρακάτω"</string>
     <string name="assistant_record_audio_user_sensitive_title" msgid="5532123360322362378">"Εμφάνιση εντοπισμού ενεργοποίησης βοηθού"</string>
     <string name="assistant_record_audio_user_sensitive_summary" msgid="6482937591816401619">"Εμφάνιση εικονιδίου στη γραμμή κατάστασης όταν το μικρόφωνο χρησιμοποιείται για την ενεργοποίηση του φωνητικού βοηθού"</string>
-    <string name="permgrouprequest_storage_isolated" msgid="4892154224026852295">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση σε φωτογραφίες και μέσα στη συσκευή σας;"</string>
-    <string name="permgrouprequest_contacts" msgid="8391550064551053695">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στις επαφές σας;"</string>
-    <string name="permgrouprequest_location" msgid="6990232580121067883">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην τοποθεσία αυτής της συσκευής;"</string>
+    <string name="permgrouprequest_storage_isolated" msgid="4892154224026852295">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση σε φωτογραφίες και μέσα στη συσκευή σας;"</string>
+    <string name="permgrouprequest_contacts" msgid="8391550064551053695">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στις επαφές σας;"</string>
+    <string name="permgrouprequest_location" msgid="6990232580121067883">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην τοποθεσία αυτής της συσκευής;"</string>
     <string name="permgrouprequestdetail_location" msgid="2635935335778429894">"Η εφαρμογή θα έχει πρόσβαση στην τοποθεσία μόνο κατά τη διάρκεια χρήσης της εφαρμογής"</string>
-    <string name="permgroupbackgroundrequest_location" msgid="1085680897265734809">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην τοποθεσία αυτής της συσκευής;"</string>
+    <string name="permgroupbackgroundrequest_location" msgid="1085680897265734809">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην τοποθεσία αυτής της συσκευής;"</string>
     <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Αυτή η εφαρμογή θέλει να έχει συνεχώς πρόσβαση στην τοποθεσία σας, ακόμη και όταν δεν χρησιμοποιείτε την εφαρμογή. "<annotation id="link">"Εγκρίνετε το αίτημα στις ρυθμίσεις."</annotation></string>
     <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"Αλλαγή πρόσβασης στην τοποθεσία για την εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;;"</string>
     <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Αυτή η εφαρμογή θέλει να έχει συνεχώς πρόσβαση στην τοποθεσία σας, ακόμη και όταν δεν χρησιμοποιείτε την εφαρμογή. "<annotation id="link">"Εγκρίνετε το αίτημα στις ρυθμίσεις."</annotation></string>
     <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Να επιτρέπεται η εύρεση, η σύνδεση κι ο προσδιορισμός σχετικής τοποθεσίας των κοντινών συσκευών από &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;;"</string>
     <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"Να επιτρέπεται η εύρεση, η σύνδεση κι ο προσδιορισμός σχετικής τοποθεσίας των κοντινών συσκευών από &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;; "<annotation id="link">"Έγκριση στις Ρυθμίσεις."</annotation></string>
     <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"Αλλαγή της πρόσβασης της εφαρμογής <xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> στην τοποθεσία από κατά προσέγγιση σε ακριβή;"</string>
-    <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην κατά προσέγγιση τοποθεσία αυτής της συσκευής;"</string>
+    <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στην κατά προσέγγιση τοποθεσία αυτής της συσκευής;"</string>
     <string name="permgrouprequest_finelocation_imagetext" msgid="1313062433398914334">"Ακριβής"</string>
     <string name="permgrouprequest_coarselocation_imagetext" msgid="8650605041483025297">"Κατά προσέγγιση"</string>
-    <string name="permgrouprequest_calendar" msgid="1493150855673603806">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στο ημερολόγιό σας;"</string>
-    <string name="permgrouprequest_sms" msgid="5672063688745420991">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η αποστολή και η προβολή μηνυμάτων SMS;"</string>
-    <string name="permgrouprequest_storage" msgid="8717773092518621602">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση σε φωτογραφίες, μέσα και αρχεία στη συσκευή σας;"</string>
-    <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η εγγραφή ήχου;"</string>
+    <string name="permgrouprequest_calendar" msgid="1493150855673603806">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στο ημερολόγιό σας;"</string>
+    <string name="permgrouprequest_sms" msgid="5672063688745420991">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η αποστολή και η προβολή μηνυμάτων SMS;"</string>
+    <string name="permgrouprequest_storage" msgid="8717773092518621602">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση σε φωτογραφίες, μέσα και αρχεία στη συσκευή σας;"</string>
+    <string name="permgrouprequest_storage_q_to_s" msgid="8213701872983685505">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση σε &lt;b&gt;φωτογραφίες, βίντεο, μουσική και ήχο&lt;/b&gt; της συσκευής;"</string>
+    <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση σε &lt;b&gt;φωτογραφίες, βίντεο, μουσική, ήχο και άλλα αρχεία&lt;/b&gt; της συσκευής;"</string>
+    <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση στη μουσική και στα αρχεία ήχου αυτής της συσκευής;"</string>
+    <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση στις φωτογραφίες και τα βίντεο αυτής της συσκευής;"</string>
+    <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η εγγραφή ήχου;"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Αυτή η εφαρμογή θα μπορεί να εγγράφει ήχο μόνο όταν τη χρησιμοποιείτε"</string>
-    <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η εγγραφή ήχου;"</string>
+    <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η εγγραφή ήχου;"</string>
     <string name="permgroupbackgroundrequestdetail_microphone" msgid="553702902263681838">"Αυτή η εφαρμογή ενδέχεται να εγγράφει βίντεο συνεχώς, ακόμη και όταν δεν τη χρησιμοποιείτε. "<annotation id="link">"Έγκριση στις ρυθμίσεις."</annotation></string>
     <string name="permgroupupgraderequest_microphone" msgid="1362781696161233341">"Αλλαγή πρόσβασης στο μικρόφωνο για την εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;;"</string>
     <string name="permgroupupgraderequestdetail_microphone" msgid="2870497719571464239">"Αυτή η εφαρμογή θέλει να εγγράφει ήχο συνεχώς, ακόμη και όταν δεν τη χρησιμοποιείται. "<annotation id="link">"Έγκριση στις ρυθμίσεις."</annotation></string>
-    <string name="permgrouprequest_activityRecognition" msgid="5415121592794230330">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στη σωματική σας δραστηριότητα;"</string>
-    <string name="permgrouprequest_camera" msgid="5123097035410002594">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η λήψη φωτογραφιών και η εγγραφή βίντεο;"</string>
+    <string name="permgrouprequest_activityRecognition" msgid="5415121592794230330">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στη σωματική σας δραστηριότητα;"</string>
+    <string name="permgrouprequest_camera" msgid="5123097035410002594">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η λήψη φωτογραφιών και η εγγραφή βίντεο;"</string>
     <string name="permgrouprequestdetail_camera" msgid="9085323239764667883">"Αυτή η εφαρμογή θα μπορεί να τραβάει φωτογραφίες και να εγγράφει βίντεο μόνο όταν τη χρησιμοποιείτε"</string>
-    <string name="permgroupbackgroundrequest_camera" msgid="1274286575704213875">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η λήψη φωτογραφιών και η εγγραφή βίντεο;"</string>
+    <string name="permgroupbackgroundrequest_camera" msgid="1274286575704213875">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η λήψη φωτογραφιών και η εγγραφή βίντεο;"</string>
     <string name="permgroupbackgroundrequestdetail_camera" msgid="4458783509089859078">"Αυτή η εφαρμογή ενδέχεται να τραβάει φωτογραφίες και να εγγράφει βίντεο συνεχώς, ακόμη και όταν δεν τη χρησιμοποιείτε. "<annotation id="link">"Έγκριση στις Ρυθμίσεις."</annotation></string>
     <string name="permgroupupgraderequest_camera" msgid="640758449200241582">"Αλλαγή πρόσβασης στην κάμερα για την εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;;"</string>
     <string name="permgroupupgraderequestdetail_camera" msgid="6642747548010962597">"Αυτή η εφαρμογή θέλει να τραβάει φωτογραφίες και να εγγράφει βίντεο συνεχώς, ακόμη και όταν δεν τη χρησιμοποιείται. "<annotation id="link">"Έγκριση στις Ρυθμίσεις."</annotation></string>
-    <string name="permgrouprequest_calllog" msgid="2065327180175371397">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στα αρχεία καταγραφής τηλεφωνικών κλήσεών σας;"</string>
-    <string name="permgrouprequest_phone" msgid="1829234136997316752">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πραγματοποίηση και η διαχείριση τηλεφωνικών κλήσεων;"</string>
-    <string name="permgrouprequest_sensors" msgid="4397358316850652235">"Να επιτρέπεται στην εφαρμογή &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στα δεδομένα αισθητήρα σχετικά με τις ζωτικές ενδείξεις σας;"</string>
+    <string name="permgrouprequest_calllog" msgid="2065327180175371397">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στα αρχεία καταγραφής τηλεφωνικών κλήσεών σας;"</string>
+    <string name="permgrouprequest_phone" msgid="1829234136997316752">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πραγματοποίηση και η διαχείριση τηλεφωνικών κλήσεων;"</string>
+    <string name="permgrouprequest_sensors" msgid="4397358316850652235">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να έχει πρόσβαση στα δεδομένα αισθητήρα σχετικά με τις ζωτικές ενδείξεις σας;"</string>
+    <string name="permgroupupgraderequestdetail_sensors" msgid="6651914048792092835">"Αυτή η εφαρμογή θέλει πρόσβαση στα δεδομένα αισθητήρα για τις ζωτικές σας ενδείξεις, ακόμη και όταν δεν τη χρησιμοποιείτε. Για να κάνετε αυτήν την αλλαγή, "<annotation id="link">"μεταβείτε στις ρυθμίσεις."</annotation></string>
+    <string name="permgroupbackgroundrequest_sensors" msgid="5661924322018503886">"Να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση σε δεδομένα αισθητήρα σχετικά με τις ζωτικές ενδείξεις σας;"</string>
+    <string name="permgroupbackgroundrequestdetail_sensors" msgid="7726767635834043501">"Για να επιτρέψετε σε αυτήν την εφαρμογή να έχει πρόσβαση σε δεδομένα αισθητήρων σώματος οποιαδήποτε στιγμή, ακόμα και όταν δεν χρησιμοποιείτε την εφαρμογή, "<annotation id="link">"μεταβείτε στις ρυθμίσεις."</annotation></string>
+    <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"Να συνεχίσει να επιτρέπεται στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; η πρόσβαση σε δεδομένα αισθητήρων σώματος ενώ χρησιμοποιείται;"</string>
+    <string name="permgrouprequest_notifications" msgid="6396739062335106181">"Επιτρέπετε στο &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; να σας στέλνει ειδοποιήσεις;"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Ελεγχόμενες άδειες"</string>
     <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Είναι δυνατή η πρόσβαση στην τοποθεσία."</string>
     <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Ο διαχειριστής σας επιτρέπει στην εφαρμογή <xliff:g id="APP_NAME">%s</xliff:g> να αποκτά πρόσβαση στην τοποθεσία σας."</string>
@@ -497,4 +487,54 @@
     <string name="privdash_label_other" msgid="3710394147423236033">"Άλλο"</string>
     <string name="privdash_label_none" msgid="5991866260360484858">"Καμία"</string>
     <string name="privdash_label_24h" msgid="1512532123865375319">"Τελευταίες\n24 ώρες"</string>
+    <string name="privdash_label_7d" msgid="5645301995348656931">"Τελευταίες\n7 ημέρες"</string>
+    <string name="exempt_mic_camera_info_label" msgid="6273581737010902815">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> προστατεύεται από το Android. Επειδή η επεξεργασία των δεδομένων σας πραγματοποιείται σε αυτήν τη συσκευή, η χρήση αδειών αυτής της εφαρμογής δεν εμφανίζεται στη γραμμή κατάστασης ή στον πίνακα ελέγχου απορρήτου σας."</string>
+    <string name="exempt_info_label" msgid="6286190981253476699">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> προστατεύεται από το Android. Επειδή η επεξεργασία των δεδομένων σας πραγματοποιείται σε αυτήν τη συσκευή, η χρήση αδειών αυτής της εφαρμογής δεν εμφανίζεται στον πίνακα ελέγχου απορρήτου σας."</string>
+    <string name="blocked_camera_title" msgid="1128510551791284384">"Η κάμερα συσκευής αποκλείστηκε"</string>
+    <string name="blocked_microphone_title" msgid="1631517143648232585">"Το μικρόφωνο συσκευής αποκλείστηκε"</string>
+    <string name="blocked_location_title" msgid="2005608279812892383">"Η τοποθεσία συσκευής είναι ανενεργή"</string>
+    <string name="blocked_sensor_summary" msgid="4443707628305027375">"Για εφαρμογές και υπηρεσίες"</string>
+    <string name="blocked_mic_summary" msgid="8960466941528458347">"Ενδέχεται να κοινοποιηθούν δεδομένα μικροφώνου κατά την κλήση ενός αριθμού έκτακτης ανάγκης."</string>
+    <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Αλλαγή"</string>
+    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Ασφάλεια και Απόρρητο"</string>
+    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Σάρωση"</string>
+    <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Παράβλεψη"</string>
+    <string name="security_settings" msgid="3808106921175271317">"Ρυθμίσεις ασφαλείας"</string>
+    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Άδειες αισθητήρων"</string>
+    <string name="privacy_controls_qs" msgid="471793881466080745">"Στοιχεία ελέγχου απορρήτου"</string>
+    <string name="permissions_removed_qs" msgid="8957319130625294572">"Η άδεια καταργήθηκε"</string>
+    <string name="camera_usage_qs" msgid="7943349178368641820">"Δείτε περισσότερα για τη χρήση της κάμερας"</string>
+    <string name="microphone_usage_qs" msgid="2393193350541830472">"Δείτε περισσότερα για τη χρήση του μικροφώνου"</string>
+    <string name="remove_camera_qs" msgid="8209716677879809162">"Κατάργηση άδειας για την κάμερα"</string>
+    <string name="remove_microphone_qs" msgid="2893536836641560183">"Κατάργηση άδειας για το μικρόφωνο"</string>
+    <string name="manage_service_qs" msgid="7862555549364153805">"Διαχείριση υπηρεσίας"</string>
+    <string name="manage_permissions_qs" msgid="3780541819763475434">"Διαχείριση αδειών"</string>
+    <string name="active_call_usage_qs" msgid="8559974395932523391">"Χρησιμοποιείται από την τηλεφωνική κλήση"</string>
+    <string name="recent_call_usage_qs" msgid="743044899599410935">"Χρησιμοποιήθηκε πρόσφατα στην τηλεφωνική κλήση"</string>
+    <string name="active_app_usage_qs" msgid="4063912870936464727">"Χρησιμοποιείται από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="recent_app_usage_qs" msgid="6650259601306212327">"Χρησιμοποιήθηκε πρόσφατα από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="active_app_usage_1_qs" msgid="4325136375823357052">"Χρησιμοποιείται από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
+    <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Χρησιμοποιήθηκε πρόσφατα από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
+    <string name="active_app_usage_2_qs" msgid="6107866785243565283">"Χρησιμοποιείται από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
+    <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Χρησιμοποιήθηκε πρόσφατα από την εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Ασφάλεια και Απόρρητο"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Έλεγχος κατάστασης"</string>
+    <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Επιβεβαίωση"</string>
+    <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Πίσω"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Θα επιτρέπεται επίσης η πρόσβαση σε άλλα αρχεία"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_deny" msgid="7841428716317307685">"Δεν θα επιτρέπεται επίσης η πρόσβαση σε άλλα αρχεία"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_allow" msgid="6469086448310893751">"Θα επιτρέπεται επίσης η πρόσβαση σε άλλα αρχεία"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_deny" msgid="5767849609024384226">"Δεν θα επιτρέπεται επίσης η πρόσβαση σε άλλα αρχεία"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_allow" msgid="3191904399336990537">"Θα επιτρέπεται επίσης η πρόσβαση σε φωτογραφίες και βίντεο"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_deny" msgid="3128147568953297969">"Δεν θα επιτρέπεται επίσης η πρόσβαση σε φωτογραφίες και βίντεο"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_allow" msgid="6310682466493330434">"Θα επιτρέπεται επίσης η πρόσβαση σε αρχεία μουσικής και ήχου"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_deny" msgid="1123845663785900471">"Δεν θα επιτρέπεται επίσης η πρόσβαση σε αρχεία μουσικής και ήχου"</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_allow" msgid="7865167246140107623">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή έχει πρόσβαση σε αρχεία μουσικής και ήχου, θα έχει επίσης πρόσβαση σε φωτογραφίες, βίντεο και άλλα αρχεία."</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_deny" msgid="287502523664804786">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή δεν έχει πρόσβαση σε αρχεία μουσικής και ήχου, δεν θα έχει επίσης πρόσβαση σε φωτογραφίες, βίντεο και άλλα αρχεία."</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_allow" msgid="4952410892939590487">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή έχει πρόσβαση σε φωτογραφίες και βίντεο, θα έχει επίσης πρόσβαση σε αρχεία μουσικής, ήχου και άλλα αρχεία."</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_deny" msgid="6609500525590757681">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή δεν έχει πρόσβαση σε φωτογραφίες και βίντεο, δεν θα έχει επίσης πρόσβαση σε αρχεία μουσικής, ήχου και άλλα αρχεία."</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_allow" msgid="1702402580147536160">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή έχει πρόσβαση σε αρχεία μουσικής και ήχου, θα έχει επίσης πρόσβαση σε φωτογραφίες και βίντεο."</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή δεν έχει πρόσβαση σε αρχεία μουσικής και ήχου, δεν θα έχει επίσης πρόσβαση σε φωτογραφίες και βίντεο."</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή έχει πρόσβαση σε φωτογραφίες και βίντεο, θα έχει επίσης πρόσβαση σε αρχεία μουσικής και ήχου."</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Αυτή η εφαρμογή δεν υποστηρίζει την πιο πρόσφατη έκδοση του Android. Εάν αυτή η εφαρμογή δεν έχει πρόσβαση σε αρχεία μουσικής και ήχου, δεν θα έχει επίσης πρόσβαση σε φωτογραφίες και βίντεο."</string>
 </resources>

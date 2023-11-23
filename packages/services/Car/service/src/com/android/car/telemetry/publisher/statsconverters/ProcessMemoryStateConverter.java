@@ -16,17 +16,19 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
 import android.util.SparseArray;
 
 import com.android.car.telemetry.AtomsProto.Atom;
 import com.android.car.telemetry.AtomsProto.ProcessMemoryState;
+import com.android.internal.util.Preconditions;
 
 /**
  * Atom data converter for atoms of type {@link ProcessMemoryState}.
  */
 public class ProcessMemoryStateConverter extends AbstractAtomConverter<ProcessMemoryState> {
-    private static final SparseArray<AtomFieldAccessor<ProcessMemoryState>> sAtomFieldAccessorMap =
-            new SparseArray<>();
+    private static final SparseArray<AtomFieldAccessor<ProcessMemoryState, ?>>
+            sAtomFieldAccessorMap = new SparseArray<>();
     static {
         sAtomFieldAccessorMap.append(1, new AtomFieldAccessor<>(
                 "uid",
@@ -75,16 +77,21 @@ public class ProcessMemoryStateConverter extends AbstractAtomConverter<ProcessMe
     }
 
     @Override
-    SparseArray<AtomFieldAccessor<ProcessMemoryState>> getAtomFieldAccessorMap() {
+    @NonNull
+    SparseArray<AtomFieldAccessor<ProcessMemoryState, ?>> getAtomFieldAccessorMap() {
         return sAtomFieldAccessorMap;
     }
 
     @Override
-    ProcessMemoryState getAtomData(Atom atom) {
+    @NonNull
+    ProcessMemoryState getAtomData(@NonNull Atom atom) {
+        Preconditions.checkArgument(
+                atom.hasProcessMemoryState(), "Atom doesn't contain ProcessMemoryState");
         return atom.getProcessMemoryState();
     }
 
     @Override
+    @NonNull
     String getAtomDataClassName() {
         return ProcessMemoryState.class.getSimpleName();
     }

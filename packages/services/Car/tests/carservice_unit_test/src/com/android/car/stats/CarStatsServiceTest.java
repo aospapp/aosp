@@ -22,10 +22,10 @@ import static org.mockito.Mockito.when;
 import android.car.vms.VmsLayer;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.util.IndentingPrintWriter;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.car.stats.VmsClientLogger.ConnectionState;
 
 import org.junit.Before;

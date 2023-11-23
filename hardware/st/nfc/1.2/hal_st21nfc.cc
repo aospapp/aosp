@@ -30,6 +30,7 @@
 #include "android_logmsg.h"
 #include "hal_config.h"
 #include "halcore.h"
+#include "st21nfc_dev.h"
 
 #define VENDOR_LIB_PATH "/vendor/lib64/"
 #define VENDOR_LIB_EXT ".so"
@@ -40,16 +41,7 @@ extern bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle);
 
 typedef int (*STEseReset)(void);
 
-typedef struct {
-  struct nfc_nci_device nci_device;  // nci_device must be first struct member
-  // below declarations are private variables within HAL
-  nfc_stack_callback_t* p_cback;
-  nfc_stack_data_callback_t* p_data_cback;
-  HALHANDLE hHAL;
-  nfc_stack_callback_t* p_cback_unwrap;
-} st21nfc_dev_t;
-
-const char* halVersion = "ST21NFC HAL1.2 Version 3.2.53";
+const char* halVersion = "ST21NFC HAL1.2 Version 3.2.54";
 
 uint8_t cmd_set_nfc_mode_enable[] = {0x2f, 0x02, 0x02, 0x02, 0x01};
 uint8_t hal_is_closed = 1;
@@ -367,7 +359,7 @@ int StNfc_hal_close(int nfc_mode_value) {
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;
   }
-  if (hal_wrapper_close(1, nfc_mode_value) == 0) {
+  if (hal_wrapper_close(1, nfc_mode_value) == -1) {
     hal_is_closed = 1;
     (void)pthread_mutex_unlock(&hal_mtx);
     return 1;

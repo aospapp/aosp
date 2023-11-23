@@ -16,6 +16,7 @@
 
 package com.android.car.cluster;
 
+import static android.car.builtin.app.ActivityManagerHelper.createActivityOptions;
 import static android.content.Intent.ACTION_MAIN;
 
 import static com.android.car.hal.ClusterHalService.DISPLAY_OFF;
@@ -27,6 +28,8 @@ import android.app.ActivityOptions;
 import android.car.Car;
 import android.car.CarOccupantZoneManager;
 import android.car.ICarOccupantZoneCallback;
+import android.car.builtin.os.UserManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.car.cluster.ClusterHomeManager;
 import android.car.cluster.ClusterState;
 import android.car.cluster.IClusterHomeService;
@@ -45,9 +48,7 @@ import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
-import android.os.UserHandle;
 import android.text.TextUtils;
-import android.util.IndentingPrintWriter;
 import android.view.Display;
 
 import com.android.car.CarLog;
@@ -57,7 +58,7 @@ import com.android.car.R;
 import com.android.car.am.FixedActivityService;
 import com.android.car.hal.ClusterHalService;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
-import com.android.server.utils.Slogf;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 /**
  * Service responsible for interactions between ClusterOS and ClusterHome.
@@ -85,7 +86,7 @@ public class ClusterHomeService extends IClusterHomeService.Stub
     private Insets mInsets = Insets.NONE;
     private int mUiType = ClusterHomeManager.UI_TYPE_CLUSTER_HOME;
     private Intent mLastIntent;
-    private int mLastIntentUserId = UserHandle.USER_SYSTEM;
+    private int mLastIntentUserId = UserManagerHelper.USER_SYSTEM;
 
     private final RemoteCallbackList<IClusterStateListener> mClientListeners =
             new RemoteCallbackList<>();
@@ -308,7 +309,9 @@ public class ClusterHomeService extends IClusterHomeService.Stub
             return false;
         }
 
-        ActivityOptions activityOptions = ActivityOptions.fromBundle(activityOptionsBundle);
+        ActivityOptions activityOptions = activityOptionsBundle != null
+                ? createActivityOptions(activityOptionsBundle)
+                : ActivityOptions.makeBasic();
         activityOptions.setLaunchDisplayId(mClusterDisplayId);
         mLastIntent = intent;
         mLastIntentUserId = userId;

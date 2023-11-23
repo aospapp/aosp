@@ -295,12 +295,12 @@ public class ONSNetworkScanCtlrTest extends ONSBaseTest {
     }
 
     private NetworkScanRequest createNetworkScanRequest(ArrayList<RadioAccessSpecifier> ras) {
-        AvailableNetworkInfo availableNetworkInfo = new AvailableNetworkInfo.Builder()
-                .setSubId(TEST_SUBSCRIPTION_INFO.getSubscriptionId())
-                .setPriority(AvailableNetworkInfo.PRIORITY_LOW)
-                .setMccMncs(new ArrayList<>(Arrays.asList("310210")))
-                .setRadioAccessSpecifiers(ras)
-                .build();
+        AvailableNetworkInfo availableNetworkInfo =
+                new AvailableNetworkInfo.Builder(TEST_SUBSCRIPTION_INFO.getSubscriptionId())
+                        .setPriority(AvailableNetworkInfo.PRIORITY_LOW)
+                        .setMccMncs(new ArrayList<>(Arrays.asList("310210")))
+                        .setRadioAccessSpecifiers(ras)
+                        .build();
         ArrayList<AvailableNetworkInfo> availableNetworkInfos =
             new ArrayList<AvailableNetworkInfo>();
         availableNetworkInfos.add(availableNetworkInfo);

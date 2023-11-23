@@ -48,14 +48,14 @@ database</a>.
 
 \section license License
 
-The source code of the library is under <a href="http://www.gnu.org/licenses/lgpl.html"> LGPL version 3</a> or later.
+The source code of the library is under the <a href="https://spdx.org/licenses/Apache-2.0.html">Apache version 2 license</a> with the <a href="https://spdx.org/licenses/LLVM-exception.html">LLVM exception</a>.
 
 \section source Getting the source code
 
 You can download compressed tarballs containing the source code of
 Libabigail at http://mirrors.kernel.org/sourceware/libabigail.  The
 latest released version of is source code is
-http://mirrors.kernel.org/sourceware/libabigail/libabigail-1.8.tar.gz.
+http://mirrors.kernel.org/sourceware/libabigail/libabigail-2.0.tar.gz.
 
 You can also get the source code in a read-only manner from our <a
 href="http://sourceware.org/git/gitweb.cgi?p=libabigail.git">Git

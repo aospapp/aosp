@@ -103,7 +103,7 @@
     <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Du kan ikke lagre i den personlige profilen"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT-administratoren din tillater ikke at du lagrer jobbfiler i den personlige profilen din"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Handlingen er ikke tillatt"</string>
-    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"For å finne ut mer, kontakt IT-administratoren din."</string>
+    <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"For å finne ut mer, kontakt IT-administratoren"</string>
     <string name="root_recent" msgid="1080156975424341623">"Nylige"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"<xliff:g id="SIZE">%1$s</xliff:g> ledig"</string>
     <string name="root_type_service" msgid="6521366147466512289">"Lagringstjenester"</string>

@@ -21,9 +21,12 @@
 
 #include <android-base/file.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <binder/BpBinder.h>
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
+#include <binder/Stability.h>
 #include <binder/TextOutput.h>
 #include <binderdebug/BinderDebug.h>
 #include <serviceutils/PriorityDumper.h>
@@ -57,25 +60,30 @@ static int sort_func(const String16* lhs, const String16* rhs)
 }
 
 static void usage() {
-    fprintf(stderr,
-            "usage: dumpsys\n"
-            "         To dump all services.\n"
-            "or:\n"
-            "       dumpsys [-t TIMEOUT] [--priority LEVEL] [--pid] [--thread] [--help | -l | "
-            "--skip SERVICES "
-            "| SERVICE [ARGS]]\n"
-            "         --help: shows this help\n"
-            "         -l: only list services, do not dump them\n"
-            "         -t TIMEOUT_SEC: TIMEOUT to use in seconds instead of default 10 seconds\n"
-            "         -T TIMEOUT_MS: TIMEOUT to use in milliseconds instead of default 10 seconds\n"
-            "         --pid: dump PID instead of usual dump\n"
-            "         --thread: dump thread usage instead of usual dump\n"
-            "         --proto: filter services that support dumping data in proto format. Dumps\n"
-            "               will be in proto format.\n"
-            "         --priority LEVEL: filter services based on specified priority\n"
-            "               LEVEL must be one of CRITICAL | HIGH | NORMAL\n"
-            "         --skip SERVICES: dumps all services but SERVICES (comma-separated list)\n"
-            "         SERVICE [ARGS]: dumps only service SERVICE, optionally passing ARGS to it\n");
+    fprintf(
+        stderr,
+        "usage: dumpsys\n"
+        "         To dump all services.\n"
+        "or:\n"
+        "       dumpsys [-t TIMEOUT] [--priority LEVEL] [--clients] [--dump] [--pid] [--thread] "
+        "[--help | "
+        "-l | --skip SERVICES "
+        "| SERVICE [ARGS]]\n"
+        "         --help: shows this help\n"
+        "         -l: only list services, do not dump them\n"
+        "         -t TIMEOUT_SEC: TIMEOUT to use in seconds instead of default 10 seconds\n"
+        "         -T TIMEOUT_MS: TIMEOUT to use in milliseconds instead of default 10 seconds\n"
+        "         --clients: dump client PIDs instead of usual dump\n"
+        "         --dump: ask the service to dump itself (this is the default)\n"
+        "         --pid: dump PID instead of usual dump\n"
+        "         --proto: filter services that support dumping data in proto format. Dumps\n"
+        "               will be in proto format.\n"
+        "         --priority LEVEL: filter services based on specified priority\n"
+        "               LEVEL must be one of CRITICAL | HIGH | NORMAL\n"
+        "         --skip SERVICES: dumps all services but SERVICES (comma-separated list)\n"
+        "         --stability: dump binder stability information instead of usual dump\n"
+        "         --thread: dump thread usage instead of usual dump\n"
+        "         SERVICE [ARGS]: dumps only service SERVICE, optionally passing ARGS to it\n");
 }
 
 static bool IsSkipped(const Vector<String16>& skipped, const String16& service) {
@@ -125,16 +133,15 @@ int Dumpsys::main(int argc, char* const argv[]) {
     bool showListOnly = false;
     bool skipServices = false;
     bool asProto = false;
-    Type type = Type::DUMP;
+    int dumpTypeFlags = 0;
     int timeoutArgMs = 10000;
     int priorityFlags = IServiceManager::DUMP_FLAG_PRIORITY_ALL;
-    static struct option longOptions[] = {{"thread", no_argument, 0, 0},
-                                          {"pid", no_argument, 0, 0},
-                                          {"priority", required_argument, 0, 0},
-                                          {"proto", no_argument, 0, 0},
-                                          {"skip", no_argument, 0, 0},
-                                          {"help", no_argument, 0, 0},
-                                          {0, 0, 0, 0}};
+    static struct option longOptions[] = {
+        {"help", no_argument, 0, 0},           {"clients", no_argument, 0, 0},
+        {"dump", no_argument, 0, 0},           {"pid", no_argument, 0, 0},
+        {"priority", required_argument, 0, 0}, {"proto", no_argument, 0, 0},
+        {"skip", no_argument, 0, 0},           {"stability", no_argument, 0, 0},
+        {"thread", no_argument, 0, 0},         {0, 0, 0, 0}};
 
     // Must reset optind, otherwise subsequent calls will fail (wouldn't happen on main.cpp, but
     // happens on test cases).
@@ -165,10 +172,16 @@ int Dumpsys::main(int argc, char* const argv[]) {
                     usage();
                     return -1;
                 }
+            } else if (!strcmp(longOptions[optionIndex].name, "dump")) {
+                dumpTypeFlags |= TYPE_DUMP;
             } else if (!strcmp(longOptions[optionIndex].name, "pid")) {
-                type = Type::PID;
+                dumpTypeFlags |= TYPE_PID;
+            } else if (!strcmp(longOptions[optionIndex].name, "stability")) {
+                dumpTypeFlags |= TYPE_STABILITY;
             } else if (!strcmp(longOptions[optionIndex].name, "thread")) {
-                type = Type::THREAD;
+                dumpTypeFlags |= TYPE_THREAD;
+            } else if (!strcmp(longOptions[optionIndex].name, "clients")) {
+                dumpTypeFlags |= TYPE_CLIENTS;
             }
             break;
 
@@ -204,6 +217,10 @@ int Dumpsys::main(int argc, char* const argv[]) {
             usage();
             return -1;
         }
+    }
+
+    if (dumpTypeFlags == 0) {
+        dumpTypeFlags = TYPE_DUMP;
     }
 
     for (int i = optind; i < argc; i++) {
@@ -258,7 +275,7 @@ int Dumpsys::main(int argc, char* const argv[]) {
         const String16& serviceName = services[i];
         if (IsSkipped(skippedServices, serviceName)) continue;
 
-        if (startDumpThread(type, serviceName, args) == OK) {
+        if (startDumpThread(dumpTypeFlags, serviceName, args) == OK) {
             bool addSeparator = (N > 1);
             if (addSeparator) {
                 writeDumpHeader(STDOUT_FILENO, serviceName, priorityFlags);
@@ -325,13 +342,21 @@ void Dumpsys::setServiceArgs(Vector<String16>& args, bool asProto, int priorityF
     }
 }
 
-static status_t dumpPidToFd(const sp<IBinder>& service, const unique_fd& fd) {
+static status_t dumpPidToFd(const sp<IBinder>& service, const unique_fd& fd, bool exclusive) {
      pid_t pid;
      status_t status = service->getDebugPid(&pid);
      if (status != OK) {
          return status;
      }
+     if (!exclusive) {
+        WriteStringToFd("Service host process PID: ", fd.get());
+     }
      WriteStringToFd(std::to_string(pid) + "\n", fd.get());
+     return OK;
+}
+
+static status_t dumpStabilityToFd(const sp<IBinder>& service, const unique_fd& fd) {
+     WriteStringToFd("Stability: " + internal::Stability::debugToString(service) + "\n", fd);
      return OK;
 }
 
@@ -352,7 +377,43 @@ static status_t dumpThreadsToFd(const sp<IBinder>& service, const unique_fd& fd)
     return OK;
 }
 
-status_t Dumpsys::startDumpThread(Type type, const String16& serviceName,
+static status_t dumpClientsToFd(const sp<IBinder>& service, const unique_fd& fd) {
+    std::string clientPids;
+    const auto remoteBinder = service->remoteBinder();
+    if (remoteBinder == nullptr) {
+        WriteStringToFd("Client PIDs are not available for local binders.\n", fd.get());
+        return OK;
+    }
+    const auto handle = remoteBinder->getDebugBinderHandle();
+    if (handle == std::nullopt) {
+        return OK;
+    }
+    std::vector<pid_t> pids;
+    pid_t myPid = getpid();
+    pid_t servicePid;
+    status_t status = service->getDebugPid(&servicePid);
+    if (status != OK) {
+        return status;
+    }
+    status =
+        getBinderClientPids(BinderDebugContext::BINDER, myPid, servicePid, handle.value(), &pids);
+    if (status != OK) {
+        return status;
+    }
+    pids.erase(std::remove_if(pids.begin(), pids.end(), [&](pid_t pid) { return pid == myPid; }),
+               pids.end());
+    WriteStringToFd("Client PIDs: " + ::android::base::Join(pids, ", ") + "\n", fd.get());
+    return OK;
+}
+
+static void reportDumpError(const String16& serviceName, status_t error, const char* context) {
+    if (error == OK) return;
+
+    std::cerr << "Error with service '" << serviceName << "' while " << context << ": "
+              << statusToString(error) << std::endl;
+}
+
+status_t Dumpsys::startDumpThread(int dumpTypeFlags, const String16& serviceName,
                                   const Vector<String16>& args) {
     sp<IBinder> service = sm_->checkService(serviceName);
     if (service == nullptr) {
@@ -373,26 +434,27 @@ status_t Dumpsys::startDumpThread(Type type, const String16& serviceName,
 
     // dump blocks until completion, so spawn a thread..
     activeThread_ = std::thread([=, remote_end{std::move(remote_end)}]() mutable {
-        status_t err = 0;
-
-        switch (type) {
-        case Type::DUMP:
-            err = service->dump(remote_end.get(), args);
-            break;
-        case Type::PID:
-            err = dumpPidToFd(service, remote_end);
-            break;
-        case Type::THREAD:
-            err = dumpThreadsToFd(service, remote_end);
-            break;
-        default:
-            std::cerr << "Unknown dump type" << static_cast<int>(type) << std::endl;
-            return;
+        if (dumpTypeFlags & TYPE_PID) {
+            status_t err = dumpPidToFd(service, remote_end, dumpTypeFlags == TYPE_PID);
+            reportDumpError(serviceName, err, "dumping PID");
+        }
+        if (dumpTypeFlags & TYPE_STABILITY) {
+            status_t err = dumpStabilityToFd(service, remote_end);
+            reportDumpError(serviceName, err, "dumping stability");
+        }
+        if (dumpTypeFlags & TYPE_THREAD) {
+            status_t err = dumpThreadsToFd(service, remote_end);
+            reportDumpError(serviceName, err, "dumping thread info");
+        }
+        if (dumpTypeFlags & TYPE_CLIENTS) {
+            status_t err = dumpClientsToFd(service, remote_end);
+            reportDumpError(serviceName, err, "dumping clients info");
         }
 
-        if (err != OK) {
-            std::cerr << "Error dumping service info status_t: " << statusToString(err) << " "
-                 << serviceName << std::endl;
+        // other types always act as a header, this is usually longer
+        if (dumpTypeFlags & TYPE_DUMP) {
+            status_t err = service->dump(remote_end.get(), args);
+            reportDumpError(serviceName, err, "dumping");
         }
     });
     return OK;

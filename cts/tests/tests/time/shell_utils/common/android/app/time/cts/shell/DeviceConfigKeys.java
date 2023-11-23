@@ -33,53 +33,15 @@ public final class DeviceConfigKeys {
      * Keys and values associated with the location_time_zone_manager.
      * See also {@link LocationTimeZoneManagerShellHelper}.
      */
-    final class LocationTimeZoneManager {
+    public final class LocationTimeZoneManager {
 
         private LocationTimeZoneManager() {
             // No need to instantiate.
         }
 
-        /**
-         * The key for the server flag that can override the device config for whether the primary
-         * location time zone provider is enabled, disabled, or (for testing) in simulation mode.
-         */
-        static final String KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE =
-                "primary_location_time_zone_provider_mode_override";
-
-        /**
-         * The key for the server flag that can override the device config for whether the secondary
-         * location time zone provider is enabled or disabled, or (for testing) in simulation mode.
-         */
-        static final String KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE =
-                "secondary_location_time_zone_provider_mode_override";
-
-        /**
-         * The "simulated" provider mode.
-         * For use with {@link #KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE} and {@link
-         * #KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE}.
-         */
-        static final String PROVIDER_MODE_SIMULATED = "simulated";
-
-        /**
-         * The "disabled" provider mode (equivalent to there being no provider configured).
-         * For use with {@link #KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE} and {@link
-         * #KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_MODE_OVERRIDE}.
-         */
-        static final String PROVIDER_MODE_DISABLED = "disabled";
-
-        /**
-         * The key for the server flag that can override the device config for the package name of
-         * the primary provider (when enabled).
-         */
-        static final String KEY_PRIMARY_LOCATION_TIME_ZONE_PROVIDER_PACKAGE_NAME_OVERRIDE =
-                "primary_location_time_zone_provider_package_name_override";
-
-        /**
-         * The key for the server flag that can override the device config for the package name of
-         * the secondary provider (when enabled).
-         */
-        static final String KEY_SECONDARY_LOCATION_TIME_ZONE_PROVIDER_PACKAGE_NAME_OVERRIDE =
-                "secondary_location_time_zone_provider_package_name_override";
+        /** The key for the setting that controls rate limiting of provider events. */
+        public static final String KEY_LTZP_EVENT_FILTERING_AGE_THRESHOLD_MILLIS =
+                "ltzp_event_filtering_age_threshold_millis";
     }
 
     /**

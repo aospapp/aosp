@@ -31,7 +31,7 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class ServiceManager {
+class ServiceManager final {
 public:
     static android::base::Result<void> startServices(const android::sp<Looper>& looper);
     static android::base::Result<void> startBinderMediator();
@@ -41,10 +41,10 @@ private:
     static android::base::Result<void> startProcessAnrMonitor(const android::sp<Looper>& looper);
     static android::base::Result<void> startPerfService();
 
-    static android::sp<WatchdogProcessService> sWatchdogProcessService;
+    static android::sp<WatchdogProcessServiceInterface> sWatchdogProcessService;
     static android::sp<WatchdogPerfServiceInterface> sWatchdogPerfService;
-    static android::sp<WatchdogBinderMediator> sWatchdogBinderMediator;
-    static android::sp<IWatchdogServiceHelper> sWatchdogServiceHelper;
+    static android::sp<WatchdogBinderMediatorInterface> sWatchdogBinderMediator;
+    static android::sp<WatchdogServiceHelperInterface> sWatchdogServiceHelper;
 };
 
 }  // namespace watchdog

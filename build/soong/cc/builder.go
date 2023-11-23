@@ -21,6 +21,7 @@ package cc
 import (
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/google/blueprint"
@@ -164,6 +165,12 @@ var (
 		}
 	}()
 
+	darwinLipo = pctx.AndroidStaticRule("darwinLipo",
+		blueprint.RuleParams{
+			Command:     "${config.MacLipoPath} -create -output $out $in",
+			CommandDeps: []string{"${config.MacLipoPath}"},
+		})
+
 	_ = pctx.SourcePathVariable("archiveRepackPath", "build/soong/scripts/archive_repack.sh")
 
 	// Rule to repack an archive (.a) file with a subset of object files.
@@ -196,21 +203,43 @@ var (
 		"clangBin", "format")
 
 	// Rule for invoking clang-tidy (a clang-based linter).
-	clangTidy, clangTidyRE = pctx.RemoteStaticRules("clangTidy",
+	clangTidyDep, clangTidyDepRE = pctx.RemoteStaticRules("clangTidyDep",
 		blueprint.RuleParams{
-			Command:     "rm -f $out && $reTemplate${config.ClangBin}/clang-tidy $tidyFlags $in -- $cFlags && touch $out",
-			CommandDeps: []string{"${config.ClangBin}/clang-tidy"},
+			Depfile: "$out",
+			Deps:    blueprint.DepsGCC,
+			Command: "${config.CcWrapper}$ccCmd $cFlags -E -o /dev/null $in " +
+				"-MQ $tidyFile -MD -MF $out",
+			CommandDeps: []string{"$ccCmd"},
 		},
 		&remoteexec.REParams{
 			Labels:       map[string]string{"type": "lint", "tool": "clang-tidy", "lang": "cpp"},
 			ExecStrategy: "${config.REClangTidyExecStrategy}",
 			Inputs:       []string{"$in"},
-			// OutputFile here is $in for remote-execution since its possible that
-			// clang-tidy modifies the given input file itself and $out refers to the
-			// ".tidy" file generated for ninja-dependency reasons.
-			OutputFiles: []string{"$in"},
-			Platform:    map[string]string{remoteexec.PoolKey: "${config.REClangTidyPool}"},
-		}, []string{"cFlags", "tidyFlags"}, []string{})
+			Platform:     map[string]string{remoteexec.PoolKey: "${config.REClangTidyPool}"},
+		}, []string{"ccCmd", "cFlags", "tidyFile"}, []string{})
+
+	clangTidy, clangTidyRE = pctx.RemoteStaticRules("clangTidy",
+		blueprint.RuleParams{
+			Depfile: "${out}.d",
+			Deps:    blueprint.DepsGCC,
+			Command: "cp ${out}.dep ${out}.d && " +
+				"$tidyVars$reTemplate${config.ClangBin}/clang-tidy $tidyFlags $in -- $cFlags && " +
+				"touch $out",
+			CommandDeps: []string{"${config.ClangBin}/clang-tidy"},
+		},
+		&remoteexec.REParams{
+			Labels:               map[string]string{"type": "lint", "tool": "clang-tidy", "lang": "cpp"},
+			ExecStrategy:         "${config.REClangTidyExecStrategy}",
+			Inputs:               []string{"$in", "${out}.dep"},
+			EnvironmentVariables: []string{"TIDY_TIMEOUT"},
+			// Although clang-tidy has an option to "fix" source files, that feature is hardly useable
+			// under parallel compilation and RBE. So we assume no OutputFiles here.
+			// The clang-tidy fix option is best run locally in single thread.
+			// Copying source file back to local caused two problems:
+			// (1) New timestamps trigger clang and clang-tidy compilations again.
+			// (2) Changing source files caused concurrent clang or clang-tidy jobs to crash.
+			Platform: map[string]string{remoteexec.PoolKey: "${config.REClangTidyPool}"},
+		}, []string{"cFlags", "tidyFlags", "tidyVars"}, []string{})
 
 	_ = pctx.SourcePathVariable("yasmCmd", "prebuilts/misc/${config.HostPrebuiltTag}/yasm/yasm")
 
@@ -224,20 +253,12 @@ var (
 		},
 		"asFlags")
 
-	// Rule to invoke windres, for interaction with Windows resources.
-	windres = pctx.AndroidStaticRule("windres",
-		blueprint.RuleParams{
-			Command:     "$windresCmd $flags -I$$(dirname $in) -i $in -o $out --preprocessor \"${config.ClangBin}/clang -E -xc-header -DRC_INVOKED\"",
-			CommandDeps: []string{"$windresCmd"},
-		},
-		"windresCmd", "flags")
-
 	_ = pctx.SourcePathVariable("sAbiDumper", "prebuilts/clang-tools/${config.HostPrebuiltTag}/bin/header-abi-dumper")
 
 	// -w has been added since header-abi-dumper does not need to produce any sort of diagnostic information.
 	sAbiDump, sAbiDumpRE = pctx.RemoteStaticRules("sAbiDump",
 		blueprint.RuleParams{
-			Command:     "rm -f $out && $reTemplate$sAbiDumper -o ${out} $in $exportDirs -- $cFlags -w -isystem prebuilts/clang-tools/${config.HostPrebuiltTag}/clang-headers",
+			Command:     "rm -f $out && $reTemplate$sAbiDumper --root-dir . --root-dir $$OUT_DIR:out -o ${out} $in $exportDirs -- $cFlags -w -isystem prebuilts/clang-tools/${config.HostPrebuiltTag}/clang-headers",
 			CommandDeps: []string{"$sAbiDumper"},
 		}, &remoteexec.REParams{
 			Labels:       map[string]string{"type": "abi-dump", "tool": "header-abi-dumper"},
@@ -255,7 +276,7 @@ var (
 	// sAbi dump file.
 	sAbiLink, sAbiLinkRE = pctx.RemoteStaticRules("sAbiLink",
 		blueprint.RuleParams{
-			Command:        "$reTemplate$sAbiLinker -o ${out} $symbolFilter -arch $arch  $exportedHeaderFlags @${out}.rsp ",
+			Command:        "$reTemplate$sAbiLinker --root-dir . --root-dir $$OUT_DIR:out -o ${out} $symbolFilter -arch $arch $exportedHeaderFlags @${out}.rsp",
 			CommandDeps:    []string{"$sAbiLinker"},
 			Rspfile:        "${out}.rsp",
 			RspfileContent: "${in}",
@@ -375,17 +396,15 @@ type builderFlags struct {
 	toolchain     config.Toolchain
 
 	// True if these extra features are enabled.
-	tidy         bool
-	gcovCoverage bool
-	sAbiDump     bool
-	emitXrefs    bool
+	tidy          bool
+	needTidyFiles bool
+	gcovCoverage  bool
+	sAbiDump      bool
+	emitXrefs     bool
 
 	assemblerWithCpp bool // True if .s files should be processed with the c preprocessor.
 
 	systemIncludeFlags string
-
-	// True if static libraries should be grouped (using `-Wl,--start-group` and `-Wl,--end-group`).
-	groupStaticLibs bool
 
 	proto            android.ProtoFlags
 	protoC           bool // If true, compile protos as `.c` files. Otherwise, output as `.cc`.
@@ -411,6 +430,7 @@ type StripFlags struct {
 type Objects struct {
 	objFiles      android.Paths
 	tidyFiles     android.Paths
+	tidyDepFiles  android.Paths // link dependent .tidy files
 	coverageFiles android.Paths
 	sAbiDumpFiles android.Paths
 	kytheFiles    android.Paths
@@ -420,6 +440,7 @@ func (a Objects) Copy() Objects {
 	return Objects{
 		objFiles:      append(android.Paths{}, a.objFiles...),
 		tidyFiles:     append(android.Paths{}, a.tidyFiles...),
+		tidyDepFiles:  append(android.Paths{}, a.tidyDepFiles...),
 		coverageFiles: append(android.Paths{}, a.coverageFiles...),
 		sAbiDumpFiles: append(android.Paths{}, a.sAbiDumpFiles...),
 		kytheFiles:    append(android.Paths{}, a.kytheFiles...),
@@ -430,6 +451,7 @@ func (a Objects) Append(b Objects) Objects {
 	return Objects{
 		objFiles:      append(a.objFiles, b.objFiles...),
 		tidyFiles:     append(a.tidyFiles, b.tidyFiles...),
+		tidyDepFiles:  append(a.tidyDepFiles, b.tidyDepFiles...),
 		coverageFiles: append(a.coverageFiles, b.coverageFiles...),
 		sAbiDumpFiles: append(a.sAbiDumpFiles, b.sAbiDumpFiles...),
 		kytheFiles:    append(a.kytheFiles, b.kytheFiles...),
@@ -437,14 +459,26 @@ func (a Objects) Append(b Objects) Objects {
 }
 
 // Generate rules for compiling multiple .c, .cpp, or .S files to individual .o files
-func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles android.Paths,
+func transformSourceToObj(ctx ModuleContext, subdir string, srcFiles, noTidySrcs, timeoutTidySrcs android.Paths,
 	flags builderFlags, pathDeps android.Paths, cFlagsDeps android.Paths) Objects {
-
 	// Source files are one-to-one with tidy, coverage, or kythe files, if enabled.
 	objFiles := make(android.Paths, len(srcFiles))
 	var tidyFiles android.Paths
+	noTidySrcsMap := make(map[string]bool)
+	var tidyVars string
 	if flags.tidy {
 		tidyFiles = make(android.Paths, 0, len(srcFiles))
+		for _, path := range noTidySrcs {
+			noTidySrcsMap[path.String()] = true
+		}
+		tidyTimeout := ctx.Config().Getenv("TIDY_TIMEOUT")
+		if len(tidyTimeout) > 0 {
+			tidyVars += "TIDY_TIMEOUT=" + tidyTimeout + " "
+			// add timeoutTidySrcs into noTidySrcsMap if TIDY_TIMEOUT is set
+			for _, path := range timeoutTidySrcs {
+				noTidySrcsMap[path.String()] = true
+			}
+		}
 	}
 	var coverageFiles android.Paths
 	if flags.gcovCoverage {
@@ -500,10 +534,43 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 		sAbiDumpFiles = make(android.Paths, 0, len(srcFiles))
 	}
 
-	cflags += " ${config.NoOverrideClangGlobalCflags}"
-	toolingCflags += " ${config.NoOverrideClangGlobalCflags}"
-	cppflags += " ${config.NoOverrideClangGlobalCflags}"
-	toolingCppflags += " ${config.NoOverrideClangGlobalCflags}"
+	cflags += " ${config.NoOverrideGlobalCflags}"
+	toolingCflags += " ${config.NoOverrideGlobalCflags}"
+	cppflags += " ${config.NoOverrideGlobalCflags}"
+	toolingCppflags += " ${config.NoOverrideGlobalCflags}"
+
+	modulePath := android.PathForModuleSrc(ctx).String()
+	if android.IsThirdPartyPath(modulePath) {
+		cflags += " ${config.NoOverrideExternalGlobalCflags}"
+		toolingCflags += " ${config.NoOverrideExternalGlobalCflags}"
+		cppflags += " ${config.NoOverrideExternalGlobalCflags}"
+		toolingCppflags += " ${config.NoOverrideExternalGlobalCflags}"
+	}
+
+	// Multiple source files have build rules usually share the same cFlags or tidyFlags.
+	// Define only one version in this module and share it in multiple build rules.
+	// To simplify the code, the shared variables are all named as $flags<nnn>.
+	shared := ctx.getSharedFlags()
+
+	// Share flags only when there are multiple files or tidy rules.
+	var hasMultipleRules = len(srcFiles) > 1 || flags.tidy
+
+	var shareFlags = func(kind string, flags string) string {
+		if !hasMultipleRules || len(flags) < 60 {
+			// Modules have long names and so do the module variables.
+			// It does not save space by replacing a short name with a long one.
+			return flags
+		}
+		mapKey := kind + flags
+		n, ok := shared.flagsMap[mapKey]
+		if !ok {
+			shared.numSharedFlags += 1
+			n = strconv.Itoa(shared.numSharedFlags)
+			shared.flagsMap[mapKey] = n
+			ctx.Variable(pctx, kind+n, flags)
+		}
+		return "$" + kind + n
+	}
 
 	for i, srcFile := range srcFiles {
 		objFile := android.ObjPathWithExt(ctx, subdir, srcFile, "o")
@@ -521,21 +588,7 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 				Implicits:   cFlagsDeps,
 				OrderOnly:   pathDeps,
 				Args: map[string]string{
-					"asFlags": flags.globalYasmFlags + " " + flags.localYasmFlags,
-				},
-			})
-			continue
-		case ".rc":
-			ctx.Build(pctx, android.BuildParams{
-				Rule:        windres,
-				Description: "windres " + srcFile.Rel(),
-				Output:      objFile,
-				Input:       srcFile,
-				Implicits:   cFlagsDeps,
-				OrderOnly:   pathDeps,
-				Args: map[string]string{
-					"windresCmd": gccCmd(flags.toolchain, "windres"),
-					"flags":      flags.toolchain.WindresFlags(),
+					"asFlags": shareFlags("asFlags", flags.globalYasmFlags+" "+flags.localYasmFlags),
 				},
 			})
 			continue
@@ -603,8 +656,8 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 			Implicits:       cFlagsDeps,
 			OrderOnly:       pathDeps,
 			Args: map[string]string{
-				"cFlags": moduleFlags,
-				"ccCmd":  ccCmd,
+				"cFlags": shareFlags("cFlags", moduleFlags),
+				"ccCmd":  ccCmd, // short and not shared
 			},
 		})
 
@@ -619,34 +672,54 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 				Implicits:   cFlagsDeps,
 				OrderOnly:   pathDeps,
 				Args: map[string]string{
-					"cFlags": moduleFlags,
+					"cFlags": shareFlags("cFlags", moduleFlags),
 				},
 			})
 			kytheFiles = append(kytheFiles, kytheFile)
 		}
 
-		if tidy {
+		//  Even with tidy, some src file could be skipped by noTidySrcsMap.
+		if tidy && !noTidySrcsMap[srcFile.String()] {
 			tidyFile := android.ObjPathWithExt(ctx, subdir, srcFile, "tidy")
+			tidyDepFile := android.ObjPathWithExt(ctx, subdir, srcFile, "tidy.dep")
 			tidyFiles = append(tidyFiles, tidyFile)
 
+			ruleDep := clangTidyDep
 			rule := clangTidy
 			if ctx.Config().UseRBE() && ctx.Config().IsEnvTrue("RBE_CLANG_TIDY") {
+				ruleDep = clangTidyDepRE
 				rule = clangTidyRE
 			}
 
+			sharedCFlags := shareFlags("cFlags", moduleFlags)
+			srcRelPath := srcFile.Rel()
+
+			// Add the .tidy.d rule
+			ctx.Build(pctx, android.BuildParams{
+				Rule:        ruleDep,
+				Description: "clang-tidy-dep " + srcRelPath,
+				Output:      tidyDepFile,
+				Input:       srcFile,
+				Implicits:   cFlagsDeps,
+				OrderOnly:   pathDeps,
+				Args: map[string]string{
+					"ccCmd":    ccCmd,
+					"cFlags":   sharedCFlags,
+					"tidyFile": tidyFile.String(),
+				},
+			})
+			// Add the .tidy rule with order only dependency on the .tidy.d file
 			ctx.Build(pctx, android.BuildParams{
 				Rule:        rule,
-				Description: "clang-tidy " + srcFile.Rel(),
+				Description: "clang-tidy " + srcRelPath,
 				Output:      tidyFile,
 				Input:       srcFile,
-				// We must depend on objFile, since clang-tidy doesn't
-				// support exporting dependencies.
-				Implicit:  objFile,
-				Implicits: cFlagsDeps,
-				OrderOnly: pathDeps,
+				Implicits:   cFlagsDeps,
+				OrderOnly:   append(android.Paths{}, tidyDepFile),
 				Args: map[string]string{
-					"cFlags":    moduleToolingFlags,
-					"tidyFlags": flags.tidyFlags,
+					"cFlags":    sharedCFlags,
+					"tidyFlags": shareFlags("tidyFlags", config.TidyFlagsForSrcFile(srcFile, flags.tidyFlags)),
+					"tidyVars":  tidyVars, // short and not shared
 				},
 			})
 		}
@@ -655,10 +728,8 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 			sAbiDumpFile := android.ObjPathWithExt(ctx, subdir, srcFile, "sdump")
 			sAbiDumpFiles = append(sAbiDumpFiles, sAbiDumpFile)
 
+			// TODO(b/226497964): dumpRule = sAbiDumpRE if USE_RBE and RBE_ABI_DUMPER are true.
 			dumpRule := sAbiDump
-			if ctx.Config().UseRBE() && ctx.Config().IsEnvTrue("RBE_ABI_DUMPER") {
-				dumpRule = sAbiDumpRE
-			}
 			ctx.Build(pctx, android.BuildParams{
 				Rule:        dumpRule,
 				Description: "header-abi-dumper " + srcFile.Rel(),
@@ -668,17 +739,22 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 				Implicits:   cFlagsDeps,
 				OrderOnly:   pathDeps,
 				Args: map[string]string{
-					"cFlags":     moduleToolingFlags,
-					"exportDirs": flags.sAbiFlags,
+					"cFlags":     shareFlags("cFlags", moduleToolingFlags),
+					"exportDirs": shareFlags("exportDirs", flags.sAbiFlags),
 				},
 			})
 		}
 
 	}
 
+	var tidyDepFiles android.Paths
+	if flags.needTidyFiles {
+		tidyDepFiles = tidyFiles
+	}
 	return Objects{
 		objFiles:      objFiles,
 		tidyFiles:     tidyFiles,
+		tidyDepFiles:  tidyDepFiles,
 		coverageFiles: coverageFiles,
 		sAbiDumpFiles: sAbiDumpFiles,
 		kytheFiles:    kytheFiles,
@@ -688,12 +764,12 @@ func transformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 // Generate a rule for compiling multiple .o files to a static library (.a)
 func transformObjToStaticLib(ctx android.ModuleContext,
 	objFiles android.Paths, wholeStaticLibs android.Paths,
-	flags builderFlags, outputFile android.ModuleOutPath, deps android.Paths) {
+	flags builderFlags, outputFile android.ModuleOutPath, deps android.Paths, validations android.Paths) {
 
 	arCmd := "${config.ClangBin}/llvm-ar"
 	arFlags := ""
 	if !ctx.Darwin() {
-		arFlags += " -format=gnu"
+		arFlags += " --format=gnu"
 	}
 
 	if len(wholeStaticLibs) == 0 {
@@ -703,6 +779,7 @@ func transformObjToStaticLib(ctx android.ModuleContext,
 			Output:      outputFile,
 			Inputs:      objFiles,
 			Implicits:   deps,
+			Validations: validations,
 			Args: map[string]string{
 				"arFlags": "crsPD" + arFlags,
 				"arCmd":   arCmd,
@@ -730,8 +807,9 @@ func transformObjToStaticLib(ctx android.ModuleContext,
 // Generate a rule for compiling multiple .o files, plus static libraries, whole static libraries,
 // and shared libraries, to a shared library (.so) or dynamic executable
 func transformObjToDynamicBinary(ctx android.ModuleContext,
-	objFiles, sharedLibs, staticLibs, lateStaticLibs, wholeStaticLibs, deps android.Paths,
-	crtBegin, crtEnd android.OptionalPath, groupLate bool, flags builderFlags, outputFile android.WritablePath, implicitOutputs android.WritablePaths) {
+	objFiles, sharedLibs, staticLibs, lateStaticLibs, wholeStaticLibs, deps, crtBegin, crtEnd android.Paths,
+	groupLate bool, flags builderFlags, outputFile android.WritablePath,
+	implicitOutputs android.WritablePaths, validations android.Paths) {
 
 	ldCmd := "${config.ClangBin}/clang++"
 
@@ -751,13 +829,7 @@ func transformObjToDynamicBinary(ctx android.ModuleContext,
 		}
 	}
 
-	if flags.groupStaticLibs && !ctx.Darwin() && len(staticLibs) > 0 {
-		libFlagsList = append(libFlagsList, "-Wl,--start-group")
-	}
 	libFlagsList = append(libFlagsList, staticLibs.Strings()...)
-	if flags.groupStaticLibs && !ctx.Darwin() && len(staticLibs) > 0 {
-		libFlagsList = append(libFlagsList, "-Wl,--end-group")
-	}
 
 	if groupLate && !ctx.Darwin() && len(lateStaticLibs) > 0 {
 		libFlagsList = append(libFlagsList, "-Wl,--start-group")
@@ -778,18 +850,17 @@ func transformObjToDynamicBinary(ctx android.ModuleContext,
 	deps = append(deps, staticLibs...)
 	deps = append(deps, lateStaticLibs...)
 	deps = append(deps, wholeStaticLibs...)
-	if crtBegin.Valid() {
-		deps = append(deps, crtBegin.Path(), crtEnd.Path())
-	}
+	deps = append(deps, crtBegin...)
+	deps = append(deps, crtEnd...)
 
 	rule := ld
 	args := map[string]string{
 		"ldCmd":         ldCmd,
-		"crtBegin":      crtBegin.String(),
+		"crtBegin":      strings.Join(crtBegin.Strings(), " "),
 		"libFlags":      strings.Join(libFlagsList, " "),
 		"extraLibFlags": flags.extraLibFlags,
 		"ldFlags":       flags.globalLdFlags + " " + flags.localLdFlags,
-		"crtEnd":        crtEnd.String(),
+		"crtEnd":        strings.Join(crtEnd.Strings(), " "),
 	}
 	if ctx.Config().UseRBE() && ctx.Config().IsEnvTrue("RBE_CXX_LINKS") {
 		rule = ldRE
@@ -805,6 +876,7 @@ func transformObjToDynamicBinary(ctx android.ModuleContext,
 		Inputs:          objFiles,
 		Implicits:       deps,
 		OrderOnly:       sharedLibs,
+		Validations:     validations,
 		Args:            args,
 	})
 }
@@ -870,9 +942,10 @@ func unzipRefDump(ctx android.ModuleContext, zippedRefDump android.Path, baseNam
 	return outputFile
 }
 
-// sourceAbiDiff registers a build statement to compare linked sAbi dump files (.ldump).
+// sourceAbiDiff registers a build statement to compare linked sAbi dump files (.lsdump).
 func sourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceDump android.Path,
-	baseName, exportedHeaderFlags string, checkAllApis, isLlndk, isNdk, isVndkExt bool) android.OptionalPath {
+	baseName, exportedHeaderFlags string, diffFlags []string,
+	checkAllApis, isLlndk, isNdk, isVndkExt bool) android.OptionalPath {
 
 	outputFile := android.PathForModuleOut(ctx, baseName+".abidiff")
 	libName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
@@ -903,6 +976,8 @@ func sourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceD
 	if isVndkExt {
 		extraFlags = append(extraFlags, "-allow-extensions")
 	}
+	// TODO(b/232891473): Simplify the above logic with diffFlags.
+	extraFlags = append(extraFlags, diffFlags...)
 
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        sAbiDiff,
@@ -922,8 +997,7 @@ func sourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceD
 }
 
 // Generate a rule for extracting a table of contents from a shared library (.so)
-func transformSharedObjectToToc(ctx android.ModuleContext, inputFile android.Path,
-	outputFile android.WritablePath, flags builderFlags) {
+func TransformSharedObjectToToc(ctx android.ModuleContext, inputFile android.Path, outputFile android.WritablePath) {
 
 	var format string
 	if ctx.Darwin() {
@@ -1034,6 +1108,15 @@ func transformDarwinStrip(ctx android.ModuleContext, inputFile android.Path,
 	})
 }
 
+func transformDarwinUniversalBinary(ctx android.ModuleContext, outputFile android.WritablePath, inputFiles ...android.Path) {
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        darwinLipo,
+		Description: "lipo " + outputFile.Base(),
+		Output:      outputFile,
+		Inputs:      inputFiles,
+	})
+}
+
 // Registers build statement to zip one or more coverage files.
 func transformCoverageFilesToZip(ctx android.ModuleContext,
 	inputs Objects, baseName string) android.OptionalPath {
@@ -1069,6 +1152,6 @@ func transformArchiveRepack(ctx android.ModuleContext, inputFile android.Path,
 	})
 }
 
-func gccCmd(toolchain config.Toolchain, cmd string) string {
+func mingwCmd(toolchain config.Toolchain, cmd string) string {
 	return filepath.Join(toolchain.GccRoot(), "bin", toolchain.GccTriple()+"-"+cmd)
 }

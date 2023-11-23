@@ -12,4 +12,4 @@ export CHRE_VARIANT_MK_INCLUDES="$CHRE_VARIANT_MK_INCLUDES \
 
 make clean
 make google_x86_googletest_debug -j$JOB_COUNT
-./out/google_x86_googletest_debug/libchre $1
+./out/google_x86_googletest_debug/libchre "$@"

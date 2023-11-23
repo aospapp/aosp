@@ -34,8 +34,7 @@ import java.util.function.BiConsumer;
  *
  * The actions will run on the UI thread.
  */
-class OnShutdownReboot {
-    private final Object mLock = new Object();
+public class OnShutdownReboot {
 
     private final Context mContext;
 
@@ -51,20 +50,28 @@ class OnShutdownReboot {
     private final CopyOnWriteArrayList<BiConsumer<Context, Intent>> mActions =
             new CopyOnWriteArrayList<>();
 
-    OnShutdownReboot(Context context) {
+    public OnShutdownReboot(Context context) {
         mContext = context;
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SHUTDOWN);
         filter.addAction(Intent.ACTION_REBOOT);
-        mContext.registerReceiver(mReceiver, filter);
+        mContext.registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
-    OnShutdownReboot addAction(BiConsumer<Context, Intent> action) {
+    /** Adds an action to be done at reboot/shutdown. */
+    public OnShutdownReboot addAction(BiConsumer<Context, Intent> action) {
         mActions.add(action);
         return this;
     }
 
-    void clearActions() {
+    /** Clears all actions. */
+    public void clearActions() {
         mActions.clear();
+    }
+
+    /** Releases all resources and unregisters the broadcast receiver. */
+    public void release() {
+        clearActions();
+        mContext.unregisterReceiver(mReceiver);
     }
 }

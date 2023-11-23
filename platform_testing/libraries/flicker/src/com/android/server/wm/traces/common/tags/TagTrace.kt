@@ -21,11 +21,9 @@ import com.android.server.wm.traces.common.ITrace
 /**
  * Holds the entire list of [TagState]s representing an entire trace that has been tagged.
  * @param entries Array of tagged states within the trace
- * @param source Source of the trace file
  */
 data class TagTrace(
-    override val entries: Array<TagState>,
-    override val source: String
+    override val entries: Array<TagState>
 ) : ITrace<TagState>,
     List<TagState> by entries.toList() {
     override fun toString(): String = "FlickerTagTrace(${entries.firstOrNull()?.timestamp ?: 0}, " +
@@ -35,13 +33,11 @@ data class TagTrace(
         if (this === other) return true
         if (other !is TagTrace) return false
         if (!entries.contentEquals(other.entries)) return false
-        if (source != other.source) return false
         return true
     }
 
     override fun hashCode(): Int {
         var result = entries.contentDeepHashCode()
-        result = 31 * result + source.hashCode()
         return result
     }
 }

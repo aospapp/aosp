@@ -13,6 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This project defines a module named libc2plugin_store which is installed into
+// $OUT/vendor/lib/libc2plugin_store.so. Although the module can be overridden,
+// the output filename cannot (b/204136549).
+//
+// See README.md for how to use the implementation from v4l2_codec2.
+soong_namespace {
+    // No imports
+}
+
 package {
     default_applicable_licenses: ["external_v4l2_codec2_license"],
 }

@@ -53,6 +53,7 @@ public class EapSessionConfigTest {
 
     private static final int SUB_ID = 1;
     private static final byte[] EAP_IDENTITY = "test@android.net".getBytes();
+    private static final byte[] EAP_REAUTH_IDENTITY = "testFastReauth@android.net".getBytes();
     private static final String NETWORK_NAME = "android.net";
     private static final String EAP_MSCHAPV2_USERNAME = "username";
     private static final String EAP_MSCHAPV2_PASSWORD = "password";
@@ -105,11 +106,12 @@ public class EapSessionConfigTest {
         assertTrue(NETWORK_NAME, eapAkaPrimeConfig.allowsMismatchedNetworkNames());
         verifyEapUiccConfigCommon(eapAkaPrimeConfig);
 
-        EapMsChapV2Config eapMsChapV2Config = result.getEapMsChapV2onfig();
+        EapMsChapV2Config eapMsChapV2Config = result.getEapMsChapV2Config();
         assertNotNull(eapMsChapV2Config);
         assertEquals(EAP_TYPE_MSCHAP_V2, eapMsChapV2Config.getMethodType());
         assertEquals(EAP_MSCHAPV2_USERNAME, eapMsChapV2Config.getUsername());
         assertEquals(EAP_MSCHAPV2_PASSWORD, eapMsChapV2Config.getPassword());
+        assertEquals(eapMsChapV2Config, result.getEapMsChapV2onfig());
 
         EapTtlsConfig eapTtlsConfig = result.getEapTtlsConfig();
         assertNotNull(eapTtlsConfig);
@@ -118,8 +120,28 @@ public class EapSessionConfigTest {
         assertEquals(INNER_EAP_SESSION_CONFIG, eapTtlsConfig.getInnerEapSessionConfig());
     }
 
+    @Test
+    public void testBuildEapAkaConfigWithOption() {
+        EapSessionConfig result =
+                new EapSessionConfig.Builder()
+                        .setEapIdentity(EAP_IDENTITY)
+                        .setEapAkaConfig(SUB_ID, APPTYPE_USIM,
+                                new EapSessionConfig.EapAkaOption.Builder()
+                                        .setReauthId(EAP_REAUTH_IDENTITY).build())
+                        .build();
+        EapAkaConfig eapAkaConfig = result.getEapAkaConfig();
+        assertNotNull(eapAkaConfig);
+        assertEquals(EAP_TYPE_AKA, eapAkaConfig.getMethodType());
+        verifyEapUiccConfigCommon(eapAkaConfig);
+        verifyEapAkaConfigWithOption(eapAkaConfig);
+    }
+
     private void verifyEapUiccConfigCommon(EapUiccConfig config) {
         assertEquals(SUB_ID, config.getSubId());
         assertEquals(APPTYPE_USIM, config.getAppType());
+    }
+
+    private void verifyEapAkaConfigWithOption(EapAkaConfig config) {
+        assertArrayEquals(EAP_REAUTH_IDENTITY, config.getEapAkaOption().getReauthId());
     }
 }

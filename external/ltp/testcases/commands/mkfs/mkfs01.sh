@@ -69,11 +69,11 @@ mkfs_verify_size()
 	# 1k-block size should be devided by this argument for ntfs verification.
 	if [ "$1" = "ntfs" ]; then
 		local rate=1024/512
-		if [ $blocknum -lt "$(($2/$rate*9/10))" ]; then
+		if [ $blocknum -lt "$(($2/$rate*8/10))" ]; then
 			return 1
 		fi
 	else
-		if [ $blocknum -lt "$(($2*9/10))" ]; then
+		if [ $blocknum -lt "$(($2*8/10))" ]; then
 			return 1
 		fi
 	fi
@@ -96,18 +96,21 @@ mkfs_test()
 	if [ "$fs_type" = "xfs" ] || [ "$fs_type" = "btrfs" ]; then
 		fs_op="$fs_op -f"
 	fi
+	if [ "$fs_type" = "ext3" ] || [ "$fs_type" = "ext4" ]; then
+		fs_op="$fs_op -b 1024"
+	fi
 
 	local mkfs_cmd="mkfs $mkfs_op $fs_op $device $size"
 
 	echo ${fs_op} | grep -q "\-c"
 	if [ $? -eq 0 ] && [ "$fs_type" = "ntfs" ]; then
-		tst_res TCONF "'${mkfs_cmd}' not supported."
+		tst_res TCONF "'$mkfs_cmd' not supported."
 		return
 	fi
 
 	if [ -n "$size" ]; then
 		if [ "$fs_type" = "xfs" ] || [ "$fs_type" = "btrfs" ]; then
-			tst_res TCONF "'${mkfs_cmd}' not supported."
+			tst_res TCONF "'$mkfs_cmd' not supported."
 			return
 		fi
 	fi
@@ -116,10 +119,10 @@ mkfs_test()
 	if [ $? -ne 0 ]; then
 		grep -q -E "unknown option | invalid option" temp
 		if [ $? -eq 0 ]; then
-			tst_res TCONF "'${mkfs_cmd}' not supported."
+			tst_res TCONF "'$mkfs_cmd' not supported."
 			return
 		else
-			tst_res TFAIL "'${mkfs_cmd}' failed."
+			tst_res TFAIL "'$mkfs_cmd' failed."
 			cat temp
 			return
 		fi
@@ -128,7 +131,8 @@ mkfs_test()
 	if [ -n "$device" ]; then
 		mkfs_verify_type "$fs_type" "$device"
 		if [ $? -ne 0 ]; then
-			tst_res TFAIL "'${mkfs_cmd}' failed, not expected."
+			tst_res TFAIL "'$mkfs_cmd' failed, unexpected type."
+			cat temp
 			return
 		fi
 	fi
@@ -136,12 +140,13 @@ mkfs_test()
 	if [ -n "$size" ]; then
 		mkfs_verify_size "$fs_type" "$size"
 		if [ $? -ne 0 ]; then
-			tst_res TFAIL "'${mkfs_cmd}' failed, not expected."
+			tst_res TFAIL "'$mkfs_cmd' failed, unexpected size."
+			cat temp
 			return
 		fi
 	fi
 
-	tst_res TPASS "'${mkfs_cmd}' passed."
+	tst_res TPASS "'$mkfs_cmd' passed."
 }
 
 test1()

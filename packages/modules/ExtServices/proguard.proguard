@@ -13,3 +13,8 @@
 -keepclassmembers enum * {
     public static **[] values();
 }
+
+# Keep proto class members
+-keepclassmembers class * extends com.android.textclassifier.protobuf.GeneratedMessageLite {
+  <fields>;
+}

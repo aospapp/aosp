@@ -22,7 +22,7 @@ import com.android.wallpaper.picker.MyPhotosStarter;
  */
 public interface PermissionRequester {
     /**
-     * Requests the {@link android.Manifest.permission#READ_EXTERNAL_STORAGE} permission.
+     * Requests the {@link android.Manifest.permission#READ_MEDIA_IMAGES} permission.
      *
      * @param listener the listener to be notified of permissions grant status changes
      */

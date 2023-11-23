@@ -21,16 +21,16 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
-    <com.android.permissioncontroller.permission.ui.handheld.dashboard.CompositeCircleViewLabeler
+    <com.android.permissioncontroller.permission.ui.handheld.v31.CompositeCircleViewLabeler
         android:id="@+id/composite_circle_view_labeler"
         android:layout_height="260dp"
         android:layout_width="match_parent">
-        <com.android.permissioncontroller.permission.ui.handheld.dashboard.CompositeCircleView
+        <com.android.permissioncontroller.permission.ui.handheld.v31.CompositeCircleView
             android:id="@+id/composite_circle_view"
             android:layout_centerInParent="true"
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:layout_marginHorizontal="30dp"
             android:layout_marginVertical="40dp"/>
-    </com.android.permissioncontroller.permission.ui.handheld.dashboard.CompositeCircleViewLabeler>
+    </com.android.permissioncontroller.permission.ui.handheld.v31.CompositeCircleViewLabeler>
 </LinearLayout>

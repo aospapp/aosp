@@ -134,11 +134,22 @@ cc_test {
 
     test_suites: ["device-tests"],
 
+    tidy_timeout_srcs: [
+        "unit/commands_test.cpp",
+    ],
+
     srcs: [
         "unit/*.cpp",
     ],
 
+    shared_libs: [
+        "libbinder_ndk",
+    ],
+
     static_libs: libapplypatch_static_libs + librecovery_static_libs + [
+        "android.hardware.health-translate-ndk",
+        "android.hardware.health-V1-ndk",
+        "libhealthshim",
         "librecovery_ui",
         "libfusesideload",
         "libminui",
@@ -183,6 +194,10 @@ cc_test_host {
     defaults: [
         "recovery_test_defaults",
         "libupdater_defaults",
+    ],
+
+    tidy_timeout_srcs: [
+        "unit/host/imgdiff_test.cpp",
     ],
 
     srcs: [

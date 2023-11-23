@@ -93,6 +93,11 @@ class BootControlInterface {
   // bootloader will attempt to load the |slot| marked as active. Note that this
   // method doesn't change the value of GetCurrentSlot() on the current boot.
   virtual bool SetActiveBootSlot(Slot slot) = 0;
+  // Get the active slot. In other words, the slot which will be used on
+  // next system reboot. This should match the |slot| parameter of last
+  // successful call to |SetActiveBootSlot|.
+  // Return 0xFFFFFFFF if underlying HAL doesn't support this operation.
+  virtual Slot GetActiveBootSlot() = 0;
 
   // Mark the current slot as successfully booted asynchronously. No other slot
   // flags are modified. Returns false if it was not able to schedule the

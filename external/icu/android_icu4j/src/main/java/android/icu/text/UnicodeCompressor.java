@@ -12,7 +12,7 @@ package android.icu.text;
 /**
 * A compression engine implementing the Standard Compression Scheme
 * for Unicode (SCSU) as outlined in <A
-* HREF="http://www.unicode.org/unicode/reports/tr6">Unicode Technical
+* HREF="https://www.unicode.org/reports/tr6">Unicode Technical
 * Report #6</A>.
 *
 * <P>The SCSU works by using dynamically positioned <EM>windows</EM>
@@ -855,7 +855,7 @@ public final class UnicodeCompressor implements SCSU
     /**
      * Create the index value for a character.
      * For more information on this function, refer to table X-3
-     * <A HREF="http://www.unicode.org/unicode/reports/tr6">UTR6</A>.
+     * <A HREF="https://www.unicode.org/reports/tr6">UTR6</A>.
      * @param c The character in question.
      * @return An index for c
      */

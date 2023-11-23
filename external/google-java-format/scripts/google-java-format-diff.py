@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 #
 #===- google-java-format-diff.py - google-java-format Diff Reformatter -----===#
 #
@@ -31,9 +31,9 @@ import difflib
 import re
 import string
 import subprocess
-import StringIO
+import io
 import sys
-from distutils.spawn import find_executable
+from shutil import which
 
 def main():
   parser = argparse.ArgumentParser(description=
@@ -59,6 +59,11 @@ def main():
                       help='do not fix the import order')
   parser.add_argument('--skip-removing-unused-imports', action='store_true',
                       help='do not remove ununsed imports')
+  parser.add_argument(
+      '--skip-javadoc-formatting',
+      action='store_true',
+      default=False,
+      help='do not reformat javadoc')
   parser.add_argument('-b', '--binary', help='path to google-java-format binary')
   parser.add_argument('--google-java-format-jar', metavar='ABSOLUTE_PATH', default=None,
                       help='use a custom google-java-format jar')
@@ -100,13 +105,13 @@ def main():
   elif args.google_java_format_jar:
     base_command = ['java', '-jar', args.google_java_format_jar]
   else:
-    binary = find_executable('google-java-format') or '/usr/bin/google-java-format'
+    binary = which('google-java-format') or '/usr/bin/google-java-format'
     base_command = [binary]
 
   # Reformat files containing changes in place.
-  for filename, lines in lines_by_file.iteritems():
+  for filename, lines in lines_by_file.items():
     if args.i and args.verbose:
-      print 'Formatting', filename
+      print('Formatting', filename)
     command = base_command[:]
     if args.i:
       command.append('-i')
@@ -116,6 +121,8 @@ def main():
       command.append('--skip-sorting-imports')
     if args.skip_removing_unused_imports:
       command.append('--skip-removing-unused-imports')
+    if args.skip_javadoc_formatting:
+      command.append('--skip-javadoc-formatting')
     command.extend(lines)
     command.append(filename)
     p = subprocess.Popen(command, stdout=subprocess.PIPE,
@@ -127,11 +134,11 @@ def main():
     if not args.i:
       with open(filename) as f:
         code = f.readlines()
-      formatted_code = StringIO.StringIO(stdout).readlines()
+      formatted_code = io.StringIO(stdout.decode('utf-8')).readlines()
       diff = difflib.unified_diff(code, formatted_code,
                                   filename, filename,
                                   '(before formatting)', '(after formatting)')
-      diff_string = string.join(diff, '')
+      diff_string = ''.join(diff)
       if len(diff_string) > 0:
         sys.stdout.write(diff_string)
 

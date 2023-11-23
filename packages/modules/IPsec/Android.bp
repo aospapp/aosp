@@ -39,8 +39,12 @@ java_sdk_library {
         "framework-annotations-lib",
         "conscrypt.module.public.api",
         "framework-connectivity.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
     ],
-    stub_only_libs: ["framework-connectivity.stubs.module_lib"],
+    stub_only_libs: [
+        "framework-connectivity.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
+    ],
 
     api_packages: [
         "android.net.eap",
@@ -53,6 +57,10 @@ java_sdk_library {
     hidden_api_packages: [
         "com.android.internal.net",
     ],
+
+    lint: {
+        strict_updatability_linting: true,
+    },
 
     // Shared filegroups of BouncyCastle and frameworks are jar-jar'ed to avoid
     // being overwritten by the frameworks class copies.
@@ -100,7 +108,9 @@ java_library {
     ],
     static_libs: [
         "bouncycastle_ike_digests",
-        "modules-utils-build",],
+        "modules-utils-build",
+        "modules-utils-statemachine",
+    ],
     sdk_version: "module_current",
 }
 
@@ -131,7 +141,10 @@ java_library {
 
 java_library {
     name: "ike-test-utils",
-    srcs: ["tests/iketests/src/java/**/CertUtils.java"],
+    srcs: [
+        "src/java/**/PolicyDirection.java",
+        "tests/iketests/src/java/**/CertUtils.java",
+    ],
     static_libs: ["ike-test-utils-dependency"],
     libs: ["androidx.test.rules"],
     visibility: ["//packages/modules/IPsec/tests/cts"]

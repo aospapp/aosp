@@ -76,6 +76,10 @@ class HashCalculator {
                              off_t length,
                              brillo::Blob* out_hash);
   static bool RawHashOfFile(const std::string& name, brillo::Blob* out_hash);
+  static std::string SHA256Digest(std::string_view blob);
+
+  static std::string SHA256Digest(std::vector<unsigned char> blob);
+  static std::string SHA256Digest(std::vector<char> blob);
 
  private:
   // If non-empty, the final raw hash. Will only be set to non-empty when

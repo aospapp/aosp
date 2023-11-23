@@ -16,15 +16,12 @@
 
 package com.android.permissioncontroller.permission.ui.handheld;
 
-import static android.Manifest.permission_group.CAMERA;
-import static android.Manifest.permission_group.MICROPHONE;
-
 import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
 import static com.android.permissioncontroller.permission.ui.ManagePermissionsActivity.EXTRA_CALLER_NAME;
 import static com.android.permissioncontroller.permission.ui.handheld.AppPermissionFragment.GRANT_CATEGORY;
-import static com.android.permissioncontroller.permission.ui.handheld.dashboard.UtilsKt.getUsageDurationString;
 import static com.android.permissioncontroller.permission.utils.KotlinUtilsKt.navigateSafe;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
@@ -45,9 +42,9 @@ import androidx.preference.PreferenceViewHolder;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
-import com.android.permissioncontroller.permission.model.AppPermissionUsage.GroupUsage;
 import com.android.permissioncontroller.permission.ui.LocationProviderInterceptDialog;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
+import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.List;
 
@@ -161,46 +158,6 @@ public class PermissionControlPreference extends Preference {
     }
 
     /**
-     * Sets this preference's summary based on its permission usage.
-     *
-     * @param groupUsage the usage information
-     * @param accessTimeStr the string representing the last access time
-     */
-    public void setUsageSummary(@NonNull GroupUsage groupUsage, @NonNull String accessTimeStr) {
-        long backgroundAccessCount = groupUsage.getBackgroundAccessCount();
-        long duration = 0;
-        String groupName = groupUsage.getGroup().getName();
-        if (groupName.equals(CAMERA) || groupName.equals(MICROPHONE)) {
-            duration = groupUsage.getAccessDuration();
-        }
-        if (backgroundAccessCount == 0) {
-            long numForegroundAccesses = groupUsage.getForegroundAccessCount();
-            if (duration == 0) {
-                setSummary(mContext.getResources().getQuantityString(
-                        R.plurals.permission_usage_summary, (int) numForegroundAccesses,
-                        accessTimeStr, numForegroundAccesses));
-            } else {
-                setSummary(mContext.getResources().getQuantityString(
-                        R.plurals.permission_usage_summary_duration, (int) numForegroundAccesses,
-                        accessTimeStr, numForegroundAccesses,
-                        getUsageDurationString(mContext, groupUsage)));
-            }
-        } else {
-            long numAccesses = groupUsage.getAccessCount();
-            if (duration == 0) {
-                setSummary(mContext.getResources().getQuantityString(
-                        R.plurals.permission_usage_summary_background, (int) numAccesses,
-                        accessTimeStr, numAccesses, backgroundAccessCount));
-            } else {
-                setSummary(mContext.getResources().getQuantityString(
-                        R.plurals.permission_usage_summary_background_duration, (int) numAccesses,
-                        accessTimeStr, numAccesses, backgroundAccessCount,
-                        getUsageDurationString(mContext, groupUsage)));
-            }
-        }
-    }
-
-    /**
      * Sets this preference to show the given icons to the left of its title.
      *
      * @param titleIcons the icons to show.
@@ -250,6 +207,10 @@ public class PermissionControlPreference extends Preference {
                 // Redirect to location controller extra package settings.
                 LocationUtils.startLocationControllerExtraPackageSettings(mContext, mUser);
             } else if (mHasNavGraph) {
+                if (mPermGroupName.equals(Manifest.permission_group.NOTIFICATIONS)) {
+                    Utils.navigateToAppNotificationSettings(mContext, mPackageName, mUser);
+                    return true;
+                }
                 Bundle args = new Bundle();
                 args.putString(Intent.EXTRA_PACKAGE_NAME, mPackageName);
                 args.putString(Intent.EXTRA_PERMISSION_GROUP_NAME, mPermGroupName);

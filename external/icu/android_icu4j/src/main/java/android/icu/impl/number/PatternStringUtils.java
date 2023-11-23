@@ -96,6 +96,7 @@ public class PatternStringUtils {
         int minSig = Math.min(properties.getMinimumSignificantDigits(), dosMax);
         int maxSig = Math.min(properties.getMaximumSignificantDigits(), dosMax);
         boolean alwaysShowDecimal = properties.getDecimalSeparatorAlwaysShown();
+        boolean currencyAsDecimal = properties.getCurrencyAsDecimal();
         int exponentDigits = Math.min(properties.getMinimumExponentDigits(), dosMax);
         boolean exponentShowPlusSign = properties.getExponentSignAlwaysShown();
         AffixPatternProvider affixes = PropertiesAffixPatternProvider.forProperties(properties);
@@ -158,7 +159,11 @@ public class PatternStringUtils {
             }
             // Decimal separator
             if (magnitude == 0 && (alwaysShowDecimal || mN < 0)) {
-                sb.append('.');
+                if (currencyAsDecimal) {
+                    sb.append('¤');
+                } else {
+                    sb.append('.');
+                }
             }
             if (!useGrouping) {
                 continue;
@@ -300,6 +305,7 @@ public class PatternStringUtils {
         String[][] table = new String[21][2];
         int standIdx = toLocalized ? 0 : 1;
         int localIdx = toLocalized ? 1 : 0;
+        // TODO: Add approximately sign here?
         table[0][standIdx] = "%";
         table[0][localIdx] = symbols.getPercentString();
         table[1][standIdx] = "‰";
@@ -435,6 +441,7 @@ public class PatternStringUtils {
             AffixPatternProvider patternInfo,
             boolean isPrefix,
             PatternSignType patternSignType,
+            boolean approximately,
             StandardPlural plural,
             boolean perMilleReplacesPercent,
             StringBuilder output) {
@@ -446,7 +453,7 @@ public class PatternStringUtils {
         // (If not, we will use the positive subpattern.)
         boolean useNegativeAffixPattern = patternInfo.hasNegativeSubpattern()
                 && (patternSignType == PatternSignType.NEG
-                    || (patternInfo.negativeHasMinusSign() && plusReplacesMinusSign));
+                    || (patternInfo.negativeHasMinusSign() && (plusReplacesMinusSign || approximately)));
 
         // Resolve the flags for the affix pattern.
         int flags = 0;
@@ -468,10 +475,25 @@ public class PatternStringUtils {
         } else if (patternSignType == PatternSignType.NEG) {
             prependSign = true;
         } else {
-            prependSign = plusReplacesMinusSign;
+            prependSign = plusReplacesMinusSign || approximately;
         }
 
         // Compute the length of the affix pattern.
+        // What symbols should take the place of the sign placeholder?
+        String signSymbols = "-";
+        if (approximately) {
+            if (plusReplacesMinusSign) {
+                signSymbols = "~+";
+            } else if (patternSignType == PatternSignType.NEG) {
+                signSymbols = "~-";
+            } else {
+                signSymbols = "~";
+            }
+        } else if (plusReplacesMinusSign) {
+            signSymbols = "+";
+        }
+
+        // Compute the number of tokens in the affix pattern (signSymbols is considered one token).
         int length = patternInfo.length(flags) + (prependSign ? 1 : 0);
 
         // Finally, set the result into the StringBuilder.
@@ -485,8 +507,13 @@ public class PatternStringUtils {
             } else {
                 candidate = patternInfo.charAt(flags, index);
             }
-            if (plusReplacesMinusSign && candidate == '-') {
-                candidate = '+';
+            if (candidate == '-') {
+                if (signSymbols.length() == 1) {
+                    candidate = signSymbols.charAt(0);
+                } else {
+                    output.append(signSymbols.charAt(0));
+                    candidate = signSymbols.charAt(1);
+                }
             }
             if (perMilleReplacesPercent && candidate == '%') {
                 candidate = '‰';
@@ -531,6 +558,18 @@ public class PatternStringUtils {
                         return PatternSignType.POS;
                     case POS:
                         return PatternSignType.POS_SIGN;
+                }
+                break;
+
+            case NEGATIVE:
+            case ACCOUNTING_NEGATIVE:
+                switch (signum) {
+                    case NEG:
+                        return PatternSignType.NEG;
+                    case NEG_ZERO:
+                    case POS_ZERO:
+                    case POS:
+                        return PatternSignType.POS;
                 }
                 break;
 

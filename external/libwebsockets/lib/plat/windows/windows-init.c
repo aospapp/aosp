@@ -55,12 +55,54 @@ lws_plat_context_early_init(void)
 	return 1;
 }
 
+#if defined(LWS_WITH_PLUGINS)
+static int
+protocol_plugin_cb(struct lws_plugin *pin, void *each_user)
+{
+	struct lws_context *context = (struct lws_context *)each_user;
+	const lws_plugin_protocol_t *plpr =
+			(const lws_plugin_protocol_t *)pin->hdr;
+
+	context->plugin_protocol_count += plpr->count_protocols;
+	context->plugin_extension_count += plpr->count_extensions;
+
+	return 0;
+}
+#endif
+
 int
 lws_plat_init(struct lws_context *context,
 	      const struct lws_context_creation_info *info)
 {
 	struct lws_context_per_thread *pt = &context->pt[0];
 	int i, n = context->count_threads;
+
+#if defined(LWS_WITH_MBEDTLS)
+	{
+		int n;
+
+		/* initialize platform random through mbedtls */
+		mbedtls_entropy_init(&context->mec);
+		mbedtls_ctr_drbg_init(&context->mcdc);
+
+		n = mbedtls_ctr_drbg_seed(&context->mcdc, mbedtls_entropy_func,
+					  &context->mec, NULL, 0);
+		if (n)
+			lwsl_err("%s: mbedtls_ctr_drbg_seed() returned 0x%x\n",
+				 __func__, n);
+#if 0
+		else {
+			uint8_t rtest[16];
+			lwsl_notice("%s: started drbg\n", __func__);
+			if (mbedtls_ctr_drbg_random(&context->mcdc, rtest,
+							sizeof(rtest)))
+				lwsl_err("%s: get random failed\n", __func__);
+			else
+				lwsl_hexdump_notice(rtest, sizeof(rtest));
+		}
+#endif
+	}
+#endif
 
 	for (i = 0; i < FD_HASHTABLE_MODULUS; i++) {
 		context->fd_hashtable[i].wsi =
@@ -73,17 +115,17 @@ lws_plat_init(struct lws_context *context,
 
 	while (n--) {
 		pt->fds_count = 0;
-		pt->events = WSACreateEvent(); /* the cancel event */
-		InitializeCriticalSection(&pt->interrupt_lock);
 
 		pt++;
 	}
 
 	context->fd_random = 0;
 
-#ifdef LWS_WITH_PLUGINS
+#if defined(LWS_WITH_PLUGINS)
 	if (info->plugin_dirs)
-		lws_plat_plugins_init(context, info->plugin_dirs);
+		lws_plat_plugins_init(&context->plugin_list, info->plugin_dirs,
+				      "lws_protocol_plugin",
+				      protocol_plugin_cb, context);
 #endif
 
 	return 0;
@@ -92,20 +134,18 @@ lws_plat_init(struct lws_context *context,
 void
 lws_plat_context_early_destroy(struct lws_context *context)
 {
-	struct lws_context_per_thread *pt = &context->pt[0];
-	int n = context->count_threads;
 
-	while (n--) {
-		WSACloseEvent(pt->events);
-		DeleteCriticalSection(&pt->interrupt_lock);
-		pt++;
-	}
 }
 
 void
 lws_plat_context_late_destroy(struct lws_context *context)
 {
 	int n;
+
+#ifdef LWS_WITH_PLUGINS
+	if (context->plugin_list)
+		lws_plugins_destroy(&context->plugin_list, NULL, NULL);
+#endif
 
 	for (n = 0; n < FD_HASHTABLE_MODULUS; n++) {
 		if (context->fd_hashtable[n].wsi)

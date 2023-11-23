@@ -19,7 +19,7 @@
         <item name="android:textSize">11sp</item>
     </style>
 
-    <style name="SectionHeader" parent="@*android:style/TextAppearance.DeviceDefault.Medium">
+    <style name="SectionHeader" parent="@android:style/TextAppearance.Material.Medium">
         <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textAllCaps">true</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
@@ -67,31 +67,32 @@
         <item name="android:textSize">@dimen/action_mode_text_size</item>
     </style>
 
-    <style name="ToolbarTitle" parent="@*android:style/TextAppearance.DeviceDefault.Title">
+    <style name="ToolbarTitle" parent="@android:style/TextAppearance.Material.Title">
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuTitle" parent="@*android:style/TextAppearance.DeviceDefault.Title">
+    <style name="DrawerMenuTitle" parent="@android:style/TextAppearance.Material.Title">
         <item name="android:textSize">24sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuHeader" parent="@*android:style/TextAppearance.DeviceDefault.Subhead">
+    <style name="DrawerMenuHeader" parent="@android:style/TextAppearance.Material.Subhead">
         <item name="android:textColor">?android:attr/textColorSecondary</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textSize">11sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuPrimary" parent="*android:style/TextAppearance.DeviceDefault.Body2">
+    <style name="DrawerMenuPrimary" parent="android:style/TextAppearance.Material.Body2">
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/item_root_primary_text</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuSecondary" parent="*android:style/TextAppearance.DeviceDefault.Body2">
+    <style name="DrawerMenuSecondary" parent="android:style/TextAppearance.Material.Body2">
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">@color/item_root_secondary_text</item>
+        <item name="fontFamily">@string/config_fontFamily</item>
     </style>
 
     <style name="InspectorKeySubTitle" parent="@style/TextAppearance.MaterialComponents.Subtitle1">
@@ -126,18 +127,26 @@
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="TabTextAppearance" parent="@*android:style/TextAppearance.DeviceDefault.Medium">
+    <style name="TabTextAppearance" parent="@android:style/TextAppearance.Material.Medium">
         <item name="android:textSize">14sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="ItemCaptionText" parent="@*android:style/TextAppearance.DeviceDefault.Caption">
+    <style name="ItemCaptionText" parent="@android:style/TextAppearance.Material.Caption">
         <item name="android:textColor">@color/doc_list_item_subtitle_color</item>
         <item name="fontFamily">@string/config_fontFamily</item>
     </style>
 
-    <style name="MenuItemTextAppearance" parent="*android:style/TextAppearance.DeviceDefault.Body2">
+    <style name="MenuItemTextAppearance" parent="@android:style/TextAppearance.Material.Body2">
         <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamily</item>
+    </style>
+
+    <style name="Subhead" parent="@android:style/TextAppearance.Material.Subhead">
+        <item name="fontFamily">@string/config_fontFamily</item>
+    </style>
+
+    <style name="Body1" parent="@android:style/TextAppearance.Material.Body1">
         <item name="fontFamily">@string/config_fontFamily</item>
     </style>
 

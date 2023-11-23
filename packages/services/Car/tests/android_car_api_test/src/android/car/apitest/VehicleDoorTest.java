@@ -28,20 +28,20 @@ public class VehicleDoorTest {
     @Test
     public void testMatchWithVehicleHal() {
         assertThat(VehicleAreaDoor.DOOR_HOOD)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.HOOD);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.HOOD);
         assertThat(VehicleAreaDoor.DOOR_REAR)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.REAR);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.REAR);
         assertThat(VehicleAreaDoor.DOOR_ROW_1_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_1_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_1_LEFT);
         assertThat(VehicleAreaDoor.DOOR_ROW_1_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_1_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_1_RIGHT);
         assertThat(VehicleAreaDoor.DOOR_ROW_2_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_2_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_2_LEFT);
         assertThat(VehicleAreaDoor.DOOR_ROW_2_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_2_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_2_RIGHT);
         assertThat(VehicleAreaDoor.DOOR_ROW_3_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_3_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_3_LEFT);
         assertThat(VehicleAreaDoor.DOOR_ROW_3_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor.ROW_3_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaDoor.ROW_3_RIGHT);
     }
 }

@@ -34,11 +34,14 @@ import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -125,6 +128,27 @@ public class IncrementalLoadingProgressTest extends BaseHostJUnit4Test {
 
     @LargeTest
     @Test
+    public void testGetLoadingProgressDuringMigration() throws Exception {
+        // Check partial loading progress
+        assertTrue(runDeviceTests(DEVICE_TEST_PACKAGE_NAME, TEST_CLASS_NAME,
+                "testGetPartialLoadingProgress"));
+        final List<File> apks = new ArrayList<>(2);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+        final File base_apk = buildHelper.getTestFile(TEST_APK);
+        assertNotNull(base_apk);
+        apks.add(base_apk);
+        final File split_apk = buildHelper.getTestFile(TEST_SPLIT_APK);
+        assertNotNull(split_apk);
+        apks.add(split_apk);
+        // Trigger app migration through normal package installation.
+        getDevice().installPackages(apks, false, "-t");
+        assertTrue(runDeviceTests(DEVICE_TEST_PACKAGE_NAME, TEST_CLASS_NAME,
+                "testGetFullLoadingProgress"));
+    }
+
+    @LargeTest
+    @Test
+    @Ignore("b/229901433")
     public void testOnPackageLoadingProgressChangedCalledWithPartialLoaded() throws Exception {
         assertTrue(runDeviceTests(DEVICE_TEST_PACKAGE_NAME, TEST_CLASS_NAME,
                 "testOnPackageLoadingProgressChangedCalledWithPartialLoaded"));

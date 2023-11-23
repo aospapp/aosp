@@ -183,7 +183,7 @@ class VtsVndkFilesTest(unittest.TestCase):
 if __name__ == "__main__":
     # The logs are written to stdout so that TradeFed test runner can parse the
     # results from stderr.
-    logging.basicConfig(stream=sys.stdout)
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     # Setting verbosity is required to generate output that the TradeFed test
     # runner can parse.
     unittest.main(verbosity=3)

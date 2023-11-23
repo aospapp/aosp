@@ -31,7 +31,7 @@ def get_atten(log, atten_obj):
     Returns:
         Current attenuation value.
     """
-    return atten_obj.get_atten()
+    return atten_obj.get_atten(retry=True)
 
 
 def set_atten(log, atten_obj, target_atten, step_size=0, time_per_step=0):
@@ -70,9 +70,9 @@ def set_atten(log, atten_obj, target_atten, step_size=0, time_per_step=0):
                 number_of_steps -= 1
                 current_atten += math.copysign(step_size,
                                                (target_atten - current_atten))
-                atten_obj.set_atten(current_atten)
+                atten_obj.set_atten(current_atten, retry=True)
                 time.sleep(time_per_step)
-        atten_obj.set_atten(target_atten)
+        atten_obj.set_atten(target_atten, retry=True)
     except Exception as e:
         log.error("set_atten error happened: {}".format(e))
         return False

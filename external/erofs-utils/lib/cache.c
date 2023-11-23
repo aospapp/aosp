@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * erofs-utils/lib/cache.c
- *
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
  * Created by Miao Xie <miaoxie@huawei.com>
@@ -17,6 +15,11 @@ static struct erofs_buffer_block blkh = {
 	.blkaddr = NULL_ADDR,
 };
 static erofs_blk_t tail_blkaddr;
+
+/* buckets for all mapped buffer blocks to boost up allocation */
+static struct list_head mapped_buckets[META + 1][EROFS_BLKSIZ];
+/* last mapped buffer block to accelerate erofs_mapbh() */
+static struct erofs_buffer_block *last_mapped_block = &blkh;
 
 static bool erofs_bh_flush_drop_directly(struct erofs_buffer_head *bh)
 {
@@ -62,13 +65,30 @@ struct erofs_bhops erofs_buf_write_bhops = {
 /* return buffer_head of erofs super block (with size 0) */
 struct erofs_buffer_head *erofs_buffer_init(void)
 {
+	int i, j;
 	struct erofs_buffer_head *bh = erofs_balloc(META, 0, 0, 0);
 
 	if (IS_ERR(bh))
 		return bh;
 
 	bh->op = &erofs_skip_write_bhops;
+
+	for (i = 0; i < ARRAY_SIZE(mapped_buckets); i++)
+		for (j = 0; j < ARRAY_SIZE(mapped_buckets[0]); j++)
+			init_list_head(&mapped_buckets[i][j]);
 	return bh;
+}
+
+static void erofs_bupdate_mapped(struct erofs_buffer_block *bb)
+{
+	struct list_head *bkt;
+
+	if (bb->blkaddr == NULL_ADDR)
+		return;
+
+	bkt = mapped_buckets[bb->type] + bb->buffers.off % EROFS_BLKSIZ;
+	list_del(&bb->mapped_list);
+	list_add_tail(&bb->mapped_list, bkt);
 }
 
 /* return occupied bytes in specific buffer block if succeed */
@@ -80,7 +100,7 @@ static int __erofs_battach(struct erofs_buffer_block *bb,
 			   bool dryrun)
 {
 	const erofs_off_t alignedoffset = roundup(bb->buffers.off, alignsize);
-	const int oob = cmpsgn(roundup(bb->buffers.off % EROFS_BLKSIZ,
+	const int oob = cmpsgn(roundup((bb->buffers.off - 1) % EROFS_BLKSIZ + 1,
 				       alignsize) + incr + extrasize,
 			       EROFS_BLKSIZ);
 	bool tailupdate = false;
@@ -110,8 +130,9 @@ static int __erofs_battach(struct erofs_buffer_block *bb,
 		/* need to update the tail_blkaddr */
 		if (tailupdate)
 			tail_blkaddr = blkaddr + BLK_ROUND_UP(bb->buffers.off);
+		erofs_bupdate_mapped(bb);
 	}
-	return (alignedoffset + incr) % EROFS_BLKSIZ;
+	return (alignedoffset + incr - 1) % EROFS_BLKSIZ + 1;
 }
 
 int erofs_bh_balloon(struct erofs_buffer_head *bh, erofs_off_t incr)
@@ -125,27 +146,75 @@ int erofs_bh_balloon(struct erofs_buffer_head *bh, erofs_off_t incr)
 	return __erofs_battach(bb, NULL, incr, 1, 0, false);
 }
 
-struct erofs_buffer_head *erofs_balloc(int type, erofs_off_t size,
-				       unsigned int required_ext,
-				       unsigned int inline_ext)
+static int erofs_bfind_for_attach(int type, erofs_off_t size,
+				  unsigned int required_ext,
+				  unsigned int inline_ext,
+				  unsigned int alignsize,
+				  struct erofs_buffer_block **bbp)
 {
 	struct erofs_buffer_block *cur, *bb;
-	struct erofs_buffer_head *bh;
-	unsigned int alignsize, used0, usedmax;
-
-	int ret = get_alignsize(type, &type);
-
-	if (ret < 0)
-		return ERR_PTR(ret);
-	alignsize = ret;
+	unsigned int used0, used_before, usedmax, used;
+	int ret;
 
 	used0 = (size + required_ext) % EROFS_BLKSIZ + inline_ext;
+	/* inline data should be in the same fs block */
+	if (used0 > EROFS_BLKSIZ)
+		return -ENOSPC;
+
+	if (!used0 || alignsize == EROFS_BLKSIZ) {
+		*bbp = NULL;
+		return 0;
+	}
+
 	usedmax = 0;
 	bb = NULL;
 
-	list_for_each_entry(cur, &blkh.list, list) {
-		unsigned int used_before, used;
+	/* try to find a most-fit mapped buffer block first */
+	if (size + required_ext + inline_ext >= EROFS_BLKSIZ)
+		goto skip_mapped;
 
+	used_before = rounddown(EROFS_BLKSIZ -
+				(size + required_ext + inline_ext), alignsize);
+	for (; used_before; --used_before) {
+		struct list_head *bt = mapped_buckets[type] + used_before;
+
+		if (list_empty(bt))
+			continue;
+		cur = list_first_entry(bt, struct erofs_buffer_block,
+				       mapped_list);
+
+		/* last mapped block can be expended, don't handle it here */
+		if (list_next_entry(cur, list)->blkaddr == NULL_ADDR) {
+			DBG_BUGON(cur != last_mapped_block);
+			continue;
+		}
+
+		DBG_BUGON(cur->type != type);
+		DBG_BUGON(cur->blkaddr == NULL_ADDR);
+		DBG_BUGON(used_before != cur->buffers.off % EROFS_BLKSIZ);
+
+		ret = __erofs_battach(cur, NULL, size, alignsize,
+				      required_ext + inline_ext, true);
+		if (ret < 0) {
+			DBG_BUGON(1);
+			continue;
+		}
+
+		/* should contain all data in the current block */
+		used = ret + required_ext + inline_ext;
+		DBG_BUGON(used > EROFS_BLKSIZ);
+
+		bb = cur;
+		usedmax = used;
+		break;
+	}
+
+skip_mapped:
+	/* try to start from the last mapped one, which can be expended */
+	cur = last_mapped_block;
+	if (cur == &blkh)
+		cur = list_next_entry(cur, list);
+	for (; cur != &blkh; cur = list_next_entry(cur, list)) {
 		used_before = cur->buffers.off % EROFS_BLKSIZ;
 
 		/* skip if buffer block is just full */
@@ -179,34 +248,56 @@ struct erofs_buffer_head *erofs_balloc(int type, erofs_off_t size,
 			usedmax = used;
 		}
 	}
+	*bbp = bb;
+	return 0;
+}
+
+struct erofs_buffer_head *erofs_balloc(int type, erofs_off_t size,
+				       unsigned int required_ext,
+				       unsigned int inline_ext)
+{
+	struct erofs_buffer_block *bb;
+	struct erofs_buffer_head *bh;
+	unsigned int alignsize;
+
+	int ret = get_alignsize(type, &type);
+
+	if (ret < 0)
+		return ERR_PTR(ret);
+
+	DBG_BUGON(type < 0 || type > META);
+	alignsize = ret;
+
+	/* try to find if we could reuse an allocated buffer block */
+	ret = erofs_bfind_for_attach(type, size, required_ext, inline_ext,
+				     alignsize, &bb);
+	if (ret)
+		return ERR_PTR(ret);
 
 	if (bb) {
 		bh = malloc(sizeof(struct erofs_buffer_head));
 		if (!bh)
 			return ERR_PTR(-ENOMEM);
-		goto found;
+	} else {
+		/* get a new buffer block instead */
+		bb = malloc(sizeof(struct erofs_buffer_block));
+		if (!bb)
+			return ERR_PTR(-ENOMEM);
+
+		bb->type = type;
+		bb->blkaddr = NULL_ADDR;
+		bb->buffers.off = 0;
+		init_list_head(&bb->buffers.list);
+		list_add_tail(&bb->list, &blkh.list);
+		init_list_head(&bb->mapped_list);
+
+		bh = malloc(sizeof(struct erofs_buffer_head));
+		if (!bh) {
+			free(bb);
+			return ERR_PTR(-ENOMEM);
+		}
 	}
 
-	/* allocate a new buffer block */
-	if (used0 > EROFS_BLKSIZ)
-		return ERR_PTR(-ENOSPC);
-
-	bb = malloc(sizeof(struct erofs_buffer_block));
-	if (!bb)
-		return ERR_PTR(-ENOMEM);
-
-	bb->type = type;
-	bb->blkaddr = NULL_ADDR;
-	bb->buffers.off = 0;
-	init_list_head(&bb->buffers.list);
-	list_add_tail(&bb->list, &blkh.list);
-
-	bh = malloc(sizeof(struct erofs_buffer_head));
-	if (!bh) {
-		free(bb);
-		return ERR_PTR(-ENOMEM);
-	}
-found:
 	ret = __erofs_battach(bb, bh, size, alignsize,
 			      required_ext + inline_ext, false);
 	if (ret < 0)
@@ -247,8 +338,11 @@ static erofs_blk_t __erofs_mapbh(struct erofs_buffer_block *bb)
 {
 	erofs_blk_t blkaddr;
 
-	if (bb->blkaddr == NULL_ADDR)
+	if (bb->blkaddr == NULL_ADDR) {
 		bb->blkaddr = tail_blkaddr;
+		last_mapped_block = bb;
+		erofs_bupdate_mapped(bb);
+	}
 
 	blkaddr = bb->blkaddr + BLK_ROUND_UP(bb->buffers.off);
 	if (blkaddr > tail_blkaddr)
@@ -257,19 +351,20 @@ static erofs_blk_t __erofs_mapbh(struct erofs_buffer_block *bb)
 	return blkaddr;
 }
 
-erofs_blk_t erofs_mapbh(struct erofs_buffer_block *bb, bool end)
+erofs_blk_t erofs_mapbh(struct erofs_buffer_block *bb)
 {
-	struct erofs_buffer_block *t, *nt;
+	struct erofs_buffer_block *t = last_mapped_block;
 
-	if (!bb || bb->blkaddr == NULL_ADDR) {
-		list_for_each_entry_safe(t, nt, &blkh.list, list) {
-			if (!end && (t == bb || nt == &blkh))
-				break;
-			(void)__erofs_mapbh(t);
-			if (end && t == bb)
-				break;
-		}
-	}
+	if (bb && bb->blkaddr != NULL_ADDR)
+		return bb->blkaddr;
+	do {
+		t = list_next_entry(t, list);
+		if (t == &blkh)
+			break;
+
+		DBG_BUGON(t->blkaddr != NULL_ADDR);
+		(void)__erofs_mapbh(t);
+	} while (t != bb);
 	return tail_blkaddr;
 }
 
@@ -311,6 +406,7 @@ bool erofs_bflush(struct erofs_buffer_block *bb)
 
 		erofs_dbg("block %u to %u flushed", p->blkaddr, blkaddr - 1);
 
+		list_del(&p->mapped_list);
 		list_del(&p->list);
 		free(p);
 	}
@@ -334,10 +430,13 @@ void erofs_bdrop(struct erofs_buffer_head *bh, bool tryrevoke)
 	if (!list_empty(&bb->buffers.list))
 		return;
 
+	if (bb == last_mapped_block)
+		last_mapped_block = list_prev_entry(bb, list);
+
+	list_del(&bb->mapped_list);
 	list_del(&bb->list);
 	free(bb);
 
 	if (rollback)
 		tail_blkaddr = blkaddr;
 }
-

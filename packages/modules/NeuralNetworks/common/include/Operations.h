@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_OPERATIONS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_OPERATIONS_H
 
 #include <stddef.h>
 
@@ -23,23 +23,6 @@
 #include <vector>
 
 #include "ActivationFunctor.h"
-
-#ifndef NN_COMPATIBILITY_LIBRARY_BUILD
-#include "operations/BidirectionalSequenceLSTM.h"
-#include "operations/Cast.h"
-#include "operations/EmbeddingLookup.h"
-#include "operations/ExpandDims.h"
-#include "operations/HashtableLookup.h"
-#include "operations/LSHProjection.h"
-#include "operations/LSTM.h"
-#include "operations/MaximumMinimum.h"
-#include "operations/Multinomial.h"
-#include "operations/Pow.h"
-#include "operations/QuantizedLSTM.h"
-#include "operations/RNN.h"
-#include "operations/SVDF.h"
-#include "operations/Tile.h"
-#endif  // NN_COMPATIBILITY_LIBRARY_BUILD
 
 namespace android {
 namespace nn {
@@ -180,4 +163,5 @@ bool channelShuffleGeneric(const uint8_t* inputData, const Shape& inputShape, in
                            int32_t axis, uint8_t* outputData, const Shape& outputShape);
 }  // namespace nn
 }  // namespace android
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_H
+
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_OPERATIONS_H

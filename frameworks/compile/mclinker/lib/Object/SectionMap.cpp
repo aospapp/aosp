@@ -193,8 +193,7 @@ SectionMap::mapping SectionMap::find(const std::string& pInputFile,
         return std::make_pair(*out, *in);
     }
   }
-  return std::make_pair(reinterpret_cast<Output*>(NULL),
-                        reinterpret_cast<Input*>(NULL));
+  return std::make_pair(nullptr, nullptr);
 }
 
 SectionMap::const_iterator SectionMap::find(

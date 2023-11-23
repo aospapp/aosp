@@ -24,19 +24,23 @@ import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.media.ExifInterface;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Represents Asset types for which bytes can be read directly, allowing for flexible bitmap
  * decoding.
  */
 public abstract class StreamableAsset extends Asset {
+    private static final ExecutorService sExecutorService = Executors.newCachedThreadPool();
     private static final String TAG = "StreamableAsset";
 
     private BitmapRegionDecoder mBitmapRegionDecoder;
@@ -75,14 +79,55 @@ public abstract class StreamableAsset extends Asset {
     @Override
     public void decodeBitmap(int targetWidth, int targetHeight,
                              BitmapReceiver receiver) {
-        DecodeBitmapAsyncTask task = new DecodeBitmapAsyncTask(targetWidth, targetHeight, receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            int newTargetWidth = targetWidth;
+            int newTargetHeight = targetHeight;
+            int exifOrientation = getExifOrientation();
+            // Switch target height and width if image is rotated 90 or 270 degrees.
+            if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90
+                    || exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
+                int tempHeight = newTargetHeight;
+                newTargetHeight = newTargetWidth;
+                newTargetWidth = tempHeight;
+            }
+
+            BitmapFactory.Options options = new BitmapFactory.Options();
+
+            Point rawDimensions = calculateRawDimensions();
+            // Raw dimensions may be null if there was an error opening the underlying input stream.
+            if (rawDimensions == null) {
+                decodeBitmapCompleted(receiver, null);
+                return;
+            }
+            options.inSampleSize = BitmapUtils.calculateInSampleSize(
+                    rawDimensions.x, rawDimensions.y, newTargetWidth, newTargetHeight);
+            options.inPreferredConfig = Config.HARDWARE;
+
+            InputStream inputStream = openInputStream();
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, options);
+            closeInputStream(
+                    inputStream, "Error closing the input stream used to decode the full bitmap");
+
+            // Rotate output bitmap if necessary because of EXIF orientation tag.
+            int matrixRotation = getDegreesRotationForExifOrientation(exifOrientation);
+            if (matrixRotation > 0) {
+                Matrix rotateMatrix = new Matrix();
+                rotateMatrix.setRotate(matrixRotation);
+                bitmap = Bitmap.createBitmap(
+                        bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix, false);
+            }
+            decodeBitmapCompleted(receiver, bitmap);
+        });
     }
 
     @Override
     public void decodeRawDimensions(Activity unused, DimensionsReceiver receiver) {
-        DecodeDimensionsAsyncTask task = new DecodeDimensionsAsyncTask(receiver);
-        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            Point result = calculateRawDimensions();
+            new Handler(Looper.getMainLooper()).post(() -> {
+                receiver.onDimensionsDecoded(result);
+            });
+        });
     }
 
     @Override
@@ -101,17 +146,12 @@ public abstract class StreamableAsset extends Asset {
      * asynchronously back to a {@link StreamReceiver}.
      */
     public void fetchInputStream(final StreamReceiver streamReceiver) {
-        new AsyncTask<Void, Void, InputStream>() {
-            @Override
-            protected InputStream doInBackground(Void... params) {
-                return openInputStream();
-            }
-
-            @Override
-            protected void onPostExecute(InputStream inputStream) {
-                streamReceiver.onInputStreamOpened(inputStream);
-            }
-        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        sExecutorService.execute(() -> {
+            InputStream result = openInputStream();
+            new Handler(Looper.getMainLooper()).post(() -> {
+                streamReceiver.onInputStreamOpened(result);
+            });
+        });
     }
 
     /**
@@ -139,14 +179,66 @@ public abstract class StreamableAsset extends Asset {
      * @param isRtl
      * @param receiver     Called with the decoded bitmap region or null if there was an error decoding
      *                     the bitmap region.
-     * @return AsyncTask reference so that the decoding task can be canceled before it starts.
      */
-    public AsyncTask runDecodeBitmapRegionTask(Rect rect, int targetWidth, int targetHeight,
+    public void runDecodeBitmapRegionTask(Rect rect, int targetWidth, int targetHeight,
             boolean isRtl, BitmapReceiver receiver) {
-        DecodeBitmapRegionAsyncTask task =
-                new DecodeBitmapRegionAsyncTask(rect, targetWidth, targetHeight, isRtl, receiver);
-        task.execute();
-        return task;
+        sExecutorService.execute(() -> {
+            int newTargetWidth = targetWidth;
+            int newTargetHeight = targetHeight;
+            Rect cropRect = rect;
+            int exifOrientation = getExifOrientation();
+            // Switch target height and width if image is rotated 90 or 270 degrees.
+            if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90
+                    || exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
+                int tempHeight = newTargetHeight;
+                newTargetHeight = newTargetWidth;
+                newTargetWidth = tempHeight;
+            }
+
+            // Rotate crop rect if image is rotated more than 0 degrees.
+            Point dimensions = calculateRawDimensions();
+            cropRect = CropRectRotator.rotateCropRectForExifOrientation(
+                    dimensions, cropRect, exifOrientation);
+
+            // If we're in RTL mode, center in the rightmost side of the image
+            if (isRtl) {
+                cropRect.set(dimensions.x - cropRect.right, cropRect.top,
+                        dimensions.x - cropRect.left, cropRect.bottom);
+            }
+
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = BitmapUtils.calculateInSampleSize(
+                    cropRect.width(), cropRect.height(), newTargetWidth, newTargetHeight);
+
+            if (mBitmapRegionDecoder == null) {
+                mBitmapRegionDecoder = openBitmapRegionDecoder();
+            }
+
+            // Bitmap region decoder may have failed to open if there was a problem with the
+            // underlying InputStream.
+            if (mBitmapRegionDecoder != null) {
+                try {
+                    Bitmap bitmap = mBitmapRegionDecoder.decodeRegion(cropRect, options);
+
+                    // Rotate output bitmap if necessary because of EXIF orientation.
+                    int matrixRotation = getDegreesRotationForExifOrientation(exifOrientation);
+                    if (matrixRotation > 0) {
+                        Matrix rotateMatrix = new Matrix();
+                        rotateMatrix.setRotate(matrixRotation);
+                        bitmap = Bitmap.createBitmap(
+                                bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix,
+                                false);
+                    }
+                    decodeBitmapCompleted(receiver, bitmap);
+                    return;
+                } catch (OutOfMemoryError e) {
+                    Log.e(TAG, "Out of memory and unable to decode bitmap region", e);
+                } catch (IllegalArgumentException e) {
+                    Log.e(TAG, "Illegal argument for decoding bitmap region", e);
+                }
+            }
+            decodeBitmapCompleted(receiver, null);
+        });
     }
 
     /**
@@ -232,174 +324,6 @@ public abstract class StreamableAsset extends Asset {
          * input stream.
          */
         void onInputStreamOpened(@Nullable InputStream inputStream);
-    }
-
-    /**
-     * AsyncTask which decodes a Bitmap off the UI thread. Scales the Bitmap for the target width and
-     * height if possible.
-     */
-    private class DecodeBitmapAsyncTask extends AsyncTask<Void, Void, Bitmap> {
-
-        private BitmapReceiver mReceiver;
-        private int mTargetWidth;
-        private int mTargetHeight;
-
-        public DecodeBitmapAsyncTask(int targetWidth, int targetHeight, BitmapReceiver receiver) {
-            mReceiver = receiver;
-            mTargetWidth = targetWidth;
-            mTargetHeight = targetHeight;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            int exifOrientation = getExifOrientation();
-            // Switch target height and width if image is rotated 90 or 270 degrees.
-            if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90
-                    || exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
-                int tempHeight = mTargetHeight;
-                mTargetHeight = mTargetWidth;
-                mTargetWidth = tempHeight;
-            }
-
-            BitmapFactory.Options options = new BitmapFactory.Options();
-
-            Point rawDimensions = calculateRawDimensions();
-            // Raw dimensions may be null if there was an error opening the underlying input stream.
-            if (rawDimensions == null) {
-                return null;
-            }
-            options.inSampleSize = BitmapUtils.calculateInSampleSize(
-                    rawDimensions.x, rawDimensions.y, mTargetWidth, mTargetHeight);
-            options.inPreferredConfig = Config.HARDWARE;
-
-            InputStream inputStream = openInputStream();
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, options);
-            closeInputStream(
-                    inputStream, "Error closing the input stream used to decode the full bitmap");
-
-            // Rotate output bitmap if necessary because of EXIF orientation tag.
-            int matrixRotation = getDegreesRotationForExifOrientation(exifOrientation);
-            if (matrixRotation > 0) {
-                Matrix rotateMatrix = new Matrix();
-                rotateMatrix.setRotate(matrixRotation);
-                bitmap = Bitmap.createBitmap(
-                        bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix, false);
-            }
-
-            return bitmap;
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmap) {
-            mReceiver.onBitmapDecoded(bitmap);
-        }
-    }
-
-    /**
-     * AsyncTask subclass which decodes a bitmap region from the asset off the main UI thread.
-     */
-    private class DecodeBitmapRegionAsyncTask extends AsyncTask<Void, Void, Bitmap> {
-
-        private final boolean mIsRtl;
-        private Rect mCropRect;
-        private final BitmapReceiver mReceiver;
-        private int mTargetWidth;
-        private int mTargetHeight;
-
-        public DecodeBitmapRegionAsyncTask(Rect rect, int targetWidth, int targetHeight,
-                boolean isRtl, BitmapReceiver receiver) {
-            mCropRect = rect;
-            mReceiver = receiver;
-            mTargetWidth = targetWidth;
-            mTargetHeight = targetHeight;
-            mIsRtl = isRtl;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... voids) {
-            int exifOrientation = getExifOrientation();
-            // Switch target height and width if image is rotated 90 or 270 degrees.
-            if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90
-                    || exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
-                int tempHeight = mTargetHeight;
-                mTargetHeight = mTargetWidth;
-                mTargetWidth = tempHeight;
-            }
-
-            // Rotate crop rect if image is rotated more than 0 degrees.
-            Point dimensions = calculateRawDimensions();
-            mCropRect = CropRectRotator.rotateCropRectForExifOrientation(
-                    dimensions, mCropRect, exifOrientation);
-
-            // If we're in RTL mode, center in the rightmost side of the image
-            if (mIsRtl) {
-                mCropRect.set(dimensions.x - mCropRect.right, mCropRect.top,
-                        dimensions.x - mCropRect.left, mCropRect.bottom);
-            }
-
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = BitmapUtils.calculateInSampleSize(
-                    mCropRect.width(), mCropRect.height(), mTargetWidth, mTargetHeight);
-
-            if (mBitmapRegionDecoder == null) {
-                mBitmapRegionDecoder = openBitmapRegionDecoder();
-            }
-
-            // Bitmap region decoder may have failed to open if there was a problem with the underlying
-            // InputStream.
-            if (mBitmapRegionDecoder != null) {
-                try {
-                    Bitmap bitmap = mBitmapRegionDecoder.decodeRegion(mCropRect, options);
-
-                    // Rotate output bitmap if necessary because of EXIF orientation.
-                    int matrixRotation = getDegreesRotationForExifOrientation(exifOrientation);
-                    if (matrixRotation > 0) {
-                        Matrix rotateMatrix = new Matrix();
-                        rotateMatrix.setRotate(matrixRotation);
-                        bitmap = Bitmap.createBitmap(
-                                bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix, false);
-                    }
-
-                    return bitmap;
-
-                } catch (OutOfMemoryError e) {
-                    Log.e(TAG, "Out of memory and unable to decode bitmap region", e);
-                    return null;
-                } catch (IllegalArgumentException e){
-                    Log.e(TAG, "Illegal argument for decoding bitmap region", e);
-                    return null;
-                }
-            }
-
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmap) {
-            mReceiver.onBitmapDecoded(bitmap);
-        }
-    }
-
-    /**
-     * AsyncTask subclass which decodes the raw dimensions of the asset off the main UI thread. Avoids
-     * allocating memory for the fully decoded image.
-     */
-    private class DecodeDimensionsAsyncTask extends AsyncTask<Void, Void, Point> {
-        private DimensionsReceiver mReceiver;
-
-        public DecodeDimensionsAsyncTask(DimensionsReceiver receiver) {
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Point doInBackground(Void... unused) {
-            return calculateRawDimensions();
-        }
-
-        @Override
-        protected void onPostExecute(Point dimensions) {
-            mReceiver.onDimensionsDecoded(dimensions);
-        }
     }
 }
 

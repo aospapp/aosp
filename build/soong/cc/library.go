@@ -23,15 +23,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/blueprint"
-	"github.com/google/blueprint/pathtools"
-
 	"android/soong/android"
 	"android/soong/bazel"
+	"android/soong/bazel/cquery"
 	"android/soong/cc/config"
+
+	"github.com/google/blueprint"
+	"github.com/google/blueprint/pathtools"
 )
 
-// LibraryProperties is a collection of properties shared by cc library rules.
+// LibraryProperties is a collection of properties shared by cc library rules/cc.
 type LibraryProperties struct {
 	// local file name to pass to the linker as -unexported_symbols_list
 	Unexported_symbols_list *string `android:"path,arch_variant"`
@@ -109,10 +110,10 @@ type LibraryProperties struct {
 		// Run checks on all APIs (in addition to the ones referred by
 		// one of exported ELF symbols.)
 		Check_all_apis *bool
-	}
 
-	// Order symbols in .bss section by their sizes.  Only useful for shared libraries.
-	Sort_bss_symbols_by_size *bool
+		// Extra flags passed to header-abi-diff
+		Diff_flags []string
+	}
 
 	// Inject boringssl hash into the shared library.  This is only intended for use by external/boringssl.
 	Inject_bssl_hash *bool `android:"arch_variant"`
@@ -145,6 +146,10 @@ type SharedProperties struct {
 type StaticOrSharedProperties struct {
 	Srcs []string `android:"path,arch_variant"`
 
+	Tidy_disabled_srcs []string `android:"path,arch_variant"`
+
+	Tidy_timeout_srcs []string `android:"path,arch_variant"`
+
 	Sanitized Sanitized `android:"arch_variant"`
 
 	Cflags []string `android:"arch_variant"`
@@ -159,6 +164,8 @@ type StaticOrSharedProperties struct {
 	Export_static_lib_headers []string `android:"arch_variant"`
 
 	Apex_available []string `android:"arch_variant"`
+
+	Installable *bool `android:"arch_variant"`
 }
 
 type LibraryMutatedProperties struct {
@@ -186,11 +193,11 @@ type FlagExporterProperties struct {
 	// be added to the include path (using -I) for this module and any module that links
 	// against this module.  Directories listed in export_include_dirs do not need to be
 	// listed in local_include_dirs.
-	Export_include_dirs []string `android:"arch_variant"`
+	Export_include_dirs []string `android:"arch_variant,variant_prepend"`
 
 	// list of directories that will be added to the system include path
 	// using -isystem for this module and any module that links against this module.
-	Export_system_include_dirs []string `android:"arch_variant"`
+	Export_system_include_dirs []string `android:"arch_variant,variant_prepend"`
 
 	Target struct {
 		Vendor, Product struct {
@@ -205,9 +212,6 @@ type FlagExporterProperties struct {
 
 func init() {
 	RegisterLibraryBuildComponents(android.InitRegistrationContext)
-
-	android.RegisterBp2BuildMutator("cc_library_static", CcLibraryStaticBp2Build)
-	android.RegisterBp2BuildMutator("cc_library", CcLibraryBp2Build)
 }
 
 func RegisterLibraryBuildComponents(ctx android.RegistrationContext) {
@@ -218,105 +222,209 @@ func RegisterLibraryBuildComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("cc_library_host_shared", LibraryHostSharedFactory)
 }
 
+// TODO(b/199902614): Can this be factored to share with the other Attributes?
 // For bp2build conversion.
 type bazelCcLibraryAttributes struct {
 	// Attributes pertaining to both static and shared variants.
-	Srcs               bazel.LabelListAttribute
-	Hdrs               bazel.LabelListAttribute
-	Deps               bazel.LabelListAttribute
-	Dynamic_deps       bazel.LabelListAttribute
-	Whole_archive_deps bazel.LabelListAttribute
-	Copts              bazel.StringListAttribute
-	Includes           bazel.StringListAttribute
-	Linkopts           bazel.StringListAttribute
-	// Attributes pertaining to shared variant.
-	Shared_copts                  bazel.StringListAttribute
-	Shared_srcs                   bazel.LabelListAttribute
-	Static_deps_for_shared        bazel.LabelListAttribute
-	Dynamic_deps_for_shared       bazel.LabelListAttribute
-	Whole_archive_deps_for_shared bazel.LabelListAttribute
-	User_link_flags               bazel.StringListAttribute
-	Version_script                bazel.LabelAttribute
-	// Attributes pertaining to static variant.
-	Static_copts                  bazel.StringListAttribute
-	Static_srcs                   bazel.LabelListAttribute
-	Static_deps_for_static        bazel.LabelListAttribute
-	Dynamic_deps_for_static       bazel.LabelListAttribute
-	Whole_archive_deps_for_static bazel.LabelListAttribute
+	Srcs    bazel.LabelListAttribute
+	Srcs_c  bazel.LabelListAttribute
+	Srcs_as bazel.LabelListAttribute
+
+	Copts      bazel.StringListAttribute
+	Cppflags   bazel.StringListAttribute
+	Conlyflags bazel.StringListAttribute
+	Asflags    bazel.StringListAttribute
+
+	Hdrs bazel.LabelListAttribute
+
+	Deps                              bazel.LabelListAttribute
+	Implementation_deps               bazel.LabelListAttribute
+	Dynamic_deps                      bazel.LabelListAttribute
+	Implementation_dynamic_deps       bazel.LabelListAttribute
+	Whole_archive_deps                bazel.LabelListAttribute
+	Implementation_whole_archive_deps bazel.LabelListAttribute
+	System_dynamic_deps               bazel.LabelListAttribute
+
+	Export_includes        bazel.StringListAttribute
+	Export_system_includes bazel.StringListAttribute
+	Local_includes         bazel.StringListAttribute
+	Absolute_includes      bazel.StringListAttribute
+	Linkopts               bazel.StringListAttribute
+	Use_libcrt             bazel.BoolAttribute
+	Rtti                   bazel.BoolAttribute
+
+	Stl     *string
+	Cpp_std *string
+	C_std   *string
+
+	// This is shared only.
+	Link_crt                 bazel.BoolAttribute
+	Additional_linker_inputs bazel.LabelListAttribute
+
+	// Common properties shared between both shared and static variants.
+	Shared staticOrSharedAttributes
+	Static staticOrSharedAttributes
+
+	Strip stripAttributes
+
+	Features bazel.StringListAttribute
 }
 
-type bazelCcLibrary struct {
-	android.BazelTargetModuleBase
-	bazelCcLibraryAttributes
+type stripAttributes struct {
+	Keep_symbols                 bazel.BoolAttribute
+	Keep_symbols_and_debug_frame bazel.BoolAttribute
+	Keep_symbols_list            bazel.StringListAttribute
+	All                          bazel.BoolAttribute
+	None                         bazel.BoolAttribute
 }
 
-func (m *bazelCcLibrary) Name() string {
-	return m.BaseModuleName()
-}
-
-func (m *bazelCcLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) {}
-
-func BazelCcLibraryFactory() android.Module {
-	module := &bazelCcLibrary{}
-	module.AddProperties(&module.bazelCcLibraryAttributes)
-	android.InitBazelTargetModule(module)
-	return module
-}
-
-func CcLibraryBp2Build(ctx android.TopDownMutatorContext) {
-	m, ok := ctx.Module().(*Module)
-	if !ok || !m.ConvertWithBp2build(ctx) {
-		return
-	}
-
-	if ctx.ModuleType() != "cc_library" {
-		return
-	}
-
+func libraryBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 	// For some cc_library modules, their static variants are ready to be
 	// converted, but not their shared variants. For these modules, delegate to
 	// the cc_library_static bp2build converter temporarily instead.
-	if android.GenerateCcLibraryStaticOnly(ctx) {
-		ccLibraryStaticBp2BuildInternal(ctx, m)
+	if android.GenerateCcLibraryStaticOnly(ctx.Module().Name()) {
+		sharedOrStaticLibraryBp2Build(ctx, m, true)
 		return
 	}
 
 	sharedAttrs := bp2BuildParseSharedProps(ctx, m)
 	staticAttrs := bp2BuildParseStaticProps(ctx, m)
-	compilerAttrs := bp2BuildParseCompilerProps(ctx, m)
-	linkerAttrs := bp2BuildParseLinkerProps(ctx, m)
-	exportedIncludes := bp2BuildParseExportedIncludes(ctx, m)
+	baseAttributes := bp2BuildParseBaseProps(ctx, m)
+	compilerAttrs := baseAttributes.compilerAttributes
+	linkerAttrs := baseAttributes.linkerAttributes
+	exportedIncludes := bp2BuildParseExportedIncludes(ctx, m, compilerAttrs.includes)
 
-	var srcs bazel.LabelListAttribute
-	srcs.Append(compilerAttrs.srcs)
+	srcs := compilerAttrs.srcs
 
-	attrs := &bazelCcLibraryAttributes{
-		Srcs:                          srcs,
-		Deps:                          linkerAttrs.deps,
-		Dynamic_deps:                  linkerAttrs.dynamicDeps,
-		Whole_archive_deps:            linkerAttrs.wholeArchiveDeps,
-		Copts:                         compilerAttrs.copts,
-		Includes:                      exportedIncludes,
-		Linkopts:                      linkerAttrs.linkopts,
-		Shared_copts:                  sharedAttrs.copts,
-		Shared_srcs:                   sharedAttrs.srcs,
-		Static_deps_for_shared:        sharedAttrs.staticDeps,
-		Whole_archive_deps_for_shared: sharedAttrs.wholeArchiveDeps,
-		Dynamic_deps_for_shared:       sharedAttrs.dynamicDeps,
-		Version_script:                linkerAttrs.versionScript,
-		Static_copts:                  staticAttrs.copts,
-		Static_srcs:                   staticAttrs.srcs,
-		Static_deps_for_static:        staticAttrs.staticDeps,
-		Whole_archive_deps_for_static: staticAttrs.wholeArchiveDeps,
-		Dynamic_deps_for_static:       staticAttrs.dynamicDeps,
+	sharedAttrs.Dynamic_deps.Add(baseAttributes.protoDependency)
+	staticAttrs.Deps.Add(baseAttributes.protoDependency)
+
+	asFlags := compilerAttrs.asFlags
+	if compilerAttrs.asSrcs.IsEmpty() && sharedAttrs.Srcs_as.IsEmpty() && staticAttrs.Srcs_as.IsEmpty() {
+		// Skip asflags for BUILD file simplicity if there are no assembly sources.
+		asFlags = bazel.MakeStringListAttribute(nil)
 	}
 
-	props := bazel.BazelTargetModuleProperties{
-		Rule_class:        "cc_library",
-		Bzl_load_location: "//build/bazel/rules:full_cc_library.bzl",
+	staticCommonAttrs := staticOrSharedAttributes{
+		Srcs:    *srcs.Clone().Append(staticAttrs.Srcs),
+		Srcs_c:  *compilerAttrs.cSrcs.Clone().Append(staticAttrs.Srcs_c),
+		Srcs_as: *compilerAttrs.asSrcs.Clone().Append(staticAttrs.Srcs_as),
+		Copts:   *compilerAttrs.copts.Clone().Append(staticAttrs.Copts),
+		Hdrs:    *compilerAttrs.hdrs.Clone().Append(staticAttrs.Hdrs),
+
+		Deps:                              *linkerAttrs.deps.Clone().Append(staticAttrs.Deps),
+		Implementation_deps:               *linkerAttrs.implementationDeps.Clone().Append(staticAttrs.Implementation_deps),
+		Dynamic_deps:                      *linkerAttrs.dynamicDeps.Clone().Append(staticAttrs.Dynamic_deps),
+		Implementation_dynamic_deps:       *linkerAttrs.implementationDynamicDeps.Clone().Append(staticAttrs.Implementation_dynamic_deps),
+		Implementation_whole_archive_deps: linkerAttrs.implementationWholeArchiveDeps,
+		Whole_archive_deps:                *linkerAttrs.wholeArchiveDeps.Clone().Append(staticAttrs.Whole_archive_deps),
+		System_dynamic_deps:               *linkerAttrs.systemDynamicDeps.Clone().Append(staticAttrs.System_dynamic_deps),
+		sdkAttributes:                     bp2BuildParseSdkAttributes(m),
 	}
 
-	ctx.CreateBazelTargetModule(BazelCcLibraryFactory, m.Name(), props, attrs)
+	sharedCommonAttrs := staticOrSharedAttributes{
+		Srcs:    *srcs.Clone().Append(sharedAttrs.Srcs),
+		Srcs_c:  *compilerAttrs.cSrcs.Clone().Append(sharedAttrs.Srcs_c),
+		Srcs_as: *compilerAttrs.asSrcs.Clone().Append(sharedAttrs.Srcs_as),
+		Copts:   *compilerAttrs.copts.Clone().Append(sharedAttrs.Copts),
+		Hdrs:    *compilerAttrs.hdrs.Clone().Append(sharedAttrs.Hdrs),
+
+		Deps:                        *linkerAttrs.deps.Clone().Append(sharedAttrs.Deps),
+		Implementation_deps:         *linkerAttrs.implementationDeps.Clone().Append(sharedAttrs.Implementation_deps),
+		Dynamic_deps:                *linkerAttrs.dynamicDeps.Clone().Append(sharedAttrs.Dynamic_deps),
+		Implementation_dynamic_deps: *linkerAttrs.implementationDynamicDeps.Clone().Append(sharedAttrs.Implementation_dynamic_deps),
+		Whole_archive_deps:          *linkerAttrs.wholeArchiveDeps.Clone().Append(sharedAttrs.Whole_archive_deps),
+		System_dynamic_deps:         *linkerAttrs.systemDynamicDeps.Clone().Append(sharedAttrs.System_dynamic_deps),
+		sdkAttributes:               bp2BuildParseSdkAttributes(m),
+	}
+
+	staticTargetAttrs := &bazelCcLibraryStaticAttributes{
+		staticOrSharedAttributes: staticCommonAttrs,
+
+		Cppflags:   compilerAttrs.cppFlags,
+		Conlyflags: compilerAttrs.conlyFlags,
+		Asflags:    asFlags,
+
+		Export_includes:          exportedIncludes.Includes,
+		Export_absolute_includes: exportedIncludes.AbsoluteIncludes,
+		Export_system_includes:   exportedIncludes.SystemIncludes,
+		Local_includes:           compilerAttrs.localIncludes,
+		Absolute_includes:        compilerAttrs.absoluteIncludes,
+		Use_libcrt:               linkerAttrs.useLibcrt,
+		Rtti:                     compilerAttrs.rtti,
+		Stl:                      compilerAttrs.stl,
+		Cpp_std:                  compilerAttrs.cppStd,
+		C_std:                    compilerAttrs.cStd,
+		Use_version_lib:          linkerAttrs.useVersionLib,
+
+		Features: linkerAttrs.features,
+	}
+
+	sharedTargetAttrs := &bazelCcLibrarySharedAttributes{
+		staticOrSharedAttributes: sharedCommonAttrs,
+		Cppflags:                 compilerAttrs.cppFlags,
+		Conlyflags:               compilerAttrs.conlyFlags,
+		Asflags:                  asFlags,
+
+		Export_includes:          exportedIncludes.Includes,
+		Export_absolute_includes: exportedIncludes.AbsoluteIncludes,
+		Export_system_includes:   exportedIncludes.SystemIncludes,
+		Local_includes:           compilerAttrs.localIncludes,
+		Absolute_includes:        compilerAttrs.absoluteIncludes,
+		Linkopts:                 linkerAttrs.linkopts,
+		Link_crt:                 linkerAttrs.linkCrt,
+		Use_libcrt:               linkerAttrs.useLibcrt,
+		Rtti:                     compilerAttrs.rtti,
+		Stl:                      compilerAttrs.stl,
+		Cpp_std:                  compilerAttrs.cppStd,
+		C_std:                    compilerAttrs.cStd,
+		Use_version_lib:          linkerAttrs.useVersionLib,
+
+		Additional_linker_inputs: linkerAttrs.additionalLinkerInputs,
+
+		Strip: stripAttributes{
+			Keep_symbols:                 linkerAttrs.stripKeepSymbols,
+			Keep_symbols_and_debug_frame: linkerAttrs.stripKeepSymbolsAndDebugFrame,
+			Keep_symbols_list:            linkerAttrs.stripKeepSymbolsList,
+			All:                          linkerAttrs.stripAll,
+			None:                         linkerAttrs.stripNone,
+		},
+		Features: linkerAttrs.features,
+
+		Stubs_symbol_file: compilerAttrs.stubsSymbolFile,
+		Stubs_versions:    compilerAttrs.stubsVersions,
+	}
+
+	for axis, configToProps := range m.GetArchVariantProperties(ctx, &LibraryProperties{}) {
+		for config, props := range configToProps {
+			if props, ok := props.(*LibraryProperties); ok {
+				if props.Inject_bssl_hash != nil {
+					// This is an edge case applies only to libcrypto
+					if m.Name() == "libcrypto" {
+						sharedTargetAttrs.Inject_bssl_hash.SetSelectValue(axis, config, props.Inject_bssl_hash)
+					} else {
+						ctx.PropertyErrorf("inject_bssl_hash", "only applies to libcrypto")
+					}
+				}
+			}
+		}
+	}
+
+	staticProps := bazel.BazelTargetModuleProperties{
+		Rule_class:        "cc_library_static",
+		Bzl_load_location: "//build/bazel/rules/cc:cc_library_static.bzl",
+	}
+	sharedProps := bazel.BazelTargetModuleProperties{
+		Rule_class:        "cc_library_shared",
+		Bzl_load_location: "//build/bazel/rules/cc:cc_library_shared.bzl",
+	}
+
+	ctx.CreateBazelTargetModuleWithRestrictions(staticProps,
+		android.CommonAttributes{Name: m.Name() + "_bp2build_cc_library_static"},
+		staticTargetAttrs, staticAttrs.Enabled)
+	ctx.CreateBazelTargetModuleWithRestrictions(sharedProps,
+		android.CommonAttributes{Name: m.Name()},
+		sharedTargetAttrs, sharedAttrs.Enabled)
 }
 
 // cc_library creates both static and/or shared libraries for a device and/or
@@ -331,6 +439,8 @@ func LibraryFactory() android.Module {
 		staticLibrarySdkMemberType,
 		staticAndSharedLibrarySdkMemberType,
 	}
+	module.bazelable = true
+	module.bazelHandler = &ccLibraryBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -339,7 +449,8 @@ func LibraryStaticFactory() android.Module {
 	module, library := NewLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyStatic()
 	module.sdkMemberTypes = []android.SdkMemberType{staticLibrarySdkMemberType}
-	module.bazelHandler = &staticLibraryBazelHandler{module: module}
+	module.bazelable = true
+	module.bazelHandler = &ccLibraryBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -348,6 +459,8 @@ func LibrarySharedFactory() android.Module {
 	module, library := NewLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyShared()
 	module.sdkMemberTypes = []android.SdkMemberType{sharedLibrarySdkMemberType}
+	module.bazelable = true
+	module.bazelHandler = &ccLibraryBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -357,6 +470,8 @@ func LibraryHostStaticFactory() android.Module {
 	module, library := NewLibrary(android.HostSupported)
 	library.BuildOnlyStatic()
 	module.sdkMemberTypes = []android.SdkMemberType{staticLibrarySdkMemberType}
+	module.bazelable = true
+	module.bazelHandler = &ccLibraryBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -365,6 +480,8 @@ func LibraryHostSharedFactory() android.Module {
 	module, library := NewLibrary(android.HostSupported)
 	library.BuildOnlyShared()
 	module.sdkMemberTypes = []android.SdkMemberType{sharedLibrarySdkMemberType}
+	module.bazelable = true
+	module.bazelHandler = &ccLibraryBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -478,7 +595,8 @@ type libraryDecorator struct {
 	stripper         Stripper
 
 	// For whole_static_libs
-	objects Objects
+	objects                      Objects
+	wholeStaticLibsFromPrebuilts android.Paths
 
 	// Uses the module's name if empty, but can be overridden. Does not include
 	// shlib suffix.
@@ -522,38 +640,28 @@ type libraryDecorator struct {
 	*baseInstaller
 
 	collectedSnapshotHeaders android.Paths
+
+	apiListCoverageXmlPath android.ModuleOutPath
 }
 
-type staticLibraryBazelHandler struct {
-	bazelHandler
+type ccLibraryBazelHandler struct {
+	android.BazelHandler
 
 	module *Module
 }
 
-func (handler *staticLibraryBazelHandler) generateBazelBuildActions(ctx android.ModuleContext, label string) bool {
-	bazelCtx := ctx.Config().BazelContext
-	ccInfo, ok, err := bazelCtx.GetCcInfo(label, ctx.Arch().ArchType)
-	if err != nil {
-		ctx.ModuleErrorf("Error getting Bazel CcInfo: %s", err)
+// generateStaticBazelBuildActions constructs the StaticLibraryInfo Soong
+// provider from a Bazel shared library's CcInfo provider.
+func (handler *ccLibraryBazelHandler) generateStaticBazelBuildActions(ctx android.ModuleContext, label string, ccInfo cquery.CcInfo) bool {
+	rootStaticArchives := ccInfo.RootStaticArchives
+	if len(rootStaticArchives) != 1 {
+		ctx.ModuleErrorf("expected exactly one root archive file for '%s', but got %s", label, rootStaticArchives)
 		return false
 	}
-	if !ok {
-		return ok
-	}
-	outputPaths := ccInfo.OutputFiles
-	objPaths := ccInfo.CcObjectFiles
-	if len(outputPaths) > 1 {
-		// TODO(cparsons): This is actually expected behavior for static libraries with no srcs.
-		// We should support this.
-		ctx.ModuleErrorf("expected at most one output file for '%s', but got %s", label, objPaths)
-		return false
-	} else if len(outputPaths) == 0 {
-		handler.module.outputFile = android.OptionalPath{}
-		return true
-	}
-	outputFilePath := android.PathForBazelOut(ctx, outputPaths[0])
+	outputFilePath := android.PathForBazelOut(ctx, rootStaticArchives[0])
 	handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
 
+	objPaths := ccInfo.CcObjectFiles
 	objFiles := make(android.Paths, len(objPaths))
 	for i, objPath := range objPaths {
 		objFiles[i] = android.PathForBazelOut(ctx, objPath)
@@ -567,24 +675,175 @@ func (handler *staticLibraryBazelHandler) generateBazelBuildActions(ctx android.
 		ReuseObjects:  objects,
 		Objects:       objects,
 
-		// TODO(cparsons): Include transitive static libraries in this provider to support
+		// TODO(b/190524881): Include transitive static libraries in this provider to support
 		// static libraries with deps.
 		TransitiveStaticLibrariesForOrdering: android.NewDepSetBuilder(android.TOPOLOGICAL).
 			Direct(outputFilePath).
 			Build(),
 	})
 
-	ctx.SetProvider(FlagExporterInfoProvider, flagExporterInfoFromCcInfo(ctx, ccInfo))
+	return true
+}
+
+// generateSharedBazelBuildActions constructs the SharedLibraryInfo Soong
+// provider from a Bazel shared library's CcInfo provider.
+func (handler *ccLibraryBazelHandler) generateSharedBazelBuildActions(ctx android.ModuleContext, label string, ccInfo cquery.CcInfo) bool {
+	rootDynamicLibraries := ccInfo.RootDynamicLibraries
+
+	if len(rootDynamicLibraries) != 1 {
+		ctx.ModuleErrorf("expected exactly one root dynamic library file for '%s', but got %s", label, rootDynamicLibraries)
+		return false
+	}
+	outputFilePath := android.PathForBazelOut(ctx, rootDynamicLibraries[0])
+	handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
+
+	handler.module.linker.(*libraryDecorator).unstrippedOutputFile = outputFilePath
+
+	var tocFile android.OptionalPath
+	if len(ccInfo.TocFile) > 0 {
+		tocFile = android.OptionalPathForPath(android.PathForBazelOut(ctx, ccInfo.TocFile))
+	}
+	handler.module.linker.(*libraryDecorator).tocFile = tocFile
+
+	ctx.SetProvider(SharedLibraryInfoProvider, SharedLibraryInfo{
+		TableOfContents: tocFile,
+		SharedLibrary:   outputFilePath,
+		Target:          ctx.Target(),
+		// TODO(b/190524881): Include transitive static libraries in this provider to support
+		// static libraries with deps. The provider key for this is TransitiveStaticLibrariesForOrdering.
+	})
+	return true
+}
+
+func (handler *ccLibraryBazelHandler) GenerateBazelBuildActions(ctx android.ModuleContext, label string) bool {
+	bazelCtx := ctx.Config().BazelContext
+	ccInfo, ok, err := bazelCtx.GetCcInfo(label, android.GetConfigKey(ctx))
+	if err != nil {
+		ctx.ModuleErrorf("Error getting Bazel CcInfo: %s", err)
+		return false
+	}
+	if !ok {
+		return ok
+	}
+
+	if handler.module.static() {
+		if ok := handler.generateStaticBazelBuildActions(ctx, label, ccInfo); !ok {
+			return false
+		}
+	} else if handler.module.Shared() {
+		if ok := handler.generateSharedBazelBuildActions(ctx, label, ccInfo); !ok {
+			return false
+		}
+	} else {
+		return false
+	}
+
+	handler.module.linker.(*libraryDecorator).setFlagExporterInfoFromCcInfo(ctx, ccInfo)
+	handler.module.maybeUnhideFromMake()
+
 	if i, ok := handler.module.linker.(snapshotLibraryInterface); ok {
 		// Dependencies on this library will expect collectedSnapshotHeaders to
 		// be set, otherwise validation will fail. For now, set this to an empty
 		// list.
-		// TODO(cparsons): More closely mirror the collectHeadersForSnapshot
+		// TODO(b/190533363): More closely mirror the collectHeadersForSnapshot
 		// implementation.
 		i.(*libraryDecorator).collectedSnapshotHeaders = android.Paths{}
 	}
-
 	return ok
+}
+
+func (library *libraryDecorator) setFlagExporterInfoFromCcInfo(ctx android.ModuleContext, ccInfo cquery.CcInfo) {
+	flagExporterInfo := flagExporterInfoFromCcInfo(ctx, ccInfo)
+	// flag exporters consolidates properties like includes, flags, dependencies that should be
+	// exported from this module to other modules
+	ctx.SetProvider(FlagExporterInfoProvider, flagExporterInfo)
+	// Store flag info to be passed along to androidmk
+	// TODO(b/184387147): Androidmk should be done in Bazel, not Soong.
+	library.flagExporterInfo = &flagExporterInfo
+}
+
+func GlobHeadersForSnapshot(ctx android.ModuleContext, paths android.Paths) android.Paths {
+	ret := android.Paths{}
+
+	// Headers in the source tree should be globbed. On the contrast, generated headers
+	// can't be globbed, and they should be manually collected.
+	// So, we first filter out intermediate directories (which contains generated headers)
+	// from exported directories, and then glob headers under remaining directories.
+	for _, path := range paths {
+		dir := path.String()
+		// Skip if dir is for generated headers
+		if strings.HasPrefix(dir, android.PathForOutput(ctx).String()) {
+			continue
+		}
+		// libeigen wrongly exports the root directory "external/eigen". But only two
+		// subdirectories "Eigen" and "unsupported" contain exported header files. Even worse
+		// some of them have no extension. So we need special treatment for libeigen in order
+		// to glob correctly.
+		if dir == "external/eigen" {
+			// Only these two directories contains exported headers.
+			for _, subdir := range []string{"Eigen", "unsupported/Eigen"} {
+				globDir := "external/eigen/" + subdir + "/**/*"
+				glob, err := ctx.GlobWithDeps(globDir, nil)
+				if err != nil {
+					ctx.ModuleErrorf("glob of %q failed: %s", globDir, err)
+					return nil
+				}
+				for _, header := range glob {
+					if strings.HasSuffix(header, "/") {
+						continue
+					}
+					ext := filepath.Ext(header)
+					if ext != "" && ext != ".h" {
+						continue
+					}
+					ret = append(ret, android.PathForSource(ctx, header))
+				}
+			}
+			continue
+		}
+		globDir := dir + "/**/*"
+		glob, err := ctx.GlobWithDeps(globDir, nil)
+		if err != nil {
+			ctx.ModuleErrorf("glob of %q failed: %s", globDir, err)
+			return nil
+		}
+		isLibcxx := strings.HasPrefix(dir, "external/libcxx/include")
+		for _, header := range glob {
+			if isLibcxx {
+				// Glob all files under this special directory, because of C++ headers with no
+				// extension.
+				if strings.HasSuffix(header, "/") {
+					continue
+				}
+			} else {
+				// Filter out only the files with extensions that are headers.
+				found := false
+				for _, ext := range HeaderExts {
+					if strings.HasSuffix(header, ext) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+			ret = append(ret, android.PathForSource(ctx, header))
+		}
+	}
+	return ret
+}
+
+func GlobGeneratedHeadersForSnapshot(ctx android.ModuleContext, paths android.Paths) android.Paths {
+	ret := android.Paths{}
+	for _, header := range paths {
+		// TODO(b/148123511): remove exportedDeps after cleaning up genrule
+		if strings.HasSuffix(header.Base(), "-phony") {
+			continue
+		}
+		ret = append(ret, header)
+	}
+	return ret
 }
 
 // collectHeadersForSnapshot collects all exported headers from library.
@@ -600,75 +859,10 @@ func (l *libraryDecorator) collectHeadersForSnapshot(ctx android.ModuleContext) 
 	// can't be globbed, and they should be manually collected.
 	// So, we first filter out intermediate directories (which contains generated headers)
 	// from exported directories, and then glob headers under remaining directories.
-	for _, path := range append(android.CopyOfPaths(l.flagExporter.dirs), l.flagExporter.systemDirs...) {
-		dir := path.String()
-		// Skip if dir is for generated headers
-		if strings.HasPrefix(dir, android.PathForOutput(ctx).String()) {
-			continue
-		}
-		// libeigen wrongly exports the root directory "external/eigen". But only two
-		// subdirectories "Eigen" and "unsupported" contain exported header files. Even worse
-		// some of them have no extension. So we need special treatment for libeigen in order
-		// to glob correctly.
-		if dir == "external/eigen" {
-			// Only these two directories contains exported headers.
-			for _, subdir := range []string{"Eigen", "unsupported/Eigen"} {
-				glob, err := ctx.GlobWithDeps("external/eigen/"+subdir+"/**/*", nil)
-				if err != nil {
-					ctx.ModuleErrorf("glob failed: %#v", err)
-					return
-				}
-				for _, header := range glob {
-					if strings.HasSuffix(header, "/") {
-						continue
-					}
-					ext := filepath.Ext(header)
-					if ext != "" && ext != ".h" {
-						continue
-					}
-					ret = append(ret, android.PathForSource(ctx, header))
-				}
-			}
-			continue
-		}
-		glob, err := ctx.GlobWithDeps(dir+"/**/*", nil)
-		if err != nil {
-			ctx.ModuleErrorf("glob failed: %#v", err)
-			return
-		}
-		isLibcxx := strings.HasPrefix(dir, "external/libcxx/include")
-		for _, header := range glob {
-			if isLibcxx {
-				// Glob all files under this special directory, because of C++ headers with no
-				// extension.
-				if strings.HasSuffix(header, "/") {
-					continue
-				}
-			} else {
-				// Filter out only the files with extensions that are headers.
-				found := false
-				for _, ext := range headerExts {
-					if strings.HasSuffix(header, ext) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					continue
-				}
-			}
-			ret = append(ret, android.PathForSource(ctx, header))
-		}
-	}
+	ret = append(ret, GlobHeadersForSnapshot(ctx, append(android.CopyOfPaths(l.flagExporter.dirs), l.flagExporter.systemDirs...))...)
 
 	// Collect generated headers
-	for _, header := range append(android.CopyOfPaths(l.flagExporter.headers), l.flagExporter.deps...) {
-		// TODO(b/148123511): remove exportedDeps after cleaning up genrule
-		if strings.HasSuffix(header.Base(), "-phony") {
-			continue
-		}
-		ret = append(ret, header)
-	}
+	ret = append(ret, GlobGeneratedHeadersForSnapshot(ctx, append(android.CopyOfPaths(l.flagExporter.headers), l.flagExporter.deps...))...)
 
 	l.collectedSnapshotHeaders = ret
 }
@@ -817,16 +1011,23 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 		if library.stubsVersion() != "" {
 			vndkVer = library.stubsVersion()
 		}
-		objs, versionScript := compileStubLibrary(ctx, flags, String(library.Properties.Llndk.Symbol_file), vndkVer, "--llndk")
+		nativeAbiResult := parseNativeAbiDefinition(ctx,
+			String(library.Properties.Llndk.Symbol_file),
+			android.ApiLevelOrPanic(ctx, vndkVer), "--llndk")
+		objs := compileStubLibrary(ctx, flags, nativeAbiResult.stubSrc)
 		if !Bool(library.Properties.Llndk.Unversioned) {
-			library.versionScriptPath = android.OptionalPathForPath(versionScript)
+			library.versionScriptPath = android.OptionalPathForPath(
+				nativeAbiResult.versionScript)
 		}
 		return objs
 	}
 	if ctx.IsVendorPublicLibrary() {
-		objs, versionScript := compileStubLibrary(ctx, flags, String(library.Properties.Vendor_public_library.Symbol_file), "current", "")
+		nativeAbiResult := parseNativeAbiDefinition(ctx,
+			String(library.Properties.Vendor_public_library.Symbol_file),
+			android.FutureApiLevel, "")
+		objs := compileStubLibrary(ctx, flags, nativeAbiResult.stubSrc)
 		if !Bool(library.Properties.Vendor_public_library.Unversioned) {
-			library.versionScriptPath = android.OptionalPathForPath(versionScript)
+			library.versionScriptPath = android.OptionalPathForPath(nativeAbiResult.versionScript)
 		}
 		return objs
 	}
@@ -836,8 +1037,18 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 			ctx.PropertyErrorf("symbol_file", "%q doesn't have .map.txt suffix", symbolFile)
 			return Objects{}
 		}
-		objs, versionScript := compileStubLibrary(ctx, flags, String(library.Properties.Stubs.Symbol_file), library.MutatedProperties.StubsVersion, "--apex")
-		library.versionScriptPath = android.OptionalPathForPath(versionScript)
+		nativeAbiResult := parseNativeAbiDefinition(ctx, symbolFile,
+			android.ApiLevelOrPanic(ctx, library.MutatedProperties.StubsVersion),
+			"--apex")
+		objs := compileStubLibrary(ctx, flags, nativeAbiResult.stubSrc)
+		library.versionScriptPath = android.OptionalPathForPath(
+			nativeAbiResult.versionScript)
+
+		// Parse symbol file to get API list for coverage
+		if library.stubsVersion() == "current" && ctx.PrimaryArch() && !ctx.inRecovery() && !ctx.inProduct() && !ctx.inVendor() {
+			library.apiListCoverageXmlPath = parseSymbolFileForAPICoverage(ctx, symbolFile)
+		}
+
 		return objs
 	}
 
@@ -875,12 +1086,16 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 
 	if library.static() {
 		srcs := android.PathsForModuleSrc(ctx, library.StaticProperties.Static.Srcs)
-		objs = objs.Append(compileObjs(ctx, buildFlags, android.DeviceStaticLibrary,
-			srcs, library.baseCompiler.pathDeps, library.baseCompiler.cFlagsDeps))
+		objs = objs.Append(compileObjs(ctx, buildFlags, android.DeviceStaticLibrary, srcs,
+			android.PathsForModuleSrc(ctx, library.StaticProperties.Static.Tidy_disabled_srcs),
+			android.PathsForModuleSrc(ctx, library.StaticProperties.Static.Tidy_timeout_srcs),
+			library.baseCompiler.pathDeps, library.baseCompiler.cFlagsDeps))
 	} else if library.shared() {
 		srcs := android.PathsForModuleSrc(ctx, library.SharedProperties.Shared.Srcs)
-		objs = objs.Append(compileObjs(ctx, buildFlags, android.DeviceSharedLibrary,
-			srcs, library.baseCompiler.pathDeps, library.baseCompiler.cFlagsDeps))
+		objs = objs.Append(compileObjs(ctx, buildFlags, android.DeviceSharedLibrary, srcs,
+			android.PathsForModuleSrc(ctx, library.SharedProperties.Shared.Tidy_disabled_srcs),
+			android.PathsForModuleSrc(ctx, library.SharedProperties.Shared.Tidy_timeout_srcs),
+			library.baseCompiler.pathDeps, library.baseCompiler.cFlagsDeps))
 	}
 
 	return objs
@@ -911,6 +1126,10 @@ type libraryInterface interface {
 	androidMkWriteAdditionalDependenciesForSourceAbiDiff(w io.Writer)
 
 	availableFor(string) bool
+
+	getAPIListCoverageXMLPath() android.ModuleOutPath
+
+	installable() *bool
 }
 
 type versionedInterface interface {
@@ -1053,9 +1272,9 @@ func (library *libraryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 		deps.ReexportSharedLibHeaders = append(deps.ReexportSharedLibHeaders, library.StaticProperties.Static.Export_shared_lib_headers...)
 		deps.ReexportStaticLibHeaders = append(deps.ReexportStaticLibHeaders, library.StaticProperties.Static.Export_static_lib_headers...)
 	} else if library.shared() {
-		if ctx.toolchain().Bionic() && !Bool(library.baseLinker.Properties.Nocrt) {
-			deps.CrtBegin = "crtbegin_so"
-			deps.CrtEnd = "crtend_so"
+		if !Bool(library.baseLinker.Properties.Nocrt) {
+			deps.CrtBegin = append(deps.CrtBegin, ctx.toolchain().CrtBeginSharedLibrary()...)
+			deps.CrtEnd = append(deps.CrtEnd, ctx.toolchain().CrtEndSharedLibrary()...)
 		}
 		deps.WholeStaticLibs = append(deps.WholeStaticLibs, library.SharedProperties.Shared.Whole_static_libs...)
 		deps.StaticLibs = append(deps.StaticLibs, library.SharedProperties.Shared.Static_libs...)
@@ -1136,6 +1355,7 @@ func (library *libraryDecorator) linkStatic(ctx ModuleContext,
 
 	library.objects = deps.WholeStaticLibObjs.Copy()
 	library.objects = library.objects.Append(objs)
+	library.wholeStaticLibsFromPrebuilts = android.CopyOfPaths(deps.WholeStaticLibsFromPrebuilts)
 
 	fileName := ctx.ModuleName() + staticLibraryExtension
 	outputFile := android.PathForModuleOut(ctx, fileName)
@@ -1153,7 +1373,7 @@ func (library *libraryDecorator) linkStatic(ctx ModuleContext,
 		}
 	}
 
-	transformObjToStaticLib(ctx, library.objects.objFiles, deps.WholeStaticLibsFromPrebuilts, builderFlags, outputFile, objs.tidyFiles)
+	transformObjToStaticLib(ctx, library.objects.objFiles, deps.WholeStaticLibsFromPrebuilts, builderFlags, outputFile, nil, objs.tidyDepFiles)
 
 	library.coverageOutputFile = transformCoverageFilesToZip(ctx, library.objects, ctx.ModuleName())
 
@@ -1161,9 +1381,10 @@ func (library *libraryDecorator) linkStatic(ctx ModuleContext,
 
 	if library.static() {
 		ctx.SetProvider(StaticLibraryInfoProvider, StaticLibraryInfo{
-			StaticLibrary: outputFile,
-			ReuseObjects:  library.reuseObjects,
-			Objects:       library.objects,
+			StaticLibrary:                outputFile,
+			ReuseObjects:                 library.reuseObjects,
+			Objects:                      library.objects,
+			WholeStaticLibsFromPrebuilts: library.wholeStaticLibsFromPrebuilts,
 
 			TransitiveStaticLibrariesForOrdering: android.NewDepSetBuilder(android.TOPOLOGICAL).
 				Direct(outputFile).
@@ -1179,11 +1400,21 @@ func (library *libraryDecorator) linkStatic(ctx ModuleContext,
 	return outputFile
 }
 
+func ndkSharedLibDeps(ctx ModuleContext) android.Paths {
+	if ctx.Module().(*Module).IsSdkVariant() {
+		// The NDK sysroot timestamp file depends on all the NDK
+		// sysroot header and shared library files.
+		return android.Paths{getNdkBaseTimestampFile(ctx)}
+	}
+	return nil
+}
+
 func (library *libraryDecorator) linkShared(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 
 	var linkerDeps android.Paths
 	linkerDeps = append(linkerDeps, flags.LdFlagsDeps...)
+	linkerDeps = append(linkerDeps, ndkSharedLibDeps(ctx)...)
 
 	unexportedSymbols := ctx.ExpandOptionalSource(library.Properties.Unexported_symbols_list, "unexported_symbols_list")
 	forceNotWeakSymbols := ctx.ExpandOptionalSource(library.Properties.Force_symbols_not_weak_list, "force_symbols_not_weak_list")
@@ -1232,11 +1463,17 @@ func (library *libraryDecorator) linkShared(ctx ModuleContext,
 
 	builderFlags := flagsToBuilderFlags(flags)
 
+	if ctx.Darwin() && deps.DarwinSecondArchOutput.Valid() {
+		fatOutputFile := outputFile
+		outputFile = android.PathForModuleOut(ctx, "pre-fat", fileName)
+		transformDarwinUniversalBinary(ctx, fatOutputFile, outputFile, deps.DarwinSecondArchOutput.Path())
+	}
+
 	// Optimize out relinking against shared libraries whose interface hasn't changed by
 	// depending on a table of contents file instead of the library itself.
 	tocFile := outputFile.ReplaceExtension(ctx, flags.Toolchain.ShlibSuffix()[1:]+".toc")
 	library.tocFile = android.OptionalPathForPath(tocFile)
-	transformSharedObjectToToc(ctx, outputFile, tocFile, builderFlags)
+	TransformSharedObjectToToc(ctx, outputFile, tocFile)
 
 	stripFlags := flagsToStripFlags(flags)
 	needsStrip := library.stripper.NeedsStrip(ctx)
@@ -1282,23 +1519,9 @@ func (library *libraryDecorator) linkShared(ctx ModuleContext,
 	linkerDeps = append(linkerDeps, deps.EarlySharedLibsDeps...)
 	linkerDeps = append(linkerDeps, deps.SharedLibsDeps...)
 	linkerDeps = append(linkerDeps, deps.LateSharedLibsDeps...)
-	linkerDeps = append(linkerDeps, objs.tidyFiles...)
-
-	if Bool(library.Properties.Sort_bss_symbols_by_size) && !library.buildStubs() {
-		unsortedOutputFile := android.PathForModuleOut(ctx, "unsorted", fileName)
-		transformObjToDynamicBinary(ctx, objs.objFiles, sharedLibs,
-			deps.StaticLibs, deps.LateStaticLibs, deps.WholeStaticLibs,
-			linkerDeps, deps.CrtBegin, deps.CrtEnd, false, builderFlags, unsortedOutputFile, implicitOutputs)
-
-		symbolOrderingFile := android.PathForModuleOut(ctx, "unsorted", fileName+".symbol_order")
-		symbolOrderingFlag := library.baseLinker.sortBssSymbolsBySize(ctx, unsortedOutputFile, symbolOrderingFile, builderFlags)
-		builderFlags.localLdFlags += " " + symbolOrderingFlag
-		linkerDeps = append(linkerDeps, symbolOrderingFile)
-	}
-
 	transformObjToDynamicBinary(ctx, objs.objFiles, sharedLibs,
 		deps.StaticLibs, deps.LateStaticLibs, deps.WholeStaticLibs,
-		linkerDeps, deps.CrtBegin, deps.CrtEnd, false, builderFlags, outputFile, implicitOutputs)
+		linkerDeps, deps.CrtBegin, deps.CrtEnd, false, builderFlags, outputFile, implicitOutputs, objs.tidyDepFiles)
 
 	objs.coverageFiles = append(objs.coverageFiles, deps.StaticLibObjs.coverageFiles...)
 	objs.coverageFiles = append(objs.coverageFiles, deps.WholeStaticLibObjs.coverageFiles...)
@@ -1309,19 +1532,17 @@ func (library *libraryDecorator) linkShared(ctx ModuleContext,
 	library.coverageOutputFile = transformCoverageFilesToZip(ctx, objs, library.getLibName(ctx))
 	library.linkSAbiDumpFiles(ctx, objs, fileName, unstrippedOutputFile)
 
-	var staticAnalogue *StaticLibraryInfo
+	var transitiveStaticLibrariesForOrdering *android.DepSet
 	if static := ctx.GetDirectDepsWithTag(staticVariantTag); len(static) > 0 {
 		s := ctx.OtherModuleProvider(static[0], StaticLibraryInfoProvider).(StaticLibraryInfo)
-		staticAnalogue = &s
+		transitiveStaticLibrariesForOrdering = s.TransitiveStaticLibrariesForOrdering
 	}
 
 	ctx.SetProvider(SharedLibraryInfoProvider, SharedLibraryInfo{
-		TableOfContents:         android.OptionalPathForPath(tocFile),
-		SharedLibrary:           unstrippedOutputFile,
-		UnstrippedSharedLibrary: library.unstrippedOutputFile,
-		CoverageSharedLibrary:   library.coverageOutputFile,
-		StaticAnalogue:          staticAnalogue,
-		Target:                  ctx.Target(),
+		TableOfContents:                      android.OptionalPathForPath(tocFile),
+		SharedLibrary:                        unstrippedOutputFile,
+		TransitiveStaticLibrariesForOrdering: transitiveStaticLibrariesForOrdering,
+		Target:                               ctx.Target(),
 	})
 
 	stubs := ctx.GetDirectDepsWithTag(stubImplDepTag)
@@ -1420,6 +1641,7 @@ func (library *libraryDecorator) linkSAbiDumpFiles(ctx ModuleContext, objs Objec
 		if refAbiDumpFile != nil {
 			library.sAbiDiff = sourceAbiDiff(ctx, library.sAbiOutputFile.Path(),
 				refAbiDumpFile, fileName, exportedHeaderFlags,
+				library.Properties.Header_abi_checker.Diff_flags,
 				Bool(library.Properties.Header_abi_checker.Check_all_apis),
 				ctx.IsLlndk(), ctx.isNdk(ctx.Config()), ctx.IsVndkExt())
 		}
@@ -1639,7 +1861,7 @@ func (library *libraryDecorator) install(ctx ModuleContext, file android.Path) {
 					mayUseCoreVariant = false
 				}
 
-				if ctx.Config().CFIEnabledForPath(ctx.ModuleDir()) && ctx.Arch().ArchType == android.Arm64 {
+				if ctx.Config().CFIEnabledForPath(ctx.ModuleDir()) {
 					mayUseCoreVariant = false
 				}
 
@@ -1794,6 +2016,11 @@ func (library *libraryDecorator) stubsVersions(ctx android.BaseMutatorContext) [
 		return nil
 	}
 
+	if library.hasLLNDKStubs() && ctx.Module().(*Module).UseVndk() {
+		// LLNDK libraries only need a single stubs variant.
+		return []string{android.FutureApiLevel.String()}
+	}
+
 	// Future API level is implicitly added if there isn't
 	vers := library.Properties.Stubs.Versions
 	if inList(android.FutureApiLevel.String(), vers) {
@@ -1846,6 +2073,15 @@ func (library *libraryDecorator) availableFor(what string) bool {
 	return android.CheckAvailableForApex(what, list)
 }
 
+func (library *libraryDecorator) installable() *bool {
+	if library.static() {
+		return library.StaticProperties.Static.Installable
+	} else if library.shared() {
+		return library.SharedProperties.Shared.Installable
+	}
+	return nil
+}
+
 func (library *libraryDecorator) makeUninstallable(mod *Module) {
 	if library.static() && library.buildStatic() && !library.buildStubs() {
 		// If we're asked to make a static library uninstallable we don't do
@@ -1855,6 +2091,10 @@ func (library *libraryDecorator) makeUninstallable(mod *Module) {
 		return
 	}
 	mod.ModuleBase.MakeUninstallable()
+}
+
+func (library *libraryDecorator) getAPIListCoverageXMLPath() android.ModuleOutPath {
+	return library.apiListCoverageXmlPath
 }
 
 var versioningMacroNamesListKey = android.NewOnceKey("versioningMacroNamesList")
@@ -2135,8 +2375,7 @@ func moduleLibraryInterface(module blueprint.Module) libraryInterface {
 	return nil
 }
 
-// versionSelector normalizes the versions in the Stubs.Versions property into MutatedProperties.AllStubsVersions,
-// and propagates the value from implementation libraries to llndk libraries with the same name.
+// versionSelector normalizes the versions in the Stubs.Versions property into MutatedProperties.AllStubsVersions.
 func versionSelectorMutator(mctx android.BottomUpMutatorContext) {
 	if library := moduleLibraryInterface(mctx.Module()); library != nil && CanBeVersionVariant(mctx.Module().(*Module)) {
 		if library.buildShared() {
@@ -2149,15 +2388,6 @@ func versionSelectorMutator(mctx android.BottomUpMutatorContext) {
 				// Set the versions on the pre-mutated module so they can be read by any llndk modules that
 				// depend on the implementation library and haven't been mutated yet.
 				library.setAllStubsVersions(versions)
-			}
-
-			if mctx.Module().(*Module).UseVndk() && library.hasLLNDKStubs() {
-				// Propagate the version to the llndk stubs module.
-				mctx.VisitDirectDepsWithTag(llndkStubDepTag, func(stubs android.Module) {
-					if stubsLib := moduleLibraryInterface(stubs); stubsLib != nil {
-						stubsLib.setAllStubsVersions(library.allStubsVersions())
-					}
-				})
 			}
 		}
 	}
@@ -2207,7 +2437,6 @@ func maybeInjectBoringSSLHash(ctx android.ModuleContext, outputFile android.Modu
 		rule := android.NewRuleBuilder(pctx, ctx)
 		rule.Command().
 			BuiltTool("bssl_inject_hash").
-			Flag("-sha256").
 			FlagWithInput("-in-object ", outputFile).
 			FlagWithOutput("-o ", hashedOutputfile)
 		rule.Build("injectCryptoHash", "inject crypto hash")
@@ -2216,71 +2445,192 @@ func maybeInjectBoringSSLHash(ctx android.ModuleContext, outputFile android.Modu
 	return outputFile
 }
 
-type bazelCcLibraryStaticAttributes struct {
-	Copts              bazel.StringListAttribute
-	Srcs               bazel.LabelListAttribute
-	Deps               bazel.LabelListAttribute
-	Whole_archive_deps bazel.LabelListAttribute
-	Linkopts           bazel.StringListAttribute
-	Linkstatic         bool
-	Includes           bazel.StringListAttribute
-	Hdrs               bazel.LabelListAttribute
-}
+func sharedOrStaticLibraryBp2Build(ctx android.TopDownMutatorContext, module *Module, isStatic bool) {
+	baseAttributes := bp2BuildParseBaseProps(ctx, module)
+	compilerAttrs := baseAttributes.compilerAttributes
+	linkerAttrs := baseAttributes.linkerAttributes
 
-type bazelCcLibraryStatic struct {
-	android.BazelTargetModuleBase
-	bazelCcLibraryStaticAttributes
-}
+	exportedIncludes := bp2BuildParseExportedIncludes(ctx, module, compilerAttrs.includes)
 
-func BazelCcLibraryStaticFactory() android.Module {
-	module := &bazelCcLibraryStatic{}
-	module.AddProperties(&module.bazelCcLibraryStaticAttributes)
-	android.InitBazelTargetModule(module)
-	return module
-}
+	// Append shared/static{} stanza properties. These won't be specified on
+	// cc_library_* itself, but may be specified in cc_defaults that this module
+	// depends on.
+	libSharedOrStaticAttrs := bp2BuildParseLibProps(ctx, module, isStatic)
 
-func ccLibraryStaticBp2BuildInternal(ctx android.TopDownMutatorContext, module *Module) {
-	compilerAttrs := bp2BuildParseCompilerProps(ctx, module)
-	linkerAttrs := bp2BuildParseLinkerProps(ctx, module)
-	exportedIncludes := bp2BuildParseExportedIncludes(ctx, module)
+	compilerAttrs.srcs.Append(libSharedOrStaticAttrs.Srcs)
+	compilerAttrs.cSrcs.Append(libSharedOrStaticAttrs.Srcs_c)
+	compilerAttrs.asSrcs.Append(libSharedOrStaticAttrs.Srcs_as)
+	compilerAttrs.copts.Append(libSharedOrStaticAttrs.Copts)
 
-	attrs := &bazelCcLibraryStaticAttributes{
-		Copts:              compilerAttrs.copts,
-		Srcs:               compilerAttrs.srcs,
-		Deps:               linkerAttrs.deps,
-		Whole_archive_deps: linkerAttrs.wholeArchiveDeps,
+	linkerAttrs.deps.Append(libSharedOrStaticAttrs.Deps)
+	linkerAttrs.implementationDeps.Append(libSharedOrStaticAttrs.Implementation_deps)
+	linkerAttrs.dynamicDeps.Append(libSharedOrStaticAttrs.Dynamic_deps)
+	linkerAttrs.implementationDynamicDeps.Append(libSharedOrStaticAttrs.Implementation_dynamic_deps)
+	linkerAttrs.systemDynamicDeps.Append(libSharedOrStaticAttrs.System_dynamic_deps)
 
-		Linkopts:   linkerAttrs.linkopts,
-		Linkstatic: true,
-		Includes:   exportedIncludes,
+	asFlags := compilerAttrs.asFlags
+	if compilerAttrs.asSrcs.IsEmpty() {
+		// Skip asflags for BUILD file simplicity if there are no assembly sources.
+		asFlags = bazel.MakeStringListAttribute(nil)
 	}
 
+	commonAttrs := staticOrSharedAttributes{
+		Srcs:    compilerAttrs.srcs,
+		Srcs_c:  compilerAttrs.cSrcs,
+		Srcs_as: compilerAttrs.asSrcs,
+		Copts:   compilerAttrs.copts,
+		Hdrs:    compilerAttrs.hdrs,
+
+		Deps:                              linkerAttrs.deps,
+		Implementation_deps:               linkerAttrs.implementationDeps,
+		Dynamic_deps:                      linkerAttrs.dynamicDeps,
+		Implementation_dynamic_deps:       linkerAttrs.implementationDynamicDeps,
+		Whole_archive_deps:                linkerAttrs.wholeArchiveDeps,
+		Implementation_whole_archive_deps: linkerAttrs.implementationWholeArchiveDeps,
+		System_dynamic_deps:               linkerAttrs.systemDynamicDeps,
+		sdkAttributes:                     bp2BuildParseSdkAttributes(module),
+	}
+
+	var attrs interface{}
+	if isStatic {
+		commonAttrs.Deps.Add(baseAttributes.protoDependency)
+		attrs = &bazelCcLibraryStaticAttributes{
+			staticOrSharedAttributes: commonAttrs,
+
+			Use_libcrt:      linkerAttrs.useLibcrt,
+			Use_version_lib: linkerAttrs.useVersionLib,
+
+			Rtti:    compilerAttrs.rtti,
+			Stl:     compilerAttrs.stl,
+			Cpp_std: compilerAttrs.cppStd,
+			C_std:   compilerAttrs.cStd,
+
+			Export_includes:          exportedIncludes.Includes,
+			Export_absolute_includes: exportedIncludes.AbsoluteIncludes,
+			Export_system_includes:   exportedIncludes.SystemIncludes,
+			Local_includes:           compilerAttrs.localIncludes,
+			Absolute_includes:        compilerAttrs.absoluteIncludes,
+
+			Cppflags:   compilerAttrs.cppFlags,
+			Conlyflags: compilerAttrs.conlyFlags,
+			Asflags:    asFlags,
+
+			Features: linkerAttrs.features,
+		}
+	} else {
+		commonAttrs.Dynamic_deps.Add(baseAttributes.protoDependency)
+
+		attrs = &bazelCcLibrarySharedAttributes{
+			staticOrSharedAttributes: commonAttrs,
+
+			Cppflags:   compilerAttrs.cppFlags,
+			Conlyflags: compilerAttrs.conlyFlags,
+			Asflags:    asFlags,
+
+			Linkopts:        linkerAttrs.linkopts,
+			Link_crt:        linkerAttrs.linkCrt,
+			Use_libcrt:      linkerAttrs.useLibcrt,
+			Use_version_lib: linkerAttrs.useVersionLib,
+
+			Rtti:    compilerAttrs.rtti,
+			Stl:     compilerAttrs.stl,
+			Cpp_std: compilerAttrs.cppStd,
+			C_std:   compilerAttrs.cStd,
+
+			Export_includes:          exportedIncludes.Includes,
+			Export_absolute_includes: exportedIncludes.AbsoluteIncludes,
+			Export_system_includes:   exportedIncludes.SystemIncludes,
+			Local_includes:           compilerAttrs.localIncludes,
+			Absolute_includes:        compilerAttrs.absoluteIncludes,
+			Additional_linker_inputs: linkerAttrs.additionalLinkerInputs,
+
+			Strip: stripAttributes{
+				Keep_symbols:                 linkerAttrs.stripKeepSymbols,
+				Keep_symbols_and_debug_frame: linkerAttrs.stripKeepSymbolsAndDebugFrame,
+				Keep_symbols_list:            linkerAttrs.stripKeepSymbolsList,
+				All:                          linkerAttrs.stripAll,
+				None:                         linkerAttrs.stripNone,
+			},
+
+			Features: linkerAttrs.features,
+
+			Stubs_symbol_file: compilerAttrs.stubsSymbolFile,
+			Stubs_versions:    compilerAttrs.stubsVersions,
+		}
+	}
+
+	var modType string
+	if isStatic {
+		modType = "cc_library_static"
+	} else {
+		modType = "cc_library_shared"
+	}
 	props := bazel.BazelTargetModuleProperties{
-		Rule_class:        "cc_library_static",
-		Bzl_load_location: "//build/bazel/rules:cc_library_static.bzl",
+		Rule_class:        modType,
+		Bzl_load_location: fmt.Sprintf("//build/bazel/rules/cc:%s.bzl", modType),
 	}
 
-	ctx.CreateBazelTargetModule(BazelCcLibraryStaticFactory, module.Name(), props, attrs)
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: module.Name()}, attrs)
 }
 
-func CcLibraryStaticBp2Build(ctx android.TopDownMutatorContext) {
-	module, ok := ctx.Module().(*Module)
-	if !ok {
-		// Not a cc module
-		return
-	}
-	if !module.ConvertWithBp2build(ctx) {
-		return
-	}
-	if ctx.ModuleType() != "cc_library_static" {
-		return
-	}
+// TODO(b/199902614): Can this be factored to share with the other Attributes?
+type bazelCcLibraryStaticAttributes struct {
+	staticOrSharedAttributes
 
-	ccLibraryStaticBp2BuildInternal(ctx, module)
+	Use_libcrt      bazel.BoolAttribute
+	Use_version_lib bazel.BoolAttribute
+
+	Rtti    bazel.BoolAttribute
+	Stl     *string
+	Cpp_std *string
+	C_std   *string
+
+	Export_includes          bazel.StringListAttribute
+	Export_absolute_includes bazel.StringListAttribute
+	Export_system_includes   bazel.StringListAttribute
+	Local_includes           bazel.StringListAttribute
+	Absolute_includes        bazel.StringListAttribute
+	Hdrs                     bazel.LabelListAttribute
+
+	Cppflags   bazel.StringListAttribute
+	Conlyflags bazel.StringListAttribute
+	Asflags    bazel.StringListAttribute
+
+	Features bazel.StringListAttribute
 }
 
-func (m *bazelCcLibraryStatic) Name() string {
-	return m.BaseModuleName()
-}
+// TODO(b/199902614): Can this be factored to share with the other Attributes?
+type bazelCcLibrarySharedAttributes struct {
+	staticOrSharedAttributes
 
-func (m *bazelCcLibraryStatic) GenerateAndroidBuildActions(ctx android.ModuleContext) {}
+	Linkopts bazel.StringListAttribute
+	Link_crt bazel.BoolAttribute // Only for linking shared library (and cc_binary)
+
+	Use_libcrt      bazel.BoolAttribute
+	Use_version_lib bazel.BoolAttribute
+
+	Rtti    bazel.BoolAttribute
+	Stl     *string
+	Cpp_std *string
+	C_std   *string
+
+	Export_includes          bazel.StringListAttribute
+	Export_absolute_includes bazel.StringListAttribute
+	Export_system_includes   bazel.StringListAttribute
+	Local_includes           bazel.StringListAttribute
+	Absolute_includes        bazel.StringListAttribute
+	Hdrs                     bazel.LabelListAttribute
+
+	Strip                    stripAttributes
+	Additional_linker_inputs bazel.LabelListAttribute
+
+	Cppflags   bazel.StringListAttribute
+	Conlyflags bazel.StringListAttribute
+	Asflags    bazel.StringListAttribute
+
+	Features bazel.StringListAttribute
+
+	Stubs_symbol_file *string
+	Stubs_versions    bazel.StringListAttribute
+	Inject_bssl_hash  bazel.BoolAttribute
+}

@@ -27,6 +27,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 /**
@@ -82,6 +83,7 @@ public class ImsiPrivacyProtectionExemptionStoreData implements WifiConfigStore.
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
+            mDataSource.fromDeserialized(Collections.emptyMap());
             return;
         }
         mDataSource.fromDeserialized(parseCarrierImsiProtectionExemptionMap(in, outerTagDepth,

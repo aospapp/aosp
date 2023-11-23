@@ -17,8 +17,8 @@
 import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.power import PowerWiFiBaseTest as PWBT
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi import wifi_power_test_utils as wputils
 from acts_contrib.test_utils.power.IperfHelper import IperfHelper

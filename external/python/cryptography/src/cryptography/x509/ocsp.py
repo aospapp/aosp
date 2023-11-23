@@ -13,7 +13,9 @@ import six
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.x509.base import (
-    _EARLIEST_UTC_TIME, _convert_to_naive_utc_time, _reject_duplicate_extension
+    _EARLIEST_UTC_TIME,
+    _convert_to_naive_utc_time,
+    _reject_duplicate_extension,
 )
 
 
@@ -40,10 +42,13 @@ class OCSPResponseStatus(Enum):
     UNAUTHORIZED = 6
 
 
-_RESPONSE_STATUS_TO_ENUM = dict((x.value, x) for x in OCSPResponseStatus)
+_RESPONSE_STATUS_TO_ENUM = {x.value: x for x in OCSPResponseStatus}
 _ALLOWED_HASHES = (
-    hashes.SHA1, hashes.SHA224, hashes.SHA256,
-    hashes.SHA384, hashes.SHA512
+    hashes.SHA1,
+    hashes.SHA224,
+    hashes.SHA256,
+    hashes.SHA384,
+    hashes.SHA512,
 )
 
 
@@ -60,16 +65,18 @@ class OCSPCertStatus(Enum):
     UNKNOWN = 2
 
 
-_CERT_STATUS_TO_ENUM = dict((x.value, x) for x in OCSPCertStatus)
+_CERT_STATUS_TO_ENUM = {x.value: x for x in OCSPCertStatus}
 
 
 def load_der_ocsp_request(data):
     from cryptography.hazmat.backends.openssl.backend import backend
+
     return backend.load_der_ocsp_request(data)
 
 
 def load_der_ocsp_response(data):
     from cryptography.hazmat.backends.openssl.backend import backend
+
     return backend.load_der_ocsp_response(data)
 
 
@@ -83,9 +90,8 @@ class OCSPRequestBuilder(object):
             raise ValueError("Only one certificate can be added to a request")
 
         _verify_algorithm(algorithm)
-        if (
-            not isinstance(cert, x509.Certificate) or
-            not isinstance(issuer, x509.Certificate)
+        if not isinstance(cert, x509.Certificate) or not isinstance(
+            issuer, x509.Certificate
         ):
             raise TypeError("cert and issuer must be a Certificate")
 
@@ -104,6 +110,7 @@ class OCSPRequestBuilder(object):
 
     def build(self):
         from cryptography.hazmat.backends.openssl.backend import backend
+
         if self._request is None:
             raise ValueError("You must add a certificate before building")
 
@@ -111,20 +118,27 @@ class OCSPRequestBuilder(object):
 
 
 class _SingleResponse(object):
-    def __init__(self, cert, issuer, algorithm, cert_status, this_update,
-                 next_update, revocation_time, revocation_reason):
-        if (
-            not isinstance(cert, x509.Certificate) or
-            not isinstance(issuer, x509.Certificate)
+    def __init__(
+        self,
+        cert,
+        issuer,
+        algorithm,
+        cert_status,
+        this_update,
+        next_update,
+        revocation_time,
+        revocation_reason,
+    ):
+        if not isinstance(cert, x509.Certificate) or not isinstance(
+            issuer, x509.Certificate
         ):
             raise TypeError("cert and issuer must be a Certificate")
 
         _verify_algorithm(algorithm)
         if not isinstance(this_update, datetime.datetime):
             raise TypeError("this_update must be a datetime object")
-        if (
-            next_update is not None and
-            not isinstance(next_update, datetime.datetime)
+        if next_update is not None and not isinstance(
+            next_update, datetime.datetime
         ):
             raise TypeError("next_update must be a datetime object or None")
 
@@ -155,12 +169,13 @@ class _SingleResponse(object):
 
             revocation_time = _convert_to_naive_utc_time(revocation_time)
             if revocation_time < _EARLIEST_UTC_TIME:
-                raise ValueError('The revocation_time must be on or after'
-                                 ' 1950 January 1.')
+                raise ValueError(
+                    "The revocation_time must be on or after"
+                    " 1950 January 1."
+                )
 
-            if (
-                revocation_reason is not None and
-                not isinstance(revocation_reason, x509.ReasonFlags)
+            if revocation_reason is not None and not isinstance(
+                revocation_reason, x509.ReasonFlags
             ):
                 raise TypeError(
                     "revocation_reason must be an item from the ReasonFlags "
@@ -173,25 +188,43 @@ class _SingleResponse(object):
 
 
 class OCSPResponseBuilder(object):
-    def __init__(self, response=None, responder_id=None, certs=None,
-                 extensions=[]):
+    def __init__(
+        self, response=None, responder_id=None, certs=None, extensions=[]
+    ):
         self._response = response
         self._responder_id = responder_id
         self._certs = certs
         self._extensions = extensions
 
-    def add_response(self, cert, issuer, algorithm, cert_status, this_update,
-                     next_update, revocation_time, revocation_reason):
+    def add_response(
+        self,
+        cert,
+        issuer,
+        algorithm,
+        cert_status,
+        this_update,
+        next_update,
+        revocation_time,
+        revocation_reason,
+    ):
         if self._response is not None:
             raise ValueError("Only one response per OCSPResponse.")
 
         singleresp = _SingleResponse(
-            cert, issuer, algorithm, cert_status, this_update, next_update,
-            revocation_time, revocation_reason
+            cert,
+            issuer,
+            algorithm,
+            cert_status,
+            this_update,
+            next_update,
+            revocation_time,
+            revocation_reason,
         )
         return OCSPResponseBuilder(
-            singleresp, self._responder_id,
-            self._certs, self._extensions,
+            singleresp,
+            self._responder_id,
+            self._certs,
+            self._extensions,
         )
 
     def responder_id(self, encoding, responder_cert):
@@ -205,8 +238,10 @@ class OCSPResponseBuilder(object):
             )
 
         return OCSPResponseBuilder(
-            self._response, (responder_cert, encoding),
-            self._certs, self._extensions,
+            self._response,
+            (responder_cert, encoding),
+            self._certs,
+            self._extensions,
         )
 
     def certificates(self, certs):
@@ -218,8 +253,10 @@ class OCSPResponseBuilder(object):
         if not all(isinstance(x, x509.Certificate) for x in certs):
             raise TypeError("certs must be a list of Certificates")
         return OCSPResponseBuilder(
-            self._response, self._responder_id,
-            certs, self._extensions,
+            self._response,
+            self._responder_id,
+            certs,
+            self._extensions,
         )
 
     def add_extension(self, extension, critical):
@@ -230,19 +267,19 @@ class OCSPResponseBuilder(object):
         _reject_duplicate_extension(extension, self._extensions)
 
         return OCSPResponseBuilder(
-            self._response, self._responder_id,
-            self._certs, self._extensions + [extension],
+            self._response,
+            self._responder_id,
+            self._certs,
+            self._extensions + [extension],
         )
 
     def sign(self, private_key, algorithm):
         from cryptography.hazmat.backends.openssl.backend import backend
+
         if self._response is None:
             raise ValueError("You must add a response before signing")
         if self._responder_id is None:
             raise ValueError("You must add a responder_id before signing")
-
-        if not isinstance(algorithm, hashes.HashAlgorithm):
-            raise TypeError("Algorithm must be a registered hash algorithm.")
 
         return backend.create_ocsp_response(
             OCSPResponseStatus.SUCCESSFUL, self, private_key, algorithm
@@ -251,6 +288,7 @@ class OCSPResponseBuilder(object):
     @classmethod
     def build_unsuccessful(cls, response_status):
         from cryptography.hazmat.backends.openssl.backend import backend
+
         if not isinstance(response_status, OCSPResponseStatus):
             raise TypeError(
                 "response_status must be an item from OCSPResponseStatus"
@@ -286,6 +324,7 @@ class OCSPRequest(object):
         """
         The serial number of the cert whose status is being checked
         """
+
     @abc.abstractmethod
     def public_bytes(self, encoding):
         """
@@ -419,4 +458,10 @@ class OCSPResponse(object):
     def extensions(self):
         """
         The list of response extensions. Not single response extensions.
+        """
+
+    @abc.abstractproperty
+    def single_extensions(self):
+        """
+        The list of single response extensions. Not response extensions.
         """

@@ -24,16 +24,21 @@
 #include <cstdlib>
 #include <errno.h>
 #include <memory>
+#include <cstring>
 
 #ifdef VIRTIO_GPU
-#include <drm/virtgpu_drm.h>
 #include <xf86drm.h>
 #endif
 
 #include <log/log.h>
 
 #include "goldfish_address_space.h"
-#include "virtio_gpu_next.h"
+#include "virtgpu_drm.h"
+
+// See virgl_hw.h and p_defines.h
+#define VIRGL_FORMAT_R8_UNORM 64
+#define VIRGL_BIND_CUSTOM (1 << 17)
+#define PIPE_BUFFER 0
 
 namespace {
 
@@ -542,13 +547,15 @@ bool goldfish_address_space_ping(
     return true;
 }
 
-// virtio-gpu version
+#define CAPSET_GFXSTREAM 3
+
+
 address_space_handle_t virtgpu_address_space_open() {
-return drmOpenRender(128);
+    return -EINVAL;
 }
 
 void virtgpu_address_space_close(address_space_handle_t fd) {
-close(fd);
+    close(fd);
 }
 
 // kVirtioGpuAddressSpaceContextCreateWithSubdevice | subdeviceType
@@ -680,8 +687,8 @@ bool virtgpu_address_space_allocate_hostmem(
     struct address_space_virtgpu_hostmem_info* hostmem_info_out) {
 
     struct drm_virtgpu_resource_create_blob drm_rc_blob = {};
-    drm_rc_blob.blob_mem = VIRTGPU_BLOB_MEM_HOST;
-    drm_rc_blob.blob_flags = VIRTGPU_BLOB_FLAG_MAPPABLE;
+    drm_rc_blob.blob_mem = VIRTGPU_BLOB_MEM_HOST3D;
+    drm_rc_blob.blob_flags = VIRTGPU_BLOB_FLAG_USE_MAPPABLE;
     drm_rc_blob.blob_id = hostmem_id;
     drm_rc_blob.size = size;
 
@@ -707,7 +714,7 @@ bool virtgpu_address_space_allocate_hostmem(
 
     void* directMappedAddr = mmap64(0, size, PROT_WRITE, MAP_SHARED, fd, map.offset);
 
-    if (!directMappedAddr) {
+    if (directMappedAddr == MAP_FAILED) {
         ALOGE("%s: mmap of virtio gpu resource failed\n", __func__);
         abort();
     }

@@ -28,6 +28,7 @@ import android.content.Intent;
 import com.android.bedstead.nene.TestApis;
 import com.android.eventlib.events.activities.ActivityCreatedEvent;
 import com.android.eventlib.events.broadcastreceivers.BroadcastReceivedEvent;
+import com.android.eventlib.events.services.ServiceCreatedEvent;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,6 +51,10 @@ public class TestAppAppComponentFactoryTest {
             "com.android.GeneratedTestAppBroadcastReceiver";
     private static final String GENERATED_BROADCAST_RECEIVER_ACTION =
             "com.android.testapp.GENERATED_BROADCAST_RECEIVER";
+
+    // This must exist as a <service> in AndroidManifest.xml
+    private static final String GENERATED_SERVICE_CLASS_NAME =
+            "com.android.GeneratedTestAppService";
 
     private static final Context sContext =
             TestApis.context().instrumentedContext();
@@ -78,5 +83,18 @@ public class TestAppAppComponentFactoryTest {
                 .queryPackage(sContext.getPackageName())
                 .whereBroadcastReceiver().receiverClass().className()
                 .isEqualTo(GENERATED_RECEIVER_CLASS_NAME)).eventOccurred();
+    }
+
+    @Test
+    public void startService_serviceDoesNotExist_startsLoggingService() {
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(sContext.getPackageName(),
+                GENERATED_SERVICE_CLASS_NAME));
+
+        sContext.startService(intent);
+
+        assertThat(ServiceCreatedEvent.queryPackage(sContext.getPackageName())
+                        .whereService().serviceClass().className()
+                            .isEqualTo(GENERATED_SERVICE_CLASS_NAME)).eventOccurred();
     }
 }

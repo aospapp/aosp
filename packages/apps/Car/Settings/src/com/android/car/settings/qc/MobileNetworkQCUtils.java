@@ -25,8 +25,11 @@ import android.graphics.drawable.LayerDrawable;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Gravity;
+
+import androidx.annotation.Nullable;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.DrawableUtil;
@@ -49,6 +52,25 @@ public class MobileNetworkQCUtils {
     private static final Drawable EMPTY_DRAWABLE = new ColorDrawable(Color.TRANSPARENT);
 
     private MobileNetworkQCUtils() {
+    }
+
+    /**
+     * Retrieve the network subtitle for the current quick control network state.
+     */
+    @Nullable
+    public static String getMobileNetworkSummary(Context context, boolean dataEnabled) {
+        if (!dataEnabled) {
+            return context.getString(R.string.mobile_network_state_off);
+        }
+        TelephonyManager manager = context.getSystemService(TelephonyManager.class);
+        if (manager == null) {
+            return null;
+        }
+        String subtitle = manager.getNetworkOperatorName();
+        if (TextUtils.isEmpty(subtitle)) {
+            return null;
+        }
+        return subtitle;
     }
 
     /**

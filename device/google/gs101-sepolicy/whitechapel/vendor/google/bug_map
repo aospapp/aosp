@@ -1,2 +1,3 @@
-permissioncontroller_app sysfs_vendor_sched file b/190671898
+permissioncontroller_app proc_vendor_sched file b/190671898
 vendor_ims_app default_prop file b/194281028
+hal_fingerprint_default default_prop property_service b/215640468

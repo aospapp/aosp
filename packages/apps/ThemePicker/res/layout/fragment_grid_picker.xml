@@ -33,8 +33,8 @@
 
             <FrameLayout
                 android:id="@+id/preview_card_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
                 android:clipToPadding="false"
                 android:paddingTop="@dimen/preview_page_top_margin"
                 android:paddingBottom="@dimen/preview_page_bottom_margin"
@@ -42,7 +42,8 @@
                 app:layout_constraintBottom_toTopOf="@+id/options_container"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_bias="@dimen/preview_card_vertical_bias">
 
                 <include layout="@layout/grid_preview_card" />
             </FrameLayout>

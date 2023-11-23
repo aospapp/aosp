@@ -13,7 +13,7 @@ android_test {
         "cts",
         "general-tests",
         "sts",
-        "mts",
+        "mts-documentsui",
     ],
 
     libs: [
@@ -47,6 +47,7 @@ android_test {
     // uncomment when b/140885436 is fixed
     // sdk_version: "test_current",
     min_sdk_version: "21",
+    target_sdk_version: "33",
 
     platform_apis: true,
 

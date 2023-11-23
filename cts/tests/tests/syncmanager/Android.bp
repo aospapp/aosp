@@ -38,4 +38,9 @@ android_test {
         "general-tests",
     ],
     sdk_version: "test_current",
+    data: [
+        ":CtsSyncManagerApp1",
+        ":CtsSyncManagerApp2",
+    ],
+    per_testcase_directory: true,
 }

@@ -42,8 +42,9 @@ lws_tls_fake_POLLIN_for_buffered(struct lws_context_per_thread *pt)
 
 		if (wsi->position_in_fds_table >= 0) {
 
-			pt->fds[wsi->position_in_fds_table].revents |=
-					pt->fds[wsi->position_in_fds_table].events & LWS_POLLIN;
+			pt->fds[wsi->position_in_fds_table].revents = (short)
+				(pt->fds[wsi->position_in_fds_table].revents |
+				 (pt->fds[wsi->position_in_fds_table].events & LWS_POLLIN));
 			ret |= pt->fds[wsi->position_in_fds_table].revents & LWS_POLLIN;
 		}
 
@@ -61,7 +62,7 @@ __lws_ssl_remove_wsi_from_buffered_list(struct lws *wsi)
 void
 lws_ssl_remove_wsi_from_buffered_list(struct lws *wsi)
 {
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 
 	lws_pt_lock(pt, __func__);
 	__lws_ssl_remove_wsi_from_buffered_list(wsi);
@@ -89,10 +90,10 @@ lws_tls_check_cert_lifetime(struct lws_vhost *v)
 			return 1;
 
 		life = (ir.time - now) / (24 * 3600);
-		lwsl_notice("   vhost %s: cert expiry: %dd\n", v->name,
+		lwsl_vhost_notice(v, "   vhost %s: cert expiry: %dd", v->name,
 			    (int)life);
 	} else
-		lwsl_info("   vhost %s: no cert\n", v->name);
+		lwsl_vhost_info(v, "   vhost %s: no cert", v->name);
 
 	memset(&caa, 0, sizeof(caa));
 	caa.vh = v;
@@ -141,16 +142,16 @@ lws_tls_generic_cert_checks(struct lws_vhost *vhost, const char *cert,
 	if (!cert || !private_key)
 		return LWS_TLS_EXTANT_NO;
 
-	n = lws_tls_use_any_upgrade_check_extant(cert);
+	n = (int)lws_tls_use_any_upgrade_check_extant(cert);
 	if (n == LWS_TLS_EXTANT_ALTERNATIVE)
 		return LWS_TLS_EXTANT_ALTERNATIVE;
-	m = lws_tls_use_any_upgrade_check_extant(private_key);
+	m = (int)lws_tls_use_any_upgrade_check_extant(private_key);
 	if (m == LWS_TLS_EXTANT_ALTERNATIVE)
 		return LWS_TLS_EXTANT_ALTERNATIVE;
 
 	if ((n == LWS_TLS_EXTANT_NO || m == LWS_TLS_EXTANT_NO) &&
 	    (vhost->options & LWS_SERVER_OPTION_IGNORE_MISSING_CERT)) {
-		lwsl_notice("Ignoring missing %s or %s\n", cert, private_key);
+		lwsl_vhost_notice(vhost, "Ignoring missing %s or %s", cert, private_key);
 		vhost->tls.skipped_certs = 1;
 
 		return LWS_TLS_EXTANT_NO;
@@ -175,10 +176,10 @@ lws_tls_cert_updated(struct lws_context *context, const char *certpath,
 {
 	struct lws wsi;
 
-	wsi.context = context;
+	wsi.a.context = context;
 
 	lws_start_foreach_ll(struct lws_vhost *, v, context->vhost_list) {
-		wsi.vhost = v; /* not a real bound wsi */
+		wsi.a.vhost = v; /* not a real bound wsi */
 		if (v->tls.alloc_cert_path && v->tls.key_path &&
 		    !strcmp(v->tls.alloc_cert_path, certpath) &&
 		    !strcmp(v->tls.key_path, keypath)) {
@@ -187,14 +188,12 @@ lws_tls_cert_updated(struct lws_context *context, const char *certpath,
 						  mem_privkey, len_mem_privkey);
 
 			if (v->tls.skipped_certs)
-				lwsl_notice("%s: vhost %s: cert unset\n",
-					    __func__, v->name);
+				lwsl_vhost_notice(v, "vhost %s: cert unset", v->name);
 		}
 	} lws_end_foreach_ll(v, vhost_next);
 
 	return 0;
 }
-#endif
 
 int
 lws_gate_accepts(struct lws_context *context, int on)
@@ -203,21 +202,29 @@ lws_gate_accepts(struct lws_context *context, int on)
 
 	lwsl_notice("%s: on = %d\n", __func__, on);
 
-#if defined(LWS_WITH_STATS)
-	context->updated = 1;
-#endif
+	if (context->tls_gate_accepts == (char)on)
+		return 0;
+
+	context->tls_gate_accepts = (char)on;
 
 	while (v) {
-		if (v->tls.use_ssl && v->lserv_wsi &&
-		    lws_change_pollfd(v->lserv_wsi, (LWS_POLLIN) * !on,
-				      (LWS_POLLIN) * on))
-			lwsl_notice("Unable to set accept POLLIN %d\n", on);
+		lws_start_foreach_dll(struct lws_dll2 *, d,
+				      lws_dll2_get_head(&v->listen_wsi)) {
+			struct lws *wsi = lws_container_of(d, struct lws,
+							   listen_list);
+
+			if (v->tls.use_ssl &&
+			    lws_change_pollfd(wsi, on ? LWS_POLLIN : 0,
+						   on ? 0 : LWS_POLLIN))
+				lwsl_cx_notice(context, "Unable to set POLLIN %d", on);
+		} lws_end_foreach_dll(d);
 
 		v = v->vhost_next;
 	}
 
 	return 0;
 }
+#endif
 
 /* comma-separated alpn list, like "h2,http/1.1" to openssl alpn format */
 
@@ -240,17 +247,17 @@ lws_alpn_comma_to_openssl(const char *comma, uint8_t *os, int len)
 		}
 
 		if (*comma == ',') {
-			*plen = lws_ptr_diff(os, plen + 1);
+			*plen = (uint8_t)lws_ptr_diff(os, plen + 1);
 			plen = NULL;
 			comma++;
 		} else {
-			*os++ = *comma++;
+			*os++ = (uint8_t)*comma++;
 			len--;
 		}
 	}
 
 	if (plen)
-		*plen = lws_ptr_diff(os, plen + 1);
+		*plen = (uint8_t)lws_ptr_diff(os, plen + 1);
 
 	*os = 0;
 

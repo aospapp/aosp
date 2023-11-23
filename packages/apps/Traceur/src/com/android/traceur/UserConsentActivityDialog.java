@@ -22,12 +22,14 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ActivityNotFoundException;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.widget.CheckBox;
+import android.widget.Toast;
 
 import java.io.File;
 
@@ -40,6 +42,8 @@ import com.android.internal.app.AlertController;
  */
 public class UserConsentActivityDialog extends AlertActivity
         implements DialogInterface.OnClickListener {
+
+    private static final String TAG = "Traceur";
 
     private static final String PREF_KEY_SHOW_DIALOG = "show-dialog";
     private static final int PREF_STATE_SHOW = 0;
@@ -83,7 +87,14 @@ public class UserConsentActivityDialog extends AlertActivity
             if (mDontShowAgain.isChecked()) {
                 setShowDialogState(this, PREF_STATE_HIDE);
             }
-            startActivity(mNextIntent);
+            try {
+                startActivity(mNextIntent);
+            } catch (ActivityNotFoundException e) {
+                Toast toast = Toast.makeText(getApplicationContext(),
+                        "There are no apps available to share a trace with.", Toast.LENGTH_LONG);
+                toast.show();
+                Log.e(TAG, "Sharing trace failed: No apps available.");
+            }
         }
 
         finish();

@@ -16,6 +16,7 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
+                  android:title="@string/profiles_and_accounts_settings_title"
                   android:key="@string/psk_profile_details">
     <com.android.car.settings.common.EntityHeaderPreference
         android:key="@string/pk_profile_details_header"

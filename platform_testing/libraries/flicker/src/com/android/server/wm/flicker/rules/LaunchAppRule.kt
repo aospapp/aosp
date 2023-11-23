@@ -17,7 +17,9 @@
 package com.android.server.wm.flicker.rules
 
 import android.app.Instrumentation
+import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
+import com.android.server.wm.flicker.FLICKER_TAG
 import com.android.server.wm.flicker.helpers.StandardAppHelper
 import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
@@ -45,6 +47,7 @@ class LaunchAppRule @JvmOverloads constructor(
     ): this(StandardAppHelper(instrumentation, appName, component), instrumentation, wmHelper)
 
     override fun starting(description: Description?) {
+        Log.v(FLICKER_TAG, "Launching app $appHelper")
         appHelper.launchViaIntent()
         appHelper.exit(wmHelper)
     }

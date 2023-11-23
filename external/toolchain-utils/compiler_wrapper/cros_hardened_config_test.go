@@ -16,8 +16,15 @@ const crosHardenedGoldenDir = "testdata/cros_hardened_golden"
 const crosHardenedNoCCacheGoldenDir = "testdata/cros_hardened_noccache_golden"
 const crosHardenedLlvmNextGoldenDir = "testdata/cros_hardened_llvmnext_golden"
 
-func TestCrosHardenedConfig(t *testing.T) {
+func withGoldenTestContext(t *testing.T, f func(ctx *testContext)) {
 	withTestContext(t, func(ctx *testContext) {
+		ctx.NoteTestWritesToUmask()
+		f(ctx)
+	})
+}
+
+func TestCrosHardenedConfig(t *testing.T) {
+	withGoldenTestContext(t, func(ctx *testContext) {
 		useLlvmNext := false
 		useCCache := true
 		cfg, err := getConfig("cros.hardened", useCCache, useLlvmNext, "123")
@@ -31,7 +38,7 @@ func TestCrosHardenedConfig(t *testing.T) {
 }
 
 func TestCrosHardenedConfigWithoutCCache(t *testing.T) {
-	withTestContext(t, func(ctx *testContext) {
+	withGoldenTestContext(t, func(ctx *testContext) {
 		useLlvmNext := false
 		useCCache := false
 		cfg, err := getConfig("cros.hardened", useCCache, useLlvmNext, "123")
@@ -56,7 +63,7 @@ func TestCrosHardenedConfigWithoutCCache(t *testing.T) {
 }
 
 func TestCrosHardenedConfigWithLlvmNext(t *testing.T) {
-	withTestContext(t, func(ctx *testContext) {
+	withGoldenTestContext(t, func(ctx *testContext) {
 		useLlvmNext := true
 		useCCache := true
 		cfg, err := getConfig("cros.hardened", useCCache, useLlvmNext, "123")
@@ -517,7 +524,7 @@ func createClangArgsGoldenInputs() goldenFile {
 		Name: "clang_specific_args.json",
 		Records: []goldenRecord{
 			{
-				WrapperCmd: newGoldenCmd(clangX86_64, "-mno-movbe", "-pass-exit-codes", "-Wclobbered", "-Wno-psabi", "-Wlogical-op",
+				WrapperCmd: newGoldenCmd(clangX86_64, "-mno-movbe", "-Wclobbered", "-Wno-psabi", "-Wlogical-op",
 					"-Wmissing-parameter-type", "-Wold-style-declaration", "-Woverride-init", "-Wunsafe-loop-optimizations",
 					"-Wstrict-aliasing=abc", "-finline-limit=abc", mainCc),
 				Cmds: okResults,
@@ -528,18 +535,6 @@ func createClangArgsGoldenInputs() goldenFile {
 			},
 			{
 				WrapperCmd: newGoldenCmd(clangX86_64, "-Wno-error=maybe-uninitialized", mainCc),
-				Cmds:       okResults,
-			},
-			{
-				WrapperCmd: newGoldenCmd(clangX86_64, "-Wno-error=unused-but-set-variable", mainCc),
-				Cmds:       okResults,
-			},
-			{
-				WrapperCmd: newGoldenCmd(clangX86_64, "-Wno-unused-but-set-variable", mainCc),
-				Cmds:       okResults,
-			},
-			{
-				WrapperCmd: newGoldenCmd(clangX86_64, "-Wunused-but-set-variable", mainCc),
 				Cmds:       okResults,
 			},
 			{

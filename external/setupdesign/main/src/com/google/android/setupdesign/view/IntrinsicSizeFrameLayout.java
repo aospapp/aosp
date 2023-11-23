@@ -29,6 +29,8 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.view.WindowMetrics;
 import android.widget.FrameLayout;
 import androidx.annotation.VisibleForTesting;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
@@ -138,8 +140,12 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
   @VisibleForTesting
   boolean isWindowSizeSmallerThanDisplaySize() {
     boolean result = false;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-      getWindowVisibleDisplayFrame(windowVisibleDisplayRect);
+    /// NOMUTANTS--reason(b/221151816): Support setCurrentWindowMetrics from ShadowWindowManagerImpl
+    // to verify this case
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      WindowManager windowManager = getContext().getSystemService(WindowManager.class);
+      WindowMetrics windowMetrics = windowManager.getCurrentWindowMetrics();
+      windowVisibleDisplayRect.set(windowMetrics.getBounds());
 
       Display display = getDisplay();
       if (display != null) {

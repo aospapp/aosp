@@ -15,15 +15,25 @@
  */
 
 #include "android-base/result.h"
-
+#include <utils/ErrorsMacros.h>
 #include "errno.h"
 
 #include <istream>
+#include <memory>
 #include <string>
+#include <type_traits>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "android-base/result-gmock.h"
+
 using namespace std::string_literals;
+using ::testing::Eq;
+using ::testing::ExplainMatchResult;
+using ::testing::HasSubstr;
+using ::testing::Not;
+using ::testing::StartsWith;
 
 namespace android {
 namespace base {
@@ -183,6 +193,49 @@ TEST(result, result_errno_error_through_ostream) {
   EXPECT_EQ(error_text + ": " + strerror(test_errno), result2.error().message());
 }
 
+enum class CustomError { A, B };
+
+struct CustomErrorWrapper {
+  CustomErrorWrapper() : val_(CustomError::A) {}
+  CustomErrorWrapper(const CustomError& e) : val_(e) {}
+  CustomError value() const { return val_; }
+  operator CustomError() const { return value(); }
+  std::string print() const {
+    switch (val_) {
+      case CustomError::A:
+        return "A";
+      case CustomError::B:
+        return "B";
+    }
+  }
+  CustomError val_;
+};
+
+#define NewCustomError(e) Error<CustomErrorWrapper>(CustomError::e)
+
+TEST(result, result_with_custom_errorcode) {
+  Result<void, CustomError> ok = {};
+  EXPECT_RESULT_OK(ok);
+  ok.value();  // should not crash
+  EXPECT_DEATH(ok.error(), "");
+
+  auto error_text = "test error"s;
+  Result<void, CustomError> err = NewCustomError(A) << error_text;
+
+  EXPECT_FALSE(err.ok());
+  EXPECT_FALSE(err.has_value());
+
+  EXPECT_EQ(CustomError::A, err.error().code());
+  EXPECT_EQ(error_text + ": A", err.error().message());
+}
+
+Result<std::string, CustomError> success_or_fail(bool success) {
+  if (success)
+    return "success";
+  else
+    return NewCustomError(A) << "fail";
+}
+
 TEST(result, constructor_forwarding) {
   auto result = Result<std::string>(std::in_place, 5, 'a');
 
@@ -190,6 +243,249 @@ TEST(result, constructor_forwarding) {
   ASSERT_TRUE(result.has_value());
 
   EXPECT_EQ("aaaaa", *result);
+}
+
+TEST(result, unwrap_or_return) {
+  auto f = [](bool success) -> Result<size_t, CustomError> {
+    return OR_RETURN(success_or_fail(success)).size();
+  };
+
+  auto r = f(true);
+  EXPECT_TRUE(r.ok());
+  EXPECT_EQ(strlen("success"), *r);
+
+  auto s = f(false);
+  EXPECT_FALSE(s.ok());
+  EXPECT_EQ(CustomError::A, s.error().code());
+  EXPECT_EQ("fail: A", s.error().message());
+}
+
+TEST(result, unwrap_or_return_errorcode) {
+  auto f = [](bool success) -> CustomError {
+    // Note that we use the same OR_RETURN macro for different return types: Result<U, CustomError>
+    // and CustomError.
+    std::string val = OR_RETURN(success_or_fail(success));
+    EXPECT_EQ("success", val);
+    return CustomError::B;
+  };
+
+  auto r = f(true);
+  EXPECT_EQ(CustomError::B, r);
+
+  auto s = f(false);
+  EXPECT_EQ(CustomError::A, s);
+}
+
+TEST(result, unwrap_or_fatal) {
+  auto r = OR_FATAL(success_or_fail(true));
+  EXPECT_EQ("success", r);
+
+  EXPECT_DEATH(OR_FATAL(success_or_fail(false)), "fail: A");
+}
+
+TEST(result, unwrap_ambiguous_int) {
+  const std::string firstSuccess{"a"};
+  constexpr int secondSuccess = 5;
+  auto enum_success_or_fail = [&](bool success) -> Result<std::string, StatusT> {
+    if (success) return firstSuccess;
+    return ResultError<StatusT>("Fail", 10);
+  };
+  auto f = [&](bool success) -> Result<int, StatusT> {
+    auto val = OR_RETURN(enum_success_or_fail(success));
+    EXPECT_EQ(firstSuccess, val);
+    return secondSuccess;
+  };
+
+  auto r = f(true);
+  ASSERT_TRUE(r.ok());
+  EXPECT_EQ(r.value(), secondSuccess);
+  auto s = f(false);
+  ASSERT_TRUE(!s.ok());
+  EXPECT_EQ(s.error().code(), 10);
+}
+
+TEST(result, unwrap_ambiguous_uint_conv) {
+  const std::string firstSuccess{"a"};
+  constexpr size_t secondSuccess = 5ull;
+  auto enum_success_or_fail = [&](bool success) -> Result<std::string, StatusT> {
+    if (success) return firstSuccess;
+    return ResultError<StatusT>("Fail", 10);
+  };
+
+  auto f = [&](bool success) -> Result<size_t, StatusT> {
+    auto val = OR_RETURN(enum_success_or_fail(success));
+    EXPECT_EQ(firstSuccess, val);
+    return secondSuccess;
+  };
+
+  auto r = f(true);
+  ASSERT_TRUE(r.ok());
+  EXPECT_EQ(r.value(), secondSuccess);
+  auto s = f(false);
+  ASSERT_TRUE(!s.ok());
+  EXPECT_EQ(s.error().code(), 10);
+}
+
+struct IntConst {
+    int val_;
+    template <typename T, typename = std::enable_if_t<std::is_convertible_v<T, int>>>
+    IntConst(T&& val) : val_(val) {}
+    operator status_t() {return val_;}
+};
+
+TEST(result, unwrap_ambiguous_constructible) {
+  constexpr int firstSuccess = 5;
+  constexpr int secondSuccess = 7;
+  struct A {
+    A (int val) : val_(val) {}
+    operator status_t() { return 0; }
+    int val_;
+  };
+  // If this returns Result<A, ...> instead of Result<IntConst, ...>,
+  // compilation fails unless we compile with c++20
+  auto enum_success_or_fail = [&](bool success) -> Result<IntConst, StatusT, false> {
+    if (success) return firstSuccess;
+    return ResultError<StatusT, false>(10);
+  };
+  auto f = [&](bool success) -> Result<IntConst, StatusT, false> {
+    auto val = OR_RETURN(enum_success_or_fail(success));
+    EXPECT_EQ(firstSuccess, val.val_);
+    return secondSuccess;
+  };
+  auto r = f(true);
+  EXPECT_EQ(r.value().val_, secondSuccess);
+  auto s = f(false);
+  EXPECT_EQ(s.error().code(), 10);
+}
+
+struct Dangerous {};
+struct ImplicitFromDangerous {
+  ImplicitFromDangerous(Dangerous);
+};
+template <typename U>
+struct Templated {
+    U val_;
+    template <typename T, typename=std::enable_if_t<std::is_convertible_v<T, U>>>
+    Templated(T val) : val_(val) {}
+};
+
+
+TEST(result, dangerous_result_conversion) {
+  ResultError<Dangerous, false> error {Dangerous{}};
+  Result<Templated<Dangerous>, Dangerous, false> surprise {error};
+  EXPECT_TRUE(!surprise.ok());
+  Result<Templated<ImplicitFromDangerous>, Dangerous, false> surprise2 {error};
+  EXPECT_TRUE(!surprise2.ok());
+}
+
+TEST(result, generic_convertible) {
+  const std::string firstSuccess{"a"};
+  struct A {};
+  struct B {
+    operator A() {return A{};}
+  };
+
+  auto enum_success_or_fail = [&](bool success) -> Result<std::string, B> {
+    if (success) return firstSuccess;
+    return ResultError<B>("Fail", B{});
+  };
+  auto f = [&](bool success) -> Result<A, B> {
+    auto val = OR_RETURN(enum_success_or_fail(success));
+    EXPECT_EQ(firstSuccess, val);
+    return A{};
+  };
+
+  auto r = f(true);
+  EXPECT_TRUE(r.ok());
+  auto s = f(false);
+  EXPECT_TRUE(!s.ok());
+}
+
+TEST(result, generic_exact) {
+  const std::string firstSuccess{"a"};
+  struct A {};
+  auto enum_success_or_fail = [&](bool success) -> Result<std::string, A> {
+    if (success) return firstSuccess;
+    return ResultError<A>("Fail", A{});
+  };
+  auto f = [&](bool success) -> Result<A, A> {
+    auto val = OR_RETURN(enum_success_or_fail(success));
+    EXPECT_EQ(firstSuccess, val);
+    return A{};
+  };
+
+  auto r = f(true);
+  EXPECT_TRUE(r.ok());
+  auto s = f(false);
+  EXPECT_TRUE(!s.ok());
+}
+
+struct MyData {
+  const int data;
+  static int copy_constructed;
+  static int move_constructed;
+  explicit MyData(int d) : data(d) {}
+  MyData(const MyData& other) : data(other.data) { copy_constructed++; }
+  MyData(MyData&& other) : data(other.data) { move_constructed++; }
+  MyData& operator=(const MyData&) = delete;
+  MyData& operator=(MyData&&) = delete;
+};
+
+int MyData::copy_constructed = 0;
+int MyData::move_constructed = 0;
+
+TEST(result, unwrap_does_not_incur_additional_copying) {
+  MyData::copy_constructed = 0;
+  MyData::move_constructed = 0;
+  auto f = []() -> Result<MyData> { return MyData{10}; };
+
+  [&]() -> Result<void> {
+    int data = OR_RETURN(f()).data;
+    EXPECT_EQ(10, data);
+    EXPECT_EQ(0, MyData::copy_constructed);
+    // Moved once when MyData{10} is returned as Result<MyData> in the lambda f.
+    // Moved once again when the variable d is constructed from OR_RETURN.
+    EXPECT_EQ(2, MyData::move_constructed);
+    return {};
+  }();
+}
+
+TEST(result, supports_move_only_type) {
+  auto f = [](bool success) -> Result<std::unique_ptr<std::string>> {
+    if (success) return std::make_unique<std::string>("hello");
+    return Error() << "error";
+  };
+
+  auto g = [&](bool success) -> Result<std::unique_ptr<std::string>> {
+    auto r = OR_RETURN(f(success));
+    EXPECT_EQ("hello", *(r.get()));
+    return std::make_unique<std::string>("world");
+  };
+
+  auto s = g(true);
+  EXPECT_RESULT_OK(s);
+  EXPECT_EQ("world", *(s->get()));
+
+  auto t = g(false);
+  EXPECT_FALSE(t.ok());
+  EXPECT_EQ("error", t.error().message());
+}
+
+TEST(result, unique_ptr) {
+  using testing::Ok;
+
+  auto return_unique_ptr = [](bool success) -> Result<std::unique_ptr<int>> {
+    auto result = OR_RETURN(Result<std::unique_ptr<int>>(std::make_unique<int>(3)));
+    if (!success) {
+      return Error() << __func__ << " failed.";
+    }
+    return result;
+  };
+  Result<std::unique_ptr<int>> result1 = return_unique_ptr(false);
+  ASSERT_THAT(result1, Not(Ok()));
+  Result<std::unique_ptr<int>> result2 = return_unique_ptr(true);
+  ASSERT_THAT(result2, Ok());
+  EXPECT_EQ(**result2, 3);
 }
 
 struct ConstructorTracker {
@@ -418,5 +714,107 @@ TEST(result, errno_chaining_multiple) {
             outer.error().message());
 }
 
+TEST(result, error_without_message) {
+  constexpr bool include_message = false;
+  Result<void, Errno, include_message> res = Error<Errno, include_message>(10);
+  EXPECT_FALSE(res.ok());
+  EXPECT_EQ(10, res.error().code());
+  EXPECT_EQ(sizeof(int), sizeof(res.error()));
+}
+
+namespace testing {
+
+class Listener : public ::testing::MatchResultListener {
+ public:
+  Listener() : MatchResultListener(&ss_) {}
+  ~Listener() = default;
+  std::string message() const { return ss_.str(); }
+
+ private:
+  std::stringstream ss_;
+};
+
+class ResultMatchers : public ::testing::Test {
+ public:
+  Result<int> result = 1;
+  Result<int> error = Error(EBADF) << "error message";
+  Listener listener;
+};
+
+TEST_F(ResultMatchers, ok_result) {
+  EXPECT_TRUE(ExplainMatchResult(Ok(), result, &listener));
+  EXPECT_THAT(listener.message(), Eq("result is OK"));
+}
+
+TEST_F(ResultMatchers, ok_error) {
+  EXPECT_FALSE(ExplainMatchResult(Ok(), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(error.error().message()));
+  EXPECT_THAT(listener.message(), HasSubstr(strerror(error.error().code())));
+}
+
+TEST_F(ResultMatchers, not_ok_result) {
+  EXPECT_FALSE(ExplainMatchResult(Not(Ok()), result, &listener));
+  EXPECT_THAT(listener.message(), Eq("result is OK"));
+}
+
+TEST_F(ResultMatchers, not_ok_error) {
+  EXPECT_TRUE(ExplainMatchResult(Not(Ok()), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(error.error().message()));
+  EXPECT_THAT(listener.message(), HasSubstr(strerror(error.error().code())));
+}
+
+TEST_F(ResultMatchers, has_value_result) {
+  EXPECT_TRUE(ExplainMatchResult(HasValue(*result), result, &listener));
+}
+
+TEST_F(ResultMatchers, has_value_wrong_result) {
+  EXPECT_FALSE(ExplainMatchResult(HasValue(*result + 1), result, &listener));
+}
+
+TEST_F(ResultMatchers, has_value_error) {
+  EXPECT_FALSE(ExplainMatchResult(HasValue(*result), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(error.error().message()));
+  EXPECT_THAT(listener.message(), HasSubstr(strerror(error.error().code())));
+}
+
+TEST_F(ResultMatchers, has_error_code_result) {
+  EXPECT_FALSE(ExplainMatchResult(HasError(WithCode(error.error().code())), result, &listener));
+  EXPECT_THAT(listener.message(), Eq("result is OK"));
+}
+
+TEST_F(ResultMatchers, has_error_code_wrong_code) {
+  EXPECT_FALSE(ExplainMatchResult(HasError(WithCode(error.error().code() + 1)), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("actual error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(strerror(error.error().code())));
+}
+
+TEST_F(ResultMatchers, has_error_code_correct_code) {
+  EXPECT_TRUE(ExplainMatchResult(HasError(WithCode(error.error().code())), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("actual error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(strerror(error.error().code())));
+}
+
+TEST_F(ResultMatchers, has_error_message_result) {
+  EXPECT_FALSE(
+      ExplainMatchResult(HasError(WithMessage(error.error().message())), result, &listener));
+  EXPECT_THAT(listener.message(), Eq("result is OK"));
+}
+
+TEST_F(ResultMatchers, has_error_message_wrong_message) {
+  EXPECT_FALSE(ExplainMatchResult(HasError(WithMessage("foo")), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("actual error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(error.error().message()));
+}
+
+TEST_F(ResultMatchers, has_error_message_correct_message) {
+  EXPECT_TRUE(ExplainMatchResult(HasError(WithMessage(error.error().message())), error, &listener));
+  EXPECT_THAT(listener.message(), StartsWith("actual error is"));
+  EXPECT_THAT(listener.message(), HasSubstr(error.error().message()));
+}
+
+}  // namespace testing
 }  // namespace base
 }  // namespace android

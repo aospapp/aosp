@@ -20,7 +20,7 @@ void xnn_f16_vsqrdiffc_ukernel__neonfp16arith_x8(
     const void* restrict a_ptr,
     const void* restrict b_ptr,
     void* restrict y_ptr,
-    const struct xnn_f16_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f16_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(n != 0);
   assert(n % sizeof(__fp16) == 0);
@@ -38,10 +38,7 @@ void xnn_f16_vsqrdiffc_ukernel__neonfp16arith_x8(
     const float16x8_t va01234567 = vld1q_f16(a); a += 8;
 
     float16x8_t vy01234567 = vsubq_f16(va01234567, vb);
-
     vy01234567 = vmulq_f16(vy01234567, vy01234567);
-
-
     vst1q_f16(y, vy01234567); y += 8;
   }
   if XNN_UNLIKELY(n != 0) {
@@ -57,7 +54,7 @@ void xnn_f16_vsqrdiffc_ukernel__neonfp16arith_x8(
     }
 
     if (n & (2 * sizeof(__fp16))) {
-      vst1_lane_u32(__builtin_assume_aligned(y, 1), vreinterpret_u32_f16(vy0123), 0); y += 2;
+      vst1_lane_u32((void*) y, vreinterpret_u32_f16(vy0123), 0); y += 2;
       vy0123 = vext_f16(vy0123, vy0123, 2);
     }
 

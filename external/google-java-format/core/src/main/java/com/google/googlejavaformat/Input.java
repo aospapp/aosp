@@ -63,7 +63,7 @@ public abstract class Input extends InputOutput {
     /** Is the {@code Tok} a "//" comment? */
     boolean isSlashSlashComment();
 
-    /** Is the {@code Tok} a "//" comment? */
+    /** Is the {@code Tok} a "/*" comment? */
     boolean isSlashStarComment();
 
     /** Is the {@code Tok} a javadoc comment? */
@@ -114,14 +114,14 @@ public abstract class Input extends InputOutput {
   /**
    * Get the number of toks.
    *
-   * @return the number of toks, including the EOF tok
+   * @return the number of toks, excluding the EOF tok
    */
   public abstract int getkN();
 
   /**
    * Get the Token by index.
    *
-   * @param k the token index
+   * @param k the Tok index
    */
   public abstract Token getToken(int k);
 

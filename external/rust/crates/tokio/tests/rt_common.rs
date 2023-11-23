@@ -647,6 +647,7 @@ rt_test! {
     }
 
     #[test]
+    #[cfg(not(target_os = "android"))]
     fn panic_in_task() {
         let rt = rt();
         let (tx, rx) = oneshot::channel();

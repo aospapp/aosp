@@ -14,6 +14,9 @@
 
 soong_namespace {}
 
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
 package {
     default_applicable_licenses: ["device_amlogic_yukawa_license"],
 }
@@ -38,6 +41,7 @@ license {
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-GPL-2.0",
+        "legacy_by_exception_only", // by exception only
     ],
     // large-scale-change unable to identify any license_text files
 }

@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ແອັບຯ​ຕໍ່​ໄປ​ນີ້​ຈະຄຸ້ມ​ຄອງ​ອຸ​ປະ​ກອນ:"</string>
     <string name="next" msgid="1004321437324424398">"ຕໍ່ໄປ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"ກຳລັງຕັ້ງໂປຣໄຟລ໌ບ່ອນເຮັດວຽກ..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບໂປຣໄຟລ໌ນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">
-
-</xliff:g>ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານ."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສາມາດຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ສິດເຂົ້າເຖິງອົງກອນ, ແອັບ, ການອະນຸຍາດ, ຂໍ້ມູນ ແລະ ການເຄື່ອນໄຫວເຄືອຂ່າຍທີ່ເຊື່ອມໂຍງກັບໂປຣໄຟລ໌ນີ້, ຮວມທັງປະຫວັດການໂທຂອງທ່ານ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່. ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ ແລະ ເພື່ອສຶກສາເພີ່ມເຕີມກ່ຽວກັບນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານ."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບອຸປະກອນນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">
 
 </xliff:g>ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານນຳ."</string>
@@ -163,9 +161,9 @@
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານໃຊ້ການຈັດການອຸປະກອນມືຖືເພື່ອບັງຄັບໃຊ້ນະໂຍບາຍຄວາມປອດໄພ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ກຳລັງກຽມພ້ອມສຳລັບການຕັ້ງຄ່າວຽກ…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ມາຕັ້ງຄ່າໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານກັນ"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ແອັບວຽກແມ່ນຖືກເກັບໄວ້ໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານ"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ຢຸດແອັບວຽກໄວ້ຊົ່ວຄາວໃນເວລາທີ່ທ່ານເຊົາເຮັດວຽກແລ້ວ"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ຂໍ້ມູນໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານຈະສະແດງໃຫ້ຜູ້ເບິ່ງແຍງໄອທີທ່ານເຫັນໄດ້"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ແອັບບ່ອນ​ເຮັດ​ວຽກແມ່ນຖືກເກັບໄວ້ໃນໂປຣໄຟລ໌ບ່ອນ​ເຮັດ​ວຽກຂອງທ່ານ"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ຢຸດແອັບບ່ອນ​ເຮັດ​ວຽກໄວ້ຊົ່ວຄາວໃນເວລາທີ່ທ່ານເຊົາເຮັດວຽກແລ້ວ"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ຂໍ້ມູນໃນໂປຣໄຟລ໌ບ່ອນ​ເຮັດ​ວຽກຂອງທ່ານຈະສະແດງໃຫ້ຜູ້ເບິ່ງແຍງໄອທີທ່ານເຫັນໄດ້"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ກຳລັງຕັ້ງຄ່າໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານ…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"ແອັບວຽກແມ່ນຖືກເກັບໄວ້ໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານ. ທ່ານສາມາດຢຸດແອັບວຽກຂອງທ່ານໄວ້ຊົ່ວຄາວໃນເວລາທີ່ທ່ານເຮັດແລ້ວໆໄດ້. ຂໍ້ມູນໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານຈະສະແດງໃຫ້ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານເຫັນໄດ້."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ມາຕັ້ງຄ່າອຸປະກອນບ່ອນເຮັດວຽກຂອງທ່ານກັນ"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ສາມາດຕິດຕັ້ງແອັບ <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ເພື່ອໃຫ້ທ່ານສາມາດຈ່າຍເງິນສຳລັບອຸປະກອນນີ້ໄດ້."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ສາມາດຈຳກັດອຸປະກອນນີ້ໄດ້"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ສາມາດຈຳກັດການເຂົ້າເຖິງອຸປະກອນນີ້ໄດ້ຫາກທ່ານບໍ່ຈ່າຍເງິນ."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"ບໍ່ສາມາດຕັ້ງຄ່າອຸປະກອນໄດ້. ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານແລ້ວລະບຸວ່າ \"checksum ບໍ່ຖືກຕ້ອງ\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"ກະລຸນາລອງໃໝ່ໃນພາຍຫຼັງ ຫຼື ຖາມຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານເພື່ອຂໍຄວາມຊ່ວຍເຫຼືອ"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"ບໍ່ສາມາດຕັ້ງຄ່າອຸປະກອນໄດ້. ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານແລ້ວລະບຸວ່າ \"ບໍ່ມີສ່ວນປະກອບ ຫຼື ອຸປະກອນເສຍຫາຍ\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"ກຳລັງຕັ້ງຄ່າ…"</string>
 </resources>

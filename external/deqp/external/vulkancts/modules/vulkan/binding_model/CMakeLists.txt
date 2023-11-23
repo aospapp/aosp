@@ -1,15 +1,18 @@
 # dEQP-VK.binding_model
 
 include_directories(
-        ..
-        ../amber
-        )
+	..
+	../amber
+	${DEQP_INL_DIR}
+	)
 
 set(DEQP_VK_BINDING_MODEL_SRCS
 	vktBindingModelTests.cpp
 	vktBindingModelTests.hpp
 	vktBindingShaderAccessTests.cpp
 	vktBindingShaderAccessTests.hpp
+	vktBindingDescriptorUpdateASTests.cpp
+	vktBindingDescriptorUpdateASTests.hpp
 	vktBindingDescriptorUpdateTests.cpp
 	vktBindingDescriptorUpdateTests.hpp
 	vktBindingDescriptorSetRandomTests.cpp
@@ -20,6 +23,8 @@ set(DEQP_VK_BINDING_MODEL_SRCS
 	vktBindingDynamicOffsetTests.hpp
 	vktBindingBufferDeviceAddressTests.cpp
 	vktBindingBufferDeviceAddressTests.hpp
+	vktBindingValveMutableTests.cpp
+	vktBindingValveMutableTests.hpp
 	)
 
 set(DEQP_VK_BINDING_MODEL_LIBS

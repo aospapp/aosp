@@ -55,6 +55,7 @@ const Flag<bool> kBoolFlags[] = {
     {"-dtls", &TestConfig::is_dtls},
     {"-quic", &TestConfig::is_quic},
     {"-fallback-scsv", &TestConfig::fallback_scsv},
+    {"-enable-ech-grease", &TestConfig::enable_ech_grease},
     {"-require-any-client-certificate",
      &TestConfig::require_any_client_certificate},
     {"-false-start", &TestConfig::false_start},
@@ -73,6 +74,7 @@ const Flag<bool> kBoolFlags[] = {
     {"-expect-session-miss", &TestConfig::expect_session_miss},
     {"-decline-alpn", &TestConfig::decline_alpn},
     {"-select-empty-alpn", &TestConfig::select_empty_alpn},
+    {"-defer-alps", &TestConfig::defer_alps},
     {"-expect-extended-master-secret",
      &TestConfig::expect_extended_master_secret},
     {"-enable-ocsp-stapling", &TestConfig::enable_ocsp_stapling},
@@ -131,8 +133,6 @@ const Flag<bool> kBoolFlags[] = {
     {"-use-custom-verify-callback", &TestConfig::use_custom_verify_callback},
     {"-allow-false-start-without-alpn",
      &TestConfig::allow_false_start_without_alpn},
-    {"-ignore-tls13-downgrade", &TestConfig::ignore_tls13_downgrade},
-    {"-expect-tls13-downgrade", &TestConfig::expect_tls13_downgrade},
     {"-handoff", &TestConfig::handoff},
     {"-use-ocsp-callback", &TestConfig::use_ocsp_callback},
     {"-set-ocsp-in-callback", &TestConfig::set_ocsp_in_callback},
@@ -152,6 +152,7 @@ const Flag<bool> kBoolFlags[] = {
      &TestConfig::expect_delegated_credential_used},
     {"-expect-hrr", &TestConfig::expect_hrr},
     {"-expect-no-hrr", &TestConfig::expect_no_hrr},
+    {"-wait-for-debugger", &TestConfig::wait_for_debugger},
 };
 
 const Flag<std::string> kStringFlags[] = {
@@ -182,6 +183,14 @@ const Flag<std::string> kStringFlags[] = {
     {"-handshaker-path", &TestConfig::handshaker_path},
     {"-delegated-credential", &TestConfig::delegated_credential},
     {"-expect-early-data-reason", &TestConfig::expect_early_data_reason},
+    {"-quic-early-data-context", &TestConfig::quic_early_data_context},
+};
+
+// TODO(davidben): When we can depend on C++17 or Abseil, switch this to
+// std::optional or absl::optional.
+const Flag<std::unique_ptr<std::string>> kOptionalStringFlags[] = {
+    {"-expect-peer-application-settings",
+     &TestConfig::expect_peer_application_settings},
 };
 
 const Flag<std::string> kBase64Flags[] = {
@@ -216,10 +225,12 @@ const Flag<int> kIntFlags[] = {
     {"-max-cert-list", &TestConfig::max_cert_list},
     {"-expect-cipher-aes", &TestConfig::expect_cipher_aes},
     {"-expect-cipher-no-aes", &TestConfig::expect_cipher_no_aes},
+    {"-expect-cipher", &TestConfig::expect_cipher},
     {"-resumption-delay", &TestConfig::resumption_delay},
     {"-max-send-fragment", &TestConfig::max_send_fragment},
     {"-read-size", &TestConfig::read_size},
     {"-expect-ticket-age-skew", &TestConfig::expect_ticket_age_skew},
+    {"-quic-use-legacy-codepoint", &TestConfig::quic_use_legacy_codepoint},
 };
 
 const Flag<std::vector<int>> kIntVectorFlags[] = {
@@ -227,6 +238,11 @@ const Flag<std::vector<int>> kIntVectorFlags[] = {
     {"-verify-prefs", &TestConfig::verify_prefs},
     {"-expect-peer-verify-pref", &TestConfig::expect_peer_verify_prefs},
     {"-curves", &TestConfig::curves},
+};
+
+const Flag<std::vector<std::pair<std::string, std::string>>>
+    kStringPairVectorFlags[] = {
+        {"-application-settings", &TestConfig::application_settings},
 };
 
 bool ParseFlag(char *flag, int argc, char **argv, int *i,
@@ -248,6 +264,20 @@ bool ParseFlag(char *flag, int argc, char **argv, int *i,
     }
     if (!skip) {
       string_field->assign(argv[*i]);
+    }
+    return true;
+  }
+
+  std::unique_ptr<std::string> *optional_string_field =
+      FindField(out_config, kOptionalStringFlags, flag);
+  if (optional_string_field != NULL) {
+    *i = *i + 1;
+    if (*i >= argc) {
+      fprintf(stderr, "Missing parameter.\n");
+      return false;
+    }
+    if (!skip) {
+      optional_string_field->reset(new std::string(argv[*i]));
     }
     return true;
   }
@@ -303,6 +333,28 @@ bool ParseFlag(char *flag, int argc, char **argv, int *i,
     // Each instance of the flag adds to the list.
     if (!skip) {
       int_vector_field->push_back(atoi(argv[*i]));
+    }
+    return true;
+  }
+
+  std::vector<std::pair<std::string, std::string>> *string_pair_vector_field =
+      FindField(out_config, kStringPairVectorFlags, flag);
+  if (string_pair_vector_field) {
+    *i = *i + 1;
+    if (*i >= argc) {
+      fprintf(stderr, "Missing parameter.\n");
+      return false;
+    }
+    const char *comma = strchr(argv[*i], ',');
+    if (!comma) {
+      fprintf(stderr,
+              "Parameter should be a pair of comma-separated strings.\n");
+      return false;
+    }
+    // Each instance of the flag adds to the list.
+    if (!skip) {
+      string_pair_vector_field->push_back(std::make_pair(
+          std::string(argv[*i], comma - argv[*i]), std::string(comma + 1)));
     }
     return true;
   }
@@ -624,6 +676,19 @@ static int AlpnSelectCallback(SSL *ssl, const uint8_t **out, uint8_t *outlen,
            0)) {
     fprintf(stderr, "bad ALPN select callback inputs.\n");
     exit(1);
+  }
+
+  if (config->defer_alps) {
+    for (const auto &pair : config->application_settings) {
+      if (!SSL_add_application_settings(
+              ssl, reinterpret_cast<const uint8_t *>(pair.first.data()),
+              pair.first.size(),
+              reinterpret_cast<const uint8_t *>(pair.second.data()),
+              pair.second.size())) {
+        fprintf(stderr, "error configuring ALPS.\n");
+        exit(1);
+      }
+    }
   }
 
   assert(config->select_alpn.empty() || !config->select_empty_alpn);
@@ -1278,10 +1343,6 @@ bssl::UniquePtr<SSL_CTX> TestConfig::SetupCtx(SSL_CTX *old_ctx) const {
     SSL_CTX_set_false_start_allowed_without_alpn(ssl_ctx.get(), 1);
   }
 
-  if (ignore_tls13_downgrade) {
-    SSL_CTX_set_ignore_tls13_downgrade(ssl_ctx.get(), 1);
-  }
-
   if (use_ocsp_callback) {
     SSL_CTX_set_tlsext_status_cb(ssl_ctx.get(), LegacyOCSPCallback);
   }
@@ -1532,6 +1593,9 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   if (!expect_channel_id.empty() || enable_channel_id) {
     SSL_set_tls_channel_id_enabled(ssl.get(), 1);
   }
+  if (enable_ech_grease) {
+    SSL_set_enable_ech_grease(ssl.get(), 1);
+  }
   if (!send_channel_id.empty()) {
     SSL_set_tls_channel_id_enabled(ssl.get(), 1);
     if (!async) {
@@ -1553,9 +1617,21 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
     return nullptr;
   }
   if (!advertise_alpn.empty() &&
-      SSL_set_alpn_protos(ssl.get(), (const uint8_t *)advertise_alpn.data(),
-                          advertise_alpn.size()) != 0) {
+      SSL_set_alpn_protos(
+          ssl.get(), reinterpret_cast<const uint8_t *>(advertise_alpn.data()),
+          advertise_alpn.size()) != 0) {
     return nullptr;
+  }
+  if (!defer_alps) {
+    for (const auto &pair : application_settings) {
+      if (!SSL_add_application_settings(
+              ssl.get(), reinterpret_cast<const uint8_t *>(pair.first.data()),
+              pair.first.size(),
+              reinterpret_cast<const uint8_t *>(pair.second.data()),
+              pair.second.size())) {
+        return nullptr;
+      }
+    }
   }
   if (!psk.empty()) {
     SSL_set_psk_client_callback(ssl.get(), PskClientCallback);
@@ -1662,6 +1738,9 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   if (max_send_fragment > 0) {
     SSL_set_max_send_fragment(ssl.get(), max_send_fragment);
   }
+  if (quic_use_legacy_codepoint != -1) {
+    SSL_set_quic_use_legacy_codepoint(ssl.get(), quic_use_legacy_codepoint);
+  }
   if (!quic_transport_params.empty()) {
     if (!SSL_set_quic_transport_params(
             ssl.get(),
@@ -1721,6 +1800,14 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
       fprintf(stderr, "SSL_set1_delegated_credential failed.\n");
       return nullptr;
     }
+  }
+
+  if (!quic_early_data_context.empty() &&
+      !SSL_set_quic_early_data_context(
+          ssl.get(),
+          reinterpret_cast<const uint8_t *>(quic_early_data_context.data()),
+          quic_early_data_context.size())) {
+    return nullptr;
   }
 
   return ssl;

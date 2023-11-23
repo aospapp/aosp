@@ -1,3 +1,21 @@
+# v0.3.25 (2021-10-18)
+
+* Fix duplication of aliases in subcommands [#504](https://github.com/TeXitoi/structopt/pull/504)
+
+# v0.3.25 (2021-10-18)
+
+* No changes
+
+# v0.3.23 (2021-08-30)
+
+* Update minimal rust version to 1.46 because of bitflags 1.3
+* Fixed [a bug that occurs when the type of `map` becomes ambiguous](https://github.com/TeXitoi/structopt/issues/490).
+* Add support for [skip for enum variant subcommands](https://github.com/TeXitoi/structopt/issues/493)
+
+# v0.3.22 (2021-07-04)
+
+* Add support for [generics in derive](https://github.com/TeXitoi/structopt/issues/128)
+
 # v0.3.21 (2020-11-30)
 
 * Fixed [another breakage](https://github.com/TeXitoi/structopt/issues/447)

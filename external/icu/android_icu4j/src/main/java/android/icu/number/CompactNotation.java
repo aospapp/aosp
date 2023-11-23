@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import android.icu.impl.StandardPlural;
 import android.icu.impl.number.CompactData;
 import android.icu.impl.number.CompactData.CompactType;
 import android.icu.impl.number.DecimalFormatProperties;
@@ -138,8 +137,7 @@ public class CompactNotation extends Notation {
                 magnitude -= multiplier;
             }
 
-            StandardPlural plural = quantity.getStandardPlural(rules);
-            String patternString = data.getPattern(magnitude, plural);
+            String patternString = data.getPattern(magnitude, rules, quantity);
             if (patternString == null) {
                 // Use the default (non-compact) modifier.
                 // No need to take any action.

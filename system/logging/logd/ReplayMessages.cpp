@@ -93,7 +93,7 @@ static void PrintMessage(struct log_msg* buf) {
         fprintf(stderr, "Error parsing log message\n");
     }
 
-    android_log_printLogLine(GetLogFormat(), STDOUT_FILENO, &entry);
+    android_log_printLogLine(GetLogFormat(), stdout, &entry);
 }
 
 static log_time GetFirstTimeStamp(const MappedFile& recorded_messages) {
@@ -378,7 +378,7 @@ class PrintAllLogs : public SingleBufferOperation {
         std::unique_ptr<LogReaderThread> log_reader(
                 new LogReaderThread(log_buffer_.get(), &reader_list_, std::move(stdout_writer),
                                     false, 0, mask, 0, {}, 1, {}));
-        reader_list_.reader_threads().emplace_back(std::move(log_reader));
+        reader_list_.AddAndRunThread(std::move(log_reader));
     }
 
     void Operation() override {
@@ -392,14 +392,14 @@ class PrintAllLogs : public SingleBufferOperation {
         // Release the reader thread.
         {
             auto lock = std::lock_guard{logd_lock};
-            reader_list_.reader_threads().back()->Release();
+            reader_list_.running_reader_threads().back()->Release();
         }
 
         // Wait until it has deleted itself.
         while (true) {
             usleep(500);
             auto lock = std::lock_guard{logd_lock};
-            if (reader_list_.reader_threads().size() == 0) {
+            if (reader_list_.running_reader_threads().size() == 0) {
                 break;
             }
         }

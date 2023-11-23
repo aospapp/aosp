@@ -176,7 +176,6 @@
         <item>@color/captioning_color_555555</item>
         <item>@color/captioning_color_5555AA</item>
         <item>@color/captioning_color_5555FF</item>
-        <item>@color/captioning_color_5555FF</item>
         <item>@color/captioning_color_55AA00</item>
         <item>@color/captioning_color_55AA55</item>
         <item>@color/captioning_color_55AAAA</item>
@@ -243,13 +242,8 @@
     <string-array name="font_scale_entry_values" translatable="false">
         <item>0.85</item>
         <item>1.0</item>
-        <item>1.1</item>
         <item>1.15</item>
-        <item>1.2</item>
-        <item>1.25</item>
         <item>1.30</item>
-        <item>1.5</item>
-        <item>2</item>
     </string-array>
 
     <!-- Blacklist packages which should be seen as system apps in "All apps" page -->

@@ -82,6 +82,12 @@ void
 consider_types_not_reachable_from_public_interfaces(read_context& ctxt,
 						    bool flag);
 }//end xml_reader
+
+#ifdef WITH_DEBUG_SELF_COMPARISON
+bool
+load_canonical_type_ids(xml_reader::read_context& ctxt,
+			const string& file_path);
+#endif
 }//end namespace abigail
 
 #endif // __ABG_READER_H__

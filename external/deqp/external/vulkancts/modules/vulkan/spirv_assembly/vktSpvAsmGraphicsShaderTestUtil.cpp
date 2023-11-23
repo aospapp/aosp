@@ -2985,7 +2985,7 @@ VkImageAspectFlags getImageAspectFlags (VkFormat format)
 		aspectFlags |= VK_IMAGE_ASPECT_COLOR_BIT;
 
 	return aspectFlags;
-};
+}
 
 TestStatus runAndVerifyUnusedVariablePipeline (Context &context, UnusedVariableContext unusedVariableContext)
 {
@@ -3018,7 +3018,9 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 	bool										hasGeometry				= false;
 	bool										hasTessellation			= false;
 	const bool									hasPushConstants		= !instance.pushConstants.empty();
-	const deUint32								numResources			= static_cast<deUint32>(instance.resources.inputs.size() + instance.resources.outputs.size());
+	const deUint32								numInResources			= static_cast<deUint32>(instance.resources.inputs.size());
+	const deUint32								numOutResources			= static_cast<deUint32>(instance.resources.outputs.size());
+	const deUint32								numResources			= numInResources + numOutResources;
 	const bool									needInterface			= !instance.interfaces.empty();
 	const VkPhysicalDeviceFeatures&				features				= context.getDeviceFeatures();
 	const Vec4									defaulClearColor		(0.125f, 0.25f, 0.75f, 1.0f);
@@ -3050,64 +3052,50 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			TCU_THROW(NotSupportedError, (std::string("Extension not supported: ") + *i).c_str());
 	}
 
-	// Core features
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		!context.getPortabilitySubsetFeatures().mutableComparisonSamplers)
 	{
+		// In portability when mutableComparisonSamplers is false then
+		// VkSamplerCreateInfo can't have compareEnable set to true
+		for (deUint32 inputNdx = 0; inputNdx < numInResources; ++inputNdx)
+		{
+			const Resource&	resource	= instance.resources.inputs[inputNdx];
+			const bool		hasSampler	= (resource.getDescriptorType() == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) ||
+										  (resource.getDescriptorType() == VK_DESCRIPTOR_TYPE_SAMPLER) ||
+										  (resource.getDescriptorType() == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+			if (hasSampler &&
+				tcu::hasDepthComponent(vk::mapVkFormat(instance.resources.inputFormat).order))
+			{
+				TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: mutableComparisonSamplers are not supported by this implementation");
+			}
+		}
+	}
+
+	{
+		VulkanFeatures localRequired = instance.requestedFeatures;
+
 		const VkShaderStageFlags		vertexPipelineStoresAndAtomicsAffected	= vk::VK_SHADER_STAGE_VERTEX_BIT
 																				| vk::VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT
 																				| vk::VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT
 																				| vk::VK_SHADER_STAGE_GEOMETRY_BIT;
-		const char*						unsupportedFeature						= DE_NULL;
-		vk::VkPhysicalDeviceFeatures	localRequiredCoreFeatures				= instance.requestedFeatures.coreFeatures;
 
 		// reset fragment stores and atomics feature requirement
-		if ((localRequiredCoreFeatures.fragmentStoresAndAtomics != DE_FALSE) &&
+		if ((localRequired.coreFeatures.fragmentStoresAndAtomics != DE_FALSE) &&
 			(instance.customizedStages & vk::VK_SHADER_STAGE_FRAGMENT_BIT) == 0)
 		{
-			localRequiredCoreFeatures.fragmentStoresAndAtomics = DE_FALSE;
+			localRequired.coreFeatures.fragmentStoresAndAtomics = DE_FALSE;
 		}
 
 		// reset vertex pipeline stores and atomics feature requirement
-		if (localRequiredCoreFeatures.vertexPipelineStoresAndAtomics != DE_FALSE &&
+		if (localRequired.coreFeatures.vertexPipelineStoresAndAtomics != DE_FALSE &&
 			(instance.customizedStages & vertexPipelineStoresAndAtomicsAffected) == 0)
 		{
-			localRequiredCoreFeatures.vertexPipelineStoresAndAtomics = DE_FALSE;
+			localRequired.coreFeatures.vertexPipelineStoresAndAtomics = DE_FALSE;
 		}
 
-		if (!isCoreFeaturesSupported(context, localRequiredCoreFeatures, &unsupportedFeature))
-			TCU_THROW(NotSupportedError, std::string("At least following requested core feature is not supported: ") + unsupportedFeature);
-	}
-
-	// Extension features
-	{
-		// 8bit storage features
-		{
-			if (!is8BitStorageFeaturesSupported(context, instance.requestedFeatures.ext8BitStorage))
-				TCU_THROW(NotSupportedError, "Requested 8bit storage features not supported");
-		}
-
-		// 16bit storage features
-		{
-			if (!is16BitStorageFeaturesSupported(context, instance.requestedFeatures.ext16BitStorage))
-				TCU_THROW(NotSupportedError, "Requested 16bit storage features not supported");
-		}
-
-		// Variable Pointers features
-		{
-			if (!isVariablePointersFeaturesSupported(context, instance.requestedFeatures.extVariablePointers))
-				TCU_THROW(NotSupportedError, "Requested Variable Pointer features not supported");
-		}
-
-		// Float16/Int8 shader features
-		{
-			if (!isFloat16Int8FeaturesSupported(context, instance.requestedFeatures.extFloat16Int8))
-				TCU_THROW(NotSupportedError, "Requested 16bit float or 8bit int feature not supported");
-		}
-	}
-
-	// FloatControls features
-	{
-		if (!isFloatControlsFeaturesSupported(context, instance.requestedFeatures.floatControlsProperties))
-			TCU_THROW(NotSupportedError, "Requested Float Controls features not supported");
+		const char* unsupportedFeature = DE_NULL;
+		if (!isVulkanFeaturesSupported(context, localRequired, &unsupportedFeature))
+			TCU_THROW(NotSupportedError, std::string("At least following requested feature not supported: ") + unsupportedFeature);
 	}
 
 	// Check Interface Input/Output formats are supported
@@ -3429,8 +3417,6 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 	attViews.push_back(*colorAttView);
 
 	// Handle resources requested by the test instantiation.
-	const deUint32							numInResources			= static_cast<deUint32>(instance.resources.inputs.size());
-	const deUint32							numOutResources			= static_cast<deUint32>(instance.resources.outputs.size());
 	// These variables should be placed out of the following if block to avoid deallocation after out of scope.
 	vector<AllocationSp>					inResourceMemories;
 	vector<AllocationSp>					outResourceMemories;
@@ -3669,7 +3655,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 				if (hasSampler)
 				{
 					const bool					hasDepthComponent	= tcu::hasDepthComponent(vk::mapVkFormat(instance.resources.inputFormat).order);
-					const VkSamplerCreateInfo	samplerParams		=
+					const VkSamplerCreateInfo	samplerParams
 					{
 						VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,		// VkStructureType			sType;
 						DE_NULL,									// const void*				pNext;
@@ -4015,17 +4001,27 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			sizeof(Vec4),						// deUint32	offsetInBytes;
 		};
 		vertexAttribs.push_back(attr1);
-	};
+	}
 
 	// If the test instantiation has additional input/output interface variables, we need to create additional bindings.
 	// Right now we only support one additional input varible for the vertex stage, and that will be bound to binding #1
 	// with location #2.
 	if (needInterface)
 	{
+		// Portability requires stride to be multiply of minVertexInputBindingStrideAlignment
+		// this value is usually 4 and current tests meet this requirement but
+		// if this changes in future then this limit should be verified in checkSupport
+		const deUint32 stride = instance.interfaces.getInputType().getNumBytes();
+		if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+			((stride % context.getPortabilitySubsetProperties().minVertexInputBindingStrideAlignment) != 0))
+		{
+			DE_FATAL("stride is not multiply of minVertexInputBindingStrideAlignment");
+		}
+
 		const VkVertexInputBindingDescription	vertexBinding1			=
 		{
 			1u,													// deUint32					binding;
-			instance.interfaces.getInputType().getNumBytes(),	// deUint32					strideInBytes;
+			stride,												// deUint32					strideInBytes;
 			VK_VERTEX_INPUT_RATE_VERTEX							// VkVertexInputStepRate	stepRate;
 		};
 		vertexBindings.push_back(vertexBinding1);
@@ -4646,7 +4642,7 @@ const vector<ShaderElement>& getVertFragPipelineStages (void)
 	{
 		vertFragPipelineStages.push_back(ShaderElement("vert", "main", VK_SHADER_STAGE_VERTEX_BIT));
 		vertFragPipelineStages.push_back(ShaderElement("frag", "main", VK_SHADER_STAGE_FRAGMENT_BIT));
-	};
+	}
 	return vertFragPipelineStages;
 }
 
@@ -4659,7 +4655,7 @@ const vector<ShaderElement>& getTessPipelineStages (void)
 		tessPipelineStages.push_back(ShaderElement("tessc", "main", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT));
 		tessPipelineStages.push_back(ShaderElement("tesse", "main", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT));
 		tessPipelineStages.push_back(ShaderElement("frag", "main", VK_SHADER_STAGE_FRAGMENT_BIT));
-	};
+	}
 	return tessPipelineStages;
 }
 
@@ -4671,7 +4667,7 @@ const vector<ShaderElement>& getGeomPipelineStages (void)
 		geomPipelineStages.push_back(ShaderElement("vert", "main", VK_SHADER_STAGE_VERTEX_BIT));
 		geomPipelineStages.push_back(ShaderElement("geom", "main", VK_SHADER_STAGE_GEOMETRY_BIT));
 		geomPipelineStages.push_back(ShaderElement("frag", "main", VK_SHADER_STAGE_FRAGMENT_BIT));
-	};
+	}
 	return geomPipelineStages;
 }
 

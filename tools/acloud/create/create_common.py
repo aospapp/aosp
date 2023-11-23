@@ -15,6 +15,7 @@
 # limitations under the License.
 """Common code used by acloud create methods/classes."""
 
+import collections
 import logging
 import os
 import re
@@ -28,6 +29,37 @@ from acloud.internal.lib import utils
 
 
 logger = logging.getLogger(__name__)
+
+# Store the file path to upload to the remote instance.
+ExtraFile = collections.namedtuple("ExtraFile", ["source", "target"])
+
+
+def ParseExtraFilesArgs(files_info, path_separator=","):
+    """Parse extra-files argument.
+
+    e.g.
+    ["local_path,gce_path"]
+    -> ExtraFile(source='local_path', target='gce_path')
+
+    Args:
+        files_info: List of strings to be converted to namedtuple ExtraFile.
+        item_separator: String character to separate file info.
+
+    Returns:
+        A list of namedtuple ExtraFile.
+
+    Raises:
+        error.MalformedDictStringError: If files_info is malformed.
+    """
+    extra_files = []
+    if files_info:
+        for file_info in files_info:
+            if path_separator not in file_info:
+                raise errors.MalformedDictStringError(
+                    "Expecting '%s' in '%s'." % (path_separator, file_info))
+            source, target = file_info.split(path_separator)
+            extra_files.append(ExtraFile(source, target))
+    return extra_files
 
 
 def ParseKeyValuePairArgs(dict_str, item_separator=",", key_value_separator=":"):
@@ -65,11 +97,26 @@ def ParseKeyValuePairArgs(dict_str, item_separator=",", key_value_separator=":")
     return args_dict
 
 
-def GetCvdHostPackage():
+def GetNonEmptyEnvVars(*variable_names):
+    """Get non-empty environment variables.
+
+    Args:
+        variable_names: Strings, the variable names.
+
+    Returns:
+        List of strings, the variable values that are defined and not empty.
+    """
+    return list(filter(None, (os.environ.get(v) for v in variable_names)))
+
+
+def GetCvdHostPackage(package_path=None):
     """Get cvd host package path.
 
-    Look for the host package in $ANDROID_HOST_OUT and dist dir then verify
-    existence and get cvd host package path.
+    Look for the host package in specified path or $ANDROID_HOST_OUT and dist
+    dir then verify existence and get cvd host package path.
+
+    Args:
+        package_path: String of cvd host package path.
 
     Return:
         A string, the path to the host package.
@@ -77,11 +124,13 @@ def GetCvdHostPackage():
     Raises:
         errors.GetCvdLocalHostPackageError: Can't find cvd host package.
     """
-    dirs_to_check = list(
-        filter(None, [
-            os.environ.get(constants.ENV_ANDROID_SOONG_HOST_OUT),
-            os.environ.get(constants.ENV_ANDROID_HOST_OUT)
-        ]))
+    if package_path:
+        if os.path.exists(package_path):
+            return package_path
+        raise errors.GetCvdLocalHostPackageError(
+            "The cvd host package path (%s) doesn't exist." % package_path)
+    dirs_to_check = GetNonEmptyEnvVars(constants.ENV_ANDROID_SOONG_HOST_OUT,
+                                       constants.ENV_ANDROID_HOST_OUT)
     dist_dir = utils.GetDistDir()
     if dist_dir:
         dirs_to_check.append(dist_dir)
@@ -93,11 +142,11 @@ def GetCvdHostPackage():
             return cvd_host_package
     raise errors.GetCvdLocalHostPackageError(
         "Can't find the cvd host package (Try lunching a cuttlefish target"
-        " like aosp_cf_x86_phone-userdebug and running 'm'): \n%s" %
+        " like aosp_cf_x86_64_phone-userdebug and running 'm'): \n%s" %
         '\n'.join(dirs_to_check))
 
 
-def FindLocalImage(path, default_name_pattern):
+def FindLocalImage(path, default_name_pattern, raise_error=True):
     """Find an image file in the given path.
 
     Args:
@@ -116,7 +165,9 @@ def FindLocalImage(path, default_name_pattern):
         names = [name for name in os.listdir(path) if
                  re.fullmatch(default_name_pattern, name)]
         if not names:
-            raise errors.GetLocalImageError("No image in %s." % path)
+            if raise_error:
+                raise errors.GetLocalImageError("No image in %s." % path)
+            return None
         if len(names) != 1:
             raise errors.GetLocalImageError("More than one image in %s: %s" %
                                             (path, " ".join(names)))

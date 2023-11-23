@@ -274,7 +274,7 @@ bool socket_spec_connect(unique_fd* fd, std::string_view address, int* port, std
             errno = EINVAL;
             return false;
         }
-        fd->reset(socket(AF_VSOCK, SOCK_STREAM, 0));
+        fd->reset(socket(AF_VSOCK, SOCK_STREAM | SOCK_CLOEXEC, 0));
         if (fd->get() == -1) {
             *error = "could not open vsock socket";
             return false;
@@ -384,7 +384,7 @@ int socket_spec_listen(std::string_view spec, std::string* error, int* resolved_
             errno = EINVAL;
             return -1;
         }
-        unique_fd serverfd(socket(AF_VSOCK, SOCK_STREAM, 0));
+        unique_fd serverfd(socket(AF_VSOCK, SOCK_STREAM | SOCK_CLOEXEC, 0));
         if (serverfd == -1) {
             int error_num = errno;
             *error = android::base::StringPrintf("could not create vsock server: '%s'",

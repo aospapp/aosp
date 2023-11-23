@@ -1132,10 +1132,10 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                         && size >= 5) {
                         const uint8_t *ptr = (const uint8_t *)data;
                         const uint8_t profile = ptr[2] >> 1;
-                        const uint8_t bl_compatibility_id = (ptr[4]) >> 4;
+                        const uint8_t blCompatibilityId = (ptr[4]) >> 4;
                         bool create_two_tracks = false;
 
-                        if (bl_compatibility_id && bl_compatibility_id != 15) {
+                        if (blCompatibilityId && blCompatibilityId != 15) {
                             create_two_tracks = true;
                         }
 
@@ -1147,13 +1147,15 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 
                             track_b->timescale = mLastTrack->timescale;
                             track_b->sampleTable = mLastTrack->sampleTable;
-                            track_b->includes_expensive_metadata = mLastTrack->includes_expensive_metadata;
+                            track_b->includes_expensive_metadata =
+                                mLastTrack->includes_expensive_metadata;
                             track_b->skipTrack = mLastTrack->skipTrack;
                             track_b->elst_needs_processing = mLastTrack->elst_needs_processing;
                             track_b->elst_media_time = mLastTrack->elst_media_time;
                             track_b->elst_segment_duration = mLastTrack->elst_segment_duration;
                             track_b->elst_shift_start_ticks = mLastTrack->elst_shift_start_ticks;
-                            track_b->elst_initial_empty_edit_ticks = mLastTrack->elst_initial_empty_edit_ticks;
+                            track_b->elst_initial_empty_edit_ticks =
+                                mLastTrack->elst_initial_empty_edit_ticks;
                             track_b->subsample_encryption = mLastTrack->subsample_encryption;
 
                             track_b->mTx3gBuffer = mLastTrack->mTx3gBuffer;
@@ -2591,9 +2593,11 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             *offset += chunk_size;
             break;
         }
-        case FOURCC("dvcC"):
-        case FOURCC("dvvC"): {
 
+        case FOURCC("dvcC"):
+        case FOURCC("dvvC"):
+        case FOURCC("dvwC"):
+        {
             if (chunk_data_size != 24) {
                 return ERROR_MALFORMED;
             }
@@ -2613,13 +2617,14 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 return ERROR_MALFORMED;
 
             AMediaFormat_setBuffer(mLastTrack->meta, AMEDIAFORMAT_KEY_CSD_2,
-                                   buffer.get(), chunk_data_size);
+                                    buffer.get(), chunk_data_size);
             AMediaFormat_setString(mLastTrack->meta, AMEDIAFORMAT_KEY_MIME,
                                    MEDIA_MIMETYPE_VIDEO_DOLBY_VISION);
 
             *offset += chunk_size;
             break;
         }
+
         case FOURCC("d263"):
         {
             *offset += chunk_size;
@@ -3480,7 +3485,7 @@ status_t MPEG4Extractor::parseEAC3SpecificBox(off64_t offset) {
         }
         unsigned mask = br.getBits(8);
         for (unsigned i = 0; i < 8; i++) {
-            if (((0x1 << i) && mask) == 0)
+            if (((0x1 << i) & mask) == 0)
                 continue;
 
             if (br.numBitsLeft() < 8) {
@@ -4458,7 +4463,6 @@ MediaTrackHelper *MPEG4Extractor::getTrack(size_t index) {
     if (!AMediaFormat_getString(track->meta, AMEDIAFORMAT_KEY_MIME, &mime)) {
         return NULL;
     }
-
     sp<ItemTable> itemTable;
     if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)) {
         void *data;
@@ -4491,14 +4495,14 @@ MediaTrackHelper *MPEG4Extractor::getTrack(size_t index) {
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
         void *data;
         size_t size;
-        if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_2, &data, &size)) {
+        if (!AMediaFormat_getBuffer(track->meta, AMEDIAFORMAT_KEY_CSD_2, &data, &size)
+                || size != 24) {
             return NULL;
         }
 
         const uint8_t *ptr = (const uint8_t *)data;
-
         // dv_major.dv_minor Should be 1.0 or 2.1
-        if (size != 24 || ((ptr[0] != 1 || ptr[1] != 0) && (ptr[0] != 2 || ptr[1] != 1))) {
+        if ((ptr[0] != 1 || ptr[1] != 0) && (ptr[0] != 2 || ptr[1] != 1)) {
             return NULL;
         }
    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AV1)
@@ -4771,7 +4775,7 @@ status_t MPEG4Extractor::updateAudioTrackInfoFromESDS_MPEG4Audio(
         if (len2 == 0) {
             return ERROR_MALFORMED;
         }
-        if (offset >= csd_size || csd[offset] != 0x01) {
+        if (offset + len1 > csd_size || csd[offset] != 0x01) {
             return ERROR_MALFORMED;
         }
 

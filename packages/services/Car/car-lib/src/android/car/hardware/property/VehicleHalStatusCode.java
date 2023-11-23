@@ -16,6 +16,8 @@
 
 package android.car.hardware.property;
 
+import android.car.annotation.AddedInOrBefore;
+
 /**
  * Error codes used in vehicle HAL interface.
  * @hide
@@ -23,20 +25,26 @@ package android.car.hardware.property;
 public final class VehicleHalStatusCode {
 
     /** No error detected in HAL.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_OK = 0;
     /** Try again. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_TRY_AGAIN = 1;
     /** Invalid argument provide. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_INVALID_ARG = 2;
     /**
      * This code must be returned when device that associated with the vehicle
      * property is not available. For example, when client tries to set HVAC
      * temperature when the whole HVAC unit is turned OFF.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_NOT_AVAILABLE = 3;
     /** Access denied */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_ACCESS_DENIED = 4;
     /** Something unexpected has happened in Vehicle HAL */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_INTERNAL_ERROR = 5;
 
     private VehicleHalStatusCode() {}

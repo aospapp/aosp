@@ -33,6 +33,7 @@
 #include "deMath.h"
 #include "vkImageUtil.hpp"
 #include "vkQueryUtil.hpp"
+#include <limits>
 
 namespace vkt
 {
@@ -715,6 +716,19 @@ static void checkDeviceFeatures (Context& context, TextureType textureType)
 	}
 }
 
+static void checkMutableComparisonSamplersSupport(Context& context, const TextureSpec& textureSpec)
+{
+	// when compare mode is not none then ShaderRenderCaseInstance::createSamplerUniform
+	// uses mapSampler utill from vkImageUtil that sets compareEnable to true
+	// for portability this needs to be under feature flag
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+	   !context.getPortabilitySubsetFeatures().mutableComparisonSamplers &&
+	   (textureSpec.sampler.compare != tcu::Sampler::COMPAREMODE_NONE))
+	{
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: mutableComparisonSamplers are not supported by this implementation");
+	}
+}
+
 class ShaderTextureFunctionInstance : public ShaderRenderCaseInstance
 {
 public:
@@ -1184,6 +1198,7 @@ public:
 	virtual						~ShaderTextureFunctionCase		(void);
 
 	virtual TestInstance*		createInstance					(Context& context) const;
+	virtual void				checkSupport					(Context& context) const;
 
 protected:
 	const TextureLookupSpec		m_lookupSpec;
@@ -1216,6 +1231,11 @@ TestInstance* ShaderTextureFunctionCase::createInstance (Context& context) const
 	DE_ASSERT(m_evaluator != DE_NULL);
 	DE_ASSERT(m_uniformSetup != DE_NULL);
 	return new ShaderTextureFunctionInstance(context, m_isVertexCase, *m_evaluator, *m_uniformSetup, m_lookupSpec, m_textureSpec, m_lookupParams);
+}
+
+void ShaderTextureFunctionCase::checkSupport(Context& context) const
+{
+	checkMutableComparisonSamplersSupport(context, m_textureSpec);
 }
 
 void ShaderTextureFunctionCase::initShaderSources (void)
@@ -1444,6 +1464,15 @@ enum QueryFunction
 	QUERYFUNCTION_TEXTURESAMPLES,
 
 	QUERYFUNCTION_LAST
+};
+
+// test mode used to alter test behaviour
+using TestMode = deUint32;
+
+enum QueryLodTestModes
+{
+	QLODTM_DEFAULT			= 0,		// uv coords have different values
+	QLODTM_ZERO_UV_WIDTH				// all uv coords are 0; there were implementations that incorrectly returned 0 in that case instead of -22 or less
 };
 
 class TextureQueryInstance : public ShaderRenderCaseInstance
@@ -2585,7 +2614,8 @@ class TextureQueryLodInstance : public TextureQueryInstance
 public:
 								TextureQueryLodInstance			(Context&					context,
 																 const bool					isVertexCase,
-																 const TextureSpec&			textureSpec);
+																 const TextureSpec&			textureSpec,
+																 const TestMode				mode);
 	virtual						~TextureQueryLodInstance		(void);
 
 	virtual tcu::TestStatus		iterate							(void);
@@ -2598,6 +2628,7 @@ private:
 	float						computeLevelFromLod				(float computedLod) const;
 	vector<float>				computeQuadTexCoord				(void) const;
 
+	const TestMode				m_mode;
 	tcu::Vec4					m_minCoord;
 	tcu::Vec4					m_maxCoord;
 	tcu::Vec2					m_lodBounds;
@@ -2606,8 +2637,10 @@ private:
 
 TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 												  const bool				isVertexCase,
-												  const TextureSpec&		textureSpec)
+												  const TextureSpec&		textureSpec,
+												  const TestMode			mode)
 	: TextureQueryInstance		(context, isVertexCase, textureSpec)
+	, m_mode					(mode)
 	, m_minCoord				()
 	, m_maxCoord				()
 	, m_lodBounds				()
@@ -2616,47 +2649,20 @@ TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 	// setup texture
 	initTexture();
 
-	// init min/max coords
-	switch (m_textureSpec.type)
+	if (m_mode == QLODTM_DEFAULT)
 	{
-		case TEXTURETYPE_1D:
-		case TEXTURETYPE_1D_ARRAY:
-			m_minCoord		= Vec4(-0.2f,  0.0f,  0.0f,  0.0f);
-			m_maxCoord		= Vec4( 1.5f,  0.0f,  0.0f,  0.0f);
-			break;
+		const tcu::UVec2&	viewportSize	= getViewportSize();
+		const float			lodEps			= (1.0f / float(1u << m_context.getDeviceProperties().limits.mipmapPrecisionBits)) + 0.008f;
 
-		case TEXTURETYPE_2D:
-		case TEXTURETYPE_2D_ARRAY:
-			m_minCoord		= Vec4(-0.2f, -0.4f,  0.0f,  0.0f);
-			m_maxCoord		= Vec4( 1.5f,  2.3f,  0.0f,  0.0f);
-			break;
-
-		case TEXTURETYPE_3D:
-			m_minCoord		= Vec4(-1.2f, -1.4f,  0.1f,  0.0f);
-			m_maxCoord		= Vec4( 1.5f,  2.3f,  2.3f,  0.0f);
-			break;
-
-		case TEXTURETYPE_CUBE_MAP:
-		case TEXTURETYPE_CUBE_ARRAY:
-			m_minCoord		= Vec4(-1.0f, -1.0f,  1.01f,  0.0f);
-			m_maxCoord		= Vec4( 1.0f,  1.0f,  1.01f,  0.0f);
-			break;
-
-		default:
-			DE_ASSERT(false);
-			break;
-	}
-
-	// calculate lod and accessed level
-	{
-		const tcu::UVec2&		viewportSize		= getViewportSize();
-		const float				lodEps				= (1.0f / float(1u << m_context.getDeviceProperties().limits.mipmapPrecisionBits)) + 0.008f;
-
+		// init min/max coords and calculate lod and accessed level
 		switch (m_textureSpec.type)
 		{
 			case TEXTURETYPE_1D:
 			case TEXTURETYPE_1D_ARRAY:
 			{
+				m_minCoord = Vec4(-0.2f, 0.0f, 0.0f, 0.0f);
+				m_maxCoord = Vec4( 1.5f, 0.0f, 0.0f, 0.0f);
+
 				const float	dudx	= (m_maxCoord[0]-m_minCoord[0])*(float)m_textureSpec.width	/ (float)viewportSize[0];
 
 				m_lodBounds[0]		= computeLodFromDerivates(LODMODE_MIN_BOUND, dudx, 0.0f)-lodEps;
@@ -2667,6 +2673,9 @@ TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 			case TEXTURETYPE_2D:
 			case TEXTURETYPE_2D_ARRAY:
 			{
+				m_minCoord = Vec4(-0.2f, -0.4f, 0.0f, 0.0f);
+				m_maxCoord = Vec4( 1.5f,  2.3f, 0.0f, 0.0f);
+
 				const float	dudx	= (m_maxCoord[0]-m_minCoord[0])*(float)m_textureSpec.width	/ (float)viewportSize[0];
 				const float	dvdy	= (m_maxCoord[1]-m_minCoord[1])*(float)m_textureSpec.height	/ (float)viewportSize[1];
 
@@ -2678,6 +2687,9 @@ TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 			case TEXTURETYPE_CUBE_MAP:
 			case TEXTURETYPE_CUBE_ARRAY:
 			{
+				m_minCoord = Vec4(-1.0f, -1.0f, 1.01f, 0.0f);
+				m_maxCoord = Vec4( 1.0f,  1.0f, 1.01f, 0.0f);
+
 				// Compute LOD \note Assumes that only single side is accessed and R is constant major axis.
 				DE_ASSERT(de::abs(m_minCoord[2] - m_maxCoord[2]) < 0.005);
 				DE_ASSERT(de::abs(m_minCoord[0]) < de::abs(m_minCoord[2]) && de::abs(m_maxCoord[0]) < de::abs(m_minCoord[2]));
@@ -2696,6 +2708,9 @@ TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 
 			case TEXTURETYPE_3D:
 			{
+				m_minCoord = Vec4(-1.2f, -1.4f, 0.1f, 0.0f);
+				m_maxCoord = Vec4( 1.5f,  2.3f, 2.3f, 0.0f);
+
 				const float	dudx	= (m_maxCoord[0]-m_minCoord[0])*(float)m_textureSpec.width		/ (float)viewportSize[0];
 				const float	dvdy	= (m_maxCoord[1]-m_minCoord[1])*(float)m_textureSpec.height		/ (float)viewportSize[1];
 				const float	dwdx	= (m_maxCoord[2]-m_minCoord[2])*0.5f*(float)m_textureSpec.depth	/ (float)viewportSize[0];
@@ -2713,7 +2728,30 @@ TextureQueryLodInstance::TextureQueryLodInstance (Context&					context,
 
 		m_levelBounds[0] = computeLevelFromLod(m_lodBounds[0]);
 		m_levelBounds[1] = computeLevelFromLod(m_lodBounds[1]);
+
+		return;
 	}
+
+	if (m_mode == QLODTM_ZERO_UV_WIDTH)
+	{
+		// setup same texture coordinates that will result in pmax
+		// beeing 0 and as a result lambda being -inf; on most
+		// implementations lambda is computed as fixed-point, so
+		// infinities can't be returned, instead -22 or less
+		// should be returned
+
+		m_minCoord = Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+		m_maxCoord = Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+
+		m_lodBounds[0]		= -std::numeric_limits<float>::infinity();
+		m_lodBounds[1]		= -22.0f;
+		m_levelBounds[0]	= 0.0f;
+		m_levelBounds[1]	= 0.0f;
+
+		return;
+	}
+
+	DE_ASSERT(false);
 }
 
 TextureQueryLodInstance::~TextureQueryLodInstance (void)
@@ -2861,10 +2899,12 @@ public:
 																 const std::string&			samplerType,
 																 const TextureSpec&			texture,
 																 bool						isVertexCase,
-																 QueryFunction				function);
+																 QueryFunction				function,
+																 TestMode					mode = 0);
 	virtual						~TextureQueryCase				(void);
 
 	virtual TestInstance*		createInstance					(Context& context) const;
+	virtual void				checkSupport					(Context& context) const;
 
 protected:
 	void						initShaderSources				(void);
@@ -2872,6 +2912,7 @@ protected:
 	const std::string			m_samplerTypeStr;
 	const TextureSpec			m_textureSpec;
 	const QueryFunction			m_function;
+	const TestMode				m_mode;
 };
 
 TextureQueryCase::TextureQueryCase (tcu::TestContext&		testCtx,
@@ -2880,11 +2921,13 @@ TextureQueryCase::TextureQueryCase (tcu::TestContext&		testCtx,
 									const std::string&		samplerType,
 									const TextureSpec&		texture,
 									bool					isVertexCase,
-									QueryFunction			function)
+									QueryFunction			function,
+									TestMode				mode)
 	: ShaderRenderCase	(testCtx, name, desc, isVertexCase, (ShaderEvaluator*)DE_NULL, DE_NULL, DE_NULL)
 	, m_samplerTypeStr	(samplerType)
 	, m_textureSpec		(texture)
 	, m_function		(function)
+	, m_mode			(mode)
 {
 	initShaderSources();
 }
@@ -2899,13 +2942,18 @@ TestInstance* TextureQueryCase::createInstance (Context& context) const
 	{
 		case QUERYFUNCTION_TEXTURESIZE:				return new TextureSizeInstance(context, m_isVertexCase, m_textureSpec);
 		case QUERYFUNCTION_TEXTURESIZEMS:			return new TextureSizeMSInstance(context, m_isVertexCase, m_textureSpec);
-		case QUERYFUNCTION_TEXTUREQUERYLOD:			return new TextureQueryLodInstance(context, m_isVertexCase, m_textureSpec);
+		case QUERYFUNCTION_TEXTUREQUERYLOD:			return new TextureQueryLodInstance(context, m_isVertexCase, m_textureSpec, m_mode);
 		case QUERYFUNCTION_TEXTUREQUERYLEVELS:		return new TextureQueryLevelsInstance(context, m_isVertexCase, m_textureSpec);
 		case QUERYFUNCTION_TEXTURESAMPLES:			return new TextureSamplesInstance(context, m_isVertexCase, m_textureSpec);
 		default:
 			DE_ASSERT(false);
 			return DE_NULL;
 	}
+}
+
+void TextureQueryCase::checkSupport(Context& context) const
+{
+	checkMutableComparisonSamplersSupport(context, m_textureSpec);
 }
 
 void TextureQueryCase::initShaderSources (void)
@@ -3116,6 +3164,7 @@ public:
 	virtual					~SparseShaderTextureFunctionCase	(void);
 
 	virtual	TestInstance*	createInstance						(Context& context) const;
+	virtual	void			checkSupport						(Context& context) const;
 protected:
 	void					initShaderSources					(void);
 };
@@ -3357,6 +3406,11 @@ TestInstance* SparseShaderTextureFunctionCase::createInstance (Context& context)
 	DE_ASSERT(m_evaluator != DE_NULL);
 	DE_ASSERT(m_uniformSetup != DE_NULL);
 	return new SparseShaderTextureFunctionInstance(context, m_isVertexCase, *m_evaluator, *m_uniformSetup, m_lookupSpec, m_textureSpec, m_lookupParams);
+}
+
+void SparseShaderTextureFunctionCase::checkSupport(Context& context) const
+{
+	checkMutableComparisonSamplersSupport(context, m_textureSpec);
 }
 
 static void createCaseGroup (tcu::TestCaseGroup* parent, const char* groupName, const char* groupDesc, const TexFuncCaseSpec* cases, int numCases)
@@ -4680,6 +4734,7 @@ void ShaderTextureFunctionTests::init (void)
 
 				// available only in fragment shader
 				group->addChild(new TextureQueryCase(m_testCtx, (std::string(caseSpec.name) + "_fragment"), "", caseSpec.samplerName, caseSpec.textureSpec, false, QUERYFUNCTION_TEXTUREQUERYLOD));
+				group->addChild(new TextureQueryCase(m_testCtx, (std::string(caseSpec.name) + "_zero_uv_width_fragment"), "", caseSpec.samplerName, caseSpec.textureSpec, false, QUERYFUNCTION_TEXTUREQUERYLOD, QLODTM_ZERO_UV_WIDTH));
 			}
 
 			queryGroup->addChild(group.release());

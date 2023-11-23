@@ -18,20 +18,31 @@ package android.view.cts;
 
 import static org.junit.Assert.assertTrue;
 
+import android.Manifest;
 import android.content.Context;
+import android.hardware.display.DisplayManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 
 import androidx.test.filters.LargeTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.AdoptShellPermissionsRule;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test that the screen refresh rate claimed by
@@ -51,30 +62,112 @@ public class DisplayRefreshRateTest {
 
     private static final String TAG = "DisplayRefreshRateTest";
 
-    @Rule
-    public ActivityTestRule<DisplayRefreshRateCtsActivity> mActivityRule =
-            new ActivityTestRule<>(DisplayRefreshRateCtsActivity.class);
+    private DisplayManager mDisplayManager;
+
+    private Display mDisplay;
+
+    private int mInitialMatchContentFrameRate;
+
+    private final DisplayListener mDisplayListener = new DisplayListener();
 
     private DisplayRefreshRateCtsActivity mActivity;
     private DisplayRefreshRateCtsActivity.FpsResult mFpsResult;
 
+    @Rule
+    public ActivityTestRule<DisplayRefreshRateCtsActivity> mActivityRule =
+            new ActivityTestRule<>(DisplayRefreshRateCtsActivity.class);
+
+    @Rule
+    public AdoptShellPermissionsRule mAdoptShellPermissionsRule = new AdoptShellPermissionsRule(
+            InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+            Manifest.permission.OVERRIDE_DISPLAY_MODE_REQUESTS,
+            Manifest.permission.MODIFY_REFRESH_RATE_SWITCHING_TYPE);
+
+    class DisplayListener implements DisplayManager.DisplayListener {
+        private CountDownLatch mCountDownLatch = new CountDownLatch(1);
+
+        void waitForModeToChange(int modeId) throws InterruptedException {
+            while (modeId != mDisplay.getMode().getModeId()) {
+                mCountDownLatch.await(5, TimeUnit.SECONDS);
+            }
+        }
+
+        @Override
+        public void onDisplayAdded(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayRemoved(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayChanged(int displayId) {
+            if (displayId != mDisplay.getDisplayId()) {
+                return;
+            }
+
+            mCountDownLatch.countDown();
+        }
+    }
+
+
     @Before
-    public void setup() {
+    public void setup() throws InterruptedException {
         mActivity = mActivityRule.getActivity();
         mFpsResult = mActivity.getFpsResult();
+
+        Context context = mActivity.getApplicationContext();
+        mDisplayManager = context.getSystemService(DisplayManager.class);
+
+        mInitialMatchContentFrameRate =
+                toSwitchingType(mDisplayManager.getMatchContentFrameRateUserPreference());
+        mDisplayManager.setRefreshRateSwitchingType(DisplayManager.SWITCHING_TYPE_NONE);
+        mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
+
+        // This tests the fps of the default display.
+        // In consideration of multi-display devices we use getApplicationContext()
+        // to get the default display.
+        WindowManager wm = context.getSystemService(WindowManager.class);
+        mDisplay = wm.getDefaultDisplay();
+
+        mDisplayManager.registerDisplayListener(mDisplayListener,
+                new Handler(Looper.getMainLooper()));
+
+        int highestRefreshRateModeId = getHighestRefreshRateModeId();
+        mActivity.setModeId(highestRefreshRateModeId);
+        mDisplayListener.waitForModeToChange(highestRefreshRateModeId);
+    }
+
+    private int getHighestRefreshRateModeId() {
+        int highestRefreshRateModeId = mDisplay.getMode().getModeId();
+        for (Display.Mode mode : mDisplay.getSupportedModes()) {
+            if (mode.getPhysicalHeight() != mDisplay.getMode().getPhysicalHeight()) {
+                continue;
+            }
+
+            if (mode.getPhysicalWidth() != mDisplay.getMode().getPhysicalWidth()) {
+                continue;
+            }
+
+            if (mode.getRefreshRate() > mDisplay.getMode().getRefreshRate()) {
+                highestRefreshRateModeId = mode.getModeId();
+            }
+        }
+        return highestRefreshRateModeId;
+    }
+
+    @After
+    public void tearDown() {
+        mDisplayManager.setRefreshRateSwitchingType(mInitialMatchContentFrameRate);
+        mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
     }
 
     @Test
     public void testRefreshRate() {
         boolean fpsOk = false;
-        // This tests the fps of the default display.
-        // In consideration of multi-display devices we use getApplicationContext()
-        // to get the default display.
-        Context context = mActivity.getApplicationContext();
-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-
-        Display dpy = wm.getDefaultDisplay();
-        float claimedFps = dpy.getRefreshRate();
+        float claimedFps = mDisplay.getRefreshRate();
 
         for (int i = 0; i < 3; i++) {
             float achievedFps = mFpsResult.waitResult();
@@ -92,5 +185,18 @@ public class DisplayRefreshRateTest {
         }
         mActivity.finish();
         assertTrue(fpsOk);
+    }
+
+    private static int toSwitchingType(int matchContentFrameRateUserPreference) {
+        switch (matchContentFrameRateUserPreference) {
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER:
+                return DisplayManager.SWITCHING_TYPE_NONE;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY:
+                return DisplayManager.SWITCHING_TYPE_WITHIN_GROUPS;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS:
+                return DisplayManager.SWITCHING_TYPE_ACROSS_AND_WITHIN_GROUPS;
+            default:
+                return -1;
+        }
     }
 }

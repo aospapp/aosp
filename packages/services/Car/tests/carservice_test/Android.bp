@@ -48,21 +48,19 @@ android_test {
         "androidx.test.rules",
         "android.frameworks.automotive.powerpolicy-V1-java",
         "android.hardware.automotive.vehicle-V2.0-java",
-        "car-frameworks-service",
         "car-service-test-static-lib",
-        "car-systemtest",
+        "car-service-builtin-test-static-lib",
         "com.android.car.test.lib",
         "mockito-target-extended",
         // testng imported to use assertThrows, we can remove it once it's ported to JUnit's.
         "testng",
         "truth-prebuilt",
-        "vehicle-hal-support-lib-for-test",
         "compatibility-device-util-axt",
+        "vehicle-hal-support-lib",
     ],
 
     libs: [
         "android.car",
-        "android.car.userlib",
         "android.car.watchdoglib",
         "android.test.runner",
         "android.test.base",

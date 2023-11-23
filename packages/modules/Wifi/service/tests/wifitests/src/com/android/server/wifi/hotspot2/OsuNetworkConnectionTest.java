@@ -70,7 +70,7 @@ public class OsuNetworkConnectionTest extends WifiBaseTest {
     private static final String TEST_NAI = null;
     private static final String TEST_NAI_OSEN = "access.test.com";
     private static final String TEST_PROVIDER_NAME = "testService";
-    private static final WifiSsid TEST_SSID = WifiSsid.createFromAsciiEncoded("Test SSID");
+    private static final WifiSsid TEST_SSID = WifiSsid.fromUtf8Text("Test SSID");
 
     private OsuNetworkConnection mNetworkConnection;
     private TestLooper mLooper;

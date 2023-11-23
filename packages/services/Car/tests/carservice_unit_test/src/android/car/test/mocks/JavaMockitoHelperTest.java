@@ -17,14 +17,21 @@
 package android.car.test.mocks;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
+
+import android.util.Log;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -33,12 +40,22 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+@RunWith(MockitoJUnitRunner.class)
 public final class JavaMockitoHelperTest {
 
-    private static final long TIMEOUT_MS = 1_000L;
+    private static final String TAG = JavaMockitoHelperTest.class.getSimpleName();
+
+    // Make sure TIMEOUT_MS is at least 1s, but not same as ASYNC_TIMEOUT_MS
+    private static final long TIMEOUT_MS = Math.max(1_000L, JavaMockitoHelper.ASYNC_TIMEOUT_MS) + 1;
+
+    private static final String DEFAULT_TIMEOUT_MSG = JavaMockitoHelper.ASYNC_TIMEOUT_MS + "ms";
+    private static final String CUSTOM_TIMEOUT_MSG = TIMEOUT_MS + "ms";
+
+    @Mock
+    private Future<String> mFuture;
 
     @Test
-    public void testAwait_Semaphore() throws InterruptedException {
+    public void testAwait_Semaphore() throws Exception {
         Semaphore semaphore = new Semaphore(1);
 
         JavaMockitoHelper.await(semaphore, TIMEOUT_MS);
@@ -47,7 +64,7 @@ public final class JavaMockitoHelperTest {
     }
 
     @Test
-    public void testAwait_CountDownLatch() throws InterruptedException {
+    public void testAwait_CountDownLatch() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         new Thread(() -> latch.countDown(), "testAwait_CountDownLatch").start();
 
@@ -74,20 +91,131 @@ public final class JavaMockitoHelperTest {
     }
 
     @Test
-    public void testGetResult() throws InterruptedException, ExecutionException, TimeoutException {
-        Future<String> future = mock(Future.class);
-        when(future.get(anyLong(), any())).thenReturn("done");
-
-        assertThat(JavaMockitoHelper.getResult(future)).isEqualTo("done");
+    public void testGetResult_nullFuture() throws Exception {
+        assertThrows(NullPointerException.class, ()->JavaMockitoHelper.getResult(null, "D'OH!"));
     }
 
     @Test
-    public void testGetResult_withCustomTimeout()
-            throws InterruptedException, ExecutionException, TimeoutException {
-        Future<String> future = mock(Future.class);
-        when(future.get(anyLong(), any(TimeUnit.class))).thenReturn("done");
+    public void testGetResult_nullMessageFormat() throws Exception {
+        assertThrows(NullPointerException.class, ()->JavaMockitoHelper.getResult(mFuture, null));
+    }
 
-        assertThat(JavaMockitoHelper.getResult(future, TIMEOUT_MS)).isEqualTo("done");
-        verify(future).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    @Test
+    public void testGetResult_ok() throws Exception {
+        when(mFuture.get(anyLong(), any())).thenReturn("done");
+
+        assertThat(JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4)).isEqualTo("done");
+    }
+
+    @Test
+    public void testGetResult_timeoutException() throws Exception {
+        TimeoutException cause = new TimeoutException("D'OH!");
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+        assertThat(exception).hasMessageThat().contains(DEFAULT_TIMEOUT_MSG);
+    }
+
+    @Test
+    public void testGetResult_executionException() throws Exception {
+        ExecutionException cause = new ExecutionException(new Exception("Double D'OH!"));
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+    }
+
+    @Test
+    public void testGetResult_interruptedException() throws Exception {
+        InterruptedException cause = new InterruptedException("D'OH!");
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+        Thread thread = getCurrentThreadIninterrupted();
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+        assertWithMessage("thread %s interrupted ", thread).that(thread.isInterrupted()).isTrue();
+    }
+
+    @Test
+    public void testGetResult_withCustomTimeout_nullFuture() throws Exception {
+        assertThrows(NullPointerException.class,
+                () -> JavaMockitoHelper.getResult(null, TIMEOUT_MS, "D'OH!"));
+    }
+
+    @Test
+    public void testGetResult_withCustomTimeout_nullMessageFormat() throws Exception {
+        assertThrows(NullPointerException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, null));
+    }
+
+    @Test
+    public void testGetResult_withCustomTimeout_ok() throws Exception {
+        when(mFuture.get(anyLong(), any(TimeUnit.class))).thenReturn("done");
+
+        assertThat(JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4))
+                .isEqualTo("done");
+        verify(mFuture).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+
+
+    @Test
+    public void testGetResult_withCustomTimeout_timeoutException() throws Exception {
+        TimeoutException cause = new TimeoutException("D'OH!");
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+        assertThat(exception).hasMessageThat().contains(CUSTOM_TIMEOUT_MSG);
+    }
+
+    @Test
+    public void testGetResult_withCustomTimeout_executionException() throws Exception {
+        ExecutionException cause = new ExecutionException(new Exception("Double D'OH!"));
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+    }
+
+    @Test
+    public void testGetResult_withCustomTimeout_interruptedException() throws Exception {
+        InterruptedException cause = new InterruptedException("D'OH!");
+        when(mFuture.get(anyLong(), any())).thenThrow(cause);
+        Thread thread = getCurrentThreadIninterrupted();
+
+        IllegalStateException exception = expectThrows(IllegalStateException.class,
+                () -> JavaMockitoHelper.getResult(mFuture, TIMEOUT_MS, "I am number %d!", 4));
+
+        assertThat(exception).hasCauseThat().isSameInstanceAs(cause);
+        assertThat(exception).hasMessageThat().contains("I am number 4!");
+        assertWithMessage("thread %s interrupted ", thread).that(thread.isInterrupted()).isTrue();
+    }
+
+    private Thread getCurrentThreadIninterrupted() {
+        Thread thread = Thread.currentThread();
+        if (Thread.interrupted()) {
+            Log.w(TAG, "Thread " + thread + " was not interrupted");
+            // call to interrupted() interrupts it, so check again...
+            if (!thread.isInterrupted()) {
+                throw new IllegalStateException("Could not reset interrupted state of  " + thread);
+            }
+        }
+        return thread;
     }
 }

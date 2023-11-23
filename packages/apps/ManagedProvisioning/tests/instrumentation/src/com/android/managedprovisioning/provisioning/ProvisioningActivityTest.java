@@ -73,7 +73,6 @@ import androidx.test.filters.SmallTest;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
 import com.android.managedprovisioning.TestUtils;
-import com.android.managedprovisioning.common.LogoUtils;
 import com.android.managedprovisioning.common.PolicyComplianceUtils;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.ThemeHelper;
@@ -225,8 +224,6 @@ public class ProvisioningActivityTest {
                                 return mPackageManager;
                             }
                         });
-        // LogoUtils cached icon globally. Clean-up the cache
-        LogoUtils.cleanUp(InstrumentationRegistry.getTargetContext());
     }
 
     @After

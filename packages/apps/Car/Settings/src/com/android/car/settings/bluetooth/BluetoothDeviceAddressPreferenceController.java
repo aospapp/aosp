@@ -44,6 +44,6 @@ public class BluetoothDeviceAddressPreferenceController extends
     protected void updateState(Preference preference) {
         String address = getContext().getString(R.string.bluetooth_device_mac_address,
                 getCachedDevice().getAddress());
-        preference.setTitle(address);
+        preference.setSummary(address);
     }
 }

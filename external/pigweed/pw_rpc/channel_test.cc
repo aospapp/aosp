@@ -14,33 +14,31 @@
 
 #include "pw_rpc/channel.h"
 
+#include <cstddef>
+
 #include "gtest/gtest.h"
 #include "pw_rpc/internal/packet.h"
-#include "pw_rpc_private/internal_test_utils.h"
+#include "pw_rpc/internal/test_utils.h"
 
 namespace pw::rpc::internal {
 namespace {
-
-using std::byte;
 
 TEST(ChannelOutput, Name) {
   class NameTester : public ChannelOutput {
    public:
     NameTester(const char* name) : ChannelOutput(name) {}
-    std::span<std::byte> AcquireBuffer() override { return {}; }
-    Status SendAndReleaseBuffer(std::span<const std::byte>) override {
-      return OkStatus();
-    }
+    Status Send(std::span<const std::byte>) override { return OkStatus(); }
   };
 
   EXPECT_STREQ("hello_world", NameTester("hello_world").name());
   EXPECT_EQ(nullptr, NameTester(nullptr).name());
 }
 
-constexpr Packet kTestPacket(PacketType::RESPONSE, 1, 42, 100);
+constexpr Packet kTestPacket(
+    PacketType::RESPONSE, 23, 42, 100, 0, {}, Status::NotFound());
 const size_t kReservedSize = 2 /* type */ + 2 /* channel */ + 5 /* service */ +
                              5 /* method */ + 2 /* payload key */ +
-                             2 /* status */;
+                             2 /* status (if not OK) */;
 
 enum class ChannelId {
   kOne = 1,
@@ -58,69 +56,22 @@ TEST(Channel, TestPacket_ReservedSizeMatchesMinEncodedSizeBytes) {
   EXPECT_EQ(kReservedSize, kTestPacket.MinEncodedSizeBytes());
 }
 
-TEST(Channel, OutputBuffer_EmptyBuffer) {
-  TestOutput<0> output;
-  internal::Channel channel(100, &output);
+TEST(ExtractChannelId, ValidPacket) {
+  std::byte buffer[64] = {};
+  Result<ConstByteSpan> result = kTestPacket.Encode(buffer);
+  ASSERT_EQ(result.status(), OkStatus());
 
-  Channel::OutputBuffer buffer = channel.AcquireBuffer();
-  EXPECT_TRUE(buffer.payload(kTestPacket).empty());
+  Result<uint32_t> channel_id = ExtractChannelId(*result);
+  ASSERT_EQ(channel_id.status(), OkStatus());
+  EXPECT_EQ(*channel_id, 23u);
 }
 
-TEST(Channel, OutputBuffer_TooSmall) {
-  TestOutput<kReservedSize - 1> output;
-  internal::Channel channel(100, &output);
+TEST(ExtractChannelId, InvalidPacket) {
+  constexpr std::byte buffer[64] = {std::byte{1}, std::byte{2}};
 
-  Channel::OutputBuffer output_buffer = channel.AcquireBuffer();
-  EXPECT_TRUE(output_buffer.payload(kTestPacket).empty());
+  Result<uint32_t> channel_id = ExtractChannelId(buffer);
 
-  EXPECT_EQ(Status::Internal(), channel.Send(output_buffer, kTestPacket));
-}
-
-TEST(Channel, OutputBuffer_ExactFit) {
-  TestOutput<kReservedSize> output;
-  internal::Channel channel(100, &output);
-
-  Channel::OutputBuffer output_buffer(channel.AcquireBuffer());
-  const std::span payload = output_buffer.payload(kTestPacket);
-
-  EXPECT_EQ(payload.size(), output.buffer().size() - kReservedSize);
-  EXPECT_EQ(output.buffer().data() + kReservedSize, payload.data());
-
-  EXPECT_EQ(OkStatus(), channel.Send(output_buffer, kTestPacket));
-}
-
-TEST(Channel, OutputBuffer_PayloadDoesNotFit_ReportsError) {
-  TestOutput<kReservedSize> output;
-  internal::Channel channel(100, &output);
-
-  Packet packet = kTestPacket;
-  byte data[1] = {};
-  packet.set_payload(data);
-
-  EXPECT_EQ(Status::Internal(), channel.Send(packet));
-}
-
-TEST(Channel, OutputBuffer_ExtraRoom) {
-  TestOutput<kReservedSize * 3> output;
-  internal::Channel channel(100, &output);
-
-  Channel::OutputBuffer output_buffer = channel.AcquireBuffer();
-  const std::span payload = output_buffer.payload(kTestPacket);
-
-  EXPECT_EQ(payload.size(), output.buffer().size() - kReservedSize);
-  EXPECT_EQ(output.buffer().data() + kReservedSize, payload.data());
-
-  EXPECT_EQ(OkStatus(), channel.Send(output_buffer, kTestPacket));
-}
-
-TEST(Channel, OutputBuffer_ReturnsStatusFromChannelOutputSend) {
-  TestOutput<kReservedSize * 3> output;
-  internal::Channel channel(100, &output);
-
-  Channel::OutputBuffer output_buffer = channel.AcquireBuffer();
-  output.set_send_status(Status::Aborted());
-
-  EXPECT_EQ(Status::Aborted(), channel.Send(output_buffer, kTestPacket));
+  EXPECT_EQ(channel_id.status(), Status::DataLoss());
 }
 
 }  // namespace

@@ -89,7 +89,7 @@ class CheepsDeviceFactory(base_device_factory.BaseDeviceFactory):
 
         compute_client = cheeps_compute_client.CheepsComputeClient(
             cfg, self.credentials)
-        super(CheepsDeviceFactory, self).__init__(compute_client)
+        super().__init__(compute_client)
 
         self._cfg = cfg
         self._avd_spec = avd_spec

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # uflow  Trace method execution flow in high-level languages.
@@ -81,14 +81,17 @@ int NAME(struct pt_regs *ctx) {
 
     READ_CLASS
     READ_METHOD
-    bpf_probe_read(&data.clazz, sizeof(data.clazz), (void *)clazz);
-    bpf_probe_read(&data.method, sizeof(data.method), (void *)method);
+    bpf_probe_read_user(&data.clazz, sizeof(data.clazz), (void *)clazz);
+    bpf_probe_read_user(&data.method, sizeof(data.method), (void *)method);
 
     FILTER_CLASS
     FILTER_METHOD
 
     data.pid = bpf_get_current_pid_tgid();
-    depth = entry.lookup_or_init(&data.pid, &zero);
+    depth = entry.lookup_or_try_init(&data.pid, &zero);
+    if (!depth) {
+        depth = &zero;
+    }
     data.depth = DEPTH;
     UPDATE
 

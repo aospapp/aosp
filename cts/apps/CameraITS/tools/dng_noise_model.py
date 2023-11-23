@@ -29,6 +29,10 @@ import image_processing_utils
 import its_session_utils
 
 
+_ZOOM_RATIO = 1.0 # Zoom target to be used while running the model
+_REMOVE_OUTLIERS = False # When True, filters the variance to remove outliers
+_OUTLIE_MEDIAN_ABS_DEVS = 10 # Defines the number of Median Absolute Deviations
+                             # that consitutes acceptable data
 _BAYER_LIST = ('R', 'GR', 'GB', 'B')
 _BRACKET_MAX = 8  # Exposure bracketing range in stops
 _BRACKET_FACTOR = math.pow(2, _BRACKET_MAX)
@@ -143,6 +147,20 @@ def create_noise_model_code(noise_model_a, noise_model_b,
   text_file.write('%s' % code)
   text_file.close()
 
+def outlier_removed_indices(data, deviations=3):
+  """Removes outliers using median absolute deviation and returns indices kept.
+
+  Args:
+      data:             list to remove outliers from
+      deviations:       number of deviations from median to keep
+  Returns:
+      keep_indices:     The indices of data which should be kept
+  """
+  std_dev = scipy.stats.median_abs_deviation(data, axis=None, scale=1)
+  med = np.median(data)
+  keep_indices = np.where(
+    np.logical_and(data>med-deviations*std_dev, data<med+deviations*std_dev))
+  return keep_indices
 
 class DngNoiseModel(its_base_test.ItsBaseTest):
   """Create DNG noise model.
@@ -214,6 +232,7 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
           logging.info('exp %.3fms', round(exposure*1.0E-6, 3))
           req = capture_request_utils.manual_capture_request(iso_int, exposure,
                                                              f_dist)
+          req['android.control.zoomRatio'] = _ZOOM_RATIO
           fmt_raw = {'format': 'rawStats',
                      'gridWidth': _TILE_SIZE,
                      'gridHeight': _TILE_SIZE}
@@ -239,8 +258,21 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
             logging.info('R planes means image size: %s', str(means[0].shape))
             logging.info('means min: %.3f, median: %.3f, max: %.3f',
                          np.min(means), np.median(means), np.max(means))
-            logging.info('vars_ min: %.4f, median: %.4f, max: %.4f',
-                         np.min(vars_), np.median(vars_), np.max(vars_))
+          logging.info('vars_ min: %.4f, median: %.4f, max: %.4f',
+                        np.min(vars_), np.median(vars_), np.max(vars_))
+
+          # If remove outliers is True, we will filter the variance data
+          if _REMOVE_OUTLIERS:
+            means_filtered = []
+            vars_filtered = []
+            for pidx in range(len(means)):
+              keep_indices = outlier_removed_indices(vars_[pidx],
+                                                    _OUTLIE_MEDIAN_ABS_DEVS)
+              means_filtered.append(means[pidx][keep_indices])
+              vars_filtered.append(vars_[pidx][keep_indices])
+
+            means = means_filtered
+            vars_ = vars_filtered
 
           s_read = cap['metadata']['android.sensor.sensitivity']
           if not 1.0 >= s_read/float(iso_int) >= _RTOL_EXP_GAIN:

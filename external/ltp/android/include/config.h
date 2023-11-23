@@ -177,6 +177,9 @@
 /* Define to 1 if you have the <linux/netlink.h> header file. */
 #define HAVE_LINUX_NETLINK_H 1
 
+/* Define to 1 if you have the <linux/openat2.h> header file. */
+#define HAVE_LINUX_OPENAT2_H 1
+
 /* Define to 1 if you have the <linux/ptrace.h> header file. */
 #define HAVE_LINUX_PTRACE_H 1
 
@@ -249,6 +252,9 @@
 /* Define to 1 if you have the `openat' function. */
 #define HAVE_OPENAT 1
 
+/* Define to 1 if you have the `openat2' function. */
+/* #undef HAVE_OPENAT2 */
+
 /* Define to 1 if you have the <openssl/sha.h> header file. */
 #define HAVE_OPENSSL_SHA_H 1
 
@@ -271,7 +277,7 @@
 #define HAVE_PREADV 1
 
 /* Define to 1 if you have the `preadv2' function. */
-/* #undef HAVE_PREADV2 */
+#define HAVE_PREADV2 1
 
 /* Define to 1 if you have the `profil' function. */
 #define HAVE_PROFIL 1
@@ -283,7 +289,10 @@
 #define HAVE_PWRITEV 1
 
 /* Define to 1 if you have the `pwritev2' function. */
-/* #undef HAVE_PWRITEV2 */
+#define HAVE_PWRITEV2 1
+
+/* Define to 1 if you have the `rand_r' function. */
+#define HAVE_RAND_R 1
 
 /* Define to 1 if you have the `readlinkat' function. */
 #define HAVE_READLINKAT 1
@@ -297,8 +306,14 @@
 /* Define to 1 if you have the `renameat2' function. */
 #define HAVE_RENAMEAT2 1
 
+/* Define to 1 if you have the <rpc/rpc.h> header file. */
+/* #undef HAVE_RPC_RPC_H 1 */
+
 /* Define to 1 if you have the `sched_getcpu' function. */
 #define HAVE_SCHED_GETCPU 1
+
+/* Define to 1 if you have the `setns` function. */
+#define HAVE_SETNS 1
 
 /* Define to 1 if you have the <selinux/selinux.h> header file. */
 #define HAVE_SELINUX_SELINUX_H 1
@@ -333,6 +348,12 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
+/* Define to 1 if the system has the type `struct af_alg_iv'. */
+#define HAVE_STRUCT_AF_ALG_IV 1
+
+/* Define to 1 if the system has the type `struct clone_args'. */
+#define HAVE_STRUCT_CLONE_ARGS 1
+
 /* Define to 1 if the system has the type `struct acct_v3'. */
 /* #undef HAVE_STRUCT_ACCT_V3 */
 
@@ -362,6 +383,12 @@
 /* Define to 1 if the system has the type `struct iovec'. */
 #define HAVE_STRUCT_IOVEC 1
 
+/* Define to 1 if the system has the type `struct ipc64_perm'. */
+#define HAVE_STRUCT_IPC64_PERM
+
+/* Define to 1 if you have the type `struct loop_config'. */
+#define HAVE_STRUCT_LOOP_CONFIG 1
+
 /* Define to 1 if the system has the type `struct mmsghdr'. */
 #define HAVE_STRUCT_MMSGHDR 1
 
@@ -380,11 +407,23 @@
 /* Define to 1 if the system has the type `struct rlimit64'. */
 #define HAVE_STRUCT_RLIMIT64 1
 
+/* Define to 1 if the system has the type `struct semid64_ds'. */
+#define HAVE_STRUCT_SEMID64_DS 1
+
+/* Define to 1 if the system has the type `struct semun'. */
+#define HAVE_STRUCT_SEMUN 1
+
+/* Define to 1 if the system has the type `struct shmid64_ds'. */
+#define HAVE_STRUCT_SHMID64_DS
+
 /* Define to 1 if `sa_sigaction' is a member of `struct sigaction'. */
 #define HAVE_STRUCT_SIGACTION_SA_SIGACTION 1
 
 /* Define to 1 if `ssi_signo' is a member of `struct signalfd_siginfo'. */
 #define HAVE_STRUCT_SIGNALFD_SIGINFO_SSI_SIGNO 1
+
+/* Define to 1 if the system has the type `struct sockaddr_alg'. */
+#define HAVE_STRUCT_SOCKADDR_ALG 1
 
 /* Define to 1 if the system has the type `struct statx'. */
 #define HAVE_STRUCT_STATX 1
@@ -425,6 +464,21 @@
 
 /* Define to 1 if the system has the type `struct xt_entry_target'. */
 #define HAVE_STRUCT_XT_ENTRY_TARGET 1
+
+/* Define to 1 if the system has the type `struct __kernel_itimerspec'. */
+#define HAVE_STRUCT___KERNEL_ITIMERSPEC 1
+
+/* Define to 1 if the system has the type `struct __kernel_old_timespec'. */
+#define HAVE_STRUCT___KERNEL_OLD_TIMESPEC 1
+
+/* Define to 1 if the system has the type `struct __kernel_timespec'. */
+#define HAVE_STRUCT___KERNEL_TIMESPEC 1
+
+/* Define to 1 if the system has the type `struct __kernel_timex'. */
+#define HAVE_STRUCT___KERNEL_TIMEX 1
+
+/* Define to 1 if the system has the type `struct __kernel_timex_timeval'. */
+#define HAVE_STRUCT___KERNEL_TIMEX_TIMEVAL 1
 
 /* Define to 1 if you have the `syncfs' function. */
 #define HAVE_SYNCFS 1

@@ -16,11 +16,16 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
@@ -29,27 +34,40 @@ import javax.crypto.KeyAgreement;
 
 import junit.framework.TestCase;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import android.content.Context;
+import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyInfo;
-import androidx.test.InstrumentationRegistry;
 
-public class KeyAgreementTest extends TestCase {
+public class KeyAgreementTest {
     private static final String PRIVATE_KEY_ALIAS = "TemporaryPrivateKey";
 
+    @Before
+    @After
+    public void deleteKey() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        keyStore.deleteEntry(PRIVATE_KEY_ALIAS);
+    }
+
+    @Test
     public void testGenerateSecret_succeeds() throws Exception {
         KeyAgreement ka = getKeyStoreKeyAgreement();
-        ka.init(generateEphemeralAndroidKeyPair(PRIVATE_KEY_ALIAS).getPrivate());
+        ka.init(generateEphemeralAndroidKeyPair().getPrivate());
         ka.doPhase(generateEphemeralServerKeyPair().getPublic(), true);
         byte[] sharedSecret = ka.generateSecret();
         assertNotNull(sharedSecret);
     }
 
+    @Test
     public void testGenerateSecret_forTwoParties_returnsSameSharedSecret() throws Exception {
-        KeyPair ourKeyPair = generateEphemeralAndroidKeyPair(PRIVATE_KEY_ALIAS);
+        KeyPair ourKeyPair = generateEphemeralAndroidKeyPair();
         KeyPair theirKeyPair = generateEphemeralServerKeyPair();
 
         KeyAgreement ka = getKeyStoreKeyAgreement();
@@ -66,10 +84,11 @@ public class KeyAgreementTest extends TestCase {
         Assert.assertArrayEquals(ourSharedSecret, theirSharedSecret);
     }
 
+    @Test
     public void testGenerateSecret_preservesPrivateKeyAndNothingElse() throws Exception {
         KeyPair otherPartyKey = generateEphemeralServerKeyPair();
         KeyAgreement ka = getKeyStoreKeyAgreement();
-        ka.init(generateEphemeralAndroidKeyPair(PRIVATE_KEY_ALIAS).getPrivate());
+        ka.init(generateEphemeralAndroidKeyPair().getPrivate());
         ka.doPhase(otherPartyKey.getPublic(), true);
         byte[] sharedSecret1 = ka.generateSecret();
 
@@ -87,6 +106,7 @@ public class KeyAgreementTest extends TestCase {
         Assert.assertArrayEquals(sharedSecret1, sharedSecret2);
     }
 
+    @Test
     public void testInit_withNonPrivateKey_fails() throws Exception {
         KeyAgreement ka = getKeyStoreKeyAgreement();
         try {
@@ -97,6 +117,7 @@ public class KeyAgreementTest extends TestCase {
         }
     }
 
+    @Test
     public void testInit_withNonEcKey_fails() throws Exception {
         KeyPairGenerator kpg =
                 KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore");
@@ -113,6 +134,7 @@ public class KeyAgreementTest extends TestCase {
         }
     }
 
+    @Test
     public void testDoPhase_withoutInitialization_fails() throws Exception {
         KeyAgreement ka = getKeyStoreKeyAgreement();
         try {
@@ -123,9 +145,10 @@ public class KeyAgreementTest extends TestCase {
         }
     }
 
+    @Test
     public void testGenerateSecret_withoutSecondPartyKey_fails() throws Exception {
         KeyAgreement ka = getKeyStoreKeyAgreement();
-        ka.init(generateEphemeralAndroidKeyPair(PRIVATE_KEY_ALIAS).getPrivate());
+        ka.init(generateEphemeralAndroidKeyPair().getPrivate());
         try {
             ka.generateSecret();
             fail("Should not be able to generate secret without other party key.");
@@ -134,10 +157,11 @@ public class KeyAgreementTest extends TestCase {
         }
     }
 
+    @Test
     public void testDoPhase_multiparty_fails() throws Exception {
         // Multi-party key agreement is not supported by Keymint
         KeyAgreement ka = getKeyStoreKeyAgreement();
-        ka.init(generateEphemeralAndroidKeyPair(PRIVATE_KEY_ALIAS).getPrivate());
+        ka.init(generateEphemeralAndroidKeyPair().getPrivate());
         try {
             ka.doPhase(generateEphemeralServerKeyPair().getPublic(), false);
             fail("Calling doPhase with lastPhase set to false should fail.");
@@ -153,12 +177,12 @@ public class KeyAgreementTest extends TestCase {
         }
     }
 
-    private static KeyPair generateEphemeralAndroidKeyPair(String alias)
-            throws GeneralSecurityException {
+    private static KeyPair generateEphemeralAndroidKeyPair() throws Exception {
         KeyPairGenerator kpg =
                 KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
         kpg.initialize(
-                new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_AGREE_KEY).build());
+                new KeyGenParameterSpec.Builder(PRIVATE_KEY_ALIAS,
+                        KeyProperties.PURPOSE_AGREE_KEY).build());
 
         KeyPair kp = kpg.generateKeyPair();
 
@@ -172,17 +196,7 @@ public class KeyAgreementTest extends TestCase {
             fail("Unable to get KeyInfo for created key.");
         }
 
-        // ECDH is only implemented in Secure Hardware if KeyMint is available.
-        int level = keyInfo.getSecurityLevel();
-        Context context = InstrumentationRegistry.getTargetContext();
-        if (TestUtils.getFeatureVersionKeystore(context) >= Attestation.KM_VERSION_KEYMINT_1) {
-            Assert.assertTrue(
-                level == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
-                level == KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE);
-        } else {
-            Assert.assertEquals(keyInfo.getSecurityLevel(),
-                    KeyProperties.SECURITY_LEVEL_SOFTWARE);
-        }
+        TestUtils.assertImplementedByKeyMintAfter(keyInfo, Attestation.KM_VERSION_KEYMINT_1);
 
         return kp;
     }

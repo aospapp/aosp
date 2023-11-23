@@ -208,9 +208,11 @@ bool DynamicVector<ElementType>::resize(size_type newSize) {
     pop_back();
   }
 
-  bool success = true;
-  while (success && mSize < newSize) {
-    success = emplace_back();
+  bool success = reserve(newSize);
+  if (success) {
+    while (mSize < newSize) {
+      new (&data()[mSize++]) ElementType();
+    }
   }
 
   return success;

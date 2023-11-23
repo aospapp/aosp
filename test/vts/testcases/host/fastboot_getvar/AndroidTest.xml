@@ -18,7 +18,7 @@
     <option name="test-suite-tag" value="apct-junit" />
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
-        <option name="min-api-level" value="30" />
+        <option name="vsr-min-api-level" value="31" />
     </object>
 
     <test class="com.android.tradefed.testtype.HostTest" >

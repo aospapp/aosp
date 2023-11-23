@@ -22,20 +22,15 @@ import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_ACTIVITY_RESULT;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_CREATE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_DESTROY;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_MULTI_WINDOW_MODE_CHANGED;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_NEW_INTENT;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_PAUSE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_POST_CREATE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESTART;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESUME;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_START;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_GAINED;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_LOST;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_USER_LEAVE_HINT;
+import static android.server.wm.lifecycle.LifecycleConstants.ACTIVITY_LAUNCH_TIMEOUT;
+import static android.server.wm.lifecycle.LifecycleConstants.EXTRA_RECREATE;
+import static android.server.wm.lifecycle.LifecycleConstants.EXTRA_SKIP_TOP_RESUMED_STATE;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_MULTI_WINDOW_MODE_CHANGED;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_PAUSE;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESUME;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_STOP;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_TOP_POSITION_GAINED;
+import static android.server.wm.lifecycle.LifecycleConstants.getComponentName;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
@@ -45,17 +40,13 @@ import static org.junit.Assert.fail;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.PictureInPictureParams;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.os.Bundle;
-import android.os.Looper;
 import android.server.wm.MultiDisplayTestBase;
 import android.server.wm.ObjectTracker;
 import android.server.wm.cts.R;
-import android.server.wm.lifecycle.LifecycleLog.ActivityCallback;
 import android.transition.Transition;
 import android.transition.TransitionListenerAdapter;
 import android.util.Pair;
@@ -77,40 +68,13 @@ import java.util.function.Consumer;
 /** Base class for device-side tests that verify correct activity lifecycle transitions. */
 public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
 
-    /**
-     * Activity launch time is evaluated. It is expected to be less than 5 seconds. Otherwise, it's
-     * likely there is a timeout.
-     */
-    private static final long ACTIVITY_LAUNCH_TIMEOUT = 5 * 1000;
-
-    static final String EXTRA_RECREATE = "recreate";
-    static final String EXTRA_FINISH_IN_ON_CREATE = "finish_in_on_create";
-    static final String EXTRA_FINISH_IN_ON_START = "finish_in_on_start";
-    static final String EXTRA_FINISH_IN_ON_RESUME = "finish_in_on_resume";
-    static final String EXTRA_FINISH_IN_ON_PAUSE = "finish_in_on_pause";
-    static final String EXTRA_FINISH_IN_ON_STOP = "finish_in_on_stop";
-    static final String EXTRA_START_ACTIVITY_IN_ON_CREATE = "start_activity_in_on_create";
-    static final String EXTRA_START_ACTIVITY_WHEN_IDLE = "start_activity_when_idle";
-    static final String EXTRA_ACTIVITY_ON_USER_LEAVE_HINT = "activity_on_user_leave_hint";
-    /**
-     * Use this flag to skip recording top resumed state to avoid affecting verification.
-     * @see Launcher#setSkipTopResumedStateCheck()
-     */
-    static final String EXTRA_SKIP_TOP_RESUMED_STATE = "skip_top_resumed_state";
-
-    static final ComponentName CALLBACK_TRACKING_ACTIVITY =
-            getComponentName(CallbackTrackingActivity.class);
-
-    static final ComponentName CONFIG_CHANGE_HANDLING_ACTIVITY =
-            getComponentName(ConfigChangeHandlingActivity.class);
-
     final ActivityTestRule mSlowActivityTestRule = new ActivityTestRule<>(
             SlowActivity.class, true /* initialTouchMode */, false /* launchActivity */);
 
-    private static LifecycleLog mLifecycleLog;
+    private static EventLog sEventLog;
 
     protected Context mTargetContext;
-    private LifecycleTracker mLifecycleTracker;
+    private EventTracker mTransitionTracker;
 
     @Before
     @Override
@@ -119,11 +83,11 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
 
         mTargetContext = getInstrumentation().getTargetContext();
         // Log transitions for all activities that belong to this app.
-        mLifecycleLog = new LifecycleLog();
-        mLifecycleLog.clear();
+        sEventLog = new EventLog();
+        sEventLog.clear();
 
         // Track transitions and allow waiting for pending activity states.
-        mLifecycleTracker = new LifecycleTracker(mLifecycleLog);
+        mTransitionTracker = new EventTracker(sEventLog);
 
         // Some lifecycle tracking activities that have not been destroyed may affect the
         // verification of next test because of the lifecycle log. We need to wait them to be
@@ -134,7 +98,7 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
     /** Activity launch builder for lifecycle tests. */
     class Launcher implements ObjectTracker.Consumable {
         private int mFlags;
-        private ActivityCallback mExpectedState;
+        private String mExpectedState;
         private List<String> mExtraFlags = new ArrayList<>();
         private Consumer<Intent> mPostIntentSetup;
         private ActivityOptions mOptions;
@@ -215,7 +179,7 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
         /**
          * Set the expected lifecycle state to verify. Will be inferred automatically if not set.
          */
-        public Launcher setExpectedState(ActivityCallback expectedState) {
+        public Launcher setExpectedState(String expectedState) {
             mExpectedState = expectedState;
             return this;
         }
@@ -286,9 +250,9 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
      */
     @SafeVarargs
     final void waitAndAssertActivityStates(
-            Pair<Class<? extends Activity>, ActivityCallback>... activityCallbacks) {
+            Pair<Class<? extends Activity>, String>... activityCallbacks) {
         log("Start waitAndAssertActivityCallbacks");
-        mLifecycleTracker.waitAndAssertActivityStates(activityCallbacks);
+        mTransitionTracker.waitAndAssertActivityStates(activityCallbacks);
     }
 
     /**
@@ -296,46 +260,46 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
      * expected state.
      */
     final void waitAndAssertActivityCurrentState(
-            Class<? extends Activity> activityClass, ActivityCallback expectedState) {
+            Class<? extends Activity> activityClass, String expectedState) {
         log("Start waitAndAssertActivityCurrentState");
-        mLifecycleTracker.waitAndAssertActivityCurrentState(activityClass, expectedState);
+        mTransitionTracker.waitAndAssertActivityCurrentState(activityClass, expectedState);
     }
 
     /**
      * Blocking call that will wait for activities to perform the expected sequence of transitions.
-     * @see LifecycleTracker#waitForActivityTransitions(Class, List)
+     * @see EventTracker#waitForActivityTransitions(Class, List)
      */
     final void waitForActivityTransitions(Class<? extends Activity> activityClass,
-            List<ActivityCallback> expectedTransitions) {
+            List<String> expectedTransitions) {
         log("Start waitForActivityTransitions");
-        mLifecycleTracker.waitForActivityTransitions(activityClass, expectedTransitions);
+        mTransitionTracker.waitForActivityTransitions(activityClass, expectedTransitions);
     }
 
     /**
      * Blocking call that will wait for activities to perform the expected sequence of transitions.
      * After waiting it asserts that the sequence matches the expected.
-     * @see LifecycleTracker#waitForActivityTransitions(Class, List)
+     * @see EventTracker#waitForActivityTransitions(Class, List)
      */
     final void waitAndAssertActivityTransitions(Class<? extends Activity> activityClass,
-            List<ActivityCallback> expectedTransitions, String message) {
+            List<String> expectedTransitions, String message) {
         log("Start waitAndAssertActivityTransition");
-        mLifecycleTracker.waitForActivityTransitions(activityClass, expectedTransitions);
+        mTransitionTracker.waitForActivityTransitions(activityClass, expectedTransitions);
 
-        LifecycleVerifier.assertSequence(activityClass, getLifecycleLog(), expectedTransitions,
+        TransitionVerifier.assertSequence(activityClass, getTransitionLog(), expectedTransitions,
                 message);
     }
 
-    LifecycleLog getLifecycleLog() {
-        return mLifecycleLog;
+    EventLog getTransitionLog() {
+        return sEventLog;
     }
 
-    static Pair<Class<? extends Activity>, ActivityCallback> state(Activity activity,
-            ActivityCallback stage) {
+    static Pair<Class<? extends Activity>, String> state(Activity activity,
+            String stage) {
         return state(activity.getClass(), stage);
     }
 
-    static Pair<Class<? extends Activity>, ActivityCallback> state(
-            Class<? extends Activity> activityClass, ActivityCallback stage) {
+    static Pair<Class<? extends Activity>, String> state(
+            Class<? extends Activity> activityClass, String stage) {
         return new Pair<>(activityClass, stage);
     }
 
@@ -343,7 +307,7 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
      * Returns a pair of the activity and the state it should be in based on the configuration of
      * occludingActivity.
      */
-    static Pair<Class<? extends Activity>, ActivityCallback> occludedActivityState(
+    static Pair<Class<? extends Activity>, String> occludedActivityState(
             Activity activity, Activity occludingActivity) {
         return occludedActivityState(activity, isTranslucent(occludingActivity));
     }
@@ -352,114 +316,20 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
      * Returns a pair of the activity and the state it should be in based on
      * occludingActivityIsTranslucent.
      */
-    static Pair<Class<? extends Activity>, ActivityCallback> occludedActivityState(
+    static Pair<Class<? extends Activity>, String> occludedActivityState(
             Activity activity, boolean occludingActivityIsTranslucent) {
         // Activities behind a translucent activity should be in the paused state since they are
         // still visible. Otherwise, they should be in the stopped state.
         return state(activity, occludedActivityState(occludingActivityIsTranslucent));
     }
 
-    static ActivityCallback occludedActivityState(boolean occludingActivityIsTranslucent) {
+    static String occludedActivityState(boolean occludingActivityIsTranslucent) {
         return occludingActivityIsTranslucent ? ON_PAUSE : ON_STOP;
     }
 
     /** Returns true if the input activity is translucent. */
     static boolean isTranslucent(Activity activity) {
         return ActivityInfo.isTranslucentOrFloating(activity.getWindow().getWindowStyle());
-    }
-
-    /** Base activity that only tracks fundamental activity lifecycle states. */
-    public static class LifecycleTrackingActivity extends Activity {
-        LifecycleLog.LifecycleLogClient mLifecycleLogClient;
-
-        @Override
-        protected void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            mLifecycleLogClient = LifecycleLog.LifecycleLogClient.create(this);
-            mLifecycleLogClient.onActivityCallback(ON_CREATE);
-
-            final Intent intent = getIntent();
-            final Intent startOnCreate =
-                    intent.getParcelableExtra(EXTRA_START_ACTIVITY_IN_ON_CREATE);
-            if (startOnCreate != null) {
-                startActivity(startOnCreate);
-            }
-
-            final Intent startOnIdle = intent.getParcelableExtra(EXTRA_START_ACTIVITY_WHEN_IDLE);
-            if (startOnIdle != null) {
-                Looper.getMainLooper().getQueue().addIdleHandler(() -> {
-                    startActivity(startOnIdle);
-                    return false;
-                });
-            }
-
-            if (intent.getBooleanExtra(EXTRA_FINISH_IN_ON_CREATE, false)) {
-                finish();
-            }
-        }
-
-        @Override
-        protected void onStart() {
-            super.onStart();
-            mLifecycleLogClient.onActivityCallback(ON_START);
-
-            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_START, false)) {
-                finish();
-            }
-        }
-
-        @Override
-        protected void onResume() {
-            super.onResume();
-            mLifecycleLogClient.onActivityCallback(ON_RESUME);
-
-            final Intent intent = getIntent();
-            if (intent.getBooleanExtra(EXTRA_FINISH_IN_ON_RESUME, false)) {
-                finish();
-            }
-        }
-
-        @Override
-        protected void onPause() {
-            super.onPause();
-            mLifecycleLogClient.onActivityCallback(ON_PAUSE);
-
-            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_PAUSE, false)) {
-                finish();
-            }
-        }
-
-        @Override
-        protected void onStop() {
-            super.onStop();
-            mLifecycleLogClient.onActivityCallback(ON_STOP);
-
-            if (getIntent().getBooleanExtra(EXTRA_FINISH_IN_ON_STOP, false)) {
-                finish();
-            }
-        }
-
-        @Override
-        protected void onDestroy() {
-            super.onDestroy();
-            mLifecycleLogClient.onActivityCallback(ON_DESTROY);
-            mLifecycleLogClient.close();
-        }
-
-        @Override
-        protected void onRestart() {
-            super.onRestart();
-            mLifecycleLogClient.onActivityCallback(ON_RESTART);
-        }
-
-        @Override
-        protected void onUserLeaveHint() {
-            super.onUserLeaveHint();
-
-            if (getIntent().getBooleanExtra(EXTRA_ACTIVITY_ON_USER_LEAVE_HINT, false)) {
-                mLifecycleLogClient.onActivityCallback(ON_USER_LEAVE_HINT);
-            }
-        }
     }
 
     // Test activity
@@ -484,44 +354,6 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
 
     // Translucent test activity
     public static class SecondTranslucentActivity extends LifecycleTrackingActivity {
-    }
-
-    /**
-     * Base activity that records callbacks in addition to main lifecycle transitions.
-     */
-    public static class CallbackTrackingActivity extends LifecycleTrackingActivity {
-
-        @Override
-        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-            super.onActivityResult(requestCode, resultCode, data);
-            mLifecycleLogClient.onActivityCallback(ON_ACTIVITY_RESULT);
-        }
-
-        @Override
-        protected void onPostCreate(Bundle savedInstanceState) {
-            super.onPostCreate(savedInstanceState);
-            mLifecycleLogClient.onActivityCallback(ON_POST_CREATE);
-        }
-
-        @Override
-        protected void onNewIntent(Intent intent) {
-            super.onNewIntent(intent);
-            mLifecycleLogClient.onActivityCallback(ON_NEW_INTENT);
-            setIntent(intent);
-        }
-
-        @Override
-        public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
-            if (!getIntent().getBooleanExtra(EXTRA_SKIP_TOP_RESUMED_STATE, false)) {
-                mLifecycleLogClient.onActivityCallback(
-                        isTopResumedActivity ? ON_TOP_POSITION_GAINED : ON_TOP_POSITION_LOST);
-            }
-        }
-
-        @Override
-        public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
-            mLifecycleLogClient.onActivityCallback(ON_MULTI_WINDOW_MODE_CHANGED);
-        }
     }
 
     // Just another callback tracking activity, nothing special.
@@ -683,10 +515,6 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
         }
     }
 
-    // Config change handling activity
-    public static class ConfigChangeHandlingActivity extends CallbackTrackingActivity {
-    }
-
     // Callback tracking activity that runs in a separate process
     public static class SecondProcessCallbackTrackingActivity extends CallbackTrackingActivity {
     }
@@ -790,13 +618,9 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
         }
     }
 
-    static ComponentName getComponentName(Class<? extends Activity> activity) {
-        return new ComponentName(getInstrumentation().getContext(), activity);
-    }
-
     void moveTaskToPrimarySplitScreenAndVerify(Activity primaryActivity,
             Activity secondaryActivity) throws Exception {
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
 
         mWmState.computeState(secondaryActivity.getComponentName());
         moveActivitiesToSplitScreen(primaryActivity.getComponentName(),
@@ -804,11 +628,10 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
 
         final Class<? extends Activity> activityClass = primaryActivity.getClass();
 
-        final List<LifecycleLog.ActivityCallback> expectedTransitions =
-                new ArrayList<LifecycleLog.ActivityCallback>(
-                        LifecycleVerifier.getSplitScreenTransitionSequence(activityClass));
-        final List<LifecycleLog.ActivityCallback> expectedTransitionForMinimizedDock =
-                LifecycleVerifier.appendMinimizedDockTransitionTrail(expectedTransitions);
+        final List<String> expectedTransitions =
+                new ArrayList<>(TransitionVerifier.getSplitScreenTransitionSequence(activityClass));
+        final List<String> expectedTransitionForMinimizedDock =
+                TransitionVerifier.appendMinimizedDockTransitionTrail(expectedTransitions);
 
         final int displayWindowingMode =
                 getDisplayWindowingModeByActivity(getComponentName(activityClass));
@@ -819,10 +642,10 @@ public class ActivityLifecycleClientTestBase extends MultiDisplayTestBase {
                     Collections.singleton(ON_MULTI_WINDOW_MODE_CHANGED));
         }
 
-        mLifecycleTracker.waitForActivityTransitions(activityClass, expectedTransitions);
-        LifecycleVerifier.assertSequenceMatchesOneOf(
+        mTransitionTracker.waitForActivityTransitions(activityClass, expectedTransitions);
+        TransitionVerifier.assertSequenceMatchesOneOf(
                 activityClass,
-                getLifecycleLog(),
+                getTransitionLog(),
                 Arrays.asList(expectedTransitions, expectedTransitionForMinimizedDock),
                 "enterSplitScreen");
     }

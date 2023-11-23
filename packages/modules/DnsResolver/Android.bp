@@ -53,12 +53,12 @@ cc_library_headers {
     ],
 }
 
-dnsresolver_aidl_interface_lateststable_version = "V9"
+dnsresolver_aidl_interface_lateststable_version = "V10"
 
 cc_library_static {
-    name: "dnsresolver_aidl_interface-lateststable-ndk_platform",
+    name: "dnsresolver_aidl_interface-lateststable-ndk",
     whole_static_libs: [
-        "dnsresolver_aidl_interface-" + dnsresolver_aidl_interface_lateststable_version + "-ndk_platform",
+        "dnsresolver_aidl_interface-" + dnsresolver_aidl_interface_lateststable_version + "-ndk",
     ],
     apex_available: [
         "com.android.resolv",
@@ -78,12 +78,11 @@ aidl_interface {
         "binder/android/net/resolv/aidl/**/*.aidl",
     ],
     imports: [
-        "netd_event_listener_interface",
+        "netd_event_listener_interface-V1",
     ],
     backend: {
         java: {
             apex_available: [
-                "com.android.bluetooth.updatable",
                 "com.android.tethering",
                 "com.android.wifi",
             ],
@@ -107,6 +106,7 @@ aidl_interface {
         "7",
         "8",
         "9",
+        "10",
     ],
     dumpapi: {
         no_license: true,
@@ -192,15 +192,17 @@ cc_library {
     // Link most things statically to minimize our dependence on system ABIs.
     stl: "libc++_static",
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk",
         "libbase",
         "libcutils",
         "libnetdutils",
+        "libdoh_ffi",
+        "libmodules-utils-build",
         "libprotobuf-cpp-lite",
         "libstatslog_resolv",
         "libstatspush_compat",
         "libsysutils",
-        "netd_event_listener_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk",
         "server_configurable_flags",
         "stats_proto",
     ],
@@ -264,7 +266,8 @@ cc_library_static {
 genrule {
     name: "statslog_resolv.h",
     tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_resolv.h --module resolv --namespace android,net,stats",
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_resolv.h --module resolv" +
+        " --namespace android,net,stats --minApiLevel 29",
     out: [
         "statslog_resolv.h",
     ],
@@ -273,7 +276,8 @@ genrule {
 genrule {
     name: "statslog_resolv.cpp",
     tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog_resolv.cpp --module resolv --namespace android,net,stats --importHeader statslog_resolv.h --supportQ",
+    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog_resolv.cpp --module resolv" +
+        " --namespace android,net,stats --importHeader statslog_resolv.h --minApiLevel 29",
     out: [
         "statslog_resolv.cpp",
     ],
@@ -321,23 +325,26 @@ filegroup {
     ],
 }
 
+doh_rust_deps = [
+    "libandroid_logger",
+    "libanyhow",
+    "libbase64_rust",
+    "libfutures",
+    "liblibc",
+    "liblog_rust",
+    "libring",
+    "libthiserror",
+    "libtokio",
+    "liburl",
+]
+
 rust_ffi_static {
     name: "libdoh_ffi",
     crate_name: "doh",
-    srcs: ["doh.rs"],
+    srcs: ["doh/doh.rs"],
     edition: "2018",
 
-    rlibs: [
-        "libandroid_logger",
-        "libanyhow",
-        "liblazy_static",
-        "liblibc",
-        "liblog_rust",
-        "libquiche",
-        "libring",
-        "libtokio",
-        "liburl",
-    ],
+    rlibs: doh_rust_deps + ["libquiche"],
     prefer_rlib: true,
 
     shared_libs: [
@@ -346,8 +353,8 @@ rust_ffi_static {
     ],
 
     apex_available: [
-        "//apex_available:platform",  // Needed by doh_ffi_test
-        "com.android.resolv"
+        "//apex_available:platform", // Needed by doh_ffi_test
+        "com.android.resolv",
     ],
     min_sdk_version: "29",
 }
@@ -355,23 +362,32 @@ rust_ffi_static {
 rust_test {
     name: "doh_unit_test",
     crate_name: "doh",
-    srcs: ["doh.rs"],
+    srcs: ["doh/doh.rs"],
     edition: "2018",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     // Used to enable root permission for the test.
     // TODO: remove after 'require_root' is supported in rust_test.
     test_config_template: ":resolv_rust_test_config_template",
-    rustlibs: [
-        "libandroid_logger",
-        "libanyhow",
-        "liblazy_static",
-        "liblibc",
-        "liblog_rust",
-        "libquiche_static",
-        "libring",
-        "libtokio",
-        "liburl",
+    rustlibs: doh_rust_deps + ["libquiche_static"],
+    min_sdk_version: "29",
+}
+
+// It's required by unit tests.
+rust_ffi_static {
+    name: "libdoh_ffi_for_test",
+    crate_name: "doh",
+    srcs: ["doh/doh.rs"],
+    edition: "2018",
+
+    rlibs: doh_rust_deps + ["libquiche_static"],
+    prefer_rlib: true,
+    // TODO(b/194022174), for unit tests to run on the Android 10 platform,
+    // libunwind must be statically linked.
+    whole_static_libs: ["libunwind"],
+    apex_available: [
+        "//apex_available:platform", // Needed by doh_ffi_test
+        "com.android.resolv",
     ],
     min_sdk_version: "29",
 }

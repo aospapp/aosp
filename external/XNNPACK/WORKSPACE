@@ -5,8 +5,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Bazel rule definitions
 http_archive(
     name = "rules_cc",
-    strip_prefix = "rules_cc-master",
-    urls = ["https://github.com/bazelbuild/rules_cc/archive/master.zip"],
+    strip_prefix = "rules_cc-main",
+    urls = ["https://github.com/bazelbuild/rules_cc/archive/main.zip"],
 )
 
 # Google Test framework, used by most unit-tests.
@@ -26,10 +26,10 @@ http_archive(
 # FP16 library, used for half-precision conversions
 http_archive(
     name = "FP16",
-    strip_prefix = "FP16-3c54eacb74f6f5e39077300c5564156c424d77ba",
-    sha256 = "0d56bb92f649ec294dbccb13e04865e3c82933b6f6735d1d7145de45da700156",
+    strip_prefix = "FP16-0a92994d729ff76a58f692d3028ca1b64b145d91",
+    sha256 = "e66e65515fa09927b348d3d584c68be4215cfe664100d01c9dbc7655a5716d70",
     urls = [
-        "https://github.com/Maratyszcza/FP16/archive/3c54eacb74f6f5e39077300c5564156c424d77ba.zip",
+        "https://github.com/Maratyszcza/FP16/archive/0a92994d729ff76a58f692d3028ca1b64b145d91.zip",
     ],
     build_file = "@//third_party:FP16.BUILD",
 )

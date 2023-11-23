@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"ໂໝດໂທກັບສຸກເສີນ"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ປິດການເຊື່ອມຕໍ່ຂໍ້ມູນແລ້ວ"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"ບໍ່ມີການເຊື່ອມຕໍ່ອິນເຕີເນັດຈົນຮອດ <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">ໂທ​ລະ​ສັບ​ຈະ​ຢູ່​ໃນ​ໂໝດ​ການ​ໂທ​​ສຸກ​ເສີນ​ເປັນ​ເວ​ລາ <xliff:g id="COUNT_1">%s</xliff:g> ນາ​ທີ. ໃນ​ຂະ​ນະ​ທີ່​ຢູ່​ໃນ​ໂໝດ​ນີ້ ບໍ່​ມີ​ແອພ​ພ​ລິ​ເຄ​ຊັນທີ່​ໃຊ້​ການ​ເຊື່ອມ​ຕໍ່​ຂໍ້​ມູນ​ທີ່​ສາ​ມາດ​ໃຊ້​ໄດ້. ທ່ານ​ຕ້ອງ​ການ​ອອກ​ດຽວ​ນີ້​ບໍ?</item>
-      <item quantity="one">ໂທ​ລະ​ສັບ​ຈະ​ຢູ່​ໃນ​ໂໝດ​ການ​ໂທ​​ສຸກ​ເສີນ​ເປັນ​ເວ​ລາ <xliff:g id="COUNT_0">%s</xliff:g> ນາ​ທີ. ໃນ​ຂະ​ນະ​ທີ່​ຢູ່​ໃນ​ໂໝດ​ນີ້ ບໍ່​ມີ​ແອັບ​ທີ່​ໃຊ້​ການ​ເຊື່ອມ​ຕໍ່​ຂໍ້​ມູນ​ທີ່​ສາ​ມາດ​ໃຊ້​ໄດ້. ທ່ານ​ຕ້ອງ​ການ​ອອກ​ດຽວ​ນີ້​ບໍ?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">. ໂທ​ລະ​ສັບ​ຈະ​ຢູ່​ໃນ​ໂໝດ​ນີ້​ເປັນ​ເວ​ລາ <xliff:g id="COUNT_1">%s</xliff:g> ນາ​ທີ. ທ່ານ​ຕ້ອງ​ການ​ອອກ​ດຽວ​ນີ້​ບໍ?</item>
-      <item quantity="one">ການດຳເນີນການທີ່ເລືອກໄວ້ ບໍ່ສາມາດໃຊ້ໄດ້ໃນຂະນະທີ່ຢູ່ໃນການໂທສຸກເສີນ. ໂທ​ລະ​ສັບ​ຈະ​ຢູ່​ໃນ​ໂໝດ​ນີ້​ເປັນ​ເວ​ລາ <xliff:g id="COUNT_0">%s</xliff:g> ນາ​ທີ. ທ່ານ​ຕ້ອງ​ການ​ອອກ​ດຽວ​ນີ້​ບໍ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{ໂທລະສັບຈະຢູ່ໃນໂໝດການໂທກັບສຸກເສີນເປັນເວລາໜຶ່ງນາທີ. ໃນລະຫວ່າງທີ່ຢູ່ໃນໂໝດນີ້ ບໍ່ສາມາດໃຊ້ແອັບທີ່ໃຊ້ການເຊື່ອມຕໍ່ອິນເຕີເນັດໄດ້. ທ່ານຕ້ອງການອອກດຽວນີ້ບໍ?}other{ໂທລະສັບຈະຢູ່ໃນໂໝດການໂທກັບສຸກເສີນເປັນເວລາ %s ນາທີ. ໃນລະຫວ່າງທີ່ຢູ່ໃນໂໝດນີ້ ບໍ່ສາມາດໃຊ້ແອັບພລິເຄຊັນທີ່ໃຊ້ການເຊື່ອມຕໍ່ອິນເຕີເນັດໄດ້. ທ່ານຕ້ອງການອອກດຽວນີ້ບໍ?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{ຄຳສັ່ງທີ່ເລືອກບໍ່ສາມາດໃຊ້ໄດ້ໃນຂະນະທີ່ຢູ່ໃນໂໝດໂທກັບສຸກເສີນ. ໂທລະສັບຈະຢູ່ໃນໂໝດນີ້ອີກໜຶ່ງນາທີ. ທ່ານຕ້ອງການອອກດຽວນີ້ບໍ?}other{ຄຳສັ່ງທີ່ເລືອກບໍ່ສາມາດໃຊ້ໄດ້ໃນຂະນະທີ່ຢູ່ໃນໂໝດໂທກັບສຸກເສີນ. ໂທລະສັບຈະຢູ່ໃນໂໝດນີ້ອີກ %s ນາທີ. ທ່ານຕ້ອງການອອກດຽວນີ້ບໍ?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"ການດຳເນີນການທີ່ເລືອກ ບໍ່ສາມາດໃຊ້ໄດ້ໃນຂະນະທີ່ຢູ່ໃນການໂທສຸກເສີນ."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"ກຳລັງອອກຈາກໂໝດໂທກັບສຸກເສີນ"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ຕົກລົງ"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"ປິດໄວ້"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ໂທລະສັບຢູ່ໃນໂໝດໂທກັບສຸກເສີນ"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"ຈົນຮອດ <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">ໂທລະສັບຈະຢູ່ໃນໂໝດໂທກັບສຸກເສີນເປັນເວລາ <xliff:g id="COUNT_1">%s</xliff:g> ນາທີ.\nທ່ານຕ້ອງການອອກຕອນນີ້ເລີຍບໍ?</item>
-      <item quantity="one">ໂທລະສັບຈະຢູ່ໃນໂໝດໂທກັບສຸກເສີນເປັນເວລາ <xliff:g id="COUNT_0">%s</xliff:g> ນາທີ.\nທ່ານຕ້ອງການອອກຕອນນີ້ເລີຍບໍ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{ໂທລະສັບຈະຢູ່ໃນໂໝດໂທກັບສຸກເສີນເປັນເວລາໜຶ່ງນາທີ.\nທ່ານຕ້ອງການອອກຕອນນີ້ເລີຍບໍ?}other{ໂທລະສັບຈະຢູ່ໃນໂໝດໂທກັບສຸກເສີນເປັນເວລາ %s ນາທີ.\nທ່ານຕ້ອງການອອກຕອນນີ້ເລີຍບໍ?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"ບໍລິການ"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"ຕັ້ງຄ່າ"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;ຍັງບໍ່ໄດ້ຕັ້ງ&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"​ການ​ຊ່ວຍ​ເຂົ້າ​ເຖິງ"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"ການໂທ Wi-Fi ຈາກ"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ການ​ໂທ Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"ແຕະອີກຄັ້ງເພື່ອເປີດ"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"ມີຂໍ້ຜິດພາດໃນລະຫວ່າງຖອດລະຫັດຂໍ້ຄວາມດັ່ງກ່າວ."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ແຜ່ນ SIM ໄດ້ເປີດໃຊ້ງານການບໍລິການຂອງທ່ານ ແລະອັບເດດຄວາມສາມາດໃຊ້ງານຂ້າມເຂດຂອງໂທລະສັບຂອງທ່ານແລ້ວ."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"ມີສາຍຫຼາຍເກີນໄປ. ກະລຸນາວາງສາຍ ຫຼື ຮວມສາຍທີ່ກຳລັງໂທກ່ອນໂທສາຍໃໝ່."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ບໍ່ສາມາດໂທອອກໄດ້ເນື່ອງຈາກກຳລັງມີສາຍໂທອອກຢູ່ກ່ອນແລ້ວ."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"ບໍ່ສາມາດໂທອອກໄດ້ເນື່ອງຈາກມີສາຍທີ່ກຳລັງໂທເຂົ້າມາທີ່ຍັງບໍ່ໄດ້ຮັບຢູ່. ກະລຸນາຮັບສາຍ ຫຼື ວາງສາຍທີ່ກຳລັງໂທເຂົ້າມາກ່ອນຈະໂທໃໝ່."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ບໍ່ສາມາດໂທໄດ້ເນື່ອງຈາກມີການປິດການໂທໂດຍໃຊ້ຄຸນສົມບັດລະບົບ ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ບໍ່ສາມາດໂທໄດ້ເນື່ອງຈາກມີສອງສາຍກຳລັງໂທຢູ່. ກະລຸນາຕັດການເຊື່ອມຕໍ່ສາຍໃດໜຶ່ງອອກ ຫຼື ຮວມສາຍເປັນການປະຊຸມສາຍກ່ອນໂທໃໝ່."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"ບໍ່ສາມາດໂທໄດ້ເນື່ອງຈາກມີສອງສາຍກຳລັງໂທຢູ່. ກະລຸນາຕັດການເຊື່ອມຕໍ່ສາຍໃດໜຶ່ງອອກ ຫຼື ຮວມສາຍເປັນການປະຊຸມທາງໂທລະສັບກ່ອນໂທໃໝ່."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"ເພື່ອໃຊ້ <xliff:g id="SUPP_SERVICE">%s</xliff:g>, ກະລຸນາກວດສອບວ່າເປີດໃຊ້ອິນເຕີເນັດມືຖືແລ້ວ. ທ່ານສາມາດປ່ຽນໄດ້ໃນການຕັ້ງຄ່າເຄືອຂ່າຍ."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"ເພື່ອໃຊ້ <xliff:g id="SUPP_SERVICE">%s</xliff:g>, ກະລຸນາກວດສອບວ່າເປີດໃຊ້ອິນເຕີເນັດມືຖື ແລະ ການໂຣມມິງອິນເຕີເນັດແລ້ວ. ທ່ານສາມາດປ່ຽນໄດ້ໃນການຕັ້ງຄ່າເຄືອຂ່າຍ."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"ເພື່ອໃຊ້ <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, ກະລຸນາກວດສອບວ່າເປີດໃຊ້ອິນເຕີເນັດມືຖືສຳລັບຊິມ <xliff:g id="SIM_NUMBER">%2$d</xliff:g> ແລ້ວ. ທ່ານສາມາດປ່ຽນໄດ້ໃນການຕັ້ງຄ່າເຄືອຂ່າຍ."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"ທ່ານຕ້ອງຣີສະຕາດອຸປະກອນຂອງທ່ານເພື່ອປ່ຽນການຕັ້ງຄ່ານີ້."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"ປິດເປີດຄືນໃໝ່"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ຍົກເລີກ"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"ຕັ້ງຄ່າ eSIM ແບບຖອດໄດ້ໃຫ້ເປັນຄ່າເລີ່ມຕົ້ນ"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ພະລັງງານວິທະຍຸມືຖື"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ເບິ່ງສະໝຸດທີ່ຢູ່ໃນຊິມ"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ເບິ່ງໝາຍເລກໂທອອກທີ່ກຳນົດ"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ເລືອກແຖບຄວາມຖີ່ວິທະຍຸ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ປະເພດເຄືອຂ່າຍສຽງ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ປະເພດເຄືອຂ່າຍຂໍ້ມູນ:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ຍົກເລີກປະເພດເຄືອຂ່າຍ:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ເລືອກດັດຊະນີໂທລະສັບ"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ເລືອກປະເພດເຄືອຂ່າຍທີ່ຕ້ອງການໃຊ້:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping Hostname(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ໂຫຼດຂໍ້ມູນໃໝ່"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"ເປີດ/ປິດ ການກວດ DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ຂໍ້ມູນ/ການຕັ້ງຄ່າສະເພາະ OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"ມີ EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"ຈຳກັດ DCNR ໄວ້ແລ້ວ:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"ມີ NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"ສະຖານະ NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"ສາມາດໃຊ້ EN-DC ໄດ້ (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"ຈຳກັດ DCNR (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"ສາມາດໃຊ້ NR ໄດ້ (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"ສະຖານະ NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"ຄວາມຖີ່ NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ຕັ້ງໂໝດແຖບຄວາມຖີ່ວິທະຍຸ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ກຳລັງດາວໂຫລດລາຍຊື່ແຖບຄວາມຖີ່..."</string>

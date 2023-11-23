@@ -70,6 +70,7 @@
 
     <!-- b/183234756, b/80388296, b/110260628, b/159295445, b/159294948 CtsDevicePolicyManagerTestCases -->
     <option name="compatibility:exclude-filter" value="CtsDevicePolicyManagerTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsDevicePolicyTestCases" />
 
     <!-- b/183985653 -->
     <option name="compatibility:module-arg" value="CtsDeqpTestCases:include-filter:dEQP-EGL.*" />
@@ -77,8 +78,11 @@
     <option name="compatibility:module-arg" value="CtsDeqpTestCases:include-filter:dEQP-GLES3.functional.prerequisite#*" />
     <option name="compatibility:module-arg" value="CtsDeqpTestCases:include-filter:dEQP-VK.api.smoke#*" />
 
-    <!-- b/183659262 Remove CtsPreferenceTestCases from cts-on-gsi -->
-    <option name="compatibility:exclude-filter" value="CtsPreferenceTestCases" />
+    <!-- b/183636777 Remove CtsShortcutManagerPackage4 from cts-on-gsi -->
+    <option name="compatibility:exclude-filter" value="CtsShortcutManagerPackage4" />
+
+    <!-- b/230829938 Remove CtsShortcutHostTestCases from cts-on-gsi -->
+    <option name="compatibility:exclude-filter" value="CtsShortcutHostTestCases" />
 
     <!-- b/185451791. Can't have single overlay package for both AOSP version and Google-signed mainline modules -->
     <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.cts.ConcurrencyTest#testPersistentGroupOperation" />
@@ -102,5 +106,19 @@
     <!-- b/203177211 -->
     <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdpPorts" />
 
+
+    <!-- b/228390608 No Tv Input Service implementation on GSI -->
+    <option name="compatibility:exclude-filter" value="CtsHdmiCecHostTestCases android.hdmicec.cts.tv.HdmiCecRemoteControlPassThroughTest" />
+    <option name="compatibility:exclude-filter" value="CtsHdmiCecHostTestCases android.hdmicec.cts.tv.HdmiCecRoutingControlTest" />
+    <option name="compatibility:exclude-filter" value="CtsHdmiCecHostTestCases android.hdmicec.cts.tv.HdmiCecTvOneTouchPlayTest" />
+
+    <!-- b/234409652 Stable API does not exist to enforce this requirement on variable geometry devices -->
+    <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.camera2.cts.ExtendedCameraCharacteristicsTest#testCameraOrientationAlignedWithDevice"/>
+
+    <!-- b/235453601 -->
+    <option name="compatibility:exclude-filter" value="CtsMediaPerformanceClassTestCases android.mediapc.cts.MultiDecoderPerfTest" />
+
+    <!-- b/238155422 -->
+    <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.ConnectivityManagerTest#testSetAirplaneMode" />
 
 </configuration>

@@ -25,6 +25,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentProviderClient;
 import android.content.Context;
@@ -38,12 +39,15 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.transition.Fade;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.animation.AnimationUtils;
 import android.widget.HorizontalScrollView;
 import android.widget.TextView;
 
@@ -70,10 +74,11 @@ import com.android.tv.twopanelsettings.slices.HasSliceUri;
 import com.android.tv.twopanelsettings.slices.InfoFragment;
 import com.android.tv.twopanelsettings.slices.SliceFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
+import com.android.tv.twopanelsettings.slices.SliceSeekbarPreference;
 import com.android.tv.twopanelsettings.slices.SliceSwitchPreference;
 import com.android.tv.twopanelsettings.slices.SlicesConstants;
-import com.android.tv.twopanelsettings.slices.SliceSeekbarPreference;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -98,9 +103,14 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             {R.id.frame1, R.id.frame2, R.id.frame3, R.id.frame4, R.id.frame5, R.id.frame6,
                     R.id.frame7, R.id.frame8, R.id.frame9, R.id.frame10};
 
-    private static final long PANEL_ANIMATION_MS = 400;
+    private static final long PANEL_ANIMATION_SLIDE_MS = 1000;
+    private static final long PANEL_ANIMATION_ALPHA_MS = 200;
+    private static final long PANEL_BACKGROUND_ANIMATION_ALPHA_MS = 500;
     private static final long PANEL_ANIMATION_DELAY_MS = 200;
-    private static final long PREVIEW_PANEL_DEFAULT_DELAY_MS = 0;
+    private static final long PREVIEW_PANEL_DEFAULT_DELAY_MS =
+            ActivityManager.isLowRamDeviceStatic() ? 100 : 0;
+    private static final boolean DEFAULT_CHECK_SCROLL_STATE =
+            ActivityManager.isLowRamDeviceStatic();
     private static final long CHECK_IDLE_STATE_MS = 100;
     private long mPreviewPanelCreationDelay = 0;
     private static final float PREVIEW_PANEL_ALPHA = 0.6f;
@@ -115,16 +125,19 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
     private Preference mFocusedPreference;
     private boolean mIsWaitingForUpdatingPreview = false;
     private AudioManager mAudioManager;
+    private final Map<VerticalGridView, OnChildViewHolderSelectedListenerTwoPanel>
+            mHasOnChildViewHolderSelectedListener = new ArrayMap<>();
 
     private static final String DELAY_MS = "delay_ms";
     private static final String CHECK_SCROLL_STATE = "check_scroll_state";
 
     /** An broadcast receiver to help OEM test best delay for preview panel fragment creation. */
-    private BroadcastReceiver mPreviewPanelDelayReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mPreviewPanelDelayReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             long delay = intent.getLongExtra(DELAY_MS, PREVIEW_PANEL_DEFAULT_DELAY_MS);
-            boolean checkScrollState = intent.getBooleanExtra(CHECK_SCROLL_STATE, false);
+            boolean checkScrollState = intent.getBooleanExtra(
+                    CHECK_SCROLL_STATE, DEFAULT_CHECK_SCROLL_STATE);
             Log.d(TAG, "New delay for creating preview panel fragment " + delay
                     + " check scroll state " + checkScrollState);
             mPreviewPanelCreationDelay = delay;
@@ -132,28 +145,6 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         }
     };
 
-    private final OnChildViewHolderSelectedListener mOnChildViewHolderSelectedListener =
-            new OnChildViewHolderSelectedListener() {
-                @Override
-                public void onChildViewHolderSelected(RecyclerView parent,
-                        RecyclerView.ViewHolder child, int position, int subposition) {
-                    if (parent == null || child == null) {
-                        return;
-                    }
-                    int adapterPosition = child.getAdapterPosition();
-                    PreferenceGroupAdapter preferenceGroupAdapter =
-                            (PreferenceGroupAdapter) parent.getAdapter();
-                    if (preferenceGroupAdapter != null) {
-                        Preference preference = preferenceGroupAdapter.getItem(adapterPosition);
-                        onPreferenceFocused(preference);
-                    }
-                }
-
-                @Override
-                public void onChildViewHolderSelectedAndPositioned(RecyclerView parent,
-                        RecyclerView.ViewHolder child, int position, int subposition) {
-                }
-            };
 
     private final OnGlobalLayoutListener mOnGlobalLayoutListener = new OnGlobalLayoutListener() {
         @Override
@@ -166,6 +157,35 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         }
     };
 
+    private class OnChildViewHolderSelectedListenerTwoPanel extends
+            OnChildViewHolderSelectedListener {
+        private final int mPaneLIndex;
+
+        OnChildViewHolderSelectedListenerTwoPanel(int panelIndex) {
+            mPaneLIndex = panelIndex;
+        }
+
+        @Override
+        public void onChildViewHolderSelected(RecyclerView parent,
+                RecyclerView.ViewHolder child, int position, int subposition) {
+            if (parent == null || child == null) {
+                return;
+            }
+            int adapterPosition = child.getAdapterPosition();
+            PreferenceGroupAdapter preferenceGroupAdapter =
+                    (PreferenceGroupAdapter) parent.getAdapter();
+            if (preferenceGroupAdapter != null) {
+                Preference preference = preferenceGroupAdapter.getItem(adapterPosition);
+                onPreferenceFocused(preference, mPaneLIndex);
+            }
+        }
+
+        @Override
+        public void onChildViewHolderSelectedAndPositioned(RecyclerView parent,
+                RecyclerView.ViewHolder child, int position, int subposition) {
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -173,7 +193,15 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                 .getBoolean(R.bool.config_check_scroll_state);
         mPreviewPanelCreationDelay = getContext().getResources()
                 .getInteger(R.integer.config_preview_panel_create_delay);
+
+        updatePreviewPanelCreationDelayForLowRamDevice();
         mAudioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+    }
+
+    private void updatePreviewPanelCreationDelayForLowRamDevice() {
+        if (ActivityManager.isLowRamDeviceStatic() && mPreviewPanelCreationDelay == 0) {
+            mPreviewPanelCreationDelay = PREVIEW_PANEL_DEFAULT_DELAY_MS;
+        }
     }
 
     @Override
@@ -252,9 +280,18 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                 return false;
             }
             try {
-                Fragment immersiveFragment = Fragment.instantiate(getActivity(), pref.getFragment(),
+                Fragment fragment = Fragment.instantiate(getActivity(), pref.getFragment(),
                         pref.getExtras());
-                startImmersiveFragment(immersiveFragment);
+                if (fragment instanceof GuidedStepSupportFragment) {
+                    startImmersiveFragment(fragment);
+                } else {
+                    if (DEBUG) {
+                        Log.d(TAG, "No-op: Preference is clicked before preview is shown");
+                    }
+                    // return true so it won't be handled by onPreferenceTreeClick
+                    // in PreferenceFragment
+                    return true;
+                }
             } catch (Exception e) {
                 Log.e(TAG, "error trying to instantiate fragment " + e);
                 // return true so it won't be handled by onPreferenceTreeClick in PreferenceFragment
@@ -299,9 +336,9 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
 
         mPrefPanelIdx++;
 
-        Fragment fragment = getChildFragmentManager().findFragmentById(frameResIds[mPrefPanelIdx]);
-        addOrRemovePreferenceFocusedListener(fragment, true);
-
+        Fragment fragmentToBeMainPanel = getChildFragmentManager()
+                .findFragmentById(frameResIds[mPrefPanelIdx]);
+        addOrRemovePreferenceFocusedListener(fragmentToBeMainPanel, true);
         final FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         transaction.replace(frameResIds[mPrefPanelIdx + 1], initialPreviewFragment,
                 PREVIEW_FRAGMENT_TAG);
@@ -312,6 +349,9 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
     }
 
     private boolean isA11yOn() {
+        if (getActivity() == null) {
+            return false;
+        }
         return Settings.Secure.getInt(
                 getActivity().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1;
@@ -358,9 +398,18 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         VerticalGridView listView = (VerticalGridView) leanbackPreferenceFragment.getListView();
         if (listView != null) {
             if (isAddingListener) {
-                listView.setOnChildViewHolderSelectedListener(mOnChildViewHolderSelectedListener);
+                if (!mHasOnChildViewHolderSelectedListener.containsKey(listView)) {
+                    OnChildViewHolderSelectedListenerTwoPanel listener =
+                            new OnChildViewHolderSelectedListenerTwoPanel(mPrefPanelIdx);
+                    listView.addOnChildViewHolderSelectedListener(listener);
+                    mHasOnChildViewHolderSelectedListener.put(listView, listener);
+                }
             } else {
-                listView.setOnChildViewHolderSelectedListener(null);
+                if (mHasOnChildViewHolderSelectedListener.containsKey(listView)) {
+                    listView.removeOnChildViewHolderSelectedListener(
+                            mHasOnChildViewHolderSelectedListener.get(listView));
+                    mHasOnChildViewHolderSelectedListener.remove(listView);
+                }
             }
         }
     }
@@ -374,6 +423,7 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         if (DEBUG) {
             Log.d(TAG, "startPreferenceFragment");
         }
+        addOrRemovePreferenceFocusedListener(fragment, true);
         FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         transaction.add(frameResIds[mPrefPanelIdx], fragment, PREFERENCE_FRAGMENT_TAG);
         transaction.commitNow();
@@ -455,11 +505,11 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         void onSeekbarPreferenceChanged(SliceSeekbarPreference preference, int addValue);
     }
 
-    protected void onPreferenceFocused(Preference pref) {
-        onPreferenceFocusedImpl(pref, false);
+    protected void onPreferenceFocused(Preference pref, int panelIndex) {
+        onPreferenceFocusedImpl(pref, false, panelIndex);
     }
 
-    private void onPreferenceFocusedImpl(Preference pref, boolean forceRefresh) {
+    private void onPreferenceFocusedImpl(Preference pref, boolean forceRefresh, int panelIndex) {
         if (pref == null) {
             return;
         }
@@ -477,9 +527,9 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             VerticalGridView listView = (VerticalGridView)
                     ((LeanbackPreferenceFragmentCompat) prefFragment).getListView();
             mHandler.postDelayed(new PostShowPreviewRunnable(
-                    listView, pref, forceRefresh), mPreviewPanelCreationDelay);
+                    listView, pref, forceRefresh, panelIndex), mPreviewPanelCreationDelay);
         } else {
-            handleFragmentTransactionWhenFocused(pref, forceRefresh);
+            handleFragmentTransactionWhenFocused(pref, forceRefresh, panelIndex);
         }
     }
 
@@ -487,11 +537,14 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         private final VerticalGridView mListView;
         private final Preference mPref;
         private final boolean mForceFresh;
+        private final int mPanelIndex;
 
-        PostShowPreviewRunnable(VerticalGridView listView, Preference pref, boolean forceFresh) {
+        PostShowPreviewRunnable(VerticalGridView listView, Preference pref, boolean forceFresh,
+                int panelIndex) {
             this.mListView = listView;
             this.mPref = pref;
             this.mForceFresh = forceFresh;
+            mPanelIndex = panelIndex;
         }
 
         @Override
@@ -500,14 +553,18 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                 if (mListView.getScrollState() != RecyclerView.SCROLL_STATE_IDLE) {
                     mHandler.postDelayed(this, CHECK_IDLE_STATE_MS);
                 } else {
-                    handleFragmentTransactionWhenFocused(mPref, mForceFresh);
+                    handleFragmentTransactionWhenFocused(mPref, mForceFresh, mPanelIndex);
                     mIsWaitingForUpdatingPreview = false;
                 }
             }
         }
     }
 
-    private void handleFragmentTransactionWhenFocused(Preference pref, boolean forceRefresh) {
+    private void handleFragmentTransactionWhenFocused(Preference pref, boolean forceRefresh,
+            int panelIndex) {
+        if (!isAdded() || panelIndex != mPrefPanelIdx) {
+            return;
+        }
         Fragment previewFragment = null;
         final Fragment prefFragment =
                 getChildFragmentManager().findFragmentById(frameResIds[mPrefPanelIdx]);
@@ -546,16 +603,15 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         }
         previewFragment.setEnterTransition(new Fade());
         previewFragment.setExitTransition(null);
-
         final FragmentTransaction transaction =
                 getChildFragmentManager().beginTransaction();
-        transaction.setCustomAnimations(android.R.animator.fade_in,
-                android.R.animator.fade_out);
+        transaction.setCustomAnimations(R.animator.fade_in_preview_panel,
+                R.animator.fade_out_preview_panel);
         transaction.replace(frameResIds[mPrefPanelIdx + 1], previewFragment);
-        transaction.commit();
+        transaction.commitNow();
 
         // Some fragments may steal focus on creation. Reclaim focus on main fragment.
-        if (getView()  != null && getView().getViewTreeObserver() != null) {
+        if (getView() != null && getView().getViewTreeObserver() != null) {
             getView().getViewTreeObserver().addOnGlobalLayoutListener(
                     mOnGlobalLayoutListener);
         }
@@ -582,7 +638,8 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         super.onResume();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("com.android.tv.settings.PREVIEW_DELAY");
-        getContext().registerReceiver(mPreviewPanelDelayReceiver, intentFilter);
+        getContext().registerReceiver(mPreviewPanelDelayReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         // Trap back button presses
         final TwoPanelSettingsRootView rootView = (TwoPanelSettingsRootView) getView();
         if (rootView != null) {
@@ -612,6 +669,7 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         if (DEBUG) {
             Log.d(TAG, "Starting immersive fragment.");
         }
+        addOrRemovePreferenceFocusedListener(fragment, true);
         final FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         Fragment target = getChildFragmentManager().findFragmentById(frameResIds[mPrefPanelIdx]);
         fragment.setTargetFragment(target, 0);
@@ -680,6 +738,10 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
 
         @Override
         public boolean onKey(View v, int keyCode, KeyEvent event) {
+            if (!isAdded()) {
+                Log.d(TAG, "Fragment not attached yet.");
+                return true;
+            }
             Fragment prefFragment =
                     getChildFragmentManager().findFragmentById(frameResIds[mPrefPanelIdx]);
 
@@ -715,27 +777,35 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             if (event.getAction() == KeyEvent.ACTION_DOWN
                     && ((!isRTL() && keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)
                     || (isRTL() && keyCode == KeyEvent.KEYCODE_DPAD_LEFT))) {
-                if (shouldPerformClick()) {
-                    v.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,
-                            KeyEvent.KEYCODE_DPAD_CENTER));
-                    v.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,
-                            KeyEvent.KEYCODE_DPAD_CENTER));
-                } else {
-                    Fragment previewFragment = getChildFragmentManager()
-                            .findFragmentById(frameResIds[mPrefPanelIdx + 1]);
-                    if (!(previewFragment instanceof InfoFragment)
-                            && !mIsWaitingForUpdatingPreview) {
-                        mAudioManager.playSoundEffect(AudioManager.FX_FOCUS_NAVIGATION_RIGHT);
-
-                        navigateToPreviewFragment();
-                    }
-                }
+                forward();
                 // TODO(b/163432209): improve NavigationCallback and be more specific here.
                 // Do not consume the KeyEvent for NavigationCallback classes such as date & time
                 // picker.
                 return !(prefFragment instanceof NavigationCallback);
             }
             return false;
+        }
+    }
+
+    private void forward() {
+        if (!isAdded()) {
+            Log.d(TAG, "Fragment not attached yet.");
+            return;
+        }
+        final TwoPanelSettingsRootView rootView = (TwoPanelSettingsRootView) getView();
+        if (shouldPerformClick()) {
+            rootView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,
+                    KeyEvent.KEYCODE_DPAD_CENTER));
+            rootView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,
+                    KeyEvent.KEYCODE_DPAD_CENTER));
+        } else {
+            Fragment previewFragment = getChildFragmentManager()
+                    .findFragmentById(frameResIds[mPrefPanelIdx + 1]);
+            if (!(previewFragment instanceof InfoFragment)
+                    && !mIsWaitingForUpdatingPreview) {
+                mAudioManager.playSoundEffect(AudioManager.FX_FOCUS_NAVIGATION_RIGHT);
+                navigateToPreviewFragment();
+            }
         }
     }
 
@@ -757,6 +827,10 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
     }
 
     private boolean back(boolean isKeyBackPressed) {
+        if (!isAdded()) {
+            Log.d(TAG, "Fragment not attached yet.");
+            return true;
+        }
         if (mIsNavigatingBack) {
             mHandler.postDelayed(new Runnable() {
                 @Override
@@ -805,9 +879,6 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         }
 
         mIsNavigatingBack = true;
-        Fragment preferenceFragment =
-                getChildFragmentManager().findFragmentById(frameResIds[mPrefPanelIdx]);
-        addOrRemovePreferenceFocusedListener(preferenceFragment, false);
         getChildFragmentManager().popBackStack();
 
         mPrefPanelIdx--;
@@ -882,11 +953,19 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             int distanceToScrollToRight;
             int panelWidth = getResources().getDimensionPixelSize(
                     R.dimen.tp_settings_preference_pane_width);
-            View scrollToPanel = getView().findViewById(frameResIds[index]);
-            View previewPanel = getView().findViewById(frameResIds[index + 1]);
+            TwoPanelSettingsFrameLayout scrollToPanel = getView().findViewById(frameResIds[index]);
+            TwoPanelSettingsFrameLayout previewPanel = getView().findViewById(
+                    frameResIds[index + 1]);
             if (scrollToPanel == null || previewPanel == null) {
                 return;
             }
+            scrollToPanel.setOnDispatchTouchListener(null);
+            previewPanel.setOnDispatchTouchListener((view, env) -> {
+                if (env.getActionMasked() == MotionEvent.ACTION_UP) {
+                    forward();
+                }
+                return true;
+            });
             View scrollToPanelHead = scrollToPanel.findViewById(R.id.decor_title_container);
             View previewPanelHead = previewPanel.findViewById(R.id.decor_title_container);
             boolean scrollsToPreview =
@@ -907,7 +986,7 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                 ObjectAnimator slideAnim = ObjectAnimator.ofInt(mScrollView, "scrollX",
                         mScrollView.getScrollX(), animationEnd);
                 slideAnim.setAutoCancel(true);
-                slideAnim.setDuration(PANEL_ANIMATION_MS);
+                slideAnim.setDuration(PANEL_ANIMATION_SLIDE_MS);
                 slideAnim.addListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
@@ -918,6 +997,8 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                         }
                     }
                 });
+                slideAnim.setInterpolator(AnimationUtils.loadInterpolator(
+                        getContext(), R.anim.easing_browse));
                 slideAnim.start();
                 // Color animation
                 if (scrollsToPreview) {
@@ -932,7 +1013,9 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                             "backgroundColor",
                             new ArgbEvaluator(), previewPanelColor, mainPanelColor);
                     alphaAnim.setAutoCancel(true);
+                    alphaAnim.setDuration(PANEL_ANIMATION_ALPHA_MS);
                     backgroundColorAnim.setAutoCancel(true);
+                    backgroundColorAnim.setDuration(PANEL_BACKGROUND_ANIMATION_ALPHA_MS);
                     AnimatorSet animatorSet = new AnimatorSet();
                     if (scrollToPanelHead != null) {
                         ObjectAnimator backgroundColorAnimForHead = ObjectAnimator.ofObject(
@@ -940,12 +1023,14 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                                 "backgroundColor",
                                 new ArgbEvaluator(), previewPanelColor, mainPanelColor);
                         backgroundColorAnimForHead.setAutoCancel(true);
+                        backgroundColorAnimForHead.setDuration(PANEL_BACKGROUND_ANIMATION_ALPHA_MS);
                         animatorSet.playTogether(alphaAnim, backgroundColorAnim,
                                 backgroundColorAnimForHead);
                     } else {
                         animatorSet.playTogether(alphaAnim, backgroundColorAnim);
                     }
-                    animatorSet.setDuration(PANEL_ANIMATION_MS);
+                    animatorSet.setInterpolator(AnimationUtils.loadInterpolator(
+                            getContext(), R.anim.easing_browse));
                     animatorSet.start();
                 } else {
                     scrollToPanel.setAlpha(1f);
@@ -959,7 +1044,9 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                             "backgroundColor",
                             new ArgbEvaluator(), mainPanelColor, previewPanelColor);
                     alphaAnim.setAutoCancel(true);
+                    alphaAnim.setDuration(PANEL_ANIMATION_ALPHA_MS);
                     backgroundColorAnim.setAutoCancel(true);
+                    backgroundColorAnim.setDuration(PANEL_BACKGROUND_ANIMATION_ALPHA_MS);
                     AnimatorSet animatorSet = new AnimatorSet();
                     if (previewPanelHead != null) {
                         ObjectAnimator backgroundColorAnimForHead = ObjectAnimator.ofObject(
@@ -967,12 +1054,14 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                                 "backgroundColor",
                                 new ArgbEvaluator(), mainPanelColor, previewPanelColor);
                         backgroundColorAnimForHead.setAutoCancel(true);
+                        backgroundColorAnimForHead.setDuration(PANEL_BACKGROUND_ANIMATION_ALPHA_MS);
                         animatorSet.playTogether(alphaAnim, backgroundColorAnim,
                                 backgroundColorAnimForHead);
                     } else {
                         animatorSet.playTogether(alphaAnim, backgroundColorAnim);
                     }
-                    animatorSet.setDuration(PANEL_ANIMATION_MS);
+                    animatorSet.setInterpolator(AnimationUtils.loadInterpolator(
+                            getContext(), R.anim.easing_browse));
                     animatorSet.start();
                 }
             } else {
@@ -1078,7 +1167,7 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                     updateInfoFragmentStatus(fragment);
                 }
                 if (chosenPreference instanceof ListPreference) {
-                    refocusPreferenceForceRefresh(chosenPreference);
+                    refocusPreferenceForceRefresh(chosenPreference, fragment);
                 }
             }
         } catch (ClassNotFoundException e) {
@@ -1087,8 +1176,11 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
     }
 
     /** Force refresh preview panel. */
-    public void refocusPreferenceForceRefresh(Preference chosenPreference) {
-        onPreferenceFocusedImpl(chosenPreference, true);
+    public void refocusPreferenceForceRefresh(Preference chosenPreference, Fragment fragment) {
+        if (!isFragmentInTheMainPanel(fragment)) {
+            return;
+        }
+        onPreferenceFocusedImpl(chosenPreference, true, mPrefPanelIdx);
     }
 
     /** Show error message in preview panel **/
@@ -1103,8 +1195,8 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
             Fragment newPrefFragment = onCreatePreviewFragment(null, preference);
             final FragmentTransaction transaction =
                     getChildFragmentManager().beginTransaction();
-            transaction.setCustomAnimations(android.R.animator.fade_in,
-                    android.R.animator.fade_out);
+            transaction.setCustomAnimations(R.animator.fade_in_preview_panel,
+                    R.animator.fade_out_preview_panel);
             transaction.replace(frameResIds[mPrefPanelIdx], newPrefFragment);
             transaction.commit();
         } else {
@@ -1114,7 +1206,7 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                     appendErrorToContentDescription(prefFragment, errorMessage);
                 }
                 updatePreferenceWithErrorMessage(preference, errorMessage, getContext());
-                onPreferenceFocused(preference);
+                onPreferenceFocused(preference, mPrefPanelIdx);
             }
         }
     }
@@ -1215,9 +1307,11 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
                     preference.getExtras());
         } else {
             Fragment f = null;
-            if (preference instanceof ListPreference) {
+            if (preference instanceof ListPreference
+                    && ((ListPreference) preference).getEntries() != null) {
                 f = TwoPanelListPreferenceDialogFragment.newInstanceSingle(preference.getKey());
-            } else if (preference instanceof MultiSelectListPreference) {
+            } else if (preference instanceof MultiSelectListPreference
+                    && ((MultiSelectListPreference) preference).getEntries() != null) {
                 f = LeanbackListPreferenceDialogFragmentCompat.newInstanceMulti(
                         preference.getKey());
             }
@@ -1242,7 +1336,11 @@ public abstract class TwoPanelSettingsFragment extends Fragment implements
         }
     }
 
-    /** Add focus listener to the child fragment **/
+    /**
+     * Add focus listener to the child fragment. It must always be called after
+     * the child fragment view is created since the listener is attached to the
+     * {@link VerticalGridView} in the child fragment view.
+     */
     public void addListenerForFragment(Fragment fragment) {
         if (isFragmentInTheMainPanel(fragment)) {
             addOrRemovePreferenceFocusedListener(fragment, true);

@@ -48,7 +48,11 @@ requested via the Context Hub HAL’s built-in `debug()` method, which is
 automatically collected as part of the bug report process, and can be manually
 triggered via ADB using the following command:
 
+(HIDL HAL)
 `adb root && adb shell lshal debug android.hardware.contexthub@1.0::IContexthub/default`
+
+(AIDL HAL)
+`adb root && adb shell dumpsys android.hardware.contexthub.IContextHub/default`
 
 `DebugDumpManager` is the framework module responsible for collecting debug
 dumps from the CHRE framework and nanoapps. Refer to the associated

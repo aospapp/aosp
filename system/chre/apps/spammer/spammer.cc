@@ -18,6 +18,7 @@
 
 #include "chre/platform/assert.h"
 #include "chre/platform/static_nanoapp_init.h"
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/app_id.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/system/napp_permissions.h"
@@ -51,6 +52,9 @@ void messageSentEventFreeCallback(uint16_t eventType, void *data) {
 }
 
 void messageFreeCallback(void *message, size_t messageSize) {
+  UNUSED_VAR(message);
+  UNUSED_VAR(messageSize);
+
   CHRE_ASSERT(gRunning);
   if (!chreSendEvent(kMessageSentEvent, kMessageSentEventData,
                      messageSentEventFreeCallback, chreGetInstanceId())) {
@@ -85,7 +89,7 @@ bool nanoappStart() {
   return true;
 }
 
-void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
+void nanoappHandleEvent(uint32_t /* senderInstanceId */, uint16_t eventType,
                         const void *eventData) {
   CHRE_ASSERT(gRunning);
   gTotalEventCount++;

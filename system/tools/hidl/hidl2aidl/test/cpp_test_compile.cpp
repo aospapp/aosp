@@ -22,14 +22,11 @@
 #include <hidl2aidl/test/BpBar.h>
 #include <hidl2aidl/test/BpFoo.h>
 #include <hidl2aidl/test/IBar.h>
-#include <hidl2aidl/test/IBarInner.h>
 #include <hidl2aidl/test/IFoo.h>
-#include <hidl2aidl/test/IFooBigStruct.h>
 #include <hidl2aidl/test/NameCollision.h>
 #include <hidl2aidl/test/OnlyIn10.h>
 #include <hidl2aidl/test/OnlyIn11.h>
 #include <hidl2aidl/test/Outer.h>
-#include <hidl2aidl/test/OuterInner.h>
 #include <hidl2aidl/test/OverrideMe.h>
 #include <hidl2aidl/test/Value.h>
 #include <hidl2aidl/test2/BnFoo.h>
@@ -46,7 +43,7 @@ void testIFoo(const sp<hidl2aidl::test::IFoo>& foo) {
     String16 f;
     Status status2 = foo->oneOutput(&f);
     (void)status2;
-    hidl2aidl::test::IFooBigStruct big_struct;
+    hidl2aidl::test::IFoo::BigStruct big_struct;
     big_struct.type = 2;
     big_struct.value = 3;
     // Test some of the types here as well
@@ -65,7 +62,7 @@ void testIBar(const sp<hidl2aidl::test::IBar>& bar) {
     String16 out;
     Status status1 = bar->someBar(String16(), 3, &out);
     (void)status1;
-    hidl2aidl::test::IBarInner inner;
+    hidl2aidl::test::IBar::Inner inner;
     inner.a = 3;
     Status status2 = bar->extraMethod(inner);
     (void)status2;

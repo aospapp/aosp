@@ -1189,7 +1189,7 @@ void RectangleTest::createGradient()
 		break;
 	default:
 		TCU_FAIL("Unsupported type");
-	};
+	}
 }
 
 template <typename Type>
@@ -1247,12 +1247,13 @@ void RectangleTest::makeGradient(Type (*unpack)(float))
 	const Type  defaultValue = unpack(0.5f);
 	std::fill(data, data + dataToSkip, defaultValue);
 
-	for (int k = 0; k < depth; k++)
+	for (int k = m_unpackProperties.skipImages; k < depth; k++)
 	{
 		for (int j = 0; j < rowCount; j++)
 		{
 			for (int i = 0; i < elementsInRow; i++)
 			{
+				DE_ASSERT(index < bufferSize);
 				int x = i / elementsInGroup;
 				if ((k == depth - 1) && (m_unpackProperties.skipRows <= j) &&
 					(j < m_unpackProperties.skipRows + GRADIENT_HEIGHT) && (m_unpackProperties.skipPixels <= x) &&
@@ -2511,7 +2512,6 @@ bool RectangleTest::compare(GLvoid* gradient, GLvoid* data, const PixelFormat& o
 						// internal format positive range (otherwise it may wrap and
 						// yield negative internalformat values)
 						inputValue = clampUnsignedValue(bit3 - 1, inputValue);
-					;
 
 					inputValue = clampSignedValue(bit3, inputValue);
 					if (isCopy)
@@ -2794,7 +2794,7 @@ void RectangleTest::getBits(const PixelType& type, const PixelFormat& format, st
 
 	if (type.special == true)
 	{
-		std::memcpy(&resultTable[0], &type.bits, sizeof(int) * NUM_FLOAT_PIXEL_COUNT);
+		std::memcpy(&resultTable[0], &type.bits, sizeof(type.bits));
 		if (type.type == GL_UNSIGNED_INT_5_9_9_9_REV)
 		{
 			//this type is another special case: it is always converted to 3-channel color (no A).

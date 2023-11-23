@@ -253,6 +253,26 @@ public class MediaSessionManagerHostTest extends BaseMultiUserTest {
 
     @AppModeFull
     @RequiresDevice
+    public void testOnMediaKeyEventSessionChangedListener() throws Exception {
+        int primaryUserId = getDevice().getPrimaryUserId();
+
+        setAllowGetActiveSessionForTest(true, primaryUserId);
+        installAppAsUser(DEVICE_SIDE_TEST_APK, primaryUserId, false);
+        runTest("testOnMediaKeyEventSessionChangedListener");
+    }
+
+    @AppModeFull
+    @RequiresDevice
+    public void testOnMediaKeyEventSessionChangedListener_whenSessionIsReleased() throws Exception {
+        int primaryUserId = getDevice().getPrimaryUserId();
+
+        setAllowGetActiveSessionForTest(true, primaryUserId);
+        installAppAsUser(DEVICE_SIDE_TEST_APK, primaryUserId, false);
+        runTest("testOnMediaKeyEventSessionChangedListener_whenSessionIsReleased");
+    }
+
+    @AppModeFull
+    @RequiresDevice
     // Ignored due to b/171012388.
     public void ignored_testIsTrusted_withEnabledNotificationListener_returnsTrue()
             throws Exception {

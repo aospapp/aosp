@@ -124,6 +124,10 @@ endif()
 if (${Vulkan_FOUND})
   target_link_libraries(libamber libamberenginevulkan)
   target_include_directories(libamber PRIVATE "${VulkanHeaders_INCLUDE_DIR}")
+
+  if (${VULKAN_CTS_HEADER} AND DEFINED AMBER_CTS_INL_DIR)
+    target_include_directories(libamber PRIVATE "${AMBER_CTS_INL_DIR}")
+  endif()
 endif()
 if (${Dawn_FOUND})
   target_link_libraries(libamber libamberenginedawn)
@@ -156,9 +160,11 @@ if (${AMBER_ENABLE_TESTS})
     amberscript/parser_shader_opt_test.cc
     amberscript/parser_shader_test.cc
     amberscript/parser_stencil_test.cc
+    amberscript/parser_blend_test.cc
     amberscript/parser_struct_test.cc
     amberscript/parser_subgroup_size_control_test.cc
     amberscript/parser_test.cc
+    amberscript/parser_viewport_test.cc
     buffer_test.cc
     command_data_test.cc
     descriptor_set_and_binding_parser_test.cc

@@ -19,13 +19,19 @@ package android.server.wm.lifecycle;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_CREATE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_DESTROY;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_PAUSE;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESTART;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESUME;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_START;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_CREATE;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_DESTROY;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_PAUSE;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESTART;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESUME;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_START;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_STOP;
+import static android.server.wm.lifecycle.TransitionVerifier.assertEmptySequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertLaunchSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertRestartAndResumeSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertResumeToDestroySequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertSequenceMatchesOneOf;
 
 import static org.junit.Assume.assumeTrue;
 
@@ -38,6 +44,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -66,14 +73,14 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         waitAndAssertActivityStates(state(firstActivity, ON_STOP));
 
         // Move activity to Picture-In-Picture
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         pipActivity.enterPip();
 
         // Wait and assert lifecycle
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME), state(pipActivity, ON_PAUSE));
-        LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_PAUSE), "enterPip");
+        assertRestartAndResumeSequence(FirstActivity.class, getTransitionLog());
+        assertSequence(PipActivity.class, getTransitionLog(), Collections.singletonList(ON_PAUSE),
+                "enterPip");
     }
 
     @Test
@@ -82,7 +89,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Clear the log before launching to Pip
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
 
         // Launch Pip-capable activity and enter Pip immediately
         new Launcher(PipActivity.class)
@@ -93,14 +100,13 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         // Wait and assert lifecycle
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
-        final List<LifecycleLog.ActivityCallback> expectedSequence =
+        final List<String> expectedSequence =
                 Arrays.asList(ON_PAUSE, ON_RESUME);
-        final List<LifecycleLog.ActivityCallback> extraCycleSequence =
+        final List<String> extraCycleSequence =
                 Arrays.asList(ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_RESUME);
-        LifecycleVerifier.assertSequenceMatchesOneOf(FirstActivity.class,
-                getLifecycleLog(), Arrays.asList(expectedSequence, extraCycleSequence),
-                "activityEnteringPipOnTop");
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
+        assertSequenceMatchesOneOf(FirstActivity.class, getTransitionLog(),
+                Arrays.asList(expectedSequence, extraCycleSequence), "activityEnteringPipOnTop");
+        assertSequence(PipActivity.class, getTransitionLog(),
                 Arrays.asList(ON_CREATE, ON_START, ON_RESUME, ON_PAUSE), "launchAndEnterPip");
     }
 
@@ -110,7 +116,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Clear the log before launching to Pip
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
 
         // Launch Pip-capable activity and enter Pip immediately
         final Activity pipActivity = new Launcher(PipActivity.class)
@@ -122,12 +128,12 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Exit PiP
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         pipActivity.finish();
 
         waitAndAssertActivityStates(state(pipActivity, ON_DESTROY));
-        LifecycleVerifier.assertEmptySequence(FirstActivity.class, getLifecycleLog(), "finishPip");
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
+        assertEmptySequence(FirstActivity.class, getTransitionLog(), "finishPip");
+        assertSequence(PipActivity.class, getTransitionLog(),
                 Arrays.asList(ON_STOP, ON_DESTROY), "finishPip");
     }
 
@@ -140,14 +146,14 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 .launch();
 
         // Launch a regular activity below
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         new Launcher(FirstActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
 
         // Wait and verify the sequence
-        LifecycleVerifier.assertLaunchSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
+        assertLaunchSequence(FirstActivity.class, getTransitionLog());
+        assertEmptySequence(PipActivity.class, getTransitionLog(),
                 "launchBelowPip");
     }
 
@@ -160,7 +166,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 .launch();
 
         // Launch a regular activity into same task
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         new Launcher(FirstActivity.class)
                 .setExpectedState(ON_PAUSE)
                 // Skip launch time verification - it can be affected by PiP menu activity
@@ -171,17 +177,17 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         waitAndAssertActivityStates(state(PipActivity.class, ON_STOP));
 
         // TODO(b/123013403): sometimes extra one or even more relaunches happen
-        //final List<LifecycleLog.ActivityCallback> extraDestroySequence =
+        //final List<String> extraDestroySequence =
         //        Arrays.asList(PRE_ON_CREATE, ON_CREATE, ON_START, ON_RESUME, ON_PAUSE, ON_STOP,
         //                ON_DESTROY, PRE_ON_CREATE, ON_CREATE, ON_START, ON_RESUME, ON_PAUSE);
         //waitForActivityTransitions(FirstActivity.class, extraDestroySequence);
-        //final List<LifecycleLog.ActivityCallback> expectedSequence =
+        //final List<String> expectedSequence =
         //        Arrays.asList(PRE_ON_CREATE, ON_CREATE, ON_START, ON_RESUME, ON_PAUSE);
-        //LifecycleVerifier.assertSequenceMatchesOneOf(FirstActivity.class, getLifecycleLog(),
+        //TransitionVerifier.assertSequenceMatchesOneOf(FirstActivity.class, getLifecycleLog(),
         //        Arrays.asList(extraDestroySequence, expectedSequence),
         //        "launchIntoPip");
 
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
+        assertSequence(PipActivity.class, getTransitionLog(),
                 Arrays.asList(ON_STOP), "launchIntoPip");
     }
 
@@ -199,11 +205,11 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Destroy the activity below
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         firstActivity.finish();
         waitAndAssertActivityStates(state(firstActivity, ON_DESTROY));
-        LifecycleVerifier.assertResumeToDestroySequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
+        assertResumeToDestroySequence(FirstActivity.class, getTransitionLog());
+        assertEmptySequence(PipActivity.class, getTransitionLog(),
                 "destroyBelowPip");
     }
 
@@ -223,25 +229,25 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 .launch();
 
         // Launch first activity
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         final Activity firstActivity = new Launcher(FirstActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
-        LifecycleVerifier.assertLaunchSequence(FirstActivity.class, getLifecycleLog());
+        assertLaunchSequence(FirstActivity.class, getTransitionLog());
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
-        LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
+        assertEmptySequence(PipActivity.class, getTransitionLog(),
                 "launchBelow");
 
         // Launch second activity to side
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         new Launcher(SecondActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
 
-        LifecycleVerifier.assertLaunchSequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
+        assertLaunchSequence(SecondActivity.class, getTransitionLog());
+        assertEmptySequence(PipActivity.class, getTransitionLog(),
                 "launchBelow");
     }
 
@@ -264,7 +270,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 .launch();
 
         // Launch Pip-capable activity and enter Pip immediately
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         new Launcher(PipActivity.class)
                 .setExpectedState(ON_PAUSE)
                 .setExtraFlags(EXTRA_ENTER_PIP)
@@ -272,18 +278,18 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
 
         // Wait for it to launch and pause. Other activities should not be affected.
         waitAndAssertActivityStates(state(secondActivity, ON_RESUME));
-        LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
+        assertSequence(PipActivity.class, getTransitionLog(),
                 Arrays.asList(ON_CREATE, ON_START, ON_RESUME, ON_PAUSE),
                 "launchAndEnterPip");
-        LifecycleVerifier.assertEmptySequence(FirstActivity.class, getLifecycleLog(),
+        assertEmptySequence(FirstActivity.class, getTransitionLog(),
                 "launchPipOnTop");
-        final List<LifecycleLog.ActivityCallback> expectedSequence =
+        final List<String> expectedSequence =
                 Arrays.asList(ON_PAUSE, ON_RESUME);
-        final List<LifecycleLog.ActivityCallback> extraCycleSequence =
+        final List<String> extraCycleSequence =
                 Arrays.asList(ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_RESUME);
         // TODO(b/123013403): sometimes extra destroy is observed
-        LifecycleVerifier.assertSequenceMatchesOneOf(SecondActivity.class,
-                getLifecycleLog(), Arrays.asList(expectedSequence, extraCycleSequence),
+        assertSequenceMatchesOneOf(SecondActivity.class,
+                getTransitionLog(), Arrays.asList(expectedSequence, extraCycleSequence),
                 "activityEnteringPipOnTop");
     }
 }

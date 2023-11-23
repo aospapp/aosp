@@ -22,7 +22,6 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.PersistableBundle;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
@@ -38,10 +37,6 @@ public class ByodProvisioningTestActivity extends PassFailButtons.TestListActivi
 
         final ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
 
-        adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomImage",
-                        R.string.provisioning_tests_byod_custom_image,
-                        R.string.provisioning_tests_byod_custom_image_info,
-                        new ButtonInfo(R.string.go_button_text, getTestLogoIntent())));
         adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomTerms",
                 R.string.provisioning_tests_byod_custom_terms,
                 R.string.provisioning_tests_byod_custom_terms_instructions,
@@ -86,19 +81,6 @@ public class ByodProvisioningTestActivity extends PassFailButtons.TestListActivi
         return new Intent(this, ProvisioningStartingActivity.class)
                 .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS,
                         new Bundle[] { bundle });
-    }
-
-    /**
-     * Create intent with uri and wiping the work profile immediately after provisioning
-     */
-    private Intent getTestLogoIntent() {
-        PersistableBundle bundle = new PersistableBundle();
-        bundle.putBoolean(DeviceAdminTestReceiver.KEY_BUNDLE_WIPE_IMMEDIATELY, true);
-        return new Intent(this, ProvisioningStartingActivity.class)
-                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI,
-                        getResourceUri(R.drawable.icon))
-                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION, true)
-                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, bundle);
     }
 
     private Uri getResourceUri(int resId) {

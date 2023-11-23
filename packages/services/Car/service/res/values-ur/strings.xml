@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"اپنی کار کے کیمرے (کیمروں) تک رسائی حاصل کریں۔"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"کار کی انرجی کی معلومات تک رسائی حاصل کریں"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"اپنی کار کی انرجی کی معلومات تک رسائی حاصل کریں۔"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"کار کی EV چارج کی ترتیبات کو کنٹرول کریں"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"اپنی کار کی EV چارج کی ترتیبات کو کنٹرول کریں۔"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"کار کی باقی حد ایڈجسٹ کریں"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"کار کی باقی حد قدر کو ایڈجسٹ کریں۔"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"کار کی hvac تک رسائی حاصل کریں"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"آلہ کے گروہ میں ڈسپلے ہونے کے لیے ایپلیکیشن کو سرگرمیوں کو واضع کرنے کی اجازت دیں"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"آلہ کے گروہ کو کنٹرول کریں"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"آلہ کے گروہ میں اپپس کو شروع کریں"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"انسٹرومنٹ کلسٹر نیویگیشن اسٹیٹس"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"انسٹرومنٹ کلسٹر نیویگیشن اسٹیٹس میں تبدیلیوں کے لیے سنیں"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"آلہ کے گروہ کی رینڈرنگ"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"آلہ کے گروہ کا ڈیٹا موصول کریں"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX کی پابندیوں کی ترتیب"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"کار میں بیٹھنے والے فرد کے لیے بنا آگاہی کا سسٹم پتہ لگانے کے گراف کو شروع کرنے اور روکنے کی اجازت دیتا ہے"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"کار کی ان پٹ سروس"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ایونٹس کے ان پٹ کو ہینڈل کریں"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"کین بس ناکام ہو گئی"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"کین بس جواب نہیں دیتی ہے۔ ہیڈیونٹ باکس کو ان پلگ کر کے دوبارہ پلگ کریں اور کار کو دوبارہ شروع کریں"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"ڈرائیونگ کے دوران آپ یہ خصوصیت استعمال نہیں کر سکتے ہیں"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"محفوظ اپپ کی خصوصیات کے ساتھ شروع کرنے کے لیے <xliff:g id="EXIT_BUTTON">%s</xliff:g> پر کلک کریں۔"</string>
-    <string name="exit_button" msgid="5829638404777671253">"پیچھے"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"ایپ بند کریں"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"پیچھے"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"تشخیصی ڈیٹا پڑھیں"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"کار کے تشخیصی ڈیٹا کے بارے میں پڑھیں۔"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"تشخیصی ڈیٹا صاف کریں"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"کار کی سیٹوں کو کنٹرول کریں۔"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"کار کی بنیادی معلومات تک رسائی حاصل کریں"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"کار کی بنیادی معلومات حاصل کریں۔"</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"کار کی مراعات یافتہ معلومات تک رسائی حاصل کریں"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"کار کی مراعات یافتہ معلومات تک رسائی حاصل کریں۔"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"کار کے وینڈر کے اجازت کی معلومات تک رسائی حاصل کریں"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"کار کے وینڈر کے اجازت کی معلومات تک رسائی حاصل کریں۔"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"کار کی بیرونی روشنیوں کی صورتحال کے بارے میں پڑھیں"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"کار کے پاور کی پالیسی کو پڑھیں۔"</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"کار کے پاور کی پالیسی کو کنٹرول کریں"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"کار کے پاور کی پالیسی کو کنٹرول کریں۔"</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"بند کرنے کے پروسیس کو ایڈجسٹ کریں"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"بند کرنے کے پروسیس کو ایڈجسٹ کریں۔"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"تمثیلات تیار کریں"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"تمثیلات تیار کریں۔"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"شروع ہونے والی ایپلیکیشنز کو کنٹرول کریں"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"شروع ہونے والی ایپلیکیشنز کو کنٹرول کریں۔"</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"کین بس ناکام ہو گئی"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"کین بس جواب نہیں دیتی ہے۔ ہیڈیونٹ باکس کو ان پلگ کر کے دوبارہ پلگ کریں اور کار کو دوبارہ شروع کریں"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"میرا آلہ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"مہمان"</string>
-    <string name="importance_default" msgid="8587741629268312938">"ڈیفالٹ اہمیت"</string>
-    <string name="importance_high" msgid="3141530792377745041">"زیادہ اہمیت"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"فیکٹری ری سیٹ درکار ہے"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"معلوماتی انٹرٹینمنٹ سسٹم میں موجود سبھی ڈیٹا کو صاف کر دیا جائے گا۔ ری سیٹ کرنے کے بعد آپ نئی پروفائل سیٹ اپ کر سکتے ہیں۔"</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"مزید"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"معلوماتی انٹرٹینمنٹ سسٹم ری سیٹ کریں"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"آپ کے سسٹم کو فیکٹری ری سیٹ اور سبھی ڈیٹا کو صاف کرنے کی درخواست موصول ہوئی ہے۔ آپ اسے ابھی ری سیٹ کر سکتے ہیں یا اگلی بار کار کے شروع ہونے پر یہ ری سیٹ ہو جائے گا۔ پھر اس کے بعد آپ نئی پروفائل سیٹ اپ کر سکتے ہیں۔"</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"ابھی ری سیٹ کریں"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"بعد میں ری سیٹ کریں"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"اگلی بار کار کے شروع ہونے پر معلوماتی انٹرٹینمنٹ سسٹم ری سیٹ ہو جائے گا۔"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"ری سیٹ شروع کرنے کیلئے کار کا پارک ہونا ضروری ہے۔"</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> سے آپ کے سسٹم کی کارکردگی متاثر ہو رہی ہے"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"سسٹم کی کارکردگی کو بہتر بنانے کے لیے ایپ کو غیر فعال کریں۔ آپ ترتیبات میں پھر سے ایپ کو فعال کر سکتے ہیں۔"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ایپ کا استعمال جاری رکھنے کے لیے ایپ کو ترجیح دیں۔"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"سسٹم کی کارکردگی کو بہتر بنانے کے لیے ایپ کو اَن انسٹال کریں۔"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ایپ کو غیر فعال کریں"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ایپ کی ترتیب کو ترجیح دیں"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ایپ کو اَن انسٹال کریں"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> کو غیر فعال کر دیا گیا ہے۔ آپ ترتیبات میں اسے دوبارہ فعال کر سکتے ہیں۔"</string>
 </resources>

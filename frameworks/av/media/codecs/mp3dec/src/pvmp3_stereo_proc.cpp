@@ -219,6 +219,10 @@ void pvmp3_st_mid_side(int32 xr[SUBBANDS_NUMBER*FILTERBANK_BANDS],
 ; FUNCTION CODE
 ----------------------------------------------------------------------------*/
 
+// deliberately plays near overflow points of int32
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("integer")))
+#endif
 void pvmp3_st_intensity(int32 xr[SUBBANDS_NUMBER*FILTERBANK_BANDS],
                         int32 xl[SUBBANDS_NUMBER*FILTERBANK_BANDS],
                         int32 is_pos,

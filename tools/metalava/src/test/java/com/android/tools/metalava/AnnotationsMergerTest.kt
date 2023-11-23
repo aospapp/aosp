@@ -28,10 +28,9 @@ class AnnotationsMergerTest : DriverTest() {
     @Test
     fun `Signature files contain annotations`() {
         check(
-            compatibilityMode = false,
+            format = FileFormat.V2,
             outputKotlinStyleNulls = false,
             includeSystemApiAnnotations = false,
-            omitCommonPackages = false,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -58,15 +57,14 @@ class AnnotationsMergerTest : DriverTest() {
             extraArguments = arrayOf(
                 ARG_HIDE_PACKAGE, "android.annotation",
                 ARG_HIDE_PACKAGE, "androidx.annotation",
-                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
             api = """
                 package test.pkg {
-                  @androidx.annotation.UiThread public class MyTest {
+                  @UiThread public class MyTest {
                     ctor public MyTest();
-                    method @androidx.annotation.IntRange(from=10, to=20) public int clamp(int);
-                    method @androidx.annotation.Nullable public java.lang.Double convert(@androidx.annotation.NonNull java.lang.Float);
-                    field @androidx.annotation.Nullable public java.lang.Number myNumber;
+                    method @IntRange(from=10, to=20) public int clamp(int);
+                    method @Nullable public Double convert(@NonNull Float);
+                    field @Nullable public Number myNumber;
                   }
                 }
                 """
@@ -76,6 +74,7 @@ class AnnotationsMergerTest : DriverTest() {
     @Test
     fun `Merged class and method annotations with no arguments`() {
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -89,25 +88,23 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             mergeXmlAnnotations = """<?xml version="1.0" encoding="UTF-8"?>
                 <root>
                   <item name="test.pkg.MyTest">
-                    <annotation name="android.support.annotation.UiThread" />
+                    <annotation name="androidx.annotation.UiThread" />
                   </item>
                   <item name="test.pkg.MyTest java.lang.Double convert(java.lang.Float)">
-                    <annotation name="android.support.annotation.Nullable" />
+                    <annotation name="androidx.annotation.Nullable" />
                   </item>
                   <item name="test.pkg.MyTest java.lang.Double convert(java.lang.Float) 0">
-                    <annotation name="android.support.annotation.NonNull" />
+                    <annotation name="androidx.annotation.NonNull" />
                   </item>
                   <item name="test.pkg.MyTest myNumber">
-                    <annotation name="android.support.annotation.Nullable" />
+                    <annotation name="androidx.annotation.Nullable" />
                   </item>
                   <item name="test.pkg.MyTest int clamp(int)">
-                    <annotation name="android.support.annotation.IntRange">
+                    <annotation name="androidx.annotation.IntRange">
                       <val name="from" val="10" />
                       <val name="to" val="20" />
                     </annotation>
@@ -122,11 +119,11 @@ class AnnotationsMergerTest : DriverTest() {
                 """,
             api = """
                 package test.pkg {
-                  @androidx.annotation.UiThread public class MyTest {
+                  @UiThread public class MyTest {
                     ctor public MyTest();
-                    method @androidx.annotation.IntRange(from=10, to=20) public int clamp(@androidx.annotation.IntRange(from=-1L, to=java.lang.Integer.MAX_VALUE) int);
-                    method @androidx.annotation.Nullable public java.lang.Double convert(@androidx.annotation.NonNull java.lang.Float);
-                    field @androidx.annotation.Nullable public java.lang.Number myNumber;
+                    method @IntRange(from=10, to=20) public int clamp(@IntRange(from=-1L, to=java.lang.Integer.MAX_VALUE) int);
+                    method @Nullable public Double convert(@NonNull Float);
+                    field @Nullable public Number myNumber;
                   }
                 }
                 """
@@ -136,6 +133,7 @@ class AnnotationsMergerTest : DriverTest() {
     @Test
     fun `Merge signature files`() {
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -147,10 +145,8 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             inputKotlinStyleNulls = true,
-            omitCommonPackages = false,
             mergeSignatureAnnotations = """
                 package test.pkg {
                   public interface Appendable {
@@ -166,7 +162,7 @@ class AnnotationsMergerTest : DriverTest() {
             api = """
                 package test.pkg {
                   public interface Appendable {
-                    method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
+                    method @NonNull public test.pkg.Appendable append(@Nullable CharSequence);
                   }
                 }
                 """,
@@ -181,6 +177,7 @@ class AnnotationsMergerTest : DriverTest() {
     @Test
     fun `Merge qualifier annotations from Java stub files`() {
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -194,9 +191,7 @@ class AnnotationsMergerTest : DriverTest() {
                 libcoreNonNullSource,
                 libcoreNullableSource
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             mergeJavaStubAnnotations = """
                 package test.pkg;
 
@@ -210,7 +205,7 @@ class AnnotationsMergerTest : DriverTest() {
             api = """
                 package test.pkg {
                   public interface Appendable {
-                    method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
+                    method @NonNull public test.pkg.Appendable append(@Nullable CharSequence);
                   }
                 }
                 """,
@@ -248,9 +243,7 @@ class AnnotationsMergerTest : DriverTest() {
                 libcoreNonNullSource,
                 libcoreNullableSource
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             mergeJavaStubAnnotations = """
                 package test.pkg;
 
@@ -300,6 +293,7 @@ class AnnotationsMergerTest : DriverTest() {
     fun `Merge type use qualifier annotations from Java stub files`() {
         // See b/123223339
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -314,9 +308,7 @@ class AnnotationsMergerTest : DriverTest() {
                 libcoreNonNullSource,
                 libcoreNullableSource
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             mergeJavaStubAnnotations = """
                 package test.pkg;
 
@@ -327,7 +319,7 @@ class AnnotationsMergerTest : DriverTest() {
             api = """
                 package test.pkg {
                   public class Test {
-                    method public void foo(@androidx.annotation.NonNull java.lang.Object...);
+                    method public void foo(@NonNull java.lang.Object...);
                   }
                 }
                 """,
@@ -338,6 +330,7 @@ class AnnotationsMergerTest : DriverTest() {
     @Test
     fun `Merge qualifier annotations from Java stub files making sure they apply to public members of hidden superclasses`() {
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -358,9 +351,7 @@ class AnnotationsMergerTest : DriverTest() {
                 libcoreNonNullSource,
                 libcoreNullableSource
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             mergeJavaStubAnnotations = """
                 package test.pkg;
 
@@ -375,7 +366,7 @@ class AnnotationsMergerTest : DriverTest() {
                 package test.pkg {
                   public class PublicClass {
                     ctor public PublicClass();
-                    method @androidx.annotation.NonNull public java.lang.String publicMethod(@androidx.annotation.Nullable java.lang.Object);
+                    method @NonNull public String publicMethod(@Nullable Object);
                   }
                 }
                 """,
@@ -411,9 +402,7 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             hideAnnotations = arrayOf("test.annotation.Hide"),
             showAnnotations = arrayOf("test.annotation.Show"),
             showUnannotated = true,
@@ -458,9 +447,7 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             extraArguments = arrayOf(
                 ARG_HIDE_ANNOTATION, "test.annotation.Hide",
                 ARG_SHOW_SINGLE_ANNOTATION, "test.annotation.Show"
@@ -502,9 +489,7 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
             extraArguments = arrayOf(
                 ARG_SHOW_SINGLE_ANNOTATION, "test.annotation.Show"
             ),
@@ -565,7 +550,6 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             extraArguments = arrayOf(
                 ARG_SHOW_SINGLE_ANNOTATION, "libcore.api.CorePlatformApi"
             ),
@@ -584,6 +568,7 @@ class AnnotationsMergerTest : DriverTest() {
         // This is a contrived test that verifies that even if Child no longer directly declares
         // method1, the inherited method1 is still found
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -603,7 +588,6 @@ class AnnotationsMergerTest : DriverTest() {
                     """
                 )
             ),
-            compatibilityMode = false,
             mergeJavaStubAnnotations = """
                 package test.pkg;
 
@@ -624,6 +608,157 @@ class AnnotationsMergerTest : DriverTest() {
                 }
                 """,
             expectedIssues = "" // should not report that Child.method1 is undefined
+        )
+    }
+
+    @Test
+    fun `Merge Contract and Language annotations from XML files`() {
+        check(
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.text;
+
+                    public class TextUtils {
+                        public static boolean isEmpty(CharSequence str) {
+                            return str == null || str.length() == 0;
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.graphics;
+                    public class RuntimeShader {
+                        public RuntimeShader(@NonNull String sksl) {
+                        }
+                    }
+                    """
+                )
+            ),
+            outputKotlinStyleNulls = false,
+            mergeXmlAnnotations = """<?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="android.text.TextUtils boolean isEmpty(java.lang.CharSequence)">
+                    <annotation name="org.jetbrains.annotations.Contract">
+                      <val name="value" val="&quot;null-&gt;true&quot;" />
+                    </annotation>
+                  </item>
+                  <item name="android.text.TextUtils boolean isEmpty(java.lang.CharSequence) 0">
+                    <annotation name="androidx.annotation.Nullable" />
+                  </item>
+                  <item name="android.graphics.RuntimeShader RuntimeShader(java.lang.String) 0">
+                    <annotation name="org.intellij.lang.annotations.Language">
+                      <val name="value" val="&quot;AGSL&quot;" />
+                    </annotation>
+                  </item>
+                  <item name="android.graphics.RuntimeShader RuntimeShader(java.lang.String, boolean) 0">
+                    <annotation name="org.intellij.lang.annotations.Language">
+                      <val name="value" val="&quot;AGSL&quot;" />
+                    </annotation>
+                  </item>
+                </root>
+                """,
+            api = """
+                // Signature format: 4.0
+                package android.graphics {
+                  public class RuntimeShader {
+                    ctor public RuntimeShader(String);
+                  }
+                }
+                package android.text {
+                  public class TextUtils {
+                    ctor public TextUtils();
+                    method public static boolean isEmpty(CharSequence?);
+                  }
+                }
+                """,
+            extractAnnotations = mapOf(
+                "android.text" to """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="android.text.TextUtils boolean isEmpty(java.lang.CharSequence)">
+                    <annotation name="org.jetbrains.annotations.Contract">
+                      <val name="value" val="&quot;null-&gt;true&quot;" />
+                    </annotation>
+                  </item>
+                </root>
+                """,
+                "android.graphics" to """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="android.graphics.RuntimeShader RuntimeShader(java.lang.String) 0">
+                    <annotation name="org.intellij.lang.annotations.Language">
+                      <val name="value" val="&quot;AGSL&quot;" />
+                    </annotation>
+                  </item>
+                </root>
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Merge Contract and Language annotations from signature files`() {
+        check(
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.text;
+
+                    public class TextUtils {
+                        public static boolean isEmpty(CharSequence str) {
+                            return str == null || str.length() == 0;
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.graphics;
+                    public class RuntimeShader {
+                        public RuntimeShader(@NonNull String sksl) {
+                        }
+                    }
+                    """
+                )
+            ),
+            outputKotlinStyleNulls = false,
+            mergeSignatureAnnotations = """
+                // Signature format: 4.0
+                package android.graphics {
+                  public class RuntimeShader {
+                    ctor public RuntimeShader(@org.intellij.lang.annotations.Language("AGSL") String);
+                  }
+                }
+                package android.text {
+                  public class TextUtils {
+                    method @org.jetbrains.annotations.Contract("null->true") public static boolean isEmpty(CharSequence?);
+                  }
+                }
+            """,
+            extractAnnotations = mapOf(
+                "android.text" to """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="android.text.TextUtils boolean isEmpty(java.lang.CharSequence)">
+                    <annotation name="org.jetbrains.annotations.Contract">
+                      <val name="value" val="&quot;null-&gt;true&quot;" />
+                    </annotation>
+                  </item>
+                </root>
+                """,
+                "android.graphics" to """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root>
+                  <item name="android.graphics.RuntimeShader RuntimeShader(java.lang.String) 0">
+                    <annotation name="org.intellij.lang.annotations.Language">
+                      <val name="value" val="&quot;AGSL&quot;" />
+                    </annotation>
+                  </item>
+                </root>
+                """
+            )
         )
     }
 }

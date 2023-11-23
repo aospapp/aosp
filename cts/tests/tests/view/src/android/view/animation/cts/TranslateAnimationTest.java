@@ -27,9 +27,11 @@ import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
 import android.graphics.Matrix;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.util.Xml;
 import android.view.View;
 import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.Transformation;
 import android.view.animation.TranslateAnimation;
@@ -50,7 +52,7 @@ import org.junit.runner.RunWith;
 public class TranslateAnimationTest {
     private static final long DURATION = 1000;
     private static final float POSITION_DELTA = 0.001f;
-    private static final float FROM_X_DETLTA = 0.0f;
+    private static final float FROM_X_DELTA = 0.0f;
     private static final float TO_X_DELTA = 10.0f;
     private static final float FROM_Y_DELTA = 0.0f;
     private static final float TO_Y_DELTA = 20.0f;
@@ -103,7 +105,7 @@ public class TranslateAnimationTest {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Transformation transformation = new Transformation();
         final MyTranslateAnimation translateAnimation =
-                new MyTranslateAnimation(FROM_X_DETLTA, TO_X_DELTA, FROM_Y_DELTA, TO_Y_DELTA);
+                new MyTranslateAnimation(FROM_X_DELTA, TO_X_DELTA, FROM_Y_DELTA, TO_Y_DELTA);
         translateAnimation.setDuration(DURATION);
         translateAnimation.setInterpolator(new LinearInterpolator());
         assertFalse(translateAnimation.isInitialized());
@@ -118,13 +120,13 @@ public class TranslateAnimationTest {
         // Test applyTransformation() in method getTransformation()
         translateAnimation.getTransformation(startTime, transformation);
         transformation.getMatrix().getValues(values);
-        assertEquals(FROM_X_DETLTA, values[Matrix.MTRANS_X], POSITION_DELTA);
+        assertEquals(FROM_X_DELTA, values[Matrix.MTRANS_X], POSITION_DELTA);
         assertEquals(FROM_Y_DELTA, values[Matrix.MTRANS_Y], POSITION_DELTA);
 
         transformation.clear();
         translateAnimation.getTransformation(startTime + DURATION / 2, transformation);
         transformation.getMatrix().getValues(values);
-        assertEquals((TO_X_DELTA + FROM_X_DETLTA) / 2, values[Matrix.MTRANS_X], POSITION_DELTA);
+        assertEquals((TO_X_DELTA + FROM_X_DELTA) / 2, values[Matrix.MTRANS_X], POSITION_DELTA);
         assertEquals((TO_Y_DELTA + FROM_Y_DELTA) / 2, values[Matrix.MTRANS_Y], POSITION_DELTA);
 
         transformation.clear();
@@ -138,14 +140,14 @@ public class TranslateAnimationTest {
         transformation.clear();
         translateAnimation.applyTransformation(0.0f, transformation);
         transformation.getMatrix().getValues(values);
-        assertEquals(FROM_X_DETLTA, values[Matrix.MTRANS_X], POSITION_DELTA);
+        assertEquals(FROM_X_DELTA, values[Matrix.MTRANS_X], POSITION_DELTA);
         assertEquals(FROM_Y_DELTA, values[Matrix.MTRANS_Y], POSITION_DELTA);
 
         // Test time of middle 0.5
         transformation.clear();
         translateAnimation.applyTransformation(0.5f, transformation);
         transformation.getMatrix().getValues(values);
-        assertEquals((TO_X_DELTA + FROM_X_DETLTA) / 2,
+        assertEquals((TO_X_DELTA + FROM_X_DELTA) / 2,
                 values[Matrix.MTRANS_X], POSITION_DELTA);
         assertEquals((TO_Y_DELTA + FROM_Y_DELTA) / 2,
                 values[Matrix.MTRANS_Y], POSITION_DELTA);
@@ -203,6 +205,23 @@ public class TranslateAnimationTest {
         transformation.getMatrix().getValues(values);
         assertEquals(RELATIVE_TO_X_DELTA * actualWidth, values[Matrix.MTRANS_X], POSITION_DELTA);
         assertEquals(RELATIVE_TO_Y_DELTA * actualHeight, values[Matrix.MTRANS_Y], POSITION_DELTA);
+    }
+
+    @Test
+    public void testComplexNumbers() throws Throwable  {
+        TranslateAnimation translateAnimation =
+                (TranslateAnimation) AnimationUtils.loadAnimation(mActivity, R.anim.anim_translate);
+
+        float[] values = new float[9];
+        final Transformation transformation = new Transformation();
+        translateAnimation.initialize(0, 0, 0, 0);
+        translateAnimation.getTransformation(translateAnimation.getStartTime(), transformation);
+        transformation.getMatrix().getValues(values);
+
+        // Ensure that fromXDelta is 100dp (defined in anim_translate.xml).
+        float expectedFromXDelta = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 100f,
+                mActivity.getResources().getDisplayMetrics());
+        assertEquals(expectedFromXDelta, values[Matrix.MTRANS_X], POSITION_DELTA);
     }
 
     private static class MyTranslateAnimation extends TranslateAnimation {

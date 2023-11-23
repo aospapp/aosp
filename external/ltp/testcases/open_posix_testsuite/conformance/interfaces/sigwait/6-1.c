@@ -81,11 +81,11 @@
 /***************************    Test case   ***********************************/
 /******************************************************************************/
 
-int n_awaken = 0;
-sigset_t setusr;
+static volatile int n_awaken = 0;
+static sigset_t setusr;
 
 /* Thread function */
-void *threaded(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *threaded(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int ret;
 	int sig;

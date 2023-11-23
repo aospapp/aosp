@@ -29,7 +29,7 @@ android_app {
         enabled: false,
     },
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 
     platform_apis: true,
 

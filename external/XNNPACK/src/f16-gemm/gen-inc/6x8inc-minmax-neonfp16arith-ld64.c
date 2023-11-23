@@ -28,7 +28,7 @@ void xnn_f16_gemminc_minmax_ukernel_6x8__neonfp16arith_ld64(
     size_t cm_stride,
     size_t cn_stride,
     const void*restrict acc,
-    const struct xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 6);
@@ -211,7 +211,7 @@ void xnn_f16_gemminc_minmax_ukernel_6x8__neonfp16arith_ld64(
       } while (k != 0);
     }
 
-    const float16x8_t vscale = vld1q_dup_f16((const __fp16*) &params->scale);
+    const float16x8_t vscale = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.scale));
     vacc0x01234567 = vmulq_f16(vacc0x01234567, vscale);
     vacc1x01234567 = vmulq_f16(vacc1x01234567, vscale);
     vacc2x01234567 = vmulq_f16(vacc2x01234567, vscale);
@@ -219,7 +219,7 @@ void xnn_f16_gemminc_minmax_ukernel_6x8__neonfp16arith_ld64(
     vacc4x01234567 = vmulq_f16(vacc4x01234567, vscale);
     vacc5x01234567 = vmulq_f16(vacc5x01234567, vscale);
 
-    const float16x8_t vmax = vld1q_dup_f16((const __fp16*) &params->max);
+    const float16x8_t vmax = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.max));
     vacc0x01234567 = vminq_f16(vacc0x01234567, vmax);
     vacc1x01234567 = vminq_f16(vacc1x01234567, vmax);
     vacc2x01234567 = vminq_f16(vacc2x01234567, vmax);
@@ -227,7 +227,7 @@ void xnn_f16_gemminc_minmax_ukernel_6x8__neonfp16arith_ld64(
     vacc4x01234567 = vminq_f16(vacc4x01234567, vmax);
     vacc5x01234567 = vminq_f16(vacc5x01234567, vmax);
 
-    const float16x8_t vmin = vld1q_dup_f16((const __fp16*) &params->min);
+    const float16x8_t vmin = vreinterpretq_f16_u16(vld1q_dup_u16(&params->neon.min));
     vacc0x01234567 = vmaxq_f16(vacc0x01234567, vmin);
     vacc1x01234567 = vmaxq_f16(vacc1x01234567, vmin);
     vacc2x01234567 = vmaxq_f16(vacc2x01234567, vmin);
@@ -280,12 +280,12 @@ void xnn_f16_gemminc_minmax_ukernel_6x8__neonfp16arith_ld64(
         vacc5x0123 = vget_high_f16(vacc5x01234567);
       }
       if (nc & 2) {
-        vst1_lane_u32(__builtin_assume_aligned(c0, 1), vreinterpret_u32_f16(vacc0x0123), 0); c0 += 2;
-        vst1_lane_u32(__builtin_assume_aligned(c1, 1), vreinterpret_u32_f16(vacc1x0123), 0); c1 += 2;
-        vst1_lane_u32(__builtin_assume_aligned(c2, 1), vreinterpret_u32_f16(vacc2x0123), 0); c2 += 2;
-        vst1_lane_u32(__builtin_assume_aligned(c3, 1), vreinterpret_u32_f16(vacc3x0123), 0); c3 += 2;
-        vst1_lane_u32(__builtin_assume_aligned(c4, 1), vreinterpret_u32_f16(vacc4x0123), 0); c4 += 2;
-        vst1_lane_u32(__builtin_assume_aligned(c5, 1), vreinterpret_u32_f16(vacc5x0123), 0); c5 += 2;
+        vst1_lane_u32((void*) c0, vreinterpret_u32_f16(vacc0x0123), 0); c0 += 2;
+        vst1_lane_u32((void*) c1, vreinterpret_u32_f16(vacc1x0123), 0); c1 += 2;
+        vst1_lane_u32((void*) c2, vreinterpret_u32_f16(vacc2x0123), 0); c2 += 2;
+        vst1_lane_u32((void*) c3, vreinterpret_u32_f16(vacc3x0123), 0); c3 += 2;
+        vst1_lane_u32((void*) c4, vreinterpret_u32_f16(vacc4x0123), 0); c4 += 2;
+        vst1_lane_u32((void*) c5, vreinterpret_u32_f16(vacc5x0123), 0); c5 += 2;
 
         vacc0x0123 = vext_f16(vacc0x0123, vacc0x0123, 2);
         vacc1x0123 = vext_f16(vacc1x0123, vacc1x0123, 2);

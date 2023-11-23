@@ -180,10 +180,7 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
             preference.setValue(mCarAudioManager.getGroupVolume(volumeGroupId));
             preference.setMin(mCarAudioManager.getGroupMinVolume(volumeGroupId));
             preference.setMax(mCarAudioManager.getGroupMaxVolume(volumeGroupId));
-            if (mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING)) {
-                preference.setIsMuted(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE,
-                        volumeGroupId));
-            }
+            preference.setIsMuted(isGroupMuted(volumeGroupId));
         } catch (CarNotConnectedException e) {
             LOG.e("Car is not connected!", e);
         }
@@ -203,14 +200,21 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
         return preference;
     }
 
+    private boolean isGroupMuted(int volumeGroupId) {
+        if (!mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING)) {
+            return false;
+        }
+        return mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, volumeGroupId);
+    }
+
     private void updateVolumeAndMute(int zoneId, int groupId) {
         // Settings only handles primary zone changes
         if (zoneId != PRIMARY_AUDIO_ZONE) {
             return;
         }
         if (mCarAudioManager != null) {
-            boolean isMuted =
-                    mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+
+            boolean isMuted = isGroupMuted(groupId);
             int value = mCarAudioManager.getGroupVolume(groupId);
 
             for (VolumeSeekBarPreference volumePreference : mVolumePreferences) {

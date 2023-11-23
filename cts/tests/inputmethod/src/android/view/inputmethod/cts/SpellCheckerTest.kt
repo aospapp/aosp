@@ -270,36 +270,39 @@ class SpellCheckerTest : EndToEndImeTestBase() {
                                 .addSuggestions("suggestion")
                                 .setAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
                 ).build()
-        MockSpellCheckerClient.create(context, configuration).use {
-            val tsm = context.getSystemService(TextServicesManager::class.java)
-            assertThat(tsm).isNotNull()
-            val fakeListener = FakeSpellCheckerSessionListener()
-            val fakeExecutor = FakeExecutor()
-            val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
-                    .setLocale(Locale.US)
-                    .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
-                    .build()
-            val session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
-                    params, fakeExecutor, fakeListener)
-            assertThat(session).isNotNull()
-            session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
-            waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
-            fakeExecutor.runnables[0].run()
+        // Use MockIme, in case the default IME sets android:suppressesSpellChecker="true"
+        MockImeSession.create(context).use { session ->
+            MockSpellCheckerClient.create(context, configuration).use {
+                val tsm = context.getSystemService(TextServicesManager::class.java)
+                assertThat(tsm).isNotNull()
+                val fakeListener = FakeSpellCheckerSessionListener()
+                val fakeExecutor = FakeExecutor()
+                val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
+                        .setLocale(Locale.US)
+                        .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
+                        .build()
+                val session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
+                        params, fakeExecutor, fakeListener)
+                assertThat(session).isNotNull()
+                session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
+                waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
+                fakeExecutor.runnables[0].run()
 
-            assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
-            assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
-            val sentenceSuggestionsInfo = fakeListener.getSentenceSuggestionsResults[0]!![0]
-            assertThat(sentenceSuggestionsInfo.suggestionsCount).isEqualTo(1)
-            assertThat(sentenceSuggestionsInfo.getOffsetAt(0)).isEqualTo(0)
-            assertThat(sentenceSuggestionsInfo.getLengthAt(0)).isEqualTo("match".length)
-            val suggestionsInfo = sentenceSuggestionsInfo.getSuggestionsInfoAt(0)
-            assertThat(suggestionsInfo.suggestionsCount).isEqualTo(1)
-            assertThat(suggestionsInfo.getSuggestionAt(0)).isEqualTo("suggestion")
+                assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
+                assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
+                val sentenceSuggestionsInfo = fakeListener.getSentenceSuggestionsResults[0]!![0]
+                assertThat(sentenceSuggestionsInfo.suggestionsCount).isEqualTo(1)
+                assertThat(sentenceSuggestionsInfo.getOffsetAt(0)).isEqualTo(0)
+                assertThat(sentenceSuggestionsInfo.getLengthAt(0)).isEqualTo("match".length)
+                val suggestionsInfo = sentenceSuggestionsInfo.getSuggestionsInfoAt(0)
+                assertThat(suggestionsInfo.suggestionsCount).isEqualTo(1)
+                assertThat(suggestionsInfo.getSuggestionAt(0)).isEqualTo("suggestion")
 
-            assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
-            assertThat(fakeListener.getSentenceSuggestionsCallingThreads).hasSize(1)
-            assertThat(fakeListener.getSentenceSuggestionsCallingThreads[0])
-                    .isEqualTo(Thread.currentThread())
+                assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
+                assertThat(fakeListener.getSentenceSuggestionsCallingThreads).hasSize(1)
+                assertThat(fakeListener.getSentenceSuggestionsCallingThreads[0])
+                        .isEqualTo(Thread.currentThread())
+            }
         }
     }
 
@@ -312,24 +315,27 @@ class SpellCheckerTest : EndToEndImeTestBase() {
                                 .addSuggestions("suggestion")
                                 .setAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
                 ).build()
-        MockSpellCheckerClient.create(context, configuration).use {
-            val tsm = context.getSystemService(TextServicesManager::class.java)
-            assertThat(tsm).isNotNull()
-            val fakeListener = FakeSpellCheckerSessionListener()
-            var session: SpellCheckerSession? = null
-            runOnMainSync {
-                session = tsm?.newSpellCheckerSession(null /* bundle */, Locale.US,
-                        fakeListener, false /* referToSpellCheckerLanguageSettings */)
-            }
-            assertThat(session).isNotNull()
-            session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
-            waitOnMainUntil({
-                fakeListener.getSentenceSuggestionsCallingThreads.size > 0
-            }, TIMEOUT)
-            runOnMainSync {
-                assertThat(fakeListener.getSentenceSuggestionsCallingThreads).hasSize(1)
-                assertThat(fakeListener.getSentenceSuggestionsCallingThreads[0])
-                        .isEqualTo(Looper.getMainLooper().thread)
+        // Use MockIme, in case the default IME sets android:suppressesSpellChecker="true"
+        MockImeSession.create(context).use { session ->
+            MockSpellCheckerClient.create(context, configuration).use {
+                val tsm = context.getSystemService(TextServicesManager::class.java)
+                assertThat(tsm).isNotNull()
+                val fakeListener = FakeSpellCheckerSessionListener()
+                var session: SpellCheckerSession? = null
+                runOnMainSync {
+                    session = tsm?.newSpellCheckerSession(null /* bundle */, Locale.US,
+                            fakeListener, false /* referToSpellCheckerLanguageSettings */)
+                }
+                assertThat(session).isNotNull()
+                session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
+                waitOnMainUntil({
+                    fakeListener.getSentenceSuggestionsCallingThreads.size > 0
+                }, TIMEOUT)
+                runOnMainSync {
+                    assertThat(fakeListener.getSentenceSuggestionsCallingThreads).hasSize(1)
+                    assertThat(fakeListener.getSentenceSuggestionsCallingThreads[0])
+                            .isEqualTo(Looper.getMainLooper().thread)
+                }
             }
         }
     }
@@ -343,33 +349,36 @@ class SpellCheckerTest : EndToEndImeTestBase() {
                                 .addSuggestions("suggestion")
                                 .setAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
                 ).build()
-        MockSpellCheckerClient.create(context, configuration).use {
-            val tsm = context.getSystemService(TextServicesManager::class.java)
-            assertThat(tsm).isNotNull()
-            val fakeListener = FakeSpellCheckerSessionListener()
-            val fakeExecutor = FakeExecutor()
-            // Set a prefix. MockSpellChecker will add "test_" to the spell check result.
-            val extras = Bundle()
-            extras.putString(EXTRAS_KEY_PREFIX, "test_")
-            val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
-                    .setLocale(Locale.US)
-                    .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
-                    .setExtras(extras)
-                    .build()
-            val session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
-                    params, fakeExecutor, fakeListener)
-            assertThat(session).isNotNull()
-            session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
-            waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
-            fakeExecutor.runnables[0].run()
+        // Use MockIme, in case the default IME sets android:suppressesSpellChecker="true"
+        MockImeSession.create(context).use { session ->
+            MockSpellCheckerClient.create(context, configuration).use {
+                val tsm = context.getSystemService(TextServicesManager::class.java)
+                assertThat(tsm).isNotNull()
+                val fakeListener = FakeSpellCheckerSessionListener()
+                val fakeExecutor = FakeExecutor()
+                // Set a prefix. MockSpellChecker will add "test_" to the spell check result.
+                val extras = Bundle()
+                extras.putString(EXTRAS_KEY_PREFIX, "test_")
+                val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
+                        .setLocale(Locale.US)
+                        .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
+                        .setExtras(extras)
+                        .build()
+                val session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
+                        params, fakeExecutor, fakeListener)
+                assertThat(session).isNotNull()
+                session?.getSentenceSuggestions(arrayOf(TextInfo("match")), 5)
+                waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
+                fakeExecutor.runnables[0].run()
 
-            assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
-            assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
-            val sentenceSuggestionsInfo = fakeListener.getSentenceSuggestionsResults[0]!![0]
-            assertThat(sentenceSuggestionsInfo.suggestionsCount).isEqualTo(1)
-            val suggestionsInfo = sentenceSuggestionsInfo.getSuggestionsInfoAt(0)
-            assertThat(suggestionsInfo.suggestionsCount).isEqualTo(1)
-            assertThat(suggestionsInfo.getSuggestionAt(0)).isEqualTo("test_suggestion")
+                assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
+                assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
+                val sentenceSuggestionsInfo = fakeListener.getSentenceSuggestionsResults[0]!![0]
+                assertThat(sentenceSuggestionsInfo.suggestionsCount).isEqualTo(1)
+                val suggestionsInfo = sentenceSuggestionsInfo.getSuggestionsInfoAt(0)
+                assertThat(suggestionsInfo.suggestionsCount).isEqualTo(1)
+                assertThat(suggestionsInfo.getSuggestionAt(0)).isEqualTo("test_suggestion")
+            }
         }
     }
 
@@ -497,24 +506,27 @@ class SpellCheckerTest : EndToEndImeTestBase() {
                                 .addSuggestions("suggestion")
                                 .setAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
                 ).build()
-        MockSpellCheckerClient.create(context, configuration).use {
-            val tsm = context.getSystemService(TextServicesManager::class.java)
-            assertThat(tsm).isNotNull()
-            val fakeListener = FakeSpellCheckerSessionListener()
-            val fakeExecutor = FakeExecutor()
-            val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
-                    .setLocale(Locale.US)
-                    .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
-                    .build()
-            var session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
-                    params, fakeExecutor, fakeListener)
-            assertThat(session).isNotNull()
-            session?.getSentenceSuggestions(arrayOf(TextInfo(". ")), 5)
-            waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
-            fakeExecutor.runnables[0].run()
-            assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
-            assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
-            assertThat(fakeListener.getSentenceSuggestionsResults[0]!![0]).isNull()
+        // Use MockIme, in case the default IME sets android:suppressesSpellChecker="true"
+        MockImeSession.create(context).use { session ->
+            MockSpellCheckerClient.create(context, configuration).use {
+                val tsm = context.getSystemService(TextServicesManager::class.java)
+                assertThat(tsm).isNotNull()
+                val fakeListener = FakeSpellCheckerSessionListener()
+                val fakeExecutor = FakeExecutor()
+                val params = SpellCheckerSession.SpellCheckerSessionParams.Builder()
+                        .setLocale(Locale.US)
+                        .setSupportedAttributes(RESULT_ATTR_LOOKS_LIKE_TYPO)
+                        .build()
+                var session: SpellCheckerSession? = tsm?.newSpellCheckerSession(
+                        params, fakeExecutor, fakeListener)
+                assertThat(session).isNotNull()
+                session?.getSentenceSuggestions(arrayOf(TextInfo(". ")), 5)
+                waitOnMainUntil({ fakeExecutor.runnables.size == 1 }, TIMEOUT)
+                fakeExecutor.runnables[0].run()
+                assertThat(fakeListener.getSentenceSuggestionsResults).hasSize(1)
+                assertThat(fakeListener.getSentenceSuggestionsResults[0]).hasLength(1)
+                assertThat(fakeListener.getSentenceSuggestionsResults[0]!![0]).isNull()
+            }
         }
     }
 

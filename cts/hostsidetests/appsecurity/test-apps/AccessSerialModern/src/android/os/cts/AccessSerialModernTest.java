@@ -24,6 +24,8 @@ import android.os.Build;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
+
 import org.junit.Test;
 
 /**
@@ -67,6 +69,20 @@ public class AccessSerialModernTest {
                     + "SecurityException: "
                     + e);
         }
+    }
+
+    @Test
+    public void testGetSerialReturnsExpectedFormat() throws Exception {
+        // Starting in Android 13, the result from Build#getSerial must match the regular
+        // expression "^[a-zA-Z0-9]+$". Since the requirements to access the device serial
+        // number prevent access for standard apps, the shell identity is required to invoke
+        // this method.
+        String serial = ShellIdentityUtils.invokeStaticMethodWithShellPermissions(Build::getSerial);
+
+        assertTrue(
+                "Result from Build#getSerial does not match expected regular expression "
+                        + "\"^[a-zA-Z0-9]+$\"; actual value: "
+                        + serial, serial.matches("^[a-zA-Z0-9]+$"));
     }
 
     private void grantReadPhoneStatePermission() {

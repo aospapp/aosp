@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' path='data/test-read-dwarf/test3.so' soname='test3.so.1'>
+<abi-corpus version='2.1' path='data/test-read-common/test3.so' soname='test3.so.1'>
   <elf-needed>
     <dependency name='libc.so.6'/>
   </elf-needed>
@@ -10,10 +10,10 @@
     <elf-symbol name='foo' type='func-type' binding='weak-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='foo__' type='func-type' binding='weak-binding' visibility='default-visibility' is-defined='yes'/>
   </elf-function-symbols>
-  <abi-instr address-size='64' path='test3.c' comp-dir-path='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf' language='LANG_C89'>
-    <type-decl name='void' id='type-id-1'/>
-    <function-decl name='__foo' mangled-name='__foo' filepath='/home/skumari/Tasks/source_repo/dodji/libabigail/tests/data/test-read-dwarf/test3.c' line='8' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='__foo'>
+  <abi-instr address-size='64' path='test3.c' comp-dir-path='/home/byby/oracle/src/libabigail/tests/data/test-read-common' language='LANG_C89'>
+    <function-decl name='__foo' mangled-name='__foo' filepath='/home/byby/oracle/src/libabigail/tests/data/test-read-common/test3.c' line='23' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='__foo'>
       <return type-id='type-id-1'/>
     </function-decl>
+    <type-decl name='void' id='type-id-1'/>
   </abi-instr>
 </abi-corpus>

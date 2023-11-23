@@ -43,6 +43,9 @@ LogReaderThread::LogReaderThread(LogBuffer* log_buffer, LogReaderList* reader_li
       non_block_(non_block) {
     CleanSkip();
     flush_to_state_ = log_buffer_->CreateFlushToState(start, log_mask);
+}
+
+void LogReaderThread::Run() {
     auto thread = std::thread{&LogReaderThread::ThreadFunction, this};
     thread.detach();
 }
@@ -103,14 +106,7 @@ void LogReaderThread::ThreadFunction() {
     }
 
     writer_->Release();
-
-    auto& log_reader_threads = reader_list_->reader_threads();
-    auto it = std::find_if(log_reader_threads.begin(), log_reader_threads.end(),
-                           [this](const auto& other) { return other.get() == this; });
-
-    if (it != log_reader_threads.end()) {
-        log_reader_threads.erase(it);
-    }
+    reader_list_->RemoveRunningThread(this);
 }
 
 // A first pass to count the number of elements

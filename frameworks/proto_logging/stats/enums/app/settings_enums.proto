@@ -981,6 +981,38 @@ enum Action {
     // CATEGORY: SETTINGS
     // OS: S
     FIELD_BATTERY_SAVER_PERCENTAGE_VALUE = 1785;
+
+    // ACTION: Settings > System > Multiple users > Add supervised user
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_USER_SUPERVISED_ADD = 1786;
+
+    // ACTION: Settings > System > Gestures > Quick tap for actions > Toggle flashlight
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_COLUMBUS_ACTION_FLASHLIGHT = 1787;
+
+    // ACTION: Settings > Display > Daydream ("Screen Saver")
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DREAM_SELECT_TYPE = 1788;
+
+    // ACTION: Settings > Display > Screen timeout > Docked timeout
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_SCREEN_TIMEOUT_DOCKED_CHANGED = 1789;
+
+    // ACTION: Settings > Display > Auto-rotate screen > Auto-rotate when <device_state>
+    //  SUBTYPE: Integer with device state id. Device dependant.
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_ENABLE_AUTO_ROTATION_DEVICE_STATE = 1790;
+
+    // ACTION: Settings > Display > Auto-rotate screen > Auto-rotate when <device_state>
+    //  SUBTYPE: Integer with device state id. Device dependant.
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACTION_DISABLE_AUTO_ROTATION_DEVICE_STATE = 1791;
 }
 
 /**
@@ -3175,6 +3207,16 @@ enum PageId {
     // OS: S
     CREDENTIAL_MANAGEMENT_APP_REMOVE_APP = 1895;
 
+    // OPEN: Settings > Display > Lock screen > Hub mode
+    // CATEGORY: SETTINGS
+    // OS: S
+    COMMUNAL_MODE_SETTINGS = 1896;
+
+    // OPEN: Settings > Users > Install app in other user
+    // CATEGORY: SETTINGS
+    // OS: T
+    USERS_APP_COPYING = 1897;
+
     // OPEN: Settings -> Accessibility -> Timing controls -> Time to take action (Accessibility timeout)
     // CATEGORY: SETTINGS
     // OS: S
@@ -3220,11 +3262,110 @@ enum PageId {
     // OS: S
     SOUND_NOTIFICATIONS = 1906;
 
+    // OPEN: Settings > Display > Lock screen > Hub mode > Shared Apps
+    // CATEGORY: SETTINGS
+    // OS: T
+    COMMUNAL_MODE_SHARED_APP_SETTINGS = 1907;
+
     // OPEN: Settings > System > Gestures > System navigation > 2-/3-button
     // navigation gear icon
     // CATEGORY: SETTINGS
     // OS: S
-    SETTINGS_BUTTON_NAV_DLG = 1907;
+    SETTINGS_BUTTON_NAV_DLG = 1908;
+
+    // OPEN: Settings > Display > Lock screen > Hub mode > Trusted networks
+    // CATEGORY: SETTINGS
+    // OS: T
+    COMMUNAL_MODE_TRUSTED_NETWORKS_SETTINGS = 1909;
+
+    // OPEN: Settings > Connected devices > Connection preferences > Fast Pair
+    // CATEGORY: SETTINGS
+    // OS: T
+    CONNECTION_DEVICE_ADVANCED_FAST_PAIR = 1910;
+
+    // OPEN: Settings > Languages & input > App Languages
+    // CATEGORY: SETTINGS
+    // OS: T
+    APPS_LOCALE_LIST = 1911;
+
+    // OPEN: Settings > Accessibility > Text and reading options
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACCESSIBILITY_TEXT_READING_OPTIONS = 1912;
+
+    // OPEN: Settings > Developer options > Reboot with MTE > Info dialog
+    // CATEGORY: SETTINGS
+    // OS: T
+    REBOOT_WITH_MTE = 1913;
+
+    // OPEN: Settings > System > Developer options > Enable freeform windows > Reboot dialog
+    // OPEN: Settings > System > Developer options > Force desktop mode > Reboot dialog
+    // CATEGORY: SETTINGS
+    // OS: T
+    REBOOT_CONFIRMATION_DIALOG = 1914;
+
+    // OPEN: SUW Welcome Screen -> Vision Settings -> Text and reading options
+    // OPEN: SUW Welcome Screen -> Anything else? -> Text and reading options
+    // CATEGORY: SETTINGS
+    // OS: T
+    SUW_ACCESSIBILITY_TEXT_READING_OPTIONS = 1915;
+
+    // OPEN: Settings > System > Multiple users > Switch to admin user when
+    // docked
+    // CATEGORY: SETTINGS
+    // OS: T
+    TIMEOUT_TO_USER_ZERO = 1916;
+
+    // OPEN: Settings > Security & Privacy (if safety center is enabled)
+    // CATEGORY: SETTINGS
+    // OS: T
+    SAFETY_CENTER = 1917;
+
+    // OPEN: Settings > Accessibility -> Color and motion
+    // CATEGORY: SETTINGS
+    // OS: T
+    ACCESSIBILITY_COLOR_AND_MOTION = 1918;
+
+    // OPEN: Settings > Display > Screen timeout > Docked timeout
+    // CATEGORY: SETTINGS
+    // OS: T
+    SCREEN_TIMEOUT_DOCKED = 1919;
+
+    // OPEN: Settings > Display -> Screen resolution
+    // CATEGORY: SETTINGS
+    // OS: T
+    SCREEN_RESOLUTION = 1920;
+
+    // OPEN: Settings > Sound > Spatial audio
+    // CATEGORY: SETTINGS
+    // OS: T
+    SETTINGS_SPATIAL_AUDIO = 1921;
+
+    // Logs that the user has edited the turn screen on settings.
+    // CATEGORY: SETTINGS
+    // OS: T
+    SETTINGS_MANAGE_TURN_SCREEN_ON = 1922;
+
+    // OPEN: Settings > Accessibility > Magnification > Settings > Magnification area > Magnification triple tap warning dialog
+    // CATEGORY: SETTINGS
+    // OS: T
+    DIALOG_MAGNIFICATION_TRIPLE_TAP_WARNING = 1923;
+
+    // OPEN: Settings > Accessibility > Display size and text > Click
+    // "Reset settings" > Reset settings dialog
+    // CATEGORY: SETTINGS
+    // OS: T
+    DIALOG_RESET_SETTINGS = 1924;
+
+    // OPEN: Settings > Developer Options > Predictive gesture animations > Click
+    // CATEGORY: SETTINGS
+    // OS: T
+    DIALOG_BACK_ANIMATIONS = 1925;
+
+    // OPEN: Le audio broadcast dialog > Find a broadcast > Scan QR code
+    // CATEGORY: SETTINGS
+    // OS: T
+    LE_AUDIO_BROADCAST_SCAN_QR_CODE = 1926;
 }
 
 // Battery Saver schedule types.

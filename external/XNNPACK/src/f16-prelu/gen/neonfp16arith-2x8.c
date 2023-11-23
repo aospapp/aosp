@@ -22,7 +22,7 @@ void xnn_f16_prelu_ukernel__neonfp16arith_2x8(
     size_t input_stride,
     const void* restrict weights,
     void* restrict output,
-    size_t output_stride) XNN_DISABLE_TSAN
+    size_t output_stride) XNN_OOB_READS
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -30,39 +30,41 @@ void xnn_f16_prelu_ukernel__neonfp16arith_2x8(
 
   const __fp16* i0 = (const __fp16*) input;
   __fp16* o0 = (__fp16*) output;
-
   const __fp16* i1 = (const __fp16*) ((uintptr_t) i0 + input_stride);
   __fp16* o1 = (__fp16*) ((uintptr_t) o0 + output_stride);
-  if XNN_UNPREDICTABLE(rows < 2) {
-    i1 = i0;
-    o1 = o0;
-  }
 
   const size_t input_increment = input_stride * 2 - channels;
   const size_t output_increment = output_stride * 2 - channels;
 
   do {
+    if XNN_UNPREDICTABLE(rows < 2) {
+      i1 = i0;
+      o1 = o0;
+    }
+
     const __fp16* w = (const __fp16*) weights;
     size_t c = channels;
     for (; c >= 8 * sizeof(__fp16); c -= 8 * sizeof(__fp16)) {
       const float16x8_t vw01234567 = vld1q_f16(w); w += 8;
 
-      const float16x8_t vi0x001234567 = vld1q_f16(i0); i0 += 8;
-      const float16x8_t vi1x001234567 = vld1q_f16(i1); i1 += 8;
+      const float16x8_t vi0x01234567 = vld1q_f16(i0);
+      i0 += 8;
+      const float16x8_t vi1x01234567 = vld1q_f16(i1);
+      i1 += 8;
 
-      float16x8_t vacc0x001234567 = vmulq_f16(vi0x001234567, vw01234567);
-      const uint16x8_t vm0x001234567 = vcltq_s16(vreinterpretq_s16_f16(vi0x001234567), vmovq_n_s16(0));
-      float16x8_t vacc1x001234567 = vmulq_f16(vi1x001234567, vw01234567);
-      const uint16x8_t vm1x001234567 = vcltq_s16(vreinterpretq_s16_f16(vi1x001234567), vmovq_n_s16(0));
+      float16x8_t vacc0x01234567 = vmulq_f16(vi0x01234567, vw01234567);
+      const uint16x8_t vm0x01234567 = vcltq_s16(vreinterpretq_s16_f16(vi0x01234567), vmovq_n_s16(0));
+      float16x8_t vacc1x01234567 = vmulq_f16(vi1x01234567, vw01234567);
+      const uint16x8_t vm1x01234567 = vcltq_s16(vreinterpretq_s16_f16(vi1x01234567), vmovq_n_s16(0));
 
-      vacc0x001234567 = vbslq_f16(vm0x001234567, vacc0x001234567, vi0x001234567);
-      vacc1x001234567 = vbslq_f16(vm1x001234567, vacc1x001234567, vi1x001234567);
+      vacc0x01234567 = vbslq_f16(vm0x01234567, vacc0x01234567, vi0x01234567);
+      vacc1x01234567 = vbslq_f16(vm1x01234567, vacc1x01234567, vi1x01234567);
 
-      vst1q_f16(o0, vacc0x001234567); o0 += 8;
-      vst1q_f16(o1, vacc1x001234567); o1 += 8;
+      vst1q_f16(o0, vacc0x01234567); o0 += 8;
+      vst1q_f16(o1, vacc1x01234567); o1 += 8;
     }
     if XNN_UNLIKELY(c != 0) {
-      const float16x8_t vw01234567 = vld1q_f16(w); w += 8;
+      const float16x8_t vw01234567 = vld1q_f16(w);
 
       const float16x8_t vi0x01234567 = vld1q_f16(i0);
       i0 = (const __fp16*) ((uintptr_t) i0 + c);
@@ -87,9 +89,9 @@ void xnn_f16_prelu_ukernel__neonfp16arith_2x8(
         vacc1x0123 = vget_high_f16(vacc1x01234567);
       }
       if (c & (2 * sizeof(__fp16))) {
-        vst1_lane_u32(__builtin_assume_aligned(o0, 1), vreinterpret_u32_f16(vacc0x0123), 0); o0 += 2;
+        vst1_lane_u32((void*) o0, vreinterpret_u32_f16(vacc0x0123), 0); o0 += 2;
         vacc0x0123 = vext_f16(vacc0x0123, vacc0x0123, 2);
-        vst1_lane_u32(__builtin_assume_aligned(o1, 1), vreinterpret_u32_f16(vacc1x0123), 0); o1 += 2;
+        vst1_lane_u32((void*) o1, vreinterpret_u32_f16(vacc1x0123), 0); o1 += 2;
         vacc1x0123 = vext_f16(vacc1x0123, vacc1x0123, 2);
       }
       if (c & (1 * sizeof(__fp16))) {
@@ -101,10 +103,6 @@ void xnn_f16_prelu_ukernel__neonfp16arith_2x8(
     o0 = (__fp16*) ((uintptr_t) o0 + output_increment);
     i1 = (const __fp16*) ((uintptr_t) i1 + input_increment);
     o1 = (__fp16*) ((uintptr_t) o1 + output_increment);
-    if XNN_UNPREDICTABLE(rows < 4) {
-      i1 = i0;
-      o1 = o0;
-    }
     rows = doz(rows, 2);
   } while (rows != 0);
 }

@@ -551,40 +551,11 @@ tcu::TestStatus MipmapSparseResidencyInstance::iterate (void)
 		{
 			for (deUint32 mipmapNdx = 0; mipmapNdx < imageSparseInfo.mipLevels; ++mipmapNdx)
 			{
-				const deUint32	mipLevelSizeInBytes		= getImageMipLevelSizeInBytes(imageSparseInfo.extent, imageSparseInfo.arrayLayers, formatDescription, planeNdx, mipmapNdx);
-				const deUint32	bufferOffset			= static_cast<deUint32>(bufferImageCopy[planeNdx*imageSparseInfo.mipLevels + mipmapNdx].bufferOffset);
-				bool			is8bitSnormComponent	= false;
+				const deUint32 mipLevelSizeInBytes	= getImageMipLevelSizeInBytes(imageSparseInfo.extent, imageSparseInfo.arrayLayers, formatDescription, planeNdx, mipmapNdx);
+				const deUint32 bufferOffset			= static_cast<deUint32>(bufferImageCopy[planeNdx*imageSparseInfo.mipLevels + mipmapNdx].bufferOffset);
 
-				// Validate results
-				for (deUint32 channelNdx = 0; channelNdx < 4; ++channelNdx)
-				{
-					if (!formatDescription.hasChannelNdx(channelNdx))
-						continue;
-
-					if ((formatDescription.channels[channelNdx].type == tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT) &&
-						(formatDescription.channels[channelNdx].sizeBits == 8))
-					{
-						is8bitSnormComponent = true;
-						break;
-					}
-				}
-
-				if (!is8bitSnormComponent)
-				{
-					if (deMemCmp(outputData + bufferOffset, &referenceData[bufferOffset], mipLevelSizeInBytes) != 0)
-						return tcu::TestStatus::fail("Failed");
-				}
-				else
-				{
-					for (deUint32 byte = 0; byte < mipLevelSizeInBytes; byte++)
-					{
-						deUint32 entryOffset = bufferOffset + byte;
-
-						// Ignore 0x80 which is undefined data for a 8 bit snorm component
-						if ((referenceData[entryOffset] != 0x80) && (deMemCmp(outputData + entryOffset, &referenceData[entryOffset], 1) != 0))
-							return tcu::TestStatus::fail("Failed");
-					}
-				}
+				if (deMemCmp(outputData + bufferOffset, &referenceData[bufferOffset], mipLevelSizeInBytes) != 0)
+					return tcu::TestStatus::fail("Failed");
 			}
 		}
 	}
@@ -600,7 +571,7 @@ TestInstance* MipmapSparseResidencyCase::createInstance (Context& context) const
 
 tcu::TestCaseGroup* createMipmapSparseResidencyTestsCommon (tcu::TestContext& testCtx, de::MovePtr<tcu::TestCaseGroup> testGroup, const bool useDeviceGroup = false)
 {
-	const std::vector<TestImageParameters> imageParameters =
+	const std::vector<TestImageParameters> imageParameters
 	{
 		{ IMAGE_TYPE_2D,			{ tcu::UVec3(512u, 256u, 1u),	tcu::UVec3(1024u, 128u, 1u),	tcu::UVec3(11u,  137u, 1u) },	getTestFormats(IMAGE_TYPE_2D) },
 		{ IMAGE_TYPE_2D_ARRAY,		{ tcu::UVec3(512u, 256u, 6u),	tcu::UVec3(1024u, 128u, 8u),	tcu::UVec3(11u,  137u, 3u) },	getTestFormats(IMAGE_TYPE_2D_ARRAY) },

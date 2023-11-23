@@ -51,6 +51,12 @@ enum class SubjectMessage
     // gl::VertexArray, into gl::Context. Used to track validation.
     SubjectMapped,
     SubjectUnmapped,
+    // Indicates a bound buffer was reallocated when it was mapped, to prevent having to flush
+    // pending commands and waiting for the GPU to become idle.
+    InternalMemoryAllocationChanged,
+
+    // Indicates that a buffer's storage has changed. Used to prevent use-after-free error. (Vulkan)
+    BufferVkStorageChanged,
 
     // Indicates an external change to the default framebuffer.
     SurfaceChanged,
@@ -61,6 +67,8 @@ enum class SubjectMessage
     ProgramRelinked,
     // Indicates a separable program's sampler uniforms were updated.
     SamplerUniformsUpdated,
+    // Other types of uniform change.
+    ProgramUniformUpdated,
 
     // Indicates a Storage of back-end in gl::Texture has been released.
     StorageReleased,
@@ -95,6 +103,8 @@ class ObserverBindingBase
     SubjectIndex mIndex;
 };
 
+constexpr size_t kMaxFixedObservers = 8;
+
 // Maintains a list of observer bindings. Sends update messages to the observer.
 class Subject : NonCopyable
 {
@@ -121,7 +131,6 @@ class Subject : NonCopyable
   private:
     // Keep a short list of observers so we can allocate/free them quickly. But since we support
     // unlimited bindings, have a spill-over list of that uses dynamic allocation.
-    static constexpr size_t kMaxFixedObservers = 8;
     angle::FastVector<ObserverBindingBase *, kMaxFixedObservers> mObservers;
 };
 

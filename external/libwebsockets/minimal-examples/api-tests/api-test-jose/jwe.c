@@ -1,7 +1,7 @@
 /*
  * lws-api-test-jose - RFC7516 jwe tests
  *
- * Written in 2010-2018 by Andy Green <andy@warmcat.com>
+ * Written in 2010-2020 by Andy Green <andy@warmcat.com>
  *
  * This file is made available under the Creative Commons CC0 1.0
  * Universal Public Domain Dedication.
@@ -82,7 +82,7 @@ test_jwe_a1(struct lws_context *context)
 	}
 
 	/* converts a compact serialization to jws b64 + decoded maps */
-	if (lws_jws_compact_decode(ex_a1_compact, strlen(ex_a1_compact),
+	if (lws_jws_compact_decode(ex_a1_compact, (int)strlen(ex_a1_compact),
 				   &jwe.jws.map, &jwe.jws.map_b64, temp,
 				   &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -100,7 +100,7 @@ test_jwe_a1(struct lws_context *context)
 	/* allowing for trailing padding, confirm the plaintext */
 	if (jwe.jws.map.len[LJWE_CTXT] < strlen(ex_a1_ptext) ||
 	    lws_timingsafe_bcmp(jwe.jws.map.buf[LJWE_CTXT], ex_a1_ptext,
-			        strlen(ex_a1_ptext))) {
+			        (uint32_t)strlen(ex_a1_ptext))) {
 		lwsl_err("%s: plaintext AES decrypt wrong\n", __func__);
 		lwsl_hexdump_notice(ex_a1_ptext, strlen(ex_a1_ptext));
 		lwsl_hexdump_notice(jwe.jws.map.buf[LJWE_CTXT],
@@ -134,9 +134,9 @@ test_jwe_a1(struct lws_context *context)
 	/* we require a JOSE-formatted header to do the encryption */
 
 	jwe.jws.map.buf[LJWS_JOSE] = temp;
-	jwe.jws.map.len[LJWS_JOSE] = lws_snprintf(temp, temp_len,
+	jwe.jws.map.len[LJWS_JOSE] = (uint32_t)lws_snprintf(temp, (unsigned int)temp_len,
 			"{\"alg\":\"%s\",\"enc\":\"%s\"}", "RSA-OAEP", "A256GCM");
-	temp_len -= jwe.jws.map.len[LJWS_JOSE];
+	temp_len -= (int)jwe.jws.map.len[LJWS_JOSE];
 
 	/*
 	 * dup the plaintext into the ciphertext element, it will be
@@ -155,7 +155,7 @@ test_jwe_a1(struct lws_context *context)
 	n = lws_gencrypto_bits_to_bytes(jwe.jose.enc_alg->keybits_fixed);
 	if (lws_jws_randomize_element(context, &jwe.jws.map, LJWE_EKEY,
 				      lws_concat_temp(temp, temp_len),
-				      &temp_len, n,
+				      &temp_len, (unsigned int)n,
 				      LWS_JWE_LIMIT_KEY_ELEMENT_BYTES)) {
 		lwsl_err("Problem getting random\n");
 		goto bail;
@@ -185,7 +185,7 @@ test_jwe_a1(struct lws_context *context)
 	temp_len = sizeof(temp);
 
 	/* converts a compact serialization to jws b64 + decoded maps */
-	if (lws_jws_compact_decode(compact, strlen(compact), &jwe.jws.map,
+	if (lws_jws_compact_decode(compact, (int)strlen(compact), &jwe.jws.map,
 				   &jwe.jws.map_b64, temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
 		goto bail;
@@ -299,7 +299,7 @@ test_jwe_a2(struct lws_context *context)
 
 	/* converts a compact serialization to jws b64 + decoded maps */
 	if (lws_jws_compact_decode((const char *)ex_a2_compact,
-				   strlen((char *)ex_a2_compact),
+				   (int)strlen((char *)ex_a2_compact),
 				   &jwe.jws.map, &jwe.jws.map_b64,
 				   (char *)temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -500,7 +500,7 @@ test_jwe_ra_ptext_1024(struct lws_context *context, char *jwk_txt, int jwk_len)
 
 	/* reuse the rsa private key from the JWE Appendix 2 test above */
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -527,10 +527,10 @@ test_jwe_ra_ptext_1024(struct lws_context *context, char *jwk_txt, int jwk_len)
 	}
 
 	jwe.jws.map.buf[LJWE_JOSE] = rsa256a128_jose;
-	jwe.jws.map.len[LJWE_JOSE] = strlen(rsa256a128_jose);
+	jwe.jws.map.len[LJWE_JOSE] = (uint32_t)strlen(rsa256a128_jose);
 
 	n = lws_jwe_parse_jose(&jwe.jose, jwe.jws.map.buf[LJWE_JOSE],
-			       jwe.jws.map.len[LJWE_JOSE],
+			       (int)jwe.jws.map.len[LJWE_JOSE],
 			       lws_concat_temp(temp, temp_len), &temp_len);
 	if (n < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
@@ -559,7 +559,7 @@ test_jwe_ra_ptext_1024(struct lws_context *context, char *jwk_txt, int jwk_len)
 
 	/* now we created the encrypted version, see if we can decrypt it */
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -627,7 +627,7 @@ test_jwe_r256a192_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 
 	/* reuse the rsa private key from the JWE Appendix 2 test above */
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -657,10 +657,10 @@ test_jwe_r256a192_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 	}
 
 	jwe.jws.map.buf[LJWE_JOSE] = rsa256a192_jose;
-	jwe.jws.map.len[LJWE_JOSE] = strlen(rsa256a192_jose);
+	jwe.jws.map.len[LJWE_JOSE] = (uint32_t)strlen(rsa256a192_jose);
 
 	n = lws_jwe_parse_jose(&jwe.jose, jwe.jws.map.buf[LJWE_JOSE],
-			       jwe.jws.map.len[LJWE_JOSE],
+			       (int)jwe.jws.map.len[LJWE_JOSE],
 			       lws_concat_temp(temp, temp_len), &temp_len);
 	if (n < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
@@ -688,7 +688,7 @@ test_jwe_r256a192_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 	lws_jwe_destroy(&jwe);
 	lws_jwe_init(&jwe, context);
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -759,7 +759,7 @@ test_jwe_r256a256_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 
 	/* reuse the rsa private key from the JWE Appendix 2 test above */
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -789,9 +789,10 @@ test_jwe_r256a256_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 	}
 
 	jwe.jws.map.buf[LJWE_JOSE] = rsa256a256_jose;
-	jwe.jws.map.len[LJWE_JOSE] = strlen(rsa256a256_jose);
+	jwe.jws.map.len[LJWE_JOSE] = (uint32_t)strlen(rsa256a256_jose);
 
-	n = lws_jwe_parse_jose(&jwe.jose, rsa256a256_jose, strlen(rsa256a256_jose),
+	n = lws_jwe_parse_jose(&jwe.jose, rsa256a256_jose,
+			       (int)strlen(rsa256a256_jose),
 			       lws_concat_temp(temp, temp_len), &temp_len);
 	if (n < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
@@ -819,7 +820,7 @@ test_jwe_r256a256_ptext(struct lws_context *context, char *jwk_txt, int jwk_len)
 	lws_jwe_destroy(&jwe);
 	lws_jwe_init(&jwe, context);
 
-	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, jwk_len) < 0) {
+	if (lws_jwk_import(&jwe.jwk, NULL, NULL, jwk_txt, (unsigned int)jwk_len) < 0) {
 		lwsl_notice("%s: Failed to decode JWK test key\n", __func__);
 		goto bail;
 	}
@@ -1058,7 +1059,7 @@ test_jwe_r256a128_jwe_openssl(struct lws_context *context)
 
 	/* converts a compact serialization to jws b64 + decoded maps */
 	if (lws_jws_compact_decode((const char *)jwe_compact_rsa_cbc_openssl,
-				   strlen((char *)jwe_compact_rsa_cbc_openssl),
+				   (int)strlen((char *)jwe_compact_rsa_cbc_openssl),
 				   &jwe.jws.map, &jwe.jws.map_b64,
 				   temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -1149,7 +1150,7 @@ test_jwe_r256a128_jwe_mbedtls(struct lws_context *context)
 
 	/* converts a compact serialization to jws b64 + decoded maps */
 	if (lws_jws_compact_decode((const char *)jwe_compact_rsa_cbc_mbedtls,
-				   strlen((char *)jwe_compact_rsa_cbc_mbedtls),
+				   (int)strlen((char *)jwe_compact_rsa_cbc_mbedtls),
 				   &jwe.jws.map, &jwe.jws.map_b64,
 				   temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -1240,7 +1241,7 @@ test_jwe_a3(struct lws_context *context)
 
 	/* converts a compact serialization to jws b64 + decoded maps */
 	if (lws_jws_compact_decode((const char *)ex_a3_compact,
-				   strlen((char *)ex_a3_compact),
+				   (int)strlen((char *)ex_a3_compact),
 				   &jwe.jws.map, &jwe.jws.map_b64, temp,
 				   &temp_len)  != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -1649,7 +1650,7 @@ test_jwa_c(struct lws_context *context)
 	 * See test_jwe_a3 above for a more normal usage pattern.
 	 */
 
-	if (lws_jwe_parse_jose(&jwe.jose, ex_jwa_c_jose, strlen(ex_jwa_c_jose),
+	if (lws_jwe_parse_jose(&jwe.jose, ex_jwa_c_jose, (int)strlen(ex_jwa_c_jose),
 			       temp, &temp_len) < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
 
@@ -1797,7 +1798,7 @@ test_ecdhes_t1(struct lws_context *context, const char *jose_hdr,
 				jose_hdr, strlen(jose_hdr), 0))
 		goto bail;
 
-	if (lws_jwe_parse_jose(&jwe.jose, jose_hdr, strlen(jose_hdr),
+	if (lws_jwe_parse_jose(&jwe.jose, jose_hdr, (int)strlen(jose_hdr),
 			       temp, &temp_len) < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
 
@@ -1873,7 +1874,7 @@ test_ecdhes_t1(struct lws_context *context, const char *jose_hdr,
 	}
 
 	/* converts a compact serialization to jws b64 + decoded maps */
-	if (lws_jws_compact_decode(compact, strlen(compact), &jwe.jws.map,
+	if (lws_jws_compact_decode(compact, (int)strlen(compact), &jwe.jws.map,
 				   &jwe.jws.map_b64, temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
 		goto bail;
@@ -1975,7 +1976,7 @@ test_akw_decrypt(struct lws_context *context, const char *test_name,
 	}
 
 	/* converts a compact serialization to jws b64 + decoded maps */
-	if (lws_jws_compact_decode(ciphertext, strlen(ciphertext),
+	if (lws_jws_compact_decode(ciphertext, (int)strlen(ciphertext),
 				   &jwe.jws.map, &jwe.jws.map_b64,
 				   temp, &temp_len) != 5) {
 		lwsl_err("%s: lws_jws_compact_decode failed\n", __func__);
@@ -1992,7 +1993,7 @@ test_akw_decrypt(struct lws_context *context, const char *test_name,
 	/* allowing for trailing padding, confirm the plaintext */
 	if (jwe.jws.map.len[LJWE_CTXT] < strlen(akw_ptext) ||
 	    lws_timingsafe_bcmp(jwe.jws.map.buf[LJWE_CTXT], akw_ptext,
-			        strlen(akw_ptext))) {
+			        (uint32_t)strlen(akw_ptext))) {
 		lwsl_err("%s: plaintext AES decrypt wrong\n", __func__);
 		lwsl_hexdump_notice(akw_ptext, strlen(akw_ptext));
 		lwsl_hexdump_notice(jwe.jws.map.buf[LJWE_CTXT],
@@ -2041,9 +2042,9 @@ test_akw_encrypt(struct lws_context *context, const char *test_name,
 	/* we require a JOSE-formatted header to do the encryption */
 
 	jwe.jws.map.buf[LJWS_JOSE] = temp;
-	jwe.jws.map.len[LJWS_JOSE] = lws_snprintf(temp, temp_len,
+	jwe.jws.map.len[LJWS_JOSE] = (uint32_t)lws_snprintf(temp, (unsigned int)temp_len,
 			"{\"alg\":\"%s\", \"enc\":\"%s\"}", alg, enc);
-	temp_len -= jwe.jws.map.len[LJWS_JOSE];
+	temp_len -= (int)jwe.jws.map.len[LJWS_JOSE];
 
 	/*
 	 * dup the plaintext into the ciphertext element, it will be
@@ -2064,7 +2065,7 @@ test_akw_encrypt(struct lws_context *context, const char *test_name,
 	n = lws_gencrypto_bits_to_bytes(jwe.jose.enc_alg->keybits_fixed);
 	if (lws_jws_randomize_element(context, &jwe.jws.map, LJWE_EKEY,
 				      lws_concat_temp(temp, temp_len),
-				      &temp_len, n,
+				      &temp_len, (unsigned int)n,
 				      LWS_JWE_LIMIT_KEY_ELEMENT_BYTES)) {
 		lwsl_err("Problem getting random\n");
 		goto bail;
@@ -2077,7 +2078,7 @@ test_akw_encrypt(struct lws_context *context, const char *test_name,
 		goto bail;
 	}
 
-	n = lws_jwe_render_compact(&jwe, compact, compact_len);
+	n = lws_jwe_render_compact(&jwe, compact, (unsigned int)compact_len);
 	if (n < 0) {
 		lwsl_err("%s: lws_jwe_render_compact failed: %d\n",
 			 __func__, n);
@@ -2141,7 +2142,7 @@ test_jwe_json_complete(struct lws_context *context)
 
 	lws_jwe_init(&jwe, context);
 
-	if (lws_jwe_parse_jose(&jwe.jose, complete, strlen(complete),
+	if (lws_jwe_parse_jose(&jwe.jose, complete, (int)strlen(complete),
 			       temp, &temp_len) < 0) {
 		lwsl_err("%s: JOSE parse failed\n", __func__);
 
@@ -2199,29 +2200,29 @@ test_jwe(struct lws_context *context)
 	n |= test_jwe_a2(context);
 
 	n |= test_jwe_ra_ptext_1024(context, (char *)lws_jwe_ex_a2_jwk_json,
-				    strlen((char *)lws_jwe_ex_a2_jwk_json));
+				    (int)strlen((char *)lws_jwe_ex_a2_jwk_json));
 	n |= test_jwe_r256a192_ptext(context, (char *)lws_jwe_ex_a2_jwk_json,
-				     strlen((char *)lws_jwe_ex_a2_jwk_json));
+			(int)strlen((char *)lws_jwe_ex_a2_jwk_json));
 	n |= test_jwe_r256a256_ptext(context, (char *)lws_jwe_ex_a2_jwk_json,
-				     strlen((char *)lws_jwe_ex_a2_jwk_json));
+			(int)strlen((char *)lws_jwe_ex_a2_jwk_json));
 	n |= test_jwe_ra_ptext_1024(context, (char *)rsa_key_2048,
-				    strlen((char *)rsa_key_2048));
+			(int)strlen((char *)rsa_key_2048));
 	n |= test_jwe_r256a192_ptext(context, (char *)rsa_key_2048,
-				     strlen((char *)rsa_key_2048));
+			(int)strlen((char *)rsa_key_2048));
 	n |= test_jwe_r256a256_ptext(context, (char *)rsa_key_2048,
-				     strlen((char *)rsa_key_2048));
+			(int)strlen((char *)rsa_key_2048));
 	n |= test_jwe_ra_ptext_1024(context, (char *)rsa_key_4096,
-				    strlen((char *)rsa_key_4096));
+			(int)strlen((char *)rsa_key_4096));
 	n |= test_jwe_r256a192_ptext(context, (char *)rsa_key_4096,
-				     strlen((char *)rsa_key_4096));
+			(int)strlen((char *)rsa_key_4096));
 	n |= test_jwe_r256a256_ptext(context, (char *)rsa_key_4096,
-				     strlen((char *)rsa_key_4096));
+			(int)strlen((char *)rsa_key_4096));
 	n |= test_jwe_ra_ptext_1024(context, (char *)rsa_key_4096_no_optional,
-				    strlen((char *)rsa_key_4096_no_optional));
+			(int)strlen((char *)rsa_key_4096_no_optional));
 	n |= test_jwe_r256a192_ptext(context, (char *)rsa_key_4096_no_optional,
-				     strlen((char *)rsa_key_4096_no_optional));
+			(int)strlen((char *)rsa_key_4096_no_optional));
 	n |= test_jwe_r256a256_ptext(context, (char *)rsa_key_4096_no_optional,
-				     strlen((char *)rsa_key_4096_no_optional));
+			(int)strlen((char *)rsa_key_4096_no_optional));
 
 	/* AESKW decrypt all variations */
 

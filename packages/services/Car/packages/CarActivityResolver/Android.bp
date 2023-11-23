@@ -29,7 +29,7 @@ android_app {
     static_libs: [
         "car-ui-lib",
     ],
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
     required: ["allowed_privapp_com.android.car.activityresolver"],
     product_variables: {
         pdk: {

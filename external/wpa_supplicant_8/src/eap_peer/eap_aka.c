@@ -385,6 +385,7 @@ static int eap_aka_learn_ids(struct eap_sm *sm, struct eap_aka_data *data,
 		size_t identity_len = 0;
 		const u8 *realm = NULL;
 		size_t realm_len = 0;
+		struct eap_peer_config *config = eap_get_config(sm);
 
 		wpa_hexdump_ascii(MSG_DEBUG,
 				  "EAP-AKA: (encr) AT_NEXT_PSEUDONYM",
@@ -396,6 +397,17 @@ static int eap_aka_learn_ids(struct eap_sm *sm, struct eap_aka_data *data,
 		if (identity) {
 			for (realm = identity, realm_len = identity_len;
 			     realm_len > 0; realm_len--, realm++) {
+				if (*realm == '@')
+					break;
+			}
+		}
+		// If no realm from the permanent identity, look for the
+		// realm of the anonymous identity.
+		if (realm_len == 0 && config && config->anonymous_identity
+		    && config->anonymous_identity_len > 0) {
+			for (realm = config->anonymous_identity,
+			    realm_len = config->anonymous_identity_len;
+			    realm_len > 0; realm_len--, realm++) {
 				if (*realm == '@')
 					break;
 			}

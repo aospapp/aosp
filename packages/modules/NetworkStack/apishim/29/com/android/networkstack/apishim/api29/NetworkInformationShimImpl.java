@@ -20,10 +20,11 @@ import android.net.IpPrefix;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 import com.android.networkstack.apishim.common.NetworkInformationShim;
@@ -36,6 +37,7 @@ import java.net.Inet4Address;
  * <p>Use {@link com.android.networkstack.apishim.NetworkInformationShimImpl} instead of this
  * fallback implementation.
  */
+@RequiresApi(Build.VERSION_CODES.Q)
 public class NetworkInformationShimImpl implements NetworkInformationShim {
     protected NetworkInformationShimImpl() {}
 
@@ -47,22 +49,6 @@ public class NetworkInformationShimImpl implements NetworkInformationShim {
      */
     public static NetworkInformationShim newInstance() {
         return new NetworkInformationShimImpl();
-    }
-
-    /**
-     * Indicates whether the shim can use APIs above the Q SDK.
-     */
-    @VisibleForTesting
-    public static boolean useApiAboveQ() {
-        return false;
-    }
-
-    /**
-     * Indicates whether the shim can use APIs above the R SDK.
-     */
-    @VisibleForTesting
-    public static boolean useApiAboveR() {
-        return false;
     }
 
     @Nullable

@@ -21,7 +21,6 @@ namespace android::nn::fuzz {
 namespace {
 
 using namespace test_helper;
-using namespace android_nn_fuzz;
 
 static_assert(static_cast<TestOperandType>(FLOAT32) == TestOperandType::FLOAT32);
 static_assert(static_cast<TestOperandType>(INT32) == TestOperandType::INT32);
@@ -44,6 +43,7 @@ static_assert(static_cast<TestOperandType>(TENSOR_QUANT8_SYMM) ==
               TestOperandType::TENSOR_QUANT8_SYMM);
 static_assert(static_cast<TestOperandType>(TENSOR_QUANT8_ASYMM_SIGNED) ==
               TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED);
+static_assert(static_cast<TestOperandType>(SUBGRAPH_OPERAND) == TestOperandType::SUBGRAPH);
 
 static_assert(static_cast<TestOperationType>(ADD) == TestOperationType::ADD);
 static_assert(static_cast<TestOperationType>(AVERAGE_POOL_2D) ==
@@ -166,6 +166,17 @@ static_assert(static_cast<TestOperationType>(UNIDIRECTIONAL_SEQUENCE_RNN) ==
               TestOperationType::UNIDIRECTIONAL_SEQUENCE_RNN);
 static_assert(static_cast<TestOperationType>(RESIZE_NEAREST_NEIGHBOR) ==
               TestOperationType::RESIZE_NEAREST_NEIGHBOR);
+static_assert(static_cast<TestOperationType>(QUANTIZED_LSTM) == TestOperationType::QUANTIZED_LSTM);
+static_assert(static_cast<TestOperationType>(IF) == TestOperationType::IF);
+static_assert(static_cast<TestOperationType>(WHILE) == TestOperationType::WHILE);
+static_assert(static_cast<TestOperationType>(ELU) == TestOperationType::ELU);
+static_assert(static_cast<TestOperationType>(HARD_SWISH) == TestOperationType::HARD_SWISH);
+static_assert(static_cast<TestOperationType>(FILL) == TestOperationType::FILL);
+static_assert(static_cast<TestOperationType>(RANK) == TestOperationType::RANK);
+static_assert(static_cast<TestOperationType>(BATCH_MATMUL) == TestOperationType::BATCH_MATMUL);
+static_assert(static_cast<TestOperationType>(PACK) == TestOperationType::PACK);
+static_assert(static_cast<TestOperationType>(MIRROR_PAD) == TestOperationType::MIRROR_PAD);
+static_assert(static_cast<TestOperationType>(REVERSE) == TestOperationType::REVERSE);
 
 static_assert(static_cast<TestOperandLifeTime>(TEMPORARY_VARIABLE) ==
               TestOperandLifeTime::TEMPORARY_VARIABLE);
@@ -178,6 +189,7 @@ static_assert(static_cast<TestOperandLifeTime>(CONSTANT_COPY) ==
 static_assert(static_cast<TestOperandLifeTime>(CONSTANT_REFERENCE) ==
               TestOperandLifeTime::CONSTANT_REFERENCE);
 static_assert(static_cast<TestOperandLifeTime>(NO_VALUE) == TestOperandLifeTime::NO_VALUE);
+static_assert(static_cast<TestOperandLifeTime>(SUBGRAPH_LIFETIME) == TestOperandLifeTime::SUBGRAPH);
 
 }  // anonymous namespace
 }  // namespace android::nn::fuzz

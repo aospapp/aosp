@@ -23,7 +23,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 
 using ::android::hardware::Void;
@@ -34,9 +34,13 @@ using ::android::hardware::Void;
 #define LIB_PATH_PREFIX "vendor/lib/hw/"
 #endif
 
+#define QUOTE(x) #x
+#define STRINGIFY(x) QUOTE(x)
+
 DevicesFactory::DevicesFactory() {
     mLegacyLib.reset(dlopen(
-        LIB_PATH_PREFIX "android.hardware.audio.legacy@7.0-impl.ranchu.so", RTLD_NOW));
+        LIB_PATH_PREFIX "android.hardware.audio.legacy@" STRINGIFY(FILE_VERSION) "-impl.ranchu.so",
+        RTLD_NOW));
     LOG_ALWAYS_FATAL_IF(!mLegacyLib);
 
     typedef IDevicesFactory *(*Func)(const char *);
@@ -50,12 +54,11 @@ DevicesFactory::DevicesFactory() {
 
 Return<void> DevicesFactory::openDevice(const hidl_string& device,
                                         openDevice_cb _hidl_cb) {
-    if (device == AUDIO_HARDWARE_MODULE_ID_PRIMARY)
+    if (device == AUDIO_HARDWARE_MODULE_ID_PRIMARY) {
         _hidl_cb(Result::OK, new PrimaryDevice);
-    else {
+    } else {
         mLegacyFactory->openDevice(device, _hidl_cb);
     }
-
     return Void();
 }
 
@@ -64,8 +67,30 @@ Return<void> DevicesFactory::openPrimaryDevice(openPrimaryDevice_cb _hidl_cb) {
     return Void();
 }
 
+#if MAJOR_VERSION == 7 && MINOR_VERSION == 1
+Return<void> DevicesFactory::openDevice_7_1(const hidl_string& device, openDevice_7_1_cb _hidl_cb) {
+    if (device == AUDIO_HARDWARE_MODULE_ID_PRIMARY) {
+        auto primary = sp<PrimaryDevice>::make();
+        auto getDeviceRet = primary->getDevice();
+        if (getDeviceRet.isOk()) {
+            _hidl_cb(Result::OK, getDeviceRet);
+        } else {
+            _hidl_cb(Result::NOT_INITIALIZED, nullptr);
+        }
+    } else {
+        mLegacyFactory->openDevice_7_1(device, _hidl_cb);
+    }
+    return Void();
+}
+
+Return<void> DevicesFactory::openPrimaryDevice_7_1(openPrimaryDevice_7_1_cb _hidl_cb) {
+    _hidl_cb(Result::OK, new PrimaryDevice);
+    return Void();
+}
+#endif
+
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

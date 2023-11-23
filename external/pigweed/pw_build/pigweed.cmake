@@ -13,6 +13,15 @@
 # the License.
 include_guard(GLOBAL)
 
+# The PW_ROOT environment variable should be set in bootstrap. If it is not set,
+# set it to the root of the Pigweed repository.
+if("$ENV{PW_ROOT}" STREQUAL "")
+  get_filename_component(pw_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+  message("The PW_ROOT environment variable is not set; "
+          "using ${pw_root} within CMake")
+  set(ENV{PW_ROOT} "${pw_root}")
+endif()
+
 # Wrapper around cmake_parse_arguments that fails with an error if any arguments
 # remained unparsed.
 macro(_pw_parse_argv_strict function start_arg options one multi)
@@ -69,7 +78,8 @@ function(pw_auto_add_simple_module MODULE)
 
   # Create a library with all source files not ending in _test.
   set(sources "${all_sources}")
-  list(FILTER sources EXCLUDE REGEX "_test(\\.cc|(_c)?\\.c)$")
+  list(FILTER sources EXCLUDE REGEX "_test(\\.cc|(_c)?\\.c)$")  # *_test.cc
+  list(FILTER sources EXCLUDE REGEX "^test(\\.cc|(_c)?\\.c)$")  # test.cc
   list(FILTER sources EXCLUDE REGEX "_fuzzer\\.cc$")
 
   file(GLOB_RECURSE headers *.h)
@@ -92,10 +102,6 @@ function(pw_auto_add_simple_module MODULE)
     HEADERS
       ${headers}
   )
-
-  if(arg_IMPLEMENTS_FACADE)
-    target_include_directories("${MODULE}" PUBLIC public_overrides)
-  endif()
 
   pw_auto_add_module_tests("${MODULE}"
     PRIVATE_DEPS
@@ -158,10 +164,25 @@ endmacro()
 #   HEADERS - header files for this library
 #   PUBLIC_DEPS - public target_link_libraries arguments
 #   PRIVATE_DEPS - private target_link_libraries arguments
+#   PUBLIC_INCLUDES - public target_include_directories argument
+#   PRIVATE_INCLUDES - public target_include_directories argument
 #   IMPLEMENTS_FACADES - which facades this library implements
+#   PUBLIC_DEFINES - public target_compile_definitions arguments
+#   PRIVATE_DEFINES - private target_compile_definitions arguments
+#   PUBLIC_COMPILE_OPTIONS - public target_compile_options arguments
+#   PRIVATE_COMPILE_OPTIONS - private target_compile_options arguments
+#   PUBLIC_LINK_OPTIONS - public target_link_options arguments
+#   PRIVATE_LINK_OPTIONS - private target_link_options arguments
 #
 function(pw_add_module_library NAME)
-  _pw_library_args(list_args IMPLEMENTS_FACADES)
+  _pw_library_args(
+      list_args
+          PUBLIC_INCLUDES PRIVATE_INCLUDES
+          IMPLEMENTS_FACADES
+          PUBLIC_DEFINES PRIVATE_DEFINES
+          PUBLIC_COMPILE_OPTIONS PRIVATE_COMPILE_OPTIONS
+          PUBLIC_LINK_OPTIONS PRIVATE_LINK_OPTIONS
+  )
   _pw_parse_argv_strict(pw_add_module_library 1 "" "" "${list_args}")
 
   # Check that the library's name is prefixed by the module name.
@@ -174,29 +195,110 @@ function(pw_add_module_library NAME)
     )
   endif()
 
-  add_library("${NAME}" EXCLUDE_FROM_ALL ${arg_HEADERS} ${arg_SOURCES})
-  target_include_directories("${NAME}" PUBLIC public)
+  # Instead of forking all of the code below or injecting an empty source file,
+  # conditionally select PUBLIC vs INTERFACE depending on whether there are
+  # sources to compile.
+  if(NOT "${arg_SOURCES}" STREQUAL "")
+    add_library("${NAME}" EXCLUDE_FROM_ALL)
+    set(public_or_interface PUBLIC)
+  else("${arg_SOURCES}" STREQUAL "")
+    add_library("${NAME}" EXCLUDE_FROM_ALL INTERFACE)
+    set(public_or_interface INTERFACE)
+  endif(NOT "${arg_SOURCES}" STREQUAL "")
+
+  target_sources("${NAME}" PRIVATE ${arg_SOURCES} ${arg_HEADERS})
+
+  # CMake 3.22 does not have a notion of target_headers yet, so in the mean
+  # time we ask for headers to be specified for consistency with GN & Bazel and
+  # to improve the IDE experience. However, we do want to ensure all the headers
+  # which are otherwise ignored by CMake are present.
+  #
+  # See https://gitlab.kitware.com/cmake/cmake/-/issues/22468 for adding support
+  # to CMake to associate headers with targets properly for CMake 3.23.
+  foreach(header IN ITEMS ${arg_HEADERS})
+    get_filename_component(header "${header}" ABSOLUTE)
+    if(NOT EXISTS ${header})
+      message(FATAL_ERROR "Header not found: \"${header}\"")
+    endif()
+  endforeach()
+
+  if(NOT "${arg_PUBLIC_INCLUDES}" STREQUAL "")
+    target_include_directories("${NAME}"
+      ${public_or_interface}
+        ${arg_PUBLIC_INCLUDES}
+    )
+  else("${arg_PUBLIC_INCLUDES}" STREQUAL "")
+    # TODO(pwbug/601): Deprecate this legacy implicit PUBLIC_INCLUDES.
+    target_include_directories("${NAME}" ${public_or_interface} public)
+  endif(NOT "${arg_PUBLIC_INCLUDES}" STREQUAL "")
+
+  if(NOT "${arg_PRIVATE_INCLUDES}" STREQUAL "")
+    target_include_directories("${NAME}" PRIVATE ${arg_PRIVATE_INCLUDES})
+  endif(NOT "${arg_PRIVATE_INCLUDES}" STREQUAL "")
+
   target_link_libraries("${NAME}"
-    PUBLIC
+    ${public_or_interface}
       pw_build
       ${arg_PUBLIC_DEPS}
-    PRIVATE
-      pw_build.strict_warnings
-      pw_build.extra_strict_warnings
-      ${arg_PRIVATE_DEPS}
   )
 
+  if(NOT "${arg_SOURCES}" STREQUAL "")
+    target_link_libraries("${NAME}"
+      PRIVATE
+        pw_build.warnings
+        ${arg_PRIVATE_DEPS}
+    )
+  endif(NOT "${arg_SOURCES}" STREQUAL "")
+
   if(NOT "${arg_IMPLEMENTS_FACADES}" STREQUAL "")
-    target_include_directories("${NAME}" PUBLIC public_overrides)
+    target_include_directories("${NAME}"
+      ${public_or_interface}
+        public_overrides
+    )
+    if("${arg_PUBLIC_INCLUDES}" STREQUAL "")
+      # TODO(pwbug/601): Deprecate this legacy implicit PUBLIC_INCLUDES.
+      target_include_directories("${NAME}"
+        ${public_or_interface}
+          public_overrides
+      )
+    endif("${arg_PUBLIC_INCLUDES}" STREQUAL "")
     set(facades ${arg_IMPLEMENTS_FACADES})
     list(TRANSFORM facades APPEND ".facade")
-    target_link_libraries("${NAME}" PUBLIC ${facades})
-  endif()
+    target_link_libraries("${NAME}" ${public_or_interface} ${facades})
+  endif(NOT "${arg_IMPLEMENTS_FACADES}" STREQUAL "")
 
-  # Libraries require at least one source file.
-  if(NOT arg_SOURCES)
-    target_sources("${NAME}" PRIVATE $<TARGET_PROPERTY:pw_build.empty,SOURCES>)
-  endif()
+  if(NOT "${arg_PUBLIC_DEFINES}" STREQUAL "")
+    target_compile_definitions("${NAME}"
+      ${public_or_interface}
+        ${arg_PUBLIC_DEFINES}
+    )
+  endif(NOT "${arg_PUBLIC_DEFINES}" STREQUAL "")
+
+  if(NOT "${arg_PRIVATE_DEFINES}" STREQUAL "")
+    target_compile_definitions("${NAME}" PRIVATE ${arg_PRIVATE_DEFINES})
+  endif(NOT "${arg_PRIVATE_DEFINES}" STREQUAL "")
+
+  if(NOT "${arg_PUBLIC_COMPILE_OPTIONS}" STREQUAL "")
+    target_compile_options("${NAME}"
+      ${public_or_interface}
+        ${arg_PUBLIC_COMPILE_OPTIONS}
+    )
+  endif(NOT "${arg_PUBLIC_COMPILE_OPTIONS}" STREQUAL "")
+
+  if(NOT "${arg_PRIVATE_COMPILE_OPTIONS}" STREQUAL "")
+    target_compile_options("${NAME}" PRIVATE ${arg_PRIVATE_COMPILE_OPTIONS})
+  endif(NOT "${arg_PRIVATE_COMPILE_OPTIONS}" STREQUAL "")
+
+  if(NOT "${arg_PUBLIC_LINK_OPTIONS}" STREQUAL "")
+    target_link_options("${NAME}"
+      ${public_or_interface}
+        ${arg_PUBLIC_LINK_OPTIONS}
+    )
+  endif(NOT "${arg_PUBLIC_LINK_OPTIONS}" STREQUAL "")
+
+  if(NOT "${arg_PRIVATE_LINK_OPTIONS}" STREQUAL "")
+    target_link_options("${NAME}" PRIVATE ${arg_PRIVATE_LINK_OPTIONS})
+  endif(NOT "${arg_PRIVATE_LINK_OPTIONS}" STREQUAL "")
 endfunction(pw_add_module_library)
 
 # Declares a module as a facade.
@@ -219,7 +321,12 @@ function(pw_add_facade NAME)
   # instead. If the facade is used in the build, it fails with this error.
   add_custom_target("${NAME}._no_backend_set_message"
     COMMAND
-      python "$ENV{PW_ROOT}/pw_build/py/pw_build/null_backend.py" "${NAME}"
+      "${CMAKE_COMMAND}" -E echo
+        "ERROR: Attempted to build the ${NAME} facade with no backend."
+        "Configure the ${NAME} backend using pw_set_backend or remove all dependencies on it."
+        "See https://pigweed.dev/pw_build."
+    COMMAND
+      "${CMAKE_COMMAND}" -E false
   )
   add_library("${NAME}.NO_BACKEND_SET" INTERFACE)
   add_dependencies("${NAME}.NO_BACKEND_SET" "${NAME}._no_backend_set_message")
@@ -232,6 +339,14 @@ function(pw_add_facade NAME)
   # Declare the backend variable for this facade.
   set("${NAME}_BACKEND" "${arg_DEFAULT_BACKEND}" CACHE STRING
       "Backend for ${NAME}")
+
+  # This target is never used; it simply tests that the specified backend
+  # actually exists in the build. The generator expression will fail to evaluate
+  # if the target is not defined.
+  add_custom_target(_pw_check_that_backend_for_${NAME}_is_defined
+    COMMAND
+      ${CMAKE_COMMAND} -E echo "$<TARGET_PROPERTY:${${NAME}_BACKEND},TYPE>"
+  )
 
   # Define the facade library, which is used by the backend to avoid circular
   # dependencies.
@@ -257,6 +372,43 @@ function(pw_set_backend FACADE BACKEND)
   set("${FACADE}_BACKEND" "${BACKEND}" CACHE STRING "Backend for ${NAME}" FORCE)
 endfunction(pw_set_backend)
 
+# Set up the default pw_build_DEFAULT_MODULE_CONFIG.
+set("pw_build_DEFAULT_MODULE_CONFIG" pw_build.empty CACHE STRING
+    "Default implementation for all Pigweed module configurations.")
+
+# Declares a module configuration variable for module libraries to depend on.
+# Configs should be set to libraries which can be used to provide defines
+# directly or though included header files.
+#
+# The configs can be selected either through the pw_set_module_config function
+# to set the pw_build_DEFAULT_MODULE_CONFIG used by default for all Pigweed
+# modules or by selecting a specific one for the given NAME'd configuration.
+#
+# Args:
+#
+#   NAME: name to use for the target which can be depended on for the config.
+function(pw_add_module_config NAME)
+  _pw_parse_argv_strict(pw_add_module_config 1 "" "" "")
+
+  # Declare the module configuration variable for this module.
+  set("${NAME}" "${pw_build_DEFAULT_MODULE_CONFIG}"
+      CACHE STRING "Module configuration for ${NAME}")
+endfunction(pw_add_module_config)
+
+# Sets which config library to use for the given module.
+#
+# This can be used to set a specific module configuration or the default
+# module configuration used for all Pigweed modules:
+#
+#   pw_set_module_config(pw_build_DEFAULT_MODULE_CONFIG my_config)
+#   pw_set_module_config(pw_foo_CONFIG my_foo_config)
+function(pw_set_module_config NAME LIBRARY)
+  _pw_parse_argv_strict(pw_set_module_config 2 "" "" "")
+
+  # Update the module configuration variable.
+  set("${NAME}" "${LIBRARY}" CACHE STRING "Config for ${NAME}" FORCE)
+endfunction(pw_set_module_config)
+
 # Declares a unit test. Creates two targets:
 #
 #  * <TEST_NAME> - the test executable
@@ -280,6 +432,10 @@ function(pw_add_test NAME)
       pw_unit_test.main
       ${arg_DEPS}
   )
+  # Tests require at least one source file.
+  if(NOT arg_SOURCES)
+    target_sources("${NAME}" PRIVATE $<TARGET_PROPERTY:pw_build.empty,SOURCES>)
+  endif()
 
   # Define a target for running the test. The target creates a stamp file to
   # indicate successful test completion. This allows running tests in parallel

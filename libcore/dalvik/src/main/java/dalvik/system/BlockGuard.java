@@ -38,7 +38,6 @@ import libcore.util.NonNull;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.IntraCoreApi
 public final class BlockGuard {
 
@@ -51,7 +50,6 @@ public final class BlockGuard {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @libcore.api.IntraCoreApi
     public interface Policy {
         /**
@@ -60,7 +58,6 @@ public final class BlockGuard {
          * @hide
          */
         @SystemApi(client = MODULE_LIBRARIES)
-        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
         void onWriteToDisk();
 
         /**
@@ -70,7 +67,6 @@ public final class BlockGuard {
          */
         @UnsupportedAppUsage
         @SystemApi(client = MODULE_LIBRARIES)
-        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
         void onReadFromDisk();
 
         /**
@@ -88,7 +84,6 @@ public final class BlockGuard {
          * @hide
          */
         @SystemApi(client = MODULE_LIBRARIES)
-        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
         void onUnbufferedIO();
 
         /**
@@ -109,7 +104,6 @@ public final class BlockGuard {
          * @hide
          */
         @SystemApi(client = MODULE_LIBRARIES)
-        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
         int getPolicyMask();
     }
 
@@ -118,7 +112,6 @@ public final class BlockGuard {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public interface VmPolicy {
         /**
          * Called by core libraries code when the given path is accessed. This
@@ -142,7 +135,6 @@ public final class BlockGuard {
          * @hide
          */
         @SystemApi(client = MODULE_LIBRARIES)
-        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
         void onPathAccess(@NonNull String path);
     }
 
@@ -200,7 +192,6 @@ public final class BlockGuard {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final Policy LAX_POLICY = new Policy() {
         @Override public String toString() { return "LAX_POLICY"; }
         @Override public void onWriteToDisk() {}
@@ -221,7 +212,6 @@ public final class BlockGuard {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final VmPolicy LAX_VM_POLICY = new VmPolicy() {
         @Override public String toString() { return "LAX_VM_POLICY"; }
         @Override public void onPathAccess(String path) {}
@@ -246,7 +236,6 @@ public final class BlockGuard {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @libcore.api.IntraCoreApi
     public static @NonNull Policy getThreadPolicy() {
         return threadPolicy.get();
@@ -265,7 +254,6 @@ public final class BlockGuard {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static void setThreadPolicy(@NonNull Policy policy) {
         threadPolicy.set(Objects.requireNonNull(policy));
     }
@@ -279,7 +267,6 @@ public final class BlockGuard {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static @NonNull VmPolicy getVmPolicy() {
         return vmPolicy;
     }
@@ -296,7 +283,6 @@ public final class BlockGuard {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static void setVmPolicy(@NonNull VmPolicy policy) {
         vmPolicy = Objects.requireNonNull(policy);
     }

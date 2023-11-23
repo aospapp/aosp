@@ -22,25 +22,21 @@
 
 namespace pw::trace {
 
-pw::Status TraceService::Enable(ServerContext&,
-                                const pw_trace_TraceEnableMessage& request,
+pw::Status TraceService::Enable(const pw_trace_TraceEnableMessage& request,
                                 pw_trace_TraceEnableMessage& response) {
   TokenizedTrace::Instance().Enable(request.enable);
   response.enable = TokenizedTrace::Instance().IsEnabled();
   return PW_STATUS_OK;
 }
 
-pw::Status TraceService::IsEnabled(ServerContext&,
-                                   const pw_trace_Empty&,
+pw::Status TraceService::IsEnabled(const pw_trace_Empty&,
                                    pw_trace_TraceEnableMessage& response) {
   response.enable = TokenizedTrace::Instance().IsEnabled();
   return PW_STATUS_OK;
 }
 
 void TraceService::GetTraceData(
-    ServerContext&,
-    const pw_trace_Empty&,
-    ServerWriter<pw_trace_TraceDataMessage>& writer) {
+    const pw_trace_Empty&, ServerWriter<pw_trace_TraceDataMessage>& writer) {
   pw_trace_TraceDataMessage buffer = pw_trace_TraceDataMessage_init_default;
   size_t size = 0;
   pw::ring_buffer::PrefixedEntryRingBuffer* trace_buffer =
@@ -49,7 +45,8 @@ void TraceService::GetTraceData(
   while (trace_buffer->PeekFront(
              std::as_writable_bytes(std::span(buffer.data.bytes)), &size) !=
          pw::Status::OutOfRange()) {
-    trace_buffer->PopFront();
+    trace_buffer->PopFront()
+        .IgnoreError();  // TODO(pwbug/387): Handle Status properly
     buffer.data.size = size;
     pw::Status status = writer.Write(buffer);
     if (!status.ok()) {
@@ -58,6 +55,6 @@ void TraceService::GetTraceData(
       break;
     }
   }
-  writer.Finish();
+  writer.Finish().IgnoreError();  // TODO(pwbug/387): Handle Status properly
 }
 }  // namespace pw::trace

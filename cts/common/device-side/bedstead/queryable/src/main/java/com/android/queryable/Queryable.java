@@ -16,8 +16,6 @@
 
 package com.android.queryable;
 
-import androidx.annotation.Nullable;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -28,8 +26,8 @@ public interface Queryable {
      *
      * <p>For example, if {@code fieldName} was age, we might generate "age > 5, age < 10"
      */
-    @Nullable
     String describeQuery(String fieldName);
+
 
     /**
      * Join sub-parts of a query for use in {@link #describeQuery(String)}.

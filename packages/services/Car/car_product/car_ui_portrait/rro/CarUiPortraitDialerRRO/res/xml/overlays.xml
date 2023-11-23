@@ -22,6 +22,8 @@
     <item target="drawable/restricted_dialing_mode_label_background" value="@drawable/restricted_dialing_mode_label_background"/>
     <item target="drawable/ic_arrow_right" value="@drawable/ic_arrow_right"/>
     <item target="drawable/ic_bluetooth" value="@drawable/ic_bluetooth"/>
+    <item target="drawable/ic_answer_icon" value="@drawable/ic_answer_icon"/>
+    <item target="drawable/ic_decline_icon" value="@drawable/ic_decline_icon"/>
 
     <item target="id/dialpad_fragment" value="@id/dialpad_fragment" />
     <item target="id/call_button" value="@id/call_button" />
@@ -52,6 +54,14 @@
     <item target="id/user_profile_call_state" value="@id/user_profile_call_state" />
     <item target="id/call_state" value="@id/call_state" />
     <item target="id/dialpad_focus_area" value="@id/dialpad_focus_area" />
+    <item target="id/call_action_id" value="@id/call_action_id" />
+    <item target="id/icon" value="@id/icon" />
+    <item target="id/text" value="@id/text" />
+    <item target="id/show_contact_detail_id" value="@id/show_contact_detail_id" />
+    <item target="id/contact_list_button" value="@id/contact_list_button" />
+
+    <item target="string/decline_call" value="@string/decline_call" />
+    <item target="string/answer_call" value="@string/answer_call" />
 
     <item target="color/divider_color" value="@color/divider_color" />
     <item target="color/hero_button_background_color" value="@color/hero_button_background_color" />
@@ -59,6 +69,9 @@
     <item target="bool/config_always_show_incall_dialpad" value="@bool/config_always_show_incall_dialpad" />
 
     <item target="integer/config_dialed_number_gravity" value="@integer/config_dialed_number_gravity" />
+
+    <item target="dimen/list_item_height" value="@dimen/list_item_height" />
+    <item target="dimen/contact_avatar_corner_radius_percent" value="@dimen/contact_avatar_corner_radius_percent" />
 
     <item target="layout/dialpad_fragment_with_type_down" value="@layout/dialpad_fragment_with_type_down"/>
     <item target="layout/dialpad_user_profile" value="@layout/dialpad_user_profile"/>
@@ -68,6 +81,7 @@
     <item target="layout/ongoing_call_fragment" value="@layout/ongoing_call_fragment"/>
     <item target="layout/user_profile_large" value="@layout/user_profile_large"/>
     <item target="layout/incall_dialpad_fragment" value="@layout/incall_dialpad_fragment"/>
+    <item target="layout/contact_user_profile" value="@layout/contact_user_profile"/>
 
     <item target="style/KeypadButtonStyle" value="@style/KeypadButtonStyle"/>
     <item target="style/TextAppearance.DialNumber" value="@style/TextAppearance.DialNumber"/>

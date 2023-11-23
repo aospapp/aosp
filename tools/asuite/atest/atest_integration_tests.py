@@ -36,10 +36,11 @@ import tempfile
 import time
 import unittest
 
+import constants
+
 _TEST_RUN_DIR_PREFIX = 'atest_integration_tests_%s_'
 _LOG_FILE = 'integration_tests.log'
 _FAILED_LINE_LIMIT = 50
-_INTEGRATION_TESTS = 'INTEGRATION_TESTS'
 _EXIT_TEST_FAILED = 1
 _ALTERNATIVES = ('-dev', '-py2')
 
@@ -137,17 +138,17 @@ if __name__ == '__main__':
                 ATestIntegrationTest.EXECUTABLE += exe
         ATestIntegrationTest.OPTIONS = ' '.join(ARGS)
     print('Running tests with {}\n'.format(ATestIntegrationTest.EXECUTABLE))
-    TEST_PLANS = os.path.join(os.path.dirname(__file__), _INTEGRATION_TESTS)
     try:
         LOG_PATH = os.path.join(create_test_run_dir(), _LOG_FILE)
-        with open(TEST_PLANS) as test_plans:
-            for test in test_plans:
-                # Skip test when the line startswith #.
-                if not test.strip() or test.strip().startswith('#'):
-                    continue
-                test_func_name, test_func = create_test_method(
-                    test.strip(), LOG_PATH)
-                setattr(ATestIntegrationTest, test_func_name, test_func)
+        for TEST_PLANS in constants.INTEGRATION_TESTS:
+            with open(TEST_PLANS) as test_plans:
+                for test in test_plans:
+                    # Skip test when the line startswith #.
+                    if not test.strip() or test.strip().startswith('#'):
+                        continue
+                    test_func_name, test_func = create_test_method(
+                        test.strip(), LOG_PATH)
+                    setattr(ATestIntegrationTest, test_func_name, test_func)
         SUITE = unittest.TestLoader().loadTestsFromTestCase(
             ATestIntegrationTest)
         RESULTS = unittest.TextTestRunner(verbosity=2).run(SUITE)

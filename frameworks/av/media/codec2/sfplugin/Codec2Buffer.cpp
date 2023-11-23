@@ -16,11 +16,18 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "Codec2Buffer"
+#define ATRACE_TAG  ATRACE_TAG_VIDEO
 #include <utils/Log.h>
+#include <utils/Trace.h>
 
+#include <aidl/android/hardware/graphics/common/Cta861_3.h>
+#include <aidl/android/hardware/graphics/common/Smpte2086.h>
 #include <android-base/properties.h>
 #include <android/hardware/cas/native/1.0/types.h>
 #include <android/hardware/drm/1.0/types.h>
+#include <android/hardware/graphics/common/1.2/types.h>
+#include <android/hardware/graphics/mapper/4.0/IMapper.h>
+#include <gralloctypes/Gralloc4.h>
 #include <hidlmemory/FrameworkUtils.h>
 #include <media/hardware/HardwareAPI.h>
 #include <media/stagefright/CodecBase.h>
@@ -224,6 +231,7 @@ public:
           mAllocatedDepth(0),
           mBackBufferSize(0),
           mMediaImage(new ABuffer(sizeof(MediaImage2))) {
+        ATRACE_CALL();
         if (!format->findInt32(KEY_COLOR_FORMAT, &mClientColorFormat)) {
             mClientColorFormat = COLOR_FormatYUV420Flexible;
         }
@@ -257,6 +265,39 @@ public:
                 mediaImage->mType = MediaImage2::MEDIA_IMAGE_TYPE_YUV;
                 if (layout.numPlanes != 3) {
                     ALOGD("Converter: %d planes for YUV layout", layout.numPlanes);
+                    mInitCheck = BAD_VALUE;
+                    return;
+                }
+                std::optional<int> clientBitDepth = {};
+                switch (mClientColorFormat) {
+                    case COLOR_FormatYUVP010:
+                        clientBitDepth = 10;
+                        break;
+                    case COLOR_FormatYUV411PackedPlanar:
+                    case COLOR_FormatYUV411Planar:
+                    case COLOR_FormatYUV420Flexible:
+                    case COLOR_FormatYUV420PackedPlanar:
+                    case COLOR_FormatYUV420PackedSemiPlanar:
+                    case COLOR_FormatYUV420Planar:
+                    case COLOR_FormatYUV420SemiPlanar:
+                    case COLOR_FormatYUV422Flexible:
+                    case COLOR_FormatYUV422PackedPlanar:
+                    case COLOR_FormatYUV422PackedSemiPlanar:
+                    case COLOR_FormatYUV422Planar:
+                    case COLOR_FormatYUV422SemiPlanar:
+                    case COLOR_FormatYUV444Flexible:
+                    case COLOR_FormatYUV444Interleaved:
+                        clientBitDepth = 8;
+                        break;
+                    default:
+                        // no-op; used with optional
+                        break;
+
+                }
+                // conversion fails if client bit-depth and the component bit-depth differs
+                if ((clientBitDepth) && (bitDepth != clientBitDepth.value())) {
+                    ALOGD("Bit depth of client: %d and component: %d differs",
+                        *clientBitDepth, bitDepth);
                     mInitCheck = BAD_VALUE;
                     return;
                 }
@@ -358,21 +399,22 @@ public:
                         break;
 
                     case COLOR_FormatYUVP010:
+                        // stride is in bytes
                         mediaImage->mPlane[mediaImage->Y].mOffset = 0;
                         mediaImage->mPlane[mediaImage->Y].mColInc = 2;
-                        mediaImage->mPlane[mediaImage->Y].mRowInc = stride * 2;
+                        mediaImage->mPlane[mediaImage->Y].mRowInc = stride;
                         mediaImage->mPlane[mediaImage->Y].mHorizSubsampling = 1;
                         mediaImage->mPlane[mediaImage->Y].mVertSubsampling = 1;
 
-                        mediaImage->mPlane[mediaImage->U].mOffset = stride * vStride * 2;
+                        mediaImage->mPlane[mediaImage->U].mOffset = stride * vStride;
                         mediaImage->mPlane[mediaImage->U].mColInc = 4;
-                        mediaImage->mPlane[mediaImage->U].mRowInc = stride * 2;
+                        mediaImage->mPlane[mediaImage->U].mRowInc = stride;
                         mediaImage->mPlane[mediaImage->U].mHorizSubsampling = 2;
                         mediaImage->mPlane[mediaImage->U].mVertSubsampling = 2;
 
-                        mediaImage->mPlane[mediaImage->V].mOffset = stride * vStride * 2 + 2;
+                        mediaImage->mPlane[mediaImage->V].mOffset = stride * vStride + 2;
                         mediaImage->mPlane[mediaImage->V].mColInc = 4;
-                        mediaImage->mPlane[mediaImage->V].mRowInc = stride * 2;
+                        mediaImage->mPlane[mediaImage->V].mRowInc = stride;
                         mediaImage->mPlane[mediaImage->V].mHorizSubsampling = 2;
                         mediaImage->mPlane[mediaImage->V].mVertSubsampling = 2;
                         if (tryWrapping) {
@@ -533,8 +575,8 @@ public:
                 mInitCheck = BAD_VALUE;
                 return;
             }
-            bufferSize += stride * vStride
-                    / plane.rowSampling / plane.colSampling * divUp(mAllocatedDepth, 8u);
+            // stride is in bytes
+            bufferSize += stride * vStride / plane.rowSampling / plane.colSampling;
         }
 
         mBackBufferSize = bufferSize;
@@ -575,6 +617,7 @@ public:
      * Copy C2GraphicView to MediaImage2.
      */
     status_t copyToMediaImage() {
+        ATRACE_CALL();
         if (mInitCheck != OK) {
             return mInitCheck;
         }
@@ -613,7 +656,9 @@ sp<GraphicBlockBuffer> GraphicBlockBuffer::Allocate(
         const sp<AMessage> &format,
         const std::shared_ptr<C2GraphicBlock> &block,
         std::function<sp<ABuffer>(size_t)> alloc) {
+    ATRACE_BEGIN("GraphicBlockBuffer::Allocate block->map()");
     C2GraphicView view(block->map().get());
+    ATRACE_END();
     if (view.error() != C2_OK) {
         ALOGD("C2GraphicBlock::map failed: %d", view.error());
         return nullptr;
@@ -658,6 +703,7 @@ GraphicBlockBuffer::GraphicBlockBuffer(
 }
 
 std::shared_ptr<C2Buffer> GraphicBlockBuffer::asC2Buffer() {
+    ATRACE_CALL();
     uint32_t width = mView.width();
     uint32_t height = mView.height();
     if (!mWrapped) {
@@ -746,8 +792,10 @@ sp<ConstGraphicBlockBuffer> ConstGraphicBlockBuffer::Allocate(
         ALOGD("C2Buffer precond fail");
         return nullptr;
     }
+    ATRACE_BEGIN("ConstGraphicBlockBuffer::Allocate block->map()");
     std::unique_ptr<const C2GraphicView> view(std::make_unique<const C2GraphicView>(
             buffer->data().graphicBlocks()[0].map().get()));
+    ATRACE_END();
     std::unique_ptr<const C2GraphicView> holder;
 
     GraphicView2MediaImageConverter converter(*view, format, false /* copy */);
@@ -787,8 +835,14 @@ sp<ConstGraphicBlockBuffer> ConstGraphicBlockBuffer::AllocateEmpty(
         ALOGD("format had no width / height");
         return nullptr;
     }
-    // NOTE: we currently only support YUV420 formats for byte-buffer mode.
-    sp<ABuffer> aBuffer(alloc(align(width, 16) * align(height, 16) * 3 / 2));
+    int32_t colorFormat = COLOR_FormatYUV420Flexible;
+    int32_t bpp = 12;  // 8(Y) + 2(U) + 2(V)
+    if (format->findInt32(KEY_COLOR_FORMAT, &colorFormat)) {
+        if (colorFormat == COLOR_FormatYUVP010) {
+            bpp = 24;  // 16(Y) + 4(U) + 4(V)
+        }
+    }
+    sp<ABuffer> aBuffer(alloc(align(width, 16) * align(height, 16) * bpp / 8));
     return new ConstGraphicBlockBuffer(
             format,
             aBuffer,
@@ -842,11 +896,13 @@ bool ConstGraphicBlockBuffer::canCopy(const std::shared_ptr<C2Buffer> &buffer) c
         return false;
     }
 
+    ATRACE_BEGIN("ConstGraphicBlockBuffer::canCopy block->map()");
     GraphicView2MediaImageConverter converter(
             buffer->data().graphicBlocks()[0].map().get(),
             // FIXME: format() is not const, but we cannot change it, so do a const cast here
             const_cast<ConstGraphicBlockBuffer *>(this)->format(),
             true /* copy */);
+    ATRACE_END();
     if (converter.initCheck() != OK) {
         ALOGD("ConstGraphicBlockBuffer::canCopy: converter init failed: %d", converter.initCheck());
         return false;
@@ -939,6 +995,252 @@ bool EncryptedLinearBlockBuffer::copyDecryptedContentFromMemory(size_t length) {
 
 native_handle_t *EncryptedLinearBlockBuffer::handle() const {
     return const_cast<native_handle_t *>(mBlock->handle());
+}
+
+using ::aidl::android::hardware::graphics::common::Cta861_3;
+using ::aidl::android::hardware::graphics::common::Smpte2086;
+
+using ::android::gralloc4::MetadataType_Cta861_3;
+using ::android::gralloc4::MetadataType_Smpte2086;
+using ::android::gralloc4::MetadataType_Smpte2094_40;
+
+using ::android::hardware::Return;
+using ::android::hardware::hidl_vec;
+
+using Error4 = ::android::hardware::graphics::mapper::V4_0::Error;
+using IMapper4 = ::android::hardware::graphics::mapper::V4_0::IMapper;
+
+namespace {
+
+sp<IMapper4> GetMapper4() {
+    static sp<IMapper4> sMapper = IMapper4::getService();
+    return sMapper;
+}
+
+class Gralloc4Buffer {
+public:
+    Gralloc4Buffer(const C2Handle *const handle) : mBuffer(nullptr) {
+        sp<IMapper4> mapper = GetMapper4();
+        if (!mapper) {
+            return;
+        }
+        // Unwrap raw buffer handle from the C2Handle
+        native_handle_t *nh = UnwrapNativeCodec2GrallocHandle(handle);
+        if (!nh) {
+            return;
+        }
+        // Import the raw handle so IMapper can use the buffer. The imported
+        // handle must be freed when the client is done with the buffer.
+        mapper->importBuffer(
+                hardware::hidl_handle(nh),
+                [&](const Error4 &error, void *buffer) {
+                    if (error == Error4::NONE) {
+                        mBuffer = buffer;
+                    }
+                });
+
+        // TRICKY: UnwrapNativeCodec2GrallocHandle creates a new handle but
+        //         does not clone the fds. Thus we need to delete the handle
+        //         without closing it.
+        native_handle_delete(nh);
+    }
+
+    ~Gralloc4Buffer() {
+        sp<IMapper4> mapper = GetMapper4();
+        if (mapper && mBuffer) {
+            // Free the imported buffer handle. This does not release the
+            // underlying buffer itself.
+            mapper->freeBuffer(mBuffer);
+        }
+    }
+
+    void *get() const { return mBuffer; }
+    operator bool() const { return (mBuffer != nullptr); }
+private:
+    void *mBuffer;
+};
+
+}  // namspace
+
+c2_status_t GetHdrMetadataFromGralloc4Handle(
+        const C2Handle *const handle,
+        std::shared_ptr<C2StreamHdrStaticMetadataInfo::input> *staticInfo,
+        std::shared_ptr<C2StreamHdrDynamicMetadataInfo::input> *dynamicInfo) {
+    c2_status_t err = C2_OK;
+    sp<IMapper4> mapper = GetMapper4();
+    Gralloc4Buffer buffer(handle);
+    if (!mapper || !buffer) {
+        // Gralloc4 not supported; nothing to do
+        return err;
+    }
+    Error4 mapperErr = Error4::NONE;
+    if (staticInfo) {
+        ALOGV("Grabbing static HDR info from gralloc4 metadata");
+        staticInfo->reset(new C2StreamHdrStaticMetadataInfo::input(0u));
+        memset(&(*staticInfo)->mastering, 0, sizeof((*staticInfo)->mastering));
+        (*staticInfo)->maxCll = 0;
+        (*staticInfo)->maxFall = 0;
+        IMapper4::get_cb cb = [&mapperErr, staticInfo](Error4 err, const hidl_vec<uint8_t> &vec) {
+            mapperErr = err;
+            if (err != Error4::NONE) {
+                return;
+            }
+
+            std::optional<Smpte2086> smpte2086;
+            gralloc4::decodeSmpte2086(vec, &smpte2086);
+            if (smpte2086) {
+                (*staticInfo)->mastering.red.x    = smpte2086->primaryRed.x;
+                (*staticInfo)->mastering.red.y    = smpte2086->primaryRed.y;
+                (*staticInfo)->mastering.green.x  = smpte2086->primaryGreen.x;
+                (*staticInfo)->mastering.green.y  = smpte2086->primaryGreen.y;
+                (*staticInfo)->mastering.blue.x   = smpte2086->primaryBlue.x;
+                (*staticInfo)->mastering.blue.y   = smpte2086->primaryBlue.y;
+                (*staticInfo)->mastering.white.x  = smpte2086->whitePoint.x;
+                (*staticInfo)->mastering.white.y  = smpte2086->whitePoint.y;
+
+                (*staticInfo)->mastering.maxLuminance = smpte2086->maxLuminance;
+                (*staticInfo)->mastering.minLuminance = smpte2086->minLuminance;
+            } else {
+                mapperErr = Error4::BAD_VALUE;
+            }
+        };
+        Return<void> ret = mapper->get(buffer.get(), MetadataType_Smpte2086, cb);
+        if (!ret.isOk()) {
+            err = C2_REFUSED;
+        } else if (mapperErr != Error4::NONE) {
+            err = C2_CORRUPTED;
+        }
+        cb = [&mapperErr, staticInfo](Error4 err, const hidl_vec<uint8_t> &vec) {
+            mapperErr = err;
+            if (err != Error4::NONE) {
+                return;
+            }
+
+            std::optional<Cta861_3> cta861_3;
+            gralloc4::decodeCta861_3(vec, &cta861_3);
+            if (cta861_3) {
+                (*staticInfo)->maxCll   = cta861_3->maxContentLightLevel;
+                (*staticInfo)->maxFall  = cta861_3->maxFrameAverageLightLevel;
+            } else {
+                mapperErr = Error4::BAD_VALUE;
+            }
+        };
+        ret = mapper->get(buffer.get(), MetadataType_Cta861_3, cb);
+        if (!ret.isOk()) {
+            err = C2_REFUSED;
+        } else if (mapperErr != Error4::NONE) {
+            err = C2_CORRUPTED;
+        }
+    }
+    if (dynamicInfo) {
+        ALOGV("Grabbing dynamic HDR info from gralloc4 metadata");
+        dynamicInfo->reset();
+        IMapper4::get_cb cb = [&mapperErr, dynamicInfo](Error4 err, const hidl_vec<uint8_t> &vec) {
+            mapperErr = err;
+            if (err != Error4::NONE) {
+                return;
+            }
+            if (!dynamicInfo) {
+                return;
+            }
+            *dynamicInfo = C2StreamHdrDynamicMetadataInfo::input::AllocShared(
+                    vec.size(), 0u, C2Config::HDR_DYNAMIC_METADATA_TYPE_SMPTE_2094_40);
+            memcpy((*dynamicInfo)->m.data, vec.data(), vec.size());
+        };
+        Return<void> ret = mapper->get(buffer.get(), MetadataType_Smpte2094_40, cb);
+        if (!ret.isOk() || mapperErr != Error4::NONE) {
+            dynamicInfo->reset();
+        }
+    }
+
+    return err;
+}
+
+c2_status_t SetHdrMetadataToGralloc4Handle(
+        const std::shared_ptr<const C2StreamHdrStaticMetadataInfo::output> &staticInfo,
+        const std::shared_ptr<const C2StreamHdrDynamicMetadataInfo::output> &dynamicInfo,
+        const C2Handle *const handle) {
+    c2_status_t err = C2_OK;
+    sp<IMapper4> mapper = GetMapper4();
+    Gralloc4Buffer buffer(handle);
+    if (!mapper || !buffer) {
+        // Gralloc4 not supported; nothing to do
+        return err;
+    }
+    if (staticInfo && *staticInfo) {
+        ALOGV("Setting static HDR info as gralloc4 metadata");
+        std::optional<Smpte2086> smpte2086 = Smpte2086{
+            {staticInfo->mastering.red.x, staticInfo->mastering.red.y},
+            {staticInfo->mastering.green.x, staticInfo->mastering.green.y},
+            {staticInfo->mastering.blue.x, staticInfo->mastering.blue.y},
+            {staticInfo->mastering.white.x, staticInfo->mastering.white.y},
+            staticInfo->mastering.maxLuminance,
+            staticInfo->mastering.minLuminance,
+        };
+        hidl_vec<uint8_t> vec;
+        if (0.0 <= smpte2086->primaryRed.x && smpte2086->primaryRed.x <= 1.0
+                && 0.0 <= smpte2086->primaryRed.y && smpte2086->primaryRed.y <= 1.0
+                && 0.0 <= smpte2086->primaryGreen.x && smpte2086->primaryGreen.x <= 1.0
+                && 0.0 <= smpte2086->primaryGreen.y && smpte2086->primaryGreen.y <= 1.0
+                && 0.0 <= smpte2086->primaryBlue.x && smpte2086->primaryBlue.x <= 1.0
+                && 0.0 <= smpte2086->primaryBlue.y && smpte2086->primaryBlue.y <= 1.0
+                && 0.0 <= smpte2086->whitePoint.x && smpte2086->whitePoint.x <= 1.0
+                && 0.0 <= smpte2086->whitePoint.y && smpte2086->whitePoint.y <= 1.0
+                && 0.0 <= smpte2086->maxLuminance && 0.0 <= smpte2086->minLuminance
+                && gralloc4::encodeSmpte2086(smpte2086, &vec) == OK) {
+            Return<Error4> ret = mapper->set(buffer.get(), MetadataType_Smpte2086, vec);
+            if (!ret.isOk()) {
+                err = C2_REFUSED;
+            } else if (ret != Error4::NONE) {
+                err = C2_CORRUPTED;
+            }
+        }
+        std::optional<Cta861_3> cta861_3 = Cta861_3{
+            staticInfo->maxCll,
+            staticInfo->maxFall,
+        };
+        if (0.0 <= cta861_3->maxContentLightLevel && 0.0 <= cta861_3->maxFrameAverageLightLevel
+                && gralloc4::encodeCta861_3(cta861_3, &vec) == OK) {
+            Return<Error4> ret = mapper->set(buffer.get(), MetadataType_Cta861_3, vec);
+            if (!ret.isOk()) {
+                err = C2_REFUSED;
+            } else if (ret != Error4::NONE) {
+                err = C2_CORRUPTED;
+            }
+        }
+    }
+    if (dynamicInfo && *dynamicInfo && dynamicInfo->flexCount() > 0) {
+        ALOGV("Setting dynamic HDR info as gralloc4 metadata");
+        std::optional<IMapper4::MetadataType> metadataType;
+        switch (dynamicInfo->m.type_) {
+        case C2Config::HDR_DYNAMIC_METADATA_TYPE_SMPTE_2094_10:
+            // TODO
+            break;
+        case C2Config::HDR_DYNAMIC_METADATA_TYPE_SMPTE_2094_40:
+            metadataType = MetadataType_Smpte2094_40;
+            break;
+        }
+
+        if (metadataType) {
+            std::vector<uint8_t> smpte2094_40;
+            smpte2094_40.resize(dynamicInfo->flexCount());
+            memcpy(smpte2094_40.data(), dynamicInfo->m.data, dynamicInfo->flexCount());
+
+            hidl_vec<uint8_t> vec;
+            if (gralloc4::encodeSmpte2094_40({ smpte2094_40 }, &vec) == OK) {
+                Return<Error4> ret = mapper->set(buffer.get(), *metadataType, vec);
+                if (!ret.isOk()) {
+                    err = C2_REFUSED;
+                } else if (ret != Error4::NONE) {
+                    err = C2_CORRUPTED;
+                }
+            }
+        } else {
+            err = C2_BAD_VALUE;
+        }
+    }
+
+    return err;
 }
 
 }  // namespace android

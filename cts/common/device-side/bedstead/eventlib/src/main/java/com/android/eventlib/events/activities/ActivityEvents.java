@@ -16,8 +16,12 @@
 
 package com.android.eventlib.events.activities;
 
+import android.content.ComponentName;
+
+import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.activities.Activity;
 import com.android.bedstead.nene.activities.NeneActivity;
+import com.android.bedstead.nene.users.UserReference;
 
 /**
  * Quick access to event queries about activities.
@@ -31,6 +35,16 @@ public interface ActivityEvents {
     /** Access events for activity. */
     static ActivityEvents forActivity(Activity<? extends NeneActivity> activity) {
         return new ActivityEventsImpl(activity.activity());
+    }
+
+    /** Access events for activity on the instrumented user. */
+    static ActivityEvents forActivity(ComponentName componentName) {
+        return forActivity(componentName, TestApis.users().instrumented());
+    }
+
+    /** Access events for activity. */
+    static ActivityEvents forActivity(ComponentName componentName, UserReference user) {
+        return new ActivityEventsImpl(componentName, user.userHandle());
     }
 
     /**

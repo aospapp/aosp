@@ -16,11 +16,11 @@
 
 package com.android.server.wm.flicker.assertions
 
-import java.nio.file.Path
+import com.android.server.wm.flicker.TraceFile
 import kotlin.AssertionError
 
 class FlickerAssertionError(
     message: String,
     cause: Throwable?,
-    val traceFiles: List<Path>
+    val traceFile: TraceFile?
 ) : AssertionError(message, cause)

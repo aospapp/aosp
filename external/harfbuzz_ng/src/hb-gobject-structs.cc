@@ -32,11 +32,20 @@
 /**
  * SECTION:hb-gobject
  * @title: hb-gobject
- * @short_description: GObject integration
+ * @short_description: GObject integration support
  * @include: hb-gobject.h
  *
- * Functions for using HarfBuzz with the GObject library to provide
+ * Support for using HarfBuzz with the GObject library to provide
  * type data.
+ *
+ * The types and functions listed here are solely a linkage between
+ * HarfBuzz's public data types and the GTypes used by the GObject framework.
+ * HarfBuzz uses GObject introspection to generate its Python bindings 
+ * (and potentially other language bindings); client programs should never need
+ * to access the GObject-integration mechanics.
+ *
+ * For client programs using the GNOME and GTK software stack, please see the
+ * GLib and FreeType integration pages.
  **/
 
 
@@ -71,12 +80,12 @@ hb_gobject_##name##_get_type () \
 #define HB_DEFINE_VALUE_TYPE(name) \
 	static hb_##name##_t *_hb_##name##_reference (const hb_##name##_t *l) \
 	{ \
-	  hb_##name##_t *c = (hb_##name##_t *) calloc (1, sizeof (hb_##name##_t)); \
+	  hb_##name##_t *c = (hb_##name##_t *) hb_calloc (1, sizeof (hb_##name##_t)); \
 	  if (unlikely (!c)) return nullptr; \
 	  *c = *l; \
 	  return c; \
 	} \
-	static void _hb_##name##_destroy (hb_##name##_t *l) { free (l); } \
+	static void _hb_##name##_destroy (hb_##name##_t *l) { hb_free (l); } \
 	HB_DEFINE_BOXED_TYPE (name, _hb_##name##_reference, _hb_##name##_destroy)
 
 HB_DEFINE_OBJECT_TYPE (buffer)

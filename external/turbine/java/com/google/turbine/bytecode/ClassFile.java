@@ -26,51 +26,74 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A JVMS §4.1 ClassFile. */
 public class ClassFile {
 
   private final int access;
+  private final int majorVersion;
   private final String name;
-  private final String signature;
-  private final String superClass;
+  private final @Nullable String signature;
+  private final @Nullable String superClass;
   private final List<String> interfaces;
+  private final List<String> permits;
   private final List<MethodInfo> methods;
   private final List<FieldInfo> fields;
   private final List<AnnotationInfo> annotations;
   private final List<InnerClass> innerClasses;
   private final ImmutableList<TypeAnnotationInfo> typeAnnotations;
-  @Nullable private final ModuleInfo module;
+  private final @Nullable ModuleInfo module;
+  private final @Nullable String nestHost;
+  private final ImmutableList<String> nestMembers;
+  private final @Nullable RecordInfo record;
+  private final @Nullable String transitiveJar;
 
   public ClassFile(
       int access,
+      int majorVersion,
       String name,
-      String signature,
-      String superClass,
+      @Nullable String signature,
+      @Nullable String superClass,
       List<String> interfaces,
+      List<String> permits,
       List<MethodInfo> methods,
       List<FieldInfo> fields,
       List<AnnotationInfo> annotations,
       List<InnerClass> innerClasses,
       ImmutableList<TypeAnnotationInfo> typeAnnotations,
-      @Nullable ModuleInfo module) {
+      @Nullable ModuleInfo module,
+      @Nullable String nestHost,
+      ImmutableList<String> nestMembers,
+      @Nullable RecordInfo record,
+      @Nullable String transitiveJar) {
     this.access = access;
+    this.majorVersion = majorVersion;
     this.name = name;
     this.signature = signature;
     this.superClass = superClass;
     this.interfaces = interfaces;
+    this.permits = permits;
     this.methods = methods;
     this.fields = fields;
     this.annotations = annotations;
     this.innerClasses = innerClasses;
     this.typeAnnotations = typeAnnotations;
     this.module = module;
+    this.nestHost = nestHost;
+    this.nestMembers = nestMembers;
+    this.record = record;
+    this.transitiveJar = transitiveJar;
   }
 
   /** Class access and property flags. */
   public int access() {
     return access;
+  }
+
+  /** Class file major version. */
+  public int majorVersion() {
+    return majorVersion;
   }
 
   /** The name of the class or interface. */
@@ -79,18 +102,23 @@ public class ClassFile {
   }
 
   /** The value of the Signature attribute. */
-  public String signature() {
+  public @Nullable String signature() {
     return signature;
   }
 
   /** The super class. */
-  public String superName() {
+  public @Nullable String superName() {
     return superClass;
   }
 
   /** The direct superinterfaces. */
   public List<String> interfaces() {
     return interfaces;
+  }
+
+  /** The permitted direct subclasses. */
+  public List<String> permits() {
+    return permits;
   }
 
   /** Methods declared by this class or interfaces type. */
@@ -119,9 +147,25 @@ public class ClassFile {
   }
 
   /** A module attribute. */
-  @Nullable
-  public ModuleInfo module() {
+  public @Nullable ModuleInfo module() {
     return module;
+  }
+
+  public @Nullable String nestHost() {
+    return nestHost;
+  }
+
+  public ImmutableList<String> nestMembers() {
+    return nestMembers;
+  }
+
+  public @Nullable RecordInfo record() {
+    return record;
+  }
+
+  /** The original jar of a repackaged transitive class. */
+  public @Nullable String transitiveJar() {
+    return transitiveJar;
   }
 
   /** The contents of a JVMS §4.5 field_info structure. */
@@ -130,8 +174,8 @@ public class ClassFile {
     private final int access;
     private final String name;
     private final String descriptor;
-    @Nullable private final String signature;
-    private final Const.@Nullable Value value;
+    private final @Nullable String signature;
+    private final @Nullable Value value;
     private final List<AnnotationInfo> annotations;
     private final ImmutableList<TypeAnnotationInfo> typeAnnotations;
 
@@ -140,7 +184,7 @@ public class ClassFile {
         String name,
         String descriptor,
         @Nullable String signature,
-        Value value,
+        @Nullable Value value,
         List<AnnotationInfo> annotations,
         ImmutableList<TypeAnnotationInfo> typeAnnotations) {
       this.access = access;
@@ -168,8 +212,7 @@ public class ClassFile {
     }
 
     /** The value of Signature attribute. */
-    @Nullable
-    public String signature() {
+    public @Nullable String signature() {
       return signature;
     }
 
@@ -231,7 +274,7 @@ public class ClassFile {
     private final int access;
     private final String name;
     private final String descriptor;
-    @Nullable private final String signature;
+    private final @Nullable String signature;
     private final List<String> exceptions;
     private final AnnotationInfo.@Nullable ElementValue defaultValue;
     private final List<AnnotationInfo> annotations;
@@ -278,8 +321,7 @@ public class ClassFile {
     }
 
     /** The value of Signature attribute. */
-    @Nullable
-    public String signature() {
+    public @Nullable String signature() {
       return signature;
     }
 
@@ -721,16 +763,16 @@ public class ClassFile {
         }
       }
 
-      private final TypePath parent;
-      private final TypePath.Kind kind;
+      private final @Nullable TypePath parent;
+      private final TypePath.@Nullable Kind kind;
       private final int index;
 
-      private TypePath(TypePath.Kind kind, TypePath parent) {
+      private TypePath(TypePath.@Nullable Kind kind, @Nullable TypePath parent) {
         // JVMS 4.7.20.2: type_argument_index is 0 if the bound kind is not TYPE_ARGUMENT
         this(0, kind, parent);
       }
 
-      private TypePath(int index, TypePath.Kind kind, TypePath parent) {
+      private TypePath(int index, TypePath.@Nullable Kind kind, @Nullable TypePath parent) {
         this.index = index;
         this.kind = kind;
         this.parent = parent;
@@ -743,13 +785,13 @@ public class ClassFile {
 
       /** The JVMS 4.7.20.2-A serialized value of the type_path_kind. */
       public byte tag() {
-        return (byte) kind.tag;
+        return (byte) requireNonNull(kind).tag;
       }
 
       /** Returns a flattened view of the type path. */
       public ImmutableList<TypePath> flatten() {
         Deque<TypePath> flat = new ArrayDeque<>();
-        for (TypePath curr = this; curr.kind != null; curr = curr.parent) {
+        for (TypePath curr = this; requireNonNull(curr).kind != null; curr = curr.parent) {
           flat.addFirst(curr);
         }
         return ImmutableList.copyOf(flat);
@@ -761,7 +803,7 @@ public class ClassFile {
   public static class ModuleInfo {
 
     private final String name;
-    private final String version;
+    private final @Nullable String version;
     private final int flags;
     private final ImmutableList<RequireInfo> requires;
     private final ImmutableList<ExportInfo> exports;
@@ -772,7 +814,7 @@ public class ClassFile {
     public ModuleInfo(
         String name,
         int flags,
-        String version,
+        @Nullable String version,
         ImmutableList<RequireInfo> requires,
         ImmutableList<ExportInfo> exports,
         ImmutableList<OpenInfo> opens,
@@ -796,7 +838,7 @@ public class ClassFile {
       return flags;
     }
 
-    public String version() {
+    public @Nullable String version() {
       return version;
     }
 
@@ -825,9 +867,9 @@ public class ClassFile {
 
       private final String moduleName;
       private final int flags;
-      private final String version;
+      private final @Nullable String version;
 
-      public RequireInfo(String moduleName, int flags, String version) {
+      public RequireInfo(String moduleName, int flags, @Nullable String version) {
         this.moduleName = moduleName;
         this.flags = flags;
         this.version = version;
@@ -841,7 +883,7 @@ public class ClassFile {
         return flags;
       }
 
-      public String version() {
+      public @Nullable String version() {
         return version;
       }
     }
@@ -930,6 +972,63 @@ public class ClassFile {
       public ImmutableList<String> implDescriptors() {
         return implDescriptors;
       }
+    }
+  }
+
+  /** A JVMS §4.7.30 Record attribute. */
+  public static class RecordInfo {
+
+    /** A JVMS §4.7.30 Record component attribute. */
+    public static class RecordComponentInfo {
+
+      private final String name;
+      private final String descriptor;
+      private final @Nullable String signature;
+      private final ImmutableList<AnnotationInfo> annotations;
+      private final ImmutableList<TypeAnnotationInfo> typeAnnotations;
+
+      public RecordComponentInfo(
+          String name,
+          String descriptor,
+          @Nullable String signature,
+          ImmutableList<AnnotationInfo> annotations,
+          ImmutableList<TypeAnnotationInfo> typeAnnotations) {
+        this.name = name;
+        this.descriptor = descriptor;
+        this.signature = signature;
+        this.annotations = annotations;
+        this.typeAnnotations = typeAnnotations;
+      }
+
+      public String name() {
+        return name;
+      }
+
+      public String descriptor() {
+        return descriptor;
+      }
+
+      public @Nullable String signature() {
+        return signature;
+      }
+
+      public ImmutableList<AnnotationInfo> annotations() {
+        return annotations;
+      }
+
+      public ImmutableList<TypeAnnotationInfo> typeAnnotations() {
+        return typeAnnotations;
+      }
+    }
+
+    public RecordInfo(ImmutableList<RecordComponentInfo> recordComponents) {
+      this.recordComponents = recordComponents;
+    }
+
+    private final ImmutableList<RecordComponentInfo> recordComponents;
+
+    public ImmutableList<RecordComponentInfo> recordComponents() {
+      return recordComponents;
     }
   }
 }

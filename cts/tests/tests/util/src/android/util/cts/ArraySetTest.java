@@ -412,6 +412,20 @@ public class ArraySetTest {
     }
 
     @Test
+    public void testForEach() {
+        ArraySet<Integer> set = new ArraySet<>();
+
+        for (int i = 0; i < 50; ++i) {
+            set.add(i * 10);
+        }
+
+        // Make sure forEach goes through all of the elements.
+        HashSet<Integer> seen = new HashSet<>();
+        set.forEach(seen::add);
+        compareSets(seen, set);
+    }
+
+    @Test
     public void testIndexOf() {
         ArraySet<Integer> set = new ArraySet<>();
 

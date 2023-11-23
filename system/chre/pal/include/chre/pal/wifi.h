@@ -55,9 +55,15 @@ extern "C" {
 #define CHRE_PAL_WIFI_API_V1_5 CHRE_PAL_CREATE_API_VERSION(1, 5)
 
 /**
+ * Introduced alongside CHRE API v1.6, adding support for WiFi NAN service
+ * subscriptions and ranging.
+ */
+#define CHRE_PAL_WIFI_API_V1_6 CHRE_PAL_CREATE_API_VERSION(1, 6)
+
+/**
  * The version of the WiFi PAL defined in this header file.
  */
-#define CHRE_PAL_WIFI_API_CURRENT_VERSION CHRE_PAL_WIFI_API_V1_5
+#define CHRE_PAL_WIFI_API_CURRENT_VERSION CHRE_PAL_WIFI_API_V1_6
 
 struct chrePalWifiCallbacks {
   /**
@@ -135,7 +141,8 @@ struct chrePalWifiCallbacks {
    * memory to the core CHRE system.
    *
    * Only valid if requestedApiVersion given to chrePalWifiGetApi() is greater
-   * than or equal to CHRE_PAL_WIFI_API_V1_2.
+   * than or equal to CHRE_PAL_WIFI_API_V1_2. WiFi NAN ranging is only
+   * supported from CHRE_PAL_WIFI_API_V1_6.
    *
    * @param errorCode An error code from enum chreError, with CHRE_ERROR_NONE
    *        indicating successful completion of the ranging operation
@@ -148,6 +155,90 @@ struct chrePalWifiCallbacks {
    */
   void (*rangingEventCallback)(uint8_t errorCode,
                                struct chreWifiRangingEvent *event);
+
+  /**
+   * Callback used to pass the asynchronous result of a NAN service subscribe
+   * call from the client (nanoapp). Note that the subscription ID assigned by
+   * the NAN discovery engine is only valid if the embedded chreAsyncResult
+   * in the event structure has a CHRE_ERROR_NONE status.
+   *
+   * Only valid if requestedApiVersion given to chrePalWifiGetApi() is greater
+   * than or equal to CHRE_PAL_WIFI_API_V1_6.
+   *
+   * @param errorCode An error code from enum chreError, with CHRE_ERROR_NONE
+   *        indicating successfully getting a subscription ID.
+   * @param subscriptionId The ID assigned by the NAN discovery engine for a
+   *        subscription request. This field is only considered valid if the
+   *        associated error code is CHRE_ERROR_NONE.
+   *
+   * @since v1.6
+   */
+  void (*nanServiceIdentifierCallback)(uint8_t errorCode,
+                                       uint32_t subscriptionId);
+
+  /**
+   * Callback used to pass the result of a NAN service discovery to a client
+   * (nanoapp) that has requested a subscription. The
+   * nanServiceIdentifierCallback must be used to pass on the subscription ID
+   * to the client before an invocation of this function to enable the client
+   * to match an identifier to a subscription request.
+   *
+   * This function call passes ownership of the event memory to CHRE, and the
+   * PAL module must not modify the referenced data until the associated memory
+   * release API function (@ref releaseNanDiscoveryEvent) is called.
+   *
+   * Only valid if requestedApiVersion given to chrePalWifiGetApi() is greater
+   * than or equal to CHRE_PAL_WIFI_API_V1_6.
+   *
+   * @param event Event data containing NAN service discovery information. Must
+   *        not be NULL.
+   *
+   * @since v1.6
+   */
+  void (*nanServiceDiscoveryCallback)(struct chreWifiNanDiscoveryEvent *event);
+
+  /**
+   * Callback used to inform a subscriber that the publisher connection has
+   * been lost due to the peer NAN device going out of range.
+   *
+   * @param subscriptionId ID of the subscriber who should be notified of the
+   *        connection loss.
+   * @param publisherId ID of the publisher which disappeared.
+   *
+   * @since v1.6
+   */
+  void (*nanServiceLostCallback)(uint32_t subscriptionId, uint32_t publisherId);
+
+  /**
+   * Callback used to inform a subscriber that the subscription session has
+   * been terminated by the publisher or the NAN discovery engine.
+   *
+   * @param reason A value that maps to one of the termination reasons in
+   *        @ref enum chreWifiNanTerminatedReason, indicating why the subscribe
+   *        session was terminated.
+   * @param subscriptionId The ID of the subscribe session which has ended.
+   *
+   * @since v1.6
+   */
+  void (*nanServiceTerminatedCallback)(uint32_t reason,
+                                       uint32_t subscriptionId);
+
+  /**
+   * Callback invoked when a NAN subscription has been canceled by an explicit
+   * cancel subscription request from CHRE. Note that this is different from
+   * a subscription cancelation or termination from an agent external to CHRE
+   * (eg: the publisher going away or the discovery engine terminating the
+   * subscription for any reason).
+   *
+   * @param errorCode An error code from enum chreError, with CHRE_ERROR_NONE
+   *        indicating successfully canceling a subscription.
+   * @param subscriptionId The ID of the subscribe session which has now been
+   *        canceled.
+   *
+   * @since v1.6
+   */
+  void (*nanSubscriptionCanceledCallback)(uint8_t errorCode,
+                                          uint32_t subscriptionId);
 };
 
 struct chrePalWifiApi {
@@ -336,6 +427,76 @@ struct chrePalWifiApi {
    * @since v1.2
    */
   void (*releaseRangingEvent)(struct chreWifiRangingEvent *event);
+
+  /**
+   * Requests the NAN discovery engine to initiate a subscribe request to a
+   * publisher in accordance to a specified configuration. Upon completion of
+   * the operation, the nanServiceIdentifierCallback must be invoked with the
+   * subscription ID assigned by the NAN engine (if the request was successful)
+   * and an appropriate error code in the embedded chreAsyncResult structure.
+   *
+   * @param config Subscription configuration that specifies the subscription
+   *        type, publisher name and service specific information.
+   * @return true if the subscribe request was successful, in which case a
+   *         subsequent call to nanServiceIdentifierCallback will be used to
+   *         communicate the result of the operation.
+   *
+   * @since v1.6
+   */
+  bool (*nanSubscribe)(const struct chreWifiNanSubscribeConfig *config);
+
+  /**
+   * Invoked when CHRE requests an explicit service subscription cancelation
+   * to a published service. Upon completion of the cancelation, the
+   * nanSubscriptionCanceledCallback function must be invoked with the result
+   * of the operation and the subscription ID of this cancelation.
+   *
+   * @param subscriptionId The ID assigned by the NAN discovery engine to the
+   *        service subscription session.
+   * @return true if the service subscription indicated by the ID exists, and
+   *         was successfully canceled.
+   *
+   * @since v1.6
+   */
+  bool (*nanSubscribeCancel)(const uint32_t subscriptionId);
+
+  /**
+   * Invoked when the core CHRE system no longer needs a NAN service discovery
+   * event structure that was provided to it via nanServiceDiscoveryCallback().
+   *
+   * @param event Event data to release
+   *
+   * @since v1.6
+   */
+  void (*releaseNanDiscoveryEvent)(struct chreWifiNanDiscoveryEvent *event);
+
+  /**
+   * Request that the WiFi chipset perform RTT ranging against a peer NAN
+   * device, whose MAC address is specified by the NAN ranging params. If this
+   * function returns true, then the rangingEventCallback must be invoked once
+   * to deliver the result, with the accompanying result structure (@see
+   * rangingEventCallback).
+   *
+   * Like {@link requestRanging}, this API must follow CHRE API-defined
+   * behavior regarding timeouts and failure indication, via
+   * rangingEventCallback if the lower layers do not produce a result within
+   * CHRE_WIFI_RANGING_RESULT_TIMEOUT_NS.
+   *
+   * Only a single  NAN ranging request can be in progress at any given time.
+   * Also, only one of a NAN ranging request or an AP (access point) ranging
+   * request can be in progress at any given time.
+   *
+   * @param params WiFi NAN ranging parameters for this request.
+   * @return true if the request was accepted for further processing, in
+   *         which case a subsequent call to rangingEventCallback will be used
+   *         to communicate the result of the operation.
+   *
+   * @see #chreWifiNanRangingParams
+   * @see chreWifiNanRequestRangingAsync()
+   *
+   * @since v1.6
+   */
+  bool (*requestNanRanging)(const struct chreWifiNanRangingParams *params);
 };
 
 /**

@@ -21,7 +21,7 @@ import android.platform.test.annotations.AsbSecurityTest;
 import android.platform.test.annotations.RequiresDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
 import java.util.regex.Pattern;
 import org.junit.Assert;
 import org.junit.Before;
@@ -33,7 +33,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0591 extends BaseHostJUnit4Test {
+public class CVE_2021_0591 extends StsExtraBusinessLogicHostTestBase {
 
     private static final String TEST_PKG = "android.security.cts.CVE_2021_0591";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";

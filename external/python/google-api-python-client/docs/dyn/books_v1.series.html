@@ -80,31 +80,63 @@ h1, h2, h3 {
 <p class="firstline">Returns the membership Resource.</p>
 
 <p class="toc_element">
-  <code><a href="#get">get(series_id)</a></code></p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
+<p class="toc_element">
+  <code><a href="#get">get(series_id, x__xgafv=None)</a></code></p>
 <p class="firstline">Returns Series metadata for the given series ids.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="get">get(series_id)</code>
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="get">get(series_id, x__xgafv=None)</code>
   <pre>Returns Series metadata for the given series ids.
 
 Args:
   series_id: string, String that identifies the series (required) (repeated)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
     {
-    "series": [
-      {
-        "seriesId": "A String",
-        "bannerImageUrl": "A String",
-        "title": "A String",
-        "imageUrl": "A String",
-        "seriesType": "A String",
+  &quot;kind&quot;: &quot;A String&quot;, # Resource type.
+  &quot;series&quot;: [
+    {
+      &quot;bannerImageUrl&quot;: &quot;A String&quot;,
+      &quot;eligibleForSubscription&quot;: True or False,
+      &quot;imageUrl&quot;: &quot;A String&quot;,
+      &quot;isComplete&quot;: True or False,
+      &quot;seriesFormatType&quot;: &quot;A String&quot;,
+      &quot;seriesId&quot;: &quot;A String&quot;,
+      &quot;seriesSubscriptionReleaseInfo&quot;: {
+        &quot;cancelTime&quot;: &quot;A String&quot;,
+        &quot;currentReleaseInfo&quot;: {
+          &quot;amountInMicros&quot;: 3.14,
+          &quot;currencyCode&quot;: &quot;A String&quot;,
+          &quot;releaseNumber&quot;: &quot;A String&quot;,
+          &quot;releaseTime&quot;: &quot;A String&quot;,
+        },
+        &quot;nextReleaseInfo&quot;: {
+          &quot;amountInMicros&quot;: 3.14,
+          &quot;currencyCode&quot;: &quot;A String&quot;,
+          &quot;releaseNumber&quot;: &quot;A String&quot;,
+          &quot;releaseTime&quot;: &quot;A String&quot;,
+        },
+        &quot;seriesSubscriptionType&quot;: &quot;A String&quot;,
       },
-    ],
-    "kind": "books#series", # Resource type.
-  }</pre>
+      &quot;seriesType&quot;: &quot;A String&quot;,
+      &quot;subscriptionId&quot;: &quot;A String&quot;,
+      &quot;title&quot;: &quot;A String&quot;,
+    },
+  ],
+}</pre>
 </div>
 
 </body></html>

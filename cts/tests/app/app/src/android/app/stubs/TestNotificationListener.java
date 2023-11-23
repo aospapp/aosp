@@ -19,10 +19,13 @@ import android.content.ComponentName;
 import android.os.ConditionVariable;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class TestNotificationListener extends NotificationListenerService {
     public static final String TAG = "TestNotificationListener";
@@ -34,6 +37,7 @@ public class TestNotificationListener extends NotificationListenerService {
     public ArrayList<StatusBarNotification> mPosted = new ArrayList<>();
     public Map<String, Integer> mRemoved = new HashMap<>();
     public RankingMap mRankingMap;
+    public Map<String, Boolean> mIntercepted = new HashMap<>();
 
     /**
      * This controls whether there is a listener connected or not. Depending on the method, if the
@@ -66,6 +70,7 @@ public class TestNotificationListener extends NotificationListenerService {
 
     @Override
     public void onListenerConnected() {
+        Log.d(TAG, "onListenerConnected() called");
         super.onListenerConnected();
         sNotificationListenerInstance = this;
         INSTANCE_AVAILABLE.open();
@@ -74,6 +79,7 @@ public class TestNotificationListener extends NotificationListenerService {
 
     @Override
     public void onListenerDisconnected() {
+        Log.d(TAG, "onListenerDisconnected() called");
         INSTANCE_AVAILABLE.close();
         sNotificationListenerInstance = null;
         isConnected = false;
@@ -87,8 +93,10 @@ public class TestNotificationListener extends NotificationListenerService {
     }
 
     public void resetData() {
+        Log.d(TAG, "resetData() called");
         mPosted.clear();
         mRemoved.clear();
+        mIntercepted.clear();
     }
 
     public void addTestPackage(String packageName) {
@@ -101,21 +109,65 @@ public class TestNotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
-        if (sbn == null || !mTestPackages.contains(sbn.getPackageName())) { return; }
+        if (sbn == null || !mTestPackages.contains(sbn.getPackageName())) {
+            Log.d(TAG, "onNotificationPosted: skipping handling sbn=" + sbn + " testPackages="
+                    + listToString(mTestPackages));
+            return;
+        } else {
+            Log.d(TAG, "onNotificationPosted: sbn=" + sbn + " testPackages=" + listToString(
+                    mTestPackages));
+        }
         mRankingMap = rankingMap;
+        updateInterceptedRecords(rankingMap);
         mPosted.add(sbn);
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap,
             int reason) {
-        if (sbn == null || !mTestPackages.contains(sbn.getPackageName())) { return; }
+        if (sbn == null || !mTestPackages.contains(sbn.getPackageName())) {
+            Log.d(TAG, "onNotificationRemoved: skipping handling sbn=" + sbn + " testPackages="
+                    + listToString(mTestPackages));
+            return;
+        } else {
+            Log.d(TAG, "onNotificationRemoved: sbn=" + sbn + " reason=" + reason
+                    + " testPackages=" + listToString(mTestPackages));
+        }
         mRankingMap = rankingMap;
+        updateInterceptedRecords(rankingMap);
         mRemoved.put(sbn.getKey(), reason);
     }
 
     @Override
     public void onNotificationRankingUpdate(RankingMap rankingMap) {
+        Log.d(TAG, "onNotificationRankingUpdate() called rankingMap=[" + rankingMap + "]");
         mRankingMap = rankingMap;
+        updateInterceptedRecords(rankingMap);
+    }
+
+    // update the local cache of intercepted records based on the given ranking map; should be run
+    // every time the listener gets updated ranking map info
+    private void updateInterceptedRecords(RankingMap rankingMap) {
+        for (String key : rankingMap.getOrderedKeys()) {
+            Ranking rank = new Ranking();
+            if (rankingMap.getRanking(key, rank)) {
+                // matchesInterruptionFilter is true if the notifiation can bypass and false if
+                // blocked so the "is intercepted" boolean is the opposite of that.
+                mIntercepted.put(key, !rank.matchesInterruptionFilter());
+            }
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "TestNotificationListener{"
+                + "mTestPackages=[" + listToString(mTestPackages)
+                + "], mPosted=[" + listToString(mPosted)
+                + ", mRemoved=[" + listToString(mRemoved.values())
+                + "]}";
+    }
+
+    private String listToString(Collection<?> list) {
+        return list.stream().map(Object::toString).collect(Collectors.joining(","));
     }
 }

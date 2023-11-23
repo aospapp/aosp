@@ -186,8 +186,9 @@ public class TestLocationManager {
      * See {@code LocationManager#requestNetworkLocationUpdates}.
      *
      * @param locationListener location listener for request
+     * @return {@code true} if the network provider is valid, {@code false} otherwise.
      */
-    public void requestNetworkLocationUpdates(LocationListener locationListener) {
+    public boolean requestNetworkLocationUpdates(LocationListener locationListener) {
         if (mLocationManager.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
             Log.i(TAG, "Request Network Location updates.");
             mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
@@ -195,7 +196,9 @@ public class TestLocationManager {
                 0 /* minDistance */,
                 locationListener,
                 Looper.getMainLooper());
+            return true;
         }
+        return false;
     }
 
     /**

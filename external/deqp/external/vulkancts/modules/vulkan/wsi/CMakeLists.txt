@@ -1,8 +1,13 @@
 # WSI tests
 
-include_directories(..)
+include_directories(
+	..
+	${DEQP_INL_DIR}
+)
 
 set(DEQP_VK_WSI_SRCS
+	vktNativeObjectsUtil.cpp
+	vktNativeObjectsUtil.hpp
 	vktWsiTests.cpp
 	vktWsiTests.hpp
 	vktWsiSurfaceTests.cpp
@@ -23,6 +28,8 @@ set(DEQP_VK_WSI_SRCS
 	vktWsiColorSpaceTests.hpp
 	vktWsiFullScreenExclusiveTests.cpp
 	vktWsiFullScreenExclusiveTests.hpp
+	vktWsiPresentIdWaitTests.cpp
+	vktWsiPresentIdWaitTests.hpp
 	)
 
 set(DEQP_VK_WSI_LIBS

@@ -45,25 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"Добавьте аккаунт"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"Аккаунты и вход"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Нет аккаунтов"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> аккаунт</item>
-      <item quantity="few"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> аккаунта</item>
-      <item quantity="many"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> аккаунтов</item>
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> аккаунта</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# аккаунт}one{# аккаунт}few{# аккаунта}many{# аккаунтов}other{# аккаунта}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Медиасервисы, Ассистент, платежные данные"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Сеть и интернет"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"Звук"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Приложения"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Настройки устройства"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Пульты и аксессуары"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Нет подключенных устройств Bluetooth"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> устройство</item>
-      <item quantity="few"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> устройства</item>
-      <item quantity="many"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> устройств</item>
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> устройства</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Экран и звук"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Справка/отзыв"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Конфиденциальность"</string>
@@ -122,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"Сброс настроек"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Калибровка"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Режим энергосбережения"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"Устройства"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Выбор форматов"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"Объемный звук"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -189,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"ВКЛЮЧЕННЫЕ ФОРМАТЫ"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"ОТКЛЮЧЕННЫЕ ФОРМАТЫ"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"Чтобы отключить эту функцию, выберите параметр \"Вручную\"."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"Разрешение"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Автоматически"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Разрешение изменено"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Нажмите ОК, чтобы использовать разрешение %1$s."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Отмена"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ОК"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Гц"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Очистить кеш?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Будут удалены данные всех приложений."</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"Добавить устройство"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"Подключение…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"Подключение…"</string>
@@ -228,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Аксессуары"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Пульт ДУ"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Настройки пульта ДУ"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Настройка кнопок на пульте ДУ"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"Управляйте громкостью и питанием, а также выбирайте источники сигнала на телевизорах, ресиверах и саундбарах"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Подключить"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"Подключиться к этому устройству: %1$s?"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"Отключить"</string>
@@ -266,12 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Недоступно"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"Приложения администратора устройства"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Нет активных приложений"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> активное приложение</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> активных приложения</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> активных приложений</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> активного приложения</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Запрещено администратором или иными правилами"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Информация об управляемом устройстве"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"Изменения и настройки, управляемые организацией"</string>
@@ -289,22 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"Нет"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Установленные приложения"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Количество приложений является приблизительным и может не включать установки вне Google Play"</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="one">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> приложение</item>
-      <item quantity="few">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
-      <item quantity="many">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> приложений</item>
-      <item quantity="other">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{Как минимум # приложение}one{Как минимум # приложение}few{Как минимум # приложения}many{Как минимум # приложений}other{Как минимум # приложения}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Доступ к геоданным"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Доступ к микрофону"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Доступ к камере"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Приложения по умолчанию"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> приложение</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> приложений</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# приложение}one{# приложение}few{# приложения}many{# приложений}other{# приложения}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Клавиатура по умолчанию"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g>"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"Постоянная VPN включена"</string>
@@ -314,47 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Надежные сертификаты"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Надежные сертификаты в персональном профиле"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Надежные сертификаты в рабочем профиле"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="one">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> сертификат ЦС</item>
-      <item quantity="few">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> сертификата ЦС</item>
-      <item quantity="many">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> сертификатов ЦС</item>
-      <item quantity="other">Как минимум <xliff:g id="COUNT_1">%d</xliff:g> сертификата ЦС</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# сертификат ЦС}one{# сертификат ЦС}few{# сертификата ЦС}many{# сертификатов ЦС}other{# сертификата ЦС}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"Администратор может заблокировать устройство и сбросить пароль"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"Администратор может удалить все данные с устройства"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Количество неудачных попыток ввода пароля, после которого данные на устройстве будут удалены"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"Количество неудачных попыток ввода пароля, после которого данные рабочего профиля будут удалены"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> попытка</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> попытки</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> попыток</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> попытки</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{# попытка}one{# попытка}few{# попытки}many{# попыток}other{# попытки}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Этим устройством управляет ваша организация."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Этим устройством управляет <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"Подробнее"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="one">Приложения для камеры</item>
-      <item quantity="few">Приложения для камеры</item>
-      <item quantity="many">Приложения для камеры</item>
-      <item quantity="other">Приложения для камеры</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Приложение камеры}one{Приложения камеры}few{Приложения камеры}many{Приложения камеры}other{Приложения камеры}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Календарь"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"Контакты"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="one">Почтовые клиенты</item>
-      <item quantity="few">Почтовые клиенты</item>
-      <item quantity="many">Почтовые клиенты</item>
-      <item quantity="other">Почтовые клиенты</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{Почтовый клиент}one{Почтовые клиенты}few{Почтовые клиенты}many{Почтовые клиенты}other{Почтовые клиенты}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"Карты"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="one">Приложения для звонков</item>
-      <item quantity="few">Приложения для звонков</item>
-      <item quantity="many">Приложения для звонков</item>
-      <item quantity="other">Приложения для звонков</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{Приложение для звонков}one{Приложения для звонков}few{Приложения для звонков}many{Приложения для звонков}other{Приложения для звонков}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"Браузер"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g> и <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g> и <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -373,12 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Версия ОС Android TV"</string>
     <string name="about_serial" msgid="3432319328808745459">"Серийный номер"</string>
     <string name="about_build" msgid="8467840394761634575">"Сборка ОС Android TV"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="one">Почти готово! Остался <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шаг.</item>
-      <item quantity="few">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
-      <item quantity="many">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шагов.</item>
-      <item quantity="other">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{Вы почти у цели. Остался # шаг.}one{Вы почти у цели. Остался # шаг.}few{Вы почти у цели. Осталось # шага.}many{Вы почти у цели. Осталось # шагов.}other{Вы почти у цели. Осталось # шага.}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"Реклама"</string>
     <string name="ads_description" msgid="8081069475265061074">"Управление настройками (например, сброс рекламного идентификатора)."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"Реклама, управление настройками, такими как сброс рекламного идентификатора."</string>
@@ -392,31 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Доп. обновления системы"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"Сеть может отслеживаться"</string>
     <string name="done_button" msgid="616159688526431451">"Готово"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="one">Одобрите или удалите сертификаты</item>
-      <item quantity="few">Одобрите или удалите сертификаты</item>
-      <item quantity="many">Одобрите или удалите сертификаты</item>
-      <item quantity="other">Одобрите или удалите сертификаты</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="one">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил на ваше устройство сертификаты ЦС. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="few">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил на ваше устройство сертификаты ЦС. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="many">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил на ваше устройство сертификаты ЦС. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="other">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил на ваше устройство сертификаты ЦС. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="one">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил сертификаты ЦС для вашего рабочего профиля. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="few">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил сертификаты ЦС для вашего рабочего профиля. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="many">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил сертификаты ЦС для вашего рабочего профиля. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-      <item quantity="other">Администратор домена <xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> установил сертификаты ЦС для вашего рабочего профиля. Это позволяет ему отслеживать ваши действия в рабочей сети, включая использование электронной почты и приложений, а также просмотр защищенных сайтов.\n\nЗа дополнительной информацией обращайтесь к администратору.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Третья сторона может отслеживать ваши действия в сети. (например, просматривать ваши письма, приложения и список посещенных сайтов).\n\nЭто возможно благодаря надежному сертификату, установленному на устройстве."</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="one">Проверить сертификаты</item>
-      <item quantity="few">Проверить сертификаты</item>
-      <item quantity="many">Проверить сертификаты</item>
-      <item quantity="other">Проверить сертификаты</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{Одобрите или удалите сертификат}one{Одобрите или удалите сертификаты}few{Одобрите или удалите сертификаты}many{Одобрите или удалите сертификаты}other{Одобрите или удалите сертификаты}}"</string>
     <string name="device_status" msgid="8266002761193692207">"Статус"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Сеть, серийные номера и другие сведения"</string>
     <string name="manual" msgid="5683935624321864999">"Руководство"</string>
@@ -508,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"Подключиться"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"Удалить эту сеть"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"Данные, которые использовались для подключения к этой сети (включая пароль), будут удалены"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"Чтобы подключиться к сети Wi-Fi, отсканируйте QR-код с помощью телефона и следуйте инструкциям на экране."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" Чтобы подключиться к сети Wi-Fi, отсканируйте QR-код с помощью мобильного телефона и следуйте инструкциям на экране.\n \n На "<b>"телефоне Android"</b>" нажмите \"Настройки -&gt; Сеть и Интернет -&gt; Wi-Fi\" -&gt; выберите сеть Wi-Fi -&gt; \"Дополнительные функции -&gt; Добавить устройство\" и отсканируйте QR-код."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"Чтобы отменить действие, нажмите кнопку \"Назад\"."</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"ОК"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"Далее"</string>
@@ -577,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"Хранилище устройства"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Съемный накопитель"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Сброс"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"Освободите место в хранилище"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"Очистите кеш"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"Освободите <xliff:g id="SPACE">%1$s</xliff:g>"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"Будут удалены временные файлы, которые занимают место. Это не затронет сохраненные данные, например настройки приложений и скачанные видео. Входить в приложения заново не придется."</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"Очистить кеш?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"Будут удалены кешированные данные всех приложений."</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"Удалите некоторые приложения"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"Подключено: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"Ошибка подключения: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB-накопитель снова подключен"</string>
@@ -654,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"Микрофон"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Доступ к микрофону"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Доступ приложений к микрофону"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Доступ к микрофону заблокирован"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Чтобы открыть доступ к микрофону, переместите переключатель конфиденциальности на устройстве в положение включения микрофона."</string>
     <string name="camera" msgid="1226671478936288283">"Камера"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"Доступ к камере"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"Доступ приложений к камере"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Доступ к камере заблокирован"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Чтобы открыть доступ к камере, переместите переключатель конфиденциальности на устройстве в положение включения камеры."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Доступ к микрофону: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"Если этот параметр включен, все приложения и сервисы, имеющие разрешение, могут использовать любой микрофон на этом устройстве.\n\nЭта настройка не затрагивает периферийные аудиоустройства с пользовательским протоколом."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Доступ к камере: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -728,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"Голубой"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Желтый"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Пурпурный"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Аудиодескрипция"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Аудиосопровождение в фильмах и сериалах поможет вам понять, что происходит на экране"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Включить"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Конфигурация"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Включить <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
@@ -748,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"Отслеживание"</string>
     <string name="system_apps" msgid="8481888654606868074">"Приложения"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"Оставить включенным"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"Экран не будет переходить в спящий режим"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"Проверка HDCP"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI-оптимизация"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"Перезагрузить устройство?"</string>
@@ -785,7 +729,7 @@
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"Использование только содержания DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Оптимизируйте экран, настроив максимальное разрешение или максимальную частоту кадров. Этот параметр применяется только к экранам Ultra HD. После его изменения устройство будет перезагружено."</string>
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Включить ведение журнала HCI для Bluetooth"</string>
-    <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Режим отладки при подключенном USB-устройстве"</string>
+    <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Режим отладки при подключении по USB"</string>
     <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Приложение ожидает подключения отладчика"</string>
     <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Показывать границы клипа, поля и т. д."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"Подсвечивать области экрана при отрисовке с GPU"</string>
@@ -868,24 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"Отключать HDMI-устройства вместе с телевизором"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"Автомат. включать телевизор"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"Автом. включать телевизор с HDMI-устройством"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="one">Подключенные входы</item>
-      <item quantity="few">Подключенные входы</item>
-      <item quantity="many">Подключенные входы</item>
-      <item quantity="other">Подключенные входы</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="one">Резервные входы</item>
-      <item quantity="few">Резервные входы</item>
-      <item quantity="many">Резервные входы</item>
-      <item quantity="other">Резервные входы</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="one">Отключенные входы</item>
-      <item quantity="few">Отключенные входы</item>
-      <item quantity="many">Отключенные входы</item>
-      <item quantity="other">Отключенные входы</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{Подключенный вход}one{Подключенные входы}few{Подключенные входы}many{Подключенные входы}other{Подключенные входы}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{Резервный вход}one{Резервные входы}few{Резервные входы}many{Резервные входы}other{Резервные входы}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{Отключенный вход}one{Отключенные входы}few{Отключенные входы}many{Отключенные входы}other{Отключенные входы}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Ограничить доступ к приложениям и другому контенту в аккаунте"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Профиль с ограничен. доступом"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"Под управлением приложения \"<xliff:g id="APP">%1$s</xliff:g>\""</string>
@@ -899,12 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"Создать профиль с ограниченным доступом"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"Настройки"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"Разрешенные приложения"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="one">Разрешено %d приложение</item>
-      <item quantity="few">Разрешены %d приложения</item>
-      <item quantity="many">Разрешено %d приложений</item>
-      <item quantity="other">Разрешены %d приложения</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"Разрешено"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"Запрещено"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"Установить ограничения"</string>
@@ -949,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"Сторонний источник"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"Разрешения"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"Приложение недоступно"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"Неиспользуемые приложения"</string>
     <string name="settings_ok" msgid="5950888975075541964">"ОК"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"Подтвердить"</string>
     <string name="settings_cancel" msgid="576094334743686152">"Отмена"</string>
@@ -1032,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"Приложение сможет изменять системные настройки."</string>
     <string name="write_settings_on" msgid="71675710746513956">"Да"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"Нет"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"Доступ ко всем файлам"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"Разрешить доступ к управлению всеми файлами"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"Приложение сможет читать, изменять и удалять все файлы на этом устройстве и любых подключенных носителях. Доступ к файлам будет осуществляться без дополнительного уведомления."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Картинка в картинке"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Картинка в картинке"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Установленные приложения не поддерживают режим \"Картинка в картинке\"."</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Когда приложение открыто или когда вы выходите из него, оно может создавать окно \"Картинка в картинке\". Так вы можете, например, продолжить просмотр видео. Это окно отображается поверх остальных приложений."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Если вы разрешите приложениям устанавливать будильники и планировать на определенное время действия, то эти приложения будут работать в фоновом режиме. В таком случае заряд батареи может расходоваться быстрее.\n\nЕсли отключить эту настройку, текущие будильники и созданные приложением мероприятия перестанут запускаться."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"Включение экрана"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"Разрешить приложению включать экран"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"Приложение сможет в любое время включать экран без явного согласия с вашей стороны"</string>
     <string name="special_access" msgid="21806055758289916">"Специальный доступ"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Аудио"</string>
@@ -1053,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"Экономия трафика"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Автоматически изменять качество видео для экономии трафика"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Передача данных и оповещения"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Вы можете подключить устройство к Интернету с помощью Wi-Fi, сети Ethernet или точки доступа на телефоне. Узнайте больше на странице "<b>"g.co/network"</b>"."</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Вы можете подключить устройство к интернету с помощью Wi-Fi, сети Ethernet или точки доступа на телефоне"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Действие запрещено"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Невозможно изменить громкость"</string>
@@ -1103,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"Питание и энергопотребление"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"Состояние при включении"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Сброс"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Код подключения к Ethernet"</string>
 </resources>

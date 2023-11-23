@@ -23,6 +23,7 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 
+#include "chre/util/macros.h"
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/optional.h"
@@ -39,6 +40,8 @@ namespace {
 
 bool decodeSensorName(pb_istream_t *stream, const pb_field_s *field,
                       void **arg) {
+  UNUSED_VAR(field);
+
   unsigned char *name = static_cast<unsigned char *>(*arg);
 
   if (stream->bytes_left > kMaxSensorNameSize - 1) return false;
@@ -194,6 +197,8 @@ bool Manager::encodeProximitySensorDatapointValue(pb_ostream_t *stream,
 bool Manager::encodeStepCounterSensorDatapointValue(pb_ostream_t *stream,
                                                     const pb_field_t *field,
                                                     void *const *arg) {
+  UNUSED_VAR(field);
+
   const auto *sensorUint64DataSample =
       static_cast<const chreSensorUint64Data::chreSensorUint64SampleData *>(
           *arg);
@@ -298,6 +303,8 @@ bool Manager::encodeProximitySensorDatapoints(pb_ostream_t *stream,
 bool Manager::encodeStepCounterSensorDatapoints(pb_ostream_t *stream,
                                                 const pb_field_t *field,
                                                 void *const *arg) {
+  UNUSED_VAR(field);
+
   const auto *sensorStepCounterData =
       static_cast<const chreSensorUint64Data *>(*arg);
   uint64_t currentTimestamp = sensorStepCounterData->header.baseTimestamp +

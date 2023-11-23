@@ -20,20 +20,21 @@ import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 import android.telephony.TelephonyManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.qc.QCActionItem;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
+import com.android.car.settings.R;
 import com.android.settingslib.net.DataUsageController;
 
 import org.junit.Before;
@@ -43,10 +44,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
-public class MobileDataRowTest {
+public class MobileDataRowTest extends BaseSettingsQCItemTestCase {
     private static final String TEST_NETWORK_NAME = "TEST_NETWORK";
 
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private MobileDataRow mMobileDataRow;
 
     @Mock
@@ -102,6 +102,40 @@ public class MobileDataRowTest {
         when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
         QCRow row = getRow();
         assertThat(row.getSubtitle()).isEqualTo(TEST_NETWORK_NAME);
+    }
+
+    @Test
+    public void getQCItem_dataDisabled_setsSubtitle() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(false);
+        QCRow row = getRow();
+        assertThat(row.getSubtitle()).isEqualTo(
+                mContext.getString(R.string.mobile_network_state_off));
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_switchDisabled() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, /* restricted= */ true);
+        QCRow row = getRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_switchClickableWhileDisabled() {
+        when(mDataUsageController.isMobileDataSupported()).thenReturn(true);
+        when(mTelephonyManager.getNetworkOperatorName()).thenReturn(TEST_NETWORK_NAME);
+        when(mDataUsageController.isMobileDataEnabled()).thenReturn(true);
+        setUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, /* restricted= */ true);
+        QCRow row = getRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

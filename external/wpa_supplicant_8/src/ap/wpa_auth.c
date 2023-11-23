@@ -1005,6 +1005,18 @@ static int wpa_try_alt_snonce(struct wpa_state_machine *sm, u8 *data,
 }
 
 
+static bool wpa_auth_gtk_rekey_in_process(struct wpa_authenticator *wpa_auth)
+{
+	struct wpa_group *group;
+
+	for (group = wpa_auth->group; group; group = group->next) {
+		if (group->GKeyDoneStations)
+			return true;
+	}
+	return false;
+}
+
+
 void wpa_receive(struct wpa_authenticator *wpa_auth,
 		 struct wpa_state_machine *sm,
 		 u8 *data, size_t data_len)
@@ -1372,7 +1384,11 @@ continue_processing:
 			wpa_auth_logger(wpa_auth, sm->addr, LOGGER_INFO,
 					"received EAPOL-Key Request for GTK rekeying");
 			eloop_cancel_timeout(wpa_rekey_gtk, wpa_auth, NULL);
-			wpa_rekey_gtk(wpa_auth, NULL);
+			if (wpa_auth_gtk_rekey_in_process(wpa_auth))
+				wpa_auth_logger(wpa_auth, NULL, LOGGER_DEBUG,
+						"skip new GTK rekey - already in process");
+			else
+				wpa_rekey_gtk(wpa_auth, NULL);
 		}
 	} else {
 		/* Do not allow the same key replay counter to be reused. */
@@ -2292,8 +2308,7 @@ static int wpa_derive_ptk(struct wpa_state_machine *sm, const u8 *snonce,
 
 	if (sm->wpa_auth->conf.force_kdk_derivation ||
 	    (sm->wpa_auth->conf.secure_ltf &&
-	     sm->rsnxe && sm->rsnxe_len >= 4 &&
-	     sm->rsnxe[3] & BIT(WLAN_RSNX_CAPAB_SECURE_LTF - 8)))
+	     ieee802_11_rsnx_capab(sm->rsnxe, WLAN_RSNX_CAPAB_SECURE_LTF)))
 		kdk_len = WPA_KDK_MAX_LEN;
 	else
 		kdk_len = 0;
@@ -2347,8 +2362,7 @@ int fils_auth_pmk_to_ptk(struct wpa_state_machine *sm, const u8 *pmk,
 
 	if (sm->wpa_auth->conf.force_kdk_derivation ||
 	    (sm->wpa_auth->conf.secure_ltf &&
-	     sm->rsnxe && sm->rsnxe_len >= 4 &&
-	     sm->rsnxe[3] & BIT(WLAN_RSNX_CAPAB_SECURE_LTF - 8)))
+	     ieee802_11_rsnx_capab(sm->rsnxe, WLAN_RSNX_CAPAB_SECURE_LTF)))
 		kdk_len = WPA_KDK_MAX_LEN;
 	else
 		kdk_len = 0;
@@ -2737,7 +2751,7 @@ static struct wpabuf * fils_prepare_plainbuf(struct wpa_state_machine *sm,
 	struct wpabuf *plain;
 	u8 *len, *tmp, *tmp2;
 	u8 hdr[2];
-	u8 *gtk, dummy_gtk[32];
+	u8 *gtk, stub_gtk[32];
 	size_t gtk_len;
 	struct wpa_group *gsm;
 	size_t plain_len;
@@ -2780,11 +2794,11 @@ static struct wpabuf * fils_prepare_plainbuf(struct wpa_state_machine *sm,
 		 * Provide unique random GTK to each STA to prevent use
 		 * of GTK in the BSS.
 		 */
-		if (random_get_bytes(dummy_gtk, gtk_len) < 0) {
+		if (random_get_bytes(stub_gtk, gtk_len) < 0) {
 			wpabuf_clear_free(plain);
 			return NULL;
 		}
-		gtk = dummy_gtk;
+		gtk = stub_gtk;
 	}
 	hdr[0] = gsm->GN & 0x03;
 	hdr[1] = 0;
@@ -3367,7 +3381,7 @@ static u8 * replace_ie(const char *name, const u8 *old_buf, size_t *len, u8 eid,
 
 SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
 {
-	u8 rsc[WPA_KEY_RSC_LEN], *_rsc, *gtk, *kde = NULL, *pos, dummy_gtk[32];
+	u8 rsc[WPA_KEY_RSC_LEN], *_rsc, *gtk, *kde = NULL, *pos, stub_gtk[32];
 	size_t gtk_len, kde_len, wpa_ie_len;
 	struct wpa_group *gsm = sm->group;
 	u8 *wpa_ie;
@@ -3453,9 +3467,9 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
 			 * Provide unique random GTK to each STA to prevent use
 			 * of GTK in the BSS.
 			 */
-			if (random_get_bytes(dummy_gtk, gtk_len) < 0)
+			if (random_get_bytes(stub_gtk, gtk_len) < 0)
 				goto done;
-			gtk = dummy_gtk;
+			gtk = stub_gtk;
 		}
 		gtkidx = gsm->GN;
 		_rsc = rsc;
@@ -3689,6 +3703,8 @@ SM_STATE(WPA_PTK, PTKINITDONE)
 	wpa_auth_vlogger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 			 "pairwise key handshake completed (%s)",
 			 sm->wpa == WPA_VERSION_WPA ? "WPA" : "RSN");
+	wpa_msg(sm->wpa_auth->conf.msg_ctx, MSG_INFO, "EAPOL-4WAY-HS-COMPLETED "
+		MACSTR, MAC2STR(sm->addr));
 
 #ifdef CONFIG_IEEE80211R_AP
 	wpa_ft_push_pmk_r1(sm->wpa_auth, sm->addr);
@@ -3846,7 +3862,7 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 	const u8 *kde;
 	u8 *kde_buf = NULL, *pos, hdr[2];
 	size_t kde_len;
-	u8 *gtk, dummy_gtk[32];
+	u8 *gtk, stub_gtk[32];
 	struct wpa_auth_config *conf = &sm->wpa_auth->conf;
 
 	SM_ENTRY_MA(WPA_PTK_GROUP, REKEYNEGOTIATING, wpa_ptk_group);
@@ -3878,9 +3894,9 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 		 * Provide unique random GTK to each STA to prevent use
 		 * of GTK in the BSS.
 		 */
-		if (random_get_bytes(dummy_gtk, gsm->GTK_len) < 0)
+		if (random_get_bytes(stub_gtk, gsm->GTK_len) < 0)
 			return;
-		gtk = dummy_gtk;
+		gtk = stub_gtk;
 	}
 	if (sm->wpa == WPA_VERSION_WPA2) {
 		kde_len = 2 + RSN_SELECTOR_LEN + 2 + gsm->GTK_len +
@@ -4276,7 +4292,7 @@ int wpa_wnmsleep_bigtk_subelem(struct wpa_state_machine *sm, u8 *pos)
 	wpa_printf(MSG_DEBUG, "WNM: BIGTK Key ID %u in WNM-Sleep Mode exit",
 		   gsm->GN_bigtk);
 	wpa_hexdump_key(MSG_DEBUG, "WNM: BIGTK in WNM-Sleep Mode exit",
-			gsm->IGTK[gsm->GN_bigtk - 6], len);
+			gsm->BIGTK[gsm->GN_bigtk - 6], len);
 
 	return pos - start;
 }
@@ -4840,7 +4856,7 @@ int wpa_auth_pmksa_add2(struct wpa_authenticator *wpa_auth, const u8 *addr,
 			const u8 *pmk, size_t pmk_len, const u8 *pmkid,
 			int session_timeout, int akmp)
 {
-	if (wpa_auth->conf.disable_pmksa_caching)
+	if (!wpa_auth || wpa_auth->conf.disable_pmksa_caching)
 		return -1;
 
 	wpa_hexdump_key(MSG_DEBUG, "RSN: Cache PMK (2)", pmk, PMK_LEN);
@@ -5635,6 +5651,18 @@ int wpa_auth_rekey_gtk(struct wpa_authenticator *wpa_auth)
 		return -1;
 	eloop_cancel_timeout(wpa_rekey_gtk, wpa_auth, NULL);
 	return eloop_register_timeout(0, 0, wpa_rekey_gtk, wpa_auth, NULL);
+}
+
+
+int wpa_auth_rekey_ptk(struct wpa_authenticator *wpa_auth,
+		       struct wpa_state_machine *sm)
+{
+	if (!wpa_auth || !sm)
+		return -1;
+	wpa_auth_logger(wpa_auth, sm->addr, LOGGER_DEBUG, "rekeying PTK");
+	wpa_request_new_ptk(sm);
+	wpa_sm_step(sm);
+	return 0;
 }
 
 

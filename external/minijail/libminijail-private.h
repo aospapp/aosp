@@ -19,8 +19,9 @@ extern "C" {
  */
 #define API __attribute__((__visibility__("default")))
 
-static const char *kFdEnvVar = "__MINIJAIL_FD";
-static const char *kLdPreloadEnvVar = "LD_PRELOAD";
+static const char kFdEnvVar[] = "__MINIJAIL_FD";
+static const char kLdPreloadEnvVar[] = "LD_PRELOAD";
+static const char kSeccompPolicyPathEnvVar[] = "SECCOMP_POLICY_PATH";
 
 struct minijail;
 
@@ -46,9 +47,7 @@ extern size_t minijail_size(const struct minijail *j);
  * The marshalled data is not robust to differences between the child
  * and parent process (personality, etc).
  */
-extern int minijail_marshal(const struct minijail *j,
-                            char *buf,
-                            size_t size);
+extern int minijail_marshal(const struct minijail *j, char *buf, size_t size);
 
 /* minijail_unmarshal: initializes @j from @serialized
  * @j          minijail to initialize
@@ -57,9 +56,8 @@ extern int minijail_marshal(const struct minijail *j,
  *
  * Returns 0 on success.
  */
-extern int minijail_unmarshal(struct minijail *j,
-                              char *serialized,
-                              size_t length);
+extern int minijail_unmarshal(struct minijail *j, char *serialized,
+			      size_t length);
 
 /* minijail_from_fd: builds @j from @fd
  * @j  minijail to initialize

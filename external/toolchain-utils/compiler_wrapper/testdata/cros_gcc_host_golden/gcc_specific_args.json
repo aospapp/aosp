@@ -18,6 +18,7 @@
             "-Wno-maybe-uninitialized",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
+            "-fcommon",
             "-march=goldmont",
             "main.cc"
           ]
@@ -44,6 +45,7 @@
             "-Wno-maybe-uninitialized",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
+            "-fcommon",
             "-march=goldmont-plus",
             "main.cc"
           ]
@@ -70,6 +72,7 @@
             "-Wno-maybe-uninitialized",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
+            "-fcommon",
             "-march=skylake",
             "main.cc"
           ]

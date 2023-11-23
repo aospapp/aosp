@@ -184,7 +184,7 @@ public class TransliteratorTest extends TestFmwk {
         /* Example: rules 1. ab>x|y
          *                2. yc>z
          *
-         * []|eabcd  start - no match, copy e to tranlated buffer
+         * []|eabcd  start - no match, copy e to translated buffer
          * [e]|abcd  match rule 1 - copy output & adjust cursor
          * [ex|y]cd  match rule 2 - copy output & adjust cursor
          * [exz]|d   no match, copy d to transliterated buffer
@@ -1199,7 +1199,7 @@ public class TransliteratorTest extends TestFmwk {
     }
 
     /**
-     * Compound filter semantics were orginially not implemented
+     * Compound filter semantics were originally not implemented
      * correctly.  Originally, each component filter f(i) is replaced by
      * f'(i) = f(i) && g, where g is the filter for the compound
      * transliterator.
@@ -3606,6 +3606,9 @@ the ::BEGIN/::END stuff)
      */
     @Test
     public void TestThai() {
+        // The expectations in this test heavily depends on the Thai dictionary.
+        // Therefore, we skip this test under the LSTM configuration.
+        org.junit.Assume.assumeTrue(!TestUtil.skipDictionaryTest());
         Transliterator tr = Transliterator.getInstance("Any-Latin", Transliterator.FORWARD);
         String thaiText =
             "\u0e42\u0e14\u0e22\u0e1e\u0e37\u0e49\u0e19\u0e10\u0e32\u0e19\u0e41\u0e25\u0e49\u0e27, \u0e04\u0e2d" +
@@ -3940,7 +3943,7 @@ the ::BEGIN/::END stuff)
     }
 
     /*
-     * Tests the mehtod String nextLine() in RuleBody
+     * Tests the method String nextLine() in RuleBody
      */
     @Test
     public void TestNextLine() {

@@ -44,7 +44,7 @@ import java.util.Set;
 public final class TestApp {
     // Must be instrumentation context to access resources
     private static final Context sContext = TestApis.context().instrumentationContext();
-    private final TestAppDetails mDetails;
+    final TestAppDetails mDetails;
 
     TestApp(TestAppDetails details) {
         if (details == null) {
@@ -143,9 +143,18 @@ public final class TestApp {
         return new TestAppInstance(this, user);
     }
 
-    private byte[] apkBytes() {
-        try (InputStream inputStream =
-                     sContext.getResources().openRawResource(mDetails.mResourceIdentifier)) {
+    /**
+     * Returns an {@link InputStream} of the apk for this app.
+     */
+    public InputStream apkStream() {
+        return sContext.getResources().openRawResource(mDetails.mResourceIdentifier);
+    }
+
+    /**
+     * Returns a byte array of the apk for this app.
+     */
+    public byte[] apkBytes() {
+        try (InputStream inputStream = apkStream()) {
             return readInputStreamFully(inputStream);
         } catch (IOException e) {
             throw new NeneException("Error when reading TestApp bytes", e);

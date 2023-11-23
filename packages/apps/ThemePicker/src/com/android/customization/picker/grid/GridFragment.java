@@ -18,6 +18,7 @@ package com.android.customization.picker.grid;
 import static com.android.wallpaper.widget.BottomActionBar.BottomAction.APPLY_TEXT;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -29,6 +30,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.core.widget.ContentLoadingProgressBar;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
@@ -49,11 +52,13 @@ import com.android.wallpaper.module.CurrentWallpaperInfoFactory;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.picker.AppbarFragment;
 import com.android.wallpaper.util.LaunchUtils;
+import com.android.wallpaper.util.ScreenSizeCalculator;
 import com.android.wallpaper.widget.BottomActionBar;
 
 import com.bumptech.glide.Glide;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Fragment that contains the UI for selecting and applying a GridOption.
@@ -67,7 +72,7 @@ public class GridFragment extends AppbarFragment {
     private OptionSelectorController<GridOption> mOptionsController;
     private GridOptionsManager mGridManager;
     private ContentLoadingProgressBar mLoading;
-    private View mContent;
+    private ConstraintLayout mContent;
     private View mError;
     private BottomActionBar mBottomActionBar;
     private ThemesUserEventLogger mEventLogger;
@@ -117,6 +122,18 @@ public class GridFragment extends AppbarFragment {
             // Make Talkback focus won't reset when notifyDataSetChange
             mOptionsContainer.setItemAnimator(null);
         }
+
+        // Set aspect ratio on the preview card dynamically.
+        Point mScreenSize;
+        ScreenSizeCalculator screenSizeCalculator = ScreenSizeCalculator.getInstance();
+        mScreenSize = screenSizeCalculator.getScreenSize(
+                requireActivity().getWindowManager().getDefaultDisplay());
+        ConstraintSet set = new ConstraintSet();
+        set.clone(mContent);
+        String ratio = String.format(Locale.US, "%d:%d", mScreenSize.x, mScreenSize.y);
+        set.setDimensionRatio(R.id.preview_card_container, ratio);
+        set.applyTo(mContent);
+
         mLoading = view.findViewById(R.id.loading_indicator);
         mError = view.findViewById(R.id.error_section);
 
@@ -182,6 +199,8 @@ public class GridFragment extends AppbarFragment {
         mBottomActionBar.showActionsOnly(APPLY_TEXT);
         mBottomActionBar.setActionClickListener(APPLY_TEXT,
                 v -> applyGridOption(mGridOptionViewModel.getSelectedOption()));
+        mBottomActionBar.setActionAccessibilityTraversalAfter(APPLY_TEXT,
+                mOptionsContainer.getId());
     }
 
     private void applyGridOption(GridOption gridOption) {

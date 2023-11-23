@@ -25,6 +25,9 @@
                 android:icon="@drawable/ic_info_outline_24dp"
                 android:selectable="false" />
 
+    <com.android.settingslib.widget.TopIntroPreference
+                      android:key="alert_prefs_top_intro"/>
+
     <com.android.settingslib.widget.MainSwitchPreference android:defaultValue="@bool/master_toggle_enabled_default"
                       android:key="enable_alerts_master_toggle"
                       android:summary="@string/enable_alerts_master_toggle_summary"

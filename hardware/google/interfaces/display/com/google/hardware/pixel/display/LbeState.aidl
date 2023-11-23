@@ -22,5 +22,6 @@ enum LbeState {
     OFF = 0,
     NORMAL = 1,
     HIGH_BRIGHTNESS = 2,
-    POWER_SAVE = 3,
+    POWER_SAVE =3,
+    HIGH_BRIGHTNESS_ENHANCE = 4,
 }

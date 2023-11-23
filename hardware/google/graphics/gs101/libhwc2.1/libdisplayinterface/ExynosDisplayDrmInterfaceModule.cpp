@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#include "BrightnessController.h"
 #include "ExynosDisplayDrmInterfaceModule.h"
 #include "ExynosPrimaryDisplayModule.h"
 #include <drm/samsung_drm.h>
+
+using BrightnessRange = BrightnessController::BrightnessRange;
 
 template <typename T, typename M>
 int32_t convertDqeMatrixDataToMatrix(T &colorMatrix, M &mat,
@@ -62,7 +65,7 @@ void ExynosDisplayDrmInterfaceModule::parseBpcEnums(const DrmProperty& property)
     };
 
     ALOGD("Init bpc enums");
-    parseEnums(property, bpcEnums, mBpcEnums);
+    DrmEnumParser::parseEnums(property, bpcEnums, mBpcEnums);
     for (auto &e : mBpcEnums) {
         ALOGD("bpc [bpc: %d, drm: %" PRId64 "]", e.first, e.second);
     }
@@ -82,6 +85,9 @@ int32_t ExynosDisplayDrmInterfaceModule::initDrmDevice(DrmDevice *drmDevice)
     initOldDppBlobs(drmDevice);
     if (mDrmCrtc->force_bpc_property().id())
         parseBpcEnums(mDrmCrtc->force_bpc_property());
+
+    mOldHistoBlobs.init(drmDevice);
+
     return ret;
 }
 
@@ -535,8 +541,7 @@ int32_t ExynosDisplayDrmInterfaceModule::setDisplayColorSetting(
             if (dqe.DqeControl().config->force_10bpc)
                 bpc = static_cast<uint32_t>(BPC_10);
         }
-        uint64_t bpcEnum = 0;
-        std::tie(bpcEnum, ret) = halToDrmEnum(bpc, mBpcEnums);
+        auto [bpcEnum, ret] = DrmEnumParser::halToDrmEnum(bpc, mBpcEnums);
         if (ret < 0) {
             HWC_LOGE(mExynosDisplay, "Fail to convert bpc(%d)", bpc);
         } else {
@@ -747,18 +752,177 @@ void ExynosDisplayDrmInterfaceModule::getDisplayInfo(
         std::vector<displaycolor::DisplayInfo> &display_info) {
     displaycolor::DisplayInfo primary_display;
     auto &tb = primary_display.brightness_table;
+    auto *brightnessTable = mExynosDisplay->mBrightnessController->getBrightnessTable();
 
-    tb.nbm_nits_min = mBrightnessTable[BrightnessRange::NORMAL].mNitsStart;
-    tb.nbm_nits_max = mBrightnessTable[BrightnessRange::NORMAL].mNitsEnd;
-    tb.nbm_dbv_min = mBrightnessTable[BrightnessRange::NORMAL].mBklStart;
-    tb.nbm_dbv_max = mBrightnessTable[BrightnessRange::NORMAL].mBklEnd;
+    tb.nbm_nits_min = brightnessTable[toUnderlying(BrightnessRange::NORMAL)].mNitsStart;
+    tb.nbm_nits_max = brightnessTable[toUnderlying(BrightnessRange::NORMAL)].mNitsEnd;
+    tb.nbm_dbv_min = brightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBklStart;
+    tb.nbm_dbv_max = brightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBklEnd;
 
-    tb.hbm_nits_min = mBrightnessTable[BrightnessRange::HBM].mNitsStart;
-    tb.hbm_nits_max = mBrightnessTable[BrightnessRange::HBM].mNitsEnd;
-    tb.hbm_dbv_min = mBrightnessTable[BrightnessRange::HBM].mBklStart;
-    tb.hbm_dbv_max = mBrightnessTable[BrightnessRange::HBM].mBklEnd;
+    tb.hbm_nits_min = brightnessTable[toUnderlying(BrightnessRange::HBM)].mNitsStart;
+    tb.hbm_nits_max = brightnessTable[toUnderlying(BrightnessRange::HBM)].mNitsEnd;
+    tb.hbm_dbv_min = brightnessTable[toUnderlying(BrightnessRange::HBM)].mBklStart;
+    tb.hbm_dbv_max = brightnessTable[toUnderlying(BrightnessRange::HBM)].mBklEnd;
+
+    primary_display.panel_name = GetPanelName();
+    primary_display.panel_serial = GetPanelSerial();
 
     display_info.push_back(primary_display);
+}
+
+const std::string ExynosDisplayDrmInterfaceModule::GetPanelInfo(const std::string &sysfs_rel,
+                                                                char delim) {
+    ExynosPrimaryDisplayModule* display = (ExynosPrimaryDisplayModule*)mExynosDisplay;
+    const DisplayType type = display->getBuiltInDisplayType();
+    const std::string &sysfs = display->getPanelSysfsPath(type);
+
+    if (sysfs.empty()) {
+        return "";
+    }
+
+    std::string info;
+    if (readLineFromFile(sysfs + "/" + sysfs_rel, info, delim) != OK) {
+        ALOGE("failed reading %s/%s", sysfs.c_str(), sysfs_rel.c_str());
+        return "";
+    }
+
+    return info;
+}
+
+/* For Histogram */
+int32_t ExynosDisplayDrmInterfaceModule::createHistoRoiBlob(uint32_t &blobId) {
+    struct histogram_roi histo_roi;
+
+    histo_roi.start_x = mHistogramInfo->getHistogramROI().start_x;
+    histo_roi.start_y = mHistogramInfo->getHistogramROI().start_y;
+    histo_roi.hsize = mHistogramInfo->getHistogramROI().hsize;
+    histo_roi.vsize = mHistogramInfo->getHistogramROI().vsize;
+
+    int ret = mDrmDevice->CreatePropertyBlob(&histo_roi, sizeof(histo_roi), &blobId);
+    if (ret) {
+        HWC_LOGE(mExynosDisplay, "Failed to create histogram roi blob %d", ret);
+        return ret;
+    }
+
+    return NO_ERROR;
+}
+
+int32_t ExynosDisplayDrmInterfaceModule::createHistoWeightsBlob(uint32_t &blobId) {
+    struct histogram_weights histo_weights;
+
+    histo_weights.weight_r = mHistogramInfo->getHistogramWeights().weight_r;
+    histo_weights.weight_g = mHistogramInfo->getHistogramWeights().weight_g;
+    histo_weights.weight_b = mHistogramInfo->getHistogramWeights().weight_b;
+
+    int ret = mDrmDevice->CreatePropertyBlob(&histo_weights, sizeof(histo_weights), &blobId);
+    if (ret) {
+        HWC_LOGE(mExynosDisplay, "Failed to create histogram weights blob %d", ret);
+        return ret;
+    }
+
+    return NO_ERROR;
+}
+
+int32_t ExynosDisplayDrmInterfaceModule::setDisplayHistoBlob(
+        const DrmProperty &prop, const uint32_t type,
+        ExynosDisplayDrmInterface::DrmModeAtomicReq &drmReq) {
+    if (!prop.id()) return NO_ERROR;
+
+    int32_t ret = NO_ERROR;
+    uint32_t blobId = 0;
+
+    switch (type) {
+        case HistoBlobs::ROI:
+            ret = createHistoRoiBlob(blobId);
+            break;
+        case HistoBlobs::WEIGHTS:
+            ret = createHistoWeightsBlob(blobId);
+            break;
+        default:
+            ret = -EINVAL;
+    }
+    if (ret != NO_ERROR) {
+        HWC_LOGE(mExynosDisplay, "%s: Failed to create blob", __func__);
+        return ret;
+    }
+
+    /* Skip setting when previous and current setting is same with 0 */
+    if ((blobId == 0) && (mOldHistoBlobs.getBlob(type) == 0)) return ret;
+
+    if ((ret = drmReq.atomicAddProperty(mDrmCrtc->id(), prop, blobId)) < 0) {
+        HWC_LOGE(mExynosDisplay, "%s: Failed to add property", __func__);
+        return ret;
+    }
+    mOldHistoBlobs.addBlob(type, blobId);
+
+    return ret;
+}
+
+int32_t ExynosDisplayDrmInterfaceModule::setDisplayHistogramSetting(
+        ExynosDisplayDrmInterface::DrmModeAtomicReq &drmReq) {
+    if ((mHistogramInfoRegistered == false) || (isPrimary() == false)) return NO_ERROR;
+
+    int ret = NO_ERROR;
+
+    if ((ret = setDisplayHistoBlob(mDrmCrtc->histogram_roi_property(),
+                                   static_cast<uint32_t>(HistoBlobs::ROI), drmReq) != NO_ERROR)) {
+        HWC_LOGE(mExynosDisplay, "%s: Failed to set Histo_ROI blob", __func__);
+        return ret;
+    }
+    if ((ret = setDisplayHistoBlob(mDrmCrtc->histogram_weights_property(),
+                                   static_cast<uint32_t>(HistoBlobs::WEIGHTS),
+                                   drmReq) != NO_ERROR)) {
+        HWC_LOGE(mExynosDisplay, "%s: Failed to set Histo_Weights blob", __func__);
+        return ret;
+    }
+
+    const DrmProperty &prop_histo_threshold = mDrmCrtc->histogram_threshold_property();
+    if (prop_histo_threshold.id()) {
+        if ((ret = drmReq.atomicAddProperty(mDrmCrtc->id(), prop_histo_threshold,
+                                            (uint64_t)(mHistogramInfo->getHistogramThreshold()),
+                                            true)) < 0) {
+            HWC_LOGE(mExynosDisplay, "%s: Failed to set histogram thereshold property", __func__);
+            return ret;
+        }
+    }
+
+    return NO_ERROR;
+}
+
+int32_t ExynosDisplayDrmInterfaceModule::setHistogramControl(int32_t control) {
+    if ((mHistogramInfoRegistered == false) || (isPrimary() == false)) return NO_ERROR;
+
+    int ret = NO_ERROR;
+    uint32_t crtc_id = mDrmCrtc->id();
+
+    if (control == HISTOGRAM_CONTROL_REQUEST) {
+        ret = mDrmDevice->CallVendorIoctl(DRM_IOCTL_EXYNOS_HISTOGRAM_REQUEST, (void *)&crtc_id);
+        ALOGD("Histogram Requested");
+    } else if (control == HISTOGRAM_CONTROL_CANCEL) {
+        ret = mDrmDevice->CallVendorIoctl(DRM_IOCTL_EXYNOS_HISTOGRAM_CANCEL, (void *)&crtc_id);
+        ALOGD("Histogram Canceled");
+    }
+
+    return ret;
+}
+
+int32_t ExynosDisplayDrmInterfaceModule::setHistogramData(void *bin) {
+    if (!bin) return -EINVAL;
+
+    /*
+     * There are two handling methods.
+     * For ContentSampling in HWC_2.3 API, histogram bin needs to be accumulated.
+     * For Histogram HIDL, histogram bin need to be sent to HIDL block.
+     */
+    if (mHistogramInfo->getHistogramType() == HistogramInfo::Histogram_Type::HISTOGRAM_HIDL) {
+        static_cast<HIDLHistogram *>(mHistogramInfo.get())->CallbackHistogram(bin);
+    } else {
+    /*
+     * ContentSampling in HWC2.3 API is not supported
+     */
+    }
+
+    return NO_ERROR;
 }
 
 //////////////////////////////////////////////////// ExynosPrimaryDisplayDrmInterfaceModule //////////////////////////////////////////////////////////////////

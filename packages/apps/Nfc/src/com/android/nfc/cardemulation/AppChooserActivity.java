@@ -16,13 +16,6 @@
 
 package com.android.nfc.cardemulation;
 
-import com.android.internal.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -37,6 +30,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -48,8 +42,17 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
-public class AppChooserActivity extends AlertActivity
+import com.android.internal.R;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.bottomsheet.BottomSheetBehavior.BottomSheetCallback;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class AppChooserActivity extends AppCompatActivity
         implements AdapterView.OnItemClickListener {
 
     static final String TAG = "AppChooserActivity";
@@ -59,6 +62,7 @@ public class AppChooserActivity extends AlertActivity
     public static final String EXTRA_FAILED_COMPONENT = "failed_component";
 
     private int mIconSize;
+    private TextView mTextView;
     private ListView mListView;
     private ListAdapter mListAdapter;
     private CardEmulation mCardEmuManager;
@@ -80,7 +84,6 @@ public class AppChooserActivity extends AlertActivity
     protected void onCreate(Bundle savedInstanceState, String category,
             ArrayList<ApduServiceInfo> options, ComponentName failedComponent) {
         super.onCreate(savedInstanceState);
-        setTheme(com.android.nfc.R.style.DialogAlertDayNight);
 
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         registerReceiver(mReceiver, filter);
@@ -96,7 +99,6 @@ public class AppChooserActivity extends AlertActivity
 
         final NfcAdapter adapter = NfcAdapter.getDefaultAdapter(this);
         mCardEmuManager = CardEmulation.getInstance(adapter);
-        AlertController.AlertParams ap = mAlertParams;
 
         final ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
         mIconSize = am.getLauncherLargeIconSize();
@@ -107,6 +109,27 @@ public class AppChooserActivity extends AlertActivity
         // 3. No failed component and alternatives: pick alternative
         PackageManager pm = getPackageManager();
 
+        setContentView(com.android.nfc.R.layout.cardemu_resolver_bottomsheet);
+
+
+        findViewById(com.android.nfc.R.id.touch_outside).setOnClickListener(v -> finish());
+        BottomSheetBehavior.from(findViewById(com.android.nfc.R.id.bottom_sheet))
+                .setBottomSheetCallback(new BottomSheetBehavior.BottomSheetCallback() {
+                    @Override
+                    public void onStateChanged(@NonNull View bottomSheet, int newState) {
+                        switch (newState) {
+                            case BottomSheetBehavior.STATE_HIDDEN:
+                            finish();
+                            break;
+                        }
+                    }
+
+                    @Override
+                    public void onSlide(@NonNull View bottomSheet, float slideOffset) {
+                    // no op
+                    }
+               });
+
         CharSequence applicationLabel = "unknown";
         if (failedComponent != null) {
             try {
@@ -116,30 +139,20 @@ public class AppChooserActivity extends AlertActivity
             }
 
         }
+        mTextView = (TextView) findViewById(com.android.nfc.R.id.appchooser_text);
         if (options.size() == 0 && failedComponent != null) {
             String formatString = getString(com.android.nfc.R.string.transaction_failure);
-            ap.mTitle = "";
-            ap.mMessage = String.format(formatString, applicationLabel);
-            ap.mPositiveButtonText = getString(R.string.ok);
-            setupAlert();
+            mTextView.setText(String.format(formatString, applicationLabel));
         } else {
             mListAdapter = new ListAdapter(this, options);
             if (failedComponent != null) {
                 String formatString = getString(com.android.nfc.R.string.could_not_use_app);
-                ap.mTitle = String.format(formatString, applicationLabel);
-                ap.mNegativeButtonText = getString(R.string.cancel);
-            } else {
-                if (CardEmulation.CATEGORY_PAYMENT.equals(category)) {
-                    ap.mTitle = getString(com.android.nfc.R.string.pay_with);
-                } else {
-                    ap.mTitle = getString(com.android.nfc.R.string.complete_with);
-                }
+                mTextView.setText(String.format(formatString, applicationLabel));
             }
-            ap.mView = getLayoutInflater().inflate(com.android.nfc.R.layout.cardemu_resolver, null);
 
-            mListView = (ListView) ap.mView.findViewById(com.android.nfc.R.id.resolver_list);
+            mListView = (ListView) findViewById(com.android.nfc.R.id.resolver_list);
+            mListView.setDivider(getResources().getDrawable(android.R.color.transparent));
             if (isPayment) {
-                mListView.setDivider(getResources().getDrawable(android.R.color.transparent));
                 int height = (int) (getResources().getDisplayMetrics().density * 16);
                 mListView.setDividerHeight(height);
             } else {
@@ -147,10 +160,9 @@ public class AppChooserActivity extends AlertActivity
             }
             mListView.setAdapter(mListAdapter);
             mListView.setOnItemClickListener(this);
-
-            setupAlert();
         }
         Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
         window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
     }
 
@@ -166,7 +178,9 @@ public class AppChooserActivity extends AlertActivity
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         DisplayAppInfo info = (DisplayAppInfo) mListAdapter.getItem(position);
-        mCardEmuManager.setDefaultForNextTap(info.serviceInfo.getComponent());
+        mCardEmuManager.setDefaultForNextTap(
+                UserHandle.getUserHandleForUid(info.serviceInfo.getUid()).getIdentifier(),
+                info.serviceInfo.getComponent());
         Intent dialogIntent = new Intent(this, TapAgainDialog.class);
         dialogIntent.putExtra(TapAgainDialog.EXTRA_CATEGORY, mCategory);
         dialogIntent.putExtra(TapAgainDialog.EXTRA_APDU_SERVICE, info.serviceInfo);
@@ -203,7 +217,10 @@ public class AppChooserActivity extends AlertActivity
             for (ApduServiceInfo service : services) {
                 CharSequence label = service.getDescription();
                 if (label == null) label = service.loadLabel(pm);
-                Drawable icon = service.loadIcon(pm);
+
+                Drawable icon = pm.getUserBadgedIcon(service.loadIcon(pm),
+                        UserHandle.getUserHandleForUid(service.getUid()));
+
                 Drawable banner = null;
                 if (mIsPayment) {
                     banner = service.loadBanner(pm);
@@ -255,8 +272,6 @@ public class AppChooserActivity extends AlertActivity
             if (mIsPayment) {
                 holder.banner.setImageDrawable(appInfo.displayBanner);
             } else {
-                ViewGroup.LayoutParams lp = holder.icon.getLayoutParams();
-                lp.width = lp.height = mIconSize;
                 holder.icon.setImageDrawable(appInfo.displayIcon);
                 holder.text.setText(appInfo.displayLabel);
             }

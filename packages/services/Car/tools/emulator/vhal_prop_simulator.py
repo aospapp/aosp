@@ -42,7 +42,7 @@ class VhalPropSimulator(object):
         """
             handle generated VHAL property by injecting through vhal emulator.
         """
-        print "Generated property %s with value: %s" % (desc, value)
+        print('Generated property %s with value: %s' % (desc, value))
         self.vhal.setProperty(prop, area_id, value)
 
     def _startGeneratorThread(self, generator):

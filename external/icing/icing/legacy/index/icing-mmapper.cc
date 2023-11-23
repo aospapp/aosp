@@ -17,9 +17,10 @@
 //
 #include "icing/legacy/index/icing-mmapper.h"
 
-#include <errno.h>
-#include <string.h>
 #include <sys/mman.h>
+
+#include <cerrno>
+#include <cstring>
 
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/legacy/index/icing-filesystem.h"

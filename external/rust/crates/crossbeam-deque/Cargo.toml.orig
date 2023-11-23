@@ -4,11 +4,10 @@ name = "crossbeam-deque"
 # - Update CHANGELOG.md
 # - Update README.md
 # - Create "crossbeam-deque-X.Y.Z" git tag
-version = "0.8.0"
+version = "0.8.1"
 authors = ["The Crossbeam Project Developers"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/crossbeam-rs/crossbeam"
 homepage = "https://github.com/crossbeam-rs/crossbeam/tree/master/crossbeam-deque"
 documentation = "https://docs.rs/crossbeam-deque"
@@ -21,6 +20,8 @@ default = ["std"]
 
 # Enable to use APIs that require `std`.
 # This is enabled by default.
+#
+# NOTE: Disabling `std` feature is not supported yet.
 std = ["crossbeam-epoch/std", "crossbeam-utils/std"]
 
 [dependencies]
@@ -39,4 +40,4 @@ default-features = false
 optional = true
 
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8"

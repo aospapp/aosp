@@ -13,8 +13,9 @@ cd $(dirname "$0")
 
 HOST="arm-linux-androideabi"
 T="${ANDROID_BUILD_TOP}"
-export CC="${T}/prebuilts/clang/host/linux-x86/clang-r399163/bin/clang"
-export LD="${T}/prebuilts/clang/host/linux-x86/clang-r399163/bin/lld"
+CLANG_VERSION="$(exec ${T}/build/soong/scripts/get_clang_version.py)"
+export CC="${T}/prebuilts/clang/host/linux-x86/${CLANG_VERSION}/bin/clang"
+export LD="${T}/prebuilts/clang/host/linux-x86/${CLANG_VERSION}/bin/lld"
 
 CFLAGS=(
   "-isystem ${T}/external/libcxx/include"

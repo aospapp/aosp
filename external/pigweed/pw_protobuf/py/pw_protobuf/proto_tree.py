@@ -20,7 +20,7 @@ import enum
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypeVar
 from typing import cast
 
-import google.protobuf.descriptor_pb2 as descriptor_pb2
+from google.protobuf import descriptor_pb2
 
 T = TypeVar('T')  # pylint: disable=invalid-name
 
@@ -75,8 +75,15 @@ class ProtoNode(abc.ABC):
         path = '.'.join(self._attr_hierarchy(lambda node: node.name(), None))
         return path.lstrip('.')
 
-    def nanopb_name(self) -> str:
-        """Full nanopb-style name of the node."""
+    def nanopb_fields(self) -> str:
+        """Name of the Nanopb variable that represents the proto fields."""
+        return self._nanopb_name() + '_fields'
+
+    def nanopb_struct(self) -> str:
+        """Name of the Nanopb struct for this proto."""
+        return '::' + self._nanopb_name()
+
+    def _nanopb_name(self) -> str:
         name = '_'.join(self._attr_hierarchy(lambda node: node.name(), None))
         return name.lstrip('_')
 
@@ -331,14 +338,18 @@ class ProtoServiceMethod:
 
         def cc_enum(self) -> str:
             """Returns the pw_rpc MethodType C++ enum for this method type."""
-            return '::pw::rpc::internal::MethodType::' + self.value
+            return '::pw::rpc::MethodType::' + self.value
 
-    def __init__(self, name: str, method_type: Type, request_type: ProtoNode,
-                 response_type: ProtoNode):
+    def __init__(self, service: ProtoService, name: str, method_type: Type,
+                 request_type: ProtoNode, response_type: ProtoNode):
+        self._service = service
         self._name = name
         self._type = method_type
         self._request_type = request_type
         self._response_type = response_type
+
+    def service(self) -> ProtoService:
+        return self._service
 
     def name(self) -> str:
         return self._name
@@ -347,12 +358,12 @@ class ProtoServiceMethod:
         return self._type
 
     def server_streaming(self) -> bool:
-        return (self._type is self.Type.SERVER_STREAMING
-                or self._type is self.Type.BIDIRECTIONAL_STREAMING)
+        return self._type in (self.Type.SERVER_STREAMING,
+                              self.Type.BIDIRECTIONAL_STREAMING)
 
     def client_streaming(self) -> bool:
-        return (self._type is self.Type.CLIENT_STREAMING
-                or self._type is self.Type.BIDIRECTIONAL_STREAMING)
+        return self._type in (self.Type.CLIENT_STREAMING,
+                              self.Type.BIDIRECTIONAL_STREAMING)
 
     def request_type(self) -> ProtoNode:
         return self._request_type
@@ -457,7 +468,7 @@ def _add_service_methods(global_root: ProtoNode, package_root: ProtoNode,
                                              method.output_type)
 
         service.add_method(
-            ProtoServiceMethod(method.name, method_type, request_node,
+            ProtoServiceMethod(service, method.name, method_type, request_node,
                                response_node))
 
 

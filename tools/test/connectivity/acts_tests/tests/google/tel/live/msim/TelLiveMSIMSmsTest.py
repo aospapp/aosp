@@ -15,17 +15,14 @@
 #   limitations under the License.
 
 import time
-from acts_contrib.test_utils.tel.tel_test_utils \
-              import sms_send_receive_verify, multithread_func
-from acts.utils import rand_ascii_str
-from acts_contrib.test_utils.tel.tel_subscription_utils \
-              import get_subid_from_slot_index, set_subid_for_message
-from acts_contrib.test_utils.tel.tel_defines \
-              import MULTI_SIM_CONFIG, WAIT_TIME_ANDROID_STATE_SETTLING
-from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_voice_utils \
-              import phone_setup_voice_general_for_slot
+from acts_contrib.test_utils.tel.tel_defines import MULTI_SIM_CONFIG, WAIT_TIME_ANDROID_STATE_SETTLING
+from acts_contrib.test_utils.tel.tel_message_utils import sms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_general_for_slot
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index, set_subid_for_message
+from acts.libs.utils.multithread import multithread_func
+from acts.test_decorators import test_tracker_info
+from acts.utils import rand_ascii_str
 
 
 class TelLiveMSIMSmsTest(TelephonyBaseTest):

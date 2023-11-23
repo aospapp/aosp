@@ -144,6 +144,11 @@ http_t *ipp_cups_connect(const wprint_connect_info_t *info, char *printer_uri,
  */
 ipp_t *ipp_doCupsRequest(http_t *http, ipp_t *request, char *http_resource, char *printer_uri);
 
+extern int getJobId(http_t *http, char *http_resource, char *printer_uri,
+        job_state_dyn_t *job_state_dyn, const char *requesting_user);
+
+extern int tryNextResourceExtension(char *printer_uri);
+
 #define IPP_PREFIX "ipp"
 #define IPPS_PREFIX "ipps"
 #define DEFAULT_IPP_URI_RESOURCE "/ipp/print"

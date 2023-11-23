@@ -37,8 +37,7 @@
             android:layout_centerVertical="true"
             android:layout_alignParentStart="true"
         />
-
-        <FrameLayout
+        <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/clock_container"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
@@ -51,14 +50,19 @@
                 android:elevation="5dp"
                 android:singleLine="true"
                 android:textAppearance="@style/TextAppearance.SystemBar.Clock"
-                systemui:amPmStyle="normal"/>
-        </FrameLayout>
+                systemui:amPmStyle="gone"/>
+        </com.android.systemui.car.systembar.CarSystemBarButton>
+
+        <include layout="@layout/camera_privacy_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_centerVertical="true"
+            android:layout_toLeftOf="@id/mic_privacy_chip" />
 
         <include layout="@layout/mic_privacy_chip"
-                 android:layout_width="@dimen/privacy_chip_width"
+                 android:layout_width="wrap_content"
                  android:layout_height="match_parent"
                  android:layout_centerVertical="true"
-                 android:layout_toRightOf="@id/clock_container"
                  android:layout_toLeftOf="@id/user_name_container" />
 
         <FrameLayout
@@ -88,7 +92,7 @@
                         android:id="@+id/user_avatar"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
-                        android:src="@drawable/car_ic_user_icon"
+                        android:src="@drawable/car_ic_users_icon"
                         android:layout_marginEnd="@dimen/system_bar_user_icon_padding"
                     />
                     <TextView

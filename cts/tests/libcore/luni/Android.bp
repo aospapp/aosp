@@ -39,11 +39,6 @@ android_test {
         enabled: false,
     },
     dxflags: ["--multi-dex"],
-    // Exclude apache harmony tests from coverage instrumentation, since it breaks
-    // the tests of reflection APIs by adding fields and methods to the test classes.
-    jacoco: {
-        exclude_filter: ["org.apache.harmony.tests.**"],
-    },
     optimize: {
         enabled: false,
     },
@@ -58,6 +53,8 @@ android_test {
     compile_multilib: "both",
     // This test requires cts-dalvik-host-test-runner to be built to run via Atest.
     host_required: ["cts-dalvik-host-test-runner"],
+    min_sdk_version: "31",
+    target_sdk_version: "31",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

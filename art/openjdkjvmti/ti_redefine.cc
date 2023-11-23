@@ -538,11 +538,11 @@ Redefiner::ClassRedefinition::ClassRedefinition(
       dex_file_(redefined_dex_file),
       class_sig_(class_sig),
       original_dex_file_(orig_dex_file) {
-  GetMirrorClass()->MonitorEnter(driver_->self_);
+  lock_acquired_ = GetMirrorClass()->MonitorTryEnter(driver_->self_) != nullptr;
 }
 
 Redefiner::ClassRedefinition::~ClassRedefinition() {
-  if (driver_ != nullptr) {
+  if (driver_ != nullptr && lock_acquired_) {
     GetMirrorClass()->MonitorExit(driver_->self_);
   }
 }
@@ -759,9 +759,7 @@ art::mirror::DexCache* Redefiner::ClassRedefinition::CreateNewDexCache(
   }
   art::WriterMutexLock mu(driver_->self_, *art::Locks::dex_lock_);
   cache->SetLocation(location.Get());
-  cache->InitializeNativeFields(dex_file_.get(),
-                                loader.IsNull() ? driver_->runtime_->GetLinearAlloc()
-                                                : loader->GetAllocator());
+  cache->Initialize(dex_file_.get(), loader.Get());
   return cache.Get();
 }
 
@@ -1080,6 +1078,15 @@ bool Redefiner::ClassRedefinition::CheckClass() {
   const art::dex::ClassDef& def = dex_file_->GetClassDef(0);
   // Get the class as it is now.
   art::Handle<art::mirror::Class> current_class(hs.NewHandle(GetMirrorClass()));
+
+  // Check whether the class object has been successfully acquired.
+  if (!lock_acquired_) {
+      std::string storage;
+      RecordFailure(ERR(INTERNAL),
+                    StringPrintf("Failed to lock class object '%s'",
+                                 current_class->GetDescriptor(&storage)));
+      return false;
+  }
 
   // Check the access flags didn't change.
   if (def.GetJavaAccessFlags() != (current_class->GetAccessFlags() & art::kAccValidClassFlags)) {
@@ -1608,40 +1615,29 @@ RedefinitionDataIter RedefinitionDataHolder::end() {
 
 bool Redefiner::ClassRedefinition::CheckVerification(const RedefinitionDataIter& iter) {
   DCHECK_EQ(dex_file_->NumClassDefs(), 1u);
-  art::StackHandleScope<2> hs(driver_->self_);
+  art::StackHandleScope<3> hs(driver_->self_);
   std::string error;
   // TODO Make verification log level lower
   art::verifier::FailureKind failure =
       art::verifier::ClassVerifier::VerifyClass(driver_->self_,
                                                 /*verifier_deps=*/nullptr,
                                                 dex_file_.get(),
+                                                hs.NewHandle(iter.GetNewClassObject() != nullptr
+                                                                ? iter.GetNewClassObject()
+                                                                : iter.GetMirrorClass()),
                                                 hs.NewHandle(iter.GetNewDexCache()),
                                                 hs.NewHandle(GetClassLoader()),
                                                 /*class_def=*/ dex_file_->GetClassDef(0),
                                                 /*callbacks=*/ nullptr,
-                                                /*allow_soft_failures=*/ true,
                                                 /*log_level=*/
                                                 art::verifier::HardFailLogMode::kLogWarning,
                                                 art::Runtime::Current()->GetTargetSdkVersion(),
                                                 &error);
-  switch (failure) {
-    case art::verifier::FailureKind::kNoFailure:
-      // TODO It is possible that by doing redefinition previous NO_COMPILE verification failures
-      // were fixed. It would be nice to reflect this in the new implementations.
-      return true;
-    case art::verifier::FailureKind::kSoftFailure:
-    case art::verifier::FailureKind::kAccessChecksFailure:
-    case art::verifier::FailureKind::kTypeChecksFailure:
-      // Soft failures might require interpreter on some methods. It won't prevent redefinition but
-      // it does mean we need to run the verifier again and potentially update method flags after
-      // performing the swap.
-      needs_reverify_ = true;
-      return true;
-    case art::verifier::FailureKind::kHardFailure: {
-      RecordFailure(ERR(FAILS_VERIFICATION), "Failed to verify class. Error was: " + error);
-      return false;
-    }
+  if (failure == art::verifier::FailureKind::kHardFailure) {
+    RecordFailure(ERR(FAILS_VERIFICATION), "Failed to verify class. Error was: " + error);
+    return false;
   }
+  return true;
 }
 
 // Looks through the previously allocated cookies to see if we need to update them with another new
@@ -1873,11 +1869,6 @@ bool Redefiner::ClassRedefinition::FinishNewClassAllocations(RedefinitionDataHol
     }
 
     data->SetNewClassObject(nc.Get());
-    // We really want to be able to resolve to the new class-object using this dex-cache for
-    // verification work. Since we haven't put it in the class-table yet we wll just manually add it
-    // to the dex-cache.
-    // TODO: We should maybe do this in a better spot.
-    data->GetNewDexCache()->SetResolvedType(nc->GetDexTypeIndex(), nc.Get());
     data->SetInitialized();
     return nc.Get();
   };
@@ -2099,10 +2090,6 @@ art::ObjPtr<art::mirror::Class> Redefiner::ClassRedefinition::AllocateNewClassOb
       << "Attempting to redefine an unresolved class " << old_class->PrettyClass()
       << " status=" << old_class->GetStatus();
   CHECK(linked_class->IsResolved());
-  if (old_class->WasVerificationAttempted()) {
-    // Match verification-attempted flag
-    linked_class->SetVerificationAttempted();
-  }
   if (old_class->ShouldSkipHiddenApiChecks()) {
     // Match skip hiddenapi flag
     linked_class->SetSkipHiddenApiChecks();
@@ -2129,7 +2116,7 @@ art::ObjPtr<art::mirror::Class> Redefiner::ClassRedefinition::AllocateNewClassOb
   }
   // Finish setting up methods.
   linked_class->VisitMethods([&](art::ArtMethod* m) REQUIRES_SHARED(art::Locks::mutator_lock_) {
-    linker->SetEntryPointsToInterpreter(m);
+    driver_->runtime_->GetInstrumentation()->InitializeMethodsCode(m, /* aot_code= */ nullptr);
     m->SetNotIntrinsic();
     DCHECK(m->IsCopied() || m->GetDeclaringClass() == linked_class.Get())
         << m->PrettyMethod()
@@ -2490,10 +2477,11 @@ jvmtiError Redefiner::Run() {
     art::ClassLinker* cl = runtime_->GetClassLinker();
     if (data.GetSourceClassLoader() == nullptr) {
       // AppendToBootClassPath includes dex file registration.
-      cl->AppendToBootClassPath(self_, &data.GetRedefinition().GetDexFile());
+      cl->AppendToBootClassPath(&data.GetRedefinition().GetDexFile(), data.GetNewDexCache());
     } else {
       cl->RegisterExistingDexCache(data.GetNewDexCache(), data.GetSourceClassLoader());
     }
+    DCHECK_EQ(cl->FindDexCache(self_, data.GetRedefinition().GetDexFile()), data.GetNewDexCache());
   }
   UnregisterAllBreakpoints();
 
@@ -2524,34 +2512,7 @@ jvmtiError Redefiner::Run() {
     // owns the DexFile and when ownership is transferred.
     ReleaseAllDexFiles();
   }
-  // By now the class-linker knows about all the classes so we can safetly retry verification and
-  // update method flags.
-  ReverifyClasses(holder);
   return OK;
-}
-
-void Redefiner::ReverifyClasses(RedefinitionDataHolder& holder) {
-  for (RedefinitionDataIter data = holder.begin(); data != holder.end(); ++data) {
-    data.GetRedefinition().ReverifyClass(data);
-  }
-}
-
-void Redefiner::ClassRedefinition::ReverifyClass(const RedefinitionDataIter &cur_data) {
-  if (!needs_reverify_) {
-    return;
-  }
-  VLOG(plugin) << "Reverifying " << class_sig_ << " due to soft failures";
-  std::string error;
-  // TODO Make verification log level lower
-  art::verifier::FailureKind failure =
-      art::verifier::ClassVerifier::ReverifyClass(driver_->self_,
-                                                  cur_data.GetMirrorClass(),
-                                                  /*log_level=*/
-                                                  art::verifier::HardFailLogMode::kLogWarning,
-                                                  /*api_level=*/
-                                                  art::Runtime::Current()->GetTargetSdkVersion(),
-                                                  &error);
-  CHECK_NE(failure, art::verifier::FailureKind::kHardFailure);
 }
 
 void Redefiner::ClassRedefinition::UpdateMethods(art::ObjPtr<art::mirror::Class> mclass,
@@ -2583,10 +2544,11 @@ void Redefiner::ClassRedefinition::UpdateMethods(art::ObjPtr<art::mirror::Class>
     CHECK(method_id != nullptr);
     uint32_t dex_method_idx = dex_file_->GetIndexForMethodId(*method_id);
     method.SetDexMethodIndex(dex_method_idx);
-    linker->SetEntryPointsToInterpreter(&method);
+    driver_->runtime_->GetInstrumentation()->InitializeMethodsCode(&method, /*aot_code=*/ nullptr);
     if (method.HasCodeItem()) {
       method.SetCodeItem(
-          dex_file_->GetCodeItem(dex_file_->FindCodeItemOffset(class_def, dex_method_idx)));
+          dex_file_->GetCodeItem(dex_file_->FindCodeItemOffset(class_def, dex_method_idx)),
+          dex_file_->IsCompactDexFile());
     }
     // Clear all the intrinsics related flags.
     method.SetNotIntrinsic();
@@ -3055,25 +3017,6 @@ void Redefiner::ClassRedefinition::UpdateClass(const RedefinitionDataIter& holde
   } else if (!holder.IsActuallyStructural()) {
     UpdateClassInPlace(holder);
   }
-  UpdateClassCommon(holder);
-}
-
-void Redefiner::ClassRedefinition::UpdateClassCommon(const RedefinitionDataIter &cur_data) {
-  // NB This is after we've already replaced all old-refs with new-refs in the structural case.
-  art::ObjPtr<art::mirror::Class> klass(cur_data.GetMirrorClass());
-  DCHECK(!IsStructuralRedefinition() || klass == cur_data.GetNewClassObject());
-  if (!needs_reverify_) {
-    return;
-  }
-  // Force the most restrictive interpreter environment. We don't know what the final verification
-  // will allow. We will clear these after retrying verification once we drop the mutator-lock.
-  klass->VisitMethods([](art::ArtMethod* m) REQUIRES_SHARED(art::Locks::mutator_lock_) {
-    if (!m->IsNative() && m->IsInvokable() && !m->IsObsolete()) {
-      m->ClearSkipAccessChecks();
-      m->SetDontCompile();
-      m->SetMustCountLocks();
-    }
-  }, art::kRuntimePointerSize);
 }
 
 // Restores the old obsolete methods maps if it turns out they weren't needed (ie there were no new

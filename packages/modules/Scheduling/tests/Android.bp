@@ -22,4 +22,6 @@ android_test {
     srcs: ["src/**/*.java"],
     static_libs: ["androidx.test.rules", "truth-prebuilt", "androidx.test.core"],
     test_suites: ["general-tests", "cts", "mts-scheduling"],
+    target_sdk_version: "31",
+    min_sdk_version: "31",
 }

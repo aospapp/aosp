@@ -19,7 +19,7 @@ package {
 }
 
 android_test {
-    name: "ScriptExecutorUnitTest",
+    name: "ScriptExecutorUnitTests",
 
     srcs: ["src/**/*.java"],
 
@@ -53,7 +53,7 @@ cc_library {
     ],
 
     srcs: [
-        "src/com/android/car/scriptexecutor/JniUtilsTestHelper.cpp",
+        "src/com/android/car/scriptexecutortest/unit/JniUtilsTestHelper.cpp",
     ],
 
     stl: "libc++_static",

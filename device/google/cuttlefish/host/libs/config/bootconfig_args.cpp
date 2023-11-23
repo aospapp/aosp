@@ -24,6 +24,7 @@
 #include "common/libs/utils/environment.h"
 #include "common/libs/utils/files.h"
 #include "host/libs/config/cuttlefish_config.h"
+#include "host/libs/config/known_paths.h"
 #include "host/libs/vm_manager/crosvm_manager.h"
 #include "host/libs/vm_manager/qemu_manager.h"
 #include "host/libs/vm_manager/vm_manager.h"
@@ -45,15 +46,6 @@ std::string concat(const S& s, const T& t) {
   std::ostringstream os;
   os << s << t;
   return os.str();
-}
-
-std::string mac_to_str(const std::array<unsigned char, 6>& mac) {
-  std::ostringstream stream;
-  stream << std::hex << (int)mac[0];
-  for (int i = 1; i < 6; i++) {
-    stream << ":" << std::hex << (int)mac[i];
-  }
-  return stream.str();
 }
 
 // TODO(schuffelen): Move more of this into host/libs/vm_manager, as a
@@ -86,7 +78,7 @@ std::vector<std::string> BootconfigArgsFromConfig(
   auto vmm = vm_manager::GetVmManager(config.vm_manager(), config.target_arch());
   bootconfig_args.push_back(
       vmm->ConfigureBootDevices(instance.virtual_disk_paths().size()));
-  AppendVector(&bootconfig_args, vmm->ConfigureGpuMode(config.gpu_mode()));
+  AppendVector(&bootconfig_args, vmm->ConfigureGraphics(config));
 
   bootconfig_args.push_back(
       concat("androidboot.serialno=", instance.serial_number()));
@@ -108,6 +100,11 @@ std::vector<std::string> BootconfigArgsFromConfig(
                                      instance.tombstone_receiver_port()));
   }
 
+  if (instance.confui_host_vsock_port()) {
+    bootconfig_args.push_back(concat("androidboot.vsock_confirmationui_port=",
+                                     instance.confui_host_vsock_port()));
+  }
+
   if (instance.config_server_port()) {
     bootconfig_args.push_back(
         concat("androidboot.cuttlefish_config_server_port=",
@@ -126,7 +123,7 @@ std::vector<std::string> BootconfigArgsFromConfig(
 
   if (config.enable_vehicle_hal_grpc_server() &&
       instance.vehicle_hal_server_port() &&
-      FileExists(config.vehicle_hal_grpc_server_binary())) {
+      FileExists(VehicleHalGrpcServerBinary())) {
     constexpr int vehicle_hal_server_cid = 2;
     bootconfig_args.push_back(concat(
         "androidboot.vendor.vehiclehal.server.cid=", vehicle_hal_server_cid));
@@ -144,11 +141,6 @@ std::vector<std::string> BootconfigArgsFromConfig(
                instance.audiocontrol_server_port()));
   }
 
-  if (instance.frames_server_port()) {
-    bootconfig_args.push_back(concat("androidboot.vsock_frames_port=",
-                                     instance.frames_server_port()));
-  }
-
   if (instance.camera_server_port()) {
     bootconfig_args.push_back(concat("androidboot.vsock_camera_port=",
                                      instance.camera_server_port()));
@@ -162,11 +154,11 @@ std::vector<std::string> BootconfigArgsFromConfig(
                                      instance.modem_simulator_ports()));
   }
 
-  // TODO(b/158131610): Set this in crosvm instead
-  bootconfig_args.push_back(concat("androidboot.wifi_mac_address=",
-                                   mac_to_str(instance.wifi_mac_address())));
+  bootconfig_args.push_back(concat("androidboot.fstab_suffix=",
+                                   config.userdata_format()));
 
-  bootconfig_args.push_back("androidboot.verifiedbootstate=orange");
+  bootconfig_args.push_back(
+      concat("androidboot.wifi_mac_prefix=", instance.wifi_mac_prefix()));
 
   // Non-native architecture implies a significantly slower execution speed, so
   // set a large timeout multiplier.
@@ -174,7 +166,17 @@ std::vector<std::string> BootconfigArgsFromConfig(
     bootconfig_args.push_back("androidboot.hw_timeout_multiplier=50");
   }
 
-  // TODO(b/173815685): Create an extra_bootconfig flag and add it to bootconfig
+  // TODO(b/217564326): improve this checks for a hypervisor in the VM.
+  if (config.target_arch() == Arch::X86 ||
+      config.target_arch() == Arch::X86_64) {
+    bootconfig_args.push_back(
+        concat("androidboot.hypervisor.version=cf-", config.vm_manager()));
+    bootconfig_args.push_back("androidboot.hypervisor.vm.supported=1");
+    bootconfig_args.push_back(
+        "androidboot.hypervisor.protected_vm.supported=0");
+  }
+
+  AppendVector(&bootconfig_args, config.extra_bootconfig_args());
 
   return bootconfig_args;
 }

@@ -21,7 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="test-suite-tag" value="cts" />
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
-        <option name="min-api-level" value="31" />
+        <option name="vsr-min-api-level" value="31" />
     </object>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

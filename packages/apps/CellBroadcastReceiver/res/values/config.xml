@@ -181,6 +181,19 @@
     <!-- Channels to receive geo-fencing trigger messages -->
     <string-array name="geo_fencing_trigger_messages_range_strings" translatable="false"></string-array>
 
+    <!-- List of roaming network operator to be supported.
+         The item can be operator numeric as 3 digits of mcc, 6 or 5 digits of mcc+mnc, or special
+         characters as XXX to match any mcc, XXXXXX to match any mcc+mnc. If multiple items match
+         the roaming network, only the first one will take effect. -->
+    <string-array name="cmas_roaming_network_strings" translatable="false">
+        <!-- France -->
+        <item>208</item>
+        <!-- Qatar -->
+        <item>427</item>
+        <!-- Germany -->
+        <item>262</item>
+    </string-array>
+
     <!-- Values that are retrieved from the ListPreference.
          These must match the alert_reminder_interval_entries list above. -->
     <string-array name="alert_reminder_interval_values" translatable="false">
@@ -261,12 +274,15 @@
     KR carriers mandate to always show notifications along with alert dialog.  -->
     <bool name="show_alert_dialog_with_notification">false</bool>
 
+    <!-- Whether to disable status bar while alert dialog is showing.
+    Some carriers mandate this to make sure users do not switch to other activities
+    until pressing the "ok" button -->
+    <bool name="disable_status_bar">false</bool>
+
     <!-- Whether to show the alert dialog at the bottom of the screen in order to avoid blocking
          other content -->
     <bool name="alert_dialog_bottom">false</bool>
 
-    <!-- String used to override message body for certain service categories.
-         The format for each entry is: "service_category:message".
-         '>' is a special character which indicates that the carrier's name should be shown -->
-    <string-array name="message_body_override" translatable="false"></string-array>
+    <!-- Name of a font family to use for headlines in SettingsLib. -->
+    <string name="config_headlineFontFamily" translatable="false"></string>
 </resources>

@@ -50,13 +50,24 @@ import java.util.Set;
  * If the STA is in client mode, ClientMode is implemented using {@link ClientModeImpl}.
  */
 public interface ClientMode {
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(flag = true, prefix = {"POWER_SAVE_CLIENT_"},
+            value = {
+                    POWER_SAVE_CLIENT_DHCP,
+                    POWER_SAVE_CLIENT_WIFI_LOCK})
+    @interface PowerSaveClientType {}
+    int POWER_SAVE_CLIENT_DHCP = 0x1;
+    int POWER_SAVE_CLIENT_WIFI_LOCK = 0x2;
+
     void dump(FileDescriptor fd, PrintWriter pw, String[] args);
 
     void enableVerboseLogging(boolean verbose);
 
-    void connectNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper, int callingUid);
+    void connectNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper, int callingUid,
+            @NonNull String packageName);
 
-    void saveNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper, int callingUid);
+    void saveNetwork(NetworkUpdateResult result, ActionListenerWrapper wrapper, int callingUid,
+            @NonNull String packageName);
 
     void disconnect();
 
@@ -129,7 +140,8 @@ public interface ClientMode {
 
     WifiLinkLayerStats getWifiLinkLayerStats();
 
-    boolean setPowerSave(boolean ps);
+    boolean setPowerSave(@PowerSaveClientType int client, boolean ps);
+    boolean enablePowerSave();
 
     boolean setLowLatencyMode(boolean enabled);
 
@@ -280,4 +292,10 @@ public interface ClientMode {
      * will be artificially reduced so that ConnectivityService will prefer any other connection.
      */
     void setShouldReduceNetworkScore(boolean shouldReduceNetworkScore);
+
+
+    /**
+     * update the capabilities
+     */
+    void updateCapabilities();
 }

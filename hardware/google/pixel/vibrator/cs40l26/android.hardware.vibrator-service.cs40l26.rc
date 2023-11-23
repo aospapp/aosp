@@ -14,6 +14,9 @@ on boot && property:vendor.all.modules.ready=1
     chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/num_waves
     chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_offset
     chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/owt_free_space
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/redc_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/delay_before_stop_playback_us
 
     enable vendor.vibrator.cs40l26
 
@@ -35,6 +38,9 @@ service vendor.vibrator.cs40l26 /vendor/bin/hw/android.hardware.vibrator-service
         default/num_waves
         default/f0_offset
         default/owt_free_space
+        default/f0_comp_enable
+        default/redc_comp_enable
+        default/delay_before_stop_playback_us
         "
 
     disabled

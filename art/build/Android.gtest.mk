@@ -39,9 +39,13 @@ my_files += \
 icu_data_file := $(firstword $(wildcard external/icu/icu4c/source/stubdata/icu*.dat))
 my_files += $(foreach infix,_ _VDEX_,$(foreach suffix,$(HOST_ARCH) $(HOST_2ND_ARCH), \
   $(DEXPREOPT_IMAGE$(infix)BUILT_INSTALLED_art_host_$(suffix))))
+# `dexpreopt_bootjars.go` uses a single source of input regardless of variants, so we should use the
+# same source for `CORE_IMG_JARS` to avoid checksum mismatches on the oat files. We can still use
+# the host variant of `conscrypt` and `core-icu4j` because they don't go into the primary boot image
+# that is used in host gtests, and hence can't lead to checksum mismatches.
 my_files += \
   $(foreach jar,$(CORE_IMG_JARS),\
-    $(HOST_OUT_JAVA_LIBRARIES)/$(jar)-hostdex.jar:apex/com.android.art/javalib/$(jar).jar) \
+    $(OUT_DIR)/soong/$(PRODUCT_DEVICE)/dex_artjars_input/$(jar).jar:apex/com.android.art/javalib/$(jar).jar) \
   $(HOST_OUT_JAVA_LIBRARIES)/conscrypt-hostdex.jar:apex/com.android.conscrypt/javalib/conscrypt.jar\
   $(HOST_OUT_JAVA_LIBRARIES)/core-icu4j-hostdex.jar:apex/com.android.i18n/javalib/core-icu4j.jar \
   $(icu_data_file):com.android.i18n/etc/icu/$(notdir $(icu_data_file))
@@ -68,28 +72,6 @@ $(LOCAL_BUILT_MODULE):
 	echo "This directory contains common data and tools needed for ART host tests" > $@
 
 my_files :=
-include $(CLEAR_VARS)
-###################################################################################################
-
-# Create a phony module that contains data needed for ART chroot-based testing.
-include $(CLEAR_VARS)
-LOCAL_MODULE := art_chroot
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
-LOCAL_LICENSE_CONDITIONS := notice
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
-LOCAL_MODULE_TAGS := tests
-LOCAL_MODULE_CLASS := NATIVE_TESTS
-LOCAL_MODULE_SUFFIX := .txt
-LOCAL_COMPATIBILITY_SUITE := general-tests
-LOCAL_COMPATIBILITY_SUPPORT_FILES := \
-	$(foreach apex,$(TESTING_ART_APEX) $(RUNTIME_APEX) $(CONSCRYPT_APEX) $(I18N_APEX),\
-		$(PRODUCT_OUT)/system/apex/$(apex).apex:system/apex/$(apex).apex)
-include $(BUILD_SYSTEM)/base_rules.mk
-
-$(LOCAL_BUILT_MODULE):
-	@mkdir -p $(dir $@)
-	echo "This directory contains common data and tools needed for ART target tests" > $@
-
 include $(CLEAR_VARS)
 ###################################################################################################
 
@@ -121,7 +103,7 @@ ART_GTEST_transaction_test_TARGET_DEPS := $(TARGET_CORE_IMAGE_DEFAULT_64) $(TARG
 # The path for which all the source files are relative, not actually the current directory.
 LOCAL_PATH := art
 
-ART_TEST_MODULES := \
+ART_TEST_MODULES_COMMON := \
     art_cmdline_tests \
     art_compiler_host_tests \
     art_compiler_tests \
@@ -136,29 +118,33 @@ ART_TEST_MODULES := \
     art_imgdiag_tests \
     art_libartbase_tests \
     art_libartpalette_tests \
+    art_libartservice_tests \
+    art_libarttools_tests \
     art_libdexfile_external_tests \
     art_libdexfile_support_static_tests \
     art_libdexfile_support_tests \
     art_libdexfile_tests \
     art_libprofile_tests \
     art_oatdump_tests \
-    art_odrefresh_tests \
     art_profman_tests \
     art_runtime_compiler_tests \
     art_runtime_tests \
     art_sigchain_tests \
 
-ART_TARGET_GTEST_NAMES := $(foreach tm,$(ART_TEST_MODULES),\
+ART_TEST_MODULES_TARGET := $(ART_TEST_MODULES_COMMON) art_odrefresh_tests
+ART_TEST_MODULES_HOST := $(ART_TEST_MODULES_COMMON)
+
+ART_TARGET_GTEST_NAMES := $(foreach tm,$(ART_TEST_MODULES_TARGET),\
   $(foreach path,$(ART_TEST_LIST_device_$(TARGET_ARCH)_$(tm)),\
     $(notdir $(path))\
    )\
 )
 
-ART_HOST_GTEST_FILES := $(foreach m,$(ART_TEST_MODULES),\
+ART_HOST_GTEST_FILES := $(foreach m,$(ART_TEST_MODULES_HOST),\
     $(ART_TEST_LIST_host_$(ART_HOST_ARCH)_$(m)))
 
 ifneq ($(HOST_PREFER_32_BIT),true)
-2ND_ART_HOST_GTEST_FILES += $(foreach m,$(ART_TEST_MODULES),\
+2ND_ART_HOST_GTEST_FILES += $(foreach m,$(ART_TEST_MODULES_HOST),\
     $(ART_TEST_LIST_host_$(2ND_ART_HOST_ARCH)_$(m)))
 endif
 
@@ -208,6 +194,7 @@ define define-art-gtest-rule-host
   gtest_build_rule := test-art-host-gtest-dependencies-$$(gtest_suffix)
   gtest_output := $(call intermediates-dir-for,PACKAGING,art-host-gtest,HOST)/$$(gtest_suffix).xml
   $$(call dist-for-goals,$$(gtest_rule),$$(gtest_output):gtest/$$(gtest_suffix))
+  $$(call declare-1p-target,$$(gtest_output))
   gtest_exe := $(2)
   # Dependencies for all host gtests.
   gtest_deps := $$(ART_HOST_DEX_DEPENDENCIES) \
@@ -501,8 +488,6 @@ ART_GTEST_dex2oat_test_TARGET_DEPS :=
 ART_GTEST_dex2oat_image_test_DEX_DEPS :=
 ART_GTEST_dex2oat_image_test_HOST_DEPS :=
 ART_GTEST_dex2oat_image_test_TARGET_DEPS :=
-ART_GTEST_module_exclusion_test_HOST_DEPS :=
-ART_GTEST_module_exclusion_test_TARGET_DEPS :=
 ART_GTEST_object_test_DEX_DEPS :=
 ART_GTEST_proxy_test_DEX_DEPS :=
 ART_GTEST_reflection_test_DEX_DEPS :=

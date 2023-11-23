@@ -29,9 +29,10 @@ cc_library_static {
         type: "lite",
         canonical_path_from_root: false,
     },
-
     apex_available: [
         "com.android.os.statsd",
+        "test_com.android.os.statsd",
         "//apex_available:platform",
     ],
+    min_sdk_version: "30",
 }

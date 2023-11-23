@@ -36,4 +36,8 @@ android_test {
 
     sdk_version: "test_current",
     min_sdk_version: "30",
+    data: [
+        ":CtsContactsProviderGalProvider",
+    ],
+    per_testcase_directory: true,
 }

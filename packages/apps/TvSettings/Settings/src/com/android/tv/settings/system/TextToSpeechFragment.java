@@ -253,6 +253,9 @@ public class TextToSpeechFragment extends SettingsPreferenceFragment implements
      * Called when the TTS engine is initialized.
      */
     public void onInitEngine(int status) {
+        if (mTts == null) {
+            return;
+        }
         if (status == TextToSpeech.SUCCESS) {
             if (DBG) Log.d(TAG, "TTS engine for settings screen initialized.");
             checkDefaultLocale();

@@ -37,7 +37,7 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
     _SUITE_PLAN_TEST_RUNNER = suite_plan_test_runner.SuitePlanTestRunner.NAME
 
     def __init__(self, module_info=None):
-        super(SuitePlanFinder, self).__init__()
+        super().__init__()
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.mod_info = module_info
         self.suite_plan_dirs = self._get_suite_plan_dirs()
@@ -78,15 +78,15 @@ class SuitePlanFinder(test_finder_base.TestFinderBase):
         # must be the actual name used by *TS to run the test.
         match = _SUITE_PLAN_NAME_RE.match(path)
         if not match:
-            logging.error('Suite plan test outside config dir: %s', path)
+            logging.debug('Suite plan test outside config dir: %s', path)
             return None
         suite = match.group('suite')
         suite_plan_name = match.group('suite_plan_name')
         if suite_name:
             if suite_plan_name != suite_name:
-                logging.warning('Input (%s) not valid suite plan name, '
-                                'did you mean: %s?',
-                                suite_name, suite_plan_name)
+                logging.debug('Input (%s) not valid suite plan name, '
+                              'did you mean: %s?',
+                              suite_name, suite_plan_name)
                 return None
         return test_info.TestInfo(
             test_name=suite_plan_name,

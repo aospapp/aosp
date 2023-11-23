@@ -224,3 +224,7 @@ class RadvdTest(unittest.TestCase):
         with open(radvd_config, 'r') as radvd_config_fileId:
             config_data = radvd_config_fileId.read()
             self.assertTrue(CORRECT_COMPLEX_RADVD_CONFIG == config_data)
+
+
+if __name__ == '__main__':
+    unittest.main()

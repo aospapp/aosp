@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <wakelock/wakelock.h>
 #include <include/simpleperf_profcollect.hpp>
 
 #include "ETMRecorder.h"
@@ -24,8 +25,14 @@
 
 using namespace simpleperf;
 
-bool HasSupport() {
-  if (!ETMRecorder::GetInstance().CheckEtmSupport()) {
+bool HasDriverSupport() {
+  return ETMRecorder::GetInstance().IsETMDriverAvailable();
+}
+
+bool HasDeviceSupport() {
+  auto result = ETMRecorder::GetInstance().CheckEtmSupport();
+  if (!result.ok()) {
+    LOG(DEBUG) << result.error();
     return false;
   }
   const EventType* type = FindEventTypeByName("cs-etm", false);
@@ -36,6 +43,13 @@ bool HasSupport() {
 }
 
 bool Record(const char* event_name, const char* output, float duration) {
+  // The kernel may panic when trying to hibernate or hotplug CPUs while collecting
+  // ETM data. So get wakelock to keep the CPUs on.
+  auto wakelock = android::wakelock::WakeLock::tryGet("profcollectd");
+  if (!wakelock) {
+    LOG(ERROR) << "Failed to request wakelock.";
+    return false;
+  }
   auto recordCmd = CreateCommandInstance("record");
   std::vector<std::string> args;
   args.push_back("-a");
@@ -45,11 +59,14 @@ bool Record(const char* event_name, const char* output, float duration) {
   return recordCmd->Run(args);
 }
 
-bool Inject(const char* traceInput, const char* profileOutput) {
+bool Inject(const char* traceInput, const char* profileOutput, const char* binary_filter) {
   auto injectCmd = CreateCommandInstance("inject");
   std::vector<std::string> args;
   args.insert(args.end(), {"-i", traceInput});
   args.insert(args.end(), {"-o", profileOutput});
+  if (binary_filter) {
+    args.insert(args.end(), {"--binary", binary_filter});
+  }
   args.insert(args.end(), {"--output", "branch-list"});
   args.emplace_back("--exclude-perf");
   return injectCmd->Run(args);

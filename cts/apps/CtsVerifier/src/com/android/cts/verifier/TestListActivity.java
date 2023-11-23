@@ -40,6 +40,7 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -55,6 +56,8 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     // Flag of launch app to fetch the unfolded/folded tests in main view from AndroidManifest.xml.
     protected static boolean sInitialLaunch;
 
+    private String[] mRequestedPermissions;
+
     // Enumerates the display modes, including unfolded and folded.
     protected enum DisplayMode {
         UNFOLDED, FOLDED;
@@ -68,7 +71,7 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
          * Coverts the mode as suffix with brackets for test name.
          *
          * @return A string containing mode with brackets for folded mode;
-         *         empty string for unfolded mode.
+         * empty string for unfolded mode.
          */
         public String asSuffix() {
             if (name().equals(FOLDED.name())) {
@@ -79,7 +82,7 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     }
 
     @Override
-    public void onClick (View v) {
+    public void onClick(View v) {
         handleMenuItemSelected(v.getId());
     }
 
@@ -91,10 +94,11 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
             PackageManager pm = getPackageManager();
             PackageInfo packageInfo = pm.getPackageInfo(
                     getApplicationInfo().packageName, PackageManager.GET_PERMISSIONS);
+            mRequestedPermissions = packageInfo.requestedPermissions;
 
-            if (packageInfo.requestedPermissions != null) {
-                String[] permissionsToRequest = removeString(packageInfo.requestedPermissions,
-                                Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+            if (mRequestedPermissions != null) {
+                String[] permissionsToRequest = removeString(mRequestedPermissions,
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION);
                 permissionsToRequest = Arrays.stream(permissionsToRequest).filter(s -> {
                     try {
                         return (pm.getPermissionInfo(s, 0).getProtection() & PROTECTION_DANGEROUS)
@@ -146,10 +150,12 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
                 // If we're sending them to settings we don't need to request background location
                 // since they can just grant in settings.
                 sendUserToSettings();
-            } else {
-                requestPermissions(new String[] {Manifest.permission.ACCESS_BACKGROUND_LOCATION},
+            } else if (new ArrayList<>(Arrays.asList(mRequestedPermissions)).contains(
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+                requestPermissions(new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION},
                         CTS_VERIFIER_BACKGROUND_LOCATION_PERMISSION_REQUEST);
             }
+            return;
         }
         if (requestCode == CTS_VERIFIER_BACKGROUND_LOCATION_PERMISSION_REQUEST) {
             if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
@@ -191,7 +197,7 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         displayModeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView,
-                boolean isChecked) {
+                    boolean isChecked) {
                 if (isChecked) {
                     sCurrentDisplayMode = DisplayMode.FOLDED.toString();
                 } else {
@@ -210,20 +216,20 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
 
     private void handleClearItemSelected() {
         new AlertDialog.Builder(this)
-            .setMessage(R.string.test_results_clear_title)
-            .setPositiveButton(R.string.test_results_clear_yes,
-                    new DialogInterface.OnClickListener() {
-                       public void onClick(DialogInterface dialog, int id) {
-                            mAdapter.clearTestResults();
-                            Toast.makeText(
-                                TestListActivity.this,
-                                R.string.test_results_cleared,
-                                Toast.LENGTH_SHORT)
-                                    .show();
-                       }
-                   })
-            .setNegativeButton(R.string.test_results_clear_cancel, null)
-            .show();
+                .setMessage(R.string.test_results_clear_title)
+                .setPositiveButton(R.string.test_results_clear_yes,
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                mAdapter.clearTestResults();
+                                Toast.makeText(
+                                        TestListActivity.this,
+                                        R.string.test_results_cleared,
+                                        Toast.LENGTH_SHORT)
+                                        .show();
+                            }
+                        })
+                .setNegativeButton(R.string.test_results_clear_cancel, null)
+                .show();
     }
 
     private void handleExportItemSelected() {
@@ -265,7 +271,7 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
      */
     private String getCurrentDisplayMode() {
         String mode = getSharedPreferences(DisplayMode.class.getName(), MODE_PRIVATE)
-            .getString(DisplayMode.class.getName(), "");
+                .getString(DisplayMode.class.getName(), "");
         return mode;
     }
 

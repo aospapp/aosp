@@ -22,6 +22,7 @@
  * IN THE SOFTWARE.
  */
 
+#define WIN32_LEAN_AND_MEAN
 #include "private-lib-core.h"
 #include "private-lib-tls-openssl.h"
 
@@ -70,17 +71,33 @@ lws_tls_openssl_asn1time_to_unix(ASN1_TIME *as)
 #endif
 }
 
+#if defined(USE_WOLFSSL)
+#define AUTHORITY_KEYID WOLFSSL_AUTHORITY_KEYID
+#endif
+
 int
 lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 			  union lws_tls_cert_info_results *buf, size_t len)
 {
+#ifndef USE_WOLFSSL
+	const unsigned char *dp;
+	ASN1_OCTET_STRING *val;
+	AUTHORITY_KEYID *akid;
+	X509_EXTENSION *ext;
+	int tag, xclass, r = 1;
+	long xlen, loc;
+#endif
 	X509_NAME *xn;
 #if !defined(LWS_PLAT_OPTEE)
 	char *p;
 #endif
 
+	buf->ns.len = 0;
+
 	if (!x509)
 		return -1;
+	if (!len)
+		len = sizeof(buf->ns.name);
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(X509_get_notBefore)
 #define X509_get_notBefore(x)	X509_getm_notBefore(x)
@@ -135,7 +152,7 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 	case LWS_TLS_CERT_INFO_OPAQUE_PUBLIC_KEY:
 	{
 #ifndef USE_WOLFSSL
-		size_t klen = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(x509), NULL);
+		size_t klen = (unsigned int)i2d_X509_PUBKEY(X509_get_X509_PUBKEY(x509), NULL);
 		uint8_t *tmp, *ptmp;
 
 		if (!klen || klen > len)
@@ -163,6 +180,167 @@ lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 #endif
 		return 0;
 	}
+	case LWS_TLS_CERT_INFO_DER_RAW:
+	{
+		int der_len = i2d_X509(x509, NULL);
+		uint8_t *tmp = (uint8_t *)buf->ns.name;
+
+		buf->ns.len = der_len < 0 ? 0 : der_len;
+
+		if (der_len < 0 || (size_t)der_len > len)
+			return -1;
+
+		der_len = i2d_X509(x509, &tmp);
+		if (der_len < 0)
+			return -1;
+
+		return 0;
+	}
+
+#ifndef USE_WOLFSSL
+
+	case LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID:
+		loc = X509_get_ext_by_NID(x509, NID_authority_key_identifier, -1);
+		if (loc < 0)
+			return 1;
+
+		ext = X509_get_ext(x509, (int)loc);
+		if (!ext)
+			return 1;
+#ifndef USE_WOLFSSL
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+#else
+		akid = (AUTHORITY_KEYID *)wolfSSL_X509V3_EXT_d2i(ext);
+#endif
+		if (!akid || !akid->keyid)
+			return 1;
+		val = akid->keyid;
+		dp = (const unsigned char *)val->data;
+		xlen = val->length;
+
+		buf->ns.len = (int)xlen;
+		if (len < (size_t)buf->ns.len)
+			return -1;
+
+		memcpy(buf->ns.name, dp, (size_t)buf->ns.len);
+
+		AUTHORITY_KEYID_free(akid);
+		break;
+
+	case LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID_ISSUER:
+		loc = X509_get_ext_by_NID(x509, NID_authority_key_identifier, -1);
+		if (loc < 0)
+			return 1;
+
+		ext = X509_get_ext(x509, (int)loc);
+		if (!ext)
+			return 1;
+
+#ifndef USE_WOLFSSL
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+#else
+		akid = (AUTHORITY_KEYID *)wolfSSL_X509V3_EXT_d2i(ext);
+#endif
+		if (!akid || !akid->issuer)
+			return 1;
+
+#if defined(LWS_HAVE_OPENSSL_STACK)
+		{
+			const X509V3_EXT_METHOD* method = X509V3_EXT_get(ext);
+			STACK_OF(CONF_VALUE) *cv;
+			int j;
+
+			cv = i2v_GENERAL_NAMES((X509V3_EXT_METHOD*)method, akid->issuer, NULL);
+			if (!cv)
+				goto bail_ak;
+
+		        for (j = 0; j < OPENSSL_sk_num((const OPENSSL_STACK *)&cv); j++) {
+		            CONF_VALUE *nval = OPENSSL_sk_value((const OPENSSL_STACK *)&cv, j);
+		            size_t ln = (nval->name ? strlen(nval->name) : 0),
+		        	   lv = (nval->value ? strlen(nval->value) : 0),
+		        	   l = ln + lv;
+
+		            if (len > l) {
+		        	    if (nval->name)
+		        		    memcpy(buf->ns.name + buf->ns.len, nval->name, ln);
+		        	    if (nval->value)
+		        		    memcpy(buf->ns.name + buf->ns.len + ln, nval->value, lv);
+		        	    buf->ns.len = (int)((size_t)buf->ns.len + l);
+		        	    len -= l;
+		        	    buf->ns.name[buf->ns.len] = '\0';
+
+		        	    r = 0;
+		            }
+		        }
+		}
+
+bail_ak:
+#endif
+		AUTHORITY_KEYID_free(akid);
+
+		return r;
+
+	case LWS_TLS_CERT_INFO_AUTHORITY_KEY_ID_SERIAL:
+		loc = X509_get_ext_by_NID(x509, NID_authority_key_identifier, -1);
+		if (loc < 0)
+			return 1;
+
+		ext = X509_get_ext(x509, (int)loc);
+		if (!ext)
+			return 1;
+		akid = (AUTHORITY_KEYID *)X509V3_EXT_d2i(ext);
+		if (!akid || !akid->serial)
+			return 1;
+
+#if 0
+		// need to handle blobs, and ASN1_INTEGER_get_uint64 not
+		// available on older openssl
+		{
+			uint64_t res;
+			if (ASN1_INTEGER_get_uint64(&res, akid->serial) != 1)
+				break;
+			buf->ns.len = lws_snprintf(buf->ns.name, len, "%llu",
+					(unsigned long long)res);
+		}
+#endif
+		break;
+
+	case LWS_TLS_CERT_INFO_SUBJECT_KEY_ID:
+
+		loc = X509_get_ext_by_NID(x509, NID_subject_key_identifier, -1);
+		if (loc < 0)
+			return 1;
+
+		ext = X509_get_ext(x509, (int)loc);
+		if (!ext)
+			return 1;
+
+		val = X509_EXTENSION_get_data(ext);
+		if (!val)
+			return 1;
+
+#if defined(USE_WOLFSSL)
+		return 1;
+#else
+		dp = (const unsigned char *)val->data;
+
+		if (ASN1_get_object(&dp, &xlen,
+				    &tag, &xclass, val->length) & 0x80)
+			return -1;
+
+		if (tag != V_ASN1_OCTET_STRING) {
+			lwsl_notice("not octet string %d\n", (int)tag);
+			return 1;
+		}
+#endif
+		buf->ns.len = (int)xlen;
+		if (len < (size_t)buf->ns.len)
+			return -1;
+
+		memcpy(buf->ns.name, dp, (size_t)buf->ns.len);
+		break;
+#endif
+
 	default:
 		return -1;
 	}
@@ -435,7 +613,7 @@ lws_x509_public_to_jwk(struct lws_jwk *jwk, struct lws_x509_cert *x509,
 	for (; n < count; n++) {
 		if (!mpi[n])
 			continue;
-		jwk->e[n].len = BN_num_bytes(mpi[n]);
+		jwk->e[n].len = (unsigned int)BN_num_bytes(mpi[n]);
 		jwk->e[n].buf = lws_malloc(jwk->e[n].len, "certkeyimp");
 		if (!jwk->e[n].buf) {
 			if (id == NID_X9_62_id_ecPublicKey) {
@@ -474,19 +652,19 @@ static int
 lws_x509_jwk_privkey_pem_pp_cb(char *buf, int size, int rwflag, void *u)
 {
 	const char *pp = (const char *)u;
-	int n = strlen(pp);
+	size_t n = strlen(pp);
 
-	if (n > size - 1)
+	if ((int)n > size - 1)
 		return -1;
 
 	memcpy(buf, pp, n + 1);
 
-	return n;
+	return (int)n;
 }
 
 int
-lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
-			 const char *passphrase)
+lws_x509_jwk_privkey_pem(struct lws_context *cx, struct lws_jwk *jwk,
+			 void *pem, size_t len, const char *passphrase)
 {
 	BIO* bio = BIO_new(BIO_s_mem());
 	BIGNUM *mpi, *dummy[6];
@@ -537,13 +715,13 @@ lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
 
 		/* TODO.. check public curve / group + point */
 
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].len = n;
-		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf = lws_malloc(n, "ec");
+		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].len = (unsigned int)n;
+		jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf = lws_malloc((unsigned int)n, "ec");
 		if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf)
 			goto bail1;
 
 		m = BN_bn2binpad(cmpi, jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].buf,
-				      jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].len);
+				      (int32_t)jwk->e[LWS_GENCRYPTO_EC_KEYEL_D].len);
 		if ((unsigned int)m != (unsigned int)BN_num_bytes(cmpi))
 			goto bail1;
 
@@ -562,7 +740,7 @@ lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
 			goto bail;
 		}
 
-#if defined(LWS_HAVE_RSA_SET0_KEY)
+#if defined(LWS_HAVE_RSA_SET0_KEY) && !defined(USE_WOLFSSL)
 		RSA_get0_key(rsapriv, (const BIGNUM **)&dummy[0], /* n */
 				      (const BIGNUM **)&dummy[1], /* e */
 				      (const BIGNUM **)&mpi);	  /* d */
@@ -588,10 +766,10 @@ lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
 		/* then check that n & e match what we got from the cert */
 
 		dummy[2] = BN_bin2bn(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].buf,
-				     jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len,
+				     (int32_t)jwk->e[LWS_GENCRYPTO_RSA_KEYEL_N].len,
 				     NULL);
 		dummy[3] = BN_bin2bn(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].buf,
-				     jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len,
+				     (int32_t)jwk->e[LWS_GENCRYPTO_RSA_KEYEL_E].len,
 				     NULL);
 
 		m = BN_cmp(dummy[2], dummy[0]) | BN_cmp(dummy[3], dummy[1]);
@@ -606,8 +784,8 @@ lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
 
 		/* accept d from the PEM privkey into the JWK */
 
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].len = n;
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf = lws_malloc(n, "privjk");
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].len = (unsigned int)n;
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf = lws_malloc((unsigned int)n, "privjk");
 		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf)
 			goto bail1;
 
@@ -615,16 +793,16 @@ lws_x509_jwk_privkey_pem(struct lws_jwk *jwk, void *pem, size_t len,
 
 		/* accept p and q from the PEM privkey into the JWK */
 
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].len = BN_num_bytes(dummy[4]);
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf = lws_malloc(n, "privjk");
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].len = (unsigned int)BN_num_bytes(dummy[4]);
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf = lws_malloc((unsigned int)n, "privjk");
 		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf) {
 			lws_free_set_NULL(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf);
 			goto bail1;
 		}
 		BN_bn2bin(dummy[4], jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf);
 
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].len = BN_num_bytes(dummy[5]);
-		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf = lws_malloc(n, "privjk");
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].len = (unsigned int)BN_num_bytes(dummy[5]);
+		jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf = lws_malloc((unsigned int)n, "privjk");
 		if (!jwk->e[LWS_GENCRYPTO_RSA_KEYEL_Q].buf) {
 			lws_free_set_NULL(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_D].buf);
 			lws_free_set_NULL(jwk->e[LWS_GENCRYPTO_RSA_KEYEL_P].buf);

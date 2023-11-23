@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Mengakses kamera mobil Anda."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"mengakses informasi energi mobil"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Mengakses informasi energi mobil Anda."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Kontrol setelan pengisian daya Kendaraan Listrik"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Kontrol setelan pengisian daya Kendaraan Listrik Anda."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"sesuaikan jangkauan mobil yang tersisa"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Sesuaikan nilai jangkauan mobil yang tersisa."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"mengakses hvac mobil"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Mengizinkan aplikasi mendeklarasikan aktivitas untuk ditampilkan di kluster instrumen"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Kontrol kluster instrumen"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Luncurkan aplikasi di kluster instrumen"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Status navigasi cluster instrumen"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Proses perubahan status navigasi cluster instrumen"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Rendering Kluster Instrumen"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Menerima data kluster instrumen"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Konfigurasi Batasan UX"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Mengizinkan pengontrolan mulai dan berhentinya grafik deteksi Sistem Awareness Penumpang"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Layanan Masukan Mobil"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Menangani aktivitas masukan"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN bus gagal"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus tidak merespons. Cabut dan colokkan kembali boks headunit, lalu nyalakan ulang mobil"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Anda tidak dapat menggunakan fitur ini saat mengemudi"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Untuk mulai dari awal dengan fitur apl yang aman, pilih <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Kembali"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Tutup aplikasi"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Kembali"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"membaca data diagnostik"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Membaca data diagnostik dari mobil."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"menghapus data diagnostik"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Mengontrol tempat duduk mobil."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"mengakses informasi dasar mobil"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Mengakses informasi dasar mobil."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"akses informasi mobil yang dilindungi"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Akses informasi mobil yang dilindungi."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"mengakses informasi izin vendor mobil"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Mengakses informasi izin vendor mobil."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"membaca status lampu eksterior mobil"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Baca kebijakan daya mobil."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"kontrol kebijakan daya mobil"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Kontrol kebijakan daya mobil."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"sesuaikan proses penonaktifan"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Sesuaikan proses penonaktifan."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"merender template"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Merender template."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"mengontrol aplikasi yang diluncurkan"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Kontrol aplikasi yang diluncurkan."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN bus gagal"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus tidak merespons. Cabut dan colokkan kembali boks headunit, lalu nyalakan ulang mobil"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Perangkat Saya"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Tamu"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Tingkat kepentingan: default"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Tingkat kepentingan: tinggi"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Reset ke setelan pabrik diperlukan"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Semua data di sistem infotainmen akan dihapus. Setelah direset, Anda dapat menyiapkan profil baru."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Lainnya"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Reset sistem infotainmen"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Sistem Anda telah menerima permintaan reset ke setelan pabrik untuk menghapus semua data. Anda dapat meresetnya sekarang, atau saat mobil dinyalakan lagi. Setelah itu, Anda dapat menyiapkan profil baru."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Reset Sekarang"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Reset Nanti"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Sistem infotainmen akan direset nanti."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Mobil harus diparkir untuk memulai reset."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> memengaruhi performa sistem Anda"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Nonaktifkan aplikasi untuk meningkatkan performa sistem. Anda dapat mengaktifkan aplikasi tersebut sekali lagi di Setelan."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioritaskan aplikasi untuk terus menggunakannya."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Uninstal aplikasi untuk meningkatkan performa sistem."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Nonaktifkan aplikasi"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Prioritaskan aplikasi"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Uninstal aplikasi"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> telah dinonaktifkan. Anda dapat mengaktifkannya lagi di Setelan."</string>
 </resources>

@@ -187,6 +187,50 @@ public class NotificationUtilsTest {
                 .isFalse();
     }
 
+
+    @Test
+    public void onShouldUseLauncherIcon_noExtras_returnsDefault()
+            throws PackageManager.NameNotFoundException {
+        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
+                true, /* isPrivilegedApp= */ false);
+        Notification notification = new Notification();
+        notification.extras = new Bundle();
+        when(mStatusBarNotification.getNotification()).thenReturn(notification);
+
+        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
+                .isTrue();
+    }
+
+    @Test
+    public void onShouldUseLauncherIcon_notSystemApp_returnsDefault()
+            throws PackageManager.NameNotFoundException {
+        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
+                false, /* isPrivilegedApp= */ false);
+        Notification notification = new Notification();
+        notification.extras = new Bundle();
+        notification.extras.putBoolean(
+                NotificationUtils.EXTRA_USE_LAUNCHER_ICON, false);
+        when(mStatusBarNotification.getNotification()).thenReturn(notification);
+
+        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
+                .isTrue();
+    }
+
+    @Test
+    public void onShouldUseLauncherIcon_systemApp_returnsExtra()
+            throws PackageManager.NameNotFoundException {
+        setApplicationInfo(/* signedWithPlatformKey= */ false, /* isSystemApp= */
+                true, /* isPrivilegedApp= */ false);
+        Notification notification = new Notification();
+        notification.extras = new Bundle();
+        notification.extras.putBoolean(
+                NotificationUtils.EXTRA_USE_LAUNCHER_ICON, false);
+        when(mStatusBarNotification.getNotification()).thenReturn(notification);
+
+        assertThat(NotificationUtils.shouldUseLauncherIcon(mContext, mStatusBarNotification))
+                .isFalse();
+    }
+
     @Test
     public void onGetNotificationViewType_notificationIsARecognizedType_returnsCorrectType() {
         Map<String, CarNotificationTypeItem> typeMap = new HashMap<>();

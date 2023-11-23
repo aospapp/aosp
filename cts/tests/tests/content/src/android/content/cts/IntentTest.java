@@ -16,8 +16,7 @@
 
 package android.content.cts;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertArrayEquals;
 
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -32,6 +31,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.ServiceManager;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Contacts.People;
@@ -39,7 +39,8 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Xml;
 
-import com.android.content.cts.DummyParcelable;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -154,6 +155,34 @@ public class IntentTest extends AndroidTestCase {
         final ArrayList<Intent> target = mIntent.getParcelableArrayListExtra(TEST_EXTRA_NAME);
         assertEquals(expected.size(), target.size());
         assertEquals(expected, target);
+    }
+
+    public void testGetParcelableArrayListExtraTypeSafe_withMismatchingType_returnsNull() {
+        final ArrayList<TestParcelable> original = new ArrayList<>();
+        original.add(new TestParcelable(0));
+        mIntent.putParcelableArrayListExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertNull(mIntent.getParcelableArrayListExtra(TEST_EXTRA_NAME, Intent.class));
+    }
+
+    public void testGetParcelableArrayListExtraTypeSafe_withMatchingType_returnsObject() {
+        final ArrayList<TestParcelable> original = new ArrayList<>();
+        original.add(new TestParcelable(0));
+        original.add(new TestParcelable(1));
+        mIntent.putParcelableArrayListExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertEquals(original,
+                mIntent.getParcelableArrayListExtra(TEST_EXTRA_NAME, TestParcelable.class));
+    }
+
+    public void testGetParcelableArrayListExtraTypeSafe_withBaseType_returnsObject() {
+        final ArrayList<TestParcelable> original = new ArrayList<>();
+        original.add(new TestParcelable(0));
+        original.add(new TestParcelable(1));
+        mIntent.putParcelableArrayListExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertEquals(original,
+                mIntent.getParcelableArrayListExtra(TEST_EXTRA_NAME, Parcelable.class));
     }
 
     public void testFilterHashCode() {
@@ -611,6 +640,23 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(expected, mIntent.getParcelableExtra(TEST_EXTRA_NAME));
     }
 
+    public void testGetParcelableExtraTypeSafe_withMismatchingType_returnsNull() {
+        mIntent.putExtra(TEST_EXTRA_NAME, new TestParcelable(42));
+        assertNull(mIntent.getParcelableExtra(TEST_EXTRA_NAME, Intent.class));
+    }
+
+    public void testGetParcelableExtraTypeSafe_withMatchingType_returnsObject() {
+        final TestParcelable original = new TestParcelable(42);
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        assertEquals(original, mIntent.getParcelableExtra(TEST_EXTRA_NAME, TestParcelable.class));
+    }
+
+    public void testGetParcelableExtraTypeSafe_withBaseType_returnsObject() {
+        final TestParcelable original = new TestParcelable(42);
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        assertEquals(original, mIntent.getParcelableExtra(TEST_EXTRA_NAME, Parcelable.class));
+    }
+
     public void testAccessAction() {
         mIntent.setAction(TEST_ACTION);
         assertEquals(TEST_ACTION, mIntent.getAction());
@@ -738,7 +784,29 @@ public class IntentTest extends AndroidTestCase {
     public void testGetParcelableArrayExtra() {
         final Intent[] expected = { new Intent(TEST_ACTION), new Intent(mContext, MockActivity.class) };
         mIntent.putExtra(TEST_EXTRA_NAME, expected);
-        assertEquals(expected, mIntent.getParcelableArrayExtra(TEST_EXTRA_NAME));
+        assertArrayEquals(expected, mIntent.getParcelableArrayExtra(TEST_EXTRA_NAME));
+    }
+
+    public void testGetParcelableArrayExtraTypeSafe_withMismatchingType_returnsNull() {
+        mIntent.putExtra(TEST_EXTRA_NAME, new TestParcelable[] {new TestParcelable(42)});
+        roundtrip();
+        assertNull(mIntent.getParcelableArrayExtra(TEST_EXTRA_NAME, Intent.class));
+    }
+
+    public void testGetParcelableArrayExtraTypeSafe_withMatchingType_returnsObject() {
+        final TestParcelable[] original = { new TestParcelable(1), new TestParcelable(2) };
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertArrayEquals(original,
+                mIntent.getParcelableArrayExtra(TEST_EXTRA_NAME, TestParcelable.class));
+    }
+
+    public void testGetParcelableArrayExtraTypeSafe_withBaseType_returnsObject() {
+        final TestParcelable[] original = { new TestParcelable(1), new TestParcelable(2) };
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertArrayEquals(original,
+                mIntent.getParcelableArrayExtra(TEST_EXTRA_NAME, Parcelable.class));
     }
 
     public void testResolveActivityEmpty() {
@@ -1813,6 +1881,26 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(expected.Name, target.Name);
     }
 
+    public void testGetSerializableExtraTypeSafe_withMismatchingType_returnsNull() {
+        mIntent.putExtra(TEST_EXTRA_NAME, new TestSerializable());
+        roundtrip();
+        assertNull(mIntent.getSerializableExtra(TEST_EXTRA_NAME, Long.class));
+    }
+
+    public void testGetSerializableExtraTypeSafe_withMatchingType_returnsObject() {
+        String original = "Hello, World!";
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertEquals(original, mIntent.getSerializableExtra(TEST_EXTRA_NAME, String.class));
+    }
+
+    public void testGetSerializableExtraTypeSafe_withBaseType_returnsObject() {
+        String original = "Hello, World!";
+        mIntent.putExtra(TEST_EXTRA_NAME, original);
+        roundtrip();
+        assertEquals(original, mIntent.getSerializableExtra(TEST_EXTRA_NAME, Serializable.class));
+    }
+
     public void testReplaceExtras() {
         Bundle extras = new Bundle();
         String bundleKey = "testKey";
@@ -1842,51 +1930,66 @@ public class IntentTest extends AndroidTestCase {
         assertEquals("foo/bar", Intent.normalizeMimeType("   foo/bar    "));
     }
 
-    public void testRemoveUnsafeExtras() {
-        final Intent intent = new Intent();
-        final DummyParcelable dummyParcelable = new DummyParcelable();
-        intent.removeUnsafeExtras();
-        assertNull(intent.getExtras());
-
-        // Check that removeUnsafeExtras keeps the same bundle if no changes are made.
-        Bundle origExtras = new Bundle();
-        origExtras.putString("foo", "bar");
-        intent.replaceExtras(origExtras);
-        intent.removeUnsafeExtras();
-        Bundle newExtras = intent.getExtras();
-        assertEquals(1, newExtras.size());
-        assertEquals("bar", newExtras.get("foo"));
-
-        // Check that removeUnsafeExtras will strip non-framework parcelables without modifying
-        // the original extras bundle.
-        origExtras.putParcelable("baddy", dummyParcelable);
-        intent.replaceExtras(origExtras);
-        intent.removeUnsafeExtras();
-        newExtras = intent.getExtras();
-        assertEquals(1, newExtras.size());
-        assertEquals("bar", newExtras.get("foo"));
-        assertEquals(2, origExtras.size());
-        assertEquals("bar", origExtras.get("foo"));
-        assertSame(dummyParcelable, origExtras.get("baddy"));
-
-        // Check that nested bad values will be stripped.
-        Bundle origSubExtras = new Bundle();
-        origSubExtras.putParcelable("baddy", dummyParcelable);
-        origExtras.putBundle("baddy", origSubExtras);
-        intent.replaceExtras(origExtras);
-        intent.removeUnsafeExtras();
-        newExtras = intent.getExtras();
-        assertEquals(2, newExtras.size());
-        assertEquals("bar", newExtras.get("foo"));
-        Bundle newSubExtras = newExtras.getBundle("baddy");
-        assertNotSame(origSubExtras, newSubExtras);
-        assertEquals(0, newSubExtras.size());
-        assertEquals(1, origSubExtras.size());
-        assertSame(dummyParcelable, origSubExtras.get("baddy"));
+    private void roundtrip() {
+        Parcel p = Parcel.obtain();
+        p.writeParcelable(mIntent, 0);
+        p.setDataPosition(0);
+        mIntent = p.readParcelable(getClass().getClassLoader(), Intent.class);
+        mIntent.setExtrasClassLoader(getClass().getClassLoader());
     }
 
     private static class TestSerializable implements Serializable {
         static final long serialVersionUID = 1l;
         public String Name;
+    }
+
+    private static class TestParcelable implements Parcelable {
+        public final int value;
+
+        TestParcelable(int value) {
+            this.value = value;
+        }
+
+        protected TestParcelable(Parcel in) {
+            value = in.readInt();
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            out.writeInt(value);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof TestParcelable)) {
+                return false;
+            }
+            TestParcelable that = (TestParcelable) other;
+            return value == that.value;
+        }
+
+        @Override
+        public int hashCode() {
+            return value;
+        }
+
+        public static final Creator<TestParcelable> CREATOR = new Creator<TestParcelable>() {
+            @Override
+            public TestParcelable createFromParcel(Parcel in) {
+                return new TestParcelable(in);
+            }
+            @Override
+            public TestParcelable[] newArray(int size) {
+                return new TestParcelable[size];
+            }
+        };
     }
 }

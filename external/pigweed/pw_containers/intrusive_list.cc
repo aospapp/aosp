@@ -14,11 +14,9 @@
 
 #include "pw_containers/intrusive_list.h"
 
-#include "pw_assert/assert.h"
+#include "pw_assert/check.h"
 
 namespace pw::intrusive_list_impl {
-
-List::Item::~Item() { unlist(); }
 
 void List::Item::unlist(Item* prev) {
   if (prev == nullptr) {

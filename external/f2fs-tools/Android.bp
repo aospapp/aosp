@@ -204,6 +204,15 @@ cc_binary_host {
     },
 }
 
+cc_binary_host {
+    name: "make_f2fs.static",
+    defaults: [
+        "make_f2fs_defaults",
+    ],
+    static_executable: true,
+    stl: "libc++_static",
+}
+
 cc_binary {
     name: "fsck.f2fs",
     defaults: [
@@ -211,6 +220,7 @@ cc_binary {
         "fsck_main_src_files",
     ],
     host_supported: true,
+    recovery_available: true,
     cflags: ["-DWITH_RESIZE", "-DWITH_DEFRAG", "-DWITH_DUMP"],
     srcs: ["fsck/fsck.c", "fsck/resize.c", "fsck/defrag.c"],
     shared_libs: [
@@ -219,6 +229,7 @@ cc_binary {
         "libbase",
     ],
     symlinks: ["resize.f2fs", "defrag.f2fs", "dump.f2fs"],
+    vendor_ramdisk_available: true,
 }
 
 cc_binary {

@@ -30,6 +30,7 @@
 #include "perfetto/base/platform_handle.h"
 #include "perfetto/base/proc_utils.h"
 #include "perfetto/ext/base/event_fd.h"
+#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/pipe.h"
 #include "perfetto/ext/base/scoped_file.h"
 
@@ -105,11 +106,16 @@ class Subprocess {
                       // This includes crashes or other signals on UNIX.
   };
 
-  enum OutputMode {
+  enum class OutputMode {
     kInherit = 0,  // Inherit's the caller process stdout/stderr.
-    kDevNull,      // dup() onto /dev/null
+    kDevNull,      // dup() onto /dev/null.
     kBuffer,       // dup() onto a pipe and move it into the output() buffer.
     kFd,           // dup() onto the passed args.fd.
+  };
+
+  enum class InputMode {
+    kBuffer = 0,  // dup() onto a pipe and write args.input on it.
+    kDevNull,     // dup() onto /dev/null.
   };
 
   // Input arguments for configuring the subprocess behavior.
@@ -133,6 +139,13 @@ class Subprocess {
     // just before the exec() call, but after having closed all fds % stdin/o/e.
     // This is for synchronization barriers in tests.
     std::function<void()> posix_entrypoint_for_testing;
+
+    // When set, will will move the process to the given process group. If set
+    // and zero, it will create a new process group. Effectively this calls
+    // setpgid(0 /*self_pid*/, posix_proc_group_id).
+    // This can be used to avoid that subprocesses receive CTRL-C from the
+    // terminal, while still living in the same session.
+    base::Optional<pid_t> posix_proc_group_id{};
 #endif
 
     // If non-empty, replaces the environment passed to exec().
@@ -141,11 +154,13 @@ class Subprocess {
     // The file descriptors in this list will not be closed.
     std::vector<int> preserve_fds;
 
-    // The data to push in the child process stdin.
+    // The data to push in the child process stdin, if input_mode ==
+    // InputMode::kBuffer.
     std::string input;
 
-    OutputMode stdout_mode = kInherit;
-    OutputMode stderr_mode = kInherit;
+    InputMode stdin_mode = InputMode::kBuffer;
+    OutputMode stdout_mode = OutputMode::kInherit;
+    OutputMode stderr_mode = OutputMode::kInherit;
 
     base::ScopedPlatformHandle out_fd;
 
@@ -205,7 +220,7 @@ class Subprocess {
   bool timed_out() const { return s_->timed_out; }
 
   // This contains both stdout and stderr (if the corresponding _mode ==
-  // kBuffer). It's non-const so the caller can std::move() it.
+  // OutputMode::kBuffer). It's non-const so the caller can std::move() it.
   std::string& output() { return s_->output; }
   const std::string& output() const { return s_->output; }
 
@@ -228,7 +243,7 @@ class Subprocess {
     PlatformProcessId pid;
     Status status = kNotStarted;
     int returncode = -1;
-    std::string output;  // Stdin+stderr. Only when kBuffer.
+    std::string output;  // Stdin+stderr. Only when OutputMode::kBuffer.
     std::unique_ptr<ResourceUsage> rusage{new ResourceUsage()};
     bool timed_out = false;
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)

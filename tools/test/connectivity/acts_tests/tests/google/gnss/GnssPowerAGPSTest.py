@@ -36,16 +36,17 @@ class GnssPowerAGPSTest(PowerGTWGnssBaseTest):
         self.set_cell_only()
         self.start_gnss_tracking_with_power_data()
 
-    def test_cell_strong_cn_long(self):
-        self.set_cell_only()
-        self.start_gnss_tracking_with_power_data()
-
-    def test_cell_weak_cn_long(self):
-        self.set_attenuation(self.atten_level['weak_signal'])
-        self.set_cell_only()
-        self.start_gnss_tracking_with_power_data()
-
     def test_cell_no_signal(self):
         self.set_attenuation(self.atten_level['no_signal'])
         self.set_cell_only()
         self.start_gnss_tracking_with_power_data(is_signal=False)
+
+    # Long Interval tests
+    def test_cell_strong_cn_long(self):
+        self.set_cell_only()
+        self.start_gnss_tracking_with_power_data(freq=self.interval)
+
+    def test_cell_weak_cn_long(self):
+        self.set_attenuation(self.atten_level['weak_signal'])
+        self.set_cell_only()
+        self.start_gnss_tracking_with_power_data(freq=self.interval)

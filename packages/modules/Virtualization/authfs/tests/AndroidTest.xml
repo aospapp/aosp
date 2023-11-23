@@ -15,19 +15,15 @@
 -->
 
 <configuration description="Config for authfs tests">
-    <!-- Since Android does not support user namespace, we need root to access /dev/fuse and also
-         to set up the mount. -->
+    <!-- Need root to start virtualizationservice -->
     <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer"/>
 
-    <!-- Basic checks that the device has all the prerequisites. -->
+    <!-- Still need to define SELinux policy for authfs and fd_server properly. -->
+    <target_preparer class="com.android.tradefed.targetprep.DisableSELinuxTargetPreparer"/>
+
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="throw-if-cmd-fail" value="true" />
-        <!-- Make sure kernel has FUSE enabled. -->
-        <option name="run-command" value="ls /dev/fuse" />
-        <!-- Make sure necessary executables are installed. -->
-        <option name="run-command" value="ls /apex/com.android.virt/bin/fd_server" />
-        <option name="run-command" value="ls /apex/com.android.virt/bin/authfs" />
-        <!-- Prepare test directory. -->
+        <!-- Prepare test directories. -->
         <option name="run-command" value="mkdir -p /data/local/tmp/authfs/mnt" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/authfs" />
     </target_preparer>
@@ -35,24 +31,23 @@
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
         <option name="abort-on-push-failure" value="true" />
+
+        <!-- Test executable -->
+        <option name="push-file" key="open_then_run" value="/data/local/tmp/open_then_run" />
+
+        <!-- Test data files -->
         <option name="push-file" key="cert.der" value="/data/local/tmp/authfs/cert.der" />
         <option name="push-file" key="input.4m" value="/data/local/tmp/authfs/input.4m" />
         <option name="push-file" key="input.4k1" value="/data/local/tmp/authfs/input.4k1" />
         <option name="push-file" key="input.4k" value="/data/local/tmp/authfs/input.4k" />
-        <option name="push-file" key="input.4m.fsv_sig"
-            value="/data/local/tmp/authfs/input.4m.fsv_sig" />
-        <option name="push-file" key="input.4k1.fsv_sig"
-            value="/data/local/tmp/authfs/input.4k1.fsv_sig" />
-        <option name="push-file" key="input.4k.fsv_sig"
-            value="/data/local/tmp/authfs/input.4k.fsv_sig" />
-        <option name="push-file" key="input.4m.merkle_dump"
-            value="/data/local/tmp/authfs/input.4m.merkle_dump" />
-        <option name="push-file" key="input.4m.merkle_dump.bad"
-            value="/data/local/tmp/authfs/input.4m.merkle_dump.bad" />
-        <option name="push-file" key="input.4k1.merkle_dump"
-            value="/data/local/tmp/authfs/input.4k1.merkle_dump" />
-        <option name="push-file" key="input.4k.merkle_dump"
-            value="/data/local/tmp/authfs/input.4k.merkle_dump" />
+        <option name="push-file" key="input.4m.fsv_meta"
+            value="/data/local/tmp/authfs/input.4m.fsv_meta" />
+        <option name="push-file" key="input.4k1.fsv_meta"
+            value="/data/local/tmp/authfs/input.4k1.fsv_meta" />
+        <option name="push-file" key="input.4k.fsv_meta"
+            value="/data/local/tmp/authfs/input.4k.fsv_meta" />
+        <option name="push-file" key="input.4m.fsv_meta.bad_merkle"
+            value="/data/local/tmp/authfs/input.4m.fsv_meta.bad_merkle" />
     </target_preparer>
 
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >

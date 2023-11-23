@@ -33,8 +33,8 @@ import java.util.List;
 /**
  * InfoPreference which could be used to display a list of information.
  */
-public class InfoPreference extends Preference {
-
+public class InfoPreference extends Preference implements HasCustomContentDescription {
+    private String mContentDescription;
     private List<Pair<CharSequence, CharSequence>> mInfoList;
 
     public InfoPreference(Context context, List<Pair<CharSequence, CharSequence>> infoList) {
@@ -56,5 +56,17 @@ public class InfoPreference extends Preference {
             ((TextView) view.findViewById(R.id.info_item_summary)).setText(info.second);
             container.addView(view);
         }
+    }
+
+    /**
+     * Sets the accessibility content description that will be read to the TalkBack users when they
+     * focus on this preference.
+     */
+    public void setContentDescription(String contentDescription) {
+        this.mContentDescription = contentDescription;
+    }
+
+    public String getContentDescription() {
+        return mContentDescription;
     }
 }

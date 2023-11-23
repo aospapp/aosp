@@ -30,6 +30,7 @@
 
 #include "os.h"
 
+using std::set;
 using std::string;
 using std::vector;
 
@@ -37,8 +38,8 @@ namespace android {
 namespace aidl {
 
 ImportResolver::ImportResolver(const IoDelegate& io_delegate, const string& input_file_name,
-                               const set<string>& import_paths, const vector<string>& input_files)
-    : io_delegate_(io_delegate), input_file_name_(input_file_name), input_files_(input_files) {
+                               const set<string>& import_paths)
+    : io_delegate_(io_delegate), input_file_name_(input_file_name) {
   for (string path : import_paths) {
     if (path.empty()) {
       path = ".";
@@ -46,43 +47,42 @@ ImportResolver::ImportResolver(const IoDelegate& io_delegate, const string& inpu
     if (path[path.size() - 1] != OS_PATH_SEPARATOR) {
       path += OS_PATH_SEPARATOR;
     }
-    import_paths_.push_back(std::move(path));
+    import_paths_.emplace(std::move(path));
   }
 }
 
 string ImportResolver::FindImportFile(const string& canonical_name) const {
-  // Convert the canonical name to a relative file path.
-  string relative_path = canonical_name;
-  for (char& c : relative_path) {
-    if (c == '.') {
-      c = OS_PATH_SEPARATOR;
+  auto parts = base::Split(canonical_name, ".");
+  while (!parts.empty()) {
+    string relative_path = base::Join(parts, OS_PATH_SEPARATOR) + ".aidl";
+    auto candidates = ScanImportPaths(relative_path);
+    if (candidates.size() == 0) {
+      // remove the last part & keep searching
+      parts.pop_back();
+      continue;
+    }
+    if (candidates.size() == 1) {
+      // found!
+      return *candidates.begin();
+    }
+    if (candidates.size() > 1) {
+      AIDL_ERROR(input_file_name_) << "Duplicate files found for " << canonical_name << " from:\n"
+                                   << base::Join(candidates, "\n");
+      break;
     }
   }
-  relative_path += ".aidl";
+  return "";
+}
 
+set<string> ImportResolver::ScanImportPaths(const string& relative_path) const {
   // Look for that relative path at each of our import roots.
-  vector<string> found_paths;
-  for (string path : import_paths_) {
-    path = path + relative_path;
-    if (io_delegate_.FileIsReadable(path)) {
-      found_paths.emplace_back(path);
+  set<string> found;
+  for (const auto& path : import_paths_) {
+    if (io_delegate_.FileIsReadable(path + relative_path)) {
+      found.emplace(path + relative_path);
     }
   }
-  // remove duplicates
-  std::sort(found_paths.begin(), found_paths.end());
-  auto last = std::unique(found_paths.begin(), found_paths.end());
-  found_paths.erase(last, found_paths.end());
-
-  int num_found = found_paths.size();
-  if (num_found == 0) {
-    return "";
-  } else if (num_found == 1) {
-    return found_paths.front();
-  } else {
-    AIDL_ERROR(input_file_name_) << "Duplicate files found for " << canonical_name << " from:\n"
-                                 << android::base::Join(found_paths, "\n");
-    return "";
-  }
+  return found;
 }
 
 }  // namespace aidl

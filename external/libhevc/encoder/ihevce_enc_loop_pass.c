@@ -3018,14 +3018,10 @@ void ihevce_enc_loop_process(
     ps_ctxt->pv_err_func_selector = ps_func_selector;
 #endif
 
-    /*Bit0 -  of this Flag indicates whether current pictute needs to be deblocked,
-    padded and hpel planes need to be generated.
-    Bit1 - of this flag set to 1 if sao is enabled. This is to enable deblocking when sao is enabled*/
     ps_ctxt->i4_deblk_pad_hpel_cur_pic =
-        (ps_frm_recon->i4_deblk_pad_hpel_cur_pic) ||
-        ((ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
-          ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag)
-         << 1);
+        ps_frm_recon->i4_deblk_pad_hpel_cur_pic ||
+        ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_luma_flag ||
+        ps_ctxt->s_sao_ctxt_t.ps_slice_hdr->i1_slice_sao_chroma_flag;
 
     /* Share all reference pictures with nbr clients. This flag will be used only
     in case of dist-enc mode */

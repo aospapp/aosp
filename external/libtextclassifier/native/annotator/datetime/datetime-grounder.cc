@@ -16,6 +16,7 @@
 
 #include "annotator/datetime/datetime-grounder.h"
 
+#include <algorithm>
 #include <limits>
 #include <unordered_map>
 #include <vector>
@@ -250,10 +251,10 @@ StatusOr<std::vector<DatetimeParseResult>> DatetimeGrounder::Ground(
     }
 
     // Sort the date time units by component type.
-    std::sort(date_components.begin(), date_components.end(),
-              [](DatetimeComponent a, DatetimeComponent b) {
-                return a.component_type > b.component_type;
-              });
+    std::stable_sort(date_components.begin(), date_components.end(),
+                     [](DatetimeComponent a, DatetimeComponent b) {
+                       return a.component_type > b.component_type;
+                     });
     result.datetime_components.swap(date_components);
     datetime_parse_result.push_back(result);
   }

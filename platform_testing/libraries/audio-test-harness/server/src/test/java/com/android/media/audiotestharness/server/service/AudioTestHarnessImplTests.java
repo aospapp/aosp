@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 
 import com.android.media.audiotestharness.proto.AudioTestHarnessGrpc;
 import com.android.media.audiotestharness.proto.AudioTestHarnessService;
+import com.android.media.audiotestharness.server.config.SharedHostConfiguration;
 import com.android.media.audiotestharness.server.core.AudioCapturer;
 import com.android.media.audiotestharness.server.core.AudioSystemService;
 
@@ -91,7 +92,9 @@ public class AudioTestHarnessImplTests {
                         .directExecutor()
                         .addService(
                                 new AudioTestHarnessImpl(
-                                        mAudioSystemService, mAudioCaptureSessionFactory))
+                                        mAudioSystemService,
+                                        mAudioCaptureSessionFactory,
+                                        SharedHostConfiguration.getDefault()))
                         .build()
                         .start());
 
@@ -103,7 +106,7 @@ public class AudioTestHarnessImplTests {
         mStub = AudioTestHarnessGrpc.newStub(channel);
 
         // Ensure the mocks output is valid.
-        when(mAudioSystemService.createDefaultCapturer()).thenReturn(mAudioCapturer);
+        when(mAudioSystemService.createWithDefaultAudioFormat(any())).thenReturn(mAudioCapturer);
         when(mAudioCaptureSessionFactory.createCaptureSession(any(), any()))
                 .then(
                         (inv) -> {
@@ -121,7 +124,9 @@ public class AudioTestHarnessImplTests {
     @Test
     public void capture_properlyAllocatesDefaultCapturer() throws Exception {
         mBlockingStub.capture(AudioTestHarnessService.CaptureRequest.getDefaultInstance());
-        verify(mAudioSystemService).createDefaultCapturer();
+        verify(mAudioSystemService)
+                .createWithDefaultAudioFormat(
+                        SharedHostConfiguration.getDefault().captureDevices().get(0));
     }
 
     @Test
@@ -187,12 +192,14 @@ public class AudioTestHarnessImplTests {
 
     @Test
     public void capture_throwsProperStatusException_failureToOpenCapturer() throws Exception {
-        when(mAudioSystemService.createDefaultCapturer())
+        when(mAudioSystemService.createWithDefaultAudioFormat(any()))
                 .thenThrow(new IOException("Some exception occurred."));
 
         mExceptionRule.expect(
                 generateCustomMatcherForExpected(
-                        /* expectedDescription= */ "Failed to allocate default AudioCapturer",
+                        /* expectedDescription= */ String.format(
+                                "Failed to allocate AudioCapturer %s",
+                                SharedHostConfiguration.getDefault().captureDevices().get(0)),
                         Status.UNAVAILABLE));
         mBlockingStub
                 .capture(AudioTestHarnessService.CaptureRequest.getDefaultInstance())

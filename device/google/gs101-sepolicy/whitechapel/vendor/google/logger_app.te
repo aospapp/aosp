@@ -24,5 +24,6 @@ userdebug_or_eng(`
   set_prop(logger_app, vendor_wifi_sniffer_prop)
 
   dontaudit logger_app default_prop:file { read };
-  dontaudit logger_app sysfs_vendor_sched:dir search;
+  dontaudit logger_app proc_vendor_sched:dir search;
+  dontaudit logger_app proc_vendor_sched:file write;
 ')

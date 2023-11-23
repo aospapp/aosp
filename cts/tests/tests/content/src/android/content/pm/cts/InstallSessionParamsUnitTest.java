@@ -89,6 +89,8 @@ public class InstallSessionParamsUnitTest {
     @Parameterized.Parameter(10)
     public Optional<Integer> installScenario;
     @Parameterized.Parameter(11)
+    public Optional<Integer> packageSource;
+    @Parameterized.Parameter(12)
     public boolean expectFailure;
 
     private PackageInstaller mInstaller = InstrumentationRegistry.getInstrumentation()
@@ -164,7 +166,14 @@ public class InstallSessionParamsUnitTest {
                         /* parame is not verified */ 0xfff}, {}},
          /*installScenario*/
                 {{INSTALL_SCENARIO_DEFAULT, INSTALL_SCENARIO_FAST, INSTALL_SCENARIO_BULK,
-                        INSTALL_SCENARIO_BULK_SECONDARY}, {}}};
+                        INSTALL_SCENARIO_BULK_SECONDARY}, {}},
+         /*packageSource*/
+                {{PackageInstaller.PACKAGE_SOURCE_UNSPECIFIED,
+                        PackageInstaller.PACKAGE_SOURCE_OTHER,
+                        PackageInstaller.PACKAGE_SOURCE_STORE,
+                        PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE,
+                        PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE}, {}}
+        };
 
         ArrayList<Object[]> allTestParams = new ArrayList<>();
 
@@ -229,6 +238,7 @@ public class InstallSessionParamsUnitTest {
         referredUri.ifPresent(params::setReferrerUri);
         installReason.ifPresent(params::setInstallReason);
         installScenario.ifPresent(params::setInstallScenario);
+        packageSource.ifPresent(params::setPackageSource);
 
         int sessionId;
         try {
@@ -248,6 +258,7 @@ public class InstallSessionParamsUnitTest {
         SessionInfo info = getSessionInfo(sessionId);
 
         assertThat(info.getMode()).isEqualTo(mode.get());
+        packageSource.ifPresent(i -> assertThat(info.getPackageSource()).isEqualTo(i));
         installLocation.ifPresent(i -> assertThat(info.getInstallLocation()).isEqualTo(i));
         size.ifPresent(i -> assertThat(info.getSize()).isEqualTo(i));
         appPackageName.ifPresent(s -> assertThat(info.getAppPackageName()).isEqualTo(s));

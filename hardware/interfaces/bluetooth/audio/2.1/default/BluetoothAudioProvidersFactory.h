@@ -23,6 +23,7 @@
 #include "BluetoothAudioProvider.h"
 #include "HearingAidAudioProvider.h"
 #include "LeAudioAudioProvider.h"
+#include "LeAudioOffloadAudioProvider.h"
 
 namespace android {
 namespace hardware {

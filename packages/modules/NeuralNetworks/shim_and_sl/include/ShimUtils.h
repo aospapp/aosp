@@ -18,11 +18,15 @@
 
 #include <aidl/android/hardware/neuralnetworks/ErrorStatus.h>
 #include <android/binder_auto_utils.h>
+
 #include <string>
 #include <vector>
+
 #include "SupportLibraryWrapper.h"
 
 namespace aidl::android::hardware::neuralnetworks {
+
+constexpr int64_t kNoDeadline = -1;
 
 ErrorStatus convertResultToErrorStatus(::android::nn::wrapper::Result status);
 bool isValidDimension(const std::vector<int32_t>& v);

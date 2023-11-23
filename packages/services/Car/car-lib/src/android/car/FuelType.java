@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -27,33 +28,46 @@ public final class FuelType {
     /**
      * List of Fuel Types from VHAL
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     /** Unleaded gasoline */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNLEADED = 1;
     /** Leaded gasoline */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int LEADED = 2;
     /** #1 Grade Diesel */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DIESEL_1 = 3;
     /** #2 Grade Diesel */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DIESEL_2 = 4;
     /** Biodiesel */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int BIODIESEL = 5;
     /** 85% ethanol/gasoline blend */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int E85 = 6;
     /** Liquified petroleum gas */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int LPG = 7;
     /** Compressed natural gas */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CNG = 8;
     /** Liquified natural gas */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int LNG = 9;
     /** Electric */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ELECTRIC = 10;
     /** Hydrogen fuel cell */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int HYDROGEN = 11;
     /**
      * Fuel type to use when no other types apply. Before using this value, work with
      * Google to see if the FuelType enum can be extended with an appropriate value.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int OTHER = 12;
 
     /** @hide */

@@ -1,7 +1,5 @@
 name: "async_task"
-description:
-    "Task abstraction for building executors (in rust)."
-
+description: "Task abstraction for building executors"
 third_party {
   url {
     type: HOMEPAGE
@@ -9,9 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/async-task/async-task-4.0.3.crate"
+    value: "https://static.crates.io/crates/async_task/async_task-4.1.0.crate"
   }
-  version: "4.0.3"
-  last_upgrade_date { year: 2021 month: 2 day: 5 }
+  version: "4.1.0"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 3
+    day: 1
+  }
 }

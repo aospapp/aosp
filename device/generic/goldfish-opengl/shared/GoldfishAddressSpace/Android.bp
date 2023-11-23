@@ -24,4 +24,5 @@ cc_library_static {
         "-DLOG_TAG=\"goldfish-address-space\"",
         "-DVIRTIO_GPU",
     ],
+    include_dirs: ["device/generic/goldfish-opengl/system/include"],
 }

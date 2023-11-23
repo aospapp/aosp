@@ -18,8 +18,6 @@
 <resources>
     <color name="default_audio_background_image_color">#515355</color>
     <color name="default_audio_background_color">#1E2125</color>
-    <color name="title_bar_display_area_handle_bar_color">#5f6368</color>
-    <color name="title_bar_display_area_background_color">#000000</color>
 
     <color name="icon_tint">#e8eaed</color>
 </resources>

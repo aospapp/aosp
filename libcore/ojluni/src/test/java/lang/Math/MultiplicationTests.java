@@ -34,29 +34,29 @@ public class MultiplicationTests {
     // Calculate high 64 bits of 128 product using BigInteger.
     private static long multiplyHighBigInt(long x, long y) {
         return BigInteger.valueOf(x).multiply(BigInteger.valueOf(y))
-            .shiftRight(64).longValue();
+                .shiftRight(64).longValue();
     }
 
     @Test
     public void testMultiplyHigh() {
         // check some boundary cases
         long[][] v = new long[][]{
-            {0L, 0L},
-            {-1L, 0L},
-            {0L, -1L},
-            {1L, 0L},
-            {0L, 1L},
-            {-1L, -1L},
-            {-1L, 1L},
-            {1L, -1L},
-            {1L, 1L},
-            {Long.MAX_VALUE, Long.MAX_VALUE},
-            {Long.MAX_VALUE, -Long.MAX_VALUE},
-            {-Long.MAX_VALUE, Long.MAX_VALUE},
-            {-Long.MAX_VALUE, -Long.MAX_VALUE},
-            {Long.MAX_VALUE, Long.MIN_VALUE},
-            {Long.MIN_VALUE, Long.MAX_VALUE},
-            {Long.MIN_VALUE, Long.MIN_VALUE}
+                {0L, 0L},
+                {-1L, 0L},
+                {0L, -1L},
+                {1L, 0L},
+                {0L, 1L},
+                {-1L, -1L},
+                {-1L, 1L},
+                {1L, -1L},
+                {1L, 1L},
+                {Long.MAX_VALUE, Long.MAX_VALUE},
+                {Long.MAX_VALUE, -Long.MAX_VALUE},
+                {-Long.MAX_VALUE, Long.MAX_VALUE},
+                {-Long.MAX_VALUE, -Long.MAX_VALUE},
+                {Long.MAX_VALUE, Long.MIN_VALUE},
+                {Long.MIN_VALUE, Long.MAX_VALUE},
+                {Long.MIN_VALUE, Long.MIN_VALUE}
         };
 
         for (long[] xy : v) {

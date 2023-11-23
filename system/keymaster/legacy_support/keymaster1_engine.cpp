@@ -135,7 +135,7 @@ RSA* Keymaster1Engine::BuildRsaKey(const KeymasterKeyBlob& blob,
         return nullptr;
     }
 
-    KeyData* key_data = new KeyData(blob, additional_params);
+    KeyData* key_data = new (std::nothrow) KeyData(blob, additional_params);
     if (!RSA_set_ex_data(rsa.get(), rsa_index_, key_data)) {
         *error = TranslateLastOpenSslError();
         delete key_data;
@@ -174,7 +174,7 @@ EC_KEY* Keymaster1Engine::BuildEcKey(const KeymasterKeyBlob& blob,
         return nullptr;
     }
 
-    KeyData* key_data = new KeyData(blob, additional_params);
+    KeyData* key_data = new (std::nothrow) KeyData(blob, additional_params);
     if (!EC_KEY_set_ex_data(ec_key.get(), ec_key_index_, key_data)) {
         *error = TranslateLastOpenSslError();
         delete key_data;
@@ -238,7 +238,7 @@ int Keymaster1Engine::duplicate_key_data(CRYPTO_EX_DATA* /* to */, const CRYPTO_
     if (!data) return 1;
 
     // Default copy ctor is good.
-    *from_d = new KeyData(*data);
+    *from_d = new (std::nothrow) KeyData(*data);
     if (*from_d) return 1;
     return 0;
 }

@@ -23,8 +23,6 @@ TARGET_LD = $(CORTEXM_TOOLS_PREFIX)/bin/arm-none-eabi-g++
 # Add Cortex-M compiler flags.
 TARGET_CFLAGS += $(CORTEXM_CFLAGS)
 
-# TODO: Add more Cortex-M flags from the Nanohub build
-
 # Code generation flags.
 TARGET_CFLAGS += -mthumb
 TARGET_CFLAGS += -mfloat-abi=softfp

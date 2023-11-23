@@ -21,6 +21,7 @@ import static org.mockito.Mockito.verify;
 import android.content.Intent;
 import android.os.IBinder;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.rule.ServiceTestRule;
@@ -74,5 +75,15 @@ public class InCallServiceImplTest {
         mService.onCallRemoved(mCall);
 
         verify(mInCallModel).onCallRemoved(mCall);
+    }
+
+    @Test
+    public void onCallAudioStateChanged_callsListeners() {
+        CallAudioState callAudioState = new CallAudioState(false,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mService.addListener(mInCallModel);
+        mService.onCallAudioStateChanged(callAudioState);
+
+        verify(mInCallModel).onCallAudioStateChanged(callAudioState);
     }
 }

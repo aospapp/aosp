@@ -66,9 +66,8 @@ public class DefaultThemeSamples extends AbstractSampleActivity {
     private String[] listAllThemes() {
         String data;
         List<String> list = new ArrayList<>();
-        InputStream is = this.getResources().openRawResource(R.raw.theme_names);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-        try {
+        try (InputStream is = this.getResources().openRawResource(R.raw.theme_names)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
             while ((data = reader.readLine()) != null) {
                 list.add(data);
             }

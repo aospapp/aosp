@@ -29,9 +29,11 @@ cc_test {
     include_dirs: [
         "external/v4l2_codec2/common/include",
         "external/v4l2_codec2/components/include",
-        "frameworks/av/media/codec2/components/base/include",
-        "frameworks/av/media/codec2/core/include",
-        "frameworks/av/media/codec2/vndk/include",
+    ],
+    header_libs: [
+        "libcodec2_soft_common_headers",
+        "libcodec2_headers",
+        "libcodec2_vndk_headers",
     ],
 
     cflags: [

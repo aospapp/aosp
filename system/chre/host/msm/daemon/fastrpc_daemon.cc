@@ -56,13 +56,6 @@ bool FastRpcChreDaemon::init() {
 
   int rc = -1;
 
-#ifdef CHRE_USE_TOKENIZED_LOGGING
-  mLogger = ChreTokenizedLogMessageParser();
-#else
-  // Logging is being routed through ashLog
-  mLogger = ChreLogMessageParserBase();
-#endif
-
 #ifdef CHRE_DAEMON_LOAD_INTO_SENSORSPD
   remote_handle remote_handle_fd = 0xFFFFFFFF;
   if (remote_handle_open(ITRANSPORT_PREFIX "createstaticpd:sensorspd",

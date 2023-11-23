@@ -20,13 +20,16 @@ after you set all attributes of each object. If this test suite doesn't pass,
 then other test suites utilising Ble Advertisements will also fail.
 """
 
+import pprint
+
 from acts.controllers.sl4a_lib import rpc_client
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts_contrib.test_utils.bt.bt_test_utils import adv_fail
+from acts_contrib.test_utils.bt.bt_test_utils import adv_fail, adv_succ, scan_result
 from acts_contrib.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts_contrib.test_utils.bt.bt_constants import ble_advertise_settings_modes
 from acts_contrib.test_utils.bt.bt_constants import ble_advertise_settings_tx_powers
+# from acts_contrib.test_utils.bt.bt_constants import ble_advertise_settings_own_address_types
 from acts_contrib.test_utils.bt.bt_constants import java_integer
 
 
@@ -38,6 +41,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
     def setup_class(self):
         super().setup_class()
         self.ad_dut = self.android_devices[0]
+        self.sc_dut = self.android_devices[1]
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d6d8d0a6-7b3e-4e4b-a5d0-bcfd6e207474')
@@ -496,6 +500,149 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                        + str(exp_is_connectable))
         return self.verify_adv_settings_is_connectable(droid,
                                                        exp_is_connectable)
+
+    @BluetoothBaseTest.bt_test_wrap
+    def test_adv_settings_set_adv_own_address_type_public(self):
+        """Tests advertise settings own address type public.
+
+        This advertisement settings from "set" advertisement own address type
+        should match the corresponding "get" function.
+
+        Steps:
+        1. Build a new advertise settings object.
+        2. Set the advertise mode attribute to own address type public.
+        3. Get the attributes of the advertise settings object.
+        4. Compare the attributes found against the attributes exp.
+
+        Expected Result:
+        Found attributes should match expected attributes.
+
+        Returns:
+          True is pass
+          False if fail
+
+        TAGS: LE, Advertising
+        Priority: 1
+        """
+        self.log.debug("Step 1: Setup environment.")
+        droid = self.ad_dut.droid
+        # exp_adv_own_address_type = ble_advertise_settings_own_address_types['public']
+        exp_adv_own_address_type = 0
+        self.log.debug(
+            "Step 2: Set the filtering settings object's value to {}".format(
+                exp_adv_own_address_type))
+        return self.verify_adv_settings_own_address_type(droid, exp_adv_own_address_type)
+
+    @BluetoothBaseTest.bt_test_wrap
+    def test_adv_settings_set_adv_own_address_type_random(self):
+        """Tests advertise settings own address type random.
+
+        This advertisement settings from "set" advertisement own address type
+        should match the corresponding "get" function.
+
+        Steps:
+        1. Build a new advertise settings object.
+        2. Set the advertise mode attribute to own address type random.
+        3. Get the attributes of the advertise settings object.
+        4. Compare the attributes found against the attributes exp.
+
+        Expected Result:
+        Found attributes should match expected attributes.
+
+        Returns:
+          True is pass
+          False if fail
+
+        TAGS: LE, Advertising
+        Priority: 1
+        """
+        self.log.debug("Step 1: Setup environment.")
+        droid = self.ad_dut.droid
+        # exp_adv_own_address_type = ble_advertise_settings_own_address_types['random']
+        exp_adv_own_address_type = 1
+        self.log.debug(
+            "Step 2: Set the filtering settings object's value to {}".format(
+                exp_adv_own_address_type))
+        return self.verify_adv_settings_own_address_type(droid, exp_adv_own_address_type)
+
+    @BluetoothBaseTest.bt_test_wrap
+    def test_adv_with_multiple_own_address_types(self):
+        ad_droid = self.ad_dut.droid
+        sc_droid = self.sc_dut.droid
+        sc_ed = self.sc_dut.ed
+        adv_count = 10
+        exp_adv_own_address_types = [0, 1, 1, 0, 0, 1, 1, 1, 0, 0]
+        uuid = '01234567-89ab-cdef-0123-456789abcdef'
+        service_data = []
+
+        for i in range(3):
+            service_data.append(i)
+
+        for own_add_type in exp_adv_own_address_types:
+            result = self.verify_adv_set_address_type_start_adv(ad_droid,
+                    own_add_type, uuid, service_data)
+            if result is False:
+                return False
+
+        mac_list = []
+
+        filter_list = sc_droid.bleGenFilterList()
+        scan_settings = sc_droid.bleBuildScanSetting()
+        scan_callback = sc_droid.bleGenScanCallback()
+        sc_droid.bleStartBleScan(filter_list, scan_settings,
+                                       scan_callback)
+        event_name = scan_result.format(scan_callback)
+        self.log.info("Scan onSuccess Event")
+
+        for _ in range(1000):
+            if len(mac_list) is adv_count:
+                break
+
+            try:
+                event = sc_ed.pop_event(event_name, 10)
+                result = event['data']['Result']
+                deviceInfo = result['deviceInfo']
+                serviceUuidList = result['serviceUuidList']
+                if uuid in serviceUuidList:
+                    mac_addr = deviceInfo['address']
+                    if mac_addr not in mac_list:
+                        self.log.info("Found device. address: {}".format(mac_addr))
+                        mac_list.append(mac_addr)
+
+            except rpc_client.Sl4aApiError:
+                self.log.info("{} event was not found.".format(event_name))
+                break
+
+        return len(mac_list) is adv_count
+
+    @BluetoothBaseTest.bt_test_wrap
+    def test_adv_settings_set_invalid_adv_own_address_type(self):
+        """Tests advertise settings invalid own address type.
+
+        This advertisement settings from "set" advertisement own address type
+        should match the corresponding "get" function.
+
+        Steps:
+        1. Build a new advertise settings object.
+        2. Set the advertise mode attribute to invalid own address type.
+        3. Get the attributes of the advertise settings object.
+        4. Compare the attributes found against the attributes exp.
+
+        Expected Result:
+        Found attributes should match expected attributes.
+
+        Returns:
+          True is pass
+          False if fail
+
+        TAGS: LE, Advertising
+        Priority: 1
+        """
+        self.log.debug("Step 1: Setup environment.")
+        droid = self.ad_dut.droid
+        exp_adv_own_address_type = -100
+        self.log.debug("Step 2: Set the filtering settings own address type to -1")
+        return self.verify_invalid_adv_settings_own_address_type(droid, exp_adv_own_address_type)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='a770ed7e-c6cd-4533-8876-e42e68f8b4fb')
@@ -1095,6 +1242,55 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                        " value test Passed.".format(exp_is_connectable))
         return True
 
+    def verify_adv_settings_own_address_type(self, droid, exp_adv_own_address_type):
+        try:
+            droid.bleSetAdvertiseSettingsOwnAddressType(exp_adv_own_address_type)
+        except BleAdvertiseVerificationError as error:
+            self.log.debug(str(error))
+            return False
+        self.log.debug("Step 3: Get a filtering settings object's index.")
+        settings_index = droid.bleBuildAdvertiseSettings()
+        self.log.debug("Step 4: Get the filtering setting's own address type.")
+        adv_own_address_type = droid.bleGetAdvertiseSettingsOwnAddressType(
+            settings_index)
+        if exp_adv_own_address_type is not adv_own_address_type:
+            self.log.debug("exp value: {}, Actual value: {}".format(
+                exp_adv_own_address_type, adv_own_address_type))
+            return False
+        self.log.debug("Advertise Setting's own address type {}"
+                       "  value test Passed.".format(exp_adv_own_address_type))
+        return True
+
+    def verify_adv_set_address_type_start_adv(self, droid, own_address_type, uuid, service_data):
+        try:
+            droid.bleSetAdvertiseSettingsOwnAddressType(own_address_type)
+        except BleAdvertiseVerificationError as error:
+            self.log.debug(str(error))
+            return False
+
+        droid.bleAddAdvertiseDataServiceData(
+            uuid, service_data)
+        advcallback, adv_data, adv_settings = generate_ble_advertise_objects(
+            droid)
+        droid.bleStartBleAdvertising(advcallback, adv_data, adv_settings)
+
+        adv_own_address_type = droid.bleGetAdvertiseSettingsOwnAddressType(
+            adv_settings)
+        if own_address_type is not adv_own_address_type:
+            self.log.debug("exp value: {}, Actual value: {}".format(
+                own_address_type, adv_own_address_type))
+            return False
+
+        try:
+            event = self.android_devices[0].ed.pop_event(adv_succ.format(advcallback), 10)
+            self.log.info("Ble Advertise Success Event: {}".format(event))
+        except rpc_client.Sl4aApiError:
+            self.log.info("{} event was not found.".format(
+                adv_succ.format(advcallback)))
+            return False
+
+        return True
+
     def verify_adv_data_service_uuids(self, droid, exp_service_uuids):
         try:
             droid.bleSetAdvertiseDataSetServiceUuids(exp_service_uuids)
@@ -1225,6 +1421,20 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug(
                 "Set Advertise settings invalid tx power level "
                 "failed successfullywith input as {}".format(exp_adv_tx_power))
+            return True
+
+    def verify_invalid_adv_settings_own_address_type(self, droid,
+                                                   exp_adv_own_address_type):
+        try:
+            droid.bleSetAdvertiseSettingsOwnAddressType(exp_adv_own_address_type)
+            droid.bleBuildAdvertiseSettings()
+            self.log.debug("Set Advertise settings invalid own address type " +
+                           " with input as {}".format(exp_adv_own_address_type))
+            return False
+        except rpc_client.Sl4aApiError:
+            self.log.debug(
+                "Set Advertise settings invalid own address type "
+                "failed successfully with input as {}".format(exp_adv_own_address_type))
             return True
 
     def verify_invalid_adv_data_service_uuids(self, droid, exp_service_uuids):

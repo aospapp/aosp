@@ -61,4 +61,29 @@ class CollectionUtilsTest {
         assertTrue(CollectionUtils.all(listOf(1)) { true })
         assertFalse(CollectionUtils.all(listOf(1)) { false })
     }
+
+    @Test
+    fun testContains() {
+        assertTrue(CollectionUtils.contains(shortArrayOf(10, 20, 30), 10))
+        assertTrue(CollectionUtils.contains(shortArrayOf(10, 20, 30), 30))
+        assertFalse(CollectionUtils.contains(shortArrayOf(10, 20, 30), 40))
+        assertFalse(CollectionUtils.contains(null, 10.toShort()))
+        assertTrue(CollectionUtils.contains(intArrayOf(10, 20, 30), 10))
+        assertTrue(CollectionUtils.contains(intArrayOf(10, 20, 30), 30))
+        assertFalse(CollectionUtils.contains(intArrayOf(10, 20, 30), 40))
+        assertFalse(CollectionUtils.contains(null, 10.toInt()))
+        assertTrue(CollectionUtils.contains(arrayOf("A", "B", "C"), "A"))
+        assertTrue(CollectionUtils.contains(arrayOf("A", "B", "C"), "C"))
+        assertFalse(CollectionUtils.contains(arrayOf("A", "B", "C"), "D"))
+        assertFalse(CollectionUtils.contains(null, "A"))
+    }
+
+    @Test
+    fun testTotal() {
+        assertEquals(10, CollectionUtils.total(longArrayOf(3, 6, 1)))
+        assertEquals(10, CollectionUtils.total(longArrayOf(6, 1, 3)))
+        assertEquals(10, CollectionUtils.total(longArrayOf(1, 3, 6)))
+        assertEquals(3, CollectionUtils.total(longArrayOf(1, 1, 1)))
+        assertEquals(0, CollectionUtils.total(null))
+    }
 }

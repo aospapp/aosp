@@ -31,7 +31,7 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.hiddenapi_blocklist_current" />
-        <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.current.HiddenApiTest" />
         <option name="instrumentation-arg" key="dynamic-config-name" value="CtsHiddenApiBlocklistApiDynamicConfig" />
         <option name="instrumentation-arg" key="hiddenapi-files" value="hiddenapi-flags.csv" />
@@ -41,5 +41,7 @@
         <option name="runtime-hint" value="30s" />
         <!-- disable isolated storage so tests can access dynamic config stored in /sdcard. -->
         <option name="isolated-storage" value="false" />
+        <!-- test-timeout unit is ms, value = 10 min -->
+        <option name="test-timeout" value="600000" />
     </test>
 </configuration>

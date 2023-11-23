@@ -52,6 +52,7 @@ public class SecureSettingsTest {
     private static final String KEY = "key";
     private static final String INVALID_KEY = "noKey";
     private static final int INT_VALUE = 123;
+    private static final String STRING_VALUE = "String";
 
     @After
     public void resetSecureSettings() {
@@ -207,6 +208,153 @@ public class SecureSettingsTest {
         });
     }
 
+    @Test
+    public void putString_putsStringIntoSecureSettingsOnInstrumentedUser() throws Exception {
+        TestApis.settings().secure().putString(KEY, STRING_VALUE);
+
+        assertThat(android.provider.Settings.Secure.getString(sContext.getContentResolver(), KEY))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void putStringWithContentResolver_putsStringIntoSecureSettings() throws Exception {
+        TestApis.settings().secure().putString(sContext.getContentResolver(), KEY, STRING_VALUE);
+
+        assertThat(android.provider.Settings.Secure.getString(sContext.getContentResolver(), KEY))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @RequireSdkVersion(max = Build.VERSION_CODES.R)
+    public void putStringWithContentResolver_preS_throwsException() throws Exception {
+        assertThrows(UnsupportedOperationException.class, () ->
+                TestApis.settings().secure().putString(
+                        sContext.getContentResolver(), KEY, STRING_VALUE));
+    }
+
+    @Test
+    public void putStringWithUser_instrumentedUser_putsStringIntoSecureSettings() throws Exception {
+        TestApis.settings().secure().putString(TestApis.users().instrumented(), KEY, STRING_VALUE);
+
+        assertThat(android.provider.Settings.Secure.getString(sContext.getContentResolver(), KEY))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    @EnsureHasSecondaryUser
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void putStringWithUser_differentUser_putsStringIntoSecureSettings() throws Exception {
+        TestApis.settings().secure().putString(sDeviceState.secondaryUser(), KEY, STRING_VALUE);
+
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            assertThat(android.provider.Settings.Secure.getString(
+                    TestApis.context().androidContextAsUser(sDeviceState.secondaryUser())
+                            .getContentResolver(), KEY)).isEqualTo(STRING_VALUE);
+        }
+    }
+
+    @Test
+    @EnsureHasSecondaryUser
+    @RequireSdkVersion(max = Build.VERSION_CODES.R)
+    public void putStringWithUser_differentUser_preS_throwsException() throws Exception {
+        assertThrows(UnsupportedOperationException.class, () ->
+                TestApis.settings().secure()
+                        .putString(sDeviceState.secondaryUser(), KEY, STRING_VALUE));
+    }
+
+    @Test
+    public void getString_getsStringFromSecureSettingsOnInstrumentedUser() {
+        TestApis.settings().secure().putString(KEY, STRING_VALUE);
+
+        assertThat(TestApis.settings().secure().getString(KEY)).isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    public void getString_invalidKey_returnsNull() {
+        assertThat(TestApis.settings().secure().getString(INVALID_KEY)).isNull();
+    }
+
+    @Test
+    public void getString_invalidKey_withDefault_returnsDefault() {
+        assertThat(TestApis.settings().secure().getString(INVALID_KEY, STRING_VALUE)).isEqualTo(
+                STRING_VALUE);
+    }
+
+    @Test
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void getStringWithContentResolver_getsStringFromSecureSettings() {
+        TestApis.settings().secure().putString(
+                TestApis.context().instrumentedContext().getContentResolver(), KEY, STRING_VALUE);
+
+        assertThat(TestApis.settings().secure().getString(
+                TestApis.context().instrumentedContext().getContentResolver(), KEY))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    @RequireSdkVersion(max = Build.VERSION_CODES.R)
+    public void getStringWithContentResolver_preS_throwsException() {
+        assertThrows(UnsupportedOperationException.class, () -> TestApis.settings().secure()
+                .getString(
+                        TestApis.context().instrumentedContext().getContentResolver(), KEY));
+    }
+
+    @Test
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void getStringWithContentResolver_invalidKey_returnsNull() {
+        assertThat(TestApis.settings().secure().getString(
+                        TestApis.context().instrumentedContext().getContentResolver(),
+                        INVALID_KEY)).isNull();
+    }
+
+    @Test
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void getStringWithContentResolver_invalidKey_withDefault_returnsDefault() {
+        assertThat(TestApis.settings().secure().getString(
+                TestApis.context().instrumentedContext().getContentResolver(),
+                INVALID_KEY, STRING_VALUE)).isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    public void getStringWithUser_instrumentedUser_getsStringFromSecureSettings() {
+        TestApis.settings().secure().putString(KEY, STRING_VALUE);
+
+        assertThat(TestApis.settings().secure().getString(TestApis.users().instrumented(), KEY))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    public void getStringWithUser_invalidKey_returnsNull() {
+        assertThat(TestApis.settings().secure().getString(
+                        TestApis.users().instrumented(), INVALID_KEY)).isNull();
+    }
+
+    @Test
+    public void getStringWithUser_invalidKey_withDefault_returnsDefault() {
+        assertThat(TestApis.settings().secure().getString(
+                TestApis.users().instrumented(), INVALID_KEY, STRING_VALUE))
+                .isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    @EnsureHasSecondaryUser
+    @RequireSdkVersion(min = Build.VERSION_CODES.S)
+    public void getStringWithUser_differentUser_getsStringFromSecureSettings() {
+        TestApis.settings().secure().putString(sDeviceState.secondaryUser(), KEY, STRING_VALUE);
+
+        assertThat(TestApis.settings().secure().getString(
+                sDeviceState.secondaryUser(), KEY)).isEqualTo(STRING_VALUE);
+    }
+
+    @Test
+    @EnsureHasSecondaryUser
+    @RequireSdkVersion(max = Build.VERSION_CODES.R)
+    public void getStringWithUser_differentUser_preS_throwsException() {
+        assertThrows(UnsupportedOperationException.class, () -> {
+            TestApis.settings().secure().putString(sDeviceState.secondaryUser(), KEY, STRING_VALUE);
+        });
+    }
 
     // TODO(b/201319369): this requires a system user but should not
     @RequireRunOnSystemUser

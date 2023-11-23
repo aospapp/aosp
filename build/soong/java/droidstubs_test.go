@@ -15,7 +15,9 @@
 package java
 
 import (
+	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -79,6 +81,75 @@ func TestDroidstubs(t *testing.T) {
 			t.Errorf("Expected %q high_mem to be %v, was %v", c.moduleName, c.high_mem, actual)
 		}
 	}
+}
+
+// runs a test for droidstubs with a customizable sdkType argument and returns
+// the list of jar patterns that is passed as `--android-jar-pattern`
+func getAndroidJarPatternsForDroidstubs(t *testing.T, sdkType string) []string {
+	ctx, _ := testJavaWithFS(t, fmt.Sprintf(`
+		droiddoc_exported_dir {
+			name: "some-exported-dir",
+			path: "somedir",
+		}
+
+		droiddoc_exported_dir {
+			name: "some-other-exported-dir",
+			path: "someotherdir",
+		}
+
+		droidstubs {
+			name: "foo-stubs",
+			srcs: ["foo-doc/a.java"],
+			api_levels_annotations_dirs: [
+				"some-exported-dir",
+				"some-other-exported-dir",
+			],
+			api_levels_annotations_enabled: true,
+      api_levels_sdk_type: "%s",
+		}
+		`, sdkType),
+		map[string][]byte{
+			"foo-doc/a.java": nil,
+		})
+
+	m := ctx.ModuleForTests("foo-stubs", "android_common")
+	manifest := m.Output("metalava.sbox.textproto")
+	cmd := String(android.RuleBuilderSboxProtoForTests(t, manifest).Commands[0].Command)
+	r := regexp.MustCompile(`--android-jar-pattern [^ ]+/android.jar`)
+	return r.FindAllString(cmd, -1)
+}
+
+func TestPublicDroidstubs(t *testing.T) {
+	patterns := getAndroidJarPatternsForDroidstubs(t, "public")
+
+	android.AssertArrayString(t, "order of patterns", []string{
+		"--android-jar-pattern somedir/%/public/android.jar",
+		"--android-jar-pattern someotherdir/%/public/android.jar",
+	}, patterns)
+}
+
+func TestSystemDroidstubs(t *testing.T) {
+	patterns := getAndroidJarPatternsForDroidstubs(t, "system")
+
+	android.AssertArrayString(t, "order of patterns", []string{
+		"--android-jar-pattern somedir/%/system/android.jar",
+		"--android-jar-pattern someotherdir/%/system/android.jar",
+		"--android-jar-pattern somedir/%/public/android.jar",
+		"--android-jar-pattern someotherdir/%/public/android.jar",
+	}, patterns)
+}
+
+func TestModuleLibDroidstubs(t *testing.T) {
+	patterns := getAndroidJarPatternsForDroidstubs(t, "module-lib")
+
+	android.AssertArrayString(t, "order of patterns", []string{
+		"--android-jar-pattern somedir/%/module-lib/android.jar",
+		"--android-jar-pattern someotherdir/%/module-lib/android.jar",
+		"--android-jar-pattern somedir/%/system/android.jar",
+		"--android-jar-pattern someotherdir/%/system/android.jar",
+		"--android-jar-pattern somedir/%/public/android.jar",
+		"--android-jar-pattern someotherdir/%/public/android.jar",
+	}, patterns)
 }
 
 func TestDroidstubsSandbox(t *testing.T) {

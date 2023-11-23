@@ -20,7 +20,5 @@ limitations under the License.
     <integer name="card_content_text_block_max_lines">3</integer>
     <!-- Number of buttons shown for the media playback controls bar -->
     <integer name="playback_controls_bar_columns">3</integer>
-    <!--  Entry/exit animation transition speed in milliseconds.  This is the animation of foreground DA.-->
-    <integer name="enter_exit_animation_foreground_display_area_duration_ms">0</integer>
 </resources>
 

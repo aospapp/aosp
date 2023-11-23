@@ -22,6 +22,7 @@ import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarLibLog;
 import android.car.CarManagerBase;
+import android.car.annotation.AddedInOrBefore;
 import android.car.diagnostic.ICarDiagnosticEventListener.Stub;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -46,7 +47,9 @@ import java.util.function.Consumer;
  */
 @SystemApi
 public final class CarDiagnosticManager extends CarManagerBase {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FRAME_TYPE_LIVE = 0;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FRAME_TYPE_FREEZE = 1;
 
     @Retention(RetentionPolicy.SOURCE)
@@ -54,6 +57,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
     public @interface FrameType {}
 
     /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
     public static final @FrameType int[] FRAME_TYPES = {
         FRAME_TYPE_LIVE,
         FRAME_TYPE_FREEZE
@@ -94,6 +98,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         synchronized (mActiveListeners) {
             mActiveListeners.clear();
@@ -107,6 +112,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
          *
          * @param carDiagnosticEvent
          */
+        @AddedInOrBefore(majorVersion = 33)
         void onDiagnosticEvent(CarDiagnosticEvent carDiagnosticEvent);
     }
 
@@ -131,6 +137,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * @return true if the registration was successful; false otherwise
      * @throws IllegalArgumentException
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean registerListener(
             OnDiagnosticEventListener listener, @FrameType int frameType, int rate) {
         assertFrameType(frameType);
@@ -158,6 +165,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * Unregister a listener, causing it to stop receiving all diagnostic events.
      * @param listener
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void unregisterListener(OnDiagnosticEventListener listener) {
         synchronized (mActiveListeners) {
             for (@FrameType int frameType : FRAME_TYPES) {
@@ -204,6 +212,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * @return A CarDiagnostic event for the most recently known live frame if one is present.
      *         null if no live frame has been recorded by the vehicle.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @Nullable CarDiagnosticEvent getLatestLiveFrame() {
         try {
             return mService.getLatestLiveFrame();
@@ -221,6 +230,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * assume that a timestamp obtained via this call will be indefinitely valid for retrieval
      * of the actual diagnostic data, and must be prepared to handle a missing frame.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public long[] getFreezeFrameTimestamps() {
         try {
             return mService.getFreezeFrameTimestamps();
@@ -238,6 +248,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * For this reason it cannot be assumed that a timestamp will yield a valid frame,
      * even if it was initially obtained via a call to getFreezeFrameTimestamps().
      */
+    @AddedInOrBefore(majorVersion = 33)
     public @Nullable CarDiagnosticEvent getFreezeFrame(long timestamp) {
         try {
             return mService.getFreezeFrame(timestamp);
@@ -256,6 +267,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * a false return from this method should be used by the client as cause for invalidating
      * its local knowledge of the vehicle diagnostic state.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean clearFreezeFrames(long... timestamps) {
         try {
             return mService.clearFreezeFrames(timestamps);
@@ -268,6 +280,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * Returns true if this vehicle supports sending live frame information.
      * @return
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isLiveFrameSupported() {
         try {
             return mService.isLiveFrameSupported();
@@ -280,6 +293,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * Returns true if this vehicle supports supports sending notifications to
      * registered listeners when new freeze frames happen.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isFreezeFrameNotificationSupported() {
         try {
             return mService.isFreezeFrameNotificationSupported();
@@ -292,6 +306,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      * Returns whether the underlying HAL supports retrieving freeze frames
      * stored in vehicle memory using timestamp.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isGetFreezeFrameSupported() {
         try {
             return mService.isGetFreezeFrameSupported();
@@ -310,6 +325,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      *
      * @return
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isClearFreezeFramesSupported() {
         try {
             return mService.isClearFreezeFramesSupported();
@@ -328,6 +344,7 @@ public final class CarDiagnosticManager extends CarManagerBase {
      *
      * @return
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isSelectiveClearFreezeFramesSupported() {
         try {
             return mService.isSelectiveClearFreezeFramesSupported();

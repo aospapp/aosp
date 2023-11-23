@@ -52,8 +52,8 @@ import androidx.preference.PreferenceGroup;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.dialog.PinDialogFragment;
+import com.android.tv.settings.library.users.RestrictedProfileModel;
 import com.android.tv.settings.users.AppRestrictionsFragment;
-import com.android.tv.settings.users.RestrictedProfileModel;
 import com.android.tv.settings.users.RestrictedProfilePinDialogFragment;
 import com.android.tv.settings.users.RestrictedProfilePinStorage;
 import com.android.tv.settings.users.UserSwitchListenerService;
@@ -395,7 +395,7 @@ public class SecurityFragment extends SettingsPreferenceFragment
             case PIN_MODE_RESTRICTED_PROFILE_DELETE:
                 mUiThreadHandler.post(() -> {
                     mRestrictedProfile.removeUser();
-                    UserSwitchListenerService.updateLaunchPoint(getActivity(), false);
+                    UserSwitchListenerService.onUserCreatedOrDeleted(getActivity());
                     refresh();
                 });
                 break;
@@ -480,7 +480,7 @@ public class SecurityFragment extends SettingsPreferenceFragment
             if (result == null) {
                 return;
             }
-            UserSwitchListenerService.updateLaunchPoint(mContext, true);
+            UserSwitchListenerService.onUserCreatedOrDeleted(mContext);
             LocalBroadcastManager.getInstance(mContext).sendBroadcast(
                     new Intent(ACTION_RESTRICTED_PROFILE_CREATED)
                             .putExtra(EXTRA_RESTRICTED_PROFILE_INFO, result));

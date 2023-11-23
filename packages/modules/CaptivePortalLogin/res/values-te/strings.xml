@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"పూర్తయిన లేదా రద్దు చేసిన డౌన్‌లోడ్‌లను చూపించే నోటిఫికేషన్‌లు"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"డౌన్‌లోడ్ ప్రోగ్రెస్"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"ఫైల్ డౌన్‌లోడ్‌ల ప్రోగ్రెస్‌ను చూపించే నోటిఫికేషన్‌లు"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"డౌన్‌లోడ్ రద్దు చేయబడింది"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ఫైల్ చాలా పెద్దదిగా ఉంది, అందువలన డౌన్‌లోడ్ రద్దు చేయబడింది."</string>
 </resources>

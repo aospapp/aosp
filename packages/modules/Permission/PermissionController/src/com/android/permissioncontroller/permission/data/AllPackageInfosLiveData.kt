@@ -38,20 +38,20 @@ object AllPackageInfosLiveData :
     override fun onUpdate() {
         UsersLiveData.value?.let { users ->
             val getLiveData = { user: UserHandle -> UserPackageInfosLiveData[user] }
-            setSourcesToDifference(users, userPackageInfosLiveDatas, getLiveData) { user ->
-                onUserPackageUpdates(user, userPackageInfosLiveDatas[user]?.value)
+            setSourcesToDifference(users, userPackageInfosLiveDatas, getLiveData)
+        }
+        if (!userPackageInfosLiveDatas.all { it.value.isInitialized }) {
+            return
+        }
+
+        for ((user, userPackageInfosLiveData) in userPackageInfosLiveDatas) {
+            val packageInfos = userPackageInfosLiveData.value
+            if (packageInfos == null) {
+                userPackageInfos.remove(user)
+            } else {
+                userPackageInfos[user] = packageInfos
             }
         }
-    }
-
-    private fun onUserPackageUpdates(user: UserHandle, packageInfos: List<LightPackageInfo>?) {
-        if (packageInfos == null) {
-            userPackageInfos.remove(user)
-        } else {
-            userPackageInfos[user] = packageInfos
-        }
-        if (userPackageInfosLiveDatas.all { it.value.isInitialized }) {
-            value = userPackageInfos.toMap()
-        }
+        value = userPackageInfos.toMap()
     }
 }

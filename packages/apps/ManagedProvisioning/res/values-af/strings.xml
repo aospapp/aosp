@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Die volgende program sal jou toestel bestuur:"</string>
     <string name="next" msgid="1004321437324424398">"Volgende"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Stel tans werkprofiel op …"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Jou IT-administrateur kan instellings, korporatiewe toegang, programme, toestemmings en data wat met hierdie profiel geassosieer word, insluitend jou netwerkaktiwiteit, asook jou toestel se ligging, oproepgeskiedenis en kontaksoekgeskiedenis, monitor en bestuur.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Kontak jou IT-administrateur vir meer inligting, insluitend jou organisasie se privaatheidsbeleide."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Jou IT-admin kan instellings, korporatiewe toegang, programme, toestemmings, data en netwerkaktiwiteit wat met hierdie profiel geassosieer word, asook jou oproepgeskiedenis en kontaksoekgeskiedenis, monitor en bestuur. Kontak jou IT-admin vir meer inligting, insluitend jou organisasie se privaatheidsbeleide."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Jou IT-administrateur kan instellings, korporatiewe toegang, programme, toestemmings en data wat met hierdie toestel geassosieer word, insluitend jou netwerkaktiwiteit, asook jou toestel se ligging, oproepgeskiedenis en kontaksoekgeskiedenis, monitor en bestuur.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Kontak jou IT-administrateur vir meer inligting, insluitend jou organisasie se privaatheidsbeleide."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> kan die <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-program installeer sodat jy betalings vir hierdie toestel kan doen."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Hierdie toestel kan beperk word"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan toegang tot hierdie toestel beperk as jy nie betalings doen nie."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Kan nie toestel opstel nie. Kontak jou IT-admin en gebruik \"Ongeldige kontrolesom\" as verwysing."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Probeer later weer of vra jou IT-admin vir hulp"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Kan nie toestel opstel nie. Kontak jou IT-admin en gebruik \"Ontbrekende of gekorrupteerde komponente\" as verwysing."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Stel tans op …"</string>
 </resources>

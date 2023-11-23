@@ -18,10 +18,15 @@ package android.sensorprivacy.cts
 
 import android.app.AppOpsManager
 import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources.NotFoundException
 import android.hardware.SensorPrivacyManager
 import android.hardware.SensorPrivacyManager.OnSensorPrivacyChangedListener
+import android.hardware.SensorPrivacyManager.TOGGLE_TYPE_HARDWARE
+import android.hardware.SensorPrivacyManager.TOGGLE_TYPE_SOFTWARE
+import android.hardware.SensorPrivacyManager.OnSensorPrivacyChangedListener.SensorPrivacyChangedParams
 import android.hardware.SensorPrivacyManager.Sensors.CAMERA
 import android.hardware.SensorPrivacyManager.Sensors.MICROPHONE
 import android.hardware.SensorPrivacyManager.Sources.OTHER
@@ -40,6 +45,7 @@ import com.android.compatibility.common.util.UiAutomatorUtils
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume
@@ -60,6 +66,8 @@ abstract class SensorPrivacyBaseTest(
                 "android.sensorprivacy.cts.usemiccamera.action.USE_MIC_CAM"
         const val MIC_CAM_OVERLAY_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.overlay.action.USE_MIC_CAM"
+        const val SHOW_OVERLAY_ACTION =
+                "android.sensorprivacy.cts.usemiccamera.action.SHOW_OVERLAY_ACTION"
         const val FINISH_MIC_CAM_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.action.FINISH_USE_MIC_CAM"
         const val USE_MIC_EXTRA =
@@ -93,6 +101,7 @@ abstract class SensorPrivacyBaseTest(
         oldState = isSensorPrivacyEnabled()
         setSensor(false)
         Assume.assumeTrue(spm.supportsSensorToggle(sensor))
+        Assume.assumeTrue(spm.supportsSensorToggle(TOGGLE_TYPE_SOFTWARE, sensor))
         uiDevice.wakeUp()
         runShellCommandOrThrow("wm dismiss-keyguard")
         uiDevice.waitForIdle()
@@ -112,6 +121,31 @@ abstract class SensorPrivacyBaseTest(
 
         setSensor(false)
         assertFalse(isSensorPrivacyEnabled())
+    }
+
+    @Test
+    fun testSensorPrivacy_softwareToggle() {
+        setSensor(true)
+        assertTrue(isToggleSensorPrivacyEnabled(TOGGLE_TYPE_SOFTWARE))
+
+        setSensor(false)
+        assertFalse(isToggleSensorPrivacyEnabled(TOGGLE_TYPE_SOFTWARE))
+    }
+
+    @Test
+    fun testSensorPrivacy_hardwareToggle() {
+        // Default value should be false weather HW toggles
+        // are supported or not
+        assertFalse(isToggleSensorPrivacyEnabled(TOGGLE_TYPE_HARDWARE))
+    }
+
+    @Test
+    fun testSensorPrivacy_comboToggle() {
+        setSensor(sensor, true)
+        assertTrue(isCombinedSensorPrivacyEnabled())
+
+        setSensor(sensor, false)
+        assertFalse(isCombinedSensorPrivacyEnabled())
     }
 
     @Test
@@ -190,10 +224,115 @@ abstract class SensorPrivacyBaseTest(
     }
 
     @Test
+    fun testToggleListener() {
+        val executor = Executors.newSingleThreadExecutor()
+        setSensor(false)
+        val latchEnabled = CountDownLatch(1)
+        val listenerSensorEnabled = object : OnSensorPrivacyChangedListener {
+            override fun onSensorPrivacyChanged(params: SensorPrivacyChangedParams) {
+                if (params.isEnabled &&
+                        params.sensor == sensor &&
+                        params.toggleType == TOGGLE_TYPE_SOFTWARE) {
+                    latchEnabled.countDown()
+                }
+            }
+
+            override fun onSensorPrivacyChanged(sensor: Int, enabled: Boolean) {
+            }
+        }
+        runWithShellPermissionIdentity {
+            spm.addSensorPrivacyListener(executor, listenerSensorEnabled)
+        }
+        setSensor(true)
+        latchEnabled.await(100, TimeUnit.MILLISECONDS)
+        runWithShellPermissionIdentity {
+            spm.removeSensorPrivacyListener(listenerSensorEnabled)
+        }
+
+        val latchDisabled = CountDownLatch(1)
+        val listenerSensorDisabled = object : OnSensorPrivacyChangedListener {
+            override fun onSensorPrivacyChanged(params: SensorPrivacyChangedParams) {
+                if (!params.isEnabled &&
+                        params.sensor == sensor &&
+                        params.toggleType == TOGGLE_TYPE_SOFTWARE) {
+                    latchDisabled.countDown()
+                }
+            }
+
+            override fun onSensorPrivacyChanged(sensor: Int, enabled: Boolean) {
+            }
+        }
+        runWithShellPermissionIdentity {
+            spm.addSensorPrivacyListener(executor, listenerSensorDisabled)
+        }
+        setSensor(false)
+        latchEnabled.await(100, TimeUnit.MILLISECONDS)
+        runWithShellPermissionIdentity {
+            spm.removeSensorPrivacyListener(listenerSensorDisabled)
+        }
+    }
+
+    @Test
+    fun testToggleListener_defaultExecutor() {
+        setSensor(false)
+        val latchEnabled = CountDownLatch(1)
+        var listenerSensorEnabled = object : OnSensorPrivacyChangedListener {
+            override fun onSensorPrivacyChanged(params: SensorPrivacyChangedParams) {
+                if (params.isEnabled && params.sensor == sensor) {
+                    latchEnabled.countDown()
+                }
+            }
+
+            override fun onSensorPrivacyChanged(sensor: Int, enabled: Boolean) {
+            }
+        }
+        runWithShellPermissionIdentity {
+            spm.addSensorPrivacyListener(listenerSensorEnabled)
+        }
+        setSensor(true)
+        latchEnabled.await(100, TimeUnit.MILLISECONDS)
+        runWithShellPermissionIdentity {
+            spm.removeSensorPrivacyListener(listenerSensorEnabled)
+        }
+
+        val latchDisabled = CountDownLatch(1)
+        val listenerSensorDisabled = object : OnSensorPrivacyChangedListener {
+            override fun onSensorPrivacyChanged(params: SensorPrivacyChangedParams) {
+                if (!params.isEnabled && params.sensor == sensor) {
+                    latchDisabled.countDown()
+                }
+            }
+
+            override fun onSensorPrivacyChanged(sensor: Int, enabled: Boolean) {
+            }
+        }
+        runWithShellPermissionIdentity {
+            spm.addSensorPrivacyListener(listenerSensorDisabled)
+        }
+        setSensor(false)
+        latchEnabled.await(100, TimeUnit.MILLISECONDS)
+        runWithShellPermissionIdentity {
+            spm.removeSensorPrivacyListener(listenerSensorDisabled)
+        }
+    }
+
+    @Test
     @AppModeFull(reason = "Instant apps can't manage keyguard")
     fun testCantChangeWhenLocked() {
         Assume.assumeTrue(packageManager
                 .hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN))
+
+//      TODO use actual test api when it can be added
+//      Assume.assumeTrue(callWithShellPermissionIdentity { spm.requiresAuthentication() })
+        val packageContext: Context = context.createPackageContext("android", 0)
+        try {
+            Assume.assumeTrue(packageContext.resources.getBoolean(packageContext.resources
+                    .getIdentifier("config_sensorPrivacyRequiresAuthentication", "bool", "android"))
+            )
+        } catch (e: NotFoundException) {
+        // Since by default we want authentication to be required we
+        // continue the test if the OEM has removed this resource.
+        }
 
         setSensor(false)
         assertFalse(isSensorPrivacyEnabled())
@@ -213,16 +352,19 @@ abstract class SensorPrivacyBaseTest(
     }
 
     fun unblockSensorWithDialogAndAssert() {
-        val buttonResId = if (packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            "com.android.systemui:id/bottom_sheet_positive_button"
-        } else {
-            "android:id/button1"
-        }
+        val buttonResId = getDialogPositiveButtonId()
         UiAutomatorUtils.waitFindObject(By.res(buttonResId)).click()
         eventually {
             assertFalse(isSensorPrivacyEnabled())
         }
     }
+
+    private fun getDialogPositiveButtonId() =
+            if (packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+                "com.android.systemui:id/bottom_sheet_positive_button"
+            } else {
+                "android:id/button1"
+            }
 
     @Test
     @AppModeFull(reason = "Uses secondary app, instant apps have no visibility")
@@ -335,6 +477,8 @@ abstract class SensorPrivacyBaseTest(
     fun testTapjacking() {
         setSensor(true)
         startTestOverlayApp(false)
+        assertNotNull("Dialog never showed",
+                UiAutomatorUtils.waitFindObject(By.res(getDialogPositiveButtonId())))
         val view = UiAutomatorUtils.waitFindObjectOrNull(By.text("This Should Be Hidden"), 10_000)
         assertNull("Overlay should not have shown.", view)
     }
@@ -367,6 +511,8 @@ abstract class SensorPrivacyBaseTest(
         context.startActivity(intent)
         // Wait for app to open
         UiAutomatorUtils.waitFindObject(By.textContains(ACTIVITY_TITLE_SNIP))
+
+        context.sendBroadcast(Intent(SHOW_OVERLAY_ACTION))
     }
 
     private fun finishTestApp() {
@@ -383,9 +529,27 @@ abstract class SensorPrivacyBaseTest(
         }
     }
 
+    protected fun setSensor(sensor: Int, enable: Boolean) {
+        runWithShellPermissionIdentity {
+            spm.setSensorPrivacy(sensor, enable)
+        }
+    }
+
     private fun isSensorPrivacyEnabled(): Boolean {
         return callWithShellPermissionIdentity {
             spm.isSensorPrivacyEnabled(sensor)
+        }
+    }
+
+    private fun isToggleSensorPrivacyEnabled(toggleType: Int): Boolean {
+        return callWithShellPermissionIdentity {
+            spm.isSensorPrivacyEnabled(toggleType, sensor)
+        }
+    }
+
+    private fun isCombinedSensorPrivacyEnabled(): Boolean {
+        return callWithShellPermissionIdentity {
+            spm.areAnySensorPrivacyTogglesEnabled(sensor)
         }
     }
 
@@ -443,7 +607,7 @@ abstract class SensorPrivacyBaseTest(
         val password = byteArrayOf(1, 2, 3, 4)
         try {
             runWithShellPermissionIdentity {
-                km!!.setLock(KeyguardManager.PIN, password, KeyguardManager.PIN, null)
+                km.setLock(KeyguardManager.PIN, password, KeyguardManager.PIN, null)
             }
             eventually {
                 uiDevice.pressKeyCode(KeyEvent.KEYCODE_SLEEP)
@@ -460,7 +624,7 @@ abstract class SensorPrivacyBaseTest(
             r.invoke()
         } finally {
             runWithShellPermissionIdentity {
-                km!!.setLock(KeyguardManager.PIN, null, KeyguardManager.PIN, password)
+                km.setLock(KeyguardManager.PIN, null, KeyguardManager.PIN, password)
             }
 
             // Recycle the screen power in case the keyguard is stuck open

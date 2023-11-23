@@ -51,7 +51,6 @@
                 android:layout_alignParentTop="true"
                 android:layout_alignParentStart="true"
                 android:layout_alignParentEnd="true"
-                android:layout_marginStart="@dimen/card_body_margin_start"
                 app:maxLines="@integer/config_headsUpNotificationMaxBodyLines"
                 app:showBigIcon="true"
                 app:isHeadsUp="true"/>

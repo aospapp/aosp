@@ -127,10 +127,9 @@ public class TrustedCertificateStore implements ConscryptCertStore {
     private final File addedDir;
     private final File deletedDir;
 
-    @android.compat.annotation
-            .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
-            public TrustedCertificateStore() {
+    @android.compat.annotation.UnsupportedAppUsage
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public TrustedCertificateStore() {
         this(PreloadHolder.defaultCaCertsSystemDir, PreloadHolder.defaultCaCertsAddedDir,
                 PreloadHolder.defaultCaCertsDeletedDir);
     }
@@ -498,10 +497,9 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * @throws CertificateException if there was a problem parsing the
      *             certificates
      */
-    @android.compat.annotation
-            .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
-            public List<X509Certificate> getCertificateChain(X509Certificate leaf)
+    @android.compat.annotation.UnsupportedAppUsage
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public List<X509Certificate> getCertificateChain(X509Certificate leaf)
             throws CertificateException {
         final LinkedHashSet<OpenSSLX509Certificate> chain
                 = new LinkedHashSet<OpenSSLX509Certificate>();

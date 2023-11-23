@@ -21,13 +21,13 @@ import time
 
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_5g_test_utils import disable_apm_mode_both_devices
 from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
 from acts_contrib.test_utils.tel.tel_5g_test_utils import verify_5g_attach_for_both_devices
 from acts_contrib.test_utils.tel.tel_mms_utils import _mms_test_mo
 from acts_contrib.test_utils.tel.tel_mms_utils import _long_mms_test_mo
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 
 
 class Sa5gMmsTest(TelephonyBaseTest):
@@ -59,13 +59,13 @@ class Sa5gMmsTest(TelephonyBaseTest):
             False if failed.
         """
         ads = self.android_devices
-        if not provision_device_for_5g(self.log, ads, sa_5g=True):
+        if not provision_device_for_5g(self.log, ads, nr_type='sa'):
             return False
 
         if not _mms_test_mo(self.log, ads):
             return False
 
-        if not verify_5g_attach_for_both_devices(self.log, ads, True):
+        if not verify_5g_attach_for_both_devices(self.log, ads, nr_type='sa'):
             return False
 
         self.log.info("PASS - mms test over 5g sa validated")
@@ -91,7 +91,7 @@ class Sa5gMmsTest(TelephonyBaseTest):
         if not disable_apm_mode_both_devices(self.log, ads):
             return False
 
-        if not provision_device_for_5g(self.log, ads, sa_5g=True):
+        if not provision_device_for_5g(self.log, ads, nr_type='sa'):
             return False
 
         return _long_mms_test_mo(self.log, ads)
@@ -117,7 +117,7 @@ class Sa5gMmsTest(TelephonyBaseTest):
         if not disable_apm_mode_both_devices(self.log, ads):
             return False
 
-        if not provision_device_for_5g(self.log, ads, sa_5g=True):
+        if not provision_device_for_5g(self.log, ads, nr_type='sa'):
             return False
 
         ensure_wifi_connected(self.log, ads[0], self.wifi_network_ssid,

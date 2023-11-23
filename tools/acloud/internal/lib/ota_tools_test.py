@@ -121,28 +121,21 @@ class OtaToolsTest(unittest.TestCase):
         popen.poll.return_value = None
         return popen
 
+    # pylint: disable=protected-access
     def testFindOtaTools(self):
-        """Test FindOtaTools."""
+        """Test FindOtaToolsDir and FindOtaTools."""
         # CVD host package contains lpmake but not all tools.
         self._CreateBinary("lpmake")
-        with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
-                             {"ANDROID_HOST_OUT": self._temp_dir,
-                              "ANDROID_SOONG_HOST_OUT": self._temp_dir}, clear=True):
-            with self.assertRaises(errors.CheckPathError):
-                ota_tools.FindOtaTools([self._temp_dir])
+        with self.assertRaises(errors.CheckPathError):
+            ota_tools.FindOtaToolsDir([self._temp_dir])
 
         # The function identifies OTA tool directory by build_super_image.
         self._CreateBinary("build_super_image")
-        with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
-                             dict(), clear=True):
-            self.assertEqual(ota_tools.FindOtaTools([self._temp_dir]),
-                             self._temp_dir)
-
-        # ANDROID_HOST_OUT contains OTA tools in build environment.
-        with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
-                             {"ANDROID_HOST_OUT": self._temp_dir,
-                              "ANDROID_SOONG_HOST_OUT": self._temp_dir}, clear=True):
-            self.assertEqual(ota_tools.FindOtaTools([]), self._temp_dir)
+        self.assertEqual(ota_tools.FindOtaToolsDir([self._temp_dir]),
+                         self._temp_dir)
+        self.assertEqual(
+            ota_tools.FindOtaTools([self._temp_dir])._ota_tools_dir,
+            self._temp_dir)
 
     def testGetImageForPartition(self):
         """Test GetImageForPartition."""
@@ -214,25 +207,25 @@ class OtaToolsTest(unittest.TestCase):
                          _EXPECTED_MISC_INFO % lpmake)
         self.assertFalse(os.path.exists(rewritten_misc_info.path))
 
-    @mock.patch("acloud.internal.lib.ota_tools.subprocess.Popen")
+    @mock.patch("acloud.internal.lib.utils.subprocess.Popen")
     def testBuildSuperImageSuccess(self, mock_popen):
         """Test BuildSuperImage."""
         self._TestBuildSuperImage(mock_popen, self._MockPopen(return_value=0))
 
-    @mock.patch("acloud.internal.lib.ota_tools.subprocess.Popen")
+    @mock.patch("acloud.internal.lib.utils.subprocess.Popen")
     def testBuildSuperImageTimeout(self, mock_popen):
         """Test BuildSuperImage with command timeout."""
         self._TestBuildSuperImage(mock_popen, self._MockPopenTimeout(),
                                   errors.FunctionTimeoutError)
 
-    @mock.patch("acloud.internal.lib.ota_tools.subprocess.Popen")
+    @mock.patch("acloud.internal.lib.utils.subprocess.Popen")
     def testMakeDisabledVbmetaImageSuccess(self, mock_popen):
         """Test MakeDisabledVbmetaImage."""
         avbtool = self._CreateBinary("avbtool")
 
         mock_popen.return_value = self._MockPopen(return_value=0)
 
-        with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
+        with mock.patch.dict("acloud.internal.lib.utils.os.environ",
                              {"PYTHONPATH": "/unit/test"}, clear=True):
             self._ota.MakeDisabledVbmetaImage("/unit/test")
 
@@ -296,13 +289,13 @@ class OtaToolsTest(unittest.TestCase):
                          _EXPECTED_SYSTEM_QEMU_CONFIG)
         self.assertFalse(os.path.exists(rewritten_config.path))
 
-    @mock.patch("acloud.internal.lib.ota_tools.subprocess.Popen")
+    @mock.patch("acloud.internal.lib.utils.subprocess.Popen")
     def testMkCombinedImgSuccess(self, mock_popen):
         """Test MkCombinedImg."""
         return self._TestMkCombinedImg(mock_popen,
                                        self._MockPopen(return_value=0))
 
-    @mock.patch("acloud.internal.lib.ota_tools.subprocess.Popen")
+    @mock.patch("acloud.internal.lib.utils.subprocess.Popen")
     def testMkCombinedImgFailure(self, mock_popen):
         """Test MkCombinedImg with command failure."""
         return self._TestMkCombinedImg(mock_popen,

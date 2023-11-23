@@ -63,6 +63,12 @@ cc_library {
 
     export_include_dirs: ["include"],
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.compos",
+    ],
+    recovery_available: true,
+
     srcs: [
         "lib/*.c",
     ],

@@ -40,6 +40,8 @@
         <com.android.car.settings.common.ColoredSwitchPreference
             android:key="@string/pk_wifi_entry_state_switch"
             android:title="@string/wifi_settings"
+            android:summary="@string/wifi_network_state_switch_subtitle"
+            style="@style/ColoredSwitchPreferenceDefaultColorStyle"
             settings:controller="com.android.car.settings.wifi.WifiStateSwitchPreferenceController"
             settings:searchable="false"/>
         <com.android.car.settings.common.LogicalPreferenceGroup

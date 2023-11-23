@@ -62,12 +62,12 @@ public class DateTimeGeneratorTest extends TestFmwk {
     public void TestC() {
         String[][] tests = {
                 // These may change with actual data for Bhmm/bhmm skeletons
-                {"zh",     "Cm",      "Bh:mm"},
-                {"zh",     "CCm",     "Bhh:mm"},
-                {"zh",     "CCCm",    "BBBBh:mm"},
-                {"zh",     "CCCCm",   "BBBBhh:mm"},
-                {"zh",     "CCCCCm",  "BBBBBh:mm"},
-                {"zh",     "CCCCCCm", "BBBBBhh:mm"},
+                {"zh-TW",  "Cm",      "Bh:mm"},
+                {"zh-TW",  "CCm",     "Bhh:mm"},
+                {"zh-TW",  "CCCm",    "BBBBh:mm"},
+                {"zh-TW",  "CCCCm",   "BBBBhh:mm"},
+                {"zh-TW",  "CCCCCm",  "BBBBBh:mm"},
+                {"zh-TW",  "CCCCCCm", "BBBBBhh:mm"},
                 {"de",     "Cm",      "HH:mm"},
                 {"de",     "CCm",     "HH:mm"},
                 {"de",     "CCCm",    "HH:mm"},
@@ -515,13 +515,13 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"yQQQ", "1999\u5E74\u7B2C1\u5B63\u5EA6"},
         new String[] {"hhmm", "\u4E0B\u534811:58"},
         new String[] {"HHmm", "23:58"},
-        new String[] {"jjmm", "\u4E0B\u534811:58"},
+        new String[] {"jjmm", "23:58"},
         new String[] {"mmss", "58:59"},
         new String[] {"yyyyMMMM", "1999\u5E741\u6708"}, // (new item for testing 6872<-5702)
         new String[] {"MMMEd", "1\u670813\u65E5\u5468\u4E09"},
         new String[] {"Ed", "13\u65E5\u5468\u4E09"},
-        new String[] {"jmmssSSS", "\u4E0B\u534811:58:59.123"},
-        new String[] {"JJmm", "11:58"},
+        new String[] {"jmmssSSS", "23:58:59.123"},
+        new String[] {"JJmm", "23:58"},
 
         new ULocale("zh_TW@calendar=roc"), // (new locale for testing ticket 6872<-5702)
         new String[] {"yM", "\u6C11\u570B88/1"},
@@ -572,13 +572,13 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"yQQQ", "1998\u620A\u5BC5\u5E74\u7B2C\u56DB\u5B63\u5EA6"},
         new String[] {"hhmm", "\u4E0B\u534811:58"},
         new String[] {"HHmm", "23:58"},
-        new String[] {"jjmm", "\u4E0B\u534811:58"},
+        new String[] {"jjmm", "23:58"},
         new String[] {"mmss", "58:59"},
         new String[] {"yyyyMMMM", "1998\u620A\u5BC5\u5E74\u5341\u4E00\u6708"},
         new String[] {"MMMEd", "\u5341\u4E00\u670826\u65E5\u5468\u4E09"},
         new String[] {"Ed", "26\u65E5\u5468\u4E09"},
-        new String[] {"jmmssSSS", "\u4E0B\u534811:58:59.123"},
-        new String[] {"JJmm", "11:58"},
+        new String[] {"jmmssSSS", "23:58:59.123"},
+        new String[] {"JJmm", "23:58"},
 
         new ULocale("ja_JP_TRADITIONAL"),
         // TODO: This is different in C++ and Java.
@@ -1410,8 +1410,8 @@ public class DateTimeGeneratorTest extends TestFmwk {
                 new TestOptionsItem( "en@calendar=chinese",  "Gy",    "r(U)",     DateTimePatternGenerator.MATCH_NO_OPTIONS ),
                 new TestOptionsItem( "en@calendar=chinese",  "GU",    "r(U)",     DateTimePatternGenerator.MATCH_NO_OPTIONS ),
                 new TestOptionsItem( "en@calendar=chinese",  "ULLL",  "MMM U",    DateTimePatternGenerator.MATCH_NO_OPTIONS ),
-                new TestOptionsItem( "en@calendar=chinese",  "yMMM",  "MMM r(U)", DateTimePatternGenerator.MATCH_NO_OPTIONS ),
-                new TestOptionsItem( "en@calendar=chinese",  "GUMMM", "MMM r(U)", DateTimePatternGenerator.MATCH_NO_OPTIONS ),
+                new TestOptionsItem( "en@calendar=chinese",  "yMMM",  "MMM r",    DateTimePatternGenerator.MATCH_NO_OPTIONS ),
+                new TestOptionsItem( "en@calendar=chinese",  "GUMMM", "MMM r",    DateTimePatternGenerator.MATCH_NO_OPTIONS ),
                 new TestOptionsItem( "zh@calendar=chinese",  "yyyy",  "rU\u5E74",    DateTimePatternGenerator.MATCH_NO_OPTIONS ),
                 new TestOptionsItem( "zh@calendar=chinese",  "YYYY",  "YY\u5E74",    DateTimePatternGenerator.MATCH_NO_OPTIONS ), // not a good result, want r(Y) or r(U)
                 new TestOptionsItem( "zh@calendar=chinese",  "U",     "rU\u5E74",    DateTimePatternGenerator.MATCH_NO_OPTIONS ),
@@ -1799,6 +1799,93 @@ public class DateTimeGeneratorTest extends TestFmwk {
                         " expected same pattern from DateTimePatGen: " + dtpgPattern +
                         ", DateFmt-forSkel: " + dtfSkelPattern + ", DateFmt-short: "  + dtfShortPattern +
                         "; latter has validLoc " + dtfShortValidLoc + ", actualLoc " + dtfShortActualLoc);
+            }
+        }
+    }
+    
+    @Test
+    public void testBestPattern() {
+        // generic test for DateTimePatternGenerator::getBestPattern() that can be used to test multiple
+        // bugs in the resource data
+        String[] testCases = {
+            // ICU-21650: (See the "week day" section of https://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
+            // for a full explanation of why this is the desired behavior)
+            // if the user asks for E, the minimum field length is 3, but if he asks for c or e, it's 1
+            "en_US",      "E",           "ccc",
+            "en_US",      "c",           "c",
+            "en_US",      "e",           "c",
+            "en_US",      "EE",          "ccc",
+            "en_US",      "cc",          "cc",
+            "en_US",      "ee",          "cc",
+            "en_US",      "EEE",         "ccc",
+            "en_US",      "ccc",         "ccc",
+            "en_US",      "eee",         "ccc",
+            // and if the user asked for c or e and the field length is 1 or 2, the output pattern should contain
+            // e instead of E (e supports numeric abbreviations; E doesn't)
+            "en_US",      "yMEd",        "EEE, M/d/y",
+            "en_US",      "yMcd",        "e, M/d/y",
+            "en_US",      "yMed",        "e, M/d/y",
+            "en_US",      "yMMEEdd",     "EEE, MM/dd/y",
+            "en_US",      "yMMccdd",     "ee, MM/dd/y",
+            "en_US",      "yMMeedd",     "ee, MM/dd/y",
+            "en_US",      "yMMMEd",      "EEE, MMM d, y",
+            "en_US",      "yMMMcccd",    "EEE, MMM d, y",
+            "en_US",      "yMMMeeed",    "EEE, MMM d, y",
+            "en_US",      "yMMMMEEEEd",  "EEEE, MMMM d, y",
+            "en_US",      "yMMMMccccd",  "EEEE, MMMM d, y",
+            "en_US",      "yMMMMeeeed",  "EEEE, MMMM d, y",
+
+            // ICU-20992: Bad patterns for missing fields
+            "ckb_IR",     "mmSSS",       "mm:ss٫SSS",
+            "ckb_IR",     "BSSS",        "SSS ├'Dayperiod': B┤",
+        };
+    
+        for (int i = 0; i < testCases.length; i += 3) {
+            String localeID = testCases[i];
+            ULocale locale = new ULocale(localeID);
+            String skeleton = testCases[i + 1];
+            String expectedPattern = testCases[i + 2];
+            String actualPattern = null;
+        
+            if (!skeleton.equals("full")) {
+                DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(locale);
+                actualPattern = dtpg.getBestPattern(skeleton);
+            } else {
+                DateFormat df = DateFormat.getDateInstance(DateFormat.FULL, locale);
+                SimpleDateFormat sdf = (SimpleDateFormat)df;
+            
+                if (sdf != null) {
+                    actualPattern = sdf.toPattern();
+                }
+            }
+        
+            assertEquals("Wrong result for test case " + localeID + "/" + skeleton, expectedPattern, actualPattern);
+        }
+    }
+
+    // Test for ICU-21202: Make sure DateTimePatternGenerator supplies an era field for year formats using the
+    // Buddhist and Japanese calendars for all English-speaking locales.
+    @Test
+    public void testEras() {
+        String[] localeIDs = {
+            "en_US@calendar=japanese",
+            "en_GB@calendar=japanese",
+            "en_150@calendar=japanese",
+            "en_001@calendar=japanese",
+            "en@calendar=japanese",
+            "en_US@calendar=buddhist",
+            "en_GB@calendar=buddhist",
+            "en_150@calendar=buddhist",
+            "en_001@calendar=buddhist",
+            "en@calendar=buddhist",
+        };
+
+        for (String localeID : localeIDs) {
+            DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(new Locale(localeID));
+            String pattern = dtpg.getBestPattern("y");
+
+            if (pattern.indexOf('G') < 0) {
+                errln("missing era field for locale " + localeID);
             }
         }
     }

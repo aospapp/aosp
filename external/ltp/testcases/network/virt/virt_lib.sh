@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2018-2019 Petr Vorel <pvorel@suse.cz>
-# Copyright (c) 2014-2017 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2014-2021 Oracle and/or its affiliates. All Rights Reserved.
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 #
 # VxLAN
@@ -61,11 +61,9 @@ virt_lib_setup()
 TST_NEEDS_ROOT=1
 . tst_net.sh
 
-ip_local=$(tst_ipaddr)
 ip_virt_local="$(TST_IPV6= tst_ipaddr_un)"
 ip6_virt_local="$(TST_IPV6=6 tst_ipaddr_un)"
 
-ip_remote=$(tst_ipaddr rhost)
 ip_virt_remote="$(TST_IPV6= tst_ipaddr_un rhost)"
 ip6_virt_remote="$(TST_IPV6=6 tst_ipaddr_un rhost)"
 
@@ -101,6 +99,19 @@ virt_cleanup()
 	virt_cleanup_rmt
 }
 
+_get_gue_fou_tnl()
+{
+	local enc_type="$1"
+	local tnl=sit
+
+	if [ "$enc_type" = "gue" ]; then
+		[ -n "$TST_IPV6" ] && tnl="ip6tnl"
+	else
+		[ -n "$TST_IPV6" ] && tnl="ip6gre" || tnl="gre"
+	fi
+	echo "$tnl"
+}
+
 virt_add()
 {
 	local vname=$1
@@ -120,17 +131,20 @@ virt_add()
 		[ -z "$opt" ] && \
 			opt="remote $(tst_ipaddr rhost) dev $(tst_iface)"
 	;;
-	sit)
+	sit|gue|fou)
 		[ -z "$opt" ] && opt="remote $(tst_ipaddr rhost) local $(tst_ipaddr)"
 	;;
 	esac
 
 	case $virt_type in
-	vxlan|geneve|sit)
+	vxlan|geneve|sit|wireguard)
 		ip li add $vname type $virt_type $opt
 	;;
 	gre|ip6gre)
 		ip -f inet$TST_IPV6 tu add $vname mode $virt_type $opt
+	;;
+	gue|fou)
+		ip link add name $vname type $(_get_gue_fou_tnl $virt_type) $opt
 	;;
 	*)
 		ip li add link $(tst_iface) $vname type $virt_type $opt
@@ -147,12 +161,16 @@ virt_add_rhost()
 		[ "$vxlan_dstport" -eq 1 ] && opt="$opt dstport 0"
 		tst_rhost_run -s -c "ip li add ltp_v0 type $virt_type $@ $opt"
 	;;
-	sit)
+	sit|wireguard)
 		tst_rhost_run -s -c "ip link add ltp_v0 type $virt_type $@"
 	;;
 	gre|ip6gre)
 		tst_rhost_run -s -c "ip -f inet$TST_IPV6 tu add ltp_v0 \
 				     mode $virt_type $@"
+	;;
+	gue|fou)
+		tst_rhost_run -s -c "ip link add name ltp_v0 \
+				     type $(_get_gue_fou_tnl $virt_type) $@"
 	;;
 	*)
 		tst_rhost_run -s -c "ip li add link $(tst_iface rhost) ltp_v0 \
@@ -231,10 +249,13 @@ virt_minimize_timeout()
 	local mac_loc="$(cat /sys/class/net/ltp_v0/address)"
 	local mac_rmt="$(tst_rhost_run -c 'cat /sys/class/net/ltp_v0/address')"
 
-	ROD_SILENT "ip ne replace $ip_virt_remote lladdr \
-		    $mac_rmt nud permanent dev ltp_v0"
-	tst_rhost_run -s -c "ip ne replace $ip_virt_local lladdr \
-			     $mac_loc nud permanent dev ltp_v0"
+	if [ "$mac_loc" ]; then
+		ROD_SILENT "ip ne replace $ip_virt_remote lladdr \
+			    $mac_rmt nud permanent dev ltp_v0"
+		tst_rhost_run -s -c "ip ne replace $ip_virt_local lladdr \
+				     $mac_loc nud permanent dev ltp_v0"
+	fi
+
 	virt_tcp_syn=$(sysctl -n net.ipv4.tcp_syn_retries)
 	ROD sysctl -q net.ipv4.tcp_syn_retries=1
 }
@@ -292,30 +313,13 @@ virt_compare_netperf()
 	local vt="$(cat res_ipv4)"
 	local vt6="$(cat res_ipv6)"
 
-	tst_netload -H $ip_remote $opts -d res_ipv4
+	tst_netload -H $(tst_ipaddr rhost) $opts -d res_lan
 
-	local lt="$(cat res_ipv4)"
-	tst_res TINFO "time lan($lt) $virt_type IPv4($vt) and IPv6($vt6) ms"
+	local lt="$(cat res_lan)"
+	tst_res TINFO "time lan IPv${TST_IPVER}($lt) $virt_type IPv4($vt) and IPv6($vt6) ms"
 
-	per=$(( $vt * 100 / $lt - 100 ))
-	per6=$(( $vt6 * 100 / $lt - 100 ))
-
-	case "$virt_type" in
-	vxlan|geneve)
-		tst_res TINFO "IP4 $virt_type over IP$TST_IPVER slower by $per %"
-		tst_res TINFO "IP6 $virt_type over IP$TST_IPVER slower by $per6 %"
-	;;
-	*)
-		tst_res TINFO "IP4 $virt_type slower by $per %"
-		tst_res TINFO "IP6 $virt_type slower by $per6 %"
-	esac
-
-	if [ "$per" -ge "$VIRT_PERF_THRESHOLD" -o \
-	     "$per6" -ge "$VIRT_PERF_THRESHOLD" ]; then
-		tst_res TFAIL "Test failed, threshold: $VIRT_PERF_THRESHOLD %"
-	else
-		tst_res TPASS "Test passed, threshold: $VIRT_PERF_THRESHOLD %"
-	fi
+	tst_netload_compare $lt $vt "-$VIRT_PERF_THRESHOLD"
+	tst_netload_compare $lt $vt6 "-$VIRT_PERF_THRESHOLD"
 }
 
 virt_check_cmd()
@@ -375,10 +379,6 @@ virt_gre_setup()
 	virt_type="gre"
 	[ "$TST_IPV6" ] && virt_type="ip6gre"
 	virt_lib_setup
-
-	if [ -z $ip_local -o -z $ip_remote ]; then
-		tst_brk TBROK "you must specify IP address"
-	fi
 
 	tst_res TINFO "test $virt_type"
 	virt_setup "local $(tst_ipaddr) remote $(tst_ipaddr rhost) dev $(tst_iface)" \

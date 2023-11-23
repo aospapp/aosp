@@ -1,18 +1,11 @@
 #include <android/aidl/loggable/ILoggableInterface.h>
 #include <android/aidl/loggable/BpLoggableInterface.h>
-
 namespace android {
-
 namespace aidl {
-
 namespace loggable {
-
 DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE(LoggableInterface, "android.aidl.loggable.ILoggableInterface")
-
 }  // namespace loggable
-
 }  // namespace aidl
-
 }  // namespace android
 #include <android/aidl/loggable/BpLoggableInterface.h>
 #include <android/aidl/loggable/BnLoggableInterface.h>
@@ -22,9 +15,7 @@ DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE(LoggableInterface, "android.aidl
 #include <functional>
 
 namespace android {
-
 namespace aidl {
-
 namespace loggable {
 
 BpLoggableInterface::BpLoggableInterface(const ::android::sp<::android::IBinder>& _aidl_impl)
@@ -246,9 +237,7 @@ std::function<void(const BpLoggableInterface::TransactionLog&)> BpLoggableInterf
 }
 
 }  // namespace loggable
-
 }  // namespace aidl
-
 }  // namespace android
 #include <android/aidl/loggable/BnLoggableInterface.h>
 #include <binder/Parcel.h>
@@ -257,9 +246,7 @@ std::function<void(const BpLoggableInterface::TransactionLog&)> BpLoggableInterf
 #include <functional>
 
 namespace android {
-
 namespace aidl {
-
 namespace loggable {
 
 BnLoggableInterface::BnLoggableInterface()
@@ -408,6 +395,10 @@ BnLoggableInterface::BnLoggableInterface()
       _transaction_log.input_args.emplace_back("in_pfdArray", ::android::internal::ToString(in_pfdArray));
     }
     auto _log_start = std::chrono::steady_clock::now();
+    if (auto st = _aidl_data.enforceNoDataAvail(); !st.isOk()) {
+      _aidl_ret_status = st.writeToParcel(_aidl_reply);
+      break;
+    }
     ::android::binder::Status _aidl_status(LogThis(in_boolValue, &in_boolArray, in_byteValue, &in_byteArray, in_charValue, &in_charArray, in_intValue, &in_intArray, in_longValue, &in_longArray, in_floatValue, &in_floatArray, in_doubleValue, &in_doubleArray, in_stringValue, &in_stringArray, &in_listValue, in_dataValue, in_binderValue, &in_pfdValue, &in_pfdArray, &_aidl_return));
     if (BnLoggableInterface::logFunc != nullptr) {
       auto _log_end = std::chrono::steady_clock::now();
@@ -498,15 +489,171 @@ BnLoggableInterface::BnLoggableInterface()
   break;
   }
   if (_aidl_ret_status == ::android::UNEXPECTED_NULL) {
-    _aidl_ret_status = ::android::binder::Status::fromExceptionCode(::android::binder::Status::EX_NULL_POINTER).writeToParcel(_aidl_reply);
+    _aidl_ret_status = ::android::binder::Status::fromExceptionCode(::android::binder::Status::EX_NULL_POINTER).writeOverParcel(_aidl_reply);
   }
   return _aidl_ret_status;
 }
 
 std::function<void(const BnLoggableInterface::TransactionLog&)> BnLoggableInterface::logFunc;
+}  // namespace loggable
+}  // namespace aidl
+}  // namespace android
+#include <android/aidl/loggable/ILoggableInterface.h>
+#include <android/aidl/loggable/ILoggableInterface.h>
+namespace android {
+namespace aidl {
+namespace loggable {
+DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_NESTED_INTERFACE(ILoggableInterface, Sub, "android.aidl.loggable.ILoggableInterface.ISub")
+}  // namespace loggable
+}  // namespace aidl
+}  // namespace android
+#include <android/aidl/loggable/ILoggableInterface.h>
+#include <android/aidl/loggable/ILoggableInterface.h>
+#include <binder/Parcel.h>
+#include <android-base/macros.h>
+#include <chrono>
+#include <functional>
+
+namespace android {
+namespace aidl {
+namespace loggable {
+
+ILoggableInterface::BpSub::BpSub(const ::android::sp<::android::IBinder>& _aidl_impl)
+    : BpInterface<ISub>(_aidl_impl){
+}
+
+std::function<void(const ILoggableInterface::BpSub::TransactionLog&)> ILoggableInterface::BpSub::logFunc;
+
+::android::binder::Status ILoggableInterface::BpSub::Log(int32_t value) {
+  ::android::Parcel _aidl_data;
+  _aidl_data.markForBinder(remoteStrong());
+  ::android::Parcel _aidl_reply;
+  ::android::status_t _aidl_ret_status = ::android::OK;
+  ::android::binder::Status _aidl_status;
+  ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppClient");
+  ILoggableInterface::BpSub::TransactionLog _transaction_log;
+  if (ILoggableInterface::BpSub::logFunc != nullptr) {
+    _transaction_log.input_args.emplace_back("value", ::android::internal::ToString(value));
+  }
+  auto _log_start = std::chrono::steady_clock::now();
+  _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
+  if (((_aidl_ret_status) != (::android::OK))) {
+    goto _aidl_error;
+  }
+  _aidl_ret_status = _aidl_data.writeInt32(value);
+  if (((_aidl_ret_status) != (::android::OK))) {
+    goto _aidl_error;
+  }
+  _aidl_ret_status = remote()->transact(ILoggableInterface::BnSub::TRANSACTION_Log, _aidl_data, &_aidl_reply, 0);
+  if (UNLIKELY(_aidl_ret_status == ::android::UNKNOWN_TRANSACTION && ISub::getDefaultImpl())) {
+     return ISub::getDefaultImpl()->Log(value);
+  }
+  if (((_aidl_ret_status) != (::android::OK))) {
+    goto _aidl_error;
+  }
+  _aidl_ret_status = _aidl_status.readFromParcel(_aidl_reply);
+  if (((_aidl_ret_status) != (::android::OK))) {
+    goto _aidl_error;
+  }
+  if (!_aidl_status.isOk()) {
+    return _aidl_status;
+  }
+  _aidl_error:
+  _aidl_status.setFromStatusT(_aidl_ret_status);
+  if (ILoggableInterface::BpSub::logFunc != nullptr) {
+    auto _log_end = std::chrono::steady_clock::now();
+    _transaction_log.duration_ms = std::chrono::duration<double, std::milli>(_log_end - _log_start).count();
+    _transaction_log.interface_name = "android.aidl.loggable.ILoggableInterface.ISub";
+    _transaction_log.method_name = "Log";
+    _transaction_log.stub_address = nullptr;
+    _transaction_log.proxy_address = static_cast<const void*>(this);
+    _transaction_log.exception_code = _aidl_status.exceptionCode();
+    _transaction_log.exception_message = _aidl_status.exceptionMessage();
+    _transaction_log.transaction_error = _aidl_status.transactionError();
+    _transaction_log.service_specific_error_code = _aidl_status.serviceSpecificErrorCode();
+    ILoggableInterface::BpSub::logFunc(_transaction_log);
+  }
+  return _aidl_status;
+}
 
 }  // namespace loggable
-
 }  // namespace aidl
+}  // namespace android
+#include <android/aidl/loggable/ILoggableInterface.h>
+#include <binder/Parcel.h>
+#include <binder/Stability.h>
+#include <chrono>
+#include <functional>
 
+namespace android {
+namespace aidl {
+namespace loggable {
+
+ILoggableInterface::BnSub::BnSub()
+{
+  ::android::internal::Stability::markCompilationUnit(this);
+}
+
+::android::status_t ILoggableInterface::BnSub::onTransact(uint32_t _aidl_code, const ::android::Parcel& _aidl_data, ::android::Parcel* _aidl_reply, uint32_t _aidl_flags) {
+  ::android::status_t _aidl_ret_status = ::android::OK;
+  switch (_aidl_code) {
+  case BnSub::TRANSACTION_Log:
+  {
+    int32_t in_value;
+    if (!(_aidl_data.checkInterface(this))) {
+      _aidl_ret_status = ::android::BAD_TYPE;
+      break;
+    }
+    ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppServer");
+    _aidl_ret_status = _aidl_data.readInt32(&in_value);
+    if (((_aidl_ret_status) != (::android::OK))) {
+      break;
+    }
+    ILoggableInterface::BnSub::TransactionLog _transaction_log;
+    if (ILoggableInterface::BnSub::logFunc != nullptr) {
+      _transaction_log.input_args.emplace_back("in_value", ::android::internal::ToString(in_value));
+    }
+    auto _log_start = std::chrono::steady_clock::now();
+    if (auto st = _aidl_data.enforceNoDataAvail(); !st.isOk()) {
+      _aidl_ret_status = st.writeToParcel(_aidl_reply);
+      break;
+    }
+    ::android::binder::Status _aidl_status(Log(in_value));
+    if (ILoggableInterface::BnSub::logFunc != nullptr) {
+      auto _log_end = std::chrono::steady_clock::now();
+      _transaction_log.duration_ms = std::chrono::duration<double, std::milli>(_log_end - _log_start).count();
+      _transaction_log.interface_name = "android.aidl.loggable.ILoggableInterface.ISub";
+      _transaction_log.method_name = "Log";
+      _transaction_log.stub_address = static_cast<const void*>(this);
+      _transaction_log.proxy_address = nullptr;
+      _transaction_log.exception_code = _aidl_status.exceptionCode();
+      _transaction_log.exception_message = _aidl_status.exceptionMessage();
+      _transaction_log.transaction_error = _aidl_status.transactionError();
+      _transaction_log.service_specific_error_code = _aidl_status.serviceSpecificErrorCode();
+      ILoggableInterface::BnSub::logFunc(_transaction_log);
+    }
+    _aidl_ret_status = _aidl_status.writeToParcel(_aidl_reply);
+    if (((_aidl_ret_status) != (::android::OK))) {
+      break;
+    }
+    if (!_aidl_status.isOk()) {
+      break;
+    }
+  }
+  break;
+  default:
+  {
+    _aidl_ret_status = ::android::BBinder::onTransact(_aidl_code, _aidl_data, _aidl_reply, _aidl_flags);
+  }
+  break;
+  }
+  if (_aidl_ret_status == ::android::UNEXPECTED_NULL) {
+    _aidl_ret_status = ::android::binder::Status::fromExceptionCode(::android::binder::Status::EX_NULL_POINTER).writeOverParcel(_aidl_reply);
+  }
+  return _aidl_ret_status;
+}
+
+std::function<void(const ILoggableInterface::BnSub::TransactionLog&)> ILoggableInterface::BnSub::logFunc;
+}  // namespace loggable
+}  // namespace aidl
 }  // namespace android

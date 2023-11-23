@@ -69,6 +69,7 @@ typedef int32_t audio_proxy_drain_type_t;
 enum {
   AUDIO_PROXY_OUTPUT_FLAG_NONE = 0x0,
   AUDIO_PROXY_OUTPUT_FLAG_DIRECT = 0x1,
+  AUDIO_PROXY_OUTPUT_FLAG_HW_AV_SYNC = 0x40,
 };
 typedef int32_t audio_proxy_output_flags_t;
 
@@ -196,6 +197,28 @@ struct audio_proxy_stream_out {
 
 typedef struct audio_proxy_stream_out audio_proxy_stream_out_t;
 
+// Extension of audio_proxy_device.
+struct audio_proxy_device_v2 {
+  // Returns the AudioProxy service name that the client wants to connect to.
+  const char* (*get_service_name)(struct audio_proxy_device_v2* device);
+
+  // Opens output stream for playback. Compared to the old version, this one
+  // will pass the address of the stream to the implementation.
+  int (*open_output_stream)(struct audio_proxy_device_v2* device,
+                            const char* address,
+                            audio_proxy_output_flags_t flags,
+                            audio_proxy_config_t* config,
+                            audio_proxy_stream_out_t** stream_out);
+
+  // Points to next version's struct. Implementation should set this field to
+  // null if next version struct is not available.
+  // This allows library to work with applications integrated with older version
+  // header.
+  void* extension;
+};
+
+typedef struct audio_proxy_device_v2 audio_proxy_device_v2_t;
+
 // Represents an audio HAL bus device.
 struct audio_proxy_device {
   // Returns the unique address of this device.
@@ -211,11 +234,8 @@ struct audio_proxy_device {
   void (*close_output_stream)(struct audio_proxy_device* device,
                               struct audio_proxy_stream_out* stream);
 
-  // Points to next version's struct. Implementation should set this field to
-  // null if next version struct is not available.
-  // This allows library to work with applications integrated with older version
-  // header.
-  void* extension;
+  // Pointer to the extension structure.
+  audio_proxy_device_v2_t* v2;
 };
 
 typedef struct audio_proxy_device audio_proxy_device_t;

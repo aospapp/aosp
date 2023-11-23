@@ -61,17 +61,11 @@ public class TimePickerPreferenceController extends PreferenceController<Prefere
         return Preference.class;
     }
 
-    @Override
-    protected void onCreateInternal() {
-        super.onCreateInternal();
-        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
-                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
-    }
-
     /** Starts the broadcast receiver which listens for time changes */
     @Override
     protected void onStartInternal() {
-        getContext().registerReceiver(mTimeChangeReceiver, mIntentFilter);
+        getContext().registerReceiver(mTimeChangeReceiver, mIntentFilter,
+                Context.RECEIVER_NOT_EXPORTED);
     }
 
     /** Stops the broadcast receiver which listens for time changes */
@@ -84,8 +78,10 @@ public class TimePickerPreferenceController extends PreferenceController<Prefere
     public void updateState(Preference preference) {
         preference.setSummary(
                 DateFormat.getTimeFormat(getContext()).format(Calendar.getInstance().getTime()));
-        preference.setEnabled(!autoDatetimeIsEnabled()
-                && getAvailabilityStatus() == AVAILABLE);
+        boolean isAvailable = getAvailabilityStatus() == AVAILABLE;
+        preference.setEnabled(!autoDatetimeIsEnabled() && isAvailable);
+        setClickableWhileDisabled(preference, !isAvailable, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
     }
 
     @Override

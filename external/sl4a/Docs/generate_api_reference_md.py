@@ -203,7 +203,7 @@ class DocGenerator(object):
 
             f.write('# Method descriptions\n\n')
             for func in itertools.chain.from_iterable(
-                    self._functions.itervalues()):
+                    self._functions.values()):
                 f.write('## %s\n\n' % func.function)
                 f.write('```\n')
                 f.write('%s\n\n' % func.signature)

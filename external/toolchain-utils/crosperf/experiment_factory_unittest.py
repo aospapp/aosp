@@ -79,14 +79,14 @@ EXPERIMENT_FILE_2 = """
 
 class ExperimentFactoryTest(unittest.TestCase):
   """Class for running experiment factory unittests."""
-
   def setUp(self):
     self.append_benchmark_call_args = []
 
   def testLoadExperimentFile1(self):
     experiment_file = ExperimentFile(io.StringIO(EXPERIMENT_FILE_1))
-    exp = ExperimentFactory().GetExperiment(
-        experiment_file, working_directory='', log_dir='')
+    exp = ExperimentFactory().GetExperiment(experiment_file,
+                                            working_directory='',
+                                            log_dir='')
     self.assertEqual(exp.remote, ['chromeos-alex3'])
 
     self.assertEqual(len(exp.benchmarks), 2)
@@ -104,8 +104,9 @@ class ExperimentFactoryTest(unittest.TestCase):
 
   def testLoadExperimentFile2CWP(self):
     experiment_file = ExperimentFile(io.StringIO(EXPERIMENT_FILE_2))
-    exp = ExperimentFactory().GetExperiment(
-        experiment_file, working_directory='', log_dir='')
+    exp = ExperimentFactory().GetExperiment(experiment_file,
+                                            working_directory='',
+                                            log_dir='')
     self.assertEqual(exp.cwp_dso, 'kallsyms')
     self.assertEqual(len(exp.benchmarks), 2)
     self.assertEqual(exp.benchmarks[0].weight, 0.8)
@@ -240,11 +241,12 @@ class ExperimentFactoryTest(unittest.TestCase):
     ef = ExperimentFactory()
 
     bench_list = []
-    ef.AppendBenchmarkSet(bench_list, experiment_factory.telemetry_perfv2_tests,
-                          '', 1, False, '', 'telemetry_Crosperf', False, 0,
-                          False, '', 0)
-    self.assertEqual(
-        len(bench_list), len(experiment_factory.telemetry_perfv2_tests))
+    ef.AppendBenchmarkSet(bench_list,
+                          experiment_factory.telemetry_perfv2_tests, '', 1,
+                          False, '', 'telemetry_Crosperf', False, 0, False, '',
+                          0)
+    self.assertEqual(len(bench_list),
+                     len(experiment_factory.telemetry_perfv2_tests))
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
 
     bench_list = []
@@ -252,17 +254,17 @@ class ExperimentFactoryTest(unittest.TestCase):
                           experiment_factory.telemetry_pagecycler_tests, '', 1,
                           False, '', 'telemetry_Crosperf', False, 0, False, '',
                           0)
-    self.assertEqual(
-        len(bench_list), len(experiment_factory.telemetry_pagecycler_tests))
+    self.assertEqual(len(bench_list),
+                     len(experiment_factory.telemetry_pagecycler_tests))
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
 
     bench_list = []
     ef.AppendBenchmarkSet(bench_list,
-                          experiment_factory.telemetry_toolchain_perf_tests, '',
-                          1, False, '', 'telemetry_Crosperf', False, 0, False,
-                          '', 0)
-    self.assertEqual(
-        len(bench_list), len(experiment_factory.telemetry_toolchain_perf_tests))
+                          experiment_factory.telemetry_toolchain_perf_tests,
+                          '', 1, False, '', 'telemetry_Crosperf', False, 0,
+                          False, '', 0)
+    self.assertEqual(len(bench_list),
+                     len(experiment_factory.telemetry_toolchain_perf_tests))
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
 
   @mock.patch.object(socket, 'gethostname')
@@ -370,7 +372,8 @@ class ExperimentFactoryTest(unittest.TestCase):
     global_settings.SetField('same_machine', 'true')
     global_settings.SetField('same_specs', 'true')
 
-    self.assertRaises(Exception, ef.GetExperiment, mock_experiment_file, '', '')
+    self.assertRaises(Exception, ef.GetExperiment, mock_experiment_file, '',
+                      '')
     label_settings.SetField('remote', '')
     global_settings.SetField('remote', '123.45.67.89')
     exp = ef.GetExperiment(mock_experiment_file, '', '')
@@ -399,46 +402,42 @@ class ExperimentFactoryTest(unittest.TestCase):
 
   def test_get_default_remotes(self):
     board_list = [
-        'elm', 'bob', 'chell', 'kefka', 'lulu', 'nautilus', 'snappy',
+        'bob', 'chell', 'coral', 'elm', 'kefka', 'nautilus', 'snappy',
         'veyron_tiger'
     ]
 
     ef = ExperimentFactory()
     self.assertRaises(Exception, ef.GetDefaultRemotes, 'bad-board')
 
-    # Verify that we have entries for every board, and that we get at least
-    # two machines for each board.
+    # Verify that we have entries for every board
     for b in board_list:
       remotes = ef.GetDefaultRemotes(b)
-      if b == 'daisy':
-        self.assertEqual(len(remotes), 1)
-      else:
-        self.assertGreaterEqual(len(remotes), 2)
+      self.assertGreaterEqual(len(remotes), 1)
 
   @mock.patch.object(command_executer.CommandExecuter, 'RunCommand')
   @mock.patch.object(os.path, 'exists')
-  def test_check_skylab_tool(self, mock_exists, mock_runcmd):
+  def test_check_crosfleet_tool(self, mock_exists, mock_runcmd):
     ef = ExperimentFactory()
     chromeos_root = '/tmp/chromeos'
     log_level = 'average'
 
     mock_exists.return_value = True
-    ret = ef.CheckSkylabTool(chromeos_root, log_level)
+    ret = ef.CheckCrosfleetTool(chromeos_root, log_level)
     self.assertTrue(ret)
 
     mock_exists.return_value = False
     mock_runcmd.return_value = 1
     with self.assertRaises(RuntimeError) as err:
-      ef.CheckSkylabTool(chromeos_root, log_level)
+      ef.CheckCrosfleetTool(chromeos_root, log_level)
     self.assertEqual(mock_runcmd.call_count, 1)
     self.assertEqual(
-        str(err.exception), 'Skylab tool not installed '
+        str(err.exception), 'Crosfleet tool not installed '
         'correctly, please try to manually install it from '
         '/tmp/chromeos/chromeos-admin/lab-tools/setup_lab_tools')
 
     mock_runcmd.return_value = 0
     mock_runcmd.call_count = 0
-    ret = ef.CheckSkylabTool(chromeos_root, log_level)
+    ret = ef.CheckCrosfleetTool(chromeos_root, log_level)
     self.assertEqual(mock_runcmd.call_count, 1)
     self.assertFalse(ret)
 

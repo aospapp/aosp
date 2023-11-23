@@ -25,7 +25,7 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class MockDataProcessor : virtual public IDataProcessorInterface {
+class MockDataProcessor : virtual public DataProcessorInterface {
 public:
     MockDataProcessor() {
         EXPECT_CALL(*this, name()).WillRepeatedly(::testing::Return("MockedDataProcessor"));
@@ -34,16 +34,20 @@ public:
     MOCK_METHOD(android::base::Result<void>, init, (), (override));
     MOCK_METHOD(void, terminate, (), (override));
     MOCK_METHOD(android::base::Result<void>, onBoottimeCollection,
-                (time_t, const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&), (override));
+                (time_t, const wp<UidStatsCollectorInterface>&,
+                 const wp<ProcStatCollectorInterface>&),
+                (override));
     MOCK_METHOD(android::base::Result<void>, onPeriodicCollection,
-                (time_t, SystemState, const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&),
+                (time_t, SystemState, const wp<UidStatsCollectorInterface>&,
+                 const wp<ProcStatCollectorInterface>&),
                 (override));
     MOCK_METHOD(android::base::Result<void>, onCustomCollection,
                 (time_t, SystemState, const std::unordered_set<std::string>&,
-                 const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&),
+                 const wp<UidStatsCollectorInterface>&, const wp<ProcStatCollectorInterface>&),
                 (override));
     MOCK_METHOD(android::base::Result<void>, onPeriodicMonitor,
-                (time_t, const android::wp<IProcDiskStatsInterface>&, const std::function<void()>&),
+                (time_t, const android::wp<ProcDiskStatsCollectorInterface>&,
+                 const std::function<void()>&),
                 (override));
     MOCK_METHOD(android::base::Result<void>, onDump, (int), (const, override));
     MOCK_METHOD(android::base::Result<void>, onCustomCollectionDump, (int), (override));

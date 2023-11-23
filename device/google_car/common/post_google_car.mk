@@ -43,7 +43,34 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_PROPERTY_OVERRIDES += \
         ro.boot.wificountrycode=00 \
+        ro.config.media_vol_default=0 \
         log.tag.CarTrustAgentUnlockEvent=I
 
 # Phone car targets don't support ramdump
 EXCLUDE_BUILD_RAMDUMP_UPLOADER_DEBUG_TOOL := true
+
+# Disable RCS and EAB for phone car targets
+PRODUCT_PRODUCT_PROPERTIES += \
+        persist.rcs.supported=0 \
+        persist.eab.supported=0
+
+# Explicitly disable support for some Bluetooth profiles included in base phone builds
+PRODUCT_PRODUCT_PROPERTIES += \
+        bluetooth.profile.asha.central.enabled=false \
+        bluetooth.profile.a2dp.source.enabled=false \
+        bluetooth.profile.avrcp.target.enabled=false \
+        bluetooth.profile.bap.broadcast.assist.enabled=false \
+        bluetooth.profile.bap.unicast.client.enabled=false \
+        bluetooth.profile.bas.client.enabled=false \
+        bluetooth.profile.csip.set_coordinator.enabled=false \
+        bluetooth.profile.hap.client.enabled=false \
+        bluetooth.profile.hfp.ag.enabled=false \
+        bluetooth.profile.hid.device.enabled=false \
+        bluetooth.profile.hid.host.enabled=false \
+        bluetooth.profile.map.server.enabled=false \
+        bluetooth.profile.mcp.server.enabled=false \
+        bluetooth.profile.opp.enabled=false \
+        bluetooth.profile.pbap.server.enabled=false \
+        bluetooth.profile.sap.server.enabled=false \
+        bluetooth.profile.ccp.server.enabled=false \
+        bluetooth.profile.vcp.controller.enabled=false

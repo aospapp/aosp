@@ -103,7 +103,9 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
 
         # Test each raw color channel (R, GR, GB, B)
         noise_profile = cap['metadata']['android.sensor.noiseProfile']
-        assert len(noise_profile) == len(BAYER_LIST)
+        if len(noise_profile) != len(BAYER_LIST):
+          raise AssertionError(
+              f'noise_profile wrong length! {len(noise_profile)}')
         for i, ch in enumerate(BAYER_LIST):
           # Get the noise model parameters for this channel of this shot.
           s, o = noise_profile[cfa_idxs[i]]
@@ -129,11 +131,11 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
           # so the check remains correct even after the signal starts to clip.
           mean_minus_3sigma = mean_img_ch - math.sqrt(var_model) * 3
           if mean_minus_3sigma < 0:
-            e_msg = 'Pixel distribution crosses 0. Likely black level '
-            e_msg += 'over-clips. Linear model is not valid. '
-            e_msg += 'mean: %.3e, var: %.3e, u-3s: %.3e' % (
-                mean_img_ch, var_model, mean_minus_3sigma)
-            assert mean_minus_3sigma < 0, e_msg
+            if mean_minus_3sigma >= 0:
+              raise AssertionError(
+                  'Pixel distribution crosses 0. Likely black level over-clips.'
+                  f' Linear model is not valid. mean: {mean_img_ch:.3e},'
+                  f' var: {var_model:.3e}, u-3s: {mean_minus_3sigma:.3e}')
           else:
             var = image_processing_utils.compute_image_variances(patch_norm)[0]
             var_meas[i].append(var)
@@ -167,7 +169,8 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
       logging.debug('%s variance diffs: %s', ch, str(var_diffs))
       for j, diff in enumerate(var_diffs):
         thresh = max(VAR_ATOL_THRESH, VAR_RTOL_THRESH*var_exp[i][j])
-        assert diff <= thresh, 'var diff: %.5f, thresh: %.4f' % (diff, thresh)
+        if diff > thresh:
+          raise AssertionError(f'var diff: {diff:.5f}, thresh: {thresh:.4f}')
 
 if __name__ == '__main__':
   test_runner.main()

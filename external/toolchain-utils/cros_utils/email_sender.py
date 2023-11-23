@@ -71,7 +71,7 @@ class EmailSender(object):
                   "From" email address. Must be nonempty.
       well_known_recipients: a list of well-known recipients for the email.
                              These are translated into addresses by our mailer.
-                             Current potential values for this are ('sheriff',
+                             Current potential values for this are ('detective',
                              'cwp-team', 'cros-team', 'mage'). Either this or
                              direct_recipients must be a nonempty list.
       direct_recipients: @google.com emails to send addresses to. Either this
@@ -89,8 +89,8 @@ class EmailSender(object):
                        type(well_known_recipients))
 
     if not isinstance(direct_recipients, (tuple, list)):
-      raise ValueError(
-          '`direct_recipients` is unexpectedly a %s' % type(direct_recipients))
+      raise ValueError('`direct_recipients` is unexpectedly a %s' %
+                       type(direct_recipients))
 
     if not subject or not identifier:
       raise ValueError('both `subject` and `identifier` must be nonempty')
@@ -205,8 +205,8 @@ class EmailSender(object):
 
     to_be_deleted = []
     try:
-      with tempfile.NamedTemporaryFile(
-          'w', encoding='utf-8', delete=False) as f:
+      with tempfile.NamedTemporaryFile('w', encoding='utf-8',
+                                       delete=False) as f:
         f.write(text_to_send)
         f.flush()
       to_be_deleted.append(f.name)
@@ -239,8 +239,10 @@ class EmailSender(object):
             report_suffix = '_report.html'
           else:
             report_suffix = '_report.txt'
-          with tempfile.NamedTemporaryFile(
-              'w', encoding='utf-8', delete=False, suffix=report_suffix) as f:
+          with tempfile.NamedTemporaryFile('w',
+                                           encoding='utf-8',
+                                           delete=False,
+                                           suffix=report_suffix) as f:
             f.write(attachment.content)
             f.flush()
           attachment_files.append(f.name)

@@ -45,31 +45,51 @@ pw_source_set("pw_protobuf") {
   public_configs = [ ":public_include_path" ]
   public_deps = [
     ":config",
+    "$dir_pw_containers:vector",
+    "$dir_pw_stream:interval_reader",
+    "$dir_pw_varint:stream",
+    dir_pw_assert,
     dir_pw_bytes,
+    dir_pw_log,
     dir_pw_result,
     dir_pw_status,
+    dir_pw_stream,
     dir_pw_varint,
   ]
   public = [
-    "public/pw_protobuf/codegen.h",
     "public/pw_protobuf/decoder.h",
     "public/pw_protobuf/encoder.h",
     "public/pw_protobuf/find.h",
+    "public/pw_protobuf/internal/proto_integer_base.h",
+    "public/pw_protobuf/map_utils.h",
+    "public/pw_protobuf/message.h",
     "public/pw_protobuf/serialized_size.h",
+    "public/pw_protobuf/stream_decoder.h",
     "public/pw_protobuf/wire_format.h",
   ]
   sources = [
     "decoder.cc",
     "encoder.cc",
     "find.cc",
+    "map_utils.cc",
+    "message.cc",
+    "stream_decoder.cc",
+  ]
+}
+
+pw_source_set("bytes_utils") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_protobuf/bytes_utils.h" ]
+  public_deps = [
+    ":pw_protobuf",
+    dir_pw_bytes,
+    dir_pw_result,
+    dir_pw_status,
   ]
 }
 
 pw_doc_group("docs") {
-  sources = [
-    "decoding.rst",
-    "docs.rst",
-  ]
+  sources = [ "docs.rst" ]
   report_deps = [
     "size_report:decoder_full",
     "size_report:decoder_incremental",
@@ -78,11 +98,16 @@ pw_doc_group("docs") {
 
 pw_test_group("tests") {
   tests = [
-    ":codegen_test",
+    ":codegen_decoder_test",
+    ":codegen_encoder_test",
     ":decoder_test",
     ":encoder_test",
     ":encoder_fuzzer",
     ":find_test",
+    ":map_utils_test",
+    ":message_test",
+    ":serialized_size_test",
+    ":stream_decoder_test",
     ":varint_size_test",
   ]
 }
@@ -102,9 +127,34 @@ pw_test("find_test") {
   sources = [ "find_test.cc" ]
 }
 
-pw_test("codegen_test") {
+pw_test("codegen_decoder_test") {
   deps = [ ":codegen_test_protos.pwpb" ]
-  sources = [ "codegen_test.cc" ]
+  sources = [ "codegen_decoder_test.cc" ]
+}
+
+pw_test("codegen_encoder_test") {
+  deps = [ ":codegen_test_protos.pwpb" ]
+  sources = [ "codegen_encoder_test.cc" ]
+}
+
+pw_test("serialized_size_test") {
+  deps = [ ":pw_protobuf" ]
+  sources = [ "serialized_size_test.cc" ]
+}
+
+pw_test("stream_decoder_test") {
+  deps = [ ":pw_protobuf" ]
+  sources = [ "stream_decoder_test.cc" ]
+}
+
+pw_test("map_utils_test") {
+  deps = [ ":pw_protobuf" ]
+  sources = [ "map_utils_test.cc" ]
+}
+
+pw_test("message_test") {
+  deps = [ ":pw_protobuf" ]
+  sources = [ "message_test.cc" ]
 }
 
 config("one_byte_varint") {
@@ -126,7 +176,10 @@ pw_facade_test("varint_size_test") {
 }
 
 pw_proto_library("common_protos") {
-  sources = [ "pw_protobuf_protos/common.proto" ]
+  sources = [
+    "pw_protobuf_protos/common.proto",
+    "pw_protobuf_protos/status.proto",
+  ]
 }
 
 pw_proto_library("codegen_test_protos") {

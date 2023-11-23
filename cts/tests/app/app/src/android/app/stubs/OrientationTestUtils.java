@@ -21,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
-import android.view.DisplayInfo;
+import android.graphics.Rect;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -52,16 +52,15 @@ public class OrientationTestUtils {
     }
 
     /**
-     * Returns display original orientation and toggled orientation.
-     * @param activity context to get the display info
+     * Returns window orientation and toggled orientation.
+     * @param activity context to get the window info
      * @return The first element is original orientation and the second element is toggled
      *     orientation.
      */
     private static int[] getOrientations(final Activity activity) {
         // Check the display dimension to get the current device orientation.
-        final DisplayInfo displayInfo = new DisplayInfo();
-        activity.getDisplay().getDisplayInfo(displayInfo);
-        final int originalOrientation = displayInfo.logicalWidth > displayInfo.logicalHeight
+        Rect bounds = activity.getWindowManager().getCurrentWindowMetrics().getBounds();
+        final int originalOrientation = bounds.width() > bounds.height()
                 ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
         final int newOrientation = originalOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -70,8 +69,8 @@ public class OrientationTestUtils {
         return new int[] { originalOrientation, newOrientation };
     }
 
-    /** Checks whether the display dimension is close to square. */
-    public static boolean isCloseToSquareDisplay(final Activity activity) {
+    /** Checks whether the window dimension is close to square. */
+    public static boolean isCloseToSquareBounds(final Activity activity) {
         final Resources resources = activity.getResources();
         final float closeToSquareMaxAspectRatio;
         try {
@@ -81,10 +80,9 @@ public class OrientationTestUtils {
             // Assume device is not close to square.
             return false;
         }
-        final DisplayInfo displayInfo = new DisplayInfo();
-        activity.getDisplay().getDisplayInfo(displayInfo);
-        final int w = displayInfo.logicalWidth;
-        final int h = displayInfo.logicalHeight;
+        final Rect bounds = activity.getWindowManager().getCurrentWindowMetrics().getBounds();
+        final int w = bounds.width();
+        final int h = bounds.height();
         final float aspectRatio = Math.max(w, h) / (float) Math.min(w, h);
         return aspectRatio <= closeToSquareMaxAspectRatio;
     }

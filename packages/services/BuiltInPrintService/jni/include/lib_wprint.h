@@ -233,8 +233,28 @@ typedef enum {
     JOB_DONE
 } wprint_job_state_t;
 
+typedef enum
+{
+    WPRINT_CB_PARAM_JOB_STATE
+} wprint_cb_param_id_t;
+
+typedef struct
+{
+   int                 page_num;
+   int                 copy_num;
+   int                 corrupted_file;
+   int                 current_page;
+   int                 total_pages;
+   int                 page_total_update;
+
+} wprint_page_info_t;
+
 typedef struct {
-    wprint_job_state_t state;
+    wprint_cb_param_id_t id;
+    union {
+        wprint_job_state_t state;
+        wprint_page_info_t page_info;
+    } param;
     unsigned int blocked_reasons;
     int job_done_result;
     // Certificate received from printer, if any

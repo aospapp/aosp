@@ -413,41 +413,5 @@ unescape_xml_comment(const std::string& str)
   return result;
 }
 
-/// Maybe get the next sibling element node of an XML node, or stay to the sam
-///
-/// If there is no next sibling xml element node, the function returns
-/// the initial node.
-///
-/// @param node the initial node to consider.
-///
-/// @return the next sibling node or the initial node @p node.
-static xmlNodePtr
-go_to_next_sibling_element_or_stay(xmlNodePtr node)
-{
-  xmlNodePtr n;
-  for (n = node; n; n = n->next)
-    {
-      if (n->type == XML_ELEMENT_NODE)
-	break;
-    }
-  return n ? n : node;
-}
-
-/// Get the next sibling element node of an XML node.
-///
-/// If there is no next sibling xml element node, the function returns nil.
-///
-/// @param node the XML node to consider.
-///
-/// @return the next sibling element node or nil.
-xmlNodePtr
-advance_to_next_sibling_element(xmlNodePtr node)
-{
-  xmlNodePtr n = go_to_next_sibling_element_or_stay(node->next);
-  if (n == 0 || n->type != XML_ELEMENT_NODE)
-    return 0;
-  return n;
-}
-
 }//end namespace xml
 }//end namespace abigail

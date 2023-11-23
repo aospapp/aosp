@@ -34,6 +34,7 @@ import com.google.turbine.model.TurbineTyKind;
 import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.ClassTy;
 import java.util.ArrayDeque;
+import org.jspecify.nullness.Nullable;
 
 /** Type hierarchy binding. */
 public class HierarchyBinder {
@@ -82,6 +83,9 @@ public class HierarchyBinder {
         case CLASS:
           superclass = !origin.equals(ClassSymbol.OBJECT) ? ClassSymbol.OBJECT : null;
           break;
+        case RECORD:
+          superclass = ClassSymbol.RECORD;
+          break;
         default:
           throw new AssertionError(decl.tykind());
       }
@@ -110,14 +114,15 @@ public class HierarchyBinder {
       typeParameters.put(p.name().value(), new TyVarSymbol(origin, p.name().value()));
     }
 
-    return new SourceHeaderBoundClass(base, superclass, interfaces.build(), typeParameters.build());
+    return new SourceHeaderBoundClass(
+        base, superclass, interfaces.build(), typeParameters.buildOrThrow());
   }
 
   /**
    * Resolves the {@link ClassSymbol} for the given {@link Tree.ClassTy}, with handling for
    * non-canonical qualified type names.
    */
-  private ClassSymbol resolveClass(Tree.ClassTy ty) {
+  private @Nullable ClassSymbol resolveClass(Tree.ClassTy ty) {
     // flatten a left-recursive qualified type name to its component simple names
     // e.g. Foo<Bar>.Baz -> ["Foo", "Bar"]
     ArrayDeque<Tree.Ident> flat = new ArrayDeque<>();
@@ -142,7 +147,7 @@ public class HierarchyBinder {
     return sym;
   }
 
-  private ClassSymbol resolveNext(ClassTy ty, ClassSymbol sym, Tree.Ident bit) {
+  private @Nullable ClassSymbol resolveNext(ClassTy ty, ClassSymbol sym, Tree.Ident bit) {
     ClassSymbol next;
     try {
       next = Resolve.resolve(env, origin, sym, bit);
@@ -160,11 +165,11 @@ public class HierarchyBinder {
   }
 
   /** Resolve a qualified type name to a symbol. */
-  private LookupResult lookup(Tree tree, LookupKey lookup) {
+  private @Nullable LookupResult lookup(Tree tree, LookupKey lookup) {
     // Handle any lexically enclosing class declarations (if we're binding a member class).
     // We could build out scopes for this, but it doesn't seem worth it. (And sharing the scopes
     // with other members of the same enclosing declaration would be complicated.)
-    for (ClassSymbol curr = base.owner(); curr != null; curr = env.get(curr).owner()) {
+    for (ClassSymbol curr = base.owner(); curr != null; curr = env.getNonNull(curr).owner()) {
       ClassSymbol result;
       try {
         result = Resolve.resolve(env, origin, curr, lookup.first());

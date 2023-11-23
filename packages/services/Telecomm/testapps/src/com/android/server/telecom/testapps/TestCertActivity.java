@@ -16,33 +16,25 @@
 package com.android.server.telecom.testapps;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.telephony.ImsiEncryptionInfo;
-import android.text.TextUtils;
-import android.util.Log;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
-import android.widget.Toast;
-
-import android.app.ProgressDialog;
-import android.os.AsyncTask;
-import android.util.Log;
 import android.widget.ListView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -55,8 +47,6 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
-
-import android.util.Base64;
 
 public class TestCertActivity extends Activity {
 
@@ -149,15 +139,15 @@ public class TestCertActivity extends Activity {
             String mcc = "";
             String mnc = "";
             String networkOperator = telephonyManager.getNetworkOperator();
-
+            int carrierId = telephonyManager.getSimCarrierId();
             if (!TextUtils.isEmpty(networkOperator)) {
                 mcc = networkOperator.substring(0, 3);
                 mnc = networkOperator.substring(3);
-                Log.i(LOG_TAG, "using values for mnc, mcc: " + mnc + "," + mcc);
+                Log.i(LOG_TAG, "using values for mnc, mcc: " + mnc + "," + mcc + ", carrierId = "
+                        + carrierId);
             }
-
             ImsiEncryptionInfo imsiEncryptionInfo = new ImsiEncryptionInfo(mcc,
-                    mnc, type, identifier, keyBytes, new Date());
+                    mnc, type, identifier, keyBytes, new Date(), carrierId);
             telephonyManager.setCarrierInfoForImsiEncryption(imsiEncryptionInfo);
             keyList.add(imsiEncryptionInfo.getKeyType() + "," +
                     imsiEncryptionInfo.getKeyIdentifier());

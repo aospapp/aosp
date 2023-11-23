@@ -25,8 +25,8 @@ import com.android.managedprovisioning.common.EncryptionControllerProvider;
 import com.android.managedprovisioning.common.ManagedProfileChecker;
 import com.android.managedprovisioning.common.UserProvisioningStateHelperProvider;
 import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
-import com.android.managedprovisioning.manageduser.ManagedUserRemovalListener;
-import com.android.managedprovisioning.manageduser.ManagedUserRemovalUtils;
+import com.android.managedprovisioning.provisioninglisteners.ManagedUserRemovalListener;
+import com.android.managedprovisioning.provisioninglisteners.ManagedUserRemovalUtils;
 
 /**
  * Boot listener for triggering reminders at boot time.

@@ -71,6 +71,9 @@ struct ACodec : public AHierarchicalStateMachine, public CodecBase {
     virtual void initiateSetInputSurface(const sp<PersistentSurface> &surface);
     virtual void initiateStart();
     virtual void initiateShutdown(bool keepComponentAllocated = false);
+    virtual status_t querySupportedParameters(std::vector<std::string> *names) override;
+    virtual status_t subscribeToParameters(const std::vector<std::string> &names) override;
+    virtual status_t unsubscribeFromParameters(const std::vector<std::string> &names) override;
 
     status_t queryCapabilities(
             const char* owner, const char* name,
@@ -519,6 +522,7 @@ private:
     status_t setLatency(uint32_t latency);
     status_t getLatency(uint32_t *latency);
     status_t setTunnelPeek(int32_t tunnelPeek);
+    status_t setTunnelPeekLegacy(int32_t isLegacy);
     status_t setAudioPresentation(int32_t presentationId, int32_t programId);
     status_t setOperatingRate(float rateFloat, bool isVideo);
     status_t getIntraRefreshPeriod(uint32_t *intraRefreshPeriod);

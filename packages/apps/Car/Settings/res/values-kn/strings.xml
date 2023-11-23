@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್‌ ಬಳಸಿ ಡೇಟಾ ಪ್ರವೇಶಿಸಿ"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"ಮೊಬೈಲ್ ನೆಟ್‌ವರ್ಕ್"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"ಮೊಬೈಲ್ ಡೇಟಾವನ್ನು ಬಳಸಿ"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"ಆಫ್"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"ಮೊಬೈಲ್ ಡೇಟಾ ಆಫ್ ಮಾಡಬೇಕೆ?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"ಆಯ್ಕೆ ಅಗತ್ಯವಿದೆ"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"ಮೊಬೈಲ್ ಡೇಟಾಗಾಗಿ <xliff:g id="CARRIER">%1$s</xliff:g> ಬಳಸುವುದೇ?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"ವೈ-ಫೈ ಸ್ಕ್ಯಾನಿಂಗ್ ಅನ್ನು ಆನ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"ಮೊಬೈಲ್ ಡೇಟಾಗೆ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಬದಲಿಸಿ"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"ವೈ-ಫೈ ಯಾವುದೇ ಇಂಟರ್ನೆಟ್ ಪ್ರವೇಶವನ್ನು ಹೊಂದಿರದಿದ್ದರೆ, ಮೊಬೈಲ್ ಡೇಟಾವನ್ನು ಬಳಸಿ. ಡೇಟಾ ಬಳಕೆಯ ಶುಲ್ಕ ಅನ್ವಯಿಸಬಹುದು."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗಳನ್ನು ಹುಡುಕಿ, ಕನೆಕ್ಟ್ ಮಾಡಿ"</string>
     <string name="learn_more" msgid="8214605928933358604">"ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಹೆಸರು"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> ಆನ್ ಮಾಡಲಾಗುತ್ತಿದೆ..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"ಇತರೆ ಸಾಧನಗಳು <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> ಗೆ ಸಂಪರ್ಕವನ್ನು ಪಡೆದುಕೊಳ್ಳಬಹುದು"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"ಹಾಟ್‌ಸ್ಪಾಟ್ ಪಾಸ್‌ವರ್ಡ್"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"ಭದ್ರತೆ"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-ವೈಯಕ್ತಿಕ"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-ವೈಯಕ್ತಿಕ"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2- ವೈಯಕ್ತಿಕ"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"ಯಾವುದೂ ಬೇಡ"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP ಬ್ಯಾಂಡ್"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"ಆ್ಯಪ್‍ ಪ್ರಾಶಸ್ತ್ಯಗಳನ್ನು ಮರುಹೊಂದಿಸಲಾಗಿದೆ"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"ಡೇಟಾ ಅಳಿಸಿ (ಫ್ಯಾಕ್ಟರಿ ರಿಸೆಟ್)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನ ಎಲ್ಲಾ ಡೇಟಾ ಮತ್ತು ಪ್ರೊಫೈಲ್‌ಗಳನ್ನು ಅಳಿಸುತ್ತದೆ"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"ಇದರಿಂದಾಗಿ ಈ ಕೆಳಗಿನವೂ ಸೇರಿದಂತೆ, ನಿಮ್ಮ ವಾಹನದ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನಲ್ಲಿರುವ ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಅಳಿಸಲಾಗುತ್ತದೆ:\n\n"<li>"ನಿಮ್ಮ Google ಖಾತೆ"</li>\n<li>"ಸಿಸ್ಟಂ ಮತ್ತು ಆ್ಯಪ್ ಡೇಟಾ ಹಾಗೂ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</li>\n<li>"ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾದ ಆ್ಯಪ್‌ಗಳು"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"ಇದರಿಂದಾಗಿ ಈ ಕೆಳಗಿನವೂ ಸೇರಿದಂತೆ, ನಿಮ್ಮ ವಾಹನದ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನಲ್ಲಿರುವ ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಅಳಿಸಲಾಗುತ್ತದೆ:\n\n"<li>"ನಿಮ್ಮ ಖಾತೆಗಳು ಮತ್ತು ಪ್ರೊಫೈಲ್‌ಗಳು"</li>\n<li>"ಸಿಸ್ಟಂ ಮತ್ತು ಆ್ಯಪ್ ಡೇಟಾ ಹಾಗೂ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</li>\n<li>"ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾದ ಆ್ಯಪ್‌ಗಳು"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"ನೀವು ಪ್ರಸ್ತುತವಾಗಿ ಕೆಳಗಿನ ಖಾತೆಗಳಿಗೆ ಸೈನ್ ಇನ್ ಆಗಿರುವಿರಿ:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"ಈ ವಾಹನಕ್ಕಾಗಿ ಇತರ ಪ್ರೊಫೈಲ್‌ಗಳನ್ನು ಸೆಟಪ್ ಮಾಡಲಾಗಿದೆ."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಅಳಿಸಿ"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"ಹೊಸ ನಿರ್ವಾಹಕವನ್ನು ಆಯ್ಕೆ ಮಾಡಿ"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"ನಿಮಗೆ ಕನಿಷ್ಟ ಒಂದು ನಿರ್ವಾಹಕ ಅಗತ್ಯವಿರುತ್ತದೆ. ಇದನ್ನು ಅಳಿಸಲು, ಮೊದಲು ಬದಲಿ ಆಯ್ಕೆ ಮಾಡಿ."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"ನಿರ್ವಾಹಕವನ್ನು ಆಯ್ಕೆ ಮಾಡಿ"</string>
-    <string name="user_guest" msgid="3465399481257448601">"ಅತಿಥಿ"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"ಅತಿಥಿ"</string>
     <string name="user_switch" msgid="6544839750534690781">"ಬದಲಿಸಿ"</string>
     <string name="current_user_name" msgid="3813671533249316823">"ನೀವು (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"ಹೆಸರು"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> ಅವರಿಗಾಗಿ ಖಾತೆಗಳು"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"ಡೇಟಾವನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಸಿಂಕ್ ಮಾಡಿ"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"ಆ್ಯಪ್‌ಗಳು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಡೇಟಾವನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಲು ಬಿಡಿ"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"ಸ್ವಯಂ-ಸಿಂಕ್‌ ಡೇಟಾ ಆನ್‌‌ಮಾಡುವುದೇ?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"ವೆಬ್‌ನಲ್ಲಿ ನಿಮ್ಮ ಖಾತೆಗಳಿಗೆ ಮಾಡಲಾದ ಯಾವುದೇ ಬದಲಾವಣೆಗಳನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನಿಮ್ಮ ಸಾಧನಕ್ಕೆ ನಕಲಿಸಲಾಗುತ್ತದೆ. \n\nಫೋನ್‌ನಲ್ಲಿ ನೀವು ಮಾಡುವ ಯಾವುದೇ ಬದಲಾವಣೆಗಳನ್ನು ಕೆಲವು ಖಾತೆಗಳು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ವೆಬ್‌ಗೆ ನಕಲಿಸುತ್ತವೆ. Google ಖಾತೆ ಕಾರ್ಯನಿರ್ವಹಿಸುವ ರೀತಿ ಇದು."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"ಸ್ವಯಂ-ಸಿಂಕ್‌ ಡೇಟಾ ಆಫ್‌ ಮಾಡುವುದೇ?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"ಸ್ವಯಂಚಾಲಿತ ಡೇಟಾ ಸಿಂಕ್ ಅನ್ನು ಅನುಮತಿಸಬೇಕೇ?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"ವೆಬ್‌ನಲ್ಲಿ ನಿಮ್ಮ ಖಾತೆಗಳಲ್ಲಿ ನೀವು ಮಾಡುವ ಯಾವುದೇ ಬದಲಾವಣೆಗಳನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನಿಮ್ಮ ವಾಹನಕ್ಕೆ ನಕಲಿಸಲಾಗುತ್ತದೆ.\n\nವಾಹನದಲ್ಲಿ ನೀವು ಮಾಡುವ ಯಾವುದೇ ಬದಲಾವಣೆಗಳನ್ನು ವೆಬ್‌ಗೆ ಕೆಲವು ಖಾತೆಗಳು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನಕಲಿಸಬಹುದು."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"ಸ್ವಯಂಚಾಲಿತ ಡೇಟಾ ಸಿಂಕ್ ಅನ್ನು ಅನುಮತಿಸಬಾರದೇ?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"ಇದು ಡೇಟಾ ಪೋಲಾಗದಂತೆ ತಡೆಯುತ್ತದೆ, ಆದರೆ ಇತ್ತೀಚಿನ ಮಾಹಿತಿಯನ್ನು ಸಂಗ್ರಹಿಸಲು ನೀವು ಪ್ರತಿ ಖಾತೆಯನ್ನು ಹಸ್ತಚಾಲಿತವಾಗಿ ಸಿಂಕ್‌ ಮಾಡಬೇಕಾಗುತ್ತದೆ. ಮತ್ತು ಅಪ್‌ಡೇಟ್‌ಗಳ ಸಂದರ್ಭದಲ್ಲಿ ನೀವು ಅಧಿಸೂಚನೆಗಳನ್ನು ಸ್ವೀಕರಿಸುವುದಿಲ್ಲ."</string>
     <string name="account_details_title" msgid="7529571432258448573">"ಖಾತೆಯ ಮಾಹಿತಿ"</string>
     <string name="add_account_title" msgid="5988746086885210040">"ಖಾತೆ ಸೇರಿಸಿ"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"ಗೌಪ್ಯತೆ"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಡೇಟಾ"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"ನಿಮ್ಮ ಸ್ಥಳಕ್ಕೆ ಆ್ಯಪ್ ಪ್ರವೇಶವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"ಕ್ಯಾಮರಾ"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"ನಿಮ್ಮ ಕ್ಯಾಮರಾಗಳಿಗೆ ಆ್ಯಪ್ ಪ್ರವೇಶವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"ಮೈಕ್ರೋಫೋನ್"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"ಮೈಕ್ರೋಫೋನ್‌ಗೆ ಆ್ಯಪ್‌ನ ಪ್ರವೇಶವನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಡೇಟಾ"</string>
@@ -640,7 +644,7 @@
     <string name="lockpattern_cancel_button_text" msgid="4068764595622381766">"ರದ್ದುಮಾಡಿ"</string>
     <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"ನಿಮ್ಮ ಹೊಸ ಅನ್‌ಲಾಕ್‌ ಪ್ಯಾಟರ್ನ್"</string>
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"ಅನ್‌ಲಾಕ್‌ ಪ್ಯಾಟರ್ನ್ ಚಿತ್ರಿಸಿ"</string>
-    <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"ಬಳಿಕ ಬೆರಳು ತೆಗೆಯಿರಿ"</string>
+    <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"ಬಳಿಕ ಬೆರಳನ್ನು ಬಿಟ್ಟುಬಿಡಿ"</string>
     <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"ಪ್ಯಾಟರ್ನ್ ಅನ್ನು ರೆಕಾರ್ಡ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"ಖಚಿತಪಡಿಸಲು ಪ್ಯಾಟರ್ನ್ ಚಿತ್ರಿಸಿ"</string>
     <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"ಕನಿಷ್ಠ 4 ಡಾಟ್‌ಗಳನ್ನು ಕನೆಕ್ಟ್ ಮಾಡಿ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"ರದ್ದುಮಾಡಿ"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"ದೃಢೀಕರಿಸಿ"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"ಕನಿಷ್ಠ 4 ಅಕ್ಷರಗಳು ಇರಬೇಕು"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"ಪಿನ್ ಕನಿಷ್ಠ <xliff:g id="COUNT">%d</xliff:g> ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"<xliff:g id="NUMBER">%d</xliff:g> ಗಿಂತ ಕಡಿಮೆ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g> ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ಕೇವಲ 0-9 ಅಂಕಿಗಳನ್ನು ಮಾತ್ರ ಹೊಂದಿರಬೇಕು."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ಇತ್ತೀಚಿನ ಪಿನ್ ಬಳಸಲು ಸಾಧನದ ನಿರ್ವಾಹಕರು ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರು ಒಂದೇ ರೀತಿಯ ಪಿನ್‌ಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿದ್ದಾರೆ. ಬೇರೆಯ ಪಿನ್ ಪ್ರಯತ್ನಿಸಿ."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"ಇತ್ತೀಚಿನ ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಲು ಸಾಧನದ ನಿರ್ವಾಹಕರು ಅನುಮತಿಸುವುದಿಲ್ಲ"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"ಪಾಸ್‌ವರ್ಡ್‌ ಉಳಿಸುವಲ್ಲಿ ದೋಷ"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರು ಒಂದೇ ರೀತಿಯ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿದ್ದಾರೆ. ಬೇರೆಯ ಪಾಸ್‌ವರ್ಡ್ ಪ್ರಯತ್ನಿಸಿ."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ಅಂಕಿಗಳ ಆರೋಹಣ, ಅವರೋಹಣ ಅಥವಾ ಪುನರಾವರ್ತಿತ ಅನುಕ್ರಮವನ್ನು ನಿಷೇಧಿಸಲಾಗಿದೆ."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"ಕನಿಷ್ಠ ಒಂದು ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"ಕನಿಷ್ಠ ಒಂದು ಅಂಕಿಯನ್ನು ಹೊಂದಿರಬೇಕು"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"ಕನಿಷ್ಠ ಒಂದು ಚಿಹ್ನೆಯನ್ನು ಹೊಂದಿರಬೇಕು"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{ಕನಿಷ್ಠ # ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{ಕನಿಷ್ಠ # ಸಣ್ಣ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಸಣ್ಣ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಸಣ್ಣ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{ಕನಿಷ್ಠ # ದೊಡ್ಡ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ದೊಡ್ಡ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ದೊಡ್ಡ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{ಕನಿಷ್ಠ # ಅಂಕಿಯನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{ಕನಿಷ್ಠ # ವಿಶೇಷ ಚಿಹ್ನೆಯನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ವಿಶೇಷ ಚಿಹ್ನೆಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ವಿಶೇಷ ಚಿಹ್ನೆಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{ಕನಿಷ್ಠ # ಚಿಹ್ನೆಯನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಚಿಹ್ನೆಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಚಿಹ್ನೆಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{ಕನಿಷ್ಠ # ಸಂಖ್ಯೆಯಲ್ಲದ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಸಂಖ್ಯೆಯಲ್ಲದ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಸಂಖ್ಯೆಯಲ್ಲದ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{ಕನಿಷ್ಠ # ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{ಕನಿಷ್ಠ # ಅಂಕಿಯನ್ನು ಹೊಂದಿರಬೇಕು}one{ಕನಿಷ್ಠ # ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{ಕನಿಷ್ಠ # ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{# ಗಿಂತ ಕಡಿಮೆ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು}one{# ಗಿಂತ ಕಡಿಮೆ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{# ಗಿಂತ ಕಡಿಮೆ ಅಕ್ಷರಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಯನ್ನು ಹೊಂದಿರಬೇಕು}one{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}other{# ಗಿಂತ ಕಡಿಮೆ ಅಂಕಿಗಳನ್ನು ಹೊಂದಿರಬೇಕು}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ಅಂಕಿಗಳ ಆರೋಹಣ, ಅವರೋಹಣ ಅಥವಾ ಪುನರಾವರ್ತಿತ ಅನುಕ್ರಮವನ್ನು ನಿಷೇಧಿಸಲಾಗಿದೆ"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಆಯ್ಕೆಗಳು"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> ದಿನಗಳ ಹಿಂದೆ"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ರುಜುವಾತುಗಳನ್ನು ತೆರವುಗೊಳಿಸಿ"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"ತೆಗೆದುಹಾಕಿ"</string>
     <string name="cancel" msgid="750286395700355455">"ರದ್ದುಮಾಡಿ"</string>
     <string name="allow" msgid="7519431342750394402">"ಅನುಮತಿಸಿ"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"ಅನುಮತಿಸಬೇಡಿ"</string>
     <string name="deny" msgid="340512788979930804">"ನಿರಾಕರಿಸಿ"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace ಕೀ"</string>
     <string name="enter_key" msgid="2121394305541579468">"ಕೀಲಿಯನ್ನು ನಮೂದಿಸಿ"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಆ್ಯಪ್ ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ ಮತ್ತು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಆ್ಯಪ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"ಇನ್ನಷ್ಟು ವಿವರಗಳು"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಬಳಕೆದಾರರಿಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ಸಾಧನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಪ್ರೊಫೈಲ್‌ಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಅನುಮತಿಗಳು, ಕಾರ್ಪೊರೇಟ್‌ ಪ್ರವೇಶ, ನೆಟ್‌‌ವರ್ಕ್‌ ಚಟುವಟಿಕೆ ಮತ್ತು ವಾಹನದ ಸ್ಥಳ ಮಾಹಿತಿಯನ್ನು ಒಳಗೊಂಡಂತೆ ಈ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> ವಾಹನ ನೀತಿ"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರಿಂದ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಲಾಗಿದೆ"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> ಕುರಿತು ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ನಿರ್ವಹಿಸಲಾದ ವಾಹನ ಮಾಹಿತಿ"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"ಫ್ಲೀಟ್ ನಿರ್ವಾಹಕರು ನಿರ್ವಹಿಸಿದ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"ಈ ನಿರ್ವಹಿಸಲಾದ ಈ ವಾಹನದಲ್ಲಿ ಡೇಟಾಗೆ ಆ್ಯಕ್ಸೆಸ್ ನೀಡಲು, ಫ್ಲೀಟ್ ನಿರ್ವಾಹಕರು ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬದಲಾಯಿಸಬಹುದು ಮತ್ತು ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನಲ್ಲಿ ಸಾಫ್ಟ್‌ವೇರ್ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಬಹುದು.\n\nಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ, ನಿಮ್ಮ ಫ್ಲೀಟ್ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"ನಿಮ್ಮ ಫ್ಲೀಟ್ಸ್ ನಿರ್ವಾಹಕರು ನೋಡಬಹುದಾದ ಮಾಹಿತಿ"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"ನಿಮ್ಮ ಫ್ಲೀಟ್ಸ್ ನಿರ್ವಾಹಕರು ಮಾಡಿದ ಬದಲಾವಣೆಗಳು"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"ನಿರ್ವಹಿಸಲಾದ ನಿಮ್ಮ ವಾಹನ ಖಾತೆಗೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ"</li>\n" "<li>"ನಿರ್ವಹಿಸಲಾದ ನಿಮ್ಮ ವಾಹನದಲ್ಲಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳ ಪಟ್ಟಿ"</li>\n" "<li>"ಪ್ರತಿ ಅಪ್ಲಿಕೇಶನ್‌ನಲ್ಲಿ ಖರ್ಚು ಮಾಡಿದ ಸಮಯ ಮತ್ತು ಡೇಟಾ"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಇರುವ ನಿಮ್ಮ ಆ್ಯಕ್ಸೆಸ್"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"ನಿಮ್ಮ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಲ್ಲಿರುವ ಆ್ಯಪ್‌ಗಳ ಪಟ್ಟಿ"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"ಆ್ಯಪ್‌ಗಳ ಸಂಖ್ಯೆಯನ್ನು ಅಂದಾಜು ಮಾಡಲಾಗಿದೆ. Play ಸ್ಟೋರ್‌ನಲ್ಲಿರುವುದನ್ನು ಹೊರತುಪಡಿಸಿ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿರುವ ಆ್ಯಪ್‌ಗಳು ಇದರಲ್ಲಿ ಒಳಗೊಂಡಿಲ್ಲದೇ ಇರಬಹುದು."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="one">ಕನಿಷ್ಠ <xliff:g id="COUNT_1">%d</xliff:g> ಆ್ಯಪ್‌ಗಳು</item>
+      <item quantity="other">ಕನಿಷ್ಠ <xliff:g id="COUNT_1">%d</xliff:g> ಆ್ಯಪ್‌ಗಳು</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> ಆ್ಯಪ್‌ಗಳು</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ಆ್ಯಪ್‌ಗಳು</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"ಅತ್ಯಂತ ಇತ್ತೀಚಿನ ನೆಟ್‌ವರ್ಕ್ ಟ್ರಾಫಿಕ್ ಲಾಗ್"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"ಅತ್ಯಂತ ಇತ್ತೀಚಿನ ಬಗ್ ವರದಿ"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"ಅತ್ಯಂತ ಇತ್ತೀಚಿನ ಭದ್ರತಾ ಲಾಗ್"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"ಯಾವುದೂ ಅಲ್ಲ"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"ಆ್ಯಪ್‌ಗಳನ್ನು ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾಗಿದೆ"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"ಸ್ಥಳದ ಅನುಮತಿಗಳು"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿಗಳು"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"ಕ್ಯಾಮರಾ ಅನುಮತಿಗಳು"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"ಡೀಫಾಲ್ಟ್ ಆ್ಯಪ್‌ಗಳು"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"ಡೀಫಾಲ್ಟ್ ಕೀಬೋರ್ಡ್"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> ಗೆ ಸೆಟ್ ಮಾಡಲಾಗಿದೆ"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"ಜಾಗತಿಕ HTTP ಪ್ರಾಕ್ಸಿ ಸೆಟ್"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ವಿಶ್ವಾಸಾರ್ಹ ರುಜುವಾತುಗಳು"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"ನಿರ್ವಾಹಕರು ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂಗೆ ಇರುವ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಲಾಕ್ ಮಾಡಬಹುದು ಹಾಗೂ ಪಾಸ್‌ವರ್ಡ್ ರೀಸೆಟ್ ಮಾಡಬಹುದು"</li>\n" "<li>"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನಲ್ಲಿರುವ ಡೇಟಾವನ್ನು ನಿರ್ವಾಹಕರು ಅಳಿಸಬಹುದು"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂನಲ್ಲಿರುವ ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಅಳಿಸುವ ಮುನ್ನ, ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸುವಿಕೆಯ ವಿಫಲ ಪ್ರಯತ್ನಗಳು"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"ಪ್ರೊಫೈಲ್‌ನ ಡೇಟಾವನ್ನು ಅಳಿಸುವ ಮುನ್ನ, ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸುವಿಕೆಯ ವಿಫಲ ಪ್ರಯತ್ನಗಳು"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> ಪ್ರಯತ್ನಗಳು</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ಪ್ರಯತ್ನಗಳು</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="one">ಕ್ಯಾಮರಾ ಆ್ಯಪ್‌ಗಳು</item>
+      <item quantity="other">ಕ್ಯಾಮರಾ ಆ್ಯಪ್‌ಗಳು</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="one">ಇಮೇಲ್ ಕ್ಲೈಂಟ್ ಆ್ಯಪ್‌ಗಳು</item>
+      <item quantity="other">ಇಮೇಲ್ ಕ್ಲೈಂಟ್ ಆ್ಯಪ್‌ಗಳು</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="one">ಫೋನ್ ಆ್ಯಪ್‌ಗಳು</item>
+      <item quantity="other">ಫೋನ್ ಆ್ಯಪ್‌ಗಳು</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"ಬಗ್ ವರದಿಯನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದೇ?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"ಈ ವಾಹನದ ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಈ ಸಾಧನದ ಸಮಸ್ಯೆ ನಿವಾರಿಸಲು ಸಹಾಯ ಮಾಡಲು ಬಗ್ ವರದಿಯನ್ನು ವಿನಂತಿಸಿದ್ದಾರೆ. ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳಬಹುದು."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"ಈ ವಾಹನದ ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು ಈ ಸಾಧನದ ಸಮಸ್ಯೆ ನಿವಾರಿಸಲು ಸಹಾಯ ಮಾಡಲು ಬಗ್ ವರದಿಯನ್ನು ವಿನಂತಿಸಿದ್ದಾರೆ. ಆ್ಯಪ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳಬಹುದು ಹಾಗೂ ನಿಮ್ಮ ಸಾಧನವು ತಾತ್ಕಾಲಿಕವಾಗಿ ನಿಧಾನಗೊಳ್ಳಬಹುದು."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"ಈ ಬಗ್ ವರದಿಯನ್ನು ಈ ವಾಹನದ ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರ ಜೊತೆಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ. ಹೆಚ್ಚಿನ ವಿವರಗಳಿಗಾಗಿ ಅವರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"ನಿರಾಕರಿಸಿ"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ರೀಸೆಟ್ ಮಾಡಿ"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"ಫ್ಯಾಕ್ಟರಿ ರೀಸೆಟ್ ಮಾಡಲು ಮತ್ತು ಎಲ್ಲಾ ಡೇಟಾವನ್ನು ಅಳಿಸಲು ನಿಮ್ಮ ಸಿಸ್ಟಂ ವಿನಂತಿಯನ್ನು ಸ್ವೀಕರಿಸಿದೆ. ನೀವು ಅದನ್ನು ಈಗಲೇ ರೀಸೆಟ್ ಮಾಡಬಹುದು ಅಥವಾ ಮುಂದಿನ ಬಾರಿ ಕಾರ್ ಆರಂಭವಾದಾಗ ಅದನ್ನು ರೀಸೆಟ್ ಮಾಡಲಾಗುತ್ತದೆ. ನಂತರ ನೀವು ಹೊಸ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸೆಟಪ್ ಮಾಡಬಹುದು."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"ಈಗಲೇ ರೀಸೆಟ್ ಮಾಡಿ"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"ನಂತರ ರೀಸೆಟ್ ಮಾಡಿ"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"ಮುಂದಿನ ಬಾರಿ ಕಾರ್ ಆರಂಭವಾದಾಗ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ರೀಸೆಟ್ ಮಾಡಲಾಗುತ್ತದೆ."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"ರೀಸೆಟ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಲು ಕಾರ್ ಅನ್ನು ನಿಲ್ಲಿಸಿರಬೇಕು."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"ಈ ಸೆಟ್ಟಿಂಗ್‌ ಅನ್ನು ಸದ್ಯಕ್ಕೆ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"ಶೀರ್ಷಿಕೆಗಳು"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"ಬಿಳಿಯ ಮೇಲೆ ಕಪ್ಪು"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"ಕಪ್ಪಿನ ಮೇಲೆ ಹಳದಿ"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"ನೀಲಿಯ ಮೇಲೆ ಹಳದಿ"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"ಸ್ಕ್ರೀನ್ ರೀಡರ್"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"ಆಫ್ ಮಾಡಿ"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"ಸ್ಕ್ರೀನ್‌ನಲ್ಲಿನ ಐಟಂಗಳನ್ನು ಓದಿ ಹೇಳಿ"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> ಅನ್ನು ಬಳಸಿ"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"ಆಯ್ಕೆಗಳು"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"ಕ್ಯಾಮರಾ"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"ಕ್ಯಾಮರಾವನ್ನು ಬಳಸಿ"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"ನಿಮ್ಮ ಕ್ಯಾಮರಾವನ್ನು ಪ್ರವೇಶಿಸಲು ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳಿಗೆ ಅನುಮತಿಸಿ"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"ಕ್ಯಾಮರಾ ಅನುಮತಿಗಳನ್ನು ನಿರ್ವಹಿಸಿ"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"ಇತ್ತೀಚಿಗೆ ಪ್ರವೇಶಿಸಿರುವುದು"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"ಇತ್ತೀಚಿನ ಯಾವುದೇ ಆ್ಯಪ್‌ಗಳಿಲ್ಲ"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 ಆ್ಯಪ್‌ಗಳಿಗೆ ಪ್ರವೇಶವಿದೆ"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{{total_count} ಆ್ಯಪ್‌ಗಳಲ್ಲಿನ # ಗೆ ಪ್ರವೇಶವಿದೆ}one{{total_count} ಆ್ಯಪ್‌ಗಳಲ್ಲಿನ # ಗಳಿಗೆ ಪ್ರವೇಶವಿದೆ}other{{total_count} ಆ್ಯಪ್‌ಗಳಲ್ಲಿನ # ಗಳಿಗೆ ಪ್ರವೇಶವಿದೆ}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"ಇತ್ತೀಚಿಗೆ ಪ್ರವೇಶಿಸಿರುವುದು"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"ಎಲ್ಲವನ್ನೂ ವೀಕ್ಷಿಸಿ"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"ಲೋಡ್ ಆಗುತ್ತಿದೆ…"</string>
 </resources>

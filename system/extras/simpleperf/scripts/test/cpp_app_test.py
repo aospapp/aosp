@@ -21,12 +21,10 @@ from . app_test import TestExampleBase
 from . test_utils import INFERNO_SCRIPT, TestHelper
 
 
-class TestExampleWithNative(TestExampleBase):
+class TestExampleCpp(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
-                    ".MainActivity")
+        cls.prepare("SimpleperfExampleCpp", "simpleperf.example.cpp", ".MainActivity")
 
     def test_app_profiler(self):
         self.common_test_app_profiler()
@@ -48,7 +46,7 @@ class TestExampleWithNative(TestExampleBase):
         self.check_annotation_summary(summary_file, [
             ("native-lib.cpp", 20, 0),
             ("BusyLoopThread", 20, 0),
-            ("line 46", 20, 0)])
+            ("line 43", 20, 0)])
 
     def test_report_sample(self):
         self.common_test_report_sample(
@@ -77,11 +75,11 @@ class TestExampleWithNative(TestExampleBase):
                       '--add_disassembly', '--binary_filter', "libnative-lib.so"])
 
 
-class TestExampleWithNativeRoot(TestExampleBase):
+class TestExampleCppRoot(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
+        cls.prepare("SimpleperfExampleCpp",
+                    "simpleperf.example.cpp",
                     ".MainActivity",
                     adb_root=True)
 
@@ -89,22 +87,28 @@ class TestExampleWithNativeRoot(TestExampleBase):
         self.common_test_app_profiler()
 
 
-class TestExampleWithNativeTraceOffCpu(TestExampleBase):
+class TestExampleCppTraceOffCpu(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
-                    ".SleepActivity")
+        cls.prepare("SimpleperfExampleCpp", "simpleperf.example.cpp", ".SleepActivity")
 
     def test_smoke(self):
-        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-cycles:u --trace-offcpu")
+        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-clock:u --trace-offcpu")
         self.run_cmd(["report.py", "-g", "--comms", "SleepThread", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
             "SleepThread(void*)",
             "RunFunction()",
             "SleepFunction(unsigned long long)"])
+        if (self.adb.get_device_arch() in ['x86', 'x86_64'] and
+                TestHelper.get_kernel_version() < (4, 19)):
+            # Skip on x86 and kernel < 4.19, which doesn't have patch
+            # "perf/x86: Store user space frame-pointer value on a sample" and may fail to unwind
+            # system call.
+            TestHelper.log('Skip annotation test on x86 for kernel < 4.19.')
+            return
         remove("annotated_files")
-        self.run_cmd(["annotate.py", "-s", self.example_path, "--comm", "SleepThread"])
+        self.run_cmd(["annotate.py", "-s", self.example_path, "--comm",
+                      "SleepThread", '--summary-width', '1000'])
         self.check_exist(dirname="annotated_files")
         self.check_file_under_dir("annotated_files", "native-lib.cpp")
         summary_file = os.path.join("annotated_files", "summary")
@@ -113,68 +117,78 @@ class TestExampleWithNativeTraceOffCpu(TestExampleBase):
             ("SleepThread", 80, 0),
             ("RunFunction", 20, 20),
             ("SleepFunction", 20, 0),
-            ("line 73", 20, 0),
-            ("line 83", 20, 0)])
+            ("line 70", 20, 0),
+            ("line 80", 20, 0)])
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
         self.check_inferno_report_html([('SleepThread', 80),
                                         ('RunFunction', 20),
                                         ('SleepFunction', 20)])
 
 
-class TestExampleWithNativeJniCall(TestExampleBase):
+class TestExampleCppJniCall(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
-                    ".MixActivity")
+        cls.prepare("SimpleperfExampleCpp", "simpleperf.example.cpp", ".MixActivity")
 
     def test_smoke(self):
+        if self.adb.get_android_version() == 8:
+            TestHelper.log(
+                "Android O needs wrap.sh to use compiled java code. But cpp example doesn't use wrap.sh.")
+            return
         self.run_app_profiler()
         self.run_cmd(["report.py", "-g", "--comms", "BusyThread", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexamplewithnative.MixActivity$1.run",
-            "Java_com_example_simpleperf_simpleperfexamplewithnative_MixActivity_callFunction"])
+            "simpleperf.example.cpp.MixActivity$1.run",
+            "Java_simpleperf_example_cpp_MixActivity_callFunction"])
         remove("annotated_files")
-        self.run_cmd(["annotate.py", "-s", self.example_path, "--comm", "BusyThread"])
+        self.run_cmd(["annotate.py", "-s", self.example_path, "--comm",
+                      "BusyThread", '--summary-width', '1000'])
         self.check_exist(dirname="annotated_files")
         self.check_file_under_dir("annotated_files", "native-lib.cpp")
         summary_file = os.path.join("annotated_files", "summary")
-        self.check_annotation_summary(summary_file, [("native-lib.cpp", 5, 0), ("line 40", 5, 0)])
+        self.check_annotation_summary(summary_file, [("native-lib.cpp", 5, 0), ("line 37", 5, 0)])
         if self.use_compiled_java_code:
             self.check_file_under_dir("annotated_files", "MixActivity.java")
             self.check_annotation_summary(summary_file, [
                 ("MixActivity.java", 80, 0),
                 ("run", 80, 0),
-                ("line 26", 20, 0),
+                ("line 27", 20, 0),
                 ("native-lib.cpp", 5, 0),
-                ("line 40", 5, 0)])
+                ("line 37", 5, 0)])
 
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
 
 
-class TestExampleWithNativeForce32Bit(TestExampleWithNative):
+class TestExampleCppForce32Bit(TestExampleCpp):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
+        cls.prepare("SimpleperfExampleCpp",
+                    "simpleperf.example.cpp",
                     ".MainActivity",
                     abi=TestHelper.get_32bit_abi())
 
 
-class TestExampleWithNativeRootForce32Bit(TestExampleWithNativeRoot):
+class TestExampleCppRootForce32Bit(TestExampleCppRoot):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
+        cls.prepare("SimpleperfExampleCpp",
+                    "simpleperf.example.cpp",
                     ".MainActivity",
                     abi=TestHelper.get_32bit_abi(),
                     adb_root=False)
 
 
-class TestExampleWithNativeTraceOffCpuForce32Bit(TestExampleWithNativeTraceOffCpu):
+class TestExampleCppTraceOffCpuForce32Bit(TestExampleCppTraceOffCpu):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleWithNative",
-                    "com.example.simpleperf.simpleperfexamplewithnative",
+        cls.prepare("SimpleperfExampleCpp",
+                    "simpleperf.example.cpp",
                     ".SleepActivity",
                     abi=TestHelper.get_32bit_abi())
+
+    def test_smoke(self):
+        if (self.adb.get_device_arch() in ['x86', 'x86_64'] and
+                self.adb.get_android_version() in [10, 11]):
+            TestHelper.log("Skip test on x86. Because simpleperf can't unwind 32bit vdso.")
+            return
+        super().test_smoke()

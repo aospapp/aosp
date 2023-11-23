@@ -38,7 +38,6 @@ import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.testapp.TestApp;
 import com.android.bedstead.testapp.TestAppInstance;
-import com.android.bedstead.testapp.TestAppProvider;
 import com.android.queryable.queries.StringQuery;
 
 import org.junit.ClassRule;
@@ -48,7 +47,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.util.UUID;
 
 @RunWith(BedsteadJUnit4.class)
 public class PackageTest {
@@ -75,16 +73,14 @@ public class PackageTest {
             "android.permission.INTERACT_ACROSS_USERS";
     private static final String NON_EXISTING_PERMISSION = "aPermissionThatDoesntExist";
     private static final String USER_SPECIFIC_PERMISSION = "android.permission.READ_CONTACTS";
-    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
-    private static final TestApp sTestApp = sTestAppProvider.query()
+    private static final TestApp sTestApp = sDeviceState.testApps().query()
             .wherePermissions().contains(
                     StringQuery.string().isEqualTo(USER_SPECIFIC_PERMISSION),
                     StringQuery.string().isEqualTo(DECLARED_RUNTIME_PERMISSION),
                     StringQuery.string().isEqualTo(INSTALL_PERMISSION)
             ).get();
-    // TODO(b/202705721): Fix issue with file name conflicts and go with a fixed name
     private static final File sTestAppApkFile = new File(
-            Environment.getExternalStorageDirectory(), UUID.randomUUID() + ".apk");
+            Environment.getExternalStorageDirectory(), "testApp.apk");
 
     @BeforeClass
     public static void setupClass() throws Exception {
@@ -115,6 +111,11 @@ public class PackageTest {
     @Test
     public void exists_existingPackage_returnsTrue() {
         assertThat(TestApis.packages().find(EXISTING_PACKAGE_NAME).exists()).isTrue();
+    }
+
+    @Test
+    public void of_returnsPackageWithCorrectPackageName() {
+        assertThat(Package.of(PACKAGE_NAME).packageName()).isEqualTo(PACKAGE_NAME);
     }
 
     @Test

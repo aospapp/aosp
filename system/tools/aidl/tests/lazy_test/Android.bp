@@ -22,6 +22,7 @@ cc_test {
 
     static_libs: [
         "lazy_test_service_aidl-cpp",
+        "lazy_cb_test_service_aidl-cpp",
     ],
 }
 
@@ -51,5 +52,34 @@ aidl_interface {
     flags: ["-Werror"],
     srcs: [
         "ILazyTestService.aidl",
+    ],
+}
+
+cc_binary {
+    name: "aidl_lazy_cb_test_server",
+    srcs: [
+        "ServerCb.cpp",
+        "LazyTestServiceCb.cpp",
+    ],
+    init_rc: ["aidl_lazy_cb_test_server.rc"],
+    system_ext_specific: true,
+
+    shared_libs: [
+        "libbinder",
+        "liblog",
+        "libutils",
+    ],
+
+    static_libs: [
+        "lazy_cb_test_service_aidl-cpp",
+    ],
+}
+
+aidl_interface {
+    name: "lazy_cb_test_service_aidl",
+    unstable: true,
+    flags: ["-Werror"],
+    srcs: [
+        "ILazyTestServiceCb.aidl",
     ],
 }

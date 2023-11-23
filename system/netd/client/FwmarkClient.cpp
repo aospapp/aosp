@@ -37,9 +37,7 @@ inline constexpr char ANDROID_NO_USE_FWMARK_CLIENT[] = "ANDROID_NO_USE_FWMARK_CL
 const sockaddr_un FWMARK_SERVER_PATH = {AF_UNIX, "/dev/socket/fwmarkd"};
 
 bool commandHasFd(int cmdId) {
-    return (cmdId != FwmarkCommand::QUERY_USER_ACCESS) &&
-        (cmdId != FwmarkCommand::SET_COUNTERSET) &&
-        (cmdId != FwmarkCommand::DELETE_TAGDATA);
+    return (cmdId != FwmarkCommand::QUERY_USER_ACCESS);
 }
 
 }  // namespace

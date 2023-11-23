@@ -43,6 +43,7 @@ struct ApexConfigTest : ::testing::Test {
                     require_libs,
                     /*jni_libs=*/{},
                     /*permitted_paths=*/{},
+                    /*contributions=*/{},
                     /*has_bin=*/true,
                     /*has_lib=*/true,
                     /*visible=*/false,
@@ -75,5 +76,75 @@ TEST_F(ApexConfigTest, apex_with_required) {
   android::linkerconfig::modules::ConfigWriter config_writer;
   config.WriteConfig(config_writer);
 
+  VerifyConfiguration(config_writer.ToString());
+}
+
+TEST_F(ApexConfigTest, vndk_in_system_vendor_apex) {
+  MockVndkUsingCoreVariant();
+  android::linkerconfig::contents::Context ctx = GenerateContextWithVndk();
+
+  android::linkerconfig::proto::LinkerConfig vendor_config;
+  vendor_config.add_providelibs("libvendorprovide.so");
+  ctx.SetVendorConfig(vendor_config);
+
+  auto vendor_apex =
+      PrepareApex("vendor_apex", {}, {":vndk", "libvendorprovide.so"});
+  vendor_apex.original_path = "/vendor/apex/com.android.vendor";
+  ctx.AddApexModule(vendor_apex);
+  auto config = android::linkerconfig::contents::CreateApexConfiguration(
+      ctx, vendor_apex);
+
+  android::linkerconfig::modules::ConfigWriter config_writer;
+  config.WriteConfig(config_writer);
+
+  VerifyConfiguration(config_writer.ToString());
+}
+
+TEST_F(ApexConfigTest, vndk_in_system_product_apex) {
+  MockVndkUsingCoreVariant();
+  android::linkerconfig::contents::Context ctx = GenerateContextWithVndk();
+
+  android::linkerconfig::proto::LinkerConfig product_config;
+  product_config.add_providelibs("libproductprovide.so");
+  ctx.SetProductConfig(product_config);
+
+  auto product_apex =
+      PrepareApex("product_apex", {}, {":vndksp", "libproductprovide.so"});
+  product_apex.original_path = "/product/apex/com.android.product";
+  ctx.AddApexModule(product_apex);
+  auto config = android::linkerconfig::contents::CreateApexConfiguration(
+      ctx, product_apex);
+
+  android::linkerconfig::modules::ConfigWriter config_writer;
+  config.WriteConfig(config_writer);
+
+  VerifyConfiguration(config_writer.ToString());
+}
+
+TEST_F(ApexConfigTest, vendor_apex_without_use_vndk_as_stable) {
+  android::linkerconfig::contents::Context ctx = GenerateContextWithVndk();
+
+  android::linkerconfig::proto::LinkerConfig vendor_config;
+  vendor_config.add_requirelibs("libapexprovide.so");
+  vendor_config.add_providelibs("libvendorprovide.so");
+  ctx.SetVendorConfig(vendor_config);
+
+  // Vendor apex requires :vndk
+  auto vendor_apex = PrepareApex(
+      "vendor_apex", {"libapexprovide.so"}, {"libvendorprovide.so"});
+  vendor_apex.original_path = "/vendor/apex/com.android.vendor";
+  ctx.AddApexModule(vendor_apex);
+
+  auto config = CreateApexConfiguration(ctx, vendor_apex);
+
+  auto* section = config.GetSection("vendor_apex");
+  ASSERT_TRUE(section);
+
+  // vendor apex should be able to load vndk libraries
+  auto vndk_namespace = section->GetNamespace("vndk");
+  ASSERT_TRUE(vndk_namespace);
+
+  android::linkerconfig::modules::ConfigWriter config_writer;
+  config.WriteConfig(config_writer);
   VerifyConfiguration(config_writer.ToString());
 }

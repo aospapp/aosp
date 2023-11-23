@@ -19,6 +19,7 @@ package com.android.car.settings.qc;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.os.UserManager;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -54,6 +55,18 @@ public class NavigationVolumeSliderTest extends VolumeSliderTestCase {
     @Test
     public void getQCItem_createsSlider() {
         verifySliderCreated(getNavigationVolumeSlider());
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_sliderDisabled() {
+        setBaseUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, /* restricted= */ true);
+        verifyBaseUmRestriction(getNavigationVolumeSlider());
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_sliderClickableWhileDisabled() {
+        setUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, /* restricted= */ true);
+        verifyUmRestriction(getNavigationVolumeSlider());
     }
 
     @Test

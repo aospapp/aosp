@@ -55,10 +55,6 @@ jclass g_socket_tagger_class;
 // initialized. This pattern is only necessary because if a process finishes one
 // runtime and starts another then JNI_OnLoad may not be called.
 void EnsureJniConstantsInitialized(JNIEnv* env) {
-    if (g_constants_valid) {
-        return;
-    }
-
     std::lock_guard guard(g_constants_mutex);
     if (g_constants_valid) {
         return;

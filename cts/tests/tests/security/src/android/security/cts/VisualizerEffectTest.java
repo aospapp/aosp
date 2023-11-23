@@ -22,22 +22,25 @@ import android.platform.test.annotations.AsbSecurityTest;
 import android.media.audiofx.AudioEffect;
 import android.media.MediaPlayer;
 import android.media.audiofx.Visualizer;
-import android.test.AndroidTestCase;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.UUID;
 
+import static org.junit.Assert.*;
 
-public class VisualizerEffectTest extends AndroidTestCase {
+import androidx.test.runner.AndroidJUnit4;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class VisualizerEffectTest extends StsExtraBusinessLogicTestCase {
     private String TAG = "VisualizerEffectTest";
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
 
     //Testing security bug: 30229821
+    @Test
     @AsbSecurityTest(cveBugId = 30229821)
     public void testVisualizer_MalformedConstructor() throws Exception {
         final String VISUALIZER_TYPE = "e46b26a0-dddd-11db-8afd-0002a5d5c51b";

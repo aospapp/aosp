@@ -11,7 +11,6 @@ fn main() {
     let align_cargo_feature = env::var("CARGO_FEATURE_ALIGN").is_ok();
     let const_extern_fn_cargo_feature = env::var("CARGO_FEATURE_CONST_EXTERN_FN").is_ok();
     let libc_ci = env::var("LIBC_CI").is_ok();
-    let target = env::var("TARGET").unwrap();
 
     if env::var("CARGO_FEATURE_USE_STD").is_ok() {
         println!(
@@ -32,6 +31,7 @@ fn main() {
         Some(11) if libc_ci => println!("cargo:rustc-cfg=freebsd11"),
         Some(12) if libc_ci => println!("cargo:rustc-cfg=freebsd12"),
         Some(13) if libc_ci => println!("cargo:rustc-cfg=freebsd13"),
+        Some(14) if libc_ci => println!("cargo:rustc-cfg=freebsd14"),
         Some(_) | None => println!("cargo:rustc-cfg=freebsd11"),
     }
 
@@ -73,6 +73,15 @@ fn main() {
         println!("cargo:rustc-cfg=libc_cfg_target_vendor");
     }
 
+    // Rust >= 1.40 supports #[non_exhaustive].
+    if rustc_minor_ver >= 40 || rustc_dep_of_std {
+        println!("cargo:rustc-cfg=libc_non_exhaustive");
+    }
+
+    if rustc_minor_ver >= 51 || rustc_dep_of_std {
+        println!("cargo:rustc-cfg=libc_ptr_addr_of");
+    }
+
     // #[thread_local] is currently unstable
     if rustc_dep_of_std {
         println!("cargo:rustc-cfg=libc_thread_local");
@@ -83,12 +92,6 @@ fn main() {
             panic!("const-extern-fn requires a nightly compiler >= 1.40")
         }
         println!("cargo:rustc-cfg=libc_const_extern_fn");
-    }
-
-    // For unknown reason, libiconv can't be linked by adding #[link(name = iconv)] to
-    // a macOS-specific struct, so we do the linking here.
-    if target.contains("-apple-") {
-        println!("cargo:rustc-link-lib=iconv");
     }
 }
 
@@ -148,6 +151,7 @@ fn which_freebsd() -> Option<i32> {
         s if s.starts_with("11") => Some(11),
         s if s.starts_with("12") => Some(12),
         s if s.starts_with("13") => Some(13),
+        s if s.starts_with("14") => Some(14),
         _ => None,
     }
 }

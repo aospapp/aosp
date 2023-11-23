@@ -15,6 +15,7 @@
  */
 
 #include "dexter.h"
+
 #include "experimental.h"
 #include "slicer/common.h"
 #include "slicer/scopeguard.h"
@@ -24,10 +25,11 @@
 
 #include <getopt.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <memory>
 #include <sstream>
 #include <map>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 // Converts a class name to a type descriptor
 // (ex. "java.lang.String" to "Ljava/lang/String;")
@@ -50,7 +52,7 @@ void Dexter::PrintHelp() {
   printf(" -l : list the classes defined in the dex file\n");
   printf(" -v : verbose output\n");
   printf(" -o : output a new .dex file\n");
-  printf(" -d : dissasemble method bodies\n");
+  printf(" -d : disassemble method bodies\n");
   printf(" -m : print .dex layout map\n");
   printf(" --cfg : generate control flow graph (compact|verbose)\n");
   printf("\n");
@@ -58,10 +60,10 @@ void Dexter::PrintHelp() {
 
 int Dexter::Run() {
   // names for the CFG options
-  const std::map<std::string, DexDissasembler::CfgType> cfg_type_names = {
-    { "none", DexDissasembler::CfgType::None },
-    { "compact", DexDissasembler::CfgType::Compact },
-    { "verbose", DexDissasembler::CfgType::Verbose },
+  const std::map<std::string, DexDisassembler::CfgType> cfg_type_names = {
+    { "none", DexDisassembler::CfgType::None },
+    { "compact", DexDisassembler::CfgType::Compact },
+    { "verbose", DexDisassembler::CfgType::Verbose },
   };
 
   // long cmdline options
@@ -97,7 +99,7 @@ int Dexter::Run() {
         extract_class_ = ::optarg;
         break;
       case 'd':
-        dissasemble_ = true;
+        disassemble_ = true;
         break;
       case 'm':
         print_map_ = true;
@@ -305,7 +307,7 @@ bool Dexter::CreateNewImage(std::shared_ptr<ir::DexFile> dex_ir) {
     };
 
     // write the new image
-    SLICER_CHECK(fwrite(new_image, 1, new_image_size, out_file) == new_image_size);
+    SLICER_CHECK_EQ(fwrite(new_image, 1, new_image_size, out_file), new_image_size);
   }
 
   return true;
@@ -315,6 +317,14 @@ bool Dexter::CreateNewImage(std::shared_ptr<ir::DexFile> dex_ir) {
 int Dexter::ProcessDex() {
   if (verbose_) {
     printf("\nReading: %s\n", dex_filename_);
+  }
+
+  // check that target is a file
+  struct stat path_stat;
+  stat(dex_filename_, &path_stat);
+  if (!S_ISREG(path_stat.st_mode)) {
+    printf("ERROR: Path (%s) is not a regular file.\n", dex_filename_);
+    return 1;
   }
 
   // open input file
@@ -337,7 +347,7 @@ int Dexter::ProcessDex() {
 
   // read input .dex file
   fseek(in_file, 0, SEEK_SET);
-  SLICER_CHECK(fread(in_buff.get(), 1, in_size, in_file) == in_size);
+  SLICER_CHECK_EQ(fread(in_buff.get(), 1, in_size, in_file), in_size);
 
   // initialize the .dex reader
   dex::Reader reader(in_buff.get(), in_size);
@@ -383,9 +393,9 @@ int Dexter::ProcessDex() {
     experimental::Run(experiment, dex_ir);
   }
 
-  // dissasemble method bodies?
-  if (dissasemble_) {
-    DexDissasembler disasm(dex_ir, cfg_type_);
+  // disassemble method bodies?
+  if (disassemble_) {
+    DexDisassembler disasm(dex_ir, cfg_type_);
     disasm.DumpAllMethods();
   }
 

@@ -18,7 +18,6 @@
 
 #include <set>
 #include <string>
-#include <vector>
 
 #include "io_delegate.h"
 
@@ -28,8 +27,7 @@ namespace aidl {
 class ImportResolver {
  public:
   ImportResolver(const IoDelegate& io_delegate, const std::string& input_file_name,
-                 const std::set<std::string>& import_paths,
-                 const std::vector<std::string>& input_files);
+                 const std::set<std::string>& import_paths);
   virtual ~ImportResolver() = default;
 
   // non-copyable, non-movable
@@ -43,10 +41,11 @@ class ImportResolver {
   std::string FindImportFile(const std::string& canonical_name) const;
 
  private:
+  std::set<std::string> ScanImportPaths(const std::string& relative_path) const;
+
   const IoDelegate& io_delegate_;
   const std::string& input_file_name_;
-  std::vector<std::string> import_paths_;
-  std::vector<std::string> input_files_;
+  std::set<std::string> import_paths_;
 };
 
 }  // namespace aidl

@@ -40,6 +40,10 @@ std::vector<std::string_view> GetWindows(
 std::vector<std::string_view> GetMatches(
     std::string_view content, const SnippetProto::EntryProto& snippet_proto);
 
+// Retrieves all submatches defined by the snippet_proto for the content.
+std::vector<std::string_view> GetSubMatches(
+    std::string_view content, const SnippetProto::EntryProto& snippet_proto);
+
 // Retrieves the string value held in the document corresponding to the
 // property_path.
 // Example:

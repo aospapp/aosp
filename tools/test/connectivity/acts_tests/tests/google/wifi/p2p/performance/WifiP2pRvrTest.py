@@ -57,7 +57,9 @@ class WifiP2pRvrTest(WifiRvrTest):
         common to all tests in this class.
         """
         req_params = ['p2p_rvr_test_params', 'testbed_params']
-        opt_params = ['RetailAccessPoints', 'ap_networks', 'OTASniffer', 'uuid_list']
+        opt_params = [
+            'RetailAccessPoints', 'ap_networks', 'OTASniffer', 'uuid_list'
+        ]
         self.unpack_userparams(req_params, opt_params)
         if hasattr(self, 'RetailAccessPoints'):
             self.access_points = retail_ap.create(self.RetailAccessPoints)
@@ -123,6 +125,8 @@ class WifiP2pRvrTest(WifiRvrTest):
         ad.droid.wifiP2pSetDeviceName(ad.name)
 
     def teardown_class(self):
+        for ap in self.access_points:
+            ap.teardown()
         # Turn WiFi OFF
         for ad in self.android_devices:
             ad.droid.wifiP2pClose()
@@ -158,6 +162,12 @@ class WifiP2pRvrTest(WifiRvrTest):
             ad.droid.wakeLockRelease()
             ad.droid.goToSleepNow()
             wputils.stop_wifi_logging(ad)
+
+    def on_exception(self, test_name, begin_time):
+        for ad in self.android_devices:
+            ad.take_bug_report(test_name, begin_time)
+            ad.cat_adb_log(test_name, begin_time)
+            wutils.get_ssrdumps(ad)
 
     def compute_test_metrics(self, rvr_result):
         #Set test metrics
@@ -283,9 +293,11 @@ class WifiP2pRvrTest(WifiRvrTest):
                 False,
                 wpsSetup=wp2putils.WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_PBC)
             if wp2putils.is_go(self.android_devices[0]):
+                self.log.info("DUT 1 is GO.")
                 self.go_dut = self.android_devices[0]
                 self.gc_dut = self.android_devices[1]
             elif wp2putils.is_go(self.android_devices[1]):
+                self.log.info("DUT 2 is GO.")
                 self.go_dut = self.android_devices[1]
                 self.gc_dut = self.android_devices[0]
         except Exception as e:
@@ -485,9 +497,12 @@ class WifiP2pRvrTest(WifiRvrTest):
                 traffic_type=traffic_type,
                 traffic_direction=traffic_direction,
                 concurrency_state=concurrency_state)
-            test_class=self.__class__.__name__
-            if hasattr(self, "uuid_list") and test_name in self.uuid_list[test_class]:
-                test_case = test_tracker_info(uuid=self.uuid_list[test_class][test_name])(partial(self._test_p2p_rvr, test_params))
+            test_class = self.__class__.__name__
+            if "uuid_list" in self.user_params:
+                test_tracker_uuid = self.user_params["uuid_list"][
+                    test_class][test_name]
+                test_case = test_tracker_info(uuid=test_tracker_uuid)(
+                    lambda: self._test_p2p_rvr(test_params))
             else:
                 test_case = partial(self._test_p2p_rvr, test_params)
             setattr(self, test_name, test_case)

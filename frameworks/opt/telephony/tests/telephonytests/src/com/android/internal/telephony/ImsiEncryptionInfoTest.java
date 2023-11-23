@@ -60,6 +60,8 @@ public class ImsiEncryptionInfoTest {
     @After
     public void tearDown() throws Exception {
         mImsiEncryptionInfo = null;
+        mPublicKey = null;
+        mDate = null;
     }
 
     @Before
@@ -67,7 +69,7 @@ public class ImsiEncryptionInfoTest {
 
         mPublicKey = createPublicKey(TEST_CERT);
         mImsiEncryptionInfo = new ImsiEncryptionInfo("310", "270", TelephonyManager.KEY_TYPE_WLAN,
-                "key1=value", mPublicKey, mDate);
+                "key1=value", mPublicKey, mDate, 1);
     }
 
     private static PublicKey createPublicKey(String cert) throws Exception {
@@ -108,5 +110,6 @@ public class ImsiEncryptionInfoTest {
         assertEquals("key1=value", mImsiEncryptionInfo.getKeyIdentifier());
         assertEquals(mPublicKey, mImsiEncryptionInfo.getPublicKey());
         assertEquals(mDate, mImsiEncryptionInfo.getExpirationTime());
+        assertEquals(1, mImsiEncryptionInfo.getCarrierId());
     }
 }

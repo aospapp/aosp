@@ -89,7 +89,8 @@ public class SettingUserHelperImpl extends AbstractAutoStandardAppHelper
     public boolean isUserPresent(String user) {
         UiObject2 addUserButton =
             scrollAndFindUiObject(
-                getResourceFromConfig(APP_NAME, APP_CONFIG, AutoConfigConstants.ADD_PROFILE));
+                getResourceFromConfig(APP_NAME, APP_CONFIG, AutoConfigConstants.ADD_PROFILE),
+                getScrollScreenIndex());
         Log.v(
             TAG,
             String.format(
@@ -97,7 +98,7 @@ public class SettingUserHelperImpl extends AbstractAutoStandardAppHelper
                 AutoConfigConstants.ADD_PROFILE, addUserButton));
         if (addUserButton == null) {
             clickbutton(AutoConfigConstants.MANAGE_OTHER_PROFILES);
-            UiObject2 UserObject = scrollAndFindUiObject(By.text(user));
+            UiObject2 UserObject = scrollAndFindUiObject(By.text(user), getScrollScreenIndex());
             return UserObject != null;
         }
         return false;
@@ -134,9 +135,10 @@ public class SettingUserHelperImpl extends AbstractAutoStandardAppHelper
     // click an on-screen element if expected text for that element is present
     private void clickbutton(String button_text) {
         UiObject2 buttonObject =
-            scrollAndFindUiObject(getResourceFromConfig(APP_NAME, APP_CONFIG, button_text));
+            scrollAndFindUiObject(getResourceFromConfig(APP_NAME, APP_CONFIG, button_text),
+                getScrollScreenIndex());
         if (buttonObject == null) {
-            buttonObject = scrollAndFindUiObject(By.text(button_text));
+            buttonObject = scrollAndFindUiObject(By.text(button_text), getScrollScreenIndex());
         }
         Log.v(
             TAG,
@@ -153,5 +155,14 @@ public class SettingUserHelperImpl extends AbstractAutoStandardAppHelper
     // go to quick Settings for switching User
     private void goToQuickSettings() {
         clickbutton(AutoConfigConstants.TIME_PATTERN);
+    }
+
+    //set scroll index to 1
+    private int getScrollScreenIndex() {
+        int scrollScreenIndex = 0;
+        if (hasSplitScreenSettingsUI()) {
+            scrollScreenIndex = 1;
+        }
+        return scrollScreenIndex;
     }
 }

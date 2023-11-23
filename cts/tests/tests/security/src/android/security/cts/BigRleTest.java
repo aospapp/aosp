@@ -18,14 +18,19 @@ package android.security.cts;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.test.AndroidTestCase;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import java.io.InputStream;
 
 import android.platform.test.annotations.AsbSecurityTest;
 import android.security.cts.R;
 
-public class BigRleTest extends AndroidTestCase {
+import androidx.test.runner.AndroidJUnit4;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class BigRleTest extends StsExtraBusinessLogicTestCase {
     /**
      * Verifies that the device does not run OOM decoding a particular RLE encoded BMP.
      *
@@ -33,8 +38,9 @@ public class BigRleTest extends AndroidTestCase {
      * we attempted to allocate space for all the encoded data at once, resulting in OOM.
      */
     @AsbSecurityTest(cveBugId = 33251605)
+    @Test
     public void test_android_bug_33251605() {
-        InputStream exploitImage = mContext.getResources().openRawResource(R.raw.bug_33251605);
+        InputStream exploitImage = getInstrumentation().getContext().getResources().openRawResource(R.raw.bug_33251605);
         Bitmap bitmap = BitmapFactory.decodeStream(exploitImage);
     }
 }

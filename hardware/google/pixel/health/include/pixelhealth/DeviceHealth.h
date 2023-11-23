@@ -16,6 +16,7 @@
 
 #ifndef HARDWARE_GOOGLE_PIXEL_HEALTH_DEVICEHEALTH_H
 
+#include <aidl/android/hardware/health/HealthInfo.h>
 #include <batteryservice/BatteryService.h>
 
 namespace hardware {
@@ -26,10 +27,13 @@ namespace health {
 class DeviceHealth {
   public:
     DeviceHealth();
+    void update(aidl::android::hardware::health::HealthInfo *health_info);
     void update(struct android::BatteryProperties *props);
 
   private:
     bool is_user_build_;
+
+    bool shouldFakeBatteryTemperature() const;
 };
 
 }  // namespace health

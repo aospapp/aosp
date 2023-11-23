@@ -13,6 +13,7 @@
 # the License.
 
 import("//build_overrides/pigweed.gni")
+import("//build_overrides/pigweed_environment.gni")
 
 declare_args() {
   # Enable/disable Arduino builds via group("arduino").
@@ -46,7 +47,8 @@ if (pw_arduino_build_CORE_PATH != "") {
              _required_args_message)
 
   _arduino_selected_core_path =
-      rebase_path("$pw_arduino_build_CORE_PATH/$pw_arduino_build_CORE_NAME")
+      rebase_path("$pw_arduino_build_CORE_PATH/$pw_arduino_build_CORE_NAME",
+                  root_build_dir)
 
   arduino_builder_script =
       get_path_info("py/pw_arduino_build/__main__.py", "abspath")
@@ -60,7 +62,7 @@ if (pw_arduino_build_CORE_PATH != "") {
              pw_arduino_build_PACKAGE_NAME + " list-boards")
 
   _compiler_path_override =
-      rebase_path(getenv("_PW_ACTUAL_ENVIRONMENT_ROOT") + "/cipd/pigweed/bin")
+      rebase_path(dir_cipd_pigweed + "/bin", root_build_dir)
 
   arduino_core_library_path = "$_arduino_selected_core_path/hardware/" +
                               "$pw_arduino_build_PACKAGE_NAME/libraries"
@@ -75,13 +77,13 @@ if (pw_arduino_build_CORE_PATH != "") {
 
     # Save config files to "out/arduino_debug/gen/arduino_builder_config.json"
     "--config-file",
-    rebase_path(root_gen_dir) + "/arduino_builder_config.json",
+    rebase_path(root_gen_dir, root_build_dir) + "/arduino_builder_config.json",
     "--save-config",
   ]
 
   arduino_board_args = [
     "--build-path",
-    rebase_path(root_build_dir),
+    ".",
     "--board",
     pw_arduino_build_BOARD,
   ]

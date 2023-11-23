@@ -4,9 +4,9 @@ use crate::syntax::file::{Item, ItemForeignMod};
 use crate::syntax::report::Errors;
 use crate::syntax::Atom::*;
 use crate::syntax::{
-    attrs, error, Api, Array, Derive, Doc, Enum, ExternFn, ExternType, ForeignName, Impl, Include,
-    IncludeKind, Lang, Lifetimes, NamedType, Namespace, Pair, Ptr, Receiver, Ref, Signature,
-    SliceRef, Struct, Ty1, Type, TypeAlias, Var, Variant,
+    attrs, error, Api, Array, Derive, Doc, Enum, EnumRepr, ExternFn, ExternType, ForeignName, Impl,
+    Include, IncludeKind, Lang, Lifetimes, NamedType, Namespace, Pair, Ptr, Receiver, Ref,
+    Signature, SliceRef, Struct, Ty1, Type, TypeAlias, Var, Variant,
 };
 use proc_macro2::{Delimiter, Group, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -146,11 +146,13 @@ fn parse_struct(cx: &mut Errors, mut item: ItemStruct, namespace: &Namespace) ->
         };
         let visibility = visibility_pub(&field.vis, ident.span());
         let name = pair(Namespace::default(), &ident, cxx_name, rust_name);
+        let colon_token = field.colon_token.unwrap();
         fields.push(Var {
             doc,
             attrs,
             visibility,
             name,
+            colon_token,
             ty,
         });
     }
@@ -185,6 +187,7 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
     let mut namespace = namespace.clone();
     let mut cxx_name = None;
     let mut rust_name = None;
+    let mut variants_from_header = None;
     let attrs = attrs::parse(
         cx,
         item.attrs,
@@ -195,6 +198,7 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
             namespace: Some(&mut namespace),
             cxx_name: Some(&mut cxx_name),
             rust_name: Some(&mut rust_name),
+            variants_from_header: Some(&mut variants_from_header),
             ..Default::default()
         },
     );
@@ -237,11 +241,17 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
     let name = pair(namespace, &item.ident, cxx_name, rust_name);
     let repr_ident = Ident::new(repr.as_ref(), Span::call_site());
     let repr_type = Type::Ident(NamedType::new(repr_ident));
+    let repr = EnumRepr::Native {
+        atom: repr,
+        repr_type,
+    };
     let generics = Lifetimes {
         lt_token: None,
         lifetimes: Punctuated::new(),
         gt_token: None,
     };
+    let variants_from_header_attr = variants_from_header;
+    let variants_from_header = variants_from_header_attr.is_some();
 
     Api::Enum(Enum {
         doc,
@@ -253,8 +263,9 @@ fn parse_enum(cx: &mut Errors, item: ItemEnum, namespace: &Namespace) -> Api {
         generics,
         brace_token,
         variants,
+        variants_from_header,
+        variants_from_header_attr,
         repr,
-        repr_type,
         explicit_repr,
     })
 }
@@ -560,6 +571,7 @@ fn parse_extern_fn(
                         lifetime: lifetime.clone(),
                         mutable: arg.mutability.is_some(),
                         var: arg.self_token,
+                        colon_token: Token![:](arg.self_token.span),
                         ty: NamedType::new(Ident::new("Self", arg.self_token.span)),
                         shorthand: true,
                         pin_tokens: None,
@@ -583,11 +595,13 @@ fn parse_extern_fn(
                     let attrs = OtherAttrs::none();
                     let visibility = Token![pub](ident.span());
                     let name = pair(Namespace::default(), &ident, None, None);
+                    let colon_token = arg.colon_token;
                     args.push_value(Var {
                         doc,
                         attrs,
                         visibility,
                         name,
+                        colon_token,
                         ty,
                     });
                     if let Some(comma) = comma {
@@ -603,6 +617,7 @@ fn parse_extern_fn(
                             lifetime: reference.lifetime,
                             mutable: reference.mutable,
                             var: Token![self](ident.rust.span()),
+                            colon_token: arg.colon_token,
                             ty: ident,
                             shorthand: false,
                             pin_tokens: reference.pin_tokens,
@@ -1272,11 +1287,16 @@ fn parse_type_fn(ty: &TypeBareFn) -> Result<Type> {
         .iter()
         .enumerate()
         .map(|(i, arg)| {
-            let ty = parse_type(&arg.ty)?;
-            let ident = match &arg.name {
-                Some(ident) => ident.0.clone(),
-                None => format_ident!("arg{}", i),
+            let (ident, colon_token) = match &arg.name {
+                Some((ident, colon_token)) => (ident.clone(), *colon_token),
+                None => {
+                    let fn_span = ty.paren_token.span;
+                    let ident = format_ident!("arg{}", i, span = fn_span);
+                    let colon_token = Token![:](fn_span);
+                    (ident, colon_token)
+                }
             };
+            let ty = parse_type(&arg.ty)?;
             let doc = Doc::new();
             let attrs = OtherAttrs::none();
             let visibility = Token![pub](ident.span());
@@ -1286,6 +1306,7 @@ fn parse_type_fn(ty: &TypeBareFn) -> Result<Type> {
                 attrs,
                 visibility,
                 name,
+                colon_token,
                 ty,
             })
         })

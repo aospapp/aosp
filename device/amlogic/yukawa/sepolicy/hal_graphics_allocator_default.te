@@ -1,2 +1,6 @@
+type dmabuf_cma_heap_device, dmabuf_heap_device_type, dev_type;
+
 allow hal_graphics_allocator_default graphics_device:dir search;
 allow hal_graphics_allocator_default graphics_device:chr_file { open read write ioctl map rw_file_perms};
+allow hal_graphics_allocator_default dmabuf_system_heap_device:chr_file r_file_perms;
+allow hal_graphics_allocator_default dmabuf_cma_heap_device:chr_file r_file_perms;

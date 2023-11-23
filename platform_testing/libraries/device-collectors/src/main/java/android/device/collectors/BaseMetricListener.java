@@ -101,6 +101,10 @@ public class BaseMetricListener extends InstrumentationRunListener {
     private int mCollectIterationInterval = 1;
     private int mSkipMetricUntilIteration = 0;
 
+    // Whether to report the results as instrumentation results. Used by metric collector rules,
+    // which do not have the information to invoke InstrumentationRunFinished() to report metrics.
+    private boolean mReportAsInstrumentationResults = false;
+
     public BaseMetricListener() {
         mIncludeFilters = new ArrayList<>();
         mExcludeFilters = new ArrayList<>();
@@ -190,8 +194,12 @@ public class BaseMetricListener extends InstrumentationRunListener {
             }
             if (mTestData.hasMetrics()) {
                 // Only send the status progress if there are metrics
+                if (mReportAsInstrumentationResults) {
+                    getInstrumentation().addResults(mTestData.createBundleFromMetrics());
+                } else {
                 SendToInstrumentation.sendBundle(getInstrumentation(),
                         mTestData.createBundleFromMetrics());
+            }
             }
         }
         super.testFinished(description);
@@ -333,20 +341,33 @@ public class BaseMetricListener extends InstrumentationRunListener {
     }
 
     /**
+     * Create a directory inside external storage, and optionally empty it.
+     *
+     * @param dir full path to the dir to be created.
+     * @param empty whether to empty the new dirctory.
+     * @return directory file created
+     */
+    public File createDirectory(String dir, boolean empty) {
+        File rootDir = Environment.getExternalStorageDirectory();
+        File destDir = new File(rootDir, dir);
+        if (empty) {
+            executeCommandBlocking("rm -rf " + destDir.getAbsolutePath());
+        }
+        if (!destDir.exists() && !destDir.mkdirs()) {
+            Log.e(getTag(), "Unable to create dir: " + destDir.getAbsolutePath());
+            return null;
+        }
+        return destDir;
+    }
+
+    /**
      * Create a directory inside external storage, and empty it.
      *
      * @param dir full path to the dir to be created.
      * @return directory file created
      */
     public File createAndEmptyDirectory(String dir) {
-        File rootDir = Environment.getExternalStorageDirectory();
-        File destDir = new File(rootDir, dir);
-        executeCommandBlocking("rm -rf " + destDir.getAbsolutePath());
-        if (!destDir.exists() && !destDir.mkdirs()) {
-            Log.e(getTag(), "Unable to create dir: " + destDir.getAbsolutePath());
-            return null;
-        }
-        return destDir;
+        return createDirectory(dir, true);
     }
 
     /**
@@ -368,6 +389,11 @@ public class BaseMetricListener extends InstrumentationRunListener {
         }
     }
 
+    /** Sets whether metrics should be reported directly to instrumentation results. */
+    public final void setReportAsInstrumentationResults(boolean enabled) {
+        mReportAsInstrumentationResults = enabled;
+    }
+
     /**
      * Returns the name of the current class to be used as a logging tag.
      */
@@ -385,7 +411,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
         return mArgsBundle;
     }
 
-    private void parseArguments() {
+    protected void parseArguments() {
         Bundle args = getArgsBundle();
         // First filter the arguments with the alias
         filterAlias(args);

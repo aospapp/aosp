@@ -18,9 +18,13 @@ package com.android.managedprovisioning.preprovisioning;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PREPROVISIONING_ACTIVITY_TIME_MS;
 
+import static java.util.Objects.requireNonNull;
+
 import android.annotation.IntDef;
 import android.annotation.MainThread;
+import android.annotation.Nullable;
 import android.content.Intent;
+import android.os.PersistableBundle;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
@@ -31,12 +35,12 @@ import com.android.managedprovisioning.ManagedProvisioningBaseApplication;
 import com.android.managedprovisioning.analytics.TimeLogger;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.parser.MessageParser;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Objects;
 
 /**
  * A {@link ViewModel} which maintains data related to preprovisioning.
@@ -48,14 +52,22 @@ public final class PreProvisioningViewModel extends ViewModel {
     static final int STATE_SHOWING_USER_CONSENT = 4;
     static final int STATE_PROVISIONING_STARTED = 5;
     static final int STATE_PROVISIONING_FINALIZED = 6;
+    static final int STATE_UPDATING_ROLE_HOLDER = 7;
+    static final int STATE_ROLE_HOLDER_PROVISIONING = 8;
+
+    private static final int DEFAULT_MAX_ROLE_HOLDER_UPDATE_RETRIES = 3;
+    private PersistableBundle mRoleHolderState;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({STATE_PREPROVISIONING_INITIALIZING,
             STATE_GETTING_PROVISIONING_MODE,
             STATE_SHOWING_USER_CONSENT,
             STATE_PROVISIONING_STARTED,
-            STATE_PROVISIONING_FINALIZED})
+            STATE_PROVISIONING_FINALIZED,
+            STATE_UPDATING_ROLE_HOLDER,
+            STATE_ROLE_HOLDER_PROVISIONING})
     private @interface PreProvisioningState {}
+
 
     private ProvisioningParams mParams;
     private final MessageParser mMessageParser;
@@ -63,14 +75,18 @@ public final class PreProvisioningViewModel extends ViewModel {
     private final EncryptionController mEncryptionController;
     private final MutableLiveData<Integer> mState =
             new MutableLiveData<>(STATE_PREPROVISIONING_INITIALIZING);
+    private final Config mConfig;
+    private int mRoleHolderUpdateRetries = 1;
 
     PreProvisioningViewModel(
             TimeLogger timeLogger,
             MessageParser messageParser,
-            EncryptionController encryptionController) {
-        mMessageParser = Objects.requireNonNull(messageParser);
-        mTimeLogger = Objects.requireNonNull(timeLogger);
-        mEncryptionController = Objects.requireNonNull(encryptionController);
+            EncryptionController encryptionController,
+            Config config) {
+        mMessageParser = requireNonNull(messageParser);
+        mTimeLogger = requireNonNull(timeLogger);
+        mEncryptionController = requireNonNull(encryptionController);
+        mConfig = requireNonNull(config);
     }
 
     /**
@@ -109,8 +125,48 @@ public final class PreProvisioningViewModel extends ViewModel {
      * Handles state when provisioning has initiated
      */
     @MainThread
-    public void onProvisioningInitiated() {
+    public void onPlatformProvisioningInitiated() {
         setState(STATE_PREPROVISIONING_INITIALIZED);
+    }
+
+    /**
+     * Handles state when the role holder update has started
+     */
+    @MainThread
+    public void onRoleHolderUpdateInitiated() {
+        setState(STATE_UPDATING_ROLE_HOLDER);
+    }
+
+    /**
+     * Handles state when provisioning is delegated to the role holder
+     */
+    @MainThread
+    public void onRoleHolderProvisioningInitiated() {
+        setState(STATE_ROLE_HOLDER_PROVISIONING);
+    }
+
+    /**
+     * Sets a copy of the role holder state.
+     * @param roleHolderState
+     */
+    public void setRoleHolderState(@Nullable PersistableBundle roleHolderState) {
+        if (roleHolderState == null) {
+            mRoleHolderState = null;
+        } else {
+            mRoleHolderState = new PersistableBundle(roleHolderState);
+        }
+    }
+
+    /**
+     * Retrieves a copy of the role holder state or {@link null} if one does not exist.
+     * @return
+     */
+    public @Nullable PersistableBundle getRoleHolderState() {
+        if (mRoleHolderState == null) {
+            return null;
+        } else {
+            return new PersistableBundle(mRoleHolderState);
+        }
     }
 
     /**
@@ -188,11 +244,44 @@ public final class PreProvisioningViewModel extends ViewModel {
         }
     }
 
+    void incrementRoleHolderUpdateRetryCount() {
+        mRoleHolderUpdateRetries++;
+    }
+
+    /**
+     * Resets the update retry count
+     */
+    public void resetRoleHolderUpdateRetryCount() {
+        mRoleHolderUpdateRetries = 0;
+    }
+
+    boolean canRetryRoleHolderUpdate() {
+        return mRoleHolderUpdateRetries < mConfig.getMaxRoleHolderUpdateRetries();
+    }
+
+    interface Config {
+        int getMaxRoleHolderUpdateRetries();
+    }
+
+    static class DefaultConfig implements Config {
+        @Override
+        public int getMaxRoleHolderUpdateRetries() {
+            return DEFAULT_MAX_ROLE_HOLDER_UPDATE_RETRIES;
+        }
+    }
+
     static class PreProvisioningViewModelFactory implements ViewModelProvider.Factory {
         private final ManagedProvisioningBaseApplication mApplication;
+        private final Config mConfig;
+        private final Utils mUtils;
 
-        PreProvisioningViewModelFactory(ManagedProvisioningBaseApplication application) {
-            mApplication = application;
+        PreProvisioningViewModelFactory(
+                ManagedProvisioningBaseApplication application,
+                Config config,
+                Utils utils) {
+            mApplication = requireNonNull(application);
+            mConfig = requireNonNull(config);
+            mUtils = requireNonNull(utils);
         }
 
         @Override
@@ -203,8 +292,9 @@ public final class PreProvisioningViewModel extends ViewModel {
             }
             return (T) new PreProvisioningViewModel(
                     new TimeLogger(mApplication, PROVISIONING_PREPROVISIONING_ACTIVITY_TIME_MS),
-                    new MessageParser(mApplication),
-                    mApplication.getEncryptionController());
+                    new MessageParser(mApplication, mUtils),
+                    mApplication.getEncryptionController(),
+                    mConfig);
         }
     }
 }

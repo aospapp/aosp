@@ -38,7 +38,7 @@ Keymaster1PassthroughContext::Keymaster1PassthroughContext(KmVersion version,
                                                            keymaster1_device_t* dev)
     : SoftAttestationContext(version), device_(dev),
       pt_engine_(KeymasterPassthroughEngine::createInstance(dev)),
-      km1_engine_(new Keymaster1Engine(dev)) {}
+      km1_engine_(new (std::nothrow) Keymaster1Engine(dev)) {}
 
 keymaster_error_t Keymaster1PassthroughContext::SetSystemVersion(uint32_t os_version,
                                                                  uint32_t os_patchlevel) {
@@ -58,22 +58,22 @@ KeyFactory* Keymaster1PassthroughContext::GetKeyFactory(keymaster_algorithm_t al
     if (!result) {
         switch (algorithm) {
         case KM_ALGORITHM_RSA:
-            result.reset(new Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>(
+            result.reset(new (std::nothrow) Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>(
                 pt_engine_.get(), KM_ALGORITHM_RSA, device_, *this /* blob_maker */,
                 *this /* context */, km1_engine_.get()));
             break;
         case KM_ALGORITHM_EC:
-            result.reset(new Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>(
+            result.reset(new (std::nothrow) Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>(
                 pt_engine_.get(), KM_ALGORITHM_EC, device_, *this /* blob_maker */,
                 *this /* context */, km1_engine_.get()));
             break;
         case KM_ALGORITHM_AES:
-            result.reset(new Keymaster1ArbitrationFactory<AesKeyFactory>(
+            result.reset(new (std::nothrow) Keymaster1ArbitrationFactory<AesKeyFactory>(
                 pt_engine_.get(), KM_ALGORITHM_AES, device_, *this /* blob_maker */,
                 *this /* random_source */));
             break;
         case KM_ALGORITHM_HMAC:
-            result.reset(new Keymaster1ArbitrationFactory<HmacKeyFactory>(
+            result.reset(new (std::nothrow) Keymaster1ArbitrationFactory<HmacKeyFactory>(
                 pt_engine_.get(), KM_ALGORITHM_HMAC, device_, *this /* blob_maker */,
                 *this /* random_source */));
             break;
@@ -152,7 +152,7 @@ Keymaster1PassthroughContext::ParseKeyBlob(const KeymasterKeyBlob& blob,
         BuildHiddenAuthorizations(additional_params, &hidden, softwareRootOfTrust);
     if (error != KM_ERROR_OK) return error;
 
-    // Assume it's an integrity-assured blob (new software-only blob
+    // Assume it's an integrity-assured blob (new software-only blob).
     error =
         DeserializeIntegrityAssuredBlob(blob, hidden, &key_material, &hw_enforced, &sw_enforced);
     if (error != KM_ERROR_INVALID_KEY_BLOB && error != KM_ERROR_OK) return error;
@@ -215,8 +215,9 @@ keymaster_error_t Keymaster1PassthroughContext::CreateKeyBlob(
     const AuthorizationSet& key_description, const keymaster_key_origin_t origin,
     const KeymasterKeyBlob& key_material, KeymasterKeyBlob* blob, AuthorizationSet* hw_enforced,
     AuthorizationSet* sw_enforced) const {
-    keymaster_error_t error = SetKeyBlobAuthorizations(key_description, origin, os_version_,
-                                                       os_patchlevel_, hw_enforced, sw_enforced);
+    keymaster_error_t error =
+        SetKeyBlobAuthorizations(key_description, origin, os_version_, os_patchlevel_, hw_enforced,
+                                 sw_enforced, GetKmVersion());
     if (error != KM_ERROR_OK) return error;
 
     AuthorizationSet hidden;

@@ -220,12 +220,12 @@ public class CallFeaturesSetting extends PreferenceActivity
             if (mImsMgr.isEnhanced4gLteModeSettingEnabledByUser()) {
                 mImsMgr.setVtSetting((boolean) objValue);
             } else {
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                AlertDialog.Builder builder = FrameworksUtils.makeAlertDialogBuilder(this);
                 DialogInterface.OnClickListener networkSettingsClickListener =
                         new Dialog.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                Intent intent = new Intent(Intent.ACTION_MAIN);
+                                Intent intent = new Intent();
                                 ComponentName mobileNetworkSettingsComponent = new ComponentName(
                                         getString(R.string.mobile_network_settings_package),
                                         getString(R.string.mobile_network_settings_class));
@@ -455,10 +455,16 @@ public class CallFeaturesSetting extends PreferenceActivity
         boolean useWfcHomeModeForRoaming = carrierConfig.getBoolean(
                     CarrierConfigManager.KEY_USE_WFC_HOME_NETWORK_MODE_IN_ROAMING_NETWORK_BOOL,
                     false);
+        boolean isDataEnabled;
+        if (mPhone.isUsingNewDataStack()) {
+            isDataEnabled = mPhone.getDataSettingsManager().isDataEnabled();
+        } else {
+            isDataEnabled = mPhone.getDataEnabledSettings().isDataEnabled();
+        }
         if (mImsMgr.isVtEnabledByPlatform() && mImsMgr.isVtProvisionedOnDevice()
                 && (carrierConfig.getBoolean(
                         CarrierConfigManager.KEY_IGNORE_DATA_ENABLED_CHANGED_FOR_VIDEO_CALLS)
-                || mPhone.getDataEnabledSettings().isDataEnabled())) {
+                || isDataEnabled)) {
             boolean currentValue =
                     mImsMgr.isEnhanced4gLteModeSettingEnabledByUser()
                     ? mImsMgr.isVtEnabledByUser() : false;

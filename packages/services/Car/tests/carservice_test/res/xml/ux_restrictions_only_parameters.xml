@@ -21,13 +21,13 @@ This xml contains UX restrictions configuration for testing.
 <UxRestrictions xmlns:car="http://schemas.android.com/apk/res-auto">
     <!-- Need RestrictionMapping to create a config. -->
     <RestrictionMapping>
-        <DrivingState car:state="parked">
-            <Restrictions car:requiresDistractionOptimization="false" car:uxr="baseline"/>
+        <DrivingState state="parked">
+            <Restrictions requiresDistractionOptimization="false" uxr="baseline"/>
         </DrivingState>
     </RestrictionMapping>
     <!-- restriction parameters -->
     <RestrictionParameters>
-        <StringRestrictions car:maxLength="1"/>
-        <ContentRestrictions car:maxCumulativeItems="1" car:maxDepth="1"/>
+        <StringRestrictions maxLength="1"/>
+        <ContentRestrictions maxCumulativeItems="1" maxDepth="1"/>
     </RestrictionParameters>
 </UxRestrictions>

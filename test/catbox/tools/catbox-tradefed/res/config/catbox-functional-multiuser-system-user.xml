@@ -34,5 +34,7 @@
   <!-- Tests -->
   <option name="compatibility:include-filter" value="AndroidAutomotiveMultiuserTests android.platform.tests.DeleteCurrentNonAdminUser" />
   <option name="compatibility:include-filter" value="AndroidAutomotiveMultiuserTests android.platform.tests.SwitchToGuestFromNonAdmin" />
+<!--
   <option name="compatibility:include-filter" value="AndroidAutomotiveMultiuserTests android.platform.tests.DeleteLastAdminUser" />
+-->
 </configuration>

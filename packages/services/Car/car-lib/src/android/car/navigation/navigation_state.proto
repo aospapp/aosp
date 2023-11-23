@@ -322,8 +322,71 @@ message Maneuver {
     DESTINATION_RIGHT = 53;
   }
 
+  // Extended set of maneuver types.
+  // Added in Android T.
+  // Next ID: 11
+  enum TypeV2 {
+    // Maneuver type is unknown, no maneuver information should be displayed.
+    UNKNOWN_V2 = 0;
+
+    // Roundabout entrance on which the current road ends (e.g. "Enter the
+    // roundabout") for a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries).
+    ROUNDABOUT_ENTER_CW = 1;
+
+    // Used when leaving a roundabout when the step starts in it (e.g. "Exit the
+    // roundabout") for a clockwise roundabout (as seen from above, typical for
+    // left-hand drive countries).
+    ROUNDABOUT_EXIT_CW = 2;
+
+    // Roundabout entrance on which the current road ends (e.g. "Enter the
+    // roundabout") for a counter-clockwise roundabout (as seen from above,
+    // typical for right-hand drive countries).
+    ROUNDABOUT_ENTER_CCW = 3;
+
+    // Used when leaving a roundabout when the step starts in it (e.g. "Exit the
+    // roundabout") for a counter-clockwise roundabout (as seen from above,
+    // typical for right-hand drive countries).
+    ROUNDABOUT_EXIT_CCW = 4;
+
+    // Entrance and exit (e.g. "At the roundabout, take Nth exit") on a
+    // clockwise roundabout (as seen from above, typical for left-hand drive
+    // countries).
+    ROUNDABOUT_ENTER_AND_EXIT_CW_WITH_ANGLE = 5;
+
+    // Entrance and exit (e.g. "At the roundabout, take Nth exit") on a
+    // counter-clockwise roundabout (as seen from above, typical for right-hand
+    // drive countries).
+    ROUNDABOUT_ENTER_AND_EXIT_CCW_WITH_ANGLE = 6;
+
+    // Drive towards a boat ferry for vehicles (e.g. "Take the ferry").Used when
+    // the ferry entrance is to the left.
+    FERRY_BOAT_LEFT = 7;
+
+    // Drive towards a boat ferry for vehicles (e.g. "Take the ferry"). Used
+    // when the ferry entrance is to the right.
+    FERRY_BOAT_RIGHT = 8;
+
+    // Drive towards a train ferry for vehicles (e.g. "Take the train"). Used
+    // when the ferry entrance is to the left.
+    FERRY_TRAIN_LEFT = 9;
+
+    // Drive towards a train ferry for vehicles (e.g. "Take the train"). Used
+    // when the ferry entrance is to the right.
+    FERRY_TRAIN_RIGHT = 10;
+  }
+
   // The type of the maneuver.
   Type type = 1;
+
+  // The most accurate representation of the type of a maneuver. If this field
+  // is populated, then this field should be used for the type of the maneuver.
+  // For example, if Maneuver#type_v2=ROUNDABOUT_ENTER_CW and
+  // Maneuver#type=ROUNDABOUT_ENTER, the value to be used for the type should be
+  // ROUNDABOUT_ENTER_CW. If this field is UNKNOWN_V2 then the value to be used
+  // for the type can be found in Maneuver#type.
+  // Added in Android T.
+  TypeV2 type_v2 = 4;
 
   // The roundabout exit number, starting from 1 to designate the first exit
   // after joining the roundabout, and increasing in circulation order.
@@ -339,6 +402,34 @@ message Maneuver {
   // A reference to an image representing this maneuver,
   // or not present if image representation is not available.
   ImageReference icon = 3;
+
+  // Angle describing the turn needed to perform to exit a roundabout, used for
+  // ROUNDABOUT_ENTER_AND_EXIT_*_WITH_ANGLE maneuver types. It can take a value
+  // from 0 (excluded) to 360 (included) where the entry point is at 0
+  // incrementing in a clockwise/counter-clockwise fashion depending on the
+  // rotational driving direction in the roundabout. For example, in a
+  // counter-clockwise roundabout, if you exit by making a right turn the angle
+  // is 90 degrees, if you exit driving straight the angle is 180 degrees, if
+  // you exit by making a left turn the angle is 270 degrees and if you make a U
+  // turn the angle is 360 degrees. In a clockwise roundabout the values are
+  // mirrored i.e. if you exit by making a left turn the angle is 90 degrees, if
+  // you exit driving straight the angle is 180 degrees, if you exit by making a
+  // right turn the angle is 270 degrees and if you make a U turn the angle is
+  // 360 degrees.
+  //           180                                     180
+  //            |                                       |
+  //            |                                       |
+  //           / \                                     / \
+  // 270 <----|   |----> 90                   90 <----|   |----> 270
+  //           \ /                                     \ /
+  //            |                                       |
+  //            |                                       |
+  //          0, 360                                  0, 360
+  // Counter-clockwise roundabout              Clockwise roundabout
+  //
+  // The values can be more granular depending on the layout of the roundabout.
+  // Added in Android T.
+  int32 roundabout_exit_angle_degrees = 5;
 }
 
 // Configuration of a single lane of a road at a particular point in the
@@ -494,6 +585,19 @@ message Step {
 
   // Indicates whether this step is about to be executed.
   bool is_imminent = 6;
+
+  // The name of the road on which the driver will be after completing the
+  // maneuver in the step. This is a subset of the field Cue. The field Cue
+  // contains more information and is preferred to be used.
+  // Added in Android T.
+  Road road = 8;
+
+  // The time when the action being taken in the current step is estimated to be
+  // finished. At this time the next step is estimated to start (if there is
+  // one). This value is not set if it cannot be predicted, was not provided or
+  // is unknown.
+  // Added in Android T.
+  Timestamp estimated_time_at_end_of_step = 9;
 }
 
 // An object representing a latitude/longitude pair. This is expressed as a pair
@@ -585,6 +689,16 @@ message Destination {
   // rounding (formatted for the current user's locale). For example, a
   // duration of seven minutes and 15 seconds could be set here as "7 min".
   string formatted_duration_until_arrival = 8;
+
+  // The estimated time at arrival at this destination, value is localized e.g.,
+  // “3:45 pm PST”. The purpose of using a string is so the HU can display a
+  // value that matches what the navigation app might be presenting on different
+  // screens (for consistency among car screens). If HUs do not want to display
+  // the pre-formatted string, the field "Destination#estimated_time_at_arrival"
+  // which is a Timestamp can be used. This value is not set if it was not
+  // provided or is unknown.
+  // Added in Android T.
+  string formatted_estimated_time_at_arrival = 9;
 }
 
 // The description for a road.

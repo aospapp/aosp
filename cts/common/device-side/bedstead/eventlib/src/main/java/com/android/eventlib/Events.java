@@ -38,7 +38,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Event store for the current package. */
-class Events {
+final class Events {
 
     private static final String TAG = "EventLibEvents";
     private static final String EVENT_LOG_FILE_NAME = "Events";
@@ -87,28 +87,30 @@ class Events {
     }
 
     private void loadEventsFromFile() {
-        mEventList.clear();
-        Instant now = Instant.now();
-        Deque<Event> eventQueue = new ArrayDeque<>();
-        try (FileInputStream fileInputStream = mContext.openFileInput(EVENT_LOG_FILE_NAME)) {
-            Event event = readEvent(fileInputStream);
+        synchronized (mEventList) {
+            mEventList.clear();
+            Instant now = Instant.now();
+            Deque<Event> eventQueue = new ArrayDeque<>();
+            try (FileInputStream fileInputStream = mContext.openFileInput(EVENT_LOG_FILE_NAME)) {
+                Event event = readEvent(fileInputStream);
 
-            while (event != null) {
-                // I'm not sure if we need this
-                if (event.mTimestamp.plus(MAX_LOG_AGE).isAfter(now)) {
-                    eventQueue.addFirst(event);
+                while (event != null) {
+                    // I'm not sure if we need this
+                    if (event.mTimestamp.plus(MAX_LOG_AGE).isAfter(now)) {
+                        eventQueue.addFirst(event);
+                    }
+                    event = readEvent(fileInputStream);
                 }
-                event = readEvent(fileInputStream);
-            }
 
-            for (Event e : eventQueue) {
-                mEventList.addFirst(e);
+                for (Event e : eventQueue) {
+                    mEventList.addFirst(e);
+                }
+            } catch (FileNotFoundException e) {
+                // Ignore this exception as if there's no file there's nothing to load
+                Log.i(TAG, "No existing event file");
+            } catch (IOException e) {
+                Log.e(TAG, "Error when loading events from file", e);
             }
-        } catch (FileNotFoundException e) {
-            // Ignore this exception as if there's no file there's nothing to load
-            Log.i(TAG, "No existing event file");
-        } catch (IOException e) {
-            Log.e(TAG, "Error when loading events from file", e);
         }
     }
 
@@ -147,10 +149,17 @@ class Events {
             }
 
             Log.e(TAG, "writing event to file: " + event);
-            byte[] eventBytes = event.toBytes();
-            mOutputStream.write(
-                    ByteBuffer.allocate(BYTES_PER_INT).putInt(eventBytes.length).array());
-            mOutputStream.write(eventBytes);
+            try {
+                byte[] eventBytes = event.toBytes();
+                mOutputStream.write(
+                        ByteBuffer.allocate(BYTES_PER_INT).putInt(eventBytes.length).array());
+                mOutputStream.write(eventBytes);
+            } catch (Throwable e) {
+                // This will happen if the event contains a Binder - can't be written to disk
+                Log.e(TAG, "We can't write this event to disk because it contains a Binder "
+                        + "(this may cause errors in tests after this point - particularly related"
+                        + " to EventLib)", e);
+            }
         } catch (IOException e) {
             throw new IllegalStateException("Error writing event to log", e);
         }
@@ -163,13 +172,17 @@ class Events {
 
     /** Get all logged events. */
     public Queue<Event> getEvents() {
-            return mEventList;
+        return mEventList;
     }
 
     /** Register an {@link EventListener} to be called when a new {@link Event} is logged. */
-    public void registerEventListener(EventListener listener) {
-        synchronized (mEventListeners) {
-            mEventListeners.add(listener);
+    public Queue<Event> registerEventListener(EventListener listener) {
+        synchronized (mEventList) {
+            synchronized (mEventListeners) {
+                mEventListeners.add(listener);
+
+                return getEvents();
+            }
         }
     }
 

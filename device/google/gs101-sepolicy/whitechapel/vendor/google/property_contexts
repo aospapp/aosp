@@ -60,6 +60,7 @@ persist.vendor.audio.                   u:object_r:vendor_audio_prop:s0
 vendor.audiodump.log.ondemand           u:object_r:vendor_audio_prop:s0
 vendor.audiodump.log.config             u:object_r:vendor_audio_prop:s0
 vendor.audiodump.output.dir             u:object_r:vendor_audio_prop:s0
+vendor.audiodump.encode.disable         u:object_r:vendor_audio_prop:s0
 
 
 # for display
@@ -72,7 +73,8 @@ vendor.camera.debug.                 u:object_r:vendor_camera_debug_prop:s0
 vendor.camera.fatp.                  u:object_r:vendor_camera_fatp_prop:s0
 
 # for gps
-vendor.gps                   u:object_r:vendor_gps_prop:s0
+vendor.gps.                      u:object_r:vendor_gps_prop:s0
+persist.vendor.gps.              u:object_r:vendor_gps_prop:s0
 
 # SecureElement
 persist.vendor.se.                              u:object_r:vendor_secure_element_prop:s0
@@ -103,8 +105,12 @@ vendor.tcpdump.log.alwayson                     u:object_r:vendor_tcpdump_log_pr
 vendor.tcpdump.output.dir                       u:object_r:vendor_tcpdump_log_prop:s0
 
 # Fingerprint
-vendor.fingerprint.disable.fake                 u:object_r:vendor_fingerprint_fake_prop:s0
+vendor.fingerprint.                             u:object_r:vendor_fingerprint_prop:s0
+vendor.gf.                                      u:object_r:vendor_fingerprint_prop:s0
+persist.vendor.udfps.                           u:object_r:vendor_fingerprint_prop:s0
 
 # Dynamic sensor
 vendor.dynamic_sensor.                          u:object_r:vendor_dynamic_sensor_prop:s0
 
+# uwb
+ro.vendor.uwb.calibration.                      u:object_r:vendor_uwb_calibration_prop:s0 exact string

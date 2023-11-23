@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # @lint-avoid-python-3-compatibility-imports
 #
 # biosnoop  Trace block device I/O and print details including issuing PID.
@@ -98,7 +98,7 @@ int trace_req_completion(struct pt_regs *ctx, struct request *req)
 b.attach_kprobe(event="blk_account_io_start", fn_name="trace_pid_start")
 b.attach_kprobe(event="blk_start_request", fn_name="trace_req_start")
 b.attach_kprobe(event="blk_mq_start_request", fn_name="trace_req_start")
-b.attach_kprobe(event="blk_account_io_completion",
+b.attach_kprobe(event="blk_account_io_done",
     fn_name="trace_req_completion")
 
 # header

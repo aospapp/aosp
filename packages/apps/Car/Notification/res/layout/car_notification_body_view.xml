@@ -62,7 +62,7 @@
         android:id="@+id/notification_body_content"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@id/notification_body_title"
+        android:layout_alignStart="@id/notification_body_title"
         android:layout_below="@id/notification_body_title"
         android:layout_marginEnd="@dimen/card_end_margin"
         android:layout_marginTop="@dimen/notification_body_content_top_margin"

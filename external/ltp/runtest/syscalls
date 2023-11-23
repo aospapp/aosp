@@ -18,9 +18,11 @@ add_key01 add_key01
 add_key02 add_key02
 add_key03 add_key03
 add_key04 add_key04
+add_key05 add_key05
 
 adjtimex01 adjtimex01
 adjtimex02 adjtimex02
+adjtimex03 adjtimex03
 
 alarm02 alarm02
 alarm03 alarm03
@@ -31,13 +33,19 @@ alarm07 alarm07
 bind01 bind01
 bind02 bind02
 bind03 bind03
+bind04 bind04
+bind05 bind05
+bind06 bind06
 
 bpf_map01 bpf_map01
 bpf_prog01 bpf_prog01
 bpf_prog02 bpf_prog02
 bpf_prog03 bpf_prog03
+bpf_prog04 bpf_prog04
+bpf_prog05 bpf_prog05
 
 brk01 brk01
+brk02 brk02
 
 capget01 capget01
 capget02 capget02
@@ -51,8 +59,6 @@ cacheflush01 cacheflush01
 
 chdir01 chdir01
 chdir01A symlink01 -T chdir01
-chdir02 chdir02
-chdir03 chdir03
 chdir04 chdir04
 
 chmod01 chmod01
@@ -86,14 +92,18 @@ clock_adjtime02 clock_adjtime02
 clock_getres01 clock_getres01
 clock_nanosleep01 clock_nanosleep01
 clock_nanosleep02 clock_nanosleep02
-clock_nanosleep2_01 clock_nanosleep2_01
+clock_nanosleep03 clock_nanosleep03
+clock_nanosleep04 clock_nanosleep04
 
 clock_gettime01 clock_gettime01
 clock_gettime02 clock_gettime02
+clock_gettime03 clock_gettime03
+clock_gettime04 clock_gettime04
 leapsec01 leapsec01
 
 clock_settime01 clock_settime01
 clock_settime02 clock_settime02
+clock_settime03 clock_settime03
 
 clone01 clone01
 clone02 clone02
@@ -105,13 +115,19 @@ clone07 clone07
 clone08 clone08
 clone09 clone09
 
+clone301 clone301
+clone302 clone302
+
 close01 close01
 close02 close02
-close08 close08
+
+close_range01 close_range01
+close_range02 close_range02
 
 confstr01 confstr01
 
 connect01 connect01
+connect02 connect02
 
 creat01 creat01
 creat03 creat03
@@ -186,6 +202,7 @@ fallocate02 fallocate02
 fallocate03 fallocate03
 fallocate04 fallocate04
 fallocate05 fallocate05
+fallocate06 fallocate06
 
 fsetxattr01 fsetxattr01
 fsetxattr02 fsetxattr02
@@ -301,6 +318,10 @@ fcntl35 fcntl35
 fcntl35_64 fcntl35_64
 fcntl36 fcntl36
 fcntl36_64 fcntl36_64
+fcntl37 fcntl37
+fcntl37_64 fcntl37_64
+fcntl38 fcntl38
+fcntl38_64 fcntl38_64
 
 fdatasync01 fdatasync01
 fdatasync02 fdatasync02
@@ -309,6 +330,9 @@ fdatasync03 fdatasync03
 fgetxattr01 fgetxattr01
 fgetxattr02 fgetxattr02
 fgetxattr03 fgetxattr03
+
+finit_module01 finit_module01
+finit_module02 finit_module02
 
 flistxattr01 flistxattr01
 flistxattr02 flistxattr02
@@ -340,6 +364,18 @@ fpathconf01 fpathconf01
 
 fremovexattr01 fremovexattr01
 fremovexattr02 fremovexattr02
+
+fsconfig01 fsconfig01
+fsconfig02 fsconfig02
+
+fsmount01 fsmount01
+fsmount02 fsmount02
+
+fsopen01 fsopen01
+fsopen02 fsopen02
+
+fspick01 fspick01
+fspick02 fspick02
 
 fstat02 fstat02
 fstat02_64 fstat02_64
@@ -380,9 +416,6 @@ getcwd04 getcwd04
 
 getdents01 getdents01
 getdents02 getdents02
-
-getdents01_64 getdents01 -l
-getdents02_64 getdents02 -l
 
 getdomainname01 getdomainname01
 
@@ -460,6 +493,7 @@ getrlimit02 getrlimit02
 getrlimit03 getrlimit03
 
 get_mempolicy01 get_mempolicy01
+get_mempolicy02 get_mempolicy02
 get_robust_list01 get_robust_list01
 
 getrusage01 getrusage01
@@ -491,6 +525,9 @@ getxattr03 getxattr03
 getxattr04 getxattr04
 getxattr05 getxattr05
 
+init_module01 init_module01
+init_module02 init_module02
+
 #Needs tty device.
 #ioctl01 ioctl01 -D /dev/tty0
 #ioctl02 ioctl02 -D /dev/tty0
@@ -501,9 +538,17 @@ ioctl03      ioctl03
 ioctl04      ioctl04
 ioctl05      ioctl05
 ioctl06      ioctl06
-
 ioctl07      ioctl07
 ioctl08      ioctl08
+ioctl09      ioctl09
+
+ioctl_loop01 ioctl_loop01
+ioctl_loop02 ioctl_loop02
+ioctl_loop03 ioctl_loop03
+ioctl_loop04 ioctl_loop04
+ioctl_loop05 ioctl_loop05
+ioctl_loop06 ioctl_loop06
+ioctl_loop07 ioctl_loop07
 
 ioctl_ns01 ioctl_ns01
 ioctl_ns02 ioctl_ns02
@@ -512,6 +557,8 @@ ioctl_ns04 ioctl_ns04
 ioctl_ns05 ioctl_ns05
 ioctl_ns06 ioctl_ns06
 ioctl_ns07 ioctl_ns07
+
+ioctl_sg01 ioctl_sg01
 
 inotify_init1_01 inotify_init1_01
 inotify_init1_02 inotify_init1_02
@@ -525,6 +572,7 @@ inotify06 inotify06
 inotify07 inotify07
 inotify08 inotify08
 inotify09 inotify09
+inotify10 inotify10
 
 fanotify01 fanotify01
 fanotify02 fanotify02
@@ -541,6 +589,10 @@ fanotify12 fanotify12
 fanotify13 fanotify13
 fanotify14 fanotify14
 fanotify15 fanotify15
+fanotify16 fanotify16
+fanotify17 fanotify17
+fanotify18 fanotify18
+fanotify19 fanotify19
 
 ioperm01 ioperm01
 ioperm02 ioperm02
@@ -556,6 +608,10 @@ ioprio_set03 ioprio_set03
 io_cancel01 io_cancel01
 io_destroy01 io_destroy01
 io_getevents01 io_getevents01
+
+io_pgetevents01 io_pgetevents01
+io_pgetevents02 io_pgetevents02
+
 io_setup01 io_setup01
 io_submit01 io_submit01
 
@@ -572,10 +628,8 @@ kcmp01 kcmp01
 kcmp02 kcmp02
 kcmp03 kcmp03
 
-kill01 kill01
 kill02 kill02
 kill03 kill03
-kill04 kill04
 kill05 kill05
 kill06 kill06
 kill07 kill07
@@ -635,6 +689,8 @@ lstat01 lstat01
 lstat01_64 lstat01_64
 lstat02 lstat02
 lstat02_64 lstat02_64
+
+mallinfo02 mallinfo02
 
 mallopt01 mallopt01
 
@@ -706,6 +762,9 @@ mmap14 mmap14
 #mmap11 mmap11 -i 30000
 mmap15 mmap15
 mmap16 mmap16
+mmap17 mmap17
+mmap18 mmap18
+mmap19 mmap19
 
 modify_ldt01 modify_ldt01
 modify_ldt02 modify_ldt02
@@ -717,6 +776,9 @@ mount03 mount03
 mount04 mount04
 mount05 mount05
 mount06 mount06
+
+move_mount01 move_mount01
+move_mount02 move_mount02
 
 move_pages01 move_pages01
 move_pages02 move_pages02
@@ -754,6 +816,8 @@ msgctl01 msgctl01
 msgctl02 msgctl02
 msgctl03 msgctl03
 msgctl04 msgctl04
+msgctl05 msgctl05
+msgctl06 msgctl06
 msgstress01 msgstress01
 msgstress02 msgstress02
 msgstress03 msgstress03
@@ -763,11 +827,12 @@ msgctl12 msgctl12
 msgget01 msgget01
 msgget02 msgget02
 msgget03 msgget03
+msgget04 msgget04
+msgget05 msgget05
 
 msgrcv01 msgrcv01
 msgrcv02 msgrcv02
 msgrcv03 msgrcv03
-msgrcv04 msgrcv04
 msgrcv05 msgrcv05
 msgrcv06 msgrcv06
 msgrcv07 msgrcv07
@@ -795,6 +860,9 @@ munmap03 munmap03
 nanosleep01 nanosleep01
 nanosleep02 nanosleep02
 nanosleep04 nanosleep04
+
+name_to_handle_at01 name_to_handle_at01
+name_to_handle_at02 name_to_handle_at02
 
 nftw01 nftw01
 nftw6401 nftw6401
@@ -825,8 +893,20 @@ openat01 openat01
 openat02 openat02
 openat03 openat03
 
+openat201 openat201
+openat202 openat202
+openat203 openat203
+
+open_by_handle_at01 open_by_handle_at01
+open_by_handle_at02 open_by_handle_at02
+
+open_tree01 open_tree01
+open_tree02 open_tree02
+
 mincore01 mincore01
 mincore02 mincore02
+mincore03 mincore03
+mincore04 mincore04
 
 madvise01 madvise01
 madvise02 madvise02
@@ -848,6 +928,10 @@ pause03 pause03
 personality01 personality01
 personality02 personality02
 
+pidfd_open01 pidfd_open01
+pidfd_open02 pidfd_open02
+pidfd_open03 pidfd_open03
+
 pidfd_send_signal01 pidfd_send_signal01
 pidfd_send_signal02 pidfd_send_signal02
 pidfd_send_signal03 pidfd_send_signal03
@@ -863,9 +947,12 @@ pipe08 pipe08
 pipe09 pipe09
 pipe10 pipe10
 pipe11 pipe11
+pipe12 pipe12
+pipe13 pipe13
 
 pipe2_01 pipe2_01
 pipe2_02 pipe2_02
+pipe2_04 pipe2_04
 
 pivot_root01 pivot_root01
 
@@ -931,6 +1018,10 @@ ptrace05 ptrace05
 # Broken test; See: testcases/kernel/syscalls/ptrace/Makefile for more details.
 #ptrace06 ptrace06
 ptrace07 ptrace07
+ptrace08 ptrace08
+ptrace09 ptrace09
+ptrace10 ptrace10
+ptrace11 ptrace11
 
 pwrite01 pwrite01
 pwrite02 pwrite02
@@ -960,6 +1051,7 @@ quotactl03 quotactl03
 quotactl04 quotactl04
 quotactl05 quotactl05
 quotactl06 quotactl06
+quotactl07 quotactl07
 
 read01 read01
 read02 read02
@@ -996,6 +1088,8 @@ recvfrom01 recvfrom01
 recvmsg01 recvmsg01
 recvmsg02 recvmsg02
 recvmsg03 recvmsg03
+
+recvmmsg01 recvmmsg01
 
 remap_file_pages01 remap_file_pages01
 remap_file_pages02 remap_file_pages02
@@ -1058,7 +1152,6 @@ sched_get_priority_min01 sched_get_priority_min01
 sched_get_priority_min02 sched_get_priority_min02
 
 sched_getparam01 sched_getparam01
-sched_getparam02 sched_getparam02
 sched_getparam03 sched_getparam03
 
 sched_rr_get_interval01 sched_rr_get_interval01
@@ -1111,6 +1204,8 @@ semctl04 semctl04
 semctl05 semctl05
 semctl06 semctl06
 semctl07 semctl07
+semctl08 semctl08
+semctl09 semctl09
 
 semget01 semget01
 semget02 semget02
@@ -1121,10 +1216,9 @@ semget06 semget06
 semop01 semop01
 semop02 semop02
 semop03 semop03
-semop04 semop04
-semop05 semop05
 
 send01 send01
+send02 send02
 
 sendfile02 sendfile02
 sendfile02_64 sendfile02_64
@@ -1146,11 +1240,14 @@ sendfile09_64 sendfile09_64
 
 sendmsg01 sendmsg01
 sendmsg02 sendmsg02
+sendmsg03 sendmsg03
 
 sendmmsg01 sendmmsg01
+sendmmsg02 sendmmsg02
 
 sendto01 sendto01
 sendto02 sendto02
+sendto03 sendto03
 
 set_mempolicy01 set_mempolicy01
 set_mempolicy02 set_mempolicy02
@@ -1280,6 +1377,9 @@ setsockopt01 setsockopt01
 setsockopt02 setsockopt02
 setsockopt03 setsockopt03
 setsockopt04 setsockopt04
+setsockopt05 setsockopt05
+setsockopt06 setsockopt06
+setsockopt07 setsockopt07
 
 settimeofday01 settimeofday01
 settimeofday02 settimeofday02
@@ -1304,6 +1404,9 @@ shmctl02 shmctl02
 shmctl03 shmctl03
 shmctl04 shmctl04
 shmctl05 shmctl05
+shmctl06 shmctl06
+shmctl07 shmctl07
+shmctl08 shmctl08
 
 shmdt01 shmdt01
 shmdt02 shmdt02
@@ -1354,7 +1457,6 @@ socket02 socket02
 socketcall01 socketcall01
 socketcall02 socketcall02
 socketcall03 socketcall03
-socketcall04 socketcall04
 
 socketpair01 socketpair01
 socketpair02 socketpair02
@@ -1362,7 +1464,7 @@ socketpair02 socketpair02
 sockioctl01 sockioctl01
 
 splice01 splice01
-splice02 seq 1 20000 | splice02
+splice02 splice02
 splice03 splice03
 splice04 splice04
 splice05 splice05
@@ -1416,8 +1518,6 @@ symlink05 symlink05
 symlinkat01 symlinkat01
 
 sync01 sync01
-sync02 sync02
-sync03 sync03
 
 syncfs01 syncfs01
 
@@ -1444,6 +1544,7 @@ sysfs06 sysfs06
 
 sysinfo01 sysinfo01
 sysinfo02 sysinfo02
+sysinfo03 sysinfo03
 
 syslog01 syslog01
 syslog02 syslog02
@@ -1463,7 +1564,6 @@ tgkill02 tgkill02
 tgkill03 tgkill03
 
 time01 time01
-time02 time02
 
 times01 times01
 times03 times03
@@ -1473,9 +1573,11 @@ times03 times03
 timerfd01 timerfd01
 timerfd02 timerfd02
 timerfd03 timerfd03
+timerfd04 timerfd04
 timerfd_create01 timerfd_create01
 timerfd_gettime01 timerfd_gettime01
 timerfd_settime01 timerfd_settime01
+timerfd_settime02 timerfd_settime02
 
 timer_create01 timer_create01
 timer_create02 timer_create02
@@ -1489,12 +1591,11 @@ timer_gettime01 timer_gettime01
 
 timer_settime01 timer_settime01
 timer_settime02 timer_settime02
+timer_settime03 timer_settime03
 
 tkill01 tkill01
 tkill02 tkill02
 
-truncate01 truncate01
-truncate01_64 truncate01_64
 truncate02 truncate02
 truncate02_64 truncate02_64
 truncate03 truncate03
@@ -1510,7 +1611,6 @@ umask01 umask01
 
 uname01 uname01
 uname02 uname02
-uname03 uname03
 uname04 uname04
 
 unlink01 symlink01 -T unlink01
@@ -1553,7 +1653,7 @@ utime06 utime06
 utimes01 utimes01
 
 # Introduced from Kernel 2.6.22 onwards
-utimensat01 utimensat_tests.sh
+utimensat01 utimensat01
 
 vfork01 vfork01
 vfork02 vfork02
@@ -1565,6 +1665,7 @@ vhangup02 vhangup02
 vmsplice01 vmsplice01
 vmsplice02 vmsplice02
 vmsplice03 vmsplice03
+vmsplice04 vmsplice04
 
 wait01 wait01
 wait02 wait02
@@ -1597,6 +1698,7 @@ write05 write05
 
 writev01 writev01
 writev02 writev02
+writev03 writev03
 writev05 writev05
 writev06 writev06
 writev07 writev07
@@ -1616,7 +1718,6 @@ futex_wake02 futex_wake02
 futex_wake03 futex_wake03
 futex_wake04 futex_wake04
 futex_wait_bitset01 futex_wait_bitset01
-futex_wait_bitset02 futex_wait_bitset02
 
 memfd_create01 memfd_create01
 memfd_create02 memfd_create02
@@ -1636,3 +1737,6 @@ statx06 statx06
 statx07 statx07
 
 membarrier01 membarrier01
+
+io_uring01 io_uring01
+io_uring02 io_uring02

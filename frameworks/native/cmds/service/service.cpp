@@ -21,6 +21,7 @@
 #include <cutils/ashmem.h>
 
 #include <getopt.h>
+#include <libgen.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,36 +46,13 @@ void writeString16(Parcel& parcel, const char* string)
     }
 }
 
-// get the name of the generic interface we hold a reference to
-static String16 get_interface_name(sp<IBinder> service)
-{
-    if (service != nullptr) {
-        Parcel data, reply;
-        status_t err = service->transact(IBinder::INTERFACE_TRANSACTION, data, &reply);
-        if (err == NO_ERROR) {
-            return reply.readString16();
-        }
-    }
-    return String16();
-}
-
-static String8 good_old_string(const String16& src)
-{
-    String8 name8;
-    char ch8[2];
-    ch8[1] = 0;
-    for (unsigned j = 0; j < src.size(); j++) {
-        char16_t ch = src[j];
-        if (ch < 128) ch8[0] = (char)ch;
-        name8.append(ch8);
-    }
-    return name8;
-}
-
 int main(int argc, char* const argv[])
 {
     bool wantsUsage = false;
     int result = 0;
+
+    /* Strip path off the program name. */
+    char* prog_name = basename(argv[0]);
 
     while (1) {
         int ic = getopt(argc, argv, "h?");
@@ -87,7 +65,7 @@ int main(int argc, char* const argv[])
             wantsUsage = true;
             break;
         default:
-            aerr << "service: Unknown option -" << ic << endl;
+            aerr << prog_name << ": Unknown option -" << ic << endl;
             wantsUsage = true;
             result = 10;
             break;
@@ -96,10 +74,13 @@ int main(int argc, char* const argv[])
 #ifdef VENDORSERVICES
     ProcessState::initWithDriver("/dev/vndbinder");
 #endif
+#ifndef __ANDROID__
+    setDefaultServiceManager(createRpcDelegateServiceManager({.maxOutgoingThreads = 1}));
+#endif
     sp<IServiceManager> sm = defaultServiceManager();
     fflush(stdout);
     if (sm == nullptr) {
-        aerr << "service: Unable to get default service manager!" << endl;
+        aerr << prog_name << ": Unable to get default service manager!" << endl;
         return 20;
     }
 
@@ -113,7 +94,7 @@ int main(int argc, char* const argv[])
                 aout << "Service " << argv[optind] <<
                     (service == nullptr ? ": not found" : ": found") << endl;
             } else {
-                aerr << "service: No service specified for check" << endl;
+                aerr << prog_name << ": No service specified for check" << endl;
                 wantsUsage = true;
                 result = 10;
             }
@@ -125,8 +106,8 @@ int main(int argc, char* const argv[])
                 String16 name = services[i];
                 sp<IBinder> service = sm->checkService(name);
                 aout << i
-                     << "\t" << good_old_string(name)
-                     << ": [" << good_old_string(get_interface_name(service)) << "]"
+                     << "\t" << name
+                     << ": [" << (service ? service->getInterfaceDescriptor() : String16()) << "]"
                      << endl;
             }
         } else if (strcmp(argv[optind], "call") == 0) {
@@ -134,10 +115,11 @@ int main(int argc, char* const argv[])
             if (optind+1 < argc) {
                 int serviceArg = optind;
                 sp<IBinder> service = sm->checkService(String16(argv[optind++]));
-                String16 ifName = get_interface_name(service);
+                String16 ifName = (service ? service->getInterfaceDescriptor() : String16());
                 int32_t code = atoi(argv[optind++]);
                 if (service != nullptr && ifName.size() > 0) {
                     Parcel data, reply;
+                    data.markForBinder(service);
 
                     // the interface name is first
                     data.writeInterfaceToken(ifName);
@@ -147,7 +129,7 @@ int main(int argc, char* const argv[])
                         if (strcmp(argv[optind], "i32") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no integer supplied for 'i32'" << endl;
+                                aerr << prog_name << ": no integer supplied for 'i32'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -156,7 +138,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "i64") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no integer supplied for 'i64'" << endl;
+                                aerr << prog_name << ": no integer supplied for 'i64'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -165,7 +147,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "s16") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no string supplied for 's16'" << endl;
+                                aerr << prog_name << ": no string supplied for 's16'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -174,7 +156,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "f") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no number supplied for 'f'" << endl;
+                                aerr << prog_name << ": no number supplied for 'f'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -183,7 +165,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "d") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no number supplied for 'd'" << endl;
+                                aerr << prog_name << ": no number supplied for 'd'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -195,7 +177,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "fd") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no path supplied for 'fd'" << endl;
+                                aerr << prog_name << ": no path supplied for 'fd'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -203,7 +185,7 @@ int main(int argc, char* const argv[])
                             const char *path = argv[optind++];
                             int fd = open(path, O_RDONLY);
                             if (fd < 0) {
-                                aerr << "service: could not open '" << path << "'" << endl;
+                                aerr << prog_name << ": could not open '" << path << "'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -212,7 +194,7 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "afd") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no path supplied for 'afd'" << endl;
+                                aerr << prog_name << ": no path supplied for 'afd'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -221,7 +203,8 @@ int main(int argc, char* const argv[])
                             int fd = open(path, O_RDONLY);
                             struct stat statbuf;
                             if (fd < 0 || fstat(fd, &statbuf) != 0) {
-                                aerr << "service: could not open or stat '" << path << "'" << endl;
+                                aerr << prog_name << ": could not open or stat"
+                                    << " '" << path << "'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -229,13 +212,14 @@ int main(int argc, char* const argv[])
                             int afd = ashmem_create_region("test", statbuf.st_size);
                             void* ptr = mmap(NULL, statbuf.st_size,
                                    PROT_READ | PROT_WRITE, MAP_SHARED, afd, 0);
-                            read(fd, ptr, statbuf.st_size);
+                            (void)read(fd, ptr, statbuf.st_size);
                             close(fd);
                             data.writeFileDescriptor(afd, true /* take ownership */);
                         } else if (strcmp(argv[optind], "nfd") == 0) {
                             optind++;
                             if (optind >= argc) {
-                                aerr << "service: no file descriptor supplied for 'nfd'" << endl;
+                                aerr << prog_name << ": no file descriptor supplied for"
+                                    << " 'nfd'" << endl;
                                 wantsUsage = true;
                                 result = 10;
                                 break;
@@ -322,7 +306,7 @@ int main(int argc, char* const argv[])
                             // for now just set the extra field to be null.
                             data.writeInt32(-1);
                         } else {
-                            aerr << "service: unknown option " << argv[optind] << endl;
+                            aerr << prog_name << ": unknown option " << argv[optind] << endl;
                             wantsUsage = true;
                             result = 10;
                             break;
@@ -332,44 +316,44 @@ int main(int argc, char* const argv[])
                     service->transact(code, data, &reply);
                     aout << "Result: " << reply << endl;
                 } else {
-                    aerr << "service: Service " << argv[serviceArg]
+                    aerr << prog_name << ": Service " << argv[serviceArg]
                         << " does not exist" << endl;
                     result = 10;
                 }
             } else {
                 if (optind < argc) {
-                    aerr << "service: No service specified for call" << endl;
+                    aerr << prog_name << ": No service specified for call" << endl;
                 } else {
-                    aerr << "service: No code specified for call" << endl;
+                    aerr << prog_name << ": No code specified for call" << endl;
                 }
                 wantsUsage = true;
                 result = 10;
             }
         } else {
-            aerr << "service: Unknown command " << argv[optind] << endl;
+            aerr << prog_name << ": Unknown command " << argv[optind] << endl;
             wantsUsage = true;
             result = 10;
         }
     }
 
     if (wantsUsage) {
-        aout << "Usage: service [-h|-?]\n"
-                "       service list\n"
-                "       service check SERVICE\n"
-                "       service call SERVICE CODE [i32 N | i64 N | f N | d N | s16 STR | null"
-                " | fd f | nfd n | afd f ] ...\n"
+        aout << "Usage: " << prog_name << " [-h|-?]\n"
+                "       " << prog_name << " list\n"
+                "       " << prog_name << " check SERVICE\n"
+                "       " << prog_name << " call SERVICE CODE [i32 N | i64 N | f N | d N | s16 STR"
+                " | null | fd f | nfd n | afd f ] ...\n"
                 "Options:\n"
                 "   i32: Write the 32-bit integer N into the send parcel.\n"
                 "   i64: Write the 64-bit integer N into the send parcel.\n"
-                "   f:   Write the 32-bit single-precision number N into the send parcel.\n"
-                "   d:   Write the 64-bit double-precision number N into the send parcel.\n"
+                "     f: Write the 32-bit single-precision number N into the send parcel.\n"
+                "     d: Write the 64-bit double-precision number N into the send parcel.\n"
                 "   s16: Write the UTF-16 string STR into the send parcel.\n"
                 "  null: Write a null binder into the send parcel.\n"
-                "    fd: Write a file descriptor for the file f to the send parcel.\n"
-                "   nfd: Write file descriptor n to the send parcel.\n"
-                "   afd: Write an ashmem file descriptor for a region containing the data from"
-                " file f to the send parcel.\n";
-//                "   intent: Write and Intent int the send parcel. ARGS can be\n"
+                "    fd: Write a file descriptor for the file f into the send parcel.\n"
+                "   nfd: Write the file descriptor n into the send parcel.\n"
+                "   afd: Write an ashmem file descriptor for a region containing the data from\n"
+                "          file f into the send parcel.\n";
+//                "   intent: Write an Intent into the send parcel. ARGS can be\n"
 //                "       action=STR data=STR type=STR launchFlags=INT component=STR categories=STR[,STR,...]\n";
         return result;
     }

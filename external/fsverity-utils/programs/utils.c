@@ -13,10 +13,14 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#ifdef _WIN32
+#  include <windows.h>
+#endif
 
 /* ========== Memory allocation ========== */
 
@@ -126,6 +130,26 @@ bool get_file_size(struct filedes *file, u64 *size_ret)
 	return true;
 }
 
+bool preallocate_file(struct filedes *file, u64 size)
+{
+	int res;
+
+	if (size == 0)
+		return true;
+#ifdef _WIN32
+	/* Not exactly the same as posix_fallocate(), but good enough... */
+	res = _chsize_s(file->fd, size);
+#else
+	res = posix_fallocate(file->fd, 0, size);
+#endif
+	if (res != 0) {
+		error_msg_errno("preallocating %" PRIu64 "-byte file '%s'",
+				size, file->name);
+		return false;
+	}
+	return true;
+}
+
 bool full_read(struct filedes *file, void *buf, size_t count)
 {
 	while (count) {
@@ -156,6 +180,41 @@ bool full_write(struct filedes *file, const void *buf, size_t count)
 		}
 		buf += n;
 		count -= n;
+	}
+	return true;
+}
+
+static int raw_pwrite(int fd, const void *buf, int count, u64 offset)
+{
+#ifdef _WIN32
+	HANDLE h = (HANDLE)_get_osfhandle(fd);
+	OVERLAPPED pos = { .Offset = offset, .OffsetHigh = offset >> 32 };
+	DWORD written = 0;
+
+	/* Not exactly the same as pwrite(), but good enough... */
+	if (!WriteFile(h, buf, count, &written, &pos)) {
+		errno = EIO;
+		return -1;
+	}
+	return written;
+#else
+	return pwrite(fd, buf, count, offset);
+#endif
+}
+
+bool full_pwrite(struct filedes *file, const void *buf, size_t count,
+		 u64 offset)
+{
+	while (count) {
+		int n = raw_pwrite(file->fd, buf, min(count, INT_MAX), offset);
+
+		if (n < 0) {
+			error_msg_errno("writing to '%s'", file->name);
+			return false;
+		}
+		buf += n;
+		count -= n;
+		offset += n;
 	}
 	return true;
 }

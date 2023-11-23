@@ -48,7 +48,7 @@
     <string name="no_printer_found" msgid="4777867380924351173">"Na ovoj adresi nije pronađen pisač"</string>
     <string name="printer_not_supported" msgid="281955849350938408">"Pisač nije podržan"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Izravni Wi-Fi"</string>
-    <string name="find_wifi_direct" msgid="5270504288829123954">"Pronađi pisače s Izravnim Wi-Fijem"</string>
+    <string name="find_wifi_direct" msgid="5270504288829123954">"Pronađite pisače s Izravnim Wi-Fijem"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Ispis putem Izravnog Wi-Fija"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Pisači s Izravnim Wi-Fijem"</string>
     <string name="searching" msgid="2114018057619514587">"Pretraživanje…"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Veze"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Zadana usluga ispisa ne može pronaći pisače Izravnog Wi-Fija"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Onem. Izravni Wi-Fi"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Zadanoj usluzi ispisa potrebna su dopuštenja za lokaciju kako bi pronašla uređaje u blizini."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Zadana usluga za ispis treba dopuštenje za uređaje u blizini da bi pronašla pisače u blizini."</string>
     <string name="fix" msgid="7784394272611365393">"Pregled dopuštenja"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Zadanoj usluzi ispisa potrebno je omogućiti usluge lokacije kako bi pronašla uređaje u blizini."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Omogući lokaciju"</string>
     <string name="print" msgid="7851318072404916362">"Ispis"</string>
 </resources>

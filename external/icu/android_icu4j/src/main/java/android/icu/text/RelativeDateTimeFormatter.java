@@ -382,8 +382,10 @@ public final class RelativeDateTimeFormatter {
         /**
          * Serizalization method resolve instances to the constant Field values
          *
+         * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Deprecated
         @Override
         protected Object readResolve() throws InvalidObjectException {
             if (this.getName().equals(LITERAL.getName()))
@@ -675,7 +677,7 @@ public final class RelativeDateTimeFormatter {
         // In the meantime do a quick bring-up by calling the old format method. When the
         // new CLDR data is available, update the data storage accordingly, rewrite this
         // to use it directly, and rewrite the old format method to call this new one;
-        // that is covered by http://bugs.icu-project.org/trac/ticket/12171.
+        // that is covered by https://unicode-org.atlassian.net/browse/ICU-12171.
         RelativeUnit relunit = RelativeUnit.SECONDS;
         switch (unit) {
             case YEAR:      relunit = RelativeUnit.YEARS; break;
@@ -825,7 +827,7 @@ public final class RelativeDateTimeFormatter {
         // In the meantime do a quick bring-up by calling the old format method. When the
         // new CLDR data is available, update the data storage accordingly, rewrite this
         // to use it directly, and rewrite the old format method to call this new one;
-        // that is covered by http://bugs.icu-project.org/trac/ticket/12171.
+        // that is covered by https://unicode-org.atlassian.net/browse/ICU-12171.
         boolean useNumeric = true;
         Direction direction = Direction.THIS;
         if (offset > -2.1 && offset < 2.1) {
@@ -1176,7 +1178,7 @@ public final class RelativeDateTimeFormatter {
                     break;
                 case 7:
                     if ("quarter".contentEquals(keyword)) {
-                        return QUARTER;  // TODO: Check @provisional
+                        return QUARTER;  // RelativeUnit.QUARTERS is deprecated
                     }
                     break;
                 default:

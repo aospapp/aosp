@@ -31,7 +31,7 @@ extern "C" {
  *  Public Definitions
  ***********************************************/
 
-#define CHPP_PAL_WIFI_API_VERSION CHRE_PAL_WIFI_API_V1_5
+#define CHPP_PAL_WIFI_API_VERSION CHRE_PAL_WIFI_API_V1_6
 
 /**
  * Data structures used by the Configure Scan Monitor request.
@@ -101,6 +101,42 @@ struct ChppWifiRequestScanResponse {
 CHPP_PACKED_END
 
 /**
+ * Data structure used by the NAN subscribe cancel request.
+ */
+CHPP_PACKED_START
+struct ChppWifiNanSubscribeCancelRequest {
+  struct ChppAppHeader header;
+  uint32_t subscriptionId;
+} CHPP_PACKED_ATTR;
+CHPP_PACKED_END
+
+/**
+ * Data structure used by the NAN service identifier callback.
+ */
+CHPP_PACKED_START
+struct ChppWifiNanServiceIdentifier {
+  struct ChppAppHeader header;
+  uint8_t errorCode;
+  uint32_t subscriptionId;
+} CHPP_PACKED_ATTR;
+CHPP_PACKED_END
+
+/**
+ * Data structure used by the NAN service canceled callback.
+ */
+CHPP_PACKED_START
+struct ChppWifiNanSubscriptionCanceledResponse {
+  struct ChppAppHeader header;
+  uint8_t errorCode;
+  uint32_t subscriptionId;
+} CHPP_PACKED_ATTR;
+CHPP_PACKED_END
+
+/**
+ * Data structure used by the NAN identifier event
+ */
+
+/**
  * Commands used by the WiFi (WLAN) Service.
  */
 enum ChppWifiCommands {
@@ -121,8 +157,27 @@ enum ChppWifiCommands {
 
   //! Request that the WiFi chipset perform RTT ranging.
   CHPP_WIFI_REQUEST_RANGING_ASYNC = 0x0005,
+
+  //! Request that the WiFi chipset perform a NAN subscription.
+  CHPP_WIFI_REQUEST_NAN_SUB = 0x0006,
+
+  //! Request that the WiFi chipset cancel a NAN subscription.
+  CHPP_WIFI_REQUEST_NAN_SUB_CANCEL = 0x0007,
+
+  //! Request that the WiFi chipset perform NAN ranging.
+  CHPP_WIFI_REQUEST_NAN_RANGING_ASYNC = 0x0008,
+
+  //! Indicates that a subscribing service be informed that a publisher
+  //! matching its desired configuration has been discovered.
+  CHPP_WIFI_NOTIFICATION_NAN_SERVICE_DISCOVERY = 0x0009,
+
+  //! Indication if the connection to a NAN service was lost.
+  CHPP_WIFI_NOTIFICATION_NAN_SERVICE_LOST = 0x000a,
+
+  //! Indication if a NAN service subscription was terminated.
+  CHPP_WIFI_NOTIFICATION_NAN_SERVICE_TERMINATED = 0x000b,
 };
-#define CHPP_WIFI_CLIENT_REQUEST_MAX CHPP_WIFI_REQUEST_RANGING_ASYNC
+#define CHPP_WIFI_CLIENT_REQUEST_MAX CHPP_WIFI_REQUEST_NAN_RANGING_ASYNC
 
 #ifdef __cplusplus
 }

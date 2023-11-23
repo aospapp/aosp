@@ -16,6 +16,8 @@
 
 package com.android.server.wm.traces.common
 
+import kotlin.text.Regex.Companion.escape
+
 /**
  * Create a new component identifier.
  *
@@ -67,6 +69,16 @@ data class FlickerComponentName(
         }
     }
 
+    fun toShortWindowName(): String {
+        return when {
+            packageName.isNotEmpty() && className.isNotEmpty() ->
+                "$packageName/${className.removePrefix(packageName)}"
+            packageName.isNotEmpty() -> packageName
+            className.isNotEmpty() -> className
+            else -> error("Component name should have an activity of class name")
+        }
+    }
+
     /**
      * Obtains the layer name from the component name.
      *
@@ -79,6 +91,10 @@ data class FlickerComponentName(
         }
 
         return result
+    }
+
+    fun toActivityRecordFilter(): Regex {
+        return Regex("ActivityRecord\\{.*${escape(this.toShortWindowName())}")
     }
 
     private fun appendShortString(sb: StringBuilder, packageName: String, className: String) {
@@ -104,10 +120,13 @@ data class FlickerComponentName(
         val ROTATION = FlickerComponentName("", "RotationLayer")
         val BACK_SURFACE = FlickerComponentName("", "BackColorSurface")
         val IME = FlickerComponentName("", "InputMethod")
+        val IME_SNAPSHOT = FlickerComponentName("", "IME-snapshot-surface")
         val SPLASH_SCREEN = FlickerComponentName("", "Splash Screen")
         val SNAPSHOT = FlickerComponentName("", "SnapshotStartingWindow")
+        val LETTERBOX = FlickerComponentName("", "Letterbox")
         val WALLPAPER_BBQ_WRAPPER =
                 FlickerComponentName("", "Wallpaper BBQ wrapper")
+        val PIP_CONTENT_OVERLAY = FlickerComponentName("", "PipContentOverlay")
 
         fun unflattenFromString(str: String): FlickerComponentName {
             val sep = str.indexOf('/')

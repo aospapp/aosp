@@ -6,24 +6,6 @@
   <link rel="stylesheet" href="resources/doc.css" charset="UTF-8" type="text/css" />
   <link rel="stylesheet" href="../coverage/jacoco-resources/prettify.css" charset="UTF-8" type="text/css" />
   <link rel="shortcut icon" href="resources/report.gif" type="image/gif" />
-  <style>
-    table, th, td {
-      border-collapse: collapse;
-      padding: 3px;
-    }
-    table tbody tr td {
-      border-left: #b0b0b0 3px solid;
-    }
-    table tbody tr td:nth-child(2) {
-      border-left: none;
-    }
-    th {
-      background-color:#e0e0e0;
-    }
-    table tbody td:hover {
-      background: #f0f0d0;
-    }
-  </style>
   <script type="text/javascript" src="../coverage/jacoco-resources/prettify.js"></script>
   <title>JaCoCo - Build</title>
 </head>
@@ -34,7 +16,7 @@
   <a href="index.html" class="el_group">Documentation</a> &gt;
   <span class="el_source">Build</span>
 </div>
-<div id="content"> 
+<div id="content">
 
 <h1>Build</h1>
 
@@ -56,7 +38,7 @@
 </p>
 
 <pre>
-  mvn clean install
+  mvn clean verify
 </pre>
 
 <p>
@@ -77,7 +59,7 @@
 </p>
 
 <pre>
-  mvn clean install -DskipTests
+  mvn clean verify -DskipTests
 </pre>
 
 
@@ -91,48 +73,118 @@
 </p>
 
 <p>
-  Following table shows how modules will be compiled depending on version of JDK:
+  Following table shows in which classfile version modules will be compiled to
+  depending on version of JDK (empty cells = no compilation possible):
 </p>
 
-<table>
+<table class="coverage">
   <thead>
   <tr>
-    <th></th>
-    <th>JDK 5</th>
-    <th>JDK 6</th>
-    <th>JDK 7</th>
-    <th>JDK 8</th>
-    <th>JDK 9</th>
-    <th>JDK 10</th>
-    <th>JDK 11</th>
-    <th>JDK 12</th>
+    <td>Modules</td>
+    <td>JDK 5</td>
+    <td>JDK 6</td>
+    <td>JDK 7</td>
+    <td>JDK 8</td>
+    <td>JDK 9</td>
+    <td>JDK 10</td>
+    <td>JDK 11</td>
+    <td>JDK 12</td>
+    <td>JDK 13</td>
+    <td>JDK 14</td>
+    <td>JDK 15</td>
+    <td>JDK 16</td>
   </tr>
   </thead>
   <tbody>
   <tr>
-    <th>org.jacoco.core.test.validation.java8</th>
-    <td colspan="3">excluded from build</td>
-    <td colspan="5">compiled into bytecode version 52 (Java 8)</td>
+    <td>org.jacoco.core.test.validation.java14</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>14</td>
+    <td>14</td>
+    <td>14</td>
   </tr>
   <tr>
-    <th>org.jacoco.core.test.validation.java7</th>
-    <td colspan="2">excluded from build</td>
-    <td colspan="6" rowspan="2">compiled into bytecode version 51 (Java 7)</td>
+    <td>org.jacoco.core.test.validation.java8</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
   </tr>
   <tr>
-    <th>org.jacoco.core.test.validation.groovy</th>
-    <td colspan="2">excluded from build</td>
+    <td>org.jacoco.core.test.validation.java7</td>
+    <td></td>
+    <td></td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
   </tr>
   <tr>
-    <th>org.jacoco.core.test.validation.kotlin</th>
-    <td colspan="1">excluded from build</td>
-    <td colspan="6">compiled into bytecode version 50 (Java 6)</td>
-    <td rowspan="2">compiled into bytecode version 51 (Java 7)</td>
+    <td>org.jacoco.core.test.validation.groovy</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
+    <td>8</td>
   </tr>
   <tr>
-    <th>all other modules</th>
-    <td colspan="4">compiled into bytecode version 49 (Java 5)</td>
-    <td colspan="3">compiled into bytecode version 50 (Java 6)</td>
+    <td>org.jacoco.core.test.validation.kotlin</td>
+    <td></td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+  </tr>
+  <tr>
+    <td>all other modules</td>
+    <td>5</td>
+    <td>5</td>
+    <td>5</td>
+    <td>5</td>
+    <td>6</td>
+    <td>6</td>
+    <td>6</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
+    <td>7</td>
   </tr>
   </tbody>
 </table>
@@ -148,7 +200,7 @@
 </p>
 
 <pre>
-  mvn clean install -Djdk.version=10 -Dbytecode.version=9
+  mvn clean verify -Djdk.version=10 -Dbytecode.version=9
 </pre>
 
 <p>
@@ -156,7 +208,7 @@
 </p>
 
 <pre>
-  mvn clean install -Decj
+  mvn clean verify -Decj
 </pre>
 
 <p>
@@ -164,22 +216,26 @@
 </p>
 
 <ul>
-  <li><code>mvn clean install -Djdk.version=5 -Dbytecode.version=5</code></li>
-  <li><code>mvn clean install -Djdk.version=6 -Dbytecode.version=6</code></li>
-  <li><code>mvn clean install -Djdk.version=7 -Dbytecode.version=7</code></li>
-  <li><code>mvn clean install -Djdk.version=8 -Dbytecode.version=8</code></li>
-  <li><code>mvn clean install -Djdk.version=8 -Dbytecode.version=8 -Decj</code></li>
-  <li><code>mvn clean install -Djdk.version=9 -Dbytecode.version=9</code></li>
-  <li><code>mvn clean install -Djdk.version=10 -Dbytecode.version=10</code></li>
-  <li><code>mvn clean install -Djdk.version=11 -Dbytecode.version=11</code></li>
-  <li><code>mvn clean install -Djdk.version=12 -Dbytecode.version=12</code></li>
+  <li><code>mvn clean verify -Djdk.version=5 -Dbytecode.version=5</code></li>
+  <li><code>mvn clean verify -Djdk.version=6 -Dbytecode.version=6</code></li>
+  <li><code>mvn clean verify -Djdk.version=7 -Dbytecode.version=7</code></li>
+  <li><code>mvn clean verify -Djdk.version=8 -Dbytecode.version=8</code></li>
+  <li><code>mvn clean verify -Djdk.version=8 -Dbytecode.version=8 -Decj</code></li>
+  <li><code>mvn clean verify -Djdk.version=9 -Dbytecode.version=9</code></li>
+  <li><code>mvn clean verify -Djdk.version=10 -Dbytecode.version=10</code></li>
+  <li><code>mvn clean verify -Djdk.version=11 -Dbytecode.version=11</code></li>
+  <li><code>mvn clean verify -Djdk.version=12 -Dbytecode.version=12</code></li>
+  <li><code>mvn clean verify -Djdk.version=13 -Dbytecode.version=13</code></li>
+  <li><code>mvn clean verify -Djdk.version=14 -Dbytecode.version=14</code></li>
+  <li><code>mvn clean verify -Djdk.version=15 -Dbytecode.version=15</code></li>
+  <li><code>mvn clean verify -Djdk.version=16 -Dbytecode.version=16</code></li>
 </ul>
 
 
 </div>
 <div class="footer">
-  <span class="right"><a href="@jacoco.home.url@">JaCoCo</a> @qualified.bundle.version@</span>
-  <a href="license.html">Copyright</a> &copy; @copyright.years@ Mountainminds GmbH &amp; Co. KG and Contributors
+  <span class="right"><a href="${jacoco.home.url}">JaCoCo</a> ${qualified.bundle.version}</span>
+  <a href="license.html">Copyright</a> &copy; ${copyright.years} Mountainminds GmbH &amp; Co. KG and Contributors
 </div>
 
 </body>

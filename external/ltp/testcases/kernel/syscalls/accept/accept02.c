@@ -3,7 +3,10 @@
  * Copyright (c) 2019 SUSE LLC
  * Author: Christian Amann <camann@suse.com>
  */
-/* Test for CVE-2017-8890
+/*\
+ * [Description]
+ *
+ * Test for CVE-2017-8890
  *
  * In Kernels up to 4.10.15 missing commit 657831ff the multicast
  * group information of a socket gets copied over to a newly created

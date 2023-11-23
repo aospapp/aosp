@@ -40,7 +40,6 @@ import android.os.CancellationSignal;
 import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.provider.BlockedNumberContract;
 import android.provider.BlockedNumberContract.SystemContract;
 import android.telecom.TelecomManager;
@@ -106,11 +105,13 @@ public class BlockedNumberProvider extends ContentProvider {
     protected BlockedNumberDatabaseHelper mDbHelper;
     @VisibleForTesting
     protected BackupManager mBackupManager;
+    protected AppOpsManager mAppOpsManager;
 
     @Override
     public boolean onCreate() {
         mDbHelper = BlockedNumberDatabaseHelper.getInstance(getContext());
         mBackupManager = new BackupManager(getContext());
+        mAppOpsManager = getAppOpsManager();
         return true;
     }
 
@@ -490,7 +491,6 @@ public class BlockedNumberProvider extends ContentProvider {
             return BlockedNumberContract.STATUS_NOT_BLOCKED;
         }
 
-        boolean isBlocked = false;
         int blockReason = BlockedNumberContract.STATUS_NOT_BLOCKED;
         if (extras != null && !extras.isEmpty()) {
             // check enhanced blocking setting
@@ -520,6 +520,12 @@ public class BlockedNumberProvider extends ContentProvider {
                     if (getEnhancedBlockSetting(
                             SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN)) {
                         blockReason = BlockedNumberContract.STATUS_BLOCKED_UNKNOWN_NUMBER;
+                    }
+                    break;
+                case TelecomManager.PRESENTATION_UNAVAILABLE:
+                    if (getEnhancedBlockSetting(
+                                    SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN)) {
+                        blockReason = BlockedNumberContract.STATUS_BLOCKED_UNAVAILABLE;
                     }
                     break;
                 default:

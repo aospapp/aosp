@@ -285,7 +285,7 @@ public class AbstractCollectionTest extends TestCase {
             }
         };
         try {
-            ac.toArray(null);
+            ac.toArray((Object[]) null);
             fail("No expected NullPointerException");
         } catch (NullPointerException e) {
             // expected

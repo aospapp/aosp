@@ -17,37 +17,38 @@
 #ifndef ANDROID_DRM_MODE_H_
 #define ANDROID_DRM_MODE_H_
 
-#include <stdint.h>
 #include <xf86drmMode.h>
 
+#include <cstdint>
+#include <cstdio>
 #include <string>
 
+#include "DrmUnique.h"
+
 namespace android {
+
+class DrmDevice;
 
 class DrmMode {
  public:
   DrmMode() = default;
-  DrmMode(drmModeModeInfoPtr m);
+  explicit DrmMode(drmModeModeInfoPtr m);
 
   bool operator==(const drmModeModeInfo &m) const;
-  void ToDrmModeModeInfo(drm_mode_modeinfo *m) const;
-
-  uint32_t id() const;
-  void set_id(uint32_t id);
 
   uint32_t clock() const;
 
-  uint32_t h_display() const;
-  uint32_t h_sync_start() const;
-  uint32_t h_sync_end() const;
-  uint32_t h_total() const;
-  uint32_t h_skew() const;
+  uint16_t h_display() const;
+  uint16_t h_sync_start() const;
+  uint16_t h_sync_end() const;
+  uint16_t h_total() const;
+  uint16_t h_skew() const;
 
-  uint32_t v_display() const;
-  uint32_t v_sync_start() const;
-  uint32_t v_sync_end() const;
-  uint32_t v_total() const;
-  uint32_t v_scan() const;
+  uint16_t v_display() const;
+  uint16_t v_sync_start() const;
+  uint16_t v_sync_end() const;
+  uint16_t v_total() const;
+  uint16_t v_scan() const;
   float v_refresh() const;
 
   uint32_t flags() const;
@@ -55,23 +56,23 @@ class DrmMode {
 
   std::string name() const;
 
- private:
-  uint32_t id_ = 0;
+  auto CreateModeBlob(const DrmDevice &drm) -> DrmModeUserPropertyBlobUnique;
 
+ private:
   uint32_t clock_ = 0;
 
-  uint32_t h_display_ = 0;
-  uint32_t h_sync_start_ = 0;
-  uint32_t h_sync_end_ = 0;
-  uint32_t h_total_ = 0;
-  uint32_t h_skew_ = 0;
+  uint16_t h_display_ = 0;
+  uint16_t h_sync_start_ = 0;
+  uint16_t h_sync_end_ = 0;
+  uint16_t h_total_ = 0;
+  uint16_t h_skew_ = 0;
 
-  uint32_t v_display_ = 0;
-  uint32_t v_sync_start_ = 0;
-  uint32_t v_sync_end_ = 0;
-  uint32_t v_total_ = 0;
-  uint32_t v_scan_ = 0;
-  uint32_t v_refresh_ = 0;
+  uint16_t v_display_ = 0;
+  uint16_t v_sync_start_ = 0;
+  uint16_t v_sync_end_ = 0;
+  uint16_t v_total_ = 0;
+  uint16_t v_scan_ = 0;
+  uint16_t v_refresh_ = 0;
 
   uint32_t flags_ = 0;
   uint32_t type_ = 0;

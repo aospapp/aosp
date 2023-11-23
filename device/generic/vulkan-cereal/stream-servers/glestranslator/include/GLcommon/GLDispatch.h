@@ -21,6 +21,7 @@
 #include <GLES3/gl3.h>
 
 #include "base/Lock.h"
+#include "host-common/logging.h"
 
 #include "OpenGLESDispatch/gldefs.h"
 #include "OpenGLESDispatch/gles_functions.h"
@@ -39,8 +40,14 @@ typedef void (*FUNCPTR_GET_SYNC_IV)(GLsync, GLenum pname, GLsizei bufsize, GLsiz
 
 class GlLibrary;
 
+
 #define GLES_DECLARE_METHOD(return_type, function_name, signature, args) \
     static return_type (*function_name) signature;
+
+#if defined(ENABLE_DISPATCH_LOG)
+#define GLES_DECLARE_UNDERLYING_METHOD(return_type, function_name, signature, args) \
+    static return_type (*function_name ## _underlying) signature;
+#endif
 
 using EGLGetProcAddressFunc = std::function<void*(const char* name)>;
 
@@ -54,6 +61,10 @@ public:
     GLESVersion getGLESVersion() const;
 
     LIST_GLES_FUNCTIONS(GLES_DECLARE_METHOD, GLES_DECLARE_METHOD)
+
+    #if defined(ENABLE_DISPATCH_LOG)
+    LIST_GLES_FUNCTIONS(GLES_DECLARE_UNDERLYING_METHOD, GLES_DECLARE_UNDERLYING_METHOD)
+    #endif
 
 private:
     bool                  m_isLoaded;

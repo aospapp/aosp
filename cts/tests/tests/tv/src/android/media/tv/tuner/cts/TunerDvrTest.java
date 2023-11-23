@@ -160,6 +160,13 @@ public class TunerDvrTest {
         d.flush();
         assertEquals(3, d.read(3));
         assertEquals(3, d.read(new byte[3], 0, 3));
+        assertEquals(0, d.seek(0));
+        assertEquals(3, d.read(3));
+        assertEquals(3, d.read(new byte[3], 0, 3));
+        assertEquals(5, d.seek(5));
+        assertEquals(2, d.read(3));
+        assertEquals(10, d.seek(10));
+        assertEquals(0, d.read(3));
         d.stop();
         d.close();
 

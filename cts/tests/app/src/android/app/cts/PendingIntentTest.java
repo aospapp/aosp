@@ -36,10 +36,16 @@ import android.os.SystemClock;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.ShellIdentityUtils;
+import com.android.compatibility.common.util.TestUtils;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PendingIntentTest extends AndroidTestCase {
 
@@ -757,5 +763,136 @@ public class PendingIntentTest extends AndroidTestCase {
         } else {
             fail("Cannot resolve foreground service pending intent");
         }
+    }
+
+    public void testCancelListener() throws Exception {
+        final Intent i = new Intent(Intent.ACTION_VIEW);
+        final PendingIntent pi1 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        final Set<String> called = Collections.synchronizedSet(new HashSet<>());
+
+        // To make sure the executor is used, we count the number of times the executor
+        // is invoked.
+        final AtomicInteger executorCount = new AtomicInteger();
+        final Executor e = (runnable) -> {
+            executorCount.incrementAndGet();
+            runnable.run();
+        };
+
+        // Add 4 listeners and remove the first one and the last one.
+        PendingIntent.CancelListener listener1 = (pi) -> {
+            called.add("listener1");
+            assertEquals(pi1, pi);
+        };
+        PendingIntent.CancelListener listener2 = (pi) -> {
+            called.add("listener2");
+            assertEquals(pi1, pi);
+        };
+        PendingIntent.CancelListener listener3 = (pi) -> {
+            called.add("listener3");
+            assertEquals(pi1, pi);
+        };
+        PendingIntent.CancelListener listener4 = (pi) -> {
+            called.add("listener4");
+            assertEquals(pi1, pi);
+        };
+        assertTrue(pi1.addCancelListener(e, listener1));
+        assertTrue(pi1.addCancelListener(e, listener2));
+        assertTrue(pi1.addCancelListener(e, listener3));
+        assertTrue(pi1.addCancelListener(e, listener4));
+
+        pi1.removeCancelListener(listener1);
+        pi1.removeCancelListener(listener4);
+
+        pi1.cancel();
+
+        TestUtils.waitUntil("listeners not called",
+                () -> called.contains("listener2") && called.contains("listener3"));
+        // Wait a bit more just in case, and make sure the last one isn't called.
+        Thread.sleep(200);
+        assertFalse(called.contains("listener1"));
+        assertFalse(called.contains("listener4"));
+        assertEquals(2, executorCount.get());
+
+        // It's already canceled, so more calls should return false.
+        assertFalse(pi1.addCancelListener(e, (pi) -> {
+            assertEquals(pi1, pi);
+        }));
+        // Should still return false.
+        assertFalse(pi1.addCancelListener(e, (pi) -> {
+            assertEquals(pi1, pi);
+        }));
+
+        // Clear the trackers.
+        called.clear();
+        executorCount.set(0);
+
+        // Try with a new PI using the same intent.
+        final PendingIntent pi2 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        assertTrue(pi2.addCancelListener(e, (pi) -> {
+            called.add("listener1");
+            assertEquals(pi2, pi);
+        }));
+        pi2.cancel();
+
+        TestUtils.waitUntil("listener1 not called",
+                () -> called.contains("listener1"));
+        assertEquals(1, executorCount.get());
+    }
+
+    public void testCancelListener_cancelCurrent() throws Exception {
+        final Intent i = new Intent(Intent.ACTION_VIEW);
+
+        // Create the first PI.
+        final PendingIntent pi1 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        final Set<String> called = Collections.synchronizedSet(new HashSet<>());
+
+        PendingIntent.CancelListener listener1 = (pi) -> {
+            called.add("listener1");
+            assertEquals(pi1, pi);
+        };
+        assertTrue(pi1.addCancelListener(Runnable::run, listener1));
+
+        // Update-current won't cancel the previous PI.
+        final PendingIntent pi2 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent.CancelListener listener2 = (pi) -> {
+            called.add("listener2");
+            assertEquals(pi2, pi);
+        };
+        assertTrue(pi2.addCancelListener(Runnable::run, listener2));
+
+        // So this shouldn't be called. (oops I don't want to use sleep(), but...)
+        Thread.sleep(200);
+        assertFalse(called.contains("listener1"));
+
+        // Cancel-current will cancel both pi1 and pi2
+        final PendingIntent pi3 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        TestUtils.waitUntil("listeners not called",
+                () -> called.contains("listener1") && called.contains("listener2"));
+    }
+
+    public void testCancelListener_oneShot() throws Exception {
+        final Intent i = new Intent(Intent.ACTION_VIEW);
+
+        // Create the first PI.
+        final PendingIntent pi1 = PendingIntent.getBroadcast(mContext, 0, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_ONE_SHOT
+                        | PendingIntent.FLAG_IMMUTABLE);
+        final Set<String> called = Collections.synchronizedSet(new HashSet<>());
+
+        PendingIntent.CancelListener listener1 = (pi) -> {
+            called.add("listener1");
+            assertEquals(pi1, pi);
+        };
+        assertTrue(pi1.addCancelListener(Runnable::run, listener1));
+
+        pi1.send();
+
+        TestUtils.waitUntil("listeners not called",
+                () -> called.contains("listener1"));
     }
 }

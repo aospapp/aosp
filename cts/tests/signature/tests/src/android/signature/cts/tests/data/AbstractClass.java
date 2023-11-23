@@ -22,4 +22,12 @@ package android.signature.cts.tests.data;
 public abstract class AbstractClass {
     public abstract void abstractMethod();
     public final void finalMethod() {};
+
+    public static class StaticNestedClass {
+    }
+
+    public static class StaticNestedClassWithCtor {
+        public StaticNestedClassWithCtor() {
+        }
+    }
 }

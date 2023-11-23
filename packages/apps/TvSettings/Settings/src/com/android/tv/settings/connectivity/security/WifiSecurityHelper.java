@@ -123,7 +123,7 @@ public class WifiSecurityHelper {
                 if ((length == 10 || length == 26 || length == 58)
                         && password.matches("[0-9A-Fa-f]*")) {
                     config.wepKeys[0] = password;
-                } else {
+                } else if (length != 0) {
                     config.wepKeys[0] = '"' + password + '"';
                 }
                 break;
@@ -141,7 +141,7 @@ public class WifiSecurityHelper {
 
             case AccessPoint.SECURITY_SAE:
                 config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
-                if (password.length() != 0) {
+                if (length != 0) {
                     config.preSharedKey = '"' + password + '"';
                 }
                 break;

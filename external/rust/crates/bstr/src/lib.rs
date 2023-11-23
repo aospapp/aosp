@@ -1,5 +1,5 @@
 /*!
-An experimental byte string library.
+A byte string library.
 
 Byte strings are just like standard Unicode strings with one very important
 difference: byte strings are only *conventionally* UTF-8 while Rust's standard
@@ -98,10 +98,10 @@ method converts any `&[u8]` to a `&BStr`.
 
 # When should I use byte strings?
 
-This library is somewhat of an experiment that reflects my hypothesis that
-UTF-8 by convention is a better trade off in some circumstances than guaranteed
-UTF-8. It's possible, perhaps even likely, that this is a niche concern for
-folks working closely with core text primitives.
+This library reflects my hypothesis that UTF-8 by convention is a better trade
+off in some circumstances than guaranteed UTF-8. It's possible, perhaps even
+likely, that this is a niche concern for folks working closely with core text
+primitives.
 
 The first time this idea hit me was in the implementation of Rust's regex
 engine. In particular, very little of the internal implementation cares at all
@@ -134,15 +134,16 @@ incremental way by only parsing chunks at a time, but this is often complex to
 do or impractical. For example, many regex engines only accept one contiguous
 sequence of bytes at a time with no way to perform incremental matching.
 
-In summary, the conventional UTF-8 byte strings provided by this library is an
-experiment. They are definitely useful in some limited circumstances, but how
-useful they are more broadly isn't clear yet.
+In summary, conventional UTF-8 byte strings provided by this library are
+definitely useful in some limited circumstances, but how useful they are more
+broadly isn't clear yet.
 
 # `bstr` in public APIs
 
-Since this library is still experimental, you should not use it in the public
-API of your crates until it hits `1.0` (unless you're OK with with tracking
-breaking releases of `bstr`).
+Since this library is not yet `1.0`, you should not use it in the public API of
+your crates until it hits `1.0` (unless you're OK with with tracking breaking
+releases of `bstr`). It is expected that `bstr 1.0` will be released before
+2022.
 
 In general, it should be possible to avoid putting anything in this crate into
 your public APIs. Namely, you should never need to use the `ByteSlice` or
@@ -367,41 +368,23 @@ Windows.
 */
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(dead_code)]
 
+pub use crate::bstr::BStr;
 #[cfg(feature = "std")]
-extern crate core;
-
-#[cfg(feature = "unicode")]
-#[macro_use]
-extern crate lazy_static;
-extern crate memchr;
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
-#[cfg(feature = "unicode")]
-extern crate regex_automata;
-#[cfg(feature = "serde1-nostd")]
-extern crate serde;
-#[cfg(test)]
-extern crate ucd_parse;
-
-pub use bstr::BStr;
-#[cfg(feature = "std")]
-pub use bstring::BString;
-pub use ext_slice::{
+pub use crate::bstring::BString;
+pub use crate::ext_slice::{
     ByteSlice, Bytes, Fields, FieldsWith, Find, FindReverse, Finder,
     FinderReverse, Lines, LinesWithTerminator, Split, SplitN, SplitNReverse,
     SplitReverse, B,
 };
 #[cfg(feature = "std")]
-pub use ext_vec::{concat, join, ByteVec, DrainBytes, FromUtf8Error};
+pub use crate::ext_vec::{concat, join, ByteVec, DrainBytes, FromUtf8Error};
 #[cfg(feature = "unicode")]
-pub use unicode::{
+pub use crate::unicode::{
     GraphemeIndices, Graphemes, SentenceIndices, Sentences, WordIndices,
     Words, WordsWithBreakIndices, WordsWithBreaks,
 };
-pub use utf8::{
+pub use crate::utf8::{
     decode as decode_utf8, decode_last as decode_last_utf8, CharIndices,
     Chars, Utf8Chunk, Utf8Chunks, Utf8Error,
 };
@@ -411,14 +394,12 @@ mod bstr;
 #[cfg(feature = "std")]
 mod bstring;
 mod byteset;
-mod cow;
 mod ext_slice;
 #[cfg(feature = "std")]
 mod ext_vec;
 mod impls;
 #[cfg(feature = "std")]
 pub mod io;
-mod search;
 #[cfg(test)]
 mod tests;
 #[cfg(feature = "unicode")]
@@ -427,9 +408,9 @@ mod utf8;
 
 #[cfg(test)]
 mod apitests {
-    use bstr::BStr;
-    use bstring::BString;
-    use ext_slice::{Finder, FinderReverse};
+    use crate::bstr::BStr;
+    use crate::bstring::BString;
+    use crate::ext_slice::{Finder, FinderReverse};
 
     #[test]
     fn oibits() {
@@ -446,11 +427,11 @@ mod apitests {
         assert_sync::<BString>();
         assert_unwind_safe::<BString>();
 
-        assert_send::<Finder>();
-        assert_sync::<Finder>();
-        assert_unwind_safe::<Finder>();
-        assert_send::<FinderReverse>();
-        assert_sync::<FinderReverse>();
-        assert_unwind_safe::<FinderReverse>();
+        assert_send::<Finder<'_>>();
+        assert_sync::<Finder<'_>>();
+        assert_unwind_safe::<Finder<'_>>();
+        assert_send::<FinderReverse<'_>>();
+        assert_sync::<FinderReverse<'_>>();
+        assert_unwind_safe::<FinderReverse<'_>>();
     }
 }

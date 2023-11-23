@@ -74,7 +74,7 @@ def run_host_command(args, verbose=None, **kwargs):
   host_build_top = os.environ.get('ANDROID_BUILD_TOP')
   if host_build_top:
     host_command_dir = os.path.join(host_build_top,
-                                    'out/soong/host/linux-x86/bin')
+                                    'out/host/linux-x86/bin')
     args[0] = os.path.join(host_command_dir, args[0])
   return run_and_check_output(args, verbose, **kwargs)
 
@@ -152,7 +152,7 @@ class ApexCompressionTest(unittest.TestCase):
     host_build_top = os.environ.get('ANDROID_BUILD_TOP')
     if host_build_top:
       os.environ['APEX_COMPRESSION_TOOL_PATH'] = (
-          os.path.join(host_build_top, 'out/soong/host/linux-x86/bin')
+          os.path.join(host_build_top, 'out/host/linux-x86/bin')
           + ':' + os.path.join(host_build_top, 'prebuilts/sdk/tools/linux/bin'))
     else:
       os.environ['APEX_COMPRESSION_TOOL_PATH'] = os.path.dirname(

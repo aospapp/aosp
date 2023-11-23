@@ -5,11 +5,11 @@ third_party {
     type: GIT
     value: "https://github.com/Kotlin/kotlinx.coroutines"
   }
-  version: "1.4.1"
+  version: "1.5.2"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
+    year: 2021
     month: 11
-    day: 25
+    day: 01
   }
 }

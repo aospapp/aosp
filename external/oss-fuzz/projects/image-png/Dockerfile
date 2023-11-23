@@ -13,11 +13,10 @@
 # limitations under the License.
 #
 ################################################################################
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/oss-fuzz-base/base-builder-rust
 RUN apt-get update && apt-get install -y make autoconf automake libtool curl cmake python llvm-dev libclang-dev clang
 
 RUN git clone https://github.com/image-rs/image-png
 WORKDIR $SRC
 
 COPY build.sh $SRC/
-COPY buf_independent.rs $SRC/image-png/fuzz/fuzz_targets/buf_independent.rs

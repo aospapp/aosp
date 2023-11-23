@@ -81,7 +81,7 @@ public class CtsControlBuilderTest {
                 .setCustomColor(mColorStateList)
                 .build();
 
-        assertControl(control, true);
+        assertControl(control, true /* isStateless */, true /* authRequired */);
     }
 
     @Test
@@ -98,13 +98,14 @@ public class CtsControlBuilderTest {
                 .setStatusText(STATUS_TEXT_STATEFUL)
                 .setCustomIcon(mIcon)
                 .setCustomColor(mColorStateList)
+                .setAuthRequired(false)
                 .build();
 
         Control updatedControl = new Control.StatefulBuilder(control).build();
-        assertControl(updatedControl, false);
+        assertControl(updatedControl, false /* isStateless */, false /* authRequired */);
     }
 
-    private void assertControl(Control control, boolean isStateless) {
+    private void assertControl(Control control, boolean isStateless, boolean authRequired) {
         assertEquals(control.getTitle(), TITLE);
         assertEquals(control.getSubtitle(), SUBTITLE);
         assertEquals(control.getStructure(), STRUCTURE);
@@ -116,5 +117,6 @@ public class CtsControlBuilderTest {
         assertEquals(control.getControlId(), CONTROL_ID2);
         assertEquals(control.getCustomColor(), mColorStateList);
         assertEquals(control.getCustomIcon(), mIcon);
+        assertEquals(control.isAuthRequired(), authRequired);
     }
 }

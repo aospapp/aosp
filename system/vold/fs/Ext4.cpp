@@ -66,8 +66,6 @@ status_t Check(const std::string& source, const std::string& target) {
 
     const char* c_source = source.c_str();
     const char* c_target = target.c_str();
-
-    int status;
     int ret;
     long tmpmnt_flags = MS_NOATIME | MS_NOEXEC | MS_NOSUID;
     char* tmpmnt_opts = (char*)"nomblk_io_submit,errors=remount-ro";
@@ -173,7 +171,7 @@ status_t Format(const std::string& source, unsigned long numSectors, const std::
 
     bool needs_casefold =
             android::base::GetBoolProperty("external_storage.casefold.enabled", false);
-    bool needs_projid = android::base::GetBoolProperty("external_storage.projid.enabled", false);
+    bool needs_projid = true;
 
     if (needs_projid) {
         cmd.push_back("-I");
@@ -198,7 +196,7 @@ status_t Format(const std::string& source, unsigned long numSectors, const std::
         cmd.push_back("-E");
         std::string extopts = "";
         if (needs_casefold) extopts += "encoding=utf8,";
-        if (needs_projid) extopts += "quotatype=prjquota,";
+        if (needs_projid) extopts += "quotatype=usrquota:grpquota:prjquota,";
         cmd.push_back(extopts);
     }
 

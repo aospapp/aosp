@@ -64,6 +64,9 @@
     <dimen name="car_preference_icon_size">44dp</dimen>
     <dimen name="car_radius_1">4dp</dimen>
     <dimen name="car_preference_row_vertical_margin">16dp</dimen>
+    <dimen name="car_divider_preference_height">1dp</dimen>
+    <dimen name="car_divider_preference_margin_top">@*android:dimen/car_padding_2</dimen>
+    <dimen name="car_divider_preference_margin_bottom">@*android:dimen/car_padding_2</dimen>
 
     <dimen name="location_accuracy_image_size">130dp</dimen>
 

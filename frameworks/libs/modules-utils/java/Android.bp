@@ -20,7 +20,7 @@ package {
 filegroup {
     name: "framework-annotations",
     srcs: [
-        "android/annotation/*.java",
+        ":framework-metalava-annotations",
         "com/android/internal/annotations/*.java",
     ],
 
@@ -39,10 +39,23 @@ filegroup {
     ],
 }
 
+filegroup {
+    name: "framework-metalava-annotations",
+    srcs: ["android/annotation/*.java"],
+    visibility: [
+        // This group of files is needed by any metalava invocation that enabled enhancement of
+        // documentation (via javadoc tags like @paramDoc and @returnDoc). They are public for
+        // this purpose. However, java compilation should generally depend (dynamically) on
+        // framework-annotations-lib instead.
+        "//visibility:public",
+    ],
+}
+
 java_library {
     name: "framework-annotations-lib",
     srcs: [":framework-annotations"],
     sdk_version: "core_current",
+    host_supported: true,
     visibility: [
         "//visibility:public",
     ],
@@ -51,6 +64,7 @@ java_library {
 filegroup {
     name: "framework-api-annotations",
     srcs: [
+        "android/annotation/Discouraged.java",
         "android/annotation/SystemApi.java",
         "android/annotation/TestApi.java",
     ],
@@ -76,6 +90,18 @@ filegroup {
     ],
 }
 
+filegroup {
+    name: "modules-utils-synchronous-result-receiver-aidl",
+    srcs: [
+        "com/android/modules/utils/ISynchronousResultReceiver.aidl",
+        "com/android/modules/utils/SynchronousResultReceiver.aidl",
+    ],
+    visibility: [
+        "//frameworks/libs/modules-utils/java/com/android/modules/utils",
+        "//packages/modules/Bluetooth/system/binder",
+    ],
+}
+
 // This file group is deprecated; new users should use modules-utils-preconditions
 filegroup {
     name: "modules-utils-preconditions-srcs",
@@ -88,4 +114,3 @@ filegroup {
         "//frameworks/base/core/java",
     ],
 }
-

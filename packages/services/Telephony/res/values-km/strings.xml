@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"របៀប​ហៅ​ទៅ​វិញ​ពេល​មាន​អាសន្ន"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"បាន​បិទ​ការ​តភ្ជាប់​ទិន្នន័យ"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"មិន​មាន​ការតភ្ជាប់​ទិន្នន័យ រហូតដល់ម៉ោង <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">ទូរស័ព្ទនេះនឹងស្ថិតក្នុងរបៀប ហៅត្រលប់ពេលអាសន្ន រយៈពេល <xliff:g id="COUNT_1">%s</xliff:g> នាទី។ ខណៈពេលស្ថិតក្នុងរបៀបនេះ មិនមានកម្មវិធីដែលប្រើការភ្ជាប់ទិន្នន័យណា អាចប្រើបានបានឡើយ។ តើអ្នកចង់ចាកចេញឥឡូវនេះទេ?</item>
-      <item quantity="one">ទូរស័ព្ទនេះនឹងស្ថិតក្នុងរបៀប ហៅត្រលប់ពេលអាសន្ន រយៈពេល <xliff:g id="COUNT_0">%s</xliff:g> នាទី។ ខណៈពេលស្ថិតក្នុងរបៀបនេះ មិនមានកម្មវិធីដែលប្រើការភ្ជាប់ទិន្នន័យណា អាចប្រើបានបានឡើយ។ តើអ្នកចង់ចាកចេញឥឡូវនេះទេ?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">សកម្មភាពដែលបានជ្រើសមិនមានទេ ខណៈពេលដែលស្ថិតក្នុងរបៀប ហៅត្រលប់ពេលអាសន្ន។ ទូរស័ព្ទនេះនឹងស្ថិតក្នុងរបៀបនេះរយៈពេល <xliff:g id="COUNT_1">%s</xliff:g> នាទី។ តើអ្នកចង់ចាកចេញឥឡូវនេះទេ?</item>
-      <item quantity="one">សកម្មភាពដែលបានជ្រើសមិនមានទេ ខណៈពេលដែលស្ថិតក្នុងរបៀប ហៅត្រលប់ពេលអាសន្ន។ ទូរស័ព្ទនេះនឹងស្ថិតក្នុងរបៀបនេះរយៈពេល <xliff:g id="COUNT_0">%s</xliff:g> នាទី។ តើអ្នកចង់ចាកចេញឥឡូវនេះទេ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់​រយៈ​ពេល​មួយ​នាទី។ ពេល​នៅ​ក្នុង​មុខងារ​នេះ មិន​អាច​ប្រើប្រាស់​កម្មវិធី​ដែល​ប្រើ​ការតភ្ជាប់​ទិន្នន័យ​បាន​ទេ។ តើ​អ្នក​ចង់​ចាកចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}other{ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់​រយៈ​ពេល %s នាទី។ ពេល​នៅ​ក្នុង​មុខងារ​នេះ មិន​អាច​ប្រើប្រាស់​កម្មវិធី​ដែល​ប្រើ​ការតភ្ជាប់​ទិន្នន័យ​បាន​ទេ។ តើ​អ្នក​ចង់​ចាកចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{មិន​អាច​ធ្វើ​សកម្មភាព​ដែល​បាន​ជ្រើសរើស​ទេ ពេល​នៅ​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់។ ទូរសព្ទ​នឹង​ស្ថិត​នៅ​ក្នុង​មុខងារ​នេះ​រយៈ​ពេល​មួយ​នាទី។ តើ​អ្នក​ចង់​ចាកចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}other{មិន​អាច​ធ្វើ​សកម្មភាព​ដែល​បាន​ជ្រើសរើស​ទេ ពេល​នៅ​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់។ ទូរសព្ទ​នឹង​ស្ថិត​នៅ​ក្នុង​មុខងារ​នេះ​រយៈ​ពេល %s នាទី។ តើ​អ្នក​ចង់​ចាកចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"សកម្មភាព​ដែល​បាន​ជ្រើស​គឺ​មិន​អាច​រក​បាន​នៅ​ក្នុង​ខណៈ​ពេល​ដែល​ការ​ហៅ​អាសន្ន​មួយ​។"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"ចេញ​ពី​របៀប​ហៅ​ទៅ​វិញ​​​ពេល​មាន​អាសន្ន"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"បាទ/ចាស"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"បោះបង់"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ទូរសព្ទ​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ទៅ​វិញ​ពេល​មាន​អាសន្ន"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"រហូត​ដល់​ម៉ោង <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ទៅ​វិញ​ពេល​មាន​អាសន្ន​រយៈ​ពេល <xliff:g id="COUNT_1">%s</xliff:g> នាទី។\nតើ​អ្នក​ចង់​ចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?</item>
-      <item quantity="one">ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ទៅ​វិញ​ពេល​មាន​អាសន្ន​រយៈ​ពេល <xliff:g id="COUNT_0">%s</xliff:g> នាទី។\nតើ​អ្នក​ចង់​ចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់​រយៈ​ពេល​មួយ​នាទី។\nតើ​អ្នក​ចង់​ចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}other{ទូរសព្ទ​នឹង​ស្ថិត​ក្នុង​មុខងារ​ហៅ​ត្រឡប់​វិញ​ពី​សេវា​សង្គ្រោះ​បន្ទាន់​រយៈ​ពេល %s នាទី។\nតើ​អ្នក​ចង់​ចេញ​ឥឡូវ​នេះ​ដែរ​ឬ​ទេ?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"សេវា"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"រៀបចំ"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt; មិន​កំណត់ &gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ភាពងាយស្រួល"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"ការហៅតាម Wi-Fi ពី"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ហៅតាម Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"ប៉ះម្ដងទៀតដើម្បីបើក"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"មានកំហុសខណៈពេលឌិកូដសារ។"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ស៊ីមកាតបានធ្វើឲ្យសេវាកម្មរបស់អ្នកសកម្ម និងបានធ្វើបច្ចុប្បន្នភាពសមត្ថភាពរ៉ូមីងសម្រាប់ទូរស័ព្ទរបស់អ្នក។"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"មាន​ការ​ហៅ​ដែល​សកម្ម​ច្រើន​ពេក។ សូម​បញ្ចប់ ឬ​​ដាក់​​បញ្ចូល​គ្នា​ការ​ហៅ​ដែល​មាន​ស្រាប់​​មុន​ពេល​ដាក់​ការ​ហៅ​ថ្មី។"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"មិន​អាច​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​បាន​ទេ ដោយ​សារ​​មាន​គេ​​កំពុង​ហៅ​ទូរសព្ទ​ចេញ​រួច​ហើយ​។"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"មិន​អាច​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​បាន​ទេ ដោយសារ​​​មាន​ការ​ហៅ​ទូរសព្ទ​ចូល​​មួយ​មិន​បាន​ឆ្លើយ។ ឆ្លើយតប ឬ​បដិសេធ​ការ​ហៅ​ទូរសព្ទចូល​ មុន​ពេល​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​ថ្មី​មួយ​ទៀត។"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"មិន​អាច​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​បាន​ទេ ដោយសារ​មាន​​ការ​ហៅ​ទូរសព្ទ​​មួយ​ត្រូវ​បាន​បិទ​​តាមរយៈ​ការប្រើ​ប្រាស់​លក្ខណៈ​ប្រព័ន្ធ ro.telephony.disable-call ។"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"មិន​អាច​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​បាន​​ទេ ដោយសារ​​មាន​ការ​ហៅ​ទូរសព្ទ​ពីរ​កំពុង​​ដំណើរការ​​រួច​ហើយ។ ផ្ដាច់​ការ​ហៅ​ទូរសព្ទ​មួយ ឬ​បញ្ចូល​ការ​ហៅ​ទូរសព្ទ​ទាំងពីរ​​ចូលគ្នា​​ជា​​ការ​ប្រជុំ​មួយ ​មុន​នឹង​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​ថ្មី​មួយ។"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"មិន​អាច​ធ្វើ​ការហៅ​ទូរសព្ទ​បាន​ទេ ដោយសារ​មាន​ការហៅ​ទូរសព្ទ​ពីរ​កំពុង​ដំណើរការ​រួច​ហើយ។ ផ្ដាច់​ការហៅ​ទូរសព្ទ​មួយ ឬ​ដាក់​ការហៅ​ទូរសព្ទ​ទាំងនេះ​ចូល​គ្នា​ជា​ការប្រជុំ​មួយ មុន​នឹង​ធ្វើ​ការ​ហៅ​ទូរសព្ទ​ថ្មី។"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"ដើម្បីប្រើប្រាស់ <xliff:g id="SUPP_SERVICE">%s</xliff:g> សូម​ប្រាកដថា​ទិន្នន័យ​ទូរសព្ទ​​ចល័ត​ត្រូវ​បាន​បើក។ អ្នក​អាចផ្លាស់​ប្ដូរ​​ជម្រើស​នេះ​នៅ​ក្នុង​ការ​កំណត់​បណ្ដាញ​​ទូរសព្ទ​ចល័ត។"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"ដើម្បី​ប្រើប្រាស់ <xliff:g id="SUPP_SERVICE">%s</xliff:g> សូម​ប្រាកដថា​ទិន្នន័យ​ទូរសព្ទ​​ចល័ត និង​ការ​រ៉ូមីង​ទិន្នន័យ​ត្រូវ​បាន​បើក។ អ្នក​អាច​ផ្លាស់ប្ដូរ​ជម្រើស​ទាំង​នេះ​នៅ​ក្នុង​ការ​កំណត់​បណ្ដាញ​​ទូរសព្ទ​ចល័ត។"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"ដើម្បី​ប្រើប្រាស់ <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> សូម​ប្រាកដថា​ទិន្នន័យទូរសព្ទ​​ចល័ត​ត្រូវ​បាន​បើក​សម្រាប់​ស៊ីម <xliff:g id="SIM_NUMBER">%2$d</xliff:g> ។ អ្នក​អាចផ្លាស់​ប្ដូរ​​ជម្រើស​នេះ​​នៅ​ក្នុង​ការ​កំណត់​បណ្ដាញ​​ទូរសព្ទ​ចល័ត។"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"អ្នក​ត្រូវ​ចាប់ផ្ដើម​ឧបករណ៍​របស់អ្នកឡើងវិញ ដើម្បី​ផ្លាស់ប្ដូរ​ការកំណត់​នេះ។"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"ចាប់ផ្ដើមឡើងវិញ"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"បោះបង់"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"កំណត់ eSIM ដែល​អាចដកបាន​ជាលំនាំដើម"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ថាមពល​វិទ្យុ​ទូរសព្ទ​ចល័ត"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"មើលសៀវភៅអាសយដ្ឋានក្នុងស៊ីមកាត"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"មើល​លេខ​ហៅ​ថេរ"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ជ្រើសរើស​កម្រិត​បញ្ជូន​វិទ្យុ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ប្រភេទបណ្តាញសំឡេង៖"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ប្រភេទបណ្តាញទិន្នន័យ៖"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"លុប​ពី​លើ​ប្រភេទ​បណ្ដាញ៖"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ជ្រើសរើស​សន្ទស្សន៍​ទូរសព្ទ"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"កំណត់ប្រភេទបណ្ដាញដែលពេញចិត្ត៖"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ភីង​ឈ្មោះ​ម៉ាស៊ីន (www.google.com) IPv4 ៖"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ផ្ទុកឡើងវិញ"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"បិទ/បើកការពិនិត្យ DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ការ​កំណត់/ព័ត៌មាន​ជាក់លាក់ OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"មាន EN-DC៖"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ត្រូវ​បាន​រឹតត្បិត៖"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"មាន NR៖"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"ស្ថានភាព NR៖"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"អាច​ប្រើ EN-DC បាន (NSA)៖"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"បាន​ដាក់​កំហិត DCNR (NSA)៖"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"អាច​ប្រើ NR បាន (NSA)៖"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"ស្ថានភាព NR (NSA)៖"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"កម្រិត​ញឹកញាប់​នៃ NR៖"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"កំណត់​មុខងារ​កម្រិត​បញ្ជូន​វិទ្យុ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"កំពុងដំណើរការបញ្ជីក្រុម…"</string>

@@ -190,4 +190,30 @@ public interface IPhotosHelper extends IAppHelper {
 
     /** Setup expectation: Remove photos app content. */
     public void removeContent();
+
+    /**
+     * This method checks and waits whether any music is active. The music track is active when a
+     * video is playing, even the video is silent or the media volume is muted.
+     *
+     * @return true if any music tracks are active.
+     */
+    public boolean isMusicPlaying();
+
+    /**
+     * Setup expectation: Photos is open.
+     *
+     * <p>Check if device is now in Photos folder page.
+     *
+     * @return Returns true if device is in Photos folder page, false if not.
+     */
+    public boolean isOnDeviceFolderPage();
+
+    /**
+     * Setup expectation: Photos is open.
+     *
+     * <p>Check if device has video player.
+     *
+     * @return Returns true if device has video player, false if not.
+     */
+    public boolean hasVideoPlayer();
 }

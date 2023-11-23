@@ -26,7 +26,7 @@ std::string ToString(const T& value) {
 ApexUpdateListener::ApexUpdateListener(
     ApexUpdateListener::Sigil, const std::string& apex_name,
     const std::string& apex_info_list_file_name, CallbackFunction callback,
-    int fd, int wd, std::set<Info> last_info)
+    int fd, int wd, const std::set<Info>& last_info)
     : apex_name_(apex_name),
       apex_info_list_file_name_(apex_info_list_file_name),
       callback_function_(callback),

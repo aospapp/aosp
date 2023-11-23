@@ -16,10 +16,10 @@
 
 #include "gtest/gtest.h"
 #include "pw_rpc/internal/packet.h"
-#include "pw_rpc/internal/raw_method_union.h"
-#include "pw_rpc/server_context.h"
+#include "pw_rpc/internal/test_utils.h"
+#include "pw_rpc/raw/fake_channel_output.h"
+#include "pw_rpc/raw/internal/method_union.h"
 #include "pw_rpc/service.h"
-#include "pw_rpc_private/internal_test_utils.h"
 
 namespace pw::rpc::internal {
 namespace {
@@ -28,11 +28,11 @@ constexpr uint32_t kFakeChannelId = 1;
 constexpr uint32_t kFakeServiceId = 3;
 constexpr uint32_t kFakeMethodId = 10;
 
-TestOutput<32> output;
+RawFakeChannelOutput<1> output;
 rpc::Channel channels[] = {Channel::Create<kFakeChannelId>(&output)};
 
-StatusWithSize FakeMethod(ServerContext&, ConstByteSpan, ByteSpan) {
-  return StatusWithSize::Unimplemented();
+void FakeMethod(ConstByteSpan, RawUnaryResponder& responder) {
+  ASSERT_EQ(OkStatus(), responder.Finish({}, Status::Unimplemented()));
 }
 
 class FakeService : public Service {
@@ -40,7 +40,7 @@ class FakeService : public Service {
   FakeService(uint32_t id) : Service(id, kMethods) {}
 
   static constexpr std::array<RawMethodUnion, 1> kMethods = {
-      RawMethod::Unary<FakeMethod>(kFakeMethodId),
+      RawMethod::AsynchronousUnary<FakeMethod>(kFakeMethodId),
   };
 };
 
@@ -71,9 +71,9 @@ TEST(ClientServer, ProcessPacket_CallsClient) {
   Result result = packet.Encode(buffer);
   EXPECT_EQ(result.status(), OkStatus());
 
-  // No calls are registered on the client, so this should fail.
-  EXPECT_EQ(client_server.ProcessPacket(result.value(), output),
-            Status::NotFound());
+  // No calls are registered on the client, so nothing should happen. The
+  // ProcessPacket call still returns OK since the client handled it.
+  EXPECT_EQ(client_server.ProcessPacket(result.value(), output), OkStatus());
 }
 
 TEST(ClientServer, ProcessPacket_BadData) {

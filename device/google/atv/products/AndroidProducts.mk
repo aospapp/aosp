@@ -35,5 +35,7 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/aosp_tv_arm.mk \
     $(LOCAL_DIR)/aosp_tv_arm64.mk \
     $(LOCAL_DIR)/aosp_tv_x86.mk \
+    $(LOCAL_DIR)/gsi_tv_arm.mk \
+    $(LOCAL_DIR)/gsi_tv_arm64.mk \
     $(LOCAL_DIR)/sdk_atv_armv7.mk \
     $(LOCAL_DIR)/sdk_atv_x86.mk

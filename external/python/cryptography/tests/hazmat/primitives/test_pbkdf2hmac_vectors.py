@@ -22,8 +22,6 @@ class TestPBKDF2HMACSHA1(object):
     test_pbkdf2_sha1 = generate_pbkdf2_test(
         load_nist_vectors,
         "KDF",
-        [
-            "rfc-6070-PBKDF2-SHA1.txt",
-        ],
+        ["rfc-6070-PBKDF2-SHA1.txt"],
         hashes.SHA1(),
     )

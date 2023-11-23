@@ -20,8 +20,8 @@ import android.annotation.Nullable;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SecurityParams;
 import android.net.wifi.WifiConfiguration;
-
-import com.android.server.wifi.util.ScanResultUtil;
+import android.net.wifi.WifiSsid;
+import android.net.wifi.util.ScanResultUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,11 +60,12 @@ public class ScanResultMatchInfo {
      */
     public static ScanResultMatchInfo fromScanResult(ScanResult scanResult) {
         ScanResultMatchInfo info = new ScanResultMatchInfo();
-        // Scan result ssid's are not quoted, hence add quotes.
-        // TODO: This matching algo works only if the scan result contains a string SSID.
-        // However, according to our public documentation ths {@link WifiConfiguration#SSID} can
-        // either have a hex string or quoted ASCII string SSID.
-        info.networkSsid = ScanResultUtil.createQuotedSSID(scanResult.SSID);
+        WifiSsid wifiSsid = scanResult.getWifiSsid();
+        if (wifiSsid != null) {
+            info.networkSsid = wifiSsid.toString();
+        } else {
+            info.networkSsid = "\"" + scanResult.SSID + "\"";
+        }
         info.securityParamsList =
                 ScanResultUtil.generateSecurityParamsListFromScanResult(scanResult);
         info.mFromScanResult = true;

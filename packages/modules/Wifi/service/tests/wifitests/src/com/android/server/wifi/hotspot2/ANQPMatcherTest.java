@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.hotspot2;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -97,7 +98,8 @@ public class ANQPMatcherTest extends WifiBaseTest {
      */
     @Test
     public void matchRoamingConsortiumWithNullElement() throws Exception {
-        assertFalse(ANQPMatcher.matchRoamingConsortium(null, new long[0], false));
+        assertEquals(0, ANQPMatcher.matchRoamingConsortium(
+                null, new long[0], false));
     }
 
     /**
@@ -111,7 +113,7 @@ public class ANQPMatcherTest extends WifiBaseTest {
         long oi = 0x1234L;
         RoamingConsortiumElement element =
                 new RoamingConsortiumElement(Arrays.asList(new Long[] {oi}));
-        assertTrue(ANQPMatcher.matchRoamingConsortium(element, new long[] {oi}, false));
+        assertEquals(oi, ANQPMatcher.matchRoamingConsortium(element, new long[] {oi}, false));
     }
 
     /**
@@ -373,7 +375,8 @@ public class ANQPMatcherTest extends WifiBaseTest {
         Long[] anqpOis = new Long[] {0x1234L, 0x5678L, 0xdeadL, 0xf0cdL};
         RoamingConsortiumElement element =
                 new RoamingConsortiumElement(Arrays.asList(anqpOis));
-        assertTrue(ANQPMatcher.matchRoamingConsortium(element, providerOis, false));
+        assertEquals(providerOis[0], ANQPMatcher.matchRoamingConsortium(element, providerOis,
+                false));
     }
 
     /**
@@ -388,7 +391,7 @@ public class ANQPMatcherTest extends WifiBaseTest {
         Long[] anqpOis = new Long[] {0xabc2L, 0x1232L};
         RoamingConsortiumElement element =
                 new RoamingConsortiumElement(Arrays.asList(anqpOis));
-        assertFalse(ANQPMatcher.matchRoamingConsortium(element, providerOis, false));
+        assertEquals(0, ANQPMatcher.matchRoamingConsortium(element, providerOis, false));
     }
 
     /**
@@ -403,7 +406,8 @@ public class ANQPMatcherTest extends WifiBaseTest {
         Long[] anqpOis = new Long[] {0x1234L, 0x5678L, 0xabcdL, 0xdeadL, 0xf0cdL};
         RoamingConsortiumElement element =
                 new RoamingConsortiumElement(Arrays.asList(anqpOis));
-        assertTrue(ANQPMatcher.matchRoamingConsortium(element, providerOis, true));
+        assertEquals(providerOis[0],
+                ANQPMatcher.matchRoamingConsortium(element, providerOis, true));
     }
 
     /**
@@ -418,6 +422,6 @@ public class ANQPMatcherTest extends WifiBaseTest {
         Long[] anqpOis = new Long[] {0x1234L, 0x5678L, 0xdeadL, 0xf0cdL};
         RoamingConsortiumElement element =
                 new RoamingConsortiumElement(Arrays.asList(anqpOis));
-        assertFalse(ANQPMatcher.matchRoamingConsortium(element, providerOis, true));
+        assertEquals(0, ANQPMatcher.matchRoamingConsortium(element, providerOis, true));
     }
 }

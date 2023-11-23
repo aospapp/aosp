@@ -131,7 +131,7 @@ static void setup(void)
 	check_newpid();
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	int status;
 	pid_t pid;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 	/* Container creation on PID namespace */
 	TEST(do_clone_unshare_test(T_CLONE, CLONE_NEWPID, child_fn, NULL));
 	if (TEST_RETURN == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "clone failed");
+		tst_brkm(TBROK | TTERRNO, NULL, "clone failed");
 	}
 
 	sleep(1);

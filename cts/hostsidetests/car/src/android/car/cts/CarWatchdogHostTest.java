@@ -29,6 +29,7 @@ import com.android.os.AtomsProto.CarWatchdogIoOveruseStats;
 import com.android.os.AtomsProto.CarWatchdogIoOveruseStatsReported;
 import com.android.os.AtomsProto.CarWatchdogKillStatsReported;
 import com.android.os.StatsLog.EventMetricData;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
@@ -36,6 +37,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -44,10 +47,17 @@ import java.util.regex.Pattern;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
+    public static final String TAG = CarWatchdogHostTest.class.getSimpleName();
+
     /**
      * CarWatchdog app package.
      */
     protected static final String WATCHDOG_APP_PKG = "android.car.cts.watchdog.sharedapp";
+
+    /**
+     * Second CarWatchdog app package.
+     */
+    protected static final String WATCHDOG_APP_PKG_2 = "android.car.cts.watchdog.second.sharedapp";
 
     /**
      * CarWatchdog app shared user id.
@@ -120,7 +130,18 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
 
     private static final long WATCHDOG_ACTION_TIMEOUT_MS = 15_000;
 
+    private boolean mDidModifyDateTime;
     private long mOriginalForegroundBytes;
+
+    @Before
+    public void dateSetUp() throws Exception {
+        checkAndSetDate();
+    }
+
+    @After
+    public void dateReset() throws Exception {
+        checkAndResetDate();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -159,23 +180,25 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
 
         executeCommand(APPLY_DISABLE_DISPLAY_POWER_POLICY_CMD);
 
-        verifyTestAppKilled(APP_PKG);
+        verifyTestAppsKilled(APP_PKG);
         verifyAtomKillStatsReported(APP_PKG);
     }
 
     @Test
-    public void testIoOveruseKillAfterDisplayTurnOffWithSharedUserIdApp() throws Exception {
+    public void testIoOveruseKillAfterDisplayTurnOffWithSharedUserIdApps() throws Exception {
+        // Stats collection is based on uid. Packages with shared uids can be used interchangeably.
         uploadStatsdConfig(WATCHDOG_APP_PKG);
 
-        for (int i = 0; i < RECURRING_OVERUSE_COUNT; ++i) {
-            overuseDiskIo(WATCHDOG_APP_PKG);
-            verifyAtomIoOveruseStatsReported(WATCHDOG_APP_PKG, /* overuseTimes= */ i + 1);
+        for (int i = 0; i < RECURRING_OVERUSE_COUNT; i++) {
+            overuseDiskIo(i % 2 == 0 ? WATCHDOG_APP_PKG : WATCHDOG_APP_PKG_2);
+            verifyAtomIoOveruseStatsReported(i % 2 == 0 ? WATCHDOG_APP_PKG_2 : WATCHDOG_APP_PKG,
+                    /* overuseTimes= */ i + 1);
             ReportUtils.clearReports(getDevice());
         }
 
         executeCommand(APPLY_DISABLE_DISPLAY_POWER_POLICY_CMD);
 
-        verifyTestAppKilled(WATCHDOG_APP_PKG);
+        verifyTestAppsKilled(WATCHDOG_APP_PKG, WATCHDOG_APP_PKG_2);
         verifyAtomKillStatsReported(WATCHDOG_APP_PKG);
     }
 
@@ -289,14 +312,23 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
         throw new IllegalArgumentException("Invalid message format: " + message);
     }
 
-    private void verifyTestAppKilled(String packageName) throws Exception {
-        PollingCheck.check("Failed to kill " + packageName + " application",
-                WATCHDOG_ACTION_TIMEOUT_MS,
-                () -> {
+    private void verifyTestAppsKilled(String... packageNames) throws Exception {
+        ArrayList<String> packages = new ArrayList<>(List.of(packageNames));
+        try {
+            PollingCheck.check("Failed to kill applications", WATCHDOG_ACTION_TIMEOUT_MS, () -> {
+                for (int i = packages.size() - 1; i >= 0; i--) {
                     // Check activity dump for errors. Throws exception on error.
+                    String packageName = packages.get(i);
                     fetchActivityDumpsys(packageName);
-                    return !isPackageRunning(packageName);
-                });
+                    if (!isPackageRunning(packageName)) {
+                        packages.remove(i);
+                    }
+                }
+                return packages.isEmpty();
+            });
+        } catch (AssertionError e) {
+            assertWithMessage("Failed to kill applications: %s", packages).fail();
+        }
     }
 
     private String fetchActivityDumpsys(String packageName) throws Exception {
@@ -327,5 +359,25 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
         executeCommand(
                 "am start -W -a android.intent.action.MAIN -n %s/%s --el bytes_to_kill %d",
                 appPkg, ACTIVITY_CLASS, remainingBytes);
+    }
+
+    private void checkAndSetDate() throws Exception {
+        // Get date in ISO-8601 format
+        LocalDateTime now = LocalDateTime.parse(executeCommand("date +%%FT%%T").trim());
+        if (now.getHour() < 23) {
+            return;
+        }
+        executeCommand("date %s", now.minusHours(1));
+        CLog.d(TAG, "DateTime changed from %s to %s", now, now.minusHours(1));
+        mDidModifyDateTime = true;
+    }
+
+    private void checkAndResetDate() throws Exception {
+        if (!mDidModifyDateTime) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.parse(executeCommand("date +%%FT%%T").trim());
+        executeCommand("date %s", now.plusHours(1));
+        CLog.d(TAG, "DateTime changed from %s to %s", now, now.plusHours(1));
     }
 }

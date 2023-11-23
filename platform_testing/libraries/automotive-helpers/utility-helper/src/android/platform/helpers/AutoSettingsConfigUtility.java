@@ -275,7 +275,7 @@ public class AutoSettingsConfigUtility implements IAutoConfigUtility {
                 AutoConfigConstants.SEARCH_RESULTS,
                 new AutoConfigResource(
                         AutoConfigConstants.RESOURCE_ID,
-                        "recycler_view",
+                        "car_ui_recycler_view",
                         SETTING_INTELLIGENCE_PACKAGE));
         fullSettingsConfiguration.addResource(
                 AutoConfigConstants.UP_BUTTON,
@@ -580,6 +580,46 @@ public class AutoSettingsConfigUtility implements IAutoConfigUtility {
                 AutoConfigConstants.PIN_PAD,
                 new AutoConfigResource(
                         AutoConfigConstants.RESOURCE_ID, "pin_pad", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_ZERO,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key0", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_ONE,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key1", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_TWO,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key2", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_THREE,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key3", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_FOUR,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key4", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_FIVE,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key5", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_SIX,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key6", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_SEVEN,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key7", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_EIGHT,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key8", SETTING_APP_PACKAGE));
+        securitySettingsConfiguration.addResource(
+                AutoConfigConstants.DIGIT_NINE,
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID, "key9", SETTING_APP_PACKAGE));
         securitySettingsConfiguration.addResource(
                 AutoConfigConstants.ENTER_PIN_BUTTON,
                 new AutoConfigResource(

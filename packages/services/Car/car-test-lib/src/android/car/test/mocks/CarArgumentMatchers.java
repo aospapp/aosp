@@ -21,7 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.content.Intent;
 import android.content.pm.UserInfo;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehiclePropValue;
 import android.os.UserHandle;
 import android.util.Log;
 
@@ -152,14 +152,14 @@ public final class CarArgumentMatchers {
             }
             if (mValues == null) return true;
             // Make sure values match
-            if (mValues.length != argument.value.int32Values.size()) {
+            if (mValues.length != argument.value.int32Values.length) {
                 Log.w(TAG, "PropertyIdMatcher: number of values (expected " + mValues.length
                         + ") mismatch on " + argument);
                 return false;
             }
 
             for (int i = 0; i < mValues.length; i++) {
-                if (mValues[i] != argument.value.int32Values.get(i)) {
+                if (mValues[i] != argument.value.int32Values[i]) {
                     Log.w(TAG, "PropertyIdMatcher: value mismatch at index " + i + " on " + argument
                             + ": expected " + Arrays.toString(mValues));
                     return false;

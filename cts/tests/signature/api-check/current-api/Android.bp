@@ -23,9 +23,6 @@ android_test {
     ],
     java_resources: [
         ":cts-current-api-gz",
-        ":cts-android-test-base-current-api-gz",
-        ":cts-android-test-mock-current-api-gz",
-        ":cts-android-test-runner-current-api-gz",
     ],
 
     use_embedded_native_libs: false,

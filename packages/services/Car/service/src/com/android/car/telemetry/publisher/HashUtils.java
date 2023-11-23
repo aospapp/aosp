@@ -58,7 +58,7 @@ public class HashUtils {
      * @param str the string to be hashed.
      * @return hash of the string.
      */
-    public static long murmur2Hash64(String str) {
+    public static long murmur2Hash64(@NonNull String str) {
         final byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
         ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
 
@@ -94,7 +94,7 @@ public class HashUtils {
      *
      * @throws IllegalStateException if {@code hashCode bytes < 8}
      */
-    private static long asLong(byte[] hashCode) {
+    private static long asLong(@NonNull byte[] hashCode) {
         Preconditions.checkState(hashCode.length >= 8, "requires >= 8 bytes (it only has %s bytes)",
                 hashCode.length);
         long retVal = (hashCode[0] & 0xFF);

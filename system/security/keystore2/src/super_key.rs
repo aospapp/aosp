@@ -26,11 +26,9 @@ use crate::{
     error::ResponseCode,
     key_parameter::{KeyParameter, KeyParameterValue},
     legacy_blob::LegacyBlobLoader,
-    legacy_migrator::LegacyMigrator,
+    legacy_importer::LegacyImporter,
     raw_device::KeyMintDevice,
-    try_insert::TryInsert,
-    utils::watchdog as wd,
-    utils::AID_KEYSTORE,
+    utils::{watchdog as wd, AesGcm, AID_KEYSTORE},
 };
 use android_hardware_security_keymint::aidl::android::hardware::security::keymint::{
     Algorithm::Algorithm, BlockMode::BlockMode, HardwareAuthToken::HardwareAuthToken,
@@ -46,11 +44,11 @@ use keystore2_crypto::{
     aes_gcm_decrypt, aes_gcm_encrypt, generate_aes256_key, generate_salt, Password, ZVec,
     AES_256_KEY_LENGTH,
 };
-use keystore2_system_property::PropertyWatcher;
+use rustutils::system_properties::PropertyWatcher;
 use std::{
     collections::HashMap,
     sync::Arc,
-    sync::{Mutex, Weak},
+    sync::{Mutex, RwLock, Weak},
 };
 use std::{convert::TryFrom, ops::Deref};
 
@@ -76,7 +74,7 @@ pub enum SuperEncryptionAlgorithm {
 /// different purpose, distinguished by alias. Each is associated with a static
 /// constant of this type.
 pub struct SuperKeyType<'a> {
-    /// Alias used to look the key up in the `persistent.keyentry` table.
+    /// Alias used to look up the key in the `persistent.keyentry` table.
     pub alias: &'a str,
     /// Encryption algorithm
     pub algorithm: SuperEncryptionAlgorithm,
@@ -126,10 +124,8 @@ impl SuperKeyIdentifier {
     fn from_metadata(metadata: &BlobMetaData) -> Option<Self> {
         if let Some(EncryptedBy::KeyId(key_id)) = metadata.encrypted_by() {
             Some(SuperKeyIdentifier::DatabaseId(*key_id))
-        } else if let Some(boot_level) = metadata.max_boot_level() {
-            Some(SuperKeyIdentifier::BootLevel(*boot_level))
         } else {
-            None
+            metadata.max_boot_level().map(|boot_level| SuperKeyIdentifier::BootLevel(*boot_level))
         }
     }
 
@@ -157,15 +153,22 @@ pub struct SuperKey {
     reencrypt_with: Option<Arc<SuperKey>>,
 }
 
-impl SuperKey {
-    /// For most purposes `unwrap_key` handles decryption,
-    /// but legacy handling and some tests need to assume AES and decrypt directly.
-    pub fn aes_gcm_decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec> {
+impl AesGcm for SuperKey {
+    fn decrypt(&self, data: &[u8], iv: &[u8], tag: &[u8]) -> Result<ZVec> {
         if self.algorithm == SuperEncryptionAlgorithm::Aes256Gcm {
             aes_gcm_decrypt(data, iv, tag, &self.key)
-                .context("In aes_gcm_decrypt: decryption failed")
+                .context("In SuperKey::decrypt: Decryption failed.")
         } else {
-            Err(Error::sys()).context("In aes_gcm_decrypt: Key is not an AES key")
+            Err(Error::sys()).context("In SuperKey::decrypt: Key is not an AES key.")
+        }
+    }
+
+    fn encrypt(&self, plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
+        if self.algorithm == SuperEncryptionAlgorithm::Aes256Gcm {
+            aes_gcm_encrypt(plaintext, &self.key)
+                .context("In SuperKey::encrypt: Encryption failed.")
+        } else {
+            Err(Error::sys()).context("In SuperKey::encrypt: Key is not an AES key.")
         }
     }
 }
@@ -258,7 +261,7 @@ struct UserSuperKeys {
 struct SkmState {
     user_keys: HashMap<UserId, UserSuperKeys>,
     key_index: HashMap<i64, Weak<SuperKey>>,
-    boot_level_key_cache: Option<BootLevelKeyCache>,
+    boot_level_key_cache: Option<Mutex<BootLevelKeyCache>>,
 }
 
 impl SkmState {
@@ -277,24 +280,24 @@ impl SkmState {
 
 #[derive(Default)]
 pub struct SuperKeyManager {
-    data: Mutex<SkmState>,
+    data: SkmState,
 }
 
 impl SuperKeyManager {
-    pub fn set_up_boot_level_cache(self: &Arc<Self>, db: &mut KeystoreDB) -> Result<()> {
-        let mut data = self.data.lock().unwrap();
-        if data.boot_level_key_cache.is_some() {
+    pub fn set_up_boot_level_cache(skm: &Arc<RwLock<Self>>, db: &mut KeystoreDB) -> Result<()> {
+        let mut skm_guard = skm.write().unwrap();
+        if skm_guard.data.boot_level_key_cache.is_some() {
             log::info!("In set_up_boot_level_cache: called for a second time");
             return Ok(());
         }
         let level_zero_key = get_level_zero_key(db)
             .context("In set_up_boot_level_cache: get_level_zero_key failed")?;
-        data.boot_level_key_cache = Some(BootLevelKeyCache::new(level_zero_key));
+        skm_guard.data.boot_level_key_cache =
+            Some(Mutex::new(BootLevelKeyCache::new(level_zero_key)));
         log::info!("Starting boot level watcher.");
-        let clone = self.clone();
+        let clone = skm.clone();
         std::thread::spawn(move || {
-            clone
-                .watch_boot_level()
+            Self::watch_boot_level(clone)
                 .unwrap_or_else(|e| log::error!("watch_boot_level failed:\n{:?}", e));
         });
         Ok(())
@@ -302,32 +305,40 @@ impl SuperKeyManager {
 
     /// Watch the `keystore.boot_level` system property, and keep boot level up to date.
     /// Blocks waiting for system property changes, so must be run in its own thread.
-    fn watch_boot_level(&self) -> Result<()> {
+    fn watch_boot_level(skm: Arc<RwLock<Self>>) -> Result<()> {
         let mut w = PropertyWatcher::new("keystore.boot_level")
             .context("In watch_boot_level: PropertyWatcher::new failed")?;
         loop {
             let level = w
                 .read(|_n, v| v.parse::<usize>().map_err(std::convert::Into::into))
                 .context("In watch_boot_level: read of property failed")?;
-            // watch_boot_level should only be called once data.boot_level_key_cache is Some,
-            // so it's safe to unwrap in the branches below.
-            if level < MAX_MAX_BOOT_LEVEL {
-                log::info!("Read keystore.boot_level value {}", level);
-                let mut data = self.data.lock().unwrap();
-                data.boot_level_key_cache
+
+            // This scope limits the skm_guard life, so we don't hold the skm_guard while
+            // waiting.
+            {
+                let mut skm_guard = skm.write().unwrap();
+                let boot_level_key_cache = skm_guard
+                    .data
+                    .boot_level_key_cache
                     .as_mut()
-                    .unwrap()
-                    .advance_boot_level(level)
-                    .context("In watch_boot_level: advance_boot_level failed")?;
-            } else {
-                log::info!(
-                    "keystore.boot_level {} hits maximum {}, finishing.",
-                    level,
-                    MAX_MAX_BOOT_LEVEL
-                );
-                let mut data = self.data.lock().unwrap();
-                data.boot_level_key_cache.as_mut().unwrap().finish();
-                break;
+                    .ok_or_else(Error::sys)
+                    .context("In watch_boot_level: Boot level cache not initialized")?
+                    .get_mut()
+                    .unwrap();
+                if level < MAX_MAX_BOOT_LEVEL {
+                    log::info!("Read keystore.boot_level value {}", level);
+                    boot_level_key_cache
+                        .advance_boot_level(level)
+                        .context("In watch_boot_level: advance_boot_level failed")?;
+                } else {
+                    log::info!(
+                        "keystore.boot_level {} hits maximum {}, finishing.",
+                        level,
+                        MAX_MAX_BOOT_LEVEL
+                    );
+                    boot_level_key_cache.finish();
+                    break;
+                }
             }
             w.wait().context("In watch_boot_level: property wait failed")?;
         }
@@ -336,34 +347,37 @@ impl SuperKeyManager {
 
     pub fn level_accessible(&self, boot_level: i32) -> bool {
         self.data
-            .lock()
-            .unwrap()
             .boot_level_key_cache
             .as_ref()
-            .map_or(false, |c| c.level_accessible(boot_level as usize))
+            .map_or(false, |c| c.lock().unwrap().level_accessible(boot_level as usize))
     }
 
-    pub fn forget_all_keys_for_user(&self, user: UserId) {
-        let mut data = self.data.lock().unwrap();
-        data.user_keys.remove(&user);
+    pub fn forget_all_keys_for_user(&mut self, user: UserId) {
+        self.data.user_keys.remove(&user);
     }
 
-    fn install_per_boot_key_for_user(&self, user: UserId, super_key: Arc<SuperKey>) -> Result<()> {
-        let mut data = self.data.lock().unwrap();
-        data.add_key_to_key_index(&super_key)
+    fn install_per_boot_key_for_user(
+        &mut self,
+        user: UserId,
+        super_key: Arc<SuperKey>,
+    ) -> Result<()> {
+        self.data
+            .add_key_to_key_index(&super_key)
             .context("In install_per_boot_key_for_user: add_key_to_key_index failed")?;
-        data.user_keys.entry(user).or_default().per_boot = Some(super_key);
+        self.data.user_keys.entry(user).or_default().per_boot = Some(super_key);
         Ok(())
     }
 
     fn lookup_key(&self, key_id: &SuperKeyIdentifier) -> Result<Option<Arc<SuperKey>>> {
-        let mut data = self.data.lock().unwrap();
         Ok(match key_id {
-            SuperKeyIdentifier::DatabaseId(id) => data.key_index.get(id).and_then(|k| k.upgrade()),
-            SuperKeyIdentifier::BootLevel(level) => data
+            SuperKeyIdentifier::DatabaseId(id) => {
+                self.data.key_index.get(id).and_then(|k| k.upgrade())
+            }
+            SuperKeyIdentifier::BootLevel(level) => self
+                .data
                 .boot_level_key_cache
-                .as_mut()
-                .map(|b| b.aes_key(*level as usize))
+                .as_ref()
+                .map(|b| b.lock().unwrap().aes_key(*level as usize))
                 .transpose()
                 .context("In lookup_key: aes_key failed")?
                 .flatten()
@@ -378,9 +392,16 @@ impl SuperKeyManager {
         })
     }
 
-    pub fn get_per_boot_key_by_user_id(&self, user_id: UserId) -> Option<Arc<SuperKey>> {
-        let data = self.data.lock().unwrap();
-        data.user_keys.get(&user_id).and_then(|e| e.per_boot.as_ref().cloned())
+    pub fn get_per_boot_key_by_user_id(
+        &self,
+        user_id: UserId,
+    ) -> Option<Arc<dyn AesGcm + Send + Sync>> {
+        self.get_per_boot_key_by_user_id_internal(user_id)
+            .map(|sk| -> Arc<dyn AesGcm + Send + Sync> { sk })
+    }
+
+    fn get_per_boot_key_by_user_id_internal(&self, user_id: UserId) -> Option<Arc<SuperKey>> {
+        self.data.user_keys.get(&user_id).and_then(|e| e.per_boot.as_ref().cloned())
     }
 
     /// This function unlocks the super keys for a given user.
@@ -388,7 +409,7 @@ impl SuperKeyManager {
     /// super key cache. If there is no such key a new key is created, encrypted with
     /// a key derived from the given password and stored in the database.
     pub fn unlock_user_key(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
         user: UserId,
         pw: &Password,
@@ -398,7 +419,7 @@ impl SuperKeyManager {
             .get_or_create_key_with(
                 Domain::APP,
                 user as u64 as i64,
-                &USER_SUPER_KEY.alias,
+                USER_SUPER_KEY.alias,
                 crate::database::KEYSTORE_UUID,
                 || {
                     // For backward compatibility we need to check if there is a super key present.
@@ -457,7 +478,7 @@ impl SuperKeyManager {
         match key.algorithm {
             SuperEncryptionAlgorithm::Aes256Gcm => match (metadata.iv(), metadata.aead_tag()) {
                 (Some(iv), Some(tag)) => key
-                    .aes_gcm_decrypt(blob, iv, tag)
+                    .decrypt(blob, iv, tag)
                     .context("In unwrap_key_with_key: Failed to decrypt the key blob."),
                 (iv, tag) => Err(Error::Rc(ResponseCode::VALUE_CORRUPTED)).context(format!(
                     concat!(
@@ -495,19 +516,22 @@ impl SuperKeyManager {
     }
 
     /// Checks if user has setup LSKF, even when super key cache is empty for the user.
-    pub fn super_key_exists_in_db_for_user(
+    /// The reference to self is unused but it is required to prevent calling this function
+    /// concurrently with skm state database changes.
+    fn super_key_exists_in_db_for_user(
+        &self,
         db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
+        legacy_importer: &LegacyImporter,
         user_id: UserId,
     ) -> Result<bool> {
         let key_in_db = db
-            .key_exists(Domain::APP, user_id as u64 as i64, &USER_SUPER_KEY.alias, KeyType::Super)
+            .key_exists(Domain::APP, user_id as u64 as i64, USER_SUPER_KEY.alias, KeyType::Super)
             .context("In super_key_exists_in_db_for_user.")?;
 
         if key_in_db {
             Ok(key_in_db)
         } else {
-            legacy_migrator
+            legacy_importer
                 .has_super_key(user_id)
                 .context("In super_key_exists_in_db_for_user: Trying to query legacy db.")
         }
@@ -517,15 +541,15 @@ impl SuperKeyManager {
     /// legacy database). If not, return Uninitialized state.
     /// Otherwise, decrypt the super key from the password and return LskfUnlocked state.
     pub fn check_and_unlock_super_key(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
+        legacy_importer: &LegacyImporter,
         user_id: UserId,
         pw: &Password,
     ) -> Result<UserState> {
         let alias = &USER_SUPER_KEY;
-        let result = legacy_migrator
-            .with_try_migrate_super_key(user_id, pw, || db.load_super_key(alias, user_id))
+        let result = legacy_importer
+            .with_try_import_super_key(user_id, pw, || db.load_super_key(alias, user_id))
             .context("In check_and_unlock_super_key. Failed to load super key")?;
 
         match result {
@@ -546,24 +570,23 @@ impl SuperKeyManager {
     /// and return LskfUnlocked state.
     /// If the password is not provided, return Uninitialized state.
     pub fn check_and_initialize_super_key(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
+        legacy_importer: &LegacyImporter,
         user_id: UserId,
         pw: Option<&Password>,
     ) -> Result<UserState> {
-        let super_key_exists_in_db =
-            Self::super_key_exists_in_db_for_user(db, legacy_migrator, user_id).context(
-                "In check_and_initialize_super_key. Failed to check if super key exists.",
-            )?;
+        let super_key_exists_in_db = self
+            .super_key_exists_in_db_for_user(db, legacy_importer, user_id)
+            .context("In check_and_initialize_super_key. Failed to check if super key exists.")?;
         if super_key_exists_in_db {
             Ok(UserState::LskfLocked)
         } else if let Some(pw) = pw {
-            //generate a new super key.
+            // Generate a new super key.
             let super_key = generate_aes256_key()
                 .context("In check_and_initialize_super_key: Failed to generate AES 256 key.")?;
-            //derive an AES256 key from the password and re-encrypt the super key
-            //before we insert it in the database.
+            // Derive an AES256 key from the password and re-encrypt the super key
+            // before we insert it in the database.
             let (encrypted_super_key, blob_metadata) = Self::encrypt_with_password(&super_key, pw)
                 .context("In check_and_initialize_super_key.")?;
 
@@ -591,9 +614,9 @@ impl SuperKeyManager {
         }
     }
 
-    //helper function to populate super key cache from the super key blob loaded from the database
+    // Helper function to populate super key cache from the super key blob loaded from the database.
     fn populate_cache_from_super_key_blob(
-        &self,
+        &mut self,
         user_id: UserId,
         algorithm: SuperEncryptionAlgorithm,
         entry: KeyEntry,
@@ -607,7 +630,7 @@ impl SuperKeyManager {
         Ok(super_key)
     }
 
-    /// Extracts super key from the entry loaded from the database
+    /// Extracts super key from the entry loaded from the database.
     pub fn extract_super_key_from_key_entry(
         algorithm: SuperEncryptionAlgorithm,
         entry: KeyEntry,
@@ -622,7 +645,7 @@ impl SuperKeyManager {
                 metadata.aead_tag(),
             ) {
                 (Some(&EncryptedBy::Password), Some(salt), Some(iv), Some(tag)) => {
-                    // Note that password encryption is AES no matter the value of algorithm
+                    // Note that password encryption is AES no matter the value of algorithm.
                     let key = pw.derive_key(Some(salt), AES_256_KEY_LENGTH).context(
                         "In extract_super_key_from_key_entry: Failed to generate key from password.",
                     )?;
@@ -682,11 +705,12 @@ impl SuperKeyManager {
     fn super_encrypt_on_key_init(
         &self,
         db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
+        legacy_importer: &LegacyImporter,
         user_id: UserId,
         key_blob: &[u8],
     ) -> Result<(Vec<u8>, BlobMetaData)> {
-        match UserState::get(db, legacy_migrator, self, user_id)
+        match self
+            .get_user_state(db, legacy_importer, user_id)
             .context("In super_encrypt. Failed to get user state.")?
         {
             UserState::LskfUnlocked(super_key) => {
@@ -701,9 +725,9 @@ impl SuperKeyManager {
         }
     }
 
-    //Helper function to encrypt a key with the given super key. Callers should select which super
-    //key to be used. This is called when a key is super encrypted at its creation as well as at its
-    //upgrade.
+    // Helper function to encrypt a key with the given super key. Callers should select which super
+    // key to be used. This is called when a key is super encrypted at its creation as well as at
+    // its upgrade.
     fn encrypt_with_aes_super_key(
         key_blob: &[u8],
         super_key: &SuperKey,
@@ -727,7 +751,7 @@ impl SuperKeyManager {
     pub fn handle_super_encryption_on_key_init(
         &self,
         db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
+        legacy_importer: &LegacyImporter,
         domain: &Domain,
         key_parameters: &[KeyParameter],
         flags: Option<i32>,
@@ -737,16 +761,16 @@ impl SuperKeyManager {
         match Enforcements::super_encryption_required(domain, key_parameters, flags) {
             SuperEncryptionType::None => Ok((key_blob.to_vec(), BlobMetaData::new())),
             SuperEncryptionType::LskfBound => self
-                .super_encrypt_on_key_init(db, legacy_migrator, user_id, &key_blob)
+                .super_encrypt_on_key_init(db, legacy_importer, user_id, key_blob)
                 .context(concat!(
                     "In handle_super_encryption_on_key_init. ",
                     "Failed to super encrypt with LskfBound key."
                 )),
             SuperEncryptionType::ScreenLockBound => {
-                let mut data = self.data.lock().unwrap();
-                let entry = data.user_keys.entry(user_id).or_default();
-                if let Some(super_key) = entry.screen_lock_bound.as_ref() {
-                    Self::encrypt_with_aes_super_key(key_blob, &super_key).context(concat!(
+                let entry =
+                    self.data.user_keys.get(&user_id).and_then(|e| e.screen_lock_bound.as_ref());
+                if let Some(super_key) = entry {
+                    Self::encrypt_with_aes_super_key(key_blob, super_key).context(concat!(
                         "In handle_super_encryption_on_key_init. ",
                         "Failed to encrypt with ScreenLockBound key."
                     ))
@@ -815,6 +839,7 @@ impl SuperKeyManager {
     /// When this is called, the caller must hold the lock on the SuperKeyManager.
     /// So it's OK that the check and creation are different DB transactions.
     fn get_or_create_super_key(
+        &mut self,
         db: &mut KeystoreDB,
         user_id: UserId,
         key_type: &SuperKeyType,
@@ -849,8 +874,8 @@ impl SuperKeyManager {
                     )
                 }
             };
-            //derive an AES256 key from the password and re-encrypt the super key
-            //before we insert it in the database.
+            // Derive an AES256 key from the password and re-encrypt the super key
+            // before we insert it in the database.
             let (encrypted_super_key, blob_metadata) =
                 Self::encrypt_with_password(&super_key, password)
                     .context("In get_or_create_super_key.")?;
@@ -878,52 +903,64 @@ impl SuperKeyManager {
 
     /// Decrypt the screen-lock bound keys for this user using the password and store in memory.
     pub fn unlock_screen_lock_bound_key(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
         user_id: UserId,
         password: &Password,
     ) -> Result<()> {
-        let mut data = self.data.lock().unwrap();
-        let entry = data.user_keys.entry(user_id).or_default();
-        let aes = entry
-            .screen_lock_bound
-            .get_or_try_to_insert_with(|| {
-                Self::get_or_create_super_key(
-                    db,
-                    user_id,
-                    &USER_SCREEN_LOCK_BOUND_KEY,
-                    password,
-                    None,
-                )
-            })?
-            .clone();
-        let ecdh = entry
-            .screen_lock_bound_private
-            .get_or_try_to_insert_with(|| {
-                Self::get_or_create_super_key(
-                    db,
-                    user_id,
-                    &USER_SCREEN_LOCK_BOUND_P521_KEY,
-                    password,
-                    Some(aes.clone()),
-                )
-            })?
-            .clone();
-        data.add_key_to_key_index(&aes)?;
-        data.add_key_to_key_index(&ecdh)?;
+        let (screen_lock_bound, screen_lock_bound_private) = self
+            .data
+            .user_keys
+            .get(&user_id)
+            .map(|e| (e.screen_lock_bound.clone(), e.screen_lock_bound_private.clone()))
+            .unwrap_or((None, None));
+
+        if screen_lock_bound.is_some() && screen_lock_bound_private.is_some() {
+            // Already unlocked.
+            return Ok(());
+        }
+
+        let aes = if let Some(screen_lock_bound) = screen_lock_bound {
+            // This is weird. If this point is reached only one of the screen locked keys was
+            // initialized. This should never happen.
+            screen_lock_bound
+        } else {
+            self.get_or_create_super_key(db, user_id, &USER_SCREEN_LOCK_BOUND_KEY, password, None)
+                .context("In unlock_screen_lock_bound_key: Trying to get or create symmetric key.")?
+        };
+
+        let ecdh = if let Some(screen_lock_bound_private) = screen_lock_bound_private {
+            // This is weird. If this point is reached only one of the screen locked keys was
+            // initialized. This should never happen.
+            screen_lock_bound_private
+        } else {
+            self.get_or_create_super_key(
+                db,
+                user_id,
+                &USER_SCREEN_LOCK_BOUND_P521_KEY,
+                password,
+                Some(aes.clone()),
+            )
+            .context("In unlock_screen_lock_bound_key: Trying to get or create asymmetric key.")?
+        };
+
+        self.data.add_key_to_key_index(&aes)?;
+        self.data.add_key_to_key_index(&ecdh)?;
+        let entry = self.data.user_keys.entry(user_id).or_default();
+        entry.screen_lock_bound = Some(aes);
+        entry.screen_lock_bound_private = Some(ecdh);
         Ok(())
     }
 
     /// Wipe the screen-lock bound keys for this user from memory.
     pub fn lock_screen_lock_bound_key(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
         user_id: UserId,
         unlocking_sids: &[i64],
     ) {
         log::info!("Locking screen bound for user {} sids {:?}", user_id, unlocking_sids);
-        let mut data = self.data.lock().unwrap();
-        let mut entry = data.user_keys.entry(user_id).or_default();
+        let mut entry = self.data.user_keys.entry(user_id).or_default();
         if !unlocking_sids.is_empty() {
             if let (Some(aes), Some(ecdh)) = (
                 entry.screen_lock_bound.as_ref().cloned(),
@@ -995,12 +1032,11 @@ impl SuperKeyManager {
     /// User has unlocked, not using a password. See if any of our stored auth tokens can be used
     /// to unlock the keys protecting UNLOCKED_DEVICE_REQUIRED keys.
     pub fn try_unlock_user_with_biometric(
-        &self,
+        &mut self,
         db: &mut KeystoreDB,
         user_id: UserId,
     ) -> Result<()> {
-        let mut data = self.data.lock().unwrap();
-        let mut entry = data.user_keys.entry(user_id).or_default();
+        let mut entry = self.data.user_keys.entry(user_id).or_default();
         if let Some(biometric) = entry.biometric_unlock.as_ref() {
             let (key_id_guard, key_entry) = db
                 .load_key_entry(
@@ -1040,8 +1076,8 @@ impl SuperKeyManager {
                         Ok((slb, slbp)) => {
                             entry.screen_lock_bound = Some(slb.clone());
                             entry.screen_lock_bound_private = Some(slbp.clone());
-                            data.add_key_to_key_index(&slb)?;
-                            data.add_key_to_key_index(&slbp)?;
+                            self.data.add_key_to_key_index(&slb)?;
+                            self.data.add_key_to_key_index(&slbp)?;
                             log::info!(concat!(
                                 "In try_unlock_user_with_biometric: ",
                                 "Successfully unlocked with biometric"
@@ -1055,6 +1091,122 @@ impl SuperKeyManager {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// Returns the keystore locked state of the given user. It requires the thread local
+    /// keystore database and a reference to the legacy migrator because it may need to
+    /// import the super key from the legacy blob database to the keystore database.
+    pub fn get_user_state(
+        &self,
+        db: &mut KeystoreDB,
+        legacy_importer: &LegacyImporter,
+        user_id: UserId,
+    ) -> Result<UserState> {
+        match self.get_per_boot_key_by_user_id_internal(user_id) {
+            Some(super_key) => Ok(UserState::LskfUnlocked(super_key)),
+            None => {
+                // Check if a super key exists in the database or legacy database.
+                // If so, return locked user state.
+                if self
+                    .super_key_exists_in_db_for_user(db, legacy_importer, user_id)
+                    .context("In get_user_state.")?
+                {
+                    Ok(UserState::LskfLocked)
+                } else {
+                    Ok(UserState::Uninitialized)
+                }
+            }
+        }
+    }
+
+    /// If the given user is unlocked:
+    /// * and `password` is None, the user is reset, all authentication bound keys are deleted and
+    ///   `Ok(UserState::Uninitialized)` is returned.
+    /// * and `password` is Some, `Ok(UserState::LskfUnlocked)` is returned.
+    /// If the given user is locked:
+    /// * and the user was initialized before, `Ok(UserState::Locked)` is returned.
+    /// * and the user was not initialized before:
+    ///   * and `password` is None, `Ok(Uninitialized)` is returned.
+    ///   * and `password` is Some, super keys are generated and `Ok(UserState::LskfUnlocked)` is
+    ///     returned.
+    pub fn reset_or_init_user_and_get_user_state(
+        &mut self,
+        db: &mut KeystoreDB,
+        legacy_importer: &LegacyImporter,
+        user_id: UserId,
+        password: Option<&Password>,
+    ) -> Result<UserState> {
+        match self.get_per_boot_key_by_user_id_internal(user_id) {
+            Some(_) if password.is_none() => {
+                // Transitioning to swiping, delete only the super key in database and cache,
+                // and super-encrypted keys in database (and in KM).
+                self.reset_user(db, legacy_importer, user_id, true).context(
+                    "In reset_or_init_user_and_get_user_state: Trying to delete keys from the db.",
+                )?;
+                // Lskf is now removed in Keystore.
+                Ok(UserState::Uninitialized)
+            }
+            Some(super_key) => {
+                // Keystore won't be notified when changing to a new password when LSKF is
+                // already setup. Therefore, ideally this path wouldn't be reached.
+                Ok(UserState::LskfUnlocked(super_key))
+            }
+            None => {
+                // Check if a super key exists in the database or legacy database.
+                // If so, return LskfLocked state.
+                // Otherwise, i) if the password is provided, initialize the super key and return
+                // LskfUnlocked state ii) if password is not provided, return Uninitialized state.
+                self.check_and_initialize_super_key(db, legacy_importer, user_id, password)
+            }
+        }
+    }
+
+    /// Unlocks the given user with the given password. If the key was already unlocked or unlocking
+    /// was successful, `Ok(UserState::LskfUnlocked)` is returned.
+    /// If the user was never initialized `Ok(UserState::Uninitialized)` is returned.
+    pub fn unlock_and_get_user_state(
+        &mut self,
+        db: &mut KeystoreDB,
+        legacy_importer: &LegacyImporter,
+        user_id: UserId,
+        password: &Password,
+    ) -> Result<UserState> {
+        match self.get_per_boot_key_by_user_id_internal(user_id) {
+            Some(super_key) => {
+                log::info!("In unlock_and_get_user_state. Trying to unlock when already unlocked.");
+                Ok(UserState::LskfUnlocked(super_key))
+            }
+            None => {
+                // Check if a super key exists in the database or legacy database.
+                // If not, return Uninitialized state.
+                // Otherwise, try to unlock the super key and if successful,
+                // return LskfUnlocked.
+                self.check_and_unlock_super_key(db, legacy_importer, user_id, password)
+                    .context("In unlock_and_get_user_state. Failed to unlock super key.")
+            }
+        }
+    }
+
+    /// Delete all the keys created on behalf of the user.
+    /// If 'keep_non_super_encrypted_keys' is set to true, delete only the super key and super
+    /// encrypted keys.
+    pub fn reset_user(
+        &mut self,
+        db: &mut KeystoreDB,
+        legacy_importer: &LegacyImporter,
+        user_id: UserId,
+        keep_non_super_encrypted_keys: bool,
+    ) -> Result<()> {
+        // Mark keys created on behalf of the user as unreferenced.
+        legacy_importer
+            .bulk_delete_user(user_id, keep_non_super_encrypted_keys)
+            .context("In reset_user: Trying to delete legacy keys.")?;
+        db.unbind_keys_for_user(user_id, keep_non_super_encrypted_keys)
+            .context("In reset user. Error in unbinding keys.")?;
+
+        // Delete super key in cache, if exists.
+        self.forget_all_keys_for_user(user_id);
         Ok(())
     }
 }
@@ -1072,110 +1224,6 @@ pub enum UserState {
     // There's no user in the device for the given user id, or the user with the user id has not
     // setup LSKF.
     Uninitialized,
-}
-
-impl UserState {
-    pub fn get(
-        db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
-        skm: &SuperKeyManager,
-        user_id: UserId,
-    ) -> Result<UserState> {
-        match skm.get_per_boot_key_by_user_id(user_id) {
-            Some(super_key) => Ok(UserState::LskfUnlocked(super_key)),
-            None => {
-                //Check if a super key exists in the database or legacy database.
-                //If so, return locked user state.
-                if SuperKeyManager::super_key_exists_in_db_for_user(db, legacy_migrator, user_id)
-                    .context("In get.")?
-                {
-                    Ok(UserState::LskfLocked)
-                } else {
-                    Ok(UserState::Uninitialized)
-                }
-            }
-        }
-    }
-
-    /// Queries user state when serving password change requests.
-    pub fn get_with_password_changed(
-        db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
-        skm: &SuperKeyManager,
-        user_id: UserId,
-        password: Option<&Password>,
-    ) -> Result<UserState> {
-        match skm.get_per_boot_key_by_user_id(user_id) {
-            Some(super_key) => {
-                if password.is_none() {
-                    //transitioning to swiping, delete only the super key in database and cache, and
-                    //super-encrypted keys in database (and in KM)
-                    Self::reset_user(db, skm, legacy_migrator, user_id, true).context(
-                        "In get_with_password_changed: Trying to delete keys from the db.",
-                    )?;
-                    //Lskf is now removed in Keystore
-                    Ok(UserState::Uninitialized)
-                } else {
-                    //Keystore won't be notified when changing to a new password when LSKF is
-                    //already setup. Therefore, ideally this path wouldn't be reached.
-                    Ok(UserState::LskfUnlocked(super_key))
-                }
-            }
-            None => {
-                //Check if a super key exists in the database or legacy database.
-                //If so, return LskfLocked state.
-                //Otherwise, i) if the password is provided, initialize the super key and return
-                //LskfUnlocked state ii) if password is not provided, return Uninitialized state.
-                skm.check_and_initialize_super_key(db, legacy_migrator, user_id, password)
-            }
-        }
-    }
-
-    /// Queries user state when serving password unlock requests.
-    pub fn get_with_password_unlock(
-        db: &mut KeystoreDB,
-        legacy_migrator: &LegacyMigrator,
-        skm: &SuperKeyManager,
-        user_id: UserId,
-        password: &Password,
-    ) -> Result<UserState> {
-        match skm.get_per_boot_key_by_user_id(user_id) {
-            Some(super_key) => {
-                log::info!("In get_with_password_unlock. Trying to unlock when already unlocked.");
-                Ok(UserState::LskfUnlocked(super_key))
-            }
-            None => {
-                //Check if a super key exists in the database or legacy database.
-                //If not, return Uninitialized state.
-                //Otherwise, try to unlock the super key and if successful,
-                //return LskfUnlocked state
-                skm.check_and_unlock_super_key(db, legacy_migrator, user_id, password)
-                    .context("In get_with_password_unlock. Failed to unlock super key.")
-            }
-        }
-    }
-
-    /// Delete all the keys created on behalf of the user.
-    /// If 'keep_non_super_encrypted_keys' is set to true, delete only the super key and super
-    /// encrypted keys.
-    pub fn reset_user(
-        db: &mut KeystoreDB,
-        skm: &SuperKeyManager,
-        legacy_migrator: &LegacyMigrator,
-        user_id: UserId,
-        keep_non_super_encrypted_keys: bool,
-    ) -> Result<()> {
-        // mark keys created on behalf of the user as unreferenced.
-        legacy_migrator
-            .bulk_delete_user(user_id, keep_non_super_encrypted_keys)
-            .context("In reset_user: Trying to delete legacy keys.")?;
-        db.unbind_keys_for_user(user_id, keep_non_super_encrypted_keys)
-            .context("In reset user. Error in unbinding keys.")?;
-
-        //delete super key in cache, if exists
-        skm.forget_all_keys_for_user(user_id);
-        Ok(())
-    }
 }
 
 /// This enum represents three states a KeyMint Blob can be in, w.r.t super encryption.
@@ -1215,8 +1263,8 @@ impl<'a> Deref for KeyBlob<'a> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            Self::Sensitive { key, .. } => &key,
-            Self::NonSensitive(key) => &key,
+            Self::Sensitive { key, .. } => key,
+            Self::NonSensitive(key) => key,
             Self::Ref(key) => key,
         }
     }

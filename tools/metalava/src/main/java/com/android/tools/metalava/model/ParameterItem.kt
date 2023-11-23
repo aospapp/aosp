@@ -78,6 +78,10 @@ interface ParameterItem : Item {
      */
     fun isVarArgs(): Boolean
 
+    /** The property declared by this parameter; inverse of [PropertyItem.constructorParameter] */
+    val property: PropertyItem?
+        get() = null
+
     override fun parent(): MethodItem? = containingMethod()
 
     override fun accept(visitor: ItemVisitor) {

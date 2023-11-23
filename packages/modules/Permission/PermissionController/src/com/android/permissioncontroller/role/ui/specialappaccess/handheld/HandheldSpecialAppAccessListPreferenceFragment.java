@@ -86,8 +86,8 @@ public class HandheldSpecialAppAccessListPreferenceFragment extends PreferenceFr
     public interface Parent {
 
         /**
-         * Callback when changes have been made to the {@link PreferenceScreen} of the parent
-         * {@link PreferenceFragmentCompat}.
+         * Callback when changes have been made to the {@link androidx.preference.PreferenceScreen}
+         * of the parent {@link PreferenceFragmentCompat}.
          */
         void onPreferenceScreenChanged();
     }

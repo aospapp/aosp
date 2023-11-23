@@ -17,25 +17,21 @@
 package com.googlecode.android_scripting.facade;
 
 import static android.net.ConnectivityManager.TYPE_MOBILE;
-import static android.net.NetworkStats.SET_ALL;
-import static android.net.NetworkStatsHistory.FIELD_RX_BYTES;
-import static android.net.NetworkStatsHistory.FIELD_TX_BYTES;
+import static android.net.NetworkStats.UID_ALL;
 import static android.telephony.TelephonyManager.SIM_STATE_READY;
 import static android.text.format.DateUtils.FORMAT_ABBREV_MONTH;
 import static android.text.format.DateUtils.FORMAT_SHOW_DATE;
 import static android.text.format.DateUtils.FORMAT_SHOW_TIME;
 import static android.text.format.DateUtils.FORMAT_SHOW_YEAR;
 
+import android.app.usage.NetworkStats;
+import android.app.usage.NetworkStatsManager;
 import android.content.Context;
 import android.net.ConnectivityManager;
-import android.net.INetworkStatsService;
-import android.net.INetworkStatsSession;
 import android.net.NetworkPolicy;
 import android.net.NetworkPolicyManager;
 import android.net.NetworkStatsHistory;
 import android.net.NetworkTemplate;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.telephony.TelephonyManager;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -51,7 +47,6 @@ public class DataUsageController {
 
     private static final String TAG = "DataUsageController";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-    private static final int FIELDS = FIELD_RX_BYTES | FIELD_TX_BYTES;
     private static final StringBuilder PERIOD_BUILDER = new StringBuilder(50);
     private static final java.util.Formatter PERIOD_FORMATTER = new java.util.Formatter(
             PERIOD_BUILDER, Locale.getDefault());
@@ -59,10 +54,8 @@ public class DataUsageController {
     private final Context mContext;
     private final TelephonyManager mTelephonyManager;
     private final ConnectivityManager mConnectivityManager;
-    private final INetworkStatsService mStatsService;
     private final NetworkPolicyManager mPolicyManager;
 
-    private INetworkStatsSession mSession;
     private Callback mCallback;
     private NetworkNameProvider mNetworkController;
 
@@ -70,26 +63,11 @@ public class DataUsageController {
         mContext = context;
         mTelephonyManager = TelephonyManager.from(context);
         mConnectivityManager = ConnectivityManager.from(context);
-        mStatsService = INetworkStatsService.Stub.asInterface(
-                ServiceManager.getService(Context.NETWORK_STATS_SERVICE));
         mPolicyManager = NetworkPolicyManager.from(mContext);
     }
 
     public void setNetworkController(NetworkNameProvider networkController) {
         mNetworkController = networkController;
-    }
-
-    private INetworkStatsSession getSession() {
-        if (mSession == null) {
-            try {
-                mSession = mStatsService.openSession();
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed to open stats session", e);
-            } catch (RuntimeException e) {
-                Log.w(TAG, "Failed to open stats session", e);
-            }
-        }
-        return mSession;
     }
 
     public void setCallback(Callback callback) {
@@ -144,66 +122,77 @@ public class DataUsageController {
      * @return DataUsageInfo: The data usage information.
      */
     public DataUsageInfo getDataUsageInfo(NetworkTemplate template) {
-        return getDataUsageInfo(template, -1);
+        return getDataUsageInfo(template, UID_ALL);
+    }
+
+    private static long getTotalBytesForUid(NetworkStats stats, int uid) {
+        if (!stats.hasNextBucket()) {
+            return 0;
+        }
+        NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+        long rx = 0;
+        long tx = 0;
+        while (stats.hasNextBucket() && stats.getNextBucket(bucket)) {
+            if (uid != bucket.getUid())  continue;
+            rx += bucket.getRxBytes();
+            tx += bucket.getTxBytes();
+        }
+        return rx + tx;
     }
 
     /**
      * Get data usage info for a given template.
      * @param template A given template.
+     * @param uid UID of app, uid = -1 {@link NetworkStats#UID_ALL} value indicates summarised
+     *        data usage without UID details.
      * @return DataUsageInfo: The data usage information.
      */
-    public DataUsageInfo getDataUsageInfo(NetworkTemplate template, int uId) {
-        final INetworkStatsSession session = getSession();
-        if (session == null) {
-            return warn("no stats session");
-        }
+    public DataUsageInfo getDataUsageInfo(NetworkTemplate template, int uid) {
         final NetworkPolicy policy = findNetworkPolicy(template);
-        try {
-            final NetworkStatsHistory mHistory;
-            if (uId == -1) {
-                mHistory = session.getHistoryForNetwork(template, FIELDS);
-            } else {
-                mHistory = session.getHistoryForUid(template, uId, SET_ALL, 0, FIELDS);
-            }
-            final long now = System.currentTimeMillis();
-            final long start, end;
-            if (policy != null) {
-                final Pair<ZonedDateTime, ZonedDateTime> cycle = NetworkPolicyManager
-                        .cycleIterator(policy).next();
-                start = cycle.first.toInstant().toEpochMilli();
-                end = cycle.second.toInstant().toEpochMilli();
-            } else {
-                // period = last 4 wks
-                end = now;
-                start = now - DateUtils.WEEK_IN_MILLIS * 4;
-            }
-            //final long callStart = System.currentTimeMillis();
-            final NetworkStatsHistory.Entry entry = mHistory.getValues(start, end, now, null);
-            if (entry == null) {
-                return warn("no entry data");
-            }
-            final DataUsageInfo usage = new DataUsageInfo();
-            usage.subscriberId = template.getSubscriberId();
-            usage.startEpochMilli = start;
-            usage.endEpochMilli = end;
-            usage.usageLevel = mHistory.getTotalBytes();
-            usage.period = formatDateRange(start, end);
-            usage.cycleStart = DateUtils.formatDateTime(mContext, start,
-                    FORMAT_SHOW_DATE + FORMAT_SHOW_YEAR + FORMAT_SHOW_TIME);
-            usage.cycleEnd = DateUtils.formatDateTime(mContext, end,
-                    FORMAT_SHOW_DATE + FORMAT_SHOW_YEAR + FORMAT_SHOW_TIME);
-
-            if (policy != null) {
-                usage.limitLevel = policy.limitBytes > 0 ? policy.limitBytes : -1;
-                usage.warningLevel = policy.warningBytes > 0 ? policy.warningBytes : -1;
-            }
-            if (uId != -1) {
-                usage.uId = uId;
-            }
-            return usage;
-        } catch (RemoteException e) {
-            return warn("remote call failed");
+        final long totalBytes;
+        final long now = System.currentTimeMillis();
+        final long start, end;
+        final NetworkStatsManager mNetworkStatsManager =
+                    mContext.getSystemService(NetworkStatsManager.class);
+        if (policy != null) {
+            final Pair<ZonedDateTime, ZonedDateTime> cycle = NetworkPolicyManager
+                    .cycleIterator(policy).next();
+            start = cycle.first.toInstant().toEpochMilli();
+            end = cycle.second.toInstant().toEpochMilli();
+        } else {
+            // period = last 4 wks
+            end = now;
+            start = now - DateUtils.WEEK_IN_MILLIS * 4;
         }
+
+        if (uid == UID_ALL) {
+            final NetworkStats.Bucket ret = mNetworkStatsManager
+                    .querySummaryForDevice(template, start, end);
+            totalBytes = ret.getRxBytes() + ret.getTxBytes();
+        } else {
+            final NetworkStats ret = mNetworkStatsManager.querySummary(template, start, end);
+            totalBytes = getTotalBytesForUid(ret, uid);
+        }
+
+        final DataUsageInfo usage = new DataUsageInfo();
+        usage.subscriberId = template.getSubscriberId();
+        usage.startEpochMilli = start;
+        usage.endEpochMilli = end;
+        usage.usageLevel = totalBytes;
+        usage.period = formatDateRange(start, end);
+        usage.cycleStart = DateUtils.formatDateTime(mContext, start,
+                FORMAT_SHOW_DATE + FORMAT_SHOW_YEAR + FORMAT_SHOW_TIME);
+        usage.cycleEnd = DateUtils.formatDateTime(mContext, end,
+                FORMAT_SHOW_DATE + FORMAT_SHOW_YEAR + FORMAT_SHOW_TIME);
+
+        if (policy != null) {
+            usage.limitLevel = policy.limitBytes > 0 ? policy.limitBytes : -1;
+            usage.warningLevel = policy.warningBytes > 0 ? policy.warningBytes : -1;
+        }
+        if (uid != UID_ALL) {
+            usage.uId = uid;
+        }
+        return usage;
     }
 
     private NetworkPolicy findNetworkPolicy(NetworkTemplate template) {

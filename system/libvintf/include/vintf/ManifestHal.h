@@ -64,6 +64,8 @@ struct ManifestHal : public WithFileName {
     }
 
     inline Arch arch() const { return transportArch.arch; }
+    inline std::optional<std::string> ip() const { return transportArch.ip; }
+    inline std::optional<uint64_t> port() const { return transportArch.port; }
 
     inline const std::string& getName() const { return name; }
 

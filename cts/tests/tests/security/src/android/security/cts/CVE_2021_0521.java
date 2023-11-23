@@ -22,6 +22,7 @@ import android.platform.test.annotations.AsbSecurityTest;
 import android.platform.test.annotations.SecurityTest;
 import android.util.Log;
 import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +35,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeThat;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2021_0521 {
+public class CVE_2021_0521 extends StsExtraBusinessLogicTestCase {
 
     private String TAG = "CVE_2021_0521";
 

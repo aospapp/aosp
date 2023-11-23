@@ -27,8 +27,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.FileLock;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.channels.NonWritableChannelException;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -699,6 +701,69 @@ public class AsynchronousFileChannelTest {
             afc.force(true);
             fail();
         } catch(ClosedChannelException expected) {}
+    }
+
+    static class LockHandler implements CompletionHandler<FileLock, Integer> {
+        public FileLock fileLock;
+        public Throwable exc;
+
+        private final CountDownLatch cdl = new CountDownLatch(1);
+
+        @Override
+        public void completed(FileLock fileLock, Integer attachment) {
+            this.fileLock = fileLock;
+
+            cdl.countDown();
+        }
+
+        @Override
+        public void failed(Throwable exc, Integer attachment) {
+            this.exc = exc;
+        }
+
+        public boolean awaitCompletion() throws InterruptedException {
+            return cdl.await(10, TimeUnit.SECONDS);
+        }
+    }
+
+
+    @Test
+    public void testLock() throws Exception {
+        File temp = createTemporaryFile(256);
+        assertEquals(256, temp.length());
+        AsynchronousFileChannel afc = AsynchronousFileChannel.open(temp.toPath(),
+                StandardOpenOption.WRITE);
+        LockHandler handler = new LockHandler();
+
+        afc.lock(null, handler);
+        assertTrue(handler.awaitCompletion());
+        assertNotNull(handler.fileLock);
+        assertNull(handler.exc);
+        assertTrue(handler.fileLock.isValid());
+        assertFalse(handler.fileLock.isShared());
+
+        AsynchronousFileChannel otherAfc = AsynchronousFileChannel.open(temp.toPath(),
+                StandardOpenOption.WRITE);
+        LockHandler otherHandler = new LockHandler();
+        try {
+            otherAfc.lock(null, otherHandler);
+            fail();
+        } catch (OverlappingFileLockException expected) {
+        }
+
+        handler.fileLock.release();
+
+        otherHandler = new LockHandler();
+        otherAfc.lock(null, otherHandler);
+        assertTrue(otherHandler.awaitCompletion());
+        assertNotNull(otherHandler.fileLock);
+        assertNull(otherHandler.exc);
+        assertTrue(otherHandler.fileLock.isValid());
+
+        otherHandler.fileLock.release();
+
+        afc.close();
+        otherAfc.close();
     }
 
 }

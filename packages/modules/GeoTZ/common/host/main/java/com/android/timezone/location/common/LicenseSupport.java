@@ -32,16 +32,16 @@ public class LicenseSupport {
      * The standard header to be put in files generated from OpenStreetMap data obtained from
      * https://opendatacommons.org/licenses/odbl/ on 2020-08-04.
      */
-    private final static String TEXT_PROTO_ODBL_LICENSE_HEADER = ""
+    private static final String TEXT_PROTO_ODBL_LICENSE_HEADER = ""
             + "# This time zone geo data is made available under the Open Database License:\n"
             + "# http://opendatacommons.org/licenses/odbl/1.0/.\n"
             + "# Any rights in individual contents of the database are licensed under the Database"
             + " Contents License:\n"
             + "# http://opendatacommons.org/licenses/dbcl/1.0/\n"
             + "\n";
-    private final static String ODBL_LICENSE_SNIPPET = "Open Database License (ODbL) v1.0";
+    private static final String ODBL_LICENSE_SNIPPET = "Open Database License (ODbL) v1.0";
 
-    public final static String LICENSE_FILE_NAME = "LICENSE";
+    public static final String LICENSE_FILE_NAME = "LICENSE";
 
     /** Individual licenses. */
     public enum License {

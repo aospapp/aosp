@@ -110,7 +110,7 @@ func TestProviders(t *testing.T) {
 	ctx.RegisterBottomUpMutator("provider_after_mutator", providerTestAfterMutator)
 
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			provider_module {
 				name: "A",
 				deps: ["B"],
@@ -132,7 +132,7 @@ func TestProviders(t *testing.T) {
 		`),
 	})
 
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) == 0 {
 		_, errs = ctx.ResolveDependencies(nil)
 	}
@@ -322,10 +322,10 @@ func TestInvalidProvidersUsage(t *testing.T) {
 			childBP)
 
 		ctx.MockFileSystem(map[string][]byte{
-			"Blueprints": []byte(bp),
+			"Android.bp": []byte(bp),
 		})
 
-		_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+		_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 
 		if len(errs) == 0 {
 			_, errs = ctx.ResolveDependencies(nil)

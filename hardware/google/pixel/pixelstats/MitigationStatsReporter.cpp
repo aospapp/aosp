@@ -122,7 +122,7 @@ void MitigationStatsReporter::logMitigationStatsPerHour(const std::shared_ptr<IS
 
     prev_count = last_count;
     // Send vendor atom to IStats HAL
-    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+    VendorAtom event = {.reverseDomainName = "",
                         .atomId = PixelAtoms::Atom::kMitigationStats,
                         .values = std::move(values)};
     const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);

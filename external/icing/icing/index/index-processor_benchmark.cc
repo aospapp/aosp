@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 #include "icing/document-builder.h"
 #include "icing/file/filesystem.h"
-#include "icing/helpers/icu/icu-data-file-helper.h"
 #include "icing/index/index-processor.h"
 #include "icing/index/index.h"
 #include "icing/legacy/core/icing-string-util.h"
@@ -24,6 +23,7 @@
 #include "icing/schema/schema-util.h"
 #include "icing/schema/section-manager.h"
 #include "icing/testing/common-matchers.h"
+#include "icing/testing/icu-data-file-helper.h"
 #include "icing/testing/test-data.h"
 #include "icing/testing/tmp-directory.h"
 #include "icing/tokenization/language-segmenter-factory.h"
@@ -168,17 +168,6 @@ void CleanUp(const Filesystem& filesystem, const std::string& index_dir) {
   filesystem.DeleteDirectoryRecursively(index_dir.c_str());
 }
 
-std::unique_ptr<IndexProcessor> CreateIndexProcessor(
-    const Normalizer* normalizer, Index* index, const Clock* clock) {
-  IndexProcessor::Options processor_options{};
-  processor_options.max_tokens_per_document = 1024 * 1024 * 10;
-  processor_options.token_limit_behavior =
-      IndexProcessor::Options::TokenLimitBehavior::kReturnError;
-
-  return IndexProcessor::Create(normalizer, index, processor_options, clock)
-      .ValueOrDie();
-}
-
 void BM_IndexDocumentWithOneProperty(benchmark::State& state) {
   bool run_via_adb = absl::GetFlag(FLAGS_adb);
   if (!run_via_adb) {
@@ -200,9 +189,9 @@ void BM_IndexDocumentWithOneProperty(benchmark::State& state) {
   std::unique_ptr<Normalizer> normalizer = CreateNormalizer();
   Clock clock;
   std::unique_ptr<SchemaStore> schema_store = CreateSchemaStore(&clock);
-  std::unique_ptr<IndexProcessor> index_processor =
-      CreateIndexProcessor(normalizer.get(), index.get(), &clock);
-
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<IndexProcessor> index_processor,
+      IndexProcessor::Create(normalizer.get(), index.get(), &clock));
   DocumentProto input_document = CreateDocumentWithOneProperty(state.range(0));
   TokenizedDocument tokenized_document(std::move(
       TokenizedDocument::Create(schema_store.get(), language_segmenter.get(),
@@ -254,8 +243,9 @@ void BM_IndexDocumentWithTenProperties(benchmark::State& state) {
   std::unique_ptr<Normalizer> normalizer = CreateNormalizer();
   Clock clock;
   std::unique_ptr<SchemaStore> schema_store = CreateSchemaStore(&clock);
-  std::unique_ptr<IndexProcessor> index_processor =
-      CreateIndexProcessor(normalizer.get(), index.get(), &clock);
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<IndexProcessor> index_processor,
+      IndexProcessor::Create(normalizer.get(), index.get(), &clock));
 
   DocumentProto input_document =
       CreateDocumentWithTenProperties(state.range(0));
@@ -309,8 +299,9 @@ void BM_IndexDocumentWithDiacriticLetters(benchmark::State& state) {
   std::unique_ptr<Normalizer> normalizer = CreateNormalizer();
   Clock clock;
   std::unique_ptr<SchemaStore> schema_store = CreateSchemaStore(&clock);
-  std::unique_ptr<IndexProcessor> index_processor =
-      CreateIndexProcessor(normalizer.get(), index.get(), &clock);
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<IndexProcessor> index_processor,
+      IndexProcessor::Create(normalizer.get(), index.get(), &clock));
 
   DocumentProto input_document =
       CreateDocumentWithDiacriticLetters(state.range(0));
@@ -364,8 +355,9 @@ void BM_IndexDocumentWithHiragana(benchmark::State& state) {
   std::unique_ptr<Normalizer> normalizer = CreateNormalizer();
   Clock clock;
   std::unique_ptr<SchemaStore> schema_store = CreateSchemaStore(&clock);
-  std::unique_ptr<IndexProcessor> index_processor =
-      CreateIndexProcessor(normalizer.get(), index.get(), &clock);
+  ICING_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<IndexProcessor> index_processor,
+      IndexProcessor::Create(normalizer.get(), index.get(), &clock));
 
   DocumentProto input_document = CreateDocumentWithHiragana(state.range(0));
   TokenizedDocument tokenized_document(std::move(

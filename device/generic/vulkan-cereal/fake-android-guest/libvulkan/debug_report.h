@@ -97,36 +97,40 @@ class DebugReportLogger {
                  const char* layer_prefix,
                  const char* message) const;
 
+#ifdef __clang__
 #define DEBUG_REPORT_LOGGER_PRINTF(fmt, args) \
-    __attribute__((format(printf, (fmt) + 1, (args) + 1)))
+  __attribute__((format(printf, (fmt) + 1, (args) + 1)))
+#else
+#define DEBUG_REPORT_LOGGER_PRINTF(fmt, args)
+#endif
     template <typename ObjectType>
-    void Info(ObjectType object, const char* format, ...) const
+    inline void Info(ObjectType object, const char* format, ...) const
         DEBUG_REPORT_LOGGER_PRINTF(2, 3) {
-        va_list ap;
-        va_start(ap, format);
-        PrintV(VK_DEBUG_REPORT_INFORMATION_BIT_EXT, GetObjectType(object),
-               GetObjectUInt64(object), format, ap);
-        va_end(ap);
+      va_list ap;
+      va_start(ap, format);
+      PrintV(VK_DEBUG_REPORT_INFORMATION_BIT_EXT, GetObjectType(object),
+             GetObjectUInt64(object), format, ap);
+      va_end(ap);
     }
 
     template <typename ObjectType>
-    void Warn(ObjectType object, const char* format, ...) const
+    inline void Warn(ObjectType object, const char* format, ...) const
         DEBUG_REPORT_LOGGER_PRINTF(2, 3) {
-        va_list ap;
-        va_start(ap, format);
-        PrintV(VK_DEBUG_REPORT_WARNING_BIT_EXT, GetObjectType(object),
-               GetObjectUInt64(object), format, ap);
-        va_end(ap);
+      va_list ap;
+      va_start(ap, format);
+      PrintV(VK_DEBUG_REPORT_WARNING_BIT_EXT, GetObjectType(object),
+             GetObjectUInt64(object), format, ap);
+      va_end(ap);
     }
 
     template <typename ObjectType>
-    void Err(ObjectType object, const char* format, ...) const
+    inline void Err(ObjectType object, const char* format, ...) const
         DEBUG_REPORT_LOGGER_PRINTF(2, 3) {
-        va_list ap;
-        va_start(ap, format);
-        PrintV(VK_DEBUG_REPORT_ERROR_BIT_EXT, GetObjectType(object),
-               GetObjectUInt64(object), format, ap);
-        va_end(ap);
+      va_list ap;
+      va_start(ap, format);
+      PrintV(VK_DEBUG_REPORT_ERROR_BIT_EXT, GetObjectType(object),
+             GetObjectUInt64(object), format, ap);
+      va_end(ap);
     }
 
    private:

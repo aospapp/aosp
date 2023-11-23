@@ -29,6 +29,8 @@
 #endif
 #include <sys/stat.h>
 
+#include <string>
+
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/lite_base/macros.h"
 

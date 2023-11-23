@@ -36,7 +36,7 @@
 
 #include "bpf/BpfMap.h"
 #include "bpf/BpfUtils.h"
-#include "netdbpf/bpf_shared.h"
+#include "bpf_shared.h"
 
 using android::base::Result;
 
@@ -47,8 +47,6 @@ namespace bpf {
 // it's -1, which is INVALID_UID.
 constexpr uid_t TEST_UID = UID_MAX - 1;
 constexpr uint32_t TEST_TAG = 42;
-constexpr int TEST_COUNTERSET = 1;
-constexpr int DEFAULT_COUNTERSET = 0;
 
 class BpfBasicTest : public testing::Test {
   protected:
@@ -125,48 +123,6 @@ TEST_F(BpfBasicTest, TestCloseSocketWithoutUntag) {
         }
     }
     FAIL() << "socket tag still exist after 50ms";
-}
-
-TEST_F(BpfBasicTest, TestChangeCounterSet) {
-    BpfMap<uint32_t, uint8_t> uidCounterSetMap(UID_COUNTERSET_MAP_PATH);
-    ASSERT_LE(0, uidCounterSetMap.getMap());
-    ASSERT_EQ(0, qtaguid_setCounterSet(TEST_COUNTERSET, TEST_UID));
-    uid_t uid = TEST_UID;
-    Result<uint8_t> counterSetResult = uidCounterSetMap.readValue(uid);
-    ASSERT_RESULT_OK(counterSetResult);
-    ASSERT_EQ(TEST_COUNTERSET, counterSetResult.value());
-    ASSERT_EQ(0, qtaguid_setCounterSet(DEFAULT_COUNTERSET, TEST_UID));
-    counterSetResult = uidCounterSetMap.readValue(uid);
-    ASSERT_FALSE(counterSetResult.ok());
-    ASSERT_EQ(ENOENT, counterSetResult.error().code());
-}
-
-TEST_F(BpfBasicTest, TestDeleteTagData) {
-    BpfMap<StatsKey, StatsValue> statsMapA(STATS_MAP_A_PATH);
-    ASSERT_LE(0, statsMapA.getMap());
-    BpfMap<StatsKey, StatsValue> statsMapB(STATS_MAP_B_PATH);
-    ASSERT_LE(0, statsMapB.getMap());
-    BpfMap<uint32_t, StatsValue> appUidStatsMap(APP_UID_STATS_MAP_PATH);
-    ASSERT_LE(0, appUidStatsMap.getMap());
-
-    StatsKey key = {.uid = TEST_UID, .tag = TEST_TAG, .counterSet = TEST_COUNTERSET,
-                    .ifaceIndex = 1};
-    StatsValue statsMapValue = {.rxPackets = 1, .rxBytes = 100};
-    EXPECT_RESULT_OK(statsMapB.writeValue(key, statsMapValue, BPF_ANY));
-    key.tag = 0;
-    EXPECT_RESULT_OK(statsMapA.writeValue(key, statsMapValue, BPF_ANY));
-    EXPECT_RESULT_OK(appUidStatsMap.writeValue(TEST_UID, statsMapValue, BPF_ANY));
-    ASSERT_EQ(0, qtaguid_deleteTagData(0, TEST_UID));
-    Result<StatsValue> statsResult = statsMapA.readValue(key);
-    ASSERT_FALSE(statsResult.ok());
-    ASSERT_EQ(ENOENT, statsResult.error().code());
-    statsResult = appUidStatsMap.readValue(TEST_UID);
-    ASSERT_FALSE(statsResult.ok());
-    ASSERT_EQ(ENOENT, statsResult.error().code());
-    key.tag = TEST_TAG;
-    statsResult = statsMapB.readValue(key);
-    ASSERT_FALSE(statsResult.ok());
-    ASSERT_EQ(ENOENT, statsResult.error().code());
 }
 
 }

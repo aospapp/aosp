@@ -24,16 +24,14 @@
 #include <hardware/hwcomposer_defs.h>
 #include <drm/samsung_drm.h>
 
-void set_hwc_dpp_size_range(hwc_dpp_size_range &hwc_dpp_range, dpp_size_range &dpp_range)
-{
+void set_hwc_dpp_size_range(hwc_dpp_size_range &hwc_dpp_range, dpp_size_range &dpp_range) {
     hwc_dpp_range.min = dpp_range.min;
     hwc_dpp_range.max = dpp_range.max;
     hwc_dpp_range.align = dpp_range.align;
 }
 
 static void set_dpp_ch_restriction(struct hwc_dpp_ch_restriction &hwc_dpp_restriction,
-        struct dpp_ch_restriction &drm_restriction)
-{
+                                   struct dpp_ch_restriction &drm_restriction) {
     hwc_dpp_restriction.id = drm_restriction.id;
     hwc_dpp_restriction.attr = drm_restriction.attr;
     set_hwc_dpp_size_range(hwc_dpp_restriction.restriction.src_f_w, drm_restriction.restriction.src_f_w);
@@ -65,19 +63,22 @@ static void set_dpp_ch_restriction(struct hwc_dpp_ch_restriction &hwc_dpp_restri
 
 using namespace SOC_VERSION;
 
-ExynosDeviceDrmInterface::ExynosDeviceDrmInterface(ExynosDevice *exynosDevice)
-{
+ExynosDeviceDrmInterface::ExynosDeviceDrmInterface(ExynosDevice *exynosDevice) {
     mType = INTERFACE_TYPE_DRM;
 }
 
-ExynosDeviceDrmInterface::~ExynosDeviceDrmInterface()
-{
-    mDrmDevice->event_listener()->UnRegisterHotplugHandler(static_cast<DrmEventHandler *>(&mExynosDrmEventHandler));
-    mDrmDevice->event_listener()->UnRegisterTUIHandler(static_cast<DrmTUIEventHandler *>(&mExynosDrmEventHandler));
+ExynosDeviceDrmInterface::~ExynosDeviceDrmInterface() {
+    mDrmDevice->event_listener()->UnRegisterHotplugHandler(
+            static_cast<DrmEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->UnRegisterHistogramHandler(
+            static_cast<DrmHistogramEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->UnRegisterTUIHandler(
+            static_cast<DrmTUIEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->UnRegisterPanelIdleHandler(
+            static_cast<DrmPanelIdleEventHandler *>(&mExynosDrmEventHandler));
 }
 
-void ExynosDeviceDrmInterface::init(ExynosDevice *exynosDevice)
-{
+void ExynosDeviceDrmInterface::init(ExynosDevice *exynosDevice) {
     mUseQuery = false;
     mExynosDevice = exynosDevice;
     mDrmResourceManager.Init();
@@ -87,8 +88,14 @@ void ExynosDeviceDrmInterface::init(ExynosDevice *exynosDevice)
     updateRestrictions();
 
     mExynosDrmEventHandler.init(mExynosDevice, mDrmDevice);
-    mDrmDevice->event_listener()->RegisterHotplugHandler(static_cast<DrmEventHandler *>(&mExynosDrmEventHandler));
-    mDrmDevice->event_listener()->RegisterTUIHandler(static_cast<DrmTUIEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->RegisterHotplugHandler(
+            static_cast<DrmEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->RegisterHistogramHandler(
+            static_cast<DrmHistogramEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->RegisterTUIHandler(
+            static_cast<DrmTUIEventHandler *>(&mExynosDrmEventHandler));
+    mDrmDevice->event_listener()->RegisterPanelIdleHandler(
+            static_cast<DrmPanelIdleEventHandler *>(&mExynosDrmEventHandler));
 
     if (mDrmDevice->event_listener()->IsDrmInTUI()) {
         mExynosDevice->enterToTUI();
@@ -97,27 +104,27 @@ void ExynosDeviceDrmInterface::init(ExynosDevice *exynosDevice)
 }
 
 int32_t ExynosDeviceDrmInterface::initDisplayInterface(
-         std::unique_ptr<ExynosDisplayInterface> &dispInterface)
-{
+        std::unique_ptr<ExynosDisplayInterface> &dispInterface) {
     ExynosDisplayDrmInterface *displayInterface =
         static_cast<ExynosDisplayDrmInterface*>(dispInterface.get());
     return displayInterface->initDrmDevice(mDrmDevice);
 }
 
-void ExynosDeviceDrmInterface::updateRestrictions()
-{
+void ExynosDeviceDrmInterface::updateRestrictions() {
     int32_t ret = 0;
-
-    mDPUInfo.dpuInfo.dpp_chs.resize(mDrmDevice->planes().size());
     uint32_t channelId = 0;
 
     for (auto &plane : mDrmDevice->planes()) {
+        struct hwc_dpp_ch_restriction hwc_res;
+
         /* Set size restriction information */
         if (plane->hw_restrictions_property().id()) {
             uint64_t blobId;
+
             std::tie(ret, blobId) = plane->hw_restrictions_property().value();
             if (ret)
                 break;
+
             struct dpp_ch_restriction *res;
             drmModePropertyBlobPtr blob = drmModeGetPropertyBlob(mDrmDevice->fd(), blobId);
             if (!blob) {
@@ -126,13 +133,14 @@ void ExynosDeviceDrmInterface::updateRestrictions()
                 break;
             }
             res = (struct dpp_ch_restriction *)blob->data;
-            set_dpp_ch_restriction(mDPUInfo.dpuInfo.dpp_chs[channelId], *res);
+            set_dpp_ch_restriction(hwc_res, *res);
             drmModeFreePropertyBlob(blob);
         } else {
             ALOGI("plane[%d] There is no hw restriction information", channelId);
             ret = HWC2_ERROR_UNSUPPORTED;
             break;
         }
+
         /* Set supported format information */
         for (auto format : plane->formats()) {
             std::vector<uint32_t> halFormats;
@@ -141,11 +149,17 @@ void ExynosDeviceDrmInterface::updateRestrictions()
                 continue;
             }
             for (auto halFormat : halFormats) {
-                mDPUInfo.dpuInfo.dpp_chs[channelId].restriction.formats.push_back(halFormat);
+                hwc_res.restriction.formats.push_back(halFormat);
             }
         }
-        if (hwcCheckDebugMessages(eDebugAttrSetting))
-            printDppRestriction(mDPUInfo.dpuInfo.dpp_chs[channelId]);
+
+        if (hwcCheckDebugMessages(eDebugDefault))
+            printDppRestriction(hwc_res);
+
+        if (plane->isFormatSupported(DRM_FORMAT_C8) && plane->getNumFormatSupported() == 1)
+            mDPUInfo.dpuInfo.spp_chs.push_back(hwc_res);
+        else
+            mDPUInfo.dpuInfo.dpp_chs.push_back(hwc_res);
 
         channelId++;
     }
@@ -196,32 +210,23 @@ void ExynosDeviceDrmInterface::updateRestrictions()
     }
 }
 
-void ExynosDeviceDrmInterface::ExynosDrmEventHandler::init(ExynosDevice *exynosDevice, DrmDevice *drmDevice)
-{
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::init(ExynosDevice *exynosDevice,
+                                                           DrmDevice *drmDevice) {
     mExynosDevice = exynosDevice;
     mDrmDevice = drmDevice;
 }
 
-void ExynosDeviceDrmInterface::ExynosDrmEventHandler::HandleEvent(uint64_t timestamp_us)
-{
-    hwc2_callback_data_t callbackData =
-        mExynosDevice->mCallbackInfos[HWC2_CALLBACK_HOTPLUG].callbackData;
-    HWC2_PFN_HOTPLUG callbackFunc =
-        (HWC2_PFN_HOTPLUG)mExynosDevice->mCallbackInfos[HWC2_CALLBACK_HOTPLUG].funcPointer;
-
-    if (callbackData == NULL || callbackFunc == NULL)
-    {
-        ALOGE("%s:: callback info is NULL", __func__);
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleEvent(uint64_t timestamp_us) {
+    if (!mExynosDevice->isCallbackAvailable(HWC2_CALLBACK_HOTPLUG)) {
         return;
     }
 
     for (auto it : mExynosDevice->mDisplays) {
         /* Call UpdateModes to get plug status */
         uint32_t numConfigs;
-        it->getDisplayConfigs(&numConfigs, NULL);
 
-        callbackFunc(callbackData, getDisplayId(it->mType, it->mIndex),
-                it->mPlugState ? HWC2_CONNECTION_CONNECTED : HWC2_CONNECTION_DISCONNECTED);
+        it->getDisplayConfigs(&numConfigs, NULL);
+        mExynosDevice->onHotPlug(getDisplayId(it->mType, it->mIndex), it->mPlugState);
     }
 
     /* TODO: Check plug status hear or ExynosExternalDisplay::handleHotplugEvent() */
@@ -231,8 +236,16 @@ void ExynosDeviceDrmInterface::ExynosDrmEventHandler::HandleEvent(uint64_t times
         display->handleHotplugEvent();
 }
 
-void ExynosDeviceDrmInterface::ExynosDrmEventHandler::HandleTUIEvent()
-{
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleHistogramEvent(void *bin) {
+    ExynosDisplay *primaryDisplay = mExynosDevice->getDisplay(HWC_DISPLAY_PRIMARY);
+    if (primaryDisplay != NULL) {
+        ExynosDisplayDrmInterface *displayInterface =
+                static_cast<ExynosDisplayDrmInterface *>(primaryDisplay->mDisplayInterface.get());
+        displayInterface->setHistogramData(bin);
+    }
+}
+
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleTUIEvent() {
     if (mDrmDevice->event_listener()->IsDrmInTUI()) {
         /* Received TUI Enter event */
         if (!mExynosDevice->isInTUI()) {
@@ -242,9 +255,53 @@ void ExynosDeviceDrmInterface::ExynosDrmEventHandler::HandleTUIEvent()
     } else {
         /* Received TUI Exit event */
         if (mExynosDevice->isInTUI()) {
-            mExynosDevice->invalidate();
+            mExynosDevice->onRefresh();
             mExynosDevice->exitFromTUI();
             ALOGV("%s:: DRM device out TUI", __func__);
         }
+    }
+}
+
+constexpr size_t IDLE_ENTER_EVENT_DATA_SIZE = 3;
+void ExynosDeviceDrmInterface::ExynosDrmEventHandler::handleIdleEnterEvent(char const *event) {
+    /* PANEL_IDLE_ENTER=<display index>,<vrefresh>,<idle te vrefresh> */
+    std::string_view idle_event_str(event);
+    auto prefix_shift_pos = idle_event_str.find("=");
+    if (prefix_shift_pos == std::string::npos) {
+        ALOGE("%s: idle enter event format is incorrect", __func__);
+    }
+
+    int count = 0;
+    int value[IDLE_ENTER_EVENT_DATA_SIZE] = {0};
+    const auto &[displayIndex, vrefresh, idleTeVrefresh] = value;
+
+    auto start_pos = prefix_shift_pos + 1;
+    auto end_pos = idle_event_str.find(",", start_pos);
+    while (end_pos != std::string::npos && count < IDLE_ENTER_EVENT_DATA_SIZE) {
+        auto info = idle_event_str.substr(start_pos, end_pos - start_pos);
+
+        value[count++] = atoi(info.data());
+        start_pos = end_pos + 1;
+        end_pos = idle_event_str.find(",", start_pos);
+        if (end_pos == std::string::npos) {
+            info = idle_event_str.substr(start_pos, idle_event_str.size() - start_pos);
+            value[count++] = atoi(info.data());
+        }
+    }
+
+    if (count != IDLE_ENTER_EVENT_DATA_SIZE) {
+        ALOGE("%s: idle enter event is incomplete", __func__);
+        return;
+    }
+
+    ExynosDisplay *primaryDisplay =
+            mExynosDevice->getDisplay(getDisplayId(HWC_DISPLAY_PRIMARY, displayIndex));
+    if (primaryDisplay) {
+        /* sending vsyncIdle callback */
+        if (vrefresh != idleTeVrefresh) {
+            mExynosDevice->onVsyncIdle(primaryDisplay->getId());
+        }
+
+        primaryDisplay->handleDisplayIdleEnter(idleTeVrefresh);
     }
 }

@@ -157,6 +157,68 @@
         <map code="0x0079" name="1em" /> <!-- y -->
         <map code="0x007A" name="1em" /> <!-- z -->
 
+        <map code="0X00ED" name="1em" /> <!-- á -->
+        <map code="0X00ED" name="1em" /> <!-- í -->
+
+        <map code="0X00F6" name="1em" /> <!-- ö -->
+
+        <map code="0X0101" name="1em" /> <!-- ā -->
+
+        <map code="0X016B" name="1em" /> <!-- ū -->
+
+        <map code="0X03B1" name="1em" /> <!-- α -->
+        <map code="0X03B3" name="1em" /> <!-- γ -->
+        <map code="0X03B5" name="1em" /> <!-- ε -->
+        <map code="0X03B6" name="1em" /> <!-- ζ -->
+        <map code="0X03BC" name="1em" /> <!-- μ -->
+        <map code="0X03BD" name="1em" /> <!-- ν -->
+        <map code="0X03BF" name="1em" /> <!-- ο -->
+        <map code="0X03C1" name="1em" /> <!-- ρ -->
+        <map code="0X03C2" name="1em" /> <!-- ς -->
+        <map code="0X03C5" name="1em" /> <!-- υ -->
+        <map code="0X03CC" name="1em" /> <!-- ό -->
+
+        <map code="0X0432" name="1em" /> <!-- в -->
+        <map code="0X043A" name="1em" /> <!-- к -->
+        <map code="0X043C" name="1em" /> <!-- м -->
+        <map code="0X043D" name="1em" /> <!-- п -->
+        <map code="0X0440" name="1em" /> <!-- р -->
+        <map code="0X043D" name="1em" /> <!-- н -->
+        <map code="0X0442" name="1em" /> <!-- т -->
+        <map code="0X044C" name="1em" /> <!-- ь -->
+        <map code="0X0456" name="1em" /> <!-- і -->
+
+        <map code="0X0423" name="1em" /> <!-- У -->
+        <map code="0X0432" name="1em" /> <!-- в -->
+        <map code="0X0435" name="1em" /> <!-- е -->
+        <map code="0X0437" name="1em" /> <!-- з -->
+        <map code="0X043A" name="1em" /> <!-- к -->
+        <map code="0X043C" name="1em" /> <!-- м -->
+        <map code="0X043D" name="1em" /> <!-- н -->
+        <map code="0X043E" name="1em" /> <!-- о -->
+        <map code="0X0441" name="1em" /> <!-- с -->
+        <map code="0X0442" name="1em" /> <!-- т -->
+        <map code="0X044C" name="1em" /> <!-- ь -->
+        <map code="0X0456" name="1em" /> <!-- і -->
+
+        <map code="0X10D0" name="1em" /> <!-- ა -->
+        <map code="0X10D7" name="1em" /> <!-- თ -->
+        <map code="0X10D8" name="1em" /> <!-- ი -->
+        <map code="0X10DB" name="1em" /> <!-- მ -->
+        <map code="0X10DC" name="1em" /> <!-- ნ -->
+        <map code="0X10DD" name="1em" /> <!-- ო -->
+        <map code="0X10E0" name="1em" /> <!-- რ -->
+        <map code="0X10E4" name="1em" /> <!-- ფ -->
+        <map code="0X10EA" name="1em" /> <!-- ც -->
+
+        <map code="0x1218" name="1em" /> <!-- መ -->
+        <map code="0x1260" name="1em" /> <!-- በ -->
+        <map code="0x1278" name="1em" /> <!-- ቸ -->
+        <map code="0x1295" name="1em" /> <!-- ን -->
+        <map code="0x12CD" name="1em" /> <!-- ው -->
+        <map code="0x12DB" name="1em" /> <!-- ዛ -->
+        <map code="0x130B" name="1em" /> <!-- ጋ -->
+
         <map code="0x2010" name="2em" /> <!-- HYPHEN -->
         <map code="0x058A" name="3em" /> <!-- ARMENIAN HYPHEN -->
         <map code="0x05BE" name="4em" /> <!-- MAQAF -->

@@ -27,10 +27,10 @@ namespace stats_log_api_gen {
 
 int write_stats_log_cpp(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
                         const string& cppNamespace, const string& importHeader,
-                        const int minApiLevel);
+                        const int minApiLevel, bool bootstrap);
 
 int write_stats_log_header(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
-                           const string& cppNamespace, const int minApiLevel);
+                           const string& cppNamespace, const int minApiLevel, bool bootstrap);
 
 }  // namespace stats_log_api_gen
 }  // namespace android

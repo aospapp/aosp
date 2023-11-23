@@ -45,6 +45,8 @@
 #include <android-base/parsenetaddress.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <diagnose_usb.h>
+
 #include <build/version.h>
 #include <platform_tools_version.h>
 
@@ -108,8 +110,36 @@ uint32_t calculate_apacket_checksum(const apacket* p) {
     return sum;
 }
 
-apacket* get_apacket(void)
-{
+std::string to_string(ConnectionState state) {
+    switch (state) {
+        case kCsOffline:
+            return "offline";
+        case kCsBootloader:
+            return "bootloader";
+        case kCsDevice:
+            return "device";
+        case kCsHost:
+            return "host";
+        case kCsRecovery:
+            return "recovery";
+        case kCsRescue:
+            return "rescue";
+        case kCsNoPerm:
+            return UsbNoPermissionsShortHelpText();
+        case kCsSideload:
+            return "sideload";
+        case kCsUnauthorized:
+            return "unauthorized";
+        case kCsAuthorizing:
+            return "authorizing";
+        case kCsConnecting:
+            return "connecting";
+        default:
+            return "unknown";
+    }
+}
+
+apacket* get_apacket(void) {
     apacket* p = new apacket();
     if (p == nullptr) {
         LOG(FATAL) << "failed to allocate an apacket";
@@ -696,7 +726,7 @@ static void ReportServerStartupFailure(pid_t pid) {
     while (static_cast<size_t>(i) < lines.size()) fprintf(stderr, "%s\n", lines[i++].c_str());
 }
 
-int launch_server(const std::string& socket_spec) {
+int launch_server(const std::string& socket_spec, const char* one_device) {
 #if defined(_WIN32)
     /* we need to start the server in the background                    */
     /* we create a PIPE that will be used to wait for the server's "OK" */
@@ -798,8 +828,14 @@ int launch_server(const std::string& socket_spec) {
     }
 
     WCHAR   args[64];
-    snwprintf(args, arraysize(args), L"adb -L %s fork-server server --reply-fd %d",
-              socket_spec.c_str(), ack_write_as_int);
+    if (one_device) {
+        snwprintf(args, arraysize(args),
+                  L"adb -L %s fork-server server --reply-fd %d --one-device %s",
+                  socket_spec.c_str(), ack_write_as_int, one_device);
+    } else {
+        snwprintf(args, arraysize(args), L"adb -L %s fork-server server --reply-fd %d",
+                  socket_spec.c_str(), ack_write_as_int);
+    }
 
     PROCESS_INFORMATION   pinfo;
     ZeroMemory(&pinfo, sizeof(pinfo));
@@ -948,8 +984,14 @@ int launch_server(const std::string& socket_spec) {
         char reply_fd[30];
         snprintf(reply_fd, sizeof(reply_fd), "%d", pipe_write.get());
         // child process
-        int result = execl(path.c_str(), "adb", "-L", socket_spec.c_str(), "fork-server", "server",
-                           "--reply-fd", reply_fd, NULL);
+        std::vector<const char*> child_argv = {
+                "adb", "-L", socket_spec.c_str(), "fork-server", "server", "--reply-fd", reply_fd};
+        if (one_device) {
+            child_argv.push_back("--one-device");
+            child_argv.push_back(one_device);
+        }
+        child_argv.push_back(nullptr);
+        int result = execv(path.c_str(), const_cast<char* const*>(child_argv.data()));
         // this should not return
         fprintf(stderr, "adb: execl returned %d: %s\n", result, strerror(errno));
     } else {
@@ -1326,7 +1368,7 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
                 s->transport ? s->transport
                              : acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
-            SendOkay(reply_fd, t->connection_state_name());
+            SendOkay(reply_fd, to_string(t->GetConnectionState()));
         } else {
             SendFail(reply_fd, error);
         }
@@ -1353,10 +1395,56 @@ HostRequestResult handle_host_request(std::string_view service, TransportType ty
                                                              &response, true);
         if (t != nullptr) {
             kick_transport(t, true);
-            response =
-                    "reconnecting " + t->serial_name() + " [" + t->connection_state_name() + "]\n";
+            response = "reconnecting " + t->serial_name() + " [" +
+                       to_string(t->GetConnectionState()) + "]\n";
         }
         SendOkay(reply_fd, response);
+        return HostRequestResult::Handled;
+    }
+
+    if (service == "attach") {
+        std::string error;
+        atransport* t = s->transport ? s->transport
+                                     : acquire_one_transport(type, serial, transport_id, nullptr,
+                                                             &error, true);
+        if (!t) {
+            SendFail(reply_fd, error);
+            return HostRequestResult::Handled;
+        }
+
+        if (t->Attach(&error)) {
+            SendOkay(reply_fd,
+                     android::base::StringPrintf("%s attached", t->serial_name().c_str()));
+        } else {
+            SendFail(reply_fd, error);
+        }
+        return HostRequestResult::Handled;
+    }
+
+    if (service == "detach") {
+        std::string error;
+        atransport* t = s->transport ? s->transport
+                                     : acquire_one_transport(type, serial, transport_id, nullptr,
+                                                             &error, true);
+        if (!t) {
+            SendFail(reply_fd, error);
+            return HostRequestResult::Handled;
+        }
+
+        // HACK:
+        // Detaching the transport will lead to all of its sockets being closed,
+        // but we're handling one of those sockets right now!
+        //
+        // Mark the socket as not having a transport, knowing that it'll be cleaned up by the
+        // function that called us.
+        s->transport = nullptr;
+
+        if (t->Detach(&error)) {
+            SendOkay(reply_fd,
+                     android::base::StringPrintf("%s detached", t->serial_name().c_str()));
+        } else {
+            SendFail(reply_fd, error);
+        }
         return HostRequestResult::Handled;
     }
 

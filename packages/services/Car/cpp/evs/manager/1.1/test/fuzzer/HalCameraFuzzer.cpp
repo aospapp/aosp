@@ -22,11 +22,7 @@
 #include "HalCamera.h"
 #include "MockHWCamera.h"
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+namespace android::automotive::evs::V1_1::implementation {
 
 namespace {
 
@@ -201,7 +197,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                             uint32_t>(0, static_cast<uint32_t>(CameraParam::ABSOLUTE_ZOOM));
                     int32_t value = fdp.ConsumeIntegral<int32_t>();
                     halCamera->setParameter(virtualCameras[whichCam],
-                                            static_cast<CameraParam>(whichParam), value);
+                                            static_cast<CameraParam>(whichParam), &value);
                 }
                 break;
             }
@@ -212,7 +208,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                                                              static_cast<uint32_t>(
                                                                      CameraParam::ABSOLUTE_ZOOM));
                 int32_t value = fdp.ConsumeIntegral<int32_t>();
-                halCamera->getParameter(static_cast<CameraParam>(whichParam), value);
+                halCamera->getParameter(static_cast<CameraParam>(whichParam), &value);
                 break;
             }
             case EVS_FUZZ_GET_STATS: {
@@ -267,8 +263,4 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 }
 
 }  // namespace
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation

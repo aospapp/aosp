@@ -27,7 +27,6 @@
 #include <utils/CallStack.h>
 #include <utils/Log.h>
 #include <utils/SystemClock.h>
-#include <utils/threads.h>
 
 #include <atomic>
 #include <errno.h>
@@ -352,11 +351,6 @@ bool IPCThreadState::backgroundSchedulingDisabled()
     return gDisableBackgroundScheduling.load(std::memory_order_relaxed);
 }
 
-sp<ProcessState> IPCThreadState::process()
-{
-    return mProcess;
-}
-
 status_t IPCThreadState::clearLastError()
 {
     const status_t err = mLastError;
@@ -366,17 +360,44 @@ status_t IPCThreadState::clearLastError()
 
 pid_t IPCThreadState::getCallingPid() const
 {
+    checkContextIsBinderForUse(__func__);
     return mCallingPid;
 }
 
 const char* IPCThreadState::getCallingSid() const
 {
+    checkContextIsBinderForUse(__func__);
     return mCallingSid;
 }
 
 uid_t IPCThreadState::getCallingUid() const
 {
+    checkContextIsBinderForUse(__func__);
     return mCallingUid;
+}
+
+const IPCThreadState::SpGuard* IPCThreadState::pushGetCallingSpGuard(const SpGuard* guard) {
+    const SpGuard* orig = mServingStackPointerGuard;
+    mServingStackPointerGuard = guard;
+    return orig;
+}
+
+void IPCThreadState::restoreGetCallingSpGuard(const SpGuard* guard) {
+    mServingStackPointerGuard = guard;
+}
+
+void IPCThreadState::checkContextIsBinderForUse(const char* use) const {
+    if (LIKELY(mServingStackPointerGuard == nullptr)) return;
+
+    if (!mServingStackPointer || mServingStackPointerGuard->address < mServingStackPointer) {
+        LOG_ALWAYS_FATAL("In context %s, %s does not make sense (binder sp: %p, guard: %p).",
+                         mServingStackPointerGuard->context, use, mServingStackPointer,
+                         mServingStackPointerGuard->address);
+    }
+
+    // in the case mServingStackPointer is deeper in the stack than the guard,
+    // we must be serving a binder transaction (maybe nested). This is a binder
+    // context, so we don't abort
 }
 
 int64_t IPCThreadState::clearCallingIdentity()
@@ -845,6 +866,7 @@ status_t IPCThreadState::clearDeathNotification(int32_t handle, BpBinder* proxy)
 IPCThreadState::IPCThreadState()
       : mProcess(ProcessState::self()),
         mServingStackPointer(nullptr),
+        mServingStackPointerGuard(nullptr),
         mWorkSource(kUnsetWorkSource),
         mPropagateWorkSource(false),
         mIsLooper(false),
@@ -1176,7 +1198,8 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
 
     case BR_DECREFS:
         refs = (RefBase::weakref_type*)mIn.readPointer();
-        obj = (BBinder*)mIn.readPointer();
+        // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
+        obj = (BBinder*)mIn.readPointer(); // consume
         // NOTE: This assertion is not valid, because the object may no
         // longer exist (thus the (BBinder*)cast above resulting in a different
         // memory address).
@@ -1226,7 +1249,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 tr.offsets_size/sizeof(binder_size_t), freeBuffer);
 
             const void* origServingStackPointer = mServingStackPointer;
-            mServingStackPointer = &origServingStackPointer; // anything on the stack
+            mServingStackPointer = __builtin_frame_address(0);
 
             const pid_t origPid = mCallingPid;
             const char* origSid = mCallingSid;
@@ -1382,28 +1405,11 @@ void IPCThreadState::threadDestructor(void *st)
         }
 }
 
-status_t IPCThreadState::getProcessFreezeInfo(pid_t pid, bool *sync_received, bool *async_received)
-{
-    int ret = 0;
-    binder_frozen_status_info info;
-    info.pid = pid;
-
-#if defined(__ANDROID__)
-    if (ioctl(self()->mProcess->mDriverFD, BINDER_GET_FROZEN_INFO, &info) < 0)
-        ret = -errno;
-#endif
-    *sync_received = info.sync_recv;
-    *async_received = info.async_recv;
-
-    return ret;
-}
-
-#ifndef __ANDROID_VNDK__
 status_t IPCThreadState::getProcessFreezeInfo(pid_t pid, uint32_t *sync_received,
                                               uint32_t *async_received)
 {
     int ret = 0;
-    binder_frozen_status_info info;
+    binder_frozen_status_info info = {};
     info.pid = pid;
 
 #if defined(__ANDROID__)
@@ -1415,7 +1421,6 @@ status_t IPCThreadState::getProcessFreezeInfo(pid_t pid, uint32_t *sync_received
 
     return ret;
 }
-#endif
 
 status_t IPCThreadState::freeze(pid_t pid, bool enable, uint32_t timeout_ms) {
     struct binder_freeze_info info;

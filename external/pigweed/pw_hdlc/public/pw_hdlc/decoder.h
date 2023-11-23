@@ -19,7 +19,7 @@
 #include <cstring>
 #include <functional>  // std::invoke
 
-#include "pw_assert/light.h"
+#include "pw_assert/assert.h"
 #include "pw_bytes/span.h"
 #include "pw_checksum/crc32.h"
 #include "pw_result/result.h"
@@ -93,7 +93,7 @@ class Decoder {
   //     DATA_LOSS - A frame completed, but it was invalid. The frame was
   //         incomplete or the frame check sequence verification failed.
   //
-  Result<Frame> Process(std::byte b);
+  Result<Frame> Process(std::byte new_byte);
 
   // Processes a span of data and calls the provided callback with each frame or
   // error.

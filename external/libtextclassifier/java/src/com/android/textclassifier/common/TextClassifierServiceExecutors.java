@@ -41,6 +41,21 @@ public final class TextClassifierServiceExecutors {
     return LowPriorityExecutorHolder.lowPriorityExecutor;
   }
 
+  /**
+   * Returns a single-thread executor with min priority. Used for downloader background processing.
+   */
+  public static ListeningExecutorService getDownloaderExecutor() {
+    return DownloaderExecutorHolder.downloaderExecutor;
+  }
+
+  /**
+   * Returns a single-thread executor with min priority for network IO ops. Currently only used by
+   * model downloader service.
+   */
+  public static ListeningExecutorService getNetworkIOExecutor() {
+    return NetworkIOExecutorHolder.networkIOExecutor;
+  }
+
   private static class NormPriorityExecutorHolder {
     static final ListeningExecutorService normPriorityExecutor =
         init("tcs-norm-prio-executor-%d", Thread.NORM_PRIORITY, /* corePoolSize= */ 2);
@@ -49,6 +64,16 @@ public final class TextClassifierServiceExecutors {
   private static class LowPriorityExecutorHolder {
     static final ListeningExecutorService lowPriorityExecutor =
         init("tcs-low-prio-executor-%d", Thread.NORM_PRIORITY - 1, /* corePoolSize= */ 1);
+  }
+
+  private static class DownloaderExecutorHolder {
+    static final ListeningExecutorService downloaderExecutor =
+        init("tcs-download-executor-%d", Thread.MIN_PRIORITY, /* corePoolSize= */ 1);
+  }
+
+  private static class NetworkIOExecutorHolder {
+    static final ListeningExecutorService networkIOExecutor =
+        init("tcs-network-io-executor-%d", Thread.MIN_PRIORITY, /* corePoolSize= */ 1);
   }
 
   private static ListeningExecutorService init(String nameFormat, int priority, int corePoolSize) {

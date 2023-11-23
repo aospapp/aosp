@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <LegacyUtils.h>
+#include <android-base/logging.h>
 #include <nnapi/TypeUtils.h>
 #include <src/libfuzzer/libfuzzer_macro.h>
 
@@ -34,19 +34,34 @@ using ::android::nn::OperandType;
 using ::android::nn::fuzz::convertToTestModel;
 using ::test_helper::TestModel;
 using ::test_helper::TestOperand;
+using ::test_helper::TestSubgraph;
 
 bool operandOverflows(const TestOperand& operand) {
     const auto operandType = static_cast<OperandType>(operand.type);
-    return getNonExtensionSize(operandType, operand.dimensions).has_value();
+    return !getNonExtensionSize(operandType, operand.dimensions).has_value();
+}
+
+bool hasOperandThatOverflows(const TestSubgraph& subgraph) {
+    return std::any_of(subgraph.operands.begin(), subgraph.operands.end(), operandOverflows);
 }
 
 bool shouldSkip(const TestModel& model) {
-    return std::any_of(model.main.operands.begin(), model.main.operands.end(), operandOverflows);
+    return hasOperandThatOverflows(model.main) ||
+           std::any_of(model.referenced.begin(), model.referenced.end(), hasOperandThatOverflows);
+}
+
+void limitLoggingToCrashes() {
+    [[maybe_unused]] static const auto oldSeverity = ::android::base::SetMinimumLogSeverity(
+            ::android::base::LogSeverity::FATAL_WITHOUT_ABORT);
 }
 
 }  // namespace
 
-DEFINE_PROTO_FUZZER(const ::android_nn_fuzz::Test& model) {
+DEFINE_PROTO_FUZZER(const ::android::nn::fuzz::Test& model) {
+    // Limit NNAPI fuzz test logging to crashes (which is what the test cares about) to reduce the
+    // noise and potentially speed up testing.
+    limitLoggingToCrashes();
+
     const TestModel testModel = convertToTestModel(model);
     if (!shouldSkip(testModel)) {
         nnapiFuzzTest(testModel);

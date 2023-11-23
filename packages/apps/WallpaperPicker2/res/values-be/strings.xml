@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Задаць у якасці шпалер"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Галоўны экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Экран блакіроўкі"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Галоўны экран і экран блакіроўкі"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Галоўны экран і экран блакіроўкі"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Рэгулярная змена шпалер"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Каб паглядзець бягучыя шпалеры тут, дайце праграме \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" доступ да сховішча прылады."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Каб паглядзець бягучыя шпалеры тут, дайце праграме \"Шпалеры\" доступ да сховішча прылады.\n\nЗакрыць доступ можна, перайшоўшы ў \"Налады &gt; Праграмы &gt; Шпалеры &gt; Дазволы\"."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Перадпрагляд"</string>
     <string name="tab_info" msgid="818614080690111416">"Інфармацыя"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Наладка"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Эфекты"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Мае фатаграфіі"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Налады…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Выдаліць"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Выдаліць гэтыя шпалеры з тэлефона?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Шпалеры"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Перадпрагляд шпалер"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Калекцыя не існуе"</string>
+    <string name="cancel" msgid="4970902691067201584">"Скасаваць"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Схаваць перадпрагляд UI"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Інтэрфейс схаваны. Двойчы націсніце, каб убачыць"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Паказаць перадпрагляд UI"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Панэль наладкі бачная"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Панэль інфармацыі схавана"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Панэль інфармацыі бачная"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Уключыце файлы і мультымедыя ў наладах."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Уключыць"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Адкрыць \"Мае фота\""</string>
 </resources>

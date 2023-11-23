@@ -58,6 +58,8 @@ public interface ResourceConstants {
      * Overlay Categories that theme picker handles.
      */
     String OVERLAY_CATEGORY_COLOR = "android.theme.customization.accent_color";
+    String OVERLAY_CATEGORY_SYSTEM_PALETTE = "android.theme.customization.system_palette";
+    String OVERLAY_CATEGORY_THEME_STYLE = "android.theme.customization.theme_style";
     String OVERLAY_CATEGORY_FONT = "android.theme.customization.font";
     String OVERLAY_CATEGORY_SHAPE = "android.theme.customization.adaptive_icon_shape";
     String OVERLAY_CATEGORY_ICON_ANDROID = "android.theme.customization.icon_pack.android";
@@ -87,6 +89,14 @@ public interface ResourceConstants {
             "ic_signal_cellular_3_4_bar",
             "ic_battery_80_24dp"
     };
+
+    /**
+     * Color bundle strings used to reference system resources.
+     */
+    String COLOR_BUNDLES_ARRAY_NAME = "color_bundles";
+    String COLOR_BUNDLE_NAME_PREFIX = "bundle_name_";
+    String COLOR_BUNDLE_MAIN_COLOR_PREFIX = "color_secondary_";
+    String COLOR_BUNDLE_STYLE_PREFIX = "color_style_";
 
     ArrayList<String> sTargetPackages = new ArrayList<>();
     String ACCENT_COLOR_LIGHT_NAME = "accent_device_default_light";

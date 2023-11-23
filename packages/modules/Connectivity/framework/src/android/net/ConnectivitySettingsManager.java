@@ -384,6 +384,14 @@ public class ConnectivitySettingsManager {
             "uids_allowed_on_restricted_networks";
 
     /**
+     * A global rate limit that applies to all networks with NET_CAPABILITY_INTERNET when enabled.
+     *
+     * @hide
+     */
+    public static final String INGRESS_RATE_LIMIT_BYTES_PER_SECOND =
+            "ingress_rate_limit_bytes_per_second";
+
+    /**
      * Get mobile data activity timeout from {@link Settings}.
      *
      * @param context The {@link Context} to query the setting.
@@ -1070,5 +1078,40 @@ public class ConnectivitySettingsManager {
         final String uids = getUidStringFromSet(uidList);
         Settings.Global.putString(context.getContentResolver(), UIDS_ALLOWED_ON_RESTRICTED_NETWORKS,
                 uids);
+    }
+
+    /**
+     * Get the network bandwidth ingress rate limit.
+     *
+     * The limit is only applicable to networks that provide internet connectivity. -1 codes for no
+     * bandwidth limitation.
+     *
+     * @param context The {@link Context} to query the setting.
+     * @return The rate limit in number of bytes per second or -1 if disabled.
+     */
+    public static long getIngressRateLimitInBytesPerSecond(@NonNull Context context) {
+        return Settings.Global.getLong(context.getContentResolver(),
+                INGRESS_RATE_LIMIT_BYTES_PER_SECOND, -1);
+    }
+
+    /**
+     * Set the network bandwidth ingress rate limit.
+     *
+     * The limit is applied to all networks that provide internet connectivity. It is applied on a
+     * per-network basis, meaning that global ingress rate could exceed the limit when communicating
+     * on multiple networks simultaneously.
+     *
+     * @param context The {@link Context} to set the setting.
+     * @param rateLimitInBytesPerSec The rate limit in number of bytes per second or -1 to disable.
+     */
+    public static void setIngressRateLimitInBytesPerSecond(@NonNull Context context,
+            @IntRange(from = -1L, to = 0xFFFFFFFFL) long rateLimitInBytesPerSec) {
+        if (rateLimitInBytesPerSec < -1) {
+            throw new IllegalArgumentException(
+                    "Rate limit must be within the range [-1, Integer.MAX_VALUE]");
+        }
+        Settings.Global.putLong(context.getContentResolver(),
+                INGRESS_RATE_LIMIT_BYTES_PER_SECOND,
+                rateLimitInBytesPerSec);
     }
 }

@@ -28,7 +28,6 @@ INHERIT_DOCS           = YES
 SEPARATE_MEMBER_PAGES  = NO
 TAB_SIZE               = 8
 ALIASES                =
-TCL_SUBST              =
 OPTIMIZE_OUTPUT_FOR_C  = YES
 OPTIMIZE_OUTPUT_JAVA   = NO
 OPTIMIZE_FOR_FORTRAN   = NO
@@ -104,6 +103,9 @@ WARN_LOGFILE           =
 INPUT                  = include/libwebsockets.h \
 			 include/libwebsockets/lws-adopt.h \
 			 include/libwebsockets/lws-async-dns.h \
+			 include/libwebsockets/lws-bb-i2c.h \
+			 include/libwebsockets/lws-bb-spi.h \
+			 include/libwebsockets/lws-button.h \
 			 include/libwebsockets/lws-callbacks.h \
 			 include/libwebsockets/lws-cgi.h \
 			 include/libwebsockets/lws-client.h \
@@ -111,8 +113,10 @@ INPUT                  = include/libwebsockets.h \
 			 include/libwebsockets/lws-dbus.h \
 			 include/libwebsockets/lws-detailed-latency.h \
 			 include/libwebsockets/lws-diskcache.h \
+			 include/libwebsockets/lws-display.h \
+			 include/libwebsockets/lws-dll2.h \
 			 include/libwebsockets/lws-dsh.h \
-			 include/libwebsockets/lws-esp32.h \
+			 include/libwebsockets/lws-eventlib-exports.h \
 			 include/libwebsockets/lws-freertos.h \
 			 include/libwebsockets/lws-fts.h \
 			 include/libwebsockets/lws-genaes.h \
@@ -120,25 +124,39 @@ INPUT                  = include/libwebsockets.h \
 			 include/libwebsockets/lws-genec.h \
 			 include/libwebsockets/lws-genhash.h \
 			 include/libwebsockets/lws-genrsa.h \
+			 include/libwebsockets/lws-gpio.h \
 			 include/libwebsockets/lws-http.h \
+			 include/libwebsockets/lws-i2c.h \
+			 include/libwebsockets/lws-ili9341-spi.h \
 			 include/libwebsockets/lws-jose.h \
 			 include/libwebsockets/lws-jwe.h \
 			 include/libwebsockets/lws-jwk.h \
 			 include/libwebsockets/lws-jws.h \
+			 include/libwebsockets/lws-led.h \
 			 include/libwebsockets/lws-lejp.h \
 			 include/libwebsockets/lws-logs.h \
 			 include/libwebsockets/lws-lwsac.h \
 			 include/libwebsockets/lws-misc.h \
+			 include/libwebsockets/lws-mqtt.h \
+			 include/libwebsockets/lws-netdev.h \
 			 include/libwebsockets/lws-network-helper.h \
-			 include/libwebsockets/lws-plugin-generic-sessions.h \
 			 include/libwebsockets/lws-protocols-plugins.h \
 			 include/libwebsockets/lws-purify.h \
+			 include/libwebsockets/lws-pwm.h \
 			 include/libwebsockets/lws-retry.h \
 			 include/libwebsockets/lws-ring.h \
+			 include/libwebsockets/lws-secure-streams-client.h \
+			 include/libwebsockets/lws-secure-streams.h \
+			 include/libwebsockets/lws-secure-streams-policy.h \
 			 include/libwebsockets/lws-sequencer.h \
 			 include/libwebsockets/lws-service.h \
+			 include/libwebsockets/lws-settings.h \
 			 include/libwebsockets/lws-sha1-base64.h \
+			 include/libwebsockets/lws-smd.h \
 			 include/libwebsockets/lws-spa.h \
+			 include/libwebsockets/lws-spi.h \
+			 include/libwebsockets/lws-ssd1306-i2c.h \
+			 include/libwebsockets/lws-state.h \
 			 include/libwebsockets/lws-stats.h \
 			 include/libwebsockets/lws-struct.h \
 			 include/libwebsockets/lws-system.h \
@@ -164,8 +182,6 @@ INPUT                  = include/libwebsockets.h \
 			 ./READMEs/README.crypto-apis.md \
 			 ./READMEs/README.detailed-latency.md \
 			 ./READMEs/README.esp32.md \
-			 ./READMEs/README.generic-sessions.md \
-			 ./READMEs/README.generic-table.md \
 			 ./READMEs/README.h2-long-poll.md \
 			 ./READMEs/README.http-fallback.md \
 			 ./READMEs/README.lws_dll.md \
@@ -225,7 +241,7 @@ HTML_FILE_EXTENSION    = .html
 HTML_HEADER            =
 HTML_FOOTER            =
 HTML_STYLESHEET        =
-HTML_EXTRA_STYLESHEET  =
+HTML_EXTRA_STYLESHEET  = scripts/dox-extra.css
 HTML_EXTRA_FILES       =
 HTML_COLORSTYLE_HUE    = 220
 HTML_COLORSTYLE_SAT    = 100
@@ -356,12 +372,10 @@ GENERATE_TAGFILE       =
 ALLEXTERNALS           = NO
 EXTERNAL_GROUPS        = YES
 EXTERNAL_PAGES         = YES
-PERL_PATH              = /usr/bin/perl
 #---------------------------------------------------------------------------
 # Configuration options related to the dot tool
 #---------------------------------------------------------------------------
 CLASS_DIAGRAMS         = YES
-MSCGEN_PATH            =
 DIA_PATH               =
 HIDE_UNDOC_RELATIONS   = YES
 HAVE_DOT               = NO

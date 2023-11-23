@@ -16,6 +16,7 @@
 
 package com.android.server;
 
+import static android.net.TestNetworkManager.CLAT_INTERFACE_PREFIX;
 import static android.net.TestNetworkManager.TEST_TAP_PREFIX;
 import static android.net.TestNetworkManager.TEST_TUN_PREFIX;
 
@@ -98,60 +99,56 @@ class TestNetworkService extends ITestNetworkManager.Stub {
         }
     }
 
+    // TODO: find a way to allow the caller to pass in non-clat interface names, ensuring that
+    // those names do not conflict with names created by callers that do not pass in an interface
+    // name.
+    private static boolean isValidInterfaceName(@NonNull final String iface) {
+        return iface.startsWith(CLAT_INTERFACE_PREFIX + TEST_TUN_PREFIX)
+                || iface.startsWith(CLAT_INTERFACE_PREFIX + TEST_TAP_PREFIX);
+    }
+
     /**
-     * Create a TUN or TAP interface with the given interface name and link addresses
+     * Create a TUN or TAP interface with the specified parameters.
      *
      * <p>This method will return the FileDescriptor to the interface. Close it to tear down the
      * interface.
      */
-    private TestNetworkInterface createInterface(boolean isTun, LinkAddress[] linkAddrs) {
+    @Override
+    public TestNetworkInterface createInterface(boolean isTun, boolean bringUp,
+            LinkAddress[] linkAddrs, @Nullable String iface) {
         enforceTestNetworkPermissions(mContext);
 
         Objects.requireNonNull(linkAddrs, "missing linkAddrs");
 
-        String ifacePrefix = isTun ? TEST_TUN_PREFIX : TEST_TAP_PREFIX;
-        String iface = ifacePrefix + sTestTunIndex.getAndIncrement();
+        String interfaceName = iface;
+        if (iface == null) {
+            String ifacePrefix = isTun ? TEST_TUN_PREFIX : TEST_TAP_PREFIX;
+            interfaceName = ifacePrefix + sTestTunIndex.getAndIncrement();
+        } else if (!isValidInterfaceName(iface)) {
+            throw new IllegalArgumentException("invalid interface name requested: " + iface);
+        }
+
         final long token = Binder.clearCallingIdentity();
         try {
             ParcelFileDescriptor tunIntf =
-                    ParcelFileDescriptor.adoptFd(jniCreateTunTap(isTun, iface));
+                    ParcelFileDescriptor.adoptFd(jniCreateTunTap(isTun, interfaceName));
             for (LinkAddress addr : linkAddrs) {
                 mNetd.interfaceAddAddress(
-                        iface,
+                        interfaceName,
                         addr.getAddress().getHostAddress(),
                         addr.getPrefixLength());
             }
 
-            NetdUtils.setInterfaceUp(mNetd, iface);
+            if (bringUp) {
+                NetdUtils.setInterfaceUp(mNetd, interfaceName);
+            }
 
-            return new TestNetworkInterface(tunIntf, iface);
+            return new TestNetworkInterface(tunIntf, interfaceName);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         } finally {
             Binder.restoreCallingIdentity(token);
         }
-    }
-
-    /**
-     * Create a TUN interface with the given interface name and link addresses
-     *
-     * <p>This method will return the FileDescriptor to the TUN interface. Close it to tear down the
-     * TUN interface.
-     */
-    @Override
-    public TestNetworkInterface createTunInterface(@NonNull LinkAddress[] linkAddrs) {
-        return createInterface(true, linkAddrs);
-    }
-
-    /**
-     * Create a TAP interface with the given interface name
-     *
-     * <p>This method will return the FileDescriptor to the TAP interface. Close it to tear down the
-     * TAP interface.
-     */
-    @Override
-    public TestNetworkInterface createTapInterface() {
-        return createInterface(false, new LinkAddress[0]);
     }
 
     // Tracker for TestNetworkAgents
@@ -249,6 +246,7 @@ class TestNetworkService extends ITestNetworkManager.Stub {
         nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED);
         nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED);
         nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VCN_MANAGED);
+        nc.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN);
         nc.setNetworkSpecifier(new TestNetworkSpecifier(iface));
         nc.setAdministratorUids(administratorUids);
         if (!isMetered) {

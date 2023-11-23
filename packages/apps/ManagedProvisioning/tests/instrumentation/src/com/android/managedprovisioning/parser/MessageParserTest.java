@@ -18,20 +18,12 @@ package com.android.managedprovisioning.parser;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
-import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.nfc.NdefMessage;
-import android.nfc.NdefRecord;
-import android.nfc.NfcAdapter;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -41,9 +33,6 @@ import com.android.managedprovisioning.common.Utils;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.io.ByteArrayOutputStream;
-import java.util.Properties;
 
 /** Tests {@link MessageParser} */
 @SmallTest
@@ -71,31 +60,6 @@ public class MessageParserTest extends AndroidTestCase {
                 mContext, mUtils, new ParserUtils(), new SettingsFacade());
     }
 
-    public void test_correctParserUsedToParseNfcIntent() throws Exception {
-        // GIVEN a NFC provisioning intent with some supported data.
-        Properties props = new Properties();
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        props.setProperty(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME);
-        props.setProperty(
-                EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
-                TEST_COMPONENT_NAME.flattenToString());
-        props.store(stream, "NFC provisioning intent" /* data description */);
-        NdefRecord record = NdefRecord.createMime(
-                DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC,
-                stream.toByteArray());
-        NdefMessage ndfMsg = new NdefMessage(new NdefRecord[]{record});
-
-        Intent intent = new Intent(NfcAdapter.ACTION_NDEF_DISCOVERED)
-                .setType(MIME_TYPE_PROVISIONING_NFC)
-                .putExtra(NfcAdapter.EXTRA_NDEF_MESSAGES, new NdefMessage[]{ndfMsg});
-
-        // WHEN the mMessageParser.getParser is invoked.
-        ProvisioningDataParser parser = mMessageParser.getParser(intent);
-
-        // THEN the properties parser is returned.
-        assertTrue(parser instanceof PropertiesProvisioningDataParser);
-    }
-
     public void test_correctParserUsedToParseOtherSupportedProvisioningIntent() throws Exception {
         // GIVEN the device admin app is installed.
         doReturn(TEST_COMPONENT_NAME)
@@ -109,11 +73,8 @@ public class MessageParserTest extends AndroidTestCase {
         };
 
         for (String provisioningAction : supportedProvisioningActions) {
-            Intent intent = new Intent(provisioningAction)
-                    .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME);
-
             // WHEN the mMessageParser.getParser is invoked.
-            ProvisioningDataParser parser = mMessageParser.getParser(intent);
+            ProvisioningDataParser parser = mMessageParser.getParser();
 
             // THEN the extras parser is returned.
             assertTrue(parser instanceof ExtrasProvisioningDataParser);

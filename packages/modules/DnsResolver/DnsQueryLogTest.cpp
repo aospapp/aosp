@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "DnsQueryLog.h"
+#include "tests/resolv_test_base.h"
 
 using namespace std::chrono_literals;
 
@@ -58,7 +59,7 @@ void verifyDumpOutput(const std::string& dumpLog, const std::vector<int>& expect
 
 }  // namespace
 
-class DnsQueryLogTest : public ::testing::Test {
+class DnsQueryLogTest : public ResolvTestBase {
   protected:
     const std::vector<std::string> serversV4 = {"127.0.0.1", "1.2.3.4"};
     const std::vector<std::string> serversV4V6 = {"127.0.0.1", "1.2.3.4", "2001:db8::1",

@@ -1172,6 +1172,8 @@ int hostapd_init_wps(struct hostapd_data *hapd,
 			wps->auth_types |= WPS_AUTH_WPA2PSK;
 		if (conf->wpa_key_mgmt & WPA_KEY_MGMT_IEEE8021X)
 			wps->auth_types |= WPS_AUTH_WPA2;
+		if (conf->wpa_key_mgmt & WPA_KEY_MGMT_SAE)
+			wps->auth_types |= WPS_AUTH_WPA2PSK;
 
 		if (conf->rsn_pairwise & (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP |
 					  WPA_CIPHER_CCMP_256 |
@@ -1328,6 +1330,11 @@ int hostapd_init_wps(struct hostapd_data *hapd,
 
 	hostapd_register_probereq_cb(hapd, hostapd_wps_probe_req_rx, hapd);
 
+#ifdef CONFIG_P2P
+	if ((hapd->conf->p2p & P2P_ENABLED) &&
+	    is_6ghz_op_class(hapd->iconf->op_class))
+		wps->use_passphrase = true;
+#endif /* CONFIG_P2P */
 	hapd->wps = wps;
 	bin_clear_free(multi_ap_netw_key, 2 * PMK_LEN);
 
@@ -1955,6 +1962,11 @@ int hostapd_wps_config_ap(struct hostapd_data *hapd, const char *ssid,
 		    hexstr2bin(key, cred.key, len / 2))
 			return -1;
 		cred.key_len = len / 2;
+	}
+
+	if (!hapd->wps) {
+		wpa_printf(MSG_ERROR, "WPS: WPS config does not exist");
+		return -1;
 	}
 
 	return wps_registrar_config_ap(hapd->wps->registrar, &cred);

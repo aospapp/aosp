@@ -173,6 +173,35 @@ public class EabBulkCapabilityUpdaterTest extends ImsTestBase {
                 any(IRcsUceControllerCallback.class));
     }
 
+    @Test
+    public void testCarrierConfigEnabled() throws Exception {
+        // mock user settings
+        mockUceUserSettings(true);
+        mockBulkCapabilityCarrierConfig(false);
+        // mock expired contact list
+        List<Uri> expiredContactList = new ArrayList<>();
+        expiredContactList.add(Uri.parse("test"));
+        doReturn(expiredContactList)
+                .when(mEabContactSyncController)
+                .syncContactToEabProvider(any());
+
+        EabBulkCapabilityUpdater mEabBulkCapabilityUpdater = new EabBulkCapabilityUpdater(
+                mContext,
+                mSubId,
+                mMockEabControllerImpl,
+                mEabContactSyncController,
+                mMockUceControllerCallback,
+                mHandler);
+
+        mockBulkCapabilityCarrierConfig(true);
+        mEabBulkCapabilityUpdater.onCarrierConfigChanged();
+        waitHandlerThreadFinish();
+
+        verify(mMockUceControllerCallback).refreshCapabilities(
+                anyList(),
+                any(IRcsUceControllerCallback.class));
+    }
+
     private void mockBulkCapabilityCarrierConfig(boolean isEnabled) {
         PersistableBundle persistableBundle = new PersistableBundle();
         persistableBundle.putBoolean(

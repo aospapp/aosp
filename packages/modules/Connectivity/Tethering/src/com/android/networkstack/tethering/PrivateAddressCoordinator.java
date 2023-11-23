@@ -18,11 +18,11 @@ package com.android.networkstack.tethering;
 import static android.net.NetworkCapabilities.TRANSPORT_VPN;
 import static android.net.TetheringManager.TETHERING_BLUETOOTH;
 import static android.net.TetheringManager.TETHERING_WIFI_P2P;
-import static android.net.util.PrefixUtils.asIpPrefix;
 
 import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
 import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
 import static com.android.net.module.util.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTH;
+import static com.android.networkstack.tethering.util.PrefixUtils.asIpPrefix;
 
 import static java.util.Arrays.asList;
 
@@ -90,11 +90,8 @@ public class PrivateAddressCoordinator {
         mCachedAddresses.put(TETHERING_BLUETOOTH, new LinkAddress(LEGACY_BLUETOOTH_IFACE_ADDRESS));
         mCachedAddresses.put(TETHERING_WIFI_P2P, new LinkAddress(LEGACY_WIFI_P2P_IFACE_ADDRESS));
 
-        mTetheringPrefixes = new ArrayList<>(Arrays.asList(new IpPrefix("192.168.0.0/16")));
-        if (config.isSelectAllPrefixRangeEnabled()) {
-            mTetheringPrefixes.add(new IpPrefix("172.16.0.0/12"));
-            mTetheringPrefixes.add(new IpPrefix("10.0.0.0/8"));
-        }
+        mTetheringPrefixes = new ArrayList<>(Arrays.asList(new IpPrefix("192.168.0.0/16"),
+            new IpPrefix("172.16.0.0/12"), new IpPrefix("10.0.0.0/8")));
     }
 
     /**

@@ -6160,7 +6160,9 @@
 6156:true:
 6157:true:
 6158:true:
-6159:false:
+# Disable the test U+180F as the property change
+# U+180F Mongolian Nonspacing Mark
+# 6159:true:
 6160:false:
 6161:false:
 6162:false:

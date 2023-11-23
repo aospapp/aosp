@@ -13,9 +13,9 @@ AC_CONFIG_FILES([ \
     execltp \
 ])
 
-AM_MAINTAINER_MODE([enable])
+AC_ARG_VAR(HOSTCC, [The C compiler on the host])
 
-AM_CONDITIONAL(CROSS_COMPILATION, test x$cross_compiling = xyes)
+AM_MAINTAINER_MODE([enable])
 
 AC_CANONICAL_HOST
 
@@ -30,28 +30,41 @@ AC_DEFUN([AC_PROG_STRIP], [AC_CHECK_TOOL(STRIP, strip, :)])
 AC_PROG_STRIP
 AC_PROG_YACC
 
+m4_ifndef([PKG_CHECK_EXISTS],
+	[m4_fatal([must install pkg-config or pkgconfig and pkg.m4 macro (usual dependency), see INSTALL])])
+
 AC_PREFIX_DEFAULT(/opt/ltp)
 
-AC_CHECK_HEADERS([ \
+AC_CHECK_DECLS([IFLA_NET_NS_PID],,,[#include <linux/if_link.h>])
+AC_CHECK_DECLS([MADV_MERGEABLE],,,[#include <sys/mman.h>])
+AC_CHECK_DECLS([PR_CAPBSET_DROP, PR_CAPBSET_READ],,,[#include <sys/prctl.h>])
+AC_CHECK_DECLS([SEM_STAT_ANY],,,[#include <sys/sem.h>])
+
+AC_CHECK_HEADERS_ONCE([ \
+    asm/ldt.h \
     ifaddrs.h \
     keyutils.h \
     linux/can.h \
     linux/cgroupstats.h \
     linux/cryptouser.h \
+    linux/close_range.h \
     linux/dccp.h \
+    linux/fs.h \
     linux/genetlink.h \
     linux/if_alg.h \
-    linux/if_packet.h \
     linux/if_ether.h \
+    linux/if_packet.h \
+    linux/io_uring.h \
     linux/keyctl.h \
     linux/mempolicy.h \
     linux/module.h \
     linux/netlink.h \
+    linux/openat2.h \
     linux/seccomp.h \
     linux/securebits.h \
+    linux/tty.h \
     linux/types.h \
     linux/userfaultfd.h \
-    mm.h \
     netinet/sctp.h \
     pthread.h \
     sys/epoll.h \
@@ -59,26 +72,47 @@ AC_CHECK_HEADERS([ \
     sys/inotify.h \
     sys/prctl.h \
     sys/shm.h \
+    sys/timerfd.h \
     sys/ustat.h \
     sys/utsname.h \
     sys/xattr.h \
     xfs/xqm.h \
 ])
+AC_CHECK_HEADERS(fts.h, [have_fts=1])
+AC_SUBST(HAVE_FTS_H, $have_fts)
 
-AC_CHECK_FUNCS([ \
+AC_CHECK_FUNCS_ONCE([ \
+    clone3 \
+    close_range \
     copy_file_range \
     epoll_pwait \
     execveat \
     fallocate \
     fchownat \
+    fsconfig \
+    fsmount \
+    fsopen \
+    fspick \
     fstatat \
+    getauxval \
     getdents \
     getdents64 \
+    io_pgetevents \
+    io_uring_setup \
+    io_uring_register \
+    io_uring_enter \
     kcmp \
+    mallinfo \
+    mallopt \
     mkdirat \
     mknodat \
+    modify_ldt \
+    move_mount \
     name_to_handle_at \
+    open_tree \
     openat \
+    openat2 \
+    pidfd_open \
     pidfd_send_signal \
     pkey_mprotect \
     preadv \
@@ -86,26 +120,102 @@ AC_CHECK_FUNCS([ \
     profil \
     pwritev \
     pwritev2 \
+    rand_r \
     readlinkat \
     recvmmsg \
     renameat \
     renameat2 \
     sched_getcpu \
     sendmmsg \
+    setns \
     sigpending \
     splice \
+    statx \
     stime \
-    syncfs \
     sync_file_range \
+    syncfs \
     tee \
+    timerfd_create \
+    timerfd_gettime \
+    timerfd_settime \
     unshare \
     ustat \
     vmsplice \
 ])
+AC_CHECK_FUNCS(mkdtemp,[],AC_MSG_ERROR(mkdtemp() not found!))
+
+AC_CHECK_MEMBERS([struct fanotify_event_info_fid.fsid.__val],,,[#include <sys/fanotify.h>])
+AC_CHECK_MEMBERS([struct perf_event_mmap_page.aux_head],,,[#include <linux/perf_event.h>])
+AC_CHECK_MEMBERS([struct sigaction.sa_sigaction],[],[],[#include <signal.h>])
+
+AC_CHECK_MEMBERS([struct utsname.domainname],,,[
+#define _GNU_SOURCE
+#include <sys/utsname.h>
+])
+
+AC_CHECK_TYPES([enum kcmp_type],,,[#include <linux/kcmp.h>])
+AC_CHECK_TYPES([struct acct_v3],,,[#include <sys/acct.h>])
+AC_CHECK_TYPES([struct af_alg_iv, struct sockaddr_alg],,,[# include <linux/if_alg.h>])
+AC_CHECK_TYPES([struct clone_args],,,[#include <sched.h>])
+AC_CHECK_TYPES([struct fanotify_event_info_fid, struct fanotify_event_info_header],,,[#include <sys/fanotify.h>])
+AC_CHECK_TYPES([struct file_dedupe_range],,,[#include <linux/fs.h>])
+
+AC_CHECK_TYPES([struct file_handle],,,[
+#define _GNU_SOURCE
+#include <fcntl.h>
+])
+
+AC_CHECK_TYPES([struct fs_quota_statv],,,[#include <xfs/xqm.h>])
+AC_CHECK_TYPES([struct if_nextdqblk],,,[#include <linux/quota.h>])
+AC_CHECK_TYPES([struct iovec],,,[#include <sys/uio.h>])
+AC_CHECK_TYPES([struct ipc64_perm],,,[#include <sys/ipcbuf.h>])
+AC_CHECK_TYPES([struct loop_config],,,[#include <linux/loop.h>])
+
+AC_CHECK_TYPES([struct __kernel_itimerspec],,,[#include <linux/time_types.h>])
+AC_CHECK_TYPES([struct __kernel_old_timespec],,,[#include <linux/time_types.h>])
+AC_CHECK_TYPES([struct __kernel_old_timeval],,,[#include <linux/time_types.h>])
+AC_CHECK_TYPES([struct __kernel_timespec],,,[#include <linux/time_types.h>])
+
+AC_CHECK_TYPES([struct __kernel_timex],,,[#include <sys/timex.h>])
+AC_CHECK_TYPES([struct __kernel_timex_timeval],,,[#include <sys/timex.h>])
+
+AC_CHECK_TYPES([struct mmsghdr],,,[
+#define _GNU_SOURCE
+#include <sys/types.h>
+#include <sys/socket.h>
+])
+
+AC_CHECK_TYPES([struct msqid64_ds],,,[#include <sys/msgbuf.h>])
+
+AC_CHECK_TYPES([struct rlimit64],,,[
+#define _LARGEFILE64_SOURCE
+#include <sys/resource.h>
+])
+
+AC_CHECK_TYPES([struct semun],,,[#include <sys/sem.h>])
+AC_CHECK_TYPES([struct semid64_ds],,,[#include <sys/sem.h>])
+AC_CHECK_TYPES([struct shmid64_ds],,,[#include <sys/shmbuf.h>])
+
+AC_CHECK_TYPES([struct statx, struct statx_timestamp],,,[
+#define _GNU_SOURCE
+#include <sys/stat.h>
+])
+
+AC_CHECK_TYPES([struct termio],,,[#include <sys/ioctl.h>])
+AC_CHECK_TYPES([struct tpacket_req3],,,[# include <linux/if_packet.h>])
+AC_CHECK_TYPES([struct user_desc, struct modify_ldt_ldt_s],[],[],[#include <asm/ldt.h>])
+
+AC_CHECK_TYPES([struct xt_entry_match, struct xt_entry_target],,,[
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <limits.h>
+#include <linux/netfilter_ipv4/ip_tables.h>
+])
 
 # Tools knobs
 
-# Expect
+# Bash
 AC_ARG_WITH([bash],
   [AC_HELP_STRING([--with-bash],
     [have the Bourne Again Shell interpreter])],
@@ -118,6 +228,34 @@ else
     AC_SUBST([WITH_BASH],["no"])
 fi
 
+# metadata
+AC_ARG_ENABLE([metadata],
+  [AC_HELP_STRING([--disable-metadata],
+	[Disable metadata generation (both HTML and PDF, default no)])],
+  [], [enable_metadata=yes]
+)
+AC_ARG_ENABLE([metadata_html],
+  [AC_HELP_STRING([--disable-metadata-html],
+	[Disable metadata HTML generation (default no)])],
+  [], [enable_metadata_html=yes]
+)
+
+AC_ARG_ENABLE([metadata_pdf],
+  [AC_HELP_STRING([--enable-metadata-pdf],
+	[Enable metadata PDF generation (default no)])],
+  [], [enable_metadata_pdf=no]
+)
+
+AC_ARG_WITH([metadata_generator],
+  [AC_HELP_STRING([--with-metadata-generator=asciidoc|asciidoctor],
+	[Specify metadata generator to use (default autodetect)])],
+  [with_metadata_generator=$withval],
+  [with_metadata_generator=detect]
+)
+
+LTP_DOCPARSE
+
+# Expect
 AC_ARG_WITH([expect],
   [AC_HELP_STRING([--with-expect],
     [have the Tcl/expect library])],
@@ -206,7 +344,7 @@ fi
 AC_CONFIG_COMMANDS([syscalls.h], [cd ${ac_top_srcdir}/include/lapi/syscalls; ./regen.sh])
 
 # custom functions
-LTP_CHECK_ACCT
+# NOTE: don't create custom functions for simple checks, put them into this file
 LTP_CHECK_ACL_SUPPORT
 LTP_CHECK_ATOMIC_MEMORY_MODEL
 LTP_CHECK_BUILTIN_CLEAR_CACHE
@@ -214,36 +352,22 @@ LTP_CHECK_CAPABILITY_SUPPORT
 LTP_CHECK_CC_WARN_OLDSTYLE
 LTP_CHECK_CLONE_SUPPORTS_7_ARGS
 LTP_CHECK_CRYPTO
-LTP_CHECK_FANOTIFY
-LTP_CHECK_FIDEDUPE
 LTP_CHECK_FORTIFY_SOURCE
-LTP_CHECK_FTS_H
-LTP_CHECK_IF_LINK
-LTP_CHECK_IOVEC
-LTP_CHECK_KCMP_TYPE
 LTP_CHECK_KERNEL_DEVEL
 LTP_CHECK_KEYUTILS_SUPPORT
+LTP_CHECK_LIBMNL
 LTP_CHECK_LINUX_PTRACE
 LTP_CHECK_LINUXRANDOM
-LTP_CHECK_MADVISE
-LTP_CHECK_MKDTEMP
-LTP_CHECK_MMSGHDR
 LTP_CHECK_MREMAP_FIXED
 LTP_CHECK_NOMMU_LINUX
-LTP_CHECK_PERF_EVENT
-LTP_CHECK_PRCTL_SUPPORT
-LTP_CHECK_RLIMIT64
 LTP_CHECK_SELINUX
-LTP_CHECK_SIGNAL
-LTP_CHECK_STATX
 LTP_CHECK_SYNC_ADD_AND_FETCH
 LTP_CHECK_SYSCALL_EVENTFD
 LTP_CHECK_SYSCALL_FCNTL
-LTP_CHECK_SYSCALL_MODIFY_LDT
 
 if test "x$with_numa" = xyes; then
 	LTP_CHECK_SYSCALL_NUMA
-	numa_error_msg="test requires libnuma >= 2 and it's development packages"
+	numa_error_msg="test requires libnuma development packages with LIBNUMA_API_VERSION >= 2"
 else
 	numa_error_msg="NUMA support was disabled during build"
 fi
@@ -251,15 +375,10 @@ AC_DEFINE_UNQUOTED(NUMA_ERROR_MSG, ["$numa_error_msg"], [Error message when no N
 
 
 LTP_CHECK_SYSCALL_PERF_EVENT_OPEN
-LTP_CHECK_SYSCALL_QUOTACTL
 LTP_CHECK_SYSCALL_SIGNALFD
 LTP_CHECK_SYSCALL_UTIMENSAT
 LTP_CHECK_TASKSTATS
-LTP_CHECK_TIMERFD
 test "x$with_tirpc" = xyes && LTP_CHECK_TIRPC
-LTP_CHECK_TPACKET_V3
-LTP_CHECK_UNAME_DOMAINNAME
-LTP_CHECK_X_TABLES
 LTP_DETECT_HOST_CPU
 
 AC_OUTPUT

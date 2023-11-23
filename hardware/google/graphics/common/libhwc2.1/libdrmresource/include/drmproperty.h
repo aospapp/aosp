@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <xf86drmMode.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace android {
@@ -78,6 +79,19 @@ class DrmProperty {
   std::vector<DrmPropertyEnum> enums_;
   std::vector<uint32_t> blob_ids_;
 };
+
+class DrmEnumParser {
+public:
+    using MapHal2DrmEnum = std::unordered_map<uint32_t, uint64_t>;
+
+    static std::tuple<uint64_t, int> halToDrmEnum(const uint32_t halData,
+                                                  const MapHal2DrmEnum& drmEnums);
+
+    static void parseEnums(const DrmProperty &property,
+                           const std::vector<std::pair<uint32_t, const char *>> &enums,
+                           MapHal2DrmEnum& out_enums);
+};
+
 }  // namespace android
 
 #endif  // ANDROID_DRM_PROPERTY_H_

@@ -51,7 +51,7 @@ public class ImageCategory extends Category {
     }
 
     @Override
-    public void show(Activity srcActivity, PickerIntentFactory factory, int requestCode) {
+    public void show(Activity srcActivity, int requestCode) {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         srcActivity.startActivityForResult(intent, requestCode);
@@ -66,7 +66,7 @@ public class ImageCategory extends Category {
     public Asset getThumbnail(Context context) {
         if (!isReadExternalStoragePermissionGranted(context)) {
             // MediaStore.Images.Media.EXTERNAL_CONTENT_URI requires
-            // the READ_EXTERNAL_STORAGE permission.
+            // the READ_MEDIA_IMAGES permission.
             return null;
         }
 
@@ -110,10 +110,10 @@ public class ImageCategory extends Category {
     }
 
     /**
-     * Returns whether READ_EXTERNAL_STORAGE has been granted for the application.
+     * Returns whether READ_MEDIA_IMAGES has been granted for the application.
      */
     private boolean isReadExternalStoragePermissionGranted(Context context) {
-        return context.getPackageManager().checkPermission(permission.READ_EXTERNAL_STORAGE,
+        return context.getPackageManager().checkPermission(permission.READ_MEDIA_IMAGES,
                 context.getPackageName()) == PackageManager.PERMISSION_GRANTED;
     }
 }

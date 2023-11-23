@@ -16,6 +16,7 @@
 package com.android.compatibility.common.deviceinfo;
 
 import android.icu.util.ULocale;
+import android.icu.util.VersionInfo;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.android.compatibility.common.util.DeviceInfoStore;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Locale device info collector.
@@ -66,35 +68,49 @@ public final class LocaleDeviceInfo extends DeviceInfo {
      * /apex/com.android.i18n/etc/icu/icudt65l.dat
      */
     private void collectLocaleDataFilesInfo(DeviceInfoStore store) throws IOException {
+        int icuVersion = VersionInfo.ICU_VERSION.getMajor();
+        File[] fixedDatPaths = new File[] {
+                new File("/apex/com.android.tzdata/etc/icu/icu_tzdata.dat"),
+                new File("/apex/com.android.i18n/etc/icu/icudt" + icuVersion + "l.dat"),
+        };
+
+        // This property has been deprecated since Android 12. The property will not work if this
+        // app targets SDK level 31 or higher. Thus, we add the above fixedDatPaths in case that
+        // the property is not working. When this comment was written, this CTS app still targets
+        // SDK level 23.
         String prop = System.getProperty("android.icu.impl.ICUBinary.dataPath");
         store.startArray("icu_data_file_info");
+
+        List<File> datFiles = new ArrayList<>();
         if (prop != null) {
             String[] dataDirs = prop.split(":");
-            // List all readable ".dat" files in the directories.
-            List<File> datFiles = Arrays.stream(dataDirs)
+            // List all ".dat" files in the directories.
+            datFiles = Arrays.stream(dataDirs)
                 .filter((dir) -> dir != null && !dir.isEmpty())
                 .map((dir) -> new File(dir))
                 .filter((f) -> f.canRead() && f.isDirectory())
                 .map((f) -> f.listFiles())
                 .filter((files) -> files != null)
-                .map((files) -> Arrays.asList(files))
-                .reduce(new ArrayList<>(), (l1, l2) -> {
-                    l1.addAll(l2);
-                    return l1;
-                })
-                .stream()
-                .filter((f) -> f != null && f.canRead() && f.getName().endsWith(".dat"))
+                .flatMap(files -> Stream.of(files))
                 .collect(Collectors.toList());
+        }
 
-            for (File datFile : datFiles) {
-                String sha256Hash = sha256(datFile);
+        datFiles.addAll(Arrays.asList(fixedDatPaths));
 
-                store.startGroup();
-                store.addResult("file_path", datFile.getPath());
-                // Still store the null hash to indicate an error occurring when obtaining the hash.
-                store.addResult("file_sha256", sha256Hash);
-                store.endGroup();
-            }
+        // Keep the readable paths only.
+        datFiles = datFiles.stream()
+            .distinct()
+            .filter((f) -> f != null && f.canRead() && f.getName().endsWith(".dat"))
+            .collect(Collectors.toList());
+
+        for (File datFile : datFiles) {
+            String sha256Hash = sha256(datFile);
+
+            store.startGroup();
+            store.addResult("file_path", datFile.getPath());
+            // Still store the null hash to indicate an error occurring when obtaining the hash.
+            store.addResult("file_sha256", sha256Hash);
+            store.endGroup();
         }
         store.endArray();
     }

@@ -12,6 +12,10 @@ ifeq ($(CHRE_AUDIO_SUPPORT_ENABLED), true)
 include apps/audio_world/audio_world.mk
 endif
 
+ifeq ($(CHRE_BLE_SUPPORT_ENABLED), true)
+include apps/ble_world/ble_world.mk
+endif
+
 ifeq ($(CHRE_GNSS_SUPPORT_ENABLED), true)
 include apps/gnss_world/gnss_world.mk
 endif

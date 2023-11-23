@@ -19,8 +19,6 @@ package android.hdmicec.cts.audio;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.collect.Range;
-
 import android.hdmicec.cts.AudioManagerHelper;
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
@@ -30,12 +28,14 @@ import android.hdmicec.cts.LogicalAddress;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import com.google.common.collect.Range;
+
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -54,11 +54,12 @@ public final class HdmiCecSystemAudioModeTest extends BaseHdmiCecCtsTest {
 
     @Rule
     public RuleChain ruleChain =
-        RuleChain
-            .outerRule(CecRules.requiresCec(this))
-            .around(CecRules.requiresLeanback(this))
-            .around(CecRules.requiresDeviceType(this, AUDIO_DEVICE))
-            .around(hdmiCecClient);
+            RuleChain.outerRule(CecRules.requiresCec(this))
+                    .around(CecRules.requiresLeanback(this))
+                    .around(
+                            CecRules.requiresDeviceType(
+                                    this, HdmiCecConstants.CEC_DEVICE_TYPE_AUDIO_SYSTEM))
+                    .around(hdmiCecClient);
 
     public void sendSystemAudioModeTermination() throws Exception {
         hdmiCecClient.sendCecMessage(LogicalAddress.TV, AUDIO_DEVICE,
@@ -209,15 +210,15 @@ public final class HdmiCecSystemAudioModeTest extends BaseHdmiCecCtsTest {
     @Test
     public void cect_11_2_15_6_SystemAudioModeOffBeforeStandby() throws Exception {
         try {
-            getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+            wakeUpDevice();
             sendSystemAudioModeInitiation();
             String message = hdmiCecClient.checkExpectedOutput(CecOperand.SET_SYSTEM_AUDIO_MODE);
             assertThat(CecMessage.getParams(message)).isEqualTo(ON);
-            getDevice().executeShellCommand("input keyevent KEYCODE_SLEEP");
+            sendDeviceToSleep();
             message = hdmiCecClient.checkExpectedOutput(CecOperand.SET_SYSTEM_AUDIO_MODE);
             assertThat(CecMessage.getParams(message)).isEqualTo(OFF);
         } finally {
-            getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+            wakeUpDevice();
         }
     }
 
@@ -250,7 +251,7 @@ public final class HdmiCecSystemAudioModeTest extends BaseHdmiCecCtsTest {
                 CecMessage.formatParams(HdmiCecConstants.TV_PHYSICAL_ADDRESS,
                     HdmiCecConstants.PHYSICAL_ADDRESS_LENGTH));
         hdmiCecClient.sendUserControlPressAndRelease(LogicalAddress.TV, AUDIO_DEVICE,
-                HdmiCecConstants.CEC_CONTROL_MUTE, false);
+                HdmiCecConstants.CEC_KEYCODE_MUTE, false);
         assertWithMessage("Device is not muted")
                 .that(AudioManagerHelper.isDeviceMuted(getDevice()))
                 .isTrue();

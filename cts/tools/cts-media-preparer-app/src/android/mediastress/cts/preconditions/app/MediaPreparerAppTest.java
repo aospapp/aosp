@@ -82,8 +82,12 @@ public class MediaPreparerAppTest {
 
     @Test
     public void testGetResolutions() throws Exception {
+        String moduleName = InstrumentationRegistry.getArguments().getString("module-name");
+        if (moduleName == null) {
+            moduleName = MODULE_NAME;
+        }
         Resolution maxRes = new Resolution(DEFAULT_MAX_WIDTH, DEFAULT_MAX_HEIGHT);
-        DynamicConfigDeviceSide config = new DynamicConfigDeviceSide(MODULE_NAME);
+        DynamicConfigDeviceSide config = new DynamicConfigDeviceSide(moduleName);
         for (String key : config.keySet()) {
             int width = 0;
             int height = 0;

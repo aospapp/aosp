@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"NONAKTIF"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"NONAKTIF"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Pengenalan suara ditangani perangkat Bluetooth terhubung"</string>
-    <string name="car_guest" msgid="768913000117469596">"Tamu"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"Tamu"</string>
     <string name="car_add_user" msgid="6182764665687382136">"Tambahkan profil"</string>
     <string name="car_new_user" msgid="6766334721724989964">"Profil Baru"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"Tambahkan profil baru?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"Setelah Anda membuat profil baru, pengguna tersebut harus menyesuaikan profilnya sendiri."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"Aplikasi dapat diupdate dari profil mana pun untuk digunakan oleh semua profil lain."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"Batas profil telah tercapai"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="other">Anda dapat menambahkan hingga <xliff:g id="COUNT">%d</xliff:g> profil.</item>
-      <item quantity="one">Hanya satu profil yang dapat dibuat.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{Hanya satu profil yang dapat dibuat.}other{Anda dapat menambahkan hingga # profil.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"Memuat"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Memuat pengguna (dari <xliff:g id="FROM_USER">%1$d</xliff:g> menjadi <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofon nonaktif."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Gunakan mikrofon"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Untuk aplikasi yang memiliki izin"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> nonaktif."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"Gunakan <xliff:g id="SENSOR">%1$s</xliff:g>"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"Untuk aplikasi yang memiliki izin"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Setelan mikrofon"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> sedang menggunakan mikrofon"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> sedang menggunakan <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> sedang menggunakan mikrofon"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> baru-baru ini menggunakan mikrofon"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> dan <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> lainnya baru saja menggunakan mikrofon"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> menggunakan <xliff:g id="SENSOR">%2$s</xliff:g> baru-baru ini"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> dan <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> lainnya menggunakan <xliff:g id="SENSOR">%3$s</xliff:g> baru-baru ini"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofon diaktifkan"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofon dinonaktifkan"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"Oke"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Aktifkan mikrofon kendaraan?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Untuk melanjutkan, aktifkan mikrofon sistem infotainmen. Ini akan mengaktifkan mikrofon untuk semua aplikasi yang memiliki izin."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"Setelan kamera"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> sedang menggunakan kamera"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> sedang menggunakan kamera"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> menggunakan kamera baru-baru ini"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> dan <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> lainnya menggunakan kamera baru-baru ini"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"Kamera diaktifkan"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"Kamera dinonaktifkan"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"Oke"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"Aktifkan kamera kendaraan?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"Untuk melanjutkan, aktifkan kamera sistem infotainmen. Ini akan mengaktifkan kamera untuk semua aplikasi yang memiliki izin."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"Anda tidak dapat menggunakan fitur ini saat mengemudi"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"Tutup aplikasi"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"Kembali"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"Setelan"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Setelan Bluetooth"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Setelan internet &amp; jaringan"</string>

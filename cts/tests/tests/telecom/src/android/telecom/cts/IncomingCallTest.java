@@ -172,6 +172,50 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * This test verifies that the local ringtone is not played when the call has an in_band
+     * ringtone associated with it.
+     */
+    public void testExtraCallHasInBandRingtone() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        ShellIdentityUtils.invokeStaticMethodWithShellPermissions(
+                (ShellIdentityUtils.StaticShellPermissionMethodHelper<Void>) () -> {
+                    RingtoneManager.setActualDefaultRingtoneUri(mContext,
+                            RingtoneManager.TYPE_RINGTONE,
+                            Settings.System.DEFAULT_RINGTONE_URI);
+                    return null;
+                });
+        LinkedBlockingQueue<Boolean> queue = new LinkedBlockingQueue(1);
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        AudioManager audioManager = mContext.getSystemService(AudioManager.class);
+        AudioManager.AudioPlaybackCallback callback = new AudioManager.AudioPlaybackCallback() {
+            @Override
+            public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+                super.onPlaybackConfigChanged(configs);
+                boolean isPlayingRingtone = configs.stream()
+                        .anyMatch(c -> c.getAudioAttributes().getUsage()
+                                == USAGE_NOTIFICATION_RINGTONE);
+                if (isPlayingRingtone && queue.isEmpty()) {
+                    queue.add(isPlayingRingtone);
+                }
+            }
+        };
+        audioManager.registerAudioPlaybackCallback(callback, new Handler(Looper.getMainLooper()));
+        Bundle extras = new Bundle();
+        extras.putBoolean(TelecomManager.EXTRA_CALL_HAS_IN_BAND_RINGTONE, true);
+        Uri testNumber = createTestNumber();
+        addAndVerifyNewIncomingCall(testNumber, extras);
+        verifyConnectionForIncomingCall();
+        verifyPhoneStateListenerCallbacksForCall(CALL_STATE_RINGING,
+                testNumber.getSchemeSpecificPart());
+        Boolean ringing = queue.poll(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        // ringing should be null as the state should not change (no ringing)
+        assertNull("Telecom should not have played a ringtone.", ringing);
+        audioManager.unregisterAudioPlaybackCallback(callback);
+    }
+
+    /**
      * Tests to be sure that new incoming calls can only be added using a valid PhoneAccountHandle
      * (b/26864502). If a PhoneAccount has not been registered for the PhoneAccountHandle, then
      * a SecurityException will be thrown.

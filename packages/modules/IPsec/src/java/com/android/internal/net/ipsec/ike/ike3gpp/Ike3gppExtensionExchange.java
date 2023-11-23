@@ -17,7 +17,8 @@ package com.android.internal.net.ipsec.ike.ike3gpp;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
 
-import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.IKE_EXCHANGE_SUBTYPE_IKE_AUTH;
+import static com.android.internal.net.ipsec.ike.message.IkeMessage.IKE_EXCHANGE_SUBTYPE_GENERIC_INFO;
+import static com.android.internal.net.ipsec.ike.message.IkeMessage.IKE_EXCHANGE_SUBTYPE_IKE_AUTH;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -26,7 +27,7 @@ import android.net.ipsec.ike.ike3gpp.Ike3gppExtension;
 import android.net.ipsec.ike.ike3gpp.Ike3gppExtension.Ike3gppDataListener;
 import android.util.ArraySet;
 
-import com.android.internal.net.ipsec.ike.IkeSessionStateMachine;
+import com.android.internal.net.ipsec.ike.message.IkeMessage;
 import com.android.internal.net.ipsec.ike.message.IkePayload;
 
 import java.util.Collections;
@@ -83,9 +84,21 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
      */
     public static final int NOTIFY_TYPE_N1_MODE_INFORMATION = 51115;
 
+    /**
+     * Used to share the device idenity (IMEI/IMEISV) with the carrier network.
+     *
+     * <p>Note that this is not an IANA-specified value.
+     *
+     * <p>See TS 124 302 - Universal Mobile Telecommunications System (UMTS); LTE; 5G; Access to the
+     * 3GPP Evolved Packet Core (EPC) via non-3GPP access networks (Section 8.2.9.2) for more
+     * details.
+     */
+    public static final int NOTIFY_TYPE_DEVICE_IDENTITY = 41101;
+
     @Nullable private final Ike3gppExtension mIke3gppExtension;
     @NonNull private final Executor mUserCbExecutor;
     @Nullable private final Ike3gppIkeAuth mIke3gppIkeAuth;
+    @Nullable private final Ike3gppIkeInfo mIke3gppIkeInfo;
 
     /**
      * Initializes an Ike3gppExtensionExchange.
@@ -99,6 +112,7 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
 
         if (mIke3gppExtension != null) {
             mIke3gppIkeAuth = new Ike3gppIkeAuth(mIke3gppExtension, mUserCbExecutor);
+            mIke3gppIkeInfo = new Ike3gppIkeInfo(mIke3gppExtension, mUserCbExecutor);
 
             if (!REGISTERED_LISTENERS.add(ike3gppExtension.getIke3gppDataListener())) {
                 throw new IllegalArgumentException(
@@ -108,6 +122,7 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
             logd("IKE 3GPP Extension enabled: " + mIke3gppExtension.getIke3gppParams());
         } else {
             mIke3gppIkeAuth = null;
+            mIke3gppIkeInfo = null;
         }
     }
 
@@ -116,6 +131,22 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
         if (mIke3gppExtension == null) return;
 
         REGISTERED_LISTENERS.remove(mIke3gppExtension.getIke3gppDataListener());
+    }
+
+    /**
+     * Gets the 3GPP-specific Information Response IkePayloads for the specified exchangeSubtype.
+     */
+    public List<IkePayload> getResponsePayloads(
+            int exchangeSubtype, List<IkePayload> ike3gppRequestPayloads) {
+        if (mIke3gppExtension == null) return Collections.EMPTY_LIST;
+
+        switch (exchangeSubtype) {
+            case IKE_EXCHANGE_SUBTYPE_GENERIC_INFO:
+                return mIke3gppIkeInfo.getResponsePayloads(ike3gppRequestPayloads);
+            default:
+                // No 3GPP-specific behavior for this exchange subtype
+                return Collections.EMPTY_LIST;
+        }
     }
 
     /** Gets the 3GPP-specific Request IkePayloads for the specified exchangeSubtype. */
@@ -128,10 +159,19 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
             default:
                 // No 3GPP-specific behavior for this exchange subtype
                 String exchangeSubtypeString =
-                        IkeSessionStateMachine.EXCHANGE_SUBTYPE_TO_STRING.get(exchangeSubtype);
+                        IkeMessage.getIkeExchangeSubTypeString(exchangeSubtype);
                 logw("No 3GPP request payloads added for: " + exchangeSubtypeString);
                 return Collections.EMPTY_LIST;
         }
+    }
+
+    /**
+     * Provides a list of 3GPP payloads to add in an outbound AUTH req based on peer authentication
+     * status.
+     */
+    public List<IkePayload> getRequestPayloadsInEap(boolean serverAuthenticated) {
+        if (mIke3gppExtension == null) return Collections.EMPTY_LIST;
+        return mIke3gppIkeAuth.getRequestPayloadsInEap(serverAuthenticated);
     }
 
     /**
@@ -148,7 +188,7 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
             default:
                 // No 3GPP-specific behavior for this exchange subtype
                 String exchangeSubtypeString =
-                        IkeSessionStateMachine.EXCHANGE_SUBTYPE_TO_STRING.get(exchangeSubtype);
+                        IkeMessage.getIkeExchangeSubTypeString(exchangeSubtype);
                 logw("No 3GPP response payloads expected for: " + exchangeSubtypeString);
                 return Collections.EMPTY_LIST;
         }
@@ -171,7 +211,7 @@ public class Ike3gppExtensionExchange implements AutoCloseable {
             default:
                 // No 3GPP-specific behavior for this exchange subtype
                 String exchangeSubtypeString =
-                        IkeSessionStateMachine.EXCHANGE_SUBTYPE_TO_STRING.get(exchangeSubtype);
+                        IkeMessage.getIkeExchangeSubTypeString(exchangeSubtype);
                 logw("Received unexpected 3GPP payloads in: " + exchangeSubtypeString);
         }
     }

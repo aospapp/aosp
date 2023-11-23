@@ -16,11 +16,18 @@
 
 package com.android.queryable.queries;
 
+import static com.android.queryable.util.ParcelableUtils.readNullableInt;
+import static com.android.queryable.util.ParcelableUtils.writeNullableInt;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Implementation of {@link IntegerQuery}. */
 public final class IntegerQueryHelper<E extends Queryable> implements IntegerQuery<E>,
@@ -34,7 +41,7 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
     private Integer mLessThanValue = null;
     private Integer mLessThanOrEqualToValue = null;
 
-    private final E mQuery;
+    private final transient E mQuery;
 
     IntegerQueryHelper() {
         mQuery = (E) this;
@@ -44,6 +51,14 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
         mQuery = query;
     }
 
+    private IntegerQueryHelper(Parcel in) {
+        mQuery = null;
+        mEqualToValue = readNullableInt(in);
+        mGreaterThanValue = readNullableInt(in);
+        mGreaterThanOrEqualToValue = readNullableInt(in);
+        mLessThanValue = readNullableInt(in);
+        mLessThanOrEqualToValue = readNullableInt(in);
+    }
 
     @Override
     public E isEqualTo(int i) {
@@ -145,5 +160,48 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        writeNullableInt(out, mEqualToValue);
+        writeNullableInt(out, mGreaterThanValue);
+        writeNullableInt(out, mGreaterThanOrEqualToValue);
+        writeNullableInt(out, mLessThanValue);
+        writeNullableInt(out, mLessThanOrEqualToValue);
+    }
+
+    public static final Parcelable.Creator<IntegerQueryHelper> CREATOR =
+            new Parcelable.Creator<IntegerQueryHelper>() {
+                public IntegerQueryHelper createFromParcel(Parcel in) {
+                    return new IntegerQueryHelper(in);
+                }
+
+                public IntegerQueryHelper[] newArray(int size) {
+                    return new IntegerQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof IntegerQueryHelper)) return false;
+        IntegerQueryHelper<?> that = (IntegerQueryHelper<?>) o;
+        return Objects.equals(mEqualToValue, that.mEqualToValue) && Objects.equals(
+                mGreaterThanValue, that.mGreaterThanValue) && Objects.equals(
+                mGreaterThanOrEqualToValue, that.mGreaterThanOrEqualToValue)
+                && Objects.equals(mLessThanValue, that.mLessThanValue)
+                && Objects.equals(mLessThanOrEqualToValue, that.mLessThanOrEqualToValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mEqualToValue, mGreaterThanValue, mGreaterThanOrEqualToValue,
+                mLessThanValue, mLessThanOrEqualToValue);
     }
 }

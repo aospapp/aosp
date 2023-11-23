@@ -556,7 +556,7 @@ public final class XLIFF2ICUConverter {
                     
                     if(!name.equals(idVal)){
                         System.out.println("WARNING: The id value != language name. " +
-                                           "Please compare the output with the orignal " +
+                                           "Please compare the output with the original " +
                                            "ICU ResourceBundle before proceeding.");
                     }
                 }
@@ -934,7 +934,7 @@ public final class XLIFF2ICUConverter {
                currentSource.comment =  currentTarget.comment = transUnit.getNodeValue();
             }else if( type == Node.ELEMENT_NODE){
                 if(name.equals(BINSOURCE)){
-                    // loop to pickup internal-file/extenal-file element
+                    // loop to pickup internal-file/external-file element
                     continue;
                 }else if(name.equals(NOTE)){
                     // save the note values

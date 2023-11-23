@@ -95,7 +95,6 @@ class Surface;
 
 namespace gl
 {
-struct Rectangle;
 ANGLE_GL_OBJECTS_X(ANGLE_PRE_DECLARE_OBJECT)
 }  // namespace gl
 
@@ -142,6 +141,11 @@ constexpr uint32_t kMaxShaderSamplers    = 16;
 constexpr size_t kInlineConstDataMaxSize = 4 * 1024;
 constexpr size_t kDefaultUniformsMaxSize = 4 * 1024;
 constexpr uint32_t kMaxViewports         = 1;
+
+// Restrict in-flight resource usage to 400 MB.
+// A render pass can use more than 400MB, but the command buffer
+// will be flushed next time
+constexpr const size_t kMaximumResidentMemorySizeInBytes = 400 * 1024 * 1024;
 
 constexpr uint32_t kVertexAttribBufferStrideAlignment = 4;
 // Alignment requirement for offset passed to setVertex|FragmentBuffer
@@ -190,7 +194,7 @@ constexpr size_t kOcclusionQueryResultSize = sizeof(uint64_t);
 constexpr gl::Version kMaxSupportedGLVersion = gl::Version(3, 0);
 
 // Work-around the enum is not available on macOS
-#if (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED < 101600)) || TARGET_OS_MACCATALYST
+#if (TARGET_OS_OSX && (__MAC_OS_X_VERSION_MAX_ALLOWED < 110000)) || TARGET_OS_MACCATALYST
 constexpr MTLBlitOption kBlitOptionRowLinearPVRTC = MTLBlitOptionNone;
 #else
 constexpr MTLBlitOption kBlitOptionRowLinearPVRTC          = MTLBlitOptionRowLinearPVRTC;
@@ -248,7 +252,7 @@ template <typename T>
 using GetImplType = typename ImplTypeHelper<T>::ImplType;
 
 template <typename T>
-GetImplType<T> *GetImpl(const T *_Nonnull glObject)
+GetImplType<T> *GetImpl(const T *glObject)
 {
     return GetImplAs<GetImplType<T>>(glObject);
 }
@@ -274,10 +278,17 @@ class WrappedObject
 
     void retainAssign(T obj)
     {
-        T retained = obj;
+
 #if !__has_feature(objc_arc)
+        T retained = obj;
         [retained retain];
 #endif
+        release();
+        mMetalObject = obj;
+    }
+
+    void unretainAssign(T obj)
+    {
         release();
         mMetalObject = obj;
     }
@@ -293,6 +304,18 @@ class WrappedObject
 
     T mMetalObject = nil;
 };
+
+// Because ARC enablement is a compile-time choice, and we compile this header
+// both ways, we need a separate copy of our code when ARC is enabled.
+#if __has_feature(objc_arc)
+#    define adoptObjCObj adoptObjCObjArc
+#endif
+template <typename T>
+class AutoObjCPtr;
+template <typename T>
+using AutoObjCObj = AutoObjCPtr<T *>;
+template <typename U>
+AutoObjCObj<U> adoptObjCObj(U *NS_RELEASES_ARGUMENT) __attribute__((__warn_unused_result__));
 
 // This class is similar to WrappedObject, however, it allows changing the
 // internal pointer with public methods.
@@ -337,7 +360,7 @@ class AutoObjCPtr : public WrappedObject<T>
         return *this;
     }
 
-    AutoObjCPtr &operator=(const std::nullptr_t &theNull)
+    AutoObjCPtr &operator=(std::nullptr_t theNull)
     {
         this->set(nil);
         return *this;
@@ -347,7 +370,9 @@ class AutoObjCPtr : public WrappedObject<T>
 
     bool operator==(T rhs) const { return this->get() == rhs; }
 
-    bool operator==(const std::nullptr_t &theNull) const { return this->get(); }
+    bool operator==(std::nullptr_t theNull) const { return this->get() == nullptr; }
+
+    bool operator!=(std::nullptr_t) const { return this->get() != nullptr; }
 
     inline operator bool() { return this->get(); }
 
@@ -357,7 +382,17 @@ class AutoObjCPtr : public WrappedObject<T>
 
     using ParentType::retainAssign;
 
+    template <typename U>
+    friend AutoObjCObj<U> adoptObjCObj(U *NS_RELEASES_ARGUMENT)
+        __attribute__((__warn_unused_result__));
+
   private:
+    enum AdoptTag
+    {
+        Adopt
+    };
+    AutoObjCPtr(T src, AdoptTag) { this->unretainAssign(src); }
+
     void transfer(AutoObjCPtr &&src)
     {
         this->retainAssign(std::move(src.get()));
@@ -365,8 +400,17 @@ class AutoObjCPtr : public WrappedObject<T>
     }
 };
 
-template <typename T>
-using AutoObjCObj = AutoObjCPtr<T *>;
+template <typename U>
+inline AutoObjCObj<U> adoptObjCObj(U *NS_RELEASES_ARGUMENT src)
+{
+#if __has_feature(objc_arc)
+    return src;
+#elif defined(OBJC_NO_GC)
+    return AutoObjCPtr<U *>(src, AutoObjCPtr<U *>::Adopt);
+#else
+#    error "ObjC GC not supported."
+#endif
+}
 
 // NOTE: SharedEvent is only declared on iOS 12.0+ or mac 10.14+
 #if defined(__IPHONE_12_0) || defined(__MAC_10_14)
@@ -374,7 +418,7 @@ using AutoObjCObj = AutoObjCPtr<T *>;
 using SharedEventRef = AutoObjCPtr<id<MTLSharedEvent>>;
 #else
 #    define ANGLE_MTL_EVENT_AVAILABLE 0
-using SharedEventRef                                       = AutoObjCObj<NSObject>;
+using SharedEventRef = AutoObjCObj<NSObject>;
 #endif
 
 // The native image index used by Metal back-end,  the image index uses native mipmap level instead
@@ -507,7 +551,7 @@ class ErrorHandler
                              const char *function,
                              unsigned int line) = 0;
 
-    virtual void handleError(NSError *_Nullable error,
+    virtual void handleError(NSError *error,
                              const char *file,
                              const char *function,
                              unsigned int line) = 0;
@@ -517,7 +561,6 @@ class Context : public ErrorHandler
 {
   public:
     Context(DisplayMtl *displayMtl);
-    _Nullable id<MTLDevice> getMetalDevice() const;
     mtl::CommandQueue &cmdQueue();
 
     DisplayMtl *getDisplay() const { return mDisplay; }

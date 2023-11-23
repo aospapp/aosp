@@ -91,7 +91,6 @@ void nfa_rw_sys_disable(void) {
   tRW_T1T_CB* p_t1t;
   tRW_T2T_CB* p_t2t;
   tRW_T3T_CB* p_t3t;
-  tRW_T4T_CB* p_t4t;
   tRW_I93_CB* p_i93;
   tRW_MFC_CB* p_mfc;
 
@@ -124,7 +123,6 @@ void nfa_rw_sys_disable(void) {
       }
       break;
     case RW_CB_TYPE_T4T: /* do nothing */
-      p_t4t = &rw_cb.tcb.t4t;
       break;
     case RW_CB_TYPE_T5T:
       p_i93 = &rw_cb.tcb.i93;

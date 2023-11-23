@@ -152,6 +152,8 @@ message ValueBucketInfo {
   optional int64 end_bucket_elapsed_millis = 6;
 
   optional int64 condition_true_nanos = 10;
+
+  optional int64 condition_correction_nanos = 11;
 }
 
 message ValueMetricData {
@@ -166,6 +168,39 @@ message ValueMetricData {
   optional DimensionsValue dimensions_in_condition = 2 [deprecated = true];
 
   repeated DimensionsValue dimension_leaf_values_in_condition = 5 [deprecated = true];
+}
+
+message KllBucketInfo {
+    optional int64 start_bucket_elapsed_nanos = 1;
+
+    optional int64 end_bucket_elapsed_nanos = 2;
+
+    message KllSketch {
+        optional int32 index = 1;
+        optional bytes kll_sketch = 2;
+    }
+
+    repeated KllSketch sketches = 3;
+
+    optional int64 bucket_num = 4;
+
+    optional int64 start_bucket_elapsed_millis = 5;
+
+    optional int64 end_bucket_elapsed_millis = 6;
+
+    optional int64 condition_true_nanos = 7;
+}
+
+message KllMetricData {
+    optional DimensionsValue dimensions_in_what = 1;
+
+    repeated StateValue slice_by_state = 6;
+
+    repeated KllBucketInfo bucket_info = 3;
+
+    repeated DimensionsValue dimension_leaf_values_in_what = 4;
+
+    reserved 2, 5;
 }
 
 message GaugeBucketInfo {
@@ -206,7 +241,8 @@ message GaugeMetricData {
 message StatsLogReport {
   optional int64 metric_id = 1;
 
-  // Fields 2 and 3 are reserved.
+  // Deprecated.
+  reserved 2, 3;
 
   // Keep this in sync with BucketDropReason enum in MetricProducer.h.
   enum BucketDropReason {
@@ -249,12 +285,15 @@ message StatsLogReport {
   message EventMetricDataWrapper {
     repeated EventMetricData data = 1;
   }
+
   message CountMetricDataWrapper {
     repeated CountMetricData data = 1;
   }
+
   message DurationMetricDataWrapper {
     repeated DurationMetricData data = 1;
   }
+
   message ValueMetricDataWrapper {
     repeated ValueMetricData data = 1;
     repeated SkippedBuckets skipped = 2;
@@ -265,12 +304,18 @@ message StatsLogReport {
     repeated SkippedBuckets skipped = 2;
   }
 
+  message KllMetricDataWrapper {
+      repeated KllMetricData data = 1;
+      repeated SkippedBuckets skipped = 2;
+  }
+
   oneof data {
     EventMetricDataWrapper event_metrics = 4;
     CountMetricDataWrapper count_metrics = 5;
     DurationMetricDataWrapper duration_metrics = 6;
     ValueMetricDataWrapper value_metrics = 7;
     GaugeMetricDataWrapper gauge_metrics = 8;
+    KllMetricDataWrapper kll_metrics = 16;
   }
 
   optional int64 time_base_elapsed_nano_seconds = 9;
@@ -281,9 +326,10 @@ message StatsLogReport {
 
   optional DimensionsValue dimensions_path_in_condition = 12 [deprecated = true];
 
-  // DO NOT USE field 13.
-
   optional bool is_active = 14;
+
+  // Do not use.
+  reserved 13, 15;
 }
 
 message UidMapping {
@@ -306,6 +352,10 @@ message UidMapping {
             optional string installer = 8;
 
             optional uint64 installer_hash = 9;
+
+            optional uint32 installer_index = 10;
+
+            optional bytes truncated_certificate_hash = 11;
         }
         optional int64 elapsed_timestamp_nanos = 1;
 
@@ -329,6 +379,12 @@ message UidMapping {
         optional uint64 prev_version_string_hash = 11;
     }
     repeated Change changes = 2;
+
+    // Populated when StatsdConfig.hash_strings_in_metric_reports = true
+    repeated uint64 installer_hash = 3;
+
+    // Populated when StatsdConfig.hash_strings_in_metric_reports = false
+    repeated string installer_name = 4;
 }
 
 message ConfigMetricsReport {

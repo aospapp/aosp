@@ -46,7 +46,10 @@ role behavior in Java code, e.g. `SmsRoleBehavior`. This can be useful when the 
 express certain behavior specific to the role.
 - `defaultHolders`: Optional name of a system config resource that designates the default holders of
 the role, e.g. `config_defaultSms`. If the role is not exclusive, multiple package names can be
-specified by separating them with a semicolon (`;`).
+specified by separating them with a semicolon (`;`). Each package name can also be optionally
+followed by a SHA-256 digest of the expected signing certificate to allow specifying non-system
+apps, separated by a colon (`:`) with the package name, for instance
+`com.example.normalapp:sha256;com.example.systemapp`.
 - `description`: The string resource for the description of the role, e.g.
 `@string/role_sms_description`, which says "Apps that allow you to use your phone number to send and
 receive short text messages, photos, videos, and more". For default apps, this string will appear in
@@ -90,9 +93,9 @@ be managed by system APIs and shell command.
 
 The following tags can be specified inside a `<role>` tag:
 
-- `<required-components>`: Child tags like `<activity>`, `<service>`, `<provider>` and `<receiver>`
-can be used to specified the app manifest requirements of the role, and an app is only qualified
-when it declares all these components. They follow a similar syntax as in typical
+- `<required-components>`: Child tags like `<activity>`, `<service>`, `<provider>`, `<receiver>` and
+`<meta-data>` can be used to specified the app manifest requirements of the role, and an app is only
+qualified when it declares all these components. They follow a similar syntax as in typical
 `AndroidManifest.xml`.
 - `<permissions>`: Child tags like `<permission-set>` and `<permission>` can be used to specify the
 permissions that should be granted to the app when it has the role. Several `<permission-set>` are
@@ -172,6 +175,7 @@ You can also manage the role holders with `cmd role`:
 cmd role add-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]
 cmd role remove-role-holder [--user USER_ID] ROLE PACKAGE [FLAGS]
 cmd role clear-role-holders [--user USER_ID] ROLE [FLAGS]
+cmd role set-bypassing-role-qualification true|false
 ```
 
 The command outputs nothing and exits with `0` on success. If there was an error, the error will be

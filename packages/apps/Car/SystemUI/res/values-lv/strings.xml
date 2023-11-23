@@ -23,34 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"IZSLĒGTS"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"IZSLĒGTA"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Balss atpazīšanu tagad nodrošina pievienotā Bluetooth ierīce"</string>
-    <string name="car_guest" msgid="768913000117469596">"Viesis"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"Viesis"</string>
     <string name="car_add_user" msgid="6182764665687382136">"Pievienot profilu"</string>
     <string name="car_new_user" msgid="6766334721724989964">"Jauns profils"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"Vai pievienot jaunu profilu?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"Kad jūs esat izveidojis jaunu profilu, profila īpašniekam tas ir patstāvīgi jāpielāgo."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"No jebkura profila var atjaunināt lietotnes, lai izmantotu tās visos pārējos profilos."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"Sasniegts profilu ierobežojums"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="zero">Varat pievienot ne vairāk kā <xliff:g id="COUNT">%d</xliff:g> profilus.</item>
-      <item quantity="one">Varat pievienot ne vairāk kā <xliff:g id="COUNT">%d</xliff:g> profilu.</item>
-      <item quantity="other">Varat pievienot ne vairāk kā <xliff:g id="COUNT">%d</xliff:g> profilus.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{Var izveidot tikai vienu profilu.}zero{Varat pievienot ne vairāk kā # profilus.}one{Varat pievienot ne vairāk kā # profilu.}other{Varat pievienot ne vairāk kā # profilus.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"Notiek ielāde…"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Notiek lietotāja profila ielāde (<xliff:g id="FROM_USER">%1$d</xliff:g>–<xliff:g id="TO_USER">%2$d</xliff:g>)…"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofons ir izslēgts."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Izmantot mikrofonu"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Lietotnēm, kurām ir atļauja"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> ir izslēgtā stāvoklī."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"Izmantot šādu sensoru: <xliff:g id="SENSOR">%1$s</xliff:g>"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"Lietotnēm, kurām ir atļauja"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Mikrofona iestatījumi"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"Lietotne <xliff:g id="APP">%s</xliff:g> izmanto mikrofonu"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> pašlaik izmanto šādu sensoru: <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"Lietotnes <xliff:g id="APP_LIST">%s</xliff:g> izmanto mikrofonu"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"Lietotne <xliff:g id="APP">%s</xliff:g> nesen izmantoja mikrofonu"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"Lietotne <xliff:g id="APP_0">%1$s</xliff:g> un vēl <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> lietotnes nesen izmantoja mikrofonu."</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> nesen izmantoja šādu sensoru: <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> un citas lietotnes (vēl <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>) nesen izmantoja šādu sensoru: <xliff:g id="SENSOR">%3$s</xliff:g>"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofons tika ieslēgts."</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofons tika izslēgts."</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"Labi"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Vai ieslēgt transportlīdzekļa mikrofonu?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Lai turpinātu, ieslēdziet informatīvi izklaidējošās sistēmas mikrofonu. Tādējādi mikrofons tiks ieslēgts visām lietotnēm, kurām ir atļauja."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"Kameras iestatījumi"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> pašlaik izmanto kameru"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"Šīs lietotnes izmanto kameru: <xliff:g id="APP_LIST">%s</xliff:g>"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> nesen izmantoja kameru"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> un citas lietotnes (vēl <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>) nesen izmantoja kameru"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"Kamera ir ieslēgta"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"Kamera ir izslēgta"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"Labi"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"Vai ieslēgt transportlīdzekļa kameru?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"Lai turpinātu, ieslēdziet informatīvi izklaidējošās sistēmas kameru. Tādējādi kamera tiks ieslēgta visām lietotnēm, kurām ir atļauja."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"Jūs nevarat izmantot šo funkciju braukšanas laikā."</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"Aizvērt lietotni"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"Atpakaļ"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"Iestatījumi"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Bluetooth iestatījumi"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Tīkla un interneta iestatījumi"</string>

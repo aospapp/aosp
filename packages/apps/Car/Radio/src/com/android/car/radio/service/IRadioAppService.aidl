@@ -95,4 +95,9 @@ interface IRadioAppService {
      * Returns current region config (like frequency ranges for AM/FM).
      */
     RegionConfig getRegionConfig();
+
+    /**
+     * Tunes to the previously selected program or the default channel.
+     */
+    void tuneToDefaultIfNeeded();
 }

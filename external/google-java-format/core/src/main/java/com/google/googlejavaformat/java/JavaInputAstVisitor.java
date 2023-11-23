@@ -43,19 +43,27 @@ import static com.sun.source.tree.Tree.Kind.UNION_TYPE;
 import static com.sun.source.tree.Tree.Kind.VARIABLE;
 import static java.util.stream.Collectors.toList;
 
+import com.google.auto.value.AutoOneOf;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.PeekingIterator;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import com.google.common.collect.Streams;
+import com.google.common.collect.TreeRangeSet;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.googlejavaformat.CloseOp;
 import com.google.googlejavaformat.Doc;
 import com.google.googlejavaformat.Doc.FillMode;
@@ -139,8 +147,9 @@ import com.sun.tools.javac.tree.TreeScanner;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -168,7 +177,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Whether to break or not. */
-  enum BreakOrNot {
+  protected enum BreakOrNot {
     YES,
     NO;
 
@@ -178,7 +187,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Whether to collapse empty blocks. */
-  enum CollapseEmptyOrNot {
+  protected enum CollapseEmptyOrNot {
     YES,
     NO;
 
@@ -192,7 +201,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Whether to allow leading blank lines in blocks. */
-  enum AllowLeadingBlankLine {
+  protected enum AllowLeadingBlankLine {
     YES,
     NO;
 
@@ -202,7 +211,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Whether to allow trailing blank lines in blocks. */
-  enum AllowTrailingBlankLine {
+  protected enum AllowTrailingBlankLine {
     YES,
     NO;
 
@@ -269,6 +278,21 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
   }
 
+  // TODO(cushon): generalize this
+  private static final ImmutableMultimap<String, String> TYPE_ANNOTATIONS = typeAnnotations();
+
+  private static ImmutableSetMultimap<String, String> typeAnnotations() {
+    ImmutableSetMultimap.Builder<String, String> result = ImmutableSetMultimap.builder();
+    for (String annotation :
+        ImmutableList.of(
+            "org.jspecify.nullness.Nullable",
+            "org.checkerframework.checker.nullness.qual.Nullable")) {
+      String simpleName = annotation.substring(annotation.lastIndexOf('.') + 1);
+      result.put(simpleName, annotation);
+    }
+    return result.build();
+  }
+
   protected final OpsBuilder builder;
 
   protected static final Indent.Const ZERO = Indent.Const.ZERO;
@@ -277,6 +301,8 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   protected final Indent.Const minusFour;
   protected final Indent.Const plusTwo;
   protected final Indent.Const plusFour;
+
+  private final Set<Name> typeAnnotationSimpleNames = new HashSet<>();
 
   private static final ImmutableList<Op> breakList(Optional<BreakTag> breakTag) {
     return ImmutableList.of(Doc.Break.make(Doc.FillMode.UNIFIED, " ", ZERO, breakTag));
@@ -292,8 +318,6 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   private static final ImmutableList<Op> forceBreakList(Optional<BreakTag> breakTag) {
     return ImmutableList.of(Doc.Break.make(FillMode.FORCED, "", Indent.Const.ZERO, breakTag));
   }
-
-  private static final ImmutableList<Op> EMPTY_LIST = ImmutableList.of();
 
   /**
    * Allow multi-line filling (of array initializers, argument lists, and boolean expressions) for
@@ -377,10 +401,13 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
       first = false;
       dropEmptyDeclarations();
     }
+    handleModule(first, node);
     // set a partial format marker at EOF to make sure we can format the entire file
     markForPartialFormat();
     return null;
   }
+
+  protected void handleModule(boolean first, CompilationUnitTree node) {}
 
   /** Skips over extra semi-colons at the top-level, or in a class member declaration lists. */
   protected void dropEmptyDeclarations() {
@@ -415,10 +442,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   public void visitAnnotationType(ClassTree node) {
     sync(node);
     builder.open(ZERO);
-    visitAndBreakModifiers(
-        node.getModifiers(),
-        Direction.VERTICAL,
-        /* declarationAnnotationBreak= */ Optional.empty());
+    typeDeclarationModifiers(node.getModifiers());
     builder.open(ZERO);
     token("@");
     token("interface");
@@ -677,9 +701,10 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     builder.space();
     addTypeArguments(node.getTypeArguments(), plusFour);
     if (node.getClassBody() != null) {
-      builder.addAll(
+      List<AnnotationTree> annotations =
           visitModifiers(
-              node.getClassBody().getModifiers(), Direction.HORIZONTAL, Optional.empty()));
+              node.getClassBody().getModifiers(), Direction.HORIZONTAL, Optional.empty());
+      visitAnnotations(annotations, BreakOrNot.NO, BreakOrNot.YES);
     }
     scan(node.getIdentifier(), null);
     addArguments(node.getArguments(), plusFour);
@@ -800,10 +825,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   public boolean visitEnumDeclaration(ClassTree node) {
     sync(node);
     builder.open(ZERO);
-    visitAndBreakModifiers(
-        node.getModifiers(),
-        Direction.VERTICAL,
-        /* declarationAnnotationBreak= */ Optional.empty());
+    typeDeclarationModifiers(node.getModifiers());
     builder.open(plusFour);
     token("enum");
     builder.breakOp(" ");
@@ -967,7 +989,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
   }
 
-  private TypeWithDims variableFragmentDims(boolean first, int leadingDims, Tree type) {
+  private static TypeWithDims variableFragmentDims(boolean first, int leadingDims, Tree type) {
     if (type == null) {
       return null;
     }
@@ -1112,6 +1134,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
 
   @Override
   public Void visitImport(ImportTree node, Void unused) {
+    checkForTypeAnnotation(node);
     sync(node);
     token("import");
     builder.space();
@@ -1124,6 +1147,21 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     // TODO(cushon): remove this if https://bugs.openjdk.java.net/browse/JDK-8027682 is fixed
     dropEmptyDeclarations();
     return null;
+  }
+
+  private void checkForTypeAnnotation(ImportTree node) {
+    Name simpleName = getSimpleName(node);
+    Collection<String> wellKnownAnnotations = TYPE_ANNOTATIONS.get(simpleName.toString());
+    if (!wellKnownAnnotations.isEmpty()
+        && wellKnownAnnotations.contains(node.getQualifiedIdentifier().toString())) {
+      typeAnnotationSimpleNames.add(simpleName);
+    }
+  }
+
+  private static Name getSimpleName(ImportTree importTree) {
+    return importTree.getQualifiedIdentifier() instanceof IdentifierTree
+        ? ((IdentifierTree) importTree.getQualifiedIdentifier()).getName()
+        : ((MemberSelectTree) importTree.getQualifiedIdentifier()).getIdentifier();
   }
 
   @Override
@@ -1358,9 +1396,12 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
         }
       }
     }
-    builder.addAll(
+    List<AnnotationTree> typeAnnotations =
         visitModifiers(
-            annotations, Direction.VERTICAL, /* declarationAnnotationBreak= */ Optional.empty()));
+            node.getModifiers(),
+            annotations,
+            Direction.VERTICAL,
+            /* declarationAnnotationBreak= */ Optional.empty());
 
     Tree baseReturnType = null;
     Deque<List<? extends AnnotationTree>> dims = null;
@@ -1369,6 +1410,9 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
           DimensionHelpers.extractDims(node.getReturnType(), SortedDims.YES);
       baseReturnType = extractedDims.node;
       dims = new ArrayDeque<>(extractedDims.dims);
+    } else {
+      verticalAnnotations(typeAnnotations);
+      typeAnnotations = ImmutableList.of();
     }
 
     builder.open(plusFour);
@@ -1377,7 +1421,14 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     builder.open(ZERO);
     {
       boolean first = true;
+      if (!typeAnnotations.isEmpty()) {
+        visitAnnotations(typeAnnotations, BreakOrNot.NO, BreakOrNot.NO);
+        first = false;
+      }
       if (!node.getTypeParameters().isEmpty()) {
+        if (!first) {
+          builder.breakToFill(" ");
+        }
         token("<");
         typeParametersRest(node.getTypeParameters(), plusFour);
         if (!returnTypeAnnotations.isEmpty()) {
@@ -1600,16 +1651,20 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   public Void visitLiteral(LiteralTree node, Void unused) {
     sync(node);
     String sourceForNode = getSourceForNode(node, getCurrentPath());
-    // A negative numeric literal -n is usually represented as unary minus on n,
-    // but that doesn't work for integer or long MIN_VALUE. The parser works
-    // around that by representing it directly as a signed literal (with no
-    // unary minus), but the lexer still expects two tokens.
-    if (sourceForNode.startsWith("-")) {
+    if (isUnaryMinusLiteral(sourceForNode)) {
       token("-");
       sourceForNode = sourceForNode.substring(1).trim();
     }
     token(sourceForNode);
     return null;
+  }
+
+  // A negative numeric literal -n is usually represented as unary minus on n,
+  // but that doesn't work for integer or long MIN_VALUE. The parser works
+  // around that by representing it directly as a signed literal (with no
+  // unary minus), but the lexer still expects two tokens.
+  private static boolean isUnaryMinusLiteral(String literalTreeSource) {
+    return literalTreeSource.startsWith("-");
   }
 
   private void visitPackage(
@@ -1697,10 +1752,10 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
       default:
         return false;
     }
-    if (!(node.getExpression() instanceof UnaryTree)) {
+    JCTree.Tag tag = unaryTag(node.getExpression());
+    if (tag == null) {
       return false;
     }
-    JCTree.Tag tag = ((JCTree) node.getExpression()).getTag();
     if (tag.isPostUnaryOp()) {
       return false;
     }
@@ -1708,6 +1763,17 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
       return false;
     }
     return true;
+  }
+
+  private JCTree.Tag unaryTag(ExpressionTree expression) {
+    if (expression instanceof UnaryTree) {
+      return ((JCTree) expression).getTag();
+    }
+    if (expression instanceof LiteralTree
+        && isUnaryMinusLiteral(getSourceForNode(expression, getCurrentPath()))) {
+      return JCTree.Tag.MINUS;
+    }
+    return null;
   }
 
   @Override
@@ -1939,14 +2005,11 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
 
   public void visitClassDeclaration(ClassTree node) {
     sync(node);
-    List<Op> breaks =
-        visitModifiers(
-            node.getModifiers(),
-            Direction.VERTICAL,
-            /* declarationAnnotationBreak= */ Optional.empty());
+    typeDeclarationModifiers(node.getModifiers());
+    List<? extends Tree> permitsTypes = getPermitsClause(node);
     boolean hasSuperclassType = node.getExtendsClause() != null;
     boolean hasSuperInterfaceTypes = !node.getImplementsClause().isEmpty();
-    builder.addAll(breaks);
+    boolean hasPermitsTypes = !permitsTypes.isEmpty();
     token(node.getKind() == Tree.Kind.INTERFACE ? "interface" : "class");
     builder.space();
     visit(node.getSimpleName());
@@ -1958,7 +2021,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
       if (!node.getTypeParameters().isEmpty()) {
         typeParametersRest(
             node.getTypeParameters(),
-            hasSuperclassType || hasSuperInterfaceTypes ? plusFour : ZERO);
+            hasSuperclassType || hasSuperInterfaceTypes || hasPermitsTypes ? plusFour : ZERO);
       }
       if (hasSuperclassType) {
         builder.breakToFill(" ");
@@ -1966,22 +2029,10 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
         builder.space();
         scan(node.getExtendsClause(), null);
       }
-      if (hasSuperInterfaceTypes) {
-        builder.breakToFill(" ");
-        builder.open(node.getImplementsClause().size() > 1 ? plusFour : ZERO);
-        token(node.getKind() == Tree.Kind.INTERFACE ? "extends" : "implements");
-        builder.space();
-        boolean first = true;
-        for (Tree superInterfaceType : node.getImplementsClause()) {
-          if (!first) {
-            token(",");
-            builder.breakOp(" ");
-          }
-          scan(superInterfaceType, null);
-          first = false;
-        }
-        builder.close();
-      }
+      classDeclarationTypeList(
+          node.getKind() == Tree.Kind.INTERFACE ? "extends" : "implements",
+          node.getImplementsClause());
+      classDeclarationTypeList("permits", permitsTypes);
     }
     builder.close();
     if (node.getMembers() == null) {
@@ -2062,7 +2113,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   // Helper methods.
 
   /** Helper method for annotations. */
-  void visitAnnotations(
+  protected void visitAnnotations(
       List<? extends AnnotationTree> annotations, BreakOrNot breakBefore, BreakOrNot breakAfter) {
     if (!annotations.isEmpty()) {
       if (breakBefore.isYes()) {
@@ -2082,8 +2133,16 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
   }
 
+  void verticalAnnotations(List<AnnotationTree> annotations) {
+    for (AnnotationTree annotation : annotations) {
+      builder.forcedBreak();
+      scan(annotation, null);
+      builder.forcedBreak();
+    }
+  }
+
   /** Helper method for blocks. */
-  private void visitBlock(
+  protected void visitBlock(
       BlockTree node,
       CollapseEmptyOrNot collapseEmptyOrNot,
       AllowLeadingBlankLine allowLeadingBlankLine,
@@ -2169,12 +2228,21 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
   }
 
+  protected void typeDeclarationModifiers(ModifiersTree modifiers) {
+    List<AnnotationTree> typeAnnotations =
+        visitModifiers(
+            modifiers, Direction.VERTICAL, /* declarationAnnotationBreak= */ Optional.empty());
+    verticalAnnotations(typeAnnotations);
+  }
+
   /** Output combined modifiers and annotations and the trailing break. */
   void visitAndBreakModifiers(
       ModifiersTree modifiers,
       Direction annotationDirection,
       Optional<BreakTag> declarationAnnotationBreak) {
-    builder.addAll(visitModifiers(modifiers, annotationDirection, declarationAnnotationBreak));
+    List<AnnotationTree> typeAnnotations =
+        visitModifiers(modifiers, annotationDirection, declarationAnnotationBreak);
+    visitAnnotations(typeAnnotations, BreakOrNot.NO, BreakOrNot.YES);
   }
 
   @Override
@@ -2183,36 +2251,50 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Output combined modifiers and annotations and returns the trailing break. */
-  protected List<Op> visitModifiers(
+  @CheckReturnValue
+  protected ImmutableList<AnnotationTree> visitModifiers(
       ModifiersTree modifiersTree,
       Direction annotationsDirection,
       Optional<BreakTag> declarationAnnotationBreak) {
     return visitModifiers(
-        modifiersTree.getAnnotations(), annotationsDirection, declarationAnnotationBreak);
+        modifiersTree,
+        modifiersTree.getAnnotations(),
+        annotationsDirection,
+        declarationAnnotationBreak);
   }
 
-  protected List<Op> visitModifiers(
+  @CheckReturnValue
+  protected ImmutableList<AnnotationTree> visitModifiers(
+      ModifiersTree modifiersTree,
       List<? extends AnnotationTree> annotationTrees,
       Direction annotationsDirection,
       Optional<BreakTag> declarationAnnotationBreak) {
-    if (annotationTrees.isEmpty() && !nextIsModifier()) {
-      return EMPTY_LIST;
+    DeclarationModifiersAndTypeAnnotations splitModifiers =
+        splitModifiers(modifiersTree, annotationTrees);
+    return visitModifiers(splitModifiers, annotationsDirection, declarationAnnotationBreak);
+  }
+
+  @CheckReturnValue
+  private ImmutableList<AnnotationTree> visitModifiers(
+      DeclarationModifiersAndTypeAnnotations splitModifiers,
+      Direction annotationsDirection,
+      Optional<BreakTag> declarationAnnotationBreak) {
+    if (splitModifiers.declarationModifiers().isEmpty()) {
+      return splitModifiers.typeAnnotations();
     }
-    Deque<AnnotationTree> annotations = new ArrayDeque<>(annotationTrees);
+    Deque<AnnotationOrModifier> declarationModifiers =
+        new ArrayDeque<>(splitModifiers.declarationModifiers());
     builder.open(ZERO);
     boolean first = true;
     boolean lastWasAnnotation = false;
-    while (!annotations.isEmpty()) {
-      if (nextIsModifier()) {
-        break;
-      }
+    while (!declarationModifiers.isEmpty() && !declarationModifiers.peekFirst().isModifier()) {
       if (!first) {
         builder.addAll(
             annotationsDirection.isVertical()
                 ? forceBreakList(declarationAnnotationBreak)
                 : breakList(declarationAnnotationBreak));
       }
-      scan(annotations.removeFirst(), null);
+      formatAnnotationOrModifier(declarationModifiers);
       first = false;
       lastWasAnnotation = true;
     }
@@ -2221,8 +2303,9 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
         annotationsDirection.isVertical()
             ? forceBreakList(declarationAnnotationBreak)
             : breakList(declarationAnnotationBreak);
-    if (annotations.isEmpty() && !nextIsModifier()) {
-      return trailingBreak;
+    if (declarationModifiers.isEmpty()) {
+      builder.addAll(trailingBreak);
+      return splitModifiers.typeAnnotations();
     }
     if (lastWasAnnotation) {
       builder.addAll(trailingBreak);
@@ -2230,24 +2313,171 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
 
     builder.open(ZERO);
     first = true;
-    while (nextIsModifier() || !annotations.isEmpty()) {
+    while (!declarationModifiers.isEmpty()) {
       if (!first) {
         builder.addAll(breakFillList(Optional.empty()));
       }
-      if (nextIsModifier()) {
-        token(builder.peekToken().get());
-      } else {
-        scan(annotations.removeFirst(), null);
-        lastWasAnnotation = true;
-      }
+      formatAnnotationOrModifier(declarationModifiers);
       first = false;
     }
     builder.close();
-    return breakFillList(Optional.empty());
+    builder.addAll(breakFillList(Optional.empty()));
+    return splitModifiers.typeAnnotations();
   }
 
-  boolean nextIsModifier() {
-    switch (builder.peekToken().get()) {
+  /** Represents an annotation or a modifier in a {@link ModifiersTree}. */
+  @AutoOneOf(AnnotationOrModifier.Kind.class)
+  abstract static class AnnotationOrModifier implements Comparable<AnnotationOrModifier> {
+    enum Kind {
+      MODIFIER,
+      ANNOTATION
+    }
+
+    abstract Kind getKind();
+
+    abstract AnnotationTree annotation();
+
+    abstract Input.Tok modifier();
+
+    static AnnotationOrModifier ofModifier(Input.Tok m) {
+      return AutoOneOf_JavaInputAstVisitor_AnnotationOrModifier.modifier(m);
+    }
+
+    static AnnotationOrModifier ofAnnotation(AnnotationTree a) {
+      return AutoOneOf_JavaInputAstVisitor_AnnotationOrModifier.annotation(a);
+    }
+
+    boolean isModifier() {
+      return getKind().equals(Kind.MODIFIER);
+    }
+
+    boolean isAnnotation() {
+      return getKind().equals(Kind.ANNOTATION);
+    }
+
+    int position() {
+      switch (getKind()) {
+        case MODIFIER:
+          return modifier().getPosition();
+        case ANNOTATION:
+          return getStartPosition(annotation());
+      }
+      throw new AssertionError();
+    }
+
+    private static final Comparator<AnnotationOrModifier> COMPARATOR =
+        Comparator.comparingInt(AnnotationOrModifier::position);
+
+    @Override
+    public int compareTo(AnnotationOrModifier o) {
+      return COMPARATOR.compare(this, o);
+    }
+  }
+
+  /**
+   * The modifiers annotations for a declaration, grouped in to a prefix that contains all of the
+   * declaration annotations and modifiers, and a suffix of type annotations.
+   *
+   * <p>For examples like {@code @Deprecated public @Nullable Foo foo();}, this allows us to format
+   * {@code @Deprecated public} as declaration modifiers, and {@code @Nullable} as a type annotation
+   * on the return type.
+   */
+  @AutoValue
+  abstract static class DeclarationModifiersAndTypeAnnotations {
+    abstract ImmutableList<AnnotationOrModifier> declarationModifiers();
+
+    abstract ImmutableList<AnnotationTree> typeAnnotations();
+
+    static DeclarationModifiersAndTypeAnnotations create(
+        ImmutableList<AnnotationOrModifier> declarationModifiers,
+        ImmutableList<AnnotationTree> typeAnnotations) {
+      return new AutoValue_JavaInputAstVisitor_DeclarationModifiersAndTypeAnnotations(
+          declarationModifiers, typeAnnotations);
+    }
+
+    static DeclarationModifiersAndTypeAnnotations empty() {
+      return create(ImmutableList.of(), ImmutableList.of());
+    }
+
+    boolean hasDeclarationAnnotation() {
+      return declarationModifiers().stream().anyMatch(AnnotationOrModifier::isAnnotation);
+    }
+  }
+
+  /**
+   * Examines the token stream to convert the modifiers for a declaration into a {@link
+   * DeclarationModifiersAndTypeAnnotations}.
+   */
+  DeclarationModifiersAndTypeAnnotations splitModifiers(
+      ModifiersTree modifiersTree, List<? extends AnnotationTree> annotations) {
+    if (annotations.isEmpty() && !isModifier(builder.peekToken().get())) {
+      return DeclarationModifiersAndTypeAnnotations.empty();
+    }
+    RangeSet<Integer> annotationRanges = TreeRangeSet.create();
+    for (AnnotationTree annotationTree : annotations) {
+      annotationRanges.add(
+          Range.closedOpen(
+              getStartPosition(annotationTree), getEndPosition(annotationTree, getCurrentPath())));
+    }
+    ImmutableList<Input.Tok> toks =
+        builder.peekTokens(
+            getStartPosition(modifiersTree),
+            (Input.Tok tok) ->
+                // ModifiersTree end position information isn't reliable, so scan tokens as long as
+                // we're seeing annotations or modifiers
+                annotationRanges.contains(tok.getPosition()) || isModifier(tok.getText()));
+    ImmutableList<AnnotationOrModifier> modifiers =
+        ImmutableList.copyOf(
+            Streams.concat(
+                    toks.stream()
+                        // reject tokens from inside AnnotationTrees, we only want modifiers
+                        .filter(t -> !annotationRanges.contains(t.getPosition()))
+                        .map(AnnotationOrModifier::ofModifier),
+                    annotations.stream().map(AnnotationOrModifier::ofAnnotation))
+                .sorted()
+                .collect(toList()));
+    // Take a suffix of annotations that are well-known type annotations, and which appear after any
+    // declaration annotations or modifiers
+    ImmutableList.Builder<AnnotationTree> typeAnnotations = ImmutableList.builder();
+    int idx = modifiers.size() - 1;
+    while (idx >= 0) {
+      AnnotationOrModifier modifier = modifiers.get(idx);
+      if (!modifier.isAnnotation() || !isTypeAnnotation(modifier.annotation())) {
+        break;
+      }
+      typeAnnotations.add(modifier.annotation());
+      idx--;
+    }
+    return DeclarationModifiersAndTypeAnnotations.create(
+        modifiers.subList(0, idx + 1), typeAnnotations.build().reverse());
+  }
+
+  private void formatAnnotationOrModifier(Deque<AnnotationOrModifier> modifiers) {
+    AnnotationOrModifier modifier = modifiers.removeFirst();
+    switch (modifier.getKind()) {
+      case MODIFIER:
+        token(modifier.modifier().getText());
+        if (modifier.modifier().getText().equals("non")) {
+          token(modifiers.removeFirst().modifier().getText());
+          token(modifiers.removeFirst().modifier().getText());
+        }
+        break;
+      case ANNOTATION:
+        scan(modifier.annotation(), null);
+        break;
+    }
+  }
+
+  boolean isTypeAnnotation(AnnotationTree annotationTree) {
+    Tree annotationType = annotationTree.getAnnotationType();
+    if (!(annotationType instanceof IdentifierTree)) {
+      return false;
+    }
+    return typeAnnotationSimpleNames.contains(((IdentifierTree) annotationType).getName());
+  }
+
+  private static boolean isModifier(String token) {
+    switch (token) {
       case "public":
       case "protected":
       case "private":
@@ -2260,6 +2490,9 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
       case "native":
       case "strictfp":
       case "default":
+      case "sealed":
+      case "non":
+      case "-":
         return true;
       default:
         return false;
@@ -2366,7 +2599,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     builder.open(ZERO);
     boolean first = true;
     if (receiver.isPresent()) {
-      // TODO(jdd): Use builders.
+      // TODO(user): Use builders.
       declareOne(
           DeclarationKind.PARAMETER,
           Direction.HORIZONTAL,
@@ -2868,7 +3101,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
   }
 
   /** Returns the simple names of expressions in a "." chain. */
-  private List<String> simpleNames(Deque<ExpressionTree> stack) {
+  private static ImmutableList<String> simpleNames(Deque<ExpressionTree> stack) {
     ImmutableList.Builder<String> simpleNames = ImmutableList.builder();
     OUTER:
     for (ExpressionTree expression : stack) {
@@ -2906,7 +3139,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
         if (!methodInvocation.getTypeArguments().isEmpty()) {
           builder.open(plusFour);
           addTypeArguments(methodInvocation.getTypeArguments(), ZERO);
-          // TODO(jdd): Should indent the name -4.
+          // TODO(user): Should indent the name -4.
           builder.breakOp(Doc.FillMode.UNIFIED, "", ZERO, tyargTag);
           builder.close();
         }
@@ -2925,14 +3158,14 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
    * Returns the base expression of an erray access, e.g. given {@code foo[0][0]} returns {@code
    * foo}.
    */
-  private ExpressionTree getArrayBase(ExpressionTree node) {
+  private static ExpressionTree getArrayBase(ExpressionTree node) {
     while (node instanceof ArrayAccessTree) {
       node = ((ArrayAccessTree) node).getExpression();
     }
     return node;
   }
 
-  private ExpressionTree getMethodReceiver(MethodInvocationTree methodInvocation) {
+  private static ExpressionTree getMethodReceiver(MethodInvocationTree methodInvocation) {
     ExpressionTree select = methodInvocation.getMethodSelect();
     return select instanceof MemberSelectTree ? ((MemberSelectTree) select).getExpression() : null;
   }
@@ -2973,7 +3206,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
    * Returns all array indices for the given expression, e.g. given {@code foo[0][0]} returns the
    * expressions for {@code [0][0]}.
    */
-  private Deque<ExpressionTree> getArrayIndices(ExpressionTree expression) {
+  private static Deque<ExpressionTree> getArrayIndices(ExpressionTree expression) {
     Deque<ExpressionTree> indices = new ArrayDeque<>();
     while (expression instanceof ArrayAccessTree) {
       ArrayAccessTree array = (ArrayAccessTree) expression;
@@ -3270,20 +3503,25 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
 
     Deque<List<? extends AnnotationTree>> dims =
-        new ArrayDeque<>(
-            typeWithDims.isPresent() ? typeWithDims.get().dims : Collections.emptyList());
+        new ArrayDeque<>(typeWithDims.isPresent() ? typeWithDims.get().dims : ImmutableList.of());
     int baseDims = 0;
 
+    // preprocess to separate declaration annotations + modifiers, type annotations
+
+    DeclarationModifiersAndTypeAnnotations declarationAndTypeModifiers =
+        modifiers
+            .map(m -> splitModifiers(m, m.getAnnotations()))
+            .orElse(DeclarationModifiersAndTypeAnnotations.empty());
     builder.open(
-        kind == DeclarationKind.PARAMETER
-                && (modifiers.isPresent() && !modifiers.get().getAnnotations().isEmpty())
+        kind == DeclarationKind.PARAMETER && declarationAndTypeModifiers.hasDeclarationAnnotation()
             ? plusFour
             : ZERO);
     {
-      if (modifiers.isPresent()) {
-        visitAndBreakModifiers(
-            modifiers.get(), annotationsDirection, Optional.of(verticalAnnotationBreak));
-      }
+      List<AnnotationTree> annotations =
+          visitModifiers(
+              declarationAndTypeModifiers,
+              annotationsDirection,
+              Optional.of(verticalAnnotationBreak));
       boolean isVar =
           builder.peekToken().get().equals("var")
               && (!name.contentEquals("var") || builder.peekToken(1).get().equals("var"));
@@ -3294,6 +3532,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
         {
           builder.open(ZERO);
           {
+            visitAnnotations(annotations, BreakOrNot.NO, BreakOrNot.YES);
             if (typeWithDims.isPresent() && typeWithDims.get().node != null) {
               scan(typeWithDims.get().node, null);
               int totalDims = dims.size();
@@ -3533,6 +3772,31 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
     }
   }
 
+  /** Gets the permits clause for the given node. This is only available in Java 15 and later. */
+  protected List<? extends Tree> getPermitsClause(ClassTree node) {
+    return ImmutableList.of();
+  }
+
+  private void classDeclarationTypeList(String token, List<? extends Tree> types) {
+    if (types.isEmpty()) {
+      return;
+    }
+    builder.breakToFill(" ");
+    builder.open(types.size() > 1 ? plusFour : ZERO);
+    token(token);
+    builder.space();
+    boolean first = true;
+    for (Tree type : types) {
+      if (!first) {
+        token(",");
+        builder.breakOp(" ");
+      }
+      scan(type, null);
+      first = false;
+    }
+    builder.close();
+  }
+
   /**
    * The parser expands multi-variable declarations into separate single-variable declarations. All
    * of the fragments in the original declaration have the same start position, so we use that as a
@@ -3540,7 +3804,8 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
    *
    * <p>e.g. {@code int x, y;} is parsed as {@code int x; int y;}.
    */
-  private List<VariableTree> variableFragments(PeekingIterator<? extends Tree> it, Tree first) {
+  private static List<VariableTree> variableFragments(
+      PeekingIterator<? extends Tree> it, Tree first) {
     List<VariableTree> fragments = new ArrayList<>();
     if (first.getKind() == VARIABLE) {
       int start = getStartPosition(first);
@@ -3590,7 +3855,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
    * @param modifiers the list of {@link ModifiersTree}s
    * @return whether the local can be declared with horizontal annotations
    */
-  private Direction canLocalHaveHorizontalAnnotations(ModifiersTree modifiers) {
+  private static Direction canLocalHaveHorizontalAnnotations(ModifiersTree modifiers) {
     int parameterlessAnnotations = 0;
     for (AnnotationTree annotation : modifiers.getAnnotations()) {
       if (annotation.getArguments().isEmpty()) {
@@ -3607,7 +3872,7 @@ public class JavaInputAstVisitor extends TreePathScanner<Void, Void> {
    * Should a field with a set of modifiers be declared with horizontal annotations? This is
    * currently true if all annotations are parameterless annotations.
    */
-  private Direction fieldAnnotationDirection(ModifiersTree modifiers) {
+  private static Direction fieldAnnotationDirection(ModifiersTree modifiers) {
     for (AnnotationTree annotation : modifiers.getAnnotations()) {
       if (!annotation.getArguments().isEmpty()) {
         return Direction.VERTICAL;

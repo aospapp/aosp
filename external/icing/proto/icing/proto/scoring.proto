@@ -23,7 +23,7 @@ option objc_class_prefix = "ICNG";
 // Encapsulates the configurations on how Icing should score and rank the search
 // results.
 // TODO(b/170347684): Change all timestamps to seconds.
-// Next tag: 3
+// Next tag: 4
 message ScoringSpecProto {
   // OPTIONAL: Indicates how the search results will be ranked.
   message RankingStrategy {
@@ -83,4 +83,42 @@ message ScoringSpecProto {
     }
   }
   optional Order.Code order_by = 2;
+
+  // OPTIONAL: Specifies property weights for RELEVANCE_SCORE scoring strategy.
+  // Property weights are used for promoting or demoting query term matches in a
+  // document property. When property weights are provided, the term frequency
+  // is multiplied by the normalized property weight when computing the
+  // normalized term frequency component of BM25F. To prefer query term matches
+  // in the "subject" property over the "body" property of "Email" documents,
+  // set a higher property weight value for "subject" than "body". By default,
+  // all properties that are not specified are given a raw, pre-normalized
+  // weight of 1.0 when scoring.
+  repeated TypePropertyWeights type_property_weights = 3;
+}
+
+// Next tag: 3
+message TypePropertyWeights {
+  // Schema type to apply property weights to.
+  optional string schema_type = 1;
+
+  // Property weights to apply to the schema type.
+  repeated PropertyWeight property_weights = 2;
+}
+
+// Next tag: 3
+message PropertyWeight {
+  // Property path to assign property weight to. Property paths must be composed
+  // only of property names and property separators (the '.' character).
+  // For example, if an "Email" schema type has string property "subject" and
+  // document property "sender", which has string property "name", the property
+  // path for the email's subject would just be "subject" and the property path
+  // for the sender's name would be "sender.name". If an invalid path is
+  // specified, the property weight is discarded.
+  optional string path = 1;
+
+  // Property weight, valid values are positive and zero. Setting a zero
+  // property weight will remove scoring contribution for a query term match in
+  // the property. Negative weights are invalid and will result in an error.
+  // By default, a property is given a raw, pre-normalized weight of 1.0.
+  optional double weight = 2;
 }

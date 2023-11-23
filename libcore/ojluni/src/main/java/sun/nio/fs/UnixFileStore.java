@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,11 +27,8 @@ package sun.nio.fs;
 
 import java.nio.file.*;
 import java.nio.file.attribute.*;
-import java.nio.channels.*;
 import java.util.*;
 import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 /**
  * Base implementation of FileStore for Unix/like implementations.
@@ -123,6 +120,12 @@ abstract class UnixFileStore
     public long getUsableSpace() throws IOException {
        UnixFileStoreAttributes attrs = readAttributes();
        return attrs.blockSize() * attrs.availableBlocks();
+    }
+
+    @Override
+    public long getBlockSize() throws IOException {
+       UnixFileStoreAttributes attrs = readAttributes();
+       return attrs.blockSize();
     }
 
     @Override
@@ -218,12 +221,17 @@ abstract class UnixFileStore
     /**
      * Returns status to indicate if file system supports a given feature
      */
+    // BEGIN Android-changed: fstypes properties file is not used on Android.
+    FeatureStatus checkIfFeaturePresent(String feature) {
+        return FeatureStatus.UNKNOWN;
+    }
+    /*
     FeatureStatus checkIfFeaturePresent(String feature) {
         if (props == null) {
             synchronized (loadLock) {
                 if (props == null) {
                     props = AccessController.doPrivileged(
-                        new PrivilegedAction<Properties>() {
+                        new PrivilegedAction<>() {
                             @Override
                             public Properties run() {
                                 return loadProperties();
@@ -253,14 +261,16 @@ abstract class UnixFileStore
 
     private static Properties loadProperties() {
         Properties result = new Properties();
-        String fstypes = System.getProperty("java.home") + "/lib/fstypes.properties";
-        Path file = Paths.get(fstypes);
+        String fstypes = StaticProperty.javaHome() + "/lib/fstypes.properties";
+        Path file = Path.of(fstypes);
         try {
             try (ReadableByteChannel rbc = Files.newByteChannel(file)) {
-                result.load(Channels.newReader(rbc, "UTF-8"));
+                result.load(Channels.newReader(rbc, UTF_8.INSTANCE));
             }
         } catch (IOException x) {
         }
         return result;
     }
+    */
+    // END Android-changed: fstypes properties file is not used on Android.
 }

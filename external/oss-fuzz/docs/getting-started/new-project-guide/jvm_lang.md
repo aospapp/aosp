@@ -50,8 +50,9 @@ language: jvm
 ```
 
 The only supported fuzzing engine is libFuzzer (`libfuzzer`). So far the only
-supported sanitizer is AddressSanitizer (`address`), which needs to be
-specified explicitly even for pure Java projects.
+supported sanitizers are AddressSanitizer (`address`) and
+UndefinedBehaviorSanitizer (`undefined`). For pure Java projects, specify
+just `address`:
 
 ```yaml
 fuzzing_engines:
@@ -61,6 +62,8 @@ sanitizers:
 ```
 
 ### Dockerfile
+
+The Dockerfile should start by `FROM gcr.io/oss-fuzz-base/base-builder-jvm`
 
 The OSS-Fuzz base Docker images already come with OpenJDK 15 pre-installed. If
 you need Maven to build your project, you can install it by adding the following
@@ -135,11 +138,15 @@ LD_LIBRARY_PATH=\"$JVM_LD_LIBRARY_PATH\":\$this_dir \
 \$this_dir/jazzer_driver --agent_path=\$this_dir/jazzer_agent_deploy.jar \
 --cp=$RUNTIME_CLASSPATH \
 --target_class=$fuzzer_basename \
---jvm_args=\"-Xmx2048m\" \
+--jvm_args=\"-Xmx2048m;-Djava.awt.headless=true\" \
 \$@" > $OUT/$fuzzer_basename
-  chmod u+x $OUT/$fuzzer_basename
+  chmod +x $OUT/$fuzzer_basename
 done
 ```
+
+The [java-example](https://github.com/google/oss-fuzz/blob/master/projects/java-example/build.sh)
+project contains an example of a `build.sh` for Java projects with native
+libraries.
 
 ## FuzzedDataProvider
 

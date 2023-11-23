@@ -41,12 +41,24 @@ class AssertionEngineTest {
     private val tagTrace by lazy {
         readTagTraceFromFile("assertors/AppLaunchAndRotationsTagTrace.winscope")
     }
+    private val tagTraceEndTag by lazy {
+        readTagTraceFromFile("assertors/PipExitTagTrace.winscope")
+    }
     private val transitionTags by lazy { assertionEngine.getTransitionTags(tagTrace) }
 
     @Test
     fun canExtractTransitionTags() {
         Truth.assertThat(transitionTags).isNotEmpty()
         Truth.assertThat(transitionTags.size).isEqualTo(3)
+    }
+
+    @Test
+    fun canExtractTransitionTags_noEndInfo() {
+        Truth.assertThat(tagTraceEndTag.entries.size).isEqualTo(2)
+
+        val transitionTags = assertionEngine.getTransitionTags(tagTraceEndTag)
+        Truth.assertThat(transitionTags).isNotEmpty()
+        Truth.assertThat(transitionTags.size).isEqualTo(1)
     }
 
     @Test

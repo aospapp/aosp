@@ -22,6 +22,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import com.android.bedstead.harrier.BedsteadJUnit4
 import com.android.bedstead.harrier.DeviceState
+import com.android.bedstead.harrier.UserType
 import com.android.bedstead.harrier.annotations.AfterClass
 import com.android.bedstead.harrier.annotations.BeforeClass
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile
@@ -53,7 +54,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@EnsureHasWorkProfile(forUser = DeviceState.UserType.PRIMARY_USER)
+@EnsureHasWorkProfile(forUser = UserType.PRIMARY_USER)
 @RunWith(BedsteadJUnit4::class)
 abstract class DomainVerificationWorkProfileTestsBase {
 
@@ -101,7 +102,7 @@ abstract class DomainVerificationWorkProfileTestsBase {
         @BeforeClass
         fun installApks() {
             personalUser = deviceState.primaryUser()
-            workUser = deviceState.workProfile(DeviceState.UserType.PRIMARY_USER)
+            workUser = deviceState.workProfile(UserType.PRIMARY_USER)
             personalBrowsers = collectBrowsers(personalUser)
             workBrowsers = collectBrowsers(workUser)
             TestApis.packages().run {

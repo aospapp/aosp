@@ -26,7 +26,7 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.apache_http_legacy_uses_library" />
-        <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.http_uses_library.SignatureTest" />
         <option name="instrumentation-arg" key="base-api-files" value="current.api.gz" />
         <option name="instrumentation-arg" key="expected-api-files" value="apache-http-legacy-current.api.gz" />

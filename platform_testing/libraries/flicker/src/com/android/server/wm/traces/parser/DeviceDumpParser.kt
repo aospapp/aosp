@@ -19,7 +19,7 @@ package com.android.server.wm.traces.parser
 import com.android.server.wm.traces.common.DeviceStateDump
 import com.android.server.wm.traces.common.DeviceTraceDump
 import com.android.server.wm.traces.common.layers.LayersTrace
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 import com.android.server.wm.traces.parser.layers.LayersTraceParser
@@ -34,7 +34,7 @@ class DeviceDumpParser {
         /**
          * Creates a device state dump containing the [WindowManagerTrace] and [LayersTrace]
          * obtained from a `dumpsys` command. The parsed traces will contain a single
-         * [WindowManagerState] or [LayerTraceEntry].
+         * [WindowManagerState] or [BaseLayerTraceEntry].
          *
          * @param wmTraceData [WindowManagerTrace] content
          * @param layersTraceData [LayersTrace] content
@@ -43,7 +43,7 @@ class DeviceDumpParser {
         fun fromDump(
             wmTraceData: ByteArray,
             layersTraceData: ByteArray
-        ): DeviceStateDump<WindowManagerState?, LayerTraceEntry?> {
+        ): DeviceStateDump<WindowManagerState?, BaseLayerTraceEntry?> {
             return DeviceStateDump(
                 wmState = if (wmTraceData.isNotEmpty()) {
                     WindowManagerTraceParser.parseFromDump(wmTraceData).first()

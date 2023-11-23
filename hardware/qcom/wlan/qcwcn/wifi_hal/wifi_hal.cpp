@@ -473,6 +473,75 @@ static wifi_error wifi_init_cld80211_sock_cb(hal_info *info)
     return WIFI_SUCCESS;
 }
 
+wifi_error wifi_set_dtim_config(wifi_interface_handle handle, u32 multiplier)
+{
+    wifi_error ret = WIFI_ERROR_INVALID_ARGS;
+    WifihalGeneric *cmd = NULL;
+    struct nlattr *nlData = NULL;
+    interface_info *ifaceInfo = NULL;
+    wifi_handle wifiHandle = NULL;
+
+    if (!handle) {
+         ALOGE("%s: Error, wifi_interface_handle NULL", __FUNCTION__);
+         goto cleanup;
+    }
+    ALOGD("%s: multiplier:%d", __FUNCTION__, multiplier);
+    wifiHandle = getWifiHandle(handle);
+    cmd = new WifihalGeneric(wifiHandle, get_requestid(), OUI_QCA,
+                             QCA_NL80211_VENDOR_SUBCMD_SET_WIFI_CONFIGURATION);
+    if (cmd == NULL) {
+        ALOGE("%s: Error WifihalGeneric NULL", __FUNCTION__);
+        ret = WIFI_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+
+    /* Create the NL message. */
+    ret = cmd->create();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: failed to create NL msg. Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+    ifaceInfo = getIfaceInfo(handle);
+    if (!ifaceInfo) {
+        ALOGE("%s: getIfaceInfo is NULL", __FUNCTION__);
+        ret = WIFI_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = cmd->set_iface_id(ifaceInfo->name);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: failed to set iface id. Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = cmd->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ALOGE("%s: failed attr_start for VENDOR_DATA", __FUNCTION__);
+        ret = WIFI_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+
+    ret = cmd->put_u32(QCA_WLAN_VENDOR_ATTR_CONFIG_DYNAMIC_DTIM, multiplier);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: failed to put vendor data. Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+    cmd->attr_end(nlData);
+
+    /* Send the NL msg. */
+    ret = cmd->requestResponse();
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("%s: requestResponse Error:%d", __FUNCTION__, ret);
+        goto cleanup;
+    }
+
+cleanup:
+    if (cmd)
+        delete cmd;
+    return ret;
+}
 
 /*initialize function pointer table with Qualcomm HAL API*/
 wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
@@ -575,6 +644,7 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn) {
     fn->wifi_virtual_interface_delete = wifi_virtual_interface_delete;
     fn->wifi_set_latency_mode = wifi_set_latency_mode;
     fn->wifi_set_thermal_mitigation_mode = wifi_set_thermal_mitigation_mode;
+    fn->wifi_set_dtim_config = wifi_set_dtim_config;
 
     return WIFI_SUCCESS;
 }

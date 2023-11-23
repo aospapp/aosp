@@ -17,6 +17,7 @@
 #include <filesystem>
 
 #include <android-base/properties.h>
+#include <android-base/strings.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <kver/kernel_release.h>
@@ -28,6 +29,7 @@
 using android::base::GetBoolProperty;
 using android::base::GetProperty;
 using android::kver::KernelRelease;
+using android::vintf::Level;
 using android::vintf::RuntimeInfo;
 using android::vintf::Version;
 using android::vintf::VintfObject;
@@ -63,6 +65,43 @@ TEST_F(GenericBootImageTest, KernelReleaseFormat) {
       << "\nExample: 5.4.42-android12-0-something";
 }
 
+std::set<std::string> GetRequirementBySdkLevel(uint32_t target_sdk_level) {
+  // Files which must be present in generic ramdisk. This list acts as a lower
+  // bound for device's ramdisk.
+  static const std::map<uint32_t, std::set<std::string>> required_by_level = {
+      {0, {"init", "system/etc/ramdisk/build.prop"}},  // or some other number?
+      {
+          __ANDROID_API_T__,
+          {"system/bin/snapuserd", "system/etc/init/snapuserd.rc"},
+      }};
+  std::set<std::string> res;
+  for (const auto& [level, requirements] : required_by_level) {
+    if (level > target_sdk_level) {
+      break;
+    }
+    res.insert(requirements.begin(), requirements.end());
+  }
+  return res;
+}
+
+std::set<std::string> GetAllowListBySdkLevel(uint32_t target_sdk_level) {
+  // Files that are allowed in generic ramdisk(but not necessarily required)
+  // This list acts as an upper bound for what the device's ramdisk can possibly
+  // contain.
+  static const std::map<uint32_t, std::set<std::string>> allow_by_level = {{
+      __ANDROID_API_T__,
+      {"system/bin/snapuserd_ramdisk"},
+  }};
+  auto res = GetRequirementBySdkLevel(target_sdk_level);
+  for (const auto& [level, requirements] : allow_by_level) {
+    if (level > target_sdk_level) {
+      break;
+    }
+    res.insert(requirements.begin(), requirements.end());
+  }
+  return res;
+}
+
 TEST_F(GenericBootImageTest, GenericRamdisk) {
   // On "GKI 2.0" with 5.10+ kernels, VTS runs once with the device kernel,
   // so this test is meaningful.
@@ -70,22 +109,50 @@ TEST_F(GenericBootImageTest, GenericRamdisk) {
     GTEST_SKIP() << "Exempt generic ramdisk test on kernel "
                  << runtime_info->kernelVersion()
                  << ". Only required on 5.10+.";
+    return;
   }
 
   using std::filesystem::recursive_directory_iterator;
 
   std::string slot_suffix = GetProperty("ro.boot.slot_suffix", "");
-  std::string boot_path = "/dev/block/by-name/boot" + slot_suffix;
-  if (0 != access(boot_path.c_str(), F_OK)) {
+  // Launching devices with T+ using android13+ kernels have the ramdisk in
+  // init_boot instead of boot
+  std::string error_msg;
+  const auto kernel_level =
+      VintfObject::GetInstance()->getKernelLevel(&error_msg);
+  ASSERT_NE(Level::UNSPECIFIED, kernel_level) << error_msg;
+  std::string boot_path;
+  if (kernel_level >= Level::T) {
+    if (std::stoi(android::base::GetProperty("ro.vendor.api_level", "0")) >=
+        __ANDROID_API_T__) {
+      boot_path = "/dev/block/by-name/init_boot" + slot_suffix;
+    } else {
+      // This is the case of a device launched before Android 13 that is
+      // upgrading its kernel to android13+. These devices can't add an
+      // init_boot partition and need to include the equivalent ramdisk
+      // functionality somewhere outside of boot.img (most likely in the
+      // vendor_boot image). Since we don't know where to look, or which files
+      // will be present, we can skip the rest of this test case.
+      GTEST_SKIP() << "Exempt generic ramdisk test on upgrading device that "
+                   << "launched before Android 13 and is now using an Android "
+                   << "13+ kernel.";
+      return;
+    }
+  } else {
+    boot_path = "/dev/block/by-name/boot" + slot_suffix;
+  }
+  if (0 != access(boot_path.c_str(), R_OK)) {
     int saved_errno = errno;
     FAIL() << "Can't access " << boot_path << ": " << strerror(saved_errno);
+    return;
   }
 
-  auto extracted_ramdisk = android::ExtractRamdiskToDirectory(boot_path);
-  ASSERT_RESULT_OK(extracted_ramdisk);
+  const auto extracted_ramdisk = android::ExtractRamdiskToDirectory(boot_path);
+  ASSERT_TRUE(extracted_ramdisk.ok())
+      << "Failed to extract ramdisk: " << extracted_ramdisk.error();
 
   std::set<std::string> actual_files;
-  std::filesystem::path extracted_ramdisk_path((*extracted_ramdisk)->path);
+  const std::filesystem::path extracted_ramdisk_path((*extracted_ramdisk)->path);
   for (auto& p : recursive_directory_iterator(extracted_ramdisk_path)) {
     if (p.is_directory()) continue;
     EXPECT_TRUE(p.is_regular_file())
@@ -94,23 +161,27 @@ TEST_F(GenericBootImageTest, GenericRamdisk) {
     actual_files.insert(rel_path.string());
   }
 
-  std::set<std::string> generic_ramdisk_allowlist{
-      "init",
-      "system/etc/ramdisk/build.prop",
-  };
-  if (GetBoolProperty("ro.debuggable", false)) {
-    EXPECT_THAT(actual_files, IsSupersetOf(generic_ramdisk_allowlist))
-        << "Missing files required by non-debuggable generic ramdisk.";
-    std::set<std::string> debuggable_allowlist{
+  const auto sdk_level =
+      android::base::GetIntProperty("ro.bootimage.build.version.sdk", 0);
+  const std::set<std::string> generic_ramdisk_required_list =
+      GetRequirementBySdkLevel(sdk_level);
+  std::set<std::string> generic_ramdisk_allow_list =
+      GetAllowListBySdkLevel(sdk_level);
+
+  const bool is_debuggable = GetBoolProperty("ro.debuggable", false);
+  if (is_debuggable) {
+    const std::set<std::string> debuggable_allowlist{
         "adb_debug.prop",
         "force_debuggable",
         "userdebug_plat_sepolicy.cil",
     };
-    generic_ramdisk_allowlist.insert(debuggable_allowlist.begin(),
-                                     debuggable_allowlist.end());
-    EXPECT_THAT(generic_ramdisk_allowlist, IsSupersetOf(actual_files))
-        << "Contains files disallowed by debuggable generic ramdisk";
-  } else {
-    EXPECT_EQ(actual_files, generic_ramdisk_allowlist);
+    generic_ramdisk_allow_list.insert(debuggable_allowlist.begin(),
+                                      debuggable_allowlist.end());
   }
+  EXPECT_THAT(actual_files, IsSupersetOf(generic_ramdisk_required_list))
+      << "Missing files required by " << (is_debuggable ? "debuggable " : "")
+      << "generic ramdisk";
+  EXPECT_THAT(generic_ramdisk_allow_list, IsSupersetOf(actual_files))
+      << "Contains files disallowed by " << (is_debuggable ? "debuggable " : "")
+      << "generic ramdisk";
 }

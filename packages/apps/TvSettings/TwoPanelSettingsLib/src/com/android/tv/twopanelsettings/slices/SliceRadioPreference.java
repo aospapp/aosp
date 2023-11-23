@@ -17,22 +17,36 @@
 package com.android.tv.twopanelsettings.slices;
 
 import android.content.Context;
+import android.text.TextUtils;
+import android.view.View;
 
+import androidx.preference.PreferenceViewHolder;
 import androidx.slice.core.SliceActionImpl;
 
 /**
  * Slice version of RadioPreference.
  */
-public class SliceRadioPreference extends RadioPreference implements HasSliceAction, HasSliceUri {
+public class SliceRadioPreference extends RadioPreference implements HasSliceAction, HasSliceUri,
+        HasCustomContentDescription {
     private int mActionId;
     private SliceActionImpl mSliceAction;
     private String mUri;
     private SliceActionImpl mFollowupSliceAction;
+    private String mContentDescription;
 
     public SliceRadioPreference(Context context, SliceActionImpl action) {
         super(context);
         mSliceAction = action;
         update();
+    }
+
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+        if (!TextUtils.isEmpty(mContentDescription)) {
+            holder.itemView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+            holder.itemView.setContentDescription(mContentDescription);
+        }
     }
 
     @Override
@@ -77,5 +91,19 @@ public class SliceRadioPreference extends RadioPreference implements HasSliceAct
     @Override
     public String getUri() {
         return mUri;
+    }
+
+    /**
+     * Sets the accessibility content description that will be read to the TalkBack users when they
+     * select this preference.
+     */
+    @Override
+    public void setContentDescription(String contentDescription) {
+        this.mContentDescription = contentDescription;
+    }
+
+    @Override
+    public String getContentDescription() {
+        return mContentDescription;
     }
 }

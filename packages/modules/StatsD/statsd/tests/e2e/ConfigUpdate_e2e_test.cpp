@@ -20,7 +20,6 @@
 
 #include <thread>
 
-#include "flags/flags.h"
 #include "src/StatsLogProcessor.h"
 #include "src/StatsService.h"
 #include "src/storage/StorageManager.h"
@@ -41,10 +40,6 @@ using namespace std;
 
 // Tests that only run with the partial config update feature turned on.
 namespace {
-// Setup for test fixture.
-class ConfigUpdateE2eTest : public ::testing::Test {
-};
-
 void ValidateSubsystemSleepDimension(const DimensionsValue& value, string name) {
     EXPECT_EQ(value.field(), util::SUBSYSTEM_SLEEP_STATE);
     ASSERT_EQ(value.value_tuple().dimensions_value_size(), 1);
@@ -53,6 +48,9 @@ void ValidateSubsystemSleepDimension(const DimensionsValue& value, string name) 
 }
 
 }  // Anonymous namespace.
+
+// Setup for test fixture.
+class ConfigUpdateE2eTest : public ::testing::Test {};
 
 TEST_F(ConfigUpdateE2eTest, TestEventMetric) {
     StatsdConfig config;
@@ -197,6 +195,7 @@ TEST_F(ConfigUpdateE2eTest, TestEventMetric) {
     backfillDimensionPath(&reports);
     backfillStringInReport(&reports);
     backfillStartEndTimestamp(&reports);
+    backfillAggregatedAtoms(&reports);
     ASSERT_EQ(reports.reports_size(), 2);
 
     // Report from before update.
@@ -1062,6 +1061,7 @@ TEST_F(ConfigUpdateE2eTest, TestGaugeMetric) {
     backfillDimensionPath(&reports);
     backfillStringInReport(&reports);
     backfillStartEndTimestamp(&reports);
+    backfillAggregatedAtoms(&reports);
     ASSERT_EQ(reports.reports_size(), 2);
 
     int64_t roundedBucketStartNs = MillisToNano(NanoToMillis(bucketStartTimeNs));
@@ -1455,7 +1455,7 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     EXPECT_FALSE(data.has_dimensions_in_what());
     EXPECT_EQ(data.slice_by_state_size(), 0);
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {20}, 0);
+    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {20}, 0, 0);
 
     // Min screen brightness while screen on. Bucket skipped due to condition unknown.
     StatsLogReport valuePushPersistBefore = report.metrics(2);
@@ -1479,11 +1479,13 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     data = valueMetrics.data(0);
     ValidateSubsystemSleepDimension(data.dimensions_in_what(), "subsystem_name_1");
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {800}, 0);
+    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {800}, 0,
+                        0);
     data = valueMetrics.data(1);
     ValidateSubsystemSleepDimension(data.dimensions_in_what(), "subsystem_name_2");
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {800}, 0);
+    ValidateValueBucket(data.bucket_info(0), roundedBucketStartNs, roundedUpdateTimeNs, {800}, 0,
+                        0);
 
     // Report from after update.
     report = reports.reports(1);
@@ -1501,13 +1503,13 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ValidateSubsystemSleepDimension(data.dimensions_in_what(), "subsystem_name_1");
     ASSERT_EQ(data.bucket_info_size(), 1);
     ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {3500},
-                        conditionTrueNs);
+                        conditionTrueNs, 0);
     ASSERT_EQ(valueMetrics.data_size(), 2);
     data = valueMetrics.data(1);
     ValidateSubsystemSleepDimension(data.dimensions_in_what(), "subsystem_name_2");
     ASSERT_EQ(data.bucket_info_size(), 1);
     ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {3500},
-                        conditionTrueNs);
+                        conditionTrueNs, 0);
 
     ASSERT_EQ(valueChangeAfter.value_metrics().skipped_size(), 1);
     skipBucket = valueChangeAfter.value_metrics().skipped(0);
@@ -1525,8 +1527,8 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ASSERT_EQ(valueMetrics.data_size(), 1);
     data = valueMetrics.data(0);
     ASSERT_EQ(data.bucket_info_size(), 2);
-    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {40}, 0);
-    ValidateValueBucket(data.bucket_info(1), roundedBucketEndNs, roundedDumpTimeNs, {50}, 0);
+    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {40}, 0, 0);
+    ValidateValueBucket(data.bucket_info(1), roundedBucketEndNs, roundedDumpTimeNs, {50}, 0, 0);
 
     // Min screen brightness when screen on. Val is 30 in first bucket, 50 in second.
     StatsLogReport valuePushPersistAfter = report.metrics(2);
@@ -1539,9 +1541,9 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ASSERT_EQ(data.bucket_info_size(), 2);
     conditionTrueNs = bucketSizeNs - 60 * NS_PER_SEC + 10 * NS_PER_SEC;
     ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {30},
-                        conditionTrueNs);
+                        conditionTrueNs, 0);
     ValidateValueBucket(data.bucket_info(1), roundedBucketEndNs, roundedDumpTimeNs, {50},
-                        10 * NS_PER_SEC);
+                        10 * NS_PER_SEC, 0);
 
     // TODO(b/179725160): fix assertions.
     // Subsystem sleep state while unplugged slice screen.
@@ -1558,7 +1560,7 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ValidateStateValue(data.slice_by_state(), util::SCREEN_STATE_CHANGED,
                        android::view::DisplayStateEnum::DISPLAY_STATE_OFF);
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {900}, -1);
+    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {900}, -1, 0);
     // Name 1, screen ON. Pull#4 (1600) - pull#3 (900) + pull#8 (6400) - pull#7 (4900).
     data = valueMetrics.data(1);
     conditionTrueNs = 10 * NS_PER_SEC + bucketSizeNs - 65 * NS_PER_SEC;
@@ -1566,7 +1568,8 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ValidateStateValue(data.slice_by_state(), util::SCREEN_STATE_CHANGED,
                        android::view::DisplayStateEnum::DISPLAY_STATE_ON);
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {2200}, -1);
+    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {2200}, -1,
+                        0);
     // Name 2, screen OFF. Pull#5 (2500) - pull#4 (1600).
     data = valueMetrics.data(2);
     conditionTrueNs = 10 * NS_PER_SEC;
@@ -1574,7 +1577,7 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ValidateStateValue(data.slice_by_state(), util::SCREEN_STATE_CHANGED,
                        android::view::DisplayStateEnum::DISPLAY_STATE_OFF);
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {900}, -1);
+    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {900}, -1, 0);
     // Name 2, screen ON. Pull#4 (1600) - pull#3 (900) + pull#8 (6400) - pull#7 (4900).
     data = valueMetrics.data(3);
     conditionTrueNs = 10 * NS_PER_SEC + bucketSizeNs - 65 * NS_PER_SEC;
@@ -1582,7 +1585,8 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     ValidateStateValue(data.slice_by_state(), util::SCREEN_STATE_CHANGED,
                        android::view::DisplayStateEnum::DISPLAY_STATE_ON);
     ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {2200}, -1);
+    ValidateValueBucket(data.bucket_info(0), roundedUpdateTimeNs, roundedBucketEndNs, {2200}, -1,
+                        0);
 
     ASSERT_EQ(valuePullPersistAfter.value_metrics().skipped_size(), 1);
     skipBucket = valuePullPersistAfter.value_metrics().skipped(0);
@@ -1592,7 +1596,221 @@ TEST_F(ConfigUpdateE2eTest, TestValueMetric) {
     EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::DUMP_REPORT_REQUESTED);
 }
 
+TEST_F(ConfigUpdateE2eTest, TestKllMetric) {
+    StatsdConfig config;
+    config.add_allowed_log_source("AID_ROOT");
+
+    AtomMatcher brightnessMatcher = CreateScreenBrightnessChangedAtomMatcher();
+    *config.add_atom_matcher() = brightnessMatcher;
+    AtomMatcher screenOnMatcher = CreateScreenTurnedOnAtomMatcher();
+    *config.add_atom_matcher() = screenOnMatcher;
+    AtomMatcher screenOffMatcher = CreateScreenTurnedOffAtomMatcher();
+    *config.add_atom_matcher() = screenOffMatcher;
+    AtomMatcher batteryPluggedUsbMatcher = CreateBatteryStateUsbMatcher();
+    *config.add_atom_matcher() = batteryPluggedUsbMatcher;
+    AtomMatcher unpluggedMatcher = CreateBatteryStateNoneMatcher();
+    *config.add_atom_matcher() = unpluggedMatcher;
+
+    Predicate screenOnPredicate = CreateScreenIsOnPredicate();
+    *config.add_predicate() = screenOnPredicate;
+    Predicate unpluggedPredicate = CreateDeviceUnpluggedPredicate();
+    *config.add_predicate() = unpluggedPredicate;
+
+    KllMetric kllPersist = createKllMetric("ScreenBrightnessWhileScreenOn", brightnessMatcher, 1,
+                                           screenOnPredicate.id());
+
+    KllMetric kllChange = createKllMetric("ScreenBrightness", brightnessMatcher, 1, nullopt);
+
+    KllMetric kllRemove = createKllMetric("ScreenBrightnessWhileUnplugged", brightnessMatcher, 1,
+                                          unpluggedPredicate.id());
+
+    *config.add_kll_metric() = kllRemove;
+    *config.add_kll_metric() = kllPersist;
+    *config.add_kll_metric() = kllChange;
+
+    ConfigKey key(123, 987);
+    const uint64_t bucketStartTimeNs = 10000000000;  // 0:10
+    uint64_t bucketSizeNs = TimeUnitToBucketSizeInMillis(TEN_MINUTES) * 1000000LL;
+    sp<StatsLogProcessor> processor =
+            CreateStatsLogProcessor(bucketStartTimeNs, bucketStartTimeNs, config, key);
+
+    // Initialize log events before update.
+    // kllPersist and kllRemove will skip the bucket due to condition unknown.
+    std::vector<std::unique_ptr<LogEvent>> events;
+    events.push_back(CreateScreenBrightnessChangedEvent(bucketStartTimeNs + 5 * NS_PER_SEC, 5));
+    events.push_back(CreateScreenBrightnessChangedEvent(bucketStartTimeNs + 15 * NS_PER_SEC, 15));
+    events.push_back(CreateBatteryStateChangedEvent(bucketStartTimeNs + 20 * NS_PER_SEC,
+                                                    BatteryPluggedStateEnum::BATTERY_PLUGGED_NONE));
+    events.push_back(CreateScreenBrightnessChangedEvent(bucketStartTimeNs + 25 * NS_PER_SEC, 40));
+    events.push_back(CreateScreenStateChangedEvent(bucketStartTimeNs + 27 * NS_PER_SEC,
+                                                   android::view::DISPLAY_STATE_ON));
+
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
+
+    // Do the update. Add matchers/conditions in different order to force indices to change.
+    StatsdConfig newConfig;
+    newConfig.add_allowed_log_source("AID_ROOT");
+
+    *newConfig.add_atom_matcher() = screenOffMatcher;
+    *newConfig.add_atom_matcher() = unpluggedMatcher;
+    *newConfig.add_atom_matcher() = batteryPluggedUsbMatcher;
+    *newConfig.add_atom_matcher() = brightnessMatcher;
+    *newConfig.add_atom_matcher() = screenOnMatcher;
+    AtomMatcher batterySaverStartMatcher = CreateBatterySaverModeStartAtomMatcher();
+    *newConfig.add_atom_matcher() = batterySaverStartMatcher;
+    AtomMatcher batterySaverStopMatcher = CreateBatterySaverModeStopAtomMatcher();
+    *newConfig.add_atom_matcher() = batterySaverStopMatcher;
+
+    *newConfig.add_predicate() = screenOnPredicate;
+    Predicate batterySaverPredicate = CreateBatterySaverModePredicate();
+    *newConfig.add_predicate() = batterySaverPredicate;
+    Predicate screenOffPredicate = CreateScreenIsOffPredicate();
+    *newConfig.add_predicate() = screenOffPredicate;
+
+    kllChange.set_condition(batterySaverPredicate.id());
+    *newConfig.add_kll_metric() = kllChange;
+    KllMetric kllNew = createKllMetric("ScreenBrightnessWhileScreenOff", brightnessMatcher, 1,
+                                       screenOffPredicate.id());
+    *newConfig.add_kll_metric() = kllNew;
+    *newConfig.add_kll_metric() = kllPersist;
+
+    int64_t updateTimeNs = bucketStartTimeNs + 30 * NS_PER_SEC;
+    processor->OnConfigUpdated(updateTimeNs, key, newConfig);
+
+    // Send events after the update. This is a new bucket.
+    events.clear();
+    events.push_back(CreateScreenBrightnessChangedEvent(updateTimeNs + 5 * NS_PER_SEC, 30));
+    events.push_back(CreateScreenStateChangedEvent(updateTimeNs + 10 * NS_PER_SEC,
+                                                   android::view::DISPLAY_STATE_OFF));
+    events.push_back(CreateScreenBrightnessChangedEvent(updateTimeNs + 15 * NS_PER_SEC, 20));
+    events.push_back(CreateBatteryStateChangedEvent(updateTimeNs + 20 * NS_PER_SEC,
+                                                    BatteryPluggedStateEnum::BATTERY_PLUGGED_USB));
+    events.push_back(CreateScreenBrightnessChangedEvent(updateTimeNs + 25 * NS_PER_SEC, 25));
+    events.push_back(CreateScreenStateChangedEvent(updateTimeNs + 30 * NS_PER_SEC,
+                                                   android::view::DISPLAY_STATE_ON));
+    events.push_back(CreateBatteryStateChangedEvent(updateTimeNs + 35 * NS_PER_SEC,
+                                                    BatteryPluggedStateEnum::BATTERY_PLUGGED_NONE));
+    events.push_back(CreateScreenBrightnessChangedEvent(updateTimeNs + 40 * NS_PER_SEC, 40));
+
+    // End current bucket and start new bucket.
+    events.push_back(CreateScreenBrightnessChangedEvent(
+            bucketStartTimeNs + bucketSizeNs + 5 * NS_PER_SEC, 50));
+
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
+
+    uint64_t dumpTimeNs = bucketStartTimeNs + bucketSizeNs + 10 * NS_PER_SEC;
+    ConfigMetricsReportList reports;
+    vector<uint8_t> buffer;
+    processor->onDumpReport(key, dumpTimeNs, true, true, ADB_DUMP, FAST, &buffer);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    backfillDimensionPath(&reports);
+    backfillStringInReport(&reports);
+    backfillStartEndTimestamp(&reports);
+    ASSERT_EQ(reports.reports_size(), 2);
+
+    // Report from before update.
+    ConfigMetricsReport report = reports.reports(0);
+    ASSERT_EQ(report.metrics_size(), 3);
+
+    // kllRemove: Screen brightness while unplugged. Bucket skipped due to condition unknown.
+    StatsLogReport kllRemoveBefore = report.metrics(0);
+    EXPECT_EQ(kllRemoveBefore.metric_id(), kllRemove.id());
+    EXPECT_TRUE(kllRemoveBefore.has_kll_metrics());
+    ASSERT_EQ(kllRemoveBefore.kll_metrics().data_size(), 0);
+    ASSERT_EQ(kllRemoveBefore.kll_metrics().skipped_size(), 1);
+    StatsLogReport::SkippedBuckets skipBucket = kllRemoveBefore.kll_metrics().skipped(0);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), bucketStartTimeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), updateTimeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::CONDITION_UNKNOWN);
+
+    // kllPersist: Screen brightness while screen on.
+    StatsLogReport kllPersistBefore = report.metrics(1);
+    EXPECT_EQ(kllPersistBefore.metric_id(), kllPersist.id());
+    EXPECT_TRUE(kllPersistBefore.has_kll_metrics());
+    EXPECT_EQ(kllPersistBefore.kll_metrics().data_size(), 0);
+    ASSERT_EQ(kllPersistBefore.kll_metrics().skipped_size(), 1);
+    skipBucket = kllPersistBefore.kll_metrics().skipped(0);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), bucketStartTimeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), updateTimeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::CONDITION_UNKNOWN);
+
+    // kllChange: Screen brightness.
+    StatsLogReport kllChangeBefore = report.metrics(2);
+    EXPECT_EQ(kllChangeBefore.metric_id(), kllChange.id());
+    EXPECT_TRUE(kllChangeBefore.has_kll_metrics());
+    ASSERT_EQ(kllChangeBefore.kll_metrics().data_size(), 1);
+    KllMetricData data = kllChangeBefore.kll_metrics().data(0);
+    ASSERT_EQ(data.bucket_info_size(), 1);
+    TRACE_CALL(ValidateKllBucket, data.bucket_info(0), bucketStartTimeNs, updateTimeNs,
+               /*sketchSizes=*/{3}, /*conditionTrueNs=*/0);
+    EXPECT_EQ(kllChangeBefore.kll_metrics().skipped_size(), 0);
+
+    // Report from after update.
+    report = reports.reports(1);
+    ASSERT_EQ(report.metrics_size(), 3);
+
+    // kllChange: Screen brightness while on battery saver.
+    StatsLogReport kllChangeAfter = report.metrics(0);
+    EXPECT_EQ(kllChangeAfter.metric_id(), kllChange.id());
+    EXPECT_TRUE(kllChangeAfter.has_kll_metrics());
+    EXPECT_EQ(kllChangeAfter.kll_metrics().data_size(), 0);
+    ASSERT_EQ(kllChangeAfter.kll_metrics().skipped_size(), 2);
+    skipBucket = kllChangeAfter.kll_metrics().skipped(0);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), updateTimeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), bucketStartTimeNs + bucketSizeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::CONDITION_UNKNOWN);
+    skipBucket = kllChangeAfter.kll_metrics().skipped(1);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), bucketStartTimeNs + bucketSizeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), dumpTimeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::CONDITION_UNKNOWN);
+
+    // kllNew: Screen brightness while screen off.
+    StatsLogReport kllNewAfter = report.metrics(1);
+    EXPECT_EQ(kllNewAfter.metric_id(), kllNew.id());
+    EXPECT_TRUE(kllNewAfter.has_kll_metrics());
+    EXPECT_EQ(kllNewAfter.kll_metrics().data_size(), 0);
+    ASSERT_EQ(kllNewAfter.kll_metrics().skipped_size(), 2);
+    skipBucket = kllNewAfter.kll_metrics().skipped(0);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), updateTimeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), bucketStartTimeNs + bucketSizeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::CONDITION_UNKNOWN);
+    skipBucket = kllNewAfter.kll_metrics().skipped(1);
+    EXPECT_EQ(skipBucket.start_bucket_elapsed_nanos(), bucketStartTimeNs + bucketSizeNs);
+    EXPECT_EQ(skipBucket.end_bucket_elapsed_nanos(), dumpTimeNs);
+    ASSERT_EQ(skipBucket.drop_event_size(), 1);
+    EXPECT_EQ(skipBucket.drop_event(0).drop_reason(), BucketDropReason::NO_DATA);
+
+    // kllPersist: Screen brightness while screen on.
+    StatsLogReport kllPersistAfter = report.metrics(2);
+    EXPECT_EQ(kllPersistAfter.metric_id(), kllPersist.id());
+    EXPECT_TRUE(kllPersistAfter.has_kll_metrics());
+    ASSERT_EQ(kllPersistAfter.kll_metrics().data_size(), 1);
+    data = kllPersistAfter.kll_metrics().data(0);
+    ASSERT_EQ(data.bucket_info_size(), 2);
+    int64_t conditionTrueNs =
+            bucketStartTimeNs + 40 * NS_PER_SEC - updateTimeNs + bucketSizeNs - 60 * NS_PER_SEC;
+    TRACE_CALL(ValidateKllBucket, data.bucket_info(0), updateTimeNs,
+               bucketStartTimeNs + bucketSizeNs,
+               /*sketchSizes=*/{2}, conditionTrueNs);
+    conditionTrueNs = dumpTimeNs - bucketStartTimeNs - bucketSizeNs;
+    TRACE_CALL(ValidateKllBucket, data.bucket_info(1), bucketStartTimeNs + bucketSizeNs, dumpTimeNs,
+               /*sketchSizes=*/{1}, conditionTrueNs);
+    EXPECT_EQ(kllPersistAfter.kll_metrics().skipped_size(), 0);
+}
+
 TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
+    ALOGE("Start ConfigUpdateE2eTest#TestMetricActivation");
     StatsdConfig config;
     config.add_allowed_log_source("AID_ROOT");
 
@@ -1731,7 +1949,7 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
 
     // Fake a reboot. Code is from StatsService::informDeviceShutdown.
     int64_t shutDownTimeNs = bucketStartTimeNs + 50 * NS_PER_SEC;
-    processor->WriteDataToDisk(DEVICE_SHUTDOWN, FAST, shutDownTimeNs);
+    processor->WriteDataToDisk(DEVICE_SHUTDOWN, FAST, shutDownTimeNs, getWallClockNs());
     processor->SaveActiveConfigsToDisk(shutDownTimeNs);
     processor->SaveMetadataToDisk(getWallClockNs(), shutDownTimeNs);
 
@@ -1765,6 +1983,7 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
     vector<uint8_t> buffer;
     processor->onDumpReport(key, dumpTimeNs, true, true, ADB_DUMP, FAST, &buffer);
     EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    sortReportsByElapsedTime(&reports);
     backfillDimensionPath(&reports);
     backfillStringInReport(&reports);
     backfillStartEndTimestamp(&reports);
@@ -1780,10 +1999,6 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
     EXPECT_EQ(metricReport.metric_id(), immediateMetric.id());
     EXPECT_TRUE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    auto data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), bucketStartTimeNs, updateTimeNs, 3);
 
     // Boot metric. Count = 0.
     metricReport = report.metrics(1);
@@ -1796,10 +2011,6 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
     EXPECT_EQ(metricReport.metric_id(), combinationMetric.id());
     EXPECT_TRUE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), bucketStartTimeNs, updateTimeNs, 2);
 
     // Report from after update, before boot.
     report = reports.reports(1);
@@ -1823,10 +2034,6 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
     EXPECT_EQ(metricReport.metric_id(), immediateMetric.id());
     EXPECT_TRUE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), updateTimeNs, shutDownTimeNs, 1);
 
     // Report from after reboot.
     report = reports.reports(2);
@@ -1838,30 +2045,19 @@ TEST_F(ConfigUpdateE2eTest, TestMetricActivation) {
     EXPECT_EQ(metricReport.metric_id(), bootMetric.id());
     EXPECT_TRUE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), bootTimeNs, dumpTimeNs, 3);
 
     // Combination metric. Count = 1.
     metricReport = report.metrics(1);
     EXPECT_EQ(metricReport.metric_id(), combinationMetric.id());
     EXPECT_TRUE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), bootTimeNs, dumpTimeNs, 1);
 
     // Immediate metric. Count = 1.
     metricReport = report.metrics(2);
     EXPECT_EQ(metricReport.metric_id(), immediateMetric.id());
     EXPECT_FALSE(metricReport.is_active());
     EXPECT_TRUE(metricReport.has_count_metrics());
-    ASSERT_EQ(metricReport.count_metrics().data_size(), 1);
-    data = metricReport.count_metrics().data(0);
-    ASSERT_EQ(data.bucket_info_size(), 1);
-    ValidateCountBucket(data.bucket_info(0), bootTimeNs, deactivationTimeNs, 1);
+    ALOGE("End ConfigUpdateE2eTest#TestMetricActivation");
 }
 
 TEST_F(ConfigUpdateE2eTest, TestAnomalyCountMetric) {

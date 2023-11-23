@@ -45,8 +45,8 @@
     <item msgid="1456504206632415023">"Versaletes"</item>
   </string-array>
   <string-array name="captioning_font_size_selector_titles">
-    <item msgid="2544683044075498815">"Molt petit"</item>
-    <item msgid="4812733698855185131">"Petit"</item>
+    <item msgid="2544683044075498815">"Molt petita"</item>
+    <item msgid="4812733698855185131">"Petita"</item>
     <item msgid="628695363180883207">"Normal"</item>
     <item msgid="7397980392121949818">"Gran"</item>
     <item msgid="8774213681644780958">"Molt gran"</item>
@@ -68,7 +68,7 @@
     <item msgid="6953338104484431184">"Petita"</item>
     <item msgid="3988732129988118066">"Predeterminada"</item>
     <item msgid="366536516474422757">"Gran"</item>
-    <item msgid="2224819763437549790">"La més gran"</item>
+    <item msgid="2224819763437549790">"El més gran"</item>
   </string-array>
   <string-array name="wifi_peap_phase2_entries">
     <item msgid="5504589898033185752">"Cap"</item>

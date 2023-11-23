@@ -130,6 +130,7 @@ cc_library {
         "km_openssl/block_cipher_operation.cpp",
         "km_openssl/certificate_utils.cpp",
         "km_openssl/ckdf.cpp",
+        "km_openssl/curve25519_key.cpp",
         "km_openssl/ec_key.cpp",
         "km_openssl/ec_key_factory.cpp",
         "km_openssl/ecdh_operation.cpp",
@@ -374,9 +375,11 @@ cc_library {
     srcs: [
         "ng/KeyMintUtils.cpp",
     ],
-    defaults: ["keymaster_defaults"],
+    defaults: [
+        "keymaster_defaults",
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
     shared_libs: [
-        "android.hardware.security.keymint-V1-ndk_platform",
         "libbase",
         "libhardware",
     ],
@@ -400,12 +403,14 @@ cc_library {
         "ng/AndroidSharedSecret.cpp",
         "ng/AndroidSecureClock.cpp",
     ],
-    defaults: ["keymaster_defaults"],
+    defaults: [
+        "keymaster_defaults",
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
     shared_libs: [
-	"libhidlbase",
-        "android.hardware.security.keymint-V1-ndk_platform",
-        "android.hardware.security.secureclock-V1-ndk_platform",
-        "android.hardware.security.sharedsecret-V1-ndk_platform",
+        "libhidlbase",
+        "android.hardware.security.secureclock-V1-ndk",
+        "android.hardware.security.sharedsecret-V1-ndk",
         "lib_android_keymaster_keymint_utils",
         "libbase",
         "libbinder_ndk",

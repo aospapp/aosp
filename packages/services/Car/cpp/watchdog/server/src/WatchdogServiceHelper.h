@@ -45,7 +45,7 @@ class WatchdogServiceHelperPeer;
 
 }  // namespace internal
 
-class IWatchdogServiceHelper : public android::IBinder::DeathRecipient {
+class WatchdogServiceHelperInterface : public android::IBinder::DeathRecipient {
 public:
     virtual android::binder::Status registerService(
             const android::sp<
@@ -76,7 +76,7 @@ public:
 
 protected:
     virtual android::base::Result<void> init(
-            const android::sp<WatchdogProcessService>& watchdogProcessService) = 0;
+            const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService) = 0;
     virtual void terminate() = 0;
 
 private:
@@ -86,10 +86,9 @@ private:
 // WatchdogServiceHelper implements the helper functions for the outbound API requests to
 // the CarWatchdogService. This class doesn't handle the inbound APIs requests from
 // CarWatchdogService except the registration APIs.
-class WatchdogServiceHelper final : public IWatchdogServiceHelper {
+class WatchdogServiceHelper final : public WatchdogServiceHelperInterface {
 public:
-    WatchdogServiceHelper() : mService(nullptr), mWatchdogProcessService(nullptr) {}
-    ~WatchdogServiceHelper();
+    WatchdogServiceHelper() : mWatchdogProcessService(nullptr), mService(nullptr) {}
 
     android::binder::Status registerService(
             const android::sp<
@@ -119,16 +118,17 @@ public:
 
 protected:
     android::base::Result<void> init(
-            const android::sp<WatchdogProcessService>& watchdogProcessService);
+            const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService);
     void terminate();
 
 private:
     void unregisterServiceLocked();
 
+    android::sp<WatchdogProcessServiceInterface> mWatchdogProcessService;
+
     mutable std::shared_mutex mRWMutex;
     android::sp<android::automotive::watchdog::internal::ICarWatchdogServiceForSystem> mService
             GUARDED_BY(mRWMutex);
-    android::sp<WatchdogProcessService> mWatchdogProcessService;
 
     friend class ServiceManager;
 

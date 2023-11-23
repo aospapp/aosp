@@ -38,6 +38,7 @@ EVENT_NAMES = {'module_started': 'TEST_MODULE_STARTED',
                'test_started': 'TEST_STARTED',
                'test_failed': 'TEST_FAILED',
                'test_ended': 'TEST_ENDED',
+               'invocation_ended': 'INVOCATION_ENDED',
                # Last two failures are runner-level, not test-level.
                # Invocation failure is broader than run failure.
                'run_failed': 'TEST_RUN_FAILED',
@@ -154,6 +155,9 @@ class EventHandler:
             additional_info={},
             test_run_name=self.state['test_run_name']))
 
+    def _invocation_ended(self, event_data):
+        self.reporter.device_count = event_data.get('device_count', None)
+
     # pylint: disable=unused-argument
     def _run_ended(self, event_data):
         # Renew ResultReport if is module level(reporter.silent=False)
@@ -219,6 +223,7 @@ class EventHandler:
                       EVENT_NAMES['test_assumption_failure']: _test_assumption_failure,
                       EVENT_NAMES['run_failed']: _run_failed,
                       EVENT_NAMES['invocation_failed']: _invocation_failed,
+                      EVENT_NAMES['invocation_ended']: _invocation_ended,
                       EVENT_NAMES['test_ended']: _test_ended,
                       EVENT_NAMES['run_ended']: _run_ended,
                       EVENT_NAMES['module_ended']: _module_ended,

@@ -25,21 +25,25 @@ static void verify_io_destroy(void)
 	io_context_t ctx;
 
 	memset(&ctx, 0xff, sizeof(ctx));
-
 	TEST(io_destroy(ctx));
+
 	if (TST_RET == 0) {
 		tst_res(TFAIL, "io_destroy() succeeded unexpectedly");
 		return;
 	}
 
-	if (TST_RET == -EINVAL) {
-		tst_res(TPASS,
-			"io_destroy() failed as expected, returned -EINVAL");
-	} else {
-		tst_res(TFAIL, "io_destroy() failed unexpectedly, "
-			"returned -%s expected -EINVAL",
-			tst_strerrno(-TST_RET));
+	if (TST_RET == -ENOSYS) {
+		tst_res(TCONF, "io_destroy() not supported");
+		return;
 	}
+
+	if (TST_RET == -EINVAL) {
+		tst_res(TPASS, "io_destroy() failed as expected, returned -EINVAL");
+		return;
+	}
+
+	tst_res(TFAIL, "io_destroy() failed unexpectedly, returned -%s expected -EINVAL",
+		tst_strerrno(-TST_RET));
 }
 
 static struct tst_test test = {

@@ -16,9 +16,13 @@
 
 package com.android.car.test;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DEBUGGING_CODE;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import org.mockito.Mockito;
 
@@ -34,6 +38,7 @@ import java.util.ArrayList;
  *
  * <p>The implementation uses {@link Mockito} to bypass {@code final} keywords.
  */
+@ExcludeFromCodeCoverageGeneratedReport(reason = DEBUGGING_CODE)
 public class FakeHandlerWrapper {
     private Mode mMode;
     private ArrayList<Message> mQueuedMessages = new ArrayList<>();

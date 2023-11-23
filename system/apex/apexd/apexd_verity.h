@@ -23,6 +23,8 @@
 namespace android {
 namespace apex {
 
+std::string BytesToHex(const uint8_t* bytes, size_t len);
+
 enum PrepareHashTreeResult {
   kReuse = 0,
   KRegenerate = 1,

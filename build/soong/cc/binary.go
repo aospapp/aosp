@@ -18,8 +18,10 @@ import (
 	"path/filepath"
 
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
+	"android/soong/bazel"
 )
 
 type BinaryLinkerProperties struct {
@@ -62,18 +64,19 @@ func init() {
 
 func RegisterBinaryBuildComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("cc_binary", BinaryFactory)
-	ctx.RegisterModuleType("cc_binary_host", binaryHostFactory)
+	ctx.RegisterModuleType("cc_binary_host", BinaryHostFactory)
 }
 
 // cc_binary produces a binary that is runnable on a device.
 func BinaryFactory() android.Module {
-	module, _ := NewBinary(android.HostAndDeviceSupported)
+	module, _ := newBinary(android.HostAndDeviceSupported, true)
+	module.bazelHandler = &ccBinaryBazelHandler{module: module}
 	return module.Init()
 }
 
 // cc_binary_host produces a binary that is runnable on a host.
-func binaryHostFactory() android.Module {
-	module, _ := NewBinary(android.HostSupported)
+func BinaryHostFactory() android.Module {
+	module, _ := newBinary(android.HostSupported, true)
 	return module.Init()
 }
 
@@ -146,16 +149,21 @@ func (binary *binaryDecorator) getStem(ctx BaseModuleContext) string {
 // modules common to most binaries, such as bionic libraries.
 func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = binary.baseLinker.linkerDeps(ctx, deps)
-	if ctx.toolchain().Bionic() {
-		if !Bool(binary.baseLinker.Properties.Nocrt) {
-			if binary.static() {
-				deps.CrtBegin = "crtbegin_static"
-			} else {
-				deps.CrtBegin = "crtbegin_dynamic"
-			}
-			deps.CrtEnd = "crtend_android"
+	if !Bool(binary.baseLinker.Properties.Nocrt) {
+		if binary.static() {
+			deps.CrtBegin = ctx.toolchain().CrtBeginStaticBinary()
+			deps.CrtEnd = ctx.toolchain().CrtEndStaticBinary()
+		} else {
+			deps.CrtBegin = ctx.toolchain().CrtBeginSharedBinary()
+			deps.CrtEnd = ctx.toolchain().CrtEndSharedBinary()
 		}
+	}
 
+	if binary.static() {
+		deps.StaticLibs = append(deps.StaticLibs, deps.SystemSharedLibs...)
+	}
+
+	if ctx.toolchain().Bionic() {
 		if binary.static() {
 			if ctx.selectedStl() == "libc++_static" {
 				deps.StaticLibs = append(deps.StaticLibs, "libm", "libc")
@@ -169,16 +177,8 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 			deps.LateStaticLibs = append(groupLibs, deps.LateStaticLibs...)
 		}
 
-		// Embed the linker into host bionic binaries. This is needed to support host bionic,
-		// as the linux kernel requires that the ELF interpreter referenced by PT_INTERP be
-		// either an absolute path, or relative from CWD. To work around this, we extract
-		// the load sections from the runtime linker ELF binary and embed them into each host
-		// bionic binary, omitting the PT_INTERP declaration. The kernel will treat it as a static
-		// binary, and then we use a special entry point to fix up the arguments passed by
-		// the kernel before jumping to the embedded linker.
 		if ctx.Os() == android.LinuxBionic && !binary.static() {
 			deps.DynamicLinker = "linker"
-			deps.LinkerFlagsFile = "host_bionic_linker_flags"
 		}
 	}
 
@@ -190,15 +190,14 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	return deps
 }
 
-func (binary *binaryDecorator) isDependencyRoot() bool {
-	// Binaries are always the dependency root.
-	return true
-}
-
 // NewBinary builds and returns a new Module corresponding to a C++ binary.
 // Individual module implementations which comprise a C++ binary should call this function,
 // set some fields on the result, and then call the Init function.
 func NewBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator) {
+	return newBinary(hod, true)
+}
+
+func newBinary(hod android.HostOrDeviceSupported, bazelable bool) (*Module, *binaryDecorator) {
 	module := newModule(hod, android.MultilibFirst)
 	binary := &binaryDecorator{
 		baseLinker:    NewBaseLinker(module.sanitize),
@@ -207,6 +206,7 @@ func NewBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator) {
 	module.compiler = NewBaseCompiler()
 	module.linker = binary
 	module.installer = binary
+	module.bazelable = bazelable
 
 	// Allow module to be added as member of an sdk/module_exports.
 	module.sdkMemberTypes = []android.SdkMemberType{
@@ -220,17 +220,17 @@ func NewBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator) {
 func (binary *binaryDecorator) linkerInit(ctx BaseModuleContext) {
 	binary.baseLinker.linkerInit(ctx)
 
-	if !ctx.toolchain().Bionic() {
-		if ctx.Os() == android.Linux {
-			// Unless explicitly specified otherwise, host static binaries are built with -static
-			// if HostStaticBinaries is true for the product configuration.
-			if binary.Properties.Static_executable == nil && ctx.Config().HostStaticBinaries() {
-				binary.Properties.Static_executable = BoolPtr(true)
-			}
-		} else if !ctx.Fuchsia() {
-			// Static executables are not supported on Darwin or Windows
-			binary.Properties.Static_executable = nil
+	if ctx.Os().Linux() && ctx.Host() {
+		// Unless explicitly specified otherwise, host static binaries are built with -static
+		// if HostStaticBinaries is true for the product configuration.
+		if binary.Properties.Static_executable == nil && ctx.Config().HostStaticBinaries() {
+			binary.Properties.Static_executable = BoolPtr(true)
 		}
+	}
+
+	if ctx.Darwin() || ctx.Windows() {
+		// Static executables are not supported on Darwin or Windows
+		binary.Properties.Static_executable = nil
 	}
 }
 
@@ -345,16 +345,16 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 
 	var linkerDeps android.Paths
 
-	// Add flags from linker flags file.
-	if deps.LinkerFlagsFile.Valid() {
-		flags.Local.LdFlags = append(flags.Local.LdFlags, "$$(cat "+deps.LinkerFlagsFile.String()+")")
-		linkerDeps = append(linkerDeps, deps.LinkerFlagsFile.Path())
-	}
-
 	if flags.DynamicLinker != "" {
 		flags.Local.LdFlags = append(flags.Local.LdFlags, "-Wl,-dynamic-linker,"+flags.DynamicLinker)
-	} else if ctx.toolchain().Bionic() && !binary.static() {
+	} else if (ctx.toolchain().Bionic() || ctx.toolchain().Musl()) && !binary.static() {
 		flags.Local.LdFlags = append(flags.Local.LdFlags, "-Wl,--no-dynamic-linker")
+	}
+
+	if ctx.Darwin() && deps.DarwinSecondArchOutput.Valid() {
+		fatOutputFile := outputFile
+		outputFile = android.PathForModuleOut(ctx, "pre-fat", fileName)
+		transformDarwinUniversalBinary(ctx, fatOutputFile, outputFile, deps.DarwinSecondArchOutput.Path())
 	}
 
 	builderFlags := flagsToBuilderFlags(flags)
@@ -401,16 +401,18 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 		}
 	}
 
+	var validations android.Paths
+
 	// Handle host bionic linker symbols.
 	if ctx.Os() == android.LinuxBionic && !binary.static() {
-		injectedOutputFile := outputFile
-		outputFile = android.PathForModuleOut(ctx, "prelinker", fileName)
+		verifyFile := android.PathForModuleOut(ctx, "host_bionic_verify.stamp")
 
 		if !deps.DynamicLinker.Valid() {
 			panic("Non-static host bionic modules must have a dynamic linker")
 		}
 
-		binary.injectHostBionicLinkerSymbols(ctx, outputFile, deps.DynamicLinker.Path(), injectedOutputFile)
+		binary.verifyHostBionicLinker(ctx, outputFile, deps.DynamicLinker.Path(), verifyFile)
+		validations = append(validations, verifyFile)
 	}
 
 	var sharedLibs android.Paths
@@ -422,15 +424,16 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 		linkerDeps = append(linkerDeps, deps.EarlySharedLibsDeps...)
 		linkerDeps = append(linkerDeps, deps.SharedLibsDeps...)
 		linkerDeps = append(linkerDeps, deps.LateSharedLibsDeps...)
+		linkerDeps = append(linkerDeps, ndkSharedLibDeps(ctx)...)
 	}
 
-	linkerDeps = append(linkerDeps, objs.tidyFiles...)
+	validations = append(validations, objs.tidyDepFiles...)
 	linkerDeps = append(linkerDeps, flags.LdFlagsDeps...)
 
 	// Register link action.
 	transformObjToDynamicBinary(ctx, objs.objFiles, sharedLibs, deps.StaticLibs,
 		deps.LateStaticLibs, deps.WholeStaticLibs, linkerDeps, deps.CrtBegin, deps.CrtEnd, true,
-		builderFlags, outputFile, nil)
+		builderFlags, outputFile, nil, validations)
 
 	objs.coverageFiles = append(objs.coverageFiles, deps.StaticLibObjs.coverageFiles...)
 	objs.coverageFiles = append(objs.coverageFiles, deps.WholeStaticLibObjs.coverageFiles...)
@@ -438,6 +441,16 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 
 	// Need to determine symlinks early since some targets (ie APEX) need this
 	// information but will not call 'install'
+	binary.setSymlinkList(ctx)
+
+	return ret
+}
+
+func (binary *binaryDecorator) unstrippedOutputFilePath() android.Path {
+	return binary.unstrippedOutputFile
+}
+
+func (binary *binaryDecorator) setSymlinkList(ctx ModuleContext) {
 	for _, symlink := range binary.Properties.Symlinks {
 		binary.symlinks = append(binary.symlinks,
 			symlink+String(binary.Properties.Suffix)+ctx.toolchain().ExecutableSuffix())
@@ -454,12 +467,6 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 			binary.preferredArchSymlink = symlinkName
 		}
 	}
-
-	return ret
-}
-
-func (binary *binaryDecorator) unstrippedOutputFilePath() android.Path {
-	return binary.unstrippedOutputFile
 }
 
 func (binary *binaryDecorator) symlinkList() []string {
@@ -532,19 +539,19 @@ func (binary *binaryDecorator) hostToolPath() android.OptionalPath {
 }
 
 func init() {
-	pctx.HostBinToolVariable("hostBionicSymbolsInjectCmd", "host_bionic_inject")
+	pctx.HostBinToolVariable("verifyHostBionicCmd", "host_bionic_verify")
 }
 
-var injectHostBionicSymbols = pctx.AndroidStaticRule("injectHostBionicSymbols",
+var verifyHostBionic = pctx.AndroidStaticRule("verifyHostBionic",
 	blueprint.RuleParams{
-		Command:     "$hostBionicSymbolsInjectCmd -i $in -l $linker -o $out",
-		CommandDeps: []string{"$hostBionicSymbolsInjectCmd"},
+		Command:     "$verifyHostBionicCmd -i $in -l $linker && touch $out",
+		CommandDeps: []string{"$verifyHostBionicCmd"},
 	}, "linker")
 
-func (binary *binaryDecorator) injectHostBionicLinkerSymbols(ctx ModuleContext, in, linker android.Path, out android.WritablePath) {
+func (binary *binaryDecorator) verifyHostBionicLinker(ctx ModuleContext, in, linker android.Path, out android.WritablePath) {
 	ctx.Build(pctx, android.BuildParams{
-		Rule:        injectHostBionicSymbols,
-		Description: "inject host bionic symbols",
+		Rule:        verifyHostBionic,
+		Description: "verify host bionic",
 		Input:       in,
 		Implicit:    linker,
 		Output:      out,
@@ -552,4 +559,124 @@ func (binary *binaryDecorator) injectHostBionicLinkerSymbols(ctx ModuleContext, 
 			"linker": linker.String(),
 		},
 	})
+}
+
+type ccBinaryBazelHandler struct {
+	android.BazelHandler
+
+	module *Module
+}
+
+func (handler *ccBinaryBazelHandler) GenerateBazelBuildActions(ctx android.ModuleContext, label string) bool {
+	bazelCtx := ctx.Config().BazelContext
+	filePaths, ok := bazelCtx.GetOutputFiles(label, android.GetConfigKey(ctx))
+	if ok {
+		if len(filePaths) != 1 {
+			ctx.ModuleErrorf("expected exactly one output file for '%s', but got %s", label, filePaths)
+			return false
+		}
+		outputFilePath := android.PathForBazelOut(ctx, filePaths[0])
+		handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
+		// TODO(b/220164721): We need to decide if we should return the stripped as the unstripped.
+		handler.module.linker.(*binaryDecorator).unstrippedOutputFile = outputFilePath
+	}
+	return ok
+}
+
+func binaryBp2build(ctx android.TopDownMutatorContext, m *Module, typ string) {
+	baseAttrs := bp2BuildParseBaseProps(ctx, m)
+	binaryLinkerAttrs := bp2buildBinaryLinkerProps(ctx, m)
+
+	if proptools.BoolDefault(binaryLinkerAttrs.Linkshared, true) {
+		baseAttrs.implementationDynamicDeps.Add(baseAttrs.protoDependency)
+	} else {
+		baseAttrs.implementationDeps.Add(baseAttrs.protoDependency)
+	}
+
+	attrs := &binaryAttributes{
+		binaryLinkerAttrs: binaryLinkerAttrs,
+
+		Srcs:    baseAttrs.srcs,
+		Srcs_c:  baseAttrs.cSrcs,
+		Srcs_as: baseAttrs.asSrcs,
+
+		Copts:      baseAttrs.copts,
+		Cppflags:   baseAttrs.cppFlags,
+		Conlyflags: baseAttrs.conlyFlags,
+		Asflags:    baseAttrs.asFlags,
+
+		Deps:               baseAttrs.implementationDeps,
+		Dynamic_deps:       baseAttrs.implementationDynamicDeps,
+		Whole_archive_deps: baseAttrs.wholeArchiveDeps,
+		System_deps:        baseAttrs.systemDynamicDeps,
+
+		Local_includes:    baseAttrs.localIncludes,
+		Absolute_includes: baseAttrs.absoluteIncludes,
+		Linkopts:          baseAttrs.linkopts,
+		Link_crt:          baseAttrs.linkCrt,
+		Use_libcrt:        baseAttrs.useLibcrt,
+		Use_version_lib:   baseAttrs.useVersionLib,
+		Rtti:              baseAttrs.rtti,
+		Stl:               baseAttrs.stl,
+		Cpp_std:           baseAttrs.cppStd,
+
+		Additional_linker_inputs: baseAttrs.additionalLinkerInputs,
+
+		Strip: stripAttributes{
+			Keep_symbols:                 baseAttrs.stripKeepSymbols,
+			Keep_symbols_and_debug_frame: baseAttrs.stripKeepSymbolsAndDebugFrame,
+			Keep_symbols_list:            baseAttrs.stripKeepSymbolsList,
+			All:                          baseAttrs.stripAll,
+			None:                         baseAttrs.stripNone,
+		},
+
+		Features: baseAttrs.features,
+
+		sdkAttributes: bp2BuildParseSdkAttributes(m),
+	}
+
+	ctx.CreateBazelTargetModule(bazel.BazelTargetModuleProperties{
+		Rule_class:        "cc_binary",
+		Bzl_load_location: "//build/bazel/rules/cc:cc_binary.bzl",
+	},
+		android.CommonAttributes{Name: m.Name()},
+		attrs)
+}
+
+// binaryAttributes contains Bazel attributes corresponding to a cc binary
+type binaryAttributes struct {
+	binaryLinkerAttrs
+	Srcs    bazel.LabelListAttribute
+	Srcs_c  bazel.LabelListAttribute
+	Srcs_as bazel.LabelListAttribute
+
+	Copts      bazel.StringListAttribute
+	Cppflags   bazel.StringListAttribute
+	Conlyflags bazel.StringListAttribute
+	Asflags    bazel.StringListAttribute
+
+	Deps               bazel.LabelListAttribute
+	Dynamic_deps       bazel.LabelListAttribute
+	Whole_archive_deps bazel.LabelListAttribute
+	System_deps        bazel.LabelListAttribute
+
+	Local_includes    bazel.StringListAttribute
+	Absolute_includes bazel.StringListAttribute
+
+	Linkopts                 bazel.StringListAttribute
+	Additional_linker_inputs bazel.LabelListAttribute
+
+	Link_crt        bazel.BoolAttribute
+	Use_libcrt      bazel.BoolAttribute
+	Use_version_lib bazel.BoolAttribute
+
+	Rtti    bazel.BoolAttribute
+	Stl     *string
+	Cpp_std *string
+
+	Strip stripAttributes
+
+	Features bazel.StringListAttribute
+
+	sdkAttributes
 }

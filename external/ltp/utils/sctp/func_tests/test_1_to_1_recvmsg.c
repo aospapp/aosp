@@ -56,13 +56,14 @@
 #include <sys/uio.h>
 #include <linux/socket.h>
 #include <sctputil.h>
+#include "tst_kernel.h"
 
 char *TCID = __FILE__;
 int TST_TOTAL = 8;
 int TST_CNT = 0;
 
 int
-main(int argc, char *argv[])
+main(void)
 {
         socklen_t len;
 	int sk,pf_class,lstn_sk,acpt_sk;
@@ -78,6 +79,9 @@ main(int argc, char *argv[])
 	char *message1 = "hello, world!\n";
 
         struct sockaddr_in conn_addr,lstn_addr,svr_addr;
+
+	if (tst_check_driver("sctp"))
+		tst_brkm(TCONF, tst_exit, "sctp driver not available");
 
 	/* Rather than fflush() throughout the code, set stdout to
          * be unbuffered.

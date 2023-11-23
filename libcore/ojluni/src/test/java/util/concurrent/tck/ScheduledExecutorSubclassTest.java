@@ -856,7 +856,9 @@ public class ScheduledExecutorSubclassTest extends JSR166TestCase {
                                             1, 1, MILLISECONDS));
         periodics.add(p.scheduleWithFixedDelay(countDowner(periodicLatch2),
                                                1, 1, MILLISECONDS));
-        delayeds.add(p.schedule(task, 1, MILLISECONDS));
+        // Android-changed: Use a longer delay to ensure task does not expire
+        // delayeds.add(p.schedule(task, 1, MILLISECONDS));
+        delayeds.add(p.schedule(task, LONG_DELAY_MS, MILLISECONDS));
 
         assertTrue(p.getQueue().containsAll(periodics));
         assertTrue(p.getQueue().containsAll(delayeds));

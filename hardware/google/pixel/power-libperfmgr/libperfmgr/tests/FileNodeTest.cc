@@ -41,7 +41,7 @@ static inline void _VerifyPathValue(const std::string& path,
 // Test init with no default value
 TEST(FileNodeTest, NoInitDefaultTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false, false);
     t.Update(false);
     _VerifyPathValue(tf.path, "");
 }
@@ -49,11 +49,11 @@ TEST(FileNodeTest, NoInitDefaultTest) {
 // Test init with default value
 TEST(FileNodeTest, InitDefaultTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, true);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, true, true);
     t.Update(false);
     _VerifyPathValue(tf.path, "value1");
     TemporaryFile tf2;
-    FileNode t2("t2", tf2.path, {{"value0"}, {"value1"}, {"value2"}}, 0, true);
+    FileNode t2("t2", tf2.path, {{"value0"}, {"value1"}, {"value2"}}, 0, true, true);
     t2.Update(false);
     _VerifyPathValue(tf2.path, "value0");
 }
@@ -62,20 +62,27 @@ TEST(FileNodeTest, InitDefaultTest) {
 TEST(FileNodeTest, DumpToFdTest) {
     TemporaryFile tf;
     FileNode t("test_dump", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1,
-               true);
+               true, true);
     t.Update(false);
     TemporaryFile dumptf;
     t.DumpToFd(dumptf.fd);
     fsync(dumptf.fd);
-    std::string buf(
-        android::base::StringPrintf("test_dump\t%s\t1\tvalue1\n", tf.path));
+    std::string buf(android::base::StringPrintf(
+            "Node Name\t"
+            "Node Path\t"
+            "Current Index\t"
+            "Current Value\t"
+            "Hold FD\t"
+            "Truncate\n"
+            "%s\t%s\t%zu\t%s\t%d\t%d\n",
+            "test_dump", tf.path, static_cast<size_t>(1), "value1", 0, 1));
     _VerifyPathValue(dumptf.path, buf);
 }
 
 // Test GetValueIndex
 TEST(FileNodeTest, GetValueIndexTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false, false);
     std::size_t index = 0;
     EXPECT_TRUE(t.GetValueIndex("value2", &index));
     EXPECT_EQ(2u, index);
@@ -87,7 +94,7 @@ TEST(FileNodeTest, GetValueIndexTest) {
 // Test GetValues
 TEST(FileNodeTest, GetValuesTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 1, false, false);
     std::vector values = t.GetValues();
     EXPECT_EQ(3u, values.size());
     EXPECT_EQ("value0", values[0]);
@@ -99,7 +106,7 @@ TEST(FileNodeTest, GetValuesTest) {
 TEST(FileNodeTest, GetPropertiesTest) {
     std::string test_name = "TESTREQ_1";
     std::string test_path = "TEST_PATH";
-    FileNode t(test_name, test_path, {}, 0, false, true);
+    FileNode t(test_name, test_path, {}, 0, false, false, true);
     EXPECT_EQ(test_name, t.GetName());
     EXPECT_EQ(test_path, t.GetPath());
     EXPECT_EQ(0u, t.GetValues().size());
@@ -111,7 +118,7 @@ TEST(FileNodeTest, GetPropertiesTest) {
 // Test add request fail and retry
 TEST(FileNodeTest, AddRequestTestFail) {
     FileNode t("t", "/sys/android/nonexist_node_test",
-               {{"value0"}, {"value1"}, {"value2"}}, 2, true);
+               {{"value0"}, {"value1"}, {"value2"}}, 2, true, true);
     auto start = std::chrono::steady_clock::now();
     EXPECT_TRUE(t.AddRequest(1, "INTERACTION", start + 200ms));
     std::chrono::milliseconds expire_time = t.Update(true);
@@ -129,7 +136,7 @@ TEST(FileNodeTest, AddRequestTestFail) {
 // Test add request
 TEST(FileNodeTest, AddRequestTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 2, true);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 2, true, true);
     auto start = std::chrono::steady_clock::now();
     EXPECT_TRUE(t.AddRequest(1, "INTERACTION", start + 500ms));
     std::chrono::milliseconds expire_time = t.Update(true);
@@ -159,7 +166,7 @@ TEST(FileNodeTest, AddRequestTest) {
 // Test remove request
 TEST(FileNodeTest, RemoveRequestTest) {
     TemporaryFile tf;
-    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 2, true);
+    FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 2, true, true);
     auto start = std::chrono::steady_clock::now();
     EXPECT_TRUE(t.AddRequest(1, "INTERACTION", start + 500ms));
     std::chrono::milliseconds expire_time = t.Update(true);
@@ -190,7 +197,7 @@ TEST(FileNodeTest, RemoveRequestTest) {
 TEST(FileNodeTest, AddRequestTestHoldFdOverride) {
     TemporaryFile tf;
     FileNode t("t", tf.path, {{"value0"}, {"value1"}, {"value2"}}, 2, true,
-               true);
+               true, true);
     EXPECT_TRUE(t.GetHoldFd());
     auto start = std::chrono::steady_clock::now();
     EXPECT_TRUE(t.AddRequest(1, "INTERACTION", start + 500ms));

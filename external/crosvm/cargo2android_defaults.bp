@@ -6,6 +6,9 @@ rust_defaults {
         linux_glibc_x86_64: {
             enabled: true,
         },
+        linux_musl_x86_64: {
+            enabled: true,
+        },
         android64: {
             compile_multilib: "64",
             enabled: true,

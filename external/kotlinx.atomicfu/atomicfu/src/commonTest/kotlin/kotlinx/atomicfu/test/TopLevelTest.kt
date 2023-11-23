@@ -6,6 +6,7 @@ package kotlinx.atomicfu.test
 
 import kotlinx.atomicfu.*
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 private val a = atomic(0)
 private val b = atomic(2424920024888888848)
@@ -21,13 +22,18 @@ private val anyRefArr = AtomicArray<Any>(10)
 
 private val stringAtomicNullArr = atomicArrayOfNulls<String>(10)
 
+internal val internalTopLevelField = atomic(0)
+public val publicTopLevelField = atomic(0)
+
 class TopLevelPrimitiveTest {
     @Test
     fun testTopLevelInt() {
         check(a.value == 0)
         check(a.getAndSet(3) == 0)
         check(a.compareAndSet(3, 8))
-        a.lazySet(1)
+        a.lazySet(5)
+        check(a.value == 5)
+        a.value = 1
         check(a.value == 1)
         check(a.getAndSet(2) == 1)
         check(a.value == 2)
@@ -51,7 +57,9 @@ class TopLevelPrimitiveTest {
         check(b.value == 2424920024888888848)
         b.lazySet(8424920024888888848)
         check(b.value == 8424920024888888848)
-        check(b.getAndSet(8924920024888888848) == 8424920024888888848)
+        b.value = 8424920024888888833
+        check(b.value == 8424920024888888833)
+        check(b.getAndSet(8924920024888888848) == 8424920024888888833)
         check(b.value == 8924920024888888848)
         check(b.incrementAndGet() == 8924920024888888849)
         check(b.value == 8924920024888888849)
@@ -72,6 +80,8 @@ class TopLevelPrimitiveTest {
         check(c.value)
         c.lazySet(false)
         check(!c.value)
+        c.value = false
+        check(!c.value)
         check(!c.getAndSet(true))
         check(c.compareAndSet(true, false))
         check(!c.value)
@@ -86,14 +96,8 @@ class TopLevelPrimitiveTest {
         val l = IntArray(4){i -> i}
         any.lazySet(l)
         check((any.value as IntArray)[2] == 2)
-    }
-
-    @Test
-    fun testTopLevelArrayOfNulls() {
-        check(stringAtomicNullArr[0].value == null)
-        check(stringAtomicNullArr[0].compareAndSet(null, "aa"))
-        stringAtomicNullArr[1].lazySet("aa")
-        check(stringAtomicNullArr[0].value == stringAtomicNullArr[1].value)
+        abcNode.value = ANode(BNode(CNode(88)))
+        check(abcNode.value.b.c.d == 88)
     }
 }
 
@@ -111,6 +115,7 @@ class TopLevelArrayTest {
         check(intArr[2].value == 2)
         check(intArr[2].compareAndSet(2, 34))
         check(intArr[2].value == 34)
+        assertEquals(8, intArr.size + longArr.size)
     }
 
     @Test
@@ -150,6 +155,13 @@ class TopLevelArrayTest {
         check(!booleanArr[2].getAndSet(true))
         check(booleanArr[0].value && booleanArr[1].value && booleanArr[2].value)
     }
+    @Test
+    fun testTopLevelArrayOfNulls() {
+        check(stringAtomicNullArr[0].value == null)
+        check(stringAtomicNullArr[0].compareAndSet(null, "aa"))
+        stringAtomicNullArr[1].lazySet("aa")
+        check(stringAtomicNullArr[0].value == stringAtomicNullArr[1].value)
+    }
 
     @Suppress("UNCHECKED_CAST")
     @Test
@@ -172,7 +184,6 @@ class TopLevelArrayTest {
         check(anyRefArr[5].compareAndSet(l, a2))
         check((anyRefArr[5].value as ANode<BNode<CNode>>).b.c.d == 2)
     }
-
 }
 
 data class ANode<T>(val b: T)

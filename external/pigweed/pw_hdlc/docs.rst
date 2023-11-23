@@ -134,12 +134,31 @@ Python
   from pw_hdlc import encode
 
   ser = serial.Serial()
-  ser.write(encode.ui_frame(b'your data here!'))
+  address = 123
+  ser.write(encode.ui_frame(address, b'your data here!'))
+
+Typescript
+^^^^^^^^^^
+
+Encoder
+-------
+The Encoder class provides a way to build complete, escaped HDLC UI frames.
+
+.. js:method:: Encoder.uiFrame(address, data)
+
+    :param number address: frame address.
+    :param Uint8Array data: frame data.
+    :returns: Uint8Array containing a complete HDLC frame.
 
 Decoder
 -------
 The decoder class unescapes received bytes and adds them to a buffer. Complete,
 valid HDLC frames are yielded as they are received.
+
+.. js:method:: Decoder.process(bytes)
+
+    :param Uint8Array bytes: bytes received from the medium.
+    :yields: Frame complete frames.
 
 C++
 ^^^
@@ -204,6 +223,22 @@ Below is an example using the decoder class to decode data read from serial:
       for frame in decoder.process_valid_frames(ser.read()):
           # Handle the decoded frame
 
+Typescript
+^^^^^^^^^^
+
+Decodes one or more HDLC frames from a stream of data.
+
+.. js:method:: process(data)
+
+    :param Uint8Array data: bytes to be decoded.
+    :yields: HDLC frames, including corrupt frames.
+      The Frame.ok() method whether the frame is valid.
+
+.. js:method:: processValidFrames(data)
+
+    :param Uint8Array data: bytes to be decoded.
+    :yields: Valid HDLC frames, logging any errors.
+
 Additional features
 ===================
 
@@ -218,6 +253,9 @@ HdlcRpcClient
 .. autoclass:: pw_hdlc.rpc.HdlcRpcClient
   :members:
 
+.. autoclass:: pw_hdlc.rpc.HdlcRpcLocalServerAndClient
+  :members:
+
 Roadmap
 =======
 - **Expanded protocol support** - ``pw_hdlc`` currently only supports
@@ -230,3 +268,8 @@ Roadmap
 Compatibility
 =============
 C++17
+
+Zephyr
+======
+To enable ``pw_hdlc`` for Zephyr add ``CONFIG_PIGWEED_HDLC=y`` to the project's
+configuration.

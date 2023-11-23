@@ -55,6 +55,8 @@ void AppTestBase::SetUp() {
   mServiceTransportContext.linkParams.workThreadName = "Service work";
   mClientTransportContext.linkParams.linkThreadName = "Link to service";
   mClientTransportContext.linkParams.workThreadName = "Client work";
+  mClientTransportContext.linkParams.isLinkActive = true;
+  mServiceTransportContext.linkParams.isLinkActive = true;
 
   mClientTransportContext.linkParams.remoteTransportContext =
       &mServiceTransportContext;

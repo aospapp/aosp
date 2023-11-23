@@ -20,6 +20,7 @@ import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 
 import java.io.FileDescriptor;
+import java.io.IOException;
 
 public class Thumbnail {
     public static Bitmap createVideoThumbnailBitmap(FileDescriptor fd, int targetWidth) {
@@ -48,7 +49,7 @@ public class Thumbnail {
         } finally {
             try {
                 retriever.release();
-            } catch (RuntimeException ex) {
+            } catch (RuntimeException | IOException ex) {
                 // Ignore failures while cleaning up.
             }
         }

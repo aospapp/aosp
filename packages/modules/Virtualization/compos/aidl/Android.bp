@@ -9,8 +9,21 @@ aidl_interface {
         "com/android/compos/*.aidl",
     ],
     backend: {
+        java: {
+            apex_available: [
+                "com.android.compos",
+            ],
+        },
         rust: {
             enabled: true,
+            apex_available: [
+                "com.android.compos",
+            ],
+        },
+        ndk: {
+            apex_available: [
+                "com.android.compos",
+            ],
         },
     },
 }

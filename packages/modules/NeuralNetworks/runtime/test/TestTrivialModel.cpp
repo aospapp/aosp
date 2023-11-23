@@ -19,6 +19,10 @@
 
 #include "TestNeuralNetworksWrapper.h"
 
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#endif  // __ANDROID__
+
 using namespace android::nn::test_wrapper;
 
 namespace {

@@ -10,16 +10,16 @@ Compliance Test Specification as well as other Android specific tests.
 
 ## Setup
 
-### Playback devices (aka Set Top Boxes)
+### Source devices
 
 Running these CTS tests requires a specific HDMI layout with a CEC adapter.
 
-*   Android TV playback device
+*   Android TV source device, e.g. a playback device or an audio system
 *   CEC adapter, see [External CEC Adapter instructions](cec_adapter.md)
 *   Install `cec-client` binary, see [install instructions](cec_adapter.md#software)
 *   HDMI Display (aka a TV) with CEC disabled to avoid interference, or an HDMI fake plug
 
-It is recommended that the playback device has an HDMI physical address of `1.0.0.0` while running
+It is recommended that the source device has an HDMI physical address of `1.0.0.0` while running
 the tests. In case the DUT takes a physical address other than `1.0.0.0` and this is unavoidable,
 the tests can be configured to expect a different physical address by appending these arguments to
 the tradefed command:
@@ -28,7 +28,7 @@ the tradefed command:
 ```
 Thus, for a device that is taking an address `3.0.0.0`, pass `12288` as the `cec-phy-addr` argument.
 
-The CEC adapter may also be installed in-between the TV and the playback device.
+The CEC adapter may also be installed in-between the TV and the source device.
 
 ![drawing](setup.png)
 

@@ -124,14 +124,14 @@ public class SystemUIQCView extends QCView {
     private void bindRemoteQCView(Uri uri) {
         mController = new RemoteQCController(mContext, uri);
         mController.addObserver(this);
-        mController.listen(true);
+        mController.bind();
     }
 
     private void bindLocalQCView(String localClass) {
         mLocalQCProvider = createLocalQCProviderInstance(localClass, mContext);
         mController = new LocalQCController(mContext, mLocalQCProvider);
         mController.addObserver(this);
-        mController.listen(true);
+        mController.bind();
     }
 
     private BaseLocalQCProvider createLocalQCProviderInstance(String controllerName,

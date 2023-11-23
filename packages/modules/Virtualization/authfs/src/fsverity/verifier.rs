@@ -18,22 +18,17 @@ use libc::EIO;
 use std::io;
 
 use super::common::{build_fsverity_digest, merkle_tree_height, FsverityError};
-use super::sys::{FS_VERITY_HASH_ALG_SHA256, FS_VERITY_MAGIC};
-use crate::auth::Authenticator;
 use crate::common::{divide_roundup, CHUNK_SIZE};
 use crate::crypto::{CryptoError, Sha256Hasher};
 use crate::file::{ChunkBuffer, ReadByChunk};
 
 const ZEROS: [u8; CHUNK_SIZE as usize] = [0u8; CHUNK_SIZE as usize];
 
-// The size of `struct fsverity_formatted_digest` in Linux with SHA-256.
-const SIZE_OF_FSVERITY_FORMATTED_DIGEST_SHA256: usize = 12 + Sha256Hasher::HASH_SIZE;
-
 type HashBuffer = [u8; Sha256Hasher::HASH_SIZE];
 
 fn hash_with_padding(chunk: &[u8], pad_to: usize) -> Result<HashBuffer, CryptoError> {
     let padding_size = pad_to - chunk.len();
-    Sha256Hasher::new()?.update(&chunk)?.update(&ZEROS[..padding_size])?.finalize()
+    Sha256Hasher::new()?.update(chunk)?.update(&ZEROS[..padding_size])?.finalize()
 }
 
 fn verity_check<T: ReadByChunk>(
@@ -47,7 +42,13 @@ fn verity_check<T: ReadByChunk>(
     // beyond the file size, including empty file.
     assert_ne!(file_size, 0);
 
-    let chunk_hash = hash_with_padding(&chunk, CHUNK_SIZE as usize)?;
+    let chunk_hash = hash_with_padding(chunk, CHUNK_SIZE as usize)?;
+
+    // When the file is smaller or equal to CHUNK_SIZE, the root of Merkle tree is defined as the
+    // hash of the file content, plus padding.
+    if file_size <= CHUNK_SIZE {
+        return Ok(chunk_hash);
+    }
 
     fsverity_walk(chunk_index, file_size, merkle_tree)?.try_fold(
         chunk_hash,
@@ -110,48 +111,36 @@ fn fsverity_walk<T: ReadByChunk>(
     }))
 }
 
-fn build_fsverity_formatted_digest(
-    root_hash: &HashBuffer,
-    file_size: u64,
-) -> Result<[u8; SIZE_OF_FSVERITY_FORMATTED_DIGEST_SHA256], CryptoError> {
-    let digest = build_fsverity_digest(root_hash, file_size)?;
-    // Little-endian byte representation of fsverity_formatted_digest from linux/fsverity.h
-    // Not FFI-ed as it seems easier to deal with the raw bytes manually.
-    let mut formatted_digest = [0u8; SIZE_OF_FSVERITY_FORMATTED_DIGEST_SHA256];
-    formatted_digest[0..8].copy_from_slice(FS_VERITY_MAGIC);
-    formatted_digest[8..10].copy_from_slice(&(FS_VERITY_HASH_ALG_SHA256 as u16).to_le_bytes());
-    formatted_digest[10..12].copy_from_slice(&(Sha256Hasher::HASH_SIZE as u16).to_le_bytes());
-    formatted_digest[12..].copy_from_slice(&digest);
-    Ok(formatted_digest)
-}
-
 pub struct VerifiedFileReader<F: ReadByChunk, M: ReadByChunk> {
+    pub file_size: u64,
     chunked_file: F,
-    file_size: u64,
     merkle_tree: M,
     root_hash: HashBuffer,
 }
 
 impl<F: ReadByChunk, M: ReadByChunk> VerifiedFileReader<F, M> {
-    pub fn new<A: Authenticator>(
-        authenticator: &A,
+    pub fn new(
         chunked_file: F,
         file_size: u64,
-        sig: Vec<u8>,
+        expected_digest: &[u8],
         merkle_tree: M,
     ) -> Result<VerifiedFileReader<F, M>, FsverityError> {
         let mut buf = [0u8; CHUNK_SIZE as usize];
-        let size = merkle_tree.read_chunk(0, &mut buf)?;
-        if buf.len() != size {
-            return Err(FsverityError::InsufficientData(size));
+        if file_size <= CHUNK_SIZE {
+            let _size = chunked_file.read_chunk(0, &mut buf)?;
+            // The rest of buffer is 0-padded.
+        } else {
+            let size = merkle_tree.read_chunk(0, &mut buf)?;
+            if buf.len() != size {
+                return Err(FsverityError::InsufficientData(size));
+            }
         }
         let root_hash = Sha256Hasher::new()?.update(&buf[..])?.finalize()?;
-        let formatted_digest = build_fsverity_formatted_digest(&root_hash, file_size)?;
-        let valid = authenticator.verify(&sig, &formatted_digest)?;
-        if valid {
+        if expected_digest == build_fsverity_digest(&root_hash, file_size)? {
+            // Once verified, use the root_hash for verification going forward.
             Ok(VerifiedFileReader { chunked_file, file_size, merkle_tree, root_hash })
         } else {
-            Err(FsverityError::BadSignature)
+            Err(FsverityError::InvalidDigest)
         }
     }
 }
@@ -172,13 +161,54 @@ impl<F: ReadByChunk, M: ReadByChunk> ReadByChunk for VerifiedFileReader<F, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::FakeAuthenticator;
-    use crate::file::{LocalFileReader, ReadByChunk};
+    use crate::file::ReadByChunk;
     use anyhow::Result;
-    use std::fs::{self, File};
-    use std::io::Read;
+    use authfs_fsverity_metadata::{parse_fsverity_metadata, FSVerityMetadata};
+    use std::cmp::min;
+    use std::fs::File;
+    use std::os::unix::fs::FileExt;
 
-    type LocalVerifiedFileReader = VerifiedFileReader<LocalFileReader, LocalFileReader>;
+    struct LocalFileReader {
+        file: File,
+        size: u64,
+    }
+
+    impl LocalFileReader {
+        fn new(file: File) -> io::Result<LocalFileReader> {
+            let size = file.metadata()?.len();
+            Ok(LocalFileReader { file, size })
+        }
+
+        fn len(&self) -> u64 {
+            self.size
+        }
+    }
+
+    impl ReadByChunk for LocalFileReader {
+        fn read_chunk(&self, chunk_index: u64, buf: &mut ChunkBuffer) -> io::Result<usize> {
+            let start = chunk_index * CHUNK_SIZE;
+            if start >= self.size {
+                return Ok(0);
+            }
+            let end = min(self.size, start + CHUNK_SIZE);
+            let read_size = (end - start) as usize;
+            debug_assert!(read_size <= buf.len());
+            self.file.read_exact_at(&mut buf[..read_size], start)?;
+            Ok(read_size)
+        }
+    }
+
+    type LocalVerifiedFileReader = VerifiedFileReader<LocalFileReader, MerkleTreeReader>;
+
+    pub struct MerkleTreeReader {
+        metadata: Box<FSVerityMetadata>,
+    }
+
+    impl ReadByChunk for MerkleTreeReader {
+        fn read_chunk(&self, chunk_index: u64, buf: &mut ChunkBuffer) -> io::Result<usize> {
+            self.metadata.read_merkle_tree(chunk_index * CHUNK_SIZE, buf)
+        }
+    }
 
     fn total_chunk_number(file_size: u64) -> u64 {
         (file_size + 4095) / 4096
@@ -187,28 +217,26 @@ mod tests {
     // Returns a reader with fs-verity verification and the file size.
     fn new_reader_with_fsverity(
         content_path: &str,
-        merkle_tree_path: &str,
-        signature_path: &str,
+        metadata_path: &str,
     ) -> Result<(LocalVerifiedFileReader, u64)> {
         let file_reader = LocalFileReader::new(File::open(content_path)?)?;
         let file_size = file_reader.len();
-        let merkle_tree = LocalFileReader::new(File::open(merkle_tree_path)?)?;
-        let mut sig = Vec::new();
-        let _ = File::open(signature_path)?.read_to_end(&mut sig)?;
-        let authenticator = FakeAuthenticator::always_succeed();
+        let metadata = parse_fsverity_metadata(File::open(metadata_path)?)?;
         Ok((
-            VerifiedFileReader::new(&authenticator, file_reader, file_size, sig, merkle_tree)?,
+            VerifiedFileReader::new(
+                file_reader,
+                file_size,
+                &metadata.digest.clone(),
+                MerkleTreeReader { metadata },
+            )?,
             file_size,
         ))
     }
 
     #[test]
     fn fsverity_verify_full_read_4k() -> Result<()> {
-        let (file_reader, file_size) = new_reader_with_fsverity(
-            "testdata/input.4k",
-            "testdata/input.4k.merkle_dump",
-            "testdata/input.4k.fsv_sig",
-        )?;
+        let (file_reader, file_size) =
+            new_reader_with_fsverity("testdata/input.4k", "testdata/input.4k.fsv_meta")?;
 
         for i in 0..total_chunk_number(file_size) {
             let mut buf = [0u8; 4096];
@@ -219,11 +247,8 @@ mod tests {
 
     #[test]
     fn fsverity_verify_full_read_4k1() -> Result<()> {
-        let (file_reader, file_size) = new_reader_with_fsverity(
-            "testdata/input.4k1",
-            "testdata/input.4k1.merkle_dump",
-            "testdata/input.4k1.fsv_sig",
-        )?;
+        let (file_reader, file_size) =
+            new_reader_with_fsverity("testdata/input.4k1", "testdata/input.4k1.fsv_meta")?;
 
         for i in 0..total_chunk_number(file_size) {
             let mut buf = [0u8; 4096];
@@ -234,11 +259,8 @@ mod tests {
 
     #[test]
     fn fsverity_verify_full_read_4m() -> Result<()> {
-        let (file_reader, file_size) = new_reader_with_fsverity(
-            "testdata/input.4m",
-            "testdata/input.4m.merkle_dump",
-            "testdata/input.4m.fsv_sig",
-        )?;
+        let (file_reader, file_size) =
+            new_reader_with_fsverity("testdata/input.4m", "testdata/input.4m.fsv_meta")?;
 
         for i in 0..total_chunk_number(file_size) {
             let mut buf = [0u8; 4096];
@@ -251,8 +273,7 @@ mod tests {
     fn fsverity_verify_bad_merkle_tree() -> Result<()> {
         let (file_reader, _) = new_reader_with_fsverity(
             "testdata/input.4m",
-            "testdata/input.4m.merkle_dump.bad", // First leaf node is corrupted.
-            "testdata/input.4m.fsv_sig",
+            "testdata/input.4m.fsv_meta.bad_merkle", // First leaf node is corrupted.
         )?;
 
         // A lowest broken node (a 4K chunk that contains 128 sha256 hashes) will fail the read
@@ -264,18 +285,6 @@ mod tests {
             assert!(file_reader.read_chunk(i, &mut buf).is_err());
         }
         assert!(file_reader.read_chunk(last_index, &mut buf).is_ok());
-        Ok(())
-    }
-
-    #[test]
-    fn invalid_signature() -> Result<()> {
-        let authenticator = FakeAuthenticator::always_fail();
-        let file_reader = LocalFileReader::new(File::open("testdata/input.4m")?)?;
-        let file_size = file_reader.len();
-        let merkle_tree = LocalFileReader::new(File::open("testdata/input.4m.merkle_dump")?)?;
-        let sig = fs::read("testdata/input.4m.fsv_sig")?;
-        assert!(VerifiedFileReader::new(&authenticator, file_reader, file_size, sig, merkle_tree)
-            .is_err());
         Ok(())
     }
 }

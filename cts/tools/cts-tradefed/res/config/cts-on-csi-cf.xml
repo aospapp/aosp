@@ -41,7 +41,16 @@
     <option name="compatibility:exclude-filter" value="CtsKeystoreTestCases" />
     <option name="compatibility:exclude-filter" value="CtsMediaBitstreamsTestCases" />
     <option name="compatibility:exclude-filter" value="CtsMediaStressTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaAudioTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaCodecTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaDecoderTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaDrmFrameworkTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaEncoderTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaExtractorTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaMiscTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaMuxerTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaPlayerTestCases" />
+    <option name="compatibility:exclude-filter" value="CtsMediaRecorderTestCases" />
     <option name="compatibility:exclude-filter" value="CtsMediaV2TestCases" />
     <option name="compatibility:exclude-filter" value="CtsNativeHardwareTestCases" />
     <option name="compatibility:exclude-filter" value="CtsOpenGLTestCases" />

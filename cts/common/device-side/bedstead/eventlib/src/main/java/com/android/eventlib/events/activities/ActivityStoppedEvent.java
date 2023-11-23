@@ -26,6 +26,8 @@ import com.android.eventlib.EventLogsQuery;
 import com.android.queryable.info.ActivityInfo;
 import com.android.queryable.queries.ActivityQuery;
 import com.android.queryable.queries.ActivityQueryHelper;
+import com.android.queryable.queries.IntegerQuery;
+import com.android.queryable.queries.IntegerQueryHelper;
 
 /**
  * Event logged when {@link Activity#onStop()} is called.
@@ -46,6 +48,7 @@ public final class ActivityStoppedEvent extends Event {
         private static final long serialVersionUID = 1;
 
         ActivityQueryHelper<ActivityStoppedEventQuery> mActivity = new ActivityQueryHelper<>(this);
+        IntegerQuery<ActivityStoppedEventQuery> mTaskId = new IntegerQueryHelper<>(this);
 
         private ActivityStoppedEventQuery(String packageName) {
             super(ActivityStoppedEvent.class, packageName);
@@ -57,9 +60,18 @@ public final class ActivityStoppedEvent extends Event {
             return mActivity;
         }
 
+        /** Query {@code taskId}. */
+        @CheckResult
+        public IntegerQuery<ActivityStoppedEventQuery> whereTaskId() {
+            return mTaskId;
+        }
+
         @Override
         protected boolean filter(ActivityStoppedEvent event) {
             if (!mActivity.matches(event.mActivity)) {
+                return false;
+            }
+            if (!mTaskId.matches(event.mTaskId)) {
                 return false;
             }
             return true;
@@ -69,6 +81,7 @@ public final class ActivityStoppedEvent extends Event {
         public String describeQuery(String fieldName) {
             return toStringBuilder(ActivityStoppedEvent.class, this)
                     .field("activity", mActivity)
+                    .field("taskId", mTaskId)
                     .toString();
         }
     }
@@ -83,6 +96,7 @@ public final class ActivityStoppedEvent extends Event {
         private ActivityStoppedEventLogger(Activity activity, android.content.pm.ActivityInfo activityInfo) {
             super(activity, new ActivityStoppedEvent());
             setActivity(activityInfo);
+            setTaskId(activity.getTaskId());
         }
 
         /** Sets the {@link Activity} being stopped. */
@@ -90,19 +104,32 @@ public final class ActivityStoppedEvent extends Event {
             mEvent.mActivity = ActivityInfo.builder(activity).build();
             return this;
         }
+
+        /** Sets the task ID for the activity. */
+        public ActivityStoppedEventLogger setTaskId(int taskId) {
+            mEvent.mTaskId = taskId;
+            return this;
+        }
     }
 
     protected ActivityInfo mActivity;
+    protected int mTaskId;
 
     /** Information about the {@link Activity} stopped. */
     public ActivityInfo activity() {
         return mActivity;
     }
 
+    /** The Task ID of the Activity. */
+    public int taskId() {
+        return mTaskId;
+    }
+
     @Override
     public String toString() {
         return "ActivityStoppedEvent{"
                 + ", activity=" + mActivity
+                + ", taskId=" + mTaskId
                 + ", packageName='" + mPackageName + "'"
                 + ", timestamp=" + mTimestamp
                 + "}";

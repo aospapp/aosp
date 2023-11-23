@@ -15,81 +15,26 @@
 package sdk
 
 import (
-	"android/soong/android"
 	"log"
 	"os"
+	"runtime"
 	"testing"
+
+	"android/soong/android"
+	"android/soong/java"
 
 	"github.com/google/blueprint/proptools"
 )
 
 // Needed in an _test.go file in this package to ensure tests run correctly, particularly in IDE.
 func TestMain(m *testing.M) {
-	if android.BuildOs != android.Linux {
+	if runtime.GOOS != "linux" {
 		// b/145598135 - Generating host snapshots for anything other than linux is not supported.
-		log.Printf("Skipping as sdk snapshot generation is only supported on %s not %s", android.Linux, android.BuildOs)
+		log.Printf("Skipping as sdk snapshot generation is only supported on linux not %s", runtime.GOOS)
 		os.Exit(0)
 	}
 
 	os.Exit(m.Run())
-}
-
-func TestDepNotInRequiredSdks(t *testing.T) {
-	testSdkError(t, `module "myjavalib".*depends on "otherlib".*that isn't part of the required SDKs:.*`, `
-		sdk {
-			name: "mysdk",
-			java_header_libs: ["sdkmember"],
-		}
-
-		sdk_snapshot {
-			name: "mysdk@1",
-			java_header_libs: ["sdkmember_mysdk_1"],
-		}
-
-		java_import {
-			name: "sdkmember",
-			prefer: false,
-			host_supported: true,
-		}
-
-		java_import {
-			name: "sdkmember_mysdk_1",
-			sdk_member_name: "sdkmember",
-			host_supported: true,
-		}
-
-		java_library {
-			name: "myjavalib",
-			srcs: ["Test.java"],
-			libs: [
-				"sdkmember",
-				"otherlib",
-			],
-			system_modules: "none",
-			sdk_version: "none",
-			compile_dex: true,
-			host_supported: true,
-			apex_available: ["myapex"],
-		}
-
-		// this lib is no in mysdk
-		java_library {
-			name: "otherlib",
-			srcs: ["Test.java"],
-			system_modules: "none",
-			sdk_version: "none",
-			compile_dex: true,
-			host_supported: true,
-		}
-
-		apex {
-			name: "myapex",
-			java_libs: ["myjavalib"],
-			uses_sdks: ["mysdk@1"],
-			key: "myapex.key",
-			certificate: ":myapex.cert",
-		}
-	`)
 }
 
 // Ensure that prebuilt modules have the same effective visibility as the source
@@ -565,6 +510,49 @@ sdk_snapshot {
 		)
 	})
 
+	t.Run("SOONG_SDK_SNAPSHOT_USE_SOURCE_CONFIG_VAR=module:build_from_source", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_USE_SOURCE_CONFIG_VAR": "module:build_from_source",
+			}),
+		).RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk-current.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "mysdk_myjavalib@current",
+    sdk_member_name: "myjavalib",
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+java_import {
+    name: "myjavalib",
+    prefer: false,
+    use_source_config_var: {
+        config_namespace: "module",
+        var_name: "build_from_source",
+    },
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+sdk_snapshot {
+    name: "mysdk@current",
+    visibility: ["//visibility:public"],
+    java_header_libs: ["mysdk_myjavalib@current"],
+}
+			`),
+		)
+	})
+
 	t.Run("SOONG_SDK_SNAPSHOT_VERSION=unversioned", func(t *testing.T) {
 		result := android.GroupFixturePreparers(
 			preparer,
@@ -661,4 +649,86 @@ sdk_snapshot {
 			snapshotTestPreparer(checkSnapshotWithoutSource, android.FixtureWithRootAndroidBp(bp)),
 		)
 	})
+
+	t.Run("SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE=S", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			prepareForSdkTestWithJava,
+			java.PrepareForTestWithJavaDefaultModules,
+			java.PrepareForTestWithJavaSdkLibraryFiles,
+			java.FixtureWithLastReleaseApis("mysdklibrary"),
+			android.FixtureWithRootAndroidBp(`
+			sdk {
+				name: "mysdk",
+				bootclasspath_fragments: ["mybootclasspathfragment"],
+			}
+
+			bootclasspath_fragment {
+				name: "mybootclasspathfragment",
+				apex_available: ["myapex"],
+				contents: ["mysdklibrary"],
+			}
+
+			java_sdk_library {
+				name: "mysdklibrary",
+				srcs: ["Test.java"],
+				compile_dex: true,
+				public: {enabled: true},
+				permitted_packages: ["mysdklibrary"],
+			}
+		`),
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "S",
+			}),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkUnversionedAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+prebuilt_bootclasspath_fragment {
+    name: "mybootclasspathfragment",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["myapex"],
+    contents: ["mysdklibrary"],
+    hidden_api: {
+        annotation_flags: "hiddenapi/annotation-flags.csv",
+        metadata: "hiddenapi/metadata.csv",
+        index: "hiddenapi/index.csv",
+        stub_flags: "hiddenapi/stub-flags.csv",
+        all_flags: "hiddenapi/all-flags.csv",
+    },
+}
+
+java_sdk_library_import {
+    name: "mysdklibrary",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    shared_library: true,
+    compile_dex: true,
+    permitted_packages: ["mysdklibrary"],
+    public: {
+        jars: ["sdk_library/public/mysdklibrary-stubs.jar"],
+        stub_srcs: ["sdk_library/public/mysdklibrary_stub_sources"],
+        current_api: "sdk_library/public/mysdklibrary.txt",
+        removed_api: "sdk_library/public/mysdklibrary-removed.txt",
+        sdk_version: "current",
+    },
+}
+`),
+
+			checkAllCopyRules(`
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/annotation-flags.csv -> hiddenapi/annotation-flags.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/metadata.csv -> hiddenapi/metadata.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/index.csv -> hiddenapi/index.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/stub-flags.csv -> hiddenapi/stub-flags.csv
+.intermediates/mybootclasspathfragment/android_common/modular-hiddenapi/all-flags.csv -> hiddenapi/all-flags.csv
+.intermediates/mysdklibrary.stubs/android_common/javac/mysdklibrary.stubs.jar -> sdk_library/public/mysdklibrary-stubs.jar
+.intermediates/mysdklibrary.stubs.source/android_common/metalava/mysdklibrary.stubs.source_api.txt -> sdk_library/public/mysdklibrary.txt
+.intermediates/mysdklibrary.stubs.source/android_common/metalava/mysdklibrary.stubs.source_removed.txt -> sdk_library/public/mysdklibrary-removed.txt
+`),
+		)
+	})
+
 }

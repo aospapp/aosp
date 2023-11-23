@@ -34,12 +34,13 @@
 
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
-#include <libbpf_android.h>
 #include <netdutils/Stopwatch.h>
+#include <processgroup/processgroup.h>
 
 #include "Controllers.h"
 #include "FwmarkServer.h"
 #include "MDnsSdListener.h"
+#include "MDnsService.h"
 #include "NFLogListener.h"
 #include "NetdConstants.h"
 #include "NetdHwService.h"
@@ -47,6 +48,7 @@
 #include "NetlinkManager.h"
 #include "Process.h"
 
+#include "NetdUpdatablePublic.h"
 #include "netd_resolv/resolv.h"
 
 using android::IPCThreadState;
@@ -57,6 +59,7 @@ using android::net::FwmarkServer;
 using android::net::gCtls;
 using android::net::gLog;
 using android::net::makeNFLogListener;
+using android::net::MDnsService;
 using android::net::NetdHwService;
 using android::net::NetdNativeService;
 using android::net::NetlinkManager;
@@ -85,7 +88,7 @@ void logCallback(const char* msg) {
 int tagSocketCallback(int sockFd, uint32_t tag, uid_t uid, pid_t) {
     // Workaround for secureVPN with VpnIsolation enabled, refer to b/159994981 for details.
     if (tag == TAG_SYSTEM_DNS) uid = AID_DNS;
-    return gCtls->trafficCtrl.tagSocket(sockFd, tag, uid, geteuid());
+    return libnetd_updatable_tagSocket(sockFd, tag, uid, AID_DNS);
 }
 
 bool evaluateDomainNameCallback(const android_net_context&, const char* /*name*/) {
@@ -123,9 +126,17 @@ int main() {
         gLog.info("setCloseOnExec(%s)", sock);
     }
 
-    // Make sure BPF programs are loaded before doing anything
-    android::bpf::waitForProgsLoaded();
-    gLog.info("BPF programs are loaded");
+    std::string cg2_path;
+    if (!CgroupGetControllerPath(CGROUPV2_CONTROLLER_NAME, &cg2_path)) {
+        ALOGE("Failed to find cgroup v2 root %s", strerror(errno));
+        exit(1);
+    }
+
+    if (libnetd_updatable_init(cg2_path.c_str())) {
+        ALOGE("libnetd_updatable_init failed");
+        exit(1);
+    }
+    gLog.info("libnetd_updatable_init success");
 
     NetlinkManager *nm = NetlinkManager::Instance();
     if (nm == nullptr) {
@@ -168,13 +179,7 @@ int main() {
         exit(1);
     }
 
-    MDnsSdListener mdnsl;
-    if (mdnsl.startListener()) {
-        ALOGE("Unable to start MDnsSdListener (%s)", strerror(errno));
-        exit(1);
-    }
-
-    FwmarkServer fwmarkServer(&gCtls->netCtrl, &gCtls->eventReporter, &gCtls->trafficCtrl);
+    FwmarkServer fwmarkServer(&gCtls->netCtrl, &gCtls->eventReporter);
     if (fwmarkServer.startListener()) {
         ALOGE("Unable to start FwmarkServer (%s)", strerror(errno));
         exit(1);
@@ -187,6 +192,12 @@ int main() {
         exit(1);
     }
     gLog.info("Registering NetdNativeService: %" PRId64 "us", subTime.getTimeAndResetUs());
+
+    if ((ret = MDnsService::start()) != android::OK) {
+        ALOGE("Unable to start MDnsService: %d", ret);
+        exit(1);
+    }
+    gLog.info("Registering MDnsService: %" PRId64 "us", subTime.getTimeAndResetUs());
 
     android::net::process::ScopedPidFile pidFile(PID_FILE_PATH);
 

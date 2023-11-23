@@ -3,7 +3,7 @@
     clippy::default_trait_access,
     clippy::doc_markdown,
     clippy::enum_glob_use,
-    clippy::filter_map,
+    clippy::if_same_then_else,
     clippy::inherent_to_string,
     clippy::items_after_statements,
     clippy::large_enum_variant,
@@ -35,6 +35,11 @@ mod expand;
 mod generics;
 mod syntax;
 mod type_id;
+
+#[cfg(feature = "experimental")]
+mod clang;
+#[cfg(feature = "experimental")]
+mod load;
 
 use crate::syntax::file::Module;
 use crate::syntax::namespace::Namespace;

@@ -41,7 +41,7 @@ import static org.testng.Assert.assertThrows;
 
 import android.car.hardware.power.CarPowerPolicy;
 import android.content.res.Resources;
-import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReport;
+import android.hardware.automotive.vehicle.VehicleApPowerStateReport;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -66,6 +66,7 @@ public final class PolicyReaderUnitTest {
     private static final String POLICY_GROUP_ID_MIXED = "mixed_policy_group";
     private static final String NO_USER_INTERACTION_POLICY_ID =
             "system_power_policy_no_user_interaction";
+    private static final String SUSPEND_PREP_POLICY_ID = "system_power_policy_suspend_prep";
 
     private static final CarPowerPolicy POLICY_OTHER_OFF = new CarPowerPolicy(POLICY_ID_OTHER_OFF,
             new int[]{WIFI},
@@ -94,6 +95,10 @@ public final class PolicyReaderUnitTest {
                     new int[]{BLUETOOTH, WIFI, CELLULAR, ETHERNET, NFC, CPU},
                     new int[]{AUDIO, MEDIA, DISPLAY, PROJECTION, INPUT, VOICE_INTERACTION,
                             VISUAL_INTERACTION, TRUSTED_DEVICE_DETECTION, LOCATION, MICROPHONE});
+    private static final CarPowerPolicy SYSTEM_POWER_POLICY_SUSPEND_PREP =
+            new CarPowerPolicy(SUSPEND_PREP_POLICY_ID,
+                    new int[]{},
+                    new int[]{AUDIO, BLUETOOTH, WIFI, LOCATION, MICROPHONE, CPU});
 
     private final Resources mResources =
             InstrumentationRegistry.getInstrumentation().getTargetContext().getResources();
@@ -107,7 +112,13 @@ public final class PolicyReaderUnitTest {
 
     @Test
     public void testSystemPowerPolicyNoUserInteraction() throws Exception {
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID,
+                SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
+    }
+
+    @Test
+    public void testSystemPowerPolicySuspendPrep() throws Exception {
+        assertSystemPowerPolicy(SUSPEND_PREP_POLICY_ID, SYSTEM_POWER_POLICY_SUSPEND_PREP);
     }
 
     @Test
@@ -115,8 +126,7 @@ public final class PolicyReaderUnitTest {
         readPowerPolicyXml(R.raw.valid_power_policy);
 
         assertValidPolicyPart();
-        assertValidPolicyPart();
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_MODIFIED);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID, SYSTEM_POWER_POLICY_MODIFIED);
     }
 
     @Test
@@ -125,7 +135,7 @@ public final class PolicyReaderUnitTest {
 
         assertValidPolicyPart();
         assertNoPolicyGroupPart();
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_MODIFIED);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID, SYSTEM_POWER_POLICY_MODIFIED);
     }
 
     @Test
@@ -134,7 +144,8 @@ public final class PolicyReaderUnitTest {
 
         assertValidPolicyPart();
         assertValidPolicyGroupPart();
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID,
+                SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
     }
 
     @Test
@@ -143,7 +154,8 @@ public final class PolicyReaderUnitTest {
 
         assertValidPolicyPart();
         assertNoPolicyGroupPart();
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID,
+                SYSTEM_POWER_POLICY_NO_USER_INTERACTION);
     }
 
     @Test
@@ -152,7 +164,7 @@ public final class PolicyReaderUnitTest {
 
         assertNoPolicyPart();
         assertNoPolicyGroupPart();
-        assertSystemPowerPolicy(SYSTEM_POWER_POLICY_MODIFIED);
+        assertSystemPowerPolicy(NO_USER_INTERACTION_POLICY_ID, SYSTEM_POWER_POLICY_MODIFIED);
     }
 
     @Test
@@ -241,9 +253,9 @@ public final class PolicyReaderUnitTest {
                 VehicleApPowerStateReport.ON)).isNull();
     }
 
-    private void assertSystemPowerPolicy(CarPowerPolicy expectedSystemPolicy) throws Exception {
-        CarPowerPolicy systemPolicy = mPolicyReader.getPreemptivePowerPolicy(
-                NO_USER_INTERACTION_POLICY_ID);
+    private void assertSystemPowerPolicy(String policyId, CarPowerPolicy expectedSystemPolicy)
+            throws Exception {
+        CarPowerPolicy systemPolicy = mPolicyReader.getPreemptivePowerPolicy(policyId);
         assertThat(systemPolicy).isNotNull();
         assertPolicyIdentical(systemPolicy, expectedSystemPolicy);
     }

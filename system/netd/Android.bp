@@ -20,7 +20,6 @@ cc_library_headers {
     export_include_dirs: ["include"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.tethering",
     ],
 }
 
@@ -31,6 +30,17 @@ cc_library_headers {
         "//apex_available:platform",
         "com.android.resolv",
     ],
+    min_sdk_version: "29",
+}
+
+cc_library_headers {
+    name: "netd_mainline_headers",
+    export_include_dirs: ["include/mainline"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.tethering",
+    ],
+    sdk_version: "29",
     min_sdk_version: "29",
 }
 
@@ -74,7 +84,6 @@ cc_defaults {
         "-misc-non-private-member-variables-in-classes",  // Also complains about structs
         "-performance-noexcept-move-constructor",
         "-performance-unnecessary-value-param",
-        "-performance-no-int-to-ptr",
     ],
     tidy_flags: [
         "-warnings-as-errors="

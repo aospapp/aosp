@@ -456,6 +456,10 @@ public enum PartnerConfig {
   CONFIG_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED(
       PartnerConfigKey.KEY_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED, ResourceType.BOOL),
 
+  // Waiting for the animation finished before process to the next page/action.
+  CONFIG_LOADING_LAYOUT_WAIT_FOR_ANIMATION_FINISHED(
+      PartnerConfigKey.KEY_LOADING_LAYOUT_WAIT_FOR_ANIMATION_FINISHED, ResourceType.BOOL),
+
   // The margin top of progress bar.
   CONFIG_PROGRESS_BAR_MARGIN_TOP(
       PartnerConfigKey.KEY_PROGRESS_BAR_MARGIN_TOP, ResourceType.DIMENSION),

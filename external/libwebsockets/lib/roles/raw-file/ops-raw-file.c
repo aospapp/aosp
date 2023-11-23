@@ -31,20 +31,20 @@ rops_handle_POLLIN_raw_file(struct lws_context_per_thread *pt, struct lws *wsi,
 	int n;
 
 	if (pollfd->revents & LWS_POLLOUT) {
-		n = lws_callback_as_writeable(wsi);
 		if (lws_change_pollfd(wsi, LWS_POLLOUT, 0)) {
-			lwsl_info("failed at set pollfd\n");
+			lwsl_wsi_info(wsi, "failed at set pollfd");
 			return LWS_HPI_RET_WSI_ALREADY_DIED;
 		}
+		n = lws_callback_as_writeable(wsi);
 		if (n)
 			return LWS_HPI_RET_PLEASE_CLOSE_ME;
 	}
 
 	if (pollfd->revents & LWS_POLLIN) {
-		if (user_callback_handle_rxflow(wsi->protocol->callback,
+		if (user_callback_handle_rxflow(wsi->a.protocol->callback,
 						wsi, LWS_CALLBACK_RAW_RX_FILE,
 						wsi->user_space, NULL, 0)) {
-			lwsl_debug("raw rx callback closed it\n");
+			lwsl_wsi_debug(wsi, "raw rx callback closed it");
 			return LWS_HPI_RET_PLEASE_CLOSE_ME;
 		}
 	}
@@ -67,40 +67,50 @@ rops_adoption_bind_raw_file(struct lws *wsi, int type, const char *vh_prot_name)
 	lws_role_transition(wsi, 0, LRS_ESTABLISHED, &role_ops_raw_file);
 
 	if (!vh_prot_name) {
-		if (wsi->vhost->default_protocol_index >=
-		    wsi->vhost->count_protocols)
+		if (wsi->a.vhost->default_protocol_index >=
+		    wsi->a.vhost->count_protocols)
 			return 0;
 
-		wsi->protocol = &wsi->vhost->protocols[
-					wsi->vhost->default_protocol_index];
+		wsi->a.protocol = &wsi->a.vhost->protocols[
+					wsi->a.vhost->default_protocol_index];
 	}
 
 	return 1; /* bound */
 }
 
+static const lws_rops_t rops_table_raw_file[] = {
+	/*  1 */ { .handle_POLLIN	= rops_handle_POLLIN_raw_file },
+	/*  2 */ { .adoption_bind	= rops_adoption_bind_raw_file },
+};
+
 const struct lws_role_ops role_ops_raw_file = {
 	/* role name */			"raw-file",
 	/* alpn id */			NULL,
-	/* check_upgrades */		NULL,
-	/* pt_init_destroy */		NULL,
-	/* init_vhost */		NULL,
-	/* destroy_vhost */		NULL,
-	/* service_flag_pending */	NULL,
-	/* handle_POLLIN */		rops_handle_POLLIN_raw_file,
-	/* handle_POLLOUT */		NULL,
-	/* perform_user_POLLOUT */	NULL,
-	/* callback_on_writable */	NULL,
-	/* tx_credit */			NULL,
-	/* write_role_protocol */	NULL,
-	/* encapsulation_parent */	NULL,
-	/* alpn_negotiated */		NULL,
-	/* close_via_role_protocol */	NULL,
-	/* close_role */		NULL,
-	/* close_kill_connection */	NULL,
-	/* destroy_role */		NULL,
-	/* adoption_bind */		rops_adoption_bind_raw_file,
-	/* client_bind */		NULL,
-	/* issue_keepalive */		NULL,
+
+	/* rops_table */		rops_table_raw_file,
+	/* rops_idx */			{
+	  /* LWS_ROPS_check_upgrades */
+	  /* LWS_ROPS_pt_init_destroy */		0x00,
+	  /* LWS_ROPS_init_vhost */
+	  /* LWS_ROPS_destroy_vhost */			0x00,
+	  /* LWS_ROPS_service_flag_pending */
+	  /* LWS_ROPS_handle_POLLIN */			0x01,
+	  /* LWS_ROPS_handle_POLLOUT */
+	  /* LWS_ROPS_perform_user_POLLOUT */		0x00,
+	  /* LWS_ROPS_callback_on_writable */
+	  /* LWS_ROPS_tx_credit */			0x00,
+	  /* LWS_ROPS_write_role_protocol */
+	  /* LWS_ROPS_encapsulation_parent */		0x00,
+	  /* LWS_ROPS_alpn_negotiated */
+	  /* LWS_ROPS_close_via_role_protocol */	0x00,
+	  /* LWS_ROPS_close_role */
+	  /* LWS_ROPS_close_kill_connection */		0x00,
+	  /* LWS_ROPS_destroy_role */
+	  /* LWS_ROPS_adoption_bind */			0x02,
+	  /* LWS_ROPS_client_bind */
+	  /* LWS_ROPS_issue_keepalive */		0x00,
+					},
+
 	/* adoption_cb clnt, srv */	{ LWS_CALLBACK_RAW_ADOPT_FILE,
 					  LWS_CALLBACK_RAW_ADOPT_FILE },
 	/* rx_cb clnt, srv */		{ LWS_CALLBACK_RAW_RX_FILE,

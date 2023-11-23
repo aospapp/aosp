@@ -42,7 +42,7 @@ class RequestPermissionsActivity : Activity() {
                         .setComponent(ComponentName(context!!, OverlayActivity::class.java))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-        }, IntentFilter(ACTION_SHOW_OVERLAY))
+        }, IntentFilter(ACTION_SHOW_OVERLAY), RECEIVER_EXPORTED)
         Handler(mainLooper).post(this::eventuallyRequestPermission)
     }
 

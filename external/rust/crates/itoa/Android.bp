@@ -38,10 +38,34 @@ license {
     ],
 }
 
+rust_test {
+    name: "itoa_test_tests_test",
+    host_supported: true,
+    crate_name: "test",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.4.8",
+    srcs: ["tests/test.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2015",
+    features: [
+        "default",
+        "std",
+    ],
+    rustlibs: [
+        "libitoa",
+    ],
+}
+
 rust_library {
     name: "libitoa",
     host_supported: true,
     crate_name: "itoa",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.4.8",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [

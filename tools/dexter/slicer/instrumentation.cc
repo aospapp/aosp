@@ -15,7 +15,11 @@
  */
 
 #include "slicer/instrumentation.h"
+
 #include "slicer/dex_ir_builder.h"
+
+#include <iomanip>
+#include <sstream>
 
 namespace slicer {
 
@@ -64,7 +68,7 @@ void BoxValue(lir::Bytecode* bytecode,
       boxed_type_name = "Ljava/lang/Double;";
       break;
   }
-  SLICER_CHECK(boxed_type_name != nullptr);
+  SLICER_CHECK_NE(boxed_type_name, nullptr);
 
   ir::Builder builder(code_ir->dex_ir);
   std::vector<ir::Type*> param_types;
@@ -165,7 +169,12 @@ bool EntryHook::Apply(lir::CodeIr* code_ir) {
 
 void GenerateShiftParamsCode(lir::CodeIr* code_ir, lir::Instruction* position, dex::u4 shift) {
   const auto ir_method = code_ir->ir_method;
-  SLICER_CHECK(ir_method->code->ins_count > 0);
+
+  // Since the goal is to relocate the registers when extra scratch registers are needed,
+  // if there are no parameters this is a no-op.
+  if (ir_method->code->ins_count == 0) {
+    return;
+  }
 
   // build a param list with the explicit "this" argument for non-static methods
   std::vector<ir::Type*> param_types;
@@ -179,7 +188,7 @@ void GenerateShiftParamsCode(lir::CodeIr* code_ir, lir::Instruction* position, d
 
   const dex::u4 regs = ir_method->code->registers;
   const dex::u4 ins_count = ir_method->code->ins_count;
-  SLICER_CHECK(regs >= ins_count);
+  SLICER_CHECK_GE(regs, ins_count);
 
   // generate the args "relocation" instructions
   dex::u4 reg = regs - ins_count;
@@ -452,8 +461,11 @@ bool ExitHook::Apply(lir::CodeIr* code_ir) {
             move_op->operands.push_back(code_ir->Alloc<lir::VRegPair>(reg + 1));
             move_op->operands.push_back(code_ir->Alloc<lir::VRegPair>(reg));
             break;
-          default:
-            SLICER_FATAL("Unexpected opcode %d", bytecode->opcode);
+          default: {
+              std::stringstream ss;
+              ss <<"Unexpected bytecode opcode: " << bytecode->opcode;
+              SLICER_FATAL(ss.str());
+            }
         }
         code_ir->instructions.InsertBefore(bytecode, move_op);
         // return is the last call, return is shifted to one, so taking over 0 registry
@@ -592,7 +604,7 @@ dex::Opcode DetourInterfaceInvoke::GetNewOpcode(dex::Opcode opcode) {
 class RegsRenumberVisitor : public lir::Visitor {
  public:
   explicit RegsRenumberVisitor(int shift) : shift_(shift) {
-    SLICER_CHECK(shift > 0);
+    SLICER_CHECK_GT(shift, 0);
   }
 
  private:
@@ -642,7 +654,7 @@ class RegsRenumberVisitor : public lir::Visitor {
 //  make existing bytecodes "unencodable" (if they have 4 bit reg fields)
 //
 void AllocateScratchRegs::RegsRenumbering(lir::CodeIr* code_ir) {
-  SLICER_CHECK(left_to_allocate_ > 0);
+  SLICER_CHECK_GT(left_to_allocate_, 0);
   int delta = std::min(left_to_allocate_,
                        16 - static_cast<int>(code_ir->ir_method->code->registers));
   if (delta < 1) {
@@ -671,7 +683,7 @@ void AllocateScratchRegs::RegsRenumbering(lir::CodeIr* code_ir) {
 //
 void AllocateScratchRegs::ShiftParams(lir::CodeIr* code_ir) {
   const auto ir_method = code_ir->ir_method;
-  SLICER_CHECK(left_to_allocate_ > 0);
+  SLICER_CHECK_GT(left_to_allocate_, 0);
 
   const dex::u4 shift = left_to_allocate_;
   Allocate(code_ir, ir_method->code->registers, left_to_allocate_);
@@ -702,7 +714,7 @@ void AllocateScratchRegs::Allocate(lir::CodeIr* code_ir, dex::u4 first_reg, int 
 bool AllocateScratchRegs::Apply(lir::CodeIr* code_ir) {
   const auto code = code_ir->ir_method->code;
   // .dex bytecode allows up to 64k vregs
-  SLICER_CHECK(code->registers + allocate_count_ <= (1 << 16));
+  SLICER_CHECK_LE(code->registers + allocate_count_, (1 << 16));
 
   scratch_regs_.clear();
   left_to_allocate_ = allocate_count_;
@@ -730,7 +742,7 @@ bool AllocateScratchRegs::Apply(lir::CodeIr* code_ir) {
 }
 
 bool MethodInstrumenter::InstrumentMethod(ir::EncodedMethod* ir_method) {
-  SLICER_CHECK(ir_method != nullptr);
+  SLICER_CHECK_NE(ir_method, nullptr);
   if (ir_method->code == nullptr) {
     // can't instrument abstract methods
     return false;

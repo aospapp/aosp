@@ -18,11 +18,11 @@ package com.android.car.pm;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.testng.Assert.assertThrows;
+
 import android.content.ComponentName;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -30,36 +30,33 @@ import org.junit.runners.JUnit4;
 public class VendorServiceInfoTest {
     private static final String SERVICE_NAME = "com.andorid.car/.MyService";
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
-
     @Test
     public void emptyString() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse("");
+        assertThrows(IllegalArgumentException.class, () -> VendorServiceInfo.parse(""));
     }
 
     @Test
     public void multipleHashTags() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse(SERVICE_NAME + "#user=system#bind=bind");
+        assertThrows(IllegalArgumentException.class,
+                () -> VendorServiceInfo.parse(SERVICE_NAME + "#user=system#bind=bind"));
     }
 
     @Test
     public void unknownArg() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse(SERVICE_NAME + "#user=system,unknownKey=blah");
+        assertThrows(IllegalArgumentException.class,
+                () -> VendorServiceInfo.parse(SERVICE_NAME + "#user=system,unknownKey=blah"));
     }
 
     @Test
     public void invalidComponentName() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse("invalidComponentName");
+        assertThrows(IllegalArgumentException.class,
+                () -> VendorServiceInfo.parse("invalidComponentName"));
     }
 
     @Test
     public void testServiceNameWithDefaults() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME);
+
         assertThat(info.getIntent().getComponent())
                 .isEqualTo(ComponentName.unflattenFromString(SERVICE_NAME));
         assertThat(info.shouldBeBound()).isFalse();
@@ -72,6 +69,7 @@ public class VendorServiceInfoTest {
     @Test
     public void startService() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#bind=start");
+
         assertThat(info.shouldBeBound()).isFalse();
         assertThat(info.shouldBeStartedInForeground()).isFalse();
         assertThat(info.getIntent().getComponent())
@@ -81,6 +79,7 @@ public class VendorServiceInfoTest {
     @Test
     public void bindService() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#bind=bind");
+
         assertThat(info.shouldBeBound()).isTrue();
         assertThat(info.shouldBeStartedInForeground()).isFalse();
     }
@@ -88,6 +87,7 @@ public class VendorServiceInfoTest {
     @Test
     public void startServiceInForeground() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#bind=startForeground");
+
         assertThat(info.shouldBeBound()).isFalse();
         assertThat(info.shouldBeStartedInForeground()).isTrue();
     }
@@ -95,24 +95,35 @@ public class VendorServiceInfoTest {
     @Test
     public void triggerAsap() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#trigger=asap");
+
         assertThat(info.shouldStartOnUnlock()).isFalse();
     }
 
     @Test
     public void triggerUnlocked() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#trigger=userUnlocked");
+
         assertThat(info.shouldStartOnUnlock()).isTrue();
     }
 
     @Test
+    public void triggerPostUnlocked() {
+        VendorServiceInfo info = VendorServiceInfo.parse(
+                SERVICE_NAME + "#trigger=userPostUnlocked");
+
+        assertThat(info.shouldStartOnPostUnlock()).isTrue();
+    }
+
+    @Test
     public void triggerUnknown() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse(SERVICE_NAME + "#trigger=whenever");
+        assertThrows(IllegalArgumentException.class,
+                () -> VendorServiceInfo.parse(SERVICE_NAME + "#trigger=whenever"));
     }
 
     @Test
     public void userScopeForeground() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#user=foreground");
+
         assertThat(info.isForegroundUserService()).isTrue();
         assertThat(info.isSystemUserService()).isFalse();
     }
@@ -120,6 +131,7 @@ public class VendorServiceInfoTest {
     @Test
     public void userScopeSystem() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#user=system");
+
         assertThat(info.isForegroundUserService()).isFalse();
         assertThat(info.isSystemUserService()).isTrue();
     }
@@ -127,20 +139,22 @@ public class VendorServiceInfoTest {
     @Test
     public void userScopeAll() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME + "#user=all");
+
         assertThat(info.isForegroundUserService()).isTrue();
         assertThat(info.isSystemUserService()).isTrue();
     }
 
     @Test
     public void userUnknown() {
-        exception.expect(IllegalArgumentException.class);
-        VendorServiceInfo.parse(SERVICE_NAME + "#user=whoever");
+        assertThrows(IllegalArgumentException.class,
+                () -> VendorServiceInfo.parse(SERVICE_NAME + "#user=whoever"));
     }
 
     @Test
     public void allArgs() {
         VendorServiceInfo info = VendorServiceInfo.parse(SERVICE_NAME
                 + "#bind=bind,user=foreground,trigger=userUnlocked");
+
         assertThat(info.getIntent().getComponent())
                 .isEqualTo(ComponentName.unflattenFromString(SERVICE_NAME));
         assertThat(info.shouldBeBound()).isTrue();
@@ -148,5 +162,16 @@ public class VendorServiceInfoTest {
         assertThat(info.isSystemUserService()).isFalse();
         assertThat(info.shouldStartOnUnlock()).isTrue();
         assertThat(info.shouldStartAsap()).isFalse();
+    }
+
+    @Test
+    public void testToString() {
+        String result = VendorServiceInfo.parse(SERVICE_NAME
+                + "#bind=bind,user=foreground,trigger=userPostUnlocked").toString();
+
+        assertThat(result).contains("component=" + SERVICE_NAME);
+        assertThat(result).contains("bind=BIND");
+        assertThat(result).contains("userScope=FOREGROUND");
+        assertThat(result).contains("trigger=POST_UNLOCKED");
     }
 }

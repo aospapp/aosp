@@ -27,6 +27,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Parcel;
 import android.telecom.Call;
 import android.telecom.Conference;
 import android.telecom.Connection;
@@ -89,6 +90,32 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         assertRemoteConnectionState(mRemoteConnectionObject, Connection.STATE_ACTIVE);
         assertConnectionState(mRemoteConnection, Connection.STATE_ACTIVE);
 
+        call.disconnect();
+        assertCallState(call, Call.STATE_DISCONNECTED);
+        assertConnectionState(mConnection, Connection.STATE_DISCONNECTED);
+        assertRemoteConnectionState(mRemoteConnectionObject, Connection.STATE_DISCONNECTED);
+        assertConnectionState(mRemoteConnection, Connection.STATE_DISCONNECTED);
+    }
+
+    public void testRemoteConnectionOutgoingEmergencyCall() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        addRemoteConnectionOutgoingEmergencyCall();
+        final Call call = mInCallCallbacks.getService().getLastCall();
+        assertCallState(call, Call.STATE_DIALING);
+
+        verifyRemoteConnectionObject(mRemoteConnectionObject, mRemoteConnection);
+
+        mConnection.setActive();
+        mRemoteConnection.setActive();
+
+        assertCallState(call, Call.STATE_ACTIVE);
+        assertConnectionState(mConnection, Connection.STATE_ACTIVE);
+        assertRemoteConnectionState(mRemoteConnectionObject, Connection.STATE_ACTIVE);
+        assertConnectionState(mRemoteConnection, Connection.STATE_ACTIVE);
+
+        assertNotNull(mRemoteConnection.getExtras().get(Connection.EXTRA_LAST_KNOWN_CELL_IDENTITY));
         call.disconnect();
         assertCallState(call, Call.STATE_DISCONNECTED);
         assertConnectionState(mConnection, Connection.STATE_DISCONNECTED);
@@ -212,7 +239,10 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         }
 
         try {
-            mTelecomManager.startConference(PARTICIPANTS, null);
+            Bundle extra = new Bundle();
+            extra.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                    TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
+            mTelecomManager.startConference(PARTICIPANTS, extra);
             MockConference conference = verifyConference(2);
             MockConference remoteConference = verifyConferenceOnRemoteCS(2);
             RemoteConferenceTest.verifyRemoteConferenceObject(conference.getRemoteConference(),
@@ -1339,6 +1369,50 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         mConnection = verifyConnectionForOutgoingCall();
         mRemoteConnection = verifyConnectionForOutgoingCallOnRemoteCS();
         mRemoteConnectionObject = mConnection.getRemoteConnection();
+    }
+
+    private void addRemoteConnectionOutgoingEmergencyCall() {
+        try {
+            setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
+        } catch (Exception e) {
+            fail("Could not setup emergency number");
+        }
+        try {
+            MockConnectionService managerConnectionService = new MockConnectionService() {
+                @Override
+                public Connection onCreateOutgoingConnection(
+                        PhoneAccountHandle connectionManagerPhoneAccount,
+                        ConnectionRequest request) {
+                    MockConnection connection = (MockConnection)super.onCreateOutgoingConnection(
+                            connectionManagerPhoneAccount, request);
+                    ConnectionRequest remoteRequest = new ConnectionRequest(
+                            TEST_REMOTE_PHONE_ACCOUNT_HANDLE,
+                            request.getAddress(),
+                            request.getExtras());
+                    RemoteConnection remoteConnection =
+                            CtsConnectionService.createRemoteOutgoingConnectionToTelecom(
+                                    TEST_REMOTE_PHONE_ACCOUNT_HANDLE, remoteRequest);
+                    connection.setRemoteConnection(remoteConnection);
+                    return connection;
+                }
+            };
+            setupConnectionServices(managerConnectionService, null, FLAG_REGISTER | FLAG_ENABLE);
+        } catch(Exception e) {
+            fail("Error in setting up the connection services");
+        }
+        placeAndVerifyEmergencyCall(true);
+        /**
+         * Retrieve the connection from both the connection services and see if the plumbing via
+         * RemoteConnection object is working.
+         */
+        mConnection = verifyConnectionForOutgoingCall();
+        mRemoteConnection = verifyConnectionForOutgoingCallOnRemoteCS();
+        mRemoteConnectionObject = mConnection.getRemoteConnection();
+        try {
+            tearDownEmergencyCalling();
+        } catch (Exception e) {
+            fail("could not teardown emergency calling");
+        }
     }
 
     private void addRemoteConnectionIncomingCall() {

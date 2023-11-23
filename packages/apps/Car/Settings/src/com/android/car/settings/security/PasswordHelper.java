@@ -16,178 +16,197 @@
 
 package com.android.car.settings.security;
 
+import static com.android.internal.widget.PasswordValidationError.CONTAINS_INVALID_CHARACTERS;
+import static com.android.internal.widget.PasswordValidationError.CONTAINS_SEQUENCE;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_DIGITS;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_LETTERS;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_LOWER_CASE;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_NON_DIGITS;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_NON_LETTER;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_SYMBOLS;
+import static com.android.internal.widget.PasswordValidationError.NOT_ENOUGH_UPPER_CASE;
+import static com.android.internal.widget.PasswordValidationError.RECENTLY_USED;
+import static com.android.internal.widget.PasswordValidationError.TOO_LONG;
+import static com.android.internal.widget.PasswordValidationError.TOO_SHORT;
+
+import android.annotation.UserIdInt;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.PasswordMetrics;
 import android.content.Context;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
-import com.android.car.setupwizardlib.InitialLockSetupConstants.ValidateLockFlags;
+import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockscreenCredential;
+import com.android.internal.widget.PasswordValidationError;
+import com.android.settingslib.utils.StringUtil;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Helper used by ChooseLockPinPasswordFragment
+ * Much of the logic is taken from {@link com.android.settings.password.ChooseLockPassword}
  */
 public class PasswordHelper {
     public static final String EXTRA_CURRENT_SCREEN_LOCK = "extra_current_screen_lock";
     public static final String EXTRA_CURRENT_PASSWORD_QUALITY = "extra_current_password_quality";
-    /**
-     * Required minimum length of PIN or password.
-     */
-    public static final int MIN_LENGTH = 4;
-    // Error code returned from validate(String).
+
+    // Error code returned from validateSetupWizard(byte[] password).
     static final int NO_ERROR = 0;
-    static final int CONTAINS_INVALID_CHARACTERS = 1;
-    static final int TOO_SHORT = 1 << 1;
-    static final int CONTAINS_NON_DIGITS = 1 << 2;
-    static final int CONTAINS_SEQUENTIAL_DIGITS = 1 << 3;
+    static final int ERROR_CODE = 1;
     private static final Logger LOG = new Logger(PasswordHelper.class);
+
+    private final Context mContext;
     private final boolean mIsPin;
+    private final LockPatternUtils mLockPatternUtils;
+    private final PasswordMetrics mMinMetrics;
+    private List<PasswordValidationError> mValidationErrors;
+    private byte[] mPasswordHistoryHashFactor;
 
-    public PasswordHelper(boolean isPin) {
+    @UserIdInt
+    private final int mUserId;
+
+    @DevicePolicyManager.PasswordComplexity
+    private final int mMinComplexity;
+
+    public PasswordHelper(Context context, boolean isPin, @UserIdInt int userId) {
+        mContext = context;
         mIsPin = isPin;
+        mUserId = userId;
+        mLockPatternUtils = new LockPatternUtils(context);
+        mMinMetrics = mLockPatternUtils.getRequestedPasswordMetrics(
+                mUserId, /* deviceWideOnly= */ false);
+        mMinComplexity = mLockPatternUtils.getRequestedPasswordComplexity(
+                mUserId, /* deviceWideOnly= */ false);
+    }
+
+    @VisibleForTesting
+    PasswordHelper(Context context, boolean isPin, @UserIdInt int userId,
+            LockPatternUtils lockPatternUtils, PasswordMetrics minMetrics,
+            @DevicePolicyManager.PasswordComplexity int minComplexity) {
+        mContext = context;
+        mIsPin = isPin;
+        mUserId = userId;
+        mLockPatternUtils = lockPatternUtils;
+        mMinMetrics = minMetrics;
+        mMinComplexity = minComplexity;
     }
 
     /**
-     * Returns one of the password quality values defined in {@link DevicePolicyManager}, such
-     * as NUMERIC, ALPHANUMERIC etc.
-     */
-    public int getPasswordQuality() {
-        return mIsPin ? DevicePolicyManager.PASSWORD_QUALITY_NUMERIC :
-                DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC;
-    }
-
-    /**
-     * Validates PIN/Password and returns the validation result.
+     * Validates PIN/Password and returns the validation result and updates mValidationErrors.
      *
-     * @param password the raw bytes for the password the user typed in
-     * @return the error code which should be non-zero where there is error. Otherwise
-     * {@link #NO_ERROR} should be returned.
-     */
-    public int validate(LockscreenCredential password) {
-        return mIsPin ? validatePin(password.getCredential())
-                : validatePassword(password.getCredential());
-    }
-
-    /**
-     * Validates PIN/Password using the setup wizard {@link ValidateLockFlags}.
-     *
-     * @param password The password to validate.
+     * @param password password the user typed in.
      * @return The error code where 0 is no error.
      */
     public int validateSetupWizard(byte[] password) {
-        return mIsPin ? translateSettingsToSuwError(validatePin(password))
-                : translateSettingsToSuwError(validatePassword(password));
+        mValidationErrors =
+                PasswordMetrics.validatePassword(mMinMetrics, mMinComplexity, mIsPin, password);
+
+        return mValidationErrors.isEmpty() ? NO_ERROR : ERROR_CODE;
     }
 
     /**
-     * Converts error code from validatePassword to an array of messages describing the errors with
-     * important message comes first.  The messages are concatenated with a space in between.
-     * Please make sure each message ends with a period.
+     * Validates PIN/Password and returns the validation result and updates mValidationErrors
+     * and checks whether the password has been reused.
      *
-     * @param errorCode the code returned by {@link #validatePassword(byte[]) validatePassword}
+     * @param enteredCredential credential the user typed in.
+     * @param existingCredential existing credential the user previously set.
+     * @return whether password satisfies all the requirements.
      */
-    public List<String> convertErrorCodeToMessages(Context context, int errorCode) {
-        return mIsPin ? convertPinErrorCodeToMessages(context, errorCode) :
-                convertPasswordErrorCodeToMessages(context, errorCode);
-    }
-
-    private int validatePassword(byte[] password) {
-        int errorCode = NO_ERROR;
-
-        if (password.length < MIN_LENGTH) {
-            errorCode |= TOO_SHORT;
+    public boolean validate(LockscreenCredential enteredCredential,
+            LockscreenCredential existingCredential) {
+        byte[] password = enteredCredential.getCredential();
+        mValidationErrors =
+                PasswordMetrics.validatePassword(mMinMetrics, mMinComplexity, mIsPin, password);
+        if (mValidationErrors.isEmpty() && mLockPatternUtils.checkPasswordHistory(
+                password, getPasswordHistoryHashFactor(existingCredential), mUserId)) {
+            mValidationErrors =
+                    Collections.singletonList(new PasswordValidationError(RECENTLY_USED));
         }
 
-        // Allow non-control Latin-1 characters only.
-        for (int i = 0; i < password.length; i++) {
-            char c = (char) password[i];
-            if (c < 32 || c > 127) {
-                errorCode |= CONTAINS_INVALID_CHARACTERS;
-                break;
+        return mValidationErrors.isEmpty();
+    }
+
+    /**
+     * Lazily computes and returns the history hash factor of the user id of the current process
+     * {@code mUserId}, used for password history check.
+     */
+    private byte[] getPasswordHistoryHashFactor(LockscreenCredential credential) {
+        if (mPasswordHistoryHashFactor == null) {
+            mPasswordHistoryHashFactor = mLockPatternUtils.getPasswordHistoryHashFactor(
+                    credential, mUserId);
+        }
+        return mPasswordHistoryHashFactor;
+    }
+
+    /**
+     * Returns an array of messages describing any errors of the last
+     * {@link #validate(LockscreenCredential)} call, important messages come first.
+     */
+    public List<String> convertErrorCodeToMessages() {
+        List<String> messages = new ArrayList<>();
+        for (PasswordValidationError error : mValidationErrors) {
+            switch (error.errorCode) {
+                case CONTAINS_INVALID_CHARACTERS:
+                    messages.add(mContext.getString(R.string.lockpassword_illegal_character));
+                    break;
+                case NOT_ENOUGH_UPPER_CASE:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_uppercase));
+                    break;
+                case NOT_ENOUGH_LOWER_CASE:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_lowercase));
+                    break;
+                case NOT_ENOUGH_LETTERS:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_letters));
+                    break;
+                case NOT_ENOUGH_DIGITS:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_numeric));
+                    break;
+                case NOT_ENOUGH_SYMBOLS:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_symbols));
+                    break;
+                case NOT_ENOUGH_NON_LETTER:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_nonletter));
+                    break;
+                case NOT_ENOUGH_NON_DIGITS:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            R.string.lockpassword_password_requires_nonnumerical));
+                    break;
+                case TOO_SHORT:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement,
+                            mIsPin
+                                    ? R.string.lockpassword_pin_too_short
+                                    : R.string.lockpassword_password_too_short));
+                    break;
+                case TOO_LONG:
+                    messages.add(StringUtil.getIcuPluralsString(mContext, error.requirement + 1,
+                            mIsPin
+                                    ? R.string.lockpassword_pin_too_long
+                                    : R.string.lockpassword_password_too_long));
+                    break;
+                case CONTAINS_SEQUENCE:
+                    messages.add(mContext.getString(
+                            R.string.lockpassword_pin_no_sequential_digits));
+                    break;
+                case RECENTLY_USED:
+                    messages.add(mContext.getString(mIsPin
+                            ? R.string.lockpassword_pin_recently_used
+                            : R.string.lockpassword_password_recently_used));
+                    break;
+                default:
+                    LOG.wtf("unknown error validating password: " + error);
             }
         }
-
-        return errorCode;
-    }
-
-    private int translateSettingsToSuwError(int error) {
-        int output = 0;
-        if ((error & CONTAINS_NON_DIGITS) > 0) {
-            LOG.v("CONTAINS_NON_DIGITS");
-            output |= ValidateLockFlags.INVALID_BAD_SYMBOLS;
-        }
-        if ((error & CONTAINS_INVALID_CHARACTERS) > 0) {
-            LOG.v("INVALID_CHAR");
-            output |= ValidateLockFlags.INVALID_BAD_SYMBOLS;
-        }
-        if ((error & TOO_SHORT) > 0) {
-            LOG.v("TOO_SHORT");
-            output |= ValidateLockFlags.INVALID_LENGTH;
-        }
-        if ((error & CONTAINS_SEQUENTIAL_DIGITS) > 0) {
-            LOG.v("SEQUENTIAL_DIGITS");
-            output |= ValidateLockFlags.INVALID_LACKS_COMPLEXITY;
-        }
-        return output;
-    }
-
-    private int validatePin(byte[] pin) {
-        int errorCode = NO_ERROR;
-        PasswordMetrics metrics = PasswordMetrics.computeForPasswordOrPin(pin, /* isPin */ true);
-        int passwordQuality = getPasswordQuality();
-
-        if (metrics.length < MIN_LENGTH) {
-            errorCode |= TOO_SHORT;
-        }
-
-        if (metrics.letters > 0 || metrics.symbols > 0) {
-            errorCode |= CONTAINS_NON_DIGITS;
-        }
-
-        if (passwordQuality == DevicePolicyManager.PASSWORD_QUALITY_NUMERIC_COMPLEX) {
-            // Check for repeated characters or sequences (e.g. '1234', '0000', '2468')
-            int sequence = PasswordMetrics.maxLengthSequence(pin);
-            if (sequence > PasswordMetrics.MAX_ALLOWED_SEQUENCE) {
-                errorCode |= CONTAINS_SEQUENTIAL_DIGITS;
-            }
-        }
-
-        return errorCode;
-    }
-
-    private List<String> convertPasswordErrorCodeToMessages(Context context, int errorCode) {
-        List<String> messages = new LinkedList<>();
-
-        if ((errorCode & CONTAINS_INVALID_CHARACTERS) > 0) {
-            messages.add(context.getString(R.string.lockpassword_illegal_character));
-        }
-
-        if ((errorCode & TOO_SHORT) > 0) {
-            messages.add(context.getString(R.string.lockpassword_password_too_short, MIN_LENGTH));
-        }
-
-        return messages;
-    }
-
-    private List<String> convertPinErrorCodeToMessages(Context context, int errorCode) {
-        List<String> messages = new LinkedList<>();
-
-        if ((errorCode & CONTAINS_NON_DIGITS) > 0) {
-            messages.add(context.getString(R.string.lockpassword_pin_contains_non_digits));
-        }
-
-        if ((errorCode & CONTAINS_SEQUENTIAL_DIGITS) > 0) {
-            messages.add(context.getString(R.string.lockpassword_pin_no_sequential_digits));
-        }
-
-        if ((errorCode & TOO_SHORT) > 0) {
-            messages.add(context.getString(R.string.lockpin_invalid_pin));
-        }
-
         return messages;
     }
 

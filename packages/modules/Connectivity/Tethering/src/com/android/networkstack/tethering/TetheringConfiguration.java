@@ -23,13 +23,18 @@ import static android.net.ConnectivityManager.TYPE_MOBILE_DUN;
 import static android.net.ConnectivityManager.TYPE_MOBILE_HIPRI;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 
+import static com.android.net.module.util.DeviceConfigUtils.TETHERING_MODULE_NAME;
+import static com.android.networkstack.apishim.ConstantsShim.KEY_CARRIER_SUPPORTS_TETHERING_BOOL;
+
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.TetheringConfigurationParcel;
 import android.net.util.SharedLog;
+import android.os.PersistableBundle;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -59,8 +64,6 @@ public class TetheringConfiguration {
     private static final String TAG = TetheringConfiguration.class.getSimpleName();
 
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
-    private static final String TETHERING_MODULE_NAME = "com.android.tethering";
 
     // Default ranges used for the legacy DHCP server.
     // USB is  192.168.42.1 and 255.255.255.0
@@ -97,13 +100,6 @@ public class TetheringConfiguration {
 
     public static final String USE_LEGACY_WIFI_P2P_DEDICATED_IP =
             "use_legacy_wifi_p2p_dedicated_ip";
-
-    /**
-     * Flag use to enable select all prefix ranges feature.
-     * TODO: Remove this flag if there are no problems after M-2020-12 rolls out.
-     */
-    public static final String TETHER_ENABLE_SELECT_ALL_PREFIX_RANGES =
-            "tether_enable_select_all_prefix_ranges";
 
     /**
      * Experiment flag to force choosing upstreams automatically.
@@ -143,21 +139,24 @@ public class TetheringConfiguration {
     public final Collection<Integer> preferredUpstreamIfaceTypes;
     public final String[] legacyDhcpRanges;
     public final String[] defaultIPv4DNS;
-    public final boolean enableLegacyDhcpServer;
 
     public final String[] provisioningApp;
     public final String provisioningAppNoUi;
     public final int provisioningCheckPeriod;
     public final String provisioningResponse;
 
+    public final boolean isCarrierSupportTethering;
+    public final boolean isCarrierConfigAffirmsEntitlementCheckRequired;
+
     public final int activeDataSubId;
 
+    private final boolean mEnableLegacyDhcpServer;
     private final int mOffloadPollInterval;
     // TODO: Add to TetheringConfigurationParcel if required.
     private final boolean mEnableBpfOffload;
     private final boolean mEnableWifiP2pDedicatedIp;
+    private final int mP2pLeasesSubnetPrefixLength;
 
-    private final boolean mEnableSelectAllPrefixRange;
     private final int mUsbTetheringFunction;
     protected final ContentResolver mContentResolver;
 
@@ -203,7 +202,7 @@ public class TetheringConfiguration {
         legacyDhcpRanges = getLegacyDhcpRanges(res);
         defaultIPv4DNS = copy(DEFAULT_IPV4_DNS);
         mEnableBpfOffload = getEnableBpfOffload(res);
-        enableLegacyDhcpServer = getEnableLegacyDhcpServer(res);
+        mEnableLegacyDhcpServer = getEnableLegacyDhcpServer(res);
 
         provisioningApp = getResourceStringArray(res, R.array.config_mobile_hotspot_provision_app);
         provisioningAppNoUi = getResourceString(res,
@@ -214,6 +213,11 @@ public class TetheringConfiguration {
         provisioningResponse = getResourceString(res,
                 R.string.config_mobile_hotspot_provision_response);
 
+        PersistableBundle carrierConfigs = getCarrierConfig(ctx, activeDataSubId);
+        isCarrierSupportTethering = carrierConfigAffirmsCarrierSupport(carrierConfigs);
+        isCarrierConfigAffirmsEntitlementCheckRequired =
+                carrierConfigAffirmsEntitlementCheckRequired(carrierConfigs);
+
         mOffloadPollInterval = getResourceInteger(res,
                 R.integer.config_tether_offload_poll_interval,
                 DEFAULT_TETHER_OFFLOAD_POLL_INTERVAL_MS);
@@ -222,12 +226,30 @@ public class TetheringConfiguration {
                 R.bool.config_tether_enable_legacy_wifi_p2p_dedicated_ip,
                 false /* defaultValue */);
 
-        // Flags should normally not be booleans, but this is a kill-switch flag that is only used
-        // to turn off the feature, so binary rollback problems do not apply.
-        mEnableSelectAllPrefixRange = getDeviceConfigBoolean(
-                TETHER_ENABLE_SELECT_ALL_PREFIX_RANGES, true /* defaultValue */);
+        mP2pLeasesSubnetPrefixLength = getP2pLeasesSubnetPrefixLengthFromRes(res, configLog);
 
         configLog.log(toString());
+    }
+
+    private int getP2pLeasesSubnetPrefixLengthFromRes(final Resources res, final SharedLog log) {
+        if (!mEnableWifiP2pDedicatedIp) return 0;
+
+        int prefixLength = getResourceInteger(res,
+                R.integer.config_p2p_leases_subnet_prefix_length, 0 /* default value */);
+
+        // DhcpLeaseRepository ignores the first and last addresses of the range so the max prefix
+        // length is 30.
+        if (prefixLength < 0 || prefixLength > 30) {
+            log.e("Invalid p2p leases subnet prefix length configuration: " + prefixLength);
+            return 0;
+        }
+
+        return prefixLength;
+    }
+
+    /** Check whether using legacy dhcp server. */
+    public boolean useLegacyDhcpServer() {
+        return mEnableLegacyDhcpServer;
     }
 
     /** Check whether using ncm for usb tethering */
@@ -280,6 +302,15 @@ public class TetheringConfiguration {
         return mEnableWifiP2pDedicatedIp;
     }
 
+    /**
+     * Get subnet prefix length of dhcp leases for wifi p2p.
+     * This feature only support when wifi p2p use dedicated address. If
+     * #shouldEnableWifiP2pDedicatedIp is false, this method would always return 0.
+     */
+    public int getP2pLeasesSubnetPrefixLength() {
+        return mP2pLeasesSubnetPrefixLength;
+    }
+
     /** Does the dumping.*/
     public void dump(PrintWriter pw) {
         pw.print("activeDataSubId: ");
@@ -309,17 +340,21 @@ public class TetheringConfiguration {
         pw.print("provisioningAppNoUi: ");
         pw.println(provisioningAppNoUi);
 
+        pw.println("isCarrierSupportTethering: " + isCarrierSupportTethering);
+        pw.println("isCarrierConfigAffirmsEntitlementCheckRequired: "
+                + isCarrierConfigAffirmsEntitlementCheckRequired);
+
         pw.print("enableBpfOffload: ");
         pw.println(mEnableBpfOffload);
 
         pw.print("enableLegacyDhcpServer: ");
-        pw.println(enableLegacyDhcpServer);
+        pw.println(mEnableLegacyDhcpServer);
 
         pw.print("enableWifiP2pDedicatedIp: ");
         pw.println(mEnableWifiP2pDedicatedIp);
 
-        pw.print("mEnableSelectAllPrefixRange: ");
-        pw.println(mEnableSelectAllPrefixRange);
+        pw.print("p2pLeasesSubnetPrefixLength: ");
+        pw.println(mP2pLeasesSubnetPrefixLength);
 
         pw.print("mUsbTetheringFunction: ");
         pw.println(isUsingNcm() ? "NCM" : "RNDIS");
@@ -341,8 +376,11 @@ public class TetheringConfiguration {
                 toIntArray(preferredUpstreamIfaceTypes)));
         sj.add(String.format("provisioningApp:%s", makeString(provisioningApp)));
         sj.add(String.format("provisioningAppNoUi:%s", provisioningAppNoUi));
+        sj.add(String.format("isCarrierSupportTethering:%s", isCarrierSupportTethering));
+        sj.add(String.format("isCarrierConfigAffirmsEntitlementCheckRequired:%s",
+                isCarrierConfigAffirmsEntitlementCheckRequired));
         sj.add(String.format("enableBpfOffload:%s", mEnableBpfOffload));
-        sj.add(String.format("enableLegacyDhcpServer:%s", enableLegacyDhcpServer));
+        sj.add(String.format("enableLegacyDhcpServer:%s", mEnableLegacyDhcpServer));
         return String.format("TetheringConfiguration{%s}", sj.toString());
     }
 
@@ -382,10 +420,6 @@ public class TetheringConfiguration {
 
     public boolean isBpfOffloadEnabled() {
         return mEnableBpfOffload;
-    }
-
-    public boolean isSelectAllPrefixRangeEnabled() {
-        return mEnableSelectAllPrefixRange;
     }
 
     private int getUsbTetheringFunction(Resources res) {
@@ -580,6 +614,39 @@ public class TetheringConfiguration {
         return result;
     }
 
+    private static boolean carrierConfigAffirmsEntitlementCheckRequired(
+            PersistableBundle carrierConfig) {
+        if (carrierConfig == null) {
+            return true;
+        }
+        return carrierConfig.getBoolean(
+                CarrierConfigManager.KEY_REQUIRE_ENTITLEMENT_CHECKS_BOOL, true);
+    }
+
+    private static boolean carrierConfigAffirmsCarrierSupport(PersistableBundle carrierConfig) {
+        if (!SdkLevel.isAtLeastT() || carrierConfig == null) {
+            return true;
+        }
+        return carrierConfig.getBoolean(KEY_CARRIER_SUPPORTS_TETHERING_BOOL, true);
+    }
+
+    /**
+     * Get carrier configuration bundle.
+     */
+    public static PersistableBundle getCarrierConfig(Context context, int activeDataSubId) {
+        final CarrierConfigManager configManager =
+                context.getSystemService(CarrierConfigManager.class);
+        if (configManager == null) {
+            return null;
+        }
+
+        final PersistableBundle carrierConfig = configManager.getConfigForSubId(activeDataSubId);
+        if (CarrierConfigManager.isConfigForIdentifiedCarrier(carrierConfig)) {
+            return carrierConfig;
+        }
+        return null;
+    }
+
     /**
      * Convert this TetheringConfiguration to a TetheringConfigurationParcel.
      */
@@ -596,7 +663,7 @@ public class TetheringConfiguration {
 
         parcel.legacyDhcpRanges = legacyDhcpRanges;
         parcel.defaultIPv4DNS = defaultIPv4DNS;
-        parcel.enableLegacyDhcpServer = enableLegacyDhcpServer;
+        parcel.enableLegacyDhcpServer = mEnableLegacyDhcpServer;
         parcel.provisioningApp = provisioningApp;
         parcel.provisioningAppNoUi = provisioningAppNoUi;
         parcel.provisioningCheckPeriod = provisioningCheckPeriod;

@@ -109,7 +109,7 @@ public:
 				m_resource->getImage().handle,					// VkImage							image
 				m_resource->getImage().subresourceRange			// VkImageSubresourceRange			subresourceRange
 			);
-			VkDependencyInfoKHR dependencyInfo = makeCommonDependencyInfo(DE_NULL, DE_NULL, &imageMemoryBarrier2);
+			VkDependencyInfoKHR dependencyInfo = makeCommonDependencyInfo(DE_NULL, DE_NULL, &imageMemoryBarrier2, DE_TRUE);
 			synchronizationWrapper->cmdSetEvent(*cmdBuffer, *event, &dependencyInfo);
 			synchronizationWrapper->cmdWaitEvents(*cmdBuffer, 1u, &event.get(), &dependencyInfo);
 		}
@@ -124,7 +124,7 @@ public:
 				m_resource->getBuffer().offset,					// VkDeviceSize						offset
 				m_resource->getBuffer().size					// VkDeviceSize						size
 			);
-			VkDependencyInfoKHR dependencyInfo = makeCommonDependencyInfo(DE_NULL, &bufferMemoryBarrier2);
+			VkDependencyInfoKHR dependencyInfo = makeCommonDependencyInfo(DE_NULL, &bufferMemoryBarrier2, DE_NULL, DE_TRUE);
 			synchronizationWrapper->cmdSetEvent(*cmdBuffer, *event, &dependencyInfo);
 			synchronizationWrapper->cmdWaitEvents(*cmdBuffer, 1u, &event.get(), &dependencyInfo);
 		}
@@ -371,8 +371,6 @@ public:
 		, m_type		(type)
 		, m_opContext	(context, type, pipelineCacheData)
 	{
-		if (!context.getTimelineSemaphoreFeatures().timelineSemaphore)
-			TCU_THROW(NotSupportedError, "Timeline semaphore not supported");
 
 		// Create a chain operation copying data from one resource to
 		// another, each of the operation will be executing with a
@@ -646,6 +644,24 @@ public:
 			!context.getPortabilitySubsetFeatures().events)
 		{
 			TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Events are not supported by this implementation");
+		}
+
+		if (!context.getTimelineSemaphoreFeatures().timelineSemaphore)
+			TCU_THROW(NotSupportedError, "Timeline semaphore not supported");
+
+		if (m_resourceDesc.type == RESOURCE_TYPE_IMAGE)
+		{
+			VkImageFormatProperties	imageFormatProperties;
+			const deUint32				usage					= m_writeOp->getOutResourceUsageFlags() | m_readOp->getInResourceUsageFlags();
+			const InstanceInterface&	instance				= context.getInstanceInterface();
+			const VkPhysicalDevice		physicalDevice			= context.getPhysicalDevice();
+			const VkResult				formatResult			= instance.getPhysicalDeviceImageFormatProperties(physicalDevice, m_resourceDesc.imageFormat, m_resourceDesc.imageType, VK_IMAGE_TILING_OPTIMAL, usage, (VkImageCreateFlags)0, &imageFormatProperties);
+
+			if (formatResult != VK_SUCCESS)
+				TCU_THROW(NotSupportedError, "Image format is not supported");
+
+			if ((imageFormatProperties.sampleCounts & m_resourceDesc.imageSamples) != m_resourceDesc.imageSamples)
+				TCU_THROW(NotSupportedError, "Requested sample count is not supported");
 		}
 	}
 

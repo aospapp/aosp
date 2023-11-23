@@ -17,6 +17,7 @@
 #include "lang_id/common/math/softmax.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/math/fastexp.h"

@@ -15,8 +15,6 @@
 #include <xnnpack/vbinary.h>
 
 
-static const int32_t mask_table[14] = {-1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0};
-
 void xnn_f32_vmax_ukernel__avx_x8(
     size_t n,
     const float* a,
@@ -48,14 +46,13 @@ void xnn_f32_vmax_ukernel__avx_x8(
   if XNN_UNLIKELY(n != 0) {
     assert(n >= 1 * sizeof(float));
     assert(n <= 7 * sizeof(float));
-    __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &mask_table[7] - n));
+    const __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &params->avx.mask_table[7] - n));
 
     const __m256 va = _mm256_maskload_ps(a, vmask);
     const __m256 vb = _mm256_maskload_ps(b, vmask);
 
     __m256 vy = _mm256_max_ps(va, vb);
 
-    // _mm256_maskstore_ps(y, vmask, vy) could be used here, but triggers msan failures (probably an msan bug).
     __m128 vy_lo = _mm256_castps256_ps128(vy);
     if (n & (4 * sizeof(float))) {
       _mm_storeu_ps(y, vy_lo);

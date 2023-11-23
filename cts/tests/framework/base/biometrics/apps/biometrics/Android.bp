@@ -30,6 +30,7 @@ android_test {
     ],
 
     sdk_version: "test_current",
+    per_testcase_directory: true,
 
     test_suites: [
         "cts",

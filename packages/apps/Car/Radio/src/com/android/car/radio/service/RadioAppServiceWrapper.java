@@ -365,6 +365,13 @@ public class RadioAppServiceWrapper {
     }
 
     /**
+     * Tunes to the previously selected program or the default channel.
+     */
+    public void tuneToDefaultIfNeeded() {
+        callService(service -> service.tuneToDefaultIfNeeded());
+    }
+
+    /**
      * Tune to a default channel of a given program type (band).
      *
      * Usually, this means tuning to the recently listened program of a given band.

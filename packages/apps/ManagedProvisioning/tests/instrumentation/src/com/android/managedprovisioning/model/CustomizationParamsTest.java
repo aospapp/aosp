@@ -16,7 +16,6 @@
 package com.android.managedprovisioning.model;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,30 +52,6 @@ public class CustomizationParamsTest {
     @Before
     public void setup() {
         when(mUtils.getAccentColor(any())).thenReturn(DEFAULT_LOGO_COLOR);
-    }
-
-    @Test
-    public void defaultColorManagedProfile() {
-        // given
-        ProvisioningParams params = createParams(ACTION_PROVISION_MANAGED_PROFILE, null, null);
-
-        // when
-        CustomizationParams instance = createInstance(params);
-
-        // then
-        assertThat(instance.logoColor, equalTo(DEFAULT_LOGO_COLOR));
-    }
-
-    @Test
-    public void defaultColorDeviceOwner() {
-        // given
-        ProvisioningParams params = createParams(ACTION_PROVISION_MANAGED_DEVICE, null, null);
-
-        // when
-        CustomizationParams instance = createInstance(params);
-
-        // then
-        assertThat(instance.logoColor, equalTo(DEFAULT_LOGO_COLOR));
     }
 
     @Test

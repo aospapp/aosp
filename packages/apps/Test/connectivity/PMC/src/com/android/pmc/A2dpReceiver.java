@@ -35,6 +35,7 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -399,11 +400,11 @@ public class A2dpReceiver extends BroadcastReceiver {
     private BluetoothCodecConfig getCodecValue(boolean printCapabilities) {
         BluetoothCodecStatus codecStatus = null;
         BluetoothCodecConfig codecConfig = null;
-        BluetoothCodecConfig[] codecsLocalCapabilities = null;
-        BluetoothCodecConfig[] codecsSelectableCapabilities = null;
+        List<BluetoothCodecConfig> codecsLocalCapabilities = new ArrayList<>();
+        List<BluetoothCodecConfig> codecsSelectableCapabilities = new ArrayList<>();
 
         if (mBluetoothA2dp != null) {
-            BluetoothDevice activeDevice = mBluetoothA2dp.getActiveDevice();
+            BluetoothDevice activeDevice = getA2dpActiveDevice();
             if (activeDevice == null) {
                 Log.e(TAG, "getCodecValue: Active device is null");
                 return null;
@@ -450,10 +451,17 @@ public class A2dpReceiver extends BroadcastReceiver {
                 + " bitsPerSample: " + bitsPerSample + " Channel Mode: " + channelMode
                 + " LDAC quality: " + codecSpecific1);
 
-        BluetoothCodecConfig codecConfig =
-                new BluetoothCodecConfig(codecType, BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST,
-                sampleRate, bitsPerSample, channelMode,
-                codecSpecific1, codecSpecific2, codecSpecific3, codecSpecific4);
+        BluetoothCodecConfig codecConfig = new BluetoothCodecConfig.Builder()
+                    .setCodecType(codecType)
+                    .setCodecPriority(BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)
+                    .setSampleRate(sampleRate)
+                    .setBitsPerSample(bitsPerSample)
+                    .setChannelMode(channelMode)
+                    .setCodecSpecific1(codecSpecific1)
+                    .setCodecSpecific2(codecSpecific2)
+                    .setCodecSpecific3(codecSpecific3)
+                    .setCodecSpecific4(codecSpecific4)
+                    .build();
 
         // Wait here to see if mBluetoothA2dp is set
         for (int i = 0; i < WAIT_SECONDS; i++) {
@@ -470,13 +478,13 @@ public class A2dpReceiver extends BroadcastReceiver {
         }
 
         if (mBluetoothA2dp != null) {
-            BluetoothDevice activeDevice = mBluetoothA2dp.getActiveDevice();
+            BluetoothDevice activeDevice = getA2dpActiveDevice();
             if (activeDevice == null) {
                 Log.e(TAG, "setCodecValue: Active device is null. Codec is not set.");
                 return false;
             }
             Log.d(TAG, "setCodecConfigPreference()");
-            mBluetoothA2dp.setCodecConfigPreference(mBluetoothA2dp.getActiveDevice(), codecConfig);
+            mBluetoothA2dp.setCodecConfigPreference(getA2dpActiveDevice(), codecConfig);
         } else {
             Log.e(TAG, "mBluetoothA2dp is null. Codec is not set");
             return false;
@@ -499,6 +507,15 @@ public class A2dpReceiver extends BroadcastReceiver {
             return false;
         }
         return true;
+    }
+
+    private BluetoothDevice getA2dpActiveDevice() {
+        if (mBluetoothAdapter == null) {
+            return null;
+        }
+        List<BluetoothDevice> activeDevices =
+                mBluetoothAdapter.getActiveDevices(BluetoothProfile.A2DP);
+        return (activeDevices.size() > 0) ? activeDevices.get(0) : null;
     }
 
     /**

@@ -31,7 +31,7 @@ import (
 type sortableComponent interface {
 	// componentName returns the name of the component.
 	//
-	// Uniquely identifies the components within the set of components used at runtimr and during
+	// Uniquely identifies the components within the set of components used at runtime and during
 	// tests.
 	componentName() string
 
@@ -59,6 +59,7 @@ func (t moduleType) register(ctx *Context) {
 
 var moduleTypes []moduleType
 var moduleTypesForDocs = map[string]reflect.Value{}
+var moduleTypeByFactory = map[reflect.Value]string{}
 
 type singleton struct {
 	// True if this should be registered as a pre-singleton, false otherwise.
@@ -140,6 +141,7 @@ func RegisterModuleType(name string, factory ModuleFactory) {
 // RegisterModuleType was a lambda.
 func RegisterModuleTypeForDocs(name string, factory reflect.Value) {
 	moduleTypesForDocs[name] = factory
+	moduleTypeByFactory[factory] = name
 }
 
 func RegisterSingletonType(name string, factory SingletonFactory) {
@@ -161,6 +163,10 @@ func NewContext(config Config) *Context {
 	return ctx
 }
 
+func (ctx *Context) SetRunningAsBp2build() {
+	ctx.config.runningAsBp2Build = true
+}
+
 // RegisterForBazelConversion registers an alternate shadow pipeline of
 // singletons, module types and mutators to register for converting Blueprint
 // files to semantically equivalent BUILD files.
@@ -174,13 +180,7 @@ func (ctx *Context) RegisterForBazelConversion() {
 		t.register(ctx)
 	}
 
-	bp2buildMutatorList := []RegisterMutatorFunc{}
-	for t, f := range bp2buildMutators {
-		ctx.config.bp2buildModuleTypeConfig[t] = true
-		bp2buildMutatorList = append(bp2buildMutatorList, f)
-	}
-
-	RegisterMutatorsForBazelConversion(ctx, bp2buildPreArchMutators, bp2buildDepsMutators, bp2buildMutatorList)
+	RegisterMutatorsForBazelConversion(ctx, bp2buildPreArchMutators)
 }
 
 // Register the pipeline of singletons, module types, and mutators for
@@ -190,15 +190,6 @@ func (ctx *Context) Register() {
 
 	for _, t := range moduleTypes {
 		t.register(ctx)
-	}
-
-	if ctx.config.BazelContext.BazelEnabled() {
-		// Hydrate the configuration of bp2build-enabled module types. This is
-		// required as a signal to identify which modules should be deferred to
-		// Bazel in mixed builds, if it is enabled.
-		for t, _ := range bp2buildMutators {
-			ctx.config.bp2buildModuleTypeConfig[t] = true
-		}
 	}
 
 	mutators := collateGloballyRegisteredMutators()
@@ -237,6 +228,10 @@ func ModuleTypeFactories() map[string]ModuleFactory {
 
 func ModuleTypeFactoriesForDocs() map[string]reflect.Value {
 	return moduleTypesForDocs
+}
+
+func ModuleTypeByFactory() map[reflect.Value]string {
+	return moduleTypeByFactory
 }
 
 // Interface for registering build components.

@@ -18,14 +18,15 @@ package com.android.server.wifi;
 
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
-import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_IGNORED;
 import static android.app.AppOpsManager.OPSTR_CHANGE_WIFI_STATE;
+import static android.net.wifi.WifiManager.ACTION_REMOVE_SUGGESTION_LINGER;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.when;
+import static com.android.server.wifi.WifiNetworkSuggestionsManager.DEFAULT_LINGER_DELAY_MS;
 import static com.android.server.wifi.WifiNetworkSuggestionsManager.NOTIFICATION_USER_ALLOWED_APP_INTENT_ACTION;
 import static com.android.server.wifi.WifiNetworkSuggestionsManager.NOTIFICATION_USER_DISALLOWED_APP_INTENT_ACTION;
 import static com.android.server.wifi.WifiNetworkSuggestionsManager.NOTIFICATION_USER_DISMISSED_INTENT_ACTION;
@@ -36,26 +37,41 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.calls;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.isNull;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.nullable;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.net.NetworkScoreManager;
 import android.net.wifi.EAPConstants;
 import android.net.wifi.ISuggestionConnectionStatusListener;
 import android.net.wifi.ISuggestionUserApprovalStatusListener;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSuggestion;
@@ -66,6 +82,7 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.test.TestLooper;
@@ -73,7 +90,6 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.LayoutInflater;
-import android.view.Window;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
@@ -116,8 +132,10 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
     private static final String TEST_PACKAGE_1 = "com.test12345";
     private static final String TEST_PACKAGE_2 = "com.test54321";
+    private static final String TEST_PACKAGE_3 = "com.test54321";
     private static final String TEST_APP_NAME_1 = "test12345";
     private static final String TEST_APP_NAME_2 = "test54321";
+    private static final String TEST_APP_NAME_3 = "test66666";
     private static final String TEST_FEATURE = "testFeature";
     private static final String TEST_BSSID = "00:11:22:33:44:55";
     private static final String TEST_FQDN = "FQDN";
@@ -126,6 +144,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
     private static final String TEST_CARRIER_NAME = "test_carrier";
     private static final int TEST_UID_1 = 5667;
     private static final int TEST_UID_2 = 4537;
+    private static final int TEST_UID_3 = 7837;
     private static final int VALID_CARRIER_ID = 100;
     private static final int TEST_SUBID = 1;
     private static final int TEST_NETWORK_ID = 110;
@@ -136,13 +155,14 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
     private static final String TEST_ANONYMOUS_IDENTITY = "AnonymousIdentity";
     private static final String USER_CONNECT_CHOICE = "SomeNetworkProfileId";
     private static final int TEST_RSSI = -50;
+    private static final ParcelUuid GROUP_UUID = ParcelUuid
+            .fromString("0000110B-0000-1000-8000-00805F9B34FB");
 
     private @Mock WifiContext mContext;
     private @Mock Resources mResources;
     private @Mock AppOpsManager mAppOpsManager;
     private @Mock WifiNotificationManager mWifiNotificationManager;
-    private @Mock NetworkScoreManager mNetworkScoreManager;
-    private @Mock PackageManager mPackageManager;
+    private @Mock WifiDialogManager mWifiDialogManager;
     private @Mock WifiPermissionsUtil mWifiPermissionsUtil;
     private @Mock WifiInjector mWifiInjector;
     private @Mock FrameworkFacade mFrameworkFacade;
@@ -158,8 +178,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
     private @Mock ActivityManager mActivityManager;
     private @Mock WifiScoreCard mWifiScoreCard;
     private @Mock WifiKeyStore mWifiKeyStore;
-    private @Mock AlertDialog.Builder mAlertDialogBuilder;
-    private @Mock AlertDialog mAlertDialog;
+    private @Mock WifiDialogManager.DialogHandle mDialogHandle;
     private @Mock Notification.Builder mNotificationBuilder;
     private @Mock Notification mNotification;
     private @Mock LruConnectionTracker mLruConnectionTracker;
@@ -206,14 +225,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         when(mWifiInjector.getActiveModeWarden()).thenReturn(mActiveModeWarden);
         when(mWifiInjector.getWifiGlobals()).thenReturn(mWifiGlobals);
         when(mWifiInjector.getWifiNotificationManager()).thenReturn(mWifiNotificationManager);
-        when(mAlertDialogBuilder.setTitle(any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.setMessage(any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.setPositiveButton(any(), any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.setNegativeButton(any(), any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.setOnDismissListener(any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.setOnCancelListener(any())).thenReturn(mAlertDialogBuilder);
-        when(mAlertDialogBuilder.create()).thenReturn(mAlertDialog);
-        when(mAlertDialog.getWindow()).thenReturn(mock(Window.class));
+        when(mWifiInjector.getWifiDialogManager()).thenReturn(mWifiDialogManager);
         when(mNotificationBuilder.setSmallIcon(any())).thenReturn(mNotificationBuilder);
         when(mNotificationBuilder.setTicker(any())).thenReturn(mNotificationBuilder);
         when(mNotificationBuilder.setContentTitle(any())).thenReturn(mNotificationBuilder);
@@ -225,16 +237,14 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         when(mNotificationBuilder.addAction(any())).thenReturn(mNotificationBuilder);
         when(mNotificationBuilder.setTimeoutAfter(anyLong())).thenReturn(mNotificationBuilder);
         when(mNotificationBuilder.build()).thenReturn(mNotification);
-        when(mFrameworkFacade.makeAlertDialogBuilder(any()))
-                .thenReturn(mAlertDialogBuilder);
+        when(mWifiDialogManager.createSimpleDialog(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(mDialogHandle);
         when(mFrameworkFacade.makeNotificationBuilder(any(), anyString()))
                 .thenReturn(mNotificationBuilder);
         when(mFrameworkFacade.getBroadcast(any(), anyInt(), any(), anyInt()))
                 .thenReturn(mock(PendingIntent.class));
         when(mContext.getResources()).thenReturn(mResources);
         when(mContext.getSystemService(Context.APP_OPS_SERVICE)).thenReturn(mAppOpsManager);
-        when(mContext.getSystemService(NetworkScoreManager.class)).thenReturn(mNetworkScoreManager);
-        when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getSystemService(ActivityManager.class)).thenReturn(mActivityManager);
         when(mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE))
                 .thenReturn(mock(LayoutInflater.class));
@@ -242,7 +252,8 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         when(mActivityManager.isLowRamDevice()).thenReturn(false);
         when(mActivityManager.getPackageImportance(any())).thenReturn(
                 IMPORTANCE_FOREGROUND_SERVICE);
-        when(mWifiPermissionsUtil.doesUidBelongToCurrentUser(anyInt())).thenReturn(true);
+        when(mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(anyInt()))
+                .thenReturn(true);
         when(mActiveModeWarden.getPrimaryClientModeManager()).thenReturn(mPrimaryClientModeManager);
         when(mPrimaryClientModeManager.getSupportedFeatures()).thenReturn(
                 WifiManager.WIFI_FEATURE_WPA3_SAE | WifiManager.WIFI_FEATURE_OWE);
@@ -261,19 +272,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         when(mResources.getText(eq(R.string.wifi_suggestion_action_disallow_app)))
                 .thenReturn("blah");
 
-
-        // Our app Info. Needed for notification builder.
-        ApplicationInfo ourAppInfo = new ApplicationInfo();
-        when(mContext.getApplicationInfo()).thenReturn(ourAppInfo);
         // test app info
-        ApplicationInfo appInfO1 = new ApplicationInfo();
-        when(mPackageManager.getApplicationInfoAsUser(eq(TEST_PACKAGE_1), eq(0), any()))
-            .thenReturn(appInfO1);
-        when(mPackageManager.getApplicationLabel(appInfO1)).thenReturn(TEST_APP_NAME_1);
-        ApplicationInfo appInfO2 = new ApplicationInfo();
-        when(mPackageManager.getApplicationInfoAsUser(eq(TEST_PACKAGE_2), eq(0), any()))
-            .thenReturn(appInfO2);
-        when(mPackageManager.getApplicationLabel(appInfO2)).thenReturn(TEST_APP_NAME_2);
+        when(mFrameworkFacade.getAppName(any(), eq(TEST_PACKAGE_1), eq(TEST_UID_1)))
+            .thenReturn(TEST_APP_NAME_1);
+        when(mFrameworkFacade.getAppName(any(), eq(TEST_PACKAGE_2), eq(TEST_UID_2)))
+                .thenReturn(TEST_APP_NAME_2);
         when(mWifiCarrierInfoManager.getCarrierIdForPackageWithCarrierPrivileges(any())).thenReturn(
                 TelephonyManager.UNKNOWN_CARRIER_ID);
         when(mWifiCarrierInfoManager.isSubIdMatchingCarrierId(anyInt(), anyInt())).thenReturn(true);
@@ -283,6 +286,8 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 .thenReturn(false);
         when(mWifiCarrierInfoManager.areMergedCarrierWifiNetworksAllowed(anyInt())).thenReturn(
                 false);
+        when(mWifiCarrierInfoManager.getActiveSubscriptionIdInGroup(GROUP_UUID))
+                .thenReturn(TEST_SUBID);
 
         when(mWifiKeyStore.updateNetworkKeys(any(), any())).thenReturn(true);
 
@@ -291,9 +296,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         mWifiInjector, mWifiPermissionsUtil, mWifiConfigManager, mWifiConfigStore,
                         mWifiMetrics, mWifiCarrierInfoManager, mWifiKeyStore,
                         mLruConnectionTracker, mClock);
-        verify(mContext).getResources();
-        verify(mContext).getSystemService(Context.APP_OPS_SERVICE);
-        verify(mContext).getPackageManager();
+        mLooper.dispatchAll();
         verify(mContext).registerReceiver(mBroadcastReceiverCaptor.capture(), any(), any(), any());
 
         ArgumentCaptor<NetworkSuggestionStoreData.DataSource> dataSourceArgumentCaptor =
@@ -308,7 +311,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 mUserApproveCarrierListenerArgumentCaptor.capture());
         verify(mWifiConfigManager).addOnNetworkUpdateListener(mNetworkListenerCaptor.capture());
 
-        mWifiNetworkSuggestionsManager.enableVerboseLogging(1);
+        mWifiNetworkSuggestionsManager.enableVerboseLogging(true);
     }
 
     @After
@@ -409,11 +412,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         // Now remove all of them.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager.remove(networkSuggestionList1,
-                        TEST_UID_1, TEST_PACKAGE_1));
+                mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager.remove(networkSuggestionList2,
-                        TEST_UID_2, TEST_PACKAGE_2));
+                mWifiNetworkSuggestionsManager.remove(networkSuggestionList2, TEST_UID_2,
+                        TEST_PACKAGE_2, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mPasspointManager).removeProvider(eq(TEST_UID_2), eq(false),
                 eq(passpointConfiguration.getUniqueId()), isNull());
         verify(mWifiScoreCard).removeNetwork(anyString());
@@ -449,7 +452,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_INTERNAL,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
     }
 
     @Test
@@ -485,7 +488,8 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(
                         new ArrayList<WifiNetworkSuggestion>() {{ add(removingSuggestion); }},
-                        TEST_UID_1, TEST_PACKAGE_1));
+                        TEST_UID_1, TEST_PACKAGE_1,
+                        WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         // Make sure remove the keyStore with the internal config
         verify(mWifiKeyStore).removeKeys(networkSuggestion1.wifiConfiguration.enterpriseConfig);
         verify(mLruConnectionTracker).removeNetwork(any());
@@ -568,7 +572,6 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
     }
 
-
     @Test
     public void testAddOemPrivateNetworkSuggestionOnPreSDevices() {
         assumeFalse(SdkLevel.isAtLeastS());
@@ -605,6 +608,18 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         List<WifiNetworkSuggestion> networkSuggestionList = Arrays.asList(networkSuggestion);
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_INVALID,
                 mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+    }
+
+    @Test
+    public void testSetSubscriptionGroupOnPreTDevices() {
+        assumeFalse(SdkLevel.isAtLeastT());
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createEapNetwork(), null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        networkSuggestion.wifiConfiguration.setSubscriptionGroup(GROUP_UUID);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_INVALID,
+                mWifiNetworkSuggestionsManager.add(List.of(networkSuggestion), TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
     }
 
@@ -646,11 +661,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Now remove all of them by sending an empty list.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(new ArrayList<>(), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mLruConnectionTracker).removeNetwork(any());
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(new ArrayList<>(), TEST_UID_2,
-                        TEST_PACKAGE_2));
+                        TEST_PACKAGE_2, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mPasspointManager).removeProvider(eq(TEST_UID_2), eq(false),
                 eq(passpointConfiguration.getUniqueId()), isNull());
 
@@ -676,7 +691,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(networkSuggestionList1, TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
@@ -739,6 +754,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Set user connect choice, Anonymous Identity and auto join.
         WifiConfiguration config = new WifiConfiguration(eapSimConfig);
         config.fromWifiNetworkSuggestion = true;
+        config.shared = false;
         config.ephemeral = true;
         config.creatorName = TEST_PACKAGE_1;
         config.creatorUid = TEST_UID_1;
@@ -786,7 +802,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertEquals(TEST_RSSI, matchedSuggestion.connectChoiceRssi);
 
         // Verify we did not update config in WCM.
-        verify(mWifiConfigManager, never()).addOrUpdateNetwork(any(), anyInt(), any());
+        verify(mWifiConfigManager, never()).addOrUpdateNetwork(any(), anyInt(), any(), eq(false));
     }
 
     /**
@@ -818,14 +834,15 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         configInWcm.creatorUid = TEST_UID_1;
         configInWcm.creatorName = TEST_PACKAGE_1;
         configInWcm.fromWifiNetworkSuggestion = true;
+        configInWcm.shared = false;
         setupGetConfiguredNetworksFromWcm(configInWcm);
 
         // Modify the original suggestion to mark it metered.
         networkSuggestion.wifiConfiguration.meteredOverride =
                 WifiConfiguration.METERED_OVERRIDE_METERED;
 
-        when(mWifiConfigManager.addOrUpdateNetwork(any(), eq(TEST_UID_1), eq(TEST_PACKAGE_1)))
-                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
+        when(mWifiConfigManager.addOrUpdateNetwork(any(), eq(TEST_UID_1), eq(TEST_PACKAGE_1),
+                eq(false))).thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         // Replace attempt should success.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(networkSuggestionList1, TEST_UID_1,
@@ -838,7 +855,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         ArgumentCaptor<WifiConfiguration> configCaptor =
                 ArgumentCaptor.forClass(WifiConfiguration.class);
         verify(mWifiConfigManager).addOrUpdateNetwork(
-                configCaptor.capture(), eq(TEST_UID_1), eq(TEST_PACKAGE_1));
+                configCaptor.capture(), eq(TEST_UID_1), eq(TEST_PACKAGE_1), eq(false));
         assertNotNull(configCaptor.getValue());
         assertEquals(WifiConfiguration.METERED_OVERRIDE_METERED,
                 configCaptor.getValue().meteredOverride);
@@ -882,7 +899,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // The remove should succeed.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
 
         // Now add 2 more.
         networkSuggestionList = new ArrayList<>();
@@ -940,7 +957,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Remove should fail because the network list is different.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_REMOVE_INVALID,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList2, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
     }
 
     /**
@@ -991,8 +1008,8 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 mWifiNetworkSuggestionsManager.add(List.of(networkSuggestion),
                         TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_REMOVE_INVALID,
-                mWifiNetworkSuggestionsManager.remove(Collections.singletonList(null),
-                        TEST_UID_1, TEST_PACKAGE_1));
+                mWifiNetworkSuggestionsManager.remove(Collections.singletonList(null), TEST_UID_1,
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
     }
 
     /**
@@ -1354,7 +1371,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // remove the suggestion & ensure lookup fails.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(List.of(), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertTrue(mWifiNetworkSuggestionsManager
                 .getNetworkSuggestionsForScanDetail(scanDetail).isEmpty());
     }
@@ -1412,6 +1429,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1451,6 +1469,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1466,10 +1485,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
                 argThat(new WifiConfigMatcher(networkSuggestion.wifiConfiguration)));
-        mInorder.verify(mWifiPermissionsUtil).doesUidBelongToCurrentUser(eq(TEST_UID_1));
+        mInorder.verify(mWifiPermissionsUtil)
+                .doesUidBelongToCurrentUserOrDeviceOwner(eq(TEST_UID_1));
 
         // Verify no more broadcast were sent out.
         mInorder.verifyNoMoreInteractions();
@@ -1551,6 +1571,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1595,6 +1616,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1652,6 +1674,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion1.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1713,6 +1736,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(true, TEST_UID_2, TEST_PACKAGE_2);
         WifiConfiguration connectNetwork = new WifiConfiguration(config);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1775,6 +1799,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion1.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1828,6 +1853,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1869,6 +1895,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1913,6 +1940,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -1988,7 +2016,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
 
         // Verify config store interactions.
         verify(mWifiConfigManager, times(2)).saveToStore(true);
@@ -2038,10 +2066,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         ExtendedWifiNetworkSuggestion extendedWifiNetworkSuggestion2 =
                 ExtendedWifiNetworkSuggestion.fromWns(networkSuggestion2, appInfo, true);
-        // For simplicity, the networkSuggestion2 is created through the constructor and has
-        // macRandomizationSetting = RANDOMIZATION_AUTO. Suggestions created through the formal
-        // Builder API should have RANDOMIZATION_PERSISTENT as default.
-        assertEquals(WifiConfiguration.RANDOMIZATION_AUTO,
+        assertEquals(WifiConfiguration.RANDOMIZATION_PERSISTENT,
                 extendedWifiNetworkSuggestion2.createInternalWifiConfiguration(
                         mWifiCarrierInfoManager).macRandomizationSetting);
     }
@@ -2098,6 +2123,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         connectNetwork.providerFriendlyName = TEST_FRIENDLY_NAME;
         connectNetwork.setPasspointUniqueId(passpointConfiguration.getUniqueId());
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -2191,6 +2217,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -2200,7 +2227,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Now remove the network suggestion and ensure we did trigger a disconnect.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
                 argThat(new WifiConfigMatcher(connectNetwork)));
     }
@@ -2227,6 +2254,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -2236,7 +2264,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Now remove all network suggestion and ensure we did trigger a disconnect.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(new ArrayList<>(), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
                 argThat(new WifiConfigMatcher(connectNetwork)));
     }
@@ -2276,6 +2304,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Simulate connecting to the network.
         WifiConfiguration connectNetwork = new WifiConfiguration(config);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -2332,11 +2361,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Now remove first add, nothing happens.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         // Stop watching app-ops changes on last remove.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList2, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertTrue(mWifiNetworkSuggestionsManager.getAllNetworkSuggestions().isEmpty());
         mInorder.verify(mAppOpsManager).stopWatchingMode(mAppOpChangedListenerCaptor.getValue());
 
@@ -2518,10 +2547,10 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Remove all suggestions from TEST_PACKAGE_1 & TEST_PACKAGE_2, we should continue to track.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList2, TEST_UID_2,
-                        TEST_PACKAGE_2));
+                        TEST_PACKAGE_2, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
 
         assertTrue(mDataSource.hasNewDataToSerialize());
         Map<String, PerAppInfo> networkSuggestionsMapToWrite = mDataSource.toSerialize();
@@ -2584,10 +2613,10 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // Remove all suggestions from TEST_PACKAGE_1 & TEST_PACKAGE_2, we should continue to track.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList2, TEST_UID_2,
-                        TEST_PACKAGE_2));
+                        TEST_PACKAGE_2, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
 
         assertTrue(mDataSource.hasNewDataToSerialize());
         Map<String, PerAppInfo> networkSuggestionsMapToWrite = mDataSource.toSerialize();
@@ -2862,7 +2891,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         // App remove all network suggestions, expect empty list.
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(new ArrayList<>(), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         storedNetworkSuggestionListPerApp =
                 mWifiNetworkSuggestionsManager.get(TEST_PACKAGE_1, TEST_UID_1);
         assertEquals(storedNetworkSuggestionListPerApp.size(), 0);
@@ -2883,6 +2912,9 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiNetworkSuggestion hiddenNetworkSuggestion2 = createWifiNetworkSuggestion(
                 WifiConfigurationTestUtil.createPskHiddenNetwork(), null, true, false, true, true,
                 DEFAULT_PRIORITY_GROUP);
+        WifiNetworkSuggestion hiddenNetworkSuggestion3 = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createPskHiddenNetwork(), null, true, false, true, false,
+                DEFAULT_PRIORITY_GROUP);
         List<WifiNetworkSuggestion> networkSuggestionList1 =
                 new ArrayList<WifiNetworkSuggestion>() {{
                     add(networkSuggestion);
@@ -2892,17 +2924,28 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 new ArrayList<WifiNetworkSuggestion>() {{
                     add(hiddenNetworkSuggestion2);
                 }};
+        List<WifiNetworkSuggestion> networkSuggestionList3 =
+                new ArrayList<WifiNetworkSuggestion>() {{
+                    add(hiddenNetworkSuggestion3);
+                }};
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(networkSuggestionList1, TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(networkSuggestionList2, TEST_UID_2,
                         TEST_PACKAGE_2, TEST_FEATURE));
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList3, TEST_UID_3,
+                        TEST_PACKAGE_3, TEST_FEATURE));
         mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(true, TEST_UID_1, TEST_PACKAGE_1);
         mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(false, TEST_UID_2, TEST_PACKAGE_2);
+        mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(true, TEST_UID_3, TEST_PACKAGE_3);
         List<WifiScanner.ScanSettings.HiddenNetwork> hiddenNetworks =
-                mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList();
-        assertEquals(1, hiddenNetworks.size());
+                mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList(true /* autoJoinOnly */);
+        assertEquals(2, hiddenNetworks.size());
+        hiddenNetworks =
+                mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList(false /* autoJoinOnly */);
+        assertEquals(3, hiddenNetworks.size());
         assertEquals(hiddenNetworkSuggestion1.wifiConfiguration.SSID, hiddenNetworks.get(0).ssid);
     }
 
@@ -2928,13 +2971,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         validateUserApprovalDialog(TEST_APP_NAME_1);
 
         // Simulate user clicking on allow in the dialog.
-        ArgumentCaptor<DialogInterface.OnClickListener> clickListenerCaptor =
-                ArgumentCaptor.forClass(DialogInterface.OnClickListener.class);
-        verify(mAlertDialogBuilder, atLeastOnce()).setPositiveButton(
-                any(), clickListenerCaptor.capture());
-        assertNotNull(clickListenerCaptor.getValue());
-        clickListenerCaptor.getValue().onClick(mAlertDialog, 0);
-        mLooper.dispatchAll();
+        ArgumentCaptor<WifiDialogManager.SimpleDialogCallback> dialogCallbackCaptor =
+                ArgumentCaptor.forClass(WifiDialogManager.SimpleDialogCallback.class);
+        verify(mWifiDialogManager).createSimpleDialog(
+                any(), any(), any(), any(), any(), dialogCallbackCaptor.capture(), any());
+        dialogCallbackCaptor.getValue().onPositiveButtonClicked();
 
         // Verify config store interactions.
         verify(mWifiConfigManager, times(2)).saveToStore(true);
@@ -2972,13 +3013,11 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         validateUserApprovalDialog(TEST_APP_NAME_1);
 
         // Simulate user clicking on disallow in the dialog.
-        ArgumentCaptor<DialogInterface.OnClickListener> clickListenerCaptor =
-                ArgumentCaptor.forClass(DialogInterface.OnClickListener.class);
-        verify(mAlertDialogBuilder, atLeastOnce()).setNegativeButton(
-                any(), clickListenerCaptor.capture());
-        assertNotNull(clickListenerCaptor.getValue());
-        clickListenerCaptor.getValue().onClick(mAlertDialog, 0);
-        mLooper.dispatchAll();
+        ArgumentCaptor<WifiDialogManager.SimpleDialogCallback> dialogCallbackCaptor =
+                ArgumentCaptor.forClass(WifiDialogManager.SimpleDialogCallback.class);
+        verify(mWifiDialogManager).createSimpleDialog(
+                any(), any(), any(), any(), any(), dialogCallbackCaptor.capture(), any());
+        dialogCallbackCaptor.getValue().onNegativeButtonClicked();
         // Ensure we turn off CHANGE_WIFI_STATE app-ops.
         verify(mAppOpsManager).setMode(
                 OPSTR_CHANGE_WIFI_STATE, TEST_UID_1, TEST_PACKAGE_1, MODE_IGNORED);
@@ -3029,13 +3068,12 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
         validateUserApprovalDialog(TEST_APP_NAME_1);
 
-        // Simulate user clicking on allow in the dialog.
-        ArgumentCaptor<DialogInterface.OnDismissListener> dismissListenerCaptor =
-                ArgumentCaptor.forClass(DialogInterface.OnDismissListener.class);
-        verify(mAlertDialogBuilder, atLeastOnce()).setOnDismissListener(
-                dismissListenerCaptor.capture());
-        assertNotNull(dismissListenerCaptor.getValue());
-        dismissListenerCaptor.getValue().onDismiss(mAlertDialog);
+        // Simulate user dismissing the dialog via home/back button.
+        ArgumentCaptor<WifiDialogManager.SimpleDialogCallback> dialogCallbackCaptor =
+                ArgumentCaptor.forClass(WifiDialogManager.SimpleDialogCallback.class);
+        verify(mWifiDialogManager).createSimpleDialog(
+                any(), any(), any(), any(), any(), dialogCallbackCaptor.capture(), any());
+        dialogCallbackCaptor.getValue().onCancelled();
         mLooper.dispatchAll();
 
         // Verify no new config store or app-op interactions.
@@ -3048,52 +3086,6 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         mWifiNetworkSuggestionsManager.getNetworkSuggestionsForScanDetail(
                 createScanDetailForNetwork(networkSuggestion.wifiConfiguration));
         validateUserApprovalNotification(TEST_APP_NAME_1);
-    }
-
-    @Test
-    public void testAddNetworkSuggestions_activeFgScorer_doesNotRequestForApproval() {
-        // Fg app
-        when(mActivityManager.getPackageImportance(any())).thenReturn(IMPORTANCE_FOREGROUND);
-        // Active scorer
-        when(mNetworkScoreManager.getActiveScorerPackage()).thenReturn(TEST_PACKAGE_1);
-
-        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
-                WifiConfigurationTestUtil.createOpenNetwork(), null, true, false, true, true,
-                DEFAULT_PRIORITY_GROUP);
-        List<WifiNetworkSuggestion> networkSuggestionList =
-                new ArrayList<WifiNetworkSuggestion>() {{
-                    add(networkSuggestion);
-                }};
-
-        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1, TEST_FEATURE));
-
-        verifyZeroInteractions(mAlertDialog);
-        verifyZeroInteractions(mWifiNotificationManager);
-    }
-
-    @Test
-    public void testAddNetworkSuggestions_activeBgScorer_doesNotRequestForApproval() {
-        // Bg app
-        when(mActivityManager.getPackageImportance(any())).thenReturn(IMPORTANCE_SERVICE);
-        // Active scorer
-        when(mNetworkScoreManager.getActiveScorerPackage()).thenReturn(TEST_PACKAGE_1);
-
-        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
-                WifiConfigurationTestUtil.createOpenNetwork(), null, true, false, true, true,
-                DEFAULT_PRIORITY_GROUP);
-        List<WifiNetworkSuggestion> networkSuggestionList =
-                new ArrayList<WifiNetworkSuggestion>() {{
-                    add(networkSuggestion);
-                }};
-
-        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1, TEST_FEATURE));
-
-        verifyZeroInteractions(mAlertDialog);
-        verifyZeroInteractions(mWifiNotificationManager);
     }
 
     /**
@@ -3129,27 +3121,6 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         mWifiNetworkSuggestionsManager.getNetworkSuggestionsForScanDetail(
                 createScanDetailForNetwork(networkSuggestion.wifiConfiguration));
         verifyNoMoreInteractions(mWifiNotificationManager);
-    }
-
-    @Test
-    public void getNetworkSuggestionsForScanDetail_exemptsActiveScorerFromUserApproval() {
-        when(mNetworkScoreManager.getActiveScorerPackage()).thenReturn(TEST_PACKAGE_1);
-        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
-                WifiConfigurationTestUtil.createOpenNetwork(), null, true, false, true, true,
-                DEFAULT_PRIORITY_GROUP);
-        List<WifiNetworkSuggestion> networkSuggestionList =
-                new ArrayList<WifiNetworkSuggestion>() {{
-                    add(networkSuggestion);
-                }};
-        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
-                        TEST_PACKAGE_1, TEST_FEATURE));
-
-        mWifiNetworkSuggestionsManager.getNetworkSuggestionsForScanDetail(
-                createScanDetailForNetwork(networkSuggestion.wifiConfiguration));
-
-        verifyZeroInteractions(mWifiNotificationManager);
-        verifyZeroInteractions(mAlertDialog);
     }
 
     /**
@@ -3241,6 +3212,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         connectNetwork.FQDN = TEST_FQDN;
         connectNetwork.providerFriendlyName = TEST_FRIENDLY_NAME;
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -3289,16 +3261,16 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
     }
 
     private void validateUserApprovalDialog(String... anyOfExpectedAppNames) {
-        verify(mAlertDialog, atLeastOnce()).show();
-        ArgumentCaptor<CharSequence> contentCaptor =
-                ArgumentCaptor.forClass(CharSequence.class);
-        verify(mAlertDialogBuilder, atLeastOnce()).setMessage(contentCaptor.capture());
-        CharSequence content = contentCaptor.getValue();
-        assertNotNull(content);
+        verify(mDialogHandle, atLeastOnce()).launchDialog();
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mWifiDialogManager, atLeastOnce()).createSimpleDialog(
+                any(), messageCaptor.capture(), any(), any(), any(), any(), any());
+        String message = messageCaptor.getValue();
+        assertNotNull(message);
 
         boolean foundMatch = false;
         for (int i = 0; i < anyOfExpectedAppNames.length; i++) {
-            foundMatch = content.toString().contains(anyOfExpectedAppNames[i]);
+            foundMatch = message.contains(anyOfExpectedAppNames[i]);
             if (foundMatch) break;
         }
         assertTrue(foundMatch);
@@ -3433,31 +3405,6 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertTrue(ewns.isEmpty());
     }
 
-    @Test
-    public void getNetworkSuggestionsForFqdn_activeScorer_doesNotRequestForUserApproval() {
-        when(mNetworkScoreManager.getActiveScorerPackage()).thenReturn(TEST_PACKAGE_1);
-        PasspointConfiguration passpointConfiguration =
-                createTestConfigWithUserCredential(TEST_FQDN, TEST_FRIENDLY_NAME);
-        WifiConfiguration placeholderConfig = createPlaceholderConfigForPasspoint(TEST_FQDN,
-                passpointConfiguration.getUniqueId());
-        placeholderConfig.FQDN = TEST_FQDN;
-        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(placeholderConfig,
-                passpointConfiguration, true, false, true, true, DEFAULT_PRIORITY_GROUP);
-        List<WifiNetworkSuggestion> networkSuggestionList = Arrays.asList(networkSuggestion);
-        placeholderConfig.creatorUid = TEST_UID_1;
-        when(mPasspointManager.addOrUpdateProvider(any(PasspointConfiguration.class),
-                anyInt(), anyString(), eq(true), eq(true))).thenReturn(true);
-        assertEquals(mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
-                TEST_PACKAGE_1, TEST_FEATURE), WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS);
-
-        Set<ExtendedWifiNetworkSuggestion> ewns =
-                mWifiNetworkSuggestionsManager.getNetworkSuggestionsForFqdn(TEST_FQDN);
-
-        assertEquals(1, ewns.size());
-        verifyZeroInteractions(mAlertDialog);
-        verifyZeroInteractions(mWifiNotificationManager);
-    }
-
     /**
      * Verify return true when allow user manually connect and user approved the app
      */
@@ -3573,6 +3520,9 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         networkSuggestion1.wifiConfiguration.fromWifiNetworkSuggestion = true;
         networkSuggestion2.wifiConfiguration.fromWifiNetworkSuggestion = true;
         networkSuggestion3.wifiConfiguration.fromWifiNetworkSuggestion = true;
+        networkSuggestion1.wifiConfiguration.shared = false;
+        networkSuggestion2.wifiConfiguration.shared = false;
+        networkSuggestion3.wifiConfiguration.shared = false;
         networkSuggestion1.wifiConfiguration.creatorName = TEST_PACKAGE_1;
         networkSuggestion2.wifiConfiguration.creatorName = TEST_PACKAGE_1;
         networkSuggestion3.wifiConfiguration.creatorName = TEST_PACKAGE_1;
@@ -3613,6 +3563,8 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 DEFAULT_PRIORITY_GROUP);
         networkSuggestion1.wifiConfiguration.carrierId = TEST_CARRIER_ID;
         networkSuggestion2.wifiConfiguration.carrierId = TEST_CARRIER_ID;
+        networkSuggestion1.wifiConfiguration.shared = false;
+        networkSuggestion2.wifiConfiguration.shared = false;
         WifiConfiguration configuration = networkSuggestion1.wifiConfiguration;
 
         // Suggestion1 has SIM present, suggestion2 has SIM absent
@@ -3674,12 +3626,15 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
     }
 
     private void setupGetConfiguredNetworksFromWcm(WifiConfiguration...configs) {
+        List<WifiConfiguration> wcmConfigs = new ArrayList<>();
         for (int i = 0; i < configs.length; i++) {
-            WifiConfiguration config = configs[i];
+            WifiConfiguration config = new WifiConfiguration(configs[i]);
+            config.shared = false;
             when(mWifiConfigManager.getConfiguredNetwork(config.getProfileKey()))
                     .thenReturn(config);
+            wcmConfigs.add(config);
         }
-        when(mWifiConfigManager.getConfiguredNetworks()).thenReturn(Arrays.asList(configs));
+        when(mWifiConfigManager.getConfiguredNetworks()).thenReturn(wcmConfigs);
     }
 
     /**
@@ -3746,7 +3701,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 DEFAULT_PRIORITY_GROUP);
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(List.of(suggestionToRemove), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
     }
 
     /**
@@ -3816,6 +3771,9 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
      */
     @Test
     public void testSimStateChangeWillResetCarrierPrivilegedApp() {
+        if (SdkLevel.isAtLeastT()) {
+            return;
+        }
         WifiConfiguration config =
                 WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
                         WifiEnterpriseConfig.Phase2.NONE);
@@ -3833,7 +3791,49 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         verify(mWifiNotificationManager, never()).notify(anyInt(), any());
         when(mWifiCarrierInfoManager.getCarrierIdForPackageWithCarrierPrivileges(TEST_PACKAGE_1))
                 .thenReturn(TelephonyManager.UNKNOWN_CARRIER_ID);
-        mWifiNetworkSuggestionsManager.resetCarrierPrivilegedApps();
+        mWifiNetworkSuggestionsManager.updateCarrierPrivilegedApps();
+        assertEquals(0,  mWifiNetworkSuggestionsManager.get(TEST_PACKAGE_1, TEST_UID_1).size());
+        verify(mWifiConfigManager, times(2)).saveToStore(true);
+        status = mWifiNetworkSuggestionsManager
+                .add(networkSuggestionList, TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_NOT_ALLOWED, status);
+        networkSuggestionList.clear();
+        networkSuggestionList.add(createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createOpenNetwork(), null, true, false, true, true,
+                DEFAULT_PRIORITY_GROUP));
+        status = mWifiNetworkSuggestionsManager
+                .add(networkSuggestionList, TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS, status);
+        verify(mWifiNotificationManager).notify(anyInt(), any());
+    }
+
+    /**
+     * Verify when SIM changes, the app loses carrier privilege. Suggestions from this app will be
+     * removed. If this app suggests again, it will be considered as normal suggestor.
+     */
+    @Test
+    public void testCarrierPrivilegedChangeWillResetCarrierPrivilegedApp() {
+        if (!SdkLevel.isAtLeastT()) {
+            return;
+        }
+        WifiConfiguration config =
+                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
+                        WifiEnterpriseConfig.Phase2.NONE);
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                config, null, true, false, true, true, DEFAULT_PRIORITY_GROUP);
+        List<WifiNetworkSuggestion> networkSuggestionList = new ArrayList<>();
+        networkSuggestionList.add(networkSuggestion);
+        when(mWifiPermissionsUtil.checkNetworkCarrierProvisioningPermission(TEST_UID_1))
+                .thenReturn(false);
+        when(mWifiCarrierInfoManager.getCarrierIdForPackageWithCarrierPrivileges(TEST_PACKAGE_1))
+                .thenReturn(VALID_CARRIER_ID);
+        int status = mWifiNetworkSuggestionsManager
+                .add(networkSuggestionList, TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS, status);
+        verify(mWifiNotificationManager, never()).notify(anyInt(), any());
+        when(mWifiCarrierInfoManager.getCarrierIdForPackageWithCarrierPrivileges(TEST_PACKAGE_1))
+                .thenReturn(TelephonyManager.UNKNOWN_CARRIER_ID);
+        mWifiNetworkSuggestionsManager.updateCarrierPrivilegedApps(Collections.emptySet());
         assertEquals(0,  mWifiNetworkSuggestionsManager.get(TEST_PACKAGE_1, TEST_UID_1).size());
         verify(mWifiConfigManager, times(2)).saveToStore(true);
         status = mWifiNetworkSuggestionsManager
@@ -3864,6 +3864,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration configuration =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         configuration.fromWifiNetworkSuggestion = true;
+        configuration.shared = false;
         configuration.ephemeral = true;
         configuration.creatorName = TEST_PACKAGE_1;
         configuration.creatorUid = TEST_UID_1;
@@ -3919,6 +3920,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         config.providerFriendlyName = TEST_FRIENDLY_NAME;
         config.setPasspointUniqueId(passpointConfiguration.getUniqueId());
         config.fromWifiNetworkSuggestion = true;
+        config.shared = false;
         config.ephemeral = true;
         config.creatorName = TEST_PACKAGE_1;
         config.creatorUid = TEST_UID_1;
@@ -3960,12 +3962,12 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 add(nonPasspointSuggestion);
                 }};
         ScanResult passpointScanResult = new ScanResult();
-        passpointScanResult.wifiSsid = WifiSsid.createFromAsciiEncoded("passpoint");
+        passpointScanResult.wifiSsid = WifiSsid.fromUtf8Text("passpoint");
         List<ScanResult> ppSrList = new ArrayList<>() {{
                 add(passpointScanResult);
                 }};
         ScanResult nonPasspointScanResult = new ScanResult();
-        nonPasspointScanResult.wifiSsid = WifiSsid.createFromAsciiEncoded(
+        nonPasspointScanResult.wifiSsid = WifiSsid.fromUtf8Text(
                 nonPasspointSuggestion.wifiConfiguration.SSID);
         List<ScanResult> nonPpSrList = new ArrayList<>() {{
                 add(nonPasspointScanResult);
@@ -4011,7 +4013,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 add(nonPasspointSuggestion);
                 }};
         ScanResult nonPasspointScanResult = new ScanResult();
-        nonPasspointScanResult.wifiSsid = WifiSsid.createFromAsciiEncoded("non-passpoint");
+        nonPasspointScanResult.wifiSsid = WifiSsid.fromUtf8Text("non-passpoint");
         List<ScanResult> allSrList = new ArrayList<>() {{
                 add(nonPasspointScanResult);
             }};
@@ -4048,7 +4050,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 add(nonPasspointSuggestion);
             }};
         ScanResult nonPasspointScanResult = new ScanResult();
-        nonPasspointScanResult.wifiSsid = WifiSsid.createFromAsciiEncoded("non-passpoint");
+        nonPasspointScanResult.wifiSsid = WifiSsid.fromUtf8Text("non-passpoint");
         List<ScanResult> allSrList = new ArrayList<>() {{
                 add(nonPasspointScanResult);
             }};
@@ -4116,17 +4118,17 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         // Simulate user approved carrier
         eapSimConfig.fromWifiNetworkSuggestion = true;
+        eapSimConfig.shared = false;
         eapSimConfig.creatorUid = TEST_UID_1;
         eapSimConfig.creatorName = TEST_PACKAGE_1;
         when(mWifiConfigManager.getConfiguredNetwork(anyString())).thenReturn(eapSimConfig);
-        when(mWifiConfigManager.addOrUpdateNetwork(any(), anyInt(), anyString()))
+        when(mWifiConfigManager.addOrUpdateNetwork(any(), anyInt(), anyString(), eq(false)))
                 .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         mUserApproveCarrierListenerArgumentCaptor.getValue().onUserAllowed(TEST_CARRIER_ID);
         when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
                 .thenReturn(true);
         verify(mPasspointManager).enableAutojoin(anyString(), any(), eq(true));
-        verify(mWifiConfigManager).addOrUpdateNetwork(any(), anyInt(), anyString());
-        verify(mWifiConfigManager).allowAutojoin(anyInt(), eq(true));
+        verify(mWifiConfigManager).addOrUpdateNetwork(any(), anyInt(), anyString(), eq(false));
         matchedSuggestions = mWifiNetworkSuggestionsManager
                 .getNetworkSuggestionsForScanDetail(createScanDetailForNetwork(eapSimConfig));
 
@@ -4134,6 +4136,40 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
             assertTrue(ewns.isAutojoinEnabled);
         }
         verify(mWifiConfigManager, atLeastOnce()).saveToStore(true);
+    }
+
+    @Test
+    public void testNotSendImsiProtectionNotificationOnPeapNetwork() {
+        when(mWifiCarrierInfoManager.getCarrierIdForPackageWithCarrierPrivileges(TEST_PACKAGE_1))
+                .thenReturn(TEST_CARRIER_ID);
+        when(mWifiCarrierInfoManager.getMatchingSubId(TEST_CARRIER_ID)).thenReturn(TEST_SUBID);
+        when(mWifiCarrierInfoManager.getCarrierNameForSubId(TEST_SUBID))
+                .thenReturn(TEST_CARRIER_NAME);
+        when(mWifiCarrierInfoManager.requiresImsiEncryption(TEST_SUBID)).thenReturn(false);
+        when(mWifiCarrierInfoManager.hasUserApprovedImsiPrivacyExemptionForCarrier(TEST_CARRIER_ID))
+                .thenReturn(false);
+        when(mPasspointManager.addOrUpdateProvider(any(), anyInt(), anyString(), anyBoolean(),
+                anyBoolean())).thenReturn(true);
+
+        WifiConfiguration eapSimConfig = WifiConfigurationTestUtil.createEapNetwork(
+                WifiEnterpriseConfig.Eap.PEAP, WifiEnterpriseConfig.Phase2.AKA);
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                eapSimConfig, null, true, false, true, true, DEFAULT_PRIORITY_GROUP);
+        List<WifiNetworkSuggestion> networkSuggestionList =
+                Arrays.asList(networkSuggestion);
+
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+
+        verifyNoMoreInteractions(mWifiNotificationManager);
+        Set<ExtendedWifiNetworkSuggestion> matchedSuggestions = mWifiNetworkSuggestionsManager
+                .getNetworkSuggestionsForScanDetail(createScanDetailForNetwork(eapSimConfig));
+        verify(mWifiCarrierInfoManager, never())
+                .sendImsiProtectionExemptionNotificationIfRequired(TEST_CARRIER_ID);
+        for (ExtendedWifiNetworkSuggestion ewns : matchedSuggestions) {
+            assertTrue(ewns.isAutojoinEnabled);
+        }
     }
 
     /**
@@ -4210,25 +4246,6 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertEquals(network1.SSID, pnoNetwork.get(0).SSID);
     }
 
-    @Test
-    public void getAllScanOptimizationSuggestionNetworks_returnsActiveScorerWithoutUserApproval() {
-        when(mNetworkScoreManager.getActiveScorerPackage()).thenReturn(TEST_PACKAGE_1);
-        WifiConfiguration network = WifiConfigurationTestUtil.createOpenNetwork();
-        WifiNetworkSuggestion networkSuggestion =
-                createWifiNetworkSuggestion(network, null, false, false, true, true,
-                        DEFAULT_PRIORITY_GROUP);
-        List<WifiNetworkSuggestion> networkSuggestionList = Arrays.asList(networkSuggestion);
-        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
-                mWifiNetworkSuggestionsManager
-                        .add(networkSuggestionList, TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE));
-        mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(false, TEST_UID_1, TEST_PACKAGE_1);
-
-        List<WifiConfiguration> networks =
-                mWifiNetworkSuggestionsManager.getAllScanOptimizationSuggestionNetworks();
-
-        assertEquals(1, networks.size());
-    }
-
     /**
      * Verify if a suggestion is mostRecently connected, flag will be persist.
      */
@@ -4283,7 +4300,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(networkSuggestionList1, TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(listener).onSuggestionsRemoved(networkSuggestionList1);
     }
 
@@ -4488,7 +4505,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         List<ScanDetail> scanDetails = Arrays.asList(scanDetail1, scanDetail2);
         // Secure suggestions is auto-join disabled, should not be ignored.
         List<WifiNetworkSuggestion> suggestionList = Arrays.asList(suggestion1, suggestion2);
-        when(mWifiConfigManager.addOrUpdateNetwork(any(), anyInt(), anyString()))
+        when(mWifiConfigManager.addOrUpdateNetwork(any(), anyInt(), anyString(), eq(false)))
                 .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(suggestionList, TEST_UID_1,
@@ -4686,26 +4703,28 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                 mWifiNetworkSuggestionsManager.add(Arrays.asList(networkSuggestion), TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
         // When switch the user to background
-        when(mWifiPermissionsUtil.doesUidBelongToCurrentUser(TEST_UID_1)).thenReturn(false);
+        when(mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(TEST_UID_1))
+                .thenReturn(false);
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_INTERNAL,
                 mWifiNetworkSuggestionsManager.add(Arrays.asList(networkSuggestion), TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_INTERNAL,
                 mWifiNetworkSuggestionsManager.remove(Arrays.asList(networkSuggestion), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertTrue(mWifiNetworkSuggestionsManager.get(TEST_PACKAGE_1, TEST_UID_1).isEmpty());
         assertFalse(mWifiNetworkSuggestionsManager.registerSuggestionConnectionStatusListener(
                 mConnectionStatusListener, TEST_PACKAGE_1, TEST_UID_1));
 
         // When switch the user back to foreground
-        when(mWifiPermissionsUtil.doesUidBelongToCurrentUser(TEST_UID_1)).thenReturn(true);
+        when(mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(TEST_UID_1))
+                .thenReturn(true);
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(Arrays.asList(networkSuggestion), TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
         assertFalse(mWifiNetworkSuggestionsManager.get(TEST_PACKAGE_1, TEST_UID_1).isEmpty());
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(Arrays.asList(networkSuggestion), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         assertTrue(mWifiNetworkSuggestionsManager.registerSuggestionConnectionStatusListener(
                 mConnectionStatusListener, TEST_PACKAGE_1, TEST_UID_1));
     }
@@ -4722,13 +4741,14 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.add(Arrays.asList(networkSuggestion), TEST_UID_1,
                         TEST_PACKAGE_1, TEST_FEATURE));
-        mInorder.verify(mWifiPermissionsUtil).doesUidBelongToCurrentUser(anyInt());
+        mInorder.verify(mWifiPermissionsUtil).doesUidBelongToCurrentUserOrDeviceOwner(anyInt());
         assertTrue(mWifiNetworkSuggestionsManager.hasUserApprovedForApp(TEST_PACKAGE_1));
 
         // Simulate connecting to the network.
         WifiConfiguration connectNetwork =
                 new WifiConfiguration(networkSuggestion.wifiConfiguration);
         connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
         connectNetwork.ephemeral = true;
         connectNetwork.creatorName = TEST_PACKAGE_1;
         connectNetwork.creatorUid = TEST_UID_1;
@@ -4745,10 +4765,10 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
 
         assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
                 mWifiNetworkSuggestionsManager.remove(Arrays.asList(networkSuggestion), TEST_UID_1,
-                        TEST_PACKAGE_1));
+                        TEST_PACKAGE_1, WifiManager.ACTION_REMOVE_SUGGESTION_DISCONNECT));
         verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
                 argThat(new WifiConfigMatcher(connectNetwork)));
-        mInorder.verify(mWifiPermissionsUtil).doesUidBelongToCurrentUser(anyInt());
+        mInorder.verify(mWifiPermissionsUtil).doesUidBelongToCurrentUserOrDeviceOwner(anyInt());
 
         // Verify no more broadcast were sent out.
         mInorder.verifyNoMoreInteractions();
@@ -4785,6 +4805,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration configuration =
                 new WifiConfiguration(eapSimConfig);
         configuration.fromWifiNetworkSuggestion = true;
+        configuration.shared = false;
         configuration.ephemeral = true;
         configuration.creatorName = TEST_PACKAGE_1;
         configuration.creatorUid = TEST_UID_1;
@@ -4827,6 +4848,7 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         WifiConfiguration configuration =
                 new WifiConfiguration(config);
         configuration.fromWifiNetworkSuggestion = true;
+        configuration.shared = false;
         configuration.ephemeral = true;
         configuration.creatorName = TEST_PACKAGE_1;
         configuration.creatorUid = TEST_UID_1;
@@ -4993,6 +5015,88 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
         assertEquals(0, ewns.size());
     }
 
+    /**
+     * Verify we return the merged network suggestion matches the target ScanDetail when merged
+     * network is allowed .
+     */
+    @Test
+    public void testGetMergedNetworkSuggestionsWithSubscriptionGroupForScanDetail() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        when(mWifiPermissionsUtil.checkNetworkCarrierProvisioningPermission(TEST_UID_1))
+                .thenReturn(true);
+        when(mWifiCarrierInfoManager.areMergedCarrierWifiNetworksAllowed(TEST_SUBID))
+                .thenReturn(true);
+        when(mWifiCarrierInfoManager.getBestMatchSubscriptionId(any()))
+                .thenReturn(TEST_SUBID);
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        ScanDetail scanDetail = createScanDetailForNetwork(config);
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                config, null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        config.setSubscriptionGroup(GROUP_UUID);
+        config.carrierMerged = true;
+        config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(List.of(networkSuggestion), TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+
+        Set<ExtendedWifiNetworkSuggestion> ewns = mWifiNetworkSuggestionsManager
+                .getNetworkSuggestionsForScanDetail(scanDetail);
+        assertEquals(1, ewns.size());
+        assertEquals(TEST_SUBID, ewns.iterator().next()
+                .createInternalWifiConfiguration(mWifiCarrierInfoManager).subscriptionId);
+
+        // Change to disallow merged network, no matching suggestion should return.
+        when(mWifiCarrierInfoManager.areMergedCarrierWifiNetworksAllowed(TEST_SUBID))
+                .thenReturn(false);
+        ewns = mWifiNetworkSuggestionsManager
+                .getNetworkSuggestionsForScanDetail(scanDetail);
+        assertEquals(0, ewns.size());
+    }
+
+    @Test
+    public void testAddNonRandomizedNetworkSuggestionForcedToRandomized() {
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createOpenNetwork(), null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        networkSuggestion.wifiConfiguration.macRandomizationSetting =
+                WifiConfiguration.RANDOMIZATION_NONE;
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(List.of(networkSuggestion),
+                        TEST_UID_1, TEST_PACKAGE_1, TEST_FEATURE));
+        assertEquals(WifiConfiguration.RANDOMIZATION_PERSISTENT,
+                networkSuggestion.wifiConfiguration.macRandomizationSetting);
+    }
+
+    @Test
+    public void testAddNonRandomizedPasspointSuggestionForcedToRandomized() {
+        PasspointConfiguration passpointConfiguration =
+                createTestConfigWithUserCredential(TEST_FQDN, TEST_FRIENDLY_NAME);
+        WifiConfiguration placeholderConfig = createPlaceholderConfigForPasspoint(TEST_FQDN,
+                passpointConfiguration.getUniqueId());
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                placeholderConfig, passpointConfiguration, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        networkSuggestion.passpointConfiguration.setMacRandomizationEnabled(false);
+        networkSuggestion.passpointConfiguration.setNonPersistentMacRandomizationEnabled(false);
+        List<WifiNetworkSuggestion> networkSuggestionList =
+                new ArrayList<WifiNetworkSuggestion>() {{
+                    add(networkSuggestion);
+                }};
+        when(mPasspointManager.addOrUpdateProvider(any(), anyInt(), anyString(), anyBoolean(),
+                anyBoolean())).thenReturn(true);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+
+        ArgumentCaptor<PasspointConfiguration> passpointConfigCaptor =
+                ArgumentCaptor.forClass(PasspointConfiguration.class);
+        verify(mPasspointManager).addOrUpdateProvider(passpointConfigCaptor.capture(),
+                anyInt(), anyString(), anyBoolean(), anyBoolean());
+        assertTrue(passpointConfigCaptor.getValue().isMacRandomizationEnabled());
+        assertFalse(passpointConfigCaptor.getValue().isNonPersistentMacRandomizationEnabled());
+    }
+
     @Test
     public void testIncompleteEnterpriseNetworkSuggestion() {
         WifiConfiguration config = new WifiConfiguration();
@@ -5014,17 +5118,169 @@ public class WifiNetworkSuggestionsManagerTest extends WifiBaseTest {
                         TEST_PACKAGE_1, TEST_FEATURE));
     }
 
+    /**
+     * Verify successful removal of network suggestions with linger action when suggestion is
+     * currently connected. Should trigger linger and delay remove WifiConfiguration.
+     */
+    @Test
+    public void testRemoveNetworkSuggestionsWithActionCurrentlyConnected() {
+        WifiNetworkSuggestion networkSuggestion1 = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createOpenNetwork(), null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+
+        List<WifiNetworkSuggestion> networkSuggestionList1 =
+                new ArrayList<WifiNetworkSuggestion>() {{
+                    add(networkSuggestion1);
+                }};
+
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList1, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+
+        // Now remove suggestion with lingering which is currently connected.
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(0L);
+        when(mPrimaryClientModeManager.getConnectedWifiConfiguration())
+                .thenReturn(networkSuggestion1.wifiConfiguration);
+        when(mWifiConfigManager.getConfiguredNetwork(any()))
+                .thenReturn(networkSuggestion1.wifiConfiguration);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.remove(List.of(networkSuggestion1),
+                        TEST_UID_1, TEST_PACKAGE_1, ACTION_REMOVE_SUGGESTION_LINGER));
+        verify(mWifiScoreCard).removeNetwork(anyString());
+        verify(mLruConnectionTracker).removeNetwork(any());
+        verify(mPrimaryClientModeManager).setShouldReduceNetworkScore(true);
+        verify(mWifiConfigManager, never()).removeSuggestionConfiguredNetwork(any());
+        when(mClock.getElapsedSinceBootMillis()).thenReturn((long) DEFAULT_LINGER_DELAY_MS + 1);
+        mLooper.moveTimeForward(DEFAULT_LINGER_DELAY_MS + 1);
+        mLooper.dispatchAll();
+        verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
+                argThat(new WifiConfigMatcher(networkSuggestion1.wifiConfiguration)));
+
+        verify(mWifiMetrics, times(2)).incrementNetworkSuggestionApiNumModification();
+        verify(mWifiMetrics, times(1)).addNetworkSuggestionPriorityGroup(anyInt());
+        ArgumentCaptor<List<Integer>> maxSizesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(mWifiMetrics, times(2)).noteNetworkSuggestionApiListSizeHistogram(
+                maxSizesCaptor.capture());
+        verify(mWifiConfigManager).removeConnectChoiceFromAllNetworks(anyString());
+        assertNotNull(maxSizesCaptor.getValue());
+        assertEquals(maxSizesCaptor.getValue(), new ArrayList<Integer>() {{ add(1); }});
+    }
+
+    /**
+     * Verify successful removal of network suggestions with linger action when suggestion is not
+     * currently connected. Should remove WifiConfiguration immeditaly.
+     */
+    @Test
+    public void testRemoveNetworkSuggestionsWithActionNotConnected() {
+        WifiNetworkSuggestion networkSuggestion1 = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createOpenNetwork(), null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+
+        List<WifiNetworkSuggestion> networkSuggestionList1 =
+                new ArrayList<WifiNetworkSuggestion>() {{
+                    add(networkSuggestion1);
+                }};
+
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList1, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+
+        // Now remove suggestion with lingering which is currently connected.
+        when(mWifiConfigManager.getConfiguredNetwork(any()))
+                .thenReturn(networkSuggestion1.wifiConfiguration);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.remove(List.of(networkSuggestion1),
+                        TEST_UID_1, TEST_PACKAGE_1, ACTION_REMOVE_SUGGESTION_LINGER));
+        verify(mWifiScoreCard).removeNetwork(anyString());
+        verify(mLruConnectionTracker).removeNetwork(any());
+        verify(mPrimaryClientModeManager, never()).setShouldReduceNetworkScore(true);
+        verify(mWifiConfigManager).removeSuggestionConfiguredNetwork(
+                argThat(new WifiConfigMatcher(networkSuggestion1.wifiConfiguration)));
+
+        verify(mWifiMetrics, times(2)).incrementNetworkSuggestionApiNumModification();
+        verify(mWifiMetrics, times(1)).addNetworkSuggestionPriorityGroup(anyInt());
+        ArgumentCaptor<List<Integer>> maxSizesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(mWifiMetrics, times(2)).noteNetworkSuggestionApiListSizeHistogram(
+                maxSizesCaptor.capture());
+        verify(mWifiConfigManager).removeConnectChoiceFromAllNetworks(anyString());
+        assertNotNull(maxSizesCaptor.getValue());
+        assertEquals(maxSizesCaptor.getValue(), new ArrayList<Integer>() {{ add(1); }});
+    }
+
     private static WifiNetworkSuggestion createWifiNetworkSuggestion(WifiConfiguration config,
             PasspointConfiguration passpointConfiguration,
             boolean isAppInteractionRequired,
             boolean isUserInteractionRequired,
             boolean isUserAllowedToManuallyConnect,
             boolean isInitialAutoJoinEnabled, int priorityGroup) {
-        if (!SdkLevel.isAtLeastS()) {
-            config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
-        }
+        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
         return new WifiNetworkSuggestion(config, passpointConfiguration, isAppInteractionRequired,
                 isUserInteractionRequired, isUserAllowedToManuallyConnect, isInitialAutoJoinEnabled,
                 priorityGroup);
+    }
+
+    @Test
+    public void testSuggestionWithBothSubscriptionIdAndSubscriptionGroupSetIsInvalid() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        config.setSubscriptionGroup(GROUP_UUID);
+        config.subscriptionId = TEST_SUBID;
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                config, null, false, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_ERROR_ADD_INVALID,
+                mWifiNetworkSuggestionsManager.add(List.of(networkSuggestion), TEST_UID_1,
+                TEST_PACKAGE_1, TEST_FEATURE));
+    }
+
+    @Test
+    public void testOnNetworkConnectionSuccessWithMatchAndNetworkTransitionDisable()
+            throws Exception {
+        assertTrue(mWifiNetworkSuggestionsManager.registerSuggestionConnectionStatusListener(
+                mConnectionStatusListener, TEST_PACKAGE_1, TEST_UID_1));
+        WifiNetworkSuggestion networkSuggestion = createWifiNetworkSuggestion(
+                WifiConfigurationTestUtil.createPskNetwork(), null, true, false, true, true,
+                DEFAULT_PRIORITY_GROUP);
+        List<WifiNetworkSuggestion> networkSuggestionList =
+                new ArrayList<WifiNetworkSuggestion>() {{
+                    add(networkSuggestion);
+                }};
+
+        // Verify no crash with unmatched update
+        mNetworkListenerCaptor.getValue().onSecurityParamsUpdate(networkSuggestion
+                .wifiConfiguration, networkSuggestion.wifiConfiguration.getSecurityParamsList());
+        mNetworkListenerCaptor.getValue().onSecurityParamsUpdate(null, Collections.EMPTY_LIST);
+
+        assertEquals(WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS,
+                mWifiNetworkSuggestionsManager.add(networkSuggestionList, TEST_UID_1,
+                        TEST_PACKAGE_1, TEST_FEATURE));
+        mWifiNetworkSuggestionsManager.setHasUserApprovedForApp(true, TEST_UID_1, TEST_PACKAGE_1);
+
+        // Simulate connecting to the network.
+        WifiConfiguration connectNetwork =
+                new WifiConfiguration(networkSuggestion.wifiConfiguration);
+        connectNetwork.fromWifiNetworkSuggestion = true;
+        connectNetwork.shared = false;
+        connectNetwork.ephemeral = true;
+        connectNetwork.creatorName = TEST_PACKAGE_1;
+        connectNetwork.creatorUid = TEST_UID_1;
+        WifiConfiguration updated = new WifiConfiguration(connectNetwork);
+        updated.setSecurityParamsEnabled(WifiConfiguration.SECURITY_TYPE_PSK, false);
+
+        // Update to handle Network Transition Disable
+        mNetworkListenerCaptor.getValue().onSecurityParamsUpdate(connectNetwork,
+                updated.getSecurityParamsList());
+        mWifiNetworkSuggestionsManager.handleConnectionAttemptEnded(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE, updated, TEST_BSSID);
+
+        verify(mWifiMetrics).incrementNetworkSuggestionApiNumConnectSuccess();
+
+        // Verify that the correct broadcast was sent out.
+        mInorder.verify(mWifiPermissionsUtil).enforceCanAccessScanResults(eq(TEST_PACKAGE_1),
+                eq(TEST_FEATURE), eq(TEST_UID_1), nullable(String.class));
+        validatePostConnectionBroadcastSent(TEST_PACKAGE_1, networkSuggestion);
+
+        // Verify no more broadcast were sent out.
+        mInorder.verifyNoMoreInteractions();
     }
 }

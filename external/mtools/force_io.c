@@ -1,4 +1,4 @@
-/*  Copyright 1996,1997,1999,2001,2002,2009 Alain Knaff.
+/*  Copyright 1996,1997,1999,2001,2002,2009,2021 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
  *
  * written by:
  *
- * Alain L. Knaff			
+ * Alain L. Knaff
  * alain@knaff.lu
  *
  */
@@ -27,13 +27,13 @@
 #include "msdos.h"
 #include "stream.h"
 
-static int force_io(Stream_t *Stream,
-		    char *buf, mt_off_t start, size_t len,
-		    int (*io)(Stream_t *, char *, mt_off_t, size_t))
+static ssize_t force_pio(Stream_t *Stream,
+			 char *buf, mt_off_t start, size_t len,
+			 ssize_t (*io)(Stream_t *, char *, mt_off_t, size_t))
 {
-	int ret;
+	ssize_t ret;
 	int done=0;
-	
+
 	while(len){
 		ret = io(Stream, buf, start, len);
 		if ( ret <= 0 ){
@@ -42,22 +42,34 @@ static int force_io(Stream_t *Stream,
 			else
 				return ret;
 		}
-		start += ret;
+		assert((size_t)ret <= len);
+		start += (size_t) ret;
 		done += ret;
-		len -= ret;
+		len -= (size_t) ret;
 		buf += ret;
 	}
 	return done;
 }
 
-int force_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
+static ssize_t write_wrapper(Stream_t *Stream,  char *buf,
+			     mt_off_t start UNUSEDP, size_t len)
 {
-	return force_io(Stream, buf, start, len,
-					Stream->Class->write);
+	return Stream->Class->write(Stream, buf, len);
 }
 
-int force_read(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
+ssize_t force_write(Stream_t *Stream, char *buf, size_t len)
 {
-	return force_io(Stream, buf, start, len,
-					Stream->Class->read);
+	return force_pio(Stream, buf, 0, len, write_wrapper);
+}
+
+ssize_t force_pwrite(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
+{
+	return force_pio(Stream, buf, start, len,
+			 Stream->Class->pwrite);
+}
+
+ssize_t force_pread(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
+{
+	return force_pio(Stream, buf, start, len,
+			 Stream->Class->pread);
 }

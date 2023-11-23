@@ -37,15 +37,20 @@ import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class SmartSuggestionsLogSessionTest {
+
+  @Rule public final MockitoRule mocks = MockitoJUnit.rule();
+
   private static final String RESULT_ID = "resultId";
   private static final String REPLY = "reply";
   private static final float SCORE = 0.5f;
@@ -55,7 +60,6 @@ public class SmartSuggestionsLogSessionTest {
 
   @Before
   public void setup() {
-    MockitoAnnotations.initMocks(this);
 
     session =
         new SmartSuggestionsLogSession(

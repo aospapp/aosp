@@ -43,7 +43,7 @@ protected:
         ASSERT_GE(fd.get(), 0);
 
         // Generate the file data.
-        std::vector<uint32_t> data(INCFS_DATA_FILE_BLOCK_SIZE);
+        std::vector<uint32_t> data(FILE_SIZE);
         for (int i = 0; i < FILE_SIZE; i++) {
             data[i] = i;
         }

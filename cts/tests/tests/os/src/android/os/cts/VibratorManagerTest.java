@@ -16,14 +16,15 @@
 
 package android.os.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static android.os.VibrationEffect.VibrationParameter.targetAmplitude;
+import static android.os.VibrationEffect.VibrationParameter.targetFrequency;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -34,11 +35,12 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.Vibrator.OnVibratorStateChangedListener;
 import android.os.VibratorManager;
+import android.os.vibrator.VibratorFrequencyProfile;
 import android.util.SparseArray;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
@@ -51,13 +53,14 @@ import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 @RunWith(AndroidJUnit4.class)
 public class VibratorManagerTest {
     @Rule
-    public ActivityTestRule<SimpleTestActivity> mActivityRule = new ActivityTestRule<>(
-            SimpleTestActivity.class);
+    public ActivityScenarioRule<SimpleTestActivity> mActivityRule =
+            new ActivityScenarioRule<>(SimpleTestActivity.class);
 
     @Rule
     public final AdoptShellPermissionsRule mAdoptShellPermissionsRule =
@@ -68,14 +71,21 @@ public class VibratorManagerTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private static final long CALLBACK_TIMEOUT_MILLIS = 5000;
+    private static final float TEST_TOLERANCE = 1e-5f;
+
+    private static final long CALLBACK_TIMEOUT_MILLIS = 5_000;
     private static final VibrationAttributes VIBRATION_ATTRIBUTES =
             new VibrationAttributes.Builder()
                     .setUsage(VibrationAttributes.USAGE_TOUCH)
                     .build();
 
-    private VibratorManager mVibratorManager;
+    /**
+     * These listeners are used for test helper methods like asserting it starts/stops vibrating.
+     * It's not strongly required that the interactions with these mocks are validated by all tests.
+     */
     private final SparseArray<OnVibratorStateChangedListener> mStateListeners = new SparseArray<>();
+
+    private VibratorManager mVibratorManager;
 
     @Before
     public void setUp() {
@@ -87,13 +97,60 @@ public class VibratorManagerTest {
             OnVibratorStateChangedListener listener = mock(OnVibratorStateChangedListener.class);
             mVibratorManager.getVibrator(vibratorId).addVibratorStateListener(listener);
             mStateListeners.put(vibratorId, listener);
-            reset(listener);
+            // Adding a listener to the Vibrator should trigger the callback once with the current
+            // vibrator state, so reset mocks to clear it for tests.
+            assertVibratorState(false);
+            clearInvocations(listener);
         }
     }
 
     @After
     public void cleanUp() {
+        // Clearing invocations so we can use these listeners to wait for the vibrator to
+        // asynchronously cancel the ongoing vibration, if any was left pending by a test.
+        for (int i = 0; i < mStateListeners.size(); i++) {
+            clearInvocations(mStateListeners.valueAt(i));
+        }
         mVibratorManager.cancel();
+
+        for (int i = 0; i < mStateListeners.size(); i++) {
+            int vibratorId = mStateListeners.keyAt(i);
+
+            // Wait for cancel to take effect, if device is still vibrating.
+            if (mVibratorManager.getVibrator(vibratorId).isVibrating()) {
+                assertStopsVibrating(vibratorId);
+            }
+
+            // Remove all listeners added by the tests.
+            mVibratorManager.getVibrator(vibratorId).removeVibratorStateListener(
+                    mStateListeners.valueAt(i));
+        }
+    }
+
+    @Test
+    public void testGetVibratorIds() {
+        // Just make sure it doesn't crash or return null when this is called; we don't really have
+        // a way to test which vibrators will be returned.
+        assertThat(mVibratorManager.getVibratorIds()).isNotNull();
+        assertThat(mVibratorManager.getVibratorIds()).asList().containsNoDuplicates();
+    }
+
+    @Test
+    public void testGetNonExistentVibratorId() {
+        int missingId = Arrays.stream(mVibratorManager.getVibratorIds()).max().orElse(0) + 1;
+        Vibrator vibrator = mVibratorManager.getVibrator(missingId);
+        assertThat(vibrator).isNotNull();
+        assertThat(vibrator.hasVibrator()).isFalse();
+    }
+
+    @Test
+    public void testGetDefaultVibratorIsSameAsVibratorService() {
+        // Note that VibratorTest parameterization relies on these two vibrators being identical.
+        // It only runs vibrator tests on the result of one of the APIs.
+        Vibrator systemVibrator =
+                InstrumentationRegistry.getInstrumentation().getContext().getSystemService(
+                        Vibrator.class);
+        assertThat(mVibratorManager.getDefaultVibrator()).isSameInstanceAs(systemVibrator);
     }
 
     @Test
@@ -108,20 +165,26 @@ public class VibratorManagerTest {
 
     @LargeTest
     @Test
-    public void testVibrateOneShot() {
+    public void testCombinedVibrationOneShotStartsAndFinishesVibration() {
         VibrationEffect oneShot =
                 VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE);
         mVibratorManager.vibrate(CombinedVibration.createParallel(oneShot));
         assertStartsThenStopsVibrating(300);
+    }
 
-        oneShot = VibrationEffect.createOneShot(500, 255 /* Max amplitude */);
+    @Test
+    public void testCombinedVibrationOneShotMaxAmplitude() {
+        VibrationEffect oneShot = VibrationEffect.createOneShot(500, 255 /* Max amplitude */);
         mVibratorManager.vibrate(CombinedVibration.createParallel(oneShot));
         assertStartsVibrating();
 
         mVibratorManager.cancel();
         assertStopsVibrating();
+    }
 
-        oneShot = VibrationEffect.createOneShot(100, 1 /* Min amplitude */);
+    @Test
+    public void testCombinedVibrationOneShotMinAmplitude() {
+        VibrationEffect oneShot = VibrationEffect.createOneShot(100, 1 /* Min amplitude */);
         mVibratorManager.vibrate(CombinedVibration.createParallel(oneShot),
                 VIBRATION_ATTRIBUTES);
         assertStartsVibrating();
@@ -129,31 +192,80 @@ public class VibratorManagerTest {
 
     @LargeTest
     @Test
-    public void testVibrateWaveform() {
+    public void testCombinedVibrationWaveformStartsAndFinishesVibration() {
         final long[] timings = new long[]{100, 200, 300, 400, 500};
         final int[] amplitudes = new int[]{64, 128, 255, 128, 64};
         VibrationEffect waveform = VibrationEffect.createWaveform(timings, amplitudes, -1);
         mVibratorManager.vibrate(CombinedVibration.createParallel(waveform));
         assertStartsThenStopsVibrating(1500);
+    }
 
-        waveform = VibrationEffect.createWaveform(timings, amplitudes, 0);
+    @LargeTest
+    @Test
+    public void testCombinedVibrationWaveformRepeats() {
+        final long[] timings = new long[]{100, 200, 300, 400, 500};
+        final int[] amplitudes = new int[]{64, 128, 255, 128, 64};
+        VibrationEffect waveform = VibrationEffect.createWaveform(timings, amplitudes, 0);
         mVibratorManager.vibrate(CombinedVibration.createParallel(waveform));
         assertStartsVibrating();
+
+        SystemClock.sleep(2000);
+        int[] vibratorIds = mVibratorManager.getVibratorIds();
+        for (int vibratorId : vibratorIds) {
+            assertThat(mVibratorManager.getVibrator(vibratorId).isVibrating()).isTrue();
+        }
 
         mVibratorManager.cancel();
         assertStopsVibrating();
     }
 
+    @LargeTest
     @Test
-    public void testVibrateSingleVibrator() {
+    public void testCombinedVibrationWaveformWithFrequencyStartsAndFinishesVibration() {
+        Vibrator defaultVibrator = mVibratorManager.getDefaultVibrator();
+        assumeTrue(defaultVibrator.hasFrequencyControl());
+
+        VibratorFrequencyProfile frequencyProfile = defaultVibrator.getFrequencyProfile();
+        float minFrequency = frequencyProfile.getMinFrequency();
+        float maxFrequency = frequencyProfile.getMaxFrequency();
+        float resonantFrequency = defaultVibrator.getResonantFrequency();
+        float sustainFrequency = Float.isNaN(resonantFrequency)
+                ? (maxFrequency + minFrequency) / 2
+                : resonantFrequency;
+
+        // Then ramp to zero amplitude at fixed frequency.
+        VibrationEffect waveform =
+                VibrationEffect.startWaveform(targetAmplitude(0), targetFrequency(minFrequency))
+                        // Ramp from min to max frequency and from zero to max amplitude.
+                        .addTransition(Duration.ofMillis(10),
+                                targetAmplitude(1), targetFrequency(maxFrequency))
+                        // Ramp back to min frequency and zero amplitude.
+                        .addTransition(Duration.ofMillis(10),
+                                targetAmplitude(0), targetFrequency(minFrequency))
+                        // Then sustain at a fixed frequency and half amplitude.
+                        .addTransition(Duration.ZERO,
+                                targetAmplitude(0.5f), targetFrequency(sustainFrequency))
+                        .addSustain(Duration.ofMillis(20))
+                        // Ramp from min to max frequency and at max amplitude.
+                        .addTransition(Duration.ZERO,
+                                targetAmplitude(1), targetFrequency(minFrequency))
+                        .addTransition(Duration.ofMillis(10), targetFrequency(maxFrequency))
+                        // Ramp from max to min amplitude at max frequency.
+                        .addTransition(Duration.ofMillis(10), targetAmplitude(0))
+                        .build();
+        mVibratorManager.vibrate(CombinedVibration.createParallel(waveform));
+        assertStartsThenStopsVibrating(50);
+    }
+
+    @Test
+    public void testCombinedVibrationTargetingSingleVibrator() {
         int[] vibratorIds = mVibratorManager.getVibratorIds();
-        if (vibratorIds.length < 2) {
-            return;
-        }
+        assumeTrue(vibratorIds.length >= 2);
 
         VibrationEffect oneShot =
                 VibrationEffect.createOneShot(10_000, VibrationEffect.DEFAULT_AMPLITUDE);
 
+        // Vibrate each vibrator in turn, and assert that all the others are off.
         for (int vibratorId : vibratorIds) {
             Vibrator vibrator = mVibratorManager.getVibrator(vibratorId);
             mVibratorManager.vibrate(
@@ -164,7 +276,8 @@ public class VibratorManagerTest {
 
             for (int otherVibratorId : vibratorIds) {
                 if (otherVibratorId != vibratorId) {
-                    assertFalse(mVibratorManager.getVibrator(otherVibratorId).isVibrating());
+                    assertThat(mVibratorManager.getVibrator(otherVibratorId).isVibrating())
+                            .isFalse();
                 }
             }
 
@@ -173,62 +286,9 @@ public class VibratorManagerTest {
         }
     }
 
-    @Test
-    public void testGetVibratorIds() {
-        // Just make sure it doesn't crash or return null when this is called; we don't really have
-        // a way to test which vibrators will be returned.
-        assertNotNull(mVibratorManager.getVibratorIds());
-    }
-
-    @Test
-    public void testGetNonExistentVibratorId() {
-        int missingId = Arrays.stream(mVibratorManager.getVibratorIds()).max().orElse(0) + 1;
-        Vibrator vibrator = mVibratorManager.getVibrator(missingId);
-        assertNotNull(vibrator);
-        assertFalse(vibrator.hasVibrator());
-    }
-
-    @Test
-    public void testGetDefaultVibrator() {
-        Vibrator systemVibrator =
-                InstrumentationRegistry.getInstrumentation().getContext().getSystemService(
-                        Vibrator.class);
-        assertSame(systemVibrator, mVibratorManager.getDefaultVibrator());
-    }
-
-    @Test
-    public void testVibrator() {
-        for (int vibratorId : mVibratorManager.getVibratorIds()) {
-            Vibrator vibrator = mVibratorManager.getVibrator(vibratorId);
-            assertNotNull(vibrator);
-            assertEquals(vibratorId, vibrator.getId());
-            assertTrue(vibrator.hasVibrator());
-
-            // Just check these methods will not crash.
-            // We don't really have a way to test if the device supports each effect or not.
-            vibrator.hasAmplitudeControl();
-
-            // Just check these methods return valid support arrays.
-            // We don't really have a way to test if the device supports each effect or not.
-            assertEquals(2, vibrator.areEffectsSupported(
-                    VibrationEffect.EFFECT_TICK, VibrationEffect.EFFECT_CLICK).length);
-            assertEquals(2, vibrator.arePrimitivesSupported(
-                    VibrationEffect.Composition.PRIMITIVE_CLICK,
-                    VibrationEffect.Composition.PRIMITIVE_TICK).length);
-
-            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
-            assertStartsVibrating(vibratorId);
-            assertTrue(vibrator.isVibrating());
-
-            vibrator.cancel();
-            assertStopsVibrating(vibratorId);
-        }
-    }
-
     private void assertStartsThenStopsVibrating(long duration) {
         for (int i = 0; i < mStateListeners.size(); i++) {
-            verify(mStateListeners.valueAt(i), timeout(CALLBACK_TIMEOUT_MILLIS).atLeastOnce())
-                    .onVibratorStateChanged(true);
+            assertVibratorState(mStateListeners.keyAt(i), true);
         }
         SystemClock.sleep(duration);
         assertVibratorState(false);
@@ -260,6 +320,5 @@ public class VibratorManagerTest {
         OnVibratorStateChangedListener listener = mStateListeners.get(vibratorId);
         verify(listener, timeout(CALLBACK_TIMEOUT_MILLIS).atLeastOnce())
                 .onVibratorStateChanged(eq(expected));
-        reset(listener);
     }
 }

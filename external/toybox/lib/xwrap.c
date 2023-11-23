@@ -1,8 +1,8 @@
-/* xwrap.c - wrappers around existing library functions.
+/* xwrap.c - library function wrappers that exit instead of returning error
  *
- * Functions with the x prefix are wrappers that either succeed or kill the
- * program with an error message, but never return failure. They usually have
- * the same arguments and return value as the function they wrap.
+ * Functions with the x prefix either succeed or kill the program with an
+ * error message, so the caller doesn't have to check for failure. They
+ * usually have the same arguments and return value as the function they wrap.
  *
  * Copyright 2006 Rob Landley <rob@landley.net>
  */
@@ -104,7 +104,12 @@ char *xstrndup(char *s, size_t n)
 // Die unless we can allocate a copy of this string.
 char *xstrdup(char *s)
 {
-  return xstrndup(s, strlen(s));
+  long len = strlen(s);
+  char *c = xmalloc(++len);
+
+  memcpy(c, s, len);
+
+  return c;
 }
 
 void *xmemdup(void *s, long len)
@@ -338,7 +343,7 @@ int xwaitpid(pid_t pid)
 {
   int status;
 
-  while (-1 == waitpid(pid, &status, 0) && errno == EINTR);
+  while (-1 == waitpid(pid, &status, 0) && errno == EINTR) errno = 0;
 
   return WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)+128;
 }
@@ -548,74 +553,73 @@ void xstat(char *path, struct stat *st)
 }
 
 // Canonicalize path, even to file with one or more missing components at end.
-// Returns allocated string for pathname or NULL if doesn't exist
-// exact = 1 file must exist, 0 dir must exist, -1 show theoretical location,
-// -2 don't resolve last file
-char *xabspath(char *path, int exact)
+// Returns allocated string for pathname or NULL if doesn't exist. Flags are:
+// ABS_PATH:path to last component must exist ABS_FILE: whole path must exist
+// ABS_KEEP:keep symlinks in path ABS_LAST: keep symlink at end of path
+char *xabspath(char *path, int flags)
 {
-  struct string_list *todo, *done = 0;
-  int try = 9999, dirfd = open("/", O_PATH), missing = 0;
-  char *ret;
+  struct string_list *todo, *done = 0, *new, **tail;
+  int fd, track, len, try = 9999, dirfd = -1, missing = 0;
+  char *str;
 
-  // If this isn't an absolute path, start with cwd.
+  // If the last file must exist, path to it must exist.
+  if (flags&ABS_FILE) flags |= ABS_PATH;
+  // If we don't resolve path's symlinks, don't resolve last symlink.
+  if (flags&ABS_KEEP) flags |= ABS_LAST;
+
+  // If this isn't an absolute path, start with cwd or $PWD.
   if (*path != '/') {
-    char *temp = xgetcwd();
-
-    splitpath(path, splitpath(temp, &todo));
-    free(temp);
+    if ((flags & ABS_KEEP) && (str = getenv("PWD")))
+      splitpath(path, splitpath(str, &todo));
+    else {
+      splitpath(path, splitpath(str = xgetcwd(), &todo));
+      free(str);
+    }
   } else splitpath(path, &todo);
 
   // Iterate through path components in todo, prepend processed ones to done.
   while (todo) {
-    struct string_list *new = llist_pop(&todo), **tail;
-    ssize_t len;
-
-    // Eventually break out of endless loops
+    // break out of endless symlink loops
     if (!try--) {
       errno = ELOOP;
       goto error;
     }
 
-    // Removable path componenents.
-    if (!strcmp(new->str, ".") || !strcmp(new->str, "..")) {
-      int x = new->str[1];
-
+    // Remove . or .. component, tracking dirfd back up tree as necessary
+    str = (new = llist_pop(&todo))->str;
+    // track dirfd if this component must exist or we're resolving symlinks
+    track = ((flags>>!todo) & (ABS_PATH|ABS_KEEP)) ^ ABS_KEEP;
+    if (!done && track) dirfd = open("/", O_PATH);
+    if (*str=='.' && !str[1+((fd = str[1])=='.')]) {
       free(new);
-      if (!x) continue;
-      if (done) free(llist_pop(&done));
-      len = 0;
-
-      if (missing) missing--;
-      else {
-        if (-1 == (x = openat(dirfd, "..", O_PATH))) goto error;
-        close(dirfd);
-        dirfd = x;
+      if (fd) {
+        if (done) free(llist_pop(&done));
+        if (missing) missing--;
+        else if (track) {
+          if (-1 == (fd = openat(dirfd, "..", O_PATH))) goto error;
+          close(dirfd);
+          dirfd = fd;
+        }
       }
       continue;
     }
 
     // Is this a symlink?
-    if (exact == -2 && !todo) len = 0;
+    if (flags & (ABS_KEEP<<!todo)) errno = len = 0;
     else len = readlinkat(dirfd, new->str, libbuf, sizeof(libbuf));
     if (len>4095) goto error;
 
     // Not a symlink: add to linked list, move dirfd, fail if error
     if (len<1) {
-      int fd;
-
       new->next = done;
       done = new;
-      if (errno == EINVAL && !todo) break;
-      if (errno == ENOENT && exact<0) {
-        missing++;
-        continue;
+      if (errno == ENOENT && !(flags & (ABS_PATH<<!todo))) missing++;
+      else if (errno != EINVAL && (flags & (ABS_PATH<<!todo))) goto error;
+      else if (track) {
+        if (-1 == (fd = openat(dirfd, new->str, O_PATH))) goto error;
+        close(dirfd);
+        dirfd = fd;
       }
-      if (errno != EINVAL && (exact || todo)) goto error;
-
-      fd = openat(dirfd, new->str, O_PATH);
-      if (fd == -1 && (exact || todo || errno != ENOENT)) goto error;
-      close(dirfd);
-      dirfd = fd;
       continue;
     }
 
@@ -623,13 +627,13 @@ char *xabspath(char *path, int exact)
     libbuf[len] = 0;
     if (*libbuf == '/') {
       llist_traverse(done, free);
-      done=0;
+      done = 0;
       close(dirfd);
-      dirfd = open("/", O_PATH);
+      dirfd = -1;
     }
     free(new);
 
-    // prepend components of new path. Note symlink to "/" will leave new NULL
+    // prepend components of new path. Note symlink to "/" will leave new = NULL
     tail = splitpath(libbuf, &new);
 
     // symlink to "/" will return null and leave tail alone
@@ -638,11 +642,10 @@ char *xabspath(char *path, int exact)
       todo = new;
     }
   }
-  close(dirfd);
+  xclose(dirfd);
 
-  // At this point done has the path, in reverse order. Reverse list while
-  // calculating buffer length.
-
+  // At this point done has the path, in reverse order. Reverse list
+  // (into todo) while calculating buffer length.
   try = 2;
   while (done) {
     struct string_list *temp = llist_pop(&done);
@@ -654,20 +657,18 @@ char *xabspath(char *path, int exact)
   }
 
   // Assemble return buffer
-
-  ret = xmalloc(try);
-  *ret = '/';
-  ret [try = 1] = 0;
+  *(str = xmalloc(try)) = '/';
+  str[try = 1] = 0;
   while (todo) {
-    if (try>1) ret[try++] = '/';
-    try = stpcpy(ret+try, todo->str) - ret;
+    if (try>1) str[try++] = '/';
+    try = stpcpy(str+try, todo->str) - str;
     free(llist_pop(&todo));
   }
 
-  return ret;
+  return str;
 
 error:
-  close(dirfd);
+  xclose(dirfd);
   llist_traverse(todo, free);
   llist_traverse(done, free);
 
@@ -755,7 +756,7 @@ void xsetuser(struct passwd *pwd)
 
 // This can return null (meaning file not found).  It just won't return null
 // for memory allocation reasons.
-char *xreadlink(char *name)
+char *xreadlinkat(int dir, char *name)
 {
   int len, size = 0;
   char *buf = 0;
@@ -764,7 +765,7 @@ char *xreadlink(char *name)
   for(;;) {
     size +=64;
     buf = xrealloc(buf, size);
-    len = readlink(name, buf, size);
+    len = readlinkat(dir, name, buf, size);
 
     if (len<0) {
       free(buf);
@@ -776,6 +777,12 @@ char *xreadlink(char *name)
     }
   }
 }
+
+char *xreadlink(char *name)
+{
+  return xreadlinkat(AT_FDCWD, name);
+}
+
 
 char *xreadfile(char *name, char *buf, off_t len)
 {
@@ -920,6 +927,10 @@ long long xparsemillitime(char *arg)
   return (l*1000LL)+ll;
 }
 
+void xparsetimespec(char *arg, struct timespec *ts)
+{
+  ts->tv_sec = xparsetime(arg, 9, &ts->tv_nsec);
+}
 
 
 // Compile a regular expression into a regex_t
@@ -986,6 +997,7 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
   struct tm tm;
   time_t now = *t;
   int len = 0, i = 0;
+  long long ll;
   // Formats with seconds come first. Posix can't agree on whether 12 digits
   // has year before (touch -t) or year after (date), so support both.
   char *s = str, *p, *oldtz = 0, *formats[] = {"%Y-%m-%d %T", "%Y-%m-%dT%T",
@@ -997,21 +1009,14 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
   *nano = 0;
 
   // Parse @UNIXTIME[.FRACTION]
-  if (*str == '@') {
-    long long ll;
-
-    // Collect seconds and nanoseconds.
-    // &ll is not just t because we can't guarantee time_t is 64 bit (yet).
-    sscanf(s, "@%lld%n", &ll, &len);
-    if (s[len]=='.') {
-      s += len+1;
-      for (len = 0; len<9; len++) {
-        *nano *= 10;
-        if (isdigit(*s)) *nano += *s++-'0';
-      }
+  if (1 == sscanf(s, "@%lld%n", &ll, &len)) {
+    if (*(s+=len)=='.') for (len = 0, s++; len<9; len++) {
+      *nano *= 10;
+      if (isdigit(*s)) *nano += *s++-'0';
     }
+    // Can't be sure t is 64 bit (yet) for %lld above
     *t = ll;
-    if (!s[len]) return;
+    if (!*s) return;
     xvali_date(0, str);
   }
 
@@ -1039,25 +1044,33 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
       }
 
       // Handle optional Z or +HH[[:]MM] timezone
+      while (isspace(*p)) p++;
       if (*p && strchr("Z+-", *p)) {
-        unsigned hh, mm = 0, len;
-        char *tz, sign = *p++;
+        unsigned uu[3] = {0}, n = 0, nn = 0;
+        char *tz = 0, sign = *p++;
 
         if (sign == 'Z') tz = "UTC0";
-        else if (sscanf(p, "%2u%2u%n",  &hh, &mm, &len) == 2
-              || sscanf(p, "%2u%n:%2u%n", &hh, &len, &mm, &len) > 0)
-        {
+        else if (0<sscanf(p, " %u%n : %u%n : %u%n", uu,&n,uu+1,&nn,uu+2,&nn)) {
+          if (n>2) {
+            uu[1] += uu[0]%100;
+            uu[0] /= 100;
+          }
+          if (n>nn) nn = n;
+          if (!nn) continue;
+
           // flip sign because POSIX UTC offsets are backwards
-          sprintf(tz = libbuf, "UTC%c%02d:%02d", "+-"[sign=='+'], hh, mm);
-          p += len;
-        } else continue;
+          sprintf(tz = libbuf, "UTC%c%02u:%02u:%02u", "+-"[sign=='+'],
+            uu[0], uu[1], uu[2]);
+          p += nn;
+        }
 
         if (!oldtz) {
           oldtz = getenv("TZ");
           if (oldtz) oldtz = xstrdup(oldtz);
         }
-        setenv("TZ", tz, 1);
+        if (tz) setenv("TZ", tz, 1);
       }
+      while (isspace(*p)) p++;
 
       if (!*p) break;
     }

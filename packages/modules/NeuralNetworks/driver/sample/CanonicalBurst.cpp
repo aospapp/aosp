@@ -41,13 +41,17 @@ Burst::OptionalCacheHold Burst::cacheMemory(const SharedMemory& /*memory*/) cons
 
 ExecutionResult<std::pair<std::vector<OutputShape>, Timing>> Burst::execute(
         const Request& request, MeasureTiming measure, const nn::OptionalTimePoint& deadline,
-        const nn::OptionalDuration& loopTimeoutDuration) const {
-    return kPreparedModel->execute(request, measure, deadline, loopTimeoutDuration);
+        const nn::OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& /*hints*/,
+        const std::vector<ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
+    return kPreparedModel->execute(request, measure, deadline, loopTimeoutDuration, {}, {});
 }
 
 GeneralResult<SharedExecution> Burst::createReusableExecution(
         const Request& request, MeasureTiming measure,
-        const nn::OptionalDuration& loopTimeoutDuration) const {
+        const nn::OptionalDuration& loopTimeoutDuration,
+        const std::vector<TokenValuePair>& /*hints*/,
+        const std::vector<ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     return std::make_shared<DefaultExecution>(kPreparedModel, request, measure,
                                               loopTimeoutDuration);
 }

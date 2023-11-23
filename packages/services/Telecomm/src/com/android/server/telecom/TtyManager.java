@@ -52,7 +52,7 @@ final class TtyManager implements WiredHeadsetManager.Listener {
                 TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
         mContext.registerReceiver(mReceiver, intentFilter,
                 android.Manifest.permission.MODIFY_PHONE_STATE,
-                null);
+                null, Context.RECEIVER_EXPORTED);
 
         updateCurrentTtyMode();
     }

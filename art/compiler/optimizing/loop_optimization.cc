@@ -491,9 +491,9 @@ HLoopOptimization::HLoopOptimization(HGraph* graph,
 }
 
 bool HLoopOptimization::Run() {
-  // Skip if there is no loop or the graph has try-catch/irreducible loops.
+  // Skip if there is no loop or the graph has irreducible loops.
   // TODO: make this less of a sledgehammer.
-  if (!graph_->HasLoops() || graph_->HasTryCatch() || graph_->HasIrreducibleLoops()) {
+  if (!graph_->HasLoops() || graph_->HasIrreducibleLoops()) {
     return false;
   }
 
@@ -502,7 +502,7 @@ bool HLoopOptimization::Run() {
   loop_allocator_ = &allocator;
 
   // Perform loop optimizations.
-  bool didLoopOpt = LocalRun();
+  const bool did_loop_opt = LocalRun();
   if (top_loop_ == nullptr) {
     graph_->SetHasLoops(false);  // no more loops
   }
@@ -511,7 +511,7 @@ bool HLoopOptimization::Run() {
   loop_allocator_ = nullptr;
   last_loop_ = top_loop_ = nullptr;
 
-  return didLoopOpt;
+  return did_loop_opt;
 }
 
 //
@@ -519,7 +519,6 @@ bool HLoopOptimization::Run() {
 //
 
 bool HLoopOptimization::LocalRun() {
-  bool didLoopOpt = false;
   // Build the linear order using the phase-local allocator. This step enables building
   // a loop hierarchy that properly reflects the outer-inner and previous-next relation.
   ScopedArenaVector<HBasicBlock*> linear_order(loop_allocator_->Adapter(kArenaAllocLinearOrder));
@@ -532,34 +531,37 @@ bool HLoopOptimization::LocalRun() {
     }
   }
 
+  // TODO(solanes): How can `top_loop_` be null if `graph_->HasLoops()` is true?
+  if (top_loop_ == nullptr) {
+    return false;
+  }
+
   // Traverse the loop hierarchy inner-to-outer and optimize. Traversal can use
   // temporary data structures using the phase-local allocator. All new HIR
   // should use the global allocator.
-  if (top_loop_ != nullptr) {
-    ScopedArenaSet<HInstruction*> iset(loop_allocator_->Adapter(kArenaAllocLoopOptimization));
-    ScopedArenaSafeMap<HInstruction*, HInstruction*> reds(
-        std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
-    ScopedArenaSet<ArrayReference> refs(loop_allocator_->Adapter(kArenaAllocLoopOptimization));
-    ScopedArenaSafeMap<HInstruction*, HInstruction*> map(
-        std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
-    ScopedArenaSafeMap<HInstruction*, HInstruction*> perm(
-        std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
-    // Attach.
-    iset_ = &iset;
-    reductions_ = &reds;
-    vector_refs_ = &refs;
-    vector_map_ = &map;
-    vector_permanent_map_ = &perm;
-    // Traverse.
-    didLoopOpt = TraverseLoopsInnerToOuter(top_loop_);
-    // Detach.
-    iset_ = nullptr;
-    reductions_ = nullptr;
-    vector_refs_ = nullptr;
-    vector_map_ = nullptr;
-    vector_permanent_map_ = nullptr;
-  }
-  return didLoopOpt;
+  ScopedArenaSet<HInstruction*> iset(loop_allocator_->Adapter(kArenaAllocLoopOptimization));
+  ScopedArenaSafeMap<HInstruction*, HInstruction*> reds(
+      std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
+  ScopedArenaSet<ArrayReference> refs(loop_allocator_->Adapter(kArenaAllocLoopOptimization));
+  ScopedArenaSafeMap<HInstruction*, HInstruction*> map(
+      std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
+  ScopedArenaSafeMap<HInstruction*, HInstruction*> perm(
+      std::less<HInstruction*>(), loop_allocator_->Adapter(kArenaAllocLoopOptimization));
+  // Attach.
+  iset_ = &iset;
+  reductions_ = &reds;
+  vector_refs_ = &refs;
+  vector_map_ = &map;
+  vector_permanent_map_ = &perm;
+  // Traverse.
+  const bool did_loop_opt = TraverseLoopsInnerToOuter(top_loop_);
+  // Detach.
+  iset_ = nullptr;
+  reductions_ = nullptr;
+  vector_refs_ = nullptr;
+  vector_map_ = nullptr;
+  vector_permanent_map_ = nullptr;
+  return did_loop_opt;
 }
 
 void HLoopOptimization::AddLoop(HLoopInformation* loop_info) {
@@ -618,6 +620,18 @@ bool HLoopOptimization::TraverseLoopsInnerToOuter(LoopNode* node) {
       induction_range_.ReVisit(node->loop_info);
       changed = true;
     }
+
+    CalculateAndSetTryCatchKind(node);
+    if (node->try_catch_kind == LoopNode::TryCatchKind::kHasTryCatch) {
+      // The current optimizations assume that the loops do not contain try/catches.
+      // TODO(solanes, 227283906): Assess if we can modify them to work with try/catches.
+      continue;
+    }
+
+    DCHECK(node->try_catch_kind == LoopNode::TryCatchKind::kNoTryCatch)
+        << "kind: " << static_cast<int>(node->try_catch_kind)
+        << ". LoopOptimization requires the loops to not have try catches.";
+
     // Repeat simplifications in the loop-body until no more changes occur.
     // Note that since each simplification consists of eliminating code (without
     // introducing new code), this process is always finite.
@@ -633,6 +647,37 @@ bool HLoopOptimization::TraverseLoopsInnerToOuter(LoopNode* node) {
     }
   }
   return changed;
+}
+
+void HLoopOptimization::CalculateAndSetTryCatchKind(LoopNode* node) {
+  DCHECK(node != nullptr);
+  DCHECK(node->try_catch_kind == LoopNode::TryCatchKind::kUnknown)
+      << "kind: " << static_cast<int>(node->try_catch_kind)
+      << ". SetTryCatchKind should be called only once per LoopNode.";
+
+  // If a inner loop has a try catch, then the outer loop has one too (as it contains `inner`).
+  // Knowing this, we could skip iterating through all of the outer loop's parents with a simple
+  // check.
+  for (LoopNode* inner = node->inner; inner != nullptr; inner = inner->next) {
+    DCHECK(inner->try_catch_kind != LoopNode::TryCatchKind::kUnknown)
+        << "kind: " << static_cast<int>(inner->try_catch_kind)
+        << ". Should have updated the inner loop before the outer loop.";
+
+    if (inner->try_catch_kind == LoopNode::TryCatchKind::kHasTryCatch) {
+      node->try_catch_kind = LoopNode::TryCatchKind::kHasTryCatch;
+      return;
+    }
+  }
+
+  for (HBlocksInLoopIterator it_loop(*node->loop_info); !it_loop.Done(); it_loop.Advance()) {
+    HBasicBlock* block = it_loop.Current();
+    if (block->GetTryCatchInformation() != nullptr) {
+      node->try_catch_kind = LoopNode::TryCatchKind::kHasTryCatch;
+      return;
+    }
+  }
+
+  node->try_catch_kind = LoopNode::TryCatchKind::kNoTryCatch;
 }
 
 //
@@ -781,8 +826,6 @@ bool HLoopOptimization::TryOptimizeInnerLoopFinite(LoopNode* node) {
 bool HLoopOptimization::OptimizeInnerLoop(LoopNode* node) {
   return TryOptimizeInnerLoopFinite(node) || TryPeelingAndUnrolling(node);
 }
-
-
 
 //
 // Scalar loop peeling and unrolling: generic part methods.
@@ -1175,7 +1218,7 @@ void HLoopOptimization::Vectorize(LoopNode* node,
   // for ( ; i < stc; i += 1)
   //    <loop-body>
   if (needs_cleanup) {
-    DCHECK(!IsInPredicatedVectorizationMode() || vector_runtime_test_a_ != nullptr);
+    DCHECK_IMPLIES(IsInPredicatedVectorizationMode(), vector_runtime_test_a_ != nullptr);
     vector_mode_ = kSequential;
     GenerateNewLoop(node,
                     block,
@@ -1331,7 +1374,7 @@ bool HLoopOptimization::VectorizeDef(LoopNode* node,
     }
     if (TrySetVectorType(type, &restrictions) &&
         node->loop_info->IsDefinedOutOfTheLoop(base) &&
-        induction_range_.IsUnitStride(instruction, index, graph_, &offset) &&
+        induction_range_.IsUnitStride(instruction->GetBlock(), index, graph_, &offset) &&
         VectorizeUse(node, value, generate_code, type, restrictions)) {
       if (generate_code) {
         GenerateVecSub(index, offset);
@@ -1412,7 +1455,7 @@ bool HLoopOptimization::VectorizeUse(LoopNode* node,
     HInstruction* offset = nullptr;
     if (HVecOperation::ToSignedType(type) == HVecOperation::ToSignedType(instruction->GetType()) &&
         node->loop_info->IsDefinedOutOfTheLoop(base) &&
-        induction_range_.IsUnitStride(instruction, index, graph_, &offset)) {
+        induction_range_.IsUnitStride(instruction->GetBlock(), index, graph_, &offset)) {
       if (generate_code) {
         GenerateVecSub(index, offset);
         GenerateVecMem(instruction, vector_map_->Get(index), nullptr, offset, type);
@@ -2387,7 +2430,7 @@ bool HLoopOptimization::TrySetPhiInduction(HPhi* phi, bool restrict_uses) {
 }
 
 bool HLoopOptimization::TrySetPhiReduction(HPhi* phi) {
-  DCHECK(iset_->empty());
+  DCHECK(phi->IsLoopHeaderPhi());
   // Only unclassified phi cycles are candidates for reductions.
   if (induction_range_.IsClassified(phi)) {
     return false;
@@ -2399,15 +2442,18 @@ bool HLoopOptimization::TrySetPhiReduction(HPhi* phi) {
     HInstruction* reduction = inputs[1];
     if (HasReductionFormat(reduction, phi)) {
       HLoopInformation* loop_info = phi->GetBlock()->GetLoopInformation();
-      uint32_t use_count = 0;
-      bool single_use_inside_loop =
+      DCHECK(loop_info->Contains(*reduction->GetBlock()));
+      const bool single_use_inside_loop =
           // Reduction update only used by phi.
           reduction->GetUses().HasExactlyOneElement() &&
           !reduction->HasEnvironmentUses() &&
           // Reduction update is only use of phi inside the loop.
-          IsOnlyUsedAfterLoop(loop_info, phi, /*collect_loop_uses*/ true, &use_count) &&
-          iset_->size() == 1;
-      iset_->clear();  // leave the way you found it
+          std::none_of(phi->GetUses().begin(),
+                       phi->GetUses().end(),
+                       [loop_info, reduction](const HUseListNode<HInstruction*>& use) {
+                         HInstruction* user = use.GetUser();
+                         return user != reduction && loop_info->Contains(*user->GetBlock());
+                       });
       if (single_use_inside_loop) {
         // Link reduction back, and start recording feed value.
         reductions_->Put(reduction, phi);
@@ -2497,8 +2543,7 @@ bool HLoopOptimization::IsOnlyUsedAfterLoop(HLoopInformation* loop_info,
   for (const HUseListNode<HInstruction*>& use : instruction->GetUses()) {
     HInstruction* user = use.GetUser();
     if (iset_->find(user) == iset_->end()) {  // not excluded?
-      HLoopInformation* other_loop_info = user->GetBlock()->GetLoopInformation();
-      if (other_loop_info != nullptr && other_loop_info->IsIn(*loop_info)) {
+      if (loop_info->Contains(*user->GetBlock())) {
         // If collect_loop_uses is set, simply keep adding those uses to the set.
         // Otherwise, reject uses inside the loop that were not already in the set.
         if (collect_loop_uses) {

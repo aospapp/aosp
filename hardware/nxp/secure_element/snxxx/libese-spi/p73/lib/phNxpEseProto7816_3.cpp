@@ -189,7 +189,7 @@ static ESESTATUS TransceiveProcess(void);
  * \ingroup ISO7816-3_protocol_lib
  * \brief      This internal function is used to
  *                  1. Send propreitary S-Frame command for resynch
- *T=1 sequence at client
+ *T=1 sequence at worker
  *
  */
 static ESESTATUS phNxpEseProto7816_RSync(void);
@@ -1226,8 +1226,9 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
     phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = SFRAME;
     if (frameType != WTX_REQ) {
       phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
+      phNxpEseProto7816_ResetRecovery();
     }
-    phNxpEseProto7816_ResetRecovery();
+
     switch (frameType) {
       case RESYNCH_REQ:
         phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo.sFrameType =

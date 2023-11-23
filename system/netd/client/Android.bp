@@ -34,7 +34,7 @@ cc_library {
     ],
     export_header_lib_headers: ["libnetd_client_headers"],
     include_dirs: [
-        "system/netd/libnetdutils/include",
+        "frameworks/libs/net/common/netd/libnetdutils/include",
     ],
     defaults: ["netd_defaults"],
     sanitize: {
@@ -42,7 +42,6 @@ cc_library {
     },
     apex_available: [
         "//apex_available:platform",
-        "com.android.tethering",
     ],
 }
 

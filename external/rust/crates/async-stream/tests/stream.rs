@@ -81,6 +81,42 @@ async fn yield_multi_value() {
 }
 
 #[tokio::test]
+async fn unit_yield_in_select() {
+    use tokio::select;
+
+    async fn do_stuff_async() {}
+
+    let s = stream! {
+        select! {
+            _ = do_stuff_async() => yield,
+            else => yield,
+        }
+    };
+
+    let values: Vec<_> = s.collect().await;
+    assert_eq!(values.len(), 1);
+}
+
+#[tokio::test]
+async fn yield_with_select() {
+    use tokio::select;
+
+    async fn do_stuff_async() {}
+    async fn more_async_work() {}
+
+    let s = stream! {
+        select! {
+            _ = do_stuff_async() => yield "hey",
+            _ = more_async_work() => yield "hey",
+            else => yield "hey",
+        }
+    };
+
+    let values: Vec<_> = s.collect().await;
+    assert_eq!(values, vec!["hey"]);
+}
+
+#[tokio::test]
 async fn return_stream() {
     fn build_stream() -> impl Stream<Item = u32> {
         stream! {
@@ -101,7 +137,7 @@ async fn return_stream() {
 
 #[tokio::test]
 async fn consume_channel() {
-    let (mut tx, mut rx) = mpsc::channel(10);
+    let (tx, mut rx) = mpsc::channel(10);
 
     let s = stream! {
         while let Some(v) = rx.recv().await {
@@ -156,6 +192,41 @@ async fn stream_in_stream() {
 
     let values: Vec<_> = s.collect().await;
     assert_eq!(3, values.len());
+}
+
+#[tokio::test]
+async fn yield_non_unpin_value() {
+    let s: Vec<_> = stream! {
+        for i in 0..3 {
+            yield async move { i };
+        }
+    }
+    .buffered(1)
+    .collect()
+    .await;
+
+    assert_eq!(s, vec![0, 1, 2]);
+}
+
+#[test]
+fn inner_try_stream() {
+    use async_stream::try_stream;
+    use tokio::select;
+
+    async fn do_stuff_async() {}
+
+    let _ = stream! {
+        select! {
+            _ = do_stuff_async() => {
+                let another_s = try_stream! {
+                    yield;
+                };
+                let _: Result<(), ()> = Box::pin(another_s).next().await.unwrap();
+            },
+            else => {},
+        }
+        yield
+    };
 }
 
 #[test]

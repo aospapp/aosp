@@ -15,6 +15,7 @@
  */
 package android.net;
 
+import android.net.DscpPolicy;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -43,4 +44,8 @@ oneway interface INetworkAgentRegistry {
     void sendQosCallbackError(int qosCallbackId, int exceptionType);
     void sendTeardownDelayMs(int teardownDelayMs);
     void sendLingerDuration(int durationMs);
+    void sendAddDscpPolicy(in DscpPolicy policy);
+    void sendRemoveDscpPolicy(int policyId);
+    void sendRemoveAllDscpPolicies();
+    void sendUnregisterAfterReplacement(int timeoutMillis);
 }

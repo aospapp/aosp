@@ -90,6 +90,19 @@ public class DatabaseStatementTest extends AndroidTestCase implements Performanc
     }
 
     @MediumTest
+    public void testExecutePragmaStatement() {
+        SQLiteStatement statement = mDatabase.compileStatement("PRAGMA busy_timeout = 12000");
+        statement.execute();
+        statement.close();
+
+        // Assert connection has busy timeout configured
+        try (Cursor c = mDatabase.rawQuery("PRAGMA busy_timeout;", null)) {
+            assertTrue(c.moveToNext());
+            assertEquals(c.getInt(0), 12000);
+        }
+    }
+
+    @MediumTest
     public void testSimpleQuery() throws Exception {
         mDatabase.execSQL("CREATE TABLE test (num INTEGER NOT NULL, str TEXT NOT NULL);");
         mDatabase.execSQL("INSERT INTO test VALUES (1234, 'hello');");

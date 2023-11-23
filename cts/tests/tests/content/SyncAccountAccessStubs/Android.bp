@@ -24,7 +24,11 @@ android_test_helper_app {
     static_libs: ["android-support-annotations"],
     srcs: ["src/**/*.java"],
     sdk_version: "current",
+    package_splits: [
+        "mdpi-v4",
+    ],
     test_suites: [
+        "mts",
         "cts",
         "general-tests",
     ],
@@ -34,5 +38,5 @@ android_test_helper_app {
     dex_preopt: {
         enabled: false,
     },
-    min_sdk_version : "29"
+    min_sdk_version: "29",
 }

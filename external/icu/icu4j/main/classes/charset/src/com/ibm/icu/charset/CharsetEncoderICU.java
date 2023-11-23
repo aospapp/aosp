@@ -87,7 +87,7 @@ public abstract class CharsetEncoderICU extends CharsetEncoder {
     };
 
     /*
-     * Construcs a new encoder for the given charset
+     * Constructs a new encoder for the given charset
      *
      * @param cs
      *            for which the decoder is created
@@ -767,7 +767,7 @@ public abstract class CharsetEncoderICU extends CharsetEncoder {
      * Write the codepage substitution character.
      * Subclasses to override this method.
      * For stateful converters, it is typically necessary to handle this
-     * specificially for the converter in order to properly maintain the state.
+     * specifically for the converter in order to properly maintain the state.
      * @param source The input character buffer
      * @param target The output byte buffer
      * @param offsets

@@ -15,20 +15,28 @@ pub mod gdb;
 
 pub mod client;
 
+use std::convert::TryInto;
 use std::fmt::{self, Display};
 use std::fs::File;
 use std::os::raw::c_int;
+use std::path::PathBuf;
 use std::result::Result as StdResult;
 use std::str::FromStr;
 use std::sync::{mpsc, Arc};
 
 use std::thread::JoinHandle;
 
-use libc::{EINVAL, EIO, ENODEV};
+use remain::sorted;
+use thiserror::Error;
+
+use libc::{EINVAL, EIO, ENODEV, ENOTSUP, ERANGE};
 use serde::{Deserialize, Serialize};
 
+pub use balloon_control::BalloonStats;
+use balloon_control::{BalloonTubeCommand, BalloonTubeResult};
+
 use base::{
-    error, with_as_descriptor, AsRawDescriptor, Error as SysError, Event, ExternalMapping, Fd,
+    error, with_as_descriptor, AsRawDescriptor, Error as SysError, Event, ExternalMapping,
     FromRawDescriptor, IntoRawDescriptor, Killable, MappedRegion, MemoryMappingArena,
     MemoryMappingBuilder, MemoryMappingBuilderUnix, MmapError, Protection, Result, SafeDescriptor,
     SharedMemory, Tube, SIGRTMIN,
@@ -100,6 +108,17 @@ impl Default for VmRunMode {
     }
 }
 
+// Trait for devices that get notification on specific GPE trigger
+pub trait GpeNotify: Send {
+    fn notify(&mut self) {}
+}
+
+pub trait PmResource {
+    fn pwrbtn_evt(&mut self) {}
+    fn gpe_evt(&mut self, _gpe: u32) {}
+    fn register_gpe_notify_dev(&mut self, _gpe: u32, _notify_dev: Arc<Mutex<dyn GpeNotify>>) {}
+}
+
 /// The maximum number of devices that can be listed in one `UsbControlCommand`.
 ///
 /// This value was set to be equal to `xhci_regs::MAX_PORTS` for convenience, but it is not
@@ -117,50 +136,12 @@ pub enum BalloonControlCommand {
     Stats,
 }
 
-// Balloon commands that are send on the balloon command tube.
-//
-// This is the same as BalloonControlCommand above, but includes an ID for the
-// Stats request so that we can discard stale stats if any previous stats
-// request failed or timed out.
-#[derive(Serialize, Deserialize, Debug)]
-pub enum BalloonTubeCommand {
-    Adjust { num_bytes: u64 },
-    Stats { id: u64 },
-}
-
-// BalloonStats holds stats returned from the stats_queue.
-#[derive(Default, Serialize, Deserialize, Debug)]
-pub struct BalloonStats {
-    pub swap_in: Option<u64>,
-    pub swap_out: Option<u64>,
-    pub major_faults: Option<u64>,
-    pub minor_faults: Option<u64>,
-    pub free_memory: Option<u64>,
-    pub total_memory: Option<u64>,
-    pub available_memory: Option<u64>,
-    pub disk_caches: Option<u64>,
-    pub hugetlb_allocations: Option<u64>,
-    pub hugetlb_failures: Option<u64>,
-}
-
 // BalloonControlResult holds results for BalloonControlCommand defined above.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum BalloonControlResult {
     Stats {
         stats: BalloonStats,
         balloon_actual: u64,
-    },
-}
-
-// BalloonTubeResult are results to BalloonTubeCommand defined above. This is
-// the same as BalloonControlResult, but with an added ID so that we can detect
-// stale balloon stats values queued to the balloon command tube.
-#[derive(Serialize, Deserialize, Debug)]
-pub enum BalloonTubeResult {
-    Stats {
-        stats: BalloonStats,
-        balloon_actual: u64,
-        id: u64,
     },
 }
 
@@ -180,7 +161,7 @@ impl Display for DiskControlCommand {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DiskControlResult {
     Ok,
     Err(SysError),
@@ -250,43 +231,142 @@ impl Display for UsbControlResult {
     }
 }
 
+/// Source of a `VmMemoryRequest::RegisterMemory` mapping.
 #[derive(Serialize, Deserialize)]
-pub enum VmMemoryRequest {
-    /// Register shared memory represented by the given descriptor into guest address space.
-    /// The response variant is `VmResponse::RegisterMemory`.
-    RegisterMemory(SharedMemory),
-    /// Similiar to `VmMemoryRequest::RegisterMemory`, but doesn't allocate new address space.
-    /// Useful for cases where the address space is already allocated (PCI regions).
-    RegisterFdAtPciBarOffset(Alloc, SafeDescriptor, usize, u64),
-    /// Similar to RegisterFdAtPciBarOffset, but is for buffers in the current address space.
-    RegisterHostPointerAtPciBarOffset(Alloc, u64),
-    /// Similiar to `RegisterFdAtPciBarOffset`, but uses Vulkano to map the resource instead of
-    /// the mmap system call.
-    RegisterVulkanMemoryAtPciBarOffset {
-        alloc: Alloc,
+pub enum VmMemorySource {
+    /// Register shared memory represented by the given descriptor.
+    SharedMemory(SharedMemory),
+    /// Register a file mapping from the given descriptor.
+    Descriptor {
+        /// File descriptor to map.
+        descriptor: SafeDescriptor,
+        /// Offset within the file in bytes.
+        offset: u64,
+        /// Size of the mapping in bytes.
+        size: u64,
+    },
+    /// Register memory mapped by Vulkano.
+    Vulkan {
         descriptor: SafeDescriptor,
         handle_type: u32,
         memory_idx: u32,
         physical_device_idx: u32,
-        offset: u64,
         size: u64,
     },
-    /// Unregister the given memory slot that was previously registered with `RegisterMemory*`.
-    UnregisterMemory(MemSlot),
+    /// Register the current rutabaga external mapping.
+    ExternalMapping { size: u64 },
+}
+
+impl VmMemorySource {
+    /// Map the resource and return its mapping and size in bytes.
+    pub fn map(
+        self,
+        map_request: Arc<Mutex<Option<ExternalMapping>>>,
+        gralloc: &mut RutabagaGralloc,
+        read_only: bool,
+    ) -> Result<(Box<dyn MappedRegion>, u64)> {
+        let (mem_region, size) = match self {
+            VmMemorySource::Descriptor {
+                descriptor,
+                offset,
+                size,
+            } => (map_descriptor(&descriptor, offset, size, read_only)?, size),
+            VmMemorySource::SharedMemory(shm) => {
+                (map_descriptor(&shm, 0, shm.size(), read_only)?, shm.size())
+            }
+            VmMemorySource::Vulkan {
+                descriptor,
+                handle_type,
+                memory_idx,
+                physical_device_idx,
+                size,
+            } => {
+                let mapped_region = match gralloc.import_and_map(
+                    RutabagaHandle {
+                        os_handle: descriptor,
+                        handle_type,
+                    },
+                    VulkanInfo {
+                        memory_idx,
+                        physical_device_idx,
+                    },
+                    size,
+                ) {
+                    Ok(mapped_region) => mapped_region,
+                    Err(e) => {
+                        error!("gralloc failed to import and map: {}", e);
+                        return Err(SysError::new(EINVAL));
+                    }
+                };
+                (mapped_region, size)
+            }
+            VmMemorySource::ExternalMapping { size } => {
+                let mem = map_request
+                    .lock()
+                    .take()
+                    .ok_or_else(|| VmMemoryResponse::Err(SysError::new(EINVAL)))
+                    .unwrap();
+                let mapped_region: Box<dyn MappedRegion> = Box::new(mem);
+                (mapped_region, size)
+            }
+        };
+        Ok((mem_region, size))
+    }
+}
+
+/// Destination of a `VmMemoryRequest::RegisterMemory` mapping in guest address space.
+#[derive(Serialize, Deserialize)]
+pub enum VmMemoryDestination {
+    /// Map at an offset within an existing PCI BAR allocation.
+    ExistingAllocation { allocation: Alloc, offset: u64 },
+    /// Create a new anonymous allocation in MMIO space.
+    NewAllocation,
+    /// Map at the specified guest physical address.
+    GuestPhysicalAddress(u64),
+}
+
+impl VmMemoryDestination {
+    /// Allocate and return the guest address of a memory mapping destination.
+    pub fn allocate(self, allocator: &mut SystemAllocator, size: u64) -> Result<GuestAddress> {
+        let addr = match self {
+            VmMemoryDestination::ExistingAllocation { allocation, offset } => allocator
+                .mmio_allocator(MmioType::High)
+                .address_from_pci_offset(allocation, offset, size)
+                .map_err(|_e| SysError::new(EINVAL))?,
+            VmMemoryDestination::NewAllocation => {
+                let alloc = allocator.get_anon_alloc();
+                allocator
+                    .mmio_allocator(MmioType::High)
+                    .allocate(size, alloc, "vmcontrol_register_memory".to_string())
+                    .map_err(|_e| SysError::new(EINVAL))?
+            }
+            VmMemoryDestination::GuestPhysicalAddress(gpa) => gpa,
+        };
+        Ok(GuestAddress(addr))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum VmMemoryRequest {
+    RegisterMemory {
+        /// Source of the memory to register (mapped file descriptor, shared memory region, etc.)
+        source: VmMemorySource,
+        /// Where to map the memory in the guest.
+        dest: VmMemoryDestination,
+        /// Whether to map the memory read only (true) or read-write (false).
+        read_only: bool,
+    },
     /// Allocate GPU buffer of a given size/format and register the memory into guest address space.
     /// The response variant is `VmResponse::AllocateAndRegisterGpuMemory`
     AllocateAndRegisterGpuMemory {
         width: u32,
         height: u32,
         format: u32,
+        /// Where to map the memory in the guest.
+        dest: VmMemoryDestination,
     },
-    /// Register mmaped memory into the hypervisor's EPT.
-    RegisterMmapMemory {
-        descriptor: SafeDescriptor,
-        size: usize,
-        offset: u64,
-        gpa: u64,
-    },
+    /// Unregister the given memory slot that was previously registered with `RegisterMemory`.
+    UnregisterMemory(MemSlot),
 }
 
 impl VmMemoryRequest {
@@ -308,150 +388,115 @@ impl VmMemoryRequest {
     ) -> VmMemoryResponse {
         use self::VmMemoryRequest::*;
         match self {
-            RegisterMemory(ref shm) => {
-                match register_memory(vm, sys_allocator, shm, shm.size() as usize, None) {
-                    Ok((pfn, slot)) => VmMemoryResponse::RegisterMemory { pfn, slot },
-                    Err(e) => VmMemoryResponse::Err(e),
-                }
-            }
-            RegisterFdAtPciBarOffset(alloc, ref descriptor, size, offset) => {
-                match register_memory(vm, sys_allocator, descriptor, size, Some((alloc, offset))) {
-                    Ok((pfn, slot)) => VmMemoryResponse::RegisterMemory { pfn, slot },
-                    Err(e) => VmMemoryResponse::Err(e),
-                }
+            RegisterMemory {
+                source,
+                dest,
+                read_only,
+            } => {
+                let (mapped_region, size) = match source.map(map_request, gralloc, read_only) {
+                    Ok((region, size)) => (region, size),
+                    Err(e) => return VmMemoryResponse::Err(e),
+                };
+
+                let guest_addr = match dest.allocate(sys_allocator, size) {
+                    Ok(addr) => addr,
+                    Err(e) => return VmMemoryResponse::Err(e),
+                };
+
+                let slot = match vm.add_memory_region(guest_addr, mapped_region, read_only, false) {
+                    Ok(slot) => slot,
+                    Err(e) => return VmMemoryResponse::Err(e),
+                };
+                let pfn = guest_addr.0 >> 12;
+                VmMemoryResponse::RegisterMemory { pfn, slot }
             }
             UnregisterMemory(slot) => match vm.remove_memory_region(slot) {
                 Ok(_) => VmMemoryResponse::Ok,
                 Err(e) => VmMemoryResponse::Err(e),
             },
-            RegisterHostPointerAtPciBarOffset(alloc, offset) => {
-                let mem = map_request
-                    .lock()
-                    .take()
-                    .ok_or_else(|| VmMemoryResponse::Err(SysError::new(EINVAL)))
-                    .unwrap();
-
-                match register_host_pointer(vm, sys_allocator, Box::new(mem), (alloc, offset)) {
-                    Ok((pfn, slot)) => VmMemoryResponse::RegisterMemory { pfn, slot },
-                    Err(e) => VmMemoryResponse::Err(e),
-                }
-            }
-            RegisterVulkanMemoryAtPciBarOffset {
-                alloc,
-                descriptor,
-                handle_type,
-                memory_idx,
-                physical_device_idx,
-                offset,
-                size,
-            } => {
-                let mapped_region = match gralloc.import_and_map(
-                    RutabagaHandle {
-                        os_handle: descriptor,
-                        handle_type,
-                    },
-                    VulkanInfo {
-                        memory_idx,
-                        physical_device_idx,
-                    },
-                    size,
-                ) {
-                    Ok(mapped_region) => mapped_region,
-                    Err(e) => {
-                        error!("gralloc failed to import and map: {}", e);
-                        return VmMemoryResponse::Err(SysError::new(EINVAL));
-                    }
-                };
-
-                match register_host_pointer(vm, sys_allocator, mapped_region, (alloc, offset)) {
-                    Ok((pfn, slot)) => VmMemoryResponse::RegisterMemory { pfn, slot },
-                    Err(e) => VmMemoryResponse::Err(e),
-                }
-            }
             AllocateAndRegisterGpuMemory {
                 width,
                 height,
                 format,
+                dest,
             } => {
-                let img = ImageAllocationInfo {
-                    width,
-                    height,
-                    drm_format: DrmFormat::from(format),
-                    // Linear layout is a requirement as virtio wayland guest expects
-                    // this for CPU access to the buffer. Scanout and texturing are
-                    // optional as the consumer (wayland compositor) is expected to
-                    // fall-back to a less efficient meachnisms for presentation if
-                    // neccesary. In practice, linear buffers for commonly used formats
-                    // will also support scanout and texturing.
-                    flags: RutabagaGrallocFlags::empty().use_linear(true),
+                let (mapped_region, size, descriptor, gpu_desc) =
+                    match Self::allocate_gpu_memory(gralloc, width, height, format) {
+                        Ok(v) => v,
+                        Err(e) => return VmMemoryResponse::Err(e),
+                    };
+
+                let guest_addr = match dest.allocate(sys_allocator, size) {
+                    Ok(addr) => addr,
+                    Err(e) => return VmMemoryResponse::Err(e),
                 };
 
-                let reqs = match gralloc.get_image_memory_requirements(img) {
-                    Ok(reqs) => reqs,
-                    Err(e) => {
-                        error!("gralloc failed to get image requirements: {}", e);
-                        return VmMemoryResponse::Err(SysError::new(EINVAL));
-                    }
+                let slot = match vm.add_memory_region(guest_addr, mapped_region, false, false) {
+                    Ok(slot) => slot,
+                    Err(e) => return VmMemoryResponse::Err(e),
                 };
+                let pfn = guest_addr.0 >> 12;
 
-                let handle = match gralloc.allocate_memory(reqs) {
-                    Ok(handle) => handle,
-                    Err(e) => {
-                        error!("gralloc failed to allocate memory: {}", e);
-                        return VmMemoryResponse::Err(SysError::new(EINVAL));
-                    }
-                };
-
-                let mut desc = GpuMemoryDesc::default();
-                for i in 0..3 {
-                    desc.planes[i] = GpuMemoryPlaneDesc {
-                        stride: reqs.strides[i],
-                        offset: reqs.offsets[i],
-                    }
-                }
-
-                match register_memory(
-                    vm,
-                    sys_allocator,
-                    &handle.os_handle,
-                    reqs.size as usize,
-                    None,
-                ) {
-                    Ok((pfn, slot)) => VmMemoryResponse::AllocateAndRegisterGpuMemory {
-                        // Safe because ownership is transferred to SafeDescriptor via
-                        // into_raw_descriptor
-                        descriptor: unsafe {
-                            SafeDescriptor::from_raw_descriptor(
-                                handle.os_handle.into_raw_descriptor(),
-                            )
-                        },
-                        pfn,
-                        slot,
-                        desc,
-                    },
-                    Err(e) => VmMemoryResponse::Err(e),
-                }
-            }
-            RegisterMmapMemory {
-                ref descriptor,
-                size,
-                offset,
-                gpa,
-            } => {
-                let mmap = match MemoryMappingBuilder::new(size)
-                    .from_descriptor(descriptor)
-                    .offset(offset as u64)
-                    .build()
-                {
-                    Ok(v) => v,
-                    Err(_e) => return VmMemoryResponse::Err(SysError::new(EINVAL)),
-                };
-                match vm.add_memory_region(GuestAddress(gpa), Box::new(mmap), false, false) {
-                    Ok(_) => VmMemoryResponse::Ok,
-                    Err(e) => VmMemoryResponse::Err(e),
+                VmMemoryResponse::AllocateAndRegisterGpuMemory {
+                    descriptor,
+                    pfn,
+                    slot,
+                    desc: gpu_desc,
                 }
             }
         }
+    }
+
+    fn allocate_gpu_memory(
+        gralloc: &mut RutabagaGralloc,
+        width: u32,
+        height: u32,
+        format: u32,
+    ) -> Result<(Box<dyn MappedRegion>, u64, SafeDescriptor, GpuMemoryDesc)> {
+        let img = ImageAllocationInfo {
+            width,
+            height,
+            drm_format: DrmFormat::from(format),
+            // Linear layout is a requirement as virtio wayland guest expects
+            // this for CPU access to the buffer. Scanout and texturing are
+            // optional as the consumer (wayland compositor) is expected to
+            // fall-back to a less efficient meachnisms for presentation if
+            // neccesary. In practice, linear buffers for commonly used formats
+            // will also support scanout and texturing.
+            flags: RutabagaGrallocFlags::empty().use_linear(true),
+        };
+
+        let reqs = match gralloc.get_image_memory_requirements(img) {
+            Ok(reqs) => reqs,
+            Err(e) => {
+                error!("gralloc failed to get image requirements: {}", e);
+                return Err(SysError::new(EINVAL));
+            }
+        };
+
+        let handle = match gralloc.allocate_memory(reqs) {
+            Ok(handle) => handle,
+            Err(e) => {
+                error!("gralloc failed to allocate memory: {}", e);
+                return Err(SysError::new(EINVAL));
+            }
+        };
+
+        let mut desc = GpuMemoryDesc::default();
+        for i in 0..3 {
+            desc.planes[i] = GpuMemoryPlaneDesc {
+                stride: reqs.strides[i],
+                offset: reqs.offsets[i],
+            }
+        }
+
+        // Safe because ownership is transferred to SafeDescriptor via
+        // into_raw_descriptor
+        let descriptor =
+            unsafe { SafeDescriptor::from_raw_descriptor(handle.os_handle.into_raw_descriptor()) };
+
+        let mapped_region = map_descriptor(&descriptor, 0, reqs.size, false)?;
+        Ok((mapped_region, reqs.size, descriptor, desc))
     }
 }
 
@@ -478,12 +523,22 @@ pub enum VmMemoryResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum VmIrqRequest {
     /// Allocate one gsi, and associate gsi to irqfd with register_irqfd()
-    AllocateOneMsi { irqfd: Event },
+    AllocateOneMsi {
+        irqfd: Event,
+        device_id: u32,
+        queue_id: usize,
+        device_name: String,
+    },
     /// Add one msi route entry into the IRQ chip.
     AddMsiRoute {
         gsi: u32,
         msi_address: u64,
         msi_data: u32,
+    },
+    // unregister_irqfs() and release gsi
+    ReleaseOneIrq {
+        gsi: u32,
+        irqfd: Event,
     },
 }
 
@@ -491,8 +546,9 @@ pub enum VmIrqRequest {
 /// VmIrqRequest::execute can't take an `IrqChip` argument, because of a dependency cycle between
 /// devices and vm_control, so it takes a Fn that processes an `IrqSetup`.
 pub enum IrqSetup<'a> {
-    Event(u32, &'a Event),
+    Event(u32, &'a Event, u32, usize, String),
     Route(IrqRoute),
+    UnRegister(u32, &'a Event),
 }
 
 impl VmIrqRequest {
@@ -510,9 +566,20 @@ impl VmIrqRequest {
     {
         use self::VmIrqRequest::*;
         match *self {
-            AllocateOneMsi { ref irqfd } => {
+            AllocateOneMsi {
+                ref irqfd,
+                device_id,
+                queue_id,
+                ref device_name,
+            } => {
                 if let Some(irq_num) = sys_allocator.allocate_irq() {
-                    match set_up_irq(IrqSetup::Event(irq_num, &irqfd)) {
+                    match set_up_irq(IrqSetup::Event(
+                        irq_num,
+                        irqfd,
+                        device_id,
+                        queue_id,
+                        device_name.clone(),
+                    )) {
                         Ok(_) => VmIrqResponse::AllocateOneMsi { gsi: irq_num },
                         Err(e) => VmIrqResponse::Err(e),
                     }
@@ -536,6 +603,11 @@ impl VmIrqRequest {
                     Ok(_) => VmIrqResponse::Ok,
                     Err(e) => VmIrqResponse::Err(e),
                 }
+            }
+            ReleaseOneIrq { gsi, ref irqfd } => {
+                let _ = set_up_irq(IrqSetup::UnRegister(gsi, irqfd));
+                sys_allocator.release_irq(gsi);
+                VmIrqResponse::Ok
             }
         }
     }
@@ -864,13 +936,11 @@ impl FsMappingRequest {
                 prot,
                 mem_offset,
             } => {
-                let raw_fd: Fd = Fd(fd.as_raw_descriptor());
-
                 match vm.add_fd_mapping(
                     slot,
                     mem_offset,
                     size,
-                    &raw_fd,
+                    fd,
                     file_offset,
                     Protection::from(prot as c_int & (libc::PROT_READ | libc::PROT_WRITE)),
                 ) {
@@ -895,10 +965,14 @@ impl FsMappingRequest {
 pub enum VmRequest {
     /// Break the VM's run loop and exit.
     Exit,
+    /// Trigger a power button event in the guest.
+    Powerbtn,
     /// Suspend the VM's VCPUs until resume.
     Suspend,
     /// Resume the VM's VCPUs that were previously suspended.
     Resume,
+    /// Inject a general-purpose event.
+    Gpe(u32),
     /// Make the VM's RT VCPU real-time.
     MakeRT,
     /// Command for balloon driver.
@@ -913,56 +987,32 @@ pub enum VmRequest {
     UsbCommand(UsbControlCommand),
     /// Command to set battery.
     BatCommand(BatteryType, BatControlCommand),
+    /// Command to add/remove vfio pci device
+    VfioCommand { vfio_path: PathBuf, add: bool },
 }
 
-fn register_memory(
-    vm: &mut impl Vm,
-    allocator: &mut SystemAllocator,
+fn map_descriptor(
     descriptor: &dyn AsRawDescriptor,
-    size: usize,
-    pci_allocation: Option<(Alloc, u64)>,
-) -> Result<(u64, MemSlot)> {
-    let mmap = match MemoryMappingBuilder::new(size)
+    offset: u64,
+    size: u64,
+    read_only: bool,
+) -> Result<Box<dyn MappedRegion>> {
+    let size: usize = size.try_into().map_err(|_e| SysError::new(ERANGE))?;
+    let prot = if read_only {
+        Protection::read()
+    } else {
+        Protection::read_write()
+    };
+    match MemoryMappingBuilder::new(size)
         .from_descriptor(descriptor)
+        .offset(offset)
+        .protection(prot)
         .build()
     {
-        Ok(v) => v,
-        Err(MmapError::SystemCallFailed(e)) => return Err(e),
-        _ => return Err(SysError::new(EINVAL)),
-    };
-
-    let addr = match pci_allocation {
-        Some(pci_allocation) => allocator
-            .mmio_allocator_any()
-            .address_from_pci_offset(pci_allocation.0, pci_allocation.1, size as u64)
-            .map_err(|_e| SysError::new(EINVAL))?,
-        None => {
-            let alloc = allocator.get_anon_alloc();
-            allocator
-                .mmio_allocator_any()
-                .allocate(size as u64, alloc, "vmcontrol_register_memory".to_string())
-                .map_err(|_e| SysError::new(EINVAL))?
-        }
-    };
-
-    let slot = vm.add_memory_region(GuestAddress(addr), Box::new(mmap), false, false)?;
-
-    Ok((addr >> 12, slot))
-}
-
-fn register_host_pointer(
-    vm: &mut impl Vm,
-    allocator: &mut SystemAllocator,
-    mem: Box<dyn MappedRegion>,
-    pci_allocation: (Alloc, u64),
-) -> Result<(u64, MemSlot)> {
-    let addr = allocator
-        .mmio_allocator_any()
-        .address_from_pci_offset(pci_allocation.0, pci_allocation.1, mem.size() as u64)
-        .map_err(|_e| SysError::new(EINVAL))?;
-
-    let slot = vm.add_memory_region(GuestAddress(addr), mem, false, false)?;
-    Ok((addr >> 12, slot))
+        Ok(mmap) => Ok(Box::new(mmap)),
+        Err(MmapError::SystemCallFailed(e)) => Err(e),
+        _ => Err(SysError::new(EINVAL)),
+    }
 }
 
 impl VmRequest {
@@ -974,9 +1024,10 @@ impl VmRequest {
     pub fn execute(
         &self,
         run_mode: &mut Option<VmRunMode>,
-        balloon_host_tube: &Tube,
+        balloon_host_tube: Option<&Tube>,
         balloon_stats_id: &mut u64,
         disk_host_tubes: &[Tube],
+        pm: &mut Option<Arc<Mutex<dyn PmResource>>>,
         usb_control_tube: Option<&Tube>,
         bat_control: &mut Option<BatControl>,
         vcpu_handles: &[(JoinHandle<()>, mpsc::Sender<VcpuControl>)],
@@ -986,6 +1037,15 @@ impl VmRequest {
                 *run_mode = Some(VmRunMode::Exiting);
                 VmResponse::Ok
             }
+            VmRequest::Powerbtn => {
+                if pm.is_some() {
+                    pm.as_ref().unwrap().lock().pwrbtn_evt();
+                    VmResponse::Ok
+                } else {
+                    error!("{:#?} not supported", *self);
+                    VmResponse::Err(SysError::new(ENOTSUP))
+                }
+            }
             VmRequest::Suspend => {
                 *run_mode = Some(VmRunMode::Suspending);
                 VmResponse::Ok
@@ -993,6 +1053,15 @@ impl VmRequest {
             VmRequest::Resume => {
                 *run_mode = Some(VmRunMode::Running);
                 VmResponse::Ok
+            }
+            VmRequest::Gpe(gpe) => {
+                if pm.is_some() {
+                    pm.as_ref().unwrap().lock().gpe_evt(gpe);
+                    VmResponse::Ok
+                } else {
+                    error!("{:#?} not supported", *self);
+                    VmResponse::Err(SysError::new(ENOTSUP))
+                }
             }
             VmRequest::MakeRT => {
                 for (handle, channel) in vcpu_handles {
@@ -1004,51 +1073,65 @@ impl VmRequest {
                 VmResponse::Ok
             }
             VmRequest::BalloonCommand(BalloonControlCommand::Adjust { num_bytes }) => {
-                match balloon_host_tube.send(&BalloonTubeCommand::Adjust { num_bytes }) {
-                    Ok(_) => VmResponse::Ok,
-                    Err(_) => VmResponse::Err(SysError::last()),
+                if let Some(balloon_host_tube) = balloon_host_tube {
+                    match balloon_host_tube.send(&BalloonTubeCommand::Adjust {
+                        num_bytes,
+                        allow_failure: false,
+                    }) {
+                        Ok(_) => VmResponse::Ok,
+                        Err(_) => VmResponse::Err(SysError::last()),
+                    }
+                } else {
+                    VmResponse::Err(SysError::new(ENOTSUP))
                 }
             }
             VmRequest::BalloonCommand(BalloonControlCommand::Stats) => {
-                // NB: There are a few reasons stale balloon stats could be left
-                // in balloon_host_tube:
-                //  - the send succeeds, but the recv fails because the device
-                //      is not ready yet. So when the device is ready, there are
-                //      extra stats requests queued.
-                //  - the send succeed, but the recv times out. When the device
-                //      does return the stats, there will be no consumer.
-                //
-                // To guard against this, add an `id` to the stats request. If
-                // the id returned to us doesn't match, we keep trying to read
-                // until it does.
-                *balloon_stats_id = (*balloon_stats_id).wrapping_add(1);
-                let sent_id = *balloon_stats_id;
-                match balloon_host_tube.send(&BalloonTubeCommand::Stats { id: sent_id }) {
-                    Ok(_) => {
-                        loop {
-                            match balloon_host_tube.recv() {
-                                Ok(BalloonTubeResult::Stats {
-                                    stats,
-                                    balloon_actual,
-                                    id,
-                                }) => {
-                                    if sent_id != id {
-                                        // Keep trying to get the fresh stats.
-                                        continue;
-                                    }
-                                    break VmResponse::BalloonStats {
+                if let Some(balloon_host_tube) = balloon_host_tube {
+                    // NB: There are a few reasons stale balloon stats could be left
+                    // in balloon_host_tube:
+                    //  - the send succeeds, but the recv fails because the device
+                    //      is not ready yet. So when the device is ready, there are
+                    //      extra stats requests queued.
+                    //  - the send succeed, but the recv times out. When the device
+                    //      does return the stats, there will be no consumer.
+                    //
+                    // To guard against this, add an `id` to the stats request. If
+                    // the id returned to us doesn't match, we keep trying to read
+                    // until it does.
+                    *balloon_stats_id = (*balloon_stats_id).wrapping_add(1);
+                    let sent_id = *balloon_stats_id;
+                    match balloon_host_tube.send(&BalloonTubeCommand::Stats { id: sent_id }) {
+                        Ok(_) => {
+                            loop {
+                                match balloon_host_tube.recv() {
+                                    Ok(BalloonTubeResult::Stats {
                                         stats,
                                         balloon_actual,
-                                    };
-                                }
-                                Err(e) => {
-                                    error!("balloon socket recv failed: {}", e);
-                                    break VmResponse::Err(SysError::last());
+                                        id,
+                                    }) => {
+                                        if sent_id != id {
+                                            // Keep trying to get the fresh stats.
+                                            continue;
+                                        }
+                                        break VmResponse::BalloonStats {
+                                            stats,
+                                            balloon_actual,
+                                        };
+                                    }
+                                    Err(e) => {
+                                        error!("balloon socket recv failed: {}", e);
+                                        break VmResponse::Err(SysError::last());
+                                    }
+                                    Ok(BalloonTubeResult::Adjusted { .. }) => {
+                                        unreachable!("unexpected adjusted response")
+                                    }
                                 }
                             }
                         }
+                        Err(_) => VmResponse::Err(SysError::last()),
                     }
-                    Err(_) => VmResponse::Err(SysError::last()),
+                } else {
+                    VmResponse::Err(SysError::new(ENOTSUP))
                 }
             }
             VmRequest::DiskCommand {
@@ -1120,6 +1203,10 @@ impl VmRequest {
                     None => VmResponse::BatResponse(BatControlResult::NoBatDevice),
                 }
             }
+            VmRequest::VfioCommand {
+                vfio_path: _,
+                add: _,
+            } => VmResponse::Ok,
         }
     }
 }
@@ -1188,4 +1275,125 @@ impl Display for VmResponse {
             BatResponse(result) => write!(f, "{}", result),
         }
     }
+}
+
+#[sorted]
+#[derive(Error, Debug)]
+pub enum VirtioIOMMUVfioError {
+    #[error("socket failed")]
+    SocketFailed,
+    #[error("unexpected response: {0}")]
+    UnexpectedResponse(VirtioIOMMUResponse),
+    #[error("unknown command: `{0}`")]
+    UnknownCommand(String),
+    #[error("{0}")]
+    VfioControl(VirtioIOMMUVfioResult),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum VirtioIOMMUVfioCommand {
+    // Add the vfio device attached to virtio-iommu.
+    VfioDeviceAdd {
+        endpoint_addr: u32,
+        #[serde(with = "with_as_descriptor")]
+        container: File,
+    },
+    // Delete the vfio device attached to virtio-iommu.
+    VfioDeviceDel {
+        endpoint_addr: u32,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum VirtioIOMMUVfioResult {
+    Ok,
+    NotInPCIRanges,
+    NoAvailableContainer,
+    NoSuchDevice,
+}
+
+impl Display for VirtioIOMMUVfioResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::VirtioIOMMUVfioResult::*;
+
+        match self {
+            Ok => write!(f, "successfully"),
+            NotInPCIRanges => write!(f, "not in the pci ranges of virtio-iommu"),
+            NoAvailableContainer => write!(f, "no available vfio container"),
+            NoSuchDevice => write!(f, "no such a vfio device"),
+        }
+    }
+}
+
+/// A request to the virtio-iommu process to perform some operations.
+///
+/// Unless otherwise noted, each request should expect a `VirtioIOMMUResponse::Ok` to be received on
+/// success.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum VirtioIOMMURequest {
+    /// Command for vfio related operations.
+    VfioCommand(VirtioIOMMUVfioCommand),
+}
+
+/// Indication of success or failure of a `VirtioIOMMURequest`.
+///
+/// Success is usually indicated `VirtioIOMMUResponse::Ok` unless there is data associated with the
+/// response.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum VirtioIOMMUResponse {
+    /// Indicates the request was executed successfully.
+    Ok,
+    /// Indicates the request encountered some error during execution.
+    Err(SysError),
+    /// Results for Vfio commands.
+    VfioResponse(VirtioIOMMUVfioResult),
+}
+
+impl Display for VirtioIOMMUResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::VirtioIOMMUResponse::*;
+        match self {
+            Ok => write!(f, "ok"),
+            Err(e) => write!(f, "error: {}", e),
+            VfioResponse(result) => write!(
+                f,
+                "The vfio-related virtio-iommu request got result: {:?}",
+                result
+            ),
+        }
+    }
+}
+
+/// Send VirtioIOMMURequest without waiting for the response
+pub fn virtio_iommu_request_async(
+    iommu_control_tube: &Tube,
+    req: &VirtioIOMMURequest,
+) -> VirtioIOMMUResponse {
+    match iommu_control_tube.send(&req) {
+        Ok(_) => VirtioIOMMUResponse::Ok,
+        Err(e) => {
+            error!("virtio-iommu socket send failed: {:?}", e);
+            VirtioIOMMUResponse::Err(SysError::last())
+        }
+    }
+}
+
+pub type VirtioIOMMURequestResult = std::result::Result<VirtioIOMMUResponse, ()>;
+
+/// Send VirtioIOMMURequest and wait to get the response
+pub fn virtio_iommu_request(
+    iommu_control_tube: &Tube,
+    req: &VirtioIOMMURequest,
+) -> VirtioIOMMURequestResult {
+    let response = match virtio_iommu_request_async(iommu_control_tube, req) {
+        VirtioIOMMUResponse::Ok => match iommu_control_tube.recv() {
+            Ok(response) => response,
+            Err(e) => {
+                error!("virtio-iommu socket recv failed: {:?}", e);
+                VirtioIOMMUResponse::Err(SysError::last())
+            }
+        },
+        resp => resp,
+    };
+    Ok(response)
 }

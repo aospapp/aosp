@@ -37,34 +37,29 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "env_logger_defaults",
+rust_test {
+    name: "env_logger_test_src_lib",
+    host_supported: true,
     crate_name: "env_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.9.0",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2018",
     rustlibs: [
         "liblog_rust",
     ],
 }
 
-rust_test_host {
-    name: "env_logger_host_test_src_lib",
-    defaults: ["env_logger_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "env_logger_device_test_src_lib",
-    defaults: ["env_logger_defaults"],
-}
-
 rust_defaults {
-    name: "env_logger_defaults_env_logger",
+    name: "env_logger_test_defaults",
     crate_name: "env_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.9.0",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -75,9 +70,10 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "env_logger_host_test_tests_init-twice-retains-filter",
-    defaults: ["env_logger_defaults_env_logger"],
+rust_test {
+    name: "env_logger_test_tests_init-twice-retains-filter",
+    defaults: ["env_logger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/init-twice-retains-filter.rs"],
     test_options: {
         unit_test: true,
@@ -85,14 +81,9 @@ rust_test_host {
 }
 
 rust_test {
-    name: "env_logger_device_test_tests_init-twice-retains-filter",
-    defaults: ["env_logger_defaults_env_logger"],
-    srcs: ["tests/init-twice-retains-filter.rs"],
-}
-
-rust_test_host {
-    name: "env_logger_host_test_tests_log-in-log",
-    defaults: ["env_logger_defaults_env_logger"],
+    name: "env_logger_test_tests_log-in-log",
+    defaults: ["env_logger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/log-in-log.rs"],
     test_options: {
         unit_test: true,
@@ -100,14 +91,9 @@ rust_test_host {
 }
 
 rust_test {
-    name: "env_logger_device_test_tests_log-in-log",
-    defaults: ["env_logger_defaults_env_logger"],
-    srcs: ["tests/log-in-log.rs"],
-}
-
-rust_test_host {
-    name: "env_logger_host_test_tests_log_tls_dtors",
-    defaults: ["env_logger_defaults_env_logger"],
+    name: "env_logger_test_tests_log_tls_dtors",
+    defaults: ["env_logger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/log_tls_dtors.rs"],
     test_options: {
         unit_test: true,
@@ -115,30 +101,21 @@ rust_test_host {
 }
 
 rust_test {
-    name: "env_logger_device_test_tests_log_tls_dtors",
-    defaults: ["env_logger_defaults_env_logger"],
-    srcs: ["tests/log_tls_dtors.rs"],
-}
-
-rust_test_host {
-    name: "env_logger_host_test_tests_regexp_filter",
-    defaults: ["env_logger_defaults_env_logger"],
+    name: "env_logger_test_tests_regexp_filter",
+    defaults: ["env_logger_test_defaults"],
+    host_supported: true,
     srcs: ["tests/regexp_filter.rs"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "env_logger_device_test_tests_regexp_filter",
-    defaults: ["env_logger_defaults_env_logger"],
-    srcs: ["tests/regexp_filter.rs"],
 }
 
 rust_library {
     name: "libenv_logger",
     host_supported: true,
     crate_name: "env_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.9.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -146,12 +123,12 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   cfg-if-1.0.0
-//   log-0.4.14 "std"

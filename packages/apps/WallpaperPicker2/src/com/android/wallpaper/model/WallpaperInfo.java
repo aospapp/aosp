@@ -32,7 +32,9 @@ import androidx.annotation.StringRes;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,18 +46,22 @@ import java.util.concurrent.Future;
 public abstract class WallpaperInfo implements Parcelable {
 
     private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+    private ColorInfo mColorInfo = new ColorInfo();
 
-    private int mPlaceholderColor = Color.TRANSPARENT;
+    private PriorityQueue<String> mEffectNames = new PriorityQueue<>();
 
-    public WallpaperInfo() {}
+    public WallpaperInfo() {
+    }
 
     protected WallpaperInfo(Parcel in) {
-        mPlaceholderColor = in.readInt();
+        mColorInfo = new ColorInfo(in.readParcelable(WallpaperColors.class.getClassLoader()),
+                in.readInt());
     }
 
     @Override
     public void writeToParcel(Parcel parcel, int flags) {
-        parcel.writeInt(mPlaceholderColor);
+        parcel.writeParcelable(mColorInfo.getWallpaperColors(), flags);
+        parcel.writeInt(mColorInfo.getPlaceholderColor());
     }
 
     @DrawableRes
@@ -184,6 +190,16 @@ public abstract class WallpaperInfo implements Parcelable {
     }
 
     /**
+     * Returns the distinct ID of the stored wallpaper or null if there is no ID.
+     */
+    public String getStoredWallpaperId(Context context) {
+        if (getWallpaperId() == null) {
+            return null;
+        }
+        return getCollectionId(context) + "-" + getWallpaperId();
+    }
+
+    /**
      * Returns whether backup is allowed for this wallpaper.
      */
     @BackupPermission
@@ -203,34 +219,70 @@ public abstract class WallpaperInfo implements Parcelable {
     public abstract void showPreview(Activity srcActivity, InlinePreviewIntentFactory factory,
                                      int requestCode);
 
-
     /**
-     * Returns a Future to obtain a placeholder color calculated in a background thread for this
-     * wallpaper's thumbnail.
+     * Returns a Future to obtain a wallpaper color and a placeholder color calculated in a
+     * background thread for this wallpaper's thumbnail.
      * If it's already available, the Future will return the color immediately.
      * This is intended to be a "best effort" attempt and might not obtain a color if no low res
      * thumbnail is available.
      */
-    public Future<Integer> computePlaceholderColor(Context context) {
-        if (mPlaceholderColor != Color.TRANSPARENT) {
-            return CompletableFuture.completedFuture(mPlaceholderColor);
+    public Future<ColorInfo> computeColorInfo(Context context) {
+        if (mColorInfo.getWallpaperColors() != null
+                && mColorInfo.getPlaceholderColor() != Color.TRANSPARENT) {
+            return CompletableFuture.completedFuture(mColorInfo);
         }
         final Context appContext = context.getApplicationContext();
         return sExecutor.submit(() -> {
             synchronized (WallpaperInfo.this) {
-                if (mPlaceholderColor != Color.TRANSPARENT) {
-                    return mPlaceholderColor;
+                if (mColorInfo.getWallpaperColors() != null
+                        && mColorInfo.getPlaceholderColor() != Color.TRANSPARENT) {
+                    return mColorInfo;
                 }
+
                 Asset thumbAsset = getThumbAsset(appContext);
                 Bitmap lowResBitmap = thumbAsset.getLowResBitmap(appContext);
                 if (lowResBitmap == null) {
-                    return Color.TRANSPARENT;
+                    return new ColorInfo(
+                            new WallpaperColors(Color.valueOf(Color.TRANSPARENT), null, null),
+                            Color.TRANSPARENT);
                 }
-                mPlaceholderColor = WallpaperColors.fromBitmap(
-                        lowResBitmap).getPrimaryColor().toArgb();
-                return mPlaceholderColor;
+                mColorInfo = new ColorInfo(WallpaperColors.fromBitmap(lowResBitmap));
+                return mColorInfo;
             }
         });
+    }
+
+    /**
+     * Remove the effect name from this wallpaper, only use it for logging.
+     */
+    public void removeEffectName(String effect) {
+        mEffectNames.remove(effect);
+    }
+
+    /**
+     * Add the effect name apply with this wallpaper, only use it for logging.
+     */
+    public void addEffectName(String effect) {
+        mEffectNames.add(effect);
+    }
+
+    /**
+     * Returns the effects apply with this wallpaper.
+     */
+    public String getEffectNames() {
+        if (mEffectNames.isEmpty()) {
+            return null;
+        }
+        String effectNames = "";
+        Iterator value = mEffectNames.iterator();
+        while (value.hasNext()) {
+            if (!effectNames.isEmpty()) {
+                effectNames += ",";
+            }
+            effectNames += value.next();
+        }
+
+        return effectNames;
     }
 
     /**
@@ -241,5 +293,36 @@ public abstract class WallpaperInfo implements Parcelable {
             BACKUP_ALLOWED
     })
     public @interface BackupPermission {
+    }
+
+    /**
+     * Inner class to keep wallpaper colors and placeholder color.
+     */
+    public static class ColorInfo {
+        private WallpaperColors mWallpaperColors;
+        private Integer mPlaceholderColor = Color.TRANSPARENT;
+
+        public ColorInfo() {
+        }
+
+        public ColorInfo(WallpaperColors wallpaperColors) {
+            mWallpaperColors = wallpaperColors;
+            if (mWallpaperColors != null) {
+                mPlaceholderColor = mWallpaperColors.getPrimaryColor().toArgb();
+            }
+        }
+
+        public ColorInfo(WallpaperColors wallpaperColors, Integer placeholderColor) {
+            mWallpaperColors = wallpaperColors;
+            mPlaceholderColor = placeholderColor;
+        }
+
+        public WallpaperColors getWallpaperColors() {
+            return mWallpaperColors;
+        }
+
+        public Integer getPlaceholderColor() {
+            return mPlaceholderColor;
+        }
     }
 }

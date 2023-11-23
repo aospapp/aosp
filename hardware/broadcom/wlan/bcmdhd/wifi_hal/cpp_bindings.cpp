@@ -579,27 +579,56 @@ int WifiRequest::create(int family, uint8_t cmd, int flags, int hdrlen) {
     }
 }
 
+static int mapErrorCodes(int err)
+{
+    int ret;
+    if (!err) {
+        return WIFI_SUCCESS;
+    }
+    switch (err) {
+        case -EOPNOTSUPP:
+            ret = WIFI_ERROR_NOT_SUPPORTED;
+            break;
+        case -ETIMEDOUT:
+            ret = WIFI_ERROR_TIMED_OUT;
+            break;
+        case -EINVAL:
+            ret = WIFI_ERROR_INVALID_ARGS;
+            break;
+        case -ENOMEM:
+            ret = WIFI_ERROR_OUT_OF_MEMORY;
+            break;
+        case -EBUSY:
+            ret = WIFI_ERROR_BUSY;
+            break;
+        default:
+            ret = WIFI_ERROR_UNKNOWN;
+    }
+    ALOGD("error code %d mapped to %d", err, ret);
+    return ret;
+}
+
 int WifiRequest::create(uint32_t id, int subcmd) {
     int res = create(NL80211_CMD_VENDOR);
     if (res < 0) {
-        return res;
+        return mapErrorCodes(res);
     }
 
     res = put_u32(NL80211_ATTR_VENDOR_ID, id);
     if (res < 0) {
-        return res;
+        return mapErrorCodes(res);
     }
 
     res = put_u32(NL80211_ATTR_VENDOR_SUBCMD, subcmd);
     if (res < 0) {
-        return res;
+        return mapErrorCodes(res);
     }
 
     if (mIface != -1) {
         res = set_iface_id(mIface);
     }
 
-    return res;
+    return mapErrorCodes(res);
 }
 
 
@@ -618,7 +647,6 @@ int WifiCommand::requestResponse() {
 }
 
 int WifiCommand::requestResponse(WifiRequest& request) {
-    pthread_mutex_lock(&ResponseMutex);
     int err = 0;
 
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
@@ -645,8 +673,7 @@ int WifiCommand::requestResponse(WifiRequest& request) {
     }
 out:
     nl_cb_put(cb);
-    pthread_mutex_unlock(&ResponseMutex);
-    return err;
+    return mapErrorCodes(err);
 }
 
 int WifiCommand::requestEvent(int cmd) {
@@ -675,7 +702,7 @@ int WifiCommand::requestEvent(int cmd) {
 
 out:
     wifi_unregister_handler(wifiHandle(), cmd);
-    return res;
+    return mapErrorCodes(res);
 }
 
 int WifiCommand::requestVendorEvent(uint32_t id, int subcmd) {
@@ -699,7 +726,7 @@ int WifiCommand::requestVendorEvent(uint32_t id, int subcmd) {
 
 out:
     wifi_unregister_vendor_handler(wifiHandle(), id, subcmd);
-    return res;
+    return mapErrorCodes(res);
 }
 
 /* Event handlers */

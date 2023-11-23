@@ -2,12 +2,15 @@ package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR2;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
+import static android.os.Build.VERSION_CODES.S_V2;
+import static android.os.Build.VERSION_CODES.TIRAMISU;
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothStatusCodes;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.UUID;
 import org.junit.Before;
@@ -86,28 +89,65 @@ public class ShadowBluetoothAdapterTest {
   }
 
   @Test
+  @Config(maxSdk = S_V2)
   public void scanMode_getAndSet_connectable() throws Exception {
-    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE)).isTrue();
+    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE)).isEqualTo(
+        true);
     assertThat(bluetoothAdapter.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_CONNECTABLE);
   }
 
   @Test
+  @Config(maxSdk = S_V2)
   public void scanMode_getAndSet_discoverable() throws Exception {
     assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE))
-        .isTrue();
+        .isEqualTo(true);
     assertThat(bluetoothAdapter.getScanMode())
         .isEqualTo(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
   }
 
   @Test
+  @Config(maxSdk = S_V2)
   public void scanMode_getAndSet_none() throws Exception {
-    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE)).isTrue();
+    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE)).isEqualTo(true);
     assertThat(bluetoothAdapter.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_NONE);
   }
 
   @Test
+  @Config(maxSdk = S_V2)
   public void scanMode_getAndSet_invalid() throws Exception {
-    assertThat(bluetoothAdapter.setScanMode(9999)).isFalse();
+    assertThat(bluetoothAdapter.setScanMode(9999)).isEqualTo(false);
+  }
+
+
+  @Test
+  @Config(minSdk = TIRAMISU)
+  public void scanMode_getAndSet_connectable_min_T() throws Exception {
+    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE)).isEqualTo(
+        BluetoothStatusCodes.SUCCESS);
+    assertThat(bluetoothAdapter.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_CONNECTABLE);
+  }
+
+  @Test
+  @Config(minSdk = TIRAMISU)
+  public void scanMode_getAndSet_discoverable_min_T() throws Exception {
+    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE))
+        .isEqualTo(BluetoothStatusCodes.SUCCESS);
+    assertThat(bluetoothAdapter.getScanMode())
+        .isEqualTo(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+  }
+
+  @Test
+  @Config(minSdk = TIRAMISU)
+  public void scanMode_getAndSet_none_min_T() throws Exception {
+    assertThat(bluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_NONE)).isEqualTo(
+        BluetoothStatusCodes.SUCCESS);
+    assertThat(bluetoothAdapter.getScanMode()).isEqualTo(BluetoothAdapter.SCAN_MODE_NONE);
+  }
+
+  @Test
+  @Config(minSdk = TIRAMISU)
+  public void scanMode_getAndSet_invalid_min_T() throws Exception {
+    assertThat(bluetoothAdapter.setScanMode(9999)).isEqualTo(BluetoothStatusCodes.ERROR_UNKNOWN);
   }
 
   @Test

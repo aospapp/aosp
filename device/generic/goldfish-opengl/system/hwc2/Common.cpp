@@ -27,3 +27,7 @@ bool IsCuttlefishFoldable() {
          android::base::GetProperty("ro.product.name", "").find("foldable") !=
              std::string::npos;
 }
+
+bool IsNoOpMode() {
+  return android::base::GetProperty("ro.vendor.hwcomposer.mode", "") == "noop";
+}

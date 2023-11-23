@@ -30,7 +30,7 @@ abstract class FlickerTraceSubject<EntrySubject : FlickerSubject>(
     fm: FailureMetadata,
     data: Any?
 ) : FlickerSubject(fm, data) {
-    override val timestamp: Long get() = subjects.first().timestamp
+    override val timestamp: Long get() = subjects.firstOrNull()?.timestamp ?: 0L
     override val selfFacts by lazy {
         val firstTimestamp = subjects.firstOrNull()?.timestamp ?: 0L
         val lastTimestamp = subjects.lastOrNull()?.timestamp ?: 0L
@@ -44,6 +44,14 @@ abstract class FlickerTraceSubject<EntrySubject : FlickerSubject>(
     private var newAssertionBlock = true
 
     abstract val subjects: List<EntrySubject>
+
+    /**
+     * Empty the subject's list of assertions.
+     */
+    internal fun clear() {
+        assertionsChecker.clear()
+        newAssertionBlock = true
+    }
 
     /**
      * Adds a new assertion block (if preceded by [then]) or appends an assertion to the
@@ -75,12 +83,12 @@ abstract class FlickerTraceSubject<EntrySubject : FlickerSubject>(
     /**
      * User-defined entry point for the first trace entry
      */
-    fun first(): EntrySubject = subjects.first()
+    fun first(): EntrySubject = subjects.firstOrNull() ?: error("Trace is empty")
 
     /**
      * User-defined entry point for the last trace entry
      */
-    fun last(): EntrySubject = subjects.last()
+    fun last(): EntrySubject = subjects.lastOrNull() ?: error("Trace is empty")
 
     /**
      * Signal that the last assertion set is complete. The next assertion added will start a new
@@ -122,6 +130,14 @@ abstract class FlickerTraceSubject<EntrySubject : FlickerSubject>(
      * Checks whether all the trace entries on the list are visible for more than one consecutive
      * entry
      *
+     * Ignore the first and last trace subjects. This is necessary because WM and SF traces
+     * log entries only when a change occurs.
+     *
+     * If the trace starts immediately before an animation or if it stops immediately after one,
+     * the first and last entry may contain elements that are visible only for that entry.
+     * Those elements, however, are not flickers, since they existed on the screen before or after
+     * the test.
+     *
      * @param [visibleEntriesProvider] a list of all the entries with their name and index
      */
     protected fun visibleEntriesShownMoreThanOneConsecutiveTime(
@@ -130,9 +146,18 @@ abstract class FlickerTraceSubject<EntrySubject : FlickerSubject>(
         if (subjects.isEmpty()) {
             return
         }
+        // Duplicate the first and last trace subjects to prevent them from triggering failures
+        // since WM and SF traces log entries only when a change occurs
+        val firstState = subjects.first()
+        val lastState = subjects.last()
+        val subjects = subjects.toMutableList().also {
+            it.add(lastState)
+            it.add(0, firstState)
+        }
         var lastVisible = visibleEntriesProvider(subjects.first())
         val lastNew = lastVisible.toMutableSet()
 
+        // first subject was already taken
         subjects.drop(1).forEachIndexed { index, entrySubject ->
             val currentVisible = visibleEntriesProvider(entrySubject)
             val newVisible = currentVisible.filter { it !in lastVisible }

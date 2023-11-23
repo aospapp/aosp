@@ -35,9 +35,12 @@
 
 #include "AndroidVersionUtil.h"
 #include "GeneratedTestUtils.h"
+#include "NeuralNetworks.h"
+#include "NeuralNetworksTypes.h"
 #include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
 #include "TestUtils.h"
+#include "TmpDirectoryUtils.h"
 
 // Systrace is not available from CTS tests due to platform layering
 // constraints. We reuse the NNTEST_ONLY_PUBLIC_API flag, as that should also be
@@ -400,6 +403,41 @@ void GeneratedTests::execute(const TestModel& testModel) {
     }
 }
 
+static int64_t getRuntimeFeatureLevel() {
+    if (__builtin_available(android __NNAPI_FL5_MIN_ANDROID_API__, *)) {
+        return ANeuralNetworks_getRuntimeFeatureLevel();
+    }
+#if defined(__BIONIC__)
+    return android_get_device_api_level();
+#else
+    return __ANDROID_API__;
+#endif  // __BIONIC__
+}
+
+static std::optional<int64_t> halVersionToFeatureLevel(TestHalVersion halVersion) {
+    switch (halVersion) {
+        case TestHalVersion::UNKNOWN:
+            return std::nullopt;
+        case TestHalVersion::V1_0:
+            return ANEURALNETWORKS_FEATURE_LEVEL_1;
+        case TestHalVersion::V1_1:
+            return ANEURALNETWORKS_FEATURE_LEVEL_2;
+        case TestHalVersion::V1_2:
+            return ANEURALNETWORKS_FEATURE_LEVEL_3;
+        case TestHalVersion::V1_3:
+            return ANEURALNETWORKS_FEATURE_LEVEL_4;
+        case TestHalVersion::AIDL_V1:
+            return ANEURALNETWORKS_FEATURE_LEVEL_5;
+        case TestHalVersion::AIDL_V2:
+            return ANEURALNETWORKS_FEATURE_LEVEL_6;
+        case TestHalVersion::AIDL_V3:
+            return ANEURALNETWORKS_FEATURE_LEVEL_7;
+    }
+    LOG(FATAL) << "Unrecognized TestHalVersion "
+               << static_cast<std::underlying_type_t<TestHalVersion>>(halVersion);
+    return std::nullopt;
+}
+
 bool GeneratedTests::shouldSkipTest() {
     // A map of {min VNDK version -> tests that should be skipped with earlier VNDK versions}.
     // The listed tests are added in a later release, but exercising old APIs. They should be
@@ -417,6 +455,13 @@ bool GeneratedTests::shouldSkipTest() {
             return true;
         }
     }
+
+    // Skip test cases that are newer than what is allowed by
+    // ANeuralNetworks_getRuntimeFeatureLevel.
+    if (const auto featureLevelNeeded = halVersionToFeatureLevel(testModel.minSupportedVersion)) {
+        return featureLevelNeeded.value() > getRuntimeFeatureLevel();
+    }
+
     return false;
 }
 
@@ -429,7 +474,7 @@ void GeneratedTests::SetUp() {
         return;
     }
 
-    char cacheDirTemp[] = "/data/local/tmp/TestCompilationCachingXXXXXX";
+    char cacheDirTemp[] = NN_TMP_DIR "/TestCompilationCachingXXXXXX";
     char* cacheDir = mkdtemp(cacheDirTemp);
     ASSERT_NE(cacheDir, nullptr);
     mCacheDir = cacheDir;

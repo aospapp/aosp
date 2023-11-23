@@ -69,7 +69,6 @@ RenderPipelineType Properties::sRenderPipelineType = RenderPipelineType::NotInit
 bool Properties::enableHighContrastText = false;
 
 bool Properties::waitForGpuCompletion = false;
-bool Properties::forceDrawFrame = false;
 
 bool Properties::filterOutTestOverhead = false;
 bool Properties::disableVsync = false;
@@ -89,6 +88,8 @@ int Properties::targetCpuTimePercentage = 70;
 bool Properties::enableWebViewOverlays = true;
 
 StretchEffectBehavior Properties::stretchEffectBehavior = StretchEffectBehavior::ShaderHWUI;
+
+DrawingEnabled Properties::drawingEnabled = DrawingEnabled::NotInitialized;
 
 bool Properties::load() {
     bool prevDebugLayersUpdates = debugLayersUpdates;
@@ -142,6 +143,9 @@ bool Properties::load() {
     if (targetCpuTimePercentage <= 0 || targetCpuTimePercentage > 100) targetCpuTimePercentage = 70;
 
     enableWebViewOverlays = base::GetBoolProperty(PROPERTY_WEBVIEW_OVERLAYS_ENABLED, true);
+
+    // call isDrawingEnabled to force loading of the property
+    isDrawingEnabled();
 
     return (prevDebugLayersUpdates != debugLayersUpdates) || (prevDebugOverdraw != debugOverdraw);
 }
@@ -210,6 +214,20 @@ void Properties::overrideRenderPipelineType(RenderPipelineType type, bool inUnit
                                 sRenderPipelineType != type && !inUnitTest,
                         "Trying to change pipeline but it's already set.");
     sRenderPipelineType = type;
+}
+
+void Properties::setDrawingEnabled(bool newDrawingEnabled) {
+    drawingEnabled = newDrawingEnabled ? DrawingEnabled::On : DrawingEnabled::Off;
+    enableRTAnimations = newDrawingEnabled;
+}
+
+bool Properties::isDrawingEnabled() {
+    if (drawingEnabled == DrawingEnabled::NotInitialized) {
+        bool drawingEnabledProp = base::GetBoolProperty(PROPERTY_DRAWING_ENABLED, true);
+        drawingEnabled = drawingEnabledProp ? DrawingEnabled::On : DrawingEnabled::Off;
+        enableRTAnimations = drawingEnabledProp;
+    }
+    return drawingEnabled == DrawingEnabled::On;
 }
 
 }  // namespace uirenderer

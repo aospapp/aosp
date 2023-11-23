@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"恢复默认类别"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"已恢复默认类别"</string>
     <string name="default_categories" msgid="2117679794687799407">"默认"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">已选择 %d 个类别</item>
-      <item quantity="one">已选择 %d 个类别</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{已选择 # 种}other{已选择 # 种}}"</string>
     <string name="applications" msgid="521776761270770549">"应用"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"没有可调试的应用"</string>
     <string name="buffer_size" msgid="3944311026715111454">"每个 CPU 的缓冲区空间"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"使用 Perfetto（测试版）"</string>
     <string name="long_traces" msgid="5110949471775966329">"长期跟踪"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"持续保存到设备存储空间"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"持续保存到设备存储空间（不会自动附加到错误报告）"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"最大长期跟踪记录大小"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"最大长期跟踪记录时长"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

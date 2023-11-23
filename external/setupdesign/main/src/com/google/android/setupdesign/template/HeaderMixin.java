@@ -41,6 +41,7 @@ import com.google.android.setupdesign.R;
 import com.google.android.setupdesign.util.HeaderAreaStyler;
 import com.google.android.setupdesign.util.LayoutStyler;
 import com.google.android.setupdesign.util.PartnerStyleHelper;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * A {@link com.google.android.setupcompat.template.Mixin} for setting and getting the header text.
@@ -62,6 +63,7 @@ public class HeaderMixin implements Mixin {
    * @param attrs XML attributes given to the layout
    * @param defStyleAttr The default style attribute as given to the constructor of the layout
    */
+  @CanIgnoreReturnValue
   public HeaderMixin(
       @NonNull TemplateLayout layout, @Nullable AttributeSet attrs, @AttrRes int defStyleAttr) {
     templateLayout = layout;

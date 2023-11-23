@@ -17,17 +17,14 @@
 #ifndef ANDROID_DRM_H_
 #define ANDROID_DRM_H_
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <map>
 #include <tuple>
 
 #include "DrmConnector.h"
 #include "DrmCrtc.h"
 #include "DrmEncoder.h"
-#include "DrmEventListener.h"
 #include "DrmFbImporter.h"
-#include "DrmPlane.h"
 #include "utils/UniqueFd.h"
 
 namespace android {
@@ -38,91 +35,80 @@ class DrmPlane;
 class DrmDevice {
  public:
   DrmDevice();
-  ~DrmDevice();
+  ~DrmDevice() = default;
 
-  std::tuple<int, int> Init(const char *path, int num_displays);
+  auto Init(const char *path) -> int;
 
-  int fd() const {
+  auto GetFd() const {
     return fd_.Get();
   }
 
-  const std::vector<std::unique_ptr<DrmConnector>> &connectors() const {
-    return connectors_;
-  }
+  auto GetConnectors() -> const std::vector<std::unique_ptr<DrmConnector>> &;
+  auto GetPlanes() -> const std::vector<std::unique_ptr<DrmPlane>> &;
+  auto GetCrtcs() -> const std::vector<std::unique_ptr<DrmCrtc>> &;
+  auto GetEncoders() -> const std::vector<std::unique_ptr<DrmEncoder>> &;
 
-  const std::vector<std::unique_ptr<DrmPlane>> &planes() const {
-    return planes_;
-  }
-
-  std::pair<uint32_t, uint32_t> min_resolution() const {
+  auto GetMinResolution() const {
     return min_resolution_;
   }
 
-  std::pair<uint32_t, uint32_t> max_resolution() const {
+  auto GetMaxResolution() const {
     return max_resolution_;
   }
 
-  DrmConnector *GetConnectorForDisplay(int display) const;
-  DrmConnector *GetWritebackConnectorForDisplay(int display) const;
-  DrmConnector *AvailableWritebackConnector(int display) const;
-  DrmCrtc *GetCrtcForDisplay(int display) const;
-  DrmPlane *GetPlane(uint32_t id) const;
-  DrmEventListener *event_listener();
-
-  int GetPlaneProperty(const DrmPlane &plane, const char *prop_name,
-                       DrmProperty *property);
-  int GetCrtcProperty(const DrmCrtc &crtc, const char *prop_name,
-                      DrmProperty *property);
-  int GetConnectorProperty(const DrmConnector &connector, const char *prop_name,
-                           DrmProperty *property);
-
   std::string GetName() const;
 
-  const std::vector<std::unique_ptr<DrmCrtc>> &crtcs() const;
-  uint32_t next_mode_id();
+  auto RegisterUserPropertyBlob(void *data, size_t length) const
+      -> DrmModeUserPropertyBlobUnique;
 
-  int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id) const;
-  int DestroyPropertyBlob(uint32_t blob_id) const;
-  bool HandlesDisplay(int display) const;
-  void RegisterHotplugHandler(DrmEventHandler *handler) {
-    event_listener_.RegisterHotplugHandler(handler);
-  }
-
-  bool HasAddFb2ModifiersSupport() const {
+  auto HasAddFb2ModifiersSupport() const {
     return HasAddFb2ModifiersSupport_;
   }
 
-  DrmFbImporter &GetDrmFbImporter() {
-    return *mDrmFbImporter.get();
+  auto &GetDrmFbImporter() {
+    return *drm_fb_importer_;
   }
 
- private:
-  int TryEncoderForDisplay(int display, DrmEncoder *enc);
+  static auto IsKMSDev(const char *path) -> bool;
+
+  auto FindCrtcById(uint32_t id) const -> DrmCrtc * {
+    for (const auto &crtc : crtcs_) {
+      if (crtc->GetId() == id) {
+        return crtc.get();
+      }
+    };
+
+    return nullptr;
+  }
+
+  auto FindEncoderById(uint32_t id) const -> DrmEncoder * {
+    for (const auto &enc : encoders_) {
+      if (enc->GetId() == id) {
+        return enc.get();
+      }
+    };
+
+    return nullptr;
+  }
+
   int GetProperty(uint32_t obj_id, uint32_t obj_type, const char *prop_name,
                   DrmProperty *property) const;
 
-  int CreateDisplayPipe(DrmConnector *connector);
-  int AttachWriteback(DrmConnector *display_conn);
-
+ private:
   UniqueFd fd_;
-  uint32_t mode_id_ = 0;
 
   std::vector<std::unique_ptr<DrmConnector>> connectors_;
   std::vector<std::unique_ptr<DrmConnector>> writeback_connectors_;
   std::vector<std::unique_ptr<DrmEncoder>> encoders_;
   std::vector<std::unique_ptr<DrmCrtc>> crtcs_;
   std::vector<std::unique_ptr<DrmPlane>> planes_;
-  DrmEventListener event_listener_;
 
   std::pair<uint32_t, uint32_t> min_resolution_;
   std::pair<uint32_t, uint32_t> max_resolution_;
-  std::map<int, int> displays_;
 
   bool HasAddFb2ModifiersSupport_{};
 
-  std::shared_ptr<DrmDevice> self;
-
-  std::unique_ptr<DrmFbImporter> mDrmFbImporter;
+  std::unique_ptr<DrmFbImporter> drm_fb_importer_;
 };
 }  // namespace android
 

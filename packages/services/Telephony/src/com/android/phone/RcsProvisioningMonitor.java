@@ -467,7 +467,7 @@ public class RcsProvisioningMonitor {
         }
 
         @Override
-        public void connectionReady(RcsFeatureManager manager) {
+        public void connectionReady(RcsFeatureManager manager, int subId) {
             mRcsFeatureManager = manager;
             mRcsProvisioningInfos.forEach(v -> v.onRcsStatusChanged(manager.getConfig()));
         }

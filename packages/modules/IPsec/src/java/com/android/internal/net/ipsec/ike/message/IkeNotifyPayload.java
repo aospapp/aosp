@@ -85,6 +85,7 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
+        NOTIFY_TYPE_INITIAL_CONTACT,
         NOTIFY_TYPE_ADDITIONAL_TS_POSSIBLE,
         NOTIFY_TYPE_IPCOMP_SUPPORTED,
         NOTIFY_TYPE_NAT_DETECTION_SOURCE_IP,
@@ -98,6 +99,12 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
     })
     public @interface NotifyType {}
 
+    /**
+     * Indicates that the sender supports INITIAL CONTACT functionality for the IKE Session. Only
+     * allowed in the request of first IKE_AUTH exchange Note: Currently IKE only supports sending
+     * this payload & will ignore the received payload
+     */
+    public static final int NOTIFY_TYPE_INITIAL_CONTACT = 16384;
     /**
      * Indicates that the responder has narrowed the proposed Traffic Selectors but other Traffic
      * Selectors would also have been acceptable. Only allowed in the response for negotiating a
@@ -241,7 +248,7 @@ public final class IkeNotifyPayload extends IkeInformationalPayload {
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_USE_TRANSPORT_MODE, "Use transport mode");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_REKEY_SA, "Rekey SA");
         NOTIFY_TYPE_TO_STRING.put(
-                NOTIFY_TYPE_ESP_TFC_PADDING_NOT_SUPPORTED, "ESP TCP Padding not supported");
+                NOTIFY_TYPE_ESP_TFC_PADDING_NOT_SUPPORTED, "ESP TFC Padding not supported");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_MOBIKE_SUPPORTED, "MOBIKE supported");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_UPDATE_SA_ADDRESSES, "UPDATE_SA_ADDRESSES");
         NOTIFY_TYPE_TO_STRING.put(NOTIFY_TYPE_COOKIE2, "COOKIE2");

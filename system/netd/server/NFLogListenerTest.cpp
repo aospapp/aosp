@@ -38,9 +38,10 @@ using ::testing::StrictMock;
 namespace android {
 namespace net {
 
+using netdutils::makeSlice;
+using netdutils::NetlinkListenerInterface;
 using netdutils::Slice;
 using netdutils::StatusOr;
-using netdutils::makeSlice;
 using netdutils::status::ok;
 
 constexpr int kNFLogPacketMsgType = (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET;

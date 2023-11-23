@@ -27,6 +27,11 @@
 
 class ConvolutionOperatorTester {
  public:
+  enum class WeightsType {
+    Default,
+    FP32,
+  };
+
   inline ConvolutionOperatorTester& padding_tf_same(bool padding_same) {
     if (padding_same) {
       assert(padding_top() == 0);
@@ -497,6 +502,15 @@ class ConvolutionOperatorTester {
     return this->has_bias_;
   }
 
+  inline ConvolutionOperatorTester& weights_type(WeightsType weights_type) {
+    this->weights_type_ = weights_type;
+    return *this;
+  }
+
+  inline WeightsType weights_type() const {
+    return this->weights_type_;
+  }
+
   inline ConvolutionOperatorTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
@@ -506,15 +520,217 @@ class ConvolutionOperatorTester {
     return this->iterations_;
   }
 
-  void TestNHWCxQS8() const {
+  void TestNHWCxQC8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
     auto i8rng = std::bind(
-      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()), rng);
+      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+    auto w8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
 
     std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
-      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()) + 8);
+      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
+    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    std::vector<int32_t> bias(groups() * group_output_channels());
+    std::vector<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    std::vector<float> requantization_scales(groups() * group_output_channels());
+
+    const int8_t input_zero_point = -1;
+    const int8_t output_zero_point = -1;
+
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), std::ref(i8rng));
+      std::generate(kernel.begin(), kernel.end(), std::ref(w8rng));
+      std::generate(bias.begin(), bias.end(), std::ref(i32rng));
+      std::fill(output.begin(), output.end(), 0xA5);
+
+      // Compute reference results, without renormalization.
+      if (has_bias()) {
+        for (size_t i = 0; i < batch_size(); i++) {
+          for (size_t oy = 0; oy < output_height(); oy++) {
+            for (size_t ox = 0; ox < output_width(); ox++) {
+              for (size_t g = 0; g < groups(); g++) {
+                for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                  accumulators[(((i * output_height() + oy) * output_width() + ox) * groups() + g) * group_output_channels() + oc] =
+                    bias[g * group_output_channels() + oc];
+                }
+              }
+            }
+          }
+        }
+      } else {
+        std::fill(accumulators.begin(), accumulators.end(), 0);
+      }
+      if (depthwise_layout()) {
+        ASSERT_EQ(group_input_channels(), 1);
+
+        for (size_t i = 0; i < batch_size(); i++) {
+          for (size_t oy = 0; oy < output_height(); oy++) {
+            for (size_t ox = 0; ox < output_width(); ox++) {
+              for (size_t ky = 0; ky < kernel_height(); ky++) {
+                const size_t iy = oy * subsampling_height() + ky * dilation_height() - padding_top();
+                if (iy < input_height()) {
+                  for (size_t kx = 0; kx < kernel_width(); kx++) {
+                    const size_t ix = ox * subsampling_width() + kx * dilation_width() - padding_left();
+                    if (ix < input_width()) {
+                      for (size_t g = 0; g < groups(); g++) {
+                        for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                          accumulators[(((i * output_height() + oy) * output_width() + ox) * groups() + g) * group_output_channels() + oc] +=
+                            (int32_t(input[((i * input_height() + iy) * input_width() + ix) * input_channel_stride() + g]) - int32_t(input_zero_point)) *
+                            int32_t(kernel[((ky * kernel_width() + kx) * groups() + g) * group_output_channels() + oc]);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        for (size_t i = 0; i < batch_size(); i++) {
+          for (size_t oy = 0; oy < output_height(); oy++) {
+            for (size_t ox = 0; ox < output_width(); ox++) {
+              for (size_t ky = 0; ky < kernel_height(); ky++) {
+                const size_t iy = oy * subsampling_height() + ky * dilation_height() - padding_top();
+                if (iy < input_height()) {
+                  for (size_t kx = 0; kx < kernel_width(); kx++) {
+                    const size_t ix = ox * subsampling_width() + kx * dilation_width() - padding_left();
+                    if (ix < input_width()) {
+                      for (size_t g = 0; g < groups(); g++) {
+                        for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                          for (size_t ic = 0; ic < group_input_channels(); ic++) {
+                            accumulators[(((i * output_height() + oy) * output_width() + ox) * groups() + g) * group_output_channels() + oc] +=
+                              (int32_t(input[((i * input_height() + iy) * input_width() + ix) * input_channel_stride() + g * group_input_channels() + ic]) - int32_t(input_zero_point)) *
+                              int32_t(kernel[(((g * group_output_channels() + oc) * kernel_height() + ky) * kernel_width() + kx) * group_input_channels() + ic]);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Compute renormalization parameters.
+      for (size_t c = 0; c < groups() * group_output_channels(); c++) {
+        int32_t accumulated_min = accumulators[c];
+        int32_t accumulated_max = accumulators[c];
+        for (size_t px = 0; px < batch_size() * output_height() * output_width(); px++) {
+          accumulated_min = std::min(accumulated_min, accumulators[px * groups() * group_output_channels() + c]);
+          accumulated_max = std::max(accumulated_max, accumulators[px * groups() * group_output_channels() + c]);
+        }
+
+        float requantization_scale = 0x1.0p-32f;
+        if (accumulated_max != 0) {
+          requantization_scale = std::max(requantization_scale,
+            float(int32_t(std::numeric_limits<int8_t>::max()) - int32_t(output_zero_point)) / float(accumulated_max));
+        }
+        if (accumulated_min != 0) {
+          requantization_scale = std::max(requantization_scale,
+            float(int32_t(std::numeric_limits<int8_t>::min()) - int32_t(output_zero_point)) / float(accumulated_min));
+        }
+        requantization_scale = std::min(requantization_scale, 0x1.FFFFFEp-1f);
+
+        requantization_scales[c] = requantization_scale;
+      }
+
+      // Renormalize reference results.
+      for (size_t c = 0; c < groups() * group_output_channels(); c++) {
+        for (size_t px = 0; px < batch_size() * output_height() * output_width(); px++) {
+          output_ref[px * groups() * group_output_channels() + c] = double(int32_t(output_zero_point)) +
+            double(accumulators[px * groups() * group_output_channels() + c]) * double(requantization_scales[c]);
+        }
+      }
+      std::transform(output_ref.cbegin(), output_ref.cend(), output_ref.begin(),
+        [this](double x) -> double {
+          return std::max<double>(std::min<double>(x, double(qmax() - 0x80)), double(qmin() - 0x80));
+        });
+
+      // Create, setup, run, and destroy Convolution operator.
+      ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+      xnn_operator_t convolution_op = nullptr;
+
+      xnn_status status = xnn_create_convolution2d_nhwc_qc8(
+          padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
+          padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
+          kernel_height(), kernel_width(),
+          subsampling_height(), subsampling_width(),
+          dilation_height(), dilation_width(),
+          groups(), group_input_channels(), group_output_channels(),
+          input_channel_stride(), output_channel_stride(),
+          input_zero_point, 1.0f /* input scale */, requantization_scales.data(),
+          kernel.data(), has_bias() ? bias.data() : nullptr,
+          output_zero_point, 1.0f /* output scale */, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
+          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          &convolution_op);
+      if (status == xnn_status_unsupported_hardware) {
+        GTEST_SKIP();
+      }
+      ASSERT_EQ(xnn_status_success, status);
+      ASSERT_NE(nullptr, convolution_op);
+
+      // Smart pointer to automatically delete convolution_op.
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_convolution2d_nhwc_qc8(
+          convolution_op,
+          batch_size(), input_height(), input_width(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(convolution_op, nullptr /* thread pool */));
+
+      // Verify results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t y = 0; y < output_height(); y++) {
+          for (size_t x = 0; x < output_width(); x++) {
+            for (size_t g = 0; g < groups(); g++) {
+              for (size_t c = 0; c < group_output_channels(); c++) {
+                ASSERT_LE(int32_t(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmax() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_GE(int32_t(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmin() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_NEAR(
+                    output_ref[(((i * output_height() + y) * output_width() + x) * groups() + g) * group_output_channels() + c],
+                    double(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]),
+                    0.9)
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void TestNHWCxQS8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
+    auto i8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+    auto w8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+
+    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
+      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
     std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
     std::vector<int32_t> bias(groups() * group_output_channels());
     std::vector<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
@@ -525,7 +741,7 @@ class ConvolutionOperatorTester {
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), std::ref(i8rng));
-      std::generate(kernel.begin(), kernel.end(), std::ref(i8rng));
+      std::generate(kernel.begin(), kernel.end(), std::ref(w8rng));
       std::generate(bias.begin(), bias.end(), std::ref(i32rng));
       std::fill(output.begin(), output.end(), 0xA5);
 
@@ -675,13 +891,16 @@ class ConvolutionOperatorTester {
   }
 
   void TestNHWCxQU8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
-    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
+    auto u8rng = std::bind(
+      std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
     std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
-      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()) + 8);
+      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
     std::vector<uint8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
     std::vector<int32_t> bias(groups() * group_output_channels());
     std::vector<uint8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
@@ -844,9 +1063,11 @@ class ConvolutionOperatorTester {
   }
 
   void TestNHWCxF32() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), std::ref(rng));
 
     std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
@@ -1003,23 +1224,37 @@ class ConvolutionOperatorTester {
   }
 
   void TestNHWCxF16() const {
+    switch (weights_type()) {
+      case WeightsType::Default:
+        break;
+      case WeightsType::FP32:
+        break;
+      default:
+        GTEST_FAIL() << "unexpected weights type";
+    }
+
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), std::ref(rng));
     auto f16rng = std::bind(fp16_ieee_from_fp32_value, f32rng);
 
     std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
     std::vector<uint16_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    std::vector<float> kernel_as_float(kernel.size());
     std::vector<uint16_t> bias(groups() * group_output_channels());
+    std::vector<float> bias_as_float(bias.size());
     std::vector<uint16_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
     std::vector<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), std::ref(f16rng));
       std::generate(kernel.begin(), kernel.end(), std::ref(f16rng));
+      std::transform(kernel.cbegin(), kernel.cend(), kernel_as_float.begin(), fp16_ieee_to_fp32_value);
       std::generate(bias.begin(), bias.end(), std::ref(f16rng));
+      std::transform(bias.cbegin(), bias.cend(), bias_as_float.begin(), fp16_ieee_to_fp32_value);
       std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -1110,6 +1345,22 @@ class ConvolutionOperatorTester {
       ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
       xnn_operator_t convolution_op = nullptr;
 
+      const void* kernel_data = kernel.data();
+      const void* bias_data = bias.data();
+      if (weights_type() == WeightsType::FP32) {
+        kernel_data = kernel_as_float.data();
+        bias_data = bias_as_float.data();
+      }
+      uint32_t flags = 0;
+      if (depthwise_layout()) {
+        flags |= XNN_FLAG_DEPTHWISE_CONVOLUTION;
+      }
+      if (padding_tf_same()) {
+        flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      }
+      if (weights_type() == WeightsType::FP32) {
+        flags |= XNN_FLAG_FP32_STATIC_WEIGHTS;
+      }
       xnn_status status = xnn_create_convolution2d_nhwc_f16(
           padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
           padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
@@ -1118,9 +1369,9 @@ class ConvolutionOperatorTester {
           dilation_height(), dilation_width(),
           groups(), group_input_channels(), group_output_channels(),
           input_channel_stride(), output_channel_stride(),
-          kernel.data(), has_bias() ? bias.data() : nullptr,
+          kernel_data, has_bias() ? bias_data : nullptr,
           output_min, output_max,
-          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          flags,
           &convolution_op);
       if (status == xnn_status_unsupported_hardware) {
         GTEST_SKIP();
@@ -1162,9 +1413,11 @@ class ConvolutionOperatorTester {
   }
 
   void TestNCHWxF32() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), std::ref(rng));
     auto prng = std::bind(std::uniform_real_distribution<float>(), rng);
 
     std::vector<float> input(2 * XNN_EXTRA_BYTES / sizeof(float) +
@@ -1355,18 +1608,287 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void TestSetupNHWCxQS8() const {
+  void TestSetupNHWCxQC8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     ASSERT_FALSE(depthwise_layout());
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
     auto i8rng = std::bind(
-      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()), rng);
+      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+    auto w8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
 
     std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
-      next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())) + 8);
+      next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
+    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    std::vector<int32_t> bias(groups() * group_output_channels());
+    std::vector<int8_t> output(std::max(
+      batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
+      next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
+    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    std::vector<float> requantization_scales(groups() * group_output_channels());
+    std::vector<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    std::vector<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    std::vector<float> next_requantization_scales(groups() * group_output_channels());
+
+    const int8_t input_zero_point = -1;
+    const int8_t output_zero_point = -1;
+
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), std::ref(i8rng));
+      std::generate(kernel.begin(), kernel.end(), std::ref(w8rng));
+      std::generate(bias.begin(), bias.end(), std::ref(i32rng));
+      std::fill(output.begin(), output.end(), 0xA5);
+
+      // Compute reference results, without renormalization.
+      if (has_bias()) {
+        for (size_t i = 0; i < batch_size(); i++) {
+          for (size_t oy = 0; oy < output_height(); oy++) {
+            for (size_t ox = 0; ox < output_width(); ox++) {
+              for (size_t g = 0; g < groups(); g++) {
+                for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                  accumulators[(((i * output_height() + oy) * output_width() + ox) * groups() + g) * group_output_channels() + oc] =
+                    bias[g * group_output_channels() + oc];
+                }
+              }
+            }
+          }
+        }
+      } else {
+        std::fill(accumulators.begin(), accumulators.end(), 0);
+      }
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t oy = 0; oy < output_height(); oy++) {
+          for (size_t ox = 0; ox < output_width(); ox++) {
+            for (size_t ky = 0; ky < kernel_height(); ky++) {
+              const size_t iy = oy * subsampling_height() + ky * dilation_height() - padding_top();
+              if (iy < input_height()) {
+                for (size_t kx = 0; kx < kernel_width(); kx++) {
+                  const size_t ix = ox * subsampling_width() + kx * dilation_width() - padding_left();
+                  if (ix < input_width()) {
+                    for (size_t g = 0; g < groups(); g++) {
+                      for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                        for (size_t ic = 0; ic < group_input_channels(); ic++) {
+                          accumulators[(((i * output_height() + oy) * output_width() + ox) * groups() + g) * group_output_channels() + oc] +=
+                            (int32_t(input[((i * input_height() + iy) * input_width() + ix) * input_channel_stride() + g * group_input_channels() + ic]) - int32_t(input_zero_point)) *
+                            int32_t(kernel[(((g * group_output_channels() + oc) * kernel_height() + ky) * kernel_width() + kx) * group_input_channels() + ic]);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Compute renormalization parameters.
+      for (size_t c = 0; c < groups() * group_output_channels(); c++) {
+        int32_t accumulated_min = accumulators[c];
+        int32_t accumulated_max = accumulators[c];
+        for (size_t px = 0; px < batch_size() * output_height() * output_width(); px++) {
+          accumulated_min = std::min(accumulated_min, accumulators[px * groups() * group_output_channels() + c]);
+          accumulated_max = std::max(accumulated_max, accumulators[px * groups() * group_output_channels() + c]);
+        }
+
+        float requantization_scale = 0x1.0p-32f;
+        if (accumulated_max != 0) {
+          requantization_scale = std::max(requantization_scale,
+            float(int32_t(std::numeric_limits<int8_t>::max()) - int32_t(output_zero_point)) / float(accumulated_max));
+        }
+        if (accumulated_min != 0) {
+          requantization_scale = std::max(requantization_scale,
+            float(int32_t(std::numeric_limits<int8_t>::min()) - int32_t(output_zero_point)) / float(accumulated_min));
+        }
+        requantization_scale = std::min(requantization_scale, 0x1.FFFFFEp-1f);
+
+        requantization_scales[c] = requantization_scale;
+      }
+
+      // Renormalize reference results.
+      for (size_t c = 0; c < groups() * group_output_channels(); c++) {
+        for (size_t px = 0; px < batch_size() * output_height() * output_width(); px++) {
+          output_ref[px * groups() * group_output_channels() + c] = double(int32_t(output_zero_point)) +
+            double(accumulators[px * groups() * group_output_channels() + c]) * double(requantization_scales[c]);
+        }
+      }
+      std::transform(output_ref.cbegin(), output_ref.cend(), output_ref.begin(),
+        [this](double x) -> double {
+          return std::max<double>(std::min<double>(x, double(qmax() - 0x80)), double(qmin() - 0x80));
+        });
+
+      // Create, setup, and run Convolution operator once.
+      ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+      xnn_operator_t convolution_op = nullptr;
+
+      xnn_status status = xnn_create_convolution2d_nhwc_qc8(
+          padding_top(), padding_right(), padding_bottom(), padding_left(),
+          kernel_height(), kernel_width(),
+          subsampling_height(), subsampling_width(),
+          dilation_height(), dilation_width(),
+          groups(), group_input_channels(), group_output_channels(),
+          input_channel_stride(), output_channel_stride(),
+          input_zero_point, 1.0f /* input scale */, requantization_scales.data(),
+          kernel.data(), has_bias() ? bias.data() : nullptr,
+          output_zero_point, 1.0f /* output scale */, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
+          0, &convolution_op);
+      if (status == xnn_status_unsupported_hardware) {
+        GTEST_SKIP();
+      }
+      ASSERT_EQ(xnn_status_success, status);
+      ASSERT_NE(nullptr, convolution_op);
+
+      // Smart pointer to automatically delete convolution_op.
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_convolution2d_nhwc_qc8(
+          convolution_op,
+          batch_size(), input_height(), input_width(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(convolution_op, nullptr /* thread pool */));
+
+      // Verify results of the first run.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t y = 0; y < output_height(); y++) {
+          for (size_t x = 0; x < output_width(); x++) {
+            for (size_t g = 0; g < groups(); g++) {
+              for (size_t c = 0; c < group_output_channels(); c++) {
+                ASSERT_LE(int32_t(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmax() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_GE(int32_t(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmin() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_NEAR(
+                    output_ref[(((i * output_height() + y) * output_width() + x) * groups() + g) * group_output_channels() + c],
+                    double(output[((i * output_height() + y) * output_width() + x) * output_channel_stride() + g * group_output_channels() + c]),
+                    0.9)
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+              }
+            }
+          }
+        }
+      }
+
+      // Re-generate data for the second run.
+      std::generate(input.begin(), input.end(), std::ref(i8rng));
+      std::fill(output.begin(), output.end(), 0xA5);
+
+      // Compute reference results for the second run, including renormalization.
+      if (has_bias()) {
+        for (size_t i = 0; i < next_batch_size(); i++) {
+          for (size_t oy = 0; oy < next_output_height(); oy++) {
+            for (size_t ox = 0; ox < next_output_width(); ox++) {
+              for (size_t g = 0; g < groups(); g++) {
+                for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                  next_accumulators[(((i * next_output_height() + oy) * next_output_width() + ox) * groups() + g) * group_output_channels() + oc] =
+                    bias[g * group_output_channels() + oc];
+                }
+              }
+            }
+          }
+        }
+      } else {
+        std::fill(next_accumulators.begin(), next_accumulators.end(), 0);
+      }
+      for (size_t i = 0; i < next_batch_size(); i++) {
+        for (size_t oy = 0; oy < next_output_height(); oy++) {
+          for (size_t ox = 0; ox < next_output_width(); ox++) {
+            for (size_t ky = 0; ky < kernel_height(); ky++) {
+              const size_t iy = oy * subsampling_height() + ky * dilation_height() - padding_top();
+              if (iy < next_input_height()) {
+                for (size_t kx = 0; kx < kernel_width(); kx++) {
+                  const size_t ix = ox * subsampling_width() + kx * dilation_width() - padding_left();
+                  if (ix < next_input_width()) {
+                    for (size_t g = 0; g < groups(); g++) {
+                      for (size_t oc = 0; oc < group_output_channels(); oc++) {
+                        for (size_t ic = 0; ic < group_input_channels(); ic++) {
+                          next_accumulators[(((i * next_output_height() + oy) * next_output_width() + ox) * groups() + g) * group_output_channels() + oc] +=
+                            (int32_t(input[((i * next_input_height() + iy) * next_input_width() + ix) * input_channel_stride() + g * group_input_channels() + ic]) - int32_t(input_zero_point)) *
+                            int32_t(kernel[(((g * group_output_channels() + oc) * kernel_height() + ky) * kernel_width() + kx) * group_input_channels() + ic]);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      for (size_t c = 0; c < groups() * group_output_channels(); c++) {
+        for (size_t px = 0; px < next_batch_size() * next_output_height() * next_output_width(); px++) {
+          next_output_ref[px * groups() * group_output_channels() + c] = double(int32_t(output_zero_point)) +
+            double(next_accumulators[px * groups() * group_output_channels() + c]) * double(requantization_scales[c]);
+        }
+      }
+      std::transform(next_output_ref.cbegin(), next_output_ref.cend(), next_output_ref.begin(),
+        [this](double x) -> double {
+          return std::max<double>(std::min<double>(x, double(qmax() - 0x80)), double(qmin() - 0x80));
+        });
+
+      // Setup and run Convolution operator the second time, and destroy the operator.
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_convolution2d_nhwc_qc8(
+          convolution_op,
+          next_batch_size(), next_input_height(), next_input_width(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(convolution_op, nullptr /* thread pool */));
+
+      // Verify results of the second run.
+      for (size_t i = 0; i < next_batch_size(); i++) {
+        for (size_t y = 0; y < next_output_height(); y++) {
+          for (size_t x = 0; x < next_output_width(); x++) {
+            for (size_t g = 0; g < groups(); g++) {
+              for (size_t c = 0; c < group_output_channels(); c++) {
+                ASSERT_LE(int32_t(output[((i * next_output_height() + y) * next_output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmax() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_GE(int32_t(output[((i * next_output_height() + y) * next_output_width() + x) * output_channel_stride() + g * group_output_channels() + c]), int32_t(qmin() - 0x80))
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+                ASSERT_NEAR(
+                    next_output_ref[(((i * next_output_height() + y) * next_output_width() + x) * groups() + g) * group_output_channels() + c],
+                    double(output[((i * next_output_height() + y) * next_output_width() + x) * output_channel_stride() + g * group_output_channels() + c]),
+                    0.9)
+                  << "(x, y) = (" << x << ", " << y << "), group = " << g << ", channel = " << c;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void TestSetupNHWCxQS8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
+    ASSERT_FALSE(depthwise_layout());
+
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
+    auto i8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+    auto w8rng = std::bind(
+      std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
+      std::ref(rng));
+
+    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
+      batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
+      next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
     std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
     std::vector<int32_t> bias(groups() * group_output_channels());
     std::vector<int8_t> output(std::max(
@@ -1381,7 +1903,7 @@ class ConvolutionOperatorTester {
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), std::ref(i8rng));
-      std::generate(kernel.begin(), kernel.end(), std::ref(i8rng));
+      std::generate(kernel.begin(), kernel.end(), std::ref(w8rng));
       std::generate(bias.begin(), bias.end(), std::ref(i32rng));
       std::fill(output.begin(), output.end(), 0xA5);
 
@@ -1584,16 +2106,19 @@ class ConvolutionOperatorTester {
   }
 
   void TestSetupNHWCxQU8() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     ASSERT_FALSE(depthwise_layout());
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
-    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
+    auto u8rng = std::bind(
+      std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
     std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
-      next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())) + 8);
+      next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
     std::vector<uint8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
     std::vector<int32_t> bias(groups() * group_output_channels());
     std::vector<uint8_t> output(std::max(
@@ -1813,11 +2338,13 @@ class ConvolutionOperatorTester {
   }
 
   void TestSetupNHWCxF16() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     ASSERT_FALSE(depthwise_layout());
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), std::ref(rng));
     auto f16rng = std::bind(fp16_ieee_from_fp32_value, f32rng);
 
     std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) + std::max(
@@ -2026,11 +2553,13 @@ class ConvolutionOperatorTester {
   }
 
   void TestSetupNHWCxF32() const {
+    ASSERT_EQ(weights_type(), WeightsType::Default);
+
     ASSERT_FALSE(depthwise_layout());
 
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.1f, 1.0f), std::ref(rng));
 
     std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
@@ -2271,5 +2800,6 @@ class ConvolutionOperatorTester {
   bool depthwise_layout_{false};
   bool force_nhwc_input_{false};
   bool has_bias_{true};
+  WeightsType weights_type_{WeightsType::Default};
   size_t iterations_{1};
 };

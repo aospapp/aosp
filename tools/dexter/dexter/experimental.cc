@@ -15,6 +15,7 @@
  */
 
 #include "experimental.h"
+
 #include "slicer/code_ir.h"
 #include "slicer/control_flow_graph.h"
 #include "slicer/dex_ir.h"
@@ -325,10 +326,10 @@ void StressScratchRegs(std::shared_ptr<ir::DexFile> dex_ir) {
   for (auto& ir_method : dex_ir->encoded_methods) {
     if (ir_method->code != nullptr) {
       SLICER_CHECK(mi.InstrumentMethod(ir_method.get()));
-      SLICER_CHECK(t1->ScratchRegs().size() == 1);
-      SLICER_CHECK(t2->ScratchRegs().size() == 1);
-      SLICER_CHECK(t3->ScratchRegs().size() == 1);
-      SLICER_CHECK(t4->ScratchRegs().size() == 20);
+      SLICER_CHECK_EQ(t1->ScratchRegs().size(), 1);
+      SLICER_CHECK_EQ(t2->ScratchRegs().size(), 1);
+      SLICER_CHECK_EQ(t3->ScratchRegs().size(), 1);
+      SLICER_CHECK_EQ(t4->ScratchRegs().size(), 20);
     }
   }
 }
@@ -407,7 +408,7 @@ void CodeCoverage(std::shared_ptr<ir::DexFile> dex_ir) {
           break;
         }
       }
-      SLICER_CHECK(trace_point != nullptr);
+      SLICER_CHECK_NE(trace_point, nullptr);
 
       // special case: don't separate 'move-result-<kind>' from the preceding invoke
       auto opcode = static_cast<lir::Bytecode*>(trace_point)->opcode;
@@ -448,7 +449,7 @@ void StressFindMethod(std::shared_ptr<ir::DexFile> dex_ir) {
     auto signature = decl->prototype->Signature();
     auto class_descriptor = decl->parent->descriptor;
     ir::MethodId method_id(class_descriptor->c_str(), decl->name->c_str(), signature.c_str());
-    SLICER_CHECK(builder.FindMethod(method_id) == ir_method.get());
+    SLICER_CHECK_EQ(builder.FindMethod(method_id), ir_method.get());
     ++method_count;
   }
   printf("Everything looks fine, found %d methods.\n", method_count);
@@ -480,7 +481,7 @@ void RegsHistogram(std::shared_ptr<ir::DexFile> dex_ir) {
     if (ir_method->code != nullptr) {
       const int regs = ir_method->code->registers;
       const int ins =  ir_method->code->ins_count;
-      SLICER_CHECK(regs >= ins);
+      SLICER_CHECK_GE(regs, ins);
       regs_histogram[regs]++;
       param_histogram[ins]++;
       extra_histogram[regs - ins]++;

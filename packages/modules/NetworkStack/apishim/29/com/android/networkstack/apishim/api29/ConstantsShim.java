@@ -16,6 +16,11 @@
 
 package com.android.networkstack.apishim.api29;
 
+import android.os.Build;
+import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
+
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 
 /**
@@ -31,6 +36,12 @@ public class ConstantsShim {
     @VisibleForTesting
     public static final int VERSION = 29;
 
+    // Constants defined in android.net.VpnProfileState
+    public static final int VPN_PROFILE_STATE_CONNECTING = 1;
+    public static final int VPN_PROFILE_STATE_CONNECTED = 2;
+
+    public static final String ACTION_VPN_MANAGER_EVENT = "android.net.action.VPN_MANAGER_EVENT";
+
     // Constants defined in android.net.ConnectivityDiagnosticsManager.
     public static final int DETECTION_METHOD_DNS_EVENTS = 1;
     public static final int DETECTION_METHOD_TCP_METRICS = 2;
@@ -42,4 +53,18 @@ public class ConstantsShim {
     // Constants defined in android.net.NetworkCapabilities.
     public static final int NET_CAPABILITY_NOT_VCN_MANAGED = 28;
 
+    // Constants defined in android.content.Context
+    public static final String NEARBY_SERVICE = "nearby";
+
+    /** Compatibility class for {@link CarrierConfigManager}. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    /** See {@link CarrierManager#KEY_CARRIER_SUPPORTS_TETHERING_BOOL} */
+    public static final String KEY_CARRIER_SUPPORTS_TETHERING_BOOL =
+            "carrier_supports_tethering_bool";
+
+    /** Compatibility class for {@link Settings}. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    /** @see android.provider.Settings#ACTION_TETHER_UNSUPPORTED_CARRIER_UI */
+    public static final  String ACTION_TETHER_UNSUPPORTED_CARRIER_UI =
+            "android.settings.TETHER_UNSUPPORTED_CARRIER_UI";
 }

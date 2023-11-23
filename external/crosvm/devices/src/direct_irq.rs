@@ -4,37 +4,56 @@
 
 use base::{ioctl_with_ref, AsRawDescriptor, Event, RawDescriptor};
 use data_model::vec_with_array_field;
-use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::mem::size_of;
 
+use remain::sorted;
+use thiserror::Error;
 use vfio_sys::*;
 
-#[derive(Debug)]
-pub enum DirectIrqError {
-    Open(io::Error),
-    Enable,
-}
+use crate::{IrqEdgeEvent, IrqLevelEvent};
 
-impl fmt::Display for DirectIrqError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            DirectIrqError::Open(e) => write!(f, "failed to open /dev/plat-irq-forward: {}", e),
-            DirectIrqError::Enable => write!(f, "failed to enable direct irq"),
-        }
-    }
+#[sorted]
+#[derive(Error, Debug)]
+pub enum DirectIrqError {
+    #[error("failed to clone trigger event: {0}")]
+    CloneEvent(base::Error),
+    #[error("failed to clone resample event: {0}")]
+    CloneResampleEvent(base::Error),
+    #[error("failed to enable direct irq")]
+    Enable,
+    #[error("failed to enable gpe irq")]
+    EnableGpe,
+    #[error("failed to enable direct sci irq")]
+    EnableSci,
+    #[error("failed to enable wake irq")]
+    EnableWake,
+    #[error("failed to open /dev/plat-irq-forward: {0}")]
+    Open(io::Error),
 }
 
 pub struct DirectIrq {
     dev: File,
     trigger: Event,
     resample: Option<Event>,
+    sci_irq_prepared: bool,
 }
 
 impl DirectIrq {
-    /// Create DirectIrq object to access hardware triggered interrupts.
-    pub fn new(trigger: Event, resample: Option<Event>) -> Result<Self, DirectIrqError> {
+    fn new(trigger_evt: &Event, resample_evt: Option<&Event>) -> Result<Self, DirectIrqError> {
+        let trigger = trigger_evt
+            .try_clone()
+            .map_err(DirectIrqError::CloneEvent)?;
+        let resample = if let Some(event) = resample_evt {
+            Some(
+                event
+                    .try_clone()
+                    .map_err(DirectIrqError::CloneResampleEvent)?,
+            )
+        } else {
+            None
+        };
         let dev = OpenOptions::new()
             .read(true)
             .write(true)
@@ -44,7 +63,18 @@ impl DirectIrq {
             dev,
             trigger,
             resample,
+            sci_irq_prepared: false,
         })
+    }
+
+    /// Create DirectIrq object to access hardware edge triggered interrupts.
+    pub fn new_edge(irq_evt: &IrqEdgeEvent) -> Result<Self, DirectIrqError> {
+        DirectIrq::new(irq_evt.get_trigger(), None)
+    }
+
+    /// Create DirectIrq object to access hardware level triggered interrupts.
+    pub fn new_level(irq_evt: &IrqLevelEvent) -> Result<Self, DirectIrqError> {
+        DirectIrq::new(irq_evt.get_trigger(), Some(irq_evt.get_resample()))
     }
 
     /// Enable hardware triggered interrupt handling.
@@ -79,6 +109,35 @@ impl DirectIrq {
         Ok(())
     }
 
+    pub fn irq_wake_enable(&self, irq_num: u32) -> Result<(), DirectIrqError> {
+        self.plat_irq_wake_ioctl(irq_num, PLAT_IRQ_WAKE_ENABLE)
+    }
+
+    /// Enable hardware triggered SCI interrupt handling for GPE.
+    ///
+    /// Note: sci_irq_prepare() itself does not enable SCI forwarding yet
+    /// but configures it so it can be enabled for selected GPEs using gpe_enable_forwarding().
+    pub fn sci_irq_prepare(&mut self) -> Result<(), DirectIrqError> {
+        if let Some(resample) = &self.resample {
+            self.plat_irq_ioctl(
+                0,
+                PLAT_IRQ_FORWARD_SET_LEVEL_SCI_FOR_GPE_TRIGGER_EVENTFD,
+                self.trigger.as_raw_descriptor(),
+            )?;
+            self.plat_irq_ioctl(
+                0,
+                PLAT_IRQ_FORWARD_SET_LEVEL_SCI_FOR_GPE_UNMASK_EVENTFD,
+                resample.as_raw_descriptor(),
+            )?;
+        } else {
+            return Err(DirectIrqError::EnableSci);
+        }
+
+        self.sci_irq_prepared = true;
+
+        Ok(())
+    }
+
     fn plat_irq_ioctl(
         &self,
         irq_num: u32,
@@ -102,6 +161,53 @@ impl DirectIrq {
         let ret = unsafe { ioctl_with_ref(self, PLAT_IRQ_FORWARD_SET(), &irq_set[0]) };
         if ret < 0 {
             Err(DirectIrqError::Enable)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn plat_irq_wake_ioctl(&self, irq_num: u32, action: u32) -> Result<(), DirectIrqError> {
+        let mut irq_wake_set = vec_with_array_field::<plat_irq_wake_set, u32>(0);
+        irq_wake_set[0].argsz = (size_of::<plat_irq_wake_set>()) as u32;
+        irq_wake_set[0].action_flags = action;
+        irq_wake_set[0].irq_number_host = irq_num;
+
+        // Safe as we are the owner of plat_irq_wake_set and irq_wake_set which are valid value
+        let ret = unsafe { ioctl_with_ref(self, PLAT_IRQ_WAKE_SET(), &irq_wake_set[0]) };
+        if ret < 0 {
+            Err(DirectIrqError::EnableWake)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enable hardware triggered GPE handling via SCI interrupt forwarding.
+    /// Note: requires sci_irq_prepare() to be called beforehand.
+    ///
+    /// # Arguments
+    ///
+    /// * `gpe_num` - host GPE number.
+    ///
+    pub fn gpe_enable_forwarding(&mut self, gpe_num: u32) -> Result<(), DirectIrqError> {
+        if self.resample.is_none() || !self.sci_irq_prepared {
+            return Err(DirectIrqError::EnableGpe);
+        }
+
+        self.gpe_forward_ioctl(gpe_num, ACPI_GPE_FORWARD_SET_TRIGGER)?;
+
+        Ok(())
+    }
+
+    fn gpe_forward_ioctl(&self, gpe_num: u32, action: u32) -> Result<(), DirectIrqError> {
+        let mut gpe_set = vec_with_array_field::<gpe_forward_set, u32>(0);
+        gpe_set[0].argsz = (size_of::<gpe_forward_set>()) as u32;
+        gpe_set[0].action_flags = action;
+        gpe_set[0].gpe_host_nr = gpe_num;
+
+        // Safe as we are the owner of plat_irq_forward and gpe_set which are valid value
+        let ret = unsafe { ioctl_with_ref(self, ACPI_GPE_FORWARD_SET(), &gpe_set[0]) };
+        if ret < 0 {
+            Err(DirectIrqError::EnableGpe)
         } else {
             Ok(())
         }

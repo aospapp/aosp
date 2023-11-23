@@ -16,16 +16,6 @@
   -->
 
 <resources>
-    <!-- dimensions for rear view camera -->
-    <dimen name="rear_view_camera_width">1020dp</dimen>
-    <dimen name="rear_view_camera_height">720dp</dimen>
-
-    <dimen name="rear_view_camera_exit_button_width">48dp</dimen>
-    <dimen name="rear_view_camera_exit_button_height">48dp</dimen>
-    <dimen name="rear_view_camera_exit_button_margin">24dp</dimen>
-    <dimen name="rear_view_camera_exit_icon_width">26dp</dimen>
-    <dimen name="rear_view_camera_exit_icon_height">26dp</dimen>
-
     <dimen name="hvac_container_padding">24dp</dimen>
     <dimen name="hvac_temperature_text_size">56sp</dimen>
     <dimen name="hvac_temperature_text_padding">12dp</dimen>
@@ -79,4 +69,21 @@
     <dimen name="toast_icon_dimen">48dp</dimen>
     <dimen name="toast_bottom_margin">32dp</dimen>
 
+    <!-- screen height of the device. This is used when custom policy is provided using
+    config_deviceSpecificDisplayAreaPolicyProvider -->
+    <dimen name="total_screen_height">2176dp</dimen>
+    <!-- screen width of the device. This is used when custom policy is provided using
+    config_deviceSpecificDisplayAreaPolicyProvider -->
+    <dimen name="total_screen_width">1224dp</dimen>
+
+    <dimen name="control_bar_height">136dp</dimen>
+    <dimen name="control_bar_padding">0dp</dimen>
+    <!-- This height is from the top of navbar not accounting for the control bar height. -->
+    <dimen name="default_app_display_area_height">1056dp</dimen>
+    <dimen name="title_bar_display_area_height">56dp</dimen>
+    <!-- This value is 500dp + (top of title bar)  -->
+    <dimen name="title_bar_display_area_touch_drag_threshold">1204dp</dimen>
+
+    <dimen name="full_app_display_area_height">1760dp</dimen>
+    <dimen name="control_bar_image_background_radius">24dp</dimen>
 </resources>

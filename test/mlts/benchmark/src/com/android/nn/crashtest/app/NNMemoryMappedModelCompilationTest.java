@@ -24,6 +24,7 @@ import android.test.suitebuilder.annotation.LargeTest;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.nn.benchmark.app.AcceleratorSpecificTestSupport;
 import com.android.nn.benchmark.core.NnApiDelegationFailure;
 import com.android.nn.benchmark.core.TestModels;
 
@@ -48,7 +49,7 @@ import java.util.stream.IntStream;
 @RunWith(Parameterized.class)
 public class NNMemoryMappedModelCompilationTest extends
         ActivityInstrumentationTestCase2<NNParallelTestActivity> implements
-        AcceleratorSpecificTestSupport {
+    AcceleratorSpecificTestSupport {
 
     private static final String TAG = "NNMemoryMappedModelCompilation";
     private static final Duration MAX_SEPARATE_PROCESS_EXECUTION_TIME = Duration.ofSeconds(70);

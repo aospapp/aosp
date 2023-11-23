@@ -22,18 +22,22 @@ import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED
 
 import static org.testng.Assert.assertThrows;
 
+import android.util.Log;
+
 /**
  * Class that tests password constraints API preconditions.
  */
 public class PasswordRequirementsTest extends BaseDeviceAdminTest {
+
     private static final int TEST_VALUE = 5;
+
+    private static final int DEFAULT_LENGTH = 0;
     private static final int DEFAULT_NUMERIC = 1;
     private static final int DEFAULT_LETTERS = 1;
     private static final int DEFAULT_UPPERCASE = 0;
     private static final int DEFAULT_LOWERCASE = 0;
     private static final int DEFAULT_NON_LETTER = 0;
     private static final int DEFAULT_SYMBOLS = 1;
-    private static final int DEFAULT_LENGTH = 0;
 
     public void testPasswordConstraintsDoesntThrowAndPreservesValuesPreR() {
         // Pre-R password restrictions can be set in any order.
@@ -51,23 +55,46 @@ public class PasswordRequirementsTest extends BaseDeviceAdminTest {
         // Make sure these values are preserved and not reset when quality is set low.
         mDevicePolicyManager.setPasswordQuality(
                 ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_UNSPECIFIED);
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumNumeric(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumLetters(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumUpperCase(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumLowerCase(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumNonLetter(ADMIN_RECEIVER_COMPONENT));
-        assertEquals(TEST_VALUE,
-                mDevicePolicyManager.getPasswordMinimumSymbols(ADMIN_RECEIVER_COMPONENT));
+        if (mIsAutomotive) {
+            assertEquals(DEFAULT_LENGTH,
+                    mDevicePolicyManager.getPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_NUMERIC,
+                    mDevicePolicyManager.getPasswordMinimumNumeric(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_LETTERS,
+                    mDevicePolicyManager.getPasswordMinimumLetters(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_UPPERCASE,
+                    mDevicePolicyManager.getPasswordMinimumUpperCase(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_LOWERCASE,
+                    mDevicePolicyManager.getPasswordMinimumLowerCase(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_NON_LETTER,
+                    mDevicePolicyManager.getPasswordMinimumNonLetter(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(DEFAULT_SYMBOLS,
+                    mDevicePolicyManager.getPasswordMinimumSymbols(ADMIN_RECEIVER_COMPONENT));
+        } else {
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumNumeric(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumLetters(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumUpperCase(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumLowerCase(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumNonLetter(ADMIN_RECEIVER_COMPONENT));
+            assertEquals(TEST_VALUE,
+                    mDevicePolicyManager.getPasswordMinimumSymbols(ADMIN_RECEIVER_COMPONENT));
+
+        }
     }
 
     public void testSettingConstraintsWithLowQualityThrowsOnRPlus() {
+        if (!deviceSupportDeprecatedPasswordQualityAPIs(
+                "testSettingConstraintsWithLowQualityThrowsOnRPlus")) {
+            return;
+        }
+
         // On R and above quality should be set first.
         mDevicePolicyManager.setPasswordQuality(
                 ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_SOMETHING);
@@ -89,6 +116,11 @@ public class PasswordRequirementsTest extends BaseDeviceAdminTest {
     }
 
     public void testSettingConstraintsWithNumericQualityOnlyLengthAllowedOnRPlus() {
+        if (!deviceSupportDeprecatedPasswordQualityAPIs(
+                "testSettingConstraintsWithNumericQualityOnlyLengthAllowedOnRPlus")) {
+            return;
+        }
+
         // On R and above quality should be set first.
         mDevicePolicyManager.setPasswordQuality(
                 ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_NUMERIC);
@@ -112,6 +144,11 @@ public class PasswordRequirementsTest extends BaseDeviceAdminTest {
     }
 
     public void testSettingConstraintsWithComplexQualityAndResetWithLowerQuality() {
+        if (!deviceSupportDeprecatedPasswordQualityAPIs(
+                "testSettingConstraintsWithComplexQualityAndResetWithLowerQuality")) {
+            return;
+        }
+
         // On R and above when quality is lowered, irrelevant requirements are getting reset.
         mDevicePolicyManager.setPasswordQuality(
                 ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_COMPLEX);
@@ -153,6 +190,13 @@ public class PasswordRequirementsTest extends BaseDeviceAdminTest {
         // Now length should also be reset.
         assertEquals(DEFAULT_LENGTH,
                 mDevicePolicyManager.getPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT));
+    }
 
+    private boolean deviceSupportDeprecatedPasswordQualityAPIs(String test) {
+        if (mIsAutomotive) {
+            Log.d(mTag, "Skipping " + test + "on automotive build");
+            return false;
+        }
+        return true;
     }
 }

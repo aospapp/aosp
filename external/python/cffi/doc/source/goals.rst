@@ -55,8 +55,8 @@ Get started by reading `the overview`__.
 Comments and bugs
 -----------------
 
-The best way to contact us is on the IRC ``#pypy`` channel of
-``irc.freenode.net``.  Feel free to discuss matters either there or in
+The best way to contact us is on the IRC ``#cffi`` or ``#pypy`` channels of
+``irc.libera.chat``.  Feel free to discuss matters either there or in
 the `mailing list`_.  Please report to the `issue tracker`_ any bugs.
 
 As a general rule, when there is a design issue to resolve, we pick the
@@ -65,5 +65,5 @@ everything you need to access C code and nothing more.
 
 --- the authors, Armin Rigo and Maciej Fijalkowski
 
-.. _`issue tracker`: https://bitbucket.org/cffi/cffi/issues
+.. _`issue tracker`: https://foss.heptapod.net/pypy/cffi/issues
 .. _`mailing list`: https://groups.google.com/forum/#!forum/python-cffi

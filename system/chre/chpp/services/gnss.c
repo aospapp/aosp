@@ -244,15 +244,13 @@ static enum ChppAppErrorCode chppGnssServiceOpen(
   enum ChppAppErrorCode error = CHPP_APP_ERROR_NONE;
 
   if (gnssServiceContext->service.openState == CHPP_OPEN_STATE_OPENED) {
-    CHPP_LOGE("GNSS service already open");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false, "GNSS service already open");
     error = CHPP_APP_ERROR_INVALID_COMMAND;
 
   } else if (!gnssServiceContext->api->open(
                  gnssServiceContext->service.appContext->systemApi,
                  &palCallbacks)) {
-    CHPP_LOGE("GNSS PAL open failed");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false, "GNSS PAL open failed");
     error = CHPP_APP_ERROR_BEYOND_CHPP;
 
   } else {
@@ -667,13 +665,12 @@ void chppRegisterGnssService(struct ChppAppState *appContext) {
   gGnssServiceContext.api = chrePalGnssGetApi(CHPP_PAL_GNSS_API_VERSION);
 
   if (gGnssServiceContext.api == NULL) {
-    CHPP_LOGE(
-        "GNSS PAL API version not compatible with CHPP. Cannot register GNSS "
-        "service");
-    CHPP_DEBUG_ASSERT(false);
+    CHPP_DEBUG_ASSERT_LOG(false,
+                          "GNSS PAL API incompatible. Cannot register service");
 
   } else {
     gGnssServiceContext.service.appContext = appContext;
+    gGnssServiceContext.service.openState = CHPP_OPEN_STATE_CLOSED;
     gGnssServiceContext.service.handle = chppRegisterService(
         appContext, (void *)&gGnssServiceContext, &kGnssServiceConfig);
     CHPP_DEBUG_ASSERT(gGnssServiceContext.service.handle);

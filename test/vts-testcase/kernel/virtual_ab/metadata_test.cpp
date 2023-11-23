@@ -16,6 +16,7 @@
 
 #include <sys/statfs.h>
 
+#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <fstab/fstab.h>
 #include <gtest/gtest.h>
@@ -26,7 +27,13 @@ TEST(Metadata, IsExt4) {
   struct statfs buf;
   ASSERT_EQ(0, statfs(kMetadata, &buf))
       << "Cannot statfs " << kMetadata << ": " << strerror(errno);
-  ASSERT_EQ(EXT4_SUPER_MAGIC, buf.f_type);
+
+  int vsr_level = android::base::GetIntProperty("ro.vendor.api_level", -1);
+  if (vsr_level < __ANDROID_API_T__) {
+    ASSERT_EQ(EXT4_SUPER_MAGIC, buf.f_type);
+  } else {
+    ASSERT_EQ(F2FS_SUPER_MAGIC, buf.f_type);
+  }
 }
 
 TEST(Metadata, FstabEntryFlagsAreSet) {

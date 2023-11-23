@@ -157,7 +157,7 @@ bail:
 	return 1;
 }
 
-static int
+static lws_ss_state_return_t
 ss_avs_metadata_rx(void *userobj, const uint8_t *buf, size_t len, int flags);
 
 /*
@@ -234,8 +234,7 @@ drain_end_cb(void *v)
 				/*
 				 * Put a hold on bringing in any more data
 				 */
-				lws_sul_schedule(context, 0, &m->sul, NULL,
-						 LWS_SET_TIMER_USEC_CANCEL);
+				lws_sul_cancel(&m->sul);
 #endif
 				/* destroy our copy of the handle */
 				m->mh = NULL;
@@ -250,7 +249,7 @@ drain_end_cb(void *v)
 	return 0;
 }
 
-static int
+static lws_ss_state_return_t
 ss_avs_metadata_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 {
 	ss_avs_metadata_t *m = (ss_avs_metadata_t *)userobj;
@@ -391,8 +390,7 @@ ss_avs_metadata_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 			/*
 			 * Put a hold on bringing in any more data
 			 */
-			lws_sul_schedule(context, 0, &m->sul, NULL,
-					 LWS_SET_TIMER_USEC_CANCEL);
+			lws_sul_cancel(&m->sul);
 #endif
 			/* destroy our copy of the handle */
 			m->mh = NULL;
@@ -449,7 +447,7 @@ bail:
  * calls for it.
  */
 
-static int
+static lws_ss_state_return_t
 ss_avs_metadata_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 		   size_t *len, int *flags)
 {
@@ -527,7 +525,7 @@ ss_avs_metadata_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 	return 0;
 }
 
-static int
+static lws_ss_state_return_t
 ss_avs_metadata_state(void *userobj, void *sh,
 		      lws_ss_constate_t state, lws_ss_tx_ordinal_t ack)
 {
@@ -539,18 +537,17 @@ ss_avs_metadata_state(void *userobj, void *sh,
 
 	switch (state) {
 	case LWSSSCS_CREATING:
-		lws_ss_client_connect(m->ss);
-		break;
+		return lws_ss_client_connect(m->ss);
+
 	case LWSSSCS_CONNECTING:
 		m->pos = 0;
 		break;
 	case LWSSSCS_CONNECTED:
 		lwsl_info("%s: CONNECTED\n", __func__);
-		lws_ss_request_tx(m->ss);
-		break;
+		return lws_ss_request_tx(m->ss);
+
 	case LWSSSCS_DISCONNECTED:
-		lws_sul_schedule(context, 0, &m->sul, NULL,
-				 LWS_SET_TIMER_USEC_CANCEL);
+		lws_sul_cancel(&m->sul);
 		//if (m->mh) {
 			play_mp3(NULL, NULL, NULL);
 			m->mh = NULL;
@@ -575,20 +572,20 @@ ss_avs_metadata_state(void *userobj, void *sh,
  * avs event
  */
 
-static int
+static lws_ss_state_return_t
 ss_avs_event_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 {
 	return 0;
 }
 
-static int
+static lws_ss_state_return_t
 ss_avs_event_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 		      size_t *len, int *flags)
 {
 	return 1; /* don't transmit anything */
 }
 
-static int
+static lws_ss_state_return_t
 ss_avs_event_state(void *userobj, void *sh,
 		   lws_ss_constate_t state, lws_ss_tx_ordinal_t ack)
 {

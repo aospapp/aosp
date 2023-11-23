@@ -19,7 +19,6 @@ package com.android.imsserviceentitlement.utils;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Build;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
@@ -62,30 +61,10 @@ public class TelephonyUtils {
         return android.os.SystemClock.uptimeMillis();
     }
 
-    /** Returns device model name. */
-    public String getDeviceName() {
-        return Build.MODEL;
-    }
-
-    /** Returns device OS version. */
-    public String getDeviceOsVersion() {
-        return Build.VERSION.RELEASE;
-    }
-
     /** Returns {@code true} if network is connected (cellular or WiFi). */
     public boolean isNetworkConnected() {
         NetworkInfo activeNetwork = mConnectivityManager.getActiveNetworkInfo();
         return activeNetwork != null && activeNetwork.isConnected();
-    }
-
-    /**
-     * Returns the response of EAP-AKA authetication {@code data} or {@code null} on failure.
-     *
-     * <p>Requires permission: READ_PRIVILEGED_PHONE_STATE
-     */
-    public String getEapAkaAuthentication(String data) {
-        return mTelephonyManager.getIccAuthentication(
-                TelephonyManager.APPTYPE_USIM, TelephonyManager.AUTHTYPE_EAP_AKA, data);
     }
 
     /** Returns carrier ID. */

@@ -73,6 +73,7 @@ class GyroBiasTest(its_base_test.ItsBaseTest):
     y_min = min([numpy.amin(xs), numpy.amin(ys), numpy.amin(zs), -MEAN_THRESH])
     y_max = max([numpy.amax(xs), numpy.amax(ys), numpy.amax(xs), MEAN_THRESH])
 
+    pylab.figure()
     pylab.plot(times, xs, 'r', label='x')
     pylab.plot(times, ys, 'g', label='y')
     pylab.plot(times, zs, 'b', label='z')

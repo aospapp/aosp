@@ -34,7 +34,7 @@ import java.util.TimerTask;
 public abstract class ScheduledRunMetricListener extends BaseMetricListener {
 
     public static final String INTERVAL_ARG_KEY = "interval";
-    private static final long DEFAULT_INTERVAL_MS = 60 * 1000l; // 1 min
+    private static final long DEFAULT_INTERVAL_MS = 60 * 1000L; // 1 min
 
     private Timer mTimer;
 
@@ -120,7 +120,7 @@ public abstract class ScheduledRunMetricListener extends BaseMetricListener {
             Log.e(getTag(), "Failed to parse the interval value.", e);
         }
         // In case invalid or no interval was specified, we use the default one.
-        if (interval <= 0l) {
+        if (interval <= 0L) {
             Log.d(getTag(),
                     String.format(
                             "Using default interval %s for periodic task. %s could not be used.",

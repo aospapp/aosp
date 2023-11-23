@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Bloquea las llamadas de teléfonos públicos"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Desconocidos"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Bloquea las llamadas de números desconocidos"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"No disponible"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Bloquear llamadas en las que el número no esté disponible"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Bloqueo de llamadas"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Se ha inhabilitado el bloqueo de llamadas"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Se ha hecho una llamada de emergencia"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Se ha inhabilitado el bloqueo de llamadas para que los servicios de emergencia puedan ponerse en contacto contigo."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menú para desarrolladores de telecomunicaciones"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"No se pueden responder llamadas durante una llamada de emergencia."</string>
+    <string name="cancel" msgid="6733466216239934756">"Cancelar"</string>
 </resources>

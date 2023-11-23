@@ -28,13 +28,13 @@
 #include "Nxp_Features.h"
 
 #ifndef true
-#define true 0x01 /* Logical True Value */
+#define true (0x01) /* Logical True Value */
 #endif
 #ifndef TRUE
 #define TRUE (0x01) /* Logical True Value */
 #endif
 #ifndef false
-#define false 0x00 /* Logical False Value */
+#define false (0x00) /* Logical False Value */
 #endif
 #ifndef FALSE
 #define FALSE (0x00) /* Logical False Value */

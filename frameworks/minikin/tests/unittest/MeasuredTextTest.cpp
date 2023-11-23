@@ -32,22 +32,24 @@ TEST(MeasuredTextTest, RunTests) {
     constexpr uint32_t CHAR_COUNT = 6;
     constexpr float REPLACEMENT_WIDTH = 20.0f;
     auto font = buildFontCollection("Ascii.ttf");
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
 
     MinikinPaint paint1(font);
     paint1.size = 10.0f;  // make 1em = 10px
-    builder.addStyleRun(0, 2, std::move(paint1), false /* is RTL */);
+    builder.addStyleRun(0, 2, std::move(paint1), lbStyle, lbWordStyle, false /* is RTL */);
     builder.addReplacementRun(2, 4, REPLACEMENT_WIDTH, 0 /* locale list id */);
     MinikinPaint paint2(font);
     paint2.size = 10.0f;  // make 1em = 10px
-    builder.addStyleRun(4, 6, std::move(paint2), false /* is RTL */);
+    builder.addStyleRun(4, 6, std::move(paint2), lbStyle, lbWordStyle, false /* is RTL */);
 
     std::vector<uint16_t> text(CHAR_COUNT, 'a');
 
     std::unique_ptr<MeasuredText> measuredText =
             builder.build(text, true /* compute hyphenation */, false /* compute full layout */,
-                          nullptr /* no hint */);
+                          false /* ignore kerning */, nullptr /* no hint */);
 
     ASSERT_TRUE(measuredText);
 
@@ -61,13 +63,15 @@ TEST(MeasuredTextTest, RunTests) {
 TEST(MeasuredTextTest, getBoundsTest) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinRect(0.0f, 0.0f, 0.0f, 0.0f), mt->getBounds(text, Range(0, 0)));
     EXPECT_EQ(MinikinRect(0.0f, 10.0f, 10.0f, 0.0f), mt->getBounds(text, Range(0, 1)));
@@ -79,13 +83,15 @@ TEST(MeasuredTextTest, getBoundsTest) {
 TEST(MeasuredTextTest, getBoundsTest_LTR) {
     auto text = utf8ToUtf16("\u0028");  // U+0028 has 1em in LTR, 3em in RTL.
     auto font = buildFontCollection("Bbox.ttf");
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinRect(0.0f, 10.0f, 10.0f, 0.0f), mt->getBounds(text, Range(0, 1)));
 }
@@ -93,13 +99,15 @@ TEST(MeasuredTextTest, getBoundsTest_LTR) {
 TEST(MeasuredTextTest, getBoundsTest_RTL) {
     auto text = utf8ToUtf16("\u0028");  // U+0028 has 1em in LTR, 3em in RTL.
     auto font = buildFontCollection("Bbox.ttf");
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), true /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, true /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinRect(0.0f, 30.0f, 30.0f, 0.0f), mt->getBounds(text, Range(0, 2)));
 }
@@ -108,16 +116,19 @@ TEST(MeasuredTextTest, getBoundsTest_multiStyle) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
     uint32_t helloLength = 7;  // length of "Hello, "
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, helloLength, std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, helloLength, std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     MinikinPaint paint2(font);
     paint2.size = 20.0f;
-    builder.addStyleRun(helloLength, text.size(), std::move(paint2), false /* is RTL */);
+    builder.addStyleRun(helloLength, text.size(), std::move(paint2), lbStyle, lbWordStyle,
+                        false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinRect(0.0f, 0.0f, 0.0f, 0.0f), mt->getBounds(text, Range(0, 0)));
     EXPECT_EQ(MinikinRect(0.0f, 10.0f, 10.0f, 0.0f), mt->getBounds(text, Range(0, 1)));
@@ -132,13 +143,15 @@ TEST(MeasuredTextTest, getBoundsTest_multiStyle) {
 TEST(MeasuredTextTest, getExtentTest) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kernign */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinExtent(0.0f, 0.0f), mt->getExtent(text, Range(0, 0)));
     EXPECT_EQ(MinikinExtent(-80.0f, 20.0f), mt->getExtent(text, Range(0, 1)));
@@ -151,16 +164,19 @@ TEST(MeasuredTextTest, getExtentTest_multiStyle) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
     uint32_t helloLength = 7;  // length of "Hello, "
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, helloLength, std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, helloLength, std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     MinikinPaint paint2(font);
     paint2.size = 20.0f;
-    builder.addStyleRun(helloLength, text.size(), std::move(paint2), false /* is RTL */);
+    builder.addStyleRun(helloLength, text.size(), std::move(paint2), 0 /* no line break */,
+                        0 /* no line break word style */, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     EXPECT_EQ(MinikinExtent(0.0f, 0.0f), mt->getExtent(text, Range(0, 0)));
     EXPECT_EQ(MinikinExtent(-80.0f, 20.0f), mt->getExtent(text, Range(0, 1)));
@@ -176,13 +192,15 @@ TEST(MeasuredTextTest, buildLayoutTest) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
     Range fullContext(0, text.size());
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     MinikinRect rect;
     MinikinPaint samePaint(font);
@@ -256,16 +274,19 @@ TEST(MeasuredTextTest, buildLayoutTest_multiStyle) {
     auto font = buildFontCollection("Ascii.ttf");
     uint32_t helloLength = 7;  // length of "Hello, "
     Range fullContext(0, text.size());
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, helloLength, std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, helloLength, std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     MinikinPaint paint2(font);
     paint2.size = 20.0f;
-    builder.addStyleRun(helloLength, text.size(), std::move(paint2), false /* is RTL */);
+    builder.addStyleRun(helloLength, text.size(), std::move(paint2), lbStyle, lbWordStyle,
+                        false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     MinikinRect rect;
     MinikinPaint samePaint(font);
@@ -341,13 +362,15 @@ TEST(MeasuredTextTest, buildLayoutTest_differentPaint) {
     auto text = utf8ToUtf16("Hello, World!");
     auto font = buildFontCollection("Ascii.ttf");
     Range fullContext(0, text.size());
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, text.size(), std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     MinikinRect rect;
     MinikinPaint differentPaint(font);
@@ -421,16 +444,19 @@ TEST(MeasuredTextTest, buildLayoutTest_multiStyle_differentPaint) {
     auto font = buildFontCollection("Ascii.ttf");
     uint32_t helloLength = 7;  // length of "Hello, "
     Range fullContext(0, text.size());
+    int lbStyle = (int)LineBreakStyle::None;
+    int lbWordStyle = (int)LineBreakWordStyle::None;
 
     MeasuredTextBuilder builder;
     MinikinPaint paint(font);
     paint.size = 10.0f;
-    builder.addStyleRun(0, helloLength, std::move(paint), false /* is RTL */);
+    builder.addStyleRun(0, helloLength, std::move(paint), lbStyle, lbWordStyle, false /* is RTL */);
     MinikinPaint paint2(font);
     paint2.size = 20.0f;
-    builder.addStyleRun(helloLength, text.size(), std::move(paint2), false /* is RTL */);
+    builder.addStyleRun(helloLength, text.size(), std::move(paint2), lbStyle, lbWordStyle,
+                        false /* is RTL */);
     auto mt = builder.build(text, true /* hyphenation */, true /* full layout */,
-                            nullptr /* no hint */);
+                            false /* ignore kerning */, nullptr /* no hint */);
 
     MinikinRect rect;
     MinikinPaint differentPaint(font);
@@ -530,6 +556,65 @@ TEST(MeasuredTextTest, buildLayoutTest_multiStyle_differentPaint) {
     getBounds(text, Range(0, text.size()), Bidi::LTR, differentPaint, StartHyphenEdit::NO_EDIT,
               EndHyphenEdit::NO_EDIT, &rect);
     EXPECT_EQ(MinikinRect(0.0f, 30.0f, 390.0f, 0.0f), rect);
+}
+
+TEST(MeasuredTextTest, testLineBreakStyle_from_builder) {
+    auto text = utf8ToUtf16("Hello, World!");
+    auto font = buildFontCollection("Ascii.ttf");
+    int lbStyle = (int)LineBreakStyle::Loose;           // loose
+    int lbWordStyle = (int)LineBreakWordStyle::Phrase;  // phrase
+
+    MeasuredTextBuilder looseStyleBuilder;
+    MinikinPaint paint(font);
+    looseStyleBuilder.addStyleRun(0, text.size(), std::move(paint), lbStyle, lbWordStyle, false);
+    auto mt = looseStyleBuilder.build(text, true /* hyphenation */, true /* full layout */,
+                                      false /* ignore kerning */, nullptr /* no hint */);
+
+    EXPECT_EQ((size_t)1, mt->runs.size());
+    EXPECT_EQ(LineBreakStyle::Loose, mt->runs[0]->lineBreakStyle());
+    EXPECT_EQ(LineBreakWordStyle::Phrase, mt->runs[0]->lineBreakWordStyle());
+
+    lbStyle = (int)LineBreakStyle::Normal;  // normal
+    MeasuredTextBuilder normalStyleBuilder;
+    MinikinPaint normalStylePaint(font);
+    normalStyleBuilder.addStyleRun(0, text.size(), std::move(normalStylePaint), lbStyle,
+                                   lbWordStyle, false);
+    mt = normalStyleBuilder.build(text, true /* hyphenation */, true /* full layout */,
+                                  false /* ignore kerning */, nullptr /* no hint */);
+
+    EXPECT_EQ((size_t)1, mt->runs.size());
+    EXPECT_EQ(LineBreakStyle::Normal, mt->runs[0]->lineBreakStyle());
+    EXPECT_EQ(LineBreakWordStyle::Phrase, mt->runs[0]->lineBreakWordStyle());
+
+    lbStyle = (int)LineBreakStyle::Strict;        // strict
+    lbWordStyle = (int)LineBreakWordStyle::None;  // no word style
+    MeasuredTextBuilder strictStyleBuilder;
+    MinikinPaint strictStylePaint(font);
+    strictStyleBuilder.addStyleRun(0, text.size(), std::move(strictStylePaint), lbStyle,
+                                   lbWordStyle, false);
+    mt = strictStyleBuilder.build(text, true /* hyphenation */, true /* full layout */,
+                                  false /* ignore kerning */, nullptr /* no hint */);
+
+    EXPECT_EQ((size_t)1, mt->runs.size());
+    EXPECT_EQ(LineBreakStyle::Strict, mt->runs[0]->lineBreakStyle());
+    EXPECT_EQ(LineBreakWordStyle::None, mt->runs[0]->lineBreakWordStyle());
+}
+
+TEST(MeasuredTextTest, testLineBreakStyle_from_run) {
+    auto text = utf8ToUtf16("Hello, World!");
+    auto font = buildFontCollection("Ascii.ttf");
+    int lbStyle = (int)LineBreakStyle::Strict;
+    int lbWordStyle = (int)LineBreakWordStyle::Phrase;
+    Range range(0, text.size());
+    MinikinPaint paint(font);
+
+    StyleRun styleRun(range, std::move(paint), lbStyle, lbWordStyle, false /* isRtl */);
+    EXPECT_EQ(LineBreakStyle::Strict, styleRun.lineBreakStyle());
+    EXPECT_EQ(LineBreakWordStyle::Phrase, styleRun.lineBreakWordStyle());
+
+    ReplacementRun replacementRun(range, 10.0f /* width */, 0 /* locale list id */);
+    EXPECT_EQ(LineBreakStyle::None, replacementRun.lineBreakStyle());
+    EXPECT_EQ(LineBreakWordStyle::None, replacementRun.lineBreakWordStyle());
 }
 
 }  // namespace minikin

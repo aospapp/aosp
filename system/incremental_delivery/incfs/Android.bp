@@ -35,7 +35,6 @@ license {
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-GPL-2.0",
     ],
     license_text: [
         "NOTICE",
@@ -45,7 +44,7 @@ license {
 cc_defaults {
     name: "libincfs_defaults_common",
     cpp_std: "c++2a",
-    cflags: ["-Werror", "-Wall", "-Wextra"],
+    cflags: ["-Werror", "-Wall", "-Wextra", "-Wno-deprecated-enum-enum-conversion", "-D_FILE_OFFSET_BITS=64"],
     tidy: true,
     tidy_checks: [
         "android-*",
@@ -161,6 +160,10 @@ cc_test {
         "tests/MountRegistry_test.cpp",
     ],
     require_root: true,
+    test_suites: [
+        "general-tests",
+        "device-tests",
+    ],
 }
 
 cc_benchmark {
@@ -189,4 +192,9 @@ cc_binary {
         "incfsdump/main.cpp",
         "incfsdump/dump.cpp",
     ],
+    target: {
+        linux_glibc: {
+            enabled: true,
+        },
+    },
 }

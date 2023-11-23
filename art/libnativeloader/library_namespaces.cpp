@@ -47,7 +47,12 @@ constexpr const char* kApexPath = "/apex/";
 // to use to load vendor libraries to separate namespace with controlled interface between
 // vendor and system namespaces.
 constexpr const char* kVendorNamespaceName = "sphal";
+// Similar to sphal namespace, product namespace provides some product libraries.
+constexpr const char* kProductNamespaceName = "product";
+
+// vndk namespace for unbundled vendor apps
 constexpr const char* kVndkNamespaceName = "vndk";
+// vndk_product namespace for unbundled product apps
 constexpr const char* kVndkProductNamespaceName = "vndk_product";
 
 // classloader-namespace is a linker namespace that is created for the loaded
@@ -73,7 +78,7 @@ constexpr const char* kSharedNamespaceSuffix = "-shared";
 // (http://b/27588281) This is a workaround for apps using custom classloaders and calling
 // System.load() with an absolute path which is outside of the classloader library search path.
 // This list includes all directories app is allowed to access this way.
-constexpr const char* kWhitelistedDirectories = "/data:/mnt/expand";
+constexpr const char* kAlwaysPermittedDirectories = "/data:/mnt/expand";
 
 constexpr const char* kVendorLibPath = "/vendor/" LIB;
 constexpr const char* kProductLibPath = "/product/" LIB ":/system/product/" LIB;
@@ -211,7 +216,7 @@ Result<NativeLoaderNamespace*> LibraryNamespaces::Create(JNIEnv* env, uint32_t t
   //
   // This part effectively allows such a classloader to access anything
   // under /data and /mnt/expand
-  std::string permitted_path = kWhitelistedDirectories;
+  std::string permitted_path = kAlwaysPermittedDirectories;
 
   if (java_permitted_path != nullptr) {
     ScopedUtfChars path(env, java_permitted_path);
@@ -371,6 +376,27 @@ Result<NativeLoaderNamespace*> LibraryNamespaces::Create(JNIEnv* env, uint32_t t
       if (!linked.ok()) {
         return linked.error();
       }
+    }
+  }
+
+  auto product_libs = filter_public_libraries(target_sdk_version, uses_libraries,
+                                              product_public_libraries());
+  if (!product_libs.empty()) {
+    auto target_ns = system_ns;
+    if (is_product_vndk_version_defined()) {
+      // If ro.product.vndk.version is defined, product namespace provides the product libraries.
+      target_ns = NativeLoaderNamespace::GetExportedNamespace(kProductNamespaceName, is_bridged);
+    }
+    if (target_ns.ok()) {
+      linked = app_ns->Link(&target_ns.value(), product_libs);
+      if (!linked.ok()) {
+        return linked.error();
+      }
+    } else {
+      // The linkerconfig must have a problem on defining the product namespace in the system
+      // section. Skip linking product namespace. This will not affect most of the apps. Only the
+      // apps that requires the product public libraries will fail.
+      ALOGW("Namespace for product libs not found: %s", target_ns.error().message().c_str());
     }
   }
 

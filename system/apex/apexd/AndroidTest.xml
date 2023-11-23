@@ -33,8 +33,6 @@
       <option name="remount-system" value="true" />
       <option name="push" value="apex.apexd_test.apex->/system_ext/apex/apex.apexd_test.apex" />
       <option name="push" value="apex.apexd_test_different_app.apex->/system_ext/apex/apex.apexd_test_different_app.apex" />
-      <option name="push" value="apex.apexd_test_postinstall.apex->/system_ext/apex/apex.apexd_test_postinstall.apex" />
-      <option name="push" value="apex.apexd_test_preinstall.apex->/system_ext/apex/apex.apexd_test_preinstall.apex" />
     </target_preparer>
 
     <!-- system_server might still hold a reference to apexservice. This means that apexd is still

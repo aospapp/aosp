@@ -19,6 +19,7 @@ package libcore.java.security;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.security.Provider;
 import java.security.Security;
 import java.security.spec.DSAPrivateKeySpec;
 import java.security.spec.DSAPublicKeySpec;
@@ -97,6 +98,15 @@ public final class StandardNames {
         }
         assertTrue("Duplicate " + type + " " + algorithm,
                    algorithms.add(algorithm.toUpperCase(Locale.ROOT)));
+    }
+    // Only add to PROVIDER_ALGORITHMS if actually present
+    private static void provideOptional(String type, String algorithm) {
+        for (Provider p : Security.getProviders()) {
+            if (p.getService(type, algorithm) != null) {
+                provide(type, algorithm);
+                return;
+            }
+        }
     }
     private static void unprovide(String type, String algorithm) {
         Set<String> algorithms = PROVIDER_ALGORITHMS.get(type);
@@ -420,6 +430,7 @@ public final class StandardNames {
             provide("Signature", "SHA256withRSA/PSS");
             provide("Signature", "SHA384withRSA/PSS");
             provide("Signature", "SHA512withRSA/PSS");
+            provideOptional("Signature", "ED25519");
 
             // different names: ARCFOUR vs ARC4
             unprovide("Cipher", "ARCFOUR");

@@ -241,8 +241,15 @@ public class CameraFilmstripDataAdapter implements LocalFilmstripDataAdapter {
 
     @Override
     public void updateItemAt(final int pos, FilmstripItem item) {
+        final Uri uri = item.getData().getUri();
+        int oldPos = findByContentUri(uri);
         mFilmstripItems.set(pos, item);
         updateMetadataAt(pos, true /* forceItemUpdate */);
+
+        if ((oldPos != -1) && (oldPos != pos)) {
+            Log.v(TAG, "found duplicate data: " + uri);
+            removeAt(oldPos);
+        }
     }
 
     private void insertItem(FilmstripItem item) {

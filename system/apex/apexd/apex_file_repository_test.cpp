@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-#include <filesystem>
-#include <string>
-
-#include <errno.h>
-#include <sys/stat.h>
+#include "apex_file_repository.h"
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
+#include <errno.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <microdroid/metadata.h>
+#include <sys/stat.h>
+
+#include <filesystem>
+#include <string>
 
 #include "apex_file.h"
-#include "apex_file_repository.h"
 #include "apexd_test_utils.h"
 #include "apexd_verity.h"
 
@@ -158,6 +160,90 @@ TEST(ApexFileRepositoryTest, InitializeSameNameDifferentPathAborts) {
         instance.AddPreInstalledApex({td.path});
       },
       "");
+}
+
+TEST(ApexFileRepositoryTest, InitializeMultiInstalledSuccess) {
+  // Prepare test data.
+  TemporaryDir td;
+  std::string apex_file = GetTestFile("apex.apexd_test.apex");
+  fs::copy(apex_file, StringPrintf("%s/version_a.apex", td.path));
+  fs::copy(apex_file, StringPrintf("%s/version_b.apex", td.path));
+  std::string apex_name = ApexFile::Open(apex_file)->GetManifest().name();
+
+  std::string persist_prefix = "debug.apexd.test.persistprefix.";
+  std::string bootconfig_prefix = "debug.apexd.test.bootconfigprefix.";
+  ApexFileRepository instance(/*enforce_multi_install_partition=*/false,
+                              /*multi_install_select_prop_prefixes=*/{
+                                  persist_prefix, bootconfig_prefix});
+
+  auto test_fn = [&](const std::string& selected_filename) {
+    ASSERT_TRUE(IsOk(instance.AddPreInstalledApex({td.path})));
+    auto ret = instance.GetPreinstalledPath(apex_name);
+    ASSERT_TRUE(IsOk(ret));
+    ASSERT_EQ(StringPrintf("%s/%s", td.path, selected_filename.c_str()), *ret);
+    instance.Reset();
+  };
+
+  // Start with version_a in bootconfig.
+  android::base::SetProperty(bootconfig_prefix + apex_name, "version_a.apex");
+  test_fn("version_a.apex");
+  // Developer chooses version_b with persist prop.
+  android::base::SetProperty(persist_prefix + apex_name, "version_b.apex");
+  test_fn("version_b.apex");
+  // Developer goes back to version_a with persist prop.
+  android::base::SetProperty(persist_prefix + apex_name, "version_a.apex");
+  test_fn("version_a.apex");
+
+  android::base::SetProperty(persist_prefix + apex_name, "");
+  android::base::SetProperty(bootconfig_prefix + apex_name, "");
+}
+
+TEST(ApexFileRepositoryTest, InitializeMultiInstalledSkipsForDifferingKeys) {
+  // Prepare test data.
+  TemporaryDir td;
+  fs::copy(GetTestFile("apex.apexd_test.apex"),
+           StringPrintf("%s/version_a.apex", td.path));
+  fs::copy(GetTestFile("apex.apexd_test_different_key.apex"),
+           StringPrintf("%s/version_b.apex", td.path));
+  std::string apex_name =
+      ApexFile::Open(GetTestFile("apex.apexd_test.apex"))->GetManifest().name();
+  std::string prop_prefix = "debug.apexd.test.bootconfigprefix.";
+  std::string prop = prop_prefix + apex_name;
+  android::base::SetProperty(prop, "version_a.apex");
+
+  ApexFileRepository instance(
+      /*enforce_multi_install_partition=*/false,
+      /*multi_install_select_prop_prefixes=*/{prop_prefix});
+  ASSERT_TRUE(IsOk(instance.AddPreInstalledApex({td.path})));
+  // Neither version should be have been installed.
+  ASSERT_FALSE(IsOk(instance.GetPreinstalledPath(apex_name)));
+
+  android::base::SetProperty(prop, "");
+}
+
+TEST(ApexFileRepositoryTest, InitializeMultiInstalledSkipsForInvalidPartition) {
+  // Prepare test data.
+  TemporaryDir td;
+  // Note: These test files are on /data, which is not a valid partition for
+  // multi-installed APEXes.
+  fs::copy(GetTestFile("apex.apexd_test.apex"),
+           StringPrintf("%s/version_a.apex", td.path));
+  fs::copy(GetTestFile("apex.apexd_test.apex"),
+           StringPrintf("%s/version_b.apex", td.path));
+  std::string apex_name =
+      ApexFile::Open(GetTestFile("apex.apexd_test.apex"))->GetManifest().name();
+  std::string prop_prefix = "debug.apexd.test.bootconfigprefix.";
+  std::string prop = prop_prefix + apex_name;
+  android::base::SetProperty(prop, "version_a.apex");
+
+  ApexFileRepository instance(
+      /*enforce_multi_install_partition=*/true,
+      /*multi_install_select_prop_prefixes=*/{prop_prefix});
+  ASSERT_TRUE(IsOk(instance.AddPreInstalledApex({td.path})));
+  // Neither version should be have been installed.
+  ASSERT_FALSE(IsOk(instance.GetPreinstalledPath(apex_name)));
+
+  android::base::SetProperty(prop, "");
 }
 
 TEST(ApexFileRepositoryTest,
@@ -500,6 +586,237 @@ TEST(ApexFileRepositoryTest, GetPreInstalledApexNoSuchApexAborts) {
         instance.GetPreInstalledApex("whatever");
       },
       "");
+}
+
+struct ApexFileRepositoryTestAddBlockApex : public ::testing::Test {
+  TemporaryDir test_dir;
+
+  struct PayloadMetadata {
+    android::microdroid::Metadata metadata;
+    std::string path;
+    PayloadMetadata(const std::string& path) : path(path) {}
+    PayloadMetadata& apex(const std::string& name,
+                          const std::string& public_key = "",
+                          const std::string& root_digest = "",
+                          int64_t last_update_seconds = 0,
+                          bool is_factory = true) {
+      auto apex = metadata.add_apexes();
+      apex->set_name(name);
+      apex->set_public_key(public_key);
+      apex->set_root_digest(root_digest);
+      apex->set_last_update_seconds(last_update_seconds);
+      apex->set_is_factory(is_factory);
+      return *this;
+    }
+    ~PayloadMetadata() {
+      metadata.set_version(1);
+      std::ofstream out(path);
+      android::microdroid::WriteMetadata(metadata, out);
+    }
+  };
+};
+
+TEST_F(ApexFileRepositoryTestAddBlockApex,
+       ScansPayloadDisksAndAddApexFilesToPreInstalled) {
+  // prepare payload disk
+  //  <test-dir>/vdc1 : metadata
+  //            /vdc2 : apex.apexd_test.apex
+  //            /vdc3 : apex.apexd_test_different_app.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+  const auto& test_apex_bar = GetTestFile("apex.apexd_test_different_app.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+  const std::string apex_bar_path = test_dir.path + "/vdc3"s;
+
+  PayloadMetadata(metadata_partition_path)
+      .apex(test_apex_foo)
+      .apex(test_apex_bar);
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+  auto loop_device2 = WriteBlockApex(test_apex_bar, apex_bar_path);
+
+  // call ApexFileRepository::AddBlockApex()
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_RESULT_OK(status);
+
+  auto apex_foo = ApexFile::Open(apex_foo_path);
+  ASSERT_RESULT_OK(apex_foo);
+  // block apexes can be identified with IsBlockApex
+  ASSERT_TRUE(instance.IsBlockApex(*apex_foo));
+
+  // "block" apexes are treated as "pre-installed"
+  auto ret_foo = instance.GetPreInstalledApex("com.android.apex.test_package");
+  ASSERT_THAT(ret_foo, ApexFileEq(ByRef(*apex_foo)));
+
+  auto apex_bar = ApexFile::Open(apex_bar_path);
+  ASSERT_RESULT_OK(apex_bar);
+  auto ret_bar =
+      instance.GetPreInstalledApex("com.android.apex.test_package_2");
+  ASSERT_THAT(ret_bar, ApexFileEq(ByRef(*apex_bar)));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex,
+       ScansOnlySpecifiedInMetadataPartition) {
+  // prepare payload disk
+  //  <test-dir>/vdc1 : metadata with apex.apexd_test.apex only
+  //            /vdc2 : apex.apexd_test.apex
+  //            /vdc3 : apex.apexd_test_different_app.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+  const auto& test_apex_bar = GetTestFile("apex.apexd_test_different_app.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+  const std::string apex_bar_path = test_dir.path + "/vdc3"s;
+
+  // metadata lists only "foo"
+  PayloadMetadata(metadata_partition_path).apex(test_apex_foo);
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+  auto loop_device2 = WriteBlockApex(test_apex_bar, apex_bar_path);
+
+  // call ApexFileRepository::AddBlockApex()
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_RESULT_OK(status);
+
+  // foo is added, but bar is not
+  auto ret_foo = instance.GetPreinstalledPath("com.android.apex.test_package");
+  ASSERT_TRUE(IsOk(ret_foo));
+  ASSERT_EQ(apex_foo_path, *ret_foo);
+  auto ret_bar =
+      instance.GetPreinstalledPath("com.android.apex.test_package_2");
+  ASSERT_FALSE(IsOk(ret_bar));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex, FailsWhenTheresDuplicateNames) {
+  // prepare payload disk
+  //  <test-dir>/vdc1 : metadata with v1 and v2 of apex.apexd_test
+  //            /vdc2 : apex.apexd_test.apex
+  //            /vdc3 : apex.apexd_test_v2.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+  const auto& test_apex_bar = GetTestFile("apex.apexd_test_v2.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+  const std::string apex_bar_path = test_dir.path + "/vdc3"s;
+
+  PayloadMetadata(metadata_partition_path)
+      .apex(test_apex_foo)
+      .apex(test_apex_bar);
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+  auto loop_device2 = WriteBlockApex(test_apex_bar, apex_bar_path);
+
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_FALSE(IsOk(status));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex, GetBlockApexRootDigest) {
+  // prepare payload disk with root digest
+  //  <test-dir>/vdc1 : metadata with apex.apexd_test.apex only
+  //            /vdc2 : apex.apexd_test.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+
+  // root digest is stored as bytes in metadata and as hexadecimal in
+  // ApexFileRepository
+  const std::string root_digest = "root_digest";
+  const std::string hex_root_digest = BytesToHex(
+      reinterpret_cast<const uint8_t*>(root_digest.data()), root_digest.size());
+
+  // metadata lists "foo"
+  PayloadMetadata(metadata_partition_path)
+      .apex(test_apex_foo, /*public_key=*/"", root_digest);
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+
+  // call ApexFileRepository::AddBlockApex()
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_TRUE(IsOk(status));
+
+  ASSERT_EQ(hex_root_digest,
+            instance.GetBlockApexRootDigest("com.android.apex.test_package"));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex, GetBlockApexLastUpdateSeconds) {
+  // prepare payload disk with last update time
+  //  <test-dir>/vdc1 : metadata with apex.apexd_test.apex only
+  //            /vdc2 : apex.apexd_test.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+
+  const int64_t last_update_seconds = 123456789;
+
+  // metadata lists "foo"
+  PayloadMetadata(metadata_partition_path)
+      .apex(test_apex_foo, /*public_key=*/"", /*root_digest=*/"",
+            last_update_seconds);
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+
+  // call ApexFileRepository::AddBlockApex()
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_TRUE(IsOk(status));
+
+  ASSERT_EQ(last_update_seconds, instance.GetBlockApexLastUpdateSeconds(
+                                     "com.android.apex.test_package"));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex, VerifyPublicKeyWhenAddingBlockApex) {
+  // prepare payload disk
+  //  <test-dir>/vdc1 : metadata with apex.apexd_test.apex only
+  //            /vdc2 : apex.apexd_test.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+
+  // metadata lists "foo"
+  PayloadMetadata(metadata_partition_path)
+      .apex(test_apex_foo, /*public_key=*/"wrong public key");
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+
+  // call ApexFileRepository::AddBlockApex()
+  ApexFileRepository instance;
+  auto status = instance.AddBlockApex(metadata_partition_path);
+  ASSERT_FALSE(IsOk(status));
+}
+
+TEST_F(ApexFileRepositoryTestAddBlockApex, RespectIsFactoryBitFromMetadata) {
+  // prepare payload disk
+  //  <test-dir>/vdc1 : metadata with apex.apexd_test.apex only
+  //            /vdc2 : apex.apexd_test.apex
+
+  const auto& test_apex_foo = GetTestFile("apex.apexd_test.apex");
+
+  const std::string metadata_partition_path = test_dir.path + "/vdc1"s;
+  const std::string apex_foo_path = test_dir.path + "/vdc2"s;
+  auto loop_device1 = WriteBlockApex(test_apex_foo, apex_foo_path);
+
+  for (const bool is_factory : {true, false}) {
+    // metadata lists "foo"
+    PayloadMetadata(metadata_partition_path)
+        .apex(test_apex_foo, /*public_key=*/"", /*root_digest=*/"",
+              /*last_update_seconds=*/0, is_factory);
+
+    // call ApexFileRepository::AddBlockApex()
+    ApexFileRepository instance;
+    auto status = instance.AddBlockApex(metadata_partition_path);
+    ASSERT_TRUE(IsOk(status))
+        << "failed to add block apex with is_factory=" << is_factory;
+    ASSERT_EQ(is_factory,
+              instance.HasPreInstalledVersion("com.android.apex.test_package"));
+  }
 }
 
 }  // namespace apex

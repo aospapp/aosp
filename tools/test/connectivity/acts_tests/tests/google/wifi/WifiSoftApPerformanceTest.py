@@ -64,7 +64,6 @@ class WifiSoftApRvrTest(WifiRvrTest):
         opt_params = ['golden_files_list', 'OTASniffer']
         self.unpack_userparams(req_params, opt_params)
         self.access_points = retail_ap.create(self.RetailAccessPoints)
-        self.access_point = self.access_points[0]
         self.testclass_params = self.sap_test_params
         self.num_atten = self.attenuators[0].instrument.num_atten
         self.iperf_server = ipf.create([{
@@ -81,7 +80,11 @@ class WifiSoftApRvrTest(WifiRvrTest):
         }])[0]
         if hasattr(self,
                    'OTASniffer') and self.testbed_params['sniffer_enable']:
-            self.sniffer = ota_sniffer.create(self.OTASniffer)[0]
+            try:
+                self.sniffer = ota_sniffer.create(self.OTASniffer)[0]
+            except:
+                self.log.warning('Could not start sniffer. Disabling sniffs.')
+                self.testbed_params['sniffer_enable'] = 0
 
         self.log_path = os.path.join(logging.log_path, 'results')
         os.makedirs(self.log_path, exist_ok=True)
@@ -106,9 +109,11 @@ class WifiSoftApRvrTest(WifiRvrTest):
         wutils.stop_wifi_tethering(self.android_devices[0])
         for dev in self.android_devices:
             wutils.wifi_toggle_state(dev, False)
+            dev.go_to_sleep()
         self.process_testclass_results()
         # Teardown AP and release it's lockfile
-        self.access_point.teardown()
+        for ap in self.access_points:
+            ap.teardown()
 
     def teardown_test(self):
         self.iperf_server.stop()
@@ -118,13 +123,17 @@ class WifiSoftApRvrTest(WifiRvrTest):
         info = {}
         info['client_ip_address'] = self.android_devices[
             1].droid.connectivityGetIPv4Addresses('wlan0')[0]
+        ifconfig_out = self.android_devices[0].adb.shell('ifconfig')
+        soft_ap_interface = 'wlan1' if 'wlan1' in ifconfig_out else 'wlan2'
         info['ap_ip_address'] = self.android_devices[
-            0].droid.connectivityGetIPv4Addresses('wlan1')[0]
-        info['frequency'] = self.android_devices[1].adb.shell(
-            'wpa_cli status | grep freq').split('=')[1]
+            0].droid.connectivityGetIPv4Addresses(soft_ap_interface)[0]
+
+        connection_rssi = wputils.get_connected_rssi(self.android_devices[1],
+                                                     interface='wlan0')
+        info['frequency'] = connection_rssi['frequency'][0]
         info['channel'] = wutils.WifiEnums.freq_to_channel[int(
             info['frequency'])]
-        info['mode'] = 'VHT20' if info['channel'] < 13 else 'VHT80'
+        info['mode'] = 'bw20' if info['channel'] < 13 else 'bw80'
         return info
 
     def setup_aps(self, testcase_params):
@@ -180,11 +189,23 @@ class WifiSoftApRvrTest(WifiRvrTest):
                             num_of_tries=5,
                             check_connectivity=False)
         # Compile meta data
-        #self.access_point = AccessPointTuple(sap_config)
         sap_info = self.get_sap_connection_info()
         print("SAP Info: {}".format(sap_info))
         testcase_params['channel'] = sap_info['channel']
+        if testcase_params['channel'] < 13:
+            testcase_params['band'] = '2GHz'
+        else:
+            testcase_params['band'] = '5GHz'
         testcase_params['mode'] = sap_info['mode']
+        self.access_point = AccessPointTuple({
+            testcase_params['band']: {
+                'SSID': sap_config[wutils.WifiEnums.SSID_KEY],
+                'password': sap_config[wutils.WifiEnums.PWD_KEY],
+                'channel': sap_info['channel'],
+                'mode': sap_info['mode'],
+                'bandwidth': sap_info['mode'],
+            }
+        })
         testcase_params['iperf_server_address'] = sap_info['ap_ip_address']
 
     def setup_sap_rvr_test(self, testcase_params):
@@ -204,7 +225,7 @@ class WifiSoftApRvrTest(WifiRvrTest):
         self.setup_sap_connection(testcase_params)
         # Set DUT to monitor RSSI and LLStats on
         self.monitored_dut = self.sta_dut
-        self.monitored_interface = None
+        self.monitored_interface = 'wlan0'
 
     def compile_test_params(self, testcase_params):
         """Function that completes all test params based on the test name.

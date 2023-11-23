@@ -15,14 +15,17 @@
  */
 package com.android.wallpaper.picker;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.android.wallpaper.R;
+import com.android.wallpaper.model.ImageWallpaperInfo;
 import com.android.wallpaper.model.InlinePreviewIntentFactory;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
@@ -34,6 +37,7 @@ import com.android.wallpaper.util.ActivityUtils;
  * wallpaper as the user's current wallpaper.
  */
 public class PreviewActivity extends BasePreviewActivity implements AppbarFragmentHost {
+    public static final int RESULT_MY_PHOTOS = 0;
 
     /**
      * Returns a new Intent with the provided WallpaperInfo instance put as an extra.
@@ -80,6 +84,29 @@ public class PreviewActivity extends BasePreviewActivity implements AppbarFragme
     @Override
     public boolean isUpArrowSupported() {
         return !ActivityUtils.isSUWMode(getBaseContext());
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == RESULT_MY_PHOTOS && resultCode == Activity.RESULT_OK) {
+            Uri imageUri = (data == null) ? null : data.getData();
+            if (imageUri != null) {
+                ImageWallpaperInfo imageWallpaper = new ImageWallpaperInfo(imageUri);
+                FragmentManager fm = getSupportFragmentManager();
+                Fragment fragment = InjectorProvider.getInjector().getPreviewFragment(
+                        /* context= */ this,
+                        imageWallpaper,
+                        PreviewFragment.MODE_CROP_AND_SET_WALLPAPER,
+                        true,
+                        /* viewFullScreen= */ false,
+                        false);
+                fm.beginTransaction()
+                        .replace(R.id.fragment_container, fragment)
+                        .commit();
+            }
+        }
     }
 
     /**

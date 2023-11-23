@@ -20,7 +20,8 @@ import acts_contrib.test_utils.tel.anritsu_utils as anritsu_utils
 import acts.controllers.anritsu_lib.md8475a as md8475a
 
 import acts_contrib.test_utils.power.cellular.cellular_power_base_test as PWCEL
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call, hangup_call, set_phone_silent_mode
+from acts_contrib.test_utils.tel.tel_test_utils import set_phone_silent_mode
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call, hangup_call
 
 
 class PowerTelVoLTECallTest(PWCEL.PowerCellularLabBaseTest):

@@ -17,10 +17,11 @@
 package android.appsecurity.cts;
 
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
+
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +32,7 @@ import java.util.Map;
 /**
  * Tests the visibility of installed applications.
  */
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class ApplicationVisibilityTest extends BaseAppSecurityTest {
 
@@ -317,6 +319,134 @@ public class ApplicationVisibilityTest extends BaseAppSecurityTest {
                 ".ApplicationVisibilityCrossUserTest",
                 "testGetPackagesForUidVisibility_anotherUserCrossUserNoGrant",
                 testUserId);
+    }
+
+    @Test
+    @AppModeFull(reason = "instant applications cannot be granted INTERACT_ACROSS_USERS")
+    public void testGetPackageUidCrossUserGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+        final Map<String, String> testArgs = new HashMap<>();
+        testArgs.put("testUser", Integer.toString(installUserId));
+
+        installTestAppForUser(TINY_APK, installUserId);
+        // Also install TEST_WITH_PERMISSION_APK in installUSerId for creating across user context
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageUidVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageUidVisibility_anotherUserCrossUserGrant",
+                testUserId,
+                testArgs);
+    }
+
+    @Test
+    @AppModeFull(reason = "instant applications cannot see any other application")
+    public void testGetPackageUidCrossUserNoGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+        final Map<String, String> testArgs = new HashMap<>();
+        testArgs.put("testUser", Integer.toString(installUserId));
+
+        installTestAppForUser(TINY_APK, installUserId);
+        // Also install TEST_WITH_PERMISSION_APK in installUSerId for creating across user context
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageUidVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageUidVisibility_anotherUserCrossUserNoGrant",
+                testUserId,
+                testArgs);
+    }
+
+    @Test
+    @AppModeFull(reason = "instant applications cannot be granted INTERACT_ACROSS_USERS")
+    public void testGetPackageGidsCrossUserGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+        final Map<String, String> testArgs = new HashMap<>();
+        testArgs.put("testUser", Integer.toString(installUserId));
+
+        installTestAppForUser(TINY_APK, installUserId);
+        // Also install TEST_WITH_PERMISSION_APK in installUSerId for creating across user context
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageGidsVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageGidsVisibility_anotherUserCrossUserGrant",
+                testUserId,
+                testArgs);
+    }
+
+    @Test
+    @AppModeFull(reason = "instant applications cannot see any other application")
+    public void testGetPackageGidsCrossUserNoGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+        final Map<String, String> testArgs = new HashMap<>();
+        testArgs.put("testUser", Integer.toString(installUserId));
+
+        installTestAppForUser(TINY_APK, installUserId);
+        // Also install TEST_WITH_PERMISSION_APK in installUSerId for creating across user context
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageGidsVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackageGidsVisibility_anotherUserCrossUserNoGrant",
+                testUserId,
+                testArgs);
     }
 
     private int getInstallUserId() {

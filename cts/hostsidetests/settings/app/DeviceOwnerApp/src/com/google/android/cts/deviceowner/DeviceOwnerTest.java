@@ -76,6 +76,7 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         }
     }
 
+    static final String CAR_SETTING_FRAG_RESOURCE_ID_REGEX = ".*:id/fragment_container_wrapper";
     static final String PACKAGE_NAME = DeviceOwnerTest.class.getPackage().getName();
     static final ComponentName RECEIVER_COMPONENT =
             new ComponentName(PACKAGE_NAME, BasicAdminReceiver.class.getName());
@@ -84,6 +85,7 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
     protected PackageManager mPackageManager;
     protected boolean mIsDeviceOwner;
     private String mWorkPolicyInfoText;
+    private boolean mIsAutomotive;
 
     @Override
     protected void setUp() throws Exception {
@@ -94,9 +96,9 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
                 BasicAdminReceiver.class, /* forDeviceOwner= */ true);
 
-        boolean isAutomotive = mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+        mIsAutomotive = mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
 
-        mWorkPolicyInfoText = isAutomotive
+        mWorkPolicyInfoText = mIsAutomotive
                 ? "Privacy Settings for Device Owner CTS host side app vehicle policy"
                 : "Your work policy info";
 
@@ -145,9 +147,10 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         boolean found = null != mDevice.wait(Until.findObject(By.text(mWorkPolicyInfoText)),
                 TIMEOUT_MS);
 
-        // Try to scroll the list to find the item
-        if (!found) {
-            UiScrollable scroller = new UiScrollable(new UiSelector().scrollable(true));
+        // For automotive UI, try to scroll the privacy list to find the item
+        if (!found && mIsAutomotive) {
+            UiScrollable scroller = new UiScrollable(new UiSelector()
+                    .resourceIdMatches(CAR_SETTING_FRAG_RESOURCE_ID_REGEX));
             try {
                 // Swipe far away from the edges to avoid triggering navigation gestures
                 scroller.setSwipeDeadZonePercentage(DEADZONE_PCT);

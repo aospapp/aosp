@@ -57,7 +57,7 @@ public class LanguagePickerPreferenceController extends LanguageBasePreferenceCo
     }
 
     /**
-     * Add a pseudo locale in debug build for testing RTL.
+     * Add a pseudo locale in debug build for testing RTL and Unicode fonts.
      *
      * @param localeInfos the set of {@link LocaleStore.LocaleInfo} to which the locale is added.
      */
@@ -65,6 +65,8 @@ public class LanguagePickerPreferenceController extends LanguageBasePreferenceCo
         if (Build.IS_USERDEBUG) {
             // The ar-XB pseudo-locale is RTL.
             localeInfos.add(LocaleStore.getLocaleInfo(new Locale("ar", "XB")));
+            // The en-XA pseudo-locale is LTR but increase words length.
+            localeInfos.add(LocaleStore.getLocaleInfo(new Locale("en", "XA")));
         }
     }
 }

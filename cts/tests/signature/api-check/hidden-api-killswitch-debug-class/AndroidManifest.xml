@@ -23,7 +23,7 @@
                  android:extractNativeLibs="true"
                  android:largeHeap="true"/>
 
-    <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.signature.cts.api.killswitch_debug_class"
                      android:label="Hidden API Debuggable Class Killswitch Test"/>
 </manifest>

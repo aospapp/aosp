@@ -15,5 +15,7 @@
 -->
 <configuration description="List MTS network tests.">
     <option name="compatibility:include-filter" value="CtsNetTestCasesLatestSdk" />
+    <option name="compatibility:include-filter" value="CaptivePortalLoginTests" />
+    <option name="compatibility:module-arg" value="CtsNetTestCasesLatestSdk:exclude-annotation:com.android.testutils.ConnectivityModuleTest" />
 </configuration>
 

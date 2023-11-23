@@ -82,7 +82,7 @@ public class BluetoothStatsTests extends DeviceTestCase implements IBuildReceive
         Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
-        AtomTestUtils.assertStatesOccurred(stateSet, data, expectedWait,
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, expectedWait,
                 atom -> atom.getBleScanStateChanged().getState().getNumber());
     }
 

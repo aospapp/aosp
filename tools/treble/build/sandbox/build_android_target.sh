@@ -40,6 +40,16 @@ fi
 
 set -e
 
+BUILD_COMMAND_ARRAY=($BUILD_COMMAND)
+for i in ${BUILD_COMMAND_ARRAY[@]};
+do
+  if [[ $i =~ ^[A-Z_][A-Z0-9_]*= ]];
+  then
+    echo "build_android_target.sh: export $i";
+    export $i;
+  fi;
+done;
+
 echo "build_android_target.sh: source build/envsetup.sh"
 source build/envsetup.sh
 echo "build_android_target.sh: lunch $ANDROID_TARGET"
@@ -54,7 +64,7 @@ cd "$BUILD_DIR"
 set +e
 
 echo "build_android_target.sh: $BUILD_COMMAND"
-$BUILD_COMMAND
+eval $BUILD_COMMAND
 BUILD_COMMAND_EXIT_VALUE=$?
 
 # Collect RBE metrics if enabled

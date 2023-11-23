@@ -21,6 +21,7 @@ package {
 cc_test {
     name: "VtsHalSensorManagerV1_0TargetTest",
     defaults: ["hidl_defaults"],
+    tidy_timeout_srcs: ["VtsHalSensorManagerV1_0TargetTest.cpp"],
     srcs: ["VtsHalSensorManagerV1_0TargetTest.cpp"],
     shared_libs: [
         "libbase",

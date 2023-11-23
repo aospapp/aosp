@@ -23,6 +23,7 @@ cc_binary {
         "main.cpp",
     ],
     shared_libs: [
+        "libext2_blkid",
         "libbase",
         "libcuttlefish_fs",
         "libcuttlefish_utils",
@@ -32,6 +33,7 @@ cc_binary {
     ],
     static_libs: [
         "libgflags",
+        "libcuttlefish_utils",
     ],
     target: {
         host: {

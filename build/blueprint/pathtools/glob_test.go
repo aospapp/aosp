@@ -721,6 +721,57 @@ func TestGlobDontFollowDanglingSymlinks(t *testing.T) {
 	}
 }
 
+var globFollowDanglingSymlinkTestCases = []globTestCase{
+	{
+		pattern: `**/*`,
+		matches: []string{"a/", "b/", "c/", "d/", "dangling", "e", "f", "a/a/", "a/a/a", "a/a/f", "b/a/", "b/a/a", "b/a/f", "c/a", "c/f", "d/a", "d/f"},
+		deps:    []string{".", "a", "a/a", "b", "b/a", "c", "d"},
+	},
+	{
+		pattern: `dangling`,
+		matches: []string{"dangling"},
+		deps:    []string{"dangling"},
+	},
+}
+
+func TestMockGlobFollowDanglingSymlinks(t *testing.T) {
+	files := []string{
+		"a/a/a",
+		"a/a/f -> ../../f",
+		"b -> a",
+		"c -> a/a",
+		"d -> c",
+		"e -> a/a/a",
+		"f",
+		"dangling -> missing",
+	}
+
+	mockFiles := make(map[string][]byte)
+
+	for _, f := range files {
+		mockFiles[f] = nil
+	}
+
+	mock := MockFs(mockFiles)
+
+	for _, testCase := range globFollowDanglingSymlinkTestCases {
+		t.Run(testCase.pattern, func(t *testing.T) {
+			testGlob(t, mock, testCase, FollowSymlinks)
+		})
+	}
+}
+
+func TestGlobFollowDanglingSymlinks(t *testing.T) {
+	os.Chdir("testdata/dangling")
+	defer os.Chdir("../..")
+
+	for _, testCase := range globFollowDanglingSymlinkTestCases {
+		t.Run(testCase.pattern, func(t *testing.T) {
+			testGlob(t, OsFs, testCase, FollowSymlinks)
+		})
+	}
+}
+
 func testGlob(t *testing.T, fs FileSystem, testCase globTestCase, follow ShouldFollowSymlinks) {
 	t.Helper()
 	result, err := fs.Glob(testCase.pattern, testCase.excludes, follow)

@@ -18,6 +18,14 @@
     <bool name="override_dnd">true</bool>
     <!-- Append date-time to the alert title -->
     <string name="date_time_format" translatable="false">MMM dd, HH:mm a</string>
+
+    <!-- 4370, 4383 -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true, always_on=true</item>
+        <!-- additional language -->
+        <item>0x111F:rat=gsm, emergency=true, filter_language=true, always_on=true</item>
+    </string-array>
+
     <!-- 4371, 4384 -->
     <!-- 4375, 4388 -->
     <!-- 4379, 4392 -->
@@ -27,10 +35,19 @@
         <item>0x1117:rat=gsm, emergency=true</item>
         <item>0x111B:rat=gsm, emergency=true</item>
         <!-- additional language -->
-        <item>0x1120:rat=gsm, emergency=true</item>
-        <item>0x1124:rat=gsm, emergency=true</item>
-        <item>0x1128:rat=gsm, emergency=true</item>
+        <item>0x1120:rat=gsm, emergency=true, filter_language=true</item>
+        <item>0x1124:rat=gsm, emergency=true, filter_language=true</item>
+        <item>0x1128:rat=gsm, emergency=true, filter_language=true</item>
     </string-array>
+
+    <!-- 4381, 4394 -->
+    <string-array name="exercise_alert_range_strings" translatable="false">
+        <item>0x111D:rat=gsm, emergency=true</item>
+        <!-- additional language -->
+        <item>0x112A:rat=gsm, emergency=true, filter_language=true</item>
+    </string-array>
+
     <string-array name="cmas_alerts_severe_range_strings" translatable="false"/>
     <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"/>
+    <string-array name="required_monthly_test_range_strings" translatable="false"/>
 </resources>

@@ -6,6 +6,7 @@ import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.LOLLIPOP_MR1;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.S;
 import static org.robolectric.RuntimeEnvironment.getApiLevel;
 
 import java.util.Locale;
@@ -61,11 +62,6 @@ public class ShadowLocaleData {
     localeData.longStandAloneWeekdayNames = localeData.longWeekdayNames;
     localeData.shortStandAloneWeekdayNames = localeData.shortWeekdayNames;
 
-    localeData.fullTimeFormat = "h:mm:ss a zzzz";
-    localeData.longTimeFormat = "h:mm:ss a z";
-    localeData.mediumTimeFormat = "h:mm:ss a";
-    localeData.shortTimeFormat = "h:mm a";
-
     if (getApiLevel() >= M) {
       localeData.timeFormat_hm = "h:mm a";
       localeData.timeFormat_Hm = "HH:mm";
@@ -74,45 +70,6 @@ public class ShadowLocaleData {
       ReflectionHelpers.setField(localeData, "timeFormat24", "HH:mm");
     }
 
-    localeData.fullDateFormat = "EEEE, MMMM d, y";
-    localeData.longDateFormat = "MMMM d, y";
-    localeData.mediumDateFormat = "MMM d, y";
-    localeData.shortDateFormat = "M/d/yy";
-
-    localeData.zeroDigit = '0';
-    localeData.decimalSeparator = '.';
-    localeData.groupingSeparator = ',';
-    localeData.patternSeparator = ';';
-
-    if (getApiLevel() >= LOLLIPOP_MR1) {
-      // Lollipop MR1 uses a String
-      localeData.percent = "%";
-    } else {
-      // Upto Lollipop was a char
-      ReflectionHelpers.setField(localeData, "percent", '%');
-    }
-
-    if (getApiLevel() >= android.os.Build.VERSION_CODES.P) {
-      // P uses a String
-      localeData.perMill = "‰";
-    } else {
-      // Up to P was a char
-      ReflectionHelpers.setField(localeData, "perMill", '‰');
-    }
-
-    localeData.monetarySeparator = '.';
-
-    if (getApiLevel() >= LOLLIPOP) {
-      // Lollipop uses a String
-      localeData.minusSign = "-";
-    } else {
-      // Upto KitKat was a char
-      ReflectionHelpers.setField(localeData, "minusSign", '-');
-    }
-
-    localeData.exponentSeparator = "E";
-    localeData.infinity = "\u221E";
-    localeData.NaN = "NaN";
 
     // These fields are removed in Android R or later
     if (getApiLevel() <= Q) {
@@ -121,9 +78,49 @@ public class ShadowLocaleData {
       ReflectionHelpers.setField(localeData, "yesterday", "Yesterday");
     }
 
-    localeData.numberPattern = "\u0023,\u0023\u00230.\u0023\u0023\u0023";
-    localeData.integerPattern = "\u0023,\u0023\u00230";
-    localeData.currencyPattern = "\u00A4\u0023,\u0023\u00230.00;(\u00A4\u0023,\u0023\u00230.00)";
-    localeData.percentPattern = "\u0023,\u0023\u00230%";
+
+    // These fields are removed in Android T or later
+    if (getApiLevel() <= S) {
+      ReflectionHelpers.setField(localeData, "fullDateFormat", "EEEE, MMMM d, y");
+      ReflectionHelpers.setField(localeData, "longDateFormat", "MMMM d, y");
+      ReflectionHelpers.setField(localeData, "mediumDateFormat", "MMM d, y");
+      ReflectionHelpers.setField(localeData, "shortDateFormat", "M/d/yy");
+      ReflectionHelpers.setField(localeData, "zeroDigit", '0');
+      ReflectionHelpers.setField(localeData, "decimalSeparator", '.');
+      ReflectionHelpers.setField(localeData, "groupingSeparator", ',');
+      ReflectionHelpers.setField(localeData, "patternSeparator", ';');
+      ReflectionHelpers.setField(localeData, "monetarySeparator", '.');
+      ReflectionHelpers.setField(localeData, "exponentSeparator", "E");
+      ReflectionHelpers.setField(localeData, "infinity", "\u221E");
+      ReflectionHelpers.setField(localeData, "NaN", "NaN");
+      ReflectionHelpers.setField(localeData, "numberPattern", "\u0023,\u0023\u00230.\u0023\u0023\u0023");
+      ReflectionHelpers.setField(localeData, "integerPattern", "\u0023,\u0023\u00230");
+      ReflectionHelpers.setField(localeData, "currencyPattern", "\u00A4\u0023,\u0023\u00230.00;(\u00A4\u0023,\u0023\u00230.00)");
+      ReflectionHelpers.setField(localeData, "percentPattern", "\u0023,\u0023\u00230%");
+
+      if (getApiLevel() >= LOLLIPOP_MR1) {
+        // Lollipop MR1 uses a String
+        ReflectionHelpers.setField(localeData, "percent", "%");
+      } else {
+        // Upto Lollipop was a char
+        ReflectionHelpers.setField(localeData, "percent", '%');
+      }
+
+      if (getApiLevel() >= android.os.Build.VERSION_CODES.P) {
+        // P uses a String
+        ReflectionHelpers.setField(localeData, "perMill", "‰");
+      } else {
+        // Up to P was a char
+        ReflectionHelpers.setField(localeData, "perMill", '‰');
+      }
+
+      if (getApiLevel() >= LOLLIPOP) {
+        // Lollipop uses a String
+        ReflectionHelpers.setField(localeData, "minusSign", "-");
+      } else {
+        // Upto KitKat was a char
+        ReflectionHelpers.setField(localeData, "minusSign", '-');
+      }
+    }
   }
 }

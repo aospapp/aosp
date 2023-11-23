@@ -21,11 +21,11 @@
 #include <CpuExecutor.h>
 #include <LegacyUtils.h>
 #include <android-base/scopeguard.h>
-#include <android/hardware_buffer.h>
 #include <nnapi/IBurst.h>
 #include <nnapi/SharedMemory.h>
 #include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
+#include <nnapi/Validation.h>
 
 #include <algorithm>
 #include <memory>
@@ -37,6 +37,10 @@
 #include "CompilationBuilder.h"
 #include "Manager.h"
 #include "TypeManager.h"
+
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#endif  // __ANDROID__
 
 namespace android {
 namespace nn {
@@ -253,9 +257,13 @@ int copyMemoryToIBuffer(const SharedMemory& src, const SharedBuffer& dst,
 
 static int copyIBuffers(const SharedBuffer& src, const SharedBuffer& dst,
                         const MemoryValidatorBase::Metadata& srcMetadata) {
-    const auto [n, memoryAHWB] = MemoryRuntimeAHWB::create(srcMetadata.logicalSize);
+#ifdef __ANDROID__
+    const auto [n, runtimeMemory] = MemoryRuntimeAHWB::create(srcMetadata.logicalSize);
+#else   // __ANDROID__
+    const auto [n, runtimeMemory] = MemoryAshmem::create(srcMetadata.logicalSize);
+#endif  // __ANDROID__
     NN_RETURN_IF_ERROR(n);
-    const SharedMemory& memory = memoryAHWB->getMemory();
+    const SharedMemory& memory = runtimeMemory->getMemory();
     if (!validate(memory).ok()) return ANEURALNETWORKS_OUT_OF_MEMORY;
     NN_RETURN_IF_ERROR(copyIBufferToMemory(src, memory));
     NN_RETURN_IF_ERROR(copyMemoryToIBuffer(memory, dst, srcMetadata.dimensions));
@@ -456,9 +464,13 @@ int MemoryBuilder::finish() {
         LOG(INFO) << "MemoryBuilder::finish -- cannot handle multiple devices.";
         mAllocator = nullptr;
     }
+#ifdef __ANDROID__
     mSupportsAhwb = std::all_of(devices.begin(), devices.end(), [](const auto* device) {
-        return device->getFeatureLevel() >= kHalVersionV1_3ToApi.featureLevel;
+        return isCompliantVersion(kHalVersionV1_3ToApi.canonical, device->getFeatureLevel());
     });
+#else   // __ANDROID__
+    mSupportsAhwb = false;
+#endif  // __ANDROID__
     mShouldFallback = std::none_of(mRoles.begin(), mRoles.end(), [](const auto& role) {
         const auto* cb = std::get<const CompilationBuilder*>(role);
         return cb->createdWithExplicitDeviceList();
@@ -540,6 +552,7 @@ std::pair<int, std::unique_ptr<MemoryFd>> MemoryFd::create(size_t size, int prot
 MemoryFd::MemoryFd(SharedMemory memory) : RuntimeMemory(std::move(memory)) {}
 
 std::pair<int, std::unique_ptr<MemoryAHWB>> MemoryAHWB::create(const AHardwareBuffer& ahwb) {
+#ifdef __ANDROID__
     auto memory = createSharedMemoryFromAHWB(const_cast<AHardwareBuffer*>(&ahwb),
                                              /*takeOwnership=*/false);
     if (!memory.has_value()) {
@@ -556,9 +569,16 @@ std::pair<int, std::unique_ptr<MemoryAHWB>> MemoryAHWB::create(const AHardwareBu
 
     auto memoryAHWB = std::make_unique<MemoryAHWB>(std::move(memory).value(), std::move(validator));
     return {ANEURALNETWORKS_NO_ERROR, std::move(memoryAHWB)};
+#else   // __ANDROID__
+    LOG(FATAL) << "std::pair<int, std::unique_ptr<MemoryAHWB>> MemoryAHWB::create(const "
+                  "AHardwareBuffer& ahwb): Not Available on Host Build";
+    (void)ahwb;
+    return {ANEURALNETWORKS_OP_FAILED, nullptr};
+#endif  // __ANDROID__
 }
 
 std::pair<int, std::unique_ptr<MemoryRuntimeAHWB>> MemoryRuntimeAHWB::create(uint32_t size) {
+#ifdef __ANDROID__
     AHardwareBuffer* ahwb = nullptr;
     const auto usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
     const AHardwareBuffer_Desc desc = {
@@ -588,6 +608,12 @@ std::pair<int, std::unique_ptr<MemoryRuntimeAHWB>> MemoryRuntimeAHWB::create(uin
     auto memoryAHWB = std::make_unique<MemoryRuntimeAHWB>(std::move(memory).value(),
                                                           std::move(mapping).value());
     return {ANEURALNETWORKS_NO_ERROR, std::move(memoryAHWB)};
+#else   // __ANDROID__
+    LOG(FATAL) << "std::pair<int, std::unique_ptr<MemoryRuntimeAHWB>> "
+                  "MemoryRuntimeAHWB::create(uint32_t size): Not Available on Host Build";
+    (void)size;
+    return {ANEURALNETWORKS_OP_FAILED, nullptr};
+#endif  // __ANDROID__
 }
 
 uint8_t* MemoryRuntimeAHWB::getPointer() const {

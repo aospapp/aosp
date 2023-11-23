@@ -69,8 +69,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             acloud_config: An AcloudConfig object.
             oauth2_credentials: An oauth2client.OAuth2Credentials instance.
         """
-        super(AndroidComputeClient, self).__init__(acloud_config,
-                                                   oauth2_credentials)
+        super().__init__(acloud_config, oauth2_credentials)
         self._zone = acloud_config.zone
         self._machine_type = acloud_config.machine_type
         self._min_machine_size = acloud_config.min_machine_size
@@ -137,7 +136,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         Returns:
           name: A string that complies with RFC1035.
         """
-        name = name.replace("_", "-").lower()
+        name = name.replace("_", "-").replace(".", "-").lower()
         name = name[:cls.NAME_LENGTH_LIMIT]
         if name[-1] == "-":
             name = name[:-1] + cls.REPLACER
@@ -164,7 +163,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         """Generate an image name given build_target, build_id.
 
         Args:
-            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
 
         Returns:
@@ -197,7 +196,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         Target is not used as instance name has a length limit.
 
         Args:
-            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_64_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
 
         Returns:
@@ -234,7 +233,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             raise errors.DriverError(
                 "Failed to create disk %s, source image %s does not exist." %
                 (disk_name, source_image))
-        super(AndroidComputeClient, self).CreateDisk(
+        super().CreateDisk(
             disk_name,
             source_image=source_image,
             size_gb=size_gb,
@@ -321,7 +320,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             avd_spec.hw_property[constants.HW_Y_RES],
             avd_spec.hw_property[constants.HW_ALIAS_DPI]))
 
-        super(AndroidComputeClient, self).CreateInstance(
+        super().CreateInstance(
             instance, image_name, self._machine_type, metadata, self._network,
             self._zone, disk_args, image_project, gpu, extra_disk_name,
             extra_scopes=extra_scopes, tags=tags)
@@ -395,8 +394,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         Returns:
             ssh.IP object, that stores internal and external ip of the instance.
         """
-        return super(AndroidComputeClient, self).GetInstanceIP(
-            instance, zone or self._zone)
+        return super().GetInstanceIP(instance, zone or self._zone)
 
     def GetSerialPortOutput(self, instance, zone=None, port=1):
         """Get serial port output.
@@ -412,7 +410,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         Raises:
             errors.DriverError: For malformed response.
         """
-        return super(AndroidComputeClient, self).GetSerialPortOutput(
+        return super().GetSerialPortOutput(
             instance, zone or self._zone, port)
 
     def ExtendReportData(self, key, value):

@@ -16,9 +16,6 @@
 
 package com.android.nfc;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -26,12 +23,16 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,7 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class RegisteredComponentCache {
     private static final String TAG = "RegisteredComponentCache";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG =
+            SystemProperties.getBoolean("persist.nfc.debug_enabled", false);
 
     final Context mContext;
     final String mAction;

@@ -84,8 +84,17 @@ public class TzFileDumper {
             skipUninteresting32BitData(mappedTzFile, header32Bit);
             types32Bit = mergeTodInfo(mappedTzFile, header32Bit, types32Bit);
 
-            writeCsvRow(fileWriter, "File format version: " + (char) header32Bit.tzh_version);
+            writeCsvRow(fileWriter, "32-bit Header");
+            writeCsvRow(fileWriter, "tzh_version", "tzh_timecnt", "tzh_typecnt", "tzh_charcnt",
+                    "tzh_leapcnt", "tzh_ttisstdcnt", "tzh_ttisgmtcnt");
+            writeCsvRow(fileWriter, header32Bit.tzh_version, header32Bit.tzh_timecnt,
+                    header32Bit.tzh_typecnt, header32Bit.tzh_charcnt, header32Bit.tzh_leapcnt,
+                    header32Bit.tzh_ttisstdcnt, header32Bit.tzh_ttisgmtcnt);
             writeCsvRow(fileWriter);
+
+            writeCsvRow(fileWriter, "Format version: " + (char) header32Bit.tzh_version);
+            writeCsvRow(fileWriter);
+
             writeCsvRow(fileWriter, "32-bit data");
             writeCsvRow(fileWriter);
             writeTypes(types32Bit, fileWriter);
@@ -99,6 +108,17 @@ public class TzFileDumper {
                 List<Type> types64Bit = readTypes(mappedTzFile, header64Bit);
                 skipUninteresting64BitData(mappedTzFile, header64Bit);
                 types64Bit = mergeTodInfo(mappedTzFile, header64Bit, types64Bit);
+
+                writeCsvRow(fileWriter, "64-bit Header");
+                writeCsvRow(fileWriter, "tzh_version", "tzh_timecnt", "tzh_typecnt", "tzh_charcnt",
+                        "tzh_leapcnt", "tzh_ttisstdcnt", "tzh_ttisgmtcnt");
+                writeCsvRow(fileWriter, header64Bit.tzh_version, header64Bit.tzh_timecnt,
+                        header64Bit.tzh_typecnt, header64Bit.tzh_charcnt, header64Bit.tzh_leapcnt,
+                        header64Bit.tzh_ttisstdcnt, header64Bit.tzh_ttisgmtcnt);
+                writeCsvRow(fileWriter);
+
+                writeCsvRow(fileWriter, "Format version: " + (char) header64Bit.tzh_version);
+                writeCsvRow(fileWriter);
 
                 writeCsvRow(fileWriter, "64-bit data");
                 writeCsvRow(fileWriter);

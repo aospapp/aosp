@@ -30,6 +30,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -86,7 +88,18 @@ public class FirmwareBootHeaderVerification extends BaseHostJUnit4Test {
         return true;
     }
 
-    private void CheckImageHeader(String imagePath, boolean isRecovery) throws IOException {
+    private boolean isKernelVersionLessThan(int major, int minor)
+            throws DeviceNotAvailableException {
+        String output = mDevice.executeShellCommand("uname -r");
+        Pattern p = Pattern.compile("^(\\d+)\\.(\\d+)");
+        Matcher m1 = p.matcher(output);
+        Assert.assertTrue("Unable to parse kernel release version: %s".format(output), m1.find());
+        return Integer.parseInt(m1.group(1)) < major
+                || (Integer.parseInt(m1.group(1)) == major
+                        && Integer.parseInt(m1.group(2)) < minor);
+    }
+
+    private void CheckImageHeader(String imagePath, boolean isRecovery) throws Exception {
         BootImageInfo bootImgInfo = new BootImageInfo(imagePath);
         // Check kernel size.
         Assert.assertNotEquals(
@@ -95,9 +108,12 @@ public class FirmwareBootHeaderVerification extends BaseHostJUnit4Test {
             // Check image version.
             Assert.assertTrue("Device must at least have a boot image of version 2",
                     (bootImgInfo.getImgHeaderVer() >= 2));
-            // Check ramdisk size.
-            Assert.assertNotEquals(
-                    "boot.img must contain ramdisk", bootImgInfo.getRamdiskSize(), 0);
+            // Check ramdisk size for kernels < 5.10. Kernels with versions >= 5.10
+            // are verified by vts_generic_boot_image_test
+            if (isKernelVersionLessThan(5, 10)) {
+                Assert.assertNotEquals(
+                        "boot.img must contain ramdisk", bootImgInfo.getRamdiskSize(), 0);
+            }
         } else {
             Assert.assertTrue("Device must at least have a boot image of version 1",
                     (bootImgInfo.getImgHeaderVer() >= 1));

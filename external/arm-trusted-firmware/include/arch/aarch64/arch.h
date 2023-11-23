@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
  * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -161,12 +161,16 @@
 #define ID_AA64PFR0_EL3_SHIFT	U(12)
 #define ID_AA64PFR0_AMU_SHIFT	U(44)
 #define ID_AA64PFR0_AMU_MASK	ULL(0xf)
+#define ID_AA64PFR0_AMU_NOT_SUPPORTED	U(0x0)
+#define ID_AA64PFR0_AMU_V1	U(0x1)
+#define ID_AA64PFR0_AMU_V1P1	U(0x2)
 #define ID_AA64PFR0_ELX_MASK	ULL(0xf)
 #define ID_AA64PFR0_GIC_SHIFT	U(24)
 #define ID_AA64PFR0_GIC_WIDTH	U(4)
 #define ID_AA64PFR0_GIC_MASK	ULL(0xf)
 #define ID_AA64PFR0_SVE_SHIFT	U(32)
 #define ID_AA64PFR0_SVE_MASK	ULL(0xf)
+#define ID_AA64PFR0_SVE_LENGTH	U(4)
 #define ID_AA64PFR0_SEL2_SHIFT	U(36)
 #define ID_AA64PFR0_SEL2_MASK	ULL(0xf)
 #define ID_AA64PFR0_MPAM_SHIFT	U(40)
@@ -258,6 +262,9 @@
 #define ID_AA64MMFR1_EL1_PAN_SUPPORTED		ULL(0x1)
 #define ID_AA64MMFR1_EL1_PAN2_SUPPORTED		ULL(0x2)
 #define ID_AA64MMFR1_EL1_PAN3_SUPPORTED		ULL(0x3)
+
+#define ID_AA64MMFR1_EL1_VHE_SHIFT		U(8)
+#define ID_AA64MMFR1_EL1_VHE_MASK		ULL(0xf)
 
 /* ID_AA64MMFR2_EL1 definitions */
 #define ID_AA64MMFR2_EL1		S3_0_C0_C7_2
@@ -386,7 +393,8 @@
 
 #define SCTLR_ATA0_BIT		(ULL(1) << 42)
 #define SCTLR_ATA_BIT		(ULL(1) << 43)
-#define SCTLR_DSSBS_BIT		(ULL(1) << 44)
+#define SCTLR_DSSBS_SHIFT	U(44)
+#define SCTLR_DSSBS_BIT		(ULL(1) << SCTLR_DSSBS_SHIFT)
 #define SCTLR_TWEDEn_BIT	(ULL(1) << 45)
 #define SCTLR_TWEDEL_SHIFT	U(46)
 #define SCTLR_TWEDEL_MASK	ULL(0xf)
@@ -406,9 +414,10 @@
 #define SCR_RES1_BITS		((U(1) << 4) | (U(1) << 5))
 #define SCR_TWEDEL_SHIFT	U(30)
 #define SCR_TWEDEL_MASK		ULL(0xf)
+#define SCR_AMVOFFEN_BIT	(UL(1) << 35)
 #define SCR_TWEDEn_BIT		(UL(1) << 29)
-#define SCR_ECVEN_BIT           (UL(1) << 28)
-#define SCR_FGTEN_BIT           (UL(1) << 27)
+#define SCR_ECVEN_BIT		(UL(1) << 28)
+#define SCR_FGTEN_BIT		(UL(1) << 27)
 #define SCR_ATA_BIT		(UL(1) << 26)
 #define SCR_FIEN_BIT		(UL(1) << 21)
 #define SCR_EEL2_BIT		(UL(1) << 18)
@@ -430,8 +439,16 @@
 #define SCR_RESET_VAL		SCR_RES1_BITS
 
 /* MDCR_EL3 definitions */
+#define MDCR_EnPMSN_BIT		(ULL(1) << 36)
+#define MDCR_MPMX_BIT		(ULL(1) << 35)
+#define MDCR_MCCD_BIT		(ULL(1) << 34)
 #define MDCR_MTPME_BIT		(ULL(1) << 28)
+#define MDCR_TDCC_BIT		(ULL(1) << 27)
 #define MDCR_SCCD_BIT		(ULL(1) << 23)
+#define MDCR_EPMAD_BIT		(ULL(1) << 21)
+#define MDCR_EDAD_BIT		(ULL(1) << 20)
+#define MDCR_TTRF_BIT		(ULL(1) << 19)
+#define MDCR_STE_BIT		(ULL(1) << 18)
 #define MDCR_SPME_BIT		(ULL(1) << 17)
 #define MDCR_SDD_BIT		(ULL(1) << 16)
 #define MDCR_SPD32(x)		((x) << 14)
@@ -479,6 +496,7 @@
 #define VTTBR_BADDR_SHIFT	U(0)
 
 /* HCR definitions */
+#define HCR_AMVOFFEN_BIT	(ULL(1) << 51)
 #define HCR_API_BIT		(ULL(1) << 41)
 #define HCR_APK_BIT		(ULL(1) << 40)
 #define HCR_E2H_BIT		(ULL(1) << 34)
@@ -516,7 +534,7 @@
 #define TTA_BIT			(U(1) << 20)
 #define TFP_BIT			(U(1) << 10)
 #define CPTR_EZ_BIT		(U(1) << 8)
-#define CPTR_EL3_RESET_VAL	U(0x0)
+#define CPTR_EL3_RESET_VAL	(TCPAC_BIT | TAM_BIT | TTA_BIT | TFP_BIT & ~(CPTR_EZ_BIT))
 
 /* CPTR_EL2 definitions */
 #define CPTR_EL2_RES1		((U(1) << 13) | (U(1) << 12) | (U(0x3ff)))
@@ -556,8 +574,16 @@
 #define SPSR_EL_SHIFT		U(2)
 #define SPSR_EL_WIDTH		U(2)
 
-#define SPSR_SSBS_BIT_AARCH64	BIT_64(12)
-#define SPSR_SSBS_BIT_AARCH32	BIT_64(23)
+#define SPSR_SSBS_SHIFT_AARCH64 U(12)
+#define SPSR_SSBS_BIT_AARCH64	(ULL(1) << SPSR_SSBS_SHIFT_AARCH64)
+#define SPSR_SSBS_SHIFT_AARCH32 U(23)
+#define SPSR_SSBS_BIT_AARCH32	(ULL(1) << SPSR_SSBS_SHIFT_AARCH32)
+
+#define SPSR_PAN_BIT		BIT_64(22)
+
+#define SPSR_DIT_BIT		BIT(24)
+
+#define SPSR_TCO_BIT_AARCH64	BIT_64(25)
 
 #define DISABLE_ALL_EXCEPTIONS \
 		(DAIF_FIQ_BIT | DAIF_IRQ_BIT | DAIF_ABT_BIT | DAIF_DBG_BIT)
@@ -721,13 +747,13 @@
 #define MAX_CACHE_LINE_SIZE	U(0x800) /* 2KB */
 
 /* Physical timer control register bit fields shifts and masks */
-#define CNTP_CTL_ENABLE_SHIFT   U(0)
-#define CNTP_CTL_IMASK_SHIFT    U(1)
-#define CNTP_CTL_ISTATUS_SHIFT  U(2)
+#define CNTP_CTL_ENABLE_SHIFT	U(0)
+#define CNTP_CTL_IMASK_SHIFT	U(1)
+#define CNTP_CTL_ISTATUS_SHIFT	U(2)
 
-#define CNTP_CTL_ENABLE_MASK    U(1)
-#define CNTP_CTL_IMASK_MASK     U(1)
-#define CNTP_CTL_ISTATUS_MASK   U(1)
+#define CNTP_CTL_ENABLE_MASK	U(1)
+#define CNTP_CTL_IMASK_MASK	U(1)
+#define CNTP_CTL_ISTATUS_MASK	U(1)
 
 /* Physical timer control macros */
 #define CNTP_CTL_ENABLE_BIT	(U(1) << CNTP_CTL_ENABLE_SHIFT)
@@ -913,7 +939,7 @@
 #define MPAM3_EL3		S3_6_C10_C5_0
 
 /*******************************************************************************
- * Definitions for system register interface to AMU for ARMv8.4 onwards
+ * Definitions for system register interface to AMU for FEAT_AMUv1
  ******************************************************************************/
 #define AMCR_EL0		S3_3_C13_C2_0
 #define AMCFGR_EL0		S3_3_C13_C2_1
@@ -990,6 +1016,50 @@
 #define MPAM2_EL2_TRAPMPAM1EL1		(ULL(1) << 48)
 
 #define MPAMIDR_HAS_HCR_BIT		(ULL(1) << 17)
+
+/*******************************************************************************
+ * Definitions for system register interface to AMU for FEAT_AMUv1p1
+ ******************************************************************************/
+
+/* Definition for register defining which virtual offsets are implemented. */
+#define AMCG1IDR_EL0		S3_3_C13_C2_6
+#define AMCG1IDR_CTR_MASK	ULL(0xffff)
+#define AMCG1IDR_CTR_SHIFT	U(0)
+#define AMCG1IDR_VOFF_MASK	ULL(0xffff)
+#define AMCG1IDR_VOFF_SHIFT	U(16)
+
+/* New bit added to AMCR_EL0 */
+#define AMCR_CG1RZ_BIT		(ULL(0x1) << 17)
+
+/*
+ * Definitions for virtual offset registers for architected activity monitor
+ * event counters.
+ * AMEVCNTVOFF01_EL2 intentionally left undefined, as it does not exist.
+ */
+#define AMEVCNTVOFF00_EL2	S3_4_C13_C8_0
+#define AMEVCNTVOFF02_EL2	S3_4_C13_C8_2
+#define AMEVCNTVOFF03_EL2	S3_4_C13_C8_3
+
+/*
+ * Definitions for virtual offset registers for auxiliary activity monitor event
+ * counters.
+ */
+#define AMEVCNTVOFF10_EL2	S3_4_C13_C10_0
+#define AMEVCNTVOFF11_EL2	S3_4_C13_C10_1
+#define AMEVCNTVOFF12_EL2	S3_4_C13_C10_2
+#define AMEVCNTVOFF13_EL2	S3_4_C13_C10_3
+#define AMEVCNTVOFF14_EL2	S3_4_C13_C10_4
+#define AMEVCNTVOFF15_EL2	S3_4_C13_C10_5
+#define AMEVCNTVOFF16_EL2	S3_4_C13_C10_6
+#define AMEVCNTVOFF17_EL2	S3_4_C13_C10_7
+#define AMEVCNTVOFF18_EL2	S3_4_C13_C11_0
+#define AMEVCNTVOFF19_EL2	S3_4_C13_C11_1
+#define AMEVCNTVOFF1A_EL2	S3_4_C13_C11_2
+#define AMEVCNTVOFF1B_EL2	S3_4_C13_C11_3
+#define AMEVCNTVOFF1C_EL2	S3_4_C13_C11_4
+#define AMEVCNTVOFF1D_EL2	S3_4_C13_C11_5
+#define AMEVCNTVOFF1E_EL2	S3_4_C13_C11_6
+#define AMEVCNTVOFF1F_EL2	S3_4_C13_C11_7
 
 /*******************************************************************************
  * RAS system registers

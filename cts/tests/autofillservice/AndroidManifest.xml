@@ -24,6 +24,11 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <!--  Some tests use sticky broadcasts to ensure that inline suggestion extras
+    are delivered to the IME even when its process is not running persistently.
+    This can happen when the IME is unbound as a result of enabling
+    the config_preventImeStartupUnlessTextEditor option. -->
+    <uses-permission android:name="android.permission.BROADCAST_STICKY"/>
 
     <application>
 
@@ -145,6 +150,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".activities.FieldsNoPasswordActivity"/>
         <activity android:name=".activities.AugmentedAuthActivity" />
         <activity android:name=".activities.SimpleAfterLoginActivity"/>
         <activity android:name=".activities.SimpleBeforeLoginActivity"/>

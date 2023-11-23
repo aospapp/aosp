@@ -32,11 +32,16 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
+
+import android.util.Log;
 
 public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         implements IAutoDateTimeSettingsHelper {
     private static final Locale LOCALE = Locale.ENGLISH;
     private static final TextStyle TEXT_STYLE = TextStyle.SHORT;
+    private static final String LOG_TAG = SettingsDateTimeHelperImpl.class.getSimpleName();
 
     public SettingsDateTimeHelperImpl(Instrumentation instr) {
         super(instr);
@@ -137,6 +142,9 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
     /** {@inheritDoc} */
     @Override
     public void setTimeInTwelveHourFormat(int hour, int minute, boolean am) {
+        // Get current time
+        String currentTime = getTime();
+
         // check Automatic date & time switch is turned off
         UiObject2 autoDateTimeSwitchWidget = getAutoDateTimeSwitchWidget();
         UiObject2 autoDateTimeMenu =
@@ -167,15 +175,18 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         if (minute < 10) {
             minute_string = "0" + minute;
         }
-        setTime(2, minute_string);
-        setTime(0, String.valueOf(hour));
-        setTime(1, am_pm);
+        setTime(2, minute_string, currentTime);
+        setTime(0, String.valueOf(hour), currentTime);
+        setTime(1, am_pm, currentTime);
         pressBack();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setTimeInTwentyFourHourFormat(int hour, int minute) {
+        // Get current time
+        String currentTime = getTime();
+
         // check Automatic date & time switch is turned off
         UiObject2 autoDateTimeSwitchWidget = getAutoDateTimeSwitchWidget();
         UiObject2 autoDateTimeMenu =
@@ -208,12 +219,12 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         if (hour < 10) {
             hour_string = "0" + hour;
         }
-        setTime(2, minute_string);
-        setTime(0, hour_string);
+        setTime(2, minute_string, currentTime);
+        setTime(0, hour_string, currentTime);
         pressBack();
     }
 
-    private void setTime(int index, String s) {
+    private void setTime(int index, String s, String currentTime) {
         UiSelector selector =
                 new UiSelector()
                         .className(
@@ -239,6 +250,30 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                 throw new RuntimeException(e);
             }
             if (curAM_PM.equals("PM")) scrollForwards = false;
+        } else if (index == 2) {
+            int currentMinute = Integer.parseInt(currentTime.split(":")[1].split("\\s+")[0]);
+            int setMinute = Integer.parseInt(s);
+
+            /* Set scrollForwards such that the minute is scrolled a max of 30 times */
+            if (currentMinute > setMinute) {
+                if (currentMinute - setMinute <= 30) scrollForwards = false;
+            } else if (setMinute > currentMinute) {
+                if (setMinute - currentMinute > 30) scrollForwards = false;
+            }
+        } else {
+            int currentHour = Integer.parseInt(currentTime.split(":")[0]);
+            int setHour = Integer.parseInt(s);
+
+            /* Set max scrolls based on whether we're in 12 or 24 hour format */
+            int maxScrolls =
+                    (currentTime.trim().endsWith("AM") || currentTime.trim().endsWith("PM")) ? 6 : 12;
+
+            /* Calculate forward or backward like we did for minutes */
+            if (currentHour > setHour) {
+                if (currentHour - setHour <= maxScrolls) scrollForwards = false;
+            } else if (setHour > currentHour) {
+                if (setHour - currentHour > maxScrolls) scrollForwards = false;
+            }
         }
         scrollToObjectInPicker(index, s, scrollForwards);
     }
@@ -262,26 +297,77 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
                                                 AutoConfigConstants.SETTINGS,
                                                 AutoConfigConstants.DATE_AND_TIME_SETTINGS,
                                                 AutoConfigConstants.EDIT_TEXT_WIDGET)));
-        while (obj == null) {
+
+        /* For hour and minute, search by child object instead of text */
+        if (index == 0 || index == 2) {
+            UiSelector dayOrMonthSelector = selector.childSelector(
+                    new UiSelector().className(
+                            getResourceValue(
+                                    AutoConfigConstants.SETTINGS,
+                                    AutoConfigConstants.DATE_AND_TIME_SETTINGS,
+                                    AutoConfigConstants.EDIT_TEXT_WIDGET
+                            )
+                    )
+            );
+
+            /* Once we have the child selector, search for text within that selector */
+            String currentValue = "";
             try {
-                if (scrollForwards) {
-                    scrollable.scrollForward();
-                } else {
-                    scrollable.scrollBackward();
-                }
+                currentValue = new UiObject(dayOrMonthSelector).getText().trim();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            obj =
-                    findUiObject(
-                            By.text(s)
-                                    .clazz(
-                                            getResourceValue(
-                                                    AutoConfigConstants.SETTINGS,
-                                                    AutoConfigConstants.DATE_AND_TIME_SETTINGS,
-                                                    AutoConfigConstants.EDIT_TEXT_WIDGET)));
+
+            while (!currentValue.equals(s.trim())) {
+                try {
+                    if (scrollForwards) {
+                        scrollable.scrollForward();
+                    } else {
+                        scrollable.scrollBackward();
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                dayOrMonthSelector = selector.childSelector(
+                        new UiSelector().className(
+                                getResourceValue(
+                                        AutoConfigConstants.SETTINGS,
+                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
+                                        AutoConfigConstants.EDIT_TEXT_WIDGET
+                                )
+                        )
+                );
+
+                try {
+                    currentValue = new UiObject(dayOrMonthSelector).getText().trim();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } else {
+            while (obj == null) {
+                try {
+                    if (scrollForwards) {
+                        scrollable.scrollForward();
+                    } else {
+                        scrollable.scrollBackward();
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                obj =
+                        findUiObject(
+                                By.text(s)
+                                        .clazz(
+                                                getResourceValue(
+                                                        AutoConfigConstants.SETTINGS,
+                                                        AutoConfigConstants.DATE_AND_TIME_SETTINGS,
+                                                        AutoConfigConstants.EDIT_TEXT_WIDGET)));
+            }
+
+            if (obj == null) throw new RuntimeException("cannot find value in the picker");
         }
-        if (obj == null) throw new RuntimeException("cannot find value in the picker");
     }
 
     /** {@inheritDoc} */
@@ -429,7 +515,7 @@ public class SettingsDateTimeHelperImpl extends AbstractAutoStandardAppHelper
         BySelector selector = By.hasDescendant(bySelector);
         UiObject2 object = scrollAndFindUiObject(selector, getScrollScreenIndex());
         List<UiObject2> list = object.getParent().getChildren();
-        UiObject2 switchWidget = list.get(1).getChildren().get(0);
+        UiObject2 switchWidget = list.get(1).getChildren().get(0).getChildren().get(0);
         return switchWidget;
     }
 

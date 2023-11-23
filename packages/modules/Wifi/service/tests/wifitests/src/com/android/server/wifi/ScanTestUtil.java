@@ -295,7 +295,7 @@ public class ScanTestUtil {
     }
 
     public static ScanResult createScanResult(int freq) {
-        return new ScanResult(WifiSsid.createFromAsciiEncoded("AN SSID"),
+        return new ScanResult(WifiSsid.fromUtf8Text("AN SSID"),
                 MacAddressUtils.createRandomUnicastAddress().toString(), 0L,
                 -1, null, "", 0, freq, 0);
     }

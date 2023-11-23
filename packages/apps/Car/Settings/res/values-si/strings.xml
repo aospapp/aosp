@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"ජංගම ජාලය භාවිතයෙන් දත්තවලට ප්‍රවේශය"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"ජංගම ජාලය"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"ජංගම දත්ත භාවිත කරන්න"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"ක්‍රියාවිරහිතයි"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"ජංගම දත්ත ක්‍රියාවිරහිත කරන්න ද?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"තේරීම අවශ්‍යයි"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"ජංගම දත්ත සඳහා <xliff:g id="CARRIER">%1$s</xliff:g> භාවිත කරන්න ද?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi ස්කෑන් කිරීම ක්‍රියාත්මකයි"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"ජංගම දත්ත වෙත ස්වයංක්‍රීයව මාරු වන්න"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi‑Fi හට අන්තර්ජාල ප්‍රවේශය නැති විට ජංගම දත්ත භාවිතා කරන්න. දත්ත භාවිතයේ ගාස්තු අදාළ විය හැකිය."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi-Fi ජාල සොයා ගෙන සම්බන්ධ වන්න"</string>
     <string name="learn_more" msgid="8214605928933358604">"තව දැන ගන්න"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"හොට්ස්පොට් නම"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> ක්‍රියාත්මක කරමින්..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"වෙනත් උපාංගවලට <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> වෙත සබැඳිය හැකිය"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"හොට්ස්පොට් මුරපදය"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"ආරක්ෂාව"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-පුද්ගලික"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"කිසිවක් නැත"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP කලාපය"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"යෙදුම් මනාප යළි පිහිටුවා ඇත"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"සියලු දත්ත මකන්න (කර්මාන්තශාලා සැකසීම)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"සියලු දත්ත සහ පැතිකඩවල් තොරතුරු විනෝදාස්වාද පද්ධතියෙන් මකන්න"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"මෙය මේවා ඇතුළුව, ඔබ‍ගේ වාහනයේ විනෝදාස්වාද පද්ධතියෙන් සියලු දත්ත මකනු ඇත:\n\n"<li>"ඔබ‍ගේ Google ගිණුම"</li>\n<li>"පද්ධති සහ යෙදුම් දත්ත සහ සැකසීම්"</li>\n<li>"බාගත් යෙදුම්"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"මෙය මේවා ඇතුළුව, ඔබ‍ගේ වාහනයේ විනෝදාස්වාද පද්ධතියෙන් සියලු දත්ත මකනු ඇත:\n\n"<li>"ඔබගේ ගිණුම් සහ පැතිකඩවල්"</li>\n<li>"පද්ධති සහ යෙදුම් දත්ත සහ සැකසීම්"</li>\n<li>"බාගත් යෙදුම්"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"ඔබ දැනට පහත ගිණුම් වෙත පුරා සිටියි:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"මෙම වාහනය සඳහා වෙනත් පැතිකඩ පිහිටුවා ඇත."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"සියලු දත්ත මකන්න"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"නව පරිපාලක තෝරන්න"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"ඔබට අවම වශයෙන් එක් පරිපාලකයෙකු සිටිය යුතුය. මෙම කොටස මකා දැමීම සඳහා, මුලින්ම විකල්පයක් තෝරා ගන්න."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"පරිපාලක තෝරන්න"</string>
-    <string name="user_guest" msgid="3465399481257448601">"අමුත්තා"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"අමුත්තා"</string>
     <string name="user_switch" msgid="6544839750534690781">"මාරු වෙන්න"</string>
     <string name="current_user_name" msgid="3813671533249316823">"ඔබ (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"නම‍"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> සඳහා ගිණුම්"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"ස්වයංක්‍රීයව දත්ත සමමුහූර්ත කරන්න"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"යෙදුම් වෙත දත්ත ස්වයංක්‍රීයව නැවුම් කිරීමට ඉඩ දෙන්න"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"දත්ත ස්වයංක්‍රීය-සමමුහූර්ත වීම සක්‍රී කරන්නේද?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"අන්තර්ජාලයේ ඔබගේ උපාංගවලට ඔබ කරන ඕනෑම වෙනස්කමක් ස්වයංක්‍රියව දුරකතනයට පිටපත් වෙයි.\n\nසමහර ගිණුම් මඟින් ඔබ දුරකථනයේ සිදු කරන ඕනෑම වෙනස්කමක් ස්වයංක්‍රීයව වෙබ් අඩවියට පිටපත් කිරීම ද කළ හැක. Google ගිණුමක් මෙවැනි ආකාරයකට ක්‍රියා කරයි."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"දත්ත ස්වයංක්‍රීය-සමමුහූර්ත වීම අක්‍රිය කරන්නේද?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"ස්වයංක්‍රීය දත්ත සමමුහුර්ත කිරීම ඉඩ දෙන්නද?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"වෙබයෙහි ඔබගේ ගිණුම්වලට ඔබ සිදු කරන ඕනෑම වෙනස් කිරීමක් ස්වයංක්‍රියව ඔබගේ වාහනයට පිටපත් කරනු ඇත.\n\nසමහර ගිණුම් ඔබ වාහනයේ සිදු කරන ඕනෑම වෙනස් කිරීමක් ස්වයංක්‍රියව වෙබයට පිටපත් කිරීමටද ඉඩ ඇත."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"ස්වයංක්‍රීය දත්ත සමමුහුර්ත කිරීම ඉඩ නොදෙන්නද?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"මෙමඟින් දත්ත භාවිතය ඉතිරි කරන, නමුත් මෑත තොරතුරු එකතු කිරීමට සෑම ගිණුමක්ම ඔබ හස්තීයව සමමුහූර්ත  කළ යුතු වෙයි. තවද යාවත්කාලීන සිදුවන විට ඔබට දැනුම්දීම් නොලැබෙයි."</string>
     <string name="account_details_title" msgid="7529571432258448573">"ගිණුම් තතු"</string>
     <string name="add_account_title" msgid="5988746086885210040">"ගිණුම එක් කරන්න"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"රහස්‍යතාව"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"විනෝදාස්වාද තොරතුරු පද්ධති දත්ත"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"ඔබගේ ස්ථානයට යෙදුම් ප්‍රවේශය පාලනය කරන්න"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"කැමරාව"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"ඔබ‍ගේ කැමරා වෙත යෙදුම් ප්‍රවේශය පාලනය කරන්න"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"මයික්‍රෆෝනය"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"මයික්‍රෆෝනය වෙත යෙදුම් ප්‍රවේශය පාලනය කරන්න"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"විනෝද තොරතුරු පද්ධති දත්ත"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"අවලංගු කරන්න"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"තහවුරු කරන්න"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"අවම වශයෙන් අනුලකුණු 4ක් විය යුතුය"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"අඩු තරමින් අකුරු <xliff:g id="COUNT">%d</xliff:g>ක් තිබිය යුතුය"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN හි අඩු තරමින් ඉලක්කම් <xliff:g id="COUNT">%d</xliff:g>ක් විය යුතුය"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"අනුලකුණු <xliff:g id="NUMBER">%d</xliff:g>කට වඩා අඩු විය යුතුය"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"ඉලක්කම් <xliff:g id="NUMBER">%d</xliff:g>කට වඩා අඩු විය යුතුය"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"0-9 දක්වා ඉලක්කම් පමණක් අඩංගු විය යුතුය."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"උපාංග පරිපාලක මෑත PIN එකක් භාවිතා කිරීමට ඉඩ නොදේ"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ඔබගේ IT පරිපාලක විසින් සුලබ PIN අවහිර කරනු ලැබේ. වෙනත් PIN එකක් උත්සාහ කරන්න."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"උපාංග පරිපාලක මෑත මුරපදයක් භාවිතා කිරීමට අවසර නොදේ"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"මුරපදය සුරැකීමේ දෝෂයකි"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"ඔබගේ IT පරිපාලක විසින් සුලබ මුරපද අවහිර කරනු ලැබේ. වෙනත් මුරපදයක් උත්සාහ කරන්න."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ආරෝහණ, අවරෝහණ හෝ පුනරාවර්ත අනුක්‍රමයේ ඉලක්කම්වලට ඉඩ නොදේ."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"අඩු තරමින් එක් අකුරක් තිබිය යුතුය"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"අඩු තරමින් එක් ඉලක්කමක් තිබිය යුතුය"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"අඩු තරමින් එක් සංකේතයක් තිබිය යුතුය"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{අඩු තරමින් අකුරු #ක් තිබිය යුතුය}one{අඩු තරමින් අකුරු #ක් තිබිය යුතුය}other{අඩු තරමින් අකුරු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{අඩු තරමින් සිම්පල් අකුරු #ක් තිබිය යුතුය}one{අඩු තරමින් සිම්පල් අකුරු #ක් තිබිය යුතුය}other{අඩු තරමින් සිම්පල් අකුරු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{අඩු තරමින් කැපිටල් අකුරු #ක් තිබිය යුතුය}one{අඩු තරමින් කැපිටල් අකුරු #ක් තිබිය යුතුය}other{අඩු තරමින් කැපිටල් අකුරු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{අඩු තරමින් සංඛ්‍යාමය ඉලක්කම් #ක් තිබිය යුතුය}one{අඩු තරමින් සංඛ්‍යාමය ඉලක්කම් #ක් තිබිය යුතුය}other{අඩු තරමින් සංඛ්‍යාමය ඉලක්කම් #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{අඩු තරමින් විශේෂ සංකේත #ක් තිබිය යුතුය}one{අඩු තරමින් විශේෂ සංකේත #ක් තිබිය යුතුය}other{අඩු තරමින් විශේෂ සංකේත #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{අඩු තරමින් අකුරු නොවන අනුලකුණු #ක් තිබිය යුතුය}one{අඩු තරමින් අකුරු නොවන අනුලකුණු #ක් තිබිය යුතුය}other{අඩු තරමින් අකුරු නොවන අනුලකුණු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{අඩු තරමින් සංඛ්‍යාමය නොවන අනුලකුණු #ක් තිබිය යුතුය}one{අඩු තරමින් සංඛ්‍යාමය නොවන අනුලකුණු #ක් තිබිය යුතුය}other{අඩු තරමින් සංඛ්‍යාමය නොවන අනුලකුණු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{අඩු තරමින් අනුලකුණු #ක් තිබිය යුතුය}one{අඩු තරමින් අනුලකුණු #ක් තිබිය යුතුය}other{අඩු තරමින් අනුලකුණු #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{අඩු තරමින් ඉලක්කම් #ක් තිබිය යුතුය}one{අඩු තරමින් ඉලක්කම් #ක් තිබිය යුතුය}other{අඩු තරමින් ඉලක්කම් #ක් තිබිය යුතුය}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{අනුලකුණු #කට වඩා අඩු විය යුතුය}one{අනුලකුණු #කට වඩා අඩු විය යුතුය}other{අනුලකුණු #කට වඩා අඩු විය යුතුය}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{ඉලක්කම් #කට වඩා අඩු විය යුතුය}one{ඉලක්කම් #කට වඩා අඩු විය යුතුය}other{ඉලක්කම් #කට වඩා අඩු විය යුතුය}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ආරෝහණ, අවරෝහණ හෝ පුනරාවර්ත අනුක්‍රමයේ ඉලක්කම්වලට ඉඩ නොදේ"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"තිර අගුළු විකල්ප"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : දින <xliff:g id="NUM_DAYS">%3$s</xliff:g>කට පෙර"</string>
     <string name="credentials_reset" msgid="873900550885788639">"අක්තපත්‍ර හිස් කරන්න"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"ඉවත් කරන්න"</string>
     <string name="cancel" msgid="750286395700355455">"අවලංගු කරන්න"</string>
     <string name="allow" msgid="7519431342750394402">"ඉඩ දෙන්න"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"ඉඩ නොදෙන්න"</string>
     <string name="deny" msgid="340512788979930804">"ප්‍රතික්ෂේප කරන්න"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace යතුර"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter යතුර"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"මෙම තොරතුරු විනෝදාස්වාද පද්ධතිය සක්‍රිය කරන්න"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"අක්‍රිය කරන්න සහ අස්ථාපනය කරන්න"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"මෙම තොරතුරු විනෝදාස්වාද පද්ධති යෙදුම අක්‍රිය කරන්න"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"වැඩි විස්තර"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"සැකසීම්, අවසර, සංස්ථාපිත ප්‍රවේශය, ජාල ක්‍රියාකාරකම සහ වාහනයේ ස්ථාන තොරතුරු ඇතුළුව, මෙම පැතිකඩ සමඟ සම්බන්ධිත යෙදුම් සහ දත්ත නිරීක්ෂණය කිරීමට සහ කළමනාකරණය කිරීමට ඔබගේ සංවිධාන කළමනාකරුට හැකිය."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"සැකසීම්, අවසර, සංස්ථාපිත ප්‍රවේශය, ජාල ක්‍රියාකාරකම සහ උපාංගයේ ස්ථාන තොරතුරු ඇතුළුව, මෙම පැතිකඩ සමඟ සම්බන්ධිත යෙදුම් සහ දත්ත නිරීක්ෂණය කිරීමට සහ කළමනාකරණය කිරීමට ඔබගේ සංවිධාන කළමනාකරුට හැකිය."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"සැකසීම්, අවසර, සංස්ථාපිත ප්‍රවේශය, ජාල ක්‍රියාකාරකම සහ වාහනයේ ස්ථාන තොරතුරු ඇතුළුව, මෙම තොරතුරු විනෝදාස්වාද පද්ධතිය සමඟ සම්බන්ධිත යෙදුම් සහ දත්ත නිරීක්ෂණය කිරීමට සහ කළමනාකරණය කිරීමට සංවිධාන කළමනාකරුට හැකිය."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> වාහන ප්‍රතිපත්තිය"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"සංවිධාන කළමනාකරු විසින් කළමනාකරණය කරන සැකසීම්"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> ගැන තව දැන ගන්න"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"කළමනාකරණය කළ වාහන තොරතුරු"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"වාහන පෙළ පරිපාලක විසින් කළමනාකරණය කරන ලද සැකසීම්"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"මෙම කළමනාකරණය කරන ලද වාහනයේ දත්ත වෙත ප්‍රවේශය ලබා දීම සඳහා, වාහන පෙළ පරිපාලක විසින් සැකසීම් වෙනස් කිරීමට සහ තොරතුරු විනෝදාස්වාද පද්ධතියේ මෘදුකාංග ස්ථාපනය කිරීමට හැකිය.\n\nවැඩි විස්තර සඳහා, ඔබගේ වාහන පෙළ පරිපාලක අමතන්න."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"ඔබගේ වාහන පෙළ පරිපාලකට දැකිය හැකි තොරතුරු"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"ඔබගේ වාහන පෙළ පරිපාලක විසින් සිදු කළ වෙනස් කිරීම්"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"ඔබගේ කළමනාකරණය කළ වාහන ගිණුම හා සම්බන්ධ දත්ත"</li>\n" "<li>"ඔබගේ කළමනාකරණය කළ වාහනයේ යෙදුම් ලැයිස්තුව"</li>\n" "<li>"එක් එක් යෙදුම තුළ ගත කළ කාලය සහ දත්ත ප්‍රමාණය"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"තොරතුරු විනෝදාස්වාද පද්ධතිය සඳහා ඔබගේ ප්‍රවේශය"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"ඔබගේ වාහනයේ යෙදුම්වල ලැයිස්තුව"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"යෙදුම් ගණන ඇස්තමේන්තු කර ඇත. එයට Play Store වෙතින් පිටත ස්ථාපනය කර ඇති යෙදුම් අඩංගු නොවිය හැකිය."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="one">අඩුම වශයෙන් යෙදුම් <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="other">අඩුම වශයෙන් යෙදුම් <xliff:g id="COUNT_1">%d</xliff:g></item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="one">යෙදුම් <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="other">යෙදුම් <xliff:g id="COUNT_1">%d</xliff:g></item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"වඩාත්ම මෑත ජාල තදබද ලොගය"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"වඩාත්ම මෑත දෝෂ වාර්තාව"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"වඩාත්ම මෑත ආරක්ෂක ලොගය"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"කිසිවක් නැත"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"ස්ථාපනය කළ යෙදුම්"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"ස්ථාන අවසර"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"මයික්‍රෆෝන අවසර"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"කැමරා අවසර"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"පෙරනිමි යෙදුම්"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"පෙරනිමි යතුරු පුවරුව"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> ලෙස සකසන්න"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"ගෝලීය HTTP ප්‍රොක්සි සකසන ලදී"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"ඔබගේ පුද්ගලික පැතිකඩෙහි විශ්වාසී අක්තපත්‍ර"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"පරිපාලකට තොරතුරු විනෝදාස්වාද පද්ධතිය අගුලු හැරීමට සහ මුරපදය යළි සැකසීමට හැකිය"</li>\n" "<li>"පරිපාලකට තොරතුරු විනෝදාස්වාද පද්ධතියේ දත්ත මැකීමට හැකිය"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"තොරතුරු විනෝදාස්වාද පද්ධතියෙහි සියලු දත්ත මැකීමට පෙර අසාර්ථක මුරපද උත්සාහ"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"පැතිකඩ දත්ත මැකීමට පෙර අසාර්ථක මුරපද උත්සාහ"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="one">උත්සාහයන් <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="other">උත්සාහයන් <xliff:g id="COUNT_1">%d</xliff:g></item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="one">කැමරා යෙදුම්</item>
+      <item quantity="other">කැමරා යෙදුම්</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="one">ඉ-තැපැල් සේවාලාභී යෙදුම</item>
+      <item quantity="other">ඉ-තැපැල් සේවාලාභී යෙදුම</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="one">දුරකථන යෙදුම්</item>
+      <item quantity="other">දුරකථන යෙදුම්</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"දෝෂ වාර්තාව බෙදා ගන්නද?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"මෙම උපාංගය දෝෂාවේක්ෂණය සඳහා උදවු කිරීමට ඔබගේ වාහනයේ සංවිධාන කළමනාකරු දෝෂ වාර්තාවක් ඉල්ලා ඇත. යෙදුම් සහ දත්ත බෙදා ගත හැකිය."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"මෙම උපාංගය දෝෂාවේක්ෂණය සඳහා උදවු කිරීමට ඔබගේ වාහනයේ සංවිධාන කළමනාකරු දෝෂ වාර්තාවක් ඉල්ලා ඇත. යෙදුම් සහ දත්ත බෙදා ගත හැකි අතර, ඔබගේ උපාංගය තාවකාලිකව මන්දගාමී විය හැකිය."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"මෙම දෝෂ වාර්තාව මෙම වාහනයේ සංවිධාන කළමනාකරු සමගින් බෙදා ගනිමින් ඇත. වැඩි විස්තර සඳහා ඔවුන්ව සම්බන්ධ කර ගන්න."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"බෙදා ගන්න"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"ප්‍රතික්ෂේප කරන්න"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"තොරතුරු විනෝදාස්වාද පද්ධතිය යළි සකසන්න"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"කර්මාන්තශාලා යළි සැකසීමට සහ සියලු දත්ත මැකීමට ඔබගේ පද්ධතියට ඉල්ලීමක් ලැබී ඇත. ඔබට දැන් එය යළි සැකසිය හැකිය, නැතහොත් ඊළඟ වතාවේ මෝටර් රථය ආරම්භ වන විට එය යළි සකසනු ඇත. ඔබට අනතුරුව නව පැතිකඩක් පිහිටුවිය හැකිය."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"දැන් යළි සකසන්න"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"පසුව යළි සකසන්න"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"ඊළඟට මෝටර් රථය අරඹන විට තොරතුරු විනෝදාස්වාද පද්ධතිය යළි සැකසේ."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"යළි සැකසීම ඇරඹීමට මෝටර් රථය නවතා තැබිය යුතුය."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"මෙම සැකසීම මේ අවස්ථාවේදී වෙනස් කළ නොහැකිය"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"ප්‍රවේශ්‍යතාව"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"සිරස්තල"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"සුදු පසුබිමෙහි කළු"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"කළු පසුබිමෙහි කහ"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"නිල් පසුබිමෙහි කහ"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"තිර කියවනය"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"ක්‍රියාවිරහිතයි"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"තිරය මත අයිතම කියවන්න"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> භාවිත කරන්න"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"විකල්ප"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"සැකසීම්"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"කැමරාව"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"කැමරාව භාවිත කරන්න"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"ඔබගේ කැමරාවට ප්‍රවේශ වීමට සියලු යෙදුම්වලට ඉඩ දෙන්න"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"කැමරා අවසර කළමනාකරණය කරන්න"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"මෑතකදී පිවිසි"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"මෑත යෙදුම් නැත"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"යෙදුම් 0කට ප්‍රවේශය ඇත"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{යෙදුම් {total_count}කින් #කට ප්‍රවේශය ඇත}one{යෙදුම් {total_count}කින් #කට ප්‍රවේශය ඇත}other{යෙදුම් {total_count}කින් #කට ප්‍රවේශය ඇත}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"මෑතකදී පිවිසි"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"සියල්ල බලන්න"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"පූරණය වේ…"</string>
 </resources>

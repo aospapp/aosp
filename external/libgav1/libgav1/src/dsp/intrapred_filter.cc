@@ -40,9 +40,9 @@ namespace {
 // adjacent to the |top_row| or |left_column|. The set of 8 filters is selected
 // according to |pred|.
 template <int bitdepth, typename Pixel>
-void FilterIntraPredictor_C(void* const dest, ptrdiff_t stride,
-                            const void* const top_row,
-                            const void* const left_column,
+void FilterIntraPredictor_C(void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+                            const void* LIBGAV1_RESTRICT const top_row,
+                            const void* LIBGAV1_RESTRICT const left_column,
                             const FilterIntraPredictor pred, const int width,
                             const int height) {
   const int kMaxPixel = (1 << bitdepth) - 1;

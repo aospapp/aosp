@@ -23,8 +23,10 @@ import android.net.Uri;
 import android.telecom.PhoneAccountHandle;
 import android.os.IBinder;
 import android.telecom.CallRedirectionService;
-import android.text.TextUtils;
 import android.util.Log;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class CtsCallRedirectionServiceController extends Service {
     private static final String TAG = CallRedirectionService.class.getSimpleName();
@@ -40,6 +42,7 @@ public class CtsCallRedirectionServiceController extends Service {
     public static final int PLACE_CALL_UNMODIFIED = 2;
     public static final int PLACE_REDIRECTED_CALL = 3;
     public static final int CANCEL_CALL = 4;
+    public static final long TIMEOUT = 6000;
 
     private int mDecision = NO_DECISION_YET;
 
@@ -49,6 +52,8 @@ public class CtsCallRedirectionServiceController extends Service {
     private PhoneAccountHandle mRedirectedPhoneAccount = null;
     private PhoneAccountHandle mOriginalPhoneAccount = null;
     private boolean mConfirmFirst = false;
+    private CountDownLatch mTimeoutNotified = new CountDownLatch(1);
+    private CountDownLatch mOnPlaceCallInvoked = new CountDownLatch(1);
 
     private static CtsCallRedirectionServiceController sCallRedirectionServiceController = null;
 
@@ -56,6 +61,8 @@ public class CtsCallRedirectionServiceController extends Service {
                 @Override
                 public void reset() {
                     mDecision = NO_DECISION_YET;
+                    mTimeoutNotified = new CountDownLatch(1);
+                    mOnPlaceCallInvoked = new CountDownLatch(1);
                 }
 
                 @Override
@@ -79,6 +86,31 @@ public class CtsCallRedirectionServiceController extends Service {
                 public void setPlaceCallUnmodified() {
                     Log.i(TAG, "placeCallUnmodified");
                     mDecision = PLACE_CALL_UNMODIFIED;
+                }
+
+                @Override
+                public void setWaitForTimeout() {
+                    Log.i(TAG, "setWaitForTimeout");
+                    mDecision = RESPONSE_TIMEOUT;
+                }
+
+                @Override
+                public boolean waitForTimeoutNotified() {
+                    Log.i(TAG, "waitForTimeoutNotified");
+                    try {
+                        return mTimeoutNotified.await(TIMEOUT, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        return false;
+                    }
+                }
+
+                @Override
+                public boolean waitForOnPlaceCallInvoked() {
+                    try {
+                        return mOnPlaceCallInvoked.await(TIMEOUT, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        return false;
+                    }
                 }
             };
 
@@ -125,5 +157,13 @@ public class CtsCallRedirectionServiceController extends Service {
 
     public boolean isConfirmFirst() {
         return mConfirmFirst;
+    }
+
+    public void timeoutNotified() {
+        mTimeoutNotified.countDown();
+    }
+
+    public void onPlaceCallInvoked() {
+        mOnPlaceCallInvoked.countDown();
     }
 }

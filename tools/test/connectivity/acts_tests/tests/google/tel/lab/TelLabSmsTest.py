@@ -44,10 +44,10 @@ from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_CDMA2000
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_GSM
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_LTE
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_UMTS
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_rat
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_ims_utils import toggle_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_rat
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_test_utils import toggle_volte
 from acts_contrib.test_utils.tel.tel_test_utils import set_preferred_apn_by_adb
 from acts_contrib.test_utils.tel.tel_defines import CALL_TEARDOWN_PHONE
 from acts_contrib.test_utils.tel.tel_defines import RAT_FAMILY_CDMA2000

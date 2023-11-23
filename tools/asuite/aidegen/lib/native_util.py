@@ -26,11 +26,13 @@ from aidegen import constant
 from aidegen.lib import clion_project_file_gen
 from aidegen.lib import common_util
 from aidegen.lib import native_module_info
+from aidegen.lib import project_info
 
 _RUST_JSON_NOT_EXIST = 'The json file: {} does not exist.'
 _RUST_DICT_BROKEN = 'The rust dictionary does not have "{}" key. It\'s broken.'
 _CRATES_KEY = 'crates'
-_ROOT_MODULE_KEY = 'root_module'
+_ROOT_MODULE = 'root_module'
+_DISPLAY_NAME = 'display_name'
 
 
 def generate_clion_projects(targets):
@@ -244,6 +246,8 @@ def _filter_out_rust_projects(targets):
 def _get_rust_targets(targets, rust_modules_info, root_dir):
     """Gets Rust targets by checking input targets with a rust info dictionary.
 
+    Collects targets' relative rust modules and rebuild them.
+
     Args:
         targets: A list of targets to be checked.
         rust_modules_info: A list of the Android Rust modules info.
@@ -252,16 +256,49 @@ def _get_rust_targets(targets, rust_modules_info, root_dir):
     Returns:
         A list of Rust targets.
     """
-    rtargets = []
+    rtargets = set()
+    rebuild_targets = set()
     for target in targets:
         # The Rust project can be expressed only in the path but not the module
         # right now.
-        if not os.path.isdir(os.path.join(root_dir, target)):
+        rel_target = _get_relative_path(target, root_dir)
+        if not os.path.isdir(os.path.join(root_dir, rel_target)):
             continue
         for mod_info in rust_modules_info:
-            if _ROOT_MODULE_KEY not in mod_info:
+            if _ROOT_MODULE not in mod_info or _DISPLAY_NAME not in mod_info:
                 continue
-            path = mod_info[_ROOT_MODULE_KEY]
+            path = mod_info[_ROOT_MODULE]
             if common_util.is_source_under_relative_path(path, target):
-                rtargets.append(target)
-    return rtargets
+                rtargets.add(target)
+            if _is_target_relative_module(path, rel_target):
+                rebuild_targets.add(mod_info[_DISPLAY_NAME])
+    project_info.batch_build_dependencies(rebuild_targets)
+    return list(rtargets)
+
+
+def _get_relative_path(target, root_dir):
+    """Gets a target's relative path from root and if it needs to add os sep.
+
+    Args:
+        target: A string of a target's path to be checked.
+        root_dir: A string of the Android root directory.
+
+    Returns:
+        A string of the relative path of target to root_dir.
+    """
+    if target == '.':
+        target = os.getcwd()
+    return os.path.relpath(target, root_dir)
+
+
+def _is_target_relative_module(path, target):
+    """Checks if a module's path is contains a rust target.
+
+    Args:
+        path: A string of a module's path to be checked.
+        targets: A string of a target's path  without os.sep in the end.
+
+    Returns:
+        A boolean of True if path contains the path of target otherwise False.
+    """
+    return target == path or target + os.sep in path

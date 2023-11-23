@@ -104,7 +104,7 @@ public class PpsMoParserTest {
         // Subscription update.
         UpdateParameter subscriptionUpdate = new UpdateParameter();
         subscriptionUpdate.setUpdateIntervalInMinutes(120);
-        subscriptionUpdate.setUpdateMethod(UpdateParameter.UPDATE_METHOD_SSP);
+        subscriptionUpdate.setUpdateMethod(UpdateParameter.UPDATE_METHOD_SPP);
         subscriptionUpdate.setRestriction(UpdateParameter.UPDATE_RESTRICTION_ROAMING_PARTNER);
         subscriptionUpdate.setServerUri("subscription.update.com");
         subscriptionUpdate.setUsername("subscriptionUser");

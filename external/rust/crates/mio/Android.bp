@@ -22,6 +22,8 @@ rust_library {
     name: "libmio",
     host_supported: true,
     crate_name: "mio",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.7.13",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -39,12 +41,40 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
         "com.android.resolv",
+        "com.android.uwb",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }
 
-// dependent_library ["feature_list"]
-//   cfg-if-1.0.0
-//   libc-0.2.94 "default,std"
-//   log-0.4.14 "std"
+rust_test {
+    name: "mio_test_src_lib",
+    host_supported: true,
+    crate_name: "mio",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.7.13",
+    srcs: ["src/lib.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: [
+        "net",
+        "os-ext",
+        "os-poll",
+        "os-util",
+        "tcp",
+        "udp",
+        "uds",
+    ],
+    rustlibs: [
+        "libenv_logger",
+        "liblibc",
+        "liblog_rust",
+        "librand",
+    ],
+}

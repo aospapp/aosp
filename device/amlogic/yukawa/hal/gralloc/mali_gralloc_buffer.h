@@ -48,7 +48,7 @@ struct fb_dmabuf_export
 /* Define number of shared file descriptors */
 #define GRALLOC_ARM_NUM_FDS 2
 
-#define NUM_INTS_IN_PRIVATE_HANDLE ((sizeof(struct private_handle_t) - sizeof(native_handle)) / sizeof(int) - sNumFds)
+#define NUM_INTS_IN_PRIVATE_HANDLE ((sizeof(struct private_handle_t) - sizeof(native_handle)) / sizeof(int) - GRALLOC_ARM_NUM_FDS)
 
 #define SZ_4K 0x00001000
 #define SZ_2M 0x00200000

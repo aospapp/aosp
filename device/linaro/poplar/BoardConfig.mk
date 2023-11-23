@@ -1,7 +1,17 @@
+# Primary Arch
+TARGET_ARCH := arm
+TARGET_ARCH_VARIANT := armv7-a-neon
+TARGET_CPU_VARIANT := cortex-a9
+TARGET_CPU_ABI := armeabi-v7a
+TARGET_CPU_ABI2 := armeabi
 
-
+TARGET_USES_64_BIT_BINDER := true
+TARGET_BOARD_PLATFORM := poplar
+TARGET_BOOTLOADER_BOARD_NAME := poplar
 
 BOARD_FLASH_BLOCK_SIZE := 512
+
+BOARD_BOOTIMAGE_PARTITION_SIZE := 33554432
 
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 1610612224
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
@@ -22,21 +32,9 @@ TARGET_NO_KERNEL := false
 TARGET_NO_RECOVERY := true
 TARGET_NO_RADIOIMAGE := true
 
-TARGET_ARCH := arm
-TARGET_ARCH_VARIANT := armv7-a-neon
-TARGET_CPU_VARIANT := cortex-a9
-TARGET_CPU_ABI := armeabi-v7a
-TARGET_CPU_ABI2 := armeabi
-
-
-TARGET_USES_64_BIT_BINDER := true
-TARGET_BOARD_PLATFORM := poplar
-TARGET_BOOTLOADER_BOARD_NAME := poplar 
-
 BOARD_KERNEL_CMDLINE := androidboot.hardware=poplar androidboot.selinux=permissive firmware_class.path=/vendor/firmware mmz=ddr,0,0,60M
 BOARD_KERNEL_CMDLINE += printk.devkmsg=on
 BOARD_KERNEL_CMDLINE += blkdevparts=mmcblk1:4193792@512(loader),40m(boot),1610612224(system),5993660928,268434944@1580m(vendor),268434944@1836m(cache),5364m@2092m(userdata)
-
 
 #sepolicy
 BOARD_SEPOLICY_DIRS := device/linaro/poplar/sepolicy

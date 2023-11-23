@@ -45,7 +45,7 @@ android_app {
         enabled: false,
     },
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 
     required: ["allowed_privapp_com.android.car.themeplayground"],
 }

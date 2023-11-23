@@ -34,7 +34,7 @@ N_BARS = len(COLOR_BARS)
 COLOR_CHECKER = {'BLACK': [0, 0, 0], 'RED': [1, 0, 0], 'GREEN': [0, 1, 0],
                  'BLUE': [0, 0, 1], 'MAGENTA': [1, 0, 1], 'CYAN': [0, 1, 1],
                  'YELLOW': [1, 1, 0], 'WHITE': [1, 1, 1]}
-DELTA = 0.0005  # crop on edge of color bars
+DELTA = 0.005  # crop on each edge of color bars
 RAW_TOL = 0.001  # 1 DN in [0:1] (1/(1023-64)
 RGB_VAR_TOL = 0.0039  # 1/255
 RGB_MEAN_TOL = 0.1
@@ -65,14 +65,14 @@ def get_yuv_patch_coordinates(num, w_orig, w_crop):
     x_norm = num / N_BARS + DELTA
     w_norm = 1 / N_BARS - 2 * DELTA
     logging.debug('x_norm: %.5f, w_norm: %.5f', x_norm, w_norm)
-  elif w_crop < w_orig:  # adject patch width to match vertical RAW crop
+  elif w_crop < w_orig:  # adjust patch width to match vertical RAW crop
     w_delta_edge = (w_orig - w_crop) / 2
     w_bar_orig = w_orig / N_BARS
     if num == 0:  # left-most bar
       x_norm = DELTA
       w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * DELTA
     elif num == N_BARS:  # right-most bar
-      x_norm = (w_bar_orig*num - w_delta_edge)/w_crop + DELTA
+      x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + DELTA
       w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * DELTA
     else:  # middle bars
       x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + DELTA
@@ -159,7 +159,6 @@ def check_yuv_vs_raw(img_raw, img_yuv, name, debug):
   color_variance_errs = []
   for n in range(N_BARS):
     x_norm, w_norm = get_yuv_patch_coordinates(n, raw_w, raw_w_cropped)
-    logging.debug('x_norm: %.3f', x_norm)
     raw_patch = image_processing_utils.get_image_patch(img_raw, x_norm, Y_NORM,
                                                        w_norm, H_NORM)
     yuv_patch = image_processing_utils.get_image_patch(img_yuv, x_norm, Y_NORM,

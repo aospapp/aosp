@@ -25,10 +25,15 @@ buildscript {
             maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         }
     }
+    // These two flags are enabled in train builds for JVM IR compiler testing
+    ext.jvm_ir_enabled = rootProject.properties['enable_jvm_ir'] != null
+    ext.native_targets_enabled = rootProject.properties['disable_native_targets'] == null
 
     repositories {
         jcenter()
         maven { url "https://plugins.gradle.org/m2/" }
+        // Future replacement for kotlin-dev, with cache redirector
+        maven { url "https://cache-redirector.jetbrains.com/maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
         maven {
             url "https://kotlin.bintray.com/kotlin-dev"
             credentials {
@@ -38,6 +43,7 @@ buildscript {
         }
         maven { url "https://kotlin.bintray.com/kotlin-eap" }
         maven { url "https://jetbrains.bintray.com/kotlin-native-dependencies" }
+        maven { url "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
     }
     
     dependencies {
@@ -61,6 +67,8 @@ allprojects {
     repositories {
         jcenter()
         maven { url "https://kotlin.bintray.com/kotlin-eap" }
+        // Future replacement for kotlin-dev, with cache redirector
+        maven { url "https://cache-redirector.jetbrains.com/maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
         maven {
             url "https://kotlin.bintray.com/kotlin-dev"
             credentials {
@@ -69,6 +77,7 @@ allprojects {
             }
         }
         maven { url "https://kotlin.bintray.com/kotlinx" }
+        maven { url "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
     }
 
     def deployVersion = properties['DeployVersion']
@@ -76,7 +85,7 @@ allprojects {
 
     // 'atomicfu-native' check is a kludge so that existing YouTrack config works, todo: remove
     if (project != rootProject && project.name != 'atomicfu-native') {
-        apply from: rootProject.file("gradle/publish-bintray.gradle")
+        apply from: rootProject.file("gradle/publishing.gradle")
     }
 
     // This fixes "org.gradle.jvm.version" in Gradle metadata

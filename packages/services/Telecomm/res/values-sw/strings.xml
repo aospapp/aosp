@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Zuia simu kutoka kwa nambari ya simu za kulipia"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Zisizojulikani"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Zuia simu kutoka kwa wapigaji wasiojulikana"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Zisizotambulishwa"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Zuia simu zinazopigwa bila kutambulisha nambari ya simu"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Kuzuia Simu"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Kipengele cha Kuzuia Simu kimezimwa"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Simu ya dharura imepigwa"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Kipengele cha Kuzuia Simu kimezimwa ili kuruhusu wapigaji simu za dharura kuwasiliana nawe."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menyu ya Msanidi programu wa Telecom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Huwezi kupokea simu nyingine wakati unashiriki katika simu ya dharura."</string>
+    <string name="cancel" msgid="6733466216239934756">"Ghairi"</string>
 </resources>

@@ -119,8 +119,6 @@ class NanoappLoader {
   static constexpr const char *kStrTableName = ".strtab";
   static constexpr const char *kInitArrayName = ".init_array";
   static constexpr const char *kFiniArrayName = ".fini_array";
-  // For now, assume all segments are 4K aligned.
-  static constexpr size_t kBinaryAlignment = 4096;
 
   //! Pointer to the table of all the section names.
   char *mSectionNamesPtr = nullptr;
@@ -244,10 +242,11 @@ class NanoappLoader {
    * Rounds the given address down to the closest alignment boundary.
    *
    * @param virtualAddr The address to be rounded.
+   * @param alignment Alignment to which the address is rounded to.
    * @return An address that is a multiple of the platform's alignment and is
    *     less than or equal to virtualAddr.
    */
-  uintptr_t roundDownToAlign(uintptr_t virtualAddr);
+  uintptr_t roundDownToAlign(uintptr_t virtualAddr, size_t alignment);
 
   /**
    * Frees any data that was allocated as part of loading the ELF into memory.

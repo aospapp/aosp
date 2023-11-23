@@ -66,7 +66,46 @@ DLL_EXPORT bool chreWifiRequestRangingAsync(
   return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_WIFI) &&
          EventLoopManagerSingleton::get()
              ->getWifiRequestManager()
-             .requestRanging(nanoapp, params, cookie);
+             .requestRanging(chre::WifiRequestManager::RangingType::WIFI_AP,
+                             nanoapp, params, cookie);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
+}
+
+DLL_EXPORT bool chreWifiNanSubscribe(struct chreWifiNanSubscribeConfig *config,
+                                     const void *cookie) {
+#if defined(CHRE_WIFI_SUPPORT_ENABLED) && defined(CHRE_WIFI_NAN_SUPPORT_ENABLED)
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_WIFI) &&
+         EventLoopManagerSingleton::get()->getWifiRequestManager().nanSubscribe(
+             nanoapp, config, cookie);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
+}
+
+DLL_EXPORT bool chreWifiNanSubscribeCancel(uint32_t subscriptionId) {
+#if defined(CHRE_WIFI_SUPPORT_ENABLED) && defined(CHRE_WIFI_NAN_SUPPORT_ENABLED)
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_WIFI) &&
+         EventLoopManagerSingleton::get()
+             ->getWifiRequestManager()
+             .nanSubscribeCancel(nanoapp, subscriptionId);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
+}
+
+DLL_EXPORT bool chreWifiNanRequestRangingAsync(
+    const struct chreWifiNanRangingParams *params, const void *cookie) {
+#if defined(CHRE_WIFI_SUPPORT_ENABLED) && defined(CHRE_WIFI_NAN_SUPPORT_ENABLED)
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_WIFI) &&
+         EventLoopManagerSingleton::get()
+             ->getWifiRequestManager()
+             .requestRanging(chre::WifiRequestManager::RangingType::WIFI_AWARE,
+                             nanoapp, params, cookie);
 #else
   return false;
 #endif  // CHRE_WIFI_SUPPORT_ENABLED

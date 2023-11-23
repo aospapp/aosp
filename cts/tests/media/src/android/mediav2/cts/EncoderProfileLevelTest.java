@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
 import static android.media.MediaCodecInfo.CodecProfileLevel.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -50,15 +51,17 @@ import static org.junit.Assert.fail;
 @RunWith(Parameterized.class)
 public class EncoderProfileLevelTest extends CodecEncoderTestBase {
     private static final String LOG_TAG = EncoderProfileLevelTest.class.getSimpleName();
-    private static final HashMap<String, int[]> mProfileMap = new HashMap<>();
     private static final HashMap<String, Pair<int[], Integer>> mProfileLevelCdd = new HashMap<>();
+
+    private final boolean mUseHighBitDepth;
 
     private MediaFormat mConfigFormat;
     private MediaMuxer mMuxer;
 
     public EncoderProfileLevelTest(String encoder, String mime, int bitrate, int encoderInfo1,
-            int encoderInfo2, int frameRate) {
+            int encoderInfo2, int frameRate, boolean useHighBitDepth) {
         super(encoder, mime, new int[]{bitrate}, new int[]{encoderInfo1}, new int[]{encoderInfo2});
+        mUseHighBitDepth = useHighBitDepth;
         if (mIsAudio) {
             mSampleRate = encoderInfo1;
             mChannels = encoderInfo2;
@@ -71,7 +74,7 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
         mConfigFormat = mFormats.get(0);
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}({0}_{1}_{2}_{3}_{4}_{6})")
     public static Collection<Object[]> input() {
         final boolean isEncoder = true;
         final boolean needAudio = true;
@@ -80,7 +83,6 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
                 // Audio - CodecMime, bit-rate, sample rate, channel count
                 {MediaFormat.MIMETYPE_AUDIO_AAC, 64000, 48000, 1, -1},
                 {MediaFormat.MIMETYPE_AUDIO_AAC, 128000, 48000, 2, -1},
-
                 // Video - CodecMime, bit-rate, height, width, frame-rate
                 // TODO (b/151423508)
                 /*{MediaFormat.MIMETYPE_VIDEO_AVC, 64000, 176, 144, 15},
@@ -155,8 +157,7 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
                 {MediaFormat.MIMETYPE_VIDEO_H263, 16384000, 720, 480, 60},
                 {MediaFormat.MIMETYPE_VIDEO_H263, 16384000, 720, 576, 50},
 
-                // TODO (b/151429828)
-                //{MediaFormat.MIMETYPE_VIDEO_HEVC, 128000, 176, 144, 15},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, 128000, 176, 144, 15},
                 {MediaFormat.MIMETYPE_VIDEO_HEVC, 1500000, 352, 288, 30},
                 // TODO (b/152576008) - Limit HEVC Encoder test to 512x512
                 {MediaFormat.MIMETYPE_VIDEO_HEVC, 3000000, 512, 512, 30},
@@ -188,44 +189,25 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
                 {MediaFormat.MIMETYPE_VIDEO_VP8, 512000, 176, 144, 20},
                 {MediaFormat.MIMETYPE_VIDEO_VP8, 512000, 480, 360, 20},
         });
-        return prepareParamList(exhaustiveArgsList, isEncoder, needAudio, needVideo, false);
-    }
-
-    static {
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_AVC,
-                new int[]{AVCProfileBaseline, AVCProfileMain, AVCProfileExtended, AVCProfileHigh,
-                        AVCProfileHigh10, AVCProfileHigh422, AVCProfileHigh444,
-                        AVCProfileConstrainedBaseline, AVCProfileConstrainedHigh});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_HEVC,
-                new int[]{HEVCProfileMain, HEVCProfileMain10, HEVCProfileMainStill,
-                          // TODO: test HDR profiles once they are supported by MediaMuxer
-                          /* HEVCProfileMain10HDR10, HEVCProfileMain10HDR10Plus */});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_H263,
-                new int[]{H263ProfileBaseline, H263ProfileH320Coding,
-                        H263ProfileBackwardCompatible, H263ProfileISWV2, H263ProfileISWV3,
-                        H263ProfileHighCompression, H263ProfileInternet, H263ProfileInterlace,
-                        H263ProfileHighLatency});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_MPEG2,
-                new int[]{MPEG2ProfileSimple, MPEG2ProfileMain, MPEG2Profile422, MPEG2ProfileSNR,
-                        MPEG2ProfileSpatial, MPEG2ProfileHigh});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_MPEG4,
-                new int[]{MPEG4ProfileSimple, MPEG4ProfileSimpleScalable, MPEG4ProfileCore,
-                        MPEG4ProfileMain, MPEG4ProfileNbit, MPEG4ProfileScalableTexture,
-                        MPEG4ProfileSimpleFace, MPEG4ProfileSimpleFBA, MPEG4ProfileBasicAnimated,
-                        MPEG4ProfileHybrid, MPEG4ProfileAdvancedRealTime,
-                        MPEG4ProfileCoreScalable, MPEG4ProfileAdvancedCoding,
-                        MPEG4ProfileAdvancedCore, MPEG4ProfileAdvancedScalable,
-                        MPEG4ProfileAdvancedSimple});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_VP8, new int[]{VP8ProfileMain});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_VP9, new int[]{VP9Profile0, VP9Profile1});
-        mProfileMap.put(MediaFormat.MIMETYPE_VIDEO_AV1,
-                new int[]{AV1ProfileMain8, AV1ProfileMain10,
-                          // TODO: test HDR profiles once they are supported by MediaMuxer
-                          /* AV1ProfileMain10HDR10, AV1ProfileMain10HDR10Plus */});
-        mProfileMap.put(MediaFormat.MIMETYPE_AUDIO_AAC,
-                new int[]{AACObjectMain, AACObjectLC, AACObjectSSR, AACObjectLTP, AACObjectHE,
-                        AACObjectScalable, AACObjectERLC, AACObjectERScalable, AACObjectLD,
-                        AACObjectELD, AACObjectXHE});
+        final List<Object[]> argsList = new ArrayList<>();
+        for (Object[] arg : exhaustiveArgsList) {
+            int argLength = exhaustiveArgsList.get(0).length;
+            Object[] testArgs = new Object[argLength + 1];
+            System.arraycopy(arg, 0, testArgs, 0, argLength);
+            testArgs[argLength] = false;
+            argsList.add(testArgs);
+            // P010 support was added in Android T, hence limit the following tests to Android T and
+            // above
+            if (IS_AT_LEAST_T) {
+                if (mProfileHdrMap.get(arg[0]) != null) {
+                    Object[] testArgsHighBitDepth = new Object[argLength + 1];
+                    System.arraycopy(arg, 0, testArgsHighBitDepth, 0, argLength);
+                    testArgsHighBitDepth[argLength] = true;
+                    argsList.add(testArgsHighBitDepth);
+                }
+            }
+        }
+        return prepareParamList(argsList, isEncoder, needAudio, needVideo, false);
     }
 
     static {
@@ -688,8 +670,26 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
      */
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testValidateProfileLevel() throws IOException, InterruptedException {
-        int[] profiles = mProfileMap.get(mMime);
+        int[] profiles;
+        String inputTestFile = mInputFile;
+        MediaFormat format = mConfigFormat;
+        String outputFilePrefix = "tmp";
+        if (mIsAudio) {
+            profiles = mProfileMap.get(mMime);
+        } else {
+            if (mUseHighBitDepth) {
+                Assume.assumeTrue(hasSupportForColorFormat(mCodecName, mMime, COLOR_FormatYUVP010));
+                format.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUVP010);
+                mBytesPerSample = 2;
+                inputTestFile = INPUT_VIDEO_FILE_HBD;
+                outputFilePrefix += "_10bit";
+                profiles = mProfileHlgMap.get(mMime);
+            } else {
+                profiles = mProfileSdrMap.get(mMime);
+            }
+        }
         assertTrue("no profile entry found for mime" + mMime, profiles != null);
+
         // cdd check initialization
         boolean cddSupportedMime = mProfileLevelCdd.get(mMime) != null;
         int[] profileCdd = new int[0];
@@ -699,11 +699,11 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
             profileCdd = cddProfileLevel.first;
             levelCdd = cddProfileLevel.second;
         }
-        MediaFormat format = mConfigFormat;
         mOutputBuff = new OutputManager();
-        setUpSource(mInputFile);
+        setUpSource(inputTestFile);
         mSaveToMem = true;
-        String tempMuxedFile = File.createTempFile("tmp", ".out").getAbsolutePath();
+
+        String tempMuxedFile = File.createTempFile(outputFilePrefix, ".bin").getAbsolutePath();
         {
             mCodec = MediaCodec.createByCodecName(mCodecName);
             MediaCodecInfo.CodecCapabilities codecCapabilities =
@@ -749,6 +749,15 @@ public class EncoderProfileLevelTest extends CodecEncoderTestBase {
                     }
                     continue;
                 }
+
+                // Verify that device supports decoding the encoded file
+                ArrayList<MediaFormat> formatList = new ArrayList<>();
+                formatList.add(format);
+                assertTrue("Device advertises support for encoding " +
+                                format.toString() + " but not decoding it",
+                        selectCodecs(mMime, formatList, null, false).size() > 0);
+                formatList.clear();
+
                 mOutputBuff.reset();
                 mInfoList.clear();
                 configureCodec(format, false, true, true);

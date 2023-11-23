@@ -17,6 +17,7 @@
 package com.android.tv.settings.enterprise;
 
 import android.content.Context;
+import android.icu.text.MessageFormat;
 import android.os.UserHandle;
 import android.os.UserManager;
 
@@ -24,9 +25,13 @@ import androidx.preference.Preference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.R;
-import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.enterprise.apps.EnterpriseDefaultApps;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.library.enterprise.apps.EnterpriseDefaultApps;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Forked from:
@@ -49,8 +54,13 @@ public class EnterpriseSetDefaultAppsPreferenceController extends AbstractPrefer
     @Override
     public void updateState(Preference preference) {
         final int num = getNumberOfEnterpriseSetDefaultApps();
-        preference.setSummary(mContext.getResources().getQuantityString(
-                R.plurals.enterprise_privacy_number_packages, num, num));
+        MessageFormat msgFormat = new MessageFormat(
+                mContext.getResources().getString(
+                        R.string.enterprise_privacy_number_packages),
+                Locale.getDefault());
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("count", num);
+        preference.setSummary(msgFormat.format(arguments));
     }
 
     @Override

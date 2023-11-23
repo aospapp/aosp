@@ -26,18 +26,17 @@ from acts_contrib.test_utils.tel.tel_defines import GEN_2G
 from acts_contrib.test_utils.tel.tel_defines import GEN_3G
 from acts_contrib.test_utils.tel.tel_defines import GEN_4G
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
-from acts_contrib.test_utils.tel.tel_lookup_tables import \
-    network_preference_for_generation
+from acts_contrib.test_utils.tel.tel_bootloader_utils import fastboot_wipe
+from acts_contrib.test_utils.tel.tel_bootloader_utils import reset_device_password
+from acts_contrib.test_utils.tel.tel_lookup_tables import network_preference_for_generation
 from acts_contrib.test_utils.tel.tel_lookup_tables import operator_capabilities
-from acts_contrib.test_utils.tel.tel_test_utils import fastboot_wipe
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_iwlan
 from acts_contrib.test_utils.tel.tel_test_utils import get_sim_state
 from acts_contrib.test_utils.tel.tel_test_utils import is_sim_lock_enabled
 from acts_contrib.test_utils.tel.tel_test_utils import is_sim_locked
 from acts_contrib.test_utils.tel.tel_test_utils import reboot_device
-from acts_contrib.test_utils.tel.tel_test_utils import reset_device_password
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts_contrib.test_utils.tel.tel_test_utils import unlock_sim
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
 from TelLiveEmergencyBase import TelLiveEmergencyBase
 
 EXPECTED_CALL_TEST_RESULT = False

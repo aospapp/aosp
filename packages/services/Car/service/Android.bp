@@ -28,75 +28,72 @@ genrule {
     out: ["com/android/car/CarStatsLog.java"],
 }
 
-car_service_sources = [
-    ":iscriptexecutor_aidl",
-    "src/**/*.java",
-    ":statslog-Car-java-gen",
-]
+java_defaults {
+    name: "carservice-updatable-min-java-defaults",
 
-common_lib_deps = [
-    "android.automotive.telemetry.internal-java",  // ICarTelemetryInternal
-    "android.car.cluster.navigation",
-    "android.car.userlib",
-    "android.car.watchdoglib",
-    "android.frameworks.automotive.powerpolicy.internal-java",
-    "android.hidl.base-V1.0-java",
-    "android.hardware.automotive.audiocontrol-V1.0-java",
-    "android.hardware.automotive.audiocontrol-V2.0-java",
-    "android.hardware.automotive.audiocontrol-V1-java",
-    "android.hardware.automotive.vehicle-V2.0-java",
-    "android.hardware.health-V1.0-java",
-    "android.hardware.health-V2.0-java",
-    "android.hardware.automotive.occupant_awareness-V1-java",
-    "vehicle-hal-support-lib",
-    "car-systemtest",
-    "com.android.car.procfsinspector-client",
-    "blestream-protos",
-    "SettingsLib",
-    "androidx.preference_preference",
-    // TODO(b/171603586): remove this after moving NewUserDisclaimerActivity
-    // to CarSettings
-    "car-admin-ui-lib",
-    "Slogf",
-    "cartelemetry-protos",
-    "carwatchdog-protos",
-]
+    srcs: [
+        // add full source for all codes under p/s/Car to reduce unnecessary library allow listing.
+        ":android.car.cluster.navigation-src",
+        ":android.car.watchdoglib-src",
+        ":cartelemetry-cardata-proto-srcs",
+        ":cartelemetryservice-proto-srcs",
+        ":com.android.car.procfsinspector-client-src",
+        ":statslog-Car-java-gen",
+        ":iscriptexecutor_aidl",
+        "proto/**/*.proto",
+        "src/**/*.java",
+        ],
 
-android_app {
-    name: "CarService",
-
-    srcs: car_service_sources,
+    aidl: {
+        include_dirs: [
+            "packages/services/Car/procfs-inspector/client/src",
+        ],
+    },
 
     resource_dirs: ["res"],
 
-    platform_apis: true,
+    // Resource is still com.android.car.R
+    aaptflags: [
+        "--custom-package com.android.car",
+    ],
 
-    // Each update should be signed by OEMs
-    certificate: "platform",
-    privileged: true,
+    libs: [
+        "android.car-module.impl",
+        "android.car.builtin",
+        "framework-annotations-lib",
+        "framework-bluetooth",
+        "framework-connectivity",
+        "framework-connectivity-t.stubs.module_lib",
+        "framework-statsd",
+        "framework-wifi",
+        "modules-utils-os",
+        "modules-utils-preconditions",
+        "modules-utils-shell-command-handler",
+    ],
+
+    static_libs: [
+        "android.automotive.telemetry.internal-V1-java",  // ICarTelemetryInternal
+        "android.automotive.watchdog.internal-V1-java",
+        "android.frameworks.automotive.powerpolicy.internal-V1-java",
+        "android.hidl.base-V1.0-java",
+        "android.hardware.automotive.audiocontrol-V1.0-java",
+        "android.hardware.automotive.audiocontrol-V2.0-java",
+        "android.hardware.automotive.audiocontrol-V2-java",
+        "android.hardware.automotive.vehicle-V1-java",
+        "android.hardware.automotive.vehicle-V2.0-java",
+        "android.hardware.health-V1.0-java",
+        "android.hardware.health-V2.0-java",
+        "android.hardware.automotive.occupant_awareness-V1-java",
+    ],
+
+    proto: {
+        type: "lite",
+    },
 
     optimize: {
         proguard_flags_files: ["proguard.flags"],
         enabled: false,
     },
-
-    libs: ["android.car"],
-
-    static_libs: common_lib_deps + [
-        "com.android.car.internal.system",
-    ],
-
-    jni_libs: [
-        "libcarservicejni",
-    ],
-
-    aidl: {
-        include_dirs: [
-	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
-	],
-    },
-
-    required: ["allowed_privapp_com.android.car"],
 
     // Disable build in PDK, missing aidl import breaks build
     product_variables: {
@@ -104,6 +101,41 @@ android_app {
             enabled: false,
         },
     },
+
+    sdk_version: "module_current",
+    platform_apis: false,
+}
+
+java_defaults {
+    name: "carservice-updatable-java-defaults",
+
+    visibility: [
+        "//packages/services/Car:__subpackages__",
+    ],
+
+    defaults: [ "carservice-updatable-min-java-defaults" ],
+
+    min_sdk_version: "33",
+}
+
+// Non-module build
+android_app {
+    name: "CarServiceUpdatableNonModule",
+
+    defaults: ["carservice-updatable-java-defaults"],
+    privileged: true,
+
+    required: ["allowed_privapp_com.android.car"],
+}
+
+// Added to car.framework module
+android_app {
+    name: "CarServiceUpdatable",
+
+    defaults: ["carservice-updatable-java-defaults"],
+    privileged: true,
+
+    apex_available: ["com.android.car.framework"],
 }
 
 java_library {
@@ -114,11 +146,17 @@ java_library {
         "src/com/android/car/CarServiceBase.java",
         "src/com/android/car/CarServiceUtils.java",
         "src/com/android/car/CarLog.java",
-        "src/com/android/car/Utils.java",
+        "src/com/android/car/util/TransitionLog.java",
+    ],
+
+    libs: [
+        "android.car.builtin",
+        "android.car",
     ],
 
     static_libs: [
-        "com.android.car.internal.common",
+        "android.hardware.automotive.vehicle-V1-java",
+        "android.hardware.automotive.vehicle-V2.0-java",
     ],
 
     product_variables: {
@@ -128,6 +166,21 @@ java_library {
     },
 }
 
+// Minimum code shared with carservice builtin.
+// Be careful with what is added here as it takes double space.
+// Also static instance sharing will not work.
+java_library {
+    name: "car-service-lib-for-builtin",
+
+    srcs: [
+        "src/com/android/car/CarLog.java",
+    ],
+
+    libs: [
+            "android.car",
+    ],
+}
+
 //####################################################################################
 // Build a static library to help mocking various car services in testing. This is meant to be used
 // for internal unit tests around the car service.
@@ -135,58 +188,9 @@ java_library {
 android_library {
     name: "car-service-test-static-lib",
 
-    srcs: car_service_sources,
+    defaults: ["carservice-updatable-min-java-defaults"],
 
-    resource_dirs: ["res"],
-
-    libs: [
-        "android.car",
-        "car-frameworks-service",
-    ],
-
-    static_libs: common_lib_deps,
-
-    aidl: {
-        include_dirs: [
-	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
-	],
-    },
-
-    product_variables: {
-        pdk: {
-            enabled: false,
-        },
-    },
-}
-
-//####################################################################################
-// Build a library to help generate a testing library for external apps.
-// We do not want to use statically linked libraries, as this will bloat the output jar with classes
-// that can conflict with the user's environment.
-//####################################################################################
-android_library {
-    name: "car-service-test-lib",
-
-    srcs: car_service_sources,
-
-    resource_dirs: ["res"],
-
-    libs: common_lib_deps + [
-        "android.car",
-        "car-frameworks-service",
-    ],
-
-    aidl: {
-        include_dirs: [
-	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
-	],
-    },
-
-    product_variables: {
-        pdk: {
-            enabled: false,
-        },
-    },
+    manifest: "EmptyAndroidManifest.xml"
 }
 
 filegroup {

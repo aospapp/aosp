@@ -36,6 +36,7 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -84,6 +85,7 @@ public class GetProvisioningModeUtilsTest {
                 .isGetProvisioningModeActivityResolvable(mContext, PARAMS)).isFalse();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startGetProvisioningModeActivityIfResolved_resolvableActivity_returnsTrue() {
         Intent intentGetMode = new Intent(ACTION_GET_PROVISIONING_MODE);
@@ -98,6 +100,7 @@ public class GetProvisioningModeUtilsTest {
                 parentActivity, PARAMS, new Bundle(), requestCode, mTransitionHelper)).isTrue();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startGetProvisioningModeActivityIfResolved_resolvableActivity_startsGetProvisioningModeIntent() {
         Intent intentGetMode = new Intent(ACTION_GET_PROVISIONING_MODE);
@@ -117,6 +120,7 @@ public class GetProvisioningModeUtilsTest {
                 .isEqualTo(TEST_MDM_PACKAGE_NAME);
     }
 
+    @Ignore("b/218480743")
     @Test
     public void
     startGetProvisioningModeActivityIfResolved_resolvableActivity_includesAdditionalExtras() {

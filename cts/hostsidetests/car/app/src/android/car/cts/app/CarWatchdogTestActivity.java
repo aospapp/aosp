@@ -299,6 +299,7 @@ public final class CarWatchdogTestActivity extends Activity {
                     CarWatchdogManager.FLAG_RESOURCE_OVERUSE_IO,
                     CarWatchdogManager.STATS_PERIOD_CURRENT_DAY);
         }
+        Log.d(TAG, "Fetched resource overuse stats: " + stats);
         IoOveruseStats ioOveruseStats = stats.getIoOveruseStats();
         if (ioOveruseStats == null) {
             setDumpMessage(
@@ -312,7 +313,6 @@ public final class CarWatchdogTestActivity extends Activity {
                     + "' returned by get request");
             return 0;
         }
-        Log.d(TAG, ioOveruseStats.toString());
         /*
          * Check for foreground mode bytes given CtsCarApp is running in the foreground
          * during testing.
@@ -343,26 +343,24 @@ public final class CarWatchdogTestActivity extends Activity {
         @Override
         public void onOveruse(ResourceOveruseStats resourceOveruseStats) {
             synchronized (mLock) {
+                Log.d(TAG, "onOveruse callback received: " + resourceOveruseStats);
                 mForegroundModeBytes = -1;
                 mNotificationReceived = true;
                 mLock.notifyAll();
-            }
-            Log.d(TAG, resourceOveruseStats.toString());
-            if (resourceOveruseStats.getIoOveruseStats() == null) {
-                setDumpMessage(
-                        "ERROR: No I/O overuse stats reported for the application in the overuse "
-                        + "notification.");
-                return;
-            }
-            long reportedWrittenBytes =
-                    resourceOveruseStats.getIoOveruseStats().getTotalBytesWritten();
-            if (reportedWrittenBytes < mExpectedMinWrittenBytes) {
-                setDumpMessage("ERROR: Actual written bytes to disk '" + mExpectedMinWrittenBytes
-                        + "' don't match written bytes '" + reportedWrittenBytes
-                        + "' reported in overuse notification");
-                return;
-            }
-            synchronized (mLock) {
+                if (resourceOveruseStats.getIoOveruseStats() == null) {
+                    setDumpMessage(
+                            "ERROR: No I/O overuse stats reported for the application in the "
+                            + "overuse notification.");
+                    return;
+                }
+                long reportedWrittenBytes =
+                        resourceOveruseStats.getIoOveruseStats().getTotalBytesWritten();
+                if (reportedWrittenBytes < mExpectedMinWrittenBytes) {
+                    setDumpMessage("ERROR: Actual written bytes to disk '"
+                            + mExpectedMinWrittenBytes + "' don't match written bytes '"
+                            + reportedWrittenBytes + "' reported in overuse notification");
+                    return;
+                }
                 mForegroundModeBytes =
                         resourceOveruseStats.getIoOveruseStats().getRemainingWriteBytes()
                                 .getForegroundModeBytes();

@@ -25,7 +25,7 @@ label1 = MockLabel(
     cache_only=False,
     log_level='average',
     compiler='gcc',
-    skylab=False,
+    crosfleet=False,
     chrome_src=None)
 
 label2 = MockLabel(
@@ -42,7 +42,7 @@ label2 = MockLabel(
     cache_only=False,
     log_level='average',
     compiler='gcc',
-    skylab=False,
+    crosfleet=False,
     chrome_src=None)
 
 benchmark1 = Benchmark('benchmark1', 'autotest_name_1', 'autotest_args', 2, '',

@@ -6,12 +6,19 @@
 //! [`BTreeMap`]: https://doc.rust-lang.org/std/collections/struct.BTreeMap.html
 //! [`IndexMap`]: https://docs.rs/indexmap/*/indexmap/map/struct.IndexMap.html
 
-use crate::lib::borrow::Borrow;
-use crate::lib::iter::FromIterator;
-use crate::lib::*;
 use crate::value::Value;
+use alloc::string::String;
+use core::borrow::Borrow;
+use core::fmt::{self, Debug};
+use core::hash::Hash;
+use core::iter::{FromIterator, FusedIterator};
+#[cfg(feature = "preserve_order")]
+use core::mem;
+use core::ops;
 use serde::de;
 
+#[cfg(not(feature = "preserve_order"))]
+use alloc::collections::{btree_map, BTreeMap};
 #[cfg(feature = "preserve_order")]
 use indexmap::{self, IndexMap};
 
@@ -52,7 +59,7 @@ impl Map<String, Value> {
     /// Clears the map, removing all values.
     #[inline]
     pub fn clear(&mut self) {
-        self.map.clear()
+        self.map.clear();
     }
 
     /// Returns a reference to the value corresponding to the key.
@@ -92,6 +99,20 @@ impl Map<String, Value> {
         Q: ?Sized + Ord + Eq + Hash,
     {
         self.map.get_mut(key)
+    }
+
+    /// Returns the key-value pair matching the given key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but the ordering
+    /// on the borrowed form *must* match the ordering on the key type.
+    #[inline]
+    #[cfg(any(feature = "preserve_order", not(no_btreemap_get_key_value)))]
+    pub fn get_key_value<Q>(&self, key: &Q) -> Option<(&String, &Value)>
+    where
+        String: Borrow<Q>,
+        Q: ?Sized + Ord + Eq + Hash,
+    {
+        self.map.get_key_value(key)
     }
 
     /// Inserts a key-value pair into the map.
@@ -151,6 +172,8 @@ impl Map<String, Value> {
             no_btreemap_get_key_value,
         ))]
         {
+            use core::ops::{Bound, RangeBounds};
+
             struct Key<'a, Q: ?Sized>(&'a Q);
 
             impl<'a, Q: ?Sized> RangeBounds<Q> for Key<'a, Q> {
@@ -188,7 +211,7 @@ impl Map<String, Value> {
         S: Into<String>,
     {
         #[cfg(not(feature = "preserve_order"))]
-        use crate::lib::btree_map::Entry as EntryImpl;
+        use alloc::collections::btree_map::Entry as EntryImpl;
         #[cfg(feature = "preserve_order")]
         use indexmap::map::Entry as EntryImpl;
 
@@ -249,8 +272,22 @@ impl Map<String, Value> {
             iter: self.map.values_mut(),
         }
     }
+
+    /// Retains only the elements specified by the predicate.
+    ///
+    /// In other words, remove all pairs `(k, v)` such that `f(&k, &mut v)`
+    /// returns `false`.
+    #[cfg(not(no_btreemap_retain))]
+    #[inline]
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&String, &mut Value) -> bool,
+    {
+        self.map.retain(f);
+    }
 }
 
+#[allow(clippy::derivable_impls)] // clippy bug: https://github.com/rust-lang/rust-clippy/issues/7655
 impl Default for Map<String, Value> {
     #[inline]
     fn default() -> Self {
@@ -540,6 +577,40 @@ impl<'a> Entry<'a> {
         match self {
             Entry::Vacant(entry) => entry.insert(default()),
             Entry::Occupied(entry) => entry.into_mut(),
+        }
+    }
+
+    /// Provides in-place mutable access to an occupied entry before any
+    /// potential inserts into the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// #
+    /// let mut map = serde_json::Map::new();
+    /// map.entry("serde")
+    ///     .and_modify(|e| *e = json!("rust"))
+    ///     .or_insert(json!("cpp"));
+    ///
+    /// assert_eq!(map["serde"], "cpp");
+    ///
+    /// map.entry("serde")
+    ///     .and_modify(|e| *e = json!("rust"))
+    ///     .or_insert(json!("cpp"));
+    ///
+    /// assert_eq!(map["serde"], "rust");
+    /// ```
+    pub fn and_modify<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut Value),
+    {
+        match self {
+            Entry::Occupied(mut entry) => {
+                f(entry.get_mut());
+                Entry::Occupied(entry)
+            }
+            Entry::Vacant(entry) => Entry::Vacant(entry),
         }
     }
 }

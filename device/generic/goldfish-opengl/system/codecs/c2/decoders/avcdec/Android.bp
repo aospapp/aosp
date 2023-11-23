@@ -15,6 +15,7 @@ cc_library_shared {
     ],
 
     srcs: ["C2GoldfishAvcDec.cpp",
+        "GoldfishH264Helper.cpp",
         "MediaH264Decoder.cpp",
     ],
 
@@ -27,4 +28,7 @@ cc_library_shared {
    header_libs: [
     "libgralloc_cb.ranchu",
     ],
+
+   static_libs: ["libavcdec",
+   ],
 }

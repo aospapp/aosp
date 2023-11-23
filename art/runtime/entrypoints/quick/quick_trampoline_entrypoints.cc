@@ -60,6 +60,9 @@
 
 namespace art {
 
+extern "C" NO_RETURN void artDeoptimizeFromCompiledCode(DeoptimizationKind kind, Thread* self);
+extern "C" NO_RETURN void artDeoptimize(Thread* self);
+
 // Visits the arguments as saved to the stack by a CalleeSaveType::kRefAndArgs callee save frame.
 class QuickArgumentVisitor {
   // Number of bytes for each out register in the caller method's frame.
@@ -641,7 +644,7 @@ static void HandleDeoptimization(JValue* result,
                                               deopt_frame,
                                               result,
                                               from_code,
-                                              DeoptimizationMethodType::kDefault);
+                                              method_type);
 }
 
 extern "C" uint64_t artQuickToInterpreterBridge(ArtMethod* method, Thread* self, ArtMethod** sp)
@@ -727,7 +730,8 @@ extern "C" uint64_t artQuickToInterpreterBridge(ArtMethod* method, Thread* self,
       VLOG(deopt) << "Forcing deoptimization on return from method " << method->PrettyMethod()
                   << " to " << caller->PrettyMethod()
                   << (force_frame_pop ? " for frame-pop" : "");
-      DCHECK(!force_frame_pop || result.GetJ() == 0) << "Force frame pop should have no result.";
+      DCHECK_IMPLIES(force_frame_pop, result.GetJ() == 0)
+          << "Force frame pop should have no result.";
       if (force_frame_pop && self->GetException() != nullptr) {
         LOG(WARNING) << "Suppressing exception for instruction-retry: "
                      << self->GetException()->Dump();
@@ -855,10 +859,7 @@ extern "C" uint64_t artQuickProxyInvokeHandler(
   // that performs allocations or instrumentation events.
   instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
   if (instr->HasMethodEntryListeners()) {
-    instr->MethodEnterEvent(soa.Self(),
-                            soa.Decode<mirror::Object>(rcvr_jobj),
-                            proxy_method,
-                            0);
+    instr->MethodEnterEvent(soa.Self(), proxy_method);
     if (soa.Self()->IsExceptionPending()) {
       instr->MethodUnwindEvent(self,
                                soa.Decode<mirror::Object>(rcvr_jobj),
@@ -877,9 +878,7 @@ extern "C" uint64_t artQuickProxyInvokeHandler(
     }
   } else if (instr->HasMethodExitListeners()) {
     instr->MethodExitEvent(self,
-                           soa.Decode<mirror::Object>(rcvr_jobj),
                            proxy_method,
-                           0,
                            {},
                            result);
   }
@@ -1038,26 +1037,12 @@ extern "C" const void* artInstrumentationMethodEntryFromCode(ArtMethod* method,
       << "Proxy method " << method->PrettyMethod()
       << " (declaring class: " << method->GetDeclaringClass()->PrettyClass() << ")"
       << " should not hit instrumentation entrypoint.";
-  if (instrumentation->IsDeoptimized(method)) {
-    result = GetQuickToInterpreterBridge();
-  } else {
-    // This will get the entry point either from the oat file, the JIT or the appropriate bridge
-    // method if none of those can be found.
-    result = instrumentation->GetCodeForInvoke(method);
-    jit::Jit* jit = Runtime::Current()->GetJit();
-    DCHECK_NE(result, GetQuickInstrumentationEntryPoint()) << method->PrettyMethod();
-    DCHECK(jit == nullptr ||
-           // Native methods come through here in Interpreter entrypoints. We might not have
-           // disabled jit-gc but that is fine since we won't return jit-code for native methods.
-           method->IsNative() ||
-           !jit->GetCodeCache()->GetGarbageCollectCode());
-    DCHECK(!method->IsNative() ||
-           jit == nullptr ||
-           !jit->GetCodeCache()->ContainsPc(result))
-        << method->PrettyMethod() << " code will jump to possibly cleaned up jit code!";
-  }
-
-  bool interpreter_entry = (result == GetQuickToInterpreterBridge());
+  DCHECK(!instrumentation->IsDeoptimized(method));
+  // This will get the entry point either from the oat file, the JIT or the appropriate bridge
+  // method if none of those can be found.
+  result = instrumentation->GetCodeForInvoke(method);
+  DCHECK_NE(result, GetQuickInstrumentationEntryPoint()) << method->PrettyMethod();
+  bool interpreter_entry = Runtime::Current()->GetClassLinker()->IsQuickToInterpreterBridge(result);
   bool is_static = method->IsStatic();
   uint32_t shorty_len;
   const char* shorty =
@@ -1067,8 +1052,21 @@ extern "C" const void* artInstrumentationMethodEntryFromCode(ArtMethod* method,
   RememberForGcArgumentVisitor visitor(sp, is_static, shorty, shorty_len, &soa);
   visitor.VisitArguments();
 
+  StackHandleScope<2> hs(self);
+  Handle<mirror::Object> h_object(hs.NewHandle(is_static ? nullptr : this_object));
+  Handle<mirror::Class> h_class(hs.NewHandle(method->GetDeclaringClass()));
+
+  // Ensure that the called method's class is initialized.
+  if (NeedsClinitCheckBeforeCall(method) && !h_class->IsVisiblyInitialized()) {
+    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_class, true, true)) {
+      visitor.FixupReferences();
+      DCHECK(self->IsExceptionPending());
+      return nullptr;
+    }
+  }
+
   instrumentation->PushInstrumentationStackFrame(self,
-                                                 is_static ? nullptr : this_object,
+                                                 is_static ? nullptr : h_object.Get(),
                                                  method,
                                                  reinterpret_cast<uintptr_t>(
                                                      QuickArgumentVisitor::GetCallingPcAddr(sp)),
@@ -1366,7 +1364,8 @@ extern "C" const void* artQuickResolutionTrampoline(
           DCHECK_NE(called_method.index, dex::kDexNoIndex);
         }
       }
-      MaybeUpdateBssMethodEntry(called, called_method);
+      ArtMethod* outer_method = QuickArgumentVisitor::GetOuterMethod(sp);
+      MaybeUpdateBssMethodEntry(called, called_method, outer_method);
     }
 
     // Static invokes need class initialization check but instance invokes can proceed even if
@@ -1380,15 +1379,11 @@ extern "C" const void* artQuickResolutionTrampoline(
       success = linker->EnsureInitialized(soa.Self(), h_called_class, true, true);
     }
     if (success) {
-      code = called->GetEntryPointFromQuickCompiledCode();
-      if (linker->IsQuickResolutionStub(code)) {
-        DCHECK_EQ(invoke_type, kStatic);
-        // Go to JIT or oat and grab code.
-        code = linker->GetQuickOatCodeFor(called);
-      }
-      if (linker->ShouldUseInterpreterEntrypoint(called, code)) {
-        code = GetQuickToInterpreterBridge();
-      }
+      instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
+      // Check if we need instrumented code here. Since resolution stubs could suspend, it is
+      // possible that we instrumented the entry points after we started executing the resolution
+      // stub.
+      code = instrumentation->GetMaybeInstrumentedCodeForInvoke(called);
     } else {
       DCHECK(called_class->IsErroneous());
       DCHECK(self->IsExceptionPending());
@@ -1950,7 +1945,7 @@ class BuildGenericJniFrameVisitor final : public QuickArgumentVisitor {
         auto* declaring_class = reinterpret_cast<mirror::CompressedReference<mirror::Class>*>(
             method->GetDeclaringClassAddressWithoutBarrier());
         if (kUseReadBarrier) {
-          ReadBarrierJni(declaring_class, self);
+          artJniReadBarrier(method);
         }
         sm_.AdvancePointer(declaring_class);
       }  // else "this" reference is already handled by QuickArgumentVisitor.
@@ -2064,11 +2059,14 @@ void BuildGenericJniFrameVisitor::Visit() {
  * needed and return to the stub.
  *
  * The return value is the pointer to the native code, null on failure.
+ *
+ * NO_THREAD_SAFETY_ANALYSIS: Depending on the use case, the trampoline may
+ * or may not lock a synchronization object and transition out of Runnable.
  */
 extern "C" const void* artQuickGenericJniTrampoline(Thread* self,
                                                     ArtMethod** managed_sp,
                                                     uintptr_t* reserved_area)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) NO_THREAD_SAFETY_ANALYSIS {
   // Note: We cannot walk the stack properly until fixed up below.
   ArtMethod* called = *managed_sp;
   DCHECK(called->IsNative()) << called->PrettyMethod(true);
@@ -2119,27 +2117,37 @@ extern "C" const void* artQuickGenericJniTrampoline(Thread* self,
     }
   }
 
-  uint32_t cookie;
-  uint32_t* sp32;
-  // Skip calling JniMethodStart for @CriticalNative.
-  if (LIKELY(!critical_native)) {
-    // Start JNI, save the cookie.
+  // Skip calling `artJniMethodStart()` for @CriticalNative and @FastNative.
+  if (LIKELY(normal_native)) {
+    // Start JNI.
     if (called->IsSynchronized()) {
-      DCHECK(normal_native) << " @FastNative and synchronize is not supported";
-      jobject lock = GetGenericJniSynchronizationObject(self, called);
-      cookie = JniMethodStartSynchronized(lock, self);
+      ObjPtr<mirror::Object> lock = GetGenericJniSynchronizationObject(self, called);
+      DCHECK(lock != nullptr);
+      lock->MonitorEnter(self);
       if (self->IsExceptionPending()) {
         return nullptr;  // Report error.
       }
-    } else {
-      if (fast_native) {
-        cookie = JniMethodFastStart(self);
-      } else {
-        DCHECK(normal_native);
-        cookie = JniMethodStart(self);
-      }
     }
-    sp32 = reinterpret_cast<uint32_t*>(managed_sp);
+    if (UNLIKELY(self->ReadFlag(ThreadFlag::kMonitorJniEntryExit))) {
+      artJniMonitoredMethodStart(self);
+    } else {
+      artJniMethodStart(self);
+    }
+  } else {
+    DCHECK(!called->IsSynchronized())
+        << "@FastNative/@CriticalNative and synchronize is not supported";
+  }
+
+  // Skip pushing IRT frame for @CriticalNative.
+  if (LIKELY(!critical_native)) {
+    // Push local reference frame.
+    JNIEnvExt* env = self->GetJniEnv();
+    DCHECK(env != nullptr);
+    uint32_t cookie = bit_cast<uint32_t>(env->GetLocalRefCookie());
+    env->SetLocalRefCookie(env->GetLocalsSegmentState());
+
+    // Save the cookie on the stack.
+    uint32_t* sp32 = reinterpret_cast<uint32_t*>(managed_sp);
     *(sp32 - 1) = cookie;
   }
 
@@ -2184,13 +2192,75 @@ extern "C" uint64_t artQuickGenericJniEndTrampoline(Thread* self,
   return GenericJniMethodEnd(self, cookie, result, result_f, called);
 }
 
+// Fast path method resolution that can't throw exceptions.
+template <InvokeType type>
+inline ArtMethod* FindMethodFast(uint32_t method_idx,
+                                 ObjPtr<mirror::Object> this_object,
+                                 ArtMethod* referrer)
+    REQUIRES_SHARED(Locks::mutator_lock_)
+    REQUIRES(!Roles::uninterruptible_) {
+  ScopedAssertNoThreadSuspension ants(__FUNCTION__);
+  if (UNLIKELY(this_object == nullptr && type != kStatic)) {
+    return nullptr;
+  }
+  ObjPtr<mirror::Class> referring_class = referrer->GetDeclaringClass();
+  ObjPtr<mirror::DexCache> dex_cache = referrer->GetDexCache();
+  constexpr ClassLinker::ResolveMode resolve_mode = ClassLinker::ResolveMode::kCheckICCEAndIAE;
+  ClassLinker* linker = Runtime::Current()->GetClassLinker();
+  ArtMethod* resolved_method = linker->GetResolvedMethod<type, resolve_mode>(method_idx, referrer);
+  if (UNLIKELY(resolved_method == nullptr)) {
+    return nullptr;
+  }
+  if (type == kInterface) {  // Most common form of slow path dispatch.
+    return this_object->GetClass()->FindVirtualMethodForInterface(resolved_method,
+                                                                  kRuntimePointerSize);
+  }
+  if (type == kStatic || type == kDirect) {
+    return resolved_method;
+  }
+
+  if (type == kSuper) {
+    // TODO This lookup is rather slow.
+    dex::TypeIndex method_type_idx = dex_cache->GetDexFile()->GetMethodId(method_idx).class_idx_;
+    ObjPtr<mirror::Class> method_reference_class = linker->LookupResolvedType(
+        method_type_idx, dex_cache, referrer->GetClassLoader());
+    if (method_reference_class == nullptr) {
+      // Need to do full type resolution...
+      return nullptr;
+    }
+
+    // If the referring class is in the class hierarchy of the
+    // referenced class in the bytecode, we use its super class. Otherwise, we cannot
+    // resolve the method.
+    if (!method_reference_class->IsAssignableFrom(referring_class)) {
+      return nullptr;
+    }
+
+    if (method_reference_class->IsInterface()) {
+      return method_reference_class->FindVirtualMethodForInterfaceSuper(
+          resolved_method, kRuntimePointerSize);
+    }
+
+    ObjPtr<mirror::Class> super_class = referring_class->GetSuperClass();
+    if (resolved_method->GetMethodIndex() >= super_class->GetVTableLength()) {
+      // The super class does not have the method.
+      return nullptr;
+    }
+    return super_class->GetVTableEntry(resolved_method->GetMethodIndex(), kRuntimePointerSize);
+  }
+
+  DCHECK(type == kVirtual);
+  return this_object->GetClass()->GetVTableEntry(
+      resolved_method->GetMethodIndex(), kRuntimePointerSize);
+}
+
 // We use TwoWordReturn to optimize scalar returns. We use the hi value for code, and the lo value
 // for the method pointer.
 //
 // It is valid to use this, as at the usage points here (returns from C functions) we are assuming
 // to hold the mutator lock (see REQUIRES_SHARED(Locks::mutator_lock_) annotations).
 
-template <InvokeType type, bool access_check>
+template <InvokeType type>
 static TwoWordReturn artInvokeCommon(uint32_t method_idx,
                                      ObjPtr<mirror::Object> this_object,
                                      Thread* self,
@@ -2198,7 +2268,7 @@ static TwoWordReturn artInvokeCommon(uint32_t method_idx,
   ScopedQuickEntrypointChecks sqec(self);
   DCHECK_EQ(*sp, Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs));
   ArtMethod* caller_method = QuickArgumentVisitor::GetCallingMethod(sp);
-  ArtMethod* method = FindMethodFast<type, access_check>(method_idx, this_object, caller_method);
+  ArtMethod* method = FindMethodFast<type>(method_idx, this_object, caller_method);
   if (UNLIKELY(method == nullptr)) {
     const DexFile* dex_file = caller_method->GetDexFile();
     uint32_t shorty_len;
@@ -2208,10 +2278,8 @@ static TwoWordReturn artInvokeCommon(uint32_t method_idx,
       ScopedObjectAccessUnchecked soa(self->GetJniEnv());
       RememberForGcArgumentVisitor visitor(sp, type == kStatic, shorty, shorty_len, &soa);
       visitor.VisitArguments();
-      method = FindMethodFromCode<type, access_check>(method_idx,
-                                                      &this_object,
-                                                      caller_method,
-                                                      self);
+      method = FindMethodFromCode<type, /*access_check=*/true>(
+          method_idx, &this_object, caller_method, self);
       visitor.FixupReferences();
     }
 
@@ -2233,34 +2301,29 @@ static TwoWordReturn artInvokeCommon(uint32_t method_idx,
 }
 
 // Explicit artInvokeCommon template function declarations to please analysis tool.
-#define EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(type, access_check)                                \
-  template REQUIRES_SHARED(Locks::mutator_lock_)                                          \
-  TwoWordReturn artInvokeCommon<type, access_check>(                                            \
+#define EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(type)                                            \
+  template REQUIRES_SHARED(Locks::mutator_lock_)                                              \
+  TwoWordReturn artInvokeCommon<type>(                                                        \
       uint32_t method_idx, ObjPtr<mirror::Object> his_object, Thread* self, ArtMethod** sp)
 
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kVirtual, false);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kVirtual, true);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kInterface, false);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kInterface, true);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kDirect, false);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kDirect, true);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kStatic, false);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kStatic, true);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kSuper, false);
-EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kSuper, true);
+EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kVirtual);
+EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kInterface);
+EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kDirect);
+EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kStatic);
+EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL(kSuper);
 #undef EXPLICIT_INVOKE_COMMON_TEMPLATE_DECL
 
 // See comments in runtime_support_asm.S
 extern "C" TwoWordReturn artInvokeInterfaceTrampolineWithAccessCheck(
     uint32_t method_idx, mirror::Object* this_object, Thread* self, ArtMethod** sp)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return artInvokeCommon<kInterface, true>(method_idx, this_object, self, sp);
+  return artInvokeCommon<kInterface>(method_idx, this_object, self, sp);
 }
 
 extern "C" TwoWordReturn artInvokeDirectTrampolineWithAccessCheck(
     uint32_t method_idx, mirror::Object* this_object, Thread* self, ArtMethod** sp)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return artInvokeCommon<kDirect, true>(method_idx, this_object, self, sp);
+  return artInvokeCommon<kDirect>(method_idx, this_object, self, sp);
 }
 
 extern "C" TwoWordReturn artInvokeStaticTrampolineWithAccessCheck(
@@ -2270,19 +2333,19 @@ extern "C" TwoWordReturn artInvokeStaticTrampolineWithAccessCheck(
     ArtMethod** sp) REQUIRES_SHARED(Locks::mutator_lock_) {
   // For static, this_object is not required and may be random garbage. Don't pass it down so that
   // it doesn't cause ObjPtr alignment failure check.
-  return artInvokeCommon<kStatic, true>(method_idx, nullptr, self, sp);
+  return artInvokeCommon<kStatic>(method_idx, nullptr, self, sp);
 }
 
 extern "C" TwoWordReturn artInvokeSuperTrampolineWithAccessCheck(
     uint32_t method_idx, mirror::Object* this_object, Thread* self, ArtMethod** sp)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return artInvokeCommon<kSuper, true>(method_idx, this_object, self, sp);
+  return artInvokeCommon<kSuper>(method_idx, this_object, self, sp);
 }
 
 extern "C" TwoWordReturn artInvokeVirtualTrampolineWithAccessCheck(
     uint32_t method_idx, mirror::Object* this_object, Thread* self, ArtMethod** sp)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return artInvokeCommon<kVirtual, true>(method_idx, this_object, self, sp);
+  return artInvokeCommon<kVirtual>(method_idx, this_object, self, sp);
 }
 
 // Determine target of interface dispatch. The interface method and this object are known non-null.
@@ -2335,7 +2398,9 @@ extern "C" TwoWordReturn artInvokeInterfaceTrampoline(ArtMethod* interface_metho
       CHECK(self->IsExceptionPending());
       return GetTwoWordFailureValue();  // Failure.
     }
-    MaybeUpdateBssMethodEntry(interface_method, MethodReference(&dex_file, dex_method_idx));
+    ArtMethod* outer_method = QuickArgumentVisitor::GetOuterMethod(sp);
+    MaybeUpdateBssMethodEntry(
+        interface_method, MethodReference(&dex_file, dex_method_idx), outer_method);
 
     // Refresh `raw_this_object` which may have changed after resolution.
     raw_this_object = this_object.Get();
@@ -2583,6 +2648,80 @@ extern "C" uint64_t artInvokeCustom(uint32_t call_site_idx, Thread* self, ArtMet
   self->PopManagedStackFragment(fragment);
 
   return result.GetJ();
+}
+
+extern "C" void artMethodEntryHook(ArtMethod* method, Thread* self, ArtMethod** sp ATTRIBUTE_UNUSED)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
+  instr->MethodEnterEvent(self, method);
+  if (instr->IsDeoptimized(method)) {
+    // Instrumentation can request deoptimizing only a particular method (for
+    // ex: when there are break points on the method). In such cases deoptimize
+    // only this method. FullFrame deoptimizations are handled on method exits.
+    artDeoptimizeFromCompiledCode(DeoptimizationKind::kDebugging, self);
+  }
+}
+
+extern "C" int artMethodExitHook(Thread* self,
+                                 ArtMethod* method,
+                                 uint64_t* gpr_result,
+                                 uint64_t* fpr_result)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK_EQ(reinterpret_cast<uintptr_t>(self), reinterpret_cast<uintptr_t>(Thread::Current()));
+  CHECK(gpr_result != nullptr);
+  CHECK(fpr_result != nullptr);
+  // Instrumentation exit stub must not be entered with a pending exception.
+  CHECK(!self->IsExceptionPending())
+      << "Enter instrumentation exit stub with pending exception " << self->GetException()->Dump();
+
+  instrumentation::Instrumentation* instr = Runtime::Current()->GetInstrumentation();
+  DCHECK(instr->AreExitStubsInstalled());
+  bool is_ref;
+  JValue return_value = instr->GetReturnValue(self, method, &is_ref, gpr_result, fpr_result);
+  bool deoptimize = false;
+  {
+    StackHandleScope<1> hs(self);
+    MutableHandle<mirror::Object> res(hs.NewHandle<mirror::Object>(nullptr));
+    if (is_ref) {
+      // Take a handle to the return value so we won't lose it if we suspend.
+      res.Assign(return_value.GetL());
+    }
+    DCHECK(!method->IsRuntimeMethod());
+
+    // Deoptimize if the caller needs to continue execution in the interpreter. Do nothing if we get
+    // back to an upcall.
+    NthCallerVisitor visitor(self, 1, /*include_runtime_and_upcalls=*/false);
+    visitor.WalkStack(true);
+    deoptimize = instr->ShouldDeoptimizeMethod(self, visitor);
+
+    // If we need a deoptimization MethodExitEvent will be called by the interpreter when it
+    // re-executes the return instruction.
+    if (!deoptimize) {
+      instr->MethodExitEvent(self,
+                             method,
+                             /* frame= */ {},
+                             return_value);
+    }
+
+    if (is_ref) {
+      // Restore the return value if it's a reference since it might have moved.
+      *reinterpret_cast<mirror::Object**>(gpr_result) = res.Get();
+      return_value.SetL(res.Get());
+    }
+  }
+
+  if (self->IsExceptionPending() || self->ObserveAsyncException()) {
+    return 1;
+  }
+
+  if (deoptimize) {
+    DeoptimizationMethodType deopt_method_type = instr->GetDeoptimizationMethodType(method);
+    self->PushDeoptimizationContext(return_value, is_ref, nullptr, false, deopt_method_type);
+    artDeoptimize(self);
+    UNREACHABLE();
+  }
+
+  return 0;
 }
 
 }  // namespace art

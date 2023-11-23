@@ -198,7 +198,7 @@ lws_plat_init(struct lws_context *context,
 	      const struct lws_context_creation_info *info)
 {
 #if defined(LWS_WITH_NETWORK)
-	/* master context has the global fd lookup array */
+	/* context has the global fd lookup array */
 	context->lws_lookup = lws_zalloc(sizeof(struct lws *) *
 					 context->max_fds, "lws_lookup");
 	if (context->lws_lookup == NULL) {
@@ -219,7 +219,7 @@ lws_plat_init(struct lws_context *context,
 }
 
 int
-lws_plat_write_file(const char *filename, void *buf, int len)
+lws_plat_write_file(const char *filename, void *buf, size_t len)
 {
 	return 1;
 }
@@ -235,3 +235,27 @@ lws_plat_recommended_rsa_bits(void)
 {
 	return 4096;
 }
+
+int
+lws_plat_ntpclient_config(struct lws_context *context)
+{
+#if 0
+	char *ntpsrv = getenv("LWS_NTP_SERVER");
+
+	if (ntpsrv && strlen(ntpsrv) < 64) {
+		lws_system_blob_heap_append(lws_system_get_blob(context,
+					    LWS_SYSBLOB_TYPE_NTP_SERVER, 0),
+					    (const uint8_t *)ntpsrv,
+					    strlen(ntpsrv));
+		return 1;
+	}
+#endif
+	return 0;
+}
+
+void
+lws_msleep(unsigned int ms)
+{
+}
+
+

@@ -16,9 +16,10 @@
 
 package com.android.car.settings.datausage;
 
+import android.app.usage.NetworkStats;
+import android.app.usage.NetworkStatsManager;
 import android.content.Context;
-import android.net.INetworkStatsSession;
-import android.net.NetworkStats;
+import android.net.ConnectivityManager;
 import android.net.NetworkTemplate;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -26,7 +27,7 @@ import android.os.RemoteException;
 import androidx.loader.content.AsyncTaskLoader;
 
 /**
- * Fetches the network stats using the {@link INetworkStatsSession}.
+ * Fetches the network stats using the {@link NetworkStatsManager}.
  *
  * <p>Class is taken from {@link com.android.settingslib.net.SummaryForAllUidLoader}. The only
  * difference is we are using {@link AsyncTaskLoader} instead of {@link
@@ -37,7 +38,7 @@ public class SummaryForAllUidLoader extends AsyncTaskLoader<NetworkStats> {
     private static final String KEY_START = "start";
     private static final String KEY_END = "end";
 
-    private final INetworkStatsSession mSession;
+    private final NetworkStatsManager mNetworkStatsManager;
     private final Bundle mArgs;
 
     /**
@@ -51,10 +52,10 @@ public class SummaryForAllUidLoader extends AsyncTaskLoader<NetworkStats> {
         return args;
     }
 
-    public SummaryForAllUidLoader(Context context, INetworkStatsSession session, Bundle args) {
+    public SummaryForAllUidLoader(Context context, NetworkStatsManager statsManager, Bundle args) {
         super(context);
-        mSession = session;
         mArgs = args;
+        mNetworkStatsManager = statsManager;
     }
 
     @Override
@@ -70,7 +71,10 @@ public class SummaryForAllUidLoader extends AsyncTaskLoader<NetworkStats> {
         long end = mArgs.getLong(KEY_END);
 
         try {
-            return mSession.getSummaryForAllUid(template, start, end, /* includeTags= */ false);
+            String subscriberId = template.getSubscriberIds().isEmpty() ? null
+                    : template.getSubscriberIds().iterator().next();
+            return mNetworkStatsManager.querySummary(
+                    ConnectivityManager.TYPE_MOBILE, subscriberId, start, end);
         } catch (RemoteException e) {
             return null;
         }

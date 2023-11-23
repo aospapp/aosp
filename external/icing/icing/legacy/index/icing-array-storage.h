@@ -20,8 +20,7 @@
 #ifndef ICING_LEGACY_INDEX_ICING_ARRAY_STORAGE_H_
 #define ICING_LEGACY_INDEX_ICING_ARRAY_STORAGE_H_
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -114,6 +114,7 @@ fn can_enter_basic_rt_from_within_block_in_place() {
 }
 
 #[test]
+#[cfg(not(target_os = "android"))]
 fn useful_panic_message_when_dropping_rt_in_rt() {
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
@@ -132,7 +133,7 @@ fn useful_panic_message_when_dropping_rt_in_rt() {
     let err: &'static str = err.downcast_ref::<&'static str>().unwrap();
 
     assert!(
-        err.find("Cannot drop a runtime").is_some(),
+        err.contains("Cannot drop a runtime"),
         "Wrong panic message: {:?}",
         err
     );

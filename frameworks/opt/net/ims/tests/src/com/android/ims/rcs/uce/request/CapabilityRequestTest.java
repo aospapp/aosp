@@ -164,6 +164,9 @@ public class CapabilityRequestTest extends ImsTestBase {
         doReturn(false).when(mDeviceStateResult).isRequestForbidden();
         doReturn(eabResultList).when(mReqMgrCallback)
                 .getCapabilitiesFromCacheIncludingExpired(any());
+        // This API should only be applied to PUBLISH.
+        // Even if the return value is true, the capabilities request must be processed.
+        doReturn(true).when(mDeviceStateResult).isPublishRequestBlocked();
 
         // Execute the request.
         request.executeRequest();

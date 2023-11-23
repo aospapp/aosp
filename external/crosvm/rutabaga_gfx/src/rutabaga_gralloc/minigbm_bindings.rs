@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Generated with bindgen --whitelist-function='gbm_.*' --whitelist-type='gbm_.*' minigbm/gbm.h
+// Generated with bindgen --allowlist-function='gbm_.*' --allowlist-type='gbm_.*' minigbm/gbm.h
 // Then modified manually
 
 #![cfg(feature = "minigbm")]
@@ -39,7 +39,6 @@ pub union gbm_bo_handle {
 }
 pub const GBM_BO_FORMAT_XRGB8888: gbm_bo_format = 0;
 pub const GBM_BO_FORMAT_ARGB8888: gbm_bo_format = 1;
-#[allow(non_camel_case_types)]
 pub type gbm_bo_format = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

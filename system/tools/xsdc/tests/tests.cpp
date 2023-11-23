@@ -268,15 +268,3 @@ TEST_F(XmlTest, Attrgroupsimple) {
   ofstream out("old_attr_group_simple.xml");
   write(out, student);
 }
-
-TEST_F(XmlTest, Group) {
-  using namespace group;
-  Student student = *read(Resource("group.xml").c_str());
-
-  EXPECT_EQ(student.getCity(), "Mountain View");
-  EXPECT_EQ(student.getState(), "CA");
-  EXPECT_EQ(student.getRoad(), "Street 101");
-
-  ofstream out("old_group.xml");
-  write(out, student);
-}

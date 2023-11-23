@@ -10,7 +10,7 @@ third_party {
     type: GIT
     value: "http://sourceware.org/git/libabigail.git"
   }
-  version: "acc4bea0b8fed335657878ee849adbd7b4238597"
-  last_upgrade_date { year: 2021 month: 4 day: 03 }
+  version: "71633a7c0c7c96c03db8c18826afea26da0f7b4b"
+  last_upgrade_date { year: 2022 month: 1 day: 10 }
   license_type: NOTICE
 }

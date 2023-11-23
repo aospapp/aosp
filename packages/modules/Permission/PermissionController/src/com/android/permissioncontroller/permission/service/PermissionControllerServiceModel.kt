@@ -20,21 +20,24 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.permission.PermissionControllerManager.COUNT_ONLY_WHEN_GRANTED
 import android.permission.PermissionControllerManager.COUNT_WHEN_SYSTEM
+import android.permission.PermissionControllerManager.HIBERNATION_ELIGIBILITY_UNKNOWN
 import androidx.core.util.Consumer
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import androidx.lifecycle.Transformations
 import com.android.permissioncontroller.DumpableLog
 import com.android.permissioncontroller.PermissionControllerProto.PermissionControllerDumpProto
 import com.android.permissioncontroller.permission.data.AppPermGroupUiInfoLiveData
+import com.android.permissioncontroller.permission.data.HibernationSettingStateLiveData
 import com.android.permissioncontroller.permission.data.PackagePermissionsLiveData
 import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.data.UserPackageInfosLiveData
 import com.android.permissioncontroller.permission.data.get
+import com.android.permissioncontroller.permission.data.getUnusedPackages
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo.PermGrantState
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
-import com.android.permissioncontroller.permission.utils.IPC
 import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
@@ -272,6 +275,42 @@ class PermissionControllerServiceModel(private val service: PermissionController
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Counts the number of unused, hibernating apps. This data is gathered from a series of
+     * LiveData objects.
+     *
+     * @param callback The callback our result will be returned to
+     */
+    fun onCountUnusedApps(
+        callback: IntConsumer
+    ) {
+        val unusedAppsCount = Transformations.map(getUnusedPackages()) {
+            it?.size ?: 0
+        }
+        observeAndCheckForLifecycleState(unusedAppsCount) { unusedAppsCount ->
+            callback.accept(unusedAppsCount ?: 0)
+        }
+    }
+
+    /**
+     * Gets whether the package is eligible for hibernation. The logic is the same logic used by
+     * the app hibernation job when determining which apps to hibernate.
+     *
+     * @param packageName The package to check eligibility for
+     * @param callback The callback the result will be returned to
+     */
+    fun onGetHibernationEligibility(
+        packageName: String,
+        callback: IntConsumer
+    ) {
+        val user = Process.myUserHandle()
+        val hibernationSettingLiveData = HibernationSettingStateLiveData[packageName, user]
+        observeAndCheckForLifecycleState(hibernationSettingLiveData) { hibernationSettingState ->
+            callback.accept(
+                hibernationSettingState?.hibernationEligibility ?: HIBERNATION_ELIGIBILITY_UNKNOWN)
         }
     }
 

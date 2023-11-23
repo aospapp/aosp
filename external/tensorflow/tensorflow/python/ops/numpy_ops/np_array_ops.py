@@ -582,8 +582,10 @@ def prod(a, axis=None, dtype=None, keepdims=None):
       tf_bool_fn=math_ops.reduce_all)
 
 
-@np_utils.np_doc('mean')
-def mean(a, axis=None, dtype=None, keepdims=None):
+@np_utils.np_doc('mean', unsupported_params=['out'])
+def mean(a, axis=None, dtype=None, out=None, keepdims=None):
+  if out is not None:
+    raise ValueError('Setting out is not supported.')
   return _reduce(
       math_ops.reduce_mean,
       a,
@@ -593,8 +595,10 @@ def mean(a, axis=None, dtype=None, keepdims=None):
       promote_int=_TO_FLOAT)
 
 
-@np_utils.np_doc('amax')
-def amax(a, axis=None, keepdims=None):
+@np_utils.np_doc('amax', unsupported_params=['out'])
+def amax(a, axis=None, out=None, keepdims=None):
+  if out is not None:
+    raise ValueError('Setting out is not supported.')
   return _reduce(
       math_ops.reduce_max,
       a,
@@ -606,8 +610,10 @@ def amax(a, axis=None, keepdims=None):
       preserve_bool=True)
 
 
-@np_utils.np_doc('amin')
-def amin(a, axis=None, keepdims=None):
+@np_utils.np_doc('amin', unsupported_params=['out'])
+def amin(a, axis=None, out=None, keepdims=None):
+  if out is not None:
+    raise ValueError('Setting out is not supported.')
   return _reduce(
       math_ops.reduce_min,
       a,
@@ -1386,7 +1392,7 @@ def sign(x, out=None, where=None, **kwargs):  # pylint: disable=missing-docstrin
 
   x = asarray(x)
   dtype = x.dtype.as_numpy_dtype
-  if np.issubdtype(dtype, np.complex):
+  if np.issubdtype(dtype, np.complexfloating):
     result = math_ops.cast(math_ops.sign(math_ops.real(x)), dtype)
   else:
     result = math_ops.sign(x)
@@ -1795,7 +1801,7 @@ def _getitem(self, slice_spec):
   if (isinstance(slice_spec, bool) or (isinstance(slice_spec, ops.Tensor) and
                                        slice_spec.dtype == dtypes.bool) or
       (isinstance(slice_spec, (np.ndarray, np_arrays.ndarray)) and
-       slice_spec.dtype == np.bool)):
+       slice_spec.dtype == np.bool_)):
     return array_ops.boolean_mask(tensor=self, mask=slice_spec)
 
   if not isinstance(slice_spec, tuple):
@@ -1810,7 +1816,7 @@ def _with_index_update_helper(update_method, a, slice_spec, updates):
   if (isinstance(slice_spec, bool) or (isinstance(slice_spec, ops.Tensor) and
                                        slice_spec.dtype == dtypes.bool) or
       (isinstance(slice_spec, (np.ndarray, np_arrays.ndarray)) and
-       slice_spec.dtype == np.bool)):
+       slice_spec.dtype == np.bool_)):
     slice_spec = nonzero(slice_spec)
 
   if not isinstance(slice_spec, tuple):

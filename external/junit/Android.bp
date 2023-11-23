@@ -44,6 +44,10 @@ java_library_static {
     srcs: ["src/main/java/**/*.java"],
     sdk_version: "core_current",
     static_libs: ["hamcrest"],
+
+    errorprone: {
+        javacflags: ["-Xep:DoNotCall:OFF"]
+    }
 }
 
 // Legacy junit-host jar until references are updated

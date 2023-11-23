@@ -55,8 +55,8 @@
 #endif
 
 
-static int zip_cmd(int priv, int fd, unsigned char cdb[6], int clen, 
-		   scsi_io_mode_t mode, void *data, size_t len, 
+static int zip_cmd(int priv, int fd, unsigned char cdb[6], uint8_t clen,
+		   scsi_io_mode_t mode, void *data, uint32_t len,
 		   void *extra_data)
 {
 	int r;
@@ -69,7 +69,7 @@ static int zip_cmd(int priv, int fd, unsigned char cdb[6], int clen,
 	return r;
 }
 
-static int test_mounted ( char *dev )
+static int test_mounted ( char *dev UNUSEDP)
 {
 #ifdef HAVE_MNTENT_H
 	struct mntent	*mnt;
@@ -79,14 +79,14 @@ static int test_mounted ( char *dev )
  * Now check if any partition of this device is already mounted (this
  * includes checking if the device is mounted under a different name).
  */
-	
+
 	if (MT_STAT (dev, &st_dev)) {
 		fprintf (stderr, "%s: stat(%s) failed: %s.\n",
 			 progname, dev, strerror (errno));
 		exit(1);
 	}
-	
-	if (!S_ISBLK (st_dev.st_mode)) /* not a block device, cannot 
+
+	if (!S_ISBLK (st_dev.st_mode)) /* not a block device, cannot
 					* be mounted */
 		return 0;
 
@@ -99,7 +99,7 @@ static int test_mounted ( char *dev )
 			 progname, _PATH_MOUNTED);
 		exit(1);
 	}
-	
+
 	while ( ( mnt = getmntent (mtab) ) ) {
 		if (!mnt->mnt_fsname
 
@@ -120,7 +120,7 @@ static int test_mounted ( char *dev )
 		if (MT_STAT (mnt->mnt_fsname, &st_mnt)) {
 			continue;
 		}
-		
+
 		if (S_ISBLK (st_mnt.st_mode)) {
 #ifdef OS_linux
 			/* on Linux, warn also if the device is on the same
@@ -128,10 +128,10 @@ static int test_mounted ( char *dev )
 			if (MAJOR(st_mnt.st_rdev) == MAJOR(st_dev.st_rdev) &&
 			    MINOR(st_mnt.st_rdev) >= MINOR(st_dev.st_rdev) &&
 			    MINOR(st_mnt.st_rdev) <= MINOR(st_dev.st_rdev)+15){
-				fprintf (stderr, 
-					 "Device %s%d is mounted on %s.\n", 
-					 dev, 
-					 MINOR(st_mnt.st_rdev) - 
+				fprintf (stderr,
+					 "Device %s%d is mounted on %s.\n",
+					 dev,
+					 MINOR(st_mnt.st_rdev) -
 					 MINOR(st_dev.st_rdev),
 					 mnt->mnt_dir);
 #else
@@ -154,10 +154,10 @@ static int test_mounted ( char *dev )
 static void usage(int ret) NORETURN;
 static void usage(int ret)
 {
-	fprintf(stderr, 
-		"Mtools version %s, dated %s\n", 
+	fprintf(stderr,
+		"Mtools version %s, dated %s\n",
 		mversion, mdate);
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: %s [-V] [-q] [-e] [-u] [-r|-w|-p|-x] [drive:]\n"
 		"\t-q print status\n"
 		"\t-e eject disk\n"
@@ -166,26 +166,23 @@ static void usage(int ret)
 		"\t-w not write-protected (read-write)\n"
 		"\t-p password write protected\n"
 		"\t-x password protected\n"
-		"\t-u unprotect till disk ejecting\n", 
+		"\t-u unprotect till disk ejecting\n",
 		progname);
 	exit(ret);
 }
 
+#define ZIP_RW (0)
+#define ZIP_RO (2)
+#define ZIP_RO_PW (3)
+#define ZIP_PW (5)
+#define ZIP_UNLOCK_TIL_EJECT (8)
 
-enum mode_t {
-	ZIP_RW = 0,
-	ZIP_RO = 2,
-	ZIP_RO_PW = 3,
-	ZIP_PW = 5,
-	ZIP_UNLOCK_TIL_EJECT = 8
-};
-
-static enum mode_t get_zip_status(int priv, int fd, void *extra_data)
+static uint8_t get_zip_status(int priv, int fd, void *extra_data)
 {
 	unsigned char status[128];
 	unsigned char cdb[6] = { 0x06, 0, 0x02, 0, sizeof status, 0 };
-	
-	if (zip_cmd(priv, fd, cdb, 6, SCSI_IO_READ, 
+
+	if (zip_cmd(priv, fd, cdb, 6, SCSI_IO_READ,
 		    status, sizeof status, extra_data) == -1) {
 		perror("status: ");
 		exit(1);
@@ -194,29 +191,32 @@ static enum mode_t get_zip_status(int priv, int fd, void *extra_data)
 }
 
 
-static int short_command(int priv, int fd, int cmd1, int cmd2, 
-			 int cmd3, const char *data, void *extra_data)
+static int short_command(int priv, int fd, uint8_t cmd1, uint8_t cmd2,
+			 uint8_t cmd3, const char *data, void *extra_data)
 {
-	unsigned char cdb[6] = { 0, 0, 0, 0, 0, 0 };
+	uint8_t cdb[6] = { 0, 0, 0, 0, 0, 0 };
 
 	cdb[0] = cmd1;
 	cdb[1] = cmd2;
 	cdb[4] = cmd3;
 
-	return zip_cmd(priv, fd, cdb, 6, SCSI_IO_WRITE, 
-		       (char *) data, data ? strlen(data) : 0, extra_data);
+	return zip_cmd(priv, fd, cdb, 6, SCSI_IO_WRITE,
+		       (char *) data, data ? (uint32_t) strlen(data) : 0,
+		       extra_data);
 }
 
 
-static int iomega_command(int priv, int fd, int mode, const char *data, 
+static int iomega_command(int priv, int fd, uint8_t mode, const char *data,
 			  void *extra_data)
 {
-	return short_command(priv, fd, 
-			     SCSI_IOMEGA, mode, data ? strlen(data) : 0,
+	return short_command(priv, fd,
+			     SCSI_IOMEGA, mode,
+			     /* Do we really need strlen(data) in here? */
+			     data ? (uint8_t) strlen(data) : 0,
 			     data, extra_data);
 }
 
-static int door_command(int priv, int fd, int cmd1, int cmd2,
+static int door_command(int priv, int fd, uint8_t cmd1, uint8_t cmd2,
 			void *extra_data)
 {
 	return short_command(priv, fd, cmd1, 0, cmd2, 0, extra_data);
@@ -231,22 +231,22 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 	device_t *dev;
 	int fd = -1;
 	char name[EXPAND_BUF];
-	enum { ZIP_NIX    =      0,
-	       ZIP_STATUS = 1 << 0,
-	       ZIP_EJECT  = 1 << 1,
-	       ZIP_MODE_CHANGE = 1 << 2,
-	       ZIP_FORCE  = 1 << 3
-	} request = ZIP_NIX;
+#define ZIP_NIX (0)
+#define ZIP_STATUS (1 << 0)
+#define ZIP_EJECT  (1 << 1)
+#define ZIP_MODE_CHANGE (1 << 2)
+#define ZIP_FORCE  (1 << 3)
+	int request = ZIP_NIX;
 
-	enum mode_t newMode = ZIP_RW;
-	enum mode_t oldMode = ZIP_RW;
+	uint8_t newMode = ZIP_RW;
+	uint8_t oldMode = ZIP_RW;
 
 #define setMode(x) \
 	if(request & ZIP_MODE_CHANGE) usage(1); \
 	request |= ZIP_MODE_CHANGE; \
 	newMode = x; \
-	break;
-	
+	break
+
 	/* get command line options */
 	if(helpFlag(argc, argv))
 		usage(0);
@@ -257,7 +257,7 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 				break;
 			case 'f':
 				if (get_real_uid()) {
-					fprintf(stderr, 
+					fprintf(stderr,
 						"Only root can use force. Sorry.\n");
 					exit(1);
 				}
@@ -279,24 +279,24 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 			case 'x': /* password protected */
 				setMode(ZIP_PW);
 			case 'u': /* password protected */
-				setMode(ZIP_UNLOCK_TIL_EJECT)
+				setMode(ZIP_UNLOCK_TIL_EJECT);
 			case 'h':
 				usage(0);
 			default:  /* unrecognized */
 				usage(1);
-			
+
 		}
 	}
-	
+
 	if (request == ZIP_NIX) request = ZIP_STATUS;  /* default action */
 
-	if (argc - optind > 1 || 
+	if (argc - optind > 1 ||
 	    (argc - optind == 1 &&
 	     (!argv[optind][0] || argv[optind][1] != ':')))
 		usage(1);
-	
+
 	drive = ch_toupper(argc - optind == 1 ? argv[argc - 1][0] : ':');
-	
+
 	for (dev = devices; dev->name; dev++) {
 		unsigned char cdb[6] = { 0, 0, 0, 0, 0, 0 };
 		struct {
@@ -314,13 +314,13 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 				reserved2[40];
 		} inq_data;
 
-		if (dev->drive != drive) 
+		if (dev->drive != drive)
 			continue;
 		expand(dev->name, name);
 		if ((request & (ZIP_MODE_CHANGE | ZIP_EJECT)) &&
 		    !(request & ZIP_FORCE) &&
 		    test_mounted(name)) {
-			fprintf(stderr, 
+			fprintf(stderr,
 				"Can\'t change status of/eject mounted device\n");
 			exit(1);
 		}
@@ -339,8 +339,8 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 
 				/* need readonly, else we can't
 				 * open the drive on Solaris if
-				 * write-protected */		
-		if (fd == -1) 
+				 * write-protected */
+		if (fd == -1)
 			continue;
 		closeExec(fd);
 
@@ -352,12 +352,12 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 
 		cdb[0] = SCSI_INQUIRY;
 		cdb[4] = sizeof inq_data;
-		if (zip_cmd(IS_PRIVILEGED(dev), fd, cdb, 6, SCSI_IO_READ, 
+		if (zip_cmd(IS_PRIVILEGED(dev), fd, cdb, 6, SCSI_IO_READ,
 			    &inq_data, sizeof inq_data, extra_data) != 0) {
 			close(fd);
 			continue;
 		}
-		
+
 #ifdef DEBUG
 		fprintf(stderr, "device: %s\n\tvendor: %.8s\n\tproduct: %.16s\n"
 			"\trevision: %.4s\n", name, inq_data.vendor,
@@ -381,10 +381,10 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 
 			/* debugging */
 			fprintf(stderr,"Skipping drive with vendor='");
-			fwrite(inq_data.vendor,1, sizeof(inq_data.vendor), 
+			fwrite(inq_data.vendor,1, sizeof(inq_data.vendor),
 			       stderr);
 			fprintf(stderr,"' product='");
-			fwrite(inq_data.product,1, sizeof(inq_data.product), 
+			fwrite(inq_data.product,1, sizeof(inq_data.product),
 			       stderr);
 			fprintf(stderr,"'\n");
 			/* end debugging */
@@ -417,7 +417,7 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 
 	if (request & ZIP_MODE_CHANGE) {
 		int ret;
-		enum mode_t unlockMode, unlockMask;
+		uint8_t unlockMode, unlockMask;
 		const char *passwd;
 		char dummy[1];
 
@@ -433,34 +433,34 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 			char *s;
 			passwd = "APlaceForYourStuff";
 			if ((s = strchr(passwd, '\n'))) *s = '\0';  /* chomp */
-			iomega_command(IS_PRIVILEGED(dev), fd, unlockMode, 
+			iomega_command(IS_PRIVILEGED(dev), fd, unlockMode,
 				       passwd, extra_data);
 		}
-		
-		if ((get_zip_status(IS_PRIVILEGED(dev), fd, extra_data) & 
+
+		if ((get_zip_status(IS_PRIVILEGED(dev), fd, extra_data) &
 		     unlockMask) == 1) {
 			/* unlock first */
 			char *s;
 			passwd = getpass("Password: ");
 			if ((s = strchr(passwd, '\n'))) *s = '\0';  /* chomp */
-			if((ret=iomega_command(IS_PRIVILEGED(dev), fd, 
-					       unlockMode, passwd, 
+			if((ret=iomega_command(IS_PRIVILEGED(dev), fd,
+					       unlockMode, passwd,
 					       extra_data))){
 				if (ret == -1) perror("passwd: ");
 				else fprintf(stderr, "wrong password\n");
 				exit(1);
 			}
-			if((get_zip_status(IS_PRIVILEGED(dev), 
-					   fd, extra_data) & 
+			if((get_zip_status(IS_PRIVILEGED(dev),
+					   fd, extra_data) &
 			    unlockMask) == 1) {
 				fprintf(stderr, "wrong password\n");
 				exit(1);
 			}
 		}
-		
+
 		if (newMode & 0x1) {
 			char first_try[_PASSWORD_LEN+1];
-			
+
 			passwd = getpass("Enter new password:");
 			strncpy(first_try, passwd,_PASSWORD_LEN);
 			passwd = getpass("Re-type new password:");
@@ -477,7 +477,7 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 		if(newMode == ZIP_UNLOCK_TIL_EJECT)
 			newMode |= oldMode;
 
-		if((ret=iomega_command(IS_PRIVILEGED(dev), fd, 
+		if((ret=iomega_command(IS_PRIVILEGED(dev), fd,
 				       newMode, passwd, extra_data))){
 			if (ret == -1) perror("set passwd: ");
 			else fprintf(stderr, "password not changed\n");
@@ -489,16 +489,16 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 					 status has changed */
 #endif
 	}
-	
+
 	if (request & ZIP_STATUS) {
 		const char *unlocked;
 
 		if(oldMode & 8)
 			unlocked = " and unlocked until eject";
 		else
-			unlocked = "";		
+			unlocked = "";
 		switch (oldMode & ~8) {
-			case ZIP_RW:  
+			case ZIP_RW:
 				printf("Drive '%c:' is not write-protected\n",
 				       drive);
 				break;
@@ -506,49 +506,49 @@ void mzip(int argc, char **argv, int type UNUSEDP)
 				printf("Drive '%c:' is write-protected%s\n",
 				       drive, unlocked);
 				break;
-			case ZIP_RO_PW: 
-				printf("Drive '%c:' is password write-protected%s\n", 
+			case ZIP_RO_PW:
+				printf("Drive '%c:' is password write-protected%s\n",
 				       drive, unlocked);
 				break;
-			case ZIP_PW:  
-				printf("Drive '%c:' is password protected%s\n", 
+			case ZIP_PW:
+				printf("Drive '%c:' is password protected%s\n",
 				       drive, unlocked);
 				break;
-			default: 
+			default:
 				printf("Unknown protection mode %d of drive '%c:'\n",
 				       oldMode, drive);
-				break;				
-		}		
+				break;
+		}
 	}
-	
+
 	if (request & ZIP_EJECT) {
 		if(request & ZIP_FORCE)
-			if(door_command(IS_PRIVILEGED(dev), fd, 
+			if(door_command(IS_PRIVILEGED(dev), fd,
 					SCSI_ALLOW_MEDIUM_REMOVAL, 0,
 					extra_data) < 0) {
 				perror("door unlock: ");
 				exit(1);
 			}
 
-		if(door_command(IS_PRIVILEGED(dev), fd, 
+		if(door_command(IS_PRIVILEGED(dev), fd,
 				SCSI_START_STOP, 1,
 				extra_data) < 0) {
 			perror("stop motor: ");
 			exit(1);
 		}
 
-		if(door_command(IS_PRIVILEGED(dev), fd, 
+		if(door_command(IS_PRIVILEGED(dev), fd,
 				SCSI_START_STOP, 2, extra_data) < 0) {
 			perror("eject: ");
 			exit(1);
 		}
-		if(door_command(IS_PRIVILEGED(dev), fd, 
+		if(door_command(IS_PRIVILEGED(dev), fd,
 				SCSI_START_STOP, 2, extra_data) < 0) {
 			perror("second eject: ");
 			exit(1);
 		}
 	}
-	
+
 	close(fd);
 	exit(0);
 }

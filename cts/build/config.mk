@@ -15,6 +15,7 @@
 # Test XMLs, native executables, and packages will be placed in this
 # directory before creating the final CTS distribution.
 COMPATIBILITY_TESTCASES_OUT_cts := $(HOST_OUT)/cts/android-cts/testcases
+COMPATIBILITY_TESTCASES_OUT_INCLUDE_MODULE_FOLDER_cts := true
 
 # CTS build rules
 BUILD_COMPATIBILITY_SUITE := cts/build/compatibility_test_suite.mk

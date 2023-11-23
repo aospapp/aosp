@@ -52,16 +52,24 @@ class WatchdogBinderMediatorPeer;
 
 }  // namespace internal
 
+class WatchdogBinderMediatorInterface : public BnCarWatchdog {
+public:
+    virtual android::base::Result<void> init() = 0;
+    virtual void terminate() = 0;
+    virtual status_t dump(int fd, const Vector<android::String16>& args) = 0;
+};
+
 // WatchdogBinderMediator implements the public carwatchdog binder APIs such that it forwards
 // the calls either to process ANR or performance services.
-class WatchdogBinderMediator : public BnCarWatchdog {
+class WatchdogBinderMediator final : public WatchdogBinderMediatorInterface {
 public:
-    WatchdogBinderMediator(const android::sp<WatchdogProcessService>& watchdogProcessService,
-                           const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
-                           const android::sp<IWatchdogServiceHelper>& watchdogServiceHelper,
-                           const std::function<android::base::Result<void>(
-                                   const char*, const android::sp<android::IBinder>&)>&
-                                   addServiceHandler = nullptr);
+    WatchdogBinderMediator(
+            const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService,
+            const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
+            const android::sp<WatchdogServiceHelperInterface>& watchdogServiceHelper,
+            const std::function<android::base::Result<void>(const char*,
+                                                            const android::sp<android::IBinder>&)>&
+                    addServiceHandler = nullptr);
     ~WatchdogBinderMediator() { terminate(); }
 
     // Implements ICarWatchdog.aidl APIs.
@@ -115,9 +123,10 @@ private:
     status_t dumpServices(int fd, const Vector<String16>& args);
     status_t dumpHelpText(const int fd, const std::string& errorMsg);
 
-    android::sp<WatchdogProcessService> mWatchdogProcessService;
+    android::sp<WatchdogProcessServiceInterface> mWatchdogProcessService;
     android::sp<WatchdogPerfServiceInterface> mWatchdogPerfService;
-    android::sp<IIoOveruseMonitor> mIoOveruseMonitor;
+    android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper;
+    android::sp<IoOveruseMonitorInterface> mIoOveruseMonitor;
     android::sp<WatchdogInternalHandler> mWatchdogInternalHandler;
 
     // Used by tests to stub the call to IServiceManager.

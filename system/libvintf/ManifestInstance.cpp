@@ -79,6 +79,14 @@ Arch ManifestInstance::arch() const {
     return mTransportArch.arch;
 }
 
+const std::optional<std::string> ManifestInstance::ip() const {
+    return mTransportArch.ip;
+}
+
+const std::optional<uint64_t> ManifestInstance::port() const {
+    return mTransportArch.port;
+}
+
 HalFormat ManifestInstance::format() const {
     return mHalFormat;
 }

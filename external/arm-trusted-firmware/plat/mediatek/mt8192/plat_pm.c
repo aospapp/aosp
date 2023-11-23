@@ -17,6 +17,7 @@
 #include <mtk_ptp3_common.h>
 #include <mtspmc.h>
 #include <plat/common/platform.h>
+#include <plat_dfd.h>
 #include <plat_mtk_lpm.h>
 #include <plat_params.h>
 #include <plat_pm.h>
@@ -87,11 +88,6 @@ static void plat_cpu_pwron_common(unsigned int cpu,
 
 	coordinate_cluster_pwron();
 
-	/* Enable the GIC CPU interface */
-	gicv3_rdistif_on(cpu);
-	gicv3_cpuif_enable(cpu);
-	mt_gic_rdistif_init();
-
 	/*
 	 * If mcusys does power down before then restore
 	 * all CPUs' GIC Redistributors
@@ -99,6 +95,9 @@ static void plat_cpu_pwron_common(unsigned int cpu,
 	if (IS_MCUSYS_OFF_STATE(state)) {
 		mt_gic_rdistif_restore_all();
 	} else {
+		gicv3_rdistif_on(cpu);
+		gicv3_cpuif_enable(cpu);
+		mt_gic_rdistif_init();
 		mt_gic_rdistif_restore();
 	}
 
@@ -169,6 +168,8 @@ static void plat_mcusys_pwron_common(unsigned int cpu,
 	mt_gic_init();
 	mt_gic_distif_restore();
 	gic_sgi_restore_all();
+
+	dfd_resume();
 
 	plat_mt_pm_invoke_no_check(pwr_mcusys_on_finished, cpu, state);
 }

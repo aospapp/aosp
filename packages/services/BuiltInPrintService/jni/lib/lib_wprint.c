@@ -595,7 +595,7 @@ static void _job_status_callback(const printer_state_dyn_t *new_status,
                 jq->job_state = JOB_STATE_RUNNING;
                 jq->blocked_reasons = blocked_reasons;
                 if (jq->cb_fn) {
-                    cb_param.state = JOB_RUNNING;
+                    cb_param.param.state = JOB_RUNNING;
                     cb_param.blocked_reasons = jq->blocked_reasons;
                     cb_param.job_done_result = OK;
 
@@ -614,7 +614,7 @@ static void _job_status_callback(const printer_state_dyn_t *new_status,
             jq->job_params.cancelled = true;
             jq->job_state = JOB_STATE_ERROR;
             if (jq->cb_fn) {
-                cb_param.state = JOB_DONE;
+                cb_param.param.state = JOB_DONE;
                 cb_param.blocked_reasons = blocked_reasons;
                 cb_param.job_done_result = ERROR;
 
@@ -644,7 +644,7 @@ static void _job_status_callback(const printer_state_dyn_t *new_status,
                 jq->job_state = JOB_STATE_BLOCKED;
                 jq->blocked_reasons = blocked_reasons;
                 if (jq->cb_fn) {
-                    cb_param.state = JOB_BLOCKED;
+                    cb_param.param.state = JOB_BLOCKED;
                     cb_param.blocked_reasons = blocked_reasons;
                     cb_param.job_done_result = OK;
 
@@ -656,9 +656,104 @@ static void _job_status_callback(const printer_state_dyn_t *new_status,
     }
 }
 
+/*
+ * Callback after getting the print job state
+ */
+static void _print_job_state_callback(const job_state_dyn_t *new_state, void *param) {
+    wprint_job_callback_params_t cb_param = {};
+    _job_queue_t *jq = (_job_queue_t *) param;
+    unsigned long long blocked_reasons = 0;
+    int i;
+
+    cb_param.certificate = jq->certificate;
+    cb_param.certificate_len = jq->certificate_len;
+
+    LOGI("_print_job_state_callback(): new state: %d", new_state->job_state);
+    for (i = 0; i <= IPP_JOB_STATE_REASON_MAX_VALUE; i++) {
+        if (new_state->job_state_reasons[i] == IPP_JOB_STATE_REASON_MAX_VALUE)
+            break;
+        LOGD("_print_job_state_callback(): blocking reason %d: %d", i,
+             new_state->job_state_reasons[i]);
+        blocked_reasons |= (LONG_ONE << new_state->job_state_reasons[i]);
+    }
+
+    switch (new_state->job_state) {
+        case IPP_JOB_STATE_UNABLE_TO_CONNECT:
+            sem_post(&_job_start_wait_sem);
+            _lock();
+            jq->job_state = JOB_STATE_ERROR;
+            jq->blocked_reasons = blocked_reasons;
+            _unlock();
+            sem_post(&_job_end_wait_sem);
+            break;
+
+        case IPP_JOB_STATE_UNKNOWN:
+        case IPP_JOB_STATE_PENDING:
+        case IPP_JOB_STATE_PENDING_HELD:
+            break;
+
+        case IPP_JOB_STATE_PROCESSING:
+            sem_post(&_job_start_wait_sem);
+            // clear errors
+            _lock();
+            if (jq->job_state != JOB_STATE_RUNNING) {
+                jq->job_state = JOB_STATE_RUNNING;
+                if (jq->cb_fn) {
+                    cb_param.id = WPRINT_CB_PARAM_JOB_STATE;
+                    cb_param.param.state = JOB_RUNNING;
+                    cb_param.job_done_result = OK;
+                    jq->cb_fn(jq->job_handle, (void *) &cb_param);
+                }
+            }
+            _unlock();
+            break;
+
+        case IPP_JOB_STATE_PROCESSING_STOPPED:
+            if (jq->job_state == JOB_STATE_BLOCKED) {
+                if (jq->cb_fn) {
+                    cb_param.id = WPRINT_CB_PARAM_JOB_STATE;
+                    cb_param.param.state = JOB_BLOCKED;
+                    cb_param.blocked_reasons = jq->blocked_reasons;
+                    cb_param.job_done_result = OK;
+
+                    jq->cb_fn(jq->job_handle, (void *) &cb_param);
+                }
+            }
+            break;
+
+        case IPP_JOB_STATE_CANCELED:
+            sem_post(&_job_start_wait_sem);
+            sem_post(&_job_end_wait_sem);
+            if ((jq->print_ifc != NULL) && (jq->print_ifc->enable_timeout != NULL)) {
+                jq->print_ifc->enable_timeout(jq->print_ifc, 1);
+            }
+            _lock();
+            jq->job_params.cancelled = true;
+            jq->blocked_reasons = blocked_reasons;
+            _unlock();
+            break;
+
+        case IPP_JOB_STATE_ABORTED:
+            sem_post(&_job_start_wait_sem);
+            sem_post(&_job_end_wait_sem);
+            _lock();
+            jq->job_state = JOB_STATE_ERROR;
+            jq->blocked_reasons = blocked_reasons;
+            _unlock();
+            break;
+
+        case IPP_JOB_STATE_COMPLETED:
+            sem_post(&_job_end_wait_sem);
+            break;
+
+        default:
+            break;
+    }
+}
+
 static void *_job_status_thread(void *param) {
     _job_queue_t *jq = (_job_queue_t *) param;
-    (jq->status_ifc->start)(jq->status_ifc, _job_status_callback, param);
+    (jq->status_ifc->start)(jq->status_ifc, _job_status_callback, _print_job_state_callback, param);
     return NULL;
 }
 
@@ -885,7 +980,7 @@ static void *_job_thread(void *param) {
                             jq->job_state = JOB_STATE_BLOCKED;
                             jq->blocked_reasons = blocked_reasons;
                             if (jq->cb_fn) {
-                                cb_param.state = JOB_BLOCKED;
+                                cb_param.param.state = JOB_BLOCKED;
                                 cb_param.blocked_reasons = blocked_reasons;
                                 cb_param.job_done_result = OK;
 
@@ -925,7 +1020,7 @@ static void *_job_thread(void *param) {
              use callback to notify the client */
 
             if ((job_result == OK) && jq->cb_fn) {
-                cb_param.state = JOB_RUNNING;
+                cb_param.param.state = JOB_RUNNING;
                 cb_param.blocked_reasons = 0;
                 cb_param.job_done_result = OK;
 
@@ -1285,7 +1380,7 @@ static void *_job_thread(void *param) {
 
                 // end of job callback
                 if (jq->cb_fn) {
-                    cb_param.state = JOB_DONE;
+                    cb_param.param.state = JOB_DONE;
                     cb_param.blocked_reasons = jq->blocked_reasons;
                     cb_param.job_done_result = job_result;
 
@@ -2140,7 +2235,7 @@ status_t wprintCancelJob(wJob_t job_handle) {
 
             if (jq->cb_fn) {
                 wprint_job_callback_params_t cb_param;
-                cb_param.state = JOB_DONE;
+                cb_param.param.state = JOB_DONE;
                 cb_param.blocked_reasons = BLOCKED_REASONS_CANCELLED;
                 cb_param.job_done_result = CANCELLED;
                 cb_param.certificate = jq->certificate;
@@ -2196,7 +2291,6 @@ status_t wprintExit(void) {
 
         sem_destroy(&_job_end_wait_sem);
         sem_destroy(&_job_start_wait_sem);
-        pthread_mutex_destroy(&_q_lock);
     }
 
     return OK;

@@ -28,6 +28,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.text.LineBreakConfig;
 import android.graphics.text.MeasuredText;
 import android.text.PrecomputedText;
 import android.text.SpannableStringBuilder;
@@ -61,6 +62,12 @@ public class MeasuredTextTest {
         String text = "Hello, World";
         new MeasuredText.Builder(text.toCharArray())
                 .appendStyleRun(sPaint, text.length(), false /* isRtl */).build();
+
+        LineBreakConfig config = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+        new MeasuredText.Builder(text.toCharArray())
+                .appendStyleRun(sPaint, config, text.length(), false /* isRtl */).build();
     }
 
     @Test

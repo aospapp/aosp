@@ -107,6 +107,9 @@ use android_system_keystore2::aidl::android::system::keystore2::Authorization::A
 use anyhow::{Context, Result};
 use rusqlite::types::{Null, ToSql, ToSqlOutput};
 use rusqlite::Result as SqlResult;
+use serde::de::Deserializer;
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 
 /// This trait is used to associate a primitive to any type that can be stored inside a
 /// KeyParameterValue, especially the AIDL enum types, e.g., keymint::{Algorithm, Digest, ...}.
@@ -121,7 +124,7 @@ use rusqlite::Result as SqlResult;
 /// there is no wrapped type):
 /// `KeyParameterValue::$vname(<$vtype>::from_primitive(row.get(0)))`
 trait AssociatePrimitive {
-    type Primitive;
+    type Primitive: Into<Primitive> + TryFrom<Primitive>;
 
     fn from_primitive(v: Self::Primitive) -> Self;
     fn to_primitive(&self) -> Self::Primitive;
@@ -177,6 +180,7 @@ implement_associate_primitive_identity! {i32}
 /// This enum allows passing a primitive value to `KeyParameterValue::new_from_tag_primitive_pair`
 /// Usually, it is not necessary to use this type directly because the function uses
 /// `Into<Primitive>` as a trait bound.
+#[derive(Deserialize, Serialize)]
 pub enum Primitive {
     /// Wraps an i64.
     I64(i64),
@@ -213,35 +217,55 @@ pub enum PrimitiveError {
     UnknownTag,
 }
 
-impl TryInto<i64> for Primitive {
+impl TryFrom<Primitive> for i64 {
     type Error = PrimitiveError;
 
-    fn try_into(self) -> Result<i64, Self::Error> {
-        match self {
-            Self::I64(v) => Ok(v),
+    fn try_from(p: Primitive) -> Result<i64, Self::Error> {
+        match p {
+            Primitive::I64(v) => Ok(v),
             _ => Err(Self::Error::TypeMismatch),
         }
     }
 }
-impl TryInto<i32> for Primitive {
+impl TryFrom<Primitive> for i32 {
     type Error = PrimitiveError;
 
-    fn try_into(self) -> Result<i32, Self::Error> {
-        match self {
-            Self::I32(v) => Ok(v),
+    fn try_from(p: Primitive) -> Result<i32, Self::Error> {
+        match p {
+            Primitive::I32(v) => Ok(v),
             _ => Err(Self::Error::TypeMismatch),
         }
     }
 }
-impl TryInto<Vec<u8>> for Primitive {
+impl TryFrom<Primitive> for Vec<u8> {
     type Error = PrimitiveError;
 
-    fn try_into(self) -> Result<Vec<u8>, Self::Error> {
-        match self {
-            Self::Vec(v) => Ok(v),
+    fn try_from(p: Primitive) -> Result<Vec<u8>, Self::Error> {
+        match p {
+            Primitive::Vec(v) => Ok(v),
             _ => Err(Self::Error::TypeMismatch),
         }
     }
+}
+
+fn serialize_primitive<S, P>(v: &P, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    P: AssociatePrimitive,
+{
+    let primitive: Primitive = v.to_primitive().into();
+    primitive.serialize(serializer)
+}
+
+fn deserialize_primitive<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: AssociatePrimitive,
+{
+    let primitive: Primitive = serde::de::Deserialize::deserialize(deserializer)?;
+    Ok(T::from_primitive(
+        primitive.try_into().map_err(|_| serde::de::Error::custom("Type Mismatch"))?,
+    ))
 }
 
 /// Expands the list of KeyParameterValue variants as follows:
@@ -763,6 +787,14 @@ macro_rules! implement_key_parameter_value {
                     value: KmKeyParameterValue::$field_name(Default::default())}
                 ),*]
             }
+
+            #[cfg(test)]
+            fn make_key_parameter_defaults_vector() -> Vec<KeyParameter> {
+                vec![$(KeyParameter{
+                    value: KeyParameterValue::$vname$((<$vtype as Default>::default()))?,
+                    security_level: SecurityLevel(100),
+                }),*]
+            }
         }
 
         implement_try_from_to_km_parameter!(
@@ -777,27 +809,37 @@ macro_rules! implement_key_parameter_value {
 implement_key_parameter_value! {
 /// KeyParameterValue holds a value corresponding to one of the Tags defined in
 /// the AIDL spec at hardware/interfaces/security/keymint
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub enum KeyParameterValue {
     /// Associated with Tag:INVALID
     #[key_param(tag = INVALID, field = Invalid)]
     Invalid,
     /// Set of purposes for which the key may be used
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = PURPOSE, field = KeyPurpose)]
     KeyPurpose(KeyPurpose),
     /// Cryptographic algorithm with which the key is used
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = ALGORITHM, field = Algorithm)]
     Algorithm(Algorithm),
     /// Size of the key , in bits
     #[key_param(tag = KEY_SIZE, field = Integer)]
     KeySize(i32),
     /// Block cipher mode(s) with which the key may be used
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = BLOCK_MODE, field = BlockMode)]
     BlockMode(BlockMode),
     /// Digest algorithms that may be used with the key to perform signing and verification
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = DIGEST, field = Digest)]
     Digest(Digest),
     /// Padding modes that may be used with the key.  Relevant to RSA, AES and 3DES keys.
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = PADDING, field = PaddingMode)]
     PaddingMode(PaddingMode),
     /// Can the caller provide a nonce for nonce-requiring operations
@@ -807,6 +849,8 @@ pub enum KeyParameterValue {
     #[key_param(tag = MIN_MAC_LENGTH, field = Integer)]
     MinMacLength(i32),
     /// The elliptic curve
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = EC_CURVE, field = EcCurve)]
     EcCurve(EcCurve),
     /// Value of the public exponent for an RSA key pair
@@ -856,6 +900,8 @@ pub enum KeyParameterValue {
     #[key_param(tag = NO_AUTH_REQUIRED, field = BoolValue)]
     NoAuthRequired,
     /// The types of user authenticators that may be used to authorize this key
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = USER_AUTH_TYPE, field = HardwareAuthenticatorType)]
     HardwareAuthenticatorType(HardwareAuthenticatorType),
     /// The time in seconds for which the key is authorized for use, after user authentication
@@ -886,6 +932,8 @@ pub enum KeyParameterValue {
     #[key_param(tag = CREATION_DATETIME, field = DateTime)]
     CreationDateTime(i64),
     /// Specifies where the key was created, if known
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     #[key_param(tag = ORIGIN, field = Origin)]
     KeyOrigin(KeyOrigin),
     /// The key used by verified boot to validate the operating system booted
@@ -981,9 +1029,11 @@ impl From<&KmKeyParameter> for KeyParameterValue {
 }
 
 /// KeyParameter wraps the KeyParameterValue and the security level at which it is enforced.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct KeyParameter {
     value: KeyParameterValue,
+    #[serde(deserialize_with = "deserialize_primitive")]
+    #[serde(serialize_with = "serialize_primitive")]
     security_level: SecurityLevel,
 }
 
@@ -1105,6 +1155,18 @@ mod generated_key_parameter_tests {
     #[test]
     fn key_parameter_value_field_matches_tag_type() {
         check_field_matches_tag_type(&KeyParameterValue::make_field_matches_tag_type_test_vector());
+    }
+
+    #[test]
+    fn key_parameter_serialization_test() {
+        let params = KeyParameterValue::make_key_parameter_defaults_vector();
+        let mut out_buffer: Vec<u8> = Default::default();
+        serde_cbor::to_writer(&mut out_buffer, &params)
+            .expect("Failed to serialize key parameters.");
+        let deserialized_params: Vec<KeyParameter> =
+            serde_cbor::from_reader(&mut out_buffer.as_slice())
+                .expect("Failed to deserialize key parameters.");
+        assert_eq!(params, deserialized_params);
     }
 }
 

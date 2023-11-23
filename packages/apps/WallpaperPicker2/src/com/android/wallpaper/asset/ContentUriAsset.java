@@ -23,7 +23,6 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.ImageView;
 
@@ -44,11 +43,14 @@ import com.bumptech.glide.request.target.Target;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Represents an asset located via an Android content URI.
  */
 public final class ContentUriAsset extends StreamableAsset {
+    private static final ExecutorService sExecutorService = Executors.newSingleThreadExecutor();
     private static final String TAG = "ContentUriAsset";
     private static final String JPEG_MIME_TYPE = "image/jpeg";
     private static final String PNG_MIME_TYPE = "image/png";
@@ -140,12 +142,13 @@ public final class ContentUriAsset extends StreamableAsset {
                         if (fullBitmap == null) {
                             Log.e(TAG, "There was an error decoding the asset's full bitmap with " +
                                     "content URI: " + mUri);
-                            receiver.onBitmapDecoded(null);
+                            decodeBitmapCompleted(receiver, null);
                             return;
                         }
-
-                        BitmapCropTask task = new BitmapCropTask(fullBitmap, rect, receiver);
-                        task.execute();
+                        sExecutorService.execute(()-> {
+                            decodeBitmapCompleted(receiver, Bitmap.createBitmap(
+                                    fullBitmap, rect.left, rect.top, rect.width(), rect.height()));
+                        });
                     }
                 });
             }
@@ -298,37 +301,4 @@ public final class ContentUriAsset extends StreamableAsset {
     public Uri getUri() {
         return mUri;
     }
-
-    /**
-     * Custom AsyncTask which crops a bitmap region from a larger bitmap.
-     */
-    private static class BitmapCropTask extends AsyncTask<Void, Void, Bitmap> {
-
-        private Bitmap mFromBitmap;
-        private Rect mCropRect;
-        private BitmapReceiver mReceiver;
-
-        public BitmapCropTask(Bitmap fromBitmap, Rect cropRect, BitmapReceiver receiver) {
-            mFromBitmap = fromBitmap;
-            mCropRect = cropRect;
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            if (mFromBitmap == null) {
-                return null;
-            }
-
-            return Bitmap.createBitmap(
-                    mFromBitmap, mCropRect.left, mCropRect.top, mCropRect.width(),
-                    mCropRect.height());
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap bitmapRegion) {
-            mReceiver.onBitmapDecoded(bitmapRegion);
-        }
-    }
-
 }

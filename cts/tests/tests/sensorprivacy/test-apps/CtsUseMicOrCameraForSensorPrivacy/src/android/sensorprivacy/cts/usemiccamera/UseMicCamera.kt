@@ -71,7 +71,7 @@ class UseMicCamera : Activity() {
                         Process.myUid(), applicationContext.packageName)
                 finishAndRemoveTask()
             }
-        }, IntentFilter(FINISH_MIC_CAM_ACTIVITY_ACTION))
+        }, IntentFilter(FINISH_MIC_CAM_ACTIVITY_ACTION), Context.RECEIVER_EXPORTED)
 
         val useMic = intent.getBooleanExtra(USE_MIC_EXTRA, false)
         val useCam = intent.getBooleanExtra(USE_CAM_EXTRA, false)

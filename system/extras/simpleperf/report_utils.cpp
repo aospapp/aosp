@@ -25,17 +25,11 @@ namespace simpleperf {
 
 static bool IsArtEntry(const CallChainReportEntry& entry, bool* is_jni_trampoline) {
   if (entry.execution_type == CallChainExecutionType::NATIVE_METHOD) {
-    if (android::base::EndsWith(entry.dso->Path(), "/libart.so") ||
-        android::base::EndsWith(entry.dso->Path(), "/libartd.so")) {
-      *is_jni_trampoline = false;
-      return true;
-    }
-    if (strcmp(entry.symbol->Name(), "art_jni_trampoline") == 0) {
-      // art_jni_trampoline is a trampoline used to call jni methods in art runtime.
-      // We want to hide it when hiding art frames.
-      *is_jni_trampoline = true;
-      return true;
-    }
+    // art_jni_trampoline/art_quick_generic_jni_trampoline are trampolines used to call jni
+    // methods in art runtime. We want to hide them when hiding art frames.
+    *is_jni_trampoline = android::base::EndsWith(entry.symbol->Name(), "jni_trampoline");
+    return *is_jni_trampoline || android::base::EndsWith(entry.dso->Path(), "/libart.so") ||
+           android::base::EndsWith(entry.dso->Path(), "/libartd.so");
   }
   return false;
 };
@@ -172,11 +166,12 @@ void CallChainReportBuilder::ConvertJITFrame(std::vector<CallChainReportEntry>& 
   CollectJavaMethods();
   for (size_t i = 0; i < callchain.size();) {
     auto& entry = callchain[i];
-    if (entry.dso->IsForJavaMethod() && entry.dso->type() == DSO_ELF_FILE) {
+    if (entry.execution_type == CallChainExecutionType::JIT_JVM_METHOD) {
       // This is a JIT java method, merge it with the interpreted java method having the same
       // name if possible. Otherwise, merge it with other JIT java methods having the same name
       // by assigning a common dso_name.
-      if (auto it = java_method_map_.find(entry.symbol->Name()); it != java_method_map_.end()) {
+      if (auto it = java_method_map_.find(std::string(entry.symbol->FunctionName()));
+          it != java_method_map_.end()) {
         entry.dso = it->second.dso;
         entry.symbol = it->second.symbol;
         // Not enough info to map an offset in a JIT method to an offset in a dex file. So just
@@ -214,13 +209,29 @@ void CallChainReportBuilder::CollectJavaMethods() {
   }
 }
 
+static bool IsJavaEntry(const CallChainReportEntry& entry) {
+  static const char* COMPILED_JAVA_FILE_SUFFIXES[] = {".odex", ".oat", ".dex"};
+  if (entry.execution_type == CallChainExecutionType::JIT_JVM_METHOD ||
+      entry.execution_type == CallChainExecutionType::INTERPRETED_JVM_METHOD) {
+    return true;
+  }
+  if (entry.execution_type == CallChainExecutionType::NATIVE_METHOD) {
+    const std::string& path = entry.dso->Path();
+    for (const char* suffix : COMPILED_JAVA_FILE_SUFFIXES) {
+      if (android::base::EndsWith(path, suffix)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void CallChainReportBuilder::DeObfuscateJavaMethods(std::vector<CallChainReportEntry>& callchain) {
   for (auto& entry : callchain) {
-    if (entry.execution_type != CallChainExecutionType::JIT_JVM_METHOD &&
-        entry.execution_type != CallChainExecutionType::INTERPRETED_JVM_METHOD) {
+    if (!IsJavaEntry(entry)) {
       continue;
     }
-    std::string_view name = entry.symbol->DemangledName();
+    std::string_view name = entry.symbol->FunctionName();
     if (auto split_pos = name.rfind('.'); split_pos != name.npos) {
       std::string obfuscated_classname(name.substr(0, split_pos));
       if (auto it = proguard_class_map_.find(obfuscated_classname);

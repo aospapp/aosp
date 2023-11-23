@@ -37,6 +37,7 @@
 #include <sys/sysinfo.h>
 #endif
 
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>

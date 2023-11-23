@@ -7,10 +7,10 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use std::result;
 
-use ast::{self, Ast, Position, Span};
-use either::Either;
+use crate::ast::{self, Ast, Position, Span};
+use crate::either::Either;
 
-use is_meta_character;
+use crate::is_meta_character;
 
 type Result<T> = result::Result<T, ast::Error>;
 
@@ -58,10 +58,10 @@ impl Primitive {
     /// then return an error.
     fn into_class_set_item<P: Borrow<Parser>>(
         self,
-        p: &ParserI<P>,
+        p: &ParserI<'_, P>,
     ) -> Result<ast::ClassSetItem> {
         use self::Primitive::*;
-        use ast::ClassSetItem;
+        use crate::ast::ClassSetItem;
 
         match self {
             Literal(lit) => Ok(ClassSetItem::Literal(lit)),
@@ -79,7 +79,7 @@ impl Primitive {
     /// dot), then return an error.
     fn into_class_literal<P: Borrow<Parser>>(
         self,
-        p: &ParserI<P>,
+        p: &ParserI<'_, P>,
     ) -> Result<ast::Literal> {
         use self::Primitive::*;
 
@@ -2137,7 +2137,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
 /// A type that traverses a fully parsed Ast and checks whether its depth
 /// exceeds the specified nesting limit. If it does, then an error is returned.
 #[derive(Debug)]
-struct NestLimiter<'p, 's: 'p, P: 'p + 's> {
+struct NestLimiter<'p, 's, P> {
     /// The parser that is checking the nest limit.
     p: &'p ParserI<'s, P>,
     /// The current depth while walking an Ast.
@@ -2312,7 +2312,7 @@ mod tests {
     use std::ops::Range;
 
     use super::{Parser, ParserBuilder, ParserI, Primitive};
-    use ast::{self, Ast, Position, Span};
+    use crate::ast::{self, Ast, Position, Span};
 
     // Our own assert_eq, which has slightly better formatting (but honestly
     // still kind of crappy).
@@ -2357,21 +2357,24 @@ mod tests {
         str.to_string()
     }
 
-    fn parser(pattern: &str) -> ParserI<Parser> {
+    fn parser(pattern: &str) -> ParserI<'_, Parser> {
         ParserI::new(Parser::new(), pattern)
     }
 
-    fn parser_octal(pattern: &str) -> ParserI<Parser> {
+    fn parser_octal(pattern: &str) -> ParserI<'_, Parser> {
         let parser = ParserBuilder::new().octal(true).build();
         ParserI::new(parser, pattern)
     }
 
-    fn parser_nest_limit(pattern: &str, nest_limit: u32) -> ParserI<Parser> {
+    fn parser_nest_limit(
+        pattern: &str,
+        nest_limit: u32,
+    ) -> ParserI<'_, Parser> {
         let p = ParserBuilder::new().nest_limit(nest_limit).build();
         ParserI::new(p, pattern)
     }
 
-    fn parser_ignore_whitespace(pattern: &str) -> ParserI<Parser> {
+    fn parser_ignore_whitespace(pattern: &str) -> ParserI<'_, Parser> {
         let p = ParserBuilder::new().ignore_whitespace(true).build();
         ParserI::new(p, pattern)
     }

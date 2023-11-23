@@ -29,6 +29,7 @@ import android.net.dhcp.IDhcpServer
 import android.net.dhcp.IDhcpServerCallbacks
 import android.net.ip.IIpClientCallbacks
 import android.net.ip.IpClient
+import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Process
@@ -43,12 +44,12 @@ import com.android.server.connectivity.ipmemorystore.IpMemoryStoreService
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
-import com.android.testutils.ExceptionUtils
 import com.android.testutils.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.eq
 import org.mockito.Mockito.mock
@@ -171,11 +172,14 @@ class NetworkStackServiceTest {
         // Call makeNetworkMonitor
         // Use a spy of INetworkMonitorCallbacks and not a mock, as mockito can't create a mock on Q
         // because of the missing CaptivePortalData class that is an argument of one of the methods
-        val mockNetworkMonitorCb = spy(INetworkMonitorCallbacks.Stub.asInterface(
-                mock(IBinder::class.java)))
+        val mockBinder = mock(IBinder::class.java)
+        val mockNetworkMonitorCb = spy(INetworkMonitorCallbacks.Stub.asInterface(mockBinder))
         doReturn(9990003).`when`(mockNetworkMonitorCb).interfaceVersion
         doReturn("networkmonitor_hash").`when`(mockNetworkMonitorCb).interfaceHash
-        INetworkMonitorCallbacks.Stub.setDefaultImpl(INetworkMonitorCallbacks.Default())
+        // Oneway transactions are always successful (return true). INetworkMonitorCallbacks is a
+        // oneway interface. This avoids the stub throwing because the method is not implemented by
+        // the (mock) remote.
+        doReturn(true).`when`(mockBinder).transact(anyInt(), any(), any(), eq(Binder.FLAG_ONEWAY))
 
         connector.makeNetworkMonitor(Network(123), "test_nm", mockNetworkMonitorCb)
 
@@ -207,10 +211,10 @@ class NetworkStackServiceTest {
         verify(mockDhcpCb, times(2)).onDhcpServerCreated(eq(IDhcpServer.STATUS_SUCCESS), any())
 
         // allowTestUid does not need to record the caller's version
-        assertThrows(SecurityException::class.java, ExceptionUtils.ThrowingRunnable {
+        assertThrows(SecurityException::class.java) {
             // Should throw because the test does not run as root
             connector.allowTestUid(Process.myUid(), null)
-        })
+        }
 
         // Verify all methods were covered by the test (5 methods + getVersion + getHash)
         assertEquals(7, INetworkStackConnector::class.declaredMemberFunctions.count {

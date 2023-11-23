@@ -37,6 +37,8 @@
 #include "rrFragmentOperations.hpp"
 #include "rrRenderer.hpp"
 
+#include <cstdint>
+
 namespace sglr
 {
 
@@ -2357,9 +2359,19 @@ tcu::PixelBufferAccess ReferenceContext::getFboAttachment (const rc::Framebuffer
 			TCU_CHECK(texture);
 
 			if (texture->getType() == Texture::TYPE_2D)
-				return dynamic_cast<Texture2D*>(texture)->getLevel(attachment.level);
+			{
+				if (Texture2D* texture2D = dynamic_cast<Texture2D*>(texture))
+					return texture2D->getLevel(attachment.level);
+				else
+					return nullAccess();
+			}
 			else if (texture->getType() == Texture::TYPE_CUBE_MAP)
-				return dynamic_cast<TextureCube*>(texture)->getFace(attachment.level, texTargetToFace(attachment.texTarget));
+			{
+				if (TextureCube* cubeMap = dynamic_cast<TextureCube*>(texture))
+					return cubeMap->getFace(attachment.level, texTargetToFace(attachment.texTarget));
+				else
+					return nullAccess();
+			}
 			else if (texture->getType() == Texture::TYPE_2D_ARRAY	||
 					 texture->getType() == Texture::TYPE_3D			||
 					 texture->getType() == Texture::TYPE_CUBE_MAP_ARRAY)
@@ -2367,11 +2379,20 @@ tcu::PixelBufferAccess ReferenceContext::getFboAttachment (const rc::Framebuffer
 				tcu::PixelBufferAccess level;
 
 				if (texture->getType() == Texture::TYPE_2D_ARRAY)
-					level = dynamic_cast<Texture2DArray*>(texture)->getLevel(attachment.level);
+				{
+					if (Texture2DArray* texture2DArray = dynamic_cast<Texture2DArray*>(texture))
+						level = texture2DArray->getLevel(attachment.level);
+				}
 				else if (texture->getType() == Texture::TYPE_3D)
-					level = dynamic_cast<Texture3D*>(texture)->getLevel(attachment.level);
+				{
+					if (Texture3D* texture3D = dynamic_cast<Texture3D*>(texture))
+						level = texture3D->getLevel(attachment.level);
+				}
 				else if (texture->getType() == Texture::TYPE_CUBE_MAP_ARRAY)
-					level = dynamic_cast<TextureCubeArray*>(texture)->getLevel(attachment.level);
+				{
+					if (TextureCubeArray* cubeArray = dynamic_cast<TextureCubeArray*>(texture))
+						level = cubeArray->getLevel(attachment.level);
+				}
 
 				void* layerData = static_cast<deUint8*>(level.getDataPtr()) + level.getSlicePitch() * attachment.layer;
 
@@ -4062,7 +4083,7 @@ void ReferenceContext::drawElementsInstancedBaseVertex (deUint32 mode, int count
 	// All is ok
 	{
 		const rr::PrimitiveType primitiveType	= sglr::rr_util::mapGLPrimitiveType(mode);
-		const void*				indicesPtr		= (vao.m_elementArrayBufferBinding) ? (vao.m_elementArrayBufferBinding->getData() + ((const deUint8*)indices - (const deUint8*)DE_NULL)) : (indices);
+		const void*				indicesPtr		= (vao.m_elementArrayBufferBinding) ? (vao.m_elementArrayBufferBinding->getData() + reinterpret_cast<uintptr_t>(indices)) : (indices);
 
 		drawWithReference(rr::PrimitiveList(primitiveType, count, rr::DrawIndices(indicesPtr, sglr::rr_util::mapGLIndexType(type), baseVertex)), instanceCount);
 	}
@@ -4105,12 +4126,12 @@ void ReferenceContext::drawArraysIndirect (deUint32 mode, const void *indirect)
 	RC_IF_ERROR(!deIsAlignedPtr(indirect, 4), GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// \note watch for overflows, indirect might be close to 0xFFFFFFFF and indirect+something might overflow
-	RC_IF_ERROR((size_t)((const char*)indirect - (const char*)DE_NULL)                                     > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
-	RC_IF_ERROR((size_t)((const char*)indirect - (const char*)DE_NULL) + sizeof(DrawArraysIndirectCommand) > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
+	RC_IF_ERROR((size_t)reinterpret_cast<uintptr_t>(indirect)                                     > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
+	RC_IF_ERROR((size_t)reinterpret_cast<uintptr_t>(indirect) + sizeof(DrawArraysIndirectCommand) > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// Check values
 
-	command = (const DrawArraysIndirectCommand*)(m_drawIndirectBufferBinding->getData() + ((const char*)indirect - (const char*)DE_NULL));
+	command = (const DrawArraysIndirectCommand*)(m_drawIndirectBufferBinding->getData() + reinterpret_cast<uintptr_t>(indirect));
 	RC_IF_ERROR(command->reservedMustBeZero != 0, GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// draw
@@ -4147,12 +4168,12 @@ void ReferenceContext::drawElementsIndirect	(deUint32 mode, deUint32 type, const
 	RC_IF_ERROR(!deIsAlignedPtr(indirect, 4), GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// \note watch for overflows, indirect might be close to 0xFFFFFFFF and indirect+something might overflow
-	RC_IF_ERROR((size_t)((const char*)indirect - (const char*)DE_NULL)                                       > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
-	RC_IF_ERROR((size_t)((const char*)indirect - (const char*)DE_NULL) + sizeof(DrawElementsIndirectCommand) > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
+	RC_IF_ERROR((size_t)reinterpret_cast<uintptr_t>(indirect)                                       > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
+	RC_IF_ERROR((size_t)reinterpret_cast<uintptr_t>(indirect) + sizeof(DrawElementsIndirectCommand) > (size_t)m_drawIndirectBufferBinding->getSize(), GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// Check values
 
-	command = (const DrawElementsIndirectCommand*)(m_drawIndirectBufferBinding->getData() + ((const char*)indirect - (const char*)DE_NULL));
+	command = (const DrawElementsIndirectCommand*)(m_drawIndirectBufferBinding->getData() + reinterpret_cast<uintptr_t>(indirect));
 	RC_IF_ERROR(command->reservedMustBeZero != 0, GL_INVALID_OPERATION, RC_RET_VOID);
 
 	// Check command error conditions
@@ -4415,7 +4436,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 				vertexAttribs[ndx].size				= sglr::rr_util::mapGLSize(vao.m_arrays[ndx].size);
 				vertexAttribs[ndx].stride			= vao.m_arrays[ndx].stride;
 				vertexAttribs[ndx].instanceDivisor	= vao.m_arrays[ndx].divisor;
-				vertexAttribs[ndx].pointer			= (vao.m_arrays[ndx].bufferBinding) ? (vao.m_arrays[ndx].bufferBinding->getData() + ((const deUint8*)vao.m_arrays[ndx].pointer - (const deUint8*)DE_NULL)) : (vao.m_arrays[ndx].pointer);
+				vertexAttribs[ndx].pointer			= (vao.m_arrays[ndx].bufferBinding) ? (vao.m_arrays[ndx].bufferBinding->getData() + reinterpret_cast<uintptr_t>(vao.m_arrays[ndx].pointer)) : (vao.m_arrays[ndx].pointer);
 			}
 		}
 	}

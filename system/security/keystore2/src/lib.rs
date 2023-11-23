@@ -29,7 +29,7 @@ pub mod id_rotation;
 /// Internal Representation of Key Parameter and convenience functions.
 pub mod key_parameter;
 pub mod legacy_blob;
-pub mod legacy_migrator;
+pub mod legacy_importer;
 pub mod maintenance;
 pub mod metrics;
 pub mod metrics_store;
@@ -40,12 +40,12 @@ pub mod remote_provisioning;
 pub mod security_level;
 pub mod service;
 pub mod shared_secret_negotiation;
-pub mod try_insert;
 pub mod utils;
 
 mod attestation_key_utils;
 mod audit_log;
 mod gc;
+mod km_compat;
 mod super_key;
 
 #[cfg(feature = "watchdog")]

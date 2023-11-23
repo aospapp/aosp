@@ -45,6 +45,9 @@ public:
     int k() const {
         return compactor_stack_.k();
     }
+    int64_t num_stored_values() const {
+        return compactor_stack_.num_stored_items();
+    }
     // Reset the aggregator to its state just after construction.
     void Reset();
     void Add(int64_t value);

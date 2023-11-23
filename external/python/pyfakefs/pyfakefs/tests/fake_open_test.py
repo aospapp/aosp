@@ -21,15 +21,25 @@ import io
 import locale
 import os
 import stat
+import sys
 import time
 import unittest
 
 from pyfakefs import fake_filesystem
-from pyfakefs.fake_filesystem import is_root, PERM_READ
+from pyfakefs.fake_filesystem import is_root, PERM_READ, FakeIoModule
+from pyfakefs.fake_filesystem_unittest import PatchMode
 from pyfakefs.tests.test_utils import RealFsTestCase
 
 
 class FakeFileOpenTestBase(RealFsTestCase):
+    def setUp(self):
+        super(FakeFileOpenTestBase, self).setUp()
+        if self.use_real_fs():
+            self.open = io.open
+        else:
+            self.fake_io_module = FakeIoModule(self.filesystem)
+            self.open = self.fake_io_module.open
+
     def path_separator(self):
         return '!'
 
@@ -83,13 +93,18 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         # by the locale preferred encoding - which under Windows is
         # usually not UTF-8, but something like Latin1, depending on the locale
         text_fractions = 'Ümläüts'
-        with self.open(file_path, 'w') as f:
-            f.write(text_fractions)
+        try:
+            with self.open(file_path, 'w') as f:
+                f.write(text_fractions)
+        except UnicodeEncodeError:
+            # see https://github.com/jmcgeheeiv/pyfakefs/issues/623
+            self.skipTest("This test does not work with an ASCII locale")
+
         with self.open(file_path) as f:
             contents = f.read()
         self.assertEqual(contents, text_fractions)
 
-    def test_byte_contents_py3(self):
+    def test_byte_contents(self):
         file_path = self.make_path('foo')
         byte_fractions = b'\xe2\x85\x93 \xe2\x85\x94 \xe2\x85\x95 \xe2\x85\x96'
         with self.open(file_path, 'wb') as f:
@@ -103,21 +118,16 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
     def test_write_str_read_bytes(self):
         file_path = self.make_path('foo')
         str_contents = 'Äsgül'
-        with self.open(file_path, 'w') as f:
-            f.write(str_contents)
+        try:
+            with self.open(file_path, 'w') as f:
+                f.write(str_contents)
+        except UnicodeEncodeError:
+            # see https://github.com/jmcgeheeiv/pyfakefs/issues/623
+            self.skipTest("This test does not work with an ASCII locale")
         with self.open(file_path, 'rb') as f:
             contents = f.read()
         self.assertEqual(str_contents, contents.decode(
             locale.getpreferredencoding(False)))
-
-    def test_byte_contents(self):
-        file_path = self.make_path('foo')
-        byte_fractions = b'\xe2\x85\x93 \xe2\x85\x94 \xe2\x85\x95 \xe2\x85\x96'
-        with self.open(file_path, 'wb') as f:
-            f.write(byte_fractions)
-        with self.open(file_path, 'rb') as f:
-            contents = f.read()
-        self.assertEqual(contents, byte_fractions)
 
     def test_open_valid_file(self):
         contents = [
@@ -157,7 +167,8 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         file_path = self.make_path('bar.txt')
         self.create_file(file_path, contents=''.join(contents))
         self.os.chdir(self.base_path)
-        self.assertEqual(contents, self.open(file_path).readlines())
+        with self.open(file_path) as f:
+            self.assertEqual(contents, f.readlines())
 
     def test_iterate_over_file(self):
         contents = [
@@ -320,8 +331,10 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         file_path = self.make_path('appendfile')
         self.create_file(file_path, contents=''.join(contents))
         with self.open(file_path, 'a') as fake_file:
-            self.assertRaises(io.UnsupportedOperation, fake_file.read, 0)
-            self.assertRaises(io.UnsupportedOperation, fake_file.readline)
+            with self.assertRaises(io.UnsupportedOperation):
+                fake_file.read(0)
+            with self.assertRaises(io.UnsupportedOperation):
+                fake_file.readline()
             expected_len = len(''.join(contents))
             expected_len += len(contents) * (len(self.os.linesep) - 1)
             self.assertEqual(expected_len, fake_file.tell())
@@ -411,7 +424,8 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         self.open(file_path, 'r').close()
         self.open(file_path, 'w').close()
         self.open(file_path, 'w+').close()
-        self.assertRaises(ValueError, self.open, file_path, 'INV')
+        with self.assertRaises(ValueError):
+            self.open(file_path, 'INV')
 
     def test_open_flags400(self):
         # set up
@@ -437,8 +451,10 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         # actual tests
         self.open(file_path, 'w').close()
         if not is_root():
-            self.assertRaises(OSError, self.open, file_path, 'r')
-            self.assertRaises(OSError, self.open, file_path, 'w+')
+            with self.assertRaises(OSError):
+                self.open(file_path, 'r')
+            with self.assertRaises(OSError):
+                self.open(file_path, 'w+')
         else:
             self.open(file_path, 'r').close()
             self.open(file_path, 'w+').close()
@@ -450,9 +466,12 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         self.create_with_permission(file_path, 0o100)
         # actual tests
         if not is_root():
-            self.assertRaises(OSError, self.open, file_path, 'r')
-            self.assertRaises(OSError, self.open, file_path, 'w')
-            self.assertRaises(OSError, self.open, file_path, 'w+')
+            with self.assertRaises(OSError):
+                self.open(file_path, 'r')
+            with self.assertRaises(OSError):
+                self.open(file_path, 'w')
+            with self.assertRaises(OSError):
+                self.open(file_path, 'w+')
         else:
             self.open(file_path, 'r').close()
             self.open(file_path, 'w').close()
@@ -622,22 +641,32 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         self.create_file(file_path)
 
         with self.open(file_path, 'a') as fh:
-            self.assertRaises(OSError, fh.read)
-            self.assertRaises(OSError, fh.readlines)
+            with self.assertRaises(OSError):
+                fh.read()
+            with self.assertRaises(OSError):
+                fh.readlines()
         with self.open(file_path, 'w') as fh:
-            self.assertRaises(OSError, fh.read)
-            self.assertRaises(OSError, fh.readlines)
+            with self.assertRaises(OSError):
+                fh.read()
+            with self.assertRaises(OSError):
+                fh.readlines()
         with self.open(file_path, 'r') as fh:
-            self.assertRaises(OSError, fh.truncate)
-            self.assertRaises(OSError, fh.write, 'contents')
-            self.assertRaises(OSError, fh.writelines, ['con', 'tents'])
+            with self.assertRaises(OSError):
+                fh.truncate()
+            with self.assertRaises(OSError):
+                fh.write('contents')
+            with self.assertRaises(OSError):
+                fh.writelines(['con', 'tents'])
 
         def _iterator_open(mode):
-            for _ in self.open(file_path, mode):
-                pass
+            with self.open(file_path, mode) as f:
+                for _ in f:
+                    pass
 
-        self.assertRaises(OSError, _iterator_open, 'w')
-        self.assertRaises(OSError, _iterator_open, 'a')
+        with self.assertRaises(OSError):
+            _iterator_open('w')
+        with self.assertRaises(OSError):
+            _iterator_open('a')
 
     def test_open_raises_io_error_if_parent_is_file_posix(self):
         self.check_posix_only()
@@ -690,12 +719,12 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
     def test_update_other_instances_of_same_file_on_flush(self):
         # Regression test for #302
         file_path = self.make_path('baz')
-        f0 = self.open(file_path, 'w')
-        f1 = self.open(file_path, 'w')
-        f0.write('test')
-        f0.truncate()
-        f1.flush()
-        self.assertEqual(4, self.os.path.getsize(file_path))
+        with self.open(file_path, 'w') as f0:
+            with self.open(file_path, 'w') as f1:
+                f0.write('test')
+                f0.truncate()
+                f1.flush()
+                self.assertEqual(4, self.os.path.getsize(file_path))
 
     def test_getsize_after_truncate(self):
         # Regression test for #412
@@ -736,13 +765,20 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         self.create_file(file_path, contents=b'test')
         fake_file = self.open(file_path, 'r')
         fake_file.close()
-        self.assertRaises(ValueError, lambda: fake_file.read(1))
-        self.assertRaises(ValueError, lambda: fake_file.write('a'))
-        self.assertRaises(ValueError, lambda: fake_file.readline())
-        self.assertRaises(ValueError, lambda: fake_file.truncate())
-        self.assertRaises(ValueError, lambda: fake_file.tell())
-        self.assertRaises(ValueError, lambda: fake_file.seek(1))
-        self.assertRaises(ValueError, lambda: fake_file.flush())
+        with self.assertRaises(ValueError):
+            fake_file.read(1)
+        with self.assertRaises(ValueError):
+            fake_file.write('a')
+        with self.assertRaises(ValueError):
+            fake_file.readline()
+        with self.assertRaises(ValueError):
+            fake_file.truncate()
+        with self.assertRaises(ValueError):
+            fake_file.tell()
+        with self.assertRaises(ValueError):
+            fake_file.seek(1)
+        with self.assertRaises(ValueError):
+            fake_file.flush()
 
     def test_accessing_open_file_with_another_handle_raises(self):
         # Regression test for #282
@@ -752,8 +788,10 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         f0 = self.os.open(file_path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC)
         fake_file = self.open(file_path, 'r')
         fake_file.close()
-        self.assertRaises(ValueError, lambda: fake_file.read(1))
-        self.assertRaises(ValueError, lambda: fake_file.write('a'))
+        with self.assertRaises(ValueError):
+            fake_file.read(1)
+        with self.assertRaises(ValueError):
+            fake_file.write('a')
         self.os.close(f0)
 
     def test_tell_flushes_under_mac_os(self):
@@ -879,7 +917,7 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
             self.assertEqual(b'test', f.read())
 
     def test_unicode_filename(self):
-        file_path = self.make_path(u'тест')
+        file_path = self.make_path('тест')
         with self.open(file_path, 'wb') as f:
             f.write(b'test')
         with self.open(file_path, 'rb') as f:
@@ -892,8 +930,334 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
             with self.open(self.os.devnull) as f:
                 self.assertEqual('', f.read())
 
+    def test_utf16_text(self):
+        # regression test for #574
+        file_path = self.make_path('foo')
+        with self.open(file_path, "w", encoding='utf-16') as f:
+            assert f.write("1") == 1
+
+        with self.open(file_path, "a", encoding='utf-16') as f:
+            assert f.write("2") == 1
+
+        with self.open(file_path, "r", encoding='utf-16') as f:
+            text = f.read()
+            assert text == "12"
+
 
 class RealFileOpenTest(FakeFileOpenTest):
+    def use_real_fs(self):
+        return True
+
+
+@unittest.skipIf(sys.version_info < (3, 8),
+                 'open_code only present since Python 3.8')
+class FakeFilePatchedOpenCodeTest(FakeFileOpenTestBase):
+
+    def setUp(self):
+        super(FakeFilePatchedOpenCodeTest, self).setUp()
+        if self.use_real_fs():
+            self.open_code = io.open_code
+        else:
+            self.filesystem.patch_open_code = PatchMode.ON
+            self.open_code = self.fake_io_module.open_code
+
+    def tearDown(self):
+        if not self.use_real_fs():
+            self.filesystem.patch_open_code = False
+        super(FakeFilePatchedOpenCodeTest, self).tearDown()
+
+    def test_invalid_path(self):
+        with self.assertRaises(TypeError):
+            self.open_code(4)
+
+    def test_byte_contents_open_code(self):
+        byte_fractions = b'\xe2\x85\x93 \xe2\x85\x94 \xe2\x85\x95 \xe2\x85\x96'
+        file_path = self.make_path('foo')
+        self.create_file(file_path, contents=byte_fractions)
+        with self.open_code(file_path) as f:
+            contents = f.read()
+        self.assertEqual(contents, byte_fractions)
+
+    def test_open_code_in_real_fs(self):
+        self.skip_real_fs()
+        file_path = __file__
+        with self.assertRaises(OSError):
+            self.open_code(file_path)
+
+
+class RealPatchedFileOpenCodeTest(FakeFilePatchedOpenCodeTest):
+    def use_real_fs(self):
+        return True
+
+
+@unittest.skipIf(sys.version_info < (3, 8),
+                 'open_code only present since Python 3.8')
+class FakeFileUnpatchedOpenCodeTest(FakeFileOpenTestBase):
+
+    def setUp(self):
+        super(FakeFileUnpatchedOpenCodeTest, self).setUp()
+        if self.use_real_fs():
+            self.open_code = io.open_code
+        else:
+            self.open_code = self.fake_io_module.open_code
+
+    def test_invalid_path(self):
+        with self.assertRaises(TypeError):
+            self.open_code(4)
+
+    def test_open_code_in_real_fs(self):
+        file_path = __file__
+
+        with self.open_code(file_path) as f:
+            contents = f.read()
+        self.assertTrue(len(contents) > 100)
+
+
+class RealUnpatchedFileOpenCodeTest(FakeFileUnpatchedOpenCodeTest):
+    def use_real_fs(self):
+        return True
+
+    def test_byte_contents_open_code(self):
+        byte_fractions = b'\xe2\x85\x93 \xe2\x85\x94 \xe2\x85\x95 \xe2\x85\x96'
+        file_path = self.make_path('foo')
+        self.create_file(file_path, contents=byte_fractions)
+        with self.open_code(file_path) as f:
+            contents = f.read()
+        self.assertEqual(contents, byte_fractions)
+
+
+class BufferingModeTest(FakeFileOpenTestBase):
+    def test_no_buffering(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'wb', buffering=0) as f:
+            f.write(b'a' * 128)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertEqual(b'a' * 128, x)
+
+    def test_no_buffering_not_allowed_in_textmode(self):
+        file_path = self.make_path("buffertest.txt")
+        with self.assertRaises(ValueError):
+            self.open(file_path, 'w', buffering=0)
+
+    def test_default_buffering_no_flush(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'wb') as f:
+            f.write(b'a' * 2048)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertEqual(b'', x)
+        with self.open(file_path, "rb") as r:
+            x = r.read()
+            self.assertEqual(b'a' * 2048, x)
+
+    def test_default_buffering_flush(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'wb') as f:
+            f.write(b'a' * 2048)
+            f.flush()
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertEqual(b'a' * 2048, x)
+
+    def test_writing_with_specific_buffer(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'wb', buffering=512) as f:
+            f.write(b'a' * 500)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(0, len(x))
+            f.write(b'a' * 400)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer exceeded, but new buffer (400) not - previous written
+                self.assertEqual(500, len(x))
+            f.write(b'a' * 100)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer not full (500) not written
+                self.assertEqual(500, len(x))
+            f.write(b'a' * 100)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer exceeded (600) -> write previous
+                # new buffer not full (100) - not written
+                self.assertEqual(1000, len(x))
+            f.write(b'a' * 600)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # new buffer exceeded (600) -> all written
+                self.assertEqual(1700, len(x))
+
+    def test_writing_text_with_line_buffer(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'w', buffering=1) as f:
+            f.write('test' * 100)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # no new line - not written
+                self.assertEqual(0, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # new line - buffer written
+                self.assertEqual(405, len(x))
+            f.write('test' * 10)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(405, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # new line - buffer written
+                self.assertEqual(450, len(x))
+
+    def test_writing_large_text_with_line_buffer(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'w', buffering=1) as f:
+            f.write('test' * 4000)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer larger than default - written
+                self.assertEqual(16000, len(x))
+            f.write('test')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(16000, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # new line - buffer written
+                self.assertEqual(16009, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # another new line - buffer written
+                self.assertEqual(16014, len(x))
+
+    def test_writing_text_with_default_buffer(self):
+        file_path = self.make_path("buffertest.txt")
+        with self.open(file_path, 'w') as f:
+            f.write('test' * 5)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(0, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer exceeded, but new buffer (400) not - previous written
+                self.assertEqual(0, len(x))
+            f.write('test' * 10)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(0, len(x))
+            f.write('\ntest')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                self.assertEqual(0, len(x))
+
+    def test_writing_text_with_specific_buffer(self):
+        file_path = self.make_path("buffertest.txt")
+        with self.open(file_path, 'w', buffering=2) as f:
+            f.write('a' * 8000)
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(0, len(x))
+            f.write('test')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer exceeded, but new buffer (400) not - previous written
+                self.assertEqual(0, len(x))
+            f.write('test')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(0, len(x))
+            f.write('test')
+            with self.open(file_path, "r") as r:
+                x = r.read()
+                self.assertEqual(0, len(x))
+        # with self.open(file_path, "r") as r:
+        #     x = r.read()
+        #     self.assertEqual(35, len(x))
+
+    def test_append_with_specific_buffer(self):
+        file_path = self.make_path("buffertest.bin")
+        with self.open(file_path, 'wb', buffering=512) as f:
+            f.write(b'a' * 500)
+        with self.open(file_path, 'ab', buffering=512) as f:
+            f.write(b'a' * 500)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer not filled - not written
+                self.assertEqual(500, len(x))
+            f.write(b'a' * 400)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer exceeded, but new buffer (400) not - previous written
+                self.assertEqual(1000, len(x))
+            f.write(b'a' * 100)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer not full (500) not written
+                self.assertEqual(1000, len(x))
+            f.write(b'a' * 100)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # buffer exceeded (600) -> write previous
+                # new buffer not full (100) - not written
+                self.assertEqual(1500, len(x))
+            f.write(b'a' * 600)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                # new buffer exceeded (600) -> all written
+                self.assertEqual(2200, len(x))
+
+    def test_failed_flush_does_not_truncate_file(self):
+        # regression test for #548
+        self.skip_real_fs()  # cannot set fs size in real fs
+        self.filesystem.set_disk_usage(100)
+        self.os.makedirs("foo")
+        file_path = self.os.path.join('foo', 'bar.txt')
+        with self.open(file_path, 'wb') as f:
+            f.write(b'a' * 50)
+            f.flush()
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertTrue(x.startswith(b'a' * 50))
+            with self.assertRaises(OSError):
+                f.write(b'b' * 200)
+                f.flush()
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertTrue(x.startswith(b'a' * 50))
+            f.truncate(50)
+
+    def test_failed_write_does_not_truncate_file(self):
+        # test the same with no buffering and no flush
+        self.skip_real_fs()  # cannot set fs size in real fs
+        self.filesystem.set_disk_usage(100)
+        self.os.makedirs("foo")
+        file_path = self.os.path.join('foo', 'bar.txt')
+        with self.open(file_path, 'wb', buffering=0) as f:
+            f.write(b'a' * 50)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertEqual(b'a' * 50, x)
+            with self.assertRaises(OSError):
+                f.write(b'b' * 200)
+            with self.open(file_path, "rb") as r:
+                x = r.read()
+                self.assertEqual(b'a' * 50, x)
+
+
+class RealBufferingTest(BufferingModeTest):
     def use_real_fs(self):
         return True
 
@@ -904,10 +1268,6 @@ class OpenFileWithEncodingTest(FakeFileOpenTestBase):
 
     def setUp(self):
         super(OpenFileWithEncodingTest, self).setUp()
-        if self.use_real_fs():
-            self.open = io.open
-        else:
-            self.open = fake_filesystem.FakeFileOpen(self.filesystem)
         self.file_path = self.make_path('foo')
 
     def test_write_str_read_bytes(self):
@@ -921,7 +1281,8 @@ class OpenFileWithEncodingTest(FakeFileOpenTestBase):
     def test_write_str_error_modes(self):
         str_contents = u'علي بابا'
         with self.open(self.file_path, 'w', encoding='cyrillic') as f:
-            self.assertRaises(UnicodeEncodeError, f.write, str_contents)
+            with self.assertRaises(UnicodeEncodeError):
+                f.write(str_contents)
 
         with self.open(self.file_path, 'w', encoding='ascii',
                        errors='xmlcharrefreplace') as f:
@@ -949,7 +1310,8 @@ class OpenFileWithEncodingTest(FakeFileOpenTestBase):
 
         # default strict encoding
         with self.open(self.file_path, encoding='ascii') as f:
-            self.assertRaises(UnicodeDecodeError, f.read)
+            with self.assertRaises(UnicodeDecodeError):
+                f.read()
         with self.open(self.file_path, encoding='ascii',
                        errors='replace') as f:
             contents = f.read()
@@ -1021,8 +1383,10 @@ class OpenFileWithEncodingTest(FakeFileOpenTestBase):
         self.create_file(self.file_path, contents=''.join(contents),
                          encoding='cyrillic')
         with self.open(self.file_path, 'a', encoding='cyrillic') as fake_file:
-            self.assertRaises(io.UnsupportedOperation, fake_file.read, 0)
-            self.assertRaises(io.UnsupportedOperation, fake_file.readline)
+            with self.assertRaises(io.UnsupportedOperation):
+                fake_file.read(0)
+            with self.assertRaises(io.UnsupportedOperation):
+                fake_file.readline()
             self.assertEqual(len(''.join(contents)), fake_file.tell())
             fake_file.seek(0)
             self.assertEqual(0, fake_file.tell())
@@ -1070,13 +1434,13 @@ class FakeFileOpenLineEndingTest(FakeFileOpenTestBase):
     def setUp(self):
         super(FakeFileOpenLineEndingTest, self).setUp()
 
-    def test_read_universal_newline_mode(self):
+    def test_read_default_newline_mode(self):
         file_path = self.make_path('some_file')
         for contents in (b'1\n2', b'1\r\n2', b'1\r2'):
             self.create_file(file_path, contents=contents)
-            with self.open(file_path, mode='rU') as f:
+            with self.open(file_path, mode='r') as f:
                 self.assertEqual(['1\n', '2'], f.readlines())
-            with self.open(file_path, mode='rU') as f:
+            with self.open(file_path, mode='r') as f:
                 self.assertEqual('1\n2', f.read())
             with self.open(file_path, mode='rb') as f:
                 self.assertEqual(contents, f.read())
@@ -1183,19 +1547,15 @@ class RealFileOpenLineEndingTest(FakeFileOpenLineEndingTest):
 class FakeFileOpenLineEndingWithEncodingTest(FakeFileOpenTestBase):
     def setUp(self):
         super(FakeFileOpenLineEndingWithEncodingTest, self).setUp()
-        if self.use_real_fs():
-            self.open = io.open
-        else:
-            self.open = fake_filesystem.FakeFileOpen(self.filesystem)
 
-    def test_read_universal_newline_mode(self):
+    def test_read_standard_newline_mode(self):
         file_path = self.make_path('some_file')
         for contents in (u'раз\nдва', u'раз\r\nдва', u'раз\rдва'):
             self.create_file(file_path, contents=contents, encoding='cyrillic')
-            with self.open(file_path, mode='rU',
+            with self.open(file_path, mode='r',
                            encoding='cyrillic') as fake_file:
                 self.assertEqual([u'раз\n', u'два'], fake_file.readlines())
-            with self.open(file_path, mode='rU',
+            with self.open(file_path, mode='r',
                            encoding='cyrillic') as fake_file:
                 self.assertEqual(u'раз\nдва', fake_file.read())
 
@@ -1346,25 +1706,26 @@ class OpenWithBinaryFlagsTest(OpenWithFlagsTestBase):
         self.create_file(self.file_path, contents=self.file_contents)
 
     def test_read_binary(self):
-        fake_file = self.open_file('rb')
-        self.assertEqual(self.file_contents, fake_file.read())
+        with self.open_file('rb') as fake_file:
+            self.assertEqual(self.file_contents, fake_file.read())
 
     def test_write_binary(self):
-        fake_file = self.open_file_and_seek('wb')
-        self.assertEqual(0, fake_file.tell())
-        fake_file = self.write_and_reopen_file(fake_file, mode='rb')
-        self.assertEqual(self.file_contents, fake_file.read())
-        # Attempt to reopen the file in text mode
-        fake_file = self.open_file('wb')
-        fake_file = self.write_and_reopen_file(fake_file, mode='r',
-                                               encoding='ascii')
-        self.assertRaises(UnicodeDecodeError, fake_file.read)
+        with self.open_file_and_seek('wb') as f:
+            self.assertEqual(0, f.tell())
+            with self.write_and_reopen_file(f, mode='rb') as f1:
+                self.assertEqual(self.file_contents, f1.read())
+                # Attempt to reopen the file in text mode
+                with self.open_file('wb') as f2:
+                    with self.write_and_reopen_file(f2, mode='r',
+                                                    encoding='ascii') as f3:
+                        with self.assertRaises(UnicodeDecodeError):
+                            f3.read()
 
     def test_write_and_read_binary(self):
-        fake_file = self.open_file_and_seek('w+b')
-        self.assertEqual(0, fake_file.tell())
-        fake_file = self.write_and_reopen_file(fake_file, mode='rb')
-        self.assertEqual(self.file_contents, fake_file.read())
+        with self.open_file_and_seek('w+b') as f:
+            self.assertEqual(0, f.tell())
+            with self.write_and_reopen_file(f, mode='rb') as f1:
+                self.assertEqual(self.file_contents, f1.read())
 
 
 class RealOpenWithBinaryFlagsTest(OpenWithBinaryFlagsTest):
@@ -1393,7 +1754,8 @@ class OpenWithTextModeFlagsTest(OpenWithFlagsTestBase):
             self.assertEqual(self.converted_contents, f.read())
 
     def test_mixed_text_and_binary_flags(self):
-        self.assertRaises(ValueError, self.open_file_and_seek, 'w+bt')
+        with self.assertRaises(ValueError):
+            self.open_file_and_seek('w+bt')
 
 
 class RealOpenWithTextModeFlagsTest(OpenWithTextModeFlagsTest):
@@ -1403,19 +1765,24 @@ class RealOpenWithTextModeFlagsTest(OpenWithTextModeFlagsTest):
 
 class OpenWithInvalidFlagsTest(FakeFileOpenTestBase):
     def test_capital_r(self):
-        self.assertRaises(ValueError, self.open, 'some_file', 'R')
+        with self.assertRaises(ValueError):
+            self.open('some_file', 'R')
 
     def test_capital_w(self):
-        self.assertRaises(ValueError, self.open, 'some_file', 'W')
+        with self.assertRaises(ValueError):
+            self.open('some_file', 'W')
 
     def test_capital_a(self):
-        self.assertRaises(ValueError, self.open, 'some_file', 'A')
+        with self.assertRaises(ValueError):
+            self.open('some_file', 'A')
 
     def test_lower_u(self):
-        self.assertRaises(ValueError, self.open, 'some_file', 'u')
+        with self.assertRaises(ValueError):
+            self.open('some_file', 'u')
 
     def test_lower_rw(self):
-        self.assertRaises(ValueError, self.open, 'some_file', 'rw')
+        with self.assertRaises(ValueError):
+            self.open('some_file', 'rw')
 
 
 class OpenWithInvalidFlagsRealFsTest(OpenWithInvalidFlagsTest):
@@ -1429,10 +1796,12 @@ class ResolvePathTest(FakeFileOpenTestBase):
             fh.write('x')
 
     def test_none_filepath_raises_type_error(self):
-        self.assertRaises(TypeError, self.open, None, 'w')
+        with self.assertRaises(TypeError):
+            self.open(None, 'w')
 
     def test_empty_filepath_raises_io_error(self):
-        self.assertRaises(OSError, self.open, '', 'w')
+        with self.assertRaises(OSError):
+            self.open('', 'w')
 
     def test_normal_path(self):
         file_path = self.make_path('foo')
@@ -1547,7 +1916,8 @@ class ResolvePathTest(FakeFileOpenTestBase):
         if self.is_pypy:
             # unclear behavior with PyPi
             self.skip_real_fs()
-        self.assert_raises_os_error(errno.EBADF, self.os.chdir, 10)
+        self.assert_raises_os_error(
+            [errno.ENOTDIR, errno.EBADF], self.os.chdir, 500)
         dir_path = self.make_path('foo', 'bar')
         self.create_dir(dir_path)
 

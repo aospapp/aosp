@@ -30,7 +30,7 @@ import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.isPublic
-import org.jetbrains.uast.kotlin.KotlinUField
+import org.jetbrains.uast.UField
 
 // Enforces the interoperability guidelines outlined in
 //   https://android.github.io/kotlin-guides/interop.html
@@ -46,20 +46,20 @@ class KotlinInteropChecks(val reporter: Reporter) {
             // No need to check "for stubs only APIs" (== "implicit" APIs)
             includeApisForStubPurposes = false
         ) {
-            private var isKotlin = false
+                private var isKotlin = false
 
-            override fun visitClass(cls: ClassItem) {
-                isKotlin = cls.isKotlin()
-            }
+                override fun visitClass(cls: ClassItem) {
+                    isKotlin = cls.isKotlin()
+                }
 
-            override fun visitMethod(method: MethodItem) {
-                checkMethod(method, isKotlin)
-            }
+                override fun visitMethod(method: MethodItem) {
+                    checkMethod(method, isKotlin)
+                }
 
-            override fun visitField(field: FieldItem) {
-                checkField(field, isKotlin)
-            }
-        })
+                override fun visitField(field: FieldItem) {
+                    checkField(field, isKotlin)
+                }
+            })
     }
 
     fun checkField(field: FieldItem, isKotlin: Boolean = field.isKotlin()) {
@@ -92,15 +92,17 @@ class KotlinInteropChecks(val reporter: Reporter) {
         if (exceptions.isEmpty()) {
             return
         }
-        val doc = method.documentation
+        val doc = method.documentation.ifEmpty { method.property?.documentation.orEmpty() }
         for (exception in exceptions.sortedBy { it.qualifiedName() }) {
-            val checked = !(exception.extends("java.lang.RuntimeException") ||
-                exception.extends("java.lang.Error"))
+            val checked = !(
+                exception.extends("java.lang.RuntimeException") ||
+                    exception.extends("java.lang.Error")
+                )
             if (checked) {
                 val annotation = method.modifiers.findAnnotation("kotlin.jvm.Throws")
                 if (annotation != null) {
                     // There can be multiple values
-                    for (attribute in annotation.attributes()) {
+                    for (attribute in annotation.attributes) {
                         for (v in attribute.leafValues()) {
                             val source = v.toSource()
                             if (source.endsWith(exception.simpleName() + "::class")) {
@@ -131,7 +133,7 @@ class KotlinInteropChecks(val reporter: Reporter) {
             // dip into Kotlin PSI to figure out if this field was really declared in
             // a companion object
             val psi = field.psi()
-            if (psi is KotlinUField) {
+            if (psi is UField) {
                 val sourcePsi = psi.sourcePsi
                 if (sourcePsi is KtProperty) {
                     val companionClassName = sourcePsi.containingClassOrObject?.name
@@ -165,8 +167,9 @@ class KotlinInteropChecks(val reporter: Reporter) {
                     }
                     for (ktProperty in ktProperties) {
                         if (ktProperty.annotationEntries.none { annotationEntry ->
-                                annotationEntry.shortName?.asString() == "JvmStatic"
-                            }) {
+                            annotationEntry.shortName?.asString() == "JvmStatic"
+                        }
+                        ) {
                             reporter.report(
                                 Issues.MISSING_JVMSTATIC, ktProperty,
                                 "Companion object constants like ${ktProperty.name} should be marked @JvmField for Java interoperability; see https://developer.android.com/kotlin/interop#companion_constants"
@@ -287,7 +290,9 @@ class KotlinInteropChecks(val reporter: Reporter) {
 
         if (haveDefault && method.modifiers.findAnnotation("kotlin.jvm.JvmOverloads") == null &&
             // Extension methods and inline functions aren't really useful from Java anyway
-            !method.isExtensionMethod() && !method.modifiers.isInline()
+            !method.isExtensionMethod() && !method.modifiers.isInline() &&
+            // Methods marked @JvmSynthetic are hidden from java, overloads not useful
+            !method.modifiers.hasJvmSyntheticAnnotation()
         ) {
             reporter.report(
                 Issues.MISSING_JVMSTATIC, method,

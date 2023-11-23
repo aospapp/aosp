@@ -88,8 +88,9 @@ GeneralResult<Capabilities> unvalidatedConvert(const hal::V1_1::Capabilities& ca
 }
 
 GeneralResult<Operation> unvalidatedConvert(const hal::V1_1::Operation& operation) {
+    const auto type = NN_TRY(unvalidatedConvert(operation.type));
     return Operation{
-            .type = NN_TRY(unvalidatedConvert(operation.type)),
+            .type = type,
             .inputs = operation.inputs,
             .outputs = operation.outputs,
     };
@@ -100,7 +101,7 @@ GeneralResult<Model> unvalidatedConvert(const hal::V1_1::Model& model) {
 
     // Verify number of consumers.
     const auto numberOfConsumers =
-            NN_TRY(hal::utils::countNumberOfConsumers(model.operands.size(), operations));
+            NN_TRY(countNumberOfConsumers(model.operands.size(), operations));
     CHECK(model.operands.size() == numberOfConsumers.size());
     for (size_t i = 0; i < model.operands.size(); ++i) {
         if (model.operands[i].numberOfConsumers != numberOfConsumers[i]) {
@@ -110,17 +111,20 @@ GeneralResult<Model> unvalidatedConvert(const hal::V1_1::Model& model) {
         }
     }
 
+    auto operands = NN_TRY(unvalidatedConvert(model.operands));
     auto main = Model::Subgraph{
-            .operands = NN_TRY(unvalidatedConvert(model.operands)),
+            .operands = std::move(operands),
             .operations = std::move(operations),
             .inputIndexes = model.inputIndexes,
             .outputIndexes = model.outputIndexes,
     };
 
+    auto operandValues = NN_TRY(unvalidatedConvert(model.operandValues));
+    auto pools = NN_TRY(unvalidatedConvert(model.pools));
     return Model{
             .main = std::move(main),
-            .operandValues = NN_TRY(unvalidatedConvert(model.operandValues)),
-            .pools = NN_TRY(unvalidatedConvert(model.pools)),
+            .operandValues = std::move(operandValues),
+            .pools = std::move(pools),
             .relaxComputationFloat32toFloat16 = model.relaxComputationFloat32toFloat16,
     };
 }
@@ -195,19 +199,23 @@ nn::GeneralResult<OperationType> unvalidatedConvert(const nn::OperationType& ope
 }
 
 nn::GeneralResult<Capabilities> unvalidatedConvert(const nn::Capabilities& capabilities) {
+    const auto float32Performance = NN_TRY(unvalidatedConvert(
+            capabilities.operandPerformance.lookup(nn::OperandType::TENSOR_FLOAT32)));
+    const auto quanitized8Performance = NN_TRY(unvalidatedConvert(
+            capabilities.operandPerformance.lookup(nn::OperandType::TENSOR_QUANT8_ASYMM)));
+    const auto relaxedFloat32toFloat16Performance =
+            NN_TRY(unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceTensor));
     return Capabilities{
-            .float32Performance = NN_TRY(unvalidatedConvert(
-                    capabilities.operandPerformance.lookup(nn::OperandType::TENSOR_FLOAT32))),
-            .quantized8Performance = NN_TRY(unvalidatedConvert(
-                    capabilities.operandPerformance.lookup(nn::OperandType::TENSOR_QUANT8_ASYMM))),
-            .relaxedFloat32toFloat16Performance = NN_TRY(
-                    unvalidatedConvert(capabilities.relaxedFloat32toFloat16PerformanceTensor)),
+            .float32Performance = float32Performance,
+            .quantized8Performance = quanitized8Performance,
+            .relaxedFloat32toFloat16Performance = relaxedFloat32toFloat16Performance,
     };
 }
 
 nn::GeneralResult<Operation> unvalidatedConvert(const nn::Operation& operation) {
+    const auto type = NN_TRY(unvalidatedConvert(operation.type));
     return Operation{
-            .type = NN_TRY(unvalidatedConvert(operation.type)),
+            .type = type,
             .inputs = operation.inputs,
             .outputs = operation.outputs,
     };
@@ -223,19 +231,22 @@ nn::GeneralResult<Model> unvalidatedConvert(const nn::Model& model) {
 
     // Update number of consumers.
     const auto numberOfConsumers =
-            NN_TRY(hal::utils::countNumberOfConsumers(operands.size(), model.main.operations));
+            NN_TRY(countNumberOfConsumers(operands.size(), model.main.operations));
     CHECK(operands.size() == numberOfConsumers.size());
     for (size_t i = 0; i < operands.size(); ++i) {
         operands[i].numberOfConsumers = numberOfConsumers[i];
     }
 
+    auto operations = NN_TRY(unvalidatedConvert(model.main.operations));
+    auto operandValues = NN_TRY(unvalidatedConvert(model.operandValues));
+    auto pools = NN_TRY(unvalidatedConvert(model.pools));
     return Model{
             .operands = std::move(operands),
-            .operations = NN_TRY(unvalidatedConvert(model.main.operations)),
+            .operations = std::move(operations),
             .inputIndexes = model.main.inputIndexes,
             .outputIndexes = model.main.outputIndexes,
-            .operandValues = NN_TRY(unvalidatedConvert(model.operandValues)),
-            .pools = NN_TRY(unvalidatedConvert(model.pools)),
+            .operandValues = std::move(operandValues),
+            .pools = std::move(pools),
             .relaxComputationFloat32toFloat16 = model.relaxComputationFloat32toFloat16,
     };
 }

@@ -21,26 +21,25 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 import static java.lang.Integer.toHexString;
 
 import android.annotation.Nullable;
+import android.car.builtin.util.Slogf;
 import android.car.diagnostic.CarDiagnosticEvent;
 import android.car.diagnostic.CarDiagnosticManager;
 import android.car.hardware.CarSensorManager;
-import android.hardware.automotive.vehicle.V2_0.DiagnosticFloatSensorIndex;
-import android.hardware.automotive.vehicle.V2_0.DiagnosticIntegerSensorIndex;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
+import android.hardware.automotive.vehicle.DiagnosticFloatSensorIndex;
+import android.hardware.automotive.vehicle.DiagnosticIntegerSensorIndex;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehiclePropertyChangeMode;
 import android.os.ServiceSpecificException;
-import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
-import com.android.car.CarServiceUtils;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -64,6 +63,7 @@ public class DiagnosticHalService extends HalServiceBase {
 
     private final Object mLock = new Object();
     private final VehicleHal mVehicleHal;
+    private final HalPropValueBuilder mPropValueBuilder;
 
     @GuardedBy("mLock")
     private boolean mIsReady = false;
@@ -114,14 +114,14 @@ public class DiagnosticHalService extends HalServiceBase {
     private DiagnosticListener mDiagnosticListener;
 
     @GuardedBy("mLock")
-    protected final SparseArray<VehiclePropConfig> mVehiclePropertyToConfig = new SparseArray<>();
+    protected final SparseArray<HalPropConfig> mVehiclePropertyToConfig = new SparseArray<>();
 
     @GuardedBy("mLock")
-    protected final SparseArray<VehiclePropConfig> mSensorTypeToConfig = new SparseArray<>();
+    protected final SparseArray<HalPropConfig> mSensorTypeToConfig = new SparseArray<>();
 
     public DiagnosticHalService(VehicleHal hal) {
         mVehicleHal = hal;
-
+        mPropValueBuilder = mVehicleHal.getHalPropValueBuilder();
     }
 
     @Override
@@ -130,17 +130,17 @@ public class DiagnosticHalService extends HalServiceBase {
     }
 
     @Override
-    public void takeProperties(Collection<VehiclePropConfig> properties) {
+    public void takeProperties(Collection<HalPropConfig> properties) {
         if (DEBUG) {
-            Slog.d(CarLog.TAG_DIAGNOSTIC, "takeSupportedProperties");
+            Slogf.d(CarLog.TAG_DIAGNOSTIC, "takeSupportedProperties");
         }
-        for (VehiclePropConfig vp : properties) {
+        for (HalPropConfig vp : properties) {
             int sensorType = getTokenForProperty(vp);
             if (sensorType == NOT_SUPPORTED_PROPERTY) {
                 if (DEBUG) {
-                    Slog.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+                    Slogf.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
                                 .append("0x")
-                                .append(toHexString(vp.prop))
+                                .append(toHexString(vp.getPropId()))
                                 .append(" ignored")
                                 .toString());
                 }
@@ -155,51 +155,54 @@ public class DiagnosticHalService extends HalServiceBase {
     /**
      * Returns a unique token to be used to map this property to a higher-level sensor
      * This token will be stored in {@link DiagnosticHalService#mSensorTypeToConfig} to allow
-     * callers to go from unique sensor identifiers to VehiclePropConfig objects
-     * @param propConfig
+     * callers to go from unique sensor identifiers to HalPropConfig objects
+     * @param propConfig The property config
      * @return SENSOR_TYPE_INVALID or a locally unique token
      */
-    protected int getTokenForProperty(VehiclePropConfig propConfig) {
-        switch (propConfig.prop) {
-            case VehicleProperty.OBD2_LIVE_FRAME:
-                mDiagnosticCapabilities.setSupported(propConfig.prop);
-                mVehiclePropertyToConfig.put(propConfig.prop, propConfig);
-                Slog.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_LIVE_FRAME is "
-                        + propConfig.configArray);
-                return CarDiagnosticManager.FRAME_TYPE_LIVE;
-            case VehicleProperty.OBD2_FREEZE_FRAME:
-                mDiagnosticCapabilities.setSupported(propConfig.prop);
-                mVehiclePropertyToConfig.put(propConfig.prop, propConfig);
-                Slog.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_FREEZE_FRAME is "
-                        + propConfig.configArray);
-                return CarDiagnosticManager.FRAME_TYPE_FREEZE;
-            case VehicleProperty.OBD2_FREEZE_FRAME_INFO:
-                mDiagnosticCapabilities.setSupported(propConfig.prop);
-                return propConfig.prop;
-            case VehicleProperty.OBD2_FREEZE_FRAME_CLEAR:
-                mDiagnosticCapabilities.setSupported(propConfig.prop);
-                Slog.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_FREEZE_FRAME_CLEAR is "
-                        + propConfig.configArray);
-                if (propConfig.configArray.size() < 1) {
-                    Slog.e(CarLog.TAG_DIAGNOSTIC, String.format(
-                            "property 0x%x does not specify whether it supports selective "
-                                    + "clearing of freeze frames. assuming it does not.",
-                            propConfig.prop));
-                } else {
-                    if (propConfig.configArray.get(0) == 1) {
-                        mDiagnosticCapabilities.setSupported(OBD2_SELECTIVE_FRAME_CLEAR);
+    protected int getTokenForProperty(HalPropConfig propConfig) {
+        int propId = propConfig.getPropId();
+        synchronized (mLock) {
+            switch (propId) {
+                case VehicleProperty.OBD2_LIVE_FRAME:
+                    mDiagnosticCapabilities.setSupported(propId);
+                    mVehiclePropertyToConfig.put(propId, propConfig);
+                    Slogf.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_LIVE_FRAME is "
+                            + Arrays.toString(propConfig.getConfigArray()));
+                    return CarDiagnosticManager.FRAME_TYPE_LIVE;
+                case VehicleProperty.OBD2_FREEZE_FRAME:
+                    mDiagnosticCapabilities.setSupported(propId);
+                    mVehiclePropertyToConfig.put(propId, propConfig);
+                    Slogf.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_FREEZE_FRAME is "
+                            + Arrays.toString(propConfig.getConfigArray()));
+                    return CarDiagnosticManager.FRAME_TYPE_FREEZE;
+                case VehicleProperty.OBD2_FREEZE_FRAME_INFO:
+                    mDiagnosticCapabilities.setSupported(propId);
+                    return propId;
+                case VehicleProperty.OBD2_FREEZE_FRAME_CLEAR:
+                    mDiagnosticCapabilities.setSupported(propId);
+                    int[] configArray = propConfig.getConfigArray();
+                    Slogf.i(CarLog.TAG_DIAGNOSTIC, "configArray for OBD2_FREEZE_FRAME_CLEAR is "
+                            + Arrays.toString(configArray));
+                    if (configArray.length < 1) {
+                        Slogf.e(CarLog.TAG_DIAGNOSTIC, "property 0x%x does not specify whether it "
+                                + "supports selective clearing of freeze frames. assuming it does "
+                                + "not.", propId);
+                    } else {
+                        if (configArray[0] == 1) {
+                            mDiagnosticCapabilities.setSupported(OBD2_SELECTIVE_FRAME_CLEAR);
+                        }
                     }
-                }
-                return propConfig.prop;
-            default:
-                return NOT_SUPPORTED_PROPERTY;
+                    return propId;
+                default:
+                    return NOT_SUPPORTED_PROPERTY;
+            }
         }
     }
 
     @Override
     public void init() {
         if (DEBUG) {
-            Slog.d(CarLog.TAG_DIAGNOSTIC, "init()");
+            Slogf.d(CarLog.TAG_DIAGNOSTIC, "init()");
         }
         synchronized (mLock) {
             mIsReady = true;
@@ -219,7 +222,9 @@ public class DiagnosticHalService extends HalServiceBase {
      * @return true if Diagnostic HAL is ready after init call.
      */
     public boolean isReady() {
-        return mIsReady;
+        synchronized (mLock) {
+            return mIsReady;
+        }
     }
 
     /**
@@ -246,26 +251,27 @@ public class DiagnosticHalService extends HalServiceBase {
      * @return true if request successfully. otherwise return false
      */
     public boolean requestDiagnosticStart(int sensorType, int rate) {
-        VehiclePropConfig propConfig;
+        HalPropConfig propConfig;
         synchronized (mLock) {
             propConfig = mSensorTypeToConfig.get(sensorType);
         }
         if (propConfig == null) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
-                    .append("VehiclePropConfig not found, propertyId: 0x")
-                    .append(toHexString(propConfig.prop))
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+                    .append("HalPropConfig not found, sensor type: 0x")
+                    .append(toHexString(sensorType))
                     .toString());
             return false;
         }
+        int propId = propConfig.getPropId();
         if (DEBUG) {
-            Slog.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+            Slogf.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
                     .append("requestDiagnosticStart, propertyId: 0x")
-                    .append(toHexString(propConfig.prop))
+                    .append(toHexString(propId))
                     .append(", rate: ")
                     .append(rate)
                     .toString());
         }
-        mVehicleHal.subscribeProperty(this, propConfig.prop,
+        mVehicleHal.subscribeProperty(this, propId,
                 fixSamplingRateForProperty(propConfig, rate));
         return true;
     }
@@ -275,121 +281,147 @@ public class DiagnosticHalService extends HalServiceBase {
      * @param sensorType
      */
     public void requestDiagnosticStop(int sensorType) {
-        VehiclePropConfig propConfig;
+        HalPropConfig propConfig;
         synchronized (mLock) {
             propConfig = mSensorTypeToConfig.get(sensorType);
         }
         if (propConfig == null) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
-                    .append("VehiclePropConfig not found, propertyId: 0x")
-                    .append(toHexString(propConfig.prop))
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+                    .append("HalPropConfig not found, sensor type: 0x")
+                    .append(toHexString(sensorType))
                     .toString());
             return;
         }
+        int propId = propConfig.getPropId();
         if (DEBUG) {
-            Slog.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+            Slogf.d(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
                     .append("requestDiagnosticStop, propertyId: 0x")
-                    .append(toHexString(propConfig.prop))
+                    .append(toHexString(propId))
                     .toString());
         }
-        mVehicleHal.unsubscribeProperty(this, propConfig.prop);
+        mVehicleHal.unsubscribeProperty(this, propId);
 
     }
 
     /**
      * Query current diagnostic value
      * @param sensorType
-     * @return VehiclePropValue of the property
+     * @return The property value.
      */
     @Nullable
-    public VehiclePropValue getCurrentDiagnosticValue(int sensorType) {
-        VehiclePropConfig propConfig;
+    public HalPropValue getCurrentDiagnosticValue(int sensorType) {
+        HalPropConfig propConfig;
         synchronized (mLock) {
             propConfig = mSensorTypeToConfig.get(sensorType);
         }
         if (propConfig == null) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
-                    .append("property not available 0x")
-                    .append(toHexString(propConfig.prop))
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
+                    .append("property not available, sensor type: 0x")
+                    .append(toHexString(sensorType))
                     .toString());
             return null;
         }
+        int propId = propConfig.getPropId();
         try {
-            return mVehicleHal.get(propConfig.prop);
+            return mVehicleHal.get(propId);
         } catch (ServiceSpecificException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC,
-                    "property not ready 0x" + toHexString(propConfig.prop), e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "property not ready 0x" + toHexString(propId),
+                    e);
+            return null;
+        } catch (IllegalArgumentException e) {
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to read property: 0x"
+                    + toHexString(propId), e);
             return null;
         }
 
     }
 
-    private VehiclePropConfig getPropConfig(int halPropId) {
-        VehiclePropConfig config;
+    private HalPropConfig getPropConfig(int halPropId) {
+        HalPropConfig config;
         synchronized (mLock) {
             config = mVehiclePropertyToConfig.get(halPropId, null);
         }
         return config;
     }
 
-    private List<Integer> getPropConfigArray(int halPropId) {
-        VehiclePropConfig propConfig = getPropConfig(halPropId);
-        return propConfig.configArray;
+    private int[] getPropConfigArray(int halPropId) {
+        HalPropConfig propConfig = getPropConfig(halPropId);
+        return propConfig.getConfigArray();
+    }
+
+    private static int getLastIndex(Class<?> clazz) {
+        int lastIndex = 0;
+        for (Field field : clazz.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            try {
+                if (Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)
+                        && Modifier.isPublic(modifiers) && field.getType().equals(int.class)) {
+                    int value = field.getInt(/* object= */ null);
+                    if (value > lastIndex) {
+                        lastIndex = value;
+                    }
+                }
+            } catch (IllegalAccessException ignored) {
+                // Ignore the exception.
+            }
+        }
+        return lastIndex;
     }
 
     private int getNumIntegerSensors(int halPropId) {
-        int count = DiagnosticIntegerSensorIndex.LAST_SYSTEM_INDEX + 1;
-        List<Integer> configArray = getPropConfigArray(halPropId);
-        if (configArray.size() < 2) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, String.format(
-                    "property 0x%x does not specify the number of vendor-specific properties."
-                            + "assuming 0.", halPropId));
+        int count = getLastIndex(DiagnosticIntegerSensorIndex.class) + 1;
+        int[] configArray = getPropConfigArray(halPropId);
+        if (configArray.length < 2) {
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "property 0x%x does not specify the number of "
+                    + "vendor-specific properties. Assuming 0.", halPropId);
         } else {
-            count += configArray.get(0);
+            count += configArray[0];
         }
         return count;
     }
 
     private int getNumFloatSensors(int halPropId) {
-        int count = DiagnosticFloatSensorIndex.LAST_SYSTEM_INDEX + 1;
-        List<Integer> configArray = getPropConfigArray(halPropId);
-        if (configArray.size() < 2) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, String.format(
-                    "property 0x%x does not specify the number of vendor-specific properties."
-                            + "assuming 0.", halPropId));
+        int count = getLastIndex(DiagnosticFloatSensorIndex.class) + 1;
+        int[] configArray = getPropConfigArray(halPropId);
+        if (configArray.length < 2) {
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "property 0x%x does not specify the number of "
+                    + "vendor-specific properties. Assuming 0.", halPropId);
         } else {
-            count += configArray.get(1);
+            count += configArray[1];
         }
         return count;
     }
 
-    private CarDiagnosticEvent createCarDiagnosticEvent(VehiclePropValue value) {
-        if (value == null) return null;
-        final boolean isFreezeFrame = value.prop == VehicleProperty.OBD2_FREEZE_FRAME;
+    private CarDiagnosticEvent createCarDiagnosticEvent(HalPropValue value) {
+        if (value == null) {
+            return null;
+        }
+        int propId = value.getPropId();
+        final boolean isFreezeFrame = propId == VehicleProperty.OBD2_FREEZE_FRAME;
         CarDiagnosticEvent.Builder builder =
                 (isFreezeFrame
                                 ? CarDiagnosticEvent.Builder.newFreezeFrameBuilder()
                                 : CarDiagnosticEvent.Builder.newLiveFrameBuilder())
-                        .atTimestamp(value.timestamp);
+                        .atTimestamp(value.getTimestamp());
 
-        BitSet bitset = BitSet.valueOf(CarServiceUtils.toByteArray(value.value.bytes));
+        BitSet bitset = BitSet.valueOf(value.getByteArray());
 
-        int numIntegerProperties = getNumIntegerSensors(value.prop);
-        int numFloatProperties = getNumFloatSensors(value.prop);
+        int numIntegerProperties = getNumIntegerSensors(propId);
+        int numFloatProperties = getNumFloatSensors(propId);
 
         for (int i = 0; i < numIntegerProperties; ++i) {
             if (bitset.get(i)) {
-                builder.withIntValue(i, value.value.int32Values.get(i));
+                builder.withIntValue(i, value.getInt32Value(i));
             }
         }
 
         for (int i = 0; i < numFloatProperties; ++i) {
             if (bitset.get(numIntegerProperties + i)) {
-                builder.withFloatValue(i, value.value.floatValues.get(i));
+                builder.withFloatValue(i, value.getFloatValue(i));
             }
         }
 
-        builder.withDtc(value.value.stringValue);
+        builder.withDtc(value.getStringValue());
 
         return builder.build();
     }
@@ -408,8 +440,8 @@ public class DiagnosticHalService extends HalServiceBase {
     private final LinkedList<CarDiagnosticEvent> mEventsToDispatch = new LinkedList<>();
 
     @Override
-    public void onHalEvents(List<VehiclePropValue> values) {
-        for (VehiclePropValue value : values) {
+    public void onHalEvents(List<HalPropValue> values) {
+        for (HalPropValue value : values) {
             CarDiagnosticEvent event = createCarDiagnosticEvent(value);
             if (event != null) {
                 mEventsToDispatch.add(event);
@@ -437,7 +469,9 @@ public class DiagnosticHalService extends HalServiceBase {
     }
 
     public DiagnosticListener getDiagnosticListener() {
-        return mDiagnosticListener;
+        synchronized (mLock) {
+            return mDiagnosticListener;
+        }
     }
 
     @Override
@@ -446,8 +480,8 @@ public class DiagnosticHalService extends HalServiceBase {
         writer.println("*Diagnostic HAL*");
     }
 
-    protected float fixSamplingRateForProperty(VehiclePropConfig prop, int carSensorManagerRate) {
-        switch (prop.changeMode) {
+    protected float fixSamplingRateForProperty(HalPropConfig prop, int carSensorManagerRate) {
+        switch (prop.getChangeMode()) {
             case VehiclePropertyChangeMode.ON_CHANGE:
                 return 0;
         }
@@ -463,17 +497,19 @@ public class DiagnosticHalService extends HalServiceBase {
             default: // fall back to default.
                 break;
         }
-        if (rate > prop.maxSampleRate) {
-            rate = prop.maxSampleRate;
+        if (rate > prop.getMaxSampleRate()) {
+            rate = prop.getMaxSampleRate();
         }
-        if (rate < prop.minSampleRate) {
-            rate = prop.minSampleRate;
+        if (rate < prop.getMinSampleRate()) {
+            rate = prop.getMinSampleRate();
         }
         return rate;
     }
 
     public DiagnosticCapabilities getDiagnosticCapabilities() {
-        return mDiagnosticCapabilities;
+        synchronized (mLock) {
+            return mDiagnosticCapabilities;
+        }
     }
 
     /**
@@ -482,13 +518,13 @@ public class DiagnosticHalService extends HalServiceBase {
     @Nullable
     public CarDiagnosticEvent getCurrentLiveFrame() {
         try {
-            VehiclePropValue value = mVehicleHal.get(VehicleProperty.OBD2_LIVE_FRAME);
+            HalPropValue value = mVehicleHal.get(VehicleProperty.OBD2_LIVE_FRAME);
             return createCarDiagnosticEvent(value);
         } catch (ServiceSpecificException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_LIVE_FRAME.", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_LIVE_FRAME.", e);
             return null;
         } catch (IllegalArgumentException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to read OBD2_LIVE_FRAME", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to read OBD2_LIVE_FRAME", e);
             return null;
         }
     }
@@ -499,18 +535,18 @@ public class DiagnosticHalService extends HalServiceBase {
     @Nullable
     public long[] getFreezeFrameTimestamps() {
         try {
-            VehiclePropValue value = mVehicleHal.get(VehicleProperty.OBD2_FREEZE_FRAME_INFO);
-            long[] timestamps = new long[value.value.int64Values.size()];
+            HalPropValue value = mVehicleHal.get(VehicleProperty.OBD2_FREEZE_FRAME_INFO);
+            long[] timestamps = new long[value.getInt64ValuesSize()];
             for (int i = 0; i < timestamps.length; ++i) {
-                timestamps[i] = value.value.int64Values.get(i);
+                timestamps[i] = value.getInt64Value(i);
             }
             return timestamps;
         } catch (ServiceSpecificException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_FREEZE_FRAME_INFO.", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_FREEZE_FRAME_INFO.", e);
             return null;
         } catch (IllegalArgumentException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC,
-                    "illegal argument trying to read OBD2_FREEZE_FRAME_INFO", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to read OBD2_FREEZE_FRAME_INFO",
+                    e);
             return null;
         }
     }
@@ -521,18 +557,16 @@ public class DiagnosticHalService extends HalServiceBase {
      */
     @Nullable
     public CarDiagnosticEvent getFreezeFrame(long timestamp) {
-        VehiclePropValueBuilder builder = VehiclePropValueBuilder.newBuilder(
-                VehicleProperty.OBD2_FREEZE_FRAME);
-        builder.setInt64Value(timestamp);
+        HalPropValue getValue = mPropValueBuilder.build(
+                VehicleProperty.OBD2_FREEZE_FRAME, /*areaId=*/0, /*value=*/timestamp);
         try {
-            VehiclePropValue value = mVehicleHal.get(builder.build());
+            HalPropValue value = mVehicleHal.get(getValue);
             return createCarDiagnosticEvent(value);
         } catch (ServiceSpecificException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_FREEZE_FRAME.", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "Failed to read OBD2_FREEZE_FRAME.", e);
             return null;
         } catch (IllegalArgumentException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC,
-                    "illegal argument trying to read OBD2_FREEZE_FRAME", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to read OBD2_FREEZE_FRAME", e);
             return null;
         }
     }
@@ -541,16 +575,15 @@ public class DiagnosticHalService extends HalServiceBase {
      * Clears all Vehicle HAL's Freeze Frame data for the timestamps passed as parameter.
      */
     public void clearFreezeFrames(long... timestamps) {
-        VehiclePropValueBuilder builder = VehiclePropValueBuilder.newBuilder(
-                VehicleProperty.OBD2_FREEZE_FRAME_CLEAR);
-        builder.setInt64Value(timestamps);
+        HalPropValue value = mPropValueBuilder.build(
+                VehicleProperty.OBD2_FREEZE_FRAME_CLEAR, /*areaId=*/0, /*values=*/timestamps);
         try {
-            mVehicleHal.set(builder.build());
+            mVehicleHal.set(value);
         } catch (ServiceSpecificException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC, "Failed to write OBD2_FREEZE_FRAME_CLEAR.", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "Failed to write OBD2_FREEZE_FRAME_CLEAR.", e);
         } catch (IllegalArgumentException e) {
-            Slog.e(CarLog.TAG_DIAGNOSTIC,
-                    "illegal argument trying to write OBD2_FREEZE_FRAME_CLEAR", e);
+            Slogf.e(CarLog.TAG_DIAGNOSTIC, "illegal argument trying to write "
+                    + "OBD2_FREEZE_FRAME_CLEAR", e);
         }
     }
 }

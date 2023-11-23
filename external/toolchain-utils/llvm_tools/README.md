@@ -119,6 +119,7 @@ For example, to create a roll CL to the git hash of revision 367622:
 $ ./update_chromeos_llvm_hash.py \
   --update_packages sys-devel/llvm sys-libs/compiler-rt \
   sys-libs/libcxx sys-libs/libcxxabi sys-libs/llvm-libunwind \
+  'dev-util/lldb-server' \
   --llvm_version 367622 \
   --failure_mode disable_patches
 ```
@@ -360,30 +361,6 @@ $ ./update_tryjob_status.py \
   --custom_script /abs/path/to/script.py
 ```
 
-### `update_all_tryjobs_with_auto.py`
-
-#### Usage
-
-This script updates all tryjobs that are 'pending' to the result provided by
-`cros buildresult`.
-
-For example:
-
-```
-$ ./update_all_tryjobs_with_auto.py \
-  --last_tested /abs/path/to/last_tested_file.json \
-  --chroot_path /abs/path/to/chroot
-```
-
-The above example will update all tryjobs whose 'status' is 'pending' in the
-file provided by `--last_tested`.
-
-For help with the command line arguments of the script, run:
-
-```
-$ ./update_all_tryjobs_with_auto.py --help
-```
-
 ### `modify_a_tryjob.py`
 
 #### Usage
@@ -496,18 +473,20 @@ r387778
 **Tip**: if you put a symlink called `git-llvm-rev` to this script somewhere on
 your `$PATH`, you can also use it as `git llvm-rev`.
 
-### `cherrypick_cl.py`
+### `get_upstream_patch.py`
 
 #### Usage
 
-This script updates the proper ChromeOS packages with an LLVM cherrypick of your choosing, and
-copies the cherrypick into patch folders of the packages.
+This script updates the proper ChromeOS packages with LLVM patches of your choosing, and
+copies the patches into patch folders of the packages. This tool supports both git hash
+of commits as well as differential reviews.
 
 Usage:
 
 ```
-./cherrypick_cl.py --chroot_path /abs/path/to/chroot --start_sha llvm
+./get_upstream_patch.py --chroot_path /abs/path/to/chroot --start_sha llvm
 --sha 174c3eb69f19ff2d6a3eeae31d04afe77e62c021 --sha 174c3eb69f19ff2d6a3eeae31d04afe77e62c021
+--differential D123456
 ```
 
 It tries to autodetect a lot of things (e.g., packages changed by each sha,
@@ -516,6 +495,10 @@ script creates a local patch. Use --create_cl option to create a CL instead. For
 more information, please see the `--help`
 
 ### `revert_checker.py`
+
+**This script is copied from upstream LLVM. Please prefer to make upstream edits,
+rather than modifying this script. It's kept in a CrOS repo so we don't need an
+LLVM tree to `import` this from scripts here.**
 
 This script reports reverts which happen 'across' a certain LLVM commit.
 
@@ -542,11 +525,23 @@ parents of 123abc.
 
 This is an automated wrapper around `revert_checker.py`. It checks to see if any
 new reverts happened across toolchains that we're trying to ship since it was
-last run. If so, it sends emails to appropriate groups.
+last run. If so, it either automatically cherry-picks the reverts, or sends
+emails to appropriate groups.
 
-Usage example:
+Usage example for cherry-picking:
 ```
 PYTHONPATH=../ ./nightly_revert_checker.py \
+  cherry-pick
+  --state_file state.json \
+  --llvm_dir llvm-project-copy \
+  --chromeos_dir ../../../../
+  --reviewers=chromium-os-mage@google.com
+```
+
+Usage example for email:
+```
+PYTHONPATH=../ ./nightly_revert_checker.py \
+  email
   --state_file state.json \
   --llvm_dir llvm-project-copy \
   --chromeos_dir ../../../../

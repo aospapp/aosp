@@ -115,7 +115,7 @@
 #define HAVE_ERROR_T 1
 
 /* Define to 1 if you have the <execinfo.h> header file. */
-#ifndef __BIONIC__
+#if !defined(__BIONIC__) && !defined(ANDROID_HOST_MUSL)
 #define HAVE_EXECINFO_H 1
 #endif
 
@@ -247,7 +247,7 @@
 /* #undef HAVE_MACH_O_DYLD_H */
 
 /* Define if mallinfo() is available on this platform. */
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(ANDROID_HOST_MUSL)
 #define HAVE_MALLINFO 1
 #else
 /* #undef HAVE_MALLINFO */

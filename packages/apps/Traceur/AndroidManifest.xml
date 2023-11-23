@@ -21,7 +21,7 @@
      android:versionCode="2"
      android:versionName="1.0">
     <uses-sdk android:minSdkVersion="26"
-         android:targetSdkVersion="31"/>
+         android:targetSdkVersion="33"/>
 
     <!--- Used to query for Betterbug. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
@@ -44,6 +44,9 @@
     <!-- Used for brief periods where the trace service is foregrounded. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
+    <!-- Used to post file-sending notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Declare Android TV support. -->
     <uses-feature android:name="android.software.leanback"
          android:required="false"/>
@@ -54,7 +57,8 @@
 
     <application android:label="@string/system_tracing"
          android:banner="@drawable/banner"
-         android:icon="@drawable/ic_launcher_settings">
+         android:icon="@drawable/ic_launcher_settings"
+         android:backupAgent="com.android.traceur.TraceurBackupAgent">
 
         <activity android:name=".MainActivity"
              android:description="@string/record_system_activity"
@@ -133,6 +137,8 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                       android:value="true" />
         </service>
 
         <provider android:name="androidx.core.content.FileProvider"

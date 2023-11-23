@@ -21,7 +21,7 @@ import android.content.LocusId;
 import android.os.Bundle;
 
 /**
- * Used by NotificationManagerTest for testing policy around bubbles, this activity is shown
+ * Used by NotificationManagerBubbleTest for testing policy around bubbles, this activity is shown
  * within the bubble (and sometimes outside too depending on the test).
  */
 public class BubbledActivity extends Activity {

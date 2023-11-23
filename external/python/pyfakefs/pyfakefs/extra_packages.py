@@ -16,15 +16,8 @@ If the external module is not present, the build-in module is imported.
 
 try:
     import pathlib2
-
-    pathlib = pathlib2
 except ImportError:
     pathlib2 = None
-
-    try:
-        import pathlib
-    except ImportError:
-        pathlib = None
 
 try:
     import scandir

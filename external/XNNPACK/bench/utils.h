@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <xnnpack.h>
+#include <xnnpack/allocator.h>
+
 #include <benchmark/benchmark.h>
 
 namespace benchmark {
@@ -26,6 +29,48 @@ uint64_t GetCurrentCpuFrequency();
 // Can overestimate, but not underestimate LLC size.
 size_t GetMaxCacheSize();
 
+// Set number of elements for a unary elementwise microkernel such that:
+// - It is divisible by 2, 3, 4, 5, 6.
+// - It is divisible by AVX512 width.
+// - Total memory footprint does not exceed the characteristic cache size for 
+//   the architecture.
+template<class InType, class OutType>
+void UnaryElementwiseParameters(benchmark::internal::Benchmark* benchmark) {
+  benchmark->ArgName("N");
+
+  size_t characteristic_l1 = 32 * 1024;
+  size_t characteristic_l2 = 256 * 1024;
+#if XNN_ARCH_ARM
+  characteristic_l1 = 16 * 1024;
+  characteristic_l2 = 128 * 1024;
+#endif  // XNN_ARCH_ARM
+
+  const size_t elementwise_size = sizeof(InType) + sizeof(OutType);
+  benchmark->Arg(characteristic_l1 / elementwise_size / 960 * 960);
+  benchmark->Arg(characteristic_l2 / elementwise_size / 960 * 960);
+}
+
+// Set number of elements for a binary elementwise microkernel such that:
+// - It is divisible by 2, 3, 4, 5, 6.
+// - It is divisible by AVX512 width.
+// - Total memory footprint does not exceed the characteristic cache size for 
+//   the architecture.
+template<class InType, class OutType>
+void BinaryElementwiseParameters(benchmark::internal::Benchmark* benchmark) {
+  benchmark->ArgName("N");
+
+  size_t characteristic_l1 = 32 * 1024;
+  size_t characteristic_l2 = 256 * 1024;
+#if XNN_ARCH_ARM
+  characteristic_l1 = 16 * 1024;
+  characteristic_l2 = 128 * 1024;
+#endif  // XNN_ARCH_ARM
+
+  const size_t elementwise_size = 2 * sizeof(InType) + sizeof(OutType);
+  benchmark->Arg(characteristic_l1 / elementwise_size / 960 * 960);
+  benchmark->Arg(characteristic_l2 / elementwise_size / 960 * 960);
+}
+
 // Set multi-threading parameters appropriate for the processor.
 void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark);
 
@@ -35,17 +80,25 @@ typedef bool (*IsaCheckFunction)(benchmark::State& state);
 // If VFP is unsupported, report error in benchmark state, and return false.
 bool CheckVFP(benchmark::State& state);
 
-// Check if ARM NEON-FP16-ARITH extension is supported.
-// If NEON-FP16-ARITH is unsupported, report error in benchmark state, and return false.
-bool CheckNEONFP16ARITH(benchmark::State& state);
-
 // Check if ARM NEON extension is supported.
 // If NEON is unsupported, report error in benchmark state, and return false.
 bool CheckNEON(benchmark::State& state);
 
+// Check if ARM NEON-FP16 extension is supported.
+// If NEON-FP16 is unsupported, report error in benchmark state, and return false.
+bool CheckNEONFP16(benchmark::State& state);
+
 // Check if ARM NEON-FMA extension is supported.
 // If NEON-FMA is unsupported, report error in benchmark state, and return false.
 bool CheckNEONFMA(benchmark::State& state);
+
+// Check if ARMv8 NEON instructions are supported.
+// If ARMv8 NEON is unsupported, report error in benchmark state, and return false.
+bool CheckNEONV8(benchmark::State& state);
+
+// Check if ARM NEON-FP16-ARITH extension is supported.
+// If NEON-FP16-ARITH is unsupported, report error in benchmark state, and return false.
+bool CheckNEONFP16ARITH(benchmark::State& state);
 
 // Check if ARM DOT extension is supported.
 // If DOT is unsupported, report error in benchmark state, and return false.
@@ -62,6 +115,10 @@ bool CheckSSE41(benchmark::State& state);
 // Check if x86 AVX extension is supported.
 // If AVX is unsupported, report error in benchmark state, and return false.
 bool CheckAVX(benchmark::State& state);
+
+// Check if x86 F16C extension is supported.
+// If F16C is unsupported, report error in benchmark state, and return false.
+bool CheckF16C(benchmark::State& state);
 
 // Check if x86 XOP extension is supported.
 // If XOP is unsupported, report error in benchmark state, and return false.
@@ -97,6 +154,15 @@ template <class T>
 inline T Doz(T a, T b) {
   return a >= b ? a - b : T(0);
 }
+
+// A struct that uses RAII pattern to allocate and release code memory.
+struct CodeMemoryHelper {
+  CodeMemoryHelper();
+  ~CodeMemoryHelper();
+
+  xnn_code_buffer buffer;
+  xnn_status status;
+};
 
 }  // namespace utils
 }  // namespace benchmark

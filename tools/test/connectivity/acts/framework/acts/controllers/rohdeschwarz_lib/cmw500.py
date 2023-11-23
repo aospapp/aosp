@@ -86,7 +86,7 @@ class UseCarrierSpecific(Enum):
 
 
 class RbPosition(Enum):
-    """Supported RB postions."""
+    """Supported RB positions."""
     LOW = 'LOW'
     HIGH = 'HIGH'
     P5 = 'P5'
@@ -123,7 +123,7 @@ class MimoModes(Enum):
 
 
 class MimoScenario(Enum):
-    """Supportted mimo scenarios"""
+    """Supported mimo scenarios"""
     SCEN1x1 = 'SCELl:FLEXible SUA1,RF1C,RX1,RF1C,TX1'
     SCEN2x2 = 'TRO:FLEXible SUA1,RF1C,RX1,RF1C,TX1,RF3C,TX2'
     SCEN4x4 = 'FRO FLEXible SUA1,RF1C,RX1,RF1C,TX1,RF3C,TX2,RF2C,TX3,RF4C,TX4'
@@ -319,7 +319,7 @@ class Cmw500(abstract_inst.SocketInstrument):
 
         Args:
             state: the RRC state that is being waited for.
-            timeout: timeout for phone to be in connnected state.
+            timeout: timeout for phone to be in connected state.
 
         Raises:
             CmwError on time out.

@@ -18,9 +18,11 @@
     <option name="compatibility:include-filter" value="CtsNNAPITestCases" />
     <option name="compatibility:include-filter" value="CtsNNAPIBenchmarkTestCases" />
     <option name="compatibility:include-filter" value="CtsTfliteNnapiDelegateTestCases" />
+    <option name="compatibility:include-filter" value="CtsNNAPIStatsdAtomHostTestCases" />
 
     <!-- Enable MainlineTestModuleController for Neuralnetworks -->
     <option name="compatibility:module-arg" value="CtsNNAPITestCases:enable:true" />
     <option name="compatibility:module-arg" value="CtsNNAPIBenchmarkTestCases:enable:true" />
     <option name="compatibility:module-arg" value="CtsTfliteNnapiDelegateTestCases:enable:true" />
+    <option name="compatibility:module-arg" value="CtsNNAPIStatsdAtomHostTestCases:enable:true" />
 </configuration>

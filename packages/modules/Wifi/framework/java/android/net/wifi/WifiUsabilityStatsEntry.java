@@ -232,6 +232,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         WIFI_PREAMBLE_HT,
         WIFI_PREAMBLE_VHT,
         WIFI_PREAMBLE_HE,
+        WIFI_PREAMBLE_EHT,
         WIFI_PREAMBLE_INVALID})
     public @interface WifiPreambleType {}
 
@@ -243,8 +244,10 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
     public static final int WIFI_PREAMBLE_HT = 2;
     /** Preamble type for 802.11ac, IEEE Std 802.11-2020, Section 21 */
     public static final int WIFI_PREAMBLE_VHT = 3;
-    /** Preamble type for 802.11ax, IEEE Std 802.11-2020, Section 27 */
+    /** Preamble type for 802.11ax, IEEE Std 802.11ax-2021, Section 27 */
     public static final int WIFI_PREAMBLE_HE = 5;
+    /** Preamble type for 802.11be, IEEE Std 802.11be-2021, Section 36 */
+    public static final int WIFI_PREAMBLE_EHT = 6;
     /** Invalid */
     public static final int WIFI_PREAMBLE_INVALID = -1;
 
@@ -276,6 +279,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         WIFI_BANDWIDTH_40_MHZ,
         WIFI_BANDWIDTH_80_MHZ,
         WIFI_BANDWIDTH_160_MHZ,
+        WIFI_BANDWIDTH_320_MHZ,
         WIFI_BANDWIDTH_80P80_MHZ,
         WIFI_BANDWIDTH_5_MHZ,
         WIFI_BANDWIDTH_10_MHZ,
@@ -296,6 +300,8 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
     public static final int WIFI_BANDWIDTH_5_MHZ = 5;
     /** Channel bandwidth: 10MHz */
     public static final int WIFI_BANDWIDTH_10_MHZ = 6;
+    /** Channel bandwidth: 320MHz */
+    public static final int WIFI_BANDWIDTH_320_MHZ = 7;
     /** Invalid */
     public static final int WIFI_BANDWIDTH_INVALID = -1;
 
@@ -324,7 +330,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
          * @param nss Number of spatial streams.
          * @param bw Bandwidth information.
          * @param rateMcsIdx MCS index. OFDM/CCK rate code would be as per IEEE std in the units of
-         *                   0.5Mbps. HT/VHT/HE: it would be MCS index.
+         *                   0.5Mbps. HT/VHT/HE/EHT: it would be MCS index.
          * @param bitRateInKbps Bitrate in units of 100 Kbps.
          * @param txMpdu Number of successfully transmitted data packets (ACK received).
          * @param rxMpdu Number of received data packets.
@@ -400,7 +406,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
 
         /**
          * MCS index. OFDM/CCK rate code would be as per IEEE std in the units of 0.5Mbps.
-         * HT/VHT/HE: it would be MCS index
+         * HT/VHT/HE/EHT: it would be MCS index
          */
         public int getRateMcsIdx() {
             return mRateMcsIdx;
@@ -886,8 +892,10 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
      *           HT MCS0, ..., MCS15;
      *         - VHT (IEEE Std 802.11-2020, Section 21): LEGACY rates (1Mbps, ..., 54Mbps),
      *           VHT MCS0/NSS1, ..., VHT MCS11/NSS1, VHT MCSO/NSS2, ..., VHT MCS11/NSS2;
-     *         - HE (IEEE Std 802.11-2020, Section 27): LEGACY rates (1Mbps, ..., 54Mbps),
+     *         - HE (IEEE Std 802.11ax-2020, Section 27): LEGACY rates (1Mbps, ..., 54Mbps),
      *           HE MCS0/NSS1, ..., HE MCS11/NSS1, HE MCSO/NSS2, ..., HE MCS11/NSS2.
+     *         - EHT (IEEE std 802.11be-2021, Section 36): Legacy rates (1Mbps, ..., 54Mbps),
+     *           EHT MSC0/NSS1, ..., EHT MCS14/NSS1, EHT MCS0/NSS2, ..., EHT MCS14/NSS2.
      */
     @NonNull
     public List<RateStats> getRateStats() {
@@ -912,10 +920,10 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
     /**
      * Channel utilization ratio on the current channel.
      *
-     * @return The channel utilization ratio (value) in the range of [0, 255], where
-     *         x corresponds to (x * 100 / 255)%.
+     * @return The channel utilization ratio (value) in the range of [0, 255], where x corresponds
+     *         to (x * 100 / 255)%, or -1 indicating that there is no valid value to return.
      */
-    public @IntRange(from = 0, to = 255) int getChannelUtilizationRatio() {
+    public @IntRange(from = -1, to = 255) int getChannelUtilizationRatio() {
         return mChannelUtilizationRatio;
     }
 

@@ -21,6 +21,7 @@ import (
 
 	"android/soong/android"
 	"android/soong/java"
+
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
@@ -39,7 +40,7 @@ func TestPlatformBootclasspath_Fragments(t *testing.T) {
 		prepareForTestWithMyapex,
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("foo"),
-		java.FixtureConfigureBootJars("myapex:bar"),
+		java.FixtureConfigureApexBootJars("myapex:bar"),
 		android.FixtureWithRootAndroidBp(`
 			platform_bootclasspath {
 				name: "platform-bootclasspath",
@@ -159,11 +160,82 @@ func TestPlatformBootclasspath_Fragments(t *testing.T) {
 		android.AssertPathsRelativeToTopEquals(t, message, expected, info.FlagsFilesByCategory[category])
 	}
 
-	android.AssertPathsRelativeToTopEquals(t, "stub flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/stub-flags.csv"}, info.StubFlagsPaths)
 	android.AssertPathsRelativeToTopEquals(t, "annotation flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/annotation-flags.csv"}, info.AnnotationFlagsPaths)
 	android.AssertPathsRelativeToTopEquals(t, "metadata flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/metadata.csv"}, info.MetadataPaths)
 	android.AssertPathsRelativeToTopEquals(t, "index flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/index.csv"}, info.IndexPaths)
-	android.AssertPathsRelativeToTopEquals(t, "all flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/all-flags.csv"}, info.AllFlagsPaths)
+
+	android.AssertArrayString(t, "stub flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/filtered-stub-flags.csv:out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/signature-patterns.csv"}, info.StubFlagSubsets.RelativeToTop())
+	android.AssertArrayString(t, "all flags", []string{"out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/filtered-flags.csv:out/soong/.intermediates/bar-fragment/android_common_apex10000/modular-hiddenapi/signature-patterns.csv"}, info.FlagSubsets.RelativeToTop())
+}
+
+// TestPlatformBootclasspath_LegacyPrebuiltFragment verifies that the
+// prebuilt_bootclasspath_fragment falls back to using the complete stub-flags/all-flags if the
+// filtered files are not provided.
+//
+// TODO: Remove once all prebuilts use the filtered_... properties.
+func TestPlatformBootclasspath_LegacyPrebuiltFragment(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForTestWithPlatformBootclasspath,
+		java.FixtureConfigureApexBootJars("myapex:foo"),
+		java.PrepareForTestWithJavaSdkLibraryFiles,
+	).RunTestWithBp(t, `
+		prebuilt_apex {
+			name: "myapex",
+			src: "myapex.apex",
+			exported_bootclasspath_fragments: ["mybootclasspath-fragment"],
+		}
+
+		// A prebuilt java_sdk_library_import that is not preferred by default but will be preferred
+		// because AlwaysUsePrebuiltSdks() is true.
+		java_sdk_library_import {
+			name: "foo",
+			prefer: false,
+			shared_library: false,
+			permitted_packages: ["foo"],
+			public: {
+				jars: ["sdk_library/public/foo-stubs.jar"],
+				stub_srcs: ["sdk_library/public/foo_stub_sources"],
+				current_api: "sdk_library/public/foo.txt",
+				removed_api: "sdk_library/public/foo-removed.txt",
+				sdk_version: "current",
+			},
+			apex_available: ["myapex"],
+		}
+
+		prebuilt_bootclasspath_fragment {
+			name: "mybootclasspath-fragment",
+			apex_available: [
+				"myapex",
+			],
+			contents: [
+				"foo",
+			],
+			hidden_api: {
+				stub_flags: "prebuilt-stub-flags.csv",
+				annotation_flags: "prebuilt-annotation-flags.csv",
+				metadata: "prebuilt-metadata.csv",
+				index: "prebuilt-index.csv",
+				all_flags: "prebuilt-all-flags.csv",
+			},
+		}
+
+		platform_bootclasspath {
+			name: "myplatform-bootclasspath",
+			fragments: [
+				{
+					apex: "myapex",
+					module:"mybootclasspath-fragment",
+				},
+			],
+		}
+`,
+	)
+
+	pbcp := result.Module("myplatform-bootclasspath", "android_common")
+	info := result.ModuleProvider(pbcp, java.MonolithicHiddenAPIInfoProvider).(java.MonolithicHiddenAPIInfo)
+
+	android.AssertArrayString(t, "stub flags", []string{"prebuilt-stub-flags.csv:out/soong/.intermediates/mybootclasspath-fragment/android_common_myapex/modular-hiddenapi/signature-patterns.csv"}, info.StubFlagSubsets.RelativeToTop())
+	android.AssertArrayString(t, "all flags", []string{"prebuilt-all-flags.csv:out/soong/.intermediates/mybootclasspath-fragment/android_common_myapex/modular-hiddenapi/signature-patterns.csv"}, info.FlagSubsets.RelativeToTop())
 }
 
 func TestPlatformBootclasspathDependencies(t *testing.T) {
@@ -173,7 +245,7 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 		prepareForTestWithMyapex,
 		// Configure some libraries in the art and framework boot images.
 		java.FixtureConfigureBootJars("com.android.art:baz", "com.android.art:quuz", "platform:foo"),
-		java.FixtureConfigureUpdatableBootJars("myapex:bar"),
+		java.FixtureConfigureApexBootJars("myapex:bar"),
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("foo"),
 	).RunTestWithBp(t, `
@@ -194,6 +266,7 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 
 		bootclasspath_fragment {
 			name: "art-bootclasspath-fragment",
+			image_name: "art",
 			apex_available: [
 				"com.android.art",
 			],
@@ -288,7 +361,7 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 		"com.android.art:quuz",
 		"platform:foo",
 
-		// The configured contents of UpdatableBootJars.
+		// The configured contents of ApexBootJars.
 		"myapex:bar",
 	})
 
@@ -313,7 +386,7 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 		`com.android.art:quuz`,
 		`platform:foo`,
 
-		// The configured contents of UpdatableBootJars.
+		// The configured contents of ApexBootJars.
 		`myapex:bar`,
 
 		// The fragments.
@@ -323,32 +396,16 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 }
 
 // TestPlatformBootclasspath_AlwaysUsePrebuiltSdks verifies that the build does not fail when
-// AlwaysUsePrebuiltSdk() returns true. The structure of the modules in this test matches what
-// currently exists in some places in the Android build but it is not the intended structure. It is
-// in fact an invalid structure that should cause build failures. However, fixing that structure
-// will take too long so in the meantime this tests the workarounds to avoid build breakages.
-//
-// The main issues with this structure are:
-// 1. There is no prebuilt_bootclasspath_fragment referencing the "foo" java_sdk_library_import.
-// 2. There is no prebuilt_apex/apex_set which makes the dex implementation jar available to the
-//    prebuilt_bootclasspath_fragment and the "foo" java_sdk_library_import.
-//
-// Together these cause the following symptoms:
-// 1. The "foo" java_sdk_library_import does not have a dex implementation jar.
-// 2. The "foo" java_sdk_library_import does not have a myapex variant.
-//
-// TODO(b/179354495): Fix the structure in this test once the main Android build has been fixed.
+// AlwaysUsePrebuiltSdk() returns true.
 func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 	result := android.GroupFixturePreparers(
 		prepareForTestWithPlatformBootclasspath,
 		prepareForTestWithMyapex,
 		// Configure two libraries, the first is a java_sdk_library whose prebuilt will be used because
-		// of AlwaysUsePrebuiltsSdk() but does not have an appropriate apex variant and does not provide
-		// a boot dex jar. The second is a normal library that is unaffected. The order matters because
-		// if the dependency on myapex:foo is filtered out because of either of those conditions then
-		// the dependencies resolved by the platform_bootclasspath will not match the configured list
-		// and so will fail the test.
-		java.FixtureConfigureUpdatableBootJars("myapex:foo", "myapex:bar"),
+		// of AlwaysUsePrebuiltsSdk(). The second is a normal library that is unaffected. The order
+		// matters, so that the dependencies resolved by the platform_bootclasspath matches the
+		// configured list.
+		java.FixtureConfigureApexBootJars("myapex:foo", "myapex:bar"),
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
 			variables.Always_use_prebuilt_sdks = proptools.BoolPtr(true)
@@ -392,6 +449,12 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 			permitted_packages: ["foo"],
 		}
 
+		prebuilt_apex {
+			name: "myapex",
+			src: "myapex.apex",
+			exported_bootclasspath_fragments: ["mybootclasspath-fragment"],
+		}
+
 		// A prebuilt java_sdk_library_import that is not preferred by default but will be preferred
 		// because AlwaysUsePrebuiltSdks() is true.
 		java_sdk_library_import {
@@ -421,6 +484,23 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 			],
 		}
 
+		prebuilt_bootclasspath_fragment {
+			name: "mybootclasspath-fragment",
+			apex_available: [
+				"myapex",
+			],
+			contents: [
+				"foo",
+			],
+			hidden_api: {
+				stub_flags: "",
+				annotation_flags: "",
+				metadata: "",
+				index: "",
+				all_flags: "",
+			},
+		}
+
 		platform_bootclasspath {
 			name: "myplatform-bootclasspath",
 			fragments: [
@@ -435,7 +515,7 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 
 	java.CheckPlatformBootclasspathModules(t, result, "myplatform-bootclasspath", []string{
 		// The configured contents of BootJars.
-		"platform:prebuilt_foo", // Note: This is the platform not myapex variant.
+		"myapex:prebuilt_foo",
 		"myapex:bar",
 	})
 
@@ -454,16 +534,15 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 
 		// The platform_bootclasspath intentionally adds dependencies on both source and prebuilt
 		// modules when available as it does not know which one will be preferred.
-		//
-		// The source module has an APEX variant but the prebuilt does not.
 		"myapex:foo",
-		"platform:prebuilt_foo",
+		"myapex:prebuilt_foo",
 
 		// Only a source module exists.
 		"myapex:bar",
 
 		// The fragments.
 		"myapex:mybootclasspath-fragment",
+		"myapex:prebuilt_mybootclasspath-fragment",
 	})
 }
 
@@ -481,4 +560,200 @@ func CheckModuleDependencies(t *testing.T, ctx *android.TestContext, name, varia
 
 	pairs := java.ApexNamePairsFromModules(ctx, modules)
 	android.AssertDeepEquals(t, "module dependencies", expected, pairs)
+}
+
+// TestPlatformBootclasspath_IncludesRemainingApexJars verifies that any apex boot jar is present in
+// platform_bootclasspath's classpaths.proto config, if the apex does not generate its own config
+// by setting generate_classpaths_proto property to false.
+func TestPlatformBootclasspath_IncludesRemainingApexJars(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForTestWithPlatformBootclasspath,
+		prepareForTestWithMyapex,
+		java.FixtureConfigureApexBootJars("myapex:foo"),
+		android.FixtureWithRootAndroidBp(`
+			platform_bootclasspath {
+				name: "platform-bootclasspath",
+				fragments: [
+					{
+						apex: "myapex",
+						module:"foo-fragment",
+					},
+				],
+			}
+
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				bootclasspath_fragments: ["foo-fragment"],
+				updatable: false,
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+
+			bootclasspath_fragment {
+				name: "foo-fragment",
+				generate_classpaths_proto: false,
+				contents: ["foo"],
+				apex_available: ["myapex"],
+			}
+
+			java_library {
+				name: "foo",
+				srcs: ["a.java"],
+				system_modules: "none",
+				sdk_version: "none",
+				compile_dex: true,
+				apex_available: ["myapex"],
+				permitted_packages: ["foo"],
+			}
+		`),
+	).RunTest(t)
+
+	java.CheckClasspathFragmentProtoContentInfoProvider(t, result,
+		true,         // proto should be generated
+		"myapex:foo", // apex doesn't generate its own config, so must be in platform_bootclasspath
+		"bootclasspath.pb",
+		"out/soong/target/product/test_device/system/etc/classpaths",
+	)
+}
+
+func TestBootJarNotInApex(t *testing.T) {
+	android.GroupFixturePreparers(
+		prepareForTestWithPlatformBootclasspath,
+		PrepareForTestWithApexBuildComponents,
+		prepareForTestWithMyapex,
+		java.FixtureConfigureApexBootJars("myapex:foo"),
+	).ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern(
+		`dependency "foo" of "myplatform-bootclasspath" missing variant`)).
+		RunTestWithBp(t, `
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				updatable: false,
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+
+			java_library {
+				name: "foo",
+				srcs: ["b.java"],
+				installable: true,
+				apex_available: [
+					"myapex",
+				],
+			}
+
+			bootclasspath_fragment {
+				name: "not-in-apex-fragment",
+				contents: [
+					"foo",
+				],
+			}
+
+			platform_bootclasspath {
+				name: "myplatform-bootclasspath",
+			}
+		`)
+}
+
+func TestBootFragmentNotInApex(t *testing.T) {
+	android.GroupFixturePreparers(
+		prepareForTestWithPlatformBootclasspath,
+		PrepareForTestWithApexBuildComponents,
+		prepareForTestWithMyapex,
+		java.FixtureConfigureApexBootJars("myapex:foo"),
+	).ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern(
+		`library foo.*have no corresponding fragment.*`)).RunTestWithBp(t, `
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				java_libs: ["foo"],
+				updatable: false,
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+
+			java_library {
+				name: "foo",
+				srcs: ["b.java"],
+				installable: true,
+				apex_available: ["myapex"],
+				permitted_packages: ["foo"],
+			}
+
+			bootclasspath_fragment {
+				name: "not-in-apex-fragment",
+				contents: ["foo"],
+			}
+
+			platform_bootclasspath {
+				name: "myplatform-bootclasspath",
+			}
+		`)
+}
+
+func TestNonBootJarInFragment(t *testing.T) {
+	android.GroupFixturePreparers(
+		prepareForTestWithPlatformBootclasspath,
+		PrepareForTestWithApexBuildComponents,
+		prepareForTestWithMyapex,
+		java.FixtureConfigureApexBootJars("myapex:foo"),
+	).ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern(
+		`in contents must also be declared in PRODUCT_APEX_BOOT_JARS`)).
+		RunTestWithBp(t, `
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				bootclasspath_fragments: ["apex-fragment"],
+				updatable: false,
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+
+			java_library {
+				name: "foo",
+				srcs: ["b.java"],
+				installable: true,
+				apex_available: ["myapex"],
+				permitted_packages: ["foo"],
+			}
+
+			java_library {
+				name: "bar",
+				srcs: ["b.java"],
+				installable: true,
+				apex_available: ["myapex"],
+				permitted_packages: ["bar"],
+			}
+
+			bootclasspath_fragment {
+				name: "apex-fragment",
+				contents: ["foo", "bar"],
+				apex_available:[ "myapex" ],
+			}
+
+			platform_bootclasspath {
+				name: "myplatform-bootclasspath",
+				fragments: [{
+						apex: "myapex",
+						module:"apex-fragment",
+				}],
+			}
+		`)
 }

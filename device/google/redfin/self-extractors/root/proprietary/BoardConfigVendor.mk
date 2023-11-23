@@ -12,7 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_STEM := redfin/BoardConfigPartial.mk
-
--include vendor/google_devices/$(LOCAL_STEM)
--include vendor/qcom/$(LOCAL_STEM)
+-include vendor/google_devices/redfin/BoardConfigPartial.mk
+-include vendor/qcom/redfin/BoardConfigPartial.mk

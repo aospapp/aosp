@@ -9,7 +9,7 @@ use std::io::Read;
 use arch::fdt::{Error, FdtWriter, Result};
 use arch::SERIAL_ADDR;
 use devices::{PciAddress, PciInterruptPin};
-use hypervisor::PsciVersion;
+use hypervisor::{PsciVersion, PSCI_0_2, PSCI_1_0};
 use vm_memory::{GuestAddress, GuestMemory};
 
 // This is the start of DRAM in the physical address space.
@@ -33,12 +33,6 @@ use crate::AARCH64_SERIAL_1_3_IRQ;
 use crate::AARCH64_SERIAL_2_4_IRQ;
 use crate::AARCH64_SERIAL_SIZE;
 use crate::AARCH64_SERIAL_SPEED;
-
-// These are related to guest virtio devices.
-use crate::AARCH64_MMIO_BASE;
-use crate::AARCH64_MMIO_SIZE;
-use crate::AARCH64_PCI_CFG_BASE;
-use crate::AARCH64_PCI_CFG_SIZE;
 
 use crate::AARCH64_PMU_IRQ;
 
@@ -229,15 +223,29 @@ fn create_serial_nodes(fdt: &mut FdtWriter) -> Result<()> {
     Ok(())
 }
 
-fn create_psci_node(fdt: &mut FdtWriter, version: &PsciVersion) -> Result<()> {
-    let mut compatible = vec![format!("arm,psci-{}.{}", version.major, version.minor)];
-    if version.major == 1 {
-        // Put `psci-0.2` as well because PSCI 1.0 is compatible with PSCI 0.2.
-        compatible.push(format!("arm,psci-0.2"))
-    };
+fn psci_compatible(version: &PsciVersion) -> Vec<&str> {
+    // The PSCI kernel driver only supports compatible strings for the following
+    // backward-compatible versions.
+    let supported = [(PSCI_1_0, "arm,psci-1.0"), (PSCI_0_2, "arm,psci-0.2")];
 
+    let mut compatible: Vec<_> = supported
+        .iter()
+        .filter(|&(v, _)| *version >= *v)
+        .map(|&(_, c)| c)
+        .collect();
+
+    // The PSCI kernel driver also supports PSCI v0.1, which is NOT forward-compatible.
+    if compatible.is_empty() {
+        compatible = vec!["arm,psci"];
+    }
+
+    compatible
+}
+
+fn create_psci_node(fdt: &mut FdtWriter, version: &PsciVersion) -> Result<()> {
+    let compatible = psci_compatible(version);
     let psci_node = fdt.begin_node("psci")?;
-    fdt.property_string_list("compatible", compatible)?;
+    fdt.property_string_list("compatible", &compatible)?;
     // Only support aarch64 guest
     fdt.property_string("method", "hvc")?;
     fdt.end_node(psci_node)?;
@@ -281,43 +289,85 @@ fn create_chosen_node(
     Ok(())
 }
 
+/// PCI host controller address range.
+///
+/// This represents a single entry in the "ranges" property for a PCI host controller.
+///
+/// See [PCI Bus Binding to Open Firmware](https://www.openfirmware.info/data/docs/bus.pci.pdf)
+/// and https://www.kernel.org/doc/Documentation/devicetree/bindings/pci/host-generic-pci.txt
+/// for more information.
+#[derive(Copy, Clone)]
+pub struct PciRange {
+    pub space: PciAddressSpace,
+    pub bus_address: u64,
+    pub cpu_physical_address: u64,
+    pub size: u64,
+    pub prefetchable: bool,
+}
+
+/// PCI address space.
+#[derive(Copy, Clone)]
+#[allow(dead_code)]
+pub enum PciAddressSpace {
+    /// PCI configuration space
+    Configuration = 0b00,
+    /// I/O space
+    Io = 0b01,
+    /// 32-bit memory space
+    Memory = 0b10,
+    /// 64-bit memory space
+    Memory64 = 0b11,
+}
+
+/// Location of memory-mapped PCI configuration space.
+#[derive(Copy, Clone)]
+pub struct PciConfigRegion {
+    /// Physical address of the base of the memory-mapped PCI configuration region.
+    pub base: u64,
+    /// Size of the PCI configuration region in bytes.
+    pub size: u64,
+}
+
 fn create_pci_nodes(
     fdt: &mut FdtWriter,
     pci_irqs: Vec<(PciAddress, u32, PciInterruptPin)>,
-    pci_device_base: u64,
-    pci_device_size: u64,
+    cfg: PciConfigRegion,
+    ranges: &[PciRange],
     dma_pool_phandle: Option<u32>,
 ) -> Result<()> {
     // Add devicetree nodes describing a PCI generic host controller.
     // See Documentation/devicetree/bindings/pci/host-generic-pci.txt in the kernel
     // and "PCI Bus Binding to IEEE Std 1275-1994".
-    let ranges = [
-        // mmio addresses
-        0x3000000,                        // (ss = 11: 64-bit memory space)
-        (AARCH64_MMIO_BASE >> 32) as u32, // PCI address
-        AARCH64_MMIO_BASE as u32,
-        (AARCH64_MMIO_BASE >> 32) as u32, // CPU address
-        AARCH64_MMIO_BASE as u32,
-        (AARCH64_MMIO_SIZE >> 32) as u32, // size
-        AARCH64_MMIO_SIZE as u32,
-        // device addresses
-        0x3000000,                      // (ss = 11: 64-bit memory space)
-        (pci_device_base >> 32) as u32, // PCI address
-        pci_device_base as u32,
-        (pci_device_base >> 32) as u32, // CPU address
-        pci_device_base as u32,
-        (pci_device_size >> 32) as u32, // size
-        pci_device_size as u32,
-    ];
+    let ranges: Vec<u32> = ranges
+        .iter()
+        .map(|r| {
+            let ss = r.space as u32;
+            let p = r.prefetchable as u32;
+            [
+                // BUS_ADDRESS(3) encoded as defined in OF PCI Bus Binding
+                (ss << 24) | (p << 30),
+                (r.bus_address >> 32) as u32,
+                r.bus_address as u32,
+                // CPU_PHYSICAL(2)
+                (r.cpu_physical_address >> 32) as u32,
+                r.cpu_physical_address as u32,
+                // SIZE(2)
+                (r.size >> 32) as u32,
+                r.size as u32,
+            ]
+        })
+        .flatten()
+        .collect();
+
     let bus_range = [0, 0]; // Only bus 0
-    let reg = [AARCH64_PCI_CFG_BASE, AARCH64_PCI_CFG_SIZE];
+    let reg = [cfg.base, cfg.size];
 
     let mut interrupts: Vec<u32> = Vec::new();
     let mut masks: Vec<u32> = Vec::new();
 
     for (address, irq_num, irq_pin) in pci_irqs.iter() {
         // PCI_DEVICE(3)
-        interrupts.push(address.to_config_address(0));
+        interrupts.push(address.to_config_address(0, 8));
         interrupts.push(0);
         interrupts.push(0);
 
@@ -399,10 +449,10 @@ fn create_rtc_node(fdt: &mut FdtWriter) -> Result<()> {
 /// * `fdt_max_size` - The amount of space reserved for the device tree
 /// * `guest_mem` - The guest memory object
 /// * `pci_irqs` - List of PCI device address to PCI interrupt number and pin mappings
+/// * `pci_cfg` - Location of the memory-mapped PCI configuration space.
+/// * `pci_ranges` - Memory ranges accessible via the PCI host controller.
 /// * `num_cpus` - Number of virtual CPUs the guest will have
 /// * `fdt_load_offset` - The offset into physical memory for the device tree
-/// * `pci_device_base` - The offset into physical memory for PCI device memory
-/// * `pci_device_size` - The size of PCI device memory
 /// * `cmdline` - The kernel commandline
 /// * `initrd` - An optional tuple of initrd guest physical address and size
 /// * `android_fstab` - An optional file holding Android fstab entries
@@ -412,12 +462,12 @@ pub fn create_fdt(
     fdt_max_size: usize,
     guest_mem: &GuestMemory,
     pci_irqs: Vec<(PciAddress, u32, PciInterruptPin)>,
+    pci_cfg: PciConfigRegion,
+    pci_ranges: &[PciRange],
     num_cpus: u32,
     cpu_clusters: Vec<Vec<usize>>,
     cpu_capacity: BTreeMap<usize, u32>,
     fdt_load_offset: u64,
-    pci_device_base: u64,
-    pci_device_size: u64,
     cmdline: &str,
     initrd: Option<(GuestAddress, usize)>,
     android_fstab: Option<File>,
@@ -448,13 +498,7 @@ pub fn create_fdt(
     }
     create_serial_nodes(&mut fdt)?;
     create_psci_node(&mut fdt, &psci_version)?;
-    create_pci_nodes(
-        &mut fdt,
-        pci_irqs,
-        pci_device_base,
-        pci_device_size,
-        dma_pool_phandle,
-    )?;
+    create_pci_nodes(&mut fdt, pci_irqs, pci_cfg, pci_ranges, dma_pool_phandle)?;
     create_rtc_node(&mut fdt)?;
     // End giant node
     fdt.end_node(root_node)?;
@@ -469,4 +513,52 @@ pub fn create_fdt(
         return Err(Error::FdtGuestMemoryWriteError);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn psci_compatible_v0_1() {
+        assert_eq!(
+            psci_compatible(&PsciVersion::new(0, 1).unwrap()),
+            vec!["arm,psci"]
+        );
+    }
+
+    #[test]
+    fn psci_compatible_v0_2() {
+        assert_eq!(
+            psci_compatible(&PsciVersion::new(0, 2).unwrap()),
+            vec!["arm,psci-0.2"]
+        );
+    }
+
+    #[test]
+    fn psci_compatible_v0_5() {
+        // Only the 0.2 version supported by the kernel should be added.
+        assert_eq!(
+            psci_compatible(&PsciVersion::new(0, 5).unwrap()),
+            vec!["arm,psci-0.2"]
+        );
+    }
+
+    #[test]
+    fn psci_compatible_v1_0() {
+        // Both 1.0 and 0.2 should be listed, in that order.
+        assert_eq!(
+            psci_compatible(&PsciVersion::new(1, 0).unwrap()),
+            vec!["arm,psci-1.0", "arm,psci-0.2"]
+        );
+    }
+
+    #[test]
+    fn psci_compatible_v1_5() {
+        // Only the 1.0 and 0.2 versions supported by the kernel should be listed.
+        assert_eq!(
+            psci_compatible(&PsciVersion::new(1, 5).unwrap()),
+            vec!["arm,psci-1.0", "arm,psci-0.2"]
+        );
+    }
 }

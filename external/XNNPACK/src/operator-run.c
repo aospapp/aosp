@@ -756,10 +756,10 @@ void xnn_compute_pad_5d(
     context->pad_ukernel(
       1 /* rows */,
       context->input_size[0], context->pre_paddings[0], context->post_paddings[0],
-      &context->padding_value,
-      input, 0 /* input stride */, output, 0 /* output stride */);
+      input, 0 /* input stride */, output, 0 /* output stride */,
+      context->padding_value);
   } else {
-    context->fill_ukernel(1 /* rows */, context->output_size[0], output, 0 /* output stride */, &context->padding_value);
+    context->fill_ukernel(1 /* rows */, context->output_size[0], output, 0 /* output stride */, context->padding_value);
   }
 }
 
@@ -803,7 +803,7 @@ void xnn_compute_lut_strided(
   const void* x = (const void*) ((uintptr_t) context->x + context->x_stride * batch_index);
   void* y = (void*) ((uintptr_t) context->y + context->y_stride * batch_index);
 
-  context->ukernel(context->n, x, context->t, y);
+  context->ukernel(context->n, x, y, context->t);
 }
 
 void xnn_compute_lut_contiguous(
@@ -814,19 +814,24 @@ void xnn_compute_lut_contiguous(
   const void* x = (const void*) ((uintptr_t) context->x + offset);
   void* y = (void*) ((uintptr_t) context->y + offset);
 
-  context->ukernel(size, x, context->t, y);
+  context->ukernel(size, x, y, context->t);
 }
 
 void xnn_compute_univector_strided(
     const struct univector_strided_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t batch_index,
-    size_t batch_range /* always 1 */)
+    size_t batch_range)
 {
-  assert(batch_range == 1);
+  const size_t x_stride = context->x_stride;
+  const size_t y_stride = context->y_stride;
 
-  const void* x = (const void*) ((uintptr_t) context->x + context->x_stride * batch_index);
-  void* y = (void*) ((uintptr_t) context->y + context->y_stride * batch_index);
-  context->ukernel(context->n, x, y, &context->params);
+  const void* x = (const void*) ((uintptr_t) context->x + x_stride * batch_index);
+  void* y = (void*) ((uintptr_t) context->y + y_stride * batch_index);
+  do {
+    context->ukernel(context->n, x, y, &context->params);
+    x = (const void*) ((uintptr_t) x + x_stride);
+    y = (void*) ((uintptr_t) y + y_stride);
+  } while (--batch_range != 0);
 }
 
 void xnn_compute_univector_contiguous(
@@ -834,8 +839,10 @@ void xnn_compute_univector_contiguous(
     size_t offset,
     size_t size)
 {
+  const uint32_t log2_xsize = context->log2_xsize;
+  const uint32_t log2_ysize = context->log2_ysize;
   const void* x = (const void*) ((uintptr_t) context->x + offset);
-  void* y = (void*) ((uintptr_t) context->y + offset);
+  void* y = (void*) ((uintptr_t) context->y + ((offset >> log2_xsize) << log2_ysize));
   context->ukernel(size, x, y, &context->params);
 }
 
@@ -868,11 +875,11 @@ void xnn_compute_f32_three_pass_softmax(
 
   // Second pass: reduce-add & store exp(x-x_max)
   float y_sum;
-  context->raddstoreexpminusmax_ukernel(n, x, y, &y_sum, x_max);
+  context->raddstoreexpminusmax_ukernel(n, x, &x_max, y, &y_sum, &context->expminus_params);
 
   // Third pass: scale y
   const float y_scale = 1.0f / y_sum;
-  context->vmulc_ukernel(n, y, &y_scale, y, &context->params);
+  context->vmulc_ukernel(n, y, &y_scale, y, &context->minmax_params);
 }
 
 void xnn_compute_vmulcaddc(
@@ -1071,6 +1078,10 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
       return xnn_status_success;
   }
 
+  uint32_t flags = PTHREADPOOL_FLAG_DISABLE_DENORMALS;
+  if (op->flags & XNN_FLAG_YIELD_WORKERS) {
+    flags |= PTHREADPOOL_FLAG_YIELD_WORKERS;
+  }
   switch (op->compute.type) {
     case xnn_parallelization_type_invalid:
       break;
@@ -1081,7 +1092,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           op->compute.task_1d,
           &op->context,
           op->compute.range[0],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_1d_tile_1d:
       assert(op->compute.range[0] != 0);
@@ -1092,7 +1103,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0],
           op->compute.tile[0],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_2d:
       assert(op->compute.range[0] != 0);
@@ -1102,7 +1113,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           op->compute.task_2d,
           &op->context,
           op->compute.range[0], op->compute.range[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_2d_tile_1d:
       assert(op->compute.range[0] != 0);
@@ -1114,7 +1125,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1],
           op->compute.tile[0],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_2d_tile_2d:
       assert(op->compute.range[0] != 0);
@@ -1127,7 +1138,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_3d:
       assert(op->compute.range[0] != 0);
@@ -1138,7 +1149,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           op->compute.task_3d,
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_3d_tile_2d:
       assert(op->compute.range[0] != 0);
@@ -1152,7 +1163,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_4d:
       assert(op->compute.range[0] != 0);
@@ -1164,7 +1175,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           op->compute.task_4d,
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_4d_tile_2d:
       assert(op->compute.range[0] != 0);
@@ -1179,7 +1190,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_5d:
       assert(op->compute.range[0] != 0);
@@ -1192,7 +1203,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           op->compute.task_5d,
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3], op->compute.range[4],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_5d_tile_2d:
       assert(op->compute.range[0] != 0);
@@ -1208,7 +1219,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3], op->compute.range[4],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_6d_tile_2d:
       assert(op->compute.range[0] != 0);
@@ -1225,7 +1236,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           &op->context,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3], op->compute.range[4], op->compute.range[5],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
 #if XNN_MAX_UARCH_TYPES > 1
     case xnn_parallelization_type_2d_tile_2d_with_uarch:
@@ -1240,7 +1251,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           0 /* default uarch index */, XNN_MAX_UARCH_TYPES - 1,
           op->compute.range[0], op->compute.range[1],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_3d_tile_2d_with_uarch:
       assert(op->compute.range[0] != 0);
@@ -1255,7 +1266,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           0 /* default uarch index */, XNN_MAX_UARCH_TYPES - 1,
           op->compute.range[0], op->compute.range[1], op->compute.range[2],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
     case xnn_parallelization_type_4d_tile_2d_with_uarch:
       assert(op->compute.range[0] != 0);
@@ -1271,7 +1282,7 @@ enum xnn_status xnn_run_operator(xnn_operator_t op, pthreadpool_t threadpool)
           0 /* default uarch index */, XNN_MAX_UARCH_TYPES - 1,
           op->compute.range[0], op->compute.range[1], op->compute.range[2], op->compute.range[3],
           op->compute.tile[0], op->compute.tile[1],
-          PTHREADPOOL_FLAG_DISABLE_DENORMALS /* flags */);
+          flags);
       break;
 #endif  // XNN_MAX_UARCH_TYPES > 1
     default:

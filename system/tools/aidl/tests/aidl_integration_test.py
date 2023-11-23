@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from itertools import product
 import pipes
 import re
 import subprocess
@@ -159,6 +160,38 @@ class JavaClient:
         if re.search(INSTRUMENTATION_SUCCESS_PATTERN, result.stdout) is None:
             raise TestFail(result.stdout)
 
+class JavaVersionTestClient:
+    def __init__(self, host, bitness, ver):
+        self.name = "java_client_sdk%d_%s" % (ver, pretty_bitness(bitness))
+        self.host = host
+        self.bitness = bitness
+        self.ver = ver
+    def cleanup(self):
+        self.host.run('killall ' + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness),
+                      ignore_status=True)
+    def run(self):
+        result = self.host.run('CLASSPATH=/data/framework/aidl_test_java_client_sdk%d.jar ' % self.ver
+                               + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness) +
+                               ' /data/framework android.aidl.sdkversion.tests.AidlJavaVersionTests')
+        print(result.printable_string())
+        if re.search(INSTRUMENTATION_SUCCESS_PATTERN, result.stdout) is None:
+            raise TestFail(result.stdout)
+
+class JavaVersionTestServer:
+    def __init__(self, host, bitness, ver):
+        self.name = "java_server_sdk%s_%s" % (ver, pretty_bitness(bitness))
+        self.host = host
+        self.bitness = bitness
+        self.ver = ver
+    def cleanup(self):
+        self.host.run('killall ' + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness),
+                      ignore_status=True)
+    def run(self):
+        return self.host.run('CLASSPATH=/data/framework/aidl_test_java_service_sdk%d.jar ' % self.ver
+                             + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness) +
+                             ' /data/framework android.aidl.sdkversion.service.AidlJavaVersionTestService',
+                             background=True)
+
 def getprop(host, prop):
     return host.run('getprop "%s"' % prop).stdout.strip()
 
@@ -178,6 +211,16 @@ class RustClient:
 class RustServer:
     def __init__(self, host, bitness):
         self.name = "%s_bit_rust_server" % pretty_bitness(bitness)
+        self.host = host
+        self.binary = RUST_TEST_SERVICE_FOR_BITNESS % bitness
+    def cleanup(self):
+        self.host.run('killall %s' % self.binary, ignore_status=True)
+    def run(self):
+        return self.host.run(self.binary, background=True)
+
+class RustAsyncServer:
+    def __init__(self, host, bitness):
+        self.name = "%s_bit_rust_server_async" % pretty_bitness(bitness)
         self.host = host
         self.binary = RUST_TEST_SERVICE_FOR_BITNESS % bitness
     def cleanup(self):
@@ -209,6 +252,11 @@ def make_test(client, server):
             server.cleanup()
     return test
 
+def add_test(client, server):
+    test_name = 'test_%s_to_%s' % (client.name, server.name)
+    test = make_test(client, server)
+    setattr(TestAidl, test_name, test)
+
 if __name__ == '__main__':
     host = AdbHost()
     bitnesses = supported_bitnesses(host)
@@ -230,12 +278,19 @@ if __name__ == '__main__':
 
         clients += [RustClient(host, bitness)]
         servers += [RustServer(host, bitness)]
+        servers += [RustAsyncServer(host, bitness)]
 
     for client in clients:
         for server in servers:
-            test_name = 'test_%s_to_%s' % (client.name, server.name)
-            test = make_test(client, server)
-            setattr(TestAidl, test_name, test)
+            add_test(client, server)
+
+    # boolean: >= 29
+    # typed:   >= 23
+    versions = [1, 29]
+    for c_version, c_bitness, s_version, s_bitness in product(versions, bitnesses, repeat=2):
+        client = JavaVersionTestClient(host, c_bitness, c_version)
+        server = JavaVersionTestServer(host, s_bitness, s_version)
+        add_test(client, server)
 
     suite = unittest.TestLoader().loadTestsFromTestCase(TestAidl)
     sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

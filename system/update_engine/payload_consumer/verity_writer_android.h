@@ -34,7 +34,7 @@ class VerityWriterAndroid : public VerityWriterInterface {
 
   bool Init(const InstallPlan::Partition& partition);
   bool Update(uint64_t offset, const uint8_t* buffer, size_t size) override;
-  bool Finalize(FileDescriptorPtr read_fd, FileDescriptorPtr write_fd) override;
+  bool Finalize(FileDescriptor* read_fd, FileDescriptor* write_fd) override;
 
   // Read [data_offset : data_offset + data_size) from |path| and encode FEC
   // data, if |verify_mode|, then compare the encoded FEC with the one in
@@ -42,8 +42,8 @@ class VerityWriterAndroid : public VerityWriterInterface {
   // in each Update() like hash tree, because for every rs block, its data are
   // spreaded across entire |data_size|, unless we can cache all data in
   // memory, we have to re-read them from disk.
-  static bool EncodeFEC(FileDescriptorPtr read_fd,
-                        FileDescriptorPtr write_fd,
+  static bool EncodeFEC(FileDescriptor* read_fd,
+                        FileDescriptor* write_fd,
                         uint64_t data_offset,
                         uint64_t data_size,
                         uint64_t fec_offset,

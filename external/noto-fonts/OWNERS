@@ -1,6 +1,8 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
-dougfelt@google.com
-siyamed@google.com
+# Android owners
 nona@google.com
+siyamed@google.com
+seanmcq@google.com
+
+# Upstream font owners
 marekj@google.com
+rsheeter@google.com

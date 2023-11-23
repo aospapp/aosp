@@ -14,14 +14,16 @@ android_app {
     ],
     static_libs: [
         "android-support-annotations",
+        "net-utils-dnspacket-common",
     ],
 
     libs: [
         "android.net.ipsec.ike.stubs.system",
         "auto_value_annotations",
-	"framework-annotations-lib",
-	"framework-connectivity",
-	"framework-wifi"
+        "framework-annotations-lib",
+        "framework-connectivity",
+        "framework-wifi",
+        "modules-utils-handlerexecutor"
     ],
 
     plugins: ["auto_value_plugin"],
@@ -29,10 +31,10 @@ android_app {
     required: ["privapp-permlist_com.google.android.iwlan.xml"],
 
     owner: "google",
-    product_specific: true,
+    system_ext_specific: true,
+    platform_apis: true,
     privileged: true,
     certificate: "platform",
-    sdk_version: "module_current",
 }
 
 prebuilt_etc {
@@ -40,7 +42,7 @@ prebuilt_etc {
     sub_dir: "permissions",
     src: "com.google.android.iwlan.xml",
     filename_from_src: true,
-    product_specific: true,
+    system_ext_specific: true,
 }
 
 android_test {
@@ -71,8 +73,10 @@ android_test {
     static_libs: [
         "android-support-annotations",
         "androidx.test.rules",
+        "frameworks-base-testutils",
         "mockito-target-inline-minus-junit4",
         "mockito-target-extended-minus-junit4",
+        "net-utils-dnspacket-common",
     ],
 
     jni_libs: [

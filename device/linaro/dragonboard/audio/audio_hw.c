@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <log/log.h>
 #include <cutils/str_parms.h>
@@ -41,6 +42,7 @@
 #include <audio_utils/clock.h>
 #include <audio_utils/echo_reference.h>
 #include <audio_utils/resampler.h>
+#include <cutils/properties.h>
 #include <hardware/audio_alsaops.h>
 #include <hardware/audio_effect.h>
 #include <sound/asound.h>
@@ -70,6 +72,20 @@ static bool is_aec_input(const struct alsa_stream_in* in) {
 static int get_audio_output_port(audio_devices_t devices) {
     /* Only HDMI out for now #FIXME */
     return PORT_HDMI;
+}
+
+static int get_audio_card(int direction, int port) {
+    struct pcm_params* params = NULL;
+    int card = 0;
+
+    while (!params && card < 8) {
+	/* Find the first input/output device that works */
+        params = pcm_params_get(card, port, direction);
+	card++;
+    }
+    pcm_params_free(params);
+
+    return card - 1;
 }
 
 static void timestamp_adjust(struct timespec* ts, ssize_t frames, uint32_t sampling_rate) {
@@ -173,9 +189,10 @@ static int start_output_stream(struct alsa_stream_out *out)
     out->unavailable = true;
     unsigned int pcm_retry_count = PCM_OPEN_RETRIES;
     int out_port = get_audio_output_port(out->devices);
+    int out_card = get_audio_card(PCM_OUT, out_port);
 
     while (1) {
-        out->pcm = pcm_open(CARD_OUT, out_port, PCM_OUT | PCM_MONOTONIC, &out->config);
+        out->pcm = pcm_open(out_card, out_port, PCM_OUT | PCM_MONOTONIC, &out->config);
         if ((out->pcm != NULL) && pcm_is_ready(out->pcm)) {
             break;
         } else {
@@ -433,9 +450,10 @@ static int start_input_stream(struct alsa_stream_in *in)
     struct alsa_audio_device *adev = in->dev;
     in->unavailable = true;
     unsigned int pcm_retry_count = PCM_OPEN_RETRIES;
+    int in_card = get_audio_card(PCM_IN, PORT_BUILTIN_MIC);
 
     while (1) {
-        in->pcm = pcm_open(CARD_IN, PORT_BUILTIN_MIC, PCM_IN | PCM_MONOTONIC, &in->config);
+        in->pcm = pcm_open(in_card, PORT_BUILTIN_MIC, PCM_IN | PCM_MONOTONIC, &in->config);
         if ((in->pcm != NULL) && pcm_is_ready(in->pcm)) {
             break;
         } else {
@@ -795,7 +813,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     struct alsa_audio_device *ladev = (struct alsa_audio_device *)dev;
     int out_port = get_audio_output_port(devices);
-    struct pcm_params* params = pcm_params_get(CARD_OUT, out_port, PCM_OUT);
+    int out_card = get_audio_card(PCM_OUT, out_port);
+    struct pcm_params* params = pcm_params_get(out_card, out_port, PCM_OUT);
     if (!params) {
         return -ENOSYS;
     }
@@ -991,7 +1010,8 @@ static int adev_open_input_stream(struct audio_hw_device* dev, audio_io_handle_t
 
     struct alsa_audio_device *ladev = (struct alsa_audio_device *)dev;
 
-    struct pcm_params* params = pcm_params_get(CARD_IN, PORT_BUILTIN_MIC, PCM_IN);
+    int in_card = get_audio_card(PCM_IN, PORT_BUILTIN_MIC);
+    struct pcm_params* params = pcm_params_get(in_card, PORT_BUILTIN_MIC, PCM_IN);
     if (!params) {
         return -ENOSYS;
     }
@@ -1103,6 +1123,9 @@ static int adev_close(hw_device_t *device)
 static int adev_open(const hw_module_t* module, const char* name,
         hw_device_t** device)
 {
+    char vendor_hw[PROPERTY_VALUE_MAX] = {0};
+    // Prefix for the hdmi path, the board name is the suffix
+    char path_name[256] = "hdmi_";
     ALOGV("adev_open: %s", name);
 
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0) {
@@ -1139,17 +1162,27 @@ static int adev_open(const hw_module_t* module, const char* name,
 
     *device = &adev->hw_device.common;
 
-    adev->mixer = mixer_open(CARD_OUT);
+    int out_card = get_audio_card(PCM_OUT, 0);
+    adev->mixer = mixer_open(out_card);
     if (!adev->mixer) {
         ALOGE("Unable to open the mixer, aborting.");
         goto error_1;
     }
 
-    adev->audio_route = audio_route_init(CARD_OUT, MIXER_XML_PATH);
+    adev->audio_route = audio_route_init(out_card, MIXER_XML_PATH);
     if (!adev->audio_route) {
         ALOGE("%s: Failed to init audio route controls, aborting.", __func__);
         goto error_2;
     }
+
+    /*
+     * To support both the db845c and rb5 we need to used the right mixer path
+     * we do this by checking the hardware name. Which is set at boot time.
+     */
+    property_get("vendor.hw", vendor_hw, "db845c");
+    strlcat(path_name, vendor_hw, 256);
+    ALOGV("%s: Using mixer path: %s", __func__, path_name);
+    audio_route_apply_and_update_path(adev->audio_route, path_name);
 
     pthread_mutex_lock(&adev->lock);
     if (init_aec(CAPTURE_CODEC_SAMPLING_RATE, NUM_AEC_REFERENCE_CHANNELS,

@@ -26,7 +26,7 @@
     <string name="try_again" msgid="8278874823700921234">"Pokušaj ponovo"</string>
     <string name="set_wallpaper_error_message" msgid="6819986999041085130">"Nije moguće postaviti pozadinsku sliku."</string>
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"Nije moguće učitati pozadinsku sliku. Slika je oštećena ili nije dostupna."</string>
-    <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Trenutno se koristi"</string>
+    <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Trenutno postavljeno"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Dnevna pozadinska slika"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"Početni ekran i zaključani ekran"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Početni ekran"</string>
@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Postavite pozadinsku sliku na"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Početni ekran"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Zaključavanje ekrana"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Početni i zaključani ekran"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Početni i zaključani ekrani"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Smjenjivanje pozadinskih slika"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Da ovdje prikažete trenutne pozadinske slike, aplikaciji <xliff:g id="APP_NAME">%1$s</xliff:g> treba pristup pohrani na vašem uređaju."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Da ovdje prikažete trenutne pozadinske slike, aplikaciji Pozadinske slike treba pristup pohrani na vašem uređaju.\n\nZa promjenu postavke, u informacijama o aplikaciji Pozadinske slike idite u odjeljak Odobrenja."</string>
@@ -44,7 +44,7 @@
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"Dnevna pozadinska slika"</string>
     <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Dodirnite da uključite"</string>
     <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"Pozadinska slika će se automatski mijenjati svakodnevno. Da završite postavljanje, na sljedećem ekranu dodirnite &lt;strong&gt;Postavi pozadinsku sliku&lt;/strong&gt;."</string>
-    <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Preuzimaj nove pozadinske slike samo putem WiFi mreže"</string>
+    <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Preuzimaj nove pozadinske slike samo putem WiFi-ja"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Nastavi"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"Preuzimanje prve pozadinske slike…"</string>
     <string name="start_rotation_error_message" msgid="3053799836719618972">"Nije moguće preuzeti prvu pozadinsku sliku. Provjerite postavke mreže i pokušajte ponovo."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Pregled"</string>
     <string name="tab_info" msgid="818614080690111416">"Informacije"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Prilagođavanje"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Efekti"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Moje fotografije"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Postavke…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Izbriši"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Izbrisati ovu pozadinsku sliku s telefona?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Pozadinska slika"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Pregled pozadinske slike"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Kolekcija ne postoji"</string>
+    <string name="cancel" msgid="4970902691067201584">"Otkaži"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Sakrij pregled UI-a"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI skriven u pregledu. Dodirnite dvaput da otkrijete"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Prikaži pregled UI-a"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Prilagođavanje je prikazano"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Informacije su skrivene"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Informacije su prikazane"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Omogućite fajlove i medije u postavkama."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Omogući"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Otvori Moje fotografije"</string>
 </resources>

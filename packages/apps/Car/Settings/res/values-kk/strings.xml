@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Деректерге мобильдік желі арқылы кіру"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Мобильдік желі"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Мобильдік интернетті пайдалану"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Өшірулі"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Мобильдік интернет өшірілсін бе?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Таңдаңыз"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Мобильдік интернет үшін <xliff:g id="CARRIER">%1$s</xliff:g> қолданылсын ба?"</string>
@@ -65,7 +66,7 @@
     <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"Пайдалану циклін бастапқы күйге қайтару күні"</string>
     <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"Әр айдағы күн:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Орнату"</string>
-    <string name="data_warning_limit_title" msgid="4950868241810828601">"Дерек ескертуі және шегі"</string>
+    <string name="data_warning_limit_title" msgid="4950868241810828601">"Дерек шығыны туралы ескерту және шектеу"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Қолданбаның дерек шығыны циклі"</string>
     <string name="mobile_data_usage" msgid="8171519864391091861">"Мобильдік интернет трафигі"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"Дерек шығыны туралы ескерту"</string>
@@ -74,7 +75,7 @@
     <string name="data_limit" msgid="227338836292511425">"Дерек шегі"</string>
     <string name="data_usage_limit_dialog_title" msgid="1864716658371721883">"Дерек трафигін шектеу"</string>
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Орнатқан шекке жеткеннен кейін, көліктегі құрылғы мобильдік деректерді өшіреді.\n\nҚұрылғы деректерді пайдалану шегін белгілейтіндіктен және оператор трафикті басқаша есептеуі мүмкін болғандықтан, қатаңырақ шек қойған жөн."</string>
-    <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Дерек шығыны туралы ескерту"</string>
+    <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Дерек шығыны туралы ескерту қою"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Дерек трафигі шегін орнату"</string>
     <string name="data_usage_settings_footer" msgid="681881387909678237">"Дерек трафигін құрылғы өлшейді. Бұл мобильдік оператордың дерегінен басқаша болуы мүмкін."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Орнату"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi іздеу функциясы қосулы"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Мобильдік деректерге автоматты ауысу"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi‑Fi желісінде интернетпен байланыс болмаған кезде, мобильдік деректер пайдаланылады. Деректер ақысы алынуы мүмкін."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi‑Fi желілерін тауып, оларға қосылу"</string>
     <string name="learn_more" msgid="8214605928933358604">"Толығырақ"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Хотспот атауы"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> қосылуда..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Басқа құрылғылар <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> хотспотына қосыла алады."</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Хотспот құпия сөзі"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Қауіпсіздік"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Жоқ"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP диапазоны"</string>
@@ -380,7 +384,7 @@
     <string name="hide_system" msgid="8845453295584638040">"Жүйені жасыру"</string>
     <string name="hide_system_apps" msgid="6583947381056154020">"Жүйелік қолданбаларды жасыру"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Жүйе параметрлерін өзгерту"</string>
-    <string name="modify_system_settings_description" msgid="5295023124419592452">"Бұл рұқсат қолданбаға жүйе параметрлерін өзгертуге рұқсат етеді."</string>
+    <string name="modify_system_settings_description" msgid="5295023124419592452">"Бұл рұқсат қолданбаға жүйе параметрлерін өзгертуге мүмкіндік береді."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Хабарландыруларды пайдалану"</string>
     <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"<xliff:g id="SERVICE">%1$s</xliff:g> қызметіне хабарландыруларды пайдалануға рұқсат берілсін бе?"</string>
     <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> барлық хабарландыруларды, соның ішінде контакт аттары, сізге келген хабарлардың мәтіні сияқты жеке ақпаратты оқи алатын болады. Сондай-ақ хабарландыруларды өзгерте, жаба немесе олардағы әрекет түймелерін қоса алады. \n\nБұл, сондай-ақ қолданбаға Мазаламау режимін қосуға немесе өшіруге және тиісті параметрлерді өзгертуге мүмкіндік береді."</string>
@@ -390,7 +394,7 @@
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Ақылы SMS жіберу"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"Ақылы SMS жіберу үшін оператор тарифтеріне сәйкес ақы алынады. Егер қолданбаға рұқсат берсеңіз, сол қолданба арқылы ақылы SMS жібере аласыз."</string>
     <string name="usage_access_title" msgid="7153427122072303254">"Пайдалану тарихын көру"</string>
-    <string name="usage_access_description" msgid="2413168719257435422">"Пайдалану тарихын көру мүмкіндігі қолданбаға сіз пайдаланатын басқа қолданбаларды және қаншалықты жиі пайдаланатыңыз туралы ақпаратты, сондай-ақ операторды, тіл параметрлерін және басқа мәліметтерді бақылауға мүмкіндік береді."</string>
+    <string name="usage_access_description" msgid="2413168719257435422">"Пайдалану тарихын көру рұқсаты қолданбаға сіз пайдаланатын басқа қолданбаларды және қаншалықты жиі пайдаланатыңыз туралы ақпаратты, сондай-ақ операторды, тіл параметрлерін және басқа мәліметтерді бақылауға мүмкіндік береді."</string>
     <string name="wifi_control_title" msgid="5660436566907731929">"Wi-Fi желісін басқару"</string>
     <string name="wifi_control_description" msgid="6021926850423169261">"Wi-Fi желісін басқару функциясы қолданбаға Wi-Fi желісін қосуға немесе өшіруге, Wi-Fi желілерін іздеуге және оларға жалғануға, желілерді енгізуге не өшіруге немесе тек жергілікті хотспотты іске қосуға рұқсат етеді."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Тағы"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Қолданба параметрлері бастапқы күйіне қайтарылды."</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Барлық деректерді өшіру (зауыттық параметрлерге қайтару)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Ақпарат және ойын-сауық жүйесінен барлық дерек пен профильдерді өшіру"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Көліктің ақпарат және ойын-сауық жүйесіндегі барлық дерек өшіріледі, оның ішінде:\n\n"<li>"Google аккаунтыңыз;"</li>\n<li>"жүйе және қолданба деректері және параметрлері;"</li>\n<li>"жүктеп алынған қолданбалар."</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Бұл – көлігіңіздің ақпараттық-сауықтық жүйесінен деректердің барлығын өшіреді, соның ішінде:\n\n"<li>"аккаунттарыңыз бен профильдеріңізді;"</li>\n<li>"жүйе және қолданба деректері мен параметрлерін;"</li>\n<li>"жүктеп алынған қолданбаларды"</li>"."</string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Сіз келесі аккаунттарға кірдіңіз:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Бұл көлік үшін басқа профильдер реттелген."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Барлық деректі өшіру"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Жаңа әкімшіні таңдаңыз"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Кемінде бір әкімші болуы керек. Ағымдағы әкімшіні жою үшін алдымен жаңасын таңдаңыз."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Әкімшіні таңдау"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Қонақ"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Қонақ"</string>
     <string name="user_switch" msgid="6544839750534690781">"Ауысу"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Сіз (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Аты"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> атты пайдаланушының аккаунттары"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Деректерді автоматты түрде синхрондау"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Қолданбалардың деректерді автоматты жаңартуына рұқсат беру"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Автосихрондау қосылсын ба?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Компьютер арқылы аккаунттарыңызға енгізілген өзгертулер құрылғыңызға автоматты түрде көшіріледі.\n\nСондай-ақ телефоныңыз арқылы аккаунттарға енгізілген кейбір өзгертулер компьютерге көшірілуі мүмкін. Google аккаунты осылай жұмыс істейді."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Автосинхрондау өшірілсін бе?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Деректерді автоматты түрде синхрондауға рұқсат етілсін бе?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Аккаунтыңызға интернет арқылы енгізілген өзгерістер автоматты түрде көлігіңізге көшіріледі.\n\nКөлікте жасалған өзгерістерді кейбір аккаунттар автоматты түрде интернетке көшіруі де мүмкін."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Деректерді автоматты түрде синхрондауға тыйым салынсын ба?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Трафик үнемделеді, бірақ соңғы ақпаратты жинау үшін әр аккаунтты қолмен синхрондау қажет болады. Сондай-ақ жаңартылған нұсқалар шыққанда, хабарландыру жіберілмейді."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Аккаунт ақпараты"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Аккаунт енгізу"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Құпиялылық"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Ақпараттық-сауықтық жүйе деректері"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Қолданбаның локацияны пайдалану рұқсатын басқару"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Камера"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Қолданбаның камераны пайдалану параметрлерін басқару"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Микрофон"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Қолданбаның микрофонды пайдалану рұқсатын басқару"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Ақпарат және ойын-сауық жүйесі деректері"</string>
@@ -635,7 +639,7 @@
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"PIN кодын таңдаңыз"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"Құпия сөзді таңдаңыз"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"Қазіргі экран құлпы"</string>
-    <string name="choose_lock_pattern_message" msgid="6242765203541309524">"Қауіпсіздік үшін өрнекті орнатыңыз"</string>
+    <string name="choose_lock_pattern_message" msgid="6242765203541309524">"Қауіпсіздік үшін өрнек орнатыңыз"</string>
     <string name="lockpattern_retry_button_text" msgid="4655398824001857843">"Өшіру"</string>
     <string name="lockpattern_cancel_button_text" msgid="4068764595622381766">"Бас тарту"</string>
     <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"Құлыпты ашатын жаңа өрнек"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Бас тарту"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Растау"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Ең кемі 4 таңбадан тұруы керек"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Кемінде <xliff:g id="COUNT">%d</xliff:g> таңба болуы керек."</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN коды кемінде <xliff:g id="COUNT">%d</xliff:g> таңбадан тұруы керек"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Ең көбі <xliff:g id="NUMBER">%d</xliff:g> таңба болуы керек"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Ең көбі <xliff:g id="NUMBER">%d</xliff:g> сан болуы керек"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Тек 0-9 арасындағы сандар болуы керек."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Құрылғы әкімшісі жақында пайдаланылған PIN кодын қолдануға рұқсат бермейді"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Әкімшіңіз оңай PIN кодтарына тыйым салды. Басқа PIN кодын енгізіп көріңіз."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Құрылғы әкімшісі соңғы құпия сөзді қолдануға рұқсат бермейді"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Құпия сөзді сақтау кезінде қате кетті"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Әкімшіңіз оңай құпия сөздерге тыйым салды. Басқа құпия сөз енгізіп көріңіз."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Сандардың артатын, кемитін немесе қайталанатын ретіне рұқсат берілмейді"</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Кемінде бір әріп болуы керек."</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Кемінде бір сан болуы керек."</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Кемінде бір таңба болуы керек."</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Кемінде # әріп болуы керек.}other{Кемінде # әріп болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Кемінде # кіші әріп болуы керек.}other{Кемінде # кіші әріп болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Кемінде # бас әріп болуы керек.}other{Кемінде # бас әріп болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Кемінде # цифр болуы керек.}other{Кемінде # цифр болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Кемінде # арнайы таңба болуы керек.}other{Кемінде # арнайы таңба болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Кемінде # әріпке жатпайтын таңба болуы керек.}other{Кемінде # әріпке жатпайтын таңба болуы керек.}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Кемінде # цифрға жатпайтын таңба болуы керек.}other{Кемінде # цифрға жатпайтын таңба болуы керек.}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Кемінде # таңба болуы керек.}other{Кемінде # таңба болуы керек.}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Кемінде # цифр болуы керек.}other{Кемінде # цифр болуы керек.}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Ең көбі # таңба болуы керек.}other{Ең көбі # таңба болуы керек.}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Ең көбі # цифр болуы керек.}other{Ең көбі # цифр болуы керек.}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Сандардың артатын, кемитін немесе қайталанатын ретіне рұқсат берілмейді"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Экранды құлыптау опциялары"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> күн бұрын"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Тіркелу деректерін өшіру"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Өшіру"</string>
     <string name="cancel" msgid="750286395700355455">"Бас тарту"</string>
     <string name="allow" msgid="7519431342750394402">"Рұқсат беру"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Рұқсат бермеу"</string>
     <string name="deny" msgid="340512788979930804">"Қабылдамау"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace пернесі"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter пернесі"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Осы ақпараттық-сауықтық жүйе қолданбасын белсендіру"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Өшіру және жою"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Ақпараттық-сауықтық жүйе қолданбасын өшіру"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Қосымша мәліметтер"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Ұйым басқарушысы осы профильмен байланысты қолданбалар мен деректі, соның ішінде параметрлерді, рұқсаттарды, корпоративтік рұқсатты, желідегі әрекеттерді және көлік локациясы туралы ақпаратты бақылап, басқара алады."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Ұйым басқарушысы осы профильмен байланысты қолданбалар мен деректі, соның ішінде параметрлерді, рұқсаттарды, корпоративтік рұқсатты, желідегі әрекеттерді және құрылғы локациясы туралы ақпаратты бақылап, басқара алады."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Ұйым басқарушысы осы ақпараттық-сауықтық жүйемен байланысты қолданбалар мен деректі, соның ішінде параметрлерді, рұқсаттарды, корпоративтік рұқсатты, желідегі әрекеттерді және көлік локациясы туралы ақпаратты бақылап, басқара алады."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> көлік саясаты"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Параметрлерді ұйым басқарушысы басқарады."</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> туралы толығырақ ақпарат"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Басқарылатын көлік туралы ақпарат"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Автопарк әкімшісі басқаратын параметрлер"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Осы басқарылатын көліктегі деректерді пайдалану үшін автопарк әкімшісі ақпараттық-сауықтық жүйеде параметрлерді өзгертіп, бағдарламалық құрал орната алады.\n\nҚосымша мәліметтер алу үшін автопарк әкімшісіне хабарласыңыз."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Автопарк әкімшісі көре алатын ақпарат"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Автопарк әкімшісі енгізген өзгерістер"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Басқарылатын көлік аккаунтымен байланыстырылған дерек"</li>\n" "<li>"Басқарылатын көліктегі қолданбалар тізімі"</li>\n" "<li>"Әр қолданбада жұмсалған уақыт пен дерек мөлшері"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Ақпараттық-сауықтық жүйеге кіру"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Көліктегі қолданбалар тізімі"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Қолданба саны шамамен алынған. Бұған Play Store дүкенінен тыс орнатылған қолданбалар кірмеуі мүмкін."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Кемінде <xliff:g id="COUNT_1">%d</xliff:g> қолданба</item>
+      <item quantity="one">Кемінде <xliff:g id="COUNT_0">%d</xliff:g> қолданба</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> қолданба</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> қолданба</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Желі трафигінің ең соңғы журналы"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Қателер туралы ең соңғы есеп"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Ең соңғы қауіпсіздік журналы"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Ешқандай"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Орнатылған қолданбалар"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Геодерек пайдалану рұқсаттары"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Микрофон пайдалану рұқсаттары"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Камера пайдалану рұқсаттары"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Әдепкі қолданбалар"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Әдепкі пернетақта"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> орнатылды."</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Ғаламдық HTTP прокси-сервері орнатылды."</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Жеке профильдегі сенімді тіркелу деректері"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Әкімші ақпараттық-сауықтық жүйені құлыптай және құпия сөзді қайта орната алады."</li>\n" "<li>"Әкімші ақпараттық-сауықтық жүйедегі деректі өшіре алады."</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Құпия сөз бірнеше рет қате енгізілсе, ақпараттық-сауықтық жүйедегі барлық дерек жойылады."</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Құпия сөз бірнеше рет қате енгізілсе, профиль дерегі жойылады."</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> әрекет</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> әрекет</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Камера қолданбалары</item>
+      <item quantity="one">Камера қолданбасы</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">Электрондық поштаның клиенттік қолданбалары</item>
+      <item quantity="one">Электрондық поштаның клиенттік қолданбасы</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Телефон қолданбалары</item>
+      <item quantity="one">Телефон қолданбасы</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Қате туралы есеп бөлісілсін бе?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Бұл көлік ұйымының басқарушысы осы құрылғының ақауларын жоюға көмектесу үшін қате туралы есепті сұрады. Қолданбалар мен дерек бөлісілуі мүмкін."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Бұл көлік ұйымының басқарушысы осы құрылғының ақауларын жоюға көмектесу үшін қате туралы есепті сұрады. Қолданбалар мен дерек бөлісілуі, құрылғыңыз уақытша баяулауы мүмкін."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Бұл қате туралы есеп осы көлік ұйымының басқарушысымен бөлісілуде. Толығырақ мәлімет алу үшін оған хабарласыңыз."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Бөлісу"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Қабылдамау"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Ақпараттық ойын-сауық жүйесін бастапқы күйге қайтару"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Жүйеге зауыттық параметрлерге қайтару және барлық деректерді жою сұрауы жіберілді. Оны қазір қайтаруыңызға болады немесе ол келесіде көлік оталған кезде бастапқы күйге қайтарылады. Содан кейін жаңа профильді реттеуіңізге болады."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Қазір қайтару"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Кейінірек қайтару"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Ақпараттық ойын-сауық жүйесі келесіде көлік оталған кезде бастапқы күйге қайтарылады."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Бастапқы күйге қайтару үшін көлікті тұраққа қою керек."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Бұл параметр қазір өзгертілмейді."</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Арнайы мүмкіндіктер"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Субтитр"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Ақтағы қара"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Қарадағы сары"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Көктегі сары"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Экранды оқу құралы"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Өшіру"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Экрандағы элементтерді дауыстап оқу"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> қолданбасын пайдалану"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Oпциялар"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Параметрлер"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Камера"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Камераны пайдалану"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Барлық қолданбаның камераны пайдалануына рұқсат беру"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Камера рұқсаттарын басқару"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Жақында пайдаланылған"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Жақында пайдаланған қолданбалар жоқ."</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Ешбір қолданбаға рұқсат берілмеген."</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{#/{total_count} қолданбаға рұқсат берілген.}other{#/{total_count} қолданбаға рұқсат берілген.}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Жақында пайдаланылған"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Барлығын көру"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Жүктеліп жатыр…"</string>
 </resources>

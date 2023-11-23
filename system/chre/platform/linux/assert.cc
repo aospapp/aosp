@@ -24,9 +24,7 @@
 MockAssert *gMockAssert;
 #endif  // GTEST
 
-namespace chre {
-
-void doAssert(const char *filename, size_t line) {
+void chreDoAssert(const char *filename, size_t line) {
   LOGE("Assertion failure at %s:%zu", filename, line);
 #ifdef GTEST
   if (gMockAssert != nullptr) {
@@ -43,5 +41,3 @@ void doAssert(const char *filename, size_t line) {
 #endif  // NDEBUG
   }
 }
-
-}  // namespace chre

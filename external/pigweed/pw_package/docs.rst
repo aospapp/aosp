@@ -16,6 +16,13 @@ this module instead are listed below.
 * The dependency needs to be "installed" into the system in some manner beyond
   just extraction and thus isn't a good match for distribution with CIPD.
 
+Pigweed itself includes a number of packages that simply clone git repositories.
+In general, these should not be used by projects using Pigweed. Pigweed uses
+these packages to avoid using submodules so downstream projects don't have
+multiple copies of a given repository in their source tree. Projects using
+Pigweed should use submodules instead of packages because submodules are
+supported by much more mature tooling: git.
+
 -----
 Usage
 -----
@@ -32,7 +39,7 @@ has several subcommands.
   ``--force`` to remove the package before installing.
 
 ``pw package status <package-name>``
-  Indicates whether ``<packagxe-name>`` is installed.
+  Indicates whether ``<package-name>`` is installed.
 
 ``pw package remove <package-name>``
   Removes ``<package-name>``.

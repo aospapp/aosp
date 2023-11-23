@@ -188,9 +188,6 @@ struct ChppAppHeader {
 } CHPP_PACKED_ATTR;
 CHPP_PACKED_END
 
-//! Minimum length of a header that includes upto the transaction ID
-#define CHPP_APP_MIN_LEN_HEADER_WITH_TRANSACTION (3 * sizeof(uint8_t))
-
 /**
  * Function type that dispatches incoming datagrams for any client or service
  */
@@ -499,6 +496,18 @@ void chppUuidToStr(const uint8_t uuid[CHPP_SERVICE_UUID_LEN],
  * @return CHRE error (from enum chreError).
  */
 uint8_t chppAppErrorToChreError(uint8_t error);
+
+/**
+ * Handles logging and error conversion when an app layer response is too short.
+ *
+ * @param buf Input data. Cannot be null.
+ * @param len Length of input data in bytes.
+ * @param responseName Name of the request/response to be logged.
+ *
+ * @return CHRE error (from enum chreError).
+ */
+uint8_t chppAppShortResponseErrorHandler(uint8_t *buf, size_t len,
+                                         const char *responseName);
 
 #ifdef __cplusplus
 }

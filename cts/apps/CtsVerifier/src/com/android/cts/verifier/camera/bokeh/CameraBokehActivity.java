@@ -59,6 +59,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.Surface;
 import android.view.TextureView;
+import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -98,6 +99,7 @@ public class CameraBokehActivity extends PassFailButtons.Activity
                         1f,    1.772f,        0f, 0f, -226.816f,
                         0f,        0f,        0f, 1f,        0f
                     });
+    private static final String CAMERA_ID_PREFIX = "Camera ";
 
     private TextureView mPreviewView;
     private SurfaceTexture mPreviewTexture;
@@ -262,7 +264,7 @@ public class CameraBokehActivity extends PassFailButtons.Activity
         String[] cameraNames = new String[cameraIdSet.size()];
         int i = 0;
         for (String id : cameraIdSet) {
-            cameraNames[i++] = "Camera " + id;
+            cameraNames[i++] = CAMERA_ID_PREFIX + id;
         }
         mCameraSpinner = (Spinner) findViewById(R.id.cameras_selection);
         mCameraSpinner.setAdapter(
@@ -592,7 +594,10 @@ public class CameraBokehActivity extends PassFailButtons.Activity
         shutdownCamera();
 
         mCurrentCameraIndex = index;
-        mCameraId = mCameraIdList[index];
+        Adapter adapter = mCameraSpinner.getAdapter();
+        String idDisplayed = (String) adapter.getItem(index);
+        mCameraId = idDisplayed.substring(CAMERA_ID_PREFIX.length());
+
         try {
             mCameraCharacteristics = mCameraManager.getCameraCharacteristics(mCameraId);
             mCameraDevice = mBlockingCameraManager.openCamera(mCameraId,
@@ -757,7 +762,8 @@ public class CameraBokehActivity extends PassFailButtons.Activity
 
     private void startPreview() {
         try {
-            if (mPreviewSize == null || !mPreviewSize.equals(mNextCombination.mPreviewSize)) {
+            if (mPreviewSize == null || !mPreviewSize.equals(mNextCombination.mPreviewSize) ||
+                    mYuvImageReader == null) {
                 mPreviewSize = mNextCombination.mPreviewSize;
 
                 mYuvImageReader = ImageReader.newInstance(mPreviewSize.getWidth(),

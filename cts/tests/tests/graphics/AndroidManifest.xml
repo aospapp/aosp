@@ -55,6 +55,23 @@
         <activity android:name="android.graphics.drawable.cts.DrawableStubActivity"
              android:theme="@style/WhiteBackgroundNoWindowAnimation"
              android:screenOrientation="locked"/>
+
+        <activity android:name="android.graphics.cts.EmptyActivity"
+                  android:label="Empty Activity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="android.graphics.cts.EmptyActivity2"
+                  android:label="Empty Activity 2"
+                  android:exported="true">
+            <intent-filter>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
         <activity android:name="android.graphics.drawable.cts.AnimatedImageActivity"
              android:theme="@style/WhiteBackgroundNoWindowAnimation"
              android:screenOrientation="locked">

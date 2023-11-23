@@ -37,6 +37,7 @@ using aawi::ComponentType;
 using aawi::GarageMode;
 using aawi::ICarWatchdogServiceForSystem;
 using aawi::PowerCycle;
+using aawi::ProcessIdentifier;
 using aawi::ResourceOveruseConfiguration;
 using ::android::sp;
 using ::android::String16;
@@ -65,7 +66,7 @@ Status fromExceptionCode(int32_t exceptionCode, std::string message) {
 }  // namespace
 
 status_t WatchdogInternalHandler::dump(int fd, const Vector<String16>& args) {
-    return mBinderMediator->dump(fd, args);
+    return mWatchdogBinderMediator->dump(fd, args);
 }
 
 void WatchdogInternalHandler::checkAndRegisterIoOveruseMonitor() {
@@ -134,7 +135,7 @@ Status WatchdogInternalHandler::unregisterMonitor(const sp<aawi::ICarWatchdogMon
 
 Status WatchdogInternalHandler::tellCarWatchdogServiceAlive(
         const android::sp<ICarWatchdogServiceForSystem>& service,
-        const std::vector<int32_t>& clientsNotResponding, int32_t sessionId) {
+        const std::vector<ProcessIdentifier>& clientsNotResponding, int32_t sessionId) {
     Status status = checkSystemUser();
     if (!status.isOk()) {
         return status;
@@ -146,7 +147,8 @@ Status WatchdogInternalHandler::tellCarWatchdogServiceAlive(
                                                                 sessionId);
 }
 Status WatchdogInternalHandler::tellDumpFinished(
-        const android::sp<aawi::ICarWatchdogMonitor>& monitor, int32_t pid) {
+        const android::sp<aawi::ICarWatchdogMonitor>& monitor,
+        const ProcessIdentifier& processIdentifier) {
     Status status = checkSystemUser();
     if (!status.isOk()) {
         return status;
@@ -154,7 +156,7 @@ Status WatchdogInternalHandler::tellDumpFinished(
     if (monitor == nullptr) {
         return fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, kNullCarWatchdogMonitorError);
     }
-    return mWatchdogProcessService->tellDumpFinished(monitor, pid);
+    return mWatchdogProcessService->tellDumpFinished(monitor, processIdentifier);
 }
 
 Status WatchdogInternalHandler::notifySystemStateChange(aawi::StateType type, int32_t arg1,
@@ -278,12 +280,12 @@ Status WatchdogInternalHandler::getResourceOveruseConfigurations(
     return Status::ok();
 }
 
-Status WatchdogInternalHandler::controlProcessHealthCheck(bool disable) {
+Status WatchdogInternalHandler::controlProcessHealthCheck(bool enable) {
     Status status = checkSystemUser();
     if (!status.isOk()) {
         return status;
     }
-    mWatchdogProcessService->setEnabled(!disable);
+    mWatchdogProcessService->setEnabled(enable);
     return Status::ok();
 }
 

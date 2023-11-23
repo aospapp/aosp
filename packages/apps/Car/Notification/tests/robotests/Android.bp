@@ -31,7 +31,7 @@ android_robolectric_test {
         "mockito-robolectric-prebuilt",
         "truth-prebuilt",
         "testng",
-        "android.car",
+        "android.car-system-stubs",
     ],
 
     java_resource_dirs: ["config"],

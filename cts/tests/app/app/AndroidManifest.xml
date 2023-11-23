@@ -65,6 +65,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application android:label="Android TestCase"
          android:icon="@drawable/size_48x48"
@@ -366,7 +367,6 @@
 
         <activity android:name="android.app.stubs.ActivityManagerStubCrashActivity"
              android:label="ActivityManagerStubCrashActivity"
-             android:multiprocess="true"
              android:process=":ActivityManagerStubCrashActivity"
              android:exported="true">
             <intent-filter>
@@ -467,6 +467,15 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.app.stubs.TestNotificationAssistant"
+                 android:exported="true"
+                 android:label="TestNotificationAssistant"
+                 android:permission="android.permission.BIND_NOTIFICATION_ASSISTANT_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationAssistantService"/>
+            </intent-filter>
+        </service>
+
         <service android:name="android.app.stubs.TestTileService"
              android:exported="true"
              android:label="TestTileService"
@@ -477,16 +486,14 @@
             </intent-filter>
         </service>
 
-        <service android:name="android.app.stubs.ToggleableTestTileService"
-             android:exported="true"
-             android:label="BooleanTestTileService"
-             android:icon="@drawable/robot"
-             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+        <service android:name="android.app.stubs.NotExportedTestTileService"
+                 android:exported="false"
+                 android:label="NotExportedTestTileService"
+                 android:icon="@drawable/robot"
+                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
-            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                 android:value="true"/>
         </service>
 
         <activity android:name="android.app.stubs.AutomaticZenRuleActivity"
@@ -515,6 +522,7 @@
         </activity>
 
         <activity android:name="android.app.stubs.BubbledActivity"
+             android:turnScreenOn="true"
              android:resizeableActivity="true"/>
 
         <service android:name="android.app.stubs.BubblesTestService"
@@ -551,7 +559,20 @@
             </intent-filter>
         </activity>
 
-    <service android:name="android.app.stubs.TrimMemService"
+        <service android:name=".HeartbeatService"
+            android:process=":hbsvc"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.stubs.HeartbeatService"/>
+            </intent-filter>
+        </service>
+        <activity android:name=".HeartbeatActivity"
+            android:label=":CountdownActivity"
+            android:process=":hbact"
+            android:launchMode="singleInstance"
+            android:exported="true"/>
+
+        <service android:name="android.app.stubs.TrimMemService"
             android:exported="true"
             android:isolatedProcess="true">
         </service>

@@ -39,7 +39,9 @@ public class StructuredParcelable implements android.os.Parcelable
   public long int64_max = 9223372036854775807L;
   public int hexInt32_neg_1 = -1;
   public android.os.IBinder ibinder;
+  public android.aidl.tests.StructuredParcelable.Empty empty;
   // Constant expressions that evaluate to 1
+  public byte[] int8_1 = {1, 1, 1, 1, 1};
   public int[] int32_1 = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
   public long[] int64_1 = {1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L};
   public int hexInt32_pos_1 = 1;
@@ -90,13 +92,13 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_parcel.writeByte(byteDefaultsToFour);
     _aidl_parcel.writeInt(intDefaultsToFive);
     _aidl_parcel.writeLong(longDefaultsToNegativeSeven);
-    _aidl_parcel.writeInt(((booleanDefaultsToTrue)?(1):(0)));
+    _aidl_parcel.writeBoolean(booleanDefaultsToTrue);
     _aidl_parcel.writeInt(((int)charDefaultsToC));
     _aidl_parcel.writeFloat(floatDefaultsToPi);
     _aidl_parcel.writeDouble(doubleWithDefault);
     _aidl_parcel.writeIntArray(arrayDefaultsTo123);
     _aidl_parcel.writeIntArray(arrayDefaultsToEmpty);
-    _aidl_parcel.writeInt(((boolDefault)?(1):(0)));
+    _aidl_parcel.writeBoolean(boolDefault);
     _aidl_parcel.writeByte(byteDefault);
     _aidl_parcel.writeInt(intDefault);
     _aidl_parcel.writeLong(longDefault);
@@ -110,6 +112,8 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_parcel.writeLong(int64_max);
     _aidl_parcel.writeInt(hexInt32_neg_1);
     _aidl_parcel.writeStrongBinder(ibinder);
+    _aidl_parcel.writeTypedObject(empty, _aidl_flag);
+    _aidl_parcel.writeByteArray(int8_1);
     _aidl_parcel.writeIntArray(int32_1);
     _aidl_parcel.writeLongArray(int64_1);
     _aidl_parcel.writeInt(hexInt32_pos_1);
@@ -127,20 +131,8 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_parcel.writeString(addString1);
     _aidl_parcel.writeString(addString2);
     _aidl_parcel.writeInt(shouldSetBit0AndBit2);
-    if ((u!=null)) {
-      _aidl_parcel.writeInt(1);
-      u.writeToParcel(_aidl_parcel, 0);
-    }
-    else {
-      _aidl_parcel.writeInt(0);
-    }
-    if ((shouldBeConstS1!=null)) {
-      _aidl_parcel.writeInt(1);
-      shouldBeConstS1.writeToParcel(_aidl_parcel, 0);
-    }
-    else {
-      _aidl_parcel.writeInt(0);
-    }
+    _aidl_parcel.writeTypedObject(u, _aidl_flag);
+    _aidl_parcel.writeTypedObject(shouldBeConstS1, _aidl_flag);
     _aidl_parcel.writeInt(defaultWithFoo);
     int _aidl_end_pos = _aidl_parcel.dataPosition();
     _aidl_parcel.setDataPosition(_aidl_start_pos);
@@ -152,7 +144,7 @@ public class StructuredParcelable implements android.os.Parcelable
     int _aidl_start_pos = _aidl_parcel.dataPosition();
     int _aidl_parcelable_size = _aidl_parcel.readInt();
     try {
-      if (_aidl_parcelable_size < 0) return;
+      if (_aidl_parcelable_size < 4) throw new android.os.BadParcelableException("Parcelable too small");;
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       shouldContainThreeFs = _aidl_parcel.createIntArray();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
@@ -180,7 +172,7 @@ public class StructuredParcelable implements android.os.Parcelable
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       longDefaultsToNegativeSeven = _aidl_parcel.readLong();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      booleanDefaultsToTrue = (0!=_aidl_parcel.readInt());
+      booleanDefaultsToTrue = _aidl_parcel.readBoolean();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       charDefaultsToC = (char)_aidl_parcel.readInt();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
@@ -192,7 +184,7 @@ public class StructuredParcelable implements android.os.Parcelable
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       arrayDefaultsToEmpty = _aidl_parcel.createIntArray();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      boolDefault = (0!=_aidl_parcel.readInt());
+      boolDefault = _aidl_parcel.readBoolean();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       byteDefault = _aidl_parcel.readByte();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
@@ -219,6 +211,10 @@ public class StructuredParcelable implements android.os.Parcelable
       hexInt32_neg_1 = _aidl_parcel.readInt();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       ibinder = _aidl_parcel.readStrongBinder();
+      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
+      empty = _aidl_parcel.readTypedObject(android.aidl.tests.StructuredParcelable.Empty.CREATOR);
+      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
+      int8_1 = _aidl_parcel.createByteArray();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       int32_1 = _aidl_parcel.createIntArray();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
@@ -254,19 +250,9 @@ public class StructuredParcelable implements android.os.Parcelable
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       shouldSetBit0AndBit2 = _aidl_parcel.readInt();
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      if ((0!=_aidl_parcel.readInt())) {
-        u = android.aidl.tests.Union.CREATOR.createFromParcel(_aidl_parcel);
-      }
-      else {
-        u = null;
-      }
+      u = _aidl_parcel.readTypedObject(android.aidl.tests.Union.CREATOR);
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      if ((0!=_aidl_parcel.readInt())) {
-        shouldBeConstS1 = android.aidl.tests.Union.CREATOR.createFromParcel(_aidl_parcel);
-      }
-      else {
-        shouldBeConstS1 = null;
-      }
+      shouldBeConstS1 = _aidl_parcel.readTypedObject(android.aidl.tests.Union.CREATOR);
       if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
       defaultWithFoo = _aidl_parcel.readInt();
     } finally {
@@ -286,10 +272,10 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_sj.add("f: " + (f));
     _aidl_sj.add("shouldBeJerry: " + (java.util.Objects.toString(shouldBeJerry)));
     _aidl_sj.add("shouldBeByteBar: " + (shouldBeByteBar));
-    _aidl_sj.add("shouldBeIntBar: " + (shouldBeIntBar));
+    _aidl_sj.add("shouldBeIntBar: " + (android.aidl.tests.IntEnum.$.toString(shouldBeIntBar)));
     _aidl_sj.add("shouldBeLongBar: " + (shouldBeLongBar));
     _aidl_sj.add("shouldContainTwoByteFoos: " + (java.util.Arrays.toString(shouldContainTwoByteFoos)));
-    _aidl_sj.add("shouldContainTwoIntFoos: " + (java.util.Arrays.toString(shouldContainTwoIntFoos)));
+    _aidl_sj.add("shouldContainTwoIntFoos: " + (android.aidl.tests.IntEnum.$.arrayToString(shouldContainTwoIntFoos)));
     _aidl_sj.add("shouldContainTwoLongFoos: " + (java.util.Arrays.toString(shouldContainTwoLongFoos)));
     _aidl_sj.add("stringDefaultsToFoo: " + (java.util.Objects.toString(stringDefaultsToFoo)));
     _aidl_sj.add("byteDefaultsToFour: " + (byteDefaultsToFour));
@@ -315,6 +301,8 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_sj.add("int64_max: " + (int64_max));
     _aidl_sj.add("hexInt32_neg_1: " + (hexInt32_neg_1));
     _aidl_sj.add("ibinder: " + (java.util.Objects.toString(ibinder)));
+    _aidl_sj.add("empty: " + (java.util.Objects.toString(empty)));
+    _aidl_sj.add("int8_1: " + (java.util.Arrays.toString(int8_1)));
     _aidl_sj.add("int32_1: " + (java.util.Arrays.toString(int32_1)));
     _aidl_sj.add("int64_1: " + (java.util.Arrays.toString(int64_1)));
     _aidl_sj.add("hexInt32_pos_1: " + (hexInt32_pos_1));
@@ -334,7 +322,7 @@ public class StructuredParcelable implements android.os.Parcelable
     _aidl_sj.add("shouldSetBit0AndBit2: " + (shouldSetBit0AndBit2));
     _aidl_sj.add("u: " + (java.util.Objects.toString(u)));
     _aidl_sj.add("shouldBeConstS1: " + (java.util.Objects.toString(shouldBeConstS1)));
-    _aidl_sj.add("defaultWithFoo: " + (defaultWithFoo));
+    _aidl_sj.add("defaultWithFoo: " + (android.aidl.tests.IntEnum.$.toString(defaultWithFoo)));
     return "android.aidl.tests.StructuredParcelable" + _aidl_sj.toString()  ;
   }
   @Override
@@ -376,6 +364,8 @@ public class StructuredParcelable implements android.os.Parcelable
     if (!java.util.Objects.deepEquals(int64_max, that.int64_max)) return false;
     if (!java.util.Objects.deepEquals(hexInt32_neg_1, that.hexInt32_neg_1)) return false;
     if (!java.util.Objects.deepEquals(ibinder, that.ibinder)) return false;
+    if (!java.util.Objects.deepEquals(empty, that.empty)) return false;
+    if (!java.util.Objects.deepEquals(int8_1, that.int8_1)) return false;
     if (!java.util.Objects.deepEquals(int32_1, that.int32_1)) return false;
     if (!java.util.Objects.deepEquals(int64_1, that.int64_1)) return false;
     if (!java.util.Objects.deepEquals(hexInt32_pos_1, that.hexInt32_pos_1)) return false;
@@ -401,11 +391,12 @@ public class StructuredParcelable implements android.os.Parcelable
 
   @Override
   public int hashCode() {
-    return java.util.Arrays.deepHashCode(java.util.Arrays.asList(shouldContainThreeFs, f, shouldBeJerry, shouldBeByteBar, shouldBeIntBar, shouldBeLongBar, shouldContainTwoByteFoos, shouldContainTwoIntFoos, shouldContainTwoLongFoos, stringDefaultsToFoo, byteDefaultsToFour, intDefaultsToFive, longDefaultsToNegativeSeven, booleanDefaultsToTrue, charDefaultsToC, floatDefaultsToPi, doubleWithDefault, arrayDefaultsTo123, arrayDefaultsToEmpty, boolDefault, byteDefault, intDefault, longDefault, floatDefault, doubleDefault, checkDoubleFromFloat, checkStringArray1, checkStringArray2, int32_min, int32_max, int64_max, hexInt32_neg_1, ibinder, int32_1, int64_1, hexInt32_pos_1, hexInt64_pos_1, const_exprs_1, const_exprs_2, const_exprs_3, const_exprs_4, const_exprs_5, const_exprs_6, const_exprs_7, const_exprs_8, const_exprs_9, const_exprs_10, addString1, addString2, shouldSetBit0AndBit2, u, shouldBeConstS1, defaultWithFoo).toArray());
+    return java.util.Arrays.deepHashCode(java.util.Arrays.asList(shouldContainThreeFs, f, shouldBeJerry, shouldBeByteBar, shouldBeIntBar, shouldBeLongBar, shouldContainTwoByteFoos, shouldContainTwoIntFoos, shouldContainTwoLongFoos, stringDefaultsToFoo, byteDefaultsToFour, intDefaultsToFive, longDefaultsToNegativeSeven, booleanDefaultsToTrue, charDefaultsToC, floatDefaultsToPi, doubleWithDefault, arrayDefaultsTo123, arrayDefaultsToEmpty, boolDefault, byteDefault, intDefault, longDefault, floatDefault, doubleDefault, checkDoubleFromFloat, checkStringArray1, checkStringArray2, int32_min, int32_max, int64_max, hexInt32_neg_1, ibinder, empty, int8_1, int32_1, int64_1, hexInt32_pos_1, hexInt64_pos_1, const_exprs_1, const_exprs_2, const_exprs_3, const_exprs_4, const_exprs_5, const_exprs_6, const_exprs_7, const_exprs_8, const_exprs_9, const_exprs_10, addString1, addString2, shouldSetBit0AndBit2, u, shouldBeConstS1, defaultWithFoo).toArray());
   }
   @Override
   public int describeContents() {
     int _mask = 0;
+    _mask |= describeContents(empty);
     _mask |= describeContents(u);
     _mask |= describeContents(shouldBeConstS1);
     return _mask;
@@ -416,5 +407,66 @@ public class StructuredParcelable implements android.os.Parcelable
       return ((android.os.Parcelable) _v).describeContents();
     }
     return 0;
+  }
+  // Make sure we can send an empty parcelable
+  public static class Empty implements android.os.Parcelable
+  {
+    public static final android.os.Parcelable.Creator<Empty> CREATOR = new android.os.Parcelable.Creator<Empty>() {
+      @Override
+      public Empty createFromParcel(android.os.Parcel _aidl_source) {
+        Empty _aidl_out = new Empty();
+        _aidl_out.readFromParcel(_aidl_source);
+        return _aidl_out;
+      }
+      @Override
+      public Empty[] newArray(int _aidl_size) {
+        return new Empty[_aidl_size];
+      }
+    };
+    @Override public final void writeToParcel(android.os.Parcel _aidl_parcel, int _aidl_flag)
+    {
+      int _aidl_start_pos = _aidl_parcel.dataPosition();
+      _aidl_parcel.writeInt(0);
+      int _aidl_end_pos = _aidl_parcel.dataPosition();
+      _aidl_parcel.setDataPosition(_aidl_start_pos);
+      _aidl_parcel.writeInt(_aidl_end_pos - _aidl_start_pos);
+      _aidl_parcel.setDataPosition(_aidl_end_pos);
+    }
+    public final void readFromParcel(android.os.Parcel _aidl_parcel)
+    {
+      int _aidl_start_pos = _aidl_parcel.dataPosition();
+      int _aidl_parcelable_size = _aidl_parcel.readInt();
+      try {
+        if (_aidl_parcelable_size < 4) throw new android.os.BadParcelableException("Parcelable too small");;
+      } finally {
+        if (_aidl_start_pos > (Integer.MAX_VALUE - _aidl_parcelable_size)) {
+          throw new android.os.BadParcelableException("Overflow in the size of parcelable");
+        }
+        _aidl_parcel.setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
+      }
+    }
+    @Override
+    public String toString() {
+      java.util.StringJoiner _aidl_sj = new java.util.StringJoiner(", ", "{", "}");
+      return "android.aidl.tests.StructuredParcelable.Empty" + _aidl_sj.toString()  ;
+    }
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) return true;
+      if (other == null) return false;
+      if (!(other instanceof Empty)) return false;
+      Empty that = (Empty)other;
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Arrays.deepHashCode(java.util.Arrays.asList().toArray());
+    }
+    @Override
+    public int describeContents() {
+      int _mask = 0;
+      return _mask;
+    }
   }
 }

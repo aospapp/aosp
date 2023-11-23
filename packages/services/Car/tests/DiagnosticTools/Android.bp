@@ -47,5 +47,5 @@ android_test {
         "androidx-constraintlayout_constraintlayout-solver",
     ],
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 }

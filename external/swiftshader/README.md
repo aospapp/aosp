@@ -7,7 +7,7 @@ Introduction
 
 SwiftShader is a high-performance CPU-based implementation of the Vulkan graphics API<sup>1</sup><sup>2</sup>. Its goal is to provide hardware independence for advanced 3D graphics.
 
-> NOTE: SwiftShader's OpenGL ES frontend is no longer supported, and will eventually be removed. Read more about our recommendation to use [ANGLE on top of SwiftShader Vulkan here](ANGLE.md).
+> NOTE: The [ANGLE](http://angleproject.org/) project can be used to achieve a layered implementation of OpenGL ES (aka. "SwANGLE").
 
 Building
 --------
@@ -48,18 +48,20 @@ Contributing
 See [CONTRIBUTING.txt](CONTRIBUTING.txt) for important contributing requirements.
 
 The canonical repository for SwiftShader is hosted at:
-https://swiftshader.googlesource.com/SwiftShader
+https://swiftshader.googlesource.com/SwiftShader.
 
 All changes must be reviewed and approved in the [Gerrit](https://www.gerritcodereview.com/) review tool at:
-https://swiftshader-review.googlesource.com
+https://swiftshader-review.googlesource.com. You must sign in to this site with a Google Account before changes can be uploaded.
 
-Authenticate your account here:
-https://swiftshader-review.googlesource.com/new-password
+Next, authenticate your account here:
+https://swiftshader-review.googlesource.com/new-password (use the same e-mail address as the one configured as the [Git commit author](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup#_your_identity)).
 
-All changes require a [Change-ID](https://gerrit-review.googlesource.com/Documentation/user-changeid.html) tag in the commit message. A commit hook may be used to add this tag automatically, and can be found at:
-https://gerrit-review.googlesource.com/tools/hooks/commit-msg. To clone the repository and install the commit hook in one go:
+All changes require a [Change-ID](https://gerrit-review.googlesource.com/Documentation/user-changeid.html) tag in the commit message. A [commit hook](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) may be used to add this tag automatically, and can be found at:
+https://gerrit-review.googlesource.com/tools/hooks/commit-msg. You can execute `git clone https://swiftshader.googlesource.com/SwiftShader` and manually place the commit hook in `SwiftShader/.git/hooks/`, or to clone the repository and install the commit hook in one go:
 
-    git clone https://swiftshader.googlesource.com/SwiftShader && (cd SwiftShader && curl -Lo `git rev-parse --git-dir`/hooks/commit-msg https://gerrit-review.googlesource.com/tools/hooks/commit-msg ; chmod +x `git rev-parse --git-dir`/hooks/commit-msg)
+    git clone https://swiftshader.googlesource.com/SwiftShader && (cd SwiftShader && git submodule update --init --recursive third_party/git-hooks && ./third_party/git-hooks/install_hooks.sh)
+
+On Windows, this command line requires using the [Git Bash Shell](https://www.atlassian.com/git/tutorials/git-bash).
 
 Changes are uploaded to Gerrit by executing:
 
@@ -67,12 +69,12 @@ Changes are uploaded to Gerrit by executing:
 
 When ready, [add](https://gerrit-review.googlesource.com/Documentation/intro-user.html#adding-reviewers) a project [owner](OWNERS) as a reviewer on your change.
 
-Some tests will automatically be run against the change. Notably, [presubmit.sh](tests/presubmit.sh) verifies the change has been formatted using [clang-format 10.0](tests/kokoro/gcp_ubuntu/check_style.sh). Most IDEs come with clang-format support, but may require downgrading to [clang-format version 10.0](https://github.com/llvm/llvm-project/releases/tag/llvmorg-10.0.0).
+Some tests will automatically be run against the change. Notably, [presubmit.sh](tests/presubmit.sh) verifies the change has been formatted using [clang-format 11.0.1](tests/kokoro/gcp_ubuntu/check_style.sh). Most IDEs come with clang-format support, but may require upgrading/downgrading to the [clang-format version 11.0.0](https://github.com/llvm/llvm-project/releases/tag/llvmorg-11.0.0) *release* version (notably Chromium's buildtools has a clang-format binary which can be an in-between revision which produces different formatting results).
 
 Testing
 -------
 
-SwiftShader's OpenGL ES implementation can be tested using the [dEQP](https://github.com/KhronosGroup/VK-GL-CTS) test suite.
+SwiftShader's Vulkan implementation can be tested using the [dEQP](https://github.com/KhronosGroup/VK-GL-CTS) test suite.
 
 See [docs/dEQP.md](docs/dEQP.md) for details.
 

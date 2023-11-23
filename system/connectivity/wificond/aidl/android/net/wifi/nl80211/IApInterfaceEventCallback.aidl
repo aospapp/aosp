@@ -32,6 +32,7 @@ oneway interface IApInterfaceEventCallback {
   const int BANDWIDTH_80 = 4;
   const int BANDWIDTH_80P80 = 5;
   const int BANDWIDTH_160 = 6;
+  const int BANDWIDTH_320 = 7;
 
   // Signals that the stations associated to this soft Ap have changed.
   //

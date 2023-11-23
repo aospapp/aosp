@@ -22,14 +22,17 @@ import android.annotation.RequiresPermission;
 import android.annotation.UserIdInt;
 import android.car.Car;
 import android.car.CarManagerBase;
-import android.car.ICarUserService;
+import android.car.IExperimentalCarUserService;
+import android.car.annotation.AddedInOrBefore;
 import android.car.annotation.ExperimentalFeature;
-import android.content.pm.UserInfo;
+import android.car.builtin.os.UserManagerHelper;
+import android.car.util.concurrent.AndroidFuture;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
 
-import com.android.internal.infra.AndroidFuture;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,23 +48,27 @@ import java.util.List;
 @ExperimentalFeature
 public final class ExperimentalCarUserManager extends CarManagerBase {
 
-    private static final String TAG = ExperimentalCarUserManager.class.getSimpleName();
+    /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
+    public static final String TAG = ExperimentalCarUserManager.class.getSimpleName();
 
     /**
      *  User id representing invalid user.
      */
-    private static final int INVALID_USER_ID = UserHandle.USER_NULL;
+    private static final int INVALID_USER_ID = UserManagerHelper.USER_NULL;
 
-    private final ICarUserService mService;
+    private final IExperimentalCarUserService mService;
 
     /**
-     * Factory method to create a new instance.
+     * @hide
      */
-    public static ExperimentalCarUserManager from(@NonNull CarUserManager carUserManager) {
-        return carUserManager.newExperimentalCarUserManager();
+    public ExperimentalCarUserManager(@NonNull Car car, @NonNull IBinder service) {
+        this(car, IExperimentalCarUserService.Stub.asInterface(service));
     }
 
-    ExperimentalCarUserManager(@NonNull Car car, @NonNull ICarUserService service) {
+    @VisibleForTesting
+    public ExperimentalCarUserManager(
+            @NonNull Car car, @NonNull IExperimentalCarUserService service) {
         super(car);
 
         mService = service;
@@ -78,6 +85,7 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
+    @AddedInOrBefore(majorVersion = 33)
     public AndroidFuture<UserCreationResult> createDriver(@NonNull String name, boolean admin) {
         try {
             return mService.createDriver(name, admin);
@@ -101,10 +109,11 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public int createPassenger(@NonNull String name, @UserIdInt int driverId) {
         try {
-            UserInfo ui = mService.createPassenger(name, driverId);
-            return ui != null ? ui.id : INVALID_USER_ID;
+            UserHandle ui = mService.createPassenger(name, driverId);
+            return ui != null ? ui.getIdentifier() : INVALID_USER_ID;
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, null);
         }
@@ -120,6 +129,7 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
+    @AddedInOrBefore(majorVersion = 33)
     public AndroidFuture<UserSwitchResult> switchDriver(@UserIdInt int driverId) {
         try {
             AndroidFuture<UserSwitchResult> future = new AndroidFuture<>() {
@@ -151,9 +161,10 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public List<Integer> getAllDrivers() {
         try {
-            return getUserIdsFromUserInfos(mService.getAllDrivers());
+            return getUserIdsFromUserHandles(mService.getAllDrivers());
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, Collections.emptyList());
         }
@@ -169,9 +180,10 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public List<Integer> getPassengers(@UserIdInt int driverId) {
         try {
-            return getUserIdsFromUserInfos(mService.getPassengers(driverId));
+            return getUserIdsFromUserHandles(mService.getPassengers(driverId));
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, Collections.emptyList());
         }
@@ -188,6 +200,7 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
+    @AddedInOrBefore(majorVersion = 33)
     public boolean startPassenger(@UserIdInt int passengerId, int zoneId) {
         try {
             return mService.startPassenger(passengerId, zoneId);
@@ -205,6 +218,7 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
      * @hide
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_USERS)
+    @AddedInOrBefore(majorVersion = 33)
     public boolean stopPassenger(@UserIdInt int passengerId) {
         try {
             return mService.stopPassenger(passengerId);
@@ -215,14 +229,15 @@ public final class ExperimentalCarUserManager extends CarManagerBase {
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         // nothing to do
     }
 
-    private List<Integer> getUserIdsFromUserInfos(List<UserInfo> infos) {
+    private List<Integer> getUserIdsFromUserHandles(List<UserHandle> infos) {
         List<Integer> ids = new ArrayList<>(infos.size());
-        for (UserInfo ui : infos) {
-            ids.add(ui.id);
+        for (UserHandle ui : infos) {
+            ids.add(ui.getIdentifier());
         }
         return ids;
     }

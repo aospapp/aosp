@@ -99,11 +99,14 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
     }
 
     private static void populateAtomStats(
-            StatsLog.StatsdStatsReport.AtomStats[] atomStats, Map<String, Long> resultMap) {
+            StatsLog.StatsdStatsReport.AtomStats[] stats, Map<String, Long> resultMap) {
         final String metricKeyPrefix =
                 MetricUtility.constructKey(STATSDSTATS_PREFIX, ATOM_STATS_PREFIX);
 
-        for (final StatsLog.StatsdStatsReport.AtomStats dataItem : atomStats) {
+        int summaryCount = 0;
+        int summaryErrorCount = 0;
+
+        for (final StatsLog.StatsdStatsReport.AtomStats dataItem : stats) {
             final String metricKeyPrefixWithTag =
                     MetricUtility.constructKey(metricKeyPrefix, String.valueOf(dataItem.tag));
 
@@ -113,7 +116,16 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
             resultMap.put(
                     MetricUtility.constructKey(metricKeyPrefixWithTag, "error_count"),
                     Long.valueOf(dataItem.errorCount));
+
+            summaryCount += dataItem.count;
+            summaryErrorCount += dataItem.errorCount;
         }
+
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "count"), Long.valueOf(summaryCount));
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "error_count"),
+                Long.valueOf(summaryErrorCount));
     }
 
     private static void populateConfigStats(
@@ -138,71 +150,121 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
                     MetricUtility.constructKey(metricKeyPrefixWithTag, "alert_count"),
                     Long.valueOf(dataItem.alertCount));
 
-            populateMatcherStats(dataItem.matcherStats, resultMap, metricKeyPrefixWithTag);
-            populateConditionStats(dataItem.conditionStats, resultMap, metricKeyPrefixWithTag);
-            populateMetricStats(dataItem.metricStats, resultMap, metricKeyPrefixWithTag);
-            populateAlertStats(dataItem.alertStats, resultMap, metricKeyPrefixWithTag);
+            populateMatcherStats(
+                    dataItem.matcherStats, resultMap, metricKeyPrefixWithTag, metricKeyPrefix);
+            populateConditionStats(
+                    dataItem.conditionStats, resultMap, metricKeyPrefixWithTag, metricKeyPrefix);
+            populateMetricStats(
+                    dataItem.metricStats, resultMap, metricKeyPrefixWithTag, metricKeyPrefix);
+            populateAlertStats(
+                    dataItem.alertStats, resultMap, metricKeyPrefixWithTag, metricKeyPrefix);
         }
     }
 
     private static void populateMetricStats(
             StatsLog.StatsdStatsReport.MetricStats[] stats,
             Map<String, Long> resultMap,
+            String metricKeyPrefixWithTag,
             String metricKeyPrefix) {
+        int summaryCount = 0;
+
         for (final StatsLog.StatsdStatsReport.MetricStats dataItem : stats) {
             final String metricKey =
                     MetricUtility.constructKey(
-                            metricKeyPrefix,
+                            metricKeyPrefixWithTag,
                             METRIC_STATS_PREFIX,
                             String.valueOf(dataItem.id),
                             "max_tuple_counts");
             resultMap.put(metricKey, Long.valueOf(dataItem.maxTupleCounts));
+
+            summaryCount += dataItem.maxTupleCounts;
         }
+
+        final String metricKey =
+                MetricUtility.constructKey(
+                        metricKeyPrefix, METRIC_STATS_PREFIX, "max_tuple_counts");
+        resultMap.put(metricKey, Long.valueOf(summaryCount));
     }
 
     private static void populateConditionStats(
             StatsLog.StatsdStatsReport.ConditionStats[] stats,
             Map<String, Long> resultMap,
+            String metricKeyPrefixWithTag,
             String metricKeyPrefix) {
+        int summaryCount = 0;
+
         for (final StatsLog.StatsdStatsReport.ConditionStats dataItem : stats) {
             final String metricKey =
                     MetricUtility.constructKey(
-                            metricKeyPrefix,
+                            metricKeyPrefixWithTag,
                             CONDITION_STATS_PREFIX,
                             String.valueOf(dataItem.id),
                             "max_tuple_counts");
             resultMap.put(metricKey, Long.valueOf(dataItem.maxTupleCounts));
+
+            summaryCount += dataItem.maxTupleCounts;
         }
+
+        final String metricKey =
+                MetricUtility.constructKey(
+                        metricKeyPrefix, CONDITION_STATS_PREFIX, "max_tuple_counts");
+        resultMap.put(metricKey, Long.valueOf(summaryCount));
     }
 
     private static void populateMatcherStats(
             StatsLog.StatsdStatsReport.MatcherStats[] stats,
             Map<String, Long> resultMap,
+            String metricKeyPrefixWithTag,
             String metricKeyPrefix) {
+        int summaryCount = 0;
+
         for (final StatsLog.StatsdStatsReport.MatcherStats dataItem : stats) {
             final String metricKey =
+                    MetricUtility.constructKey(
+                            metricKeyPrefixWithTag,
+                            MATCHER_STATS_PREFIX,
+                            String.valueOf(dataItem.id),
+                            "matched_times");
+            resultMap.put(metricKey, Long.valueOf(dataItem.matchedTimes));
+
+            final String sumPerIdMetricKey =
                     MetricUtility.constructKey(
                             metricKeyPrefix,
                             MATCHER_STATS_PREFIX,
                             String.valueOf(dataItem.id),
                             "matched_times");
-            resultMap.put(metricKey, Long.valueOf(dataItem.matchedTimes));
+            resultMap.merge(sumPerIdMetricKey, Long.valueOf(dataItem.matchedTimes), Long::sum);
+
+            summaryCount += dataItem.matchedTimes;
         }
+
+        final String metricKey =
+                MetricUtility.constructKey(metricKeyPrefix, MATCHER_STATS_PREFIX, "matched_times");
+        resultMap.merge(metricKey, Long.valueOf(summaryCount), Long::sum);
     }
 
     private static void populateAlertStats(
             StatsLog.StatsdStatsReport.AlertStats[] stats,
             Map<String, Long> resultMap,
+            String metricKeyPrefixWithTag,
             String metricKeyPrefix) {
+        int summaryCount = 0;
+
         for (final StatsLog.StatsdStatsReport.AlertStats dataItem : stats) {
             final String metricKey =
                     MetricUtility.constructKey(
-                            metricKeyPrefix,
+                            metricKeyPrefixWithTag,
                             ALERT_STATS_PREFIX,
                             String.valueOf(dataItem.id),
                             "alerted_times");
             resultMap.put(metricKey, Long.valueOf(dataItem.alertedTimes));
+
+            summaryCount += dataItem.alertedTimes;
         }
+
+        final String metricKey =
+                MetricUtility.constructKey(metricKeyPrefix, ALERT_STATS_PREFIX, "alerted_times");
+        resultMap.merge(metricKey, Long.valueOf(summaryCount), Long::sum);
     }
 
     private static void populateAnomalyAlarmStats(
@@ -218,12 +280,23 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
     }
 
     private static void populatePulledAtomStats(
-            StatsLog.StatsdStatsReport.PulledAtomStats[] pulledAtomStats,
-            Map<String, Long> resultMap) {
+            StatsLog.StatsdStatsReport.PulledAtomStats[] stats, Map<String, Long> resultMap) {
         final String metricKeyPrefix =
                 MetricUtility.constructKey(STATSDSTATS_PREFIX, PULLED_ATOM_STATS_PREFIX);
 
-        for (final StatsLog.StatsdStatsReport.PulledAtomStats dataItem : pulledAtomStats) {
+        long summaryTotalPull = 0;
+        long summaryTotalPullFromCache = 0;
+        long summaryDataError = 0;
+        long summaryPullTimeout = 0;
+        long summaryExceedMaxDelay = 0;
+        long summaryFailed = 0;
+        long summaryEmptyData = 0;
+        long summaryAtomErrorCount = 0;
+        long summaryBinderCallFailed = 0;
+        long summaryFailedUIDProviderNotFound = 0;
+        long summaryPullerNotFound = 0;
+
+        for (final StatsLog.StatsdStatsReport.PulledAtomStats dataItem : stats) {
             final String metricKeyWithTag =
                     MetricUtility.constructKey(metricKeyPrefix, String.valueOf(dataItem.atomId));
             resultMap.put(
@@ -277,16 +350,61 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
             resultMap.put(
                     MetricUtility.constructKey(metricKeyWithTag, "puller_not_found"),
                     Long.valueOf(dataItem.pullerNotFound));
+
+            summaryTotalPull += dataItem.totalPull;
+            summaryTotalPullFromCache += dataItem.totalPullFromCache;
+            summaryDataError += dataItem.dataError;
+            summaryPullTimeout += dataItem.pullTimeout;
+            summaryExceedMaxDelay += dataItem.pullExceedMaxDelay;
+            summaryFailed += dataItem.pullFailed;
+            summaryEmptyData += dataItem.emptyData;
+            summaryAtomErrorCount += dataItem.atomErrorCount;
+            summaryBinderCallFailed += dataItem.binderCallFailed;
+            summaryFailedUIDProviderNotFound += dataItem.failedUidProviderNotFound;
+            summaryPullerNotFound += dataItem.pullerNotFound;
         }
+
+        resultMap.put(MetricUtility.constructKey(metricKeyPrefix, "total_pull"), summaryTotalPull);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "total_pull_from_cache"),
+                summaryTotalPullFromCache);
+        resultMap.put(MetricUtility.constructKey(metricKeyPrefix, "data_error"), summaryDataError);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "pull_timeout"), summaryPullTimeout);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "pull_exceed_max_delay"),
+                summaryExceedMaxDelay);
+        resultMap.put(MetricUtility.constructKey(metricKeyPrefix, "pull_failed"), summaryFailed);
+        resultMap.put(MetricUtility.constructKey(metricKeyPrefix, "empty_data"), summaryEmptyData);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "atom_error_count"),
+                summaryAtomErrorCount);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "binder_call_failed"),
+                summaryBinderCallFailed);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "failed_uid_provider_not_found"),
+                summaryFailedUIDProviderNotFound);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "puller_not_found"),
+                summaryPullerNotFound);
     }
 
     private static void populateAtomMetricStats(
-            StatsLog.StatsdStatsReport.AtomMetricStats[] atomMetricStats,
-            Map<String, Long> resultMap) {
+            StatsLog.StatsdStatsReport.AtomMetricStats[] stats, Map<String, Long> resultMap) {
         final String metricKeyPrefix =
                 MetricUtility.constructKey(STATSDSTATS_PREFIX, ATOM_METRIC_STATS_PREFIX);
 
-        for (StatsLog.StatsdStatsReport.AtomMetricStats dataItem : atomMetricStats) {
+        long summaryHardDimensionLimitReached = 0;
+        long summaryLateLogEventSkipped = 0;
+        long summarySkippedForwardBuckets = 0;
+        long summaryBadValueType = 0;
+        long summaryConditionChangeInNextBucket = 0;
+        long summaryInvalidatedBucket = 0;
+        long summaryBucketDropped = 0;
+        long summaryBucketUnknownCondition = 0;
+
+        for (StatsLog.StatsdStatsReport.AtomMetricStats dataItem : stats) {
             final String metricKeyPrefixWithTag =
                     MetricUtility.constructKey(metricKeyPrefix, String.valueOf(dataItem.metricId));
 
@@ -327,7 +445,40 @@ public class StatsdStatsHelper implements ICollectorHelper<Long> {
             resultMap.put(
                     MetricUtility.constructKey(metricKeyPrefixWithTag, "bucket_count"),
                     dataItem.bucketCount);
+
+            summaryHardDimensionLimitReached += dataItem.hardDimensionLimitReached;
+            summaryLateLogEventSkipped += dataItem.lateLogEventSkipped;
+            summarySkippedForwardBuckets += dataItem.skippedForwardBuckets;
+            summaryBadValueType += dataItem.badValueType;
+            summaryConditionChangeInNextBucket += dataItem.conditionChangeInNextBucket;
+            summaryInvalidatedBucket += dataItem.invalidatedBucket;
+            summaryBucketDropped += dataItem.bucketDropped;
+            summaryBucketUnknownCondition += dataItem.bucketUnknownCondition;
         }
+
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "hard_dimension_limit_reached"),
+                summaryHardDimensionLimitReached);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "late_log_event_skipped"),
+                summaryLateLogEventSkipped);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "skipped_forward_buckets"),
+                summarySkippedForwardBuckets);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "bad_value_type"), summaryBadValueType);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "condition_change_in_next_bucket"),
+                summaryConditionChangeInNextBucket);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "invalidated_bucket"),
+                summaryInvalidatedBucket);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "bucket_dropped"),
+                summaryBucketDropped);
+        resultMap.put(
+                MetricUtility.constructKey(metricKeyPrefix, "bucket_unknown_condition"),
+                summaryBucketUnknownCondition);
     }
 
     private static void populateDetectedLogLossStats(

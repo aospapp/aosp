@@ -129,7 +129,7 @@ struct AHardwareBuffer;
 struct VkAndroidHardwareBufferPropertiesANDROID;
 struct VkMemoryGetAndroidHardwareBufferInfoANDROID;
 
-#ifdef __Fuchsia__
+#ifndef VK_USE_PLATFORM_ANDROID_KHR
 
 typedef struct VkAndroidHardwareBufferUsageANDROID {
     VkStructureType    sType;
@@ -191,230 +191,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetMemoryAndroidHardwareBufferANDROID(
     struct AHardwareBuffer**                    pBuffer);
 #endif
 
-/**
- * Buffer pixel formats.
- */
-enum AHardwareBuffer_Format {
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_R8G8B8A8_UNORM
-     *   OpenGL ES: GL_RGBA8
-     */
-    AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM           = 1,
-    /**
-     * 32 bits per pixel, 8 bits per channel format where alpha values are
-     * ignored (always opaque).
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_R8G8B8A8_UNORM
-     *   OpenGL ES: GL_RGB8
-     */
-    AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM           = 2,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_R8G8B8_UNORM
-     *   OpenGL ES: GL_RGB8
-     */
-    AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM             = 3,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_R5G6B5_UNORM_PACK16
-     *   OpenGL ES: GL_RGB565
-     */
-    AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM             = 4,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_R16G16B16A16_SFLOAT
-     *   OpenGL ES: GL_RGBA16F
-     */
-    AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT       = 0x16,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_A2B10G10R10_UNORM_PACK32
-     *   OpenGL ES: GL_RGB10_A2
-     */
-    AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM        = 0x2b,
-    /**
-     * Opaque binary blob format.
-     * Must have height 1 and one layer, with width equal to the buffer
-     * size in bytes. Corresponds to Vulkan buffers and OpenGL buffer
-     * objects. Can be bound to the latter using GL_EXT_external_buffer.
-     */
-    AHARDWAREBUFFER_FORMAT_BLOB                     = 0x21,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_D16_UNORM
-     *   OpenGL ES: GL_DEPTH_COMPONENT16
-     */
-    AHARDWAREBUFFER_FORMAT_D16_UNORM                = 0x30,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_X8_D24_UNORM_PACK32
-     *   OpenGL ES: GL_DEPTH_COMPONENT24
-     */
-    AHARDWAREBUFFER_FORMAT_D24_UNORM                = 0x31,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_D24_UNORM_S8_UINT
-     *   OpenGL ES: GL_DEPTH24_STENCIL8
-     */
-    AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT        = 0x32,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_D32_SFLOAT
-     *   OpenGL ES: GL_DEPTH_COMPONENT32F
-     */
-    AHARDWAREBUFFER_FORMAT_D32_FLOAT                = 0x33,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_D32_SFLOAT_S8_UINT
-     *   OpenGL ES: GL_DEPTH32F_STENCIL8
-     */
-    AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT        = 0x34,
-    /**
-     * Corresponding formats:
-     *   Vulkan: VK_FORMAT_S8_UINT
-     *   OpenGL ES: GL_STENCIL_INDEX8
-     */
-    AHARDWAREBUFFER_FORMAT_S8_UINT                  = 0x35,
-    /**
-     * YUV 420 888 format.
-     * Must have an even width and height. Can be accessed in OpenGL
-     * shaders through an external sampler. Does not support mip-maps
-     * cube-maps or multi-layered textures.
-     */
-    AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420             = 0x23,
-};
-/**
- * Buffer usage flags, specifying how the buffer will be accessed.
- */
-enum AHardwareBuffer_UsageFlags {
-    /// The buffer will never be locked for direct CPU reads using the
-    /// AHardwareBuffer_lock() function. Note that reading the buffer
-    /// using OpenGL or Vulkan functions or memory mappings is still
-    /// allowed.
-    AHARDWAREBUFFER_USAGE_CPU_READ_NEVER        = 0UL,
-    /// The buffer will sometimes be locked for direct CPU reads using
-    /// the AHardwareBuffer_lock() function. Note that reading the
-    /// buffer using OpenGL or Vulkan functions or memory mappings
-    /// does not require the presence of this flag.
-    AHARDWAREBUFFER_USAGE_CPU_READ_RARELY       = 2UL,
-    /// The buffer will often be locked for direct CPU reads using
-    /// the AHardwareBuffer_lock() function. Note that reading the
-    /// buffer using OpenGL or Vulkan functions or memory mappings
-    /// does not require the presence of this flag.
-    AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN        = 3UL,
-    /// CPU read value mask.
-    AHARDWAREBUFFER_USAGE_CPU_READ_MASK         = 0xFUL,
-    /// The buffer will never be locked for direct CPU writes using the
-    /// AHardwareBuffer_lock() function. Note that writing the buffer
-    /// using OpenGL or Vulkan functions or memory mappings is still
-    /// allowed.
-    AHARDWAREBUFFER_USAGE_CPU_WRITE_NEVER       = 0UL << 4,
-    /// The buffer will sometimes be locked for direct CPU writes using
-    /// the AHardwareBuffer_lock() function. Note that writing the
-    /// buffer using OpenGL or Vulkan functions or memory mappings
-    /// does not require the presence of this flag.
-    AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY      = 2UL << 4,
-    /// The buffer will often be locked for direct CPU writes using
-    /// the AHardwareBuffer_lock() function. Note that writing the
-    /// buffer using OpenGL or Vulkan functions or memory mappings
-    /// does not require the presence of this flag.
-    AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN       = 3UL << 4,
-    /// CPU write value mask.
-    AHARDWAREBUFFER_USAGE_CPU_WRITE_MASK        = 0xFUL << 4,
-    /// The buffer will be read from by the GPU as a texture.
-    AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE      = 1UL << 8,
-    /**
-     * The buffer will be written to by the GPU as a framebuffer
-     * attachment.
-     *
-     * Note that the name of this flag is somewhat misleading: it does
-     * not imply that the buffer contains a color format. A buffer with
-     * depth or stencil format that will be used as a framebuffer
-     * attachment should also have this flag.
-     */
-    AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT       = 1UL << 9,
-    /**
-     * The buffer is protected from direct CPU access or being read by
-     * non-secure hardware, such as video encoders.
-     *
-     * This flag is incompatible with CPU read and write flags. It is
-     * mainly used when handling DRM video. Refer to the EGL extension
-     * EGL_EXT_protected_content and GL extension
-     * GL_EXT_protected_textures for more information on how these
-     * buffers are expected to behave.
-     */
-    AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT      = 1UL << 14,
-    /// The buffer will be read by a hardware video encoder.
-    AHARDWAREBUFFER_USAGE_VIDEO_ENCODE           = 1UL << 16,
-    /**
-     * The buffer will be used for direct writes from sensors.
-     * When this flag is present, the format must be AHARDWAREBUFFER_FORMAT_BLOB.
-     */
-    AHARDWAREBUFFER_USAGE_SENSOR_DIRECT_DATA     = 1UL << 23,
-    /**
-     * The buffer will be used as a shader storage or uniform buffer object.
-     * When this flag is present, the format must be AHARDWAREBUFFER_FORMAT_BLOB.
-     */
-    AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER        = 1UL << 24,
-    /**
-     * The buffer will be used as a cube map texture.
-     * When this flag is present, the buffer must have a layer count
-     * that is a multiple of 6. Note that buffers with this flag must be
-     * bound to OpenGL textures using the extension
-     * GL_EXT_EGL_image_storage instead of GL_KHR_EGL_image.
-     */
-    AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP               = 1UL << 25,
-    /**
-     * The buffer contains a complete mipmap hierarchy.
-     * Note that buffers with this flag must be bound to OpenGL textures using
-     * the extension GL_EXT_EGL_image_storage instead of GL_KHR_EGL_image.
-     */
-    AHARDWAREBUFFER_USAGE_GPU_MIPMAP_COMPLETE        = 1UL << 26,
-    AHARDWAREBUFFER_USAGE_VENDOR_0  = 1ULL << 28,
-    AHARDWAREBUFFER_USAGE_VENDOR_1  = 1ULL << 29,
-    AHARDWAREBUFFER_USAGE_VENDOR_2  = 1ULL << 30,
-    AHARDWAREBUFFER_USAGE_VENDOR_3  = 1ULL << 31,
-    AHARDWAREBUFFER_USAGE_VENDOR_4  = 1ULL << 48,
-    AHARDWAREBUFFER_USAGE_VENDOR_5  = 1ULL << 49,
-    AHARDWAREBUFFER_USAGE_VENDOR_6  = 1ULL << 50,
-    AHARDWAREBUFFER_USAGE_VENDOR_7  = 1ULL << 51,
-    AHARDWAREBUFFER_USAGE_VENDOR_8  = 1ULL << 52,
-    AHARDWAREBUFFER_USAGE_VENDOR_9  = 1ULL << 53,
-    AHARDWAREBUFFER_USAGE_VENDOR_10 = 1ULL << 54,
-    AHARDWAREBUFFER_USAGE_VENDOR_11 = 1ULL << 55,
-    AHARDWAREBUFFER_USAGE_VENDOR_12 = 1ULL << 56,
-    AHARDWAREBUFFER_USAGE_VENDOR_13 = 1ULL << 57,
-    AHARDWAREBUFFER_USAGE_VENDOR_14 = 1ULL << 58,
-    AHARDWAREBUFFER_USAGE_VENDOR_15 = 1ULL << 59,
-    AHARDWAREBUFFER_USAGE_VENDOR_16 = 1ULL << 60,
-    AHARDWAREBUFFER_USAGE_VENDOR_17 = 1ULL << 61,
-    AHARDWAREBUFFER_USAGE_VENDOR_18 = 1ULL << 62,
-    AHARDWAREBUFFER_USAGE_VENDOR_19 = 1ULL << 63,
-};
-/**
- * Buffer description. Used for allocating new buffers and querying
- * parameters of existing ones.
- */
-typedef struct AHardwareBuffer_Desc {
-    uint32_t    width;      ///< Width in pixels.
-    uint32_t    height;     ///< Height in pixels.
-    /**
-     * Number of images in an image array. AHardwareBuffers with one
-     * layer correspond to regular 2D textures. AHardwareBuffers with
-     * more than layer correspond to texture arrays. If the layer count
-     * is a multiple of 6 and the usage flag
-     * AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP is present, the buffer is
-     * a cube map or a cube map array.
-     */
-    uint32_t    layers;
-    uint32_t    format;     ///< One of AHardwareBuffer_Format.
-    uint64_t    usage;      ///< Combination of AHardwareBuffer_UsageFlags.
-    uint32_t    stride;     ///< Row stride in pixels, ignored for AHardwareBuffer_allocate()
-    uint32_t    rfu0;       ///< Initialize to zero, reserved for future use.
-    uint64_t    rfu1;       ///< Initialize to zero, reserved for future use.
-} AHardwareBuffer_Desc;
-
 #endif // __Fuchsia__
 
 #define VK_GOOGLE_sized_descriptor_update_template 1
@@ -449,178 +225,140 @@ typedef void (VKAPI_PTR *PFN_vkCommandBufferHostSyncGOOGLE)(
 typedef void (VKAPI_PTR *PFN_vkCreateImageWithRequirementsGOOGLE)(
     VkDevice device, const VkImageCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkImage* pImage, VkMemoryRequirements* pMemoryRequirements);
 
-#ifndef VK_FUCHSIA_buffer_collection
-#define VK_FUCHSIA_buffer_collection 1
-VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkBufferCollectionFUCHSIA)
+#ifdef VK_USE_PLATFORM_FUCHSIA
 
-#define VK_FUCHSIA_BUFFER_COLLECTION_SPEC_VERSION 1
-#define VK_FUCHSIA_BUFFER_COLLECTION_EXTENSION_NAME "VK_FUCHSIA_buffer_collection"
+#ifndef VK_FUCHSIA_buffer_collection_x
 
-typedef struct VkBufferCollectionCreateInfoFUCHSIA {
-    VkStructureType    sType;
-    const void*        pNext;
-    uint32_t           collectionToken;
-} VkBufferCollectionCreateInfoFUCHSIA;
+#define VK_FUCHSIA_buffer_collection_x 1
+VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkBufferCollectionFUCHSIAX)
+#define VK_FUCHSIA_BUFFER_COLLECTION_X_SPEC_VERSION 1
+#define VK_FUCHSIA_BUFFER_COLLECTION_X_EXTENSION_NAME \
+    "VK_FUCHSIA_buffer_collection_x"
 
-typedef struct VkImportMemoryBufferCollectionFUCHSIA {
-    VkStructureType              sType;
-    const void*                  pNext;
-    VkBufferCollectionFUCHSIA    collection;
-    uint32_t                     index;
-} VkImportMemoryBufferCollectionFUCHSIA;
+typedef enum VkImageFormatConstraintsFlagBitsFUCHSIAX {
+    VK_IMAGE_FORMAT_CONSTRAINTS_FLAG_BITS_MAX_ENUM_FUCHSIAX = 0x7FFFFFFF
+} VkImageFormatConstraintsFlagBitsFUCHSIAX;
+typedef VkFlags VkImageFormatConstraintsFlagsFUCHSIAX;
 
-typedef struct VkBufferCollectionImageCreateInfoFUCHSIA {
-    VkStructureType              sType;
-    const void*                  pNext;
-    VkBufferCollectionFUCHSIA    collection;
-    uint32_t                     index;
-} VkBufferCollectionImageCreateInfoFUCHSIA;
+typedef enum VkImageConstraintsInfoFlagBitsFUCHSIAX {
+    VK_IMAGE_CONSTRAINTS_INFO_CPU_READ_RARELY_FUCHSIAX = 0x00000001,
+    VK_IMAGE_CONSTRAINTS_INFO_CPU_READ_OFTEN_FUCHSIAX = 0x00000002,
+    VK_IMAGE_CONSTRAINTS_INFO_CPU_WRITE_RARELY_FUCHSIAX = 0x00000004,
+    VK_IMAGE_CONSTRAINTS_INFO_CPU_WRITE_OFTEN_FUCHSIAX = 0x00000008,
+    VK_IMAGE_CONSTRAINTS_INFO_PROTECTED_OPTIONAL_FUCHSIAX = 0x00000010,
+    VK_IMAGE_CONSTRAINTS_INFO_FLAG_BITS_MAX_ENUM_FUCHSIAX = 0x7FFFFFFF
+} VkImageConstraintsInfoFlagBitsFUCHSIAX;
+typedef VkFlags VkImageConstraintsInfoFlagsFUCHSIAX;
+typedef struct VkBufferCollectionCreateInfoFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    uint32_t collectionToken;
+} VkBufferCollectionCreateInfoFUCHSIAX;
 
-typedef struct VkBufferCollectionBufferCreateInfoFUCHSIA {
-    VkStructureType              sType;
-    const void*                  pNext;
-    VkBufferCollectionFUCHSIA    collection;
-    uint32_t                     index;
-} VkBufferCollectionBufferCreateInfoFUCHSIA;
+typedef struct VkImportMemoryBufferCollectionFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    VkBufferCollectionFUCHSIAX collection;
+    uint32_t index;
+} VkImportMemoryBufferCollectionFUCHSIAX;
 
-typedef struct VkBufferCollectionPropertiesFUCHSIA {
-    VkStructureType    sType;
-    void*              pNext;
-    uint32_t           memoryTypeBits;
-    uint32_t           count;
-} VkBufferCollectionPropertiesFUCHSIA;
+typedef struct VkBufferCollectionImageCreateInfoFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    VkBufferCollectionFUCHSIAX collection;
+    uint32_t index;
+} VkBufferCollectionImageCreateInfoFUCHSIAX;
 
-#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_BUFFER_COLLECTION_FUCHSIA       \
-    ((VkStructureType)1001004004)
-#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_IMAGE_CREATE_INFO_FUCHSIA \
-    ((VkStructureType)1001004005)
-#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_BUFFER_CREATE_INFO_FUCHSIA \
-    ((VkStructureType)1001004008)
-#endif  // VK_FUCHSIA_buffer_collection
-
-#ifndef VK_FUCHSIA_external_memory
-#define VK_FUCHSIA_external_memory 1
-#define VK_FUCHSIA_EXTERNAL_MEMORY_SPEC_VERSION 1
-#define VK_FUCHSIA_EXTERNAL_MEMORY_EXTENSION_NAME "VK_FUCHSIA_external_memory"
-
-typedef struct VkBufferConstraintsInfoFUCHSIA {
+typedef struct VkBufferConstraintsInfoFUCHSIAX {
     VkStructureType sType;
     const void* pNext;
     const VkBufferCreateInfo* pBufferCreateInfo;
     VkFormatFeatureFlags requiredFormatFeatures;
     uint32_t minCount;
-} VkBufferConstraintsInfoFUCHSIA;
+} VkBufferConstraintsInfoFUCHSIAX;
 
-typedef struct VkImportMemoryZirconHandleInfoFUCHSIA {
-    VkStructureType                       sType;
-    const void*                           pNext;
-    VkExternalMemoryHandleTypeFlagBits    handleType;
-    uint32_t                              handle;
-} VkImportMemoryZirconHandleInfoFUCHSIA;
+typedef struct VkBufferCollectionBufferCreateInfoFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    VkBufferCollectionFUCHSIAX collection;
+    uint32_t index;
+} VkBufferCollectionBufferCreateInfoFUCHSIAX;
 
-typedef struct VkMemoryZirconHandlePropertiesFUCHSIA {
-    VkStructureType    sType;
-    void*              pNext;
-    uint32_t           memoryTypeBits;
-} VkMemoryZirconHandlePropertiesFUCHSIA;
+typedef struct VkBufferCollectionPropertiesFUCHSIAX {
+    VkStructureType sType;
+    void* pNext;
+    uint32_t memoryTypeBits;
+    uint32_t count;
+} VkBufferCollectionPropertiesFUCHSIAX;
 
-typedef struct VkMemoryGetZirconHandleInfoFUCHSIA {
-    VkStructureType                       sType;
-    const void*                           pNext;
-    VkDeviceMemory                        memory;
-    VkExternalMemoryHandleTypeFlagBits    handleType;
-} VkMemoryGetZirconHandleInfoFUCHSIA;
+typedef struct VkSysmemColorSpaceFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    uint32_t colorSpace;
+} VkSysmemColorSpaceFUCHSIAX;
 
-#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_BUFFER_CREATE_INFO_FUCHSIA \
-    ((VkStructureType)1001004008)
+typedef struct VkBufferCollectionProperties2FUCHSIAX {
+    VkStructureType sType;
+    void* pNext;
+    uint32_t memoryTypeBits;
+    uint32_t bufferCount;
+    uint32_t createInfoIndex;
+    uint64_t sysmemFormat;
+    VkFormatFeatureFlags formatFeatures;
+    VkSysmemColorSpaceFUCHSIAX colorSpace;
+    VkComponentMapping samplerYcbcrConversionComponents;
+    VkSamplerYcbcrModelConversion suggestedYcbcrModel;
+    VkSamplerYcbcrRange suggestedYcbcrRange;
+    VkChromaLocation suggestedXChromaOffset;
+    VkChromaLocation suggestedYChromaOffset;
+} VkBufferCollectionProperties2FUCHSIAX;
 
-#if VK_HEADER_VERSION < 174
-#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
-    ((VkStructureType)1000364000)
-#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00000800)
-#endif
+typedef struct VkImageFormatConstraintsInfoFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    VkFormatFeatureFlags requiredFormatFeatures;
+    VkImageFormatConstraintsFlagsFUCHSIAX flags;
+    uint64_t sysmemFormat;
+    uint32_t colorSpaceCount;
+    const VkSysmemColorSpaceFUCHSIAX* pColorSpaces;
+} VkImageFormatConstraintsInfoFUCHSIAX;
 
-// Deprecated
-#define VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
-    ((VkStructureType)1001005000)
-#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00100000)
+typedef struct VkImageConstraintsInfoFUCHSIAX {
+    VkStructureType sType;
+    const void* pNext;
+    uint32_t createInfoCount;
+    const VkImageCreateInfo* pCreateInfos;
+    const VkImageFormatConstraintsInfoFUCHSIAX* pFormatConstraints;
+    uint32_t minBufferCount;
+    uint32_t maxBufferCount;
+    uint32_t minBufferCountForCamping;
+    uint32_t minBufferCountForDedicatedSlack;
+    uint32_t minBufferCountForSharedSlack;
+    VkImageConstraintsInfoFlagsFUCHSIAX flags;
+} VkImageConstraintsInfoFUCHSIAX;
 
-#else // VK_FUCHSIA_external_memory
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_CREATE_INFO_FUCHSIAX \
+    ((VkStructureType)1000367000)
+#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_BUFFER_COLLECTION_FUCHSIAX \
+    ((VkStructureType)1000367004)
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_IMAGE_CREATE_INFO_FUCHSIAX \
+    ((VkStructureType)1000367005)
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_PROPERTIES_FUCHSIAX \
+    ((VkStructureType)1000367006)
+#define VK_STRUCTURE_TYPE_BUFFER_CONSTRAINTS_INFO_FUCHSIAX \
+    ((VkStructureType)1000367007)
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_BUFFER_CREATE_INFO_FUCHSIAX \
+    ((VkStructureType)1000367008)
+#define VK_STRUCTURE_TYPE_IMAGE_CONSTRAINTS_INFO_FUCHSIAX \
+    ((VkStructureType)1000367009)
+#define VK_STRUCTURE_TYPE_IMAGE_FORMAT_CONSTRAINTS_INFO_FUCHSIAX \
+    ((VkStructureType)1000367010)
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_PROPERTIES2_FUCHSIAX \
+    ((VkStructureType)1000367011)
 
-// For backward compatibility
-#if VK_HEADER_VERSION >= 174
-#define VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
-    ((VkStructureType)1001005000)
-#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00100000)
-#endif  // VK_HEADER_VERSION >= 174
+#endif  // VK_FUCHSIA_buffer_collection_x
 
-// For forward compatibility
-#ifndef VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA
-#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA ((VkStructureType)1000364000)
-#endif  // VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA
-
-// For forward compatibility
-#ifndef VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA
-#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00000800)
-#endif  // VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA
-
-#endif  // VK_FUCHSIA_external_memory
-
-
-#ifndef VK_FUCHSIA_external_semaphore
-#define VK_FUCHSIA_external_semaphore 1
-#define VK_FUCHSIA_EXTERNAL_SEMAPHORE_SPEC_VERSION 1
-#define VK_FUCHSIA_EXTERNAL_SEMAPHORE_EXTENSION_NAME "VK_FUCHSIA_external_semaphore"
-
-typedef struct VkImportSemaphoreZirconHandleInfoFUCHSIA {
-    VkStructureType                          sType;
-    const void*                              pNext;
-    VkSemaphore                              semaphore;
-    VkSemaphoreImportFlags                   flags;
-    VkExternalSemaphoreHandleTypeFlagBits    handleType;
-#if VK_HEADER_VERSION < 174
-    uint32_t                                 handle;
-#else // VK_HEADER_VERSION >= 174
-    uint32_t                                 zirconHandle;
-#endif // VK_HEADER_VERSION < 174
-} VkImportSemaphoreZirconHandleInfoFUCHSIA;
-
-typedef struct VkSemaphoreGetZirconHandleInfoFUCHSIA {
-    VkStructureType                          sType;
-    const void*                              pNext;
-    VkSemaphore                              semaphore;
-    VkExternalSemaphoreHandleTypeFlagBits    handleType;
-} VkSemaphoreGetZirconHandleInfoFUCHSIA;
-
-#if VK_HEADER_VERSION < 174
-#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00000080)
-#endif
-
-// Deprecated
-#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA \
-    ((VkExternalSemaphoreHandleTypeFlagBits)0x00100000)
-
-#else // VK_FUCHSIA_external_semaphore
-
-// For backward compatibility
-#if VK_HEADER_VERSION >= 174
-#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA \
-    ((VkExternalSemaphoreHandleTypeFlagBits)0x00100000)
-#endif  // VK_HEADER_VERSION >= 174
-
-// For forward compatibility
-#ifndef VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA
-#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA \
-    ((VkExternalMemoryHandleTypeFlagBits)0x00000080)
-#endif  // VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA
-
-#endif  // VK_FUCHSIA_external_semaphore
-
+#endif  // VK_USE_PLATFORM_FUCHSIA
 
 // VulkanStream features
 #define VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT (1 << 0)
@@ -675,9 +413,81 @@ typedef void (VKAPI_PTR *PFN_vkQueueBindSparseAsyncGOOGLE)(
     VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence);
 
 typedef VkResult (VKAPI_PTR *PFN_vkGetLinearImageLayoutGOOGLE)(VkDevice device, VkFormat format, VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment);
+typedef VkResult (VKAPI_PTR *PFN_vkGetLinearImageLayout2GOOGLE)(VkDevice device, const VkImageCreateInfo* pCreateInfo, VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment);
 
 typedef void (VKAPI_PTR *PFN_vkQueueFlushCommandsGOOGLE)(VkQueue queue, VkDeviceSize dataSize, const void* pData);
 typedef void (VKAPI_PTR *PFN_vkQueueCommitDescriptorSetUpdatesGOOGLE)(VkQueue queue, uint32_t descriptorPoolCount, const VkDescriptorPool* pDescriptorPools, uint32_t descriptorSetCount, const VkDescriptorSetLayout* pDescriptorSetLayouts, const uint64_t* pDescriptorSetPoolIds, const uint32_t* pDescriptorSetWhichPool, const uint32_t* pDescriptorSetPendingAllocation, const uint32_t* pDescriptorWriteStartingIndices, uint32_t pendingDescriptorWriteCount, const VkWriteDescriptorSet* pPendingDescriptorWrites);
+typedef void (VKAPI_PTR *PFN_vkCollectDescriptorPoolIdsGOOGLE)(VkDevice device, VkDescriptorPool descriptorPool, uint32_t* pPoolIdCount, uint64_t* pPoolIds);
+typedef void (VKAPI_PTR *PFN_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE)(VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image);
+
+// TODO(liyl): Remove once Android vulkan-headers is updated
+// to 1.2.184 or higher.
+
+#if VK_HEADER_VERSION < 184
+
+typedef struct VkPipelineCacheHeaderVersionOne {
+    uint32_t                        headerSize;
+    VkPipelineCacheHeaderVersion    headerVersion;
+    uint32_t                        vendorID;
+    uint32_t                        deviceID;
+    uint8_t                         pipelineCacheUUID[VK_UUID_SIZE];
+} VkPipelineCacheHeaderVersionOne;
+
+#endif  // VK_HEADER_VERSION < 184
+
+// TODO(liyl): Remove once Android vulkan-headers is updated
+// to 1.2.195 or higher.
+
+#ifdef VK_EXT_image_drm_format_modifier
+
+#if VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_SPEC_VERSION < 2
+
+#ifndef VK_KHR_format_feature_flags2
+typedef uint64_t VkFormatFeatureFlags2KHR;
+#endif  // VK_KHR_format_feature_flags2
+
+#define VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_2_EXT ((VkStructureType)1000158006)
+typedef struct VkDrmFormatModifierProperties2EXT {
+    uint64_t                    drmFormatModifier;
+    uint32_t                    drmFormatModifierPlaneCount;
+    VkFormatFeatureFlags2KHR    drmFormatModifierTilingFeatures;
+} VkDrmFormatModifierProperties2EXT;
+
+typedef struct VkDrmFormatModifierPropertiesList2EXT {
+    VkStructureType                       sType;
+    void*                                 pNext;
+    uint32_t                              drmFormatModifierCount;
+    VkDrmFormatModifierProperties2EXT*    pDrmFormatModifierProperties;
+} VkDrmFormatModifierPropertiesList2EXT;
+
+#endif  // VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_SPEC_VERSION < 2
+
+#endif  // VK_EXT_image_drm_format_modifier
+
+// TODO(liyl): Remove once Android vulkan-headers is updated
+// to 1.2.195 or higher.
+
+#ifdef VK_ANDROID_external_memory_android_hardware_buffer
+
+#if VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION < 4
+
+#define VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_2_ANDROID ((VkStructureType)1000129006)
+typedef struct VkAndroidHardwareBufferFormatProperties2ANDROID {
+    VkStructureType                  sType;
+    void*                            pNext;
+    VkFormat                         format;
+    uint64_t                         externalFormat;
+    VkFormatFeatureFlags2KHR         formatFeatures;
+    VkComponentMapping               samplerYcbcrConversionComponents;
+    VkSamplerYcbcrModelConversion    suggestedYcbcrModel;
+    VkSamplerYcbcrRange              suggestedYcbcrRange;
+    VkChromaLocation                 suggestedXChromaOffset;
+    VkChromaLocation                 suggestedYChromaOffset;
+} VkAndroidHardwareBufferFormatProperties2ANDROID;
+
+#endif  // VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION < 4
+
+#endif  // VK_ANDROID_external_memory_android_hardware_buffer
 
 #ifdef __cplusplus
 } // extern "C"

@@ -19,8 +19,8 @@ package android.content.pm.cts;
 
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ProviderInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ProviderInfo;
 import android.content.res.XmlResourceParser;
 import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
@@ -42,8 +42,10 @@ public class ProviderInfoTest extends AndroidTestCase {
         // Test ProviderInfo()
         new ProviderInfo();
         // Test other methods
-        ApplicationInfo appInfo = pm.getApplicationInfo(PACKAGE_NAME, 0);
-        List<ProviderInfo> providers = pm.queryContentProviders(PACKAGE_NAME, appInfo.uid, 0);
+        ApplicationInfo appInfo = pm.getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
+        List<ProviderInfo> providers = pm.queryContentProviders(PACKAGE_NAME, appInfo.uid,
+                PackageManager.ComponentInfoFlags.of(0));
         Iterator<ProviderInfo> providerIterator = providers.iterator();
         ProviderInfo current;
         while (providerIterator.hasNext()) {
@@ -58,7 +60,7 @@ public class ProviderInfoTest extends AndroidTestCase {
     public void testProviderMetaData() {
         final ProviderInfo info = getContext().getPackageManager()
                 .resolveContentProvider("android.content.cts.fileprovider",
-                        PackageManager.GET_META_DATA);
+                        PackageManager.ComponentInfoFlags.of(PackageManager.GET_META_DATA));
         final XmlResourceParser in = info.loadXmlMetaData(
                 getContext().getPackageManager(), "android.support.FILE_PROVIDER_PATHS");
         try {

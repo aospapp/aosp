@@ -231,7 +231,9 @@
     <!-- Height of the status bar.
          Do not read this dimen directly. Use {@link SystemBarUtils#getStatusBarHeight} instead.
          -->
-    <dimen name="status_bar_height">28dp</dimen>
+    <dimen name="status_bar_height_default">28dp</dimen>
+    <dimen name="status_bar_height_portrait">136px</dimen>
+    <dimen name="status_bar_height_landscape">28dp</dimen>
 
     <!-- List of biometric sensors on the device, in decreasing strength. Consumed by AuthService
      when registering authenticators with BiometricService. Format must be ID:Modality:Strength,

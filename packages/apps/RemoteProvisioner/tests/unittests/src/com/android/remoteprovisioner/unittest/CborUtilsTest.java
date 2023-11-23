@@ -18,8 +18,10 @@ package com.android.remoteprovisioner.unittest;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+import android.os.Build;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.runner.AndroidJUnit4;
@@ -375,7 +377,8 @@ public class CborUtilsTest {
                 CborUtils.buildCertificateRequest(deviceInfo,
                                                   challenge,
                                                   protectedDataPayload,
-                                                  macedKeysToSign);
+                                                  macedKeysToSign,
+                                                  CborUtils.buildUnverifiedDeviceInfo());
         ByteArrayInputStream bais = new ByteArrayInputStream(certReq);
         List<DataItem> dataItems = new CborDecoder(bais).decode();
         assertEquals(1, dataItems.size());
@@ -396,5 +399,15 @@ public class CborUtilsTest {
         assertEquals(MajorType.ARRAY, dataItems.get(2).getMajorType());
         // MacedKeysToSign
         assertEquals(MajorType.ARRAY, dataItems.get(3).getMajorType());
+    }
+
+    @Test
+    public void testBuildUnverifiedDeviceInfo() throws Exception {
+        Map devInfo = CborUtils.buildUnverifiedDeviceInfo();
+        assertEquals("Unverified device info only has one entry.", 1, devInfo.getKeys().size());
+        DataItem fingerprint = devInfo.get(new UnicodeString("fingerprint"));
+        assertNotNull("Device info doesn't contain fingerprint", fingerprint);
+        assertEquals(MajorType.UNICODE_STRING, fingerprint.getMajorType());
+        assertEquals(Build.FINGERPRINT, fingerprint.toString());
     }
 }

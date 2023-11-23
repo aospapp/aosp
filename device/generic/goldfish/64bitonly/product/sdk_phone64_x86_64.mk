@@ -48,10 +48,6 @@ $(call inherit-product, device/generic/goldfish/64bitonly/product/x86_64-vendor.
 $(call inherit-product, device/generic/goldfish/64bitonly/product/emulator64_vendor.mk)
 $(call inherit-product, device/generic/goldfish/emulator64_x86_64/device.mk)
 
-# Define the host tools and libs that are parts of the SDK.
-$(call inherit-product-if-exists, sdk/build/product_sdk.mk)
-$(call inherit-product-if-exists, development/build/product_sdk.mk)
-
 # Overrides
 PRODUCT_BRAND := Android
 PRODUCT_NAME := sdk_phone64_x86_64

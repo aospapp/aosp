@@ -19,9 +19,15 @@ package android.net.wifi.aware;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.net.wifi.WifiScanner;
 import android.net.wifi.util.HexEncoding;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -90,11 +96,15 @@ public final class SubscribeConfig implements Parcelable {
     /** @hide */
     public final int mMaxDistanceMm;
 
+    private final boolean mEnableInstantMode;
+
+    private final int mBand;
+
     /** @hide */
     public SubscribeConfig(byte[] serviceName, byte[] serviceSpecificInfo, byte[] matchFilter,
             int subscribeType, int ttlSec, boolean enableTerminateNotification,
             boolean minDistanceMmSet, int minDistanceMm, boolean maxDistanceMmSet,
-            int maxDistanceMm) {
+            int maxDistanceMm, boolean enableInstantMode, @WifiScanner.WifiBand int band) {
         mServiceName = serviceName;
         mServiceSpecificInfo = serviceSpecificInfo;
         mMatchFilter = matchFilter;
@@ -105,6 +115,8 @@ public final class SubscribeConfig implements Parcelable {
         mMinDistanceMmSet = minDistanceMmSet;
         mMaxDistanceMm = maxDistanceMm;
         mMaxDistanceMmSet = maxDistanceMmSet;
+        mEnableInstantMode = enableInstantMode;
+        mBand = band;
     }
 
     @Override
@@ -123,7 +135,9 @@ public final class SubscribeConfig implements Parcelable {
                 + ", mMinDistanceMm=" + mMinDistanceMm
                 + ", mMinDistanceMmSet=" + mMinDistanceMmSet
                 + ", mMaxDistanceMm=" + mMaxDistanceMm
-                + ", mMaxDistanceMmSet=" + mMaxDistanceMmSet + "]";
+                + ", mMaxDistanceMmSet=" + mMaxDistanceMmSet + "]"
+                + ", mEnableInstantMode=" + mEnableInstantMode
+                + ", mBand=" + mBand;
     }
 
     @Override
@@ -143,6 +157,8 @@ public final class SubscribeConfig implements Parcelable {
         dest.writeInt(mMinDistanceMmSet ? 1 : 0);
         dest.writeInt(mMaxDistanceMm);
         dest.writeInt(mMaxDistanceMmSet ? 1 : 0);
+        dest.writeBoolean(mEnableInstantMode);
+        dest.writeInt(mBand);
     }
 
     public static final @android.annotation.NonNull Creator<SubscribeConfig> CREATOR = new Creator<SubscribeConfig>() {
@@ -163,10 +179,12 @@ public final class SubscribeConfig implements Parcelable {
             boolean minDistanceMmSet = in.readInt() != 0;
             int maxDistanceMm = in.readInt();
             boolean maxDistanceMmSet = in.readInt() != 0;
+            boolean enableInstantMode = in.readBoolean();
+            int band = in.readInt();
 
             return new SubscribeConfig(serviceName, ssi, matchFilter, subscribeType, ttlSec,
                     enableTerminateNotification, minDistanceMmSet, minDistanceMm, maxDistanceMmSet,
-                    maxDistanceMm);
+                    maxDistanceMm, enableInstantMode, band);
         }
     };
 
@@ -187,7 +205,9 @@ public final class SubscribeConfig implements Parcelable {
                 lhs.mMatchFilter) && mSubscribeType == lhs.mSubscribeType && mTtlSec == lhs.mTtlSec
                 && mEnableTerminateNotification == lhs.mEnableTerminateNotification
                 && mMinDistanceMmSet == lhs.mMinDistanceMmSet
-                && mMaxDistanceMmSet == lhs.mMaxDistanceMmSet)) {
+                && mMaxDistanceMmSet == lhs.mMaxDistanceMmSet
+                && mEnableInstantMode == lhs.mEnableInstantMode
+                && mBand == lhs.mBand)) {
             return false;
         }
 
@@ -207,7 +227,7 @@ public final class SubscribeConfig implements Parcelable {
         int result = Objects.hash(Arrays.hashCode(mServiceName),
                 Arrays.hashCode(mServiceSpecificInfo), Arrays.hashCode(mMatchFilter),
                 mSubscribeType, mTtlSec, mEnableTerminateNotification, mMinDistanceMmSet,
-                mMaxDistanceMmSet);
+                mMaxDistanceMmSet, mEnableInstantMode, mBand);
 
         if (mMinDistanceMmSet) {
             result = Objects.hash(result, mMinDistanceMm);
@@ -258,6 +278,14 @@ public final class SubscribeConfig implements Parcelable {
                 throw new IllegalArgumentException(
                         "Match filter longer than supported by device characteristics");
             }
+            if (mEnableInstantMode) {
+                if (SdkLevel.isAtLeastT()
+                        && characteristics.isInstantCommunicationModeSupported()) {
+                    // Valid to use instant communication mode
+                } else {
+                    throw new IllegalArgumentException("instant mode is not supported");
+                }
+            }
         }
 
         if (mMinDistanceMmSet && mMinDistanceMm < 0) {
@@ -277,6 +305,26 @@ public final class SubscribeConfig implements Parcelable {
     }
 
     /**
+     * Check if instant mode is enabled for this subscribe session.
+     * @see Builder#setInstantCommunicationModeEnabled(boolean, int)
+     * @return true for enabled, false otherwise.
+     */
+    public boolean isInstantCommunicationModeEnabled() {
+        return mEnableInstantMode;
+    }
+
+    /**
+     * Check if enable instant mode on 5G for this subscribe session
+     * @see Builder#setInstantCommunicationModeEnabled(boolean, int)
+     * @return The Wi-Fi band, one of the {@link WifiScanner#WIFI_BAND_24_GHZ}
+     * or {@link WifiScanner#WIFI_BAND_5_GHZ}. If instant communication mode is not enabled will
+     * return {@link WifiScanner#WIFI_BAND_24_GHZ} as default.
+     */
+    public @WifiScanner.WifiBand int getInstantCommunicationBand() {
+        return mBand;
+    }
+
+    /**
      * Builder used to build {@link SubscribeConfig} objects.
      */
     public static final class Builder {
@@ -290,6 +338,8 @@ public final class SubscribeConfig implements Parcelable {
         private int mMinDistanceMm;
         private boolean mMaxDistanceMmSet = false;
         private int mMaxDistanceMm;
+        private boolean mEnableInstantMode;
+        private int mBand = WifiScanner.WIFI_BAND_24_GHZ;
 
         /**
          * Specify the service name of the subscribe session. The actual on-air
@@ -485,13 +535,45 @@ public final class SubscribeConfig implements Parcelable {
         }
 
         /**
+         * Configure whether to enable and use instant communication for this subscribe session.
+         * Instant communication will speed up service discovery and any data-path set up as part of
+         * this session. Use {@link Characteristics#isInstantCommunicationModeSupported()} to check
+         * if the device supports this feature.
+         *
+         * Note: due to increased power requirements of this mode - it will only remain enabled for
+         * 30 seconds from the time the discovery session is started.
+         *
+         * @param enabled true for enable instant communication mode, default is false.
+         * @param band Either {@link WifiScanner#WIFI_BAND_24_GHZ}
+         *             or {@link WifiScanner#WIFI_BAND_5_GHZ}. When setting to
+         *             {@link WifiScanner#WIFI_BAND_5_GHZ}, device will try to enable instant
+         *             communication mode on 5Ghz, but may fall back to 2.4Ghz due to regulatory
+         *             requirements.
+         * @return the current {@link Builder} builder, enabling chaining of builder methods.
+         */
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        public @NonNull Builder setInstantCommunicationModeEnabled(boolean enabled,
+                @WifiScanner.WifiBand int band) {
+            if (!SdkLevel.isAtLeastT()) {
+                throw new UnsupportedOperationException();
+            }
+            if (band != WifiScanner.WIFI_BAND_24_GHZ && band != WifiScanner.WIFI_BAND_5_GHZ) {
+                throw new IllegalArgumentException();
+            }
+            mBand = band;
+            mEnableInstantMode = enabled;
+            return this;
+        }
+
+        /**
          * Build {@link SubscribeConfig} given the current requests made on the
          * builder.
          */
         public SubscribeConfig build() {
             return new SubscribeConfig(mServiceName, mServiceSpecificInfo, mMatchFilter,
                     mSubscribeType, mTtlSec, mEnableTerminateNotification,
-                    mMinDistanceMmSet, mMinDistanceMm, mMaxDistanceMmSet, mMaxDistanceMm);
+                    mMinDistanceMmSet, mMinDistanceMm, mMaxDistanceMmSet, mMaxDistanceMm,
+                    mEnableInstantMode, mBand);
         }
     }
 }

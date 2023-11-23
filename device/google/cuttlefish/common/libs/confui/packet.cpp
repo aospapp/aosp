@@ -16,82 +16,30 @@
 #include "common/libs/confui/packet.h"
 
 #include <algorithm>
-#include <iostream>
-
-#include <android-base/logging.h>
-#include <android-base/strings.h>
-
-#include "common/libs/confui/protocol.h"
-#include "common/libs/confui/utils.h"
-#include "common/libs/fs/shared_buf.h"
 
 namespace cuttlefish {
 namespace confui {
 namespace packet {
-ConfUiMessage PayloadToConfUiMessage(const std::string& str_to_parse) {
-  auto tokens = android::base::Split(str_to_parse, ":");
-  ConfUiCheck(tokens.size() >= 3)
-      << "PayloadToConfUiMessage takes \"" + str_to_parse + "\""
-      << "and does not have 3 tokens";
-  std::string msg;
-  std::for_each(tokens.begin() + 2, tokens.end() - 1,
-                [&msg](auto& token) { msg.append(token + ":"); });
-  msg.append(*tokens.rbegin());
-  return {tokens[0], tokens[1], msg};
-}
-
-// Use only this function to make a packet to send over the confirmation
-// ui packet layer
-template <typename... Args>
-static Payload ToPayload(const ConfUiCmd cmd, const std::string& session_id,
-                         Args&&... args) {
-  std::string cmd_str = ToString(cmd);
-  std::string msg =
-      ArgsToString(session_id, ":", cmd_str, ":", std::forward<Args>(args)...);
-  PayloadHeader header;
-  header.payload_length_ = msg.size();
-  return {header, msg};
-}
-
-template <typename... Args>
-static bool WritePayload(SharedFD d, const ConfUiCmd cmd,
-                         const std::string& session_id, Args&&... args) {
-  if (!d->IsOpen()) {
-    LOG(ERROR) << "file, socket, etc, is not open to write";
-    return false;
-  }
-  auto [payload, msg] = ToPayload(cmd, session_id, std::forward<Args>(args)...);
-
-  auto nwrite =
-      WriteAll(d, reinterpret_cast<const char*>(&payload), sizeof(payload));
-  if (nwrite != sizeof(payload)) {
-    return false;
-  }
-  nwrite = cuttlefish::WriteAll(d, msg.c_str(), msg.size());
-  if (nwrite != msg.size()) {
-    return false;
-  }
-  return true;
-}
-
-static std::optional<ConfUiMessage> ReadPayload(SharedFD s) {
+static std::optional<std::vector<std::uint8_t>> ReadRawData(SharedFD s) {
   if (!s->IsOpen()) {
-    LOG(ERROR) << "file, socket, etc, is not open to read";
+    ConfUiLog(ERROR) << "file, socket, etc, is not open to read";
     return std::nullopt;
   }
-  PayloadHeader p;
+  packet::PayloadHeader p;
   auto nread = ReadExactBinary(s, &p);
 
   if (nread != sizeof(p)) {
+    ConfUiLog(ERROR) << nread << " and sizeof(p) = " << sizeof(p)
+                     << " not matching";
     return std::nullopt;
   }
-
   if (p.payload_length_ == 0) {
-    return {{SESSION_ANY, ToString(ConfUiCmd::kUnknown), std::string{""}}};
+    return {{}};
   }
 
-  if (p.payload_length_ >= kMaxPayloadLength) {
-    LOG(ERROR) << "Payload length must be less than " << kMaxPayloadLength;
+  if (p.payload_length_ >= packet::kMaxPayloadLength) {
+    ConfUiLog(ERROR) << "Payload length must be less than "
+                     << packet::kMaxPayloadLength;
     return std::nullopt;
   }
 
@@ -99,33 +47,109 @@ static std::optional<ConfUiMessage> ReadPayload(SharedFD s) {
   nread = ReadExact(s, buf.get(), p.payload_length_);
   buf[p.payload_length_] = 0;
   if (nread != p.payload_length_) {
+    ConfUiLog(ERROR) << "The length ReadRawData read does not match.";
     return std::nullopt;
   }
-  std::string msg_to_parse{buf.get()};
-  auto [session_id, type, contents] = PayloadToConfUiMessage(msg_to_parse);
-  return {{session_id, type, contents}};
+  std::vector<std::uint8_t> result{buf.get(), buf.get() + nread};
+
+  return {result};
 }
 
-std::optional<ConfUiMessage> RecvConfUiMsg(SharedFD fd) {
-  return ReadPayload(fd);
+static std::optional<ParsedPacket> ParseRawData(
+    const std::vector<std::uint8_t>& data_to_parse) {
+  /*
+   * data_to_parse has 0 in it, so it is not exactly "your (text) std::string."
+   * If we type-cast data_to_parse to std::string and use 3rd party std::string-
+   * processing libraries, the outcome might be incorrect. However, the header
+   * part has no '\0' in it, and is actually a sequence of letters, or a text.
+   * So, we use android::base::Split() to take the header
+   *
+   */
+  std::string as_string{data_to_parse.begin(), data_to_parse.end()};
+  auto tokens = android::base::Split(as_string, ":");
+  CHECK(tokens.size() >= 3)
+      << "Raw packet for confirmation UI must have at least"
+      << " three components.";
+  /**
+   * Here is how the raw data, i.e. tokens[2:] looks like
+   *
+   * n:l[0]:l[1]:l[2]:...:l[n-1]:data[0]data[1]data[2]...data[n]
+   *
+   * Thus it basically has the number of items, the lengths of each item,
+   * and the byte representation of each item. n and l[i] are separated by ':'
+   * Note that the byte representation may have ':' in it. This could mess
+   * up the parsing if we totally depending on ':' separation.
+   *
+   * However, it is safe to assume that there's no ':' inside n or
+   * the string for l[i]. So, we do anyway split the data_to_parse by ':',
+   * and take n and from l[0] through l[n-1] only.
+   */
+  std::string session_id = tokens[0];
+  std::string cmd_type = tokens[1];
+  if (!IsOnlyDigits(tokens[2])) {
+    ConfUiLog(ERROR) << "Token[2] of the ConfUi packet should be a number";
+    return std::nullopt;
+  }
+  const int n = std::stoi(tokens[2]);
+
+  if (n + 2 > tokens.size()) {
+    ConfUiLog(ERROR) << "The ConfUi packet is ill-formatted.";
+    return std::nullopt;
+  }
+  ConfUiPacketInfo data_to_return;
+  std::vector<int> lengths;
+  for (int i = 1; i <= n; i++) {
+    if (!IsOnlyDigits(tokens[2 + i])) {
+      ConfUiLog(ERROR) << tokens[2 + i] << " should be a number but is not.";
+      return std::nullopt;
+    }
+    lengths.emplace_back(std::stoi(tokens[2 + i]));
+  }
+  // to find the first position of the non-header part
+  int pos = 0;
+  // 3 for three ":"s
+  pos += tokens[0].size() + tokens[1].size() + tokens[2].size() + 3;
+  for (int i = 1; i <= n; i++) {
+    pos += tokens[2 + i].size() + 1;
+  }
+  int expected_total_length = pos;
+  for (auto const len : lengths) {
+    expected_total_length += len;
+  }
+  if (expected_total_length != data_to_parse.size()) {
+    ConfUiLog(ERROR) << "expected length in ParseRawData is "
+                     << expected_total_length << " while the actual length is "
+                     << data_to_parse.size();
+    return std::nullopt;
+  }
+  for (const auto len : lengths) {
+    if (len == 0) {
+      // push null vector or whatever empty, appropriately-typed
+      // container
+      data_to_return.emplace_back(std::vector<std::uint8_t>{});
+      continue;
+    }
+    data_to_return.emplace_back(data_to_parse.begin() + pos,
+                                data_to_parse.begin() + pos + len);
+    pos = pos + len;
+  }
+  ParsedPacket result{session_id, cmd_type, data_to_return};
+  return {result};
 }
 
-bool SendCmd(SharedFD fd, const std::string& session_id, ConfUiCmd cmd,
-             const std::string& additional_info) {
-  return WritePayload(fd, cmd, session_id, additional_info);
+std::optional<ParsedPacket> ReadPayload(SharedFD s) {
+  auto raw_data = ReadRawData(s);
+  if (!raw_data) {
+    ConfUiLog(ERROR) << "raw data returned std::nullopt";
+    return std::nullopt;
+  }
+  auto parsed_result = ParseRawData(raw_data.value());
+  if (!parsed_result) {
+    ConfUiLog(ERROR) << "parsed result returns nullopt";
+    return std::nullopt;
+  }
+  return parsed_result;
 }
-
-bool SendAck(SharedFD fd, const std::string& session_id, const bool is_success,
-             const std::string& additional_info) {
-  return WritePayload(fd, ConfUiCmd::kCliAck, session_id,
-                      ToCliAckMessage(is_success, additional_info));
-}
-
-bool SendResponse(SharedFD fd, const std::string& session_id,
-                  const std::string& additional_info) {
-  return WritePayload(fd, ConfUiCmd::kCliRespond, session_id, additional_info);
-}
-
 }  // end of namespace packet
 }  // end of namespace confui
 }  // end of namespace cuttlefish

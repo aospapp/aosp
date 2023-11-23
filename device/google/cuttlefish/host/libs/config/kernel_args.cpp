@@ -42,46 +42,34 @@ void AppendVector(std::vector<T>* destination, const std::vector<T>& source) {
 // substitute for the vm_manager comparisons.
 std::vector<std::string> VmManagerKernelCmdline(const CuttlefishConfig& config) {
   std::vector<std::string> vm_manager_cmdline;
-  if (config.vm_manager() == QemuManager::name() || config.use_bootloader()) {
-    // crosvm sets up the console= earlycon= panic= flags for us if booting straight to
-    // the kernel, but QEMU and the bootloader via crosvm does not.
-    AppendVector(&vm_manager_cmdline, {"console=hvc0", "panic=-1"});
+  if (config.vm_manager() == QemuManager::name()) {
+    vm_manager_cmdline.push_back("console=hvc0");
     Arch target_arch = config.target_arch();
     if (target_arch == Arch::Arm64 || target_arch == Arch::Arm) {
-      if (config.vm_manager() == QemuManager::name()) {
-        // To update the pl011 address:
-        // $ qemu-system-aarch64 -machine virt -cpu cortex-a57 -machine dumpdtb=virt.dtb
-        // $ dtc -O dts -o virt.dts -I dtb virt.dtb
-        // In the virt.dts file, look for a uart node
-        vm_manager_cmdline.push_back(" earlycon=pl011,mmio32,0x9000000");
-      } else {
-        // Crosvm ARM only supports earlycon uart over mmio.
-        vm_manager_cmdline.push_back(" earlycon=uart8250,mmio,0x3f8");
-      }
+      // To update the pl011 address:
+      // $ qemu-system-aarch64 -machine virt -cpu cortex-a57 -machine dumpdtb=virt.dtb
+      // $ dtc -O dts -o virt.dts -I dtb virt.dtb
+      // In the virt.dts file, look for a uart node
+      vm_manager_cmdline.push_back("earlycon=pl011,mmio32,0x9000000");
     } else {
       // To update the uart8250 address:
       // $ qemu-system-x86_64 -kernel bzImage -serial stdio | grep ttyS0
       // Only 'io' mode works; mmio and mmio32 do not
       vm_manager_cmdline.push_back("earlycon=uart8250,io,0x3f8");
 
-      if (config.vm_manager() == QemuManager::name()) {
-        // crosvm doesn't support ACPI PNP, but QEMU does. We need to disable
-        // it on QEMU so that the ISA serial ports aren't claimed by ACPI, so
-        // we can use serdev with platform devices instead
-        vm_manager_cmdline.push_back("pnpacpi=off");
+      // crosvm doesn't support ACPI PNP, but QEMU does. We need to disable
+      // it on QEMU so that the ISA serial ports aren't claimed by ACPI, so
+      // we can use serdev with platform devices instead
+      vm_manager_cmdline.push_back("pnpacpi=off");
 
-        // crosvm sets up the ramoops.xx= flags for us, but QEMU does not.
-        // See external/crosvm/x86_64/src/lib.rs
-        // this feature is not supported on aarch64
-        vm_manager_cmdline.push_back("ramoops.mem_address=0x100000000");
-        vm_manager_cmdline.push_back("ramoops.mem_size=0x200000");
-        vm_manager_cmdline.push_back("ramoops.console_size=0x80000");
-        vm_manager_cmdline.push_back("ramoops.record_size=0x80000");
-        vm_manager_cmdline.push_back("ramoops.dump_oops=1");
-      } else {
-        // crosvm requires these additional parameters on x86_64 in bootloader mode
-        AppendVector(&vm_manager_cmdline, {"reboot=k"});
-      }
+      // crosvm sets up the ramoops.xx= flags for us, but QEMU does not.
+      // See external/crosvm/x86_64/src/lib.rs
+      // this feature is not supported on aarch64
+      vm_manager_cmdline.push_back("ramoops.mem_address=0x100000000");
+      vm_manager_cmdline.push_back("ramoops.mem_size=0x200000");
+      vm_manager_cmdline.push_back("ramoops.console_size=0x80000");
+      vm_manager_cmdline.push_back("ramoops.record_size=0x80000");
+      vm_manager_cmdline.push_back("ramoops.dump_oops=1");
     }
   }
 
@@ -97,23 +85,8 @@ std::vector<std::string> VmManagerKernelCmdline(const CuttlefishConfig& config) 
 std::vector<std::string> KernelCommandLineFromConfig(
     const CuttlefishConfig& config) {
   std::vector<std::string> kernel_cmdline;
-
   AppendVector(&kernel_cmdline, VmManagerKernelCmdline(config));
-
-  if (config.enable_gnss_grpc_proxy()) {
-    kernel_cmdline.push_back("gnss_cmdline.serdev=serial8250/serial0/serial0-0");
-    kernel_cmdline.push_back("gnss_cmdline.type=0");
-    kernel_cmdline.push_back("serdev_ttyport.pdev_tty_port=ttyS1");
-  }
-
-  if (config.guest_audit_security()) {
-    kernel_cmdline.push_back("audit=1");
-  } else {
-    kernel_cmdline.push_back("audit=0");
-  }
-
   AppendVector(&kernel_cmdline, config.extra_kernel_cmdline());
-
   return kernel_cmdline;
 }
 

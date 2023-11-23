@@ -18,12 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.DeviceAdminTestApp">
-    <application
-        android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
-        android:testOnly="true">
-
-        <activity android:name="android.testapp.activity" android:exported="true" />
-
+    <application android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory">
         <receiver android:name=".DeviceAdminReceiver"
                   android:permission="android.permission.BIND_DEVICE_ADMIN"
                   android:exported="true">

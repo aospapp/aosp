@@ -153,7 +153,8 @@ StatusWithSize FloatAsIntToString(float value, std::span<char> buffer) {
   if (std::isfinite(value) &&
       std::abs(value) <
           static_cast<float>(std::numeric_limits<int64_t>::max())) {
-    return IntToString<int64_t>(std::round(value), buffer);
+    return IntToString<int64_t>(static_cast<int64_t>(std::roundf(value)),
+                                buffer);
   }
 
   // Otherwise, print inf or NaN, if they fit.
@@ -170,32 +171,18 @@ StatusWithSize FloatAsIntToString(float value, std::span<char> buffer) {
 }
 
 StatusWithSize BoolToString(bool value, std::span<char> buffer) {
-  return CopyEntireString(value ? "true" : "false", buffer);
+  return CopyEntireStringOrNull(value ? "true" : "false", buffer);
 }
 
 StatusWithSize PointerToString(const void* pointer, std::span<char> buffer) {
   if (pointer == nullptr) {
-    return CopyEntireString(kNullPointerString, buffer);
+    return CopyEntireStringOrNull(kNullPointerString, buffer);
   }
   return IntToHexString(reinterpret_cast<uintptr_t>(pointer), buffer);
 }
 
-StatusWithSize CopyString(const std::string_view& value,
-                          std::span<char> buffer) {
-  if (buffer.empty()) {
-    return StatusWithSize::ResourceExhausted();
-  }
-
-  const size_t copied = value.copy(buffer.data(), buffer.size() - 1);
-  buffer[copied] = '\0';
-
-  return StatusWithSize(
-      copied == value.size() ? OkStatus() : Status::ResourceExhausted(),
-      copied);
-}
-
-StatusWithSize CopyEntireString(const std::string_view& value,
-                                std::span<char> buffer) {
+StatusWithSize CopyEntireStringOrNull(const std::string_view& value,
+                                      std::span<char> buffer) {
   if (value.size() >= buffer.size()) {
     return HandleExhaustedBuffer(buffer);
   }

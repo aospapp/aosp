@@ -403,7 +403,8 @@ public final class CommandSession {
             mThread = new HandlerThread(mClientId);
             mThread.start();
             context.registerReceiver(this, new IntentFilter(mClientId),
-                    null /* broadcastPermission */, new Handler(mThread.getLooper()));
+                    null /* broadcastPermission */, new Handler(mThread.getLooper()),
+                    Context.RECEIVER_EXPORTED);
         }
 
         /** Start the activity by the given intent and wait it becomes idle. */
@@ -558,7 +559,7 @@ public final class CommandSession {
             mHostId = hostId;
             mClientId = clientId;
             mCallback = callback;
-            context.registerReceiver(this, new IntentFilter(hostId));
+            context.registerReceiver(this, new IntentFilter(hostId), Context.RECEIVER_EXPORTED);
         }
 
         @Override

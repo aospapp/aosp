@@ -50,7 +50,7 @@ metrics::ConnectionType GetConnectionType(ConnectionType type,
 
 // Returns the persisted value from prefs for the given key. It also
 // validates that the value returned is non-negative.
-int64_t GetPersistedValue(const std::string& key, PrefsInterface* prefs);
+int64_t GetPersistedValue(std::string_view key, PrefsInterface* prefs);
 
 // Persists the reboot count of the update attempt to |kPrefsNumReboots|.
 void SetNumReboots(int64_t num_reboots, PrefsInterface* prefs);

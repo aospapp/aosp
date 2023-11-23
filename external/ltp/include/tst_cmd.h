@@ -1,22 +1,20 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (c) 2015-2016 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_CMD_H__
 #define TST_CMD_H__
+
+enum tst_cmd_flags {
+	/*
+	 * return the program exit code, otherwise it will call cleanup_fn() if the
+	 * program exit code is not zero.
+	 */
+	TST_CMD_PASS_RETVAL = 1,
+
+	/* exit with TCONF if program is not in path */
+	TST_CMD_TCONF_ON_MISSING = 2,
+};
 
 /*
  * vfork() + execvp() specified program.
@@ -27,68 +25,64 @@
  * redirection is not needed.
  * @stderr_fd: file descriptor where to redirect stderr. Set -1 if
  * redirection is not needed.
- * @pass_exit_val: if it's non-zero, this function will return the program
- * exit code, otherwise it will call cleanup_fn() if the program
- * exit code is not zero.
+ * @flags: enum tst_cmd_flags
  */
-int tst_run_cmd_fds_(void (cleanup_fn)(void),
+int tst_cmd_fds_(void (cleanup_fn)(void),
 			const char *const argv[],
 			int stdout_fd,
 			int stderr_fd,
-			int pass_exit_val);
+			enum tst_cmd_flags flags);
 
-/* Executes tst_run_cmd_fds() and redirects its output to a file
+/* Executes tst_cmd_fds() and redirects its output to a file
  * @stdout_path: path where to redirect stdout. Set NULL if redirection is
  * not needed.
  * @stderr_path: path where to redirect stderr. Set NULL if redirection is
  * not needed.
- * @pass_exit_val: if it's non-zero, this function will return the program
- * exit code, otherwise it will call cleanup_fn() if the program
- * exit code is not zero.
+ * @flags: enum tst_cmd_flags
  */
-int tst_run_cmd_(void (cleanup_fn)(void),
+int tst_cmd_(void (cleanup_fn)(void),
 		const char *const argv[],
 		const char *stdout_path,
 		const char *stderr_path,
-		int pass_exit_val);
+		enum tst_cmd_flags flags);
 
 #ifdef TST_TEST_H__
-static inline int tst_run_cmd_fds(const char *const argv[],
+static inline int tst_cmd_fds(const char *const argv[],
 				  int stdout_fd,
 				  int stderr_fd,
-				  int pass_exit_val)
+				  enum tst_cmd_flags flags)
 {
-	return tst_run_cmd_fds_(NULL, argv,
-	                        stdout_fd, stderr_fd, pass_exit_val);
+	return tst_cmd_fds_(NULL, argv,
+	                        stdout_fd, stderr_fd, flags);
 }
 
-static inline int tst_run_cmd(const char *const argv[],
+static inline int tst_cmd(const char *const argv[],
 			      const char *stdout_path,
 			      const char *stderr_path,
-			      int pass_exit_val)
+			      enum tst_cmd_flags flags)
 {
-	return tst_run_cmd_(NULL, argv,
-	                    stdout_path, stderr_path, pass_exit_val);
+	return tst_cmd_(NULL, argv,
+	                    stdout_path, stderr_path, flags);
 }
 #else
-static inline int tst_run_cmd_fds(void (cleanup_fn)(void),
+static inline int tst_cmd_fds(void (cleanup_fn)(void),
 				  const char *const argv[],
 				  int stdout_fd,
 				  int stderr_fd,
-				  int pass_exit_val)
+				  enum tst_cmd_flags flags)
 {
-	return tst_run_cmd_fds_(cleanup_fn, argv,
-	                        stdout_fd, stderr_fd, pass_exit_val);
+	return tst_cmd_fds_(cleanup_fn, argv,
+	                        stdout_fd, stderr_fd, flags);
 }
 
-static inline int tst_run_cmd(void (cleanup_fn)(void),
+static inline int tst_cmd(void (cleanup_fn)(void),
 			      const char *const argv[],
 			      const char *stdout_path,
 			      const char *stderr_path,
-			      int pass_exit_val)
+			      enum tst_cmd_flags flags)
 {
-	return tst_run_cmd_(cleanup_fn, argv,
-	                    stdout_path, stderr_path, pass_exit_val);
+	return tst_cmd_(cleanup_fn, argv,
+	                    stdout_path, stderr_path, flags);
 }
 #endif
 

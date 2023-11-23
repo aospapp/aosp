@@ -29,7 +29,9 @@ import android.Manifest.permission.BODY_SENSORS
 import android.Manifest.permission.CALL_PHONE
 import android.Manifest.permission.CAMERA
 import android.Manifest.permission.GET_ACCOUNTS
+import android.Manifest.permission.NEARBY_WIFI_DEVICES
 import android.Manifest.permission.PACKAGE_USAGE_STATS
+import android.Manifest.permission.POST_NOTIFICATIONS
 import android.Manifest.permission.PROCESS_OUTGOING_CALLS
 import android.Manifest.permission.READ_CALENDAR
 import android.Manifest.permission.READ_CALL_LOG
@@ -45,7 +47,7 @@ import android.Manifest.permission.RECEIVE_WAP_PUSH
 import android.Manifest.permission.RECORD_AUDIO
 import android.Manifest.permission.SEND_SMS
 import android.Manifest.permission.USE_SIP
-import android.Manifest.permission.UWB_RANGING;
+import android.Manifest.permission.UWB_RANGING
 import android.Manifest.permission.WRITE_CALENDAR
 import android.Manifest.permission.WRITE_CALL_LOG
 import android.Manifest.permission.WRITE_CONTACTS
@@ -153,6 +155,11 @@ class RuntimePermissionProperties {
         expectedPerms.add(BLUETOOTH_CONNECT)
         expectedPerms.add(BLUETOOTH_SCAN)
         expectedPerms.add(UWB_RANGING)
+
+        // Add runtime permissions added in T which were _not_ split from a previously existing
+        // runtime permission
+        expectedPerms.add(POST_NOTIFICATIONS)
+        expectedPerms.add(NEARBY_WIFI_DEVICES)
 
         assertThat(expectedPerms).containsExactlyElementsIn(platformRuntimePerms.map { it.name })
     }

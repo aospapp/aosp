@@ -21,7 +21,6 @@ import androidx.test.uiautomator.UiDevice
 import com.android.server.wm.flicker.helpers.SampleAppHelper
 import com.android.server.wm.flicker.helpers.wakeUpAndGoToHomeScreen
 import com.android.server.wm.flicker.rules.WMFlickerServiceRule
-import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
 import org.junit.FixMethodOrder
 import org.junit.Rule
@@ -53,10 +52,5 @@ class RotationMockTest {
         instrumentation.uiAutomation.syncInputTransactions()
         device.setOrientationNatural()
         instrumentation.uiAutomation.syncInputTransactions()
-    }
-
-    companion object {
-        private val DUMMY_APP = FlickerComponentName("com.google.android.apps.messaging",
-                "com.google.android.apps.messaging.ui.ConversationListActivity")
     }
 }

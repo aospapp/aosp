@@ -67,35 +67,6 @@ android_test_helper_app {
     ],
 }
 
-android_test_helper_app {
-    name: "CtsSplitApp29",
-    defaults: ["CtsSplitAppDefaults"],
-    package_splits: [
-        "mdpi-v4",
-        "hdpi-v4",
-        "xhdpi-v4",
-        "xxhdpi-v4",
-        "v7",
-        "v23",
-        "fr",
-        "de",
-    ],
-    certificate: ":cts-testkey1",
-    aaptflags: [
-        "--version-code 100",
-        "--version-name OneHundred",
-        "--replace-version",
-    ],
-    // Feature splits are dependent on this base, so it must be exported.
-    export_package_resources: true,
-    test_suites: [
-        "cts",
-        "general-tests",
-        "mts-mainline-infra",
-    ],
-    target_sdk_version: "29"
-}
-
 // Define a variant with a different revision code
 android_test_helper_app {
     name: "CtsSplitAppDiffRevision",

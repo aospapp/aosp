@@ -61,6 +61,7 @@ extern "C" void register_java_lang_System(JNIEnv* env);
 extern "C" void register_java_lang_Runtime(JNIEnv* env);
 extern "C" void register_java_lang_UNIXProcess(JNIEnv* env);
 void register_java_lang_Character(JNIEnv* env);
+void register_jdk_internal_misc_VM(JNIEnv* env);
 
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   jint version = JNI_VERSION_1_6;
@@ -131,6 +132,7 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
   register_java_lang_Runtime(env);
   register_java_lang_UNIXProcess(env);
   register_java_lang_Character(env);
+  register_jdk_internal_misc_VM(env);
 
   env->PopLocalFrame(/* result */ nullptr);  // Pop the local frame.
   return version;

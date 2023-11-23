@@ -31,9 +31,6 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Set of tests for managed profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
@@ -397,12 +394,5 @@ public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
             runDeviceTestsAsUser(packageName, testClassName,
                     "testSetNetworkLogsEnabled_false", mUserId);
         }
-    }
-
-    @Override
-    List<String> getAdditionalDelegationScopes() {
-        final List<String> result = new ArrayList<>();
-        result.add(DELEGATION_NETWORK_LOGGING);
-        return result;
     }
 }

@@ -15,6 +15,7 @@ frameworks/av/apex/com.android.media.avbpubkey
 frameworks/base/packages/Tethering/apex/com.android.tethering.avbpubkey
 frameworks/ml/nn/apex/com.android.neuralnetworks.avbpubkey
 frameworks/opt/net/ike/apex/com.android.ipsec.avbpubkey
+packages/modules/Bluetooth/apex/com.android.btservices.avbpubkey
 packages/modules/SdkExtensions/com.android.sdkext.avbpubkey
 system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey
 system/apex/apexd/apexd_testdata/com.android.apex.test_package.no_inst_key.avbpubkey
@@ -27,7 +28,6 @@ system/apex/apexer/testdata/com.android.example.apex.avbpubkey
 system/apex/apexer/etc/com.android.support.apexer.avbpubkey
 system/netd/apex/com.android.resolv.avbpubkey
 system/timezone/apex/com.android.tzdata.avbpubkey
-system/bt/apex/com.android.bluetooth.updatable.avbpubkey
 system/core/adb/apex/com.android.adbd.avbpubkey
 system/core/rootdir/avb/s-gsi.avbpubkey
 system/core/rootdir/avb/q-developer-gsi.avbpubkey

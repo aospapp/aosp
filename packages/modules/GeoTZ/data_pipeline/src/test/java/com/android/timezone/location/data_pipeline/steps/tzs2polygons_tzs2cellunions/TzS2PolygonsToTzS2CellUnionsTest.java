@@ -17,6 +17,7 @@
 package com.android.timezone.location.data_pipeline.steps.tzs2polygons_tzs2cellunions;
 
 import static com.android.timezone.location.data_pipeline.steps.TestSupport.copyTestResource;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -56,8 +57,8 @@ public final class TzS2PolygonsToTzS2CellUnionsTest {
     @Test
     public void regressionTest() throws Exception {
         // A file containing just the polygons for Europe/London.
-        String inputResource = "Europe_London_tzs2polygons.prototxt";
-        String timeZoneId = "Europe/London";
+        String inputResource = "Pacific_Pitcairn_tzs2polygons.prototxt";
+        String timeZoneId = "Pacific/Pitcairn";
         ProtoStorageFormat storageFormat = ProtoStorageFormat.TEXT;
 
         Path inputDirPath = mTempDirPath.resolve("input");
@@ -65,7 +66,7 @@ public final class TzS2PolygonsToTzS2CellUnionsTest {
 
         final int threads = 1;
         Path outputDirPath = mTempDirPath.resolve("output");
-        final int s2Level = 16;
+        final int s2Level = 12;
 
         String[] args = {
                 "--input", inputDirPath.toAbsolutePath().toString(),

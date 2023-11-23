@@ -15,14 +15,17 @@
  */
 package com.android.car;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.car.Car;
+import android.car.builtin.util.Slogf;
 import android.car.test.ICarTest;
 import android.content.Context;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.util.IndentingPrintWriter;
-import android.util.Slog;
 
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 
 import java.util.Arrays;
@@ -64,19 +67,22 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
     }
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         writer.println("*CarTestService*");
-        writer.println(" mTokens:" + Arrays.toString(mTokens.entrySet().toArray()));
+        synchronized (mLock) {
+            writer.println(" mTokens:" + Arrays.toString(mTokens.entrySet().toArray()));
+        }
     }
 
     @Override
     public void stopCarService(IBinder token) throws RemoteException {
-        Slog.d(TAG, "stopCarService, token: " + token);
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
+        Slogf.d(TAG, "stopCarService, token: " + token);
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
 
         synchronized (mLock) {
             if (mTokens.containsKey(token)) {
-                Slog.w(TAG, "Calling stopCarService twice with the same token.");
+                Slogf.w(TAG, "Calling stopCarService twice with the same token.");
                 return;
             }
 
@@ -92,13 +98,13 @@ class CarTestService extends ICarTest.Stub implements CarServiceBase {
 
     @Override
     public void startCarService(IBinder token) throws RemoteException {
-        Slog.d(TAG, "startCarService, token: " + token);
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
+        Slogf.d(TAG, "startCarService, token: " + token);
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
         releaseToken(token);
     }
 
     private void releaseToken(IBinder token) {
-        Slog.d(TAG, "releaseToken, token: " + token);
+        Slogf.d(TAG, "releaseToken, token: " + token);
         synchronized (mLock) {
             DeathRecipient deathRecipient = mTokens.remove(token);
             if (deathRecipient != null) {

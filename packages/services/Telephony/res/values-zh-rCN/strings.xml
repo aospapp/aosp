@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"紧急回拨模式"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"数据连接已停用"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> 之后才有数据网络连接"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">手机在 <xliff:g id="COUNT_1">%s</xliff:g> 分钟内都会处于紧急回拨模式。此模式下无法使用任何需要连接数据网络的应用。要立即退出吗？</item>
-      <item quantity="one">手机在 <xliff:g id="COUNT_0">%s</xliff:g> 分钟内都会处于紧急回拨模式。此模式下无法使用任何需要连接数据网络的应用。要立即退出吗？</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">在紧急回拨模式下无法执行所选操作。手机在 <xliff:g id="COUNT_1">%s</xliff:g> 分钟内都会处于此模式。要立即退出吗？</item>
-      <item quantity="one">在紧急回拨模式下无法执行所选操作。手机在 <xliff:g id="COUNT_0">%s</xliff:g> 分钟内都会处于此模式。要立即退出吗？</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{手机在接下来的 1 分钟内将处于紧急回拨模式，此模式下无法使用任何需要连接数据网络的应用。您要立即退出吗？}other{手机在接下来的 %s 分钟内将处于紧急回拨模式，此模式下无法使用任何需要连接数据网络的应用。您要立即退出吗？}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{无法在紧急回拨模式下执行所选操作，而手机在接下来的 1 分钟内将处于此模式。您要立即退出吗？}other{无法在紧急回拨模式下执行所选操作，而手机在接下来的 %s 分钟内将处于此模式。您要立即退出吗？}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"进行紧急呼救时无法执行所选操作。"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"正在退出紧急回拨模式"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"是"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"关闭"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"手机正处于紧急回拨模式"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"直到 <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">手机在 <xliff:g id="COUNT_1">%s</xliff:g> 分钟内都将处于紧急回拨模式。\n您要立即退出吗？</item>
-      <item quantity="one">手机在 <xliff:g id="COUNT_0">%s</xliff:g> 分钟内都将处于紧急回拨模式。\n您要立即退出吗？</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{手机在接下来的 1 分钟内将处于紧急回拨模式。\n您要立即退出吗？}other{手机在接下来的 %s 分钟内将处于紧急回拨模式。\n您要立即退出吗？}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"服务"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"设置"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;未设置&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"无障碍功能"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"WLAN 通话来电："</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"WLAN 通话"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"再次点按即可打开"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"对邮件解码时出错。"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM 卡已启用您的服务，并更新了您手机的漫游功能。"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"进行中的通话过多。请结束现有通话或将其合并，然后再拨打新的电话。"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"由于已在拨打另一个电话，因此无法拨打新电话。"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"由于有未接来电，因此无法拨打电话。请先接听或拒绝来电，然后才能拨打新电话。"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"通话功能已经由 ro.telephony.disable-call 系统属性停用，因此无法拨打电话。"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"由于已有两个正在进行的通话，因此无法拨打电话。请先中断其中一个通话或将两个通话合并到同一个会议中，然后才能拨打新电话。"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"由于已有两个正在进行的通话，因此无法拨打电话。请先断开其中一个通话的连接或将两个通话合并到同一个会议中，然后才能拨打新电话。"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>服务，请确保已开启移动数据。您可以在移动网络设置中进行更改。"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>服务，请确保已开启移动数据和数据网络漫游。您可以在移动网路设置中进行更改。"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"要使用<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>服务，请确保已为 SIM (<xliff:g id="SIM_NUMBER">%2$d</xliff:g>) 开启移动数据。您可以在移动网络设置中进行更改。"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"您需要重启设备才能让这项设置更改生效。"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"重启"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"取消"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"将可卸载的 eSIM 卡设为默认 eSIM 卡"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"移动无线装置电源"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"查看 SIM 卡通讯录"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"查看固定拨号号码"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"选择无线装置频道"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"语音网络类型："</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"数据网络类型："</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"覆盖网络类型："</string>
     <string name="phone_index_label" msgid="6222406512768964268">"选择电话号码索引"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"设置首选网络类型："</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ping 主机名(www.google.com) IPv4："</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"刷新"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"切换 DNS 检查"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"特定 OEM 的信息/设置"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"4G/5G 双连接可用："</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"5G 双连接受限："</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"5G 可用："</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"5G 状态："</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC 可用 (NSA)："</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR 受限 (NSA)："</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR 可用 (NSA)："</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR 状态 (NSA)："</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"5G 频率："</string>
     <string name="band_mode_title" msgid="7988822920724576842">"设置无线装置频道模式"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"正在加载频道列表…"</string>

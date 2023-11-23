@@ -13,8 +13,9 @@
 [package]
 edition = "2018"
 name = "heck"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Without Boats <woboats@gmail.com>"]
+include = ["src/**/*", "LICENSE-*", "README.md", "CHANGELOG.md"]
 description = "heck is a case conversion library."
 homepage = "https://github.com/withoutboats/heck"
 documentation = "https://docs.rs/heck"

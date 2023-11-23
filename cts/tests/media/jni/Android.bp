@@ -28,9 +28,6 @@ cc_test_library {
         "liblog",
     ],
     header_libs: ["liblog_headers"],
-    include_dirs: [
-        "frameworks/av/media/ndk/include/media",
-    ],
     stl: "libc++_static",
     cflags: [
         "-Werror",
@@ -53,9 +50,6 @@ cc_test_library {
         "libz",
     ],
     header_libs: ["liblog_headers"],
-    include_dirs: [
-        "frameworks/av/media/ndk/include/media",
-    ],
     stl: "libc++_static",
     cflags: [
         "-Werror",
@@ -82,9 +76,25 @@ cc_test_library {
         "libz",
     ],
     header_libs: ["liblog_headers"],
-    include_dirs: [
-        "frameworks/av/media/ndk/include/media",
+    stl: "libc++_static",
+    cflags: [
+        "-Werror",
+        "-Wall",
     ],
+    gtest: false,
+    sdk_version: "29",
+}
+
+cc_test_library {
+    name: "libctsmediav2utils_jni",
+    srcs: [
+        "NativeMediaFormatUnitTest.cpp",
+    ],
+    shared_libs: [
+        "libmediandk",
+        "liblog",
+    ],
+    header_libs: ["liblog_headers"],
     stl: "libc++_static",
     cflags: [
         "-Werror",

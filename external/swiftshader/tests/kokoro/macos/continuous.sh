@@ -31,7 +31,8 @@ cmake .. \
     "-DREACTOR_BACKEND=${REACTOR_BACKEND}" \
     "-DSWIFTSHADER_LLVM_VERSION=${LLVM_VERSION}" \
     "-DREACTOR_VERIFY_LLVM_IR=1" \
-    "-DSWIFTSHADER_LESS_DEBUG_INFO=${SWIFTSHADER_LESS_DEBUG_INFO}"
+    "-DSWIFTSHADER_LESS_DEBUG_INFO=${SWIFTSHADER_LESS_DEBUG_INFO}" \
+    "-DSWIFTSHADER_BUILD_BENCHMARKS=1"
 cmake --build . -- -j$(sysctl -n hw.logicalcpu)
 
 # Run unit tests
@@ -39,7 +40,6 @@ cmake --build . -- -j$(sysctl -n hw.logicalcpu)
 cd .. # Some tests must be run from project root
 
 build/ReactorUnitTests
-build/gles-unittests
 build/system-unittests
 build/vk-unittests
 

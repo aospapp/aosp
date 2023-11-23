@@ -77,6 +77,10 @@ func (cov *coverage) deps(ctx DepsContext, deps Deps) Deps {
 	return deps
 }
 
+func EnableContinuousCoverage(ctx android.BaseModuleContext) bool {
+	return ctx.DeviceConfig().ClangCoverageContinuousMode()
+}
+
 func (cov *coverage) flags(ctx ModuleContext, flags Flags, deps PathDeps) (Flags, PathDeps) {
 	clangCoverage := ctx.DeviceConfig().ClangCoverageEnabled()
 	gcovCoverage := ctx.DeviceConfig().GcovCoverageEnabled()
@@ -98,6 +102,12 @@ func (cov *coverage) flags(ctx ModuleContext, flags Flags, deps PathDeps) (Flags
 		} else if clangCoverage {
 			flags.Local.CommonFlags = append(flags.Local.CommonFlags, profileInstrFlag,
 				"-fcoverage-mapping", "-Wno-pass-failed", "-D__ANDROID_CLANG_COVERAGE__")
+			// Override -Wframe-larger-than.  We can expect frame size increase after
+			// coverage instrumentation.
+			flags.Local.CFlags = append(flags.Local.CFlags, "-Wno-frame-larger-than=")
+			if EnableContinuousCoverage(ctx) {
+				flags.Local.CommonFlags = append(flags.Local.CommonFlags, "-mllvm", "-runtime-counter-relocation")
+			}
 		}
 	}
 
@@ -149,6 +159,9 @@ func (cov *coverage) flags(ctx ModuleContext, flags Flags, deps PathDeps) (Flags
 			flags.Local.LdFlags = append(flags.Local.LdFlags, "-Wl,--wrap,getenv")
 		} else if clangCoverage {
 			flags.Local.LdFlags = append(flags.Local.LdFlags, profileInstrFlag)
+			if EnableContinuousCoverage(ctx) {
+				flags.Local.LdFlags = append(flags.Local.LdFlags, "-Wl,-mllvm=-runtime-counter-relocation")
+			}
 
 			coverage := ctx.GetDirectDepWithTag(getClangProfileLibraryName(ctx), CoverageDepTag).(*Module)
 			deps.WholeStaticLibs = append(deps.WholeStaticLibs, coverage.OutputFile().Path())
@@ -243,4 +256,20 @@ func coverageMutator(mctx android.BottomUpMutatorContext) {
 		m[1].(Coverage).MarkAsCoverageVariant(true)
 		m[1].(Coverage).EnableCoverageIfNeeded()
 	}
+}
+
+func parseSymbolFileForAPICoverage(ctx ModuleContext, symbolFile string) android.ModuleOutPath {
+	apiLevelsJson := android.GetApiLevelsJson(ctx)
+	symbolFilePath := android.PathForModuleSrc(ctx, symbolFile)
+	outputFile := ctx.baseModuleName() + ".xml"
+	parsedApiCoveragePath := android.PathForModuleOut(ctx, outputFile)
+	rule := android.NewRuleBuilder(pctx, ctx)
+	rule.Command().
+		BuiltTool("ndk_api_coverage_parser").
+		Input(symbolFilePath).
+		Output(parsedApiCoveragePath).
+		Implicit(apiLevelsJson).
+		FlagWithArg("--api-map ", apiLevelsJson.String())
+	rule.Build("native_library_api_list", "Generate native API list based on symbol files for coverage measurement")
+	return parsedApiCoveragePath
 }

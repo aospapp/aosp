@@ -29,5 +29,6 @@ class ErrorState(
     }
 
     override fun toString(): String = "FlickerErrorState(" +
-            "timestamp=${prettyTimestamp(timestamp)}, numberOfErrors=${errors.size})"
+            "timestamp=${prettyTimestamp(timestamp)}, numberOfErrors=${errors.size} " +
+            "${errors.joinToString("\n") { it.assertionName }})"
 }

@@ -149,7 +149,7 @@ public class MediaExtractorHostSideTest extends BaseMediaHostSideTest {
     }
 
     /**
-     * Returns all MediaParser reported metric events sorted by timestamp.
+     * Asserts that a single entry point has been reported by MediaMetrics and returns it.
      *
      * <p>Note: Calls {@link #getAndClearReportList()} to obtain the statsd report.
      */

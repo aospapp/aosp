@@ -23,7 +23,5 @@ vendor.net.radio0.dns3  u:object_r:vendor_net_radio0_prop:s0 exact string
 vendor.net.radio0.dns4  u:object_r:vendor_net_radio0_prop:s0 exact string
 vendor.net.shared_net_ip       u:object_r:vendor_net_share_prop:s0 exact string
 vendor.net.wifi_mac_prefix     u:object_r:vendor_net_share_prop:s0 exact string
-vendor.bt.rootcanal_mac_address   u:object_r:vendor_bt_rootcanal_prop:s0 exact string
-vendor.bt.rootcanal_test_console  u:object_r:vendor_bt_rootcanal_prop:s0 exact string
 vendor.wlan.firmware.version   u:object_r:vendor_wlan_versions_prop:s0 exact string
 vendor.wlan.driver.version     u:object_r:vendor_wlan_versions_prop:s0 exact string

@@ -21,6 +21,7 @@ import static android.system.OsConstants.IPPROTO_UDP;
 import static android.system.OsConstants.SOCK_DGRAM;
 
 import android.net.InetAddresses;
+import android.net.TrafficStats;
 import android.os.Handler;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -57,12 +58,12 @@ public class IkeUdp6Socket extends IkeUdpSocket {
      * IkeSocketConfig. Otherwise, create and return a new IkeUdp6Socket instance.
      *
      * @param sockConfig the socket configuration
-     * @param ikeSession the IkeSessionStateMachine that is requesting an IkeUdp6Socket.
+     * @param callback the callback for signalling IkeSocket events
      * @param handler the Handler used to process received packets
      * @return an IkeUdp6Socket instance
      */
     public static IkeUdp6Socket getInstance(
-            IkeSocketConfig sockConfig, IkeSessionStateMachine ikeSession, Handler handler)
+            IkeSocketConfig sockConfig, IkeSocket.Callback callback, Handler handler)
             throws ErrnoException, IOException {
         IkeUdp6Socket ikeSocket = sConfigToSocketMap.get(sockConfig);
         if (ikeSocket == null) {
@@ -73,13 +74,14 @@ public class IkeUdp6Socket extends IkeUdpSocket {
 
             sConfigToSocketMap.put(sockConfig, ikeSocket);
         }
-        ikeSocket.mAliveIkeSessions.add(ikeSession);
+        ikeSocket.mRegisteredCallbacks.add(callback);
         return ikeSocket;
     }
 
     protected static FileDescriptor openUdp6Sock(IkeSocketConfig sockConfig)
             throws ErrnoException, IOException {
         FileDescriptor sock = Os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        TrafficStats.tagFileDescriptor(sock);
         Os.bind(sock, INADDR_ANY, 0);
         applySocketConfig(sockConfig, sock, true /* isIpv6 */);
 

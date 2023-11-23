@@ -25,10 +25,9 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     privileged: true,
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
     static_libs: [
         "jsr305",
-        "android.car",
         "androidx.legacy_legacy-support-v4",
     ],
     optimize: {

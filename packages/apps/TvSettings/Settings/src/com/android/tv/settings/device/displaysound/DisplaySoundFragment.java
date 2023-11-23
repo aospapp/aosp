@@ -16,40 +16,55 @@
 
 package com.android.tv.settings.device.displaysound;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.hardware.display.DisplayManager;
+import android.hardware.hdmi.HdmiControlManager;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.Display;
 
 import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
-import com.android.tv.settings.util.SliceUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.library.util.SliceUtils;
+import com.android.tv.settings.util.ResolutionSelectionUtils;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
+
+import java.util.Objects;
 
 /**
  * The "Display & sound" screen in TV Settings.
  */
 @Keep
-public class DisplaySoundFragment extends SettingsPreferenceFragment {
+public class DisplaySoundFragment extends SettingsPreferenceFragment implements
+        DisplayManager.DisplayListener {
 
     static final String KEY_SOUND_EFFECTS = "sound_effects";
     private static final String KEY_CEC = "cec";
+    private static final String KEY_DEFAULT_AUDIO_OUTPUT_SETTINGS_SLICE =
+            "default_audio_output_settings";
+    private static final String KEY_RESOLUTION_TITLE = "resolution_selection";
 
     private AudioManager mAudioManager;
+    private HdmiControlManager mHdmiControlManager;
+
+    private Display.Mode mCurrentMode = null;
+    private DisplayManager mDisplayManager;
 
     public static DisplaySoundFragment newInstance() {
         return new DisplaySoundFragment();
@@ -63,6 +78,7 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
     @Override
     public void onAttach(Context context) {
         mAudioManager = context.getSystemService(AudioManager.class);
+        mHdmiControlManager = context.getSystemService(HdmiControlManager.class);
         super.onAttach(context);
     }
 
@@ -86,6 +102,18 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
         final TwoStatePreference soundPref = findPreference(KEY_SOUND_EFFECTS);
         soundPref.setChecked(getSoundEffectsEnabled());
         updateCecPreference();
+        updateDefaultAudioOutputSettings();
+
+        mDisplayManager = getDisplayManager();
+        Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+        if (display.getSystemPreferredDisplayMode() != null) {
+            mDisplayManager.registerDisplayListener(this, null);
+            mCurrentMode = mDisplayManager.getGlobalUserPreferredDisplayMode();
+            updateResolutionTitleDescription(ResolutionSelectionUtils.modeToString(
+                    mCurrentMode, getContext()));
+        } else {
+            removeResolutionPreference();
+        }
     }
 
     @Override
@@ -125,10 +153,8 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
                 && SliceUtils.isSliceProviderValid(
                         getContext(), ((SlicePreference) cecPreference).getUri())) {
             ContentResolver resolver = getContext().getContentResolver();
-            // Note that default CEC is enabled. You'll find similar retrieval of property in
-            // HdmiControlService.
-            boolean cecEnabled =
-                    Settings.Global.getInt(resolver, Settings.Global.HDMI_CONTROL_ENABLED, 1) != 0;
+            boolean cecEnabled = mHdmiControlManager.getHdmiCecEnabled()
+                    == HdmiControlManager.HDMI_CEC_CONTROL_ENABLED;
             cecPreference.setSummary(cecEnabled ? R.string.enabled : R.string.disabled);
             cecPreference.setVisible(true);
         } else {
@@ -136,8 +162,55 @@ public class DisplaySoundFragment extends SettingsPreferenceFragment {
         }
     }
 
+    private void updateDefaultAudioOutputSettings() {
+        final SlicePreference defaultAudioOutputSlicePref = findPreference(
+                KEY_DEFAULT_AUDIO_OUTPUT_SETTINGS_SLICE);
+        if (defaultAudioOutputSlicePref != null) {
+            defaultAudioOutputSlicePref.setVisible(
+                    SliceUtils.isSliceProviderValid(getContext(),
+                        defaultAudioOutputSlicePref.getUri())
+                    && SliceUtils.isSettingsSliceEnabled(getContext(),
+                        defaultAudioOutputSlicePref.getUri(), null));
+        }
+    }
+
     @Override
     protected int getPageId() {
         return TvSettingsEnums.DISPLAY_SOUND;
+    }
+
+    @Override
+    public void onDisplayAdded(int displayId) {}
+
+    @Override
+    public void onDisplayRemoved(int displayId) {}
+
+    @Override
+    public void onDisplayChanged(int displayId) {
+        Display.Mode newMode = mDisplayManager.getGlobalUserPreferredDisplayMode();
+        if (!Objects.equals(mCurrentMode, newMode)) {
+            updateResolutionTitleDescription(
+                    ResolutionSelectionUtils.modeToString(newMode, getContext()));
+            mCurrentMode = newMode;
+        }
+    }
+
+    @VisibleForTesting
+    DisplayManager getDisplayManager() {
+        return getContext().getSystemService(DisplayManager.class);
+    }
+
+    private void updateResolutionTitleDescription(String summary) {
+        Preference titlePreference = findPreference(KEY_RESOLUTION_TITLE);
+        if (titlePreference != null) {
+            titlePreference.setSummary(summary);
+        }
+    }
+
+    private void removeResolutionPreference() {
+        Preference resolutionPreference = findPreference(KEY_RESOLUTION_TITLE);
+        if (resolutionPreference != null) {
+            getPreferenceScreen().removePreference(resolutionPreference);
+        }
     }
 }

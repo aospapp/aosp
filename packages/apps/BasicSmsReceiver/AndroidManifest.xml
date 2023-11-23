@@ -23,6 +23,7 @@
     <original-package android:name="com.android.basicsmsreceiver"/>
 
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Needed just for the unit tests -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>

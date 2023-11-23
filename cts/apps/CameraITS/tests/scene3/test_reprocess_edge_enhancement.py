@@ -16,6 +16,7 @@
 
 import logging
 import os
+import math
 import matplotlib
 from matplotlib import pylab
 from mobly import test_runner
@@ -44,25 +45,25 @@ def check_edge_modes(sharpness):
                          f"OFF: {sharpness[EDGE_MODES['OFF']]:.5f}")
 
   logging.debug('Verify ZSL is similar to OFF')
-  e_msg = 'ZSL: %.5f, OFF: %.5f, RTOL: %.2f' % (
-      sharpness[EDGE_MODES['ZSL']], sharpness[EDGE_MODES['OFF']],
-      SHARPNESS_RTOL)
-  assert np.isclose(sharpness[EDGE_MODES['ZSL']], sharpness[EDGE_MODES['OFF']],
-                    SHARPNESS_RTOL), e_msg
+  if not math.isclose(sharpness[EDGE_MODES['ZSL']],
+                      sharpness[EDGE_MODES['OFF']], rel_tol=SHARPNESS_RTOL):
+    raise AssertionError(f"ZSL: {sharpness[EDGE_MODES['ZSL']]:.5f}, "
+                         f"OFF: {sharpness[EDGE_MODES['OFF']]:.5f}, "
+                         f'RTOL: {SHARPNESS_RTOL}')
 
   logging.debug('Verify OFF is not sharper than FAST')
-  e_msg = 'FAST: %.5f, OFF: %.5f, RTOL: %.2f' % (
-      sharpness[EDGE_MODES['FAST']], sharpness[EDGE_MODES['OFF']],
-      SHARPNESS_RTOL)
-  assert (sharpness[EDGE_MODES['FAST']] >
-          sharpness[EDGE_MODES['OFF']] * (1.0-SHARPNESS_RTOL)), e_msg
+  if (sharpness[EDGE_MODES['FAST']] <=
+      sharpness[EDGE_MODES['OFF']] * (1.0-SHARPNESS_RTOL)):
+    raise AssertionError(f"FAST: {sharpness[EDGE_MODES['FAST']]:.5f}, "
+                         f"OFF: {sharpness[EDGE_MODES['OFF']]:.5f}, "
+                         f'RTOL: {SHARPNESS_RTOL}')
 
   logging.debug('Verify FAST is not sharper than HQ')
-  e_msg = 'FAST: %.5f, HQ: %.5f, RTOL: %.2f' % (
-      sharpness[EDGE_MODES['FAST']], sharpness[EDGE_MODES['HQ']],
-      SHARPNESS_RTOL)
-  assert (sharpness[EDGE_MODES['HQ']] >
-          sharpness[EDGE_MODES['FAST']] * (1.0-SHARPNESS_RTOL)), e_msg
+  if (sharpness[EDGE_MODES['HQ']] <=
+      sharpness[EDGE_MODES['FAST']] * (1.0-SHARPNESS_RTOL)):
+    raise AssertionError(f"FAST: {sharpness[EDGE_MODES['FAST']]:.5f}, "
+                         f"HQ: {sharpness[EDGE_MODES['HQ']]:.5f}, "
+                         f'RTOL: {SHARPNESS_RTOL}')
 
 
 def do_capture_and_determine_sharpness(
@@ -139,7 +140,6 @@ class ReprocessEdgeEnhancementTest(its_base_test.ItsBaseTest):
         device_id=self.dut.serial,
         camera_id=self.camera_id,
         hidden_physical_id=self.hidden_physical_id) as cam:
-      chart_loc_arg = self.chart_loc_arg
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
@@ -157,12 +157,11 @@ class ReprocessEdgeEnhancementTest(its_base_test.ItsBaseTest):
           cam, props, self.scene, self.tablet, self.chart_distance)
 
       # Initialize chart class and locate chart in scene
-      chart = opencv_processing_utils.Chart(
-          cam, props, self.log_path, chart_loc=chart_loc_arg)
+      chart = opencv_processing_utils.Chart(cam, props, self.log_path)
 
       # If reprocessing is supported, ZSL edge mode must be avaiable.
-      assert camera_properties_utils.edge_mode(
-          props, EDGE_MODES['ZSL']), 'ZSL android.edge.mode not available!'
+      if not camera_properties_utils.edge_mode(props, EDGE_MODES['ZSL']):
+        raise AssertionError('ZSL android.edge.mode not available!')
 
       reprocess_formats = []
       if camera_properties_utils.yuv_reprocess(props):
@@ -251,11 +250,13 @@ class ReprocessEdgeEnhancementTest(its_base_test.ItsBaseTest):
         hq_div_off_regular = (
             sharpness_regular[EDGE_MODES['HQ']] /
             sharpness_regular[EDGE_MODES['OFF']])
-        e_msg = 'HQ/OFF_reprocess: %.4f, HQ/OFF_reg: %.4f, RTOL: %.2f' % (
-            hq_div_off_reprocess, hq_div_off_regular, SHARPNESS_RTOL)
         logging.debug('Verify reprocess HQ ~= reg HQ relative to OFF')
-        assert np.isclose(hq_div_off_reprocess, hq_div_off_regular,
-                          SHARPNESS_RTOL), e_msg
+        if not math.isclose(hq_div_off_reprocess, hq_div_off_regular,
+                            rel_tol=SHARPNESS_RTOL):
+          raise AssertionError(f'HQ/OFF_reprocess: {hq_div_off_reprocess:.4f}, '
+                               f'HQ/OFF_reg: {hq_div_off_regular:.4f}, '
+                               f'RTOL: {SHARPNESS_RTOL}')
+
 
 if __name__ == '__main__':
   test_runner.main()

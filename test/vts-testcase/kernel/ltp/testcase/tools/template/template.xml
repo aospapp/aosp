@@ -42,7 +42,9 @@
         <option name="teardown-command" value="rm -rf &ltp_dir;/tmp" />
     </target_preparer>
 
-    <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
+    <test class="com.android.tradefed.testtype.binary.KernelTargetTest">
+        <!-- Identify LTP's TCONF code (incompatible configuration) as a skip. -->
+        <option name="exit-code-skip" value="32" />
         <option name="ignore-binary-check" value="true" />
         <!-- Set binary timeout to be 18 min which is greater than the default 5 min timeout. Otherwise TF will retry to the command and attempt to do device recovery. -->
         <option name="per-binary-timeout" value="1080000" />

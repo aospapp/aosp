@@ -304,6 +304,13 @@ public class BridgeXmlBlockParser implements XmlResourceParser, ResolvingAttribu
 
         int ev = mParser.next();
 
+        // AAPT treats resources so that XmlBlock$Parser never has TEXT events that are
+        // whitespace only. Ignore those events here as resources from Studio have not gone
+        // through AAPT compilation.
+        while (ev == TEXT && mParser.isWhitespace()) {
+            ev = mParser.next();
+        }
+
         if (ParserFactory.LOG_PARSER) {
             System.out.println("NEXT " + mParser.toString() + " " +
                     eventTypeToString(mEventType) + " -> " + eventTypeToString(ev));

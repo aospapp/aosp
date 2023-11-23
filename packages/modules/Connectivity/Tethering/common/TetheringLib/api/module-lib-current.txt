@@ -27,6 +27,15 @@ package android.net {
     method @Deprecated public int untether(@NonNull String);
   }
 
+  public static interface TetheringManager.TetheredInterfaceCallback {
+    method public void onAvailable(@NonNull String);
+    method public void onUnavailable();
+  }
+
+  public static interface TetheringManager.TetheredInterfaceRequest {
+    method public void release();
+  }
+
   public static interface TetheringManager.TetheringEventCallback {
     method @Deprecated public default void onTetherableInterfaceRegexpsChanged(@NonNull android.net.TetheringManager.TetheringInterfaceRegexps);
   }

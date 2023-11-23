@@ -23,6 +23,12 @@ build_dirs :=  \
 
 ifdef BOARD_HWC_VERSION
 build_dirs += $(BOARD_HWC_VERSION)
+
+ifeq ($(BOARD_HWC_VERSION), hwc3)
+#hwc3 depends libexynosdisplay in libhwc2.1
+build_dirs += libhwc2.1
+endif
+
 endif
 
 include $(call all-named-subdir-makefiles,$(build_dirs))

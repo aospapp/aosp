@@ -17,9 +17,13 @@
 package com.android.queryable.queries;
 
 import android.content.IntentFilter;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
 import com.android.queryable.info.ServiceInfo;
+
+import java.util.Objects;
 
 /**
  * Implementation of {@link ServiceQuery}.
@@ -28,7 +32,7 @@ import com.android.queryable.info.ServiceInfo;
  */
 public final class ServiceQueryHelper<E extends Queryable> implements ServiceQuery<E> {
 
-    private final E mQuery;
+    private final transient E mQuery;
     private final ClassQueryHelper<E> mServiceClassQueryHelper;
     private final SetQueryHelper<E, IntentFilter, IntentFilterQuery<?>>
             mIntentFiltersQueryHelper;
@@ -43,6 +47,12 @@ public final class ServiceQueryHelper<E extends Queryable> implements ServiceQue
         mQuery = query;
         mServiceClassQueryHelper = new ClassQueryHelper<>(query);
         mIntentFiltersQueryHelper = new SetQueryHelper<>(query);
+    }
+
+    private ServiceQueryHelper(Parcel in) {
+        mQuery = null;
+        mServiceClassQueryHelper = in.readParcelable(ServiceQueryHelper.class.getClassLoader());
+        mIntentFiltersQueryHelper = in.readParcelable(ServiceQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -75,5 +85,41 @@ public final class ServiceQueryHelper<E extends Queryable> implements ServiceQue
      */
     public static boolean matches(ServiceQueryHelper<?> serviceQueryHelper, ServiceInfo value) {
         return serviceQueryHelper.matches(value);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mServiceClassQueryHelper, flags);
+        out.writeParcelable(mIntentFiltersQueryHelper, flags);
+    }
+
+    public static final Parcelable.Creator<ServiceQueryHelper> CREATOR =
+            new Parcelable.Creator<ServiceQueryHelper>() {
+                public ServiceQueryHelper createFromParcel(Parcel in) {
+                    return new ServiceQueryHelper(in);
+                }
+
+                public ServiceQueryHelper[] newArray(int size) {
+                    return new ServiceQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ServiceQueryHelper)) return false;
+        ServiceQueryHelper<?> that = (ServiceQueryHelper<?>) o;
+        return Objects.equals(mServiceClassQueryHelper, that.mServiceClassQueryHelper)
+                && Objects.equals(mIntentFiltersQueryHelper, that.mIntentFiltersQueryHelper);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mServiceClassQueryHelper, mIntentFiltersQueryHelper);
     }
 }

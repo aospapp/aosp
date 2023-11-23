@@ -45,6 +45,18 @@ struct GnssMeasurementMessage;
 struct GnssMeasurementMessageBuilder;
 struct GnssMeasurementMessageT;
 
+struct WifiNanSubMessage;
+struct WifiNanSubMessageBuilder;
+struct WifiNanSubMessageT;
+
+struct WifiNanSubCancelMessage;
+struct WifiNanSubCancelMessageBuilder;
+struct WifiNanSubCancelMessageT;
+
+struct WifiNanSubResponseMessage;
+struct WifiNanSubResponseMessageBuilder;
+struct WifiNanSubResponseMessageT;
+
 /// Indicates which of the following messages is being sent to / from the
 /// nanoapp. Use uint as the base type to match the message type in
 /// chreMessageFromHostData.
@@ -68,11 +80,17 @@ enum class MessageType : uint32_t {
   NANOAPP_RESPONSE = 8,
   /// Should be used with GnssMeasurementMessage
   GNSS_MEASUREMENT_TEST = 9,
+  /// Should be used with WifiNanSubMessage
+  WIFI_NAN_SUB = 10,
+  /// Should be used with WifiNanSubCancelMessage
+  WIFI_NAN_SUB_CANCEL = 11,
+  /// Should be used with WifiNanSubResponseMessage
+  WIFI_NAN_SUB_RESP = 12,
   MIN = UNSPECIFIED,
-  MAX = GNSS_MEASUREMENT_TEST
+  MAX = WIFI_NAN_SUB_RESP
 };
 
-inline const MessageType (&EnumValuesMessageType())[10] {
+inline const MessageType (&EnumValuesMessageType())[13] {
   static const MessageType values[] = {
     MessageType::UNSPECIFIED,
     MessageType::TIMER_TEST,
@@ -83,13 +101,16 @@ inline const MessageType (&EnumValuesMessageType())[10] {
     MessageType::SENSOR_REQUEST_TEST,
     MessageType::BREAK_IT_TEST,
     MessageType::NANOAPP_RESPONSE,
-    MessageType::GNSS_MEASUREMENT_TEST
+    MessageType::GNSS_MEASUREMENT_TEST,
+    MessageType::WIFI_NAN_SUB,
+    MessageType::WIFI_NAN_SUB_CANCEL,
+    MessageType::WIFI_NAN_SUB_RESP
   };
   return values;
 }
 
 inline const char * const *EnumNamesMessageType() {
-  static const char * const names[11] = {
+  static const char * const names[14] = {
     "UNSPECIFIED",
     "TIMER_TEST",
     "WIFI_SCAN_TEST",
@@ -100,13 +121,16 @@ inline const char * const *EnumNamesMessageType() {
     "BREAK_IT_TEST",
     "NANOAPP_RESPONSE",
     "GNSS_MEASUREMENT_TEST",
+    "WIFI_NAN_SUB",
+    "WIFI_NAN_SUB_CANCEL",
+    "WIFI_NAN_SUB_RESP",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessageType(MessageType e) {
-  if (flatbuffers::IsOutRange(e, MessageType::UNSPECIFIED, MessageType::GNSS_MEASUREMENT_TEST)) return "";
+  if (flatbuffers::IsOutRange(e, MessageType::UNSPECIFIED, MessageType::WIFI_NAN_SUB_RESP)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessageType()[index];
 }
@@ -1087,6 +1111,265 @@ inline flatbuffers::Offset<GnssMeasurementMessage> CreateGnssMeasurementMessage(
 
 flatbuffers::Offset<GnssMeasurementMessage> CreateGnssMeasurementMessage(flatbuffers::FlatBufferBuilder &_fbb, const GnssMeasurementMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct WifiNanSubMessageT : public flatbuffers::NativeTable {
+  typedef WifiNanSubMessage TableType;
+  uint8_t sub_type;
+  std::vector<uint8_t> service_name;
+  std::vector<uint8_t> service_specific_info;
+  std::vector<uint8_t> match_filter;
+  WifiNanSubMessageT()
+      : sub_type(0) {
+  }
+};
+
+/// Represents a message to ask the nanoapp to start a NAN subscription session.
+/// See chreWifiNanSubscribeConfig for how to fill in this message.
+struct WifiNanSubMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef WifiNanSubMessageT NativeTableType;
+  typedef WifiNanSubMessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SUB_TYPE = 4,
+    VT_SERVICE_NAME = 6,
+    VT_SERVICE_SPECIFIC_INFO = 8,
+    VT_MATCH_FILTER = 10
+  };
+  uint8_t sub_type() const {
+    return GetField<uint8_t>(VT_SUB_TYPE, 0);
+  }
+  bool mutate_sub_type(uint8_t _sub_type) {
+    return SetField<uint8_t>(VT_SUB_TYPE, _sub_type, 0);
+  }
+  const flatbuffers::Vector<uint8_t> *service_name() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SERVICE_NAME);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_service_name() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SERVICE_NAME);
+  }
+  const flatbuffers::Vector<uint8_t> *service_specific_info() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SERVICE_SPECIFIC_INFO);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_service_specific_info() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SERVICE_SPECIFIC_INFO);
+  }
+  const flatbuffers::Vector<uint8_t> *match_filter() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_MATCH_FILTER);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_match_filter() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_MATCH_FILTER);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SUB_TYPE) &&
+           VerifyOffset(verifier, VT_SERVICE_NAME) &&
+           verifier.VerifyVector(service_name()) &&
+           VerifyOffset(verifier, VT_SERVICE_SPECIFIC_INFO) &&
+           verifier.VerifyVector(service_specific_info()) &&
+           VerifyOffset(verifier, VT_MATCH_FILTER) &&
+           verifier.VerifyVector(match_filter()) &&
+           verifier.EndTable();
+  }
+  WifiNanSubMessageT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(WifiNanSubMessageT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<WifiNanSubMessage> Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct WifiNanSubMessageBuilder {
+  typedef WifiNanSubMessage Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_sub_type(uint8_t sub_type) {
+    fbb_.AddElement<uint8_t>(WifiNanSubMessage::VT_SUB_TYPE, sub_type, 0);
+  }
+  void add_service_name(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> service_name) {
+    fbb_.AddOffset(WifiNanSubMessage::VT_SERVICE_NAME, service_name);
+  }
+  void add_service_specific_info(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> service_specific_info) {
+    fbb_.AddOffset(WifiNanSubMessage::VT_SERVICE_SPECIFIC_INFO, service_specific_info);
+  }
+  void add_match_filter(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> match_filter) {
+    fbb_.AddOffset(WifiNanSubMessage::VT_MATCH_FILTER, match_filter);
+  }
+  explicit WifiNanSubMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  WifiNanSubMessageBuilder &operator=(const WifiNanSubMessageBuilder &);
+  flatbuffers::Offset<WifiNanSubMessage> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<WifiNanSubMessage>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<WifiNanSubMessage> CreateWifiNanSubMessage(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t sub_type = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> service_name = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> service_specific_info = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> match_filter = 0) {
+  WifiNanSubMessageBuilder builder_(_fbb);
+  builder_.add_match_filter(match_filter);
+  builder_.add_service_specific_info(service_specific_info);
+  builder_.add_service_name(service_name);
+  builder_.add_sub_type(sub_type);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<WifiNanSubMessage> CreateWifiNanSubMessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t sub_type = 0,
+    const std::vector<uint8_t> *service_name = nullptr,
+    const std::vector<uint8_t> *service_specific_info = nullptr,
+    const std::vector<uint8_t> *match_filter = nullptr) {
+  auto service_name__ = service_name ? _fbb.CreateVector<uint8_t>(*service_name) : 0;
+  auto service_specific_info__ = service_specific_info ? _fbb.CreateVector<uint8_t>(*service_specific_info) : 0;
+  auto match_filter__ = match_filter ? _fbb.CreateVector<uint8_t>(*match_filter) : 0;
+  return chre::power_test::CreateWifiNanSubMessage(
+      _fbb,
+      sub_type,
+      service_name__,
+      service_specific_info__,
+      match_filter__);
+}
+
+flatbuffers::Offset<WifiNanSubMessage> CreateWifiNanSubMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct WifiNanSubCancelMessageT : public flatbuffers::NativeTable {
+  typedef WifiNanSubCancelMessage TableType;
+  uint32_t subscription_id;
+  WifiNanSubCancelMessageT()
+      : subscription_id(0) {
+  }
+};
+
+/// Represents a messages to ask the nanoapp to cancel an ongoing subscription
+struct WifiNanSubCancelMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef WifiNanSubCancelMessageT NativeTableType;
+  typedef WifiNanSubCancelMessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SUBSCRIPTION_ID = 4
+  };
+  uint32_t subscription_id() const {
+    return GetField<uint32_t>(VT_SUBSCRIPTION_ID, 0);
+  }
+  bool mutate_subscription_id(uint32_t _subscription_id) {
+    return SetField<uint32_t>(VT_SUBSCRIPTION_ID, _subscription_id, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_SUBSCRIPTION_ID) &&
+           verifier.EndTable();
+  }
+  WifiNanSubCancelMessageT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(WifiNanSubCancelMessageT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<WifiNanSubCancelMessage> Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubCancelMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct WifiNanSubCancelMessageBuilder {
+  typedef WifiNanSubCancelMessage Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_subscription_id(uint32_t subscription_id) {
+    fbb_.AddElement<uint32_t>(WifiNanSubCancelMessage::VT_SUBSCRIPTION_ID, subscription_id, 0);
+  }
+  explicit WifiNanSubCancelMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  WifiNanSubCancelMessageBuilder &operator=(const WifiNanSubCancelMessageBuilder &);
+  flatbuffers::Offset<WifiNanSubCancelMessage> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<WifiNanSubCancelMessage>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<WifiNanSubCancelMessage> CreateWifiNanSubCancelMessage(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t subscription_id = 0) {
+  WifiNanSubCancelMessageBuilder builder_(_fbb);
+  builder_.add_subscription_id(subscription_id);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<WifiNanSubCancelMessage> CreateWifiNanSubCancelMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubCancelMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct WifiNanSubResponseMessageT : public flatbuffers::NativeTable {
+  typedef WifiNanSubResponseMessage TableType;
+  bool success;
+  uint32_t subscription_id;
+  WifiNanSubResponseMessageT()
+      : success(false),
+        subscription_id(0) {
+  }
+};
+
+/// Represents a message from the nanoapp indicating whether a subscription
+/// request succeeded
+struct WifiNanSubResponseMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef WifiNanSubResponseMessageT NativeTableType;
+  typedef WifiNanSubResponseMessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SUCCESS = 4,
+    VT_SUBSCRIPTION_ID = 6
+  };
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
+  }
+  bool mutate_success(bool _success) {
+    return SetField<uint8_t>(VT_SUCCESS, static_cast<uint8_t>(_success), 0);
+  }
+  uint32_t subscription_id() const {
+    return GetField<uint32_t>(VT_SUBSCRIPTION_ID, 0);
+  }
+  bool mutate_subscription_id(uint32_t _subscription_id) {
+    return SetField<uint32_t>(VT_SUBSCRIPTION_ID, _subscription_id, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS) &&
+           VerifyField<uint32_t>(verifier, VT_SUBSCRIPTION_ID) &&
+           verifier.EndTable();
+  }
+  WifiNanSubResponseMessageT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(WifiNanSubResponseMessageT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<WifiNanSubResponseMessage> Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubResponseMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct WifiNanSubResponseMessageBuilder {
+  typedef WifiNanSubResponseMessage Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(WifiNanSubResponseMessage::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+  }
+  void add_subscription_id(uint32_t subscription_id) {
+    fbb_.AddElement<uint32_t>(WifiNanSubResponseMessage::VT_SUBSCRIPTION_ID, subscription_id, 0);
+  }
+  explicit WifiNanSubResponseMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  WifiNanSubResponseMessageBuilder &operator=(const WifiNanSubResponseMessageBuilder &);
+  flatbuffers::Offset<WifiNanSubResponseMessage> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<WifiNanSubResponseMessage>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<WifiNanSubResponseMessage> CreateWifiNanSubResponseMessage(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool success = false,
+    uint32_t subscription_id = 0) {
+  WifiNanSubResponseMessageBuilder builder_(_fbb);
+  builder_.add_subscription_id(subscription_id);
+  builder_.add_success(success);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<WifiNanSubResponseMessage> CreateWifiNanSubResponseMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubResponseMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 inline TimerMessageT *TimerMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   std::unique_ptr<chre::power_test::TimerMessageT> _o = std::unique_ptr<chre::power_test::TimerMessageT>(new TimerMessageT());
   UnPackTo(_o.get(), _resolver);
@@ -1358,6 +1641,96 @@ inline flatbuffers::Offset<GnssMeasurementMessage> CreateGnssMeasurementMessage(
       _fbb,
       _enable,
       _min_interval_millis);
+}
+
+inline WifiNanSubMessageT *WifiNanSubMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::power_test::WifiNanSubMessageT> _o = std::unique_ptr<chre::power_test::WifiNanSubMessageT>(new WifiNanSubMessageT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void WifiNanSubMessage::UnPackTo(WifiNanSubMessageT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = sub_type(); _o->sub_type = _e; }
+  { auto _e = service_name(); if (_e) { _o->service_name.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->service_name[_i] = _e->Get(_i); } } }
+  { auto _e = service_specific_info(); if (_e) { _o->service_specific_info.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->service_specific_info[_i] = _e->Get(_i); } } }
+  { auto _e = match_filter(); if (_e) { _o->match_filter.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->match_filter[_i] = _e->Get(_i); } } }
+}
+
+inline flatbuffers::Offset<WifiNanSubMessage> WifiNanSubMessage::Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateWifiNanSubMessage(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<WifiNanSubMessage> CreateWifiNanSubMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const WifiNanSubMessageT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _sub_type = _o->sub_type;
+  auto _service_name = _o->service_name.size() ? _fbb.CreateVector(_o->service_name) : 0;
+  auto _service_specific_info = _o->service_specific_info.size() ? _fbb.CreateVector(_o->service_specific_info) : 0;
+  auto _match_filter = _o->match_filter.size() ? _fbb.CreateVector(_o->match_filter) : 0;
+  return chre::power_test::CreateWifiNanSubMessage(
+      _fbb,
+      _sub_type,
+      _service_name,
+      _service_specific_info,
+      _match_filter);
+}
+
+inline WifiNanSubCancelMessageT *WifiNanSubCancelMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::power_test::WifiNanSubCancelMessageT> _o = std::unique_ptr<chre::power_test::WifiNanSubCancelMessageT>(new WifiNanSubCancelMessageT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void WifiNanSubCancelMessage::UnPackTo(WifiNanSubCancelMessageT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = subscription_id(); _o->subscription_id = _e; }
+}
+
+inline flatbuffers::Offset<WifiNanSubCancelMessage> WifiNanSubCancelMessage::Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubCancelMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateWifiNanSubCancelMessage(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<WifiNanSubCancelMessage> CreateWifiNanSubCancelMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubCancelMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const WifiNanSubCancelMessageT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _subscription_id = _o->subscription_id;
+  return chre::power_test::CreateWifiNanSubCancelMessage(
+      _fbb,
+      _subscription_id);
+}
+
+inline WifiNanSubResponseMessageT *WifiNanSubResponseMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::power_test::WifiNanSubResponseMessageT> _o = std::unique_ptr<chre::power_test::WifiNanSubResponseMessageT>(new WifiNanSubResponseMessageT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void WifiNanSubResponseMessage::UnPackTo(WifiNanSubResponseMessageT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = success(); _o->success = _e; }
+  { auto _e = subscription_id(); _o->subscription_id = _e; }
+}
+
+inline flatbuffers::Offset<WifiNanSubResponseMessage> WifiNanSubResponseMessage::Pack(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubResponseMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateWifiNanSubResponseMessage(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<WifiNanSubResponseMessage> CreateWifiNanSubResponseMessage(flatbuffers::FlatBufferBuilder &_fbb, const WifiNanSubResponseMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const WifiNanSubResponseMessageT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _success = _o->success;
+  auto _subscription_id = _o->subscription_id;
+  return chre::power_test::CreateWifiNanSubResponseMessage(
+      _fbb,
+      _success,
+      _subscription_id);
 }
 
 }  // namespace power_test

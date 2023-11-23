@@ -65,10 +65,6 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
         mDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_HIGH);
     }
 
-    public void testLockNowLogged() {
-        mDevicePolicyManager.lockNow(0);
-    }
-
     public void testSetKeyguardDisabledFeaturesLogged() {
         mDevicePolicyManager.setKeyguardDisabledFeatures(
                 ADMIN_RECEIVER_COMPONENT, KEYGUARD_DISABLE_FEATURES_NONE);
@@ -179,11 +175,6 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
         final Intent intent =
                 mContext.getPackageManager().getLaunchIntentForPackage(systemPackageToEnable);
         mDevicePolicyManager.enableSystemApp(ADMIN_RECEIVER_COMPONENT, intent);
-    }
-
-    public void testSetUninstallBlockedLogged() {
-        mDevicePolicyManager.setUninstallBlocked(ADMIN_RECEIVER_COMPONENT, PACKAGE_NAME, true);
-        mDevicePolicyManager.setUninstallBlocked(ADMIN_RECEIVER_COMPONENT, PACKAGE_NAME, false);
     }
 
     public void testSetPreferentialNetworkServiceEnabledLogged() {

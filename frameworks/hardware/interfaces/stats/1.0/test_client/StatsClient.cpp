@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
                 tmp.intValue(3);
                 values.push_back(tmp);
                 VendorAtom atom = {
-                    .reverseDomainName = "com.google.pixel", .atomId = 100001, .values = values};
+                    .reverseDomainName = "", .atomId = 100001, .values = values};
                 client->reportVendorAtom(atom);
                 ++hal_calls;
                 break;

@@ -16,8 +16,6 @@
 
 package com.android.traceur;
 
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Icon;
 import android.preference.PreferenceManager;

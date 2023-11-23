@@ -30,6 +30,8 @@
 
 #if defined(LWS_WITH_TLS)
 
+#include "private-jit-trust.h"
+
 #if defined(USE_WOLFSSL)
  #if defined(USE_OLD_CYASSL)
   #if defined(_WIN32)
@@ -90,7 +92,7 @@
    #ifdef LWS_HAVE_OPENSSL_ECDH_H
     #include <openssl/ecdh.h>
    #endif
-   #if !defined(LWS_HAVE_EVP_MD_CTX_free)
+   #if !defined(LWS_HAVE_EVP_MD_CTX_free) && !defined(USE_WOLFSSL)
     #define EVP_MD_CTX_free EVP_MD_CTX_destroy
    #endif
    #include <openssl/x509v3.h>
@@ -116,14 +118,21 @@ enum lws_tls_extant {
 	LWS_TLS_EXTANT_ALTERNATIVE
 };
 
-
 #if defined(LWS_WITH_TLS)
 
+#if defined(LWS_WITH_TLS_SESSIONS) && defined(LWS_WITH_CLIENT) && \
+	(defined(LWS_WITH_MBEDTLS) || defined(OPENSSL_IS_BORINGSSL))
+#define LWS_TLS_SYNTHESIZE_CB 1
+#endif
+
 int
-lws_tls_restrict_borrow(struct lws_context *context);
+lws_tls_restrict_borrow(struct lws *wsi);
 
 void
-lws_tls_restrict_return(struct lws_context *context);
+lws_tls_restrict_return(struct lws *wsi);
+
+void
+lws_tls_restrict_return_handshake(struct lws *wsi);
 
 typedef SSL lws_tls_conn;
 typedef SSL_CTX lws_tls_ctx;
@@ -134,9 +143,10 @@ typedef X509 lws_tls_x509;
 #include "private-network.h"
 #endif
 
-LWS_EXTERN int
-lws_context_init_ssl_library(const struct lws_context_creation_info *info);
-LWS_EXTERN void
+int
+lws_context_init_ssl_library(struct lws_context *cx,
+			     const struct lws_context_creation_info *info);
+void
 lws_context_deinit_ssl_library(struct lws_context *context);
 #define LWS_SSL_ENABLED(vh) (vh && vh->tls.use_ssl)
 
@@ -147,26 +157,23 @@ struct lws_ec_valid_curves {
 	const char *jwa_name; /* list terminates with NULL jwa_name */
 };
 
-LWS_EXTERN enum lws_tls_extant
+enum lws_tls_extant
 lws_tls_use_any_upgrade_check_extant(const char *name);
-LWS_EXTERN int openssl_websocket_private_data_index;
+extern int openssl_websocket_private_data_index;
 
-
-LWS_EXTERN void
+void
 lws_tls_err_describe_clear(void);
 
-LWS_EXTERN int
+int
 lws_tls_openssl_cert_info(X509 *x509, enum lws_tls_cert_info type,
 			  union lws_tls_cert_info_results *buf, size_t len);
-LWS_EXTERN int
+int
 lws_tls_check_all_cert_lifetimes(struct lws_context *context);
 
-LWS_EXTERN int
+int
 lws_tls_alloc_pem_to_der_file(struct lws_context *context, const char *filename,
 			      const char *inbuf, lws_filepos_t inlen,
 			      uint8_t **buf, lws_filepos_t *amount);
-LWS_EXTERN char *
-lws_ssl_get_error_string(int status, int ret, char *buf, size_t len);
 
 int
 lws_gencrypto_bits_to_bytes(int bits);
@@ -179,7 +186,7 @@ lws_gencrypto_destroy_elements(struct lws_gencrypto_keyelem *el, int m);
 struct lws_gencrypto_keyelem;
 struct lws_ec_curves;
 
-LWS_EXTERN const struct lws_ec_curves lws_ec_curves[4];
+extern const struct lws_ec_curves lws_ec_curves[4];
 const struct lws_ec_curves *
 lws_genec_curve(const struct lws_ec_curves *table, const char *name);
 LWS_VISIBLE void
@@ -191,6 +198,43 @@ int
 lws_genec_confirm_curve_allowed_by_tls_id(const char *allowed, int id,
 					  struct lws_jwk *jwk);
 
+void
+lws_tls_reuse_session(struct lws *wsi);
+
+void
+lws_tls_session_cache(struct lws_vhost *vh, uint32_t ttl);
+
+int
+lws_tls_session_name_from_wsi(struct lws *wsi, char *buf, size_t len);
+
+/**
+ * lws_tls_session_name_discrete() - form an lws session tag name from pieces
+ *
+ * \param vhname: name of the vhost
+ * \param host: name of the host we are connecting to, like warmcat.com
+ * \param port: the port we connected to
+ * \param buf: the destination buffer for the tag
+ * \param len: the max available size of the destination buffer
+ *
+ * Creates a tag string representing a specific host, for use with serializing
+ * sessions made with the host.
+ */
+void
+lws_tls_session_tag_discrete(const char *vhname, const char *host,
+			     uint16_t port, char *buf, size_t len);
+
+/**
+ * lws_tls_session_name_from_wsi() - form an lws session tag name from a client wsi
+ *
+ * \param wsi: the wsi whose vhost, host and port we should use for the tag
+ * \param buf: the destination buffer for the tag
+ * \param len: the max available size of the destination buffer
+ *
+ * Creates a tag string representing a specific host, for use with serializing
+ * sessions made with the host.
+ */
+int
+lws_tls_session_tag_from_wsi(struct lws *wsi, char *buf, size_t len);
 
 #else /* ! WITH_TLS */
 

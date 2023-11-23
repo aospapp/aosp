@@ -170,4 +170,13 @@ public interface ITestResult extends Comparable<ITestResult> {
      * @param resultHistories The test result histories.
      */
     void setTestResultHistories(List<TestResultHistory> resultHistories);
+
+    /**
+     * Set test screenshots metadata of test item. This method is for per-case screenshots in CTS
+     * Verifier. If this field is used for large test suites like CTS, it may cause performance
+     * issues in APFE. Thus please do not use this field in other test suites.
+     */
+    void setTestScreenshotsMetadata(TestScreenshotsMetadata screenshotsMetadata);
+
+    TestScreenshotsMetadata getTestScreenshotsMetadata();
 }

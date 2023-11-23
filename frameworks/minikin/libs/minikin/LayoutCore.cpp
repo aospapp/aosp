@@ -18,12 +18,6 @@
 
 #include "minikin/LayoutCore.h"
 
-#include <cmath>
-#include <iostream>
-#include <mutex>
-#include <string>
-#include <vector>
-
 #include <hb-icu.h>
 #include <hb-ot.h>
 #include <log/log.h>
@@ -31,16 +25,22 @@
 #include <unicode/utf16.h>
 #include <utils/LruCache.h>
 
+#include <cmath>
+#include <iostream>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "BidiUtils.h"
+#include "FontFeatureUtils.h"
+#include "LayoutUtils.h"
+#include "LocaleListCache.h"
+#include "MinikinInternal.h"
 #include "minikin/Emoji.h"
 #include "minikin/HbUtils.h"
 #include "minikin/LayoutCache.h"
 #include "minikin/LayoutPieces.h"
 #include "minikin/Macros.h"
-
-#include "BidiUtils.h"
-#include "LayoutUtils.h"
-#include "LocaleListCache.h"
-#include "MinikinInternal.h"
 
 namespace minikin {
 
@@ -189,20 +189,6 @@ static bool isScriptOkForLetterspacing(hb_script_t script) {
              script == HB_SCRIPT_TIRHUTA || script == HB_SCRIPT_OGHAM);
 }
 
-static void addFeatures(const std::string& str, std::vector<hb_feature_t>* features) {
-    SplitIterator it(str, ',');
-    while (it.hasNext()) {
-        StringPiece featureStr = it.next();
-        static hb_feature_t feature;
-        /* We do not allow setting features on ranges.  As such, reject any
-         * setting that has non-universal range. */
-        if (hb_feature_from_string(featureStr.data(), featureStr.size(), &feature) &&
-            feature.start == 0 && feature.end == (unsigned int)-1) {
-            features->push_back(feature);
-        }
-    }
-}
-
 static inline hb_codepoint_t determineHyphenChar(hb_codepoint_t preferredHyphen, hb_font_t* font) {
     hb_codepoint_t glyph;
     if (preferredHyphen == 0x058A    /* ARMENIAN_HYPHEN */
@@ -230,9 +216,7 @@ static inline hb_codepoint_t determineHyphenChar(hb_codepoint_t preferredHyphen,
 template <typename HyphenEdit>
 static inline void addHyphenToHbBuffer(const HbBufferUniquePtr& buffer, const HbFontUniquePtr& font,
                                        HyphenEdit hyphen, uint32_t cluster) {
-    const uint32_t* chars;
-    size_t size;
-    std::tie(chars, size) = getHyphenString(hyphen);
+    auto [chars, size] = getHyphenString(hyphen);
     for (size_t i = 0; i < size; i++) {
         hb_buffer_add(buffer.get(), determineHyphenChar(chars[i], font.get()), cluster);
     }
@@ -359,19 +343,7 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
     std::vector<FontCollection::Run> items =
             paint.font->itemize(substr, paint.fontStyle, paint.localeListId, paint.familyVariant);
 
-    std::vector<hb_feature_t> features;
-    // Disable default-on non-required ligature features if letter-spacing
-    // See http://dev.w3.org/csswg/css-text-3/#letter-spacing-property
-    // "When the effective spacing between two characters is not zero (due to
-    // either justification or a non-zero value of letter-spacing), user agents
-    // should not apply optional ligatures."
-    if (fabs(paint.letterSpacing) > 0.03) {
-        static const hb_feature_t no_liga = {HB_TAG('l', 'i', 'g', 'a'), 0, 0, ~0u};
-        static const hb_feature_t no_clig = {HB_TAG('c', 'l', 'i', 'g'), 0, 0, ~0u};
-        features.push_back(no_liga);
-        features.push_back(no_clig);
-    }
-    addFeatures(paint.fontFeatureSettings, &features);
+    std::vector<hb_feature_t> features = cleanAndAddDefaultFontFeatures(paint);
 
     std::vector<HbFontUniquePtr> hbFonts;
     double size = paint.size;
@@ -455,7 +427,7 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
             if (localeList.size() != 0) {
                 hb_language_t hbLanguage = localeList.getHbLanguage(0);
                 for (size_t i = 0; i < localeList.size(); ++i) {
-                    if (localeList[i].supportsHbScript(script)) {
+                    if (localeList[i].supportsScript(hb_script_to_iso15924_tag(script))) {
                         hbLanguage = localeList.getHbLanguage(i);
                         break;
                     }

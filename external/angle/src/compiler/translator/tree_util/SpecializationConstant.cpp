@@ -25,6 +25,7 @@ constexpr ImmutableString kSurfaceRotationSpecConstVarName =
     ImmutableString("ANGLESurfaceRotation");
 constexpr ImmutableString kDrawableWidthSpecConstVarName  = ImmutableString("ANGLEDrawableWidth");
 constexpr ImmutableString kDrawableHeightSpecConstVarName = ImmutableString("ANGLEDrawableHeight");
+constexpr ImmutableString kDitherSpecConstVarName         = ImmutableString("ANGLEDither");
 
 // When an Android surface is rotated differently than the device's native orientation, ANGLE must
 // rotate gl_Position in the vertex shader and gl_FragCoord in the fragment shader.  The following
@@ -54,19 +55,6 @@ constexpr Mat2x2EnumMap kFragRotationMatrices = {
      {vk::SurfaceRotation::FlippedRotated90Degrees, {{0.0f, 1.0f, 1.0f, 0.0f}}},
      {vk::SurfaceRotation::FlippedRotated180Degrees, {{1.0f, 0.0f, 0.0f, 1.0f}}},
      {vk::SurfaceRotation::FlippedRotated270Degrees, {{0.0f, 1.0f, 1.0f, 0.0f}}}}};
-
-// TODO: https://issuetracker.google.com/174066134. This is to make sure the specialization constant
-// code path behaves exactly the same as driver uniform code path. Not sure why this has to be
-// different from kFragRotationMatrices.
-constexpr Mat2x2EnumMap kHalfRenderAreaRotationMatrices = {
-    {{vk::SurfaceRotation::Identity, {{1.0f, 0.0f, 0.0f, 1.0f}}},
-     {vk::SurfaceRotation::Rotated90Degrees, {{0.0f, 1.0f, 1.0f, 0.0f}}},
-     {vk::SurfaceRotation::Rotated180Degrees, {{1.0f, 0.0f, 0.0f, 1.0f}}},
-     {vk::SurfaceRotation::Rotated270Degrees, {{1.0f, 0.0f, 0.0f, 1.0f}}},
-     {vk::SurfaceRotation::FlippedIdentity, {{1.0f, 0.0f, 0.0f, 1.0f}}},
-     {vk::SurfaceRotation::FlippedRotated90Degrees, {{0.0f, 1.0f, 1.0f, 0.0f}}},
-     {vk::SurfaceRotation::FlippedRotated180Degrees, {{1.0f, 0.0f, 0.0f, 1.0f}}},
-     {vk::SurfaceRotation::FlippedRotated270Degrees, {{1.0f, 0.0f, 0.0f, 1.0f}}}}};
 
 // Returns mat2(m0, m1, m2, m3)
 TIntermAggregate *CreateMat2x2(const Mat2x2EnumMap &matrix, vk::SurfaceRotation rotation)
@@ -117,12 +105,12 @@ constexpr Vec2EnumMap kFlipXYValue = {
 
 // Returns [[flipX*m0+flipY*m1]  [flipX*m2+flipY*m3]] where [m0 m1] is the first column of
 // kFragRotation matrix and [m2 m3] is the second column of kFragRotation matrix.
-constexpr Vec2 CalcFragRotationMultiplyFlipXY(vk::SurfaceRotation rotation)
+constexpr Mat2x2 CalcFragRotationMultiplyFlipXY(vk::SurfaceRotation rotation)
 {
-    return Vec2({kFlipXYValue[rotation][0] * kFragRotationMatrices[rotation][0] +
-                     kFlipXYValue[rotation][1] * kFragRotationMatrices[rotation][1],
-                 kFlipXYValue[rotation][0] * kFragRotationMatrices[rotation][2] +
-                     kFlipXYValue[rotation][1] * kFragRotationMatrices[rotation][3]});
+    return Mat2x2({kFlipXYValue[rotation][0] * kFragRotationMatrices[rotation][0],
+                   kFlipXYValue[rotation][1] * kFragRotationMatrices[rotation][1],
+                   kFlipXYValue[rotation][0] * kFragRotationMatrices[rotation][2],
+                   kFlipXYValue[rotation][1] * kFragRotationMatrices[rotation][3]});
 }
 
 // Returns vec2(vec2Values.x, vec2Values.y*yscale)
@@ -259,7 +247,8 @@ SpecConst::SpecConst(TSymbolTable *symbolTable, ShCompileOptions compileOptions,
       mLineRasterEmulationVar(nullptr),
       mSurfaceRotationVar(nullptr),
       mDrawableWidthVar(nullptr),
-      mDrawableHeightVar(nullptr)
+      mDrawableHeightVar(nullptr),
+      mDitherVar(nullptr)
 {
     if (shaderType == GL_FRAGMENT_SHADER || shaderType == GL_COMPUTE_SHADER)
     {
@@ -313,6 +302,14 @@ void SpecConst::declareSpecConsts(TIntermBlock *root)
         decl->appendDeclarator(
             new TIntermBinary(EOpInitialize, getDrawableHeight(), CreateFloatNode(0, EbpMedium)));
         root->insertStatement(1, decl);
+    }
+
+    if (mDitherVar != nullptr)
+    {
+        TIntermDeclaration *decl = new TIntermDeclaration();
+        decl->appendDeclarator(new TIntermBinary(EOpInitialize, getDither(), CreateUIntNode(0)));
+
+        root->insertStatement(0, decl);
     }
 }
 
@@ -411,16 +408,6 @@ TIntermTyped *SpecConst::getFragRotationMatrix()
     return GenerateMat2x2ArrayWithIndex(kFragRotationMatrices, getFlipRotation());
 }
 
-TIntermTyped *SpecConst::getHalfRenderAreaRotationMatrix()
-{
-    if ((mCompileOptions & SH_USE_SPECIALIZATION_CONSTANT) == 0)
-    {
-        return nullptr;
-    }
-    mUsageBits.set(vk::SpecConstUsage::Rotation);
-    return GenerateMat2x2ArrayWithIndex(kHalfRenderAreaRotationMatrices, getFlipRotation());
-}
-
 TIntermTyped *SpecConst::getFlipXY()
 {
     if ((mCompileOptions & SH_USE_SPECIALIZATION_CONSTANT) == 0)
@@ -468,7 +455,7 @@ TIntermTyped *SpecConst::getFragRotationMultiplyFlipXY()
         return nullptr;
     }
 
-    constexpr Vec2EnumMap kFragRotationMultiplyFlipXY = {
+    constexpr Mat2x2EnumMap kFragRotationMultiplyFlipXY = {
         {{vk::SurfaceRotation::Identity,
           CalcFragRotationMultiplyFlipXY(vk::SurfaceRotation::Identity)},
          {vk::SurfaceRotation::Rotated90Degrees,
@@ -488,7 +475,7 @@ TIntermTyped *SpecConst::getFragRotationMultiplyFlipXY()
 
     mUsageBits.set(vk::SpecConstUsage::YFlip);
     mUsageBits.set(vk::SpecConstUsage::Rotation);
-    return CreateVec2ArrayWithIndex(kFragRotationMultiplyFlipXY, 1.0, getFlipRotation());
+    return GenerateMat2x2ArrayWithIndex(kFragRotationMultiplyFlipXY, getFlipRotation());
 }
 
 TIntermSymbol *SpecConst::getDrawableWidth()
@@ -517,7 +504,7 @@ TIntermSymbol *SpecConst::getDrawableHeight()
     return new TIntermSymbol(mDrawableHeightVar);
 }
 
-TIntermBinary *SpecConst::getHalfRenderArea()
+TIntermTyped *SpecConst::getHalfRenderArea()
 {
     if ((mCompileOptions & SH_USE_SPECIALIZATION_CONSTANT) == 0)
     {
@@ -537,11 +524,21 @@ TIntermBinary *SpecConst::getHalfRenderArea()
         new TIntermBinary(EOpVectorTimesScalar, drawableSize, CreateFloatNode(0.5, EbpMedium));
     mUsageBits.set(vk::SpecConstUsage::DrawableSize);
 
-    // drawableSize * 0.5f * halfRenderAreaRotationMatrix (See comment in
-    // kHalfRenderAreaRotationMatrices)
-    TIntermBinary *rotatedHalfRenderArea =
-        new TIntermBinary(EOpMatrixTimesVector, getHalfRenderAreaRotationMatrix(), halfRenderArea);
+    // No rotation needed because drawableSize is already rotated.
+    return halfRenderArea;
+}
 
-    return rotatedHalfRenderArea;
+TIntermTyped *SpecConst::getDither()
+{
+    if (mDitherVar == nullptr)
+    {
+        const TType *type = MakeSpecConst(*StaticType::GetBasic<EbtUInt, EbpHigh>(),
+                                          vk::SpecializationConstantId::Dither);
+
+        mDitherVar =
+            new TVariable(mSymbolTable, kDitherSpecConstVarName, type, SymbolType::AngleInternal);
+        mUsageBits.set(vk::SpecConstUsage::Dither);
+    }
+    return new TIntermSymbol(mDitherVar);
 }
 }  // namespace sh

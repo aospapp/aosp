@@ -117,13 +117,13 @@ LIBBINDER_NDK31 { # introduced=31
     ABinderProcess_setupPolling; # apex
     AIBinder_getCallingSid; # apex
     AIBinder_setRequestingSid; # apex
-    AParcel_markSensitive; # llndk
+    AParcel_markSensitive; # systemapi llndk
     AServiceManager_forEachDeclaredInstance; # apex llndk
-    AServiceManager_forceLazyServicesPersist; # llndk
+    AServiceManager_forceLazyServicesPersist; # apex llndk
     AServiceManager_isDeclared; # apex llndk
     AServiceManager_isUpdatableViaApex; # apex
     AServiceManager_reRegister; # llndk
-    AServiceManager_registerLazyService; # llndk
+    AServiceManager_registerLazyService; # apex llndk
     AServiceManager_setActiveServicesCallback; # llndk
     AServiceManager_tryUnregister; # llndk
     AServiceManager_waitForService; # apex llndk
@@ -139,6 +139,17 @@ LIBBINDER_NDK31 { # introduced=31
     AParcel_create;
     AParcel_getDataSize;
     AParcel_reset;
+};
+
+LIBBINDER_NDK33 { # introduced=33
+  global:
+    AIBinder_Class_disableInterfaceTokenHeader;
+    AIBinder_DeathRecipient_setOnUnlinked;
+    AIBinder_isHandlingTransaction;
+    AIBinder_setInheritRt; # llndk
+    AIBinder_setMinSchedulerPolicy; # llndk
+    AParcel_marshal;
+    AParcel_unmarshal;
 };
 
 LIBBINDER_NDK_PLATFORM {

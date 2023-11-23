@@ -18,13 +18,10 @@ package com.android.car.vehiclehal.test;
 import static org.junit.Assert.assertEquals;
 
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.os.RemoteException;
-
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 class LinearVhalEventGenerator implements VhalEventGenerator {
 
@@ -76,22 +73,29 @@ class LinearVhalEventGenerator implements VhalEventGenerator {
     }
 
     @Override
-    public void start() throws RemoteException {
-        VehiclePropValue request =
-                VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                    .addIntValue(CMD_START_LINEAR, mProp)
-                    .setInt64Value(mInterval.toNanos())
-                    .addFloatValue(mInitialValue, mDispersion, mIncrement)
-                    .build();
-        assertEquals(StatusCode.OK, mVehicle.set(request));
+    public void start() throws Exception {
+        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
+                "--debughal", "--genfakedata", "--startlinear", String.format("%d", mProp),
+                String.format("%f", mInitialValue), String.format("%f", mInitialValue),
+                String.format("%f", mDispersion), String.format("%f", mIncrement),
+                String.format("%d", mInterval.toNanos())));
+
+        NativePipeHelper pipe = new NativePipeHelper();
+        pipe.create();
+        mVehicle.debug(pipe.getNativeHandle(), options);
+        assertEquals("", pipe.getOutput());
+        pipe.close();
     }
 
     @Override
-    public void stop() throws RemoteException {
-        VehiclePropValue request =
-                VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                    .addIntValue(CMD_STOP_LINEAR, mProp)
-                    .build();
-        assertEquals(StatusCode.OK, mVehicle.set(request));
+    public void stop() throws Exception {
+        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
+                "--debughal", "--genfakedata", "--stoplinear",
+                String.format("%d", mProp)));
+        NativePipeHelper pipe = new NativePipeHelper();
+        pipe.create();
+        mVehicle.debug(pipe.getNativeHandle(), options);
+        assertEquals("", pipe.getOutput());
+        pipe.close();
     }
 }

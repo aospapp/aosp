@@ -79,6 +79,23 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
 
     @AppModeFull(reason = "testPerformDirectAction() is enough")
     @Test
+    public void testGetPackageName() throws Exception {
+        mActivityControl.startActivity();
+        mSessionControl.startVoiceInteractionSession();
+        try {
+            // Get the actions to set up the VoiceInteractor
+            mSessionControl.getDirectActions();
+
+            String packageName = mActivityControl.getPackageName();
+            assertThat(packageName).isEqualTo("android.voiceinteraction.service");
+        } finally {
+            mSessionControl.stopVoiceInteractionSession();
+            mActivityControl.finishActivity();
+        }
+    }
+
+    @AppModeFull(reason = "testPerformDirectAction() is enough")
+    @Test
     public void testCancelPerformedDirectAction() throws Exception {
         mActivityControl.startActivity();
         mSessionControl.startVoiceInteractionSession();
@@ -232,6 +249,13 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
             return result.getBoolean(Utils.DIRECT_ACTIONS_KEY_RESULT);
         }
 
+        private String getPackageName()
+                throws Exception {
+            final Bundle result = executeRemoteCommand(
+                    Utils.DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_NAME);
+            return result.getString(Utils.DIRECT_ACTIONS_KEY_RESULT);
+        }
+
         void finishActivity() throws Exception {
             executeRemoteCommand(Utils.VOICE_INTERACTION_ACTIVITY_CMD_FINISH);
         }
@@ -316,3 +340,4 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
                 .that(Utils.DIRECT_ACTIONS_RESULT_CANCELLED).isEqualTo(status);
     }
 }
+

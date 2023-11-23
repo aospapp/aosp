@@ -15,6 +15,7 @@
  */
 package android.car.hardware.property;
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -29,14 +30,17 @@ public final class VehicleElectronicTollCollectionCardType {
     /**
      * Type is unknown or not in the list below.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0;
     /**
      * A Japanese electronic toll collection card that does not support ETC 2.0.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int JP_ELECTRONIC_TOLL_COLLECTION_CARD = 1;
     /**
      * A Japanese electronic toll collection 2.0 card.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2 = 2;
 
     /** @hide */

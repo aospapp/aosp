@@ -16,6 +16,7 @@
 
 package android.net.ip;
 
+import static android.net.INetd.IF_STATE_DOWN;
 import static android.net.INetd.IF_STATE_UP;
 import static android.net.RouteInfo.RTN_UNICAST;
 import static android.net.TetheringManager.TETHERING_BLUETOOTH;
@@ -31,14 +32,15 @@ import static android.net.ip.IpServer.STATE_AVAILABLE;
 import static android.net.ip.IpServer.STATE_LOCAL_ONLY;
 import static android.net.ip.IpServer.STATE_TETHERED;
 import static android.net.ip.IpServer.STATE_UNAVAILABLE;
-import static android.net.netlink.NetlinkConstants.RTM_DELNEIGH;
-import static android.net.netlink.NetlinkConstants.RTM_NEWNEIGH;
-import static android.net.netlink.StructNdMsg.NUD_FAILED;
-import static android.net.netlink.StructNdMsg.NUD_REACHABLE;
-import static android.net.netlink.StructNdMsg.NUD_STALE;
 import static android.system.OsConstants.ETH_P_IPV6;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastT;
 import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
+import static com.android.net.module.util.netlink.NetlinkConstants.RTM_DELNEIGH;
+import static com.android.net.module.util.netlink.NetlinkConstants.RTM_NEWNEIGH;
+import static com.android.net.module.util.netlink.StructNdMsg.NUD_FAILED;
+import static com.android.net.module.util.netlink.StructNdMsg.NUD_REACHABLE;
+import static com.android.net.module.util.netlink.StructNdMsg.NUD_STALE;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -84,9 +86,6 @@ import android.net.dhcp.IDhcpServerCallbacks;
 import android.net.ip.IpNeighborMonitor.NeighborEvent;
 import android.net.ip.IpNeighborMonitor.NeighborEventConsumer;
 import android.net.ip.RouterAdvertisementDaemon.RaParams;
-import android.net.util.InterfaceParams;
-import android.net.util.InterfaceSet;
-import android.net.util.PrefixUtils;
 import android.net.util.SharedLog;
 import android.os.Build;
 import android.os.Handler;
@@ -99,23 +98,26 @@ import androidx.annotation.Nullable;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.net.module.util.BpfMap;
+import com.android.net.module.util.InterfaceParams;
 import com.android.net.module.util.NetworkStackConstants;
+import com.android.net.module.util.bpf.Tether4Key;
+import com.android.net.module.util.bpf.Tether4Value;
+import com.android.net.module.util.bpf.TetherStatsKey;
+import com.android.net.module.util.bpf.TetherStatsValue;
 import com.android.networkstack.tethering.BpfCoordinator;
 import com.android.networkstack.tethering.BpfCoordinator.Ipv6ForwardingRule;
-import com.android.networkstack.tethering.BpfMap;
 import com.android.networkstack.tethering.PrivateAddressCoordinator;
-import com.android.networkstack.tethering.Tether4Key;
-import com.android.networkstack.tethering.Tether4Value;
 import com.android.networkstack.tethering.Tether6Value;
 import com.android.networkstack.tethering.TetherDevKey;
 import com.android.networkstack.tethering.TetherDevValue;
 import com.android.networkstack.tethering.TetherDownstream6Key;
 import com.android.networkstack.tethering.TetherLimitKey;
 import com.android.networkstack.tethering.TetherLimitValue;
-import com.android.networkstack.tethering.TetherStatsKey;
-import com.android.networkstack.tethering.TetherStatsValue;
 import com.android.networkstack.tethering.TetherUpstream6Key;
 import com.android.networkstack.tethering.TetheringConfiguration;
+import com.android.networkstack.tethering.util.InterfaceSet;
+import com.android.networkstack.tethering.util.PrefixUtils;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
@@ -154,6 +156,8 @@ public class IpServerTest {
     private static final int BLUETOOTH_DHCP_PREFIX_LENGTH = 24;
     private static final int DHCP_LEASE_TIME_SECS = 3600;
     private static final boolean DEFAULT_USING_BPF_OFFLOAD = true;
+    private static final int DEFAULT_SUBNET_PREFIX_LENGTH = 0;
+    private static final int P2P_SUBNET_PREFIX_LENGTH = 25;
 
     private static final InterfaceParams TEST_IFACE_PARAMS = new InterfaceParams(
             IFACE_NAME, 42 /* index */, MacAddress.ALL_ZEROS_ADDRESS, 1500 /* defaultMtu */);
@@ -226,9 +230,12 @@ public class IpServerTest {
         doReturn(mIpNeighborMonitor).when(mDependencies).getIpNeighborMonitor(any(), any(),
                 neighborCaptor.capture());
 
+        when(mTetherConfig.isBpfOffloadEnabled()).thenReturn(usingBpfOffload);
+        when(mTetherConfig.useLegacyDhcpServer()).thenReturn(usingLegacyDhcp);
+        when(mTetherConfig.getP2pLeasesSubnetPrefixLength()).thenReturn(P2P_SUBNET_PREFIX_LENGTH);
         mIpServer = new IpServer(
                 IFACE_NAME, mLooper.getLooper(), interfaceType, mSharedLog, mNetd, mBpfCoordinator,
-                mCallback, usingLegacyDhcp, usingBpfOffload, mAddressCoordinator, mDependencies);
+                mCallback, mTetherConfig, mAddressCoordinator, mDependencies);
         mIpServer.start();
         mNeighborEventConsumer = neighborCaptor.getValue();
 
@@ -279,7 +286,8 @@ public class IpServerTest {
         when(mSharedLog.forSubComponent(anyString())).thenReturn(mSharedLog);
         when(mAddressCoordinator.requestDownstreamAddress(any(), anyBoolean())).thenReturn(
                 mTestAddress);
-        when(mTetherConfig.isBpfOffloadEnabled()).thenReturn(true /* default value */);
+        when(mTetherConfig.isBpfOffloadEnabled()).thenReturn(DEFAULT_USING_BPF_OFFLOAD);
+        when(mTetherConfig.useLegacyDhcpServer()).thenReturn(false /* default value */);
 
         mBpfDeps = new BpfCoordinator.Dependencies() {
                     @NonNull
@@ -358,8 +366,8 @@ public class IpServerTest {
         when(mDependencies.getIpNeighborMonitor(any(), any(), any()))
                 .thenReturn(mIpNeighborMonitor);
         mIpServer = new IpServer(IFACE_NAME, mLooper.getLooper(), TETHERING_BLUETOOTH, mSharedLog,
-                mNetd, mBpfCoordinator, mCallback, false /* usingLegacyDhcp */,
-                DEFAULT_USING_BPF_OFFLOAD, mAddressCoordinator, mDependencies);
+                mNetd, mBpfCoordinator, mCallback, mTetherConfig, mAddressCoordinator,
+                mDependencies);
         mIpServer.start();
         mLooper.dispatchAll();
         verify(mCallback).updateInterfaceState(
@@ -400,11 +408,16 @@ public class IpServerTest {
     }
 
     @Test
-    public void canBeTethered() throws Exception {
+    public void canBeTetheredAsBluetooth() throws Exception {
         initStateMachine(TETHERING_BLUETOOTH);
 
         dispatchCommand(IpServer.CMD_TETHER_REQUESTED, STATE_TETHERED);
-        InOrder inOrder = inOrder(mCallback, mNetd);
+        InOrder inOrder = inOrder(mCallback, mNetd, mAddressCoordinator);
+        if (isAtLeastT()) {
+            inOrder.verify(mAddressCoordinator).requestDownstreamAddress(any(), eq(true));
+            inOrder.verify(mNetd).interfaceSetCfg(argThat(cfg ->
+                    IFACE_NAME.equals(cfg.ifName) && assertContainsFlag(cfg.flags, IF_STATE_UP)));
+        }
         inOrder.verify(mNetd).tetherInterfaceAdd(IFACE_NAME);
         inOrder.verify(mNetd).networkAddInterface(INetd.LOCAL_NET_ID, IFACE_NAME);
         // One for ipv4 route, one for ipv6 link local route.
@@ -426,7 +439,13 @@ public class IpServerTest {
         inOrder.verify(mNetd).tetherApplyDnsInterfaces();
         inOrder.verify(mNetd).tetherInterfaceRemove(IFACE_NAME);
         inOrder.verify(mNetd).networkRemoveInterface(INetd.LOCAL_NET_ID, IFACE_NAME);
-        inOrder.verify(mNetd).interfaceSetCfg(argThat(cfg -> IFACE_NAME.equals(cfg.ifName)));
+        // One is ipv4 address clear (set to 0.0.0.0), another is set interface down which only
+        // happen after T. Before T, the interface configuration control in bluetooth side.
+        if (isAtLeastT()) {
+            inOrder.verify(mNetd).interfaceSetCfg(
+                    argThat(cfg -> assertContainsFlag(cfg.flags, IF_STATE_DOWN)));
+        }
+        inOrder.verify(mNetd).interfaceSetCfg(argThat(cfg -> cfg.flags.length == 0));
         inOrder.verify(mAddressCoordinator).releaseDownstream(any());
         inOrder.verify(mCallback).updateInterfaceState(
                 mIpServer, STATE_AVAILABLE, TETHER_ERROR_NO_ERROR);
@@ -443,7 +462,7 @@ public class IpServerTest {
         InOrder inOrder = inOrder(mCallback, mNetd, mAddressCoordinator);
         inOrder.verify(mAddressCoordinator).requestDownstreamAddress(any(), eq(true));
         inOrder.verify(mNetd).interfaceSetCfg(argThat(cfg ->
-                  IFACE_NAME.equals(cfg.ifName) && assertContainsFlag(cfg.flags, IF_STATE_UP)));
+                IFACE_NAME.equals(cfg.ifName) && assertContainsFlag(cfg.flags, IF_STATE_UP)));
         inOrder.verify(mNetd).tetherInterfaceAdd(IFACE_NAME);
         inOrder.verify(mNetd).networkAddInterface(INetd.LOCAL_NET_ID, IFACE_NAME);
         inOrder.verify(mNetd, times(2)).networkAddRoute(eq(INetd.LOCAL_NET_ID), eq(IFACE_NAME),
@@ -587,7 +606,8 @@ public class IpServerTest {
         inOrder.verify(mNetd).tetherApplyDnsInterfaces();
         inOrder.verify(mNetd).tetherInterfaceRemove(IFACE_NAME);
         inOrder.verify(mNetd).networkRemoveInterface(INetd.LOCAL_NET_ID, IFACE_NAME);
-        inOrder.verify(mNetd).interfaceSetCfg(argThat(cfg -> IFACE_NAME.equals(cfg.ifName)));
+        inOrder.verify(mNetd, times(isAtLeastT() ? 2 : 1)).interfaceSetCfg(
+                argThat(cfg -> IFACE_NAME.equals(cfg.ifName)));
         inOrder.verify(mAddressCoordinator).releaseDownstream(any());
         inOrder.verify(mBpfCoordinator).tetherOffloadClientClear(mIpServer);
         inOrder.verify(mBpfCoordinator).stopMonitoring(mIpServer);
@@ -683,7 +703,11 @@ public class IpServerTest {
         initTetheredStateMachine(TETHERING_BLUETOOTH, UPSTREAM_IFACE);
         dispatchTetherConnectionChanged(UPSTREAM_IFACE);
 
-        assertDhcpStarted(mBluetoothPrefix);
+        if (isAtLeastT()) {
+            assertDhcpStarted(PrefixUtils.asIpPrefix(mTestAddress));
+        } else {
+            assertDhcpStarted(mBluetoothPrefix);
+        }
     }
 
     @Test
@@ -1291,6 +1315,12 @@ public class IpServerTest {
         if (mIpServer.interfaceType() == TETHERING_NCM) {
             assertTrue(params.changePrefixOnDecline);
         }
+
+        if (mIpServer.interfaceType() == TETHERING_WIFI_P2P) {
+            assertEquals(P2P_SUBNET_PREFIX_LENGTH, params.leasesSubnetPrefixLength);
+        } else {
+            assertEquals(DEFAULT_SUBNET_PREFIX_LENGTH, params.leasesSubnetPrefixLength);
+        }
     }
 
     private void assertDhcpStarted(IpPrefix expectedPrefix) throws Exception {
@@ -1371,7 +1401,6 @@ public class IpServerTest {
         for (String flag : flags) {
             if (flag.equals(match)) return true;
         }
-        fail("Missing flag: " + match);
         return false;
     }
 

@@ -16,7 +16,6 @@
 
 package android.hardware.input.cts.tests;
 
-import android.content.Intent;
 import android.hardware.cts.R;
 import android.server.wm.WindowManagerStateHelper;
 import android.view.KeyEvent;
@@ -53,14 +52,8 @@ public class RazerRaijuMobileBluetoothTest extends InputHidTestCase {
      */
     @Test
     public void testHomeKey() throws Exception {
-        mActivityRule.getActivity().addUnhandleKeyCode(KeyEvent.KEYCODE_BUTTON_MODE);
+        mTestActivity.addUnhandleKeyCode(KeyEvent.KEYCODE_BUTTON_MODE);
         testInputEvents(R.raw.razer_raiju_mobile_bluetooth_homekey);
-        // Put DUT on home screen
-        Intent intent = new Intent();
-        intent.addCategory(Intent.CATEGORY_HOME);
-        intent.setAction(Intent.ACTION_MAIN);
-        mActivityRule.getActivity().startActivity(intent);
-
 
         WindowManagerStateHelper wmStateHelper = new WindowManagerStateHelper();
 

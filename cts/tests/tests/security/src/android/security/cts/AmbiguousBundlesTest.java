@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.os.BaseBundle;
@@ -27,21 +27,29 @@ import android.view.AbsSavedState;
 import android.view.View;
 import android.view.View.BaseSavedState;
 import android.annotation.SuppressLint;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.Random;
 
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
 import android.security.cts.R;
 import android.platform.test.annotations.AsbSecurityTest;
 
-public class AmbiguousBundlesTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AmbiguousBundlesTest extends StsExtraBusinessLogicTestCase {
 
     /**
      * b/140417434
      * Vulnerability Behaviour: Failure via Exception
      */
     @AsbSecurityTest(cveBugId = 140417434)
+    @Test
     public void test_android_CVE_2020_0082() throws Exception {
 
         Ambiguator ambiguator = new Ambiguator() {
@@ -180,6 +188,7 @@ public class AmbiguousBundlesTest extends AndroidTestCase {
      * b/71992105
      */
     @AsbSecurityTest(cveBugId = 71992105)
+    @Test
     public void test_android_CVE_2017_13310() throws Exception {
 
         Ambiguator ambiguator = new Ambiguator() {
@@ -270,6 +279,7 @@ public class AmbiguousBundlesTest extends AndroidTestCase {
      * b/71508348
      */
     @AsbSecurityTest(cveBugId = 71508348)
+    @Test
     public void test_android_CVE_2018_9339() throws Exception {
 
         Ambiguator ambiguator = new Ambiguator() {
@@ -373,6 +383,7 @@ public class AmbiguousBundlesTest extends AndroidTestCase {
      * b/62998805
      */
     @AsbSecurityTest(cveBugId = 62998805)
+    @Test
     public void test_android_CVE_2017_0806() throws Exception {
         Ambiguator ambiguator = new Ambiguator() {
             @Override
@@ -436,6 +447,7 @@ public class AmbiguousBundlesTest extends AndroidTestCase {
      * b/73252178
      */
     @AsbSecurityTest(cveBugId = 73252178)
+    @Test
     public void test_android_CVE_2017_13311() throws Exception {
         Ambiguator ambiguator = new Ambiguator() {
             @Override
@@ -530,6 +542,7 @@ public class AmbiguousBundlesTest extends AndroidTestCase {
      * b/71714464
      */
     @AsbSecurityTest(cveBugId = 71714464)
+    @Test
     public void test_android_CVE_2017_13287() throws Exception {
         Ambiguator ambiguator = new Ambiguator() {
             @Override

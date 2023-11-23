@@ -36,6 +36,7 @@ from acts.event.event import TestClassBeginEvent
 from acts.event.event import TestClassEndEvent
 from acts.libs.proc import job
 from paramiko.buffered_pipe import PipeTimeout
+from paramiko.ssh_exception import SSHException
 MOBLY_CONTROLLER_CONFIG_NAME = 'IPerfClient'
 ACTS_CONTROLLER_REFERENCE_NAME = 'iperf_clients'
 
@@ -243,8 +244,10 @@ class IPerfClientOverSsh(IPerfClientBase):
         except socket.timeout:
             raise TimeoutError('Socket timeout. Timed out waiting for iperf '
                                'client to finish.')
-        except Exception as e:
-            logging.exception('iperf run failed.')
+        except SSHException as err:
+            raise ConnectionError('SSH connection failed: {}'.format(err))
+        except Exception as err:
+            logging.exception('iperf run failed: {}'.format(err))
 
         return full_out_path
 

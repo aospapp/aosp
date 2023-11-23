@@ -168,6 +168,7 @@ class ProfileSessionImpl {
   std::string FindSimpleperf();
   std::string FindSimpleperfInTempDir();
   void CheckIfPerfEnabled();
+  std::string GetProperty(const std::string& name);
   void CreateSimpleperfDataDir();
   void CreateSimpleperfProcess(const std::string& simpleperf_path,
                                const std::vector<std::string>& record_args);
@@ -373,13 +374,27 @@ std::string ProfileSessionImpl::FindSimpleperfInTempDir() {
 }
 
 void ProfileSessionImpl::CheckIfPerfEnabled() {
+  if (GetProperty("persist.simpleperf.profile_app_uid") == std::to_string(getuid())) {
+    std::string time_str = GetProperty("persist.simpleperf.profile_app_expiration_time");
+    if (!time_str.empty()) {
+      errno = 0;
+      uint64_t expiration_time = strtoull(time_str.data(), nullptr, 10);
+      if (errno == 0 && expiration_time > time(nullptr)) {
+        return;
+      }
+    }
+  }
+  if (GetProperty("security.perf_harden") == "1") {
+    Abort("Recording app isn't enabled on the device. Please run api_profiler.py.");
+  }
+}
+
+std::string ProfileSessionImpl::GetProperty(const std::string& name) {
   std::string s;
-  if (!RunCmd({"/system/bin/getprop", "security.perf_harden"}, &s)) {
-    return;  // Omit check if getprop doesn't exist.
+  if (!RunCmd({"/system/bin/getprop", name.c_str()}, &s)) {
+    return "";
   }
-  if (!s.empty() && s[0] == '1') {
-    Abort("linux perf events aren't enabled on the device. Please run api_profiler.py.");
-  }
+  return s;
 }
 
 void ProfileSessionImpl::CreateSimpleperfDataDir() {

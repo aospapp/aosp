@@ -77,6 +77,28 @@ static void validatePrepareModel(const std::shared_ptr<IDevice>& device, const s
     ASSERT_EQ(nullptr, preparedModel.get());
 }
 
+static void validatePrepareModelWithConfig(const std::shared_ptr<IDevice>& device,
+                                           const std::string& message, const Model& model,
+                                           ExecutionPreference preference, Priority priority) {
+    SCOPED_TRACE(message + " [prepareModelWithConfig]");
+
+    std::shared_ptr<PreparedModelCallback> preparedModelCallback =
+            ndk::SharedRefBase::make<PreparedModelCallback>();
+    const auto prepareLaunchStatus = device->prepareModelWithConfig(
+            model, {preference, priority, kNoDeadline, {}, {}, kEmptyCacheTokenArray, {}, {}},
+            preparedModelCallback);
+    ASSERT_FALSE(prepareLaunchStatus.isOk());
+    ASSERT_EQ(prepareLaunchStatus.getExceptionCode(), EX_SERVICE_SPECIFIC);
+    ASSERT_EQ(static_cast<ErrorStatus>(prepareLaunchStatus.getServiceSpecificError()),
+              ErrorStatus::INVALID_ARGUMENT);
+
+    preparedModelCallback->wait();
+    ErrorStatus prepareReturnStatus = preparedModelCallback->getStatus();
+    ASSERT_EQ(ErrorStatus::INVALID_ARGUMENT, prepareReturnStatus);
+    std::shared_ptr<IPreparedModel> preparedModel = preparedModelCallback->getPreparedModel();
+    ASSERT_EQ(nullptr, preparedModel.get());
+}
+
 static bool validExecutionPreference(ExecutionPreference preference) {
     return preference == ExecutionPreference::LOW_POWER ||
            preference == ExecutionPreference::FAST_SINGLE_ANSWER ||
@@ -103,6 +125,13 @@ static void validate(const std::shared_ptr<IDevice>& device, const std::string& 
     }
 
     validatePrepareModel(device, message, model, preference, priority);
+
+    int32_t aidlVersion;
+    ASSERT_TRUE(device->getInterfaceVersion(&aidlVersion).isOk());
+    if (aidlVersion >= kMinAidlLevelForFL8) {
+        // prepareModelWithConfig must satisfy all requirements enforced by prepareModel.
+        validatePrepareModelWithConfig(device, message, model, preference, priority);
+    }
 }
 
 static uint32_t addOperand(Model* model) {
@@ -1122,6 +1151,7 @@ static bool removeOperationInputSkip(const Operation& op, size_t input) {
     //   align_corners and half_pixel_centers parameters.
     // - L2_NORMALIZATION, LOCAL_RESPONSE_NORMALIZATION, SOFTMAX can have an optional axis
     //   parameter.
+    // - PACK has at least 2 inputs, with the first element being INT32.
     switch (op.type) {
         case OperationType::CONCATENATION: {
             if (op.inputs.size() > 2 && input != op.inputs.size() - 1) {
@@ -1175,6 +1205,11 @@ static bool removeOperationInputSkip(const Operation& op, size_t input) {
         } break;
         case OperationType::SOFTMAX: {
             if (op.inputs.size() == 3 && input == 2) {
+                return true;
+            }
+        } break;
+        case OperationType::PACK: {
+            if (op.inputs.size() > 2 && input != 0) {
                 return true;
             }
         } break;
@@ -1315,8 +1350,8 @@ static void mutateExecutionPriorityTest(const std::shared_ptr<IDevice>& device,
 
 void validateModel(const std::shared_ptr<IDevice>& device, const Model& model) {
     const auto numberOfConsumers =
-            nn::countNumberOfConsumers(model.main.operands.size(),
-                                       nn::unvalidatedConvert(model.main.operations).value())
+            countNumberOfConsumers(model.main.operands.size(),
+                                   nn::unvalidatedConvert(model.main.operations).value())
                     .value();
     mutateExecutionOrderTest(device, model, numberOfConsumers);
     mutateOperandTypeTest(device, model);

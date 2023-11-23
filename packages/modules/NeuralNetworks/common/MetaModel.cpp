@@ -79,7 +79,7 @@ bool invalid(const Model& model, Version version, bool strictSlicing) {
         CHECK(!strictSlicing);
         return true;
     }
-    if (maybeVersion.value() > version) {
+    if (!isCompliantVersion(maybeVersion.value(), version)) {
         LOG(WARNING) << "Sliced model fails validate(): insufficient version ("
                      << maybeVersion.value() << " vs " << version << ")";
         CHECK(!strictSlicing);
@@ -99,7 +99,8 @@ MetaModel::MetaModel(Model model, bool strictSlicing)
 MetaModel::ReturnedSlice MetaModel::getSlice(Version version) const {
     // All slices of versions of at least mModelMinimumSupportedVersion are identical, so do not
     // create more than one such slice.
-    version = std::min(version, mModelMinimumSupportedVersion);
+    version.level = std::min(version.level, mModelMinimumSupportedVersion.level);
+    version.runtimeOnlyFeatures &= mModelMinimumSupportedVersion.runtimeOnlyFeatures;
 
     auto& slice = mCachedSlices[version];
     if (slice.mState == SliceState::UNINITIALIZED) {
@@ -174,7 +175,7 @@ class MetaModel::OrigOperandToSlicedInputOperandIndex {
                 validateOperandAndAnythingItDependsOn(operand, kOperandValuesSize, kPoolSizes,
                                                       subgraphs, subgraphVersionCache.get())
                         .value();
-        CHECK_LE(minimumSupportedOperandVersion, kSlicedVersion);
+        CHECK(isCompliantVersion(minimumSupportedOperandVersion, kSlicedVersion));
 
         uint32_t slicedOperandIndex = extend(&mSlicedOperands, operand).first;
         mMap[operand] = slicedOperandIndex;
@@ -345,18 +346,27 @@ std::set<uint32_t> MetaModel::getNoncompliantOperations(Version version) const {
                         operation, mModel.main.operands, operandValuesSize, poolSizes,
                         mModel.referenced, subgraphVersionCache.get())
                         .value();
-        if (minSupportedVersion > version) {
+        if (!isCompliantVersion(minSupportedVersion, version)) {
             noncompliantOperations.insert(i);
         }
     }
     return noncompliantOperations;
 }
 
+bool MetaModel::Comparison::operator()(Version lhs, Version rhs) const {
+    constexpr auto toTuple = [](const Version& v) {
+        return std::tie(v.level, v.runtimeOnlyFeatures);
+    };
+    // Lexicographical comparison of the fields. The bool is promoted to an integer for the
+    // comparison such that "false < true".
+    return toTuple(lhs) < toTuple(rhs);
+}
+
 MetaModel::Slice MetaModel::makeSlice(Version version) const {
     Slice slice;
 
     // Quickly return if the model is already compliant with `version`
-    if (version >= mModelMinimumSupportedVersion) {
+    if (isCompliantVersion(mModelMinimumSupportedVersion, version)) {
         slice.mModel = mModel;
         slice.mSlicedOperationIndexToOrigIndex =
                 std::vector<uint32_t>(mModel.main.operations.size());

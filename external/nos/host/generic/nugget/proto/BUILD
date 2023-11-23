@@ -330,6 +330,7 @@ proto_library(
 
 proto_library(
     name = "nugget_app_avb_avb_proto",
+    visibility = ["//visibility:public"],
     srcs = [
         "nugget/app/avb/avb.proto",
     ],
@@ -341,6 +342,7 @@ proto_library(
 
 proto_library(
     name = "nugget_app_keymaster_keymaster_proto",
+    visibility = ["//visibility:public"],
     srcs = [
         "nugget/app/keymaster/keymaster.proto",
         "nugget/app/keymaster/keymaster_defs.proto",
@@ -403,6 +405,7 @@ proto_library(
 
 proto_library(
     name = "nugget_app_weaver_weaver_proto",
+    visibility = ["//visibility:public"],
     srcs = [
         "nugget/app/weaver/weaver.proto",
     ],
@@ -414,6 +417,7 @@ proto_library(
 
 proto_library(
     name = "nugget_app_identity_identity_proto",
+    visibility = ["//visibility:public"],
     srcs = [
         "nugget/app/identity/identity.proto",
         "nugget/app/identity/identity_defs.proto",

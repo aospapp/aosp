@@ -43,3 +43,7 @@ allow hal_neuralnetworks_darwinn proc_overcommit_memory:file r_file_perms;
 # Allows the logging service to access /sys/class/edgetpu
 allow hal_neuralnetworks_darwinn sysfs_edgetpu:dir r_dir_perms;
 allow hal_neuralnetworks_darwinn sysfs_edgetpu:file r_file_perms;
+
+# Allows the NNAPI HAL to access the edgetpu_app_service
+allow hal_neuralnetworks_darwinn edgetpu_app_service:service_manager find;
+binder_call(hal_neuralnetworks_darwinn, edgetpu_app_server);

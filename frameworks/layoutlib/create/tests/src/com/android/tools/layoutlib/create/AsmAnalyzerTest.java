@@ -19,6 +19,7 @@ package com.android.tools.layoutlib.create;
 
 import com.android.tools.layoutlib.create.AsmAnalyzer.DependencyVisitor;
 import com.android.tools.layoutlib.create.AsmAnalyzer.Result;
+import com.android.tools.layoutlib.create.ICreateInfo.MethodReplacer;
 
 import org.junit.Test;
 import org.objectweb.asm.ClassReader;
@@ -55,7 +56,8 @@ public class AsmAnalyzerTest {
     private static AsmAnalyzer getDefaultAnalyzer() {
         MockLog log = new MockLog();
         return new AsmAnalyzer(log, MOCK_ANDROID_JAR, null ,
-                null /* includeGlobs */, DEFAULT_EXCLUDES, DEFAULT_INCLUDE_FILES);
+                null /* includeGlobs */, DEFAULT_EXCLUDES, DEFAULT_INCLUDE_FILES,
+                new MethodReplacer[] {});
     }
 
     @Test
@@ -84,6 +86,7 @@ public class AsmAnalyzerTest {
                 "mock_android.fake2.keep.DoNotRemove",
                 "mock_android.util.EmptyArray",
                 "mock_android.util.NotNeeded",
+                "mock_android.view.LibLoader",
                 "mock_android.view.View",
                 "mock_android.view.ViewGroup",
                 "mock_android.view.ViewGroup$LayoutParams",
@@ -126,7 +129,8 @@ public class AsmAnalyzerTest {
                     "mock_android.fake2.*", // Exclude subpackages select
                 },
                 DEFAULT_EXCLUDES,
-                DEFAULT_INCLUDE_FILES);
+                DEFAULT_INCLUDE_FILES,
+                new MethodReplacer[] {});
         Result result = analyzer.analyze();
         assertArrayEquals(new String[] {
                         "mock_android.fake.InnerTest$NotStaticInner1",

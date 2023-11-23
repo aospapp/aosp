@@ -33,50 +33,40 @@
 
 namespace simpleperf {
 
-static bool ReadSymbols(
-    const std::vector<uint64_t>& dex_file_offsets,
-    const std::function<std::unique_ptr<art_api::dex::DexFile>(uint64_t offset)>& open_file_cb,
-    const std::function<void(DexFileSymbol*)>& symbol_cb) {
-  for (uint64_t dex_offset : dex_file_offsets) {
-    std::unique_ptr<art_api::dex::DexFile> dex_file = open_file_cb(dex_offset);
-    if (dex_file == nullptr) {
-      return false;
-    }
-
-    auto callback = [&](const art_api::dex::DexFile::Method& method) {
-      size_t name_size, code_size;
-      const char* name = method.GetQualifiedName(/*with_params=*/false, &name_size);
-      size_t offset = method.GetCodeOffset(&code_size);
-      DexFileSymbol symbol{std::string_view(name, name_size), dex_offset + offset, code_size};
-      symbol_cb(&symbol);
-    };
-    dex_file->ForEachMethod(callback);
-  }
-
-  return true;
+static void ReadSymbols(art_api::dex::DexFile& dex_file, uint64_t file_offset,
+                        const std::function<void(DexFileSymbol*)>& symbol_cb) {
+  auto callback = [&](const art_api::dex::DexFile::Method& method) {
+    size_t name_size, code_size;
+    const char* name = method.GetQualifiedName(/*with_params=*/false, &name_size);
+    size_t offset = method.GetCodeOffset(&code_size);
+    DexFileSymbol symbol{std::string_view(name, name_size), file_offset + offset, code_size};
+    symbol_cb(&symbol);
+  };
+  dex_file.ForEachMethod(callback);
 }
 
-bool ReadSymbolsFromDexFileInMemory(void* addr, uint64_t size,
+bool ReadSymbolsFromDexFileInMemory(void* addr, uint64_t size, const std::string& debug_filename,
                                     const std::vector<uint64_t>& dex_file_offsets,
                                     const std::function<void(DexFileSymbol*)>& symbol_callback) {
-  return ReadSymbols(
-      dex_file_offsets,
-      [&](uint64_t offset) -> std::unique_ptr<art_api::dex::DexFile> {
-        size_t max_file_size;
-        if (__builtin_sub_overflow(size, offset, &max_file_size)) {
-          return nullptr;
-        }
-        uint8_t* file_addr = static_cast<uint8_t*>(addr) + offset;
-        std::unique_ptr<art_api::dex::DexFile> dex_file;
-        art_api::dex::DexFile::Error error_msg =
-          art_api::dex::DexFile::Create(file_addr, max_file_size, nullptr, "", &dex_file);
-        if (dex_file == nullptr) {
-          LOG(WARNING) << "Failed to read dex file symbols: " << error_msg.ToString();
-          return nullptr;
-        }
-        return dex_file;
-      },
-      symbol_callback);
+  for (uint64_t file_offset : dex_file_offsets) {
+    size_t max_file_size;
+    if (__builtin_sub_overflow(size, file_offset, &max_file_size)) {
+      LOG(WARNING) << "failed to read dex file symbols from " << debug_filename << "(offset "
+                   << file_offset << ")";
+      return false;
+    }
+    uint8_t* file_addr = static_cast<uint8_t*>(addr) + file_offset;
+    std::unique_ptr<art_api::dex::DexFile> dex_file;
+    art_api::dex::DexFile::Error error_msg =
+        art_api::dex::DexFile::Create(file_addr, max_file_size, nullptr, "", &dex_file);
+    if (dex_file == nullptr) {
+      LOG(WARNING) << "failed to read dex file symbols from " << debug_filename << "(offset "
+                   << file_offset << "): " << error_msg.ToString();
+      return false;
+    }
+    ReadSymbols(*dex_file, file_offset, symbol_callback);
+  }
+  return true;
 }
 
 bool ReadSymbolsFromDexFile(const std::string& file_path,
@@ -95,7 +85,8 @@ bool ReadSymbolsFromDexFile(const std::string& file_path,
   if (map == nullptr) {
     return false;
   }
-  return ReadSymbolsFromDexFileInMemory(map->data(), file_size, dex_file_offsets, symbol_callback);
+  return ReadSymbolsFromDexFileInMemory(map->data(), file_size, file_path, dex_file_offsets,
+                                        symbol_callback);
 }
 
 }  // namespace simpleperf

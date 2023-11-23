@@ -97,9 +97,9 @@ Result<PackageInfo> getPackageInfoForNativeUid(
 sp<PackageInfoResolver> PackageInfoResolver::sInstance = nullptr;
 GetpwuidFunction PackageInfoResolver::sGetpwuidHandler = &getpwuid;
 
-sp<IPackageInfoResolver> PackageInfoResolver::getInstance() {
+sp<PackageInfoResolverInterface> PackageInfoResolver::getInstance() {
     if (sInstance == nullptr) {
-        sInstance = new PackageInfoResolver();
+        sInstance = sp<PackageInfoResolver>::make();
     }
     return sInstance;
 }
@@ -109,7 +109,7 @@ void PackageInfoResolver::terminate() {
 }
 
 Result<void> PackageInfoResolver::initWatchdogServiceHelper(
-        const sp<IWatchdogServiceHelper>& watchdogServiceHelper) {
+        const sp<WatchdogServiceHelperInterface>& watchdogServiceHelper) {
     std::unique_lock writeLock(mRWMutex);
     if (watchdogServiceHelper == nullptr) {
         return Error() << "Must provide a non-null watchdog service helper instance";

@@ -1,14 +1,11 @@
 type hal_usb_impl, domain;
 hal_server_domain(hal_usb_impl, hal_usb)
-hal_server_domain(hal_usb_impl, hal_usb_gadget)
 
 type hal_usb_impl_exec, vendor_file_type, exec_type, file_type;
 init_daemon_domain(hal_usb_impl)
 
-allow hal_usb_impl configfs:dir { create rmdir };
-allow hal_usb_impl functionfs:dir { watch watch_reads };
-set_prop(hal_usb_impl, vendor_usb_config_prop)
-
+allow hal_usb_impl configfs:dir rw_dir_perms;
+allow hal_usb_impl configfs:file create_file_perms;
 allow hal_usb_impl sysfs_batteryinfo:dir r_dir_perms;
 allow hal_usb_impl sysfs_batteryinfo:file rw_file_perms;
 allow hal_usb_impl sysfs_extcon:dir search;
@@ -26,3 +23,6 @@ hal_client_domain(hal_usb_impl, hal_thermal);
 
 # For reading the usb-c throttling stats
 allow hal_usb_impl sysfs_usbc_throttling_stats:file r_file_perms;
+
+# For checking contaminant detection status
+get_prop(hal_usb_impl, vendor_usb_config_prop);

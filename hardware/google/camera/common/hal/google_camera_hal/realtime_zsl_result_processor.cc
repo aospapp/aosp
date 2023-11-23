@@ -15,16 +15,16 @@
  */
 
 //#define LOG_NDEBUG 0
+#include "hal_types.h"
 #define LOG_TAG "GCH_RealtimeZslResultProcessor"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
-
-#include "realtime_zsl_result_processor.h"
 
 #include <inttypes.h>
 #include <log/log.h>
 #include <utils/Trace.h>
 
 #include "hal_utils.h"
+#include "realtime_zsl_result_processor.h"
 
 namespace android {
 namespace google_camera_hal {
@@ -249,6 +249,7 @@ void RealtimeZslResultProcessor::ProcessResult(ProcessBlockResult block_result) 
       result->output_buffers.size() == 0) {
     return;
   }
+
   process_capture_result_(std::move(result));
 }
 

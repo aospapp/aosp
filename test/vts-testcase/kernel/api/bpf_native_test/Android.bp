@@ -29,10 +29,10 @@ cc_defaults {
         "libbase",
     ],
     static_libs: [
-        "libbpf",
+        "libbpf_bcc",
         "libbpf_android",
+        "libbpf_minimal",
         "libnetdutils",
-        "libprocessgroup",
         "libtestUtil",
     ],
     cflags: [
@@ -49,8 +49,7 @@ cc_defaults {
 
 bpf {
     name: "kern.o",
-    // header_libs: ["netd_bpf_progs_headers"],
-    include_dirs: ["system/netd/bpf_progs"],
+    include_dirs: ["packages/modules/Connectivity/bpf_progs"],
     srcs: ["kern.c"],
     cflags: [
         "-Wall",

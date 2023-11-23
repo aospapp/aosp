@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"수락"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"휴대전화 소유자 정보 없음"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"본인 휴대전화인 경우 연필 아이콘을 탭하여 정보를 추가하세요. 긴급 상황 시 여기 표시됩니다."</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"휴대전화를 잠금 해제한 상태에서 연필 아이콘을 탭하여 긴급 상황 시 여기에 표시할 정보를 추가하세요."</string>
     <string name="clear_all" msgid="8899013032870561633">"모두 삭제"</string>
     <string name="clear" msgid="3648880442502887163">"삭제"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"모든 정보 및 연락처를 삭제하시겠습니까?"</string>

@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Αποκλεισμός κλήσεων από καρτοτηλέφωνα"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Άγνωστος"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Αποκλεισμός κλήσεων από αγνώστους"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Μη διαθέσιμος"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Αποκλεισμός κλήσεων όταν ο αριθμός δεν είναι διαθέσιμος"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Φραγή κλήσεων"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Φραγή κλήσεων απενεργοποιημένη"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Πραγματοποιήθηκε κλήση έκτακτης ανάγκης"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Η φραγή κλήσεων έχει απενεργοποιηθεί, ώστε να επιτρέπεται σε άτομα που ανταποκρίνονται σε έκτακτες ανάγκες να επικοινωνούν μαζί σας."</string>
     <string name="developer_title" msgid="9146088855661672353">"Μενού προγραμματιστών τηλεπικοινωνιών"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Δεν είναι δυνατή η λήψη κλήσεων κατά τη διάρκεια κλήσης επείγουσας ανάγκης."</string>
+    <string name="cancel" msgid="6733466216239934756">"Ακύρωση"</string>
 </resources>

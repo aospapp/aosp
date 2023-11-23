@@ -16,12 +16,15 @@
 
 package android.car.media;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
-import android.media.AudioDevicePort;
-import android.media.AudioPatch;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.util.Preconditions;
 
 /**
@@ -45,35 +48,18 @@ public final class CarAudioPatchHandle implements Parcelable {
      *
      * @hide
      */
-    public CarAudioPatchHandle(AudioPatch patch) {
-        Preconditions.checkArgument(patch.sources().length == 1
-                && patch.sources()[0].port() instanceof AudioDevicePort,
-                "Accepts exactly one device port as source");
-        Preconditions.checkArgument(patch.sinks().length == 1
-                && patch.sinks()[0].port() instanceof AudioDevicePort,
-                "Accepts exactly one device port as sink");
-
-        mHandleId = patch.id();
-        mSourceAddress = ((AudioDevicePort) patch.sources()[0].port()).address();
-        mSinkAddress = ((AudioDevicePort) patch.sinks()[0].port()).address();
-    }
-
-    /**
-     * Returns true if this instance matches the provided AudioPatch object.
-     * This is intended only for use by the CarAudioManager implementation when
-     * communicating with the AudioManager API.
-     *
-     * Effectively only the {@link #mHandleId} is used for comparison,
-     * {@link android.media.AudioSystem#listAudioPatches(java.util.ArrayList, int[])}
-     * does not populate the device type and address properly.
-     *
-     * @hide
-     */
-    public boolean represents(AudioPatch patch) {
-        return patch.id() == mHandleId;
+    public CarAudioPatchHandle(int patchId,
+            @NonNull String sourceAddress,
+            @NonNull String sinkAddress) {
+        mSourceAddress = Preconditions.checkNotNull(sourceAddress,
+                "Patch id %d Source's Address device can not be null", patchId);
+        mSinkAddress = Preconditions.checkNotNull(sinkAddress,
+                "Patch id %d Sink's Address device can not be null", patchId);
+        mHandleId = patchId;
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return "Patch (mHandleId=" + mHandleId + "): "
                 + mSourceAddress + " => " + mSinkAddress;
@@ -92,12 +78,14 @@ public final class CarAudioPatchHandle implements Parcelable {
      * Serialize our internal data to a parcel
      */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(Parcel out, int flags) {
         out.writeInt(mHandleId);
         out.writeString(mSourceAddress);
         out.writeString(mSinkAddress);
     }
 
+    @AddedInOrBefore(majorVersion = 33)
     public static final Parcelable.Creator<CarAudioPatchHandle> CREATOR =
                 new Parcelable.Creator<CarAudioPatchHandle>() {
             public CarAudioPatchHandle createFromParcel(Parcel in) {
@@ -110,7 +98,39 @@ public final class CarAudioPatchHandle implements Parcelable {
         };
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() {
         return 0;
+    }
+
+    /**
+     * returns the source address
+     *
+     * @hide
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public String getSourceAddress() {
+        return mSourceAddress;
+    }
+
+    /**
+     * returns the sink address
+     *
+     * @hide
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public String getSinkAddress() {
+        return mSinkAddress;
+    }
+
+    /**
+     * returns the patch handle
+     *
+     * @hide
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    public int getHandleId() {
+        return mHandleId;
     }
 }

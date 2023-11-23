@@ -98,7 +98,7 @@ public class LocalizedNumberFormatter extends NumberFormatterSettings<LocalizedN
         MeasureUnit unit = input.getUnit();
         FormattedStringBuilder string = new FormattedStringBuilder();
         MicroProps micros = formatImpl(fq, unit, string);
-        return new FormattedNumber(string, fq, micros.outputUnit);
+        return new FormattedNumber(string, fq, micros.outputUnit, micros.gender);
     }
 
     /**
@@ -122,7 +122,7 @@ public class LocalizedNumberFormatter extends NumberFormatterSettings<LocalizedN
     private FormattedNumber format(DecimalQuantity fq) {
         FormattedStringBuilder string = new FormattedStringBuilder();
         MicroProps micros = formatImpl(fq, string);
-        return new FormattedNumber(string, fq, micros.outputUnit);
+        return new FormattedNumber(string, fq, micros.outputUnit, micros.gender);
     }
 
     /**

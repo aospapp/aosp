@@ -20,7 +20,10 @@ import static com.android.internal.net.eap.EapAuthenticator.LOG;
 import static com.android.internal.net.eap.statemachine.EapMethodStateMachine.MIN_EMSK_LEN_BYTES;
 import static com.android.internal.net.eap.statemachine.EapMethodStateMachine.MIN_MSK_LEN_BYTES;
 
+import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.net.eap.EapInfo;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.eap.exceptions.InvalidEapResponseException;
@@ -30,7 +33,6 @@ import com.android.internal.net.eap.message.EapMessage;
  * EapResult represents the return type R for a process operation within the EapStateMachine.
  */
 public abstract class EapResult {
-
     /**
      * EapSuccess represents a success response from the EapStateMachine.
      *
@@ -42,8 +44,13 @@ public abstract class EapResult {
 
         public final byte[] msk;
         public final byte[] emsk;
+        public final EapInfo mEapInfo;
 
         public EapSuccess(@NonNull byte[] msk, @NonNull byte[] emsk) {
+            this(msk, emsk, null);
+        }
+
+        public EapSuccess(@NonNull byte[] msk, @NonNull byte[] emsk, @Nullable EapInfo eapInfo) {
             if (msk == null || emsk == null) {
                 throw new IllegalArgumentException("msk and emsk must not be null");
             }
@@ -57,6 +64,12 @@ public abstract class EapResult {
             }
             this.msk = msk;
             this.emsk = emsk;
+            this.mEapInfo = eapInfo;
+        }
+
+        @Nullable
+        public EapInfo getEapInfo() {
+            return mEapInfo;
         }
     }
 
@@ -76,10 +89,42 @@ public abstract class EapResult {
      */
     public static class EapResponse extends EapResult {
         public final byte[] packet;
+        // holds bitmask representing multiple flags
+        public final int flagMask;
+
+        // flags to capture additional high level state information
+        @IntDef({RESPONSE_FLAG_EAP_AKA_SERVER_AUTHENTICATED})
+        public @interface EapResponseFlag {}
+
+        public static final int RESPONSE_FLAG_EAP_AKA_SERVER_AUTHENTICATED = 0;
 
         @VisibleForTesting
-        protected EapResponse(byte[] packet) {
+        protected EapResponse(byte[] packet, @EapResponseFlag int[] flagsToAdd) {
             this.packet = packet;
+            this.flagMask = createFlagMask(flagsToAdd);
+        }
+
+        /**
+         * Constructs and returns an EapResult for the given EapMessage.
+         *
+         * <p>If the given EapMessage is not of type EAP-Response, an EapError object will be
+         * returned.
+         *
+         * @param message the EapMessage to be encoded in the EapResponse instance.
+         * @param flagsToAdd list of EAP auth state related flags
+         * @return an EapResponse instance for the given message. If message.eapCode != {@link
+         *     EapMessage#EAP_CODE_RESPONSE}, an EapError instance is returned.
+         */
+        public static EapResult getEapResponse(
+                @NonNull EapMessage message, @EapResponseFlag int[] flagsToAdd) {
+            if (message == null) {
+                throw new IllegalArgumentException("EapMessage should not be null");
+            } else if (message.eapCode != EapMessage.EAP_CODE_RESPONSE) {
+                return new EapError(new InvalidEapResponseException(
+                        "Cannot construct an EapResult from a non-EAP-Response message"));
+            }
+
+            return new EapResponse(message.encode(), flagsToAdd);
         }
 
         /**
@@ -90,17 +135,32 @@ public abstract class EapResult {
          *
          * @param message the EapMessage to be encoded in the EapResponse instance.
          * @return an EapResponse instance for the given message. If message.eapCode != {@link
-         * EapMessage#EAP_CODE_RESPONSE}, an EapError instance is returned.
+         *     EapMessage#EAP_CODE_RESPONSE}, an EapError instance is returned.
          */
         public static EapResult getEapResponse(@NonNull EapMessage message) {
-            if (message == null) {
-                throw new IllegalArgumentException("EapMessage should not be null");
-            } else if (message.eapCode != EapMessage.EAP_CODE_RESPONSE) {
-                return new EapError(new InvalidEapResponseException(
-                        "Cannot construct an EapResult from a non-EAP-Response message"));
-            }
+            return getEapResponse(message, null);
+        }
 
-            return new EapResponse(message.encode());
+        /**
+         * Utility that clients should use to check presence of a EapResponseFlag in the bitmask
+         * received in IEapCallback.onResponse()
+         *
+         * @param flagMask flags that client received in {@link IEapCallback.onResponse()}
+         * @param flagToCheck flag to test. See {@link EapResult.EapResponse.EapResponseFlag}
+         * @return returns true if flagToCheck is present
+         */
+        public static boolean hasFlag(int flagMask, @EapResponseFlag int flagToCheck) {
+            return ((flagMask & (1 << flagToCheck)) != 0);
+        }
+
+        private static int createFlagMask(@EapResponseFlag int[] flagsToAdd) {
+            int flagMask = 0;
+            if ((flagsToAdd != null) && flagsToAdd.length > 0) {
+                for (int flag : flagsToAdd) {
+                    flagMask |= (1 << flag);
+                }
+            }
+            return flagMask;
         }
     }
 

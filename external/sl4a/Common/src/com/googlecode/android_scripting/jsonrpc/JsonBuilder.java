@@ -60,6 +60,7 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.os.Bundle;
 import android.os.ParcelUuid;
+import android.os.PersistableBundle;
 import android.os.connectivity.WifiActivityEnergyInfo;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -380,6 +381,9 @@ public class JsonBuilder {
         }
         if (data instanceof ServiceState) {
             return buildServiceState((ServiceState) data);
+        }
+        if (data instanceof PersistableBundle) {
+            return buildPersistableBundle((PersistableBundle) data);
         }
 
         return data.toString();
@@ -1558,6 +1562,15 @@ public class JsonBuilder {
         info.put("TxTimeMs", build(txPowerDurations));
         info.put("RxTimeMs", modemInfo.getReceiveTimeMillis());
         return info;
+    }
+
+    private static JSONObject buildPersistableBundle(
+            PersistableBundle bundle) throws JSONException {
+        JSONObject result = new JSONObject();
+        for (String key : bundle.keySet()) {
+            result.put(key, build(bundle.get(key)));
+        }
+        return result;
     }
 
     private static JSONObject buildSignalStrength(SignalStrength signalStrength)

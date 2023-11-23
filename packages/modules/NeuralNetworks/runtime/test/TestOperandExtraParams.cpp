@@ -190,15 +190,17 @@ TEST_F(OperandExtraParamsTest, TestChannelQuantValuesBadDim) {
 
 TEST_F(OperandExtraParamsTest, TestChannelQuantValuesBadScalesCount) {
     // Bad .scaleCount value
-    static float scales[4] = {1.0, 2.0, 3.0, 4.0};
+    constexpr size_t kLowScaleCount = 3;
+    constexpr size_t kHighScaleCount = 10;
+    static float scales[kHighScaleCount] = {1.0, 2.0, 3.0, 4.0};
     ANeuralNetworksSymmPerChannelQuantParams lowScaleCountExt = {
             .channelDim = 3,
-            .scaleCount = 3,
+            .scaleCount = kLowScaleCount,
             .scales = scales,
     };
     ANeuralNetworksSymmPerChannelQuantParams highScaleCountExt = {
             .channelDim = 3,
-            .scaleCount = 10,
+            .scaleCount = kHighScaleCount,
             .scales = scales,
     };
 

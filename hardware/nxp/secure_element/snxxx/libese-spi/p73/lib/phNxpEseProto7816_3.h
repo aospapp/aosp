@@ -193,14 +193,14 @@ typedef struct phNxpEseProto7816_ATR_Info {
   uint8_t numChannels;     /*!< ATR: Number of logical connections supported */
   uint8_t maxIFSC[2];      /*!< ATR: Maximum size of IFS supported */
   uint8_t capabilities[2]; /*!< ATR: Bitmap to indicate various features
-                         supported by SE Bit-1: SE Data Available Line
-                         supported. Bit-2: SE Data available polarity. 1 - Data
-                         available GPIO will be pulled HIGH when SE response is
-                         ready Bit 3: SE chip reset S-blk command supported
-                         Bit-4: Extended frame length feature supported Bit-5:
-                         Support for more than one logical channel Bit 6 to 16:
-                         Reserved for future use
-                         */
+                        supported by SE Bit-1: SE Data Available Line supported.
+                        Bit-2: SE Data available polarity. 1 - Data available
+                        GPIO will be pulled HIGH when SE response is ready Bit
+                        3: SE chip reset S-blk command supported Bit-4: Extended
+                        frame length feature supported Bit-5: Support for more
+                        than one logical channel Bit 6 to 16: Reserved for
+                        future use
+                        */
 } phNxpEseProto7816_ATR_Info_t;
 
 typedef struct phNxpEseProto7816_ATR_Info2 {

@@ -18,6 +18,7 @@ package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.checks.infrastructure.TestFile
 import com.android.tools.metalava.DriverTest
+import com.android.tools.metalava.java
 import org.intellij.lang.annotations.Language
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -25,7 +26,6 @@ import org.junit.Test
 class JavadocTest : DriverTest() {
     private fun checkStubs(
         @Language("JAVA") source: String,
-        compatibilityMode: Boolean = true,
         warnings: String? = "",
         api: String? = null,
         extraArguments: Array<String> = emptyArray(),
@@ -39,7 +39,6 @@ class JavadocTest : DriverTest() {
             sourceFiles = sourceFiles,
             showAnnotations = showAnnotations,
             stubFiles = arrayOf(java(source)),
-            compatibilityMode = compatibilityMode,
             expectedIssues = warnings,
             checkCompilation = true,
             api = api,
@@ -164,6 +163,7 @@ class JavadocTest : DriverTest() {
                     @SuppressWarnings({"unchecked", "deprecation", "all"})
                     @Deprecated
                     public class SomeClass {
+                    @Deprecated
                     public SomeClass() { throw new RuntimeException("Stub!"); }
                     /**
                      * My method.
@@ -172,8 +172,9 @@ class JavadocTest : DriverTest() {
                      * @throws java.io.IOException when blah blah blah
                      * @throws {@link java.lang.RuntimeException RuntimeException} when blah blah blah
                      */
+                    @Deprecated
                     public void baz(int focus) throws java.io.IOException { throw new RuntimeException("Stub!"); }
-                    public boolean importance;
+                    @Deprecated public boolean importance;
                     }
                     """
         )
@@ -263,6 +264,7 @@ class JavadocTest : DriverTest() {
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 @Deprecated
                 public class SomeClass {
+                @Deprecated
                 public SomeClass() { throw new RuntimeException("Stub!"); }
                 /**
                  * My method.
@@ -271,8 +273,9 @@ class JavadocTest : DriverTest() {
                  * @throws java.io.IOException when blah blah blah
                  * @throws {@link java.lang.RuntimeException} when blah blah blah
                  */
+                @Deprecated
                 public void baz(int focus) throws java.io.IOException { throw new RuntimeException("Stub!"); }
-                public boolean importance;
+                @Deprecated public boolean importance;
                 }
                 """
         )
@@ -428,7 +431,7 @@ class JavadocTest : DriverTest() {
         )
     }
 
-        @Test
+    @Test
     fun `Rewrite relative documentation links in doc-stubs but preserve custom link text`() {
         checkStubs(
             docStubs = true,
@@ -674,7 +677,6 @@ class JavadocTest : DriverTest() {
     fun `Check references to inherited field constants`() {
         checkStubs(
             docStubs = true,
-            compatibilityMode = false,
             warnings = "",
             sourceFiles = arrayOf(
                 java(
@@ -772,7 +774,6 @@ class JavadocTest : DriverTest() {
     fun `Handle @attr references`() {
         checkStubs(
             docStubs = true,
-            compatibilityMode = false,
             warnings = "",
             sourceFiles = arrayOf(
                 java(
@@ -817,7 +818,6 @@ class JavadocTest : DriverTest() {
     fun `Rewrite parameter list`() {
         checkStubs(
             docStubs = true,
-            compatibilityMode = false,
             warnings = "",
             sourceFiles = arrayOf(
                 java(
@@ -881,7 +881,6 @@ class JavadocTest : DriverTest() {
     fun `Rewrite parameter list 2`() {
         checkStubs(
             docStubs = true,
-            compatibilityMode = false,
             warnings = "",
             sourceFiles = arrayOf(
                 java(
@@ -931,7 +930,6 @@ class JavadocTest : DriverTest() {
         @Suppress("ConstantConditionIf")
         checkStubs(
             docStubs = true,
-            compatibilityMode = false,
             warnings =
             if (REPORT_UNRESOLVED_SYMBOLS) {
                 """
@@ -1065,7 +1063,6 @@ class JavadocTest : DriverTest() {
     @Test
     fun `Ensure references to classes in JavaDoc of hidden members do not affect imports`() {
         check(
-            compatibilityMode = false,
             sourceFiles = arrayOf(
                 java(
                     """

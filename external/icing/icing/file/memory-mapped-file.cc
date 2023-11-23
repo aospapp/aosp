@@ -70,10 +70,10 @@ void MemoryMappedFile::MemoryMappedFile::Unmap() {
 
 libtextclassifier3::Status MemoryMappedFile::Remap(size_t file_offset,
                                                    size_t mmap_size) {
-  // First unmap any previously mmapped region.
-  Unmap();
-
   if (mmap_size == 0) {
+    // First unmap any previously mmapped region.
+    Unmap();
+
     // Nothing more to do.
     return libtextclassifier3::Status::OK;
   }
@@ -118,15 +118,19 @@ libtextclassifier3::Status MemoryMappedFile::Remap(size_t file_offset,
         "Unable to open file meant to be mmapped: ", file_path_));
   }
 
-  mmap_result_ = mmap(nullptr, adjusted_mmap_size, protection_flags, mmap_flags,
-                      fd.get(), aligned_offset);
+  void* mmap_result = mmap(nullptr, adjusted_mmap_size, protection_flags,
+                           mmap_flags, fd.get(), aligned_offset);
 
-  if (mmap_result_ == MAP_FAILED) {
-    mmap_result_ = nullptr;
+  if (mmap_result == MAP_FAILED) {
     return absl_ports::InternalError(absl_ports::StrCat(
         "Failed to mmap region due to error: ", strerror(errno)));
   }
 
+  // Now we know that we have successfully created a new mapping. We can free
+  // the old one and switch to the new one.
+  Unmap();
+
+  mmap_result_ = mmap_result;
   file_offset_ = file_offset;
   region_ = reinterpret_cast<char*>(mmap_result_) + alignment_adjustment;
   region_size_ = mmap_size;

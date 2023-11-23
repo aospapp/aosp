@@ -26,6 +26,7 @@ import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
+import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.util.Log;
 import android.util.Pair;
@@ -65,6 +66,8 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
             return;
         }
         Bundle extra = new Bundle();
+        extra.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
         mTelecomManager.startConference(PARTICIPANTS, extra);
         ConnectionRequest request = verifyAdhocConferenceCall().second;
         assertTrue(request.isAdhocConferenceCall());

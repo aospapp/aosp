@@ -36,8 +36,8 @@ static struct tcase {
 	unsigned short tst_bit;
 	char *desc;
 } tcases[] = {
-	{TEST_FILE, O_RDWR | O_CREAT, 01444, S_ISVTX, "Sticky bit"},
-	{TEST_DIR, O_DIRECTORY, 0, S_IFDIR, "Directory bit"}
+	{TEST_FILE, O_RDWR | O_CREAT, 01444, S_ISVTX, "sticky bit"},
+	{TEST_DIR, O_DIRECTORY, 0, S_IFDIR, "sirectory bit"}
 };
 
 static void verify_open(unsigned int n)
@@ -45,12 +45,12 @@ static void verify_open(unsigned int n)
 	struct tcase *tc = &tcases[n];
 	struct stat buf;
 
-	TEST(open(tc->filename, tc->flag, tc->mode));
-	fd = TST_RET;
-	if (fd == -1) {
-		tst_res(TFAIL, "Cannot open a file");
+	TST_EXP_FD_SILENT(open(tc->filename, tc->flag, tc->mode),
+	           "open() with %s", tc->desc);
+	if (!TST_PASS)
 		return;
-	}
+
+	fd = TST_RET;
 
 	SAFE_FSTAT(fd, &buf);
 	if (!(buf.st_mode & tc->tst_bit))

@@ -72,25 +72,6 @@
                 android:background="@null"
                 systemui:broadcast="true"
             />
-
-            <com.android.systemui.car.hvac.AnimatedTemperatureView
-                android:id="@+id/lefttext"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:paddingStart="@*android:dimen/car_padding_4"
-                android:paddingEnd="16dp"
-                android:gravity="center_vertical|start"
-                android:minEms="4"
-                android:textAppearance="@style/TextAppearance.CarStatus"
-                systemui:hvacAreaId="49"
-                systemui:hvacMaxText="Max"
-                systemui:hvacMaxValue="126"
-                systemui:hvacMinText="Min"
-                systemui:hvacMinValue="0"
-                systemui:hvacPivotOffset="60dp"
-                systemui:hvacPropertyId="358614275"
-                systemui:hvacTempFormat="%.0f\u00B0"
-            />
         </FrameLayout>
         <View
             android:layout_width="match_parent"
@@ -109,25 +90,6 @@
                 android:layout_height="match_parent"
                 android:background="@null"
                 systemui:broadcast="true"
-            />
-
-            <com.android.systemui.car.hvac.AnimatedTemperatureView
-                android:id="@+id/righttext"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:paddingStart="16dp"
-                android:paddingEnd="@*android:dimen/car_padding_4"
-                android:gravity="center_vertical|end"
-                android:minEms="4"
-                android:textAppearance="@style/TextAppearance.CarStatus"
-                systemui:hvacAreaId="68"
-                systemui:hvacMaxText="Max"
-                systemui:hvacMaxValue="126"
-                systemui:hvacMinText="Min"
-                systemui:hvacMinValue="0"
-                systemui:hvacPivotOffset="60dp"
-                systemui:hvacPropertyId="358614275"
-                systemui:hvacTempFormat="%.0f\u00B0"
             />
         </FrameLayout>
     </LinearLayout>

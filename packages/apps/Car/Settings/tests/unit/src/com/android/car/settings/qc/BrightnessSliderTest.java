@@ -24,6 +24,6 @@ import org.junit.runner.RunWith;
 public class BrightnessSliderTest extends BrightnessSliderTestCase {
     @Override
     protected BrightnessSlider getBrightnessSlider() {
-        return new BrightnessSlider(getContext());
+        return new BrightnessSlider(mContext);
     }
 }

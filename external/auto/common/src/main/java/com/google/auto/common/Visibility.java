@@ -16,14 +16,15 @@
 package com.google.auto.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Comparators.min;
 import static javax.lang.model.element.ElementKind.PACKAGE;
 
 import com.google.common.base.Enums;
-import com.google.common.collect.Ordering;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Represents the visibility of a given {@link Element}: {@code public}, {@code protected},
@@ -41,7 +42,7 @@ public enum Visibility {
 
   // TODO(ronshapiro): remove this and reference ElementKind.MODULE directly once we start building
   // with -source 9
-  private static final ElementKind MODULE =
+  private static final @Nullable ElementKind MODULE =
       Enums.getIfPresent(ElementKind.class, "MODULE").orNull();
 
   /**
@@ -76,8 +77,7 @@ public enum Visibility {
     Visibility effectiveVisibility = PUBLIC;
     Element currentElement = element;
     while (currentElement != null) {
-      effectiveVisibility =
-          Ordering.natural().min(effectiveVisibility, ofElement(currentElement));
+      effectiveVisibility = min(effectiveVisibility, ofElement(currentElement));
       currentElement = currentElement.getEnclosingElement();
     }
     return effectiveVisibility;

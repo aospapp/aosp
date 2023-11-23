@@ -72,8 +72,9 @@ void fsck_usage()
 	MSG(0, "  -f check/fix entire partition\n");
 	MSG(0, "  -g add default options\n");
 	MSG(0, "  -l show superblock/checkpoint\n");
+	MSG(0, "  -M show a file map\n");
 	MSG(0, "  -O feature1[feature2,feature3,...] e.g. \"encrypt\"\n");
-	MSG(0, "  -p preen mode [default:0 the same as -a [0|1]]\n");
+	MSG(0, "  -p preen mode [default:0 the same as -a [0|1|2]]\n");
 	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -t show directory tree\n");
 	MSG(0, "  -q preserve quota limits\n");
@@ -93,6 +94,7 @@ void dump_usage()
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -i inode no (hex)\n");
 	MSG(0, "  -n [NAT dump nid from #1~#2 (decimal), for all 0~-1]\n");
+	MSG(0, "  -M show a block map\n");
 	MSG(0, "  -s [SIT dump segno from #1~#2 (decimal), for all 0~-1]\n");
 	MSG(0, "  -S sparse_mode\n");
 	MSG(0, "  -a [SSA dump segno from #1~#2 (decimal), for all 0~-1]\n");
@@ -149,7 +151,8 @@ void sload_usage()
 	MSG(0, "    * -i or -x: use it many times for multiple extensions.\n");
 	MSG(0, "    * -i and -x cannot be used together..\n");
 	MSG(0, "    -m <num> min compressed blocks per cluster\n");
-	MSG(0, "    -r readonly (IMMUTABLE) for compressed files\n");
+	MSG(0, "    -r read only (to release unused blocks) for compressed "
+			"files\n");
 	MSG(0, "    ------------------------------------------------------\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -V print the version number and exit\n");
@@ -227,7 +230,7 @@ void f2fs_parse_options(int argc, char *argv[])
 	}
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = ":aC:c:m:d:fg:lO:p:q:StyV";
+		const char *option_string = ":aC:c:m:Md:fg:lO:p:q:StyV";
 		int opt = 0, val;
 		char *token;
 		struct option long_opt[] = {
@@ -276,6 +279,9 @@ void f2fs_parse_options(int argc, char *argv[])
 				break;
 			case 'l':
 				c.layout = 1;
+				break;
+			case 'M':
+				c.show_file_map = 1;
 				break;
 			case 'O':
 				if (parse_feature(feature_table, optarg))
@@ -376,7 +382,7 @@ void f2fs_parse_options(int argc, char *argv[])
 		}
 	} else if (!strcmp("dump.f2fs", prog)) {
 #ifdef WITH_DUMP
-		const char *option_string = "d:i:n:s:Sa:b:V";
+		const char *option_string = "d:i:n:Ms:Sa:b:V";
 		static struct dump_option dump_opt = {
 			.nid = 0,	/* default root ino */
 			.start_nat = -1,
@@ -422,6 +428,9 @@ void f2fs_parse_options(int argc, char *argv[])
 				ret = sscanf(optarg, "%d~%d",
 							&dump_opt.start_nat,
 							&dump_opt.end_nat);
+				break;
+			case 'M':
+				c.show_file_map = 1;
 				break;
 			case 's':
 				ret = sscanf(optarg, "%d~%d",
@@ -650,7 +659,7 @@ void f2fs_parse_options(int argc, char *argv[])
 				}
 				c.compress.min_blocks = val;
 				break;
-			case 'r': /* compress file to set IMMUTABLE */
+			case 'r': /* for setting FI_COMPRESS_RELEASED */
 				c.compress.required = true;
 				c.compress.readonly = true;
 				break;
@@ -811,6 +820,7 @@ static int do_fsck(struct f2fs_sb_info *sbi)
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	u32 flag = le32_to_cpu(ckpt->ckpt_flags);
 	u32 blk_cnt;
+	struct f2fs_compr_blk_cnt cbc;
 	errcode_t ret;
 
 	fsck_init(sbi);
@@ -858,6 +868,8 @@ static int do_fsck(struct f2fs_sb_info *sbi)
 
 	/* Traverse all block recursively from root inode */
 	blk_cnt = 1;
+	cbc.cnt = 0;
+	cbc.cheader_pgofs = CHEADER_PGOFS_NONE;
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_QUOTA_INO)) {
 		ret = quota_init_context(sbi);
@@ -868,7 +880,7 @@ static int do_fsck(struct f2fs_sb_info *sbi)
 	}
 	fsck_chk_orphan_node(sbi);
 	fsck_chk_node_blk(sbi, NULL, sbi->root_ino_num,
-			F2FS_FT_DIR, TYPE_INODE, &blk_cnt, NULL);
+			F2FS_FT_DIR, TYPE_INODE, &blk_cnt, &cbc, NULL);
 	fsck_chk_quota_files(sbi);
 
 	ret = fsck_verify(sbi);
@@ -1108,7 +1120,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Get device */
-	if (f2fs_get_device_info() < 0) {
+	if (f2fs_get_device_info() < 0 || f2fs_get_f2fs_info() < 0) {
 		ret = -1;
 		if (c.func == FSCK)
 			ret = FSCK_OPERATIONAL_ERROR;
@@ -1208,7 +1220,8 @@ retry:
 	if (c.func == SLOAD)
 		c.compress.filter_ops->destroy();
 
-	printf("\nDone: %lf secs\n", (get_boottime_ns() - start) / 1000000000.0);
+	if (!c.show_file_map)
+		printf("\nDone: %lf secs\n", (get_boottime_ns() - start) / 1000000000.0);
 	return ret;
 
 out_err:

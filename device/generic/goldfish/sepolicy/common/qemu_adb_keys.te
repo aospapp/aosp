@@ -11,3 +11,5 @@ allow qemu_adb_keys proc_bootconfig:file r_file_perms;
 # Permission to write to /data/vendor/adb/adb_keys.
 allow qemu_adb_keys vendor_data_file:dir create_dir_perms;
 allow qemu_adb_keys vendor_data_file:file create_file_perms;
+allow qemu_adb_keys sysfs_dt_firmware_android:dir search;
+allow qemu_adb_keys sysfs_dt_firmware_android:file r_file_perms;

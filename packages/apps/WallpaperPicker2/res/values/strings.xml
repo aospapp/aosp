@@ -81,7 +81,7 @@
 
     <!-- Label referring to both the home screen and the lock screen of the
          device. [CHAR LIMIT=100] -->
-    <string name="set_wallpaper_both_destination">Home and lock screen</string>
+    <string name="set_wallpaper_both_destination">Home and lock screens</string>
 
     <!-- Label describing a live wallpaper whose responsibility is to display a different wallpaper
          on a periodic basis (i.e., in a daily rotation). [CHAR LIMIT=80] -->
@@ -299,6 +299,13 @@
          [CHAR_LIMIT=25] -->
     <string name="tab_customize">Customize</string>
 
+    <!-- Label for the 'Effects' tab of view pager in wallpaper preview activity.
+         [CHAR_LIMIT=25] -->
+    <string name="tab_effects">Effects</string>
+
+    <!-- Generic label for the my photos action [CHAR_LIMIT=20] -->
+    <string name="my_photos">My Photos</string>
+
     <!-- List item for configuring the current wallpaper [CHAR LIMIT=30] -->
     <string name="configure_wallpaper">Settings…</string>
 
@@ -345,6 +352,9 @@
     <!-- Error message of the wallpaper's collection doesn't exist. [CHAR_LIMIT=NONE] -->
     <string name="collection_not_exist_msg">The collection doesn\'t exist</string>
 
+    <!-- Label for a cancel button of a dialog. [CHAR LIMIT=30] -->
+    <string name="cancel">Cancel</string>
+
     <!-- Label for a button which lets user hide certain parts of the fullscreen preview UI. [CHAR LIMIT=30] -->
     <string name="hide_ui_preview_text">Hide UI Preview</string>
 
@@ -380,4 +390,13 @@
 
     <!-- Content description for info panel is shown. [CHAR_LIMIT=50] -->
     <string name="accessibility_info_shown">Info shown</string>
+
+    <!-- Description of navigation to settings. [CHAR LIMIT=NONE] -->
+    <string name="settings_snackbar_description">Please enable files and media in settings.</string>
+
+    <!-- Label for a button which lets user try to navigation to settings. [CHAR LIMIT=25] -->
+    <string name="settings_snackbar_enable">Enable</string>
+
+    <!-- Label for a button which lets user try to open their photos. [CHAR LIMIT=40] -->
+    <string name="open_my_photos">Open My Photos</string>
 </resources>

@@ -33,6 +33,7 @@
 #include "gc_root-inl.h"
 #include "imtable-inl.h"
 #include "intrinsics_enum.h"
+#include "jit/jit.h"
 #include "jit/profiling_info.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
@@ -101,6 +102,13 @@ inline ObjPtr<mirror::Class> ArtMethod::ResolveClassFromTypeIndex(dex::TypeIndex
   return type;
 }
 
+inline bool ArtMethod::IsOverridableByDefaultMethod() {
+  // It is safe to avoid the read barrier here since the constant interface flag
+  // in the `Class` object is stored before creating the `ArtMethod` and storing
+  // the declaring class reference. See `ReadBarrierOption`.
+  return GetDeclaringClass<kWithoutReadBarrier>()->IsInterface();
+}
+
 inline bool ArtMethod::CheckIncompatibleClassChange(InvokeType type) {
   switch (type) {
     case kStatic:
@@ -146,14 +154,14 @@ inline bool ArtMethod::IsCalleeSaveMethod() {
 inline bool ArtMethod::IsResolutionMethod() {
   bool result = this == Runtime::Current()->GetResolutionMethod();
   // Check that if we do think it is phony it looks like the resolution method.
-  DCHECK(!result || IsRuntimeMethod());
+  DCHECK_IMPLIES(result, IsRuntimeMethod());
   return result;
 }
 
 inline bool ArtMethod::IsImtUnimplementedMethod() {
   bool result = this == Runtime::Current()->GetImtUnimplementedMethod();
   // Check that if we do think it is phony it looks like the imt unimplemented method.
-  DCHECK(!result || IsRuntimeMethod());
+  DCHECK_IMPLIES(result, IsRuntimeMethod());
   return result;
 }
 
@@ -209,9 +217,7 @@ inline std::string_view ArtMethod::GetNameView() {
   if (LIKELY(dex_method_idx != dex::kDexNoIndex)) {
     DCHECK(!IsProxyMethod());
     const DexFile* dex_file = GetDexFile();
-    uint32_t length = 0;
-    const char* name = dex_file->GetMethodName(dex_file->GetMethodId(dex_method_idx), &length);
-    return StringViewFromUtf16Length(name, length);
+    return dex_file->GetMethodNameView(dex_method_idx);
   }
   return GetRuntimeMethodName();
 }
@@ -220,6 +226,17 @@ inline ObjPtr<mirror::String> ArtMethod::ResolveNameString() {
   DCHECK(!IsProxyMethod());
   const dex::MethodId& method_id = GetDexFile()->GetMethodId(GetDexMethodIndex());
   return Runtime::Current()->GetClassLinker()->ResolveString(method_id.name_idx_, this);
+}
+
+inline bool ArtMethod::NameEquals(ObjPtr<mirror::String> name) {
+  DCHECK(!IsProxyMethod());
+  const DexFile* dex_file = GetDexFile();
+  const dex::MethodId& method_id = dex_file->GetMethodId(GetDexMethodIndex());
+  const dex::StringIndex name_idx = method_id.name_idx_;
+  uint32_t utf16_length;
+  const char* utf8_name = dex_file->StringDataAndUtf16LengthByIdx(name_idx, &utf16_length);
+  return dchecked_integral_cast<uint32_t>(name->GetLength()) == utf16_length &&
+         name->Equals(utf8_name);
 }
 
 inline const dex::CodeItem* ArtMethod::GetCodeItem() {
@@ -282,7 +299,9 @@ inline const dex::ClassDef& ArtMethod::GetClassDef() {
 
 inline size_t ArtMethod::GetNumberOfParameters() {
   constexpr size_t return_type_count = 1u;
-  return strlen(GetShorty()) - return_type_count;
+  uint32_t shorty_length;
+  GetShorty(&shorty_length);
+  return shorty_length - return_type_count;
 }
 
 inline const char* ArtMethod::GetReturnTypeDescriptor() {
@@ -338,8 +357,8 @@ inline ArtMethod* ArtMethod::GetInterfaceMethodIfProxy(PointerSize pointer_size)
   ArtMethod* interface_method = GetInterfaceMethodForProxyUnchecked(pointer_size);
   // We can check that the proxy class implements the interface only if the proxy class
   // is resolved, otherwise the interface table is not yet initialized.
-  DCHECK(!GetDeclaringClass()->IsResolved() ||
-         interface_method->GetDeclaringClass()->IsAssignableFrom(GetDeclaringClass()));
+  DCHECK_IMPLIES(GetDeclaringClass()->IsResolved(),
+                 interface_method->GetDeclaringClass()->IsAssignableFrom(GetDeclaringClass()));
   return interface_method;
 }
 
@@ -379,7 +398,7 @@ void ArtMethod::VisitRoots(RootVisitorType& visitor, PointerSize pointer_size) {
       // However, for proxies we need to keep the interface method alive, so we visit its roots.
       ArtMethod* interface_method = GetInterfaceMethodForProxyUnchecked(pointer_size);
       DCHECK(interface_method != nullptr);
-      interface_method->VisitRoots(visitor, pointer_size);
+      interface_method->VisitRoots<kReadBarrierOption>(visitor, pointer_size);
     }
   }
 }
@@ -412,9 +431,59 @@ inline CodeItemDebugInfoAccessor ArtMethod::DexInstructionDebugInfo() {
   return CodeItemDebugInfoAccessor(*GetDexFile(), GetCodeItem(), GetDexMethodIndex());
 }
 
-inline void ArtMethod::SetCounter(uint16_t hotness_count) {
+inline bool ArtMethod::CounterHasChanged(uint16_t threshold) {
   DCHECK(!IsAbstract());
-  hotness_count_ = hotness_count;
+  DCHECK_EQ(threshold, Runtime::Current()->GetJITOptions()->GetWarmupThreshold());
+  return hotness_count_ != threshold;
+}
+
+inline void ArtMethod::ResetCounter(uint16_t new_value) {
+  if (IsAbstract()) {
+    return;
+  }
+  if (IsMemorySharedMethod()) {
+    return;
+  }
+  DCHECK_EQ(new_value, Runtime::Current()->GetJITOptions()->GetWarmupThreshold());
+  // Avoid dirtying the value if possible.
+  if (hotness_count_ != new_value) {
+    hotness_count_ = new_value;
+  }
+}
+
+inline void ArtMethod::SetHotCounter() {
+  DCHECK(!IsAbstract());
+  // Avoid dirtying the value if possible.
+  if (hotness_count_ != 0) {
+    hotness_count_ = 0;
+  }
+}
+
+inline void ArtMethod::UpdateCounter(int32_t new_samples) {
+  DCHECK(!IsAbstract());
+  DCHECK_GT(new_samples, 0);
+  DCHECK_LE(new_samples, std::numeric_limits<uint16_t>::max());
+  if (IsMemorySharedMethod()) {
+    return;
+  }
+  uint16_t old_hotness_count = hotness_count_;
+  uint16_t new_count = (old_hotness_count <= new_samples) ? 0u : old_hotness_count - new_samples;
+  // Avoid dirtying the value if possible.
+  if (old_hotness_count != new_count) {
+    hotness_count_ = new_count;
+  }
+}
+
+inline bool ArtMethod::CounterIsHot() {
+  DCHECK(!IsAbstract());
+  return hotness_count_ == 0;
+}
+
+inline bool ArtMethod::CounterHasReached(uint16_t samples, uint16_t threshold) {
+  DCHECK(!IsAbstract());
+  DCHECK_EQ(threshold, Runtime::Current()->GetJITOptions()->GetWarmupThreshold());
+  DCHECK_LE(samples, threshold);
+  return hotness_count_ <= (threshold - samples);
 }
 
 inline uint16_t ArtMethod::GetCounter() {

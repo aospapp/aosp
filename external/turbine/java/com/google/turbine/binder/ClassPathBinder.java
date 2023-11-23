@@ -36,9 +36,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /** Sets up an environment for symbols on the classpath. */
-public class ClassPathBinder {
+public final class ClassPathBinder {
 
   /**
    * The prefix for repackaged transitive dependencies; see {@link
@@ -57,7 +58,7 @@ public class ClassPathBinder {
     Env<ClassSymbol, BytecodeBoundClass> benv =
         new Env<ClassSymbol, BytecodeBoundClass>() {
           @Override
-          public BytecodeBoundClass get(ClassSymbol sym) {
+          public @Nullable BytecodeBoundClass get(ClassSymbol sym) {
             return map.get(sym);
           }
         };
@@ -92,7 +93,7 @@ public class ClassPathBinder {
       }
 
       @Override
-      public Supplier<byte[]> resource(String path) {
+      public @Nullable Supplier<byte[]> resource(String path) {
         return resources.get(path);
       }
     };
@@ -148,4 +149,6 @@ public class ClassPathBinder {
           }
         });
   }
+
+  private ClassPathBinder() {}
 }

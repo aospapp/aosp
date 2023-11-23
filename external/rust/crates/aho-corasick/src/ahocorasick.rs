@@ -1,14 +1,14 @@
 use std::io;
 
-use automaton::Automaton;
-use buffer::Buffer;
-use dfa::{self, DFA};
-use error::Result;
-use nfa::{self, NFA};
-use packed;
-use prefilter::{Prefilter, PrefilterState};
-use state_id::StateID;
-use Match;
+use crate::automaton::Automaton;
+use crate::buffer::Buffer;
+use crate::dfa::{self, DFA};
+use crate::error::Result;
+use crate::nfa::{self, NFA};
+use crate::packed;
+use crate::prefilter::{Prefilter, PrefilterState};
+use crate::state_id::StateID;
+use crate::Match;
 
 /// An automaton for searching multiple strings in linear time.
 ///
@@ -1005,18 +1005,6 @@ impl<S: StateID> AhoCorasick<S> {
     ///
     /// let ac = AhoCorasickBuilder::new()
     ///     .dfa(true)
-    ///     .byte_classes(false)
-    ///     .build(&["foo", "bar", "baz"]);
-    /// assert_eq!(20_768, ac.heap_bytes());
-    ///
-    /// let ac = AhoCorasickBuilder::new()
-    ///     .dfa(true)
-    ///     .byte_classes(true) // default
-    ///     .build(&["foo", "bar", "baz"]);
-    /// assert_eq!(1_248, ac.heap_bytes());
-    ///
-    /// let ac = AhoCorasickBuilder::new()
-    ///     .dfa(true)
     ///     .ascii_case_insensitive(true)
     ///     .build(&["foo", "bar", "baz"]);
     /// assert_eq!(1_248, ac.heap_bytes());
@@ -1169,7 +1157,7 @@ impl<S: StateID> Imp<S> {
 ///
 /// The lifetime `'b` refers to the lifetime of the haystack being searched.
 #[derive(Debug)]
-pub struct FindIter<'a, 'b, S: 'a + StateID> {
+pub struct FindIter<'a, 'b, S: StateID> {
     fsm: &'a Imp<S>,
     prestate: PrefilterState,
     haystack: &'b [u8],
@@ -1226,7 +1214,7 @@ impl<'a, 'b, S: StateID> Iterator for FindIter<'a, 'b, S> {
 ///
 /// The lifetime `'b` refers to the lifetime of the haystack being searched.
 #[derive(Debug)]
-pub struct FindOverlappingIter<'a, 'b, S: 'a + StateID> {
+pub struct FindOverlappingIter<'a, 'b, S: StateID> {
     fsm: &'a Imp<S>,
     prestate: PrefilterState,
     haystack: &'b [u8],
@@ -1297,7 +1285,7 @@ impl<'a, 'b, S: StateID> Iterator for FindOverlappingIter<'a, 'b, S> {
 ///
 /// The lifetime `'a` refers to the lifetime of the `AhoCorasick` automaton.
 #[derive(Debug)]
-pub struct StreamFindIter<'a, R, S: 'a + StateID> {
+pub struct StreamFindIter<'a, R, S: StateID> {
     it: StreamChunkIter<'a, R, S>,
 }
 
@@ -1332,7 +1320,7 @@ impl<'a, R: io::Read, S: StateID> Iterator for StreamFindIter<'a, R, S> {
 /// N.B. This does not actually implement Iterator because we need to borrow
 /// from the underlying reader. But conceptually, it's still an iterator.
 #[derive(Debug)]
-struct StreamChunkIter<'a, R, S: 'a + StateID> {
+struct StreamChunkIter<'a, R, S: StateID> {
     /// The AC automaton.
     fsm: &'a Imp<S>,
     /// State associated with this automaton's prefilter. It is a heuristic
@@ -1681,7 +1669,7 @@ impl AhoCorasickBuilder {
             // N.B. Using byte classes can actually be faster by improving
             // locality, but this only really applies for multi-megabyte
             // automata (i.e., automata that don't fit in your CPU's cache).
-            self.dfa(true).byte_classes(false);
+            self.dfa(true);
         } else if patterns.len() <= 5000 {
             self.dfa(true);
         }
@@ -1928,6 +1916,10 @@ impl AhoCorasickBuilder {
     /// overall performance.
     ///
     /// This option is enabled by default.
+    #[deprecated(
+        since = "0.7.16",
+        note = "not carrying its weight, will be always enabled, see: https://github.com/BurntSushi/aho-corasick/issues/57"
+    )]
     pub fn byte_classes(&mut self, yes: bool) -> &mut AhoCorasickBuilder {
         self.dfa_builder.byte_classes(yes);
         self
@@ -1956,6 +1948,10 @@ impl AhoCorasickBuilder {
     /// non-premultiplied form only requires 8 bits.
     ///
     /// This option is enabled by default.
+    #[deprecated(
+        since = "0.7.16",
+        note = "not carrying its weight, will be always enabled, see: https://github.com/BurntSushi/aho-corasick/issues/57"
+    )]
     pub fn premultiply(&mut self, yes: bool) -> &mut AhoCorasickBuilder {
         self.dfa_builder.premultiply(yes);
         self

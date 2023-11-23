@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.android;
 
-import com.android.SdkConstants;
+import com.android.ide.common.rendering.api.AndroidConstants;
 import com.android.ide.common.rendering.api.AssetRepository;
 import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ILayoutPullParser;
@@ -30,11 +30,12 @@ import com.android.ide.common.rendering.api.ResourceValueImpl;
 import com.android.ide.common.rendering.api.StyleResourceValue;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.BridgeConstants;
+import com.android.layoutlib.bridge.SessionInteractiveData;
 import com.android.layoutlib.bridge.impl.ParserFactory;
 import com.android.layoutlib.bridge.impl.ResourceHelper;
 import com.android.layoutlib.bridge.impl.Stack;
 import com.android.resources.ResourceType;
-import com.android.utils.Pair;
+import com.android.tools.layoutlib.annotations.NotNull;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -71,6 +72,7 @@ import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
+import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -86,6 +88,7 @@ import android.os.ShellCallback;
 import android.os.UserHandle;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Pair;
 import android.util.TypedValue;
 import android.view.BridgeInflater;
 import android.view.Display;
@@ -156,8 +159,6 @@ public class BridgeContext extends Context {
      */
     private final HashMap<Object, Object> mViewKeyHelpMap = new HashMap<>();
     private final BridgeAssetManager mAssets;
-    private final boolean mShadowsEnabled;
-    private final boolean mHighQualityShadows;
     private Resources mSystemResources;
     private final Object mProjectKey;
     private final DisplayMetrics mMetrics;
@@ -171,6 +172,7 @@ public class BridgeContext extends Context {
     private final ClipboardManager mClipboardManager;
     private final ActivityManager mActivityManager;
     private final ConnectivityManager mConnectivityManager;
+    private final AudioManager mAudioManager;
     private final HashMap<View, Integer> mScrollYPos = new HashMap<>();
     private final HashMap<View, Integer> mScrollXPos = new HashMap<>();
 
@@ -194,6 +196,8 @@ public class BridgeContext extends Context {
     private Boolean mIsThemeAppCompat;
     private final ResourceNamespace mAppCompatNamespace;
     private final Map<Key<?>, Object> mUserData = new HashMap<>();
+
+    private final SessionInteractiveData mSessionInteractiveData;
 
     /**
      * Some applications that target both pre API 17 and post API 17, set the newer attrs to
@@ -231,9 +235,7 @@ public class BridgeContext extends Context {
             @NonNull LayoutlibCallback layoutlibCallback,
             @NonNull Configuration config,
             int targetSdkVersion,
-            boolean hasRtlSupport,
-            boolean shadowsEnabled,
-            boolean highQualityShadows) {
+            boolean hasRtlSupport) {
         mProjectKey = projectKey;
         mMetrics = metrics;
         mLayoutlibCallback = layoutlibCallback;
@@ -260,6 +262,7 @@ public class BridgeContext extends Context {
         mClipboardManager = new ClipboardManager(this, null);
         mActivityManager = ActivityManager_Accessor.getActivityManagerInstance(this);
         mConnectivityManager = new ConnectivityManager(this, null);
+        mAudioManager = new AudioManager(this);
 
         if (mLayoutlibCallback.isResourceNamespacingRequired()) {
             if (mLayoutlibCallback.hasAndroidXAppCompat()) {
@@ -271,8 +274,7 @@ public class BridgeContext extends Context {
             mAppCompatNamespace = ResourceNamespace.RES_AUTO;
         }
 
-        mShadowsEnabled = shadowsEnabled;
-        mHighQualityShadows = highQualityShadows;
+        mSessionInteractiveData = new SessionInteractiveData();
     }
 
     /**
@@ -281,8 +283,10 @@ public class BridgeContext extends Context {
      *
      * @see #disposeResources()
      */
-    public void initResources() {
+    public void initResources(@NonNull AssetRepository assetRepository) {
         AssetManager assetManager = AssetManager.getSystem();
+
+        mAssets.setAssetRepository(assetRepository);
 
         mSystemResources = Resources_Delegate.initSystem(
                 this,
@@ -498,7 +502,7 @@ public class BridgeContext extends Context {
                         new BridgeXmlBlockParser(parser, this, layout.getNamespace());
                 try {
                     pushParser(blockParser);
-                    return Pair.of(
+                    return Pair.create(
                             mBridgeInflater.inflate(blockParser, parent, attachToRoot),
                             Boolean.TRUE);
                 } finally {
@@ -523,7 +527,8 @@ public class BridgeContext extends Context {
                             new BridgeXmlBlockParser(parser, this, layout.getNamespace());
                     try {
                         pushParser(blockParser);
-                        return Pair.of(mBridgeInflater.inflate(blockParser, parent, attachToRoot),
+                        return Pair.create(mBridgeInflater.inflate(blockParser, parent,
+                                attachToRoot),
                                 Boolean.FALSE);
                     } finally {
                         popParser();
@@ -545,7 +550,7 @@ public class BridgeContext extends Context {
                             layout.getName()), null, null);
         }
 
-        return Pair.of(null, Boolean.FALSE);
+        return Pair.create(null, Boolean.FALSE);
     }
 
     /**
@@ -662,11 +667,19 @@ public class BridgeContext extends Context {
                 return mConnectivityManager;
 
             case AUDIO_SERVICE:
+                return mAudioManager;
+
             case TEXT_CLASSIFICATION_SERVICE:
             case CONTENT_CAPTURE_MANAGER_SERVICE:
+            case ALARM_SERVICE:
                 return null;
             default:
-                assert false : "Unsupported Service: " + service;
+                // Only throw exception if the required service is unsupported but recognized as
+                // an existing system service.
+                assert SystemServiceRegistry.getSystemServiceClassName(service) == null :
+                        "Unsupported Service: " + service;
+                Bridge.getLog().warning(ILayoutLog.TAG_UNSUPPORTED, "Service " + service +
+                        " was not found or is unsupported", null, null);
         }
 
         return null;
@@ -718,20 +731,20 @@ public class BridgeContext extends Context {
             mTypedArrayCache.put(attrs, currentThemes, resId, typeArrayAndPropertiesPair);
         }
         // Add value to defaultPropsMap if needed
-        if (typeArrayAndPropertiesPair.getSecond() != null) {
+        if (typeArrayAndPropertiesPair.second != null) {
             BridgeXmlBlockParser parser = getCurrentParser();
             Object key = parser != null ? parser.getViewCookie() : null;
             if (key != null) {
                 Map<ResourceReference, ResourceValue> defaultPropMap = mDefaultPropMaps.get(key);
                 if (defaultPropMap == null) {
-                    defaultPropMap = typeArrayAndPropertiesPair.getSecond();
+                    defaultPropMap = typeArrayAndPropertiesPair.second;
                     mDefaultPropMaps.put(key, defaultPropMap);
                 } else {
-                    defaultPropMap.putAll(typeArrayAndPropertiesPair.getSecond());
+                    defaultPropMap.putAll(typeArrayAndPropertiesPair.second);
                 }
             }
         }
-        return typeArrayAndPropertiesPair.getFirst();
+        return typeArrayAndPropertiesPair.first;
     }
 
     /**
@@ -949,7 +962,7 @@ public class BridgeContext extends Context {
                         // If the value is a reference to another theme attribute that doesn't
                         // exist, we should log a warning and omit it.
                         String val = defaultValue.getValue();
-                        if (val != null && val.startsWith(SdkConstants.PREFIX_THEME_REF)) {
+                        if (val != null && val.startsWith(AndroidConstants.PREFIX_THEME_REF)) {
                             // Because we always use the latest framework code, some resources might
                             // fail to resolve when using old themes (they haven't been backported).
                             // Since this is an artifact caused by us using always the latest
@@ -1068,7 +1081,7 @@ public class BridgeContext extends Context {
 
         ta.sealArray();
 
-        return Pair.of(ta, defaultPropMap);
+        return Pair.create(ta, defaultPropMap);
     }
 
     /**
@@ -1694,6 +1707,13 @@ public class BridgeContext extends Context {
     }
 
     @Override
+    public Intent registerReceiverAsUser(BroadcastReceiver arg0, UserHandle arg0p5,
+            IntentFilter arg1, String arg2, Handler arg3, int arg4) {
+        // pass
+        return null;
+    }
+
+    @Override
     public void removeStickyBroadcast(Intent arg0) {
         // pass
 
@@ -2090,20 +2110,6 @@ public class BridgeContext extends Context {
         return true;
     }
 
-    /**
-     * Returns whether shadows should be rendered or not
-     */
-    public boolean isShadowsEnabled() {
-        return mShadowsEnabled;
-    }
-
-    /**
-     * Returns whether high quality shadows should be used
-     */
-    public boolean isHighQualityShadows() {
-        return mHighQualityShadows;
-    }
-
     public <T> void putUserData(@NonNull Key<T> key, @Nullable T data) {
         mUserData.put(key, data);
     }
@@ -2242,5 +2248,10 @@ public class BridgeContext extends Context {
             cacheFromResId.put(resId, value);
         }
 
+    }
+
+    @NotNull
+    public SessionInteractiveData getSessionInteractiveData() {
+        return mSessionInteractiveData;
     }
 }

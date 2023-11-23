@@ -20,20 +20,34 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.os.Build;
+import android.system.Os;
+import android.system.ErrnoException;
 import android.util.Log;
 import android.util.Pair;
 import android.widget.TextView;
-
+import androidx.test.InstrumentationRegistry;
+import com.android.nn.benchmark.core.sl.QualcommSupportLibraryDriverHandler;
+import com.android.nn.benchmark.core.sl.SupportLibraryDriverHandler;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
+import dalvik.system.BaseDexClassLoader;
+import android.content.res.AssetFileDescriptor;
+import android.os.ParcelFileDescriptor;
+import android.os.ParcelFileDescriptor.AutoCloseInputStream;
+import java.util.jar.JarFile;
+import java.util.jar.JarEntry;
 
 public class NNTestBase implements AutoCloseable {
     protected static final String TAG = "NN_TESTBASE";
@@ -61,7 +75,8 @@ public class NNTestBase implements AutoCloseable {
             boolean enableIntermediateTensorsDump,
             String nnApiDeviceName,
             boolean mmapModel,
-            String nnApiCacheDir) throws NnApiDelegationFailure;
+            String nnApiCacheDir,
+            long nnApiLibHandle) throws NnApiDelegationFailure;
 
     private synchronized native void destroyModel(long modelHandle);
 
@@ -75,7 +90,8 @@ public class NNTestBase implements AutoCloseable {
             int flags);
 
     private synchronized native CompilationBenchmarkResult runCompilationBenchmark(
-            long modelHandle, int maxNumIterations, float warmupTimeoutSec, float runTimeoutSec);
+        long modelHandle, int maxNumIterations, float warmupTimeoutSec, float runTimeoutSec,
+        boolean useNnapiSl);
 
     private synchronized native void dumpAllLayers(
             long modelHandle,
@@ -129,6 +145,29 @@ public class NNTestBase implements AutoCloseable {
     private String mTemporaryModelFilePath;
     private boolean mSampleResults;
 
+    // If set to true the test will look for the NNAPI SL binaries in the app resources,
+    // copy them into the app cache dir and configure the TfLite test to load NNAPI
+    // from the library.
+    private boolean mUseNnApiSupportLibrary = false;
+    private boolean mExtractNnApiSupportLibrary = false;
+
+    static final String USE_NNAPI_SL_PROPERTY = "useNnApiSupportLibrary";
+    static final String EXTRACT_NNAPI_SL_PROPERTY = "extractNnApiSupportLibrary";
+
+    private static boolean getBooleanTestParameter(String key, boolean defaultValue) {
+      // All instrumentation arguments are passed as String so I have to convert the value here.
+      return Boolean.parseBoolean(
+          InstrumentationRegistry.getArguments().getString(key, "" + defaultValue));
+    }
+
+    public static boolean shouldUseNnApiSupportLibrary() {
+      return getBooleanTestParameter(USE_NNAPI_SL_PROPERTY, false);
+    }
+
+    public static boolean shouldExtractNnApiSupportLibrary() {
+        return getBooleanTestParameter(EXTRACT_NNAPI_SL_PROPERTY, false);
+    }
+
     public NNTestBase(String modelName, String modelFile, int[] inputShape,
             InferenceInOutSequence.FromAssets[] inputOutputAssets,
             InferenceInOutSequence.FromDataset[] inputOutputDatasets,
@@ -169,6 +208,9 @@ public class NNTestBase implements AutoCloseable {
       setTfLiteBackend(TfLiteBackend.NNAPI);
     }
 
+    public  void setUseNnApiSupportLibrary(boolean value) {mUseNnApiSupportLibrary = value;}
+    public  void setExtractNnApiSupportLibrary(boolean value) {mExtractNnApiSupportLibrary = value;}
+
     public void setNNApiDeviceName(String value) {
         if (mTfLiteBackend != TfLiteBackend.NNAPI) {
             Log.e(TAG, "Setting device name has no effect when not using NNAPI");
@@ -182,6 +224,20 @@ public class NNTestBase implements AutoCloseable {
 
     public final boolean setupModel(Context ipcxt) throws IOException, NnApiDelegationFailure {
         mContext = ipcxt;
+        long nnApiLibHandle = 0;
+        if (mUseNnApiSupportLibrary) {
+          // TODO: support different drivers providers maybe with a flag
+          QualcommSupportLibraryDriverHandler qcSlhandler = new QualcommSupportLibraryDriverHandler();
+          nnApiLibHandle = qcSlhandler.getOrLoadNnApiSlHandle(mContext, mExtractNnApiSupportLibrary);
+          if (nnApiLibHandle == 0) {
+            Log.e(TAG, String
+                .format("Unable to find NNAPI SL entry point '%s' in embedded libraries path.",
+                    SupportLibraryDriverHandler.NNAPI_SL_LIB_NAME));
+            throw new NnApiDelegationFailure(String
+                .format("Unable to find NNAPI SL entry point '%s' in embedded libraries path.",
+                    SupportLibraryDriverHandler.NNAPI_SL_LIB_NAME));
+          }
+        }
         if (mTemporaryModelFilePath != null) {
             deleteOrWarn(mTemporaryModelFilePath);
         }
@@ -189,7 +245,7 @@ public class NNTestBase implements AutoCloseable {
         String nnApiCacheDir = mContext.getCodeCacheDir().toString();
         mModelHandle = initModel(
                 mTemporaryModelFilePath, mTfLiteBackend.ordinal(), mEnableIntermediateTensorsDump,
-                mNNApiDeviceName.orElse(null), mMmapModel, nnApiCacheDir);
+                mNNApiDeviceName.orElse(null), mMmapModel, nnApiCacheDir, nnApiLibHandle);
         if (mModelHandle == 0) {
             Log.e(TAG, "Failed to init the model");
             return false;
@@ -368,7 +424,8 @@ public class NNTestBase implements AutoCloseable {
             throw new UnsupportedModelException("Unsupported model");
         }
         CompilationBenchmarkResult result = runCompilationBenchmark(
-                mModelHandle, maxIterations, warmupTimeoutSec, runTimeoutSec);
+            mModelHandle, maxIterations, warmupTimeoutSec, runTimeoutSec,
+            shouldUseNnApiSupportLibrary());
         if (result == null) {
             throw new BenchmarkException("Failed to run compilation benchmark");
         }
@@ -418,15 +475,19 @@ public class NNTestBase implements AutoCloseable {
 
             try (InputStream in = assetManager.open(modelAssetName);
                  FileOutputStream out = new FileOutputStream(outFile)) {
-                byte[] byteBuffer = new byte[1024];
-                int readBytes = -1;
-                while ((readBytes = in.read(byteBuffer)) != -1) {
-                    out.write(byteBuffer, 0, readBytes);
-                }
+                copyFull(in, out);
             }
         } catch (IOException e) {
             Log.e(TAG, "Failed to copy asset file: " + modelAssetName, e);
             throw e;
+        }
+    }
+
+    public static void copyFull(InputStream in, OutputStream out) throws IOException {
+        byte[] byteBuffer = new byte[1024];
+        int readBytes = -1;
+        while ((readBytes = in.read(byteBuffer)) != -1) {
+            out.write(byteBuffer, 0, readBytes);
         }
     }
 

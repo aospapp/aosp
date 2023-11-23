@@ -16,8 +16,12 @@
 
 package com.android.systemui.car.userswitcher;
 
+import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STARTING;
+import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
+
 import android.car.Car;
 import android.car.user.CarUserManager;
+import android.car.user.UserLifecycleEventFilter;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -57,7 +61,12 @@ public class UserSwitchTransitionViewMediator implements OverlayViewMediator,
 
             if (carUserManager != null) {
                 carUserManager.setUserSwitchUiCallback(this);
-                carUserManager.addListener(Runnable::run, this::handleUserLifecycleEvent);
+                // Register the listener with a filter to only listen to user STARTING or SWITCHING
+                // events.
+                UserLifecycleEventFilter filter = new UserLifecycleEventFilter.Builder()
+                        .addEventType(USER_LIFECYCLE_EVENT_TYPE_STARTING)
+                        .addEventType(USER_LIFECYCLE_EVENT_TYPE_SWITCHING).build();
+                carUserManager.addListener(Runnable::run, filter, this::handleUserLifecycleEvent);
             } else {
                 Log.e(TAG, "registerListeners: CarUserManager could not be obtained.");
             }

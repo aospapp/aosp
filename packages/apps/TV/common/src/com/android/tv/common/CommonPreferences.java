@@ -164,7 +164,8 @@ public class CommonPreferences {
         }
     }
 
-    public static synchronized @TrickplaySetting int getTrickplaySetting(Context context) {
+    @TrickplaySetting
+    public static synchronized int getTrickplaySetting(Context context) {
         SoftPreconditions.checkState(sInitialized);
         if (useContentProvider(context)) {
             return sPreferenceValues.getInt(PREFS_KEY_TRICKPLAY_SETTING, TRICKPLAY_SETTING_NOT_SET);

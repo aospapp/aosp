@@ -19,6 +19,7 @@
 
 #include <camera_device_session_hwl.h>
 
+#include <memory>
 #include <set>
 
 #include "EmulatedCameraDeviceHWLImpl.h"
@@ -203,7 +204,7 @@ class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
   bool has_raw_stream_ = false;
   std::unique_ptr<HalCameraMetadata> static_metadata_;
   std::vector<EmulatedPipeline> pipelines_;
-  std::unique_ptr<EmulatedRequestProcessor> request_processor_;
+  std::shared_ptr<EmulatedRequestProcessor> request_processor_;
   std::unique_ptr<StreamConfigurationMap> stream_configuration_map_;
   PhysicalStreamConfigurationMap physical_stream_configuration_map_;
   PhysicalStreamConfigurationMap physical_stream_configuration_map_max_resolution_;

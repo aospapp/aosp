@@ -243,27 +243,6 @@ cc_prebuilt_library_shared {
 }
 
 cc_prebuilt_library_shared {
-    name: "libqct_resampler",
-    arch: {
-        arm: {
-            srcs: ["libqct_resampler.so"],
-            shared_libs: [
-                "libcutils",
-                "libc++",
-                "libc",
-                "libm",
-                "libdl",
-            ],
-        },
-    },
-    compile_multilib: "32",
-    system_ext_specific: true,
-    strip: {
-        none: true,
-    },
-}
-
-cc_prebuilt_library_shared {
     name: "libvr_amb_engine",
     arch: {
         arm: {

@@ -339,6 +339,142 @@ void validateRangingParams(const chreWifiRangingParams &chreParams) {
   chppFree(backParams);
 }
 
+void validateNanSubscribeConfig(const chreWifiNanSubscribeConfig &config) {
+  ChppWifiNanSubscribeConfigWithHeader *chppWithHeader = nullptr;
+  size_t outputSize = 999;
+
+  // Test Encode
+  bool result =
+      chppWifiNanSubscribeConfigFromChre(&config, &chppWithHeader, &outputSize);
+  ASSERT_TRUE(result);
+  ASSERT_NE(chppWithHeader, nullptr);
+
+  size_t expectedSize = sizeof(ChppWifiNanSubscribeConfigWithHeader) +
+                        std::strlen(config.service) + 1 +
+                        config.matchFilterLength +
+                        config.serviceSpecificInfoSize;
+  EXPECT_EQ(expectedSize, outputSize);
+
+  // Test Decode
+  outputSize -= sizeof(struct ChppAppHeader);
+  ChppWifiNanSubscribeConfig *chppConfig = &chppWithHeader->payload;
+  chreWifiNanSubscribeConfig *decodedConfig =
+      chppWifiNanSubscribeConfigToChre(chppConfig, outputSize);
+  ASSERT_NE(decodedConfig, nullptr);
+
+  EXPECT_EQ(config.subscribeType, decodedConfig->subscribeType);
+  EXPECT_EQ(std::string(config.service), std::string(decodedConfig->service));
+
+  EXPECT_EQ(config.serviceSpecificInfoSize,
+            decodedConfig->serviceSpecificInfoSize);
+  EXPECT_TRUE(0 == std::memcmp(config.serviceSpecificInfo,
+                               decodedConfig->serviceSpecificInfo,
+                               config.serviceSpecificInfoSize));
+
+  EXPECT_EQ(config.matchFilterLength, decodedConfig->matchFilterLength);
+  EXPECT_TRUE(0 == std::memcmp(config.matchFilter, decodedConfig->matchFilter,
+                               config.matchFilterLength));
+}
+
+void validateNanDiscoveryEvent(const struct chreWifiNanDiscoveryEvent &event) {
+  ChppWifiNanDiscoveryEventWithHeader *chppWithHeader = nullptr;
+  size_t outputSize = 999;
+
+  // Test Encode
+  bool result =
+      chppWifiNanDiscoveryEventFromChre(&event, &chppWithHeader, &outputSize);
+  ASSERT_TRUE(result);
+  ASSERT_NE(chppWithHeader, nullptr);
+
+  size_t expectedSize = sizeof(ChppWifiNanDiscoveryEventWithHeader) +
+                        event.serviceSpecificInfoSize;
+  EXPECT_EQ(expectedSize, outputSize);
+
+  // Test Decode
+  outputSize -= sizeof(struct ChppAppHeader);
+  ChppWifiNanDiscoveryEvent *chppEvent = &chppWithHeader->payload;
+  chreWifiNanDiscoveryEvent *decodedEvent =
+      chppWifiNanDiscoveryEventToChre(chppEvent, outputSize);
+  ASSERT_NE(decodedEvent, nullptr);
+
+  EXPECT_EQ(event.publishId, decodedEvent->publishId);
+  EXPECT_EQ(event.subscribeId, decodedEvent->subscribeId);
+  EXPECT_TRUE(0 == std::memcmp(event.serviceSpecificInfo,
+                               decodedEvent->serviceSpecificInfo,
+                               event.serviceSpecificInfoSize));
+  EXPECT_TRUE(0 == std::memcmp(event.publisherAddress,
+                               decodedEvent->publisherAddress,
+                               CHRE_WIFI_BSSID_LEN));
+}
+
+void validateNanRangingParams(const struct chreWifiNanRangingParams &params) {
+  ChppWifiNanRangingParamsWithHeader *chppWithHeader = nullptr;
+  size_t outputSize = 999;
+
+  // Test Encode
+  bool result =
+      chppWifiNanRangingParamsFromChre(&params, &chppWithHeader, &outputSize);
+  ASSERT_TRUE(result);
+  ASSERT_NE(chppWithHeader, nullptr);
+
+  size_t expectedSize = sizeof(ChppWifiNanRangingParamsWithHeader);
+  EXPECT_EQ(expectedSize, outputSize);
+
+  // Test Decode
+  outputSize -= sizeof(struct ChppAppHeader);
+  ChppWifiNanRangingParams *chppParams = &chppWithHeader->payload;
+  chreWifiNanRangingParams *decodedParams =
+      chppWifiNanRangingParamsToChre(chppParams, outputSize);
+  ASSERT_NE(decodedParams, nullptr);
+  EXPECT_TRUE(0 == std::memcmp(&params, decodedParams, sizeof(params)));
+}
+
+void validateNanSessionLostEvent(
+    const struct chreWifiNanSessionLostEvent &event) {
+  ChppWifiNanSessionLostEventWithHeader *chppWithHeader = nullptr;
+  size_t outputSize = 999;
+
+  // Test Encode
+  bool result =
+      chppWifiNanSessionLostEventFromChre(&event, &chppWithHeader, &outputSize);
+  ASSERT_TRUE(result);
+  ASSERT_NE(chppWithHeader, nullptr);
+
+  size_t expectedSize = sizeof(ChppWifiNanSessionLostEventWithHeader);
+  EXPECT_EQ(expectedSize, outputSize);
+
+  // Test Decode
+  outputSize -= sizeof(struct ChppAppHeader);
+  ChppWifiNanSessionLostEvent *chppEvent = &chppWithHeader->payload;
+  chreWifiNanSessionLostEvent *decodedEvent =
+      chppWifiNanSessionLostEventToChre(chppEvent, outputSize);
+  ASSERT_NE(decodedEvent, nullptr);
+  EXPECT_TRUE(0 == std::memcmp(&event, decodedEvent, sizeof(event)));
+}
+
+void validateNanSessionTerminatedEvent(
+    const struct chreWifiNanSessionTerminatedEvent &event) {
+  ChppWifiNanSessionTerminatedEventWithHeader *chppWithHeader = nullptr;
+  size_t outputSize = 999;
+
+  // Test Encode
+  bool result = chppWifiNanSessionTerminatedEventFromChre(
+      &event, &chppWithHeader, &outputSize);
+  ASSERT_TRUE(result);
+  ASSERT_NE(chppWithHeader, nullptr);
+
+  size_t expectedSize = sizeof(ChppWifiNanSessionTerminatedEventWithHeader);
+  EXPECT_EQ(expectedSize, outputSize);
+
+  // Test Decode
+  outputSize -= sizeof(struct ChppAppHeader);
+  ChppWifiNanSessionTerminatedEvent *chppEvent = &chppWithHeader->payload;
+  chreWifiNanSessionTerminatedEvent *decodedEvent =
+      chppWifiNanSessionTerminatedEventToChre(chppEvent, outputSize);
+  ASSERT_NE(decodedEvent, nullptr);
+  EXPECT_TRUE(0 == std::memcmp(&event, decodedEvent, sizeof(event)));
+}
+
 }  // anonymous namespace
 
 TEST(WifiConvert, EmptyScanResult) {
@@ -547,4 +683,50 @@ TEST(WifiConvert, RangingParamsWithTarget) {
   };
 
   validateRangingParams(chreParams);
+}
+
+TEST(WifiConvert, NanSubscribeConfig) {
+  constexpr size_t kServiceSpecificInfoSize = 4;
+  constexpr size_t kMatchFilterLength = 6;
+  uint8_t serviceSpecificInfo[kServiceSpecificInfoSize] = {0x1, 0x2, 0x3, 0x4};
+  uint8_t matchFilter[kMatchFilterLength] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6};
+  struct chreWifiNanSubscribeConfig config = {
+      .subscribeType = CHRE_WIFI_NAN_SUBSCRIBE_TYPE_PASSIVE,
+      .service = "Hello NAN!",
+      .serviceSpecificInfo = serviceSpecificInfo,
+      .serviceSpecificInfoSize = kServiceSpecificInfoSize,
+      .matchFilter = matchFilter,
+      .matchFilterLength = kMatchFilterLength};
+
+  validateNanSubscribeConfig(config);
+}
+
+TEST(WifiConvert, NanDiscoveryEvent) {
+  constexpr size_t kServiceSpecificInfoSize = 4;
+  uint8_t serviceSpecificInfo[kServiceSpecificInfoSize] = {0x1, 0x2, 0x3, 0x4};
+  struct chreWifiNanDiscoveryEvent event = {
+      .subscribeId = 0xc0ffee,
+      .publishId = 0xcafe,
+      .publisherAddress = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6},
+      .serviceSpecificInfo = serviceSpecificInfo,
+      .serviceSpecificInfoSize = kServiceSpecificInfoSize};
+
+  validateNanDiscoveryEvent(event);
+}
+
+TEST(WifiConvert, NanSessionLostEvent) {
+  struct chreWifiNanSessionLostEvent event = {.id = 0xdead, .peerId = 0xbeef};
+  validateNanSessionLostEvent(event);
+}
+
+TEST(WifiConvert, NanSessionTerminatedEvent) {
+  struct chreWifiNanSessionTerminatedEvent event = {.id = 0xc001,
+                                                    .reason = CHRE_ERROR};
+  validateNanSessionTerminatedEvent(event);
+}
+
+TEST(WifiConvert, NanRangingParams) {
+  struct chreWifiNanRangingParams params = {
+      .macAddress = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6}};
+  validateNanRangingParams(params);
 }

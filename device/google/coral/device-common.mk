@@ -20,7 +20,6 @@ PRODUCT_PLATFORM := sm8150
 # Enable updating of APEXes
 $(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
 
-include build/make/target/product/iorap_large_memory_config.mk
 include device/google/coral/device.mk
 
 # Set Vendor SPL to match platform

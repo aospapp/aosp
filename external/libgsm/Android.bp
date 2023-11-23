@@ -83,4 +83,10 @@ cc_library_static {
 
     export_include_dirs: ["inc"],
     min_sdk_version: "apex_inherit",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media.swcodec",
+        "test_com.android.media.swcodec",
+    ],
+
 }

@@ -24,9 +24,9 @@ from acts.controllers import power_metrics
 from acts.controllers.power_metrics import CURRENT
 from acts.controllers.power_metrics import END_TIMESTAMP
 from acts.controllers.power_metrics import HOUR
+from acts.controllers.power_metrics import Metric
 from acts.controllers.power_metrics import MILLIAMP
 from acts.controllers.power_metrics import MINUTE
-from acts.controllers.power_metrics import Metric
 from acts.controllers.power_metrics import PowerMetrics
 from acts.controllers.power_metrics import START_TIMESTAMP
 from acts.controllers.power_metrics import TIME
@@ -137,20 +137,34 @@ class PowerMetricsTest(unittest.TestCase):
         """Test that given test timestamps, a power metric is generated from
         a subset of samples corresponding to the test."""
         timestamps = {'sample_test': {START_TIMESTAMP: 3500,
-                                      END_TIMESTAMP: 8500}}
+                                      END_TIMESTAMP:   8500}}
 
         mock_power_metric = mock.Mock()
         mock_power_metric_type.side_effect = lambda v: mock_power_metric
-        metrics = power_metrics.generate_test_metrics(self.RAW_DATA,
-                                                      timestamps=timestamps,
-                                                      voltage=self.VOLTAGE)
+        power_metrics.generate_test_metrics(self.RAW_DATA,
+                                            timestamps=timestamps,
+                                            voltage=self.VOLTAGE)
 
         self.assertEqual(mock_power_metric.update_metrics.call_count, 5)
+
+    def test_incomplete_timestamps_are_ignored(self):
+        """Test that given incomplete timestamps, a power metric is generated from
+        a subset of samples corresponding to the test."""
+        sample_test = 'sample_test'
+        test_end = 13500
+        test_timestamps = {sample_test: {
+            END_TIMESTAMP: test_end}}
+        # no error expected
+        metrics = (
+            power_metrics.generate_test_metrics(self.RAW_DATA,
+                                                timestamps=test_timestamps,
+                                                voltage=self.VOLTAGE))
+
 
     def test_numeric_metrics(self):
         """Test that the numeric metrics have correct values."""
         timestamps = {'sample_test': {START_TIMESTAMP: 0,
-                                      END_TIMESTAMP: 10000}}
+                                      END_TIMESTAMP:   10000}}
         metrics = power_metrics.generate_test_metrics(self.RAW_DATA,
                                                       timestamps=timestamps,
                                                       voltage=self.VOLTAGE)

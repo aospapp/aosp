@@ -1,12 +1,15 @@
 #![cfg_attr(
     async_trait_nightly_testing,
-    feature(min_specialization, min_type_alias_impl_trait)
+    feature(min_specialization, type_alias_impl_trait)
 )]
 #![allow(
     clippy::let_underscore_drop,
     clippy::let_unit_value,
     clippy::missing_panics_doc,
-    clippy::trivially_copy_pass_by_ref
+    clippy::missing_safety_doc,
+    clippy::needless_return,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::unused_async
 )]
 
 use async_trait::async_trait;
@@ -1331,7 +1334,7 @@ pub mod issue158 {
     #[async_trait]
     pub trait Trait {
         async fn f(&self) {
-            self::f()
+            self::f();
         }
     }
 }
@@ -1359,5 +1362,30 @@ pub mod issue161 {
                 }.fuse() => {}
             }
         }
+    }
+}
+
+// https://github.com/dtolnay/async-trait/issues/169
+#[deny(where_clauses_object_safety)]
+pub mod issue169 {
+    use async_trait::async_trait;
+
+    #[async_trait]
+    pub trait Trait: ::core::marker::Sync {
+        async fn f(&self) {}
+    }
+
+    pub fn test(_t: &dyn Trait) {}
+}
+
+// https://github.com/dtolnay/async-trait/issues/183
+pub mod issue183 {
+    #![deny(clippy::shadow_same)]
+
+    use async_trait::async_trait;
+
+    #[async_trait]
+    trait Foo {
+        async fn foo(_n: i32) {}
     }
 }

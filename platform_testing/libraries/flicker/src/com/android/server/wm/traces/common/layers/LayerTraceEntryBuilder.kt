@@ -31,6 +31,8 @@ class LayerTraceEntryBuilder(
     private var orphanLayerCallback: ((Layer) -> Boolean)? = null
     private val orphans = mutableListOf<Layer>()
     private val layers = setLayers(layers)
+    private var ignoreVirtualDisplay = false
+    private var ignoreLayersStackMatchNoDisplay = false
 
     private fun setLayers(layers: Array<Layer>): Map<Int, Layer> {
         val result = mutableMapOf<Int, Layer>()
@@ -105,31 +107,90 @@ class LayerTraceEntryBuilder(
         updateParents()
         updateRelZParents()
 
+        // Find all root layers (any sibling of the root layer is considered a root layer in the trace)
+        val rootLayers = mutableListOf<Layer>()
+
         // Getting the first orphan works because when dumping the layers, the root layer comes
         // first, and given that orphans are added in the same order as the layers are provided
         // in the first orphan layer should be the root layer.
-        val firstRoot = orphans.firstOrNull() ?: throw IllegalStateException(
-            "Display root layer not found.")
-        orphans.remove(firstRoot)
+        if (orphans.isNotEmpty()) {
+            val firstRoot = orphans.first()
+            orphans.remove(firstRoot)
+            rootLayers.add(firstRoot)
 
-        // Find all root layers (any sibling of the root layer is considered a root layer in the trace)
-        val rootLayers = mutableListOf(firstRoot)
-        val remainingRoots = orphans.filter { it.parentId == firstRoot.parentId }
-        rootLayers.addAll(remainingRoots)
+            val remainingRoots = orphans.filter { it.parentId == firstRoot.parentId }
+            rootLayers.addAll(remainingRoots)
 
-        // Remove RootLayers from orphans
-        orphans.removeAll(rootLayers)
+            // Remove RootLayers from orphans
+            orphans.removeAll(rootLayers)
+        }
 
         return rootLayers
     }
 
+    private fun filterOutLayersInVirtualDisplays(roots: List<Layer>): List<Layer> {
+        val physicalDisplays = displays
+            .filterNot { it.isVirtual }
+            .map { it.layerStackId }
+
+        return roots.filter { physicalDisplays.contains(it.stackId) }
+    }
+
+    private fun filterOutVirtualDisplays(displays: List<Display>): List<Display> {
+        return displays.filterNot { it.isVirtual }
+    }
+
+    private fun filterOutOffDisplays(displays: List<Display>): List<Display> {
+        return displays.filterNot { it.isOff }
+    }
+
+    private fun filterOutLayersStackMatchNoDisplay(roots: List<Layer>): List<Layer> {
+        val displayStacks = displays.map { it.layerStackId }
+        return roots.filter { displayStacks.contains(it.stackId) }
+    }
+
+    /**
+     * Defines if virtual displays and the layers belonging to virtual displays (e.g., Screen Recording) should be
+     * ignored while parsing the entry
+     *
+     * @param ignore If the layers from virtual displays should be ignored or not
+     */
+    fun ignoreVirtualDisplay(ignore: Boolean): LayerTraceEntryBuilder = apply {
+        this.ignoreVirtualDisplay = ignore
+    }
+
+    /**
+     * Ignore layers whose stack ID doesn't match any display. This is the case, for example,
+     * when the device screen is off, or for layers that have not yet been removed after a
+     * display change (e.g., virtual screen recording display removed)
+     *
+     * @param ignore If the layers not matching any stack id should be removed or not
+     */
+    fun ignoreLayersStackMatchNoDisplay(ignore: Boolean): LayerTraceEntryBuilder = apply {
+        this.ignoreLayersStackMatchNoDisplay = ignore
+    }
+
     /** Constructs the layer hierarchy from a flattened list of layers.  */
     fun build(): LayerTraceEntry {
-        val rootLayers = computeRootLayers()
+        val allRoots = computeRootLayers()
+        var filteredRoots = allRoots
+        var filteredDisplays = displays.toList()
+
+        if (ignoreLayersStackMatchNoDisplay) {
+            filteredRoots = filterOutLayersStackMatchNoDisplay(filteredRoots)
+        }
+
+        if (ignoreVirtualDisplay) {
+            filteredRoots = filterOutLayersInVirtualDisplays(filteredRoots)
+            filteredDisplays = filterOutVirtualDisplays(filteredDisplays)
+        }
+
+        filteredDisplays = filterOutOffDisplays(filteredDisplays)
 
         // Fail if we find orphan layers.
         notifyOrphansLayers()
 
-        return LayerTraceEntry(timestamp, hwcBlob, where, displays, rootLayers.toTypedArray())
+        return LayerTraceEntry(timestamp, hwcBlob, where, filteredDisplays.toTypedArray(),
+                filteredRoots.toTypedArray())
     }
 }

@@ -16,32 +16,17 @@
 
 #include "EvsServiceContext.h"
 
-#include <android-base/chrono_utils.h>
 #include <android-base/logging.h>
-#include <android/hardware_buffer.h>
-#include <android_runtime/android_hardware_HardwareBuffer.h>
 #include <nativehelper/JNIHelp.h>
-#include <ui/GraphicBuffer.h>
-#include <utils/Errors.h>
-#include <utils/Mutex.h>
-#include <utils/StrongPointer.h>
-#include <vndk/hardware_buffer.h>
 
 #include <jni.h>
 
-#include <map>
-
-using ::android::GraphicBuffer;
-using ::android::Mutex;
-using ::android::sp;
 using ::android::automotive::evs::EvsServiceContext;
-
-using namespace ::android::hardware::automotive::evs::V1_1;
 
 namespace {
 
-// CarEvsService class
-constexpr const char* kCarEvsServiceClassName = "com/android/car/evs/CarEvsService";
+// EvsHalWrapperImpl class
+constexpr const char kCarEvsServiceClassName[] = "com/android/car/evs/EvsHalWrapperImpl";
 
 /*
  * Connects to the Extended View System service
@@ -176,21 +161,14 @@ jint initializeCarEvsService(JavaVM* vm) {
     // Registers native methods
     static const JNINativeMethod methods[] = {
             {"nativeConnectToHalServiceIfNecessary", "(J)Z",
-                reinterpret_cast<void*>(connectToHalServiceIfNecessary)},
-            {"nativeOpenCamera", "(JLjava/lang/String;)Z",
-                reinterpret_cast<void*>(openCamera)},
-            {"nativeCloseCamera", "(J)V",
-                reinterpret_cast<void*>(closeCamera)},
-            {"nativeRequestToStartVideoStream", "(J)Z",
-                reinterpret_cast<void*>(startVideoStream)},
-            {"nativeRequestToStopVideoStream", "(J)V",
-                reinterpret_cast<void*>(stopVideoStream)},
-            {"nativeDoneWithFrame", "(JI)V",
-                reinterpret_cast<void*>(returnFrameBuffer)},
-            {"nativeCreateServiceHandle", "()J",
-                reinterpret_cast<void*>(createServiceHandle)},
-            {"nativeDestroyServiceHandle", "(J)V",
-                reinterpret_cast<void*>(destroyServiceHandle)},
+             reinterpret_cast<void*>(connectToHalServiceIfNecessary)},
+            {"nativeOpenCamera", "(JLjava/lang/String;)Z", reinterpret_cast<void*>(openCamera)},
+            {"nativeCloseCamera", "(J)V", reinterpret_cast<void*>(closeCamera)},
+            {"nativeRequestToStartVideoStream", "(J)Z", reinterpret_cast<void*>(startVideoStream)},
+            {"nativeRequestToStopVideoStream", "(J)V", reinterpret_cast<void*>(stopVideoStream)},
+            {"nativeDoneWithFrame", "(JI)V", reinterpret_cast<void*>(returnFrameBuffer)},
+            {"nativeCreateServiceHandle", "()J", reinterpret_cast<void*>(createServiceHandle)},
+            {"nativeDestroyServiceHandle", "(J)V", reinterpret_cast<void*>(destroyServiceHandle)},
     };
     jniRegisterNativeMethods(env, kCarEvsServiceClassName, methods, NELEM(methods));
 

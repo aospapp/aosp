@@ -73,6 +73,7 @@ public class ListeningPortsTest extends AndroidTestCase {
         EXCEPTION_PATTERNS.add(":: 1002");          // used by remote control
         EXCEPTION_PATTERNS.add(":: 1020");          // used by remote control
         EXCEPTION_PATTERNS.add("0.0.0.0:7275");     // used by supl
+        EXCEPTION_PATTERNS.add("0.0.0.0:68");       // DHCP server for Tethering
         // b/150186547 ports
         EXCEPTION_PATTERNS.add("192.168.17.10:48881");
         EXCEPTION_PATTERNS.add("192.168.17.10:48896");

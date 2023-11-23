@@ -14,218 +14,108 @@
  * limitations under the License.
  */
 
-#include <inttypes.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <fstream>
+#include <memory>
+#include <sstream>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
-#include <android-base/file.h>
-
-#include <unwindstack/JitDebug.h>
-#include <unwindstack/MachineArm.h>
-#include <unwindstack/MachineArm64.h>
-#include <unwindstack/MachineX86.h>
-#include <unwindstack/MachineX86_64.h>
-#include <unwindstack/Maps.h>
-#include <unwindstack/RegsArm.h>
+#include <unwindstack/Arch.h>
+#include <unwindstack/Memory.h>
 #include <unwindstack/RegsArm64.h>
-#include <unwindstack/RegsX86.h>
-#include <unwindstack/RegsX86_64.h>
 #include <unwindstack/Unwinder.h>
 
-#include "ElfTestUtils.h"
-#include "MemoryFake.h"
-#include "MemoryOffline.h"
 #include "TestUtils.h"
+#include "utils/MemoryFake.h"
+#include "utils/OfflineUnwindUtils.h"
 
+// This collection of tests exercises Unwinder::Unwind for offline unwinds.
+//
+// See `libunwindstack/utils/OfflineUnwindUtils.h` for more info on offline unwinds
+// and b/192012600 for additional information regarding offline unwind benchmarks.
 namespace unwindstack {
-
-static void AddMemory(std::string file_name, MemoryOfflineParts* parts) {
-  MemoryOffline* memory = new MemoryOffline;
-  ASSERT_TRUE(memory->Init(file_name.c_str(), 0));
-  parts->Add(memory);
-}
+namespace {
 
 class UnwindOfflineTest : public ::testing::Test {
+ public:
+  bool GetExpectedSamplesFrameInfo(
+      std::string* expected_frame_info, std::string* error_msg,
+      const std::string& sample_name = OfflineUnwindUtils::kSingleSample) {
+    const std::string* a_frame_info_path = offline_utils_.GetFrameInfoFilepath(sample_name);
+    if (a_frame_info_path == nullptr) {
+      std::stringstream err_stream;
+      err_stream << "Unable to get frame info filepath for invalid sample name " << sample_name
+                 << ".\n";
+      *error_msg = err_stream.str();
+      return false;
+    }
+
+    std::ifstream in(*a_frame_info_path);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    *expected_frame_info = buffer.str();
+    return true;
+  }
+
+  void ConsecutiveUnwindTest(const std::vector<UnwindSampleInfo>& sample_infos) {
+    std::string error_msg;
+    if (!offline_utils_.Init(sample_infos, &error_msg)) FAIL() << error_msg;
+
+    for (const auto& sample_info : sample_infos) {
+      const std::string& sample_name = sample_info.offline_files_dir;
+      // Need to change to sample directory for Unwinder to properly init ELF objects.
+      // See more info at OfflineUnwindUtils::ChangeToSampleDirectory.
+      if (!offline_utils_.ChangeToSampleDirectory(&error_msg, sample_name)) FAIL() << error_msg;
+
+      Unwinder unwinder =
+          Unwinder(128, offline_utils_.GetMaps(sample_name), offline_utils_.GetRegs(sample_name),
+                   offline_utils_.GetProcessMemory(sample_name));
+      if (sample_info.memory_flag == ProcessMemoryFlag::kIncludeJitMemory) {
+        unwinder.SetJitDebug(offline_utils_.GetJitDebug(sample_name));
+      }
+      unwinder.Unwind();
+
+      size_t expected_num_frames;
+      if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg, sample_name))
+        FAIL() << error_msg;
+      std::string expected_frame_info;
+      if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg, sample_name))
+        FAIL() << error_msg;
+
+      std::string actual_frame_info = DumpFrames(unwinder);
+      ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << actual_frame_info;
+      EXPECT_EQ(expected_frame_info, actual_frame_info);
+    }
+  }
+
  protected:
-  void TearDown() override {
-    if (cwd_ != nullptr) {
-      ASSERT_EQ(0, chdir(cwd_));
-    }
-    free(cwd_);
-  }
+  void TearDown() override { offline_utils_.ReturnToCurrentWorkingDirectory(); }
 
-  void Init(const char* file_dir, ArchEnum arch, bool add_stack = true) {
-    dir_ = TestGetFileDirectory() + "offline/" + file_dir;
-
-    std::string data;
-    ASSERT_TRUE(android::base::ReadFileToString((dir_ + "maps.txt"), &data));
-
-    maps_.reset(new BufferMaps(data.c_str()));
-    ASSERT_TRUE(maps_->Parse());
-
-    if (add_stack) {
-      std::string stack_name(dir_ + "stack.data");
-      struct stat st;
-      if (stat(stack_name.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
-        std::unique_ptr<MemoryOffline> stack_memory(new MemoryOffline);
-        ASSERT_TRUE(stack_memory->Init((dir_ + "stack.data").c_str(), 0));
-        process_memory_.reset(stack_memory.release());
-      } else {
-        std::unique_ptr<MemoryOfflineParts> stack_memory(new MemoryOfflineParts);
-        for (size_t i = 0;; i++) {
-          stack_name = dir_ + "stack" + std::to_string(i) + ".data";
-          if (stat(stack_name.c_str(), &st) == -1 || !S_ISREG(st.st_mode)) {
-            ASSERT_TRUE(i != 0) << "No stack data files found.";
-            break;
-          }
-          AddMemory(stack_name, stack_memory.get());
-        }
-        process_memory_.reset(stack_memory.release());
-      }
-    }
-
-    switch (arch) {
-      case ARCH_ARM: {
-        RegsArm* regs = new RegsArm;
-        regs_.reset(regs);
-        ReadRegs<uint32_t>(regs, arm_regs_);
-        break;
-      }
-      case ARCH_ARM64: {
-        RegsArm64* regs = new RegsArm64;
-        regs_.reset(regs);
-        ReadRegs<uint64_t>(regs, arm64_regs_);
-        break;
-      }
-      case ARCH_X86: {
-        RegsX86* regs = new RegsX86;
-        regs_.reset(regs);
-        ReadRegs<uint32_t>(regs, x86_regs_);
-        break;
-      }
-      case ARCH_X86_64: {
-        RegsX86_64* regs = new RegsX86_64;
-        regs_.reset(regs);
-        ReadRegs<uint64_t>(regs, x86_64_regs_);
-        break;
-      }
-      default:
-        ASSERT_TRUE(false) << "Unknown arch " << std::to_string(arch);
-    }
-    cwd_ = getcwd(nullptr, 0);
-    // Make dir_ an absolute directory.
-    if (dir_.empty() || dir_[0] != '/') {
-      dir_ = std::string(cwd_) + '/' + dir_;
-    }
-    ASSERT_EQ(0, chdir(dir_.c_str()));
-
-    if (process_memory_ == nullptr) {
-      process_memory_.reset(new MemoryFake);
-    }
-  }
-
-  template <typename AddressType>
-  void ReadRegs(RegsImpl<AddressType>* regs,
-                const std::unordered_map<std::string, uint32_t>& name_to_reg) {
-    FILE* fp = fopen((dir_ + "regs.txt").c_str(), "r");
-    ASSERT_TRUE(fp != nullptr);
-    while (!feof(fp)) {
-      uint64_t value;
-      char reg_name[100];
-      ASSERT_EQ(2, fscanf(fp, "%s %" SCNx64 "\n", reg_name, &value));
-      std::string name(reg_name);
-      if (!name.empty()) {
-        // Remove the : from the end.
-        name.resize(name.size() - 1);
-      }
-      auto entry = name_to_reg.find(name);
-      ASSERT_TRUE(entry != name_to_reg.end()) << "Unknown register named " << name;
-      (*regs)[entry->second] = value;
-    }
-    fclose(fp);
-  }
-
-  static std::unordered_map<std::string, uint32_t> arm_regs_;
-  static std::unordered_map<std::string, uint32_t> arm64_regs_;
-  static std::unordered_map<std::string, uint32_t> x86_regs_;
-  static std::unordered_map<std::string, uint32_t> x86_64_regs_;
-
-  char* cwd_ = nullptr;
-  std::string dir_;
-  std::unique_ptr<Regs> regs_;
-  std::unique_ptr<Maps> maps_;
-  std::shared_ptr<Memory> process_memory_;
+  OfflineUnwindUtils offline_utils_;
 };
-
-std::unordered_map<std::string, uint32_t> UnwindOfflineTest::arm_regs_ = {
-    {"r0", ARM_REG_R0},  {"r1", ARM_REG_R1}, {"r2", ARM_REG_R2},   {"r3", ARM_REG_R3},
-    {"r4", ARM_REG_R4},  {"r5", ARM_REG_R5}, {"r6", ARM_REG_R6},   {"r7", ARM_REG_R7},
-    {"r8", ARM_REG_R8},  {"r9", ARM_REG_R9}, {"r10", ARM_REG_R10}, {"r11", ARM_REG_R11},
-    {"ip", ARM_REG_R12}, {"sp", ARM_REG_SP}, {"lr", ARM_REG_LR},   {"pc", ARM_REG_PC},
-};
-
-std::unordered_map<std::string, uint32_t> UnwindOfflineTest::arm64_regs_ = {
-    {"x0", ARM64_REG_R0},      {"x1", ARM64_REG_R1},   {"x2", ARM64_REG_R2},
-    {"x3", ARM64_REG_R3},      {"x4", ARM64_REG_R4},   {"x5", ARM64_REG_R5},
-    {"x6", ARM64_REG_R6},      {"x7", ARM64_REG_R7},   {"x8", ARM64_REG_R8},
-    {"x9", ARM64_REG_R9},      {"x10", ARM64_REG_R10}, {"x11", ARM64_REG_R11},
-    {"x12", ARM64_REG_R12},    {"x13", ARM64_REG_R13}, {"x14", ARM64_REG_R14},
-    {"x15", ARM64_REG_R15},    {"x16", ARM64_REG_R16}, {"x17", ARM64_REG_R17},
-    {"x18", ARM64_REG_R18},    {"x19", ARM64_REG_R19}, {"x20", ARM64_REG_R20},
-    {"x21", ARM64_REG_R21},    {"x22", ARM64_REG_R22}, {"x23", ARM64_REG_R23},
-    {"x24", ARM64_REG_R24},    {"x25", ARM64_REG_R25}, {"x26", ARM64_REG_R26},
-    {"x27", ARM64_REG_R27},    {"x28", ARM64_REG_R28}, {"x29", ARM64_REG_R29},
-    {"sp", ARM64_REG_SP},      {"lr", ARM64_REG_LR},   {"pc", ARM64_REG_PC},
-    {"pst", ARM64_REG_PSTATE},
-};
-
-std::unordered_map<std::string, uint32_t> UnwindOfflineTest::x86_regs_ = {
-    {"eax", X86_REG_EAX}, {"ebx", X86_REG_EBX}, {"ecx", X86_REG_ECX},
-    {"edx", X86_REG_EDX}, {"ebp", X86_REG_EBP}, {"edi", X86_REG_EDI},
-    {"esi", X86_REG_ESI}, {"esp", X86_REG_ESP}, {"eip", X86_REG_EIP},
-};
-
-std::unordered_map<std::string, uint32_t> UnwindOfflineTest::x86_64_regs_ = {
-    {"rax", X86_64_REG_RAX}, {"rbx", X86_64_REG_RBX}, {"rcx", X86_64_REG_RCX},
-    {"rdx", X86_64_REG_RDX}, {"r8", X86_64_REG_R8},   {"r9", X86_64_REG_R9},
-    {"r10", X86_64_REG_R10}, {"r11", X86_64_REG_R11}, {"r12", X86_64_REG_R12},
-    {"r13", X86_64_REG_R13}, {"r14", X86_64_REG_R14}, {"r15", X86_64_REG_R15},
-    {"rdi", X86_64_REG_RDI}, {"rsi", X86_64_REG_RSI}, {"rbp", X86_64_REG_RBP},
-    {"rsp", X86_64_REG_RSP}, {"rip", X86_64_REG_RIP},
-};
-
-static std::string DumpFrames(Unwinder& unwinder) {
-  std::string str;
-  for (size_t i = 0; i < unwinder.NumFrames(); i++) {
-    str += unwinder.FormatFrame(i) + "\n";
-  }
-  return str;
-}
 
 TEST_F(UnwindOfflineTest, pc_straddle_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("straddle_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "straddle_arm/", .arch = ARCH_ARM}, &error_msg))
+    FAIL() << error_msg;
 
-  std::unique_ptr<Regs> regs_copy(regs_->Clone());
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Regs* regs = offline_utils_.GetRegs();
+  std::unique_ptr<Regs> regs_copy(regs->Clone());
+  Unwinder unwinder(128, offline_utils_.GetMaps(), regs, offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(4U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0001a9f8  libc.so (abort+64)\n"
-      "  #01 pc 00006a1b  libbase.so (android::base::DefaultAborter(char const*)+6)\n"
-      "  #02 pc 00007441  libbase.so (android::base::LogMessage::~LogMessage()+748)\n"
-      "  #03 pc 00015147  /does/not/exist/libhidlbase.so\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xf31ea9f8U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xe9c866f8U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xf2da0a1bU, unwinder.frames()[1].pc);
@@ -241,7 +131,7 @@ TEST_F(UnwindOfflineTest, pc_straddle_arm) {
   unwinder.Unwind();
 
   frame_info = DumpFrames(unwinder);
-  ASSERT_EQ(4U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
   EXPECT_EQ(
       "  #00 pc 0001a9f8  libc.so (abort+64) (BuildId: 2dd0d4ba881322a0edabeed94808048c)\n"
       "  #01 pc 00006a1b  libbase.so (android::base::DefaultAborter(char const*)+6) (BuildId: "
@@ -253,20 +143,23 @@ TEST_F(UnwindOfflineTest, pc_straddle_arm) {
 }
 
 TEST_F(UnwindOfflineTest, pc_in_gnu_debugdata_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("gnu_debugdata_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "gnu_debugdata_arm/", .arch = ARCH_ARM},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(2U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0006dc49  libandroid_runtime.so "
-      "(android::AndroidRuntime::javaThreadShell(void*)+80)\n"
-      "  #01 pc 0006dce5  libandroid_runtime.so "
-      "(android::AndroidRuntime::javaCreateThreadEtc(int (*)(void*), void*, char const*, int, "
-      "unsigned int, void**))\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xf1f6dc49U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xd8fe6930U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xf1f6dce5U, unwinder.frames()[1].pc);
@@ -274,23 +167,23 @@ TEST_F(UnwindOfflineTest, pc_in_gnu_debugdata_arm) {
 }
 
 TEST_F(UnwindOfflineTest, pc_straddle_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("straddle_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "straddle_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(6U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0000000000429fd8  libunwindstack_test (SignalInnerFunction+24)\n"
-      "  #01 pc 000000000042a078  libunwindstack_test (SignalMiddleFunction+8)\n"
-      "  #02 pc 000000000042a08c  libunwindstack_test (SignalOuterFunction+8)\n"
-      "  #03 pc 000000000042d8fc  libunwindstack_test "
-      "(unwindstack::RemoteThroughSignal(int, unsigned int)+20)\n"
-      "  #04 pc 000000000042d8d8  libunwindstack_test "
-      "(unwindstack::UnwindTest_remote_through_signal_Test::TestBody()+32)\n"
-      "  #05 pc 0000000000455d70  libunwindstack_test (testing::Test::Run()+392)\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x64d09d4fd8U, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7fe0d84040U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x64d09d5078U, unwinder.frames()[1].pc);
@@ -306,166 +199,26 @@ TEST_F(UnwindOfflineTest, pc_straddle_arm64) {
 }
 
 TEST_F(UnwindOfflineTest, jit_debug_x86) {
-  ASSERT_NO_FATAL_FAILURE(Init("jit_debug_x86/", ARCH_X86));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "jit_debug_x86/",
+                            .arch = ARCH_X86,
+                            .memory_flag = ProcessMemoryFlag::kIncludeJitMemory},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  MemoryOfflineParts* memory = new MemoryOfflineParts;
-  AddMemory(dir_ + "descriptor.data", memory);
-  AddMemory(dir_ + "stack.data", memory);
-  for (size_t i = 0; i < 7; i++) {
-    AddMemory(dir_ + "entry" + std::to_string(i) + ".data", memory);
-    AddMemory(dir_ + "jit" + std::to_string(i) + ".data", memory);
-  }
-  process_memory_.reset(memory);
-
-  std::unique_ptr<JitDebug> jit_debug = CreateJitDebug(regs_->Arch(), process_memory_);
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
-  unwinder.SetJitDebug(jit_debug.get());
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
+  unwinder.SetJitDebug(offline_utils_.GetJitDebug());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(69U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00068fb8  libarttestd.so (art::CauseSegfault()+72)\n"
-      "  #01 pc 00067f00  libarttestd.so (Java_Main_unwindInProcess+10032)\n"
-      "  #02 pc 000021a8  137-cfi.odex (boolean Main.unwindInProcess(boolean, int, "
-      "boolean)+136)\n"
-      "  #03 pc 0000fe80  anonymous:ee74c000 (boolean Main.bar(boolean)+64)\n"
-      "  #04 pc 006ad4d2  libartd.so (art_quick_invoke_stub+338)\n"
-      "  #05 pc 00146ab5  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+885)\n"
-      "  #06 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #07 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #08 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #09 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #10 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #11 pc 0000fe03  anonymous:ee74c000 (int Main.compare(Main, Main)+51)\n"
-      "  #12 pc 006ad4d2  libartd.so (art_quick_invoke_stub+338)\n"
-      "  #13 pc 00146ab5  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+885)\n"
-      "  #14 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #15 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #16 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #17 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #18 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #19 pc 0000fd3b  anonymous:ee74c000 (int Main.compare(java.lang.Object, "
-      "java.lang.Object)+107)\n"
-      "  #20 pc 006ad4d2  libartd.so (art_quick_invoke_stub+338)\n"
-      "  #21 pc 00146ab5  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+885)\n"
-      "  #22 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #23 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #24 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #25 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #26 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #27 pc 0000fbdb  anonymous:ee74c000 (int "
-      "java.util.Arrays.binarySearch0(java.lang.Object[], int, int, java.lang.Object, "
-      "java.util.Comparator)+331)\n"
-      "  #28 pc 006ad6a2  libartd.so (art_quick_invoke_static_stub+418)\n"
-      "  #29 pc 00146acb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+907)\n"
-      "  #30 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #31 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #32 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #33 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #34 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #35 pc 0000f624  anonymous:ee74c000 (boolean Main.foo()+164)\n"
-      "  #36 pc 006ad4d2  libartd.so (art_quick_invoke_stub+338)\n"
-      "  #37 pc 00146ab5  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+885)\n"
-      "  #38 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #39 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #40 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #41 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #42 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #43 pc 0000eedb  anonymous:ee74c000 (void Main.runPrimary()+59)\n"
-      "  #44 pc 006ad4d2  libartd.so (art_quick_invoke_stub+338)\n"
-      "  #45 pc 00146ab5  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+885)\n"
-      "  #46 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #47 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #48 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #49 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #50 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #51 pc 0000ac21  anonymous:ee74c000 (void Main.main(java.lang.String[])+97)\n"
-      "  #52 pc 006ad6a2  libartd.so (art_quick_invoke_static_stub+418)\n"
-      "  #53 pc 00146acb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+907)\n"
-      "  #54 pc 0039cf0d  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+653)\n"
-      "  #55 pc 00392552  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+354)\n"
-      "  #56 pc 0039399a  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+234)\n"
-      "  #57 pc 00684362  libartd.so (artQuickToInterpreterBridge+1058)\n"
-      "  #58 pc 006b35bd  libartd.so (art_quick_to_interpreter_bridge+77)\n"
-      "  #59 pc 006ad6a2  libartd.so (art_quick_invoke_static_stub+418)\n"
-      "  #60 pc 00146acb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+907)\n"
-      "  #61 pc 005aac95  libartd.so "
-      "(art::InvokeWithArgArray(art::ScopedObjectAccessAlreadyRunnable const&, art::ArtMethod*, "
-      "art::ArgArray*, art::JValue*, char const*)+85)\n"
-      "  #62 pc 005aab5a  libartd.so "
-      "(art::InvokeWithVarArgs(art::ScopedObjectAccessAlreadyRunnable const&, _jobject*, "
-      "_jmethodID*, char*)+362)\n"
-      "  #63 pc 0048a3dd  libartd.so "
-      "(art::JNI::CallStaticVoidMethodV(_JNIEnv*, _jclass*, _jmethodID*, char*)+125)\n"
-      "  #64 pc 0018448c  libartd.so "
-      "(art::CheckJNI::CallMethodV(char const*, _JNIEnv*, _jobject*, _jclass*, _jmethodID*, char*, "
-      "art::Primitive::Type, art::InvokeType)+1964)\n"
-      "  #65 pc 0017cf06  libartd.so "
-      "(art::CheckJNI::CallStaticVoidMethodV(_JNIEnv*, _jclass*, _jmethodID*, char*)+70)\n"
-      "  #66 pc 00001d8c  dalvikvm32 "
-      "(_JNIEnv::CallStaticVoidMethod(_jclass*, _jmethodID*, ...)+60)\n"
-      "  #67 pc 00001a80  dalvikvm32 (main+1312)\n"
-      "  #68 pc 00018275  libc.so\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xeb89bfb8U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xffeb5280U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xeb89af00U, unwinder.frames()[1].pc);
@@ -607,174 +360,26 @@ TEST_F(UnwindOfflineTest, jit_debug_x86) {
 }
 
 TEST_F(UnwindOfflineTest, jit_debug_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("jit_debug_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "jit_debug_arm/",
+                            .arch = ARCH_ARM,
+                            .memory_flag = ProcessMemoryFlag::kIncludeJitMemory},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  MemoryOfflineParts* memory = new MemoryOfflineParts;
-  AddMemory(dir_ + "descriptor.data", memory);
-  AddMemory(dir_ + "descriptor1.data", memory);
-  AddMemory(dir_ + "stack.data", memory);
-  for (size_t i = 0; i < 7; i++) {
-    AddMemory(dir_ + "entry" + std::to_string(i) + ".data", memory);
-    AddMemory(dir_ + "jit" + std::to_string(i) + ".data", memory);
-  }
-  process_memory_.reset(memory);
-
-  std::unique_ptr<JitDebug> jit_debug = CreateJitDebug(regs_->Arch(), process_memory_);
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
-  unwinder.SetJitDebug(jit_debug.get());
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
+  unwinder.SetJitDebug(offline_utils_.GetJitDebug());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(76U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00018a5e  libarttestd.so (Java_Main_unwindInProcess+866)\n"
-      "  #01 pc 0000212d  137-cfi.odex (boolean Main.unwindInProcess(boolean, int, "
-      "boolean)+92)\n"
-      "  #02 pc 00011cb1  anonymous:e2796000 (boolean Main.bar(boolean)+72)\n"
-      "  #03 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #04 pc 00467129  libartd.so (art_quick_invoke_stub+228)\n"
-      "  #05 pc 000bf7a9  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+864)\n"
-      "  #06 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #07 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #08 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #09 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #10 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #11 pc 00011c31  anonymous:e2796000 (int Main.compare(Main, Main)+64)\n"
-      "  #12 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #13 pc 00467129  libartd.so (art_quick_invoke_stub+228)\n"
-      "  #14 pc 000bf7a9  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+864)\n"
-      "  #15 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #16 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #17 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #18 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #19 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #20 pc 00011b77  anonymous:e2796000 (int Main.compare(java.lang.Object, "
-      "java.lang.Object)+118)\n"
-      "  #21 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #22 pc 00467129  libartd.so (art_quick_invoke_stub+228)\n"
-      "  #23 pc 000bf7a9  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+864)\n"
-      "  #24 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #25 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #26 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #27 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #28 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #29 pc 00011a29  anonymous:e2796000 (int "
-      "java.util.Arrays.binarySearch0(java.lang.Object[], int, int, java.lang.Object, "
-      "java.util.Comparator)+304)\n"
-      "  #30 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #31 pc 0046722f  libartd.so (art_quick_invoke_static_stub+226)\n"
-      "  #32 pc 000bf7bb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+882)\n"
-      "  #33 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #34 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #35 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #36 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #37 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #38 pc 0001139b  anonymous:e2796000 (boolean Main.foo()+178)\n"
-      "  #39 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #40 pc 00467129  libartd.so (art_quick_invoke_stub+228)\n"
-      "  #41 pc 000bf7a9  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+864)\n"
-      "  #42 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #43 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #44 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #45 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #46 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #47 pc 00010aa7  anonymous:e2796000 (void Main.runPrimary()+70)\n"
-      "  #48 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #49 pc 00467129  libartd.so (art_quick_invoke_stub+228)\n"
-      "  #50 pc 000bf7a9  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+864)\n"
-      "  #51 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #52 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #53 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #54 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #55 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #56 pc 0000ba99  anonymous:e2796000 (void Main.main(java.lang.String[])+144)\n"
-      "  #57 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #58 pc 0046722f  libartd.so (art_quick_invoke_static_stub+226)\n"
-      "  #59 pc 000bf7bb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+882)\n"
-      "  #60 pc 00247833  libartd.so "
-      "(art::interpreter::ArtInterpreterToCompiledCodeBridge(art::Thread*, art::ArtMethod*, "
-      "art::ShadowFrame*, unsigned short, art::JValue*)+382)\n"
-      "  #61 pc 0022e935  libartd.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+244)\n"
-      "  #62 pc 0022f71d  libartd.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+128)\n"
-      "  #63 pc 00442865  libartd.so (artQuickToInterpreterBridge+796)\n"
-      "  #64 pc 004666ff  libartd.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #65 pc 00462175  libartd.so (art_quick_invoke_stub_internal+68)\n"
-      "  #66 pc 0046722f  libartd.so (art_quick_invoke_static_stub+226)\n"
-      "  #67 pc 000bf7bb  libartd.so "
-      "(art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char "
-      "const*)+882)\n"
-      "  #68 pc 003b292d  libartd.so "
-      "(art::InvokeWithArgArray(art::ScopedObjectAccessAlreadyRunnable const&, art::ArtMethod*, "
-      "art::ArgArray*, art::JValue*, char const*)+52)\n"
-      "  #69 pc 003b26c3  libartd.so "
-      "(art::InvokeWithVarArgs(art::ScopedObjectAccessAlreadyRunnable const&, _jobject*, "
-      "_jmethodID*, std::__va_list)+210)\n"
-      "  #70 pc 00308411  libartd.so "
-      "(art::JNI::CallStaticVoidMethodV(_JNIEnv*, _jclass*, _jmethodID*, std::__va_list)+76)\n"
-      "  #71 pc 000e6a9f  libartd.so "
-      "(art::CheckJNI::CallMethodV(char const*, _JNIEnv*, _jobject*, _jclass*, _jmethodID*, "
-      "std::__va_list, art::Primitive::Type, art::InvokeType)+1486)\n"
-      "  #72 pc 000e19b9  libartd.so "
-      "(art::CheckJNI::CallStaticVoidMethodV(_JNIEnv*, _jclass*, _jmethodID*, std::__va_list)+40)\n"
-      "  #73 pc 0000159f  dalvikvm32 "
-      "(_JNIEnv::CallStaticVoidMethod(_jclass*, _jmethodID*, ...)+30)\n"
-      "  #74 pc 00001349  dalvikvm32 (main+896)\n"
-      "  #75 pc 000850c9  libc.so\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xdfe66a5eU, unwinder.frames()[0].pc);
   EXPECT_EQ(0xff85d180U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xe044712dU, unwinder.frames()[1].pc);
@@ -930,12 +535,17 @@ TEST_F(UnwindOfflineTest, jit_debug_arm) {
 }
 
 struct LeakType {
-  LeakType(Maps* maps, Regs* regs, std::shared_ptr<Memory>& process_memory)
-      : maps(maps), regs(regs), process_memory(process_memory) {}
+  LeakType(Maps* maps, Regs* regs, std::shared_ptr<Memory>& process_memory,
+           size_t expected_num_frames)
+      : maps(maps),
+        regs(regs),
+        process_memory(process_memory),
+        expected_num_frames(expected_num_frames) {}
 
   Maps* maps;
   Regs* regs;
   std::shared_ptr<Memory>& process_memory;
+  size_t expected_num_frames;
 };
 
 static void OfflineUnwind(void* data) {
@@ -947,23 +557,23 @@ static void OfflineUnwind(void* data) {
   Unwinder unwinder(128, leak_data->maps, regs_copy.get(), leak_data->process_memory);
   unwinder.SetJitDebug(jit_debug.get());
   unwinder.Unwind();
-  ASSERT_EQ(76U, unwinder.NumFrames());
+  ASSERT_EQ(leak_data->expected_num_frames, unwinder.NumFrames());
 }
 
 TEST_F(UnwindOfflineTest, unwind_offline_check_for_leaks) {
-  ASSERT_NO_FATAL_FAILURE(Init("jit_debug_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "jit_debug_arm/",
+                            .arch = ARCH_ARM,
+                            .memory_flag = ProcessMemoryFlag::kIncludeJitMemory},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  MemoryOfflineParts* memory = new MemoryOfflineParts;
-  AddMemory(dir_ + "descriptor.data", memory);
-  AddMemory(dir_ + "descriptor1.data", memory);
-  AddMemory(dir_ + "stack.data", memory);
-  for (size_t i = 0; i < 7; i++) {
-    AddMemory(dir_ + "entry" + std::to_string(i) + ".data", memory);
-    AddMemory(dir_ + "jit" + std::to_string(i) + ".data", memory);
-  }
-  process_memory_.reset(memory);
+  std::shared_ptr<Memory> process_memory = offline_utils_.GetProcessMemory();
 
-  LeakType data(maps_.get(), regs_.get(), process_memory_);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  LeakType data(offline_utils_.GetMaps(), offline_utils_.GetRegs(), process_memory,
+                expected_num_frames);
   TestCheckForLeaks(OfflineUnwind, &data);
 }
 
@@ -971,20 +581,23 @@ TEST_F(UnwindOfflineTest, unwind_offline_check_for_leaks) {
 // fallback to iterating over the cies/fdes and ignore the eh_frame_hdr.
 // No .gnu_debugdata section in the elf file, so no symbols.
 TEST_F(UnwindOfflineTest, bad_eh_frame_hdr_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("bad_eh_frame_hdr_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "bad_eh_frame_hdr_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(5U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0000000000000550  waiter64\n"
-      "  #01 pc 0000000000000568  waiter64\n"
-      "  #02 pc 000000000000057c  waiter64\n"
-      "  #03 pc 0000000000000590  waiter64\n"
-      "  #04 pc 00000000000a8e98  libc.so (__libc_init+88)\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x60a9fdf550U, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7fdd141990U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x60a9fdf568U, unwinder.frames()[1].pc);
@@ -1000,20 +613,23 @@ TEST_F(UnwindOfflineTest, bad_eh_frame_hdr_arm64) {
 // The elf has bad eh_frame unwind information for the pcs. If eh_frame
 // is used first, the unwind will not match the expected output.
 TEST_F(UnwindOfflineTest, debug_frame_first_x86) {
-  ASSERT_NO_FATAL_FAILURE(Init("debug_frame_first_x86/", ARCH_X86));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "debug_frame_first_x86/", .arch = ARCH_X86},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(5U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000685  waiter (call_level3+53)\n"
-      "  #01 pc 000006b7  waiter (call_level2+23)\n"
-      "  #02 pc 000006d7  waiter (call_level1+23)\n"
-      "  #03 pc 000006f7  waiter (main+23)\n"
-      "  #04 pc 00018275  libc.so\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x56598685U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xffcf9e38U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x565986b7U, unwinder.frames()[1].pc);
@@ -1028,20 +644,23 @@ TEST_F(UnwindOfflineTest, debug_frame_first_x86) {
 
 // Make sure that a pc that is at the beginning of an fde unwinds correctly.
 TEST_F(UnwindOfflineTest, eh_frame_hdr_begin_x86_64) {
-  ASSERT_NO_FATAL_FAILURE(Init("eh_frame_hdr_begin_x86_64/", ARCH_X86_64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "eh_frame_hdr_begin_x86_64/", .arch = ARCH_X86_64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(5U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0000000000000a80  unwind_test64 (calling3)\n"
-      "  #01 pc 0000000000000dd9  unwind_test64 (calling2+633)\n"
-      "  #02 pc 000000000000121e  unwind_test64 (calling1+638)\n"
-      "  #03 pc 00000000000013ed  unwind_test64 (main+13)\n"
-      "  #04 pc 00000000000202b0  libc.so\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x561550b17a80U, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7ffcc8596ce8U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x561550b17dd9U, unwinder.frames()[1].pc);
@@ -1055,71 +674,26 @@ TEST_F(UnwindOfflineTest, eh_frame_hdr_begin_x86_64) {
 }
 
 TEST_F(UnwindOfflineTest, art_quick_osr_stub_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("art_quick_osr_stub_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "art_quick_osr_stub_arm/",
+                            .arch = ARCH_ARM,
+                            .memory_flag = ProcessMemoryFlag::kIncludeJitMemory},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  MemoryOfflineParts* memory = new MemoryOfflineParts;
-  AddMemory(dir_ + "descriptor.data", memory);
-  AddMemory(dir_ + "stack.data", memory);
-  for (size_t i = 0; i < 2; i++) {
-    AddMemory(dir_ + "entry" + std::to_string(i) + ".data", memory);
-    AddMemory(dir_ + "jit" + std::to_string(i) + ".data", memory);
-  }
-  process_memory_.reset(memory);
-
-  std::unique_ptr<JitDebug> jit_debug = CreateJitDebug(regs_->Arch(), process_memory_);
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
-  unwinder.SetJitDebug(jit_debug.get());
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
+  unwinder.SetJitDebug(offline_utils_.GetJitDebug());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(25U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0000c788  <anonymous:d0250000> "
-      "(com.example.simpleperf.simpleperfexamplewithnative.MixActivity.access$000)\n"
-      "  #01 pc 0000cdd5  <anonymous:d0250000> "
-      "(com.example.simpleperf.simpleperfexamplewithnative.MixActivity$1.run+60)\n"
-      "  #02 pc 004135bb  libart.so (art_quick_osr_stub+42)\n"
-      "  #03 pc 002657a5  libart.so "
-      "(art::jit::Jit::MaybeDoOnStackReplacement(art::Thread*, art::ArtMethod*, unsigned int, int, "
-      "art::JValue*)+876)\n"
-      "  #04 pc 004021a7  libart.so (MterpMaybeDoOnStackReplacement+86)\n"
-      "  #05 pc 00412474  libart.so (ExecuteMterpImpl+66164)\n"
-      "  #06 pc cd8365b0  <unknown>\n"  // symbol in dex file
-      "  #07 pc 001d7f1b  libart.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+374)\n"
-      "  #08 pc 001dc593  libart.so "
-      "(art::interpreter::ArtInterpreterToInterpreterBridge(art::Thread*, "
-      "art::CodeItemDataAccessor const&, art::ShadowFrame*, art::JValue*)+154)\n"
-      "  #09 pc 001f4d01  libart.so "
-      "(bool art::interpreter::DoCall<false, false>(art::ArtMethod*, art::Thread*, "
-      "art::ShadowFrame&, art::Instruction const*, unsigned short, art::JValue*)+732)\n"
-      "  #10 pc 003fe427  libart.so (MterpInvokeInterface+1354)\n"
-      "  #11 pc 00405b94  libart.so (ExecuteMterpImpl+14740)\n"
-      "  #12 pc 7004873e  <unknown>\n"  // symbol in dex file
-      "  #13 pc 001d7f1b  libart.so "
-      "(art::interpreter::Execute(art::Thread*, art::CodeItemDataAccessor const&, "
-      "art::ShadowFrame&, art::JValue, bool)+374)\n"
-      "  #14 pc 001dc4d5  libart.so "
-      "(art::interpreter::EnterInterpreterFromEntryPoint(art::Thread*, art::CodeItemDataAccessor "
-      "const&, art::ShadowFrame*)+92)\n"
-      "  #15 pc 003f25ab  libart.so (artQuickToInterpreterBridge+970)\n"
-      "  #16 pc 00417aff  libart.so (art_quick_to_interpreter_bridge+30)\n"
-      "  #17 pc 00413575  libart.so (art_quick_invoke_stub_internal+68)\n"
-      "  #18 pc 00418531  libart.so (art_quick_invoke_stub+236)\n"
-      "  #19 pc 000b468d  libart.so (art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned "
-      "int, art::JValue*, char const*)+136)\n"
-      "  #20 pc 00362f49  libart.so "
-      "(art::(anonymous namespace)::InvokeWithArgArray(art::ScopedObjectAccessAlreadyRunnable "
-      "const&, art::ArtMethod*, art::(anonymous namespace)::ArgArray*, art::JValue*, char "
-      "const*)+52)\n"
-      "  #21 pc 00363cd9  libart.so "
-      "(art::InvokeVirtualOrInterfaceWithJValues(art::ScopedObjectAccessAlreadyRunnable const&, "
-      "_jobject*, _jmethodID*, jvalue*)+332)\n"
-      "  #22 pc 003851dd  libart.so (art::Thread::CreateCallback(void*)+868)\n"
-      "  #23 pc 00062925  libc.so (__pthread_start(void*)+22)\n"
-      "  #24 pc 0001de39  libc.so (__start_thread+24)\n",
-      frame_info);
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xd025c788U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xcd4ff140U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xd025cdd5U, unwinder.frames()[1].pc);
@@ -1173,31 +747,28 @@ TEST_F(UnwindOfflineTest, art_quick_osr_stub_arm) {
 }
 
 TEST_F(UnwindOfflineTest, jit_map_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("jit_map_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "jit_map_arm/", .arch = ARCH_ARM}, &error_msg))
+    FAIL() << error_msg;
 
-  maps_->Add(0xd025c788, 0xd025c9f0, 0, PROT_READ | PROT_EXEC | MAPS_FLAGS_JIT_SYMFILE_MAP,
-             "jit_map0.so", 0);
-  maps_->Add(0xd025cd98, 0xd025cff4, 0, PROT_READ | PROT_EXEC | MAPS_FLAGS_JIT_SYMFILE_MAP,
-             "jit_map1.so", 0);
-  maps_->Sort();
+  Maps* maps = offline_utils_.GetMaps();
+  maps->Add(0xd025c788, 0xd025c9f0, 0, PROT_READ | PROT_EXEC | MAPS_FLAGS_JIT_SYMFILE_MAP,
+            "jit_map0.so", 0);
+  maps->Add(0xd025cd98, 0xd025cff4, 0, PROT_READ | PROT_EXEC | MAPS_FLAGS_JIT_SYMFILE_MAP,
+            "jit_map1.so", 0);
+  maps->Sort();
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, maps, offline_utils_.GetRegs(), offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(6U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000000  jit_map0.so "
-      "(com.example.simpleperf.simpleperfexamplewithnative.MixActivity.access$000)\n"
-      "  #01 pc 0000003d  jit_map1.so "
-      "(com.example.simpleperf.simpleperfexamplewithnative.MixActivity$1.run+60)\n"
-      "  #02 pc 004135bb  libart.so (art_quick_osr_stub+42)\n"
-
-      "  #03 pc 003851dd  libart.so (art::Thread::CreateCallback(void*)+868)\n"
-      "  #04 pc 00062925  libc.so (__pthread_start(void*)+22)\n"
-      "  #05 pc 0001de39  libc.so (__start_thread+24)\n",
-      frame_info);
-
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xd025c788U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xcd4ff140U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xd025cdd5U, unwinder.frames()[1].pc);
@@ -1213,39 +784,22 @@ TEST_F(UnwindOfflineTest, jit_map_arm) {
 }
 
 TEST_F(UnwindOfflineTest, offset_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("offset_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "offset_arm/", .arch = ARCH_ARM}, &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(19U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0032bfa0  libunwindstack_test (SignalInnerFunction+40)\n"
-      "  #01 pc 0032bfeb  libunwindstack_test (SignalMiddleFunction+2)\n"
-      "  #02 pc 0032bff3  libunwindstack_test (SignalOuterFunction+2)\n"
-      "  #03 pc 0032fed3  libunwindstack_test "
-      "(unwindstack::SignalCallerHandler(int, siginfo*, void*)+26)\n"
-      "  #04 pc 0002652c  libc.so (__restore)\n"
-      "  #05 pc 00000000  <unknown>\n"
-      "  #06 pc 0032c2d9  libunwindstack_test (InnerFunction+736)\n"
-      "  #07 pc 0032cc4f  libunwindstack_test (MiddleFunction+42)\n"
-      "  #08 pc 0032cc81  libunwindstack_test (OuterFunction+42)\n"
-      "  #09 pc 0032e547  libunwindstack_test "
-      "(unwindstack::RemoteThroughSignal(int, unsigned int)+270)\n"
-      "  #10 pc 0032ed99  libunwindstack_test "
-      "(unwindstack::UnwindTest_remote_through_signal_with_invalid_func_Test::TestBody()+16)\n"
-      "  #11 pc 00354453  libunwindstack_test (testing::Test::Run()+154)\n"
-      "  #12 pc 00354de7  libunwindstack_test (testing::TestInfo::Run()+194)\n"
-      "  #13 pc 00355105  libunwindstack_test (testing::TestCase::Run()+180)\n"
-      "  #14 pc 0035a215  libunwindstack_test "
-      "(testing::internal::UnitTestImpl::RunAllTests()+664)\n"
-      "  #15 pc 00359f4f  libunwindstack_test (testing::UnitTest::Run()+110)\n"
-      "  #16 pc 0034d3db  libunwindstack_test (main+38)\n"
-      "  #17 pc 00092c0d  libc.so (__libc_init+48)\n"
-      "  #18 pc 0004202f  libunwindstack_test (_start_main+38)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x2e55fa0U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xf43d2cccU, unwinder.frames()[0].sp);
   EXPECT_EQ(0x2e55febU, unwinder.frames()[1].pc);
@@ -1289,24 +843,23 @@ TEST_F(UnwindOfflineTest, offset_arm) {
 // Test using a non-zero load bias library that has the fde entries
 // encoded as 0xb, which is not set as pc relative.
 TEST_F(UnwindOfflineTest, debug_frame_load_bias_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("debug_frame_load_bias_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "debug_frame_load_bias_arm/", .arch = ARCH_ARM},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(8U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0005138c  libc.so (__ioctl+8)\n"
-      "  #01 pc 0002140f  libc.so (ioctl+30)\n"
-      "  #02 pc 00039535  libbinder.so (android::IPCThreadState::talkWithDriver(bool)+204)\n"
-      "  #03 pc 00039633  libbinder.so (android::IPCThreadState::getAndExecuteCommand()+10)\n"
-      "  #04 pc 00039b57  libbinder.so (android::IPCThreadState::joinThreadPool(bool)+38)\n"
-      "  #05 pc 00000c21  mediaserver (main+104)\n"
-      "  #06 pc 00084b89  libc.so (__libc_init+48)\n"
-      "  #07 pc 00000b77  mediaserver (_start_main+38)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xf0be238cU, unwinder.frames()[0].pc);
   EXPECT_EQ(0xffd4a638U, unwinder.frames()[0].sp);
   EXPECT_EQ(0xf0bb240fU, unwinder.frames()[1].pc);
@@ -1326,25 +879,23 @@ TEST_F(UnwindOfflineTest, debug_frame_load_bias_arm) {
 }
 
 TEST_F(UnwindOfflineTest, shared_lib_in_apk_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("shared_lib_in_apk_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "shared_lib_in_apk_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(7U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 000000000014ccbc  linker64 (__dl_syscall+28)\n"
-      "  #01 pc 000000000005426c  linker64 "
-      "(__dl__ZL24debuggerd_signal_handleriP7siginfoPv+1128)\n"
-      "  #02 pc 00000000000008c0  vdso.so (__kernel_rt_sigreturn)\n"
-      "  #03 pc 00000000000846f4  libc.so (abort+172)\n"
-      "  #04 pc 0000000000084ad4  libc.so (__assert2+36)\n"
-      "  #05 pc 000000000003d5b4  ANGLEPrebuilt.apk!libfeature_support_angle.so (offset 0x4000) "
-      "(ANGLEGetUtilityAPI+56)\n"
-      "  #06 pc 000000000007fe68  libc.so (__libc_init)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x7e82c4fcbcULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7df8ca3bf0ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0x7e82b5726cULL, unwinder.frames()[1].pc);
@@ -1363,27 +914,31 @@ TEST_F(UnwindOfflineTest, shared_lib_in_apk_arm64) {
 }
 
 TEST_F(UnwindOfflineTest, shared_lib_in_apk_memory_only_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("shared_lib_in_apk_memory_only_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init(
+          {.offline_files_dir = "shared_lib_in_apk_memory_only_arm64/", .arch = ARCH_ARM64},
+          &error_msg))
+    FAIL() << error_msg;
   // Add the memory that represents the shared library.
-  MemoryOfflineParts* memory = reinterpret_cast<MemoryOfflineParts*>(process_memory_.get());
-  AddMemory(dir_ + "lib_mem.data", memory);
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  std::shared_ptr<Memory> process_memory = offline_utils_.GetProcessMemory();
+  MemoryOfflineParts* memory = reinterpret_cast<MemoryOfflineParts*>(process_memory.get());
+  const std::string* offline_files_path = offline_utils_.GetOfflineFilesPath();
+  if (offline_files_path == nullptr) FAIL() << "GetOfflineFilesPath() failed.";
+
+  if (!AddMemory(*offline_files_path + "lib_mem.data", memory, &error_msg)) FAIL() << error_msg;
+
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(), process_memory);
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(7U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 000000000014ccbc  linker64 (__dl_syscall+28)\n"
-      "  #01 pc 000000000005426c  linker64 "
-      "(__dl__ZL24debuggerd_signal_handleriP7siginfoPv+1128)\n"
-      "  #02 pc 00000000000008c0  vdso.so (__kernel_rt_sigreturn)\n"
-      "  #03 pc 00000000000846f4  libc.so (abort+172)\n"
-      "  #04 pc 0000000000084ad4  libc.so (__assert2+36)\n"
-      "  #05 pc 000000000003d5b4  ANGLEPrebuilt.apk (offset 0x21d5000)\n"
-      "  #06 pc 000000000007fe68  libc.so (__libc_init)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x7e82c4fcbcULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7df8ca3bf0ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0x7e82b5726cULL, unwinder.frames()[1].pc);
@@ -1402,29 +957,24 @@ TEST_F(UnwindOfflineTest, shared_lib_in_apk_memory_only_arm64) {
 }
 
 TEST_F(UnwindOfflineTest, shared_lib_in_apk_single_map_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("shared_lib_in_apk_single_map_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init(
+          {.offline_files_dir = "shared_lib_in_apk_single_map_arm64/", .arch = ARCH_ARM64},
+          &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(13U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000000000814bc  libc.so (syscall+28)\n"
-      "  #01 pc 00000000008cdf5c  test.apk (offset 0x5000)\n"
-      "  #02 pc 00000000008cde9c  test.apk (offset 0x5000)\n"
-      "  #03 pc 00000000008cdd70  test.apk (offset 0x5000)\n"
-      "  #04 pc 00000000008ce408  test.apk (offset 0x5000)\n"
-      "  #05 pc 00000000008ce8d8  test.apk (offset 0x5000)\n"
-      "  #06 pc 00000000008ce814  test.apk (offset 0x5000)\n"
-      "  #07 pc 00000000008bcf60  test.apk (offset 0x5000)\n"
-      "  #08 pc 0000000000133024  test.apk (offset 0x5000)\n"
-      "  #09 pc 0000000000134ad0  test.apk (offset 0x5000)\n"
-      "  #10 pc 0000000000134b64  test.apk (offset 0x5000)\n"
-      "  #11 pc 00000000000e406c  libc.so (__pthread_start(void*)+36)\n"
-      "  #12 pc 0000000000085e18  libc.so (__start_thread+64)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x7cbe0b14bcULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7be4f077d0ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0x7be6715f5cULL, unwinder.frames()[1].pc);
@@ -1454,26 +1004,42 @@ TEST_F(UnwindOfflineTest, shared_lib_in_apk_single_map_arm64) {
 }
 
 TEST_F(UnwindOfflineTest, invalid_elf_offset_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("invalid_elf_offset_arm/", ARCH_ARM, false));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "invalid_elf_offset_arm/",
+                            .arch = ARCH_ARM,
+                            .memory_flag = ProcessMemoryFlag::kNoMemory},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(1U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
   EXPECT_EQ("  #00 pc 00aa7508  invalid.apk (offset 0x12e4000)\n", frame_info);
   EXPECT_EQ(0xc898f508, unwinder.frames()[0].pc);
   EXPECT_EQ(0xc2044218, unwinder.frames()[0].sp);
 }
 
 TEST_F(UnwindOfflineTest, load_bias_ro_rx_x86_64) {
-  ASSERT_NO_FATAL_FAILURE(Init("load_bias_ro_rx_x86_64/", ARCH_X86_64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "load_bias_ro_rx_x86_64/", .arch = ARCH_X86_64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+
   std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(17U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
   EXPECT_EQ(
       "  #00 pc 00000000000e9dd4  libc.so (__write+20)\n"
       "  #01 pc 000000000007ab9c  libc.so (_IO_file_write+44)\n"
@@ -1544,28 +1110,24 @@ TEST_F(UnwindOfflineTest, load_bias_ro_rx_x86_64) {
 }
 
 TEST_F(UnwindOfflineTest, load_bias_different_section_bias_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("load_bias_different_section_bias_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init(
+          {.offline_files_dir = "load_bias_different_section_bias_arm64/", .arch = ARCH_ARM64},
+          &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(12U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000000000d59bc  linker64 (__dl_syscall+28)\n"
-      "  #01 pc 00000000000554e8  linker64 (__dl__ZL24debuggerd_signal_handleriP7siginfoPv+1148)\n"
-      "  #02 pc 00000000000008c0  vdso (__kernel_rt_sigreturn)\n"
-      "  #03 pc 000000000007f3e8  libc.so (abort+168)\n"
-      "  #04 pc 00000000000459fc  test (std::__ndk1::__throw_bad_cast()+4)\n"
-      "  #05 pc 0000000000056d80  test (testing::Test::Run()+88)\n"
-      "  #06 pc 000000000005724c  test (testing::TestInfo::Run()+112)\n"
-      "  #07 pc 0000000000057558  test (testing::TestSuite::Run()+116)\n"
-      "  #08 pc 000000000005bffc  test (testing::internal::UnitTestImpl::RunAllTests()+464)\n"
-      "  #09 pc 000000000005bd9c  test (testing::UnitTest::Run()+116)\n"
-      "  #10 pc 00000000000464e4  test (main+144)\n"
-      "  #11 pc 000000000007aa34  libc.so (__libc_init+108)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x7112cb99bcULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7112bdbbf0ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0x7112c394e8ULL, unwinder.frames()[1].pc);
@@ -1593,27 +1155,23 @@ TEST_F(UnwindOfflineTest, load_bias_different_section_bias_arm64) {
 }
 
 TEST_F(UnwindOfflineTest, eh_frame_bias_x86) {
-  ASSERT_NO_FATAL_FAILURE(Init("eh_frame_bias_x86/", ARCH_X86));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "eh_frame_bias_x86/", .arch = ARCH_X86},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(11U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc ffffe430  vdso.so (__kernel_vsyscall+16)\n"
-      "  #01 pc 00082a4b  libc.so (__epoll_pwait+43)\n"
-      "  #02 pc 000303a3  libc.so (epoll_pwait+115)\n"
-      "  #03 pc 000303ed  libc.so (epoll_wait+45)\n"
-      "  #04 pc 00010ea2  tombstoned (epoll_dispatch+226)\n"
-      "  #05 pc 0000c5e7  tombstoned (event_base_loop+1095)\n"
-      "  #06 pc 0000c193  tombstoned (event_base_dispatch+35)\n"
-      "  #07 pc 00005c77  tombstoned (main+884)\n"
-      "  #08 pc 00015f66  libc.so (__libc_init+102)\n"
-      "  #09 pc 0000360e  tombstoned (_start+98)\n"
-      "  #10 pc 00000001  <unknown>\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xffffe430ULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0xfffe1a30ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0xeb585a4bULL, unwinder.frames()[1].pc);
@@ -1639,37 +1197,23 @@ TEST_F(UnwindOfflineTest, eh_frame_bias_x86) {
 }
 
 TEST_F(UnwindOfflineTest, signal_load_bias_arm) {
-  ASSERT_NO_FATAL_FAILURE(Init("signal_load_bias_arm/", ARCH_ARM));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "signal_load_bias_arm/", .arch = ARCH_ARM},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(17U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 0029ef9e  libunwindstack_unit_test (SignalInnerFunction+10)\n"
-      "  #01 pc 0029efa7  libunwindstack_unit_test (SignalMiddleFunction+2)\n"
-      "  #02 pc 0029efaf  libunwindstack_unit_test (SignalOuterFunction+2)\n"
-      "  #03 pc 002a280b  libunwindstack_unit_test (unwindstack::SignalCallerHandler(int, "
-      "siginfo*, void*)+10)\n"
-      "  #04 pc 00058bd4  libc.so (__restore)\n"
-      "  #05 pc 0029f01e  libunwindstack_unit_test (InnerFunction+106)\n"
-      "  #06 pc 0029f633  libunwindstack_unit_test (MiddleFunction+16)\n"
-      "  #07 pc 0029f64b  libunwindstack_unit_test (OuterFunction+16)\n"
-      "  #08 pc 002a1711  libunwindstack_unit_test (unwindstack::RemoteThroughSignal(int, unsigned "
-      "int)+260)\n"
-      "  #09 pc 002a1603  libunwindstack_unit_test "
-      "(unwindstack::UnwindTest_remote_through_signal_Test::TestBody()+10)\n"
-      "  #10 pc 002c8fe3  libunwindstack_unit_test (testing::Test::Run()+130)\n"
-      "  #11 pc 002c9b25  libunwindstack_unit_test (testing::TestInfo::Run()+184)\n"
-      "  #12 pc 002c9e27  libunwindstack_unit_test (testing::TestSuite::Run()+202)\n"
-      "  #13 pc 002d193d  libunwindstack_unit_test "
-      "(testing::internal::UnitTestImpl::RunAllTests()+660)\n"
-      "  #14 pc 002d160b  libunwindstack_unit_test (testing::UnitTest::Run()+134)\n"
-      "  #15 pc 002de035  libunwindstack_unit_test (IsolateMain+680)\n"
-      "  #16 pc 00058155  libc.so (__libc_init+68)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0xb6955f9eULL, unwinder.frames()[0].pc);
   EXPECT_EQ(0xf2790ce8ULL, unwinder.frames()[0].sp);
   EXPECT_EQ(0xb6955fa7ULL, unwinder.frames()[1].pc);
@@ -1707,25 +1251,22 @@ TEST_F(UnwindOfflineTest, signal_load_bias_arm) {
 }
 
 TEST_F(UnwindOfflineTest, empty_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("empty_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "empty_arm64/", .arch = ARCH_ARM64}, &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(7U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000000000963a4  libc.so (__ioctl+4)\n"
-      "  #01 pc 000000000005344c  libc.so (ioctl+140)\n"
-      "  #02 pc 0000000000050ce4  libbinder.so "
-      "(android::IPCThreadState::talkWithDriver(bool)+308)\n"
-      "  #03 pc 0000000000050e98  libbinder.so "
-      "(android::IPCThreadState::getAndExecuteCommand()+24)\n"
-      "  #04 pc 00000000000516ac  libbinder.so (android::IPCThreadState::joinThreadPool(bool)+60)\n"
-      "  #05 pc 00000000000443b0  netd (main+1056)\n"
-      "  #06 pc 0000000000045594  libc.so (__libc_init+108)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x72a02203a4U, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7ffb6c0b50U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x72a01dd44cU, unwinder.frames()[1].pc);
@@ -1746,40 +1287,22 @@ TEST_F(UnwindOfflineTest, empty_arm64) {
 // that the signal handler match does not occur and it uses the
 // fde to do the unwind.
 TEST_F(UnwindOfflineTest, signal_fde_x86) {
-  ASSERT_NO_FATAL_FAILURE(Init("signal_fde_x86/", ARCH_X86));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "signal_fde_x86/", .arch = ARCH_X86}, &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(20U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 007914d9  libunwindstack_test (SignalInnerFunction+25)\n"
-      "  #01 pc 007914fc  libunwindstack_test (SignalMiddleFunction+28)\n"
-      "  #02 pc 0079152c  libunwindstack_test (SignalOuterFunction+28)\n"
-      "  #03 pc 0079af62  libunwindstack_test (unwindstack::SignalCallerHandler(int, siginfo*, "
-      "void*)+50)\n"
-      "  #04 pc 00058fb0  libc.so (__restore)\n"
-      "  #05 pc 00000000  <unknown>\n"
-      "  #06 pc 0079161a  libunwindstack_test (InnerFunction+218)\n"
-      "  #07 pc 007923aa  libunwindstack_test (MiddleFunction+42)\n"
-      "  #08 pc 007923ea  libunwindstack_test (OuterFunction+42)\n"
-      "  #09 pc 00797444  libunwindstack_test (unwindstack::RemoteThroughSignal(int, unsigned "
-      "int)+868)\n"
-      "  #10 pc 007985b8  libunwindstack_test "
-      "(unwindstack::UnwindTest_remote_through_signal_with_invalid_func_Test::TestBody()+56)\n"
-      "  #11 pc 00817a19  libunwindstack_test\n"
-      "  #12 pc 008178c5  libunwindstack_test (testing::Test::Run()+277)\n"
-      "  #13 pc 00818d3e  libunwindstack_test (testing::TestInfo::Run()+318)\n"
-      "  #14 pc 008198b4  libunwindstack_test (testing::TestSuite::Run()+436)\n"
-      "  #15 pc 00828cb0  libunwindstack_test "
-      "(testing::internal::UnitTestImpl::RunAllTests()+1216)\n"
-      "  #16 pc 0082870f  libunwindstack_test (testing::UnitTest::Run()+367)\n"
-      "  #17 pc 0084031e  libunwindstack_test (IsolateMain+2334)\n"
-      "  #18 pc 0083f9e9  libunwindstack_test (main+41)\n"
-      "  #19 pc 00050646  libc.so (__libc_init+118)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x5ae0d4d9U, unwinder.frames()[0].pc);
   EXPECT_EQ(0xecb37188U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x5ae0d4fcU, unwinder.frames()[1].pc);
@@ -1826,38 +1349,23 @@ TEST_F(UnwindOfflineTest, signal_fde_x86) {
 // that the signal handler match does not occur and it uses the
 // fde to do the unwind.
 TEST_F(UnwindOfflineTest, signal_fde_x86_64) {
-  ASSERT_NO_FATAL_FAILURE(Init("signal_fde_x86_64/", ARCH_X86_64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "signal_fde_x86_64/", .arch = ARCH_X86_64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(18U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 000000000058415b  libunwindstack_test (SignalInnerFunction+11)\n"
-      "  #01 pc 0000000000584168  libunwindstack_test (SignalMiddleFunction+8)\n"
-      "  #02 pc 0000000000584178  libunwindstack_test (SignalOuterFunction+8)\n"
-      "  #03 pc 000000000058ac77  libunwindstack_test (unwindstack::SignalCallerHandler(int, "
-      "siginfo*, void*)+23)\n"
-      "  #04 pc 0000000000057d10  libc.so (__restore_rt)\n"
-      "  #05 pc 0000000000000000  <unknown>\n"
-      "  #06 pc 0000000000584244  libunwindstack_test (InnerFunction+196)\n"
-      "  #07 pc 0000000000584b44  libunwindstack_test (MiddleFunction+20)\n"
-      "  #08 pc 0000000000584b64  libunwindstack_test (OuterFunction+20)\n"
-      "  #09 pc 0000000000588457  libunwindstack_test (unwindstack::RemoteThroughSignal(int, "
-      "unsigned int)+583)\n"
-      "  #10 pc 0000000000588f67  libunwindstack_test "
-      "(unwindstack::UnwindTest_remote_through_signal_with_invalid_func_Test::TestBody()+23)\n"
-      "  #11 pc 00000000005d9c38  libunwindstack_test (testing::Test::Run()+216)\n"
-      "  #12 pc 00000000005daf9a  libunwindstack_test (testing::TestInfo::Run()+266)\n"
-      "  #13 pc 00000000005dba46  libunwindstack_test (testing::TestSuite::Run()+390)\n"
-      "  #14 pc 00000000005ea4c6  libunwindstack_test "
-      "(testing::internal::UnitTestImpl::RunAllTests()+1190)\n"
-      "  #15 pc 00000000005e9f61  libunwindstack_test (testing::UnitTest::Run()+337)\n"
-      "  #16 pc 0000000000600155  libunwindstack_test (IsolateMain+2037)\n"
-      "  #17 pc 000000000004e405  libc.so (__libc_init+101)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x5bb41271e15bU, unwinder.frames()[0].pc);
   EXPECT_EQ(0x707eb5aa8320U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x5bb41271e168U, unwinder.frames()[1].pc);
@@ -1897,45 +1405,25 @@ TEST_F(UnwindOfflineTest, signal_fde_x86_64) {
 }
 
 TEST_F(UnwindOfflineTest, pauth_pc_arm64) {
-  ASSERT_NO_FATAL_FAILURE(Init("pauth_pc_arm64/", ARCH_ARM64));
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "pauth_pc_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
 
-  static_cast<RegsArm64*>(regs_.get())->SetPACMask(0x007fff8000000000ULL);
+  static_cast<RegsArm64*>(offline_utils_.GetRegs())->SetPACMask(0x007fff8000000000ULL);
 
-  Unwinder unwinder(128, maps_.get(), regs_.get(), process_memory_);
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
   unwinder.Unwind();
 
-  std::string frame_info(DumpFrames(unwinder));
-  ASSERT_EQ(26U, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
-  EXPECT_EQ(
-      "  #00 pc 00000000000404a8  toybox (do_print+28)\n"
-      "  #01 pc 0000000000040270  toybox (do_find+5072)\n"
-      "  #02 pc 000000000002c640  toybox (dirtree_handle_callback+40)\n"
-      "  #03 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #04 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #05 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #06 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #07 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #08 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #09 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #10 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #11 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #12 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #13 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #14 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #15 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #16 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #17 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #18 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #19 pc 000000000002c588  toybox (dirtree_recurse+200)\n"
-      "  #20 pc 000000000002c6a8  toybox (dirtree_handle_callback+144)\n"
-      "  #21 pc 000000000003ee54  toybox (find_main+272)\n"
-      "  #22 pc 0000000000034834  toybox (toy_exec_which+88)\n"
-      "  #23 pc 00000000000342cc  toybox (toybox_main+148)\n"
-      "  #24 pc 00000000000348b4  toybox (main+120)\n"
-      "  #25 pc 00000000000499d8  libc.so "
-      "(__libc_init+112)\n",
-      frame_info);
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
 
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
   EXPECT_EQ(0x5c390884a8U, unwinder.frames()[0].pc);
   EXPECT_EQ(0x7ff3511750U, unwinder.frames()[0].sp);
   EXPECT_EQ(0x5c39088270U, unwinder.frames()[1].pc);
@@ -1990,4 +1478,185 @@ TEST_F(UnwindOfflineTest, pauth_pc_arm64) {
   EXPECT_EQ(0x7ff3511e70U, unwinder.frames()[25].sp);
 }
 
+TEST_F(UnwindOfflineTest, profiler_like_multi_process) {
+  ConsecutiveUnwindTest(std::vector<UnwindSampleInfo>{
+      {.offline_files_dir = "bluetooth_arm64/pc_1/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "jit_debug_arm/",
+       .arch = ARCH_ARM,
+       .memory_flag = ProcessMemoryFlag::kIncludeJitMemory},
+      {.offline_files_dir = "photos_reset_arm64/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "youtube_compiled_arm64/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "yt_music_arm64/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "maps_compiled_arm64/28656_oat_odex_jar/", .arch = ARCH_ARM64}});
+}
+
+TEST_F(UnwindOfflineTest, profiler_like_single_process_multi_thread) {
+  ConsecutiveUnwindTest(std::vector<UnwindSampleInfo>{
+      {.offline_files_dir = "maps_compiled_arm64/28656_oat_odex_jar/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "maps_compiled_arm64/28613_main-thread/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "maps_compiled_arm64/28644/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "maps_compiled_arm64/28648/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "maps_compiled_arm64/28667/", .arch = ARCH_ARM64}});
+}
+
+TEST_F(UnwindOfflineTest, profiler_like_single_thread_diverse_pcs) {
+  ConsecutiveUnwindTest(std::vector<UnwindSampleInfo>{
+      {.offline_files_dir = "bluetooth_arm64/pc_1/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "bluetooth_arm64/pc_2/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "bluetooth_arm64/pc_3/", .arch = ARCH_ARM64},
+      {.offline_files_dir = "bluetooth_arm64/pc_4/", .arch = ARCH_ARM64}});
+}
+
+static void VerifyApkRORX(Unwinder& unwinder) {
+  EXPECT_EQ(0x7426d2e030U, unwinder.frames()[0].pc);
+  EXPECT_EQ(0x7fe740cc90U, unwinder.frames()[0].sp);
+  EXPECT_EQ(0x7426d2e08cU, unwinder.frames()[1].pc);
+  EXPECT_EQ(0x7fe740ccd0U, unwinder.frames()[1].sp);
+  EXPECT_EQ(0x7426d2e0b8U, unwinder.frames()[2].pc);
+  EXPECT_EQ(0x7fe740ccf0U, unwinder.frames()[2].sp);
+  EXPECT_EQ(0x7426d2e0e4U, unwinder.frames()[3].pc);
+  EXPECT_EQ(0x7fe740cd10U, unwinder.frames()[3].sp);
+  EXPECT_EQ(0x603b0c5154U, unwinder.frames()[4].pc);
+  EXPECT_EQ(0x7fe740cd30U, unwinder.frames()[4].sp);
+  EXPECT_EQ(0x76b6df0b10U, unwinder.frames()[5].pc);
+  EXPECT_EQ(0x7fe740cdb0U, unwinder.frames()[5].sp);
+}
+
+TEST_F(UnwindOfflineTest, apk_rorx_arm64) {
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "apk_rorx_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
+
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
+  unwinder.Unwind();
+
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
+
+  VerifyApkRORX(unwinder);
+}
+
+TEST_F(UnwindOfflineTest, apk_rorx_unreadable_arm64) {
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "apk_rorx_unreadable_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
+
+  // Create a process memory object that holds the apk data in memory
+  // along with the stack data.
+  MemoryOffline* stack_memory = new MemoryOffline;
+  ASSERT_TRUE(stack_memory->Init("stack.data", 0));
+
+  MemoryOffline* apk_memory = new MemoryOffline;
+  auto info1 = offline_utils_.GetMaps()->Find(0x7426d2d000);
+  ASSERT_TRUE(info1 != nullptr);
+  auto info2 = offline_utils_.GetMaps()->Find(0x7426d2e000);
+  ASSERT_TRUE(info2 != nullptr);
+  ASSERT_TRUE(
+      apk_memory->Init("fake.apk", info1->offset(), info1->start(), info2->end() - info1->start()));
+
+  std::unique_ptr<MemoryOfflineParts> parts(new MemoryOfflineParts);
+  parts->Add(stack_memory);
+  parts->Add(apk_memory);
+
+  std::shared_ptr<Memory> process_memory(parts.release());
+
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(), process_memory);
+  unwinder.Unwind();
+
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
+
+  VerifyApkRORX(unwinder);
+}
+
+static void VerifyApkRX(Unwinder& unwinder) {
+  EXPECT_EQ(0x7cb0e6266cU, unwinder.frames()[0].pc);
+  EXPECT_EQ(0x7fe563be90U, unwinder.frames()[0].sp);
+  EXPECT_EQ(0x7cb0e626c0U, unwinder.frames()[1].pc);
+  EXPECT_EQ(0x7fe563bed0U, unwinder.frames()[1].sp);
+  EXPECT_EQ(0x7cb0e626ecU, unwinder.frames()[2].pc);
+  EXPECT_EQ(0x7fe563bef0U, unwinder.frames()[2].sp);
+  EXPECT_EQ(0x7cb0e62718U, unwinder.frames()[3].pc);
+  EXPECT_EQ(0x7fe563bf10U, unwinder.frames()[3].sp);
+  EXPECT_EQ(0x5e004f0154U, unwinder.frames()[4].pc);
+  EXPECT_EQ(0x7fe563bf30U, unwinder.frames()[4].sp);
+  EXPECT_EQ(0x7f41124b10U, unwinder.frames()[5].pc);
+  EXPECT_EQ(0x7fe563bfb0U, unwinder.frames()[5].sp);
+}
+
+TEST_F(UnwindOfflineTest, apk_rx_arm64) {
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "apk_rx_arm64/", .arch = ARCH_ARM64}, &error_msg))
+    FAIL() << error_msg;
+
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(),
+                    offline_utils_.GetProcessMemory());
+  unwinder.Unwind();
+
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
+
+  VerifyApkRX(unwinder);
+}
+
+TEST_F(UnwindOfflineTest, apk_rx_unreadable_arm64) {
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "apk_rx_unreadable_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
+
+  // Create a process memory object that holds the apk data in memory
+  // along with the stack data.
+  MemoryOffline* stack_memory = new MemoryOffline;
+  ASSERT_TRUE(stack_memory->Init("stack.data", 0));
+
+  MemoryOffline* apk_memory = new MemoryOffline;
+  auto info = offline_utils_.GetMaps()->Find(0x7cb0e62000);
+  ASSERT_TRUE(info != nullptr);
+  ASSERT_TRUE(
+      apk_memory->Init("fake.apk", info->offset(), info->start(), info->end() - info->start()));
+
+  std::unique_ptr<MemoryOfflineParts> parts(new MemoryOfflineParts);
+  parts->Add(stack_memory);
+  parts->Add(apk_memory);
+
+  std::shared_ptr<Memory> process_memory(parts.release());
+
+  Unwinder unwinder(128, offline_utils_.GetMaps(), offline_utils_.GetRegs(), process_memory);
+  unwinder.Unwind();
+
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
+
+  VerifyApkRX(unwinder);
+}
+
+}  // namespace
 }  // namespace unwindstack

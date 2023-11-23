@@ -19,6 +19,8 @@
     package="android.appenumeration.browser.wildcard.activity">
     <application>
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.appenumeration.cts.TestActivity"
+                  android:exported="true" />
         <activity android:name="android.appenumeration.WebBrowser"
             android:exported="true">
             <intent-filter>

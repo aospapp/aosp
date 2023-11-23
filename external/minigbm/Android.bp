@@ -113,6 +113,7 @@ cc_defaults {
 
     shared_libs: [
         "libcutils",
+        "libdmabufheap",
         "libdrm",
         "libnativewindow",
         "libsync",
@@ -177,6 +178,7 @@ cc_library {
 cc_library_shared {
     name: "libminigbm_gralloc",
     defaults: ["minigbm_cros_gralloc_library_defaults"],
+    cflags: ["-DHAS_DMABUF_SYSTEM_HEAP"],
 }
 
 cc_library_shared {
@@ -236,6 +238,7 @@ cc_library_shared {
     cflags: [
         "-DDRV_MSM",
         "-DQCOM_DISABLE_COMPRESSED_NV12",
+        "-DHAS_DMABUF_SYSTEM_HEAP",
     ],
 }
 

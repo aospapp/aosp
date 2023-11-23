@@ -315,7 +315,8 @@ static jbyteArray nativeNfcTag_doRead(JNIEnv* e, jobject) {
   }
   sReadDataLen = 0;
 
-  DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", __func__);
+  DLOG_IF(INFO, nfc_debug_enabled)
+      << StringPrintf("%s: exit: Status = 0x%X", __func__, status);
   return buf;
 }
 
@@ -394,7 +395,11 @@ static jboolean nativeNfcTag_doWrite(JNIEnv* e, jobject, jbyteArray buf) {
     if (sCheckNdefCapable) {
       DLOG_IF(INFO, nfc_debug_enabled)
           << StringPrintf("%s: try format", __func__);
-      sem_init(&sFormatSem, 0, 0);
+      if (0 != sem_init(&sFormatSem, 0, 0)) {
+        LOG(ERROR) << StringPrintf(
+            "%s: semaphore creation failed (errno=0x%08x)", __func__, errno);
+        return JNI_FALSE;
+      }
       sFormatOk = false;
       if (sCurrentConnectedTargetProtocol == NFC_PROTOCOL_MIFARE && legacy_mfc_reader) {
         static uint8_t mfc_key1[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -412,7 +417,12 @@ static jboolean nativeNfcTag_doWrite(JNIEnv* e, jobject, jbyteArray buf) {
         {
           sem_wait(&sFormatSem);
           sem_destroy(&sFormatSem);
-          sem_init(&sFormatSem, 0, 0);
+          if (0 != sem_init(&sFormatSem, 0, 0)) {
+            LOG(ERROR) << StringPrintf(
+                "%s: semaphore creation failed (errno=0x%08x)", __func__,
+                errno);
+            return JNI_FALSE;
+          }
           status = EXTNS_MfcFormatTag(mfc_key2, sizeof(mfc_key2));
           if (status != NFA_STATUS_OK) {
             LOG(ERROR) << StringPrintf("%s: can't format mifare classic tag",
@@ -1036,7 +1046,7 @@ static jbyteArray nativeNfcTag_doTransceive(JNIEnv* e, jobject o,
         DLOG_IF(INFO, nfc_debug_enabled)
             << StringPrintf("%s: reconnect finish", __func__);
       } else if (sCurrentConnectedTargetProtocol == NFC_PROTOCOL_MIFARE) {
-        uint32_t transDataLen = sRxDataBuffer.size();
+        uint32_t transDataLen = static_cast<uint32_t>(sRxDataBuffer.size());
         uint8_t* transData = (uint8_t*)sRxDataBuffer.data();
         bool doReconnect = false;
 
@@ -1454,8 +1464,8 @@ static jboolean nativeNfcTag_doIsNdefFormatable(JNIEnv* e, jobject o,
   } else if (NFA_PROTOCOL_T3T == protocol) {
     isFormattable = NfcTag::getInstance().isFelicaLite() ? JNI_TRUE : JNI_FALSE;
   } else if (NFA_PROTOCOL_T2T == protocol) {
-    isFormattable = (NfcTag::getInstance().isMifareUltralight() |
-                     NfcTag::getInstance().isInfineonMyDMove() |
+    isFormattable = (NfcTag::getInstance().isMifareUltralight() ||
+                     NfcTag::getInstance().isInfineonMyDMove() ||
                      NfcTag::getInstance().isKovioType2Tag())
                         ? JNI_TRUE
                         : JNI_FALSE;
@@ -1548,7 +1558,11 @@ static jboolean nativeNfcTag_makeMifareNdefFormat(JNIEnv* e, jobject o,
     return JNI_FALSE;
   }
 
-  sem_init(&sFormatSem, 0, 0);
+  if (0 != sem_init(&sFormatSem, 0, 0)) {
+    LOG(ERROR) << StringPrintf("%s: semaphore creation failed (errno=0x%08x)",
+                               __func__, errno);
+    return JNI_FALSE;
+  }
   sFormatOk = false;
 
   status = EXTNS_MfcFormatTag(key, keySize);
@@ -1604,7 +1618,11 @@ static jboolean nativeNfcTag_doNdefFormat(JNIEnv* e, jobject o, jbyteArray) {
     return result;
   }
 
-  sem_init(&sFormatSem, 0, 0);
+  if (0 != sem_init(&sFormatSem, 0, 0)) {
+    LOG(ERROR) << StringPrintf("%s: semaphore creation failed (errno=0x%08x)",
+                               __func__, errno);
+    return JNI_FALSE;
+  }
   sFormatOk = false;
   status = NFA_RwFormatTag();
   if (status == NFA_STATUS_OK) {
@@ -1619,6 +1637,8 @@ static jboolean nativeNfcTag_doNdefFormat(JNIEnv* e, jobject o, jbyteArray) {
   if (sCurrentConnectedTargetProtocol == NFA_PROTOCOL_ISO_DEP) {
     int retCode = NFCSTATUS_SUCCESS;
     retCode = nativeNfcTag_doReconnect(e, o);
+    DLOG_IF(INFO, nfc_debug_enabled)
+        << StringPrintf("%s Status = 0x%X", __func__, retCode);
   }
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", __func__);
   return (status == NFA_STATUS_OK) ? JNI_TRUE : JNI_FALSE;

@@ -37,7 +37,7 @@ import xml.etree.ElementTree as ET
 import subprocess
 
 if "ANDROID_BUILD_TOP" not in os.environ:
-  print ("Please set up your Android build environment by running "
+  print("Please set up your Android build environment by running "
          "\". build/envsetup.sh\" and \"lunch\".")
   sys.exit(-1)
 
@@ -341,14 +341,14 @@ class CKI_Coverage(object):
     count = 0
     uncovered = 0
 
-    print ""
-    print "         Covered Syscalls"
+    print("")
+    print("         Covered Syscalls")
     for syscall in self.cki_syscalls:
       if (len(self.syscall_tests[syscall["name"]]) -
           len(self.disabled_tests[syscall["name"]]) <= 0):
         continue
       if not count % 20:
-        print ("%25s   Disabled Enabled arm64 arm x86_64 x86 -----------" %
+        print("%25s   Disabled Enabled arm64 arm x86_64 x86 -----------" %
                "-------------")
       enabled = (len(self.syscall_tests[syscall["name"]]) -
                  len(self.disabled_tests[syscall["name"]]))
@@ -366,14 +366,14 @@ class CKI_Coverage(object):
       count += 1
 
     count = 0
-    print "\n"
-    print "       Uncovered Syscalls"
+    print("\n")
+    print("       Uncovered Syscalls")
     for syscall in self.cki_syscalls:
       if (len(self.syscall_tests[syscall["name"]]) -
           len(self.disabled_tests[syscall["name"]]) > 0):
         continue
       if not count % 20:
-        print ("%25s   Disabled Enabled arm64 arm x86_64 x86 -----------" %
+        print("%25s   Disabled Enabled arm64 arm x86_64 x86 -----------" %
                "-------------")
       enabled = (len(self.syscall_tests[syscall["name"]]) -
                  len(self.disabled_tests[syscall["name"]]))
@@ -391,8 +391,8 @@ class CKI_Coverage(object):
       uncovered += 1
       count += 1
 
-    print ""
-    print ("Total uncovered syscalls: %s out of %s" %
+    print("")
+    print("Total uncovered syscalls: %s out of %s" %
            (uncovered, len(self.cki_syscalls)))
 
   def output_summary(self):
@@ -411,9 +411,9 @@ class CKI_Coverage(object):
         uncovered_with_test += 1
       else:
         uncovered_without_test += 1
-    print ("arch, cki syscalls, uncovered with disabled test(s), "
+    print("arch, cki syscalls, uncovered with disabled test(s), "
            "uncovered with no tests, total uncovered")
-    print ("%s, %s, %s, %s, %s" % (self._arch, len(self.cki_syscalls),
+    print("%s, %s, %s, %s, %s" % (self._arch, len(self.cki_syscalls),
                                 uncovered_with_test, uncovered_without_test,
                                 uncovered_with_test + uncovered_without_test))
 
@@ -436,7 +436,7 @@ class CKI_Coverage(object):
     for s in cki.syscalls:
       if s["name"] in CKI_BLACKLIST:
         if error_on_match:
-          print "Syscall %s found in both bionic CKI and blacklist!" % s["name"]
+          print("Syscall %s found in both bionic CKI and blacklist!" % s["name"])
           sys.exit()
       else:
         unlisted_syscalls.append(s)
@@ -542,13 +542,13 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
   if args.arch is not None and args.arch not in gensyscalls.all_arches:
-    print "Arch must be one of the following:"
-    print gensyscalls.all_arches
+    print("Arch must be one of the following:")
+    print(gensyscalls.all_arches)
     exit(-1)
 
   if args.k:
     minversion = "4.9"
-    print "Checking kernel version %s" % minversion
+    print("Checking kernel version %s" % minversion)
     minversion = "?h=v" + minversion
     unistd_h_url += stable_url + unistd_h + minversion
     arm64_unistd32_h_url += stable_url + arm64_unistd32_h + minversion
@@ -579,7 +579,7 @@ if __name__ == "__main__":
   if args.l:
     for syscall in cki.syscalls:
       if args.arch is None or syscall[args.arch]:
-        print syscall["name"]
+        print(syscall["name"])
     exit(0)
 
   cki_cov.load_ltp_tests()
@@ -589,11 +589,11 @@ if __name__ == "__main__":
 
   beta_string = ("*** WARNING: This script is still in development and may\n"
                  "*** report both false positives and negatives.")
-  print beta_string
+  print(beta_string)
 
   if args.s:
     cki_cov.output_summary()
     exit(0)
 
   cki_cov.output_results()
-  print beta_string
+  print(beta_string)

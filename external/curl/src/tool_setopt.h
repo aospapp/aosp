@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -64,8 +64,10 @@ extern const struct NameValueUnsigned setopt_nv_CURLSSLOPT[];
 extern const struct NameValue setopt_nv_CURL_NETRC[];
 extern const struct NameValue setopt_nv_CURLPROTO[];
 extern const struct NameValueUnsigned setopt_nv_CURLAUTH[];
+extern const struct NameValueUnsigned setopt_nv_CURLHSTS[];
 
 /* Map options to NameValue sets */
+#define setopt_nv_CURLOPT_HSTS_CTRL setopt_nv_CURLHSTS
 #define setopt_nv_CURLOPT_HTTP_VERSION setopt_nv_CURL_HTTP_VERSION
 #define setopt_nv_CURLOPT_HTTPAUTH setopt_nv_CURLAUTH
 #define setopt_nv_CURLOPT_SSLVERSION setopt_nv_CURL_SSLVERSION
@@ -74,6 +76,7 @@ extern const struct NameValueUnsigned setopt_nv_CURLAUTH[];
 #define setopt_nv_CURLOPT_FTP_SSL_CCC setopt_nv_CURLFTPSSL_CCC
 #define setopt_nv_CURLOPT_USE_SSL setopt_nv_CURLUSESSL
 #define setopt_nv_CURLOPT_SSL_OPTIONS setopt_nv_CURLSSLOPT
+#define setopt_nv_CURLOPT_PROXY_SSL_OPTIONS setopt_nv_CURLSSLOPT
 #define setopt_nv_CURLOPT_NETRC setopt_nv_CURL_NETRC
 #define setopt_nv_CURLOPT_PROTOCOLS setopt_nv_CURLPROTO
 #define setopt_nv_CURLOPT_REDIR_PROTOCOLS setopt_nv_CURLPROTO

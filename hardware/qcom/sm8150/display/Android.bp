@@ -44,7 +44,7 @@ cc_defaults {
         "-Wconversion",
         "-Wall",
         "-Werror",
-	"-std=c++14",
+        "-std=c++14",
     ],
     shared_libs: [
         "liblog",
@@ -52,7 +52,7 @@ cc_defaults {
         "libutils",
     ],
     header_libs: ["display_headers"],
-    clang: true,
+
 }
 
 cc_library_headers {
@@ -71,8 +71,14 @@ cc_library_headers {
         "libdebug",
         "libhistogram",
     ],
-    header_libs: ["libhardware_headers", "//vendor/qcom/sm8150:display_intf_headers"],
-    export_header_lib_headers: ["libhardware_headers", "//vendor/qcom/sm8150:display_intf_headers"],
+    header_libs: [
+        "libhardware_headers",
+        "//vendor/qcom/sm8150:display_intf_headers",
+    ],
+    export_header_lib_headers: [
+        "libhardware_headers",
+        "//vendor/qcom/sm8150:display_intf_headers",
+    ],
 }
 
 subdirs = [

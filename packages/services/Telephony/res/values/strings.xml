@@ -1446,19 +1446,19 @@
     <!-- ECM: Displays the time when ECM will end, Example: "No Data Connection until 10:45 AM" -->
     <string name="phone_in_ecm_notification_complete_time">No data connection until <xliff:g id="completeTime">%s</xliff:g></string>
     <!-- ECM: Dialog box message for exiting from the notifications screen -->
-    <plurals name="alert_dialog_exit_ecm">
+    <string name="alert_dialog_exit_ecm"> {count, plural,
         <!-- number of minutes is one -->
-        <item quantity="one">The phone will be in Emergency Callback mode for <xliff:g id="count">%s</xliff:g> minute. While in this mode no apps using a data connection can be used. Do you want to exit now?</item>
+        =1    {The phone will be in Emergency Callback mode for one minute. While in this mode no apps using a data connection can be used. Do you want to exit now?}
         <!-- number of minutes is not equal to one -->
-        <item quantity="other">The phone will be in Emergency Callback mode for <xliff:g id="count">%s</xliff:g> minutes. While in this mode no applications using a data connection can be used. Do you want to exit now?</item>
-    </plurals>
+        other {The phone will be in Emergency Callback mode for %s minutes. While in this mode no applications using a data connection can be used. Do you want to exit now?}
+    }</string>
     <!-- ECM: Dialog box message for exiting from any other app -->
-    <plurals name="alert_dialog_not_avaialble_in_ecm">
+    <string name="alert_dialog_not_avaialble_in_ecm"> {count, plural,
         <!-- number of minutes is one -->
-        <item quantity="one">The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for <xliff:g id="count">%s</xliff:g> minute. Do you want to exit now?</item>
+        =1    {The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for one minute. Do you want to exit now?}
         <!-- number of minutes is not equal to one -->
-        <item quantity="other">The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for <xliff:g id="count">%s</xliff:g> minutes. Do you want to exit now?</item>
-    </plurals>
+        other {The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for %s minutes. Do you want to exit now?}
+    }</string>
     <!-- ECM: Dialog box message while in emergency call -->
     <string name="alert_dialog_in_ecm_call">The selected action isn\'t available while in an emergency call.</string>
     <!-- ECM: Progress text -->
@@ -1474,12 +1474,12 @@
     <!-- ECM: Displays the time when ECM will end without data restriction hint, Example: "Until 10:45 AM" -->
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint">Until <xliff:g id="completeTime">%s</xliff:g></string>
     <!-- ECM: Dialog box message without data restriction hint for exiting from the notifications screen -->
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint">
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint"> {count, plural,
         <!-- number of minutes is one -->
-        <item quantity="one">The phone will be in emergency callback mode for <xliff:g id="count">%s</xliff:g> minute.\nDo you want to exit now?</item>
+        =1    {The phone will be in emergency callback mode for one minute.\nDo you want to exit now?}
         <!-- number of minutes is not equal to one -->
-        <item quantity="other">The phone will be in emergency callback mode for <xliff:g id="count">%s</xliff:g> minutes.\nDo you want to exit now?</item>
-    </plurals>
+        other {The phone will be in emergency callback mode for %s minutes.\nDo you want to exit now?}
+    }</string>
 
     <!-- For incoming calls, this is a string we can get from a CDMA network instead of
          the actual phone number, to indicate there's no number present.  DO NOT TRANSLATE. -->
@@ -1600,9 +1600,6 @@
     <string name="tty_mode_key">button_tty_mode_key</string>
     <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
     <string name="wifi_calling_settings_key">button_wifi_calling_settings_key</string>
-
-    <!-- Hint appearing below a selected action on the emergency dialer telling user to tap again to execute the action [CHAR LIMIT=NONE] -->
-    <string name="emergency_action_launch_hint">Tap again to open</string>
 
     <!-- Strings for IMAP -->
 
@@ -1952,7 +1949,7 @@
     <string name="callFailed_calling_disabled">Cannot place a call as calling has been disabled using the ro.telephony.disable-call system property.</string>
     <!-- In-call screen: error message shown when the user attempts to place a call, but calling has
          been disabled using a debug property. -->
-    <string name="callFailed_too_many_calls">Cannot place a call a there are already two calls in progress.  Disconnect one of the calls or merge them into a conference prior to placing a new call.</string>
+    <string name="callFailed_too_many_calls">Cannot place a call as there are already two calls in progress.  Disconnect one of the calls or merge them into a conference prior to placing a new call.</string>
     <!-- Message displayed to the user when they attempt to edit options for a supplementary service
          (call waiting, call barring, call forwarding, and caller ID), but they are required to
          enable mobile data first. -->
@@ -2006,6 +2003,9 @@
 
     <!-- UI debug setting: Enable/Disable DSDS [CHAR LIMIT=none] -->
     <string name="dsds_dialog_cancel">Cancel</string>
+
+    <!-- Setting Removable esim as default. Only shown in diagnostic screen, so precise translation is not needed -->
+    <string name="removable_esim_string">Set Removable eSIM as Default</string>
 
     <!-- Title for controlling on/off for Mobile phone's radio power. Only shown in diagnostic screen, so precise translation is not needed. -->
     <string name="radio_info_radio_power">Mobile Radio Power</string>
@@ -2130,6 +2130,8 @@
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_data_network_type_label">Data Network Type:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_override_network_type_label">Override Network Type:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="phone_index_label">Select phone index</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_set_perferred_label">Set Preferred Network Type:</string>
@@ -2152,17 +2154,17 @@
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="oem_radio_info_label">OEM-specific Info/Settings</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_endc_available">EN-DC Available:</string>
+    <string name="radio_info_endc_available">EN-DC Available (NSA):</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_dcnr_restricted">DCNR Restricted:</string>
+    <string name="radio_info_dcnr_restricted">DCNR Restricted (NSA):</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_nr_available">NR Available:</string>
+    <string name="radio_info_nr_available">NR Available (NSA):</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_nr_state">NR State:</string>
+    <string name="radio_info_nr_state">NR State (NSA):</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_nr_frequency">NR Frequency:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_network_slicing_config" translatable="false">Network slicing config:</string>
+    <string name="radio_info_network_slicing_config" translatable="false">Network Slicing Config:</string>
 
     <!-- Band Mode Selection -->
     <!-- Band mode screen.  Title of activity. -->

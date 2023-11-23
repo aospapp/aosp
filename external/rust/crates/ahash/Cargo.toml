@@ -13,9 +13,10 @@
 [package]
 edition = "2018"
 name = "ahash"
-version = "0.6.2"
+version = "0.7.6"
 authors = ["Tom Kaitchuck <Tom.Kaitchuck@gmail.com>"]
 build = "./build.rs"
+exclude = ["/smhasher", "/benchmark_tools"]
 description = "A non-cryptographic hash function using AES-NI for high performance"
 documentation = "https://docs.rs/ahash"
 readme = "README.md"
@@ -97,14 +98,15 @@ version = "0.1.12"
 optional = true
 
 [target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.getrandom]
-version = "0.2.0"
-
-[target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.lazy_static]
-version = "1.4.0"
+version = "0.2.3"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\"))".dependencies.serde]
 version = "1.0.117"
 optional = true
+[target."cfg(not(all(target_arch = \"arm\", target_os = \"none\")))".dependencies.once_cell]
+version = "1.8"
+features = ["alloc"]
+default-features = false
 [target."cfg(not(any(target_os = \"linux\", target_os = \"android\", target_os = \"windows\", target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\", target_os = \"dragonfly\", target_os = \"solaris\", target_os = \"illumos\", target_os = \"fuchsia\", target_os = \"redox\", target_os = \"cloudabi\", target_os = \"haiku\", target_os = \"vxworks\", target_os = \"emscripten\", target_os = \"wasi\")))".dependencies.const-random]
 version = "0.1.12"
 optional = true

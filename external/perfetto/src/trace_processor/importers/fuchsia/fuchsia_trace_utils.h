@@ -22,7 +22,7 @@
 #include <functional>
 
 #include "perfetto/ext/base/string_view.h"
-#include "src/trace_processor/importers/common/trace_blob_view.h"
+#include "perfetto/trace_processor/trace_blob_view.h"
 #include "src/trace_processor/storage/trace_storage.h"
 
 namespace perfetto {

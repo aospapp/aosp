@@ -34,13 +34,16 @@ package {
 java_library {
   name: "net-utils-device-common",
   srcs: [
-      "device/com/android/net/module/util/**/*.java",
+      "device/com/android/net/module/util/DeviceConfigUtils.java",
+      "device/com/android/net/module/util/FdEventsReader.java",
+      "device/com/android/net/module/util/HexDump.java",
+      "device/com/android/net/module/util/PacketReader.java",
+      "device/com/android/net/module/util/SharedLog.java",
       // This library is used by system modules, for which the system health impact of Kotlin
       // has not yet been evaluated. Annotations may need jarjar'ing.
       // "src_devicecommon/**/*.kt",
-      ":framework-annotations",
   ],
-  sdk_version: "system_current",
+  sdk_version: "module_current",
   min_sdk_version: "29",
   target_sdk_version: "30",
   apex_available: [
@@ -65,7 +68,9 @@ java_library {
   ],
   libs: [
       "androidx.annotation_annotation",
+      "framework-annotations-lib",
   ],
+  lint: { strict_updatability_linting: true },
 }
 
 java_defaults {
@@ -79,6 +84,19 @@ java_defaults {
     ],
 }
 
+java_library {
+    name: "net-utils-dnspacket-common",
+    srcs: [
+    "framework/**/DnsPacket.java",
+    "framework/**/DnsPacketUtils.java",
+    ],
+    sdk_version: "module_current",
+    visibility: [
+        "//packages/services/Iwlan:__subpackages__",
+    ],
+    libs: ["framework-annotations-lib"],
+}
+
 filegroup {
     name: "net-utils-framework-common-srcs",
     srcs: ["framework/**/*.java"],
@@ -86,19 +104,139 @@ filegroup {
     visibility: [
         "//frameworks/base",
         "//packages/modules/Connectivity:__subpackages__",
-        "//frameworks/base/packages/Connectivity/framework",
     ],
+}
+
+java_library {
+    name: "net-utils-device-common-bpf",
+    srcs: [
+        "device/com/android/net/module/util/BpfBitmap.java",
+        "device/com/android/net/module/util/BpfMap.java",
+        "device/com/android/net/module/util/BpfUtils.java",
+        "device/com/android/net/module/util/HexDump.java",
+        "device/com/android/net/module/util/IBpfMap.java",
+        "device/com/android/net/module/util/JniUtil.java",
+        "device/com/android/net/module/util/Struct.java",
+        "device/com/android/net/module/util/TcUtils.java",
+        "device/com/android/net/module/util/bpf/*.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: [
+        "//frameworks/libs/net/common/tests:__subpackages__",
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/NetworkStack:__subpackages__",
+    ],
+    libs: [
+        "androidx.annotation_annotation",
+        "framework-connectivity.stubs.module_lib",
+    ],
+    apex_available: [
+        "com.android.tethering",
+        "//apex_available:platform",
+    ],
+    lint: { strict_updatability_linting: true },
+}
+
+java_library {
+    name: "net-utils-device-common-struct",
+    srcs: [
+        "device/com/android/net/module/util/HexDump.java",
+        "device/com/android/net/module/util/Ipv6Utils.java",
+        "device/com/android/net/module/util/PacketBuilder.java",
+        "device/com/android/net/module/util/Struct.java",
+        "device/com/android/net/module/util/structs/*.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: [
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/NetworkStack:__subpackages__",
+    ],
+    static_libs: [
+        "net-utils-framework-common",
+    ],
+    libs: [
+        "androidx.annotation_annotation",
+        "framework-connectivity.stubs.module_lib",
+    ],
+    apex_available: [
+        "com.android.tethering",
+        "//apex_available:platform",
+    ],
+    lint: { strict_updatability_linting: true },
+}
+
+java_library {
+    name: "net-utils-device-common-netlink",
+    srcs: [
+        "device/com/android/net/module/util/netlink/*.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: [
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/NetworkStack:__subpackages__",
+    ],
+    static_libs: [
+        "net-utils-device-common-struct",
+    ],
+    libs: [
+        "androidx.annotation_annotation",
+        "framework-connectivity.stubs.module_lib",
+    ],
+    apex_available: [
+        "com.android.tethering",
+        "//apex_available:platform",
+    ],
+    lint: { strict_updatability_linting: true },
+}
+
+java_library {
+    // TODO : this target should probably be folded into net-utils-device-common
+    name: "net-utils-device-common-ip",
+    srcs: [
+        "device/com/android/net/module/util/ip/*.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "29",
+    visibility: [
+        "//frameworks/libs/net/common/tests:__subpackages__",
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/NetworkStack:__subpackages__",
+    ],
+    libs: [
+        "framework-annotations-lib",
+        "framework-connectivity",
+    ],
+    static_libs: [
+        "net-utils-device-common",
+        "net-utils-device-common-netlink",
+        "net-utils-framework-common",
+        "netd-client",
+    ],
+    apex_available: [
+        "com.android.tethering",
+        "//apex_available:platform",
+    ],
+    lint: { strict_updatability_linting: true },
 }
 
 java_library {
     name: "net-utils-framework-common",
     srcs: [
         ":net-utils-framework-common-srcs",
-        // TODO: avoid including all framework annotations as they end up in library users jars
-        // and need jarjaring
-        ":framework-annotations",
     ],
-    sdk_version: "system_current",
+    sdk_version: "module_current",
+    libs: [
+        "framework-annotations-lib",
+        "framework-connectivity.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
+    ],
     jarjar_rules: "jarjar-rules-shared.txt",
     visibility: [
         "//cts/tests/tests/net",
@@ -117,7 +255,9 @@ java_library {
         "//frameworks/libs/net/common/tests:__subpackages__",
         "//frameworks/libs/net/common/device",
         "//packages/modules/Wifi/framework/tests:__subpackages__",
+        "//packages/apps/Settings",
     ],
+    lint: { strict_updatability_linting: true },
 }
 filegroup {
     name: "net-utils-services-common-srcs",
@@ -136,16 +276,30 @@ java_library {
     name: "net-utils-services-common",
     srcs: [
         ":net-utils-services-common-srcs",
-        ":framework-annotations",
     ],
-    sdk_version: "system_current",
+    sdk_version: "module_current",
     min_sdk_version: "30",
     static_libs: [
         "modules-utils-build_system",
     ],
-    visibility: [
-        "//frameworks/base/services/net",
+    libs: [
+        "framework-annotations-lib",
+        "framework-connectivity",
     ],
+    // TODO: remove "apex_available:platform".
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.tethering",
+    ],
+    visibility: [
+        // TODO: remove after NetworkStatsService moves to the module.
+        "//frameworks/base/services/net",
+        "//packages/modules/Connectivity/service",
+        "//packages/modules/Connectivity/tests:__subpackages__",
+        "//packages/modules/Bluetooth/android/app",
+    ],
+    lint: { strict_updatability_linting: true },
 }
 
 // Use a filegroup and not a library for telephony sources, as framework-annotations cannot be
@@ -171,7 +325,11 @@ filegroup {
 filegroup {
     name: "net-utils-framework-wifi-common-srcs",
     srcs: [
-        "framework/com/android/net/module/util/**/*.java",
+        "framework/com/android/net/module/util/DnsSdTxtRecord.java",
+        "framework/com/android/net/module/util/Inet4AddressUtils.java",
+        "framework/com/android/net/module/util/InetAddressUtils.java",
+        "framework/com/android/net/module/util/MacAddressUtils.java",
+        "framework/com/android/net/module/util/NetUtils.java",
     ],
     path: "framework",
     visibility: [

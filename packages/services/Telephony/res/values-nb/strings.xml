@@ -537,7 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Slå på mobilnettverket, slå av flymodus eller slå av batterisparingsmodus for å ringe ut."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Slå av flymodus for å ringe."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Slå av flymodus eller koble til et trådløst nettverk for å ringe."</string>
-    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonen er for varm"</b>\n\n"Kan ikke fullføre dette anropet. Prøv igjen når telefonen har kjølt seg ned.\n\nDu kan fortsatt foreta nødanrop."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonen er for varm"</b>\n\n"Kan ikke fullføre dette anropet. Prøv på nytt når telefonen har kjølt seg ned.\n\nDu kan fortsatt foreta nødanrop."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Avslutt modusen for nødanrop for å gjøre et vanlig anrop."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Ikke registrert på nettverket."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobilnettverket er ikke tilgjengelig."</string>
@@ -630,21 +630,15 @@
     <string name="ota_unsuccessful" msgid="8531037653803955754">"Telefonen ble ikke aktivert.\nPrøv å finne et område med bedre dekning (ved et vindu eller utendørs).\n\nPrøv på nytt, eller ring kundetjenesten for å få flere alternativer."</string>
     <string name="ota_spc_failure" msgid="904092035241370080">"Omfattende SPC-feil"</string>
     <string name="ota_call_end" msgid="8657746378290737034">"Tilbake"</string>
-    <string name="ota_try_again" msgid="6914781945599998550">"Prøv igjen"</string>
+    <string name="ota_try_again" msgid="6914781945599998550">"Prøv på nytt"</string>
     <string name="ota_next" msgid="2041016619313475914">"Neste"</string>
     <string name="ecm_exit_dialog" msgid="4200691880721429078">"EcmExitDialog"</string>
     <string name="phone_entered_ecm_text" msgid="8431238297843035842">"Startet modusen nødsamtale-tilbakeringing"</string>
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Modusen nødsamtale-tilbakeringing"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Datatilkobling deaktivert"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Ingen datatilkobling før <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Telefonen er i nødsamtalemodus i <xliff:g id="COUNT_1">%s</xliff:g> minutter. Når telefonen er i denne modusen, kan du ikke bruke apper som krever datatilkobling. Vil du avslutte nå?</item>
-      <item quantity="one">Telefonen er i nødsamtalemodus i <xliff:g id="COUNT_0">%s</xliff:g> minutt. Når telefonen er i denne modusen, kan du ikke bruke apper som krever datatilkobling. Vil du avslutte nå?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Den valgte handlingen er ikke tilgjengelig i nødsamtalemodus. Telefonen er i nødsamtalemodus i <xliff:g id="COUNT_1">%s</xliff:g> minutter. Vil du avslutte nå?</item>
-      <item quantity="one">Den valgte handlingen er ikke tilgjengelig i nødsamtalemodus. Telefonen er i denne modusen i <xliff:g id="COUNT_0">%s</xliff:g> minutt. Vil du avslutte nå?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Telefonen kommer til å være i modus for tilbakeringing av nødanrop i ett minutt. Ingen apper som bruker en datatilkobling, kan brukes i denne modusen. Vil du avslutte nå?}other{Telefonen kommer til å være i modus for tilbakeringing av nødanrop i %s minutter. Ingen apper som bruker en datatilkobling, kan brukes i denne modusen. Vil du avslutte nå?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Den valgte handlingen er ikke tilgjengelig i modus for tilbakeringing av nødanrop. Telefonen kommer til å være i denne modusen i ett minutt. Vil du avslutte nå?}other{Den valgte handlingen er ikke tilgjengelig i modus for tilbakeringing av nødanrop. Telefonen kommer til å være i denne modusen i %s minutter. Vil du avslutte nå?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Den valgte handlingen er ikke mulig under en nødsamtale."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Avslutter modusen nødsamtale-tilbakeringing"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Ja"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Lukk"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefonen er i modus for tilbakeringing av nødanrop"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Til <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Telefonen kommer til å være i modus for tilbakeringing av nødanrop i <xliff:g id="COUNT_1">%s</xliff:g> minutter.\nVil du avslutte nå?</item>
-      <item quantity="one">Telefonen kommer til å være i modus for tilbakeringing av nødanrop i <xliff:g id="COUNT_0">%s</xliff:g> minutt.\nVil du avslutte nå?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Telefonen kommer til å være i modus for tilbakeringing av nødanrop i ett minutt.\nVil du avslutte nå?}other{Telefonen kommer til å være i modus for tilbakeringing av nødanrop i %s minutter.\nVil du avslutte nå?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Tjeneste"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Konfigurering"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Ikke angitt&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Tilgjengelighet"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi-anrop fra"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Oppringing via Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Trykk på nytt for å åpne"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Det oppsto en feil under dekoding av meldingen."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Et SIM-kort har aktivert tjenesten din og oppdatert roamingfunksjonene for telefonen din."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Du har for mange aktive samtaler. Avslutt eller slå sammen eksisterende samtaler før du starter en ny samtale."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Du kan ikke ringe fordi telefonen allerede slår nummeret for et annet utgående anrop."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Du kan ikke ringe fordi du ikke har svart på et innkommende anrop. Svar på eller avvis det innkommende anropet før du ringer på nytt."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Du kan ikke ringe fordi anrop er deaktivert ved hjelp av systemegenskapen ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Du kan ikke ringe fordi to andre anrop allerede pågår. Koble fra ett av anropene eller slå dem sammen i en konferansesamtale, før du ringer på nytt."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Du kan ikke ringe fordi to andre anrop allerede pågår. Koble fra ett av anropene eller slå dem sammen i en konferansesamtale, før du ringer på nytt."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Før du bruker <xliff:g id="SUPP_SERVICE">%s</xliff:g>, må du sørge for at mobildata er slått på. Du kan endre dette i mobilnettverksinnstillingene."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Før du bruker <xliff:g id="SUPP_SERVICE">%s</xliff:g>, må du sørge for at mobildata og data-roaming er slått på. Du kan endre dette i mobilnettverksinnstillingene."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Før du bruker <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, må du sørge for at mobildata er slått på for SIM-kortet <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Du kan endre dette i mobilnettverksinnstillingene."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Du må starte enheten din på nytt for å endre innstillingen."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Start på nytt"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Avbryt"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Angi flyttbart e-SIM-kort som standard"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Strømforsyning for mobilradio"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Se adressebok for SIM-kort"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Vis forhåndsbestemte numre"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Velg radiobånd"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Nettverkstype for tale:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Type datanettverk:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Overstyr nettverkstype:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Velg telefonindeks"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Velg foretrukket nettverkstype:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping vertsnavn(www.google.no) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Last inn på nytt"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Slå av/på DNS-sjekk"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Produsentspesfikk informasjon og innstillinger"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC tilgjengelig:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR begrenset:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR tilgjengelig:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-tilstand:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC tilgjengelig (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR begrenset (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR tilgjengelig (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR-tilstand (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-frekvens:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Angi båndmodus for radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Laster inn båndlisten …"</string>

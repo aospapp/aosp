@@ -16,38 +16,32 @@
 
 package com.android.networkstack.apishim.api31;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastS;
+
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.os.Build;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.VisibleForTesting;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 import com.android.networkstack.apishim.common.NetworkInformationShim;
-import com.android.networkstack.apishim.common.ShimUtils;
 
 /**
  * Compatibility implementation of {@link NetworkInformationShim}.
  */
+@RequiresApi(Build.VERSION_CODES.S)
 public class NetworkInformationShimImpl
         extends com.android.networkstack.apishim.api30.NetworkInformationShimImpl {
     protected NetworkInformationShimImpl() {}
 
     /**
-     * Indicates whether the shim can use APIs above the R SDK.
-     */
-    @VisibleForTesting
-    public static boolean useApiAboveR() {
-        return ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.R);
-    }
-
-    /**
      * Get a new instance of {@link NetworkInformationShim}.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     public static NetworkInformationShim newInstance() {
-        if (!useApiAboveR()) {
+        if (!isAtLeastS()) {
             return com.android.networkstack.apishim.api30.NetworkInformationShimImpl.newInstance();
         }
         return new NetworkInformationShimImpl();
@@ -60,7 +54,6 @@ public class NetworkInformationShimImpl
         return new CaptivePortalDataShimImpl(lp.getCaptivePortalData());
     }
 
-    @RequiresApi(Build.VERSION_CODES.S)
     @Nullable
     @Override
     public String getCapabilityCarrierName(int capability) {

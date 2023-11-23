@@ -29,6 +29,9 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.hardware.BatteryState;
 import android.hardware.input.InputManager;
 import android.hardware.input.cts.GlobalKeyMapping;
@@ -44,8 +47,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.InputDevice;
-
-import androidx.annotation.CallSuper;
+import android.view.KeyEvent;
 
 import com.android.cts.input.HidBatteryTestData;
 import com.android.cts.input.HidDevice;
@@ -53,6 +55,7 @@ import com.android.cts.input.HidLightTestData;
 import com.android.cts.input.HidResultData;
 import com.android.cts.input.HidTestData;
 import com.android.cts.input.HidVibratorTestData;
+import com.android.cts.input.InputJsonParser;
 
 import org.junit.Rule;
 import org.mockito.Mock;
@@ -66,18 +69,24 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class InputHidTestCase extends InputTestCase {
+public abstract class InputHidTestCase extends InputTestCase {
+
     private static final String TAG = "InputHidTestCase";
     // Sync with linux uhid_event_type::UHID_OUTPUT
     private static final byte UHID_EVENT_TYPE_UHID_OUTPUT = 6;
     private static final long CALLBACK_TIMEOUT_MILLIS = 5000;
 
-    private HidDevice mHidDevice;
-    private final GlobalKeyMapping mGlobalKeyMapping = new GlobalKeyMapping(
-            mInstrumentation.getTargetContext());
-    private int mDeviceId;
     private final int mRegisterResourceId;
+    private final GlobalKeyMapping mGlobalKeyMapping;
+    private final boolean mIsLeanback;
+    private final boolean mVolumeKeysHandledInWindowManager;
+
+    private HidDevice mHidDevice;
+    private int mDeviceId;
     private boolean mDelayAfterSetup = false;
+    private InputJsonParser mParser;
+    private int mVid;
+    private int mPid;
 
     @Rule
     public MockitoRule rule = MockitoJUnit.rule();
@@ -85,20 +94,41 @@ public class InputHidTestCase extends InputTestCase {
     private OnVibratorStateChangedListener mListener;
 
     InputHidTestCase(int registerResourceId) {
-        super(registerResourceId);
         mRegisterResourceId = registerResourceId;
+        Context context = mInstrumentation.getTargetContext();
+        mGlobalKeyMapping = new GlobalKeyMapping(context);
+        mIsLeanback = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        mVolumeKeysHandledInWindowManager = context.getResources().getBoolean(
+                Resources.getSystem().getIdentifier("config_handleVolumeKeysInWindowManager",
+                        "bool", "android"));
     }
 
-    @CallSuper
     @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    void onSetUp() {
+        mParser = new InputJsonParser(mInstrumentation.getTargetContext());
+        mVid = mParser.readVendorId(mRegisterResourceId);
+        mPid = mParser.readProductId(mRegisterResourceId);
+        mDeviceId = mParser.readDeviceId(mRegisterResourceId);
+        mHidDevice = new HidDevice(mInstrumentation,
+                mDeviceId,
+                mVid,
+                mPid,
+                mParser.readSources(mRegisterResourceId),
+                mParser.readRegisterCommand(mRegisterResourceId));
+        assertNotNull(mHidDevice);
         // Even though we already wait for all possible callbacks such as UHID_START and UHID_OPEN,
         // and wait for the correct device to appear by specifying expected source type in the
         // register command, some devices, perhaps due to splitting, do not produce events as soon
         // as they are created. Adding a small delay resolves this issue.
         if (mDelayAfterSetup) {
             SystemClock.sleep(1000);
+        }
+    }
+
+    @Override
+    void onTearDown() {
+        if (mHidDevice != null) {
+            mHidDevice.close();
         }
     }
 
@@ -143,8 +173,25 @@ public class InputHidTestCase extends InputTestCase {
         return compareMajorMinorVersion(actualVersion, version) > 0;
     }
 
+    private boolean isForwardedToApps(KeyEvent e) {
+        int keyCode = e.getKeyCode();
+        if (mGlobalKeyMapping.isGlobalKey(keyCode)) {
+            return false;
+        }
+        if (isVolumeKey(keyCode) && (mIsLeanback || mVolumeKeysHandledInWindowManager)) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isVolumeKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE;
+    }
+
     /** Gets an input device with specific capability */
-    private InputDevice getInputDevice(Capability capability) {
+    protected InputDevice getInputDevice(Capability capability) {
         final InputManager inputManager =
                 mInstrumentation.getTargetContext().getSystemService(InputManager.class);
         final int[] inputDeviceIds = inputManager.getInputDeviceIds();
@@ -198,29 +245,11 @@ public class InputHidTestCase extends InputTestCase {
         return inputDevice.getLightsManager();
     }
 
-    @Override
-    protected void setUpDevice(int id, int vendorId, int productId, int sources,
-            String registerCommand) {
-        mDeviceId = id;
-        mHidDevice = new HidDevice(mInstrumentation, id, vendorId, productId, sources,
-                registerCommand);
-        assertNotNull(mHidDevice);
-    }
-
-    @Override
-    protected void tearDownDevice() {
-        if (mHidDevice != null) {
-            mHidDevice.close();
-        }
-    }
-
-    @Override
-    protected void testInputDeviceEvents(int resourceId) {
+    protected void testInputEvents(int resourceId) {
         List<HidTestData> tests = mParser.getHidTestData(resourceId);
-        // Global keys are handled by the framework and do not reach apps.
-        // The set of global keys is vendor-specific.
-        // Remove tests which contain global keys because we can't test them
-        tests.removeIf(testData -> testData.events.removeIf(mGlobalKeyMapping::isGlobalKey));
+        // Remove tests which contain keys that are not forwarded to apps
+        tests.removeIf(testData -> testData.events.stream().anyMatch(
+                e -> e instanceof KeyEvent && !isForwardedToApps((KeyEvent) e)));
 
         for (HidTestData testData: tests) {
             mCurrentTestCase = testData.name;
@@ -231,6 +260,7 @@ public class InputHidTestCase extends InputTestCase {
             }
             verifyEvents(testData.events);
         }
+        assertNoMoreEvents();
     }
 
     private boolean verifyVibratorReportData(HidVibratorTestData test, HidResultData result) {
@@ -477,5 +507,4 @@ public class InputHidTestCase extends InputTestCase {
             }
         }
     }
-
 }

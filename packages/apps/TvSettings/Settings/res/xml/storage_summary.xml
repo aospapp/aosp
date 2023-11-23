@@ -19,9 +19,12 @@
                   android:title="@string/device_storage">
     <PreferenceCategory
         android:key="device_storage"
-        android:title="@string/storage_device_storage_section"/>
-
+        android:title="@string/storage_device_storage_section" />
     <PreferenceCategory
         android:key="removable_storage"
         android:title="@string/storage_removable_storage_section"/>
+    <Preference
+        android:key="free_up_storage"
+        android:title="@string/storage_free_up"
+        android:fragment="com.android.tv.settings.device.storage.FreeUpStorageFragment" />
 </PreferenceScreen>

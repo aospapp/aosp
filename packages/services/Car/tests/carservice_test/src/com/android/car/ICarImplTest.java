@@ -30,7 +30,6 @@ import android.car.Car;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.content.Context;
 import android.content.res.Resources;
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.UserHandle;
@@ -39,6 +38,8 @@ import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.car.garagemode.GarageModeService;
+import com.android.car.os.CarPerformanceService;
 import com.android.car.systeminterface.ActivityManagerInterface;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.IOInterface;
@@ -48,6 +49,7 @@ import com.android.car.systeminterface.SystemInterface.Builder;
 import com.android.car.systeminterface.SystemStateInterface;
 import com.android.car.systeminterface.TimeInterface;
 import com.android.car.systeminterface.WakeLockInterface;
+import com.android.car.telemetry.CarTelemetryService;
 import com.android.car.test.utils.TemporaryDirectory;
 import com.android.car.watchdog.CarWatchdogService;
 
@@ -63,35 +65,44 @@ import java.io.IOException;
 
 /**
  * This class contains unit tests for the {@link ICarImpl}.
- * It tests that services started with {@link ICarImpl} are initialized properly.
  *
- * The following mocks are used:
- * 1. {@link ActivityManagerInterface} broadcasts intent for a user.
- * 2. {@link DisplayInterface} provides access to display operations.
- * 3. {@link IVehicle} provides access to vehicle properties.
- * 4. {@link StorageMonitoringInterface} provides access to storage monitoring operations.
- * 5. {@link SystemStateInterface} provides system statuses (booting, sleeping, ...).
- * 6. {@link TimeInterface} provides access to time operations.
- * 7. {@link TimeInterface} provides access to wake lock operations.
+ * <p>It tests that services started with {@link ICarImpl} are initialized properly.
+ * <p>The following mocks are used:
+ * <ol>
+ * <li>{@link ActivityManagerInterface} broadcasts intent for a user.</li>
+ * <li>{@link DisplayInterface} provides access to display operations.</li>
+ * <li>{@link IVehicle} provides access to vehicle properties.</li>
+ * <li>{@link StorageMonitoringInterface} provides access to storage monitoring operations.</li>
+ * <li>{@link SystemStateInterface} provides system statuses (booting, sleeping, ...).</li>
+ * <li>{@link TimeInterface} provides access to time operations.</li>
+ * <li>{@link TimeInterface} provides access to wake lock operations.</li>
+ * </ol>
  */
 @RunWith(MockitoJUnitRunner.class)
-public class ICarImplTest extends AbstractExtendedMockitoTestCase {
+public final class ICarImplTest extends AbstractExtendedMockitoTestCase {
     private static final String TAG = ICarImplTest.class.getSimpleName();
 
     @Mock private ActivityManagerInterface mMockActivityManagerInterface;
     @Mock private DisplayInterface mMockDisplayInterface;
-    @Mock private IVehicle mMockVehicle;
+    @Mock private VehicleStub mMockVehicle;
     @Mock private StorageMonitoringInterface mMockStorageMonitoringInterface;
     @Mock private SystemStateInterface mMockSystemStateInterface;
     @Mock private TimeInterface mMockTimeInterface;
     @Mock private WakeLockInterface mMockWakeLockInterface;
-    @Mock private CarWatchdogService mCarWatchdogService;
+    @Mock private CarWatchdogService mMockCarWatchdogService;
+    @Mock private CarPerformanceService mMockCarPerformanceService;
+    @Mock private GarageModeService mMockGarageModeService;
+    @Mock private CarTelemetryService mMockCarTelemetryService;
 
     private Context mContext;
     private SystemInterface mFakeSystemInterface;
     private UserManager mUserManager;
 
     private final MockIOInterface mMockIOInterface = new MockIOInterface();
+
+    public ICarImplTest() {
+        super(ICarImpl.TAG, CarLog.TAG_SERVICE);
+    }
 
     /**
      * Initialize all of the objects with the @Mock annotation.
@@ -164,9 +175,10 @@ public class ICarImplTest extends AbstractExtendedMockitoTestCase {
                 any(File.class), anyInt());
         doThrow(new NullPointerException()).when(mContext).getDataDir();
 
-        ICarImpl carImpl = new ICarImpl(mContext, mMockVehicle, mFakeSystemInterface,
-                "MockedCar", /* carUserService= */ null,
-                mCarWatchdogService, new MockedCarTestBase.FakeCarPowerPolicyDaemon());
+        ICarImpl carImpl = new ICarImpl(mContext, null, mMockVehicle, mFakeSystemInterface,
+                "MockedCar", /* carUserService= */ null, mMockCarWatchdogService,
+                mMockCarPerformanceService, mMockGarageModeService,
+                new MockedCarTestBase.FakeCarPowerPolicyDaemon(), mMockCarTelemetryService);
         carImpl.init();
         Car mCar = new Car(mContext, carImpl, /* handler= */ null);
 

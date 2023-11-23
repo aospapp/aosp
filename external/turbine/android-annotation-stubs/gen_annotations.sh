@@ -5,8 +5,8 @@ declare -A PARAMETER
 declare -A IMPORT
 
 ANNOTATIONS=(
-    org.checkerframework.checker.nullness.qual.Nullable
-    org.checkerframework.checker.nullness.compatqual.NullableDecl
+    org.jspecify.nullness.Nullable
+    org.jspecify.nullness.NullMarked
 )
 
 for a in ${ANNOTATIONS[@]}; do

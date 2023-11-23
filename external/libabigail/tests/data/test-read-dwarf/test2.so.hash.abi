@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' path='data/test-read-dwarf/test2.so'>
+<abi-corpus version='2.1' path='data/test-read-dwarf/test2.so'>
   <elf-needed>
     <dependency name='libstdc++.so.6'/>
     <dependency name='libm.so.6'/>
@@ -20,7 +20,6 @@
     <typedef-decl name='character' type-id='002ac4a6' id='8ec86933'/>
     <typedef-decl name='integer' type-id='95e97e5e' id='c2cab9c6'/>
     <type-decl name='unsigned char' size-in-bits='8' id='002ac4a6'/>
-    <type-decl name='void' id='48b5725f'/>
     <class-decl name='first_type' size-in-bits='64' is-struct='yes' visibility='default' filepath='/home/dodji/git/libabigail/dwarf/tests/data/test-read-dwarf/test2.h' line='4' column='1' id='55265432'>
       <data-member access='public' layout-offset-in-bits='0'>
         <var-decl name='member0' type-id='c2cab9c6' visibility='default' filepath='/home/dodji/git/libabigail/dwarf/tests/data/test-read-dwarf/test2.h' line='6' column='1'/>
@@ -47,6 +46,7 @@
         <return type-id='82c95d70'/>
       </function-decl>
     </namespace-decl>
+    <type-decl name='void' id='48b5725f'/>
   </abi-instr>
   <abi-instr address-size='64' path='test2-1.cc' comp-dir-path='/home/dodji/git/libabigail/dwarf/tests/data/test-read-dwarf' language='LANG_C_plus_plus'>
     <class-decl name='second_type' size-in-bits='64' is-struct='yes' visibility='default' filepath='/home/dodji/git/libabigail/dwarf/tests/data/test-read-dwarf/test2.h' line='12' column='1' id='cf111fae'>

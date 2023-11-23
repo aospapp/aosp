@@ -18,6 +18,7 @@ package android.app.appops.cts
 
 import android.app.Activity
 import android.os.Bundle
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -32,8 +33,10 @@ class UidStateForceActivity : Activity() {
 
         fun waitForResumed() {
             lock.withLock {
-                while (!isActivityResumed) {
-                    condition.await()
+                if (!isActivityResumed) {
+                    if (!condition.await(10, TimeUnit.SECONDS)) {
+                        throw RuntimeException("Activity never resumed")
+                    }
                 }
             }
         }

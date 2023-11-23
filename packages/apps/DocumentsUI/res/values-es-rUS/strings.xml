@@ -55,7 +55,7 @@
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"Copiar"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"Pegar"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"Pegar en la carpeta"</string>
-    <string name="menu_advanced_show" msgid="7558626506462906726">"Mostrar almacenamiento"</string>
+    <string name="menu_advanced_show" msgid="7558626506462906726">"Mostrar almacenamiento interno"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"Ocultar almacenamiento"</string>
     <string name="button_select" msgid="240863497069321364">"Seleccionar"</string>
     <string name="button_copy" msgid="8219059853840996027">"Copiar"</string>

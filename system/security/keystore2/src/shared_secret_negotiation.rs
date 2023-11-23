@@ -15,13 +15,14 @@
 //! This module implements the shared secret negotiation.
 
 use crate::error::{map_binder_status, map_binder_status_code, Error};
+use crate::globals::get_keymint_device;
 use android_hardware_security_keymint::aidl::android::hardware::security::keymint::SecurityLevel::SecurityLevel;
 use android_hardware_security_keymint::binder::Strong;
 use android_hardware_security_sharedsecret::aidl::android::hardware::security::sharedsecret::{
     ISharedSecret::ISharedSecret, SharedSecretParameters::SharedSecretParameters,
 };
 use android_security_compat::aidl::android::security::compat::IKeystoreCompatService::IKeystoreCompatService;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use keystore2_vintf::{get_aidl_instances, get_hidl_instances};
 use std::fmt::{self, Display, Formatter};
 use std::time::Duration;
@@ -43,6 +44,10 @@ pub fn perform_shared_secret_negotiation() {
         let connected = connect_participants(participants);
         negotiate_shared_secret(connected);
         log::info!("Shared secret negotiation concluded successfully.");
+
+        // Once shared secret negotiation is done, the StrongBox and TEE have a common key that
+        // can be used to authenticate a possible RootOfTrust transfer.
+        transfer_root_of_trust();
     });
 }
 
@@ -118,47 +123,32 @@ fn list_participants() -> Result<Vec<SharedSecretParticipant>> {
         .iter()
         .map(|(ma, mi)| {
             get_hidl_instances(KEYMASTER_PACKAGE_NAME, *ma, *mi, KEYMASTER_INTERFACE_NAME)
-                .as_vec()
-                .with_context(|| format!("Trying to convert KM{}.{} names to vector.", *ma, *mi))
-                .map(|instances| {
-                    instances
-                        .into_iter()
-                        .filter_map(|name| {
-                            filter_map_legacy_km_instances(name.to_string(), (*ma, *mi)).and_then(
-                                |sp| {
-                                    if let SharedSecretParticipant::Hidl {
-                                        is_strongbox: true,
-                                        ..
-                                    } = &sp
-                                    {
-                                        if !legacy_strongbox_found {
-                                            legacy_strongbox_found = true;
-                                            return Some(sp);
-                                        }
-                                    } else if !legacy_default_found {
-                                        legacy_default_found = true;
-                                        return Some(sp);
-                                    }
-                                    None
-                                },
-                            )
-                        })
-                        .collect::<Vec<SharedSecretParticipant>>()
+                .into_iter()
+                .filter_map(|name| {
+                    filter_map_legacy_km_instances(name, (*ma, *mi)).and_then(|sp| {
+                        if let SharedSecretParticipant::Hidl { is_strongbox: true, .. } = &sp {
+                            if !legacy_strongbox_found {
+                                legacy_strongbox_found = true;
+                                return Some(sp);
+                            }
+                        } else if !legacy_default_found {
+                            legacy_default_found = true;
+                            return Some(sp);
+                        }
+                        None
+                    })
                 })
+                .collect::<Vec<SharedSecretParticipant>>()
         })
-        .collect::<Result<Vec<_>>>()
-        .map(|v| v.into_iter().flatten())
-        .and_then(|i| {
-            let participants_aidl: Vec<SharedSecretParticipant> =
-                get_aidl_instances(SHARED_SECRET_PACKAGE_NAME, 1, SHARED_SECRET_INTERFACE_NAME)
-                    .as_vec()
-                    .context("In list_participants: Trying to convert KM1.0 names to vector.")?
-                    .into_iter()
-                    .map(|name| SharedSecretParticipant::Aidl(name.to_string()))
-                    .collect();
-            Ok(i.chain(participants_aidl.into_iter()))
+        .into_iter()
+        .flatten()
+        .chain({
+            get_aidl_instances(SHARED_SECRET_PACKAGE_NAME, 1, SHARED_SECRET_INTERFACE_NAME)
+                .into_iter()
+                .map(SharedSecretParticipant::Aidl)
+                .collect::<Vec<_>>()
+                .into_iter()
         })
-        .context("In list_participants.")?
         .collect())
 }
 
@@ -292,4 +282,49 @@ fn negotiate_shared_secret(
             ));
         }
     }
+}
+
+/// Perform RootOfTrust transfer from TEE to StrongBox (if available).
+pub fn transfer_root_of_trust() {
+    let strongbox = match get_keymint_device(&SecurityLevel::STRONGBOX) {
+        Ok((s, _, _)) => s,
+        Err(_e) => {
+            log::info!("No StrongBox Keymint available, so no RoT transfer");
+            return;
+        }
+    };
+    // Ask the StrongBox KeyMint for a challenge.
+    let challenge = match strongbox.getRootOfTrustChallenge() {
+        Ok(data) => data,
+        Err(e) => {
+            // If StrongBox doesn't provide a challenge, it might be because:
+            // - it already has RootOfTrust information
+            // - it's a KeyMint v1 implementation that doesn't understand the method.
+            // In either case, we're done.
+            log::info!("StrongBox does not provide a challenge, so no RoT transfer: {:?}", e);
+            return;
+        }
+    };
+    // Get the RoT info from the TEE
+    let tee = match get_keymint_device(&SecurityLevel::TRUSTED_ENVIRONMENT) {
+        Ok((s, _, _)) => s,
+        Err(e) => {
+            log::error!("No TEE KeyMint implementation found! {:?}", e);
+            return;
+        }
+    };
+    let root_of_trust = match tee.getRootOfTrust(&challenge) {
+        Ok(rot) => rot,
+        Err(e) => {
+            log::error!("TEE KeyMint failed to return RootOfTrust info: {:?}", e);
+            return;
+        }
+    };
+    // The RootOfTrust information is CBOR-serialized data, but we don't need to parse it.
+    // Just pass it on to the StrongBox KeyMint instance.
+    let result = strongbox.sendRootOfTrust(&root_of_trust);
+    if let Err(e) = result {
+        log::error!("Failed to send RootOfTrust to StrongBox: {:?}", e);
+    }
+    log::info!("RootOfTrust transfer process complete");
 }

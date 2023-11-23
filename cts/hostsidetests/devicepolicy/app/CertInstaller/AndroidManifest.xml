@@ -31,6 +31,8 @@
                 <action android:name="com.android.cts.certinstaller.remove_cert"/>
                 <action android:name="com.android.cts.certinstaller.verify_cert"/>
                 <action android:name="com.android.cts.certinstaller.install_keypair"/>
+                <action android:name="com.android.cts.certinstaller.done"/>
+                <action android:name="com.android.cts.certinstaller.read_esid"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </receiver>

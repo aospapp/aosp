@@ -1,23 +1,22 @@
+#include "aidl/android/aidl/loggable/ILoggableInterface.h"
+
 #include <android/binder_parcel_utils.h>
-#include <aidl/android/aidl/loggable/BpLoggableInterface.h>
-#include <aidl/android/aidl/loggable/BnLoggableInterface.h>
-#include <aidl/android/aidl/loggable/ILoggableInterface.h>
 #include <android/binder_to_string.h>
+#include <aidl/android/aidl/loggable/BnLoggableInterface.h>
+#include <aidl/android/aidl/loggable/BpLoggableInterface.h>
+
+namespace {
+struct ScopedTrace {
+  inline explicit ScopedTrace(const char* name) { ATrace_beginSection(name); }
+  inline ~ScopedTrace() { ATrace_endSection(); }
+};
+}  // namespace
 
 namespace aidl {
 namespace android {
 namespace aidl {
 namespace loggable {
-class ScopedTrace {
-  public:
-  inline explicit ScopedTrace(const char* name) {
-  ATrace_beginSection(name);
-  }
-  inline ~ScopedTrace() {
-  ATrace_endSection();
-  }
-};
-static binder_status_t _aidl_onTransact(AIBinder* _aidl_binder, transaction_code_t _aidl_code, const AParcel* _aidl_in, AParcel* _aidl_out) {
+static binder_status_t _aidl_android_aidl_loggable_ILoggableInterface_onTransact(AIBinder* _aidl_binder, transaction_code_t _aidl_code, const AParcel* _aidl_in, AParcel* _aidl_out) {
   (void)_aidl_in;
   (void)_aidl_out;
   binder_status_t _aidl_ret_status = STATUS_UNKNOWN_TRANSACTION;
@@ -48,67 +47,67 @@ static binder_status_t _aidl_onTransact(AIBinder* _aidl_binder, transaction_code
       std::vector<std::string> _aidl_return;
 
       ScopedTrace _aidl_trace("AIDL::ndk::ILoggableInterface::LogThis::server");
-      _aidl_ret_status = AParcel_readBool(_aidl_in, &in_boolValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_boolValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_boolArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_boolArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readByte(_aidl_in, &in_byteValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_byteValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_byteArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_byteArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readChar(_aidl_in, &in_charValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_charValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_charArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_charArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readInt32(_aidl_in, &in_intValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_intValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_intArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_intArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readInt64(_aidl_in, &in_longValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_longValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_longArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_longArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readFloat(_aidl_in, &in_floatValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_floatValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_floatArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_floatArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = AParcel_readDouble(_aidl_in, &in_doubleValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_doubleValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_doubleArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_doubleArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readString(_aidl_in, &in_stringValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_stringValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_stringArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_stringArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_listValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_listValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readParcelable(_aidl_in, &in_dataValue);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_dataValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readNullableStrongBinder(_aidl_in, &in_binderValue);
+      _aidl_ret_status = ::ndk::AParcel_readNullableData(_aidl_in, &in_binderValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readNullableParcelFileDescriptor(_aidl_in, &in_pfdValue);
+      _aidl_ret_status = ::ndk::AParcel_readNullableData(_aidl_in, &in_pfdValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_in, &in_pfdArray);
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_pfdArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
       BnLoggableInterface::TransactionLog _transaction_log;
@@ -167,40 +166,40 @@ static binder_status_t _aidl_onTransact(AIBinder* _aidl_binder, transaction_code
 
       if (!AStatus_isOk(_aidl_status.get())) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, _aidl_return);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, _aidl_return);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_boolArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_boolArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_byteArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_byteArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_charArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_charArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_intArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_intArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_longArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_longArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_floatArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_floatArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_doubleArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_doubleArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_stringArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_stringArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_listValue);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_listValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeNullableParcelFileDescriptor(_aidl_out, in_pfdValue);
+      _aidl_ret_status = ::ndk::AParcel_writeNullableData(_aidl_out, in_pfdValue);
       if (_aidl_ret_status != STATUS_OK) break;
 
-      _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_out, in_pfdArray);
+      _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_out, in_pfdArray);
       if (_aidl_ret_status != STATUS_OK) break;
 
       break;
@@ -209,7 +208,7 @@ static binder_status_t _aidl_onTransact(AIBinder* _aidl_binder, transaction_code
   return _aidl_ret_status;
 }
 
-static AIBinder_Class* _g_aidl_clazz = ::ndk::ICInterface::defineClass(ILoggableInterface::descriptor, _aidl_onTransact);
+static AIBinder_Class* _g_aidl_android_aidl_loggable_ILoggableInterface_clazz = ::ndk::ICInterface::defineClass(ILoggableInterface::descriptor, _aidl_android_aidl_loggable_ILoggableInterface_onTransact);
 
 BpLoggableInterface::BpLoggableInterface(const ::ndk::SpAIBinder& binder) : BpCInterface(binder) {}
 BpLoggableInterface::~BpLoggableInterface() {}
@@ -250,67 +249,67 @@ std::function<void(const BpLoggableInterface::TransactionLog&)> BpLoggableInterf
   _aidl_ret_status = AIBinder_prepareTransaction(asBinder().get(), _aidl_in.getR());
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeBool(_aidl_in.get(), in_boolValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_boolValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_boolArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_boolArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeByte(_aidl_in.get(), in_byteValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_byteValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_byteArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_byteArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeChar(_aidl_in.get(), in_charValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_charValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_charArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_charArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeInt32(_aidl_in.get(), in_intValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_intValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_intArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_intArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeInt64(_aidl_in.get(), in_longValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_longValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_longArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_longArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeFloat(_aidl_in.get(), in_floatValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_floatValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_floatArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_floatArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = AParcel_writeDouble(_aidl_in.get(), in_doubleValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_doubleValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_doubleArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_doubleArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeString(_aidl_in.get(), in_stringValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_stringValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_stringArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_stringArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_listValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_listValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeParcelable(_aidl_in.get(), in_dataValue);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_dataValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeNullableStrongBinder(_aidl_in.get(), in_binderValue);
+  _aidl_ret_status = ::ndk::AParcel_writeNullableData(_aidl_in.get(), in_binderValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeNullableParcelFileDescriptor(_aidl_in.get(), *in_pfdValue);
+  _aidl_ret_status = ::ndk::AParcel_writeNullableData(_aidl_in.get(), *in_pfdValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_writeVector(_aidl_in.get(), *in_pfdArray);
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), *in_pfdArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
   _aidl_ret_status = AIBinder_transact(
@@ -333,40 +332,40 @@ std::function<void(const BpLoggableInterface::TransactionLog&)> BpLoggableInterf
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
   if (!AStatus_isOk(_aidl_status.get())) goto _aidl_status_return;
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), _aidl_return);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), _aidl_return);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_boolArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_boolArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_byteArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_byteArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_charArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_charArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_intArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_intArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_longArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_longArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_floatArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_floatArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_doubleArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_doubleArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_stringArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_stringArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_listValue);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_listValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readNullableParcelFileDescriptor(_aidl_out.get(), in_pfdValue);
+  _aidl_ret_status = ::ndk::AParcel_readNullableData(_aidl_out.get(), in_pfdValue);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
-  _aidl_ret_status = ::ndk::AParcel_readVector(_aidl_out.get(), in_pfdArray);
+  _aidl_ret_status = ::ndk::AParcel_readData(_aidl_out.get(), in_pfdArray);
   if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
 
   _aidl_error:
@@ -404,7 +403,7 @@ BnLoggableInterface::BnLoggableInterface() {}
 BnLoggableInterface::~BnLoggableInterface() {}
 std::function<void(const BnLoggableInterface::TransactionLog&)> BnLoggableInterface::logFunc;
 ::ndk::SpAIBinder BnLoggableInterface::createBinder() {
-  AIBinder* binder = AIBinder_new(_g_aidl_clazz, static_cast<void*>(this));
+  AIBinder* binder = AIBinder_new(_g_aidl_android_aidl_loggable_ILoggableInterface_clazz, static_cast<void*>(this));
   #ifdef BINDER_STABILITY_SUPPORT
   AIBinder_markCompilationUnitStability(binder);
   #endif  // BINDER_STABILITY_SUPPORT
@@ -417,7 +416,7 @@ ILoggableInterface::~ILoggableInterface() {}
 
 
 std::shared_ptr<ILoggableInterface> ILoggableInterface::fromBinder(const ::ndk::SpAIBinder& binder) {
-  if (!AIBinder_associateClass(binder.get(), _g_aidl_clazz)) { return nullptr; }
+  if (!AIBinder_associateClass(binder.get(), _g_aidl_android_aidl_loggable_ILoggableInterface_clazz)) { return nullptr; }
   std::shared_ptr<::ndk::ICInterface> interface = ::ndk::ICInterface::asInterface(binder.get());
   if (interface) {
     return std::static_pointer_cast<ILoggableInterface>(interface);
@@ -459,6 +458,181 @@ std::shared_ptr<ILoggableInterface> ILoggableInterface::default_impl = nullptr;
   return ::ndk::SpAIBinder();
 }
 bool ILoggableInterfaceDefault::isRemote() {
+  return false;
+}
+}  // namespace loggable
+}  // namespace aidl
+}  // namespace android
+}  // namespace aidl
+namespace aidl {
+namespace android {
+namespace aidl {
+namespace loggable {
+static binder_status_t _aidl_android_aidl_loggable_ILoggableInterface_ISub_onTransact(AIBinder* _aidl_binder, transaction_code_t _aidl_code, const AParcel* _aidl_in, AParcel* _aidl_out) {
+  (void)_aidl_in;
+  (void)_aidl_out;
+  binder_status_t _aidl_ret_status = STATUS_UNKNOWN_TRANSACTION;
+  std::shared_ptr<ILoggableInterface::BnSub> _aidl_impl = std::static_pointer_cast<ILoggableInterface::BnSub>(::ndk::ICInterface::asInterface(_aidl_binder));
+  switch (_aidl_code) {
+    case (FIRST_CALL_TRANSACTION + 0 /*Log*/): {
+      int32_t in_value;
+
+      ScopedTrace _aidl_trace("AIDL::ndk::ISub::Log::server");
+      _aidl_ret_status = ::ndk::AParcel_readData(_aidl_in, &in_value);
+      if (_aidl_ret_status != STATUS_OK) break;
+
+      ILoggableInterface::BnSub::TransactionLog _transaction_log;
+      if (ILoggableInterface::BnSub::logFunc != nullptr) {
+        _transaction_log.input_args.emplace_back("in_value", ::android::internal::ToString(in_value));
+      }
+      auto _log_start = std::chrono::steady_clock::now();
+      ::ndk::ScopedAStatus _aidl_status = _aidl_impl->Log(in_value);
+      if (ILoggableInterface::BnSub::logFunc != nullptr) {
+        auto _log_end = std::chrono::steady_clock::now();
+        _transaction_log.duration_ms = std::chrono::duration<double, std::milli>(_log_end - _log_start).count();
+        _transaction_log.interface_name = "android.aidl.loggable.ILoggableInterface.ISub";
+        _transaction_log.method_name = "Log";
+        _transaction_log.stub_address = _aidl_impl.get();
+        _transaction_log.proxy_address = nullptr;
+        _transaction_log.exception_code = AStatus_getExceptionCode(_aidl_status.get());
+        _transaction_log.exception_message = AStatus_getMessage(_aidl_status.get());
+        _transaction_log.transaction_error = AStatus_getStatus(_aidl_status.get());
+        _transaction_log.service_specific_error_code = AStatus_getServiceSpecificError(_aidl_status.get());
+        ILoggableInterface::BnSub::logFunc(_transaction_log);
+      }
+      _aidl_ret_status = AParcel_writeStatusHeader(_aidl_out, _aidl_status.get());
+      if (_aidl_ret_status != STATUS_OK) break;
+
+      if (!AStatus_isOk(_aidl_status.get())) break;
+
+      break;
+    }
+  }
+  return _aidl_ret_status;
+}
+
+static AIBinder_Class* _g_aidl_android_aidl_loggable_ILoggableInterface_ISub_clazz = ::ndk::ICInterface::defineClass(ILoggableInterface::ISub::descriptor, _aidl_android_aidl_loggable_ILoggableInterface_ISub_onTransact);
+
+ILoggableInterface::BpSub::BpSub(const ::ndk::SpAIBinder& binder) : BpCInterface(binder) {}
+ILoggableInterface::BpSub::~BpSub() {}
+std::function<void(const ILoggableInterface::BpSub::TransactionLog&)> ILoggableInterface::BpSub::logFunc;
+
+::ndk::ScopedAStatus ILoggableInterface::BpSub::Log(int32_t in_value) {
+  binder_status_t _aidl_ret_status = STATUS_OK;
+  ::ndk::ScopedAStatus _aidl_status;
+  ::ndk::ScopedAParcel _aidl_in;
+  ::ndk::ScopedAParcel _aidl_out;
+
+  ILoggableInterface::BpSub::TransactionLog _transaction_log;
+  if (ILoggableInterface::BpSub::logFunc != nullptr) {
+    _transaction_log.input_args.emplace_back("in_value", ::android::internal::ToString(in_value));
+  }
+  auto _log_start = std::chrono::steady_clock::now();
+  ScopedTrace _aidl_trace("AIDL::ndk::ISub::Log::client");
+  _aidl_ret_status = AIBinder_prepareTransaction(asBinder().get(), _aidl_in.getR());
+  if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
+
+  _aidl_ret_status = ::ndk::AParcel_writeData(_aidl_in.get(), in_value);
+  if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
+
+  _aidl_ret_status = AIBinder_transact(
+    asBinder().get(),
+    (FIRST_CALL_TRANSACTION + 0 /*Log*/),
+    _aidl_in.getR(),
+    _aidl_out.getR(),
+    0
+    #ifdef BINDER_STABILITY_SUPPORT
+    | FLAG_PRIVATE_LOCAL
+    #endif  // BINDER_STABILITY_SUPPORT
+    );
+  if (_aidl_ret_status == STATUS_UNKNOWN_TRANSACTION && ISub::getDefaultImpl()) {
+    _aidl_status = ISub::getDefaultImpl()->Log(in_value);
+    goto _aidl_status_return;
+  }
+  if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
+
+  _aidl_ret_status = AParcel_readStatusHeader(_aidl_out.get(), _aidl_status.getR());
+  if (_aidl_ret_status != STATUS_OK) goto _aidl_error;
+
+  if (!AStatus_isOk(_aidl_status.get())) goto _aidl_status_return;
+  _aidl_error:
+  _aidl_status.set(AStatus_fromStatus(_aidl_ret_status));
+  _aidl_status_return:
+  if (ILoggableInterface::BpSub::logFunc != nullptr) {
+    auto _log_end = std::chrono::steady_clock::now();
+    _transaction_log.duration_ms = std::chrono::duration<double, std::milli>(_log_end - _log_start).count();
+    _transaction_log.interface_name = "android.aidl.loggable.ILoggableInterface.ISub";
+    _transaction_log.method_name = "Log";
+    _transaction_log.stub_address = nullptr;
+    _transaction_log.proxy_address = static_cast<const void*>(this);
+    _transaction_log.exception_code = AStatus_getExceptionCode(_aidl_status.get());
+    _transaction_log.exception_message = AStatus_getMessage(_aidl_status.get());
+    _transaction_log.transaction_error = AStatus_getStatus(_aidl_status.get());
+    _transaction_log.service_specific_error_code = AStatus_getServiceSpecificError(_aidl_status.get());
+    ILoggableInterface::BpSub::logFunc(_transaction_log);
+  }
+  return _aidl_status;
+}
+// Source for BnSub
+ILoggableInterface::BnSub::BnSub() {}
+ILoggableInterface::BnSub::~BnSub() {}
+std::function<void(const ILoggableInterface::BnSub::TransactionLog&)> ILoggableInterface::BnSub::logFunc;
+::ndk::SpAIBinder ILoggableInterface::BnSub::createBinder() {
+  AIBinder* binder = AIBinder_new(_g_aidl_android_aidl_loggable_ILoggableInterface_ISub_clazz, static_cast<void*>(this));
+  #ifdef BINDER_STABILITY_SUPPORT
+  AIBinder_markCompilationUnitStability(binder);
+  #endif  // BINDER_STABILITY_SUPPORT
+  return ::ndk::SpAIBinder(binder);
+}
+// Source for ISub
+const char* ILoggableInterface::ISub::descriptor = "android.aidl.loggable.ILoggableInterface.ISub";
+ILoggableInterface::ISub::ISub() {}
+ILoggableInterface::ISub::~ISub() {}
+
+
+std::shared_ptr<ILoggableInterface::ISub> ILoggableInterface::ISub::fromBinder(const ::ndk::SpAIBinder& binder) {
+  if (!AIBinder_associateClass(binder.get(), _g_aidl_android_aidl_loggable_ILoggableInterface_ISub_clazz)) { return nullptr; }
+  std::shared_ptr<::ndk::ICInterface> interface = ::ndk::ICInterface::asInterface(binder.get());
+  if (interface) {
+    return std::static_pointer_cast<ISub>(interface);
+  }
+  return ::ndk::SharedRefBase::make<ILoggableInterface::BpSub>(binder);
+}
+
+binder_status_t ILoggableInterface::ISub::writeToParcel(AParcel* parcel, const std::shared_ptr<ISub>& instance) {
+  return AParcel_writeStrongBinder(parcel, instance ? instance->asBinder().get() : nullptr);
+}
+binder_status_t ILoggableInterface::ISub::readFromParcel(const AParcel* parcel, std::shared_ptr<ISub>* instance) {
+  ::ndk::SpAIBinder binder;
+  binder_status_t status = AParcel_readStrongBinder(parcel, binder.getR());
+  if (status != STATUS_OK) return status;
+  *instance = ISub::fromBinder(binder);
+  return STATUS_OK;
+}
+bool ILoggableInterface::ISub::setDefaultImpl(const std::shared_ptr<ISub>& impl) {
+  // Only one user of this interface can use this function
+  // at a time. This is a heuristic to detect if two different
+  // users in the same process use this function.
+  assert(!ISub::default_impl);
+  if (impl) {
+    ISub::default_impl = impl;
+    return true;
+  }
+  return false;
+}
+const std::shared_ptr<ILoggableInterface::ISub>& ILoggableInterface::ISub::getDefaultImpl() {
+  return ISub::default_impl;
+}
+std::shared_ptr<ILoggableInterface::ISub> ILoggableInterface::ISub::default_impl = nullptr;
+::ndk::ScopedAStatus ILoggableInterface::ISubDefault::Log(int32_t /*in_value*/) {
+  ::ndk::ScopedAStatus _aidl_status;
+  _aidl_status.set(AStatus_fromStatus(STATUS_UNKNOWN_TRANSACTION));
+  return _aidl_status;
+}
+::ndk::SpAIBinder ILoggableInterface::ISubDefault::asBinder() {
+  return ::ndk::SpAIBinder();
+}
+bool ILoggableInterface::ISubDefault::isRemote() {
   return false;
 }
 }  // namespace loggable

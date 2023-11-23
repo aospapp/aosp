@@ -59,6 +59,9 @@ allow hal_sensors_default hidraw_device:chr_file rw_file_perms;
 allow hal_sensors_default hal_pixel_display_service:service_manager find;
 binder_call(hal_sensors_default, hal_graphics_composer_default)
 
+# Allow sensor HAL to access to display sysfs.
+allow hal_sensors_default sysfs_display:file r_file_perms;
+
 #
 # Suez type enforcements.
 #

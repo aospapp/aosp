@@ -4949,15 +4949,20 @@ void ihevce_set_pre_enc_prms(enc_ctxt_t *ps_enc_ctxt)
 
         // if(ps_enc_ctxt->as_sps[i].i1_vui_parameters_present_flag == 1)
         {
-            ihevce_populate_vui(
-                &ps_enc_ctxt->as_sps[i].s_vui_parameters,
-                &ps_enc_ctxt->as_sps[i],
-                &ps_enc_ctxt->s_runtime_src_prms,
-                &ps_enc_ctxt->ps_stat_prms->s_vui_sei_prms,
-                i4_resolution_id,
-                &ps_enc_ctxt->s_runtime_tgt_params,
-                ps_enc_ctxt->ps_stat_prms,
-                i4_id);
+            WORD32 error_code = ihevce_populate_vui(
+                                    &ps_enc_ctxt->as_sps[i].s_vui_parameters,
+                                    &ps_enc_ctxt->as_sps[i],
+                                    &ps_enc_ctxt->s_runtime_src_prms,
+                                    &ps_enc_ctxt->ps_stat_prms->s_vui_sei_prms,
+                                    i4_resolution_id,
+                                    &ps_enc_ctxt->s_runtime_tgt_params,
+                                    ps_enc_ctxt->ps_stat_prms,
+                                    i4_id);
+            if (error_code)
+            {
+                ((ihevce_hle_ctxt_t *)ps_enc_ctxt->pv_hle_ctxt)->i4_error_code = error_code;
+                return;
+            }
         }
     }
 

@@ -25,6 +25,7 @@ cc_library_static {
     ],
     srcs: [
         "etc.cpp",
+        "rgtc.cpp",
         "FramebufferData.cpp",
         "GLBackgroundLoader.cpp",
         "GLDispatch.cpp",

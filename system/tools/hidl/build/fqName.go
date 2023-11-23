@@ -112,46 +112,6 @@ func (f *fqName) javaConstantsName() string {
 func (f *fqName) javaConstantsSourcesName() string {
 	return f.sanitizedString() + "-java-constants_gen_java"
 }
-func (f *fqName) adapterName() string {
-	return f.string() + "-adapter"
-}
-func (f *fqName) adapterSourcesName() string {
-	return f.string() + "-adapter_genc++"
-}
-func (f *fqName) adapterHelperName() string {
-	return f.string() + "-adapter-helper"
-}
-func (f *fqName) adapterHelperSourcesName() string {
-	return f.string() + "-adapter-helper_genc++"
-}
-func (f *fqName) adapterHelperHeadersName() string {
-	return f.string() + "-adapter-helper_genc++_headers"
-}
-
-func (f *fqName) vtsSpecName() string {
-	return f.string() + "-vts.spec"
-}
-func (f *fqName) vtsDriverSourcesName() string {
-	return f.string() + "-vts.driver_genc++"
-}
-func (f *fqName) vtsDriverHeadersName() string {
-	return f.string() + "-vts.driver_genc++_headers"
-}
-func (f *fqName) vtsDriverName() string {
-	return f.string() + "-vts.driver"
-}
-func (f *fqName) vtsProfilerSourcesName() string {
-	return f.string() + "-vts.profiler_genc++"
-}
-func (f *fqName) vtsProfilerHeadersName() string {
-	return f.string() + "-vts.profiler_genc++_headers"
-}
-func (f *fqName) vtsProfilerName() string {
-	return f.string() + "-vts.profiler"
-}
-func (f *fqName) vtsFuzzerName() string {
-	return f.string() + "-vts.fuzzer"
-}
 
 func (f *fqName) lintName() string {
 	return f.string() + "-hidl-lint"

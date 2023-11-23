@@ -33,6 +33,16 @@
         <option name="test-file-name" value="CtsWidgetTestCases.apk" />
     </target_preparer>
 
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <!--
+            MockIME always needs to be installed as a full package, even when CTS is running
+            for instant apps.
+        -->
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsMockInputMethod.apk" />
+    </target_preparer>
+
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!--
             To fail-fast in case test-ime setup somehow failed.  Consider increasing the

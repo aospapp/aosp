@@ -17,6 +17,7 @@
 package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 import static com.android.car.settings.qc.SettingsQCRegistry.HOTSPOT_TILE_URI;
 
 import android.content.Context;
@@ -25,10 +26,13 @@ import android.graphics.drawable.Icon;
 import android.net.TetheringManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.UserManager;
 
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCTile;
 import com.android.car.settings.R;
+import com.android.car.settings.enterprise.EnterpriseUtils;
+import com.android.car.settings.wifi.WifiTetherUtil;
 
 /**
  * QCItem for showing a hotspot toggle.
@@ -49,13 +53,23 @@ public class HotspotTile extends SettingsQCItem {
     QCItem getQCItem() {
         Icon actionIcon = Icon.createWithResource(getContext(), R.drawable.ic_qc_hotspot);
 
+        String userRestriction = UserManager.DISALLOW_CONFIG_TETHERING;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCTile.Builder tileBuilder = new QCTile.Builder()
                 .setSubtitle(getContext().getString(R.string.hotspot_settings_title))
                 .setIcon(actionIcon)
                 .setChecked(HotspotQCUtils.isHotspotEnabled(mWifiManager))
-                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager))
+                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager)
+                        && !hasUmRestrictions && !hasDpmRestrictions)
                 .setAvailable(mIsSupported)
-                .setAction(getBroadcastIntent());
+                .setAction(getBroadcastIntent())
+                .setClickableWhileDisabled(hasDpmRestrictions)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        userRestriction));
         return tileBuilder.build();
     }
 
@@ -77,10 +91,10 @@ public class HotspotTile extends SettingsQCItem {
         boolean newState = intent.getBooleanExtra(QC_ACTION_TOGGLE_STATE,
                 !mWifiManager.isWifiApEnabled());
         if (newState) {
-            HotspotQCUtils.enableHotspot(mTetheringManager,
+            WifiTetherUtil.startTethering(mTetheringManager,
                     HotspotQCUtils.getDefaultStartTetheringCallback(getContext(), getUri()));
         } else {
-            HotspotQCUtils.disableHotspot(mTetheringManager);
+            WifiTetherUtil.stopTethering(mTetheringManager);
         }
     }
 

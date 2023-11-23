@@ -71,9 +71,9 @@
     <string name="enable_etws_test_alerts_title" msgid="3593533226735441539">"ETWS probna emitovanja"</string>
     <string name="enable_etws_test_alerts_summary" msgid="8746155402612927306">"Probna emitovanja za sistem upozorenja o zemljotresu i cunamiju (ETWS)"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="5416260219062637770">"Ekstremne opasnosti"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"Ekstremna opasnost po život i imovinu"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="5832146246627518123">"Ekstremne opasnosti po život i imovinu"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="1066172973703410042">"Ozbiljne opasnosti"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Ozbiljna opasnost po život i imovinu"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="5292443310309039223">"Ozbiljne opasnosti po život i imovinu"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="1475030503498979651">"AMBER obaveštenja"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="4495233280416889667">"Objave u vezi sa otmicom deteta"</string>
     <string name="enable_alert_message_title" msgid="2939830587633599352">"Poruke upozorenja"</string>
@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Poruke o javnoj bezbednosti"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Preporučene radnje koje mogu da sačuvaju živote ili imovinu"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Prikazuj poruke na celom ekranu"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Isključite da bi se poruke o javnoj bezbednosti slale samo u aplikaciju za SMS poruke"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"Kada su isključene, poruke o javnoj bezbednosti se i dalje šalju kao obaveštenja"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Probne poruke državnih i lokalnih organa"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Primaj probne poruke od državnih i lokalnih organa"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Obaveštenja o hitnim slučajevima"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Da"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"He"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"Istorija obaveštenja o hitnim slučajevima"</string>
+    <string name="action_delete" msgid="7435661404543945861">"Izbriši"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"Prikaži detalje"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Jedanput"</item>
     <item msgid="9097229303902157183">"Svaka 2 minuta"</item>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"Maksimalno vreme čekanja:"</string>
     <string name="seconds" msgid="141450721520515025">"sek"</string>
     <string name="message_copied" msgid="6922953753733166675">"Poruka je kopirana"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"Dok ste u romingu možete da dobijate neka obaveštenja koja nisu obuhvaćena ovim podešavanjima"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"Mobilni operater je promenio podešavanja"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"Dodirnite da biste videli podešavanja bežičnih upozorenja o hitnim slučajevima"</string>
 </resources>

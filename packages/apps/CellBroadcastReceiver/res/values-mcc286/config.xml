@@ -17,25 +17,25 @@
 <resources>
     <!-- 4370, 4383 State alert notification for Turkey -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, always_on=true, filter_language=true</item>
+        <item>0x1112:rat=gsm, emergency=true, override_dnd=true, always_on=true</item>
         <!-- additional language -->
-        <item>0x111F:rat=gsm, emergency=true, always_on=true, filter_language=true</item>
+        <item>0x111F:rat=gsm, emergency=true, override_dnd=true, always_on=true, filter_language=true</item>
     </string-array>
     <!-- 4371~4378, 4384~4391 vital alert notification for Turkey -->
     <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">
-        <item>0x1113-0x111A:rat=gsm, emergency=true, filter_language=true</item>
+        <item>0x1113-0x111A:rat=gsm, emergency=true</item>
         <!-- additional language -->
         <item>0x1120-0x1127:rat=gsm, emergency=true, filter_language=true</item>
     </string-array>
     <!-- 4379, 4392 loss / hijack alert notification for Turkey -->
     <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
-        <item>0x111B:rat=gsm, emergency=true, filter_language=true</item>
+        <item>0x111B:rat=gsm, emergency=true</item>
         <!-- additional language -->
         <item>0x1128:rat=gsm, emergency=true, filter_language=true</item>
     </string-array>
     <!-- Channel 4380~4382, 4393~4395 test notification for Turkey -->
     <string-array name="required_monthly_test_range_strings" translatable="false">
-        <item>0x111C-0x111E:rat=gsm, emergency=true, filter_language=true</item>
+        <item>0x111C-0x111E:rat=gsm, emergency=true</item>
         <!-- additional language -->
         <item>0x1129-0x112B:rat=gsm, emergency=true, filter_language=true</item>
     </string-array>

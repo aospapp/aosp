@@ -125,4 +125,18 @@ bool HashCalculator::SetContext(const string& context) {
   return true;
 }
 
+std::string HashCalculator::SHA256Digest(std::string_view blob) {
+  std::vector<unsigned char> hash;
+  HashCalculator::RawHashOfBytes(blob.data(), blob.size(), &hash);
+  return HexEncode(hash);
+}
+
+std::string HashCalculator::SHA256Digest(std::vector<unsigned char> blob) {
+  return SHA256Digest(ToStringView(blob));
+}
+
+std::string HashCalculator::SHA256Digest(std::vector<char> blob) {
+  return SHA256Digest(ToStringView(blob));
+}
+
 }  // namespace chromeos_update_engine

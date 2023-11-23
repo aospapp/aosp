@@ -13,6 +13,12 @@
 # limitations under the License.
 #
 
+# Note that the platform modules are defined in the Android.bp. This file is
+# used for the NDK.
+
+# If we're being invoked from ndk-build, we'll have NDK_ROOT defined.
+ifdef NDK_ROOT
+
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -28,3 +34,5 @@ LOCAL_CFLAGS := -g -DUSE_LIBLOG -Werror -Wno-deprecated-declarations
 LOCAL_LDLIBS := -lOpenSLES -llog
 
 include $(BUILD_SHARED_LIBRARY)
+
+endif

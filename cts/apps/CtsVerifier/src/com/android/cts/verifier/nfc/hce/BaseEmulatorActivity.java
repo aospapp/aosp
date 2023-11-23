@@ -14,14 +14,15 @@ import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.util.Log;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
 
 @TargetApi(19)
 public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
@@ -105,10 +106,13 @@ public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
             builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                Intent changeDefault = new Intent(CardEmulation.ACTION_CHANGE_DEFAULT);
-                changeDefault.putExtra(CardEmulation.EXTRA_CATEGORY, CardEmulation.CATEGORY_PAYMENT);
-                changeDefault.putExtra(CardEmulation.EXTRA_SERVICE_COMPONENT, defaultComponent);
-                startActivityForResult(changeDefault, 0);
+                    Intent changeDefault = new Intent(CardEmulation.ACTION_CHANGE_DEFAULT);
+                    changeDefault.putExtra(CardEmulation.EXTRA_CATEGORY,
+                            CardEmulation.CATEGORY_PAYMENT);
+                    changeDefault.putExtra(CardEmulation.EXTRA_SERVICE_COMPONENT, defaultComponent);
+                    changeDefault.putExtra(Intent.EXTRA_USER,
+                            UserHandle.getUserHandleForUid(getApplicationInfo().uid));
+                    startActivityForResult(changeDefault, 0);
                 }
             });
             builder.show();

@@ -41,4 +41,10 @@
     <!-- dismiss all system dialogs before launch test -->
     <option name="run-command" value="am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" />
   </target_preparer>
+  <!-- Collect the files generated on error -->
+  <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+    <option name="directory-keys" value="/sdcard/CtsTranslationTestCases" />
+    <option name="collect-on-run-ended-only" value="true" />
+    <option name="clean-up" value="false" />
+  </metrics_collector>
 </configuration>

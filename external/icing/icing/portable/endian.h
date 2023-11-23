@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Utility functions that depend on bytesex. We define htonll and ntohll,
-// as well as "Google" versions of all the standards: ghtonl, ghtons, and
-// so on. These functions do exactly the same as their standard variants,
-// but don't require including the dangerous netinet/in.h.
+// Utility functions that depend on bytesex. We define versions of htonll and
+// ntohll (HostToNetworkLL and NetworkToHostLL in our naming), as well as
+// "Google" versions of all the standards: ghtonl, ghtons, and so on
+// (GHostToNetworkL, GHostToNetworkS, etc in our naming). These functions do
+// exactly the same as their standard variants, but don't require including the
+// dangerous netinet/in.h.
 
 #ifndef ICING_PORTABLE_ENDIAN_H_
 #define ICING_PORTABLE_ENDIAN_H_
@@ -75,7 +77,7 @@
 
 // The following guarantees declaration of the byte swap functions
 #ifdef COMPILER_MSVC
-#include <stdlib.h>  // NOLINT(build/include)
+#include <cstdlib>  // NOLINT(build/include)
 
 #define bswap_16(x) _byteswap_ushort(x)
 #define bswap_32(x) _byteswap_ulong(x)
@@ -170,37 +172,37 @@ inline uint16 gbswap_16(uint16 host_int) { return bswap_16(host_int); }
 // correctly handle the (rather involved) definitions of bswap_32.
 // gcc guarantees that inline functions are as fast as macros, so
 // this isn't a performance hit.
-inline uint16_t ghtons(uint16_t x) { return gbswap_16(x); }
-inline uint32_t ghtonl(uint32_t x) { return gbswap_32(x); }
-inline uint64_t ghtonll(uint64_t x) { return gbswap_64(x); }
+inline uint16_t GHostToNetworkS(uint16_t x) { return gbswap_16(x); }
+inline uint32_t GHostToNetworkL(uint32_t x) { return gbswap_32(x); }
+inline uint64_t GHostToNetworkLL(uint64_t x) { return gbswap_64(x); }
 
 #elif defined IS_BIG_ENDIAN
 
 // These definitions are simpler on big-endian machines
 // These are functions instead of macros to avoid self-assignment warnings
 // on calls such as "i = ghtnol(i);".  This also provides type checking.
-inline uint16 ghtons(uint16 x) { return x; }
-inline uint32 ghtonl(uint32 x) { return x; }
-inline uint64 ghtonll(uint64 x) { return x; }
+inline uint16 GHostToNetworkS(uint16 x) { return x; }
+inline uint32 GHostToNetworkL(uint32 x) { return x; }
+inline uint64 GHostToNetworkLL(uint64 x) { return x; }
 
 #else  // bytesex
 #error \
     "Unsupported bytesex: Either IS_BIG_ENDIAN or IS_LITTLE_ENDIAN must be defined"  // NOLINT
 #endif  // bytesex
 
-#ifndef htonll
+#ifndef HostToNetworkLL
 // With the rise of 64-bit, some systems are beginning to define this.
-#define htonll(x) ghtonll(x)
-#endif  // htonll
+#define HostToNetworkLL(x) GHostToNetworkLL(x)
+#endif  // HostToNetworkLL
 
 // ntoh* and hton* are the same thing for any size and bytesex,
 // since the function is an involution, i.e., its own inverse.
-inline uint16_t gntohs(uint16_t x) { return ghtons(x); }
-inline uint32_t gntohl(uint32_t x) { return ghtonl(x); }
-inline uint64_t gntohll(uint64_t x) { return ghtonll(x); }
+inline uint16_t GNetworkToHostS(uint16_t x) { return GHostToNetworkS(x); }
+inline uint32_t GNetworkToHostL(uint32_t x) { return GHostToNetworkL(x); }
+inline uint64_t GNetworkToHostLL(uint64_t x) { return GHostToNetworkLL(x); }
 
-#ifndef ntohll
-#define ntohll(x) htonll(x)
-#endif  // ntohll
+#ifndef NetworkToHostLL
+#define NetworkToHostLL(x) GHostToNetworkLL(x)
+#endif  // NetworkToHostLL
 
 #endif  // ICING_PORTABLE_ENDIAN_H_

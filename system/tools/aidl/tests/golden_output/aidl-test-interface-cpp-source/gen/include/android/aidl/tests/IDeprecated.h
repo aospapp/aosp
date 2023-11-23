@@ -6,11 +6,8 @@
 #include <utils/StrongPointer.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
-
 class __attribute__((deprecated("test"))) IDeprecated : public ::android::IInterface {
 public:
   DECLARE_META_INTERFACE(Deprecated)
@@ -22,9 +19,6 @@ public:
     return nullptr;
   }
 };  // class IDeprecatedDefault
-
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android

@@ -52,6 +52,8 @@ import android.net.ipsec.test.ike.exceptions.UnsupportedCriticalPayloadException
 
 import com.android.internal.net.TestUtils;
 import com.android.internal.net.ipsec.test.ike.SaRecord.IkeSaRecord;
+import com.android.internal.net.ipsec.test.ike.crypto.IkeCipher;
+import com.android.internal.net.ipsec.test.ike.crypto.IkeCombinedModeCipher;
 import com.android.internal.net.ipsec.test.ike.crypto.IkeMacIntegrity;
 import com.android.internal.net.ipsec.test.ike.crypto.IkeNormalModeCipher;
 import com.android.internal.net.ipsec.test.ike.message.IkeMessage.DecodeResult;
@@ -854,8 +856,49 @@ public final class IkeMessageTest {
         assertEquals(resultPartialIncomplete, decodeResult);
     }
 
+    interface IkeCipherVerifier {
+        void verifyEncrypt(int numCalls, byte[] expectedKey, byte[] expectedIv);
+    }
+
     @Test
-    public void testEncodeAndEncryptFragments() throws Exception {
+    public void testEncodeAndEncryptFragmentsWithNormalModeCipher() throws Exception {
+        IkeNormalModeCipher ikeCipher = mock(IkeNormalModeCipher.class);
+        doReturn(false).when(ikeCipher).isAead();
+        when(ikeCipher.encrypt(any(), any(), any()))
+                .thenAnswer(
+                        (invocation) -> {
+                            return (byte[]) invocation.getArguments()[0];
+                        });
+        verifyEncodeAndEncryptFragments(
+                ikeCipher,
+                mMockIntegrity,
+                (numCalls, expectedKey, expectedIv) -> {
+                    verify(ikeCipher, times(numCalls))
+                            .encrypt(any(), eq(expectedKey), eq(expectedIv));
+                });
+    }
+
+    @Test
+    public void testEncodeAndEncryptFragmentsWithCombinedModeCipher() throws Exception {
+        IkeCombinedModeCipher ikeCipher = mock(IkeCombinedModeCipher.class);
+        doReturn(true).when(ikeCipher).isAead();
+        when(ikeCipher.encrypt(any(), any(), any(), any()))
+                .thenAnswer(
+                        (invocation) -> {
+                            return (byte[]) invocation.getArguments()[0];
+                        });
+        verifyEncodeAndEncryptFragments(
+                ikeCipher,
+                null,
+                (numCalls, expectedKey, expectedIv) -> {
+                    verify(ikeCipher, times(numCalls))
+                            .encrypt(any(), any(), eq(expectedKey), eq(expectedIv));
+                });
+    }
+
+    private void verifyEncodeAndEncryptFragments(
+            IkeCipher ikeCipher, IkeMacIntegrity ikeIntegrity, IkeCipherVerifier cipherVerifier)
+            throws Exception {
         int messageId = 1;
         int fragSize = 140;
         int expectedTotalFragments = 3;
@@ -863,13 +906,9 @@ public final class IkeMessageTest {
         byte[] integrityKey = new byte[0];
         byte[] encryptionKey = new byte[0];
         byte[] iv = new byte[IKE_AUTH_CIPHER_IV_SIZE];
-
-        doReturn(iv).when(mMockCipher).generateIv();
-        when(mMockCipher.encrypt(any(), any(), any()))
-                .thenAnswer(
-                        (invocation) -> {
-                            return (byte[]) invocation.getArguments()[0];
-                        });
+        doReturn(iv).when(ikeCipher).generateIv();
+        doReturn(IKE_AUTH_CIPHER_IV_SIZE).when(ikeCipher).getIvLen();
+        doReturn(IKE_AUTH_CIPHER_BLOCK_SIZE).when(ikeCipher).getBlockSize();
 
         IkeHeader ikeHeader =
                 new IkeHeader(
@@ -887,8 +926,8 @@ public final class IkeMessageTest {
                                 ikeHeader,
                                 IkePayload.PAYLOAD_TYPE_AUTH,
                                 mUnencryptedPaddedData,
-                                mMockIntegrity,
-                                mMockCipher,
+                                ikeIntegrity,
+                                ikeCipher,
                                 integrityKey,
                                 encryptionKey,
                                 true /*supportFragment*/,
@@ -926,11 +965,10 @@ public final class IkeMessageTest {
 
             // Verify fragment payload header
             packetBuffer.get(new byte[IkePayload.GENERIC_HEADER_LENGTH]);
-            assertEquals(i + 1 /*expetced fragNum*/, Short.toUnsignedInt(packetBuffer.getShort()));
+            assertEquals(i + 1 /*expected fragNum*/, Short.toUnsignedInt(packetBuffer.getShort()));
             assertEquals(expectedTotalFragments, Short.toUnsignedInt(packetBuffer.getShort()));
         }
 
-        verify(mMockCipher, times(expectedTotalFragments + 1))
-                .encrypt(any(), eq(encryptionKey), eq(iv));
+        cipherVerifier.verifyEncrypt(expectedTotalFragments + 1, encryptionKey, iv);
     }
 }

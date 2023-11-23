@@ -410,6 +410,23 @@ tokenized messages with the ``encode_token_and_args`` function.
 
 .. autofunction:: pw_tokenizer.encode.encode_token_and_args
 
+This function requires a string's token is already calculated. Typically these
+tokens are provided by a database, but they can be manually created using the
+tokenizer hash.
+
+.. autofunction:: pw_tokenizer.tokens.pw_tokenizer_65599_hash
+
+This is particularly useful for offline token database generation in cases where
+tokenized strings in a binary cannot be embedded as parsable pw_tokenizer
+entries.
+
+.. note::
+  In C, the hash length of a string has a fixed limit controlled by
+  ``PW_TOKENIZER_CFG_C_HASH_LENGTH``. To match tokens produced by C (as opposed
+  to C++) code, ``pw_tokenizer_65599_hash()`` should be called with a matching
+  hash length limit. When creating an offline database, it's a good idea to
+  generate tokens for both, and merge the databases.
+
 Encoding
 --------
 The token is a 32-bit hash calculated during compilation. The string is encoded
@@ -617,7 +634,7 @@ The binary database format is comprised of a 16-byte header followed by a series
 of 8-byte entries. Each entry stores the token and the removal date, which is
 0xFFFFFFFF if there is none. The string literals are stored next in the same
 order as the entries. Strings are stored with null terminators. See
-`token_database.h <https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/master/pw_tokenizer/public/pw_tokenizer/token_database.h>`_
+`token_database.h <https://pigweed.googlesource.com/pigweed/pigweed/+/HEAD/pw_tokenizer/public/pw_tokenizer/token_database.h>`_
 for full details.
 
 The binary form of the CSV database is shown below. It contains the same
@@ -645,6 +662,15 @@ compared with the CSV database's 211 B.
   0x70: 25 75 20 25 64 00 54 68 65 20 61 6e 73 77 65 72  %u %d.The answer
   0x80: 20 69 73 3a 20 25 73 00 25 6c 6c 75 00            is: %s.%llu.
 
+
+JSON support
+------------
+While pw_tokenizer doesn't specify a JSON database format, a token database can
+be created from a JSON formatted array of strings. This is useful for side-band
+token database generation for strings that are not embedded as parsable tokens
+in compiled binaries. See :ref:`module-pw_tokenizer-database-creation` for
+instructions on generating a token database from a JSON file.
+
 Managing token databases
 ------------------------
 Token databases are managed with the ``database.py`` script. This script can be
@@ -655,20 +681,23 @@ An example ELF file with tokenized logs is provided at
 ``pw_tokenizer/py/example_binary_with_tokenized_strings.elf``. You can use that
 file to experiment with the ``database.py`` commands.
 
+.. _module-pw_tokenizer-database-creation:
+
 Create a database
 ^^^^^^^^^^^^^^^^^
 The ``create`` command makes a new token database from ELF files (.elf, .o, .so,
-etc.), archives (.a), or existing token databases (CSV or binary).
+etc.), archives (.a), existing token databases (CSV or binary), or a JSON file
+containing an array of strings.
 
 .. code-block:: sh
 
   ./database.py create --database DATABASE_NAME ELF_OR_DATABASE_FILE...
 
-Two database formats are supported: CSV and binary. Provide ``--type binary`` to
-``create`` to generate a binary database instead of the default CSV. CSV
-databases are great for checking into a source control or for human review.
-Binary databases are more compact and simpler to parse. The C++ detokenizer
-library only supports binary databases currently.
+Two database output formats are supported: CSV and binary. Provide
+``--type binary`` to ``create`` to generate a binary database instead of the
+default CSV. CSV databases are great for checking into a source control or for
+human review. Binary databases are more compact and simpler to parse. The C++
+detokenizer library only supports binary databases currently.
 
 Update a database
 ^^^^^^^^^^^^^^^^^
@@ -791,6 +820,13 @@ class, which can be used in place of the standard ``Detokenizer``. This class
 monitors database files for changes and automatically reloads them when they
 change. This is helpful for long-running tools that use detokenization.
 
+For messages that are optionally tokenized and may be encoded as binary,
+Base64, or plaintext UTF-8, use
+:func:`pw_tokenizer.proto.decode_optionally_tokenized`. This will attempt to
+determine the correct method to detokenize and always provide a printable
+string. For more information on this feature, see
+:ref:`module-pw_tokenizer-proto`.
+
 C++
 ---
 The C++ detokenization libraries can be used in C++ or any language that can
@@ -834,6 +870,16 @@ this check can be done at compile time.
     return Detokenizer(kDefaultDatabase);
   }
 
+Protocol buffers
+----------------
+``pw_tokenizer`` provides utilities for handling tokenized fields in protobufs.
+See :ref:`module-pw_tokenizer-proto` for details.
+
+.. toctree::
+  :hidden:
+
+  proto.rst
+
 Base64 format
 =============
 The tokenizer encodes messages to a compact binary representation. Applications
@@ -876,8 +922,8 @@ in the tokenizer handler function. For example,
 
 Decoding
 --------
-Base64 decoding and detokenizing is supported in the Python detokenizer through
-the ``detokenize_base64`` and related functions.
+The Python ``Detokenizer`` class supprts decoding and detokenizing prefixed
+Base64 messages with ``detokenize_base64`` and related methods.
 
 .. tip::
   The Python detokenization tools support recursive detokenization for prefixed
@@ -908,6 +954,44 @@ functions.
     TransmitLogMessage(base64_buffer, base64_size);
   }
 
+Investigating undecoded messages
+--------------------------------
+Tokenized messages cannot be decoded if the token is not recognized. The Python
+package includes the ``parse_message`` tool, which parses tokenized Base64
+messages without looking up the token in a database. This tool attempts to guess
+the types of the arguments and displays potential ways to decode them.
+
+This tool can be used to extract argument information from an otherwise unusable
+message. It could help identify which statement in the code produced the
+message. This tool is not particularly helpful for tokenized messages without
+arguments, since all it can do is show the value of the unknown token.
+
+The tool is executed by passing Base64 tokenized messages, with or without the
+``$`` prefix, to ``pw_tokenizer.parse_message``. Pass ``-h`` or ``--help`` to
+see full usage information.
+
+Example
+^^^^^^^
+.. code-block::
+
+  $ python -m pw_tokenizer.parse_message '$329JMwA=' koSl524TRkFJTEVEX1BSRUNPTkRJVElPTgJPSw== --specs %s %d
+
+  INF Decoding arguments for '$329JMwA='
+  INF Binary: b'\xdfoI3\x00' [df 6f 49 33 00] (5 bytes)
+  INF Token:  0x33496fdf
+  INF Args:   b'\x00' [00] (1 bytes)
+  INF Decoding with up to 8 %s or %d arguments
+  INF   Attempt 1: [%s]
+  INF   Attempt 2: [%d] 0
+
+  INF Decoding arguments for '$koSl524TRkFJTEVEX1BSRUNPTkRJVElPTgJPSw=='
+  INF Binary: b'\x92\x84\xa5\xe7n\x13FAILED_PRECONDITION\x02OK' [92 84 a5 e7 6e 13 46 41 49 4c 45 44 5f 50 52 45 43 4f 4e 44 49 54 49 4f 4e 02 4f 4b] (28 bytes)
+  INF Token:  0xe7a58492
+  INF Args:   b'n\x13FAILED_PRECONDITION\x02OK' [6e 13 46 41 49 4c 45 44 5f 50 52 45 43 4f 4e 44 49 54 49 4f 4e 02 4f 4b] (24 bytes)
+  INF Decoding with up to 8 %s or %d arguments
+  INF   Attempt 1: [%d %s %d %d %d] 55 FAILED_PRECONDITION 1 -40 -38
+  INF   Attempt 2: [%d %s %s] 55 FAILED_PRECONDITION OK
+
 Command line utilities
 ^^^^^^^^^^^^^^^^^^^^^^
 ``pw_tokenizer`` provides two standalone command line utilities for detokenizing
@@ -915,7 +999,7 @@ Base64-encoded tokenized strings.
 
 * ``detokenize.py`` -- Detokenizes Base64-encoded strings in files or from
   stdin.
-* ``detokenize_serial.py`` -- Detokenizes Base64-encoded strings from a
+* ``serial_detokenizer.py`` -- Detokenizes Base64-encoded strings from a
   connected serial device.
 
 If the ``pw_tokenizer`` Python package is installed, these tools may be executed
@@ -927,7 +1011,7 @@ as runnable modules. For example:
   python -m pw_tokenizer.detokenize -i input_file.txt
 
   # Detokenize Base64-encoded strings in output from a serial device
-  python -m pw_tokenizer.detokenize_serial --device /dev/ttyACM0
+  python -m pw_tokenizer.serial_detokenizer --device /dev/ttyACM0
 
 See the ``--help`` options for these tools for full usage information.
 
@@ -975,8 +1059,9 @@ Firmware deployment
 .. attention::
   Do not encode line numbers in tokenized strings. This results in a huge
   number of lines being added to the database, since every time code moves,
-  new strings are tokenized. If line numbers are desired in a tokenized
-  string, add a ``"%d"`` to the string and pass ``__LINE__`` as an argument.
+  new strings are tokenized. If :ref:`module-pw_log_tokenized` is used, line
+  numbers are encoded in the log metadata. Line numbers may also be included by
+  by adding ``"%d"`` to the format string and passing ``__LINE__``.
 
 Database management
 -------------------
@@ -1019,7 +1104,7 @@ Decoding tooling deployment
   * Provide simple wrapper shell scripts that fill in arguments for the
     project. For example, point ``detokenize.py`` to the project's token
     databases.
-  * Use ``pw_tokenizer.AutoReloadingDetokenizer`` to decode in
+  * Use ``pw_tokenizer.AutoUpdatingDetokenizer`` to decode in
     continuously-running tools, so that users don't have to restart the tool
     when the token database updates.
   * Integrate detokenization everywhere it is needed. Integrating the tools
@@ -1126,7 +1211,7 @@ The Python tooling continues to support the legacy tokenized string ELF format.
 Compatibility
 =============
   * C11
-  * C++11
+  * C++14
   * Python 3
 
 Dependencies

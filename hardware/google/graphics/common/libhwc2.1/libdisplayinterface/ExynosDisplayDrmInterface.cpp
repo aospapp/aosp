@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <numeric>
 
+#include "BrightnessController.h"
 #include "ExynosHWCDebug.h"
 #include "ExynosHWCHelper.h"
 
@@ -35,7 +36,6 @@ using namespace std::chrono_literals;
 constexpr uint32_t MAX_PLANE_NUM = 3;
 constexpr uint32_t CBCR_INDEX = 1;
 constexpr float DISPLAY_LUMINANCE_UNIT = 10000;
-constexpr auto nsecsPerMs = std::chrono::nanoseconds(1ms).count();
 constexpr auto nsecsPerSec = std::chrono::nanoseconds(1s).count();
 constexpr auto vsyncPeriodTag = "VsyncPeriod";
 
@@ -87,16 +87,34 @@ uint32_t FramebufferManager::getBufHandleFromFd(int fd)
     return gem_handle;
 }
 
-int FramebufferManager::addFB2WithModifiers(uint32_t width, uint32_t height, uint32_t pixel_format,
-                                            const BufHandles handles, const uint32_t pitches[4],
-                                            const uint32_t offsets[4], const uint64_t modifier[4],
-                                            uint32_t *buf_id, uint32_t flags)
-{
-    int ret = drmModeAddFB2WithModifiers(mDrmFd, width, height, pixel_format, handles.data(),
-                                         pitches, offsets, modifier, buf_id, flags);
+int FramebufferManager::addFB2WithModifiers(uint32_t state, uint32_t width, uint32_t height,
+                                            uint32_t drmFormat, const DrmArray<uint32_t> &handles,
+                                            const DrmArray<uint32_t> &pitches,
+                                            const DrmArray<uint32_t> &offsets,
+                                            const DrmArray<uint64_t> &modifier, uint32_t *buf_id,
+                                            uint32_t flags) {
+    if (CC_UNLIKELY(!validateLayerInfo(state, drmFormat, handles, modifier))) {
+        return -EINVAL;
+    }
+
+    int ret = drmModeAddFB2WithModifiers(mDrmFd, width, height, drmFormat, handles.data(),
+                                         pitches.data(), offsets.data(), modifier.data(), buf_id,
+                                         flags);
     if (ret) ALOGE("Failed to add fb error %d\n", ret);
 
     return ret;
+}
+
+bool FramebufferManager::validateLayerInfo(uint32_t state, uint32_t drmFormat,
+                                           const DrmArray<uint32_t> &handles,
+                                           const DrmArray<uint64_t> &modifier) {
+    switch (state) {
+        case exynos_win_config_data::WIN_STATE_RCD:
+            return drmFormat == DRM_FORMAT_C8 && handles[0] != 0 && handles[1] == 0 &&
+                    modifier[0] == 0;
+    }
+
+    return true;
 }
 
 bool FramebufferManager::checkShrink() {
@@ -138,16 +156,16 @@ int32_t FramebufferManager::getBuffer(const exynos_win_config_data &config, uint
     int ret = NO_ERROR;
     int drmFormat = DRM_FORMAT_UNDEFINED;
     uint32_t bpp = 0;
-    uint32_t pitches[HWC_DRM_BO_MAX_PLANES] = {0};
-    uint32_t offsets[HWC_DRM_BO_MAX_PLANES] = {0};
-    uint64_t modifiers[HWC_DRM_BO_MAX_PLANES] = {0};
     uint32_t bufferNum, planeNum = 0;
-    BufHandles handles = {0};
     uint32_t bufWidth, bufHeight = 0;
+    DrmArray<uint32_t> pitches = {0};
+    DrmArray<uint32_t> offsets = {0};
+    DrmArray<uint64_t> modifiers = {0};
+    DrmArray<uint32_t> handles = {0};
 
     if (config.protection) modifiers[0] |= DRM_FORMAT_MOD_PROTECTION;
 
-    if (config.state == config.WIN_STATE_BUFFER) {
+    if (config.state == config.WIN_STATE_BUFFER || config.state == config.WIN_STATE_RCD) {
         bufWidth = config.src.f_w;
         bufHeight = config.src.f_h;
         uint32_t compressType = 0;
@@ -245,12 +263,12 @@ int32_t FramebufferManager::getBuffer(const exynos_win_config_data &config, uint
             return NO_ERROR;
         }
     } else {
-        ALOGE("%s:: known config state(%d)", __func__, config.state);
+        ALOGE("%s:: unknown config state(%d)", __func__, config.state);
         return -EINVAL;
     }
 
-    ret = addFB2WithModifiers(bufWidth, bufHeight, drmFormat, handles, pitches, offsets, modifiers,
-                              &fbId, modifiers[0] ? DRM_MODE_FB_MODIFIERS : 0);
+    ret = addFB2WithModifiers(config.state, bufWidth, bufHeight, drmFormat, handles, pitches,
+                              offsets, modifiers, &fbId, modifiers[0] ? DRM_MODE_FB_MODIFIERS : 0);
 
     for (uint32_t bufferIndex = 0; bufferIndex < bufferNum; bufferIndex++) {
         freeBufHandle(handles[bufferIndex]);
@@ -387,6 +405,25 @@ void ExynosDisplayDrmInterface::destroyLayer(ExynosLayer *layer) {
     mFBManager.cleanup(layer);
 }
 
+int32_t ExynosDisplayDrmInterface::getDisplayIdleTimerSupport(bool &outSupport) {
+    auto [ret, support] = mDrmConnector->panel_idle_support().value();
+    if (ret) {
+        ALOGI("no panel_idle_support drm property or invalid value (%d)", ret);
+        outSupport = false;
+    } else {
+        outSupport = (support > 0);
+    }
+
+    return NO_ERROR;
+}
+
+int32_t ExynosDisplayDrmInterface::getDefaultModeId(int32_t *modeId) {
+    if (modeId == nullptr) return HWC2_ERROR_BAD_PARAMETER;
+
+    *modeId = mDrmConnector->get_preferred_mode_id();
+    return NO_ERROR;
+}
+
 ExynosDisplayDrmInterface::ExynosDisplayDrmInterface(ExynosDisplay *exynosDisplay)
 {
     mType = INTERFACE_TYPE_DRM;
@@ -405,11 +442,6 @@ ExynosDisplayDrmInterface::~ExynosDisplayDrmInterface()
         mDrmDevice->DestroyPropertyBlob(mDesiredModeState.old_blob_id);
     if (mPartialRegionState.blob_id)
         mDrmDevice->DestroyPropertyBlob(mPartialRegionState.blob_id);
-    if (mHbmSvDimmingThreadRunning) {
-        mHbmSvDimmingThreadRunning = false;
-        mHbmSvDimmingCond.signal();
-        mDimmingThread.join();
-    }
 }
 
 void ExynosDisplayDrmInterface::init(ExynosDisplay *exynosDisplay)
@@ -418,21 +450,6 @@ void ExynosDisplayDrmInterface::init(ExynosDisplay *exynosDisplay)
     mDrmDevice = NULL;
     mDrmCrtc = NULL;
     mDrmConnector = NULL;
-}
-
-void ExynosDisplayDrmInterface::parseEnums(const DrmProperty &property,
-        const std::vector<std::pair<uint32_t, const char *>> &enums,
-        std::unordered_map<uint32_t, uint64_t> &out_enums)
-{
-    uint64_t value;
-    int ret;
-    for (auto &e : enums) {
-        std::tie(value, ret) = property.GetEnumValueWithName(e.second);
-        if (ret == NO_ERROR)
-            out_enums[e.first] = value;
-        else
-            ALOGE("Fail to find enum value with name %s", e.second);
-    }
 }
 
 void ExynosDisplayDrmInterface::parseBlendEnums(const DrmProperty &property)
@@ -444,7 +461,7 @@ void ExynosDisplayDrmInterface::parseBlendEnums(const DrmProperty &property)
     };
 
     ALOGD("Init blend enums");
-    parseEnums(property, blendEnums, mBlendEnums);
+    DrmEnumParser::parseEnums(property, blendEnums, mBlendEnums);
     for (auto &e : mBlendEnums) {
         ALOGD("blend [hal: %d, drm: %" PRId64 "]", e.first, e.second);
     }
@@ -468,7 +485,7 @@ void ExynosDisplayDrmInterface::parseStandardEnums(const DrmProperty &property)
     };
 
     ALOGD("Init standard enums");
-    parseEnums(property, standardEnums, mStandardEnums);
+    DrmEnumParser::parseEnums(property, standardEnums, mStandardEnums);
     for (auto &e : mStandardEnums) {
         ALOGD("standard [hal: %d, drm: %" PRId64 "]",
                 e.first >> HAL_DATASPACE_STANDARD_SHIFT, e.second);
@@ -490,7 +507,7 @@ void ExynosDisplayDrmInterface::parseTransferEnums(const DrmProperty &property)
     };
 
     ALOGD("Init transfer enums");
-    parseEnums(property, transferEnums, mTransferEnums);
+    DrmEnumParser::parseEnums(property, transferEnums, mTransferEnums);
     for (auto &e : mTransferEnums) {
         ALOGD("transfer [hal: %d, drm: %" PRId64 "]",
                 e.first >> HAL_DATASPACE_TRANSFER_SHIFT, e.second);
@@ -507,7 +524,7 @@ void ExynosDisplayDrmInterface::parseRangeEnums(const DrmProperty &property)
     };
 
     ALOGD("Init range enums");
-    parseEnums(property, rangeEnums, mRangeEnums);
+    DrmEnumParser::parseEnums(property, rangeEnums, mRangeEnums);
     for (auto &e : mRangeEnums) {
         ALOGD("range [hal: %d, drm: %" PRId64 "]",
                 e.first >> HAL_DATASPACE_RANGE_SHIFT, e.second);
@@ -523,23 +540,56 @@ void ExynosDisplayDrmInterface::parseColorModeEnums(const DrmProperty &property)
     };
 
     ALOGD("Init color mode enums");
-    parseEnums(property, colorModeEnums, mColorModeEnums);
+    DrmEnumParser::parseEnums(property, colorModeEnums, mColorModeEnums);
     for (auto &e : mColorModeEnums) {
         ALOGD("Colormode [hal: %d, drm: %" PRId64 "]", e.first, e.second);
     }
 }
 
-void ExynosDisplayDrmInterface::parseHbmModeEnums(const DrmProperty &property) {
-    const std::vector<std::pair<uint32_t, const char *>> modeEnums = {
-            {static_cast<uint32_t>(HbmMode::OFF), "Off"},
-            {static_cast<uint32_t>(HbmMode::ON_IRC_ON), "On IRC On"},
-            {static_cast<uint32_t>(HbmMode::ON_IRC_OFF), "On IRC Off"},
+void ExynosDisplayDrmInterface::parseMipiSyncEnums(const DrmProperty &property) {
+    const std::vector<std::pair<uint32_t, const char*>> modeEnums = {
+        { toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_REFRESH_RATE), "sync_refresh_rate" },
+        { toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_LHBM), "sync_lhbm" },
+        { toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_GHBM), "sync_ghbm" },
+        { toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_BL), "sync_bl" },
+    };
+    DrmEnumParser::parseEnums(property, modeEnums, mMipiSyncEnums);
+    for (auto &e : mMipiSyncEnums) {
+        ALOGD("mipi sync [hal 0x%x, drm: %" PRId64 ", %s]", e.first, e.second,
+              modeEnums[e.first].second);
+    }
+}
+
+void ExynosDisplayDrmInterface::updateMountOrientation()
+{
+    const std::vector<std::pair<HwcMountOrientation, const char*>> orientationEnums = {
+        { HwcMountOrientation::ROT_0, "Normal" },
+        { HwcMountOrientation::ROT_90, "Left Side Up" },
+        { HwcMountOrientation::ROT_180, "Upside Down" },
+        { HwcMountOrientation::ROT_270, "Right Side Up" },
     };
 
-    parseEnums(property, modeEnums, mHbmModeEnums);
-    for (auto &e : mHbmModeEnums) {
-        ALOGD("hbm mode [hal: %d, drm: %" PRId64 "]", e.first, e.second);
+    mExynosDisplay->mMountOrientation = HwcMountOrientation::ROT_0;
+    const DrmProperty &orientation = mDrmConnector->orientation();
+    if (orientation.id() == 0)
+        return;
+
+    auto [err, drmOrientation] = orientation.value();
+    if (err) {
+        ALOGW("%s failed to get drm prop value, err: %d", __func__, err);
+        return;
     }
+
+    for (auto &e : orientationEnums) {
+        uint64_t enumValue;
+        std::tie(enumValue, err) = orientation.GetEnumValueWithName(e.second);
+        if (!err && enumValue == drmOrientation) {
+            mExynosDisplay->mMountOrientation = e.first;
+            return;
+        }
+    }
+
+    ALOGW("%s ignore unrecoganized orientation %" PRId64, __func__, drmOrientation);
 }
 
 uint32_t ExynosDisplayDrmInterface::getDrmDisplayId(uint32_t type, uint32_t index)
@@ -579,15 +629,29 @@ int32_t ExynosDisplayDrmInterface::initDrmDevice(DrmDevice *drmDevice)
             __func__, mExynosDisplay->mType, mExynosDisplay->mIndex,
             drmDisplayId, mDrmCrtc->id(), mDrmConnector->id());
 
+    /* Mapping ExynosMPP resource with DPP Planes */
+    uint32_t numWindow = 0;
     for (uint32_t i = 0; i < mDrmDevice->planes().size(); i++) {
         auto &plane = mDrmDevice->planes().at(i);
         uint32_t plane_id = plane->id();
-        ExynosMPP *exynosMPP =
-            mExynosDisplay->mResourceManager->getOtfMPPWithChannel(i);
-        if (exynosMPP == NULL)
-            HWC_LOGE(mExynosDisplay, "getOtfMPPWithChannel fail, ch(%d)", plane_id);
-        mExynosMPPsForPlane[plane_id] = exynosMPP;
+
+        if (!plane->zpos_property().is_immutable()) {
+            /* Plane can be used for composition */
+            ExynosMPP *exynosMPP =
+                mExynosDisplay->mResourceManager->getOtfMPPWithChannel(i);
+            if (exynosMPP == NULL)
+                HWC_LOGE(mExynosDisplay, "getOtfMPPWithChannel fail, ch(%d)", plane_id);
+            mExynosMPPsForPlane[plane_id] = exynosMPP;
+            numWindow++;
+        } else {
+            /*
+             * Plane is special purpose plane which cannot be used for compositon.
+             * It's zpos property is immutable.
+             */
+            mExynosMPPsForPlane[plane_id] = NULL;
+        }
     }
+    setMaxWindowNum(numWindow);
 
     if (mExynosDisplay->mMaxWindowNum != getMaxWindowNum()) {
         ALOGE("%s:: Invalid max window number (mMaxWindowNum: %d, getMaxWindowNum(): %d",
@@ -611,8 +675,13 @@ int32_t ExynosDisplayDrmInterface::initDrmDevice(DrmDevice *drmDevice)
     chosePreferredConfig();
 
     parseColorModeEnums(mDrmCrtc->color_mode_property());
+    parseMipiSyncEnums(mDrmConnector->mipi_sync());
+    updateMountOrientation();
 
-    getBrightnessInterfaceSupport();
+    if (mExynosDisplay->mBrightnessController &&
+            mExynosDisplay->mBrightnessController->initDrm(*mDrmDevice, *mDrmConnector)) {
+        ALOGW("%s failed to init brightness controller", __func__);
+    }
 
     return NO_ERROR;
 }
@@ -621,47 +690,42 @@ int32_t ExynosDisplayDrmInterface::initDrmDevice(DrmDevice *drmDevice)
 void ExynosDisplayDrmInterface::Callback(
         int display, int64_t timestamp)
 {
-    Mutex::Autolock lock(mExynosDisplay->getDisplayMutex());
-    bool configApplied = mVsyncCallback.Callback(display, timestamp);
+    {
+        Mutex::Autolock lock(mExynosDisplay->getDisplayMutex());
+        bool configApplied = mVsyncCallback.Callback(display, timestamp);
 
-    if (configApplied) {
-        if (mVsyncCallback.getDesiredVsyncPeriod()) {
-            mExynosDisplay->resetConfigRequestStateLocked();
-            mDrmConnector->set_active_mode(mActiveModeState.mode);
-            mVsyncCallback.resetDesiredVsyncPeriod();
+        if (configApplied) {
+            if (mVsyncCallback.getDesiredVsyncPeriod()) {
+                mExynosDisplay->resetConfigRequestStateLocked(mActiveModeState.mode.id());
+                mDrmConnector->set_active_mode(mActiveModeState.mode);
+                mVsyncCallback.resetDesiredVsyncPeriod();
+            }
+
+            /*
+             * Disable vsync if vsync config change is done
+             */
+            if (!mVsyncCallback.getVSyncEnabled()) {
+                mDrmVSyncWorker.VSyncControl(false);
+                mVsyncCallback.resetVsyncTimeStamp();
+            }
+        } else {
+            mExynosDisplay->updateConfigRequestAppliedTime();
         }
 
-        /*
-         * Disable vsync if vsync config change is done
-         */
-        if (!mVsyncCallback.getVSyncEnabled()) {
-            mDrmVSyncWorker.VSyncControl(false);
-            mVsyncCallback.resetVsyncTimeStamp();
+        if (!mExynosDisplay->mPlugState || !mVsyncCallback.getVSyncEnabled()) {
+            return;
         }
-    } else {
-        mExynosDisplay->updateConfigRequestAppliedTime();
-    }
-
-    if (!mExynosDisplay->mPlugState || !mVsyncCallback.getVSyncEnabled()) {
-        return;
     }
 
     ExynosDevice *exynosDevice = mExynosDisplay->mDevice;
-    auto vsync_2_4CallbackInfo =
-        exynosDevice->mCallbackInfos[HWC2_CALLBACK_VSYNC_2_4];
-    if (vsync_2_4CallbackInfo.funcPointer && vsync_2_4CallbackInfo.callbackData) {
-        ((HWC2_PFN_VSYNC_2_4)vsync_2_4CallbackInfo.funcPointer)(
-                vsync_2_4CallbackInfo.callbackData,
-                mExynosDisplay->mDisplayId,
-                timestamp, mExynosDisplay->mVsyncPeriod);
+
+    if (exynosDevice->onVsync_2_4(mExynosDisplay->mDisplayId, timestamp,
+                                  mExynosDisplay->mVsyncPeriod)) {
         ATRACE_INT(vsyncPeriodTag, static_cast<int32_t>(mExynosDisplay->mVsyncPeriod));
         return;
     }
 
-    auto vsyncCallbackInfo = exynosDevice->mCallbackInfos[HWC2_CALLBACK_VSYNC];
-    if (vsyncCallbackInfo.funcPointer && vsyncCallbackInfo.callbackData)
-        ((HWC2_PFN_VSYNC)vsyncCallbackInfo.funcPointer)(vsyncCallbackInfo.callbackData,
-                                                        mExynosDisplay->mDisplayId, timestamp);
+    exynosDevice->onVsync(mExynosDisplay->mDisplayId, timestamp);
 }
 
 bool ExynosDisplayDrmInterface::ExynosVsyncCallback::Callback(
@@ -683,30 +747,22 @@ bool ExynosDisplayDrmInterface::ExynosVsyncCallback::Callback(
 
     /*
      * mDesiredVsyncPeriod is nanoseconds
-     * Compare with milliseconds
+     * Compare with 20% margin
      */
-    if (mDesiredVsyncPeriod / nsecsPerMs == mVsyncPeriod / nsecsPerMs) return true;
+    if (abs(static_cast<int32_t>(mDesiredVsyncPeriod - mVsyncPeriod)) < (mDesiredVsyncPeriod / 5))
+        return true;
 
     return false;
 }
 
 int32_t ExynosDisplayDrmInterface::getLowPowerDrmModeModeInfo() {
-    int ret;
-    uint64_t blobId;
+    auto mode = mDrmConnector->lp_mode();
 
-    std::tie(ret, blobId) = mDrmConnector->lp_mode().value();
-    if (ret) {
-        ALOGE("Fail to get blob id for lp mode");
+    if (!mode.clock()) {
         return HWC2_ERROR_UNSUPPORTED;
     }
-    drmModePropertyBlobPtr blob = drmModeGetPropertyBlob(mDrmDevice->fd(), blobId);
-    if (!blob) {
-        ALOGE("Fail to get blob for lp mode(%" PRId64 ")", blobId);
-        return HWC2_ERROR_UNSUPPORTED;
-    }
-    drmModeModeInfo dozeModeInfo = *static_cast<drmModeModeInfoPtr>(blob->data);
-    mDozeDrmMode = DrmMode(&dozeModeInfo);
-    drmModeFreePropertyBlob(blob);
+
+    mDozeDrmMode = mode;
 
     return NO_ERROR;
 }
@@ -747,15 +803,6 @@ int32_t ExynosDisplayDrmInterface::setPowerMode(int32_t mode)
         HWC_LOGE(mExynosDisplay, "setPower mode ret (%d)", ret);
     }
 
-    if (mode == HWC_POWER_MODE_OFF) {
-        mBrightnessState.reset();
-        mBrightnessCtrl.reset();
-        mBrightnessLevel.store(0);
-        mBrightnessLevel.clear_dirty();
-        mExynosDisplay->requestEnhancedHbm(false);
-        mExynosDisplay->requestLhbm(false);
-        mExynosDisplay->notifyLhbmState(mBrightnessCtrl.LhbmOn.get());
-    }
     return ret;
 }
 
@@ -771,8 +818,7 @@ int32_t ExynosDisplayDrmInterface::setVsyncEnabled(uint32_t enabled)
     mVsyncCallback.enableVSync(HWC2_VSYNC_ENABLE == enabled);
 
     ExynosDevice *exynosDevice = mExynosDisplay->mDevice;
-    auto vsync_2_4CallbackInfo = exynosDevice->mCallbackInfos[HWC2_CALLBACK_VSYNC_2_4];
-    if (vsync_2_4CallbackInfo.funcPointer && vsync_2_4CallbackInfo.callbackData) {
+    if (exynosDevice->isCallbackAvailable(HWC2_CALLBACK_VSYNC_2_4)) {
         ATRACE_INT(vsyncPeriodTag, 0);
     }
 
@@ -786,7 +832,14 @@ int32_t ExynosDisplayDrmInterface::chosePreferredConfig()
     if (err != HWC2_ERROR_NONE || !num_configs)
         return err;
 
-    hwc2_config_t config = mDrmConnector->get_preferred_mode_id();
+    hwc2_config_t config;
+    int32_t bootConfig;
+    err = mExynosDisplay->getPreferredDisplayConfigInternal(&bootConfig);
+    if (err == HWC2_ERROR_NONE) {
+        config = static_cast<hwc2_config_t>(bootConfig);
+    } else {
+        config = mDrmConnector->get_preferred_mode_id();
+    }
     ALOGI("Preferred mode id: %d, state: %d", config, mDrmConnector->state());
 
     if ((err = setActiveConfig(config)) < 0) {
@@ -823,6 +876,7 @@ int32_t ExynosDisplayDrmInterface::getDisplayConfigs(
         /* key: (width<<32 | height) */
         std::map<uint64_t, uint32_t> groupIds;
         uint32_t groupId = 0;
+        uint32_t min_vsync_period = UINT_MAX;
 
         for (const DrmMode &mode : mDrmConnector->modes()) {
             displayConfigs_t configs;
@@ -834,6 +888,7 @@ int32_t ExynosDisplayDrmInterface::getDisplayConfigs(
             if (it != groupIds.end()) {
                 configs.groupId = it->second;
             } else {
+                configs.groupId = groupId;
                 groupIds.insert(std::make_pair(key, groupId));
                 groupId++;
             }
@@ -842,11 +897,14 @@ int32_t ExynosDisplayDrmInterface::getDisplayConfigs(
             configs.Xdpi = mm_width ? (mode.h_display() * kUmPerInch) / mm_width : -1;
             // Dots per 1000 inches
             configs.Ydpi = mm_height ? (mode.v_display() * kUmPerInch) / mm_height : -1;
+            // find min vsync period
+            if (configs.vsyncPeriod <= min_vsync_period) min_vsync_period = configs.vsyncPeriod;
             mExynosDisplay->mDisplayConfigs.insert(std::make_pair(mode.id(), configs));
             ALOGD("config group(%d), w(%d), h(%d), vsync(%d), xdpi(%d), ydpi(%d)",
                     configs.groupId, configs.width, configs.height,
                     configs.vsyncPeriod, configs.Xdpi, configs.Ydpi);
         }
+        mExynosDisplay->setMinDisplayVsyncPeriod(min_vsync_period);
     }
 
     uint32_t num_modes = static_cast<uint32_t>(mDrmConnector->modes().size());
@@ -1007,6 +1065,9 @@ int32_t ExynosDisplayDrmInterface::setActiveConfigWithConstraints(
     if ((mActiveModeState.blob_id != 0) &&
         (mActiveModeState.mode.id() == config)) {
         ALOGD("%s:: same mode %d", __func__, config);
+        /* trigger resetConfigRequestStateLocked() */
+        mVsyncCallback.setDesiredVsyncPeriod(nsecsPerSec / mActiveModeState.mode.v_refresh());
+        mDrmVSyncWorker.VSyncControl(true);
         return HWC2_ERROR_NONE;
     }
 
@@ -1066,6 +1127,22 @@ int32_t ExynosDisplayDrmInterface::setActiveDrmMode(DrmMode const &mode) {
 
     DrmModeAtomicReq drmReq(this);
 
+    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+    bool reconfig = false;
+
+    if ((mActiveModeState.blob_id != 0) &&
+        ((mode.h_display() != mActiveModeState.mode.h_display()) ||
+         (mode.v_display() != mActiveModeState.mode.v_display()))) {
+        ret = clearDisplayPlanes(drmReq);
+        if (ret != HWC2_ERROR_NONE) {
+            HWC_LOGE(mExynosDisplay, "%s: Failed to clear planes due to resolution change",
+                     __func__);
+        } else {
+            ALOGD("%s: switching display resolution, clearing planes", __func__);
+        }
+        reconfig = true;
+    }
+
     if ((ret = setDisplayMode(drmReq, modeBlob)) != NO_ERROR) {
         drmReq.addOldBlob(modeBlob);
         HWC_LOGE(mExynosDisplay, "%s: Fail to apply display mode",
@@ -1073,7 +1150,7 @@ int32_t ExynosDisplayDrmInterface::setActiveDrmMode(DrmMode const &mode) {
         return ret;
     }
 
-    if ((ret = drmReq.commit(DRM_MODE_ATOMIC_ALLOW_MODESET, true))) {
+    if ((ret = drmReq.commit(flags, true))) {
         drmReq.addOldBlob(modeBlob);
         HWC_LOGE(mExynosDisplay, "%s:: Failed to commit pset ret=%d in applyDisplayMode()\n",
                 __func__, ret);
@@ -1083,6 +1160,11 @@ int32_t ExynosDisplayDrmInterface::setActiveDrmMode(DrmMode const &mode) {
     mDrmConnector->set_active_mode(mode);
     mActiveModeState.setMode(mode, modeBlob, drmReq);
     mActiveModeState.needs_modeset = false;
+
+    if (reconfig) {
+        mDrmConnector->ResetLpMode();
+        getLowPowerDrmModeModeInfo();
+    }
 
     return HWC2_ERROR_NONE;
 }
@@ -1310,7 +1392,7 @@ int32_t ExynosDisplayDrmInterface::setupCommitFromDisplayConfig(
         return ret;
 
     uint64_t drmEnum = 0;
-    std::tie(drmEnum, ret) = halToDrmEnum(config.blending, mBlendEnums);
+    std::tie(drmEnum, ret) = DrmEnumParser::halToDrmEnum(config.blending, mBlendEnums);
     if (ret < 0) {
         HWC_LOGE(mExynosDisplay, "Fail to convert blend(%d)", config.blending);
         return ret;
@@ -1359,8 +1441,8 @@ int32_t ExynosDisplayDrmInterface::setupCommitFromDisplayConfig(
         }
     }
 
-    std::tie(drmEnum, ret) =
-        halToDrmEnum(config.dataspace & HAL_DATASPACE_STANDARD_MASK, mStandardEnums);
+    std::tie(drmEnum, ret) = DrmEnumParser::halToDrmEnum(
+                    config.dataspace & HAL_DATASPACE_STANDARD_MASK, mStandardEnums);
     if (ret < 0) {
         HWC_LOGE(mExynosDisplay, "Fail to convert standard(%d)",
                 config.dataspace & HAL_DATASPACE_STANDARD_MASK);
@@ -1371,8 +1453,8 @@ int32_t ExynosDisplayDrmInterface::setupCommitFromDisplayConfig(
                     drmEnum, true)) < 0)
         return ret;
 
-    std::tie(drmEnum, ret) =
-        halToDrmEnum(config.dataspace & HAL_DATASPACE_TRANSFER_MASK, mTransferEnums);
+    std::tie(drmEnum, ret) = DrmEnumParser::halToDrmEnum(
+                    config.dataspace & HAL_DATASPACE_TRANSFER_MASK, mTransferEnums);
     if (ret < 0) {
         HWC_LOGE(mExynosDisplay, "Fail to convert transfer(%d)",
                 config.dataspace & HAL_DATASPACE_TRANSFER_MASK);
@@ -1382,8 +1464,8 @@ int32_t ExynosDisplayDrmInterface::setupCommitFromDisplayConfig(
                     plane->transfer_property(), drmEnum, true)) < 0)
         return ret;
 
-    std::tie(drmEnum, ret) =
-        halToDrmEnum(config.dataspace & HAL_DATASPACE_RANGE_MASK, mRangeEnums);
+    std::tie(drmEnum, ret) = DrmEnumParser::halToDrmEnum(
+                     config.dataspace & HAL_DATASPACE_RANGE_MASK, mRangeEnums);
     if (ret < 0) {
         HWC_LOGE(mExynosDisplay, "Fail to convert range(%d)",
                 config.dataspace & HAL_DATASPACE_RANGE_MASK);
@@ -1400,6 +1482,33 @@ int32_t ExynosDisplayDrmInterface::setupCommitFromDisplayConfig(
         if ((ret = drmReq.atomicAddProperty(plane->id(),
                        plane->max_luminance_property(), config.max_luminance)) < 0)
             return ret;
+    }
+
+    if (config.state == config.WIN_STATE_RCD) {
+        if (plane->block_property().id()) {
+            if (mBlockState != config.block_area) {
+                uint32_t blobId = 0;
+                ret = mDrmDevice->CreatePropertyBlob(&config.block_area, sizeof(config.block_area),
+                                                     &blobId);
+                if (ret || (blobId == 0)) {
+                    HWC_LOGE(mExynosDisplay, "Failed to create blocking region blob id=%d, ret=%d",
+                             blobId, ret);
+                    return ret;
+                }
+
+                mBlockState.mRegion = config.block_area;
+                if (mBlockState.mBlobId) {
+                    drmReq.addOldBlob(mBlockState.mBlobId);
+                }
+                mBlockState.mBlobId = blobId;
+            }
+
+            if ((ret = drmReq.atomicAddProperty(plane->id(), plane->block_property(),
+                                                mBlockState.mBlobId)) < 0) {
+                HWC_LOGE(mExynosDisplay, "Failed to set blocking region property %d", ret);
+                return ret;
+            }
+        }
     }
 
     return NO_ERROR;
@@ -1541,13 +1650,13 @@ int32_t ExynosDisplayDrmInterface::deliverWinConfigData()
         }
     }
 
+    uint64_t mipi_sync_type = 0;
     if (mDesiredModeState.needs_modeset) {
-        bool mipi_sync = mExynosDisplay->checkRrCompensationEnabled();
-        if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(),
-                                            mDrmConnector->sync_rr_switch(),
-                                            mipi_sync)) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s: Fail to set sync_rr_switch property", __func__);
+        if (mExynosDisplay->checkRrCompensationEnabled()) {
+            mipi_sync_type |=
+                1 << mMipiSyncEnums[toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_REFRESH_RATE)];
         }
+
         if ((ret = setDisplayMode(drmReq, mDesiredModeState.blob_id)) < 0) {
             HWC_LOGE(mExynosDisplay, "%s: Fail to apply display mode",
                     __func__);
@@ -1610,6 +1719,20 @@ int32_t ExynosDisplayDrmInterface::deliverWinConfigData()
         }
     }
 
+    for (size_t i = 0; i < mExynosDisplay->mDpuData.rcdConfigs.size(); ++i) {
+        exynos_win_config_data &config = mExynosDisplay->mDpuData.rcdConfigs[i];
+        if (config.state == config.WIN_STATE_RCD) {
+            const int channelId = mExynosDisplay->mDevice->getSpecialPlaneId(
+                    mExynosDisplay->mIndex); // TODO: b/227584297
+            auto &plane = mDrmDevice->planes().at(channelId);
+            uint32_t fbId = 0;
+            if ((ret = setupCommitFromDisplayConfig(drmReq, config, i, plane, fbId)) < 0) {
+                HWC_LOGE(mExynosDisplay, "setupCommitFromDisplayConfig failed, config[%zu]", i);
+            }
+            planeEnableInfo[plane->id()] = 1;
+        }
+    }
+
     /* Disable unused plane */
     for (auto &plane : mDrmDevice->planes()) {
         if (planeEnableInfo[plane->id()] == 0) {
@@ -1634,152 +1757,72 @@ int32_t ExynosDisplayDrmInterface::deliverWinConfigData()
         mExynosDisplay->traceLayerTypes();
     }
 
-    if (mBrightnessCtrl.DimmingOn.is_dirty()) {
-        if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(), mDrmConnector->dimming_on(),
-                                            mBrightnessCtrl.DimmingOn.get())) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s: Fail to set dimming_on property", __func__);
-        }
-        mBrightnessCtrl.DimmingOn.clear_dirty();
-    }
-
-    bool mipi_sync = false; // support one sync type a time for now
-    int wait_vsync = 0;
-    auto mipi_sync_action = brightnessState_t::MIPI_SYNC_NONE;
-
-    if (mBrightnessCtrl.LhbmOn.is_dirty()) {
-        if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(), mDrmConnector->lhbm_on(),
-                                            mBrightnessCtrl.LhbmOn.get())) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s: Fail to set lhbm_on property", __func__);
-        }
-
-        // sync mipi command and frame when lhbm on/off
-        mipi_sync = true;
-        mipi_sync_action = mBrightnessCtrl.LhbmOn.get()
-                            ? brightnessState_t::MIPI_SYNC_LHBM_ON
-                            : brightnessState_t::MIPI_SYNC_LHBM_OFF;
-    }
-
-    if (mBrightnessCtrl.LhbmOn.is_dirty()) {
-        auto dbv = mBrightnessLevel.get();
-        auto old_dbv = dbv;
-        if (mBrightnessCtrl.LhbmOn.get()) {
-            uint32_t dbv_adj = 0;
-            if (mExynosDisplay->getColorAdjustedDbv(dbv_adj)) {
-                ALOGW("failed to get adjusted dbv");
-            } else if (dbv_adj != dbv && dbv_adj != 0) {
-                if (dbv_adj > mBrightnessTable[BrightnessRange::NORMAL].mBklEnd)
-                    dbv_adj = mBrightnessTable[BrightnessRange::NORMAL].mBklEnd;
-                else if (dbv_adj < mBrightnessTable[BrightnessRange::NORMAL].mBklStart)
-                    dbv_adj = mBrightnessTable[BrightnessRange::NORMAL].mBklStart;
-                ALOGI("lhbm: adjust dbv from %d to %d", dbv, dbv_adj);
-                dbv = dbv_adj;
-            }
-        }
-
-        if ((dbv != old_dbv) && (ret = drmReq.atomicAddProperty(mDrmConnector->id(),
-                                            mDrmConnector->brightness_level(), dbv)) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s: Fail to set brightness_level property", __func__);
-        }
-        mBrightnessCtrl.LhbmOn.clear_dirty();
-    }
-
-    /**
-     * TODO(b/200332096):
-     *
-     * Need to consider hbm sync between sysfs and drm commit later.
-     *
-     */
-    if (mBrightnessCtrl.HbmMode.is_dirty() && mBrightnessState.dimSdrTransition() &&
-        mBrightnessState.instant_hbm) {
-        uint64_t hbmEnum = 0;
-        std::tie(hbmEnum, ret) = halToDrmEnum(mBrightnessCtrl.HbmMode.get(), mHbmModeEnums);
+    if (mExynosDisplay->mBrightnessController) {
+        bool ghbmSync, lhbmSync, blSync;
+        ret = mExynosDisplay->mBrightnessController->prepareFrameCommit(*mExynosDisplay,
+                                        *mDrmConnector, drmReq, ghbmSync, lhbmSync, blSync);
         if (ret < 0) {
-            HWC_LOGE(mExynosDisplay, "Fail to convert hbm mode(%d)", mBrightnessCtrl.HbmMode.get());
-            return ret;
-        }
-
-        if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(), mDrmConnector->hbm_mode(),
-                                            hbmEnum)) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s: Fail to set hbm_mode property", __func__);
-        }
-        mBrightnessCtrl.HbmMode.clear_dirty();
-
-        if (mBrightnessLevel.is_dirty()) {
-            if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(),
-                                                mDrmConnector->brightness_level(),
-                                                mBrightnessLevel.get())) < 0) {
-                HWC_LOGE(mExynosDisplay, "%s: Fail to set brightness_level property", __func__);
+            HWC_LOGE(mExynosDisplay, "%s: Fail to config brightness", __func__);
+        } else {
+            if (ghbmSync) {
+                mipi_sync_type |=
+                    1 << mMipiSyncEnums[toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_GHBM)];
             }
-            mBrightnessLevel.clear_dirty();
-        }
-
-        // sync mipi command and frame when sdr dimming on/off
-        if (!mipi_sync) {
-            mipi_sync = true;
-            wait_vsync = 1; // GHBM mipi command has 1 frame delay
-            mipi_sync_action = isHbmOn() ? brightnessState_t::MIPI_SYNC_GHBM_ON
-                                         : brightnessState_t::MIPI_SYNC_GHBM_OFF;
+            if (lhbmSync) {
+                mipi_sync_type |=
+                    1 << mMipiSyncEnums[toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_LHBM)];
+            }
+            if (blSync) {
+                mipi_sync_type |=
+                    1 << mMipiSyncEnums[toUnderlying(HalMipiSyncType::HAL_MIPI_CMD_SYNC_BL)];
+            }
         }
     }
 
-    uint32_t flags = mipi_sync ? 0 : DRM_MODE_ATOMIC_NONBLOCK;
+    uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK;
     if (needModesetForReadback)
         flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
 
-    if (mipi_sync)
-        drmReq.savePset();
-
-    if ((ret = updateColorSettings(drmReq, dqeEnable)) != 0) {
-        HWC_LOGE(mExynosDisplay, "failed to update color settings, ret=%d", ret);
+    /* For Histogram */
+    if (dqeEnable && (ret = setDisplayHistogramSetting(drmReq)) != 0) {
+        HWC_LOGE(mExynosDisplay, "Failed to set display histogram setting (%d)", ret);
         return ret;
     }
+
+    if ((ret = updateColorSettings(drmReq, dqeEnable)) != 0) {
+        HWC_LOGE(mExynosDisplay, "failed to update color settings (%d)", ret);
+        return ret;
+    }
+
+    if (mDrmConnector->mipi_sync().id() && (mipi_sync_type != 0)) {
+        ATRACE_NAME("mipi_sync"); // mark this commit
+        if ((ret = drmReq.atomicAddProperty(mDrmConnector->id(),
+                                            mDrmConnector->mipi_sync(),
+                                            mipi_sync_type)) < 0) {
+            HWC_LOGE(mExynosDisplay, "%s: Fail to set mipi_sync property (%d)", __func__, ret);
+        }
+    }
+
+    auto expectedPresentTime = mExynosDisplay->getPendingExpectedPresentTime();
+    if (expectedPresentTime != 0) {
+        /* TODO: don't pass expected present time before we can provide accurate time that desire
+         * refresh rate take effect (b/202346402)
+         */
+        if (!mVsyncCallback.getDesiredVsyncPeriod()) {
+            if ((ret = drmReq.atomicAddProperty(mDrmCrtc->id(),
+                                                mDrmCrtc->expected_present_time_property(),
+                                                expectedPresentTime)) < 0) {
+                HWC_LOGE(mExynosDisplay, "%s: Fail to set expected_present_time property (%d)",
+                         __func__, ret);
+            }
+        }
+        mExynosDisplay->applyExpectedPresentTime();
+    }
+
     if ((ret = drmReq.commit(flags, true)) < 0) {
         HWC_LOGE(mExynosDisplay, "%s:: Failed to commit pset ret=%d in deliverWinConfigData()\n",
                 __func__, ret);
         return ret;
-    }
-
-    if (mipi_sync) {
-        // At this time, the previous commit (block call) starts transferring
-        // the frame, triggered by TE0 rising edge, and all mipi commands are
-        // supposed to be sent out after TE0 falling edge and before TE1 rising
-        // edge. GHBM (un)compensated frame should be transferred at TE2 rising edge.
-        // LHBM (un)compensated frame should be transferred at TE1 rising edge.
-        ATRACE_NAME("MIPI_SYNC");
-        while (wait_vsync-- > 0) {
-            if ((ret = waitVBlank()) != NO_ERROR) {
-                HWC_LOGE(mExynosDisplay, "%s:: failed to wait vblank, ret %d",
-                         __func__, ret);
-                return ret;
-            }
-        }
-
-        // frame compensation set/restore
-        mExynosDisplay->updateForMipiSync(mipi_sync_action);
-        if ((ret = mExynosDisplay->updateColorConversionInfo()) != NO_ERROR) {
-            HWC_LOGE(mExynosDisplay, "%s:: updateColorConversionInfo() fail, ret(%d)",
-                    __func__, ret);
-            return ret;
-        }
-        drmReq.restorePset();
-        if (out_fences[mDrmCrtc->pipe()] >= 0) {
-            fence_close((int)out_fences[mDrmCrtc->pipe()], mExynosDisplay, FENCE_TYPE_RETIRE,
-                        FENCE_IP_DPP);
-        }
-        if ((ret = updateColorSettings(drmReq, dqeEnable)) != 0) {
-            HWC_LOGE(mExynosDisplay, "failed to update color settings, ret=%d", ret);
-            return ret;
-        }
-        flags |= DRM_MODE_ATOMIC_NONBLOCK;
-        if ((ret = drmReq.commit(flags, true)) < 0) {
-            HWC_LOGE(mExynosDisplay, "%s:: Failed to commit gbhm pset ret=%d"
-                     " in deliverWinConfigData()\n", __func__, ret);
-            return ret;
-        }
-        if (mipi_sync_action == brightnessState_t::MIPI_SYNC_LHBM_ON ||
-            mipi_sync_action == brightnessState_t::MIPI_SYNC_LHBM_OFF) {
-            mExynosDisplay->notifyLhbmState(mBrightnessCtrl.LhbmOn.get());
-        }
     }
 
     mExynosDisplay->mDpuData.retire_fence = (int)out_fences[mDrmCrtc->pipe()];
@@ -1826,14 +1869,12 @@ int32_t ExynosDisplayDrmInterface::clearDisplayMode(DrmModeAtomicReq &drmReq)
     return NO_ERROR;
 }
 
-int32_t ExynosDisplayDrmInterface::clearDisplay(bool needModeClear)
+int32_t ExynosDisplayDrmInterface::clearDisplayPlanes(DrmModeAtomicReq &drmReq)
 {
     int ret = NO_ERROR;
-    DrmModeAtomicReq drmReq(this);
 
     /* Disable all planes */
     for (auto &plane : mDrmDevice->planes()) {
-
         /* Do not disable planes that are reserved to other dispaly */
         ExynosMPP* exynosMPP = mExynosMPPsForPlane[plane->id()];
         if ((exynosMPP != NULL) && (mExynosDisplay != NULL) &&
@@ -1842,12 +1883,29 @@ int32_t ExynosDisplayDrmInterface::clearDisplay(bool needModeClear)
             continue;
 
         if ((ret = drmReq.atomicAddProperty(plane->id(),
-                plane->crtc_property(), 0)) < 0)
-            return ret;
+                                            plane->crtc_property(), 0)) < 0) {
+            break;
+        }
 
         if ((ret = drmReq.atomicAddProperty(plane->id(),
-                plane->fb_property(), 0)) < 0)
-            return ret;
+                                            plane->fb_property(), 0)) < 0) {
+            break;
+        }
+    }
+
+    return ret;
+}
+
+int32_t ExynosDisplayDrmInterface::clearDisplay(bool needModeClear)
+{
+    int ret = NO_ERROR;
+    DrmModeAtomicReq drmReq(this);
+
+    ret = clearDisplayPlanes(drmReq);
+    if (ret != NO_ERROR) {
+        HWC_LOGE(mExynosDisplay, "%s: Failed to clear planes", __func__);
+
+        return ret;
     }
 
     /* Disable readback connector if required */
@@ -1903,11 +1961,6 @@ int32_t ExynosDisplayDrmInterface::setForcePanic()
     fclose(forcePanicFd);
 
     return 0;
-}
-
-uint32_t ExynosDisplayDrmInterface::getMaxWindowNum()
-{
-    return mDrmDevice->planes().size();
 }
 
 ExynosDisplayDrmInterface::DrmModeAtomicReq::DrmModeAtomicReq(ExynosDisplayDrmInterface *displayInterface)
@@ -2059,19 +2112,6 @@ int ExynosDisplayDrmInterface::DrmModeAtomicReq::commit(uint32_t flags, bool log
     }
 
     return ret;
-}
-
-std::tuple<uint64_t, int> ExynosDisplayDrmInterface::halToDrmEnum(
-        const int32_t halData, const DrmPropertyMap &drmEnums)
-{
-    auto it = drmEnums.find(halData);
-    if (it != drmEnums.end()) {
-        return std::make_tuple(it->second, 0);
-    } else {
-        HWC_LOGE(NULL, "%s::Failed to find standard enum(%d)",
-                __func__, halData);
-        return std::make_tuple(0, -EINVAL);
-    }
 }
 
 int32_t ExynosDisplayDrmInterface::getReadbackBufferAttributes(
@@ -2329,249 +2369,4 @@ int32_t ExynosDisplayDrmInterface::getDisplayIdentificationData(
     *outPort = mDrmConnector->id();
 
     return HWC2_ERROR_NONE;
-}
-
-void ExynosDisplayDrmInterface::checkHbmSvDimming() {
-    status_t ret = 0;
-    uint32_t wait = 0;
-
-    while (mHbmSvDimmingThreadRunning) {
-        if (wait == 0) {
-            Mutex::Autolock lock(mHbmSvDimmingMutex);
-            ret = mHbmSvDimmingCond.wait(mHbmSvDimmingMutex);
-        } else {
-            Mutex::Autolock lock(mHbmSvDimmingMutex);
-            ret = mHbmSvDimmingCond.waitRelative(mHbmSvDimmingMutex, us2ns(wait));
-        }
-        // When the time out, it turns dimming off(hbm sv dimming done).
-        // Then, it waits the next hbm sv dimming event.
-        if (ret == TIMED_OUT) {
-            ret = 0;
-            wait = 0;
-            ALOGI("checking the dimming status");
-            endHbmSvDimming();
-        } else {
-            wait = mHbmDimmingTimeUs;
-        }
-    }
-}
-
-void ExynosDisplayDrmInterface::endHbmSvDimming() {
-    Mutex::Autolock lock(mBrightnessUpdateMutex);
-    if (!mHbmSvDimming) return;
-    mHbmSvDimming = false;
-    mBrightnessCtrl.DimmingOn.store(false);
-
-    if (mDimmingOnFd && mBrightnessCtrl.DimmingOn.is_dirty()) {
-        writeFileNode(mDimmingOnFd, mBrightnessCtrl.DimmingOn.get());
-        mBrightnessCtrl.DimmingOn.clear_dirty();
-    }
-}
-
-void ExynosDisplayDrmInterface::getBrightnessInterfaceSupport() {
-    if (mDrmConnector->brightness_cap().id() == 0) {
-        ALOGD("the brightness_cap is not supported");
-        return;
-    }
-
-    const auto [ret, blobId] = mDrmConnector->brightness_cap().value();
-    if (ret) {
-        ALOGE("Fail to get brightness_cap (ret = %d)", ret);
-        return;
-    }
-
-    if (blobId == 0) {
-        ALOGE("the brightness_cap is supported but blob is not valid");
-        return;
-    }
-
-    drmModePropertyBlobPtr blob = drmModeGetPropertyBlob(mDrmDevice->fd(), blobId);
-    if (blob == nullptr) {
-        ALOGE("Fail to get brightness_cap blob");
-        return;
-    }
-
-    const struct brightness_capability *cap =
-            reinterpret_cast<struct brightness_capability *>(blob->data);
-
-    if (cap->hbm.level.min == cap->hbm.level.max)
-        mPanelHbmType = PanelHbmType::ONE_STEP;
-    else
-        mPanelHbmType = PanelHbmType::CONTINUOUS;
-    ALOGI("mPanelHbmType = %d", mPanelHbmType);
-
-    mBrightnessHbmMax = static_cast<float>(cap->hbm.percentage.max) / 100.0f;
-    ALOGI("mBrightnessHbmMax = %f", mBrightnessHbmMax);
-
-    mBrightnessTable[BrightnessRange::NORMAL] = BrightnessTable(cap->normal);
-    mBrightnessTable[BrightnessRange::HBM] = BrightnessTable(cap->hbm);
-
-    drmModeFreePropertyBlob(blob);
-
-    parseHbmModeEnums(mDrmConnector->hbm_mode());
-
-    mBrightntessIntfSupported = true;
-    mBrightnessState.reset();
-    mBrightnessCtrl.reset();
-
-    String8 node_name;
-    node_name.appendFormat(kHbmModeFileNode, mExynosDisplay->mIndex);
-    mHbmModeFd = fopen(node_name.string(), "w+");
-    if (mHbmModeFd == NULL) ALOGE("%s open failed! %s", node_name.string(), strerror(errno));
-
-    node_name.clear();
-    node_name.appendFormat(kDimmingOnFileNode, mExynosDisplay->mIndex);
-    mDimmingOnFd = fopen(node_name.string(), "w+");
-    if (mDimmingOnFd == NULL) ALOGE("%s open failed! %s", node_name.string(), strerror(errno));
-
-    if (mDimmingOnFd) {
-        mBrightnessDimmingUsage = static_cast<BrightnessDimmingUsage>(
-                property_get_int32("vendor.display.brightness.dimming.usage", 0));
-        mHbmDimmingTimeUs =
-                property_get_int32("vendor.display.brightness.dimming.hbm_time", kHbmDimmingTimeUs);
-        if (mBrightnessDimmingUsage == BrightnessDimmingUsage::HBM) {
-            mHbmSvDimmingThreadRunning = true;
-            mDimmingThread = std::thread(&ExynosDisplayDrmInterface::checkHbmSvDimming, this);
-        }
-    }
-
-    return;
-}
-
-float ExynosDisplayDrmInterface::getSdrDimRatio()
-{
-    float sdr_nits = 0;
-    auto sz = BrightnessRange::MAX;
-    if (sz == 0) {
-        ALOGW("%s: no brightness table", __func__);
-        return 1.0;
-    }
-
-    auto brightness = mExynosDisplay->getBrightnessValue();
-
-    if (mBrightnessTable[sz - 1].mBriEnd < brightness) {
-        ALOGE("%s: invalid brightness table, max brightness(float) %f", __func__,
-              mBrightnessTable[sz - 1].mBriEnd);
-        return 1.0;
-    }
-
-    for (int i = 0; i < sz; i++) {
-        if (brightness <= mBrightnessTable[i].mBriEnd) {
-            sdr_nits =
-                    (brightness - mBrightnessTable[i].mBriStart) /
-                            (mBrightnessTable[i].mBriEnd - mBrightnessTable[i].mBriStart) *
-                            (mBrightnessTable[i].mNitsEnd - mBrightnessTable[i].mNitsStart) +
-                    mBrightnessTable[i].mNitsStart;
-            break;
-        }
-    }
-
-    float peak = mBrightnessTable[sz - 1].mNitsEnd;
-    return sdr_nits/peak;
-}
-
-int32_t ExynosDisplayDrmInterface::updateBrightness(bool syncFrame) {
-    if (!mBrightntessIntfSupported) return HWC2_ERROR_UNSUPPORTED;
-
-    setupBrightnessConfig();
-
-    // this change will be part of next atomic call for frame update
-    if (syncFrame) return NO_ERROR;
-
-    if (mDimmingOnFd && mBrightnessCtrl.DimmingOn.is_dirty()) {
-        writeFileNode(mDimmingOnFd, mBrightnessCtrl.DimmingOn.get());
-        mBrightnessCtrl.DimmingOn.clear_dirty();
-    }
-
-    if (mBrightnessCtrl.HbmMode.is_dirty() && !mBrightnessState.dimSdrTransition()) {
-        if (mHbmModeFd) {
-            writeFileNode(mHbmModeFd, mBrightnessCtrl.HbmMode.get());
-            mBrightnessCtrl.HbmMode.clear_dirty();
-        } else {
-            ALOGW("Fail to set hbm_mode by sysfs");
-        }
-    }
-
-    if (mExynosDisplay->mBrightnessFd && mBrightnessLevel.is_dirty()) {
-        writeFileNode(mExynosDisplay->mBrightnessFd, mBrightnessLevel.get());
-        mBrightnessLevel.clear_dirty();
-    }
-
-    return HWC2_ERROR_NONE;
-}
-
-void ExynosDisplayDrmInterface::setupBrightnessConfig() {
-    if (!mBrightntessIntfSupported) return;
-
-    Mutex::Autolock lock(mBrightnessUpdateMutex);
-    brightnessState_t brightness_state = mExynosDisplay->getBrightnessState();
-    if (brightness_state == mBrightnessState) return;
-
-    bool dimming_on = (!mBrightnessState.instant_hbm && !brightness_state.instant_hbm);
-
-    float brightness = mExynosDisplay->getBrightnessValue();
-
-    if (brightness_state.peak_hbm) {
-        mScaledBrightness = mBrightnessHbmMax;
-    } else {
-        mScaledBrightness = brightness;
-    }
-
-    mBrightnessCtrl.LhbmOn.store(brightness_state.local_hbm);
-
-    uint32_t range;
-    for (range = 0; range < BrightnessRange::MAX; range++) {
-        if (mScaledBrightness <= mBrightnessTable[range].mBriEnd) {
-            auto bl = static_cast<uint32_t>(
-                    (mScaledBrightness - mBrightnessTable[range].mBriStart) /
-                            (mBrightnessTable[range].mBriEnd - mBrightnessTable[range].mBriStart) *
-                            (mBrightnessTable[range].mBklEnd - mBrightnessTable[range].mBklStart) +
-                    mBrightnessTable[range].mBklStart);
-            mBrightnessLevel.store(bl);
-            break;
-        }
-    }
-
-    HbmMode hbm_mode = HbmMode::OFF;
-    if ((mPanelHbmType == PanelHbmType::ONE_STEP && mScaledBrightness == mBrightnessHbmMax) ||
-        (mPanelHbmType == PanelHbmType::CONTINUOUS && range == BrightnessRange::HBM)) {
-        hbm_mode = HbmMode::ON_IRC_ON;
-    }
-
-    if (hbm_mode == HbmMode::ON_IRC_ON && brightness_state.enhanced_hbm) {
-        hbm_mode = HbmMode::ON_IRC_OFF;
-    }
-
-    switch (mBrightnessDimmingUsage) {
-        case BrightnessDimmingUsage::HBM:
-            if ((static_cast<uint32_t>(hbm_mode) > static_cast<uint32_t>(HbmMode::OFF)) !=
-                mBrightnessCtrl.HbmMode.get() > static_cast<uint32_t>(HbmMode::OFF)) {
-                if (brightness_state.hdr_full_screen != mBrightnessState.hdr_full_screen) {
-                    mBrightnessState.hdr_full_screen = brightness_state.hdr_full_screen;
-                } else {
-                    mHbmSvDimming = true;
-                    mHbmSvDimmingCond.signal();
-                }
-            }
-            if (mBrightnessLevel.get() == 0) mHbmSvDimming = false;
-            dimming_on = dimming_on && (mHbmSvDimming);
-            break;
-        case BrightnessDimmingUsage::NONE:
-            dimming_on = false;
-            break;
-        default:
-            break;
-    }
-
-    mBrightnessCtrl.HbmMode.store(static_cast<uint32_t>(hbm_mode));
-
-    mBrightnessCtrl.DimmingOn.store(dimming_on);
-
-    ALOGI("level=%d, DimmingOn=%d, HbmMode=%d, LhbmOn=%d", mBrightnessLevel.get(),
-          mBrightnessCtrl.DimmingOn.get(), mBrightnessCtrl.HbmMode.get(),
-          mBrightnessCtrl.LhbmOn.get());
-
-    mBrightnessState = brightness_state;
-
-    return;
 }

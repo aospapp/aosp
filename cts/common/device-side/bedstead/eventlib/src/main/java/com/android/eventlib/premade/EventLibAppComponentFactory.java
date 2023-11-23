@@ -18,6 +18,7 @@ package com.android.eventlib.premade;
 
 import android.app.Activity;
 import android.app.AppComponentFactory;
+import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.util.Log;
@@ -53,6 +54,26 @@ public final class EventLibAppComponentFactory extends AppComponentFactory {
         try {
             return super.instantiateReceiver(classLoader, className, intent);
         } catch (ClassNotFoundException e) {
+            if (className.endsWith("DeviceAdminReceiver")) {
+                Log.d(LOG_TAG, "Broadcast Receiver class (" + className
+                        + ") not found, routing to TestAppDeviceAdminReceiver");
+                EventLibDeviceAdminReceiver receiver = (EventLibDeviceAdminReceiver)
+                        super.instantiateReceiver(
+                                classLoader, EventLibDeviceAdminReceiver.class.getName(),
+                                intent);
+                receiver.setOverrideDeviceAdminReceiverClassName(className);
+                return receiver;
+            } else if (className.endsWith("DelegatedAdminReceiver")) {
+                Log.d(LOG_TAG, "Broadcast Receiver class (" + className
+                        + ") not found, routing to EventLibDelegatedAdminReceiver");
+                EventLibDelegatedAdminReceiver receiver = (EventLibDelegatedAdminReceiver)
+                        super.instantiateReceiver(
+                                classLoader, EventLibDelegatedAdminReceiver.class.getName(),
+                                intent);
+                receiver.setOverrideDelegatedAdminReceiverClassName(className);
+                return receiver;
+            }
+
             Log.d(LOG_TAG, "Broadcast Receiver class (" + className
                     + ") not found, routing to EventLibBroadcastReceiver");
 
@@ -61,6 +82,23 @@ public final class EventLibAppComponentFactory extends AppComponentFactory {
                             classLoader, EventLibBroadcastReceiver.class.getName(), intent);
             receiver.setOverrideBroadcastReceiverClassName(className);
             return receiver;
+        }
+    }
+
+    @Override
+    public Service instantiateService(ClassLoader classLoader, String className, Intent intent)
+            throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+        try {
+            return super.instantiateService(classLoader, className, intent);
+        } catch (ClassNotFoundException e) {
+            Log.d(LOG_TAG, "Service class (" + className
+                    + ") not found, routing to EventLibService");
+
+            EventLibService service = (EventLibService)
+                    super.instantiateService(
+                            classLoader, EventLibService.class.getName(), intent);
+            service.setOverrideServiceClassName(className);
+            return service;
         }
     }
 }

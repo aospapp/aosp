@@ -37,7 +37,7 @@ android_app {
 
     privileged: false,
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 
     static_libs: [
         "car-ui-lib",

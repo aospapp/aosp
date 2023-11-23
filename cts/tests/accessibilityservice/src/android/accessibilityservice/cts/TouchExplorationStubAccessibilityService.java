@@ -16,8 +16,6 @@ package android.accessibilityservice.cts;
 import static android.view.accessibility.AccessibilityEvent.TYPE_GESTURE_DETECTION_END;
 import static android.view.accessibility.AccessibilityEvent.TYPE_GESTURE_DETECTION_START;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED;
-import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED;
-import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_LONG_CLICKED;
 
 import android.view.accessibility.AccessibilityEvent;
 
@@ -40,8 +38,6 @@ public class TouchExplorationStubAccessibilityService
                     break;
                 case TYPE_GESTURE_DETECTION_START:
                 case TYPE_GESTURE_DETECTION_END:
-                case TYPE_VIEW_CLICKED:
-                case TYPE_VIEW_LONG_CLICKED:
                     mCollectedEvents.add(event.getEventType());
             }
         }

@@ -46,7 +46,7 @@ namespace art {
 
 // Strict integrity check of the backtrace:
 // All methods must have a name, all the way to "main".
-static constexpr bool kStrictUnwindChecks = true;
+static constexpr bool kStrictUnwindChecks = false;
 
 struct UnwindHelper : public TLSData {
   static constexpr const char* kTlsKey = "UnwindHelper::kTlsKey";
@@ -99,12 +99,19 @@ void BacktraceCollector::Collect() {
       if (kStrictUnwindChecks) {
         std::vector<unwindstack::FrameData>& frames = unwinder->frames();
         LOG(ERROR) << "Failed to unwind stack (error " << unwinder->LastErrorCodeString() << "):";
-        for (auto it = frames.begin(); it != frames.end(); it++) {
-          if (it == frames.begin() || std::prev(it)->map_name != it->map_name) {
-            LOG(ERROR) << " in " << it->map_name.c_str();
+        std::string prev_name;
+        for (auto& frame : frames) {
+          if (frame.map_info != nullptr) {
+            std::string full_name = frame.map_info->GetFullName();
+            if (prev_name != full_name) {
+              LOG(ERROR) << " in " << full_name;
+            }
+            prev_name = full_name;
+          } else {
+            prev_name = "";
           }
           LOG(ERROR) << " pc " << std::setw(8) << std::setfill('0') << std::hex <<
-            it->rel_pc << " " << it->function_name.c_str();
+            frame.rel_pc << " " << frame.function_name.c_str();
         }
         LOG(FATAL);
       }

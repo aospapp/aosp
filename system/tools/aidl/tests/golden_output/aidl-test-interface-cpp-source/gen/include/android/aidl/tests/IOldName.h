@@ -7,11 +7,8 @@
 #include <utils/StrongPointer.h>
 
 namespace android {
-
 namespace aidl {
-
 namespace tests {
-
 class IOldName : public ::android::IInterface {
 public:
   DECLARE_META_INTERFACE(OldName)
@@ -23,13 +20,10 @@ public:
   ::android::IBinder* onAsBinder() override {
     return nullptr;
   }
-  ::android::binder::Status RealName(::android::String16*) override {
+  ::android::binder::Status RealName(::android::String16* /*_aidl_return*/) override {
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
 };  // class IOldNameDefault
-
 }  // namespace tests
-
 }  // namespace aidl
-
 }  // namespace android

@@ -7,7 +7,7 @@ cat<<EOT
 Usage:
 ${0##*/} OUTPUT_FILE SIZE
          [-S] [-C FS_CONFIG] [-f SRC_DIR] [-D PRODUCT_OUT]
-         [-s FILE_CONTEXTS] [-t MOUNT_POINT] [-T TIMESTAMP]
+         [-s FILE_CONTEXTS] [-t MOUNT_POINT] [-T TIMESTAMP] [-B block_map]
          [-L LABEL] [--prjquota] [--casefold] [--compression] [--readonly]
          [--sldc <num> [sload compression sub-options]]
 <num>: number of the sload compression args, e.g.  -a LZ4 counts as 2
@@ -21,6 +21,8 @@ echo "in mkf2fsuserimg.sh PATH=$PATH"
 
 MKFS_OPTS=""
 SLOAD_OPTS=""
+BLOCK_MAP_FILE=""
+BLOCK_MAP_OPT=""
 
 if [ $# -lt 2 ]; then
   usage
@@ -35,6 +37,7 @@ SPARSE_IMG="false"
 if [[ "$1" == "-S" ]]; then
   MKFS_OPTS+=" -S $SIZE"
   SLOAD_OPTS+=" -S"
+  BLOCK_MAP_OPT+=" -S -M"
   SPARSE_IMG="true"
   shift
 fi
@@ -73,6 +76,11 @@ SLOAD_OPTS+=" -t $MOUNT_POINT"
 
 if [[ "$1" == "-T" ]]; then
   SLOAD_OPTS+=" -T $2"
+  shift; shift
+fi
+
+if [[ "$1" == "-B" ]]; then
+  BLOCK_MAP_FILE="$2"
   shift; shift
 fi
 
@@ -168,13 +176,17 @@ function _build()
 _truncate
 _build
 
-# readonly + compress can reduce the image
-if [ "$READONLY" ] && [ "$COMPRESS_SUPPORT" ]; then
+# readonly can reduce the image
+if [ "$READONLY" ]; then
   if [ "$SPARSE_IMG" = "true" ]; then
     MKFS_OPTS+=" -S $SIZE"
     rm -f $OUTPUT_FILE && touch $OUTPUT_FILE
   fi
   _truncate
   _build
+  # build block map
+  if [ "$BLOCK_MAP_FILE" ]; then
+    fsck.f2fs $BLOCK_MAP_OPT $OUTPUT_FILE > $BLOCK_MAP_FILE
+  fi
 fi
 exit 0

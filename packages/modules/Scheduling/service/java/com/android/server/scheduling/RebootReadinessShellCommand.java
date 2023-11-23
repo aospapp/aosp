@@ -109,6 +109,7 @@ class RebootReadinessShellCommand extends BasicShellCommandHandler {
                             PROPERTY_DISABLE_SUBSYSTEMS_CHECK, "true", false);
                     break;
                 case "disable-interactivity-check":
+                case "--disable-interactivity-check":
                     DeviceConfig.setProperty(DeviceConfig.NAMESPACE_REBOOT_READINESS,
                             PROPERTY_DISABLE_INTERACTIVITY_CHECK, "true", false);
                     break;
@@ -213,7 +214,7 @@ class RebootReadinessShellCommand extends BasicShellCommandHandler {
         pw.println("    --interactivity-threshold-ms <INTERACTIVITY-THRESHOLD-MS>:");
         pw.println("        How long the device must not have been interacted with before");
         pw.println("        being deemed ready to reboot.");
-        pw.println("    --disable-interactivity-checks:");
+        pw.println("    --disable-interactivity-check / disable-interactivity-check:");
         pw.println("        Disable interactivity checks.");
         pw.println("    --disable-subsystems-check:");
         pw.println("        Disable subsystems checks:");

@@ -46,15 +46,15 @@ constexpr char kPropertyEmails[] = "emails";
 constexpr char kDefaultNamespace[] = "icing";
 constexpr char kDefaultString[] = "This is a string.";
 
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_OPTIONAL =
-    PropertyConfigProto_Cardinality_Code_OPTIONAL;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_REQUIRED =
-    PropertyConfigProto_Cardinality_Code_REQUIRED;
-constexpr PropertyConfigProto_Cardinality_Code CARDINALITY_REPEATED =
-    PropertyConfigProto_Cardinality_Code_REPEATED;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_OPTIONAL =
+    PropertyConfigProto::Cardinality::OPTIONAL;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REQUIRED =
+    PropertyConfigProto::Cardinality::REQUIRED;
+constexpr PropertyConfigProto::Cardinality::Code CARDINALITY_REPEATED =
+    PropertyConfigProto::Cardinality::REPEATED;
 
-constexpr PropertyConfigProto_DataType_Code TYPE_STRING =
-    PropertyConfigProto_DataType_Code_STRING;
+constexpr PropertyConfigProto::DataType::Code TYPE_STRING =
+    PropertyConfigProto::DataType::STRING;
 
 class DocumentValidatorTest : public ::testing::Test {
  protected:
@@ -93,9 +93,11 @@ class DocumentValidatorTest : public ::testing::Test {
                             .SetCardinality(CARDINALITY_REPEATED)))
             .Build();
 
+    schema_dir_ = GetTestTempDir() + "/schema_store";
+    ASSERT_TRUE(filesystem_.CreateDirectory(schema_dir_.c_str()));
     ICING_ASSERT_OK_AND_ASSIGN(
         schema_store_,
-        SchemaStore::Create(&filesystem_, GetTestTempDir(), &fake_clock_));
+        SchemaStore::Create(&filesystem_, schema_dir_, &fake_clock_));
     ASSERT_THAT(schema_store_->SetSchema(schema), IsOk());
 
     document_validator_ =
@@ -122,6 +124,7 @@ class DocumentValidatorTest : public ::testing::Test {
                              SimpleEmailBuilder().Build());
   }
 
+  std::string schema_dir_;
   std::unique_ptr<DocumentValidator> document_validator_;
   std::unique_ptr<SchemaStore> schema_store_;
   Filesystem filesystem_;

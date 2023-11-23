@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// **** DO NOT EDIT - this .proto was automatically generated. ****
+// **** DO NOT EDIT - this file was automatically generated. ****
 syntax = "proto3";
 
 package cast.bindings;
@@ -16,6 +16,8 @@ message ApiBinding {
   string before_load_script = 1;
 }
 
+message GetAllRequest {}
+
 message GetAllResponse {
   repeated ApiBinding bindings = 1;
 }
@@ -24,3 +26,5 @@ message ConnectRequest {
   string port_name = 1;
   cast.web.MessagePortDescriptor port = 2;
 }
+
+message ConnectResponse {}

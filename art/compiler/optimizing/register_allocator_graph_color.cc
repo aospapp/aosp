@@ -286,7 +286,7 @@ class InterferenceNode : public ArenaObject<kArenaAllocRegisterAllocator> {
 
   size_t GetOutDegree() const {
     // Pre-colored nodes have infinite degree.
-    DCHECK(!IsPrecolored() || out_degree_ == std::numeric_limits<size_t>::max());
+    DCHECK_IMPLIES(IsPrecolored(), out_degree_ == std::numeric_limits<size_t>::max());
     return out_degree_;
   }
 
@@ -704,7 +704,8 @@ void RegisterAllocatorGraphColor::AllocateRegisters() {
               codegen_->AddAllocatedRegister(high_reg);
             }
           } else {
-            DCHECK(!interval->HasHighInterval() || !interval->GetHighInterval()->HasRegister());
+            DCHECK_IMPLIES(interval->HasHighInterval(),
+                           !interval->GetHighInterval()->HasRegister());
           }
         }
 
@@ -805,23 +806,31 @@ void RegisterAllocatorGraphColor::ProcessInstructions() {
   }
 }
 
+bool RegisterAllocatorGraphColor::TryRemoveSuspendCheckEntry(HInstruction* instruction) {
+  LocationSummary* locations = instruction->GetLocations();
+  if (instruction->IsSuspendCheckEntry() && !codegen_->NeedsSuspendCheckEntry()) {
+    // TODO: We do this here because we do not want the suspend check to artificially
+    // create live registers. We should find another place, but this is currently the
+    // simplest.
+    DCHECK_EQ(locations->GetTempCount(), 0u);
+    instruction->GetBlock()->RemoveInstruction(instruction);
+    return true;
+  }
+  return false;
+}
+
 void RegisterAllocatorGraphColor::ProcessInstruction(HInstruction* instruction) {
   LocationSummary* locations = instruction->GetLocations();
   if (locations == nullptr) {
     return;
   }
-  if (locations->NeedsSafepoint() && codegen_->IsLeafMethod()) {
-    // We do this here because we do not want the suspend check to artificially
-    // create live registers.
-    DCHECK(instruction->IsSuspendCheckEntry());
-    DCHECK_EQ(locations->GetTempCount(), 0u);
-    instruction->GetBlock()->RemoveInstruction(instruction);
+  if (TryRemoveSuspendCheckEntry(instruction)) {
     return;
   }
 
   CheckForTempLiveIntervals(instruction);
   CheckForSafepoint(instruction);
-  if (instruction->GetLocations()->WillCall()) {
+  if (locations->WillCall()) {
     // If a call will happen, create fixed intervals for caller-save registers.
     // TODO: Note that it may be beneficial to later split intervals at this point,
     //       so that we allow last-minute moves from a caller-save register

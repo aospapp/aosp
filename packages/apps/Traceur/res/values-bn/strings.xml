@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ডিফল্ট বিভাগগুলিকে ফিরিয়ে আনুন"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"ডিফল্ট বিভাগগুলিকে ফিরিয়ে আনা হয়েছে"</string>
     <string name="default_categories" msgid="2117679794687799407">"ডিফল্ট"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%dটি বেছে নেওয়া হয়েছে</item>
-      <item quantity="other">%dটি বেছে নেওয়া হয়েছে</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{#টি বেছে নেওয়া হয়েছে}one{#টি বেছে নেওয়া হয়েছে}other{#টি বেছে নেওয়া হয়েছে}}"</string>
     <string name="applications" msgid="521776761270770549">"অ্যাপ্লিকেশন"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"কোনও ডিবাগযোগ্য অ্যাপ্লিকেশন উপলভ্য নেই"</string>
     <string name="buffer_size" msgid="3944311026715111454">"সিপিইউ পিছু বাফার সাইজ"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto (বিটা) ব্যবহার করুন"</string>
     <string name="long_traces" msgid="5110949471775966329">"লম্বা ট্রেস"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ডিভাইসের স্টোরেজে ক্রমাগত সেভ করা হয়েছে"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ডিভাইসের স্টোরেজে ক্রমাগত সেভ করা হয়েছে (সমস্যার রিপোর্টে অটোমেটিক অ্যাটাচ করা হবে না)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"সবচেয়ে বড় লম্বা ট্রেসের সাইজ"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"সবচেয়ে বড় লম্বা ট্রেসের সময়সীমা"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"২০০ এমবি"</string>

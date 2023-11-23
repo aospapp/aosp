@@ -52,6 +52,8 @@ public interface RemoteLayoutlibCallback extends Remote {
 
     <T> T getFlag(Key<T> key) throws RemoteException;
 
+    String getResourcePackage() throws RemoteException;
+
     Path findClassPath(String name) throws RemoteException;
 
     RemoteXmlPullParser createXmlParserForPsiFile(String fileName) throws RemoteException;

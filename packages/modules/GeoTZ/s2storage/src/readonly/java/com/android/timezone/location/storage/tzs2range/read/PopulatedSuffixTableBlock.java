@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2020 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.timezone.location.storage.tzs2range.read;
 
 import static com.android.timezone.location.storage.s2.S2Support.MAX_FACE_ID;
@@ -108,7 +124,7 @@ final class PopulatedSuffixTableBlock implements SuffixTableBlock.SuffixTableBlo
 
         private final int mSuffixSearchValue;
 
-        public S2CellMatcher(TzS2RangeFileFormat fileFormat, int suffixSearchValue) {
+        S2CellMatcher(TzS2RangeFileFormat fileFormat, int suffixSearchValue) {
             mFileFormat = Objects.requireNonNull(fileFormat);
             mSuffixSearchValue = suffixSearchValue;
         }
@@ -138,7 +154,7 @@ final class PopulatedSuffixTableBlock implements SuffixTableBlock.SuffixTableBlo
 
         private final IntValueTable.TableEntry mSuffixTableEntry;
 
-        private SuffixTableRange suffixTableRange;
+        private SuffixTableRange mSuffixTableRange;
 
         Entry(IntValueTable.TableEntry suffixTableEntry) {
             mSuffixTableEntry = Objects.requireNonNull(suffixTableEntry);
@@ -159,7 +175,7 @@ final class PopulatedSuffixTableBlock implements SuffixTableBlock.SuffixTableBlo
         public SuffixTableRange getSuffixTableRange() {
             // Creating SuffixTableRange is relatively expensive so it is created lazily and
             // memoized.
-            if (suffixTableRange == null) {
+            if (mSuffixTableRange == null) {
                 // Create the range to return.
                 int startCellIdSuffix = mSuffixTableEntry.getKey();
                 checkStateInRange("startCellIdSuffixBits", startCellIdSuffix,
@@ -193,9 +209,9 @@ final class PopulatedSuffixTableBlock implements SuffixTableBlock.SuffixTableBlo
                 long endCellId = mFileFormat.createCellId(endCellPrefixValue, endCellIdSuffix);
 
                 int tzIdSetId = mFileFormat.extractTzIdSetIdFromTableEntryValue(value);
-                suffixTableRange = new SuffixTableRange(startCellId, endCellId, tzIdSetId);
+                mSuffixTableRange = new SuffixTableRange(startCellId, endCellId, tzIdSetId);
             }
-            return suffixTableRange;
+            return mSuffixTableRange;
         }
 
         @Override

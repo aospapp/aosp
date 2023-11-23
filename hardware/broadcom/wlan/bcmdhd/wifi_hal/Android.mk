@@ -45,6 +45,8 @@ ifneq ($(wildcard vendor/google/libraries/GoogleWifiConfigLib),)
 LOCAL_SHARED_LIBRARIES += \
 	google_wifi_firmware_config_version_c_wrapper
 LOCAL_CFLAGS += -DGOOGLE_WIFI_FW_CONFIG_VERSION_C_WRAPPER
+#only for pixel feature
+LOCAL_CFLAGS += -DRING_DUMP
 endif
 
 LOCAL_SRC_FILES := \

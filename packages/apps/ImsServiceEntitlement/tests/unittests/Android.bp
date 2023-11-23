@@ -33,6 +33,5 @@ android_test {
         "testng",
         "truth-prebuilt",
     ],
-    certificate: "platform",
     test_suites: ["device-tests"],
 }

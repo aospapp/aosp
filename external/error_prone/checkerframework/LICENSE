@@ -1,45 +1,42 @@
-The Checker Framework is licensed under the GNU General Public License,
-version 2 (GPL2), with the classpath exception.  The text of this license
-appears below.  This is the same license used for OpenJDK.
+The Checker Framework
+Copyright 2004-present by the Checker Framework developers
 
-A few parts of the Checker Framework have more permissive licenses.
 
- * The annotations are licensed under the MIT License.  (The text of this
-   license appears below.)  More specifically, all the parts of the Checker
-   Framework that you might want to include with your own program use the
-   MIT License.  This is the checker-qual.jar file and all the files that
-   appear in it:  every file in a qual/ directory, plus NullnessUtils.java
-   and RegexUtil.java.  In addition, the cleanroom implementations of
-   third-party annotations, which the Checker Framework recognizes as
-   aliases for its own annotations, are licensed under the MIT License.
+Most of the Checker Framework is licensed under the GNU General Public
+License, version 2 (GPL2), with the classpath exception.  The text of this
+license appears below.  This is the same license used for OpenJDK.
 
- * The Maven plugin is dual-licensed (you may use whichever you prefer)
-   under GPL2 and the Apache License, version 2.0 (Apache2).  The text of
-   Apache2 appears in file maven-plugin/LICENSE.txt.  Maven itself uses
-   Apache2.
+A few parts of the Checker Framework have more permissive licenses, notably
+the parts that you might want to include with your own program.
 
- * The Eclipse plugin is dual-licensed (you may use whichever you prefer)
-   under GPL2 and the Eclipse Public License Version 1.0 (EPL).  EPL
-   appears http://www.eclipse.org/org/documents/epl-v10.php.  Eclipse
-   itself uses EPL.
+ * The annotations and utility files are licensed under the MIT License.
+   (The text of this license also appears below.)  This applies to
+   checker-qual*.jar and checker-util.jar and all the files that appear in
+   them, which is all files in checker-qual and checker-util directories.
+   It also applies to the cleanroom implementations of
+   third-party annotations (in checker/src/testannotations/,
+   framework/src/main/java/org/jmlspecs/, and
+   framework/src/main/java/com/google/).
 
-Some external libraries that are included with the Checker Framework have
-different licenses.
+The Checker Framework includes annotations for some libraries.  Those in
+.astub files use the MIT License.  Those in https://github.com/typetools/jdk
+(which appears in the annotated-jdk directory of file checker.jar) use the
+GPL2 license.
 
- * javaparser is licensed under the LGPL.  (The javaparser source code
+Some external libraries that are included with the Checker Framework
+distribution have different licenses.  Here are some examples.
+
+ * JavaParser is dual licensed under the LGPL or the Apache license -- you
+   may use it under whichever one you want.  (The JavaParser source code
    contains a file with the text of the GPL, but it is not clear why, since
-   javaparser does not use the GPL.)  See file javaparser/COPYING.LESSER
-   and the source code of all its files.
+   JavaParser does not use the GPL.)  See
+   https://github.com/typetools/stubparser .
 
- * junit is licensed under the Common Public License v1.0 (see
-   http://www.junit.org/license), with parts (Hamcrest) licensed under the
-   BSD License (see LICENSE.txt in checkers/tests/junit.jar ).
+ * Annotation Tools (https://github.com/typetools/annotation-tools) uses
+   the MIT license.
 
- * plume-lib is licensed under the MIT License.
-
-The Checker Framework includes annotations for several libraries, in
-directory checkers/jdk/.  The only one that uses a different license than
-the GPL is Google Guava, which uses Apache2.
+ * Libraries in plume-lib (https://github.com/plume-lib/) are licensed
+   under the MIT License.
 
 ===========================================================================
 

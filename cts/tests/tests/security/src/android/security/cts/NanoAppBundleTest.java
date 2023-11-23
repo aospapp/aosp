@@ -16,7 +16,6 @@
 
 package android.security.cts;
 
-import android.test.AndroidTestCase;
 import android.platform.test.annotations.AsbSecurityTest;
 import androidx.test.InstrumentationRegistry;
 
@@ -49,12 +48,23 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.annotation.Nullable;
 import android.platform.test.annotations.AppModeFull;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.Test;
 import static java.lang.Thread.sleep;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 @AppModeFull
-public class NanoAppBundleTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class NanoAppBundleTest extends StsExtraBusinessLogicTestCase {
 
+    private Context mContext;
     private static final String TAG = "NanoAppBundleTest";
     private static final String SECURITY_CTS_PACKAGE_NAME = "android.security.cts";
 
@@ -72,27 +82,27 @@ public class NanoAppBundleTest extends AndroidTestCase {
             }
         };
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
+        mContext = getInstrumentation().getContext();
         Intent serviceIntent = new Intent(mContext, AuthenticatorService.class);
         mContext.startService(serviceIntent);
         mContext.bindService(serviceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mContext != null) {
             Intent serviceIntent = new Intent(mContext, AuthenticatorService.class);
             mContext.stopService(serviceIntent);
         }
-        super.tearDown();
     }
 
     /**
      * b/113527124
      */
     @AsbSecurityTest(cveBugId = 77599679)
+    @Test
     public void testPoc_cve_2018_9471() throws Exception {
 
         try {

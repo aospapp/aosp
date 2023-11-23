@@ -1,0 +1,2 @@
+# Domain for Exo app
+user=_app seinfo=platform name=com.google.pixel.exo domain=exo_app type=app_data_file levelFrom=all

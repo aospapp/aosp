@@ -16,10 +16,7 @@
 
 package com.android.server.wm.flicker
 
-import android.app.Instrumentation
 import android.view.Surface
-import androidx.test.platform.app.InstrumentationRegistry
-import com.android.server.wm.flicker.dsl.FlickerBuilder
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.FixMethodOrder
 import org.junit.Test
@@ -32,35 +29,7 @@ import org.junit.runners.MethodSorters
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class FlickerTestParameterFactoryTest {
-    private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val defaultRotations = listOf(Surface.ROTATION_0, Surface.ROTATION_90)
     private val testFactory = FlickerTestParameterFactory.getInstance()
-
-    private fun FlickerBuilder.setDefaultTestCfg(cfg: Map<String, Any?>) = apply {
-        withTestName { "${cfg.startRotationName}_${cfg.endRotationName}_" }
-    }
-
-    private fun validateRotationTest(
-        actual: Map<String, Any?>,
-        rotations: List<Int> = defaultRotations
-    ) {
-        assertWithMessage("Rotation tests should not have the same start and end rotation")
-            .that(actual.startRotation).isNotEqualTo(actual.endRotation)
-        assertWithMessage("Invalid start rotation value ${actual.startRotation}")
-            .that(actual.startRotation).isIn(rotations)
-        assertWithMessage("Invalid end rotation value ${actual.endRotation}")
-            .that(actual.endRotation).isIn(rotations)
-    }
-
-    private fun validateTest(
-        actual: Map<String, Any?>,
-        rotations: List<Int> = defaultRotations
-    ) {
-        assertWithMessage("Tests should have the same start and end rotation")
-            .that(actual.startRotation).isEqualTo(actual.endRotation)
-        assertWithMessage("Invalid rotation value ${actual.startRotation}")
-            .that(actual.startRotation).isIn(rotations)
-    }
 
     @Test
     fun checkBuildTest() {

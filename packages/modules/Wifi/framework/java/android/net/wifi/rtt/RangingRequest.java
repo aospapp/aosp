@@ -207,15 +207,16 @@ public final class RangingRequest implements Parcelable {
          * which to measure range. The total number of peers added to a request cannot exceed the
          * limit specified by {@link #getMaxPeers()}.
          * <p>
-         * Ranging will only be supported if the Access Point supports IEEE 802.11mc, also known as
-         * two-sided RTT. Use {@link ScanResult#is80211mcResponder()} to verify the Access Point's
-         * capabilities. If not supported the result status will be
-         * {@link RangingResult#STATUS_RESPONDER_DOES_NOT_SUPPORT_IEEE80211MC}.
+         * Two-sided Ranging will be supported if the Access Point supports IEEE 802.11mc, also
+         * known as two-sided RTT, and this is determined by the method
+         * {@link ScanResult#is80211mcResponder()}. If not supported, one-sided RTT will be
+         * performed with no correction for the AP packet turnaround time.
          *
-         * @param apInfo Information of an Access Point (AP) obtained in a Scan Result.
+         * @param apInfo Information about an Access Point (AP) obtained in a Scan Result.
          * @return The builder to facilitate chaining
          *         {@code builder.setXXX(..).setXXX(..)}.
          */
+        @NonNull
         public Builder addAccessPoint(@NonNull ScanResult apInfo) {
             if (apInfo == null) {
                 throw new IllegalArgumentException("Null ScanResult!");
@@ -228,21 +229,70 @@ public final class RangingRequest implements Parcelable {
          * which to measure range. The total number of peers added to a request cannot exceed the
          * limit specified by {@link #getMaxPeers()}.
          * <p>
-         * Ranging will only be supported if the Access Point supports IEEE 802.11mc, also known as
-         * two-sided RTT. Use {@link ScanResult#is80211mcResponder()} to verify the Access Point's
-         * capabilities. If not supported, the result status will be
-         * {@link RangingResult#STATUS_RESPONDER_DOES_NOT_SUPPORT_IEEE80211MC}.
+         * Two-sided Ranging will be supported if the Access Point supports IEEE 802.11mc, also
+         * known as two-sided RTT, and this is determined by the method
+         * {@link ScanResult#is80211mcResponder()}. If not supported, one-sided RTT will be
+         * performed with no correction for the AP packet turnaround time.
          *
-         * @param apInfos Information of an Access Points (APs) obtained in a Scan Result.
+         * @param apInfos Information about Access Points (APs) obtained in a Scan Result.
          * @return The builder to facilitate chaining
          *         {@code builder.setXXX(..).setXXX(..)}.
          */
+        @NonNull
         public Builder addAccessPoints(@NonNull List<ScanResult> apInfos) {
             if (apInfos == null) {
                 throw new IllegalArgumentException("Null list of ScanResults!");
             }
             for (ScanResult scanResult : apInfos) {
                 addAccessPoint(scanResult);
+            }
+            return this;
+        }
+
+        /**
+         * Add the Responder device specified by the {@link ResponderConfig} to the list of devices
+         * with which to measure range. The total number of peers added to the request cannot exceed
+         * the limit specified by {@link #getMaxPeers()}.
+         * <p>
+         * Two-sided Ranging will be supported if an Access Point supports IEEE 802.11mc, also
+         * known as two-sided RTT, and this is specified in the {@link ResponderConfig} builder.
+         * If not supported, one-sided RTT will be performed with no correction for
+         * the AP packet turnaround time.
+         *
+         * @param responder Information on the RTT Responder.
+         * @return The builder, to facilitate chaining {@code builder.setXXX(..).setXXX(..)}.
+         */
+        @NonNull
+        public Builder addResponder(@NonNull ResponderConfig responder) {
+            if (responder == null) {
+                throw new IllegalArgumentException("Null Responder!");
+            }
+
+            mRttPeers.add(responder);
+            return this;
+        }
+
+        /**
+         * Add the devices specified by the {@link ResponderConfig}s to the list of devices with
+         * which to measure range. The total number of peers added to a request cannot exceed the
+         * limit specified by {@link #getMaxPeers()}.
+         * <p>
+         * Two-sided Ranging will be supported if an Access Point supports IEEE 802.11mc, also
+         * known as two-sided RTT, and this is specified in the {@link ResponderConfig} builder.
+         * If not supported, one-sided RTT will be performed with no correction for the AP packet
+         * turnaround time.
+         *
+         * @param responders Information representing the set of access points to be ranged
+         * @return The builder to facilitate chaining
+         *         {@code builder.setXXX(..).setXXX(..)}.
+         */
+        @NonNull
+        public Builder addResponders(@NonNull List<ResponderConfig> responders) {
+            if (responders == null) {
+                throw new IllegalArgumentException("Null list of Responders");
+            }
+            for (ResponderConfig responder : responders) {
+                addResponder(responder);
             }
             return this;
         }
@@ -267,7 +317,7 @@ public final class RangingRequest implements Parcelable {
          * Note: one-sided RTT should only be used if you are very familiar with statistical
          * estimation techniques.
          *
-         * @param apInfo Information of an Access Point (AP) obtained in a Scan Result.
+         * @param apInfo Information about an Access Point (AP) obtained in a Scan Result
          * @return The builder to facilitate chaining
          *         {@code builder.setXXX(..).setXXX(..)}.
          */
@@ -302,7 +352,7 @@ public final class RangingRequest implements Parcelable {
          * Note: one-sided RTT should only be used if you are very familiar with statistical
          * estimation techniques.
          *
-         * @param apInfos Information of an Access Points (APs) obtained in a Scan Result.
+         * @param apInfos Information about Access Points (APs) obtained in a Scan Result.
          * @return The builder to facilitate chaining
          *         {@code builder.setXXX(..).setXXX(..)}.
          */
@@ -376,25 +426,6 @@ public final class RangingRequest implements Parcelable {
             return addResponder(ResponderConfig.fromWifiAwarePeerHandleWithDefaults(peerHandle));
         }
 
-        /**
-         * Add the Responder device specified by the {@link ResponderConfig} to the list of devices
-         * with which to measure range. The total number of peers added to the request cannot exceed
-         * the limit specified by {@link #getMaxPeers()}.
-         *
-         * @param responder Information on the RTT Responder.
-         * @return The builder, to facilitate chaining {@code builder.setXXX(..).setXXX(..)}.
-         *
-         * @hide
-         */
-        @SystemApi
-        public Builder addResponder(@NonNull ResponderConfig responder) {
-            if (responder == null) {
-                throw new IllegalArgumentException("Null Responder!");
-            }
-
-            mRttPeers.add(responder);
-            return this;
-        }
 
         /**
          * Build {@link RangingRequest} given the current configurations made on the

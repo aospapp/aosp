@@ -15,12 +15,8 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms;
 
-import static android.view.View.TEXT_ALIGNMENT_TEXT_START;
-
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_TERMS_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
-
-import static com.google.android.setupdesign.util.ThemeHelper.shouldApplyExtendedPartnerConfig;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,17 +26,12 @@ import android.os.Bundle;
 import android.view.ContextMenu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
@@ -56,7 +47,6 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.preprovisioning.terms.TermsViewModel.TermsViewModelFactory;
 import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapter;
 
-import java.util.List;
 import java.util.function.BiFunction;
 
 /**
@@ -71,6 +61,8 @@ public class TermsActivity extends SetupGlifLayoutActivity implements
             mViewModelFetcher;
     private TermsViewModel mViewModel;
     private final StylerHelper mStylerHelper;
+
+    private TermsActivityBridge mBridge;
 
     @SuppressWarnings("unused")
     public TermsActivity() {
@@ -103,71 +95,30 @@ public class TermsActivity extends SetupGlifLayoutActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.terms_screen);
-        setTitle(R.string.terms);
 
         ProvisioningParams params = checkNotNull(
                 getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
         mViewModel = mViewModelFetcher.apply(this, params);
-        List<TermsDocument> terms = mViewModel.getTerms();
 
-        initializeUiForHandhelds(terms);
+        mBridge = createBridge();
+        mBridge.initiateUi(this, mViewModel.getTerms(), mViewModel.getGeneralDisclaimer());
 
+        initAnalyticsTracker();
+    }
+
+    private void initAnalyticsTracker() {
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(this, mSettingsFacade),
                 new ManagedProvisioningSharedPreferences(getApplicationContext()));
-        mProvisioningAnalyticsTracker.logNumberOfTermsDisplayed(this, terms.size());
+        mProvisioningAnalyticsTracker.logNumberOfTermsDisplayed(this, mViewModel.getTerms().size());
     }
 
-    private void initializeUiForHandhelds(List<TermsDocument> terms) {
-        setupHeader();
-        setupRecyclerView();
-        setupToolbar();
-        setupTermsListForHandhelds(terms);
-    }
-
-    private void setupHeader() {
-        if (!shouldApplyExtendedPartnerConfig(this)) {
-            return;
-        }
-        TextView header = findViewById(R.id.header);
-        header.setVisibility(View.VISIBLE);
-        header.setText(R.string.terms);
-        mStylerHelper.applyHeaderStyling(header,
-                new LinearLayout.LayoutParams(header.getLayoutParams()));
-        header.setTextAlignment(TEXT_ALIGNMENT_TEXT_START);
-    }
-
-    private void setupRecyclerView() {
-        final RecyclerView recyclerView = findViewById(R.id.terms_container);
-        if (recyclerView.getItemDecorationCount() > 0) {
-            recyclerView.removeItemDecorationAt(/* index= */ 0);
-        }
-    }
-
-    private void setupToolbar() {
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setNavigationContentDescription(R.string.navigation_button_description);
-        toolbar.setNavigationIcon(getDrawable(R.drawable.ic_arrow_back_24dp));
-        toolbar.setNavigationOnClickListener(v ->
-                getTransitionHelper().finishActivity(TermsActivity.this));
-        if (!shouldApplyExtendedPartnerConfig(this)) {
-            toolbar.setTitle(R.string.terms);
-        }
-    }
-
-    private void setupTermsListForHandhelds(List<TermsDocument> terms) {
-        RecyclerView recyclerView = findViewById(R.id.terms_container);
-        recyclerView.setLayoutManager(new LinearLayoutManager(/* context= */ this));
-        recyclerView.setAdapter(new TermsListAdapter(
-                this,
-                mViewModel.getGeneralDisclaimer(),
-                terms,
-                getLayoutInflater(),
-                new AccessibilityContextMenuMaker(this),
-                this,
-                mUtils,
-                mStylerHelper));
+    protected TermsActivityBridge createBridge() {
+        return TermsActivityBridgeImpl.builder()
+                .setUtils(mUtils)
+                .setStylerHelper(mStylerHelper)
+                .setTransitionHelper(getTransitionHelper())
+                .build();
     }
 
     @Override

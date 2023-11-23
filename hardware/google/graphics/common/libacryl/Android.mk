@@ -35,7 +35,7 @@ else
     LOCAL_CFLAGS += -DLIBACRYL_DEFAULT_BLTER=\"no_default_blter\"
 endif
 
-LOCAL_SHARED_LIBRARIES := liblog libutils libcutils libion_google
+LOCAL_SHARED_LIBRARIES := liblog libutils libcutils libion_google android.hardware.graphics.common-V3-ndk
 ifdef BOARD_LIBACRYL_G2D_HDR_PLUGIN
     LOCAL_SHARED_LIBRARIES += $(BOARD_LIBACRYL_G2D_HDR_PLUGIN)
     LOCAL_CFLAGS += -DLIBACRYL_G2D_HDR_PLUGIN
@@ -43,6 +43,7 @@ endif
 
 LOCAL_HEADER_LIBRARIES += google_libacryl_hdrplugin_headers
 LOCAL_HEADER_LIBRARIES += google_hal_headers
+LOCAL_HEADER_LIBRARIES += libgralloc_headers
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/local_include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/include

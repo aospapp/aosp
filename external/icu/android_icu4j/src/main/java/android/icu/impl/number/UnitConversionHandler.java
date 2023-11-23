@@ -3,12 +3,9 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl.number;
 
-import java.util.List;
-
 import android.icu.impl.units.ComplexUnitsConverter;
+import android.icu.impl.units.ConversionRates;
 import android.icu.impl.units.MeasureUnitImpl;
-import android.icu.impl.units.UnitsData;
-import android.icu.util.Measure;
 import android.icu.util.MeasureUnit;
 
 /**
@@ -24,22 +21,17 @@ public class UnitConversionHandler implements MicroPropsGenerator {
     private ComplexUnitsConverter fComplexUnitConverter;
 
     /**
-     * Constructor.
-     *
-     * @param inputUnit Specifies the input MeasureUnit. Mixed units are not
-     *     supported as input (because input is just a single decimal quantity).
-     * @param outputUnit Specifies the output MeasureUnit.
-     * @param parent The parent MicroPropsGenerator.
+     * @param targetUnit Specifies the output MeasureUnit. The input MeasureUnit
+     *     is derived from it: in case of a mixed unit, the biggest unit is
+     *     taken as the input unit. If not a mixed unit, the input unit will be
+     *     the same as the output unit and no unit conversion takes place.
+     * @param parent    The parent MicroPropsGenerator.
      */
-    public UnitConversionHandler(MeasureUnit inputUnit,
-                                 MeasureUnit outputUnit,
-                                 MicroPropsGenerator parent) {
-        this.fOutputUnit = outputUnit;
+    public UnitConversionHandler(MeasureUnit targetUnit, MicroPropsGenerator parent) {
+        this.fOutputUnit = targetUnit;
         this.fParent = parent;
-        MeasureUnitImpl inputUnitImpl = MeasureUnitImpl.forIdentifier(inputUnit.getIdentifier());
-        MeasureUnitImpl outputUnitImpl = MeasureUnitImpl.forIdentifier(outputUnit.getIdentifier());
-        this.fComplexUnitConverter = new ComplexUnitsConverter(inputUnitImpl, outputUnitImpl,
-                                                               new UnitsData().getConversionRates());
+        MeasureUnitImpl targetUnitImpl = MeasureUnitImpl.forIdentifier(targetUnit.getIdentifier());
+        this.fComplexUnitConverter = new ComplexUnitsConverter(targetUnitImpl, new ConversionRates());
     }
 
     /**
@@ -50,10 +42,11 @@ public class UnitConversionHandler implements MicroPropsGenerator {
         MicroProps result = this.fParent.processQuantity(quantity);
 
         quantity.roundToInfinity(); // Enables toDouble
-        List<Measure> measures = this.fComplexUnitConverter.convert(quantity.toBigDecimal(), result.rounder);
+        ComplexUnitsConverter.ComplexConverterResult complexConverterResult
+                = this.fComplexUnitConverter.convert(quantity.toBigDecimal(), result.rounder);
 
         result.outputUnit = this.fOutputUnit;
-        UsagePrefsHandler.mixedMeasuresToMicros(measures, quantity, result);
+        UsagePrefsHandler.mixedMeasuresToMicros(complexConverterResult, quantity, result);
 
         return result;
     }

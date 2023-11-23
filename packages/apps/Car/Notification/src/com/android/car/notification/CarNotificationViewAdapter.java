@@ -43,6 +43,7 @@ import com.android.car.ui.recyclerview.ContentLimitingAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Notification data adapter that binds a notification to the corresponding view.
@@ -440,9 +441,9 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
             List<NotificationGroup> unseenNotifications = new ArrayList<>();
             notifications.forEach(notificationGroup -> {
                 if (notificationGroup.isSeen()) {
-                    seenNotifications.add(notificationGroup);
+                    seenNotifications.add(new NotificationGroup(notificationGroup));
                 } else {
-                    unseenNotifications.add(notificationGroup);
+                    unseenNotifications.add(new NotificationGroup(notificationGroup));
                 }
             });
             setSeenAndUnseenNotifications(unseenNotifications, seenNotifications,
@@ -450,7 +451,9 @@ public class CarNotificationViewAdapter extends ContentLimitingAdapter<RecyclerV
             return;
         }
 
-        List<NotificationGroup> notificationGroupList = new ArrayList<>(notifications);
+        List<NotificationGroup> notificationGroupList = notifications.stream()
+                .map(notificationGroup -> new NotificationGroup(notificationGroup))
+                .collect(Collectors.toList());
 
         if (setRecyclerViewListHeadersAndFooters) {
             // add header as the first item of the list.

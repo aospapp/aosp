@@ -19,13 +19,12 @@ package com.google.android.car.kitchensink.vehiclectrl;
 import android.annotation.IdRes;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
+import android.car.VehicleAreaType;
 import android.car.VehicleAreaWindow;
 import android.car.VehiclePropertyIds;
+import android.car.VehiclePropertyType;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
-import android.hardware.automotive.vehicle.V2_0.VehicleArea;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -46,13 +45,15 @@ import java.util.Map;
 @SuppressLint("SetTextI18n")
 public final class VehicleCtrlFragment extends Fragment {
     private static final String TAG = VehicleCtrlFragment.class.getSimpleName();
+    // Same as defined in VehiclePropertyGroup.aidl.
+    private static final int VEHICLE_PROPERTY_GROUP_VENDOR = 0x20000000;
 
     public static final class CustomVehicleProperty {
         public static final int PROTOCAN_TEST = (
                 0x0ABC
-                | VehiclePropertyGroup.VENDOR
+                | VEHICLE_PROPERTY_GROUP_VENDOR
                 | VehiclePropertyType.BOOLEAN
-                | VehicleArea.GLOBAL);
+                | VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL);
 
         private CustomVehicleProperty() {}
     };
@@ -144,6 +145,7 @@ public final class VehicleCtrlFragment extends Fragment {
 
     private void onTestBtnClicked(boolean on) {
         Log.i(TAG, "onTestBtnClicked " + on);
-        mPropMgr.setBooleanProperty(CustomVehicleProperty.PROTOCAN_TEST, VehicleArea.GLOBAL, on);
+        mPropMgr.setBooleanProperty(CustomVehicleProperty.PROTOCAN_TEST,
+                VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL, on);
     }
 }

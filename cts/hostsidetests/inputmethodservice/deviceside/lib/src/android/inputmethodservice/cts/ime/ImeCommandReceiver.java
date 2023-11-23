@@ -59,7 +59,8 @@ final class ImeCommandReceiver<T extends InputMethodService & ImeCommandCallback
 
     void register(T ime) {
         mIme = ime;
-        ime.registerReceiver(this, new IntentFilter(ImeCommandConstants.ACTION_IME_COMMAND));
+        ime.registerReceiver(this, new IntentFilter(ImeCommandConstants.ACTION_IME_COMMAND),
+                Context.RECEIVER_EXPORTED);
     }
 
     @Override

@@ -26,8 +26,6 @@ android_test {
 
     srcs: [
         "src/**/*.java",
-        // Used by InputMethodTestActivity for ImeAwareEditText.
-        ":compatibility-device-util-nodeps",
         ":CtsVerifierMockVrListenerServiceFiles",
     ],
 

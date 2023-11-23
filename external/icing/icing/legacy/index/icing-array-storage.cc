@@ -14,10 +14,10 @@
 
 #include "icing/legacy/index/icing-array-storage.h"
 
-#include <inttypes.h>
 #include <sys/mman.h>
 
 #include <algorithm>
+#include <cinttypes>
 
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/legacy/core/icing-timer.h"

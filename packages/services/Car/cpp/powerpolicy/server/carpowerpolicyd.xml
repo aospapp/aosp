@@ -22,4 +22,12 @@
             <instance>default</instance>
         </interface>
     </hal>
+    <hal format="aidl">
+        <name>android.frameworks.automotive.powerpolicy.internal</name>
+        <version>1</version>
+        <interface>
+            <name>ICarPowerPolicySystemNotification</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
 </manifest>

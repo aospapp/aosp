@@ -38,4 +38,11 @@ public abstract class RemotePolicyManager extends TestAppInstance {
      */
     @Nullable
     public abstract ComponentName componentName();
+
+    /**
+     * Is this an app which has been delegated to?
+     */
+    public boolean isDelegate() {
+        return false;
+    }
 }

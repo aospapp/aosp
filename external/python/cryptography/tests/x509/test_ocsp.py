@@ -13,7 +13,7 @@ import pytest
 from cryptography import x509
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, ed448
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.x509 import ocsp
 
@@ -24,51 +24,52 @@ from ..utils import load_vectors_from_file
 
 def _load_data(filename, loader):
     return load_vectors_from_file(
-        filename=filename,
-        loader=lambda data: loader(data.read()),
-        mode="rb"
+        filename=filename, loader=lambda data: loader(data.read()), mode="rb"
     )
 
 
 def _cert_and_issuer():
     from cryptography.hazmat.backends.openssl.backend import backend
+
     cert = _load_cert(
         os.path.join("x509", "cryptography.io.pem"),
         x509.load_pem_x509_certificate,
-        backend
+        backend,
     )
     issuer = _load_cert(
         os.path.join("x509", "rapidssl_sha256_ca_g3.pem"),
         x509.load_pem_x509_certificate,
-        backend
+        backend,
     )
     return cert, issuer
 
 
-def _generate_root():
+def _generate_root(private_key=None, algorithm=hashes.SHA256()):
     from cryptography.hazmat.backends.openssl.backend import backend
 
-    private_key = EC_KEY_SECP256R1.private_key(backend)
-    subject = x509.Name([
-        x509.NameAttribute(x509.NameOID.COUNTRY_NAME, u'US'),
-        x509.NameAttribute(x509.NameOID.COMMON_NAME, u'Cryptography CA'),
-    ])
+    if private_key is None:
+        private_key = EC_KEY_SECP256R1.private_key(backend)
 
-    builder = x509.CertificateBuilder().serial_number(
-        123456789
-    ).issuer_name(
-        subject
-    ).subject_name(
-        subject
-    ).public_key(
-        private_key.public_key()
-    ).not_valid_before(
-        datetime.datetime.now()
-    ).not_valid_after(
-        datetime.datetime.now() + datetime.timedelta(days=3650)
+    subject = x509.Name(
+        [
+            x509.NameAttribute(x509.NameOID.COUNTRY_NAME, u"US"),
+            x509.NameAttribute(x509.NameOID.COMMON_NAME, u"Cryptography CA"),
+        ]
     )
 
-    cert = builder.sign(private_key, hashes.SHA256(), backend)
+    builder = (
+        x509.CertificateBuilder()
+        .serial_number(123456789)
+        .issuer_name(subject)
+        .subject_name(subject)
+        .public_key(private_key.public_key())
+        .not_valid_before(datetime.datetime.now())
+        .not_valid_after(
+            datetime.datetime.now() + datetime.timedelta(days=3650)
+        )
+    )
+
+    cert = builder.sign(private_key, algorithm, backend)
     return cert, private_key
 
 
@@ -82,10 +83,12 @@ class TestOCSPRequest(object):
             os.path.join("x509", "ocsp", "req-sha1.der"),
             ocsp.load_der_ocsp_request,
         )
-        assert req.issuer_name_hash == (b"8\xcaF\x8c\x07D\x8d\xf4\x81\x96"
-                                        b"\xc7mmLpQ\x9e`\xa7\xbd")
-        assert req.issuer_key_hash == (b"yu\xbb\x84:\xcb,\xdez\t\xbe1"
-                                       b"\x1bC\xbc\x1c*MSX")
+        assert req.issuer_name_hash == (
+            b"8\xcaF\x8c\x07D\x8d\xf4\x81\x96" b"\xc7mmLpQ\x9e`\xa7\xbd"
+        )
+        assert req.issuer_key_hash == (
+            b"yu\xbb\x84:\xcb,\xdez\t\xbe1" b"\x1bC\xbc\x1c*MSX"
+        )
         assert isinstance(req.hash_algorithm, hashes.SHA1)
         assert req.serial_number == int(
             "98D9E5C0B4C373552DF77C5D0F1EB5128E4945F9", 16
@@ -123,7 +126,7 @@ class TestOCSPRequest(object):
         req_bytes = load_vectors_from_file(
             filename=os.path.join("x509", "ocsp", "req-sha1.der"),
             loader=lambda data: data.read(),
-            mode="rb"
+            mode="rb",
         )
         req = ocsp.load_der_ocsp_request(req_bytes)
         assert req.public_bytes(serialization.Encoding.DER) == req_bytes
@@ -194,16 +197,14 @@ class TestOCSPRequestBuilder(object):
         [
             [x509.OCSPNonce(b"0000"), False],
             [x509.OCSPNonce(b"\x00\x01\x02"), True],
-        ]
+        ],
     )
     def test_create_ocsp_request_with_extension(self, ext, critical):
         cert, issuer = _cert_and_issuer()
         builder = ocsp.OCSPRequestBuilder()
         builder = builder.add_certificate(
             cert, issuer, hashes.SHA1()
-        ).add_extension(
-            ext, critical
-        )
+        ).add_extension(ext, critical)
         req = builder.build()
         assert len(req.extensions) == 1
         assert req.extensions[0].value == ext
@@ -217,13 +218,25 @@ class TestOCSPResponseBuilder(object):
         time = datetime.datetime.now()
         builder = ocsp.OCSPResponseBuilder()
         builder = builder.add_response(
-            cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD, time,
-            time, None, None
+            cert,
+            issuer,
+            hashes.SHA256(),
+            ocsp.OCSPCertStatus.GOOD,
+            time,
+            time,
+            None,
+            None,
         )
         with pytest.raises(ValueError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD, time,
-                time, None, None
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                None,
+                None,
             )
 
     def test_invalid_add_response(self):
@@ -233,28 +246,58 @@ class TestOCSPResponseBuilder(object):
         builder = ocsp.OCSPResponseBuilder()
         with pytest.raises(TypeError):
             builder.add_response(
-                'bad', issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                time, time, None, None
+                "bad",
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                None,
+                None,
             )
         with pytest.raises(TypeError):
             builder.add_response(
-                cert, 'bad', hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                time, time, None, None
+                cert,
+                "bad",
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                None,
+                None,
             )
         with pytest.raises(ValueError):
             builder.add_response(
-                cert, issuer, 'notahash', ocsp.OCSPCertStatus.GOOD,
-                time, time, None, None
+                cert,
+                issuer,
+                "notahash",
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                None,
+                None,
             )
         with pytest.raises(TypeError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                'bad', time, None, None
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                "bad",
+                time,
+                None,
+                None,
             )
         with pytest.raises(TypeError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                time, 'bad', None, None
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                "bad",
+                None,
+                None,
             )
 
         with pytest.raises(TypeError):
@@ -263,28 +306,58 @@ class TestOCSPResponseBuilder(object):
             )
         with pytest.raises(ValueError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                time, time, time, None
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                time,
+                None,
             )
         with pytest.raises(ValueError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.GOOD,
-                time, time, None, reason
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.GOOD,
+                time,
+                time,
+                None,
+                reason,
             )
         with pytest.raises(TypeError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.REVOKED,
-                time, time, None, reason
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.REVOKED,
+                time,
+                time,
+                None,
+                reason,
             )
         with pytest.raises(TypeError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.REVOKED,
-                time, time, time, 0
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.REVOKED,
+                time,
+                time,
+                time,
+                0,
             )
         with pytest.raises(ValueError):
             builder.add_response(
-                cert, issuer, hashes.SHA256(), ocsp.OCSPCertStatus.REVOKED,
-                time, time, time - datetime.timedelta(days=36500), None
+                cert,
+                issuer,
+                hashes.SHA256(),
+                ocsp.OCSPCertStatus.REVOKED,
+                time,
+                time,
+                time - datetime.timedelta(days=36500),
+                None,
             )
 
     def test_invalid_certificates(self):
@@ -292,9 +365,9 @@ class TestOCSPResponseBuilder(object):
         with pytest.raises(ValueError):
             builder.certificates([])
         with pytest.raises(TypeError):
-            builder.certificates(['notacert'])
+            builder.certificates(["notacert"])
         with pytest.raises(TypeError):
-            builder.certificates('invalid')
+            builder.certificates("invalid")
 
         _, issuer = _cert_and_issuer()
         builder = builder.certificates([issuer])
@@ -305,9 +378,9 @@ class TestOCSPResponseBuilder(object):
         builder = ocsp.OCSPResponseBuilder()
         cert, _ = _cert_and_issuer()
         with pytest.raises(TypeError):
-            builder.responder_id(ocsp.OCSPResponderEncoding.HASH, 'invalid')
+            builder.responder_id(ocsp.OCSPResponderEncoding.HASH, "invalid")
         with pytest.raises(TypeError):
-            builder.responder_id('notanenum', cert)
+            builder.responder_id("notanenum", cert)
 
         builder = builder.responder_id(ocsp.OCSPResponderEncoding.NAME, cert)
         with pytest.raises(ValueError):
@@ -335,8 +408,14 @@ class TestOCSPResponseBuilder(object):
         this_update = current_time - datetime.timedelta(days=1)
         next_update = this_update + datetime.timedelta(days=7)
         builder = builder.add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.GOOD,
+            this_update,
+            next_update,
+            None,
+            None,
         )
         with pytest.raises(ValueError):
             builder.sign(private_key, hashes.SHA256())
@@ -351,11 +430,17 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.NAME, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.GOOD,
+            this_update,
+            next_update,
+            None,
+            None,
         )
         with pytest.raises(TypeError):
-            builder.sign(private_key, 'notahash')
+            builder.sign(private_key, "notahash")
 
     def test_sign_good_cert(self):
         builder = ocsp.OCSPResponseBuilder()
@@ -367,15 +452,23 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.NAME, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.GOOD,
+            this_update,
+            next_update,
+            None,
+            None,
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.responder_name == root_cert.subject
         assert resp.responder_key_hash is None
         assert (current_time - resp.produced_at).total_seconds() < 10
-        assert (resp.signature_algorithm_oid ==
-                x509.SignatureAlgorithmOID.ECDSA_WITH_SHA256)
+        assert (
+            resp.signature_algorithm_oid
+            == x509.SignatureAlgorithmOID.ECDSA_WITH_SHA256
+        )
         assert resp.certificate_status == ocsp.OCSPCertStatus.GOOD
         assert resp.revocation_time is None
         assert resp.revocation_reason is None
@@ -396,8 +489,14 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.NAME, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.REVOKED,
-            this_update, next_update, revoked_date, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            next_update,
+            revoked_date,
+            None,
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.certificate_status == ocsp.OCSPCertStatus.REVOKED
@@ -416,13 +515,19 @@ class TestOCSPResponseBuilder(object):
         current_time = datetime.datetime.utcnow().replace(microsecond=0)
         this_update = current_time - datetime.timedelta(days=1)
         next_update = this_update + datetime.timedelta(days=7)
-        builder = builder.responder_id(
-            ocsp.OCSPResponderEncoding.NAME, root_cert
-        ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
-        ).certificates(
-            [root_cert]
+        builder = (
+            builder.responder_id(ocsp.OCSPResponderEncoding.NAME, root_cert)
+            .add_response(
+                cert,
+                issuer,
+                hashes.SHA1(),
+                ocsp.OCSPCertStatus.GOOD,
+                this_update,
+                next_update,
+                None,
+                None,
+            )
+            .certificates([root_cert])
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.certificates == [root_cert]
@@ -437,8 +542,14 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.NAME, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.REVOKED,
-            this_update, None, revoked_date, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            None,
+            revoked_date,
+            None,
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.certificate_status == ocsp.OCSPCertStatus.REVOKED
@@ -461,9 +572,14 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.NAME, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.REVOKED,
-            this_update, next_update, revoked_date,
-            x509.ReasonFlags.key_compromise
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            next_update,
+            revoked_date,
+            x509.ReasonFlags.key_compromise,
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.certificate_status == ocsp.OCSPCertStatus.REVOKED
@@ -485,13 +601,19 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.HASH, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.GOOD,
+            this_update,
+            next_update,
+            None,
+            None,
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert resp.responder_name is None
         assert resp.responder_key_hash == (
-            b'\x8ca\x94\xe0\x948\xed\x89\xd8\xd4N\x89p\t\xd6\xf9^_\xec}'
+            b"\x8ca\x94\xe0\x948\xed\x89\xd8\xd4N\x89p\t\xd6\xf9^_\xec}"
         )
         private_key.public_key().verify(
             resp.signature, resp.tbs_response_bytes, ec.ECDSA(hashes.SHA256())
@@ -507,10 +629,17 @@ class TestOCSPResponseBuilder(object):
         builder = builder.responder_id(
             ocsp.OCSPResponderEncoding.HASH, root_cert
         ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.GOOD,
+            this_update,
+            next_update,
+            None,
+            None,
         )
         from cryptography.hazmat.backends.openssl.backend import backend
+
         diff_key = ec.generate_private_key(ec.SECP256R1(), backend)
         with pytest.raises(ValueError):
             builder.sign(diff_key, hashes.SHA256())
@@ -522,13 +651,19 @@ class TestOCSPResponseBuilder(object):
         current_time = datetime.datetime.utcnow().replace(microsecond=0)
         this_update = current_time - datetime.timedelta(days=1)
         next_update = this_update + datetime.timedelta(days=7)
-        builder = builder.responder_id(
-            ocsp.OCSPResponderEncoding.HASH, root_cert
-        ).add_response(
-            cert, issuer, hashes.SHA1(), ocsp.OCSPCertStatus.GOOD, this_update,
-            next_update, None, None
-        ).add_extension(
-            x509.OCSPNonce(b"012345"), False
+        builder = (
+            builder.responder_id(ocsp.OCSPResponderEncoding.HASH, root_cert)
+            .add_response(
+                cert,
+                issuer,
+                hashes.SHA1(),
+                ocsp.OCSPCertStatus.GOOD,
+                this_update,
+                next_update,
+                None,
+                None,
+            )
+            .add_extension(x509.OCSPNonce(b"012345"), False)
         )
         resp = builder.sign(private_key, hashes.SHA256())
         assert len(resp.extensions) == 1
@@ -546,7 +681,7 @@ class TestOCSPResponseBuilder(object):
             (ocsp.OCSPResponseStatus.TRY_LATER, b"0\x03\n\x01\x03"),
             (ocsp.OCSPResponseStatus.SIG_REQUIRED, b"0\x03\n\x01\x05"),
             (ocsp.OCSPResponseStatus.UNAUTHORIZED, b"0\x03\n\x01\x06"),
-        ]
+        ],
     )
     def test_build_non_successful_statuses(self, status, der):
         resp = ocsp.OCSPResponseBuilder.build_unsuccessful(status)
@@ -564,6 +699,92 @@ class TestOCSPResponseBuilder(object):
             )
 
 
+class TestSignedCertificateTimestampsExtension(object):
+    def test_init(self):
+        with pytest.raises(TypeError):
+            x509.SignedCertificateTimestamps([object()])
+
+    def test_repr(self):
+        assert repr(x509.SignedCertificateTimestamps([])) == (
+            "<SignedCertificateTimestamps([])>"
+        )
+
+    @pytest.mark.supported(
+        only_if=lambda backend: (backend._lib.Cryptography_HAS_SCT),
+        skip_message="Requires CT support",
+    )
+    def test_eq(self, backend):
+        sct1 = (
+            _load_data(
+                os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+                ocsp.load_der_ocsp_response,
+            )
+            .single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+            .value
+        )
+        sct2 = (
+            _load_data(
+                os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+                ocsp.load_der_ocsp_response,
+            )
+            .single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+            .value
+        )
+        assert sct1 == sct2
+
+    @pytest.mark.supported(
+        only_if=lambda backend: (backend._lib.Cryptography_HAS_SCT),
+        skip_message="Requires CT support",
+    )
+    def test_ne(self, backend):
+        sct1 = (
+            _load_data(
+                os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+                ocsp.load_der_ocsp_response,
+            )
+            .single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+            .value
+        )
+        sct2 = x509.SignedCertificateTimestamps([])
+        assert sct1 != sct2
+        assert sct1 != object()
+
+    @pytest.mark.supported(
+        only_if=lambda backend: (backend._lib.Cryptography_HAS_SCT),
+        skip_message="Requires CT support",
+    )
+    def test_hash(self, backend):
+        sct1 = (
+            _load_data(
+                os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+                ocsp.load_der_ocsp_response,
+            )
+            .single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+            .value
+        )
+        sct2 = (
+            _load_data(
+                os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+                ocsp.load_der_ocsp_response,
+            )
+            .single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+            .value
+        )
+        sct3 = x509.SignedCertificateTimestamps([])
+        assert hash(sct1) == hash(sct2)
+        assert hash(sct1) != hash(sct3)
+
+
 class TestOCSPResponse(object):
     def test_bad_response(self):
         with pytest.raises(ValueError):
@@ -575,14 +796,17 @@ class TestOCSPResponse(object):
             ocsp.load_der_ocsp_response,
         )
         from cryptography.hazmat.backends.openssl.backend import backend
+
         issuer = _load_cert(
             os.path.join("x509", "letsencryptx3.pem"),
             x509.load_pem_x509_certificate,
-            backend
+            backend,
         )
         assert resp.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL
-        assert (resp.signature_algorithm_oid ==
-                x509.SignatureAlgorithmOID.RSA_WITH_SHA256)
+        assert (
+            resp.signature_algorithm_oid
+            == x509.SignatureAlgorithmOID.RSA_WITH_SHA256
+        )
         assert isinstance(resp.signature_hash_algorithm, hashes.SHA256)
         assert resp.signature == base64.b64decode(
             b"I9KUlyLV/2LbNCVu1BQphxdNlU/jBzXsPYVscPjW5E93pCrSO84GkIWoOJtqsnt"
@@ -603,7 +827,7 @@ class TestOCSPResponse(object):
             resp.signature,
             resp.tbs_response_bytes,
             PKCS1v15(),
-            resp.signature_hash_algorithm
+            resp.signature_hash_algorithm,
         )
         assert resp.certificates == []
         assert resp.responder_key_hash is None
@@ -615,14 +839,21 @@ class TestOCSPResponse(object):
         assert resp.this_update == datetime.datetime(2018, 8, 30, 11, 0)
         assert resp.next_update == datetime.datetime(2018, 9, 6, 11, 0)
         assert resp.issuer_key_hash == (
-            b'\xa8Jjc\x04}\xdd\xba\xe6\xd19\xb7\xa6Ee\xef\xf3\xa8\xec\xa1'
+            b"\xa8Jjc\x04}\xdd\xba\xe6\xd19\xb7\xa6Ee\xef\xf3\xa8\xec\xa1"
         )
         assert resp.issuer_name_hash == (
-            b'~\xe6j\xe7r\x9a\xb3\xfc\xf8\xa2 dl\x16\xa1-`q\x08]'
+            b"~\xe6j\xe7r\x9a\xb3\xfc\xf8\xa2 dl\x16\xa1-`q\x08]"
         )
         assert isinstance(resp.hash_algorithm, hashes.SHA1)
         assert resp.serial_number == 271024907440004808294641238224534273948400
         assert len(resp.extensions) == 0
+
+    def test_load_multi_valued_response(self):
+        with pytest.raises(ValueError):
+            _load_data(
+                os.path.join("x509", "ocsp", "ocsp-army.deps.mil-resp.der"),
+                ocsp.load_der_ocsp_response,
+            )
 
     def test_load_unauthorized(self):
         resp = _load_data(
@@ -705,7 +936,7 @@ class TestOCSPResponse(object):
         )
         assert resp.responder_name is None
         assert resp.responder_key_hash == (
-            b'\x0f\x80a\x1c\x821a\xd5/(\xe7\x8dF8\xb4,\xe1\xc6\xd9\xe2'
+            b"\x0f\x80a\x1c\x821a\xd5/(\xe7\x8dF8\xb4,\xe1\xc6\xd9\xe2"
         )
 
     def test_load_revoked_reason(self):
@@ -739,7 +970,7 @@ class TestOCSPResponse(object):
         resp_bytes = load_vectors_from_file(
             filename=os.path.join("x509", "ocsp", "resp-revoked.der"),
             loader=lambda data: data.read(),
-            mode="rb"
+            mode="rb",
         )
         resp = ocsp.load_der_ocsp_response(resp_bytes)
         assert resp.public_bytes(serialization.Encoding.DER) == resp_bytes
@@ -753,3 +984,161 @@ class TestOCSPResponse(object):
             resp.public_bytes("invalid")
         with pytest.raises(ValueError):
             resp.public_bytes(serialization.Encoding.PEM)
+
+    @pytest.mark.supported(
+        only_if=lambda backend: (backend._lib.Cryptography_HAS_SCT),
+        skip_message="Requires CT support",
+    )
+    def test_single_extensions_sct(self, backend):
+        resp = _load_data(
+            os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+            ocsp.load_der_ocsp_response,
+        )
+        assert len(resp.single_extensions) == 1
+        ext = resp.single_extensions[0]
+        assert ext.oid == x509.ObjectIdentifier("1.3.6.1.4.1.11129.2.4.5")
+        assert len(ext.value) == 4
+        log_ids = [base64.b64encode(sct.log_id) for sct in ext.value]
+        assert log_ids == [
+            b"RJRlLrDuzq/EQAfYqP4owNrmgr7YyzG1P9MzlrW2gag=",
+            b"b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=",
+            b"u9nfvB+KcbWTlCOXqpJ7RzhXlQqrUugakJZkNo4e0YU=",
+            b"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=",
+        ]
+
+    @pytest.mark.supported(
+        only_if=lambda backend: (
+            not backend._lib.CRYPTOGRAPHY_OPENSSL_110F_OR_GREATER
+        ),
+        skip_message="Requires OpenSSL < 1.1.0f",
+    )
+    def test_skips_single_extensions_scts_if_unsupported(self, backend):
+        resp = _load_data(
+            os.path.join("x509", "ocsp", "resp-sct-extension.der"),
+            ocsp.load_der_ocsp_response,
+        )
+        with pytest.raises(x509.ExtensionNotFound):
+            resp.single_extensions.get_extension_for_class(
+                x509.SignedCertificateTimestamps
+            )
+
+        ext = resp.single_extensions.get_extension_for_oid(
+            x509.ExtensionOID.SIGNED_CERTIFICATE_TIMESTAMPS
+        )
+        assert isinstance(ext.value, x509.UnrecognizedExtension)
+
+    def test_single_extensions(self, backend):
+        resp = _load_data(
+            os.path.join("x509", "ocsp", "resp-single-extension-reason.der"),
+            ocsp.load_der_ocsp_response,
+        )
+        assert len(resp.single_extensions) == 1
+        ext = resp.single_extensions[0]
+        assert ext.oid == x509.CRLReason.oid
+        assert ext.value == x509.CRLReason(x509.ReasonFlags.unspecified)
+
+
+class TestOCSPEdDSA(object):
+    @pytest.mark.supported(
+        only_if=lambda backend: backend.ed25519_supported(),
+        skip_message="Requires OpenSSL with Ed25519 support / OCSP",
+    )
+    def test_invalid_algorithm(self, backend):
+        builder = ocsp.OCSPResponseBuilder()
+        cert, issuer = _cert_and_issuer()
+        private_key = ed25519.Ed25519PrivateKey.generate()
+        root_cert, _ = _generate_root(private_key, None)
+        current_time = datetime.datetime.utcnow().replace(microsecond=0)
+        this_update = current_time - datetime.timedelta(days=1)
+        next_update = this_update + datetime.timedelta(days=7)
+        revoked_date = this_update - datetime.timedelta(days=300)
+        builder = builder.responder_id(
+            ocsp.OCSPResponderEncoding.NAME, root_cert
+        ).add_response(
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            next_update,
+            revoked_date,
+            x509.ReasonFlags.key_compromise,
+        )
+        with pytest.raises(ValueError):
+            builder.sign(private_key, hashes.SHA256())
+
+    @pytest.mark.supported(
+        only_if=lambda backend: backend.ed25519_supported(),
+        skip_message="Requires OpenSSL with Ed25519 support / OCSP",
+    )
+    def test_sign_ed25519(self, backend):
+        builder = ocsp.OCSPResponseBuilder()
+        cert, issuer = _cert_and_issuer()
+        private_key = ed25519.Ed25519PrivateKey.generate()
+        root_cert, _ = _generate_root(private_key, None)
+        current_time = datetime.datetime.utcnow().replace(microsecond=0)
+        this_update = current_time - datetime.timedelta(days=1)
+        next_update = this_update + datetime.timedelta(days=7)
+        revoked_date = this_update - datetime.timedelta(days=300)
+        builder = builder.responder_id(
+            ocsp.OCSPResponderEncoding.NAME, root_cert
+        ).add_response(
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            next_update,
+            revoked_date,
+            x509.ReasonFlags.key_compromise,
+        )
+        resp = builder.sign(private_key, None)
+        assert resp.certificate_status == ocsp.OCSPCertStatus.REVOKED
+        assert resp.revocation_time == revoked_date
+        assert resp.revocation_reason is x509.ReasonFlags.key_compromise
+        assert resp.this_update == this_update
+        assert resp.next_update == next_update
+        assert resp.signature_hash_algorithm is None
+        assert (
+            resp.signature_algorithm_oid == x509.SignatureAlgorithmOID.ED25519
+        )
+        private_key.public_key().verify(
+            resp.signature, resp.tbs_response_bytes
+        )
+
+    @pytest.mark.supported(
+        only_if=lambda backend: backend.ed448_supported(),
+        skip_message="Requires OpenSSL with Ed448 support / OCSP",
+    )
+    def test_sign_ed448(self, backend):
+        builder = ocsp.OCSPResponseBuilder()
+        cert, issuer = _cert_and_issuer()
+        private_key = ed448.Ed448PrivateKey.generate()
+        root_cert, _ = _generate_root(private_key, None)
+        current_time = datetime.datetime.utcnow().replace(microsecond=0)
+        this_update = current_time - datetime.timedelta(days=1)
+        next_update = this_update + datetime.timedelta(days=7)
+        revoked_date = this_update - datetime.timedelta(days=300)
+        builder = builder.responder_id(
+            ocsp.OCSPResponderEncoding.NAME, root_cert
+        ).add_response(
+            cert,
+            issuer,
+            hashes.SHA1(),
+            ocsp.OCSPCertStatus.REVOKED,
+            this_update,
+            next_update,
+            revoked_date,
+            x509.ReasonFlags.key_compromise,
+        )
+        resp = builder.sign(private_key, None)
+        assert resp.certificate_status == ocsp.OCSPCertStatus.REVOKED
+        assert resp.revocation_time == revoked_date
+        assert resp.revocation_reason is x509.ReasonFlags.key_compromise
+        assert resp.this_update == this_update
+        assert resp.next_update == next_update
+        assert resp.signature_hash_algorithm is None
+        assert resp.signature_algorithm_oid == x509.SignatureAlgorithmOID.ED448
+        private_key.public_key().verify(
+            resp.signature, resp.tbs_response_bytes
+        )

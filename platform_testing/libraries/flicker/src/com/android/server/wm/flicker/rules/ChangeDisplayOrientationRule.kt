@@ -19,10 +19,12 @@ package com.android.server.wm.flicker.rules
 import android.app.Instrumentation
 import android.content.Context
 import android.os.RemoteException
+import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import com.android.server.wm.flicker.FLICKER_TAG
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
@@ -34,6 +36,8 @@ data class ChangeDisplayOrientationRule @JvmOverloads constructor(
     private var initialOrientation = -1
 
     override fun starting(description: Description?) {
+        Log.v(FLICKER_TAG, "Changing display orientation to " +
+            "$targetOrientation ${Surface.rotationToString(targetOrientation)}")
         val wm = instrumentation.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         initialOrientation = wm.defaultDisplay.rotation
         setRotation(targetOrientation, instrumentation)

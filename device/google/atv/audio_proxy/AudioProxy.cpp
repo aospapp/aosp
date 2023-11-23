@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define LOG_TAG "audio_proxy_client"
-
-#include <utils/Log.h>
+#include <android-base/logging.h>
 
 #include "AudioProxyManager.h"
 #include "public/audio_proxy.h"
@@ -33,13 +31,13 @@ class AudioProxyImpl {
   std::unique_ptr<audio_proxy::AudioProxyManager> mManager;
 };
 
-AudioProxyImpl::AudioProxyImpl() {
-  mManager = audio_proxy::V5_1::createAudioProxyManager();
-  ALOGE_IF(!mManager, "Failed to create audio proxy manager");
+AudioProxyImpl::AudioProxyImpl()
+    : mManager(audio_proxy::createAudioProxyManager()) {
+  DCHECK(mManager);
 }
 
 bool AudioProxyImpl::registerDevice(audio_proxy_device_t* device) {
-  return mManager && mManager->registerDevice(device);
+  return mManager->registerDevice(device);
 }
 
 // static

@@ -33,6 +33,7 @@
 #include <OMX_Video.h>
 #include <OMX_VideoExt.h>
 #include <OMX_AsString.h>
+#include <SurfaceFlingerProperties.sysprop.h>
 
 #include <android/hardware/media/omx/1.0/IOmx.h>
 #include <android/hardware/media/omx/1.0/IOmxObserver.h>
@@ -54,6 +55,9 @@ namespace android {
 
 using Traits = C2Component::Traits;
 
+// HAL pixel format -> framework color format
+typedef std::map<uint32_t, int32_t> PixelFormatMap;
+
 namespace /* unnamed */ {
 
 bool hasPrefix(const std::string& s, const char* prefix) {
@@ -65,6 +69,26 @@ bool hasSuffix(const std::string& s, const char* suffix) {
     size_t suffixLen = strlen(suffix);
     return suffixLen > s.size() ? false :
             s.compare(s.size() - suffixLen, suffixLen, suffix) == 0;
+}
+
+std::optional<int32_t> findFrameworkColorFormat(
+        const C2FlexiblePixelFormatDescriptorStruct &desc) {
+    switch (desc.bitDepth) {
+        case 8u:
+            if (desc.layout == C2Color::PLANAR_PACKED
+                    || desc.layout == C2Color::SEMIPLANAR_PACKED) {
+                return COLOR_FormatYUV420Flexible;
+            }
+            break;
+        case 10u:
+            if (desc.layout == C2Color::SEMIPLANAR_PACKED) {
+                return COLOR_FormatYUVP010;
+            }
+            break;
+        default:
+            break;
+    }
+    return std::nullopt;
 }
 
 // returns true if component advertised supported profile level(s)
@@ -96,9 +120,12 @@ bool addSupportedProfileLevels(
         return false;
     }
 
-    // determine if codec supports HDR
+    // determine if codec supports HDR; imply 10-bit support
     bool supportsHdr = false;
+    // determine if codec supports HDR10Plus; imply 10-bit support
     bool supportsHdr10Plus = false;
+    // determine if codec supports 10-bit format
+    bool supports10Bit = false;
 
     std::vector<std::shared_ptr<C2ParamDescriptor>> paramDescs;
     c2_status_t err1 = intf->querySupportedParams(&paramDescs);
@@ -110,7 +137,9 @@ bool addSupportedProfileLevels(
                 continue;
             }
             switch (type.coreIndex()) {
-            case C2StreamHdr10PlusInfo::CORE_INDEX:
+            case C2StreamHdrDynamicMetadataInfo::CORE_INDEX:
+                [[fallthrough]];
+            case C2StreamHdr10PlusInfo::CORE_INDEX:  // will be deprecated
                 supportsHdr10Plus = true;
                 break;
             case C2StreamHdrStaticInfo::CORE_INDEX:
@@ -122,9 +151,21 @@ bool addSupportedProfileLevels(
         }
     }
 
-    // For VP9/AV1, the static info is always propagated by framework.
+    // VP9 does not support HDR metadata in the bitstream and static metadata
+    // can always be carried by the framework. (The framework does not propagate
+    // dynamic metadata as that needs to be frame accurate.)
     supportsHdr |= (mediaType == MIMETYPE_VIDEO_VP9);
-    supportsHdr |= (mediaType == MIMETYPE_VIDEO_AV1);
+
+    // HDR support implies 10-bit support. AV1 codecs are also required to
+    // support 10-bit per CDD.
+    // TODO: directly check this from the component interface
+    supports10Bit = (supportsHdr || supportsHdr10Plus) || (mediaType == MIMETYPE_VIDEO_AV1);
+
+    // If the device doesn't support HDR display, then no codec on the device
+    // can advertise support for HDR profiles.
+    // Default to true to maintain backward compatibility
+    auto ret = sysprop::SurfaceFlingerProperties::has_HDR_display();
+    bool hasHDRDisplay = ret.has_value() ? *ret : true;
 
     bool added = false;
 
@@ -151,8 +192,8 @@ bool addSupportedProfileLevels(
         if (mapper && mapper->mapProfile(pl.profile, &sdkProfile)
                 && mapper->mapLevel(pl.level, &sdkLevel)) {
             caps->addProfileLevel((uint32_t)sdkProfile, (uint32_t)sdkLevel);
-            // also list HDR profiles if component supports HDR
-            if (supportsHdr) {
+            // also list HDR profiles if component supports HDR and device has HDR display
+            if (supportsHdr && hasHDRDisplay) {
                 auto hdrMapper = C2Mapper::GetHdrProfileLevelMapper(trait.mediaType);
                 if (hdrMapper && hdrMapper->mapProfile(pl.profile, &sdkProfile)) {
                     caps->addProfileLevel((uint32_t)sdkProfile, (uint32_t)sdkLevel);
@@ -163,6 +204,12 @@ bool addSupportedProfileLevels(
                     if (hdrMapper && hdrMapper->mapProfile(pl.profile, &sdkProfile)) {
                         caps->addProfileLevel((uint32_t)sdkProfile, (uint32_t)sdkLevel);
                     }
+                }
+            }
+            if (supports10Bit) {
+                auto bitnessMapper = C2Mapper::GetBitDepthProfileLevelMapper(trait.mediaType, 10);
+                if (bitnessMapper && bitnessMapper->mapProfile(pl.profile, &sdkProfile)) {
+                    caps->addProfileLevel((uint32_t)sdkProfile, (uint32_t)sdkLevel);
                 }
             }
         } else if (!mapper) {
@@ -198,27 +245,78 @@ bool addSupportedProfileLevels(
 void addSupportedColorFormats(
         std::shared_ptr<Codec2Client::Interface> intf,
         MediaCodecInfo::CapabilitiesWriter *caps,
-        const Traits& trait, const std::string &mediaType) {
-    (void)intf;
-
+        const Traits& trait, const std::string &mediaType,
+        const PixelFormatMap &pixelFormatMap) {
     // TODO: get this from intf() as well, but how do we map them to
     // MediaCodec color formats?
     bool encoder = trait.kind == C2Component::KIND_ENCODER;
     if (mediaType.find("video") != std::string::npos
             || mediaType.find("image") != std::string::npos) {
+
+        std::vector<C2FieldSupportedValuesQuery> query;
+        if (encoder) {
+            C2StreamPixelFormatInfo::input pixelFormat;
+            query.push_back(C2FieldSupportedValuesQuery::Possible(
+                    C2ParamField::Make(pixelFormat, pixelFormat.value)));
+        } else {
+            C2StreamPixelFormatInfo::output pixelFormat;
+            query.push_back(C2FieldSupportedValuesQuery::Possible(
+                    C2ParamField::Make(pixelFormat, pixelFormat.value)));
+        }
+        std::list<int32_t> supportedColorFormats;
+        if (intf->querySupportedValues(query, C2_DONT_BLOCK) == C2_OK) {
+            if (query[0].status == C2_OK) {
+                const C2FieldSupportedValues &fsv = query[0].values;
+                if (fsv.type == C2FieldSupportedValues::VALUES) {
+                    for (C2Value::Primitive value : fsv.values) {
+                        auto it = pixelFormatMap.find(value.u32);
+                        if (it != pixelFormatMap.end()) {
+                            auto it2 = std::find(
+                                    supportedColorFormats.begin(),
+                                    supportedColorFormats.end(),
+                                    it->second);
+                            if (it2 == supportedColorFormats.end()) {
+                                supportedColorFormats.push_back(it->second);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        auto addDefaultColorFormat = [caps, &supportedColorFormats](int32_t colorFormat) {
+            caps->addColorFormat(colorFormat);
+            auto it = std::find(
+                    supportedColorFormats.begin(), supportedColorFormats.end(), colorFormat);
+            if (it != supportedColorFormats.end()) {
+                supportedColorFormats.erase(it);
+            }
+        };
+
+        // The color format is ordered by preference. The intention here is to advertise:
+        //   c2.android.* codecs: YUV420s, Surface, <the rest>
+        //   all other codecs:    Surface, YUV420s, <the rest>
+        // TODO: get this preference via Codec2 API
+
         // vendor video codecs prefer opaque format
         if (trait.name.find("android") == std::string::npos) {
-            caps->addColorFormat(COLOR_FormatSurface);
+            addDefaultColorFormat(COLOR_FormatSurface);
         }
-        caps->addColorFormat(COLOR_FormatYUV420Flexible);
-        caps->addColorFormat(COLOR_FormatYUV420Planar);
-        caps->addColorFormat(COLOR_FormatYUV420SemiPlanar);
-        caps->addColorFormat(COLOR_FormatYUV420PackedPlanar);
-        caps->addColorFormat(COLOR_FormatYUV420PackedSemiPlanar);
-        // framework video encoders must support surface format, though it is unclear
-        // that they will be able to map it if it is opaque
-        if (encoder && trait.name.find("android") != std::string::npos) {
-            caps->addColorFormat(COLOR_FormatSurface);
+        addDefaultColorFormat(COLOR_FormatYUV420Flexible);
+        addDefaultColorFormat(COLOR_FormatYUV420Planar);
+        addDefaultColorFormat(COLOR_FormatYUV420SemiPlanar);
+        addDefaultColorFormat(COLOR_FormatYUV420PackedPlanar);
+        addDefaultColorFormat(COLOR_FormatYUV420PackedSemiPlanar);
+        // Android video codecs prefer CPU-readable formats
+        if (trait.name.find("android") != std::string::npos) {
+            addDefaultColorFormat(COLOR_FormatSurface);
+        }
+
+        static const int kVendorSdkVersion = ::android::base::GetIntProperty(
+                "ro.vendor.build.version.sdk", android_get_device_api_level());
+        if (kVendorSdkVersion >= __ANDROID_API_T__) {
+            for (int32_t colorFormat : supportedColorFormats) {
+                caps->addColorFormat(colorFormat);
+            }
         }
     }
 }
@@ -410,6 +508,7 @@ status_t Codec2InfoBuilder::buildMediaCodecList(MediaCodecListWriter* writer) {
         }
     }
 
+    std::map<std::string, PixelFormatMap> nameToPixelFormatMap;
     for (const Traits& trait : traits) {
         C2Component::rank_t rank = trait.rank;
 
@@ -423,8 +522,9 @@ status_t Codec2InfoBuilder::buildMediaCodecList(MediaCodecListWriter* writer) {
         nameAndAliases.insert(nameAndAliases.begin(), trait.name);
         for (const std::string &nameOrAlias : nameAndAliases) {
             bool isAlias = trait.name != nameOrAlias;
+            std::shared_ptr<Codec2Client> client;
             std::shared_ptr<Codec2Client::Interface> intf =
-                Codec2Client::CreateInterfaceByName(nameOrAlias.c_str());
+                Codec2Client::CreateInterfaceByName(nameOrAlias.c_str(), &client);
             if (!intf) {
                 ALOGD("could not create interface for %s'%s'",
                         isAlias ? "alias " : "",
@@ -618,7 +718,40 @@ status_t Codec2InfoBuilder::buildMediaCodecList(MediaCodecListWriter* writer) {
                         caps->addProfileLevel(VP8ProfileMain, VP8Level_Version0);
                     }
                 }
-                addSupportedColorFormats(intf, caps.get(), trait, mediaType);
+
+                auto it = nameToPixelFormatMap.find(client->getServiceName());
+                if (it == nameToPixelFormatMap.end()) {
+                    it = nameToPixelFormatMap.try_emplace(client->getServiceName()).first;
+                    PixelFormatMap &pixelFormatMap = it->second;
+                    pixelFormatMap[HAL_PIXEL_FORMAT_YCBCR_420_888] = COLOR_FormatYUV420Flexible;
+                    pixelFormatMap[HAL_PIXEL_FORMAT_YCBCR_P010]    = COLOR_FormatYUVP010;
+                    pixelFormatMap[HAL_PIXEL_FORMAT_RGBA_1010102]  = COLOR_Format32bitABGR2101010;
+                    pixelFormatMap[HAL_PIXEL_FORMAT_RGBA_FP16]     = COLOR_Format64bitABGRFloat;
+
+                    std::shared_ptr<C2StoreFlexiblePixelFormatDescriptorsInfo> pixelFormatInfo;
+                    std::vector<std::unique_ptr<C2Param>> heapParams;
+                    if (client->query(
+                                {},
+                                {C2StoreFlexiblePixelFormatDescriptorsInfo::PARAM_TYPE},
+                                C2_MAY_BLOCK,
+                                &heapParams) == C2_OK
+                            && heapParams.size() == 1u) {
+                        pixelFormatInfo.reset(C2StoreFlexiblePixelFormatDescriptorsInfo::From(
+                                heapParams[0].release()));
+                    }
+                    if (pixelFormatInfo && *pixelFormatInfo) {
+                        for (size_t i = 0; i < pixelFormatInfo->flexCount(); ++i) {
+                            C2FlexiblePixelFormatDescriptorStruct &desc =
+                                pixelFormatInfo->m.values[i];
+                            std::optional<int32_t> colorFormat = findFrameworkColorFormat(desc);
+                            if (colorFormat) {
+                                pixelFormatMap[desc.pixelFormat] = *colorFormat;
+                            }
+                        }
+                    }
+                }
+                addSupportedColorFormats(
+                        intf, caps.get(), trait, mediaType, it->second);
             }
         }
     }

@@ -116,6 +116,18 @@ TEST(cmd_debug_unwind, unwind_sample_in_unwinding_debug_info_file) {
   ASSERT_NE(output.find("symbol_5: android.os.Handler.post"), std::string::npos) << output;
 }
 
+TEST(cmd_debug_unwind, skip_sample_print_option) {
+  std::string input_data = GetTestData(PERF_DATA_NO_UNWIND);
+  CaptureStdout capture;
+
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "--unwind-sample", "--skip-sample-print"}));
+
+  std::string output = capture.Finish();
+  ASSERT_EQ(output.find("sample_time:"), std::string::npos);
+  ASSERT_NE(output.find("unwinding_sample_count: 8"), std::string::npos);
+}
+
 TEST(cmd_debug_unwind, generate_test_file) {
   TemporaryFile tmpfile;
   close(tmpfile.release());
@@ -155,4 +167,14 @@ TEST(cmd_debug_unwind, generate_report) {
   ASSERT_TRUE(android::base::ReadFileToString(tmpfile.path, &output));
   ASSERT_NE(output.find("unwinding_error_code: 4"), std::string::npos);
   ASSERT_NE(output.find("symbol_2: android.os.Handler.enqueueMessage"), std::string::npos);
+}
+
+TEST(cmd_debug_unwind, unwind_sample_for_small_map_range) {
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run(
+      {"-i", GetTestData("debug_unwind_small_map_range.data"), "--unwind-sample"}));
+  std::string output = capture.Finish();
+  ASSERT_NE(output.find("dso_3: /apex/com.android.art/lib64/libart.so"), std::string::npos)
+      << output;
 }

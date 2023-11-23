@@ -30,8 +30,10 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Message;
 import android.telephony.CarrierConfigManager;
+import android.telephony.CellInfo;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsMmTelManager;
@@ -59,6 +61,7 @@ public class IwlanEventListenerTest {
     @Mock private ContentResolver mMockContentResolver;
     @Mock private ImsManager mMockImsManager;
     @Mock private ImsMmTelManager mMockImsMmTelManager;
+    @Mock private TelephonyManager mMockTelephonyManager;
 
     private static final int DEFAULT_SLOT_INDEX = 0;
     private static final int DEFAULT_CARRIER_INDEX = 0;
@@ -80,6 +83,7 @@ public class IwlanEventListenerTest {
                 mockitoSession()
                         .mockStatic(IwlanHelper.class)
                         .mockStatic(SubscriptionManager.class)
+                        .mockStatic(TelephonyManager.class)
                         .startMocking();
 
         when(mMockContext.getSystemService(eq(WifiManager.class))).thenReturn(mMockWifiManager);
@@ -100,6 +104,12 @@ public class IwlanEventListenerTest {
         when(mMockImsManager.getImsMmTelManager(eq(2))).thenReturn(mMockImsMmTelManager);
 
         when(mMockContext.getSystemService(eq(ImsManager.class))).thenReturn(mMockImsManager);
+
+        when(mMockContext.getSystemService(eq(TelephonyManager.class)))
+                .thenReturn(mMockTelephonyManager);
+
+        when(mMockTelephonyManager.createForSubscriptionId(eq(0)))
+                .thenReturn(mMockTelephonyManager);
 
         mIwlanEventListener = IwlanEventListener.getInstance(mMockContext, DEFAULT_SLOT_INDEX);
     }
@@ -145,7 +155,7 @@ public class IwlanEventListenerTest {
                 .thenReturn(true);
 
         // Trigger CROSS_SIM_CALLING_ENABLE_EVENT when cross sim calling setting is enabled
-        mIwlanEventListener.getCurrentUriSetting(CROSS_SIM_URI);
+        mIwlanEventListener.notifyCurrentSetting(CROSS_SIM_URI);
         verify(mMockMessage, times(1)).sendToTarget();
     }
 
@@ -166,7 +176,7 @@ public class IwlanEventListenerTest {
                 .thenReturn(false);
 
         // Trigger CROSS_SIM_CALLING_DISABLE_EVENT when cross sim calling setting is disabled
-        mIwlanEventListener.getCurrentUriSetting(CROSS_SIM_URI);
+        mIwlanEventListener.notifyCurrentSetting(CROSS_SIM_URI);
         verify(mMockMessage, times(1)).sendToTarget();
     }
 
@@ -218,10 +228,33 @@ public class IwlanEventListenerTest {
         mIwlanEventListener.addEventListener(events, mMockHandler);
         mIwlanEventListener.setWfcEnabledUri(WFC_ENABLED_URI);
 
-        mIwlanEventListener.getCurrentUriSetting(WFC_ENABLED_URI);
+        mIwlanEventListener.notifyCurrentSetting(WFC_ENABLED_URI);
         verify(mMockMessage, times(1)).sendToTarget();
 
-        mIwlanEventListener.getCurrentUriSetting(WFC_ENABLED_URI);
+        mIwlanEventListener.notifyCurrentSetting(WFC_ENABLED_URI);
         verify(mMockMessage_2, times(1)).sendToTarget();
+    }
+
+    @Test
+    public void testCellInfoChanged() throws Exception {
+        List<CellInfo> arrayCi = new ArrayList<>();
+        lenient()
+                .when(IwlanHelper.getSubId(eq(mMockContext), eq(DEFAULT_SLOT_INDEX)))
+                .thenReturn(0);
+
+        when(mMockHandler.obtainMessage(eq(IwlanEventListener.CELLINFO_CHANGED_EVENT), eq(arrayCi)))
+                .thenReturn(mMockMessage);
+
+        events = new ArrayList<Integer>();
+        events.add(IwlanEventListener.CELLINFO_CHANGED_EVENT);
+        mIwlanEventListener.addEventListener(events, mMockHandler);
+
+        mIwlanEventListener.registerTelephonyCallback();
+
+        TelephonyCallback.CellInfoListener mTelephonyCallback =
+                mIwlanEventListener.getTelephonyCallback();
+        mTelephonyCallback.onCellInfoChanged(arrayCi);
+
+        verify(mMockMessage, times(1)).sendToTarget();
     }
 }

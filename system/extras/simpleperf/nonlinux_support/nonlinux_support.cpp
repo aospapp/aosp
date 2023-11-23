@@ -31,7 +31,8 @@ bool CanRecordRawData() {
   return false;
 }
 
-bool ReadSymbolsFromDexFileInMemory(void*, uint64_t, const std::vector<uint64_t>&,
+bool ReadSymbolsFromDexFileInMemory(void*, uint64_t, const std::string&,
+                                    const std::vector<uint64_t>&,
                                     const std::function<void(DexFileSymbol*)>&) {
   return true;
 }
@@ -55,6 +56,10 @@ class NoOpOfflineUnwinder : public OfflineUnwinder {
 
 std::unique_ptr<OfflineUnwinder> OfflineUnwinder::Create(bool) {
   return std::unique_ptr<OfflineUnwinder>(new NoOpOfflineUnwinder);
+}
+
+std::optional<uint32_t> GetProcessUid(pid_t) {
+  return std::nullopt;
 }
 
 }  // namespace simpleperf

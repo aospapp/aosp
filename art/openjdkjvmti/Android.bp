@@ -36,7 +36,6 @@ license {
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-GPL-2.0",
         "SPDX-license-identifier-GPL-with-classpath-exception",
     ],
     license_text: [
@@ -46,6 +45,7 @@ license {
 
 cc_library_headers {
     name: "libopenjdkjvmti_headers",
+    defaults: ["art_defaults"],
     visibility: ["//visibility:public"],
     header_libs: ["jni_headers"],
     host_supported: true,
@@ -58,7 +58,6 @@ cc_library_headers {
         "com.android.art",
         "com.android.art.debug",
     ],
-    min_sdk_version: "S",
 }
 
 cc_defaults {
@@ -69,7 +68,6 @@ cc_defaults {
         "alloc_manager.cc",
         "deopt_manager.cc",
         "events.cc",
-        "fixed_up_dex_file.cc",
         "object_tagging.cc",
         "OpenjdkJvmTi.cc",
         "ti_allocator.cc",

@@ -35,6 +35,10 @@ public abstract class AbstractExtendedMockitoCarServiceTestCase
 
     private static final boolean VERBOSE = false;
 
+    public AbstractExtendedMockitoCarServiceTestCase(String... logTags) {
+        super(logTags);
+    }
+
     /**
      * Mocks a call to {@link CarLocalServices#getService(Class)}.
      *

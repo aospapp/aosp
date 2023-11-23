@@ -17,7 +17,6 @@
 package com.android.cts.install.lib;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
 
@@ -26,7 +25,6 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
@@ -37,6 +35,8 @@ import android.os.SystemClock;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
@@ -44,7 +44,6 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Utilities to facilitate installation in tests.
@@ -86,67 +85,16 @@ public class InstallUtils {
         Context context = InstrumentationRegistry.getTargetContext();
         PackageManager pm = context.getPackageManager();
         try {
-            PackageInfo info = pm.getPackageInfo(packageName, PackageManager.MATCH_APEX);
-            return info.getLongVersionCode();
+            if (SdkLevel.isAtLeastT()) {
+                PackageInfo info = pm.getPackageInfo(packageName,
+                        PackageManager.PackageInfoFlags.of(PackageManager.MATCH_APEX));
+                return info.getLongVersionCode();
+            } else {
+                PackageInfo info = pm.getPackageInfo(packageName, PackageManager.MATCH_APEX);
+                return info.getLongVersionCode();
+            }
         } catch (PackageManager.NameNotFoundException e) {
             return -1;
-        }
-    }
-
-    /**
-     * Waits for the given session to be marked as ready or failed and returns it.
-     */
-    public static PackageInstaller.SessionInfo waitForSession(int sessionId) {
-        BlockingQueue<PackageInstaller.SessionInfo> sessionStatus = new LinkedBlockingQueue<>();
-        BroadcastReceiver sessionUpdatedReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                PackageInstaller.SessionInfo info =
-                        intent.getParcelableExtra(PackageInstaller.EXTRA_SESSION);
-                if (info != null && info.getSessionId() == sessionId) {
-                    if (info.isStagedSessionReady() || info.isStagedSessionFailed()) {
-                        try {
-                            sessionStatus.put(info);
-                        } catch (InterruptedException e) {
-                            throw new AssertionError(e);
-                        }
-                    }
-                }
-            }
-        };
-        IntentFilter sessionUpdatedFilter =
-                new IntentFilter(PackageInstaller.ACTION_SESSION_UPDATED);
-
-        Context context = InstrumentationRegistry.getTargetContext();
-        context.registerReceiver(sessionUpdatedReceiver, sessionUpdatedFilter);
-
-        PackageInstaller installer = getPackageInstaller();
-        PackageInstaller.SessionInfo info = installer.getSessionInfo(sessionId);
-
-        try {
-            if (info.isStagedSessionReady() || info.isStagedSessionFailed()) {
-                sessionStatus.put(info);
-            }
-            info = sessionStatus.poll(60, TimeUnit.SECONDS);
-            context.unregisterReceiver(sessionUpdatedReceiver);
-            assertWithMessage("Timed out while waiting for session to get ready/failed")
-                    .that(info).isNotNull();
-            assertThat(info.getSessionId()).isEqualTo(sessionId);
-            return info;
-        } catch (InterruptedException e) {
-            throw new AssertionError(e);
-        }
-    }
-
-    /**
-     * Waits for the given session to be marked as ready.
-     * Throws an assertion if the session fails.
-     */
-    public static void waitForSessionReady(int sessionId) {
-        PackageInstaller.SessionInfo info = waitForSession(sessionId);
-        // TODO: migrate to PackageInstallerSessionInfoSubject
-        if (info.isStagedSessionFailed()) {
-            throw new AssertionError(info.getStagedSessionErrorMessage());
         }
     }
 
@@ -157,7 +105,12 @@ public class InstallUtils {
         Context context = InstrumentationRegistry.getTargetContext();
         PackageManager pm = context.getPackageManager();
         try {
-            return pm.getPackageInfo(packageName, PackageManager.MATCH_APEX);
+            if (SdkLevel.isAtLeastT()) {
+                return pm.getPackageInfo(packageName,
+                        PackageManager.PackageInfoFlags.of(PackageManager.MATCH_APEX));
+            } else {
+                return pm.getPackageInfo(packageName, PackageManager.MATCH_APEX);
+            }
         } catch (PackageManager.NameNotFoundException e) {
             return null;
         }
@@ -378,7 +331,8 @@ public class InstallUtils {
         for (int userId: userIds) {
             List<PackageInfo> installedPackages;
             if (userId != userIdToCheck) {
-                installedPackages = pm.getInstalledPackagesAsUser(PackageManager.MATCH_APEX,
+                installedPackages = pm.getInstalledPackagesAsUser(
+                        PackageManager.PackageInfoFlags.of(PackageManager.MATCH_APEX),
                         userId);
                 for (PackageInfo pi : installedPackages) {
                     if (pi.packageName.equals(packageName)) {

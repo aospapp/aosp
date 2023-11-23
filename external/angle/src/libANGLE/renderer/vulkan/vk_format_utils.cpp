@@ -11,7 +11,6 @@
 #include "libANGLE/Texture.h"
 #include "libANGLE/formatutils.h"
 #include "libANGLE/renderer/load_functions_table.h"
-#include "libANGLE/renderer/load_texture_border_functions_table.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
 #include "libANGLE/renderer/vulkan/vk_caps_utils.h"
@@ -248,6 +247,23 @@ void FormatTable::initialize(RendererVk *renderer,
         format.initialize(renderer, intendedAngleFormat);
         format.mIntendedFormatID = intendedFormatID;
 
+        if (!format.valid())
+        {
+            continue;
+        }
+
+        // No sample-able or render-able formats, so nothing left to do. This includes skipping the
+        // rest of the loop for buffer-only formats, since they are not texturable.
+        if (format.mActualSampleOnlyImageFormatID == angle::FormatID::NONE)
+        {
+            continue;
+        }
+
+        if (intendedAngleFormat.isBlock)
+        {
+            outCompressedTextureFormats->push_back(format.mIntendedGLFormat);
+        }
+
         if (format.mActualRenderableImageFormatID == angle::FormatID::NONE)
         {
             // If renderable format was not set, it means there is no fallback format for
@@ -256,19 +272,12 @@ void FormatTable::initialize(RendererVk *renderer,
             format.mActualRenderableImageFormatID = format.mActualSampleOnlyImageFormatID;
         }
 
-        if (!format.valid())
-        {
-            continue;
-        }
-
         gl::TextureCaps textureCaps;
         FillTextureFormatCaps(renderer, format.mActualSampleOnlyImageFormatID, &textureCaps);
 
         if (textureCaps.texturable)
         {
             format.mTextureLoadFunctions = GetLoadFunctionsMap(
-                format.mIntendedGLFormat, format.mActualSampleOnlyImageFormatID);
-            format.mTextureBorderLoadFunctions = GetLoadTextureBorderFunctionsMap(
                 format.mIntendedGLFormat, format.mActualSampleOnlyImageFormatID);
         }
 
@@ -286,11 +295,6 @@ void FormatTable::initialize(RendererVk *renderer,
                 format.mRenderableTextureLoadFunctions = GetLoadFunctionsMap(
                     format.mIntendedGLFormat, format.mActualRenderableImageFormatID);
             }
-        }
-
-        if (intendedAngleFormat.isBlock)
-        {
-            outCompressedTextureFormats->push_back(format.mIntendedGLFormat);
         }
     }
 }

@@ -253,8 +253,11 @@ public class NotificationTest extends AndroidTestCase {
 
     public void testBuilder() {
         final Intent intent = new Intent();
-        final PendingIntent contentIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+        final PendingIntent contentIntent =
+                PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         Notification.BubbleMetadata bubble = makeBubbleMetadata();
+        final PendingIntent actionIntent =
+                PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         mNotification = new Notification.Builder(mContext, CHANNEL.getId())
                 .setSmallIcon(1)
                 .setContentTitle(CONTENT_TITLE)
@@ -267,6 +270,12 @@ public class NotificationTest extends AndroidTestCase {
                 .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
                 .setBubbleMetadata(bubble)
                 .setAllowSystemGeneratedContextualActions(ALLOW_SYS_GEN_CONTEXTUAL_ACTIONS)
+                .addAction(new Notification.Action.Builder(0, ACTION_TITLE, actionIntent)
+                        .setContextual(true)
+                        .build())
+                .addAction(new Notification.Action.Builder(0, "not contextual", actionIntent)
+                        .setContextual(false)
+                        .build())
                 .build();
         assertEquals(CONTENT_TEXT, mNotification.extras.getString(Notification.EXTRA_TEXT));
         assertEquals(CONTENT_TITLE, mNotification.extras.getString(Notification.EXTRA_TITLE));
@@ -281,6 +290,8 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(bubble, mNotification.getBubbleMetadata());
         assertEquals(ALLOW_SYS_GEN_CONTEXTUAL_ACTIONS,
                 mNotification.getAllowSystemGeneratedContextualActions());
+        assertEquals(1, mNotification.getContextualActions().size());
+        assertEquals(ACTION_TITLE, mNotification.getContextualActions().get(0).title);
     }
 
     public void testBuilder_getStyle() {

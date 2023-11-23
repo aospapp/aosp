@@ -1,10 +1,13 @@
 package com.android.cts.verifier.nfc.hce;
 
+import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.nfc.NfcAdapter;
+import android.nfc.NfcManager;
 import android.os.Bundle;
 
 import com.android.cts.verifier.R;
@@ -13,9 +16,11 @@ import com.android.cts.verifier.nfc.NfcDialogs;
 public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
     final static int STATE_SCREEN_ON = 0;
     final static int STATE_SCREEN_OFF = 1;
+    private static final int SECURE_NFC_ENABLED_DIALOG_ID = 1;
     private int mState = STATE_SCREEN_ON;
 
     private ScreenOnOffReceiver mReceiver;
+    private NfcAdapter mNfcAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,11 +36,17 @@ public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         registerReceiver(mReceiver, filter);
+
+        NfcManager nfcManager = getSystemService(NfcManager.class);
+        mNfcAdapter = nfcManager.getDefaultAdapter();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (mNfcAdapter.isSecureNfcSupported() && mNfcAdapter.isSecureNfcEnabled()) {
+            showDialog(SECURE_NFC_ENABLED_DIALOG_ID);
+        }
     }
 
     @Override
@@ -83,6 +94,16 @@ public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
     void onApduSequenceComplete(ComponentName component, long duration) {
         if (component.equals(ScreenOffPaymentService.COMPONENT) && mState == STATE_SCREEN_OFF) {
             getPassButton().setEnabled(true);
+        }
+    }
+
+    @Override
+    public Dialog onCreateDialog(int id, Bundle args) {
+        switch (id) {
+            case SECURE_NFC_ENABLED_DIALOG_ID:
+                return NfcDialogs.createSecureNfcEnabledDialog(this);
+            default:
+                return super.onCreateDialog(id, args);
         }
     }
 

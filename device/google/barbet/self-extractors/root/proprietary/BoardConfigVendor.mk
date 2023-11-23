@@ -12,7 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_STEM := barbet/BoardConfigPartial.mk
-
--include vendor/google_devices/$(LOCAL_STEM)
--include vendor/qcom/$(LOCAL_STEM)
+-include vendor/google_devices/barbet/BoardConfigPartial.mk
+-include vendor/qcom/barbet/BoardConfigPartial.mk

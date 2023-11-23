@@ -17,7 +17,6 @@
 package com.android.car.settings.security;
 
 import android.app.Activity;
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -66,10 +65,8 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
     private Stage mUiStage = Stage.Introduction;
 
     private int mUserId;
-    private int mErrorCode = PasswordHelper.NO_ERROR;
 
     private boolean mIsPin;
-    private boolean mIsAlphaMode;
 
     // Password currently in the input field
     private LockscreenCredential mCurrentEntry;
@@ -142,12 +139,7 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
             }
         }
 
-        mPasswordHelper = new PasswordHelper(mIsPin);
-
-        int passwordQuality = mPasswordHelper.getPasswordQuality();
-        mIsAlphaMode = DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC == passwordQuality
-                || DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC == passwordQuality
-                || DevicePolicyManager.PASSWORD_QUALITY_COMPLEX == passwordQuality;
+        mPasswordHelper = new PasswordHelper(getContext(), mIsPin, mUserId);
 
         if (savedInstanceState != null) {
             mUiStage = Stage.values()[savedInstanceState.getInt(STATE_UI_STAGE)];
@@ -310,7 +302,7 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
     }
 
     private boolean shouldEnableSubmit() {
-        return getEnteredPassword().size() >= PasswordHelper.MIN_LENGTH
+        return mPasswordHelper.validate(getEnteredPassword(), mExistingCredential)
                 && (mSaveLockWorker == null || mSaveLockWorker.isFinished());
     }
 
@@ -339,8 +331,9 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
 
         switch (mUiStage) {
             case Introduction:
-                mErrorCode = mPasswordHelper.validate(mCurrentEntry);
-                if (mErrorCode == PasswordHelper.NO_ERROR) {
+                boolean passwordCompliant =
+                        mPasswordHelper.validate(mCurrentEntry, mExistingCredential);
+                if (passwordCompliant) {
                     mFirstEntry = mCurrentEntry;
                     mPasswordField.setText("");
                     updateStage(Stage.NeedToConfirm);
@@ -414,36 +407,12 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
             mPinPad.setEnterKeyIcon(mUiStage.enterKeyIcon);
         }
 
-        switch (mUiStage) {
-            case Introduction:
-            case NeedToConfirm:
-                mPasswordField.setError(null);
-                mHintMessage.setText(getString(mUiStage.getHint(mIsAlphaMode)));
-                break;
-            case PasswordInvalid:
-                List<String> messages =
-                        mPasswordHelper.convertErrorCodeToMessages(getContext(), mErrorCode);
-                setError(String.join(" ", messages));
-                break;
-            case ConfirmWrong:
-            case SaveFailure:
-                setError(getString(mUiStage.getHint(mIsAlphaMode)));
-                break;
-            default:
-                // Do nothing
-        }
+        mPasswordHelper.validate(getEnteredPassword(), mExistingCredential);
+        List<String> messages = mPasswordHelper.convertErrorCodeToMessages();
+        mHintMessage.setText(String.join("\n", messages));
 
         setPrimaryButtonText(mUiStage.primaryButtonText);
         mPasswordEntryInputDisabler.setInputEnabled(inputAllowed);
-    }
-
-    /**
-     * To show error in password, it is set directly on TextInputEditText. PIN can't use
-     * TextInputEditText because PIN field is not focusable therefore error won't show. Instead
-     * the error is shown as a hint message.
-     */
-    private void setError(String message) {
-        mHintMessage.setText(message);
     }
 
     @VisibleForTesting
@@ -476,57 +445,32 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
     @VisibleForTesting
     enum Stage {
         Introduction(
-                R.string.choose_lock_password_hints,
-                R.string.choose_lock_pin_hints,
                 R.string.continue_button_text,
                 R.drawable.ic_arrow_forward),
 
         PasswordInvalid(
-                R.string.lockpassword_invalid_password,
-                R.string.lockpin_invalid_pin,
                 R.string.continue_button_text,
                 R.drawable.ic_arrow_forward),
 
         NeedToConfirm(
-                R.string.confirm_your_password_header,
-                R.string.confirm_your_pin_header,
                 R.string.lockpassword_confirm_label,
                 R.drawable.ic_check),
 
         ConfirmWrong(
-                R.string.confirm_passwords_dont_match,
-                R.string.confirm_pins_dont_match,
                 R.string.lockpassword_confirm_label,
                 R.drawable.ic_check),
 
         SaveFailure(
-                R.string.error_saving_password,
-                R.string.error_saving_lockpin,
                 R.string.lockscreen_retry_button_text,
                 R.drawable.ic_check);
 
-        public final int alphaHint;
-        public final int numericHint;
         public final int primaryButtonText;
         public final int enterKeyIcon;
 
-        Stage(@StringRes int hintInAlpha,
-                @StringRes int hintInNumeric,
-                @StringRes int primaryButtonText,
+        Stage(@StringRes int primaryButtonText,
                 @DrawableRes int enterKeyIcon) {
-            this.alphaHint = hintInAlpha;
-            this.numericHint = hintInNumeric;
             this.primaryButtonText = primaryButtonText;
             this.enterKeyIcon = enterKeyIcon;
-        }
-
-        @StringRes
-        public int getHint(boolean isAlpha) {
-            if (isAlpha) {
-                return alphaHint;
-            } else {
-                return numericHint;
-            }
         }
     }
 
@@ -549,7 +493,6 @@ public class ChooseLockPinPasswordFragment extends BaseFragment {
         @Override
         public void handleMessage(Message msg) {
             if (msg.what == ON_TEXT_CHANGED) {
-                mErrorCode = PasswordHelper.NO_ERROR;
                 updateUi();
             }
         }

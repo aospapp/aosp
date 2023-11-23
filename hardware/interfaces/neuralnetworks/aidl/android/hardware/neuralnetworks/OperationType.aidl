@@ -78,6 +78,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     ADD = 0,
+
     /**
      * Performs a 2-D average pooling operation.
      *
@@ -162,6 +163,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     AVERAGE_POOL_2D = 1,
+
     /**
      * Concatenates the input tensors along the given dimension.
      *
@@ -195,11 +197,13 @@ enum OperationType {
      *      tensors. The output shape is [D0, D1, ..., sum(Daxis(i)), ..., Dm].
      *      Since HAL version 1.2, for a {@link OperandType::TENSOR_QUANT8_ASYMM} tensor,
      *      the scale and zeroPoint values can be different from
-     *      input tensors. Before HAL version 1.2 they have to be the same as for the input tensors.
+     *      input tensors. Before HAL version 1.2 they have to be the same as for the
+     *      input tensors.
      *      For a {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
      *      the scale and zeroPoint values can be different from input tensors.
      */
     CONCATENATION = 2,
+
     /**
      * Performs a 2-D convolution operation.
      *
@@ -243,7 +247,8 @@ enum OperationType {
      * * * {@link OperandType::TENSOR_INT32} for bias (with scale set to
      * * * input.scale * filter.scale).
      *
-     * * Quantized signed with filter symmetric per channel quantization (since HAL version 1.3):
+     * * Quantized signed with filter symmetric per channel quantization
+     *   (since HAL version 1.3):
      * * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} for input, and output.
      * * * {@link OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL} for filter.
      * * * {@link OperandType::TENSOR_INT32} for bias (scale set to 0.0,
@@ -356,10 +361,12 @@ enum OperationType {
      * Outputs:
      * * 0: The output 4-D tensor, of shape
      *      [batches, out_height, out_width, depth_out].
-     *      Before HAL version 1.2, for output tensor of {@link OperandType::TENSOR_QUANT8_ASYMM},
-     *      the following condition must be satisfied: output_scale > input_scale * filter_scale
+     *      Before HAL version 1.2, for output tensor of
+     *      {@link OperandType::TENSOR_QUANT8_ASYMM}, the following condition must
+     *      be satisfied: output_scale > input_scale * filter_scale
      */
     CONV_2D = 3,
+
     /**
      * Performs a depthwise 2-D convolution operation.
      *
@@ -407,7 +414,8 @@ enum OperationType {
      * * * {@link OperandType::TENSOR_INT32} for bias (with scale set to
      * * * input.scale * filter.scale).
      *
-     * * Quantized signed with filter symmetric per channel quantization (since HAL version 1.3):
+     * * Quantized signed with filter symmetric per channel quantization
+     *   (since HAL version 1.3):
      * * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} for input, and output.
      * * * {@link OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL} for filter.
      * * * {@link OperandType::TENSOR_INT32} for bias (scale set to 0.0,
@@ -521,6 +529,7 @@ enum OperationType {
      *      output_scale > input_scale * filter_scale
      */
     DEPTHWISE_CONV_2D = 4,
+
     /**
      * Rearranges data from depth into blocks of spatial data.
      *
@@ -566,6 +575,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     DEPTH_TO_SPACE = 5,
+
     /**
      * Dequantizes the input tensor.
      *
@@ -593,6 +603,7 @@ enum OperationType {
      * * 0: A tensor with the same shape as input0.
      */
     DEQUANTIZE = 6,
+
     /**
      * Looks up sub-tensors in the input tensor.
      *
@@ -637,6 +648,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input1.
      */
     EMBEDDING_LOOKUP = 7,
+
     /**
      * Computes element-wise floor() on the input tensor.
      *
@@ -654,6 +666,7 @@ enum OperationType {
      *      the input tensor.
      */
     FLOOR = 8,
+
     /**
      * Denotes a fully (densely) connected layer, which connects all elements
      * in the input tensor with each element in the output tensor.
@@ -699,6 +712,7 @@ enum OperationType {
      *      condition must be satisfied: output_scale > input_scale * filter_scale.
      */
     FULLY_CONNECTED = 9,
+
     /**
      * Looks up sub-tensors in the input tensor using a key-value map.
      *
@@ -755,6 +769,7 @@ enum OperationType {
      *      A non-zero byte represents True, a hit. A zero indicates otherwise.
      */
     HASHTABLE_LOOKUP = 10,
+
     /**
      * Applies L2 normalization along the axis dimension.
      *
@@ -795,6 +810,7 @@ enum OperationType {
      *      are all zeros, the result is logical zero.
      */
     L2_NORMALIZATION = 11,
+
     /**
      * Performs an 2-D L2 pooling operation.
      *
@@ -873,6 +889,7 @@ enum OperationType {
      *      [batches, out_height, out_width, depth].
      */
     L2_POOL_2D = 12,
+
     /**
      * Applies Local Response Normalization along the depth dimension.
      *
@@ -927,6 +944,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     LOCAL_RESPONSE_NORMALIZATION = 13,
+
     /**
      * Computes sigmoid activation on the input tensor element-wise.
      *
@@ -954,6 +972,7 @@ enum OperationType {
      *      the scale must be 1.f / 256 and the zeroPoint must be -128.
      */
     LOGISTIC = 14,
+
     /**
      * Projects an input to a bit vector via locality senstive hashing.
      *
@@ -967,8 +986,8 @@ enum OperationType {
      *
      * Inputs:
      * * 0: Hash functions. Dim.size == 2, DataType: Float.
-     *      Tensor[0].Dim[0]: 15 of hash functions.
-     *      Tensor[0].Dim[1]: 16 of projected output bits generated by each
+     *      Tensor[0].Dim[0]: Number of hash functions.
+     *      Tensor[0].Dim[1]: Number of projected output bits generated by each
      *      hash function.
      *      If the projection type is Sparse:
      *      Tensor[0].Dim[1] + ceil(log2(Tensor[0].Dim[0])) <= 32
@@ -1009,6 +1028,7 @@ enum OperationType {
      * The offset value for sparse projections was added in HAL version 1.2.
      */
     LSH_PROJECTION = 15,
+
     /**
      * Performs a single time step in a Long Short-Term Memory (LSTM) layer
      *
@@ -1226,6 +1246,7 @@ enum OperationType {
      *      the same as the current “output state (out)” value.
      */
     LSTM = 16,
+
     /**
      * Performs an 2-D max pooling operation.
      *
@@ -1310,6 +1331,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     MAX_POOL_2D = 17,
+
     /**
      * Multiplies two tensors, element-wise.
      *
@@ -1356,6 +1378,7 @@ enum OperationType {
      *      output_scale > input1_scale * input2_scale.
      */
     MUL = 18,
+
     /**
      * Computes rectified linear activation on the input tensor element-wise.
      *
@@ -1382,6 +1405,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RELU = 19,
+
     /**
      * Computes rectified linear 1 activation on the input tensor element-wise.
      *
@@ -1408,6 +1432,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RELU1 = 20,
+
     /**
      * Computes rectified linear 6 activation on the input tensor element-wise.
      *
@@ -1434,6 +1459,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RELU6 = 21,
+
     /**
      * Reshapes a tensor.
      *
@@ -1445,6 +1471,7 @@ enum OperationType {
      * * {@link OperandType::TENSOR_FLOAT32}
      * * {@link OperandType::TENSOR_QUANT8_ASYMM}
      * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} (since HAL version 1.3)
+     * * {@link OperandType::TENSOR_INT32} (since NNAPI feature level 6)
      *
      * Supported tensor rank: up to 4.
      *
@@ -1466,6 +1493,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RESHAPE = 22,
+
     /**
      * Resizes images to given size using the bilinear interpretation.
      *
@@ -1547,6 +1575,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RESIZE_BILINEAR = 23,
+
     /**
      * A basic recurrent neural network layer.
      *
@@ -1598,6 +1627,7 @@ enum OperationType {
      *      the same as the current state value.
      */
     RNN = 24,
+
     /**
      * Computes the softmax activation on the input tensor element-wise, per
      * batch, by normalizing the input vector so the maximum coefficient is
@@ -1645,6 +1675,7 @@ enum OperationType {
      *      the scale must be 1.f / 256 and the zeroPoint must be -128.
      */
     SOFTMAX = 25,
+
     /**
      * Rearranges blocks of spatial data, into depth.
      *
@@ -1689,6 +1720,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     SPACE_TO_DEPTH = 26,
+
     /**
      * SVDF op is a kind of stateful layer derived from the notion that a
      * densely connected layer that's processing a sequence of input frames can
@@ -1765,6 +1797,7 @@ enum OperationType {
      *      [batch_size, num_units].
      */
     SVDF = 27,
+
     /**
      * Computes hyperbolic tangent of input tensor element-wise.
      *
@@ -1792,6 +1825,7 @@ enum OperationType {
      *      the scale must be 1.f / 128 and the zeroPoint must be 0.
      */
     TANH = 28,
+
     /**
      * BatchToSpace for N-dimensional tensors.
      *
@@ -1830,6 +1864,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     BATCH_TO_SPACE_ND = 29,
+
     /**
      * Element-wise division of two tensors.
      *
@@ -1880,6 +1915,7 @@ enum OperationType {
      * * 0: A tensor of the same {@link OperandType} as input0.
      */
     DIV = 30,
+
     /**
      * Computes the mean of elements across dimensions of a tensor.
      *
@@ -1919,6 +1955,7 @@ enum OperationType {
      *      shape is [1].
      */
     MEAN = 31,
+
     /**
      * Pads a tensor.
      *
@@ -1960,6 +1997,7 @@ enum OperationType {
      *      Since HAL version 1.2, the pad value is always the logical zero.
      */
     PAD = 32,
+
     /**
      * SpaceToBatch for N-Dimensional tensors.
      *
@@ -2012,6 +2050,7 @@ enum OperationType {
      *      Since HAL version 1.2, the pad value is always the logical zero.
      */
     SPACE_TO_BATCH_ND = 33,
+
     /**
      * Removes dimensions of size 1 from the shape of a tensor.
      *
@@ -2047,6 +2086,7 @@ enum OperationType {
      *      output shape is [1].
      */
     SQUEEZE = 34,
+
     /**
      * Extracts a strided slice of a tensor.
      *
@@ -2097,6 +2137,7 @@ enum OperationType {
      *      shape is [1].
      */
     STRIDED_SLICE = 35,
+
     /**
      * Element-wise subtraction of two tensors.
      *
@@ -2147,6 +2188,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     SUB = 36,
+
     /**
      * Transposes the input tensor, permuting the dimensions according to the
      * perm tensor.
@@ -2177,6 +2219,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     TRANSPOSE = 37,
+
     /**
      * Computes the absolute value of a tensor, element-wise.
      *
@@ -2194,6 +2237,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     ABS = 38,
+
     /**
      * Returns the index of the largest element along an axis.
      *
@@ -2216,7 +2260,10 @@ enum OperationType {
      * * 0: An (n - 1)-D {@link OperandType::TENSOR_INT32} tensor.
      *      If input is 1-dimensional, the output shape is [1].
      */
+    // There is no underscore in ARG_MAX to avoid name conflict with
+    // the macro defined in libc/kernel/uapi/linux/limits.h.
     ARGMAX = 39,
+
     /**
      * Returns the index of the smallest element along an axis.
      *
@@ -2239,7 +2286,8 @@ enum OperationType {
      * * 0: An (n - 1)-D {@link OperandType::TENSOR_INT32} tensor.
      *      If input is 1-dimensional, the output shape is [1].
      */
-    ARGMIN = 40,
+    ARGMIN = 40, // See ARGMAX for naming discussion.
+
     /**
      * Transform axis-aligned bounding box proposals using bounding box deltas.
      *
@@ -2286,6 +2334,7 @@ enum OperationType {
      *      scale must be 0.125 and the zero point must be 0.
      */
     AXIS_ALIGNED_BBOX_TRANSFORM = 41,
+
     /**
      * A recurrent neural network layer that applies an LSTM cell to a
      * sequence of inputs in forward and backward directions.
@@ -2560,6 +2609,7 @@ enum OperationType {
      *      Available since HAL version 1.3.
      */
     BIDIRECTIONAL_SEQUENCE_LSTM = 42,
+
     /**
      * A recurrent neural network layer that applies a basic RNN cell to a
      * sequence of inputs in forward and backward directions.
@@ -2711,6 +2761,7 @@ enum OperationType {
      *      Available since HAL version 1.3.
      */
     BIDIRECTIONAL_SEQUENCE_RNN = 43,
+
     /**
      * Greedily selects a subset of bounding boxes in descending order of score.
      *
@@ -2794,6 +2845,7 @@ enum OperationType {
      *      with the same batch index are grouped together.
      */
     BOX_WITH_NMS_LIMIT = 44,
+
     /**
      * Casts a tensor to a type.
      *
@@ -2824,6 +2876,7 @@ enum OperationType {
      * * 0: A tensor with the same shape as input0.
      */
     CAST = 45,
+
     /**
      * Shuffle the channels of the input tensor.
      *
@@ -2863,6 +2916,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     CHANNEL_SHUFFLE = 46,
+
     /**
      * Apply postprocessing steps to bounding box detections.
      *
@@ -2942,6 +2996,7 @@ enum OperationType {
      *      specifying the number of valid output detections for each batch.
      */
     DETECTION_POSTPROCESSING = 47,
+
     /**
      * For input tensors x and y, computes x == y elementwise.
      *
@@ -2966,6 +3021,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     EQUAL = 48,
+
     /**
      * Computes exponential of x element-wise.
      *
@@ -2982,6 +3038,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     EXP = 49,
+
     /**
      * Inserts a dimension of 1 into a tensor's shape.
      *
@@ -3012,6 +3069,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     EXPAND_DIMS = 50,
+
     /**
      * Gathers values along an axis.
      *
@@ -3051,6 +3109,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     GATHER = 51,
+
     /**
      * Generate aixs-aligned bounding box proposals.
      *
@@ -3132,6 +3191,7 @@ enum OperationType {
      *      with the same batch index are grouped together.
      */
     GENERATE_PROPOSALS = 52,
+
     /**
      * For input tensors x and y, computes x > y elementwise.
      *
@@ -3180,6 +3240,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     GREATER_EQUAL = 54,
+
     /**
      * Performs a grouped 2-D convolution operation.
      *
@@ -3232,7 +3293,8 @@ enum OperationType {
      * * * {@link OperandType::TENSOR_INT32} for bias (scale set to 0.0,
      * * * each value scaling is separate and equal to input.scale * filter.scales[channel]).
      *
-     * * Quantized signed with filter symmetric per channel quantization (since HAL version 1.3):
+     * * Quantized signed with filter symmetric per channel quantization
+     *   (since HAL version 1.3):
      * * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} for input, and output.
      * * * {@link OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL} for filter.
      * * * {@link OperandType::TENSOR_INT32} for bias (scale set to 0.0,
@@ -3329,6 +3391,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     GROUPED_CONV_2D = 55,
+
     /**
      * Localize the maximum keypoints from heatmaps.
      *
@@ -3382,6 +3445,7 @@ enum OperationType {
      *      scale must be 0.125 and the zero point must be 0.
      */
     HEATMAP_MAX_KEYPOINT = 56,
+
     /**
      * Applies instance normalization to the input tensor.
      *
@@ -3432,6 +3496,7 @@ enum OperationType {
      * * 0: A tensor of the same {@link OperandType} and same shape as input0.
      */
     INSTANCE_NORMALIZATION = 57,
+
     /**
      * For input tensors x and y, computes x < y elementwise.
      *
@@ -3456,6 +3521,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     LESS = 58,
+
     /**
      * For input tensors x and y, computes x <= y elementwise.
      *
@@ -3480,6 +3546,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     LESS_EQUAL = 59,
+
     /**
      * Computes natural logarithm of x element-wise.
      *
@@ -3496,6 +3563,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     LOG = 60,
+
     /**
      * Returns the truth value of x AND y element-wise.
      *
@@ -3515,6 +3583,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     LOGICAL_AND = 61,
+
     /**
      * Computes the truth value of NOT x element-wise.
      *
@@ -3530,6 +3599,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     LOGICAL_NOT = 62,
+
     /**
      * Returns the truth value of x OR y element-wise.
      *
@@ -3549,6 +3619,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     LOGICAL_OR = 63,
+
     /**
      * Computes the log softmax activations given logits.
      *
@@ -3579,6 +3650,7 @@ enum OperationType {
      *      input0.
      */
     LOG_SOFTMAX = 64,
+
     /**
      * Returns the element-wise maximum of two tensors.
      *
@@ -3605,6 +3677,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     MAXIMUM = 65,
+
     /**
      * Returns the element-wise minimum of two tensors.
      *
@@ -3631,6 +3704,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     MINIMUM = 66,
+
     /**
      * Computes numerical negative value element-wise.
      *
@@ -3648,6 +3722,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     NEG = 67,
+
     /**
      * For input tensors x and y, computes x != y elementwise.
      *
@@ -3672,6 +3747,7 @@ enum OperationType {
      * * 0: A tensor of {@link OperandType::TENSOR_BOOL8}.
      */
     NOT_EQUAL = 68,
+
     /**
      * Pads a tensor with the given constant value according to the specified
      * paddings.
@@ -3716,6 +3792,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     PAD_V2 = 69,
+
     /**
      * Computes the power of one value to another.
      *
@@ -3745,6 +3822,7 @@ enum OperationType {
      * * 0: An output tensor.
      */
     POW = 70,
+
     /**
      * Parametric Rectified Linear Unit.
      *
@@ -3785,6 +3863,7 @@ enum OperationType {
      *      the scales and zeroPoint can be different from input0 scale and zeroPoint.
      */
     PRELU = 71,
+
     /**
      * Quantizes the input tensor.
      *
@@ -3816,6 +3895,7 @@ enum OperationType {
      *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED}.
      */
     QUANTIZE = 72,
+
     /**
      * A version of quantized LSTM, using 16 bit quantization for internal
      * state.
@@ -3920,6 +4000,7 @@ enum OperationType {
      *      (scale = 1/128, zeroPoint = 128).
      */
     QUANTIZED_16BIT_LSTM = 73,
+
     /**
      * Draws samples from a multinomial distribution.
      *
@@ -3940,6 +4021,7 @@ enum OperationType {
      *      [batches, samples], containing the drawn samples.
      */
     RANDOM_MULTINOMIAL = 74,
+
     /**
      * Reduces a tensor by computing the "logical and" of elements along given
      * dimensions.
@@ -3966,6 +4048,7 @@ enum OperationType {
      *      shape is [1].
      */
     REDUCE_ALL = 75,
+
     /**
      * Reduces a tensor by computing the "logical or" of elements along given
      * dimensions.
@@ -3992,6 +4075,7 @@ enum OperationType {
      *      shape is [1].
      */
     REDUCE_ANY = 76,
+
     /**
      * Reduces a tensor by computing the maximum of elements along given
      * dimensions.
@@ -4024,6 +4108,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     REDUCE_MAX = 77,
+
     /**
      * Reduces a tensor by computing the minimum of elements along given
      * dimensions.
@@ -4056,6 +4141,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     REDUCE_MIN = 78,
+
     /**
      * Reduces a tensor by multiplying elements along given dimensions.
      *
@@ -4082,6 +4168,7 @@ enum OperationType {
      *      shape is [1].
      */
     REDUCE_PROD = 79,
+
     /**
      * Reduces a tensor by summing elements along given dimensions.
      *
@@ -4108,6 +4195,7 @@ enum OperationType {
      *      shape is [1].
      */
     REDUCE_SUM = 80,
+
     /**
      * Select and scale the feature map of each region of interest to a unified
      * output size by average pooling sampling points from bilinear interpolation.
@@ -4169,6 +4257,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from the input0 scale and zeroPoint.
      */
     ROI_ALIGN = 81,
+
     /**
      * Select and scale the feature map of each region of interest to a unified
      * output size by max-pooling.
@@ -4222,12 +4311,15 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     ROI_POOLING = 82,
+
     /**
      * Computes reciprocal of square root of x element-wise.
      *
      * Supported tensor {@link OperandType}:
      * * {@link OperandType::TENSOR_FLOAT16}
      * * {@link OperandType::TENSOR_FLOAT32}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM} (since NNAPI feature level 7)
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} (since NNAPI feature level 7)
      *
      * Supported tensor rank: from 1.
      *
@@ -4236,8 +4328,12 @@ enum OperationType {
      *
      * Outputs:
      * * 0: The output tensor of same shape as input0.
+     *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
+     *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
+     *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     RSQRT = 83,
+
     /**
      * Using a tensor of booleans c and input tensors x and y select values
      * elementwise from both input tensors:
@@ -4270,6 +4366,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     SELECT = 84,
+
     /**
      * Computes sin of x element-wise.
      *
@@ -4286,6 +4383,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     SIN = 85,
+
     /**
      * Extracts a slice of specified size from the input tensor starting at a
      * specified location.
@@ -4321,6 +4419,7 @@ enum OperationType {
      *      its scale and zeroPoint has to be same as the input0 scale and zeroPoint.
      */
     SLICE = 86,
+
     /**
      * Splits a tensor along a given axis into num_splits subtensors.
      *
@@ -4347,6 +4446,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     SPLIT = 87,
+
     /**
      * Computes square root of x element-wise.
      *
@@ -4363,6 +4463,7 @@ enum OperationType {
      * * 0: The output tensor of same shape as input0.
      */
     SQRT = 88,
+
     /**
      * Constructs a tensor by tiling a given tensor.
      *
@@ -4393,6 +4494,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     TILE = 89,
+
     /**
      * Finds values and indices of the k largest entries for the last dimension.
      *
@@ -4423,6 +4525,7 @@ enum OperationType {
      *      containing the indices of values within the last dimension of input.
      */
     TOPK_V2 = 90,
+
     /**
      * Performs the transpose of 2-D convolution operation.
      *
@@ -4457,7 +4560,8 @@ enum OperationType {
      * * * {@link OperandType::TENSOR_INT32} for bias (with scale set to
      * * * input.scale * filter.scale).
      *
-     * * Quantized signed with filter symmetric per channel quantization (since HAL version 1.3):
+     * * Quantized signed with filter symmetric per channel quantization
+     *   (since HAL version 1.3):
      * * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} for input, and output.
      * * * {@link OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL} for filter.
      * * * {@link OperandType::TENSOR_INT32} for bias (scale set to 0.0,
@@ -4551,6 +4655,7 @@ enum OperationType {
      *      the scale and zeroPoint can be different from inputs' scale and zeroPoint.
      */
     TRANSPOSE_CONV_2D = 91,
+
     /**
      * A recurrent neural network specified by an LSTM cell.
      *
@@ -4668,6 +4773,7 @@ enum OperationType {
      *      Available since HAL version 1.3.
      */
     UNIDIRECTIONAL_SEQUENCE_LSTM = 92,
+
     /**
      * A recurrent neural network layer that applies a basic RNN cell to a
      * sequence of inputs.
@@ -4726,6 +4832,7 @@ enum OperationType {
      *      Available since HAL version 1.3.
      */
     UNIDIRECTIONAL_SEQUENCE_RNN = 93,
+
     /**
      * Resizes images to given size using the nearest neighbor interpretation.
      *
@@ -4804,6 +4911,7 @@ enum OperationType {
      *      the scale and zeroPoint must be the same as input0.
      */
     RESIZE_NEAREST_NEIGHBOR = 94,
+
     /**
      * Quantized version of {@link OperationType::LSTM}.
      *
@@ -4932,6 +5040,7 @@ enum OperationType {
      *      Shape: [batchSize, outputSize]
      */
     QUANTIZED_LSTM = 95,
+
     /**
      * Executes one of the two referenced subgraphs as determined by a boolean
      * value.
@@ -4958,6 +5067,7 @@ enum OperationType {
      * * 0 ~ (m - 1): Outputs produced by the selected subgraph.
      */
     IF = 96,
+
     /**
      * Executes the body subgraph until the condition subgraph outputs false.
      *
@@ -5024,6 +5134,7 @@ enum OperationType {
      * * 0 ~ (m - 1): Outputs produced by the loop.
      */
     WHILE = 97,
+
     /**
      * Computes exponential linear activation on the input tensor element-wise.
      *
@@ -5049,6 +5160,7 @@ enum OperationType {
      * * 0: The output tensor of same shape and type as input0.
      */
     ELU = 98,
+
     /**
      * Computes hard-swish activation on the input tensor element-wise.
      *
@@ -5076,6 +5188,7 @@ enum OperationType {
      *      tensor's parameters.
      */
     HARD_SWISH = 99,
+
     /**
      * Creates a tensor filled with a scalar value.
      *
@@ -5100,6 +5213,7 @@ enum OperationType {
      * * 0: The output tensor.
      */
     FILL = 100,
+
     /**
      * Returns the rank of a tensor.
      *
@@ -5128,4 +5242,170 @@ enum OperationType {
      *      of the input tensor.
      */
     RANK = 101,
+
+    /**
+     * Performs multiplication of two tensors in batches.
+     *
+     * Multiplies all slices of two input tensors and arranges the individual
+     * results in a single output tensor of the same batch size. Each pair of
+     * slices in the same batch have identical {@link OperandType}. Each
+     * slice can optionally be adjointed (transpose and conjugate) before
+     * multiplication.
+     *
+     * The two input tensors and the output tensor must be 2-D or higher and
+     * have the same batch size.
+     *
+     * Supported tensor {@link OperandType}:
+     * * {@link OperandType::TENSOR_FLOAT16}
+     * * {@link OperandType::TENSOR_FLOAT32}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link OperandType::TENSOR_INT32}
+     *
+     * Supported tensor rank: at least 2 and up to 4
+     *
+     * Inputs:
+     * * 0: A tensor with 2-D or higher shape [..., r_x, c_x].
+     * * 1: A tensor with 2-D or higher shape [..., r_y, c_y]. It has the same
+     *      {@link OperandType} and batch size as input0.
+     * * 2: An optional {@link OperandType::BOOL} scalar adj_x, default
+     *      to false. Set to true to adjoint the slices of input0.
+     * * 3: An optional {@link OperandType::BOOL} scalar adj_y, default
+     *      to false. Set to true to adjoint the slices of input1.
+     *
+     * Outputs:
+     * * 0: A tensor with 2-D or higher shape [..., r_o, c_o], where
+     *      r_o = c_x if adj_x else r_x
+     *      c_o = r_y if adj_y else c_y
+     */
+    BATCH_MATMUL = 102,
+
+    /**
+     * Packs N input tensors (N >= 1) of rank R into one output tensor of rank R+1.
+     * The tensors are packed along a given axis.
+     *
+     * The input tensors must have identical {@link OperandType} and dimensions.
+     *
+     * For example, suppose there are N input tensors of shape (A, B, C).
+     * If axis is 0, the output tensor will have shape (N, A, B, C).
+     * If axis is 1, the output tensor will have shape (A, N, B, C).
+     *
+     * All dimensions through the axis dimension determine the output tile count;
+     * the remaining dimensions determine the tile shape.
+     *
+     * Return to the example of N input tensors of shape (A, B, C).
+     * If axis is 0, there are N tiles in the output, each of shape (A, B, C).
+     * If axis is 1, there are A*N tiles in the output, each of shape (B, C).
+     *
+     * The coordinates of a tile within the output tensor are (t[0],...,t[axis]).
+     * The coordinates of a tile within an input tensor are (t[0],...,t[axis-1]).
+     * (If axis is 0, an input tensor consists of a single tile.)
+     * If we index input tensors starting with 0 (rather than by operand number),
+     * then output_tile[t[0],...,t[axis]] = input_tile[t[axis]][t[0],...,t[axis-1]].
+     * That is, all output tile coordinates except for the axis coordinate select
+     * the corresponding location within some input tensor; and the axis coordinate
+     * selects the input tensor.
+     *
+     * Supported tensor {@link OperandType}:
+     * * {@link OperandType::TENSOR_FLOAT16}
+     * * {@link OperandType::TENSOR_FLOAT32}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link OperandType::TENSOR_INT32}
+     *
+     * Supported input tensor rank: from 1
+     *
+     * Inputs:
+     * * 0: A scalar of type {@link OperandType::INT32}, specifying
+     *      the axis along which to pack.  The valid range is [0, R+1).
+     * * 1 ~ N: Input tensors to be packed together.
+     *          For {@link OperandType::TENSOR_QUANT8_ASYMM} and
+     *          {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensors,
+     *          the scales and zeroPoint must be the same for all input tensors,
+     *          and will be the same for the output tensor.
+     *
+     * Outputs:
+     * * 0: The packed tensor.
+     */
+    PACK = 103,
+
+    /**
+     * Pads a tensor with mirrored values.
+     *
+     * This operator specifies one of two padding modes: REFLECT or SYMMETRIC.
+     * In the case of REFLECT mode, the mirroring excludes the border element
+     * on the padding side.
+     * In the case of SYMMETRIC mode, the mirroring includes the border element
+     * on the padding side.
+     *
+     * For example, if the input is the 1-D tensor `[1, 2, 3]` and the padding
+     * is `[0, 2]` (i.e., pad no elements before the first (and only) dimension,
+     * and two elements after the first (and only) dimension), then:
+     *     - REFLECT mode produces the output `[1, 2, 3, 2, 1]`
+     *     - SYMMETRIC mode produces the output `[1, 2, 3, 3, 2]`
+     *
+     * Supported tensor {@link OperandType}:
+     * * {@link OperandType::TENSOR_FLOAT16}
+     * * {@link OperandType::TENSOR_FLOAT32}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link OperandType::TENSOR_INT32}
+     *
+     * Supported tensor rank: from 1.
+     *
+     * Inputs:
+     * * 0: An n-D tensor, specifying the tensor to be padded.
+     * * 1: A 2-D tensor of {@link OperandType::TENSOR_INT32}, the paddings
+     *      for each spatial dimension of the input tensor. The shape of the
+     *      tensor must be {rank(input0), 2}.
+     *      padding[i, 0] specifies the number of elements to be padded in the
+     *      front of dimension i.
+     *      padding[i, 1] specifies the number of elements to be padded after the
+     *      end of dimension i.
+     *      Each padding value must be nonnegative.
+     *      In the case of REFLECT mode, each padding value must be less than the
+     *      corresponding dimension.
+     *      In the case of SYMMETRIC mode, each padding value must be less than or
+     *      equal to the corresponding dimension.
+     * * 2: An {@link OperandType::INT32} scalar, specifying the mode.
+     *      Options are 0:REFLECT and 1:SYMMETRIC.
+     *
+     * Outputs:
+     * * 0: A tensor of the same {@link OperandType} as input0. The
+     *      output tensor has the same rank as input0, and each
+     *      dimension of the output tensor has the same size as the
+     *      corresponding dimension of the input tensor plus the size
+     *      of the padding:
+     *          output0.dimension[i] =
+     *              padding[i, 0] + input0.dimension[i] + padding[i, 1]
+     *      For a {@link OperandType::TENSOR_QUANT8_ASYMM} and
+     *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensor,
+     *      the scale and zeroPoint must be the same as input0.
+     */
+    MIRROR_PAD = 104,
+
+    /**
+     * Reverses a specified dimension of a tensor.
+     *
+     * Supported tensor {@link OperandType}:
+     * * {@link OperandType::TENSOR_FLOAT16}
+     * * {@link OperandType::TENSOR_FLOAT32}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED}
+     * * {@link OperandType::TENSOR_INT32}
+     *
+     * Supported tensor rank: up to 8.
+     *
+     * Inputs:
+     * * 0: Input tensor of rank n.
+     * * 1: Axis tensor of type {@link OperandType::TENSOR_INT32} and shape [1],
+     *      specifying which dimension of the input tensor is to be reversed. The dimension
+     *      must be in the range [0, n).
+     *
+     * Outputs:
+     * * 0: The reversed tensor of the same shape as the input tensor.
+     *      For {@link OperandType::TENSOR_QUANT8_ASYMM} and
+     *      {@link OperandType::TENSOR_QUANT8_ASYMM_SIGNED} tensors,
+     *      the scales and zeroPoint must be the same as input0.
+     */
+    REVERSE = 105,
 }

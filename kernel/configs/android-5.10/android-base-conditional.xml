@@ -202,3 +202,35 @@
 		<value type="bool">y</value>
 	</config>
 </group>
+
+<!-- CONFIG_VMAP_STACK requirement -->
+<group>
+	<conditions>
+		<config>
+			<key>CONFIG_HAVE_ARCH_VMAP_STACK</key>
+			<value type="bool">y</value>
+		</config>
+		<config>
+			<key>CONFIG_KASAN_SW_TAGS</key>
+			<value type="bool">n</value>
+		</config>
+	</conditions>
+	<config>
+		<key>CONFIG_VMAP_STACK</key>
+		<value type="bool">y</value>
+	</config>
+</group>
+
+<!-- CONFIG_INIT_STACK_ALL_ZERO requirement -->
+<group>
+	<conditions>
+		<config>
+			<key>CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO</key>
+			<value type="bool">y</value>
+		</config>
+	</conditions>
+	<config>
+		<key>CONFIG_INIT_STACK_ALL_ZERO</key>
+		<value type="bool">y</value>
+	</config>
+</group>

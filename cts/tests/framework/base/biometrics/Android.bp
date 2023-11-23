@@ -22,6 +22,7 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
+        "sts",
         "vts10",
         "general-tests",
     ],
@@ -43,7 +44,13 @@ android_test {
         "ub-uiautomator",
     ],
     srcs: ["src/**/*.java"],
+    data: [
+        ":CtsBiometricServiceTestApp",
+        ":CtsBiometricServiceUtilTestApp",
+        ":CtsFingerprintServiceTestApp",
+    ],
     sdk_version: "test_current",
+    per_testcase_directory: true,
 }
 
 java_test_helper_library {

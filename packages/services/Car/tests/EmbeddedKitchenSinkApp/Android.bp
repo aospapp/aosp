@@ -21,7 +21,10 @@ package {
 android_app {
     name: "EmbeddedKitchenSinkApp",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        ":cartelemetryservice-proto-srcs",
+    ],
 
     resource_dirs: ["res"],
 
@@ -48,12 +51,9 @@ android_app {
         "car-ui-lib",
         "car-qc-lib",
         "android.hidl.base-V1.0-java",
-        "android.hardware.automotive.vehicle-V2.0-java",
-        "vehicle-hal-support-lib-for-test",
         "com.android.car.keventreader-client",
         "guava",
         "android.car.cluster.navigation",
-        "cartelemetry-protos",
         "car-experimental-api-static-lib",
     ],
 

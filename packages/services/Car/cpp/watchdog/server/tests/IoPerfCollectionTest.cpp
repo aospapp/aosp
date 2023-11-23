@@ -15,7 +15,7 @@
  */
 
 #include "IoPerfCollection.h"
-#include "MockProcStat.h"
+#include "MockProcStatCollector.h"
 #include "MockUidStatsCollector.h"
 #include "MockWatchdogServiceHelper.h"
 #include "PackageInfoTestUtils.h"
@@ -356,7 +356,7 @@ std::tuple<ProcStatInfo, SystemSummaryStats> sampleProcStat(int multiplier = 1) 
 
 namespace internal {
 
-class IoPerfCollectionPeer : public RefBase {
+class IoPerfCollectionPeer final : public RefBase {
 public:
     explicit IoPerfCollectionPeer(sp<IoPerfCollection> collector) : mCollector(collector) {}
 
@@ -397,7 +397,7 @@ class IoPerfCollectionTest : public Test {
 protected:
     void SetUp() override {
         mMockUidStatsCollector = sp<MockUidStatsCollector>::make();
-        mMockProcStat = sp<MockProcStat>::make();
+        mMockProcStatCollector = sp<MockProcStatCollector>::make();
         mCollector = sp<IoPerfCollection>::make();
         mCollectorPeer = sp<internal::IoPerfCollectionPeer>::make(mCollector);
         ASSERT_RESULT_OK(mCollectorPeer->init());
@@ -407,7 +407,7 @@ protected:
 
     void TearDown() override {
         mMockUidStatsCollector.clear();
-        mMockProcStat.clear();
+        mMockProcStatCollector.clear();
         mCollector.clear();
         mCollectorPeer.clear();
     }
@@ -440,7 +440,7 @@ private:
 
 protected:
     sp<MockUidStatsCollector> mMockUidStatsCollector;
-    sp<MockProcStat> mMockProcStat;
+    sp<MockProcStatCollector> mMockProcStatCollector;
     sp<IoPerfCollection> mCollector;
     sp<internal::IoPerfCollectionPeer> mCollectorPeer;
 };
@@ -450,10 +450,11 @@ TEST_F(IoPerfCollectionTest, TestOnBoottimeCollection) {
     const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    ASSERT_RESULT_OK(mCollector->onBoottimeCollection(now, mMockUidStatsCollector, mMockProcStat));
+    ASSERT_RESULT_OK(
+            mCollector->onBoottimeCollection(now, mMockUidStatsCollector, mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getBoottimeCollectionInfo();
 
@@ -479,11 +480,12 @@ TEST_F(IoPerfCollectionTest, TestOnPeriodicCollection) {
     const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
-                                                      mMockUidStatsCollector, mMockProcStat));
+                                                      mMockUidStatsCollector,
+                                                      mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
 
@@ -510,11 +512,12 @@ TEST_F(IoPerfCollectionTest, TestOnCustomCollectionWithoutPackageFilter) {
     const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ASSERT_RESULT_OK(mCollector->onCustomCollection(now, SystemState::NORMAL_MODE, {},
-                                                    mMockUidStatsCollector, mMockProcStat));
+                                                    mMockUidStatsCollector,
+                                                    mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getCustomCollectionInfo();
 
@@ -553,12 +556,13 @@ TEST_F(IoPerfCollectionTest, TestOnCustomCollectionWithPackageFilter) {
     const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ASSERT_RESULT_OK(mCollector->onCustomCollection(now, SystemState::NORMAL_MODE,
                                                     {"mount", "com.google.android.car.kitchensink"},
-                                                    mMockUidStatsCollector, mMockProcStat));
+                                                    mMockUidStatsCollector,
+                                                    mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getCustomCollectionInfo();
 
@@ -619,11 +623,12 @@ TEST_F(IoPerfCollectionTest, TestOnPeriodicCollectionWithTrimmingStatsAfterTopN)
     const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
-                                                      mMockUidStatsCollector, mMockProcStat));
+                                                      mMockUidStatsCollector,
+                                                      mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
 
@@ -663,11 +668,12 @@ TEST_F(IoPerfCollectionTest, TestConsecutiveOnPeriodicCollection) {
     const auto [firstProcStatInfo, firstSystemSummaryStats] = sampleProcStat();
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(firstUidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(firstProcStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(firstProcStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
-                                                      mMockUidStatsCollector, mMockProcStat));
+                                                      mMockUidStatsCollector,
+                                                      mMockProcStatCollector));
 
     auto [secondUidStats, secondUserPackageSummaryStats] = sampleUidStats(/*multiplier=*/2);
     const auto [secondProcStatInfo, secondSystemSummaryStats] = sampleProcStat(/*multiplier=*/2);
@@ -679,10 +685,11 @@ TEST_F(IoPerfCollectionTest, TestConsecutiveOnPeriodicCollection) {
             100.0;
 
     EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(secondUidStats));
-    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(secondProcStatInfo));
+    EXPECT_CALL(*mMockProcStatCollector, deltaStats()).WillOnce(Return(secondProcStatInfo));
 
     ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
-                                                      mMockUidStatsCollector, mMockProcStat));
+                                                      mMockUidStatsCollector,
+                                                      mMockProcStatCollector));
 
     const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
 

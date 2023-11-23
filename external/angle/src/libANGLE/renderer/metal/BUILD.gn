@@ -29,6 +29,8 @@ _metal_backend_sources = [
   "ImageMtl.mm",
   "ProgramMtl.h",
   "ProgramMtl.mm",
+  "ProvokingVertexHelper.h",
+  "ProvokingVertexHelper.mm",
   "QueryMtl.h",
   "QueryMtl.mm",
   "RenderBufferMtl.h",
@@ -55,6 +57,9 @@ _metal_backend_sources = [
   "mtl_command_buffer.mm",
   "mtl_common.h",
   "mtl_common.mm",
+  "mtl_context_device.h",
+  "mtl_context_device.mm",
+  "mtl_default_shaders_compiled.inc",
   "mtl_format_table_autogen.mm",
   "mtl_format_utils.h",
   "mtl_format_utils.mm",
@@ -66,6 +71,7 @@ _metal_backend_sources = [
   "mtl_occlusion_query_pool.mm",
   "mtl_render_utils.h",
   "mtl_render_utils.mm",
+  "mtl_resource_spi.h",
   "mtl_resources.h",
   "mtl_resources.mm",
   "mtl_state_cache.h",
@@ -75,6 +81,7 @@ _metal_backend_sources = [
   "shaders/constants.h",
   "shaders/format_autogen.h",
   "shaders/mtl_default_shaders_src_autogen.inc",
+  "shaders/rewrite_indices_shared.h",
 ]
 
 config("angle_metal_backend_config") {

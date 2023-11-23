@@ -29,6 +29,7 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import com.android.security.identity.internal.Util;
 
 import android.security.identity.AccessControlProfile;
 import android.security.identity.AccessControlProfileId;
@@ -86,7 +87,7 @@ public class ReaderAuthTest {
             KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException,
             NoSuchProviderException, InvalidKeyException, SignatureException {
 
-        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
 
         // We create two reader keys - 'A' and 'B' - and then generate certificates for each of
         // them, signed by a third key 'C'. We then provision a document with four elements where

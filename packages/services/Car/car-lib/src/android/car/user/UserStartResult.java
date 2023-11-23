@@ -16,9 +16,13 @@
 
 package android.car.user;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import android.car.annotation.AddedInOrBefore;
 import android.os.Parcelable;
 
-import com.android.internal.util.DataClass;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.DataClass;
 
 /**
  * User start results.
@@ -36,6 +40,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
     *
     * @hide
     */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_SUCCESSFUL = CommonResults.STATUS_SUCCESSFUL;
 
     /**
@@ -43,6 +48,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
     *
     * @hide
     */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_ANDROID_FAILURE = CommonResults.STATUS_ANDROID_FAILURE;
 
      /**
@@ -50,6 +56,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_SUCCESSFUL_USER_IS_CURRENT_USER =
             CommonResults.LAST_COMMON_STATUS + 1;
 
@@ -58,6 +65,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_USER_DOES_NOT_EXIST = CommonResults.LAST_COMMON_STATUS + 2;
 
     /**
@@ -71,6 +79,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
     private final @Status int mStatus;
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isSuccess() {
         return mStatus == STATUS_SUCCESSFUL || mStatus == STATUS_SUCCESSFUL_USER_IS_CURRENT_USER;
     }
@@ -102,6 +111,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
 
     /** @hide */
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public static String statusToString(@Status int value) {
         switch (value) {
             case STATUS_SUCCESSFUL:
@@ -158,12 +168,14 @@ public final class UserStartResult implements Parcelable, OperationResult {
      *         {@link UserStartResult#STATUS_USER_DOES_NOT_EXIST}, or
      */
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public @Status int getStatus() {
         return mStatus;
     }
 
     @Override
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         // You can override field toString logic by defining methods like:
         // String fieldNameToString() { ... }
@@ -175,6 +187,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
 
     @Override
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(@android.annotation.NonNull android.os.Parcel dest, int flags) {
         // You can override field parcelling by defining methods like:
         // void parcelFieldName(Parcel dest, int flags) { ... }
@@ -184,6 +197,8 @@ public final class UserStartResult implements Parcelable, OperationResult {
 
     @Override
     @DataClass.Generated.Member
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() { return 0; }
 
     /** @hide */
@@ -214,6 +229,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
     }
 
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public static final @android.annotation.NonNull Parcelable.Creator<UserStartResult> CREATOR
             = new Parcelable.Creator<UserStartResult>() {
         @Override
@@ -231,7 +247,7 @@ public final class UserStartResult implements Parcelable, OperationResult {
             time = 1618957103487L,
             codegenVersion = "1.0.23",
             sourceFile = "packages/services/Car/car-lib/src/android/car/user/UserStartResult.java",
-            inputSignatures = "public static final  int STATUS_SUCCESSFUL\npublic static final  int STATUS_ANDROID_FAILURE\npublic static final  int STATUS_SUCCESSFUL_USER_IS_CURRENT_USER\npublic static final  int STATUS_USER_DOES_NOT_EXIST\nprivate final @android.car.user.UserStartResult.Status int mStatus\npublic @java.lang.Override boolean isSuccess()\nclass UserStartResult extends java.lang.Object implements [android.os.Parcelable, android.car.user.OperationResult]\n@com.android.internal.util.DataClass(genToString=true, genHiddenConstructor=true, genHiddenConstDefs=true)")
+            inputSignatures = "public static final  int STATUS_SUCCESSFUL\npublic static final  int STATUS_ANDROID_FAILURE\npublic static final  int STATUS_SUCCESSFUL_USER_IS_CURRENT_USER\npublic static final  int STATUS_USER_DOES_NOT_EXIST\nprivate final @android.car.user.UserStartResult.Status int mStatus\npublic @java.lang.Override boolean isSuccess()\nclass UserStartResult extends java.lang.Object implements [android.os.Parcelable, android.car.user.OperationResult]\n@com.android.car.internal.util.DataClass(genToString=true, genHiddenConstructor=true, genHiddenConstDefs=true)")
     @Deprecated
     private void __metadata() {}
 

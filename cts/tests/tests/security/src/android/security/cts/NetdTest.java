@@ -20,13 +20,17 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.platform.test.annotations.AsbSecurityTest;
 
-import junit.framework.TestCase;
+import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+import org.junit.runner.RunWith;
+import org.junit.Test;
 
 import java.lang.Class;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-public class NetdTest extends TestCase {
+@RunWith(AndroidJUnit4.class)
+public class NetdTest extends StsExtraBusinessLogicTestCase {
 
     /**
      * Detect if netd has unsanitized system call in Throttle API.
@@ -34,6 +38,7 @@ public class NetdTest extends TestCase {
      *    serv.setInterfaceThrottle("foo; reboot; echo ", -1, -1);
      */
     @AsbSecurityTest(cveBugId = 5758556)
+    @Test
     public void testThrottleSanitization() {
         try {
 

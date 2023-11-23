@@ -642,7 +642,7 @@ std::string Type::getCppArgumentType(bool specifyNamespaces) const {
 }
 
 std::string Type::getCppTypeCast(const std::string& objName, bool specifyNamespaces) const {
-    return "(" + getCppStackType(specifyNamespaces) + ") " + objName;
+    return "static_cast<" + getCppStackType(specifyNamespaces) + ">(" + objName + ")";
 }
 
 void Type::emitJavaReaderWriterWithSuffix(

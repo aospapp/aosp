@@ -15,10 +15,10 @@
 #ifndef ICING_INDEX_MAIN_INDEX_BLOCK_H_
 #define ICING_INDEX_MAIN_INDEX_BLOCK_H_
 
-#include <string.h>
 #include <sys/mman.h>
 
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <string>

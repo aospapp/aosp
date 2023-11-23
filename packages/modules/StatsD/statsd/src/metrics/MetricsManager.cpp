@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "MetricsManager.h"
@@ -66,6 +66,8 @@ MetricsManager::MetricsManager(const ConfigKey& key, const StatsdConfig& config,
                                const sp<AlarmMonitor>& periodicAlarmMonitor)
     : mConfigKey(key),
       mUidMap(uidMap),
+      mPackageCertificateHashSizeBytes(
+              static_cast<uint8_t>(config.package_certificate_hash_size_bytes())),
       mTtlNs(config.has_ttl_in_seconds() ? config.ttl_in_seconds() * NS_PER_SEC : -1),
       mTtlEndNs(-1),
       mLastReportTimeNs(currentTimeNs),
@@ -166,6 +168,7 @@ bool MetricsManager::updateConfig(const StatsdConfig& config, const int64_t time
     mWhitelistedAtomIds.insert(config.whitelisted_atom_ids().begin(),
                                config.whitelisted_atom_ids().end());
     mShouldPersistHistory = config.persist_locally();
+    mPackageCertificateHashSizeBytes = config.package_certificate_hash_size_bytes();
 
     // Store the sub-configs used.
     mAnnotations.clear();
@@ -281,7 +284,7 @@ void MetricsManager::initAllowedLogSources() {
         auto uids = mUidMap->getAppUid(pkg);
         mAllowedLogSources.insert(uids.begin(), uids.end());
     }
-    if (DEBUG) {
+    if (STATSD_DEBUG) {
         for (const auto& uid : mAllowedLogSources) {
             VLOG("Allowed uid %d", uid);
         }
@@ -404,11 +407,9 @@ void MetricsManager::dropData(const int64_t dropTimeNs) {
     }
 }
 
-void MetricsManager::onDumpReport(const int64_t dumpTimeStampNs,
-                                  const bool include_current_partial_bucket,
-                                  const bool erase_data,
-                                  const DumpLatency dumpLatency,
-                                  std::set<string> *str_set,
+void MetricsManager::onDumpReport(const int64_t dumpTimeStampNs, const int64_t wallClockNs,
+                                  const bool include_current_partial_bucket, const bool erase_data,
+                                  const DumpLatency dumpLatency, std::set<string>* str_set,
                                   ProtoOutputStream* protoOutput) {
     VLOG("=========================Metric Reports Start==========================");
     // one StatsLogReport per MetricProduer
@@ -441,11 +442,10 @@ void MetricsManager::onDumpReport(const int64_t dumpTimeStampNs,
     // misaligned.
     if (erase_data) {
         mLastReportTimeNs = dumpTimeStampNs;
-        mLastReportWallClockNs = getWallClockNs();
+        mLastReportWallClockNs = wallClockNs;
     }
     VLOG("=========================Metric Reports End==========================");
 }
-
 
 bool MetricsManager::checkLogCredentials(const LogEvent& event) {
     if (mWhitelistedAtomIds.find(event.GetTagId()) != mWhitelistedAtomIds.end()) {

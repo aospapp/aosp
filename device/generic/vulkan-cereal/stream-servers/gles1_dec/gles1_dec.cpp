@@ -12,6 +12,8 @@
 
 #include "ChecksumCalculatorThreadInfo.h"
 
+#include "host-common/logging.h"
+
 #include <stdio.h>
 
 typedef unsigned int tsize_t; // Target "size_t", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.
@@ -24,7 +26,7 @@ typedef unsigned int tsize_t; // Target "size_t", which is 32-bit for now. It ma
 using namespace emugl;
 
 size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, ChecksumCalculator* checksumCalc) {
-	if (len < 8) return 0; 
+	if (len < 8) return 0;
 #ifdef CHECK_GL_ERRORS
 	char lastCall[256] = {0};
 #endif
@@ -33,8 +35,8 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
     const size_t checksumSize = checksumCalc->checksumByteSize();
     const bool useChecksum = checksumSize > 0;
 	while (end - ptr >= 8) {
-		uint32_t opcode = *(uint32_t *)ptr;   
-		int32_t packetLen = *(int32_t *)(ptr + 4);
+		uint32_t opcode = *(uint32_t *)ptr;
+		uint32_t packetLen = *(uint32_t *)(ptr + 4);
 		if (end - ptr < packetLen) return ptr - (unsigned char*)buf;
 		switch(opcode) {
 		case OP_glAlphaFunc: {
@@ -42,9 +44,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_func = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLclampf var_ref = Unpack<GLclampf,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glAlphaFunc: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glAlphaFunc\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glAlphaFunc(func:0x%08x ref:%f )", stream, var_func, var_ref);
 			this->glAlphaFunc(var_func, var_ref);
 			SET_LASTCALL("glAlphaFunc");
 			android::base::endTrace();
@@ -57,9 +64,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampf var_blue = Unpack<GLclampf,uint32_t>(ptr + 8 + 4 + 4);
 			GLclampf var_alpha = Unpack<GLclampf,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearColor: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearColor\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearColor(red:%f green:%f blue:%f alpha:%f )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glClearColor(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glClearColor");
 			android::base::endTrace();
@@ -69,9 +81,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClearDepthf decode");
 			GLclampf var_depth = Unpack<GLclampf,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearDepthf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearDepthf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearDepthf(depth:%f )", stream, var_depth);
 			this->glClearDepthf(var_depth);
 			SET_LASTCALL("glClearDepthf");
 			android::base::endTrace();
@@ -83,9 +100,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_equation __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_equation(ptr + 8 + 4 + 4, size_equation);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanef: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanef(plane:0x%08x equation:%p(%u) )", stream, var_plane, (const GLfloat*)(inptr_equation.get()), size_equation);
 			this->glClipPlanef(var_plane, (const GLfloat*)(inptr_equation.get()));
 			SET_LASTCALL("glClipPlanef");
 			android::base::endTrace();
@@ -98,9 +120,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_blue = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			GLfloat var_alpha = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColor4f: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColor4f\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColor4f(red:%f green:%f blue:%f alpha:%f )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glColor4f(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glColor4f");
 			android::base::endTrace();
@@ -111,9 +138,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampf var_zNear = Unpack<GLclampf,uint32_t>(ptr + 8);
 			GLclampf var_zFar = Unpack<GLclampf,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthRangef: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthRangef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthRangef(zNear:%f zFar:%f )", stream, var_zNear, var_zFar);
 			this->glDepthRangef(var_zNear, var_zFar);
 			SET_LASTCALL("glDepthRangef");
 			android::base::endTrace();
@@ -124,9 +156,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogf(pname:0x%08x param:%f )", stream, var_pname, var_param);
 			this->glFogf(var_pname, var_param);
 			SET_LASTCALL("glFogf");
 			android::base::endTrace();
@@ -138,9 +175,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogfv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glFogfv(var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glFogfv");
 			android::base::endTrace();
@@ -155,9 +197,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_zNear = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfloat var_zFar = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFrustumf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFrustumf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFrustumf(left:%f right:%f bottom:%f top:%f zNear:%f zFar:%f )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glFrustumf(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glFrustumf");
 			android::base::endTrace();
@@ -168,13 +215,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_eqn __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetClipPlanef: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_eqn;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_eqn(&tmpBuf[0], size_eqn);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetClipPlanef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetClipPlanef(pname:0x%08x eqn:%p(%u) )", stream, var_pname, (GLfloat*)(outptr_eqn.get()), size_eqn);
 			this->glGetClipPlanef(var_pname, (GLfloat*)(outptr_eqn.get()));
 			outptr_eqn.flush();
 			if (useChecksum) {
@@ -190,13 +242,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetFloatv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetFloatv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetFloatv(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLfloat*)(outptr_params.get()), size_params);
 			this->glGetFloatv(var_pname, (GLfloat*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -213,13 +270,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetLightfv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetLightfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetLightfv(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (GLfloat*)(outptr_params.get()), size_params);
 			this->glGetLightfv(var_light, var_pname, (GLfloat*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -236,13 +298,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetMaterialfv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetMaterialfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetMaterialfv(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (GLfloat*)(outptr_params.get()), size_params);
 			this->glGetMaterialfv(var_face, var_pname, (GLfloat*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -259,13 +326,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexEnvfv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexEnvfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexEnvfv(env:0x%08x pname:0x%08x params:%p(%u) )", stream, var_env, var_pname, (GLfloat*)(outptr_params.get()), size_params);
 			this->glGetTexEnvfv(var_env, var_pname, (GLfloat*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -282,13 +354,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexParameterfv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexParameterfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexParameterfv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLfloat*)(outptr_params.get()), size_params);
 			this->glGetTexParameterfv(var_target, var_pname, (GLfloat*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -304,9 +381,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelf(pname:0x%08x param:%f )", stream, var_pname, var_param);
 			this->glLightModelf(var_pname, var_param);
 			SET_LASTCALL("glLightModelf");
 			android::base::endTrace();
@@ -318,9 +400,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelfv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glLightModelfv(var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glLightModelfv");
 			android::base::endTrace();
@@ -332,9 +419,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightf(light:0x%08x pname:0x%08x param:%f )", stream, var_light, var_pname, var_param);
 			this->glLightf(var_light, var_pname, var_param);
 			SET_LASTCALL("glLightf");
 			android::base::endTrace();
@@ -347,9 +439,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightfv(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glLightfv(var_light, var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glLightfv");
 			android::base::endTrace();
@@ -359,9 +456,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glLineWidth decode");
 			GLfloat var_width = Unpack<GLfloat,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLineWidth: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLineWidth\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLineWidth(width:%f )", stream, var_width);
 			this->glLineWidth(var_width);
 			SET_LASTCALL("glLineWidth");
 			android::base::endTrace();
@@ -372,9 +474,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLoadMatrixf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLoadMatrixf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLoadMatrixf(m:%p(%u) )", stream, (const GLfloat*)(inptr_m.get()), size_m);
 			this->glLoadMatrixf((const GLfloat*)(inptr_m.get()));
 			SET_LASTCALL("glLoadMatrixf");
 			android::base::endTrace();
@@ -386,9 +493,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialf(face:0x%08x pname:0x%08x param:%f )", stream, var_face, var_pname, var_param);
 			this->glMaterialf(var_face, var_pname, var_param);
 			SET_LASTCALL("glMaterialf");
 			android::base::endTrace();
@@ -401,9 +513,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialfv(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glMaterialfv(var_face, var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glMaterialfv");
 			android::base::endTrace();
@@ -414,9 +531,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultMatrixf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultMatrixf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultMatrixf(m:%p(%u) )", stream, (const GLfloat*)(inptr_m.get()), size_m);
 			this->glMultMatrixf((const GLfloat*)(inptr_m.get()));
 			SET_LASTCALL("glMultMatrixf");
 			android::base::endTrace();
@@ -430,9 +552,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_r = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLfloat var_q = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiTexCoord4f: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiTexCoord4f\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiTexCoord4f(target:0x%08x s:%f t:%f r:%f q:%f )", stream, var_target, var_s, var_t, var_r, var_q);
 			this->glMultiTexCoord4f(var_target, var_s, var_t, var_r, var_q);
 			SET_LASTCALL("glMultiTexCoord4f");
 			android::base::endTrace();
@@ -444,9 +571,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_ny = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			GLfloat var_nz = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormal3f: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormal3f\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormal3f(nx:%f ny:%f nz:%f )", stream, var_nx, var_ny, var_nz);
 			this->glNormal3f(var_nx, var_ny, var_nz);
 			SET_LASTCALL("glNormal3f");
 			android::base::endTrace();
@@ -461,9 +593,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_zNear = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfloat var_zFar = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glOrthof: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glOrthof\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glOrthof(left:%f right:%f bottom:%f top:%f zNear:%f zFar:%f )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glOrthof(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glOrthof");
 			android::base::endTrace();
@@ -474,9 +611,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterf(pname:0x%08x param:%f )", stream, var_pname, var_param);
 			this->glPointParameterf(var_pname, var_param);
 			SET_LASTCALL("glPointParameterf");
 			android::base::endTrace();
@@ -488,9 +630,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterfv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glPointParameterfv(var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glPointParameterfv");
 			android::base::endTrace();
@@ -500,9 +647,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glPointSize decode");
 			GLfloat var_size = Unpack<GLfloat,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSize: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSize\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSize(size:%f )", stream, var_size);
 			this->glPointSize(var_size);
 			SET_LASTCALL("glPointSize");
 			android::base::endTrace();
@@ -513,9 +665,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_factor = Unpack<GLfloat,uint32_t>(ptr + 8);
 			GLfloat var_units = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPolygonOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPolygonOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPolygonOffset(factor:%f units:%f )", stream, var_factor, var_units);
 			this->glPolygonOffset(var_factor, var_units);
 			SET_LASTCALL("glPolygonOffset");
 			android::base::endTrace();
@@ -528,9 +685,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_y = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			GLfloat var_z = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glRotatef: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glRotatef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glRotatef(angle:%f x:%f y:%f z:%f )", stream, var_angle, var_x, var_y, var_z);
 			this->glRotatef(var_angle, var_x, var_y, var_z);
 			SET_LASTCALL("glRotatef");
 			android::base::endTrace();
@@ -542,9 +704,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_y = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			GLfloat var_z = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glScalef: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glScalef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glScalef(x:%f y:%f z:%f )", stream, var_x, var_y, var_z);
 			this->glScalef(var_x, var_y, var_z);
 			SET_LASTCALL("glScalef");
 			android::base::endTrace();
@@ -556,9 +723,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvf(target:0x%08x pname:0x%08x param:%f )", stream, var_target, var_pname, var_param);
 			this->glTexEnvf(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexEnvf");
 			android::base::endTrace();
@@ -571,9 +743,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvfv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glTexEnvfv(var_target, var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glTexEnvfv");
 			android::base::endTrace();
@@ -585,9 +762,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterf: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterf\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterf(target:0x%08x pname:0x%08x param:%f )", stream, var_target, var_pname, var_param);
 			this->glTexParameterf(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexParameterf");
 			android::base::endTrace();
@@ -600,9 +782,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterfv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterfv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterfv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glTexParameterfv(var_target, var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glTexParameterfv");
 			android::base::endTrace();
@@ -614,9 +801,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_y = Unpack<GLfloat,uint32_t>(ptr + 8 + 4);
 			GLfloat var_z = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTranslatef: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTranslatef\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTranslatef(x:%f y:%f z:%f )", stream, var_x, var_y, var_z);
 			this->glTranslatef(var_x, var_y, var_z);
 			SET_LASTCALL("glTranslatef");
 			android::base::endTrace();
@@ -626,9 +818,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glActiveTexture decode");
 			GLenum var_texture = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glActiveTexture: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glActiveTexture\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glActiveTexture(texture:0x%08x )", stream, var_texture);
 			this->glActiveTexture(var_texture);
 			SET_LASTCALL("glActiveTexture");
 			android::base::endTrace();
@@ -639,9 +836,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_func = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLclampx var_ref = Unpack<GLclampx,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glAlphaFuncx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glAlphaFuncx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glAlphaFuncx(func:0x%08x ref:0x%08x )", stream, var_func, var_ref);
 			this->glAlphaFuncx(var_func, var_ref);
 			SET_LASTCALL("glAlphaFuncx");
 			android::base::endTrace();
@@ -652,9 +854,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBindBuffer: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBindBuffer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBindBuffer(target:0x%08x buffer:%u )", stream, var_target, var_buffer);
 			this->glBindBuffer(var_target, var_buffer);
 			SET_LASTCALL("glBindBuffer");
 			android::base::endTrace();
@@ -665,9 +872,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLuint var_texture = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBindTexture: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBindTexture\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBindTexture(target:0x%08x texture:%u )", stream, var_target, var_texture);
 			this->glBindTexture(var_target, var_texture);
 			SET_LASTCALL("glBindTexture");
 			android::base::endTrace();
@@ -678,9 +890,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_sfactor = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLenum var_dfactor = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBlendFunc: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBlendFunc\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBlendFunc(sfactor:0x%08x dfactor:0x%08x )", stream, var_sfactor, var_dfactor);
 			this->glBlendFunc(var_sfactor, var_dfactor);
 			SET_LASTCALL("glBlendFunc");
 			android::base::endTrace();
@@ -694,9 +911,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4, size_data);
 			GLenum var_usage = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBufferData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBufferData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBufferData(target:0x%08x size:0x%08lx data:%p(%u) usage:0x%08x )", stream, var_target, var_size, (const GLvoid*)(inptr_data.get()), size_data, var_usage);
 			this->glBufferData(var_target, var_size, size_data == 0 ? nullptr : (const GLvoid*)(inptr_data.get()), var_usage);
 			SET_LASTCALL("glBufferData");
 			android::base::endTrace();
@@ -710,9 +932,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_data __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + size_data, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + size_data, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBufferSubData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBufferSubData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBufferSubData(target:0x%08x offset:0x%08lx size:0x%08lx data:%p(%u) )", stream, var_target, var_offset, var_size, (const GLvoid*)(inptr_data.get()), size_data);
 			this->glBufferSubData(var_target, var_offset, var_size, size_data == 0 ? nullptr : (const GLvoid*)(inptr_data.get()));
 			SET_LASTCALL("glBufferSubData");
 			android::base::endTrace();
@@ -722,9 +949,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClear decode");
 			GLbitfield var_mask = Unpack<GLbitfield,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClear: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClear\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClear(mask:0x%08x )", stream, var_mask);
 			this->glClear(var_mask);
 			SET_LASTCALL("glClear");
 			android::base::endTrace();
@@ -737,9 +969,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_blue = Unpack<GLclampx,uint32_t>(ptr + 8 + 4 + 4);
 			GLclampx var_alpha = Unpack<GLclampx,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearColorx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearColorx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearColorx(red:0x%08x green:0x%08x blue:0x%08x alpha:0x%08x )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glClearColorx(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glClearColorx");
 			android::base::endTrace();
@@ -749,9 +986,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClearDepthx decode");
 			GLclampx var_depth = Unpack<GLclampx,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearDepthx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearDepthx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearDepthx(depth:0x%08x )", stream, var_depth);
 			this->glClearDepthx(var_depth);
 			SET_LASTCALL("glClearDepthx");
 			android::base::endTrace();
@@ -761,9 +1003,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClearStencil decode");
 			GLint var_s = Unpack<GLint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearStencil: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearStencil\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearStencil(s:%d )", stream, var_s);
 			this->glClearStencil(var_s);
 			SET_LASTCALL("glClearStencil");
 			android::base::endTrace();
@@ -773,9 +1020,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClientActiveTexture decode");
 			GLenum var_texture = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClientActiveTexture: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClientActiveTexture\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClientActiveTexture(texture:0x%08x )", stream, var_texture);
 			this->glClientActiveTexture(var_texture);
 			SET_LASTCALL("glClientActiveTexture");
 			android::base::endTrace();
@@ -788,9 +1040,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLubyte var_blue = Unpack<GLubyte,uint8_t>(ptr + 8 + 1 + 1);
 			GLubyte var_alpha = Unpack<GLubyte,uint8_t>(ptr + 8 + 1 + 1 + 1);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1 + 1 + 1 + 1, ptr + 8 + 1 + 1 + 1 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1 + 1 + 1 + 1, ptr + 8 + 1 + 1 + 1 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColor4ub: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColor4ub\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColor4ub(red:0x%02x green:0x%02x blue:0x%02x alpha:0x%02x )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glColor4ub(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glColor4ub");
 			android::base::endTrace();
@@ -803,9 +1060,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_blue = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			GLfixed var_alpha = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColor4x: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColor4x\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColor4x(red:0x%08x green:0x%08x blue:0x%08x alpha:0x%08x )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glColor4x(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glColor4x");
 			android::base::endTrace();
@@ -818,9 +1080,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLboolean var_blue = Unpack<GLboolean,uint8_t>(ptr + 8 + 1 + 1);
 			GLboolean var_alpha = Unpack<GLboolean,uint8_t>(ptr + 8 + 1 + 1 + 1);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1 + 1 + 1 + 1, ptr + 8 + 1 + 1 + 1 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1 + 1 + 1 + 1, ptr + 8 + 1 + 1 + 1 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColorMask: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColorMask\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColorMask(red:%d green:%d blue:%d alpha:%d )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glColorMask(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glColorMask");
 			android::base::endTrace();
@@ -834,9 +1101,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColorPointer: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColorPointer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColorPointer(size:%d type:0x%08x stride:%d pointer:%p(%u) )", stream, var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glColorPointer(var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glColorPointer");
 			android::base::endTrace();
@@ -854,9 +1126,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_data __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCompressedTexImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCompressedTexImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCompressedTexImage2D(target:0x%08x level:%d internalformat:0x%08x width:%d height:%d border:%d imageSize:%d data:%p(%u) )", stream, var_target, var_level, var_internalformat, var_width, var_height, var_border, var_imageSize, (const GLvoid*)(inptr_data.get()), size_data);
 			this->glCompressedTexImage2D(var_target, var_level, var_internalformat, var_width, var_height, var_border, var_imageSize, size_data == 0 ? nullptr : (const GLvoid*)(inptr_data.get()));
 			SET_LASTCALL("glCompressedTexImage2D");
 			android::base::endTrace();
@@ -875,9 +1152,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_data __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_data, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCompressedTexSubImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCompressedTexSubImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCompressedTexSubImage2D(target:0x%08x level:%d xoffset:%d yoffset:%d width:%d height:%d format:0x%08x imageSize:%d data:%p(%u) )", stream, var_target, var_level, var_xoffset, var_yoffset, var_width, var_height, var_format, var_imageSize, (const GLvoid*)(inptr_data.get()), size_data);
 			this->glCompressedTexSubImage2D(var_target, var_level, var_xoffset, var_yoffset, var_width, var_height, var_format, var_imageSize, size_data == 0 ? nullptr : (const GLvoid*)(inptr_data.get()));
 			SET_LASTCALL("glCompressedTexSubImage2D");
 			android::base::endTrace();
@@ -894,9 +1176,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4);
 			GLint var_border = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCopyTexImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCopyTexImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCopyTexImage2D(target:0x%08x level:%d internalformat:0x%08x x:%d y:%d width:%d height:%d border:%d )", stream, var_target, var_level, var_internalformat, var_x, var_y, var_width, var_height, var_border);
 			this->glCopyTexImage2D(var_target, var_level, var_internalformat, var_x, var_y, var_width, var_height, var_border);
 			SET_LASTCALL("glCopyTexImage2D");
 			android::base::endTrace();
@@ -913,9 +1200,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_width = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4);
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCopyTexSubImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCopyTexSubImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCopyTexSubImage2D(target:0x%08x level:%d xoffset:%d yoffset:%d x:%d y:%d width:%d height:%d )", stream, var_target, var_level, var_xoffset, var_yoffset, var_x, var_y, var_width, var_height);
 			this->glCopyTexSubImage2D(var_target, var_level, var_xoffset, var_yoffset, var_x, var_y, var_width, var_height);
 			SET_LASTCALL("glCopyTexSubImage2D");
 			android::base::endTrace();
@@ -925,9 +1217,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glCullFace decode");
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCullFace: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCullFace\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCullFace(mode:0x%08x )", stream, var_mode);
 			this->glCullFace(var_mode);
 			SET_LASTCALL("glCullFace");
 			android::base::endTrace();
@@ -939,9 +1236,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_buffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_buffers(ptr + 8 + 4 + 4, size_buffers);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_buffers, ptr + 8 + 4 + 4 + size_buffers, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_buffers, ptr + 8 + 4 + 4 + size_buffers, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteBuffers: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteBuffers\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteBuffers(n:%d buffers:%p(%u) )", stream, var_n, (const GLuint*)(inptr_buffers.get()), size_buffers);
 			this->glDeleteBuffers_dec(this, var_n, (const GLuint*)(inptr_buffers.get()));
 			SET_LASTCALL("glDeleteBuffers");
 			android::base::endTrace();
@@ -953,9 +1255,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_textures __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_textures(ptr + 8 + 4 + 4, size_textures);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_textures, ptr + 8 + 4 + 4 + size_textures, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_textures, ptr + 8 + 4 + 4 + size_textures, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteTextures: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteTextures\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteTextures(n:%d textures:%p(%u) )", stream, var_n, (const GLuint*)(inptr_textures.get()), size_textures);
 			this->glDeleteTextures_dec(this, var_n, (const GLuint*)(inptr_textures.get()));
 			SET_LASTCALL("glDeleteTextures");
 			android::base::endTrace();
@@ -965,9 +1272,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glDepthFunc decode");
 			GLenum var_func = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthFunc: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthFunc\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthFunc(func:0x%08x )", stream, var_func);
 			this->glDepthFunc(var_func);
 			SET_LASTCALL("glDepthFunc");
 			android::base::endTrace();
@@ -977,9 +1289,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glDepthMask decode");
 			GLboolean var_flag = Unpack<GLboolean,uint8_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1, ptr + 8 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 1, ptr + 8 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthMask: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthMask\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthMask(flag:%d )", stream, var_flag);
 			this->glDepthMask(var_flag);
 			SET_LASTCALL("glDepthMask");
 			android::base::endTrace();
@@ -990,9 +1307,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_zNear = Unpack<GLclampx,uint32_t>(ptr + 8);
 			GLclampx var_zFar = Unpack<GLclampx,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthRangex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthRangex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthRangex(zNear:0x%08x zFar:0x%08x )", stream, var_zNear, var_zFar);
 			this->glDepthRangex(var_zNear, var_zFar);
 			SET_LASTCALL("glDepthRangex");
 			android::base::endTrace();
@@ -1002,9 +1324,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glDisable decode");
 			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDisable: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDisable\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDisable(cap:0x%08x )", stream, var_cap);
 			this->glDisable(var_cap);
 			SET_LASTCALL("glDisable");
 			android::base::endTrace();
@@ -1014,9 +1341,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glDisableClientState decode");
 			GLenum var_array = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDisableClientState: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDisableClientState\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDisableClientState(array:0x%08x )", stream, var_array);
 			this->glDisableClientState(var_array);
 			SET_LASTCALL("glDisableClientState");
 			android::base::endTrace();
@@ -1028,9 +1360,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_first = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			GLsizei var_count = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawArrays: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawArrays\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawArrays(mode:0x%08x first:%d count:%d )", stream, var_mode, var_first, var_count);
 			this->glDrawArrays(var_mode, var_first, var_count);
 			SET_LASTCALL("glDrawArrays");
 			android::base::endTrace();
@@ -1044,9 +1381,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_indices __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_indices(ptr + 8 + 4 + 4 + 4 + 4, size_indices);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_indices, ptr + 8 + 4 + 4 + 4 + 4 + size_indices, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_indices, ptr + 8 + 4 + 4 + 4 + 4 + size_indices, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawElements: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawElements\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawElements(mode:0x%08x count:%d type:0x%08x indices:%p(%u) )", stream, var_mode, var_count, var_type, (const GLvoid*)(inptr_indices.get()), size_indices);
 			this->glDrawElements(var_mode, var_count, var_type, (const GLvoid*)(inptr_indices.get()));
 			SET_LASTCALL("glDrawElements");
 			android::base::endTrace();
@@ -1056,9 +1398,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glEnable decode");
 			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEnable: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEnable\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEnable(cap:0x%08x )", stream, var_cap);
 			this->glEnable(var_cap);
 			SET_LASTCALL("glEnable");
 			android::base::endTrace();
@@ -1068,9 +1415,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glEnableClientState decode");
 			GLenum var_array = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEnableClientState: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEnableClientState\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEnableClientState(array:0x%08x )", stream, var_array);
 			this->glEnableClientState(var_array);
 			SET_LASTCALL("glEnableClientState");
 			android::base::endTrace();
@@ -1079,9 +1431,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glFinish: {
 			android::base::beginTrace("glFinish decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFinish: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFinish\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFinish()", stream);
 			this->glFinish();
 			SET_LASTCALL("glFinish");
 			android::base::endTrace();
@@ -1090,9 +1447,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glFlush: {
 			android::base::beginTrace("glFlush decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFlush: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFlush\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFlush()", stream);
 			this->glFlush();
 			SET_LASTCALL("glFlush");
 			android::base::endTrace();
@@ -1103,9 +1465,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogx(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glFogx(var_pname, var_param);
 			SET_LASTCALL("glFogx");
 			android::base::endTrace();
@@ -1117,9 +1484,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogxv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glFogxv(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glFogxv");
 			android::base::endTrace();
@@ -1129,9 +1501,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glFrontFace decode");
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFrontFace: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFrontFace\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFrontFace(mode:0x%08x )", stream, var_mode);
 			this->glFrontFace(var_mode);
 			SET_LASTCALL("glFrontFace");
 			android::base::endTrace();
@@ -1146,9 +1523,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_zNear = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfixed var_zFar = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFrustumx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFrustumx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFrustumx(left:0x%08x right:0x%08x bottom:0x%08x top:0x%08x zNear:0x%08x zFar:0x%08x )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glFrustumx(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glFrustumx");
 			android::base::endTrace();
@@ -1159,13 +1541,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetBooleanv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetBooleanv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetBooleanv(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLboolean*)(outptr_params.get()), size_params);
 			this->glGetBooleanv(var_pname, (GLboolean*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1182,13 +1569,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetBufferParameteriv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetBufferParameteriv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetBufferParameteriv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetBufferParameteriv(var_target, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1205,9 +1597,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_eqn __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_eqn(ptr + 8 + 4 + 4, size_eqn);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_eqn, ptr + 8 + 4 + 4 + size_eqn, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_eqn, ptr + 8 + 4 + 4 + size_eqn, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanex(pname:0x%08x eqn:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_eqn.get()), size_eqn);
 			this->glClipPlanex(var_pname, (const GLfixed*)(inptr_eqn.get()));
 			SET_LASTCALL("glClipPlanex");
 			android::base::endTrace();
@@ -1218,13 +1615,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_n = Unpack<GLsizei,uint32_t>(ptr + 8);
 			uint32_t size_buffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenBuffers: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_buffers;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_buffers(&tmpBuf[0], size_buffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenBuffers\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenBuffers(n:%d buffers:%p(%u) )", stream, var_n, (GLuint*)(outptr_buffers.get()), size_buffers);
 			this->glGenBuffers_dec(this, var_n, (GLuint*)(outptr_buffers.get()));
 			outptr_buffers.flush();
 			if (useChecksum) {
@@ -1240,13 +1642,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_n = Unpack<GLsizei,uint32_t>(ptr + 8);
 			uint32_t size_textures __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenTextures: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_textures;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_textures(&tmpBuf[0], size_textures);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenTextures\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenTextures(n:%d textures:%p(%u) )", stream, var_n, (GLuint*)(outptr_textures.get()), size_textures);
 			this->glGenTextures_dec(this, var_n, (GLuint*)(outptr_textures.get()));
 			outptr_textures.flush();
 			if (useChecksum) {
@@ -1260,12 +1667,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glGetError: {
 			android::base::beginTrace("glGetError decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetError: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLenum);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetError\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetError()", stream);
 			*(GLenum *)(&tmpBuf[0]) = 			this->glGetError();
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1280,13 +1692,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetFixedv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetFixedv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetFixedv(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetFixedv(var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1302,13 +1719,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetIntegerv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetIntegerv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetIntegerv(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetIntegerv(var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1325,13 +1747,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetLightxv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetLightxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetLightxv(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetLightxv(var_light, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1348,13 +1775,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetMaterialxv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetMaterialxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetMaterialxv(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetMaterialxv(var_face, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1371,9 +1803,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetPointerv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetPointerv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetPointerv(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLvoid**)(inptr_params.get()), size_params);
 			this->glGetPointerv(var_pname, (GLvoid**)(inptr_params.get()));
 			SET_LASTCALL("glGetPointerv");
 			android::base::endTrace();
@@ -1383,9 +1820,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glGetString decode");
 			GLenum var_name = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetString: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetString\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetString(name:0x%08x )", stream, var_name);
 			this->glGetString(var_name);
 			SET_LASTCALL("glGetString");
 			android::base::endTrace();
@@ -1397,13 +1839,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexEnviv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexEnviv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexEnviv(env:0x%08x pname:0x%08x params:%p(%u) )", stream, var_env, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetTexEnviv(var_env, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1420,13 +1867,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexEnvxv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexEnvxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexEnvxv(env:0x%08x pname:0x%08x params:%p(%u) )", stream, var_env, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetTexEnvxv(var_env, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1443,13 +1895,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexParameteriv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexParameteriv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexParameteriv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetTexParameteriv(var_target, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1466,13 +1923,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexParameterxv: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexParameterxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexParameterxv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetTexParameterxv(var_target, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -1488,9 +1950,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glHint: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glHint\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glHint(target:0x%08x mode:0x%08x )", stream, var_target, var_mode);
 			this->glHint(var_target, var_mode);
 			SET_LASTCALL("glHint");
 			android::base::endTrace();
@@ -1500,12 +1967,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsBuffer decode");
 			GLuint var_buffer = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsBuffer: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsBuffer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsBuffer(buffer:%u )", stream, var_buffer);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsBuffer(var_buffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1519,12 +1991,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsEnabled decode");
 			GLenum var_cap = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsEnabled: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsEnabled\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsEnabled(cap:0x%08x )", stream, var_cap);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsEnabled(var_cap);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1538,12 +2015,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsTexture decode");
 			GLuint var_texture = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsTexture: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsTexture\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsTexture(texture:%u )", stream, var_texture);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsTexture(var_texture);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -1558,9 +2040,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelx(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glLightModelx(var_pname, var_param);
 			SET_LASTCALL("glLightModelx");
 			android::base::endTrace();
@@ -1572,9 +2059,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelxv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glLightModelxv(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glLightModelxv");
 			android::base::endTrace();
@@ -1586,9 +2078,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightx(light:0x%08x pname:0x%08x param:0x%08x )", stream, var_light, var_pname, var_param);
 			this->glLightx(var_light, var_pname, var_param);
 			SET_LASTCALL("glLightx");
 			android::base::endTrace();
@@ -1601,9 +2098,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightxv(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glLightxv(var_light, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glLightxv");
 			android::base::endTrace();
@@ -1613,9 +2115,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glLineWidthx decode");
 			GLfixed var_width = Unpack<GLfixed,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLineWidthx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLineWidthx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLineWidthx(width:0x%08x )", stream, var_width);
 			this->glLineWidthx(var_width);
 			SET_LASTCALL("glLineWidthx");
 			android::base::endTrace();
@@ -1624,9 +2131,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glLoadIdentity: {
 			android::base::beginTrace("glLoadIdentity decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLoadIdentity: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLoadIdentity\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLoadIdentity()", stream);
 			this->glLoadIdentity();
 			SET_LASTCALL("glLoadIdentity");
 			android::base::endTrace();
@@ -1637,9 +2149,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLoadMatrixx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLoadMatrixx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLoadMatrixx(m:%p(%u) )", stream, (const GLfixed*)(inptr_m.get()), size_m);
 			this->glLoadMatrixx((const GLfixed*)(inptr_m.get()));
 			SET_LASTCALL("glLoadMatrixx");
 			android::base::endTrace();
@@ -1649,9 +2166,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glLogicOp decode");
 			GLenum var_opcode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLogicOp: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLogicOp\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLogicOp(opcode:0x%08x )", stream, var_opcode);
 			this->glLogicOp(var_opcode);
 			SET_LASTCALL("glLogicOp");
 			android::base::endTrace();
@@ -1663,9 +2185,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialx(face:0x%08x pname:0x%08x param:0x%08x )", stream, var_face, var_pname, var_param);
 			this->glMaterialx(var_face, var_pname, var_param);
 			SET_LASTCALL("glMaterialx");
 			android::base::endTrace();
@@ -1678,9 +2205,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialxv(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glMaterialxv(var_face, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glMaterialxv");
 			android::base::endTrace();
@@ -1690,9 +2222,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glMatrixMode decode");
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMatrixMode: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMatrixMode\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMatrixMode(mode:0x%08x )", stream, var_mode);
 			this->glMatrixMode(var_mode);
 			SET_LASTCALL("glMatrixMode");
 			android::base::endTrace();
@@ -1703,9 +2240,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultMatrixx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultMatrixx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultMatrixx(m:%p(%u) )", stream, (const GLfixed*)(inptr_m.get()), size_m);
 			this->glMultMatrixx((const GLfixed*)(inptr_m.get()));
 			SET_LASTCALL("glMultMatrixx");
 			android::base::endTrace();
@@ -1719,9 +2261,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_r = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLfixed var_q = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiTexCoord4x: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiTexCoord4x\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiTexCoord4x(target:0x%08x s:0x%08x t:0x%08x r:0x%08x q:0x%08x )", stream, var_target, var_s, var_t, var_r, var_q);
 			this->glMultiTexCoord4x(var_target, var_s, var_t, var_r, var_q);
 			SET_LASTCALL("glMultiTexCoord4x");
 			android::base::endTrace();
@@ -1733,9 +2280,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_ny = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_nz = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormal3x: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormal3x\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormal3x(nx:0x%08x ny:0x%08x nz:0x%08x )", stream, var_nx, var_ny, var_nz);
 			this->glNormal3x(var_nx, var_ny, var_nz);
 			SET_LASTCALL("glNormal3x");
 			android::base::endTrace();
@@ -1748,9 +2300,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormalPointer: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormalPointer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormalPointer(type:0x%08x stride:%d pointer:%p(%u) )", stream, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glNormalPointer(var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glNormalPointer");
 			android::base::endTrace();
@@ -1765,9 +2322,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_zNear = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfixed var_zFar = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glOrthox: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glOrthox\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glOrthox(left:0x%08x right:0x%08x bottom:0x%08x top:0x%08x zNear:0x%08x zFar:0x%08x )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glOrthox(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glOrthox");
 			android::base::endTrace();
@@ -1778,9 +2340,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLint var_param = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPixelStorei: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPixelStorei\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPixelStorei(pname:0x%08x param:%d )", stream, var_pname, var_param);
 			this->glPixelStorei(var_pname, var_param);
 			SET_LASTCALL("glPixelStorei");
 			android::base::endTrace();
@@ -1791,9 +2358,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterx(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glPointParameterx(var_pname, var_param);
 			SET_LASTCALL("glPointParameterx");
 			android::base::endTrace();
@@ -1805,9 +2377,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterxv(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glPointParameterxv(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glPointParameterxv");
 			android::base::endTrace();
@@ -1817,9 +2394,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glPointSizex decode");
 			GLfixed var_size = Unpack<GLfixed,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSizex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSizex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSizex(size:0x%08x )", stream, var_size);
 			this->glPointSizex(var_size);
 			SET_LASTCALL("glPointSizex");
 			android::base::endTrace();
@@ -1830,9 +2412,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_factor = Unpack<GLfixed,uint32_t>(ptr + 8);
 			GLfixed var_units = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPolygonOffsetx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPolygonOffsetx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPolygonOffsetx(factor:0x%08x units:0x%08x )", stream, var_factor, var_units);
 			this->glPolygonOffsetx(var_factor, var_units);
 			SET_LASTCALL("glPolygonOffsetx");
 			android::base::endTrace();
@@ -1841,9 +2428,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glPopMatrix: {
 			android::base::beginTrace("glPopMatrix decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPopMatrix: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPopMatrix\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPopMatrix()", stream);
 			this->glPopMatrix();
 			SET_LASTCALL("glPopMatrix");
 			android::base::endTrace();
@@ -1852,9 +2444,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glPushMatrix: {
 			android::base::beginTrace("glPushMatrix decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPushMatrix: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPushMatrix\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPushMatrix()", stream);
 			this->glPushMatrix();
 			SET_LASTCALL("glPushMatrix");
 			android::base::endTrace();
@@ -1870,13 +2467,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_type = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			uint32_t size_pixels __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glReadPixels: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_pixels;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_pixels(&tmpBuf[0], size_pixels);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glReadPixels\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glReadPixels(x:%d y:%d width:%d height:%d format:0x%08x type:0x%08x pixels:%p(%u) )", stream, var_x, var_y, var_width, var_height, var_format, var_type, (GLvoid*)(outptr_pixels.get()), size_pixels);
 			this->glReadPixels(var_x, var_y, var_width, var_height, var_format, var_type, (GLvoid*)(outptr_pixels.get()));
 			outptr_pixels.flush();
 			if (useChecksum) {
@@ -1894,9 +2496,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glRotatex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glRotatex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glRotatex(angle:0x%08x x:0x%08x y:0x%08x z:0x%08x )", stream, var_angle, var_x, var_y, var_z);
 			this->glRotatex(var_angle, var_x, var_y, var_z);
 			SET_LASTCALL("glRotatex");
 			android::base::endTrace();
@@ -1907,9 +2514,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampf var_value = Unpack<GLclampf,uint32_t>(ptr + 8);
 			GLboolean var_invert = Unpack<GLboolean,uint8_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glSampleCoverage: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glSampleCoverage\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glSampleCoverage(value:%f invert:%d )", stream, var_value, var_invert);
 			this->glSampleCoverage(var_value, var_invert);
 			SET_LASTCALL("glSampleCoverage");
 			android::base::endTrace();
@@ -1920,9 +2532,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_value = Unpack<GLclampx,uint32_t>(ptr + 8);
 			GLboolean var_invert = Unpack<GLboolean,uint8_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glSampleCoveragex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glSampleCoveragex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glSampleCoveragex(value:0x%08x invert:%d )", stream, var_value, var_invert);
 			this->glSampleCoveragex(var_value, var_invert);
 			SET_LASTCALL("glSampleCoveragex");
 			android::base::endTrace();
@@ -1934,9 +2551,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glScalex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glScalex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glScalex(x:0x%08x y:0x%08x z:0x%08x )", stream, var_x, var_y, var_z);
 			this->glScalex(var_x, var_y, var_z);
 			SET_LASTCALL("glScalex");
 			android::base::endTrace();
@@ -1949,9 +2571,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_width = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glScissor: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glScissor\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glScissor(x:%d y:%d width:%d height:%d )", stream, var_x, var_y, var_width, var_height);
 			this->glScissor(var_x, var_y, var_width, var_height);
 			SET_LASTCALL("glScissor");
 			android::base::endTrace();
@@ -1961,9 +2588,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glShadeModel decode");
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glShadeModel: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glShadeModel\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glShadeModel(mode:0x%08x )", stream, var_mode);
 			this->glShadeModel(var_mode);
 			SET_LASTCALL("glShadeModel");
 			android::base::endTrace();
@@ -1975,9 +2607,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_ref = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			GLuint var_mask = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glStencilFunc: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glStencilFunc\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glStencilFunc(func:0x%08x ref:%d mask:%u )", stream, var_func, var_ref, var_mask);
 			this->glStencilFunc(var_func, var_ref, var_mask);
 			SET_LASTCALL("glStencilFunc");
 			android::base::endTrace();
@@ -1987,9 +2624,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glStencilMask decode");
 			GLuint var_mask = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glStencilMask: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glStencilMask\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glStencilMask(mask:%u )", stream, var_mask);
 			this->glStencilMask(var_mask);
 			SET_LASTCALL("glStencilMask");
 			android::base::endTrace();
@@ -2001,9 +2643,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_zfail = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLenum var_zpass = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glStencilOp: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glStencilOp\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glStencilOp(fail:0x%08x zfail:0x%08x zpass:0x%08x )", stream, var_fail, var_zfail, var_zpass);
 			this->glStencilOp(var_fail, var_zfail, var_zpass);
 			SET_LASTCALL("glStencilOp");
 			android::base::endTrace();
@@ -2017,9 +2664,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexCoordPointer: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexCoordPointer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexCoordPointer(size:%d type:0x%08x stride:%d pointer:%p(%u) )", stream, var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glTexCoordPointer(var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glTexCoordPointer");
 			android::base::endTrace();
@@ -2031,9 +2683,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLint var_param = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvi: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvi\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvi(target:0x%08x pname:0x%08x param:%d )", stream, var_target, var_pname, var_param);
 			this->glTexEnvi(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexEnvi");
 			android::base::endTrace();
@@ -2045,9 +2702,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvx(target:0x%08x pname:0x%08x param:0x%08x )", stream, var_target, var_pname, var_param);
 			this->glTexEnvx(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexEnvx");
 			android::base::endTrace();
@@ -2060,9 +2722,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnviv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnviv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnviv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLint*)(inptr_params.get()), size_params);
 			this->glTexEnviv(var_target, var_pname, (const GLint*)(inptr_params.get()));
 			SET_LASTCALL("glTexEnviv");
 			android::base::endTrace();
@@ -2075,9 +2742,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvxv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glTexEnvxv(var_target, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glTexEnvxv");
 			android::base::endTrace();
@@ -2096,9 +2768,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pixels __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			InputBuffer inptr_pixels(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, size_pixels);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexImage2D(target:0x%08x level:%d internalformat:%d width:%d height:%d border:%d format:0x%08x type:0x%08x pixels:%p(%u) )", stream, var_target, var_level, var_internalformat, var_width, var_height, var_border, var_format, var_type, (const GLvoid*)(inptr_pixels.get()), size_pixels);
 			this->glTexImage2D(var_target, var_level, var_internalformat, var_width, var_height, var_border, var_format, var_type, size_pixels == 0 ? nullptr : (const GLvoid*)(inptr_pixels.get()));
 			SET_LASTCALL("glTexImage2D");
 			android::base::endTrace();
@@ -2110,9 +2787,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLint var_param = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameteri: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameteri\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameteri(target:0x%08x pname:0x%08x param:%d )", stream, var_target, var_pname, var_param);
 			this->glTexParameteri(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexParameteri");
 			android::base::endTrace();
@@ -2124,9 +2806,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterx: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterx\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterx(target:0x%08x pname:0x%08x param:0x%08x )", stream, var_target, var_pname, var_param);
 			this->glTexParameterx(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexParameterx");
 			android::base::endTrace();
@@ -2139,9 +2826,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameteriv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameteriv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameteriv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLint*)(inptr_params.get()), size_params);
 			this->glTexParameteriv(var_target, var_pname, (const GLint*)(inptr_params.get()));
 			SET_LASTCALL("glTexParameteriv");
 			android::base::endTrace();
@@ -2154,9 +2846,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterxv: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterxv\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterxv(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glTexParameterxv(var_target, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glTexParameterxv");
 			android::base::endTrace();
@@ -2175,9 +2872,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pixels __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			InputBuffer inptr_pixels(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, size_pixels);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + size_pixels, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexSubImage2D: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexSubImage2D\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexSubImage2D(target:0x%08x level:%d xoffset:%d yoffset:%d width:%d height:%d format:0x%08x type:0x%08x pixels:%p(%u) )", stream, var_target, var_level, var_xoffset, var_yoffset, var_width, var_height, var_format, var_type, (const GLvoid*)(inptr_pixels.get()), size_pixels);
 			this->glTexSubImage2D(var_target, var_level, var_xoffset, var_yoffset, var_width, var_height, var_format, var_type, size_pixels == 0 ? nullptr : (const GLvoid*)(inptr_pixels.get()));
 			SET_LASTCALL("glTexSubImage2D");
 			android::base::endTrace();
@@ -2189,9 +2891,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTranslatex: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTranslatex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTranslatex(x:0x%08x y:0x%08x z:0x%08x )", stream, var_x, var_y, var_z);
 			this->glTranslatex(var_x, var_y, var_z);
 			SET_LASTCALL("glTranslatex");
 			android::base::endTrace();
@@ -2205,9 +2912,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glVertexPointer: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glVertexPointer\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glVertexPointer(size:%d type:0x%08x stride:%d pointer:%p(%u) )", stream, var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glVertexPointer(var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glVertexPointer");
 			android::base::endTrace();
@@ -2220,9 +2932,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_width = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glViewport: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glViewport\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glViewport(x:%d y:%d width:%d height:%d )", stream, var_x, var_y, var_width, var_height);
 			this->glViewport(var_x, var_y, var_width, var_height);
 			SET_LASTCALL("glViewport");
 			android::base::endTrace();
@@ -2235,9 +2952,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSizePointerOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSizePointerOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSizePointerOES(type:0x%08x stride:%d pointer:%p(%u) )", stream, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glPointSizePointerOES(var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glPointSizePointerOES");
 			android::base::endTrace();
@@ -2250,9 +2972,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glVertexPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glVertexPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glVertexPointerOffset(size:%d type:0x%08x stride:%d offset:%u )", stream, var_size, var_type, var_stride, var_offset);
 			this->glVertexPointerOffset(this, var_size, var_type, var_stride, var_offset);
 			SET_LASTCALL("glVertexPointerOffset");
 			android::base::endTrace();
@@ -2265,9 +2992,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColorPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColorPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColorPointerOffset(size:%d type:0x%08x stride:%d offset:%u )", stream, var_size, var_type, var_stride, var_offset);
 			this->glColorPointerOffset(this, var_size, var_type, var_stride, var_offset);
 			SET_LASTCALL("glColorPointerOffset");
 			android::base::endTrace();
@@ -2279,9 +3011,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormalPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormalPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormalPointerOffset(type:0x%08x stride:%d offset:%u )", stream, var_type, var_stride, var_offset);
 			this->glNormalPointerOffset(this, var_type, var_stride, var_offset);
 			SET_LASTCALL("glNormalPointerOffset");
 			android::base::endTrace();
@@ -2293,9 +3030,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSizePointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSizePointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSizePointerOffset(type:0x%08x stride:%d offset:%u )", stream, var_type, var_stride, var_offset);
 			this->glPointSizePointerOffset(this, var_type, var_stride, var_offset);
 			SET_LASTCALL("glPointSizePointerOffset");
 			android::base::endTrace();
@@ -2308,9 +3050,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexCoordPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexCoordPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexCoordPointerOffset(size:%d type:0x%08x stride:%d offset:%u )", stream, var_size, var_type, var_stride, var_offset);
 			this->glTexCoordPointerOffset(this, var_size, var_type, var_stride, var_offset);
 			SET_LASTCALL("glTexCoordPointerOffset");
 			android::base::endTrace();
@@ -2323,9 +3070,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glWeightPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glWeightPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glWeightPointerOffset(size:%d type:0x%08x stride:%d offset:%u )", stream, var_size, var_type, var_stride, var_offset);
 			this->glWeightPointerOffset(this, var_size, var_type, var_stride, var_offset);
 			SET_LASTCALL("glWeightPointerOffset");
 			android::base::endTrace();
@@ -2338,9 +3090,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_stride = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMatrixIndexPointerOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMatrixIndexPointerOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMatrixIndexPointerOffset(size:%d type:0x%08x stride:%d offset:%u )", stream, var_size, var_type, var_stride, var_offset);
 			this->glMatrixIndexPointerOffset(this, var_size, var_type, var_stride, var_offset);
 			SET_LASTCALL("glMatrixIndexPointerOffset");
 			android::base::endTrace();
@@ -2355,9 +3112,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glVertexPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glVertexPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glVertexPointerData(size:%d type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_size, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glVertexPointerData(this, var_size, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glVertexPointerData");
 			android::base::endTrace();
@@ -2372,9 +3134,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColorPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColorPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColorPointerData(size:%d type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_size, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glColorPointerData(this, var_size, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glColorPointerData");
 			android::base::endTrace();
@@ -2388,9 +3155,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormalPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormalPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormalPointerData(type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glNormalPointerData(this, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glNormalPointerData");
 			android::base::endTrace();
@@ -2406,9 +3178,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexCoordPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexCoordPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexCoordPointerData(unit:%d size:%d type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_unit, var_size, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glTexCoordPointerData(this, var_unit, var_size, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glTexCoordPointerData");
 			android::base::endTrace();
@@ -2422,9 +3199,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSizePointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSizePointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSizePointerData(type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glPointSizePointerData(this, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glPointSizePointerData");
 			android::base::endTrace();
@@ -2439,9 +3221,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glWeightPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glWeightPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glWeightPointerData(size:%d type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_size, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glWeightPointerData(this, var_size, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glWeightPointerData");
 			android::base::endTrace();
@@ -2456,9 +3243,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMatrixIndexPointerData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMatrixIndexPointerData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMatrixIndexPointerData(size:%d type:0x%08x stride:%d data:%p(%u) datalen:%u )", stream, var_size, var_type, var_stride, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glMatrixIndexPointerData(this, var_size, var_type, var_stride, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glMatrixIndexPointerData");
 			android::base::endTrace();
@@ -2471,9 +3263,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_type = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_offset = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawElementsOffset: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawElementsOffset\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawElementsOffset(mode:0x%08x count:%d type:0x%08x offset:%u )", stream, var_mode, var_count, var_type, var_offset);
 			this->glDrawElementsOffset(this, var_mode, var_count, var_type, var_offset);
 			SET_LASTCALL("glDrawElementsOffset");
 			android::base::endTrace();
@@ -2488,9 +3285,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_data(ptr + 8 + 4 + 4 + 4 + 4, size_data);
 			GLuint var_datalen = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + size_data);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_data + 4, ptr + 8 + 4 + 4 + 4 + 4 + size_data + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawElementsData: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawElementsData\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawElementsData(mode:0x%08x count:%d type:0x%08x data:%p(%u) datalen:%u )", stream, var_mode, var_count, var_type, (void*)(inptr_data.get()), size_data, var_datalen);
 			this->glDrawElementsData(this, var_mode, var_count, var_type, (void*)(inptr_data.get()), var_datalen);
 			SET_LASTCALL("glDrawElementsData");
 			android::base::endTrace();
@@ -2501,13 +3303,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			int var_count = Unpack<int,uint32_t>(ptr + 8);
 			uint32_t size_formats __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetCompressedTextureFormats: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_formats;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_formats(&tmpBuf[0], size_formats);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetCompressedTextureFormats\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetCompressedTextureFormats(count:%d formats:%p(%u) )", stream, var_count, (GLint*)(outptr_formats.get()), size_formats);
 			this->glGetCompressedTextureFormats(this, var_count, (GLint*)(outptr_formats.get()));
 			outptr_formats.flush();
 			if (useChecksum) {
@@ -2521,12 +3328,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glFinishRoundTrip: {
 			android::base::beginTrace("glFinishRoundTrip decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFinishRoundTrip: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(int);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFinishRoundTrip\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFinishRoundTrip()", stream);
 			*(int *)(&tmpBuf[0]) = 			this->glFinishRoundTrip(this);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -2541,9 +3353,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_modeRGB = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLenum var_modeAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBlendEquationSeparateOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBlendEquationSeparateOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBlendEquationSeparateOES(modeRGB:0x%08x modeAlpha:0x%08x )", stream, var_modeRGB, var_modeAlpha);
 			this->glBlendEquationSeparateOES(var_modeRGB, var_modeAlpha);
 			SET_LASTCALL("glBlendEquationSeparateOES");
 			android::base::endTrace();
@@ -2556,9 +3373,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_srcAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
 			GLenum var_dstAlpha = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBlendFuncSeparateOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBlendFuncSeparateOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBlendFuncSeparateOES(srcRGB:0x%08x dstRGB:0x%08x srcAlpha:0x%08x dstAlpha:0x%08x )", stream, var_srcRGB, var_dstRGB, var_srcAlpha, var_dstAlpha);
 			this->glBlendFuncSeparateOES(var_srcRGB, var_dstRGB, var_srcAlpha, var_dstAlpha);
 			SET_LASTCALL("glBlendFuncSeparateOES");
 			android::base::endTrace();
@@ -2568,9 +3390,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glBlendEquationOES decode");
 			GLenum var_mode = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBlendEquationOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBlendEquationOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBlendEquationOES(mode:0x%08x )", stream, var_mode);
 			this->glBlendEquationOES(var_mode);
 			SET_LASTCALL("glBlendEquationOES");
 			android::base::endTrace();
@@ -2584,9 +3411,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLshort var_width = Unpack<GLshort,uint16_t>(ptr + 8 + 2 + 2 + 2);
 			GLshort var_height = Unpack<GLshort,uint16_t>(ptr + 8 + 2 + 2 + 2 + 2);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 2 + 2 + 2 + 2 + 2, ptr + 8 + 2 + 2 + 2 + 2 + 2, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 2 + 2 + 2 + 2 + 2, ptr + 8 + 2 + 2 + 2 + 2 + 2, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexsOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexsOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexsOES(x:%d y:%d z:%d width:%d height:%d )", stream, var_x, var_y, var_z, var_width, var_height);
 			this->glDrawTexsOES(var_x, var_y, var_z, var_width, var_height);
 			SET_LASTCALL("glDrawTexsOES");
 			android::base::endTrace();
@@ -2600,9 +3432,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_width = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLint var_height = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexiOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexiOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexiOES(x:%d y:%d z:%d width:%d height:%d )", stream, var_x, var_y, var_z, var_width, var_height);
 			this->glDrawTexiOES(var_x, var_y, var_z, var_width, var_height);
 			SET_LASTCALL("glDrawTexiOES");
 			android::base::endTrace();
@@ -2616,9 +3453,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_width = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLfixed var_height = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexxOES(x:0x%08x y:0x%08x z:0x%08x width:0x%08x height:0x%08x )", stream, var_x, var_y, var_z, var_width, var_height);
 			this->glDrawTexxOES(var_x, var_y, var_z, var_width, var_height);
 			SET_LASTCALL("glDrawTexxOES");
 			android::base::endTrace();
@@ -2629,9 +3471,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_coords __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_coords(ptr + 8 + 4, size_coords);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexsvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexsvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexsvOES(coords:%p(%u) )", stream, (const GLshort*)(inptr_coords.get()), size_coords);
 			this->glDrawTexsvOES((const GLshort*)(inptr_coords.get()));
 			SET_LASTCALL("glDrawTexsvOES");
 			android::base::endTrace();
@@ -2642,9 +3489,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_coords __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_coords(ptr + 8 + 4, size_coords);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexivOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexivOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexivOES(coords:%p(%u) )", stream, (const GLint*)(inptr_coords.get()), size_coords);
 			this->glDrawTexivOES((const GLint*)(inptr_coords.get()));
 			SET_LASTCALL("glDrawTexivOES");
 			android::base::endTrace();
@@ -2655,9 +3507,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_coords __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_coords(ptr + 8 + 4, size_coords);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexxvOES(coords:%p(%u) )", stream, (const GLfixed*)(inptr_coords.get()), size_coords);
 			this->glDrawTexxvOES((const GLfixed*)(inptr_coords.get()));
 			SET_LASTCALL("glDrawTexxvOES");
 			android::base::endTrace();
@@ -2671,9 +3528,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_width = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLfloat var_height = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexfOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexfOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexfOES(x:%f y:%f z:%f width:%f height:%f )", stream, var_x, var_y, var_z, var_width, var_height);
 			this->glDrawTexfOES(var_x, var_y, var_z, var_width, var_height);
 			SET_LASTCALL("glDrawTexfOES");
 			android::base::endTrace();
@@ -2684,9 +3546,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_coords __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_coords(ptr + 8 + 4, size_coords);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_coords, ptr + 8 + 4 + size_coords, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDrawTexfvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDrawTexfvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDrawTexfvOES(coords:%p(%u) )", stream, (const GLfloat*)(inptr_coords.get()), size_coords);
 			this->glDrawTexfvOES((const GLfloat*)(inptr_coords.get()));
 			SET_LASTCALL("glDrawTexfvOES");
 			android::base::endTrace();
@@ -2697,9 +3564,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLeglImageOES var_image = Unpack<GLeglImageOES,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEGLImageTargetTexture2DOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEGLImageTargetTexture2DOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEGLImageTargetTexture2DOES(target:0x%08x image:%p )", stream, var_target, var_image);
 			this->glEGLImageTargetTexture2DOES(var_target, var_image);
 			SET_LASTCALL("glEGLImageTargetTexture2DOES");
 			android::base::endTrace();
@@ -2710,9 +3582,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLeglImageOES var_image = Unpack<GLeglImageOES,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEGLImageTargetRenderbufferStorageOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEGLImageTargetRenderbufferStorageOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEGLImageTargetRenderbufferStorageOES(target:0x%08x image:%p )", stream, var_target, var_image);
 			this->glEGLImageTargetRenderbufferStorageOES(var_target, var_image);
 			SET_LASTCALL("glEGLImageTargetRenderbufferStorageOES");
 			android::base::endTrace();
@@ -2723,9 +3600,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_func = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLclampx var_ref = Unpack<GLclampx,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glAlphaFuncxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glAlphaFuncxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glAlphaFuncxOES(func:0x%08x ref:0x%08x )", stream, var_func, var_ref);
 			this->glAlphaFuncxOES(var_func, var_ref);
 			SET_LASTCALL("glAlphaFuncxOES");
 			android::base::endTrace();
@@ -2738,9 +3620,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_blue = Unpack<GLclampx,uint32_t>(ptr + 8 + 4 + 4);
 			GLclampx var_alpha = Unpack<GLclampx,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearColorxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearColorxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearColorxOES(red:0x%08x green:0x%08x blue:0x%08x alpha:0x%08x )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glClearColorxOES(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glClearColorxOES");
 			android::base::endTrace();
@@ -2750,9 +3637,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClearDepthxOES decode");
 			GLclampx var_depth = Unpack<GLclampx,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearDepthxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearDepthxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearDepthxOES(depth:0x%08x )", stream, var_depth);
 			this->glClearDepthxOES(var_depth);
 			SET_LASTCALL("glClearDepthxOES");
 			android::base::endTrace();
@@ -2764,9 +3656,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_equation __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_equation(ptr + 8 + 4 + 4, size_equation);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanexOES(plane:0x%08x equation:%p(%u) )", stream, var_plane, (const GLfixed*)(inptr_equation.get()), size_equation);
 			this->glClipPlanexOES(var_plane, (const GLfixed*)(inptr_equation.get()));
 			SET_LASTCALL("glClipPlanexOES");
 			android::base::endTrace();
@@ -2778,9 +3675,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_equation __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_equation(ptr + 8 + 4 + 4, size_equation);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanexIMG: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanexIMG\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanexIMG(plane:0x%08x equation:%p(%u) )", stream, var_plane, (const GLfixed*)(inptr_equation.get()), size_equation);
 			this->glClipPlanexIMG(var_plane, (const GLfixed*)(inptr_equation.get()));
 			SET_LASTCALL("glClipPlanexIMG");
 			android::base::endTrace();
@@ -2793,9 +3695,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_blue = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			GLfixed var_alpha = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glColor4xOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glColor4xOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glColor4xOES(red:0x%08x green:0x%08x blue:0x%08x alpha:0x%08x )", stream, var_red, var_green, var_blue, var_alpha);
 			this->glColor4xOES(var_red, var_green, var_blue, var_alpha);
 			SET_LASTCALL("glColor4xOES");
 			android::base::endTrace();
@@ -2806,9 +3713,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_zNear = Unpack<GLclampx,uint32_t>(ptr + 8);
 			GLclampx var_zFar = Unpack<GLclampx,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthRangexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthRangexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthRangexOES(zNear:0x%08x zFar:0x%08x )", stream, var_zNear, var_zFar);
 			this->glDepthRangexOES(var_zNear, var_zFar);
 			SET_LASTCALL("glDepthRangexOES");
 			android::base::endTrace();
@@ -2819,9 +3731,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogxOES(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glFogxOES(var_pname, var_param);
 			SET_LASTCALL("glFogxOES");
 			android::base::endTrace();
@@ -2833,9 +3750,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFogxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFogxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFogxvOES(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glFogxvOES(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glFogxvOES");
 			android::base::endTrace();
@@ -2850,9 +3772,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_zNear = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfixed var_zFar = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFrustumxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFrustumxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFrustumxOES(left:0x%08x right:0x%08x bottom:0x%08x top:0x%08x zNear:0x%08x zFar:0x%08x )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glFrustumxOES(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glFrustumxOES");
 			android::base::endTrace();
@@ -2863,13 +3790,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_eqn __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetClipPlanexOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_eqn;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_eqn(&tmpBuf[0], size_eqn);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetClipPlanexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetClipPlanexOES(pname:0x%08x eqn:%p(%u) )", stream, var_pname, (GLfixed*)(outptr_eqn.get()), size_eqn);
 			this->glGetClipPlanexOES(var_pname, (GLfixed*)(outptr_eqn.get()));
 			outptr_eqn.flush();
 			if (useChecksum) {
@@ -2885,13 +3817,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_eqn __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetClipPlanex: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_eqn;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_eqn(&tmpBuf[0], size_eqn);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetClipPlanex\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetClipPlanex(pname:0x%08x eqn:%p(%u) )", stream, var_pname, (GLfixed*)(outptr_eqn.get()), size_eqn);
 			this->glGetClipPlanex(var_pname, (GLfixed*)(outptr_eqn.get()));
 			outptr_eqn.flush();
 			if (useChecksum) {
@@ -2907,13 +3844,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetFixedvOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetFixedvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetFixedvOES(pname:0x%08x params:%p(%u) )", stream, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetFixedvOES(var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -2930,13 +3872,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetLightxvOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetLightxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetLightxvOES(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetLightxvOES(var_light, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -2953,13 +3900,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetMaterialxvOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetMaterialxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetMaterialxvOES(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetMaterialxvOES(var_face, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -2976,13 +3928,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexEnvxvOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexEnvxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexEnvxvOES(env:0x%08x pname:0x%08x params:%p(%u) )", stream, var_env, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetTexEnvxvOES(var_env, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -2999,13 +3956,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexParameterxvOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexParameterxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexParameterxvOES(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLfixed*)(outptr_params.get()), size_params);
 			this->glGetTexParameterxvOES(var_target, var_pname, (GLfixed*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -3021,9 +3983,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelxOES(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glLightModelxOES(var_pname, var_param);
 			SET_LASTCALL("glLightModelxOES");
 			android::base::endTrace();
@@ -3035,9 +4002,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightModelxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightModelxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightModelxvOES(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glLightModelxvOES(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glLightModelxvOES");
 			android::base::endTrace();
@@ -3049,9 +4021,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightxOES(light:0x%08x pname:0x%08x param:0x%08x )", stream, var_light, var_pname, var_param);
 			this->glLightxOES(var_light, var_pname, var_param);
 			SET_LASTCALL("glLightxOES");
 			android::base::endTrace();
@@ -3064,9 +4041,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLightxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLightxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLightxvOES(light:0x%08x pname:0x%08x params:%p(%u) )", stream, var_light, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glLightxvOES(var_light, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glLightxvOES");
 			android::base::endTrace();
@@ -3076,9 +4058,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glLineWidthxOES decode");
 			GLfixed var_width = Unpack<GLfixed,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLineWidthxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLineWidthxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLineWidthxOES(width:0x%08x )", stream, var_width);
 			this->glLineWidthxOES(var_width);
 			SET_LASTCALL("glLineWidthxOES");
 			android::base::endTrace();
@@ -3089,9 +4076,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLoadMatrixxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLoadMatrixxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLoadMatrixxOES(m:%p(%u) )", stream, (const GLfixed*)(inptr_m.get()), size_m);
 			this->glLoadMatrixxOES((const GLfixed*)(inptr_m.get()));
 			SET_LASTCALL("glLoadMatrixxOES");
 			android::base::endTrace();
@@ -3103,9 +4095,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialxOES(face:0x%08x pname:0x%08x param:0x%08x )", stream, var_face, var_pname, var_param);
 			this->glMaterialxOES(var_face, var_pname, var_param);
 			SET_LASTCALL("glMaterialxOES");
 			android::base::endTrace();
@@ -3118,9 +4115,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMaterialxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMaterialxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMaterialxvOES(face:0x%08x pname:0x%08x params:%p(%u) )", stream, var_face, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glMaterialxvOES(var_face, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glMaterialxvOES");
 			android::base::endTrace();
@@ -3131,9 +4133,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_m __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			InputBuffer inptr_m(ptr + 8 + 4, size_m);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + size_m, ptr + 8 + 4 + size_m, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultMatrixxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultMatrixxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultMatrixxOES(m:%p(%u) )", stream, (const GLfixed*)(inptr_m.get()), size_m);
 			this->glMultMatrixxOES((const GLfixed*)(inptr_m.get()));
 			SET_LASTCALL("glMultMatrixxOES");
 			android::base::endTrace();
@@ -3147,9 +4154,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_r = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLfixed var_q = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiTexCoord4xOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiTexCoord4xOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiTexCoord4xOES(target:0x%08x s:0x%08x t:0x%08x r:0x%08x q:0x%08x )", stream, var_target, var_s, var_t, var_r, var_q);
 			this->glMultiTexCoord4xOES(var_target, var_s, var_t, var_r, var_q);
 			SET_LASTCALL("glMultiTexCoord4xOES");
 			android::base::endTrace();
@@ -3161,9 +4173,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_ny = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_nz = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glNormal3xOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glNormal3xOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glNormal3xOES(nx:0x%08x ny:0x%08x nz:0x%08x )", stream, var_nx, var_ny, var_nz);
 			this->glNormal3xOES(var_nx, var_ny, var_nz);
 			SET_LASTCALL("glNormal3xOES");
 			android::base::endTrace();
@@ -3178,9 +4195,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_zNear = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfixed var_zFar = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glOrthoxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glOrthoxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glOrthoxOES(left:0x%08x right:0x%08x bottom:0x%08x top:0x%08x zNear:0x%08x zFar:0x%08x )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glOrthoxOES(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glOrthoxOES");
 			android::base::endTrace();
@@ -3191,9 +4213,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterxOES(pname:0x%08x param:0x%08x )", stream, var_pname, var_param);
 			this->glPointParameterxOES(var_pname, var_param);
 			SET_LASTCALL("glPointParameterxOES");
 			android::base::endTrace();
@@ -3205,9 +4232,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointParameterxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointParameterxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointParameterxvOES(pname:0x%08x params:%p(%u) )", stream, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glPointParameterxvOES(var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glPointParameterxvOES");
 			android::base::endTrace();
@@ -3217,9 +4249,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glPointSizexOES decode");
 			GLfixed var_size = Unpack<GLfixed,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPointSizexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPointSizexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPointSizexOES(size:0x%08x )", stream, var_size);
 			this->glPointSizexOES(var_size);
 			SET_LASTCALL("glPointSizexOES");
 			android::base::endTrace();
@@ -3230,9 +4267,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_factor = Unpack<GLfixed,uint32_t>(ptr + 8);
 			GLfixed var_units = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glPolygonOffsetxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glPolygonOffsetxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glPolygonOffsetxOES(factor:0x%08x units:0x%08x )", stream, var_factor, var_units);
 			this->glPolygonOffsetxOES(var_factor, var_units);
 			SET_LASTCALL("glPolygonOffsetxOES");
 			android::base::endTrace();
@@ -3245,9 +4287,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glRotatexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glRotatexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glRotatexOES(angle:0x%08x x:0x%08x y:0x%08x z:0x%08x )", stream, var_angle, var_x, var_y, var_z);
 			this->glRotatexOES(var_angle, var_x, var_y, var_z);
 			SET_LASTCALL("glRotatexOES");
 			android::base::endTrace();
@@ -3258,9 +4305,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampx var_value = Unpack<GLclampx,uint32_t>(ptr + 8);
 			GLboolean var_invert = Unpack<GLboolean,uint8_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 1, ptr + 8 + 4 + 1, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glSampleCoveragexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glSampleCoveragexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glSampleCoveragexOES(value:0x%08x invert:%d )", stream, var_value, var_invert);
 			this->glSampleCoveragexOES(var_value, var_invert);
 			SET_LASTCALL("glSampleCoveragexOES");
 			android::base::endTrace();
@@ -3272,9 +4324,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glScalexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glScalexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glScalexOES(x:0x%08x y:0x%08x z:0x%08x )", stream, var_x, var_y, var_z);
 			this->glScalexOES(var_x, var_y, var_z);
 			SET_LASTCALL("glScalexOES");
 			android::base::endTrace();
@@ -3286,9 +4343,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvxOES(target:0x%08x pname:0x%08x param:0x%08x )", stream, var_target, var_pname, var_param);
 			this->glTexEnvxOES(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexEnvxOES");
 			android::base::endTrace();
@@ -3301,9 +4363,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexEnvxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexEnvxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexEnvxvOES(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glTexEnvxvOES(var_target, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glTexEnvxvOES");
 			android::base::endTrace();
@@ -3315,9 +4382,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterxOES(target:0x%08x pname:0x%08x param:0x%08x )", stream, var_target, var_pname, var_param);
 			this->glTexParameterxOES(var_target, var_pname, var_param);
 			SET_LASTCALL("glTexParameterxOES");
 			android::base::endTrace();
@@ -3330,9 +4402,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexParameterxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexParameterxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexParameterxvOES(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glTexParameterxvOES(var_target, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glTexParameterxvOES");
 			android::base::endTrace();
@@ -3344,9 +4421,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfixed var_y = Unpack<GLfixed,uint32_t>(ptr + 8 + 4);
 			GLfixed var_z = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTranslatexOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTranslatexOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTranslatexOES(x:0x%08x y:0x%08x z:0x%08x )", stream, var_x, var_y, var_z);
 			this->glTranslatexOES(var_x, var_y, var_z);
 			SET_LASTCALL("glTranslatexOES");
 			android::base::endTrace();
@@ -3356,12 +4438,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsRenderbufferOES decode");
 			GLuint var_renderbuffer = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsRenderbufferOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsRenderbufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsRenderbufferOES(renderbuffer:%u )", stream, var_renderbuffer);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsRenderbufferOES(var_renderbuffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -3376,9 +4463,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLuint var_renderbuffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBindRenderbufferOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBindRenderbufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBindRenderbufferOES(target:0x%08x renderbuffer:%u )", stream, var_target, var_renderbuffer);
 			this->glBindRenderbufferOES(var_target, var_renderbuffer);
 			SET_LASTCALL("glBindRenderbufferOES");
 			android::base::endTrace();
@@ -3390,9 +4482,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_renderbuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_renderbuffers(ptr + 8 + 4 + 4, size_renderbuffers);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_renderbuffers, ptr + 8 + 4 + 4 + size_renderbuffers, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_renderbuffers, ptr + 8 + 4 + 4 + size_renderbuffers, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteRenderbuffersOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteRenderbuffersOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteRenderbuffersOES(n:%d renderbuffers:%p(%u) )", stream, var_n, (const GLuint*)(inptr_renderbuffers.get()), size_renderbuffers);
 			this->glDeleteRenderbuffersOES_dec(this, var_n, (const GLuint*)(inptr_renderbuffers.get()));
 			SET_LASTCALL("glDeleteRenderbuffersOES");
 			android::base::endTrace();
@@ -3403,13 +4500,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_n = Unpack<GLsizei,uint32_t>(ptr + 8);
 			uint32_t size_renderbuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenRenderbuffersOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_renderbuffers;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_renderbuffers(&tmpBuf[0], size_renderbuffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenRenderbuffersOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenRenderbuffersOES(n:%d renderbuffers:%p(%u) )", stream, var_n, (GLuint*)(outptr_renderbuffers.get()), size_renderbuffers);
 			this->glGenRenderbuffersOES_dec(this, var_n, (GLuint*)(outptr_renderbuffers.get()));
 			outptr_renderbuffers.flush();
 			if (useChecksum) {
@@ -3427,9 +4529,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_width = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4);
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glRenderbufferStorageOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glRenderbufferStorageOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glRenderbufferStorageOES(target:0x%08x internalformat:0x%08x width:%d height:%d )", stream, var_target, var_internalformat, var_width, var_height);
 			this->glRenderbufferStorageOES(var_target, var_internalformat, var_width, var_height);
 			SET_LASTCALL("glRenderbufferStorageOES");
 			android::base::endTrace();
@@ -3441,13 +4548,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetRenderbufferParameterivOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetRenderbufferParameterivOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetRenderbufferParameterivOES(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetRenderbufferParameterivOES(var_target, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -3462,12 +4574,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsFramebufferOES decode");
 			GLuint var_framebuffer = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsFramebufferOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsFramebufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsFramebufferOES(framebuffer:%u )", stream, var_framebuffer);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsFramebufferOES(var_framebuffer);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -3482,9 +4599,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLuint var_framebuffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBindFramebufferOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBindFramebufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBindFramebufferOES(target:0x%08x framebuffer:%u )", stream, var_target, var_framebuffer);
 			this->glBindFramebufferOES(var_target, var_framebuffer);
 			SET_LASTCALL("glBindFramebufferOES");
 			android::base::endTrace();
@@ -3496,9 +4618,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_framebuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_framebuffers(ptr + 8 + 4 + 4, size_framebuffers);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_framebuffers, ptr + 8 + 4 + 4 + size_framebuffers, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_framebuffers, ptr + 8 + 4 + 4 + size_framebuffers, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteFramebuffersOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteFramebuffersOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteFramebuffersOES(n:%d framebuffers:%p(%u) )", stream, var_n, (const GLuint*)(inptr_framebuffers.get()), size_framebuffers);
 			this->glDeleteFramebuffersOES_dec(this, var_n, (const GLuint*)(inptr_framebuffers.get()));
 			SET_LASTCALL("glDeleteFramebuffersOES");
 			android::base::endTrace();
@@ -3509,13 +4636,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_n = Unpack<GLsizei,uint32_t>(ptr + 8);
 			uint32_t size_framebuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenFramebuffersOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_framebuffers;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_framebuffers(&tmpBuf[0], size_framebuffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenFramebuffersOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenFramebuffersOES(n:%d framebuffers:%p(%u) )", stream, var_n, (GLuint*)(outptr_framebuffers.get()), size_framebuffers);
 			this->glGenFramebuffersOES_dec(this, var_n, (GLuint*)(outptr_framebuffers.get()));
 			outptr_framebuffers.flush();
 			if (useChecksum) {
@@ -3530,12 +4662,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glCheckFramebufferStatusOES decode");
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCheckFramebufferStatusOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLenum);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCheckFramebufferStatusOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCheckFramebufferStatusOES(target:0x%08x )", stream, var_target);
 			*(GLenum *)(&tmpBuf[0]) = 			this->glCheckFramebufferStatusOES(var_target);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -3552,9 +4689,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_renderbuffertarget = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
 			GLuint var_renderbuffer = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFramebufferRenderbufferOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFramebufferRenderbufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFramebufferRenderbufferOES(target:0x%08x attachment:0x%08x renderbuffertarget:0x%08x renderbuffer:%u )", stream, var_target, var_attachment, var_renderbuffertarget, var_renderbuffer);
 			this->glFramebufferRenderbufferOES(var_target, var_attachment, var_renderbuffertarget, var_renderbuffer);
 			SET_LASTCALL("glFramebufferRenderbufferOES");
 			android::base::endTrace();
@@ -3568,9 +4710,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLuint var_texture = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLint var_level = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFramebufferTexture2DOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFramebufferTexture2DOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFramebufferTexture2DOES(target:0x%08x attachment:0x%08x textarget:0x%08x texture:%u level:%d )", stream, var_target, var_attachment, var_textarget, var_texture, var_level);
 			this->glFramebufferTexture2DOES(var_target, var_attachment, var_textarget, var_texture, var_level);
 			SET_LASTCALL("glFramebufferTexture2DOES");
 			android::base::endTrace();
@@ -3583,13 +4730,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetFramebufferAttachmentParameterivOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetFramebufferAttachmentParameterivOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetFramebufferAttachmentParameterivOES(target:0x%08x attachment:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_attachment, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetFramebufferAttachmentParameterivOES(var_target, var_attachment, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -3604,9 +4756,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glGenerateMipmapOES decode");
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenerateMipmapOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenerateMipmapOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenerateMipmapOES(target:0x%08x )", stream, var_target);
 			this->glGenerateMipmapOES(var_target);
 			SET_LASTCALL("glGenerateMipmapOES");
 			android::base::endTrace();
@@ -3617,9 +4774,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			GLenum var_access = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMapBufferOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMapBufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMapBufferOES(target:0x%08x access:0x%08x )", stream, var_target, var_access);
 			this->glMapBufferOES(var_target, var_access);
 			SET_LASTCALL("glMapBufferOES");
 			android::base::endTrace();
@@ -3629,12 +4791,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glUnmapBufferOES decode");
 			GLenum var_target = Unpack<GLenum,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glUnmapBufferOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glUnmapBufferOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glUnmapBufferOES(target:0x%08x )", stream, var_target);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glUnmapBufferOES(var_target);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -3651,9 +4818,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetBufferPointervOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetBufferPointervOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetBufferPointervOES(target:0x%08x pname:0x%08x params:%p(%u) )", stream, var_target, var_pname, (GLvoid**)(inptr_params.get()), size_params);
 			this->glGetBufferPointervOES(var_target, var_pname, (GLvoid**)(inptr_params.get()));
 			SET_LASTCALL("glGetBufferPointervOES");
 			android::base::endTrace();
@@ -3663,9 +4835,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glCurrentPaletteMatrixOES decode");
 			GLuint var_matrixpaletteindex = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glCurrentPaletteMatrixOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glCurrentPaletteMatrixOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glCurrentPaletteMatrixOES(matrixpaletteindex:%u )", stream, var_matrixpaletteindex);
 			this->glCurrentPaletteMatrixOES(var_matrixpaletteindex);
 			SET_LASTCALL("glCurrentPaletteMatrixOES");
 			android::base::endTrace();
@@ -3674,9 +4851,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glLoadPaletteFromModelViewMatrixOES: {
 			android::base::beginTrace("glLoadPaletteFromModelViewMatrixOES decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glLoadPaletteFromModelViewMatrixOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glLoadPaletteFromModelViewMatrixOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glLoadPaletteFromModelViewMatrixOES()", stream);
 			this->glLoadPaletteFromModelViewMatrixOES();
 			SET_LASTCALL("glLoadPaletteFromModelViewMatrixOES");
 			android::base::endTrace();
@@ -3690,9 +4872,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMatrixIndexPointerOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMatrixIndexPointerOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMatrixIndexPointerOES(size:%d type:0x%08x stride:%d pointer:%p(%u) )", stream, var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glMatrixIndexPointerOES(var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glMatrixIndexPointerOES");
 			android::base::endTrace();
@@ -3706,9 +4893,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_pointer __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			InputBuffer inptr_pointer(ptr + 8 + 4 + 4 + 4 + 4, size_pointer);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + size_pointer, ptr + 8 + 4 + 4 + 4 + 4 + size_pointer, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glWeightPointerOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glWeightPointerOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glWeightPointerOES(size:%d type:0x%08x stride:%d pointer:%p(%u) )", stream, var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()), size_pointer);
 			this->glWeightPointerOES(var_size, var_type, var_stride, (const GLvoid*)(inptr_pointer.get()));
 			SET_LASTCALL("glWeightPointerOES");
 			android::base::endTrace();
@@ -3719,7 +4911,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_mantissa __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8);
 			uint32_t size_exponent __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glQueryMatrixxOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_mantissa;
@@ -3729,6 +4921,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_mantissa(&tmpBuf[0], size_mantissa);
 			OutputBuffer outptr_exponent(&tmpBuf[0 + size_mantissa], size_exponent);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glQueryMatrixxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glQueryMatrixxOES(mantissa:%p(%u) exponent:%p(%u) )", stream, (GLfixed*)(outptr_mantissa.get()), size_mantissa, (GLint*)(outptr_exponent.get()), size_exponent);
 			*(GLbitfield *)(&tmpBuf[0 + size_mantissa + size_exponent]) = 			this->glQueryMatrixxOES((GLfixed*)(outptr_mantissa.get()), (GLint*)(outptr_exponent.get()));
 			outptr_mantissa.flush();
 			outptr_exponent.flush();
@@ -3745,9 +4942,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLclampf var_zNear = Unpack<GLclampf,uint32_t>(ptr + 8);
 			GLclampf var_zFar = Unpack<GLclampf,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDepthRangefOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDepthRangefOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDepthRangefOES(zNear:%f zFar:%f )", stream, var_zNear, var_zFar);
 			this->glDepthRangefOES(var_zNear, var_zFar);
 			SET_LASTCALL("glDepthRangefOES");
 			android::base::endTrace();
@@ -3762,9 +4964,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_zNear = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfloat var_zFar = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFrustumfOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFrustumfOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFrustumfOES(left:%f right:%f bottom:%f top:%f zNear:%f zFar:%f )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glFrustumfOES(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glFrustumfOES");
 			android::base::endTrace();
@@ -3779,9 +4986,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLfloat var_zNear = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLfloat var_zFar = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glOrthofOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glOrthofOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glOrthofOES(left:%f right:%f bottom:%f top:%f zNear:%f zFar:%f )", stream, var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			this->glOrthofOES(var_left, var_right, var_bottom, var_top, var_zNear, var_zFar);
 			SET_LASTCALL("glOrthofOES");
 			android::base::endTrace();
@@ -3793,9 +5005,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_equation __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_equation(ptr + 8 + 4 + 4, size_equation);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanefOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanefOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanefOES(plane:0x%08x equation:%p(%u) )", stream, var_plane, (const GLfloat*)(inptr_equation.get()), size_equation);
 			this->glClipPlanefOES(var_plane, (const GLfloat*)(inptr_equation.get()));
 			SET_LASTCALL("glClipPlanefOES");
 			android::base::endTrace();
@@ -3807,9 +5024,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_equation __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_equation(ptr + 8 + 4 + 4, size_equation);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_equation, ptr + 8 + 4 + 4 + size_equation, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClipPlanefIMG: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClipPlanefIMG\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClipPlanefIMG(plane:0x%08x equation:%p(%u) )", stream, var_plane, (const GLfloat*)(inptr_equation.get()), size_equation);
 			this->glClipPlanefIMG(var_plane, (const GLfloat*)(inptr_equation.get()));
 			SET_LASTCALL("glClipPlanefIMG");
 			android::base::endTrace();
@@ -3820,13 +5042,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8);
 			uint32_t size_eqn __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetClipPlanefOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_eqn;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_eqn(&tmpBuf[0], size_eqn);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetClipPlanefOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetClipPlanefOES(pname:0x%08x eqn:%p(%u) )", stream, var_pname, (GLfloat*)(outptr_eqn.get()), size_eqn);
 			this->glGetClipPlanefOES(var_pname, (GLfloat*)(outptr_eqn.get()));
 			outptr_eqn.flush();
 			if (useChecksum) {
@@ -3841,9 +5068,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glClearDepthfOES decode");
 			GLclampf var_depth = Unpack<GLclampf,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glClearDepthfOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glClearDepthfOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glClearDepthfOES(depth:%f )", stream, var_depth);
 			this->glClearDepthfOES(var_depth);
 			SET_LASTCALL("glClearDepthfOES");
 			android::base::endTrace();
@@ -3855,9 +5087,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfloat var_param = Unpack<GLfloat,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGenfOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGenfOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGenfOES(coord:0x%08x pname:0x%08x param:%f )", stream, var_coord, var_pname, var_param);
 			this->glTexGenfOES(var_coord, var_pname, var_param);
 			SET_LASTCALL("glTexGenfOES");
 			android::base::endTrace();
@@ -3870,9 +5107,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGenfvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGenfvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGenfvOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (const GLfloat*)(inptr_params.get()), size_params);
 			this->glTexGenfvOES(var_coord, var_pname, (const GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glTexGenfvOES");
 			android::base::endTrace();
@@ -3884,9 +5126,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLint var_param = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGeniOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGeniOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGeniOES(coord:0x%08x pname:0x%08x param:%d )", stream, var_coord, var_pname, var_param);
 			this->glTexGeniOES(var_coord, var_pname, var_param);
 			SET_LASTCALL("glTexGeniOES");
 			android::base::endTrace();
@@ -3899,9 +5146,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGenivOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGenivOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGenivOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (const GLint*)(inptr_params.get()), size_params);
 			this->glTexGenivOES(var_coord, var_pname, (const GLint*)(inptr_params.get()));
 			SET_LASTCALL("glTexGenivOES");
 			android::base::endTrace();
@@ -3913,9 +5165,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLfixed var_param = Unpack<GLfixed,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGenxOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGenxOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGenxOES(coord:0x%08x pname:0x%08x param:0x%08x )", stream, var_coord, var_pname, var_param);
 			this->glTexGenxOES(var_coord, var_pname, var_param);
 			SET_LASTCALL("glTexGenxOES");
 			android::base::endTrace();
@@ -3928,9 +5185,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTexGenxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTexGenxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTexGenxvOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (const GLfixed*)(inptr_params.get()), size_params);
 			this->glTexGenxvOES(var_coord, var_pname, (const GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glTexGenxvOES");
 			android::base::endTrace();
@@ -3943,9 +5205,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexGenfvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexGenfvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexGenfvOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (GLfloat*)(inptr_params.get()), size_params);
 			this->glGetTexGenfvOES(var_coord, var_pname, (GLfloat*)(inptr_params.get()));
 			SET_LASTCALL("glGetTexGenfvOES");
 			android::base::endTrace();
@@ -3958,9 +5225,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexGenivOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexGenivOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexGenivOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (GLint*)(inptr_params.get()), size_params);
 			this->glGetTexGenivOES(var_coord, var_pname, (GLint*)(inptr_params.get()));
 			SET_LASTCALL("glGetTexGenivOES");
 			android::base::endTrace();
@@ -3973,9 +5245,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetTexGenxvOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetTexGenxvOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetTexGenxvOES(coord:0x%08x pname:0x%08x params:%p(%u) )", stream, var_coord, var_pname, (GLfixed*)(inptr_params.get()), size_params);
 			this->glGetTexGenxvOES(var_coord, var_pname, (GLfixed*)(inptr_params.get()));
 			SET_LASTCALL("glGetTexGenxvOES");
 			android::base::endTrace();
@@ -3985,9 +5262,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glBindVertexArrayOES decode");
 			GLuint var_array = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glBindVertexArrayOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glBindVertexArrayOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glBindVertexArrayOES(array:%u )", stream, var_array);
 			this->glBindVertexArrayOES(var_array);
 			SET_LASTCALL("glBindVertexArrayOES");
 			android::base::endTrace();
@@ -3999,9 +5281,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_arrays __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_arrays(ptr + 8 + 4 + 4, size_arrays);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_arrays, ptr + 8 + 4 + 4 + size_arrays, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_arrays, ptr + 8 + 4 + 4 + size_arrays, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteVertexArraysOES: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteVertexArraysOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteVertexArraysOES(n:%d arrays:%p(%u) )", stream, var_n, (const GLuint*)(inptr_arrays.get()), size_arrays);
 			this->glDeleteVertexArraysOES_dec(this, var_n, (const GLuint*)(inptr_arrays.get()));
 			SET_LASTCALL("glDeleteVertexArraysOES");
 			android::base::endTrace();
@@ -4012,13 +5299,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_n = Unpack<GLsizei,uint32_t>(ptr + 8);
 			uint32_t size_arrays __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenVertexArraysOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_arrays;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_arrays(&tmpBuf[0], size_arrays);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenVertexArraysOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenVertexArraysOES(n:%d arrays:%p(%u) )", stream, var_n, (GLuint*)(outptr_arrays.get()), size_arrays);
 			this->glGenVertexArraysOES_dec(this, var_n, (GLuint*)(outptr_arrays.get()));
 			outptr_arrays.flush();
 			if (useChecksum) {
@@ -4033,12 +5325,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsVertexArrayOES decode");
 			GLuint var_array = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsVertexArrayOES: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsVertexArrayOES\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsVertexArrayOES(array:%u )", stream, var_array);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsVertexArrayOES(var_array);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -4055,9 +5352,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_attachments __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			InputBuffer inptr_attachments(ptr + 8 + 4 + 4 + 4, size_attachments);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_attachments, ptr + 8 + 4 + 4 + 4 + size_attachments, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_attachments, ptr + 8 + 4 + 4 + 4 + size_attachments, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDiscardFramebufferEXT: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDiscardFramebufferEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDiscardFramebufferEXT(target:0x%08x numAttachments:%d attachments:%p(%u) )", stream, var_target, var_numAttachments, (const GLenum*)(inptr_attachments.get()), size_attachments);
 			this->glDiscardFramebufferEXT(var_target, var_numAttachments, (const GLenum*)(inptr_attachments.get()));
 			SET_LASTCALL("glDiscardFramebufferEXT");
 			android::base::endTrace();
@@ -4072,9 +5374,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_count(ptr + 8 + 4 + 4 + size_first + 4, size_count);
 			GLsizei var_primcount = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + size_first + 4 + size_count);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_first + 4 + size_count + 4, ptr + 8 + 4 + 4 + size_first + 4 + size_count + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_first + 4 + size_count + 4, ptr + 8 + 4 + 4 + size_first + 4 + size_count + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiDrawArraysEXT: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiDrawArraysEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiDrawArraysEXT(mode:0x%08x first:%p(%u) count:%p(%u) primcount:%d )", stream, var_mode, (const GLint*)(inptr_first.get()), size_first, (const GLsizei*)(inptr_count.get()), size_count, var_primcount);
 			this->glMultiDrawArraysEXT(var_mode, (const GLint*)(inptr_first.get()), (const GLsizei*)(inptr_count.get()), var_primcount);
 			SET_LASTCALL("glMultiDrawArraysEXT");
 			android::base::endTrace();
@@ -4090,9 +5397,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_indices(ptr + 8 + 4 + 4 + size_count + 4 + 4, size_indices);
 			GLsizei var_primcount = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiDrawElementsEXT: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiDrawElementsEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiDrawElementsEXT(mode:0x%08x count:%p(%u) type:0x%08x indices:%p(%u) primcount:%d )", stream, var_mode, (const GLsizei*)(inptr_count.get()), size_count, var_type, (const GLvoid* const*)(inptr_indices.get()), size_indices, var_primcount);
 			this->glMultiDrawElementsEXT(var_mode, (const GLsizei*)(inptr_count.get()), var_type, (const GLvoid* const*)(inptr_indices.get()), var_primcount);
 			SET_LASTCALL("glMultiDrawElementsEXT");
 			android::base::endTrace();
@@ -4107,9 +5419,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_count(ptr + 8 + 4 + 4 + size_first + 4, size_count);
 			GLsizei var_primcount = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + size_first + 4 + size_count);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_first + 4 + size_count + 4, ptr + 8 + 4 + 4 + size_first + 4 + size_count + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_first + 4 + size_count + 4, ptr + 8 + 4 + 4 + size_first + 4 + size_count + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiDrawArraysSUN: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiDrawArraysSUN\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiDrawArraysSUN(mode:0x%08x first:%p(%u) count:%p(%u) primcount:%d )", stream, var_mode, (GLint*)(inptr_first.get()), size_first, (GLsizei*)(inptr_count.get()), size_count, var_primcount);
 			this->glMultiDrawArraysSUN(var_mode, (GLint*)(inptr_first.get()), (GLsizei*)(inptr_count.get()), var_primcount);
 			SET_LASTCALL("glMultiDrawArraysSUN");
 			android::base::endTrace();
@@ -4125,9 +5442,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			InputBuffer inptr_indices(ptr + 8 + 4 + 4 + size_count + 4 + 4, size_indices);
 			GLsizei var_primcount = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, ptr + 8 + 4 + 4 + size_count + 4 + 4 + size_indices + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glMultiDrawElementsSUN: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glMultiDrawElementsSUN\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glMultiDrawElementsSUN(mode:0x%08x count:%p(%u) type:0x%08x indices:%p(%u) primcount:%d )", stream, var_mode, (const GLsizei*)(inptr_count.get()), size_count, var_type, (const GLvoid**)(inptr_indices.get()), size_indices, var_primcount);
 			this->glMultiDrawElementsSUN(var_mode, (const GLsizei*)(inptr_count.get()), var_type, (const GLvoid**)(inptr_indices.get()), var_primcount);
 			SET_LASTCALL("glMultiDrawElementsSUN");
 			android::base::endTrace();
@@ -4141,9 +5463,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_width = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLsizei var_height = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glRenderbufferStorageMultisampleIMG: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glRenderbufferStorageMultisampleIMG\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glRenderbufferStorageMultisampleIMG(target:0x%08x samples:%d internalformat:0x%08x width:%d height:%d )", stream, var_target, var_samples, var_internalformat, var_width, var_height);
 			this->glRenderbufferStorageMultisampleIMG(var_target, var_samples, var_internalformat, var_width, var_height);
 			SET_LASTCALL("glRenderbufferStorageMultisampleIMG");
 			android::base::endTrace();
@@ -4158,9 +5485,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_level = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			GLsizei var_samples = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFramebufferTexture2DMultisampleIMG: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFramebufferTexture2DMultisampleIMG\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFramebufferTexture2DMultisampleIMG(target:0x%08x attachment:0x%08x textarget:0x%08x texture:%u level:%d samples:%d )", stream, var_target, var_attachment, var_textarget, var_texture, var_level, var_samples);
 			this->glFramebufferTexture2DMultisampleIMG(var_target, var_attachment, var_textarget, var_texture, var_level, var_samples);
 			SET_LASTCALL("glFramebufferTexture2DMultisampleIMG");
 			android::base::endTrace();
@@ -4172,9 +5504,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_fences __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_fences(ptr + 8 + 4 + 4, size_fences);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_fences, ptr + 8 + 4 + 4 + size_fences, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_fences, ptr + 8 + 4 + 4 + size_fences, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDeleteFencesNV: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDeleteFencesNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDeleteFencesNV(n:%d fences:%p(%u) )", stream, var_n, (const GLuint*)(inptr_fences.get()), size_fences);
 			this->glDeleteFencesNV(var_n, (const GLuint*)(inptr_fences.get()));
 			SET_LASTCALL("glDeleteFencesNV");
 			android::base::endTrace();
@@ -4186,9 +5523,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_fences __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_fences(ptr + 8 + 4 + 4, size_fences);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_fences, ptr + 8 + 4 + 4 + size_fences, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_fences, ptr + 8 + 4 + 4 + size_fences, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGenFencesNV: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGenFencesNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGenFencesNV(n:%d fences:%p(%u) )", stream, var_n, (GLuint*)(inptr_fences.get()), size_fences);
 			this->glGenFencesNV(var_n, (GLuint*)(inptr_fences.get()));
 			SET_LASTCALL("glGenFencesNV");
 			android::base::endTrace();
@@ -4198,12 +5540,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glIsFenceNV decode");
 			GLuint var_fence = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glIsFenceNV: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glIsFenceNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glIsFenceNV(fence:%u )", stream, var_fence);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glIsFenceNV(var_fence);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -4217,12 +5564,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glTestFenceNV decode");
 			GLuint var_fence = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glTestFenceNV: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glTestFenceNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glTestFenceNV(fence:%u )", stream, var_fence);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glTestFenceNV(var_fence);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -4238,13 +5590,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetFenceivNV: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetFenceivNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetFenceivNV(fence:%u pname:0x%08x params:%p(%u) )", stream, var_fence, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glGetFenceivNV(var_fence, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -4259,9 +5616,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glFinishFenceNV decode");
 			GLuint var_fence = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glFinishFenceNV: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glFinishFenceNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glFinishFenceNV(fence:%u )", stream, var_fence);
 			this->glFinishFenceNV(var_fence);
 			SET_LASTCALL("glFinishFenceNV");
 			android::base::endTrace();
@@ -4272,9 +5634,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLuint var_fence = Unpack<GLuint,uint32_t>(ptr + 8);
 			GLenum var_condition = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4, ptr + 8 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glSetFenceNV: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glSetFenceNV\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glSetFenceNV(fence:%u condition:0x%08x )", stream, var_fence, var_condition);
 			this->glSetFenceNV(var_fence, var_condition);
 			SET_LASTCALL("glSetFenceNV");
 			android::base::endTrace();
@@ -4286,7 +5653,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_size = Unpack<GLsizei,uint32_t>(ptr + 8 + 4);
 			uint32_t size_driverControls __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetDriverControlsQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_num;
@@ -4295,6 +5662,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_num(&tmpBuf[0], size_num);
 			OutputBuffer outptr_driverControls(&tmpBuf[0 + size_num], size_driverControls);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetDriverControlsQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetDriverControlsQCOM(num:%p(%u) size:%d driverControls:%p(%u) )", stream, (GLint*)(outptr_num.get()), size_num, var_size, (GLuint*)(outptr_driverControls.get()), size_driverControls);
 			this->glGetDriverControlsQCOM((GLint*)(outptr_num.get()), var_size, (GLuint*)(outptr_driverControls.get()));
 			outptr_num.flush();
 			outptr_driverControls.flush();
@@ -4313,7 +5685,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_length __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			uint32_t size_driverControlString __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetDriverControlStringQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_length;
@@ -4322,6 +5694,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_length(&tmpBuf[0], size_length);
 			OutputBuffer outptr_driverControlString(&tmpBuf[0 + size_length], size_driverControlString);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetDriverControlStringQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetDriverControlStringQCOM(driverControl:%u bufSize:%d length:%p(%u) driverControlString:%p(%u) )", stream, var_driverControl, var_bufSize, (GLsizei*)(outptr_length.get()), size_length, (GLchar*)(outptr_driverControlString.get()), size_driverControlString);
 			this->glGetDriverControlStringQCOM(var_driverControl, var_bufSize, (GLsizei*)(outptr_length.get()), (GLchar*)(outptr_driverControlString.get()));
 			outptr_length.flush();
 			outptr_driverControlString.flush();
@@ -4337,9 +5714,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glEnableDriverControlQCOM decode");
 			GLuint var_driverControl = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEnableDriverControlQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEnableDriverControlQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEnableDriverControlQCOM(driverControl:%u )", stream, var_driverControl);
 			this->glEnableDriverControlQCOM(var_driverControl);
 			SET_LASTCALL("glEnableDriverControlQCOM");
 			android::base::endTrace();
@@ -4349,9 +5731,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glDisableDriverControlQCOM decode");
 			GLuint var_driverControl = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glDisableDriverControlQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glDisableDriverControlQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glDisableDriverControlQCOM(driverControl:%u )", stream, var_driverControl);
 			this->glDisableDriverControlQCOM(var_driverControl);
 			SET_LASTCALL("glDisableDriverControlQCOM");
 			android::base::endTrace();
@@ -4363,7 +5750,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxTextures = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numTextures __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetTexturesQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_textures;
@@ -4372,6 +5759,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_textures(&tmpBuf[0], size_textures);
 			OutputBuffer outptr_numTextures(&tmpBuf[0 + size_textures], size_numTextures);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetTexturesQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetTexturesQCOM(textures:%p(%u) maxTextures:%d numTextures:%p(%u) )", stream, (GLuint*)(outptr_textures.get()), size_textures, var_maxTextures, (GLint*)(outptr_numTextures.get()), size_numTextures);
 			this->glExtGetTexturesQCOM((GLuint*)(outptr_textures.get()), var_maxTextures, (GLint*)(outptr_numTextures.get()));
 			outptr_textures.flush();
 			outptr_numTextures.flush();
@@ -4389,7 +5781,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxBuffers = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numBuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetBuffersQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_buffers;
@@ -4398,6 +5790,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_buffers(&tmpBuf[0], size_buffers);
 			OutputBuffer outptr_numBuffers(&tmpBuf[0 + size_buffers], size_numBuffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetBuffersQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetBuffersQCOM(buffers:%p(%u) maxBuffers:%d numBuffers:%p(%u) )", stream, (GLuint*)(outptr_buffers.get()), size_buffers, var_maxBuffers, (GLint*)(outptr_numBuffers.get()), size_numBuffers);
 			this->glExtGetBuffersQCOM((GLuint*)(outptr_buffers.get()), var_maxBuffers, (GLint*)(outptr_numBuffers.get()));
 			outptr_buffers.flush();
 			outptr_numBuffers.flush();
@@ -4415,7 +5812,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxRenderbuffers = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numRenderbuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetRenderbuffersQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_renderbuffers;
@@ -4424,6 +5821,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_renderbuffers(&tmpBuf[0], size_renderbuffers);
 			OutputBuffer outptr_numRenderbuffers(&tmpBuf[0 + size_renderbuffers], size_numRenderbuffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetRenderbuffersQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetRenderbuffersQCOM(renderbuffers:%p(%u) maxRenderbuffers:%d numRenderbuffers:%p(%u) )", stream, (GLuint*)(outptr_renderbuffers.get()), size_renderbuffers, var_maxRenderbuffers, (GLint*)(outptr_numRenderbuffers.get()), size_numRenderbuffers);
 			this->glExtGetRenderbuffersQCOM((GLuint*)(outptr_renderbuffers.get()), var_maxRenderbuffers, (GLint*)(outptr_numRenderbuffers.get()));
 			outptr_renderbuffers.flush();
 			outptr_numRenderbuffers.flush();
@@ -4441,7 +5843,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxFramebuffers = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numFramebuffers __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetFramebuffersQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_framebuffers;
@@ -4450,6 +5852,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_framebuffers(&tmpBuf[0], size_framebuffers);
 			OutputBuffer outptr_numFramebuffers(&tmpBuf[0 + size_framebuffers], size_numFramebuffers);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetFramebuffersQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetFramebuffersQCOM(framebuffers:%p(%u) maxFramebuffers:%d numFramebuffers:%p(%u) )", stream, (GLuint*)(outptr_framebuffers.get()), size_framebuffers, var_maxFramebuffers, (GLint*)(outptr_numFramebuffers.get()), size_numFramebuffers);
 			this->glExtGetFramebuffersQCOM((GLuint*)(outptr_framebuffers.get()), var_maxFramebuffers, (GLint*)(outptr_numFramebuffers.get()));
 			outptr_framebuffers.flush();
 			outptr_numFramebuffers.flush();
@@ -4469,13 +5876,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetTexLevelParameterivQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_params;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_params(&tmpBuf[0], size_params);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetTexLevelParameterivQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetTexLevelParameterivQCOM(texture:%u face:0x%08x level:%d pname:0x%08x params:%p(%u) )", stream, var_texture, var_face, var_level, var_pname, (GLint*)(outptr_params.get()), size_params);
 			this->glExtGetTexLevelParameterivQCOM(var_texture, var_face, var_level, var_pname, (GLint*)(outptr_params.get()));
 			outptr_params.flush();
 			if (useChecksum) {
@@ -4492,9 +5904,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_pname = Unpack<GLenum,uint32_t>(ptr + 8 + 4);
 			GLint var_param = Unpack<GLint,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtTexObjectStateOverrideiQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtTexObjectStateOverrideiQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtTexObjectStateOverrideiQCOM(target:0x%08x pname:0x%08x param:%d )", stream, var_target, var_pname, var_param);
 			this->glExtTexObjectStateOverrideiQCOM(var_target, var_pname, var_param);
 			SET_LASTCALL("glExtTexObjectStateOverrideiQCOM");
 			android::base::endTrace();
@@ -4514,13 +5931,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLenum var_type = Unpack<GLenum,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			uint32_t size_texels __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetTexSubImageQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_texels;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_texels(&tmpBuf[0], size_texels);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetTexSubImageQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetTexSubImageQCOM(target:0x%08x level:%d xoffset:%d yoffset:%d zoffset:%d width:%d height:%d depth:%d format:0x%08x type:0x%08x texels:%p(%u) )", stream, var_target, var_level, var_xoffset, var_yoffset, var_zoffset, var_width, var_height, var_depth, var_format, var_type, (GLvoid*)(outptr_texels.get()), size_texels);
 			this->glExtGetTexSubImageQCOM(var_target, var_level, var_xoffset, var_yoffset, var_zoffset, var_width, var_height, var_depth, var_format, var_type, (GLvoid*)(outptr_texels.get()));
 			outptr_texels.flush();
 			if (useChecksum) {
@@ -4537,9 +5959,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_params __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4);
 			InputBuffer inptr_params(ptr + 8 + 4 + 4, size_params);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + size_params, ptr + 8 + 4 + 4 + size_params, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetBufferPointervQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetBufferPointervQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetBufferPointervQCOM(target:0x%08x params:%p(%u) )", stream, var_target, (GLvoid**)(inptr_params.get()), size_params);
 			this->glExtGetBufferPointervQCOM(var_target, (GLvoid**)(inptr_params.get()));
 			SET_LASTCALL("glExtGetBufferPointervQCOM");
 			android::base::endTrace();
@@ -4551,7 +5978,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxShaders = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numShaders __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetShadersQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_shaders;
@@ -4560,6 +5987,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_shaders(&tmpBuf[0], size_shaders);
 			OutputBuffer outptr_numShaders(&tmpBuf[0 + size_shaders], size_numShaders);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetShadersQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetShadersQCOM(shaders:%p(%u) maxShaders:%d numShaders:%p(%u) )", stream, (GLuint*)(outptr_shaders.get()), size_shaders, var_maxShaders, (GLint*)(outptr_numShaders.get()), size_numShaders);
 			this->glExtGetShadersQCOM((GLuint*)(outptr_shaders.get()), var_maxShaders, (GLint*)(outptr_numShaders.get()));
 			outptr_shaders.flush();
 			outptr_numShaders.flush();
@@ -4577,7 +6009,7 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLint var_maxPrograms = Unpack<GLint,uint32_t>(ptr + 8 + 4);
 			uint32_t size_numPrograms __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetProgramsQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_programs;
@@ -4586,6 +6018,11 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_programs(&tmpBuf[0], size_programs);
 			OutputBuffer outptr_numPrograms(&tmpBuf[0 + size_programs], size_numPrograms);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetProgramsQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetProgramsQCOM(programs:%p(%u) maxPrograms:%d numPrograms:%p(%u) )", stream, (GLuint*)(outptr_programs.get()), size_programs, var_maxPrograms, (GLint*)(outptr_numPrograms.get()), size_numPrograms);
 			this->glExtGetProgramsQCOM((GLuint*)(outptr_programs.get()), var_maxPrograms, (GLint*)(outptr_numPrograms.get()));
 			outptr_programs.flush();
 			outptr_numPrograms.flush();
@@ -4601,12 +6038,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glExtIsProgramBinaryQCOM decode");
 			GLuint var_program = Unpack<GLuint,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtIsProgramBinaryQCOM: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLboolean);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtIsProgramBinaryQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtIsProgramBinaryQCOM(program:%u )", stream, var_program);
 			*(GLboolean *)(&tmpBuf[0]) = 			this->glExtIsProgramBinaryQCOM(var_program);
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -4625,9 +6067,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			uint32_t size_length __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + size_source);
 			InputBuffer inptr_length(ptr + 8 + 4 + 4 + 4 + size_source + 4, size_length);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_source + 4 + size_length, ptr + 8 + 4 + 4 + 4 + size_source + 4 + size_length, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + size_source + 4 + size_length, ptr + 8 + 4 + 4 + 4 + size_source + 4 + size_length, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glExtGetProgramBinarySourceQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glExtGetProgramBinarySourceQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glExtGetProgramBinarySourceQCOM(program:%u shadertype:0x%08x source:%p(%u) length:%p(%u) )", stream, var_program, var_shadertype, (GLchar*)(inptr_source.get()), size_source, (GLint*)(inptr_length.get()), size_length);
 			this->glExtGetProgramBinarySourceQCOM(var_program, var_shadertype, (GLchar*)(inptr_source.get()), (GLint*)(inptr_length.get()));
 			SET_LASTCALL("glExtGetProgramBinarySourceQCOM");
 			android::base::endTrace();
@@ -4641,9 +6088,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLuint var_height = Unpack<GLuint,uint32_t>(ptr + 8 + 4 + 4 + 4);
 			GLbitfield var_preserveMask = Unpack<GLbitfield,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glStartTilingQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glStartTilingQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glStartTilingQCOM(x:%u y:%u width:%u height:%u preserveMask:0x%08x )", stream, var_x, var_y, var_width, var_height, var_preserveMask);
 			this->glStartTilingQCOM(var_x, var_y, var_width, var_height, var_preserveMask);
 			SET_LASTCALL("glStartTilingQCOM");
 			android::base::endTrace();
@@ -4653,9 +6105,14 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			android::base::beginTrace("glEndTilingQCOM decode");
 			GLbitfield var_preserveMask = Unpack<GLbitfield,uint32_t>(ptr + 8);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4, ptr + 8 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glEndTilingQCOM: GL checksumCalculator failure\n");
 			}
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glEndTilingQCOM\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glEndTilingQCOM(preserveMask:0x%08x )", stream, var_preserveMask);
 			this->glEndTilingQCOM(var_preserveMask);
 			SET_LASTCALL("glEndTilingQCOM");
 			android::base::endTrace();
@@ -4664,12 +6121,17 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 		case OP_glGetGraphicsResetStatusEXT: {
 			android::base::beginTrace("glGetGraphicsResetStatusEXT decode");
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8, ptr + 8, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glGetGraphicsResetStatusEXT: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = sizeof(GLenum);
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glGetGraphicsResetStatusEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glGetGraphicsResetStatusEXT()", stream);
 			*(GLenum *)(&tmpBuf[0]) = 			this->glGetGraphicsResetStatusEXT();
 			if (useChecksum) {
 				ChecksumCalculatorThreadInfo::writeChecksum(checksumCalc, &tmpBuf[0], totalTmpSize - checksumSize, &tmpBuf[totalTmpSize - checksumSize], checksumSize);
@@ -4690,13 +6152,18 @@ size_t gles1_decoder_context_t::decode(void *buf, size_t len, IOStream *stream, 
 			GLsizei var_bufSize = Unpack<GLsizei,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4);
 			uint32_t size_data __attribute__((unused)) = Unpack<uint32_t,uint32_t>(ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4);
 			if (useChecksum) {
-				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize, 
+				ChecksumCalculatorThreadInfo::validOrDie(checksumCalc, ptr, 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, ptr + 8 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4, checksumSize,
 					"gles1_decoder_context_t::decode, OP_glReadnPixelsEXT: GL checksumCalculator failure\n");
 			}
 			size_t totalTmpSize = size_data;
 			totalTmpSize += checksumSize;
 			unsigned char *tmpBuf = stream->alloc(totalTmpSize);
 			OutputBuffer outptr_data(&tmpBuf[0], size_data);
+			#ifdef CHECK_GL_ERRORS
+			GLint err = this->glGetError();
+			if (err) fprintf(stderr, "gles1 Error (pre-call): 0x%X before glReadnPixelsEXT\n", err);
+			#endif
+			DECODER_DEBUG_LOG("gles1(%p): glReadnPixelsEXT(x:%d y:%d width:%d height:%d format:0x%08x type:0x%08x bufSize:%d data:%p(%u) )", stream, var_x, var_y, var_width, var_height, var_format, var_type, var_bufSize, (GLvoid*)(outptr_data.get()), size_data);
 			this->glReadnPixelsEXT(var_x, var_y, var_width, var_height, var_format, var_type, var_bufSize, (GLvoid*)(outptr_data.get()));
 			outptr_data.flush();
 			if (useChecksum) {

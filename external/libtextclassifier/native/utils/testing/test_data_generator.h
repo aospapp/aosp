@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <iostream>
 #include <random>
+#include <string>
 
 #include "utils/strings/stringpiece.h"
 
@@ -33,6 +34,18 @@ class TestDataGenerator {
   T generate() {
     std::uniform_int_distribution<T> dist;
     return dist(random_engine_);
+  }
+
+  template <>
+  bool generate() {
+    std::bernoulli_distribution dist(0.5);
+    return dist(random_engine_);
+  }
+
+  template <>
+  char generate() {
+    std::uniform_int_distribution<int> dist(0, 25);
+    return dist(random_engine_) + 'a';
   }
 
   template <typename T, typename std::enable_if_t<

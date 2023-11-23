@@ -106,8 +106,9 @@ class ApiPredicate(
             }
         }
         while (clazz != null) {
-            visible = visible and (clazz.isPublic || clazz.isProtected ||
-                (clazz.isInternal && clazz.hasShowAnnotation())
+            visible = visible and (
+                clazz.isPublic || clazz.isProtected ||
+                    (clazz.isInternal && clazz.hasShowAnnotation())
                 )
             hasShowAnnotation = hasShowAnnotation or (ignoreShown || clazz.hasShowAnnotation())
             hidden = hidden or clazz.hidden

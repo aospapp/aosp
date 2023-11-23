@@ -48,15 +48,10 @@ int32_t String::FastIndexOf(int32_t ch, int32_t start) {
   }
 }
 
-int String::ComputeHashCode() {
-  int32_t hash_code = 0;
-  if (IsCompressed()) {
-    hash_code = ComputeUtf16Hash(GetValueCompressed(), GetLength());
-  } else {
-    hash_code = ComputeUtf16Hash(GetValue(), GetLength());
-  }
-  SetHashCode(hash_code);
-  return hash_code;
+int32_t String::ComputeAndSetHashCode() {
+  int32_t new_hash_code = ComputeHashCode();
+  SetHashCode(new_hash_code);
+  return new_hash_code;
 }
 
 inline bool String::AllASCIIExcept(const uint16_t* chars, int32_t length, uint16_t non_ascii) {
@@ -106,7 +101,7 @@ ObjPtr<String> String::DoReplace(Thread* self, Handle<String> src, uint16_t old_
       } else {
         std::transform(src->value_, src->value_ + length, out, replace);
       }
-      DCHECK(!kUseStringCompression || !AllASCII(out, length));
+      DCHECK_IMPLIES(kUseStringCompression, !AllASCII(out, length));
     }
   };
   return Alloc(self, length_with_flag, allocator_type, visitor);
@@ -151,10 +146,58 @@ ObjPtr<String> String::DoConcat(Thread* self, Handle<String> h_this, Handle<Stri
   return Alloc(self, length_with_flag, allocator_type, visitor);
 }
 
+template<typename T>
+static void RepeatCharacters(ObjPtr<String> new_string, Handle<String> h_this, int32_t count)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  T *new_value, *h_this_value;
+  if constexpr (std::is_same_v<T, uint8_t>) {
+    new_value = new_string->GetValueCompressed();
+    h_this_value = h_this->GetValueCompressed();
+  } else {
+    new_value = new_string->GetValue();
+    h_this_value = h_this->GetValue();
+  }
+  int32_t length_this = h_this->GetLength();
+  if (length_this == 1) {
+    // compiler is smart enough to use memset for uint8_t
+    std::fill(new_value, new_value + count, h_this_value[0]);
+  } else {
+    memcpy(new_value, h_this_value, length_this * sizeof(T));
+    int32_t copied = length_this;
+    int32_t limit = length_this * count;
+    for (; copied < limit - copied; copied <<= 1) {
+      memcpy(new_value + copied, new_value, copied * sizeof(T));
+    }
+    memcpy(new_value + copied, new_value, (limit - copied) * sizeof(T));
+  }
+}
+
+ObjPtr<String> String::DoRepeat(Thread* self, Handle<String> h_this, int32_t count) {
+  int32_t length_this = h_this->GetLength();
+  DCHECK_GT(count, 1);
+  DCHECK_LE(length_this, std::numeric_limits<int32_t>::max() / count);
+  gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
+  const bool compressible = kUseStringCompression && (h_this->IsCompressed());
+  const int32_t length_with_flag = String::GetFlaggedCount(length_this * count, compressible);
+
+  auto visitor = [=](ObjPtr<Object> obj, size_t usable_size) REQUIRES_SHARED(Locks::mutator_lock_) {
+      SetStringCountVisitor set_string_count_visitor(length_with_flag);
+      set_string_count_visitor(obj, usable_size);
+      ObjPtr<String> new_string = obj->AsString();
+
+      if (compressible) {
+        RepeatCharacters<uint8_t>(new_string, h_this, count);
+      } else {
+        RepeatCharacters<uint16_t>(new_string, h_this, count);
+      }
+  };
+  return Alloc(self, length_with_flag, allocator_type, visitor);
+}
+
 ObjPtr<String> String::AllocFromUtf16(Thread* self,
                                       int32_t utf16_length,
                                       const uint16_t* utf16_data_in) {
-  CHECK(utf16_data_in != nullptr || utf16_length == 0);
+  CHECK_IMPLIES(utf16_data_in == nullptr, utf16_length == 0);
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
   const bool compressible = kUseStringCompression &&
                             String::AllASCII<uint16_t>(utf16_data_in, utf16_length);

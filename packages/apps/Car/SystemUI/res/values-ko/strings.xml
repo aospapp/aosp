@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"꺼짐"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"꺼짐"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"이제 연결된 블루투스 기기에서 음성 인식이 처리됩니다."</string>
-    <string name="car_guest" msgid="768913000117469596">"게스트"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"게스트"</string>
     <string name="car_add_user" msgid="6182764665687382136">"프로필 추가"</string>
     <string name="car_new_user" msgid="6766334721724989964">"새 프로필"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"새 프로필을 추가하시겠습니까?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"새 프로필을 만들고 나면 사용자가 직접 프로필을 맞춤설정해야 합니다."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"어떤 프로필에서든 앱을 업데이트하여 다른 모든 프로필에 적용할 수 있습니다."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"최대 프로필 개수에 도달"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="other">프로필은 <xliff:g id="COUNT">%d</xliff:g>개까지 만들 수 있습니다.</item>
-      <item quantity="one">프로필은 1개만 만들 수 있습니다.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{프로필은 1개만 만들 수 있습니다.}other{프로필은 #개까지 만들 수 있습니다.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"로드 중"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"사용자 로드 중(<xliff:g id="FROM_USER">%1$d</xliff:g>님에서 <xliff:g id="TO_USER">%2$d</xliff:g>님으로)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"마이크가 꺼져 있습니다."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"마이크 사용"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"권한 있는 앱용"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g>이(가) 꺼져 있습니다."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"<xliff:g id="SENSOR">%1$s</xliff:g> 사용"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"권한 있는 앱용"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"마이크 설정"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> 앱에서 마이크 사용 중"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> 앱이 <xliff:g id="SENSOR">%2$s</xliff:g>를 사용 중입니다."</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g>에서 마이크 사용 중"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> 앱에서 최근에 마이크를 사용함"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> 외 <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>개가 최근에 마이크를 사용함"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> 앱이 최근에 <xliff:g id="SENSOR">%2$s</xliff:g>를 사용했습니다."</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> 외에 <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>개 앱이 최근에 <xliff:g id="SENSOR">%3$s</xliff:g>를 사용했습니다."</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"마이크 사용 설정됨"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"마이크 사용 중지됨"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"확인"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"차량 마이크를 사용 설정하시겠습니까?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"계속하려면 인포테인먼트 시스템 마이크를 사용 설정하세요. 그러면 권한이 있는 모든 앱에서 마이크가 사용 설정됩니다."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"카메라 설정"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> 앱이 카메라를 사용 중입니다."</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> 앱이 카메라를 사용 중입니다."</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> 앱이 최근에 카메라를 사용했습니다."</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> 앱 외에 <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g>개 앱이 최근에 카메라를 사용했습니다."</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"카메라가 사용 설정되었습니다."</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"카메라가 사용 중지되었습니다."</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"확인"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"차량 카메라를 사용 설정하시겠습니까?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"계속하려면 인포테인먼트 시스템 카메라를 사용 설정하세요. 그러면 권한이 있는 모든 앱에 대해 카메라가 사용 설정됩니다."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"운전 중에는 이 기능을 사용하실 수 없습니다."</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"앱 닫기"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"뒤로"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"설정"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"블루투스 설정"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"네트워크 및 인터넷 설정"</string>

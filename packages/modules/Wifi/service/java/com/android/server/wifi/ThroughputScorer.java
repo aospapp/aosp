@@ -19,6 +19,7 @@ package com.android.server.wifi;
 import static com.android.server.wifi.WifiNetworkSelector.NetworkNominator.NOMINATOR_ID_SCORED;
 
 import android.annotation.NonNull;
+import android.net.wifi.ScanResult;
 import android.util.Log;
 
 import com.android.server.wifi.WifiCandidates.Candidate;
@@ -83,12 +84,8 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
      * Calculates an individual candidate's score.
      */
     private ScoredCandidate scoreCandidate(Candidate candidate, boolean currentNetworkHasInternet) {
-        int rssiSaturationThreshold = mScoringParams.getSufficientRssi(candidate.getFrequency());
-        int rssi = Math.min(candidate.getScanRssi(), rssiSaturationThreshold);
-        int rssiBaseScore = (rssi + RSSI_SCORE_OFFSET) * RSSI_SCORE_SLOPE_IS_4;
-
+        int rssiBaseScore = calculateRssiScore(candidate);
         int throughputBonusScore = calculateThroughputBonusScore(candidate);
-
         int rssiAndThroughputScore = rssiBaseScore + throughputBonusScore;
 
         boolean unExpectedNoInternet = candidate.hasNoInternetAccess()
@@ -96,6 +93,8 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
         int currentNetworkBonusMin = mScoringParams.getCurrentNetworkBonusMin();
         int currentNetworkBonus = Math.max(currentNetworkBonusMin, rssiAndThroughputScore
                 * mScoringParams.getCurrentNetworkBonusPercent() / 100);
+        int bandSpecificBonus = ScanResult.is6GHz(candidate.getFrequency())
+                ? mScoringParams.getBand6GhzBonus() : 0;
         int currentNetworkBoost = (candidate.isCurrentNetwork() && !unExpectedNoInternet)
                 ? currentNetworkBonus : 0;
 
@@ -110,9 +109,10 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
         int savedNetworkAward = candidate.isEphemeral() ? 0 : mScoringParams.getSavedNetworkBonus();
 
         int trustedAward = TRUSTED_AWARD;
-        if (!candidate.isTrusted()) {
-            savedNetworkAward = 0; // Saved networks are not untrusted, but clear anyway
-            unmeteredAward = 0; // Ignore metered for untrusted networks
+        if (!candidate.isTrusted() || candidate.isRestricted()) {
+            // Saved networks are not untrusted or restricted, but clear anyway
+            savedNetworkAward = 0;
+            unmeteredAward = 0; // Ignore metered for untrusted and restricted networks
             if (candidate.isCarrierOrPrivileged()) {
                 trustedAward = HALF_TRUSTED_AWARD;
             } else if (candidate.getNominatorId() == NOMINATOR_ID_SCORED) {
@@ -140,9 +140,19 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
             notOemPrivateAward = 0;
         }
 
-        int score = rssiBaseScore + throughputBonusScore
-                + currentNetworkBoost + securityAward + unmeteredAward + savedNetworkAward
-                + trustedAward + notOemPaidAward + notOemPrivateAward;
+        // These scores determine which scoring bucket the candidate falls into. The scoring buckets
+        // should not overlap so candidate in a higher bucket should always win against candidate in
+        // a lower bucket.
+        // Note: securityAward can be configured per carrier requirement to adjust the priority
+        // bucket of non-open network.
+        int scoreToDetermineBucket = unmeteredAward + savedNetworkAward + trustedAward
+                + notOemPaidAward + notOemPrivateAward + securityAward;
+        // Within the same scoring bucket, ties are broken by the following bonus scores. The sum
+        // of these scores should be capped to the buket step size to prevent overlapping bucket.
+        int scoreWithinBucket = rssiBaseScore + throughputBonusScore + currentNetworkBoost
+                + bandSpecificBonus;
+        int score = scoreToDetermineBucket
+                + Math.min(mScoringParams.getScoringBucketStepSize(), scoreWithinBucket);
 
         // do not select a network that has no internet when the current network has internet.
         if (currentNetworkHasInternet && !candidate.isCurrentNetwork() && unExpectedNoInternet) {
@@ -175,10 +185,44 @@ final class ThroughputScorer implements WifiCandidates.CandidateScorer {
                 USE_USER_CONNECT_CHOICE, candidate);
     }
 
+    private int calculateRssiScore(Candidate candidate) {
+        int rssiSaturationThreshold = mScoringParams.getSufficientRssi(candidate.getFrequency());
+        int rssi = candidate.getScanRssi();
+        if (mScoringParams.is6GhzBeaconRssiBoostEnabled()
+                && ScanResult.is6GHz(candidate.getFrequency())) {
+            switch (candidate.getChannelWidth()) {
+                case ScanResult.CHANNEL_WIDTH_40MHZ:
+                    rssi += 3;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_80MHZ:
+                    rssi += 6;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_160MHZ:
+                    rssi += 9;
+                    break;
+                case ScanResult.CHANNEL_WIDTH_320MHZ:
+                    rssi += 12;
+                    break;
+                default:
+                    // do nothing
+            }
+        }
+
+        rssi = Math.min(rssi, rssiSaturationThreshold);
+        return (rssi + RSSI_SCORE_OFFSET) * RSSI_SCORE_SLOPE_IS_4;
+    }
+
     private int calculateThroughputBonusScore(Candidate candidate) {
-        int throughputScoreRaw = candidate.getPredictedThroughputMbps()
+        int throughput = candidate.getPredictedThroughputMbps();
+        int throughputUpTo800Mbps = Math.min(800, throughput);
+        int throughputMoreThan800Mbps = Math.max(0, throughput - 800);
+
+        int throughputScoreRaw = (throughputUpTo800Mbps
                 * mScoringParams.getThroughputBonusNumerator()
-                / mScoringParams.getThroughputBonusDenominator();
+                / mScoringParams.getThroughputBonusDenominator())
+                + (throughputMoreThan800Mbps
+                * mScoringParams.getThroughputBonusNumeratorAfter800Mbps()
+                / mScoringParams.getThroughputBonusDenominatorAfter800Mbps());
         return Math.min(throughputScoreRaw, mScoringParams.getThroughputBonusLimit());
     }
 

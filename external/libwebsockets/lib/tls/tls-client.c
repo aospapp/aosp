@@ -24,16 +24,23 @@
 
 #include "private-lib-core.h"
 
-int
-lws_ssl_client_connect1(struct lws *wsi)
+static int
+lws_ssl_client_connect1(struct lws *wsi, char *errbuf, size_t len)
 {
 	int n;
 
-	n = lws_tls_client_connect(wsi);
+	n = lws_tls_client_connect(wsi, errbuf, len);
 	switch (n) {
 	case LWS_SSL_CAPABLE_ERROR:
+		lws_tls_restrict_return_handshake(wsi);
 		return -1;
 	case LWS_SSL_CAPABLE_DONE:
+		lws_tls_restrict_return_handshake(wsi);
+		lws_metrics_caliper_report(wsi->cal_conn, METRES_GO);
+#if defined(LWS_WITH_CONMON)
+	wsi->conmon.ciu_tls = (lws_conmon_interval_us_t)
+					(lws_now_usecs() - wsi->conmon_datum);
+#endif
 		return 1; /* connected */
 	case LWS_SSL_CAPABLE_MORE_SERVICE_WRITE:
 		lws_callback_on_writable(wsi);
@@ -48,17 +55,18 @@ lws_ssl_client_connect1(struct lws *wsi)
 }
 
 int
-lws_ssl_client_connect2(struct lws *wsi, char *errbuf, int len)
+lws_ssl_client_connect2(struct lws *wsi, char *errbuf, size_t len)
 {
 	int n;
 
 	if (lwsi_state(wsi) == LRS_WAITING_SSL) {
-		n = lws_tls_client_connect(wsi);
+		n = lws_tls_client_connect(wsi, errbuf, len);
 		lwsl_debug("%s: SSL_connect says %d\n", __func__, n);
 
 		switch (n) {
 		case LWS_SSL_CAPABLE_ERROR:
-			lws_snprintf(errbuf, len, "client connect failed");
+			lws_tls_restrict_return_handshake(wsi);
+			// lws_snprintf(errbuf, len, "client connect failed");
 			return -1;
 		case LWS_SSL_CAPABLE_DONE:
 			break; /* connected */
@@ -69,14 +77,24 @@ lws_ssl_client_connect2(struct lws *wsi, char *errbuf, int len)
 			lwsi_set_state(wsi, LRS_WAITING_SSL);
 			/* fallthru */
 		case LWS_SSL_CAPABLE_MORE_SERVICE:
-			return 0;
+			return 0; /* retry */
 		}
 	}
 
-	if (lws_tls_client_confirm_peer_cert(wsi, errbuf, len))
-		return -1;
+	lws_tls_restrict_return_handshake(wsi);
 
-	return 1;
+	if (lws_tls_client_confirm_peer_cert(wsi, errbuf, len)) {
+		lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
+		return -1;
+	}
+
+	lws_metrics_caliper_report(wsi->cal_conn, METRES_GO);
+#if defined(LWS_WITH_CONMON)
+	wsi->conmon.ciu_tls = (lws_conmon_interval_us_t)
+					(lws_now_usecs() - wsi->conmon_datum);
+#endif
+
+	return 1; /* connected */
 }
 
 
@@ -87,7 +105,9 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	const char *cert_filepath = info->ssl_cert_filepath;
 	const char *ca_filepath = info->ssl_ca_filepath;
 	const char *cipher_list = info->ssl_cipher_list;
-	struct lws *wsi = vhost->context->pt[0].fake_wsi;
+	lws_fakewsi_def_plwsa(&vhost->context->pt[0]);
+
+	lws_fakewsi_prep_plwsa_ctx(vhost->context);
 
 	if (vhost->options & LWS_SERVER_OPTION_ADOPT_APPLY_LISTEN_ACCEPT_CONFIG)
 		return 0;
@@ -118,6 +138,7 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	if (vhost->tls.ssl_client_ctx)
 		return 0;
 
+#if !defined(LWS_WITH_MBEDTLS)
 	if (info->provided_client_ssl_ctx) {
 		/* use the provided OpenSSL context if given one */
 		vhost->tls.ssl_client_ctx = info->provided_client_ssl_ctx;
@@ -126,6 +147,7 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 
 		return 0;
 	}
+#endif
 
 	if (lws_tls_client_create_vhost_context(vhost, info, cipher_list,
 						ca_filepath,
@@ -134,7 +156,10 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 						cert_filepath,
 						info->client_ssl_cert_mem,
 						info->client_ssl_cert_mem_len,
-						private_key_filepath))
+						private_key_filepath,
+						info->client_ssl_key_mem,
+						info->client_ssl_key_mem_len
+						))
 		return 1;
 
 	lwsl_info("created client ssl context for %s\n", vhost->name);
@@ -144,14 +169,64 @@ int lws_context_init_client_ssl(const struct lws_context_creation_info *info,
 	 * lws_get_context() in the callback
 	 */
 
-	wsi->vhost = vhost; /* not a real bound wsi */
-	wsi->context = vhost->context;
-	wsi->protocol = NULL;
+	plwsa->vhost = vhost; /* not a real bound wsi */
 
-	vhost->protocols[0].callback(wsi,
+	vhost->protocols[0].callback((struct lws *)plwsa,
 			LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS,
 				     vhost->tls.ssl_client_ctx, NULL, 0);
 
 	return 0;
 }
 
+int
+lws_client_create_tls(struct lws *wsi, const char **pcce, int do_c1)
+{
+	/* we can retry this... just cook the SSL BIO the first time */
+
+	if (wsi->tls.use_ssl & LCCSCF_USE_SSL) {
+		int n;
+
+		if (!wsi->tls.ssl) {
+
+#if defined(LWS_WITH_TLS)
+			if (!wsi->transaction_from_pipeline_queue &&
+			    lws_tls_restrict_borrow(wsi)) {
+				*pcce = "tls restriction limit";
+				return CCTLS_RETURN_ERROR;
+			}
+#endif
+			if (lws_ssl_client_bio_create(wsi) < 0) {
+				*pcce = "bio_create failed";
+				return CCTLS_RETURN_ERROR;
+			}
+		}
+
+		if (!do_c1)
+			return CCTLS_RETURN_DONE;
+
+		lws_metrics_caliper_report(wsi->cal_conn, METRES_GO);
+		lws_metrics_caliper_bind(wsi->cal_conn, wsi->a.context->mt_conn_tls);
+#if defined(LWS_WITH_CONMON)
+		wsi->conmon_datum = lws_now_usecs();
+#endif
+
+		n = lws_ssl_client_connect1(wsi, (char *)wsi->a.context->pt[(int)wsi->tsi].serv_buf,
+					    wsi->a.context->pt_serv_buf_size);
+		lwsl_debug("%s: lws_ssl_client_connect1: %d\n", __func__, n);
+		if (!n)
+			return CCTLS_RETURN_RETRY; /* caller should return 0 */
+
+		if (n < 0) {
+			*pcce = (const char *)wsi->a.context->pt[(int)wsi->tsi].serv_buf;
+			lws_metrics_caliper_report(wsi->cal_conn, METRES_NOGO);
+			return CCTLS_RETURN_ERROR;
+		}
+		/* ...connect1 already handled caliper if SSL_accept done */
+
+		lws_tls_server_conn_alpn(wsi);
+
+	} else
+		wsi->tls.ssl = NULL;
+
+	return CCTLS_RETURN_DONE; /* OK */
+}

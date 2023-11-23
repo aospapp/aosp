@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2017 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -15,19 +15,20 @@
  */
 package com.android.car;
 
-import android.test.suitebuilder.annotation.MediumTest;
+import static com.google.common.truth.Truth.assertThat;
+
+import com.android.car.util.SlidingWindow;
+
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import junit.framework.TestCase;
 
-@MediumTest
-public class SlidingWindowTest extends TestCase {
-    static final String TAG = SlidingWindowTest.class.getSimpleName();
+public final class SlidingWindowTest {
 
     private static <T> boolean sameContents(Iterator<T> t1, Iterator<T> t2) {
-        while(t1.hasNext()) {
+        while (t1.hasNext()) {
             if (!t2.hasNext()) {
                 return false;
             }
@@ -40,35 +41,46 @@ public class SlidingWindowTest extends TestCase {
         return !t2.hasNext();
     }
 
+    @Test
     public void testAdd() {
-        final List<Integer> elements = Arrays.asList(3, 4);
+        List<Integer> elements = Arrays.asList(3, 4);
         SlidingWindow<Integer> window = new SlidingWindow<>(5);
         elements.forEach(window::add);
-        assertTrue(sameContents(elements.iterator(), window.iterator()));
+        assertThat(sameContents(elements.iterator(), window.iterator())).isTrue();
     }
 
+    @Test
+    public void testSize() {
+        SlidingWindow<Integer> window = new SlidingWindow<>(10);
+        assertThat(window.size()).isEqualTo(0);
+        window.addAll(Arrays.asList(1, 2, 3));
+        assertThat(window.size()).isEqualTo(3);
+    }
+
+    @Test
     public void testAddOverflow() {
-        final List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-        final List<Integer> expectedElements = Arrays.asList(6, 7, 8, 9, 10);
+        List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        List<Integer> expectedElements = Arrays.asList(6, 7, 8, 9, 10);
         SlidingWindow<Integer> window = new SlidingWindow<>(5);
         window.addAll(elements);
-        assertTrue(sameContents(expectedElements.iterator(), window.iterator()));
+        assertThat(sameContents(expectedElements.iterator(), window.iterator())).isTrue();
     }
 
+    @Test
     public void testStream() {
-        final List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-        final List<Integer> expectedElements = Arrays.asList(6, 7, 8, 9, 10);
+        List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        List<Integer> expectedElements = Arrays.asList(6, 7, 8, 9, 10);
         SlidingWindow<Integer> window = new SlidingWindow<>(5);
         window.addAll(elements);
-        for (Integer e : expectedElements) {
-            assertTrue(window.stream().anyMatch(e::equals));
-        }
+        expectedElements.stream().forEach(
+                e -> assertThat(window.stream().anyMatch(e::equals)).isTrue());
     }
 
+    @Test
     public void testCount() {
-        final List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        List<Integer> elements = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         SlidingWindow<Integer> window = new SlidingWindow<>(5);
         window.addAll(elements);
-        assertEquals(3, window.count((Integer e) -> (e % 2) == 0));
+        assertThat(window.count((Integer e) -> (e % 2) == 0)).isEqualTo(3);
     }
 }

@@ -7,25 +7,28 @@
 
 Textwrap is a library for wrapping and indenting text. It is most
 often used by command-line programs to format dynamic output nicely so
-it looks good in a terminal. However, you can use the library to wrap
-arbitrary things by implementing the `Fragment` trait — an example
-would be wrapping text for PDF files.
+it looks good in a terminal. You can also use Textwrap to wrap text
+set in a proportional font—such as text used to generate PDF files, or
+drawn on a [HTML5 canvas using WebAssembly][wasm-demo].
 
 ## Usage
 
 To use the textwrap crate, add this to your `Cargo.toml` file:
 ```toml
 [dependencies]
-textwrap = "0.13"
+textwrap = "0.15"
 ```
 
 By default, this enables word wrapping with support for Unicode
-strings. Extra features can be enabled with Cargo features — and the
+strings. Extra features can be enabled with Cargo features—and the
 Unicode support can be disabled if needed. This allows you slim down
 the library and so you will only pay for the features you actually
-use. Please see the [_Cargo Features_ in the crate
+use.
+
+Please see the [_Cargo Features_ in the crate
 documentation](https://docs.rs/textwrap/#cargo-features) for a full
-list of the available features.
+list of the available features as well as their impact on the size of
+your binary.
 
 ## Documentation
 
@@ -33,21 +36,20 @@ list of the available features.
 
 ## Getting Started
 
-Word wrapping is easy using the `fill` function:
+Word wrapping is easy using the `wrap` and `fill` functions:
 
 ```rust
-fn main() {
-    let text = "textwrap: an efficient and powerful library for wrapping text.";
-    println!("{}", textwrap::fill(text, 28));
+#[cfg(feature = "smawk")] {
+let text = "textwrap: an efficient and powerful library for wrapping text.";
+assert_eq!(
+    textwrap::wrap(text, 28),
+    vec![
+        "textwrap: an efficient",
+        "and powerful library for",
+        "wrapping text.",
+    ]
+);
 }
-```
-
-The output is wrapped within 28 columns:
-
-```
-textwrap: an efficient
-and powerful library for
-wrapping text.
 ```
 
 Sharp-eyed readers will notice that the first line is 22 columns wide.
@@ -57,43 +59,54 @@ for it in the first line?
 The explanation is that textwrap does not just wrap text one line at a
 time. Instead, it uses an optimal-fit algorithm which looks ahead and
 chooses line breaks which minimize the gaps left at ends of lines.
+This is controlled with the `smawk` Cargo feature, which is why the
+example is wrapped in the `cfg`-block.
 
 Without look-ahead, the first line would be longer and the text would
 look like this:
 
-```
-textwrap: an efficient and
-powerful library for
-wrapping text.
+```rust
+#[cfg(not(feature = "smawk"))] {
+let text = "textwrap: an efficient and powerful library for wrapping text.";
+assert_eq!(
+    textwrap::wrap(text, 28),
+    vec![
+        "textwrap: an efficient and",
+        "powerful library for",
+        "wrapping text.",
+    ]
+);
+}
 ```
 
 The second line is now shorter and the text is more ragged. The kind
-of wrapping can be configured via `Option::wrap_algorithm`.
+of wrapping can be configured via `Options::wrap_algorithm`.
 
 If you enable the `hyphenation` Cargo feature, you get support for
 automatic hyphenation for [about 70 languages][patterns] via
 high-quality TeX hyphenation patterns.
 
 Your program must load the hyphenation pattern and configure
-`Options::splitter` to use it:
+`Options::word_splitter` to use it:
 
 ```rust
+#[cfg(feature = "hyphenation")] {
 use hyphenation::{Language, Load, Standard};
-use textwrap::Options;
+use textwrap::{fill, Options, WordSplitter};
 
-fn main() {
-    let hyphenator = Standard::from_embedded(Language::EnglishUS).unwrap();
-    let options = Options::new(28).splitter(hyphenator);
-    let text = "textwrap: an efficient and powerful library for wrapping text.";
-    println!("{}", fill(text, &options);
+let dictionary = Standard::from_embedded(Language::EnglishUS).unwrap();
+let options = textwrap::Options::new(28).word_splitter(WordSplitter::Hyphenation(dictionary));
+let text = "textwrap: an efficient and powerful library for wrapping text.";
+
+assert_eq!(
+    textwrap::wrap(text, &options),
+    vec![
+        "textwrap: an efficient and",
+        "powerful library for wrap-",
+        "ping text."
+    ]
+);
 }
-```
-
-The output now looks like this:
-```
-textwrap: an efficient and
-powerful library for wrap-
-ping text.
 ```
 
 The US-English hyphenation patterns are embedded when you enable the
@@ -112,14 +125,20 @@ procedural macros from the [`textwrap-macros` crate].
 
 The library comes with [a
 collection](https://github.com/mgeisler/textwrap/tree/master/examples)
-of small example programs that shows various features. You’re invited
-to clone the repository and try them out for yourself!
+of small example programs that shows various features.
 
-Of special note is the `interactive` example. This is a demo program
-which demonstrates most of the available features: you can enter text
-and adjust the width at which it is wrapped interactively. You can
-also adjust the `Options` used to see the effect of different
-`WordSplitter`s and wrap algorithms.
+If you want to see Textwrap in action right away, then take a look at
+[`examples/wasm/`], which shows how to wrap sans-serif, serif, and
+monospace text. It uses WebAssembly and is automatically deployed to
+https://mgeisler.github.io/textwrap/.
+
+For the command-line examples, you’re invited to clone the repository
+and try them out for yourself! Of special note is
+[`examples/interactive.rs`]. This is a demo program which demonstrates
+most of the available features: you can enter text and adjust the
+width at which it is wrapped interactively. You can also adjust the
+`Options` used to see the effect of different `WordSplitter`s and wrap
+algorithms.
 
 Run the demo with
 
@@ -142,6 +161,7 @@ Contributions will be accepted under the same license.
 [crates-io]: https://crates.io/crates/textwrap
 [build-status]: https://github.com/mgeisler/textwrap/actions?query=workflow%3Abuild+branch%3Amaster
 [codecov]: https://codecov.io/gh/mgeisler/textwrap
+[wasm-demo]: https://mgeisler.github.io/textwrap/
 [`textwrap-macros` crate]: https://crates.io/crates/textwrap-macros
 [`hyphenation` example]: https://github.com/mgeisler/textwrap/blob/master/examples/hyphenation.rs
 [`termwidth` example]: https://github.com/mgeisler/textwrap/blob/master/examples/termwidth.rs
@@ -149,6 +169,8 @@ Contributions will be accepted under the same license.
 [en-us license]: https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-en-us.tex
 [bincode]: https://github.com/tapeinosyne/hyphenation/tree/master/dictionaries
 [`hyphenation` documentation]: http://docs.rs/hyphenation
+[`examples/wasm/`]: https://github.com/mgeisler/textwrap/tree/master/examples/wasm
+[`examples/interactive.rs`]: https://github.com/mgeisler/textwrap/tree/master/examples/interactive.rs
 [api-docs]: https://docs.rs/textwrap/
 [CHANGELOG file]: https://github.com/mgeisler/textwrap/blob/master/CHANGELOG.md
 [mit]: LICENSE

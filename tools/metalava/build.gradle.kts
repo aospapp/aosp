@@ -31,7 +31,7 @@ repositories {
 }
 
 plugins {
-    kotlin("jvm") version "1.5.0"
+    alias(libs.plugins.kotlinJvm)
     id("application")
     id("java")
     id("maven-publish")
@@ -56,8 +56,8 @@ tasks.withType(KotlinCompile::class.java) {
 
     kotlinOptions {
         jvmTarget = "1.8"
-        apiVersion = "1.4"
-        languageVersion = "1.4"
+        apiVersion = "1.6"
+        languageVersion = "1.6"
         allWarningsAsErrors = true
     }
 }
@@ -67,9 +67,8 @@ val studioVersion: String = if (customLintVersion != null) {
     logger.warn("Building using custom $customLintVersion version of Android Lint")
     customLintVersion
 } else {
-    "30.0.0-alpha14"
+    "30.3.0-alpha08"
 }
-val kotlinVersion: String = "1.5.0"
 
 dependencies {
     implementation("com.android.tools.external.org-jetbrains:uast:$studioVersion")
@@ -82,14 +81,15 @@ dependencies {
     implementation("com.android.tools:common:$studioVersion")
     implementation("com.android.tools:sdk-common:$studioVersion")
     implementation("com.android.tools:sdklib:$studioVersion")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
+    implementation(libs.kotlinStdlib)
+    implementation(libs.kotlinReflect)
     implementation("org.ow2.asm:asm:8.0")
     implementation("org.ow2.asm:asm-tree:8.0")
+    implementation("com.google.guava:guava:30.1.1-jre")
     testImplementation("com.android.tools.lint:lint-tests:$studioVersion")
-    testImplementation("junit:junit:4.11")
-    testImplementation("com.google.truth:truth:1.0")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.google.truth:truth:1.1.3")
+    testImplementation(libs.kotlinTest)
 }
 
 val zipTask: TaskProvider<Zip> = project.tasks.register(
@@ -102,6 +102,7 @@ val zipTask: TaskProvider<Zip> = project.tasks.register(
 
 val testTask = tasks.named("test", Test::class.java)
 testTask.configure {
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
     testLogging.events = hashSetOf(
         TestLogEvent.FAILED,
         TestLogEvent.PASSED,
@@ -136,9 +137,9 @@ fun getMetalavaVersion(): Any {
 
 fun getBuildDirectory(): File {
     return if (System.getenv("OUT_DIR") != null) {
-        File(System.getenv("OUT_DIR"), "host/common/metalava")
+        File(System.getenv("OUT_DIR"), "metalava")
     } else {
-        File("../../out/host/common")
+        File(projectDir, "../../out/metalava")
     }
 }
 
@@ -150,7 +151,7 @@ fun getDistributionDirectory(): File {
     return if (System.getenv("DIST_DIR") != null) {
         File(System.getenv("DIST_DIR"))
     } else {
-        File("../../out/dist")
+        File(projectDir, "../../out/dist")
     }
 }
 
@@ -168,11 +169,11 @@ fun getBuildId(): String {
     return if (System.getenv("DIST_DIR") != null) File(System.getenv("DIST_DIR")).name else "0"
 }
 
-// KtLint: https://github.com/shyiko/ktlint
+// KtLint: https://github.com/pinterest/ktlint
 
 fun Project.getKtlintConfiguration(): Configuration {
     return configurations.findByName("ktlint") ?: configurations.create("ktlint") {
-        val dependency = project.dependencies.create("com.pinterest:ktlint:0.33.0")
+        val dependency = project.dependencies.create("com.pinterest:ktlint:0.41.0")
         dependencies.add(dependency)
     }
 }
@@ -181,7 +182,7 @@ tasks.register("ktlint", JavaExec::class.java) {
     description = "Check Kotlin code style."
     group = "Verification"
     classpath = getKtlintConfiguration()
-    main = "com.pinterest.ktlint.Main"
+    mainClass.set("com.pinterest.ktlint.Main")
     args = listOf("src/**/*.kt", "build.gradle.kts")
 }
 
@@ -189,7 +190,7 @@ tasks.register("ktlintFormat", JavaExec::class.java) {
     description = "Fix Kotlin code style deviations."
     group = "formatting"
     classpath = getKtlintConfiguration()
-    main = "com.pinterest.ktlint.Main"
+    mainClass.set("com.pinterest.ktlint.Main")
     args = listOf("-F", "src/**/*.kt", "build.gradle.kts")
 }
 
@@ -239,16 +240,22 @@ tasks.withType(GenerateModuleMetadata::class.java).configureEach {
         metadata.writeText(
             text.replace(
                 "\"buildId\": .*".toRegex(),
-                "\"buildId:\": \"${buildId}\"")
+                "\"buildId:\": \"${buildId}\""
+            )
         )
     }
 }
 
-configureBuildInfoTask(project, isBuildingOnServer(), getDistributionDirectory())
-configurePublishingArchive(
+val archiveTaskProvider = configurePublishingArchive(
     project,
     publicationName,
     repositoryName,
     getBuildId(),
     getDistributionDirectory()
+)
+configureBuildInfoTask(
+    project,
+    isBuildingOnServer(),
+    getDistributionDirectory(),
+    archiveTaskProvider
 )

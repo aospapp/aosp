@@ -97,12 +97,12 @@ class JpegTest(its_base_test.ItsBaseTest):
       rgb_means_jpg = compute_img_means_and_save(img, 'jpg', log_path)
 
       # Assert images are similar
-      rms_diff = image_processing_utils.compute_image_rms_difference(
+      rms_diff = image_processing_utils.compute_image_rms_difference_1d(
           rgb_means_yuv, rgb_means_jpg)
       logging.debug('RMS difference: %.3f', rms_diff)
-      e_msg = 'RMS difference: %.3f, spec: %.2f' % (
-          rms_diff, THRESHOLD_MAX_RMS_DIFF)
-      assert rms_diff < THRESHOLD_MAX_RMS_DIFF, e_msg
+      if rms_diff >= THRESHOLD_MAX_RMS_DIFF:
+        raise AssertionError(
+            f'RMS diff: {rms_diff:.3f}, spec: {THRESHOLD_MAX_RMS_DIFF}')
 
 if __name__ == '__main__':
   test_runner.main()

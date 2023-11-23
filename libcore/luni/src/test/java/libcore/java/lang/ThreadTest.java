@@ -589,4 +589,29 @@ public final class ThreadTest {
             done = true;
         }
     }
+
+    @Test
+    public void onSpinWait() throws InterruptedException {
+        SpinWaitThread t = new SpinWaitThread();
+
+        t.start();
+        Thread.sleep(1000);
+        assertFalse(t.done);
+        t.stop = true;
+        Thread.sleep(1000);
+        assertTrue(t.done);
+    }
+
+    private static class SpinWaitThread extends Thread {
+        public volatile boolean stop = false;
+        public volatile boolean done = false;
+
+        @Override public void run() {
+            done = false;
+            while (!stop) {
+                Thread.onSpinWait();
+            }
+            done = true;
+        }
+    }
 }

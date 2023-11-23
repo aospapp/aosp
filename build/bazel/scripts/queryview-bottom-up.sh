@@ -64,6 +64,13 @@
 
 set -euo pipefail
 
+# Convenience function to use the checked-in bazel binary
+function bazel() {
+  # We're in <root>/build/bazel/scripts
+  AOSP_ROOT="$(dirname $0)/../../.."
+  "${AOSP_ROOT}/tools/bazel" "$@"
+}
+
 T=${1:-//bionic/libc:libc--android_arm_armv7-a-neon_shared}
 COMMON_BAZEL_OPTS="--noshow_loading_progress --color=no --curses=no"
 

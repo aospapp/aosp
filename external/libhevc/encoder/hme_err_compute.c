@@ -1797,14 +1797,13 @@ void hme_update_results_grid_pu_bestn_no_encode(result_upd_prms_t *ps_result_prm
             /*****************************************************************/
             if(i4_tot_cost < ps_best_node[num_results - 1].i4_tot_cost)
             {
-                S32 eq_cost = 0;
                 /*************************************************************/
                 /* Identify where the current result isto be placed.Basically*/
                 /* find the node which has cost just higher thannodeundertest*/
                 /*************************************************************/
                 for(i = 0; i < num_results - 1; i++)
                 {
-                    if(i4_tot_cost < ps_best_node[i].i4_tot_cost)
+                    if(i4_tot_cost <= ps_best_node[i].i4_tot_cost)
                     {
                         memmove(
                             ps_best_node + i + 1,
@@ -1812,24 +1811,11 @@ void hme_update_results_grid_pu_bestn_no_encode(result_upd_prms_t *ps_result_prm
                             sizeof(search_node_t) * (num_results - 1 - i));
                         break;
                     }
-                    else if(i4_tot_cost == ps_best_node[i].i4_tot_cost)
-                    {
-                        //if (0 == hme_cmp_nodes(ps_search_node_grid, ps_best_node+i))
-                        //  break;
-                        /* When cost is same we comp. the nodes and if it's same skip. */
-                        /* We don't want to add this code to intrinsic. So we are      */
-                        /* commenting it. The quality impact was minor when we did the */
-                        /* regression.                                                 */
-                        eq_cost = 1;
-                    }
                 }
-                if(!eq_cost)
-                {
-                    ps_best_node[i] = *ps_search_node_grid;
-                    ps_best_node[i].i4_sad = i4_sad;
-                    ps_best_node[i].i4_mv_cost = i4_mv_cost;
-                    ps_best_node[i].i4_tot_cost = i4_tot_cost;
-                }
+                ps_best_node[i] = *ps_search_node_grid;
+                ps_best_node[i].i4_sad = i4_sad;
+                ps_best_node[i].i4_mv_cost = i4_mv_cost;
+                ps_best_node[i].i4_tot_cost = i4_tot_cost;
             }
             i4_count++;
         }

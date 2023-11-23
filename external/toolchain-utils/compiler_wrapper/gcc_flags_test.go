@@ -34,11 +34,7 @@ func TestConvertClangToGccFlags(t *testing.T) {
 			in  string
 			out string
 		}{
-			{"-march=goldmont", "-march=silvermont"},
-			{"-march=goldmont-plus", "-march=silvermont"},
-			{"-march=skylake", "-march=corei7"},
-			{"-march=tigerlake", "-march=corei7"},
-			{"-march=tremont", "-march=silvermont"},
+			{"-march=alderlake", "-march=skylake"},
 		}
 
 		for _, tt := range tests {

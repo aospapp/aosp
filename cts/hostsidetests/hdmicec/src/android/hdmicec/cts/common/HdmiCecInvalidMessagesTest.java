@@ -16,6 +16,10 @@
 
 package android.hdmicec.cts.common;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
+
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
 import android.hdmicec.cts.CecOperand;
@@ -31,9 +35,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 /** HDMI CEC test to verify that device ignores invalid messages (Section 12) */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -55,6 +56,7 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
     private static final String CLEAR_COMMAND = String.format("pm clear %s", PACKAGE);
 
     private LogicalAddress source;
+    private LogicalAddress targetLogicalAddress;
 
     @Rule
     public RuleChain ruleChain =
@@ -63,9 +65,10 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
                     .around(hdmiCecClient);
 
     @Before
-    public void setup() {
+    public void setup() throws Exception {
         source = (hasDeviceType(HdmiCecConstants.CEC_DEVICE_TYPE_TV)) ? LogicalAddress.RECORDER_1
                                                                       : LogicalAddress.TV;
+        targetLogicalAddress = getTargetLogicalAddress();
     }
 
     /**
@@ -177,7 +180,65 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
         // Start the APK and wait for it to complete.
         device.executeShellCommand(START_COMMAND);
         hdmiCecClient.sendUserControlPressAndRelease(
-                source, LogicalAddress.BROADCAST, HdmiCecConstants.CEC_CONTROL_UP, false);
+                source, LogicalAddress.BROADCAST, HdmiCecConstants.CEC_KEYCODE_UP, false);
         LogHelper.assertLogDoesNotContain(getDevice(), CLASS, "Short press KEYCODE_DPAD_UP");
+    }
+
+    /**
+     * <p>Tests that the device ignores a directly addressed message {@code <GIVE_PHYSICAL_ADDRESS>}
+     * if received as a broadcast message and its source is the device's logical address
+     */
+    @Test
+    public void cect_IgnoreDirectlyAddressedFromSameSource()
+            throws Exception {
+        hdmiCecClient.sendCecMessage(
+                targetLogicalAddress, targetLogicalAddress, CecOperand.GIVE_PHYSICAL_ADDRESS);
+        hdmiCecClient.checkOutputDoesNotContainMessage(
+                targetLogicalAddress, CecOperand.REPORT_PHYSICAL_ADDRESS);
+    }
+
+    /**
+     * <p>Tests that the device ignores a broadcasted message {@code <REQUEST_ACTIVE_SOURCE>} if its
+     * source has the logical address equal to device's logical address
+     */
+    @Test
+    public void cect_IgnoreBroadcastedFromSameSource()
+            throws Exception {
+        ITestDevice device = getDevice();
+        device.executeShellCommand("input keyevent KEYCODE_HOME");
+        // The device shall broadcast an <Active Source> message.
+        hdmiCecClient.checkExpectedOutput(
+                LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
+        hdmiCecClient.sendCecMessage(
+                targetLogicalAddress, LogicalAddress.BROADCAST, CecOperand.REQUEST_ACTIVE_SOURCE);
+        hdmiCecClient.checkOutputDoesNotContainMessage(
+                LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
+    }
+
+    /**
+     * <p>Tests that the device ignores a directly addressed message {@code <GIVE_POWER_STATUS>} if
+     * coming from the unregistered address F. This message should only be sent from a device with
+     * an allocated logical address
+     */
+    @Test
+    public void cect_IgnoreDirectlyAddressedFromUnknownAddress_giveDevicePowerStatus()
+            throws Exception {
+        hdmiCecClient.sendCecMessage(
+                LogicalAddress.UNKNOWN, targetLogicalAddress, CecOperand.GIVE_POWER_STATUS);
+        hdmiCecClient.checkOutputDoesNotContainMessage(
+                LogicalAddress.UNKNOWN, CecOperand.REPORT_POWER_STATUS);
+    }
+
+    /**
+     * <p>Tests that the device process a directly addressed message {@code <GIVE_PHYSICAL_ADDRESS>}
+     * if coming from the unregistered address F
+     */
+    @Test
+    public void cect_ProcessAddressedFromUnknownAddress_givePhysicalAddress()
+            throws Exception {
+        hdmiCecClient.sendCecMessage(
+                LogicalAddress.UNKNOWN, targetLogicalAddress, CecOperand.GIVE_PHYSICAL_ADDRESS);
+        hdmiCecClient.checkExpectedOutput(
+                LogicalAddress.UNKNOWN, CecOperand.REPORT_PHYSICAL_ADDRESS);
     }
 }

@@ -19,12 +19,13 @@ package java
 import (
 	"fmt"
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/proptools"
 	"strings"
 
 	"android/soong/android"
 )
 
-// Build rules and utilities to generate individual packages/modules/SdkExtensions/proto/classpaths.proto
+// Build rules and utilities to generate individual packages/modules/common/proto/classpaths.proto
 // config files based on build configuration to embed into /system and /apex on a device.
 //
 // See `derive_classpath` service that reads the configs at runtime and defines *CLASSPATH variables
@@ -33,17 +34,23 @@ import (
 type classpathType int
 
 const (
-	// Matches definition in packages/modules/SdkExtensions/proto/classpaths.proto
+	// Matches definition in packages/modules/common/proto/classpaths.proto
 	BOOTCLASSPATH classpathType = iota
 	DEX2OATBOOTCLASSPATH
 	SYSTEMSERVERCLASSPATH
+	STANDALONE_SYSTEMSERVER_JARS
 )
 
 func (c classpathType) String() string {
-	return [...]string{"BOOTCLASSPATH", "DEX2OATBOOTCLASSPATH", "SYSTEMSERVERCLASSPATH"}[c]
+	return [...]string{"BOOTCLASSPATH", "DEX2OATBOOTCLASSPATH", "SYSTEMSERVERCLASSPATH", "STANDALONE_SYSTEMSERVER_JARS"}[c]
 }
 
 type classpathFragmentProperties struct {
+	// Whether to generated classpaths.proto config instance for the fragment. If the config is not
+	// generated, then relevant boot jars are added to platform classpath, i.e. platform_bootclasspath
+	// or platform_systemserverclasspath. This is useful for non-updatable APEX boot jars, to keep
+	// them as part of dexopt on device. Defaults to true.
+	Generate_classpaths_proto *bool
 }
 
 // classpathFragment interface is implemented by a module that contributes jars to a *CLASSPATH
@@ -52,10 +59,6 @@ type classpathFragment interface {
 	android.Module
 
 	classpathFragmentBase() *ClasspathFragmentBase
-
-	// ClasspathFragmentToConfiguredJarList returns android.ConfiguredJarList representation of all
-	// the jars in this classpath fragment.
-	ClasspathFragmentToConfiguredJarList(ctx android.ModuleContext) android.ConfiguredJarList
 }
 
 // ClasspathFragmentBase is meant to be embedded in any module types that implement classpathFragment;
@@ -82,15 +85,14 @@ func initClasspathFragment(c classpathFragment, classpathType classpathType) {
 
 // Matches definition of Jar in packages/modules/SdkExtensions/proto/classpaths.proto
 type classpathJar struct {
-	path      string
-	classpath classpathType
-	// TODO(satayev): propagate min/max sdk versions for the jars
-	minSdkVersion int32
-	maxSdkVersion int32
+	path          string
+	classpath     classpathType
+	minSdkVersion string
+	maxSdkVersion string
 }
 
-// gatherPossibleUpdatableModuleNamesAndStems returns a set of module and stem names from the
-// supplied contents that may be in the updatable boot jars.
+// gatherPossibleApexModuleNamesAndStems returns a set of module and stem names from the
+// supplied contents that may be in the apex boot jars.
 //
 // The module names are included because sometimes the stem is set to just change the name of
 // the installed file and it expects the configuration to still use the actual module name.
@@ -98,7 +100,7 @@ type classpathJar struct {
 // The stem names are included because sometimes the stem is set to change the effective name of the
 // module that is used in the configuration as well,e .g. when a test library is overriding an
 // actual boot jar
-func gatherPossibleUpdatableModuleNamesAndStems(ctx android.ModuleContext, contents []string, tag blueprint.DependencyTag) []string {
+func gatherPossibleApexModuleNamesAndStems(ctx android.ModuleContext, contents []string, tag blueprint.DependencyTag) []string {
 	set := map[string]struct{}{}
 	for _, name := range contents {
 		dep := ctx.GetDirectDepWithTag(name, tag)
@@ -118,58 +120,79 @@ func configuredJarListToClasspathJars(ctx android.ModuleContext, configuredJars 
 	jars := make([]classpathJar, 0, len(paths)*len(classpaths))
 	for i := 0; i < len(paths); i++ {
 		for _, classpathType := range classpaths {
-			jars = append(jars, classpathJar{
+			jar := classpathJar{
 				classpath: classpathType,
 				path:      paths[i],
+			}
+			ctx.VisitDirectDepsIf(func(m android.Module) bool {
+				return m.Name() == configuredJars.Jar(i)
+			}, func(m android.Module) {
+				if s, ok := m.(*SdkLibrary); ok {
+					// TODO(208456999): instead of mapping "current" to latest, min_sdk_version should never be set to "current"
+					if s.minSdkVersion.Specified() {
+						if s.minSdkVersion.ApiLevel.IsCurrent() {
+							jar.minSdkVersion = ctx.Config().DefaultAppTargetSdk(ctx).String()
+						} else {
+							jar.minSdkVersion = s.minSdkVersion.ApiLevel.String()
+						}
+					}
+					if s.maxSdkVersion.Specified() {
+						if s.maxSdkVersion.ApiLevel.IsCurrent() {
+							jar.maxSdkVersion = ctx.Config().DefaultAppTargetSdk(ctx).String()
+						} else {
+							jar.maxSdkVersion = s.maxSdkVersion.ApiLevel.String()
+						}
+					}
+				}
 			})
+			jars = append(jars, jar)
 		}
 	}
 	return jars
 }
 
-func (c *ClasspathFragmentBase) generateClasspathProtoBuildActions(ctx android.ModuleContext, jars []classpathJar) {
-	outputFilename := strings.ToLower(c.classpathType.String()) + ".pb"
-	c.outputFilepath = android.PathForModuleOut(ctx, outputFilename).OutputPath
-	c.installDirPath = android.PathForModuleInstall(ctx, "etc", "classpaths")
+func (c *ClasspathFragmentBase) generateClasspathProtoBuildActions(ctx android.ModuleContext, configuredJars android.ConfiguredJarList, jars []classpathJar) {
+	generateProto := proptools.BoolDefault(c.properties.Generate_classpaths_proto, true)
+	if generateProto {
+		outputFilename := strings.ToLower(c.classpathType.String()) + ".pb"
+		c.outputFilepath = android.PathForModuleOut(ctx, outputFilename).OutputPath
+		c.installDirPath = android.PathForModuleInstall(ctx, "etc", "classpaths")
 
-	generatedJson := android.PathForModuleOut(ctx, outputFilename+".json")
-	writeClasspathsJson(ctx, generatedJson, jars)
+		generatedTextproto := android.PathForModuleOut(ctx, outputFilename+".textproto")
+		writeClasspathsTextproto(ctx, generatedTextproto, jars)
 
-	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().
-		BuiltTool("conv_classpaths_proto").
-		Flag("encode").
-		Flag("--format=json").
-		FlagWithInput("--input=", generatedJson).
-		FlagWithOutput("--output=", c.outputFilepath)
+		rule := android.NewRuleBuilder(pctx, ctx)
+		rule.Command().
+			BuiltTool("conv_classpaths_proto").
+			Flag("encode").
+			Flag("--format=textproto").
+			FlagWithInput("--input=", generatedTextproto).
+			FlagWithOutput("--output=", c.outputFilepath)
 
-	rule.Build("classpath_fragment", "Compiling "+c.outputFilepath.String())
+		rule.Build("classpath_fragment", "Compiling "+c.outputFilepath.String())
+	}
 
 	classpathProtoInfo := ClasspathFragmentProtoContentInfo{
+		ClasspathFragmentProtoGenerated:  generateProto,
+		ClasspathFragmentProtoContents:   configuredJars,
 		ClasspathFragmentProtoInstallDir: c.installDirPath,
 		ClasspathFragmentProtoOutput:     c.outputFilepath,
 	}
 	ctx.SetProvider(ClasspathFragmentProtoContentInfoProvider, classpathProtoInfo)
 }
 
-func writeClasspathsJson(ctx android.ModuleContext, output android.WritablePath, jars []classpathJar) {
+func writeClasspathsTextproto(ctx android.ModuleContext, output android.WritablePath, jars []classpathJar) {
 	var content strings.Builder
-	fmt.Fprintf(&content, "{\n")
-	fmt.Fprintf(&content, "\"jars\": [\n")
-	for idx, jar := range jars {
-		fmt.Fprintf(&content, "{\n")
 
-		fmt.Fprintf(&content, "\"path\": \"%s\",\n", jar.path)
-		fmt.Fprintf(&content, "\"classpath\": \"%s\"\n", jar.classpath)
-
-		if idx < len(jars)-1 {
-			fmt.Fprintf(&content, "},\n")
-		} else {
-			fmt.Fprintf(&content, "}\n")
-		}
+	for _, jar := range jars {
+		fmt.Fprintf(&content, "jars {\n")
+		fmt.Fprintf(&content, "path: \"%s\"\n", jar.path)
+		fmt.Fprintf(&content, "classpath: %s\n", jar.classpath)
+		fmt.Fprintf(&content, "min_sdk_version: \"%s\"\n", jar.minSdkVersion)
+		fmt.Fprintf(&content, "max_sdk_version: \"%s\"\n", jar.maxSdkVersion)
+		fmt.Fprintf(&content, "}\n")
 	}
-	fmt.Fprintf(&content, "]\n")
-	fmt.Fprintf(&content, "}\n")
+
 	android.WriteFileRule(ctx, output, content.String())
 }
 
@@ -181,7 +204,7 @@ func (c *ClasspathFragmentBase) androidMkEntries() []android.AndroidMkEntries {
 		OutputFile: android.OptionalPathForPath(c.outputFilepath),
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
-				entries.SetString("LOCAL_MODULE_PATH", c.installDirPath.ToMakePath().String())
+				entries.SetString("LOCAL_MODULE_PATH", c.installDirPath.String())
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", c.outputFilepath.Base())
 			},
 		},
@@ -191,6 +214,12 @@ func (c *ClasspathFragmentBase) androidMkEntries() []android.AndroidMkEntries {
 var ClasspathFragmentProtoContentInfoProvider = blueprint.NewProvider(ClasspathFragmentProtoContentInfo{})
 
 type ClasspathFragmentProtoContentInfo struct {
+	// Whether the classpaths.proto config is generated for the fragment.
+	ClasspathFragmentProtoGenerated bool
+
+	// ClasspathFragmentProtoContents contains a list of jars that are part of this classpath fragment.
+	ClasspathFragmentProtoContents android.ConfiguredJarList
+
 	// ClasspathFragmentProtoOutput is an output path for the generated classpaths.proto config of this module.
 	//
 	// The file should be copied to a relevant place on device, see ClasspathFragmentProtoInstallDir

@@ -23,6 +23,10 @@
           android:versionCode="1"
           android:versionName="R-initial">
     <protected-broadcast android:name="com.android.server.wifi.action.CarrierNetwork.USER_CLICKED" />
+    <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.ACTION_CERT_NOTIF_TAP" />
+    <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.ACTION_CERT_NOTIF_ACCEPT" />
+    <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.ACTION_CERT_NOTIF_REJECT" />
+    <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.EXTRA_PENDING_CERT_SSID" />
     <application
         android:label="@string/wifiResourcesAppLabel"
         android:defaultToDeviceProtectedStorage="true"

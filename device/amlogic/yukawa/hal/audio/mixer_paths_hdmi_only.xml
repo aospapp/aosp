@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<mixer>
+	<!-- FIXME: This should be moved to the appropriate path -->
+
+	<!-- Enable HDMITX Control from TDM A -->
+	<ctl name="TOHDMITX Switch" value="1" />
+	<ctl name="TOHDMITX I2S SRC" value="I2S A" />
+
+	<!-- PCM0 to TDMB -->
+	<ctl name="TDMOUT_A SRC SEL" value="IN 0" />
+	<ctl name="FRDDR_A SINK 1 SEL" value="OUT 0" />
+	<ctl name="FRDDR_A SRC 1 EN Switch" value="1" />
+</mixer>

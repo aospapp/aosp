@@ -25,21 +25,16 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
 
 import android.app.PendingIntent;
-import android.app.appsearch.AppSearchManager;
-import android.app.appsearch.SearchResult;
-import android.app.appsearch.SearchSpec;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
+import android.content.pm.Capability;
+import android.content.pm.CapabilityParams;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
-import android.content.pm.Signature;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.util.ArraySet;
 
 import com.android.compatibility.common.util.CddTest;
 
@@ -49,13 +44,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * Tests for {@link ShortcutManager} and {@link ShortcutInfo}.
@@ -605,6 +593,65 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
 
         // Then run the same test.
         testSetDynamicShortcuts_details();
+    }
+
+    public void testSetDynamicShortcuts_withCapabilities() {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertTrue(getManager().setDynamicShortcuts(list(
+                    makeShortcutBuilder("s1")
+                            .setShortLabel("title1")
+                            .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.type", "running")
+                                            .addAlias("jogging")
+                                            .build())
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.START_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.duration", "10m")
+                                            .build())
+                            .build(),
+                    makeShortcutBuilder("s2")
+                            .setShortLabel("title2")
+                            .setIntent(new Intent("main").putExtra("k1", "yyy"))
+                            .addCapabilityBinding(
+                                    new Capability.Builder("action.intent.STOP_EXERCISE").build(),
+                                    new CapabilityParams.Builder("exercise.type", "running")
+                                            .addAlias("jogging")
+                                            .build())
+                            .build(),
+                    makeShortcut("s3", "title3"))));
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s1", "s2", "s3")
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals(list(new Capability.Builder(
+                                "action.intent.START_EXERCISE").build()), si.getCapabilities());
+                        assertEquals(list(
+                                        new CapabilityParams.Builder("exercise.type", "running")
+                                                .addAlias("jogging").build(),
+                                        new CapabilityParams.Builder("exercise.duration", "10m")
+                                                .build()),
+                                si.getCapabilityParams(new Capability.Builder(
+                                        "action.intent.START_EXERCISE").build()));
+                    })
+                    .forShortcutWithId("s2", si -> {
+                        assertEquals(list(new Capability.Builder(
+                                "action.intent.STOP_EXERCISE").build()), si.getCapabilities());
+                        assertEquals(list(
+                                new CapabilityParams.Builder("exercise.type", "running")
+                                        .addAlias("jogging").build()),
+                                si.getCapabilityParams(new Capability.Builder(
+                                        "action.intent.STOP_EXERCISE").build()));
+                    })
+                    .forShortcutWithId("s3", si -> {
+                        assertEquals("title3", si.getShortLabel());
+                    });
+        });
     }
 
     public void testAddDynamicShortcuts() {
@@ -2223,6 +2270,127 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                 securityExceptionThrown = true;
             }
             assertTrue(securityExceptionThrown);
+        });
+    }
+
+    public void testSetShortcutsExcludedFromLauncher_ExcludedFromSearchResults() {
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertTrue(getManager().setDynamicShortcuts(list(
+                    makeShortcut("s1", "title1"),
+                    makeShortcut("s2", "title2"),
+                    makeShortcut("s3", "title3"),
+                    makeShortcutExcludedFromLauncher("s4"))));
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s1", "s2", "s3")
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals("title1", si.getShortLabel());
+                    })
+                    .forShortcutWithId("s2", si -> {
+                        assertEquals("title2", si.getShortLabel());
+                    })
+                    .forShortcutWithId("s3", si -> {
+                        assertEquals("title3", si.getShortLabel());
+                    });
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
+        });
+
+        // Publish from different package.
+        runWithCallerWithStrictMode(mPackageContext2, () -> {
+            assertTrue(getManager().setDynamicShortcuts(list(
+                    makeShortcut("s1x", "title1x"),
+                    makeShortcutExcludedFromLauncher("seven"))));
+        });
+
+        runWithCallerWithStrictMode(mPackageContext2, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s1x")
+                    .forShortcutWithId("s1x", si -> {
+                        assertEquals("title1x", si.getShortLabel());
+                    });
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
+        });
+
+        // Package 1 still has the same shortcuts.
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s1", "s2", "s3")
+                    .forShortcutWithId("s1", si -> {
+                        assertEquals("title1", si.getShortLabel());
+                    })
+                    .forShortcutWithId("s2", si -> {
+                        assertEquals("title2", si.getShortLabel());
+                    })
+                    .forShortcutWithId("s3", si -> {
+                        assertEquals("title3", si.getShortLabel());
+                    });
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertTrue(getManager().setDynamicShortcuts(list(
+                    makeShortcut("s2", "title2-updated"),
+                    makeShortcutExcludedFromLauncher("s4"))));
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s2")
+                    .forShortcutWithId("s2", si -> {
+                        assertEquals("title2-updated", si.getShortLabel());
+                    });
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertTrue(getManager().setDynamicShortcuts(
+                    list(makeShortcutExcludedFromLauncher("s4"))));
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
+        });
+
+        // Package2 still has the same shortcuts.
+        runWithCallerWithStrictMode(mPackageContext2, () -> {
+            assertWith(getManager().getDynamicShortcuts())
+                    .areAllEnabled()
+                    .areAllDynamic()
+                    .haveIds("s1x")
+                    .forShortcutWithId("s1x", si -> {
+                        assertEquals("title1x", si.getShortLabel());
+                    });
+            assertWith(getManager().getPinnedShortcuts())
+                    .isEmpty();
+            assertWith(getManager().getManifestShortcuts())
+                    .isEmpty();
         });
     }
 

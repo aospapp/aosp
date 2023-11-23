@@ -20,11 +20,15 @@ SYSTEM_EXT_MANIFEST_FILES += device/google/cuttlefish/shared/config/system_ext_m
 $(call inherit-product, $(SRC_TARGET_DIR)/product/handheld_vendor.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_vendor.mk)
 
+ifneq ($(LOCAL_PREFER_VENDOR_APEX),true)
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml
+endif
 
 $(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 $(call inherit-product, device/google/cuttlefish/shared/device.mk)
+
+TARGET_PRODUCT_PROP := $(LOCAL_PATH)/product.prop
 
 PRODUCT_VENDOR_PROPERTIES += \
     keyguard.no_require_sim=true \
@@ -33,22 +37,31 @@ PRODUCT_VENDOR_PROPERTIES += \
     ro.com.android.dataroaming=true \
     ro.telephony.default_network=9 \
 
-# TODO: not existing anymore?
-PRODUCT_PACKAGES += \
-    Phone \
-    PhoneService \
-
+TARGET_USES_CF_RILD ?= true
+ifeq ($(TARGET_USES_CF_RILD),true)
+ifeq ($(LOCAL_PREFER_VENDOR_APEX),true)
+PRODUCT_PACKAGES += com.google.cf.rild
+else
 PRODUCT_PACKAGES += \
     libcuttlefish-ril-2 \
     libcuttlefish-rild
+endif
+endif
 
+ifneq ($(LOCAL_PREFER_VENDOR_APEX),true)
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.biometrics.face.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.biometrics.face.xml \
     frameworks/native/data/etc/android.hardware.faketouch.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.faketouch.xml \
     frameworks/native/data/etc/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
     frameworks/native/data/etc/android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml \
     frameworks/native/data/etc/android.hardware.telephony.ims.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.ims.xml
+endif
 
-DEVICE_PACKAGE_OVERLAYS += device/google/cuttlefish/shared/phone/overlay
+# Runtime Resource Overlays
+ifeq ($(LOCAL_PREFER_VENDOR_APEX),true)
+PRODUCT_PACKAGES += com.google.aosp_cf_phone.rros
+else
+PRODUCT_PACKAGES += cuttlefish_phone_overlay_frameworks_base_core
+endif
 
 TARGET_BOARD_INFO_FILE ?= device/google/cuttlefish/shared/phone/android-info.txt

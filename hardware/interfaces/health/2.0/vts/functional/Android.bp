@@ -26,11 +26,18 @@ package {
 cc_test {
     name: "VtsHalHealthV2_0TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
+    tidy_timeout_srcs: ["VtsHalHealthV2_0TargetTest.cpp"],
     srcs: ["VtsHalHealthV2_0TargetTest.cpp"],
     static_libs: [
         "libgflags",
         "android.hardware.health@1.0",
         "android.hardware.health@2.0",
     ],
-    test_suites: ["general-tests", "vts"],
+    header_libs: [
+        "libhealthtest_headers",
+    ],
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
 }

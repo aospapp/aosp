@@ -18,10 +18,13 @@ package android.os.storage.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
+import static java.util.stream.Collectors.joining;
+
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.os.Environment;
@@ -38,6 +41,7 @@ import android.os.storage.StorageManager;
 import android.os.storage.StorageManager.StorageVolumeCallback;
 import android.os.storage.StorageVolume;
 import android.platform.test.annotations.AppModeFull;
+import android.provider.DeviceConfig;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -48,6 +52,7 @@ import android.util.Log;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.FileUtils;
+import com.android.compatibility.common.util.SystemUtil;
 
 import junit.framework.AssertionFailedError;
 
@@ -63,6 +68,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -86,7 +92,7 @@ public class StorageManagerTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mStorageManager = (StorageManager) mContext.getSystemService(Context.STORAGE_SERVICE);
+        mStorageManager = mContext.getSystemService(StorageManager.class);
     }
 
     @AppModeFull(reason = "Instant apps cannot access external storage")
@@ -221,6 +227,7 @@ public class StorageManagerTest extends AndroidTestCase {
         final boolean removable = volume.isRemovable();
         final boolean emulated = volume.isEmulated();
         if (emulated) {
+            assertFalse("Should not be externally managed", volume.isExternallyManaged());
             assertFalse("Should not be removable", removable);
             assertNull("Should not have fsUuid", fsUuid);
             assertEquals("Should have uuid_default", StorageManager.UUID_DEFAULT, uuid);
@@ -284,6 +291,7 @@ public class StorageManagerTest extends AndroidTestCase {
                 mStorageManager.getStorageVolume(Environment.getStorageDirectory()));
 
         final File root = Environment.getExternalStorageDirectory();
+        Log.d("StorageManagerTest", "root: " + root);
         final StorageVolume primary = mStorageManager.getPrimaryStorageVolume();
         final StorageVolume rootVolume = mStorageManager.getStorageVolume(root);
         assertNotNull("No volume for root (" + root + ")", rootVolume);
@@ -292,7 +300,32 @@ public class StorageManagerTest extends AndroidTestCase {
         final File child = new File(root, "child");
         StorageVolume childVolume = mStorageManager.getStorageVolume(child);
         assertNotNull("No volume for child (" + child + ")", childVolume);
+        Log.d("StorageManagerTest", "child: " + childVolume.getPath());
         assertStorageVolumesEquals(primary, childVolume);
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testGetStorageVolumeUSB() throws Exception {
+        String volumeName = StorageManagerHelper.createUSBVirtualDisk();
+        Log.d(TAG, "testGetStorageVolumeUSB#volumeName: " + volumeName);
+        List<StorageVolume> storageVolumes = mStorageManager.getStorageVolumes();
+        Optional<StorageVolume> usbStorageVolume =
+                storageVolumes.stream().filter(sv->sv.getPath().contains(volumeName)).findFirst();
+        assertTrue("The USB storage volume mounted on the main user is not present in "
+                + storageVolumes.stream().map(StorageVolume::getPath)
+                .collect(joining("\n")), usbStorageVolume.isPresent());
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testGetStorageVolumeSDCard() throws Exception {
+        String volumeName = StorageManagerHelper.createSDCardVirtualDisk();
+        Log.d(TAG, "testGetStorageVolumeSDCard#volumeName: " + volumeName);
+        List<StorageVolume> storageVolumes = mStorageManager.getStorageVolumes();
+        Optional<StorageVolume> sdCardStorageVolume =
+                storageVolumes.stream().filter(sv->sv.getPath().contains(volumeName)).findFirst();
+        assertTrue("The SdCard storage volume mounted on the main user is not present in "
+                        + storageVolumes.stream().map(StorageVolume::getPath)
+                        .collect(joining("\n")), sdCardStorageVolume.isPresent());
     }
 
     private void assertNoUuid(File file) {
@@ -806,15 +839,8 @@ public class StorageManagerTest extends AndroidTestCase {
         int REQUEST_CODE = 1;
         PendingIntent piActual = null;
 
-        // Without MANAGE_EXTERNAL_STORAGE permission, this call should fail.
-        assertThrows(
-                RuntimeException.class,
-                () -> mStorageManager.getManageSpaceActivityIntent(packageName, REQUEST_CODE));
-
-        // Adopt MANAGE_EXTERNAL_STORAGE permission and then try the API call. We launch
-        // the manageSpaceActivity in a new task.
-        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
-                android.Manifest.permission.MANAGE_EXTERNAL_STORAGE);
+        // Test should only pass with MANAGE_EXTERNAL_STORAGE permission
+        assertThat(Environment.isExternalStorageManager()).isTrue();
 
         // Invalid packageName should throw an IllegalArgumentException
         String invalidPackageName = "this.is.invalid";
@@ -1008,6 +1034,55 @@ public class StorageManagerTest extends AndroidTestCase {
         if (expectedState == OnObbStateChangeListener.UNMOUNTED) {
             assertFalse("OBB should not be mounted", mStorageManager.isObbMounted(file.getPath()));
         }
+    }
+
+    public void testComputeStorageCacheBytes() throws Exception {
+        File mockFile = mock(File.class);
+
+        final int[] storageThresholdPercentHigh = new int[1];
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            storageThresholdPercentHigh[0] = DeviceConfig.getInt(
+                DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                StorageManager.STORAGE_THRESHOLD_PERCENT_HIGH_KEY, 0);
+        });
+        assertTrue("storageThresholdPercentHigh [" + storageThresholdPercentHigh[0]
+                + "] expected to be greater than equal to 0", storageThresholdPercentHigh[0] >= 0);
+        assertTrue("storageThresholdPercentHigh [" + storageThresholdPercentHigh[0]
+                + "] expected to be lesser than equal to 100",
+                storageThresholdPercentHigh[0] <= 100);
+
+        when(mockFile.getUsableSpace()).thenReturn(10000L);
+        when(mockFile.getTotalSpace()).thenReturn(15000L);
+        final long[] resultHigh = new long[1];
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            resultHigh[0] = mStorageManager.computeStorageCacheBytes(mockFile);
+        });
+        assertTrue("" + resultHigh[0] + " expected to be greater than equal to 0",
+                resultHigh[0] >= 0L);
+        assertTrue("" + resultHigh[0] + " expected to be less than equal to total space",
+                resultHigh[0] <= mockFile.getTotalSpace());
+
+        when(mockFile.getUsableSpace()).thenReturn(10000L);
+        when(mockFile.getTotalSpace()).thenReturn(250000L);
+        final long[] resultLow = new long[1];
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            resultLow[0] = mStorageManager.computeStorageCacheBytes(mockFile);
+        });
+        assertTrue("" + resultLow[0] + " expected to be greater than equal to 0",
+                resultLow[0] >= 0L);
+        assertTrue("" + resultLow[0] + " expected to be less than equal to total space",
+                resultLow[0] <= mockFile.getTotalSpace());
+
+        when(mockFile.getUsableSpace()).thenReturn(10000L);
+        when(mockFile.getTotalSpace()).thenReturn(100000L);
+        final long[] resultModerate = new long[1];
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            resultModerate[0] = mStorageManager.computeStorageCacheBytes(mockFile);
+        });
+        assertTrue("" + resultModerate[0] + " expected to be greater than equal to 0",
+                resultModerate[0] >= 0L);
+        assertTrue("" + resultModerate[0] + " expected to be less than equal to total space",
+                resultModerate[0] <= mockFile.getTotalSpace());
     }
 
     public static byte[] readFully(InputStream in) throws IOException {

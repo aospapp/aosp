@@ -1,3 +1,0 @@
-# b/187006058
-dontaudit incidentd apex_info_file:file getattr;
-dontaudit incidentd sysfs_msm_subsys:dir search;

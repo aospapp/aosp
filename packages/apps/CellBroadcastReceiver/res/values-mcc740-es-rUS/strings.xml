@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="8832531644152117875">"Alerta de emergencia local"</string>
+    <string name="cmas_presidential_level_alert" msgid="8832531644152117875">"Alerta Local de Emergencia"</string>
     <string name="button_dismiss" msgid="5975841666550833732">"CERRAR"</string>
-    <string name="cmas_required_monthly_test" msgid="2287926047457291638">"Mensaje de prueba"</string>
-    <string name="cmas_exercise_alert" msgid="998005154407142100">"Alerta de emergencia: Mensaje de simulación/entrenamiento"</string>
-    <string name="public_safety_message" msgid="6263179411117570932">"Mensaje informativo"</string>
+    <string name="cmas_required_monthly_test" msgid="2287926047457291638">"Mensaje de Prueba"</string>
+    <string name="cmas_exercise_alert" msgid="998005154407142100">"Alerta de Emergencia – mensaje de Ejercicio /Simulacro"</string>
+    <string name="public_safety_message" msgid="6263179411117570932">"Mensaje Informativo"</string>
     <!-- no translation found for enable_public_safety_messages_title (132836010129431792) -->
     <skip />
     <string name="enable_public_safety_messages_summary" msgid="5574351338788490055"></string>

@@ -105,7 +105,7 @@ class TestExampleOfKotlinTraceOffCpu(TestExampleBase):
                     ".SleepActivity")
 
     def test_smoke(self):
-        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-cycles:u --trace-offcpu")
+        self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-clock:u --trace-offcpu")
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         function_prefix = "com.example.simpleperf.simpleperfexampleofkotlin." + \
                           "SleepActivity$createRunSleepThread$1."
@@ -116,7 +116,7 @@ class TestExampleOfKotlinTraceOffCpu(TestExampleBase):
         ])
         if self.use_compiled_java_code:
             remove("annotated_files")
-            self.run_cmd(["annotate.py", "-s", self.example_path])
+            self.run_cmd(["annotate.py", "-s", self.example_path, '--summary-width', '1000'])
             self.check_exist(dirname="annotated_files")
             self.check_file_under_dir("annotated_files", "SleepActivity.kt")
             summary_file = os.path.join("annotated_files", "summary")

@@ -3,8 +3,8 @@ service profcollectd /system/bin/profcollectd
     disabled
     oneshot
     user root
-    group root wakelock
-    writepid /dev/cpuset/system-background/tasks
+    group root shell wakelock
+    task_profiles ServiceCapacityLow
 
 on post-fs-data
     # Create directory for profcollectd.

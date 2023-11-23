@@ -14,46 +14,18 @@
 
 package android
 
-import "fmt"
-
 var archVariants = map[ArchType][]string{
 	Arm: {
 		"armv7-a",
 		"armv7-a-neon",
 		"armv8-a",
 		"armv8-2a",
-		"cortex-a7",
-		"cortex-a8",
-		"cortex-a9",
-		"cortex-a15",
-		"cortex-a53",
-		"cortex-a53-a57",
-		"cortex-a55",
-		"cortex-a72",
-		"cortex-a73",
-		"cortex-a75",
-		"cortex-a76",
-		"krait",
-		"kryo",
-		"kryo385",
-		"exynos-m1",
-		"exynos-m2",
 	},
 	Arm64: {
-		"armv8_a",
-		"armv8_a_branchprot",
-		"armv8_2a",
+		"armv8-a",
+		"armv8-a-branchprot",
+		"armv8-2a",
 		"armv8-2a-dotprod",
-		"cortex-a53",
-		"cortex-a55",
-		"cortex-a72",
-		"cortex-a73",
-		"cortex-a75",
-		"cortex-a76",
-		"kryo",
-		"kryo385",
-		"exynos-m1",
-		"exynos-m2",
 	},
 	X86: {
 		"amberlake",
@@ -85,6 +57,41 @@ var archVariants = map[ArchType][]string{
 		"tigerlake",
 		"whiskeylake",
 	},
+}
+
+var cpuVariants = map[ArchType][]string{
+	Arm: {
+		"cortex-a7",
+		"cortex-a8",
+		"cortex-a9",
+		"cortex-a15",
+		"cortex-a53",
+		"cortex-a53.a57",
+		"cortex-a55",
+		"cortex-a72",
+		"cortex-a73",
+		"cortex-a75",
+		"cortex-a76",
+		"krait",
+		"kryo",
+		"kryo385",
+		"exynos-m1",
+		"exynos-m2",
+	},
+	Arm64: {
+		"cortex-a53",
+		"cortex-a55",
+		"cortex-a72",
+		"cortex-a73",
+		"cortex-a75",
+		"cortex-a76",
+		"kryo",
+		"kryo385",
+		"exynos-m1",
+		"exynos-m2",
+	},
+	X86:    {},
+	X86_64: {},
 }
 
 var archFeatures = map[ArchType][]string{
@@ -119,7 +126,7 @@ var archFeatures = map[ArchType][]string{
 	},
 }
 
-var archFeatureMap = map[ArchType]map[string][]string{
+var androidArchFeatureMap = map[ArchType]map[string][]string{
 	Arm: {
 		"armv7-a-neon": {
 			"neon",
@@ -270,6 +277,13 @@ var archFeatureMap = map[ArchType]map[string][]string{
 		},
 	},
 	X86_64: {
+		"" /*default */ : {
+			"ssse3",
+			"sse4",
+			"sse4_1",
+			"sse4_2",
+			"popcnt",
+		},
 		"amberlake": {
 			"ssse3",
 			"sse4",
@@ -388,24 +402,4 @@ var archFeatureMap = map[ArchType]map[string][]string{
 			"popcnt",
 		},
 	},
-}
-
-var defaultArchFeatureMap = map[OsType]map[ArchType][]string{}
-
-// RegisterDefaultArchVariantFeatures is called by files that define Toolchains to specify the
-// arch features that are available for the default arch variant.  It must be called from an
-// init() function.
-func RegisterDefaultArchVariantFeatures(os OsType, arch ArchType, features ...string) {
-	checkCalledFromInit()
-
-	for _, feature := range features {
-		if !InList(feature, archFeatures[arch]) {
-			panic(fmt.Errorf("Invalid feature %q for arch %q variant \"\"", feature, arch))
-		}
-	}
-
-	if defaultArchFeatureMap[os] == nil {
-		defaultArchFeatureMap[os] = make(map[ArchType][]string)
-	}
-	defaultArchFeatureMap[os][arch] = features
 }

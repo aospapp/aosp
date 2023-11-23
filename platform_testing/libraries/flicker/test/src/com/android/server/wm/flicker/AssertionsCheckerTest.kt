@@ -166,9 +166,6 @@ class AssertionsCheckerTest {
         override val timestamp: Long get() = 0
         override val parent: FlickerSubject? get() = null
         override val selfFacts = listOf(Fact.fact("SimpleEntry", entry.mData.toString()))
-        override fun clone(): FlickerSubject {
-            return SimpleEntrySubject(fm, entry)
-        }
 
         fun isData42() = apply {
             check("is42").that(entry.mData).isEqualTo(42)

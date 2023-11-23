@@ -17,14 +17,19 @@
 package com.android.car.carlauncher.homescreen.audio;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -32,6 +37,7 @@ import com.android.car.carlauncher.R;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
 import com.android.car.telephony.common.TelecomUtils;
+import com.android.internal.util.ArrayUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -52,6 +58,8 @@ public class InCallModelTest {
 
     private InCallModel mInCallModel;
     private String mOngoingCallSecondaryText;
+    private String mDialingCallSecondaryText;
+
     private Context mContext;
 
     @Mock
@@ -68,9 +76,9 @@ public class InCallModelTest {
         mInCallModel = new InCallModel(mClock);
         mInCallModel.setPresenter(mPresenter);
         mInCallModel.onCreate(mContext);
-        mOngoingCallSecondaryText =
-                ApplicationProvider.getApplicationContext().getResources().getString(
-                        R.string.ongoing_call_text);
+        Resources resources = ApplicationProvider.getApplicationContext().getResources();
+        mOngoingCallSecondaryText = resources.getString(R.string.ongoing_call_text);
+        mDialingCallSecondaryText = resources.getString(R.string.dialing_call_text);
     }
 
     @After
@@ -91,8 +99,8 @@ public class InCallModelTest {
     }
 
     @Test
-    public void updateModelWithPhoneNumber_setsPhoneNumber() {
-        mInCallModel.updateModelWithPhoneNumber(PHONE_NUMBER);
+    public void updateModelWithPhoneNumber_active_setsPhoneNumberAndSubtitle() {
+        mInCallModel.updateModelWithPhoneNumber(PHONE_NUMBER, Call.STATE_ACTIVE);
 
         verify(mPresenter).onModelUpdated(mInCallModel);
         DescriptiveTextWithControlsView content =
@@ -104,11 +112,24 @@ public class InCallModelTest {
     }
 
     @Test
-    public void updateModelWithContact_noAvatarUri_setsContactNameAndInitialsIcon() {
+    public void updateModelWithPhoneNumber_dialing_setsPhoneNumberAndSubtitle() {
+        mInCallModel.updateModelWithPhoneNumber(PHONE_NUMBER, Call.STATE_DIALING);
+
+        verify(mPresenter).onModelUpdated(mInCallModel);
+        DescriptiveTextWithControlsView content =
+                (DescriptiveTextWithControlsView) mInCallModel.getCardContent();
+        String formattedNumber = TelecomUtils.getFormattedNumber(
+                ApplicationProvider.getApplicationContext(), PHONE_NUMBER);
+        assertEquals(content.getTitle(), formattedNumber);
+        assertEquals(content.getSubtitle(), mDialingCallSecondaryText);
+    }
+
+    @Test
+    public void updateModelWithContact_active_noAvatarUri_setsContactNameAndInitialsIcon() {
         TelecomUtils.PhoneNumberInfo phoneInfo = new TelecomUtils.PhoneNumberInfo(PHONE_NUMBER,
                 DISPLAY_NAME, DISPLAY_NAME, INITIALS, /* avatarUri = */ null,
                 /* typeLabel = */ null, /*  lookupKey = */ null);
-        mInCallModel.updateModelWithContact(phoneInfo);
+        mInCallModel.updateModelWithContact(phoneInfo, Call.STATE_ACTIVE);
 
         verify(mPresenter).onModelUpdated(mInCallModel);
         DescriptiveTextWithControlsView content =
@@ -119,12 +140,12 @@ public class InCallModelTest {
     }
 
     @Test
-    public void updateModelWithContact_invalidAvatarUri_setsContactNameAndInitialsIcon() {
+    public void updateModelWithContact_active_invalidAvatarUri_setsContactNameAndInitialsIcon() {
         Uri invalidUri = new Uri.Builder().path("invalid uri path").build();
         TelecomUtils.PhoneNumberInfo phoneInfo = new TelecomUtils.PhoneNumberInfo(PHONE_NUMBER,
                 DISPLAY_NAME, DISPLAY_NAME, INITIALS, invalidUri, /* typeLabel = */ null,
                 /* lookupKey = */ null);
-        mInCallModel.updateModelWithContact(phoneInfo);
+        mInCallModel.updateModelWithContact(phoneInfo, Call.STATE_ACTIVE);
 
         verify(mPresenter).onModelUpdated(mInCallModel);
         DescriptiveTextWithControlsView content =
@@ -132,5 +153,85 @@ public class InCallModelTest {
         assertEquals(content.getTitle(), DISPLAY_NAME);
         assertEquals(content.getSubtitle(), mOngoingCallSecondaryText);
         assertNotNull(content.getImage());
+    }
+
+    @Test
+    public void updateModelWithContact_dialing_setsCardContent() {
+        TelecomUtils.PhoneNumberInfo phoneInfo = new TelecomUtils.PhoneNumberInfo(PHONE_NUMBER,
+                DISPLAY_NAME, DISPLAY_NAME, INITIALS, /* avatarUri = */ null,
+                /* typeLabel = */ null, /*  lookupKey = */ null);
+        mInCallModel.updateModelWithContact(phoneInfo, Call.STATE_DIALING);
+
+        verify(mPresenter).onModelUpdated(mInCallModel);
+        DescriptiveTextWithControlsView content =
+                (DescriptiveTextWithControlsView) mInCallModel.getCardContent();
+        assertEquals(content.getTitle(), DISPLAY_NAME);
+        assertEquals(content.getSubtitle(), mDialingCallSecondaryText);
+        assertNotNull(content.getImage());
+    }
+
+    @Test
+    public void onCallAudioStateChanged_callsPresenterWhenMuteButtonIsOutOfSync() {
+        // calls the mPresenter.onModelUpdated only when there is a change in the mute state
+        // which is not reflected in the button's state
+
+        CallAudioState callAudioState = new CallAudioState(true,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mInCallModel.updateMuteButtonDrawableState(new int[0]);
+        mInCallModel.onCallAudioStateChanged(callAudioState);
+        verify(mPresenter, times(1)).onModelUpdated(mInCallModel);
+
+    }
+
+    @Test
+    public void onCallAudioStateChanged_doesNotCallPresenterWhenMuteButtonIsInSync() {
+        // calls the mPresenter.onModelUpdated only when there is a change in the mute state
+        // which is not reflected in the button's state
+
+        CallAudioState callAudioState = new CallAudioState(false,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mInCallModel.updateMuteButtonDrawableState(new int[0]);
+        mInCallModel.onCallAudioStateChanged(callAudioState);
+        verify(mPresenter, times(0)).onModelUpdated(mInCallModel);
+    }
+
+    @Test
+    public void updateMuteButtonIconState_outOfSync_updatesIconState() {
+        boolean isUpdateRequired;
+        CallAudioState callAudioState;
+
+        // case callAudioState muted but mute icon state not contain selected
+        // expected: update mute icon state to contain selected state and return true
+        callAudioState = new CallAudioState(true,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mInCallModel.updateMuteButtonDrawableState(new int[0]);
+        isUpdateRequired = mInCallModel.updateMuteButtonIconState(callAudioState);
+        assertTrue(isUpdateRequired);
+        assertTrue(ArrayUtils.contains(mInCallModel.getMuteButtonDrawableState(),
+                android.R.attr.state_selected));
+
+        // case callAudioState not muted but mute icon state contains selected state
+        // expected: update mute icon state to not contain selected state and return true
+        callAudioState = new CallAudioState(false,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mInCallModel.updateMuteButtonDrawableState(new int[]{android.R.attr.state_selected});
+        isUpdateRequired = mInCallModel.updateMuteButtonIconState(callAudioState);
+        assertTrue(isUpdateRequired);
+        assertFalse(ArrayUtils.contains(mInCallModel.getMuteButtonDrawableState(),
+                android.R.attr.state_selected));
+    }
+
+    @Test
+    public void updateMuteButtonIconState_inSync_doesNotUpdateIconState() {
+        boolean isUpdateRequired;
+        CallAudioState callAudioState;
+
+        // case callAudioState is muted and mute icon state contains selected state
+        // expected: return false
+        callAudioState = new CallAudioState(true,
+                CallAudioState.ROUTE_WIRED_OR_EARPIECE, CallAudioState.ROUTE_WIRED_OR_EARPIECE);
+        mInCallModel.updateMuteButtonDrawableState(new int[]{android.R.attr.state_selected});
+        isUpdateRequired = mInCallModel.updateMuteButtonIconState(callAudioState);
+        assertFalse(isUpdateRequired);
     }
 }

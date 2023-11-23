@@ -452,19 +452,18 @@ int dri_bo_unmap(struct bo *bo, struct vma *vma)
 size_t dri_num_planes_from_modifier(struct driver *drv, uint32_t format, uint64_t modifier)
 {
 	struct dri_driver *dri = drv->priv;
-	if (!dri->image_extension->queryDmaBufFormatModifierAttribs) {
-		/* We do not do any modifier checks here. The create will fail
-		 * later if the modifier is not supported. */
-		return drv_num_planes_from_format(format);
-	}
+	uint64_t planes = 0;
 
-	uint64_t planes;
-	GLboolean ret = dri->image_extension->queryDmaBufFormatModifierAttribs(
-	    dri->device, format, modifier, __DRI_IMAGE_FORMAT_MODIFIER_ATTRIB_PLANE_COUNT, &planes);
-	if (!ret)
-		return 0;
+	/* We do not do any modifier checks here. The create will fail later if the modifier is not
+	 * supported.
+	 */
+	if (dri->image_extension->queryDmaBufFormatModifierAttribs &&
+	    dri->image_extension->queryDmaBufFormatModifierAttribs(
+		dri->device, format, modifier, __DRI_IMAGE_FORMAT_MODIFIER_ATTRIB_PLANE_COUNT,
+		&planes))
+		return planes;
 
-	return planes;
+	return drv_num_planes_from_format(format);
 }
 
 bool dri_query_modifiers(struct driver *drv, uint32_t format, int max, uint64_t *modifiers,

@@ -49,6 +49,13 @@ class Updater:
         """
         raise NotImplementedError()
 
+    def rollback(self) -> bool:
+        """Rolls the current update back.
+
+        This is an optional operation.  Returns whether the rollback succeeded.
+        """
+        return False
+
     @property
     def project_path(self) -> Path:
         """Gets absolute path to the project."""

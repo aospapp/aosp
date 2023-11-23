@@ -27,7 +27,8 @@
 #include <GLES3/gl31.h>
 
 #include "base/System.h"
-#include "ErrorLog.h"
+#include "host-common/logging.h"
+
 #include "GLESv2Context.h"
 #include "GLESv2Validate.h"
 #include "GLcommon/FramebufferData.h"
@@ -191,6 +192,21 @@ GL_APICALL void GL_APIENTRY glSignalSemaphoreEXT(GLuint semaphore, GLuint numBuf
 GL_APICALL GLuint GL_APIENTRY glGetGlobalTexName(GLuint localName);
 GL_APICALL void  GL_APIENTRY glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, GLvoid* pixels);
 
+GL_APICALL void GL_APIENTRY glDebugMessageControlKHR(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled);
+GL_APICALL void GL_APIENTRY glDebugMessageInsertKHR(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf);
+GL_APICALL void GL_APIENTRY glDebugMessageCallbackKHR(GLDEBUGPROCKHR callback, const void* userdata);
+GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLogKHR(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log);
+GL_APICALL void GL_APIENTRY glPushDebugGroupKHR(GLenum source, GLuint id, GLsizei length, const GLchar* message);
+GL_APICALL void GL_APIENTRY glPopDebugGroupKHR(void);
+
+GL_APICALL void GL_APIENTRY glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled);
+GL_APICALL void GL_APIENTRY glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf);
+GL_APICALL void GL_APIENTRY glDebugMessageCallback(GLDEBUGPROC callback, const void* userdata);
+GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLog(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log);
+GL_APICALL void GL_APIENTRY glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message);
+GL_APICALL void GL_APIENTRY glPopDebugGroup(void);
+
+
 } // namespace gles2
 } // namespace translator
 
@@ -291,6 +307,18 @@ static __translatorMustCastToProperFunctionPointerType getProcAddressGles2(const
         (*s_gles2Extensions)["glSignalSemaphoreEXT"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glSignalSemaphoreEXT);
         (*s_gles2Extensions)["glGetGlobalTexName"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetGlobalTexName);
         (*s_gles2Extensions)["glGetTexImage"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetTexImage);
+        (*s_gles2Extensions)["glDebugMessageControlKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageControlKHR);
+        (*s_gles2Extensions)["glDebugMessageInsertKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageInsertKHR);
+        (*s_gles2Extensions)["glDebugMessageCallbackKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageCallbackKHR);
+        (*s_gles2Extensions)["glGetDebugMessageLogKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetDebugMessageLogKHR);
+        (*s_gles2Extensions)["glPushDebugGroupKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPushDebugGroupKHR);
+        (*s_gles2Extensions)["glPopDebugGroupKHR"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPopDebugGroupKHR);
+        (*s_gles2Extensions)["glDebugMessageControl"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageControl);
+        (*s_gles2Extensions)["glDebugMessageCallback"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageCallback);
+        (*s_gles2Extensions)["glDebugMessageInsert"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glDebugMessageInsert);
+        (*s_gles2Extensions)["glGetDebugMessageLog"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glGetDebugMessageLog);
+        (*s_gles2Extensions)["glPushDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPushDebugGroup);
+        (*s_gles2Extensions)["glPopDebugGroup"] = (__translatorMustCastToProperFunctionPointerType)GLES2_NAMESPACED(glPopDebugGroup);
     }
     __translatorMustCastToProperFunctionPointerType ret=NULL;
     ProcTableMap::iterator val = s_gles2Extensions->find(procName);
@@ -353,15 +381,29 @@ static void blitFromCurrentReadBufferANDROID(EGLImage image) {
     }
 
     // Could be a bad snapshot load
-    if (!img->saveableTexture || !img->globalTexObj) {
-        return;
+    if (!img->isNative) {
+        if (!img->saveableTexture) {
+            return;
+        }
     }
 
-    img->saveableTexture->makeDirty();
-    GLuint globalTexObj = img->globalTexObj->getGlobalName();
-    ctx->blitFromReadBufferToTextureFlipped(
-            globalTexObj, img->width, img->height,
-            img->internalFormat, img->format, img->type);
+    if (img->globalTexObj) {
+        img->saveableTexture->makeDirty();
+        GLuint globalTexObj = img->globalTexObj->getGlobalName();
+        ctx->blitFromReadBufferToTextureFlipped(
+                globalTexObj, img->width, img->height,
+                img->internalFormat, img->format, img->type);
+    } else if (img->isNative) {
+        if (!img->width || !img->height || !img->internalFormat) {
+            fprintf(stderr, "%s: error: Tried to blit to internal image, "
+                    "but we don't know the width, height or internalformat.\n", __func__);
+            return;
+        }
+        ctx->blitFromReadBufferToEGLImage(
+		    img->nativeImage,
+			img->internalFormat,
+			img->width, img->height);
+    }
 }
 
 }  // extern "C"
@@ -3744,6 +3786,36 @@ GL_APICALL void  GL_APIENTRY glGetTexImage(GLenum target, GLint level, GLenum fo
     }
 }
 
+GL_APICALL void GL_APIENTRY glDebugMessageControlKHR(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled) {
+    GET_CTX_V2();
+    ctx->dispatcher().glDebugMessageControlKHR(source, type, severity, count, ids, enabled);
+}
+
+GL_APICALL void GL_APIENTRY glDebugMessageInsertKHR(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf) {
+    GET_CTX_V2();
+    ctx->dispatcher().glDebugMessageInsertKHR(source, type, id, severity, length, buf);
+}
+
+GL_APICALL void GL_APIENTRY glDebugMessageCallbackKHR(GLDEBUGPROCKHR callback, const void* userdata) {
+    GET_CTX_V2();
+    ctx->dispatcher().glDebugMessageCallbackKHR(callback, userdata);
+}
+
+GL_APICALL GLuint GL_APIENTRY glGetDebugMessageLogKHR(GLuint count, GLsizei size, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* log) {
+    GET_CTX_V2_RET(0);
+    return ctx->dispatcher().glGetDebugMessageLogKHR(count, size, sources, types, ids, severities, lengths, log);
+}
+
+GL_APICALL void GL_APIENTRY glPushDebugGroupKHR(GLenum source, GLuint id, GLsizei length, const GLchar* message) {
+    GET_CTX_V2();
+    ctx->dispatcher().glPushDebugGroupKHR(source, id, length, message);
+}
+
+GL_APICALL void GL_APIENTRY glPopDebugGroupKHR(void) {
+    GET_CTX_V2();
+    ctx->dispatcher().glPopDebugGroupKHR();
+}
+
 GL_APICALL void  GL_APIENTRY glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* pixels){
     GET_CTX_V2();
     SET_ERROR_IF(!(GLESv2Validate::textureTarget(ctx, target) ||
@@ -4135,6 +4207,40 @@ GL_APICALL void GL_APIENTRY glEGLImageTargetTexture2DOES(GLenum target, GLeglIma
     ImagePtr img = s_eglIface->getEGLImage(imagehndl);
     if (img) {
 
+        // For native underlying EGL images, call underlying native
+        // glEGLImageTargetTexture2DOES and exit, without replacing it with
+        // another global tex obj ourselves. This will implicitly replace the
+        // underlying texture that's stored in our global info.
+        if (img->isNative) {
+            if (!ctx->dispatcher().glEGLImageTargetTexture2DOES) {
+                fprintf(stderr, "%s: warning, glEGLImageTargetTexture2DOES not found\n", __func__);
+			} else {
+				ctx->dispatcher().glEGLImageTargetTexture2DOES(target, (GLeglImageOES)img->nativeImage);
+			}
+
+            // We need to update our records about this texture.
+            if (ctx->shareGroup().get()) {
+                TextureData *texData = getTextureTargetData(target);
+                SET_ERROR_IF(texData==NULL,GL_INVALID_OPERATION);
+                texData->width = img->width;
+                texData->height = img->height;
+                texData->border = img->border;
+                texData->internalFormat = img->internalFormat;
+                texData->format = img->format;
+                texData->type = img->type;
+                texData->texStorageLevels = img->texStorageLevels;
+                texData->sourceEGLImage = imagehndl;
+                if (img->sync) {
+                    // insert gpu side fence to make sure we are done with any blit ops.
+                    ctx->dispatcher().glWaitSync(img->sync, 0, GL_TIMEOUT_IGNORED);
+                }
+                if (!imagehndl) {
+                    fprintf(stderr, "glEGLImageTargetTexture2DOES with empty handle\n");
+                }
+            }
+            return;
+        }
+
         // Could be from a bad snapshot; in this case, skip.
         if (!img->globalTexObj) return;
 
@@ -4181,6 +4287,15 @@ GL_APICALL void GL_APIENTRY glEGLImageTargetRenderbufferStorageOES(GLenum target
     ImagePtr img = s_eglIface->getEGLImage(imagehndl);
     SET_ERROR_IF(!img,GL_INVALID_VALUE);
     SET_ERROR_IF(!ctx->shareGroup().get(),GL_INVALID_OPERATION);
+
+    if (img->isNative) {
+        if (!ctx->dispatcher().glEGLImageTargetRenderbufferStorageOES) {
+            fprintf(stderr, "%s: warning, glEGLImageTargetRenderbufferStorageOES not found\n", __func__);
+        } else {
+            ctx->dispatcher().glEGLImageTargetRenderbufferStorageOES(target, (GLeglImageOES)img->nativeImage);
+        }
+        return;
+    }
 
     // Get current bounded renderbuffer
     // raise INVALID_OPERATIOn if no renderbuffer is bounded
@@ -4267,6 +4382,7 @@ GL_APICALL GLboolean GL_APIENTRY glIsVertexArrayOES(GLuint array) {
 
 #include "GLESv30Imp.cpp"
 #include "GLESv31Imp.cpp"
+#include "GLESv32Imp.cpp"
 
 namespace glperf {
 
@@ -4476,11 +4592,17 @@ fprintf(stderr, "%s: begin count %d\n", __func__, count);
 // Common between GL_EXT_memory_object and GL_EXT_semaphore
 GL_APICALL void GL_APIENTRY glGetUnsignedBytevEXT(GLenum pname, GLubyte* data) {
     GET_CTX_V2();
+    if (!ctx->dispatcher().glGetUnsignedBytevEXT) {
+        return;
+    }
     ctx->dispatcher().glGetUnsignedBytevEXT(pname, data);
 }
 
 GL_APICALL void GL_APIENTRY glGetUnsignedBytei_vEXT(GLenum target, GLuint index, GLubyte* data) {
     GET_CTX_V2();
+    if (!ctx->dispatcher().glGetUnsignedBytei_vEXT) {
+        return;
+    }
     ctx->dispatcher().glGetUnsignedBytei_vEXT(target, index, data);
 }
 

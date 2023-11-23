@@ -17,6 +17,7 @@
 #include "VtsTrebleVintfTestBase.h"
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <binder/IServiceManager.h>
@@ -99,7 +100,8 @@ void VtsTrebleVintfTestBase::ForEachHidlHalInstance(
 
     auto future_result =
         std::async([&]() { fn(fq_name, instance_name, transport); });
-    auto timeout = std::chrono::seconds(1);
+    int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+    auto timeout = timeout_multiplier * std::chrono::seconds(1);
     std::future_status status = future_result.wait_for(timeout);
     if (status != std::future_status::ready) {
       cout << "Timed out on: " << fq_name.string() << " " << instance_name
@@ -125,7 +127,8 @@ void VtsTrebleVintfTestBase::ForEachAidlHalInstance(
     auto future_result = std::async([&]() {
       fn(package, version, interface, instance, updatable_via_apex);
     });
-    auto timeout = std::chrono::seconds(1);
+    int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+    auto timeout = timeout_multiplier * std::chrono::seconds(1);
     std::future_status status = future_result.wait_for(timeout);
     if (status != std::future_status::ready) {
       cout << "Timed out on: " << package << "." << interface << "/" << instance
@@ -162,7 +165,8 @@ sp<IBase> VtsTrebleVintfTestBase::GetHidlService(const string &fq_name,
     return getRawServiceInternal(fq_name, instance_name, true /* retry */,
                                  false /* getStub */);
   });
-  auto max_time = std::chrono::seconds(1);
+  int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+  auto max_time = timeout_multiplier * std::chrono::seconds(1);
 
   std::future<sp<IBase>> future = task.get_future();
   std::thread(std::move(task)).detach();
@@ -184,7 +188,9 @@ sp<IBinder> VtsTrebleVintfTestBase::GetAidlService(const string &name) {
     return defaultServiceManager()->waitForService(String16(name.c_str()));
   });
 
-  auto max_time = std::chrono::seconds(2);  // TODO(b/205347235)
+  int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
+  // TODO(b/205347235)
+  auto max_time = timeout_multiplier * std::chrono::seconds(2);
   auto future = task.get_future();
   std::thread(std::move(task)).detach();
   auto status = future.wait_for(max_time);

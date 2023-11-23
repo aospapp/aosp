@@ -70,7 +70,8 @@ public final class MethodSignature {
     /**
      * Create a {@link MethodSignature} for the given string from an API file.
      */
-    public static MethodSignature forApiString(String string, Types types, Elements elements) {
+    public static /* @Nullable */ MethodSignature forApiString(
+            String string, Types types, Elements elements) {
         // Strip annotations
         string = string.replaceAll("@\\w+?\\(.+?\\) ", "");
         string = string.replaceAll("@.+? ", "");
@@ -91,6 +92,11 @@ public final class MethodSignature {
             // These don't affect the signature in ways we care about
             string = parts[1];
             parts = string.split(" ", 2);
+        }
+
+        if (string.startsWith("<")) {
+            // This includes type arguments, for now we ignore this method
+            return null;
         }
 
         returnType = typeForString(parts[0], types, elements);

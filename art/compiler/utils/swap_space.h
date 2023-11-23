@@ -26,6 +26,7 @@
 
 #include <android-base/logging.h>
 
+#include "base/logging.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 
@@ -66,7 +67,7 @@ class SwapSpace {
     }
   };
 
-  typedef std::set<SpaceChunk, SortChunkByPtr> FreeByStartSet;
+  using FreeByStartSet = std::set<SpaceChunk, SortChunkByPtr>;
 
   // Map size to an iterator to free_by_start_'s entry.
   struct FreeBySizeEntry {
@@ -87,7 +88,7 @@ class SwapSpace {
       }
     }
   };
-  typedef std::set<FreeBySizeEntry, FreeBySizeComparator> FreeBySizeSet;
+  using FreeBySizeSet = std::set<FreeBySizeEntry, FreeBySizeComparator>;
 
   SpaceChunk NewFileChunk(size_t min_size) REQUIRES(lock_);
 
@@ -113,13 +114,13 @@ template <typename T> class SwapAllocator;
 template <>
 class SwapAllocator<void> {
  public:
-  typedef void value_type;
-  typedef void* pointer;
-  typedef const void* const_pointer;
+  using value_type    = void;
+  using pointer       = void*;
+  using const_pointer = const void*;
 
   template <typename U>
   struct rebind {
-    typedef SwapAllocator<U> other;
+    using other = SwapAllocator<U>;
   };
 
   explicit SwapAllocator(SwapSpace* swap_space) : swap_space_(swap_space) {}
@@ -145,17 +146,17 @@ class SwapAllocator<void> {
 template <typename T>
 class SwapAllocator {
  public:
-  typedef T value_type;
-  typedef T* pointer;
-  typedef T& reference;
-  typedef const T* const_pointer;
-  typedef const T& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
+  using value_type      = T;
+  using pointer         = T*;
+  using reference       = T&;
+  using const_pointer   = const T*;
+  using const_reference = const T&;
+  using size_type       = size_t;
+  using difference_type = ptrdiff_t;
 
   template <typename U>
   struct rebind {
-    typedef SwapAllocator<U> other;
+    using other = SwapAllocator<U>;
   };
 
   explicit SwapAllocator(SwapSpace* swap_space) : swap_space_(swap_space) {}
@@ -179,7 +180,7 @@ class SwapAllocator {
     DCHECK_LE(n, max_size());
     if (swap_space_ == nullptr) {
       T* result = reinterpret_cast<T*>(malloc(n * sizeof(T)));
-      CHECK(result != nullptr || n == 0u);  // Abort if malloc() fails.
+      CHECK_IMPLIES(result == nullptr, n == 0u);  // Abort if malloc() fails.
       return result;
     } else {
       return reinterpret_cast<T*>(swap_space_->Alloc(n * sizeof(T)));

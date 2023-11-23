@@ -54,12 +54,11 @@ public:
                                         uint32_t flags = 0,
                                         wp<DeathRecipient>* outRecipient = nullptr);
 
-    virtual void        attachObject(   const void* objectID,
-                                        void* object,
-                                        void* cleanupCookie,
-                                        object_cleanup_func func) final;
+    virtual void* attachObject(const void* objectID, void* object, void* cleanupCookie,
+                               object_cleanup_func func) final;
     virtual void*       findObject(const void* objectID) const final;
-    virtual void        detachObject(const void* objectID) final;
+    virtual void* detachObject(const void* objectID) final;
+    void withLock(const std::function<void()>& doWithLock);
 
     virtual BBinder*    localBinder();
 
@@ -94,6 +93,16 @@ public:
 
     pid_t               getDebugPid();
 
+    // Whether this binder has been sent to another process.
+    bool wasParceled();
+    // Consider this binder as parceled (setup/init-related calls should no
+    // longer by called. This is automatically set by when this binder is sent
+    // to another process.
+    void setParceled();
+
+    [[nodiscard]] status_t setRpcClientDebug(android::base::unique_fd clientFd,
+                                             const sp<IBinder>& keepAliveBinder);
+
 protected:
     virtual             ~BBinder();
 
@@ -107,17 +116,24 @@ private:
                         BBinder(const BBinder& o);
             BBinder&    operator=(const BBinder& o);
 
+    class RpcServerLink;
     class Extras;
 
     Extras*             getOrCreateExtras();
 
+    [[nodiscard]] status_t setRpcClientDebug(const Parcel& data);
+    void removeRpcServerLink(const sp<RpcServerLink>& link);
+
     std::atomic<Extras*> mExtras;
 
     friend ::android::internal::Stability;
-    union {
-        int32_t mStability;
-        void* mReserved0;
-    };
+    int16_t mStability;
+    bool mParceled;
+    uint8_t mReserved0;
+
+#ifdef __LP64__
+    int32_t mReserved1;
+#endif
 };
 
 // ---------------------------------------------------------------------------

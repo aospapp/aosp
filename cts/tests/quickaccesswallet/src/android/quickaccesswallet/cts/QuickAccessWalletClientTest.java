@@ -25,9 +25,14 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.quickaccesswallet.NoPermissionQuickAccessWalletService;
 import android.quickaccesswallet.QuickAccessWalletActivity;
+import android.quickaccesswallet.QuickAccessWalletDelegateTargetActivityService;
 import android.quickaccesswallet.QuickAccessWalletSettingsActivity;
 import android.quickaccesswallet.TestHostApduService;
 import android.quickaccesswallet.TestQuickAccessWalletService;
@@ -35,12 +40,14 @@ import android.service.quickaccesswallet.GetWalletCardsError;
 import android.service.quickaccesswallet.GetWalletCardsRequest;
 import android.service.quickaccesswallet.GetWalletCardsResponse;
 import android.service.quickaccesswallet.QuickAccessWalletClient;
+import android.service.quickaccesswallet.QuickAccessWalletClient.WalletPendingIntentCallback;
 import android.service.quickaccesswallet.QuickAccessWalletClient.WalletServiceEventListener;
 import android.service.quickaccesswallet.QuickAccessWalletService;
 import android.service.quickaccesswallet.SelectWalletCardRequest;
 import android.service.quickaccesswallet.WalletCard;
 import android.service.quickaccesswallet.WalletServiceEvent;
 
+import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -63,6 +70,7 @@ import java.util.concurrent.TimeUnit;
  * Tests parceling of the {@link WalletCard}
  */
 @RunWith(AndroidJUnit4.class)
+@AppModeFull
 public class QuickAccessWalletClientTest {
 
     private static final String SETTING_KEY = "lockscreen_show_wallet";
@@ -99,6 +107,8 @@ public class QuickAccessWalletClientTest {
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
         setServiceState(NoPermissionQuickAccessWalletService.class,
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
+        setServiceState(QuickAccessWalletDelegateTargetActivityService.class,
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
         TestQuickAccessWalletService.resetStaticFields();
     }
 
@@ -127,6 +137,51 @@ public class QuickAccessWalletClientTest {
             // return setting to original value
             SettingsUtils.syncSet(mContext, SETTING_KEY, showCardsAndPasses);
         }
+    }
+
+    @Test
+    public void testGetWalletPendingIntent_serviceWithOverride_notNull_ableToSend()
+            throws Exception {
+        setServiceState(QuickAccessWalletDelegateTargetActivityService.class,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
+        setServiceState(TestQuickAccessWalletService.class,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+
+        QuickAccessWalletClient client = QuickAccessWalletClient.create(mContext);
+
+        TestPendingIntentListener testPendingIntentListener = new TestPendingIntentListener();
+
+        client.getWalletPendingIntent(mContext.getMainExecutor(), testPendingIntentListener);
+        testPendingIntentListener.await(3, TimeUnit.SECONDS);
+        assertThat(testPendingIntentListener.mPendingIntent).isNotNull();
+
+        TestPendingIntentSentListener intentSentListener = new TestPendingIntentSentListener();
+
+        testPendingIntentListener.mPendingIntent.send(0, intentSentListener,
+                new Handler(Looper.getMainLooper()));
+
+        intentSentListener.await(3, TimeUnit.SECONDS);
+
+        String targetActivityPackage = "android.sample.quickaccesswallet.app";
+        String targetActivityComponent =
+                targetActivityPackage + ".QuickAccessWalletDelegateTargetActivity";
+
+        assertThat(intentSentListener.mIntent).isNotNull();
+        assertThat(intentSentListener.mIntent.getComponent())
+                .isEqualTo(new ComponentName(targetActivityPackage, targetActivityComponent));
+
+
+    }
+
+    @Test
+    public void testGetWalletPendingIntent_serviceWithNoOverride_isNull() throws Exception {
+        QuickAccessWalletClient client = QuickAccessWalletClient.create(mContext);
+
+        TestPendingIntentListener testPendingIntentListener = new TestPendingIntentListener();
+
+        client.getWalletPendingIntent(mContext.getMainExecutor(), testPendingIntentListener);
+        testPendingIntentListener.await(3, TimeUnit.SECONDS);
+        assertThat(testPendingIntentListener.mPendingIntent).isNull();
     }
 
     @Test
@@ -443,7 +498,8 @@ public class QuickAccessWalletClientTest {
 
     private PendingIntent createPendingIntent() {
         Intent intent = new Intent(mContext, QuickAccessWalletActivity.class);
-        return PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        return PendingIntent
+                .getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static class TestCallback implements
@@ -479,6 +535,39 @@ public class QuickAccessWalletClientTest {
         @Override
         public void onWalletServiceEvent(WalletServiceEvent event) {
             mEvents.add(event);
+            mLatch.countDown();
+        }
+
+        public void await(int time, TimeUnit unit) throws InterruptedException {
+            mLatch.await(time, unit);
+        }
+    }
+
+    private static class TestPendingIntentListener implements WalletPendingIntentCallback {
+
+        private PendingIntent mPendingIntent;
+        private final CountDownLatch mLatch = new CountDownLatch(1);
+
+        @Override
+        public void onWalletPendingIntentRetrieved(@Nullable PendingIntent walletPendingIntent) {
+            mPendingIntent = walletPendingIntent;
+            mLatch.countDown();
+        }
+
+        public void await(int time, TimeUnit unit) throws InterruptedException {
+            mLatch.await(time, unit);
+        }
+    }
+
+    private static class TestPendingIntentSentListener implements PendingIntent.OnFinished {
+
+        private Intent mIntent;
+        private final CountDownLatch mLatch = new CountDownLatch(1);
+
+        @Override
+        public void onSendFinished(PendingIntent pendingIntent, Intent intent, int resultCode,
+                String resultData, Bundle resultExtras) {
+            mIntent = intent;
             mLatch.countDown();
         }
 

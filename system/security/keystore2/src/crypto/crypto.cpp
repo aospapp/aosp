@@ -25,6 +25,7 @@
 #include <openssl/ecdh.h>
 #include <openssl/evp.h>
 #include <openssl/hkdf.h>
+#include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/x509.h>
 
@@ -64,6 +65,14 @@ const EVP_CIPHER* getAesCipherForKey(size_t key_size) {
         cipher = EVP_aes_128_gcm();
     }
     return cipher;
+}
+
+bool hmacSha256(const uint8_t* key, size_t key_size, const uint8_t* msg, size_t msg_size,
+                uint8_t* out, size_t out_size) {
+    const EVP_MD* digest = EVP_sha256();
+    unsigned int actual_out_size = out_size;
+    uint8_t* p = HMAC(digest, key, key_size, msg, msg_size, out, &actual_out_size);
+    return (p != nullptr);
 }
 
 bool randomBytes(uint8_t* out, size_t len) {

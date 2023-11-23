@@ -32,6 +32,8 @@ How do I...
     *   ... [offer **both** accumulation and set-at-once methods for the same
         collection-valued property?](#collection_both)
 *   ... [access nested builders while building?](#nested_builders)
+*   ... [create a "step builder"?](#step)
+*   ... [create a builder for something other than an `@AutoValue`?](#autobuilder)
 
 ## <a name="beans"></a>... use (or not use) `set` prefixes?
 
@@ -79,10 +81,13 @@ it will simply default to `null` as you would expect. And if it is
 [Optional](#optional) it will default to an empty `Optional` as you might also
 expect. But if it isn't either of those things (including if it is a
 primitive-valued property, which *can't* be null), then `build()` will throw an
-unchecked exception.
+unchecked exception. This includes collection properties, which must be given a
+value. They don't default to empty unless there is a
+[collection builder](#accumulate).
 
-But this presents a problem, since one of the main *advantages* of a builder in
-the first place is that callers can specify only the properties they care about!
+But this requirement to supply a value presents a problem, since one of the main
+*advantages* of a builder in the first place is that callers can specify only
+the properties they care about!
 
 The solution is to provide a default value for such properties. Fortunately this
 is easy: just set it on the newly-constructed builder instance before returning
@@ -306,7 +311,8 @@ property of type `Optional<String>`, say, then it will default to an empty
 `Optional` without needing to [specify](#default) a default explicitly. And,
 instead of or as well as the normal `setFoo(Optional<String>)` method, you can
 have `setFoo(String)`. Then `setFoo(s)` is equivalent to
-`setFoo(Optional.of(s))`.
+`setFoo(Optional.of(s))`. (If it is `setFoo(@Nullable String)`, then `setFoo(s)`
+is equivalent to `setFoo(Optional.ofNullable(s))`.)
 
 Here, `Optional` means either [`java.util.Optional`] from Java (Java 8 or
 later), or [`com.google.common.base.Optional`] from Guava. Java 8 also
@@ -419,7 +425,22 @@ followed by the string `Builder`. Even if the properties follow the
 `getCountries()` convention, the builder method must be `countriesBuilder()`
 and not `getCountriesBuilder()`.
 
-You may notice a small problem with this example: the caller can no longer
+It's also possible to have a method like `countriesBuilder` with a single
+argument, provided that the `Builder` class has a public constructor or a
+static `builder` method, with one parameter that the argument can be assigned
+to. For example, if `countries()` were an `ImmutableSortedSet<String>` and you
+wanted to supply a `Comparator` to `ImmutableSortedSet.Builder`, you could
+write:
+
+```java
+    public abstract ImmutableSortedSet.Builder<String>
+        countriesBuilder(Comparator<String> comparator);
+```
+
+That works because `ImmutableSortedSet.Builder` has a constructor that
+accepts a `Comparator` parameter.
+
+You may notice a small problem with these examples: the caller can no longer
 create their instance in a single chained statement:
 
 ```java
@@ -598,5 +619,21 @@ If `speciesBuilder()` is never called then the final `species()` property will
 be set as if by `speciesBuilder().build()`. In the example, that would result
 in an exception because the required properties of `Species` have not been set.
 
+## <a name="step"></a>... create a "step builder"?
+
+A [_step builder_](http://rdafbn.blogspot.com/2012/07/step-builder-pattern_28.html)
+is a collection of builder interfaces that take you step by step through the
+setting of each of a list of required properties. We think that these are a nice
+idea in principle but not necessarily in practice. Regardless, if you want to
+use AutoValue to implement a step builder,
+[this example](https://github.com/google/auto/issues/1000#issuecomment-792875738)
+shows you how.
+
+## <a name="autobuilder"></a> ... create a builder for something other than an `@AutoValue`?
+
+Sometimes you want to make a builder like the kind described here, but have it
+build something other than an `@AutoValue` class, or even call a static method.
+In that case you can use `@AutoBuilder`. See
+[its documentation](autobuilder.md).
 
 [protobuf]: https://developers.google.com/protocol-buffers/docs/reference/java-generated#builders

@@ -282,6 +282,12 @@ ble_advertise_settings_tx_powers = {
     "high": 3
 }
 
+# Bluetooth Low Energy advertise settings own address type
+ble_advertise_settings_own_address_types = {
+    "public": 0,
+    "random": 1
+}
+
 # Bluetooth Low Energy service uuids for specific devices
 ble_uuids = {
     "p_service": "0000feef-0000-1000-8000-00805f9b34fb",
@@ -342,6 +348,7 @@ gatt_cb_strings = {
     "desc_read": "GattConnect{}onDescriptorRead",
     "desc_read_req": "GattServer{}onDescriptorReadRequest",
     "rd_remote_rssi": "GattConnect{}onReadRemoteRssi",
+    "rd_remote_ble_rssi": "BleScan{}onScanResults",
     "gatt_serv_disc": "GattConnect{}onServicesDiscovered",
     "serv_added": "GattServer{}onServiceAdded",
     "mtu_changed": "GattConnect{}onMtuChanged",

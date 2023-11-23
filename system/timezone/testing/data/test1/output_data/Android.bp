@@ -14,12 +14,32 @@
 
 package {
     // http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // the below license kinds from "system_timezone_license":
-    //   SPDX-license-identifier-BSD
-    //   SPDX-license-identifier-MIT
-    //   SPDX-license-identifier-Unicode-DFS
-    default_applicable_licenses: ["system_timezone_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+license {
+    name: "system_timezone_testing_test1_output_data_iana_licence",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "iana/NOTICE",
+    ],
+}
+
+license {
+    name: "system_timezone_testing_test1_output_data_icu_licence",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-Unicode-DFS",
+    ],
+    license_text: [
+        "icu_overlay/LICENSE",
+    ],
 }
 
 prebuilt_etc {
@@ -49,6 +69,7 @@ prebuilt_etc {
 prebuilt_etc {
     name: "apex_tzdata_test1",
     src: "iana/tzdata",
+    licenses: ["system_timezone_testing_test1_output_data_iana_licence"],
     notice: "iana/NOTICE",
     filename: "tzdata",
     sub_dir: "tz",
@@ -58,6 +79,7 @@ prebuilt_etc {
 prebuilt_etc {
     name: "apex_icu_tzdata.dat_test1",
     src: "icu_overlay/icu_tzdata.dat",
+    licenses: ["system_timezone_testing_test1_output_data_icu_licence"],
     notice: "icu_overlay/LICENSE",
     filename: "icu_tzdata.dat",
     sub_dir: "icu",

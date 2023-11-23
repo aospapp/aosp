@@ -22,6 +22,8 @@ import android.view.autofill.AutofillManager;
 
 import androidx.fragment.app.FragmentActivity;
 
+import com.android.tv.settings.library.settingslib.AutofillHelper;
+
 /**
  * Standalone activity used to launch a {@link AutofillPickerActivity" from a
  * {@link android.provider.Settings#ACTION_REQUEST_SET_AUTOFILL_SERVICE} intent.

@@ -212,7 +212,7 @@
         "binary_name": "ocl-test-spir",
         "srcs": [
             "test_conformance/spir/*.cpp",
-            "test_conformance/math_brute_force/FunctionList.cpp",
+            "test_conformance/math_brute_force/function_list.cpp",
             "test_common/miniz/miniz.c"
         ],
         "data": [ "test_conformance/spir/*.zip" ],

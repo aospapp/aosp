@@ -46,8 +46,7 @@ class UpdatePackagesAndRunTryjobsTest(unittest.TestCase):
   def testMatchedLastTestedFile(self):
     with test_helpers.CreateTemporaryFile() as last_tested_file:
       arg_dict = {
-          'svn_version':
-              1234,
+          'svn_version': 1234,
           'ebuilds': [
               '/path/to/package1-r2.ebuild',
               '/path/to/package2/package2-r3.ebuild'
@@ -104,8 +103,9 @@ class UpdatePackagesAndRunTryjobsTest(unittest.TestCase):
     ]
 
     self.assertEqual(
-        update_packages_and_run_tests.GetTryJobCommand(
-            change_list, extra_cls, options, builder), expected_cmd)
+        update_packages_and_run_tests.GetTryJobCommand(change_list, extra_cls,
+                                                       options, builder),
+        expected_cmd)
 
   @mock.patch.object(
       update_packages_and_run_tests,
@@ -123,9 +123,9 @@ class UpdatePackagesAndRunTryjobsTest(unittest.TestCase):
     ]
 
     bb_id = '1234'
-    url = 'https://some_tryjob_url.com'
+    url = 'http://ci.chromium.org/b/%s' % bb_id
 
-    mock_cmd.return_value = json.dumps([{'buildbucket_id': bb_id, 'url': url}])
+    mock_cmd.return_value = json.dumps([{'id': bb_id, 'url': url}])
 
     chroot_path = '/some/path/to/chroot'
     cl = 900

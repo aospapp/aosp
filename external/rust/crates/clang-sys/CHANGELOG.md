@@ -1,3 +1,45 @@
+## [1.3.1] - 2022-02-03
+
+### Added
+- Added missing `clang_getToken` function
+
+## [1.3.0] - 2021-10-31
+
+### Added
+- Added support for `clang` 13.0.x
+- Added support for `clang` 12.0.x
+- Added support for the Haiku operating system
+
+## [1.2.2] - 2021-09-02
+
+### Fixed
+- Fixed handling of paths that contain characters that have special meaning in
+glob patterns (e.g., `[` or `]`)
+
+## [1.2.1] - 2021-08-24
+
+### Changed
+- Updated build script to check the install location used by the
+[Scoop](https://scoop.sh/) command-line installer on Windows
+
+### Fixed
+- Updated build script to support environments where the `PATH` environment
+variable is not set
+
+## [1.2.0] - 2021-04-08
+
+### Changed
+- Changed `Clang::find` to prefer target-prefixed binaries when a `-target`
+argument is provided (e.g., if the arguments `-target` and
+`x86_64-unknown-linux-gnu` are provided, a target-prefixed Clang executable
+such as `x86_64-unknown-linux-gnu-clang` will be preferred over a non-target
+prefixed Clang executable)
+
+### Fixed
+- Fixed build script to split paths in environment variables (e.g.,
+`LD_LIBRARY_PATH`) using the appropriate separator for the platform (previously
+`:` was used as the separator but some platforms such as Windows use `;`)
+
 ## [1.1.1] - 2021-02-19
 
 ### Changed

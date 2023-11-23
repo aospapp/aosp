@@ -18,17 +18,20 @@ package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_SWITCH;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.UserManager;
 
 import com.android.car.qc.QCActionItem;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * Bluetooth Switch QCItem.
@@ -41,9 +44,19 @@ public class BluetoothSwitch extends SettingsQCItem {
 
     @Override
     QCItem getQCItem() {
+        String userRestriction = UserManager.DISALLOW_CONFIG_BLUETOOTH;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCActionItem actionItem = new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH)
                 .setChecked(isBluetoothOn())
                 .setAction(getBroadcastIntent())
+                .setEnabled(!hasUmRestrictions && !hasDpmRestrictions)
+                .setClickableWhileDisabled(hasDpmRestrictions)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        userRestriction))
                 .build();
 
         QCList.Builder listBuilder = new QCList.Builder()

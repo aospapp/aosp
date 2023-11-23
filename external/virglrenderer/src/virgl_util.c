@@ -34,8 +34,10 @@
 #endif
 #include <unistd.h>
 
+#include "os/os_misc.h"
 #include "util/u_pointer.h"
 
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -81,6 +83,7 @@ int create_eventfd(unsigned int initval)
 #ifdef HAVE_EVENTFD_H
    return eventfd(initval, EFD_CLOEXEC | EFD_NONBLOCK);
 #else
+   (void)initval;
    return -1;
 #endif
 }
@@ -112,6 +115,66 @@ void flush_eventfd(int fd)
     do {
        len = read(fd, &value, sizeof(value));
     } while ((len == -1 && errno == EINTR) || len == sizeof(value));
+}
+
+static
+void virgl_default_logger(const char *fmt, va_list va)
+{
+   static FILE* fp = NULL;
+   if (NULL == fp) {
+      const char* log = getenv("VIRGL_LOG_FILE");
+      if (log) {
+         char *log_prefix = strdup(log);
+         char *log_suffix = strstr(log_prefix, "%PID%");
+         if (log_suffix) {
+            *log_suffix = 0;
+            log_suffix += 5;
+            int len = strlen(log) + 32;
+            char *name = malloc(len);
+            snprintf(name, len, "%s%d%s", log_prefix, getpid(), log_suffix);
+            fp = fopen(name, "a");
+            free(name);
+         } else {
+            fp = fopen(log, "a");
+         }
+         free(log_prefix);
+         if (NULL == fp) {
+            fprintf(stderr, "Can't open %s\n", log);
+            fp = stderr;
+         }
+      } else {
+            fp = stderr;
+      }
+   }
+   vfprintf(fp, fmt, va);
+   fflush(fp);
+}
+
+static
+void virgl_null_logger(UNUSED const char *fmt, UNUSED va_list va)
+{
+}
+
+static virgl_debug_callback_type virgl_logger = virgl_default_logger;
+
+virgl_debug_callback_type virgl_log_set_logger(virgl_debug_callback_type logger)
+{
+   virgl_debug_callback_type old = virgl_logger;
+
+   /* virgl_null_logger is internal */
+   if (old == virgl_null_logger)
+      old = NULL;
+   if (!logger)
+      logger = virgl_null_logger;
+
+   virgl_logger = logger;
+   return old;
+}
+
+void virgl_logv(const char *fmt, va_list va)
+{
+   assert(virgl_logger);
+   virgl_logger(fmt, va);
 }
 
 #if ENABLE_TRACING == TRACE_WITH_PERCETTO

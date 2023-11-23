@@ -26,8 +26,10 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.filesystem.cts" />
         <option name="runtime-hint" value="14m48s" />
-        <!-- test-timeout unit is ms, value = 60 min -->
-        <option name="test-timeout" value="3600000" />
+        <!-- test-timeout unit is ms, value = 70 min -->
+        <option name="test-timeout" value="4200000" />
+        <!-- shell-timeout unit is ms, value = 180 min for AlmostFullTest -->
+        <option name="shell-timeout" value="10800000" />
         <!-- disable isolated storage so tests can write report log -->
         <option name="isolated-storage" value="false" />
     </test>

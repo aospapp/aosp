@@ -19,12 +19,12 @@ This xml contains UX restrictions configuration for testing.
 -->
 <UxRestrictions xmlns:car="http://schemas.android.com/apk/res-auto">
     <RestrictionMapping>
-        <DrivingState car:state="moving" car:minSpeed="0" car:maxSpeed="5.0">
-            <Restrictions car:requiresDistractionOptimization="true" car:uxr="no_video"/>
+        <DrivingState state="moving" minSpeed="0" maxSpeed="5.0">
+            <Restrictions requiresDistractionOptimization="true" uxr="no_video"/>
         </DrivingState>
         <!-- Restrictions for speed >=5 -->
-        <DrivingState car:state="moving" car:minSpeed="5.0">
-            <Restrictions car:requiresDistractionOptimization="true" car:uxr="no_keyboard"/>
+        <DrivingState state="moving" minSpeed="5.0">
+            <Restrictions requiresDistractionOptimization="true" uxr="no_keyboard"/>
         </DrivingState>
     </RestrictionMapping>
 </UxRestrictions>

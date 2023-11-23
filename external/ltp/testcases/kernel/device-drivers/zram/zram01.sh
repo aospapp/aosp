@@ -1,6 +1,6 @@
 #!/bin/sh
 # Copyright (c) 2015 Oracle and/or its affiliates. All Rights Reserved.
-# Copyright (c) 2019 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2019-2021 Petr Vorel <pvorel@suse.cz>
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 #
 # Test creates several zram devices with different filesystems on them.
@@ -10,23 +10,23 @@ TST_CNT=7
 TST_TESTFUNC="do_test"
 TST_NEEDS_CMDS="awk bc dd"
 . zram_lib.sh
+TST_SETUP="setup"
 
-# Test will create the following number of zram devices:
-dev_num=4
-# This is a list of parameters for zram devices.
-# Number of items must be equal to 'dev_num' parameter.
-zram_max_streams="2 3 5 8"
+check_space_for_btrfs()
+{
+	local ram_size
 
-FS_SIZE="402653184"
-FS_TYPE="btrfs"
+	ram_size=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
+	if [ "$ram_size" -lt 1048576 ]; then
+		tst_res TINFO "not enough space for Btrfs"
+		return 1
+	fi
+	return 0
+}
 
-RAM_SIZE=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
-if [ "$RAM_SIZE" -lt 1048576 ]; then
-	tst_res TINFO "not enough space for Btrfs"
-	FS_SIZE="26214400"
-	FS_TYPE="ext2"
-fi
-
+# List of parameters for zram devices.
+# For each number the test creates own zram device.
+# NOTE about size:
 # The zram sysfs node 'disksize' value can be either in bytes,
 # or you can use mem suffixes. But in some old kernels, mem
 # suffixes are not supported, for example, in RHEL6.6GA's kernel
@@ -34,10 +34,71 @@ fi
 # not support mem suffixes, in some newer kernels, they use
 # memparse() which supports mem suffixes. So here we just use
 # bytes to make sure everything works correctly.
-zram_sizes="26214400 26214400 26214400 $FS_SIZE"
-zram_mem_limits="25M 25M 25M $((FS_SIZE/1024/1024))M"
-zram_filesystems="ext3 ext4 xfs $FS_TYPE"
-zram_algs="lzo lzo lzo lzo"
+initialize_vars()
+{
+	local fs limit size stream=-1
+	dev_num=0
+
+	for fs in $(tst_supported_fs); do
+		[ "$fs" = "tmpfs" ] && continue
+		size="26214400"
+		limit="25M"
+		if [ "$fs" = "btrfs" ]; then
+			check_space_for_btrfs || continue
+			size="402653184"
+			limit="$((size/1024/1024))M"
+		fi
+
+		stream=$((stream+3))
+		dev_num=$((dev_num+1))
+		zram_filesystems="$zram_filesystems $fs"
+		zram_mem_limits="$zram_mem_limits $limit"
+		zram_sizes="$zram_sizes $size"
+		zram_max_streams="$zram_max_streams $stream"
+	done
+
+	[ $dev_num -eq 0 ] && \
+		tst_brk TCONF "no suitable filesystem"
+}
+
+setup()
+{
+	initialize_vars
+	zram_load
+}
+
+zram_makefs()
+{
+	local i=0
+	local fs
+
+	for fs in $zram_filesystems; do
+		tst_res TINFO "make $fs filesystem on /dev/zram$i"
+		mkfs.$fs /dev/zram$i > err.log 2>&1
+		if [ $? -ne 0 ]; then
+			cat err.log
+			tst_brk TFAIL "failed to make $fs on /dev/zram$i"
+		fi
+
+		i=$(($i + 1))
+	done
+
+	tst_res TPASS "zram_makefs succeeded"
+}
+
+zram_mount()
+{
+	local i=0
+
+	for i in $(seq 0 $(($dev_num - 1))); do
+		tst_res TINFO "mount /dev/zram$i"
+		mkdir zram$i
+		ROD mount /dev/zram$i zram$i
+		dev_mounted=$i
+	done
+
+	tst_res TPASS "mount of zram device(s) succeeded"
+}
 
 zram_fill_fs()
 {

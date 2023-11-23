@@ -8,15 +8,15 @@ mod vec_cache;
 
 use base::{
     error, open_file, AsRawDescriptor, AsRawDescriptors, FileAllocate, FileReadWriteAtVolatile,
-    FileReadWriteVolatile, FileSetLen, FileSync, PunchHole, RawDescriptor, SeekHole, WriteZeroesAt,
+    FileSetLen, FileSync, PunchHole, RawDescriptor, WriteZeroesAt,
 };
 use data_model::{VolatileMemory, VolatileSlice};
 use libc::{EINVAL, ENOSPC, ENOTSUP};
 use remain::sorted;
+use thiserror::Error;
 
 use std::cmp::{max, min};
-use std::fmt::{self, Display};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::mem::size_of;
 use std::path::Path;
@@ -28,102 +28,85 @@ use crate::qcow::vec_cache::{CacheMap, Cacheable, VecCache};
 use crate::{create_disk_file, DiskFile, DiskGetLen};
 
 #[sorted]
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("backing file io error: {0}")]
     BackingFileIo(io::Error),
+    #[error("backing file open error: {0}")]
     BackingFileOpen(Box<crate::Error>),
+    #[error("backing file name is too long: {0} bytes over")]
     BackingFileTooLong(usize),
+    #[error("compressed blocks not supported")]
     CompressedBlocksNotSupported,
+    #[error("failed to evict cache: {0}")]
     EvictingCache(io::Error),
+    #[error("file larger than max of {}: {0}", MAX_QCOW_FILE_SIZE)]
     FileTooBig(u64),
+    #[error("failed to get file size: {0}")]
     GettingFileSize(io::Error),
+    #[error("failed to get refcount: {0}")]
     GettingRefcount(refcount::Error),
+    #[error("failed to parse filename: {0}")]
     InvalidBackingFileName(str::Utf8Error),
+    #[error("invalid cluster index")]
     InvalidClusterIndex,
+    #[error("invalid cluster size")]
     InvalidClusterSize,
+    #[error("invalid index")]
     InvalidIndex,
+    #[error("invalid L1 table offset")]
     InvalidL1TableOffset,
+    #[error("invalid L1 table size {0}")]
     InvalidL1TableSize(u32),
+    #[error("invalid magic")]
     InvalidMagic,
+    #[error("invalid offset")]
     InvalidOffset(u64),
+    #[error("invalid refcount table offset")]
     InvalidRefcountTableOffset,
+    #[error("invalid refcount table size: {0}")]
     InvalidRefcountTableSize(u64),
+    #[error("no free clusters")]
     NoFreeClusters,
+    #[error("no refcount clusters")]
     NoRefcountClusters,
+    #[error("not enough space for refcounts")]
     NotEnoughSpaceForRefcounts,
+    #[error("failed to open file: {0}")]
     OpeningFile(io::Error),
+    #[error("failed to open file: {0}")]
     ReadingHeader(io::Error),
+    #[error("failed to read pointers: {0}")]
     ReadingPointers(io::Error),
+    #[error("failed to read ref count block: {0}")]
     ReadingRefCountBlock(refcount::Error),
+    #[error("failed to read ref counts: {0}")]
     ReadingRefCounts(io::Error),
+    #[error("failed to rebuild ref counts: {0}")]
     RebuildingRefCounts(io::Error),
+    #[error("refcount table offset past file end")]
     RefcountTableOffEnd,
+    #[error("too many clusters specified for refcount table")]
     RefcountTableTooLarge,
+    #[error("failed to seek file: {0}")]
     SeekingFile(io::Error),
+    #[error("failed to set refcount refcount: {0}")]
     SettingRefcountRefcount(io::Error),
+    #[error("size too small for number of clusters")]
     SizeTooSmallForNumberOfClusters,
+    #[error("l1 entry table too large: {0}")]
     TooManyL1Entries(u64),
+    #[error("ref count table too large: {0}")]
     TooManyRefcounts(u64),
+    #[error("unsupported refcount order")]
     UnsupportedRefcountOrder,
+    #[error("unsupported version: {0}")]
     UnsupportedVersion(u32),
+    #[error("failed to write header: {0}")]
     WritingHeader(io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    #[remain::check]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        #[sorted]
-        match self {
-            BackingFileIo(e) => write!(f, "backing file io error: {}", e),
-            BackingFileOpen(e) => write!(f, "backing file open error: {}", *e),
-            BackingFileTooLong(len) => {
-                write!(f, "backing file name is too long: {} bytes over", len)
-            }
-            CompressedBlocksNotSupported => write!(f, "compressed blocks not supported"),
-            EvictingCache(e) => write!(f, "failed to evict cache: {}", e),
-            FileTooBig(size) => write!(
-                f,
-                "file larger than max of {}: {}",
-                MAX_QCOW_FILE_SIZE, size
-            ),
-            GettingFileSize(e) => write!(f, "failed to get file size: {}", e),
-            GettingRefcount(e) => write!(f, "failed to get refcount: {}", e),
-            InvalidBackingFileName(e) => write!(f, "failed to parse filename: {}", e),
-            InvalidClusterIndex => write!(f, "invalid cluster index"),
-            InvalidClusterSize => write!(f, "invalid cluster size"),
-            InvalidIndex => write!(f, "invalid index"),
-            InvalidL1TableOffset => write!(f, "invalid L1 table offset"),
-            InvalidL1TableSize(size) => write!(f, "invalid L1 table size {}", size),
-            InvalidMagic => write!(f, "invalid magic"),
-            InvalidOffset(_) => write!(f, "invalid offset"),
-            InvalidRefcountTableOffset => write!(f, "invalid refcount table offset"),
-            InvalidRefcountTableSize(size) => write!(f, "invalid refcount table size: {}", size),
-            NoFreeClusters => write!(f, "no free clusters"),
-            NoRefcountClusters => write!(f, "no refcount clusters"),
-            NotEnoughSpaceForRefcounts => write!(f, "not enough space for refcounts"),
-            OpeningFile(e) => write!(f, "failed to open file: {}", e),
-            ReadingHeader(e) => write!(f, "failed to read header: {}", e),
-            ReadingPointers(e) => write!(f, "failed to read pointers: {}", e),
-            ReadingRefCountBlock(e) => write!(f, "failed to read ref count block: {}", e),
-            ReadingRefCounts(e) => write!(f, "failed to read ref counts: {}", e),
-            RebuildingRefCounts(e) => write!(f, "failed to rebuild ref counts: {}", e),
-            RefcountTableOffEnd => write!(f, "refcount table offset past file end"),
-            RefcountTableTooLarge => write!(f, "too many clusters specified for refcount table"),
-            SeekingFile(e) => write!(f, "failed to seek file: {}", e),
-            SettingRefcountRefcount(e) => write!(f, "failed to set refcount refcount: {}", e),
-            SizeTooSmallForNumberOfClusters => write!(f, "size too small for number of clusters"),
-            TooManyL1Entries(count) => write!(f, "l1 entry table too large: {}", count),
-            TooManyRefcounts(count) => write!(f, "ref count table too large: {}", count),
-            UnsupportedRefcountOrder => write!(f, "unsupported refcount order"),
-            UnsupportedVersion(v) => write!(f, "unsupported version: {}", v),
-            WritingHeader(e) => write!(f, "failed to write header: {}", e),
-        }
-    }
-}
 
 // Maximum data size supported.
 const MAX_QCOW_FILE_SIZE: u64 = 0x01 << 44; // 16 TB.
@@ -392,13 +375,14 @@ fn max_refcount_clusters(refcount_order: u32, cluster_size: u32, num_clusters: u
 /// # Example
 ///
 /// ```
-/// # use std::io::{Read, Seek, SeekFrom};
+/// # use base::FileReadWriteAtVolatile;
+/// # use data_model::VolatileSlice;
 /// # use disk::QcowFile;
 /// # fn test(file: std::fs::File) -> std::io::Result<()> {
-///     let mut q = QcowFile::from(file).expect("Can't open qcow file");
+///     let mut q = QcowFile::from(file, disk::MAX_NESTING_DEPTH).expect("Can't open qcow file");
 ///     let mut buf = [0u8; 12];
-///     q.seek(SeekFrom::Start(10 as u64))?;
-///     q.read(&mut buf[..])?;
+///     let mut vslice = VolatileSlice::new(&mut buf);
+///     q.read_at_volatile(vslice, 10)?;
 /// #   Ok(())
 /// # }
 /// ```
@@ -420,7 +404,7 @@ pub struct QcowFile {
 
 impl QcowFile {
     /// Creates a QcowFile from `file`. File must be a valid qcow2 image.
-    pub fn from(mut file: File) -> Result<QcowFile> {
+    pub fn from(mut file: File, max_nesting_depth: u32) -> Result<QcowFile> {
         let header = QcowHeader::new(&mut file)?;
 
         // Only v3 files are supported.
@@ -448,13 +432,12 @@ impl QcowFile {
             let path = backing_file_path.clone();
             let backing_raw_file = open_file(
                 Path::new(&path),
-                true, /*read_only*/
-                // TODO(b/190435784): Add support for O_DIRECT.
-                false, /*O_DIRECT*/
+                OpenOptions::new().read(true), // TODO(b/190435784): Add support for O_DIRECT.
             )
             .map_err(|e| Error::BackingFileIo(e.into()))?;
-            let backing_file = create_disk_file(backing_raw_file)
-                .map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
+            let backing_file =
+                create_disk_file(backing_raw_file, max_nesting_depth, Path::new(&path))
+                    .map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
             Some(backing_file)
         } else {
             None
@@ -581,32 +564,43 @@ impl QcowFile {
     /// Creates a new QcowFile at the given path.
     pub fn new(file: File, virtual_size: u64) -> Result<QcowFile> {
         let header = QcowHeader::create_for_size_and_path(virtual_size, None)?;
-        QcowFile::new_from_header(file, header)
+        QcowFile::new_from_header(file, header, 1)
     }
 
     /// Creates a new QcowFile at the given path.
-    pub fn new_from_backing(file: File, backing_file_name: &str) -> Result<QcowFile> {
+    pub fn new_from_backing(
+        file: File,
+        backing_file_name: &str,
+        backing_file_max_nesting_depth: u32,
+    ) -> Result<QcowFile> {
+        let backing_path = Path::new(backing_file_name);
         let backing_raw_file = open_file(
-            Path::new(backing_file_name),
-            true, /*read_only*/
-            // TODO(b/190435784): add support for O_DIRECT.
-            false, /*O_DIRECT*/
+            backing_path,
+            OpenOptions::new().read(true), // TODO(b/190435784): add support for O_DIRECT.
         )
         .map_err(|e| Error::BackingFileIo(e.into()))?;
-        let backing_file =
-            create_disk_file(backing_raw_file).map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
+        let backing_file = create_disk_file(
+            backing_raw_file,
+            backing_file_max_nesting_depth,
+            backing_path,
+        )
+        .map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
         let size = backing_file.get_len().map_err(Error::BackingFileIo)?;
         let header = QcowHeader::create_for_size_and_path(size, Some(backing_file_name))?;
-        let mut result = QcowFile::new_from_header(file, header)?;
+        let mut result = QcowFile::new_from_header(file, header, backing_file_max_nesting_depth)?;
         result.backing_file = Some(backing_file);
         Ok(result)
     }
 
-    fn new_from_header(mut file: File, header: QcowHeader) -> Result<QcowFile> {
+    fn new_from_header(
+        mut file: File,
+        header: QcowHeader,
+        max_nesting_depth: u32,
+    ) -> Result<QcowFile> {
         file.seek(SeekFrom::Start(0)).map_err(Error::SeekingFile)?;
         header.write_to(&mut file)?;
 
-        let mut qcow = Self::from(file)?;
+        let mut qcow = Self::from(file, max_nesting_depth)?;
 
         // Set the refcount for each refcount table cluster.
         let cluster_size = 0x01u64 << qcow.header.cluster_bits;
@@ -628,60 +622,6 @@ impl QcowFile {
 
     pub fn set_backing_file(&mut self, backing: Option<Box<dyn DiskFile>>) {
         self.backing_file = backing;
-    }
-
-    /// Returns the `QcowHeader` for this file.
-    pub fn header(&self) -> &QcowHeader {
-        &self.header
-    }
-
-    /// Returns the L1 lookup table for this file. This is only useful for debugging.
-    pub fn l1_table(&self) -> &[u64] {
-        &self.l1_table.get_values()
-    }
-
-    /// Returns an L2_table of cluster addresses, only used for debugging.
-    pub fn l2_table(&mut self, l1_index: usize) -> Result<Option<&[u64]>> {
-        let l2_addr_disk = *self.l1_table.get(l1_index).ok_or(Error::InvalidIndex)?;
-
-        if l2_addr_disk == 0 {
-            // Reading from an unallocated cluster will return zeros.
-            return Ok(None);
-        }
-
-        if !self.l2_cache.contains_key(&l1_index) {
-            // Not in the cache.
-            let table = VecCache::from_vec(
-                Self::read_l2_cluster(&mut self.raw_file, l2_addr_disk)
-                    .map_err(Error::ReadingPointers)?,
-            );
-            let l1_table = &self.l1_table;
-            let raw_file = &mut self.raw_file;
-            self.l2_cache
-                .insert(l1_index, table, |index, evicted| {
-                    raw_file.write_pointer_table(
-                        l1_table[index],
-                        evicted.get_values(),
-                        CLUSTER_USED_FLAG,
-                    )
-                })
-                .map_err(Error::EvictingCache)?;
-        }
-
-        // The index must exist as it was just inserted if it didn't already.
-        Ok(Some(self.l2_cache.get(&l1_index).unwrap().get_values()))
-    }
-
-    /// Returns the refcount table for this file. This is only useful for debugging.
-    pub fn ref_table(&self) -> &[u64] {
-        &self.refcounts.ref_table()
-    }
-
-    /// Returns the `index`th refcount block from the file.
-    pub fn refcount_block(&mut self, index: usize) -> Result<Option<&[u16]>> {
-        self.refcounts
-            .refcount_block(&mut self.raw_file, index)
-            .map_err(Error::ReadingRefCountBlock)
     }
 
     /// Returns the first cluster in the file with a 0 refcount. Used for testing.
@@ -892,7 +832,7 @@ impl QcowFile {
 
             // Rewrite the top-level refcount table.
             raw_file
-                .write_pointer_table(header.refcount_table_offset, &ref_table, 0)
+                .write_pointer_table(header.refcount_table_offset, ref_table, 0)
                 .map_err(Error::WritingHeader)?;
 
             // Rewrite the header again, now with lazy refcounts disabled.
@@ -1185,77 +1125,6 @@ impl QcowFile {
         Ok(new_addr)
     }
 
-    // Returns true if the cluster containing `address` is already allocated.
-    fn cluster_allocated(&mut self, address: u64) -> std::io::Result<bool> {
-        if address >= self.virtual_size() as u64 {
-            return Err(std::io::Error::from_raw_os_error(EINVAL));
-        }
-
-        let l1_index = self.l1_table_index(address) as usize;
-        let l2_addr_disk = *self
-            .l1_table
-            .get(l1_index)
-            .ok_or_else(|| std::io::Error::from_raw_os_error(EINVAL))?;
-        let l2_index = self.l2_table_index(address) as usize;
-
-        if l2_addr_disk == 0 {
-            // The whole L2 table for this address is not allocated yet,
-            // so the cluster must also be unallocated.
-            return Ok(false);
-        }
-
-        if !self.l2_cache.contains_key(&l1_index) {
-            // Not in the cache.
-            let table =
-                VecCache::from_vec(Self::read_l2_cluster(&mut self.raw_file, l2_addr_disk)?);
-            let l1_table = &self.l1_table;
-            let raw_file = &mut self.raw_file;
-            self.l2_cache.insert(l1_index, table, |index, evicted| {
-                raw_file.write_pointer_table(
-                    l1_table[index],
-                    evicted.get_values(),
-                    CLUSTER_USED_FLAG,
-                )
-            })?;
-        }
-
-        let cluster_addr = self.l2_cache.get(&l1_index).unwrap()[l2_index];
-        // If cluster_addr != 0, the cluster is allocated.
-        Ok(cluster_addr != 0)
-    }
-
-    // Find the first guest address greater than or equal to `address` whose allocation state
-    // matches `allocated`.
-    fn find_allocated_cluster(
-        &mut self,
-        address: u64,
-        allocated: bool,
-    ) -> std::io::Result<Option<u64>> {
-        let size = self.virtual_size();
-        if address >= size {
-            return Ok(None);
-        }
-
-        // If offset is already within a hole, return it.
-        if self.cluster_allocated(address)? == allocated {
-            return Ok(Some(address));
-        }
-
-        // Skip to the next cluster boundary.
-        let cluster_size = self.raw_file.cluster_size();
-        let mut cluster_addr = (address / cluster_size + 1) * cluster_size;
-
-        // Search for clusters with the desired allocation state.
-        while cluster_addr < size {
-            if self.cluster_allocated(cluster_addr)? == allocated {
-                return Ok(Some(cluster_addr));
-            }
-            cluster_addr += cluster_size;
-        }
-
-        Ok(None)
-    }
-
     // Deallocate the storage for the cluster starting at `address`.
     // Any future reads of this cluster will return all zeroes (or the backing file, if in use).
     fn deallocate_cluster(&mut self, address: u64) -> std::io::Result<()> {
@@ -1464,7 +1333,7 @@ impl QcowFile {
         if self.l1_table.dirty() {
             self.raw_file.write_pointer_table(
                 self.header.l1_table_offset,
-                &self.l1_table.get_values(),
+                self.l1_table.get_values(),
                 0,
             )?;
             self.l1_table.mark_clean();
@@ -1507,10 +1376,11 @@ impl QcowFile {
     }
 
     // Writes `count` bytes starting at `address`, calling `cb` repeatedly with the backing file,
-    // number of bytes written so far, and number of bytes to write to the file in that invocation.
+    // number of bytes written so far, raw file offset, and number of bytes to write to the file in
+    // that invocation.
     fn write_cb<F>(&mut self, address: u64, count: usize, mut cb: F) -> std::io::Result<usize>
     where
-        F: FnMut(&mut File, usize, usize) -> std::io::Result<()>,
+        F: FnMut(&mut File, usize, u64, usize) -> std::io::Result<()>,
     {
         let write_count: usize = self.limit_range_file(address, count);
 
@@ -1520,10 +1390,7 @@ impl QcowFile {
             let offset = self.file_offset_write(curr_addr)?;
             let count = self.limit_range_cluster(curr_addr, write_count - nwritten);
 
-            if let Err(e) = self.raw_file.file_mut().seek(SeekFrom::Start(offset)) {
-                return Err(e);
-            }
-            if let Err(e) = cb(self.raw_file.file_mut(), nwritten, count) {
+            if let Err(e) = cb(self.raw_file.file_mut(), nwritten, offset, count) {
                 return Err(e);
             }
 
@@ -1606,49 +1473,20 @@ impl Seek for QcowFile {
 
 impl Write for QcowFile {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let write_count =
-            self.write_cb(self.current_offset, buf.len(), |file, offset, count| {
+        let write_count = self.write_cb(
+            self.current_offset,
+            buf.len(),
+            |file, offset, raw_offset, count| {
+                file.seek(SeekFrom::Start(raw_offset))?;
                 file.write_all(&buf[offset..(offset + count)])
-            })?;
+            },
+        )?;
         self.current_offset += write_count as u64;
         Ok(write_count)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.sync_caches()?;
-        self.avail_clusters.append(&mut self.unref_clusters);
-        Ok(())
-    }
-}
-
-impl FileReadWriteVolatile for QcowFile {
-    fn read_volatile(&mut self, slice: VolatileSlice) -> io::Result<usize> {
-        let read_count = self.read_cb(
-            self.current_offset,
-            slice.size(),
-            |file, read, offset, count| {
-                let sub_slice = slice.get_slice(read, count).unwrap();
-                match file {
-                    Some(f) => f.read_exact_at_volatile(sub_slice, offset),
-                    None => {
-                        sub_slice.write_bytes(0);
-                        Ok(())
-                    }
-                }
-            },
-        )?;
-        self.current_offset += read_count as u64;
-        Ok(read_count)
-    }
-
-    fn write_volatile(&mut self, slice: VolatileSlice) -> io::Result<usize> {
-        let write_count =
-            self.write_cb(self.current_offset, slice.size(), |file, offset, count| {
-                let sub_slice = slice.get_slice(offset, count).unwrap();
-                file.write_all_volatile(sub_slice)
-            })?;
-        self.current_offset += write_count as u64;
-        Ok(write_count)
+        self.fsync()
     }
 }
 
@@ -1667,16 +1505,18 @@ impl FileReadWriteAtVolatile for QcowFile {
     }
 
     fn write_at_volatile(&mut self, slice: VolatileSlice, offset: u64) -> io::Result<usize> {
-        self.write_cb(offset, slice.size(), |file, offset, count| {
+        self.write_cb(offset, slice.size(), |file, offset, raw_offset, count| {
             let sub_slice = slice.get_slice(offset, count).unwrap();
-            file.write_all_volatile(sub_slice)
+            file.write_all_at_volatile(sub_slice, raw_offset)
         })
     }
 }
 
 impl FileSync for QcowFile {
     fn fsync(&mut self) -> std::io::Result<()> {
-        self.flush()
+        self.sync_caches()?;
+        self.avail_clusters.append(&mut self.unref_clusters);
+        Ok(())
     }
 }
 
@@ -1699,7 +1539,11 @@ impl FileAllocate for QcowFile {
     fn allocate(&mut self, offset: u64, len: u64) -> io::Result<()> {
         // Call write_cb with a do-nothing callback, which will have the effect
         // of allocating all clusters in the specified range.
-        self.write_cb(offset, len as usize, |_file, _offset, _count| Ok(()))?;
+        self.write_cb(
+            offset,
+            len as usize,
+            |_file, _offset, _raw_offset, _count| Ok(()),
+        )?;
         Ok(())
     }
 }
@@ -1725,36 +1569,6 @@ impl WriteZeroesAt for QcowFile {
     }
 }
 
-impl SeekHole for QcowFile {
-    fn seek_hole(&mut self, offset: u64) -> io::Result<Option<u64>> {
-        match self.find_allocated_cluster(offset, false) {
-            Err(e) => Err(e),
-            Ok(None) => {
-                if offset < self.virtual_size() {
-                    Ok(Some(self.seek(SeekFrom::End(0))?))
-                } else {
-                    Ok(None)
-                }
-            }
-            Ok(Some(o)) => {
-                self.seek(SeekFrom::Start(o))?;
-                Ok(Some(o))
-            }
-        }
-    }
-
-    fn seek_data(&mut self, offset: u64) -> io::Result<Option<u64>> {
-        match self.find_allocated_cluster(offset, true) {
-            Err(e) => Err(e),
-            Ok(None) => Ok(None),
-            Ok(Some(o)) => {
-                self.seek(SeekFrom::Start(o))?;
-                Ok(Some(o))
-            }
-        }
-    }
-}
-
 // Returns an Error if the given offset doesn't align to a cluster boundary.
 fn offset_is_cluster_boundary(offset: u64, cluster_bits: u32) -> Result<()> {
     if offset & ((0x01 << cluster_bits) - 1) != 0 {
@@ -1776,9 +1590,10 @@ fn div_round_up_u32(dividend: u32, divisor: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base::WriteZeroes;
+    use crate::MAX_NESTING_DEPTH;
+    use std::fs::OpenOptions;
     use std::io::{Read, Seek, SeekFrom, Write};
-    use tempfile::tempfile;
+    use tempfile::{tempfile, TempDir};
 
     fn valid_header() -> Vec<u8> {
         vec![
@@ -1829,7 +1644,7 @@ mod tests {
 
     fn basic_file(header: &[u8]) -> File {
         let mut disk_file = tempfile().expect("failed to create tempfile");
-        disk_file.write_all(&header).unwrap();
+        disk_file.write_all(header).unwrap();
         disk_file.set_len(0x8000_0000).unwrap();
         disk_file.seek(SeekFrom::Start(0)).unwrap();
         disk_file
@@ -1852,6 +1667,22 @@ mod tests {
         testfn(qcow_file); // File closed when the function exits.
     }
 
+    // Test helper function to convert a normal slice to a VolatileSlice and write it.
+    fn write_all_at(qcow: &mut QcowFile, data: &[u8], offset: u64) -> std::io::Result<()> {
+        let mut mem = data.to_owned();
+        let vslice = VolatileSlice::new(&mut mem);
+        qcow.write_all_at_volatile(vslice, offset)
+    }
+
+    // Test helper function to read to a VolatileSlice and copy it to a normal slice.
+    fn read_exact_at(qcow: &mut QcowFile, data: &mut [u8], offset: u64) -> std::io::Result<()> {
+        let mut mem = data.to_owned();
+        let vslice = VolatileSlice::new(&mut mem);
+        qcow.read_exact_at_volatile(vslice, offset)?;
+        vslice.copy_to(data);
+        Ok(())
+    }
+
     #[test]
     fn default_header() {
         let header = QcowHeader::create_for_size_and_path(0x10_0000, None);
@@ -1861,7 +1692,8 @@ mod tests {
             .write_to(&mut disk_file)
             .expect("Failed to write header to shm.");
         disk_file.seek(SeekFrom::Start(0)).unwrap();
-        QcowFile::from(disk_file).expect("Failed to create Qcow from default Header");
+        QcowFile::from(disk_file, MAX_NESTING_DEPTH)
+            .expect("Failed to create Qcow from default Header");
     }
 
     #[test]
@@ -1901,7 +1733,8 @@ mod tests {
         let mut header = valid_header();
         header[99] = 2;
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Invalid refcount order worked.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH)
+                .expect_err("Invalid refcount order worked.");
         });
     }
 
@@ -1910,7 +1743,7 @@ mod tests {
         let mut header = valid_header();
         header[23] = 3;
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Failed to create file.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect_err("Failed to create file.");
         });
     }
 
@@ -1918,16 +1751,16 @@ mod tests {
     fn test_header_huge_file() {
         let header = test_huge_header();
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Failed to create file.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect_err("Failed to create file.");
         });
     }
 
     #[test]
     fn test_header_excessive_file_size_rejected() {
         let mut header = valid_header();
-        &mut header[24..32].copy_from_slice(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1e]);
+        header[24..32].copy_from_slice(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1e]);
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Failed to create file.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect_err("Failed to create file.");
         });
     }
 
@@ -1936,7 +1769,7 @@ mod tests {
         let mut header = valid_header();
         header[36] = 0x12;
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Failed to create file.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect_err("Failed to create file.");
         });
     }
 
@@ -1948,7 +1781,7 @@ mod tests {
         header[31] = 0;
         // 1 TB with the min cluster size makes the arrays too big, it should fail.
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Failed to create file.");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect_err("Failed to create file.");
         });
     }
 
@@ -1962,11 +1795,10 @@ mod tests {
         // set cluster_bits
         header[23] = 16;
         with_basic_file(&header, |disk_file: File| {
-            let mut qcow = QcowFile::from(disk_file).expect("Failed to create file.");
-            qcow.seek(SeekFrom::Start(0x100_0000_0000 - 8))
-                .expect("Failed to seek.");
+            let mut qcow =
+                QcowFile::from(disk_file, MAX_NESTING_DEPTH).expect("Failed to create file.");
             let value = 0x0000_0040_3f00_ffffu64;
-            qcow.write_all(&value.to_le_bytes())
+            write_all_at(&mut qcow, &value.to_le_bytes(), 0x100_0000_0000 - 8)
                 .expect("failed to write data");
         });
     }
@@ -1974,30 +1806,30 @@ mod tests {
     #[test]
     fn test_header_huge_num_refcounts() {
         let mut header = valid_header();
-        &mut header[56..60].copy_from_slice(&[0x02, 0x00, 0xe8, 0xff]);
+        header[56..60].copy_from_slice(&[0x02, 0x00, 0xe8, 0xff]);
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Created disk with excessive refcount clusters");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH)
+                .expect_err("Created disk with excessive refcount clusters");
         });
     }
 
     #[test]
     fn test_header_huge_refcount_offset() {
         let mut header = valid_header();
-        &mut header[48..56].copy_from_slice(&[0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x02, 0x00]);
+        header[48..56].copy_from_slice(&[0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x02, 0x00]);
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Created disk with excessive refcount offset");
+            QcowFile::from(disk_file, MAX_NESTING_DEPTH)
+                .expect_err("Created disk with excessive refcount offset");
         });
     }
 
     #[test]
     fn write_read_start() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
-            q.write(b"test first bytes")
-                .expect("Failed to write test string.");
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
+            write_all_at(&mut q, b"test first bytes", 0).expect("Failed to write test string.");
             let mut buf = [0u8; 4];
-            q.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-            q.read(&mut buf).expect("Failed to read.");
+            read_exact_at(&mut q, &mut buf, 0).expect("Failed to read.");
             assert_eq!(&buf, b"test");
         });
     }
@@ -2005,49 +1837,38 @@ mod tests {
     #[test]
     fn write_read_start_backing() {
         let disk_file = basic_file(&valid_header());
-        let mut backing = QcowFile::from(disk_file).unwrap();
-        backing
-            .write(b"test first bytes")
-            .expect("Failed to write test string.");
+        let mut backing = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
+        write_all_at(&mut backing, b"test first bytes", 0).expect("Failed to write test string.");
         let mut buf = [0u8; 4];
         let wrapping_disk_file = basic_file(&valid_header());
-        let mut wrapping = QcowFile::from(wrapping_disk_file).unwrap();
+        let mut wrapping = QcowFile::from(wrapping_disk_file, MAX_NESTING_DEPTH).unwrap();
         wrapping.set_backing_file(Some(Box::new(backing)));
-        wrapping.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-        wrapping.read(&mut buf).expect("Failed to read.");
+        read_exact_at(&mut wrapping, &mut buf, 0).expect("Failed to read.");
         assert_eq!(&buf, b"test");
     }
 
     #[test]
     fn write_read_start_backing_overlap() {
         let disk_file = basic_file(&valid_header());
-        let mut backing = QcowFile::from(disk_file).unwrap();
-        backing
-            .write(b"test first bytes")
-            .expect("Failed to write test string.");
+        let mut backing = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
+        write_all_at(&mut backing, b"test first bytes", 0).expect("Failed to write test string.");
         let wrapping_disk_file = basic_file(&valid_header());
-        let mut wrapping = QcowFile::from(wrapping_disk_file).unwrap();
+        let mut wrapping = QcowFile::from(wrapping_disk_file, MAX_NESTING_DEPTH).unwrap();
         wrapping.set_backing_file(Some(Box::new(backing)));
-        wrapping.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-        wrapping
-            .write(b"TEST")
-            .expect("Failed to write second test string.");
+        write_all_at(&mut wrapping, b"TEST", 0).expect("Failed to write second test string.");
         let mut buf = [0u8; 10];
-        wrapping.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-        wrapping.read(&mut buf).expect("Failed to read.");
+        read_exact_at(&mut wrapping, &mut buf, 0).expect("Failed to read.");
         assert_eq!(&buf, b"TEST first");
     }
 
     #[test]
     fn offset_write_read() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             let b = [0x55u8; 0x1000];
-            q.seek(SeekFrom::Start(0xfff2000)).expect("Failed to seek.");
-            q.write(&b).expect("Failed to write test string.");
+            write_all_at(&mut q, &b, 0xfff2000).expect("Failed to write test string.");
             let mut buf = [0u8; 4];
-            q.seek(SeekFrom::Start(0xfff2000)).expect("Failed to seek.");
-            q.read(&mut buf).expect("Failed to read.");
+            read_exact_at(&mut q, &mut buf, 0xfff2000).expect("Failed to read.");
             assert_eq!(buf[0], 0x55);
         });
     }
@@ -2055,18 +1876,16 @@ mod tests {
     #[test]
     fn write_zeroes_read() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             // Write some test data.
             let b = [0x55u8; 0x1000];
-            q.seek(SeekFrom::Start(0xfff2000)).expect("Failed to seek.");
-            q.write(&b).expect("Failed to write test string.");
+            write_all_at(&mut q, &b, 0xfff2000).expect("Failed to write test string.");
             // Overwrite the test data with zeroes.
-            q.seek(SeekFrom::Start(0xfff2000)).expect("Failed to seek.");
-            q.write_zeroes_all(0x200).expect("Failed to write zeroes.");
+            q.write_zeroes_all_at(0xfff2000, 0x200)
+                .expect("Failed to write zeroes.");
             // Verify that the correct part of the data was zeroed out.
             let mut buf = [0u8; 0x1000];
-            q.seek(SeekFrom::Start(0xfff2000)).expect("Failed to seek.");
-            q.read(&mut buf).expect("Failed to read.");
+            read_exact_at(&mut q, &mut buf, 0xfff2000).expect("Failed to read.");
             assert_eq!(buf[0], 0);
             assert_eq!(buf[0x1FF], 0);
             assert_eq!(buf[0x200], 0x55);
@@ -2080,19 +1899,16 @@ mod tests {
         // valid_header uses cluster_bits = 12, which corresponds to a cluster size of 4096.
         const CHUNK_SIZE: usize = 4096 * 2 + 512;
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             // Write some test data.
             let b = [0x55u8; CHUNK_SIZE];
-            q.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-            q.write(&b).expect("Failed to write test string.");
+            write_all_at(&mut q, &b, 0).expect("Failed to write test string.");
             // Overwrite the full cluster with zeroes.
-            q.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-            q.write_zeroes_all(CHUNK_SIZE)
+            q.write_zeroes_all_at(0, CHUNK_SIZE)
                 .expect("Failed to write zeroes.");
             // Verify that the data was zeroed out.
             let mut buf = [0u8; CHUNK_SIZE];
-            q.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-            q.read(&mut buf).expect("Failed to read.");
+            read_exact_at(&mut q, &mut buf, 0).expect("Failed to read.");
             assert_eq!(buf[0], 0);
             assert_eq!(buf[CHUNK_SIZE - 1], 0);
         });
@@ -2101,40 +1917,30 @@ mod tests {
     #[test]
     fn write_zeroes_backing() {
         let disk_file = basic_file(&valid_header());
-        let mut backing = QcowFile::from(disk_file).unwrap();
+        let mut backing = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
         // Write some test data.
         let b = [0x55u8; 0x1000];
-        backing
-            .seek(SeekFrom::Start(0xfff2000))
-            .expect("Failed to seek.");
-        backing.write(&b).expect("Failed to write test string.");
+        write_all_at(&mut backing, &b, 0xfff2000).expect("Failed to write test string.");
         let wrapping_disk_file = basic_file(&valid_header());
-        let mut wrapping = QcowFile::from(wrapping_disk_file).unwrap();
+        let mut wrapping = QcowFile::from(wrapping_disk_file, MAX_NESTING_DEPTH).unwrap();
         wrapping.set_backing_file(Some(Box::new(backing)));
         // Overwrite the test data with zeroes.
         // This should allocate new clusters in the wrapping file so that they can be zeroed.
         wrapping
-            .seek(SeekFrom::Start(0xfff2000))
-            .expect("Failed to seek.");
-        wrapping
-            .write_zeroes_all(0x200)
+            .write_zeroes_all_at(0xfff2000, 0x200)
             .expect("Failed to write zeroes.");
         // Verify that the correct part of the data was zeroed out.
         let mut buf = [0u8; 0x1000];
-        wrapping
-            .seek(SeekFrom::Start(0xfff2000))
-            .expect("Failed to seek.");
-        wrapping.read(&mut buf).expect("Failed to read.");
+        read_exact_at(&mut wrapping, &mut buf, 0xfff2000).expect("Failed to read.");
         assert_eq!(buf[0], 0);
         assert_eq!(buf[0x1FF], 0);
         assert_eq!(buf[0x200], 0x55);
         assert_eq!(buf[0xFFF], 0x55);
     }
-
     #[test]
     fn test_header() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let q = QcowFile::from(disk_file).unwrap();
+            let q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             assert_eq!(q.virtual_size(), 0x20_0000_0000);
         });
     }
@@ -2142,10 +1948,9 @@ mod tests {
     #[test]
     fn read_small_buffer() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             let mut b = [5u8; 16];
-            q.seek(SeekFrom::Start(1000)).expect("Failed to seek.");
-            q.read(&mut b).expect("Failed to read.");
+            read_exact_at(&mut q, &mut b, 1000).expect("Failed to read.");
             assert_eq!(0, b[0]);
             assert_eq!(0, b[15]);
         });
@@ -2154,7 +1959,7 @@ mod tests {
     #[test]
     fn replay_ext4() {
         with_basic_file(&valid_header(), |disk_file: File| {
-            let mut q = QcowFile::from(disk_file).unwrap();
+            let mut q = QcowFile::from(disk_file, MAX_NESTING_DEPTH).unwrap();
             const BUF_SIZE: usize = 0x1000;
             let mut b = [0u8; BUF_SIZE];
 
@@ -2516,12 +2321,10 @@ mod tests {
             ];
 
             for xfer in &xfers {
-                q.seek(SeekFrom::Start(xfer.addr)).expect("Failed to seek.");
                 if xfer.write {
-                    q.write(&b).expect("Failed to write.");
+                    write_all_at(&mut q, &b, xfer.addr).expect("Failed to write.");
                 } else {
-                    let read_count: usize = q.read(&mut b).expect("Failed to read.");
-                    assert_eq!(read_count, BUF_SIZE);
+                    read_exact_at(&mut q, &mut b, xfer.addr).expect("Failed to read.");
                 }
             }
         });
@@ -2537,153 +2340,29 @@ mod tests {
             let mut readback = [0u8; BLOCK_SIZE];
             for i in 0..NUM_BLOCKS {
                 let seek_offset = OFFSET + (i as u64) * (BLOCK_SIZE as u64);
-                qcow_file
-                    .seek(SeekFrom::Start(seek_offset))
-                    .expect("Failed to seek.");
-                let nwritten = qcow_file.write(&data).expect("Failed to write test data.");
-                assert_eq!(nwritten, BLOCK_SIZE);
+                write_all_at(&mut qcow_file, &data, seek_offset)
+                    .expect("Failed to write test data.");
                 // Read back the data to check it was written correctly.
-                qcow_file
-                    .seek(SeekFrom::Start(seek_offset))
-                    .expect("Failed to seek.");
-                let nread = qcow_file.read(&mut readback).expect("Failed to read.");
-                assert_eq!(nread, BLOCK_SIZE);
+                read_exact_at(&mut qcow_file, &mut readback, seek_offset).expect("Failed to read.");
                 for (orig, read) in data.iter().zip(readback.iter()) {
                     assert_eq!(orig, read);
                 }
             }
             // Check that address 0 is still zeros.
-            qcow_file.seek(SeekFrom::Start(0)).expect("Failed to seek.");
-            let nread = qcow_file.read(&mut readback).expect("Failed to read.");
-            assert_eq!(nread, BLOCK_SIZE);
+            read_exact_at(&mut qcow_file, &mut readback, 0).expect("Failed to read.");
             for read in readback.iter() {
                 assert_eq!(*read, 0);
             }
             // Check the data again after the writes have happened.
             for i in 0..NUM_BLOCKS {
                 let seek_offset = OFFSET + (i as u64) * (BLOCK_SIZE as u64);
-                qcow_file
-                    .seek(SeekFrom::Start(seek_offset))
-                    .expect("Failed to seek.");
-                let nread = qcow_file.read(&mut readback).expect("Failed to read.");
-                assert_eq!(nread, BLOCK_SIZE);
+                read_exact_at(&mut qcow_file, &mut readback, seek_offset).expect("Failed to read.");
                 for (orig, read) in data.iter().zip(readback.iter()) {
                     assert_eq!(orig, read);
                 }
             }
 
             assert_eq!(qcow_file.first_zero_refcount().unwrap(), None);
-        });
-    }
-
-    fn seek_cur(file: &mut QcowFile) -> u64 {
-        file.seek(SeekFrom::Current(0)).unwrap()
-    }
-
-    #[test]
-    fn seek_data() {
-        with_default_file(0x30000, |mut file| {
-            // seek_data at or after the end of the file should return None
-            assert_eq!(file.seek_data(0x10000).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
-            assert_eq!(file.seek_data(0x10001).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
-
-            // Write some data to [0x10000, 0x20000)
-            let b = [0x55u8; 0x10000];
-            file.seek(SeekFrom::Start(0x10000)).unwrap();
-            file.write_all(&b).unwrap();
-            assert_eq!(file.seek_data(0).unwrap(), Some(0x10000));
-            assert_eq!(seek_cur(&mut file), 0x10000);
-
-            // seek_data within data should return the same offset
-            assert_eq!(file.seek_data(0x10000).unwrap(), Some(0x10000));
-            assert_eq!(seek_cur(&mut file), 0x10000);
-            assert_eq!(file.seek_data(0x10001).unwrap(), Some(0x10001));
-            assert_eq!(seek_cur(&mut file), 0x10001);
-            assert_eq!(file.seek_data(0x1FFFF).unwrap(), Some(0x1FFFF));
-            assert_eq!(seek_cur(&mut file), 0x1FFFF);
-
-            assert_eq!(file.seek_data(0).unwrap(), Some(0x10000));
-            assert_eq!(seek_cur(&mut file), 0x10000);
-            assert_eq!(file.seek_data(0x1FFFF).unwrap(), Some(0x1FFFF));
-            assert_eq!(seek_cur(&mut file), 0x1FFFF);
-            assert_eq!(file.seek_data(0x20000).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0x1FFFF);
-        });
-    }
-
-    #[test]
-    fn seek_hole() {
-        with_default_file(0x30000, |mut file| {
-            // File consisting entirely of a hole
-            assert_eq!(file.seek_hole(0).unwrap(), Some(0));
-            assert_eq!(seek_cur(&mut file), 0);
-            assert_eq!(file.seek_hole(0xFFFF).unwrap(), Some(0xFFFF));
-            assert_eq!(seek_cur(&mut file), 0xFFFF);
-
-            // seek_hole at or after the end of the file should return None
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x30000).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
-            assert_eq!(file.seek_hole(0x30001).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
-
-            // Write some data to [0x10000, 0x20000)
-            let b = [0x55u8; 0x10000];
-            file.seek(SeekFrom::Start(0x10000)).unwrap();
-            file.write_all(&b).unwrap();
-
-            // seek_hole within a hole should return the same offset
-            assert_eq!(file.seek_hole(0).unwrap(), Some(0));
-            assert_eq!(seek_cur(&mut file), 0);
-            assert_eq!(file.seek_hole(0xFFFF).unwrap(), Some(0xFFFF));
-            assert_eq!(seek_cur(&mut file), 0xFFFF);
-
-            // seek_hole within data should return the next hole
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x10000).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x10001).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x1FFFF).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0xFFFF).unwrap(), Some(0xFFFF));
-            assert_eq!(seek_cur(&mut file), 0xFFFF);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x10000).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x1FFFF).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x20000).unwrap(), Some(0x20000));
-            assert_eq!(seek_cur(&mut file), 0x20000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x20001).unwrap(), Some(0x20001));
-            assert_eq!(seek_cur(&mut file), 0x20001);
-
-            // seek_hole at EOF should return None
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x30000).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
-
-            // Write some data to [0x20000, 0x30000)
-            file.seek(SeekFrom::Start(0x20000)).unwrap();
-            file.write_all(&b).unwrap();
-
-            // seek_hole within [0x20000, 0x30000) should now find the hole at EOF
-            assert_eq!(file.seek_hole(0x20000).unwrap(), Some(0x30000));
-            assert_eq!(seek_cur(&mut file), 0x30000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x20001).unwrap(), Some(0x30000));
-            assert_eq!(seek_cur(&mut file), 0x30000);
-            file.seek(SeekFrom::Start(0)).unwrap();
-            assert_eq!(file.seek_hole(0x30000).unwrap(), None);
-            assert_eq!(seek_cur(&mut file), 0);
         });
     }
 
@@ -2696,6 +2375,136 @@ mod tests {
                 QcowRawFile::from(disk_file, cluster_size).expect("Failed to create QcowRawFile.");
             QcowFile::rebuild_refcounts(&mut raw_file, header)
                 .expect("Failed to rebuild recounts.");
+        });
+    }
+
+    #[test]
+    fn nested_qcow() {
+        let tmp_dir = TempDir::new().unwrap();
+
+        // A file `backing` is backing a qcow file `qcow.l1`, which in turn is backing another
+        // qcow file.
+        let backing_file_path = tmp_dir.path().join("backing");
+        let _backing_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&backing_file_path)
+            .unwrap();
+
+        let level1_qcow_file_path = tmp_dir.path().join("qcow.l1");
+        let level1_qcow_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&level1_qcow_file_path)
+            .unwrap();
+        let _level1_qcow_file = QcowFile::new_from_backing(
+            level1_qcow_file,
+            backing_file_path.to_str().unwrap(),
+            1000, /* allow deep nesting */
+        )
+        .unwrap();
+
+        let level2_qcow_file = tempfile().unwrap();
+        let _level2_qcow_file = QcowFile::new_from_backing(
+            level2_qcow_file,
+            level1_qcow_file_path.to_str().unwrap(),
+            1000, /* allow deep nesting */
+        )
+        .expect("failed to create level2 qcow file");
+    }
+
+    #[test]
+    fn io_seek() {
+        with_default_file(1024 * 1024 * 10, |mut qcow_file| {
+            // Cursor should start at 0.
+            assert_eq!(qcow_file.seek(SeekFrom::Current(0)).unwrap(), 0);
+
+            // Seek 1 MB from start.
+            assert_eq!(
+                qcow_file.seek(SeekFrom::Start(1024 * 1024)).unwrap(),
+                1024 * 1024
+            );
+
+            // Rewind 1 MB + 1 byte (past beginning) - seeking to a negative offset is an error and
+            // should not move the cursor.
+            qcow_file
+                .seek(SeekFrom::Current(-(1024 * 1024 + 1)))
+                .expect_err("negative offset seek should fail");
+            assert_eq!(qcow_file.seek(SeekFrom::Current(0)).unwrap(), 1024 * 1024);
+
+            // Seek to last byte.
+            assert_eq!(
+                qcow_file.seek(SeekFrom::End(-1)).unwrap(),
+                1024 * 1024 * 10 - 1
+            );
+
+            // Seek to EOF.
+            assert_eq!(qcow_file.seek(SeekFrom::End(0)).unwrap(), 1024 * 1024 * 10);
+
+            // Seek past EOF is not allowed.
+            qcow_file
+                .seek(SeekFrom::End(1))
+                .expect_err("seek past EOF should fail");
+        });
+    }
+
+    #[test]
+    fn io_write_read() {
+        with_default_file(1024 * 1024 * 10, |mut qcow_file| {
+            const BLOCK_SIZE: usize = 0x1_0000;
+            let data_55 = [0x55u8; BLOCK_SIZE];
+            let data_aa = [0xaau8; BLOCK_SIZE];
+            let mut readback = [0u8; BLOCK_SIZE];
+
+            qcow_file.write_all(&data_55).unwrap();
+            assert_eq!(
+                qcow_file.seek(SeekFrom::Current(0)).unwrap(),
+                BLOCK_SIZE as u64
+            );
+
+            qcow_file.write_all(&data_aa).unwrap();
+            assert_eq!(
+                qcow_file.seek(SeekFrom::Current(0)).unwrap(),
+                BLOCK_SIZE as u64 * 2
+            );
+
+            // Read BLOCK_SIZE of just 0xaa.
+            assert_eq!(
+                qcow_file
+                    .seek(SeekFrom::Current(-(BLOCK_SIZE as i64)))
+                    .unwrap(),
+                BLOCK_SIZE as u64
+            );
+            qcow_file.read_exact(&mut readback).unwrap();
+            assert_eq!(
+                qcow_file.seek(SeekFrom::Current(0)).unwrap(),
+                BLOCK_SIZE as u64 * 2
+            );
+            for (orig, read) in data_aa.iter().zip(readback.iter()) {
+                assert_eq!(orig, read);
+            }
+
+            // Read BLOCK_SIZE of just 0x55.
+            qcow_file.rewind().unwrap();
+            qcow_file.read_exact(&mut readback).unwrap();
+            for (orig, read) in data_55.iter().zip(readback.iter()) {
+                assert_eq!(orig, read);
+            }
+
+            // Read BLOCK_SIZE crossing between the block of 0x55 and 0xaa.
+            qcow_file
+                .seek(SeekFrom::Start(BLOCK_SIZE as u64 / 2))
+                .unwrap();
+            qcow_file.read_exact(&mut readback).unwrap();
+            for (orig, read) in data_55[BLOCK_SIZE / 2..]
+                .iter()
+                .chain(data_aa[..BLOCK_SIZE / 2].iter())
+                .zip(readback.iter())
+            {
+                assert_eq!(orig, read);
+            }
         });
     }
 }

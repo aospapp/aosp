@@ -23,12 +23,15 @@
 #include <unordered_set>
 
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <log/log.h>
 
 #include "base/bit_utils.h"
 #include "base/leb128.h"
 #include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/unix_file/fd_file.h"
+#include "base/zip_archive.h"
 #include "class_linker.h"
 #include "class_loader_context.h"
 #include "dex/art_dex_file_loader.h"
@@ -43,6 +46,8 @@
 #include "verifier/verifier_deps.h"
 
 namespace art {
+
+using android::base::StringPrintf;
 
 constexpr uint8_t VdexFile::VdexFileHeader::kVdexInvalidMagic[4];
 constexpr uint8_t VdexFile::VdexFileHeader::kVdexMagic[4];
@@ -70,7 +75,6 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
                                                   const std::string& vdex_filename,
                                                   bool writable,
                                                   bool low_4gb,
-                                                  bool unquicken,
                                                   std::string* error_msg) {
   ScopedTrace trace(("VdexFile::OpenAtAddress " + vdex_filename).c_str());
   if (!OS::FileExists(vdex_filename.c_str())) {
@@ -104,7 +108,6 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
                        vdex_filename,
                        writable,
                        low_4gb,
-                       unquicken,
                        error_msg);
 }
 
@@ -116,15 +119,14 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
                                                   const std::string& vdex_filename,
                                                   bool writable,
                                                   bool low_4gb,
-                                                  bool unquicken,
                                                   std::string* error_msg) {
   if (mmap_addr != nullptr && mmap_size < vdex_length) {
-    LOG(WARNING) << "Insufficient pre-allocated space to mmap vdex.";
-    mmap_addr = nullptr;
-    mmap_reuse = false;
+    *error_msg = StringPrintf("Insufficient pre-allocated space to mmap vdex: %zu and %zu",
+                              mmap_size,
+                              vdex_length);
+    return nullptr;
   }
-  CHECK(!mmap_reuse || mmap_addr != nullptr);
-  CHECK(!(writable && unquicken)) << "We don't want to be writing unquickened files out to disk!";
+  CHECK_IMPLIES(mmap_reuse, mmap_addr != nullptr);
   // Start as PROT_WRITE so we can mprotect back to it if we want to.
   MemMap mmap = MemMap::MapFileAtAddress(
       mmap_addr,
@@ -149,21 +151,38 @@ std::unique_ptr<VdexFile> VdexFile::OpenAtAddress(uint8_t* mmap_addr,
     return nullptr;
   }
 
-  if (!writable) {
-    Runtime* runtime = Runtime::Current();
-    // The runtime might not be available at this point if we're running
-    // dex2oat or oatdump.
-    if (runtime != nullptr) {
-      size_t madvise_size_limit = runtime->GetMadviseWillNeedSizeVdex();
-      Runtime::MadviseFileForRange(madvise_size_limit,
-                                   vdex->Size(),
-                                   vdex->Begin(),
-                                   vdex->End(),
-                                   vdex_filename);
-    }
-  }
-
   return vdex;
+}
+
+std::unique_ptr<VdexFile> VdexFile::OpenFromDm(const std::string& filename,
+                                               const ZipArchive& archive) {
+  std::string error_msg;
+  std::unique_ptr<ZipEntry> zip_entry(archive.Find(VdexFile::kVdexNameInDmFile, &error_msg));
+  if (zip_entry == nullptr) {
+    LOG(INFO) << "No " << VdexFile::kVdexNameInDmFile << " file in DexMetadata archive. "
+              << "Not doing fast verification.";
+    return nullptr;
+  }
+  MemMap input_file = zip_entry->MapDirectlyOrExtract(
+      filename.c_str(),
+      VdexFile::kVdexNameInDmFile,
+      &error_msg,
+      alignof(VdexFile));
+  if (!input_file.IsValid()) {
+    LOG(WARNING) << "Could not open vdex file in DexMetadata archive: " << error_msg;
+    return nullptr;
+  }
+  std::unique_ptr<VdexFile> vdex_file = std::make_unique<VdexFile>(std::move(input_file));
+  if (!vdex_file->IsValid()) {
+    LOG(WARNING) << "The dex metadata .vdex is not valid. Ignoring it.";
+    return nullptr;
+  }
+  if (vdex_file->HasDexSection()) {
+    LOG(ERROR) << "The dex metadata is not allowed to contain dex files";
+    android_errorWriteLog(0x534e4554, "178055795");  // Report to SafetyNet.
+    return nullptr;
+  }
+  return vdex_file;
 }
 
 const uint8_t* VdexFile::GetNextDexFileData(const uint8_t* cursor, uint32_t dex_file_index) const {
@@ -506,6 +525,9 @@ ClassStatus VdexFile::ComputeClassStatus(Thread* self, Handle<mirror::Class> cls
 
     DCHECK(destination->IsResolved() && source->IsResolved());
     if (!destination->IsAssignableFrom(source.Get())) {
+      VLOG(verifier) << "Vdex checking failed for " << cls->PrettyClass()
+                     << ": expected " << destination->PrettyClass()
+                     << " to be assignable from " << source->PrettyClass();
       // An implicit assignability check is failing in the code, return that the
       // class is not verified.
       return ClassStatus::kResolved;

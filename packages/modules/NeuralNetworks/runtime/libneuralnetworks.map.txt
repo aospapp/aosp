@@ -99,4 +99,6 @@ LIBNEURALNETWORKS_PLATFORM {
     ANeuralNetworksModel_getExtensionOperandType;
     ANeuralNetworksModel_getExtensionOperationType;
     ANeuralNetworksModel_setOperandExtensionData;
+    ANeuralNetworksCompilation_addExtensionAttribute;
+    ANeuralNetworksExecution_addExtensionAttribute;
 } LIBNEURALNETWORKS;

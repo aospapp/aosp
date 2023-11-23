@@ -17,6 +17,7 @@
  * Second directory has no flags set.
  *
  * Minimum kernel version required is 4.11.
+ * Minimum e2fsprogs version required is 1.43.
  */
 
 #define _GNU_SOURCE
@@ -24,6 +25,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "tst_safe_stdio.h"
 #include "tst_test.h"
 #include "lapi/fs.h"
 #include "lapi/stat.h"
@@ -86,13 +88,22 @@ static void run(unsigned int i)
 
 static void setup(void)
 {
+	FILE *f;
 	char opt_bsize[32];
-	const char *const extra_opts[] = {"-O encrypt", opt_bsize, NULL};
-	int ret;
+	const char *const fs_opts[] = {"-O encrypt", opt_bsize, NULL};
+	int ret, rc, major, minor, patch;
+
+	f = SAFE_POPEN("mkfs.ext4 -V 2>&1", "r");
+	rc = fscanf(f, "mke2fs %d.%d.%d", &major, &minor, &patch);
+	if (rc != 3)
+		tst_res(TWARN, "Unable parse version number");
+	else if (major * 10000 + minor * 100 + patch < 14300)
+		tst_brk(TCONF, "Test needs mkfs.ext4 >= 1.43 for encrypt option, test skipped");
+	pclose(f);
 
 	snprintf(opt_bsize, sizeof(opt_bsize), "-b %i", getpagesize());
 
-	SAFE_MKFS(tst_device->dev, tst_device->fs_type, NULL, extra_opts);
+	SAFE_MKFS(tst_device->dev, tst_device->fs_type, fs_opts, NULL);
 	SAFE_MOUNT(tst_device->dev, MNTPOINT, tst_device->fs_type, 0, 0);
 	mount_flag = 1;
 
@@ -124,4 +135,8 @@ static struct tst_test test = {
 	.needs_device = 1,
 	.mntpoint = MNTPOINT,
 	.dev_fs_type = "ext4",
+	.needs_cmds = (const char *[]) {
+		"mkfs.ext4",
+		NULL
+	}
 };

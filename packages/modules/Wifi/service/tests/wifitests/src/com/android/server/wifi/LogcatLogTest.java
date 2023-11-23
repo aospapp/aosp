@@ -253,63 +253,63 @@ public class LogcatLogTest extends WifiBaseTest {
     @Test
     public void traceLogMessageIncludesCallerName() {
         try {
-            LogcatLog.enableVerboseLogging(1);
+            LogcatLog.enableVerboseLogging(true);
             WifiLog.LogMessage logMessage = mLogger.trace("%");
             logMessage.c("says hello").flush();
             assertEquals("traceLogMessageIncludesCallerName says hello",
                     logMessage.toString());
         } finally {
-            LogcatLog.enableVerboseLogging(0);
+            LogcatLog.enableVerboseLogging(false);
         }
     }
 
     @Test
     public void traceLogMessageRespectsNumFramesToIgnore() {
         try {
-            LogcatLog.enableVerboseLogging(1);
+            LogcatLog.enableVerboseLogging(true);
             WifiLog.LogMessage logMessage = traceHelper("%");
             logMessage.c("says hello").flush();
             assertEquals("traceLogMessageRespectsNumFramesToIgnore says hello",
                     logMessage.toString());
         } finally {
-            LogcatLog.enableVerboseLogging(0);
+            LogcatLog.enableVerboseLogging(false);
         }
     }
 
     @Test
     public void traceLogMessageDoesNotCrashOnOversizedNumFramesToIgnore() {
         try {
-            LogcatLog.enableVerboseLogging(1);
+            LogcatLog.enableVerboseLogging(true);
             WifiLog.LogMessage logMessage = mLogger.trace("%",
                     (new Throwable()).getStackTrace().length);
             logMessage.c("says hello").flush();
             assertEquals("<unknown> says hello", logMessage.toString());
         } finally {
-            LogcatLog.enableVerboseLogging(0);
+            LogcatLog.enableVerboseLogging(false);
         }
     }
 
     @Test
     public void traceLogMessageDoesNotCrashOnOverflowingNumFramesToIgnore() {
         try {
-            LogcatLog.enableVerboseLogging(1);
+            LogcatLog.enableVerboseLogging(true);
             WifiLog.LogMessage logMessage = mLogger.trace("%", Integer.MAX_VALUE);
             logMessage.c("says hello").flush();
             assertEquals("<unknown> says hello", logMessage.toString());
         } finally {
-            LogcatLog.enableVerboseLogging(0);
+            LogcatLog.enableVerboseLogging(false);
         }
     }
 
     @Test
     public void traceLogMessageDoesNotCrashOnUndersizedNumFramesToIgnore() {
         try {
-            LogcatLog.enableVerboseLogging(1);
+            LogcatLog.enableVerboseLogging(true);
             WifiLog.LogMessage logMessage = mLogger.trace("%", Integer.MIN_VALUE);
             logMessage.c("says hello").flush();
             assertEquals("<unknown> says hello", logMessage.toString());
         } finally {
-            LogcatLog.enableVerboseLogging(0);
+            LogcatLog.enableVerboseLogging(false);
         }
     }
 

@@ -71,7 +71,7 @@ public class AppCrashOccurredConverterTest {
             throws StatsConversionException {
         List<AtomsProto.Atom> atomsList = Arrays.asList(ATOM_A, ATOM_B);
 
-        SparseArray<AtomFieldAccessor<AtomsProto.AppCrashOccurred>> accessorMap =
+        SparseArray<AtomFieldAccessor<AtomsProto.AppCrashOccurred, ?>> accessorMap =
                 mConverter.getAtomFieldAccessorMap();
 
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);

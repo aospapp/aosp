@@ -5,20 +5,27 @@
 //! A wrapped IO source that uses FdExecutor to drive asynchronous completion. Used from
 //! `IoSourceExt::new` when uring isn't available in the kernel.
 
-use std::io;
-use std::ops::{Deref, DerefMut};
-use std::os::unix::io::AsRawFd;
-use std::sync::Arc;
+use std::{
+    io,
+    ops::{Deref, DerefMut},
+    os::unix::io::AsRawFd,
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use data_model::VolatileSlice;
+use remain::sorted;
 use thiserror::Error as ThisError;
 
-use crate::fd_executor::{self, FdExecutor, RegisteredSource};
-use crate::mem::{BackingMemory, MemRegion};
-use crate::{AsyncError, AsyncResult};
-use crate::{IoSourceExt, ReadAsync, WriteAsync};
+use super::{
+    fd_executor::{
+        FdExecutor, RegisteredSource, {self},
+    },
+    mem::{BackingMemory, MemRegion},
+    AsyncError, AsyncResult, IoSourceExt, ReadAsync, WriteAsync,
+};
 
+#[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
     /// An error occurred attempting to register a waker with the executor.
@@ -29,19 +36,19 @@ pub enum Error {
     Executor(fd_executor::Error),
     /// An error occurred when executing fallocate synchronously.
     #[error("An error occurred when executing fallocate synchronously: {0}")]
-    Fallocate(sys_util::Error),
+    Fallocate(base::Error),
     /// An error occurred when executing fsync synchronously.
     #[error("An error occurred when executing fsync synchronously: {0}")]
-    Fsync(sys_util::Error),
+    Fsync(base::Error),
     /// An error occurred when reading the FD.
     #[error("An error occurred when reading the FD: {0}.")]
-    Read(sys_util::Error),
+    Read(base::Error),
     /// Can't seek file.
     #[error("An error occurred when seeking the FD: {0}.")]
-    Seeking(sys_util::Error),
+    Seeking(base::Error),
     /// An error occurred when writing the FD.
     #[error("An error occurred when writing the FD: {0}.")]
-    Write(sys_util::Error),
+    Write(base::Error),
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -125,7 +132,7 @@ impl<F: AsRawFd> ReadAsync for PollSource<F> {
                 return Ok((res as usize, vec));
             }
 
-            match sys_util::Error::last() {
+            match base::Error::last() {
                 e if e.errno() == libc::EWOULDBLOCK => {
                     let op = self.0.wait_readable().map_err(Error::AddingWaker)?;
                     op.await.map_err(Error::Executor)?;
@@ -173,7 +180,7 @@ impl<F: AsRawFd> ReadAsync for PollSource<F> {
                 return Ok(res as usize);
             }
 
-            match sys_util::Error::last() {
+            match base::Error::last() {
                 e if e.errno() == libc::EWOULDBLOCK => {
                     let op = self.0.wait_readable().map_err(Error::AddingWaker)?;
                     op.await.map_err(Error::Executor)?;
@@ -206,7 +213,7 @@ impl<F: AsRawFd> ReadAsync for PollSource<F> {
                 return Ok(u64::from_ne_bytes(buf));
             }
 
-            match sys_util::Error::last() {
+            match base::Error::last() {
                 e if e.errno() == libc::EWOULDBLOCK => {
                     let op = self.0.wait_readable().map_err(Error::AddingWaker)?;
                     op.await.map_err(Error::Executor)?;
@@ -250,7 +257,7 @@ impl<F: AsRawFd> WriteAsync for PollSource<F> {
                 return Ok((res as usize, vec));
             }
 
-            match sys_util::Error::last() {
+            match base::Error::last() {
                 e if e.errno() == libc::EWOULDBLOCK => {
                     let op = self.0.wait_writable().map_err(Error::AddingWaker)?;
                     op.await.map_err(Error::Executor)?;
@@ -299,7 +306,7 @@ impl<F: AsRawFd> WriteAsync for PollSource<F> {
                 return Ok(res as usize);
             }
 
-            match sys_util::Error::last() {
+            match base::Error::last() {
                 e if e.errno() == libc::EWOULDBLOCK => {
                     let op = self.0.wait_writable().map_err(Error::AddingWaker)?;
                     op.await.map_err(Error::Executor)?;
@@ -322,7 +329,7 @@ impl<F: AsRawFd> WriteAsync for PollSource<F> {
         if ret == 0 {
             Ok(())
         } else {
-            Err(AsyncError::Poll(Error::Fallocate(sys_util::Error::last())))
+            Err(AsyncError::Poll(Error::Fallocate(base::Error::last())))
         }
     }
 
@@ -332,7 +339,7 @@ impl<F: AsRawFd> WriteAsync for PollSource<F> {
         if ret == 0 {
             Ok(())
         } else {
-            Err(AsyncError::Poll(Error::Fsync(sys_util::Error::last())))
+            Err(AsyncError::Poll(Error::Fsync(base::Error::last())))
         }
     }
 }
@@ -357,8 +364,10 @@ impl<F: AsRawFd> IoSourceExt<F> for PollSource<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{File, OpenOptions};
-    use std::path::PathBuf;
+    use std::{
+        fs::{File, OpenOptions},
+        path::PathBuf,
+    };
 
     use super::*;
 
@@ -428,7 +437,7 @@ mod tests {
             let _ = source.wait_readable().await;
         }
 
-        let (rx, _tx) = sys_util::pipe(true).unwrap();
+        let (rx, _tx) = base::pipe(true).unwrap();
         let ex = FdExecutor::new().unwrap();
         let source = PollSource::new(rx, &ex).unwrap();
         ex.spawn_local(owns_poll_source(source)).detach();

@@ -19,6 +19,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#if defined(WIN32)
+#define HAVE_STRUCT_TIMESPEC
+#if defined(pid_t)
+#undef pid_t
+#endif
+#endif
 #include <pthread.h>
 #include <time.h>
 
@@ -86,7 +92,11 @@ thread_spam(void *d)
 {
 	struct vhd *vhd = (struct vhd *)d;
 	struct msg amsg;
-	int len = 128, index = 1, n;
+	int len = 128, index = 1, n, whoami = 0;
+
+	for (n = 0; n < (int)LWS_ARRAY_SIZE(vhd->pthread_spam); n++)
+		if (pthread_equal(pthread_self(), vhd->pthread_spam[n]))
+			whoami = n + 1;
 
 	do {
 		/* don't generate output if nobody connected */
@@ -102,16 +112,15 @@ thread_spam(void *d)
 			goto wait_unlock;
 		}
 
-		amsg.payload = malloc(len);
+		amsg.payload = malloc((unsigned int)len);
 		if (!amsg.payload) {
 			lwsl_user("OOM: dropping\n");
 			goto wait_unlock;
 		}
-		n = lws_snprintf((char *)amsg.payload, len,
-			         "%s: tid: %p, msg: %d", __func__,
-			         (void *)pthread_self(), index++);
-		amsg.len = n;
-		n = lws_ring_insert(vhd->ring, &amsg, 1);
+		n = lws_snprintf((char *)amsg.payload, (unsigned int)len,
+			         "%s: tid: %d, msg: %d", __func__, whoami, index++);
+		amsg.len = (unsigned int)n;
+		n = (int)lws_ring_insert(vhd->ring, &amsg, 1);
 		if (n != 1) {
 			__minimal_destroy_message(&amsg);
 			lwsl_user("dropping!\n");
@@ -127,11 +136,11 @@ wait_unlock:
 
 wait:
 		/* rand() would make more sense but coverity shrieks */
-		usleep(100000 + (time(NULL) & 0xffff));
+		usleep((useconds_t)(100000 + (time(NULL) & 0xffff)));
 
 	} while (!vhd->finished);
 
-	lwsl_notice("thread_spam %p exiting\n", (void *)pthread_self());
+	lwsl_notice("thread_spam %d exiting\n", whoami);
 
 	pthread_exit(NULL);
 
@@ -186,8 +195,7 @@ callback_sse(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		init_fail:
 		vhd->finished = 1;
 		for (n = 0; n < (int)LWS_ARRAY_SIZE(vhd->pthread_spam); n++)
-			if (vhd->pthread_spam[n])
-				pthread_join(vhd->pthread_spam[n], &retval);
+			pthread_join(vhd->pthread_spam[n], &retval);
 
 		if (vhd->ring)
 			lws_ring_destroy(vhd->ring);
@@ -254,11 +262,11 @@ callback_sse(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (!pmsg)
 			break;
 
-		p += lws_snprintf((char *)p, end - p,
+		p += lws_snprintf((char *)p, lws_ptr_diff_size_t(end, p),
 				  "data: %s\x0d\x0a\x0d\x0a",
 				  (const char *)pmsg->payload);
 
-		if (lws_write(wsi, (uint8_t *)start, lws_ptr_diff(p, start),
+		if (lws_write(wsi, (uint8_t *)start, lws_ptr_diff_size_t(p, start),
 			      LWS_WRITE_HTTP) != lws_ptr_diff(p, start))
 			return 1;
 
@@ -298,9 +306,9 @@ callback_sse(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "http", lws_callback_http_dummy, 0, 0 },
-	{ "sse", callback_sse, sizeof(struct pss), 0 },
-	{ NULL, NULL, 0, 0 } /* terminator */
+	{ "http", lws_callback_http_dummy, 0, 0, 0, NULL, 0 },
+	{ "sse", callback_sse, sizeof(struct pss), 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 /* override the default mount for /sse in the URL space */

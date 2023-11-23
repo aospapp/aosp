@@ -167,9 +167,9 @@ public:
             int32_t xdiff;
             int32_t ydiff;
             // check difference assumption here
-            mStepValid = checkedDiff(&xdiff, x, mX[mPos], "x")
-                    & /* bitwise AND to always warn for ydiff, though logical AND is also OK */
-                    checkedDiff(&ydiff, y, mY[mPos], "y");
+            bool checkXDiff = checkedDiff(&xdiff, x, mX[mPos], "x");
+            bool checkYDiff = checkedDiff(&ydiff, y, mY[mPos], "y");
+            mStepValid = checkXDiff && checkYDiff;
 
             // Optimization: do not add a new sample if the line segment would
             // simply extend the previous line segment.  This extends the useful

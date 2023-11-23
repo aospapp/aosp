@@ -23,10 +23,8 @@
 
 #include <android/media/AudioMix.h>
 #include <android/media/AudioMixCallbackFlag.h>
-#include <android/media/AudioMixLatencyClass.h>
 #include <android/media/AudioMixRouteFlag.h>
 #include <android/media/AudioMixType.h>
-#include <android/media/AudioMode.h>
 #include <android/media/AudioOffloadMode.h>
 #include <android/media/AudioPolicyForceUse.h>
 #include <android/media/AudioPolicyForcedConfig.h>
@@ -38,11 +36,6 @@
 #include <android/media/AudioPolicyDeviceState.h>
 
 namespace android {
-
-ConversionResult<volume_group_t>
-aidl2legacy_int32_t_volume_group_t(int32_t aidl);
-ConversionResult<int32_t>
-legacy2aidl_volume_group_t_int32_t(volume_group_t legacy);
 
 ConversionResult<product_strategy_t>
 aidl2legacy_int32_t_product_strategy_t(int32_t aidl);

@@ -54,6 +54,8 @@ public final class PiiLoggables {
      *
      * <p>See {@link #fromPiiValue(Object)} for a method that returns objects that implement a
      * minimal contract.
+     *
+     * @param <V> the type of the value held
      */
     public interface PiiLoggableValue<V> extends PiiLoggable {
         /** Returns the held value. */
@@ -122,7 +124,7 @@ public final class PiiLoggables {
 
             private final String mString;
 
-            public PiiLoggableString(String string) {
+            PiiLoggableString(String string) {
                 mString = string;
             }
 
@@ -168,7 +170,7 @@ public final class PiiLoggables {
             @NonNull private final String mTemplate;
             @NonNull private final PiiLoggable[] mLoggables;
 
-            public TemplatedPiiLoggable(String template, PiiLoggable... loggables) {
+            TemplatedPiiLoggable(String template, PiiLoggable... loggables) {
                 mTemplate = Objects.requireNonNull(template);
                 mLoggables = Objects.requireNonNull(loggables);
             }
@@ -192,8 +194,8 @@ public final class PiiLoggables {
                     return false;
                 }
                 TemplatedPiiLoggable that = (TemplatedPiiLoggable) o;
-                return mTemplate.equals(that.mTemplate) &&
-                        Arrays.equals(mLoggables, that.mLoggables);
+                return mTemplate.equals(that.mTemplate)
+                        && Arrays.equals(mLoggables, that.mLoggables);
             }
 
             @Override

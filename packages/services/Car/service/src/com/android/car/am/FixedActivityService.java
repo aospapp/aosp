@@ -15,25 +15,28 @@
  */
 package com.android.car.am;
 
-import static android.app.ActivityTaskManager.INVALID_TASK_ID;
+import static android.car.builtin.app.ActivityManagerHelper.INVALID_TASK_ID;
+import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
 import static android.os.Process.INVALID_UID;
-import static android.view.WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG;
 
 import static com.android.car.CarLog.TAG_AM;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+import static com.android.car.util.Utils.isEventOfType;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.ActivityTaskManager.RootTaskInfo;
-import android.app.IActivityManager;
-import android.app.IProcessObserver;
-import android.app.Presentation;
-import android.app.TaskStackListener;
+import android.app.TaskInfo;
+import android.car.builtin.app.ActivityManagerHelper;
+import android.car.builtin.app.ActivityManagerHelper.ProcessObserverCallback;
+import android.car.builtin.app.TaskInfoHelper;
+import android.car.builtin.content.ContextHelper;
+import android.car.builtin.content.pm.PackageManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerManager;
-import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleListener;
+import android.car.user.UserLifecycleEventFilter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -44,14 +47,11 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
-import android.os.HandlerThread;
-import android.os.RemoteException;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.util.IndentingPrintWriter;
 import android.util.Log;
-import android.util.Slog;
 import android.util.SparseArray;
 import android.view.Display;
 
@@ -59,7 +59,10 @@ import com.android.car.CarLocalServices;
 import com.android.car.CarServiceBase;
 import com.android.car.CarServiceUtils;
 import com.android.car.R;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.car.user.CarUserService;
+import com.android.car.user.UserHandleHelper;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -91,19 +94,18 @@ public final class FixedActivityService implements CarServiceBase {
         @UserIdInt
         public final int userId;
 
-        @GuardedBy("mLock")
         public boolean isVisible;
-        @GuardedBy("mLock")
-        public long lastLaunchTimeMs = 0;
-        @GuardedBy("mLock")
-        public int consecutiveRetries = 0;
-        @GuardedBy("mLock")
+
+        public long lastLaunchTimeMs;
+
+        public int consecutiveRetries;
+
         public int taskId = INVALID_TASK_ID;
-        @GuardedBy("mLock")
+
         public int previousTaskId = INVALID_TASK_ID;
-        @GuardedBy("mLock")
+
         public boolean inBackground;
-        @GuardedBy("mLock")
+
         public boolean failureLogged;
 
         RunningActivityInfo(@NonNull Intent intent, @NonNull ActivityOptions activityOptions,
@@ -129,20 +131,20 @@ public final class FixedActivityService implements CarServiceBase {
 
     private final Context mContext;
 
-    private final IActivityManager mAm;
+    private final CarActivityService mActivityService;
 
     private final DisplayManager mDm;
 
-    private final UserManager mUm;
-
     private final UserLifecycleListener mUserLifecycleListener = event -> {
-        if (Log.isLoggable(TAG_AM, Log.DEBUG)) {
-            Slog.d(TAG_AM, "onEvent(" + event + ")");
+        if (!isEventOfType(TAG_AM, event, USER_LIFECYCLE_EVENT_TYPE_SWITCHING)) {
+            return;
         }
-        if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING == event.getEventType()) {
-            synchronized (FixedActivityService.this.mLock) {
-                clearRunningActivitiesLocked();
-            }
+        if (Slogf.isLoggable(TAG_AM, Log.DEBUG)) {
+            Slogf.d(TAG_AM, "onEvent(" + event + ")");
+        }
+
+        synchronized (FixedActivityService.this.mLock) {
+            clearRunningActivitiesLocked();
         }
     };
 
@@ -156,16 +158,16 @@ public final class FixedActivityService implements CarServiceBase {
                     || Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
                 Uri packageData = intent.getData();
                 if (packageData == null) {
-                    Slog.w(TAG_AM, "null packageData");
+                    Slogf.w(TAG_AM, "null packageData");
                     return;
                 }
                 String packageName = packageData.getSchemeSpecificPart();
                 if (packageName == null) {
-                    Slog.w(TAG_AM, "null packageName");
+                    Slogf.w(TAG_AM, "null packageName");
                     return;
                 }
                 int uid = intent.getIntExtra(Intent.EXTRA_UID, INVALID_UID);
-                int userId = UserHandle.getUserId(uid);
+                int userId = UserHandle.getUserHandleForUid(uid).getIdentifier();
                 boolean tryLaunch = false;
                 synchronized (mLock) {
                     for (int i = 0; i < mRunningActivities.size(); i++) {
@@ -174,7 +176,7 @@ public final class FixedActivityService implements CarServiceBase {
                         // displays. Package name is ignored as one package can affect
                         // others.
                         if (info.userId == userId) {
-                            Slog.i(TAG_AM, "Package changed:" + packageName
+                            Slogf.i(TAG_AM, "Package changed:" + packageName
                                     + ",user:" + userId + ",action:" + action);
                             info.resetCrashCounterLocked();
                             tryLaunch = true;
@@ -189,53 +191,18 @@ public final class FixedActivityService implements CarServiceBase {
         }
     };
 
-    // It says listener but is actually callback.
-    private final TaskStackListener mTaskStackListener = new TaskStackListener() {
-        @Override
-        public void onTaskStackChanged() {
-            launchIfNecessary();
-        }
-
-        @Override
-        public void onTaskCreated(int taskId, ComponentName componentName) {
-            launchIfNecessary();
-        }
-
-        @Override
-        public void onTaskRemoved(int taskId) {
-            launchIfNecessary();
-        }
-
-        @Override
-        public void onTaskMovedToFront(int taskId) {
-            launchIfNecessary();
-        }
-
-        @Override
-        public void onTaskRemovalStarted(int taskId) {
-            launchIfNecessary();
-        }
-    };
-
-
-    private final IProcessObserver mProcessObserver = new IProcessObserver.Stub() {
+    private final ProcessObserverCallback mProcessObserver = new ProcessObserverCallback() {
         @Override
         public void onForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) {
             launchIfNecessary();
         }
-
-        @Override
-        public void onForegroundServicesChanged(int pid, int uid, int fgServiceTypes) {
-          // ignore
-        }
-
         @Override
         public void onProcessDied(int pid, int uid) {
             launchIfNecessary();
         }
     };
 
-    private final HandlerThread mHandlerThread;
+    private final Handler mHandler;
 
     private final Runnable mActivityCheckRunnable = () -> {
         launchIfNecessary();
@@ -249,16 +216,13 @@ public final class FixedActivityService implements CarServiceBase {
             new SparseArray<>(/* capacity= */ 1); // default to one cluster only case
 
     @GuardedBy("mLock")
-    private final SparseArray<Presentation> mBlockingPresentations = new SparseArray<>(1);
-
-    @GuardedBy("mLock")
     private boolean mEventMonitoringActive;
 
     @GuardedBy("mLock")
     private CarPowerManager mCarPowerManager;
 
     private final CarPowerManager.CarPowerStateListener mCarPowerStateListener = (state) -> {
-        if (state != CarPowerManager.CarPowerStateListener.ON) {
+        if (state != CarPowerManager.STATE_ON) {
             return;
         }
         synchronized (mLock) {
@@ -270,19 +234,23 @@ public final class FixedActivityService implements CarServiceBase {
         launchIfNecessary();
     };
 
-    public FixedActivityService(Context context) {
-        this(context, ActivityManager.getService(), context.getSystemService(UserManager.class),
-                context.getSystemService(DisplayManager.class));
+    private final UserHandleHelper mUserHandleHelper;
+
+    public FixedActivityService(Context context, CarActivityService activityService) {
+        this(context, activityService,
+                context.getSystemService(DisplayManager.class),
+                new UserHandleHelper(context, context.getSystemService(UserManager.class)));
     }
 
-    FixedActivityService(Context context, IActivityManager activityManager,
-            UserManager userManager, DisplayManager displayManager) {
+    @VisibleForTesting
+    FixedActivityService(Context context, CarActivityService activityService,
+            DisplayManager displayManager, UserHandleHelper userHandleHelper) {
         mContext = context;
-        mAm = activityManager;
-        mUm = userManager;
+        mActivityService = activityService;
         mDm = displayManager;
-        mHandlerThread = CarServiceUtils.getHandlerThread(
-                FixedActivityService.class.getSimpleName());
+        mHandler = new Handler(CarServiceUtils.getHandlerThread(
+                FixedActivityService.class.getSimpleName()).getLooper());
+        mUserHandleHelper = userHandleHelper;
     }
 
     @Override
@@ -296,23 +264,16 @@ public final class FixedActivityService implements CarServiceBase {
     }
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         writer.println("*FixedActivityService*");
         synchronized (mLock) {
             writer.println("mRunningActivities:" + mRunningActivities
                     + " ,mEventMonitoringActive:" + mEventMonitoringActive);
-            writer.println("mBlockingPresentations:");
-            for (int i = 0; i < mBlockingPresentations.size(); i++) {
-                Presentation p = mBlockingPresentations.valueAt(i);
-                if (p == null) {
-                    continue;
-                }
-                writer.println("display:" + mBlockingPresentations.keyAt(i)
-                        + " showing:" + p.isShowing());
-            }
         }
     }
 
+    @GuardedBy("mLock")
     private void clearRunningActivitiesLocked() {
         for (int i = mRunningActivities.size() - 1; i >= 0; i--) {
             RunningActivityInfo info = mRunningActivities.valueAt(i);
@@ -323,7 +284,7 @@ public final class FixedActivityService implements CarServiceBase {
     }
 
     private void postRecheck(long delayMs) {
-        mHandlerThread.getThreadHandler().postDelayed(mActivityCheckRunnable, delayMs);
+        mHandler.postDelayed(mActivityCheckRunnable, delayMs);
     }
 
     private void startMonitoringEvents() {
@@ -337,26 +298,24 @@ public final class FixedActivityService implements CarServiceBase {
             mCarPowerManager = carPowerManager;
         }
         CarUserService userService = CarLocalServices.getService(CarUserService.class);
-        userService.addUserLifecycleListener(mUserLifecycleListener);
+        UserLifecycleEventFilter userSwitchingEventFilter = new UserLifecycleEventFilter.Builder()
+                .addEventType(USER_LIFECYCLE_EVENT_TYPE_SWITCHING).build();
+        userService.addUserLifecycleListener(userSwitchingEventFilter, mUserLifecycleListener);
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
         filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         filter.addAction(Intent.ACTION_PACKAGE_ADDED);
         filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         filter.addDataScheme("package");
-        mContext.registerReceiverAsUser(mBroadcastReceiver, UserHandle.ALL, filter,
-                /* broadcastPermission= */ null, /* scheduler= */ null);
+        mContext.registerReceiverForAllUsers(mBroadcastReceiver, filter,
+                /* broadcastPermission= */ null, /* scheduler= */ null,
+                Context.RECEIVER_NOT_EXPORTED);
+        ActivityManagerHelper.registerProcessObserverCallback(mProcessObserver);
         try {
-            mAm.registerTaskStackListener(mTaskStackListener);
-            mAm.registerProcessObserver(mProcessObserver);
-        } catch (RemoteException e) {
-            Slog.e(TAG_AM, "remote exception from AM", e);
-        }
-        try {
-            carPowerManager.setListener(mCarPowerStateListener);
+            carPowerManager.setListener(mContext.getMainExecutor(), mCarPowerStateListener);
         } catch (Exception e) {
             // should not happen
-            Slog.e(TAG_AM, "Got exception from CarPowerManager", e);
+            Slogf.e(TAG_AM, "Got exception from CarPowerManager", e);
         }
     }
 
@@ -373,39 +332,25 @@ public final class FixedActivityService implements CarServiceBase {
         if (carPowerManager != null) {
             carPowerManager.clearListener();
         }
-        mHandlerThread.getThreadHandler().removeCallbacks(mActivityCheckRunnable);
+        mHandler.removeCallbacks(mActivityCheckRunnable);
         CarUserService userService = CarLocalServices.getService(CarUserService.class);
         userService.removeUserLifecycleListener(mUserLifecycleListener);
-        try {
-            mAm.unregisterTaskStackListener(mTaskStackListener);
-            mAm.unregisterProcessObserver(mProcessObserver);
-        } catch (RemoteException e) {
-            Slog.e(TAG_AM, "remote exception from AM", e);
-        }
+        ActivityManagerHelper.unregisterProcessObserverCallback(mProcessObserver);
         mContext.unregisterReceiver(mBroadcastReceiver);
-    }
-
-    @Nullable
-    private List<RootTaskInfo> getRootTaskInfos() {
-        try {
-            return mAm.getAllRootTaskInfos();
-        } catch (RemoteException e) {
-            Slog.e(TAG_AM, "remote exception from AM", e);
-        }
-        return null;
     }
 
     /**
      * Launches all stored fixed mode activities if necessary.
+     *
      * @param displayId Display id to check if it is visible. If check is not necessary, should pass
-     *        {@link Display#INVALID_DISPLAY}.
+     *         {@link Display#INVALID_DISPLAY}.
      * @return true if fixed Activity for given {@code displayId} is visible / successfully
      *         launched. It will return false for {@link Display#INVALID_DISPLAY} {@code displayId}.
      */
     private boolean launchIfNecessary(int displayId) {
-        List<RootTaskInfo> infos = getRootTaskInfos();
+        List<TaskInfo> infos = mActivityService.getTopTasks();
         if (infos == null) {
-            Slog.e(TAG_AM, "cannot get RootTaskInfo from AM");
+            Slogf.e(TAG_AM, "cannot get RootTaskInfo from AM");
             return false;
         }
         long now = SystemClock.elapsedRealtime();
@@ -413,7 +358,7 @@ public final class FixedActivityService implements CarServiceBase {
             if (mRunningActivities.size() == 0) {
                 // it must have been stopped.
                 if (DBG) {
-                    Slog.i(TAG_AM, "empty activity list", new RuntimeException());
+                    Slogf.i(TAG_AM, "empty activity list", new RuntimeException());
                 }
                 return false;
             }
@@ -421,7 +366,7 @@ public final class FixedActivityService implements CarServiceBase {
                 int displayIdForActivity = mRunningActivities.keyAt(i);
                 Display display = mDm.getDisplay(displayIdForActivity);
                 if (display == null) {
-                    Slog.e(TAG_AM, "Stop fixed activity for non-available display"
+                    Slogf.e(TAG_AM, "Stop fixed activity for non-available display"
                             + displayIdForActivity);
                     mRunningActivities.removeAt(i);
                     continue;
@@ -433,58 +378,45 @@ public final class FixedActivityService implements CarServiceBase {
                     continue;
                 }
                 if (activityInfo.taskId != INVALID_TASK_ID) {
-                    Slog.i(TAG_AM, "Finishing fixed activity on user switching:"
+                    Slogf.i(TAG_AM, "Finishing fixed activity on user switching:"
                             + activityInfo);
-                    try {
-                        mAm.removeTask(activityInfo.taskId);
-                    } catch (RemoteException e) {
-                        Slog.e(TAG_AM, "remote exception from AM", e);
-                    }
-                    CarServiceUtils.runOnMain(() -> {
-                        Presentation p = new Presentation(mContext, display,
-                                android.R.style.Theme_Black_NoTitleBar_Fullscreen,
-                                // TYPE_PRESENTATION can't be used in the internal display.
-                                // Select TYPE_KEYGUARD_DIALOG, since it's used in
-                                // {@Code KeyguardDisplayManager.KeyguardPresentation}.
-                                TYPE_KEYGUARD_DIALOG);
-                        p.setContentView(R.layout.activity_continuous_blank);
-                        synchronized (mLock) {
-                            RunningActivityInfo info = mRunningActivities.get(displayIdForActivity);
-                            if (info != null && info.userId == ActivityManager.getCurrentUser()) {
-                                Slog.i(TAG_AM, "Do not show Presentation, new req already made");
-                                return;
-                            }
-                            mBlockingPresentations.append(displayIdForActivity, p);
-                        }
-                        p.show();
-                    });
+                    ActivityManagerHelper.removeTask(activityInfo.taskId);
+                    Intent intent = new Intent()
+                            .setComponent(
+                                    ComponentName.unflattenFromString(
+                                            mContext.getString(R.string.continuousBlankActivity)
+                                    ))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            .addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                    ActivityOptions activityOptions = ActivityOptions.makeBasic()
+                            .setLaunchDisplayId(displayIdForActivity);
+                    ContextHelper.startActivityAsUser(mContext, intent, activityOptions.toBundle(),
+                            UserHandle.of(ActivityManager.getCurrentUser()));
                 }
                 mRunningActivities.removeAt(i);
             }
-            for (RootTaskInfo taskInfo : infos) {
-                RunningActivityInfo activityInfo = mRunningActivities.get(taskInfo.displayId);
+            for (int i = 0, size = infos.size(); i < size; ++i) {
+                TaskInfo taskInfo = infos.get(i);
+                int taskDisplayId = TaskInfoHelper.getDisplayId(taskInfo);
+                RunningActivityInfo activityInfo = mRunningActivities.get(taskDisplayId);
                 if (activityInfo == null) {
                     continue;
                 }
-                int topUserId = taskInfo.childTaskUserIds[taskInfo.childTaskUserIds.length - 1];
-                if (activityInfo.intent.getComponent().equals(taskInfo.topActivity)
-                        && activityInfo.userId == topUserId && taskInfo.visible) {
+                int taskUserId = TaskInfoHelper.getUserId(taskInfo);
+                ComponentName expectedTopActivity = activityInfo.intent.getComponent();
+                if ((expectedTopActivity.equals(taskInfo.topActivity)
+                        || expectedTopActivity.equals(taskInfo.origActivity))  // for Activity-alias
+                        && activityInfo.userId == taskUserId) {
                     // top one is matching.
                     activityInfo.isVisible = true;
-                    activityInfo.taskId = taskInfo.childTaskIds[taskInfo.childTaskIds.length - 1];
+                    activityInfo.taskId = taskInfo.taskId;
                     continue;
                 }
-                activityInfo.previousTaskId =
-                        taskInfo.childTaskIds[taskInfo.childTaskIds.length - 1];
-                Slog.i(TAG_AM, "Unmatched top activity will be removed:"
+                activityInfo.previousTaskId = taskInfo.taskId;
+                Slogf.i(TAG_AM, "Unmatched top activity will be removed:"
                         + taskInfo.topActivity + " top task id:" + activityInfo.previousTaskId
-                        + " user:" + topUserId + " display:" + taskInfo.displayId);
-                activityInfo.inBackground = false;
-                for (int i = 0; i < taskInfo.childTaskIds.length - 1; i++) {
-                    if (activityInfo.taskId == taskInfo.childTaskIds[i]) {
-                        activityInfo.inBackground = true;
-                    }
-                }
+                        + " user:" + taskUserId + " display:" + taskDisplayId);
+                activityInfo.inBackground = expectedTopActivity.equals(taskInfo.baseActivity);
                 if (!activityInfo.inBackground) {
                     activityInfo.taskId = INVALID_TASK_ID;
                 }
@@ -514,13 +446,13 @@ public final class FixedActivityService implements CarServiceBase {
                     // re-tried too many times, give up for now.
                     if (!activityInfo.failureLogged) {
                         activityInfo.failureLogged = true;
-                        Slog.w(TAG_AM, "Too many relaunch failure of fixed activity:"
+                        Slogf.w(TAG_AM, "Too many relaunch failure of fixed activity:"
                                 + activityInfo);
                     }
                     continue;
                 }
 
-                Slog.i(TAG_AM, "Launching Activity for fixed mode. Intent:" + activityInfo.intent
+                Slogf.i(TAG_AM, "Launching Activity for fixed mode. Intent:" + activityInfo.intent
                         + ",userId:" + UserHandle.of(activityInfo.userId) + ",displayId:"
                         + mRunningActivities.keyAt(i));
                 // Increase retry count if task is not in background. In case like other app is
@@ -532,13 +464,13 @@ public final class FixedActivityService implements CarServiceBase {
                 try {
                     postRecheck(RECHECK_INTERVAL_MS);
                     postRecheck(CRASH_FORGET_INTERVAL_MS);
-                    mContext.startActivityAsUser(activityInfo.intent,
+                    ContextHelper.startActivityAsUser(mContext, activityInfo.intent,
                             activityInfo.activityOptions.toBundle(),
                             UserHandle.of(activityInfo.userId));
                     activityInfo.isVisible = true;
                     activityInfo.lastLaunchTimeMs = SystemClock.elapsedRealtime();
                 } catch (Exception e) { // Catch all for any app related issues.
-                    Slog.w(TAG_AM, "Cannot start activity:" + activityInfo.intent, e);
+                    Slogf.w(TAG_AM, "Cannot start activity:" + activityInfo.intent, e);
                 }
             }
             RunningActivityInfo activityInfo = mRunningActivities.get(displayId);
@@ -554,16 +486,16 @@ public final class FixedActivityService implements CarServiceBase {
         launchIfNecessary(Display.INVALID_DISPLAY);
     }
 
-    private void logComponentNotFound(ComponentName component, @UserIdInt  int userId,
+    private void logComponentNotFound(ComponentName component, @UserIdInt int userId,
             Exception e) {
-        Slog.e(TAG_AM, "Specified Component not found:" + component
+        Slogf.e(TAG_AM, "Specified Component not found:" + component
                 + " for userid:" + userId, e);
     }
 
     private boolean isComponentAvailable(ComponentName component, @UserIdInt int userId) {
         PackageInfo packageInfo;
         try {
-            packageInfo = mContext.getPackageManager().getPackageInfoAsUser(
+            packageInfo = PackageManagerHelper.getPackageInfoAsUser(mContext.getPackageManager(),
                     component.getPackageName(), PackageManager.GET_ACTIVITIES, userId);
         } catch (PackageManager.NameNotFoundException e) {
             logComponentNotFound(component, userId, e);
@@ -587,17 +519,17 @@ public final class FixedActivityService implements CarServiceBase {
 
     private boolean isUserAllowedToLaunchActivity(@UserIdInt int userId) {
         int currentUser = ActivityManager.getCurrentUser();
-        if (userId == currentUser || userId == UserHandle.USER_SYSTEM) {
+        if (userId == currentUser || userId == UserHandle.SYSTEM.getIdentifier()) {
             return true;
         }
-        int[] profileIds = mUm.getEnabledProfileIds(currentUser);
+        List<UserHandle> profiles = mUserHandleHelper.getEnabledProfiles(currentUser);
         // null can happen in test env when UserManager is mocked. So this check is not necessary
         // in real env but add it to make test impl easier.
-        if (profileIds == null) {
+        if (profiles == null) {
             return false;
         }
-        for (int id : profileIds) {
-            if (id == userId) {
+        for (UserHandle profile : profiles) {
+            if (profile.getIdentifier() == userId) {
                 return true;
             }
         }
@@ -606,7 +538,7 @@ public final class FixedActivityService implements CarServiceBase {
 
     private boolean isDisplayAllowedForFixedMode(int displayId) {
         if (displayId == Display.DEFAULT_DISPLAY || displayId == Display.INVALID_DISPLAY) {
-            Slog.w(TAG_AM, "Target display cannot be used for fixed mode, displayId:" + displayId,
+            Slogf.w(TAG_AM, "Target display cannot be used for fixed mode, displayId:" + displayId,
                     new RuntimeException());
             return false;
         }
@@ -614,9 +546,9 @@ public final class FixedActivityService implements CarServiceBase {
     }
 
     @VisibleForTesting
-    RunningActivityInfo getRunningFixedActivity(int displayId) {
+    boolean hasRunningFixedActivity(int displayId) {
         synchronized (mLock) {
-            return mRunningActivities.get(displayId);
+            return mRunningActivities.get(displayId) != null;
         }
     }
 
@@ -630,20 +562,18 @@ public final class FixedActivityService implements CarServiceBase {
             return false;
         }
         if (options == null) {
-            Slog.e(TAG_AM, "startFixedActivityModeForDisplayAndUser, null options");
+            Slogf.e(TAG_AM, "startFixedActivityModeForDisplayAndUser, null options");
             return false;
         }
         if (!isUserAllowedToLaunchActivity(userId)) {
-            Slog.e(TAG_AM, "startFixedActivityModeForDisplayAndUser, requested user:" + userId
+            Slogf.e(TAG_AM, "startFixedActivityModeForDisplayAndUser, requested user:" + userId
                     + " cannot launch activity, Intent:" + intent);
             return false;
         }
         ComponentName component = intent.getComponent();
         if (component == null) {
-            Slog.e(TAG_AM,
-                    "startFixedActivityModeForDisplayAndUser: No component specified for "
-                            + "requested Intent"
-                            + intent);
+            Slogf.e(TAG_AM, "startFixedActivityModeForDisplayAndUser: No component specified for "
+                    + "requested Intent" + intent);
             return false;
         }
         if (!isComponentAvailable(component, userId)) {
@@ -651,10 +581,6 @@ public final class FixedActivityService implements CarServiceBase {
         }
         boolean startMonitoringEvents = false;
         synchronized (mLock) {
-            Presentation p = mBlockingPresentations.removeReturnOld(displayId);
-            if (p != null) {
-                p.dismiss();
-            }
             if (mRunningActivities.size() == 0) {
                 startMonitoringEvents = true;
             }

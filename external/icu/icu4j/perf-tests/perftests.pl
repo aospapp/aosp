@@ -9,7 +9,7 @@
 use XML::LibXML;
 
 # Assume we are running within the icu4j root directory
-use lib 'src/com/ibm/icu/dev/test/perf';
+use lib '.';
 use Dataset;
 my $OS=$^O;
 
@@ -172,7 +172,7 @@ sub main {
 	   );
 	
     #  Outer loop runs through the locales to test
-    #     (Edit this list dirctly to make changes)
+    #     (Edit this list directly to make changes)
     #
     foreach  $locale (
 	   "en_US",

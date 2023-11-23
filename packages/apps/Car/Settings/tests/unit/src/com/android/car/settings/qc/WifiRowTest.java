@@ -22,16 +22,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.UserManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCActionItem;
@@ -47,8 +45,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
-public class WifiRowTest {
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
+public class WifiRowTest extends BaseSettingsQCItemTestCase {
     private WifiRow mWifiRow;
 
     @Mock
@@ -112,6 +109,104 @@ public class WifiRowTest {
         assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
         QCActionItem actionItem = row.getEndItems().get(0);
         assertThat(actionItem.isChecked()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_passpointWifiConnected_hasFriendlyName_returnsRow() {
+        String testTitle = "TEST_TITLE";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.isPasspointAp()).thenReturn(true);
+        when(wifiInfo.getPasspointProviderFriendlyName()).thenReturn(testTitle);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testTitle);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isChecked()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_passpointWifiConnected_noFriendlyName_returnsRow() {
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.isPasspointAp()).thenReturn(true);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testSSID);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isChecked()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_osuWifiConnected_hasFriendlyName_returnsRow() {
+        String testTitle = "TEST_TITLE";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.isOsuAp()).thenReturn(true);
+        when(wifiInfo.getPasspointProviderFriendlyName()).thenReturn(testTitle);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testTitle);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isChecked()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_osuWifiConnected_noFriendlyName_returnsRow() {
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.isOsuAp()).thenReturn(true);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testSSID);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isChecked()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_switchDisabled() {
+        when(mWifiManager.isWifiEnabled()).thenReturn(false);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_DISABLED);
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_WIFI, /* restricted= */ true);
+        QCRow row = getWifiRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_switchClickableWhileDisabled() {
+        when(mWifiManager.isWifiEnabled()).thenReturn(false);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_DISABLED);
+        setUserRestriction(UserManager.DISALLOW_CONFIG_WIFI, /* restricted= */ true);
+        QCRow row = getWifiRow();
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

@@ -5,11 +5,11 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at https://curl.haxx.se/docs/copyright.html.
+# are also available at https://curl.se/docs/copyright.html.
 #
 # You may opt to use, copy, modify, merge, publish, distribute and/or sell
 # copies of the Software, and permit persons to whom the Software is
@@ -41,11 +41,11 @@ function(add_runtests targetname test_flags)
   )
 endfunction()
 
-add_runtests(test           "")
 add_runtests(test-quiet     "-a -s")
 add_runtests(test-am        "-a -am")
 add_runtests(test-full      "-a -p -r")
 # !flaky means that it'll skip all tests using the flaky keyword
 add_runtests(test-nonflaky  "-a -p !flaky")
+add_runtests(test-ci        "-a -p !flaky -r -rm")
 add_runtests(test-torture   "-a -t")
 add_runtests(test-event     "-a -e")

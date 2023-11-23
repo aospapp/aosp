@@ -108,34 +108,12 @@ cc_binary_host {
     ],
 }
 
-// Build GKI APEX 5.4-android12-0 from $(PRODUCT_OUT)/boot.img.
+// Build GKI APEX 5.4-android12-unstable from $(PRODUCT_OUT)/boot.img.
 // Also generate test packages.
 gki_apex {
-    name: "com.android.gki.kmi_5_4_android12_0",
+    name: "com.android.gki.kmi_5_4_android12_unstable",
     installable: true,
-    kmi_version: "5.4-android12-0",
-    product_out_path: "boot.img",
-    gen_test: true,
-}
-
-// Build GKI APEX 5.10-android12-0 from $(PRODUCT_OUT)/boot.img.
-// Also generate test packages.
-// TODO(b/186647770): Delete when no devices install it.
-gki_apex {
-    name: "com.android.gki.kmi_5_10_android12_0",
-    installable: true,
-    kmi_version: "5.10-android12-0",
-    product_out_path: "boot.img",
-    gen_test: true,
-}
-
-// Build GKI APEX 5.10-android12-1 from $(PRODUCT_OUT)/boot.img.
-// Also generate test packages.
-// TODO(b/186647770): Delete when no devices install it.
-gki_apex {
-    name: "com.android.gki.kmi_5_10_android12_1",
-    installable: true,
-    kmi_version: "5.10-android12-1",
+    kmi_version: "5.4-android12-unstable",
     product_out_path: "boot.img",
     gen_test: true,
 }
@@ -150,30 +128,12 @@ gki_apex {
     gen_test: true,
 }
 
-// Build GKI APEX 5.4-android12-0 from $(PRODUCT_OUT)/boot-5.4.img
+// Build GKI APEX 5.4-android12-unstable from $(PRODUCT_OUT)/boot-5.4.img
 gki_apex {
-    name: "com.android.gki.kmi_5_4_android12_0_boot-5.4",
+    name: "com.android.gki.kmi_5_4_android12_unstable_boot-5.4",
     installable: false,
-    kmi_version: "5.4-android12-0",
+    kmi_version: "5.4-android12-unstable",
     product_out_path: "boot-5.4.img",
-}
-
-// Build GKI APEX 5.10-android12-0 from $(PRODUCT_OUT)/boot-5.10.img
-// TODO(b/186647770): Delete when no devices install it.
-gki_apex {
-    name: "com.android.gki.kmi_5_10_android12_0_boot-5.10",
-    installable: false,
-    kmi_version: "5.10-android12-0",
-    product_out_path: "boot-5.10.img",
-}
-
-// Build GKI APEX 5.10-android12-1 from $(PRODUCT_OUT)/boot-5.10.img
-// TODO(b/186647770): Delete when no devices install it.
-gki_apex {
-    name: "com.android.gki.kmi_5_10_android12_1_boot-5.10",
-    installable: false,
-    kmi_version: "5.10-android12-1",
-    product_out_path: "boot-5.10.img",
 }
 
 // Build GKI APEX 5.10-android12-unstable from $(PRODUCT_OUT)/boot-5.10.img
@@ -189,10 +149,8 @@ gki_apex {
 filegroup {
     name: "gki_install_test_files",
     srcs: [
-        ":com.android.gki.kmi_5_4_android12_0_test_high",
-        ":com.android.gki.kmi_5_4_android12_0_test_low",
-        ":com.android.gki.kmi_5_10_android12_0_test_high",
-        ":com.android.gki.kmi_5_10_android12_0_test_low",
+        ":com.android.gki.kmi_5_4_android12_unstable_test_high",
+        ":com.android.gki.kmi_5_4_android12_unstable_test_low",
         ":com.android.gki.kmi_5_10_android12_unstable_test_high",
         ":com.android.gki.kmi_5_10_android12_unstable_test_low",
     ],

@@ -19,8 +19,7 @@ package android.devicepolicy.cts;
 import static android.Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP;
 import static android.app.admin.DevicePolicyManager.INSTALLKEY_SET_USER_SELECTABLE;
 
-import static com.android.bedstead.nene.appops.AppOps.AppOpsMode.ALLOWED;
-import static com.android.bedstead.nene.appops.AppOps.AppOpsMode.DEFAULT;
+import static com.android.bedstead.nene.appops.AppOpsMode.ALLOWED;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -39,7 +38,9 @@ import android.security.keystore.KeyProperties;
 import com.android.activitycontext.ActivityContext;
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.EnsureDoesNotHaveAppOp;
 import com.android.bedstead.harrier.annotations.Postsubmit;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDpc;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.compatibility.common.util.BlockingCallback;
@@ -111,9 +112,8 @@ public final class CredentialManagementAppTest {
     }
 
     @Test
+    @EnsureDoesNotHaveAppOp(MANAGE_CREDENTIALS)
     public void installKeyPair_withoutManageCredentialAppOp_throwsException() {
-        TestApis.packages().instrumented().appOps().set(MANAGE_CREDENTIALS, DEFAULT);
-
         assertThrows(SecurityException.class,
                 () -> sDevicePolicyManager.installKeyPair(/* admin = */ null, PRIVATE_KEY,
                         CERTIFICATES,
@@ -121,17 +121,15 @@ public final class CredentialManagementAppTest {
     }
 
     @Test
+    @EnsureDoesNotHaveAppOp(MANAGE_CREDENTIALS)
     public void removeKeyPair_withoutManageCredentialAppOp_throwsException() {
-        TestApis.packages().instrumented().appOps().set(MANAGE_CREDENTIALS, DEFAULT);
-
         assertThrows(SecurityException.class,
                 () -> sDevicePolicyManager.removeKeyPair(/* admin = */ null, ALIAS));
     }
 
     @Test
+    @EnsureDoesNotHaveAppOp(MANAGE_CREDENTIALS)
     public void generateKeyPair_withoutManageCredentialAppOp_throwsException() {
-        TestApis.packages().instrumented().appOps().set(MANAGE_CREDENTIALS, DEFAULT);
-
         assertThrows(SecurityException.class,
                 () -> sDevicePolicyManager.generateKeyPair(/* admin = */ null, "RSA",
                         buildRsaKeySpec(ALIAS, /* useStrongBox = */ false),
@@ -139,9 +137,8 @@ public final class CredentialManagementAppTest {
     }
 
     @Test
+    @EnsureDoesNotHaveAppOp(MANAGE_CREDENTIALS)
     public void setKeyPairCertificate_withoutManageCredentialAppOp_throwsException() {
-        TestApis.packages().instrumented().appOps().set(MANAGE_CREDENTIALS, DEFAULT);
-
         assertThrows(SecurityException.class,
                 () -> sDevicePolicyManager.setKeyPairCertificate(/* admin = */ null, ALIAS,
                         Arrays.asList(CERTIFICATE), /* isUserSelectable = */ false));
@@ -277,6 +274,7 @@ public final class CredentialManagementAppTest {
 
     @Test
     @Postsubmit(reason = "b/181993922 automatically marked flaky")
+    @EnsureHasNoDpc // Existing DPC means the Credential Management App is ignored
     public void choosePrivateKeyAlias_isCredentialManagementApp_aliasSelected() throws Exception {
         setCredentialManagementApp();
 

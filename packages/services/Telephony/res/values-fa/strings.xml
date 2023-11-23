@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="phoneAppLabel" product="tablet" msgid="1916019789885839910">"داده‌های تلفن همراه"</string>
     <string name="phoneAppLabel" product="default" msgid="130465039375347763">"سرویس‌های تلفن"</string>
-    <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"شماره گیری اضطراری"</string>
+    <string name="emergencyDialerIconLabel" msgid="8668005772339436680">"شماره‌گیر اضطراری"</string>
     <string name="phoneIconLabel" msgid="3015941229249651419">"تلفن"</string>
     <string name="fdnListLabel" msgid="4119121875004244097">"‏فهرست FDN"</string>
     <string name="unknown" msgid="8279698889921830815">"ناشناس"</string>
@@ -592,9 +592,9 @@
     <string name="importToFDNfromContacts" msgid="5068664870738407341">"وارد کردن از مخاطبین"</string>
     <string name="singleContactImportedMsg" msgid="3619804066300998934">"مخاطب واردشده"</string>
     <string name="failedToImportSingleContactMsg" msgid="228095510489830266">"مخاطب وارد نشد"</string>
-    <string name="hac_mode_title" msgid="4127986689621125468">"دستگاه‌های کمک‌شنوایی"</string>
+    <string name="hac_mode_title" msgid="4127986689621125468">"سمعک"</string>
     <string name="hac_mode_summary" msgid="7774989500136009881">"روشن کردن سازگاری دستگاه کمک‌شنوایی"</string>
-    <string name="rtt_mode_title" msgid="3075948111362818043">"‏تماس نوشتار هم‌زمان (RTT)"</string>
+    <string name="rtt_mode_title" msgid="3075948111362818043">"‏تماس با نوشتار هم‌زمان (RTT)"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"پیام‌رسانی در تماس صوتی مجاز است"</string>
     <string name="rtt_mode_more_information" msgid="587500128658756318">"‏«نوشتار هم‌زمان» به تماس گیرندگان ناشنوا، دارای مشکل شنوایی، دارای ناتوانی گفتاری یا افرادی که به چیزی بیش از صدا نیاز دارند کمک می‌کند.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;بیشتر بدانید&lt;/a&gt;\n       ‏&lt;br&gt;&lt;br&gt; تماس‌های «نوشتار هم‌زمان» به‌صورت ترانویسی پیام ذخیره می‌شود\n       &lt;br&gt; «نوشتار هم‌زمان» برای تماس‌های ویدیویی دردسترس نیست"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"نکته: «نوشتار هم‌زمان» در هنگام فراگردی دردسترس نیست"</string>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"حال پاسخ تماس اضطراری"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"اتصال داده غیر فعال شد"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"بدون اتصال داده تا <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">تلفن برای <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در حالت تماس اضطراری خواهد بود. در این حالت برنامه‌ای که از اتصال داده استفاده می‌کند، نمی‌تواند استفاده شود. می‌خواهید اکنون خارج شوید؟</item>
-      <item quantity="other">تلفن برای <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در حالت تماس اضطراری خواهد بود. در این حالت برنامه‌ای که از اتصال داده استفاده می‌کند، نمی‌تواند استفاده شود. می‌خواهید اکنون خارج شوید؟</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">اقدام انتخاب شده در حالت تماس اضطراری در دسترس نیست. این تلفن برای <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در این حالت خواهد بود. می‌خواهید اکنون خارج شوید؟</item>
-      <item quantity="other">اقدام انتخاب شده در حالت تماس اضطراری در دسترس نیست. این تلفن برای <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در این حالت خواهد بود. می‌خواهید اکنون خارج شوید؟</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"در حین یک تماس اضطراری، عملکرد انتخابی در دسترس نیست."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"خروج از حالت پاسخ تماس اضطراری"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"بله"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"رد کردن"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"تلفن در حالت «تماس اضطراری» است"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"تا<xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">تلفن به مدت <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در حالت «تماس اضطراری» خواهد بود.\nمی‌خواهید اکنون خارج شوید؟</item>
-      <item quantity="other">تلفن به مدت <xliff:g id="COUNT_1">%s</xliff:g> دقیقه در حالت «تماس اضطراری» خواهد بود.\nمی‌خواهید اکنون خارج شوید؟</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"سرویس"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"تنظیم"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"‏&lt;تنظیم نشده&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"دسترس‌پذیری"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"‏تماس Wi-Fi از"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"‏تماس Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"دوباره ضربه بزنید تا باز شود"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"هنگام رمزگشایی پیام، خطایی روی داد."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"یک سیم‌کارت سرویس شما را فعال کرده است و قابلیت‌های فراگردی تلفنتان را به‌روز کرده است."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"تعداد زیادی تماس فعال وجود دارد. قبل از برقراری تماس جدید، لطفاً به تماس‌های موجود پایان دهید یا آنها را ادغام کنید."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"نمی‌توانید تماسی برقرار کنید، چون تماس خروجی دیگری درحال شماره‌گیری است."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"نمی‌توانید تماسی برقرار کنید، چون تماس ورودی بی‌پاسخی درحال شماره‌گیری است. قبل از برقراری تماس جدید، به آن پاسخ دهید یا آن را رد کنید."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"‏نمی‌توانید تماسی برقرار کنید چون برقراری تماس تلفنی با استفاده از مشخصه سیستم ro.telephony.disable-call غیرفعال شده است."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"نمی‌توانید تماسی برقرار کنید، چون هم‌اکنون دو تماس دیگر درحال انجام است. قبل از برقراری تماس جدید، یکی از تماس‌ها را قطع کنید یا آن‌ها را به‌صورت کنفرانسی ادغام کنید."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"نمی‌توانید تماسی برقرار کنید، زیرا هم‌اکنون دو تماس دیگر درحال انجام است. قبل‌از برقراری تماس جدید، یکی از تماس‌ها را قطع کنید یا آن‌ها را به‌صورت کنفرانسی ادغام کنید."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"برای استفاده از <xliff:g id="SUPP_SERVICE">%s</xliff:g>، مطمئن شوید داده‌ تلفن همراه روشن شده باشد. می‌توانید در تنظیمات شبکه تلفن همراه این تنظیم را تغییر دهید."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"برای استفاده از <xliff:g id="SUPP_SERVICE">%s</xliff:g>، مطمئن شوید داده‌ تلفن همراه و فراگردی داده روشن شده باشد. می‌توانید در تنظیمات شبکه تلفن همراه، این تنظیمات را تغییر دهید."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"برای استفاده از <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>، مطمئن شوید داده تلفن همراه برای سیم‌کارت <xliff:g id="SIM_NUMBER">%2$d</xliff:g> روشن باشد. می‌توانید در تنظیمات شبکه تلفن همراه این تنظیم را تغییر دهید."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"برای تغییر این تنظیم، باید دستگاه را بازراه‌اندازی کنید."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"بازراه‌اندازی"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"لغو"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"تنظیم سیم‌کارت داخلی جداشدنی به‌عنوان پیش‌فرض"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"توان رادیوی تلفن همراه"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"مشاهده دفترچه نشانی سیم‌کارت"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"مشاهده شماره‌های شماره‌گیری ثابت"</string>
@@ -881,7 +872,7 @@
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"‏پهنای باند DL (کیلوبیت بر ثانیه):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"‏پهنای باند UL (کیلوبیت بر ثانیه):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"‏پیکربندی کانال فیزیکی LTE:"</string>
-    <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"نرخ بازخوانی اطلاعات شبکه همراه:"</string>
+    <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"نرخ بازآوری اطلاعات شبکه همراه:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"همه اطلاعات اندازه‌گیری شبکه همراه:"</string>
     <string name="radio_info_gprs_service_label" msgid="6819204246355412952">"سرویس داده:"</string>
     <string name="radio_info_roaming_label" msgid="6636932886446857120">"فراگردی:"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"انتخاب باند رادیو"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"نوع شبکه صوتی:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"نوع شبکه داده:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ملغی کردن نوع شبکه:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"انتخاب نمایه تلفن"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"تنظیم نوع شبکه ترجیحی:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏پینگ کردن نام میزبان (www.google.com)‏ IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"بازخوانی"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"‏تغییر وضعیت علامت DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"‏تنظیمات/اطلاعات خاص OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"‏EN-DC دردسترس است:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"‏DCNR محدود شده است:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"‏NR دردسترس است:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"‏وضعیت NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"‏EN-DC دردسترس است (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"‏DCNR محدود شده است (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"‏NR دردسترس است (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"‏وضعیت NR‏ (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"‏فرکانس NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"تنظیم حالت باند رادیو"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"درحال بار کردن فهرست باند…"</string>

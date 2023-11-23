@@ -102,7 +102,8 @@ bool DwarfSectionImpl<AddressType>::FillInCieHeader(DwarfCie* cie) {
     }
 
     cie->cfa_instructions_end = memory_.cur_offset() + length64;
-    cie->fde_address_encoding = DW_EH_PE_sdata8;
+    // TODO(b/192012848): This is wrong. We need to propagate pointer size here.
+    cie->fde_address_encoding = DW_EH_PE_udata8;
 
     uint64_t cie_id;
     if (!memory_.ReadBytes(&cie_id, sizeof(cie_id))) {
@@ -118,7 +119,8 @@ bool DwarfSectionImpl<AddressType>::FillInCieHeader(DwarfCie* cie) {
   } else {
     // 32 bit Cie
     cie->cfa_instructions_end = memory_.cur_offset() + length32;
-    cie->fde_address_encoding = DW_EH_PE_sdata4;
+    // TODO(b/192012848): This is wrong. We need to propagate pointer size here.
+    cie->fde_address_encoding = DW_EH_PE_udata4;
 
     uint32_t cie_id;
     if (!memory_.ReadBytes(&cie_id, sizeof(cie_id))) {
@@ -161,8 +163,13 @@ bool DwarfSectionImpl<AddressType>::FillInCie(DwarfCie* cie) {
   } while (aug_value != '\0');
 
   if (cie->version == 4 || cie->version == 5) {
-    // Skip the Address Size field since we only use it for validation.
-    memory_.set_cur_offset(memory_.cur_offset() + 1);
+    char address_size;
+    if (!memory_.ReadBytes(&address_size, 1)) {
+      last_error_.code = DWARF_ERROR_MEMORY_INVALID;
+      last_error_.address = memory_.cur_offset();
+      return false;
+    }
+    cie->fde_address_encoding = address_size == 8 ? DW_EH_PE_udata8 : DW_EH_PE_udata4;
 
     // Segment Size
     if (!memory_.ReadBytes(&cie->segment_size, 1)) {
@@ -667,7 +674,7 @@ bool DwarfSectionImpl<AddressType>::GetNextCieOrFde(uint64_t& next_entries_offse
 
     if (value64 == cie64_value_) {
       entry_is_cie = true;
-      cie_fde_encoding = DW_EH_PE_sdata8;
+      cie_fde_encoding = DW_EH_PE_udata8;
     } else {
       cie_offset = GetCieOffsetFromFde64(value64);
     }
@@ -683,7 +690,7 @@ bool DwarfSectionImpl<AddressType>::GetNextCieOrFde(uint64_t& next_entries_offse
 
     if (value32 == cie32_value_) {
       entry_is_cie = true;
-      cie_fde_encoding = DW_EH_PE_sdata4;
+      cie_fde_encoding = DW_EH_PE_udata4;
     } else {
       cie_offset = GetCieOffsetFromFde32(value32);
     }

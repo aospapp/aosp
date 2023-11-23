@@ -26,7 +26,7 @@ using android::sp;
 using android::status_t;
 
 int main() {
-  ALOGD("Thales Secure Element HAL for eSE1 Service 1.5.0 is starting. libse-gto v1.13");
+  ALOGD("Thales Secure Element HAL for eSE1 Service 1.6.0 is starting. libse-gto v1.13");
   sp<ISecureElement> se_service = new SecureElement("eSE1");
   configureRpcThreadpool(1, true);
   status_t status = se_service->registerAsService("eSE1");

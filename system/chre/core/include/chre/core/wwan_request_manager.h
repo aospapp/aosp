@@ -81,7 +81,7 @@ class WwanRequestManager : public NonCopyable {
   // requesting one after another.
   //! The nanoapp that is currently requesting cell info. At this time only one
   //! nanoapp can have a pending request for cell info.
-  Optional<uint32_t> mCellInfoRequestingNanoappInstanceId;
+  Optional<uint16_t> mCellInfoRequestingNanoappInstanceId;
 
   //! The cookie passed in by a nanoapp making a request for cell info. Note
   //! that this will only be valid if the mCellInfoRequestingNanoappInstanceId

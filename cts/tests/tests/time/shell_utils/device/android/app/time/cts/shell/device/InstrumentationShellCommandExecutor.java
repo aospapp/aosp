@@ -48,7 +48,7 @@ public final class InstrumentationShellCommandExecutor
         byte[] stdOut = readBytesAndClose(parcelFileDescriptors[0]);
         byte[] stdErr = readBytesAndClose(parcelFileDescriptors[2]);
         if (stdErr.length > 0) {
-            fail("Command \'" + command + "\'produced stderr: "
+            fail("Command \'" + command + "\' produced stderr: "
                     + parseBytesAsString(stdErr).trim());
         }
         return stdOut;

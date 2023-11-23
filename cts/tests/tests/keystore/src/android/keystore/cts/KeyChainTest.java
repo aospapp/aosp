@@ -16,21 +16,39 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.security.KeyChain;
 import android.security.KeyChainException;
-import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import java.util.concurrent.CountDownLatch;
 
-public class KeyChainTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(AndroidJUnit4.class)
+public class KeyChainTest {
+
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testIsKeyAlgorithmSupported_RequiredAlgorithmsSupported() throws Exception {
         assertFalse("DSA must not be supported", KeyChain.isKeyAlgorithmSupported("DSA"));
         assertTrue("EC must be supported", KeyChain.isKeyAlgorithmSupported("EC"));
         assertTrue("RSA must be supported", KeyChain.isKeyAlgorithmSupported("RSA"));
     }
 
+    @Test
     public void testNullPrivateKeyArgumentsFail()
             throws KeyChainException, InterruptedException {
         try {
@@ -41,6 +59,7 @@ public class KeyChainTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNullPrivateKeyAliasArgumentFails()
             throws KeyChainException, InterruptedException {
         try {
@@ -51,6 +70,7 @@ public class KeyChainTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNullPrivateKeyContextArgumentFails()
             throws KeyChainException, InterruptedException {
         try {
@@ -68,6 +88,7 @@ public class KeyChainTest extends AndroidTestCase {
      * hardware/libhardware/include/hardware/keymaster.h and the associated
      * tests in hardware/libhardware/tests/keymaster/
      */
+    @Test
     public void testIsBoundKeyAlgorithm_RequiredAlgorithmsSupported() throws Exception {
         if (isLeanbackOnly()) {
             KeyChain.isBoundKeyAlgorithm("RSA");

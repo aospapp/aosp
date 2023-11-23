@@ -66,6 +66,7 @@ cc_defaults {
     cflags: [
         "-DMAX_SYM_DATA=256",
         "-DDEBUG=YES",
+        "-DUSE_DEBUG_RNG=NO",
         "-DALG_CAMELLIA=ALG_NO",
         "-Wno-logical-op-parentheses",
         "-Wno-empty-body",

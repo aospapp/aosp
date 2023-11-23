@@ -570,7 +570,9 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         waitAndAssertActivityStateOnDisplay(TEST_ACTIVITY, STATE_RESUMED, newDisplay.mId,
                 "Activity launched on secondary display must be resumed");
 
-        tapOnDisplayCenter(DEFAULT_DISPLAY);
+        // Tap on task center to switch focus between displays. Using task center instead of
+        // display center to cover the multi window scenario.
+        tapOnTaskCenter(mWmState.getTaskByActivity(VIRTUAL_DISPLAY_ACTIVITY));
 
         waitAndAssertTopResumedActivity(VIRTUAL_DISPLAY_ACTIVITY, DEFAULT_DISPLAY,
                 "Top activity must be on the primary display");
@@ -624,7 +626,9 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         assertBothDisplaysHaveResumedActivities(pair(DEFAULT_DISPLAY, RESIZEABLE_ACTIVITY),
                 pair(newDisplay.mId, TEST_ACTIVITY));
 
-        tapOnDisplayCenter(DEFAULT_DISPLAY);
+        // Tap on task center to switch focus between displays. Using task center instead of
+        // display center to cover the multi window scenario.
+        tapOnTaskCenter(mWmState.getTaskByActivity(RESIZEABLE_ACTIVITY));
 
         // Check that the activity on the primary display is the topmost resumed
         waitAndAssertTopResumedActivity(RESIZEABLE_ACTIVITY, DEFAULT_DISPLAY,
@@ -675,7 +679,9 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         mWmState.assertFocusedAppOnDisplay("Activity on second display must be focused.",
                 VIRTUAL_DISPLAY_ACTIVITY, newDisplay.mId);
 
-        tapOnDisplayCenter(DEFAULT_DISPLAY);
+        // Tap on task center to switch focus between displays. Using task center instead of
+        // display center to cover the multi window scenario.
+        tapOnTaskCenter(mWmState.getTaskByActivity(TEST_ACTIVITY));
 
         waitAndAssertTopResumedActivity(TEST_ACTIVITY, DEFAULT_DISPLAY,
                 "Activity should be top resumed when tapped.");
@@ -869,7 +875,9 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         waitAndAssertTopResumedActivity(SDK_27_TEST_ACTIVITY, newDisplay.mId,
                 "Activity launched on secondary display must be resumed and focused");
 
-        tapOnDisplayCenter(DEFAULT_DISPLAY);
+        // Tap on task center to switch focus between displays. Using task center instead of
+        // display center to cover the multi window scenario.
+        tapOnTaskCenter(mWmState.getTaskByActivity(SDK_27_LAUNCHING_ACTIVITY));
         waitAndAssertTopResumedActivity(SDK_27_LAUNCHING_ACTIVITY, DEFAULT_DISPLAY,
                 "Activity launched on default display must be resumed and focused");
         assertEquals("There must be only one resumed activity in the package.", 1,

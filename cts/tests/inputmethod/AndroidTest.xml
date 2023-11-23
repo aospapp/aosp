@@ -18,6 +18,7 @@
 <configuration description="Config for CTS InputMethod test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="inputmethod" />
+    <option name="config-descriptor:metadata" key="parameter" value="all_foldable_states" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
@@ -63,6 +64,15 @@
         <option name="force-install-mode" value="FULL"/>
         <option name="test-file-name" value="CtsHiddenFromPickerIme.apk" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <!--
+            CtsMockA11yInputMethod always needs to be instaleld as a full package, even when CTS is
+            running for instant apps.
+        -->
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsMockA11yInputMethod.apk" />
+    </target_preparer>
     <!--
         TODO(yukawa): come up with a proper way to take care of devices that do not support
         installable IMEs.  Ideally target_preparer should have an option to annotate required
@@ -95,12 +105,15 @@
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsInputMethodTestCases.apk" />
     </target_preparer>
     <!-- Enabling change id ALLOW_TEST_API_ACCESS allows that package to access @TestApi methods -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.mockime"  />
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.mockime" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.mocka11yime"  />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.mocka11yime" />
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp"  />
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp" />
     </target_preparer>

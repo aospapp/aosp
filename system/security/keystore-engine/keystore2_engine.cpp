@@ -384,7 +384,7 @@ extern "C" EVP_PKEY* EVP_PKEY_from_keystore2(const char* key_id) {
 
     // If the key_id starts with the grant id prefix, we parse the following string as numeric
     // grant id. We can then use the grant domain without alias to load the designated key.
-    if (alias.find(keystore2_grant_id_prefix) == 0) {
+    if (android::base::StartsWith(alias, keystore2_grant_id_prefix)) {
         std::stringstream s(alias.substr(keystore2_grant_id_prefix.size()));
         s >> std::hex >> reinterpret_cast<uint64_t&>(descriptor.nspace);
         descriptor.domain = ks2::Domain::GRANT;

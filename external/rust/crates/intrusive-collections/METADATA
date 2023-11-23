@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/intrusive-collections/intrusive-collections-0.9.0.crate"
+    value: "https://static.crates.io/crates/intrusive-collections/intrusive-collections-0.9.3.crate"
   }
-  version: "0.9.0"
+  version: "0.9.3"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 12
-    day: 15
+    year: 2022
+    month: 3
+    day: 1
   }
 }

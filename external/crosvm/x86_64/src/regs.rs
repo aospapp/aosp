@@ -2,62 +2,52 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::fmt::{self, Display};
 use std::{mem, result};
 
 use base::{self, warn};
-use hypervisor::{Fpu, Register, Regs, Sregs, VcpuX86_64};
+use hypervisor::{Fpu, Register, Regs, Sregs, VcpuX86_64, Vm};
+use remain::sorted;
+use thiserror::Error;
 use vm_memory::{GuestAddress, GuestMemory};
 
 use crate::gdt;
 
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum Error {
-    /// Setting up msrs failed.
-    MsrIoctlFailed(base::Error),
     /// Failed to configure the FPU.
+    #[error("failed to configure the FPU: {0}")]
     FpuIoctlFailed(base::Error),
     /// Failed to get sregs for this cpu.
+    #[error("failed to get sregs for this cpu: {0}")]
     GetSRegsIoctlFailed(base::Error),
-    /// Failed to set base registers for this cpu.
-    SettingRegistersIoctl(base::Error),
+    /// Setting up msrs failed.
+    #[error("setting up msrs failed: {0}")]
+    MsrIoctlFailed(base::Error),
     /// Failed to set sregs for this cpu.
+    #[error("failed to set sregs for this cpu: {0}")]
     SetSRegsIoctlFailed(base::Error),
+    /// Failed to set base registers for this cpu.
+    #[error("failed to set base registers for this cpu: {0}")]
+    SettingRegistersIoctl(base::Error),
     /// Writing the GDT to RAM failed.
+    #[error("writing the GDT to RAM failed")]
     WriteGDTFailure,
     /// Writing the IDT to RAM failed.
+    #[error("writing the IDT to RAM failed")]
     WriteIDTFailure,
-    /// Writing PML4 to RAM failed.
-    WritePML4Address,
-    /// Writing PDPTE to RAM failed.
-    WritePDPTEAddress,
     /// Writing PDE to RAM failed.
+    #[error("writing PDE to RAM failed")]
     WritePDEAddress,
+    /// Writing PDPTE to RAM failed.
+    #[error("writing PDPTE to RAM failed")]
+    WritePDPTEAddress,
+    /// Writing PML4 to RAM failed.
+    #[error("writing PML4 to RAM failed")]
+    WritePML4Address,
 }
+
 pub type Result<T> = result::Result<T, Error>;
-
-impl std::error::Error for Error {}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            MsrIoctlFailed(e) => write!(f, "setting up msrs failed: {}", e),
-            FpuIoctlFailed(e) => write!(f, "failed to configure the FPU: {}", e),
-            GetSRegsIoctlFailed(e) => write!(f, "failed to get sregs for this cpu: {}", e),
-            SettingRegistersIoctl(e) => {
-                write!(f, "failed to set base registers for this cpu: {}", e)
-            }
-            SetSRegsIoctlFailed(e) => write!(f, "failed to set sregs for this cpu: {}", e),
-            WriteGDTFailure => write!(f, "writing the GDT to RAM failed"),
-            WriteIDTFailure => write!(f, "writing the IDT to RAM failed"),
-            WritePML4Address => write!(f, "writing PML4 to RAM failed"),
-            WritePDPTEAddress => write!(f, "writing PDPTE to RAM failed"),
-            WritePDEAddress => write!(f, "writing PDE to RAM failed"),
-        }
-    }
-}
 
 const MTRR_MEMTYPE_UC: u8 = 0x0;
 const MTRR_MEMTYPE_WB: u8 = 0x6;
@@ -103,7 +93,12 @@ fn get_mtrr_pairs(base: u64, len: u64) -> Vec<(u64, u64)> {
     vecs
 }
 
-fn append_mtrr_entries(vpu: &dyn VcpuX86_64, pci_start: u64, entries: &mut Vec<Register>) {
+fn append_mtrr_entries(
+    vm: &dyn Vm,
+    vpu: &dyn VcpuX86_64,
+    pci_start: u64,
+    entries: &mut Vec<Register>,
+) {
     // Get VAR MTRR num from MSR_MTRRcap
     let mut msrs = vec![Register {
         id: crate::msr_index::MSR_MTRRcap,
@@ -127,7 +122,7 @@ fn append_mtrr_entries(vpu: &dyn VcpuX86_64, pci_start: u64, entries: &mut Vec<R
         return;
     }
 
-    let phys_mask: u64 = (1 << crate::cpuid::phy_max_address_bits()) - 1;
+    let phys_mask: u64 = (1 << vm.get_guest_phys_addr_bits()) - 1;
     for (idx, (base, len)) in vecs.iter().enumerate() {
         let reg_idx = idx as u32 * 2;
         entries.push(Register {
@@ -147,7 +142,7 @@ fn append_mtrr_entries(vpu: &dyn VcpuX86_64, pci_start: u64, entries: &mut Vec<R
     });
 }
 
-fn create_msr_entries(vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec<Register> {
+fn create_msr_entries(vm: &dyn Vm, vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec<Register> {
     let mut entries = vec![
         Register {
             id: crate::msr_index::MSR_IA32_SYSENTER_CS,
@@ -192,7 +187,7 @@ fn create_msr_entries(vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec<Register> {
             value: crate::msr_index::MSR_IA32_MISC_ENABLE_FAST_STRING as u64,
         },
     ];
-    append_mtrr_entries(vcpu, pci_start, &mut entries);
+    append_mtrr_entries(vm, vcpu, pci_start, &mut entries);
     entries
 }
 
@@ -201,8 +196,8 @@ fn create_msr_entries(vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec<Register> {
 /// # Arguments
 ///
 /// * `vcpu` - Structure for the vcpu that holds the vcpu fd.
-pub fn setup_msrs(vcpu: &dyn VcpuX86_64, pci_start: u64) -> Result<()> {
-    let msrs = create_msr_entries(vcpu, pci_start);
+pub fn setup_msrs(vm: &dyn Vm, vcpu: &dyn VcpuX86_64, pci_start: u64) -> Result<()> {
+    let msrs = create_msr_entries(vm, vcpu, pci_start);
     vcpu.set_msrs(&msrs).map_err(Error::MsrIoctlFailed)
 }
 
@@ -249,8 +244,8 @@ const X86_CR4_PAE: u64 = 0x20;
 const EFER_LME: u64 = 0x100;
 const EFER_LMA: u64 = 0x400;
 
-const BOOT_GDT_OFFSET: u64 = 0x500;
-const BOOT_IDT_OFFSET: u64 = 0x520;
+const BOOT_GDT_OFFSET: u64 = 0x1500;
+const BOOT_IDT_OFFSET: u64 = 0x1520;
 
 const BOOT_GDT_MAX: usize = 4;
 

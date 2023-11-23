@@ -13,13 +13,13 @@
 // limitations under the License.
 #pragma once
 
-#include "VulkanHandleMapping.h"
-#include "VulkanDispatch.h"
-
 #include <vulkan/vulkan.h>
 
 #include <memory>
 
+#include "VkQsriTimeline.h"
+#include "VulkanDispatch.h"
+#include "VulkanHandleMapping.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 #include "cereal/common/goldfish_vk_transform.h"
 
@@ -600,6 +600,10 @@ public:
                               const VkFenceCreateInfo* pCreateInfo,
                               const VkAllocationCallbacks* pAllocator,
                               VkFence* pFence);
+    VkResult on_vkResetFences(android::base::BumpPool* pool,
+                              VkDevice device,
+                              uint32_t fenceCount,
+                              const VkFence* pFences);
     void on_vkDestroyFence(android::base::BumpPool* pool,
                            VkDevice device,
                            VkFence fence,
@@ -655,6 +659,9 @@ public:
         android::base::BumpPool* pool,
         VkCommandBuffer commandBuffer,
         const VkCommandBufferBeginInfo* pBeginInfo);
+    VkResult on_vkEndCommandBuffer(
+        android::base::BumpPool* pool,
+        VkCommandBuffer commandBuffer);
     void on_vkEndCommandBufferAsyncGOOGLE(
         android::base::BumpPool* pool,
         VkCommandBuffer commandBuffer);
@@ -732,6 +739,9 @@ public:
         VkFormat format,
         VkDeviceSize* pOffset,
         VkDeviceSize* pRowPitchAlignment);
+    void on_vkGetLinearImageLayout2GOOGLE(android::base::BumpPool* pool, VkDevice device,
+                                          const VkImageCreateInfo* pCreateInfo,
+                                          VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment);
 
     // VK_GOOGLE_gfxstream
     void on_vkQueueFlushCommandsGOOGLE(
@@ -759,11 +769,29 @@ public:
         VkDescriptorPool descriptorPool,
         uint32_t* pPoolIdCount,
         uint64_t* pPoolIds);
+    VkResult on_vkQueueBindSparse(
+        android::base::BumpPool* pool,
+        VkQueue queue,
+        uint32_t bindInfoCount,
+        const VkBindSparseInfo* pBindInfo, VkFence fence);
+    void on_vkQueueSignalReleaseImageANDROIDAsyncGOOGLE(
+        android::base::BumpPool* pool,
+        VkQueue queue,
+        uint32_t waitSemaphoreCount,
+        const VkSemaphore* pWaitSemaphores,
+        VkImage image);
 
     // Fence waits
     VkResult waitForFence(VkFence boxed_fence, uint64_t timeout);
 
     VkResult getFenceStatus(VkFence boxed_fence);
+
+    // Wait for present (vkQueueSignalReleaseImageANDROID). This explicitly
+    // requires the image to be presented again versus how many times it's been
+    // presented so far, so it ends up incrementing a "target present count"
+    // for this image, and then waiting for the image to get vkQSRI'ed at least
+    // that many times.
+    VkResult registerQsriCallback(VkImage boxed_image, VkQsriTimeline::Callback callback);
 
     // Transformations
     void deviceMemoryTransform_tohost(

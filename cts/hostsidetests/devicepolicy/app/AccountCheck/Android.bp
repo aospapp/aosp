@@ -23,7 +23,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     srcs: ["src-owner/**/*.java"],
     resource_dirs: ["TestOnlyOwner/res"],
@@ -44,7 +44,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     srcs: ["src-owner/**/*.java"],
     resource_dirs: ["NonTestOnlyOwner/res"],
@@ -65,7 +65,7 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     srcs: ["src-owner/**/*.java"],
     resource_dirs: ["TestOnlyOwnerUpdate/res"],

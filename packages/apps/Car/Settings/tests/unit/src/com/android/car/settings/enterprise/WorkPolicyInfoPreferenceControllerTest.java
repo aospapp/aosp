@@ -38,13 +38,15 @@ import android.provider.Settings;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Test;
 import org.mockito.Mock;
 
 import java.util.Arrays;
 
-public final class WorkPolicyInfoPreferenceControllerTest extends BasePreferenceControllerTestCase {
+public final class WorkPolicyInfoPreferenceControllerTest
+        extends BaseEnterprisePreferenceControllerTestCase {
 
     @Mock
     private ResolveInfo mResolveInfo;
@@ -64,7 +66,8 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     public void testGetAvailabilityStatus_noFeature() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
 
-        assertAvailability(controller.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
     }
 
     @Test
@@ -72,7 +75,8 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         // Don't need to mock anything else
 
-        assertAvailability(controller.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -81,7 +85,8 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
         mockProfileOwner();
         // Don't need to mock anything else
 
-        assertAvailability(controller.getAvailabilityStatus(), DISABLED_FOR_PROFILE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
     }
 
     @Test
@@ -90,7 +95,8 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
         mockProfileOwner();
         mockHasIntent();
 
-        assertAvailability(controller.getAvailabilityStatus(), AVAILABLE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE);
     }
 
     @Test

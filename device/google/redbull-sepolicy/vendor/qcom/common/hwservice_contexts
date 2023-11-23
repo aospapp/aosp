@@ -34,3 +34,5 @@ vendor.qti.qspmhal::IQspmhal                                            u:object
 vendor.qti.hardware.slmadapter::ISlmAdapter                             u:object_r:hal_slmadapter_hwservice:s0
 vendor.qti.hardware.dsp::IDspService                                    u:object_r:hal_dspmanager_hwservice:s0
 vendor.qti.hardware.mwqemadapter::IMwqemAdapter                         u:object_r:hal_mwqemadapter_hwservice:s0
+vendor.qti.hardware.bluetooth_sar::IBluetoothSar                        u:object_r:hal_bluetooth_coexistence_hwservice:s0
+vendor.qti.hardware.bt_channel_avoidance::IBTChannelAvoidance           u:object_r:hal_bluetooth_coexistence_hwservice:s0

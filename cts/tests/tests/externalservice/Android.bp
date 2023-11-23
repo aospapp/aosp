@@ -38,4 +38,8 @@ android_test {
         "general-tests",
     ],
     sdk_version: "test_current",
+    data: [
+        ":CtsExternalServiceService",
+    ],
+    per_testcase_directory: true,
 }

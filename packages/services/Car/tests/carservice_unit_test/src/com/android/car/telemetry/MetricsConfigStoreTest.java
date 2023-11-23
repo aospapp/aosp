@@ -16,12 +16,12 @@
 
 package com.android.car.telemetry;
 
-import static android.car.telemetry.CarTelemetryManager.ERROR_METRICS_CONFIG_NONE;
+import static android.car.telemetry.CarTelemetryManager.STATUS_ADD_METRICS_CONFIG_SUCCEEDED;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.car.telemetry.CarTelemetryManager;
-import android.car.telemetry.MetricsConfigKey;
+import android.car.telemetry.TelemetryProto;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -40,8 +40,6 @@ public class MetricsConfigStoreTest {
             TelemetryProto.MetricsConfig.newBuilder().setName(NAME_FOO).setVersion(1).build();
     private static final TelemetryProto.MetricsConfig METRICS_CONFIG_BAR =
             TelemetryProto.MetricsConfig.newBuilder().setName(NAME_BAR).setVersion(1).build();
-    private static final MetricsConfigKey KEY_BAR = new MetricsConfigKey(
-            METRICS_CONFIG_BAR.getName(), METRICS_CONFIG_BAR.getVersion());
 
     private File mTestRootDir;
     private File mTestMetricsConfigDir;
@@ -71,7 +69,7 @@ public class MetricsConfigStoreTest {
     public void testAddMetricsConfig_shouldWriteConfigToDisk() throws Exception {
         int status = mMetricsConfigStore.addMetricsConfig(METRICS_CONFIG_FOO);
 
-        assertThat(status).isEqualTo(CarTelemetryManager.ERROR_METRICS_CONFIG_NONE);
+        assertThat(status).isEqualTo(CarTelemetryManager.STATUS_ADD_METRICS_CONFIG_SUCCEEDED);
         assertThat(readConfigFromFile(NAME_FOO)).isEqualTo(METRICS_CONFIG_FOO);
     }
 
@@ -82,23 +80,23 @@ public class MetricsConfigStoreTest {
 
         int status = mMetricsConfigStore.addMetricsConfig(invalidConfig);
 
-        assertThat(status).isEqualTo(CarTelemetryManager.ERROR_METRICS_CONFIG_VERSION_TOO_OLD);
+        assertThat(status).isEqualTo(CarTelemetryManager.STATUS_ADD_METRICS_CONFIG_VERSION_TOO_OLD);
         assertThat(new File(mTestMetricsConfigDir, NAME_BAR).exists()).isFalse();
     }
 
     @Test
     public void testRemoveMetricsConfig_shouldDeleteConfigFromDisk() {
         int status = mMetricsConfigStore.addMetricsConfig(METRICS_CONFIG_BAR);
-        assertThat(status).isEqualTo(ERROR_METRICS_CONFIG_NONE);
+        assertThat(status).isEqualTo(STATUS_ADD_METRICS_CONFIG_SUCCEEDED);
 
-        mMetricsConfigStore.removeMetricsConfig(KEY_BAR);
+        mMetricsConfigStore.removeMetricsConfig(NAME_BAR);
 
         assertThat(new File(mTestMetricsConfigDir, NAME_BAR).exists()).isFalse();
     }
 
     @Test
     public void testRemoveMetricsConfig_whenConfigDoesNotExist_shouldDoNothing() {
-        boolean success = mMetricsConfigStore.removeMetricsConfig(KEY_BAR);
+        boolean success = mMetricsConfigStore.removeMetricsConfig(NAME_BAR);
 
         assertThat(success).isFalse();
     }
@@ -111,6 +109,14 @@ public class MetricsConfigStoreTest {
         mMetricsConfigStore.removeAllMetricsConfigs();
 
         assertThat(mTestMetricsConfigDir.listFiles()).isEmpty();
+    }
+
+    @Test
+    public void testContainsConfig() {
+        mMetricsConfigStore.addMetricsConfig(METRICS_CONFIG_FOO);
+
+        assertThat(mMetricsConfigStore.containsConfig(NAME_FOO)).isTrue();
+        assertThat(mMetricsConfigStore.containsConfig(NAME_BAR)).isFalse();
     }
 
     private void writeConfigToDisk(TelemetryProto.MetricsConfig config) throws Exception {

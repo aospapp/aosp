@@ -29,6 +29,7 @@
 #include "base/locks.h"
 #include "base/macros.h"
 #include "base/mem_map.h"
+#include "base/mutex.h"
 #include "gc_root.h"
 #include "obj_ptr.h"
 #include "offsets.h"
@@ -85,7 +86,7 @@ class Object;
 // more memory and additional memory accesses on add/get, but is moving-GC safe. It will catch
 // additional problems, e.g.: create iref1 for obj, delete iref1, create iref2 for same obj,
 // lookup iref1. A pattern based on object bits will miss this.
-typedef void* IndirectRef;
+using IndirectRef = void*;
 
 // Indirect reference kind, used as the two low bits of IndirectRef.
 //
@@ -149,23 +150,22 @@ struct IRTSegmentState {
 // Use as initial value for "cookie", and when table has only one segment.
 static constexpr IRTSegmentState kIRTFirstSegment = { 0 };
 
-// Try to choose kIRTPrevCount so that sizeof(IrtEntry) is a power of 2.
-// Contains multiple entries but only one active one, this helps us detect use after free errors
-// since the serial stored in the indirect ref wont match.
-static constexpr size_t kIRTPrevCount = kIsDebugBuild ? 7 : 3;
+// We associate a few bits of serial number with each reference, for error checking.
+static constexpr unsigned int kIRTSerialBits = 3;
+static constexpr uint32_t kIRTMaxSerial = ((1 << kIRTSerialBits) - 1);
 
 class IrtEntry {
  public:
   void Add(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   GcRoot<mirror::Object>* GetReference() {
-    DCHECK_LT(serial_, kIRTPrevCount);
-    return &references_[serial_];
+    DCHECK_LE(serial_, kIRTMaxSerial);
+    return &reference_;
   }
 
   const GcRoot<mirror::Object>* GetReference() const {
-    DCHECK_LT(serial_, kIRTPrevCount);
-    return &references_[serial_];
+    DCHECK_LE(serial_, kIRTMaxSerial);
+    return &reference_;
   }
 
   uint32_t GetSerial() const {
@@ -175,11 +175,10 @@ class IrtEntry {
   void SetReference(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  uint32_t serial_;
-  GcRoot<mirror::Object> references_[kIRTPrevCount];
+  uint32_t serial_;  // Incremented for each reuse; checked against reference.
+  GcRoot<mirror::Object> reference_;
 };
-static_assert(sizeof(IrtEntry) == (1 + kIRTPrevCount) * sizeof(uint32_t),
-              "Unexpected sizeof(IrtEntry)");
+static_assert(sizeof(IrtEntry) == 2 * sizeof(uint32_t), "Unexpected sizeof(IrtEntry)");
 static_assert(IsPowerOfTwo(sizeof(IrtEntry)), "Unexpected sizeof(IrtEntry)");
 
 class IrtIterator {
@@ -218,6 +217,39 @@ bool inline operator!=(const IrtIterator& lhs, const IrtIterator& rhs) {
   return !lhs.equals(rhs);
 }
 
+// We initially allocate local reference tables with a very small number of entries, packing
+// multiple tables into a single page. If we need to expand one, we allocate them in units of
+// pages.
+// TODO: We should allocate all IRT tables as nonmovable Java objects, That in turn works better
+// if we break up each table into 2 parallel arrays, one for the Java reference, and one for the
+// serial number. The current scheme page-aligns regions containing IRT tables, and so allows them
+// to be identified and page-protected in the future.
+constexpr size_t kInitialIrtBytes = 512;  // Number of bytes in an initial local table.
+constexpr size_t kSmallIrtEntries = kInitialIrtBytes / sizeof(IrtEntry);
+static_assert(kPageSize % kInitialIrtBytes == 0);
+static_assert(kInitialIrtBytes % sizeof(IrtEntry) == 0);
+static_assert(kInitialIrtBytes % sizeof(void *) == 0);
+
+// A minimal stopgap allocator for initial small local IRT tables.
+class SmallIrtAllocator {
+ public:
+  SmallIrtAllocator();
+
+  // Allocate an IRT table for kSmallIrtEntries.
+  IrtEntry* Allocate(std::string* error_msg) REQUIRES(!lock_);
+
+  void Deallocate(IrtEntry* unneeded) REQUIRES(!lock_);
+
+ private:
+  // A free list of kInitialIrtBytes chunks linked through the first word.
+  IrtEntry* small_irt_freelist_;
+
+  // Repository of MemMaps used for small IRT tables.
+  std::vector<MemMap> shared_irt_maps_;
+
+  Mutex lock_;  // Level kGenericBottomLock; acquired before mem_map_lock_, which is a C++ mutex.
+};
+
 class IndirectReferenceTable {
  public:
   enum class ResizableCapacity {
@@ -230,6 +262,8 @@ class IndirectReferenceTable {
   // construction has failed and the IndirectReferenceTable will be in an
   // invalid state. Use IsValid to check whether the object is in an invalid
   // state.
+  // Max_count is the minimum initial capacity (resizable), or minimum total capacity
+  // (not resizable). A value of 1 indicates an implementation-convenient small size.
   IndirectReferenceTable(size_t max_count,
                          IndirectRefKind kind,
                          ResizableCapacity resizable,
@@ -295,7 +329,14 @@ class IndirectReferenceTable {
     return segment_state_.top_index;
   }
 
+  // Return the number of non-null entries in the table. Only reliable for a
+  // single segment table.
+  int32_t NEntriesForGlobal() {
+    return segment_state_.top_index - current_num_holes_;
+  }
+
   // Ensure that at least free_capacity elements are available, or return false.
+  // Caller ensures free_capacity > 0.
   bool EnsureFreeCapacity(size_t free_capacity, std::string* error_msg)
       REQUIRES_SHARED(Locks::mutator_lock_);
   // See implementation of EnsureFreeCapacity. We'll only state here how much is trivially free,
@@ -340,8 +381,7 @@ class IndirectReferenceTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  static constexpr size_t kSerialBits = MinimumBitsToStore(kIRTPrevCount);
-  static constexpr uint32_t kShiftedSerialMask = (1u << kSerialBits) - 1;
+  static constexpr uint32_t kShiftedSerialMask = (1u << kIRTSerialBits) - 1;
 
   static constexpr size_t kKindBits = MinimumBitsToStore(
       static_cast<uint32_t>(IndirectRefKind::kLastKind));
@@ -349,11 +389,11 @@ class IndirectReferenceTable {
 
   static constexpr uintptr_t EncodeIndex(uint32_t table_index) {
     static_assert(sizeof(IndirectRef) == sizeof(uintptr_t), "Unexpected IndirectRef size");
-    DCHECK_LE(MinimumBitsToStore(table_index), BitSizeOf<uintptr_t>() - kSerialBits - kKindBits);
-    return (static_cast<uintptr_t>(table_index) << kKindBits << kSerialBits);
+    DCHECK_LE(MinimumBitsToStore(table_index), BitSizeOf<uintptr_t>() - kIRTSerialBits - kKindBits);
+    return (static_cast<uintptr_t>(table_index) << kKindBits << kIRTSerialBits);
   }
   static constexpr uint32_t DecodeIndex(uintptr_t uref) {
-    return static_cast<uint32_t>((uref >> kKindBits) >> kSerialBits);
+    return static_cast<uint32_t>((uref >> kKindBits) >> kIRTSerialBits);
   }
 
   static constexpr uintptr_t EncodeIndirectRefKind(IndirectRefKind kind) {
@@ -364,7 +404,7 @@ class IndirectReferenceTable {
   }
 
   static constexpr uintptr_t EncodeSerial(uint32_t serial) {
-    DCHECK_LE(MinimumBitsToStore(serial), kSerialBits);
+    DCHECK_LE(MinimumBitsToStore(serial), kIRTSerialBits);
     return serial << kKindBits;
   }
   static constexpr uint32_t DecodeSerial(uintptr_t uref) {
@@ -404,7 +444,8 @@ class IndirectReferenceTable {
   /// semi-public - read/write by jni down calls.
   IRTSegmentState segment_state_;
 
-  // Mem map where we store the indirect refs.
+  // Mem map where we store the indirect refs. If it's invalid, and table_ is non-null, then
+  // table_ is valid, but was allocated via allocSmallIRT();
   MemMap table_mem_map_;
   // bottom of the stack. Do not directly access the object references
   // in this as they are roots. Use Get() that has a read barrier.
@@ -418,7 +459,7 @@ class IndirectReferenceTable {
   // Some values to retain old behavior with holes. Description of the algorithm is in the .cc
   // file.
   // TODO: Consider other data structures for compact tables, e.g., free lists.
-  size_t current_num_holes_;
+  size_t current_num_holes_;  // Number of holes in the current / top segment.
   IRTSegmentState last_known_previous_state_;
 
   // Whether the table's capacity may be resized. As there are no locks used, it is the caller's

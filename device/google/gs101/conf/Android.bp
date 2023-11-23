@@ -24,6 +24,12 @@
 // identical with the exception of the encryption settings, so to keep them in
 // sync the rules below generate them from a template file.
 
+soong_namespace {
+    imports: [
+        "device/google/gs101",
+    ],
+}
+
 package {
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
@@ -31,6 +37,11 @@ package {
     // to get the below license kinds:
     //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: ["device_google_gs101_license"],
+}
+
+filegroup {
+    name: "gs101_srcs",
+    srcs: ["fstab.gs101.in"],
 }
 
 genrule {

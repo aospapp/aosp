@@ -114,7 +114,14 @@ cc_defaults {
         linux_glibc_x86: {
             enabled: false,
         },
+        linux_musl_x86: {
+            enabled: false,
+        },
         linux_glibc_x86_64: {
+            local_include_dirs: ["linux_x86_64/pyconfig"],
+            cflags: ["-Werror"],
+        },
+        linux_musl_x86_64: {
             local_include_dirs: ["linux_x86_64/pyconfig"],
             cflags: ["-Werror"],
         },
@@ -976,13 +983,7 @@ cc_library_static {
                 "Modules/_ctypes/libffi/src/x86/darwin64.S",
             ],
         },
-        linux_bionic: {
-            local_include_dirs: ["linux_x86_64/libffi"],
-            srcs: [
-                "Modules/_ctypes/libffi/src/x86/unix64.S",
-            ],
-        },
-        linux_glibc_x86_64: {
+        host_linux: {
             local_include_dirs: ["linux_x86_64/libffi"],
             srcs: [
                 "Modules/_ctypes/libffi/src/x86/unix64.S",

@@ -19,6 +19,7 @@ package android.os;
 import android.os.IPendingIntentRef;
 import android.os.IPullAtomCallback;
 import android.os.ParcelFileDescriptor;
+import android.util.PropertyParcel;
 
 /**
   * Binder interface to communicate with the statistics management service.
@@ -80,7 +81,7 @@ interface IStatsd {
      * updated.
      */
     oneway void informOnePackage(in String app, in int uid, in long version,
-        in String version_string, in String installer);
+        in String version_string, in String installer, in byte[] certificate_hash);
 
     /**
      * Inform stats that an app was removed.
@@ -234,4 +235,9 @@ interface IStatsd {
      * Returns the most recently registered experiment IDs.
      */
     long[] getRegisteredExperimentIds();
+
+    /**
+     * Notifies of properties in statsd_java namespace.
+     */
+    oneway void updateProperties(in PropertyParcel[] properties);
 }

@@ -247,4 +247,17 @@
 
     <!-- The content description of grid picker entry. [CHAR LIMIT=NONE] -->
     <string name="gird_picker_entry_content_description" msgid="7538418512525897691">Change app grid</string>
+
+    <!-- The title for the tab with colors from wallpaper. [CHAR_LIMIT=20]-->
+    <string name="wallpaper_color_tab">Wallpaper colors</string>
+    <!-- The description on an item that shows a color obtained from the wallpaper
+        (used mainly for accessibility). [CHAR_LIMIT=NONE] -->
+    <string name="wallpaper_color_title">Wallpaper color</string>
+    <!-- The title for the tab with a default set of color options. [CHAR_LIMIT=20]-->
+    <string name="preset_color_tab">Basic colors</string>
+    <!-- The text for A11y announcement when color changes. -->
+    <string name="color_changed">Color changed</string>
+    <!-- Title of a section of color selection option that obtains colors automatically from the
+        wallpaper instead of a set color [CHAR LIMIT=15] -->
+    <string name="adaptive_color_title">Dynamic</string>
 </resources>

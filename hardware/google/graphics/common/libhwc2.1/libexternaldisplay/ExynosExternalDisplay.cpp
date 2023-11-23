@@ -149,12 +149,7 @@ int32_t ExynosExternalDisplay::getActiveConfig(hwc2_config_t* outConfig) {
 void ExynosExternalDisplay::hotplug(){
     DISPLAY_LOGD(eDebugExternalDisplay, "");
 
-    hwc2_callback_data_t callbackData =
-        mDevice->mCallbackInfos[HWC2_CALLBACK_HOTPLUG].callbackData;
-    HWC2_PFN_HOTPLUG callbackFunc =
-        (HWC2_PFN_HOTPLUG)mDevice->mCallbackInfos[HWC2_CALLBACK_HOTPLUG].funcPointer;
-    if (callbackData != NULL && callbackFunc != NULL)
-        callbackFunc(callbackData, mDisplayId, mHpdStatus ? HWC2_CONNECTION_CONNECTED : HWC2_CONNECTION_DISCONNECTED);
+    mDevice->onHotPlug(mDisplayId, mHpdStatus);
 }
 
 bool ExynosExternalDisplay::handleRotate()
@@ -314,7 +309,7 @@ int32_t ExynosExternalDisplay::presentDisplay(
             ret = HWC2_ERROR_NOT_VALIDATED;
         }
         mRenderingState = RENDERING_STATE_PRESENTED;
-        mDevice->invalidate();
+        mDevice->onRefresh();
         return ret;
     }
 
@@ -353,7 +348,7 @@ int32_t ExynosExternalDisplay::presentDisplay(
          */
         setGeometryChanged(GEOMETRY_DISPLAY_FORCE_VALIDATE);
 
-        mDevice->invalidate();
+        mDevice->onRefresh();
 
         return HWC2_ERROR_NONE;
     }
@@ -513,8 +508,7 @@ void ExynosExternalDisplay::handleHotplugEvent()
 {
     bool hpd_temp = 0;
 
-    if (mDevice->mCallbackInfos[HWC2_CALLBACK_HOTPLUG].callbackData == NULL)
-        return;
+    if (!mDevice->isCallbackAvailable(HWC2_CALLBACK_HOTPLUG)) return;
 
     char cablestate_name[MAX_DEV_NAME + 1];
     cablestate_name[MAX_DEV_NAME] = '\0';
@@ -550,7 +544,7 @@ void ExynosExternalDisplay::handleHotplugEvent()
                 closeExternalDisplay();
             }
             hotplug();
-            mDevice->invalidate();
+            mDevice->onRefresh();
         }
     }
 

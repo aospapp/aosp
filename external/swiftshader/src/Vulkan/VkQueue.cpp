@@ -13,10 +13,12 @@
 // limitations under the License.
 
 #include "VkQueue.hpp"
+
 #include "VkCommandBuffer.hpp"
 #include "VkFence.hpp"
 #include "VkSemaphore.hpp"
 #include "VkStringify.hpp"
+#include "VkStructConversion.hpp"
 #include "VkTimelineSemaphore.hpp"
 #include "Device/Renderer.hpp"
 #include "WSI/VkSwapchainKHR.hpp"
@@ -27,109 +29,6 @@
 #include "marl/trace.h"
 
 #include <cstring>
-
-namespace {
-
-VkSubmitInfo *DeepCopySubmitInfo(uint32_t submitCount, const VkSubmitInfo *pSubmits)
-{
-	size_t submitSize = sizeof(VkSubmitInfo) * submitCount;
-	size_t totalSize = submitSize;
-	for(uint32_t i = 0; i < submitCount; i++)
-	{
-		totalSize += pSubmits[i].waitSemaphoreCount * sizeof(VkSemaphore);
-		totalSize += pSubmits[i].waitSemaphoreCount * sizeof(VkPipelineStageFlags);
-		totalSize += pSubmits[i].signalSemaphoreCount * sizeof(VkSemaphore);
-		totalSize += pSubmits[i].commandBufferCount * sizeof(VkCommandBuffer);
-
-		for(const auto *extension = reinterpret_cast<const VkBaseInStructure *>(pSubmits[i].pNext);
-		    extension != nullptr; extension = reinterpret_cast<const VkBaseInStructure *>(extension->pNext))
-		{
-			switch(extension->sType)
-			{
-				case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO:
-				{
-					const auto *tlsSubmitInfo = reinterpret_cast<const VkTimelineSemaphoreSubmitInfo *>(extension);
-					totalSize += sizeof(VkTimelineSemaphoreSubmitInfo);
-					totalSize += tlsSubmitInfo->waitSemaphoreValueCount * sizeof(uint64_t);
-					totalSize += tlsSubmitInfo->signalSemaphoreValueCount * sizeof(uint64_t);
-				}
-				break;
-				default:
-					WARN("submitInfo[%d]->pNext sType: %s", i, vk::Stringify(extension->sType).c_str());
-					break;
-			}
-		}
-	}
-
-	uint8_t *mem = static_cast<uint8_t *>(
-	    vk::allocate(totalSize, vk::REQUIRED_MEMORY_ALIGNMENT, vk::DEVICE_MEMORY, vk::Fence::GetAllocationScope()));
-
-	auto submits = new(mem) VkSubmitInfo[submitCount];
-	memcpy(mem, pSubmits, submitSize);
-	mem += submitSize;
-
-	for(uint32_t i = 0; i < submitCount; i++)
-	{
-		size_t size = pSubmits[i].waitSemaphoreCount * sizeof(VkSemaphore);
-		submits[i].pWaitSemaphores = reinterpret_cast<const VkSemaphore *>(mem);
-		memcpy(mem, pSubmits[i].pWaitSemaphores, size);
-		mem += size;
-
-		size = pSubmits[i].waitSemaphoreCount * sizeof(VkPipelineStageFlags);
-		submits[i].pWaitDstStageMask = reinterpret_cast<const VkPipelineStageFlags *>(mem);
-		memcpy(mem, pSubmits[i].pWaitDstStageMask, size);
-		mem += size;
-
-		size = pSubmits[i].signalSemaphoreCount * sizeof(VkSemaphore);
-		submits[i].pSignalSemaphores = reinterpret_cast<const VkSemaphore *>(mem);
-		memcpy(mem, pSubmits[i].pSignalSemaphores, size);
-		mem += size;
-
-		size = pSubmits[i].commandBufferCount * sizeof(VkCommandBuffer);
-		submits[i].pCommandBuffers = reinterpret_cast<const VkCommandBuffer *>(mem);
-		memcpy(mem, pSubmits[i].pCommandBuffers, size);
-		mem += size;
-
-		for(const auto *extension = reinterpret_cast<const VkBaseInStructure *>(pSubmits[i].pNext);
-		    extension != nullptr; extension = reinterpret_cast<const VkBaseInStructure *>(extension->pNext))
-		{
-			switch(extension->sType)
-			{
-				case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO:
-				{
-					const VkTimelineSemaphoreSubmitInfo *tlsSubmitInfo = reinterpret_cast<const VkTimelineSemaphoreSubmitInfo *>(extension);
-
-					size = sizeof(VkTimelineSemaphoreSubmitInfo);
-					VkTimelineSemaphoreSubmitInfo *tlsSubmitInfoCopy = reinterpret_cast<VkTimelineSemaphoreSubmitInfo *>(mem);
-					memcpy(mem, extension, size);
-					// Don't copy the pNext pointer at all.
-					tlsSubmitInfoCopy->pNext = nullptr;
-					mem += size;
-
-					size = tlsSubmitInfo->waitSemaphoreValueCount * sizeof(uint64_t);
-					tlsSubmitInfoCopy->pWaitSemaphoreValues = reinterpret_cast<uint64_t *>(mem);
-					memcpy(mem, tlsSubmitInfo->pWaitSemaphoreValues, size);
-					mem += size;
-
-					size = tlsSubmitInfo->signalSemaphoreValueCount * sizeof(uint64_t);
-					tlsSubmitInfoCopy->pSignalSemaphoreValues = reinterpret_cast<uint64_t *>(mem);
-					memcpy(mem, tlsSubmitInfo->pSignalSemaphoreValues, size);
-					mem += size;
-
-					submits[i].pNext = tlsSubmitInfoCopy;
-				}
-				break;
-				default:
-					WARN("submitInfo[%d]->pNext sType: %s", i, vk::Stringify(extension->sType).c_str());
-					break;
-			}
-		}
-	}
-
-	return submits;
-}
-
-}  // anonymous namespace
 
 namespace vk {
 
@@ -151,13 +50,13 @@ Queue::~Queue()
 	garbageCollect();
 }
 
-VkResult Queue::submit(uint32_t submitCount, const VkSubmitInfo *pSubmits, Fence *fence)
+VkResult Queue::submit(uint32_t submitCount, SubmitInfo *pSubmits, Fence *fence)
 {
 	garbageCollect();
 
 	Task task;
 	task.submitCount = submitCount;
-	task.pSubmits = DeepCopySubmitInfo(submitCount, pSubmits);
+	task.pSubmits = pSubmits;
 	if(fence)
 	{
 		task.events = fence->getCountedEvent();
@@ -178,29 +77,13 @@ void Queue::submitQueue(const Task &task)
 
 	for(uint32_t i = 0; i < task.submitCount; i++)
 	{
-		VkSubmitInfo &submitInfo = task.pSubmits[i];
-		const VkTimelineSemaphoreSubmitInfo *timelineInfo = nullptr;
-		for(const auto *nextInfo = reinterpret_cast<const VkBaseInStructure *>(submitInfo.pNext);
-		    nextInfo != nullptr; nextInfo = nextInfo->pNext)
-		{
-			switch(nextInfo->sType)
-			{
-				case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO:
-					timelineInfo = reinterpret_cast<const VkTimelineSemaphoreSubmitInfo *>(submitInfo.pNext);
-					break;
-				default:
-					WARN("submitInfo.pNext->sType = %s", vk::Stringify(nextInfo->sType).c_str());
-					break;
-			}
-		}
-
+		SubmitInfo &submitInfo = task.pSubmits[i];
 		for(uint32_t j = 0; j < submitInfo.waitSemaphoreCount; j++)
 		{
 			if(auto *sem = DynamicCast<TimelineSemaphore>(submitInfo.pWaitSemaphores[j]))
 			{
-				ASSERT_MSG(timelineInfo != nullptr,
-				           "the pNext chain must include a VkTimelineSemaphoreSubmitInfo if timeline semaphores are used");
-				sem->wait(timelineInfo->pWaitSemaphoreValues[j]);
+				ASSERT(j < submitInfo.waitSemaphoreValueCount);
+				sem->wait(submitInfo.pWaitSemaphoreValues[j]);
 			}
 			else if(auto *sem = DynamicCast<BinarySemaphore>(submitInfo.pWaitSemaphores[j]))
 			{
@@ -226,9 +109,8 @@ void Queue::submitQueue(const Task &task)
 		{
 			if(auto *sem = DynamicCast<TimelineSemaphore>(submitInfo.pSignalSemaphores[j]))
 			{
-				ASSERT_MSG(timelineInfo != nullptr,
-				           "the pNext chain must include a VkTimelineSemaphoreSubmitInfo if timeline semaphores are used");
-				sem->signal(timelineInfo->pSignalSemaphoreValues[j]);
+				ASSERT(j < submitInfo.signalSemaphoreValueCount);
+				sem->signal(submitInfo.pSignalSemaphoreValues[j]);
 			}
 			else if(auto *sem = DynamicCast<BinarySemaphore>(submitInfo.pSignalSemaphores[j]))
 			{
@@ -267,15 +149,15 @@ void Queue::taskLoop(marl::Scheduler *scheduler)
 
 		switch(task.type)
 		{
-			case Task::KILL_THREAD:
-				ASSERT_MSG(pending.count() == 0, "queue has remaining work!");
-				return;
-			case Task::SUBMIT_QUEUE:
-				submitQueue(task);
-				break;
-			default:
-				UNREACHABLE("task.type %d", static_cast<int>(task.type));
-				break;
+		case Task::KILL_THREAD:
+			ASSERT_MSG(pending.count() == 0, "queue has remaining work!");
+			return;
+		case Task::SUBMIT_QUEUE:
+			submitQueue(task);
+			break;
+		default:
+			UNREACHABLE("task.type %d", static_cast<int>(task.type));
+			break;
 		}
 	}
 }
@@ -303,7 +185,7 @@ void Queue::garbageCollect()
 	{
 		auto v = toDelete.tryTake();
 		if(!v.second) { break; }
-		vk::deallocate(v.first, DEVICE_MEMORY);
+		SubmitInfo::Release(v.first);
 	}
 }
 

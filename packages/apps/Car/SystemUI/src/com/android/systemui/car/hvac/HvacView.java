@@ -59,5 +59,4 @@ public interface HvacView {
      * Performs any action needed when locale is changed.
      */
     default void onLocaleListChanged() {}
-
 }

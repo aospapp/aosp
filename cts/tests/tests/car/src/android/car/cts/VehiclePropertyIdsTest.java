@@ -19,40 +19,21 @@ package android.car.cts;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.car.VehiclePropertyIds;
+import android.car.cts.utils.VehiclePropertyUtils;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.List;
 
 @SmallTest
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
 public class VehiclePropertyIdsTest {
-    private static final String TAG = "VehiclePropertyIdsTest";
-
-    // Get all enums from the class.
-    private static List<Integer> getIntegersFromDataEnums() {
-        Field[] fields = VehiclePropertyIds.class.getDeclaredFields();
-        List<Integer> integerList = new ArrayList<>(5);
-        for (Field f : fields) {
-            if (f.getType() == int.class) {
-                try {
-                    integerList.add(f.getInt(VehiclePropertyIds.class));
-                } catch (IllegalAccessException | RuntimeException e) {
-                    Log.w(TAG, "Failed to get value");
-                }
-            }
-        }
-        return integerList;
-    }
 
     /**
      * Test for {@link VehiclePropertyIds#toString()}
@@ -132,6 +113,22 @@ public class VehiclePropertyIdsTest {
                 .isEqualTo("EV_CHARGE_PORT_CONNECTED");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_PORT_OPEN))
                 .isEqualTo("EV_CHARGE_PORT_OPEN");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_CURRENT_DRAW_LIMIT))
+                .isEqualTo("EV_CHARGE_CURRENT_DRAW_LIMIT");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_PERCENT_LIMIT))
+                .isEqualTo("EV_CHARGE_PERCENT_LIMIT");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_SWITCH))
+                .isEqualTo("EV_CHARGE_SWITCH");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_STATE))
+                .isEqualTo("EV_CHARGE_STATE");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_CHARGE_TIME_REMAINING))
+                .isEqualTo("EV_CHARGE_TIME_REMAINING");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.EV_REGENERATIVE_BRAKING_STATE))
+                .isEqualTo("EV_REGENERATIVE_BRAKING_STATE");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.VEHICLE_CURB_WEIGHT))
+                .isEqualTo("VEHICLE_CURB_WEIGHT");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.TRAILER_PRESENT))
+                .isEqualTo("TRAILER_PRESENT");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.RANGE_REMAINING))
                 .isEqualTo("RANGE_REMAINING");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.TIRE_PRESSURE)).
@@ -310,6 +307,14 @@ public class VehiclePropertyIdsTest {
                 .isEqualTo("FOG_LIGHTS_STATE");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.FOG_LIGHTS_SWITCH))
                 .isEqualTo("FOG_LIGHTS_SWITCH");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.FRONT_FOG_LIGHTS_STATE))
+                .isEqualTo("FRONT_FOG_LIGHTS_STATE");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.FRONT_FOG_LIGHTS_SWITCH))
+                .isEqualTo("FRONT_FOG_LIGHTS_SWITCH");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.REAR_FOG_LIGHTS_STATE))
+                .isEqualTo("REAR_FOG_LIGHTS_STATE");
+        assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.REAR_FOG_LIGHTS_SWITCH))
+                .isEqualTo("REAR_FOG_LIGHTS_SWITCH");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.HAZARD_LIGHTS_STATE))
                 .isEqualTo("HAZARD_LIGHTS_STATE");
         assertThat(VehiclePropertyIds.toString(VehiclePropertyIds.HAZARD_LIGHTS_SWITCH))
@@ -331,7 +336,8 @@ public class VehiclePropertyIdsTest {
      */
     @Test
     public void testAllPropertiesAreMappedInToString() {
-        List<Integer> systemProperties = getIntegersFromDataEnums();
+        List<Integer> systemProperties =
+                VehiclePropertyUtils.getIntegersFromDataEnums(VehiclePropertyIds.class);
         for (int propertyId : systemProperties) {
             String propertyString = VehiclePropertyIds.toString(propertyId);
             assertThat(propertyString.startsWith("0x")).isFalse();

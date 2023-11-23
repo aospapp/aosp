@@ -26,6 +26,7 @@
 #include <base/macros.h>
 #include <base/strings/stringprintf.h>
 
+#include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/annotated_operation.h"
 #include "update_engine/payload_generator/extent_ranges.h"
@@ -87,13 +88,23 @@ void ExtentsToVector(const google::protobuf::RepeatedPtrField<Extent>& extents,
   }
 }
 
-string ExtentsToString(const vector<Extent>& extents) {
+template <typename Container>
+string ExtentsToStringTemplate(const Container& extents) {
   string ext_str;
   for (const Extent& e : extents)
     ext_str += base::StringPrintf("[%" PRIu64 ", %" PRIu64 "] ",
                                   static_cast<uint64_t>(e.start_block()),
                                   static_cast<uint64_t>(e.num_blocks()));
   return ext_str;
+}
+
+std::string ExtentsToString(const std::vector<Extent>& extents) {
+  return ExtentsToStringTemplate(extents);
+}
+
+std::string ExtentsToString(
+    const google::protobuf::RepeatedPtrField<Extent>& extents) {
+  return ExtentsToStringTemplate(extents);
 }
 
 void NormalizeExtents(vector<Extent>* extents) {
@@ -151,14 +162,44 @@ vector<Extent> ExtentsSublist(const vector<Extent>& extents,
   return result;
 }
 
-bool operator==(const Extent& a, const Extent& b) {
+bool operator==(const Extent& a, const Extent& b) noexcept {
   return a.start_block() == b.start_block() && a.num_blocks() == b.num_blocks();
+}
+
+bool operator!=(const Extent& a, const Extent& b) noexcept {
+  return !(a == b);
 }
 
 std::ostream& operator<<(std::ostream& out, const Extent& extent) {
   out << "[" << extent.start_block() << " - "
       << extent.start_block() + extent.num_blocks() - 1 << "]";
   return out;
+}
+
+template <typename T>
+std::ostream& PrintExtents(std::ostream& out, const T& extents) {
+  if (extents.begin() == extents.end()) {
+    out << "{}";
+    return out;
+  }
+  out << "{";
+  auto begin = extents.begin();
+  out << *begin;
+  for (const auto& ext : Range{++begin, extents.end()}) {
+    out << ", " << ext;
+  }
+  out << "}";
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out,
+                         const std::vector<Extent>& extents) {
+  return PrintExtents(out, extents);
+}
+std::ostream& operator<<(
+    std::ostream& out,
+    const google::protobuf::RepeatedPtrField<Extent>& extents) {
+  return PrintExtents(out, extents);
 }
 
 }  // namespace chromeos_update_engine

@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"완료되었거나 취소된 다운로드를 보여 주는 알림"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"다운로드 진행 상황"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"파일 다운로드 진행 상황을 보여 주는 알림"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"다운로드가 취소되었습니다."</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"파일이 너무 커서 다운로드가 취소되었습니다."</string>
 </resources>

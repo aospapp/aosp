@@ -20,6 +20,8 @@
 
     <item target="layout/top_level_preference" value="@layout/top_level_preference"/>
 
+    <item target="style/LockPattern" value="@style/LockPattern"/>
+
     <item target="animator/trans_left_in" value="@animator/trans_fade_in"/>
     <item target="animator/trans_left_out" value="@animator/trans_fade_out"/>
     <item target="animator/trans_right_in" value="@animator/trans_fade_in"/>

@@ -6,13 +6,7 @@
 // migration complete, OEMs can remove this app going forward.
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "packages_apps_CellBroadcastReceiver_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: [
-        "packages_apps_CellBroadcastReceiver_license",
-    ],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 android_app {
@@ -24,14 +18,16 @@ android_app {
         "androidx.appcompat_appcompat",
     ],
 
-    libs: ["app-compat-annotations"],
+    libs: [
+        "app-compat-annotations",
+        "framework-annotations-lib",
+    ],
 
     srcs: [
         "src/**/*.aidl",
         "src/**/*.java",
-        ":framework-annotations",
         ":cellbroadcast-database-sources",
     ],
     privileged: true,
-    sdk_version: "system_current",
+    sdk_version: "module_current",
 }

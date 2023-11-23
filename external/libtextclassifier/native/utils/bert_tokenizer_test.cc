@@ -70,6 +70,35 @@ TEST(BertTokenizerTest, TestTokenizerMultipleRows) {
                                             "##wer", "##ask", "##ask"));
 }
 
+TEST(BertTokenizerTest, TestTokenizeIntoWordpieces) {
+  auto tokenizer =
+      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+
+  auto results = tokenizer->TokenizeIntoWordpieces("i'm questionansweraskask");
+
+  EXPECT_THAT(results.subwords, ElementsAre("i", "'", "m", "question", "##ans",
+                                            "##wer", "##ask", "##ask"));
+  EXPECT_THAT(results.wp_begin_offset, ElementsAre(0, 1, 2, 4, 12, 15, 18, 21));
+  EXPECT_THAT(results.wp_end_offset, ElementsAre(1, 2, 3, 12, 15, 18, 21, 24));
+  EXPECT_THAT(results.row_lengths, ElementsAre(1, 1, 1, 5));
+}
+
+TEST(BertTokenizerTest, TestTokenizeIntoWordpiecesLongNonAscii) {
+  auto tokenizer =
+      absl::make_unique<BertTokenizer>(GetTestDataPath(kTestVocabPath));
+
+  std::string token;
+  for (int i = 0; i < 100; ++i) {
+    token += "ń";
+  }
+  auto results = tokenizer->TokenizeIntoWordpieces(token);
+
+  EXPECT_THAT(results.subwords, ElementsAre("[UNK]"));
+  EXPECT_THAT(results.wp_begin_offset, ElementsAre(0));
+  EXPECT_THAT(results.wp_end_offset, ElementsAre(100));
+  EXPECT_THAT(results.row_lengths, ElementsAre(1));
+}
+
 TEST(BertTokenizerTest, TestTokenizerUnknownTokens) {
   std::vector<std::string> vocab;
   vocab.emplace_back("i");

@@ -56,6 +56,8 @@ struct UidStats {
 // Collector/Aggregator for per-UID I/O and proc stats.
 class UidStatsCollectorInterface : public RefBase {
 public:
+    // Initializes the collector.
+    virtual void init() = 0;
     // Collects the per-UID I/O and proc stats.
     virtual android::base::Result<void> collect() = 0;
     // Returns the latest per-uid I/O and proc stats.
@@ -72,6 +74,12 @@ public:
           mPackageInfoResolver(PackageInfoResolver::getInstance()),
           mUidIoStatsCollector(android::sp<UidIoStatsCollector>::make()),
           mUidProcStatsCollector(android::sp<UidProcStatsCollector>::make()) {}
+
+    void init() override {
+        Mutex::Autolock lock(mMutex);
+        mUidIoStatsCollector->init();
+        mUidProcStatsCollector->init();
+    }
 
     android::base::Result<void> collect() override;
 
@@ -93,18 +101,18 @@ private:
     std::vector<UidStats> process(
             const std::unordered_map<uid_t, UidIoStats>& uidIoStatsByUid,
             const std::unordered_map<uid_t, UidProcStats>& uidProcStatsByUid) const;
-    // Local IPackageInfoResolver instance. Useful to mock in tests.
-    sp<IPackageInfoResolver> mPackageInfoResolver;
+    // Local PackageInfoResolverInterface instance. Useful to mock in tests.
+    sp<PackageInfoResolverInterface> mPackageInfoResolver;
 
     mutable Mutex mMutex;
 
-    android::sp<UidIoStatsCollectorInterface> mUidIoStatsCollector;
+    android::sp<UidIoStatsCollectorInterface> mUidIoStatsCollector GUARDED_BY(mMutex);
 
-    android::sp<UidProcStatsCollectorInterface> mUidProcStatsCollector;
+    android::sp<UidProcStatsCollectorInterface> mUidProcStatsCollector GUARDED_BY(mMutex);
 
-    std::vector<UidStats> mLatestStats;
+    std::vector<UidStats> mLatestStats GUARDED_BY(mMutex);
 
-    std::vector<UidStats> mDeltaStats;
+    std::vector<UidStats> mDeltaStats GUARDED_BY(mMutex);
 
     // For unit tests.
     friend class internal::UidStatsCollectorPeer;

@@ -51,6 +51,7 @@ struct mesh_conf {
 	int dot11MeshRetryTimeout; /* msec */
 	int dot11MeshConfirmTimeout; /* msec */
 	int dot11MeshHoldingTimeout; /* msec */
+	int mesh_fwding;
 };
 
 #define MAX_STA_COUNT 2007
@@ -266,6 +267,8 @@ struct airtime_sta_weight {
 	unsigned int weight;
 	u8 addr[ETH_ALEN];
 };
+
+#define EXT_CAPA_MAX_LEN 15
 
 /**
  * struct hostapd_bss_config - Per-BSS configuration
@@ -655,7 +658,7 @@ struct hostapd_bss_config {
 	struct wpabuf *vendor_elements;
 	struct wpabuf *assocresp_elements;
 
-	unsigned int sae_anti_clogging_threshold;
+	unsigned int anti_clogging_threshold;
 	unsigned int sae_sync;
 	int sae_require_mfp;
 	int sae_confirm_immediate;
@@ -694,6 +697,7 @@ struct hostapd_bss_config {
 
 #define MESH_ENABLED BIT(0)
 	int mesh;
+	int mesh_fwding;
 
 	u8 radio_measurements[RRM_CAPABILITIES_IE_LEN];
 
@@ -874,12 +878,26 @@ struct hostapd_bss_config {
 	 * secure LTF. Allow forcing KDK derivation for testing purposes.
 	 */
 	int force_kdk_derivation;
+
+	/* If set, corrupt the MIC in the 2nd Authentication frame of PASN */
+	int pasn_corrupt_mic;
 #endif /* CONFIG_TESTING_OPTIONS */
 
 	int *pasn_groups;
+
+	/*
+	 * The time in TUs after which the non-AP STA is requested to retry the
+	 * PASN authentication in case there are too many parallel operations.
+	 */
+	u16 pasn_comeback_after;
 #endif /* CONFIG_PASN */
 
 	unsigned int unsol_bcast_probe_resp_interval;
+
+	u8 ext_capa_mask[EXT_CAPA_MAX_LEN];
+	u8 ext_capa[EXT_CAPA_MAX_LEN];
+
+	u8 rnr;
 };
 
 /**
@@ -900,7 +918,9 @@ struct he_operation {
 	u8 he_bss_color_partial;
 	u8 he_default_pe_duration;
 	u8 he_twt_required;
+	u8 he_twt_responder;
 	u16 he_rts_threshold;
+	u8 he_er_su_disable;
 	u16 he_basic_mcs_nss_set;
 };
 
@@ -935,6 +955,7 @@ struct hostapd_config {
 	struct wpa_freq_range_list acs_freq_list;
 	u8 acs_freq_list_present;
 	int acs_exclude_dfs;
+	u8 min_tx_power;
 	enum hostapd_hw_mode hw_mode; /* HOSTAPD_MODE_IEEE80211A, .. */
 	int acs_exclude_6ghz_non_psc;
 	enum {

@@ -20,7 +20,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.android.server.wm.flicker.helpers.SampleAppHelper
 import com.android.server.wm.flicker.rules.WMFlickerServiceRule
-import com.android.server.wm.traces.common.FlickerComponentName
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper
 import org.junit.FixMethodOrder
 import org.junit.Rule
@@ -48,10 +47,5 @@ class FassMockTest {
         device.pressHome()
         wmHelper.waitForHomeActivityVisible()
         dummyAppHelper.launchViaIntent(wmHelper)
-    }
-
-    companion object {
-        private val DUMMY_APP = FlickerComponentName("com.google.android.apps.messaging",
-            "com.google.android.apps.messaging.ui.ConversationListActivity")
     }
 }

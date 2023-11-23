@@ -180,4 +180,24 @@ public final class UidRange implements Parcelable {
         }
         return uids;
     }
+
+    /**
+     * Compare if the given UID range sets have the same UIDs.
+     *
+     * @hide
+     */
+    public static boolean hasSameUids(@Nullable Set<UidRange> uids1,
+            @Nullable Set<UidRange> uids2) {
+        if (null == uids1) return null == uids2;
+        if (null == uids2) return false;
+        // Make a copy so it can be mutated to check that all ranges in uids2 also are in uids.
+        final Set<UidRange> remainingUids = new ArraySet<>(uids2);
+        for (UidRange range : uids1) {
+            if (!remainingUids.contains(range)) {
+                return false;
+            }
+            remainingUids.remove(range);
+        }
+        return remainingUids.isEmpty();
+    }
 }

@@ -45,13 +45,19 @@ struct AppData {
     string versionString;
     string installer;
     bool deleted;
+    vector<uint8_t> certificateHash;
 
     // Empty constructor needed for unordered map.
     AppData() {
     }
 
-    AppData(const int64_t v, const string& versionString, const string& installer)
-        : versionCode(v), versionString(versionString), installer(installer), deleted(false){};
+    AppData(const int64_t v, const string& versionString, const string& installer,
+            const vector<uint8_t> certificateHash)
+        : versionCode(v),
+          versionString(versionString),
+          installer(installer),
+          deleted(false),
+          certificateHash(certificateHash){};
 };
 
 // When calling appendUidMap, we retrieve all the ChangeRecords since the last
@@ -84,7 +90,7 @@ const unsigned int kBytesChangeRecord = sizeof(struct ChangeRecord);
 
 // UidMap keeps track of what the corresponding app name (APK name) and version code for every uid
 // at any given moment. This map must be updated by StatsCompanionService.
-class UidMap : public virtual android::RefBase {
+class UidMap : public virtual RefBase {
 public:
     UidMap();
     ~UidMap();
@@ -92,16 +98,17 @@ public:
 
     static sp<UidMap> getInstance();
     /*
-     * All three inputs must be the same size, and the jth element in each array refers to the same
-     * tuple, ie. uid[j] corresponds to packageName[j] with versionCode[j].
+     * All six inputs must be the same size, and the jth element in each array refers to the same
+     * tuple, ie. uid[j] corresponds to packageName[j] with versionCode[j] etc.
      */
     void updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
                    const vector<int64_t>& versionCode, const vector<String16>& versionString,
-                   const vector<String16>& packageName, const vector<String16>& installer);
+                   const vector<String16>& packageName, const vector<String16>& installer,
+                   const vector<vector<uint8_t>>& certificateHash);
 
     void updateApp(const int64_t& timestamp, const String16& packageName, const int32_t& uid,
                    const int64_t& versionCode, const String16& versionString,
-                   const String16& installer);
+                   const String16& installer, const vector<uint8_t>& certificateHash);
     void removeApp(const int64_t& timestamp, const String16& packageName, const int32_t& uid);
 
     // Returns true if the given uid contains the specified app (eg. com.google.android.gms).
@@ -113,8 +120,8 @@ public:
     int64_t getAppVersion(int uid, const string& packageName) const;
 
     // Helper for debugging contents of this uid map. Can be triggered with:
-    // adb shell cmd stats print-uid-map
-    void printUidMap(int outFd) const;
+    // adb shell cmd stats print-uid-map [--with_certificate_hash]
+    void printUidMap(int outFd, bool includeCertificateHash) const;
 
     // Command for indicating to the map that StatsLogProcessor should be notified if an app is
     // updated. This allows metric producers and managers to distinguish when the same uid or app
@@ -136,8 +143,9 @@ public:
     // Gets all snapshots and changes that have occurred since the last output.
     // If every config key has received a change or snapshot record, then this
     // record is deleted.
-    void appendUidMap(const int64_t& timestamp, const ConfigKey& key, std::set<string>* str_set,
-                      bool includeVersionStrings, bool includeInstaller,
+    void appendUidMap(const int64_t& timestamp, const ConfigKey& key,
+                      const bool includeVersionStrings, const bool includeInstaller,
+                      const uint8_t truncatedCertificateHashSize, std::set<string>* str_set,
                       ProtoOutputStream* proto);
 
     // Forces the output to be cleared. We still generate a snapshot based on the current state.
@@ -156,16 +164,23 @@ public:
     // str_set: if not null, add new string to the set and write str_hash to proto
     //          if null, write string to proto.
     void writeUidMapSnapshot(int64_t timestamp, bool includeVersionStrings, bool includeInstaller,
-                             const std::set<int32_t>& interestingUids, std::set<string>* str_set,
-                             ProtoOutputStream* proto);
+                             const uint8_t truncatedCertificateHashSize,
+                             const std::set<int32_t>& interestingUids,
+                             std::map<string, int>* installerIndices, std::set<string>* str_set,
+                             ProtoOutputStream* proto) const;
+
+    void setIncludeCertificateHash(const bool include);
 
 private:
     std::set<string> getAppNamesFromUidLocked(const int32_t& uid, bool returnNormalized) const;
     string normalizeAppName(const string& appName) const;
 
-    void writeUidMapSnapshotLocked(int64_t timestamp, bool includeVersionStrings,
-                                   bool includeInstaller, const std::set<int32_t>& interestingUids,
-                                   std::set<string>* str_set, ProtoOutputStream* proto);
+    void writeUidMapSnapshotLocked(const int64_t timestamp, const bool includeVersionStrings,
+                                   const bool includeInstaller,
+                                   const uint8_t truncatedCertificateHashSize,
+                                   const std::set<int32_t>& interestingUids,
+                                   std::map<string, int>* installerIndices,
+                                   std::set<string>* str_set, ProtoOutputStream* proto) const;
 
     mutable mutex mMutex;
     mutable mutex mIsolatedMutex;
@@ -211,6 +226,8 @@ private:
 
     // Cache the size of mOutput;
     size_t mBytesUsed;
+
+    bool mIncludeCertificateHash;
 
     // Allows unit-test to access private methods.
     FRIEND_TEST(UidMapTest, TestClearingOutput);

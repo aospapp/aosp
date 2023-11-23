@@ -25,10 +25,10 @@ set -e # fail early
 
 source ${ANDROID_BUILD_TOP}/build/envsetup.sh
 m -j apexer
-export APEXER_TOOL_PATH="${ANDROID_BUILD_TOP}/out/soong/host/linux-x86/bin:${ANDROID_BUILD_TOP}/prebuilts/sdk/tools/linux/bin"
+export APEXER_TOOL_PATH="${ANDROID_BUILD_TOP}/out/host/linux-x86/bin:${ANDROID_BUILD_TOP}/prebuilts/sdk/tools/linux/bin"
 PATH+=":${ANDROID_BUILD_TOP}/prebuilts/sdk/tools/linux/bin"
 
-for fs_type in ext4 f2fs
+for fs_type in ext4 f2fs erofs
 do
 input_dir=$(mktemp -d)
 output_dir=$(mktemp -d)
@@ -57,7 +57,7 @@ ln -s file1 ${input_dir}/sym1
 manifest_dir=$(mktemp -d)
 manifest_file=${manifest_dir}/apex_manifest.pb
 echo '{"name": "com.android.example.apex", "version": 1}' > ${manifest_dir}/apex_manifest.json
-${ANDROID_BUILD_TOP}/out/soong/host/linux-x86/bin/conv_apex_manifest proto ${manifest_dir}/apex_manifest.json -o ${manifest_file}
+${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/conv_apex_manifest proto ${manifest_dir}/apex_manifest.json -o ${manifest_file}
 
 # Create the file_contexts file
 file_contexts_file=$(mktemp)

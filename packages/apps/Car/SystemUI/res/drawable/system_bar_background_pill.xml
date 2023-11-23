@@ -20,8 +20,8 @@
     <item>
         <aapt:attr name="android:drawable">
             <shape android:shape="rectangle">
-                <corners android:radius="@dimen/system_bar_pill_radius"/>
                 <solid android:color="@color/system_bar_background_pill_color"/>
+                <corners android:radius="@dimen/system_bar_pill_radius"/>
             </shape>
         </aapt:attr>
     </item>

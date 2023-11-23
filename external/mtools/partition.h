@@ -22,12 +22,13 @@ typedef struct hsc {
 	unsigned char cyl;		/* starting cylinder */
 } hsc;
 
-#define head(x) ((unsigned int)((x).head))
-#define sector(x) ((unsigned int)((x).sector & 0x3f))
-#define cyl(x) ((unsigned int)((x).cyl | (((x).sector & 0xc0)<<2)))
+#define head(x) ((uint8_t)((x).head))
+#define sector(x) ((uint8_t)((x).sector & 0x3f))
+#define cyl(x) ((uint16_t)((x).cyl | (((x).sector & 0xc0)<<2)))
 
-#define BEGIN(p) _DWORD((p).start_sect)
-#define END(p) (_DWORD((p).start_sect)+(_DWORD((p).nr_sects)))
+#define BEGIN(p) _DWORD((p)->start_sect)
+#define END(p) (_DWORD((p)->start_sect)+(_DWORD((p)->nr_sects)))
+#define PART_SIZE(p) (_DWORD((p)->nr_sects))
 
 
 struct partition {
@@ -41,11 +42,16 @@ struct partition {
 #define sys_ind end.byte0
 
 int consistencyCheck(struct partition *partTable, int doprint, int verbose,
-		     int *has_activated, unsigned int *last_end,
-		     unsigned int *j, 
-		     struct device *used_dev, int target_partition);
+		     int *has_activated, uint32_t tot_sectors,
+		     struct device *used_dev, unsigned int target_partition);
 
 void setBeginEnd(struct partition *partTable,
-		 unsigned long begin, unsigned long end,
-		 unsigned int heads, unsigned int sector,
-		 int activate, int type, int fat_bits);
+		 uint32_t begin, uint32_t end,
+		 uint16_t iheads, uint16_t isectors,
+		 int activate, uint8_t type, unsigned int fat_bits);
+
+Stream_t *OpenPartition(Stream_t *Next, struct device *dev,
+			char *errmsg, mt_off_t *maxSize);
+
+unsigned int findOverlap(struct partition *partTable, unsigned int until,
+			 uint32_t start, uint32_t end);

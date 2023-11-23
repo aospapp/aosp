@@ -21,6 +21,8 @@
     <string name="permission_search_keyword" msgid="1214451577494730543">"権限"</string>
     <string name="cancel" msgid="8943320028373963831">"キャンセル"</string>
     <string name="back" msgid="6249950659061523680">"戻る"</string>
+    <string name="available" msgid="6007778121920339498">"使用可能"</string>
+    <string name="blocked" msgid="9195547604866033708">"ブロック中"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"アンインストールまたは無効化"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"アプリが見つかりません"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"許可しない"</string>
@@ -51,8 +53,15 @@
     <string name="app_permissions_breadcrumb" msgid="5136969550489411650">"アプリ"</string>
     <string name="app_permissions" msgid="3369917736607944781">"アプリの権限"</string>
     <string name="unused_apps" msgid="2058057455175955094">"使用されていないアプリ"</string>
-    <string name="no_unused_apps" msgid="12809387670415295">"使用されていないアプリなし"</string>
+    <string name="no_unused_apps" msgid="12809387670415295">"使用されていないアプリはありません"</string>
     <string name="zero_unused_apps" msgid="9024448554157499748">"使用していないアプリ: 0 個"</string>
+    <string name="review_permission_decisions" msgid="309559429150613632">"最近の権限の許可 / 拒否"</string>
+    <string name="review_permission_decisions_view_all" msgid="90391040431566130">"最近の権限の許可 / 拒否をすべて表示"</string>
+    <string name="review_permission_decisions_empty" msgid="8120775336417279806">"最近の権限の許可 / 拒否はありません"</string>
+    <string name="auto_permission_manager_summary" msgid="9157438376234301354">"カレンダーや通話履歴などへのデータアクセスを管理する"</string>
+    <string name="granted_permission_decision" msgid="7824827491551861365">"<xliff:g id="APP_NAME">%1$s</xliff:g> による<xliff:g id="PERMISSION_NAME">%2$s</xliff:g>へのアクセスを許可しました"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"<xliff:g id="APP_NAME">%1$s</xliff:g> による<xliff:g id="PERMISSION_NAME">%2$s</xliff:g>へのアクセスを拒否しました"</string>
+    <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{今日}=1{1 日前}other{# 日前}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"アプリを無効にする"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"このアプリを無効にすると、Android などの他のアプリが正しく動作しなくなるおそれがあります。このアプリはデバイスにプリインストールされているため、削除できません。無効にするには、このアプリをオフにし、デバイスにアプリが表示されないようにします。"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"権限マネージャー"</string>
@@ -60,21 +69,24 @@
     <string name="no_permissions" msgid="3881676756371148563">"権限がありません"</string>
     <string name="additional_permissions" msgid="5801285469338873430">"その他の権限"</string>
     <string name="app_permissions_info_button_label" msgid="7633312050729974623">"アプリ情報を開く"</string>
-    <plurals name="additional_permissions_more" formatted="false" msgid="5297511511961335277">
-      <item quantity="other">他 <xliff:g id="COUNT_1">%1$d</xliff:g> 件</item>
-      <item quantity="one">他 <xliff:g id="COUNT_0">%1$d</xliff:g> 件</item>
-    </plurals>
+    <string name="additional_permissions_more" msgid="5681220714755304407">"{count,plural, =1{他 # 件}other{他 # 件}}"</string>
     <string name="old_sdk_deny_warning" msgid="2382236998845153919">"このアプリは Android の以前のバージョンを対象としています。権限を許可しないと、意図されたとおりに動作しなくなる可能性があります。"</string>
+    <string name="storage_supergroup_warning_allow" msgid="103093462784523190">"このアプリは Android の以前のバージョンを対象としています。この権限を許可する場合は、ストレージ全体（写真、動画、音楽、音声などのファイルを含む）へのアクセスを許可することになります。"</string>
+    <string name="storage_supergroup_warning_deny" msgid="6420765672683284347">"このアプリは Android の以前のバージョンを対象としています。この権限を許可しない場合は、ストレージ全体（写真、動画、音楽、音声などのファイルを含む）へのアクセスを許可しないことになります。"</string>
     <string name="default_permission_description" msgid="4624464917726285203">"不明な操作の実行"</string>
     <string name="app_permissions_group_summary" msgid="8788419008958284002">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> 個のアプリを許可"</string>
     <string name="app_permissions_group_summary2" msgid="4329922444840521150">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> 件のアプリを許可"</string>
     <string name="menu_show_system" msgid="4254021607027872504">"システムアプリを表示"</string>
     <string name="menu_hide_system" msgid="3855390843744028465">"システムアプリを表示しない"</string>
+    <string name="menu_show_7_days_data" msgid="8979611198508523706">"過去 7 日間を表示"</string>
+    <string name="menu_show_24_hours_data" msgid="8228054833323380780">"過去 24 時間を表示"</string>
     <string name="manage_permission" msgid="2895385393037061964">"権限の管理"</string>
     <string name="no_apps" msgid="2412612731628386816">"アプリがありません"</string>
     <string name="location_settings" msgid="3624412509133422562">"位置情報の設定"</string>
     <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g>はこのデバイスの位置情報サービスのプロバイダです。位置情報へのアクセスは位置情報の設定から変更できます。"</string>
     <string name="system_warning" msgid="1173400963234358816">"この権限を許可しない場合、デバイスの基本機能が正しく動作しなくなることがあります。"</string>
+    <string name="deny_read_media_visual_warning" msgid="3982586279917232827">"このアプリは Android の以前のバージョンを対象としています。写真や動画へのアクセスをこのアプリに許可しない場合は、音楽などの音声へのアクセスも許可しないことになります。"</string>
+    <string name="deny_read_media_aural_warning" msgid="8928699919508646732">"このアプリは Android の以前のバージョンを対象としています。音楽などの音声へのアクセスをこのアプリに許可しない場合は、写真や動画へのアクセスも許可しないことになります。"</string>
     <string name="cdm_profile_revoke_warning" msgid="4443893270719106700">"この権限を許可しない場合、このアプリで管理されるデバイスの一部の機能が正しく動作しなくなることがあります。"</string>
     <string name="permission_summary_enforced_by_policy" msgid="4443598170942950519">"ポリシーにより適用"</string>
     <string name="permission_summary_disabled_by_policy_background_only" msgid="221995005556362660">"バックグラウンドでのアクセスはポリシーによって無効です"</string>
@@ -109,47 +121,23 @@
     <string name="message_staging" msgid="9110563899955511866">"アプリを準備しています…"</string>
     <string name="app_name_unknown" msgid="1319665005754048952">"不明"</string>
     <string name="permission_usage_title" msgid="1568233336351734538">"プライバシー ダッシュボード"</string>
+    <string name="auto_permission_usage_summary" msgid="7335667266743337075">"権限を最近使用したアプリを表示する"</string>
     <string name="permission_group_usage_title" msgid="2595013198075285173">"<xliff:g id="PERMGROUP">%1$s</xliff:g>の使用状況"</string>
     <string name="perm_usage_adv_info_title" msgid="3357831829538873708">"他の権限を表示"</string>
     <string name="perm_usage_adv_info_summary_2_items" msgid="3702175198750127822">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>、<xliff:g id="PERMGROUP_1">%2$s</xliff:g>"</string>
     <string name="perm_usage_adv_info_summary_more_items" msgid="949055326299562218">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>、<xliff:g id="PERMGROUP_1">%2$s</xliff:g>、他 <xliff:g id="NUM">%3$s</xliff:g> 件"</string>
-    <string name="permission_group_usage_subtitle" msgid="712843174810251274">"過去 24 時間におけるアプリによる<xliff:g id="PERMGROUP">%1$s</xliff:g>の使用状況"</string>
+    <string name="permission_group_usage_subtitle_24h" msgid="5120155996322114181">"過去 24 時間におけるアプリによる<xliff:g id="PERMGROUP">%1$s</xliff:g>の使用状況"</string>
+    <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"過去 7 日間におけるアプリによる<xliff:g id="PERMGROUP">%1$s</xliff:g>の使用状況"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"このアプリが<xliff:g id="PERMGROUP">%1$s</xliff:g>の権限を使用した時刻"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"詳細"</string>
-    <string name="permission_usage_duration_and_proxy" msgid="573959201368716399">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
-    <plurals name="duration_used_days" formatted="false" msgid="1993098309578536308">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>日</item>
-      <item quantity="one">1日</item>
-    </plurals>
-    <plurals name="duration_used_hours" formatted="false" msgid="1020075479447003242">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>時間</item>
-      <item quantity="one">1時間</item>
-    </plurals>
-    <plurals name="duration_used_minutes" formatted="false" msgid="3422338854436291744">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>分</item>
-      <item quantity="one">1分</item>
-    </plurals>
-    <plurals name="duration_used_seconds" formatted="false" msgid="2726799598314248110">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>秒</item>
-      <item quantity="one">1秒</item>
-    </plurals>
-    <plurals name="permission_usage_summary" formatted="false" msgid="2837021459986644819">
-      <item quantity="other">前回のアクセス: <xliff:g id="TIME_2">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_3">%2$s</xliff:g> 回</item>
-      <item quantity="one">前回のアクセス: <xliff:g id="TIME_0">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_1">%2$s</xliff:g> 回</item>
-    </plurals>
-    <plurals name="permission_usage_summary_background" formatted="false" msgid="8810001960357233836">
-      <item quantity="other">前回のアクセス: <xliff:g id="TIME_3">%1$s</xliff:g>\nアクセス数: <xliff:g id="NUM_4">%2$s</xliff:g> 回（バックグラウンドで <xliff:g id="NUM_5">%3$s</xliff:g> 回）</item>
-      <item quantity="one">前回のアクセス: <xliff:g id="TIME_0">%1$s</xliff:g>\nアクセス数: <xliff:g id="NUM_1">%2$s</xliff:g> 回（バックグラウンドで <xliff:g id="NUM_2">%3$s</xliff:g> 回）</item>
-    </plurals>
-    <plurals name="permission_usage_summary_duration" formatted="false" msgid="2223071401812931873">
-      <item quantity="other">前回のアクセス: <xliff:g id="TIME_3">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_4">%2$s</xliff:g> 回\n時間: <xliff:g id="TIME_5">%3$s</xliff:g></item>
-      <item quantity="one">前回のアクセス: <xliff:g id="TIME_0">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_1">%2$s</xliff:g> 回\n時間: <xliff:g id="TIME_2">%3$s</xliff:g></item>
-    </plurals>
-    <plurals name="permission_usage_summary_background_duration" formatted="false" msgid="6893924292010006727">
-      <item quantity="other">前回のアクセス: <xliff:g id="TIME_4">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_5">%2$s</xliff:g> 回（バックグラウンドで <xliff:g id="NUM_6">%3$s</xliff:g> 回）\n時間: <xliff:g id="TIME_7">%3$s</xliff:g></item>
-      <item quantity="one">前回のアクセス: <xliff:g id="TIME_0">%1$s</xliff:g>\nアクセス回数: <xliff:g id="NUM_1">%2$s</xliff:g> 回（バックグラウンドで <xliff:g id="NUM_2">%3$s</xliff:g> 回）\n時間: <xliff:g id="TIME_3">%3$s</xliff:g></item>
-    </plurals>
-    <string name="permission_usage_summary_background" msgid="6136171928959340697">"最終アクセス: <xliff:g id="TIME">%1$s</xliff:g>\n最終アクセスはバックグラウンド時"</string>
+    <string name="manage_permission_summary" msgid="4117555482684114317">"アプリの <xliff:g id="PERMGROUP">%1$s</xliff:g> へのアクセスを管理"</string>
+    <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
+    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 日}other{# 日}}"</string>
+    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 時間}other{# 時間}}"</string>
+    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 分}other{# 分}}"</string>
+    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 秒}other{# 秒}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"すべての権限"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"全期間"</string>
     <string name="permission_usage_last_7_days" msgid="7386221251886130065">"過去 7 日間"</string>
@@ -170,15 +158,9 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"権限の使用状況（過去 1 時間）"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"権限の使用状況（過去 15 分間）"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"権限の使用状況（過去 1 分間）"</string>
-    <plurals name="permission_usage_bar_label" formatted="false" msgid="2316692513662993785">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> 個のアプリ</item>
-      <item quantity="one">1 個のアプリ</item>
-    </plurals>
-    <string name="permission_usage_preference_summary_not_used" msgid="8806755646449754282">"過去 24 時間では使用されていません"</string>
-    <plurals name="permission_usage_preference_label" formatted="false" msgid="9033113721294293706">
-      <item quantity="other"><xliff:g id="NUMBER">%1$d</xliff:g> 件のアプリが使用</item>
-      <item quantity="one">1 件のアプリが使用</item>
-    </plurals>
+    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"過去 24 時間では使用されていません"</string>
+    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"過去 7 日間では使用されていません"</string>
+    <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{1 個のアプリで使用}other{# 個のアプリで使用}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"ダッシュボードにすべて表示"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"フィルタ: <xliff:g id="PERM">%1$s</xliff:g>"</string>
     <string name="app_permission_usage_remove_filter" msgid="2926157607436428207">"フィルタを削除"</string>
@@ -192,10 +174,6 @@
     <string name="sort_by_time" msgid="5435045320002150456">"時間順"</string>
     <string name="item_separator" msgid="4030255389809224513">"、 "</string>
     <string name="permission_usage_refresh" msgid="2264056346561305420">"更新"</string>
-    <plurals name="permission_usage_permission_filter_subtitle" formatted="false" msgid="2452104463317798268">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> 個のアプリ</item>
-      <item quantity="one">1 個のアプリ</item>
-    </plurals>
     <string name="permission_history_title" msgid="8340081285133025225">"権限の履歴"</string>
     <string name="permission_history_category_today" msgid="7496389369158806620">"今日"</string>
     <string name="permission_history_category_yesterday" msgid="7242517121222012521">"昨日"</string>
@@ -218,8 +196,11 @@
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"「<xliff:g id="APP">%1$s</xliff:g>」アプリの権限をすべて表示"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"この権限があるアプリをすべて表示"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"アシスタントのマイクの使用を表示"</string>
+    <string name="unused_apps_category_title" msgid="2988455616845243901">"使用されていないアプリの設定"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"アプリが使用されていない場合に権限を削除"</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"権限を削除して空き容量を増やす"</string>
+    <string name="unused_apps_label_v2" msgid="7058776770056517980">"使用していないアプリを一時停止する"</string>
+    <string name="unused_apps_summary" msgid="8839466950318403115">"権限と一時ファイルを削除し、通知を停止します"</string>
     <string name="auto_revoke_summary" msgid="5867548789805911683">"データ保護のため、このアプリが数か月使用されていない場合はアプリの権限が取り消されます。"</string>
     <string name="auto_revoke_summary_with_permissions" msgid="389712086597285013">"データ保護のため、アプリが数か月使用されていない場合は以下の権限が取り消されます。<xliff:g id="PERMS">%1$s</xliff:g>"</string>
     <string name="auto_revoked_apps_page_summary" msgid="6594753657893756536">"データ保護のため、数か月使用していないアプリの権限を削除しました。"</string>
@@ -236,6 +217,7 @@
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g>、他 <xliff:g id="NUMBER">%2$s</xliff:g> 件の権限が削除されました"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"使用されていないアプリ"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"数か月使用されていないアプリがある場合:\n\n• データを保護するため、権限が削除されます\n• バッテリーを節約するため、通知が停止されます\n• 空き容量を増やすため、一時ファイルが削除されます\n\n権限と通知をもう一度許可する場合は、アプリを開いてください。"</string>
+    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"数か月使用されていないアプリがある場合:\n\n• データを保護するため、権限が削除されます\n• 空き容量を増やすため、一時ファイルが削除されます\n\n権限をもう一度付与する場合は、アプリを開いてください。"</string>
     <string name="last_opened_category_title" msgid="7871347400611202595">"最後に開いたのが <xliff:g id="NUMBER">%s</xliff:g> か月以上前"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"アプリ最終使用日: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"最終使用日: <xliff:g id="DATE">%s</xliff:g>"</string>
@@ -254,53 +236,39 @@
     <string name="permission_description_summary_sensors" msgid="1836045815643119949">"この権限があるアプリはバイタルサインに関するセンサーデータにアクセスできます"</string>
     <string name="permission_description_summary_sms" msgid="725999468547768517">"この権限があるアプリは SMS メッセージの送信、参照を行えます"</string>
     <string name="permission_description_summary_storage" msgid="6575759089065303346">"この権限があるアプリは、デバイス内の写真、メディア、ファイルにアクセスできます"</string>
+    <string name="permission_description_summary_read_media_aural" msgid="3354728149930482199">"この権限があるアプリはデバイス内の音楽などの音声ファイルにアクセスできます"</string>
+    <string name="permission_description_summary_read_media_visual" msgid="4991801977881732641">"この権限があるアプリはデバイス内の写真と動画にアクセスできます"</string>
     <string name="app_permission_most_recent_summary" msgid="4292074449384040590">"最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_most_recent_denied_summary" msgid="7659497197737708112">"現在は許可しない / 最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_never_accessed_summary" msgid="401346181461975090">"未アクセス"</string>
     <string name="app_permission_never_accessed_denied_summary" msgid="6596000497490905146">"許可しない / 未アクセス"</string>
-    <string name="allowed_header" msgid="7769277978004790414">"許可されているアプリ"</string>
+    <string name="allowed_header" msgid="7769277978004790414">"許可"</string>
     <string name="allowed_always_header" msgid="6455903312589013545">"常に許可"</string>
     <string name="allowed_foreground_header" msgid="6845655788447833353">"使用中のみ許可"</string>
     <string name="allowed_storage_scoped" msgid="5383645873719086975">"メディアへのアクセスのみが許可されたアプリ"</string>
     <string name="allowed_storage_full" msgid="5356699280625693530">"すべてのファイルの管理が許可されたアプリ"</string>
     <string name="ask_header" msgid="2633816846459944376">"毎回確認する"</string>
-    <string name="denied_header" msgid="903209608358177654">"許可されてないアプリ"</string>
-    <plurals name="days" formatted="false" msgid="7882807103511175827">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>日</item>
-      <item quantity="one">1日</item>
-    </plurals>
-    <plurals name="hours" formatted="false" msgid="2100550424145061396">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>時間</item>
-      <item quantity="one">1時間</item>
-    </plurals>
-    <plurals name="minutes" formatted="false" msgid="2154398822027154606">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>分</item>
-      <item quantity="one">1分</item>
-    </plurals>
-    <plurals name="seconds" formatted="false" msgid="1564519426522404832">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g>秒</item>
-      <item quantity="one">1秒</item>
-    </plurals>
+    <string name="denied_header" msgid="903209608358177654">"許可しない"</string>
+    <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"すべてのファイルにアクセスできるアプリをもっと見る"</string>
+    <string name="days" msgid="609563020985571393">"{count,plural, =1{1 日}other{# 日}}"</string>
+    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 時間}other{# 時間}}"</string>
+    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 分}other{# 分}}"</string>
+    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 秒}other{# 秒}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"権限のリマインダー"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"使用されていないアプリ: 1 個"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"使用されていないアプリ: <xliff:g id="NUMBER_OF_APPS">%s</xliff:g> 個"</string>
     <string name="auto_revoke_permission_reminder_notification_content" msgid="4492228990462107487">"プライバシー保護のため権限を削除しました。タップしてご確認ください"</string>
     <string name="auto_revoke_permission_notification_title" msgid="2629844160853454657">"使用していないアプリの権限を削除しました"</string>
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"数か月使用していないアプリがあります。タップしてご確認ください。"</string>
-    <plurals name="auto_revoke_permission_notification_content_count" formatted="false" msgid="9159794096518540350">
-      <item quantity="other">数か月使用していないアプリが <xliff:g id="COUNT_1">%1$d</xliff:g> 個あります。タップしてご確認ください</item>
-      <item quantity="one">数か月使用していないアプリが <xliff:g id="COUNT_0">%1$d</xliff:g> 個あります。タップしてご確認ください</item>
-    </plurals>
-    <plurals name="unused_apps_notification_title" formatted="false" msgid="8046612559038762856">
-      <item quantity="other">使用されていないアプリ: <xliff:g id="COUNT_1">%1$d</xliff:g> 個</item>
-      <item quantity="one">使用されていないアプリ: <xliff:g id="COUNT_0">%1$d</xliff:g> 個</item>
-    </plurals>
+    <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# 個の使用していないアプリ}other{# 個の使用していないアプリ}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"権限と一時ファイルを削除し、通知を停止しました。タップしてご確認ください。"</string>
+    <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"最近許可した権限の確認"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"運転中に <xliff:g id="APP">%1$s</xliff:g> による<xliff:g id="PERMISSION">%2$s</xliff:g>へのアクセスを許可しました"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"運転中に <xliff:g id="APP">%1$s</xliff:g> による<xliff:g id="PERMISSION_1">%2$s</xliff:g>および<xliff:g id="PERMISSION_2">%3$s</xliff:g>へのアクセスを許可しました"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"運転中に <xliff:g id="APP">%2$s</xliff:g> に権限を <xliff:g id="COUNT">%1$d</xliff:g> 回許可しました"</string>
+    <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{運転中に <xliff:g id="APP_0">%1$s</xliff:g> およびその他のアプリによるアクセスを許可しました}other{運転中に <xliff:g id="APP_1">%1$s</xliff:g> およびその他 # 個のアプリによるアクセスを許可しました}}"</string>
+    <string name="go_to_settings" msgid="1053735612211228335">"設定に移動"</string>
     <string name="auto_revoke_setting_subtitle" msgid="8631720570723050460">"数か月使用していないアプリがあります"</string>
-    <plurals name="auto_revoke_setting_subtitle_count" formatted="false" msgid="85594789277193087">
-      <item quantity="other">数か月使用していないアプリが <xliff:g id="COUNT_1">%1$d</xliff:g> 個あります</item>
-      <item quantity="one">数か月使用していないアプリが <xliff:g id="COUNT_0">%1$d</xliff:g> 個あります</item>
-    </plurals>
     <string name="permissions_removed_category_title" msgid="1064754271178447643">"削除された権限"</string>
     <string name="permission_removed_page_title" msgid="2627436155091001209">"削除済みの権限"</string>
     <string name="all_unused_apps_category_title" msgid="755663524704745414">"使用していないすべてのアプリ"</string>
@@ -330,16 +298,24 @@
     <string name="permission_subtitle_background" msgid="8916750995309083180">"常に許可"</string>
     <string name="app_perms_24h_access" msgid="99069906850627181">"最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_perms_24h_access_yest" msgid="5411926024794555022">"最終アクセス: 昨日（<xliff:g id="TIME_DATE">%1$s</xliff:g>）"</string>
-    <string name="app_perms_content_provider" msgid="6996750793881252778">"過去 24 時間にアクセス"</string>
+    <string name="app_perms_7d_access" msgid="4945055548894683751">"最終アクセス: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>、<xliff:g id="TIME_DATE_1">%2$s</xliff:g>"</string>
+    <string name="app_perms_content_provider_24h" msgid="1055526027667508972">"過去 24 時間にアクセス"</string>
+    <string name="app_perms_content_provider_7d" msgid="3215454898257814868">"過去 7 日間にアクセス"</string>
     <string name="app_perms_24h_access_background" msgid="3413674718969576843">"最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g> • 常に許可"</string>
     <string name="app_perms_24h_access_yest_background" msgid="9174750810998076725">"最終アクセス: 昨日（<xliff:g id="TIME_DATE">%1$s</xliff:g>）• 常に許可"</string>
-    <string name="app_perms_content_provider_background" msgid="7793984056711923997">"過去 24 時間にアクセス • 常に許可"</string>
+    <string name="app_perms_7d_access_background" msgid="408099213372185627">"最終アクセス: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>、<xliff:g id="TIME_DATE_1">%2$s</xliff:g> • 常に許可"</string>
+    <string name="app_perms_content_provider_24h_background" msgid="3825902995186961496">"過去 24 時間にアクセス • 常に許可"</string>
+    <string name="app_perms_content_provider_7d_background" msgid="4818839672116463542">"過去 7 日間にアクセス • 常に許可"</string>
     <string name="app_perms_24h_access_media_only" msgid="6651699644199132054">"最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g> • メディア"</string>
     <string name="app_perms_24h_access_yest_media_only" msgid="7213187706424998792">"最終アクセス: 昨日（<xliff:g id="TIME_DATE">%1$s</xliff:g>）• メディア"</string>
-    <string name="app_perms_content_provider_media_only" msgid="6206759230589923421">"過去 24 時間にアクセス • メディア"</string>
+    <string name="app_perms_7d_access_media_only" msgid="1031096653668235200">"最終アクセス: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>、<xliff:g id="TIME_DATE_1">%2$s</xliff:g> • メディア"</string>
+    <string name="app_perms_content_provider_24h_media_only" msgid="7797963000596179491">"過去 24 時間にアクセス • メディア"</string>
+    <string name="app_perms_content_provider_7d_media_only" msgid="8446239884570262243">"過去 7 日間にアクセス • メディア"</string>
     <string name="app_perms_24h_access_all_files" msgid="8902360456978159091">"最終アクセス: <xliff:g id="TIME_DATE">%1$s</xliff:g> • すべてのファイル"</string>
     <string name="app_perms_24h_access_yest_all_files" msgid="5708424073126844909">"最終アクセス: 昨日（<xliff:g id="TIME_DATE">%1$s</xliff:g>）• すべてのファイル"</string>
-    <string name="app_perms_content_provider_all_files" msgid="3315281519230304799">"過去 24 時間にアクセス • すべてのファイル"</string>
+    <string name="app_perms_7d_access_all_files" msgid="8246193786397635824">"最終アクセス: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>、<xliff:g id="TIME_DATE_1">%2$s</xliff:g> • すべてのファイル"</string>
+    <string name="app_perms_content_provider_24h_all_files" msgid="573104317727770850">"過去 24 時間にアクセス • すべてのファイル"</string>
+    <string name="app_perms_content_provider_7d_all_files" msgid="7962416229708835558">"過去 7 日間にアクセス • すべてのファイル"</string>
     <string name="no_permissions_allowed" msgid="6081976856354669209">"許可されている権限はありません"</string>
     <string name="no_permissions_denied" msgid="8159923922804043282">"許可していない権限はありません"</string>
     <string name="no_apps_allowed" msgid="7718822655254468631">"許可されているアプリはありません"</string>
@@ -355,8 +331,6 @@
     <string name="role_assistant_label" msgid="4727586018198208128">"デフォルトのデジタル アシスタント アプリ"</string>
     <string name="role_assistant_short_label" msgid="3369003713187703399">"デジタル アシスタント アプリ"</string>
     <string name="role_assistant_description" msgid="6622458130459922952">"アシストアプリは、表示している画面の情報に基づいてアシスタントを提供します。一部のアプリはランチャーと音声入力サービスの両方に対応しており、統合されたアシスタントを提供します。"</string>
-    <string name="role_assistant_request_title" msgid="5964976301922776060">"<xliff:g id="APP_NAME">%1$s</xliff:g> をデフォルトのアシストアプリとして設定しますか？"</string>
-    <string name="role_assistant_request_description" msgid="6836644847620178483">"SMS、通話履歴へのアクセス権が必要です"</string>
     <string name="role_browser_label" msgid="2877796144554070207">"デフォルトのブラウザアプリ"</string>
     <string name="role_browser_short_label" msgid="6745009127123292296">"ブラウザアプリ"</string>
     <string name="role_browser_description" msgid="3465253637499842671">"インターネットにアクセスするためのアプリです。タップしたリンクは、このアプリで開きます。"</string>
@@ -366,13 +340,13 @@
     <string name="role_dialer_short_label" msgid="7186888549465352489">"電話アプリ"</string>
     <string name="role_dialer_description" msgid="8768708633696539612">"電話の発着信に使うアプリです"</string>
     <string name="role_dialer_request_title" msgid="5959618560705912058">"<xliff:g id="APP_NAME">%1$s</xliff:g> をデフォルトの電話アプリとして設定しますか？"</string>
-    <string name="role_dialer_request_description" msgid="2264219375528345270">"通話履歴へのアクセス権、SMS の送信権限が必要です"</string>
+    <string name="role_dialer_request_description" msgid="6288839625724909320">"このアプリは、カメラ、連絡先、マイク、電話、SMS にアクセスできるようになります"</string>
     <string name="role_dialer_search_keywords" msgid="3324448983559188087">"電話"</string>
     <string name="role_sms_label" msgid="8456999857547686640">"デフォルトの SMS アプリ"</string>
     <string name="role_sms_short_label" msgid="4371444488034692243">"SMS アプリ"</string>
     <string name="role_sms_description" msgid="3424020199148153513">"電話番号を使用して短いテキスト メッセージ、写真、動画などを送受信できるアプリです"</string>
     <string name="role_sms_request_title" msgid="7953552109601185602">"<xliff:g id="APP_NAME">%1$s</xliff:g> をデフォルトの SMS アプリとして設定しますか？"</string>
-    <string name="role_sms_request_description" msgid="983371022668134198">"連絡先、SMS、電話へのアクセス権が必要です"</string>
+    <string name="role_sms_request_description" msgid="2691004766132144886">"このアプリは、カメラ、連絡先、ファイル、メディア、マイク、電話、SMS にアクセスできるようになります"</string>
     <string name="role_sms_search_keywords" msgid="8022048144395047352">"テキスト メッセージ、テキスト送信、メッセージ、SMS"</string>
     <string name="role_emergency_label" msgid="7028825857206842366">"デフォルトの緊急アプリ"</string>
     <string name="role_emergency_short_label" msgid="2388431453335350348">"緊急アプリ"</string>
@@ -396,7 +370,14 @@
     <string name="role_call_screening_description" msgid="2349431420497468981">"発信者の番号や名前の表示や、迷惑電話、ロボコール、不要な電話番号のブロックを行えるアプリです"</string>
     <string name="role_call_screening_request_title" msgid="7358309224566977290">"<xliff:g id="APP_NAME">%1$s</xliff:g> をデフォルトの発信者番号 / 迷惑電話アプリとして設定しますか？"</string>
     <string name="role_call_screening_request_description" msgid="7338511921032446006">"必要な権限がありません"</string>
+    <string name="role_automotive_navigation_label" msgid="2701890757955474751">"デフォルトのナビゲーション アプリ"</string>
+    <string name="role_automotive_navigation_short_label" msgid="5165823092506922457">"ナビゲーション アプリ"</string>
+    <string name="role_automotive_navigation_description" msgid="7834601873792870134">"スポット検索やターンバイターン方式のナビゲーションが行えるアプリ"</string>
+    <string name="role_automotive_navigation_request_title" msgid="7525693151489384300">"<xliff:g id="APP_NAME">%1$s</xliff:g> をデフォルトのナビゲーション アプリとして設定しますか？"</string>
+    <string name="role_automotive_navigation_request_description" msgid="7073023813249245540">"必要な権限がありません"</string>
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> は通知を使用でき、スマートフォン、SMS、連絡先、カレンダーの権限にもアクセスできるようになります。"</string>
+    <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> は通知を使用して、接続済みのデバイスにアプリをストリーミングできるようになります。"</string>
+    <string name="role_companion_device_computer_description" msgid="416099879217066377">"このサービスは、スマートフォンから他のデバイスに写真、メディア、通知を共有します。"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"現在のデフォルト"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"次回から表示しない"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"デフォルトに設定"</string>
@@ -467,6 +448,10 @@
     <string name="permgrouprequest_calendar" msgid="1493150855673603806">"カレンダーへのアクセスを「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
     <string name="permgrouprequest_sms" msgid="5672063688745420991">"SMS メッセージの送信と表示を「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
     <string name="permgrouprequest_storage" msgid="8717773092518621602">"デバイス内の写真、メディア、ファイルへのアクセスを「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
+    <string name="permgrouprequest_storage_q_to_s" msgid="8213701872983685505">"このデバイス内の&lt;b&gt;写真、動画、音楽、音声&lt;/b&gt;へのアクセスを &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
+    <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"このデバイス内の&lt;b&gt;写真、動画、音楽、音声など&lt;/b&gt;へのアクセスを &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
+    <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"このデバイス内の音楽と音声へのアクセスを &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
+    <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"このデバイス内の写真と動画へのアクセスを &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"音声の録音を「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"アプリは、ユーザーがアプリを使用している場合のみ音声を録音できます"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"音声の録音を &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
@@ -483,6 +468,11 @@
     <string name="permgrouprequest_calllog" msgid="2065327180175371397">"通話履歴へのアクセスを「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
     <string name="permgrouprequest_phone" msgid="1829234136997316752">"電話の発信と管理を「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
     <string name="permgrouprequest_sensors" msgid="4397358316850652235">"バイタルサインに関するセンサーデータへのアクセスを「&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;」に許可しますか？"</string>
+    <string name="permgroupupgraderequestdetail_sensors" msgid="6651914048792092835">"このアプリは、未使用時も含め、常にバイタルサインに関するセンサーデータへのアクセスを試みます。これを変更するには、"<annotation id="link">"設定に移動"</annotation>"してください。"</string>
+    <string name="permgroupbackgroundrequest_sensors" msgid="5661924322018503886">"バイタルサインに関するセンサーデータへのアクセスを &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
+    <string name="permgroupbackgroundrequestdetail_sensors" msgid="7726767635834043501">"アプリの未使用時も、常にボディセンサー データにアクセスすることをこのアプリに許可するには、"<annotation id="link">"設定に移動"</annotation>"してください。"</string>
+    <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"ボディセンサー データへのアクセスを、引き続きアプリの使用時のみ &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
+    <string name="permgrouprequest_notifications" msgid="6396739062335106181">"通知の送信を &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; に許可しますか？"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"権限は管理されています"</string>
     <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"位置情報へのアクセスが許可されています"</string>
     <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"IT 管理者があなたの位置情報へのアクセスを <xliff:g id="APP_NAME">%s</xliff:g> に許可しています"</string>
@@ -497,4 +487,54 @@
     <string name="privdash_label_other" msgid="3710394147423236033">"その他"</string>
     <string name="privdash_label_none" msgid="5991866260360484858">"なし"</string>
     <string name="privdash_label_24h" msgid="1512532123865375319">"24 時間\n以内"</string>
+    <string name="privdash_label_7d" msgid="5645301995348656931">"過去\n7 日間"</string>
+    <string name="exempt_mic_camera_info_label" msgid="6273581737010902815">"<xliff:g id="APP_NAME">%1$s</xliff:g> は Android によって保護されています。あなたのデータはこのデバイス上で処理されるため、このアプリの権限の使用状況はステータスバーやプライバシー ダッシュボードには表示されません。"</string>
+    <string name="exempt_info_label" msgid="6286190981253476699">"<xliff:g id="APP_NAME">%1$s</xliff:g> は Android によって保護されています。あなたのデータはこのデバイス上で処理されるため、このアプリの権限の使用状況はプライバシー ダッシュボードには表示されません。"</string>
+    <string name="blocked_camera_title" msgid="1128510551791284384">"デバイスのカメラがブロックされています"</string>
+    <string name="blocked_microphone_title" msgid="1631517143648232585">"デバイスのマイクがブロックされています"</string>
+    <string name="blocked_location_title" msgid="2005608279812892383">"デバイスの位置情報が OFF です"</string>
+    <string name="blocked_sensor_summary" msgid="4443707628305027375">"アプリとサービス"</string>
+    <string name="blocked_mic_summary" msgid="8960466941528458347">"緊急通報番号に発信したときは、マイクのデータが引き続き共有されることがあります。"</string>
+    <string name="blocked_sensor_button_label" msgid="6742092634984289658">"変更"</string>
+    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"セキュリティとプライバシー"</string>
+    <string name="safety_center_rescan_button" msgid="8047036829052958144">"スキャン"</string>
+    <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"閉じる"</string>
+    <string name="security_settings" msgid="3808106921175271317">"セキュリティ設定"</string>
+    <string name="sensor_permissions_qs" msgid="4365989229426201877">"センサーの権限"</string>
+    <string name="privacy_controls_qs" msgid="471793881466080745">"プライバシー管理"</string>
+    <string name="permissions_removed_qs" msgid="8957319130625294572">"権限が削除されました"</string>
+    <string name="camera_usage_qs" msgid="7943349178368641820">"カメラの使用状況の詳細"</string>
+    <string name="microphone_usage_qs" msgid="2393193350541830472">"マイクの使用状況の詳細"</string>
+    <string name="remove_camera_qs" msgid="8209716677879809162">"カメラの権限を削除"</string>
+    <string name="remove_microphone_qs" msgid="2893536836641560183">"マイクの権限を削除"</string>
+    <string name="manage_service_qs" msgid="7862555549364153805">"サービスを管理"</string>
+    <string name="manage_permissions_qs" msgid="3780541819763475434">"権限の管理"</string>
+    <string name="active_call_usage_qs" msgid="8559974395932523391">"通話が使用中"</string>
+    <string name="recent_call_usage_qs" msgid="743044899599410935">"通話で最近使用"</string>
+    <string name="active_app_usage_qs" msgid="4063912870936464727">"<xliff:g id="APP_NAME">%1$s</xliff:g> が使用中"</string>
+    <string name="recent_app_usage_qs" msgid="6650259601306212327">"<xliff:g id="APP_NAME">%1$s</xliff:g> が最近使用"</string>
+    <string name="active_app_usage_1_qs" msgid="4325136375823357052">"<xliff:g id="APP_NAME">%1$s</xliff:g> が使用中（<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>）"</string>
+    <string name="recent_app_usage_1_qs" msgid="261450184773310741">"<xliff:g id="APP_NAME">%1$s</xliff:g> が最近使用（<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>）"</string>
+    <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> が使用中（<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>）"</string>
+    <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"<xliff:g id="APP_NAME">%1$s</xliff:g> が最近使用（<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>）"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"セキュリティとプライバシー"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"ステータスを確認する"</string>
+    <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"確認"</string>
+    <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"戻る"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"他のファイルへのアクセスも許可されます"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_deny" msgid="7841428716317307685">"他のファイルへのアクセスも許可されません"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_allow" msgid="6469086448310893751">"他のファイルへのアクセスも許可されます"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_deny" msgid="5767849609024384226">"他のファイルへのアクセスも許可されません"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_allow" msgid="3191904399336990537">"写真や動画へのアクセスも許可されます"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_deny" msgid="3128147568953297969">"写真や動画へのアクセスも許可されません"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_allow" msgid="6310682466493330434">"音楽ファイルや音声ファイルへのアクセスも許可されます"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_deny" msgid="1123845663785900471">"音楽ファイルや音声ファイルへのアクセスも許可されません"</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_allow" msgid="7865167246140107623">"このアプリは最新バージョンの Android に対応していません。このアプリが音楽ファイルや音声ファイルにアクセスできる場合は、写真、動画などのファイルへのアクセスも許可されます。"</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_deny" msgid="287502523664804786">"このアプリは最新バージョンの Android に対応していません。このアプリが音楽ファイルや音声ファイルにアクセスできない場合は、写真、動画などのファイルへのアクセスも許可されません。"</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_allow" msgid="4952410892939590487">"このアプリは最新バージョンの Android に対応していません。このアプリが写真や動画にアクセスできる場合は、音楽ファイル、音声ファイルなどのファイルへのアクセスも許可されます。"</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_deny" msgid="6609500525590757681">"このアプリは最新バージョンの Android に対応していません。このアプリが写真や動画にアクセスできない場合は、音楽ファイル、音声ファイルなどのファイルへのアクセスも許可されません。"</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_allow" msgid="1702402580147536160">"このアプリは最新バージョンの Android に対応していません。このアプリが音楽ファイルや音声ファイルにアクセスできる場合は、写真や動画へのアクセスも許可されます。"</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"このアプリは最新バージョンの Android に対応していません。このアプリが音楽ファイルや音声ファイルにアクセスできない場合は、写真や動画へのアクセスも許可されません。"</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"このアプリは最新バージョンの Android に対応していません。このアプリが写真や動画にアクセスできる場合は、音楽ファイルや音声ファイルへのアクセスも許可されます。"</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"このアプリは最新バージョンの Android に対応していません。このアプリが音楽ファイルや音声ファイルにアクセスできない場合は、写真や動画へのアクセスも許可されません。"</string>
 </resources>

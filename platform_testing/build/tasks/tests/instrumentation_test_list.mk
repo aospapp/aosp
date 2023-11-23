@@ -15,7 +15,6 @@
 instrumentation_tests := \
     HelloWorldTests \
     BluetoothInstrumentationTests \
-    crashcollector \
     LongevityPlatformLibTests \
     ManagedProvisioningTests \
     FrameworksCoreTests \
@@ -25,7 +24,6 @@ instrumentation_tests := \
     FrameworksNetTests \
     FrameworksUiServicesTests \
     BstatsTestApp \
-    ConnTestApp \
     FrameworksServicesTests \
     FrameworksMockingServicesTests \
     WmTests \
@@ -44,7 +42,6 @@ instrumentation_tests := \
     FrameworksWifiTests \
     FrameworksTelephonyTests \
     ContactsProviderTests \
-    ContactsProviderTests2 \
     SettingsUnitTests \
     TelecomUnitTests \
     TraceurUiTests \
@@ -74,6 +71,7 @@ instrumentation_tests := \
     SettingsPerfTests \
     ExtServicesUnitTests \
     FrameworksNetSmokeTests \
+    FlickerLibTest \
     FlickerTests \
     FlickerTestApp \
     WMShellFlickerTests \

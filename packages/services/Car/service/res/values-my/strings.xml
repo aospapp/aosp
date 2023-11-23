@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"သင့်ကား၏ ကင်မရာ(များ)ကို ဝင်ရောက်အသုံးပြုပါမည်။"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"ကား၏ စွမ်းအင်အချက်အလက်များကို ရယူပါမည်"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"ကား၏ စွမ်းအင်ဆိုင်ရာ အချက်အလက်ကို အသုံးပြုပါမည်။"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"ကား၏ EV အားသွင်းသည့်ဆက်တင်များကို ထိန်းချုပ်နိုင်သည်"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"သင့်ကား၏ EV အားသွင်းသည့်ဆက်တင်များကို ထိန်းချုပ်နိုင်သည်။"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"ကား၏ အတိုင်းအတာ လက်ကျန်ကို ချိန်ညှိရန်"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"ကား၏ အတိုင်းအတာ လက်ကျန်တန်ဖိုးကို ချိန်ညှိရန်"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"ကား၏ hvac ကို အသုံးပြုပါမည်"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"လုပ်ဆောင်ချက်များကို ကိရိယာအစုအဝေးအတွင်း၌ ပြသရန် အပလီကေးရှင်းတစ်ခုအား ခွင့်ပြုရန်"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"ကိရိယာအစုအဝေး ထိန်းချုပ်စနစ်"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"ကိရိယာအစုအဝေးအတွင်းရှိ အက်ပ်များကို စတင်ရန်"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"ကိရိယာအစုအဝေး လမ်းညွှန်အခြေအနေ"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"ကိရိယာအစုအဝေး လမ်းညွှန်အခြေအနေ ပြောင်းလဲမှုများကို နားစွင့်ပါ"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"ကိရိယာအစုအဝေးကို ပြင်ဆင်ခြင်း"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ကိရိယာအစုအဝေး ဒေတာကို လက်ခံရန်"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX ကန့်သတ်ချက်များ စီစဉ်သတ်မှတ်မှု"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"\'စီးနင်းသူ သတိရှိမှု စနစ်\' သိရှိသည့်ဂရပ်ဖ် စတင်ခြင်းနှင့် ရပ်တန့်ခြင်းကို ထိန်းချုပ်ရန် ခွင့်ပြုသည်"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"ကား၏ အချက်အလက်ထည့်သွင်းခြင်း ဝန်ဆောင်မှု"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"အချက်အလက်ထည့်သွင်းခြင်း အစီအစဉ်များကို စီမံပါမည်"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"\"CAN bus\" စနစ် အသုံးပြုမှု မအောင်မြင်ပါ"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus စနစ်က တုန့်ပြန်မှုမရှိပါ။ စက်အထိုင်ဘောက်စ်ကို ပလတ်ဖြုတ်ပြီး ပြန်တပ်ကာ ကားကို ပြန်လည်စတင်ပါ"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"ကားမောင်းနေစဉ် ဤဝန်ဆောင်မှုကို သုံး၍မရပါ"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"စိတ်ချရသော အက်ပ်လုပ်ဆောင်ချက်များနှင့်အတူ အစမှပြန်စရန် <xliff:g id="EXIT_BUTTON">%s</xliff:g> ကို ရွေးချယ်ပါ။"</string>
-    <string name="exit_button" msgid="5829638404777671253">"နောက်သို့"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"အက်ပ်ကိုပိတ်ရန်"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"နောက်သို့"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"အမှားရှာပြင်ခြင်းဒေတာများကို ကြည့်ပါမည်"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"ကားအတွင်း အမှားရှာပြင်ခြင်းဒေတာကို ကြည့်ပါမည်။"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"အမှားရှာပြင်ခြင်းဒေတာများကို ရှင်းလင်းပါမည်"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"ကားတွင်းထိုင်ခုံများကို ထိန်းချုပ်ပါမည်။"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"ကား၏ အခြေခံအချက်အလက်များကို ရယူပါမည်"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"ကား၏ အခြေခံအချက်အလက်များကို ရယူပါမည်။"</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"ကား၏ အထူးအခွင့်အရေးဆိုင်ရာ အချက်အလက်များကို ရယူနိုင်သည်"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"ကား၏ အထူးအခွင့်အရေးဆိုင်ရာ အချက်အလက်များကို ရယူနိုင်သည်။"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"ကားရောင်းချသူ ခွင့်ပြုချက်ဆိုင်ရာ အချက်အလက်များကို ကြည့်ရန်"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"ကားရောင်းချသူ ခွင့်ပြုချက်ဆိုင်ရာ အချက်အလက်များကို ကြည့်ရန်။"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"ကားအပြင်ဘက်ရှိ မီးလုံးများ၏ အခြေအနေကို ကြည့်ပါမည်"</string>
@@ -151,8 +150,8 @@
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"အင်ဂျင်အားဖြင့် ကားဝင်ရိုးလည်ပတ်မှုအ‌ချက်အလက်များကို ရယူပါမည်"</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"ကား၏ ပါဝါအခြေအနေကို ကြည့်ပါမည်"</string>
     <string name="car_permission_desc_car_power" msgid="9202079903668652864">"ကား၏ ပါဝါအခြေအနေကို ရယူပါမည်။"</string>
-    <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"ယုံကြည်ရသည့် ကိရိယာကို စာရင်းသွင်းရန်"</string>
-    <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"ယုံကြည်ရသည့် ကိရိယာအား စာရင်းသွင်းခြင်းကို ခွင့်ပြုရန်"</string>
+    <string name="car_permission_label_enroll_trust" msgid="3512907900486690218">"စိတ်ချရသည့်စက်ပစ္စည်းကို စာရင်းသွင်းရန်"</string>
+    <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"စိတ်ချရသည့်စက်ပစ္စည်း စာရင်းသွင်းခြင်းကို ခွင့်ပြုရန်"</string>
     <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"ကား၏ စမ်းသပ်မုဒ်ကို ထိန်းချုပ်ရန်"</string>
     <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"ကား၏ စမ်းသပ်မုဒ်ကို ထိန်းချုပ်ရန်"</string>
     <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"ကား၏ ဝန်ဆောင်မှုများကို ပိတ်ရန် သို့မဟုတ် ပိတ်ရန်"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"ကား၏စွမ်းအင်အသုံးပြုမှု မူဝါဒကို ဖတ်မည်။"</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"ကား၏စွမ်းအင်အသုံးပြုမှု မူဝါဒကို ထိန်းချုပ်မည်"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"ကား၏စွမ်းအင်အသုံးပြုမှု မူဝါဒကို ထိန်းချုပ်မည်။"</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"စက်ပိတ်သည့်လုပ်ငန်းစဉ်ကို ပြင်ဆင်နိုင်သည်"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"စက်ပိတ်သည့်လုပ်ငန်းစဉ်ကို ပြင်ဆင်နိုင်သည်။"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"နမူနာပုံစံများ ပုံဖော်ရန်"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"နမူနာပုံစံများ ပုံဖော်မည်။"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ဖွင့်ထားသည့် အပလီကေးရှင်းများကို ထိန်းချုပ်ခြင်း"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ဖွင့်ထားသည့် အပလီကေးရှင်းများကို ထိန်းချုပ်ခြင်း။"</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"\"CAN bus\" စနစ် အသုံးပြုမှု မအောင်မြင်ပါ"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus စနစ်က တုန့်ပြန်မှုမရှိပါ။ စက်အထိုင်ဘောက်စ်ကို ပလတ်ဖြုတ်ပြီး ပြန်တပ်ကာ ကားကို ပြန်လည်စတင်ပါ"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ကျွန်ုပ်၏စက်"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ဧည့်သည်"</string>
-    <string name="importance_default" msgid="8587741629268312938">"ပုံမှန် အရေးပါမှု"</string>
-    <string name="importance_high" msgid="3141530792377745041">"အလွန်အရေးပါသည်"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"စက်ရုံထုတ်အတိုင်း ပြင်ဆင်သတ်မှတ်ရန် လိုအပ်သည်"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ရှိ ဒေတာအားလုံးကို ဖျက်လိုက်ပါမည်။ ပြင်ဆင်သတ်မှတ်ပြီးနောက် ပရိုဖိုင်အသစ် ထည့်သွင်းနိုင်သည်။"</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"နောက်ထပ်"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ် ပြင်ဆင်သတ်မှတ်ခြင်း"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"စက်ရုံထုတ်အတိုင်း ပြင်ဆင်သတ်မှတ်ရန်နှင့် ဒေတာအားလုံးဖျက်ရန် တောင်းဆိုချက်ကို သင်၏စနစ်က ရရှိထားသည်။ ယခု ပြင်ဆင်သတ်မှတ်နိုင်သည် (သို့) နောက်တစ်ကြိမ် ကားစက်နှိုးသောအခါ ပြင်ဆင်သတ်မှတ်ပါမည်။ ထို့နောက် ပရိုဖိုင်အသစ် ထည့်သွင်းနိုင်သည်။"</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"ယခု ပြင်ဆင်သတ်မှတ်ရန်"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"နောက်မှ ပြင်ဆင်သတ်မှတ်ရန်"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"နောက်တစ်ကြိမ် ကားစက်နှိုးသောအခါ သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ကို ပြင်ဆင်သတ်မှတ်ပါမည်။"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"ပြင်ဆင်သတ်မှတ်မှု စတင်ရန် ကားကို ရပ်နားထားရမည်။"</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> သည် သင့်စနစ်၏ စွမ်းဆောင်ရည်ကို ထိခိုက်စေသည်"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"စနစ်စွမ်းဆောင်ရည် ပိုကောင်းမွန်စေရန် အက်ပ်ကိုပိတ်ပါ။ ဆက်တင်များတွင် အက်ပ်ကို ထပ်ဖွင့်နိုင်သည်။"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"အက်ပ်ဆက်သုံးရန် ၎င်းကို ဦးစားပေးပါ။"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"စနစ်စွမ်းဆောင်ရည် ပိုကောင်းမွန်စေရန် အက်ပ်ကိုဖယ်ရှားပါ။"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"အက်ပ်ကို ပိတ်ရန်"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"အက်ပ်ကို ဦးစားပေးရန်"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"အက်ပ်ကို ဖယ်ရှားရန်"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> ကို ပိတ်လိုက်ပြီ။ ဆက်တင်များတွင် ၎င်းကို ထပ်ဖွင့်နိုင်သည်။"</string>
 </resources>

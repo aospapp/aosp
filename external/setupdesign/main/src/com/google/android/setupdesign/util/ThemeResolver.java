@@ -156,6 +156,9 @@ public class ThemeResolver {
   private static int getDayNightThemeRes(@Nullable String theme) {
     if (theme != null) {
       switch (theme) {
+        case ThemeHelper.THEME_GLIF_V4_LIGHT:
+        case ThemeHelper.THEME_GLIF_V4:
+          return R.style.SudThemeGlifV4_DayNight;
         case ThemeHelper.THEME_GLIF_V3_LIGHT:
         case ThemeHelper.THEME_GLIF_V3:
           return R.style.SudThemeGlifV3_DayNight;
@@ -183,6 +186,10 @@ public class ThemeResolver {
   private static int getThemeRes(@Nullable String theme) {
     if (theme != null) {
       switch (theme) {
+        case ThemeHelper.THEME_GLIF_V4_LIGHT:
+          return R.style.SudThemeGlifV4_Light;
+        case ThemeHelper.THEME_GLIF_V4:
+          return R.style.SudThemeGlifV4;
         case ThemeHelper.THEME_GLIF_V3_LIGHT:
           return R.style.SudThemeGlifV3_Light;
         case ThemeHelper.THEME_GLIF_V3:
@@ -218,6 +225,9 @@ public class ThemeResolver {
   private static int getThemeVersion(String theme) {
     if (theme != null) {
       switch (theme) {
+        case ThemeHelper.THEME_GLIF_V4_LIGHT:
+        case ThemeHelper.THEME_GLIF_V4:
+          return 5;
         case ThemeHelper.THEME_GLIF_V3_LIGHT:
         case ThemeHelper.THEME_GLIF_V3:
           return 4;

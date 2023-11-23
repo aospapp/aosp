@@ -18,25 +18,30 @@ package com.android.tv.settings.help;
 
 import static android.content.Context.ACCESSIBILITY_SERVICE;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
 import android.app.tvsettings.TvSettingsEnums;
+import android.content.ComponentName;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
 
 import androidx.annotation.Keep;
 import androidx.leanback.widget.VerticalGridView;
 import androidx.preference.Preference;
 
+import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+
+import java.util.Set;
 
 /**
  * The "Help & feedback" screen in TV settings.
@@ -46,6 +51,7 @@ public class HelpFragment extends SettingsPreferenceFragment {
 
     private static final String KEY_SEND_FEEDBACK = "feedback";
     private static final String KEY_HELP = "help_center";
+    private static final String TALKBACK_SERVICE_NAME = ".TalkBackService";
 
     private int getPreferenceScreenResId() {
         switch (FlavorUtils.getFlavor(getContext())) {
@@ -80,12 +86,12 @@ public class HelpFragment extends SettingsPreferenceFragment {
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
-        AccessibilityManager am =
-                (AccessibilityManager) getContext().getSystemService(ACCESSIBILITY_SERVICE);
-        boolean isAccessibilityEnabled = am.isEnabled();
+        // Workaround to only allow click when the input focus and a11y focus are on the same item.
+        // This should only apply when the TalkBack service is on since other a11y services may not
+        // utilize a11y focus (ex. Switch Access).
         VerticalGridView listView = (VerticalGridView) getListView();
         if (!listView.getChildAt(listView.getSelectedPosition()).isAccessibilityFocused()
-                && isAccessibilityEnabled) {
+                && isTalkBackEnabled()) {
             return true;
         }
         switch (preference.getKey()) {
@@ -99,6 +105,25 @@ public class HelpFragment extends SettingsPreferenceFragment {
             default:
                 return super.onPreferenceTreeClick(preference);
         }
+    }
+
+
+    private boolean isTalkBackEnabled() {
+        AccessibilityManager am =
+                (AccessibilityManager) getContext().getSystemService(ACCESSIBILITY_SERVICE);
+        boolean isAccessibilityEnabled = am.isEnabled();
+
+        if (isAccessibilityEnabled) {
+            final Set<ComponentName> enabledServices =
+                    AccessibilityUtils.getEnabledServicesFromSettings(getActivity());
+
+            for (final ComponentName componentName : enabledServices) {
+                if (TextUtils.equals(componentName.getShortClassName(), TALKBACK_SERVICE_NAME)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override

@@ -34,6 +34,8 @@
     <string name="psk_bluetooth_device_picker" translatable="false">bluetooth_device_picker_screen</string>
     <string name="psk_bluetooth_pairing_selection" translatable="false">bluetooth_pairing_selection_screen</string>
     <string name="psk_bluetooth_settings" translatable="false">bluetooth_settings_screen</string>
+    <string name="psk_camera_settings" translatable="false">camera_settings_screen</string>
+    <string name="psk_camera_recent_requests" translatable="false">camera_recent_requests_screen</string>
     <string name="psk_child_locale_picker" translatable="false">child_locale_picker_screen</string>
     <string name="psk_choose_account" translatable="false">choose_account_screen</string>
     <string name="psk_choose_lock_type" translatable="false">choose_lock_type_screen</string>
@@ -50,6 +52,10 @@
     <string name="psk_enterprise_privacy_exposure_category" translatable="false">enterprise_privacy_exposure_category</string>
     <string name="psk_enterprise_privacy_exposure_changes_category" translatable="false">enterprise_privacy_exposure_changes_category</string>
     <string name="psk_enterprise_privacy_settings" translatable="false">enterprise_privacy_settings</string>
+    <string name="psk_enterprise_privacy_list_camera_access_packages" translatable="false">enterprise_privacy_list_camera_access_packages</string>
+    <string name="psk_enterprise_privacy_list_installed_packages" translatable="false">enterprise_privacy_list_installed_packages</string>
+    <string name="psk_enterprise_privacy_list_location_access_packages" translatable="false">enterprise_privacy_list_location_access_packages</string>
+    <string name="psk_enterprise_privacy_list_microphone_access_packages" translatable="false">enterprise_privacy_list_microphone_access_packages</string>
     <string name="psk_display_settings" translatable="false">display_settings_screen</string>
     <string name="psk_hardware_info" translatable="false">hardware_info_screen</string>
     <string name="psk_homepage" translatable="false">homepage_screen</string>
@@ -58,7 +64,7 @@
     <string name="psk_language_picker" translatable="false">language_picker_screen</string>
     <string name="psk_languages_and_input" translatable="false">languages_and_input_screen</string>
     <string name="psk_legal_information" translatable="false">legal_information_screen</string>
-    <string name="psk_location_recent_requests" translatable="false">location_recent_requests_screen</string>
+    <string name="psk_location_recently_accessed" translatable="false">location_recently_accessed_screen</string>
     <string name="psk_location_settings" translatable="false">location_settings_screen</string>
     <string name="psk_adas_settings" translatable="false">adas_settings_screen</string>
     <string name="psk_microphone_recent_requests" translatable="false">microphone_recent_requests_screen</string>
@@ -104,4 +110,5 @@
     <string name="psk_wifi_tether" translatable="false">wifi_tether_screen</string>
     <string name="psk_accessibility_settings" translatable="false">accessibility_settings_screen</string>
     <string name="psk_captions_settings" translatable="false">captions_settings_screen</string>
+    <string name="psk_screen_reader_settings" translatable="false">screen_reader_settings_screen</string>
 </resources>

@@ -221,6 +221,7 @@ public class TestSipDelegateConnection implements DelegateConnectionStateCallbac
                 notRegistered.isEmpty());
         assertTrue(regState.getDeregisteringFeatureTags().isEmpty());
         assertTrue(regState.getDeregisteredFeatureTags().isEmpty());
+        assertTrue(regState.getRegisteringFeatureTags().isEmpty());
     }
 
     public void verifyRegistrationStateEmpty() {
@@ -228,6 +229,7 @@ public class TestSipDelegateConnection implements DelegateConnectionStateCallbac
         assertTrue(regState.getRegisteredFeatureTags().isEmpty());
         assertTrue(regState.getDeregisteringFeatureTags().isEmpty());
         assertTrue(regState.getDeregisteredFeatureTags().isEmpty());
+        assertTrue(regState.getRegisteringFeatureTags().isEmpty());
     }
 
     public void verifyRegistrationStateEquals(DelegateRegistrationState s) {
@@ -237,6 +239,8 @@ public class TestSipDelegateConnection implements DelegateConnectionStateCallbac
                 regState.getDeregisteringFeatureTags());
         assertEquals("unexpected deregistered tags", s.getDeregisteredFeatureTags(),
                 regState.getDeregisteredFeatureTags());
+        assertEquals("unexpected registering tags", s.getRegisteringFeatureTags(),
+                regState.getRegisteringFeatureTags());
     }
 
     public boolean verifyDeregisteringStateContains(String featureTag, int state) {

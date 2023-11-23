@@ -18,4 +18,7 @@ public class Utils {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LIVE_TV);
     }
 
+    public static boolean hasTunerFeature(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TUNER);
+    }
 }

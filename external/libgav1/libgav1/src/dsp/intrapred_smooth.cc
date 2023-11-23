@@ -42,26 +42,15 @@ struct SmoothFuncs_C {
 };
 
 constexpr uint8_t kSmoothWeights[] = {
-    // block dimension = 4
-    255, 149, 85, 64,
-    // block dimension = 8
-    255, 197, 146, 105, 73, 50, 37, 32,
-    // block dimension = 16
-    255, 225, 196, 170, 145, 123, 102, 84, 68, 54, 43, 33, 26, 20, 17, 16,
-    // block dimension = 32
-    255, 240, 225, 210, 196, 182, 169, 157, 145, 133, 122, 111, 101, 92, 83, 74,
-    66, 59, 52, 45, 39, 34, 29, 25, 21, 17, 14, 12, 10, 9, 8, 8,
-    // block dimension = 64
-    255, 248, 240, 233, 225, 218, 210, 203, 196, 189, 182, 176, 169, 163, 156,
-    150, 144, 138, 133, 127, 121, 116, 111, 106, 101, 96, 91, 86, 82, 77, 73,
-    69, 65, 61, 57, 54, 50, 47, 44, 41, 38, 35, 32, 29, 27, 25, 22, 20, 18, 16,
-    15, 13, 12, 10, 9, 8, 7, 6, 6, 5, 5, 4, 4, 4};
+#include "src/dsp/smooth_weights.inc"
+};
 
 // SmoothFuncs_C::Smooth
 template <int block_width, int block_height, typename Pixel>
 void SmoothFuncs_C<block_width, block_height, Pixel>::Smooth(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   const auto* const left = static_cast<const Pixel*>(left_column);
   const Pixel top_right = top[block_width - 1];
@@ -94,8 +83,9 @@ void SmoothFuncs_C<block_width, block_height, Pixel>::Smooth(
 // SmoothFuncs_C::SmoothVertical
 template <int block_width, int block_height, typename Pixel>
 void SmoothFuncs_C<block_width, block_height, Pixel>::SmoothVertical(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   const auto* const left = static_cast<const Pixel*>(left_column);
   const Pixel bottom_left = left[block_height - 1];
@@ -121,8 +111,9 @@ void SmoothFuncs_C<block_width, block_height, Pixel>::SmoothVertical(
 // SmoothFuncs_C::SmoothHorizontal
 template <int block_width, int block_height, typename Pixel>
 void SmoothFuncs_C<block_width, block_height, Pixel>::SmoothHorizontal(
-    void* const dest, ptrdiff_t stride, const void* const top_row,
-    const void* const left_column) {
+    void* LIBGAV1_RESTRICT const dest, ptrdiff_t stride,
+    const void* LIBGAV1_RESTRICT const top_row,
+    const void* LIBGAV1_RESTRICT const left_column) {
   const auto* const top = static_cast<const Pixel*>(top_row);
   const auto* const left = static_cast<const Pixel*>(left_column);
   const Pixel top_right = top[block_width - 1];

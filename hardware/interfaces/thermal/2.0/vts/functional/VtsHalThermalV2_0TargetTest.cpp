@@ -103,8 +103,6 @@ class ThermalHidlTest : public testing::TestWithParam<std::string> {
 
 // Test ThermalChangedCallback::notifyThrottling().
 // This just calls into and back from our local ThermalChangedCallback impl.
-// Note: a real thermal throttling event from the Thermal HAL could be
-// inadvertently received here.
 TEST_P(ThermalHidlTest, NotifyThrottlingTest) {
     sp<ThermalCallback> thermalCallback = new (std::nothrow) ThermalCallback();
     auto ret = thermalCallback->notifyThrottling(kThrottleTemp);

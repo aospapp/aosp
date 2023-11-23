@@ -472,6 +472,7 @@ fr{
         rap{"rapanui"}
         rar{"rarotongien"}
         rgn{"romagnol"}
+        rhg{"rohingya"}
         rif{"rifain"}
         rm{"romanche"}
         rn{"roundi"}
@@ -479,7 +480,6 @@ fr{
         ro_MD{"moldave"}
         rof{"rombo"}
         rom{"romani"}
-        root{"racine"}
         rtm{"rotuman"}
         ru{"russe"}
         rue{"ruthène"}

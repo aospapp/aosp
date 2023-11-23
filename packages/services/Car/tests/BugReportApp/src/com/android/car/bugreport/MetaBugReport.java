@@ -35,18 +35,18 @@ abstract class MetaBugReport implements Parcelable {
     private static final DateFormat BUG_REPORT_TIMESTAMP_DATE_FORMAT =
             new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
 
-    /** The app records audio message when initiated. Can change audio state. */
-    static final int TYPE_INTERACTIVE = 0;
+    /** The app records audio message when initiated. It can change audio state. */
+    static final int TYPE_AUDIO_FIRST = 0;
 
     /**
      * The app doesn't show dialog and doesn't record audio when initiated. It allows user to
      * add audio message when bugreport is collected.
      */
-    static final int TYPE_SILENT = 1;
+    static final int TYPE_AUDIO_LATER = 1;
 
     /** Annotation for bug report types. */
     @Retention(SOURCE)
-    @IntDef({TYPE_INTERACTIVE, TYPE_SILENT})
+    @IntDef({TYPE_AUDIO_FIRST, TYPE_AUDIO_LATER})
     @interface BugReportType {};
 
     /**
@@ -74,6 +74,8 @@ abstract class MetaBugReport implements Parcelable {
      *
      * <p>NOTE: This is the old way of storing final zipped bugreport. See
      * {@link BugStorageProvider#URL_SEGMENT_OPEN_FILE} for more info.
+     *
+     * <p>@deprecated getBugReportFileName() is used now.
      */
     public abstract String getFilePath();
 

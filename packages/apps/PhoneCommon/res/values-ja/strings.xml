@@ -21,7 +21,7 @@
     <string name="description_dialpad_overflow" msgid="386545562915853251">"その他のオプション"</string>
     <string name="description_delete_button" msgid="3440492396168418449">"Backspace"</string>
     <string name="description_image_button_plus" msgid="5473715983314974482">"足す"</string>
-    <string name="description_voicemail_button" msgid="3215317707268642855">"ボイスメール"</string>
+    <string name="description_voicemail_button" msgid="3215317707268642855">"留守番電話"</string>
     <string name="default_notification_description" msgid="7586091743351742205">"デフォルトの通知音（<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>）"</string>
     <string name="callFailed_userBusy" msgid="8760595520859373561">"話し中"</string>
     <string name="callFailed_congestion" msgid="660130739882090863">"ネットワークがビジー状態です"</string>
@@ -50,7 +50,7 @@
     <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"緊急通報の発信制限が設定されています。"</string>
     <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"緊急通報以外は発信制限が設定されています。"</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"無効な番号"</string>
-    <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"ボイスメールの番号が不明です。"</string>
+    <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"留守番電話の番号が不明です。"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"TTY が有効な場合はビデオハングアウトを行えません。"</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"通話を別のデバイスに転送しました。"</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"なし"</string>

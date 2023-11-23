@@ -28,6 +28,8 @@ import java.util.Properties;
  * Basic JDBC driver implementation to help with tests
  */
 public class TestHelper_Driver4 implements Driver {
+    static final String URL_SCHEME = "jdbc:mikes4";
+
     int majorVersion = 1;
 
     int minorVersion = 0;
@@ -47,7 +49,7 @@ public class TestHelper_Driver4 implements Driver {
 
     protected TestHelper_Driver4() {
         super();
-        baseURL = "jdbc:mikes4";
+        baseURL = URL_SCHEME;
     } // end constructor TestHelper_Driver4()
 
     public boolean acceptsURL(String url) throws SQLException {

@@ -18,19 +18,9 @@
 package com.android.cts.verifier.audio;
 
 import android.content.Context;
-
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
-import android.media.MediaRecorder;
-import android.media.AudioRecord;
-import android.media.MediaRecorder;
 import android.util.Log;
-
 import android.os.Handler;
 import android.os.Message;
-
-import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
 
 /**
  * A thread that runs a native audio loopback analyzer.
@@ -50,6 +40,9 @@ public class NativeAnalyzerThread {
     private volatile boolean mIsLowLatencyStream = false;
 
     private int mInputPreset = 0;
+
+    private int mInputDeviceId;
+    private int mOutputDeviceId;
 
     static final int NATIVE_AUDIO_THREAD_MESSAGE_REC_STARTED = 892;
     static final int NATIVE_AUDIO_THREAD_MESSAGE_OPEN_ERROR = 893;
@@ -82,7 +75,7 @@ public class NativeAnalyzerThread {
     /**
      * @return native audio context
      */
-    private native long openAudio(int micSource);
+    private native long openAudio(int inputDeviceID, int outputDeviceId);
     private native int startAudio(long audio_context);
     private native int stopAudio(long audio_context);
     private native int closeAudio(long audio_context);
@@ -107,7 +100,10 @@ public class NativeAnalyzerThread {
 
     public boolean isLowLatencyStream() { return mIsLowLatencyStream; }
 
-    public synchronized void startTest() {
+    public synchronized void startTest(int inputDeviceId, int outputDeviceId) {
+        mInputDeviceId = inputDeviceId;
+        mOutputDeviceId = outputDeviceId;
+
         if (mThread == null) {
             mEnabled = true;
             mThread = new Thread(mBackGroundTask);
@@ -142,7 +138,8 @@ public class NativeAnalyzerThread {
         log(" Started capture test");
         sendMessage(NATIVE_AUDIO_THREAD_MESSAGE_REC_STARTED);
 
-        long audioContext = openAudio(mInputPreset);
+        //TODO - route parameters
+        long audioContext = openAudio(mInputDeviceId, mOutputDeviceId);
         log(String.format("audioContext = 0x%X",audioContext));
 
         if (audioContext == 0 ) {

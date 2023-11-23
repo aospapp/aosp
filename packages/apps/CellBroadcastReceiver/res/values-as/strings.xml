@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"ৰাজহুৱা নিৰাপত্তা বিষয়ক বাৰ্তাসমূহ"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"জীৱন বা সম্পত্তি ৰক্ষা কৰিব পৰা অনুমোদিত কাৰ্যসমূহ"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"পূৰ্ণ স্ক্ৰীনত বাৰ্তা দেখুৱাওক"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"ৰাজহুৱা সুৰক্ষা বিষয়ক বাৰ্তা কেৱল আপোনাৰ এছএমএছ এপ্‌টোলৈ প্ৰেৰণ কৰিবলৈ অফ কৰক"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="194171850169012897">"অফ থাকিলে ৰাজহুৱা সুৰক্ষা বিষয়ক বাৰ্তাসমূহ জাননী হিচাপে তথাপি পঠিওৱা হয়"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"ৰাজ্যিক আৰু স্থানীয় পৰীক্ষামূলক সতৰ্কবাণী"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"ৰাজ্য চৰকাৰ আৰু স্থানীয় কৰ্তৃপক্ষৰ পৰা পৰীক্ষামূলক বাৰ্তা লাভ কৰক"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"জৰুৰীকালীন সতৰ্কবাণীসমূহ"</string>
@@ -99,7 +99,7 @@
     <string name="override_dnd_title" msgid="5120805993144214421">"সদায় সম্পূর্ণ ভলিউমত সতর্ক কৰক"</string>
     <string name="override_dnd_summary" msgid="9026675822792800258">"অসুবিধা নিদিব আৰু অন্য ভলিউমৰ ছেটিং উপেক্ষা কৰক"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"এলেকা আপডে’ট সম্প্ৰচাৰসমূহ"</string>
-    <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"ছিমৰ স্থিতিত আপডেটৰ তথ্য় দেখুৱাওক"</string>
+    <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"ছিমৰ স্থিতিত আপডেটৰ তথ্য দেখুৱাওক"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"সতৰ্কবাণীৰ প্ৰকাৰ:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"ভূ-ভৌতিক সম্পর্কীয় সতর্কতা"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"বতৰ সম্পৰ্কীয়"</string>
@@ -140,6 +140,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"হয়"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"নহয়"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"জৰুৰীকালীন সতৰ্কবাণীৰ ইতিহাস"</string>
+    <string name="action_delete" msgid="7435661404543945861">"মচক"</string>
+    <string name="action_detail_info" msgid="8486524382178381810">"সবিশেষ দেখুৱাওক"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"এবাৰ"</item>
     <item msgid="9097229303902157183">"প্ৰতি ২ মিনিটত"</item>
@@ -167,6 +169,8 @@
     <string name="maximum_waiting_time" msgid="3504809124079381356">"অপেক্ষা কৰাৰ সর্বাধিক সময়:"</string>
     <string name="seconds" msgid="141450721520515025">"ছেকেণ্ড"</string>
     <string name="message_copied" msgid="6922953753733166675">"বাৰ্তা প্ৰতিলিপি কৰা হ\'ল"</string>
+    <string name="top_intro_default_text" msgid="1922926733152511202"></string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"আপুনি ৰ’মিঙত থাকোঁতে এনে কিছু সতৰ্কবাণী লাভ কৰিব পাৰে যিবোৰ এই ছেটিংসমূহত অন্তৰ্ভুক্ত কৰা হোৱা নাই"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"বাহকে ছেটিং সলনি কৰিছে"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাৰ ছেটিং চাবলৈ টিপক"</string>
 </resources>

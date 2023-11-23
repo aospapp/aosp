@@ -116,8 +116,7 @@ class DefaultSmsAppHelper {
     }
 
     static boolean hasSms() {
-        TelephonyManager telephonyManager = (TelephonyManager) ApplicationProvider
-                .getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+        TelephonyManager telephonyManager = (TelephonyManager) ApplicationProvider.getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
         return telephonyManager.isSmsCapable();
     }
 }

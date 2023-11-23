@@ -40,7 +40,7 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:textAlignment="viewStart"
-            android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Subhead"
+            android:textAppearance="@style/Subhead"
             android:paddingStart="6dp"
             android:paddingBottom="1dp"/>
 

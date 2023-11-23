@@ -25,6 +25,7 @@ import android.os.StatsDataDumpProto;
 import android.service.battery.BatteryServiceDumpProto;
 import android.service.batterystats.BatteryStatsServiceDumpProto;
 import android.service.procstats.ProcessStatsServiceDumpProto;
+
 import com.android.annotations.Nullable;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
 import com.android.internal.os.StatsdConfigProto.EventMetric;
@@ -58,6 +59,7 @@ import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.Pair;
+
 import com.google.common.collect.Range;
 import com.google.common.io.Files;
 import com.google.protobuf.ByteString;
@@ -374,7 +376,7 @@ public class AtomTestCase extends BaseTestCase {
                     data.add(atom);
                 }
             } else {
-                data.addAll(backFillGaugeBucketAtoms(bucketInfo.getAggregatedAtomInfoList()));
+                backFillGaugeBucketAtoms(bucketInfo.getAggregatedAtomInfoList());
             }
             if (checkTimestampTruncated) {
                 for (long timestampNs : bucketInfo.getElapsedTimestampNanosList()) {

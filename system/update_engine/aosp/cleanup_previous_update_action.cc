@@ -276,7 +276,17 @@ void CleanupPreviousUpdateAction::ScheduleWaitForMerge() {
 void CleanupPreviousUpdateAction::WaitForMergeOrSchedule() {
   AcknowledgeTaskExecuted();
   TEST_AND_RETURN(running_);
+
   auto update_uses_compression = snapshot_->UpdateUsesCompression();
+
+  // Propagate the merge failure code to the merge stats. If we wait until
+  // after ProcessUpdateState, then a successful merge could overwrite the
+  // state of the previous failure.
+  auto failure_code = snapshot_->ReadMergeFailureCode();
+  if (failure_code != android::snapshot::MergeFailureCode::Ok) {
+    merge_stats_->set_merge_failure_code(failure_code);
+  }
+
   auto state = snapshot_->ProcessUpdateState(
       std::bind(&CleanupPreviousUpdateAction::OnMergePercentageUpdate, this),
       std::bind(&CleanupPreviousUpdateAction::BeforeCancel, this));

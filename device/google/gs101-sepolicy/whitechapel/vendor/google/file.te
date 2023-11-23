@@ -78,7 +78,7 @@ type updated_wifi_firmware_data_file, file_type, data_file_type;
 type mediadrm_vendor_data_file, file_type, data_file_type;
 
 # Storage Health HAL
-type sysfs_scsi_devices_0000, sysfs_type, fs_type, sysfs_block_type;
+type sysfs_scsi_devices_0000, sysfs_type, fs_type;
 type debugfs_f2fs, debugfs_type, fs_type;
 type proc_f2fs, proc_type, fs_type;
 
@@ -169,9 +169,6 @@ type persist_battery_file, file_type, vendor_persist_type;
 # CPU
 type sysfs_cpu, sysfs_type, fs_type;
 
-# GPU
-type sysfs_gpu, sysfs_type, fs_type;
-
 # Fabric
 type sysfs_fabric, sysfs_type, fs_type;
 
@@ -203,3 +200,15 @@ type sysfs_sjtag, fs_type, sysfs_type;
 userdebug_or_eng(`
     typeattribute sysfs_sjtag mlstrustedobject;
 ')
+
+# SecureElement
+type sysfs_st33spi, sysfs_type, fs_type;
+userdebug_or_eng(`
+    typeattribute sysfs_st33spi mlstrustedobject;
+')
+
+# Trusty
+type sysfs_trusty, sysfs_type, fs_type;
+
+# BootControl
+type sysfs_bootctl, sysfs_type, fs_type;

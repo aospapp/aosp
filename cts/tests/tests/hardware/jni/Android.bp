@@ -31,5 +31,5 @@ cc_test_library {
     ],
     stl: "none",
     sdk_version: "current",
-    clang: true,
+
 }

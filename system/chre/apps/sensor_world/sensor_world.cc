@@ -274,6 +274,8 @@ const char *getSensorName(uint32_t sensorHandle) {
 }
 
 void handleTimerEvent(const void *eventData) {
+  UNUSED_VAR(eventData);
+
   for (size_t i = 0; i < ARRAY_SIZE(sensors); i++) {
     SensorState &sensor = sensors[i];
 
@@ -358,6 +360,8 @@ bool nanoappStart() {
 
 void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
+  UNUSED_VAR(senderInstanceId);
+
   uint64_t chreTime = chreGetTime();
   uint64_t sampleTime;
   switch (eventType) {

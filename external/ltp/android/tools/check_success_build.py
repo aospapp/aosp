@@ -80,7 +80,7 @@ class Module(object):
                    }[self._type]()
 
         if not success:
-            print "  Module build failed: " + os.path.basename(self._path)
+            print("  Module build failed: " + os.path.basename(self._path))
         return success
 
     def IsBuildSuccessModuleTestname(self):
@@ -111,8 +111,8 @@ class Module(object):
                True if success
         """
         # TODO(yuexima) check lib build
-        print "Checking module_lib is not supported now, " + \
-            "assuming build success: " + self._path
+        print("Checking module_lib is not supported now, " + \
+            "assuming build success: " + self._path)
         return True
 
     def IsBuildSuccessModulePrebuilt(self):
@@ -171,14 +171,14 @@ class LtpModuleChecker(object):
              module.IsBuildSuccess(self._module_counts)
             ]
 
-        print "module type counts:"
-        print self._module_counts
+        print("module type counts:")
+        print(self._module_counts)
 
-        print str(len(modules_succeed)) + \
+        print(str(len(modules_succeed)) + \
               " of " + str(sum([self._module_counts[i]
               for i in self._module_counts])) + \
-              " modules were succesfully built."
-        print "--Check complete."
+              " modules were succesfully built.")
+        print("--Check complete.")
 
 
 def main():

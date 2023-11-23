@@ -20,14 +20,21 @@ import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.WindowManagerState.STATE_PAUSED;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
-import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.app27.Components.SDK_27_LAUNCHING_ACTIVITY;
 import static android.server.wm.app27.Components.SDK_27_TEST_ACTIVITY;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESUME;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_LOST;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_RESUME;
+import static android.server.wm.lifecycle.LifecycleConstants.ON_TOP_POSITION_LOST;
+import static android.server.wm.lifecycle.LifecycleConstants.getComponentName;
+import static android.server.wm.lifecycle.TransitionVerifier.assertEmptySequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertLaunchAndPauseSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertLaunchSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertRestartAndResumeSequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertResumeToDestroySequence;
+import static android.server.wm.lifecycle.TransitionVerifier.assertSequence;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
@@ -43,7 +50,7 @@ import androidx.test.filters.MediumTest;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Build/Install/Run:
@@ -76,8 +83,8 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         // Wait and assert resume
         waitAndAssertActivityState(getComponentName(FirstActivity.class), STATE_RESUMED,
                 "Activity should be resumed after launch");
-        LifecycleVerifier.assertLaunchSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        assertLaunchSequence(FirstActivity.class, getTransitionLog());
+        assertLaunchSequence(CallbackTrackingActivity.class, getTransitionLog(),
                 ON_TOP_POSITION_LOST);
     }
 
@@ -112,10 +119,10 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         waitAndAssertActivityState(getComponentName(ThirdActivity.class), STATE_RESUMED, message);
 
         // Assert lifecycle
-        LifecycleVerifier.assertLaunchSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(ThirdActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        assertLaunchSequence(FirstActivity.class, getTransitionLog());
+        assertLaunchSequence(SecondActivity.class, getTransitionLog());
+        assertLaunchSequence(ThirdActivity.class, getTransitionLog());
+        assertLaunchSequence(CallbackTrackingActivity.class, getTransitionLog(),
                 ON_TOP_POSITION_LOST);
     }
 
@@ -149,14 +156,14 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         waitAndAssertActivityState(getComponentName(ThirdActivity.class), STATE_RESUMED, message);
 
         // Assert lifecycle
-        LifecycleVerifier.assertLaunchAndStopSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(ThirdActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        TransitionVerifier.assertLaunchAndStopSequence(FirstActivity.class, getTransitionLog());
+        assertLaunchSequence(SecondActivity.class, getTransitionLog());
+        assertLaunchSequence(ThirdActivity.class, getTransitionLog());
+        assertLaunchSequence(CallbackTrackingActivity.class, getTransitionLog(),
                 ON_TOP_POSITION_LOST);
 
         // Finish the activity that was occluding the first one
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         secondActivity.finish();
 
         // Wait and assert the lifecycle
@@ -169,11 +176,10 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         assertFalse("Activity must be destroyed",
                 mWmState.containsWindow(
                         getWindowName(getComponentName(SecondActivity.class))));
-        LifecycleVerifier.assertRestartAndResumeSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertResumeToDestroySequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertEmptySequence(ThirdActivity.class, getLifecycleLog(),
-                "finishInOtherStack");
-        LifecycleVerifier.assertEmptySequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        assertRestartAndResumeSequence(FirstActivity.class, getTransitionLog());
+        assertResumeToDestroySequence(SecondActivity.class, getTransitionLog());
+        assertEmptySequence(ThirdActivity.class, getTransitionLog(), "finishInOtherStack");
+        assertEmptySequence(CallbackTrackingActivity.class, getTransitionLog(),
                 "finishInOtherStack");
     }
 
@@ -208,14 +214,14 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         waitAndAssertActivityState(getComponentName(ThirdActivity.class), STATE_RESUMED, message);
 
         // Assert lifecycle
-        LifecycleVerifier.assertLaunchAndPauseSequence(FirstActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(TranslucentActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(ThirdActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertLaunchSequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        assertLaunchAndPauseSequence(FirstActivity.class, getTransitionLog());
+        assertLaunchSequence(TranslucentActivity.class, getTransitionLog());
+        assertLaunchSequence(ThirdActivity.class, getTransitionLog());
+        assertLaunchSequence(CallbackTrackingActivity.class, getTransitionLog(),
                 ON_TOP_POSITION_LOST);
 
         // Finish the activity that was occluding the first one
-        getLifecycleLog().clear();
+        getTransitionLog().clear();
         transparentActivity.finish();
 
         // Wait and assert the lifecycle
@@ -230,13 +236,13 @@ public class ActivityLifecycleFreeformTests extends ActivityLifecycleClientTestB
         assertFalse("Activity must be destroyed",
                 mWmState.containsWindow(
                         getWindowName(getComponentName(TranslucentActivity.class))));
-        LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_RESUME), "finishTranslucentOnTop");
-        LifecycleVerifier.assertResumeToDestroySequence(TranslucentActivity.class,
-                getLifecycleLog());
-        LifecycleVerifier.assertEmptySequence(ThirdActivity.class, getLifecycleLog(),
+        assertSequence(FirstActivity.class, getTransitionLog(),
+                Collections.singletonList(ON_RESUME), "finishTranslucentOnTop");
+        assertResumeToDestroySequence(TranslucentActivity.class,
+                getTransitionLog());
+        assertEmptySequence(ThirdActivity.class, getTransitionLog(),
                 "finishInOtherStack");
-        LifecycleVerifier.assertEmptySequence(CallbackTrackingActivity.class, getLifecycleLog(),
+        assertEmptySequence(CallbackTrackingActivity.class, getTransitionLog(),
                 "finishInOtherStack");
     }
 

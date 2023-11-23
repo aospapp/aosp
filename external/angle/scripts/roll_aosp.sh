@@ -70,8 +70,8 @@ function generate_Android_bp_file() {
             # Disable histogram/protobuf support
             "angle_has_histograms = false"
 
-            # Disable _LIBCPP_ABI_UNSTABLE, since it breaks std::string
-            "libcxx_abi_unstable = false"
+            # Use system lib(std)c++, since the Chromium library breaks std::string
+            "use_custom_libcxx = false"
 
             # rapidJSON is used for ANGLE's frame capture (among other things), which is unnecessary for AOSP builds.
             "angle_has_rapidjson = false"
@@ -138,22 +138,15 @@ generate_Android_bp_file
 
 # Delete all unsupported 3rd party dependencies. Do this after generate_Android_bp_file, so
 # it has access to all of the necessary BUILD.gn files.
-# Any 3rd party dependencies that are added to this list must have their licenses verified.
-find third_party/ -maxdepth 2 -type d ! -path third_party/ \
-    ! -path 'third_party/abseil-cpp*' \
-    ! -path 'third_party/vulkan-deps' \
-    ! -path 'third_party/vulkan-deps/glslang*' \
-    ! -path 'third_party/vulkan-deps/spirv-headers*' \
-    ! -path 'third_party/vulkan-deps/spirv-tools*' \
-    ! -path 'third_party/vulkan-deps/vulkan-headers*' \
-    ! -path 'third_party/vulkan_memory_allocator*' \
-    ! -path 'third_party/zlib*' \
-    -print0 | xargs --null rm -rf
-# Special handling for zlib's contrib/ (third_party) folder, since there are some
-# missing license files.
-find third_party/zlib/contrib/ -maxdepth 1 -type d ! -path third_party/zlib/contrib/ \
-    ! -path 'third_party/zlib/contrib/optimizations*' \
-    -print0 | xargs --null rm -rf
+unsupported_third_party_deps=(
+   "third_party/jdk"
+   "third_party/llvm-build"
+   "third_party/android_build_tools"
+   "third_party/android_sdk"
+)
+for unsupported_third_party_dep in "${unsupported_third_party_deps[@]}"; do
+   rm -rf "$unsupported_third_party_dep"
+done
 
 git add Android.bp
 

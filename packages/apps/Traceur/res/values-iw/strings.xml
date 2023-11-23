@@ -10,12 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"שחזור קטגוריות המוגדרות כברירת מחדל"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"שוחזרו הקטגוריות שמוגדרות כברירת המחדל"</string>
     <string name="default_categories" msgid="2117679794687799407">"ברירת מחדל"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="two">%d selected</item>
-      <item quantity="many">‏נבחרו %d</item>
-      <item quantity="other">‏נבחרו %d</item>
-      <item quantity="one">‏נבחרה %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{נבחרה קטגוריה אחת}two{נבחרו # קטגוריות}many{נבחרו # קטגוריות}other{נבחרו # קטגוריות}}"</string>
     <string name="applications" msgid="521776761270770549">"אפליקציות"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"אין אפליקציות שניתן לנפות בהן באגים"</string>
     <string name="buffer_size" msgid="3944311026715111454">"‏שטח אחסון זמני לכל יחידת עיבוד מרכזית (CPU)"</string>
@@ -44,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"‏שימוש ב-Perfetto (בטא)"</string>
     <string name="long_traces" msgid="5110949471775966329">"מעקבים ארוכים"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"נשמר באופן מתמשך באחסון המכשיר"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"מתבצעת שמירה רציפה בנפח האחסון של המכשיר (לא יתבצע צירוף אוטומטי לדוחות על באגים)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"אורך המעקב המקסימלי"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"משך הזמן המקסימלי של מעקב ארוך"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"‎200 GB"</string>

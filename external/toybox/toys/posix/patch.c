@@ -8,12 +8,11 @@
  * TODO:
  * -b backup
  * -N ignore already applied
- * -d chdir first
  * -D define wrap #ifdef and #ifndef around changes
  * -o outfile output here instead of in place
  * -r rejectfile write rejected hunks to this file
- *
  * -E remove empty files --remove-empty-files
+ * git syntax (rename, etc)
 
 USE_PATCH(NEWTOY(patch, ">2(no-backup-if-mismatch)(dry-run)"USE_TOYBOX_DEBUG("x")"F#g#fulp#d:i:Rs(quiet)", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -21,7 +20,7 @@ config PATCH
   bool "patch"
   default y
   help
-    usage: patch [-d DIR] [-i PATCH] [-p DEPTH] [-F FUZZ] [-Rlsu] [--dry-run] [FILE [PATCH]]
+    usage: patch [-Rlsu] [-d DIR] [-i PATCH] [-p DEPTH] [-F FUZZ] [--dry-run] [FILE [PATCH]]
 
     Apply a unified diff to one or more files.
 
@@ -54,6 +53,25 @@ GLOBALS(
   int context, state, filein, fileout, filepatch, hunknum;
   char *tempname;
 )
+
+// TODO xgetline() instead, but replace_tempfile() wants fd...
+char *get_line(int fd)
+{
+  char c, *buf = NULL;
+  long len = 0;
+
+  for (;;) {
+    if (1>read(fd, &c, 1)) break;
+    if (!(len & 63)) buf=xrealloc(buf, len+65);
+    if ((buf[len++]=c) == '\n') break;
+  }
+  if (buf) {
+    buf[len]=0;
+    if (buf[--len]=='\n') buf[len]=0;
+  }
+
+  return buf;
+}
 
 // Dispose of a line of input, either by writing it out or discarding it.
 

@@ -17,28 +17,20 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library {
-
+// A helper library for tests that deals with vehicle HAL. Should only be used
+// in unit tests or integration tests.
+java_test_helper_library {
     name: "vehicle-hal-support-lib",
 
     srcs: ["src/**/*.java"],
 
     static_libs: [
         "android.hidl.base-V1.0-java",
+        "android.hardware.automotive.vehicle-V1-java",
         "android.hardware.automotive.vehicle-V2.0-java"
     ],
 
-}
-
-java_library {
-
-    name: "vehicle-hal-support-lib-for-test",
-
-    srcs: ["test/**/*.java"],
-
-    static_libs: [
-        "vehicle-hal-support-lib",
-        "junit",
-    ],
-
+    libs: [
+        "framework-annotations-lib",
+    ]
 }

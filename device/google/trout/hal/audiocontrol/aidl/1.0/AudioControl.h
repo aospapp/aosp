@@ -45,6 +45,9 @@ class AudioControl : public BnAudioControl {
 
     bool isHealthy();
 
+    void start();
+    void join();
+
   private:
     // This focus listener will only be used by this HAL instance to communicate with
     // a single instance of CarAudioService. As such, it doesn't have explicit serialization.

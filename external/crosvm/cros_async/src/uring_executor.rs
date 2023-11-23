@@ -51,42 +51,54 @@
 //! ensures that only the kernel is allowed to access the `Vec` and wraps the the `Vec` in an Arc to
 //! ensure it lives long enough.
 
-use std::convert::TryInto;
-use std::ffi::CStr;
-use std::fs::File;
-use std::future::Future;
-use std::io;
-use std::mem::{self, MaybeUninit};
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-use std::pin::Pin;
-use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{Arc, Weak};
-use std::task::Waker;
-use std::task::{Context, Poll};
-use std::thread::{self, ThreadId};
+use std::{
+    convert::TryInto,
+    ffi::CStr,
+    fs::File,
+    future::Future,
+    io,
+    mem::{
+        MaybeUninit, {self},
+    },
+    os::unix::io::{AsRawFd, FromRawFd, RawFd},
+    pin::Pin,
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        Arc, Weak,
+    },
+    task::{Context, Poll, Waker},
+    thread::{
+        ThreadId, {self},
+    },
+};
 
 use async_task::Task;
+use base::{warn, WatchingEvents};
 use futures::task::noop_waker;
 use io_uring::URingContext;
 use once_cell::sync::Lazy;
 use pin_utils::pin_mut;
+use remain::sorted;
 use slab::Slab;
 use sync::Mutex;
-use sys_util::{warn, WatchingEvents};
 use thiserror::Error as ThisError;
 
-use crate::queue::RunnableQueue;
-use crate::waker::{new_waker, WakerToken, WeakWake};
-use crate::{
+use super::{
     mem::{BackingMemory, MemRegion},
+    queue::RunnableQueue,
+    waker::{new_waker, WakerToken, WeakWake},
     BlockingPool,
 };
 
+#[sorted]
 #[derive(Debug, ThisError)]
 pub enum Error {
+    /// Creating a context to wait on FDs failed.
+    #[error("Error creating the fd waiting context: {0}")]
+    CreatingContext(io_uring::Error),
     /// Failed to copy the FD for the polling context.
     #[error("Failed to copy the FD for the polling context: {0}")]
-    DuplicatingFd(sys_util::Error),
+    DuplicatingFd(base::Error),
     /// The Executor is gone.
     #[error("The URingExecutor is gone")]
     ExecutorGone,
@@ -99,9 +111,6 @@ pub enum Error {
     /// Error doing the IO.
     #[error("Error during IO: {0}")]
     Io(io::Error),
-    /// Creating a context to wait on FDs failed.
-    #[error("Error creating the fd waiting context: {0}")]
-    CreatingContext(io_uring::Error),
     /// Failed to remove the waker remove the polling context.
     #[error("Error removing from the URing context: {0}")]
     RemovingWaker(io_uring::Error),
@@ -520,7 +529,7 @@ impl RawExecutor {
     fn submit_poll(
         &self,
         source: &RegisteredSource,
-        events: &sys_util::WatchingEvents,
+        events: &base::WatchingEvents,
     ) -> Result<WakerToken> {
         let mut ring = self.ring.lock();
         let src = ring
@@ -629,9 +638,12 @@ impl RawExecutor {
 
         // The addresses have already been validated, so unwrapping them will succeed.
         // validate their addresses before submitting.
-        let iovecs = addrs
-            .iter()
-            .map(|&mem_range| *mem.get_volatile_slice(mem_range).unwrap().as_iobuf());
+        let iovecs = addrs.iter().map(|&mem_range| {
+            *mem.get_volatile_slice(mem_range)
+                .unwrap()
+                .as_iobuf()
+                .as_ref()
+        });
 
         unsafe {
             // Safe because all the addresses are within the Memory that an Arc is kept for the
@@ -679,9 +691,12 @@ impl RawExecutor {
 
         // The addresses have already been validated, so unwrapping them will succeed.
         // validate their addresses before submitting.
-        let iovecs = addrs
-            .iter()
-            .map(|&mem_range| *mem.get_volatile_slice(mem_range).unwrap().as_iobuf());
+        let iovecs = addrs.iter().map(|&mem_range| {
+            *mem.get_volatile_slice(mem_range)
+                .unwrap()
+                .as_iobuf()
+                .as_ref()
+        });
 
         unsafe {
             // Safe because all the addresses are within the Memory that an Arc is kept for the
@@ -792,7 +807,7 @@ impl URingExecutor {
         let waker = new_waker(Arc::downgrade(&self.raw));
         let mut cx = Context::from_waker(&waker);
 
-        self.raw.run(&mut cx, crate::empty::<()>())
+        self.raw.run(&mut cx, super::empty::<()>())
     }
 
     pub fn run_until<F: Future>(&self, f: F) -> Result<F::Output> {
@@ -821,7 +836,7 @@ impl URingExecutor {
 unsafe fn dup_fd(fd: RawFd) -> Result<RawFd> {
     let ret = libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0);
     if ret < 0 {
-        Err(Error::DuplicatingFd(sys_util::Error::last()))
+        Err(Error::DuplicatingFd(base::Error::last()))
     } else {
         Ok(ret)
     }
@@ -885,16 +900,20 @@ impl Drop for PendingOperation {
 
 #[cfg(test)]
 mod tests {
-    use std::future::Future;
-    use std::io::{Read, Write};
-    use std::mem;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
+    use std::{
+        future::Future,
+        io::{Read, Write},
+        mem,
+        pin::Pin,
+        task::{Context, Poll},
+    };
 
     use futures::executor::block_on;
 
-    use super::*;
-    use crate::mem::{BackingMemory, MemRegion, VecIoWrapper};
+    use super::{
+        super::mem::{BackingMemory, MemRegion, VecIoWrapper},
+        *,
+    };
 
     // A future that returns ready when the uring queue is empty.
     struct UringQueueEmpty<'a> {
@@ -925,7 +944,7 @@ mod tests {
             Arc::new(VecIoWrapper::from(vec![0u8; 4096])) as Arc<dyn BackingMemory + Send + Sync>;
 
         // Use pipes to create a future that will block forever.
-        let (rx, mut tx) = sys_util::pipe(true).unwrap();
+        let (rx, mut tx) = base::pipe(true).unwrap();
 
         // Set up the TLS for the uring_executor by creating one.
         let ex = URingExecutor::new().unwrap();
@@ -969,7 +988,7 @@ mod tests {
             Arc::new(VecIoWrapper::from(vec![0u8; 4096])) as Arc<dyn BackingMemory + Send + Sync>;
 
         // Use pipes to create a future that will block forever.
-        let (mut rx, tx) = sys_util::new_pipe_full().expect("Pipe failed");
+        let (mut rx, tx) = base::new_pipe_full().expect("Pipe failed");
 
         // Set up the TLS for the uring_executor by creating one.
         let ex = URingExecutor::new().unwrap();
@@ -995,7 +1014,7 @@ mod tests {
         // Finishing the operation should put the Arc count back to 1.
         // write to the pipe to wake the read pipe and then wait for the uring result in the
         // executor.
-        let mut buf = vec![0u8; sys_util::round_up_to_page_size(1)];
+        let mut buf = vec![0u8; base::round_up_to_page_size(1)];
         rx.read_exact(&mut buf).expect("read to empty failed");
         ex.run_until(UringQueueEmpty { ex: &ex })
             .expect("Failed to wait for write pipe ready");
@@ -1020,7 +1039,7 @@ mod tests {
         let bm =
             Arc::new(VecIoWrapper::from(vec![0u8; 16])) as Arc<dyn BackingMemory + Send + Sync>;
 
-        let (rx, tx) = sys_util::pipe(true).expect("Pipe failed");
+        let (rx, tx) = base::pipe(true).expect("Pipe failed");
 
         let ex = URingExecutor::new().unwrap();
 
@@ -1060,7 +1079,7 @@ mod tests {
             }
         }
 
-        let (mut rx, mut tx) = sys_util::pipe(true).expect("Pipe failed");
+        let (mut rx, mut tx) = base::pipe(true).expect("Pipe failed");
 
         let ex = URingExecutor::new().unwrap();
 
@@ -1108,7 +1127,7 @@ mod tests {
 
         // Leave an uncompleted operation in the queue so that the drop impl will try to drive it to
         // completion.
-        let (_rx, tx) = sys_util::pipe(true).expect("Pipe failed");
+        let (_rx, tx) = base::pipe(true).expect("Pipe failed");
         let tx = ex.register_source(&tx).expect("Failed to register source");
         let bm = Arc::new(VecIoWrapper::from(0xf2e96u64.to_ne_bytes().to_vec()));
         let op = tx

@@ -29,9 +29,11 @@ interface ISuspendControlServiceInternal {
     /**
      * Starts automatic system suspension.
      *
+     * @param token token registering automatic system suspension.
+     * When all registered tokens die automatic system suspension is disabled.
      * @return true on success, false otherwise.
      */
-    boolean enableAutosuspend();
+    boolean enableAutosuspend(IBinder token);
 
     /**
      * Suspends the system even if there are wakelocks being held.

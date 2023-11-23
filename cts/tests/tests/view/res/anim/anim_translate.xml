@@ -17,7 +17,7 @@
 
 <translate xmlns:android="http://schemas.android.com/apk/res/android"
     android:interpolator="@android:anim/accelerate_interpolator"
-    android:fromXDelta="100%p"
+    android:fromXDelta="100dp"
     android:toXDelta="0"
     android:fromYDelta="100%p"
     android:toYDelta="0"

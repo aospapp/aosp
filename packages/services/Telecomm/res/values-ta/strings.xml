@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"கட்டண ஃபோன்களில் இருந்து வரும் அழைப்புகளைத் தடுக்கும்"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"தெரியாத அழைப்புகள்"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"அடையாளம் தெரியாத அழைப்பாளர்களின் அழைப்புகளைத் தடுக்கும்"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"மறைக்கப்பட்ட எண்கள்"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"மறைக்கப்பட்ட எண்களில் இருந்து வரும் அழைப்புகளைத் தடுக்கும்"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"அழைப்புத் தடுப்பு"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"அவசர அழைப்பு செய்யப்பட்டது"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"அவசரநிலையில் பதிலளிப்பவர்களை உங்களைத் தொடர்புகொள்வதற்கு அனுமதிக்க, அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது."</string>
     <string name="developer_title" msgid="9146088855661672353">"டெலிகாம் டெவெலப்பர் மெனு"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"அவசர அழைப்பின்போது அழைப்புகளை ஏற்க முடியாது."</string>
+    <string name="cancel" msgid="6733466216239934756">"ரத்துசெய்"</string>
 </resources>

@@ -174,21 +174,17 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
     }
 
     private void updateWidget(int widgetId) {
-        switch (widgetId) {
-            case R.id.switch_widget: {
-                Switch switchWidget = (Switch) findViewById(R.id.switch_widget);
-                switchWidget.setOnCheckedChangeListener(this);
-                switchWidget.setVisibility(View.VISIBLE);
-            } break;
-            case R.id.edit_text_widget: {
-                findViewById(R.id.edit_text_widget).setVisibility(View.VISIBLE);
-                Button updateButton = (Button) findViewById(R.id.update_button);
-                updateButton.setOnClickListener(this);
-                updateButton.setVisibility(View.VISIBLE);
-            } break;
-            default: {
-                throw new IllegalArgumentException("Unknown widgetId: " + widgetId);
-            }
+        if (widgetId == R.id.switch_widget) {
+            Switch switchWidget = (Switch) findViewById(R.id.switch_widget);
+            switchWidget.setOnCheckedChangeListener(this);
+            switchWidget.setVisibility(View.VISIBLE);
+        } else if (widgetId == R.id.edit_text_widget) {
+            findViewById(R.id.edit_text_widget).setVisibility(View.VISIBLE);
+            Button updateButton = (Button) findViewById(R.id.update_button);
+            updateButton.setOnClickListener(this);
+            updateButton.setVisibility(View.VISIBLE);
+        } else {
+            throw new IllegalArgumentException("Unknown widgetId: " + widgetId);
         }
     }
 

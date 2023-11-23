@@ -60,7 +60,7 @@ class TokenizerTests(unittest.TestCase):
         ])
         self.assertEqual(
             [(token.type, token.value) for token in TokenizerTests._tokenize(
-                'read: arg0 in ~0xffff || arg0 & (1|2) && arg0 == 0o755; '
+                'read: arg0 in ~0xffff || arg0 & (1|2) && arg0 == 0755; '
                 'return ENOSYS # ignored')], [
                     ('IDENTIFIER', 'read'),
                     ('COLON', ':'),
@@ -79,7 +79,7 @@ class TokenizerTests(unittest.TestCase):
                     ('AND', '&&'),
                     ('ARGUMENT', 'arg0'),
                     ('OP', '=='),
-                    ('NUMERIC_CONSTANT', '0o755'),
+                    ('NUMERIC_CONSTANT', '0755'),
                     ('SEMICOLON', ';'),
                     ('RETURN', 'return'),
                     ('IDENTIFIER', 'ENOSYS'),
@@ -276,6 +276,27 @@ class ParseFilterExpressionTests(unittest.TestCase):
                      parser.Atom(1, '==', 2)],
                 ])
 
+    def test_parse_number_argument_expression(self):
+        """Accept valid argument expressions with any octal/decimal/hex number."""
+        # 4607 == 010777 == 0x11ff
+        self.assertEqual(
+            self.parser.parse_argument_expression(
+                self._tokenize('arg0 in 4607')), [
+                    [parser.Atom(0, 'in', 4607)],
+            ])
+
+        self.assertEqual(
+            self.parser.parse_argument_expression(
+                self._tokenize('arg0 in 010777')), [
+                    [parser.Atom(0, 'in', 4607)],
+            ])
+
+        self.assertEqual(
+            self.parser.parse_argument_expression(
+                self._tokenize('arg0 in 0x11ff')), [
+                    [parser.Atom(0, 'in', 4607)],
+            ])
+
     def test_parse_empty_argument_expression(self):
         """Reject empty argument expressions."""
         with self.assertRaisesRegex(parser.ParseException,
@@ -393,6 +414,29 @@ class ParseFilterTests(unittest.TestCase):
         """Reject unclosed brace."""
         with self.assertRaisesRegex(parser.ParseException, 'unclosed brace'):
             self.parser.parse_filter(self._tokenize('{ allow'))
+
+
+class ParseFilterDenylistTests(unittest.TestCase):
+    """Tests for PolicyParser.parse_filter with a denylist policy."""
+
+    def setUp(self):
+        self.arch = ARCH_64
+        self.kill_action = bpf.KillProcess()
+        self.parser = parser.PolicyParser(
+            self.arch, kill_action=self.kill_action, denylist=True)
+
+    def _tokenize(self, line):
+        # pylint: disable=protected-access
+        return list(self.parser._parser_state.tokenize([line]))[0]
+
+    def test_parse_filter(self):
+        """Accept only filters that return an errno."""
+        self.assertEqual(
+            self.parser.parse_filter(self._tokenize('arg0 == 0; return ENOSYS')),
+            [
+                parser.Filter([[parser.Atom(0, '==', 0)]],
+                bpf.ReturnErrno(self.arch.constants['ENOSYS'])),
+            ])
 
 
 class ParseFilterStatementTests(unittest.TestCase):
@@ -868,6 +912,112 @@ class ParseFileTests(unittest.TestCase):
                  r'applied')):
             self.parser.parse_file(path)
 
+    def test_parse_allowlist_denylist_header(self):
+        """Reject trying to compile denylist policy file as allowlist."""
+        with self.assertRaisesRegex(parser.ParseException,
+                                    r'policy is denylist, but flag --denylist '
+                                    'not passed in'):
+            path = self._write_file(
+                'test.policy', """
+                @denylist
+            """)
+            self.parser.parse_file(path)
+
+
+class ParseFileDenylistTests(unittest.TestCase):
+    """Tests for PolicyParser.parse_file."""
+
+    def setUp(self):
+        self.arch = ARCH_64
+        self.kill_action = bpf.KillProcess()
+        self.parser = parser.PolicyParser(
+            self.arch, kill_action=self.kill_action, denylist=True)
+        self.tempdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def _write_file(self, filename, contents):
+        """Helper to write out a file for testing."""
+        path = os.path.join(self.tempdir, filename)
+        with open(path, 'w') as outf:
+            outf.write(contents)
+        return path
+
+    def test_parse_simple(self):
+        """Allow simple denylist policy files."""
+        path = self._write_file(
+            'test.policy', """
+            # Comment.
+            @denylist
+            read: return ENOSYS
+            write: return ENOSYS
+        """)
+
+        self.assertEqual(
+            self.parser.parse_file(path),
+            parser.ParsedPolicy(
+                default_action=bpf.Allow(),
+                filter_statements=[
+                    parser.FilterStatement(
+                        syscall=parser.Syscall('read', 0),
+                        frequency=1,
+                        filters=[
+                            parser.Filter(None, bpf.ReturnErrno(
+                                    self.arch.constants['ENOSYS'])),
+                        ]),
+                    parser.FilterStatement(
+                        syscall=parser.Syscall('write', 1),
+                        frequency=1,
+                        filters=[
+                            parser.Filter(None, bpf.ReturnErrno(
+                                    self.arch.constants['ENOSYS'])),
+                        ]),
+                ]))
+
+    def test_parse_simple_with_arg(self):
+        """Allow simple denylist policy files."""
+        path = self._write_file(
+            'test.policy', """
+            # Comment.
+            @denylist
+            read: return ENOSYS
+            write: arg0 == 0 ; return ENOSYS
+        """)
+
+        self.assertEqual(
+            self.parser.parse_file(path),
+            parser.ParsedPolicy(
+                default_action=bpf.Allow(),
+                filter_statements=[
+                    parser.FilterStatement(
+                        syscall=parser.Syscall('read', 0),
+                        frequency=1,
+                        filters=[
+                            parser.Filter(None, bpf.ReturnErrno(
+                                    self.arch.constants['ENOSYS'])),
+                        ]),
+                    parser.FilterStatement(
+                        syscall=parser.Syscall('write', 1),
+                        frequency=1,
+                        filters=[
+                            parser.Filter([[parser.Atom(0, '==', 0)]],
+                                bpf.ReturnErrno(self.arch.constants['ENOSYS'])),
+                            parser.Filter(None, bpf.Allow()),
+                        ]),
+                ]))
+
+
+    def test_parse_denylist_no_header(self):
+        """Reject trying to compile denylist policy file as allowlist."""
+        with self.assertRaisesRegex(parser.ParseException,
+                                    r'policy must contain @denylist flag to be '
+                                    'compiled with --denylist flag'):
+            path = self._write_file(
+                'test.policy', """
+                read: return ENOSYS
+            """)
+            self.parser.parse_file(path)
 
 if __name__ == '__main__':
     unittest.main()

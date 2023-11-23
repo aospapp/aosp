@@ -281,6 +281,20 @@ struct eapol_callbacks {
 	 * @len: Length of anonymous identity in octets
 	 */
 	void (*set_anon_id)(void *ctx, const u8 *id, size_t len);
+
+	/**
+	 * notify_eap_method_selected - Report that the EAP method was selected
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @reason_string: Information to log about the event
+	 */
+	void (*notify_eap_method_selected)(void *ctx, const char* reason_string);
+
+	/**
+	 * notify_open_ssl_failure - Report that an OpenSSL failure occurred
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @reason_string: Information to log about the event
+	 */
+	void (*notify_open_ssl_failure)(void *ctx, const char* reason_string);
 };
 
 /**

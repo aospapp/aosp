@@ -10,30 +10,25 @@ package {
     default_applicable_licenses: ["external_crosvm_license"],
 }
 
-rust_defaults {
-    name: "kernel_cmdline_test_defaults",
+rust_test {
+    name: "kernel_cmdline_test_src_kernel_cmdline",
     defaults: ["crosvm_defaults"],
+    host_supported: true,
     crate_name: "kernel_cmdline",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/kernel_cmdline.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "liblibc",
-    ],
-}
-
-rust_test_host {
-    name: "kernel_cmdline_host_test_src_kernel_cmdline",
-    defaults: ["kernel_cmdline_test_defaults"],
     test_options: {
         unit_test: true,
     },
-}
-
-rust_test {
-    name: "kernel_cmdline_device_test_src_kernel_cmdline",
-    defaults: ["kernel_cmdline_test_defaults"],
+    edition: "2021",
+    rustlibs: [
+        "liblibc",
+        "libthiserror",
+    ],
+    proc_macros: ["libremain"],
 }
 
 rust_library {
@@ -41,9 +36,13 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "kernel_cmdline",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/kernel_cmdline.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
         "liblibc",
+        "libthiserror",
     ],
+    proc_macros: ["libremain"],
 }

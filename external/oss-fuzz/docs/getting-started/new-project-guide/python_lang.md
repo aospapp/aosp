@@ -57,6 +57,8 @@ sanitizers:
 
 ### Dockerfile
 
+The Dockerfile should start by `FROM gcr.io/oss-fuzz-base/base-builder-python`
+
 Because most dependencies are already pre-installed on the images, no
 significant changes are needed in the Dockerfile for Python fuzzing projects.
 You should simply clone the project, set a `WORKDIR`, and copy any necessary
@@ -97,7 +99,7 @@ this_dir=\$(dirname \"\$0\")
 LD_PRELOAD=\$this_dir/sanitizer_with_fuzzer.so \
 ASAN_OPTIONS=\$ASAN_OPTIONS:symbolize=1:external_symbolizer_path=\$this_dir/llvm-symbolizer:detect_leaks=0 \
 \$this_dir/$fuzzer_package \$@" > $OUT/$fuzzer_basename
-  chmod u+x $OUT/$fuzzer_basename
+  chmod +x $OUT/$fuzzer_basename
 done
 ```
 

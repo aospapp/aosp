@@ -293,6 +293,9 @@ private:
   update_function_entry_address_symbol_map(Elf*	     elf_handle,
 					   GElf_Sym* native_symbol,
 					   const elf_symbol_sptr& symbol_sptr);
+
+  void
+  add_alternative_address_lookups(Elf* elf_handle);
 };
 
 /// Helper class to allow range-for loops on symtabs for C++11 and later code.

@@ -7,9 +7,9 @@
 # which is not logged.
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  OPTS="$(getopt f:rb -- "$*")"
+  OPTS="$(getopt f:rbsm:x -- "$*")"
 else
-  OPTS="$(getopt -o f:rb -l filter-driver:,include-nnapi-reference,nnapi-reference-only,skip-build -- "$@")"
+  OPTS="$(getopt -o f:rbsm:x -l filter-driver:,include-nnapi-reference,nnapi-reference-only,skip-build,use-nnapi-sl,filter-model,extract-nnapi-sl -- "$@")"
 fi
 
 if [ $? -ne 0 ]; then
@@ -18,11 +18,17 @@ if [ $? -ne 0 ]; then
     echo " -f <regex> : to run crash tests only on the drivers (ignoring nnapi-reference) matching the specified regular expression"
     echo " -r : to include nnapi-reference in target drivers"
     echo " -b : skip build and installation of tests"
+    echo " -s : use NNAPI Support Library drivers (embedded in the benchmark APK unless -x is specified)"
+    echo " -x : extract NNAPI Support Library drivers from the APK"
+    echo " -m <regex> : to filter the models used in the tests"
   else
     echo " -f <regex> | --filter-driver <regex> : to run crash tests only on the drivers (ignoring nnapi-reference) matching the specified regular expression"
     echo " -r | --include-nnapi-reference : to include nnapi-reference in target drivers"
     echo " --nnapi-reference-only : to run tests only vs nnapi-reference"
     echo " -b | --skip-build : skip build and installation of tests"
+    echo " -s | --use-nnapi-sl : use NNAPI Support Library drivers (embedded in the benchmark APK unless -x is specified)"
+    echo " -x | --extract-nnapi-sl : extract NNAPI Support Library drivers from the APK"
+    echo " -m <regex> : to filter the models used in the tests"
   fi
   exit
 fi
@@ -32,6 +38,8 @@ eval set -- "$OPTS"
 DRIVER_FILTER_OPT=""
 INCLUDE_NNAPI_REF_OPT=""
 BUILD_AND_INSTALL=true
+NNAPI_SL_FILTER_OPT=""
+MODEL_FILTER_OPT=""
 while [ $# -gt 0 ] ; do
   case "$1" in
     -f|--filter-driver)
@@ -47,9 +55,25 @@ while [ $# -gt 0 ] ; do
       INCLUDE_NNAPI_REF_OPT="-e nnCrashtestIncludeNnapiReference true"
       shift
       ;;
+    -m|--filter-model)
+      MODEL_FILTER_OPT="-e nnBenchmarkModelFilter $2"
+      shift 2
+      ;;
     -b|--skip-build)
       BUILD_AND_INSTALL=false
       shift
+      ;;
+    -s|--use-nnapi-sl)
+      NNAPI_SL_FILTER_OPT+=" -e useNnApiSupportLibrary true"
+      shift
+      ;;
+    -x|--extract-nnapi-sl)
+      NNAPI_SL_FILTER_OPT+=" -e extractNnApiSupportLibrary true"
+      shift
+
+      echo "Creating configuration file with list of libraries"
+      mkdir sl_prebuilt/assets
+      ls sl_prebuilt/ 2>/dev/null | grep '.so'  >sl_prebuilt/assets/sl_prebuilt_filelist.txt
       ;;
     --)
       shift
@@ -134,6 +158,22 @@ set -e
 cd $ANDROID_BUILD_TOP
 
 if [ "$BUILD_AND_INSTALL" = true ]; then
+   if [ ! -z "$NNAPI_SL_FILTER_OPT" ]; then
+    SL_PREBUILT=test/mlts/benchmark/sl_prebuilt
+    if [ ! -n "$(ls -A $SL_PREBUILT/*.so 2>/dev/null)" ]; then
+      echo "There is no NNAPI SL binary file under $ANDROID_BUILD_TOP/$SL_PREBUILT, cannot test using NNAPI SL"
+      exit
+    fi
+    if [ ! -f "$SL_PREBUILT/Android.bp" ]; then
+      echo "================================================================"
+      echo "Enabling build of NNAPI SL libraries using template definition."
+      echo  "If the definitions in $SL_PREBUILT/Android.bp don't match the libraries you copied"
+      echo " please define your own version of $SL_PREBUILT/Android.bp"
+      echo "================================================================"
+      mv $SL_PREBUILT/Android.bp.template $SL_PREBUILT/Android.bp
+    fi
+  fi
+
   # Build and install benchmark app
   TMPFILE=$(mktemp)
   build/soong/soong_ui.bash --make-mode ${APP} 2>&1 | tee ${TMPFILE}
@@ -143,6 +183,16 @@ if [ "$BUILD_AND_INSTALL" = true ]; then
   else
       APK_DIR=${TARGET_ARCH}
   fi
+
+  if [ ! -z "$NNAPI_SL_FILTER_OPT" ]; then
+    if [ "$(unzip -l $OUT/testcases/${APP}/${APK_DIR}/${APP}.apk | grep libnnapi_sl_driver | wc -l)" -ne 1 ]; then
+      echo "NNAPI SL Libraries are not included in the APK" \
+          "please check the library list is included in the LOCAL_JNI_SHARED_LIBRARIES list " \
+          "for ${APP}. Please check the value of SL_LIBS in Android.mk"
+      exit
+    fi
+  fi
+
   if ! adb install -r $OUT/testcases/${APP}/${APK_DIR}/${APP}.apk; then
     adb uninstall com.android.nn.benchmark.app
     adb install -r $OUT/testcases/${APP}/${APK_DIR}/${APP}.apk
@@ -167,7 +217,7 @@ fi
 
 # Pass --no-isolated-storage to am instrument?
 BUILD_VERSION_RELEASE=`adb shell getprop ro.build.version.release`
-AM_INSTRUMENT_FLAGS="$DRIVER_FILTER_OPT $INCLUDE_NNAPI_REF_OPT"
+AM_INSTRUMENT_FLAGS="$DRIVER_FILTER_OPT $INCLUDE_NNAPI_REF_OPT $NNAPI_SL_FILTER_OPT $MODEL_FILTER_OPT"
 if [[ $BUILD_VERSION_RELEASE == "Q" ]]; then
   AM_INSTRUMENT_FLAGS+=" --no-isolated-storage"
 fi

@@ -77,11 +77,11 @@
 
 #include <hwl_types.h>
 
+#include <algorithm>
 #include <functional>
 
 #include "Base.h"
 #include "EmulatedScene.h"
-#include "HandleImporter.h"
 #include "JpegCompressor.h"
 #include "utils/Mutex.h"
 #include "utils/StreamConfigurationMap.h"
@@ -90,7 +90,6 @@
 
 namespace android {
 
-using android::hardware::camera::common::V1_0::helper::HandleImporter;
 using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::HwlPipelineResult;
 using google_camera_hal::StreamConfiguration;
@@ -112,6 +111,12 @@ struct ColorFilterXYZ {
   float bY = -0.2040f;
   float bZ = 1.0570f;
 };
+
+typedef std::unordered_map<
+    camera_metadata_enum_android_request_available_dynamic_range_profiles_map,
+    std::unordered_set<
+        camera_metadata_enum_android_request_available_dynamic_range_profiles_map>>
+    ProfileMap;
 
 struct SensorCharacteristics {
   size_t width = 0;
@@ -137,6 +142,9 @@ struct SensorCharacteristics {
   uint32_t orientation = 0;
   bool is_front_facing = false;
   bool quad_bayer_sensor = false;
+  bool is_10bit_dynamic_range_capable = false;
+  ProfileMap dynamic_range_profiles;
+  bool support_stream_use_case = false;
 };
 
 // Maps logical/physical camera ids to sensor characteristics
@@ -147,9 +155,25 @@ class EmulatedSensor : private Thread, public virtual RefBase {
   EmulatedSensor();
   ~EmulatedSensor();
 
-  static android_pixel_format_t OverrideFormat(android_pixel_format_t format) {
-    if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
-      return HAL_PIXEL_FORMAT_YCBCR_420_888;
+  static android_pixel_format_t OverrideFormat(
+      android_pixel_format_t format,
+      camera_metadata_enum_android_request_available_dynamic_range_profiles_map
+          profile) {
+    switch (profile) {
+      case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD:
+        if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+          return HAL_PIXEL_FORMAT_YCBCR_420_888;
+        }
+        break;
+      case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10:
+        if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+          return static_cast<android_pixel_format_t>(
+              HAL_PIXEL_FORMAT_YCBCR_P010);
+        }
+        break;
+      default:
+        ALOGE("%s: Unsupported dynamic range profile 0x%x", __FUNCTION__,
+              profile);
     }
 
     return format;
@@ -216,6 +240,7 @@ class EmulatedSensor : private Thread, public virtual RefBase {
     uint8_t sensor_pixel_mode = ANDROID_SENSOR_PIXEL_MODE_DEFAULT;
     uint8_t test_pattern_mode = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
     uint32_t test_pattern_data[4] = {0, 0, 0, 0};
+    uint32_t screen_rotation = 0;
   };
 
   // Maps physical and logical camera ids to individual device settings
@@ -313,6 +338,7 @@ class EmulatedSensor : private Thread, public virtual RefBase {
   bool threadLoop() override;
 
   nsecs_t next_capture_time_;
+  nsecs_t next_readout_time_;
 
   struct SensorBinningFactorInfo {
     bool has_raw_stream = false;
@@ -323,7 +349,7 @@ class EmulatedSensor : private Thread, public virtual RefBase {
 
   std::map<uint32_t, SensorBinningFactorInfo> sensor_binning_factor_info_;
 
-  sp<EmulatedScene> scene_;
+  std::unique_ptr<EmulatedScene> scene_;
 
   static EmulatedScene::ColorChannels GetQuadBayerColor(uint32_t x, uint32_t y);
 

@@ -20,7 +20,10 @@ import static com.android.wallpaper.picker.WallpaperPickerDelegate.PREVIEW_WALLP
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.TypedArray;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -59,6 +62,7 @@ import com.android.wallpaper.widget.WallpaperPickerRecyclerViewAccessibilityDele
 import com.android.wallpaper.widget.WallpaperPickerRecyclerViewAccessibilityDelegate.BottomSheetHost;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -129,6 +133,11 @@ public class CategorySelectorFragment extends AppbarFragment {
         mCategoryProvider = InjectorProvider.getInjector().getCategoryProvider(getContext());
     }
 
+    public CategorySelectorFragment(Context context) {
+        mAdapter = new CategoryAdapter(mCategories);
+        mCategoryProvider = InjectorProvider.getInjector().getCategoryProvider(context);
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -164,19 +173,11 @@ public class CategorySelectorFragment extends AppbarFragment {
         }
 
         // For nav bar edge-to-edge effect.
-        view.setOnApplyWindowInsetsListener((v, windowInsets) -> {
-            // For status bar height.
+        mImageGrid.setOnApplyWindowInsetsListener((v, windowInsets) -> {
             v.setPadding(
                     v.getPaddingLeft(),
-                    windowInsets.getSystemWindowInsetTop(),
+                    v.getPaddingTop(),
                     v.getPaddingRight(),
-                    v.getPaddingBottom());
-
-            View gridView = v.findViewById(R.id.category_grid);
-            gridView.setPadding(
-                    gridView.getPaddingLeft(),
-                    gridView.getPaddingTop(),
-                    gridView.getPaddingRight(),
                     windowInsets.getSystemWindowInsetBottom());
             return windowInsets.consumeSystemWindowInsets();
         });
@@ -243,8 +244,7 @@ public class CategorySelectorFragment extends AppbarFragment {
     }
 
     /**
-     * Notifies the CategoryFragment that no further categories are expected so it may hide
-     * the loading indicator.
+     * Notifies that no further categories are expected so it may hide the loading indicator.
      */
     void doneFetchingCategories() {
         if (mAwaitingCategories) {
@@ -313,7 +313,9 @@ public class CategorySelectorFragment extends AppbarFragment {
 
                             @Override
                             public void onPermissionsDenied(boolean dontAskAgain) {
-                                // No-op
+                                if (dontAskAgain) {
+                                    showPermissionSnackbar();
+                                }
                             }
                         });
                 return;
@@ -351,26 +353,26 @@ public class CategorySelectorFragment extends AppbarFragment {
         private void drawThumbnailAndOverlayIcon() {
             mOverlayIconView.setImageDrawable(mCategory.getOverlayIcon(
                     getActivity().getApplicationContext()));
-
-            // Size the overlay icon according to the category.
-            int overlayIconDimenDp = mCategory.getOverlayIconSizeDp();
-            DisplayMetrics metrics = DisplayMetricsRetriever.getInstance().getDisplayMetrics(
-                    getResources(), getActivity().getWindowManager().getDefaultDisplay());
-            int overlayIconDimenPx = (int) (overlayIconDimenDp * metrics.density);
-            mOverlayIconView.getLayoutParams().width = overlayIconDimenPx;
-            mOverlayIconView.getLayoutParams().height = overlayIconDimenPx;
-
             Asset thumbnail = mCategory.getThumbnail(getActivity().getApplicationContext());
             if (thumbnail != null) {
+                // Size the overlay icon according to the category.
+                int overlayIconDimenDp = mCategory.getOverlayIconSizeDp();
+                DisplayMetrics metrics = DisplayMetricsRetriever.getInstance().getDisplayMetrics(
+                        getResources(), getActivity().getWindowManager().getDefaultDisplay());
+                int overlayIconDimenPx = (int) (overlayIconDimenDp * metrics.density);
+                mOverlayIconView.getLayoutParams().width = overlayIconDimenPx;
+                mOverlayIconView.getLayoutParams().height = overlayIconDimenPx;
                 thumbnail.loadDrawable(getActivity(), mImageView,
                         ResourceUtils.getColorAttr(
-                            getActivity(),
-                            android.R.attr.colorSecondary
+                                getActivity(),
+                                android.R.attr.colorSecondary
                         ));
             } else {
                 // TODO(orenb): Replace this workaround for b/62584914 with a proper way of
                 //  unloading the ImageView such that no incorrect image is improperly loaded upon
                 //  rapid scroll.
+                mImageView.setBackgroundColor(
+                        getResources().getColor(R.color.myphoto_background_color));
                 Object nullObj = null;
                 Glide.with(getActivity())
                         .asDrawable()
@@ -379,6 +381,40 @@ public class CategorySelectorFragment extends AppbarFragment {
 
             }
         }
+    }
+
+    private void showPermissionSnackbar() {
+        Snackbar snackbar = Snackbar.make(getView(), R.string.settings_snackbar_description,
+                Snackbar.LENGTH_LONG);
+        Snackbar.SnackbarLayout layout = (Snackbar.SnackbarLayout) snackbar.getView();
+        TextView textView = (TextView) layout.findViewById(R.id.snackbar_text);
+        layout.setBackgroundResource(R.drawable.snackbar_background);
+        TypedArray typedArray = getContext().obtainStyledAttributes(
+                new int[]{android.R.attr.textColorPrimary,
+                        com.android.internal.R.attr.colorAccentPrimaryVariant});
+        textView.setTextColor(typedArray.getColor(0, Color.TRANSPARENT));
+        snackbar.setActionTextColor(typedArray.getColor(1, Color.TRANSPARENT));
+        typedArray.recycle();
+
+        snackbar.setAction(getContext().getString(R.string.settings_snackbar_enable),
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        startSettings(SETTINGS_APP_INFO_REQUEST_CODE);
+                    }
+                });
+        snackbar.show();
+    }
+
+    private void startSettings(int resultCode) {
+        Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+        Intent appInfoIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", activity.getPackageName(), /* fragment= */ null);
+        appInfoIntent.setData(uri);
+        startActivityForResult(appInfoIntent, resultCode);
     }
 
     private class FeaturedCategoryHolder extends CategoryHolder {
@@ -535,13 +571,7 @@ public class CategorySelectorFragment extends AppbarFragment {
                     .setNegativeButton(
                             R.string.settings_button_label,
                             (dialogInterface, i) -> {
-                                Intent appInfoIntent =
-                                        new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                Uri uri = Uri.fromParts("package",
-                                        getActivity().getPackageName(), /* fragment= */ null);
-                                appInfoIntent.setData(uri);
-                                startActivityForResult(
-                                        appInfoIntent, SETTINGS_APP_INFO_REQUEST_CODE);
+                                startSettings(SETTINGS_APP_INFO_REQUEST_CODE);
                             })
                     .create();
             dialog.show();
@@ -576,7 +606,12 @@ public class CategorySelectorFragment extends AppbarFragment {
             }
         }
     }
-
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == SETTINGS_APP_INFO_REQUEST_CODE) {
+            notifyDataSetChanged();
+        }
+    }
     /**
      * SpanSizeLookup subclass which provides that the item in the first position spans the number
      * of columns in the RecyclerView and all other items only take up a single span.

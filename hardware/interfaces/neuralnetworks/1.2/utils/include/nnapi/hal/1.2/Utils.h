@@ -28,7 +28,6 @@
 #include <nnapi/hal/1.0/Conversions.h>
 #include <nnapi/hal/1.1/Conversions.h>
 #include <nnapi/hal/1.1/Utils.h>
-#include <nnapi/hal/HandleError.h>
 
 #include <limits>
 
@@ -40,7 +39,7 @@ using V1_1::utils::kDefaultExecutionPreference;
 constexpr auto kDefaultMesaureTiming = MeasureTiming::NO;
 constexpr auto kNoTiming = Timing{.timeOnDevice = std::numeric_limits<uint64_t>::max(),
                                   .timeInDriver = std::numeric_limits<uint64_t>::max()};
-constexpr auto kVersion = nn::Version::ANDROID_Q;
+constexpr auto kVersion = nn::kVersionFeatureLevel3;
 
 template <typename Type>
 nn::Result<void> validate(const Type& halObject) {
@@ -61,9 +60,9 @@ bool valid(const Type& halObject) {
 }
 
 template <typename Type>
-nn::GeneralResult<void> compliantVersion(const Type& canonical) {
-    const auto version = NN_TRY(hal::utils::makeGeneralFailure(nn::validate(canonical)));
-    if (version > kVersion) {
+nn::Result<void> compliantVersion(const Type& canonical) {
+    const auto version = NN_TRY(nn::validate(canonical));
+    if (!nn::isCompliantVersion(version, kVersion)) {
         return NN_ERROR() << "Insufficient version: " << version << " vs required " << kVersion;
     }
     return {};

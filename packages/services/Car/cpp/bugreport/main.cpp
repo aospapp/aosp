@@ -386,11 +386,11 @@ void takeScreenshotForDisplayId(PhysicalDisplayId id, const char* tmp_dir,
     int status = runCommand(10, "/system/bin/screencap", args);
     if (status == 0) {
         ALOGI("Screenshot saved for display: %s", id_as_string.c_str());
+    } else {
+        ALOGW("Failed to take screenshot for display: %s", id_as_string.c_str());
     }
     // add the file regardless of the exit status of the screencap util.
     extra_files->push_back(filename);
-
-    ALOGW("Failed to take screenshot for display: %s", id_as_string.c_str());
 }
 
 void takeScreenshot(const char* tmp_dir, std::vector<std::string>* extra_files) {

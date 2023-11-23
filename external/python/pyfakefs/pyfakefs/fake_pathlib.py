@@ -28,23 +28,18 @@ Note: as the implementation is based on FakeFilesystem, all faked classes
 (including PurePosixPath, PosixPath, PureWindowsPath and WindowsPath)
 get the properties of the underlying fake filesystem.
 """
-import fnmatch
-import os
-import re
-
-try:
-    from urllib.parse import quote_from_bytes as urlquote_from_bytes
-except ImportError:
-    from urllib import quote as urlquote_from_bytes
-
-import sys
-
-import functools
-
 import errno
+import fnmatch
+import functools
+import os
+import pathlib
+from pathlib import PurePath
+import re
+import sys
+from urllib.parse import quote_from_bytes as urlquote_from_bytes
 
 from pyfakefs import fake_scandir
-from pyfakefs.extra_packages import use_scandir, pathlib, pathlib2
+from pyfakefs.extra_packages import use_scandir
 from pyfakefs.fake_filesystem import FakeFileOpen, FakeFilesystem
 
 
@@ -59,8 +54,8 @@ def init_module(filesystem):
 
 def _wrap_strfunc(strfunc):
     @functools.wraps(strfunc)
-    def _wrapped(pathobj, *args):
-        return strfunc(pathobj.filesystem, str(pathobj), *args)
+    def _wrapped(pathobj, *args, **kwargs):
+        return strfunc(pathobj.filesystem, str(pathobj), *args, **kwargs)
 
     return staticmethod(_wrapped)
 
@@ -84,12 +79,12 @@ def _wrap_binary_strfunc_reverse(strfunc):
 
 
 try:
-    accessor = pathlib._Accessor
+    accessor = pathlib._Accessor  # type: ignore [attr-defined]
 except AttributeError:
     accessor = object
 
 
-class _FakeAccessor(accessor):
+class _FakeAccessor(accessor):  # type: ignore [valid-type, misc]
     """Accessor which forwards some of the functions to FakeFilesystem methods.
     """
 
@@ -100,18 +95,30 @@ class _FakeAccessor(accessor):
 
     listdir = _wrap_strfunc(FakeFilesystem.listdir)
 
-    chmod = _wrap_strfunc(FakeFilesystem.chmod)
-
     if use_scandir:
         scandir = _wrap_strfunc(fake_scandir.scandir)
+
+    chmod = _wrap_strfunc(FakeFilesystem.chmod)
 
     if hasattr(os, "lchmod"):
         lchmod = _wrap_strfunc(lambda fs, path, mode: FakeFilesystem.chmod(
             fs, path, mode, follow_symlinks=False))
     else:
-        def lchmod(self, pathobj, mode):
+        def lchmod(self, pathobj,  *args, **kwargs):
             """Raises not implemented for Windows systems."""
             raise NotImplementedError("lchmod() not available on this system")
+
+        def chmod(self, pathobj, *args, **kwargs):
+            if "follow_symlinks" in kwargs:
+                if sys.version_info < (3, 10):
+                    raise TypeError("chmod() got an unexpected keyword "
+                                    "argument 'follow_synlinks'")
+                if (not kwargs["follow_symlinks"] and
+                        os.chmod not in os.supports_follow_symlinks):
+                    raise NotImplementedError(
+                        "`follow_symlinks` for chmod() is not available "
+                        "on this system")
+            return pathobj.filesystem.chmod(str(pathobj), *args, **kwargs)
 
     mkdir = _wrap_strfunc(FakeFilesystem.makedir)
 
@@ -130,15 +137,31 @@ class _FakeAccessor(accessor):
         FakeFilesystem.create_symlink(fs, file_path, link_target,
                                       create_missing_dirs=False))
 
+    if (3, 8) <= sys.version_info:
+        link_to = _wrap_binary_strfunc(
+            lambda fs, file_path, link_target:
+            FakeFilesystem.link(fs, file_path, link_target))
+
+    if sys.version_info >= (3, 10):
+        link = _wrap_binary_strfunc(
+            lambda fs, file_path, link_target:
+            FakeFilesystem.link(fs, file_path, link_target))
+
+        # this will use the fake filesystem because os is patched
+        def getcwd(self):
+            return os.getcwd()
+
+    readlink = _wrap_strfunc(FakeFilesystem.readlink)
+
     utime = _wrap_strfunc(FakeFilesystem.utime)
 
 
 _fake_accessor = _FakeAccessor()
 
-flavour = pathlib._Flavour if pathlib else object
+flavour = pathlib._Flavour  # type: ignore [attr-defined]
 
 
-class _FakeFlavour(flavour):
+class _FakeFlavour(flavour):  # type: ignore [valid-type, misc]
     """Fake Flavour implementation used by PurePath and _Flavour"""
 
     filesystem = None
@@ -443,10 +466,7 @@ class _FakePosixFlavour(_FakeFlavour):
         return re.compile(fnmatch.translate(pattern)).fullmatch
 
 
-path_module = pathlib.Path if pathlib else object
-
-
-class FakePath(path_module):
+class FakePath(pathlib.Path):
     """Replacement for pathlib.Path. Reimplement some methods to use
     fake filesystem. The rest of the methods work as they are, as they will
     use the fake accessor.
@@ -459,20 +479,44 @@ class FakePath(path_module):
     def __new__(cls, *args, **kwargs):
         """Creates the correct subclass based on OS."""
         if cls is FakePathlibModule.Path:
-            cls = (FakePathlibModule.WindowsPath if os.name == 'nt'
+            cls = (FakePathlibModule.WindowsPath
+                   if cls.filesystem.is_windows_fs
                    else FakePathlibModule.PosixPath)
-        self = cls._from_parts(args, init=True)
+        self = cls._from_parts(args)
         return self
 
-    def _path(self):
-        """Returns the underlying path string as used by the fake filesystem.
-        """
-        return str(self)
+    @classmethod
+    def _from_parts(cls, args, init=False):  # pylint: disable=unused-argument
+        # Overwritten to call _init to set the fake accessor,
+        # which is not done since Python 3.10
+        self = object.__new__(cls)
+        self._init()
+        drv, root, parts = self._parse_args(args)
+        self._drv = drv
+        self._root = root
+        self._parts = parts
+        return self
+
+    @classmethod
+    def _from_parsed_parts(cls, drv, root, parts):
+        # Overwritten to call _init to set the fake accessor,
+        # which is not done since Python 3.10
+        self = object.__new__(cls)
+        self._init()
+        self._drv = drv
+        self._root = root
+        self._parts = parts
+        return self
 
     def _init(self, template=None):
         """Initializer called from base class."""
         self._accessor = _fake_accessor
         self._closed = False
+
+    def _path(self):
+        """Returns the underlying path string as used by the fake filesystem.
+        """
+        return str(self)
 
     @classmethod
     def cwd(cls):
@@ -494,7 +538,7 @@ class FakePath(path_module):
         Raises:
             OSError: if the path doesn't exist (strict=True or Python < 3.6)
         """
-        if sys.version_info >= (3, 6) or pathlib2:
+        if sys.version_info >= (3, 6):
             if strict is None:
                 strict = False
         else:
@@ -556,7 +600,7 @@ class FakePath(path_module):
         with FakeFileOpen(self.filesystem)(self._path(), mode='wb') as f:
             return f.write(view)
 
-    def write_text(self, data, encoding=None, errors=None):
+    def write_text(self, data, encoding=None, errors=None, newline=None):
         """Open the fake file in text mode, write to it, and close
         the file.
 
@@ -564,7 +608,9 @@ class FakePath(path_module):
             data: the string to be written
             encoding: the encoding used for the string; if not given, the
                 default locale encoding is used
-            errors: ignored
+            errors: (str) Defines how encoding errors are handled.
+            newline: Controls universal newlines, passed to stream object.
+                New in Python 3.10.
         Raises:
             TypeError: if data is not of type 'str'.
             OSError: if the target object is a directory, the path is
@@ -573,10 +619,14 @@ class FakePath(path_module):
         if not isinstance(data, str):
             raise TypeError('data must be str, not %s' %
                             data.__class__.__name__)
+        if newline is not None and sys.version_info < (3, 10):
+            raise TypeError("write_text() got an unexpected "
+                            "keyword argument 'newline'")
         with FakeFileOpen(self.filesystem)(self._path(),
                                            mode='w',
                                            encoding=encoding,
-                                           errors=errors) as f:
+                                           errors=errors,
+                                           newline=newline) as f:
             return f.write(data)
 
     @classmethod
@@ -584,8 +634,15 @@ class FakePath(path_module):
         """Return a new path pointing to the user's home directory (as
         returned by os.path.expanduser('~')).
         """
-        return cls(cls()._flavour.gethomedir(None).
-                   replace(os.sep, cls.filesystem.path_separator))
+        home = os.path.expanduser("~")
+        if cls.filesystem.is_windows_fs != (os.name == 'nt'):
+            username = os.path.split(home)[1]
+            if cls.filesystem.is_windows_fs:
+                home = os.path.join('C:', 'Users', username)
+            else:
+                home = os.path.join('home', username)
+            cls.filesystem.create_dir(home)
+        return cls(home.replace(os.sep, cls.filesystem.path_separator))
 
     def samefile(self, other_path):
         """Return whether other_path is the same or not as this file
@@ -649,8 +706,6 @@ class FakePathlibModule:
     `fake_pathlib_module = fake_filesystem.FakePathlibModule(filesystem)`
     """
 
-    PurePath = pathlib.PurePath if pathlib else object
-
     def __init__(self, filesystem):
         """
         Initializes the module with the given filesystem.
@@ -670,18 +725,45 @@ class FakePathlibModule:
         """A subclass of PurePath, that represents Windows filesystem paths"""
         __slots__ = ()
 
-    if sys.platform == 'win32':
-        class WindowsPath(FakePath, PureWindowsPath):
-            """A subclass of Path and PureWindowsPath that represents
-            concrete Windows filesystem paths.
+    class WindowsPath(FakePath, PureWindowsPath):
+        """A subclass of Path and PureWindowsPath that represents
+        concrete Windows filesystem paths.
+        """
+        __slots__ = ()
+
+        def owner(self):
+            raise NotImplementedError(
+                "Path.owner() is unsupported on this system")
+
+        def group(self):
+            raise NotImplementedError(
+                "Path.group() is unsupported on this system")
+
+        def is_mount(self):
+            raise NotImplementedError(
+                "Path.is_mount() is unsupported on this system")
+
+    class PosixPath(FakePath, PurePosixPath):
+        """A subclass of Path and PurePosixPath that represents
+        concrete non-Windows filesystem paths.
+        """
+        __slots__ = ()
+
+        def owner(self):
+            """Return the current user name. It is assumed that the fake
+            file system was created by the current user.
             """
-            __slots__ = ()
-    else:
-        class PosixPath(FakePath, PurePosixPath):
-            """A subclass of Path and PurePosixPath that represents
-            concrete non-Windows filesystem paths.
+            import pwd
+
+            return pwd.getpwuid(os.getuid()).pw_name
+
+        def group(self):
+            """Return the current group name. It is assumed that the fake
+            file system was created by the current user.
             """
-            __slots__ = ()
+            import grp
+
+            return grp.getgrgid(os.getgid()).gr_name
 
     Path = FakePath
 
@@ -694,7 +776,7 @@ class FakePathlibPathModule:
     """Patches `pathlib.Path` by passing all calls to FakePathlibModule."""
     fake_pathlib = None
 
-    def __init__(self, filesystem):
+    def __init__(self, filesystem=None):
         if self.fake_pathlib is None:
             self.__class__.fake_pathlib = FakePathlibModule(filesystem)
 
@@ -703,3 +785,78 @@ class FakePathlibPathModule:
 
     def __getattr__(self, name):
         return getattr(self.fake_pathlib.Path, name)
+
+
+class RealPath(pathlib.Path):
+    """Replacement for `pathlib.Path` if it shall not be faked.
+    Needed because `Path` in `pathlib` is always faked, even if `pathlib`
+    itself is not.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        """Creates the correct subclass based on OS."""
+        if cls is RealPathlibModule.Path:
+            cls = (RealPathlibModule.WindowsPath if os.name == 'nt'
+                   else RealPathlibModule.PosixPath)
+        self = cls._from_parts(args)
+        return self
+
+
+class RealPathlibModule:
+    """Used to replace `pathlib` for skipped modules.
+    As the original `pathlib` is always patched to use the fake path,
+    we need to provide a version which does not do this.
+    """
+
+    def __init__(self):
+        RealPathlibModule.PureWindowsPath._flavour = pathlib._WindowsFlavour()
+        RealPathlibModule.PurePosixPath._flavour = pathlib._PosixFlavour()
+        self._pathlib_module = pathlib
+
+    class PurePosixPath(PurePath):
+        """A subclass of PurePath, that represents Posix filesystem paths"""
+        __slots__ = ()
+
+    class PureWindowsPath(PurePath):
+        """A subclass of PurePath, that represents Windows filesystem paths"""
+        __slots__ = ()
+
+    if sys.platform == 'win32':
+        class WindowsPath(RealPath, PureWindowsPath):
+            """A subclass of Path and PureWindowsPath that represents
+            concrete Windows filesystem paths.
+            """
+            __slots__ = ()
+    else:
+        class PosixPath(RealPath, PurePosixPath):
+            """A subclass of Path and PurePosixPath that represents
+            concrete non-Windows filesystem paths.
+            """
+            __slots__ = ()
+
+    Path = RealPath
+
+    def __getattr__(self, name):
+        """Forwards any unfaked calls to the standard pathlib module."""
+        return getattr(self._pathlib_module, name)
+
+
+class RealPathlibPathModule:
+    """Patches `pathlib.Path` by passing all calls to RealPathlibModule."""
+    real_pathlib = None
+
+    @classmethod
+    def __instancecheck__(cls, instance):
+        # as we cannot derive from pathlib.Path, we fake
+        # the inheritance to pass isinstance checks - see #666
+        return isinstance(instance, PurePath)
+
+    def __init__(self):
+        if self.real_pathlib is None:
+            self.__class__.real_pathlib = RealPathlibModule()
+
+    def __call__(self, *args, **kwargs):
+        return self.real_pathlib.Path(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.real_pathlib.Path, name)

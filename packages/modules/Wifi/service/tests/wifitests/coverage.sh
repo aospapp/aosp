@@ -33,7 +33,7 @@ class_patterns_from_filenames () {
 
 generate_new_bp () (
   sed -n -e p -e '/include_filter:/q' < Android.bp
-  (cd ../../service/java && find * -name \*.java) |
+  (cd ../../../service/java && find * -name \*.java) |
     LC_ALL=C sort |
     class_patterns_from_filenames
   tail -n 3 Android.bp
@@ -67,8 +67,10 @@ bash <<END_OF_BUILD_SCRIPT || { exit 1; }
 END_OF_BUILD_SCRIPT
 
 APK_NAME="$(find $BUILD_OUT_DIR/target/product -name FrameworksWifiTests.apk | \
-              grep -v /symbols/)"
+              grep -v /priv-app/)"
 REPORTER_JAR="$(find $BUILD_OUT_DIR/host -name jacoco-cli.jar)"
+
+JACOCO_JAR="$(find $BUILD_OUT_DIR/target/product -name jacoco-report-classes.jar)"
 
 echo "Running tests and generating coverage report"
 
@@ -76,6 +78,7 @@ set -e # fail early
 set -x # print commands
 test -f "$APK_NAME"
 test -f "$REPORTER_JAR"
+test -f "$JACOCO_JAR"
 
 adb root
 adb wait-for-device
@@ -92,8 +95,8 @@ adb pull $REMOTE_COVERAGE_OUTPUT_FILE $COVERAGE_OUTPUT_FILE
 java -jar $REPORTER_JAR \
   report \
   --html $OUTPUT_DIR \
-  --classfiles $BUILD_OUT_DIR/target/common/obj/APPS/FrameworksWifiTests_intermediates/jacoco-report-classes.jar \
-  --sourcefiles $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/service/java \
+  --classfiles  $JACOCO_JAR \
+  --sourcefiles $ANDROID_BUILD_TOP/packages/modules/Wifi/service/java/com/android/server/wifi \
   --name wifi-coverage \
   $COVERAGE_OUTPUT_FILE
 set +x

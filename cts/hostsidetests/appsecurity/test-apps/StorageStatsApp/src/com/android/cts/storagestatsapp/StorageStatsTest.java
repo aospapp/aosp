@@ -51,12 +51,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
+import android.provider.DeviceConfig;
 import android.provider.MediaStore;
 import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.util.MutableLong;
 
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.storageapp.UtilsReceiver;
 
 import junit.framework.AssertionFailedError;
@@ -278,6 +280,28 @@ public class StorageStatsTest extends InstrumentationTestCase {
     }
 
     public void testCacheClearing() throws Exception {
+        final int[] originalCacheReservePercents = new int[2];
+        setCacheReservePercentsToZero(originalCacheReservePercents);
+
+        try {
+            testCacheClearing(originalCacheReservePercents);
+        } finally {
+            resetCacheReservePercents(originalCacheReservePercents);
+        }
+    }
+
+    public void testCacheBehavior() throws Exception {
+        final int[] originalCacheReservePercents = new int[2];
+        setCacheReservePercentsToZero(originalCacheReservePercents);
+
+        try {
+            testCacheBehavior(originalCacheReservePercents);
+        } finally {
+            resetCacheReservePercents(originalCacheReservePercents);
+        }
+    }
+
+    private void testCacheClearing(int[] originalCacheReservePercents) throws Exception {
         final Context context = getContext();
         final StorageManager sm = context.getSystemService(StorageManager.class);
         final StorageStatsManager stats = context.getSystemService(StorageStatsManager.class);
@@ -354,7 +378,7 @@ public class StorageStatsTest extends InstrumentationTestCase {
         assertMostlyEquals(targetA / 2, getCacheBytes(PKG_B, user), 2 * MB_IN_BYTES);
     }
 
-    public void testCacheBehavior() throws Exception {
+    private void testCacheBehavior(int[] originalCacheReservePercents) throws Exception {
         final Context context = getContext();
         final StorageManager sm = context.getSystemService(StorageManager.class);
         final StorageStatsManager stats = context.getSystemService(StorageStatsManager.class);
@@ -414,6 +438,45 @@ public class StorageStatsTest extends InstrumentationTestCase {
         assertTrue(g.exists()); assertEquals(0, g.length());
         assertTrue(h.exists()); assertEquals(0, h.length());
         assertTrue(i.exists()); assertEquals(0, i.length());
+    }
+
+    /* originalCacheReservePercents is an array of size 2 with CacheReservePercentHigh
+    *  at index 0 and CacheReservePercentLow at index 1.
+    */
+    private void setCacheReservePercentsToZero(int[] originalCacheReservePercents) {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            originalCacheReservePercents[0] = DeviceConfig.getInt(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_HIGH_KEY, -1);
+            DeviceConfig.setProperty(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_HIGH_KEY,
+                    Integer.toString(0), /* makeDefault */ false);
+            originalCacheReservePercents[1] = DeviceConfig.getInt(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_LOW_KEY, -1);
+            DeviceConfig.setProperty(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_LOW_KEY,
+                    Integer.toString(0), /* makeDefault */ false);
+        });
+    }
+
+    private void resetCacheReservePercents(int[] originalCacheReservePercents) {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            DeviceConfig.setProperty(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_HIGH_KEY,
+                    (originalCacheReservePercents[0] != -1)
+                        ? Integer.toString(originalCacheReservePercents[0]) : null,
+                    /* makeDefault */ false);
+            DeviceConfig.setProperty(
+                    DeviceConfig.NAMESPACE_STORAGE_NATIVE_BOOT,
+                    StorageManager.CACHE_RESERVE_PERCENT_LOW_KEY,
+                    (originalCacheReservePercents[1] != -1)
+                        ? Integer.toString(originalCacheReservePercents[1]) : null,
+                    /* makeDefault */ false);
+        });
     }
 
     private long getCacheBytes(String pkg, UserHandle user) throws Exception {

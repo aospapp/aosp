@@ -278,5 +278,5 @@ class NetgearR7000NAAP(NetgearR7000AP):
     """Class that implements Netgear R7000 NA AP."""
     def init_gui_data(self):
         """Function to initialize data used while interacting with web GUI"""
-        super.init_gui_data()
+        super().init_gui_data()
         self.region_map['11'] = 'North America'

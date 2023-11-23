@@ -16,12 +16,12 @@
 
 package com.android.car.vms;
 
+import android.car.builtin.util.Slogf;
 import android.car.vms.VmsAssociatedLayer;
 import android.car.vms.VmsAvailableLayers;
 import android.car.vms.VmsLayer;
 import android.car.vms.VmsLayerDependency;
 import android.car.vms.VmsLayersOffering;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 import com.android.internal.annotations.GuardedBy;
@@ -124,7 +124,7 @@ class VmsLayerAvailability {
                                                          Set<VmsLayer> currentAvailableLayers,
                                                          Set<VmsLayer> cyclicAvoidanceSet) {
         if (DBG) {
-            Slog.d(TAG, "addLayerToAvailabilityCalculationLocked: checking layer: " + layer);
+            Slogf.d(TAG, "addLayerToAvailabilityCalculationLocked: checking layer: " + layer);
         }
         // If we already know that this layer is supported then we are done.
         if (currentAvailableLayers.contains(layer)) {
@@ -136,7 +136,7 @@ class VmsLayerAvailability {
         }
         // Avoid cyclic dependency.
         if (cyclicAvoidanceSet.contains(layer)) {
-            Slog.e(TAG, "Detected a cyclic dependency: " + cyclicAvoidanceSet + " -> " + layer);
+            Slogf.e(TAG, "Detected a cyclic dependency: " + cyclicAvoidanceSet + " -> " + layer);
             return;
         }
         // A layer may have multiple dependency sets. The layer is available if any dependency

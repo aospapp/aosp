@@ -205,7 +205,8 @@ public class NotificationsPreferenceTest {
                 inUnblockableResList ? new String[]{packageName} : mEmptyNonBlockableAppsList;
 
         when(mResources.getStringArray(
-                com.android.internal.R.array.config_nonBlockableNotificationPackages
+                mResources.getIdentifier("config_nonBlockableNotificationPackages",
+                        "array", "android")
         )).thenReturn(unblockableResList);
     }
 }

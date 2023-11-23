@@ -37,7 +37,7 @@ typedef enum clash_action {
 typedef struct ClashHandling_t {
 	clash_action action[2];
 	clash_action namematch_default[2];
-		
+
 	int nowarn;	/* Don't ask, just do default action if name collision*/
 	int got_slots;
 	int mod_time;
@@ -49,10 +49,10 @@ typedef struct ClashHandling_t {
 	int use_longname;
 	int ignore_entry;
 	int source; /* to prevent the source from overwriting itself */
-	int source_entry; /* to account for the space freed up by the original 
-					   * name */
+	int source_entry; /* to account for the space freed up by the original
+			   * name */
 	void (*name_converter)(doscp_t *cp,
-			       const char *filename, int verbose, 
+			       const char *filename, int verbose,
 			       int *mangled, dos_name_t *ans);
 	int is_label;
 } ClashHandling_t;

@@ -42,8 +42,8 @@ import androidx.preference.PreferenceCategory;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
-import com.android.permissioncontroller.permission.model.AppPermissionUsage;
-import com.android.permissioncontroller.permission.model.PermissionUsages;
+import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage;
+import com.android.permissioncontroller.permission.model.v31.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.Category;
 import com.android.permissioncontroller.permission.ui.handheld.SmartIconLoadPackagePermissionPreference;
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel;
@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.Random;
 
 import kotlin.Pair;
+import kotlin.Triple;
 
 /** Shows the list of applications which have (or do not have) the given permission. */
 public class AutoPermissionAppsFragment extends AutoSettingsFrameFragment implements
@@ -68,14 +69,16 @@ public class AutoPermissionAppsFragment extends AutoSettingsFrameFragment implem
     private static final String KEY_EMPTY = "_empty";
 
     /** Creates a new instance of {@link AutoPermissionAppsFragment} for the given permission. */
-    public static AutoPermissionAppsFragment newInstance(String permissionName, long sessionId) {
-        return setPermissionName(new AutoPermissionAppsFragment(), permissionName, sessionId);
+    public static AutoPermissionAppsFragment newInstance(String permissionGroupName,
+            long sessionId) {
+        return setPermissionGroupName(new AutoPermissionAppsFragment(), permissionGroupName,
+                sessionId);
     }
 
-    private static <T extends Fragment> T setPermissionName(
-            T fragment, String permissionName, long sessionId) {
+    private static <T extends Fragment> T setPermissionGroupName(
+            T fragment, String permissionGroupName, long sessionId) {
         Bundle arguments = new Bundle();
-        arguments.putString(Intent.EXTRA_PERMISSION_NAME, permissionName);
+        arguments.putString(Intent.EXTRA_PERMISSION_GROUP_NAME, permissionGroupName);
         arguments.putLong(EXTRA_SESSION_ID, sessionId);
         fragment.setArguments(arguments);
         return fragment;
@@ -237,7 +240,7 @@ public class AutoPermissionAppsFragment extends AutoSettingsFrameFragment implem
                 String key = user + packageName;
 
                 Long lastAccessTime = groupUsageLastAccessTime.get(key);
-                Pair<String, Integer> summaryTimestamp = Utils
+                Triple<String, Integer, String> summaryTimestamp = Utils
                         .getPermissionLastAccessSummaryTimestamp(
                                 lastAccessTime, context, mPermGroupName);
 
@@ -296,7 +299,7 @@ public class AutoPermissionAppsFragment extends AutoSettingsFrameFragment implem
     }
 
     private void updatePreferenceSummary(Preference preference,
-            Pair<String, Integer> summaryTimestamp) {
+            Triple<String, Integer, String> summaryTimestamp) {
         String summary = mViewModel.getPreferenceSummary(getResources(), summaryTimestamp);
         if (!summary.isEmpty()) {
             preference.setSummary(summary);

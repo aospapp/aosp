@@ -18,6 +18,9 @@ package com.android.cts.verifier.telecom;
 
 import android.telecom.Call;
 
+import com.android.compatibility.common.util.ApiTest;
+
+@ApiTest(apis={"android.telecom.ConnectionService"})
 public class CtsIncomingCall {
     private static final CtsIncomingCall INSTANCE = new CtsIncomingCall();
     private Call mCall;

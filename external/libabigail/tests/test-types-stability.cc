@@ -49,6 +49,9 @@ const char* elf_paths[] =
   "data/test-types-stability/pr19142-topo.o",
   "data/test-types-stability/pr19204-libtcmalloc.so.4.2.6-xlc",
   "data/test-types-stability/PR27165-libzmq.so.5.2.3",
+  "data/test-types-stability/pr27980-libc.so",
+  "data/test-types-stability/PR27086-libstdc++.so.6.0.26",
+  "data/test-types-stability/PR28450-libepetra.so.13.0",
   // The below should always be the last element of array.
   0
 };

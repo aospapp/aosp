@@ -352,7 +352,9 @@
 #define EVENT__HAVE_SYS_STAT_H 1
 
 /* Define to 1 if you have the <sys/sysctl.h> header file. */
+#if !defined(ANDROID_HOST_MUSL)
 #define EVENT__HAVE_SYS_SYSCTL_H 1
+#endif
 
 /* Define to 1 if you have the <sys/timerfd.h> header file. */
 #define HAVE_SYS_TIMERFD_H 1

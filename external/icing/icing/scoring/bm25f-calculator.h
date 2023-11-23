@@ -22,6 +22,7 @@
 
 #include "icing/index/iterator/doc-hit-info-iterator.h"
 #include "icing/legacy/index/icing-bit-util.h"
+#include "icing/scoring/section-weights.h"
 #include "icing/store/corpus-id.h"
 #include "icing/store/document-store.h"
 
@@ -62,7 +63,8 @@ namespace lib {
 // see: glossary/bm25
 class Bm25fCalculator {
  public:
-  explicit Bm25fCalculator(const DocumentStore *document_store_);
+  explicit Bm25fCalculator(const DocumentStore *document_store_,
+                           std::unique_ptr<SectionWeights> section_weights_);
 
   // Precompute and cache statistics relevant to BM25F.
   // Populates term_id_map_ and corpus_nqi_map_ for use while scoring other
@@ -108,17 +110,42 @@ class Bm25fCalculator {
     }
   };
 
+  // Returns idf weight for the term and provided corpus.
   float GetCorpusIdfWeightForTerm(std::string_view term, CorpusId corpus_id);
+
+  // Returns the average document length for the corpus. The average is
+  // calculated as the sum of tokens in the corpus' documents over the total
+  // number of documents plus one.
   float GetCorpusAvgDocLength(CorpusId corpus_id);
+
+  // Returns the normalized term frequency for the term match and document hit.
+  // This normalizes the term frequency by applying smoothing parameters and
+  // factoring document length.
   float ComputedNormalizedTermFrequency(
       const TermMatchInfo &term_match_info, const DocHitInfo &hit_info,
       const DocumentAssociatedScoreData &data);
-  float ComputeTermFrequencyForMatchedSections(
-      CorpusId corpus_id, const TermMatchInfo &term_match_info) const;
 
+  // Returns the weighted term frequency for the term match and document. For
+  // each section the term is present, we scale the term frequency by its
+  // section weight. We return the sum of the weighted term frequencies over all
+  // sections.
+  float ComputeTermFrequencyForMatchedSections(
+      CorpusId corpus_id, const TermMatchInfo &term_match_info,
+      DocumentId document_id) const;
+
+  // Returns the schema type id for the document by retrieving it from the
+  // DocumentFilterData.
+  SchemaTypeId GetSchemaTypeId(DocumentId document_id) const;
+
+  // Clears cached scoring data and prepares the calculator for a new scoring
+  // run.
   void Clear();
 
   const DocumentStore *document_store_;  // Does not own.
+
+  // Used for accessing normalized section weights when computing the weighted
+  // term frequency.
+  std::unique_ptr<SectionWeights> section_weights_;
 
   // Map from query term to compact term ID.
   // Necessary as a key to the other maps.
@@ -130,7 +157,6 @@ class Bm25fCalculator {
   // Necessary to calculate the normalized term frequency.
   // This information is cached in the DocumentStore::CorpusScoreCache
   std::unordered_map<CorpusId, float> corpus_avgdl_map_;
-
   // Map from <corpus ID, term ID> to number of documents containing term q_i,
   // called n(q_i).
   // Necessary to calculate IDF(q_i) (inverse document frequency).

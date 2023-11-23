@@ -767,7 +767,10 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                                 pParam->eProfile);
                         return false;
                     }
-
+                    if(!venc_set_level(pParam->eLevel)) {
+                        DEBUG_PRINT_ERROR("ERROR: Unsuccessful in updating level");
+                        return false;
+                    }
                     if (set_nP_frames(pParam->nPFrames) == false ||
                         (pParam->nBFrames && set_nB_frames(pParam->nBFrames) == false)) {
                         DEBUG_PRINT_ERROR("ERROR: Request for setting intra period failed");

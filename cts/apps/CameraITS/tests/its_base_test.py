@@ -16,12 +16,13 @@
 import logging
 import time
 
+import its_session_utils
+import lighting_control_utils
 from mobly import asserts
 from mobly import base_test
 from mobly import utils
 from mobly.controllers import android_device
 
-import its_session_utils
 
 ADAPTIVE_BRIGHTNESS_OFF = '0'
 TABLET_CMD_DELAY_SEC = 0.5  # found empirically
@@ -37,8 +38,7 @@ NOT_YET_MANDATED_ALL = 100
 NOT_YET_MANDATED = {
     'scene0': [['test_test_patterns', 30],
                ['test_tonemap_curve', 30]],
-    'scene1_1': [['test_ae_precapture_trigger', 28],
-                 ['test_channel_saturation', 29]],
+    'scene1_1': [['test_ae_precapture_trigger', 28]],
     'scene1_2': [],
     'scene2_a': [['test_jpeg_quality', 30]],
     'scene2_b': [['test_auto_per_frame_control', NOT_YET_MANDATED_ALL]],
@@ -50,7 +50,6 @@ NOT_YET_MANDATED = {
     'scene5': [],
     'scene6': [['test_zoom', 30]],
     'sensor_fusion': [],
-    'scene_change': [['test_scene_change', 31]]
 }
 
 
@@ -77,10 +76,13 @@ class ItsBaseTest(base_test.BaseTestClass):
     if self.user_params.get('chart_distance'):
       self.chart_distance = float(self.user_params['chart_distance'])
       logging.debug('Chart distance: %s cm', self.chart_distance)
-    if self.user_params.get('chart_loc_arg'):
-      self.chart_loc_arg = self.user_params['chart_loc_arg']
+    if (self.user_params.get('lighting_cntl') and
+        self.user_params.get('lighting_ch')):
+      self.lighting_cntl = self.user_params['lighting_cntl']
+      self.lighting_ch = str(self.user_params['lighting_ch'])
     else:
-      self.chart_loc_arg = ''
+      self.lighting_cntl = 'None'
+      self.lighting_ch = '1'
     if self.user_params.get('debug_mode'):
       self.debug_mode = True if self.user_params[
           'debug_mode'] == 'True' else False
@@ -115,6 +117,13 @@ class ItsBaseTest(base_test.BaseTestClass):
 
     self._setup_devices(num_devices)
 
+    arduino_serial_port = lighting_control_utils.lighting_control(
+        self.lighting_cntl, self.lighting_ch)
+    if arduino_serial_port:
+      lighting_control_utils.set_light_brightness(
+          self.lighting_ch, 255, arduino_serial_port)
+      logging.debug('Light is turned ON.')
+
   def _setup_devices(self, num):
     """Sets up each device in parallel if more than one device."""
     if num not in VALID_NUM_DEVICES:
@@ -132,6 +141,7 @@ class ItsBaseTest(base_test.BaseTestClass):
   def setup_dut(self, device):
     self.dut.adb.shell(
         'am start -n com.android.cts.verifier/.CtsVerifierActivity')
+    logging.debug('Setting up device: %s', str(device))
     # Wait for the app screen to appear.
     time.sleep(WAIT_TIME_SEC)
 
@@ -161,6 +171,7 @@ class ItsBaseTest(base_test.BaseTestClass):
     self.tablet.adb.shell('am force-stop com.google.android.apps.photos')
     self.tablet.adb.shell('am force-stop com.android.gallery3d')
     self.tablet.adb.shell('am force-stop com.sec.android.gallery3d')
+    self.tablet.adb.shell('am force-stop com.miui.gallery')
 
   def set_tablet_landscape_orientation(self):
     """Sets the screen orientation to landscape.
@@ -171,17 +182,20 @@ class ItsBaseTest(base_test.BaseTestClass):
     logging.debug('dumpsys window output: %s', output.decode('utf-8').strip())
     output_list = str(output.decode('utf-8')).strip().split(' ')
     for val in output_list:
-        if 'LandscapeRotation' in val:
-            landscape_val = str(val.split('=')[-1])
-            # For some tablets the values are in constant forms such as ROTATION_90
-            if 'ROTATION_90' in landscape_val:
-                landscape_val = '1'
-            logging.debug('Changing the orientation to landscape mode.')
-            self.tablet.adb.shell(['settings', 'put', 'system', 'user_rotation',
-                                   landscape_val])
-            break
+      if 'LandscapeRotation' in val:
+        landscape_val = str(val.split('=')[-1])
+        # For some tablets the values are in constant forms such as ROTATION_90
+        if 'ROTATION_90' in landscape_val:
+          landscape_val = '1'
+        elif 'ROTATION_0' in landscape_val:
+          landscape_val = '0'
+        logging.debug('Changing the orientation to landscape mode.')
+        self.tablet.adb.shell(['settings', 'put', 'system', 'user_rotation',
+                               landscape_val])
+        break
     logging.debug('Reported tablet orientation is: %d',
-                  int(self.tablet.adb.shell('settings get system user_rotation')))
+                  int(self.tablet.adb.shell(
+                      'settings get system user_rotation')))
 
   def parse_hidden_camera_id(self):
     """Parse the string of camera ID into an array.

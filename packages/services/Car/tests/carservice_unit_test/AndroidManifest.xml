@@ -21,6 +21,8 @@
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.carservice_unittest"
             android:label="Unit Tests for Car APIs"/>
+    <!-- for CarActivityServiceTaskMonitorUnitTest -->
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" />
     <uses-permission android:name="android.car.permission.CAR_ENROLL_TRUST" />
 
     <application android:label="@string/app_title"
@@ -31,5 +33,16 @@
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityC"/>
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
                   android:taskAffinity="com.android.car.carservice_unittest.block"/>
+
+        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityA"/>
+        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityB"/>
+        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$ActivityC"/>
+        <activity android:name="com.android.car.CarActivityServiceTaskMonitorUnitTest$BlockingActivity"
+            android:taskAffinity="com.android.car.carservice_unittest.block"/>
+
+        <activity android:name="com.android.car.admin.ui.CarAdminUiTestActivity"/>
+
+        <service android:name="android.car.cluster.renderer.InstrumentClusterRenderingServiceTest$TestableInstrumentClusterRenderingService"/>
+
     </application>
 </manifest>

@@ -74,6 +74,10 @@ int renderControl_server_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcComposeAsyncWithoutPost = (rcComposeAsyncWithoutPost_server_proc_t) getProc("rcComposeAsyncWithoutPost", userData);
 	rcCreateDisplayById = (rcCreateDisplayById_server_proc_t) getProc("rcCreateDisplayById", userData);
 	rcSetDisplayPoseDpi = (rcSetDisplayPoseDpi_server_proc_t) getProc("rcSetDisplayPoseDpi", userData);
+	rcReadColorBufferDMA = (rcReadColorBufferDMA_server_proc_t) getProc("rcReadColorBufferDMA", userData);
+	rcGetFBDisplayConfigsCount = (rcGetFBDisplayConfigsCount_server_proc_t) getProc("rcGetFBDisplayConfigsCount", userData);
+	rcGetFBDisplayConfigsParam = (rcGetFBDisplayConfigsParam_server_proc_t) getProc("rcGetFBDisplayConfigsParam", userData);
+	rcGetFBDisplayActiveConfig = (rcGetFBDisplayActiveConfig_server_proc_t) getProc("rcGetFBDisplayActiveConfig", userData);
 	return 0;
 }
 

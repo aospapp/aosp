@@ -3,5 +3,10 @@
     {
       "name": "tinyxml2-tests"
     }
+  ],
+  "hwasan-presubmit": [
+    {
+      "name": "tinyxml2-tests"
+    }
   ]
 }

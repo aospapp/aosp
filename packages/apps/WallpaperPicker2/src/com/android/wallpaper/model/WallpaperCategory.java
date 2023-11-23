@@ -74,9 +74,8 @@ public class WallpaperCategory extends Category {
     }
 
     @Override
-    public void show(Activity srcActivity, PickerIntentFactory factory, int requestCode) {
-        srcActivity.startActivityForResult(
-                factory.newIntent(srcActivity, getCollectionId()), requestCode);
+    public void show(Activity srcActivity, int requestCode) {
+        // No op
     }
 
     @Override

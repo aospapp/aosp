@@ -49,17 +49,21 @@ described in [`derive_classpath.cpp`] and may change over time.
 
 ## Developer information
 
-### Adding a new extension version
-For every new Android SDK level a new extension version should be defined. These
-are the steps necessary to do that:
-- Add the new modules in this extension version to the SdkModule enum in
-  sdk.proto.
+### Adding a new extension
+An extension is a way to group a set of modules so that they are versioned
+together. We currently define a new extension for every Android SDK level
+that introduces new modules. Every module shipped in previous versions are
+also part of the new extension. For example, all the R modules are part of
+both the R extensions and the S extensions.
+
+The steps to define a new extension are:
+- Add any new modules to the SdkModule enum in sdk.proto.
+- Add the binary "current sdk version" proto to the apexes of the new modules.
 - Update `derive_sdk.cpp` by:
  * mapping the modules' package names to the new enum values
- * creating a new set with the new enum values
+ * creating a new set with the new enum values of the modules relevant for
+   this extension.
  * set a new sysprop to the value of `GetSdkLevel` with the new enum set
- * add a unit test to `derive_sdk_test.cpp` verifying the new extensions works
+ * add a unit test to `derive_sdk_test.cpp` verifying the new extensions work
 - Make the `SdkExtensions.getExtensionVersion` API support the new extensions.
 - Extend the CTS test to verify the above two behaviors.
-- Update `RollbackManagerServiceImpl#getExtensionVersions` to account for the
-  new extension version.

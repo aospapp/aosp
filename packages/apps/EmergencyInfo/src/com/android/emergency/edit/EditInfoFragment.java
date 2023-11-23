@@ -23,12 +23,13 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
-import androidx.preference.Preference.OnPreferenceChangeListener;
-import androidx.preference.PreferenceFragment;
-import androidx.preference.Preference;
-import androidx.preference.PreferenceGroup;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.preference.Preference;
+import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceGroup;
 
 import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;
@@ -53,7 +54,7 @@ public class EditInfoFragment extends PreferenceFragment {
     private static final String DIALOG_PREFERENCE_TAG = "dialog_preference";
 
     private final Map<String, Preference> mMedicalInfoPreferences =
-            new HashMap<String, Preference>();
+            new HashMap<>();
 
     /** The category that holds the emergency contacts. */
     private EmergencyContactsPreference mEmergencyContactsPreferenceCategory;
@@ -75,34 +76,28 @@ public class EditInfoFragment extends PreferenceFragment {
             }
         }
 
-        mEmergencyNamePreference = (EmergencyNamePreference) findPreference(
-                PreferenceKeys.KEY_NAME);
+        mEmergencyNamePreference = findPreference(PreferenceKeys.KEY_NAME);
 
         // Fill in emergency contacts.
-        mEmergencyContactsPreferenceCategory = (EmergencyContactsPreference)
+        mEmergencyContactsPreferenceCategory =
                 findPreference(PreferenceKeys.KEY_EMERGENCY_CONTACTS);
 
         Preference addEmergencyContact = findPreference(PreferenceKeys.KEY_ADD_EMERGENCY_CONTACT);
-        addEmergencyContact.setOnPreferenceClickListener(new Preference
-                .OnPreferenceClickListener() {
-            @Override
-            public boolean onPreferenceClick(Preference preference) {
-                // By using ContactsContract.CommonDataKinds.Phone.CONTENT_URI, the user is
-                // presented with a list of contacts, with one entry per phone number.
-                // The selected contact is guaranteed to have a name and phone number.
-                Intent contactPickerIntent = new Intent(Intent.ACTION_PICK,
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                try {
-                    startActivityForResult(contactPickerIntent, CONTACT_PICKER_RESULT);
-                    return true;
-                } catch (ActivityNotFoundException e) {
-                    Log.w(TAG, "No contact app available to display the contacts", e);
-                    Toast.makeText(getContext(),
-                                   getContext().getString(R.string.fail_load_contact_picker),
-                                   Toast.LENGTH_LONG).show();
-                    return false;
-                }
+        addEmergencyContact.setOnPreferenceClickListener(preference -> {
+            // By using ContactsContract.CommonDataKinds.Phone.CONTENT_URI, the user is
+            // presented with a list of contacts, with one entry per phone number.
+            // The selected contact is guaranteed to have a name and phone number.
+            Intent contactPickerIntent = new Intent(Intent.ACTION_PICK,
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+            try {
+                startActivityForResult(contactPickerIntent, CONTACT_PICKER_RESULT);
+                return true;
+            } catch (ActivityNotFoundException e) {
+                Log.w(TAG, "No contact app available to display the contacts", e);
+                Toast.makeText(getContext(),
+                        getContext().getString(R.string.fail_load_contact_picker),
+                        Toast.LENGTH_LONG).show();
+                return false;
             }
         });
     }
@@ -158,7 +153,7 @@ public class EditInfoFragment extends PreferenceFragment {
 
     @VisibleForTesting
     public PreferenceGroup getMedicalInfoParent() {
-        return (PreferenceGroup) findPreference(PreferenceKeys.KEY_MEDICAL_INFO);
+        return findPreference(PreferenceKeys.KEY_MEDICAL_INFO);
     }
 
     @VisibleForTesting
@@ -182,7 +177,7 @@ public class EditInfoFragment extends PreferenceFragment {
             // change as well.
             if (Preference.OnPreferenceChangeListener.class.isInstance(preferenceItem)) {
                 return ((Preference.OnPreferenceChangeListener) preferenceItem)
-                    .onPreferenceChange(preferenceItem, value);
+                        .onPreferenceChange(preferenceItem, value);
             }
             return true;
         }

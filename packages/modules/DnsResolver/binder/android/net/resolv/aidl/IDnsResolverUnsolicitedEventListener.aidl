@@ -58,6 +58,10 @@ oneway interface IDnsResolverUnsolicitedEventListener {
     const int VALIDATION_RESULT_SUCCESS = 1;
     const int VALIDATION_RESULT_FAILURE = 2;
 
+    /*** Private DNS protocols for {@code protocol} of {@code PrivateDnsValidationEventParcel}. */
+    const int PROTOCOL_DOT = 1;
+    const int PROTOCOL_DOH = 2;
+
     /**
      * Represents a private DNS validation result.
      *

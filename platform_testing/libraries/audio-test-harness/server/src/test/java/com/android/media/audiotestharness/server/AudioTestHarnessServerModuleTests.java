@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.media.audiotestharness.proto.AudioTestHarnessGrpc;
+import com.android.media.audiotestharness.server.config.SharedHostConfiguration;
 import com.android.media.audiotestharness.server.core.AudioSystemService;
 import com.android.media.audiotestharness.server.service.AudioCaptureSessionFactory;
 import com.android.media.audiotestharness.server.service.StreamObserverOutputStreamFactory;
@@ -75,5 +76,10 @@ public class AudioTestHarnessServerModuleTests {
     @Test
     public void getInstance_AudioCaptureSessionFactory_returnsInstance() throws Exception {
         assertNotNull(mInjector.getInstance(AudioCaptureSessionFactory.class));
+    }
+
+    @Test
+    public void getInstance_SharedHostConfiguration_returnsInstance() throws Exception {
+        assertNotNull(mInjector.getInstance(SharedHostConfiguration.class));
     }
 }

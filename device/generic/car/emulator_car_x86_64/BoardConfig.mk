@@ -15,11 +15,10 @@
 
 # Use generic_x86_64 BoardConfig as base
 include build/make/target/board/emulator_x86_64/BoardConfig.mk
+include device/generic/car/emulator/usbpt/BoardConfig.mk
 
 # Override BOARD_SUPER_PARTITION_SIZE to inclease the mounted system partition.
 BOARD_SUPER_PARTITION_SIZE := 5856296960
 
 BOARD_EMULATOR_DYNAMIC_PARTITIONS_SIZE = 3489660928
 
-BOARD_HAVE_BLUETOOTH := true
-BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/generic/car/emulator/bluetooth/hal

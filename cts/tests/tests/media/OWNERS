@@ -1,15 +1,3 @@
 # Bug component: 1344
-include ../../media/OWNERS
-elaurent@google.com
+include platform/frameworks/av:/media/janitors/media_leads_OWNERS
 etalvala@google.com
-hdmoon@google.com
-hunga@google.com
-insun@google.com
-jaewan@google.com
-jinpark@google.com
-jmtrivi@google.com
-jsharkey@android.com
-sungsoo@google.com
-
-# go/android-fwk-media-solutions for info on areas of ownership.
-include platform/frameworks/av:/media/janitors/media_solutions_OWNERS

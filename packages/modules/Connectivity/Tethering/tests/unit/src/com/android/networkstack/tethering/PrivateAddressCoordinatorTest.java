@@ -23,7 +23,8 @@ import static android.net.TetheringManager.TETHERING_ETHERNET;
 import static android.net.TetheringManager.TETHERING_USB;
 import static android.net.TetheringManager.TETHERING_WIFI;
 import static android.net.TetheringManager.TETHERING_WIFI_P2P;
-import static android.net.util.PrefixUtils.asIpPrefix;
+
+import static com.android.networkstack.tethering.util.PrefixUtils.asIpPrefix;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -99,7 +100,6 @@ public final class PrivateAddressCoordinatorTest {
         when(mContext.getSystemService(Context.CONNECTIVITY_SERVICE)).thenReturn(mConnectivityMgr);
         when(mConnectivityMgr.getAllNetworks()).thenReturn(mAllNetworks);
         when(mConfig.shouldEnableWifiP2pDedicatedIp()).thenReturn(false);
-        when(mConfig.isSelectAllPrefixRangeEnabled()).thenReturn(true);
         setUpIpServers();
         mPrivateAddressCoordinator = spy(new PrivateAddressCoordinator(mContext, mConfig));
     }

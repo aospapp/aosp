@@ -50,6 +50,8 @@ class ManifestInstance {
     Arch arch() const;
     HalFormat format() const;
     const std::optional<std::string>& updatableViaApex() const;
+    const std::optional<std::string> ip() const;
+    const std::optional<uint64_t> port() const;
 
     bool operator==(const ManifestInstance& other) const;
     bool operator<(const ManifestInstance& other) const;

@@ -46,6 +46,7 @@ using aawi::GarageMode;
 using aawi::ICarWatchdogServiceForSystem;
 using aawi::ICarWatchdogServiceForSystemDefault;
 using aawi::PowerCycle;
+using aawi::ProcessIdentifier;
 using aawi::ResourceOveruseConfiguration;
 using ::android::sp;
 using ::android::String16;
@@ -57,20 +58,38 @@ using ::testing::Return;
 
 namespace {
 
-class MockWatchdogBinderMediator : public WatchdogBinderMediator {
+class MockWatchdogBinderMediator :
+      public WatchdogBinderMediatorInterface,
+      public ICarWatchdogDefault {
 public:
-    MockWatchdogBinderMediator(const android::sp<WatchdogProcessService>& watchdogProcessService,
-                               const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
-                               const android::sp<IWatchdogServiceHelper>& watchdogServiceHelper) :
-          WatchdogBinderMediator(watchdogProcessService, watchdogPerfService, watchdogServiceHelper,
-                                 [](const char*, const android::sp<android::IBinder>&)
-                                         -> Result<void> { return Result<void>{}; }) {}
-    ~MockWatchdogBinderMediator() {}
-
-    MOCK_METHOD(status_t, dump, (int fd, const Vector<android::String16>& args), (override));
+    MOCK_METHOD(Result<void>, init, (), (override));
+    MOCK_METHOD(void, terminate, (), (override));
+    MOCK_METHOD(status_t, dump, (int fd, const Vector<android::String16>&), (override));
+    MOCK_METHOD(Status, registerClient, (const android::sp<ICarWatchdogClient>&, TimeoutLength),
+                (override));
+    MOCK_METHOD(Status, unregisterClient, (const android::sp<ICarWatchdogClient>&), (override));
+    MOCK_METHOD(Status, tellClientAlive, (const android::sp<ICarWatchdogClient>&, int32_t),
+                (override));
+    MOCK_METHOD(Status, addResourceOveruseListener,
+                (const std::vector<ResourceType>&, const sp<IResourceOveruseListener>&),
+                (override));
+    MOCK_METHOD(Status, removeResourceOveruseListener, (const sp<IResourceOveruseListener>&),
+                (override));
+    MOCK_METHOD(Status, getResourceOveruseStats,
+                (const std::vector<ResourceType>&, std::vector<ResourceOveruseStats>*), (override));
+    MOCK_METHOD(Status, registerMediator, (const android::sp<ICarWatchdogClient>&), (override));
+    MOCK_METHOD(Status, unregisterMediator, (const android::sp<ICarWatchdogClient>&), (override));
+    MOCK_METHOD(Status, registerMonitor, (const android::sp<ICarWatchdogMonitor>&), (override));
+    MOCK_METHOD(Status, unregisterMonitor, (const android::sp<ICarWatchdogMonitor>&), (override));
+    MOCK_METHOD(Status, tellMediatorAlive,
+                (const android::sp<ICarWatchdogClient>&, const std::vector<int32_t>&, int32_t),
+                (override));
+    MOCK_METHOD(Status, tellDumpFinished, (const android::sp<ICarWatchdogMonitor>&, int32_t),
+                (override));
+    MOCK_METHOD(Status, notifySystemStateChange, (StateType, int32_t, int32_t), (override));
 };
 
-class ScopedChangeCallingUid : public RefBase {
+class ScopedChangeCallingUid final : public RefBase {
 public:
     explicit ScopedChangeCallingUid(uid_t uid) {
         mCallingUid = IPCThreadState::self()->getCallingUid();
@@ -105,10 +124,7 @@ protected:
         mMockWatchdogPerfService = sp<MockWatchdogPerfService>::make();
         mMockWatchdogServiceHelper = sp<MockWatchdogServiceHelper>::make();
         mMockIoOveruseMonitor = sp<MockIoOveruseMonitor>::make();
-        mMockWatchdogBinderMediator =
-                sp<MockWatchdogBinderMediator>::make(mMockWatchdogProcessService,
-                                                     mMockWatchdogPerfService,
-                                                     mMockWatchdogServiceHelper);
+        mMockWatchdogBinderMediator = sp<MockWatchdogBinderMediator>::make();
         mWatchdogInternalHandler =
                 sp<WatchdogInternalHandler>::make(mMockWatchdogBinderMediator,
                                                   mMockWatchdogServiceHelper,
@@ -140,7 +156,7 @@ protected:
 };
 
 TEST_F(WatchdogInternalHandlerTest, TestTerminate) {
-    ASSERT_NE(mWatchdogInternalHandler->mBinderMediator, nullptr);
+    ASSERT_NE(mWatchdogInternalHandler->mWatchdogBinderMediator, nullptr);
     ASSERT_NE(mWatchdogInternalHandler->mWatchdogServiceHelper, nullptr);
     ASSERT_NE(mWatchdogInternalHandler->mWatchdogProcessService, nullptr);
     ASSERT_NE(mWatchdogInternalHandler->mWatchdogPerfService, nullptr);
@@ -148,7 +164,7 @@ TEST_F(WatchdogInternalHandlerTest, TestTerminate) {
 
     mWatchdogInternalHandler->terminate();
 
-    ASSERT_EQ(mWatchdogInternalHandler->mBinderMediator, nullptr);
+    ASSERT_EQ(mWatchdogInternalHandler->mWatchdogBinderMediator, nullptr);
     ASSERT_EQ(mWatchdogInternalHandler->mWatchdogServiceHelper, nullptr);
     ASSERT_EQ(mWatchdogInternalHandler->mWatchdogProcessService, nullptr);
     ASSERT_EQ(mWatchdogInternalHandler->mWatchdogPerfService, nullptr);
@@ -163,8 +179,6 @@ TEST_F(WatchdogInternalHandlerTest, TestDump) {
 TEST_F(WatchdogInternalHandlerTest, TestRegisterCarWatchdogService) {
     setSystemCallingUid();
     sp<ICarWatchdogServiceForSystem> service = sp<ICarWatchdogServiceForSystemDefault>::make();
-    EXPECT_CALL(*mMockWatchdogServiceHelper, registerService(service))
-            .WillOnce(Return(Status::ok()));
     EXPECT_CALL(*mMockWatchdogServiceHelper, registerService(service))
             .WillOnce(Return(Status::ok()));
 
@@ -256,7 +270,10 @@ TEST_F(WatchdogInternalHandlerTest, TestErrorOnUnregisterMonitorWithNonSystemCal
 TEST_F(WatchdogInternalHandlerTest, TestCarWatchdogServiceAlive) {
     setSystemCallingUid();
     sp<ICarWatchdogServiceForSystem> service = sp<ICarWatchdogServiceForSystemDefault>::make();
-    std::vector clientsNotResponding = {123};
+    std::vector<ProcessIdentifier> clientsNotResponding;
+    ProcessIdentifier processIdentifier;
+    processIdentifier.pid = 123;
+    clientsNotResponding.push_back(processIdentifier);
     EXPECT_CALL(*mMockWatchdogProcessService,
                 tellCarWatchdogServiceAlive(service, clientsNotResponding, 456))
             .WillOnce(Return(Status::ok()));
@@ -268,7 +285,10 @@ TEST_F(WatchdogInternalHandlerTest, TestCarWatchdogServiceAlive) {
 
 TEST_F(WatchdogInternalHandlerTest, TestErrorOnCarWatchdogServiceWithNonSystemCallingUid) {
     sp<ICarWatchdogServiceForSystem> service = sp<ICarWatchdogServiceForSystemDefault>::make();
-    std::vector clientsNotResponding = {123};
+    std::vector<ProcessIdentifier> clientsNotResponding;
+    ProcessIdentifier processIdentifier;
+    processIdentifier.pid = 123;
+    clientsNotResponding.push_back(processIdentifier);
     EXPECT_CALL(*mMockWatchdogProcessService, tellCarWatchdogServiceAlive(_, _, _)).Times(0);
     Status status =
             mWatchdogInternalHandler->tellCarWatchdogServiceAlive(service, clientsNotResponding,
@@ -279,16 +299,20 @@ TEST_F(WatchdogInternalHandlerTest, TestErrorOnCarWatchdogServiceWithNonSystemCa
 TEST_F(WatchdogInternalHandlerTest, TestTellDumpFinished) {
     setSystemCallingUid();
     sp<aawi::ICarWatchdogMonitor> monitor = sp<aawi::ICarWatchdogMonitorDefault>::make();
-    EXPECT_CALL(*mMockWatchdogProcessService, tellDumpFinished(monitor, 456))
+    ProcessIdentifier processIdentifier;
+    processIdentifier.pid = 456;
+    EXPECT_CALL(*mMockWatchdogProcessService, tellDumpFinished(monitor, processIdentifier))
             .WillOnce(Return(Status::ok()));
-    Status status = mWatchdogInternalHandler->tellDumpFinished(monitor, 456);
+    Status status = mWatchdogInternalHandler->tellDumpFinished(monitor, processIdentifier);
     ASSERT_TRUE(status.isOk()) << status;
 }
 
 TEST_F(WatchdogInternalHandlerTest, TestErrorOnTellDumpFinishedWithNonSystemCallingUid) {
     sp<aawi::ICarWatchdogMonitor> monitor = sp<aawi::ICarWatchdogMonitorDefault>::make();
     EXPECT_CALL(*mMockWatchdogProcessService, tellDumpFinished(_, _)).Times(0);
-    Status status = mWatchdogInternalHandler->tellDumpFinished(monitor, 456);
+    ProcessIdentifier processIdentifier;
+    processIdentifier.pid = 456;
+    Status status = mWatchdogInternalHandler->tellDumpFinished(monitor, processIdentifier);
     ASSERT_FALSE(status.isOk()) << status;
 }
 
@@ -319,7 +343,6 @@ TEST_F(WatchdogInternalHandlerTest, TestNotifyPowerCycleChangeToShutdownEnter) {
 TEST_F(WatchdogInternalHandlerTest, TestNotifyPowerCycleChangeToResume) {
     setSystemCallingUid();
     EXPECT_CALL(*mMockWatchdogProcessService, setEnabled(/*isEnabled=*/true)).Times(1);
-    EXPECT_CALL(*mMockWatchdogPerfService, setSystemState(SystemState::NORMAL_MODE)).Times(1);
     Status status =
             mWatchdogInternalHandler
                     ->notifySystemStateChange(aawi::StateType::POWER_CYCLE,
@@ -476,7 +499,7 @@ TEST_F(WatchdogInternalHandlerTest,
 TEST_F(WatchdogInternalHandlerTest, TestControlProcessHealthCheck) {
     setSystemCallingUid();
     EXPECT_CALL(*mMockWatchdogProcessService, setEnabled(/*isEnabled=*/true)).Times(1);
-    Status status = mWatchdogInternalHandler->controlProcessHealthCheck(false);
+    Status status = mWatchdogInternalHandler->controlProcessHealthCheck(true);
     ASSERT_TRUE(status.isOk()) << status;
 }
 

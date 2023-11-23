@@ -17,7 +17,7 @@ platform as well as on Windows 32 and 64.  (It relies occasionally on
 libffi, so it depends on libffi being bug-free; this may not be fully
 the case on some of the more exotic platforms.)
 
-CFFI supports CPython 2.6, 2.7, 3.x (tested with 3.2 to 3.4); and is
+CFFI supports CPython 2.7, 3.x (tested with 3.6 to 3.9); and is
 distributed with PyPy (CFFI 1.0 is distributed with and requires
 PyPy 2.6).
 
@@ -31,7 +31,7 @@ libraries on PyPy.
 
 Requirements:
 
-* CPython 2.6 or 2.7 or 3.x, or PyPy (PyPy 2.0 for the earliest
+* CPython 2.7 or 3.x, or PyPy (PyPy 2.0 for the earliest
   versions of CFFI; or PyPy 2.6 for CFFI 1.0).
 
 * in some cases you need to be able to compile C extension modules.
@@ -52,26 +52,26 @@ Download and Installation:
 
 * https://pypi.python.org/pypi/cffi
 
-* Checksums of the "source" package version 1.12.2:
+* Checksums of the "source" package version 1.15.0:
 
-   - MD5: 4d7dcb6c7c738c15d2ece9bd4c5f86da
+   - MD5: f3a3f26cd3335fc597479c9475da0a0b
 
-   - SHA: 5f579d4980cbcc8aac592721f714ef6a64370ab1
+   - SHA1: 9c51c29e35510adf7f94542e1f8e05611930b07b
 
-   - SHA256: e113878a446c6228669144ae8a56e268c91b7f1fafae927adc4879d9849e0ea7
+   - SHA256: 920f0d66a896c2d99f0adbb391f990a84091179542c205fa53ce5787aff87954
 
-* Or grab the most current version from the `Bitbucket page`_:
-  ``hg clone https://bitbucket.org/cffi/cffi``
+* Or grab the most current version from the `Heptapod page`_:
+  ``hg clone https://foss.heptapod.net/pypy/cffi``
 
 * ``python setup.py install`` or ``python setup_base.py install``
   (should work out of the box on Linux or Windows; see below for
-  `MacOS X`_ or `Windows 64`_.)
+  `MacOS X`_.)
 
 * running the tests: ``py.test  c/  testing/`` (if you didn't
   install cffi yet, you need first ``python setup_base.py build_ext -f
   -i``)
 
-.. _`Bitbucket page`: https://bitbucket.org/cffi/cffi
+.. _`Heptapod page`: https://foss.heptapod.net/pypy/cffi
 
 Demos:
 
@@ -82,9 +82,9 @@ Demos:
   ultimate reference is given by the tests, notably
   `testing/cffi1/test_verify1.py`_ and `testing/cffi0/backend_tests.py`_.
 
-.. _`demo`: https://bitbucket.org/cffi/cffi/src/default/demo
-.. _`testing/cffi1/test_verify1.py`: https://bitbucket.org/cffi/cffi/src/default/testing/cffi1/test_verify1.py
-.. _`testing/cffi0/backend_tests.py`: https://bitbucket.org/cffi/cffi/src/default/testing/cffi0/backend_tests.py
+.. _`demo`: https://foss.heptapod.net/pypy/cffi/-/tree/branch/default/demo
+.. _`testing/cffi1/test_verify1.py`: https://foss.heptapod.net/pypy/cffi/-/blob/branch/default/testing/cffi1/test_verify1.py
+.. _`testing/cffi0/backend_tests.py`: https://foss.heptapod.net/pypy/cffi/-/blob/branch/default/testing/cffi0/backend_tests.py
 
 
 Platform-specific instructions
@@ -133,37 +133,21 @@ as described here_.
 .. _here: http://superuser.com/questions/259278/python-2-6-1-pycrypto-2-3-pypi-package-broken-pipe-during-build
 
 
-Windows (regular 32-bit)
-++++++++++++++++++++++++
+Windows (32/64-bit)
++++++++++++++++++++
 
-Win32 works and is tested at least each official release.
+Win32 and Win64 work and are tested at least each official release.
 
 The recommended C compiler compatible with Python 2.7 is this one:
 http://www.microsoft.com/en-us/download/details.aspx?id=44266
-There is a known problem with distutils on Python 2.7, as 
-explained in https://bugs.python.org/issue23246, and the same 
+There is a known problem with distutils on Python 2.7, as
+explained in https://bugs.python.org/issue23246, and the same
 problem applies whenever you want to run compile() to build a dll with
-this specific compiler suite download. 
+this specific compiler suite download.
 ``import setuptools`` might help, but YMMV
 
 For Python 3.4 and beyond:
 https://www.visualstudio.com/en-us/downloads/visual-studio-2015-ctp-vs
-
-
-Windows 64
-++++++++++
-
-Win64 received very basic testing and we applied a few essential
-fixes in cffi 0.7. The comment above applies for Python 2.7 on 
-Windows 64 as well. Please report any other issue.
-
-Note as usual that this is only about running the 64-bit version of
-Python on the 64-bit OS.  If you're running the 32-bit version (the
-common case apparently), then you're running Win32 as far as we're
-concerned.
-
-.. _`issue 9`: https://bitbucket.org/cffi/cffi/issue/9
-.. _`Python issue 7546`: http://bugs.python.org/issue7546
 
 
 Linux and OS/X: UCS2 versus UCS4

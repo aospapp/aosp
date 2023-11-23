@@ -17,12 +17,25 @@
 package android.telephony.ims.cts;
 
 import android.telephony.ims.stub.ImsRegistrationImplBase;
+import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class TestImsRegistration extends ImsRegistrationImplBase {
+
+    private static final String TAG = "TestImsRegistration";
+
+    public TestImsRegistration() {
+        Log.d(TAG, "TestImsRegistration with default constructor");
+    }
+
+    public TestImsRegistration(Executor executor) {
+        super(executor);
+        Log.d(TAG, "TestImsRegistration with Executor constructor");
+    }
 
     public static class NetworkRegistrationInfo {
         public final int sipCode;

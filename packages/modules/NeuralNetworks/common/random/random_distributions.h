@@ -16,6 +16,10 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_LIB_RANDOM_RANDOM_DISTRIBUTIONS_H_
 #define TENSORFLOW_CORE_LIB_RANDOM_RANDOM_DISTRIBUTIONS_H_
 
+// This include is needed in order to prevent a build error when including
+// tensorflow/core/lib/bfloat16/bfloat16.h.
+#include <iostream>
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 
@@ -25,9 +29,14 @@ limitations under the License.
 #include <string.h>
 #include <tensorflow/core/lib/bfloat16/bfloat16.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Winvalid-partial-specialization"
+#include <unsupported/Eigen/CXX11/Tensor>
+#pragma clang diagnostic pop
+
 #include <algorithm>
 #include <type_traits>
-#include <unsupported/Eigen/CXX11/Tensor>
 
 #include "philox_random.h"
 

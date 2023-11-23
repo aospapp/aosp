@@ -523,7 +523,9 @@ class ShellTest(DeviceTest):
         stdout, _ = self.device.shell(["cat", log_path])
         self.assertEqual(stdout.strip(), "SIGHUP")
 
-    def test_exit_stress(self):
+    # Temporarily disabled because it seems to cause later instability.
+    # http://b/228114748
+    def disabled_test_exit_stress(self):
         """Hammer `adb shell exit 42` with multiple threads."""
         thread_count = 48
         result = dict()
@@ -1571,6 +1573,14 @@ class SocketTest(DeviceTest):
 
         self.assertEqual(1024 * 1024 + len("foo\n"), len(received))
         thread.join()
+
+
+class FramebufferTest(DeviceTest):
+    @requires_root
+    def test_framebuffer(self):
+        """Test that we get something from the framebuffer service."""
+        output = subprocess.check_output(self.device.adb_cmd + ["raw", "framebuffer:"])
+        self.assertFalse(len(output) == 0)
 
 
 if sys.platform == "win32":

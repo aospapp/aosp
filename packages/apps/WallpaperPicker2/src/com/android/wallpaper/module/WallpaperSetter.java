@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.app.WallpaperColors;
 import android.app.WallpaperManager;
+import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -118,8 +119,8 @@ public class WallpaperSetter {
      */
     public void setCurrentWallpaper(Activity containerActivity, WallpaperInfo wallpaper,
             @Nullable Asset wallpaperAsset, @Destination final int destination,
-            float wallpaperScale, @Nullable Rect cropRect,
-            @Nullable WallpaperColors wallpaperColors, @Nullable SetWallpaperCallback callback) {
+            float wallpaperScale, @Nullable Rect cropRect, WallpaperColors wallpaperColors,
+            @Nullable SetWallpaperCallback callback) {
         if (wallpaper instanceof LiveWallpaperInfo) {
             setCurrentLiveWallpaper(containerActivity, (LiveWallpaperInfo) wallpaper, destination,
                     wallpaperColors, callback);
@@ -186,8 +187,8 @@ public class WallpaperSetter {
                 });
     }
 
-    public void setCurrentLiveWallpaper(Activity activity, LiveWallpaperInfo wallpaper,
-            @Destination final int destination, @Nullable WallpaperColors colors,
+    private void setCurrentLiveWallpaper(Activity activity, LiveWallpaperInfo wallpaper,
+            @Destination final int destination, WallpaperColors colors,
             @Nullable SetWallpaperCallback callback) {
         try {
             // Save current screen rotation so we can temporarily disable rotation while setting the
@@ -208,10 +209,7 @@ public class WallpaperSetter {
             if (destination == WallpaperPersister.DEST_BOTH) {
                 wallpaperManager.clear(FLAG_LOCK);
             }
-            mPreferences.storeLatestHomeWallpaper(wallpaper.getWallpaperId(), wallpaper,
-                    colors != null ? colors :
-                            WallpaperColors.fromBitmap(wallpaper.getThumbAsset(activity)
-                                    .getLowResBitmap(activity)));
+            mPreferences.storeLatestHomeWallpaper(wallpaper.getWallpaperId(), wallpaper, colors);
             onWallpaperApplied(wallpaper, activity);
             if (callback != null) {
                 callback.onSuccess(wallpaper);
@@ -222,13 +220,51 @@ public class WallpaperSetter {
                 callback.onError(e);
             }
         }
+    }
 
+    /**
+     * Sets current live wallpaper to the device (restore case)
+     *
+     * @param context The context for initiating wallpaper manager
+     * @param wallpaper Information for the actual wallpaper to set
+     * @param destination The wallpaper destination i.e. home vs. lockscreen vs. both
+     * @param colors The {@link WallpaperColors} for placeholder of quickswitching
+     * @param callback Optional callback to be notified when the wallpaper is set.
+     */
+    public void setCurrentLiveWallpaper(Context context, LiveWallpaperInfo wallpaper,
+            @Destination final int destination, @Nullable WallpaperColors colors,
+            @Nullable SetWallpaperCallback callback) {
+        try {
+            if (destination == WallpaperPersister.DEST_LOCK_SCREEN) {
+                throw new IllegalArgumentException(
+                        "Live wallpaper cannot be applied on lock screen only");
+            }
+            WallpaperManager wallpaperManager = WallpaperManager.getInstance(context);
+            wallpaperManager.setWallpaperComponent(
+                    wallpaper.getWallpaperComponent().getComponent());
+            if (destination == WallpaperPersister.DEST_BOTH) {
+                wallpaperManager.clear(FLAG_LOCK);
+            }
+            mPreferences.storeLatestHomeWallpaper(wallpaper.getWallpaperId(), wallpaper,
+                    colors != null ? colors :
+                            WallpaperColors.fromBitmap(wallpaper.getThumbAsset(context)
+                                    .getLowResBitmap(context)));
+            // Not call onWallpaperApplied() as no UI is presented.
+            if (callback != null) {
+                callback.onSuccess(wallpaper);
+            }
+        } catch (RuntimeException | IOException e) {
+            // Not call onWallpaperApplyError() as no UI is presented.
+            if (callback != null) {
+                callback.onError(e);
+            }
+        }
     }
 
     private void onWallpaperApplied(WallpaperInfo wallpaper, Activity containerActivity) {
         mUserEventLogger.logWallpaperSet(
                 wallpaper.getCollectionId(containerActivity),
-                wallpaper.getWallpaperId());
+                wallpaper.getWallpaperId(), wallpaper.getEffectNames());
         mPreferences.setPendingWallpaperSetStatus(
                 WallpaperPreferences.WALLPAPER_SET_NOT_PENDING);
         mUserEventLogger.logWallpaperSetResult(

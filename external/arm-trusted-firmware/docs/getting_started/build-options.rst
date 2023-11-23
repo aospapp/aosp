@@ -22,6 +22,10 @@ Common build options
    directory containing the SP source, relative to the ``bl32/``; the directory
    is expected to contain a makefile called ``<aarch32_sp-value>.mk``.
 
+-  ``AMU_RESTRICT_COUNTERS``: Register reads to the group 1 counters will return
+   zero at all but the highest implemented exception level.  Reads from the
+   memory mapped view are unaffected by this control.
+
 -  ``ARCH`` : Choose the target build architecture for TF-A. It can take either
    ``aarch64`` or ``aarch32`` as values. By default, it is defined to
    ``aarch64``.
@@ -248,7 +252,8 @@ Common build options
 
 -  ``ENABLE_PIE``: Boolean option to enable Position Independent Executable(PIE)
    support within generic code in TF-A. This option is currently only supported
-   in BL2_AT_EL3, BL31, and BL32 (TSP). Default is 0.
+   in BL2_AT_EL3, BL31, and BL32 (TSP) for AARCH64 binaries, and in BL32
+   (SP_min) for AARCH32. Default is 0.
 
 -  ``ENABLE_PMF``: Boolean option to enable support for optional Performance
    Measurement Framework(PMF). Default is 0.
@@ -273,13 +278,19 @@ Common build options
 -  ``ENABLE_SVE_FOR_NS``: Boolean option to enable Scalable Vector Extension
    (SVE) for the Non-secure world only. SVE is an optional architectural feature
    for AArch64. Note that when SVE is enabled for the Non-secure world, access
-   to SIMD and floating-point functionality from the Secure world is disabled.
+   to SIMD and floating-point functionality from the Secure world is disabled by
+   default and controlled with ENABLE_SVE_FOR_SWD.
    This is to avoid corruption of the Non-secure world data in the Z-registers
    which are aliased by the SIMD and FP registers. The build option is not
    compatible with the ``CTX_INCLUDE_FPREGS`` build option, and will raise an
    assert on platforms where SVE is implemented and ``ENABLE_SVE_FOR_NS`` set to
    1. The default is 1 but is automatically disabled when the target
    architecture is AArch32.
+
+-  ``ENABLE_SVE_FOR_SWD``: Boolean option to enable SVE for the Secure world.
+   SVE is an optional architectural feature for AArch64. Note that this option
+   requires ENABLE_SVE_FOR_NS to be enabled.  The default is 0 and it is
+   automatically disabled when the target architecture is AArch32.
 
 -  ``ENABLE_STACK_PROTECTOR``: String option to enable the stack protection
    checks in GCC. Allowed values are "all", "strong", "default" and "none". The
@@ -458,7 +469,10 @@ Common build options
    the build. The default value is 40 in debug builds and 20 in release builds.
 
 -  ``MEASURED_BOOT``: Boolean flag to include support for the Measured Boot
-   feature. If this flag is enabled ``TRUSTED_BOARD_BOOT`` must be set.
+   feature. If this flag is enabled ``TRUSTED_BOARD_BOOT`` must be set as well
+   in order to provide trust that the code taking the measurements and recording
+   them has not been tampered with.
+
    This option defaults to 0 and is an experimental feature in the stage of
    development.
 
@@ -573,6 +587,11 @@ Common build options
    platform is expected to provide definitions for ``BL31_NOBITS_BASE`` and
    ``BL31_NOBITS_LIMIT``. When the option is ``0`` (the default), NOBITS
    sections are placed in RAM immediately following the loaded firmware image.
+
+-  ``SMC_PCI_SUPPORT``: This option allows platforms to handle PCI configuration
+   access requests via a standard SMCCC defined in `DEN0115`_. When combined with
+   UEFI+ACPI this can provide a certain amount of OS forward compatibility
+   with newer platforms that aren't ECAM compliant.
 
 -  ``SPD``: Choose a Secure Payload Dispatcher component to be built into TF-A.
    This build option is only valid if ``ARCH=aarch64``. The value should be
@@ -841,6 +860,31 @@ commands can be used:
     # Resume execution
     continue
 
+Firmware update options
+-----------------------
+
+-  ``NR_OF_FW_BANKS``: Define the number of firmware banks. This flag is used
+   in defining the firmware update metadata structure. This flag is by default
+   set to '2'.
+
+-  ``NR_OF_IMAGES_IN_FW_BANK``: Define the number of firmware images in each
+   firmware bank. Each firmware bank must have the same number of images as per
+   the `PSA FW update specification`_.
+   This flag is used in defining the firmware update metadata structure. This
+   flag is by default set to '1'.
+
+-  ``PSA_FWU_SUPPORT``: Enable the firmware update mechanism as per the
+   `PSA FW update specification`_. The default value is 0, and this is an
+   experimental feature.
+   PSA firmware update implementation has some limitations, such as BL2 is
+   not part of the protocol-updatable images, if BL2 needs to be updated, then
+   it should be done through another platform-defined mechanism, and it assumes
+   that the platform's hardware supports CRC32 instructions.
+
 --------------
 
-*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2021, Arm Limited. All rights reserved.*
+
+.. _DEN0115: https://developer.arm.com/docs/den0115/latest
+.. _PSA FW update specification: https://developer.arm.com/documentation/den0118/a/
+

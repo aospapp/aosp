@@ -22,6 +22,7 @@
 /(vendor|system/vendor)/bin/imsqmidaemon        u:object_r:ims_exec:s0
 /(vendor|system/vendor)/bin/ims_rtp_daemon      u:object_r:hal_imsrtp_exec:s0
 /(vendor|system/vendor)/bin/netmgrd             u:object_r:netmgrd_exec:s0
+/(vendor|system/vendor)/bin/shsusrd             u:object_r:shsusrd_exec:s0
 /(vendor|system/vendor)/bin/port-bridge         u:object_r:port-bridge_exec:s0
 /(vendor|system/vendor)/bin/sensors.qcom        u:object_r:sensors_exec:s0
 /(vendor|system/vendor)/bin/sensors.qti         u:object_r:sensors_exec:s0
@@ -52,7 +53,7 @@
 /(vendor|system/vendor)/bin/ssr_diag            u:object_r:vendor_ssr_diag_exec:s0
 /(vendor|system/vendor)/bin/hw/qcrild           u:object_r:rild_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service\.clearkey    u:object_r:hal_drm_clearkey_exec:s0
-/(vendor|system/vendor)/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service\.widevine    u:object_r:hal_drm_widevine_exec:s0
+/(vendor|system/vendor)/bin/hw/android\.hardware\.drm(@[0-9]+\.[0-9]+)?-service\.widevine    u:object_r:hal_drm_widevine_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.gnss@.*-service-qti u:object_r:hal_gnss_qti_exec:s0
 /(vendor|system/vendor)/bin/hw/vendor\.qti\.gnss@.*-service u:object_r:hal_gnss_qti_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.bluetooth@1\.0-service-qti  u:object_r:hal_bluetooth_default_exec:s0
@@ -256,6 +257,7 @@
 /data/vendor/rfs/mpss(/.*)?            u:object_r:mpss_rfs_data_file:s0
 /data/vendor/radio(/.*)?               u:object_r:vendor_radio_data_file:s0
 /data/vendor/netmgr(/.*)?              u:object_r:netmgrd_data_file:s0
+/data/vendor/shsusr(/.*)?              u:object_r:shsusr_data_file:s0
 /data/vendor/mediadrm(/.*)?            u:object_r:mediadrm_vendor_data_file:s0
 /data/vendor/nnhal(/.*)?               u:object_r:hal_neuralnetworks_data_file:s0
 /data/vendor/ssrdump(/.*)?             u:object_r:ramdump_vendor_data_file:s0

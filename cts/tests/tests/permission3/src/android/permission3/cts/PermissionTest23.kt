@@ -16,8 +16,10 @@
 
 package android.permission3.cts
 
+import android.content.pm.PackageManager
 import androidx.test.filters.FlakyTest
-import com.android.modules.utils.build.SdkLevel
+import com.android.compatibility.common.util.SystemUtil
+import org.junit.Assert
 import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
@@ -182,11 +184,7 @@ class PermissionTest23 : BaseUsePermissionTest() {
         // Request the permission and allow it
         // Make sure the permission is granted
         requestAppPermissionsAndAssertResult(android.Manifest.permission.CAMERA to true) {
-            if (SdkLevel.isAtLeastS()) {
-                clickPermissionRequestAllowForegroundButton()
-            } else {
-                clickPermissionRequestAllowButton()
-            }
+            clickPermissionRequestAllowForegroundButton()
         }
     }
 
@@ -248,11 +246,10 @@ class PermissionTest23 : BaseUsePermissionTest() {
             android.Manifest.permission.READ_SMS,
             android.Manifest.permission.CALL_PHONE,
             android.Manifest.permission.RECORD_AUDIO,
-            android.Manifest.permission.BODY_SENSORS,
             android.Manifest.permission.CAMERA,
             android.Manifest.permission.READ_EXTERNAL_STORAGE, targetSdk = 23
         )
-        // Don't use UI for granting location permission as this shows another dialog
+        // Don't use UI for granting location and sensor permissions as they show another dialog
         uiAutomation.grantRuntimePermission(
             APP_PACKAGE_NAME, android.Manifest.permission.ACCESS_FINE_LOCATION
         )
@@ -261,6 +258,9 @@ class PermissionTest23 : BaseUsePermissionTest() {
         )
         uiAutomation.grantRuntimePermission(
             APP_PACKAGE_NAME, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        )
+        uiAutomation.grantRuntimePermission(
+            APP_PACKAGE_NAME, android.Manifest.permission.BODY_SENSORS
         )
 
         uninstallPackage(APP_PACKAGE_NAME)
@@ -290,11 +290,7 @@ class PermissionTest23 : BaseUsePermissionTest() {
             null to false,
             android.Manifest.permission.RECORD_AUDIO to true
         ) {
-            if (SdkLevel.isAtLeastS()) {
-                clickPermissionRequestAllowForegroundButton()
-            } else {
-                clickPermissionRequestAllowButton()
-            }
+            clickPermissionRequestAllowForegroundButton()
             clickPermissionRequestAllowButton()
         }
     }
@@ -304,6 +300,34 @@ class PermissionTest23 : BaseUsePermissionTest() {
         // Request the permission and allow it
         // Expect the permission is not granted
         requestAppPermissionsAndAssertResult(INVALID_PERMISSION to false) {}
+    }
+
+    @Test
+    fun testAskButtonSetsFlags() {
+        Assume.assumeFalse("other form factors might not support the ask button",
+                isTv || isAutomotive || isWatch)
+
+        grantAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, targetSdk = 23)
+        assertAppHasPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, true)
+        assertAppHasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION, true)
+        assertAppHasPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION, true)
+
+        revokeAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, targetSdk = 23)
+        SystemUtil.runWithShellPermissionIdentity {
+            val perms = listOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            for (perm in perms) {
+                var flags = packageManager.getPermissionFlags(perm, APP_PACKAGE_NAME, context.user)
+                Assert.assertEquals("USER_SET should not be set for $perm", 0,
+                        flags and PackageManager.FLAG_PERMISSION_USER_SET)
+                Assert.assertEquals("USER_FIXED should not be set for $perm", 0,
+                        flags and PackageManager.FLAG_PERMISSION_USER_FIXED)
+                Assert.assertEquals("ONE_TIME should be set for $perm",
+                        PackageManager.FLAG_PERMISSION_ONE_TIME,
+                        flags and PackageManager.FLAG_PERMISSION_ONE_TIME)
+            }
+        }
     }
 
     private fun denyPermissionRequestWithPrejudice() {

@@ -32,11 +32,12 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
+import java.util.Arrays;
+import java.util.HashSet;
+
 /** HDMI CEC test to test audio return channel control (Section 11.2.17) */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public final class HdmiCecAudioReturnChannelControlTest extends BaseHdmiCecCtsTest {
-
-    private static final LogicalAddress TV_DEVICE = LogicalAddress.TV;
 
     public HdmiCecAudioReturnChannelControlTest() {
         super(HdmiCecConstants.CEC_DEVICE_TYPE_TV, "-t", "a");
@@ -46,7 +47,7 @@ public final class HdmiCecAudioReturnChannelControlTest extends BaseHdmiCecCtsTe
     public RuleChain ruleChain =
             RuleChain.outerRule(CecRules.requiresCec(this))
                     .around(CecRules.requiresLeanback(this))
-                    .around(CecRules.requiresDeviceType(this, TV_DEVICE))
+                    .around(CecRules.requiresDeviceType(this, HdmiCecConstants.CEC_DEVICE_TYPE_TV))
                     .around(hdmiCecClient);
 
     /**
@@ -150,6 +151,103 @@ public final class HdmiCecAudioReturnChannelControlTest extends BaseHdmiCecCtsTe
         } finally {
             /* Restore physical address */
             hdmiCecClient.setPhysicalAddress(originalPhyAdd);
+        }
+    }
+
+    /**
+     * Test Short Audio Descriptor feature
+     *
+     * <p>Enables ARC and validates that the DUT sends {@code <Request Short Audio Descriptor>}
+     * messages for the codecs it was configured to query.
+     */
+    @Ignore("b/174813656")
+    @Test
+    public void shortAudioDescriptorsRequested() throws Exception {
+        String previousQuerySadLpcm = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_LPCM, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadDd = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_DD, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadMpeg1 = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_MPEG1, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadMp3 = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_MP3, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadMpeg2 = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_MPEG2, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadAac = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_AAC, HdmiCecConstants.QUERY_SAD_ENABLED);
+        String previousQuerySadDts = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_DTS, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadAtrac = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_ATRAC, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadOneBitAudio = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_ONEBITAUDIO, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadDdp = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_DDP, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadDtshd = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_DTSHD, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadTruehd = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_TRUEHD, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadDst = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_DST, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadWmapro = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_WMAPRO, HdmiCecConstants.QUERY_SAD_DISABLED);
+        String previousQuerySadMax = setSettingsValue(
+                HdmiCecConstants.QUERY_SAD_MAX, HdmiCecConstants.QUERY_SAD_DISABLED);
+        HashSet<Integer> expectedCodecs = new HashSet<>(Arrays.asList(
+                        HdmiCecConstants.AUDIO_CODEC_LPCM,
+                        HdmiCecConstants.AUDIO_CODEC_DD,
+                        HdmiCecConstants.AUDIO_CODEC_MPEG1,
+                        HdmiCecConstants.AUDIO_CODEC_MP3,
+                        HdmiCecConstants.AUDIO_CODEC_MPEG2,
+                        HdmiCecConstants.AUDIO_CODEC_AAC));
+        try {
+            String params =
+                    String.format(
+                            "%04d%02d",
+                            hdmiCecClient.getPhysicalAddress(),
+                            HdmiCecConstants.CEC_DEVICE_TYPE_AUDIO_SYSTEM);
+            hdmiCecClient.sendCecMessage(
+                    LogicalAddress.AUDIO_SYSTEM,
+                    LogicalAddress.BROADCAST,
+                    CecOperand.REPORT_PHYSICAL_ADDRESS,
+                    CecMessage.formatParams(params));
+            hdmiCecClient.sendCecMessage(
+                    LogicalAddress.AUDIO_SYSTEM, LogicalAddress.TV, CecOperand.INITIATE_ARC);
+            String requestSad1 = hdmiCecClient.checkExpectedOutput(LogicalAddress.AUDIO_SYSTEM,
+                    CecOperand.REQUEST_SHORT_AUDIO_DESCRIPTOR);
+            HashSet<Integer> codecs = new HashSet<>();
+            for (int i = 0; i < 4; i++) {
+                codecs.add(CecMessage.getParams(requestSad1, 2 * i, 2 * i + 2));
+            }
+            // The first SAD query needs to be replied to, in order for the second query to be sent
+            // as well.
+            hdmiCecClient.sendCecMessage(LogicalAddress.AUDIO_SYSTEM, CecOperand.FEATURE_ABORT,
+                    CecMessage.formatParams("A403"));
+            String requestSad2 = hdmiCecClient.checkExpectedOutput(LogicalAddress.AUDIO_SYSTEM,
+                    CecOperand.REQUEST_SHORT_AUDIO_DESCRIPTOR);
+            for (int i = 0; i < 2; i++) {
+                codecs.add(CecMessage.getParams(requestSad2, 2 * i, 2 * i + 2));
+            }
+            assertWithMessage(
+                    "Requested codecs are " + codecs + " but expected to be " + expectedCodecs)
+                    .that(codecs)
+                    .isEqualTo(expectedCodecs);
+        } finally {
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_LPCM, previousQuerySadLpcm);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_DD, previousQuerySadDd);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_MPEG1, previousQuerySadMpeg1);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_MP3, previousQuerySadMp3);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_MPEG2, previousQuerySadMpeg2);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_AAC, previousQuerySadAac);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_DTS, previousQuerySadDts);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_ATRAC, previousQuerySadAtrac);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_ONEBITAUDIO, previousQuerySadOneBitAudio);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_DDP, previousQuerySadDdp);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_DTSHD, previousQuerySadDtshd);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_TRUEHD, previousQuerySadTruehd);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_DST, previousQuerySadDst);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_WMAPRO, previousQuerySadWmapro);
+            setSettingsValue(HdmiCecConstants.QUERY_SAD_MAX, previousQuerySadMax);
         }
     }
 

@@ -216,8 +216,9 @@ TEST(IrTest, HandlesRulesSharding) {
                              "me\0mich\0remind\0to\0zu\0",
                              64)));
 
-  EXPECT_THAT(rules.rules[0]->binary_rules, SizeIs(3));
-  EXPECT_THAT(rules.rules[1]->binary_rules, SizeIs(3));
+  // Intermediate rules should be in shard 0.
+  EXPECT_THAT(rules.rules[0]->binary_rules, SizeIs(6));
+  EXPECT_THAT(rules.rules[1]->binary_rules, SizeIs(0));
 }
 
 TEST(IrTest, DeduplicatesLhsSets) {

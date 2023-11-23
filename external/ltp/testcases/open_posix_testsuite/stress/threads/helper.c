@@ -56,15 +56,15 @@ done
 #include <assert.h>
 #include <time.h>
 
-pid_t child;
-int timeout;
+static pid_t child;
+static int timeout;
 
 /* Note that there could be a race between
 the moment the stress test terminates and
 when the timeout expires. As this is highly
 improbable, we don't care... */
 
-void *timer(void *arg)
+static void *timer(void *arg)
 {
 	int ret = 0;
 
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	if (now == NULL)
 		printf(ts);
 	else
-		printf("[%2.2d:%2.2d:%2.2d]", now->tm_hour, now->tm_min,
+		printf("[%2.2d:%2.2d:%2.2d]\n", now->tm_hour, now->tm_min,
 		       now->tm_sec);
 	if (!WIFEXITED(status)) {
 		printf("The stress sample did not exit\n");

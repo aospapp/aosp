@@ -15,26 +15,30 @@
 //! Operations can only access memory in a `Vec` or an implementor of `BackingMemory`. See the
 //! `URingExecutor` documentation for an explaination of why.
 
-use std::fs::File;
-use std::io;
-use std::ops::{Deref, DerefMut};
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io,
+    ops::{Deref, DerefMut},
+    os::unix::io::{AsRawFd, RawFd},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
-use sys_util::net::UnixSeqpacket;
+use base::UnixSeqpacket;
+use remain::sorted;
 use thiserror::Error as ThisError;
 
-use crate::{BackingMemory, MemRegion};
+use super::{BackingMemory, MemRegion};
 
+#[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
     /// An error with a polled(FD) source.
     #[error("An error with a poll source: {0}")]
-    Poll(#[from] crate::poll_source::Error),
+    Poll(#[from] super::poll_source::Error),
     /// An error with a uring source.
     #[error("An error with a uring source: {0}")]
-    Uring(#[from] crate::uring_executor::Error),
+    Uring(#[from] super::uring_executor::Error),
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -112,11 +116,11 @@ pub trait IoSourceExt<F>: ReadAsync + WriteAsync {
 }
 
 /// Marker trait signifying that the implementor is suitable for use with
-/// cros_async. Examples of this include File, and sys_util::net::UnixSeqpacket.
+/// cros_async. Examples of this include File, and base::net::UnixSeqpacket.
 ///
 /// (Note: it'd be really nice to implement a TryFrom for any implementors, and
 /// remove our factory functions. Unfortunately
-/// https://github.com/rust-lang/rust/issues/50133 makes that too painful.)
+/// <https://github.com/rust-lang/rust/issues/50133> makes that too painful.)
 pub trait IntoAsync: AsRawFd {}
 
 impl IntoAsync for File {}
@@ -162,20 +166,27 @@ impl<T: AsRawFd> IntoAsync for AsyncWrapper<T> {}
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{File, OpenOptions};
-    use std::future::Future;
-    use std::os::unix::io::AsRawFd;
-    use std::pin::Pin;
-    use std::sync::Arc;
-    use std::task::{Context, Poll, Waker};
-    use std::thread;
+    use std::{
+        fs::{File, OpenOptions},
+        future::Future,
+        os::unix::io::AsRawFd,
+        pin::Pin,
+        sync::Arc,
+        task::{Context, Poll, Waker},
+        thread,
+    };
 
     use sync::Mutex;
 
-    use super::*;
-    use crate::executor::{async_poll_from, async_uring_from};
-    use crate::mem::VecIoWrapper;
-    use crate::{Executor, FdExecutor, MemRegion, PollSource, URingExecutor, UringSource};
+    use super::{
+        super::{
+            executor::{async_poll_from, async_uring_from},
+            mem::VecIoWrapper,
+            uring_executor::use_uring,
+            Executor, FdExecutor, MemRegion, PollSource, URingExecutor, UringSource,
+        },
+        *,
+    };
 
     struct State {
         should_quit: bool,
@@ -213,6 +224,9 @@ mod tests {
 
     #[test]
     fn await_uring_from_poll() {
+        if !use_uring() {
+            return;
+        }
         // Start a uring operation and then await the result from an FdExecutor.
         async fn go(source: UringSource<File>) {
             let v = vec![0xa4u8; 16];
@@ -244,6 +258,9 @@ mod tests {
 
     #[test]
     fn await_poll_from_uring() {
+        if !use_uring() {
+            return;
+        }
         // Start a poll operation and then await the result from a URingExecutor.
         async fn go(source: PollSource<File>) {
             let v = vec![0x2cu8; 16];
@@ -275,6 +292,9 @@ mod tests {
 
     #[test]
     fn readvec() {
+        if !use_uring() {
+            return;
+        }
         async fn go<F: AsRawFd>(async_source: Box<dyn IoSourceExt<F>>) {
             let v = vec![0x55u8; 32];
             let v_ptr = v.as_ptr();
@@ -298,6 +318,9 @@ mod tests {
 
     #[test]
     fn writevec() {
+        if !use_uring() {
+            return;
+        }
         async fn go<F: AsRawFd>(async_source: Box<dyn IoSourceExt<F>>) {
             let v = vec![0x55u8; 32];
             let v_ptr = v.as_ptr();
@@ -320,6 +343,9 @@ mod tests {
 
     #[test]
     fn readmem() {
+        if !use_uring() {
+            return;
+        }
         async fn go<F: AsRawFd>(async_source: Box<dyn IoSourceExt<F>>) {
             let mem = Arc::new(VecIoWrapper::from(vec![0x55u8; 8192]));
             let ret = async_source
@@ -360,6 +386,9 @@ mod tests {
 
     #[test]
     fn writemem() {
+        if !use_uring() {
+            return;
+        }
         async fn go<F: AsRawFd>(async_source: Box<dyn IoSourceExt<F>>) {
             let mem = Arc::new(VecIoWrapper::from(vec![0x55u8; 8192]));
             let ret = async_source
@@ -386,6 +415,9 @@ mod tests {
 
     #[test]
     fn read_u64s() {
+        if !use_uring() {
+            return;
+        }
         async fn go(async_source: File, ex: URingExecutor) -> u64 {
             let source = async_uring_from(async_source, &ex).unwrap();
             source.read_u64().await.unwrap()
@@ -399,7 +431,10 @@ mod tests {
 
     #[test]
     fn read_eventfds() {
-        use sys_util::EventFd;
+        if !use_uring() {
+            return;
+        }
+        use base::EventFd;
 
         async fn go<F: AsRawFd>(source: Box<dyn IoSourceExt<F>>) -> u64 {
             source.read_u64().await.unwrap()
@@ -422,6 +457,9 @@ mod tests {
 
     #[test]
     fn fsync() {
+        if !use_uring() {
+            return;
+        }
         async fn go<F: AsRawFd>(source: Box<dyn IoSourceExt<F>>) {
             let v = vec![0x55u8; 32];
             let v_ptr = v.as_ptr();

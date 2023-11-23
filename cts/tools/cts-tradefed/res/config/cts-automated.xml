@@ -32,4 +32,6 @@
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.HostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
     <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
 
+    <!-- Main CTS remains single device until decided otherwise for default automation -->
+    <option name="multi-devices-modules" value="EXCLUDE_ALL" />
 </configuration>

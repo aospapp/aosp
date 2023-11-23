@@ -14,5 +14,4 @@
 
 build = [
     "ModuleDefaults.bp",
-    "StubLibraries.bp",
 ]

@@ -18,6 +18,7 @@ import android.net.ParseException
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule
 import junit.framework.Assert.assertEquals
 import junit.framework.Assert.assertNull
@@ -27,6 +28,7 @@ import org.junit.runner.RunWith
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
+@ConnectivityModuleTest
 class ParseExceptionTest {
     @get:Rule
     val ignoreRule = DevSdkIgnoreRule(ignoreClassUpTo = Build.VERSION_CODES.R)

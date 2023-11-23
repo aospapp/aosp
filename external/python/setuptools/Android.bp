@@ -48,13 +48,7 @@ python_library {
     host_supported: true,
     srcs: [
         "pkg_resources/__init__.py",
-        "pkg_resources/py31compat.py",
         "pkg_resources/extern/**/*.py",
         "pkg_resources/_vendor/**/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
 }

@@ -507,8 +507,8 @@ TEST_F(PrefsTest, DeleteMultipleNamespaces) {
 
 class MockPrefsObserver : public PrefsInterface::ObserverInterface {
  public:
-  MOCK_METHOD1(OnPrefSet, void(const string&));
-  MOCK_METHOD1(OnPrefDeleted, void(const string& key));
+  MOCK_METHOD1(OnPrefSet, void(std::string_view));
+  MOCK_METHOD1(OnPrefDeleted, void(std::string_view));
 };
 
 TEST_F(PrefsTest, ObserversCalled) {

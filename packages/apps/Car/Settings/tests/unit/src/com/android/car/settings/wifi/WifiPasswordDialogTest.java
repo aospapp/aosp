@@ -50,7 +50,7 @@ import org.mockito.MockitoAnnotations;
 @RunWith(AndroidJUnit4.class)
 public class WifiPasswordDialogTest {
 
-    private static final String TEST_SSID = "test_ssid";
+    private static final String TEST_TITLE = "test_title";
 
     private WifiPasswordDialog mFragment;
     private FragmentManager mFragmentManager;
@@ -68,7 +68,7 @@ public class WifiPasswordDialogTest {
     public void setup() {
         MockitoAnnotations.initMocks(this);
         mFragmentManager = mActivityTestRule.getActivity().getSupportFragmentManager();
-        when(mMockWifiEntry.getSsid()).thenReturn(TEST_SSID);
+        when(mMockWifiEntry.getTitle()).thenReturn(TEST_TITLE);
     }
 
     @Test
@@ -76,7 +76,7 @@ public class WifiPasswordDialogTest {
         setUpDialog();
         View titleView = mFragment.getDialog().findViewById(com.android.internal.R.id.alertTitle);
         assertThat(titleView).isNotNull();
-        assertThat(((TextView) titleView).getText().toString()).isEqualTo(TEST_SSID);
+        assertThat(((TextView) titleView).getText().toString()).isEqualTo(TEST_TITLE);
     }
 
     @Test

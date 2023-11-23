@@ -17,7 +17,6 @@
 Script for exercising various ping scenarios
 
 """
-from acts.base_test import BaseTestClass
 
 import os
 import threading
@@ -27,12 +26,13 @@ from acts import signals
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
+from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
 from acts_contrib.test_utils.fuchsia import utils
 from acts.utils import rand_ascii_str
 
 
-class PingStressTest(BaseTestClass):
+class PingStressTest(AbstractDeviceWlanDeviceBaseTest):
     # Timeout for ping thread in seconds
     ping_thread_timeout_s = 60 * 5
 
@@ -47,20 +47,20 @@ class PingStressTest(BaseTestClass):
         super().setup_class()
 
         self.ssid = rand_ascii_str(10)
-        self.fd = self.fuchsia_devices[0]
-        self.wlan_device = create_wlan_device(self.fd)
-        self.ap = self.access_points[0]
-        setup_ap(access_point=self.ap,
+        self.dut = create_wlan_device(self.fuchsia_devices[0])
+        self.access_point = self.access_points[0]
+        setup_ap(access_point=self.access_point,
                  profile_name='whirlwind',
                  channel=hostapd_constants.AP_DEFAULT_CHANNEL_2G,
                  ssid=self.ssid,
                  setup_bridge=True)
-        self.wlan_device.associate(self.ssid)
+        self.dut.associate(self.ssid)
 
     def teardown_class(self):
-        self.wlan_device.disconnect()
-        self.wlan_device.reset_wifi()
-        self.ap.stop_all_aps()
+        self.dut.disconnect()
+        self.dut.reset_wifi()
+        self.download_ap_logs()
+        self.access_point.stop_all_aps()
 
     def send_ping(self,
                   dest_ip,
@@ -69,8 +69,8 @@ class PingStressTest(BaseTestClass):
                   timeout=1000,
                   size=25):
         self.log.info('Attempting to ping %s...' % dest_ip)
-        ping_result = self.wlan_device.can_ping(dest_ip, count, interval,
-                                                timeout, size)
+        ping_result = self.dut.can_ping(dest_ip, count, interval, timeout,
+                                        size)
         if ping_result:
             self.log.info('Ping was successful.')
         else:
@@ -83,7 +83,7 @@ class PingStressTest(BaseTestClass):
 
     def ping_thread(self, dest_ip):
         self.log.info('Attempting to ping %s...' % dest_ip)
-        ping_result = self.wlan_device.can_ping(dest_ip, count=10, size=50)
+        ping_result = self.dut.can_ping(dest_ip, count=10, size=50)
         if ping_result:
             self.log.info('Success pinging: %s' % dest_ip)
         else:
@@ -98,7 +98,7 @@ class PingStressTest(BaseTestClass):
         return self.send_ping('127.0.0.1')
 
     def test_ping_AP(self):
-        return self.send_ping(self.ap.ssh_settings.hostname)
+        return self.send_ping(self.access_point.ssh_settings.hostname)
 
     def test_ping_with_params(self):
         return self.send_ping(self.google_dns_1,

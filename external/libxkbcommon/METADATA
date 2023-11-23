@@ -7,14 +7,15 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/xkbcommon/libxkbcommon/archive/xkbcommon-1.0.3.tar.gz"
+    value: "https://xkbcommon.org/download/libxkbcommon-1.4.0.tar.xz"
   }
-  version: "xkbcommon-1.0.3"
-  # would be NOTICE save for test/evdev-scancodes.h
+  version: "xkbcommon-1.4.0"
+  license_note: "would be NOTICE save for test/evdev-scancodes.h"
   license_type: RESTRICTED
   last_upgrade_date {
-    year: 2020
-    month: 11
-    day: 24
+    year: 2022
+    month: 4
+    day: 22
   }
+  local_modifications: "atom_intern() in atom.c is modified to suppress Wreturn-type warning."
 }

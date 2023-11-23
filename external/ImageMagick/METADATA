@@ -16,4 +16,7 @@ third_party {
     month: 4
     day: 12
   }
+  security {
+      tag: "NVD-CPE2.3:cpe:/a:imagemagick:imagemagick:7.0.11-0"
+  }
 }

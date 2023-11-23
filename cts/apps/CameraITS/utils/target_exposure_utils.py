@@ -69,71 +69,71 @@ def get_target_exposure_combos(output_path, its_session=None):
 
     # Combo 1: smallest legal exposure time.
     e1_expt = exp_time_range[0]
-    e1_sens = exposure / e1_expt
+    e1_sens = int(exposure / e1_expt)
     if e1_sens > sens_range[1]:
       e1_sens = sens_range[1]
-      e1_expt = exposure / e1_sens
-    e1_logging = (f'e1 exp: {e1_expt}, sens: {e1_sens}')
+      e1_expt = int(exposure / e1_sens)
+    e1_logging = (f'MinExp exp: {e1_expt}, sens: {e1_sens}')
     logging.debug('%s', e1_logging)
 
     # Combo 2: largest legal exposure time.
     e2_expt = exp_time_range[1]
-    e2_sens = exposure / e2_expt
+    e2_sens = int(exposure / e2_expt)
     if e2_sens < sens_range[0]:
       e2_sens = sens_range[0]
-      e2_expt = exposure / e2_sens
-    e2_logging = (f'e2 exp: {e2_expt}, sens: {e2_sens}')
+      e2_expt = int(exposure / e2_sens)
+    e2_logging = (f'MaxExp exp: {e2_expt}, sens: {e2_sens}')
     logging.debug('%s', e2_logging)
 
     # Combo 3: smallest legal sensitivity.
     e3_sens = sens_range[0]
-    e3_expt = exposure / e3_sens
+    e3_expt = int(exposure / e3_sens)
     if e3_expt > exp_time_range[1]:
       e3_expt = exp_time_range[1]
-      e3_sens = exposure / e3_expt
-    e3_logging = (f'e3 exp: {e3_expt}, sens: {e3_sens}')
+      e3_sens = int(exposure / e3_expt)
+    e3_logging = (f'MinISO exp: {e3_expt}, sens: {e3_sens}')
     logging.debug('%s', e3_logging)
 
     # Combo 4: largest legal sensitivity.
     e4_sens = sens_range[1]
-    e4_expt = exposure / e4_sens
+    e4_expt = int(exposure / e4_sens)
     if e4_expt < exp_time_range[0]:
       e4_expt = exp_time_range[0]
-      e4_sens = exposure / e4_expt
-    e4_logging = (f'e4 exp: {e4_expt}, sens: {e4_sens}')
+      e4_sens = int(exposure / e4_expt)
+    e4_logging = (f'MaxISO exp: {e4_expt}, sens: {e4_sens}')
     logging.debug('%s', e4_logging)
 
     # Combo 5: middle exposure time.
-    e5_expt = (exp_time_range[0] + exp_time_range[1]) / 2.0
-    e5_sens = exposure / e5_expt
+    e5_expt = int((exp_time_range[0] + exp_time_range[1]) / 2.0)
+    e5_sens = int(exposure / e5_expt)
     if e5_sens > sens_range[1]:
       e5_sens = sens_range[1]
-      e5_expt = exposure / e5_sens
+      e5_expt = int(exposure / e5_sens)
     if e5_sens < sens_range[0]:
       e5_sens = sens_range[0]
-      e5_expt = exposure / e5_sens
-    e5_logging = (f'e5 exp: {e5_expt}, sens: {e5_sens}')
+      e5_expt = int(exposure / e5_sens)
+    e5_logging = (f'MidExp exp: {e5_expt}, sens: {e5_sens}')
     logging.debug('%s', e5_logging)
 
     # Combo 6: middle sensitivity.
-    e6_sens = (sens_range[0] + sens_range[1]) / 2.0
-    e6_expt = exposure / e6_sens
+    e6_sens = int((sens_range[0] + sens_range[1]) / 2.0)
+    e6_expt = int(exposure / e6_sens)
     if e6_expt > exp_time_range[1]:
       e6_expt = exp_time_range[1]
-      e6_sens = exposure / e6_expt
+      e6_sens = int(exposure / e6_expt)
     if e6_expt < exp_time_range[0]:
       e6_expt = exp_time_range[0]
-      e6_sens = exposure / e6_expt
-    e6_logging = (f'e6 exp: {e6_expt}, sens: {e6_sens}')
+      e6_sens = int(exposure / e6_expt)
+    e6_logging = (f'MidISO exp: {e6_expt}, sens: {e6_sens}')
     logging.debug('%s', e6_logging)
 
     return {
-        'minExposureTime': (int(e1_expt), int(e1_sens)),
-        'maxExposureTime': (int(e2_expt), int(e2_sens)),
-        'minSensitivity': (int(e3_expt), int(e3_sens)),
-        'maxSensitivity': (int(e4_expt), int(e4_sens)),
-        'midExposureTime': (int(e5_expt), int(e5_sens)),
-        'midSensitivity': (int(e6_expt), int(e6_sens))
+        'minExposureTime': (e1_expt, e1_sens),
+        'maxExposureTime': (e2_expt, e2_sens),
+        'minSensitivity': (e3_expt, e3_sens),
+        'maxSensitivity': (e4_expt, e4_sens),
+        'midExposureTime': (e5_expt, e5_sens),
+        'midSensitivity': (e6_expt, e6_sens)
     }
 
 

@@ -9,9 +9,8 @@
 # resume-on-reboot
 /dev/block/pmem0 0770 system system
 
-# vtpm
-/dev/tpm0 0000 root root
-/dev/tpmrm0 000 system system
+# hwcomposer
+/dev/block/pmem1 0770 system system
 
 # seriallogging
 /dev/hvc2 0660 system logd
@@ -26,7 +25,12 @@
 /dev/hvc5 0660 bluetooth bluetooth
 /dev/vhci 0660 bluetooth bluetooth
 
+# gnss hal can access hvc6/hvc7
+/dev/hvc6 0666 system system
+/dev/hvc7 0666 system system
+# gnss0/gnss1 are symlinks of hvc6/hvc7
 /dev/gnss0 0666 system system
+/dev/gnss1 0666 system system
 
 # Factory Reset Protection
 /dev/block/by-name/frp 0660 system system

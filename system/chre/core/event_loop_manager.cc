@@ -34,7 +34,7 @@ Nanoapp *EventLoopManager::validateChreApiCall(const char *functionName) {
   return currentNanoapp;
 }
 
-uint32_t EventLoopManager::getNextInstanceId() {
+uint16_t EventLoopManager::getNextInstanceId() {
   ++mLastInstanceId;
 
   // ~4 billion instance IDs should be enough for anyone... if we need to
@@ -69,6 +69,10 @@ void EventLoopManager::lateInit() {
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
   mAudioRequestManager.init();
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
+
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+  mBleRequestManager.init();
+#endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
 // Explicitly instantiate the EventLoopManagerSingleton to reduce codesize.

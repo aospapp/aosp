@@ -24,6 +24,7 @@ import android.net.wifi.aware.DiscoverySessionCallback;
 import android.net.wifi.aware.IdentityChangedListener;
 import android.net.wifi.aware.PeerHandle;
 import android.net.wifi.aware.PublishDiscoverySession;
+import android.net.wifi.aware.ServiceDiscoveryInfo;
 import android.net.wifi.aware.SubscribeDiscoverySession;
 import android.net.wifi.aware.WifiAwareSession;
 import android.net.wifi.rtt.RangingResult;
@@ -190,6 +191,8 @@ public class CallbackUtils {
             public List<byte[]> matchFilter;
             public int messageId;
             public int distanceMm;
+            public int cipherSuite;
+            public byte[] scid;
         }
 
         private CountDownLatch mBlocker = null;
@@ -325,6 +328,17 @@ public class CallbackUtils {
         }
 
         @Override
+        public void onServiceDiscovered(ServiceDiscoveryInfo info) {
+            CallbackData callbackData = new CallbackData(ON_SERVICE_DISCOVERED);
+            callbackData.peerHandle = info.getPeerHandle();
+            callbackData.serviceSpecificInfo = info.getServiceSpecificInfo();
+            callbackData.matchFilter = info.getMatchFilters();
+            callbackData.cipherSuite = info.getPeerCipherSuite();
+            callbackData.scid = info.getScid();
+            processCallback(callbackData);
+        }
+
+        @Override
         public void onServiceDiscoveredWithinRange(PeerHandle peerHandle,
                 byte[] serviceSpecificInfo,
                 List<byte[]> matchFilter, int distanceMm) {
@@ -332,6 +346,18 @@ public class CallbackUtils {
             callbackData.peerHandle = peerHandle;
             callbackData.serviceSpecificInfo = serviceSpecificInfo;
             callbackData.matchFilter = matchFilter;
+            callbackData.distanceMm = distanceMm;
+            processCallback(callbackData);
+        }
+
+        @Override
+        public void onServiceDiscoveredWithinRange(ServiceDiscoveryInfo info, int distanceMm) {
+            CallbackData callbackData = new CallbackData(ON_SERVICE_DISCOVERED_WITH_RANGE);
+            callbackData.peerHandle = info.getPeerHandle();
+            callbackData.serviceSpecificInfo = info.getServiceSpecificInfo();
+            callbackData.matchFilter = info.getMatchFilters();
+            callbackData.cipherSuite = info.getPeerCipherSuite();
+            callbackData.scid = info.getScid();
             callbackData.distanceMm = distanceMm;
             processCallback(callbackData);
         }

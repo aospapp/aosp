@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "gdbstub_arch"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 description = "Implementations of `gdbstub::arch::Arch` for various architectures."
 homepage = "https://github.com/daniel5151/gdbstub"

@@ -19,6 +19,8 @@
      package="android.appenumeration.filters">
     <application>
         <uses-library android:name="android.test.runner"/>
+        <activity android:name="android.appenumeration.cts.TestActivity"
+                  android:exported="true" />
         <activity android:name="android.appenumeration.testapp.DummyActivity"
              android:visibleToInstantApps="true"
              android:exported="true">

@@ -55,14 +55,10 @@ std::string TargetFilesZip(const FetcherConfig& fetcher_config,
 
 const std::string kMiscInfoPath = "META/misc_info.txt";
 const std::set<std::string> kDefaultTargetImages = {
-  "IMAGES/boot.img",
-  "IMAGES/odm.img",
-  "IMAGES/odm_dlkm.img",
-  "IMAGES/recovery.img",
-  "IMAGES/userdata.img",
-  "IMAGES/vbmeta.img",
-  "IMAGES/vendor.img",
-  "IMAGES/vendor_dlkm.img",
+    "IMAGES/boot.img",        "IMAGES/init_boot.img", "IMAGES/odm.img",
+    "IMAGES/odm_dlkm.img",    "IMAGES/recovery.img",  "IMAGES/userdata.img",
+    "IMAGES/vbmeta.img",      "IMAGES/vendor.img",    "IMAGES/vendor_dlkm.img",
+    "IMAGES/system_dlkm.img",
 };
 const std::set<std::string> kDefaultTargetBuildProp = {
   "ODM/build.prop",
@@ -133,7 +129,8 @@ bool CombineTargetZipFiles(const std::string& default_target_zip,
   auto output_misc = default_misc;
   auto system_super_partitions = SuperPartitionComponents(system_misc);
   // Ensure specific skipped partitions end up in the misc_info.txt
-  for (auto partition : {"odm", "odm_dlkm", "vendor", "vendor_dlkm"}) {
+  for (auto partition :
+       {"odm", "odm_dlkm", "vendor", "vendor_dlkm", "system_dlkm"}) {
     if (std::find(system_super_partitions.begin(), system_super_partitions.end(),
                   partition) == system_super_partitions.end()) {
       system_super_partitions.push_back(partition);
@@ -241,10 +238,7 @@ bool BuildSuperImage(const std::string& combined_target_zip,
   }) == 0;
 }
 
-} // namespace
-
-bool SuperImageNeedsRebuilding(const FetcherConfig& fetcher_config,
-                               const CuttlefishConfig&) {
+bool SuperImageNeedsRebuilding(const FetcherConfig& fetcher_config) {
   bool has_default_build = false;
   bool has_system_build = false;
   for (const auto& file_iter : fetcher_config.get_cvd_files()) {
@@ -286,6 +280,52 @@ bool RebuildSuperImage(const FetcherConfig& fetcher_config,
     LOG(ERROR) << "Could not write the final output super image.";
   }
   return success;
+}
+
+class SuperImageOutputPathTag {};
+
+class SuperImageRebuilderImpl : public SuperImageRebuilder {
+ public:
+  INJECT(SuperImageRebuilderImpl(const FetcherConfig& fetcher_config,
+                                 const CuttlefishConfig& config,
+                                 ANNOTATED(SuperImageOutputPathTag, std::string)
+                                     output_path))
+      : fetcher_config_(fetcher_config),
+        config_(config),
+        output_path_(output_path) {}
+
+  std::string Name() const override { return "SuperImageRebuilderImpl"; }
+  bool Enabled() const override { return true; }
+
+ private:
+  std::unordered_set<SetupFeature*> Dependencies() const override { return {}; }
+  bool Setup() override {
+    if (SuperImageNeedsRebuilding(fetcher_config_)) {
+      bool success = RebuildSuperImage(fetcher_config_, config_, output_path_);
+      if (!success) {
+        LOG(ERROR)
+            << "Super image rebuilding requested but could not be completed.";
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const FetcherConfig& fetcher_config_;
+  const CuttlefishConfig& config_;
+  std::string output_path_;
+};
+
+}  // namespace
+
+fruit::Component<fruit::Required<const FetcherConfig, const CuttlefishConfig>,
+                 SuperImageRebuilder>
+SuperImageRebuilderComponent(const std::string* output_path) {
+  return fruit::createComponent()
+      .bindInstance<fruit::Annotated<SuperImageOutputPathTag, std::string>>(
+          *output_path)
+      .bind<SuperImageRebuilder, SuperImageRebuilderImpl>()
+      .addMultibinding<SetupFeature, SuperImageRebuilder>();
 }
 
 } // namespace cuttlefish

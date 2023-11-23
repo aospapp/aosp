@@ -528,6 +528,9 @@ public class MethodHandleCombinersTest extends TestCase {
         {
             MethodHandle constant = MethodHandles.constant(int.class, 56);
             assertEquals(56, (int) constant.invoke());
+            assertEquals(56, (int) constant.invokeExact());
+            assertEquals(Integer.valueOf(1),
+                         (Integer) MethodHandles.constant(Integer.class, 1).invokeExact());
 
             // short constant values are converted to int.
             constant = MethodHandles.constant(int.class, (short) 52);
@@ -618,6 +621,33 @@ public class MethodHandleCombinersTest extends TestCase {
             MethodHandle constant = MethodHandles.constant(String.class, "256.0");
             assertEquals("256.0", (String) constant.invoke());
         }
+    }
+
+    public static void testZero() throws Throwable {
+        assertEquals(false, (boolean) MethodHandles.zero(boolean.class).invokeExact());
+        assertEquals((byte) 0, (byte) MethodHandles.zero(byte.class).invokeExact());
+        assertEquals((char) 0, (char) MethodHandles.zero(char.class).invokeExact());
+        assertEquals((short) 0, (short) MethodHandles.zero(short.class).invokeExact());
+        assertEquals(0, (int) MethodHandles.zero(int.class).invokeExact());
+        assertEquals(0L, (long) MethodHandles.zero(long.class).invokeExact());
+        assertEquals(0.0f, (float) MethodHandles.zero(float.class).invokeExact());
+        assertEquals(0.0, (double) MethodHandles.zero(double.class).invokeExact());
+        assertEquals(null, MethodHandles.zero(Object.class).invokeExact());
+        assertEquals(null, (Integer) MethodHandles.zero(Integer.class).invokeExact());
+        assertEquals(null, (String) MethodHandles.zero(String.class).invokeExact());
+
+        assertEquals(Boolean.valueOf(false), (Boolean) MethodHandles.zero(boolean.class).invoke());
+        assertEquals(Byte.valueOf((byte) 0), (Byte) MethodHandles.zero(byte.class).invoke());
+        assertEquals(Character.valueOf((char) 0),
+                     (Character) MethodHandles.zero(char.class).invoke());
+        assertEquals(Short.valueOf((short) 0), (Short) MethodHandles.zero(short.class).invoke());
+        assertEquals(Integer.valueOf(0), (Integer) MethodHandles.zero(int.class).invoke());
+        assertEquals(Long.valueOf(0L), (Long) MethodHandles.zero(long.class).invoke());
+        assertEquals(Float.valueOf(0.0f), (Float) MethodHandles.zero(float.class).invoke());
+        assertEquals(Double.valueOf(0.0), (Double) MethodHandles.zero(double.class).invoke());
+        assertEquals(null, MethodHandles.zero(Object.class).invoke());
+        assertEquals(null, (Integer) MethodHandles.zero(Integer.class).invoke());
+        assertEquals(null, (String) MethodHandles.zero(String.class).invoke());
     }
 
     public static void testBindTo() throws Throwable {
@@ -854,11 +884,8 @@ public class MethodHandleCombinersTest extends TestCase {
 
         MethodHandle exactInvoker = MethodHandles.exactInvoker(target.type());
         assertEquals("barbar", (String) exactInvoker.invoke(target, "bar", "bar"));
-        try {
-            String foo = (String) exactInvoker.invoke(target, (Object) returnBar(), "bar");
-            fail();
-        } catch (WrongMethodTypeException expected) {
-        }
+        assertEquals("barbar", (String) exactInvoker.invoke(target, (Object) returnBar(), "bar"));
+
         try {
             String foo = (String) exactInvoker.invoke(target, "bar", "bar", 24);
             fail();

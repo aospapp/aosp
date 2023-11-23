@@ -348,7 +348,8 @@ int ExynosVirtualDisplay::setReleaseFences()
     ret = ExynosDisplay::setReleaseFences();
 
     mOutputBufferReleaseFenceFd = hwcCheckFenceDebug(this, FENCE_TYPE_RETIRE, FENCE_IP_G2D, mExynosCompositionInfo.mAcquireFence);
-    setFenceInfo(mExynosCompositionInfo.mAcquireFence, this, FENCE_TYPE_RETIRE, FENCE_IP_G2D, FENCE_TO);
+    setFenceInfo(mExynosCompositionInfo.mAcquireFence, this, FENCE_TYPE_RETIRE, FENCE_IP_G2D,
+                 HwcFenceDirection::TO);
     mExynosCompositionInfo.mAcquireFence = -1;
     /* mClientCompositionInfo.mAcquireFence is delivered to G2D */
     mClientCompositionInfo.mAcquireFence = -1;
@@ -505,12 +506,14 @@ void ExynosVirtualDisplay::handleAcquireFence()
         if (layer->mValidateCompositionType == HWC2_COMPOSITION_DEVICE ||
             layer->mValidateCompositionType == HWC2_COMPOSITION_EXYNOS) {
             layer->mReleaseFence = layer->mAcquireFence;
-            setFenceInfo(layer->mAcquireFence, this, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_LAYER, FENCE_TO);
+            setFenceInfo(layer->mAcquireFence, this, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_LAYER,
+                         HwcFenceDirection::TO);
             layer->mAcquireFence = -1;
         }
     }
     mClientCompositionInfo.mReleaseFence = mClientCompositionInfo.mAcquireFence;
-    setFenceInfo(mClientCompositionInfo.mAcquireFence, this, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_FB, FENCE_TO);
+    setFenceInfo(mClientCompositionInfo.mAcquireFence, this, FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_FB,
+                 HwcFenceDirection::TO);
     mClientCompositionInfo.mAcquireFence = -1;
 
     mOutputBufferReleaseFenceFd = mOutputBufferAcquireFenceFd;

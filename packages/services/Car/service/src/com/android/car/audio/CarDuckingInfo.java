@@ -16,14 +16,15 @@
 
 package com.android.car.audio;
 
+import static android.car.builtin.media.AudioManagerHelper.usageToXsdString;
+
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
 import android.hardware.automotive.audiocontrol.DuckingInfo;
-import android.media.AudioAttributes;
-import android.util.IndentingPrintWriter;
 
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 import java.util.List;
 import java.util.Objects;
@@ -57,7 +58,7 @@ public final class CarDuckingInfo {
         duckingInfo.deviceAddressesToUnduck = mAddressesToUnduck.toArray(new String[0]);
         String[] usageStrings = new String[mUsagesHoldingFocus.length];
         for (int i = 0; i < mUsagesHoldingFocus.length; i++) {
-            usageStrings[i] = AudioAttributes.usageToXsdString(mUsagesHoldingFocus[i]);
+            usageStrings[i] = usageToXsdString(mUsagesHoldingFocus[i]);
         }
         duckingInfo.usagesHoldingFocus = usageStrings;
 
@@ -75,7 +76,7 @@ public final class CarDuckingInfo {
         writer.println("Usages holding focus:");
         writer.increaseIndent();
         for (int usage : mUsagesHoldingFocus) {
-            writer.printf("%s, ", AudioAttributes.usageToXsdString(usage));
+            writer.printf("%s, ", usageToXsdString(usage));
         }
         writer.decreaseIndent();
         writer.println();

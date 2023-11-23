@@ -32,5 +32,6 @@ java_library {
         "androidx.annotation_annotation",
     ],
     sdk_version: "current",
+    min_sdk_version: "Tiramisu",
     apex_available: ["com.android.appsearch"],
 }

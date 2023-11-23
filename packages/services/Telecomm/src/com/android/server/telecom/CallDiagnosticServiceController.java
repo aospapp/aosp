@@ -60,7 +60,7 @@ public class CallDiagnosticServiceController extends CallsManagerListenerBase {
      */
     public interface ContextProxy {
         List<ResolveInfo> queryIntentServicesAsUser(@NonNull Intent intent,
-                @PackageManager.ResolveInfoFlags int flags, @UserIdInt int userId);
+                int resolveInfoFlags, @UserIdInt int userId);
         boolean bindServiceAsUser(@NonNull @RequiresPermission Intent service,
                 @NonNull ServiceConnection conn, int flags, @NonNull UserHandle user);
         void unbindService(@NonNull ServiceConnection conn);

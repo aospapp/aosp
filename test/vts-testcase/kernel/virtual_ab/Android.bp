@@ -19,7 +19,9 @@ package {
 cc_test {
     name: "vts_virtual_ab_test",
     require_root: true,
-    test_min_api_level: 30,
+    test_options: {
+        min_shipping_api_level: 30,
+    },
     srcs: [
         "metadata_test.cpp",
         "requirement.cpp",

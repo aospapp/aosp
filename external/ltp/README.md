@@ -37,8 +37,9 @@ on properly functioning systems, they are intended to find (or cause) problems.
 Quick guide to running the tests
 ================================
 
-If you have git, autoconf, automake, m4, the linux headers and the common
-developer packages installed, the chances are the following will work.
+If you have git, autoconf, automake, m4, pkgconf / pkg-config, libc headers,
+linux kernel headers and other common development packages installed (see
+INSTALL and travis/*.sh), the chances are the following will work:
 
 ```
 $ git clone https://github.com/linux-test-project/ltp.git
@@ -49,6 +50,9 @@ $ ./configure
 
 Now you can continue either with compiling and running a single test or with
 compiling and installing the whole testsuite.
+
+For optional library dependencies look into scripts for major distros in
+`travis/` directory. You can also build whole LTP with `./build.sh` script.
 
 Shortcut to running a single test
 ---------------------------------
@@ -103,6 +107,9 @@ dependencies.
   output.
 * If a tests fails due to a missing user or group, see the Quick Start section
   of `INSTALL`.
+
+Running tests
+-------------
 
 To run all the test suites
 
@@ -168,6 +175,12 @@ well.
 For more info see `doc/user-guide.txt` or online at
 https://github.com/linux-test-project/ltp/wiki/User-Guidelines.
 
+Network tests
+-------------
+Network tests require certain setup, described in `testcases/network/README.md`
+(online at https://github.com/linux-test-project/ltp/tree/master/testcases/network)
+and `INSTALL`.
+
 Developers corner
 =================
 
@@ -175,6 +188,7 @@ Before you start you should read following documents:
 
 * `doc/test-writing-guidelines.txt`
 * `doc/build-system-guide.txt`
+* `doc/library-api-writing-guidelines.txt`
 
 There is also a step-by-step tutorial:
 
@@ -184,7 +198,7 @@ If something is not covered there don't hesitate to ask on the LTP mailing
 list. Also note that these documents are available online at:
 
 * https://github.com/linux-test-project/ltp/wiki/Test-Writing-Guidelines
-* https://github.com/linux-test-project/ltp/wiki/Style-Guide
+* https://github.com/linux-test-project/ltp/wiki/LTP-Library-API-Writing-Guidelines
 * https://github.com/linux-test-project/ltp/wiki/Build-System
 * https://github.com/linux-test-project/ltp/wiki/C-Test-Case-Tutorial
 

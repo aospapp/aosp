@@ -23,7 +23,11 @@ namespace android {
 namespace vintf {
 
 /* libvintf meta-version */
-constexpr Version kMetaVersion{4, 0};
+constexpr Version kMetaVersion{5, 0};
+
+// Some legacy metaversion constants
+// The metaversion where inet transport is added to AIDL HALs
+constexpr Version kMetaVersionAidlInet{5, 0};
 
 // Default version for an AIDL HAL if no version is specified.
 constexpr size_t kDefaultAidlMinorVersion = 1;

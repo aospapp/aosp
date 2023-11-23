@@ -107,6 +107,12 @@ CompiledSubgraph* TpuCompilationCacheExternal::InitializeEntry(
 
   main_entry->initialization_status = initialization_status;
 
+  if (!initialization_status.ok()) {
+    // Compilation failure might caused the subsequent tpu_program_group init
+    // failed with assert error. Log the error here to make debugging easier.
+    LOG(ERROR) << initialization_status.error_message();
+  }
+
   // Add the entry to the uid index.
   auto uid_inserted = entries_by_uid_.insert(
       std::pair<int64, CompiledSubgraph*>(main_entry->uid, main_entry));
@@ -118,6 +124,11 @@ CompiledSubgraph* TpuCompilationCacheExternal::InitializeEntry(
     TpuProgramGroup sharding_programs;
     sharding_programs.Initialize(
         tpu_program_group.tpu_programs(TpuProgramShardingType::kSharding));
+
+    for (const auto& fingerprint : sharding_programs.fingerprints()) {
+      main_entry->sharding_key.emplace_back(fingerprint);
+    }
+
     PopulateEntry(key, main_entry->sharding_entry.get(),
                   std::move(sharding_programs));
 
@@ -132,7 +143,7 @@ CompiledSubgraph* TpuCompilationCacheExternal::InitializeEntry(
 
   PopulateEntry(key, main_entry, std::move(tpu_program_group));
 
-  for (int64 i = 0; i < main_entry->proto_key.size(); ++i) {
+  for (int64_t i = 0; i < main_entry->proto_key.size(); ++i) {
     auto entry_inserted = entries_by_proto_key_.insert(
         std::pair<std::string, std::pair<CompiledSubgraph*, int>>(
             main_entry->proto_key[i], std::make_pair(main_entry, i)));

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="2227320688818248940">"MusicFX"</string>
     <string name="no_effects" msgid="9023408561505030260">"האפקטים לא זמינים."</string>
-    <string name="eq_dialog_title" msgid="3237402214371962070">"אקולייזר"</string>
+    <string name="eq_dialog_title" msgid="3237402214371962070">"אקוולייזר"</string>
     <string name="headset_plug" msgid="1774198554148807517">"צריך לחבר אוזניות כדי לשמוע את האפקטים האלה."</string>
     <string name="bass_boost_strength" msgid="8643071340166812205">"הגברת הבס"</string>
     <string name="virtualizer_strength" msgid="2139410708760989842">"צליל סראונד"</string>

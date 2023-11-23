@@ -75,11 +75,9 @@ class ConsentUiHelperImpl implements ConsentUiHelper {
             animationResId = R.raw.consent_animation_do;
         }
 
-        final CustomizationParams customization = uiParams.customization;
         mCallback.onInitiateUi(
                 R.layout.intro,
-                headerResId,
-                customization);
+                headerResId);
 
         setupAnimation(animationResId);
         setupAcceptAndContinueButton();

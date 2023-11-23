@@ -122,12 +122,25 @@ def arch_normalized():
 
     machine = platform.machine()
     if machine.startswith(('arm', 'aarch')):
-        return machine.replace('aarch', 'arm')
+        machine = machine.replace('aarch', 'arm')
+        if machine == 'arm64':
+            return machine
+        return 'armv6l'
     if machine.endswith('64'):
         return 'amd64'
     if machine.endswith('86'):
         return '386'
     raise Exception('unrecognized arch: {}'.format(machine))
+
+
+def platform_arch_normalized():
+    platform_arch = '{}-{}'.format(platform_normalized(), arch_normalized())
+
+    # Support `mac-arm64` through Rosetta until `mac-arm64` binaries are ready
+    if platform_arch == 'mac-arm64':
+        platform_arch = 'mac-amd64'
+
+    return platform_arch
 
 
 def user_agent():
@@ -157,7 +170,7 @@ def actual_hash(path):
 def expected_hash():
     """Pulls expected hash from digests file."""
 
-    expected_plat = '{}-{}'.format(platform_normalized(), arch_normalized())
+    expected_plat = platform_arch_normalized()
 
     with open(DIGESTS_FILE, 'r') as ins:
         for line in ins:
@@ -220,7 +233,7 @@ brew uninstall python && brew install python
         print('=' * 70)
         raise
 
-    full_platform = '{}-{}'.format(platform_normalized(), arch_normalized())
+    full_platform = platform_arch_normalized()
     if full_platform not in SUPPORTED_PLATFORMS:
         raise UnsupportedPlatform(full_platform)
 
@@ -241,11 +254,20 @@ brew uninstall python && brew install python
                 '\n'
                 '    sudo pip install certifi\n'
                 '\n'
+                'And if on the system Python on a Mac try\n'
+                '\n'
+                '    /Applications/Python 3.6/Install Certificates.command\n'
+                '\n'
                 'If using Homebrew Python try\n'
                 '\n'
                 '    brew install openssl\n'
                 '    brew uninstall python\n'
                 '    brew install python\n'
+                '\n'
+                "If those don't work, address all the potential issues shown \n"
+                'by the following command.\n'
+                '\n'
+                '    brew doctor\n'
                 '\n'
                 "Otherwise, check that your machine's Python can use SSL, "
                 'testing with the httplib module on Python 2 or http.client on '
@@ -281,8 +303,8 @@ def bootstrap(client, silent=('PW_ENVSETUP_QUIET' in os.environ)):
         os.makedirs(client_dir)
 
     if not silent:
-        print('Bootstrapping cipd client for {}-{}'.format(
-            platform_normalized(), arch_normalized()))
+        print('Bootstrapping cipd client for {}'.format(
+            platform_arch_normalized()))
 
     tmp_path = client + '.tmp'
     with open(tmp_path, 'wb') as tmp:

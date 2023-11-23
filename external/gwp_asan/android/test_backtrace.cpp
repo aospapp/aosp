@@ -18,7 +18,10 @@
 #include "gwp_asan/optional/backtrace.h"
 #include "gwp_asan/optional/segv_handler.h"
 
-#include <unwindstack/LocalUnwinder.h>
+#include <unwindstack/Maps.h>
+#include <unwindstack/Memory.h>
+#include <unwindstack/Regs.h>
+#include <unwindstack/RegsGetLocal.h>
 #include <unwindstack/Unwinder.h>
 
 namespace {
@@ -32,19 +35,21 @@ namespace {
 // potentially more detailed stack frames in the allocation/deallocation traces
 // (as we don't use the production unwinder), but that's fine for test-only.
 size_t BacktraceUnwindstack(uintptr_t *TraceBuffer, size_t Size) {
-  unwindstack::LocalUnwinder unwinder;
-  if (!unwinder.Init()) {
+  unwindstack::LocalMaps maps;
+  if (!maps.Parse()) {
     return 0;
   }
-  std::vector<unwindstack::LocalFrameData> frames;
-  if (!unwinder.Unwind(&frames, Size)) {
-    return 0;
-  }
-  for (const auto &frame : frames) {
+
+  auto process_memory = unwindstack::Memory::CreateProcessMemoryThreadCached(getpid());
+  std::unique_ptr<unwindstack::Regs> regs(unwindstack::Regs::CreateFromLocal());
+  unwindstack::RegsGetLocal(regs.get());
+  unwindstack::Unwinder unwinder(Size, &maps, regs.get(), process_memory);
+  unwinder.Unwind();
+  for (const auto &frame : unwinder.frames()) {
     *TraceBuffer = frame.pc;
     TraceBuffer++;
   }
-  return frames.size();
+  return unwinder.NumFrames();
 }
 
 // We don't need any custom handling for the Segv backtrace - the unwindstack

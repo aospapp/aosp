@@ -24,7 +24,7 @@ class HideAnnotationTest : DriverTest() {
     fun `Using hide annotation with Kotlin source`() {
         check(
             expectedIssues = """
-                src/test/pkg/).kt:2: warning: Public class test.pkg.ExtendingMyHiddenClass stripped of unavailable superclass test.pkg.MyHiddenClass [HiddenSuperclass]
+                src/test/pkg/ExtendingMyHiddenClass.kt:3: warning: Public class test.pkg.ExtendingMyHiddenClass stripped of unavailable superclass test.pkg.MyHiddenClass [HiddenSuperclass]
             """,
             sourceFiles = arrayOf(
                 kotlin(
@@ -67,13 +67,112 @@ class HideAnnotationTest : DriverTest() {
             hideMetaAnnotations = arrayOf(
                 "test.pkg.MetaHide"
             ),
-            compatibilityMode = false,
             api = """
                 package test.pkg {
                   public class ExtendingMyHiddenClass<Float> {
                     ctor public ExtendingMyHiddenClass();
                   }
-                  @kotlin.annotation.Retention(kotlin.annotation.AnnotationRetention) @kotlin.annotation.Target(allowedTargets=kotlin.annotation.AnnotationTarget) public @interface MetaHide {
+                  @kotlin.annotation.Retention(kotlin.annotation.AnnotationRetention.BINARY) @kotlin.annotation.Target(allowedTargets=kotlin.annotation.AnnotationTarget.ANNOTATION_CLASS) public @interface MetaHide {
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Using hide annotation interface order`() {
+        check(
+            expectedIssues = """
+                src/test/pkg/InterfaceWithHiddenInterfaceFirst.java:2: warning: Public class test.pkg.InterfaceWithHiddenInterfaceFirst stripped of unavailable superclass test.pkg.HiddenInterface [HiddenSuperclass]
+                src/test/pkg/InterfaceWithVisibleInterfaceFirst.java:2: warning: Public class test.pkg.InterfaceWithVisibleInterfaceFirst stripped of unavailable superclass test.pkg.HiddenInterface [HiddenSuperclass]
+            """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    @Hide
+                    public @interface Hide {}
+                """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    @Hide
+                    public interface HiddenInterface {
+                      void hiddenInterfaceMethod();
+                    }
+                """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    public interface VisibleInterface {
+                      void visibleInterfaceMethod();
+                    }
+                """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    public interface InterfaceWithVisibleInterfaceFirst
+                        extends VisibleInterface, HiddenInterface {}
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    public interface InterfaceWithHiddenInterfaceFirst
+                        extends HiddenInterface, VisibleInterface {}
+                    """
+                )
+            ),
+            hideAnnotations = arrayOf(
+                "test.pkg.Hide"
+            ),
+            includeStrippedSuperclassWarnings = true,
+            api = """
+                package test.pkg {
+                  public interface InterfaceWithHiddenInterfaceFirst extends test.pkg.VisibleInterface {
+                  }
+                  public interface InterfaceWithVisibleInterfaceFirst extends test.pkg.VisibleInterface {
+                  }
+                  public interface VisibleInterface {
+                    method public void visibleInterfaceMethod();
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Using hide annotation on file scope`() {
+        check(
+            sourceFiles = arrayOf(
+                kotlin(
+                    """
+                        package test.pkg
+                        @Target(AnnotationTarget.FILE)
+                        annotation class HideFile
+                    """
+                ),
+                kotlin(
+                    """
+                        @file:HideFile
+                        package test.pkg
+
+                        fun hiddenTopLevelFunction() = 1
+                        var hiddenTopLevelProperty = 2
+                        class VisibleTopLevelClass
+                    """
+                )
+            ),
+            hideAnnotations = arrayOf("test.pkg.HideFile"),
+            api = """
+                package test.pkg {
+                  @kotlin.annotation.Target(allowedTargets=kotlin.annotation.AnnotationTarget.FILE) public @interface HideFile {
+                  }
+                  public final class VisibleTopLevelClass {
+                    ctor public VisibleTopLevelClass();
                   }
                 }
                 """

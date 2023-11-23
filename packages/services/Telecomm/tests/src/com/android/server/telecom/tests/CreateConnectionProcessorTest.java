@@ -21,6 +21,7 @@ import android.content.Context;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.UserHandle;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -41,6 +42,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
@@ -49,7 +51,10 @@ import org.mockito.stubbing.Answer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
@@ -546,6 +551,26 @@ public class CreateConnectionProcessorTest extends TelecomTestCase {
         verify(mMockCreateConnectionResponse).handleCreateConnectionSuccess(mockCallIdMapper, null);
     }
 
+    /**
+     * Ensures that a self-managed phone account won't be considered when attempting to place an
+     * emergency call.
+     */
+    @SmallTest
+    @Test
+    public void testDontAttemptSelfManaged() {
+        when(mMockCall.isEmergencyCall()).thenReturn(true);
+        when(mMockCall.isTestEmergencyCall()).thenReturn(false);
+        when(mMockCall.getHandle()).thenReturn(Uri.parse(""));
+
+        PhoneAccount selfManagedAcct = makePhoneAccount("sm-acct",
+                PhoneAccount.CAPABILITY_SELF_MANAGED
+                        | PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS);
+        phoneAccounts.add(selfManagedAcct);
+
+        mTestCreateConnectionProcessor.process();
+        verify(mMockCall, never()).setTargetPhoneAccount(any(PhoneAccountHandle.class));
+    }
+
     @SmallTest
     @Test
     public void testEmergencyCallSimFailToConnectionManager() throws Exception {
@@ -588,6 +613,71 @@ public class CreateConnectionProcessorTest extends TelecomTestCase {
         verify(mMockCall).setTargetPhoneAccount(eq(regularAccount.getAccountHandle()));
         verify(mMockCall).setConnectionService(eq(service));
         verify(service).createConnection(eq(mMockCall), any(CreateConnectionResponse.class));
+    }
+
+    /**
+     * Tests to verify that the
+     * {@link CreateConnectionProcessor#sortSimPhoneAccountsForEmergency(List, PhoneAccount)} can
+     * successfully sort without running into sort issues related to the hashcodes of the
+     * PhoneAccounts.
+     */
+    @Test
+    public void testSortIntegrity() {
+        // Note: 5L was chosen as a random seed on purpose since in combination with a count of
+        // 500 accounts it would result in a crash in the sort algorithm.
+        ArrayList<PhoneAccount> accounts = generateRandomPhoneAccounts(5L, 500);
+        try {
+            mTestCreateConnectionProcessor.sortSimPhoneAccountsForEmergency(accounts,
+                    null);
+        } catch (Exception e) {
+            fail("Failed to sort phone accounts");
+        }
+    }
+
+    /**
+     * Generates random phone accounts.
+     * @param seed random seed to use for random UUIDs; passed in for determinism.
+     * @param count How many phone accounts to use.
+     * @return Random phone accounts.
+     */
+    private ArrayList<PhoneAccount> generateRandomPhoneAccounts(long seed, int count) {
+        Random random = new Random(seed);
+        ArrayList<PhoneAccount> accounts = new ArrayList<>();
+        for (int ix = 0 ; ix < count; ix++) {
+            ArrayList<String> supportedSchemes = new ArrayList<>();
+            supportedSchemes.add("tel");
+            supportedSchemes.add("sip");
+            supportedSchemes.add("custom");
+
+            PhoneAccountHandle handle = new PhoneAccountHandle(
+                    ComponentName.unflattenFromString(
+                            "com.android.server.telecom.testapps/"
+                                    + "com.android.server.telecom.testapps"
+                                    + ".SelfManagedConnectionService"),
+                    getRandomUuid(random).toString(), new UserHandle(0));
+            PhoneAccount acct = new PhoneAccount.Builder(handle, "TelecommTests")
+                    .setAddress(Uri.fromParts("tel", "555-1212", null))
+                    .setCapabilities(3080)
+                    .setHighlightColor(0)
+                    .setShortDescription("test_" + ix)
+                    .setSupportedUriSchemes(supportedSchemes)
+                    .setIsEnabled(true)
+                    .setSupportedAudioRoutes(15)
+                    .build();
+            accounts.add(acct);
+        }
+        return accounts;
+    }
+
+    /**
+     * Returns a random UUID based on the passed in Random generator.
+     * @param random Random generator.
+     * @return The UUID.
+     */
+    private UUID getRandomUuid(Random random) {
+        byte[] array = new byte[16];
+        random.nextBytes(array);
+        return UUID.nameUUIDFromBytes(array);
     }
 
     private PhoneAccount makeEmergencyTestPhoneAccount(String id, int capabilities) {

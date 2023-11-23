@@ -32,6 +32,6 @@ class VisibleWindowsShownMoreThanOneConsecutiveEntry : BaseAssertion() {
         wmSubject: WindowManagerTraceSubject,
         layerSubject: LayersTraceSubject
     ) {
-        wmSubject.visibleWindowsShownMoreThanOneConsecutiveEntry()
+        wmSubject.visibleWindowsShownMoreThanOneConsecutiveEntry().forAllEntries()
     }
 }

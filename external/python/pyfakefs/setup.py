@@ -16,13 +16,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from typing import List
 
 from setuptools import setup, find_packages
 
-from pyfakefs.fake_filesystem import __version__
+from pyfakefs import __version__
 
 NAME = 'pyfakefs'
-REQUIRES = []
+REQUIRES: List[str] = []
 DESCRIPTION = ('pyfakefs implements a fake file system that mocks '
                'the Python file system modules.')
 
@@ -37,10 +38,12 @@ CLASSIFIERS = [
     'Environment :: Console',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
-    'Programming Language :: Python :: 3.5',
+    "Programming Language :: Python :: 3",
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Operating System :: POSIX',
@@ -50,6 +53,7 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Software Development :: Testing',
     'Topic :: System :: Filesystems',
+    'Framework :: Pytest',
 ]
 
 AUTHOR = 'Google'
@@ -72,13 +76,14 @@ params = dict(
     author_email=AUTHOR_EMAIL,
     maintainer=MAINTAINER,
     maintainer_email=MAINTAINER_EMAIL,
+    license='http://www.apache.org/licenses/LICENSE-2.0',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     keywords=KEYWORDS,
     url=URL,
     classifiers=CLASSIFIERS,
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     test_suite='pyfakefs.tests',
     packages=find_packages(exclude=['docs'])
 )

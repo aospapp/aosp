@@ -23,6 +23,7 @@ The idiomatic way to use atomic operations in Kotlin.
   * [User-defined extensions on atomics](#user-defined-extensions-on-atomics)
   * [Locks](#locks)
   * [Testing of lock-free data structures](#testing-lock-free-data-structures-on-jvm).
+  * [Tracing operations](#tracing-operations)
 
 ## Example
 
@@ -90,9 +91,7 @@ operations. They can be also atomically modified via `+=` and `-=` operators.
 
 ```kotlin
 private val _foo = atomic<T>(initial) // private atomic, convention is to name it with leading underscore
-public var foo: T                     // public val/var
-    get() = _foo.value
-    set(value) { _foo.value = value }
+public var foo: T by _foo            // public delegated property (val/var)
 ```  
 
 ## Gradle build setup
@@ -108,7 +107,7 @@ See [additional configuration](#additional-configuration) if that needs tweaking
 
 ```groovy
 buildscript {
-    ext.atomicfu_version = '0.14.3'
+    ext.atomicfu_version = '0.16.0'
 
     dependencies {
         classpath "org.jetbrains.kotlinx:atomicfu-gradle-plugin:$atomicfu_version"
@@ -156,7 +155,7 @@ There are the following additional parameters (with their defaults):
 
 ```groovy
 atomicfu {
-  dependenciesVersion = '0.14.3' // set to null to turn-off auto dependencies
+  dependenciesVersion = '0.16.0' // set to null to turn-off auto dependencies
   transformJvm = true // set to false to turn off JVM transformation
   transformJs = true // set to false to turn off JS transformation
   variant = "FU" // JVM transformation variant: FU,VH, or BOTH 
@@ -170,7 +169,7 @@ Declare AtomicFU version:
 
 ```xml
 <properties>
-     <atomicfu.version>0.14.3</atomicfu.version>
+     <atomicfu.version>0.16.0</atomicfu.version>
 </properties> 
 ```
 
@@ -338,3 +337,35 @@ execution of tests with the original (non-transformed) classes for Maven:
 ```
 
 For Gradle there is nothing else to add. Tests are always run using original (non-transformed) classes.
+
+### Tracing operations
+
+You can debug your tests tracing atomic operations with a special trace object:
+
+```kotlin
+private val trace = Trace()
+private val current = atomic(0, trace)
+
+fun update(x: Int): Int {           
+    // custom trace message
+    trace { "calling update($x)" }
+    // automatic tracing of modification operations 
+    return current.getAndAdd(x)
+}
+```      
+
+All trace messages are stored in a cyclic array inside `trace`. 
+ 
+You can optionally set the size of trace's message array and format function. For example, 
+you can add a current thread name to the traced messages:
+
+```kotlin
+private val trace = Trace(size = 64) {   
+    index, // index of a trace message 
+    text   // text passed when invoking trace { text }
+    -> "$index: [${Thread.currentThread().name}] $text" 
+} 
+```                           
+
+`trace` is only seen before transformation and completely erased after on Kotlin/JVM and Kotlin/JS.
+

@@ -33,9 +33,6 @@ import com.google.android.setupcompat.template.FooterButton;
  * it to their IT admin.
  */
 public class ResetAndReturnDeviceActivity extends SetupGlifLayoutActivity {
-    private FooterButton mCancelAndResetButton;
-    private ProvisioningParams mParams;
-    private ResetAndReturnDeviceActivityBridge mBridge;
 
     public ResetAndReturnDeviceActivity() {
         super();
@@ -50,18 +47,14 @@ public class ResetAndReturnDeviceActivity extends SetupGlifLayoutActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mParams = getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
-        mBridge = createBridge();
-        mBridge.initiateUi(this);
+        createBridge().initiateUi(this);
     }
 
     protected ResetAndReturnDeviceActivityBridge createBridge() {
         return ResetAndReturnDeviceActivityBridgeImpl.builder()
                 .setBridgeCallback(createBridgeCallback())
-                .setParams(mParams)
                 .setInitializeLayoutParamsConsumer(
                         ResetAndReturnDeviceActivity.this::initializeLayoutParams)
-                .setUtils(mUtils)
                 .build();
     }
 

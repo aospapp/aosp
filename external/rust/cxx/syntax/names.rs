@@ -9,7 +9,6 @@ use syn::punctuated::Punctuated;
 #[derive(Clone)]
 pub struct ForeignName {
     text: String,
-    span: Span,
 }
 
 impl Pair {
@@ -56,7 +55,7 @@ impl ForeignName {
         match syn::parse_str::<Ident>(text) {
             Ok(ident) => {
                 let text = ident.to_string();
-                Ok(ForeignName { text, span })
+                Ok(ForeignName { text })
             }
             Err(err) => Err(Error::new(span, err)),
         }
@@ -66,5 +65,11 @@ impl ForeignName {
 impl Display for ForeignName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str(&self.text)
+    }
+}
+
+impl PartialEq<str> for ForeignName {
+    fn eq(&self, rhs: &str) -> bool {
+        self.text == rhs
     }
 }

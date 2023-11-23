@@ -44,4 +44,13 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsAppWidgetLauncher2",
+        ":CtsAppWidgetProvider3",
+        ":CtsAppWidgetLauncher3",
+        ":CtsAppWidgetProvider1",
+        ":CtsAppWidgetLauncher1",
+        ":CtsAppWidgetProvider2",
+    ],
+    per_testcase_directory: true,
 }

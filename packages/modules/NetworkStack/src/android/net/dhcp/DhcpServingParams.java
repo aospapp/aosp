@@ -24,6 +24,7 @@ import static com.android.net.module.util.NetworkStackConstants.IPV4_MIN_MTU;
 
 import static java.lang.Integer.toUnsignedLong;
 
+import android.annotation.SuppressLint;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
 import android.util.ArraySet;
@@ -48,6 +49,8 @@ import java.util.Set;
 public class DhcpServingParams {
     public static final int MTU_UNSET = 0;
     public static final int MIN_PREFIX_LENGTH = 16;
+    // DhcpLeaseRepository ignores the first and last addresses of the range so it needs
+    // MAX_PREFIX_LENGTH to be <= 30.
     public static final int MAX_PREFIX_LENGTH = 30;
 
     /** Server inet address and prefix to serve */
@@ -98,6 +101,12 @@ public class DhcpServingParams {
     public final boolean changePrefixOnDecline;
 
     /**
+     * Indicate the leases dhcp serving range. leasesSubnetPrefixLength should be larger than
+     * the length of server address prefix and smaller than MAX_PREFIX_LENGTH.
+     */
+    public final int leasesSubnetPrefixLength;
+
+    /**
      * Checked exception thrown when some parameters used to build {@link DhcpServingParams} are
      * missing or invalid.
      */
@@ -111,7 +120,7 @@ public class DhcpServingParams {
             @NonNull Set<Inet4Address> defaultRouters,
             @NonNull Set<Inet4Address> dnsServers, @NonNull Set<Inet4Address> excludedAddrs,
             long dhcpLeaseTimeSecs, int linkMtu, boolean metered, Inet4Address singleClientAddr,
-            boolean changePrefixOnDecline) {
+            boolean changePrefixOnDecline, int leasesSubnetPrefixLength) {
         this.serverAddr = serverAddr;
         this.defaultRouters = defaultRouters;
         this.dnsServers = dnsServers;
@@ -121,6 +130,7 @@ public class DhcpServingParams {
         this.metered = metered;
         this.singleClientAddr = singleClientAddr;
         this.changePrefixOnDecline = changePrefixOnDecline;
+        this.leasesSubnetPrefixLength = leasesSubnetPrefixLength;
     }
 
     /**
@@ -150,6 +160,7 @@ public class DhcpServingParams {
                 .setMetered(parcel.metered)
                 .setSingleClientAddr(clientAddr)
                 .setChangePrefixOnDecline(parcel.changePrefixOnDecline)
+                .setLeasesSubnetPrefixLength(parcel.leasesSubnetPrefixLength)
                 .build();
     }
 
@@ -206,6 +217,7 @@ public class DhcpServingParams {
         private boolean mMetered;
         private Inet4Address mClientAddr;
         private boolean mChangePrefixOnDecline;
+        private int mLeasesSubnetPrefixLength;
 
         /**
          * Set the server address and served prefix for the DHCP server.
@@ -351,6 +363,16 @@ public class DhcpServingParams {
         }
 
         /**
+         * Set leases subnet prefix length.
+         *
+         * <p>If not set, the default value is the server prefix length.
+         */
+        public Builder setLeasesSubnetPrefixLength(int leasesSubnetPrefixLength) {
+            this.mLeasesSubnetPrefixLength = leasesSubnetPrefixLength;
+            return this;
+        }
+
+        /**
          * Create a new {@link DhcpServingParams} instance based on parameters set in the builder.
          *
          * <p>This method has no side-effects. If it does not throw, a valid
@@ -371,7 +393,8 @@ public class DhcpServingParams {
                 throw new InvalidParameterException("Missing dnsServers");
             }
             if (mDhcpLeaseTimeSecs <= 0 || mDhcpLeaseTimeSecs > toUnsignedLong(INFINITE_LEASE)) {
-                throw new InvalidParameterException("Invalid lease time: " + mDhcpLeaseTimeSecs);
+                throw new InvalidParameterException(
+                        "Invalid lease time: " + mDhcpLeaseTimeSecs);
             }
             if (mLinkMtu != MTU_UNSET && (mLinkMtu < IPV4_MIN_MTU || mLinkMtu > IPV4_MAX_MTU)) {
                 throw new InvalidParameterException("Invalid link MTU: " + mLinkMtu);
@@ -392,6 +415,14 @@ public class DhcpServingParams {
                 }
             }
 
+            if (mLeasesSubnetPrefixLength == 0) {
+                mLeasesSubnetPrefixLength = mServerAddr.getPrefixLength();
+            } else if (mLeasesSubnetPrefixLength < mServerAddr.getPrefixLength()
+                    || mLeasesSubnetPrefixLength > MAX_PREFIX_LENGTH) {
+                throw new InvalidParameterException(
+                         "LeasesSubnetPrefix " + mLeasesSubnetPrefixLength + " is out of range");
+            }
+
             final Set<Inet4Address> excl = new HashSet<>();
             if (mExcludedAddrs != null) {
                 excl.addAll(mExcludedAddrs);
@@ -404,13 +435,15 @@ public class DhcpServingParams {
                     Collections.unmodifiableSet(new HashSet<>(mDefaultRouters)),
                     Collections.unmodifiableSet(new HashSet<>(mDnsServers)),
                     Collections.unmodifiableSet(excl),
-                    mDhcpLeaseTimeSecs, mLinkMtu, mMetered, mClientAddr, mChangePrefixOnDecline);
+                    mDhcpLeaseTimeSecs, mLinkMtu, mMetered, mClientAddr, mChangePrefixOnDecline,
+                    mLeasesSubnetPrefixLength);
         }
     }
 
     /**
      * Utility method to create an IpPrefix with the address and prefix length of a LinkAddress.
      */
+    @SuppressLint("NewApi")
     @NonNull
     static IpPrefix makeIpPrefix(@NonNull LinkAddress addr) {
         return new IpPrefix(addr.getAddress(), addr.getPrefixLength());

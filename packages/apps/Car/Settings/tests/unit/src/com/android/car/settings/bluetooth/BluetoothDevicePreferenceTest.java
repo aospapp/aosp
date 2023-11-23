@@ -19,14 +19,15 @@ package com.android.car.settings.bluetooth;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothClass;
-import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.os.Parcel;
 import android.os.SystemProperties;
 
 import androidx.preference.Preference;
@@ -34,7 +35,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.MultiActionPreference;
-import com.android.settingslib.bluetooth.BluetoothUtils;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
 import org.junit.Before;
@@ -49,6 +49,17 @@ public class BluetoothDevicePreferenceTest {
 
     private Context mContext = ApplicationProvider.getApplicationContext();
     private BluetoothDevicePreference mPreference;
+
+    private BluetoothClass createBtClass(int deviceClass) {
+        Parcel p = Parcel.obtain();
+        p.writeInt(deviceClass);
+        p.setDataPosition(0); // reset position of parcel before passing to constructor
+
+        BluetoothClass bluetoothClass = BluetoothClass.CREATOR.createFromParcel(p);
+        p.recycle();
+        return bluetoothClass;
+    }
+
 
     @Mock
     private CachedBluetoothDevice mCachedDevice;
@@ -90,7 +101,7 @@ public class BluetoothDevicePreferenceTest {
     public void onAttached_notConnected_setsCarConnectionSummaryAsSummary() {
         String summary = "summary";
         when(mCachedDevice.isConnected()).thenReturn(false);
-        when(mCachedDevice.getCarConnectionSummary()).thenReturn(summary);
+        when(mCachedDevice.getCarConnectionSummary(anyBoolean(), anyBoolean())).thenReturn(summary);
 
         mPreference.onAttached();
 
@@ -98,20 +109,20 @@ public class BluetoothDevicePreferenceTest {
     }
 
     @Test
-    public void onAttached_connected_setsConnectedAsSummary() {
+    public void onAttached_connected_setsCarConnectionSummaryAsSummary() {
         when(mCachedDevice.isConnected()).thenReturn(true);
+        String summary = "summary";
+        when(mCachedDevice.getCarConnectionSummary(anyBoolean(), anyBoolean())).thenReturn(summary);
 
         mPreference.onAttached();
 
-        assertThat(mPreference.getSummary()).isEqualTo(mContext.getString(BluetoothUtils
-                .getConnectionStateSummary(BluetoothProfile.STATE_CONNECTED),
-                /* appended text= */ ""));
+        assertThat(mPreference.getSummary()).isEqualTo(summary);
     }
 
     @Test
     public void onAttached_setsIcon() {
         when(mCachedDevice.getBtClass()).thenReturn(
-                new BluetoothClass(BluetoothClass.Device.Major.PHONE));
+                createBtClass(BluetoothClass.Device.Major.PHONE));
 
         mPreference.onAttached();
 
@@ -175,7 +186,7 @@ public class BluetoothDevicePreferenceTest {
         String name = "name";
         when(mCachedDevice.getName()).thenReturn(name);
         String summary = "summary";
-        when(mCachedDevice.getCarConnectionSummary()).thenReturn(summary);
+        when(mCachedDevice.getCarConnectionSummary(anyBoolean(), anyBoolean())).thenReturn(summary);
         when(mCachedDevice.isBusy()).thenReturn(false);
         ArgumentCaptor<CachedBluetoothDevice.Callback> callbackCaptor = ArgumentCaptor.forClass(
                 CachedBluetoothDevice.Callback.class);
@@ -189,7 +200,8 @@ public class BluetoothDevicePreferenceTest {
         String updatedName = "updatedName";
         when(mCachedDevice.getName()).thenReturn(updatedName);
         String updatedSummary = "updatedSummary";
-        when(mCachedDevice.getCarConnectionSummary()).thenReturn(updatedSummary);
+        when(mCachedDevice.getCarConnectionSummary(anyBoolean(), anyBoolean()))
+                .thenReturn(updatedSummary);
         when(mCachedDevice.isBusy()).thenReturn(true);
 
         callbackCaptor.getValue().onDeviceAttributesChanged();

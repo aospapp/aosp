@@ -13,26 +13,42 @@
 // the License.
 #pragma once
 
+#ifdef __cplusplus
+
 #include <cstdint>
 
+#include "pw_preprocessor/arch.h"
 #include "pw_preprocessor/compiler.h"
 
-namespace pw::cpu_exception {
+namespace pw::cpu_exception::cortex_m {
+
+// The PC, LR, and PSR registers are not captured when the program stack
+// pointer is in an MPU-protected or otherwise invalid memory region. In
+// these situations, the registers are set to 0xFFFF'FFFF to indicate they
+// are invalid.
+//
+// 0xFFFFFFFF is an illegal LR value, which is why it was selected for
+// this purpose. PC and PSR values of 0xFFFFFFFF are dubious too, so this
+// constant is clear enough at suggesting that the registers weren't
+// properly captured.
+constexpr uintptr_t kUndefinedPcLrOrPsrRegValue = 0xFFFF'FFFF;
 
 // This is dictated by ARMv7-M architecture. Do not change.
-PW_PACKED(struct) CortexMExceptionRegisters {
+struct ExceptionRegisters {
   uint32_t r0;
   uint32_t r1;
   uint32_t r2;
   uint32_t r3;
   uint32_t r12;
-  uint32_t lr;   // Link register.
-  uint32_t pc;   // Program counter.
-  uint32_t psr;  // Program status register.
+  uint32_t lr;   // Link register, note this may be invalid.
+  uint32_t pc;   // Program counter, note this may be invalid.
+  uint32_t psr;  // Program status register, note this may be invalid.
 };
+static_assert(sizeof(ExceptionRegisters) == (sizeof(uint32_t) * 8),
+              "There's unexpected padding.");
 
 // This is dictated by ARMv7-M architecture. Do not change.
-PW_PACKED(struct) CortexMExceptionRegistersFpu {
+struct ExceptionRegistersFpu {
   uint32_t s0;
   uint32_t s1;
   uint32_t s2;
@@ -52,6 +68,8 @@ PW_PACKED(struct) CortexMExceptionRegistersFpu {
   uint32_t fpscr;
   uint32_t reserved;
 };
+static_assert(sizeof(ExceptionRegistersFpu) == (sizeof(uint32_t) * 18),
+              "There's unexpected padding.");
 
 // Bit in the PSR that indicates CPU added an extra word on the stack to
 // align it during context save for an exception.
@@ -62,7 +80,7 @@ inline constexpr uint32_t kPsrExtraStackAlignBit = (1 << 9);
 // values are populated in assembly).
 //
 // NOTE: Memory mapped registers are NOT restored upon fault return!
-PW_PACKED(struct) CortexMExtraRegisters {
+struct ExtraRegisters {
   // Memory mapped registers.
   uint32_t cfsr;
   uint32_t mmfar;
@@ -75,6 +93,10 @@ PW_PACKED(struct) CortexMExtraRegisters {
   uint32_t msp;
   uint32_t psp;
   uint32_t control;
+#if _PW_ARCH_ARM_V8M_MAINLINE
+  uint32_t msplim;
+  uint32_t psplim;
+#endif  // _PW_ARCH_ARM_V8M_MAINLINE
   // General purpose registers.
   uint32_t r4;
   uint32_t r5;
@@ -85,13 +107,26 @@ PW_PACKED(struct) CortexMExtraRegisters {
   uint32_t r10;
   uint32_t r11;
 };
+static_assert(sizeof(ExtraRegisters) ==
+#if _PW_ARCH_ARM_V8M_MAINLINE
+                  (sizeof(uint32_t) * 20),
+#else   // !_PW_ARCH_ARM_V8M_MAINLINE
+                  (sizeof(uint32_t) * 18),
+#endif  // _PW_ARCH_ARM_V8M_MAINLINE
+              "There's unexpected padding.");
 
-}  // namespace pw::cpu_exception
+}  // namespace pw::cpu_exception::cortex_m
 
-PW_PACKED(struct) pw_cpu_exception_State {
-  pw::cpu_exception::CortexMExtraRegisters extended;
-  pw::cpu_exception::CortexMExceptionRegisters base;
+struct pw_cpu_exception_State {
+  pw::cpu_exception::cortex_m::ExtraRegisters extended;
+  pw::cpu_exception::cortex_m::ExceptionRegisters base;
   // TODO(amontanez): FPU registers may or may not be here as well. Make the
   // availability of the FPU registers a compile-time configuration when FPU
   // register support is added.
 };
+
+#else  // !__cplusplus
+
+typedef struct pw_cpu_exception_State pw_cpu_exception_State;
+
+#endif  // __cplusplus

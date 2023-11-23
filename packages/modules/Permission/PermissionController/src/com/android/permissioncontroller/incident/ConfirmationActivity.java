@@ -38,6 +38,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 
 import java.util.ArrayList;
@@ -197,6 +198,11 @@ public class ConfirmationActivity extends Activity implements OnClickListener, O
                 .create();
         if (Settings.canDrawOverlays(this)) {
             final Window w = dialog.getWindow();
+            if (SdkLevel.isAtLeastT()) {
+                WindowManager.LayoutParams lpm = new WindowManager.LayoutParams();
+                lpm.setSystemApplicationOverlay(true);
+                w.setAttributes(lpm);
+            }
             w.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
         }
         dialog.show();

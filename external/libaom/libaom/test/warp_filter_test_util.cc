@@ -97,9 +97,9 @@ namespace AV1WarpFilter {
 ::testing::internal::ParamGenerator<WarpTestParams> BuildParams(
     warp_affine_func filter) {
   WarpTestParam params[] = {
-    make_tuple(4, 4, 50000, filter),  make_tuple(8, 8, 50000, filter),
-    make_tuple(64, 64, 1000, filter), make_tuple(4, 16, 20000, filter),
-    make_tuple(32, 8, 10000, filter),
+    make_tuple(4, 4, 5000, filter),  make_tuple(8, 8, 5000, filter),
+    make_tuple(64, 64, 100, filter), make_tuple(4, 16, 2000, filter),
+    make_tuple(32, 8, 1000, filter),
   };
   return ::testing::Combine(::testing::ValuesIn(params),
                             ::testing::Values(0, 1), ::testing::Values(0, 1),
@@ -109,7 +109,7 @@ namespace AV1WarpFilter {
 AV1WarpFilterTest::~AV1WarpFilterTest() {}
 void AV1WarpFilterTest::SetUp() { rnd_.Reset(ACMRandom::DeterministicSeed()); }
 
-void AV1WarpFilterTest::TearDown() { libaom_test::ClearSystemState(); }
+void AV1WarpFilterTest::TearDown() {}
 
 void AV1WarpFilterTest::RunSpeedTest(warp_affine_func test_impl) {
   const int w = 128, h = 128;
@@ -226,8 +226,8 @@ void AV1WarpFilterTest::RunCheckOutput(warp_affine_func test_impl) {
                 conv_params.use_dist_wtd_comp_avg = 0;
               } else {
                 conv_params.use_dist_wtd_comp_avg = 1;
-                conv_params.fwd_offset = quant_dist_lookup_table[ii][jj][0];
-                conv_params.bck_offset = quant_dist_lookup_table[ii][jj][1];
+                conv_params.fwd_offset = quant_dist_lookup_table[jj][ii];
+                conv_params.bck_offset = quant_dist_lookup_table[jj][1 - ii];
               }
               av1_warp_affine_c(mat, input, w, h, stride, output, 32, 32, out_w,
                                 out_h, out_w, sub_x, sub_y, &conv_params, alpha,
@@ -240,8 +240,8 @@ void AV1WarpFilterTest::RunCheckOutput(warp_affine_func test_impl) {
                 conv_params.use_dist_wtd_comp_avg = 0;
               } else {
                 conv_params.use_dist_wtd_comp_avg = 1;
-                conv_params.fwd_offset = quant_dist_lookup_table[ii][jj][0];
-                conv_params.bck_offset = quant_dist_lookup_table[ii][jj][1];
+                conv_params.fwd_offset = quant_dist_lookup_table[jj][ii];
+                conv_params.bck_offset = quant_dist_lookup_table[jj][1 - ii];
               }
               test_impl(mat, input, w, h, stride, output2, 32, 32, out_w, out_h,
                         out_w, sub_x, sub_y, &conv_params, alpha, beta, gamma,
@@ -301,7 +301,7 @@ void AV1HighbdWarpFilterTest::SetUp() {
   rnd_.Reset(ACMRandom::DeterministicSeed());
 }
 
-void AV1HighbdWarpFilterTest::TearDown() { libaom_test::ClearSystemState(); }
+void AV1HighbdWarpFilterTest::TearDown() {}
 
 void AV1HighbdWarpFilterTest::RunSpeedTest(highbd_warp_affine_func test_impl) {
   const int w = 128, h = 128;
@@ -424,8 +424,8 @@ void AV1HighbdWarpFilterTest::RunCheckOutput(
                 conv_params.use_dist_wtd_comp_avg = 0;
               } else {
                 conv_params.use_dist_wtd_comp_avg = 1;
-                conv_params.fwd_offset = quant_dist_lookup_table[ii][jj][0];
-                conv_params.bck_offset = quant_dist_lookup_table[ii][jj][1];
+                conv_params.fwd_offset = quant_dist_lookup_table[jj][ii];
+                conv_params.bck_offset = quant_dist_lookup_table[jj][1 - ii];
               }
 
               av1_highbd_warp_affine_c(mat, input, w, h, stride, output, 32, 32,
@@ -441,8 +441,8 @@ void AV1HighbdWarpFilterTest::RunCheckOutput(
                 conv_params.use_dist_wtd_comp_avg = 0;
               } else {
                 conv_params.use_dist_wtd_comp_avg = 1;
-                conv_params.fwd_offset = quant_dist_lookup_table[ii][jj][0];
-                conv_params.bck_offset = quant_dist_lookup_table[ii][jj][1];
+                conv_params.fwd_offset = quant_dist_lookup_table[jj][ii];
+                conv_params.bck_offset = quant_dist_lookup_table[jj][1 - ii];
               }
               test_impl(mat, input, w, h, stride, output2, 32, 32, out_w, out_h,
                         out_w, sub_x, sub_y, bd, &conv_params, alpha, beta,

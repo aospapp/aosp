@@ -17,12 +17,13 @@
 #ifndef MINIKIN_LOCALE_LIST_H
 #define MINIKIN_LOCALE_LIST_H
 
+#include <hb.h>
+
 #include <string>
 #include <vector>
 
-#include <hb.h>
-
 #include "StringPiece.h"
+#include "minikin/LineBreakStyle.h"
 
 namespace minikin {
 
@@ -63,14 +64,6 @@ enum class EmojiStyle : uint8_t {
     TEXT = 3,     // Text (black/white) emoji style is specified.
 };
 
-// Enum for line break style.
-enum class LineBreakStyle : uint8_t {
-    EMPTY = 0,   // No line break style is specified.
-    LOOSE = 1,   // line break style is loose.
-    NORMAL = 2,  // line break style is normal.
-    STRICT = 3,  // line break style is strict.
-};
-
 // Locale is a compact representation of a BCP 47 language tag.
 // It does not capture all possible information, only what directly affects text layout:
 // font rendering, hyphenation, word breaking, etc.
@@ -89,8 +82,7 @@ public:
               mRegion(NO_REGION),
               mSubScriptBits(0ul),
               mVariant(Variant::NO_VARIANT),
-              mEmojiStyle(EmojiStyle::EMPTY),
-              mLBStyle(LineBreakStyle::EMPTY) {}
+              mEmojiStyle(EmojiStyle::EMPTY) {}
 
     // Parse from string
     Locale(const StringPiece& buf);
@@ -102,13 +94,12 @@ public:
               mRegion(extractBits(identifier, 14, 15)),
               mSubScriptBits(scriptToSubScriptBits(mScript)),
               mVariant(static_cast<Variant>(extractBits(identifier, 0, 2))),
-              mEmojiStyle(static_cast<EmojiStyle>(extractBits(identifier, 12, 2))),
-              mLBStyle(static_cast<LineBreakStyle>(extractBits(identifier, 10, 2))) {}
+              mEmojiStyle(static_cast<EmojiStyle>(extractBits(identifier, 12, 2))) {}
 
     bool operator==(const Locale& other) const {
         return !isUnsupported() && isEqualScript(other) && mLanguage == other.mLanguage &&
                mRegion == other.mRegion && mVariant == other.mVariant &&
-               mLBStyle == other.mLBStyle && mEmojiStyle == other.mEmojiStyle;
+               mEmojiStyle == other.mEmojiStyle;
     }
 
     bool operator!=(const Locale other) const { return !(*this == other); }
@@ -117,12 +108,10 @@ public:
     inline bool hasScript() const { return mScript != NO_SCRIPT; }
     inline bool hasRegion() const { return mRegion != NO_REGION; }
     inline bool hasVariant() const { return mVariant != Variant::NO_VARIANT; }
-    inline bool hasLBStyle() const { return mLBStyle != LineBreakStyle::EMPTY; }
     inline bool hasEmojiStyle() const { return mEmojiStyle != EmojiStyle::EMPTY; }
 
     inline bool isSupported() const {
-        return hasLanguage() || hasScript() || hasRegion() || hasVariant() || hasLBStyle() ||
-               hasEmojiStyle();
+        return hasLanguage() || hasScript() || hasRegion() || hasVariant() || hasEmojiStyle();
     }
 
     inline bool isUnsupported() const { return !isSupported(); }
@@ -133,9 +122,12 @@ public:
 
     // Returns true if this script supports the given script. For example, ja-Jpan supports Hira,
     // ja-Hira doesn't support Jpan.
-    bool supportsHbScript(hb_script_t script) const;
+    bool supportsScript(uint32_t script) const;
 
     std::string getString() const;
+
+    std::string getStringWithLineBreakOption(LineBreakStyle lbStyle,
+                                             LineBreakWordStyle lbWordStyle) const;
 
     // Calculates a matching score. This score represents how well the input locales cover this
     // locale. The maximum score in the locale list is returned.
@@ -148,12 +140,11 @@ public:
     //                ssssssssssssssssssss                               Script Code (20 bits)
     //                                    rrrrrrrrrrrrrrr                Region Code (15 bits)
     //                                                   ee              Emoji Style (2 bits)
-    //                                                     bb            Line Break Style (2 bits)
-    //                                                       XXXXXXXX    Free (8 bits)
+    //                                                     XXXXXXXXXX    Free (10 bits)
     //                                                               vv  German Variant (2 bits)
     uint64_t getIdentifier() const {
         return ((uint64_t)mLanguage << 49) | ((uint64_t)mScript << 29) | ((uint64_t)mRegion << 14) |
-               ((uint64_t)mEmojiStyle << 12) | ((uint64_t)mLBStyle << 10) | (uint64_t)mVariant;
+               ((uint64_t)mEmojiStyle << 12) | (uint64_t)mVariant;
     }
 
     Locale getPartialLocale(SubtagBits bits) const;
@@ -187,7 +178,6 @@ private:
     Variant mVariant;
 
     EmojiStyle mEmojiStyle;
-    LineBreakStyle mLBStyle;
 
     void resolveUnicodeExtension(const char* buf, size_t length);
 
@@ -195,9 +185,10 @@ private:
         return (value >> shift) & ((1 << nBits) - 1);
     }
 
+    int buildLocaleString(char* buf) const;
+
     static uint8_t scriptToSubScriptBits(uint32_t rawScript);
 
-    static LineBreakStyle resolveLineBreakStyle(const char* buf, size_t length);
     static EmojiStyle resolveEmojiStyle(const char* buf, size_t length);
     static EmojiStyle scriptToEmojiStyle(uint32_t script);
 

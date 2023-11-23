@@ -29,7 +29,6 @@ android_app {
     platform_apis: true,
     system_ext_specific: true,
 
-
     privileged: true,
     certificate: "platform",
     // product_specific: true,
@@ -63,5 +62,13 @@ android_app {
         "tv-auto-value",
         "tv-auto-factory",
     ],
+    required: ["com.android.tv.samples.sampletunertvinput.xml"],
     // min_sdk_version: "29",
+}
+
+prebuilt_etc {
+    name: "com.android.tv.samples.sampletunertvinput.xml",
+    sub_dir: "permissions",
+    src: "com.android.tv.samples.sampletunertvinput.xml",
+    system_ext_specific: true,
 }

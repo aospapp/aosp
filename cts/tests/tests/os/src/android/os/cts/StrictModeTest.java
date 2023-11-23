@@ -46,6 +46,7 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.strictmode.UnbufferedIoViolation;
 import android.os.StrictMode;
 import android.os.StrictMode.ThreadPolicy.Builder;
 import android.os.StrictMode.ViolationInfo;
@@ -105,6 +106,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.Random;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /** Tests for {@link StrictMode} */
 @RunWith(AndroidJUnit4.class)
@@ -557,6 +561,55 @@ public class StrictModeTest {
                 info -> assertThat(info.getViolationClass())
                         .isAssignableTo(ExplicitGcViolation.class));
     }
+
+    @Test
+    public void testUnbufferedIoGZipInput() throws Exception {
+        StrictMode.setThreadPolicy(
+                new StrictMode.ThreadPolicy.Builder().detectUnbufferedIo().penaltyLog().build());
+
+        inspectViolation(
+                () -> {
+                    File tmp = File.createTempFile("StrictModeTest", "tmp");
+                    try (FileOutputStream fos = new FileOutputStream(tmp);
+                         GZIPOutputStream gzippedOut = new GZIPOutputStream(fos)) {
+                        byte[] data = new byte[10240];
+                        new Random().nextBytes(data);
+                        gzippedOut.write(data);
+                    }
+
+                    try (FileInputStream fileInputStream = new FileInputStream(tmp);
+                        GZIPInputStream in = new GZIPInputStream(fileInputStream)) {
+
+                        byte[] buffer = new byte[1024];
+                        while (in.read(buffer) != -1) {}
+                    }
+                },
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(UnbufferedIoViolation.class));
+    }
+
+    @Test
+    public void testUnbufferedIoGZipOutput() throws Exception {
+        StrictMode.setThreadPolicy(
+                new StrictMode.ThreadPolicy.Builder().detectUnbufferedIo().penaltyLog().build());
+
+        inspectViolation(
+                () -> {
+                    byte[] data = new byte[512];
+                    Random random = new Random(0);
+                    try (FileOutputStream ostream = new FileOutputStream(
+                            File.createTempFile("StrictModeTest","testUnbufferedIo.dat"));
+                        GZIPOutputStream gzippedOut = new GZIPOutputStream(ostream)) {
+                        for (int i = 0; i < 9; i++) {
+                            random.nextBytes(data);
+                            gzippedOut.write(data, 0, data.length);
+                        }
+                    }
+                },
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(UnbufferedIoViolation.class));
+    }
+
 
     @Test
     public void testViolationAcrossBinder() throws Exception {

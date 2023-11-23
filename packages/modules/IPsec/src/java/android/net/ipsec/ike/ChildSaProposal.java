@@ -325,6 +325,14 @@ public final class ChildSaProposal extends SaProposal {
         /**
          * Adds a Diffie-Hellman Group to the SA proposal being built.
          *
+         * <p>If this ChildSaProposal will be used for the first Child SA created as part of IKE
+         * AUTH exchange, DH groups configured here will only apply when the Child SA is later
+         * rekeyed. In this case, configuring different DH groups for IKE and Child SA may cause
+         * Rekey Child to fail.
+         *
+         * <p>If no DH groups are supplied here, but the server requests a DH exchange during rekey,
+         * the IKE SA's negotiated DH group will still be accepted.
+         *
          * @param dhGroup to add to ChildSaProposal.
          * @return Builder of ChildSaProposal.
          */

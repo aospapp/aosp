@@ -31,4 +31,9 @@ java_test_host {
         "general-tests",
         "mts",
     ],
+    data: [
+        ":CtsAppUsageTestApp",
+        ":CtsAppUsageTestAppToo",
+    ],
+    per_testcase_directory: true,
 }

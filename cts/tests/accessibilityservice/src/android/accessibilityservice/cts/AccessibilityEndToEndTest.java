@@ -16,6 +16,7 @@
 
 package android.accessibilityservice.cts;
 
+import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.accessibility.cts.common.InstrumentedAccessibilityService.enableService;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventType;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterForEventTypeWithAction;
@@ -99,6 +100,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsMouseUtil;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -159,8 +161,14 @@ public class AccessibilityEndToEndTest {
 
     @Before
     public void setUp() throws Exception {
+        sUiAutomation.adoptShellPermissionIdentity(POST_NOTIFICATIONS);
         mActivity = launchActivityAndWaitForItToBeOnscreen(
                 sInstrumentation, sUiAutomation, mActivityRule);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        sUiAutomation.dropShellPermissionIdentity();
     }
 
     @MediumTest
@@ -172,6 +180,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_VIEW_SELECTED);
         expected.setClassName(ListView.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(mActivity.getString(R.string.second_list_item));
         expected.setItemCount(2);
         expected.setCurrentItemIndex(1);
@@ -215,6 +224,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_VIEW_CLICKED);
         expected.setClassName(Button.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(mActivity.getString(R.string.button_title));
         expected.setEnabled(true);
 
@@ -253,6 +263,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_VIEW_LONG_CLICKED);
         expected.setClassName(Button.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(mActivity.getString(R.string.button_title));
         expected.setEnabled(true);
 
@@ -291,6 +302,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_VIEW_FOCUSED);
         expected.setClassName(Button.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(mActivity.getString(R.string.button_title));
         expected.setItemCount(5);
         expected.setCurrentItemIndex(3);
@@ -345,6 +357,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED);
         expected.setClassName(EditText.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(afterText);
         expected.setBeforeText(beforeText);
         expected.setFromIndex(3);
@@ -385,6 +398,7 @@ public class AccessibilityEndToEndTest {
         expected.setEventType(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
         expected.setClassName(AlertDialog.class.getName());
         expected.setPackageName(mActivity.getPackageName());
+        expected.setDisplayId(mActivity.getDisplayId());
         expected.getText().add(mActivity.getString(R.string.alert_title));
         expected.getText().add(mActivity.getString(R.string.alert_message));
         expected.setEnabled(true);
@@ -410,6 +424,25 @@ public class AccessibilityEndToEndTest {
                     return equalsAccessiblityEvent(event, expected);
                 }
             },
+                    DEFAULT_TIMEOUT_MS);
+        assertNotNull("Did not receive expected event: " + expected, awaitedEvent);
+    }
+
+    @MediumTest
+    @Presubmit
+    @Test
+    public void testTypeWindowsChangedAccessibilityEvent() throws Throwable {
+        // create and populate the expected event
+        final AccessibilityEvent expected = AccessibilityEvent.obtain();
+        expected.setEventType(AccessibilityEvent.TYPE_WINDOWS_CHANGED);
+        expected.setDisplayId(mActivity.getDisplayId());
+
+        // check the received event
+        AccessibilityEvent awaitedEvent =
+            sUiAutomation.executeAndWaitForEvent(
+                    () -> mActivity.runOnUiThread(() -> mActivity.finish()),
+                    event -> event.getWindowChanges() == AccessibilityEvent.WINDOWS_CHANGE_REMOVED
+                            && equalsAccessiblityEvent(event, expected),
                     DEFAULT_TIMEOUT_MS);
         assertNotNull("Did not receive expected event: " + expected, awaitedEvent);
     }
@@ -1108,6 +1141,7 @@ public class AccessibilityEndToEndTest {
             && first.getScrollX() == second.getScrollX()
             && first.getScrollY() == second.getScrollY()
             && first.getAddedCount() == second.getAddedCount()
+            && first.getDisplayId() == second.getDisplayId()
             && TextUtils.equals(first.getBeforeText(), second.getBeforeText())
             && TextUtils.equals(first.getClassName(), second.getClassName())
             && TextUtils.equals(first.getContentDescription(), second.getContentDescription())

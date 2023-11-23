@@ -33,6 +33,7 @@ android_test {
         "compatibility-common-util-devicesidelib",
         "guava",
         "platform-test-annotations",
+        "sts-device-util",
         "hamcrest-library",
     ],
     libs: [
@@ -60,6 +61,7 @@ android_test {
         "src/**/*.java",
         "src/**/*.kt",
         "src/android/security/cts/activity/ISecureRandomService.aidl",
+        "aidl/android/security/cts/IBitmapService.aidl",
         "aidl/android/security/cts/IIsolatedService.aidl",
         "aidl/android/security/cts/CVE_2021_0327/IBadProvider.aidl",
     ],
@@ -72,8 +74,11 @@ android_test {
         "sts",
     ],
     certificate: ":security_cts_test_certificate",
+    per_testcase_directory: true,
     data: [
+        ":CtsDeviceInfo",
         ":RolePermissionOverrideTestApp",
+        ":SplitBluetoothPermissionTestApp",
     ],
 }
 

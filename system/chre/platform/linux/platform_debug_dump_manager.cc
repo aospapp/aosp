@@ -18,6 +18,10 @@
 
 namespace chre {
 
+PlatformDebugDumpManagerBase::PlatformDebugDumpManagerBase() {}
+
+PlatformDebugDumpManagerBase::~PlatformDebugDumpManagerBase() {}
+
 void PlatformDebugDumpManager::sendDebugDump(const char * /*debugStr*/,
                                              bool /*complete*/) {}
 

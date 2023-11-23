@@ -18,8 +18,8 @@ package com.android.car.settings.storage;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.net.TrafficStats;
 import android.os.Build;
+import android.util.DataUnit;
 import android.util.SparseArray;
 
 import com.android.car.settings.R;
@@ -55,7 +55,7 @@ public class StorageSystemCategoryPreferenceController extends
             attributedSize += otherData.getExternalStats().totalBytes
                     - otherData.getExternalStats().appBytes;
         }
-        return Math.max(TrafficStats.GB_IN_BYTES, usedSizeBytes - attributedSize);
+        return Math.max(DataUnit.GIBIBYTES.toBytes(1), usedSizeBytes - attributedSize);
     }
 
     @Override

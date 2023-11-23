@@ -16,4 +16,9 @@
   -->
 <resources>
     <bool name="car_ui_scrollbar_enable">false</bool>
+    <bool name="car_ui_toolbar_logo_fills_nav_icon_space">true</bool>
+    <bool name="car_ui_toolbar_tab_flexible_layout">false</bool>
+
+    <dimen name="car_ui_toolbar_logo_size">44dp</dimen>
+    <dimen name="car_ui_toolbar_nav_icon_size">44dp</dimen>
 </resources>

@@ -1,6 +1,7 @@
 package com.android.phone;
 
 import static com.android.phone.TimeConsumingPreferenceActivity.EXCEPTION_ERROR;
+import static com.android.phone.TimeConsumingPreferenceActivity.FDN_CHECK_FAILURE;
 import static com.android.phone.TimeConsumingPreferenceActivity.RESPONSE_ERROR;
 
 import android.content.Context;
@@ -128,17 +129,27 @@ public class CallWaitingSwitchPreference extends SwitchPreference {
                 }
             }
 
-            if (mIsDuringUpdateProcess && (
-                    mUpdateStatus == TelephonyManager.CALL_WAITING_STATUS_NOT_SUPPORTED
-                            || mUpdateStatus
-                            == TelephonyManager.CALL_WAITING_STATUS_UNKNOWN_ERROR)) {
-                Log.d(LOG_TAG, "handleSetCallWaitingResponse: Exception");
-                if (mTcpListener != null) {
-                    mTcpListener.onError(CallWaitingSwitchPreference.this, EXCEPTION_ERROR);
+            if (mQueryStatus != TelephonyManager.CALL_WAITING_STATUS_ENABLED
+                    && mQueryStatus != TelephonyManager.CALL_WAITING_STATUS_DISABLED
+                    && mQueryStatus != TelephonyManager.CALL_WAITING_STATUS_UNKNOWN_ERROR) {
+                Log.d(LOG_TAG, "handleGetCallWaitingResponse: Exception:" + mQueryStatus);
+                int error = EXCEPTION_ERROR;
+                switch (mQueryStatus) {
+                    case TelephonyManager.CALL_WAITING_STATUS_FDN_CHECK_FAILURE:
+                        error = FDN_CHECK_FAILURE;
+                        break;
+                    default:
+                        error = EXCEPTION_ERROR;
+                        break;
                 }
-            } else if (mQueryStatus == TelephonyManager.CALL_WAITING_STATUS_NOT_SUPPORTED
-                    || mQueryStatus == TelephonyManager.CALL_WAITING_STATUS_UNKNOWN_ERROR) {
-                Log.d(LOG_TAG, "handleGetCallWaitingResponse: Exception");
+                if (mTcpListener != null) {
+                    mTcpListener.onError(CallWaitingSwitchPreference.this, error);
+                }
+            } else if (mQueryStatus == TelephonyManager.CALL_WAITING_STATUS_UNKNOWN_ERROR
+                    || (mIsDuringUpdateProcess && (
+                    mUpdateStatus != TelephonyManager.CALL_WAITING_STATUS_ENABLED
+                            && mUpdateStatus != TelephonyManager.CALL_WAITING_STATUS_DISABLED))) {
+                Log.d(LOG_TAG, "handleSetCallWaitingResponse: Exception");
                 if (mTcpListener != null) {
                     mTcpListener.onError(CallWaitingSwitchPreference.this, RESPONSE_ERROR);
                 }

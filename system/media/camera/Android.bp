@@ -56,6 +56,29 @@ cc_library_shared {
     },
 }
 
+cc_library_shared {
+    name: "libcamera_metadata_asserts",
+
+    srcs: [
+        "src/camera_metadata_asserts.cpp",
+    ],
+
+    include_dirs: ["system/media/private/camera/include"],
+    local_include_dirs: ["include"],
+
+    static_libs: [
+        "android.hardware.camera.metadata-V1-ndk",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fvisibility=hidden",
+        "-std=c11",
+    ],
+}
+
 filegroup {
     name: "libcamera_metadata_tags_file",
     srcs: ["include/system/camera_metadata_tags.h"],

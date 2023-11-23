@@ -21,10 +21,17 @@ import android.os.Bundle;
 import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.Connection;
+import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccount;
 
-import java.util.concurrent.CountDownLatch;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import java.util.ArrayList;
 
 public class EmergencyCallTests extends BaseTelecomTestWithMockServices {
+
+    // mirrors constant in PhoneAccountRegistrar called MAX_PHONE_ACCOUNT_REGISTRATIONS
+    public static final int MAX_PHONE_ACCOUNT_REGISTRATIONS = 10;
 
     @Override
     public void setUp() throws Exception {
@@ -37,16 +44,68 @@ public class EmergencyCallTests extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Tests a scenario where an emergency call could fail due to the presence of invalid
+     * {@link PhoneAccount} data.
+     * The seed and quantity for {@link TestUtils#generateRandomPhoneAccounts(long, int, String,
+     * String)} is chosen to represent a set of phone accounts which is known in AOSP to cause a
+     * failure placing an emergency call.  {@code 52L} was chosen as a random seed and {@code 50}
+     * was chosen as the set size for {@link PhoneAccount}s as these were observed in repeated test
+     * invocations to induce the failure method.
+     */
+    public void testEmergencyCallFailureDueToInvalidPhoneAccounts() throws Exception {
+        if (!mShouldTestTelecom) return;
+
+        // needed in order to call mTelecomManager.getPhoneAccountsForPackage()
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity("android.permission.READ_PRIVILEGED_PHONE_STATE");
+
+        // determine the number of phone accounts already registered to this package.
+        int phoneAccountsRegisteredAlready = mTelecomManager.getPhoneAccountsForPackage().size();
+
+        // now, determine the number of accounts remaining
+        int numberOfAccountsThatCanBeRegistered =
+                MAX_PHONE_ACCOUNT_REGISTRATIONS - phoneAccountsRegisteredAlready;
+
+        // create the remaining phone accounts allowed
+        ArrayList<PhoneAccount> accounts = TestUtils.generateRandomPhoneAccounts(52L,
+                numberOfAccountsThatCanBeRegistered,
+                TestUtils.PACKAGE, TestUtils.COMPONENT);
+
+        try {
+            // register the phone accounts
+            accounts.stream().forEach(a -> mTelecomManager.registerPhoneAccount(a));
+            // assert all were registered successfully
+            assertTrue(mTelecomManager.getPhoneAccountsForPackage().size()
+                    >= MAX_PHONE_ACCOUNT_REGISTRATIONS);
+
+            // The existing start emergency call test is impacted if there is a failure due to
+            // excess phone accounts being present.
+            testStartEmergencyCall();
+        } finally {
+            accounts.stream().forEach(d -> mTelecomManager.unregisterPhoneAccount(
+                    d.getAccountHandle()));
+            // cleanup permission that was added
+            InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation().dropShellPermissionIdentity();
+        }
+    }
+
+    /**
      * Place an outgoing emergency call and ensure it is started successfully.
      */
     public void testStartEmergencyCall() throws Exception {
         if (!mShouldTestTelecom) return;
-        placeAndVerifyEmergencyCall(true /*supportsHold*/);
+        Connection conn = placeAndVerifyEmergencyCall(true /*supportsHold*/);
         Call eCall = getInCallService().getLastCall();
         assertCallState(eCall, Call.STATE_DIALING);
 
         assertIsInCall(true);
         assertIsInManagedCall(true);
+        conn.setActive();
+        conn.setDisconnected(new DisconnectCause(DisconnectCause.LOCAL));
+        conn.destroy();
+        assertConnectionState(conn, Connection.STATE_DISCONNECTED);
+        assertIsInCall(false);
     }
 
     /**

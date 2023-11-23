@@ -58,7 +58,8 @@ constexpr const char* kHelpText =
         "When no options are specified, carwatchdog report is generated.\n";
 constexpr const char* kCarWatchdogServerInterface =
         "android.automotive.watchdog.ICarWatchdog/default";
-constexpr const char* kCarWatchdogInternalServerInterface = "carwatchdogd_system";
+constexpr const char* kCarWatchdogInternalServerInterface =
+        "android.automotive.watchdog.internal.ICarWatchdog/default";
 constexpr const char* kNullCarWatchdogClientError =
         "Must provide a non-null car watchdog client instance";
 
@@ -78,28 +79,25 @@ Result<void> addToServiceManager(const char* serviceName, sp<IBinder> service) {
 }  // namespace
 
 WatchdogBinderMediator::WatchdogBinderMediator(
-        const android::sp<WatchdogProcessService>& watchdogProcessService,
+        const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService,
         const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
-        const android::sp<IWatchdogServiceHelper>& watchdogServiceHelper,
+        const android::sp<WatchdogServiceHelperInterface>& watchdogServiceHelper,
         const AddServiceFunction& addServiceHandler) :
       mWatchdogProcessService(watchdogProcessService),
       mWatchdogPerfService(watchdogPerfService),
+      mWatchdogServiceHelper(watchdogServiceHelper),
       mAddServiceHandler(addServiceHandler) {
     if (mAddServiceHandler == nullptr) {
         mAddServiceHandler = &addToServiceManager;
     }
     if (watchdogServiceHelper != nullptr) {
         mIoOveruseMonitor = sp<IoOveruseMonitor>::make(watchdogServiceHelper);
-        mWatchdogInternalHandler =
-                sp<WatchdogInternalHandler>::make(this, watchdogServiceHelper,
-                                                  mWatchdogProcessService, mWatchdogPerfService,
-                                                  mIoOveruseMonitor);
     }
 }
 
 Result<void> WatchdogBinderMediator::init() {
     if (mWatchdogProcessService == nullptr || mWatchdogPerfService == nullptr ||
-        mIoOveruseMonitor == nullptr || mWatchdogInternalHandler == nullptr) {
+        mWatchdogServiceHelper == nullptr || mIoOveruseMonitor == nullptr) {
         std::string serviceList;
         if (mWatchdogProcessService == nullptr) {
             StringAppendF(&serviceList, "%s%s", (!serviceList.empty() ? ", " : ""),
@@ -109,18 +107,24 @@ Result<void> WatchdogBinderMediator::init() {
             StringAppendF(&serviceList, "%s%s", (!serviceList.empty() ? ", " : ""),
                           "Watchdog performance service");
         }
+        if (mWatchdogServiceHelper == nullptr) {
+            StringAppendF(&serviceList, "%s%s", (!serviceList.empty() ? ", " : ""),
+                          "Watchdog service helper");
+        }
         if (mIoOveruseMonitor == nullptr) {
             StringAppendF(&serviceList, "%s%s", (!serviceList.empty() ? ", " : ""),
                           "I/O overuse monitor service");
         }
-        if (mWatchdogInternalHandler == nullptr) {
-            StringAppendF(&serviceList, "%s%s", (!serviceList.empty() ? ", " : ""),
-                          "Watchdog internal handler");
-        }
         return Error(INVALID_OPERATION)
                 << serviceList << " must be initialized with non-null instance";
     }
-    if (const auto result = mAddServiceHandler(kCarWatchdogServerInterface, this); !result.ok()) {
+    mWatchdogInternalHandler =
+            sp<WatchdogInternalHandler>::make(sp<WatchdogBinderMediator>::fromExisting(this),
+                                              mWatchdogServiceHelper, mWatchdogProcessService,
+                                              mWatchdogPerfService, mIoOveruseMonitor);
+    if (const auto result =
+                mAddServiceHandler(kCarWatchdogServerInterface, sp<IBinder>::fromExisting(this));
+        !result.ok()) {
         return result;
     }
     if (const auto result =

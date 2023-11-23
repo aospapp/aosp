@@ -18,8 +18,12 @@
  * Public Domain.
  */
 
+#if !defined(LWS_DLL)
 #define LWS_DLL
+#endif
+#if !defined(LWS_INTERNAL)
 #define LWS_INTERNAL
+#endif
 #include <libwebsockets.h>
 #include <string.h>
 
@@ -164,35 +168,26 @@ callback_client_loopback_test(struct lws *wsi, enum lws_callback_reasons reason,
 	return 0;
 }
 
-static const struct lws_protocols protocols[] = {
+LWS_VISIBLE const struct lws_protocols client_loopback_test_protocols[] = {
 	{
 		"client-loopback-test",
 		callback_client_loopback_test,
 		sizeof(struct per_session_data__client_loopback_test),
 		1024, /* rx buf size must be >= permessage-deflate rx size */
+		0, NULL, 0
 	},
 };
 
-LWS_VISIBLE int
-init_protocol_client_loopback_test(struct lws_context *context,
-				   struct lws_plugin_capability *c)
-{
-	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
-		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
-			 c->api_magic);
-		return 1;
-	}
+LWS_VISIBLE const lws_plugin_protocol_t client_loopback_test = {
+	.hdr = {
+		"client loopback test",
+		"lws_protocol_plugin",
+		LWS_BUILD_HASH,
+		LWS_PLUGIN_API_MAGIC
+	},
 
-	c->protocols = protocols;
-	c->count_protocols = LWS_ARRAY_SIZE(protocols);
-	c->extensions = NULL;
-	c->count_extensions = 0;
-
-	return 0;
-}
-
-LWS_VISIBLE int
-destroy_protocol_client_loopback_test(struct lws_context *context)
-{
-	return 0;
-}
+	.protocols = client_loopback_test_protocols,
+	.count_protocols = LWS_ARRAY_SIZE(client_loopback_test_protocols),
+	.extensions = NULL,
+	.count_extensions = 0,
+};

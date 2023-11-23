@@ -136,7 +136,7 @@ impl DrmFormat {
             DRM_FORMAT_ABGR16161616F => Ok(PACKED_8BPP),
             DRM_FORMAT_NV12 => Ok(BIPLANAR_YUV420),
             DRM_FORMAT_YVU420 => Ok(TRIPLANAR_YUV420),
-            _ => Err(RutabagaError::Unsupported),
+            _ => Err(RutabagaError::InvalidGrallocDrmFormat),
         }
     }
 
@@ -144,21 +144,21 @@ impl DrmFormat {
     /// Returns the Vulkan format from the DrmFormat.
     pub fn vulkan_format(&self) -> RutabagaResult<VulkanFormat> {
         match self.to_bytes() {
-            DRM_FORMAT_R8 => Ok(VulkanFormat::R8Unorm),
-            DRM_FORMAT_RGB565 => Ok(VulkanFormat::R5G6B5UnormPack16),
-            DRM_FORMAT_BGR888 => Ok(VulkanFormat::R8G8B8Unorm),
+            DRM_FORMAT_R8 => Ok(VulkanFormat::R8_UNORM),
+            DRM_FORMAT_RGB565 => Ok(VulkanFormat::R5G6B5_UNORM_PACK16),
+            DRM_FORMAT_BGR888 => Ok(VulkanFormat::R8G8B8_UNORM),
             DRM_FORMAT_ABGR2101010 | DRM_FORMAT_XBGR2101010 => {
-                Ok(VulkanFormat::A2R10G10B10UnormPack32)
+                Ok(VulkanFormat::A2R10G10B10_UNORM_PACK32)
             }
-            DRM_FORMAT_ABGR8888 | DRM_FORMAT_XBGR8888 => Ok(VulkanFormat::R8G8B8A8Unorm),
+            DRM_FORMAT_ABGR8888 | DRM_FORMAT_XBGR8888 => Ok(VulkanFormat::R8G8B8A8_UNORM),
             DRM_FORMAT_ARGB2101010 | DRM_FORMAT_XRGB2101010 => {
-                Ok(VulkanFormat::A2B10G10R10UnormPack32)
+                Ok(VulkanFormat::A2B10G10R10_UNORM_PACK32)
             }
-            DRM_FORMAT_ARGB8888 | DRM_FORMAT_XRGB8888 => Ok(VulkanFormat::B8G8R8A8Unorm),
-            DRM_FORMAT_ABGR16161616F => Ok(VulkanFormat::R16G16B16A16Sfloat),
-            DRM_FORMAT_NV12 => Ok(VulkanFormat::G8B8R8_2PLANE420Unorm),
-            DRM_FORMAT_YVU420 => Ok(VulkanFormat::G8B8R8_3PLANE420Unorm),
-            _ => Err(RutabagaError::Unsupported),
+            DRM_FORMAT_ARGB8888 | DRM_FORMAT_XRGB8888 => Ok(VulkanFormat::B8G8R8A8_UNORM),
+            DRM_FORMAT_ABGR16161616F => Ok(VulkanFormat::R16G16B16A16_SFLOAT),
+            DRM_FORMAT_NV12 => Ok(VulkanFormat::G8_B8R8_2PLANE_420_UNORM),
+            DRM_FORMAT_YVU420 => Ok(VulkanFormat::G8_B8_R8_3PLANE_420_UNORM),
+            _ => Err(RutabagaError::InvalidGrallocDrmFormat),
         }
     }
 
@@ -176,37 +176,19 @@ impl DrmFormat {
             | DRM_FORMAT_ARGB2101010
             | DRM_FORMAT_ARGB8888
             | DRM_FORMAT_XRGB2101010
-            | DRM_FORMAT_XRGB8888 => Ok(VulkanImageAspect {
-                color: true,
-                ..VulkanImageAspect::none()
-            }),
+            | DRM_FORMAT_XRGB8888 => Ok(VulkanImageAspect::Color),
             DRM_FORMAT_NV12 => match plane {
-                0 => Ok(VulkanImageAspect {
-                    plane0: true,
-                    ..VulkanImageAspect::none()
-                }),
-                1 => Ok(VulkanImageAspect {
-                    plane1: true,
-                    ..VulkanImageAspect::none()
-                }),
-                _ => Err(RutabagaError::Unsupported),
+                0 => Ok(VulkanImageAspect::Plane0),
+                1 => Ok(VulkanImageAspect::Plane1),
+                _ => Err(RutabagaError::InvalidGrallocNumberOfPlanes),
             },
             DRM_FORMAT_YVU420 => match plane {
-                0 => Ok(VulkanImageAspect {
-                    plane0: true,
-                    ..VulkanImageAspect::none()
-                }),
-                1 => Ok(VulkanImageAspect {
-                    plane1: true,
-                    ..VulkanImageAspect::none()
-                }),
-                2 => Ok(VulkanImageAspect {
-                    plane2: true,
-                    ..VulkanImageAspect::none()
-                }),
-                _ => Err(RutabagaError::Unsupported),
+                0 => Ok(VulkanImageAspect::Plane0),
+                1 => Ok(VulkanImageAspect::Plane1),
+                2 => Ok(VulkanImageAspect::Plane2),
+                _ => Err(RutabagaError::InvalidGrallocNumberOfPlanes),
             },
-            _ => Err(RutabagaError::Unsupported),
+            _ => Err(RutabagaError::InvalidGrallocDrmFormat),
         }
     }
 }

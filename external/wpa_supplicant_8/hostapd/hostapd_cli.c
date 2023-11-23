@@ -1,6 +1,6 @@
 /*
  * hostapd - command line interface for hostapd daemon
- * Copyright (c) 2004-2019, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2022, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -21,7 +21,7 @@
 
 static const char *const hostapd_cli_version =
 "hostapd_cli v" VERSION_STR "\n"
-"Copyright (c) 2004-2019, Jouni Malinen <j@w1.fi> and contributors";
+"Copyright (c) 2004-2022, Jouni Malinen <j@w1.fi> and contributors";
 
 static struct wpa_ctrl *ctrl_conn;
 static int hostapd_cli_quit = 0;
@@ -1048,7 +1048,7 @@ static char ** hostapd_complete_set(const char *str, int pos)
 	int arg = get_cmd_arg_num(str, pos);
 	const char *fields[] = {
 #ifdef CONFIG_WPS_TESTING
-		"wps_version_number", "wps_testing_dummy_cred",
+		"wps_version_number", "wps_testing_stub_cred",
 		"wps_corrupt_pkhash",
 #endif /* CONFIG_WPS_TESTING */
 #ifdef CONFIG_INTERWORKING
@@ -1541,6 +1541,14 @@ static int hostapd_cli_cmd_reload_wpa_psk(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+#ifdef ANDROID
+static int hostapd_cli_cmd_driver(struct wpa_ctrl *ctrl, int argc, char *argv[])
+{
+	return hostapd_cli_cmd(ctrl, "DRIVER", 1, argc, argv);
+}
+#endif /* ANDROID */
+
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1732,6 +1740,10 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	  "<addr> [req_mode=] <measurement request hexdump>  = send a Beacon report request to a station" },
 	{ "reload_wpa_psk", hostapd_cli_cmd_reload_wpa_psk, NULL,
 	  "= reload wpa_psk_file only" },
+#ifdef ANDROID
+	{ "driver", hostapd_cli_cmd_driver, NULL,
+	  "<driver sub command> [<hex formatted data>] = send driver command data" },
+#endif /* ANDROID */
 	{ NULL, NULL, NULL, NULL }
 };
 

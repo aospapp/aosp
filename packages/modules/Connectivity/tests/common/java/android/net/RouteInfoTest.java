@@ -16,6 +16,8 @@
 
 package android.net;
 
+import static android.net.RouteInfo.RTN_THROW;
+import static android.net.RouteInfo.RTN_UNICAST;
 import static android.net.RouteInfo.RTN_UNREACHABLE;
 
 import static com.android.testutils.MiscAsserts.assertEqualBothWays;
@@ -35,6 +37,7 @@ import androidx.core.os.BuildCompat;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.testutils.ConnectivityModuleTest;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 
@@ -48,6 +51,7 @@ import java.net.InetAddress;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@ConnectivityModuleTest
 public class RouteInfoTest {
     @Rule
     public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
@@ -324,6 +328,16 @@ public class RouteInfoTest {
             assertFalse(r.isIPv4UnreachableDefault());
             assertTrue(r.isIPv6UnreachableDefault());
         }
+    }
+
+    @Test
+    public void testRouteTypes() {
+        RouteInfo r = new RouteInfo(new IpPrefix(Inet6Address.ANY, 0), RTN_UNREACHABLE);
+        assertEquals(RTN_UNREACHABLE, r.getType());
+        r = new RouteInfo(new IpPrefix(Inet6Address.ANY, 0), RTN_UNICAST);
+        assertEquals(RTN_UNICAST, r.getType());
+        r = new RouteInfo(new IpPrefix(Inet6Address.ANY, 0), RTN_THROW);
+        assertEquals(RTN_THROW, r.getType());
     }
 
     @Test

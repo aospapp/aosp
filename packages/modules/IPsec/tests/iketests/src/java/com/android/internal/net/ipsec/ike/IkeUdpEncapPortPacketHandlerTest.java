@@ -30,28 +30,28 @@ public class IkeUdpEncapPortPacketHandlerTest {
     private static final byte[] SHORT_PACKET = new byte[NON_ESP_MARKER_LEN - 1];
     private static final byte[] INVALID_NON_ESP_MARKER = {(byte) 1, (byte) 2, (byte) 3, (byte) 4};
 
-    private LongSparseArray<IkeSessionStateMachine> mMockSpiToIkeSession;
+    private LongSparseArray<IkeSocket.Callback> mMockSpiToCallback;
 
     private IkeUdpEncapPortPacketHandler.PacketReceiver mPacketReceiver;
 
     @Before
     public void setUp() {
-        mMockSpiToIkeSession = mock(LongSparseArray.class);
+        mMockSpiToCallback = mock(LongSparseArray.class);
 
         mPacketReceiver = new IkeUdpEncapPortPacketHandler.PacketReceiver();
     }
 
     @Test
     public void testPacketReceiverHandlePacketShortPacket() {
-        mPacketReceiver.handlePacket(SHORT_PACKET, mMockSpiToIkeSession);
+        mPacketReceiver.handlePacket(SHORT_PACKET, mMockSpiToCallback);
 
-        verifyNoMoreInteractions(mMockSpiToIkeSession);
+        verifyNoMoreInteractions(mMockSpiToCallback);
     }
 
     @Test
     public void testPacketReceiverHandlePacketInvalidNonEspMarkerPacket() {
-        mPacketReceiver.handlePacket(INVALID_NON_ESP_MARKER, mMockSpiToIkeSession);
+        mPacketReceiver.handlePacket(INVALID_NON_ESP_MARKER, mMockSpiToCallback);
 
-        verifyNoMoreInteractions(mMockSpiToIkeSession);
+        verifyNoMoreInteractions(mMockSpiToCallback);
     }
 }

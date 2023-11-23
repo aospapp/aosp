@@ -15,10 +15,10 @@
 #ifndef ICING_INDEX_MAIN_POSTING_LIST_FREE_H_
 #define ICING_INDEX_MAIN_POSTING_LIST_FREE_H_
 
-#include <string.h>
 #include <sys/mman.h>
 
 #include <cstdint>
+#include <cstring>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/absl_ports/canonical_errors.h"

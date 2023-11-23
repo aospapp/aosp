@@ -84,7 +84,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
                 || id == FDN_CHECK_FAILURE || id == STK_CC_SS_TO_DIAL_ERROR
                 || id == STK_CC_SS_TO_USSD_ERROR || id == STK_CC_SS_TO_SS_ERROR
                 || id == STK_CC_SS_TO_DIAL_VIDEO_ERROR) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            AlertDialog.Builder builder = FrameworksUtils.makeAlertDialogBuilder(this);
 
             int msgId;
             int titleId = R.string.error_updating_title;
@@ -197,6 +197,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
 
     @Override
     public void onException(Preference preference, CommandException exception) {
+        Log.i(LOG_TAG, "onError, preference=" + preference.getKey() + ", exception=" + exception);
         if (exception.getCommandError() == CommandException.Error.FDN_CHECK_FAILURE) {
             onError(preference, FDN_CHECK_FAILURE);
         } else if (exception.getCommandError() == CommandException.Error.RADIO_NOT_AVAILABLE) {
@@ -210,6 +211,10 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
             onError(preference, STK_CC_SS_TO_USSD_ERROR);
         } else if (exception.getCommandError() == CommandException.Error.SS_MODIFIED_TO_SS) {
             onError(preference, STK_CC_SS_TO_SS_ERROR);
+        } else if (exception.getCommandError() == CommandException.Error.REQUEST_NOT_SUPPORTED) {
+            preference.setEnabled(false);
+            // Don't show an error dialog; just disable it if the request is not supported.
+            Log.i(LOG_TAG, "onError, suppress error dialog as not supported");
         } else {
             preference.setEnabled(false);
             onError(preference, EXCEPTION_ERROR);

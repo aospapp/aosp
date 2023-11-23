@@ -58,7 +58,6 @@ import libcore.util.Nullable;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public class ForwardingOs implements Os {
     @UnsupportedAppUsage
     private final Os os;
@@ -72,7 +71,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     protected ForwardingOs(@NonNull Os os) {
         this.os = Objects.requireNonNull(os);
     }
@@ -123,7 +121,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 
     /**
      * @hide
@@ -563,7 +560,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public FileDescriptor open(@Nullable String path, int flags, int mode) throws ErrnoException { return os.open(path, flags, mode); }
 
     /**
@@ -674,7 +670,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void remove(@Nullable String path) throws ErrnoException { os.remove(path); }
 
     /**
@@ -700,7 +695,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void rename(@Nullable String oldPath, @Nullable String newPath) throws ErrnoException { os.rename(oldPath, newPath); }
 
     /**
@@ -849,7 +843,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public @Nullable StructStat stat(@Nullable String path) throws ErrnoException { return os.stat(path); }
 
     /**
@@ -927,7 +920,6 @@ public class ForwardingOs implements Os {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void unlink(@Nullable String pathname) throws ErrnoException { os.unlink(pathname); }
 
     /**

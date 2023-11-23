@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-m4_define([erofs_utils_version], m4_esyscmd([sed -n '1p' VERSION | tr -d '\n']))
+m4_define([erofs_utils_version], m4_esyscmd_s([scripts/get-version-number]))
 m4_define([erofs_utils_date], m4_esyscmd([sed -n '2p' VERSION | tr -d '\n']))
 
 AC_INIT([erofs-utils], [erofs_utils_version], [linux-erofs@lists.ozlabs.org])
@@ -59,9 +59,19 @@ AC_DEFUN([EROFS_UTILS_PARSE_DIRECTORY],
  fi
 ])
 
+AC_ARG_ENABLE([debug],
+    [AS_HELP_STRING([--enable-debug],
+                    [enable debugging mode @<:@default=no@:>@])],
+    [enable_debug="$enableval"],
+    [enable_debug="no"])
+
 AC_ARG_ENABLE(lz4,
    [AS_HELP_STRING([--disable-lz4], [disable LZ4 compression support @<:@default=enabled@:>@])],
    [enable_lz4="$enableval"], [enable_lz4="yes"])
+
+AC_ARG_ENABLE(lzma,
+   [AS_HELP_STRING([--enable-lzma], [enable LZMA compression support @<:@default=no@:>@])],
+   [enable_lzma="$enableval"], [enable_lzma="no"])
 
 AC_ARG_ENABLE(fuse,
    [AS_HELP_STRING([--enable-fuse], [enable erofsfuse @<:@default=no@:>@])],
@@ -93,6 +103,14 @@ AC_ARG_WITH(lz4-libdir,
 AC_ARG_VAR([LZ4_CFLAGS], [C compiler flags for lz4])
 AC_ARG_VAR([LZ4_LIBS], [linker flags for lz4])
 
+AC_ARG_WITH(liblzma-incdir,
+   [AS_HELP_STRING([--with-liblzma-incdir=DIR], [liblzma include directory])], [
+   EROFS_UTILS_PARSE_DIRECTORY(["$withval"],[withval])])
+
+AC_ARG_WITH(liblzma-libdir,
+   [AS_HELP_STRING([--with-liblzma-libdir=DIR], [liblzma lib directory])], [
+   EROFS_UTILS_PARSE_DIRECTORY(["$withval"],[withval])])
+
 # Checks for header files.
 AC_CHECK_HEADERS(m4_flatten([
 	dirent.h
@@ -122,6 +140,8 @@ AC_TYPE_INT64_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_CHECK_MEMBERS([struct stat.st_rdev])
+AC_CHECK_MEMBERS([struct stat.st_atim])
+AC_CHECK_MEMBERS([struct stat.st_atimensec])
 AC_TYPE_UINT64_T
 
 #
@@ -148,7 +168,29 @@ AC_CHECK_DECL(lseek64,[AC_DEFINE(HAVE_LSEEK64_PROTOTYPE, 1,
    #include <unistd.h>])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([backtrace fallocate gettimeofday memset realpath strdup strerror strrchr strtoull])
+AC_CHECK_FUNCS(m4_flatten([
+	backtrace
+	copy_file_range
+	fallocate
+	gettimeofday
+	lgetxattr
+	llistxattr
+	memset
+	realpath
+	pread64
+	pwrite64
+	strdup
+	strerror
+	strrchr
+	strtoull
+	tmpfile64
+	utimensat]))
+
+# Configure debug mode
+AS_IF([test "x$enable_debug" != "xno"], [], [
+  dnl Turn off all assert checking.
+  CPPFLAGS="$CPPFLAGS -DNDEBUG"
+])
 
 # Configure libuuid
 AS_IF([test "x$with_uuid" != "xno"], [
@@ -234,10 +276,36 @@ if test "x$enable_lz4" = "xyes"; then
   CPPFLAGS=${saved_CPPFLAGS}
 fi
 
+if test "x$enable_lzma" = "xyes"; then
+  saved_CPPFLAGS=${CPPFLAGS}
+  test -z "${with_liblzma_incdir}" ||
+    CPPFLAGS="-I$with_liblzma_incdir $CPPFLAGS"
+  AC_CHECK_HEADERS([lzma.h],[have_lzmah="yes"], [])
+
+  if test "x${have_lzmah}" = "xyes" ; then
+    saved_LIBS="$LIBS"
+    saved_LDFLAGS="$LDFLAGS"
+
+    test -z "${with_liblzma_libdir}" ||
+      LDFLAGS="-L$with_liblzma_libdir ${LDFLAGS}"
+    AC_CHECK_LIB(lzma, lzma_microlzma_encoder, [],
+      [AC_MSG_ERROR([Cannot find proper liblzma])])
+
+    AC_CHECK_DECL(lzma_microlzma_encoder, [have_liblzma="yes"],
+      [AC_MSG_ERROR([Cannot find proper liblzma])], [[
+#include <lzma.h>
+    ]])
+    LDFLAGS="${saved_LDFLAGS}"
+    LIBS="${saved_LIBS}"
+  fi
+  CPPFLAGS="${saved_CPPFLAGS}"
+fi
+
 # Set up needed symbols, conditionals and compiler/linker flags
 AM_CONDITIONAL([ENABLE_LZ4], [test "x${have_lz4}" = "xyes"])
 AM_CONDITIONAL([ENABLE_LZ4HC], [test "x${have_lz4hc}" = "xyes"])
 AM_CONDITIONAL([ENABLE_FUSE], [test "x${have_fuse}" = "xyes"])
+AM_CONDITIONAL([ENABLE_LIBLZMA], [test "x${have_liblzma}" = "xyes"])
 
 if test "x$have_uuid" = "xyes"; then
   AC_DEFINE([HAVE_LIBUUID], 1, [Define to 1 if libuuid is found])
@@ -258,16 +326,28 @@ if test "x${have_lz4}" = "xyes"; then
     LZ4_LIBS="-Wl,-Bstatic -Wl,-whole-archive -Xlinker ${LZ4_LIBS} -Wl,-no-whole-archive -Wl,-Bdynamic"
     test -z "${with_lz4_libdir}" || LZ4_LIBS="-L${with_lz4_libdir} $LZ4_LIBS"
   else
-    test -z "${with_lz4_libdir}" || LZ4_LIBS="-R${with_lz4_libdir} $LZ4_LIBS"
+    test -z "${with_lz4_libdir}" || LZ4_LIBS="-L${with_lz4_libdir} -R${with_lz4_libdir} $LZ4_LIBS"
   fi
   liblz4_LIBS="${LZ4_LIBS}"
 fi
 AC_SUBST([liblz4_LIBS])
 
+if test "x${have_liblzma}" = "xyes"; then
+  AC_DEFINE([HAVE_LIBLZMA], [1], [Define to 1 if liblzma is enabled.])
+  liblzma_LIBS="-llzma"
+  test -z "${with_liblzma_libdir}" ||
+    liblzma_LIBS="-L${with_liblzma_libdir} $liblzma_LIBS"
+  test -z "${with_liblzma_incdir}" ||
+    liblzma_CFLAGS="-I${with_liblzma_incdir}"
+  AC_SUBST([liblzma_LIBS])
+  AC_SUBST([liblzma_CFLAGS])
+fi
+
 AC_CONFIG_FILES([Makefile
 		 man/Makefile
 		 lib/Makefile
 		 mkfs/Makefile
-		 fuse/Makefile])
+		 dump/Makefile
+		 fuse/Makefile
+		 fsck/Makefile])
 AC_OUTPUT
-

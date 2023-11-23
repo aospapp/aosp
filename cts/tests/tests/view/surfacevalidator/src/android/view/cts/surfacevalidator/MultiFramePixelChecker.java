@@ -58,9 +58,14 @@ public abstract class MultiFramePixelChecker extends PixelChecker {
             mStartingColorFound = findStartingColor(plane, boundsToCheck);
             if (mStartingColorFound) {
                 Log.d(TAG, "Starting color found in frame " + frameNumber);
+                // Subtract frameNumber from startingColorIndex because frameNumber may not be 0.
+                // If starting color found on non first frame, we need to adjust the index to frame.
+                mStartingColorIndex -= frameNumber;
             } else {
                 Log.d(TAG, "Starting color not found in frame " + frameNumber);
-                return false;
+                // If the frame was empty, continue checking since empty frame may just mean the
+                // VirtualDisplay hasn't rendered any content yet
+                return isEmpty(plane, boundsToCheck);
             }
         }
 

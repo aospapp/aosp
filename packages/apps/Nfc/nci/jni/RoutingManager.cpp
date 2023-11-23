@@ -298,6 +298,38 @@ void RoutingManager::disableRoutingToHost() {
   }
 }
 
+/*******************************************************************************
+ **
+ ** Function:        isTypeATypeBTechSupportedInEe
+ **
+ ** Description:     receive eeHandle
+ **
+ ** Returns:         true  : if EE support protocol type A/B
+ **                  false : if EE doesn't protocol type A/B
+ **
+ *******************************************************************************/
+bool RoutingManager::isTypeATypeBTechSupportedInEe(tNFA_HANDLE eeHandle) {
+  static const char fn[] = "RoutingManager::isTypeATypeBTechSupportedInEe";
+  bool status = false;
+  uint8_t mActualNumEe = MAX_NUM_EE;
+  tNFA_EE_INFO eeInfo[mActualNumEe];
+  memset(&eeInfo, 0, mActualNumEe * sizeof(tNFA_EE_INFO));
+  tNFA_STATUS nfaStat = NFA_EeGetInfo(&mActualNumEe, eeInfo);
+  DLOG_IF(INFO, nfc_debug_enabled) << fn;
+  if (nfaStat != NFA_STATUS_OK) {
+    return status;
+  }
+  for (auto i = 0; i < mActualNumEe; i++) {
+    if (eeHandle == eeInfo[i].ee_handle) {
+      if (eeInfo[i].la_protocol || eeInfo[i].lb_protocol) {
+        status = true;
+        break;
+      }
+    }
+  }
+  return status;
+}
+
 bool RoutingManager::addAidRouting(const uint8_t* aid, uint8_t aidLen,
                                    int route, int aidInfo, int power) {
   static const char fn[] = "RoutingManager::addAidRouting";
@@ -565,7 +597,9 @@ void RoutingManager::updateDefaultProtocolRoute() {
   // Default Routing for ISO-DEP
   tNFA_PROTOCOL_MASK protoMask = NFA_PROTOCOL_MASK_ISO_DEP;
   tNFA_STATUS nfaStat;
-  if (mDefaultIsoDepRoute != NFC_DH_ID) {
+  if (mDefaultIsoDepRoute != NFC_DH_ID &&
+      isTypeATypeBTechSupportedInEe(mDefaultIsoDepRoute |
+                                    NFA_HANDLE_GROUP_EE)) {
     nfaStat = NFA_EeClearDefaultProtoRouting(mDefaultIsoDepRoute, protoMask);
     nfaStat = NFA_EeSetDefaultProtoRouting(
         mDefaultIsoDepRoute, protoMask, mSecureNfcEnabled ? 0 : protoMask, 0,
@@ -621,10 +655,18 @@ void RoutingManager::updateDefaultRoute() {
         << fn << ": Succeed to register system code";
   } else {
     LOG(ERROR) << fn << ": Fail to register system code";
+    // still support SCBR routing for other NFCEEs
+    mIsScbrSupported = true;
   }
 
   // Register zero lengthy Aid for default Aid Routing
   if (mDefaultEe != mDefaultIsoDepRoute) {
+    if ((mDefaultEe != NFC_DH_ID) &&
+        (!isTypeATypeBTechSupportedInEe(mDefaultEe | NFA_HANDLE_GROUP_EE))) {
+      DLOG_IF(INFO, nfc_debug_enabled)
+          << fn << ": mDefaultEE Doesn't support either Tech A/B. Returning...";
+      return;
+    }
     uint8_t powerState = 0x01;
     if (!mSecureNfcEnabled)
       powerState = (mDefaultEe != 0x00) ? mOffHostAidRoutingPowerState : 0x11;

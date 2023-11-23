@@ -24,7 +24,6 @@ import android.text.TextUtils;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Displays the sync settings for a given account.
@@ -47,8 +46,9 @@ public class AccountSyncActivity extends TvSettingsActivity {
                 }
             }
         }
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
-            .newSettingsFragment(AccountSyncFragment.class.getName(), getArguments(account));
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
+                .newSettingsFragment(AccountSyncFragment.class.getName(), getArguments(account));
     }
 
     private Bundle getArguments(Account account) {

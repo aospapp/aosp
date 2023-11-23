@@ -1,0 +1,2 @@
+# audit2allow
+allow hal_audio_default vendor_hw_prop:file { getattr map open read };

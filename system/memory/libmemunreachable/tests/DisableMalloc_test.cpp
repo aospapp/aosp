@@ -19,6 +19,8 @@
 #include <chrono>
 #include <functional>
 
+#include <android-base/test_utils.h>
+
 #include <ScopedDisableMalloc.h>
 #include <gtest/gtest.h>
 
@@ -34,6 +36,11 @@ class DisableMallocTest : public ::testing::Test {
     t.it_value.tv_sec = s.count();
     t.it_value.tv_usec = (us - s).count();
     setitimer(ITIMER_REAL, &t, NULL);
+  }
+
+  void SetUp() override {
+    // HWASan does not support malloc_disable.
+    SKIP_WITH_HWASAN;
   }
 };
 

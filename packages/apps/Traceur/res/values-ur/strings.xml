@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ڈیفالٹ زمروں کو بحال کریں"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"ڈیفالٹ زمرے بحال ہو گئے"</string>
     <string name="default_categories" msgid="2117679794687799407">"ڈیفالٹ"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">‏‎%d منتخب ہو گئے</item>
-      <item quantity="one">‏‎%d منتخب ہو گئے</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# کو منتخب کیا گیا}other{# کو منتخب کیا گیا}}"</string>
     <string name="applications" msgid="521776761270770549">"ایپلیکیشنز"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"ڈیبگ کے لائق کوئی ایپلیکیشن دستیاب نہیں ہے"</string>
     <string name="buffer_size" msgid="3944311026715111454">"‏فی CPU بفر سائز"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"‏Perfetto کا استعمال کریں (بی ٹا)"</string>
     <string name="long_traces" msgid="5110949471775966329">"لمبے ٹریسز"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"آلہ کے اسٹوریج میں مسلسل محفوظ ہو رہا ہے"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"آلے کی اسٹوریج میں مستقل طور پر محفوظ کیا گیا (بگ رپورٹس کے ساتھ خودکار طور پر منسلک نہیں کیا جائے گا)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"زیادہ سے زیادہ لمبا ٹریس سائز"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"زیادہ سے زیادہ لمبے ٹریس کی مدت"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

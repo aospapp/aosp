@@ -76,6 +76,10 @@ java_import {
     sdk_version: "core_current",
     exclude_dirs: ["META-INF/versions"],
     notice: "license/NOTICE.txt",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 java_import {
@@ -94,6 +98,10 @@ java_import {
     sdk_version: "core_current",
     exclude_dirs: ["META-INF/versions"],
     notice: "license/NOTICE.txt",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 java_import {

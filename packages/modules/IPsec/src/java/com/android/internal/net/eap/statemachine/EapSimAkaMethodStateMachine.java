@@ -19,7 +19,11 @@ package com.android.internal.net.eap.statemachine;
 import static com.android.internal.net.eap.EapAuthenticator.LOG;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_RESPONSE;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtEncrData.CIPHER_BLOCK_LENGTH;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NEXT_REAUTH_ID;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NOTIFICATION;
 
 import android.net.eap.EapSessionConfig.EapUiccConfig;
@@ -35,11 +39,17 @@ import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
 import com.android.internal.net.eap.exceptions.EapSilentException;
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaAuthenticationFailureException;
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.exceptions.simaka.EapSimAkaUnsupportedAttributeException;
 import com.android.internal.net.eap.message.EapData;
 import com.android.internal.net.eap.message.EapMessage;
+import com.android.internal.net.eap.message.simaka.EapAkaAttributeFactory;
+import com.android.internal.net.eap.message.simaka.EapAkaTypeData;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtEncrData;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtIv;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNextReauthId;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNotification;
 import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData;
 import com.android.internal.net.utils.Log;
@@ -49,6 +59,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import javax.crypto.Mac;
@@ -67,12 +78,18 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
     public static final String MASTER_KEY_GENERATION_ALG = "SHA-1";
     public static final String MAC_ALGORITHM_STRING = "HmacSHA1";
 
+    // Master Key(SHA 1) length is 20 bytes(160bits) (RFC 3174 #1)
+    public static final int MASTER_KEY_LENGTH = 20;
     // K_encr and K_aut lengths are 16 bytes (RFC 4186#7, RFC 4187#7)
     public static final int KEY_LEN = 16;
 
     // Session Key lengths are 64 bytes (RFC 4186#7, RFC 4187#7)
     public static final int SESSION_KEY_LENGTH = 64;
 
+    // COUNTER SIZE 2bytes(16bit)(RFC 4187 #10.16)
+    private static final int COUNTER_SIZE = 2;
+
+    public final byte[] mMk = new byte[getMkLength()];
     public final byte[] mKEncr = new byte[getKEncrLength()];
     public final byte[] mKAut = new byte[getKAutLength()];
     public final byte[] mMsk = new byte[getMskLength()];
@@ -104,6 +121,10 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
                 mEapUiccConfig.getClass().getSimpleName() + ":"
                         + " subId=" + mEapUiccConfig.getSubId()
                         + " apptype=" + mEapUiccConfig.getAppType());
+    }
+
+    protected int getMkLength() {
+        return MASTER_KEY_LENGTH;
     }
 
     protected int getKEncrLength() {
@@ -170,6 +191,7 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
     protected void generateAndPersistKeys(
             String tag, MessageDigest sha1, Fips186_2Prf prf, byte[] mkInput) {
         byte[] mk = sha1.digest(mkInput);
+        System.arraycopy(mk, 0, mMk, 0, MASTER_KEY_LENGTH);
 
         // run mk through FIPS 186-2
         int outputBytes = mKEncr.length + mKAut.length + mMsk.length + mEmsk.length;
@@ -184,6 +206,45 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
         // Log as hash unless PII debug mode enabled
         LOG.d(tag, "MK input=" + LOG.pii(mkInput));
         LOG.d(tag, "MK=" + LOG.pii(mk));
+        LOG.d(tag, "K_encr=" + LOG.pii(mKEncr));
+        LOG.d(tag, "K_aut=" + LOG.pii(mKAut));
+        LOG.d(tag, "MSK=" + LOG.pii(mMsk));
+        LOG.d(tag, "EMSK=" + LOG.pii(mEmsk));
+    }
+
+    @VisibleForTesting
+    protected void generateAndPersistReauthKeys(
+            String tag,
+            MessageDigest sha1,
+            Fips186_2Prf prf,
+            byte[] reauthId,
+            int count,
+            byte[] nonceS,
+            byte[] mk) {
+        int numInputBytes = reauthId.length + COUNTER_SIZE + nonceS.length + mk.length;
+
+        // XKEY' generated per reauth key generation procedure RFC 4187:
+        // SHA1(Identity|counter|NONCE_S| MK)
+        ByteBuffer buffer = ByteBuffer.allocate(numInputBytes);
+        buffer.put(reauthId);
+        buffer.putShort((short) count);
+        buffer.put(nonceS);
+        buffer.put(mk);
+        byte[] xKeyPrimeInput = buffer.array();
+        byte[] xKeyPrime = sha1.digest(xKeyPrimeInput);
+
+        // run mk through FIPS 186-2
+        int outputBytes = mMsk.length + mEmsk.length;
+        byte[] prfResult = prf.getRandom(xKeyPrime, outputBytes);
+
+        ByteBuffer prfResultBuffer = ByteBuffer.wrap(prfResult);
+        prfResultBuffer.get(mMsk);
+        prfResultBuffer.get(mEmsk);
+
+        // Log as hash unless PII debug mode enabled
+        LOG.d(tag, "MK=" + LOG.pii(mk));
+        LOG.d(tag, "XKEY' INPUT=" + LOG.pii(xKeyPrimeInput));
+        LOG.d(tag, "XKEY' =" + LOG.pii(xKeyPrime));
         LOG.d(tag, "K_encr=" + LOG.pii(mKEncr));
         LOG.d(tag, "K_aut=" + LOG.pii(mKAut));
         LOG.d(tag, "MSK=" + LOG.pii(mMsk));
@@ -217,6 +278,7 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
         LOG.d(tag, "Computing MAC (raw msg): " + LOG.pii(message.encode()));
 
         byte[] mac = getMac(message.eapCode, message.eapIdentifier, typeData, extraData);
+
         // attributes are 'valid', so must have AtMac
         AtMac atMac = (AtMac) typeData.attributeMap.get(EAP_AT_MAC);
 
@@ -231,6 +293,127 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
         }
 
         return isValidMac;
+    }
+
+    @VisibleForTesting
+    LinkedHashMap<Integer, EapSimAkaAttribute> retrieveSecuredAttributes(
+            String tag, EapAkaTypeData typeData) {
+        AtEncrData atEncrData = (AtEncrData) typeData.attributeMap.get(EAP_AT_ENCR_DATA);
+
+        if (atEncrData == null) {
+            LOG.d(tag, "AT_ENCR_DATA is not included.");
+            return null;
+        } else {
+            AtIv atIv = (AtIv) typeData.attributeMap.get(EAP_AT_IV);
+            if (atIv == null) {
+                LOG.d(tag, "AT_IV is not included. can't decrypt ENCR DATA");
+                return null;
+            }
+
+            byte[] decryptedData;
+            try {
+                decryptedData = atEncrData.getDecryptedData(mKEncr, atIv.iv);
+            } catch (EapSimAkaInvalidAttributeException e) {
+                LOG.d(tag, "Decrypt Fail, can't decrypt ENCR DATA");
+                return null;
+            }
+
+            LinkedHashMap<Integer, EapSimAkaAttribute> securedAttributes;
+            try {
+                securedAttributes = getSecureAttributes(tag, decryptedData);
+            } catch (EapSimAkaInvalidAttributeException e) {
+                LOG.d(tag, "Decode Fail, can't decode decrypted ENCR DATA.");
+                return null;
+            }
+            return securedAttributes;
+        }
+    }
+
+    @VisibleForTesting
+    byte[] retrieveNextReauthId(String tag, EapAkaTypeData typeData) {
+        LinkedHashMap<Integer, EapSimAkaAttribute> securedAttributes =
+                retrieveSecuredAttributes(tag, typeData);
+        if (securedAttributes == null) {
+            return null;
+        } else {
+            AtNextReauthId atNextReauthId =
+                    (AtNextReauthId) securedAttributes.get(EAP_AT_NEXT_REAUTH_ID);
+            if (atNextReauthId != null && atNextReauthId.reauthId != null) {
+                return atNextReauthId.reauthId.clone();
+            } else {
+                return null;
+            }
+        }
+    }
+
+    @VisibleForTesting
+    static LinkedHashMap<Integer, EapSimAkaAttribute> getSecureAttributes(String tag,
+            byte[] decryptedData)
+            throws EapSimAkaInvalidAttributeException {
+        ByteBuffer secureDataByteBuffer = ByteBuffer.wrap(decryptedData);
+        LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap = new LinkedHashMap<>();
+        EapAkaAttributeFactory attributeFactory = EapAkaAttributeFactory.getInstance();
+        while (secureDataByteBuffer.hasRemaining()) {
+            EapSimAkaAttribute attribute;
+            try {
+                attribute = attributeFactory.getAttribute(secureDataByteBuffer);
+            } catch (EapSimAkaUnsupportedAttributeException e) {
+                LOG.e(tag, "Unrecognized, non-skippable attribute encountered", e);
+                throw new EapSimAkaInvalidAttributeException("Decode fail");
+            }
+            if (attributeMap.containsKey(attribute.attributeType)) {
+                // Duplicate attributes are not allowed (RFC 4186#6.3.1, RFC 4187#6.3.1)
+                LOG.e(tag, "Duplicate attribute in parsed EAP-Message");
+                throw new EapSimAkaInvalidAttributeException("Duplicated attributes");
+            }
+
+            if (attribute instanceof EapSimAkaAttribute.EapSimAkaUnsupportedAttribute) {
+                LOG.d(tag, "Unsupported EAP attribute during decoding: " + attribute.attributeType);
+            }
+            attributeMap.put(attribute.attributeType, attribute);
+        }
+        return attributeMap;
+    }
+
+    @VisibleForTesting
+    static List<EapSimAkaAttribute> buildReauthResponse(
+            int counter, boolean isCounterSmall, byte[] kEncr, AtIv atIv)
+            throws EapSimAkaInvalidAttributeException {
+        List<EapSimAkaAttribute> attrList = new ArrayList<>();
+        ByteBuffer buffer;
+        EapSimAkaAttribute atCounter = new EapSimAkaAttribute.AtCounter(counter);
+        if (isCounterSmall) {
+            EapSimAkaAttribute atCounterSmall = new EapSimAkaAttribute.AtCounterTooSmall();
+            int paddingSize =
+                    getPaddingSize(
+                            CIPHER_BLOCK_LENGTH,
+                            atCounter.lengthInBytes + atCounterSmall.lengthInBytes);
+            EapSimAkaAttribute atPadding = new EapSimAkaAttribute.AtPadding(paddingSize);
+            buffer =
+                    ByteBuffer.allocate(
+                            atCounter.lengthInBytes + atCounterSmall.lengthInBytes + paddingSize);
+            atCounterSmall.encode(buffer);
+            atCounter.encode(buffer);
+            atPadding.encode(buffer);
+        } else {
+            int paddingSize = getPaddingSize(CIPHER_BLOCK_LENGTH, atCounter.lengthInBytes);
+            EapSimAkaAttribute atPadding = new EapSimAkaAttribute.AtPadding(paddingSize);
+            buffer = ByteBuffer.allocate(atCounter.lengthInBytes + paddingSize);
+            atCounter.encode(buffer);
+            atPadding.encode(buffer);
+        }
+        EapSimAkaAttribute atEncrData =
+                new EapSimAkaAttribute.AtEncrData(buffer.array(), kEncr, atIv.iv);
+        attrList.add(atIv);
+        attrList.add(atEncrData);
+        return attrList;
+    }
+
+    @VisibleForTesting
+    static int getPaddingSize(int blockSize, int dataLength) {
+        int remain = dataLength % blockSize;
+        if (remain == 0) return 0;
+        else return blockSize - remain;
     }
 
     @VisibleForTesting
@@ -266,12 +449,21 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
     @VisibleForTesting
     EapResult buildResponseMessageWithMac(int identifier, int eapSubtype, byte[] extraData) {
         // capacity of 1 for AtMac to be added
-        return buildResponseMessageWithMac(identifier, eapSubtype, extraData, new ArrayList<>(1));
+        return buildResponseMessageWithMac(
+                identifier,
+                eapSubtype,
+                extraData,
+                new ArrayList<>(1) /* attributes */,
+                null /* flagsToAdd */);
     }
 
     @VisibleForTesting
     EapResult buildResponseMessageWithMac(
-            int identifier, int eapSubtype, byte[] extraData, List<EapSimAkaAttribute> attributes) {
+            int identifier,
+            int eapSubtype,
+            byte[] extraData,
+            List<EapSimAkaAttribute> attributes,
+            @EapResponse.EapResponseFlag int[] flagsToAdd) {
         try {
             attributes = new ArrayList<>(attributes);
             attributes.add(new AtMac());
@@ -282,7 +474,7 @@ public abstract class EapSimAkaMethodStateMachine extends EapMethodStateMachine 
             eapSimAkaTypeData.attributeMap.put(EAP_AT_MAC, new AtMac(mac));
             EapData eapData = new EapData(getEapMethod(), eapSimAkaTypeData.encode());
             EapMessage eapMessage = new EapMessage(EAP_CODE_RESPONSE, identifier, eapData);
-            return EapResponse.getEapResponse(eapMessage);
+            return EapResponse.getEapResponse(eapMessage, flagsToAdd);
         } catch (EapSimAkaInvalidAttributeException | EapSilentException ex) {
             // this should never happen
             return new EapError(ex);

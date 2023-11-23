@@ -26,7 +26,7 @@ namespace os {
 namespace statsd {
 
 // Held by MetricProducer, to query a condition state with input defined in MetricConditionLink.
-class ConditionWizard : public virtual android::RefBase {
+class ConditionWizard : public virtual RefBase {
 public:
     ConditionWizard(){};  // for testing
     explicit ConditionWizard(std::vector<sp<ConditionTracker>>& conditionTrackers)

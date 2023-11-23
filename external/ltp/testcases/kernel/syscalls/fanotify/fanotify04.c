@@ -3,9 +3,11 @@
  * Copyright (c) 2013 SUSE.  All Rights Reserved.
  *
  * Started by Jan Kara <jack@suse.cz>
- *
- * DESCRIPTION
- *     Check various fanotify special flags
+ */
+
+/*\
+ * [Description]
+ * Check various fanotify special flags.
  */
 
 #define _GNU_SOURCE
@@ -14,15 +16,13 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
 #include "tst_test.h"
-#include "fanotify.h"
 
-#if defined(HAVE_SYS_FANOTIFY_H)
-#include <sys/fanotify.h>
+#ifdef HAVE_SYS_FANOTIFY_H
+#include "fanotify.h"
 
 #define EVENT_MAX 1024
 /* size of the event structure, not counting name */
@@ -77,13 +77,8 @@ static void check_mark(char *file, unsigned long long flag, char *flagstr,
 		if (test_event)
 			test_event(file);
 
-		if (fanotify_mark(fd_notify, FAN_MARK_REMOVE | flag,
-				  FAN_OPEN, AT_FDCWD, file) < 0) {
-			tst_brk(TBROK | TERRNO,
-				"fanotify_mark (%d, FAN_MARK_REMOVE | %s, "
-				"FAN_OPEN, AT_FDCWD, '%s') failed",
-				fd_notify, flagstr, file);
-		}
+		SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_REMOVE | flag,
+				  FAN_OPEN, AT_FDCWD, file);
 	}
 }
 
@@ -191,29 +186,14 @@ void test01(void)
 	CHECK_MARK(sname, 0, 0, test_open_file);
 
 	/* Verify FAN_MARK_FLUSH destroys all inode marks */
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD,
-			  FAN_OPEN, AT_FDCWD, fname) < 0) {
-		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD, FAN_OPEN, "
-			"AT_FDCWD, '%s') failed", fd_notify, fname);
-	}
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD,
-			  FAN_OPEN | FAN_ONDIR, AT_FDCWD, dir) < 0) {
-		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD, FAN_OPEN | "
-			"FAN_ONDIR, AT_FDCWD, '%s') failed", fd_notify,
-			dir);
-	}
+	SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_ADD, FAN_OPEN, AT_FDCWD, fname);
+	SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_ADD, FAN_OPEN | FAN_ONDIR,
+			   AT_FDCWD, dir);
 	open_file(fname);
 	verify_event(S_IFREG);
 	open_dir(dir);
 	verify_event(S_IFDIR);
-	if (fanotify_mark(fd_notify, FAN_MARK_FLUSH,
-			  0, AT_FDCWD, ".") < 0) {
-		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_FLUSH, 0, "
-			"AT_FDCWD, '.') failed", fd_notify);
-	}
+	SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_FLUSH, 0, AT_FDCWD, ".");
 
 	open_dir(dir);
 	verify_no_event();

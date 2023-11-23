@@ -31,6 +31,12 @@ type BinaryCompilerProperties struct {
 	Static_executable *bool `android:"arch_variant"`
 }
 
+type binaryInterface interface {
+	binary() bool
+	staticallyLinked() bool
+	testBinary() bool
+}
+
 type binaryDecorator struct {
 	*baseCompiler
 	stripper Stripper
@@ -86,14 +92,23 @@ func (binary *binaryDecorator) compilerFlags(ctx ModuleContext, flags Flags) Fla
 func (binary *binaryDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = binary.baseCompiler.compilerDeps(ctx, deps)
 
+	static := Bool(binary.Properties.Static_executable)
 	if ctx.toolchain().Bionic() {
-		deps = bionicDeps(ctx, deps, Bool(binary.Properties.Static_executable))
-		if Bool(binary.Properties.Static_executable) {
-			deps.CrtBegin = "crtbegin_static"
+		deps = bionicDeps(ctx, deps, static)
+		if static {
+			deps.CrtBegin = []string{"crtbegin_static"}
 		} else {
-			deps.CrtBegin = "crtbegin_dynamic"
+			deps.CrtBegin = []string{"crtbegin_dynamic"}
 		}
-		deps.CrtEnd = "crtend_android"
+		deps.CrtEnd = []string{"crtend_android"}
+	} else if ctx.Os() == android.LinuxMusl {
+		deps = muslDeps(ctx, deps, static)
+		if static {
+			deps.CrtBegin = []string{"libc_musl_crtbegin_static"}
+		} else {
+			deps.CrtBegin = []string{"libc_musl_crtbegin_dynamic", "musl_linker_script"}
+		}
+		deps.CrtEnd = []string{"libc_musl_crtend"}
 	}
 
 	return deps
@@ -117,25 +132,32 @@ func (binary *binaryDecorator) compile(ctx ModuleContext, flags Flags, deps Path
 	fileName := binary.getStem(ctx) + ctx.toolchain().ExecutableSuffix()
 	srcPath, _ := srcPathFromModuleSrcs(ctx, binary.baseCompiler.Properties.Srcs)
 	outputFile := android.PathForModuleOut(ctx, fileName)
+	ret := outputFile
 
 	flags.RustFlags = append(flags.RustFlags, deps.depFlags...)
 	flags.LinkFlags = append(flags.LinkFlags, deps.depLinkFlags...)
 	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects...)
 
+	if binary.stripper.NeedsStrip(ctx) {
+		strippedOutputFile := outputFile
+		outputFile = android.PathForModuleOut(ctx, "unstripped", fileName)
+		binary.stripper.StripExecutableOrSharedLib(ctx, outputFile, strippedOutputFile)
+
+		binary.baseCompiler.strippedOutputFile = android.OptionalPathForPath(strippedOutputFile)
+	}
+	binary.baseCompiler.unstrippedOutputFile = outputFile
+
 	TransformSrcToBinary(ctx, srcPath, deps, flags, outputFile)
 
-	if binary.stripper.NeedsStrip(ctx) {
-		strippedOutputFile := android.PathForModuleOut(ctx, "stripped", fileName)
-		binary.stripper.StripExecutableOrSharedLib(ctx, outputFile, strippedOutputFile)
-		binary.strippedOutputFile = android.OptionalPathForPath(strippedOutputFile)
-	}
-
-	return outputFile
+	return ret
 }
 
 func (binary *binaryDecorator) autoDep(ctx android.BottomUpMutatorContext) autoDep {
 	// Binaries default to dylib dependencies for device, rlib for host.
 	if binary.preferRlib() {
+		return rlibAutoDep
+	} else if mod, ok := ctx.Module().(*Module); ok && mod.InVendor() {
+		// Vendor Rust binaries should prefer rlibs.
 		return rlibAutoDep
 	} else if ctx.Device() {
 		return dylibAutoDep
@@ -147,10 +169,20 @@ func (binary *binaryDecorator) autoDep(ctx android.BottomUpMutatorContext) autoD
 func (binary *binaryDecorator) stdLinkage(ctx *depsContext) RustLinkage {
 	if binary.preferRlib() {
 		return RlibLinkage
+	} else if ctx.RustModule().InVendor() {
+		return RlibLinkage
 	}
 	return binary.baseCompiler.stdLinkage(ctx)
 }
 
-func (binary *binaryDecorator) isDependencyRoot() bool {
+func (binary *binaryDecorator) binary() bool {
 	return true
+}
+
+func (binary *binaryDecorator) staticallyLinked() bool {
+	return Bool(binary.Properties.Static_executable)
+}
+
+func (binary *binaryDecorator) testBinary() bool {
+	return false
 }

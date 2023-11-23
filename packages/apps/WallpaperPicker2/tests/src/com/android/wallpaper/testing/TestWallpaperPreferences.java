@@ -19,6 +19,9 @@ import static com.android.wallpaper.module.WallpaperPersister.DEST_BOTH;
 import static com.android.wallpaper.module.WallpaperPersister.DEST_HOME_SCREEN;
 import static com.android.wallpaper.module.WallpaperPersister.DEST_LOCK_SCREEN;
 
+import android.app.WallpaperColors;
+import android.graphics.Color;
+
 import androidx.annotation.Nullable;
 
 import com.android.wallpaper.module.WallpaperPersister.Destination;
@@ -28,6 +31,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -77,6 +81,7 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     private int mHomeWallpaperActionIconRes;
     private int mLockWallpaperActionLabelRes;
     private int mLockWallpaperActionIconRes;
+    private HashMap<String, String> mWallStoredColor;
 
     public TestWallpaperPreferences() {
         mWallpaperPresentationMode = WallpaperPreferences.PRESENTATION_MODE_STATIC;
@@ -95,6 +100,7 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
         mLastDailyWallpaperRotationStatusTimestamp = 0;
         mLastSyncTimestamp = 0;
         mPendingWallpaperSetStatus = WALLPAPER_SET_NOT_PENDING;
+        mWallStoredColor = new HashMap<>();
     }
 
     @Override
@@ -514,6 +520,44 @@ public class TestWallpaperPreferences implements WallpaperPreferences {
     @Override
     public int getFirstWallpaperApplyDateSinceSetup() {
         return mFirstWallpaperApplyDate;
+    }
+
+    @Override
+    public void storeWallpaperColors(String storedWallpaperId, WallpaperColors wallpaperColors) {
+        Color primaryColor = wallpaperColors.getPrimaryColor();
+        String value = new String(String.valueOf(primaryColor.toArgb()));
+        Color secondaryColor = wallpaperColors.getSecondaryColor();
+        if (secondaryColor != null) {
+            value += "," + secondaryColor.toArgb();
+        }
+        Color tertiaryColor = wallpaperColors.getTertiaryColor();
+        if (tertiaryColor != null) {
+            value += "," + tertiaryColor.toArgb();
+        }
+        mWallStoredColor.put(storedWallpaperId, value);
+    }
+
+    @Override
+    public WallpaperColors getWallpaperColors(String storedWallpaperId) {
+        if (mWallStoredColor == null || mWallStoredColor.isEmpty()) {
+            return null;
+        }
+        String value = mWallStoredColor.get(storedWallpaperId);
+        if (value.equals("")) {
+            return null;
+        }
+        String[] colorStrings = value.split(",");
+        Color colorPrimary = Color.valueOf(Integer.parseInt(colorStrings[0]));
+        Color colorSecondary = null;
+        if (colorStrings.length >= 2) {
+            colorSecondary = Color.valueOf(Integer.parseInt(colorStrings[1]));
+        }
+        Color colorTerTiary = null;
+        if (colorStrings.length >= 3) {
+            colorTerTiary = Color.valueOf(Integer.parseInt(colorStrings[2]));
+        }
+        return new WallpaperColors(colorPrimary, colorSecondary, colorTerTiary,
+                WallpaperColors.HINT_FROM_BITMAP);
     }
 
     private void setFirstWallpaperApplyDateSinceSetup(int firstWallpaperApplyDate) {

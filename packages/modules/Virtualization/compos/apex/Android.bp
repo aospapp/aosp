@@ -31,7 +31,46 @@ apex {
     manifest: "manifest.json",
     file_contexts: ":com.android.compos-file_contexts",
     key: "com.android.compos.key",
+    certificate: ":com.android.compos.certificate",
 
-    // TODO(victorhsieh): make it updatable
+    // TODO(b/206618706): make it updatable
     updatable: false,
+    future_updatable: true,
+    platform_apis: true,
+
+    system_ext_specific: true,
+
+    binaries: [
+        // Used in Android
+        "compos_verify",
+        "composd",
+        "composd_cmd",
+
+        // Used in VM
+        "compos_key_helper",
+        "compsvc",
+    ],
+
+    systemserverclasspath_fragments: ["com.android.compos-systemserverclasspath-fragment"],
+
+    apps: [
+        "CompOSPayloadApp",
+    ],
+
+    prebuilts: [
+        "com.android.compos.init.rc",
+    ],
+}
+
+systemserverclasspath_fragment {
+    name: "com.android.compos-systemserverclasspath-fragment",
+    contents: ["service-compos"],
+    apex_available: ["com.android.compos"],
+}
+
+prebuilt_etc {
+    name: "com.android.compos.init.rc",
+    src: "composd.rc",
+    filename: "init.rc",
+    installable: false,
 }

@@ -10,6 +10,7 @@
     <int name="maxSubjectLength" value="80"/>
     <int name="recipientLimit" value="10"/>
     <int name="smsToMmsTextThreshold" value="5"/>
+    <int name="default_mtu_int" value="1410"/>
     <string name="gps.lpp_profile">3</string>
     <string-array name="read_only_apn_types_string_array" num="1">
         <item value="*"/>

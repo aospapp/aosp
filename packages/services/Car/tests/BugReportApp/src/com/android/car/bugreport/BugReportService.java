@@ -74,9 +74,9 @@ import java.util.zip.ZipOutputStream;
  * {@link Status#STATUS_AUDIO_PENDING} or {@link Status#STATUS_PENDING_USER_ACTION} depending
  * on {@link MetaBugReport#getType}.
  *
- * <p>If the service is started with action {@link #ACTION_START_SILENT}, it will start
+ * <p>If the service is started with action {@link #ACTION_START_AUDIO_LATER}, it will start
  * bugreporting without showing dialog and recording audio message, see
- * {@link MetaBugReport#TYPE_SILENT}.
+ * {@link MetaBugReport#TYPE_AUDIO_LATER}.
  */
 public class BugReportService extends Service {
     private static final String TAG = BugReportService.class.getSimpleName();
@@ -86,7 +86,18 @@ public class BugReportService extends Service {
      */
     static final String EXTRA_META_BUG_REPORT = "meta_bug_report";
 
-    /** Starts silent (no audio message recording) bugreporting. */
+    /**
+     * Collects bugreport for the existing {@link MetaBugReport}, which must be provided using
+     * {@link EXTRA_META_BUG_REPORT}.
+     */
+    static final String ACTION_COLLECT_BUGREPORT =
+            "com.android.car.bugreport.action.COLLECT_BUGREPORT";
+
+    /** Starts {@link MetaBugReport#TYPE_AUDIO_LATER} bugreporting. */
+    private static final String ACTION_START_AUDIO_LATER =
+            "com.android.car.bugreport.action.START_AUDIO_LATER";
+
+    /** @deprecated use {@link #ACTION_START_AUDIO_LATER}. */
     private static final String ACTION_START_SILENT =
             "com.android.car.bugreport.action.START_SILENT";
 
@@ -215,8 +226,7 @@ public class BugReportService extends Service {
         mSingleThreadExecutor = Executors.newSingleThreadScheduledExecutor();
         mHandler = new BugReportHandler();
         mHandlerStartedToast = new Handler();
-        mConfig = new Config();
-        mConfig.start();
+        mConfig = Config.create();
     }
 
     @Override
@@ -228,8 +238,8 @@ public class BugReportService extends Service {
     }
 
     @Override
-    public int onStartCommand(final Intent intent, int flags, int startId) {
-        if (mIsCollectingBugReport.getAndSet(true)) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (mIsCollectingBugReport.get()) {
             Log.w(TAG, "bug report is already being collected, ignoring");
             Toast.makeText(mWindowContext,
                     R.string.toast_bug_report_in_progress, Toast.LENGTH_SHORT).show();
@@ -239,14 +249,20 @@ public class BugReportService extends Service {
         Log.i(TAG, String.format("Will start collecting bug report, version=%s",
                 getPackageVersion(this)));
 
-        if (ACTION_START_SILENT.equals(intent.getAction())) {
-            Log.i(TAG, "Starting a silent bugreport.");
-            mMetaBugReport = BugReportActivity.createBugReport(this, MetaBugReport.TYPE_SILENT);
-        } else {
+        String action = intent == null ? null : intent.getAction();
+        if (ACTION_START_AUDIO_LATER.equals(action) || ACTION_START_SILENT.equals(action)) {
+            Log.i(TAG, "Starting a TYPE_AUDIO_LATER bugreport.");
+            mMetaBugReport =
+                    BugReportActivity.createBugReport(this, MetaBugReport.TYPE_AUDIO_LATER);
+        } else if (ACTION_COLLECT_BUGREPORT.equals(action)) {
             Bundle extras = intent.getExtras();
             mMetaBugReport = extras.getParcelable(EXTRA_META_BUG_REPORT);
+        } else {
+            Log.w(TAG, "No action provided, ignoring");
+            return START_NOT_STICKY;
         }
 
+        mIsCollectingBugReport.set(true);
         mBugReportProgress.set(0);
 
         startForeground(BUGREPORT_IN_PROGRESS_NOTIF_ID, buildProgressNotification());
@@ -510,10 +526,10 @@ public class BugReportService extends Service {
      * Zips the temp directory, writes to the system user's {@link FileUtils#getPendingDir} and
      * updates the bug report status.
      *
-     * <p>For {@link MetaBugReport#TYPE_INTERACTIVE}: Sets status to either STATUS_UPLOAD_PENDING or
+     * <p>For {@link MetaBugReport#TYPE_AUDIO_FIRST}: Sets status to either STATUS_UPLOAD_PENDING or
      * STATUS_PENDING_USER_ACTION and shows a regular notification.
      *
-     * <p>For {@link MetaBugReport#TYPE_SILENT}: Sets status to STATUS_AUDIO_PENDING and shows
+     * <p>For {@link MetaBugReport#TYPE_AUDIO_LATER}: Sets status to STATUS_AUDIO_PENDING and shows
      * a dialog to record audio message.
      */
     private void zipDirectoryAndUpdateStatus() {
@@ -534,13 +550,13 @@ public class BugReportService extends Service {
             showToast(R.string.toast_status_failed);
             return;
         }
-        if (mMetaBugReport.getType() == MetaBugReport.TYPE_SILENT) {
+        if (mMetaBugReport.getType() == MetaBugReport.TYPE_AUDIO_LATER) {
             BugStorageUtils.setBugReportStatus(BugReportService.this,
                     mMetaBugReport, Status.STATUS_AUDIO_PENDING, /* message= */ "");
             playNotificationSound();
             startActivity(BugReportActivity.buildAddAudioIntent(this, mMetaBugReport));
         } else {
-            // NOTE: If bugreport type is INTERACTIVE, it will already contain an audio message.
+            // NOTE: If bugreport is TYPE_AUDIO_FIRST, it will already contain an audio message.
             Status status = mConfig.getAutoUpload()
                     ? Status.STATUS_UPLOAD_PENDING : Status.STATUS_PENDING_USER_ACTION;
             BugStorageUtils.setBugReportStatus(BugReportService.this,

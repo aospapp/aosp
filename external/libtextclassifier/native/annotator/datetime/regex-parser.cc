@@ -16,6 +16,7 @@
 
 #include "annotator/datetime/regex-parser.h"
 
+#include <algorithm>
 #include <iterator>
 #include <set>
 #include <unordered_set>
@@ -191,17 +192,17 @@ StatusOr<std::vector<DatetimeParseResultSpan>> RegexDatetimeParser::Parse(
 
   // Resolve conflicts by always picking the longer span and breaking ties by
   // selecting the earlier entry in the list for a given locale.
-  std::sort(indexed_found_spans.begin(), indexed_found_spans.end(),
-            [](const std::pair<DatetimeParseResultSpan, int>& a,
-               const std::pair<DatetimeParseResultSpan, int>& b) {
-              if ((a.first.span.second - a.first.span.first) !=
-                  (b.first.span.second - b.first.span.first)) {
-                return (a.first.span.second - a.first.span.first) >
-                       (b.first.span.second - b.first.span.first);
-              } else {
-                return a.second < b.second;
-              }
-            });
+  std::stable_sort(indexed_found_spans.begin(), indexed_found_spans.end(),
+                   [](const std::pair<DatetimeParseResultSpan, int>& a,
+                      const std::pair<DatetimeParseResultSpan, int>& b) {
+                     if ((a.first.span.second - a.first.span.first) !=
+                         (b.first.span.second - b.first.span.first)) {
+                       return (a.first.span.second - a.first.span.first) >
+                              (b.first.span.second - b.first.span.first);
+                     } else {
+                       return a.second < b.second;
+                     }
+                   });
 
   std::vector<DatetimeParseResultSpan> results;
   std::vector<DatetimeParseResultSpan> resolved_found_spans;
@@ -394,10 +395,10 @@ bool RegexDatetimeParser::ExtractDatetime(
     }
 
     // Sort the date time units by component type.
-    std::sort(date_components.begin(), date_components.end(),
-              [](DatetimeComponent a, DatetimeComponent b) {
-                return a.component_type > b.component_type;
-              });
+    std::stable_sort(date_components.begin(), date_components.end(),
+                     [](DatetimeComponent a, DatetimeComponent b) {
+                       return a.component_type > b.component_type;
+                     });
     result.datetime_components.swap(date_components);
     results->push_back(result);
   }

@@ -116,7 +116,7 @@ class RBBITableBuilder {
 
            //
            // Walk through the tree, replacing any references to $variables with a copy of the
-           //   parse tree for the substition expression.
+           //   parse tree for the substitution expression.
            //
            fRB.fTreeRoots[fRootIx] = fRB.fTreeRoots[fRootIx].flattenVariables();
            if (fRB.fDebugEnv!=null && fRB.fDebugEnv.indexOf("ftree")>=0) {
@@ -166,7 +166,7 @@ class RBBITableBuilder {
            //
            // calculate the functions nullable, firstpos, lastpos and followpos on
            // nodes in the parse tree.
-           //    See the alogrithm description in Aho.
+           //    See the algorithm description in Aho.
            //    Understanding how this works by looking at the code alone will be
            //       nearly impossible.
            //

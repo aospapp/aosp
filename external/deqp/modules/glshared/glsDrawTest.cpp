@@ -58,6 +58,7 @@
 #include <vector>
 #include <sstream>
 #include <limits>
+#include <cstdint>
 
 #include "glwDefs.hpp"
 #include "glwEnums.hpp"
@@ -550,53 +551,41 @@ float GLValue::toFloat (void) const
 	{
 		case DrawTestSpec::INPUTTYPE_FLOAT:
 			return fl.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_BYTE:
 			return b.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_UNSIGNED_BYTE:
 			return ub.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_SHORT:
 			return s.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_UNSIGNED_SHORT:
 			return us.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_FIXED:
 		{
 			int maxValue = 65536;
 			return (float)(double(2 * fi.getValue() + 1) / (maxValue - 1));
-
-			break;
 		}
 
 		case DrawTestSpec::INPUTTYPE_UNSIGNED_INT:
 			return (float)ui.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_INT:
 			return (float)i.getValue();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_HALF:
 			return h.to<float>();
-			break;
 
 		case DrawTestSpec::INPUTTYPE_DOUBLE:
 			return d.to<float>();
-			break;
 
 		default:
 			DE_ASSERT(false);
 			return 0.0f;
-			break;
-	};
+	}
 }
 
 GLValue GLValue::getMaxValue (DrawTestSpec::InputType type)
@@ -652,16 +641,16 @@ template<> struct GLValueTypeTraits<GLValue::Half>	 { static const DrawTestSpec:
 template<typename T>
 inline T extractGLValue (const GLValue& v);
 
-template<> GLValue::Float	inline extractGLValue<GLValue::Float>		(const GLValue& v) { return v.fl; };
-template<> GLValue::Double	inline extractGLValue<GLValue::Double>		(const GLValue& v) { return v.d; };
-template<> GLValue::Byte	inline extractGLValue<GLValue::Byte>		(const GLValue& v) { return v.b; };
-template<> GLValue::Ubyte	inline extractGLValue<GLValue::Ubyte>		(const GLValue& v) { return v.ub; };
-template<> GLValue::Ushort	inline extractGLValue<GLValue::Ushort>		(const GLValue& v) { return v.us; };
-template<> GLValue::Short	inline extractGLValue<GLValue::Short>		(const GLValue& v) { return v.s; };
-template<> GLValue::Fixed	inline extractGLValue<GLValue::Fixed>		(const GLValue& v) { return v.fi; };
-template<> GLValue::Int		inline extractGLValue<GLValue::Int>			(const GLValue& v) { return v.i; };
-template<> GLValue::Uint	inline extractGLValue<GLValue::Uint>		(const GLValue& v) { return v.ui; };
-template<> GLValue::Half	inline extractGLValue<GLValue::Half>		(const GLValue& v) { return v.h; };
+template<> GLValue::Float	inline extractGLValue<GLValue::Float>		(const GLValue& v) { return v.fl; }
+template<> GLValue::Double	inline extractGLValue<GLValue::Double>		(const GLValue& v) { return v.d; }
+template<> GLValue::Byte	inline extractGLValue<GLValue::Byte>		(const GLValue& v) { return v.b; }
+template<> GLValue::Ubyte	inline extractGLValue<GLValue::Ubyte>		(const GLValue& v) { return v.ub; }
+template<> GLValue::Ushort	inline extractGLValue<GLValue::Ushort>		(const GLValue& v) { return v.us; }
+template<> GLValue::Short	inline extractGLValue<GLValue::Short>		(const GLValue& v) { return v.s; }
+template<> GLValue::Fixed	inline extractGLValue<GLValue::Fixed>		(const GLValue& v) { return v.fi; }
+template<> GLValue::Int		inline extractGLValue<GLValue::Int>			(const GLValue& v) { return v.i; }
+template<> GLValue::Uint	inline extractGLValue<GLValue::Uint>		(const GLValue& v) { return v.ui; }
+template<> GLValue::Half	inline extractGLValue<GLValue::Half>		(const GLValue& v) { return v.h; }
 
 template<class T>
 inline T getRandom (deRandom& rnd, T min, T max);
@@ -1962,11 +1951,12 @@ void AttributePack::render (DrawTestSpec::Primitive primitive, DrawTestSpec::Dra
 			DrawCommand command;
 
 			// index offset must be converted to firstIndex by dividing with the index element size
-			DE_ASSERT(((const deUint8*)indexOffset - (const deUint8*)DE_NULL) % gls::DrawTestSpec::indexTypeSize(indexType) == 0); // \note This is checked in spec validation
+			const auto offsetAsInteger = reinterpret_cast<uintptr_t>(indexOffset);
+			DE_ASSERT(offsetAsInteger % gls::DrawTestSpec::indexTypeSize(indexType) == 0); // \note This is checked in spec validation
 
 			command.count				= vertexCount;
 			command.primCount			= instanceCount;
-			command.firstIndex			= (glw::GLuint)(((const deUint8*)indexOffset - (const deUint8*)DE_NULL) / gls::DrawTestSpec::indexTypeSize(indexType));
+			command.firstIndex			= (glw::GLuint)(offsetAsInteger / gls::DrawTestSpec::indexTypeSize(indexType));
 			command.baseVertex			= baseVertex;
 			command.reservedMustBeZero	= 0;
 

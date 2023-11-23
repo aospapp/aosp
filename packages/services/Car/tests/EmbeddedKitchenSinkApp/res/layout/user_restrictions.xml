@@ -17,12 +17,6 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:orientation="vertical" >
-    <ListView
-        android:id="@+id/user_restrictions_list"
-        android:layout_height="match_parent"
-        android:layout_width="match_parent"
-        android:scrollbars="vertical"/>
-
     <Button
         android:id="@+id/apply_button"
         android:layout_width="wrap_content"
@@ -30,4 +24,9 @@
         android:padding="@dimen/users_button_padding"
         android:textSize="@dimen/users_button_text_size"
         android:text="@string/users_apply_button" />
+    <ListView
+        android:id="@+id/user_restrictions_list"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:scrollbars="vertical"/>
 </LinearLayout>

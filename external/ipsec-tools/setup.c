@@ -674,7 +674,7 @@ int privsep_xauth_login_system(char *user, char *password)
 
 /* misc.h */
 
-int racoon_hexdump(void *data, size_t length)
+int racoon_hexdump(const void *data, size_t length)
 {
     return 0;
 }

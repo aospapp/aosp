@@ -108,26 +108,35 @@ public class Profile extends RunListener {
         if (mConfiguration == null) {
             return;
         }
-        mOrderedScenariosList = new ArrayList<>(mConfiguration.getScenariosList());
-        if (mOrderedScenariosList.isEmpty()) {
+        final List<Scenario> orderedScenarios = new ArrayList<>(mConfiguration.getScenariosList());
+        if (orderedScenarios.isEmpty()) {
             throw new IllegalArgumentException("Profile must have at least one scenario.");
         }
         if (mConfiguration.getSchedule().equals(Schedule.TIMESTAMPED)) {
-            Collections.sort(mOrderedScenariosList, new ScenarioTimestampComparator());
+            if (mConfiguration.getRepetitions() != 1) {
+                throw new IllegalArgumentException("Repetitions param not supported for TIMESTAMPED scheduler");
+            }
+
+            Collections.sort(orderedScenarios, new ScenarioTimestampComparator());
             try {
                 mFirstScenarioTimestampMs =
-                        TIMESTAMP_FORMATTER.parse(mOrderedScenariosList.get(0).getAt()).getTime();
+                        TIMESTAMP_FORMATTER.parse(orderedScenarios.get(0).getAt()).getTime();
             } catch (ParseException e) {
                 throw new IllegalArgumentException(
                         "Cannot parse the timestamp of the first scenario.", e);
             }
         } else if (mConfiguration.getSchedule().equals(Schedule.INDEXED)) {
-            Collections.sort(mOrderedScenariosList, new ScenarioIndexedComparator());
+            Collections.sort(orderedScenarios, new ScenarioIndexedComparator());
         } else if (mConfiguration.getSchedule().equals(Schedule.SEQUENTIAL)) {
             // Do nothing. Rely on the natural ordering specified in the profile.
         } else {
             throw new UnsupportedOperationException(
                     "Only scheduled profiles are currently supported.");
+        }
+
+        mOrderedScenariosList = new ArrayList<>();
+        for (int i = 0; i < mConfiguration.getRepetitions(); i++) {
+            mOrderedScenariosList.addAll(orderedScenarios);
         }
     }
 

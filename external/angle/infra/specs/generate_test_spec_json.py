@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env vpython3
 # Copyright 2021 The ANGLE Project Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -41,6 +41,7 @@ ADDITIONAL_MIXINS = {
         }
     },
 }
+
 MIXIN_FILE_NAME = os.path.join(THIS_DIR, 'mixins.pyl')
 MIXINS_PYL_TEMPLATE = """\
 # GENERATED FILE - DO NOT EDIT.
@@ -93,7 +94,7 @@ def main():
     seen_mixins = set()
     for waterfall in angle_generator.waterfalls:
         seen_mixins = seen_mixins.union(waterfall.get('mixins', set()))
-        for bot_name, tester in waterfall['machines'].iteritems():
+        for bot_name, tester in waterfall['machines'].items():
             seen_mixins = seen_mixins.union(tester.get('mixins', set()))
     for suite in angle_generator.test_suites.values():
         if isinstance(suite, list):
@@ -108,7 +109,7 @@ def main():
     for mixin in seen_mixins:
         if mixin in found_mixins:
             continue
-        assert (mixin in chromium_generator.mixins)
+        assert (mixin in chromium_generator.mixins), 'Error with %s mixin' % mixin
         found_mixins[mixin] = chromium_generator.mixins[mixin]
 
     pp = pprint.PrettyPrinter(indent=2)

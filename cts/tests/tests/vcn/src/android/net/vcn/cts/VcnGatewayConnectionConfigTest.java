@@ -27,12 +27,16 @@ import static org.junit.Assert.fail;
 import android.net.ipsec.ike.IkeSessionParams;
 import android.net.ipsec.ike.IkeTunnelConnectionParams;
 import android.net.vcn.VcnGatewayConnectionConfig;
+import android.net.vcn.VcnUnderlyingNetworkTemplate;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
@@ -46,12 +50,22 @@ public class VcnGatewayConnectionConfigTest extends VcnTestBase {
             };
     private static final int MAX_MTU = 1360;
 
+    private static final List<VcnUnderlyingNetworkTemplate> UNDERLYING_NETWORK_TEMPLATES;
+
+    static {
+        List<VcnUnderlyingNetworkTemplate> nwTemplates = new ArrayList<>();
+        nwTemplates.add(VcnCellUnderlyingNetworkTemplateTest.getTestNetworkTemplate());
+        nwTemplates.add(VcnWifiUnderlyingNetworkTemplateTest.getTestNetworkTemplate());
+        UNDERLYING_NETWORK_TEMPLATES = Collections.unmodifiableList(nwTemplates);
+    }
+
     public static VcnGatewayConnectionConfig.Builder buildVcnGatewayConnectionConfigBase() {
         return new VcnGatewayConnectionConfig.Builder(
                         VCN_GATEWAY_CONNECTION_NAME, buildTunnelConnectionParams())
                 .addExposedCapability(NET_CAPABILITY_INTERNET)
                 .setRetryIntervalsMillis(RETRY_INTERNAL_MILLIS)
-                .setMaxMtu(MAX_MTU);
+                .setMaxMtu(MAX_MTU)
+                .setVcnUnderlyingNetworkPriorities(UNDERLYING_NETWORK_TEMPLATES);
     }
 
     private static VcnGatewayConnectionConfig buildVcnGatewayConnectionConfig() {
@@ -66,6 +80,9 @@ public class VcnGatewayConnectionConfigTest extends VcnTestBase {
         assertEquals(buildTunnelConnectionParams(), gatewayConnConfig.getTunnelConnectionParams());
         assertArrayEquals(
                 new int[] {NET_CAPABILITY_INTERNET}, gatewayConnConfig.getExposedCapabilities());
+        assertEquals(
+                UNDERLYING_NETWORK_TEMPLATES,
+                gatewayConnConfig.getVcnUnderlyingNetworkPriorities());
         assertArrayEquals(RETRY_INTERNAL_MILLIS, gatewayConnConfig.getRetryIntervalsMillis());
     }
 

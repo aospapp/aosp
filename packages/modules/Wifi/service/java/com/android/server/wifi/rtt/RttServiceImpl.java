@@ -29,7 +29,9 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.MacAddress;
+import android.net.wifi.WifiManager;
 import android.net.wifi.aware.IWifiAwareMacAddressProvider;
+import android.net.wifi.aware.MacAddrMapping;
 import android.net.wifi.aware.WifiAwareManager;
 import android.net.wifi.rtt.IRttCallback;
 import android.net.wifi.rtt.IWifiRttManager;
@@ -40,6 +42,7 @@ import android.net.wifi.rtt.ResponderConfig;
 import android.net.wifi.rtt.ResponderLocation;
 import android.net.wifi.rtt.WifiRttManager;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -55,6 +58,7 @@ import android.util.SparseIntArray;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.WakeupMessage;
 import com.android.modules.utils.BasicShellCommandHandler;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.WifiSettingsConfigStore;
 import com.android.server.wifi.proto.nano.WifiMetricsProto;
@@ -386,7 +390,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
      */
     @Override
     public void startRanging(IBinder binder, String callingPackage, String callingFeatureId,
-            WorkSource workSource, RangingRequest request, IRttCallback callback)
+            WorkSource workSource, RangingRequest request, IRttCallback callback, Bundle extras)
             throws RemoteException {
         if (VDBG) {
             Log.v(TAG, "startRanging: binder=" + binder + ", callingPackage=" + callingPackage
@@ -427,7 +431,23 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
         enforceAccessPermission();
         enforceChangePermission();
         mWifiPermissionsUtil.checkPackage(uid, callingPackage);
-        mWifiPermissionsUtil.enforceFineLocationPermission(callingPackage, callingFeatureId, uid);
+        // check if only Aware APs are ranged.
+        boolean onlyAwareApRanged = request.mRttPeers.stream().allMatch(
+                config -> config.responderType == ResponderConfig.RESPONDER_AWARE);
+        if (onlyAwareApRanged && SdkLevel.isAtLeastT()) {
+            // Special case: if only aware APs are ranged, then allow this request if the caller
+            // has nearby permission.
+            if (!mWifiPermissionsUtil.checkNearbyDevicesPermission(extras.getParcelable(
+                            WifiManager.EXTRA_PARAM_KEY_ATTRIBUTION_SOURCE), true,
+                    "wifi aware ranging")) {
+                // No nearby permission. Still check for location permission.
+                mWifiPermissionsUtil.enforceFineLocationPermission(
+                        callingPackage, callingFeatureId, uid);
+            }
+        } else {
+            mWifiPermissionsUtil.enforceFineLocationPermission(
+                    callingPackage, callingFeatureId, uid);
+        }
 
         final WorkSource ws;
         if (workSource != null) {
@@ -470,7 +490,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
             }
             mRttServiceSynchronized.queueRangingRequest(uid, sourceToUse, binder, dr,
                     callingPackage, callingFeatureId, request, callback,
-                    isCalledFromPrivilegedContext);
+                    isCalledFromPrivilegedContext, extras);
         });
     }
 
@@ -679,7 +699,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
         private void queueRangingRequest(int uid, WorkSource workSource, IBinder binder,
                 IBinder.DeathRecipient dr, String callingPackage, String callingFeatureId,
                 RangingRequest request, IRttCallback callback,
-                boolean isCalledFromPrivilegedContext) {
+                boolean isCalledFromPrivilegedContext, Bundle extras) {
             mRttMetrics.recordRequest(workSource, request);
 
             if (isRequestorSpamming(workSource)) {
@@ -706,6 +726,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
             newRequest.request = request;
             newRequest.callback = callback;
             newRequest.isCalledFromPrivilegedContext = isCalledFromPrivilegedContext;
+            newRequest.extras = extras;
             mRttRequestQueue.add(newRequest);
 
             if (VDBG) {
@@ -993,14 +1014,15 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
             }
 
             request.peerHandlesTranslated = true;
-            mAwareManager.requestMacAddresses(request.uid, peerIdsNeedingTranslation,
+            int[] peerIdsArray = peerIdsNeedingTranslation.stream().mapToInt(i -> i).toArray();
+            mAwareManager.requestMacAddresses(request.uid, peerIdsArray,
                     new IWifiAwareMacAddressProvider.Stub() {
                         @Override
-                        public void macAddress(Map peerIdToMacMap) {
+                        public void macAddress(MacAddrMapping[] peerIdToMacList) {
                             // ASYNC DOMAIN
                             mHandler.post(() -> {
                                 // BACK TO SYNC DOMAIN
-                                processReceivedAwarePeerMacAddresses(request, peerIdToMacMap);
+                                processReceivedAwarePeerMacAddresses(request, peerIdToMacList);
                             });
                         }
                     });
@@ -1008,16 +1030,27 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
         }
 
         private void processReceivedAwarePeerMacAddresses(RttRequestInfo request,
-                Map<Integer, byte[]> peerIdToMacMap) {
+                MacAddrMapping[] peerIdToMacList) {
             if (VDBG) {
-                Log.v(TAG, "processReceivedAwarePeerMacAddresses: request=" + request
-                        + ", peerIdToMacMap=" + peerIdToMacMap);
+                Log.v(TAG, "processReceivedAwarePeerMacAddresses: request=" + request);
+                Log.v(TAG, "processReceivedAwarePeerMacAddresses: peerIdToMacList begin");
+                for (MacAddrMapping mapping : peerIdToMacList) {
+                    Log.v(TAG, "    " + mapping.peerId + ": "
+                            + MacAddress.fromBytes(mapping.macAddress));
+                }
+                Log.v(TAG, "processReceivedAwarePeerMacAddresses: peerIdToMacList end");
             }
 
             RangingRequest.Builder newRequestBuilder = new RangingRequest.Builder();
             for (ResponderConfig rttPeer : request.request.mRttPeers) {
                 if (rttPeer.peerHandle != null && rttPeer.macAddress == null) {
-                    byte[] mac = peerIdToMacMap.get(rttPeer.peerHandle.peerId);
+                    byte[] mac = null;
+                    for (MacAddrMapping mapping : peerIdToMacList) {
+                        if (mapping.peerId == rttPeer.peerHandle.peerId) {
+                            mac = mapping.macAddress;
+                            break;
+                        }
+                    }
                     if (mac == null || mac.length != 6) {
                         Log.e(TAG, "processReceivedAwarePeerMacAddresses: received an invalid MAC "
                                 + "address for peerId=" + rttPeer.peerHandle.peerId);
@@ -1059,10 +1092,25 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
                 return;
             }
 
-            boolean permissionGranted = mWifiPermissionsUtil.checkCallersLocationPermission(
-                    topOfQueueRequest.callingPackage, topOfQueueRequest.callingFeatureId,
-                    topOfQueueRequest.uid, /* coarseForTargetSdkLessThanQ */ false, null)
-                    && mWifiPermissionsUtil.isLocationModeEnabled();
+            boolean onlyAwareApRanged = topOfQueueRequest.request.mRttPeers.stream().allMatch(
+                    config -> config.responderType == ResponderConfig.RESPONDER_AWARE);
+            boolean permissionGranted = false;
+            if (onlyAwareApRanged && SdkLevel.isAtLeastT()) {
+                // Special case: if only aware APs are ranged, then allow this request if the caller
+                // has nearby permission.
+                permissionGranted = mWifiPermissionsUtil.checkNearbyDevicesPermission(
+                        topOfQueueRequest.extras.getParcelable(
+                                WifiManager.EXTRA_PARAM_KEY_ATTRIBUTION_SOURCE), true,
+                        "wifi aware on ranging result");
+            }
+            if (!permissionGranted) {
+                permissionGranted =
+                        mWifiPermissionsUtil.checkCallersLocationPermission(
+                                topOfQueueRequest.callingPackage,
+                                topOfQueueRequest.callingFeatureId,
+                                topOfQueueRequest.uid, /* coarseForTargetSdkLessThanQ */ false,
+                                null) && mWifiPermissionsUtil.isLocationModeEnabled();
+            }
             try {
                 if (permissionGranted) {
                     List<RangingResult> finalResults = postProcessResults(topOfQueueRequest.request,
@@ -1194,6 +1242,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
         public RangingRequest request;
         public IRttCallback callback;
         public boolean isCalledFromPrivilegedContext;
+        public Bundle extras;
 
         public int cmdId = 0; // uninitialized cmdId value
         public boolean dispatchedToNative = false;

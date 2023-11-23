@@ -16,8 +16,10 @@
 
 package android.voicerecognition.cts;
 
+import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_END_SEGMENTED_SESSION;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_ERROR;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_RESULTS;
+import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_SEGMENTS_RESULTS;
 import static android.voicerecognition.cts.CallbackMethod.CALLBACK_METHOD_UNSPECIFIED;
 import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_CANCEL;
 import static android.voicerecognition.cts.RecognizerMethod.RECOGNIZER_METHOD_DESTROY;
@@ -32,11 +34,16 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
 
+import android.content.Intent;
 import android.os.SystemClock;
+import android.speech.RecognitionSupport;
+import android.speech.RecognitionSupportCallback;
+import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
@@ -109,6 +116,76 @@ abstract class AbstractRecognitionServiceTest {
     }
 
     @Test
+    public void testCanCheckForSupport() throws Throwable {
+        mUiDevice.waitForIdle();
+        assertThat(mActivity.mRecognizer).isNotNull();
+        setCurrentRecognizer(mActivity.mRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
+        mUiDevice.waitForIdle();
+
+        List<RecognitionSupport> supportResults = new ArrayList<>();
+        List<Integer> errors = new ArrayList<>();
+        RecognitionSupportCallback supportCallback = new RecognitionSupportCallback() {
+            @Override
+            public void onSupportResult(@NonNull RecognitionSupport recognitionSupport) {
+                supportResults.add(recognitionSupport);
+            }
+
+            @Override
+            public void onError(int error) {
+                errors.add(error);
+            }
+        };
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        mActivity.checkRecognitionSupport(intent, supportCallback);
+        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                () -> supportResults.size() + errors.size() > 0);
+        assertThat(supportResults).isEmpty();
+        assertThat(errors).containsExactly(SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT);
+
+        errors.clear();
+        RecognitionSupport rs = new RecognitionSupport.Builder()
+                .setInstalledOnDeviceLanguages(new ArrayList<>(List.of("es")))
+                .addInstalledOnDeviceLanguage("en")
+                .setPendingOnDeviceLanguages(new ArrayList<>(List.of("ru")))
+                .addPendingOnDeviceLanguage("jp")
+                .setSupportedOnDeviceLanguages(new ArrayList<>(List.of("pt")))
+                .addSupportedOnDeviceLanguage("de")
+                .setOnlineLanguages(new ArrayList<>(List.of("zh")))
+                .addOnlineLanguage("fr")
+                .build();
+        CtsRecognitionService.sConsumerQueue.add(c -> c.onSupportResult(rs));
+
+        mActivity.checkRecognitionSupport(intent, supportCallback);
+        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                () -> supportResults.size() + errors.size() > 0);
+        assertThat(errors).isEmpty();
+        assertThat(supportResults).containsExactly(rs);
+        assertThat(rs.getInstalledOnDeviceLanguages())
+                .isEqualTo(List.of("es", "en"));
+        assertThat(rs.getPendingOnDeviceLanguages())
+                .isEqualTo(List.of("ru", "jp"));
+        assertThat(rs.getSupportedOnDeviceLanguages())
+                .isEqualTo(List.of("pt", "de"));
+        assertThat(rs.getOnlineLanguages())
+                .isEqualTo(List.of("zh", "fr"));
+    }
+
+    @Test
+    public void testCanTriggerModelDownload() throws Throwable {
+        mUiDevice.waitForIdle();
+        assertThat(mActivity.mRecognizer).isNotNull();
+        setCurrentRecognizer(mActivity.mRecognizer, IN_PACKAGE_RECOGNITION_SERVICE);
+        mUiDevice.waitForIdle();
+
+        CtsRecognitionService.sDownloadTriggers.clear();
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        mActivity.triggerModelDownload(intent);
+        PollingCheck.waitFor(SEQUENCE_TEST_WAIT_TIMEOUT_MS,
+                () -> CtsRecognitionService.sDownloadTriggers.size() > 0);
+        assertThat(CtsRecognitionService.sDownloadTriggers).hasSize(1);
+    }
+
+    @Test
     public void sequenceTest_startListening_stopListening_results() {
         executeSequenceTest(
                 /* service methods to call: */ ImmutableList.of(
@@ -168,6 +245,25 @@ abstract class AbstractRecognitionServiceTest {
                 /* expected callback methods invoked: */ ImmutableList.of(
                         CALLBACK_METHOD_RESULTS,
                         CALLBACK_METHOD_RESULTS)
+        );
+    }
+
+    @Test
+    public void setSequenceTest_startListening_segment_endofsession() {
+        executeSequenceTest(
+                /* service methods to call: */ ImmutableList.of(
+                        RECOGNIZER_METHOD_START_LISTENING,
+                        RECOGNIZER_METHOD_STOP_LISTENING
+                        ),
+                /* callback methods to call: */ ImmutableList.of(
+                        CALLBACK_METHOD_SEGMENTS_RESULTS,
+                        CALLBACK_METHOD_END_SEGMENTED_SESSION
+                        ),
+                /* expected service methods propagated: */ ImmutableList.of(true, true, true),
+                /* expected callback methods invoked: */ ImmutableList.of(
+                        CALLBACK_METHOD_SEGMENTS_RESULTS,
+                        CALLBACK_METHOD_END_SEGMENTED_SESSION
+                )
         );
     }
 

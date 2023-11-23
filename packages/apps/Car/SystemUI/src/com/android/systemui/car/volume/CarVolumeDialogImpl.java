@@ -114,7 +114,6 @@ public class CarVolumeDialogImpl implements VolumeDialog {
     private boolean mHovering;
     private int mCurrentlyDisplayingGroupId;
     private int mPreviouslyDisplayingGroupId;
-    private boolean mShowing;
     private boolean mDismissing;
     private boolean mExpanded;
     private View mExpandIcon;
@@ -235,7 +234,7 @@ public class CarVolumeDialogImpl implements VolumeDialog {
 
         mContext.registerReceiverAsUser(mHomeButtonPressedBroadcastReceiver, UserHandle.CURRENT,
                 new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS), /* broadcastPermission= */
-                null, /* scheduler= */ null);
+                null, /* scheduler= */ null, Context.RECEIVER_EXPORTED);
     }
 
     @Override
@@ -267,7 +266,6 @@ public class CarVolumeDialogImpl implements VolumeDialog {
         mDialog = new CustomDialog(mContext);
 
         mHovering = false;
-        mShowing = false;
         mDismissing = false;
         mExpanded = false;
         mWindow = mDialog.getWindow();
@@ -332,7 +330,7 @@ public class CarVolumeDialogImpl implements VolumeDialog {
         // Refresh the data set before showing.
         mVolumeItemsAdapter.notifyDataSetChanged();
 
-        if (mShowing) {
+        if (mDialog.isShowing()) {
             if (mPreviouslyDisplayingGroupId == mCurrentlyDisplayingGroupId || mExpanded) {
                 return;
             }
@@ -341,8 +339,8 @@ public class CarVolumeDialogImpl implements VolumeDialog {
             return;
         }
 
-        mShowing = true;
         clearAllAndSetupDefaultCarVolumeLineItem(mCurrentlyDisplayingGroupId);
+        mDismissing = false;
         mDialog.show();
         Events.writeEvent(Events.EVENT_SHOW_DIALOG, reason, mKeyguard.isKeyguardLocked());
     }
@@ -381,7 +379,7 @@ public class CarVolumeDialogImpl implements VolumeDialog {
 
         mHandler.removeMessages(H.DISMISS);
         mHandler.removeMessages(H.SHOW);
-        if (!mShowing || mDismissing) {
+        if (!mDialog.isShowing() || mDismissing) {
             return;
         }
 
@@ -396,7 +394,6 @@ public class CarVolumeDialogImpl implements VolumeDialog {
                         Log.d(TAG, "mDialog.dismiss()");
                     }
                     mDialog.dismiss();
-                    mShowing = false;
                     mDismissing = false;
                     // if mExpandIcon is null that means user never clicked on the expanded arrow
                     // which implies that the dialog is still not expanded. In that case we do

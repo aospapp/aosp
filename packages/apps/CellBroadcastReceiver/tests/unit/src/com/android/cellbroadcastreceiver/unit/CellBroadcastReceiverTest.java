@@ -16,8 +16,6 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
-import static android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +26,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.ContentResolver;
@@ -43,6 +42,7 @@ import android.os.RemoteException;
 import android.os.UserManager;
 import android.provider.Telephony;
 import android.telephony.CarrierConfigManager;
+import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaSmsCbProgramData;
@@ -136,6 +136,7 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
         verify(mCellBroadcastReceiver).initializeSharedPreference(any(), anyInt());
         verify(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
         verify(mCellBroadcastReceiver).enableLauncher();
+        verify(mCellBroadcastReceiver).resetCellBroadcastChannelRanges();
     }
 
     @Test
@@ -210,15 +211,27 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
     }
 
     @Test
-    public void testInitializeSharedPreference_ifSystemUser_invalidSub() {
+    public void testInitializeSharedPreference_ifSystemUser_invalidSub() throws RemoteException {
         doReturn("An invalid action").when(mIntent).getAction();
         doReturn(true).when(mUserManager).isSystemUser();
         doReturn(true).when(mCellBroadcastReceiver).sharedPrefsHaveDefaultValues();
         doNothing().when(mCellBroadcastReceiver).adjustReminderInterval();
+        mockTelephonyManager();
 
-        mCellBroadcastReceiver.initializeSharedPreference(mContext, INVALID_SUBSCRIPTION_ID);
+        int subId = 1;
+        // Not starting ConfigService, as default subId is valid and subId are invalid
+        doReturn(subId).when(mSubService).getDefaultSubId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext,
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
         verify(mContext, never()).startService(any());
-        // Check interval.
+        verify(mCellBroadcastReceiver, never()).saveCarrierIdForDefaultSub(anyInt());
+
+        // Not starting ConfigService, as both default subId and subId are invalid
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSubId();
+        mCellBroadcastReceiver.initializeSharedPreference(mContext,
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        verify(mContext, never()).startService(any());
+        verify(mCellBroadcastReceiver).saveCarrierIdForDefaultSub(anyInt());
     }
 
     private void mockTelephonyManager() {
@@ -470,6 +483,128 @@ public class CellBroadcastReceiverTest extends CellBroadcastTest {
 
         mCellBroadcastReceiver.onReceive(mContext, mIntent);
     }
+
+    @Test
+    public void testOnServiceStateChange() {
+        mFakeSharedPreferences.putInt("service_state", ServiceState.STATE_OUT_OF_SERVICE);
+        mFakeSharedPreferences.putString("roaming_operator_supported", "");
+        mockTelephonyManager();
+        doReturn("android.intent.action.SERVICE_STATE").when(mIntent).getAction();
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mIntent).getIntExtra(anyString(), anyInt());
+        doReturn(false).when(mMockTelephonyManager).isNetworkRoaming();
+        doReturn("123456").when(mMockTelephonyManager).getNetworkOperator();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, never()).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getInt("service_state", ServiceState.STATE_POWER_OFF))
+                .isEqualTo(ServiceState.STATE_IN_SERVICE);
+
+        mFakeSharedPreferences.putInt("service_state", ServiceState.STATE_POWER_OFF);
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getInt("service_state", ServiceState.STATE_POWER_OFF))
+                .isEqualTo(ServiceState.STATE_IN_SERVICE);
+    }
+
+
+    @Test
+    public void testOnNetworkRoamingChange() {
+        mFakeSharedPreferences.putInt("service_state", ServiceState.STATE_IN_SERVICE);
+        mFakeSharedPreferences.putString("roaming_operator_supported", "");
+        mockTelephonyManager();
+        doReturn("android.intent.action.SERVICE_STATE").when(mIntent).getAction();
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mIntent).getIntExtra(anyString(), anyInt());
+        doReturn("123456").when(mMockTelephonyManager).getNetworkOperator();
+
+        // not roaming, verify not to store the network operator, or call enable channel
+        doReturn(false).when(mMockTelephonyManager).isNetworkRoaming();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, never()).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "123456")).isEqualTo("");
+
+        // roaming and network operator changed with wild match, verify to
+        // update the network operator, and call enable channel
+        doReturn(true).when(mMockTelephonyManager).isNetworkRoaming();
+        doReturn(new String[] {"XXXXXX"}).when(mResources).getStringArray(anyInt());
+        doReturn("654321").when(mMockTelephonyManager).getSimOperator();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(1)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "")).isEqualTo("123456");
+
+        // roaming to home case, verify to call enable channel
+        doReturn(false).when(mMockTelephonyManager).isNetworkRoaming();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(2)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "123456")).isEqualTo("");
+
+        // roaming and network operator changed with exact mcc match, verify to
+        // update the network operator, and call enable channel
+        doReturn(true).when(mMockTelephonyManager).isNetworkRoaming();
+        doReturn(new String[] {"123"}).when(mResources).getStringArray(anyInt());
+        doReturn("654321").when(mMockTelephonyManager).getSimOperator();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(3)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "")).isEqualTo("123");
+
+        // roaming to network operator with same mcc and configured as exact mcc match,
+        // verify to update the network operator, but not call enable channel
+        doReturn("123654").when(mMockTelephonyManager).getNetworkOperator();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(3)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "")).isEqualTo("123");
+
+        // roaming and network operator changed with exact match, verify to
+        // update the network operator, and call enable channel
+        doReturn(new String[] {"123456"}).when(mResources).getStringArray(anyInt());
+        doReturn("123456").when(mMockTelephonyManager).getNetworkOperator();
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(4)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "")).isEqualTo("123456");
+
+        // roaming to network operator with different mcc and configured as any mcc match,
+        // verify to update the network operator, and call enable channel
+        doReturn("321456").when(mMockTelephonyManager).getNetworkOperator();
+        doReturn(new String[] {"XXX"}).when(mResources).getStringArray(anyInt());
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(5)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "")).isEqualTo("321");
+
+        // roaming to network operator which does not match the configuration,
+        // verify to update the network operator to empty, and call enable channel
+        doReturn("321456").when(mMockTelephonyManager).getNetworkOperator();
+        doReturn(new String[] {"123"}).when(mResources).getStringArray(anyInt());
+
+        mCellBroadcastReceiver.onReceive(mContext, mIntent);
+
+        verify(mCellBroadcastReceiver, times(6)).startConfigServiceToEnableChannels();
+        assertThat(mFakeSharedPreferences.getString(
+                "roaming_operator_supported", "321")).isEqualTo("");
+    }
+
 
     @After
     public void tearDown() throws Exception {

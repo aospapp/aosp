@@ -1,18 +1,5 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (c) 2017 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_KERNEL_H__
@@ -26,9 +13,11 @@ int tst_kernel_bits(void);
 /**
  * Checks support for the kernel driver.
  *
- * @param name The name of the driver.
- * @return Returns 0 if the kernel has the driver or modprobe is missing.
+ * @param driver The name of the driver.
+ * @return Returns 0 if the kernel has the driver,
+ * -1 when driver is missing or config file not available.
+ * On Android *always* 0 (always expect the driver is available).
  */
-int tst_check_driver(const char *name);
+int tst_check_driver(const char *driver);
 
 #endif	/* TST_KERNEL_H__ */

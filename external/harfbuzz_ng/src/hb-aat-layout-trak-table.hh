@@ -62,11 +62,11 @@ struct TrackTableEntry
   }
 
   protected:
-  HBFixed		track;		/* Track value for this record. */
+  HBFixed	track;		/* Track value for this record. */
   NameID	trackNameID;	/* The 'name' table index for this track.
 				 * (a short word or phrase like "loose"
 				 * or "very tight") */
-  NNOffsetTo<UnsizedArrayOf<FWORD>>
+  NNOffset16To<UnsizedArrayOf<FWORD>>
 		valuesZ;	/* Offset from start of tracking table to
 				 * per-size tracking values for this track. */
 
@@ -141,7 +141,7 @@ struct TrackData
   protected:
   HBUINT16	nTracks;	/* Number of separate tracks included in this table. */
   HBUINT16	nSizes;		/* Number of point sizes included in this table. */
-  LOffsetTo<UnsizedArrayOf<HBFixed>, false>
+  NNOffset32To<UnsizedArrayOf<HBFixed>>
 		sizeTable;	/* Offset from start of the tracking table to
 				 * Array[nSizes] of size values.. */
   UnsizedArrayOf<TrackTableEntry>
@@ -210,12 +210,12 @@ struct trak
 
   protected:
   FixedVersion<>version;	/* Version of the tracking table
-					 * (0x00010000u for version 1.0). */
-  HBUINT16	format; 	/* Format of the tracking table (set to 0). */
-  OffsetTo<TrackData>
+				 * (0x00010000u for version 1.0). */
+  HBUINT16	format;		/* Format of the tracking table (set to 0). */
+  Offset16To<TrackData>
 		horizData;	/* Offset from start of tracking table to TrackData
 				 * for horizontal text (or 0 if none). */
-  OffsetTo<TrackData>
+  Offset16To<TrackData>
 		vertData;	/* Offset from start of tracking table to TrackData
 				 * for vertical text (or 0 if none). */
   HBUINT16	reserved;	/* Reserved. Set to 0. */

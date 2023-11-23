@@ -23,6 +23,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNoException;
+import static org.junit.Assume.assumeNotNull;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -673,6 +675,26 @@ public class BitmapTest {
         try (HardwareBuffer hwBuffer = HardwareBuffer.create(512, 512, HardwareBuffer.RGBA_8888, 1,
             HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
             Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.CIE_LAB));
+        }
+    }
+
+    @Test
+    public void testWrapHardwareBufferFor1010102BufferSucceeds() {
+        HardwareBuffer hwBufferMaybe = null;
+
+        try {
+            hwBufferMaybe = HardwareBuffer.create(128, 128, HardwareBuffer.RGBA_1010102, 1,
+                    HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        } catch (IllegalArgumentException e) {
+            assumeNoException("Creating a 1010102 HW buffer was not supported", e);
+        }
+
+        assumeNotNull(hwBufferMaybe);
+
+        try (HardwareBuffer buffer = hwBufferMaybe) {
+            Bitmap bitmap = Bitmap.wrapHardwareBuffer(buffer, ColorSpace.get(Named.SRGB));
+            assertNotNull(bitmap);
+            bitmap.recycle();
         }
     }
 
@@ -2517,12 +2539,11 @@ public class BitmapTest {
             Bitmap bm = Bitmap.createBitmap(10, 10, pair.config);
             bm = bm.copy(Bitmap.Config.HARDWARE, false);
 
-            // ALPHA_8 is not supported in HARDWARE.
+            // ALPHA_8 may not be supported in HARDWARE.
             if (bm == null) {
                 assertEquals(Bitmap.Config.ALPHA_8, pair.config);
                 continue;
             }
-            assertNotEquals(Bitmap.Config.ALPHA_8, pair.config);
 
             int nativeFormat = nGetFormat(bm);
             if (pair.config == Bitmap.Config.RGBA_F16) {
@@ -2530,6 +2551,10 @@ public class BitmapTest {
                 // In that case, it will fall back to ARGB_8888.
                 assertTrue(nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_8888
                         || nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_F16);
+            } else if (pair.config == Bitmap.Config.RGBA_1010102) {
+                // Devices not supporting RGBA_1010102 in hardware should fallback to ARGB_8888
+                assertTrue(nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_8888
+                        || nativeFormat == ANDROID_BITMAP_FORMAT_RGBA_1010102);
             } else {
                 assertEquals("Config: " + pair.config, pair.format, nativeFormat);
             }
@@ -2548,6 +2573,7 @@ public class BitmapTest {
             new Object[] { Config.ARGB_8888, ANDROID_BITMAP_FORMAT_RGBA_8888 },
             new Object[] { Config.RGB_565,   ANDROID_BITMAP_FORMAT_RGB_565 },
             new Object[] { Config.RGBA_F16,  ANDROID_BITMAP_FORMAT_RGBA_F16 },
+            new Object[] { Config.RGBA_1010102,  ANDROID_BITMAP_FORMAT_RGBA_1010102 },
         };
     }
 
@@ -2565,18 +2591,18 @@ public class BitmapTest {
                 nTestInfo(bm, expectedFormat, width, height, bm.hasAlpha(),
                         bm.isPremultiplied(), false);
                 Bitmap hwBitmap = bm.copy(Bitmap.Config.HARDWARE, false);
-                if (config == Bitmap.Config.ALPHA_8) {
-                    // ALPHA_8 is not supported in HARDWARE. b/141480329
-                    assertNull(hwBitmap);
+                if (hwBitmap == null) {
+                    // Some devices do not support ALPHA_8 + HARDWARE.
+                    assertEquals(Bitmap.Config.ALPHA_8, config);
                 } else {
-                    assertNotNull(hwBitmap);
-
-                    // Some devices do not support F16 + HARDWARE. These fall back to 8888, and can
-                    // be identified by their use of SRGB instead of EXTENDED_SRGB.
+                    // Some devices do not support (F16 | 1010102) + HARDWARE. These fall back to
+                    // 8888. Check the HWB to confirm.
                     int tempExpectedFormat = expectedFormat;
-                    if (config == Config.RGBA_F16 && hwBitmap.getColorSpace() == ColorSpace.get(
-                            ColorSpace.Named.SRGB)) {
-                        tempExpectedFormat = ANDROID_BITMAP_FORMAT_RGBA_8888;
+                    if (config == Config.RGBA_F16 || config == Config.RGBA_1010102) {
+                        HardwareBuffer buffer = hwBitmap.getHardwareBuffer();
+                        if (buffer.getFormat() == HardwareBuffer.RGBA_8888) {
+                            tempExpectedFormat = ANDROID_BITMAP_FORMAT_RGBA_8888;
+                        }
                     }
                     nTestInfo(hwBitmap, tempExpectedFormat, width, height, hwBitmap.hasAlpha(),
                             hwBitmap.isPremultiplied(), true);
@@ -2872,6 +2898,7 @@ public class BitmapTest {
     private static final int ANDROID_BITMAP_FORMAT_RGB_565 = 4;
     private static final int ANDROID_BITMAP_FORMAT_A_8 = 8;
     private static final int ANDROID_BITMAP_FORMAT_RGBA_F16 = 9;
+    private static final int ANDROID_BITMAP_FORMAT_RGBA_1010102 = 10;
 
     private static class ConfigToFormat {
         public final Config config;
@@ -2899,6 +2926,7 @@ public class BitmapTest {
         new ConfigToFormat(Bitmap.Config.RGB_565, ANDROID_BITMAP_FORMAT_RGB_565),
         new ConfigToFormat(Bitmap.Config.ALPHA_8, ANDROID_BITMAP_FORMAT_A_8),
         new ConfigToFormat(Bitmap.Config.RGBA_F16, ANDROID_BITMAP_FORMAT_RGBA_F16),
+        new ConfigToFormat(Bitmap.Config.RGBA_1010102, ANDROID_BITMAP_FORMAT_RGBA_1010102),
     };
 
     static native int nGetFormat(Bitmap bitmap);
@@ -2940,5 +2968,18 @@ public class BitmapTest {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inPreferredConfig = Config.HARDWARE;
         return options;
+    }
+
+    @Test
+    public void testCopyAlpha8ToHardware() {
+        Bitmap bm = Bitmap.createBitmap(10, 10, Bitmap.Config.ALPHA_8);
+        assertNotNull(bm);
+        Bitmap hwBitmap = bm.copy(Bitmap.Config.HARDWARE, false /* mutable */);
+        // Some devices may not support ALPHA_8 + HARDWARE
+        if (hwBitmap != null) {
+            assertNull(hwBitmap.getColorSpace());
+        }
+
+        bm.recycle();
     }
 }

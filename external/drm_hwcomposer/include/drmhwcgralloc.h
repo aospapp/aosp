@@ -17,20 +17,26 @@
 #ifndef ANDROID_DRMHWCGRALLOC_H_
 #define ANDROID_DRMHWCGRALLOC_H_
 
-#include <stdint.h>
+#include <cstdint>
 
-#define HWC_DRM_BO_MAX_PLANES 4
-typedef struct hwc_drm_bo {
+constexpr int kHwcDrmBoMaxPlanes = 4;
+
+struct HwcDrmBo {
   uint32_t width;
   uint32_t height;
   uint32_t format;     /* DRM_FORMAT_* from drm_fourcc.h */
   uint32_t hal_format; /* HAL_PIXEL_FORMAT_* */
   uint32_t usage;
-  uint32_t pitches[HWC_DRM_BO_MAX_PLANES];
-  uint32_t offsets[HWC_DRM_BO_MAX_PLANES];
-  uint32_t prime_fds[HWC_DRM_BO_MAX_PLANES];
-  uint64_t modifiers[HWC_DRM_BO_MAX_PLANES];
+  uint32_t pitches[kHwcDrmBoMaxPlanes];
+  uint32_t offsets[kHwcDrmBoMaxPlanes];
+  /* sizes[] is used only by mapper@4 metadata getter for internal purposes */
+  uint32_t sizes[kHwcDrmBoMaxPlanes];
+  int prime_fds[kHwcDrmBoMaxPlanes];
+  uint64_t modifiers[kHwcDrmBoMaxPlanes];
   int acquire_fence_fd;
-} hwc_drm_bo_t;
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+using hwc_drm_bo_t = HwcDrmBo;
 
 #endif  // ANDROID_DRMHWCGRALLOC_H_

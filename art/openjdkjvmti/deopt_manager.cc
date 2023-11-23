@@ -67,22 +67,10 @@ namespace openjdkjvmti {
 // has we only care about methods with active breakpoints on them. In the future we should probably
 // rewrite all of this to instead do this at the ShadowFrame or thread granularity.
 bool JvmtiMethodInspectionCallback::IsMethodBeingInspected(art::ArtMethod* method) {
-  // Non-java-debuggable runtimes we need to assume that any method might not be debuggable and
-  // therefore potentially being inspected (due to inlines). If we are debuggable we rely hard on
-  // inlining not being done since we don't keep track of which methods get inlined where and simply
-  // look to see if the method is breakpointed.
-  return !art::Runtime::Current()->IsJavaDebuggable() ||
-      manager_->HaveLocalsChanged() ||
-      manager_->MethodHasBreakpoints(method);
-}
-
-bool JvmtiMethodInspectionCallback::IsMethodSafeToJit(art::ArtMethod* method) {
-  return !manager_->MethodHasBreakpoints(method);
-}
-
-bool JvmtiMethodInspectionCallback::MethodNeedsDebugVersion(
-    art::ArtMethod* method ATTRIBUTE_UNUSED) {
-  return true;
+  // In non-java-debuggable runtimes the breakpoint check would miss if we have breakpoints on
+  // methods that are inlined. Since these features are best effort in non-java-debuggable
+  // runtimes it is OK to be less precise. For debuggable runtimes, inlining is disabled.
+  return manager_->HaveLocalsChanged() || manager_->MethodHasBreakpoints(method);
 }
 
 DeoptManager::DeoptManager()
@@ -219,14 +207,14 @@ bool DeoptManager::MethodHasBreakpointsLocked(art::ArtMethod* method) {
 
 void DeoptManager::RemoveDeoptimizeAllMethods() {
   art::Thread* self = art::Thread::Current();
-  art::ScopedThreadSuspension sts(self, art::kSuspended);
+  art::ScopedThreadSuspension sts(self, art::ThreadState::kSuspended);
   deoptimization_status_lock_.ExclusiveLock(self);
   RemoveDeoptimizeAllMethodsLocked(self);
 }
 
 void DeoptManager::AddDeoptimizeAllMethods() {
   art::Thread* self = art::Thread::Current();
-  art::ScopedThreadSuspension sts(self, art::kSuspended);
+  art::ScopedThreadSuspension sts(self, art::ThreadState::kSuspended);
   deoptimization_status_lock_.ExclusiveLock(self);
   AddDeoptimizeAllMethodsLocked(self);
 }
@@ -240,7 +228,7 @@ void DeoptManager::AddMethodBreakpoint(art::ArtMethod* method) {
   method = method->GetCanonicalMethod();
   bool is_default = method->IsDefault();
 
-  art::ScopedThreadSuspension sts(self, art::kSuspended);
+  art::ScopedThreadSuspension sts(self, art::ThreadState::kSuspended);
   deoptimization_status_lock_.ExclusiveLock(self);
   {
     breakpoint_status_lock_.ExclusiveLock(self);
@@ -280,7 +268,7 @@ void DeoptManager::RemoveMethodBreakpoint(art::ArtMethod* method) {
   method = method->GetCanonicalMethod();
   bool is_default = method->IsDefault();
 
-  art::ScopedThreadSuspension sts(self, art::kSuspended);
+  art::ScopedThreadSuspension sts(self, art::ThreadState::kSuspended);
   // Ideally we should do a ScopedSuspendAll right here to get the full mutator_lock_ that we might
   // need but since that is very heavy we will instead just use a condition variable to make sure we
   // don't race with ourselves.
@@ -450,16 +438,17 @@ jvmtiError DeoptManager::RemoveDeoptimizeThreadMethods(art::ScopedObjectAccessUn
   return OK;
 }
 
+static constexpr const char* kInstrumentationKey = "JVMTI_DeoptRequester";
+
 void DeoptManager::RemoveDeoptimizationRequester() {
   art::Thread* self = art::Thread::Current();
-  art::ScopedThreadStateChange sts(self, art::kSuspended);
+  art::ScopedThreadStateChange sts(self, art::ThreadState::kSuspended);
   deoptimization_status_lock_.ExclusiveLock(self);
   DCHECK_GT(deopter_count_, 0u) << "Removing deoptimization requester without any being present";
   deopter_count_--;
   if (deopter_count_ == 0) {
     ScopedDeoptimizationContext sdc(self, this);
-    // TODO Give this a real key.
-    art::Runtime::Current()->GetInstrumentation()->DisableDeoptimization("");
+    art::Runtime::Current()->GetInstrumentation()->DisableDeoptimization(kInstrumentationKey);
     return;
   } else {
     deoptimization_status_lock_.ExclusiveUnlock(self);
@@ -468,31 +457,26 @@ void DeoptManager::RemoveDeoptimizationRequester() {
 
 void DeoptManager::AddDeoptimizationRequester() {
   art::Thread* self = art::Thread::Current();
-  art::ScopedThreadStateChange stsc(self, art::kSuspended);
+  art::ScopedThreadStateChange stsc(self, art::ThreadState::kSuspended);
   deoptimization_status_lock_.ExclusiveLock(self);
   deopter_count_++;
-  if (deopter_count_ == 1) {
-    ScopedDeoptimizationContext sdc(self, this);
-    art::instrumentation::Instrumentation* instrumentation =
-        art::Runtime::Current()->GetInstrumentation();
-    // Enable deoptimization
-    instrumentation->EnableDeoptimization();
-    // Tell instrumentation we will be deopting single threads.
-    instrumentation->EnableSingleThreadDeopt();
-  } else {
-    deoptimization_status_lock_.ExclusiveUnlock(self);
-  }
+  deoptimization_status_lock_.ExclusiveUnlock(self);
 }
 
 void DeoptManager::DeoptimizeThread(art::Thread* target) {
   // We might or might not be running on the target thread (self) so get Thread::Current
   // directly.
-  art::ScopedThreadSuspension sts(art::Thread::Current(), art::kSuspended);
+  art::ScopedThreadSuspension sts(art::Thread::Current(), art::ThreadState::kSuspended);
   art::gc::ScopedGCCriticalSection sgccs(art::Thread::Current(),
                                          art::gc::GcCause::kGcCauseDebugger,
                                          art::gc::CollectorType::kCollectorTypeDebugger);
   art::ScopedSuspendAll ssa("Instrument thread stack");
-  art::Runtime::Current()->GetInstrumentation()->InstrumentThreadStack(target);
+  // Prepare the stack so methods can be deoptimized as and when required.
+  // This by itself doesn't cause any methods to deoptimize but enables
+  // deoptimization on demand.
+  art::Runtime::Current()->GetInstrumentation()->InstrumentThreadStack(
+      target,
+      /* deopt_all_frames= */ false);
 }
 
 extern DeoptManager* gDeoptManager;

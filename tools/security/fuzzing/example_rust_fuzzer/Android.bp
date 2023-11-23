@@ -20,7 +20,7 @@ rust_fuzz {
     name: "example_rust_fuzzer",
     srcs: ["fuzzer.rs"],
     fuzz_config: {
-        fuzz_on_haiku_device: true,
+        fuzz_on_haiku_device: false,
         fuzz_on_haiku_host: false,
     },
     corpus: ["testdata/*"],

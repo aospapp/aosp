@@ -106,22 +106,7 @@ struct Connection {
     Connection() = default;
     virtual ~Connection() = default;
 
-    void SetTransportName(std::string transport_name) {
-        transport_name_ = std::move(transport_name);
-    }
-
-    using ReadCallback = std::function<bool(Connection*, std::unique_ptr<apacket>)>;
-    void SetReadCallback(ReadCallback callback) {
-        CHECK(!read_callback_);
-        read_callback_ = callback;
-    }
-
-    // Called after the Connection has terminated, either by an error or because Stop was called.
-    using ErrorCallback = std::function<void(Connection*, const std::string&)>;
-    void SetErrorCallback(ErrorCallback callback) {
-        CHECK(!error_callback_);
-        error_callback_ = callback;
-    }
+    void SetTransport(atransport* transport) { transport_ = transport; }
 
     virtual bool Write(std::unique_ptr<apacket> packet) = 0;
 
@@ -133,9 +118,19 @@ struct Connection {
     // Stop, and reset the device if it's a USB connection.
     virtual void Reset();
 
-    std::string transport_name_;
-    ReadCallback read_callback_;
-    ErrorCallback error_callback_;
+    virtual bool Attach(std::string* error) {
+        *error = "transport type doesn't support attach";
+        return false;
+    }
+
+    virtual bool Detach(std::string* error) {
+        *error = "transport type doesn't support detach";
+        return false;
+    }
+
+    std::string Serial() const;
+
+    atransport* transport_ = nullptr;
 
     static std::unique_ptr<Connection> FromFd(unique_fd fd);
 };
@@ -295,6 +290,9 @@ class atransport : public enable_weak_from_this<atransport> {
         return connection_;
     }
 
+    bool HandleRead(std::unique_ptr<apacket> p);
+    void HandleError(const std::string& error);
+
 #if ADB_HOST
     void SetUsbHandle(usb_handle* h) { usb_handle_ = h; }
     usb_handle* GetUsbHandle() { return usb_handle_; }
@@ -337,7 +335,6 @@ class atransport : public enable_weak_from_this<atransport> {
     size_t failed_auth_attempts = 0;
 
     std::string serial_name() const { return !serial.empty() ? serial : "<unknown>"; }
-    std::string connection_state_name() const;
 
     void update_version(int version, size_t payload);
     int get_protocol_version() const;
@@ -353,6 +350,11 @@ class atransport : public enable_weak_from_this<atransport> {
     void AddDisconnect(adisconnect* disconnect);
     void RemoveDisconnect(adisconnect* disconnect);
     void RunDisconnects();
+
+#if ADB_HOST
+    bool Attach(std::string* error);
+    bool Detach(std::string* error);
+#endif
 
 #if ADB_HOST
     // Returns true if |target| matches this transport. A matching |target| can be any of:
@@ -419,6 +421,18 @@ class atransport : public enable_weak_from_this<atransport> {
 
     DISALLOW_COPY_AND_ASSIGN(atransport);
 };
+
+// --one-device command line parameter is eventually put here.
+void transport_set_one_device(const char* adb_one_device);
+
+// Returns one device owned by this server of nullptr if all devices belong to server.
+const char* transport_get_one_device();
+
+// Returns true if the adb server owns all devices, or `serial`.
+bool transport_server_owns_device(std::string_view serial);
+
+// Returns true if the adb server owns all devices, `serial`, or `dev_path`.
+bool transport_server_owns_device(std::string_view dev_path, std::string_view serial);
 
 /*
  * Obtain a transport from the available transports.

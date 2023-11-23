@@ -10,28 +10,25 @@ You can install ``cryptography`` with ``pip``:
 Supported platforms
 -------------------
 
-Currently we test ``cryptography`` on Python 2.7, 3.4+, and
-PyPy 5.4+ on these operating systems.
+Currently we test ``cryptography`` on Python 2.7, 3.6+,
+PyPy 7.3.1, and PyPy3 7.3.1 on these operating systems.
 
 * x86-64 CentOS 7.x
-* macOS 10.12 Sierra, 10.11 El Capitan
-* x86-64 Ubuntu 14.04, 16.04, and rolling
-* x86-64 Debian Wheezy (7.x), Jessie (8.x), Stretch (9.x), and Sid (unstable)
+* x86-64 & AArch64 CentOS 8.x
+* x86-64 Fedora (latest)
+* x86-64 macOS 10.15 Catalina
+* x86-64 & AArch64 Ubuntu 18.04, 20.04
+* x86-64 Ubuntu rolling
+* x86-64 Debian Stretch (9.x), Buster (10.x), Bullseye (11.x), and Sid
+  (unstable)
 * x86-64 Alpine (latest)
-* 32-bit and 64-bit Python on 64-bit Windows Server 2012
+* 32-bit and 64-bit Python on 64-bit Windows Server 2019
 
 We test compiling with ``clang`` as well as ``gcc`` and use the following
 OpenSSL releases:
 
-* ``OpenSSL 1.0.1``
-* ``OpenSSL 1.0.1e-fips`` (``RHEL/CentOS 7``)
-* ``OpenSSL 1.0.1f``
-* ``OpenSSL 1.0.2-latest``
 * ``OpenSSL 1.1.0-latest``
 * ``OpenSSL 1.1.1-latest``
-
-.. warning::
-    Cryptography 2.4 has deprecated support for OpenSSL 1.0.1.
 
 
 Building cryptography on Windows
@@ -46,12 +43,11 @@ just run
     $ pip install cryptography
 
 If you prefer to compile it yourself you'll need to have OpenSSL installed.
-You can compile OpenSSL yourself as well or use the binaries we build for our
-release infrastructure (`openssl-release`_). Be sure to download the proper
-version for your architecture and Python (2010 works for Python 2.7, 3.3,
-and 3.4 while 2015 is required for 3.5 and above). Wherever you place your copy
-of OpenSSL you'll need to set the ``LIB`` and ``INCLUDE`` environment variables
-to include the proper locations. For example:
+You can compile OpenSSL yourself as well or use `a binary distribution`_.
+Be sure to download the proper version for your architecture and Python
+(VC2010 works for Python 2.7 while VC2015 is required for 3.6 and above).
+Wherever you place your copy of OpenSSL you'll need to set the ``LIB`` and ``INCLUDE``
+environment variables to include the proper locations. For example:
 
 .. code-block:: console
 
@@ -74,10 +70,10 @@ local `wheel cache`_.
 Building cryptography on Linux
 ------------------------------
 
-``cryptography`` ships a ``manylinux1`` wheel (as of 2.0) so all dependencies
-are included. For users on pip 8.1 or above running on a ``manylinux1``
-compatible distribution (almost everything except Alpine) all you should
-need to do is:
+``cryptography`` ships ``manylinux`` wheels (as of 2.0) so all dependencies
+are included. For users on pip 8.1 or above running on a ``manylinux1`` or
+``manylinux2010`` compatible distribution (almost everything except Alpine)
+all you should need to do is:
 
 .. code-block:: console
 
@@ -121,8 +117,8 @@ Building
 ~~~~~~~~
 
 You should now be able to build and install cryptography. To avoid getting
-the pre-built wheel on ``manylinux1`` distributions you'll need to use
-``--no-binary``.
+the pre-built wheel on ``manylinux`` compatible distributions you'll need to
+use ``--no-binary``.
 
 .. code-block:: console
 
@@ -162,9 +158,9 @@ Static Wheels
 ~~~~~~~~~~~~~
 
 Cryptography ships statically-linked wheels for macOS, Windows, and Linux (via
-``manylinux1``). This allows compatible environments to use the most recent
+``manylinux``). This allows compatible environments to use the most recent
 OpenSSL, regardless of what is shipped by default on those platforms. Some
-Linux distributions (most notably Alpine) are not ``manylinux1`` compatible so
+Linux distributions (most notably Alpine) are not ``manylinux`` compatible so
 we cannot distribute wheels for them.
 
 However, you can build your own statically-linked wheels that will work on your
@@ -228,7 +224,7 @@ users with pip 8 or above you only need one step:
 If you want to build cryptography yourself or are on an older macOS version,
 cryptography requires the presence of a C compiler, development headers, and
 the proper libraries. On macOS much of this is provided by Apple's Xcode
-development tools.  To install the Xcode command line tools (on macOS 10.9+)
+development tools.  To install the Xcode command line tools (on macOS 10.10+)
 open a terminal window and run:
 
 .. code-block:: console
@@ -279,7 +275,7 @@ local `wheel cache`_.
 
 .. _`Homebrew`: https://brew.sh
 .. _`MacPorts`: https://www.macports.org
-.. _`openssl-release`: https://ci.cryptography.io/job/cryptography-support-jobs/job/openssl-release-1.1/
+.. _`a binary distribution`: https://wiki.openssl.org/index.php/Binaries
 .. _virtualenv: https://virtualenv.pypa.io/en/latest/
 .. _openssl.org: https://www.openssl.org/source/
 .. _`wheel cache`: https://pip.pypa.io/en/stable/reference/pip_install/#caching

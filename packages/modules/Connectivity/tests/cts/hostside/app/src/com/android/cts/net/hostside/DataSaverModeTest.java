@@ -20,6 +20,7 @@ import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLE
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED;
 
+import static com.android.compatibility.common.util.FeatureUtil.isTV;
 import static com.android.cts.net.hostside.NetworkPolicyTestUtils.setRestrictBackground;
 import static com.android.cts.net.hostside.Property.DATA_SAVER_MODE;
 import static com.android.cts.net.hostside.Property.METERED_NETWORK;
@@ -27,13 +28,13 @@ import static com.android.cts.net.hostside.Property.NO_DATA_SAVER_MODE;
 
 import static org.junit.Assert.fail;
 
+import androidx.test.filters.LargeTest;
+
 import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import androidx.test.filters.LargeTest;
 
 @RequiredProperties({DATA_SAVER_MODE, METERED_NETWORK})
 @LargeTest
@@ -113,6 +114,11 @@ public class DataSaverModeTest extends AbstractRestrictBackgroundNetworkTestCase
         turnScreenOff();
         assertBackgroundNetworkAccess(false);
         turnScreenOn();
+        // On some TVs, it is possible that the activity on top may change after the screen is
+        // turned off and on again, so relaunch the activity in the test app again.
+        if (isTV()) {
+            startActivity();
+        }
         assertForegroundNetworkAccess();
 
         // Goes back to background state.

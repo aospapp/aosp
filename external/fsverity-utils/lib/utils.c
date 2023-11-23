@@ -51,16 +51,7 @@ libfsverity_set_error_callback(void (*cb)(const char *msg))
 	libfsverity_error_cb = cb;
 }
 
-#ifdef _WIN32
-static char *strerror_r(int errnum, char *buf, size_t buflen)
-{
-	strerror_s(buf, buflen, errnum);
-
-	return buf;
-}
-#endif
-
-void libfsverity_do_error_msg(const char *format, va_list va, int err)
+void libfsverity_do_error_msg(const char *format, va_list va)
 {
 	int saved_errno = errno;
 	char *msg = NULL;
@@ -71,18 +62,8 @@ void libfsverity_do_error_msg(const char *format, va_list va, int err)
 	if (vasprintf(&msg, format, va) < 0)
 		goto out;
 
-	if (err) {
-		char *msg2 = NULL;
-		char errbuf[64];
-
-		if (asprintf(&msg2, "%s: %s", msg,
-			     strerror_r(err, errbuf, sizeof(errbuf))) < 0)
-			goto out2;
-		free(msg);
-		msg = msg2;
-	}
 	(*libfsverity_error_cb)(msg);
-out2:
+
 	free(msg);
 out:
 	errno = saved_errno;
@@ -93,16 +74,7 @@ void libfsverity_error_msg(const char *format, ...)
 	va_list va;
 
 	va_start(va, format);
-	libfsverity_do_error_msg(format, va, 0);
-	va_end(va);
-}
-
-void libfsverity_error_msg_errno(const char *format, ...)
-{
-	va_list va;
-
-	va_start(va, format);
-	libfsverity_do_error_msg(format, va, errno);
+	libfsverity_do_error_msg(format, va);
 	va_end(va);
 }
 

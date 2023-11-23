@@ -4,16 +4,23 @@ package com.android.cts.verifier;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 /**
  *  A generic activity for intent based tests.
@@ -28,17 +35,22 @@ import android.widget.TextView;
  *  will dynamically create the intent when the button is clicked based on the test id and the
  *  button that was clicked.
  */
-public class IntentDrivenTestActivity extends PassFailButtons.Activity implements OnClickListener {
-    private static final String TAG = "IntentDrivenTestActivity";
+public final class IntentDrivenTestActivity extends PassFailButtons.Activity
+        implements OnClickListener {
+
+    private static final String TAG = IntentDrivenTestActivity.class.getSimpleName();
 
     public static final String EXTRA_ID = "id";
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_INFO = "info";
     public static final String EXTRA_BUTTONS = "buttons";
 
+    private static final String[] REQUIRED_EXTRAS = {
+            EXTRA_ID, EXTRA_TITLE, EXTRA_INFO, EXTRA_BUTTONS
+    };
+
     private String mTestId;
     private ButtonInfo[] mButtonInfos;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,14 +58,7 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
         setContentView(R.layout.intent_driven_test);
         setPassFailButtonClickListeners();
 
-        final Intent intent = getIntent();
-        if (!intent.hasExtra(EXTRA_ID)
-                || !intent.hasExtra(EXTRA_TITLE)
-                || !intent.hasExtra(EXTRA_INFO)
-                || !intent.hasExtra(EXTRA_BUTTONS)) {
-            throw new IllegalArgumentException(
-                    "Intent must have EXTRA_ID, EXTRA_TITLE, EXTRA_INFO & EXTRA_BUTTONS");
-        }
+        final Intent intent = checkAndGetIntent();
 
         mTestId = intent.getStringExtra(EXTRA_ID);
         setTitle(intent.getIntExtra(EXTRA_TITLE, -1));
@@ -130,7 +135,7 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
         return mTestId;
     }
 
-    public static class TestInfo {
+    public static final class TestInfo {
         private final String mTestId;
         private final int mTitle;
         private final int mInfoText;
@@ -145,7 +150,7 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
             if (buttons.length > 2) {
                 throw new RuntimeException("Too many buttons");
             }
-            mTestId = testId;
+            mTestId = nonEmpty("testId", testId);
             mTitle = title;
             mInfoText = infoText;
             mButtons = buttons;
@@ -168,7 +173,7 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
         }
     }
 
-    public static class ButtonInfo implements Parcelable {
+    public static final class ButtonInfo implements Parcelable {
         private final int mButtonText;
         private final Intent[] mIntents;
         private final String mIntentFactoryClassName;
@@ -237,5 +242,58 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
 
     public interface IntentFactory {
         Intent[] createIntents(String testId, int buttonText);
+    }
+
+    public static Intent newIntent(Context context, String testId, int titleResId,
+            int infoResId, ButtonInfo[] buttons) {
+        Intent intent = new Intent(context, IntentDrivenTestActivity.class)
+                .putExtra(IntentDrivenTestActivity.EXTRA_ID, nonEmpty("testId", testId))
+                .putExtra(IntentDrivenTestActivity.EXTRA_TITLE, titleResId)
+                .putExtra(IntentDrivenTestActivity.EXTRA_INFO, infoResId)
+                .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS,
+                        Objects.requireNonNull(buttons, "buttons cannot be null"));
+        Log.d(TAG, "Added 4 required extras to  " + toString(context, intent));
+        return intent;
+    }
+
+    private static String nonEmpty(String name, String value) {
+        if (TextUtils.isEmpty(value)) {
+            throw new IllegalArgumentException(name + " cannot be null or empty: '" + value + "'");
+        }
+        return value;
+    }
+
+    private Intent checkAndGetIntent() {
+        Intent intent = getIntent();
+        List<String> missingExtras = new ArrayList<>();
+        for (String extra : REQUIRED_EXTRAS) {
+            if (!intent.hasExtra(extra)) {
+                missingExtras.add(extra);
+            }
+        }
+        if (!missingExtras.isEmpty()) {
+            throw new IllegalArgumentException(toString(this, intent) + ") is missing "
+                    + missingExtras.size() + " required extras: "
+                    + Arrays.toString(REQUIRED_EXTRAS));
+        }
+        return intent;
+    }
+
+    public static String toString(Context context, Intent intent) {
+        return new StringBuilder("Intent["
+                + "address=").append(System.identityHashCode(intent))
+                .append(", numberExtras=").append(intent.getExtras().size())
+                .append(", extraKeys=").append(new ArrayList<>(intent.getExtras().keySet()))
+                .append(", testId=")
+                .append(intent.hasExtra(EXTRA_ID) ? intent.getStringExtra(EXTRA_ID) : "N/A")
+                .append(", title=").append(intent.hasExtra(EXTRA_TITLE)
+                                ? context.getString(intent.getIntExtra(EXTRA_TITLE, -1))
+                                : "N/A")
+                .append(intent.hasExtra(EXTRA_INFO) ? ", has_info" : ", no_info")
+                .append(", numberButtons=").append(intent.hasExtra(EXTRA_BUTTONS)
+                                ? intent.getParcelableArrayExtra(EXTRA_BUTTONS).length
+                                : 0)
+                .append(", rawIntent=").append(intent)
+                .append(']').toString();
     }
 }

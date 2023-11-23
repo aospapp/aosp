@@ -716,6 +716,25 @@ TEST(RoundTrip, ConfigureBootPatchlevelResponse) {
     }
 }
 
+TEST(RoundTrip, ConfigureVerifiedBootInfoRequest) {
+    for (int32_t ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        ConfigureVerifiedBootInfoRequest req(ver, "super", "duper", {1, 2, 3, 4, 5, 6});
+
+        UniquePtr<ConfigureVerifiedBootInfoRequest> deserialized(round_trip(ver, req, 28));
+        ASSERT_NE(deserialized, nullptr);
+        EXPECT_EQ(deserialized->boot_state, req.boot_state);
+        EXPECT_EQ(deserialized->bootloader_state, req.bootloader_state);
+        EXPECT_EQ(deserialized->vbmeta_digest, req.vbmeta_digest);
+    }
+}
+
+TEST(RoundTrip, ConfigureVerifiedBootInfoResponse) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        ConfigureVerifiedBootInfoResponse rsp(ver);
+        UniquePtr<ConfigureVerifiedBootInfoResponse> deserialized(round_trip(ver, rsp, 4));
+    }
+}
+
 TEST(RoundTrip, AddEntropyRequest) {
     for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
         AddEntropyRequest msg(ver);
@@ -824,6 +843,27 @@ TEST(RoundTrip, GenerateTimestampTokenResponse) {
         EXPECT_EQ(msg.token.mac.data_length, deserialized->token.mac.data_length);
         EXPECT_EQ(
             0, memcmp(msg.token.mac.data, deserialized->token.mac.data, msg.token.mac.data_length));
+    }
+}
+
+TEST(RoundTrip, GetRootOfTrustRequest) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        std::vector<uint8_t> challenge{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        GetRootOfTrustRequest msg(ver, challenge);
+
+        UniquePtr<GetRootOfTrustRequest> deserialized(round_trip(ver, msg, 20));
+        EXPECT_EQ(deserialized->challenge, challenge);
+    }
+}
+
+TEST(RoundTrip, GetRootOfTrustResponse) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        std::vector<uint8_t> rootOfTrust{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        GetRootOfTrustResponse msg(ver, rootOfTrust);
+        msg.error = KM_ERROR_OK;
+
+        UniquePtr<GetRootOfTrustResponse> deserialized(round_trip(ver, msg, 24));
+        EXPECT_EQ(deserialized->rootOfTrust, rootOfTrust);
     }
 }
 
@@ -954,6 +994,9 @@ GARBAGE_TEST(UpgradeKeyResponse);
 GARBAGE_TEST(GenerateTimestampTokenRequest);
 GARBAGE_TEST(GenerateTimestampTokenResponse);
 GARBAGE_TEST(SetAttestationIdsRequest);
+GARBAGE_TEST(ConfigureVerifiedBootInfoRequest);
+GARBAGE_TEST(GetRootOfTrustRequest);
+GARBAGE_TEST(GetRootOfTrustResponse);
 
 }  // namespace test
 

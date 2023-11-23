@@ -16,15 +16,15 @@
 
 #include "src/profiling/memory/heapprofd_producer.h"
 
-#include <algorithm>
-#include <functional>
-#include <string>
-
-#include <inttypes.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <algorithm>
+#include <cinttypes>
+#include <functional>
+#include <string>
 
 #include "perfetto/base/compiler.h"
 #include "perfetto/base/logging.h"
@@ -63,8 +63,6 @@ constexpr uint32_t kInitialConnectionBackoffMs = 100;
 constexpr uint32_t kMaxConnectionBackoffMs = 30 * 1000;
 constexpr uint32_t kGuardrailIntervalMs = 30 * 1000;
 
-constexpr uint32_t kChildModeWatchdogPeriodMs = 10 * 1000;
-
 constexpr uint64_t kDefaultShmemSize = 8 * 1048576;  // ~8 MB
 constexpr uint64_t kMaxShmemSize = 500 * 1048576;    // ~500 MB
 
@@ -100,7 +98,6 @@ bool ConfigTargetsProcess(const HeapprofdConfig& cfg,
   }
   return false;
 }
-
 
 bool IsFile(int fd, const char* fn) {
   struct stat fdstat;
@@ -149,7 +146,8 @@ bool HeapprofdConfigToClientConfiguration(
   cli_config->adaptive_sampling_max_sampling_interval_bytes =
       heapprofd_config.adaptive_sampling_max_sampling_interval_bytes();
   size_t n = 0;
-  const std::vector<std::string>& exclude_heaps = heapprofd_config.exclude_heaps();
+  const std::vector<std::string>& exclude_heaps =
+      heapprofd_config.exclude_heaps();
   // heaps[i] and heaps_interval[i] represent that the heap named in heaps[i]
   // should be sampled with sampling interval of heap_interval[i].
   std::vector<std::string> heaps = heapprofd_config.heaps();
@@ -194,9 +192,8 @@ bool HeapprofdConfigToClientConfiguration(
                     HEAPPROFD_HEAP_NAME_SZ - 1);
       continue;
     }
-    strncpy(&cli_config->heaps[n].name[0], heap.c_str(),
-            sizeof(cli_config->heaps[0].name));
-    cli_config->heaps[n].name[sizeof(cli_config->heaps[0].name) - 1] = '\0';
+    base::StringCopy(&cli_config->heaps[n].name[0], heap.c_str(),
+                     sizeof(cli_config->heaps[n].name));
     cli_config->heaps[n].interval = interval;
     n++;
   }
@@ -333,29 +330,6 @@ void HeapprofdProducer::Restart() {
   new (this) HeapprofdProducer(mode, task_runner, exit_when_done);
 
   ConnectWithRetries(socket_name);
-}
-
-void HeapprofdProducer::ActiveDataSourceWatchdogCheck() {
-  PERFETTO_DCHECK(mode_ == HeapprofdMode::kChild);
-
-  // Fork mode heapprofd should be working on exactly one data source matching
-  // its target process.
-  if (data_sources_.empty()) {
-    PERFETTO_LOG(
-        "Child heapprofd exiting as it never received a data source for the "
-        "target process, or somehow lost/finished the task without exiting.");
-    TerminateProcess(/*exit_status=*/1);
-  } else {
-    // reschedule check.
-    auto weak_producer = weak_factory_.GetWeakPtr();
-    task_runner_->PostDelayedTask(
-        [weak_producer]() {
-          if (!weak_producer)
-            return;
-          weak_producer->ActiveDataSourceWatchdogCheck();
-        },
-        kChildModeWatchdogPeriodMs);
-  }
 }
 
 // TODO(rsavitski): would be cleaner to shut down the event loop instead
@@ -598,7 +572,7 @@ void HeapprofdProducer::StopDataSource(DataSourceInstanceID id) {
     return;
   }
 
-  PERFETTO_DLOG("Stopping data source %" PRIu64, id);
+  PERFETTO_LOG("Stopping data source %" PRIu64, id);
 
   DataSource& data_source = it->second;
   data_source.was_stopped = true;
@@ -699,39 +673,26 @@ void HeapprofdProducer::DumpProcessState(DataSource* data_source,
 
     bool from_startup = data_source->signaled_pids.find(pid) ==
                         data_source->signaled_pids.cend();
-    uint64_t dump_timestamp;
-    if (data_source->config.dump_at_max())
-      dump_timestamp = heap_info.heap_tracker.max_timestamp();
-    else
-      dump_timestamp = heap_info.heap_tracker.committed_timestamp();
 
-    const char* heap_name = nullptr;
-    if (!heap_info.heap_name.empty())
-      heap_name = heap_info.heap_name.c_str();
-    uint64_t sampling_interval = heap_info.sampling_interval;
-    uint64_t orig_sampling_interval = heap_info.orig_sampling_interval;
-
-    auto new_heapsamples =
-        [pid, from_startup, dump_timestamp, process_state, data_source,
-         heap_name, sampling_interval,
-         orig_sampling_interval](ProfilePacket::ProcessHeapSamples* proto) {
-          proto->set_pid(static_cast<uint64_t>(pid));
-          proto->set_timestamp(dump_timestamp);
-          proto->set_from_startup(from_startup);
-          proto->set_disconnected(process_state->disconnected);
-          proto->set_buffer_overran(process_state->error_state ==
-                                    SharedRingBuffer::kHitTimeout);
-          proto->set_client_error(
-              ErrorStateToProto(process_state->error_state));
-          proto->set_buffer_corrupted(process_state->buffer_corrupted);
-          proto->set_hit_guardrail(data_source->hit_guardrail);
-          if (heap_name)
-            proto->set_heap_name(heap_name);
-          proto->set_sampling_interval_bytes(sampling_interval);
-          proto->set_orig_sampling_interval_bytes(orig_sampling_interval);
-          auto* stats = proto->set_stats();
-          SetStats(stats, *process_state);
-        };
+    auto new_heapsamples = [pid, from_startup, process_state, data_source,
+                            &heap_info](
+                               ProfilePacket::ProcessHeapSamples* proto) {
+      proto->set_pid(static_cast<uint64_t>(pid));
+      proto->set_timestamp(heap_info.heap_tracker.dump_timestamp());
+      proto->set_from_startup(from_startup);
+      proto->set_disconnected(process_state->disconnected);
+      proto->set_buffer_overran(process_state->error_state ==
+                                SharedRingBuffer::kHitTimeout);
+      proto->set_client_error(ErrorStateToProto(process_state->error_state));
+      proto->set_buffer_corrupted(process_state->buffer_corrupted);
+      proto->set_hit_guardrail(data_source->hit_guardrail);
+      if (!heap_info.heap_name.empty())
+        proto->set_heap_name(heap_info.heap_name.c_str());
+      proto->set_sampling_interval_bytes(heap_info.sampling_interval);
+      proto->set_orig_sampling_interval_bytes(heap_info.orig_sampling_interval);
+      auto* stats = proto->set_stats();
+      SetStats(stats, *process_state);
+    };
 
     DumpState dump_state(data_source->trace_writer.get(),
                          std::move(new_heapsamples),
@@ -1066,7 +1027,10 @@ void HeapprofdProducer::HandleAllocRecord(AllocRecord* alloc_rec) {
   const auto& prefixes = ds.config.skip_symbol_prefix();
   if (!prefixes.empty()) {
     for (unwindstack::FrameData& frame_data : alloc_rec->frames) {
-      const std::string& map = frame_data.map_name;
+      if (frame_data.map_info == nullptr) {
+        continue;
+      }
+      const std::string& map = frame_data.map_info->name();
       if (std::find_if(prefixes.cbegin(), prefixes.cend(),
                        [&map](const std::string& prefix) {
                          return base::StartsWith(map, prefix);
@@ -1249,6 +1213,8 @@ void HeapprofdProducer::CheckDataSourceCpuTask() {
     DataSource& ds = p.second;
     if (gr.IsOverCpuThreshold(ds.guardrail_config)) {
       ds.hit_guardrail = true;
+      PERFETTO_LOG("Data source %" PRIu64 " hit CPU guardrail. Shutting down.",
+                   ds.id);
       ShutdownDataSource(&ds);
     }
   }
@@ -1268,6 +1234,9 @@ void HeapprofdProducer::CheckDataSourceMemoryTask() {
     DataSource& ds = p.second;
     if (gr.IsOverMemoryThreshold(ds.guardrail_config)) {
       ds.hit_guardrail = true;
+      PERFETTO_LOG("Data source %" PRIu64
+                   " hit memory guardrail. Shutting down.",
+                   ds.id);
       ShutdownDataSource(&ds);
     }
   }

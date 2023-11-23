@@ -633,7 +633,8 @@ AudioFlinger::PlaybackThread::Track::Track(
             track_type type,
             audio_port_handle_t portId,
             size_t frameCountToBeReady,
-            float speed)
+            float speed,
+            bool isSpatialized)
     :   TrackBase(thread, client, attr, sampleRate, format, channelMask, frameCount,
                   // TODO: Using unsecurePointer() has some associated security pitfalls
                   //       (see declaration for details).
@@ -667,7 +668,8 @@ AudioFlinger::PlaybackThread::Track::Track(
     mResumeToStopping(false),
     mFlushHwPending(false),
     mFlags(flags),
-    mSpeed(speed)
+    mSpeed(speed),
+    mIsSpatialized(isSpatialized)
 {
     // client == 0 implies sharedBuffer == 0
     ALOG_ASSERT(!(client == 0 && sharedBuffer != 0));
@@ -713,8 +715,7 @@ AudioFlinger::PlaybackThread::Track::Track(
         thread->mFastTrackAvailMask &= ~(1 << i);
     }
 
-    mServerLatencySupported = thread->type() == ThreadBase::MIXER
-            || thread->type() == ThreadBase::DUPLICATING;
+    mServerLatencySupported = checkServerLatencySupported(format, flags);
 #ifdef TEE_SINK
     mTee.setId(std::string("_") + std::to_string(mThreadIoHandle)
             + "_" + std::to_string(mId) + "_T");
@@ -1405,6 +1406,60 @@ void AudioFlinger::PlaybackThread::Track::copyMetadataTo(MetadataInserter& backI
             .content_type = mAttr.content_type,
             .gain = mFinalVolume,
     };
+
+    // When attributes are undefined, derive default values from stream type.
+    // See AudioAttributes.java, usageForStreamType() and Builder.setInternalLegacyStreamType()
+    if (mAttr.usage == AUDIO_USAGE_UNKNOWN) {
+        switch (mStreamType) {
+        case AUDIO_STREAM_VOICE_CALL:
+            metadata.base.usage = AUDIO_USAGE_VOICE_COMMUNICATION;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SPEECH;
+            break;
+        case AUDIO_STREAM_SYSTEM:
+            metadata.base.usage = AUDIO_USAGE_ASSISTANCE_SONIFICATION;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SONIFICATION;
+            break;
+        case AUDIO_STREAM_RING:
+            metadata.base.usage = AUDIO_USAGE_NOTIFICATION_TELEPHONY_RINGTONE;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SONIFICATION;
+            break;
+        case AUDIO_STREAM_MUSIC:
+            metadata.base.usage = AUDIO_USAGE_MEDIA;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_MUSIC;
+            break;
+        case AUDIO_STREAM_ALARM:
+            metadata.base.usage = AUDIO_USAGE_ALARM;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SONIFICATION;
+            break;
+        case AUDIO_STREAM_NOTIFICATION:
+            metadata.base.usage = AUDIO_USAGE_NOTIFICATION;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SONIFICATION;
+            break;
+        case AUDIO_STREAM_DTMF:
+            metadata.base.usage = AUDIO_USAGE_VOICE_COMMUNICATION_SIGNALLING;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SONIFICATION;
+            break;
+        case AUDIO_STREAM_ACCESSIBILITY:
+            metadata.base.usage = AUDIO_USAGE_ASSISTANCE_ACCESSIBILITY;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SPEECH;
+            break;
+        case AUDIO_STREAM_ASSISTANT:
+            metadata.base.usage = AUDIO_USAGE_ASSISTANT;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SPEECH;
+            break;
+        case AUDIO_STREAM_REROUTING:
+            metadata.base.usage = AUDIO_USAGE_VIRTUAL_SOURCE;
+            // unknown content type
+            break;
+        case AUDIO_STREAM_CALL_ASSISTANT:
+            metadata.base.usage = AUDIO_USAGE_CALL_ASSISTANT;
+            metadata.base.content_type = AUDIO_CONTENT_TYPE_SPEECH;
+            break;
+        default:
+            break;
+        }
+    }
+
     metadata.channel_mask = mChannelMask,
     strncpy(metadata.tags, mAttr.tags, AUDIO_ATTRIBUTES_TAGS_MAX_SIZE);
     *backInserter++ = metadata;
@@ -2582,6 +2637,8 @@ void AudioFlinger::RecordThread::RecordTrack::updateTrackFrameInfo(
     // ALOGD("FrameTime: %lld %lld", (long long)ft.frames, (long long)ft.timeNs);
     mKernelFrameTime.store(ft);
     if (!audio_is_linear_pcm(mFormat)) {
+        // Stream is direct, return provided timestamp with no conversion
+        mServerProxy->setTimestamp(timestamp);
         return;
     }
 

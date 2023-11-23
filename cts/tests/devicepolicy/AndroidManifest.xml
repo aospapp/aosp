@@ -19,9 +19,16 @@
           package="android.devicepolicy.cts"
           android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <!-- TODO(b/191637162): This is required for
+            canInteractAcrossProfiles_permissionIsSet_returnsTrue -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
+
+    <!-- Seemingly the INTERNET permission cannot be adopted. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Add a network security config that trusts user added CAs for tests -->
     <application android:testOnly="true"
+                 android:appComponentFactory="com.android.eventlib.premade.EventLibAppComponentFactory"
                  android:networkSecurityConfig="@xml/network_security_config">
         <uses-library android:name="android.test.runner" />
 
@@ -33,15 +40,10 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-
-        <activity android:name=".NonMainActivity"
+        <activity android:name=".NotMainActivity"
                   android:exported="true">
-            <intent-filter>
-                <action android:name="nonMainActivity"/>
-            </intent-filter>
         </activity>
-
-        <activity android:name=".NonExportedActivity"
+        <activity android:name=".NotExportedMainActivity"
                   android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

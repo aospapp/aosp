@@ -3,41 +3,34 @@
 // found in the LICENSE file.
 
 use data_model::DataInit;
-use std::fmt::{self, Display};
+use remain::sorted;
 use std::mem::size_of;
 use std::sync::atomic::{fence, Ordering};
+use thiserror::Error;
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
 use super::xhci_abi::*;
 
-#[derive(Debug)]
+#[sorted]
+#[derive(Error, Debug)]
 pub enum Error {
-    Uninitialized,
-    EventRingFull,
+    #[error("event ring has a bad enqueue pointer: {0}")]
     BadEnqueuePointer(GuestAddress),
-    BadSegTableIndex(u16),
+    #[error("event ring has a bad seg table addr: {0}")]
     BadSegTableAddress(GuestAddress),
+    #[error("event ring has a bad seg table index: {0}")]
+    BadSegTableIndex(u16),
+    #[error("event ring is full")]
+    EventRingFull,
+    #[error("event ring cannot read from guest memory: {0}")]
     MemoryRead(GuestMemoryError),
+    #[error("event ring cannot write to guest memory: {0}")]
     MemoryWrite(GuestMemoryError),
+    #[error("event ring is uninitialized")]
+    Uninitialized,
 }
 
 type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            Uninitialized => write!(f, "event ring is uninitialized"),
-            EventRingFull => write!(f, "event ring is full"),
-            BadEnqueuePointer(addr) => write!(f, "event ring has a bad enqueue pointer: {}", addr),
-            BadSegTableIndex(i) => write!(f, "event ring has a bad seg table index: {}", i),
-            BadSegTableAddress(addr) => write!(f, "event ring has a bad seg table addr: {}", addr),
-            MemoryRead(e) => write!(f, "event ring cannot read from guest memory: {}", e),
-            MemoryWrite(e) => write!(f, "event ring cannot write to guest memory: {}", e),
-        }
-    }
-}
 
 /// Event rings are segmented circular buffers used to pass event TRBs from the xHCI device back to
 /// the guest.  Each event ring is associated with a single interrupter.  See section 4.9.4 of the
@@ -218,8 +211,8 @@ mod test {
 
     #[test]
     fn test_uninited() {
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
-        let mut er = EventRing::new(gm.clone());
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
+        let mut er = EventRing::new(gm);
         let trb = Trb::new();
         match er.add_event(trb).err().unwrap() {
             Error::Uninitialized => {}
@@ -232,7 +225,7 @@ mod test {
     #[test]
     fn test_event_ring() {
         let trb_size = size_of::<Trb>() as u64;
-        let gm = GuestMemory::new(&vec![(GuestAddress(0), 0x1000)]).unwrap();
+        let gm = GuestMemory::new(&[(GuestAddress(0), 0x1000)]).unwrap();
         let mut er = EventRing::new(gm.clone());
         let mut st_entries = [EventRingSegmentTableEntry::new(); 3];
         st_entries[0].set_ring_segment_base_address(0x100);
@@ -264,7 +257,7 @@ mod test {
         trb.set_control(1);
         assert_eq!(er.is_empty(), true);
         assert_eq!(er.is_full().unwrap(), false);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm.read_obj_from_addr(GuestAddress(0x100)).unwrap();
@@ -272,7 +265,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         trb.set_control(2);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm
@@ -282,7 +275,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         trb.set_control(3);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm
@@ -293,7 +286,7 @@ mod test {
 
         // Fill second table.
         trb.set_control(4);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm.read_obj_from_addr(GuestAddress(0x200)).unwrap();
@@ -301,7 +294,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         trb.set_control(5);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm
@@ -311,7 +304,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         trb.set_control(6);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm
@@ -322,7 +315,7 @@ mod test {
 
         // Fill third table.
         trb.set_control(7);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm.read_obj_from_addr(GuestAddress(0x300)).unwrap();
@@ -330,7 +323,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         trb.set_control(8);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         // There is only one last trb. Considered full.
         assert_eq!(er.is_full().unwrap(), true);
         assert_eq!(er.is_empty(), false);
@@ -341,7 +334,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         // Add the last trb will result in error.
-        match er.add_event(trb.clone()) {
+        match er.add_event(trb) {
             Err(Error::EventRingFull) => {}
             _ => panic!("er should be full"),
         };
@@ -353,7 +346,7 @@ mod test {
 
         // Fill the last trb of the third table.
         trb.set_control(9);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         // There is only one last trb. Considered full.
         assert_eq!(er.is_full().unwrap(), true);
         assert_eq!(er.is_empty(), false);
@@ -364,7 +357,7 @@ mod test {
         assert_eq!(t.get_cycle(), true);
 
         // Add the last trb will result in error.
-        match er.add_event(trb.clone()) {
+        match er.add_event(trb) {
             Err(Error::EventRingFull) => {}
             _ => panic!("er should be full"),
         };
@@ -376,7 +369,7 @@ mod test {
 
         // Fill first table again.
         trb.set_control(10);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm.read_obj_from_addr(GuestAddress(0x100)).unwrap();
@@ -385,7 +378,7 @@ mod test {
         assert_eq!(t.get_cycle(), false);
 
         trb.set_control(11);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm
@@ -395,7 +388,7 @@ mod test {
         assert_eq!(t.get_cycle(), false);
 
         trb.set_control(12);
-        assert_eq!(er.add_event(trb.clone()).unwrap(), ());
+        assert!(er.add_event(trb).is_ok());
         assert_eq!(er.is_full().unwrap(), false);
         assert_eq!(er.is_empty(), false);
         let t: Trb = gm

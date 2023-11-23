@@ -14,12 +14,7 @@
 
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "cts_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-MIT
-    default_applicable_licenses: ["cts_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_test_host {
@@ -36,4 +31,12 @@ java_test_host {
         "compatibility-host-util",
     ],
     static_libs: ["platform-test-annotations-host"],
+    data: [
+        ":CtsGpuToolsRootlessGpuDebugApp-DEBUG",
+        ":CtsGpuToolsRootlessGpuDebugApp-RELEASE",
+        ":CtsGpuToolsRootlessGpuDebugApp-INJECT",
+        ":CtsGpuToolsRootlessGpuDebugApp-LAYERS",
+        ":CtsGpuToolsRootlessGpuDebugApp-GLES_LAYERS",
+    ],
+    per_testcase_directory: true,
 }

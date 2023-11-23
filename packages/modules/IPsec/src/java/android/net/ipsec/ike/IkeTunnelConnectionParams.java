@@ -17,7 +17,6 @@
 package android.net.ipsec.ike;
 
 import android.annotation.NonNull;
-import android.annotation.SuppressLint;
 
 import java.util.Objects;
 
@@ -66,10 +65,6 @@ public final class IkeTunnelConnectionParams {
     }
 
     /** @hide */
-    // TODO: b/177434707 Calling IkeTunnelConnectionParams is safe because it does not depend on any
-    // platform API added after SDK R. Handle this case in a mainline standard way when b/177434707
-    // is fixed.
-    @SuppressLint("NewApi")
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof IkeTunnelConnectionParams)) {

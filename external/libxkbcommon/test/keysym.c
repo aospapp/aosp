@@ -76,12 +76,13 @@ test_utf8(xkb_keysym_t keysym, const char *expected)
     if (ret <= 0)
         return ret;
 
+    assert(expected != NULL);
+
     fprintf(stderr, "Expected keysym %#x -> %s (%u bytes)\n", keysym, expected,
             (unsigned) strlen(expected));
     fprintf(stderr, "Received keysym %#x -> %s (%u bytes)\n\n", keysym, s,
             (unsigned) strlen(s));
 
-    assert(expected != NULL);
     return streq(s, expected);
 }
 
@@ -135,7 +136,18 @@ main(void)
     assert(test_string("XF86_Switch_VT_5", 0x1008FE05));
     assert(test_string("VoidSymbol", 0xFFFFFF));
     assert(test_string("U4567", 0x1004567));
+    assert(test_string("U+4567", XKB_KEY_NoSymbol));
+    assert(test_string("U+4567ffff", XKB_KEY_NoSymbol));
+    assert(test_string("U+4567ffffff", XKB_KEY_NoSymbol));
+    assert(test_string("U   4567", XKB_KEY_NoSymbol));
+    assert(test_string("U  +4567", XKB_KEY_NoSymbol));
     assert(test_string("0x10203040", 0x10203040));
+    assert(test_string("0x102030400", XKB_KEY_NoSymbol));
+    assert(test_string("0x010203040", XKB_KEY_NoSymbol));
+    assert(test_string("0x+10203040", XKB_KEY_NoSymbol));
+    assert(test_string("0x  10203040", XKB_KEY_NoSymbol));
+    assert(test_string("0x  +10203040", XKB_KEY_NoSymbol));
+    assert(test_string("0x-10203040", XKB_KEY_NoSymbol));
     assert(test_string("a", 0x61));
     assert(test_string("A", 0x41));
     assert(test_string("ch", 0xfea0));
@@ -144,6 +156,10 @@ main(void)
     assert(test_string("THORN", 0x00de));
     assert(test_string("Thorn", 0x00de));
     assert(test_string("thorn", 0x00fe));
+    /* Max keysym. */
+    assert(test_string("0xffffffff", 0xffffffff));
+    /* Outside range. */
+    assert(test_string("0x100000000", XKB_KEY_NoSymbol));
 
     assert(test_keysym(0x1008FF56, "XF86Close"));
     assert(test_keysym(0x0, "NoSymbol"));
@@ -172,6 +188,9 @@ main(void)
     assert(test_casestring("THORN", 0x00fe));
     assert(test_casestring("Thorn", 0x00fe));
     assert(test_casestring("thorn", 0x00fe));
+
+    assert(test_string("", XKB_KEY_NoSymbol));
+    assert(test_casestring("", XKB_KEY_NoSymbol));
 
     assert(test_utf8(XKB_KEY_y, "y"));
     assert(test_utf8(XKB_KEY_u, "u"));

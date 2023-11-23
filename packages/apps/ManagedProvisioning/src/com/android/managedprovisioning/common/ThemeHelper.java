@@ -17,8 +17,6 @@
 package com.android.managedprovisioning.common;
 
 import static android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-import static android.content.res.Configuration.UI_MODE_NIGHT_NO;
-import static android.content.res.Configuration.UI_MODE_NIGHT_UNDEFINED;
 import static android.content.res.Configuration.UI_MODE_NIGHT_YES;
 
 import static com.android.managedprovisioning.provisioning.Constants.FLAG_ENABLE_LIGHT_DARK_MODE;
@@ -70,8 +68,8 @@ public class ThemeHelper {
         requireNonNull(intent);
         String themeName = getDefaultThemeName(context, intent);
         int defaultTheme = mSetupWizardBridge.isSetupWizardDayNightEnabled(context)
-                ? R.style.SudThemeGlifV3_DayNight
-                : R.style.SudThemeGlifV3_Light;
+                    ? R.style.SudThemeGlifV4_DayNight
+                    : R.style.SudThemeGlifV4_Light;
         return mSetupWizardBridge
                 .resolveTheme(defaultTheme, themeName, shouldSuppressDayNight(context));
     }
@@ -155,9 +153,9 @@ public class ThemeHelper {
         String theme = getProvidedTheme(intent);
         if (TextUtils.isEmpty(theme)) {
             if (isSystemNightMode(context)) {
-                theme = com.google.android.setupdesign.util.ThemeHelper.THEME_GLIF_V3;
+                theme = com.google.android.setupdesign.util.ThemeHelper.THEME_GLIF_V4;
             } else {
-                theme = com.google.android.setupdesign.util.ThemeHelper.THEME_GLIF_V3_LIGHT;
+                theme = com.google.android.setupdesign.util.ThemeHelper.THEME_GLIF_V4_LIGHT;
             }
         }
         return theme;

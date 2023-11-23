@@ -23,8 +23,8 @@ import static org.junit.Assert.assertNull;
 import android.car.vms.VmsAssociatedLayer;
 import android.car.vms.VmsAvailableLayers;
 import android.car.vms.VmsLayer;
-import android.hardware.automotive.vehicle.V2_0.VmsAvailabilityStateIntegerValuesIndex;
-import android.hardware.automotive.vehicle.V2_0.VmsMessageType;
+import android.hardware.automotive.vehicle.VmsAvailabilityStateIntegerValuesIndex;
+import android.hardware.automotive.vehicle.VmsMessageType;
 import android.util.Pair;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -33,7 +33,6 @@ import androidx.test.filters.MediumTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -368,11 +367,11 @@ public class VmsSubscriberManagerTest extends MockedVmsTestBase {
         assertEquals(1, availableLayers.getSequence());
 
         // Verify HAL API.
-        ArrayList<Integer> values = getMockHalClient().receiveMessage().value.int32Values;
-        int messageType = values.get(VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE);
-        int sequenceNumber = values.get(VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER);
+        int[] values = getMockHalClient().receiveMessage().value.int32Values;
+        int messageType = values[VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE];
+        int sequenceNumber = values[VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER];
         int numberLayers =
-                values.get(VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS);
+                values[VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS];
 
         assertEquals(messageType, VmsMessageType.AVAILABILITY_CHANGE);
         assertEquals(1, sequenceNumber);
@@ -413,11 +412,11 @@ public class VmsSubscriberManagerTest extends MockedVmsTestBase {
         assertEquals(1, availableLayers.getSequence());
 
         // Verify HAL API.
-        ArrayList<Integer> values = getMockHalClient().receiveMessage().value.int32Values;
-        int messageType = values.get(VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE);
-        int sequenceNumber = values.get(VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER);
+        int[] values = getMockHalClient().receiveMessage().value.int32Values;
+        int messageType = values[VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE];
+        int sequenceNumber = values[VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER];
         int numberLayers =
-                values.get(VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS);
+                values[VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS];
 
         assertEquals(messageType, VmsMessageType.AVAILABILITY_CHANGE);
         assertEquals(1, sequenceNumber);
@@ -458,10 +457,10 @@ public class VmsSubscriberManagerTest extends MockedVmsTestBase {
 
         // Verify HAL API.
         values = getMockHalClient().receiveMessage().value.int32Values;
-        messageType = values.get(VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE);
-        sequenceNumber = values.get(VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER);
+        messageType = values[VmsAvailabilityStateIntegerValuesIndex.MESSAGE_TYPE];
+        sequenceNumber = values[VmsAvailabilityStateIntegerValuesIndex.SEQUENCE_NUMBER];
         numberLayers =
-                values.get(VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS);
+                values[VmsAvailabilityStateIntegerValuesIndex.NUMBER_OF_ASSOCIATED_LAYERS];
 
         assertEquals(messageType, VmsMessageType.AVAILABILITY_CHANGE);
         assertEquals(2, sequenceNumber);

@@ -15,6 +15,8 @@
  */
 package com.google.auto.common;
 
+import static java.util.stream.Collectors.toList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +40,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.SimpleTypeVisitor8;
 import javax.lang.model.util.Types;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Determines if one method overrides another. This class defines two ways of doing that:
@@ -114,12 +117,11 @@ abstract class Overrides {
         // can't be overridden.
         return false;
       }
-      TypeElement overriddenType;
       if (!(overridden.getEnclosingElement() instanceof TypeElement)) {
         return false;
         // We don't know how this could happen but we avoid blowing up if it does.
       }
-      overriddenType = MoreElements.asType(overridden.getEnclosingElement());
+      TypeElement overriddenType = MoreElements.asType(overridden.getEnclosingElement());
       // We erase the types before checking subtypes, because the TypeMirror we get for List<E> is
       // not a subtype of the one we get for Collection<E> since the two E instances are not the
       // same. For the purposes of overriding, type parameters in the containing type should not
@@ -141,7 +143,8 @@ abstract class Overrides {
           // the enclosing elements rather than the methods themselves for the reason described
           // at the start of the method.
           ExecutableElement inherited = methodFromSuperclasses(in, overridden);
-          return !overridden.getEnclosingElement().equals(inherited.getEnclosingElement());
+          return inherited != null
+              && !overridden.getEnclosingElement().equals(inherited.getEnclosingElement());
         } else if (overriddenType.getKind().isInterface()) {
           // ...overrides from C another method mI declared in interface I. We've already checked
           // the conditions (assuming that the only alternative to mI being abstract or default is
@@ -157,7 +160,8 @@ abstract class Overrides {
           // to methodFromSuperclasses above.
           if (overrider.getModifiers().contains(Modifier.ABSTRACT)) {
             ExecutableElement inherited = methodFromSuperinterfaces(in, overridden);
-            return !overridden.getEnclosingElement().equals(inherited.getEnclosingElement());
+            return inherited != null
+                && !overridden.getEnclosingElement().equals(inherited.getEnclosingElement());
           } else {
             return true;
           }
@@ -215,6 +219,7 @@ abstract class Overrides {
      * implements List<E>}. The parameter types are erased since the purpose of this method is to
      * determine whether two methods are candidates for one to override the other.
      */
+    @Nullable
     ImmutableList<TypeMirror> erasedParameterTypes(ExecutableElement method, TypeElement in) {
       if (method.getParameters().isEmpty()) {
         return ImmutableList.of();
@@ -241,6 +246,7 @@ abstract class Overrides {
        */
       private final Map<TypeParameterElement, TypeMirror> typeBindings = Maps.newLinkedHashMap();
 
+      @Nullable
       ImmutableList<TypeMirror> erasedParameterTypes(ExecutableElement method, TypeElement in) {
         if (method.getEnclosingElement().equals(in)) {
           ImmutableList.Builder<TypeMirror> params = ImmutableList.builder();
@@ -261,6 +267,10 @@ abstract class Overrides {
           TypeElement element = MoreElements.asType(declared.asElement());
           List<? extends TypeMirror> actuals = declared.getTypeArguments();
           List<? extends TypeParameterElement> formals = element.getTypeParameters();
+          if (actuals.isEmpty()) {
+            // Either the formal type arguments are also empty or `declared` is raw.
+            actuals = formals.stream().map(t -> t.getBounds().get(0)).collect(toList());
+          }
           Verify.verify(actuals.size() == formals.size());
           for (int i = 0; i < actuals.size(); i++) {
             typeBindings.put(formals.get(i), actuals.get(i));
@@ -315,7 +325,7 @@ abstract class Overrides {
      * or the nearest override in a superclass of the given type, or null if the method is not
      * found in the given type or any of its superclasses.
      */
-    ExecutableElement methodFromSuperclasses(TypeElement in, ExecutableElement method) {
+    @Nullable ExecutableElement methodFromSuperclasses(TypeElement in, ExecutableElement method) {
       for (TypeElement t = in; t != null; t = superclass(t)) {
         ExecutableElement tMethod = methodInType(t, method);
         if (tMethod != null) {
@@ -330,6 +340,7 @@ abstract class Overrides {
      * itself, or the nearest override in a superinterface of the given type, or null if the method
      * is not found in the given type or any of its transitive superinterfaces.
      */
+    @Nullable
     ExecutableElement methodFromSuperinterfaces(TypeElement in, ExecutableElement method) {
       TypeElement methodContainer = MoreElements.asType(method.getEnclosingElement());
       Preconditions.checkArgument(methodContainer.getKind().isInterface());
@@ -366,7 +377,7 @@ abstract class Overrides {
      * Returns the method from within the given type that has the same erased signature as the given
      * method, or null if there is no such method.
      */
-    private ExecutableElement methodInType(TypeElement type, ExecutableElement method) {
+    private @Nullable ExecutableElement methodInType(TypeElement type, ExecutableElement method) {
       int nParams = method.getParameters().size();
       List<TypeMirror> params = erasedParameterTypes(method, type);
       if (params == null) {
@@ -388,7 +399,7 @@ abstract class Overrides {
       return null;
     }
 
-    private TypeElement superclass(TypeElement type) {
+    private @Nullable TypeElement superclass(TypeElement type) {
       TypeMirror sup = type.getSuperclass();
       if (sup.getKind() == TypeKind.DECLARED) {
         return MoreElements.asType(typeUtils.asElement(sup));

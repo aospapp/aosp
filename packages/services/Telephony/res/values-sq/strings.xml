@@ -631,20 +631,14 @@
     <string name="ota_spc_failure" msgid="904092035241370080">"DËSHTIME TË SHUMTA SPC"</string>
     <string name="ota_call_end" msgid="8657746378290737034">"Prapa"</string>
     <string name="ota_try_again" msgid="6914781945599998550">"Provo sërish"</string>
-    <string name="ota_next" msgid="2041016619313475914">"Përpara"</string>
+    <string name="ota_next" msgid="2041016619313475914">"Para"</string>
     <string name="ecm_exit_dialog" msgid="4200691880721429078">"EcmExitDialog"</string>
     <string name="phone_entered_ecm_text" msgid="8431238297843035842">"Hyri në modalitetin e \"Kthimit të telefonatës së urgjencës\""</string>
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Modaliteti i \"Kthimit të telefonatës së urgjencës\""</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Lidhja me të dhënat është çaktivizuar"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Nuk ka lidhje të të dhënave deri në <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Telefoni do të përdoret në modalitetin e \"Kthimit të Telefonatës së Urgjencës\" për <xliff:g id="COUNT_1">%s</xliff:g> minuta. Ndërkohë që është në këtë modalitet, nuk mund të përdoret asnjë aplikacion duke përdorur lidhje të dhënash. Dëshiron të dalësh tani?</item>
-      <item quantity="one">Telefoni do të jetë në modalitetin e \"Kthimit të telefonatës së urgjencës\" për <xliff:g id="COUNT_0">%s</xliff:g> minuta. Ndërkohë që është në këtë modalitet, nuk mund të përdoret asnjë aplikacion duke përdorur lidhje të dhënash. Dëshiron të dalësh tani?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Veprimi i përzgjedhur nuk mund të përdoret kur është në modalitetin e \"Kthimit të telefonatës së urgjencës\". Telefoni do të jetë në këtë modalitet për <xliff:g id="COUNT_1">%s</xliff:g> minuta. Dëshiron të dalësh tani?</item>
-      <item quantity="one">Veprimi i përzgjedhur nuk mund të përdoret kur është në modalitetin e \"Kthimit të telefonatës së urgjencës\". Telefoni do të jetë në këtë modalitet për <xliff:g id="COUNT_0">%s</xliff:g> minuta. Dëshiron të dalësh tani?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Telefoni do të jetë në modalitetin e \"Kthimit të telefonatës së urgjencës\" për një minutë. Ndërkohë që është në këtë modalitet, nuk mund të përdoret asnjë aplikacion duke përdorur lidhjen e dhënave. Dëshiron të dalësh tani?}other{Telefoni do të jetë në modalitetin e \"Kthimit të telefonatës së urgjencës\" për %s minuta. Ndërkohë që është në këtë modalitet, nuk mund të përdoret asnjë aplikacion duke përdorur lidhjen e dhënave. Dëshiron të dalësh tani?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Veprimi i përzgjedhur nuk ofrohet në modalitetin e \"Kthimit të telefonatës së urgjencës\". Telefoni do të jetë në këtë modalitet për një minutë. Dëshiron të dalësh tani?}other{Veprimi i përzgjedhur nuk ofrohet në modalitetin e \"Kthimit të telefonatës së urgjencës\". Telefoni do të jetë në këtë modalitet për %s minuta. Dëshiron të dalësh tani?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Veprimi i përzgjedhur nuk mund të përdoret gjatë një telefonate urgjente."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Modaliteti i \"Kthimit të telefonatës dalëse të urgjencës\""</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Po"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Injoro"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefoni është në modalitetin e kthimit të telefonatës së urgjencës"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Deri në <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Telefoni do të jetë në modalitetin e kthimit të telefonatës së urgjencës për <xliff:g id="COUNT_1">%s</xliff:g> minuta.\nDëshiron të dalësh tani?</item>
-      <item quantity="one">Telefoni do të jetë në modalitetin e kthimit të telefonatës së urgjencës për <xliff:g id="COUNT_0">%s</xliff:g> minutë.\nDëshiron të dalësh tani?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Telefoni do të jetë në modalitetin e kthimit të telefonatës së urgjencës për një minutë.\nDëshiron të dalësh tani?}other{Telefoni do të jetë në modalitetin e kthimit të telefonatës së urgjencës për %s minuta.\nDëshiron të dalësh tani?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Shërbimi"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Konfigurimi"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;I pavendosur&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Qasshmëria"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Telefonatë Wi-Fi nga"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Telefonatë me Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Trokit përsëri për ta hapur"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Ndodhi një gabim gjatë dekodimit të mesazhit."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Një kartë SIM ka aktivizuar shërbimin tënd dhe ka përditësuar aftësitë e roaming-ut të telefonit tënd."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Ka shumë thirrje aktive. Përfundo ose të bashko thirrjet ekzistuese para kryerjes së një thirrjeje të re."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Nuk mund të kryhet një telefonatë pasi një telefonatë tjetër dalëse është duke u kryer tashmë."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Nuk mund të kryhet një telefonatë sepse është një telefonatë hyrëse që nuk ka marrë përgjigje. Përgjigju ose refuzoje telefonatën hyrëse para se të kryesh një telefonatë të re."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Nuk mund të kryhet një telefonatë sepse telefonata është çaktivizuar duke përdorur vetinë e sistemit ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Nuk mund të kryhet një telefonatë sepse janë tashmë dy telefonata në vazhdim. Shkëput një nga telefonatat ose shkriji ato në një konferencë para se të kryesh një telefonatë të re."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Nuk mund të kryhet një telefonatë sepse janë tashmë dy telefonata në vazhdim. Shkëput një nga telefonatat ose shkriji ato në një konferencë para se të kryesh një telefonatë të re."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Për të përdorur <xliff:g id="SUPP_SERVICE">%s</xliff:g>, sigurohu që të dhënat celulare janë të aktivizuara. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Për të përdorur <xliff:g id="SUPP_SERVICE">%s</xliff:g>, sigurohu që të dhënat celulare dhe roaming për të dhënat janë aktivizuar. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Për të përdorur <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, sigurohu që të dhënat celulare janë të aktivizuara për kartën SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Duhet të rinisësh pajisjen tënde për të ndryshuar këtë cilësim."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Rinis"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Anulo"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Caktoje kartën e lëvizshme eSIM si të parazgjedhur"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Fuqia e radios së rrjetit celular"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Shiko librin e adresave të kartës SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Shiko numrat me telefonim të përzgjedhur"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Përzgjidh brezin e radios"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Lloji i rrjetit të zërit:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Lloji i rrjetit të të dhënave:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Anulo llojin e rrjetit:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Zgjidh indeksin e telefonit"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Cakto llojin e preferuar të rrjetit:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Verifiko emrin e pritësit (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Rifresko"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Ndrysho kontrollin e DNS-së"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informacion/cilësime specifike për OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"Ofrohet EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR me kufizime:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"Ofrohet NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Gjendja e NR-së:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC në dispozicion (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR me kufizime (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR në dispozicion (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Gjendja e NR-së (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frekuenca e NR-së:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Cakto modalitetin e brezit të radios"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Po ngarkon listën e brezave…"</string>

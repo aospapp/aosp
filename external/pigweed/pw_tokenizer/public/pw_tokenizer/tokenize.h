@@ -235,12 +235,9 @@ PW_EXTERN_C_END
 #define _PW_TOKENIZER_CONST constexpr
 
 #define _PW_TOKENIZER_RECORD_ORIGINAL_STRING(token, domain, string)            \
-  alignas(1) static constexpr ::pw::tokenizer::internal::Entry<sizeof(domain), \
-                                                               sizeof(string)> \
-      _PW_TOKENIZER_SECTION _PW_TOKENIZER_UNIQUE(                              \
-          _pw_tokenizer_string_entry_) {                                       \
-    token, domain, string                                                      \
-  }
+  alignas(1) static constexpr auto _PW_TOKENIZER_SECTION _PW_TOKENIZER_UNIQUE( \
+      _pw_tokenizer_string_entry_) =                                           \
+      ::pw::tokenizer::internal::MakeEntry(token, domain, string)
 
 namespace pw {
 namespace tokenizer {
@@ -298,7 +295,7 @@ using Token = ::pw_tokenizer_Token;
 //
 // pw_tokenizer is intended for use with ELF files only. Mach-O files (macOS
 // executables) do not support section names longer than 16 characters, so a
-// short, dummy section name is used on macOS.
+// short, unused section name is used on macOS.
 #ifdef __APPLE__
 #define _PW_TOKENIZER_SECTION \
   PW_KEEP_IN_SECTION(PW_STRINGIFY(_PW_TOKENIZER_UNIQUE(.pw.)))

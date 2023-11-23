@@ -46,9 +46,10 @@ public class ConnectHelper {
     public void connectToNetwork(
             @NonNull NetworkUpdateResult result,
             @NonNull ActionListenerWrapper wrapper,
-            int callingUid) {
+            int callingUid, @NonNull String packageName) {
         connectToNetwork(
-                mActiveModeWarden.getPrimaryClientModeManager(), result, wrapper, callingUid);
+                mActiveModeWarden.getPrimaryClientModeManager(), result, wrapper, callingUid,
+                packageName);
     }
 
     /**
@@ -59,14 +60,14 @@ public class ConnectHelper {
             @NonNull ClientModeManager clientModeManager,
             @NonNull NetworkUpdateResult result,
             @NonNull ActionListenerWrapper wrapper,
-            int callingUid) {
+            int callingUid, @NonNull String packageName) {
         int netId = result.getNetworkId();
         if (mWifiConfigManager.getConfiguredNetwork(netId) == null) {
             Log.e(TAG, "connectToNetwork Invalid network Id=" + netId);
-            wrapper.sendFailure(WifiManager.ERROR);
+            wrapper.sendFailure(WifiManager.ActionListener.FAILURE_INTERNAL_ERROR);
             return;
         }
-        mWifiConfigManager.updateBeforeConnect(netId, callingUid);
-        clientModeManager.connectNetwork(result, wrapper, callingUid);
+        mWifiConfigManager.updateBeforeConnect(netId, callingUid, packageName);
+        clientModeManager.connectNetwork(result, wrapper, callingUid, packageName);
     }
 }

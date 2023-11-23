@@ -11,9 +11,9 @@
 # https://android-review.googlesource.com/c/platform/external/toolchain-utils/+/1132504/1
 
 local_branch_name="merge_with_upstream"
-local_upstream="aosp/master"
+local_upstream="aosp/master"  # nocheck
 remote="aosp"
-remote_branch="${remote}/upstream-mirror-master"
+remote_branch="${remote}/upstream-main"  # nocheck
 
 my_dir="$(dirname "$(readlink -m "$0")")"
 cd "${my_dir}"
@@ -21,7 +21,7 @@ cd "${my_dir}"
 ensure_head_is_upstream_main() {
   local current_rev main_rev
   current_rev="$(git rev-parse HEAD)"
-  main_rev="$(git rev-parse ${local_upstream})"
+  main_rev="$(git rev-parse "${local_upstream}")"
   if [[ "${current_rev}" != "${main_rev}" ]]; then
     echo "Please checkout ${local_upstream} and rerun this" >&2
     exit
@@ -49,7 +49,7 @@ ensure_no_local_branch_present() {
 
 get_merge_commit_list() {
   local merge_base
-  merge_base="$(git merge-base HEAD ${remote_branch})"
+  merge_base="$(git merge-base HEAD "${remote_branch}")"
   git log --oneline "${merge_base}..${remote_branch}"
 }
 
@@ -62,6 +62,9 @@ repo start "${local_branch_name}"
 
 commit_list="$(get_merge_commit_list)"
 num_commits="$(wc -l <<< "${commit_list}")"
+
+# Disable shellcheck for the sed substitution warning.
+# shellcheck disable=SC2001
 commit_message="Merging ${num_commits} commit(s) from Chromium's toolchain-utils
 
 Merged commit digest:
@@ -69,6 +72,6 @@ $(sed 's/^/  /' <<< "${commit_list}")
 "
 
 git merge "${remote_branch}" -m "${commit_message}"
-echo 'NOTE: When you try to `repo upload`, repo might show a scary warning'
+echo 'NOTE: When you try to "repo upload", repo might show a scary warning'
 echo 'about the number of changes are being uploaded. That should be fine,'
 echo 'since repo will only create CLs for commits not known to our remote.'

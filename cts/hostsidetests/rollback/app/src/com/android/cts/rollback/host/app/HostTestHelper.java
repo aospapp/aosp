@@ -671,6 +671,11 @@ public class HostTestHelper {
         assertThat(committed).causePackagesContainsExactly(TestApp.A2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
+        // This staged session should fail when there is already a staged rollback
+        InstallUtils.commitExpectingFailure(AssertionError.class,
+                "Session was failed by rollback",
+                Install.single(TestApp.C1).setStaged());
+
         // Assert that blocking staged session is failed
         final PackageInstaller.SessionInfo sessionA = InstallUtils.getStagedSessionInfo(sessionIdA);
         assertThat(sessionA).isNotNull();

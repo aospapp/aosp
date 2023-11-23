@@ -45,47 +45,48 @@ public class ExpectedFailuresFilterAnnotationCheckerTest
 
     @Test
     public void testIgnoreExpectedFailures_TestPasses() {
-        NoFailures observer = new NoFailures();
+        try (NoFailures observer = new NoFailures()) {
 
-        ResultObserver filter = new ExpectedFailuresFilter(observer, Arrays.asList(
-            "extra_class:android.signature.cts.tests.data.ForciblyPublicizedPrivateClass",
-            "extra_constructor:public android.signature.cts.tests.data.SystemApiClass()",
-            "extra_method:public void android.signature.cts.tests.data.SystemApiClass.apiMethod()",
-            "extra_field:public boolean android.signature.cts.tests.data.SystemApiClass.apiField"
-        ));
+            ResultObserver filter = new ExpectedFailuresFilter(observer, Arrays.asList(
+                    "extra_class:android.signature.cts.tests.data.ForciblyPublicizedPrivateClass",
+                    "extra_constructor:public android.signature.cts.tests.data.SystemApiClass()",
+                    "extra_method:public void android.signature.cts.tests.data.SystemApiClass.apiMethod()",
+                    "extra_field:public boolean android.signature.cts.tests.data.SystemApiClass.apiField"
+            ));
 
-        // Define the API that is expected to be provided by the SystemApiClass. Omitted members
-        // are actually provided by the SytstemApiClass definition and so will result in an
-        // extra_... error.
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        // (omitted) addConstructor(clz);
-        // (omitted) addPublicVoidMethod(clz, "apiMethod");
-        // (omitted) addPublicBooleanField(clz, "apiField");
+            // Define the API that is expected to be provided by the SystemApiClass. Omitted members
+            // are actually provided by the SytstemApiClass definition and so will result in an
+            // extra_... error.
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            // (omitted) addConstructor(clz);
+            // (omitted) addPublicVoidMethod(clz, "apiMethod");
+            // (omitted) addPublicBooleanField(clz, "apiField");
 
-        checkSignatureCompliance(clz, filter,
-                "android.signature.cts.tests.data.PublicApiClass");
-        // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
+            checkSignatureCompliance(clz, filter,
+                    "android.signature.cts.tests.data.PublicApiClass");
+            // Note that ForciblyPublicizedPrivateClass is now included in the runtime classes
+        }
     }
 
     @Test
     public void testIgnoreExpectedFailures_TestStillFails() {
-        ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION);
+        try (ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION)) {
+            ResultObserver filter = new ExpectedFailuresFilter(observer, Arrays.asList(
+                    "extra_method:public void android.signature.cts.tests.data.SystemApiClass.apiMethod()",
+                    "extra_field:public boolean android.signature.cts.tests.data.SystemApiClass.apiField"
+            ));
 
-        ResultObserver filter = new ExpectedFailuresFilter(observer, Arrays.asList(
-            "extra_method:public void android.signature.cts.tests.data.SystemApiClass.apiMethod()",
-            "extra_field:public boolean android.signature.cts.tests.data.SystemApiClass.apiField"
-        ));
+            // Define the API that is expected to be provided by the SystemApiClass. Omitted members
+            // are actually provided by the SytstemApiClass definition and so will result in an
+            // extra_... error.
+            JDiffClassDescription clz = createClass("SystemApiClass");
+            addConstructor(clz);
+            // (omitted) addPublicVoidMethod(clz, "apiMethod");
+            // (omitted) addPublicBooleanField(clz, "apiField");
 
-        // Define the API that is expected to be provided by the SystemApiClass. Omitted members
-        // are actually provided by the SytstemApiClass definition and so will result in an
-        // extra_... error.
-        JDiffClassDescription clz = createClass("SystemApiClass");
-        addConstructor(clz);
-        // (omitted) addPublicVoidMethod(clz, "apiMethod");
-        // (omitted) addPublicBooleanField(clz, "apiField");
-
-        checkSignatureCompliance(clz, filter,
-            "android.signature.cts.tests.data.PublicApiClass",
-            "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+            checkSignatureCompliance(clz, filter,
+                    "android.signature.cts.tests.data.PublicApiClass",
+                    "android.signature.cts.tests.data.ForciblyPublicizedPrivateClass");
+        }
     }
 }

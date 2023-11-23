@@ -81,7 +81,7 @@
     <string name="voicemail_settings_with_label" msgid="4228431668214894138">"語音信箱 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="7746778673131551185">"語音信箱："</string>
     <string name="make_and_receive_calls" msgid="4868913166494621109">"撥打及接聽電話"</string>
-    <string name="smart_forwarding_settings_menu" msgid="8850429887958938540">"智慧轉寄"</string>
+    <string name="smart_forwarding_settings_menu" msgid="8850429887958938540">"智慧轉接"</string>
     <string name="smart_forwarding_settings_menu_summary" msgid="5096947726032885325">"如果某組電話號碼無法使用，系統會一律將來電轉接到其他號碼"</string>
     <string name="voicemail_notifications_preference_title" msgid="7829238858063382977">"通知"</string>
     <string name="cell_broadcast_settings" msgid="8135324242541809924">"緊急廣播"</string>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"緊急回撥模式"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"資料連線已停用"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"在<xliff:g id="COMPLETETIME">%s</xliff:g> 之前無法使用數據連線"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內，手機會進入緊急回電模式。在此模式下，您將無法使用需要數據連線的應用程式。您要立即退出這個模式嗎？</item>
-      <item quantity="one">接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內，手機會進入緊急回電模式。在此模式下，您將無法使用需要數據連線的應用程式。您要立即退出這個模式嗎？</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">緊急回電模式不支援您要執行的操作。接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內，手機會進入此模式。您要立即退出這個模式嗎？</item>
-      <item quantity="one">緊急回電模式不支援您要執行的操作。接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內，手機會進入此模式。您要立即退出這個模式嗎？</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{接下來的 1 分鐘內，手機將處於緊急回撥模式。在這個模式下，所有使用數據連線的應用程式都將無法運作。要立即退出這個模式嗎？}other{接下來的 %s 分鐘內，手機將處於緊急回撥模式。在這個模式下，所有使用數據連線的應用程式都將無法運作。要立即退出這個模式嗎？}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{緊急回撥模式下無法執行你指定的操作。接下來的 1 分鐘內，手機將處於緊急回撥模式。要立即退出這個模式嗎？}other{緊急回撥模式下無法執行你指定的操作。接下來的 %s 分鐘內，手機將處於緊急回撥模式。要立即退出這個模式嗎？}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"緊急通話模式不支援您要執行的操作。"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"正在退出緊急回撥模式"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"是"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"關閉"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"手機目前處於緊急回撥模式"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"結束時間：<xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內，手機將處於緊急回撥模式。\n要立即退出這個模式嗎？</item>
-      <item quantity="one">接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內，手機將處於緊急回撥模式。\n要立即退出這個模式嗎？</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{接下來的 1 分鐘內，手機將處於緊急回撥模式。\n要立即退出這個模式嗎？}other{接下來的 %s 分鐘內，手機將處於緊急回撥模式。\n要立即退出這個模式嗎？}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"服務"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"設定"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;未設定&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"無障礙設定"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi 通話來電："</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi 通話"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"再次輕觸即可開啟"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"為郵件解碼時發生錯誤。"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM 卡已啟用您的服務並更新了手機的漫遊功能。"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"進行中的通話過多。請先結束或合併現有通話，再撥打新的電話。"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"你正在撥出其他電話，因此無法再撥號。"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"你尚未接聽來電，因此無法撥打電話。你必須先決定接聽或拒接來電，才能再撥打電話。"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"通話功能已透過 ro.telephony.disable-call system 屬性停用，因此無法撥打電話。"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"你目前有兩場正在進行的通話，因此無法撥打電話。你必須掛斷其中一場通話或將通話合併成會議，才能再撥打電話。"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"目前有兩場正在進行的通話，因此無法撥打電話。你必須掛斷其中一場通話或將通話合併成會議，才能再撥打電話。"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"如要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>，請確認行動數據功能已開啟。你可以前往行動網路設定進行變更。"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"如要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>，請確認行動數據功能和漫遊服務已開啟。你可以前往行動網路設定進行變更。"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"如要使用<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>，請確認 SIM 卡 <xliff:g id="SIM_NUMBER">%2$d</xliff:g> 的行動數據功能已開啟。你可以前往行動網路設定進行變更。"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"你必須重新啟動裝置，才能變更這項設定。"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"重新啟動"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"取消"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"將可移除的 eSIM 卡設為預設 eSIM 卡"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"行動無線電電源"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"查看 SIM 通訊錄"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"查看固定撥號"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"選取無線電頻帶"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"語音網路類型："</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"數據網路類型："</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"覆寫網路類型："</string>
     <string name="phone_index_label" msgid="6222406512768964268">"選取電話索引"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"設定偏好的網路類型："</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"連線偵測 (ping) 主機名稱 (www.google.com) IPv4："</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"重新整理"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"切換 DNS 檢查"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"原始設備製造商 (OEM) 專用資訊/設定"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC 可供使用："</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR 受限："</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR 可供使用："</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR 狀態："</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC 可使用 (NSA)："</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR 受限 (NSA)："</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR 可使用 (NSA)："</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR 狀態 (NSA)："</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR 頻率："</string>
     <string name="band_mode_title" msgid="7988822920724576842">"設定無線電頻帶模式"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"正在載入頻帶清單…"</string>

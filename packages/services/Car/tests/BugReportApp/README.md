@@ -55,12 +55,12 @@ BugReport app uses `res/raw/gcs_credentials.json` for authentication and
 
 The app supports following intents:
 
-1. `adb shell am start com.android.car.bugreport/.BugReportActivity`
-    - generates `MetaBugReport.Type.INTERACTIVE` bug report, shows audio message dialog before
-    collecting bugreport.
-2. `adb shell am start-foreground-service -a com.android.car.bugreport.action.START_SILENT com.android.car.bugreport/.BugReportService`
-    - generates `MetaBugReport.Type.SILENT` bug report, without audio message. It shows audio dialog
-    after collecting bugreport.
+1. `adb shell am start com.android.car.bugreport/.BugReportActivity -a com.android.car.bugreport.action.START_AUDIO_FIRST`
+    - generates `MetaBugReport.TYPE_AUDIO_FIRST` bug report, shows audio message dialog before
+    collecting a bugreport.
+2. `adb shell am start-foreground-service -a com.android.car.bugreport.action.START_AUDIO_LATER com.android.car.bugreport/.BugReportService`
+    - generates `MetaBugReport.TYPE_AUDIO_LATER` bug report, shows audio dialog after collecting
+    bugreport. Little inconvenient for users, but it doesn't alter UI and audio state.
 
 ## Testing
 
@@ -75,7 +75,7 @@ Please follow these instructions to test the app:
    * Long press Rear Defrost hardware button (hold up to 6 seconds)
    * Long press notification icon
    * Open BugReport app from launcher menu or external apps menu; and click Start Bug Report button.
-   * Using adb, see above instructions under `Starting bugreporting`.
+   * Using adb, see above instructions under `Starting bugreporting` above.
 4. Bug report collection might take up to 7 minutes to finish.
    * It might fail to upload bugreport when time/time-zone is invalid.
    * In rare cases it might not upload the bugreport, depending Android's
@@ -89,5 +89,3 @@ Please follow these instructions to test the app:
    * Dumpstate (bugreport) - it should contain logs and other information.
 7. In any case if bugreport app is not properly functioning, please take adb bugreport and share
    the zip file with developers: `$ adb bugreport`.
-
-NOTE: `utils/bugreport_app_tester.py` is deprecated.

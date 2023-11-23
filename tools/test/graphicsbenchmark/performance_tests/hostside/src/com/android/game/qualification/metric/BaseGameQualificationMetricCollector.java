@@ -96,7 +96,6 @@ public abstract class BaseGameQualificationMetricCollector extends BaseDeviceMet
 
     @Override
     public final void onTestStart(DeviceMetricData testData) {
-        super.onTestStart(testData);
         try {
             onStart(testData);
         } catch (Exception e) {
@@ -112,7 +111,6 @@ public abstract class BaseGameQualificationMetricCollector extends BaseDeviceMet
     public final void onTestEnd(
             DeviceMetricData testData,
             Map<String, MetricMeasurement.Metric> currentTestCaseMetrics) {
-        super.onTestEnd(testData, currentTestCaseMetrics);
         try {
             onEnd(testData, currentTestCaseMetrics);
         } catch (Exception e) {

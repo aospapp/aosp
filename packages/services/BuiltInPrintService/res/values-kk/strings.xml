@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"Әдепкі принтер қызметі"</string>
+    <string name="app_name" msgid="3551052199033657984">"Әдепкі баспа қызметі"</string>
     <string name="printer_busy" msgid="8604311528104955859">"Бос емес"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"Қағаз бітті"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"Сия бітті"</string>
@@ -60,7 +60,7 @@
     <string name="forget" msgid="892068061425802502">"Ұмыту"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct арқылы жалғанады"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> мекенжайындағы желі арқылы жалғанады"</string>
-    <string name="recommendation_summary" msgid="2979700524954307566">"Әдепкі принтер қызметі негізгі функцияларды атқарады. Бұл принтердің өзге функциялары басқа басып шығару қызметінде болуы мүмкін."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"Әдепкі баспа қызметі негізгі функцияларды атқарады. Бұл принтердің өзге функциялары басқа басып шығару қызметінде болуы мүмкін."</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"Ұсынылған қызметтер"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"Орнату үшін таңдаңыз."</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"Қосу үшін таңдаңыз."</string>
@@ -71,11 +71,9 @@
     <string name="accept" msgid="4426153292469698134">"Қабылдау"</string>
     <string name="reject" msgid="24751635160440693">"Қабылдамау"</string>
     <string name="connections" msgid="8895413761760117180">"Байланыстар"</string>
-    <string name="wifi_direct_problem" msgid="8995174986718516990">"Әдепкі принтер қызметі Wi-Fi Direct принтерлерін таба алмайды."</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Әдепкі баспа қызметі Wi-Fi Direct принтерлерін таба алмайды."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct ажырату"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Маңайдағы құрылғыларды табу үшін Әдепкі принтер қызметіне локацияны пайдалану рұқсаты қажет."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Маңайдағы принтерлерді табу үшін әдепкі басып шығару қызметіне маңайдағы құрылғыларды көру рұқсаты керек."</string>
     <string name="fix" msgid="7784394272611365393">"Рұқсатты қарау"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Әдепкі принтер қызметі маңайдағы құрылғыларды таба алуы үшін локация қызметтерін қосу қажет."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Орын анықтауды қосу"</string>
     <string name="print" msgid="7851318072404916362">"Басып шығару"</string>
 </resources>

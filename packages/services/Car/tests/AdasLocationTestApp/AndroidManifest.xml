@@ -22,7 +22,7 @@
     expected. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <uses-permission android:name="android.permission.LOCATION_BYPASS"/>
 
     <application android:label="AdasLocationTestApp">
         <activity android:name=".AdasLocationActivity"

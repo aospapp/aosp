@@ -17,7 +17,7 @@
 package com.android.server.wm.traces.common.service.processors
 
 import com.android.server.wm.traces.common.DeviceStateDump
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
@@ -33,15 +33,15 @@ abstract class BaseFsmState(
     internal val transition: Transition
 ) : FSMState(tags) {
     protected abstract fun doProcessState(
-        previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-        current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-        next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+        previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+        current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+        next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
     ): FSMState
 
     override fun process(
-        previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-        current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-        next: DeviceStateDump<WindowManagerState, LayerTraceEntry>?
+        previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+        current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+        next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?
     ): FSMState? {
         return if (next == null) {
             // last state

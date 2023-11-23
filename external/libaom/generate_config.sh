@@ -161,6 +161,7 @@ rm -f "${BASE}/Android.bp"
     sed 's/\/\/third_party\/libaom\/source\///' |
     grep -v h\",$ |
     grep -v pl\",$
+  echo
   cat "${BASE}/Android.bp.in"
 ) > "${BASE}/Android.bp"
 

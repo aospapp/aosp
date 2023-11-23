@@ -22,15 +22,23 @@ import org.junit.Test
 class FileFormatTest {
     @Test
     fun `Check format parsing`() {
-        assertSame(FileFormat.V1, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.V1,
+            FileFormat.parseHeader(
+                """
                 package test.pkg {
                   public class MyTest {
                     ctor public MyTest();
                   }
                 }
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.V2, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.V2,
+            FileFormat.parseHeader(
+                """
             // Signature format: 2.0
             package libcore.util {
               @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) public @interface NonNull {
@@ -38,50 +46,79 @@ class FileFormatTest {
                 method public abstract int to() default java.lang.Integer.MAX_VALUE;
               }
             }
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.V3, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.V3,
+            FileFormat.parseHeader(
+                """
             // Signature format: 3.0
             package androidx.collection {
               public final class LruCacheKt {
                 ctor public LruCacheKt();
               }
             }
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.V2, FileFormat.parseHeader(
-            "// Signature format: 2.0\r\n" +
-                "package libcore.util {\\r\n" +
-                "  @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) public @interface NonNull {\r\n" +
-                "    method public abstract int from() default java.lang.Integer.MIN_VALUE;\r\n" +
-                "    method public abstract int to() default java.lang.Integer.MAX_VALUE;\r\n" +
-                "  }\r\n" +
-                "}\r\n"))
+        assertSame(
+            FileFormat.V2,
+            FileFormat.parseHeader(
+                "// Signature format: 2.0\r\n" +
+                    "package libcore.util {\\r\n" +
+                    "  @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) public @interface NonNull {\r\n" +
+                    "    method public abstract int from() default java.lang.Integer.MIN_VALUE;\r\n" +
+                    "    method public abstract int to() default java.lang.Integer.MAX_VALUE;\r\n" +
+                    "  }\r\n" +
+                    "}\r\n"
+            )
+        )
 
-        assertSame(FileFormat.BASELINE, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.BASELINE,
+            FileFormat.parseHeader(
+                """
                 // Baseline format: 1.0
                 BothPackageInfoAndHtml: test/visible/package-info.java:
                     It is illegal to provide both a package-info.java file and a package.html file for the same package
                 IgnoringSymlink: test/pkg/sub1/sub2/sub3:
                     Ignoring symlink during package.html discovery directory traversal
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.JDIFF, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.JDIFF,
+            FileFormat.parseHeader(
+                """
             <api>
             <package name="test.pkg"
             >
             </api>
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.JDIFF, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.JDIFF,
+            FileFormat.parseHeader(
+                """
             <?xml version="1.0" encoding="utf-8"?>
             <api>
             <package name="test.pkg"
             >
             </api>
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.SINCE_XML, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.SINCE_XML,
+            FileFormat.parseHeader(
+                """
             <?xml version="1.0" encoding="utf-8"?>
             <api version="2">
                 <class name="android/hardware/Camera" since="1" deprecated="21">
@@ -91,15 +128,27 @@ class FileFormatTest {
                     <field name="ACTION_NEW_VIDEO" since="14" deprecated="25"/>
                 </class>
             </api>
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.UNKNOWN, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.UNKNOWN,
+            FileFormat.parseHeader(
+                """
             blah blah
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
 
-        assertSame(FileFormat.UNKNOWN, FileFormat.parseHeader("""
+        assertSame(
+            FileFormat.UNKNOWN,
+            FileFormat.parseHeader(
+                """
             <?xml version="1.0" encoding="utf-8"?>
             <manifest />
-        """.trimIndent()))
+                """.trimIndent()
+            )
+        )
     }
 }

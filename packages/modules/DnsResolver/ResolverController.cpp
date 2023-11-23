@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "ResolverController"
+#define LOG_TAG "resolv"
 
 #include "ResolverController.h"
 
@@ -34,6 +34,7 @@
 #include "ResolverStats.h"
 #include "resolv_cache.h"
 #include "stats.h"
+#include "util.h"
 
 using aidl::android::net::ResolverParamsParcel;
 using aidl::android::net::resolv::aidl::IDnsResolverUnsolicitedEventListener;
@@ -110,7 +111,7 @@ int getDnsInfo(unsigned netId, std::vector<std::string>* servers, std::vector<st
         return 0;
     }
 
-    // Verify that the returned data is sane.
+    // Verify that the returned data is valid.
     if (nscount < 0 || nscount > MAXNS || dcount < 0 || dcount > MAXDNSRCH) {
         LOG(ERROR) << __func__ << ": nscount = " << nscount << ", dcount = " << dcount;
         return -ENOTRECOVERABLE;
@@ -167,6 +168,7 @@ void ResolverController::destroyNetworkCache(unsigned netId) {
     resolv_delete_cache_for_net(netId);
     mDns64Configuration.stopPrefixDiscovery(netId);
     PrivateDnsConfiguration::getInstance().clear(netId);
+    if (isDoHEnabled()) PrivateDnsConfiguration::getInstance().clearDoh(netId);
 
     // Don't get this instance in PrivateDnsConfiguration. It's probe to deadlock.
     DnsTlsDispatcher::getInstance().forceCleanup(netId);
@@ -204,16 +206,34 @@ int ResolverController::setResolverConfiguration(const ResolverParamsParcel& res
     // through a different network. For example, on a VPN with no DNS servers (Do53), if the VPN
     // applies to UID 0, dns_mark is assigned for default network rathan the VPN. (note that it's
     // possible that a VPN doesn't have any DNS servers but DoT servers in DNS strict mode)
-    const int err = PrivateDnsConfiguration::getInstance().set(
-            resolverParams.netId, netcontext.app_mark, tlsServers, resolverParams.tlsName,
-            resolverParams.caCertificate);
+    auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
+    int err = privateDnsConfiguration.set(resolverParams.netId, netcontext.app_mark, tlsServers,
+                                          resolverParams.tlsName, resolverParams.caCertificate);
 
     if (err != 0) {
         return err;
     }
 
-    if (int err = resolv_stats_set_servers_for_dot(resolverParams.netId, tlsServers); err != 0) {
+    if (err = resolv_stats_set_addrs(resolverParams.netId, PROTO_DOT, tlsServers, 853);
+        err != 0) {
         return err;
+    }
+
+    if (is_mdns_supported_transport_types(resolverParams.transportTypes)) {
+        if (err = resolv_stats_set_addrs(resolverParams.netId, PROTO_MDNS,
+                                         {"ff02::fb", "224.0.0.251"}, 5353);
+            err != 0) {
+            return err;
+        }
+    }
+
+    if (isDoHEnabled()) {
+        err = privateDnsConfiguration.setDoh(resolverParams.netId, netcontext.app_mark, tlsServers,
+                                             resolverParams.tlsName, resolverParams.caCertificate);
+
+        if (err != 0) {
+            return err;
+        }
     }
 
     res_params res_params = {};
@@ -248,7 +268,7 @@ int ResolverController::getResolverInfo(int32_t netId, std::vector<std::string>*
     ResolverStats::encodeAll(res_stats, stats);
 
     const auto privateDnsStatus = PrivateDnsConfiguration::getInstance().getStatus(netId);
-    for (const auto& [server, _] : privateDnsStatus.serversMap) {
+    for (const auto& [server, _] : privateDnsStatus.dotServersMap) {
         tlsServers->push_back(server.toIpString());
     }
 
@@ -274,8 +294,6 @@ void ResolverController::stopPrefix64Discovery(int32_t netId) {
 int ResolverController::getPrefix64(unsigned netId, netdutils::IPPrefix* prefix) {
     netdutils::IPPrefix p = mDns64Configuration.getPrefix64(netId);
     if (p.family() != AF_INET6 || p.length() == 0) {
-        LOG(INFO) << "No valid NAT64 prefix (" << netId << ", " << p.toString().c_str() << ")";
-
         return -ENOENT;
     }
     *prefix = p;
@@ -301,7 +319,9 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
             dw.println("No DNS servers defined");
         } else {
             dw.println("DnsEvent subsampling map: " +
-                       android::base::Join(resolv_cache_dump_subsampling_map(netId), ' '));
+                       android::base::Join(resolv_cache_dump_subsampling_map(netId, false), ' '));
+            dw.println("DnsEvent subsampling map for MDNS: " +
+                       android::base::Join(resolv_cache_dump_subsampling_map(netId, true), ' '));
             dw.println(
                     "DNS servers: # IP (total, successes, errors, timeouts, internal errors, "
                     "RTT avg, last sample)");
@@ -342,13 +362,13 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
         mDns64Configuration.dump(dw, netId);
         const auto privateDnsStatus = PrivateDnsConfiguration::getInstance().getStatus(netId);
         dw.println("Private DNS mode: %s", getPrivateDnsModeString(privateDnsStatus.mode));
-        if (privateDnsStatus.serversMap.size() == 0) {
+        if (privateDnsStatus.dotServersMap.size() == 0) {
             dw.println("No Private DNS servers configured");
         } else {
             dw.println("Private DNS configuration (%u entries)",
-                       static_cast<uint32_t>(privateDnsStatus.serversMap.size()));
+                       static_cast<uint32_t>(privateDnsStatus.dotServersMap.size()));
             dw.incIndent();
-            for (const auto& [server, validation] : privateDnsStatus.serversMap) {
+            for (const auto& [server, validation] : privateDnsStatus.dotServersMap) {
                 dw.println("%s name{%s} status{%s}", server.toIpString().c_str(),
                            server.name.c_str(), validationStatusToString(validation));
             }

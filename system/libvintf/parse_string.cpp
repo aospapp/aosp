@@ -329,52 +329,8 @@ std::ostream &operator<<(std::ostream &os, const TransportArch &ta) {
     return os << to_string(ta.transport) << to_string(ta.arch);
 }
 
-bool parse(const std::string &s, TransportArch *ta) {
-    bool transportSet = false;
-    bool archSet = false;
-    for (size_t i = 0; i < gTransportStrings.size(); ++i) {
-        if (s.find(gTransportStrings.at(i)) != std::string::npos) {
-            ta->transport = static_cast<Transport>(i);
-            transportSet = true;
-            break;
-        }
-    }
-    if (!transportSet) {
-        return false;
-    }
-    for (size_t i = 0; i < gArchStrings.size(); ++i) {
-        if (s.find(gArchStrings.at(i)) != std::string::npos) {
-            ta->arch = static_cast<Arch>(i);
-            archSet = true;
-            break;
-        }
-    }
-    if (!archSet) {
-        return false;
-    }
-    return ta->isValid();
-}
-
 std::ostream &operator<<(std::ostream &os, const KernelVersion &ver) {
     return os << ver.version << "." << ver.majorRev << "." << ver.minorRev;
-}
-
-bool parse(const std::string &s, ManifestHal *hal) {
-    std::vector<std::string> v = SplitString(s, '/');
-    if (v.size() != 4) {
-        return false;
-    }
-    if (!parse(v[0], &hal->format)) {
-        return false;
-    }
-    hal->name = v[1];
-    if (!parse(v[2], &hal->transportArch)) {
-        return false;
-    }
-    if (!parse(v[3], &hal->versions)) {
-        return false;
-    }
-    return hal->isValid();
 }
 
 std::ostream &operator<<(std::ostream &os, const ManifestHal &hal) {

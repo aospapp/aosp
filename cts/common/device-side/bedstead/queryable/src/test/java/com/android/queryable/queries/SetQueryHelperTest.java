@@ -16,6 +16,7 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
 import static com.android.queryable.queries.BundleQuery.bundle;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -28,6 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.Arrays;
 import java.util.Set;
 
 @RunWith(JUnit4.class)
@@ -197,5 +199,20 @@ public class SetQueryHelperTest {
 
         assertThat(setQueryHelper.matches(
                 Set.of(ANOTHER_DIFFERENT_INTEGER))).isTrue();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<?>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.contains(1);
+        setQueryHelper.contains(IntegerQuery.integer().isEqualTo(1));
+        setQueryHelper.doesNotContain(1);
+        setQueryHelper.doesNotContain(IntegerQuery.integer().isEqualTo(1));
+        setQueryHelper.containsAll(Arrays.asList(1, 2));
+        setQueryHelper.doesNotContainAny(Arrays.asList(1, 2));
+
+        assertParcelsCorrectly(SetQueryHelper.class, setQueryHelper);
     }
 }

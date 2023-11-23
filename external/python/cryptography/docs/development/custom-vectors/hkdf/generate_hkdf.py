@@ -13,27 +13,31 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 IKM = binascii.unhexlify(b"0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b")
 L = 1200
 OKM = HKDF(
-    algorithm=hashes.SHA256(), length=L, salt=None, info=None,
-    backend=default_backend()
+    algorithm=hashes.SHA256(),
+    length=L,
+    salt=None,
+    info=None,
+    backend=default_backend(),
 ).derive(IKM)
 
 
 def _build_vectors():
-    output = []
-    output.append("COUNT = 0")
-    output.append("Hash = SHA-256")
-    output.append("IKM = " + binascii.hexlify(IKM).decode("ascii"))
-    output.append("salt = ")
-    output.append("info = ")
-    output.append("L = {}".format(L))
-    output.append("OKM = " + binascii.hexlify(OKM).decode("ascii"))
+    output = [
+        "COUNT = 0",
+        "Hash = SHA-256",
+        "IKM = " + binascii.hexlify(IKM).decode("ascii"),
+        "salt = ",
+        "info = ",
+        "L = {}".format(L),
+        "OKM = " + binascii.hexlify(OKM).decode("ascii"),
+    ]
     return "\n".join(output)
 
 
 def _write_file(data, filename):
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         f.write(data)
 
 
-if __name__ == '__main__':
-    _write_file(_build_vectors(), 'hkdf.txt')
+if __name__ == "__main__":
+    _write_file(_build_vectors(), "hkdf.txt")

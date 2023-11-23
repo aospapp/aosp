@@ -15,7 +15,9 @@
 #include <libwebsockets.h>
 #include <string.h>
 #include <signal.h>
+#if !defined(WIN32)
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -69,9 +71,9 @@ file_upload_cb(void *data, const char *name, const char *filename,
 		if (len) {
 			int n;
 
-			pss->file_length += len;
+			pss->file_length += (unsigned int)len;
 
-			n = write(pss->fd, buf, len);
+			n = (int)write(pss->fd, buf, (unsigned int)len);
 			if (n < len) {
 				lwsl_notice("Problem writing file %d\n", errno);
 			}
@@ -186,8 +188,8 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "http", callback_http, sizeof(struct pss), 0 },
-	{ NULL, NULL, 0, 0 } /* terminator */
+	{ "http", callback_http, sizeof(struct pss), 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 /* default mount serves the URL space from ./mount-origin */

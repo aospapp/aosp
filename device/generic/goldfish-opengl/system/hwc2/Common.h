@@ -20,9 +20,12 @@
 #undef LOG_TAG
 #define LOG_TAG "RanchuHwc"
 
+#define ATRACE_TAG (ATRACE_TAG_GRAPHICS | ATRACE_TAG_HAL)
+
 #include <android-base/logging.h>
 #include <inttypes.h>
 #include <log/log.h>
+#include <utils/Trace.h>
 
 // Uncomment to enable additional debug logging.
 //#define DEBUG_RANCHU_HWC
@@ -41,5 +44,6 @@
 
 bool IsCuttlefish();
 bool IsCuttlefishFoldable();
+bool IsNoOpMode();
 
 #endif

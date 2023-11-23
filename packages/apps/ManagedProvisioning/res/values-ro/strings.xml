@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Dispozitivul va fi gestionat de următoarea aplicație:"</string>
     <string name="next" msgid="1004321437324424398">"Înainte"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Se configurează profilul de serviciu…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administratorul poate să monitorizeze și să gestioneze setările, accesul la nivelul companiei, aplicațiile, permisiunile și datele asociate acestui profil, inclusiv activitatea în rețea și informațiile despre locația dispozitivului, istoricul apelurilor și istoricul căutărilor persoanelor de contact.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Contactați administratorul IT pentru mai multe informații, inclusiv politicile de confidențialitate ale organizației dvs."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Administratorul IT poate să monitorizeze și să gestioneze setările, accesul la nivelul companiei, aplicațiile, permisiunile, datele și activitatea în rețea asociate acestui profil, precum și istoricul apelurilor și istoricul căutărilor persoanelor de contact. Contactați administratorul IT pentru mai multe informații și pentru a afla mai multe despre politicile de confidențialitate ale organizației."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administratorul IT poate să monitorizeze și să gestioneze setările, accesul la nivelul companiei, aplicațiile, permisiunile și datele asociate acestui dispozitiv, inclusiv activitatea în rețea și informațiile despre locația dispozitivului, istoricul apelurilor și istoricul căutărilor persoanelor de contact.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Contactați administratorul IT pentru mai multe informații, inclusiv politicile de confidențialitate ale organizației dvs."</string>
@@ -161,9 +159,9 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Următoarea aplicație va fi folosită pentru a gestiona și monitoriza acest telefon"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Contul dvs. este gestionat"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Administratorul IT folosește gestionarea dispozitivelor mobile pentru a aplica politicile de securitate"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"Se pregătește pentru configurarea pentru serviciu…"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Se pregătește configurarea pentru lucru…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Să configurăm profilul de serviciu"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplicațiile de serviciu sunt păstrate în profilul de serviciu"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Aplicațiile de lucru sunt păstrate în profilul de serviciu"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Întrerupeți aplicațiile de serviciu când încheiați ziua"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Datele din profilul de serviciu sunt vizibile pentru administratorul IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Se configurează profilul de serviciu…"</string>
@@ -182,8 +180,8 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Reveniți la ecranul anterior sau resetați dispozitivul și returnați-l administratorului IT."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Anulați configurarea"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Resetați și returnați dispozitivul"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Aplicațiile de serviciu se află în profilul de serviciu, gestionate de administratorul IT"</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplicațiile personale sunt izolate, ascunse de cele de serviciu"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Aplicațiile de lucru se află în profilul de serviciu, gestionate de administratorul IT"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Aplicațiile personale sunt izolate, ascunse de cele pentru lucru"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Administratorul IT poate să controleze dispozitivul și să blocheze aplicații"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Aplicațiile pentru lucru se păstrează în profilul de serviciu și sunt gestionate de administratorul IT. Aplicațiile personale sunt separate și ascunse de cele pentru lucru. Administratorul IT poate să controleze acest dispozitiv și să blocheze anumite aplicații."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"O secundă…"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> poate să instaleze aplicația <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ca să puteți face plăți pentru acest dispozitiv."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Dispozitivul poate fi restricționat"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> poate să restricționeze accesul la acest dispozitiv dacă nu faceți plăți."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Nu se poate configura dispozitivul. Contactați administratorul IT și menționați „Sumă de verificare nevalidă”."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Încercați din nou mai târziu sau contactați administratorul IT pentru ajutor"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Nu se poate configura dispozitivul. Contactați administratorul IT și menționați „Componente lipsă sau deteriorate”."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Se configurează…"</string>
 </resources>

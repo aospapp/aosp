@@ -41,7 +41,7 @@ impl Metrics {
     fn pull_metrics(&self, atom_id: AtomID) -> Result<Vec<KeystoreAtom>> {
         // Check permission. Function should return if this failed. Therefore having '?' at the end
         // is very important.
-        check_keystore_permission(KeystorePerm::pull_metrics()).context("In pull_metrics.")?;
+        check_keystore_permission(KeystorePerm::PullMetrics).context("In pull_metrics.")?;
         METRICS_STORE.get_atoms(atom_id)
     }
 }

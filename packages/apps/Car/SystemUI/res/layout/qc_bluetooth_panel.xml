@@ -19,27 +19,51 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/status_icon_panel_bg_color">
+    <com.android.car.ui.FocusParkingView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
     <com.android.car.ui.FocusArea
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="vertical">
-        <com.android.systemui.car.qc.SystemUIQCView
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            app:remoteQCProvider="content://com.android.car.settings.qc/bluetooth_switch"/>
-        <com.android.systemui.car.qc.SystemUIQCView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            app:remoteQCProvider="content://com.android.car.settings.qc/paired_bluetooth_devices"/>
-        <com.android.systemui.car.qc.QCFooterButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="start"
-            style="@style/QCFooterButtonStyle"
-            android:text="@string/qc_footer_bluetooth_settings"
-            app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$BluetoothSettingsActivity;launchFlags=0x08080000;end"/>
+            android:layout_height="wrap_content">
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                app:layout_constraintHeight_default="wrap"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toTopOf="@+id/qc_bluetooth_footer_button">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <com.android.systemui.car.qc.SystemUIQCView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        app:remoteQCProvider="content://com.android.car.settings.qc/bluetooth_switch"/>
+                    <com.android.systemui.car.qc.SystemUIQCView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        app:remoteQCProvider="content://com.android.car.settings.qc/paired_bluetooth_devices"/>
+                </LinearLayout>
+            </ScrollView>
+            <com.android.systemui.car.qc.QCFooterButton
+                android:id="@+id/qc_bluetooth_footer_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                style="@style/QCFooterButtonStyle"
+                android:text="@string/qc_footer_bluetooth_settings"
+                app:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$BluetoothSettingsActivity;launchFlags=0x08080000;end"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </com.android.car.ui.FocusArea>
 </FrameLayout>

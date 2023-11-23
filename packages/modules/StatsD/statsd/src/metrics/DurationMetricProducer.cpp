@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false
+#define STATSD_DEBUG false
 
 #include "Log.h"
 
@@ -77,7 +77,7 @@ DurationMetricProducer::DurationMetricProducer(
         const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap)
     : MetricProducer(metric.id(), key, timeBaseNs, conditionIndex, initialConditionCache, wizard,
                      protoHash, eventActivationMap, eventDeactivationMap, slicedStateAtoms,
-                     stateGroupMap),
+                     stateGroupMap, getAppUpgradeBucketSplit(metric)),
       mAggregationType(metric.aggregation_type()),
       mStartIndex(startIndex),
       mStopIndex(stopIndex),
@@ -117,7 +117,7 @@ DurationMetricProducer::DurationMetricProducer(
         mValid = false;
     }
 
-    mSliceByPositionALL = HasPositionALL(metric.dimensions_in_what());
+    mShouldUseNestedDimensions = ShouldUseNestedDimensions(metric.dimensions_in_what());
 
     if (metric.links().size() > 0) {
         for (const auto& link : metric.links()) {
@@ -434,7 +434,7 @@ void DurationMetricProducer::onSlicedConditionMayChangeLocked(bool overallCondit
     onSlicedConditionMayChangeInternalLocked(overallCondition, eventTime);
 }
 
-void DurationMetricProducer::onActiveStateChangedLocked(const int64_t& eventTimeNs) {
+void DurationMetricProducer::onActiveStateChangedLocked(const int64_t eventTimeNs) {
     MetricProducer::onActiveStateChangedLocked(eventTimeNs);
 
     if (!mConditionSliced) {
@@ -507,7 +507,7 @@ void DurationMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_TIME_BASE, (long long)mTimeBaseNs);
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BUCKET_SIZE, (long long)mBucketSizeNs);
 
-    if (!mSliceByPositionALL) {
+    if (!mShouldUseNestedDimensions) {
         if (!mDimensionsInWhat.empty()) {
             uint64_t dimenPathToken = protoOutput->start(
                     FIELD_TYPE_MESSAGE | FIELD_ID_DIMENSION_PATH_IN_WHAT);
@@ -528,7 +528,7 @@ void DurationMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
                 protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_DATA);
 
         // First fill dimension.
-        if (mSliceByPositionALL) {
+        if (mShouldUseNestedDimensions) {
             uint64_t dimensionToken = protoOutput->start(
                     FIELD_TYPE_MESSAGE | FIELD_ID_DIMENSION_IN_WHAT);
             writeDimensionToProto(dimensionKey.getDimensionKeyInWhat(), str_set, protoOutput);

@@ -17,6 +17,7 @@
 package com.google.android.setupcompat.template;
 
 import static com.google.android.setupcompat.internal.Preconditions.ensureOnMainThread;
+import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -73,7 +74,7 @@ public class FooterBarMixin implements Mixin {
   @VisibleForTesting final boolean applyDynamicColor;
   @VisibleForTesting final boolean useFullDynamicColor;
 
-  @VisibleForTesting LinearLayout buttonContainer;
+  @VisibleForTesting public LinearLayout buttonContainer;
   private FooterButton primaryButton;
   private FooterButton secondaryButton;
   @IdRes private int primaryButtonId;
@@ -226,7 +227,7 @@ public class FooterBarMixin implements Mixin {
     FooterButtonStyleUtils.clearSavedDefaultTextColor();
   }
 
-  private boolean isFooterButtonAlignedEnd() {
+  protected boolean isFooterButtonAlignedEnd() {
     if (PartnerConfigHelper.get(context)
         .isPartnerConfigAvailable(PartnerConfig.CONFIG_FOOTER_BUTTON_ALIGNED_END)) {
       return PartnerConfigHelper.get(context)
@@ -240,18 +241,16 @@ public class FooterBarMixin implements Mixin {
     if (!isSecondaryButtonInPrimaryStyle) {
       return false;
     }
-    // TODO: Support neutral button style in glif layout for phone and tablet
     PartnerConfigHelper.get(context);
-    return context.getResources().getConfiguration().smallestScreenWidthDp >= 600
-        && PartnerConfigHelper.isNeutralButtonStyleEnabled(context);
+    return PartnerConfigHelper.isNeutralButtonStyleEnabled(context);
   }
 
   private View addSpace() {
-    LinearLayout buttonContainer = ensureFooterInflated();
+    LinearLayout buttonContainerlayout = ensureFooterInflated();
     View space = new View(context);
     space.setLayoutParams(new LayoutParams(0, 0, 1.0f));
     space.setVisibility(View.INVISIBLE);
-    buttonContainer.addView(space);
+    buttonContainerlayout.addView(space);
     return space;
   }
 
@@ -531,8 +530,7 @@ public class FooterBarMixin implements Mixin {
       }
       buttonContainer.addView(tempSecondaryButton);
     }
-    if (!isFooterButtonAlignedEnd()
-        && (!isEvenlyWeightedButtons || (isEvenlyWeightedButtons && isLandscape))) {
+    if (!isFooterButtonAlignedEnd()) {
       addSpace();
     }
     if (tempPrimaryButton != null) {
@@ -545,21 +543,15 @@ public class FooterBarMixin implements Mixin {
   private void setEvenlyWeightedButtons(
       Button primaryButton, Button secondaryButton, boolean isEvenlyWeighted) {
     if (primaryButton != null && secondaryButton != null && isEvenlyWeighted) {
-      LinearLayout.LayoutParams primaryLayoutParams =
-          (LinearLayout.LayoutParams) primaryButton.getLayoutParams();
-      if (null != primaryLayoutParams) {
-        primaryLayoutParams.width = 0;
-        primaryLayoutParams.weight = 1.0f;
-        primaryButton.setLayoutParams(primaryLayoutParams);
-      }
+      primaryButton.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+      int primaryButtonMeasuredWidth = primaryButton.getMeasuredWidth();
+      secondaryButton.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
 
-      LinearLayout.LayoutParams secondaryLayoutParams =
-          (LinearLayout.LayoutParams) secondaryButton.getLayoutParams();
-      if (null != secondaryLayoutParams) {
-        secondaryLayoutParams.width = 0;
-        secondaryLayoutParams.weight = 1.0f;
-        secondaryButton.setLayoutParams(secondaryLayoutParams);
-      }
+      int secondaryButtonMeasuredWidth = secondaryButton.getMeasuredWidth();
+      int maxButtonMeasureWidth = max(primaryButtonMeasuredWidth, secondaryButtonMeasuredWidth);
+
+      primaryButton.getLayoutParams().width = maxButtonMeasureWidth;
+      secondaryButton.getLayoutParams().width = maxButtonMeasureWidth;
     } else {
       if (primaryButton != null) {
         LinearLayout.LayoutParams primaryLayoutParams =
@@ -615,10 +607,7 @@ public class FooterBarMixin implements Mixin {
       int color = PartnerConfigHelper.get(context).getColor(context, buttonBackgroundColorConfig);
       if (color == Color.TRANSPARENT) {
         overrideTheme = R.style.SucPartnerCustomizationButton_Secondary;
-      } else if (color != Color.TRANSPARENT) {
-        // TODO: remove the constrain (color != Color.WHITE), need to check all pages
-        // go well without customization. It should be fine since the default value of secondary bg
-        // color is set as transparent.
+      } else {
         overrideTheme = R.style.SucPartnerCustomizationButton_Primary;
       }
     }

@@ -42,7 +42,7 @@ import android.icu.util.ULocale;
  * Sometimes, a time zone is mapped to a different time zone in the past. For example, "America/Indiana/Knox"
  * had been moving "Eastern Time" and "Central Time" back and forth. Therefore, it is necessary that time zone
  * to meta zones mapping data are stored by date range.
- * 
+ *
  * <p><b>Note:</b>
  * <p>
  * {@link TimeZoneFormat} assumes an instance of <code>TimeZoneNames</code> is immutable. If you want to provide
@@ -53,7 +53,7 @@ import android.icu.util.ULocale;
  * result returned by a method with time zone ID "America/Indiana/Indianapolis", because it's not a canonical time zone
  * ID (the canonical time zone ID for the time zone is "America/Indianapolis". See
  * {@link TimeZone#getCanonicalID(String)} about ICU canonical time zone IDs.
- * 
+ *
  * <p>
  * In CLDR, most of time zone display names except location names are provided through meta zones. But a time zone may
  * have a specific name that is not shared with other time zones.
@@ -61,13 +61,13 @@ import android.icu.util.ULocale;
  * For example, time zone "Europe/London" has English long name for standard time "Greenwich Mean Time", which is also
  * shared with other time zones. However, the long name for daylight saving time is "British Summer Time", which is only
  * used for "Europe/London".
- * 
+ *
  * <p>
  * {@link #getTimeZoneDisplayName(String, NameType)} is designed for accessing a name only used by a single time zone.
  * But is not necessarily mean that a subclass implementation use the same model with CLDR. A subclass implementation
  * may provide time zone names only through {@link #getTimeZoneDisplayName(String, NameType)}, or only through
  * {@link #getMetaZoneDisplayName(String, NameType)}, or both.
- * 
+ *
  * <p>
  * The default <code>TimeZoneNames</code> implementation returned by {@link #getInstance(ULocale)} uses the locale data
  * imported from CLDR. In CLDR, set of meta zone IDs and mappings between zone IDs and meta zone IDs are shared by all
@@ -147,7 +147,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns an instance of <code>TimeZoneNames</code> for the specified locale.
-     * 
+     *
      * @param locale
      *            The locale.
      * @return An instance of <code>TimeZoneNames</code>
@@ -160,7 +160,7 @@ public abstract class TimeZoneNames implements Serializable {
     /**
      * Returns an instance of <code>TimeZoneNames</code> for the specified
      * {@link java.util.Locale}.
-     * 
+     *
      * @param locale
      *            The {@link java.util.Locale}.
      * @return An instance of <code>TimeZoneDisplayNames</code>
@@ -190,7 +190,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns an immutable set of all available meta zone IDs used by the given time zone.
-     * 
+     *
      * @param tzID
      *            The canonical time zone ID.
      * @return An immutable set of all available meta zone IDs used by the given time zone.
@@ -199,7 +199,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns the meta zone ID for the given canonical time zone ID at the given date.
-     * 
+     *
      * @param tzID
      *            The canonical time zone ID.
      * @param date
@@ -212,12 +212,12 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns the reference zone ID for the given meta zone ID for the region.
-     * 
+     *
      * Note: Each meta zone must have a reference zone associated with a special region "001" (world).
      * Some meta zones may have region specific reference zone IDs other than the special region
      * "001". When a meta zone does not have any region specific reference zone IDs, this method
      * return the reference zone ID for the special region "001" (world).
-     * 
+     *
      * @param mzID
      *            The meta zone ID.
      * @param region
@@ -229,7 +229,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns the display name of the meta zone.
-     * 
+     *
      * @param mzID
      *            The meta zone ID.
      * @param type
@@ -242,12 +242,12 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Returns the display name of the time zone at the given date.
-     * 
+     *
      * <p>
      * <b>Note:</b> This method calls the subclass's {@link #getTimeZoneDisplayName(String, NameType)} first. When the
      * result is null, this method calls {@link #getMetaZoneID(String, long)} to get the meta zone ID mapped from the
      * time zone, then calls {@link #getMetaZoneDisplayName(String, NameType)}.
-     * 
+     *
      * @param tzID
      *            The canonical time zone ID.
      * @param type
@@ -269,7 +269,7 @@ public abstract class TimeZoneNames implements Serializable {
     /**
      * Returns the display name of the time zone. Unlike {@link #getDisplayName(String, NameType, long)},
      * this method does not get a name from a meta zone used by the time zone.
-     * 
+     *
      * @param tzID
      *            The canonical time zone ID.
      * @param type
@@ -291,7 +291,7 @@ public abstract class TimeZoneNames implements Serializable {
      * </ol>
      * For example, "New York" is returned for the time zone ID "America/New_York" when this object does not have the
      * localized location name.
-     * 
+     *
      * @param tzID
      *            The canonical time zone ID
      * @return The exemplar location name for the given time zone, or null when a localized location name is not
@@ -304,7 +304,7 @@ public abstract class TimeZoneNames implements Serializable {
     /**
      * Finds time zone name prefix matches for the input text at the
      * given offset and returns a collection of the matches.
-     * 
+     *
      * @param text the text.
      * @param start the starting offset within the text.
      * @param types the set of name types, or <code>null</code> for all name types.
@@ -331,7 +331,7 @@ public abstract class TimeZoneNames implements Serializable {
 
         /**
          * Constructing a <code>MatchInfo</code>.
-         * 
+         *
          * @param nameType the name type enum.
          * @param tzID the time zone ID, or null
          * @param mzID the meta zone ID, or null
@@ -360,10 +360,10 @@ public abstract class TimeZoneNames implements Serializable {
 
         /**
          * Returns the time zone ID, or <code>null</code> if not available.
-         * 
+         *
          * <p><b>Note</b>: A <code>MatchInfo</code> must have either a time zone ID
          * or a meta zone ID.
-         * 
+         *
          * @return the time zone ID, or <code>null</code>.
          * @see #mzID()
          * @hide draft / provisional / internal are hidden on Android
@@ -374,10 +374,10 @@ public abstract class TimeZoneNames implements Serializable {
 
         /**
          * Returns the meta zone ID, or <code>null</code> if not available.
-         * 
+         *
          * <p><b>Note</b>: A <code>MatchInfo</code> must have either a time zone ID
          * or a meta zone ID.
-         * 
+         *
          * @return the meta zone ID, or <code>null</code>.
          * @see #tzID()
          * @hide draft / provisional / internal are hidden on Android
@@ -441,7 +441,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * Sole constructor for invocation by subclass constructors.
-     * 
+     *
      * @hide draft / provisional / internal are hidden on Android
      */
     protected TimeZoneNames() {
@@ -449,7 +449,7 @@ public abstract class TimeZoneNames implements Serializable {
 
     /**
      * The super class of <code>TimeZoneNames</code> service factory classes.
-     * 
+     *
      * @deprecated This API is ICU internal only.
      * @hide Only a subset of ICU is exposed in Android
      * @hide original deprecated declaration
@@ -459,7 +459,7 @@ public abstract class TimeZoneNames implements Serializable {
     public static abstract class Factory {
         /**
          * The factory method of <code>TimeZoneNames</code>.
-         * 
+         *
          * @param locale
          *            The display locale
          * @return An instance of <code>TimeZoneNames</code>.
@@ -488,7 +488,7 @@ public abstract class TimeZoneNames implements Serializable {
 
         /*
          * (non-Javadoc)
-         * 
+         *
          * @see android.icu.impl.CacheBase#createInstance(java.lang.Object, java.lang.Object)
          */
         @Override
@@ -527,7 +527,7 @@ public abstract class TimeZoneNames implements Serializable {
 
         /*
          * (non-Javadoc)
-         * 
+         *
          * @see android.icu.text.TimeZoneNames#getMetaZoneID (java.lang.String, long)
          */
         @Override
@@ -537,7 +537,7 @@ public abstract class TimeZoneNames implements Serializable {
 
         /*
          * (non-Javadoc)
-         * 
+         *
          * @see android.icu.text.TimeZoneNames#getReferenceZoneID(java.lang.String, java.lang.String)
          */
         @Override
@@ -584,7 +584,7 @@ public abstract class TimeZoneNames implements Serializable {
 
             /*
              * (non-Javadoc)
-             * 
+             *
              * @see android.icu.text.TimeZoneNames.Factory#getTimeZoneNames (android.icu.util.ULocale)
              */
             @Override

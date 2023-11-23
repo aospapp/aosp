@@ -314,6 +314,30 @@ public:
 		Synchronization sync;
 		Requirements requirements;
 
+		CaseDef (const std::string&	extraTypes_,
+				 const std::string&	writeDesc_,
+				 const std::string&	writeType_,
+				 const std::string&	writeValue_,
+				 const std::string&	readDesc_,
+				 const std::string&	readType_,
+				 const std::string&	readValue_,
+				 LayoutFlags		layout_,
+				 Function			func_,
+				 Synchronization	sync_,
+				 Requirements		requirements_)
+			: extraTypes	(extraTypes_)
+			, writeDesc		(writeDesc_)
+			, writeType		(writeType_)
+			, writeValue	(writeValue_)
+			, readDesc		(readDesc_)
+			, readType		(readType_)
+			, readValue		(readValue_)
+			, layout		(layout_)
+			, func			(func_)
+			, sync			(sync_)
+			, requirements	(requirements_)
+			{}
+
 		std::string testName() const
 		{
 			std::string name = writeDesc + "_to_" + readDesc;
@@ -507,7 +531,7 @@ void AliasTest::initPrograms(SourceCollections& sourceCollections) const
 
 	sourceCollections.glslSources.add("comp")
 		<< glu::ComputeSource(src.str())
-		<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_4, buildFlags);
+		<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_4, buildFlags, true);
 }
 
 std::string makeArray(const std::string& type, const std::vector<deUint64>& values)
@@ -519,7 +543,7 @@ std::string makeArray(const std::string& type, const std::vector<deUint64>& valu
 		s << type << "(" << std::to_string(values[i]) << ")";
 		if (i != values.size() - 1)
 			s << ", ";
-	};
+	}
 	s << ")";
 	return s.str();
 }
@@ -565,7 +589,7 @@ void AddAliasTests(tcu::TestCaseGroup* group)
 #define CASE(L, R, D1, T1, V1, D2, T2, V2)				CASE_EXTRA(L, R, "", D1, T1, V1, D2, T2, V2)
 
 
-	std::vector<AliasTest::CaseDef> cases =
+	const std::vector<AliasTest::CaseDef> cases
 	{
 		CASE_SAME_TYPE(0,		"bool_true",	"bool v",		"true"),
 		CASE_SAME_TYPE(0,		"bool_false",	"bool v",		"false"),
@@ -675,7 +699,7 @@ void AddAliasTests(tcu::TestCaseGroup* group)
 		CASE_WITH_REVERSE(DEFAULT | STD430 | SCALAR, INT16,
 			"u32",			"uint32_t v",		"uint32_t(0x12345678)",
 			"u16_array",	"uint16_t v[2]",	makeU16Array({0x5678, 0x1234})),
-		CASE_WITH_REVERSE(DEFAULT | STD430 | SCALAR, INT8,
+		CASE_WITH_REVERSE(DEFAULT | STD430 | SCALAR, INT64 | INT8,
 			"u64",			"uint64_t v",		"uint64_t(0x1234567890ABCDEFUL)",
 			"u8_array",		"uint8_t v[8]",		makeU8Array({0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12})),
 		CASE_WITH_REVERSE(DEFAULT | STD430 | SCALAR, INT64 | INT16,
@@ -941,7 +965,7 @@ void ZeroTest::initPrograms(SourceCollections& sourceCollections) const
 	sourceCollections.glslSources.add("comp")
 		<< ComputeSource(src.str())
 		<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_4,
-								  vk::ShaderBuildOptions::Flags(0u));
+								  vk::ShaderBuildOptions::Flags(0u), true);
 }
 
 bool isTestedZeroElementType(glu::DataType dt)
@@ -1169,7 +1193,7 @@ void PaddingTest::initPrograms(SourceCollections& sourceCollections) const
 	sourceCollections.glslSources.add("comp")
 		<< ComputeSource(src.str())
 		<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_4,
-								  vk::ShaderBuildOptions::Flags(0u));
+								  vk::ShaderBuildOptions::Flags(0u), true);
 }
 
 void AddPaddingTests(tcu::TestCaseGroup* group)
@@ -1301,7 +1325,7 @@ void SizeTest::initPrograms(SourceCollections& sourceCollections) const
 	sourceCollections.glslSources.add("comp")
 		<< ComputeSource(src.str())
 		<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_4,
-								  vk::ShaderBuildOptions::Flags(0u));
+								  vk::ShaderBuildOptions::Flags(0u), true);
 }
 
 void AddSizeTests(tcu::TestCaseGroup* group)
@@ -1329,7 +1353,8 @@ cts_amber::AmberTestCase* CreateAmberTestCase(tcu::TestContext& testCtx,
 											  const char* name,
 											  const char* description,
 											  const std::string& filename,
-											  const std::vector<std::string>& requirements = std::vector<std::string>())
+											  const std::vector<std::string>& requirements = std::vector<std::string>(),
+											  bool zeroinit = false)
 {
 	vk::SpirVAsmBuildOptions asm_options(VK_MAKE_VERSION(1, 1, 0), vk::SPIRV_VERSION_1_4);
 	asm_options.supports_VK_KHR_spirv_1_4 = true;
@@ -1337,6 +1362,11 @@ cts_amber::AmberTestCase* CreateAmberTestCase(tcu::TestContext& testCtx,
 	cts_amber::AmberTestCase *t = cts_amber::createAmberTestCase(testCtx, name, description, "compute/workgroup_memory_explicit_layout", filename, requirements);
 	t->setSpirVAsmBuildOptions(asm_options);
 	t->addRequirement("VK_KHR_workgroup_memory_explicit_layout");
+	t->addRequirement("VK_KHR_spirv_1_4");
+	if (zeroinit)
+	{
+		t->addRequirement("VK_KHR_zero_initialize_workgroup_memory");
+	}
 	return t;
 }
 
@@ -1348,6 +1378,15 @@ void AddCopyMemoryTests(tcu::TestCaseGroup* group)
 	group->addChild(CreateAmberTestCase(testCtx, "two_invocations", "", "copy_memory_two_invocations.amber"));
 	group->addChild(CreateAmberTestCase(testCtx, "variable_pointers", "", "copy_memory_variable_pointers.amber",
 										{ "VariablePointerFeatures.variablePointers" }));
+}
+
+void AddZeroInitializeExtensionTests(tcu::TestCaseGroup* group)
+{
+	tcu::TestContext& testCtx = group->getTestContext();
+
+	group->addChild(CreateAmberTestCase(testCtx, "block", "", "zero_ext_block.amber", std::vector<std::string>(), true));
+	group->addChild(CreateAmberTestCase(testCtx, "other_block", "", "zero_ext_other_block.amber", std::vector<std::string>(), true));
+	group->addChild(CreateAmberTestCase(testCtx, "block_with_offset", "", "zero_ext_block_with_offset.amber", std::vector<std::string>(), true));
 }
 
 } // anonymous
@@ -1375,6 +1414,10 @@ tcu::TestCaseGroup* createWorkgroupMemoryExplicitLayoutTests(tcu::TestContext& t
 	tcu::TestCaseGroup* copy_memory = new tcu::TestCaseGroup(testCtx, "copy_memory", "Test OpCopyMemory with Workgroup memory");
 	AddCopyMemoryTests(copy_memory);
 	tests->addChild(copy_memory);
+
+	tcu::TestCaseGroup* zero_ext = new tcu::TestCaseGroup(testCtx, "zero_ext", "Test interaction with VK_KHR_zero_initialize_workgroup_memory");
+	AddZeroInitializeExtensionTests(zero_ext);
+	tests->addChild(zero_ext);
 
 	return tests.release();
 }

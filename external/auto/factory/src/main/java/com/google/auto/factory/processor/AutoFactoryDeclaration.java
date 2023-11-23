@@ -21,13 +21,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 import static javax.lang.model.element.ElementKind.PACKAGE;
 import static javax.lang.model.util.ElementFilter.typesIn;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.processing.Messager;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
@@ -54,12 +55,19 @@ import javax.lang.model.util.Elements;
 @AutoValue
 abstract class AutoFactoryDeclaration {
   abstract TypeElement targetType();
+
   abstract Element target();
+
   abstract Optional<String> className();
+
   abstract TypeElement extendingType();
+
   abstract ImmutableSet<TypeElement> implementingTypes();
+
   abstract boolean allowSubclasses();
+
   abstract AnnotationMirror mirror();
+
   abstract ImmutableMap<String, AnnotationValue> valuesMap();
 
   PackageAndClass getFactoryName() {
@@ -97,52 +105,70 @@ abstract class AutoFactoryDeclaration {
     Optional<AutoFactoryDeclaration> createIfValid(Element element) {
       checkNotNull(element);
       AnnotationMirror mirror = Mirrors.getAnnotationMirror(element, AutoFactory.class).get();
-      checkArgument(Mirrors.getQualifiedName(mirror.getAnnotationType()).
-          contentEquals(AutoFactory.class.getName()));
+      checkArgument(
+          Mirrors.getQualifiedName(mirror.getAnnotationType())
+              .contentEquals(AutoFactory.class.getName()));
       Map<String, AnnotationValue> values =
           Mirrors.simplifyAnnotationValueMap(elements.getElementValuesWithDefaults(mirror));
       checkState(values.size() == 4);
 
-      // className value is a string, so we can just call toString
-      AnnotationValue classNameValue = values.get("className");
+      // className value is a string, so we can just call toString. We know values.get("className")
+      // is non-null because @AutoFactory has an annotation element of that name.
+      AnnotationValue classNameValue = requireNonNull(values.get("className"));
       String className = classNameValue.getValue().toString();
       if (!className.isEmpty() && !isValidIdentifier(className)) {
-        messager.printMessage(ERROR,
+        messager.printMessage(
+            ERROR,
             String.format("\"%s\" is not a valid Java identifier", className),
-            element, mirror, classNameValue);
-        return Optional.absent();
+            element,
+            mirror,
+            classNameValue);
+        return Optional.empty();
       }
 
       AnnotationValue extendingValue = checkNotNull(values.get("extending"));
       TypeElement extendingType = AnnotationValues.asType(extendingValue);
       if (extendingType == null) {
-        messager.printMessage(ERROR, "Unable to find the type: "
-            + extendingValue.getValue().toString(),
-                element, mirror, extendingValue);
-        return Optional.absent();
+        messager.printMessage(
+            ERROR,
+            "Unable to find the type: " + extendingValue.getValue(),
+            element,
+            mirror,
+            extendingValue);
+        return Optional.empty();
       } else if (!isValidSupertypeForClass(extendingType)) {
-        messager.printMessage(ERROR,
-            String.format("%s is not a valid supertype for a factory. "
-                + "Supertypes must be non-final classes.",
-                    extendingType.getQualifiedName()),
-            element, mirror, extendingValue);
-        return Optional.absent();
+        messager.printMessage(
+            ERROR,
+            String.format(
+                "%s is not a valid supertype for a factory. "
+                    + "Supertypes must be non-final classes.",
+                extendingType.getQualifiedName()),
+            element,
+            mirror,
+            extendingValue);
+        return Optional.empty();
       }
       ImmutableList<ExecutableElement> noParameterConstructors =
           FluentIterable.from(ElementFilter.constructorsIn(extendingType.getEnclosedElements()))
-              .filter(new Predicate<ExecutableElement>() {
-                @Override public boolean apply(ExecutableElement constructor) {
-                  return constructor.getParameters().isEmpty();
-                }
-              })
+              .filter(
+                  new Predicate<ExecutableElement>() {
+                    @Override
+                    public boolean apply(ExecutableElement constructor) {
+                      return constructor.getParameters().isEmpty();
+                    }
+                  })
               .toList();
-      if (noParameterConstructors.size() == 0) {
-        messager.printMessage(ERROR,
-            String.format("%s is not a valid supertype for a factory. "
-                + "Factory supertypes must have a no-arg constructor.",
-                    extendingType.getQualifiedName()),
-            element, mirror, extendingValue);
-        return Optional.absent();
+      if (noParameterConstructors.isEmpty()) {
+        messager.printMessage(
+            ERROR,
+            String.format(
+                "%s is not a valid supertype for a factory. "
+                    + "Factory supertypes must have a no-arg constructor.",
+                extendingType.getQualifiedName()),
+            element,
+            mirror,
+            extendingValue);
+        return Optional.empty();
       } else if (noParameterConstructors.size() > 1) {
         throw new IllegalStateException("Multiple constructors with no parameters??");
       }
@@ -161,7 +187,7 @@ abstract class AutoFactoryDeclaration {
           new AutoValue_AutoFactoryDeclaration(
               getAnnotatedType(element),
               element,
-              className.isEmpty() ? Optional.<String>absent() : Optional.of(className),
+              className.isEmpty() ? Optional.empty() : Optional.of(className),
               extendingType,
               implementingTypes,
               allowSubclasses,

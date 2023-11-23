@@ -16,6 +16,7 @@
 
 #include "annotator/translate/translate.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "annotator/collections.h"
@@ -142,11 +143,11 @@ TranslateAnnotator::BackoffDetectLanguages(
     result.push_back({key, value});
   }
 
-  std::sort(result.begin(), result.end(),
-            [](TranslateAnnotator::LanguageConfidence& a,
-               TranslateAnnotator::LanguageConfidence& b) {
-              return a.confidence > b.confidence;
-            });
+  std::stable_sort(result.begin(), result.end(),
+                   [](const TranslateAnnotator::LanguageConfidence& a,
+                      const TranslateAnnotator::LanguageConfidence& b) {
+                     return a.confidence > b.confidence;
+                   });
   return result;
 }
 

@@ -103,7 +103,7 @@ int main(int ac, char **av)
 		TEST(msync(addr, page_sz, MS_ASYNC));
 
 		if (TEST_RETURN == -1) {
-			tst_resm(TFAIL | TERRNO, "msync failed");
+			tst_resm(TFAIL | TTERRNO, "msync failed");
 			continue;
 		}
 
@@ -153,14 +153,13 @@ int main(int ac, char **av)
  */
 void setup(void)
 {
-	int c_total = 0, nwrite = 0;	/* no. of bytes to be written */
+	size_t c_total = 0, nwrite = 0;	/* no. of bytes to be written */
 
 	tst_sig(NOFORK, DEF_HANDLER, cleanup);
 
 	TEST_PAUSE;
 
-	if ((page_sz = getpagesize()) == -1)
-		tst_brkm(TBROK | TERRNO, NULL, "getpagesize failed");
+	page_sz = (size_t)getpagesize();
 
 	tst_tmpdir();
 

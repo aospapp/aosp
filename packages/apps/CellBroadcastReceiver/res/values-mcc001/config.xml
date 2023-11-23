@@ -97,6 +97,8 @@
     <bool name="enable_led_flash">false</bool>
 
     <string-array name="additional_cbs_channels_strings" translatable="false">
+        <!-- Channel 0 -->
+        <item>0x00:rat=gsm, emergency=true</item>
         <!-- Channel 50 and 60 for area update info -->
         <item>0x32:type=area, emergency=false</item>
         <item>0x3C:type=area, emergency=false</item>

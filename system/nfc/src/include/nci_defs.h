@@ -246,6 +246,8 @@
 
 #define NCI_CORE_PARAM_SIZE_CON_CLOSE 0x01     /* Conn ID (1 octet) */
 
+/* Keep the NCI configuration and perform NCI initialization. */
+#define NCI_RESET_TYPE_KEEP_CFG 0x00
 /* Reset the NCI configuration, and perform NCI initialization. */
 #define NCI_RESET_TYPE_RESET_CFG 0x01
 

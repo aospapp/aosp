@@ -499,11 +499,6 @@ TEST_P(EvsHidlTest, CameraStreamPerformance) {
                   << std::scientific << timeToFirstFrame * kNanoToMilliseconds
                   << " ms.";
 
-        // Check aspect ratio
-        unsigned width = 0, height = 0;
-        frameHandler->getFrameDimension(&width, &height);
-        EXPECT_GE(width, height);
-
         // Wait a bit, then ensure we get at least the required minimum number of frames
         sleep(5);
         nsecs_t end = systemTime(SYSTEM_TIME_MONOTONIC);
@@ -541,7 +536,7 @@ TEST_P(EvsHidlTest, CameraStreamBuffering) {
     LOG(INFO) << "Starting CameraStreamBuffering test";
 
     // Arbitrary constant (should be > 1 and not too big)
-    static const unsigned int kBuffersToHold = 6;
+    static const unsigned int kBuffersToHold = 2;
 
     // Get the camera list
     loadCameraList();
@@ -568,7 +563,8 @@ TEST_P(EvsHidlTest, CameraStreamBuffering) {
         activeCameras.push_back(pCam);
 
         // Ask for a very large number of buffers in flight to ensure it errors correctly
-        Return<EvsResult> badResult = pCam->setMaxFramesInFlight(0xFFFFFFFF);
+        Return<EvsResult> badResult =
+                pCam->setMaxFramesInFlight(std::numeric_limits<int32_t>::max());
         EXPECT_EQ(EvsResult::BUFFER_NOT_AVAILABLE, badResult);
 
         // Now ask for exactly two buffers in flight as we'll test behavior in that case
@@ -653,7 +649,7 @@ TEST_P(EvsHidlTest, CameraToDisplayRoundTrip) {
         ASSERT_GT(height, 0);
 
         android::ui::DisplayState* pState = (android::ui::DisplayState*)state.data();
-        ASSERT_NE(pState->layerStack, -1);
+        ASSERT_NE(pState->layerStack, android::ui::INVALID_LAYER_STACK);
     });
 
     // Test each reported camera

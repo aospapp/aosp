@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"긴급 콜백 모드"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"데이터 연결이 끊김"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g>까지 데이터 연결 없음"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">휴대전화가 <xliff:g id="COUNT_1">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 긴급 콜백 모드에서는 데이터 연결을 이용하는 애플리케이션을 사용할 수 없습니다. 지금 종료하시겠습니까?</item>
-      <item quantity="one">휴대전화가 <xliff:g id="COUNT_0">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 긴급 콜백 모드에서는 데이터 연결을 이용하는 앱을 사용할 수 없습니다. 지금 종료하시겠습니까?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">긴급 콜백 모드에서는 선택한 작업을 수행할 수 없습니다. 휴대전화가 <xliff:g id="COUNT_1">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 지금 종료하시겠습니까?</item>
-      <item quantity="one">긴급 콜백 모드에서는 선택한 작업을 수행할 수 없습니다. 휴대전화가 <xliff:g id="COUNT_0">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 지금 종료하시겠습니까?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{휴대전화가 1분간 긴급 콜백 모드를 유지합니다. 이 모드를 사용하는 중에는 데이터 연결이 필요한 애플리케이션을 사용할 수 없습니다. 종료하시겠습니까?}other{휴대전화가 %s분간 긴급 콜백 모드를 유지합니다. 이 모드를 사용하는 중에는 데이터 연결이 필요한 애플리케이션을 사용할 수 없습니다. 종료하시겠습니까?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{긴급 콜백 모드에서는 선택한 작업을 사용할 수 없습니다. 휴대전화가 1분간 이 모드를 유지합니다. 종료하시겠습니까?}other{긴급 콜백 모드에서는 선택한 작업을 사용할 수 없습니다. 휴대전화가 %s분간 이 모드를 유지합니다. 종료하시겠습니까?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"긴급 통화 중에는 선택한 작업을 사용할 수 없습니다."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"긴급 콜백 모드 종료하는 중"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"예"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"해제"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"휴대전화가 긴급 콜백 모드입니다."</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g>까지"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">휴대전화가 <xliff:g id="COUNT_1">%s</xliff:g>분간 긴급 콜백 모드로 유지됩니다.\n지금 종료하시겠습니까?</item>
-      <item quantity="one">휴대전화가 <xliff:g id="COUNT_0">%s</xliff:g>분간 긴급 콜백 모드로 유지됩니다.\n지금 종료하시겠습니까?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{휴대전화가 1분간 긴급 콜백 모드로 유지됩니다.\n지금 종료하시겠습니까?}other{휴대전화가 %s분간 긴급 콜백 모드로 유지됩니다.\n지금 종료하시겠습니까?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"서비스"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"설정"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;설정 안됨&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"접근성"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi 수신 전화:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi 통화"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"다시 탭하여 열기"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"메시지를 디코딩하는 중에 오류가 발생했습니다."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM 카드로 서비스가 활성화되었으며 휴대전화 로밍 기능이 업데이트되었습니다."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"활성화된 통화가 너무 많습니다. 새로운 전화를 걸기 전에 기존의 통화를 끝내거나 합치세요."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"이미 다른 발신 전화에서 다이얼 중이므로 전화를 걸 수 없습니다."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"받지 않은 수신 전화가 있으므로 전화를 걸 수 없습니다. 새로 전화를 걸기 전에 수신 전화를 받거나 거절하세요."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call 시스템 속성을 사용하여 통화 기능이 사용 중지되었으므로 전화를 걸 수 없습니다."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"이미 진행 중인 두 건의 통화가 있으므로 전화를 걸 수 없습니다. 새로 전화를 걸기 전에 통화 중 하나를 연결 해제하거나 두 통화를 다자간 통화로 병합하세요."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"이미 진행 중인 두 건의 통화가 있으므로 전화를 걸 수 없습니다. 새로 전화를 걸기 전에 통화 중 하나를 연결 해제하거나 두 통화를 다자간 통화로 병합하세요."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>을(를) 사용하려면 모바일 데이터가 사용 설정되어 있는지 확인하세요. 이 설정은 모바일 네트워크 설정에서 변경할 수 있습니다."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>을(를) 사용하려면 모바일 데이터 및 데이터 로밍이 사용 설정되어 있는지 확인하세요. 이 설정은 모바일 네트워크 설정에서 변경할 수 있습니다."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>을(를) 사용하려면 SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>에 모바일 데이터가 사용 설정되어 있는지 확인하세요. 이 설정은 모바일 네트워크 설정에서 변경할 수 있습니다."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"설정을 변경하려면 기기를 다시 시작해야 합니다."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"다시 시작"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"취소"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"삭제 가능한 eSIM을 기본으로 설정"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"모바일 무선 전력"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM 주소록 보기"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"발신 허용 번호 보기"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"무선 주파수 대역 선택"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"음성 네트워크 유형:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"데이터 네트워크 유형:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"네트워크 유형 재정의:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"휴대전화 색인 선택"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"기본 네트워크 유형 설정:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"핑 호스트 이름(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"새로고침"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS 확인 전환"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM별 정보/설정"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC 사용 가능:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR 제한됨:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR 사용 가능:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR 상태:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC 사용 가능(NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR 제한됨(NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR 사용 가능(NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR 상태(NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR 빈도:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"무선 주파수 대역 모드 설정"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"대역 목록 로드 중…"</string>

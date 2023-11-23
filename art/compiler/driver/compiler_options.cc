@@ -31,7 +31,6 @@
 #include "compiler_options_map-inl.h"
 #include "dex/dex_file-inl.h"
 #include "dex/verification_results.h"
-#include "dex/verified_method.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "simple_compiler_options_map.h"
@@ -52,6 +51,7 @@ CompilerOptions::CompilerOptions()
       verification_results_(nullptr),
       compiler_type_(CompilerType::kAotCompiler),
       image_type_(ImageType::kNone),
+      multi_image_(false),
       compile_art_test_(false),
       baseline_(false),
       debuggable_(false),
@@ -154,37 +154,6 @@ bool CompilerOptions::IsImageClass(const char* descriptor) const {
 const VerificationResults* CompilerOptions::GetVerificationResults() const {
   DCHECK(Runtime::Current()->IsAotCompiler());
   return verification_results_;
-}
-
-const VerifiedMethod* CompilerOptions::GetVerifiedMethod(const DexFile* dex_file,
-                                                         uint32_t method_idx) const {
-  MethodReference ref(dex_file, method_idx);
-  return verification_results_->GetVerifiedMethod(ref);
-}
-
-bool CompilerOptions::IsMethodVerifiedWithoutFailures(uint32_t method_idx,
-                                                      uint16_t class_def_idx,
-                                                      const DexFile& dex_file) const {
-  const VerifiedMethod* verified_method = GetVerifiedMethod(&dex_file, method_idx);
-  if (verified_method != nullptr) {
-    return !verified_method->HasVerificationFailures();
-  }
-
-  // If we can't find verification metadata, check if this is a system class (we trust that system
-  // classes have their methods verified). If it's not, be conservative and assume the method
-  // has not been verified successfully.
-
-  // TODO: When compiling the boot image it should be safe to assume that everything is verified,
-  // even if methods are not found in the verification cache.
-  const char* descriptor = dex_file.GetClassDescriptor(dex_file.GetClassDef(class_def_idx));
-  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  Thread* self = Thread::Current();
-  ScopedObjectAccess soa(self);
-  bool is_system_class = class_linker->FindSystemClass(self, descriptor) != nullptr;
-  if (!is_system_class) {
-    self->ClearException();
-  }
-  return is_system_class;
 }
 
 }  // namespace art

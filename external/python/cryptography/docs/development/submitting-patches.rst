@@ -19,9 +19,10 @@ Code
 ----
 
 When in doubt, refer to :pep:`8` for Python code. You can check if your code
-meets our automated requirements by running ``flake8`` against it. If you've
-installed the development requirements this will automatically use our
-configuration. You can also run the ``tox`` job with ``tox -e pep8``.
+meets our automated requirements by formatting it with ``black`` and running
+``flake8`` against it. If you've installed the development requirements this
+will automatically use our configuration. You can also run the ``tox`` job with
+``tox -e pep8``.
 
 `Write comments as complete sentences.`_
 
@@ -80,10 +81,9 @@ Every recipe should include a version or algorithmic marker of some sort in its
 output in order to allow transparent upgrading of the algorithms in use, as
 the algorithms or parameters needed to achieve a given security margin evolve.
 
-APIs at the :doc:`/hazmat/primitives/index` layer should always take an
-explicit backend, APIs at the recipes layer should automatically use the
-:func:`~cryptography.hazmat.backends.default_backend`, but optionally allow
-specifying a different backend.
+APIs at the :doc:`/hazmat/primitives/index` and recipes layer should
+automatically use the :func:`~cryptography.hazmat.backends.default_backend`,
+but optionally allow specifying a different backend.
 
 C bindings
 ~~~~~~~~~~
@@ -156,6 +156,6 @@ So, specifically:
 
 .. _`Write comments as complete sentences.`: https://nedbatchelder.com/blog/201401/comments_should_be_sentences.html
 .. _`syntax`: https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html#info-field-lists
-.. _`Studies have shown`: https://smartbear.com/SmartBear/media/pdfs/11_Best_Practices_for_Peer_Code_Review.pdf
+.. _`Studies have shown`: https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/
 .. _`our mailing list`: https://mail.python.org/mailman/listinfo/cryptography-dev
 .. _`doc8`: https://github.com/openstack/doc8

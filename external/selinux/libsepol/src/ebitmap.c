@@ -17,7 +17,8 @@
 
 int ebitmap_or(ebitmap_t * dst, const ebitmap_t * e1, const ebitmap_t * e2)
 {
-	ebitmap_node_t *n1, *n2, *new, *prev;
+	const ebitmap_node_t *n1, *n2;
+	ebitmap_node_t *new, *prev;
 
 	ebitmap_init(dst);
 
@@ -71,7 +72,7 @@ int ebitmap_union(ebitmap_t * dst, const ebitmap_t * e1)
 	return 0;
 }
 
-int ebitmap_and(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2)
+int ebitmap_and(ebitmap_t *dst, const ebitmap_t *e1, const ebitmap_t *e2)
 {
 	unsigned int i, length = min(ebitmap_length(e1), ebitmap_length(e2));
 	ebitmap_init(dst);
@@ -85,7 +86,7 @@ int ebitmap_and(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2)
 	return 0;
 }
 
-int ebitmap_xor(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2)
+int ebitmap_xor(ebitmap_t *dst, const ebitmap_t *e1, const ebitmap_t *e2)
 {
 	unsigned int i, length = max(ebitmap_length(e1), ebitmap_length(e2));
 	ebitmap_init(dst);
@@ -98,7 +99,7 @@ int ebitmap_xor(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2)
 	return 0;
 }
 
-int ebitmap_not(ebitmap_t *dst, ebitmap_t *e1, unsigned int maxbit)
+int ebitmap_not(ebitmap_t *dst, const ebitmap_t *e1, unsigned int maxbit)
 {
 	unsigned int i;
 	ebitmap_init(dst);
@@ -111,11 +112,12 @@ int ebitmap_not(ebitmap_t *dst, ebitmap_t *e1, unsigned int maxbit)
 	return 0;
 }
 
-int ebitmap_andnot(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2, unsigned int maxbit)
+int ebitmap_andnot(ebitmap_t *dst, const ebitmap_t *e1, const ebitmap_t *e2, unsigned int maxbit)
 {
+	int rc;
 	ebitmap_t e3;
 	ebitmap_init(dst);
-	int rc = ebitmap_not(&e3, e2, maxbit);
+	rc = ebitmap_not(&e3, e2, maxbit);
 	if (rc < 0)
 		return rc;
 	rc = ebitmap_and(dst, e1, &e3);
@@ -125,31 +127,35 @@ int ebitmap_andnot(ebitmap_t *dst, ebitmap_t *e1, ebitmap_t *e2, unsigned int ma
 	return 0;
 }
 
-unsigned int ebitmap_cardinality(ebitmap_t *e1)
+unsigned int ebitmap_cardinality(const ebitmap_t *e1)
 {
-	unsigned int i, count = 0;
-	for (i=ebitmap_startbit(e1); i < ebitmap_length(e1); i++)
-		if (ebitmap_get_bit(e1, i))
-			count++;
+	unsigned int count = 0;
+	const ebitmap_node_t *n;
+
+	for (n = e1->node; n; n = n->next) {
+		count += __builtin_popcountll(n->map);
+	}
 	return count;
 }
 
-int ebitmap_hamming_distance(ebitmap_t * e1, ebitmap_t * e2)
+int ebitmap_hamming_distance(const ebitmap_t * e1, const ebitmap_t * e2)
 {
+	int rc;
+	ebitmap_t tmp;
+	int distance;
 	if (ebitmap_cmp(e1, e2))
 		return 0;
-	ebitmap_t tmp;
-	int rc = ebitmap_xor(&tmp, e1, e2);
+	rc = ebitmap_xor(&tmp, e1, e2);
 	if (rc < 0)
 		return -1;
-	int distance = ebitmap_cardinality(&tmp);
+	distance = ebitmap_cardinality(&tmp);
 	ebitmap_destroy(&tmp);
 	return distance;
 }
 
 int ebitmap_cmp(const ebitmap_t * e1, const ebitmap_t * e2)
 {
-	ebitmap_node_t *n1, *n2;
+	const ebitmap_node_t *n1, *n2;
 
 	if (e1->highbit != e2->highbit)
 		return 0;
@@ -170,7 +176,8 @@ int ebitmap_cmp(const ebitmap_t * e1, const ebitmap_t * e2)
 
 int ebitmap_cpy(ebitmap_t * dst, const ebitmap_t * src)
 {
-	ebitmap_node_t *n, *new, *prev;
+	const ebitmap_node_t *n;
+	ebitmap_node_t *new, *prev;
 
 	ebitmap_init(dst);
 	n = src->node;
@@ -199,7 +206,7 @@ int ebitmap_cpy(ebitmap_t * dst, const ebitmap_t * src)
 
 int ebitmap_contains(const ebitmap_t * e1, const ebitmap_t * e2)
 {
-	ebitmap_node_t *n1, *n2;
+	const ebitmap_node_t *n1, *n2;
 
 	if (e1->highbit < e2->highbit)
 		return 0;
@@ -226,8 +233,8 @@ int ebitmap_contains(const ebitmap_t * e1, const ebitmap_t * e2)
 
 int ebitmap_match_any(const ebitmap_t *e1, const ebitmap_t *e2)
 {
-	ebitmap_node_t *n1 = e1->node;
-	ebitmap_node_t *n2 = e2->node;
+	const ebitmap_node_t *n1 = e1->node;
+	const ebitmap_node_t *n2 = e2->node;
 
 	while (n1 && n2) {
 		if (n1->startbit < n2->startbit) {
@@ -248,7 +255,7 @@ int ebitmap_match_any(const ebitmap_t *e1, const ebitmap_t *e2)
 
 int ebitmap_get_bit(const ebitmap_t * e, unsigned int bit)
 {
-	ebitmap_node_t *n;
+	const ebitmap_node_t *n;
 
 	if (e->highbit < bit)
 		return 0;
@@ -342,6 +349,26 @@ int ebitmap_set_bit(ebitmap_t * e, unsigned int bit, int value)
 	return 0;
 }
 
+unsigned int ebitmap_highest_set_bit(const ebitmap_t * e)
+{
+	const ebitmap_node_t *n;
+	MAPTYPE map;
+	unsigned int pos = 0;
+
+	n = e->node;
+	if (!n)
+		return 0;
+
+	while (n->next)
+		n = n->next;
+
+	map = n->map;
+	while (map >>= 1)
+		pos++;
+
+	return n->startbit + pos;
+}
+
 void ebitmap_destroy(ebitmap_t * e)
 {
 	ebitmap_node_t *n, *temp;
@@ -379,8 +406,7 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 	count = le32_to_cpu(buf[2]);
 
 	if (mapsize != MAPSIZE) {
-		printf
-		    ("security: ebitmap: map size %d does not match my size %zu (high bit was %d)\n",
+		ERR(NULL, "security: ebitmap: map size %d does not match my size %zu (high bit was %d)",
 		     mapsize, MAPSIZE, e->highbit);
 		goto bad;
 	}
@@ -389,8 +415,7 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 		goto ok;
 	}
 	if (e->highbit & (MAPSIZE - 1)) {
-		printf
-		    ("security: ebitmap: high bit (%d) is not a multiple of the map size (%zu)\n",
+		ERR(NULL, "security: ebitmap: high bit (%d) is not a multiple of the map size (%zu)",
 		     e->highbit, MAPSIZE);
 		goto bad;
 	}
@@ -402,12 +427,12 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 	for (i = 0; i < count; i++) {
 		rc = next_entry(buf, fp, sizeof(uint32_t));
 		if (rc < 0) {
-			printf("security: ebitmap: truncated map\n");
+			ERR(NULL, "security: ebitmap: truncated map");
 			goto bad;
 		}
 		n = (ebitmap_node_t *) malloc(sizeof(ebitmap_node_t));
 		if (!n) {
-			printf("security: ebitmap: out of memory\n");
+			ERR(NULL, "security: ebitmap: out of memory");
 			rc = -ENOMEM;
 			goto bad;
 		}
@@ -416,34 +441,30 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 		n->startbit = le32_to_cpu(buf[0]);
 
 		if (n->startbit & (MAPSIZE - 1)) {
-			printf
-			    ("security: ebitmap start bit (%d) is not a multiple of the map size (%zu)\n",
+			ERR(NULL, "security: ebitmap start bit (%d) is not a multiple of the map size (%zu)",
 			     n->startbit, MAPSIZE);
 			goto bad_free;
 		}
 		if (n->startbit > (e->highbit - MAPSIZE)) {
-			printf
-			    ("security: ebitmap start bit (%d) is beyond the end of the bitmap (%zu)\n",
+			ERR(NULL, "security: ebitmap start bit (%d) is beyond the end of the bitmap (%zu)",
 			     n->startbit, (e->highbit - MAPSIZE));
 			goto bad_free;
 		}
 		rc = next_entry(&map, fp, sizeof(uint64_t));
 		if (rc < 0) {
-			printf("security: ebitmap: truncated map\n");
+			ERR(NULL, "security: ebitmap: truncated map");
 			goto bad_free;
 		}
 		n->map = le64_to_cpu(map);
 
 		if (!n->map) {
-			printf
-			    ("security: ebitmap: null map in ebitmap (startbit %d)\n",
+			ERR(NULL, "security: ebitmap: null map in ebitmap (startbit %d)",
 			     n->startbit);
 			goto bad_free;
 		}
 		if (l) {
 			if (n->startbit <= l->startbit) {
-				printf
-				    ("security: ebitmap: start bit %d comes after start bit %d\n",
+				ERR(NULL, "security: ebitmap: start bit %d comes after start bit %d",
 				     n->startbit, l->startbit);
 				goto bad_free;
 			}
@@ -454,8 +475,7 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 		l = n;
 	}
 	if (count && l->startbit + MAPSIZE != e->highbit) {
-		printf
-		    ("security: ebitmap: high bit %u has not the expected value %zu\n",
+		ERR(NULL, "security: ebitmap: high bit %u has not the expected value %zu",
 		     e->highbit, l->startbit + MAPSIZE);
 		goto bad;
 	}

@@ -124,49 +124,11 @@ on init
     write /dev/stune/camera-daemon/schedtune.prefer_idle 1
     write /dev/stune/camera-daemon/schedtune.boost 0
 
-    # Wireless charging
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/rxdata
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/txdata
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/rxlen
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/txlen
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/ccreset
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/status
-    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/version
-    chown system system /sys/class/power_supply/wireless/capacity
-
     # Allow PAI targeting per hardware SKU
     setprop ro.oem.key1 ${ro.boot.hardware.sku}
 
     # Property used by vintf for sku specific manifests
     setprop ro.boot.product.hardware.sku ${ro.boot.hardware.sku}
-
-    # Battery Defender
-    chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
-    chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_drainto_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_voltage
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_abs_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_soc
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_time
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_temp
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_time
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_voltage
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_enable
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_dry_run
-    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_enable
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_recharge_soc
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_cnt
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_dry_run
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_reset_sec
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_clear
-    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/health_safety_margin
-    chown system system /sys/class/power_supply/wireless/device/mitigate_threshold
-
-    # Charge stats (write 0)
-    chown system system /sys/class/power_supply/battery/charge_stats
 
     # Report max frequency to unity tasks.
     write /proc/sys/kernel/sched_lib_name "UnityMain,libunity.so"
@@ -399,9 +361,6 @@ on early-boot
     # Wait for insmod_sh to finish all modules
     wait_for_prop vendor.all.modules.ready 1
 
-    # Update dm-verity state and set partition.*.verified properties
-    verity_update_state
-
     # Wait for insmod_sh to finish all boot devices
     wait_for_prop vendor.all.devices.ready 1
 
@@ -460,6 +419,25 @@ on early-boot
     # FG cycle count read from dumpstate + backup restore from health HAL (and pixelstats)
     chown system system /sys/class/power_supply/maxfg/cycle_counts_bins
     chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/cycle_counts
+
+    # Battery Defender
+    chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_clear
+
+    # Charge stats (write 0)
+    chown system system /sys/class/power_supply/battery/charge_stats
+
+    # Wireless charging
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/rxdata
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/txdata
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/rxlen
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/txlen
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/ccreset
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/status
+    chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/version
+    chown system system /sys/class/power_supply/wireless/capacity
 
     # Permission for Pixelstats
     chown system system /sys/class/misc/msm_cirrus_playback/resistance_left_right
@@ -546,13 +524,12 @@ on property:sys.boot_completed=1
     write /sys/block/sdf/queue/nr_requests 128
     write /sys/block/sdf/queue/iostats 1
 
+    # Limit 4KB discards to 2GB of space
+    write /dev/sys/fs/by-name/userdata/max_small_discards 5120
+
     # Back to default VM settings
     write /proc/sys/vm/dirty_expire_centisecs 3000
     write /proc/sys/vm/dirty_background_ratio 10
-
-    # Block layer tuning: discard chunk size up to 128MB
-    # Otherwise, contiguous discards can be merged
-    write /sys/block/sda/queue/discard_max_bytes 134217728
 
     # Enable ZRAM on boot_complete
     rm /data/unencrypted/zram_swap
@@ -782,7 +759,7 @@ service vendor.msm_irqbalance /vendor/bin/msm_irqbalance -f /vendor/etc/msm_irqb
     class core
     user root
     group root
-    writepid /dev/cpuset/system-background/tasks
+    task_profiles ServiceCapacityLow
 
 service pd_mapper /vendor/bin/pd-mapper
      class core

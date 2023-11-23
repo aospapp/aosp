@@ -137,13 +137,6 @@ class NdcDispatcher {
         static int parseChildChain(const char* arg);
     };
 
-    class ClatdCmd : public NdcNetdCommand {
-      public:
-        ClatdCmd();
-        virtual ~ClatdCmd() {}
-        int runCommand(NdcClient* cli, int argc, char** argv) const;
-    };
-
     class StrictCmd : public NdcNetdCommand {
       public:
         StrictCmd();

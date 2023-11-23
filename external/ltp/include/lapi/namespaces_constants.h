@@ -1,17 +1,7 @@
-/* Copyright (c) 2015 Red Hat, Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of version 2 the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- ***********************************************************************/
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (c) 2015 Red Hat, Inc.
+ */
 
 #ifndef __NAMESPACES_CONSTANTS_H__
 #define __NAMESPACES_CONSTANTS_H__
@@ -33,6 +23,9 @@
 #endif
 #ifndef CLONE_NEWUTS
 #  define CLONE_NEWUTS	0x04000000
+#endif
+#ifndef CLONE_NEWTIME
+#  define CLONE_NEWTIME 0x00000080
 #endif
 
 #endif /* __NAMESPACES_CONSTANTS_H__ */

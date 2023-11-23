@@ -90,7 +90,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
 		if (!s)
 			return 1;
-		s->http_resp = lws_http_client_http_response(wsi);
+		s->http_resp = (int)lws_http_client_http_response(wsi);
 		lwsl_info("Connected with server response: %d\n", s->http_resp);
 		break;
 
@@ -169,8 +169,8 @@ notify:
 }
 
 static const struct lws_protocols protocols[] = {
-	{ "seq-test-http", callback_http, 0, 0, },
-	{ NULL, NULL, 0, 0 }
+	{ "seq-test-http", callback_http, 0, 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 
@@ -218,7 +218,7 @@ sequencer_start_client(struct myseq *s)
 		/* we couldn't even get started with the client connection */
 
 		lws_seq_queue_event(lws_seq_from_user(s),
-				    SEQ_MSG_CLIENT_FAILED, NULL, NULL);
+				    (lws_seq_events_t)SEQ_MSG_CLIENT_FAILED, NULL, NULL);
 
 		return 1;
 	}
@@ -346,7 +346,7 @@ main(int argc, const char **argv)
 		       LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
 	info.protocols = protocols;
 
-#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_WITH_MBEDTLS) || defined(USE_WOLFSSL)
 	/*
 	 * OpenSSL uses the system trust store.  mbedTLS has to be told which
 	 * CA to trust explicitly.

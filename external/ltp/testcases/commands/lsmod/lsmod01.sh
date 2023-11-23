@@ -1,18 +1,49 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) Linux Test Project, 2016-2021
 # Copyright (c) 2015 Fujitsu Ltd.
 # Author: Guangwen Feng <fenggw-fnst@cn.fujitsu.com>
 #
 # Test basic functionality of lsmod command.
 
+TST_CLEANUP=cleanup
+TST_SETUP=setup
 TST_TESTFUNC=lsmod_test
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_CMDS="lsmod"
 . tst_test.sh
 
+module_inserted=
+
+setup()
+{
+	if [ -z "$(cat /proc/modules)"  ]; then
+		tst_res TINFO "Loading dummy kernel module"
+		tst_require_module "ltp_lsmod01.ko"
+		tst_require_root
+		tst_require_cmds insmod
+		ROD insmod "$TST_MODPATH"
+
+		module_inserted=1
+	fi
+}
+
+cleanup()
+{
+	if [ "$module_inserted" = 1 ]; then
+		tst_res TINFO "Unloading dummy kernel module"
+		rmmod ltp_lsmod01
+		if [ $? -ne 0 ]; then
+			tst_res TWARN "rmmod failed"
+		fi
+	fi
+}
+
 lsmod_matches_proc_modules()
 {
-	lsmod_output=$(lsmod | awk '!/Module/{print $1, $2, $3}' | sort)
+	lsmod_output=$(lsmod \
+			| awk '!/Module/{print $1, $2, ($3==-2) ? "-" : $3}' \
+			| sort)
 	if [ -z "$lsmod_output" ]; then
 		tst_brk TBROK "Failed to parse the output from lsmod"
 	fi

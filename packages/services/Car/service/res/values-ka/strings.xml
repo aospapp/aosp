@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"თქვენი მანქანის კამერებზე წვდომა."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"მანქანის ენერგორესურსების ინფორმაციაზე წვდომა"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"თქვენი მანქანის ენერგორესურსების ინფორმაციაზე წვდომა."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"აკონტროლეთ მანქანის ელექტრომობილის დატენის პარამეტრები"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"აკონტროლეთ თქვენი მანქანის ელექტრომობილის დატენის პარამეტრები."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"მანქანის დიაპაზონის ნარჩენის კორექტირება"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"მანქანის დიაპაზონის დარჩენილი მნიშვნელობის კორექტირება."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"მანქანის HVAC (გათბობა, ვენტილაცია და ჰაერის კონდიცირება) სისტემაზე წვდომა"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"აპლიკაციისთვის იმ აქტივობის განსაზღვრის დაშვება, რომელიც უნდა გამოჩნდეს ხელსაწყოთა პანელზე"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"ხელსაწყოთა პანელის გაკონტროლება"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"აპების გაშვება ხელსაწყოთა პანელზე"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"ინსტრუმენტთა ნაკრების ნავიგაციის მდგომარეობა"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"მოუსმინეთ ინსტრუმენტების ნაკრების ნავიგაციის მდგომარეობის ცვლილებებს"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"რენდერი ხელსაწყოთა პანელზე"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ხელსაწყოთა პანელის მონაცემების მიღება"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX შეზღუდვების კონფიგურაცია"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"იძლევა მძღოლის ინფორმირების სისტემის გაშვების მართვისა და ამოცნობის დიაგრამის შეწყვეტის საშუალებას"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"მანქანის შეყვანის სერვისი"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"შეტანის მოვლენების დამუშავება"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"წარმოიშვა CAN-სალტის შეცდომა"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-სალტე არ რეაგირებს. გამოაერთეთ და ხელახლა მიაერთეთ საინფორმაციო-გასართობი მოწყობილობა, შემდეგ კი ხელახლა დაქოქეთ მანქანა"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"მანქანის მართვისას ამ ფუნქციას ვერ გამოიყენებთ"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"აპის უსაფრთხო რეჟიმში გასაშვებად აირჩიეთ „<xliff:g id="EXIT_BUTTON">%s</xliff:g>“."</string>
-    <string name="exit_button" msgid="5829638404777671253">"უკან"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"აპის დახურვა"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"უკან"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"დიაგნოსტიკური მონაცემების წაკითხვა"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"დიაგნოსტიკური მონაცემების წაკითხვა მანქანიდან."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"დიაგნოსტიკური მონაცემების გასუფთავება"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"მანქანის სავარძლების გაკონტროლება."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"მანქანის ძირითად ინფორმაციაზე წვდომა"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"მანქანის ძირითად ინფორმაციაზე წვდომა."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"წვდომა მანქანის პრივილეგიურ ინფორმაციაზე"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"წვდომა მანქანის პრივილეგიურ ინფორმაციაზე."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"მანქანის მწარმოებლის ნებართვასთან დაკავშირებულ ინფორმაციაზე წვდომა"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"მანქანის მწარმოებლის ნებართვასთან დაკავშირებულ ინფორმაციაზე წვდომა."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"მანქანის გარე განათების მდგომარეობის წაკითხვა"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"კითხულობს მანქანაში კომპონენტების ჩართვის წესებს."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"აკონტროლებს მანქანაში კომპონენტების ჩართვის წესებს"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"აკონტროლებს მანქანაში კომპონენტების ჩართვის წესებს."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"გათიშვის პროცესის შესწორება"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"გათიშვის პროცესის შესწორება."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"შაბლონების ჩვენება"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"შაბლონების ჩვენება."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"აპლიკაციების გაშვების კონტროლი"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"აპლიკაციების გაშვების კონტროლი."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"წარმოიშვა CAN-სალტის შეცდომა"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-სალტე არ რეაგირებს. გამოაერთეთ და ხელახლა მიაერთეთ საინფორმაციო-გასართობი მოწყობილობა, შემდეგ კი ხელახლა დაქოქეთ მანქანა"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ჩემი მოწყობილობა"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"სტუმარი"</string>
-    <string name="importance_default" msgid="8587741629268312938">"ნაგულისხმევი მნიშვნელოვნება"</string>
-    <string name="importance_high" msgid="3141530792377745041">"მაღალი პრიორიტეტი"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"საჭიროა ქარხნული პარამეტრების დაბრუნება"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"გართობის/საინფორმაციო სისტემაში არსებული ყველა მონაცემი ამოიშლება. გადაყენების შემდეგ შეგიძლიათ, ახალი პროფილი დააყენოთ."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"მეტი"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"გართობის/საინფორმაციო სისტემის გადაყენება"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"თქვენმა სისტემამ მიიღო ქარხნული პარამეტრების დაბრუნებისა და ყველა მონაცემის ამოშლის მოთხოვნა. შეგიძლიათ გადააყენოთ ახლავე ან გადაყენდება მანქანის შემდეგ დაქოქვაზე. შემდეგ შეგიძლიათ, დააყენოთ ახალი პროფილი."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"ახლავე გადაყენება"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"მოგვიან. გადაყენება"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"გართობის/საინფორმაციო სისტემა გადაყენდება მანქანის შემდეგ დაქოქვაზე."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"გადაყენებისთვის მანქანა პარკირებული უნდა იყოს."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> აფერხებს თქვენი სისტემის ეფექტურობას"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"სისტემის ეფექტურობის გასაუმჯობესებლად გათიშეთ აპი. აპის ხელახლა ჩართვა პარამეტრებიდან შეგიძლიათ."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"აპის გამოყენების გასაგრძელებლად საჭიროა მისი პრიორიტეტიზაცია."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"სისტემის ეფექტურობის გასაუმჯობესებლად საჭიროა აპის დეინსტალაცია."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"აპის გათიშვა"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"აპის პრიორიტეტიზაცია"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"აპის დეინსტალაცია"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> გაითიშა. შეგიძლიათ, ხელახლა ჩართოთ პარამეტრებში."</string>
 </resources>

@@ -38,7 +38,7 @@ bootloaders and the application boot code do not clobber it.
 
       using pw::persistent_ram::Persistent;
 
-      PW_KEEP_IN_SECTION(".noinit") Persistent<bool> persistent_bool;
+      PW_PLACE_IN_SECTION(".noinit") Persistent<bool> persistent_bool;
 
 2. If persistent memory ranges are provided, we recommend using a struct to wrap
    the different persisted objects. This then could be checked to fit in the
@@ -47,7 +47,7 @@ bootloaders and the application boot code do not clobber it.
 
    .. code-block:: cpp
 
-      #include "pw_assert/assert.h"
+      #include "pw_assert/check.h"
       #include "pw_persistent_ram/persistent.h"
 
       // Provided for example through a linker script.
@@ -75,8 +75,8 @@ before the global static C++ constructors, but after the BSS and data sections
 are initialized in RAM.
 
 The preferred way to clear Persistent RAM is to simply zero entire persistent
-RAM sections and/or memory regions. Pigweed's persistents containers have picked
-integrity checks which work with zerod memory, meaning they do not hold a value
+RAM sections and/or memory regions. Pigweed's persistent containers have picked
+integrity checks which work with zeroed memory, meaning they do not hold a value
 after zeroing. Alternatively containers can be individually cleared.
 
 The boot sequence itself is tightly coupled to the number of persistent sections
@@ -150,7 +150,7 @@ the Persistent container.
       uint16_t boot_count_;
     };
 
-    PW_KEEP_IN_SECTION(".noinit") Persistent<uint16_t> persistent_boot_count;
+    PW_PLACE_IN_SECTION(".noinit") Persistent<uint16_t> persistent_boot_count;
     BootCount boot_count(persistent_boot_count);
 
     int main() {
@@ -182,7 +182,7 @@ object's checksum is updated to reflect the changes.
       char reason[kMaxReasonLength];
     }
 
-    PW_KEEP_IN_SECTION(".noinit") Persistent<LastBootInfo> persistent_crash_info;
+    PW_PLACE_IN_SECTION(".noinit") Persistent<LastBootInfo> persistent_crash_info;
 
     void HandleCrash(const char* fmt, va_list args) {
       // Once this scope ends, we know the persistent object has been updated
@@ -204,11 +204,13 @@ object's checksum is updated to reflect the changes.
       if (persistent_crash_info.has_value()) {
         LogLastCrashInfo(persistent_crash_info.value());
         // Clear crash info once it has been dumped.
-        persistent_crash_info.reset();
+        persistent_crash_info.Invalidate();
       }
 
       // ... rest of main
     }
+
+.. _module-pw_persistent_ram-persistent_buffer:
 
 ------------------------------------
 pw::persistent_ram::PersistentBuffer

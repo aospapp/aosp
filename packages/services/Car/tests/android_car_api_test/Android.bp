@@ -21,12 +21,17 @@ package {
 android_test {
     name: "AndroidCarApiTest",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+            "src/**/*.java",
+            "src/**/*.aidl",
+    ],
 
     platform_apis: true,
 
     // for system|privileged permission.
     certificate: "platform",
+
+    min_sdk_version: "33",
 
     // When built explicitly put it in the data partition
 
@@ -36,8 +41,7 @@ android_test {
 
     static_libs: ["junit"] + [
         "androidx.test.rules",
-        "android.hidl.base-V1.0-java",
-        "android.hardware.automotive.vehicle-V2.0-java",
+        "android.car.apitest-aidl-binder-java",
         "android.car.cluster.navigation",
         "android.car.cluster.navigation",
         "android.car.testapi",

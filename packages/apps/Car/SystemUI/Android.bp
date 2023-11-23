@@ -22,6 +22,7 @@ android_library {
 
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "src/**/I*.aidl",
     ],
 
@@ -37,8 +38,8 @@ android_library {
         "SystemUISharedLib",
         "SettingsLib",
         "car-admin-ui-lib",
+        "car-helper-lib",
         "car-ui-lib",
-        "android.car.userlib",
         "car-qc-lib",
         "androidx.legacy_legacy-support-v4",
         "androidx.recyclerview_recyclerview",
@@ -63,6 +64,10 @@ android_library {
         "android.car",
     ],
 
+    aaptflags: [
+        "--no-resource-deduping",
+    ],
+
     manifest: "AndroidManifest.xml",
 
     plugins: ["dagger2-compiler"],
@@ -80,6 +85,7 @@ android_library {
     srcs: [
         "tests/src/**/*.java",
         "src/**/*.java",
+        "src/**/*.kt",
         "src/**/I*.aidl",
     ],
     static_libs: [
@@ -88,7 +94,6 @@ android_library {
         "SystemUIPluginLib",
         "SystemUISharedLib",
         "SettingsLib",
-        "android.car.userlib",
         "androidx.legacy_legacy-support-v4",
         "androidx.recyclerview_recyclerview",
         "androidx.preference_preference",
@@ -103,6 +108,7 @@ android_library {
         "androidx.arch.core_core-runtime",
         "androidx.lifecycle_lifecycle-extensions",
         "car-admin-ui-lib",
+        "car-helper-lib",
         "car-ui-lib",
         "car-qc-lib",
         "SystemUI-tags",
@@ -127,6 +133,9 @@ android_library {
     ],
 
     plugins: ["dagger2-compiler"],
+
+    // TODO(b/218518451) re-enable errorprone.
+    errorprone: {enabled: false},
 }
 
 android_app {

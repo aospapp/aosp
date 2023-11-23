@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,7 +15,6 @@
 #include <lib/utils_def.h>
 #include <plat/common/platform.h>
 
-#include <core_off_arisc.h>
 #include <sunxi_cpucfg.h>
 #include <sunxi_mmap.h>
 #include <sunxi_private.h>
@@ -43,9 +42,11 @@ static void sunxi_cpu_enable_power(unsigned int cluster, unsigned int core)
 	mmio_write_32(SUNXI_CPU_POWER_CLAMP_REG(cluster, core), 0xe0);
 	mmio_write_32(SUNXI_CPU_POWER_CLAMP_REG(cluster, core), 0x80);
 	mmio_write_32(SUNXI_CPU_POWER_CLAMP_REG(cluster, core), 0x00);
+	udelay(1);
 }
 
-void sunxi_cpu_off(u_register_t mpidr)
+/* We can't turn ourself off like this, but it works for other cores. */
+static void sunxi_cpu_off(u_register_t mpidr)
 {
 	unsigned int cluster = MPIDR_AFFLVL1_VAL(mpidr);
 	unsigned int core    = MPIDR_AFFLVL0_VAL(mpidr);
@@ -54,31 +55,13 @@ void sunxi_cpu_off(u_register_t mpidr)
 
 	/* Deassert DBGPWRDUP */
 	mmio_clrbits_32(SUNXI_CPUCFG_DBG_REG0, BIT(core));
-
-	/* We can't turn ourself off like this, but it works for other cores. */
-	if (read_mpidr() != mpidr) {
-		/* Activate the core output clamps, but not for core 0. */
-		if (core != 0)
-			mmio_setbits_32(SUNXI_POWEROFF_GATING_REG(cluster),
-					BIT(core));
-		/* Assert CPU power-on reset */
-		mmio_clrbits_32(SUNXI_POWERON_RST_REG(cluster), BIT(core));
-		/* Remove power from the CPU */
-		sunxi_cpu_disable_power(cluster, core);
-
-		return;
-	}
-
-	/* Simplifies assembly, all SoCs so far are single cluster anyway. */
-	assert(cluster == 0);
-
-	/*
-	 * If we are supposed to turn ourself off, tell the arisc SCP
-	 * to do that work for us. The code expects the core mask to be
-	 * patched into the first instruction.
-	 */
-	sunxi_execute_arisc_code(arisc_core_off, sizeof(arisc_core_off),
-				 BIT_32(core));
+	/* Activate the core output clamps, but not for core 0. */
+	if (core != 0)
+		mmio_setbits_32(SUNXI_POWEROFF_GATING_REG(cluster), BIT(core));
+	/* Assert CPU power-on reset */
+	mmio_clrbits_32(SUNXI_POWERON_RST_REG(cluster), BIT(core));
+	/* Remove power from the CPU */
+	sunxi_cpu_disable_power(cluster, core);
 }
 
 void sunxi_cpu_on(u_register_t mpidr)
@@ -93,7 +76,8 @@ void sunxi_cpu_on(u_register_t mpidr)
 	/* Assert CPU power-on reset */
 	mmio_clrbits_32(SUNXI_POWERON_RST_REG(cluster), BIT(core));
 	/* Set CPU to start in AArch64 mode */
-	mmio_setbits_32(SUNXI_CPUCFG_CLS_CTRL_REG0(cluster), BIT(24 + core));
+	mmio_setbits_32(SUNXI_AA64nAA32_REG(cluster),
+			BIT(SUNXI_AA64nAA32_OFFSET + core));
 	/* Apply power to the CPU */
 	sunxi_cpu_enable_power(cluster, core);
 	/* Release the core output clamps */
@@ -106,8 +90,9 @@ void sunxi_cpu_on(u_register_t mpidr)
 	mmio_setbits_32(SUNXI_CPUCFG_DBG_REG0, BIT(core));
 }
 
-void sunxi_disable_secondary_cpus(u_register_t primary_mpidr)
+void sunxi_cpu_power_off_others(void)
 {
+	u_register_t self = read_mpidr();
 	unsigned int cluster;
 	unsigned int core;
 
@@ -116,7 +101,7 @@ void sunxi_disable_secondary_cpus(u_register_t primary_mpidr)
 			u_register_t mpidr = (cluster << MPIDR_AFF1_SHIFT) |
 					     (core    << MPIDR_AFF0_SHIFT) |
 					     BIT(31);
-			if (mpidr != primary_mpidr)
+			if (mpidr != self)
 				sunxi_cpu_off(mpidr);
 		}
 	}

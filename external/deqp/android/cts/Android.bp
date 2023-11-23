@@ -26,6 +26,7 @@ filegroup {
     name: "deqp_master_caselists",
     srcs: [
         "master/*.txt",
+        "master/vk-*/*.txt",
     ],
     path: "master",
 }
@@ -56,7 +57,9 @@ java_test_host {
         "tradefed",
     ],
 
+    per_testcase_directory: true,
     data: [
+        ":com.drawelements.deqp",
         ":deqp_master_caselists",
         ":deqp_angle_exclude_caselists",
     ],

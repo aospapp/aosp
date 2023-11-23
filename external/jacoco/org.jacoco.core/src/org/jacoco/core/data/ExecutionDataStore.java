@@ -1,13 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.core.data;
 
@@ -38,7 +39,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 * Adds the given {@link ExecutionData} object into the store. If there is
 	 * already execution data with this same class id, this structure is merged
 	 * with the given one.
-	 * 
+	 *
 	 * @param data
 	 *            execution data to add or merge
 	 * @throws IllegalStateException
@@ -64,7 +65,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 * store. I.e. for all set probes in the given data object the corresponding
 	 * probes in this store will be unset. If there is no execution data with id
 	 * of the given data object this operation will have no effect.
-	 * 
+	 *
 	 * @param data
 	 *            execution data to subtract
 	 * @throws IllegalStateException
@@ -84,7 +85,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 
 	/**
 	 * Subtracts all probes in the given execution data store from this store.
-	 * 
+	 *
 	 * @param store
 	 *            execution data store to subtract
 	 * @see #subtract(ExecutionData)
@@ -100,7 +101,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	/**
 	 * Returns the {@link ExecutionData} entry with the given id if it exists in
 	 * this store.
-	 * 
+	 *
 	 * @param id
 	 *            class id
 	 * @return execution data or <code>null</code>
@@ -114,7 +115,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	/**
 	 * Checks whether execution data for classes with the given name are
 	 * contained in the store.
-	 * 
+	 *
 	 * @param name
 	 *            VM name
 	 * @return <code>true</code> if at least one class with the name is
@@ -127,7 +128,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	/**
 	 * Returns the coverage data for the class with the given identifier. If
 	 * there is no data available under the given id a new entry is created.
-	 * 
+	 *
 	 * @param id
 	 *            class identifier
 	 * @param name
@@ -176,7 +177,7 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 
 	/**
 	 * Writes the content of the store to the given visitor interface.
-	 * 
+	 *
 	 * @param visitor
 	 *            interface to write content to
 	 */

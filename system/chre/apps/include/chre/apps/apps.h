@@ -24,6 +24,7 @@ namespace chre {
 
 UniquePtr<Nanoapp> initializeStaticNanoappAshWorld();
 UniquePtr<Nanoapp> initializeStaticNanoappAudioWorld();
+UniquePtr<Nanoapp> initializeStaticNanoappBleWorld();
 UniquePtr<Nanoapp> initializeStaticNanoappDebugDumpWorld();
 UniquePtr<Nanoapp> initializeStaticNanoappGnssWorld();
 UniquePtr<Nanoapp> initializeStaticNanoappHelloWorld();

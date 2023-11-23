@@ -21,31 +21,42 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.uicc.IccCardStatus.CardState;
 import com.android.internal.telephony.uicc.UiccCard;
+import com.android.internal.telephony.uicc.UiccPort;
 import com.android.internal.telephony.uicc.UiccSlot;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
 
 public class SimSlotStateTest extends TelephonyTest {
-    @Mock private UiccSlot mInactiveSlot;
-    @Mock private UiccSlot mEmptySlot;
-    @Mock private UiccSlot mPhysicalSlot;
-    @Mock private UiccSlot mEsimSlot;
-
-    @Mock private UiccCard mInactiveCard;
-    @Mock private UiccCard mActiveCard;
+    // Mocked classes
+    private UiccSlot mInactiveSlot;
+    private UiccSlot mEmptySlot;
+    private UiccSlot mPhysicalSlot;
+    private UiccSlot mEsimSlot;
+    private UiccCard mInactiveCard;
+    private UiccCard mActiveCard;
+    private UiccPort mInactivePort;
+    private UiccPort mActivePort;
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mInactiveSlot = mock(UiccSlot.class);
+        mEmptySlot = mock(UiccSlot.class);
+        mPhysicalSlot = mock(UiccSlot.class);
+        mEsimSlot = mock(UiccSlot.class);
+        mInactiveCard = mock(UiccCard.class);
+        mActiveCard = mock(UiccCard.class);
+        mInactivePort = mock(UiccPort.class);
+        mActivePort = mock(UiccPort.class);
 
         doReturn(false).when(mInactiveSlot).isActive();
 
@@ -60,8 +71,11 @@ public class SimSlotStateTest extends TelephonyTest {
         doReturn(CardState.CARDSTATE_PRESENT).when(mEsimSlot).getCardState();
         doReturn(true).when(mEsimSlot).isEuicc();
 
-        doReturn(0).when(mInactiveCard).getNumApplications();
-        doReturn(4).when(mActiveCard).getNumApplications();
+        doReturn(0).when(mInactivePort).getNumApplications();
+        doReturn(4).when(mActivePort).getNumApplications();
+
+        doReturn(new UiccPort[]{mInactivePort}).when(mInactiveCard).getUiccPortList();
+        doReturn(new UiccPort[]{mActivePort}).when(mActiveCard).getUiccPortList();
     }
 
     @After
@@ -346,6 +360,29 @@ public class SimSlotStateTest extends TelephonyTest {
         assertEquals(2, state.numActiveSims);
         assertEquals(0, state.numActiveEsims);
         assertTrue(isMultiSim);
+    }
+
+    @Test
+    public void testDsds_dualSimMEPFeature() {
+        doReturn(mActiveCard).when(mEsimSlot).getUiccCard();
+        doReturn(new UiccPort[]{mInactivePort, mActivePort}).when(mActiveCard).getUiccPortList();
+        setupDualSim(mEmptySlot, mEsimSlot);
+        doReturn(mEsimSlot).when(mUiccController).getUiccSlotForPhone(eq(0));
+        doReturn(mEsimSlot).when(mUiccController).getUiccSlotForPhone(eq(1));
+
+        boolean isEsim0 = SimSlotState.isEsim(0);
+        boolean isEsim1 = SimSlotState.isEsim(1);
+
+        assertTrue(isEsim0);
+        assertTrue(isEsim1);
+
+        SimSlotState state = SimSlotState.getCurrentState();
+        boolean isMultiSim = SimSlotState.isMultiSim();
+
+        assertEquals(2, state.numActiveSlots);
+        assertEquals(1, state.numActiveSims);
+        assertEquals(1, state.numActiveEsims);
+        assertFalse(isMultiSim); // one Uicc Port does not have active sim profile
     }
 
     @Test

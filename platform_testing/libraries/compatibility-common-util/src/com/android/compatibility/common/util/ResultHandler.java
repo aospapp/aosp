@@ -53,7 +53,11 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 /**
  * Handles conversion of results to/from files.
+ *
+ * @deprecated b/170495912 Please avoid any change in the schema which would force updates in
+ *     classes that currently handle the XML generation for *TS.
  */
+@Deprecated
 public class ResultHandler {
 
     private static final String ENCODING = "UTF-8";

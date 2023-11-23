@@ -116,7 +116,7 @@ public class UninstallPinnedTest {
                 statusFuture.complete(
                         intent.getIntExtra(PackageInstaller.EXTRA_STATUS, Integer.MAX_VALUE));
             }
-        }, new IntentFilter(CALLBACK_ACTION));
+        }, new IntentFilter(CALLBACK_ACTION), Context.RECEIVER_EXPORTED);
 
         runWithShellPermissionIdentity(() -> {
             mContext.getPackageManager().getPackageInstaller().uninstall(TEST_PKG_NAME,

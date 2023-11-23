@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Als Hintergrund festlegen"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Startbildschirm"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Sperrbildschirm"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Start- und Sperrbildschirm"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Start- und Sperrbildschirm"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Hintergrund mit rotierenden Bildern"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Um den aktuellen Hintergrund hier einzublenden, benötigt <xliff:g id="APP_NAME">%1$s</xliff:g> Zugriff auf den Speicher deines Geräts."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Um den aktuellen Hintergrund hier anzuzeigen, benötigt die App \"Hintergründe\" Zugriff zu deinem Gerätespeicher.\n\nGehe auf der Seite \"Informationen zur App\" zum Bereich \"Berechtigungen\", um diese Einstellung zu ändern."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Vorschau"</string>
     <string name="tab_info" msgid="818614080690111416">"Informationen"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Anpassen"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Effekte"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Meine Fotos"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Einstellungen…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Löschen"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Diesen Hintergrund von deinem Smartphone löschen?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Hintergrund"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Hintergrundvorschau"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Die Sammlung existiert nicht"</string>
+    <string name="cancel" msgid="4970902691067201584">"Abbrechen"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI-Vorschau ausblenden"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI in der Vorschau ausgeblendet. Zum Einblenden doppeltippen."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UI-Vorschau einblenden"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Bereich zum Anpassen eingeblendet"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Informationen ausgeblendet"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Informationen eingeblendet"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Bitte aktiviere „Dateien und Medien“ in den Einstellungen."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Aktivieren"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Meine Fotos öffnen"</string>
 </resources>

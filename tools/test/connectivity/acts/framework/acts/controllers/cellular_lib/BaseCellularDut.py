@@ -23,6 +23,7 @@ class PreferredNetworkType(Enum):
     LTE_ONLY = 'lte-only'
     GSM_ONLY = 'gsm-only'
     WCDMA_ONLY = 'wcdma-only'
+    NR_LTE = 'nr-lte'
 
 
 class BaseCellularDut():

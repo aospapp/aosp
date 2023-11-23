@@ -52,6 +52,8 @@ BOARD_KERNEL_CMDLINE += i2c_qcom_geni.async_probe=1
 BOARD_KERNEL_CMDLINE += st21nfc.async_probe=1
 BOARD_KERNEL_CMDLINE += spmi_pmic_arb.async_probe=1
 BOARD_KERNEL_CMDLINE += ufs_qcom.async_probe=1
+BOARD_KERNEL_CMDLINE += spi-geni-qcom.async_probe=1
+BOARD_KERNEL_CMDLINE += cnss_utils.async_probe=1
 
 BOARD_KERNEL_BASE        := 0x00000000
 BOARD_KERNEL_PAGESIZE    := 4096
@@ -423,6 +425,7 @@ WIFI_HIDL_FEATURE_DUAL_INTERFACE:= true
 WIFI_FEATURE_WIFI_EXT_HAL := true
 WIFI_FEATURE_IMU_DETECTION := true
 WIFI_HIDL_UNIFIED_SUPPLICANT_SERVICE_RC_ENTRY := true
+BOARD_HOSTAPD_CONFIG_80211W_MFP_OPTIONAL := true
 
 # Audio
 BOARD_USES_ALSA_AUDIO := true
@@ -509,19 +512,20 @@ PRODUCT_COPY_FILES += \
     device/google/redbull/modules.blocklist:$(TARGET_COPY_OUT_VENDOR)/lib/modules/modules.blocklist \
     device/google/redbull/init.insmod.charger.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.charger.cfg \
 
-# TARGET_BOOLOADER_BOARD_NAME sensitive common boilerplate
-
+# TARGET_BOOTLOADER_BOARD_NAME sensitive common boilerplate
+# We can't use a variable as the prefix to an include statement
+# because it makes it too difficult to convert to starlark
 TARGET_BOARD_NAME_DIR := device/google/$(TARGET_BOOTLOADER_BOARD_NAME)
--include $(TARGET_BOARD_NAME_DIR:%/=%)-sepolicy/$(TARGET_BOOTLOADER_BOARD_NAME)-sepolicy.mk
+-include device/google/$(TARGET_BOOTLOADER_BOARD_NAME)-sepolicy/$(TARGET_BOOTLOADER_BOARD_NAME)-sepolicy.mk
 
 TARGET_BOARD_INFO_FILE := $(TARGET_BOARD_NAME_DIR)/board-info.txt
 TARGET_BOARD_COMMON_PATH := $(TARGET_BOARD_NAME_DIR)/sm7250
 
 # Common kernel file handling
-ifneq (,$(filter $(TARGET_DEVICE),bramble redfin))
+ifneq (,$(filter $(TARGET_DEVICE),bramble redfin barbet))
     TARGET_KERNEL_DIR := device/google/redbull-kernel
 else
-    TARGET_KERNEL_DIR := $(TARGET_BOARD_NAME_DIR:%/=%)-kernel
+    TARGET_KERNEL_DIR := $(TARGET_BOARD_NAME_DIR)-kernel
 endif
 
 # DTBO partition definitions

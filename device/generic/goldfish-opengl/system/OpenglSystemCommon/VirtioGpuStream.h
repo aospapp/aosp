@@ -30,7 +30,7 @@ struct VirtioGpuCmd;
 class VirtioGpuProcessPipe : public ProcessPipe
 {
 public:
-    virtual bool processPipeInit(HostConnectionType connType, renderControl_encoder_context_t *rcEnc);
+    virtual bool processPipeInit(int stream_handle, HostConnectionType connType, renderControl_encoder_context_t *rcEnc);
 };
 
 class VirtioGpuStream : public IOStream

@@ -35,7 +35,6 @@ import android.util.TypedValue;
 import android.view.ViewGroup;
 import android.widget.Button;
 import androidx.annotation.ColorInt;
-import androidx.annotation.VisibleForTesting;
 import com.google.android.setupcompat.R;
 import com.google.android.setupcompat.internal.FooterButtonPartnerConfig;
 import com.google.android.setupcompat.internal.Preconditions;
@@ -429,7 +428,7 @@ public class FooterButtonStyleUtils {
     defaultTextColor.clear();
   }
 
-  @VisibleForTesting
+  /** Gets {@code GradientDrawable} from given {@code button}. */
   public static GradientDrawable getGradientDrawable(Button button) {
     // RippleDrawable is available after sdk 21, InsetDrawable#getDrawable is available after
     // sdk 19. So check the sdk is higher than sdk 21 and since Stencil customization provider only

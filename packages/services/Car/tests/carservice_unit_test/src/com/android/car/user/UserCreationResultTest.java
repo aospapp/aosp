@@ -18,11 +18,15 @@ package com.android.car.user;
 import static android.car.user.UserCreationResult.STATUS_ANDROID_FAILURE;
 import static android.car.user.UserCreationResult.STATUS_HAL_FAILURE;
 import static android.car.user.UserCreationResult.STATUS_HAL_INTERNAL_FAILURE;
+import static android.car.user.UserCreationResult.STATUS_INVALID_REQUEST;
 import static android.car.user.UserCreationResult.STATUS_SUCCESSFUL;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.testng.Assert.expectThrows;
+
 import android.car.user.UserCreationResult;
+import android.os.UserHandle;
 
 import org.junit.Test;
 
@@ -31,14 +35,38 @@ public final class UserCreationResultTest {
     @Test
     public void testIsSuccess() {
         assertThat(new UserCreationResult(STATUS_SUCCESSFUL).isSuccess()).isTrue();
-        assertThat(new UserCreationResult(STATUS_SUCCESSFUL, null, null).isSuccess()).isTrue();
-        assertThat(new UserCreationResult(STATUS_HAL_FAILURE, null, null).isSuccess()).isFalse();
         assertThat(new UserCreationResult(STATUS_HAL_FAILURE).isSuccess()).isFalse();
-        assertThat(new UserCreationResult(STATUS_HAL_INTERNAL_FAILURE, null, null).isSuccess())
-                .isFalse();
         assertThat(new UserCreationResult(STATUS_HAL_INTERNAL_FAILURE).isSuccess()).isFalse();
-        assertThat(new UserCreationResult(STATUS_ANDROID_FAILURE, null, null).isSuccess())
-                .isFalse();
+        assertThat(new UserCreationResult(STATUS_INVALID_REQUEST).isSuccess()).isFalse();
         assertThat(new UserCreationResult(STATUS_ANDROID_FAILURE).isSuccess()).isFalse();
+    }
+
+    @Test
+    public void testConstructor_invalidStatus() {
+        expectThrows(IllegalArgumentException.class, ()-> new UserCreationResult(42));
+    }
+
+    @Test
+    public void testConstructor_statusOnly() {
+        UserCreationResult result = new UserCreationResult(STATUS_SUCCESSFUL);
+
+        assertThat(result.getStatus()).isEqualTo(STATUS_SUCCESSFUL);
+        assertThat(result.getAndroidFailureStatus()).isNull();
+        assertThat(result.getUser()).isNull();
+        assertThat(result.getErrorMessage()).isNull();
+        assertThat(result.getInternalErrorMessage()).isNull();
+    }
+
+    @Test
+    public void testConstructor_statusAndUserOnly() {
+        UserHandle user = UserHandle.of(108);
+
+        UserCreationResult result = new UserCreationResult(STATUS_SUCCESSFUL, user);
+
+        assertThat(result.getStatus()).isEqualTo(STATUS_SUCCESSFUL);
+        assertThat(result.getAndroidFailureStatus()).isNull();
+        assertThat(result.getUser()).isEqualTo(user);
+        assertThat(result.getErrorMessage()).isNull();
+        assertThat(result.getInternalErrorMessage()).isNull();
     }
 }

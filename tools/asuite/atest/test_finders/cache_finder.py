@@ -78,6 +78,8 @@ class CacheFinder(test_finder_base.TestFinderBase):
         if not self._is_latest_testinfos(test_infos):
             return False
         for t_info in test_infos:
+            if t_info.test_runner == 'BazelTestRunner':
+                return False
             if not self._is_test_path_valid(t_info):
                 return False
             if not self._is_test_build_target_valid(t_info):

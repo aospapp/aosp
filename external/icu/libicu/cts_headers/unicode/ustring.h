@@ -72,16 +72,11 @@
  * their occurrence is rare. Almost all characters in modern use require only
  * a single UChar code unit (i.e., their code point values are <=0xffff).
  *
- * For more details see the User Guide Strings chapter (http://icu-project.org/userguide/strings.html).
+ * For more details see the User Guide Strings chapter (https://unicode-org.github.io/icu/userguide/strings/).
  * For a discussion of the handling of unpaired surrogates see also
  * Jitterbug 2145 and its icu mailing list proposal on 2002-sep-18.
  */
 
-/**
- * \defgroup ustring_ustrlen String Length
- * \ingroup ustring_strlen
- */
-/*@{*/
 /**
  * Determine the length of an array of UChar.
  *
@@ -91,7 +86,6 @@
  */
 U_CAPI int32_t U_EXPORT2
 u_strlen(const UChar *s);
-/*@}*/
 
 /**
  * Count Unicode code points in the length UChar code units of the string.

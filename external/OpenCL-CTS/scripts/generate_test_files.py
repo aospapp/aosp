@@ -11,10 +11,6 @@ TEST_JSON_PATH = os.path.join(SCRIPT_DIR, TEST_JSON)
 
 
 def write_one_cc_test(test_details, f):
-  # TODO(b/161524664): Remove this exception for spir
-  if test_details['test_name'] == 'spir':
-    return
-
   stringified_sources = map(lambda s: f'"{s}"', test_details['srcs'])
   stringified_data = map(lambda s: f'"{s}"', test_details.get('data', []))
   stringified_cflags = map(lambda s: f'"{s}"', test_details.get('cflags', []))

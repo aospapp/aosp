@@ -14,14 +14,18 @@ namespace openscreen {
 namespace cast {
 namespace {
 
-constexpr EnumNameTable<AudioCodec, 2> kAudioCodecNames{
-    {{"aac", AudioCodec::kAac}, {"opus", AudioCodec::kOpus}}};
+constexpr EnumNameTable<AudioCodec, 3> kAudioCodecNames{
+    {{"aac", AudioCodec::kAac},
+     {"opus", AudioCodec::kOpus},
+     {"REMOTE_AUDIO", AudioCodec::kNotSpecified}}};
 
-constexpr EnumNameTable<VideoCodec, 4> kVideoCodecNames{
+constexpr EnumNameTable<VideoCodec, 6> kVideoCodecNames{
     {{"h264", VideoCodec::kH264},
      {"vp8", VideoCodec::kVp8},
      {"hevc", VideoCodec::kHevc},
-     {"vp9", VideoCodec::kVp9}}};
+     {"REMOTE_VIDEO", VideoCodec::kNotSpecified},
+     {"vp9", VideoCodec::kVp9},
+     {"av1", VideoCodec::kAv1}}};
 
 }  // namespace
 

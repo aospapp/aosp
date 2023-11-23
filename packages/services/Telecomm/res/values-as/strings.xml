@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"পে\'ফ\'নৰ পৰা অহা কল অৱৰোধ কৰক"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"অজ্ঞাত"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"অচিনাক্ত কল কৰোঁতাৰ পৰা অহা কল অৱৰোধ কৰক"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"উপলব্ধ নহয়"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"নম্বৰ উপলব্ধ নোহোৱা কল অৱৰোধ কৰক"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"কল অৱৰোধ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"কল অৱৰোধ সুবিধাটো অক্ষম কৰি থোৱা আছে"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"জৰুৰীকালীন কল ম\'ড"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"আপোনাক যাতে জৰুৰীকালীন সেৱা প্ৰদানকাৰীসকলে যোগাযোগ কৰিব পাৰে তাৰ বাবে কল অৱৰোধ সুবিধাটো অক্ষম কৰি থোৱা হৈছে।"</string>
     <string name="developer_title" msgid="9146088855661672353">"দূৰ-সংযোগ সম্পৰ্কীয় বিকাশকৰ্তাৰ মেনু"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"কোনো জৰুৰীকালীন কলত থাকিলে কলসমূহ গ্ৰহণ কৰিব নোৱাৰি।"</string>
+    <string name="cancel" msgid="6733466216239934756">"বাতিল কৰক"</string>
 </resources>

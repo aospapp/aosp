@@ -4,10 +4,6 @@ PRODUCT_PACKAGES := \
 	com.example.android.platform_library \
 	libplatform_library_jni
 
-# Manually copy the optional library XML files in the system image.
-PRODUCT_COPY_FILES := \
-    device/sample/frameworks/PlatformLibrary/com.example.android.platform_library.xml:system/etc/permissions/com.example.android.platform_library.xml
-
 # name of the add-on
 PRODUCT_SDK_ADDON_NAME := platform_library
 
@@ -36,8 +32,8 @@ PRODUCT_SDK_ADDON_STUB_DEFS := $(LOCAL_PATH)/addon_stub_defs
 # in the documentation section.
 PRODUCT_SDK_ADDON_DOC_MODULES := platform_library
 
-# This add-on extends the default sdk product.
-$(call inherit-product, $(SRC_TARGET_DIR)/product/sdk.mk)
+# This add-on extends the arm emulator/sdk product.
+$(call inherit-product, $(SRC_TARGET_DIR)/product/sdk_phone_armv7.mk)
 
 # Real name of the add-on. This is the name used to build the add-on.
 # Use 'lunch <PRODUCT_NAME>-userdebug; m sdk_addon' to build the add-on.

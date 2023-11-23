@@ -22,6 +22,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
@@ -29,6 +31,8 @@ import com.android.cts.verifier.R;
  * Tests that a new {@link android.telecom.ConnectionService} be added and its associated
  * {@link android.telecom.PhoneAccount} enabled using the calling accounts settings screen.
  */
+@ApiTest(apis={"android.telecom.ConnectionService", "android.telecom.PhoneAccount"})
+@CddTest(requirement="3.2.3.5/C-2-3")
 public class EnablePhoneAccountTestActivity extends PassFailButtons.Activity {
 
     private Button mRegisterPhoneAccount;

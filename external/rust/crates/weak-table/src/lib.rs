@@ -1,4 +1,3 @@
-#![doc(html_root_url = "https://docs.rs/weak-table/0.3.0")]
 //! This library offers a variety of weak hash tables:
 //!
 //!   - For a hash map where the keys are held by weak pointers and compared by key value, see
@@ -27,7 +26,32 @@
 //! To add support for your own weak pointers, see
 //! [the traits `WeakElement` and `WeakKey`](traits/).
 //!
-//! This crate supports Rust version 1.32 and later.
+//! ## Rust version support
+//!
+//! This crate supports Rust version 1.46 and later.
+//!
+//! ## Asymptotic complexity
+//!
+//! Most operations have documented asymptotic time complexities. When time complexities are
+//! given in big-*O* notation, the following parameters are used consistently:
+//!
+//!   - *n*: the *capacity* of the map or set being accessed or constructed
+//!
+//!   - *m*: the *capacity* of a second map/set involved in a submap/subset operation
+//!
+//!   - *p*: the length of the probe sequence for the key in question
+//!
+//! Note that *p* ∈ *O*(*n*), but we expect it to be *O*(1).
+//!
+//! # Crate features
+//!
+//! `weak-table` is built with the `std` feature, which enables
+//! functionality dependent on the `std` library, enabled by default.
+//! Optionally, the following dependency may be enabled:
+//!
+//!   - `ahash`: use `ahash`’s hasher rather than the `std` hasher
+//!
+//! If the `std` feature is disabled (for no_std) then the `ahash` dependency **must** be enabled.
 //!
 //! # Examples
 //!
@@ -117,7 +141,11 @@
 //! }
 //! ```
 
-use std::collections::hash_map::RandomState;
+#![doc(html_root_url = "https://docs.rs/weak-table/0.3.2")]
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use self::compat::*;
 
 pub mod traits;
 pub mod weak_key_hash_map;
@@ -128,6 +156,7 @@ pub mod ptr_weak_weak_hash_map;
 pub mod weak_hash_set;
 pub mod ptr_weak_hash_set;
 
+mod compat;
 mod util;
 mod by_ptr;
 mod size_policy;

@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Stilling fyrir svarhringingu neyðarsímtala"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Slökkt á gagnatengingu"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Engin gagnatenging þangað til <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">Síminn verður í stillingu fyrir svarhringingu neyðarsímtala í <xliff:g id="COUNT_1">%s</xliff:g> mínútu. Þegar hann er í þessari stillingu er ekki hægt að nota nein forrit sem krefjast gagnatengingar. Viltu hætta núna?</item>
-      <item quantity="other">Síminn verður í stillingu fyrir svarhringingu neyðarsímtala í <xliff:g id="COUNT_1">%s</xliff:g> mínútur. Þegar hann er í þessari stillingu er ekki hægt að nota nein forrit sem krefjast gagnatengingar. Viltu hætta núna?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">Þessi aðgerð er ekki í boði þegar síminn er í stillingu fyrir svarhringingu neyðarsímtala. Síminn verður í þessari stillingu í <xliff:g id="COUNT_1">%s</xliff:g> mínútu. Viltu hætta núna?</item>
-      <item quantity="other">Þessi aðgerð er ekki í boði þegar síminn er í stillingu fyrir svarhringingu neyðarsímtala. Síminn verður í þessari stillingu í <xliff:g id="COUNT_1">%s</xliff:g> mínútur. Viltu hætta núna?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Þessi aðgerð er ekki í boði í neyðarsímtali."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Fer úr stillingu fyrir svarhringingu neyðarsímtala"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Já"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Hunsa"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Síminn er í stillingu fyrir svarhringingu neyðarsímtala"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Til <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">Síminn verður í stillingu fyrir svarhringingu neyðarsímtala í <xliff:g id="COUNT_1">%s</xliff:g> mínútu.\nViltu hætta núna?</item>
-      <item quantity="other">Síminn verður í stillingu fyrir svarhringingu neyðarsímtala í <xliff:g id="COUNT_1">%s</xliff:g> mínútur.\nViltu hætta núna?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Þjónusta"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Uppsetning"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Ekki valið&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Aðgengi"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi símtal frá"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi símtal"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Ýttu aftur til að opna"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Villa kom upp við að afkóða skeytið."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM-kort hefur virkjað þjónustuna þína og uppfært reikigetu símans."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Of mörg símtöl eru virk. Ljúktu eða sameinaðu fyrirliggjandi símtöl áður en þú hringir nýtt."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Ekki er hægt að hringja símtal þar sem þegar er verið að hringja annað símtal."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Ekki er hægt að hringja símtal þar sem ósvarað símtal er að berast. Svaraðu eða hafnaðu símtalinu áður en þú hringir nýtt símtal."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Ekki er hægt að hringja símtal þar sem símtöl hafa verið gerð óvirk með því að nota kerfiseiginleikann ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Ekki er hægt að hringja símtal þar sem þegar eru tvö símtöl í gangi. Aftengdu annað símtalið eða sameinaðu þau í símafund áður en þú hringir nýtt símtal."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Ekki er hægt að hringja símtal vegna þess að þegar eru tvö símtöl í gangi. Aftengdu annað símtalið eða sameinaðu þau í símafund áður en þú hringir nýtt símtal."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Til að nota <xliff:g id="SUPP_SERVICE">%s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum. Þú getur breytt þessu í stillingum farsímakerfis."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Til að nota <xliff:g id="SUPP_SERVICE">%s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum og gagnareiki. Þú getur breytt þessu í stillingum farsímakerfis."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Til að nota <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum fyrir SIM-kortið <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Þú getur breytt þessu í stillingum farsímakerfis."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Endurræsa þarf tækið til að breyta þessari stillingu."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Endurræsa"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Hætta við"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Stilla laust eSIM sem sjálfgefið"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Loftnetsstyrkur farsíma"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Skoða símaskrá SIM-korts"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Skoða læst númeraval"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Velja útvarpstíðni"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Netkerfi raddþjónustu:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Tegund gagnanets:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Hnekkja tegund netkerfis:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Velja atriðaskrá síma"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Veldu kjörsímkerfi:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping Hostname(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Endurnýja"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Kveikja/slökkva á DNS-prófun"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Upplýsingar/stillingar framleiðanda"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC tiltækt:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR takmarkað:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR tiltækt:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR staða:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC tiltækt (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR takmarkað (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR tiltækt (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR staða (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR tíðni:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Velja útvarpstíðni"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Hleður lista yfir tíðnisvið…"</string>

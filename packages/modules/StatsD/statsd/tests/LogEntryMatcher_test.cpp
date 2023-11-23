@@ -107,6 +107,36 @@ void makeBoolLogEvent(LogEvent* logEvent, const int32_t atomId, const int64_t ti
     parseStatsEventToLogEvent(statsEvent, logEvent);
 }
 
+void makeRepeatedIntLogEvent(LogEvent* logEvent, const int32_t atomId,
+                             const vector<int>& intArray) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomId);
+    AStatsEvent_writeInt32Array(statsEvent, intArray.data(), intArray.size());
+    parseStatsEventToLogEvent(statsEvent, logEvent);
+}
+
+void makeRepeatedUidLogEvent(LogEvent* logEvent, const int32_t atomId,
+                             const vector<int>& intArray) {
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomId);
+    AStatsEvent_writeInt32Array(statsEvent, intArray.data(), intArray.size());
+    AStatsEvent_addBoolAnnotation(statsEvent, ANNOTATION_ID_IS_UID, true);
+    parseStatsEventToLogEvent(statsEvent, logEvent);
+}
+
+void makeRepeatedStringLogEvent(LogEvent* logEvent, const int32_t atomId,
+                                const vector<string>& stringArray) {
+    vector<const char*> cStringArray(stringArray.size());
+    for (int i = 0; i < cStringArray.size(); i++) {
+        cStringArray[i] = stringArray[i].c_str();
+    }
+
+    AStatsEvent* statsEvent = AStatsEvent_obtain();
+    AStatsEvent_setAtomId(statsEvent, atomId);
+    AStatsEvent_writeStringArray(statsEvent, cStringArray.data(), stringArray.size());
+    parseStatsEventToLogEvent(statsEvent, logEvent);
+}
+
 }  // anonymous namespace
 
 TEST(AtomMatcherTest, TestSimpleMatcher) {
@@ -211,7 +241,8 @@ TEST(AtomMatcherTest, TestAttributionMatcher) {
             {android::String16("pkg0"), android::String16("pkg1"), android::String16("pkg1"),
              android::String16("Pkg2"), android::String16("PkG3")} /* package name list */,
             {android::String16(""), android::String16(""), android::String16(""),
-             android::String16(""), android::String16("")});
+             android::String16(""), android::String16("")},
+            /* certificateHash */ {{}, {}, {}, {}, {}});
 
     EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
     attributionMatcher->mutable_matches_tuple()->mutable_field_value_matcher(0)->set_eq_string(
@@ -364,7 +395,8 @@ TEST(AtomMatcherTest, TestUidFieldMatcher) {
             {android::String16("pkg0"), android::String16("pkg1"), android::String16("pkg1"),
              android::String16("Pkg2"), android::String16("PkG3")} /* package name list */,
             {android::String16(""), android::String16(""), android::String16(""),
-             android::String16(""), android::String16("")});
+             android::String16(""), android::String16("")},
+            /* certificateHash */ {{}, {}, {}, {}, {}});
 
     // Set up matcher
     AtomMatcher matcher;
@@ -387,11 +419,12 @@ TEST(AtomMatcherTest, TestUidFieldMatcher) {
     EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event2));
 
     // Event has is_uid annotation, but uid maps to different package name.
-    simpleMatcher->mutable_field_value_matcher(0)->set_eq_string("Pkg2");
+    simpleMatcher->mutable_field_value_matcher(0)->set_eq_string(
+            "pkg2");  // package names are normalized
     EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event2));
 }
 
-TEST(AtomMatcherTest, TestNeqAnyStringMatcher) {
+TEST(AtomMatcherTest, TestRepeatedUidFieldMatcher) {
     sp<UidMap> uidMap = new UidMap();
     uidMap->updateMap(
             1, {1111, 1111, 2222, 3333, 3333} /* uid list */, {1, 1, 2, 1, 2} /* version list */,
@@ -400,7 +433,95 @@ TEST(AtomMatcherTest, TestNeqAnyStringMatcher) {
             {android::String16("pkg0"), android::String16("pkg1"), android::String16("pkg1"),
              android::String16("Pkg2"), android::String16("PkG3")} /* package name list */,
             {android::String16(""), android::String16(""), android::String16(""),
-             android::String16(""), android::String16("")});
+             android::String16(""), android::String16("")},
+            /* certificateHash */ {{}, {}, {}, {}, {}});
+
+    // Set up matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+
+    // No is_uid annotation, no mapping from uid to package name.
+    vector<int> intArray = {1111, 3333, 2222};
+    LogEvent event1(/*uid=*/0, /*pid=*/0);
+    makeRepeatedIntLogEvent(&event1, TAG_ID, intArray);
+
+    fieldValueMatcher->set_position(Position::FIRST);
+    fieldValueMatcher->set_eq_string("pkg0");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event1));
+
+    fieldValueMatcher->set_position(Position::LAST);
+    fieldValueMatcher->set_eq_string("pkg1");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event1));
+
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_eq_string("pkg2");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event1));
+
+    // is_uid annotation, mapping from uid to package name.
+    LogEvent event2(/*uid=*/0, /*pid=*/0);
+    makeRepeatedUidLogEvent(&event2, TAG_ID, intArray);
+
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event2));
+    fieldValueMatcher->set_eq_string("pkg0");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event2));
+
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event2));
+    fieldValueMatcher->set_eq_string("pkg1");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event2));
+
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_eq_string("pkg");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event2));
+    fieldValueMatcher->set_eq_string("pkg2");  // package names are normalized
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event2));
+}
+
+TEST(AtomMatcherTest, TestNeqAnyStringMatcher_SingleString) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the matcher
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    StringListMatcher* neqStringList = fieldValueMatcher->mutable_neq_any_string();
+    neqStringList->add_str_value("some value");
+    neqStringList->add_str_value("another value");
+
+    // First string matched.
+    LogEvent event1(/*uid=*/0, /*pid=*/0);
+    makeStringLogEvent(&event1, TAG_ID, 0, "some value");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event1));
+
+    // Second string matched.
+    LogEvent event2(/*uid=*/0, /*pid=*/0);
+    makeStringLogEvent(&event2, TAG_ID, 0, "another value");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event2));
+
+    // No strings matched.
+    LogEvent event3(/*uid=*/0, /*pid=*/0);
+    makeStringLogEvent(&event3, TAG_ID, 0, "foo");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event3));
+}
+
+TEST(AtomMatcherTest, TestNeqAnyStringMatcher_AttributionUids) {
+    sp<UidMap> uidMap = new UidMap();
+    uidMap->updateMap(
+            1, {1111, 1111, 2222, 3333, 3333} /* uid list */, {1, 1, 2, 1, 2} /* version list */,
+            {android::String16("v1"), android::String16("v1"), android::String16("v2"),
+             android::String16("v1"), android::String16("v2")},
+            {android::String16("pkg0"), android::String16("pkg1"), android::String16("pkg1"),
+             android::String16("Pkg2"), android::String16("PkG3")} /* package name list */,
+            {android::String16(""), android::String16(""), android::String16(""),
+             android::String16(""), android::String16("")},
+            /* certificateHash */ {{}, {}, {}, {}, {}});
 
     std::vector<int> attributionUids = {1111, 2222, 3333, 1066};
     std::vector<string> attributionTags = {"location1", "location2", "location3", "location3"};
@@ -461,7 +582,8 @@ TEST(AtomMatcherTest, TestEqAnyStringMatcher) {
             {android::String16("pkg0"), android::String16("pkg1"), android::String16("pkg1"),
              android::String16("Pkg2"), android::String16("PkG3")} /* package name list */,
             {android::String16(""), android::String16(""), android::String16(""),
-             android::String16(""), android::String16("")});
+             android::String16(""), android::String16("")},
+            /* certificateHash */ {{}, {}, {}, {}, {}});
 
     std::vector<int> attributionUids = {1067, 2222, 3333, 1066};
     std::vector<string> attributionTags = {"location1", "location2", "location3", "location3"};
@@ -565,6 +687,284 @@ TEST(AtomMatcherTest, TestStringMatcher) {
 
     // Test
     EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestIntMatcher_EmptyRepeatedField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    makeRepeatedIntLogEvent(&event, TAG_ID, {});
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+
+    // Match first int.
+    fieldValueMatcher->set_position(Position::FIRST);
+    fieldValueMatcher->set_eq_int(9);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match last int.
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match any int.
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_eq_int(13);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestIntMatcher_RepeatedIntField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<int> intArray = {21, 9};
+    makeRepeatedIntLogEvent(&event, TAG_ID, intArray);
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    // Match first int.
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    fieldValueMatcher->set_position(Position::FIRST);
+    fieldValueMatcher->set_eq_int(9);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_int(21);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match last int.
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_int(9);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match any int.
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_eq_int(13);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_int(21);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_int(9);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestLtIntMatcher_RepeatedIntField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<int> intArray = {21, 9};
+    makeRepeatedIntLogEvent(&event, TAG_ID, intArray);
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    // Match first int.
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    fieldValueMatcher->set_position(Position::FIRST);
+    fieldValueMatcher->set_lt_int(9);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(21);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(23);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match last int.
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(9);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(8);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match any int.
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_lt_int(21);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(8);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_lt_int(23);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestStringMatcher_RepeatedStringField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<string> strArray = {"str1", "str2", "str3"};
+    makeRepeatedStringLogEvent(&event, TAG_ID, strArray);
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    // Match first int.
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    fieldValueMatcher->set_position(Position::FIRST);
+    fieldValueMatcher->set_eq_string("str2");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_string("str1");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match last int.
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_string("str3");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    // Match any int.
+    fieldValueMatcher->set_position(Position::ANY);
+    fieldValueMatcher->set_eq_string("str4");
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_string("str1");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_string("str2");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    fieldValueMatcher->set_eq_string("str3");
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestEqAnyStringMatcher_RepeatedStringField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<string> strArray = {"str1", "str2", "str3"};
+    makeRepeatedStringLogEvent(&event, TAG_ID, strArray);
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    StringListMatcher* eqStringList = fieldValueMatcher->mutable_eq_any_string();
+
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    eqStringList->add_str_value("str4");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    eqStringList->add_str_value("str2");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    eqStringList->add_str_value("str3");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    eqStringList->add_str_value("str1");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+}
+
+TEST(AtomMatcherTest, TestNeqAnyStringMatcher_RepeatedStringField) {
+    sp<UidMap> uidMap = new UidMap();
+
+    // Set up the log event.
+    LogEvent event(/*uid=*/0, /*pid=*/0);
+    vector<string> strArray = {"str1", "str2", "str3"};
+    makeRepeatedStringLogEvent(&event, TAG_ID, strArray);
+
+    // Set up the matcher.
+    AtomMatcher matcher;
+    SimpleAtomMatcher* simpleMatcher = matcher.mutable_simple_atom_matcher();
+    simpleMatcher->set_atom_id(TAG_ID);
+
+    FieldValueMatcher* fieldValueMatcher = simpleMatcher->add_field_value_matcher();
+    fieldValueMatcher->set_field(FIELD_ID_1);
+    StringListMatcher* neqStringList = fieldValueMatcher->mutable_neq_any_string();
+
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    neqStringList->add_str_value("str4");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    neqStringList->add_str_value("str2");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    neqStringList->add_str_value("str3");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_TRUE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+
+    neqStringList->add_str_value("str1");
+    fieldValueMatcher->set_position(Position::FIRST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::LAST);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
+    fieldValueMatcher->set_position(Position::ANY);
+    EXPECT_FALSE(matchesSimple(uidMap, *simpleMatcher, event));
 }
 
 TEST(AtomMatcherTest, TestMultiFieldsMatcher) {

@@ -87,6 +87,7 @@ java_library_host {
 apex {
     name: "apex.test",
     manifest: "testdata/apex_manifest.json",
+    androidManifest: "testdata/AndroidManifest.xml",
     prebuilts: ["sample_prebuilt_file"],
     key: "apex.test.key",
     certificate: ":apex.test.certificate",
@@ -220,12 +221,98 @@ java_test_host {
 
 android_test_helper_app {
     name: "apex_compression_tests_app",
-    manifest: "app/AndroidManifest.xml",
-    srcs: ["app/src/**/*.java"],
+    manifest: "app/ApexCompressionTests_AndroidManifest.xml",
+    srcs: ["app/src/**/ApexCompressionTests.java"],
     static_libs: ["androidx.test.rules", "cts-install-lib", "cts-rollback-lib", "testng"],
     test_suites: ["general-tests"],
     java_resources: [
         ":com.android.apex.compressed.v1_original",
         ":com.android.apex.compressed.v2_original",
     ]
+}
+
+java_test_host {
+    name: "apex_apkinapex_tests",
+    srcs:  ["src/**/ApkInApexTests.java"],
+    libs: ["tradefed", "truth-prebuilt"],
+    static_libs: ["cts-install-lib-host", "frameworks-base-hostutils", "testng"],
+    test_config: "apk-in-apex-tests.xml",
+    test_suites: ["general-tests"],
+    data: [
+        ":apex_apkinapex_tests_app",
+    ],
+    java_resources: [
+        ":com.android.apex.product.test",
+        ":com.android.apex.product.app.test.xml",
+        ":com.android.apex.system.test",
+        ":com.android.apex.system.app.test.xml",
+        ":com.android.apex.system_ext.test",
+        ":com.android.apex.system_ext.app.test.xml",
+        ":com.android.apex.vendor.test",
+        ":com.android.apex.vendor.app.test.xml",
+    ],
+}
+
+cc_test_library {
+    name: "libApkInApex_jni",
+    gtest: false,
+    srcs: [
+        "app/jni/com_android_tests_apex_app_ApkInApexTests.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    header_libs: [
+        "jni_headers"
+    ],
+    stl: "c++_shared",
+    sdk_version: "current",
+}
+
+java_test_host {
+    name: "apex_apkinapexmaxsdk_tests",
+    srcs: ["src/**/MaxSdkTests.java"],
+    libs: [
+        "tradefed",
+        "truth-prebuilt"
+    ],
+    static_libs: [
+        "cts-install-lib-host",
+        "frameworks-base-hostutils",
+        "testng"
+    ],
+    test_config: "max-sdk-tests.xml",
+    test_suites: ["general-tests"],
+    data: [
+        ":apex_maxsdk_tests_app",
+        ":apex_maxsdk_regular_app_tests",
+    ],
+    java_resources: [
+        ":com.android.apex.maxsdk.test",
+    ],
+}
+
+android_test_helper_app {
+    name: "apex_apkinapex_tests_app",
+    manifest: "app/ApkInApexTests_AndroidManifest.xml",
+    srcs: ["app/src/**/ApkInApexTests.java"],
+    jni_libs: [
+        "libApkInApex_jni",
+    ],
+    static_libs: ["androidx.test.rules", "cts-install-lib", "cts-rollback-lib", "testng"],
+    test_suites: ["general-tests"],
+}
+
+android_test_helper_app {
+    name: "apex_maxsdk_tests_app",
+    manifest: "app/MaxSdkTests_AndroidManifest.xml",
+    srcs: ["app/src/**/MaxSdkTests.java"],
+    static_libs: ["androidx.test.rules", "cts-install-lib", "cts-rollback-lib", "testng"],
+    test_suites: ["general-tests"],
+}
+
+android_test_helper_app {
+    name: "apex_maxsdk_regular_app_tests",
+    manifest: "testdata/maxsdk/app/AndroidManifest_normalApp.xml",
 }

@@ -483,7 +483,7 @@ class EnvironmentImpl implements Environment {
     private static class HandlerExecutor implements Executor {
         private final Handler mHandler;
 
-        public HandlerExecutor(@NonNull Handler handler) {
+        HandlerExecutor(@NonNull Handler handler) {
             mHandler = Objects.requireNonNull(handler);
         }
 
@@ -495,7 +495,7 @@ class EnvironmentImpl implements Environment {
         }
     }
 
-    private static abstract class BaseCancellable implements Cancellable {
+    private abstract static class BaseCancellable implements Cancellable {
         final String mIdentifier;
         boolean mCancelled = false;
 

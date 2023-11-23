@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -86,12 +87,17 @@ public class ScoringParams {
         /** CandidateScorer parameters */
         public int throughputBonusNumerator = 120;
         public int throughputBonusDenominator = 433;
-        public int throughputBonusLimit = 200;
+        public int throughputBonusNumeratorAfter800Mbps = 1;
+        public int throughputBonusDenominatorAfter800Mbps = 16;
+        public boolean enable6GhzBeaconRssiBoost = true;
+        public int throughputBonusLimit = 320;
         public int savedNetworkBonus = 500;
         public int unmeteredNetworkBonus = 1000;
-        public int currentNetworkBonusMin = 20;
+        public int currentNetworkBonusMin = 16;
         public int currentNetworkBonusPercent = 20;
         public int secureNetworkBonus = 40;
+        public int band6GhzBonus = 0;
+        public int scoringBucketStepSize = 500;
         public int lastSelectionMinutes = 480;
         public int estimateRssiErrorMargin = 5;
         public static final int MIN_MINUTES = 1;
@@ -268,6 +274,12 @@ public class ScoringParams {
                 R.integer.config_wifiFrameworkThroughputBonusNumerator);
         mVal.throughputBonusDenominator = context.getResources().getInteger(
                 R.integer.config_wifiFrameworkThroughputBonusDenominator);
+        mVal.throughputBonusNumeratorAfter800Mbps = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkThroughputBonusNumeratorAfter800Mbps);
+        mVal.throughputBonusDenominatorAfter800Mbps = context.getResources().getInteger(
+                R.integer.config_wifiFrameworkThroughputBonusDenominatorAfter800Mbps);
+        mVal.enable6GhzBeaconRssiBoost = context.getResources().getBoolean(
+                R.bool.config_wifiEnable6GhzBeaconRssiBoost);
         mVal.throughputBonusLimit = context.getResources().getInteger(
                 R.integer.config_wifiFrameworkThroughputBonusLimit);
         mVal.savedNetworkBonus = context.getResources().getInteger(
@@ -280,6 +292,9 @@ public class ScoringParams {
             R.integer.config_wifiFrameworkCurrentNetworkBonusPercent);
         mVal.secureNetworkBonus = context.getResources().getInteger(
                 R.integer.config_wifiFrameworkSecureNetworkBonus);
+        mVal.band6GhzBonus = context.getResources().getInteger(R.integer.config_wifiBand6GhzBonus);
+        mVal.scoringBucketStepSize = context.getResources().getInteger(
+                R.integer.config_wifiScoringBucketStepSize);
         mVal.lastSelectionMinutes = context.getResources().getInteger(
                 R.integer.config_wifiFrameworkLastSelectionMinutes);
         mVal.estimateRssiErrorMargin = context.getResources().getInteger(
@@ -305,7 +320,7 @@ public class ScoringParams {
      */
     @VisibleForTesting
     public boolean update(String kvList) {
-        if (kvList == null || "".equals(kvList)) {
+        if (TextUtils.isEmpty(kvList)) {
             return true;
         }
         if (!("," + kvList).matches(COMMA_KEY_VAL_STAR)) {
@@ -429,6 +444,27 @@ public class ScoringParams {
         return mVal.throughputBonusDenominator;
     }
 
+    /**
+     * Getter for throughput numerator after 800Mbps.
+     */
+    public int getThroughputBonusNumeratorAfter800Mbps() {
+        return mVal.throughputBonusNumeratorAfter800Mbps;
+    }
+
+    /**
+     * Getter for throughput denominator after 800Mbps.
+     */
+    public int getThroughputBonusDenominatorAfter800Mbps() {
+        return mVal.throughputBonusDenominatorAfter800Mbps;
+    }
+
+    /**
+     * Feature flag for boosting 6Ghz RSSI based on channel width.
+     */
+    public boolean is6GhzBeaconRssiBoostEnabled() {
+        return mVal.enable6GhzBeaconRssiBoost;
+    }
+
     /*
      * Returns the maximum bonus for the network selection candidate score
      * for the contribution of the selected score.
@@ -476,6 +512,23 @@ public class ScoringParams {
      */
     public int getSecureNetworkBonus() {
         return mVal.secureNetworkBonus;
+    }
+
+    /**
+     * Returns the bonus given if the network belongs to the 6Ghz band.
+     */
+    public int getBand6GhzBonus() {
+        return mVal.band6GhzBonus;
+    }
+
+    /**
+     * Returns the expected amount of score to reach the next tier during candidate scoring. This
+     * value should be configured according to the value of parameters that determine the
+     * scoring buckets such as {@code config_wifiFrameworkSavedNetworkBonus} and
+     * {@code config_wifiFrameworkUnmeteredNetworkBonus}.
+     */
+    public int getScoringBucketStepSize() {
+        return mVal.scoringBucketStepSize;
     }
 
     /*

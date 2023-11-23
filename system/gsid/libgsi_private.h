@@ -28,8 +28,5 @@ static constexpr char kInstallStatusOk[] = "ok";
 static constexpr char kInstallStatusWipe[] = "wipe";
 static constexpr char kInstallStatusDisabled[] = "disabled";
 
-// We are looking for /data to have at least 40% free space.
-static constexpr uint32_t kMinimumFreeSpaceThreshold = 40;
-
 }  // namespace gsi
 }  // namespace android

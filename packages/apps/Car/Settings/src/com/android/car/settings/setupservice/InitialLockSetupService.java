@@ -110,7 +110,8 @@ public class InitialLockSetupService extends Service {
                 case LockTypes.PIN:
                     // fall through
                 case LockTypes.PATTERN:
-                    return new LockConfig(/* enabled= */ true, PasswordHelper.MIN_LENGTH);
+                    return new LockConfig(/* enabled= */ true,
+                            LockPatternUtils.MIN_LOCK_PATTERN_SIZE);
             }
             return null;
         }
@@ -121,10 +122,12 @@ public class InitialLockSetupService extends Service {
             PasswordHelper passwordHelper;
             switch (lockType) {
                 case LockTypes.PASSWORD:
-                    passwordHelper = new PasswordHelper(/* isPin= */ false);
+                    passwordHelper = new PasswordHelper(getApplicationContext(),
+                            /* isPin= */ false, getUserId());
                     return passwordHelper.validateSetupWizard(password);
                 case LockTypes.PIN:
-                    passwordHelper = new PasswordHelper(/* isPin= */ true);
+                    passwordHelper = new PasswordHelper(getApplicationContext(),
+                            /* isPin= */ true, getUserId());
                     return passwordHelper.validateSetupWizard(password);
                 case LockTypes.PATTERN:
                     return password.length >= LockPatternUtils.MIN_LOCK_PATTERN_SIZE

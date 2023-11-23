@@ -1,4 +1,4 @@
-<abi-corpus version='2.0' path='data/test-read-dwarf/test7.so'>
+<abi-corpus version='2.1' path='data/test-read-dwarf/test7.so'>
   <elf-function-symbols>
     <elf-symbol name='_Z3fooR1S' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
   </elf-function-symbols>
@@ -49,13 +49,12 @@
         <var-decl name='f' type-id='type-id-8' visibility='default' filepath='/home/ooprala/rh/u/libabigail/tests/data/test-read-dwarf/test7.cc' line='8' column='1'/>
       </data-member>
     </class-decl>
-    <qualified-type-def type-id='type-id-23' id='type-id-24'/>
     <reference-type-def kind='lvalue' type-id='type-id-22' size-in-bits='64' id='type-id-23'/>
     <pointer-type-def type-id='type-id-1' size-in-bits='64' id='type-id-2'/>
     <pointer-type-def type-id='type-id-14' size-in-bits='64' id='type-id-15'/>
     <pointer-type-def type-id='type-id-16' size-in-bits='64' id='type-id-18'/>
     <function-decl name='foo' mangled-name='_Z3fooR1S' filepath='/home/ooprala/rh/u/libabigail/tests/data/test-read-dwarf/test7.cc' line='11' column='1' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='_Z3fooR1S'>
-      <parameter type-id='type-id-24'/>
+      <parameter type-id='type-id-23'/>
       <return type-id='type-id-14'/>
     </function-decl>
   </abi-instr>

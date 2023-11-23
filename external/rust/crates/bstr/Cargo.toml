@@ -3,16 +3,16 @@
 # When uploading crates to the registry Cargo will automatically
 # "normalize" Cargo.toml files for maximal compatibility
 # with all versions of Cargo and also rewrite `path` dependencies
-# to registry (e.g., crates.io) dependencies
+# to registry (e.g., crates.io) dependencies.
 #
-# If you believe there's an error in this file please file an
-# issue against the rust-lang/cargo repository. If you're
-# editing this file be aware that the upstream Cargo.toml
-# will likely look very different (and much more reasonable)
+# If you are reading this file be aware that the original Cargo.toml
+# will likely look very different (and much more reasonable).
+# See Cargo.toml.orig for the original contents.
 
 [package]
+edition = "2018"
 name = "bstr"
-version = "0.2.15"
+version = "0.2.17"
 authors = ["Andrew Gallant <jamslam@gmail.com>"]
 exclude = ["/.github"]
 description = "A string type that is not required to be valid UTF-8."
@@ -29,11 +29,11 @@ debug = true
 [lib]
 bench = false
 [dependencies.lazy_static]
-version = "1.2"
+version = "1.2.0"
 optional = true
 
 [dependencies.memchr]
-version = "2.1.2"
+version = "2.4.0"
 default-features = false
 
 [dependencies.regex-automata]
@@ -59,10 +59,5 @@ version = "1.2.1"
 default = ["std", "unicode"]
 serde1 = ["std", "serde1-nostd", "serde/std"]
 serde1-nostd = ["serde"]
-std = ["memchr/use_std"]
+std = ["memchr/std"]
 unicode = ["lazy_static", "regex-automata"]
-[badges.appveyor]
-repository = "BurntSushi/bstr"
-
-[badges.travis-ci]
-repository = "BurntSushi/bstr"

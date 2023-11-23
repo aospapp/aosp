@@ -18,8 +18,9 @@ package {
 
 cc_library_headers {
     name: "bpf_syscall_wrappers",
-    vendor_available: false,
-    host_supported: false,
+    vendor_available: true,
+    recovery_available: true,
+    host_supported: true,
     native_bridge_supported: true,
     export_include_dirs: ["include"],
     cflags: [
@@ -30,11 +31,8 @@ cc_library_headers {
     min_sdk_version: "30",
     apex_available: [
         "//apex_available:platform",
+        "com.android.art.debug",
+        "com.android.mediaprovider",
         "com.android.tethering",
-    ],
-    visibility: [
-        "//packages/modules/Connectivity/Tethering",
-        "//system/bpf/libbpf_android",
-        "//system/memory/lmkd",
     ],
 }

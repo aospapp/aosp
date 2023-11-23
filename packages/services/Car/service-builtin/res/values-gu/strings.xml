@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"ડ્રાઇવ કરતી વખતે તમે આ સુવિધાનો ઉપયોગ કરી શકતા નથી"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"સુરક્ષિત ઍપ્લિકેશન સુવિધાઓ સાથે ફરી શરૂ કરવા, <xliff:g id="EXIT_BUTTON">%s</xliff:g> પસંદ કરો."</string>
+    <string name="exit_button" msgid="3491899413031549265">"પાછળ"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"ઍપ બંધ કરો"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"પાછળ"</string>
+    <string name="importance_default" msgid="8017186728206153704">"ડિફૉલ્ટ મહત્ત્વ"</string>
+    <string name="importance_high" msgid="3393374688015554727">"ખૂબ જ મહત્ત્વની"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Android સિસ્ટમ"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"ફેક્ટરી રીસેટ આવશ્યક છે"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"ઇન્ફોટેનમેન્ટ સિસ્ટમનો બધો ડેટા કાઢી નાખવામાં આવશે. રીસેટ કર્યા પછી તમે નવી પ્રોફાઇલ સેટઅપ કરી શકો છો."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"વધુ"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"તમારું ઉપકરણ કાઢી નાખવામાં આવશે"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"વ્યવસ્થાપક ઍપનો ઉપયોગ કરી શકાશે નહીં. તમારું ડિવાઇસ હવે કાઢી નાખવામાં આવશે.\n\nજો તમને પ્રશ્નો હોય, તો તમારી સંસ્થાના ઍડમિનનો સંપર્ક કરો."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> તમારી સિસ્ટમની કાર્યક્ષમતાને અસર કરી રહી છે"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"સિસ્ટમની કાર્યક્ષમતા બહેતર બનાવવા માટે, ઍપ બંધ કરો. તમે સેટિંગમાંથી ઍપ ફરીથી ચાલુ કરી શકશો."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"ઍપનો ઉપયોગ કરવાનું ચાલુ રાખવા માટે, ઍપને પ્રાધાન્યતા આપો."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"સિસ્ટમની કાર્યક્ષમતા બહેતર બનાવવા માટે, ઍપ અનઇન્સ્ટૉલ કરો."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"ઍપ બંધ કરો"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"ઍપને પ્રાધાન્યતા આપો"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"ઍપ અનઇન્સ્ટૉલ કરો"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> બંધ કરવામાં આવી છે. તમે સેટિંગમાંથી તેને ફરીથી ચાલુ કરી શકો છો."</string>
+</resources>

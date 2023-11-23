@@ -29,7 +29,7 @@ public final class DeviceAdminReceiverUtils {
     private static final String TAG = DeviceAdminReceiverUtils.class.getSimpleName();
     private static final boolean DEBUG = false;
 
-    private static final String ACTION_DISABLE_SELF = "disable_self";
+    public static final String ACTION_DISABLE_SELF = "disable_self";
 
     /**
      * Disables itself as profile / owner upon receiving a {@value #ACTION_DISABLE_SELF} intent.

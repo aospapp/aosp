@@ -44,6 +44,7 @@ import com.android.permissioncontroller.permission.model.AppPermissions;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
         implements Preference.OnPreferenceChangeListener {
@@ -70,6 +71,7 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
     private AppPermissions mAppPermissions;
 
     private PreferenceCategory mNewPermissionsCategory;
+    private PreferenceCategory mCurrentPermissionsCategory;
 
     private boolean mHasConfirmedRevoke;
 
@@ -128,7 +130,7 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
             screen.removeAll();
         }
 
-        PreferenceGroup currentPermissionsCategory = null;
+        mCurrentPermissionsCategory = null;
         PreferenceGroup oldNewPermissionsCategory = mNewPermissionsCategory;
         mNewPermissionsCategory = null;
 
@@ -157,7 +159,11 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
                 preference.setOnPreferenceChangeListener(this);
             }
 
-            preference.setChecked(group.areRuntimePermissionsGranted());
+            if (group.isReviewRequired() ) {
+                preference.setChecked(true);
+            } else {
+                preference.setChecked(group.areRuntimePermissionsGranted());
+            }
 
             // Mutable state
             if (group.isSystemFixed() || group.isPolicyFixed()) {
@@ -180,16 +186,15 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
                     mNewPermissionsCategory.addPreference(preference);
                 }
             } else {
-                if (currentPermissionsCategory == null) {
-                    currentPermissionsCategory = new PreferenceCategory(activity);
-                    currentPermissionsCategory.setTitle(R.string.current_permissions_category);
-                    currentPermissionsCategory.setOrder(ORDER_CURRENT_PERMS);
-                    screen.addPreference(currentPermissionsCategory);
+                if (mCurrentPermissionsCategory == null) {
+                    mCurrentPermissionsCategory = new PreferenceCategory(activity);
+                    mCurrentPermissionsCategory.setTitle(R.string.current_permissions_category);
+                    mCurrentPermissionsCategory.setOrder(ORDER_CURRENT_PERMS);
+                    screen.addPreference(mCurrentPermissionsCategory);
                 }
-                currentPermissionsCategory.addPreference(preference);
+                mCurrentPermissionsCategory.addPreference(preference);
             }
         }
-
         addTitlePreferenceToScreen(screen);
         addActionPreferencesToScreen(screen);
     }
@@ -228,33 +233,48 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
         new WearableDialogHelper.DialogBuilder(getContext())
                 .setPositiveIcon(R.drawable.cancel_button)
                 .setNegativeIcon(R.drawable.confirm_button)
-                .setPositiveButton(R.string.cancel, null)
-                .setNegativeButton(R.string.grant_dialog_button_deny_anyway,
-                        (dialog, which) -> {
-                            preference.setChecked(false);
-                            mHasConfirmedRevoke = true;
-                        })
+                .setPositiveButton(R.string.grant_dialog_button_deny_anyway, (dialog, which) -> {
+                    preference.setChecked(false);
+                    mHasConfirmedRevoke = true;
+                })
+                .setNegativeButton(R.string.cancel, null)
                 .setMessage(R.string.old_sdk_deny_warning)
                 .show();
     }
 
     private void confirmPermissionsReview() {
-        PreferenceGroup preferenceGroup = mNewPermissionsCategory != null
-                ? mNewPermissionsCategory : getPreferenceScreen();
+        final List<PreferenceGroup> preferenceGroups = new ArrayList<>();
+        if (mNewPermissionsCategory != null) {
+            preferenceGroups.add(mNewPermissionsCategory);
+        }
+        if (mCurrentPermissionsCategory != null) {
+            preferenceGroups.add(mCurrentPermissionsCategory);
+        }
+        if (preferenceGroups.isEmpty()){
+            PreferenceScreen preferenceScreen = getPreferenceScreen();
+            if (preferenceScreen != null) {
+                preferenceGroups.add(preferenceScreen);
+            }
+        }
 
-        final int preferenceCount = preferenceGroup.getPreferenceCount();
-        for (int i = 0; i < preferenceCount; i++) {
-            Preference preference = preferenceGroup.getPreference(i);
-            if (preference instanceof TwoStatePreference) {
-                TwoStatePreference twoStatePreference = (TwoStatePreference) preference;
-                String groupName = preference.getKey();
-                AppPermissionGroup group = mAppPermissions.getPermissionGroup(groupName);
-                if (twoStatePreference.isChecked()) {
-                    group.grantRuntimePermissions(true, false);
-                } else {
-                    group.revokeRuntimePermissions(false);
+        if (preferenceGroups.isEmpty()) {
+            return;
+        }
+        for (PreferenceGroup preferenceGroup: preferenceGroups) {
+            final int preferenceCount = preferenceGroup.getPreferenceCount();
+            for (int i = 0; i < preferenceCount; i++) {
+                Preference preference = preferenceGroup.getPreference(i);
+                if (preference instanceof TwoStatePreference) {
+                    TwoStatePreference twoStatePreference = (TwoStatePreference) preference;
+                    String groupName = preference.getKey();
+                    AppPermissionGroup group = mAppPermissions.getPermissionGroup(groupName);
+                    if (twoStatePreference.isChecked()) {
+                        group.grantRuntimePermissions(true, false);
+                    } else {
+                        group.revokeRuntimePermissions(false);
+                    }
+                    group.unsetReviewRequired();
                 }
-                group.unsetReviewRequired();
             }
         }
     }
@@ -320,6 +340,7 @@ public class ReviewPermissionsWearFragment extends PreferenceFragmentCompat
         continuePref.setOnPreferenceClickListener(p -> {
             confirmPermissionsReview();
             executeCallback(true);
+            activity.setResult(Activity.RESULT_OK);
             getActivity().finish();
             return true;
         });

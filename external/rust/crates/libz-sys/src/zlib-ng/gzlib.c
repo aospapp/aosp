@@ -4,6 +4,7 @@
  */
 
 #include "zbuild.h"
+#include "zutil_p.h"
 #include "gzguts.h"
 
 #if defined(_WIN32)
@@ -53,7 +54,7 @@ static gzFile gz_open(const void *path, int fd, const char *mode) {
         return NULL;
 
     /* allocate gzFile structure to return */
-    state = (gz_state *)malloc(sizeof(gz_state));
+    state = (gz_state *)zng_alloc(sizeof(gz_state));
     if (state == NULL)
         return NULL;
     state->size = 0;            /* no buffers allocated yet */
@@ -82,7 +83,7 @@ static gzFile gz_open(const void *path, int fd, const char *mode) {
                 break;
 #endif
             case '+':       /* can't read and write at the same time */
-                free(state);
+                zng_free(state);
                 return NULL;
             case 'b':       /* ignore -- will request binary anyway */
                 break;
@@ -120,14 +121,14 @@ static gzFile gz_open(const void *path, int fd, const char *mode) {
 
     /* must provide an "r", "w", or "a" */
     if (state->mode == GZ_NONE) {
-        free(state);
+        zng_free(state);
         return NULL;
     }
 
     /* can't force transparent read */
     if (state->mode == GZ_READ) {
         if (state->direct) {
-            free(state);
+            zng_free(state);
             return NULL;
         }
         state->direct = 1;      /* for empty file */
@@ -144,7 +145,7 @@ static gzFile gz_open(const void *path, int fd, const char *mode) {
         len = strlen((const char *)path);
     state->path = (char *)malloc(len + 1);
     if (state->path == NULL) {
-        free(state);
+        zng_free(state);
         return NULL;
     }
 #ifdef WIDECHAR
@@ -189,7 +190,7 @@ static gzFile gz_open(const void *path, int fd, const char *mode) {
         open((const char *)path, oflag, 0666));
     if (state->fd == -1) {
         free(state->path);
-        free(state);
+        zng_free(state);
         return NULL;
     }
     if (state->mode == GZ_APPEND) {
@@ -240,6 +241,20 @@ gzFile Z_EXPORT PREFIX(gzopen_w)(const wchar_t *path, const char *mode) {
     return gz_open(path, -2, mode);
 }
 #endif
+
+int Z_EXPORT PREFIX(gzclose)(gzFile file) {
+#ifndef NO_GZCOMPRESS
+    gz_state *state;
+
+    if (file == NULL)
+        return Z_STREAM_ERROR;
+    state = (gz_state *)file;
+
+    return state->mode == GZ_READ ? PREFIX(gzclose_r)(file) : PREFIX(gzclose_w)(file);
+#else
+    return PREFIX(gzclose_r)(file);
+#endif
+}
 
 /* -- see zlib.h -- */
 int Z_EXPORT PREFIX(gzbuffer)(gzFile file, unsigned size) {

@@ -31,11 +31,13 @@ import android.platform.test.annotations.AsbSecurityTest;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2021_0309 {
+public class CVE_2021_0309 extends StsExtraBusinessLogicTestCase {
     private final Context mContext = InstrumentationRegistry.getContext();
     boolean isVulnerable = true;
 

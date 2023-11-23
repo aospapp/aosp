@@ -32,7 +32,7 @@ class Label(object):
                cache_only,
                log_level,
                compiler,
-               skylab=False,
+               crosfleet=False,
                chrome_src=None):
 
     self.image_type = self._GetImageType(chromeos_image)
@@ -55,7 +55,7 @@ class Label(object):
     self.log_level = log_level
     self.chrome_version = ''
     self.compiler = compiler
-    self.skylab = skylab
+    self.crosfleet = crosfleet
 
     if not chromeos_root:
       if self.image_type == 'local':
@@ -153,7 +153,7 @@ class MockLabel(object):
                cache_only,
                log_level,
                compiler,
-               skylab=False,
+               crosfleet=False,
                chrome_src=None):
     self.name = name
     self.build = build
@@ -174,7 +174,7 @@ class MockLabel(object):
     self.checksum = ''
     self.log_level = log_level
     self.compiler = compiler
-    self.skylab = skylab
+    self.crosfleet = crosfleet
     self.chrome_version = 'Fake Chrome Version 50'
 
   def _GetImageType(self, chromeos_image):

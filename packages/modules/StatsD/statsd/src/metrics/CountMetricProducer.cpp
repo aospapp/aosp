@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "CountMetricProducer.h"
@@ -77,7 +77,7 @@ CountMetricProducer::CountMetricProducer(
         const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap)
     : MetricProducer(metric.id(), key, timeBaseNs, conditionIndex, initialConditionCache, wizard,
                      protoHash, eventActivationMap, eventDeactivationMap, slicedStateAtoms,
-                     stateGroupMap) {
+                     stateGroupMap, getAppUpgradeBucketSplit(metric)) {
     if (metric.has_bucket()) {
         mBucketSizeNs =
                 TimeUnitToBucketSizeInMillisGuardrailed(key.GetUid(), metric.bucket()) * 1000000;
@@ -90,7 +90,7 @@ CountMetricProducer::CountMetricProducer(
         mContainANYPositionInDimensionsInWhat = HasPositionANY(metric.dimensions_in_what());
     }
 
-    mSliceByPositionALL = HasPositionALL(metric.dimensions_in_what());
+    mShouldUseNestedDimensions = ShouldUseNestedDimensions(metric.dimensions_in_what());
 
     if (metric.links().size() > 0) {
         for (const auto& link : metric.links()) {
@@ -224,8 +224,8 @@ void CountMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_TIME_BASE, (long long)mTimeBaseNs);
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BUCKET_SIZE, (long long)mBucketSizeNs);
 
-    // Fills the dimension path if not slicing by ALL.
-    if (!mSliceByPositionALL) {
+    // Fills the dimension path if not slicing by a primitive repeated field or position ALL.
+    if (!mShouldUseNestedDimensions) {
         if (!mDimensionsInWhat.empty()) {
             uint64_t dimenPathToken = protoOutput->start(
                     FIELD_TYPE_MESSAGE | FIELD_ID_DIMENSION_PATH_IN_WHAT);
@@ -244,7 +244,7 @@ void CountMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
                 protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_DATA);
 
         // First fill dimension.
-        if (mSliceByPositionALL) {
+        if (mShouldUseNestedDimensions) {
             uint64_t dimensionToken = protoOutput->start(
                     FIELD_TYPE_MESSAGE | FIELD_ID_DIMENSION_IN_WHAT);
             writeDimensionToProto(dimensionKey.getDimensionKeyInWhat(), str_set, protoOutput);
@@ -418,27 +418,30 @@ void CountMetricProducer::flushCurrentBucketLocked(const int64_t& eventTimeNs,
         }
     }
 
-    // If we have finished a full bucket, then send this to anomaly tracker.
-    if (eventTimeNs > fullBucketEndTimeNs) {
-        // Accumulate partial buckets with current value and then send to anomaly tracker.
-        if (mCurrentFullCounters->size() > 0) {
+    // Only update mCurrentFullCounters if any anomaly tackers are present.
+    if (mAnomalyTrackers.size() > 0) {
+        // If we have finished a full bucket, then send this to anomaly tracker.
+        if (eventTimeNs > fullBucketEndTimeNs) {
+            // Accumulate partial buckets with current value and then send to anomaly tracker.
+            if (mCurrentFullCounters->size() > 0) {
+                for (const auto& keyValuePair : *mCurrentSlicedCounter) {
+                    (*mCurrentFullCounters)[keyValuePair.first] += keyValuePair.second;
+                }
+                for (auto& tracker : mAnomalyTrackers) {
+                    tracker->addPastBucket(mCurrentFullCounters, mCurrentBucketNum);
+                }
+                mCurrentFullCounters = std::make_shared<DimToValMap>();
+            } else {
+                // Skip aggregating the partial buckets since there's no previous partial bucket.
+                for (auto& tracker : mAnomalyTrackers) {
+                    tracker->addPastBucket(mCurrentSlicedCounter, mCurrentBucketNum);
+                }
+            }
+        } else {
+            // Accumulate partial bucket.
             for (const auto& keyValuePair : *mCurrentSlicedCounter) {
                 (*mCurrentFullCounters)[keyValuePair.first] += keyValuePair.second;
             }
-            for (auto& tracker : mAnomalyTrackers) {
-                tracker->addPastBucket(mCurrentFullCounters, mCurrentBucketNum);
-            }
-            mCurrentFullCounters = std::make_shared<DimToValMap>();
-        } else {
-            // Skip aggregating the partial buckets since there's no previous partial bucket.
-            for (auto& tracker : mAnomalyTrackers) {
-                tracker->addPastBucket(mCurrentSlicedCounter, mCurrentBucketNum);
-            }
-        }
-    } else {
-        // Accumulate partial bucket.
-        for (const auto& keyValuePair : *mCurrentSlicedCounter) {
-            (*mCurrentFullCounters)[keyValuePair.first] += keyValuePair.second;
         }
     }
 

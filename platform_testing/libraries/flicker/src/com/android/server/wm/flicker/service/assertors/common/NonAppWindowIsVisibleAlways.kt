@@ -30,6 +30,6 @@ class NonAppWindowIsVisibleAlways(windowName: String) : ComponentBaseTest(window
         wmSubject: WindowManagerTraceSubject,
         layerSubject: LayersTraceSubject
     ) {
-        wmSubject.isNonAppWindowVisible(component)
+        wmSubject.isNonAppWindowVisible(component).forAllEntries()
     }
 }

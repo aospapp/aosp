@@ -16,6 +16,8 @@
 
 package com.android.server.wifi;
 
+import android.net.wifi.WifiContext;
+
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;

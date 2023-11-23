@@ -1239,12 +1239,12 @@ int32_t ExynosMPP::setupLayer(exynos_mpp_img_info *srcImgInfo, struct exynos_ima
 
     if (mPhysicalType == MPP_G2D) {
         setFenceName(srcImgInfo->acrylicAcquireFenceFd, FENCE_G2D_SRC_LAYER);
-        setFenceInfo(srcImgInfo->acrylicAcquireFenceFd, mAssignedDisplay,
-                FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_G2D, FENCE_TO);
+        setFenceInfo(srcImgInfo->acrylicAcquireFenceFd, mAssignedDisplay, FENCE_TYPE_SRC_ACQUIRE,
+                     FENCE_IP_G2D, HwcFenceDirection::TO);
     } else if (mPhysicalType == MPP_MSC) {
         setFenceName(srcImgInfo->acrylicAcquireFenceFd, FENCE_MSC_SRC_LAYER);
-        setFenceInfo(srcImgInfo->acrylicAcquireFenceFd, mAssignedDisplay,
-                FENCE_TYPE_SRC_ACQUIRE, FENCE_IP_MSC, FENCE_TO);
+        setFenceInfo(srcImgInfo->acrylicAcquireFenceFd, mAssignedDisplay, FENCE_TYPE_SRC_ACQUIRE,
+                     FENCE_IP_MSC, HwcFenceDirection::TO);
     } else {
         MPP_LOGE("%s:: invalid mPhysicalType(%d)", __func__, mPhysicalType);
     }
@@ -1367,13 +1367,13 @@ int32_t ExynosMPP::setupDst(exynos_mpp_img_info *dstImgInfo)
     if (mPhysicalType == MPP_G2D) {
         setFenceName(dstImgInfo->acrylicAcquireFenceFd, FENCE_G2D_DST_DPP);
         /* Might be closed next frame */
-        setFenceInfo(dstImgInfo->acrylicAcquireFenceFd, mAssignedDisplay,
-                FENCE_TYPE_DST_ACQUIRE, FENCE_IP_G2D, FENCE_TO);
+        setFenceInfo(dstImgInfo->acrylicAcquireFenceFd, mAssignedDisplay, FENCE_TYPE_DST_ACQUIRE,
+                     FENCE_IP_G2D, HwcFenceDirection::TO);
     } else if (mPhysicalType == MPP_MSC) {
         setFenceName(dstImgInfo->acrylicAcquireFenceFd, FENCE_MSC_DST_DPP);
         /* Might be closed next frame */
-        setFenceInfo(dstImgInfo->acrylicAcquireFenceFd, mAssignedDisplay,
-                FENCE_TYPE_DST_ACQUIRE, FENCE_IP_MSC, FENCE_TO);
+        setFenceInfo(dstImgInfo->acrylicAcquireFenceFd, mAssignedDisplay, FENCE_TYPE_DST_ACQUIRE,
+                     FENCE_IP_MSC, HwcFenceDirection::TO);
     } else {
         MPP_LOGE("%s:: invalid mPhysicalType(%d)", __func__, mPhysicalType);
     }
@@ -1512,23 +1512,23 @@ int32_t ExynosMPP::doPostProcessingInternal()
 
         // set fence informations from acryl
         if (mPhysicalType == MPP_G2D) {
-            setFenceInfo(releaseFences[dstBufIdx], mAssignedDisplay,
-                    FENCE_TYPE_DST_ACQUIRE, FENCE_IP_G2D, FENCE_FROM);
+            setFenceInfo(releaseFences[dstBufIdx], mAssignedDisplay, FENCE_TYPE_DST_ACQUIRE,
+                         FENCE_IP_G2D, HwcFenceDirection::FROM);
             if (usingFenceCnt > 1) {
                 for(size_t i = 0; i < sourceNum; i++) {
                     // TODO DPU release fence is tranferred to m2mMPP's source layer fence
-                    setFenceInfo(releaseFences[i], mAssignedDisplay,
-                            FENCE_TYPE_SRC_RELEASE, FENCE_IP_G2D, FENCE_FROM);
+                    setFenceInfo(releaseFences[i], mAssignedDisplay, FENCE_TYPE_SRC_RELEASE,
+                                 FENCE_IP_G2D, HwcFenceDirection::FROM);
                 }
             }
         } else if (mPhysicalType == MPP_MSC) {
-            setFenceInfo(releaseFences[dstBufIdx], mAssignedDisplay,
-                    FENCE_TYPE_DST_ACQUIRE, FENCE_IP_MSC, FENCE_FROM);
+            setFenceInfo(releaseFences[dstBufIdx], mAssignedDisplay, FENCE_TYPE_DST_ACQUIRE,
+                         FENCE_IP_MSC, HwcFenceDirection::FROM);
             if (usingFenceCnt > 1) {
                 for(size_t i = 0; i < sourceNum; i++) {
                     // TODO DPU release fence is tranferred to m2mMPP's source layer fence
-                    setFenceInfo(releaseFences[i], mAssignedDisplay,
-                            FENCE_TYPE_SRC_RELEASE, FENCE_IP_MSC, FENCE_FROM);
+                    setFenceInfo(releaseFences[i], mAssignedDisplay, FENCE_TYPE_SRC_RELEASE,
+                                 FENCE_IP_MSC, HwcFenceDirection::FROM);
                 }
             }
         } else {

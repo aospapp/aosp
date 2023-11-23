@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -46,9 +47,7 @@ func processClangFlags(builder *commandBuilder) error {
 	//
 	// Use of -Qunused-arguments allows this set to be small, just those
 	// that clang still warns about.
-	unsupported := map[string]bool{
-		"-pass-exit-codes": true,
-	}
+	unsupported := make(map[string]bool)
 
 	unsupportedPrefixes := []string{"-Wstrict-aliasing=", "-finline-limit="}
 
@@ -64,11 +63,8 @@ func processClangFlags(builder *commandBuilder) error {
 
 	// Clang may use different options for the same or similar functionality.
 	gccToClang := map[string]string{
-		"-Wno-error=cpp":                     "-Wno-#warnings",
-		"-Wno-error=maybe-uninitialized":     "-Wno-error=uninitialized",
-		"-Wno-error=unused-but-set-variable": "-Wno-error=unused-variable",
-		"-Wno-unused-but-set-variable":       "-Wno-unused-variable",
-		"-Wunused-but-set-variable":          "-Wunused-variable",
+		"-Wno-error=cpp":                 "-Wno-#warnings",
+		"-Wno-error=maybe-uninitialized": "-Wno-error=uninitialized",
 	}
 
 	// Note: not using builder.transformArgs as we need to add multiple arguments
@@ -130,25 +126,16 @@ func processClangFlags(builder *commandBuilder) error {
 
 	// Specify the target for clang.
 	if !builder.cfg.isHostWrapper {
-		linkerPath := getLinkerPath(env, builder.target.target+"-ld", builder.rootPath)
+		linkerPath := getLinkerPath(env, builder.target.target+"-ld.bfd", builder.rootPath)
 		relLinkerPath, err := filepath.Rel(env.getwd(), linkerPath)
 		if err != nil {
 			return wrapErrorwithSourceLocf(err, "failed to make linker path %s relative to %s",
 				linkerPath, env.getwd())
 		}
+		prefixPath := path.Join(relLinkerPath, builder.target.target+"-")
+		builder.addPreUserArgs("--prefix=" + prefixPath)
 		builder.addPostUserArgs("-B" + relLinkerPath)
-		if startswithI86(builder.target.arch) {
-			// TODO: -target i686-pc-linux-gnu causes clang to search for
-			// libclang_rt.asan-i686.a which doesn't exist because it's packaged
-			// as libclang_rt.asan-i386.a. We can't use -target i386-pc-linux-gnu
-			// because then it would try to run i386-pc-linux-gnu-ld which doesn't
-			// exist. Consider renaming the runtime library to use i686 in its name.
-			builder.addPostUserArgs("-m32")
-			// clang does not support -mno-movbe. This is the alternate way to do it.
-			builder.addPostUserArgs("-Xclang", "-target-feature", "-Xclang", "-movbe")
-		} else {
-			builder.addPostUserArgs("-target", builder.target.target)
-		}
+		builder.addPostUserArgs("-target", builder.target.target)
 	}
 	return nil
 }

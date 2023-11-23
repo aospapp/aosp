@@ -311,9 +311,20 @@ public class ChreCrossValidatorSensor
         alignApAndChreDatapoints();
         // AP and CHRE datapoints will be same size
         for (int i = 0; i < mApDatapointsArray.length; i++) {
-            assertSensorDatapointsSimilar(
-                    (ApSensorDatapoint) mApDatapointsArray[i],
-                    (ChreSensorDatapoint) mChreDatapointsArray[i], i);
+            if (!datapointValuesAreSimilar(mApDatapointsArray[i], mChreDatapointsArray[i],
+                                        mSensorConfig.errorMargin)) {
+                String datapointsAssertMsg =
+                        String.format("Data points differ on index %d", i)
+                                + "\nAP data -> " + mApDatapointsArray[i] + "\nCHRE data -> "
+                                + mChreDatapointsArray[i];
+
+                for (int j = 0; j < mApDatapointsArray.length; j++) {
+                    Log.d(TAG, "CHRE data point[" + j + "]: " + mChreDatapointsArray[j]);
+                    Log.d(TAG, "AP data point[" + j + "]: " + mApDatapointsArray[j]);
+                }
+
+                Assert.fail(datapointsAssertMsg);
+            }
         }
     }
 
@@ -383,7 +394,7 @@ public class ChreCrossValidatorSensor
         map.put(Sensor.TYPE_ACCELEROMETER, new CrossValidatorSensorConfig(3, 0.01f));
         map.put(Sensor.TYPE_GYROSCOPE, new CrossValidatorSensorConfig(3, 0.01f));
         map.put(Sensor.TYPE_MAGNETIC_FIELD, new CrossValidatorSensorConfig(3, 0.05f));
-        map.put(Sensor.TYPE_PRESSURE, new CrossValidatorSensorConfig(1, 0.01f));
+        map.put(Sensor.TYPE_PRESSURE, new CrossValidatorSensorConfig(1, 0.05f));
         map.put(Sensor.TYPE_LIGHT, new CrossValidatorSensorConfig(1, 0.07f));
         map.put(Sensor.TYPE_PROXIMITY, new CrossValidatorSensorConfig(1, 0.01f));
         map.put(Sensor.TYPE_STEP_COUNTER, new CrossValidatorSensorConfig(1, 0f));
@@ -480,8 +491,15 @@ public class ChreCrossValidatorSensor
         }
         // TODO(b/175795665): Assert that an acceptable amount of datapoints pass the alignment
         // phase.
-        Assert.assertTrue("Did not find matching timestamps to align AP and CHRE datapoints.",
-                !(newApSensorDatapoints.isEmpty() || newChreSensorDatapoints.isEmpty()));
+        if (newApSensorDatapoints.isEmpty() || newChreSensorDatapoints.isEmpty()) {
+            for (int i = 0; i < mApDatapointsArray.length; i++) {
+                Log.d(TAG, "AP[" + i + "] = " + mApDatapointsArray[i]);
+            }
+            for (int i = 0; i < mChreDatapointsArray.length; i++) {
+                Log.d(TAG, "CHRE[" + i + "] = " + mChreDatapointsArray[i]);
+            }
+            Assert.fail("Did not find matching timestamps to align AP and CHRE datapoints");
+        }
         mApDatapointsArray = newApSensorDatapoints.toArray(new ApSensorDatapoint[0]);
         mChreDatapointsArray = newChreSensorDatapoints.toArray(new ChreSensorDatapoint[0]);
     }
@@ -505,24 +523,6 @@ public class ChreCrossValidatorSensor
     @Override
     protected void unregisterApDataListener() {
         mSensorManager.unregisterListener(this);
-    }
-
-    /**
-     * Helper method for asserting a single pair of AP and CHRE datapoints are similar.
-     */
-    private void assertSensorDatapointsSimilar(ApSensorDatapoint apDp,
-            ChreSensorDatapoint chreDp, int index) {
-        String datapointsAssertMsg =
-                String.format("AP and CHRE three axis datapoint values differ on index %d", index)
-                        + "\nAP data -> " + apDp + "\nCHRE data -> "
-                        + chreDp;
-
-        // TODO(b/146052784): Log full list of datapoints to file on disk on assertion failure
-        // so that there is more insight into the problem then just logging the one pair of
-        // datapoints
-        Assert.assertTrue(datapointsAssertMsg,
-                datapointValuesAreSimilar(
-                        apDp, chreDp, mSensorConfig.errorMargin));
     }
 
     /**

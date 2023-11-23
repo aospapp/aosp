@@ -31,4 +31,9 @@ java_test_host {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsInstalledLoadingProgressDeviceTests",
+        ":CtsInstalledLoadingProgressTestsRegisterApp",
+    ],
+    per_testcase_directory: true,
 }

@@ -21,7 +21,7 @@
 #include <android-base/file.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
-#include <binder/Enums.h>
+#include <utils/Log.h>
 
 #include <tinyxml2.h>
 
@@ -34,53 +34,53 @@ namespace frameworks {
 namespace automotive {
 namespace powerpolicy {
 
-using android::base::Error;
-using android::base::Result;
-using android::base::StartsWith;
-using android::base::StringAppendF;
-using android::base::StringPrintf;
-using android::base::WriteStringToFd;
-using android::hardware::automotive::vehicle::V2_0::VehicleApPowerStateReport;
-using tinyxml2::XML_SUCCESS;
-using tinyxml2::XMLDocument;
-using tinyxml2::XMLElement;
+using ::aidl::android::frameworks::automotive::powerpolicy::CarPowerPolicy;
+using ::aidl::android::frameworks::automotive::powerpolicy::PowerComponent;
+using ::aidl::android::hardware::automotive::vehicle::VehicleApPowerStateReport;
+using ::android::base::Error;
+using ::android::base::Result;
+using ::android::base::StartsWith;
+using ::android::base::StringAppendF;
+using ::android::base::StringPrintf;
+using ::android::base::WriteStringToFd;
+using ::tinyxml2::XML_SUCCESS;
+using ::tinyxml2::XMLDocument;
+using ::tinyxml2::XMLElement;
 
 namespace {
 
 // Vendor power policy filename.
-constexpr const char* kVendorPolicyFile = "/vendor/etc/automotive/power_policy.xml";
+constexpr const char kVendorPolicyFile[] = "/vendor/etc/automotive/power_policy.xml";
 
 // Tags and attributes in vendor power policy XML file.
-constexpr const char* kTagRoot = "powerPolicy";
-constexpr const char* kTagPolicyGroups = "policyGroups";
-constexpr const char* kTagPolicyGroup = "policyGroup";
-constexpr const char* kTagDefaultPolicy = "defaultPolicy";
-constexpr const char* kTagNoDefaultPolicy = "noDefaultPolicy";
-constexpr const char* kTagPolicies = "policies";
-constexpr const char* kTagPolicy = "policy";
-constexpr const char* kTagOtherComponents = "otherComponents";
-constexpr const char* kTagComponent = "component";
-constexpr const char* kTagSystemPolicyOverrides = "systemPolicyOverrides";
-constexpr const char* kAttrBehavior = "behavior";
-constexpr const char* kAttrId = "id";
-constexpr const char* kAttrState = "state";
+constexpr const char kTagRoot[] = "powerPolicy";
+constexpr const char kTagPolicyGroups[] = "policyGroups";
+constexpr const char kTagPolicyGroup[] = "policyGroup";
+constexpr const char kTagDefaultPolicy[] = "defaultPolicy";
+constexpr const char kTagNoDefaultPolicy[] = "noDefaultPolicy";
+constexpr const char kTagPolicies[] = "policies";
+constexpr const char kTagPolicy[] = "policy";
+constexpr const char kTagOtherComponents[] = "otherComponents";
+constexpr const char kTagComponent[] = "component";
+constexpr const char kTagSystemPolicyOverrides[] = "systemPolicyOverrides";
+constexpr const char kAttrBehavior[] = "behavior";
+constexpr const char kAttrId[] = "id";
+constexpr const char kAttrState[] = "state";
 
 // Power states.
-constexpr const char* kPowerStateOn = "on";
-constexpr const char* kPowerStateOff = "off";
-constexpr const char* kPowerStateUntouched = "untouched";
+constexpr const char kPowerStateOn[] = "on";
+constexpr const char kPowerStateOff[] = "off";
+constexpr const char kPowerStateUntouched[] = "untouched";
 
 // Power transitions that a power policy can be applied with.
-constexpr const char* kPowerTransitionWaitForVhal = "WaitForVHAL";
-constexpr const char* kPowerTransitionOn = "On";
-constexpr const char* kPowerTransitionShutdownStart = "ShutdownStart";
-constexpr const char* kPowerTransitionDeepSleepEntry = "DeepSleepEntry";
+constexpr const char kPowerTransitionWaitForVhal[] = "WaitForVHAL";
+constexpr const char kPowerTransitionOn[] = "On";
 
 const PowerComponent INVALID_POWER_COMPONENT = static_cast<PowerComponent>(-1);
 const int32_t INVALID_VEHICLE_POWER_STATE = -1;
 
-constexpr const char* kPowerComponentPrefix = "POWER_COMPONENT_";
-constexpr const char* kSystemPolicyPrefix = "system_power_policy_";
+constexpr const char kPowerComponentPrefix[] = "POWER_COMPONENT_";
+constexpr const char kSystemPolicyPrefix[] = "system_power_policy_";
 
 // System power policy definition: ID, enabled components, and disabled components.
 const std::vector<PowerComponent> kNoUserInteractionEnabledComponents =
@@ -118,16 +118,17 @@ const std::vector<PowerComponent> kInitialOnComponents = {PowerComponent::AUDIO,
                                                           PowerComponent::DISPLAY,
                                                           PowerComponent::CPU};
 const std::vector<PowerComponent> kNoComponents;
-const std::vector<PowerComponent> kSuspendToRamDisabledComponents = {PowerComponent::AUDIO,
-                                                                     PowerComponent::BLUETOOTH,
-                                                                     PowerComponent::WIFI,
-                                                                     PowerComponent::LOCATION,
-                                                                     PowerComponent::CPU};
+const std::vector<PowerComponent> kSuspendPrepDisabledComponents = {PowerComponent::AUDIO,
+                                                                    PowerComponent::BLUETOOTH,
+                                                                    PowerComponent::WIFI,
+                                                                    PowerComponent::LOCATION,
+                                                                    PowerComponent::MICROPHONE,
+                                                                    PowerComponent::CPU};
 const std::unordered_set<PowerComponent> kNoUserInteractionConfigurableComponents =
         {PowerComponent::BLUETOOTH, PowerComponent::NFC, PowerComponent::TRUSTED_DEVICE_DETECTION};
 
 void iterateAllPowerComponents(const std::function<bool(PowerComponent)>& processor) {
-    for (const auto component : enum_range<PowerComponent>()) {
+    for (const auto component : ::ndk::enum_range<PowerComponent>()) {
         if (!processor(component)) {
             break;
         }
@@ -433,7 +434,7 @@ std::string toString(const std::vector<PowerComponent>& components) {
         return "none";
     }
     std::string filterStr = toString(components[0]);
-    for (int i = 1; i < size; i++) {
+    for (size_t i = 1; i < size; i++) {
         StringAppendF(&filterStr, ", %s", toString(components[i]).c_str());
     }
     return filterStr;
@@ -607,7 +608,7 @@ void PolicyManager::initRegularPowerPolicy() {
                                                   kNoComponents));
 
     std::vector<PowerComponent> initialOnDisabledComponents;
-    for (const auto component : enum_range<PowerComponent>()) {
+    for (const auto component : ::ndk::enum_range<PowerComponent>()) {
         if (std::find(kInitialOnComponents.begin(), kInitialOnComponents.end(), component) ==
             kInitialOnComponents.end()) {
             initialOnDisabledComponents.push_back(component);
@@ -624,9 +625,9 @@ void PolicyManager::initPreemptivePowerPolicy() {
                                      createPolicy(kSystemPolicyIdNoUserInteraction,
                                                   kNoUserInteractionEnabledComponents,
                                                   kNoUserInteractionDisabledComponents));
-    mPreemptivePowerPolicies.emplace(kSystemPolicyIdSuspendToRam,
-                                     createPolicy(kSystemPolicyIdSuspendToRam, kNoComponents,
-                                                  kSuspendToRamDisabledComponents));
+    mPreemptivePowerPolicies.emplace(kSystemPolicyIdSuspendPrep,
+                                     createPolicy(kSystemPolicyIdSuspendPrep, kNoComponents,
+                                                  kSuspendPrepDisabledComponents));
 }
 
 }  // namespace powerpolicy

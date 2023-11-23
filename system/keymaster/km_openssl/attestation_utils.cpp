@@ -75,6 +75,7 @@ keymaster_error_t build_attestation_extension(const AuthorizationSet& attest_par
     return KM_ERROR_OK;
 }
 
+#ifdef KEYMINT_EAT_EXTENSION_SUPPORT
 keymaster_error_t build_eat_extension(const AuthorizationSet& attest_params,
                                       const AuthorizationSet& tee_enforced,
                                       const AuthorizationSet& sw_enforced,
@@ -105,6 +106,7 @@ keymaster_error_t build_eat_extension(const AuthorizationSet& attest_params,
 
     return KM_ERROR_OK;
 }
+#endif
 
 keymaster_error_t add_attestation_extension(const AuthorizationSet& attest_params,
                                             const AuthorizationSet& tee_enforced,
@@ -112,16 +114,9 @@ keymaster_error_t add_attestation_extension(const AuthorizationSet& attest_param
                                             const AttestationContext& context,  //
                                             X509* certificate) {
     X509_EXTENSION_Ptr attest_extension;
-    if (context.GetKmVersion() <= KmVersion::KEYMINT_1) {
-        if (auto error = build_attestation_extension(attest_params, tee_enforced, sw_enforced,
-                                                     context, &attest_extension)) {
-            return error;
-        }
-    } else {
-        if (auto error = build_eat_extension(attest_params, tee_enforced, sw_enforced, context,
-                                             &attest_extension)) {
-            return error;
-        }
+    if (auto error = build_attestation_extension(attest_params, tee_enforced, sw_enforced, context,
+                                                 &attest_extension)) {
+        return error;
     }
 
     if (!X509_add_ext(certificate, attest_extension.get() /* Don't release; copied */,
@@ -253,13 +248,8 @@ AttestKeyInfo::AttestKeyInfo(const UniquePtr<Key>& key, const KeymasterBlob* iss
     *error = check_attest_key_auths(*key);
     if (*error != KM_ERROR_OK) return;
 
-    signing_key.reset(EVP_PKEY_new());
-    if (!signing_key) {
-        *error = TranslateLastOpenSslError();
-        return;
-    }
-
-    if (!static_cast<const AsymmetricKey&>(*key).InternalToEvp(signing_key.get())) {
+    signing_key = static_cast<const AsymmetricKey&>(*key).InternalToEvp();
+    if (signing_key.get() == nullptr) {
         *error = KM_ERROR_UNKNOWN_ERROR;
     }
 }
@@ -269,8 +259,8 @@ CertificateChain generate_attestation(const AsymmetricKey& key,
                                       AttestKeyInfo attest_key,
                                       const AttestationContext& context,  //
                                       keymaster_error_t* error) {
-    EVP_PKEY_Ptr pkey(EVP_PKEY_new());
-    if (!key.InternalToEvp(pkey.get())) {
+    EVP_PKEY_Ptr pkey(key.InternalToEvp());
+    if (pkey.get() == nullptr) {
         *error = TranslateLastOpenSslError();
         return {};
     }

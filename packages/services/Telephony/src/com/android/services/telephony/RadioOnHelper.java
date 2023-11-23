@@ -102,8 +102,20 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
     private void powerOnRadio(boolean forEmergencyCall, Phone phoneForEmergencyCall,
             boolean isTestEmergencyNumber) {
 
+        // Always try to turn on the radio here independent of APM setting - if we got here in the
+        // first place, the radio is off independent of APM setting.
+        for (Phone phone : PhoneFactory.getPhones()) {
+            Log.d(this, "powerOnRadio, enabling Radio");
+            if (isTestEmergencyNumber) {
+                phone.setRadioPowerOnForTestEmergencyCall(phone == phoneForEmergencyCall);
+            } else {
+                phone.setRadioPower(true, forEmergencyCall, phone == phoneForEmergencyCall,
+                        false);
+            }
+        }
+
         // If airplane mode is on, we turn it off the same way that the Settings activity turns it
-        // off.
+        // off to keep the setting in sync.
         if (Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.AIRPLANE_MODE_ON, 0) > 0) {
             Log.d(this, "==> Turning off airplane mode for emergency call.");
@@ -111,16 +123,6 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
             // Change the system setting
             Settings.Global.putInt(mContext.getContentResolver(),
                     Settings.Global.AIRPLANE_MODE_ON, 0);
-
-            for (Phone phone : PhoneFactory.getPhones()) {
-                Log.d(this, "powerOnRadio, enabling Radio");
-                if (isTestEmergencyNumber) {
-                    phone.setRadioPowerOnForTestEmergencyCall(phone == phoneForEmergencyCall);
-                } else {
-                    phone.setRadioPower(true, forEmergencyCall, phone == phoneForEmergencyCall,
-                            false);
-                }
-            }
 
             // Post the broadcast intend for change in airplane mode
             // TODO: We really should not be in charge of sending this broadcast.

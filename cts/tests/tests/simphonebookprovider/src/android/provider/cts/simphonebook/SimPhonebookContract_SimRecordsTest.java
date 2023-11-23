@@ -17,22 +17,18 @@
 package android.provider.cts.simphonebook;
 
 import static android.provider.SimPhonebookContract.ElementaryFiles.EF_ADN;
-import static android.provider.SimPhonebookContract.ElementaryFiles.EF_FDN;
-import static android.provider.SimPhonebookContract.ElementaryFiles.EF_SDN;
 
 import static com.android.internal.telephony.testing.CursorSubject.assertThat;
 import static com.android.internal.telephony.testing.TelephonyAssertions.assertThrows;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.Manifest;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Bundle;
 import android.platform.test.annotations.LargeTest;
 import android.provider.SimPhonebookContract.ElementaryFiles;
 import android.provider.SimPhonebookContract.SimRecords;
@@ -41,16 +37,12 @@ import android.telephony.PhoneNumberUtils;
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.RequiredFeatureRule;
-import com.android.compatibility.common.util.SystemUtil;
 
 import com.google.common.collect.ImmutableList;
 
-import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -64,28 +56,13 @@ import java.util.Objects;
 /** Tests of {@link SimRecords}. */
 @RunWith(AndroidJUnit4.class)
 public class SimPhonebookContract_SimRecordsTest {
-    /**
-     * The pin2 to use for modifying FDN data.
-     *
-     * <p>This can be configured by passing a value for the --instrumentation-arg option with key
-     * "sim-pin2"
-     */
-    private String mPin2 = "1234";
 
     private final SimsCleanupRule mAdnCleanupRule = new SimsCleanupRule(ElementaryFiles.EF_ADN);
-    private final SimsCleanupRule mFdnCleanupRule = new SimsCleanupRule(ElementaryFiles.EF_FDN);
     @Rule
     public final TestRule mRule = RuleChain
             .outerRule(new RequiredFeatureRule(PackageManager.FEATURE_TELEPHONY))
             .around(new SimPhonebookRequirementsRule())
             .around(mAdnCleanupRule);
-    /**
-     * The number of records in the SDN file for the SIM card.
-     *
-     * <p>This can be configured by passing a value for the --instrumentation-arg option with key
-     * "sim-sdn-count"
-     */
-    private int mSdnCount = 0;
 
     private Context mContext;
     private ContentResolver mResolver;
@@ -97,15 +74,6 @@ public class SimPhonebookContract_SimRecordsTest {
         mContext = ApplicationProvider.getApplicationContext();
         mResolver = mContext.getContentResolver();
         mDefaultSubscriptionId = new RemovableSims(mContext).getDefaultSubscriptionId();
-
-        Bundle args = InstrumentationRegistry.getArguments();
-        if (args.containsKey("sim-pin2")) {
-            mPin2 = args.getString("sim-pin2");
-            mFdnCleanupRule.setPin2(mPin2);
-        }
-        if (args.containsKey("sim-sdn-count")) {
-            mSdnCount = Integer.parseInt(args.getString("sim-sdn-count"));
-        }
     }
 
     @Test
@@ -156,30 +124,6 @@ public class SimPhonebookContract_SimRecordsTest {
     }
 
     @Test
-    public void queryFdn_noFdnRecords_returnsEmptyCursor() {
-        try (Cursor cursor =
-                     query(ElementaryFiles.getItemUri(mDefaultSubscriptionId, EF_FDN), null)) {
-            Assume.assumeTrue("SIM does not support FDN", cursor.moveToFirst());
-        }
-        try (Cursor cursor = query(SimRecords.getContentUri(mDefaultSubscriptionId, EF_FDN),
-                null)) {
-            assertThat(cursor).hasCount(0);
-        }
-    }
-
-    @Ignore
-    @Test
-    public void querySdn_returnsCursorWithSdnRecords() {
-        // Create an ADN contact to validate that this query at least returns something different
-        // than the ADN.
-        insertAdn(mDefaultSubscriptionId, "Adn", "5550101");
-        try (Cursor cursor = query(SimRecords.getContentUri(mDefaultSubscriptionId, EF_SDN),
-                null)) {
-            assertThat(cursor).hasCount(mSdnCount);
-        }
-    }
-
-    @Test
     public void queryAdn_nonEmpty_returnsAdnRecordsFromSim() {
         insertAdn(mDefaultSubscriptionId, "Name1", "5550101");
         insertAdn(mDefaultSubscriptionId, "Name2", "5550102");
@@ -202,34 +146,6 @@ public class SimPhonebookContract_SimRecordsTest {
                             "5550102");
             assertThat(cursor).atRow(2)
                     .hasRowValues(mDefaultSubscriptionId, ElementaryFiles.EF_ADN, "Name3",
-                            "5550103");
-        }
-    }
-
-    @Ignore
-    @Test
-    public void queryFdn_nonEmpty_returnsFdnRecordsFromSim() throws Exception {
-        insertFdn(mDefaultSubscriptionId, "Name1", "5550101");
-        insertFdn(mDefaultSubscriptionId, "Name2", "5550102");
-        insertFdn(mDefaultSubscriptionId, "Name3", "5550103");
-
-        String[] projection = {
-                SimRecords.SUBSCRIPTION_ID,
-                SimRecords.ELEMENTARY_FILE_TYPE,
-                SimRecords.NAME,
-                SimRecords.PHONE_NUMBER
-        };
-        try (Cursor cursor = query(SimRecords.getContentUri(mDefaultSubscriptionId, EF_FDN),
-                projection)) {
-            assertThat(cursor).hasCount(3);
-            assertThat(cursor).atRow(0)
-                    .hasRowValues(mDefaultSubscriptionId, ElementaryFiles.EF_FDN, "Name1",
-                            "5550101");
-            assertThat(cursor).atRow(1)
-                    .hasRowValues(mDefaultSubscriptionId, ElementaryFiles.EF_FDN, "Name2",
-                            "5550102");
-            assertThat(cursor).atRow(2)
-                    .hasRowValues(mDefaultSubscriptionId, ElementaryFiles.EF_FDN, "Name3",
                             "5550103");
         }
     }
@@ -715,17 +631,5 @@ public class SimPhonebookContract_SimRecordsTest {
         values.put(SimRecords.NAME, name);
         values.put(SimRecords.PHONE_NUMBER, phoneNumber);
         return mResolver.insert(SimRecords.getContentUri(subscriptionId, EF_ADN), values);
-    }
-
-    private Uri insertFdn(int subscriptionId, String name, String phoneNumber) throws Exception {
-        Bundle extras = new Bundle();
-        extras.putString(SimRecords.QUERY_ARG_PIN2, mPin2);
-        ContentValues values = new ContentValues();
-        values.put(SimRecords.NAME, name);
-        values.put(SimRecords.PHONE_NUMBER, phoneNumber);
-        return SystemUtil.callWithShellPermissionIdentity(
-                () -> mResolver.insert(SimRecords.getContentUri(subscriptionId, EF_FDN), values,
-                        extras),
-                Manifest.permission.MODIFY_PHONE_STATE);
     }
 }

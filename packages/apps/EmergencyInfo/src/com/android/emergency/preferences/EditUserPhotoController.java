@@ -22,6 +22,7 @@ import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -75,6 +76,7 @@ public class EditUserPhotoController {
     private static final int REQUEST_CODE_TAKE_PHOTO = 10002;
     private static final int REQUEST_CODE_CROP_PHOTO = 10003;
 
+    private static final String PRE_CROP_PICTURE_FILE_NAME = "PreCropEditUserPhoto.jpg";
     private static final String CROP_PICTURE_FILE_NAME = "CropEditUserPhoto.jpg";
     private static final String TAKE_PICTURE_FILE_NAME = "TakeEditUserPhoto2.jpg";
     private static final String NEW_USER_PHOTO_FILE_NAME = "NewUserPhoto.png";
@@ -87,6 +89,7 @@ public class EditUserPhotoController {
     private final Fragment mFragment;
     private final ImageView mImageView;
 
+    private final Uri mPreCropPictureUri;
     private final Uri mCropPictureUri;
     private final Uri mTakePictureUri;
 
@@ -98,6 +101,7 @@ public class EditUserPhotoController {
         mContext = view.getContext();
         mFragment = fragment;
         mImageView = view;
+        mPreCropPictureUri = createTempImageUri(mContext, PRE_CROP_PICTURE_FILE_NAME, !waiting);
         mCropPictureUri = createTempImageUri(mContext, CROP_PICTURE_FILE_NAME, !waiting);
         mTakePictureUri = createTempImageUri(mContext, TAKE_PICTURE_FILE_NAME, !waiting);
         mPhotoSize = getPhotoSize(mContext);
@@ -132,7 +136,7 @@ public class EditUserPhotoController {
             case REQUEST_CODE_TAKE_PHOTO:
             case REQUEST_CODE_CHOOSE_PHOTO:
                 if (mTakePictureUri.equals(pictureUri)) {
-                    cropPhoto();
+                    cropPhoto(pictureUri);
                 } else {
                     copyAndCropPhoto(pictureUri);
                 }
@@ -241,7 +245,7 @@ public class EditUserPhotoController {
             protected Void doInBackground(Void... params) {
                 final ContentResolver cr = mContext.getContentResolver();
                 try (InputStream in = cr.openInputStream(pictureUri);
-                        OutputStream out = cr.openOutputStream(mTakePictureUri)) {
+                        OutputStream out = cr.openOutputStream(mPreCropPictureUri)) {
                     Streams.copy(in, out);
                 } catch (IOException e) {
                     Log.w(TAG, "Failed to copy photo", e);
@@ -252,21 +256,32 @@ public class EditUserPhotoController {
             @Override
             protected void onPostExecute(Void result) {
                 if (!mFragment.isAdded()) return;
-                cropPhoto();
+                cropPhoto(mPreCropPictureUri);
             }
         }.execute();
     }
 
-    private void cropPhoto() {
+    private void cropPhoto(final Uri pictureUri) {
         Intent intent = new Intent(ACTION_CROP);
-        intent.setDataAndType(mTakePictureUri, "image/*");
+        intent.setDataAndType(pictureUri, "image/*");
         appendOutputExtra(intent, mCropPictureUri);
         appendCropExtras(intent);
-        if (intent.resolveActivity(mContext.getPackageManager()) != null) {
-            mFragment.startActivityForResult(intent, REQUEST_CODE_CROP_PHOTO);
-        } else {
-            onPhotoCropped(mTakePictureUri, false);
+        if (startSystemActivityForResult(intent, REQUEST_CODE_CROP_PHOTO)) {
+            return;
         }
+        onPhotoCropped(mTakePictureUri, false);
+    }
+
+    private boolean startSystemActivityForResult(Intent intent, int code) {
+        ActivityInfo info = intent.resolveActivityInfo(mContext.getPackageManager(),
+                PackageManager.MATCH_SYSTEM_ONLY);
+        if (info == null) {
+            Log.w(TAG, "No system package activity could be found for code " + code);
+            return false;
+        }
+        intent.setPackage(info.packageName);
+        mFragment.startActivityForResult(intent, code);
+        return true;
     }
 
     private void appendOutputExtra(Intent intent, Uri pictureUri) {

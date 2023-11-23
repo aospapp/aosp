@@ -105,9 +105,9 @@ void Isolate::EnumerateTests() {
     FATAL_PLOG("Unexpected failure from popen");
   }
 
-  size_t total_shards = options_.total_shards();
+  uint64_t total_shards = options_.total_shards();
   bool sharded = total_shards > 1;
-  size_t test_count = 0;
+  uint64_t test_count = 0;
   if (sharded) {
     test_count = options_.shard_index() + 1;
   }
@@ -187,7 +187,7 @@ int Isolate::ChildProcessFn(const std::tuple<std::string, std::string>& test) {
   std::string filter("--gtest_filter=" + GetTestName(test));
   args.push_back(filter.data());
 
-  int argc = args.size();
+  int argc = static_cast<int>(args.size());
   // Add the null terminator.
   args.push_back(nullptr);
   ::testing::InitGoogleTest(&argc, args.data());
@@ -262,7 +262,7 @@ void Isolate::LaunchTests() {
 }
 
 void Isolate::ReadTestsOutput() {
-  int ready = poll(running_pollfds_.data(), running_pollfds_.size(), 0);
+  int ready = poll(running_pollfds_.data(), static_cast<nfds_t>(running_pollfds_.size()), 0);
   if (ready <= 0) {
     return;
   }
@@ -285,7 +285,7 @@ size_t Isolate::CheckTestsFinished() {
   size_t finished_tests = 0;
   int status;
   pid_t pid;
-  while ((pid = TEMP_FAILURE_RETRY(waitpid(-1, &status, WNOHANG))) > 0) {
+  while ((pid = static_cast<pid_t>(TEMP_FAILURE_RETRY(waitpid(-1, &status, WNOHANG)))) > 0) {
     if (pid == -1) {
       FATAL_PLOG("Unexpected failure from waitpid");
     }
@@ -808,6 +808,10 @@ int Isolate::Run() {
 
     if (total_pass_tests_ + total_skipped_tests_ + total_xfail_tests_ != tests_.size()) {
       exit_code = 1;
+      if (options_.stop_on_error() && options_.num_iterations() > 1) {
+        printf("\nTerminating repeat run due to failing tests (iteration %d).\n", i + 1);
+        break;
+      }
     }
   }
 

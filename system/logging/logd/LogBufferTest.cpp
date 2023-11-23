@@ -324,7 +324,7 @@ TEST_P(LogBufferTest, clear_logs) {
     for (; count < kMaxRetryCount; ++count) {
         usleep(5000);
         auto lock = std::lock_guard{logd_lock};
-        if (reader_list_.reader_threads().back()->start() == 4) {
+        if (reader_list_.running_reader_threads().back()->start() == 4) {
             break;
         }
     }
@@ -349,7 +349,7 @@ TEST_P(LogBufferTest, clear_logs) {
     for (count = 0; count < kMaxRetryCount; ++count) {
         usleep(5000);
         auto lock = std::lock_guard{logd_lock};
-        if (reader_list_.reader_threads().back()->start() == 7) {
+        if (reader_list_.running_reader_threads().back()->start() == 7) {
             break;
         }
     }

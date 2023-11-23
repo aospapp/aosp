@@ -69,6 +69,14 @@ class DebugDumpWrapper {
     mBuffers.clear();
   }
 
+  /**
+   * Print API error distribution histogram to debug_dump
+   *
+   * @param histogram pointer the error distribution histogram.
+   * @param histogramLength The number of chre error types
+   */
+  void logErrorHistogram(const uint32_t *histogram, uint8_t histogramLength);
+
  private:
   //! Number of bytes allocated for each buffer
   const size_t kBuffSize;

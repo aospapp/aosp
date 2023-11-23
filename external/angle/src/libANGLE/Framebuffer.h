@@ -22,6 +22,7 @@
 #include "libANGLE/Observer.h"
 #include "libANGLE/RefCountObject.h"
 #include "libANGLE/State.h"
+#include "libANGLE/angletypes.h"
 
 namespace rx
 {
@@ -44,10 +45,7 @@ class Context;
 struct Extensions;
 class Framebuffer;
 class ImageIndex;
-struct Rectangle;
 class Renderbuffer;
-class State;
-class Texture;
 class TextureCapsMap;
 
 struct FramebufferStatus
@@ -107,6 +105,7 @@ class FramebufferState final : angle::NonCopyable
     GLint getDefaultSamples() const { return mDefaultSamples; }
     bool getDefaultFixedSampleLocations() const { return mDefaultFixedSampleLocations; }
     GLint getDefaultLayers() const { return mDefaultLayers; }
+    bool getFlipY() const { return mFlipY; }
 
     bool hasDepth() const;
     bool hasStencil() const;
@@ -134,9 +133,11 @@ class FramebufferState final : angle::NonCopyable
 
     bool isDefault() const;
 
-    const gl::Offset &getSurfaceTextureOffset() const { return mSurfaceTextureOffset; }
+    const Offset &getSurfaceTextureOffset() const { return mSurfaceTextureOffset; }
 
     rx::Serial getFramebufferSerial() const { return mFramebufferSerial; }
+
+    bool isBoundAsDrawFramebuffer(const Context *context) const;
 
   private:
     const FramebufferAttachment *getWebGLDepthStencilAttachment() const;
@@ -156,7 +157,7 @@ class FramebufferState final : angle::NonCopyable
     FramebufferAttachment mStencilAttachment;
 
     // Tracks all the color buffers attached to this FramebufferDesc
-    gl::DrawBufferMask mColorAttachmentsMask;
+    DrawBufferMask mColorAttachmentsMask;
 
     std::vector<GLenum> mDrawBufferStates;
     GLenum mReadBufferState;
@@ -168,6 +169,7 @@ class FramebufferState final : angle::NonCopyable
     GLint mDefaultSamples;
     bool mDefaultFixedSampleLocations;
     GLint mDefaultLayers;
+    bool mFlipY;
 
     // It's necessary to store all this extra state so we can restore attachments
     // when DEPTH_STENCIL/DEPTH/STENCIL is unbound in WebGL 1.
@@ -185,7 +187,7 @@ class FramebufferState final : angle::NonCopyable
     // EXT_sRGB_write_control
     SrgbWriteControlMode mSrgbWriteControlMode;
 
-    gl::Offset mSurfaceTextureOffset;
+    Offset mSurfaceTextureOffset;
 };
 
 class Framebuffer final : public angle::ObserverInterface,
@@ -295,11 +297,13 @@ class Framebuffer final : public angle::ObserverInterface,
     GLint getDefaultSamples() const;
     bool getDefaultFixedSampleLocations() const;
     GLint getDefaultLayers() const;
+    bool getFlipY() const;
     void setDefaultWidth(const Context *context, GLint defaultWidth);
     void setDefaultHeight(const Context *context, GLint defaultHeight);
     void setDefaultSamples(const Context *context, GLint defaultSamples);
     void setDefaultFixedSampleLocations(const Context *context, bool defaultFixedSampleLocations);
     void setDefaultLayers(GLint defaultLayers);
+    void setFlipY(bool flipY);
 
     void invalidateCompletenessCache();
     ANGLE_INLINE bool cachedStatusValid() { return mCachedStatus.valid(); }
@@ -328,7 +332,7 @@ class Framebuffer final : public angle::ObserverInterface,
     // Returns the offset into the texture backing the default framebuffer's surface if any. Returns
     // zero offset otherwise.  The renderer will apply the offset to scissor and viewport rects used
     // for draws, clears, and blits.
-    const gl::Offset &getSurfaceTextureOffset() const;
+    const Offset &getSurfaceTextureOffset() const;
 
     angle::Result discard(const Context *context, size_t count, const GLenum *attachments);
     angle::Result invalidate(const Context *context, size_t count, const GLenum *attachments);
@@ -394,6 +398,7 @@ class Framebuffer final : public angle::ObserverInterface,
         DIRTY_BIT_DEFAULT_FIXED_SAMPLE_LOCATIONS,
         DIRTY_BIT_DEFAULT_LAYERS,
         DIRTY_BIT_FRAMEBUFFER_SRGB_WRITE_CONTROL_MODE,
+        DIRTY_BIT_FLIP_Y,
         DIRTY_BIT_UNKNOWN,
         DIRTY_BIT_MAX = DIRTY_BIT_UNKNOWN
     };
@@ -493,8 +498,7 @@ class Framebuffer final : public angle::ObserverInterface,
 
     FramebufferAttachment *getAttachmentFromSubjectIndex(angle::SubjectIndex index);
 
-    ANGLE_INLINE void updateFloat32ColorAttachmentBits(size_t index,
-                                                       const gl::InternalFormat *format)
+    ANGLE_INLINE void updateFloat32ColorAttachmentBits(size_t index, const InternalFormat *format)
     {
         mFloat32ColorAttachmentBits.set(index, format->type == GL_FLOAT);
     }

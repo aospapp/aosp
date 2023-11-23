@@ -16,14 +16,21 @@
 
 package android.net.wifi;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.fail;
+
+import android.net.wifi.util.HexEncoding;
+import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Unit tests for {@link android.net.wifi.WifiSsid}.
@@ -31,30 +38,189 @@ import java.nio.charset.StandardCharsets;
 @SmallTest
 public class WifiSsidTest {
 
-    private static final String TEST_SSID = "Test SSID";
-    private static final byte[] TEST_SSID_BYTES = TEST_SSID.getBytes(StandardCharsets.US_ASCII);
+    private static final String TEST_SSID_UTF_8 = "Test SSID";
+    private static final String TEST_SSID_UTF_8_QUOTED = "\"" + TEST_SSID_UTF_8 + "\"";
+    private static final byte[] TEST_SSID_UTF_8_BYTES =
+            TEST_SSID_UTF_8.getBytes(StandardCharsets.UTF_8);
+    private static final String TEST_SSID_UTF_8_HEX =
+            HexEncoding.encodeToString(TEST_SSID_UTF_8_BYTES);
+
+    private static final byte[] TEST_SSID_NON_UTF_8_BYTES =
+            "服務集識別碼".getBytes(Charset.forName("GBK"));
+    private static final String TEST_SSID_NON_UTF_8_HEX =
+            HexEncoding.encodeToString(TEST_SSID_NON_UTF_8_BYTES);
 
     /**
-     * Check that createFromByteArray() works.
+     * Verify the behavior of fromByteArray()
      */
     @Test
-    public void testCreateFromByteArray() {
-        WifiSsid wifiSsid = WifiSsid.createFromByteArray(TEST_SSID_BYTES);
-        assertTrue(wifiSsid != null);
-        assertEquals(TEST_SSID, wifiSsid.toString());
+    public void testFromByteArray() {
+        WifiSsid wifiSsidUtf8 = WifiSsid.fromBytes(TEST_SSID_UTF_8_BYTES);
+        assertThat(wifiSsidUtf8).isNotNull();
+        assertThat(wifiSsidUtf8.getBytes()).isEqualTo(TEST_SSID_UTF_8_BYTES);
+        assertThat(wifiSsidUtf8.getUtf8Text()).isEqualTo(TEST_SSID_UTF_8);
+        assertThat(wifiSsidUtf8.toString()).isEqualTo(TEST_SSID_UTF_8_QUOTED);
+
+        WifiSsid wifiSsidNonUtf8 = WifiSsid.fromBytes(TEST_SSID_NON_UTF_8_BYTES);
+        assertThat(wifiSsidNonUtf8).isNotNull();
+        assertThat(wifiSsidNonUtf8.getBytes()).isEqualTo(TEST_SSID_NON_UTF_8_BYTES);
+        assertThat(wifiSsidNonUtf8.getUtf8Text()).isNull();
+        assertThat(wifiSsidNonUtf8.toString()).isEqualTo(TEST_SSID_NON_UTF_8_HEX);
+
+        WifiSsid wifiSsidEmpty = WifiSsid.fromBytes(new byte[0]);
+        assertThat(wifiSsidEmpty).isNotNull();
+        assertThat(wifiSsidEmpty.getBytes()).isEmpty();
+        assertThat(wifiSsidEmpty.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidEmpty.toString()).isEmpty();
+
+        WifiSsid wifiSsidNull = WifiSsid.fromBytes(null);
+        assertThat(wifiSsidNull).isNotNull();
+        assertThat(wifiSsidNull.getBytes()).isEmpty();
+        assertThat(wifiSsidNull.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidNull.toString()).isEmpty();
+
+        try {
+            WifiSsid.fromBytes(new byte[33]);
+            fail("Expected IllegalArgumentException for byte array length greater than 32.");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
     }
 
     /**
-     * Verify that SSID created from byte array and string with the same content are equal.
+     * Verify the behavior of fromUtf8String()
+     */
+    @Test
+    public void testFromUtf8String() {
+        WifiSsid wifiSsidUtf8 = WifiSsid.fromUtf8Text(TEST_SSID_UTF_8);
+        assertThat(wifiSsidUtf8).isNotNull();
+        assertThat(wifiSsidUtf8.getBytes()).isEqualTo(TEST_SSID_UTF_8_BYTES);
+        assertThat(wifiSsidUtf8.getUtf8Text()).isEqualTo(TEST_SSID_UTF_8);
+        assertThat(wifiSsidUtf8.toString()).isEqualTo(TEST_SSID_UTF_8_QUOTED);
+
+        WifiSsid wifiSsidEmpty = WifiSsid.fromUtf8Text("");
+        assertThat(wifiSsidEmpty).isNotNull();
+        assertThat(wifiSsidEmpty.getBytes()).isEmpty();
+        assertThat(wifiSsidEmpty.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidEmpty.toString()).isEmpty();
+
+        WifiSsid wifiSsidNull = WifiSsid.fromUtf8Text(null);
+        assertThat(wifiSsidNull).isNotNull();
+        assertThat(wifiSsidNull.getBytes()).isEmpty();
+        assertThat(wifiSsidNull.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidNull.toString()).isEmpty();
+
+        try {
+            WifiSsid.fromUtf8Text("This is an SSID that is much longer than 32 bytes");
+            fail("Expected IllegalArgumentException for byte array length greater than 32.");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+    }
+
+    /**
+     * Verify the behavior of fromString()
+     */
+    @Test
+    public void testFromString() {
+        WifiSsid wifiSsidUtf8 = WifiSsid.fromString(TEST_SSID_UTF_8_QUOTED);
+        assertThat(wifiSsidUtf8).isNotNull();
+        assertThat(wifiSsidUtf8.getBytes()).isEqualTo(TEST_SSID_UTF_8_BYTES);
+        assertThat(wifiSsidUtf8.getUtf8Text()).isEqualTo(TEST_SSID_UTF_8);
+        assertThat(wifiSsidUtf8.toString()).isEqualTo(TEST_SSID_UTF_8_QUOTED);
+
+        WifiSsid wifiSsidUtf8Hex = WifiSsid.fromString(TEST_SSID_UTF_8_HEX);
+        assertThat(wifiSsidUtf8Hex).isNotNull();
+        assertThat(wifiSsidUtf8Hex.getBytes()).isEqualTo(TEST_SSID_UTF_8_BYTES);
+        assertThat(wifiSsidUtf8Hex.getUtf8Text()).isEqualTo(TEST_SSID_UTF_8);
+        assertThat(wifiSsidUtf8Hex.toString()).isEqualTo(TEST_SSID_UTF_8_QUOTED);
+
+        WifiSsid wifiSsidNonUtf8 = WifiSsid.fromString(TEST_SSID_NON_UTF_8_HEX);
+        assertThat(wifiSsidNonUtf8).isNotNull();
+        assertThat(wifiSsidNonUtf8.getBytes()).isEqualTo(TEST_SSID_NON_UTF_8_BYTES);
+        assertThat(wifiSsidNonUtf8.getUtf8Text()).isNull();
+        assertThat(wifiSsidNonUtf8.toString()).isEqualTo(TEST_SSID_NON_UTF_8_HEX);
+
+        WifiSsid wifiSsidEmpty = WifiSsid.fromUtf8Text("");
+        assertThat(wifiSsidEmpty).isNotNull();
+        assertThat(wifiSsidEmpty.getBytes()).isEmpty();
+        assertThat(wifiSsidEmpty.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidEmpty.toString()).isEmpty();
+
+        WifiSsid wifiSsidNull = WifiSsid.fromUtf8Text(null);
+        assertThat(wifiSsidNull).isNotNull();
+        assertThat(wifiSsidNull.getBytes()).isEmpty();
+        assertThat(wifiSsidNull.getUtf8Text().toString()).isEmpty();
+        assertThat(wifiSsidNull.toString()).isEmpty();
+
+        try {
+            WifiSsid.fromString("\"This is an SSID that is much longer than 32 bytes\"");
+            fail("Expected IllegalArgumentException for byte array length greater than 32.");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        try {
+            WifiSsid.fromString(
+                    "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789AB");
+            fail("Expected IllegalArgumentException for byte array length greater than 32.");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+
+        try {
+            WifiSsid.fromString("0123456");
+            fail("Expected IllegalArgumentException for odd-length hexadecimal string");
+        } catch (IllegalArgumentException e) {
+            // Success
+        }
+    }
+
+    /**
+     * Verify that SSID created from bytes, UTF-8 String, and toString()-formatted String with the
+     * same content are equal.
      *
      * @throws Exception
      */
     @Test
     public void testEquals() throws Exception {
-        WifiSsid fromBytes = WifiSsid.createFromByteArray(TEST_SSID_BYTES);
-        WifiSsid fromString = WifiSsid.createFromAsciiEncoded(TEST_SSID);
-        assertTrue(fromBytes != null);
-        assertTrue(fromString != null);
-        assertEquals(fromBytes, fromString);
+        WifiSsid fromBytesUtf8 = WifiSsid.fromBytes(TEST_SSID_UTF_8_BYTES);
+        WifiSsid fromUtf8StringUtf8 = WifiSsid.fromUtf8Text(TEST_SSID_UTF_8);
+        WifiSsid fromStringUtf8 = WifiSsid.fromString(TEST_SSID_UTF_8_QUOTED);
+        assertThat(fromBytesUtf8).isNotNull();
+        assertThat(fromUtf8StringUtf8).isNotNull();
+        assertThat(fromStringUtf8).isNotNull();
+        assertThat(fromBytesUtf8).isEqualTo(fromUtf8StringUtf8);
+        assertThat(fromBytesUtf8).isEqualTo(fromStringUtf8);
+        assertThat(fromUtf8StringUtf8).isEqualTo(fromStringUtf8);
+
+        WifiSsid fromBytesNonUtf8 = WifiSsid.fromBytes(TEST_SSID_NON_UTF_8_BYTES);
+        WifiSsid fromStringNonUtf8 = WifiSsid.fromString(TEST_SSID_NON_UTF_8_HEX);
+        assertThat(fromBytesNonUtf8).isNotNull();
+        assertThat(fromStringNonUtf8).isNotNull();
+        assertThat(fromBytesNonUtf8).isEqualTo(fromStringNonUtf8);
+
+        assertThat(fromBytesUtf8).isNotEqualTo(fromBytesNonUtf8);
+    }
+
+    /**
+     * Verify the behavior of the Parcelable interface implementation.
+     */
+    @Test
+    public void testParcelable() throws Exception {
+        List<WifiSsid> testWifiSsids = Arrays.asList(
+                WifiSsid.fromBytes(TEST_SSID_UTF_8_BYTES),
+                WifiSsid.fromBytes(TEST_SSID_NON_UTF_8_BYTES),
+                WifiSsid.fromUtf8Text(TEST_SSID_UTF_8),
+                WifiSsid.fromString(TEST_SSID_UTF_8_QUOTED),
+                WifiSsid.fromString(TEST_SSID_UTF_8_HEX),
+                WifiSsid.fromString(TEST_SSID_NON_UTF_8_HEX));
+
+        for (WifiSsid wifiSsid : testWifiSsids) {
+            Parcel parcel = Parcel.obtain();
+            wifiSsid.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            assertThat(WifiSsid.CREATOR.createFromParcel(parcel)).isEqualTo(wifiSsid);
+        }
     }
 }

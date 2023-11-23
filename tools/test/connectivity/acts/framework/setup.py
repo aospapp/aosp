@@ -24,44 +24,50 @@ import sys
 
 install_requires = [
     'backoff',
+    'dlipower',
     # Future needs to have a newer version that contains urllib.
     'future>=0.16.0',
+    'grpcio',
+    'mobly>=1.10.0',
     # Latest version of mock (4.0.0b) causes a number of compatibility issues with ACTS unit tests
     # b/148695846, b/148814743
     'mock==3.0.5',
-    'pyserial',
-    'pyyaml>=5.1',
-    'protobuf>=3.14.0',
-    'retry',
-    'requests',
-    'scapy',
-    'pylibftdi',
-    'xlsxwriter',
-    'mobly>=1.10.0',
-    'grpcio',
     'Monsoon',
     # paramiko-ng is needed vs paramiko as currently paramiko does not support
     # ed25519 ssh keys, which is what Fuchsia uses.
     'paramiko-ng',
-    'dlipower',
+    'protobuf>=3.14.0',
+    'pylibftdi',
+    'pynacl==1.4.0',
+    'pyserial',
+    'pyyaml>=5.1',
+    'requests',
+    'retry',
+    'scapy',
+    'usbinfo',
+    'xlsxwriter',
     'zeroconf'
 ]
 
+versioned_deps = {
+    'numpy': 'numpy',
+    'scipy': 'scipy'
+}
+
 # numpy and scipy version matrix per:
 # https://docs.scipy.org/doc/scipy/reference/toolchain.html
+if sys.version_info < (3, 8):
+    versioned_deps['numpy'] = 'numpy<1.22'
+    versioned_deps['scipy'] = 'scipy<1.8'
+if sys.version_info < (3, 7):
+    versioned_deps['numpy'] = 'numpy<1.20'
+    versioned_deps['scipy'] = 'scipy<1.6'
+    versioned_deps['typing_extensions'] = 'typing_extensions==4.1.1'
 if sys.version_info < (3, 6):
-    # Python <= 3.5 uses scipy up to 1.4 and numpy up to 1.18.x
-    # b/157117302:Monsoon dependency
-    install_requires.append('scipy<1.5')
-    install_requires.append('numpy<1.19')
-elif sys.version_info < (3, 7):
-    # Python 3.6 uses scipy up to 1.5 and numpy up to 1.19.x
-    install_requires.append('scipy<1.6')
-    install_requires.append('numpy==1.18.1')
-else:
-    # Python 3.7+ is supported by latest scipy and numpy
-    install_requires.append('scipy')
-    install_requires.append('numpy')
+    versioned_deps['numpy'] = 'numpy<1.19'
+    versioned_deps['scipy'] = 'scipy<1.5'
+
+install_requires += list(versioned_deps.values())
 
 if sys.version_info < (3, ):
     install_requires.append('enum34')

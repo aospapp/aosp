@@ -2427,6 +2427,10 @@ WORD32 ihevcd_set_flush_mode(iv_obj_t *ps_codec_obj,
     /* once it comes out of flush mode */
     ps_codec->u4_pic_cnt = 0;
     ps_codec->u4_disp_cnt = 0;
+
+    /* If the first slice NAL fed to decoder after flush is a CRA NAL, then */
+    /* it may have associated RASL nals that need to be skipped */
+    ps_codec->i4_cra_as_first_pic = 1;
     return IV_SUCCESS;
 
 

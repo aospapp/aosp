@@ -21,11 +21,15 @@
 
 typedef struct direntry_t {
 	struct Stream_t *Dir;
-	/* struct direntry_t *parent; parent level */	
-	int entry; /* slot in parent directory (-3 if root) */
-	struct directory dir; /* descriptor in parent directory (random if 
+	/* struct direntry_t *parent; parent level */
+	int entry; /* slot in parent directory  */
+	/* Negative values have the following meanings:
+	   -1 not initialized
+	   -2 entry searched for, but not found
+	   -3 root directory */
+	struct directory dir; /* descriptor in parent directory (random if
 			       * root)*/
-	wchar_t name[MAX_VNAMELEN+1]; /* name in its parent directory, or 
+	wchar_t name[MAX_VNAMELEN+1]; /* name in its parent directory, or
 				       * NULL if root */
 	int beginSlot; /* begin and end slot, for delete */
 	int endSlot;
@@ -33,9 +37,16 @@ typedef struct direntry_t {
 
 #include "stream.h"
 
-int vfat_lookup(direntry_t *entry, const char *filename, int length, int flags,
+int vfat_lookup(direntry_t *entry, const char *filename, size_t length,
+		int flags,
 		char *shortname, size_t shortname_len,
 		char *longname, size_t longname_len);
+
+int vfat_lookup_zt(direntry_t *entry, const char *filename,
+		   int flags,
+		   char *shortname, size_t shortname_len,
+		   char *longname, size_t longname_len);
+
 
 struct directory *dir_read(direntry_t *entry, int *error);
 
@@ -54,7 +65,7 @@ int isSubdirOf(Stream_t *inside, Stream_t *outside);
 char *getPwd(direntry_t *entry);
 void fprintPwd(FILE *f, direntry_t *entry, int escape);
 void fprintShortPwd(FILE *f, direntry_t *entry);
-int write_vfat(Stream_t *, dos_name_t *, char *, int, direntry_t *);
+int write_vfat(Stream_t *, dos_name_t *, char *, unsigned int, direntry_t *);
 
 void wipeEntry(struct direntry_t *entry);
 
@@ -64,7 +75,7 @@ int lookupForInsert(Stream_t *Dir,
 		    direntry_t *direntry,
 		    struct dos_name_t *dosname,
 		    char *longname,
-		    struct scan_state *ssp, 
+		    struct scan_state *ssp,
 		    int ignore_entry,
 		    int source_entry,
 		    int pessimisticShortRename,

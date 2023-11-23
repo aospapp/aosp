@@ -63,3 +63,13 @@ rust_library {
         "libkeystore2_apc_compat",
     ],
 }
+
+rust_test {
+    name: "libkeystore2_apc_compat_bindgen_test",
+    srcs: [":libkeystore2_apc_compat_bindgen"],
+    crate_name: "keystore2_apc_compat_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
+}

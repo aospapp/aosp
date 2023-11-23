@@ -52,5 +52,5 @@ cc_test {
         "libadb_tls_connection_static",
     ],
 
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests", "mts-adbd"],
 }

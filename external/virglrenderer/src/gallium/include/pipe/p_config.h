@@ -48,6 +48,14 @@
 
 #include <limits.h>
 /*
+ * This has PIPE_ARCH_<ENDIANESS>_ENDIAN defines acquired
+ * via meson and in the future might have other defines
+ * if they are found to be easier done on meson than in
+ * preprocessor macros
+ */
+#include "config.h"
+
+/*
  * Compiler
  */
 
@@ -86,14 +94,6 @@
  * Processor architecture
  */
 
-#if defined(__i386__) /* gcc */ || defined(_M_IX86) /* msvc */ || defined(_X86_) || defined(__386__) || defined(i386) || defined(__i386) /* Sun cc */
-#define PIPE_ARCH_X86
-#endif
-
-#if defined(__x86_64__) /* gcc */ || defined(_M_X64) /* msvc */ || defined(_M_AMD64) /* msvc */ || defined(__x86_64) /* Sun cc */
-#define PIPE_ARCH_X86_64
-#endif
-
 #if defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_X86_64)
 #if defined(PIPE_CC_GCC) && !defined(__SSE2__)
 /* #warning SSE2 support requires -msse -msse2 compiler options */
@@ -105,70 +105,6 @@
 #else
 #define PIPE_ARCH_SSSE3
 #endif
-#endif
-
-#if defined(__ppc__) || defined(__ppc64__) || defined(__PPC__)
-#define PIPE_ARCH_PPC
-#if defined(__ppc64__) || defined(__PPC64__)
-#define PIPE_ARCH_PPC_64
-#endif
-#endif
-
-#if defined(__s390x__)
-#define PIPE_ARCH_S390
-#endif
-
-#if defined(__arm__)
-#define PIPE_ARCH_ARM
-#endif
-
-#if defined(__aarch64__)
-#define PIPE_ARCH_AARCH64
-#endif
-
-/*
- * Endian detection.
- */
-
-#ifdef __GLIBC__
-#include <endian.h>
-
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-# define PIPE_ARCH_LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
-# define PIPE_ARCH_BIG_ENDIAN
-#endif
-
-#elif defined(__APPLE__)
-#include <machine/endian.h>
-
-#if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
-# define PIPE_ARCH_LITTLE_ENDIAN
-#elif __DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN
-# define PIPE_ARCH_BIG_ENDIAN
-#endif
-
-#elif defined(__sun)
-#include <sys/isa_defs.h>
-
-#if defined(_LITTLE_ENDIAN)
-# define PIPE_ARCH_LITTLE_ENDIAN
-#elif defined(_BIG_ENDIAN)
-# define PIPE_ARCH_BIG_ENDIAN
-#endif
-
-#else
-
-#if defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_X86_64) || defined(PIPE_ARCH_ARM) || defined(PIPE_ARCH_AARCH64)
-#define PIPE_ARCH_LITTLE_ENDIAN
-#elif defined(PIPE_ARCH_PPC) || defined(PIPE_ARCH_PPC_64) || defined(PIPE_ARCH_S390)
-#define PIPE_ARCH_BIG_ENDIAN
-#endif
-
-#endif
-
-#if !defined(PIPE_ARCH_LITTLE_ENDIAN) && !defined(PIPE_ARCH_BIG_ENDIAN)
-#error Unknown Endianness
 #endif
 
 /*

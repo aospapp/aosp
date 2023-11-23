@@ -55,4 +55,31 @@ public class AclEntryTest {
         assertEquals(1, flags.size());
         assertTrue(flags.contains(AclEntryFlag.INHERIT_ONLY));
     }
+
+    @Test
+    public void testBuilder() throws Exception {
+        UserPrincipal user = Files.getOwner(Paths.get("."));
+
+        AclEntry aclEntry = AclEntry.newBuilder()
+            .setType(AclEntryType.ALLOW)
+            .setPrincipal(user)
+            .setFlags(AclEntryFlag.INHERIT_ONLY)
+            .setPermissions(AclEntryPermission.READ_DATA, AclEntryPermission.READ_ATTRIBUTES)
+            .build();
+
+        AclEntry.Builder builder = AclEntry.newBuilder(aclEntry);
+        aclEntry = builder.build();
+
+        assertEquals(AclEntryType.ALLOW, aclEntry.type());
+        assertEquals(user, aclEntry.principal());
+
+        Set<AclEntryPermission> permissions = aclEntry.permissions();
+        assertEquals(2, permissions.size());
+        assertTrue(permissions.contains(AclEntryPermission.READ_DATA));
+        assertTrue(permissions.contains(AclEntryPermission.READ_ATTRIBUTES));
+
+        Set<AclEntryFlag> flags = aclEntry.flags();
+        assertEquals(1, flags.size());
+        assertTrue(flags.contains(AclEntryFlag.INHERIT_ONLY));
+    }
 }

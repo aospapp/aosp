@@ -153,23 +153,23 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
       // One addressing mode to test the repeat drivers.
       addresses_singleton_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RAX),
-                          x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_1, -1));
+                          x86_64::CpuRegister(x86_64::RBX), TIMES_1, -1));
     }
 
     if (addresses_.size() == 0) {
       // Several addressing modes.
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
-                          x86_64::CpuRegister(x86_64::RAX), x86_64::TIMES_1, 15));
+                          x86_64::CpuRegister(x86_64::RAX), TIMES_1, 15));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
-                          x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_2, 16));
+                          x86_64::CpuRegister(x86_64::RBX), TIMES_2, 16));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
-                          x86_64::CpuRegister(x86_64::RCX), x86_64::TIMES_4, 17));
+                          x86_64::CpuRegister(x86_64::RCX), TIMES_4, 17));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
-                          x86_64::CpuRegister(x86_64::RDX), x86_64::TIMES_8, 18));
+                          x86_64::CpuRegister(x86_64::RDX), TIMES_8, 18));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RAX), -1));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RBX), 0));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RSI), 1));
@@ -177,16 +177,16 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
       // Several addressing modes with the special ESP.
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RSP),
-                          x86_64::CpuRegister(x86_64::RAX), x86_64::TIMES_1, 15));
+                          x86_64::CpuRegister(x86_64::RAX), TIMES_1, 15));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RSP),
-                          x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_2, 16));
+                          x86_64::CpuRegister(x86_64::RBX), TIMES_2, 16));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RSP),
-                          x86_64::CpuRegister(x86_64::RCX), x86_64::TIMES_4, 17));
+                          x86_64::CpuRegister(x86_64::RCX), TIMES_4, 17));
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::RSP),
-                          x86_64::CpuRegister(x86_64::RDX), x86_64::TIMES_8, 18));
+                          x86_64::CpuRegister(x86_64::RDX), TIMES_8, 18));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), -1));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 0));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 1));
@@ -194,7 +194,7 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
       // Several addressing modes with the higher registers.
       addresses_.push_back(
           x86_64::Address(x86_64::CpuRegister(x86_64::R8),
-                          x86_64::CpuRegister(x86_64::R15), x86_64::TIMES_2, -1));
+                          x86_64::CpuRegister(x86_64::R15), TIMES_2, -1));
       addresses_.push_back(x86_64::Address(x86_64::CpuRegister(x86_64::R15), 123456789));
     }
 
@@ -526,16 +526,16 @@ TEST_F(AssemblerX86_64Test, PopqAllAddresses) {
         continue;
       } else if (base->AsRegister() == index->AsRegister()) {
        // Index only.
-       all_addresses.push_back(x86_64::Address(*index, x86_64::TIMES_1, -1));
-       all_addresses.push_back(x86_64::Address(*index, x86_64::TIMES_2, 0));
-       all_addresses.push_back(x86_64::Address(*index, x86_64::TIMES_4, 1));
-       all_addresses.push_back(x86_64::Address(*index, x86_64::TIMES_8, 123456789));
+       all_addresses.push_back(x86_64::Address(*index, TIMES_1, -1));
+       all_addresses.push_back(x86_64::Address(*index, TIMES_2, 0));
+       all_addresses.push_back(x86_64::Address(*index, TIMES_4, 1));
+       all_addresses.push_back(x86_64::Address(*index, TIMES_8, 123456789));
       }
       // Base and index.
-      all_addresses.push_back(x86_64::Address(*base, *index, x86_64::TIMES_1, -1));
-      all_addresses.push_back(x86_64::Address(*base, *index, x86_64::TIMES_2, 0));
-      all_addresses.push_back(x86_64::Address(*base, *index, x86_64::TIMES_4, 1));
-      all_addresses.push_back(x86_64::Address(*base, *index, x86_64::TIMES_8, 123456789));
+      all_addresses.push_back(x86_64::Address(*base, *index, TIMES_1, -1));
+      all_addresses.push_back(x86_64::Address(*base, *index, TIMES_2, 0));
+      all_addresses.push_back(x86_64::Address(*base, *index, TIMES_4, 1));
+      all_addresses.push_back(x86_64::Address(*base, *index, TIMES_8, 123456789));
     }
   }
   DriverStr(RepeatA(&x86_64::X86_64Assembler::popq, all_addresses, "popq {mem}"), "popq");
@@ -951,14 +951,119 @@ TEST_F(AssemblerX86_64Test, XorlImm) {
                      /*imm_bytes*/ 4U, "xor ${imm}, %{reg}"), "xorli");
 }
 
-TEST_F(AssemblerX86_64Test, Xchgq) {
-  DriverStr(RepeatRR(&x86_64::X86_64Assembler::xchgq, "xchgq %{reg1}, %{reg2}"), "xchgq");
+TEST_F(AssemblerX86_64Test, XchgqReg) {
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::xchgq, "xchgq %{reg2}, %{reg1}"), "xchgq");
 }
 
-TEST_F(AssemblerX86_64Test, Xchgl) {
-  // TODO: Test is disabled because GCC generates 0x87 0xC0 for xchgl eax, eax. All other cases
-  // are the same. Anyone know why it doesn't emit a simple 0x90? It does so for xchgq rax, rax...
-  // DriverStr(Repeatrr(&x86_64::X86_64Assembler::xchgl, "xchgl %{reg2}, %{reg1}"), "xchgl");
+TEST_F(AssemblerX86_64Test, XchgqMem) {
+  DriverStr(RepeatRA(&x86_64::X86_64Assembler::xchgq, "xchgq %{reg}, {mem}"), "xchgq");
+}
+
+TEST_F(AssemblerX86_64Test, XchglReg) {
+  // Exclude `xcghl eax, eax` because the reference implementation generates 0x87 0xC0 (contrary to
+  // the intel manual saying that this should be a `nop` 0x90). All other cases are the same.
+  static const std::vector<std::pair<x86_64::CpuRegister, x86_64::CpuRegister>> except = {
+    std::make_pair(x86_64::CpuRegister(x86_64::RAX), x86_64::CpuRegister(x86_64::RAX))
+  };
+  DriverStr(Repeatrr(&x86_64::X86_64Assembler::xchgl, "xchgl %{reg2}, %{reg1}", &except), "xchgl");
+}
+
+TEST_F(AssemblerX86_64Test, XchglMem) {
+  DriverStr(RepeatrA(&x86_64::X86_64Assembler::xchgl, "xchgl %{reg}, {mem}"), "xchgl");
+}
+
+TEST_F(AssemblerX86_64Test, XchgwReg) {
+  DriverStr(Repeatww(&x86_64::X86_64Assembler::xchgw, "xchgw %{reg2}, %{reg1}"), "xchgw");
+}
+
+TEST_F(AssemblerX86_64Test, XchgwMem) {
+  DriverStr(RepeatwA(&x86_64::X86_64Assembler::xchgw, "xchgw %{reg}, {mem}"), "xchgw");
+}
+
+TEST_F(AssemblerX86_64Test, XchgbReg) {
+  DriverStr(Repeatbb(&x86_64::X86_64Assembler::xchgb, "xchgb %{reg2}, %{reg1}"), "xchgb");
+}
+
+TEST_F(AssemblerX86_64Test, XchgbMem) {
+  DriverStr(RepeatbA(&x86_64::X86_64Assembler::xchgb, "xchgb %{reg}, {mem}"), "xchgb");
+}
+
+TEST_F(AssemblerX86_64Test, XaddqReg) {
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::xaddq, "xaddq %{reg2}, %{reg1}"), "xaddq");
+}
+
+TEST_F(AssemblerX86_64Test, XaddqMem) {
+  DriverStr(RepeatAR(&x86_64::X86_64Assembler::xaddq, "xaddq %{reg}, {mem}"), "xaddq");
+}
+
+TEST_F(AssemblerX86_64Test, XaddlReg) {
+  DriverStr(Repeatrr(&x86_64::X86_64Assembler::xaddl, "xaddl %{reg2}, %{reg1}"), "xaddl");
+}
+
+TEST_F(AssemblerX86_64Test, XaddlMem) {
+  DriverStr(RepeatAr(&x86_64::X86_64Assembler::xaddl, "xaddl %{reg}, {mem}"), "xaddl");
+}
+
+TEST_F(AssemblerX86_64Test, XaddwReg) {
+  DriverStr(Repeatww(&x86_64::X86_64Assembler::xaddw, "xaddw %{reg2}, %{reg1}"), "xaddw");
+}
+
+TEST_F(AssemblerX86_64Test, XaddwMem) {
+  DriverStr(RepeatAw(&x86_64::X86_64Assembler::xaddw, "xaddw %{reg}, {mem}"), "xaddw");
+}
+
+TEST_F(AssemblerX86_64Test, XaddbReg) {
+  DriverStr(Repeatbb(&x86_64::X86_64Assembler::xaddb, "xaddb %{reg2}, %{reg1}"), "xaddb");
+}
+
+TEST_F(AssemblerX86_64Test, XaddbMem) {
+  DriverStr(RepeatAb(&x86_64::X86_64Assembler::xaddb, "xaddb %{reg}, {mem}"), "xaddb");
+}
+
+TEST_F(AssemblerX86_64Test, LockXaddq) {
+  DriverStr(
+      RepeatAR(&x86_64::X86_64Assembler::LockXaddq, "lock xaddq %{reg}, {mem}"), "lock_xaddq");
+}
+
+TEST_F(AssemblerX86_64Test, LockXaddl) {
+  DriverStr(
+      RepeatAr(&x86_64::X86_64Assembler::LockXaddl, "lock xaddl %{reg}, {mem}"), "lock_xaddl");
+}
+
+TEST_F(AssemblerX86_64Test, LockXaddw) {
+  DriverStr(
+      RepeatAw(&x86_64::X86_64Assembler::LockXaddw, "lock xaddw %{reg}, {mem}"), "lock_xaddw");
+}
+
+TEST_F(AssemblerX86_64Test, LockXaddb) {
+  DriverStr(
+      RepeatAb(&x86_64::X86_64Assembler::LockXaddb, "lock xaddb %{reg}, {mem}"), "lock_xaddb");
+}
+
+TEST_F(AssemblerX86_64Test, Cmpxchgb) {
+  DriverStr(RepeatAb(&x86_64::X86_64Assembler::cmpxchgb, "cmpxchgb %{reg}, {mem}"), "cmpxchgb");
+}
+
+TEST_F(AssemblerX86_64Test, Cmpxchgw) {
+  DriverStr(RepeatAw(&x86_64::X86_64Assembler::cmpxchgw, "cmpxchgw %{reg}, {mem}"), "cmpxchgw");
+}
+
+TEST_F(AssemblerX86_64Test, Cmpxchgl) {
+  DriverStr(RepeatAr(&x86_64::X86_64Assembler::cmpxchgl, "cmpxchgl %{reg}, {mem}"), "cmpxchgl");
+}
+
+TEST_F(AssemblerX86_64Test, Cmpxchgq) {
+  DriverStr(RepeatAR(&x86_64::X86_64Assembler::cmpxchgq, "cmpxchg %{reg}, {mem}"), "cmpxchg");
+}
+
+TEST_F(AssemblerX86_64Test, LockCmpxchgb) {
+  DriverStr(RepeatAb(&x86_64::X86_64Assembler::LockCmpxchgb,
+                     "lock cmpxchgb %{reg}, {mem}"), "lock_cmpxchgb");
+}
+
+TEST_F(AssemblerX86_64Test, LockCmpxchgw) {
+  DriverStr(RepeatAw(&x86_64::X86_64Assembler::LockCmpxchgw,
+                     "lock cmpxchgw %{reg}, {mem}"), "lock_cmpxchgw");
 }
 
 TEST_F(AssemblerX86_64Test, LockCmpxchgl) {
@@ -1121,10 +1226,22 @@ TEST_F(AssemblerX86_64Test, RepneScasw) {
   DriverStr(expected, "repne_scasw");
 }
 
+TEST_F(AssemblerX86_64Test, RepMovsb) {
+  GetAssembler()->rep_movsb();
+  const char* expected = "rep movsb\n";
+  DriverStr(expected, "rep_movsb");
+}
+
 TEST_F(AssemblerX86_64Test, RepMovsw) {
   GetAssembler()->rep_movsw();
   const char* expected = "rep movsw\n";
   DriverStr(expected, "rep_movsw");
+}
+
+TEST_F(AssemblerX86_64Test, RepMovsl) {
+  GetAssembler()->rep_movsl();
+  const char* expected = "rep movsl\n";
+  DriverStr(expected, "rep_movsl");
 }
 
 TEST_F(AssemblerX86_64Test, Movsxd) {
@@ -1761,6 +1878,16 @@ TEST_F(AssemblerX86_64AVXTest, VPmaddwd) {
                       "vpmaddwd %{reg3}, %{reg2}, %{reg1}"), "vpmaddwd");
 }
 
+TEST_F(AssemblerX86_64AVXTest, VFmadd213ss) {
+  DriverStr(RepeatFFF(&x86_64::X86_64Assembler::vfmadd213ss,
+                      "vfmadd213ss %{reg3}, %{reg2}, %{reg1}"), "vfmadd213ss");
+}
+
+TEST_F(AssemblerX86_64AVXTest, VFmadd213sd) {
+  DriverStr(RepeatFFF(&x86_64::X86_64Assembler::vfmadd213sd,
+                      "vfmadd213sd %{reg3}, %{reg2}, %{reg1}"), "vfmadd213sd");
+}
+
 TEST_F(AssemblerX86_64Test, Phaddw) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::phaddw, "phaddw %{reg2}, %{reg1}"), "phaddw");
 }
@@ -2161,11 +2288,11 @@ TEST_F(AssemblerX86_64Test, PopcntqAddress) {
 
 TEST_F(AssemblerX86_64Test, CmovlAddress) {
   GetAssembler()->cmov(x86_64::kEqual, x86_64::CpuRegister(x86_64::R10), x86_64::Address(
-      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_4, 12), false);
+      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::RBX), TIMES_4, 12), false);
   GetAssembler()->cmov(x86_64::kNotEqual, x86_64::CpuRegister(x86_64::RDI), x86_64::Address(
-      x86_64::CpuRegister(x86_64::R10), x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_4, 12), false);
+      x86_64::CpuRegister(x86_64::R10), x86_64::CpuRegister(x86_64::RBX), TIMES_4, 12), false);
   GetAssembler()->cmov(x86_64::kEqual, x86_64::CpuRegister(x86_64::RDI), x86_64::Address(
-      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::R9), x86_64::TIMES_4, 12), false);
+      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::R9), TIMES_4, 12), false);
   const char* expected =
     "cmovzl 0xc(%RDI,%RBX,4), %R10d\n"
     "cmovnzl 0xc(%R10,%RBX,4), %edi\n"
@@ -2175,11 +2302,11 @@ TEST_F(AssemblerX86_64Test, CmovlAddress) {
 
 TEST_F(AssemblerX86_64Test, CmovqAddress) {
   GetAssembler()->cmov(x86_64::kEqual, x86_64::CpuRegister(x86_64::R10), x86_64::Address(
-      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_4, 12), true);
+      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::RBX), TIMES_4, 12), true);
   GetAssembler()->cmov(x86_64::kNotEqual, x86_64::CpuRegister(x86_64::RDI), x86_64::Address(
-      x86_64::CpuRegister(x86_64::R10), x86_64::CpuRegister(x86_64::RBX), x86_64::TIMES_4, 12), true);
+      x86_64::CpuRegister(x86_64::R10), x86_64::CpuRegister(x86_64::RBX), TIMES_4, 12), true);
   GetAssembler()->cmov(x86_64::kEqual, x86_64::CpuRegister(x86_64::RDI), x86_64::Address(
-      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::R9), x86_64::TIMES_4, 12), true);
+      x86_64::CpuRegister(x86_64::RDI), x86_64::CpuRegister(x86_64::R9), TIMES_4, 12), true);
   const char* expected =
     "cmovzq 0xc(%RDI,%RBX,4), %R10\n"
     "cmovnzq 0xc(%R10,%RBX,4), %rdi\n"
@@ -2296,6 +2423,12 @@ TEST_F(AssemblerX86_64Test, Repecmpsq) {
   DriverStr(expected, "Repecmpsq");
 }
 
+TEST_F(AssemblerX86_64Test, Ud2) {
+  GetAssembler()->ud2();
+  const char* expected = "ud2\n";
+  DriverStr(expected, "Ud2");
+}
+
 TEST_F(AssemblerX86_64Test, Cmpb) {
   DriverStr(RepeatAI(&x86_64::X86_64Assembler::cmpb,
                      /*imm_bytes*/ 1U,
@@ -2312,6 +2445,51 @@ TEST_F(AssemblerX86_64Test, TestlAddressImmediate) {
   DriverStr(RepeatAI(&x86_64::X86_64Assembler::testl,
                      /*imm_bytes*/ 4U,
                      "testl ${imm}, {mem}"), "testli");
+}
+
+// Test that displacing an existing address is the same as constructing a new one with the same
+// initial displacement.
+TEST_F(AssemblerX86_64Test, AddressDisplaceBy) {
+  // Test different displacements, including some 8-bit and 32-bit ones, so that changing
+  // displacement may require a different addressing mode.
+  static const std::vector<int32_t> displacements = {0, 42, -42, 140, -140};
+  // Test with all scale factors.
+  static const std::vector<ScaleFactor> scales = {TIMES_1, TIMES_2, TIMES_4, TIMES_8};
+
+  for (int32_t disp0 : displacements) {  // initial displacement
+    for (int32_t disp : displacements) {  // extra displacement
+      for (const x86_64::CpuRegister* reg : GetRegisters()) {
+        // Test non-SIB addressing.
+        EXPECT_EQ(x86_64::Address::displace(x86_64::Address(*reg, disp0), disp),
+                  x86_64::Address(*reg, disp0 + disp));
+
+        // Test SIB addressing with RBP base.
+        if (reg->AsRegister() != x86_64::RSP) {
+          for (ScaleFactor scale : scales) {
+            EXPECT_EQ(x86_64::Address::displace(x86_64::Address(*reg, scale, disp0), disp),
+                      x86_64::Address(*reg, scale, disp0 + disp));
+          }
+        }
+
+        // Test SIB addressing with different base.
+        for (const x86_64::CpuRegister* index : GetRegisters()) {
+          if (index->AsRegister() == x86_64::RSP) {
+            continue;  // Skip RSP as it cannot be used with this address constructor.
+          }
+          for (ScaleFactor scale : scales) {
+            EXPECT_EQ(x86_64::Address::displace(x86_64::Address(*reg, *index, scale, disp0), disp),
+                      x86_64::Address(*reg, *index, scale, disp0 + disp));
+          }
+        }
+
+        // Test absolute and RIP-relative addressing.
+        EXPECT_EQ(x86_64::Address::displace(x86_64::Address::Absolute(disp0, false), disp),
+                  x86_64::Address::Absolute(disp0 + disp, false));
+        EXPECT_EQ(x86_64::Address::displace(x86_64::Address::Absolute(disp0, true), disp),
+                  x86_64::Address::Absolute(disp0 + disp, true));
+      }
+    }
+  }
 }
 
 class JNIMacroAssemblerX86_64Test : public JNIMacroAssemblerTest<x86_64::X86_64JNIMacroAssembler> {

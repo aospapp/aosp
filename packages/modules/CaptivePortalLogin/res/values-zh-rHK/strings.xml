@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"顯示下載完成或取消的通知"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"下載進度"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"顯示檔案下載進度的通知"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"已取消下載"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"檔案太大，已取消下載。"</string>
 </resources>

@@ -96,13 +96,13 @@ cc_library {
 
 cc_library_headers {
     name: "libnativeloader-headers",
+    defaults: ["art_defaults"],
     apex_available: [
         "//apex_available:platform",
         "com.android.art",
         "com.android.art.debug",
         "com.android.media",
     ],
-    min_sdk_version: "S",
     visibility: [
         "//art:__subpackages__",
         // TODO(b/133140750): Clean this up.
@@ -149,13 +149,40 @@ cc_defaults {
 
 art_cc_test {
     name: "libnativeloader_test",
-    defaults: ["libnativeloader-test-defaults"],
+    defaults: [
+        "art_standalone_test_defaults",
+        "libnativeloader-test-defaults",
+    ],
+    tidy_timeout_srcs: [
+        "native_loader_test.cpp",
+    ],
     srcs: [
         "native_loader_api_test.c",
         "native_loader_test.cpp",
     ],
     shared_libs: [
         "libnativeloader",
+    ],
+
+    // Support multilib variants (using different suffix per sub-architecture), which is needed on
+    // build targets with secondary architectures, as the CTS test suite packaging logic flattens
+    // all test artifacts into a single `testcases` directory.
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+
+    // Added to CTS for API coverage of libnativeloader which is backed by the
+    // ART module.
+    test_config_template: ":art-gtests-target-standalone-cts-template",
+    test_suites: [
+        "cts",
+        "mts-art",
     ],
 }
 

@@ -67,14 +67,18 @@ class ExynosDisplayInterface {
         /* HWC 2.3 APIs */
         virtual int32_t getDisplayIdentificationData(uint8_t* __unused outPort,
                 uint32_t* __unused outDataSize, uint8_t* __unused outData) {return 0;}
-
-        /* frameUpdate: true if the brightness change needs to sync with next frame update */
-        virtual int32_t updateBrightness(bool __unused syncFrame) { return HWC2_ERROR_UNSUPPORTED; }
-        virtual float getSdrDimRatio() { return 1.0; }
         bool isPrimary();
         /* For HWC 2.4 APIs */
         virtual int32_t getVsyncAppliedTime(hwc2_config_t __unused config, int64_t* __unused actualChangeTime) {return NO_ERROR;}
         virtual void destroyLayer(ExynosLayer* __unused layer){};
+        /* For HWC 3.0 APIs */
+        virtual int32_t getDisplayIdleTimerSupport(bool& outSupport) {
+            outSupport = false;
+            return NO_ERROR;
+        }
+        virtual int32_t getDefaultModeId(int32_t* __unused modeId) {
+            return HWC2_ERROR_UNSUPPORTED;
+        }
 
         virtual int32_t waitVBlank() { return 0; };
     public:

@@ -62,6 +62,8 @@ public class DumpOnFailureRule extends OnFailureRule {
                     "dumpsys network_management",
                     "dumpsys usagestats " + TEST_PKG + " " + TEST_APP2_PKG,
                     "dumpsys usagestats appstandby",
+                    "dumpsys connectivity trafficcontroller",
+                    "dumpsys netd trafficcontroller",
             }) {
                 dumpCommandOutput(out, cmd);
             }

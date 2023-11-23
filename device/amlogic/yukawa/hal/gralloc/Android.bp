@@ -11,6 +11,8 @@ package {
 cc_library_shared {
     name: "hwcomposer.drm_meson",
     defaults: ["hwcomposer.drm_defaults"],
-    srcs: [":drm_hwcomposer_platformmeson"],
-    whole_static_libs: ["drm_hwcomposer"],
+    srcs: [
+        ":drm_hwcomposer_common",
+        ":drm_hwcomposer_platformmeson",
+    ],
 }

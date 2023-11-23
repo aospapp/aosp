@@ -26,6 +26,7 @@ public class NotOwnerException2Test extends TestCase {
     /**
      * java.security.acl.NotOwnerException#NotOwnerException()
      */
+    @SuppressWarnings("removal")
     public void test_Constructor() {
         // Test for method java.security.acl.NotOwnerException()
         try {

@@ -28,7 +28,7 @@ void precmd(struct device *dev)
 
 	if(!dev || !dev->precmd)
 		return;
-	
+
 	switch((pid=fork())){
 		case -1:
 			perror("Could not fork");
@@ -42,4 +42,4 @@ void precmd(struct device *dev)
 	}
 #endif
 }
-		
+

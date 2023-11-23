@@ -16,6 +16,9 @@
 
 package com.android.queryable.queries;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
@@ -24,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public final class ListQueryHelper<E extends Queryable, F, G extends Query<F>>
@@ -31,7 +35,7 @@ public final class ListQueryHelper<E extends Queryable, F, G extends Query<F>>
 
     private static final long serialVersionUID = 1;
 
-    private E mQuery;
+    private final transient E mQuery;
     private final IntegerQueryHelper<E> mSizeQuery;
     private final List<G> mContainsByQuery = new ArrayList<>();
     private final List<G> mDoesNotContainByQuery = new ArrayList<>();
@@ -46,6 +50,16 @@ public final class ListQueryHelper<E extends Queryable, F, G extends Query<F>>
     public ListQueryHelper(E query) {
         mQuery = query;
         mSizeQuery = new IntegerQueryHelper<>(mQuery);
+    }
+
+    private ListQueryHelper(Parcel in) {
+        mQuery = null;
+        mSizeQuery = in.readParcelable(ListQueryHelper.class.getClassLoader());
+        in.readList(mContainsByQuery, ListQueryHelper.class.getClassLoader());
+        in.readList(mDoesNotContainByQuery, ListQueryHelper.class.getClassLoader());
+
+        in.readList(mContainsByType, ListQueryHelper.class.getClassLoader());
+        in.readList(mDoesNotContainByType, ListQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -190,5 +204,48 @@ public final class ListQueryHelper<E extends Queryable, F, G extends Query<F>>
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mSizeQuery, flags);
+        out.writeList(mContainsByQuery);
+        out.writeList(mDoesNotContainByQuery);
+        out.writeList(mContainsByType);
+        out.writeList(mDoesNotContainByType);
+    }
+
+    public static final Parcelable.Creator<ListQueryHelper> CREATOR =
+            new Parcelable.Creator<ListQueryHelper>() {
+                public ListQueryHelper createFromParcel(Parcel in) {
+                    return new ListQueryHelper(in);
+                }
+
+                public ListQueryHelper[] newArray(int size) {
+                    return new ListQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ListQueryHelper)) return false;
+        ListQueryHelper<?, ?, ?> that = (ListQueryHelper<?, ?, ?>) o;
+        return Objects.equals(mSizeQuery, that.mSizeQuery) && Objects.equals(
+                mContainsByQuery, that.mContainsByQuery) && Objects.equals(
+                mDoesNotContainByQuery, that.mDoesNotContainByQuery) && Objects.equals(
+                mContainsByType, that.mContainsByType) && Objects.equals(
+                mDoesNotContainByType, that.mDoesNotContainByType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mSizeQuery, mContainsByQuery, mDoesNotContainByQuery, mContainsByType,
+                mDoesNotContainByType);
     }
 }

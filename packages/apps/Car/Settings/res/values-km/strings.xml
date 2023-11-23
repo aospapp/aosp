@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"ចូល​ប្រើ​ទិន្នន័យ​ដោយ​ប្រើ​បណ្ដាញ​​ទូរសព្ទ​ចល័ត"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"បណ្ដាញទូរសព្ទចល័ត"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"ប្រើ​ទិន្នន័យ​ទូរសព្ទ​ចល័ត"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"បិទ"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"បិទទិន្នន័យ​ទូរសព្ទចល័ត?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"តម្រូវឱ្យមាន​ការជ្រើសរើស"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"ប្រើ <xliff:g id="CARRIER">%1$s</xliff:g> សម្រាប់​ទិន្នន័យទូរសព្ទចល័ត?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"បានបើក​ការស្កេន Wi‑Fi"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"ប្តូរទៅ​ទិន្នន័យទូរសព្ទ​ចល័តដោយស្វ័យ​ប្រវត្តិ"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"ប្រើទិន្នន័យ​ទូរសព្ទចល័ត​ នៅពេល​ដែល Wi‑Fi មិនមាន​ការភ្ជាប់អ៊ីនធឺណិត។ អាច​នឹង​គិតថ្លៃលើការ​ប្រើទិន្នន័យ។"</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"ស្វែងរក និងភ្ជាប់បណ្ដាញ Wi‑Fi"</string>
     <string name="learn_more" msgid="8214605928933358604">"ស្វែងយល់បន្ថែម"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"ឈ្មោះ​ហតស្ប៉ត"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"កំពុងបើក <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"ឧបករណ៍​ផ្សេងទៀត​អាចភ្ជាប់​ជាមួយ <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"ពាក្យសម្ងាត់​ហតស្ប៉ត"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"សុវត្ថិភាព"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2 ផ្ទាល់ខ្លួន"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"គ្មាន"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"កម្រិតបញ្ជូន AP"</string>
@@ -226,7 +230,7 @@
     <string name="text_to_speech_settings" msgid="811985746199507343">"ធាតុចេញនៃការបំប្លែងអត្ថបទទៅជាការនិយាយ"</string>
     <string name="text_to_speech_preferred_engine_settings" msgid="2766782925699132256">"ម៉ាស៊ីន​ដែល​ចង់ប្រើ"</string>
     <string name="text_to_speech_current_engine" msgid="8133107484909612597">"ម៉ាស៊ីន​បច្ចុប្បន្ន"</string>
-    <string name="tts_speech_rate" msgid="4512944877291943133">"ល្បឿននៃការនិយាយ"</string>
+    <string name="tts_speech_rate" msgid="4512944877291943133">"ល្បឿននិយាយ"</string>
     <string name="tts_pitch" msgid="2389171233852604923">"កម្រិត​សំឡេង"</string>
     <string name="tts_reset" msgid="6289481549801844709">"កំណត់​ឡើង​វិញ"</string>
     <string name="sound_settings" msgid="3072423952331872246">"សំឡេង"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"បាន​កំណត់​ចំណូល​ចិត្ត​កម្មវិធីឡើង​វិញ​ហើយ"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"លុបទិន្នន័យទាំងអស់ (កំណត់ដូចចេញពីរោងចក្រ)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"លុបទិន្នន័យ និង​កម្រងព័ត៌មាន​ទាំងអស់​ពីប្រព័ន្ធ​ព័ត៌មាន និងកម្សាន្ត"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"ការធ្វើបែបនេះ​នឹងលុប​ទិន្នន័យ​ទាំងអស់​ពីប្រព័ន្ធ​ព័ត៌មាន និងកម្សាន្តរបស់​យានជំនិះអ្នក រួមមាន៖\n\n"<li>"គណនី Google របស់អ្នក"</li>\n<li>"ទិន្នន័យកម្មវិធី​និងប្រព័ន្ធ និង​ការកំណត់"</li>\n<li>"កម្មវិធី​ដែលបានទាញយក"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"ការធ្វើបែបនេះនឹងលុបទិន្នន័យទាំងអស់ចេញពីប្រព័ន្ធព័ត៌មាន និងកម្សាន្តនៃយានជំនិះរបស់អ្នក ដែលរួមមាន៖\n\n"<li>"គណនី និងកម្រងព័ត៌មានរបស់អ្នក"</li>\n<li>"ការកំណត់ និងទិន្នន័យកម្មវិធីនិងប្រព័ន្ធ"</li>\n<li>"កម្មវិធីដែលបានទាញយក"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"បច្ចុប្បន្ន​ អ្នក​បាន​ចូល​គណនី​ដូច​ខាង​ក្រោម៖"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"កម្រងព័ត៌មានផ្សេងទៀតត្រូវបានរៀបចំសម្រាប់យានជំនិះនេះ។"</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"លុប​ទិន្នន័យ​ទាំង​អស់"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"ជ្រើសរើស​អ្នកគ្រប់គ្រងថ្មី"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"អ្នកត្រូវការ​​អ្នកគ្រប់គ្រងយ៉ាងហោចណាស់​ម្នាក់។ ដើម្បីលុប​អ្នកគ្រប់គ្រង​នេះ សូមជ្រើសរើស​អ្នកជំនួស​ជាមុនសិន។"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"ជ្រើសរើសអ្នកគ្រប់គ្រង"</string>
-    <string name="user_guest" msgid="3465399481257448601">"ភ្ញៀវ"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"ភ្ញៀវ"</string>
     <string name="user_switch" msgid="6544839750534690781">"ប្ដូរ"</string>
     <string name="current_user_name" msgid="3813671533249316823">"អ្នក (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"ឈ្មោះ"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"គណនី​សម្រាប់ <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"ធ្វើ​សមកាលកម្ម​ទិន្នន័យ​ដោយស្វ័យប្រវត្តិ"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"អនុញ្ញាតឱ្យ​កម្មវិធី​ផ្ទុកទិន្នន័យ​ឡើងវិញ​ដោយស្វ័យប្រវត្តិ"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"បើក​ការ​ធ្វើ​សម​កាល​កម្ម​ទិន្នន័យ​ស្វ័យ​ប្រវត្តិ?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"ការ​ផ្លាស់ប្ដូរ​ណា​មួយ​ដែល​អ្នក​ធ្វើ​ឡើងចំពោះ​គណនី​របស់​អ្នក​នៅ​លើ​បណ្ដាញ នឹង​ត្រូវ​បាន​ចម្លង​ដោយ​ស្វ័យ​ប្រវត្តិ​ទៅ​ឧបករណ៍​របស់​អ្នក។\n\nគណនី​មួយ​ចំនួន​ក៏​អាច​ចម្លង​ការ​ផ្លាស់ប្ដូរ​របស់អ្នក​នៅលើ​ទូរសព្ទ​ទៅ​បណ្ដាញដោយ​ស្វ័យ​ប្រវត្តិផងដែរ។ គណនី Google ដំណើរការ​តាម​វិធី​នេះ។"</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"បិទការធ្វើ​សមកាលកម្មទិន្នន័យស្វ័យ​ប្រវតិ្ត?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"អនុញ្ញាតឱ្យធ្វើសមកាលកម្មទិន្នន័យស្វ័យប្រវត្តិឬ?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"រាល់ការផ្លាស់ប្ដូរដែលអ្នកធ្វើចំពោះគណនីរបស់អ្នកនៅលើបណ្ដាញនឹងត្រូវបានចម្លងដោយស្វ័យប្រវត្តិទៅយានជំនិះរបស់អ្នក។\n\nគណនីមួយចំនួនក៏អាចចម្លងរាល់ការផ្លាស់ប្ដូរដែលអ្នកធ្វើចំពោះយានជំនិះ ទៅបណ្ដាញបានផងដែរ។"</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"មិនអនុញ្ញាតឱ្យធ្វើសមកាលកម្មទិន្នន័យស្វ័យប្រវត្តិឬ?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"ការធ្វើបែបនេះ​នឹងរក្សាទិន្នន័យ ប៉ុន្តែអ្នក​នឹងត្រូវធ្វើសមកាលកម្ម​គណនីនីមួយៗ​ដោយផ្ទាល់ ដើម្បីប្រមូលព័ត៌មានថ្មីៗ។ ហើយអ្នកនឹង​មិនទទួលបាន​ការជូនដំណឹងទេ នៅពេលមានការធ្វើ​បច្ចុប្បន្នភាព។"</string>
     <string name="account_details_title" msgid="7529571432258448573">"ព័ត៌មាន​​អំពី​​គណនី"</string>
     <string name="add_account_title" msgid="5988746086885210040">"បញ្ចូលគណនី"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"ឯកជនភាព"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"ទិន្នន័យប្រព័ន្ធព័ត៌មាន និងកម្សាន្ត"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"គ្រប់គ្រង​សិទ្ធិចូលប្រើទីតាំង​របស់អ្នក​ពីកម្មវិធី"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"កាមេរ៉ា"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"គ្រប់គ្រងសិទ្ធិចូលប្រើកាមេរ៉ារបស់អ្នកពីកម្មវិធី"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"មីក្រូហ្វូន"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"គ្រប់គ្រង​សិទ្ធិចូលប្រើមីក្រូហ្វូន​ពីកម្មវិធី"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"ទិន្នន័យប្រព័ន្ធព័ត៌មាន និងកម្សាន្ត"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"បោះបង់"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"បញ្ជាក់"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"ត្រូវ​មាន​យ៉ាងហោចណាស់ 4 តួ"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"ត្រូវ​​មាន​យ៉ាង​ហោច​ណាស់ <xliff:g id="COUNT">%d</xliff:g> តួ"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"កូដ PIN ​ត្រូវ​មានយ៉ាងតិច <xliff:g id="COUNT">%d</xliff:g> ខ្ទង់"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"ត្រូវមានតិចជាង <xliff:g id="NUMBER">%d</xliff:g> តួ"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"ត្រូវមានលេខតិចជាង <xliff:g id="NUMBER">%d</xliff:g> ខ្ទង់"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ត្រូវមាន​លេខពី 0-9 តែ​ប៉ុណ្ណោះ។"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"អ្នក​គ្រប់គ្រង​ឧបករណ៍​មិន​អនុញ្ញាត​ឱ្យ​ប្រើ​កូដ PIN ​ទើបប្រើ​ហើយ​ទេ"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"កូដ PIN លក្ខណៈ​សាមញ្ញ​ត្រូវ​បាន​ទប់ស្កាត់​ដោយ​អ្នក​គ្រប់គ្រងផ្នែក​ព័ត៌មាន​វិទ្យា​របស់អ្នក។ សូមសាកល្បង​ប្រើ​កូដ PIN ផ្សេង​ពីនេះ។"</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"អ្នក​គ្រប់គ្រង​ឧបករណ៍​មិន​អនុញ្ញាត​ឱ្យ​ប្រើ​ពាក្យ​សម្ងាត់​​ដែលទើបប្រើ​ហើយ​ទេ"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"មាន​បញ្ហា​ក្នុងការ​រក្សាទុក​ពាក្យ​សម្ងាត់"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"ពាក្យសម្ងាត់​លក្ខណៈ​សាមញ្ញ​ត្រូវបាន​ទប់ស្កាត់​ដោយ​អ្នក​គ្រប់គ្រង​ផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក។ សូមសាកល្បង​ប្រើ​ពាក្យសម្ងាត់​ផ្សេងពីនេះ។"</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"មិន​អនុញ្ញាត​ឱ្យ​មាន​លេខ​លំដាប់​ឡើង ចុះ ឬ​ដដែលៗ​ទេ។"</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"ត្រូវមានអក្សរយ៉ាងហោចណាស់មួយតួ"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"ត្រូវមានលេខយ៉ាងហោចណាស់មួយតួ"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"ត្រូវមានសញ្ញាយ៉ាងហោចណាស់មួយ"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{ត្រូវមានអក្សរយ៉ាងហោចណាស់ # តួ}other{ត្រូវមានអក្សរយ៉ាងហោចណាស់ # តួ}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{ត្រូវមានអក្សរតូចយ៉ាងហោចណាស់ # តួ}other{ត្រូវមានអក្សរតូចយ៉ាងហោចណាស់ # តួ}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{ត្រូវមានអក្សរធំយ៉ាងហោចណាស់ # តួ}other{ត្រូវមានអក្សរធំយ៉ាងហោចណាស់ # តួ}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{ត្រូវមានលេខយ៉ាងហោចណាស់ # ខ្ទង់}other{ត្រូវមានលេខយ៉ាងហោចណាស់ # ខ្ទង់}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{ត្រូវមានសញ្ញាពិសេសយ៉ាងហោចណាស់ #}other{ត្រូវមានសញ្ញាពិសេសយ៉ាងហោចណាស់ #}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{ត្រូវមានតួដែលមិនមែនជាអក្សរយ៉ាងហោចណាស់ #}other{ត្រូវមានតួដែលមិនមែនជាអក្សរយ៉ាងហោចណាស់ #}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{ត្រូវតែមាន​តួដែលមិនមែន​ជាលេខ​យ៉ាងហោចណាស់ #}other{ត្រូវតែមាន​តួដែលមិនមែន​ជាលេខ​យ៉ាងហោចណាស់ #}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{ត្រូវតែ​មាន​យ៉ាងហោចណាស់ # តួ}other{ត្រូវតែ​មាន​យ៉ាងហោចណាស់ # តួ}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{ត្រូវតែមានយ៉ាងហោចណាស់ # ខ្ទង់}other{ត្រូវតែមានយ៉ាងហោចណាស់ # ខ្ទង់}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{ត្រូវតែ​តិចជាង # តួ}other{ត្រូវតែ​តិចជាង # តួ}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{ត្រូវតែ​តិចជាង # ខ្ទង់}other{ត្រូវតែ​តិចជាង # ខ្ទង់}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"មិន​អនុញ្ញាត​ឱ្យ​មាន​លេខ​លំដាប់ឡើង ចុះ ឬដដែលៗទេ"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ជម្រើស​ការចាក់សោអេក្រង់"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\nថ្ងៃ <xliff:g id="DATE">%2$s</xliff:g>៖ <xliff:g id="NUM_DAYS">%3$s</xliff:g> ថ្ងៃមុន"</string>
     <string name="credentials_reset" msgid="873900550885788639">"សម្អាត​ព័ត៌មានផ្ទៀងផ្ទាត់"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"លុប"</string>
     <string name="cancel" msgid="750286395700355455">"បោះបង់"</string>
     <string name="allow" msgid="7519431342750394402">"អនុញ្ញាត"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"មិនអនុញ្ញាត"</string>
     <string name="deny" msgid="340512788979930804">"បដិសេធ"</string>
     <string name="backspace_key" msgid="1545590866688979099">"គ្រាប់​ចុច​លុប"</string>
     <string name="enter_key" msgid="2121394305541579468">"គ្រាប់​ចុច​បញ្ចូល"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"បើកដំណើរការ​កម្មវិធីប្រព័ន្ធព័ត៌មាន និងកម្សាន្តនេះ"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"បិទដំណើរការ ហើយលុប"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"បិទដំណើរការ​កម្មវិធីប្រព័ន្ធ​ព័ត៌មាន និងកម្សាន្តនេះ"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"ព័ត៌មានលម្អិតបន្ថែម"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"អ្នកគ្រប់គ្រងស្ថាប័ន​របស់អ្នក​អាច​តាមដាន និងគ្រប់គ្រងកម្មវិធី និងទិន្នន័យដែលពាក់ព័ន្ធនឹង​កម្រងព័ត៌មាន​នេះ រួមទាំងការកំណត់ ការអនុញ្ញាត ការចូលប្រើ​លក្ខណៈក្រុមហ៊ុន សកម្មភាព​បណ្តាញ និងព័ត៌មាន​ទីតាំងរបស់យានជំនិះ​ផងដែរ។"</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"អ្នកគ្រប់គ្រងស្ថាប័ន​របស់អ្នក​អាចតាមដាន និងគ្រប់គ្រងកម្មវិធី និងទិន្នន័យដែលពាក់ព័ន្ធនឹង​កម្រងព័ត៌មាននេះ រួមទាំងការកំណត់ ការអនុញ្ញាត ការចូលប្រើ​លក្ខណៈក្រុមហ៊ុន សកម្មភាព​បណ្តាញ និងព័ត៌មានទីតាំង​របស់ឧបករណ៍​ផងដែរ។"</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"អ្នកគ្រប់គ្រង​ស្ថាប័នអាចតាមដាន និងគ្រប់គ្រងកម្មវិធី និងទិន្នន័យ​ដែលពាក់ព័ន្ធនឹង​ប្រព័ន្ធព័ត៌មាន និងកម្សាន្តនេះ រួមទាំងការកំណត់ ការអនុញ្ញាត ការចូលប្រើលក្ខណៈក្រុមហ៊ុន សកម្មភាពបណ្ដាញ និងព័ត៌មានទីតាំងរបស់​យានជំនិះផងដែរ។"</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"គោលការណ៍​យានជំនិះ <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ការកំណត់ដែលស្ថិតក្រោមការគ្រប់គ្រងរបស់អ្នក​គ្រប់គ្រងស្ថាប័ន"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"ស្វែងយល់បន្ថែមអំពី <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ព័ត៌មាន​អំពីយានជំនិះដែលត្រូវបានគ្រប់គ្រង"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"ការកំណត់ដែលត្រូវបានគ្រប់គ្រងដោយអ្នកគ្រប់គ្រងក្រុមយានជំនិះ"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"ដើម្បីផ្ដល់សិទ្ធិចូលប្រើទិន្នន័យនៅលើយានជំនិះដែលត្រូវបានគ្រប់គ្រងនេះ អ្នកគ្រប់គ្រងក្រុមយានជំនិះអាចនឹងផ្លាស់ប្ដូរការកំណត់ និងដំឡើងកម្មវិធីនៅលើប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្ត។\n\nសម្រាប់ព័ត៌មានលម្អិតបន្ថែម សូមទាក់ទងអ្នកគ្រប់គ្រងក្រុមយានជំនិះរបស់អ្នក។"</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"ព័ត៌មានដែលអ្នកគ្រប់គ្រងក្រុមយានជំនិះ​របស់អ្នកអាចមើលឃើញ"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"ការផ្លាស់ប្ដូរដែលបានធ្វើឡើងដោយអ្នកគ្រប់គ្រងក្រុមយានជំនិះរបស់អ្នក"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"ទិន្នន័យដែលពាក់ព័ន្ធនឹងគណនីយានជំនិះដែលត្រូវបានគ្រប់គ្រងរបស់អ្នក"</li>\n" "<li>"បញ្ជីកម្មវិធីនៅលើយានជំនិះដែលត្រូវបានគ្រប់គ្រងរបស់អ្នក"</li>\n" "<li>"រយៈពេល និងទិន្នន័យដែលចំណាយនៅក្នុងកម្មវិធីនីមួយៗ"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"ការចូលប្រើរបស់អ្នកនៅក្នុងប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្ត"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"បញ្ជីកម្មវិធីនៅលើយានជំនិះរបស់អ្នក"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"ចំនួនកម្មវិធី​គឺត្រូវបាន​ប៉ាន់ស្មាន។ វាប្រហែល​ជាមិនរួមបញ្ចូល​កម្មវិធី​ដែលបានដំឡើង​ក្រៅពី Play Store ទេ។"</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">មានកម្មវិធី​អប្បបរមាចំនួន <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="one">មានកម្មវិធី​អប្បបរមាចំនួន <xliff:g id="COUNT_0">%d</xliff:g></item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other">កម្មវិធី <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="one">កម្មវិធី <xliff:g id="COUNT_0">%d</xliff:g></item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"កំណត់​ហេតុ​ចរាចរណ៍​បណ្តាញ​ថ្មីបំផុត"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"របាយការណ៍​អំពី​បញ្ហា​ថ្មីបំផុត"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"កំណត់ហេតុ​សុវត្ថិភាព​ថ្មី​បំផុត"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"គ្មាន"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"បានដំឡើង​កម្មវិធី"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"ការអនុញ្ញាត​ឱ្យប្រើ​ទីតាំង"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"ការអនុញ្ញាត​ឱ្យប្រើ​មីក្រូហ្វូន"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"ការអនុញ្ញាត​ឱ្យចូលប្រើ​កាមេរ៉ា"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"កម្មវិធី​លំនាំដើម"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"ក្ដារចុច​លំនាំ​ដើម"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"កំណត់ទៅ <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"បាន​កំណត់​ប្រូកស៊ី HTTP សកល"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"ព័ត៌មាន​ផ្ទៀងផ្ទាត់​ដែល​ទុកចិត្ត​នៅក្នុងកម្រងព័ត៌មាន​ផ្ទាល់ខ្លួន​របស់អ្នក"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"អ្នកគ្រប់គ្រងអាចចាក់សោប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្ត និងកំណត់ពាក្យសម្ងាត់ឡើងវិញ"</li>\n" "<li>"អ្នកគ្រប់គ្រងអាចលុបទិន្នន័យនៅក្នុងប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្ត"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"មិនអាច​បញ្ចូល​ពាក្យ​សម្ងាត់​បាន​ទេ លុះត្រាតែ​អ្នក​លុប​ទិន្នន័យទាំងអស់នៅក្នុងប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្ត​ជាមុន​សិន"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"មិនអាច​បញ្ចូល​ពាក្យ​សម្ងាត់​បាន​ទេ លុះត្រាតែ​អ្នក​លុប​ទិន្នន័យ​កម្រងព័ត៌មាន​ជាមុន​សិន"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other">ព្យាយាមបញ្ចូល <xliff:g id="COUNT_1">%d</xliff:g> ដង</item>
+      <item quantity="one">ព្យាយាមបញ្ចូល <xliff:g id="COUNT_0">%d</xliff:g> ដង</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">កម្មវិធី​កាមេរ៉ា</item>
+      <item quantity="one">កម្មវិធី​កាមេរ៉ា</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">កម្មវិធី​ផ្ញើអ៊ីមែល</item>
+      <item quantity="one">កម្មវិធី​ផ្ញើអ៊ីមែល</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">កម្មវិធី​ទូរសព្ទ</item>
+      <item quantity="one">កម្មវិធី​ទូរសព្ទ</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"ចែករំលែក​របាយការណ៍អំពី​បញ្ហាឬ?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"អ្នកគ្រប់គ្រងស្ថាប័នរបស់យានជំនិះនេះបានស្នើសុំរបាយការណ៍អំពីបញ្ហា ដើម្បីជួយដោះស្រាយបញ្ហាឧបករណ៍នេះ។ កម្មវិធី និងទិន្នន័យអាចនឹងត្រូវបានចែករំលែក។"</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"អ្នកគ្រប់គ្រងស្ថាប័នរបស់យានជំនិះនេះបានស្នើសុំរបាយការណ៍អំពីបញ្ហា ដើម្បីជួយដោះស្រាយបញ្ហាឧបករណ៍នេះ។ កម្មវិធី និងទិន្នន័យអាចនឹងត្រូវបានចែករំលែក ហើយឧបករណ៍របស់អ្នកអាចនឹងដំណើរការយឺតជាបណ្តោះអាសន្ន។"</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"របាយការណ៍អំពីបញ្ហានេះកំពុងត្រូវបានចែករំលែកជាមួយអ្នកគ្រប់គ្រងស្ថាប័នរបស់យានជំនិះនេះ។ សូមទាក់ទងគាត់ ដើម្បីទទួលបានព័ត៌មានលម្អិតបន្ថែម។"</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"ចែករំលែក"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"បដិសេធ"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"កំណត់ប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្តឡើងវិញ"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"ប្រព័ន្ធ​របស់អ្នកបានទទួលសំណើសុំកំណត់​ដូច​ចេញ​ពី​រោងចក្រ​ និងលុបទិន្នន័យទាំងអស់។ អ្នកអាចកំណត់ប្រព័ន្ធឡើងវិញឥឡូវនេះ ឬវានឹងកំណត់ឡើងវិញ នៅពេលរថយន្តចាប់ផ្ដើមលើកក្រោយ។ បន្ទាប់ពីនោះ អ្នកអាចរៀបចំកម្រងព័ត៌មានថ្មីបាន។"</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"កំណត់ឡើងវិញឥឡូវនេះ"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"ចាប់ផ្ដើមឡើងវិញពេលក្រោយ"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"ប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្តនឹងកំណត់ឡើងវិញ នៅពេលរថយន្តចាប់ផ្ដើមលើកក្រោយ។"</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"ត្រូវតែចតរថយន្ត ដើម្បីចាប់ផ្ដើមការកំណត់ឡើងវិញ។"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"មិនអាចផ្លាស់ប្ដូរ​ការកំណត់នេះ​នៅពេលនេះ​បានទេ"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"ភាពងាយស្រួល"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"អក្សររត់"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"ពណ៌ខ្មៅ​លើ​ពណ៌ស"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"ពណ៌លឿង​​លើ​​ពណ៌​ខ្មៅ"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"ពណ៌លឿង​លើ​ពណ៌ខៀវ"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"កម្មវិធី​អាន​អេក្រង់"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"បិទ"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"អានធាតុនៅលើអេក្រង់"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"ប្រើ <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"ជម្រើស"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"ការកំណត់"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"កាមេរ៉ា"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"ប្រើ​កាមេរ៉ា"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"អនុញ្ញាតឱ្យកម្មវិធីទាំងអស់​ចូលប្រើ​កាមេរ៉ា​របស់អ្នក"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"គ្រប់គ្រង​ការអនុញ្ញាត​កាមេរ៉ា"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"បានចូលប្រើ​កាលពីថ្មីៗនេះ"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"គ្មាន​កម្មវិធី​ថ្មីៗ"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"កម្មវិធី 0 មានសិទ្ធិចូលប្រើ"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{កម្មវិធី # នៃ {total_count} មានសិទ្ធិចូលប្រើ}other{កម្មវិធី # នៃ {total_count} មានសិទ្ធិចូលប្រើ}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"បានចូលប្រើ​កាលពីថ្មីៗនេះ"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"មើលទាំងអស់"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"កំពុងផ្ទុក…"</string>
 </resources>

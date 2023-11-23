@@ -83,6 +83,7 @@ constexpr uint64_t kAudioStressTestAppId  = makeExampleNanoappId(14);
 constexpr uint64_t kPowerTestAppId        = makeExampleNanoappId(15);
 // 16 = Power Test TCM
 constexpr uint64_t kDebugDumpWorldAppId   = makeExampleNanoappId(17);
+constexpr uint64_t kBleWorldAppId         = makeExampleNanoappId(18);
 // clang-format on
 
 }  // namespace chre

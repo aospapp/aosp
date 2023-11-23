@@ -36,4 +36,8 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsSuspendTestApp",
+    ],
+    per_testcase_directory: true,
 }

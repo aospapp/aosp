@@ -18,7 +18,6 @@
 
 package com.android.tools.metalava
 
-import org.junit.Ignore
 import org.junit.Test
 
 class Java9LanguageFeaturesTest : DriverTest() {
@@ -26,6 +25,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
     fun `Private Interface Method`() {
         // Basic class; also checks that default constructor is made explicit
         check(
+            format = FileFormat.V1,
             checkCompilation = false, // Not compiling with JDK 9 yet
             sourceFiles = arrayOf(
                 java(
@@ -43,8 +43,8 @@ class Java9LanguageFeaturesTest : DriverTest() {
             ),
             api = """
                 package test.pkg {
-                  public abstract interface Person {
-                    method public abstract java.lang.String name();
+                  public interface Person {
+                    method public String name();
                   }
                 }
                 """,
@@ -56,6 +56,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
     fun `Kotlin language level`() {
         // See https://kotlinlang.org/docs/reference/whatsnew13.html
         check(
+            format = FileFormat.V1,
             sourceFiles = arrayOf(
                 kotlin(
                     """
@@ -74,11 +75,11 @@ class Java9LanguageFeaturesTest : DriverTest() {
                 )
             ),
             api =
-                """
+            """
                 package test.pkg {
-                  public abstract interface Foo {
+                  public interface Foo {
                     method public default static void sayHello();
-                    field public static final test.pkg.Foo.Companion Companion;
+                    field @NonNull public static final test.pkg.Foo.Companion Companion;
                     field public static final int answer = 42; // 0x2a
                   }
                   public static final class Foo.Companion {
@@ -96,6 +97,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
     fun `Basic class signature extraction`() {
         // Basic class; also checks that default constructor is made explicit
         check(
+            format = FileFormat.V1,
             checkCompilation = false, // Not compiling with JDK 9 yet
             sourceFiles = arrayOf(
                 java(
@@ -173,12 +175,12 @@ class Java9LanguageFeaturesTest : DriverTest() {
                     ctor public Java9LanguageFeatures();
                     method public static byte[] copy(byte[]) throws java.io.IOException;
                     method public <T> java.util.concurrent.atomic.AtomicReference<T> createReference(T);
-                    method public static <T> java.lang.String toListString(T...);
+                    method @java.lang.SafeVarargs public static <T> String toListString(T...);
                   }
-                  public static abstract interface Java9LanguageFeatures.Person {
+                  public static interface Java9LanguageFeatures.Person {
                     method public default boolean isPalindrome();
                     method public default boolean isPalindromeIgnoreCase();
-                    method public abstract java.lang.String name();
+                    method public String name();
                   }
                 }
                 """,
@@ -186,12 +188,12 @@ class Java9LanguageFeaturesTest : DriverTest() {
         )
     }
 
-    @Ignore("TODO: unable to load JDK11 libraries from java.home")
     @Test
     fun `Using JDK APIs`() {
         // Non-Android example
         val jdk = System.getProperty("java.home") ?: error("Expected java.home to be set")
         check(
+            format = FileFormat.V2,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -204,7 +206,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
                 )
             ),
             api =
-                """
+            """
                 package test.pkg {
                   public class SwingTest extends javax.swing.JButton {
                     ctor public SwingTest();

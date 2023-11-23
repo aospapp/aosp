@@ -18,20 +18,15 @@ package com.android.wifitrackerlib;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.NetworkInfo;
-import android.net.NetworkKey;
-import android.net.ScoredNetwork;
-import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.net.wifi.WifiNetworkScoreCache;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.test.TestLooper;
@@ -48,8 +43,6 @@ public class MergedCarrierEntryTest {
     @Mock private NetworkInfo mMockNetworkInfo;
     @Mock private Context mMockContext;
     @Mock private Resources mMockResources;
-    @Mock private WifiNetworkScoreCache mMockScoreCache;
-    @Mock private ScoredNetwork mMockScoredNetwork;
 
     private TestLooper mTestLooper;
     private Handler mTestHandler;
@@ -61,13 +54,11 @@ public class MergedCarrierEntryTest {
         when(mMockWifiInfo.getRssi()).thenReturn(WifiInfo.INVALID_RSSI);
         when(mMockNetworkInfo.getDetailedState()).thenReturn(
                 NetworkInfo.DetailedState.DISCONNECTED);
-        when(mMockScoreCache.getScoredNetwork((ScanResult) any())).thenReturn(mMockScoredNetwork);
-        when(mMockScoreCache.getScoredNetwork((NetworkKey) any())).thenReturn(mMockScoredNetwork);
         mTestLooper = new TestLooper();
         mTestHandler = new Handler(mTestLooper.getLooper());
         when(mMockContext.getMainLooper()).thenReturn(Looper.getMainLooper());
         when(mMockContext.getResources()).thenReturn(mMockResources);
-        when(mMockResources.getString(R.string.wifitrackerlib_summary_separator)).thenReturn("/");
+        when(mMockContext.getString(R.string.wifitrackerlib_summary_separator)).thenReturn("/");
         when(mMockResources.getText(R.string.wifitrackerlib_wifi_wont_autoconnect_for_now))
                 .thenReturn("Wi-Fi won't auto-connect for now");
     }
@@ -76,7 +67,7 @@ public class MergedCarrierEntryTest {
     public void testGetConnectedState_wifiInfoMatches_returnsConnected() {
         final int subId = 1;
         final MergedCarrierEntry entry = new MergedCarrierEntry(mTestHandler, mMockWifiManager,
-                mMockScoreCache, false, mMockContext, subId);
+                false, mMockContext, subId);
         when(mMockWifiInfo.isCarrierMerged()).thenReturn(true);
         when(mMockWifiInfo.getSubscriptionId()).thenReturn(subId);
         when(mMockNetworkInfo.getDetailedState()).thenReturn(NetworkInfo.DetailedState.CONNECTED);
@@ -91,7 +82,7 @@ public class MergedCarrierEntryTest {
         Looper.prepare();
         final int subId = 1;
         final MergedCarrierEntry entry = new MergedCarrierEntry(mTestHandler, mMockWifiManager,
-                mMockScoreCache, false, mMockContext, subId);
+                false, mMockContext, subId);
 
         entry.connect(mMockConnectCallback);
         mTestLooper.dispatchAll();
@@ -105,7 +96,7 @@ public class MergedCarrierEntryTest {
     public void testDisconnect_enablesNonCarrierMergedWifiAndTriggersScan() {
         final int subId = 1;
         final MergedCarrierEntry entry = new MergedCarrierEntry(mTestHandler, mMockWifiManager,
-                mMockScoreCache, false, mMockContext, subId);
+                false, mMockContext, subId);
 
         entry.disconnect(null);
         mTestLooper.dispatchAll();
@@ -117,7 +108,7 @@ public class MergedCarrierEntryTest {
     public void testCanConnect_cellIsDefaultRoute_returnsFalse() {
         final int subId = 1;
         final MergedCarrierEntry entry = new MergedCarrierEntry(mTestHandler, mMockWifiManager,
-                mMockScoreCache, false, mMockContext, subId);
+                false, mMockContext, subId);
         entry.updateIsCellDefaultRoute(false);
 
         assertThat(entry.canConnect()).isTrue();
@@ -131,7 +122,7 @@ public class MergedCarrierEntryTest {
     public void testGetSsid_connected_returnsSanitizedWifiInfoSsid() {
         final int subId = 1;
         final MergedCarrierEntry entry = new MergedCarrierEntry(mTestHandler, mMockWifiManager,
-                mMockScoreCache, false, mMockContext, subId);
+                false, mMockContext, subId);
         when(mMockWifiInfo.isCarrierMerged()).thenReturn(true);
         when(mMockWifiInfo.getSubscriptionId()).thenReturn(subId);
         final String ssid = "ssid";

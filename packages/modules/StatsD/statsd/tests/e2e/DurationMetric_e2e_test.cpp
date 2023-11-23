@@ -1562,6 +1562,93 @@ TEST(DurationMetricE2eTest, TestUploadThreshold) {
     EXPECT_EQ(baseTimeNs + bucketSizeNs * 2, data.bucket_info(0).end_bucket_elapsed_nanos());
 }
 
+TEST(DurationMetricE2eTest, TestConditionOnRepeatedEnumField) {
+    StatsdConfig config;
+    config.add_allowed_log_source("AID_ROOT");  // LogEvent defaults to UID of root.
+
+    AtomMatcher repeatedStateFirstOffAtomMatcher = CreateTestAtomRepeatedStateFirstOffAtomMatcher();
+    AtomMatcher repeatedStateFirstOnAtomMatcher = CreateTestAtomRepeatedStateFirstOnAtomMatcher();
+    *config.add_atom_matcher() = repeatedStateFirstOffAtomMatcher;
+    *config.add_atom_matcher() = repeatedStateFirstOnAtomMatcher;
+
+    Predicate durationPredicate = CreateTestAtomRepeatedStateFirstOffPredicate();
+    *config.add_predicate() = durationPredicate;
+
+    int64_t metricId = 123456;
+    DurationMetric* durationMetric = config.add_duration_metric();
+    durationMetric->set_id(metricId);
+    durationMetric->set_what(durationPredicate.id());
+    durationMetric->set_bucket(FIVE_MINUTES);
+    durationMetric->set_aggregation_type(DurationMetric_AggregationType_SUM);
+
+    const int64_t baseTimeNs = 0;                                   // 0:00
+    const int64_t configAddedTimeNs = baseTimeNs + 1 * NS_PER_SEC;  // 0:01
+    const int64_t bucketSizeNs =
+            TimeUnitToBucketSizeInMillis(config.duration_metric(0).bucket()) * 1000LL * 1000LL;
+
+    int uid = 12345;
+    int64_t cfgId = 98765;
+    ConfigKey cfgKey(uid, cfgId);
+
+    sp<StatsLogProcessor> processor =
+            CreateStatsLogProcessor(baseTimeNs, configAddedTimeNs, config, cfgKey);
+
+    vector<int> intArray = {3, 6};
+    vector<int64_t> longArray = {1000L, 10002L};
+    vector<float> floatArray = {0.3f, 0.09f};
+    vector<string> stringArray = {"str1", "str2"};
+    int boolArrayLength = 2;
+    bool boolArray[boolArrayLength];
+    boolArray[0] = 1;
+    boolArray[1] = 0;
+    vector<int> enumArrayOff = {TestAtomReported::OFF, TestAtomReported::ON};
+    vector<int> enumArrayOn = {TestAtomReported::ON, TestAtomReported::OFF};
+
+    std::vector<std::unique_ptr<LogEvent>> events;
+    uint64_t falseDurationStartNs = configAddedTimeNs + 10 * NS_PER_SEC;
+    uint64_t durationStartNs = configAddedTimeNs + 20 * NS_PER_SEC;
+    uint64_t durationEndNs = durationStartNs + 50 * NS_PER_SEC;
+
+    // Condition false
+    events.push_back(CreateTestAtomReportedEventVariableRepeatedFields(falseDurationStartNs, {}, {},
+                                                                       {}, {}, {}, 0, enumArrayOn));
+    // Condition true - start collecting duration.
+    events.push_back(CreateTestAtomReportedEventVariableRepeatedFields(durationStartNs, {}, {}, {},
+                                                                       {}, {}, 0, enumArrayOff));
+    // Condition false - stop collecting duration.
+    events.push_back(CreateTestAtomReportedEventVariableRepeatedFields(durationEndNs, {}, {}, {},
+                                                                       {}, {}, 0, enumArrayOn));
+
+    // Send log events to StatsLogProcessor.
+    for (auto& event : events) {
+        processor->OnLogEvent(event.get());
+    }
+
+    ConfigMetricsReportList reports;
+    vector<uint8_t> buffer;
+    processor->onDumpReport(cfgKey, configAddedTimeNs + bucketSizeNs + 1 * NS_PER_SEC, false, true,
+                            ADB_DUMP, FAST, &buffer);  // 10:01
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    backfillDimensionPath(&reports);
+    backfillStartEndTimestamp(&reports);
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    EXPECT_EQ(metricId, reports.reports(0).metrics(0).metric_id());
+    EXPECT_TRUE(reports.reports(0).metrics(0).has_duration_metrics());
+
+    StatsLogReport::DurationMetricDataWrapper durationMetrics;
+    sortMetricDataByDimensionsValue(reports.reports(0).metrics(0).duration_metrics(),
+                                    &durationMetrics);
+    ASSERT_EQ(1, durationMetrics.data_size());
+
+    DurationMetricData data = durationMetrics.data(0);
+    ASSERT_EQ(1, data.bucket_info_size());
+    EXPECT_EQ(durationEndNs - durationStartNs, data.bucket_info(0).duration_nanos());
+    EXPECT_EQ(configAddedTimeNs, data.bucket_info(0).start_bucket_elapsed_nanos());
+    EXPECT_EQ(baseTimeNs + bucketSizeNs, data.bucket_info(0).end_bucket_elapsed_nanos());
+}
+
 #else
 GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif

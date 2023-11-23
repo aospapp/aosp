@@ -16,6 +16,40 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library_host {
+    name: "HarrierCommon",
+    srcs: [
+        "common/src/main/java/**/*.java",
+    ],
+
+    static_libs: [
+        "junit",
+        "auto_value_annotations",
+        "guava",
+        "NeneCommon"
+    ],
+
+    plugins: ["auto_annotation_plugin"]
+}
+
+android_library {
+    name: "HarrierCommonAndroid",
+    srcs: [
+        "common/src/main/java/**/*.java",
+    ],
+
+    static_libs: [
+        "junit",
+        "auto_value_annotations",
+        "guava",
+        "NeneCommonAndroid"
+    ],
+
+    manifest: "src/main/AndroidManifest.xml",
+    min_sdk_version: "27",
+    plugins: ["auto_annotation_plugin"]
+}
+
 android_library {
     name: "Harrier",
     sdk_version: "test_current",
@@ -27,6 +61,7 @@ android_library {
     static_libs: [
         "Nene",
         "RemoteDPC",
+        "HarrierCommonAndroid",
         "compatibility-device-util-axt",
         "androidx.test.ext.junit",
         "auto_value_annotations"
@@ -34,7 +69,6 @@ android_library {
 
     manifest: "src/main/AndroidManifest.xml",
     min_sdk_version: "27",
-    plugins: ["auto_annotation_plugin"],
 }
 
 android_test {

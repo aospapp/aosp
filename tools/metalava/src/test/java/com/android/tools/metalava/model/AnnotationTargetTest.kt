@@ -29,13 +29,15 @@ class AnnotationTargetTest {
             .also { assertTrue(it.isNotEmpty()) }
             .forEach { (name, value) ->
                 val targets = value as Collection<*>
-                assertTrue("$name: should contain $INTERNAL but doesn't: $targets",
-                        targets.contains(INTERNAL))
+                assertTrue(
+                    "$name: should contain $INTERNAL but doesn't: $targets",
+                    targets.contains(INTERNAL)
+                )
             }
     }
 
     private val Class<*>.constants get() = methods
-            .filter { Modifier.isStatic(it.modifiers) }
-            .filter { it.name.startsWith("get") }
-            .map { it.name to it.invoke(null) }
+        .filter { Modifier.isStatic(it.modifiers) }
+        .filter { it.name.startsWith("get") }
+        .map { it.name to it.invoke(null) }
 }

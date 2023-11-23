@@ -199,6 +199,16 @@
 		<t>dEQP-VK.texture.explicit_lod.2d.formats.r8g8_snorm_linear</t>
 		<t>dEQP-VK.texture.explicit_lod.2d.formats.r8g8b8a8_snorm_linear</t>
 		<t>dEQP-VK.texture.explicit_lod.2d.formats.a8b8g8r8_snorm_pack32_linear</t>
+
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.a8b8g8r8_snorm_pack32</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.b8g8r8a8_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r16g16b16a16_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r16g16b16_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r16g16_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r16_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r8g8b8a8_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r8g8_snorm</t>
+		<t>dEQP-VK.texture.conversion.snorm_clamp_linear.r8_snorm</t>
 	</waiver>
 
 	<waiver vendorName="Broadcom" vendorId="0x14E4" url="https://gitlab.khronos.org/Tracker/vk-gl-cts/issues/757">
@@ -207,7 +217,8 @@
 			<d>0x001E43CB</d>
 			<d>0xBE485FD3</d>
 		</device_list>
-		<t>dEQP-VK.draw.inverted_depth_ranges.nodepthclamp_deltazero</t>
+		<t>dEQP-VK.draw.renderpass.inverted_depth_ranges.nodepthclamp_deltazero</t>
+		<t>dEQP-VK.draw.dynamic_rendering.inverted_depth_ranges.nodepthclamp_deltazero</t>
 	</waiver>
 
 	<waiver vendorName="Broadcom" vendorId="0x14E4" url="https://gitlab.khronos.org/Tracker/vk-gl-cts/issues/2804">

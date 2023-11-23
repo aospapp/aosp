@@ -95,7 +95,7 @@ public class ProcessCpuTimeConverterTest {
             throws StatsConversionException {
         List<Atom> atomsList = Arrays.asList(ATOM_A, ATOM_B);
         List<List<DimensionsValue>> dimensionsValuesList = Arrays.asList(DV_PAIR_A, DV_PAIR_B);
-        SparseArray<AtomFieldAccessor<ProcessCpuTime>> accessorMap =
+        SparseArray<AtomFieldAccessor<ProcessCpuTime, ?>> accessorMap =
                 mConverter.getAtomFieldAccessorMap();
 
         PersistableBundle bundle = mConverter.convert(atomsList, DIM_FIELDS_IDS,

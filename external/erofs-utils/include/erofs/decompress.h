@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * erofs-utils/include/erofs/decompress.h
- *
  * Copyright (C), 2008-2020, OPPO Mobile Comm Corp., Ltd.
  * Created by Huang Jianan <huangjianan@oppo.com>
  */
 #ifndef __EROFS_DECOMPRESS_H
 #define __EROFS_DECOMPRESS_H
 
-#include "internal.h"
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-enum {
-	Z_EROFS_COMPRESSION_SHIFTED = Z_EROFS_COMPRESSION_MAX,
-	Z_EROFS_COMPRESSION_RUNTIME_MAX
-};
+#include "internal.h"
 
 struct z_erofs_decompress_req {
 	char *in, *out;
@@ -31,5 +29,9 @@ struct z_erofs_decompress_req {
 };
 
 int z_erofs_decompress(struct z_erofs_decompress_req *rq);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

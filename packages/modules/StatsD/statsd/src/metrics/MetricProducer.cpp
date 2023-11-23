@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "MetricProducer.h"
@@ -52,7 +52,8 @@ MetricProducer::MetricProducer(
         const std::unordered_map<int, std::vector<std::shared_ptr<Activation>>>&
                 eventDeactivationMap,
         const vector<int>& slicedStateAtoms,
-        const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap)
+        const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap,
+        const optional<bool> splitBucketForAppUpgrade)
     : mMetricId(metricId),
       mProtoHash(protoHash),
       mConfigKey(key),
@@ -65,13 +66,14 @@ MetricProducer::MetricProducer(
       mConditionSliced(false),
       mWizard(wizard),
       mContainANYPositionInDimensionsInWhat(false),
-      mSliceByPositionALL(false),
+      mShouldUseNestedDimensions(false),
       mHasLinksToAllConditionDimensionsInTracker(false),
       mEventActivationMap(eventActivationMap),
       mEventDeactivationMap(eventDeactivationMap),
       mIsActive(mEventActivationMap.empty()),
       mSlicedStateAtoms(slicedStateAtoms),
-      mStateGroupMap(stateGroupMap) {
+      mStateGroupMap(stateGroupMap),
+      mSplitBucketForAppUpgrade(splitBucketForAppUpgrade) {
 }
 
 bool MetricProducer::onConfigUpdatedLocked(
@@ -340,14 +342,15 @@ HashableDimensionKey MetricProducer::getUnknownStateKey() {
     return stateKey;
 }
 
-DropEvent MetricProducer::buildDropEvent(const int64_t dropTimeNs, const BucketDropReason reason) {
+DropEvent MetricProducer::buildDropEvent(const int64_t dropTimeNs,
+                                         const BucketDropReason reason) const {
     DropEvent event;
     event.reason = reason;
     event.dropTimeNs = dropTimeNs;
     return event;
 }
 
-bool MetricProducer::maxDropEventsReached() {
+bool MetricProducer::maxDropEventsReached() const {
     return mCurrentSkippedBucket.dropEvents.size() >= StatsdStats::kMaxLoggedBucketDropEvents;
 }
 

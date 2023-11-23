@@ -79,7 +79,7 @@ cc_library {
     ],
     header_libs: ["libxsdc-utils"],
     shared_libs: [
-        "android.hardware.automotive.audiocontrol-V1-ndk_platform",
+        "android.hardware.automotive.audiocontrol-V1-ndk",
         "libgrpc++",
         "libprotobuf-cpp-full",
         "libbase",
@@ -105,9 +105,9 @@ cc_binary {
     header_libs: ["libxsdc-utils"],
     shared_libs: [
         "android.hardware.automotive.audiocontrol-server.trout",
-        "android.hardware.automotive.audiocontrol-V1-ndk_platform",
+        "android.hardware.automotive.audiocontrol-V1-ndk",
         "android.hardware.automotive.utils.watchdog",
-        "android.automotive.watchdog-V2-ndk_platform",
+        "android.automotive.watchdog-V2-ndk",
         "libbase",
         "libbinder_ndk",
         "libutils",

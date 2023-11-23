@@ -15,20 +15,13 @@
 # with specific Patcher arguments.
 # See `pytest_plugin.py` for more information.
 
-import linecache
-import tokenize
-
-import py
 import pytest
 
 from pyfakefs.fake_filesystem_unittest import Patcher
 
-Patcher.SKIPMODULES.add(pytest)
-Patcher.SKIPMODULES.add(py)
-Patcher.SKIPMODULES.add(linecache)
-Patcher.SKIPMODULES.add(tokenize)
+# import the fs fixture to be visible if pyfakefs is not installed
+from pyfakefs.pytest_plugin import fs  # noqa: F401
 
-from pyfakefs.fake_filesystem_unittest import Patcher  # noqa: E402
 from pyfakefs.pytest_tests import example  # noqa: E402
 
 
@@ -37,7 +30,11 @@ def fs_reload_example():
     """ Fake filesystem. """
     patcher = Patcher(modules_to_reload=[example])
     patcher.setUp()
-    linecache.open = patcher.original_open
-    tokenize._builtin_open = patcher.original_open
     yield patcher.fs
     patcher.tearDown()
+
+
+@pytest.fixture
+def fake_filesystem(fs):  # noqa: F811
+    """Shows how to use an alias for the fs fixture."""
+    yield fs

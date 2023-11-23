@@ -63,24 +63,27 @@ is important, because that is how we do to actually release the
 tarball of the project that you can download from the internet) then
 you can do:
 
-  make distcheck
+  make distcheck-fast
 
 This actually builds the tarball, then untars it, configure/compile
 the untarred source code and launches the regression checks from
 there.
 
+Here, "make distcheck-fast" is a variant of the standard "make distcheck".
+It compresses with "--fast" instead of default "--best", and is
+significantly faster, given the size of the distribution.  You very likely
+want to use that one for local regression testing.  (However, don't use
+"make distcheck-fast" to create artifacts for distribution.)
+
 You can also launch this in parallel by doing:
 
-  make -jN -lN distcheck
+  make -jN -lN distcheck-fast
 
 with N being the number of processor core you have on your system.
 
-Please make sure you always launch "make distcheck" before sending a
+Please make sure you always launch "make distcheck-fast" before sending a
 patch, so that you are sure that we can always build a tarball after
 your patch is applied to the source tree.
-
-A variant of distcheck is "make distcheck-fast".  It's like "make
-distcheck" but it's faster.  You can just use that one.
 
 A complementary regression checking target is "check-self-compare".
 You invoke it by doing "make check-self-compare".  That target
@@ -89,67 +92,12 @@ into the ABIXML format and then compares the ABI internal
 representation gathered from the libabigail.so binary against the one
 gathered from the ABIXML format.  The two should be equal if
 everything goes right.  This is an important regression test.  The
-problem is that it can takes twice as much time as make distcheck.  So
-we've put it into its own separate target.
+problem is that it can take a considerable amount of time.
+So we've put it into its own separate target.
 
 So, to be complete the regression checking command to run against your
-patch should be: "make check-self-compare distcheck -j16", if you have
+patch should be: "make check-self-compare distcheck-fast -j16", if you have
 a machine with a 16 threads processors, for instance.
-
-Coding language and style
-==========================
-
-The coding style is self evident when reading the source code.  So
-please, stick to and mimic what is already in there for the sake of
-consistency at very least.  Just for history, it's derived from the
-style of the C++ standard library from the GNU project.
-
-As of libabigail 2.0, the language we use is C++ 11.  The level
-supported is the one supported by the GCC 4.8.x series of compilers.
-This should be old and well tested enough to be supported by your
-current favorite compiler.
-
-Initially, the code base of the project was written in C++03, with the
-TR1 extensions.  That heritage is well visible in the code base as it
-is today.
-
-Please do not rush and send gazillions of patches that just re-write
-tons of code into your favorite C++ 11 flavour du jour.  We will
-likely reject those patches.  We want to keep the history of the code
-base in such a way that tools like "git blame <sourcefile> are still
-useful.
-
-So we'll accept patches changing parts of the code base to more recent
-C++ 11 constructs only if you happen to add functionality or fix
-things in that area.  If it makes "cultural common" sense to adopt
-those constructs.  What I mean by "cultural" is that must make sense
-in relative to the culture of the project.  And yes, that is
-subjective.  Sorry.
-
-As a generic rule, we tend to favor the lowest possible level of
-abstraction that makes sense without requiring future maintainers of
-the project to have a PhD in design patterns.  We are not impressed by
-design patterns.  We use them where they make clear sense, but we
-don't idolize them.  Put it another way, we will always favor the one
-who *READS* and debug the code over the one who writes it.  To put
-things in a hypothetical perspective, we'll rather accept a repetitive
-code that stays simple to read and debug over a highly abstract one
-using meta programming to save a few lines of repetitive code located
-in a very small number of places.
-
-Really, in this project, we care about low level binary analysis
-stuff.  Issues in that area can be hard to reproduce and quite
-challenging to debug.  So having tons of abstraction layers in the
-code base have proven to be a maintenance burden over the years, from
-our experience in working on similar projects.  So please help us
-avoid those mistakes that we make just for the pleasure of writing
-what can look as "pleasant code" at a first naive sight.
-
-That being said, we also love cleanly designed APIs that are fairly
-re-usable and well documented.  And we also praise abstraction and
-modularisation that we recognize as being the most basic tools of any
-engineer.  So we like to think about ourselves as well rounded people
-who care about maintaining things for a long time to come :-)
 
 Launching regression tests in Valgrind
 --------------------------------------
@@ -225,6 +173,81 @@ tarball when we do "make dist" (or make distcheck).  To do so, please
 make sure to add your new test input files to the
 tests/data/Makefile.am file, in the EXTRA_DIST variable.  Look at how
 things are organized in that file, and please do things similarly.
+
+fedabipkgdiff testing
+---------------------
+
+This depends on the Python koji and a few support modules.  If these are
+not available, 'configure' disables fedabipkgdiff and its 'make check'
+testing.
+
+Debian and Ubuntu, for example, don't provide packages for the Python
+koji module.  If you'd like to run fedabipkgdiff testing without manually
+doing a proper Koji installation, you may simply download Koji sources
+(<https://pagure.io/koji>, releases, or Git clone) and point to these via
+the Python search path.  For example, tested 2021-12-11:
+
+  wget https://pagure.io/koji/archive/koji-1.27.0/koji-koji-1.27.0.tar.gz
+  tar -xzf koji-koji-1.27.0.tar.gz
+  export PYTHONPATH="$PWD"/koji-koji-1.27.0
+
+A libabigail 'configure' run then enables fedabipkgdiff and its
+'make check' testing.
+
+Coding language and style
+==========================
+
+The coding style is self evident when reading the source code.  So
+please, stick to and mimic what is already in there for the sake of
+consistency at very least.  Just for history, it's derived from the
+style of the C++ standard library from the GNU project.
+
+As of libabigail 2.0, the language we use is C++ 11.  The level
+supported is the one supported by the GCC 4.8.x series of compilers.
+This should be old and well tested enough to be supported by your
+current favorite compiler.
+
+Initially, the code base of the project was written in C++03, with the
+TR1 extensions.  That heritage is well visible in the code base as it
+is today.
+
+Please do not rush and send gazillions of patches that just re-write
+tons of code into your favorite C++ 11 flavour du jour.  We will
+likely reject those patches.  We want to keep the history of the code
+base in such a way that tools like "git blame <sourcefile> are still
+useful.
+
+So we'll accept patches changing parts of the code base to more recent
+C++ 11 constructs only if you happen to add functionality or fix
+things in that area.  If it makes "cultural common" sense to adopt
+those constructs.  What I mean by "cultural" is that must make sense
+in relative to the culture of the project.  And yes, that is
+subjective.  Sorry.
+
+As a generic rule, we tend to favor the lowest possible level of
+abstraction that makes sense without requiring future maintainers of
+the project to have a PhD in design patterns.  We are not impressed by
+design patterns.  We use them where they make clear sense, but we
+don't idolize them.  Put it another way, we will always favor the one
+who *READS* and debug the code over the one who writes it.  To put
+things in a hypothetical perspective, we'll rather accept a repetitive
+code that stays simple to read and debug over a highly abstract one
+using meta programming to save a few lines of repetitive code located
+in a very small number of places.
+
+Really, in this project, we care about low level binary analysis
+stuff.  Issues in that area can be hard to reproduce and quite
+challenging to debug.  So having tons of abstraction layers in the
+code base have proven to be a maintenance burden over the years, from
+our experience in working on similar projects.  So please help us
+avoid those mistakes that we make just for the pleasure of writing
+what can look as "pleasant code" at a first naive sight.
+
+That being said, we also love cleanly designed APIs that are fairly
+re-usable and well documented.  And we also praise abstraction and
+modularisation that we recognize as being the most basic tools of any
+engineer.  So we like to think about ourselves as well rounded people
+who care about maintaining things for a long time to come :-)
 
 Sign your work
 ==============

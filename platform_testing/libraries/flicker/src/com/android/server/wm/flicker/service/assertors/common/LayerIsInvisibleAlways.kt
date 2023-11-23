@@ -30,6 +30,6 @@ class LayerIsInvisibleAlways(windowName: String) : ComponentBaseTest(windowName)
         wmSubject: WindowManagerTraceSubject,
         layerSubject: LayersTraceSubject
     ) {
-        layerSubject.isVisible(component)
+        layerSubject.isVisible(component).forAllEntries()
     }
 }

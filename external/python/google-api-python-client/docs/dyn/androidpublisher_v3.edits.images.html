@@ -72,144 +72,171 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="androidpublisher_v3.html">Google Play Developer API</a> . <a href="androidpublisher_v3.edits.html">edits</a> . <a href="androidpublisher_v3.edits.images.html">images</a></h1>
+<h1><a href="androidpublisher_v3.html">Google Play Android Developer API</a> . <a href="androidpublisher_v3.edits.html">edits</a> . <a href="androidpublisher_v3.edits.images.html">images</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#delete">delete(packageName, editId, language, imageType, imageId)</a></code></p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
+<p class="toc_element">
+  <code><a href="#delete">delete(packageName, editId, language, imageType, imageId, x__xgafv=None)</a></code></p>
 <p class="firstline">Deletes the image (specified by id) from the edit.</p>
 <p class="toc_element">
-  <code><a href="#deleteall">deleteall(packageName, editId, language, imageType)</a></code></p>
-<p class="firstline">Deletes all images for the specified language and image type.</p>
+  <code><a href="#deleteall">deleteall(packageName, editId, language, imageType, x__xgafv=None)</a></code></p>
+<p class="firstline">Deletes all images for the specified language and image type. Returns an empty response if no images are found.</p>
 <p class="toc_element">
-  <code><a href="#list">list(packageName, editId, language, imageType)</a></code></p>
-<p class="firstline">Lists all images for the specified language and image type.</p>
+  <code><a href="#list">list(packageName, editId, language, imageType, x__xgafv=None)</a></code></p>
+<p class="firstline">Lists all images. The response may be empty.</p>
 <p class="toc_element">
-  <code><a href="#upload">upload(packageName, editId, language, imageType, media_body=None, media_mime_type=None)</a></code></p>
-<p class="firstline">Uploads a new image and adds it to the list of images for the specified language and image type.</p>
+  <code><a href="#upload">upload(packageName, editId, language, imageType, media_body=None, media_mime_type=None, x__xgafv=None)</a></code></p>
+<p class="firstline">Uploads an image of the specified language and image type, and adds to the edit.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="delete">delete(packageName, editId, language, imageType, imageId)</code>
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="delete">delete(packageName, editId, language, imageType, imageId, x__xgafv=None)</code>
   <pre>Deletes the image (specified by id) from the edit.
 
 Args:
-  packageName: string, Unique identifier for the Android app that is being updated; for example, "com.spiffygame". (required)
-  editId: string, Unique identifier for this edit. (required)
-  language: string, The language code (a BCP-47 language tag) of the localized listing whose images are to read or modified. For example, to select Austrian German, pass "de-AT". (required)
-  imageType: string, A parameter (required)
+  packageName: string, Package name of the app. (required)
+  editId: string, Identifier of the edit. (required)
+  language: string, Language localization code (a BCP-47 language tag; for example, &quot;de-AT&quot; for Austrian German). (required)
+  imageType: string, Type of the Image. (required)
     Allowed values
-      featureGraphic - 
-      icon - 
-      phoneScreenshots - 
-      promoGraphic - 
-      sevenInchScreenshots - 
-      tenInchScreenshots - 
-      tvBanner - 
-      tvScreenshots - 
-      wearScreenshots - 
+      appImageTypeUnspecified - Unspecified type. Do not use.
+      phoneScreenshots - Phone screenshot.
+      sevenInchScreenshots - Seven inch screenshot.
+      tenInchScreenshots - Ten inch screenshot.
+      tvScreenshots - TV screenshot.
+      wearScreenshots - Wear screenshot.
+      icon - Icon.
+      featureGraphic - Feature graphic.
+      tvBanner - TV banner.
   imageId: string, Unique identifier an image within the set of images attached to this edit. (required)
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 </pre>
 </div>
 
 <div class="method">
-    <code class="details" id="deleteall">deleteall(packageName, editId, language, imageType)</code>
-  <pre>Deletes all images for the specified language and image type.
+    <code class="details" id="deleteall">deleteall(packageName, editId, language, imageType, x__xgafv=None)</code>
+  <pre>Deletes all images for the specified language and image type. Returns an empty response if no images are found.
 
 Args:
-  packageName: string, Unique identifier for the Android app that is being updated; for example, "com.spiffygame". (required)
-  editId: string, Unique identifier for this edit. (required)
-  language: string, The language code (a BCP-47 language tag) of the localized listing whose images are to read or modified. For example, to select Austrian German, pass "de-AT". (required)
-  imageType: string, A parameter (required)
+  packageName: string, Package name of the app. (required)
+  editId: string, Identifier of the edit. (required)
+  language: string, Language localization code (a BCP-47 language tag; for example, &quot;de-AT&quot; for Austrian German). Providing a language that is not supported by the App is a no-op. (required)
+  imageType: string, Type of the Image. Providing an image type that refers to no images is a no-op. (required)
     Allowed values
-      featureGraphic - 
-      icon - 
-      phoneScreenshots - 
-      promoGraphic - 
-      sevenInchScreenshots - 
-      tenInchScreenshots - 
-      tvBanner - 
-      tvScreenshots - 
-      wearScreenshots - 
+      appImageTypeUnspecified - Unspecified type. Do not use.
+      phoneScreenshots - Phone screenshot.
+      sevenInchScreenshots - Seven inch screenshot.
+      tenInchScreenshots - Ten inch screenshot.
+      tvScreenshots - TV screenshot.
+      wearScreenshots - Wear screenshot.
+      icon - Icon.
+      featureGraphic - Feature graphic.
+      tvBanner - TV banner.
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    {
-    "deleted": [
-      {
-        "url": "A String", # A URL that will serve a preview of the image.
-        "sha1": "A String", # A sha1 hash of the image that was uploaded.
-        "id": "A String", # A unique id representing this image.
-      },
-    ],
-  }</pre>
+    { # Response for deleting all images.
+  &quot;deleted&quot;: [ # The deleted images.
+    { # An uploaded image. The resource for ImagesService.
+      &quot;id&quot;: &quot;A String&quot;, # A unique id representing this image.
+      &quot;sha1&quot;: &quot;A String&quot;, # A sha1 hash of the image.
+      &quot;sha256&quot;: &quot;A String&quot;, # A sha256 hash of the image.
+      &quot;url&quot;: &quot;A String&quot;, # A URL that will serve a preview of the image.
+    },
+  ],
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="list">list(packageName, editId, language, imageType)</code>
-  <pre>Lists all images for the specified language and image type.
+    <code class="details" id="list">list(packageName, editId, language, imageType, x__xgafv=None)</code>
+  <pre>Lists all images. The response may be empty.
 
 Args:
-  packageName: string, Unique identifier for the Android app that is being updated; for example, "com.spiffygame". (required)
-  editId: string, Unique identifier for this edit. (required)
-  language: string, The language code (a BCP-47 language tag) of the localized listing whose images are to read or modified. For example, to select Austrian German, pass "de-AT". (required)
-  imageType: string, A parameter (required)
+  packageName: string, Package name of the app. (required)
+  editId: string, Identifier of the edit. (required)
+  language: string, Language localization code (a BCP-47 language tag; for example, &quot;de-AT&quot; for Austrian German). There must be a store listing for the specified language. (required)
+  imageType: string, Type of the Image. Providing an image type that refers to no images will return an empty response. (required)
     Allowed values
-      featureGraphic - 
-      icon - 
-      phoneScreenshots - 
-      promoGraphic - 
-      sevenInchScreenshots - 
-      tenInchScreenshots - 
-      tvBanner - 
-      tvScreenshots - 
-      wearScreenshots - 
+      appImageTypeUnspecified - Unspecified type. Do not use.
+      phoneScreenshots - Phone screenshot.
+      sevenInchScreenshots - Seven inch screenshot.
+      tenInchScreenshots - Ten inch screenshot.
+      tvScreenshots - TV screenshot.
+      wearScreenshots - Wear screenshot.
+      icon - Icon.
+      featureGraphic - Feature graphic.
+      tvBanner - TV banner.
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    {
-    "images": [
-      {
-        "url": "A String", # A URL that will serve a preview of the image.
-        "sha1": "A String", # A sha1 hash of the image that was uploaded.
-        "id": "A String", # A unique id representing this image.
-      },
-    ],
-  }</pre>
+    { # Response listing all images.
+  &quot;images&quot;: [ # All listed Images.
+    { # An uploaded image. The resource for ImagesService.
+      &quot;id&quot;: &quot;A String&quot;, # A unique id representing this image.
+      &quot;sha1&quot;: &quot;A String&quot;, # A sha1 hash of the image.
+      &quot;sha256&quot;: &quot;A String&quot;, # A sha256 hash of the image.
+      &quot;url&quot;: &quot;A String&quot;, # A URL that will serve a preview of the image.
+    },
+  ],
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="upload">upload(packageName, editId, language, imageType, media_body=None, media_mime_type=None)</code>
-  <pre>Uploads a new image and adds it to the list of images for the specified language and image type.
+    <code class="details" id="upload">upload(packageName, editId, language, imageType, media_body=None, media_mime_type=None, x__xgafv=None)</code>
+  <pre>Uploads an image of the specified language and image type, and adds to the edit.
 
 Args:
-  packageName: string, Unique identifier for the Android app that is being updated; for example, "com.spiffygame". (required)
-  editId: string, Unique identifier for this edit. (required)
-  language: string, The language code (a BCP-47 language tag) of the localized listing whose images are to read or modified. For example, to select Austrian German, pass "de-AT". (required)
-  imageType: string, A parameter (required)
+  packageName: string, Package name of the app. (required)
+  editId: string, Identifier of the edit. (required)
+  language: string, Language localization code (a BCP-47 language tag; for example, &quot;de-AT&quot; for Austrian German). Providing a language that is not supported by the App is a no-op. (required)
+  imageType: string, Type of the Image. (required)
     Allowed values
-      featureGraphic - 
-      icon - 
-      phoneScreenshots - 
-      promoGraphic - 
-      sevenInchScreenshots - 
-      tenInchScreenshots - 
-      tvBanner - 
-      tvScreenshots - 
-      wearScreenshots - 
+      appImageTypeUnspecified - Unspecified type. Do not use.
+      phoneScreenshots - Phone screenshot.
+      sevenInchScreenshots - Seven inch screenshot.
+      tenInchScreenshots - Ten inch screenshot.
+      tvScreenshots - TV screenshot.
+      wearScreenshots - Wear screenshot.
+      icon - Icon.
+      featureGraphic - Feature graphic.
+      tvBanner - TV banner.
   media_body: string, The filename of the media request body, or an instance of a MediaUpload object.
   media_mime_type: string, The MIME type of the media request body, or an instance of a MediaUpload object.
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    {
-    "image": {
-      "url": "A String", # A URL that will serve a preview of the image.
-      "sha1": "A String", # A sha1 hash of the image that was uploaded.
-      "id": "A String", # A unique id representing this image.
-    },
-  }</pre>
+    { # Response for uploading an image.
+  &quot;image&quot;: { # An uploaded image. The resource for ImagesService. # The uploaded image.
+    &quot;id&quot;: &quot;A String&quot;, # A unique id representing this image.
+    &quot;sha1&quot;: &quot;A String&quot;, # A sha1 hash of the image.
+    &quot;sha256&quot;: &quot;A String&quot;, # A sha256 hash of the image.
+    &quot;url&quot;: &quot;A String&quot;, # A URL that will serve a preview of the image.
+  },
+}</pre>
 </div>
 
 </body></html>

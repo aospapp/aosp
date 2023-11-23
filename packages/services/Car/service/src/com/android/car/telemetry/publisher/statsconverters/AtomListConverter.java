@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.os.PersistableBundle;
 
 import com.android.car.telemetry.AtomsProto.Atom;
@@ -30,7 +32,7 @@ import java.util.Map;
  */
 public class AtomListConverter {
     // Map of pushed atom cases to corresponding atom converter.
-    private static Map<Atom.PushedCase, AbstractAtomConverter> sPushedCaseConverters = Map.of(
+    private static Map<Atom.PushedCase, AbstractAtomConverter<?>> sPushedCaseConverters = Map.of(
             /* key = */ Atom.PushedCase.APP_START_MEMORY_STATE_CAPTURED,
             /* value = */ new AppStartMemoryStateCapturedConverter(),
             /* key = */ Atom.PushedCase.ACTIVITY_FOREGROUND_STATE_CHANGED,
@@ -40,7 +42,7 @@ public class AtomListConverter {
             Atom.PushedCase.WTF_OCCURRED, new WtfOccurredConverter());
 
     // Map of pulled atom cases to corresponding atom converter.
-    private static Map<Atom.PulledCase, AbstractAtomConverter> sPulledCaseConverters = Map.of(
+    private static Map<Atom.PulledCase, AbstractAtomConverter<?>> sPulledCaseConverters = Map.of(
             Atom.PulledCase.PROCESS_MEMORY_STATE, new ProcessMemoryStateConverter(),
             Atom.PulledCase.PROCESS_CPU_TIME, new ProcessCpuTimeConverter());
 
@@ -58,10 +60,13 @@ public class AtomListConverter {
      * @throws StatsConversionException if atom field mismatch or can't convert dimension value.
      */
     static PersistableBundle convert(
-            List<Atom> atoms,
-            List<Integer> dimensionsFieldsIds,
-            List<List<DimensionsValue>> dimensionsValuesList,
-            Map<Long, String> hashToStringMap) throws StatsConversionException {
+            @NonNull List<Atom> atoms,
+            @Nullable List<Integer> dimensionsFieldsIds,
+            @Nullable List<List<DimensionsValue>> dimensionsValuesList,
+            @Nullable Map<Long, String> hashToStringMap) throws StatsConversionException {
+        if (atoms.size() == 0) {
+            throw new StatsConversionException("Atoms list is empty.");
+        }
         // The atoms are either pushed or pulled type atoms.
         if (atoms.get(0).getPushedCase() != Atom.PushedCase.PUSHED_NOT_SET) {
             return sPushedCaseConverters.get(atoms.get(0).getPushedCase()).convert(

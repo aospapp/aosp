@@ -200,7 +200,7 @@ void init_privs(void)
 #endif
 #endif
 	}
-	
+
 	drop_privs();
 	print_privs("after init, real should be 0, effective should not ");
 }

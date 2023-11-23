@@ -25,15 +25,26 @@ parser.add_argument("-o", "--output", metavar="FILE", required=True,
                     help='Output (C++ source) file')
 parser.set_defaults(defines=list())
 
-
 def split_ukernel_name(name):
   common_name, target_name = name.split("__", 1)
   common_parts = common_name.split("_")
   param_spec = common_parts[-1]
   assert param_spec.startswith("up")
-  cr, kr = map(int, param_spec[2:].split("x"))
+
+  if len(param_spec[2:].split("p")) > 1:
+    tile_part, kernel_part = param_spec[2:].split("p", 1)
+    primary_tile = int(tile_part)
+    cr, kr = map(int, kernel_part.split("x"))
+  else:
+    primary_tile = 0;
+    cr, kr = map(int, param_spec[2:].split("x"))
   arch, isa = xnncommon.parse_target_name(target_name)
-  return cr, kr, arch, isa
+
+  requantization = common_parts[-3]
+  if requantization not in ["fp32", "rndnu"]:
+    requantization = None
+
+  return primary_tile, cr, kr, requantization, arch, isa
 
 
 DWCONV_TEST_CODE = """\
@@ -282,7 +293,8 @@ TEST(${TEST_NAME}, zero) {
 }
 """
 
-def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
+def generate_test_cases(ukernel, primary_tile, cr, kr, c_block,
+                        init_fn, requantization, is_pipelined, isa):
   """Generates all tests cases for a DWCONV micro-kernel.
 
   Args:
@@ -291,6 +303,8 @@ def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
     kr: KR parameter of the DWCONV micro-kernel.
     k_block: Number of C values processed per one iteration of the main loop of
              the micro-kernel.
+    init_fn: C name of the function to initialize microkernel parameters.
+    requantization: name of the requantization scheme used by the microkernel.
     is_pipelined: Indicates if the micro-kernel is implemented with software
                   pipelining. Additional test cases are generated for software
                   pipelined micro-kernels to separately test prologue + epiloque
@@ -306,14 +320,19 @@ def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
   if activation == "ukernel":
     activation = "linear"
   test_args = [ukernel]
-  if activation != "linear" and not isa:
-    test_args.append("DWConvMicrokernelTester::Variant::Scalar")
+  if init_fn:
+    test_args.append(init_fn)
+    if requantization:
+      requantization_datatype = {"qc8": "qs8"}.get(datatype, datatype)
+      test_args.append("xnn_%s_requantize_%s" %
+        (requantization_datatype, requantization))
   return xngen.preprocess(DWCONV_TEST_CODE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
       "TEST_ARGS": test_args,
       "UKERNEL_TYPE": ukernel_type.upper(),
       "DATATYPE": datatype,
       "ACTIVATION": activation.upper(),
+      "PRIMARY_TILE": primary_tile,
       "CR": cr,
       "KR": kr,
       "CBLOCK": c_block,
@@ -358,18 +377,26 @@ def main(args):
 
     for ukernel_spec in spec_yaml:
       name = ukernel_spec["name"]
+      init_fn = ukernel_spec.get("init")
       pipelined = bool(ukernel_spec.get("pipelined", False))
       assembly = bool(ukernel_spec.get("assembly", False))
-      cr, kr, arch, isa = split_ukernel_name(name)
+      primary_tile, cr, kr, requantization, arch, isa = split_ukernel_name(name)
 
       # specification can override architecture
       arch = ukernel_spec.get("arch", arch)
 
-      test_case = generate_test_cases(name, cr, kr, cr, pipelined, isa)
+      test_case = generate_test_cases(
+        name, primary_tile, cr, kr, cr, init_fn, requantization, pipelined, isa)
       tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa, assembly)
 
-    with codecs.open(options.output, "w", encoding="utf-8") as output_file:
-      output_file.write(tests)
+    txt_changed = True
+    if os.path.exists(options.output):
+      with codecs.open(options.output, "r", encoding="utf-8") as output_file:
+        txt_changed = output_file.read() != tests
+
+    if txt_changed:
+      with codecs.open(options.output, "w", encoding="utf-8") as output_file:
+        output_file.write(tests)
 
 
 if __name__ == "__main__":

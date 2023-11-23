@@ -37,6 +37,7 @@ import com.google.common.collect.testing.google.TestStringBiMapGenerator;
 import com.google.common.testing.CollectorTester;
 import com.google.common.testing.SerializableTester;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -426,6 +427,136 @@ public class ImmutableBiMapTest extends TestCase {
           "four",
           5,
           "five");
+      assertMapEquals(
+          ImmutableBiMap.of(
+              "one", 1,
+              "two", 2,
+              "three", 3,
+              "four", 4,
+              "five", 5,
+              "six", 6),
+          "one",
+          1,
+          "two",
+          2,
+          "three",
+          3,
+          "four",
+          4,
+          "five",
+          5,
+          "six",
+          6);
+      assertMapEquals(
+          ImmutableBiMap.of(
+              "one", 1,
+              "two", 2,
+              "three", 3,
+              "four", 4,
+              "five", 5,
+              "six", 6,
+              "seven", 7),
+          "one",
+          1,
+          "two",
+          2,
+          "three",
+          3,
+          "four",
+          4,
+          "five",
+          5,
+          "six",
+          6,
+          "seven",
+          7);
+      assertMapEquals(
+          ImmutableBiMap.of(
+              "one", 1,
+              "two", 2,
+              "three", 3,
+              "four", 4,
+              "five", 5,
+              "six", 6,
+              "seven", 7,
+              "eight", 8),
+          "one",
+          1,
+          "two",
+          2,
+          "three",
+          3,
+          "four",
+          4,
+          "five",
+          5,
+          "six",
+          6,
+          "seven",
+          7,
+          "eight",
+          8);
+      assertMapEquals(
+          ImmutableBiMap.of(
+              "one", 1,
+              "two", 2,
+              "three", 3,
+              "four", 4,
+              "five", 5,
+              "six", 6,
+              "seven", 7,
+              "eight", 8,
+              "nine", 9),
+          "one",
+          1,
+          "two",
+          2,
+          "three",
+          3,
+          "four",
+          4,
+          "five",
+          5,
+          "six",
+          6,
+          "seven",
+          7,
+          "eight",
+          8,
+          "nine",
+          9);
+      assertMapEquals(
+          ImmutableBiMap.of(
+              "one", 1,
+              "two", 2,
+              "three", 3,
+              "four", 4,
+              "five", 5,
+              "six", 6,
+              "seven", 7,
+              "eight", 8,
+              "nine", 9,
+              "ten", 10),
+          "one",
+          1,
+          "two",
+          2,
+          "three",
+          3,
+          "four",
+          4,
+          "five",
+          5,
+          "six",
+          6,
+          "seven",
+          7,
+          "eight",
+          8,
+          "nine",
+          9,
+          "ten",
+          10);
     }
 
     public void testOfNullKey() {
@@ -463,6 +594,30 @@ public class ImmutableBiMapTest extends TestCase {
       } catch (IllegalArgumentException expected) {
         assertThat(expected.getMessage()).contains("one");
       }
+    }
+
+    public void testOfEntries() {
+      assertMapEquals(
+          ImmutableBiMap.ofEntries(entry("one", 1), entry("two", 2)), "one", 1, "two", 2);
+    }
+
+    public void testOfEntriesNull() {
+      Entry<Integer, Integer> nullKey = entry(null, 23);
+      try {
+        ImmutableBiMap.ofEntries(nullKey);
+        fail();
+      } catch (NullPointerException expected) {
+      }
+      Entry<Integer, Integer> nullValue = entry(23, null);
+      try {
+        ImmutableBiMap.ofEntries(nullValue);
+        fail();
+      } catch (NullPointerException expected) {
+      }
+    }
+
+    private static <T> Entry<T, T> entry(T key, T value) {
+      return new AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
     public void testCopyOfEmptyMap() {

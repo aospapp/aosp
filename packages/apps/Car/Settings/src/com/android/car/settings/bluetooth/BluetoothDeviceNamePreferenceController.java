@@ -16,7 +16,6 @@
 
 package com.android.car.settings.bluetooth;
 
-import android.bluetooth.BluetoothProfile;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
@@ -28,7 +27,6 @@ import androidx.preference.Preference;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
-import com.android.settingslib.bluetooth.BluetoothUtils;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 
@@ -62,18 +60,11 @@ public class BluetoothDeviceNamePreferenceController extends
         StringJoiner summaryJoiner = new StringJoiner(System.lineSeparator());
         summaryJoiner.setEmptyValue("");
 
-        // Manually set "Disconnected" summary since CachedBluetoothDevice.getCarConnectionSummary()
-        // does not return a string when disconnected.
-        // TODO: Move branching logic into getCarConnectionSummary()
-        if (!cachedDevice.isConnected()) {
-            summaryJoiner.add(getContext().getString(BluetoothUtils
-                    .getConnectionStateSummary(BluetoothProfile.STATE_DISCONNECTED)));
-        } else {
-            String summaryText = cachedDevice.getCarConnectionSummary();
-            if (!TextUtils.isEmpty(summaryText)) {
-                summaryJoiner.add(summaryText);
-            }
+        String summaryText = cachedDevice.getCarConnectionSummary();
+        if (!TextUtils.isEmpty(summaryText)) {
+            summaryJoiner.add(summaryText);
         }
+
         // If hearing aids are connected, two battery statuses should be shown.
         String pairDeviceSummary = getCachedDeviceManager().getSubDeviceSummary(cachedDevice);
         if (!TextUtils.isEmpty(pairDeviceSummary)) {

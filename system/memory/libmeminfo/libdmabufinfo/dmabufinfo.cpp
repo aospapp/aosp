@@ -302,5 +302,36 @@ bool ReadDmaBufInfo(pid_t pid, std::vector<DmaBuffer>* dmabufs, bool read_fdrefs
     return true;
 }
 
+bool ReadDmaBufs(std::vector<DmaBuffer>* bufs) {
+    bufs->clear();
+
+    std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir("/proc"), closedir);
+    if (!dir) {
+        LOG(ERROR) << "Failed to open /proc directory";
+        bufs->clear();
+        return false;
+    }
+
+    struct dirent* dent;
+    while ((dent = readdir(dir.get()))) {
+        if (dent->d_type != DT_DIR) continue;
+
+        int pid = atoi(dent->d_name);
+        if (pid == 0) {
+            continue;
+        }
+
+        if (!ReadDmaBufFdRefs(pid, bufs)) {
+            LOG(ERROR) << "Failed to read dmabuf fd references for pid " << pid;
+        }
+
+        if (!ReadDmaBufMapRefs(pid, bufs)) {
+            LOG(ERROR) << "Failed to read dmabuf map references for pid " << pid;
+        }
+    }
+
+    return true;
+}
+
 }  // namespace dmabufinfo
 }  // namespace android

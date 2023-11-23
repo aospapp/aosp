@@ -25,7 +25,9 @@
         android:id="@*android:id/title_template"
         android:layout_width="match_parent"
         android:layout_height="@dimen/car_card_header_height"
-        android:orientation="horizontal">
+        android:layout_marginStart="@dimen/car_alert_dialog_margin"
+        android:layout_marginEnd="@dimen/car_alert_dialog_margin"
+    android:orientation="horizontal">
         <ImageView
             android:id="@android:id/icon"
             android:layout_width="44dp"
@@ -34,14 +36,16 @@
             android:layout_centerVertical="true"
             android:scaleType="fitCenter"
             android:src="@null" />
-        <com.android.internal.widget.DialogTitle
+        <TextView
             android:id="@*android:id/alertTitle"
             android:maxLines="1"
             android:ellipsize="none"
+            android:textStyle="bold"
+            android:textSize="36sp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toEndOf="@+id/icon"
-            android:textAlignment="viewStart"
+            android:textAlignment="center"
             android:textColor="@color/alert_dialog_message_text_color"
             android:layout_centerVertical="true"/>
     </RelativeLayout>

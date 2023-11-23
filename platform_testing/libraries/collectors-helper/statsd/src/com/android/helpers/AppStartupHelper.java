@@ -83,6 +83,9 @@ public class AppStartupHelper implements ICollectorHelper<StringBuilder> {
         Map<String, Integer> tempResultCountMap = new HashMap<>();
         for (StatsLog.EventMetricData dataItem : eventMetricData) {
             AtomsProto.Atom atom = dataItem.atom;
+            if (atom == null) {
+                atom = dataItem.aggregatedAtomInfo.atom;
+            }
             if (atom.hasAppStartOccurred()) {
                 AtomsProto.AppStartOccurred appStartAtom = atom.getAppStartOccurred();
                 String pkgName = appStartAtom.pkgName;

@@ -2,26 +2,53 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use base::Result;
+use std::convert::TryFrom;
+
+use base::{Error, Result};
 use downcast_rs::impl_downcast;
+use libc::EINVAL;
 use vm_memory::GuestAddress;
 
 use crate::{Hypervisor, IrqRoute, IrqSource, IrqSourceChip, Vcpu, Vm};
 
 /// Represents a version of Power State Coordination Interface (PSCI).
+#[derive(Eq, Ord, PartialEq, PartialOrd)]
 pub struct PsciVersion {
-    pub major: u32,
-    pub minor: u32,
+    pub major: u16,
+    pub minor: u16,
 }
+
+impl PsciVersion {
+    pub fn new(major: u16, minor: u16) -> Result<Self> {
+        if (major as i16) < 0 {
+            Err(Error::new(EINVAL))
+        } else {
+            Ok(Self { major, minor })
+        }
+    }
+}
+
+impl TryFrom<u32> for PsciVersion {
+    type Error = base::Error;
+
+    fn try_from(item: u32) -> Result<Self> {
+        Self::new((item >> 16) as u16, item as u16)
+    }
+}
+
+pub const PSCI_0_2: PsciVersion = PsciVersion { major: 0, minor: 2 };
+pub const PSCI_1_0: PsciVersion = PsciVersion { major: 1, minor: 0 };
 
 /// A wrapper for using a VM on aarch64 and getting/setting its state.
 pub trait VmAArch64: Vm {
     /// Gets the `Hypervisor` that created this VM.
     fn get_hypervisor(&self) -> &dyn Hypervisor;
 
-    /// Enables protected mode for the VM, creating a memslot for the firmware as needed.
-    /// Only works on VMs that support `VmCap::Protected`.
-    fn enable_protected_vm(&mut self, fw_addr: GuestAddress, fw_max_size: u64) -> Result<()>;
+    /// Load pVM firmware for the VM, creating a memslot for it as needed.
+    ///
+    /// Only works on protected VMs (i.e. those  that support `VmCap::Protected`).
+    fn load_protected_vm_firmware(&mut self, fw_addr: GuestAddress, fw_max_size: u64)
+        -> Result<()>;
 
     /// Create a Vcpu with the specified Vcpu ID.
     fn create_vcpu(&self, id: usize) -> Result<Box<dyn VcpuAArch64>>;

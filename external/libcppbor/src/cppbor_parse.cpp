@@ -16,6 +16,7 @@
 
 #include "cppbor_parse.h"
 
+#include <sstream>
 #include <stack>
 
 #ifndef __TRUSTY__

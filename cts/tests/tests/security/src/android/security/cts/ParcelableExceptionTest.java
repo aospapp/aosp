@@ -16,7 +16,8 @@
 
 package android.security.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.*;
+
 import android.platform.test.annotations.AsbSecurityTest;
 import android.security.cts.R;
 
@@ -26,13 +27,21 @@ import android.os.BaseBundle;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.util.Log;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import java.io.File;
 import java.lang.reflect.Field;
 
-public class ParcelableExceptionTest extends AndroidTestCase {
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class ParcelableExceptionTest extends StsExtraBusinessLogicTestCase {
 
     @AsbSecurityTest(cveBugId = 65281159)
+    @Test
     public void test_CVE_2017_0871() throws Exception {
         String filePath = "/data/system/" + System.currentTimeMillis();
         File file = new File(filePath);

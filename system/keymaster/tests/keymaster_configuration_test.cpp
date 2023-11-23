@@ -64,5 +64,26 @@ TEST(PatchLevelParsingTest, Full) {
     EXPECT_EQ(0U, GetOsPatchlevel("r2016-03-23"));
 }
 
+TEST(VbmetaParsing, OddLengthInput) {
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("1"));
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("333"));
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("7777777"));
+}
+
+TEST(VbmetaParsing, NonHexInput) {
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("1s"));
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("ag"));
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest("0011z3"));
+    EXPECT_EQ(std::nullopt, GetVbmetaDigest(" 44"));
+}
+
+TEST(VbmetaParsing, BasicHexInput) {
+    auto parsed = GetVbmetaDigest("0123456789abcdefABCDEF");
+    ASSERT_TRUE(parsed.has_value());
+    const std::vector<uint8_t> bytes = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
+                                        0xcd, 0xef, 0xab, 0xcd, 0xef};
+    EXPECT_EQ(bytes, *parsed);
+}
+
 }  // namespace test
 }  // namespace keymaster

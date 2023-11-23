@@ -16,6 +16,7 @@
 package com.android.car.radio.service;
 
 import android.os.RemoteException;
+import android.util.IndentingPrintWriter;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
@@ -26,7 +27,6 @@ import com.android.car.broadcastradio.support.Program;
 import com.android.car.radio.SkipMode;
 import com.android.car.radio.util.Log;
 
-import java.io.PrintWriter;
 import java.util.List;
 
 /**
@@ -41,13 +41,13 @@ final class SkipController {
 
     private final IRadioAppService.Stub mService;
 
-    @GuardedBy("mlock")
+    @GuardedBy("mLock")
     private List<Program> mFavorites;
 
-    @GuardedBy("mlock")
+    @GuardedBy("mLock")
     private int mCurrentIndex;
 
-    @GuardedBy("mlock")
+    @GuardedBy("mLock")
     private SkipMode mSkipMode;
 
     SkipController(@NonNull IRadioAppService.Stub service,
@@ -128,25 +128,27 @@ final class SkipController {
         return program;
     }
 
-    void dump(@NonNull PrintWriter pw, @NonNull String prefix) {
+    void dump(IndentingPrintWriter pw) {
+        pw.println("SkipController");
+        pw.increaseIndent();
         synchronized (mLock) {
-            pw.print(prefix); pw.print("mode: "); pw.println(mSkipMode);
-            pw.print(prefix); pw.print("current index: "); pw.println(mCurrentIndex);
+            pw.printf("mode: %s\n", mSkipMode);
+            pw.printf("current index: %d\n", mCurrentIndex);
             if (mFavorites == null || mFavorites.isEmpty()) {
-                pw.print(prefix); pw.println("no favorites");
-                return;
-            }
-            int size = mFavorites.size();
-            pw.print(prefix); pw.print(size); pw.println(" favorites: ");
-            String prefix2 = prefix + "  ";
-            for (int i = 0; i < size; i++) {
-                pw.print(prefix2);
-                pw.print(i); pw.print(": "); pw.print(mFavorites.get(i).getName());
-                if (i == mCurrentIndex) {
-                    pw.print(" (current)");
+                pw.println("no favorites");
+            } else {
+                pw.printf("%d favorites:\n", mFavorites.size());
+                pw.increaseIndent();
+                for (int i = 0; i < mFavorites.size(); i++) {
+                    pw.printf("Favorite[%d]: %s ", i, mFavorites.get(i).getName());
+                    if (i == mCurrentIndex) {
+                        pw.printf(" is current");
+                    }
+                    pw.println();
                 }
-                pw.println();
+                pw.decreaseIndent();
             }
         }
+        pw.decreaseIndent();
     }
 }

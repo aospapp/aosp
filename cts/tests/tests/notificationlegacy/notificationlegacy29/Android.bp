@@ -24,6 +24,8 @@ android_test {
         "ctstestrunner-axt",
         "androidx.test.rules",
         "junit",
+        "permission-test-util-lib",
+        "compatibility-device-util-axt",
     ],
     libs: [
         "android.test.runner",

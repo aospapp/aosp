@@ -16,6 +16,8 @@
 
 package com.android.systemui.car.systembar;
 
+import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -107,7 +109,7 @@ public class SystemBarConfigsTest extends SysuiTestCase {
     public void onInit_hideBottomSystemBarForKeyboardValueDoNotSync_throwsRuntimeException() {
         when(mResources.getBoolean(R.bool.config_hideBottomSystemBarForKeyboard)).thenReturn(false);
         when(mResources.getBoolean(
-                com.android.internal.R.bool.config_automotiveHideNavBarForKeyboard)).thenReturn(
+                com.android.internal.R.bool.config_hideNavBarForKeyboard)).thenReturn(
                 true);
 
         mSystemBarConfigs = new SystemBarConfigs(mResources);
@@ -147,6 +149,16 @@ public class SystemBarConfigsTest extends SysuiTestCase {
                 SystemBarConfigs.TOP);
 
         assertNotNull(lp);
+    }
+
+    @Test
+    public void getTopSystemBarLayoutParams_containsLayoutInDisplayCutoutMode() {
+        mSystemBarConfigs = new SystemBarConfigs(mResources);
+        WindowManager.LayoutParams lp = mSystemBarConfigs.getLayoutParamsBySide(
+                SystemBarConfigs.TOP);
+
+        assertNotNull(lp);
+        assertEquals(lp.layoutInDisplayCutoutMode, LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS);
     }
 
     @Test
@@ -264,7 +276,7 @@ public class SystemBarConfigsTest extends SysuiTestCase {
 
         when(mResources.getBoolean(R.bool.config_hideTopSystemBarForKeyboard)).thenReturn(false);
         when(mResources.getBoolean(
-                com.android.internal.R.bool.config_automotiveHideNavBarForKeyboard)).thenReturn(
+                com.android.internal.R.bool.config_hideNavBarForKeyboard)).thenReturn(
                 false);
         when(mResources.getBoolean(R.bool.config_hideLeftSystemBarForKeyboard)).thenReturn(
                 false);

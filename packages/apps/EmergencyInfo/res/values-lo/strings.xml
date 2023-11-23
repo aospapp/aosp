@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"ຕົກລົງ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ບໍ່ມີຂໍ້ມູນກ່ຽວກັບເຈົ້າຂອງໂທລະສັບ"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"ຫາກນີ້ແມ່ນໂທລະສັບຂອງທ່ານ, ໃຫ້ແຕະທີ່ໄອຄອນຮູບສໍເພື່ອເພີ່ມຂໍ້ມູນທີ່ຈະສະແດງບ່ອນນີ້ໃນກໍລະນີສຸກເສີນ."</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"ເມື່ອປົດລັອກໂທລະສັບຂອງທ່ານແລ້ວ, ໃຫ້ແຕະທີ່ໄອຄອນຮູບສໍເພື່ອເພີ່ມຂໍ້ມູນທີ່ຈະສະແດງບ່ອນນີ້ໃນກໍລະນີສຸກເສີນ"</string>
     <string name="clear_all" msgid="8899013032870561633">"ລຶບລ້າງທັງໝົດ"</string>
     <string name="clear" msgid="3648880442502887163">"ລຶບລ້າງ"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ລຶບລ້າງຂໍ້ມູນ ແລະ ລາຍຊື່ຜູ້ຕິດຕໍ່ທັງໝົດອອກບໍ?"</string>

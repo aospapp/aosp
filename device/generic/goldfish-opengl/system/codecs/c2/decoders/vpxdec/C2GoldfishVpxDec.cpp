@@ -52,7 +52,7 @@ using ::android::hardware::graphics::common::V1_0::BufferUsage;
 using ::android::hardware::graphics::common::V1_2::PixelFormat;
 
 namespace android {
-constexpr size_t kMinInputBufferSize = 2 * 1024 * 1024;
+constexpr size_t kMinInputBufferSize = 6 * 1024 * 1024;
 #ifdef VP9
 constexpr char COMPONENT_NAME[] = "c2.goldfish.vp9.decoder";
 #else
@@ -465,32 +465,14 @@ void C2GoldfishVpxDec::checkContext(const std::shared_ptr<C2BlockPool> &pool) {
     mCtx = new vpx_codec_ctx_t;
     mCtx->vpversion = mMode == MODE_VP8 ? 8 : 9;
 
-    // check for decoding mode:
-    {
-        // now get the block
-        constexpr uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
-        std::shared_ptr<C2GraphicBlock> block;
-        C2MemoryUsage usage = {C2MemoryUsage::CPU_READ,
-                               C2MemoryUsage::CPU_WRITE};
-        usage.expected = (uint64_t)(BufferUsage::GPU_DATA_BUFFER);
-
-        c2_status_t err = pool->fetchGraphicBlock(align(mWidth, 2), mHeight,
-                                                  format, usage, &block);
-        if (err != C2_OK) {
-            ALOGE("fetchGraphicBlock for Output failed with status %d", err);
-            return;
-        }
-        auto c2Handle = block->handle();
-        native_handle_t *grallocHandle =
-            UnwrapNativeCodec2GrallocHandle(c2Handle);
-        int hostColorBufferId = getColorBufferHandle(grallocHandle);
-        if (hostColorBufferId > 0) {
-            DDD("decoding to host color buffer");
-            mEnableAndroidNativeBuffers = true;
-        } else {
-            DDD("decoding to guest byte buffer");
-            mEnableAndroidNativeBuffers = false;
-        }
+    const bool isGraphic = (pool->getAllocatorId() & C2Allocator::GRAPHIC);
+    DDD("buffer id %d", (int)(pool->getAllocatorId()));
+    if (isGraphic) {
+        DDD("decoding to host color buffer");
+        mEnableAndroidNativeBuffers = true;
+    } else {
+        DDD("decoding to guest byte buffer");
+        mEnableAndroidNativeBuffers = false;
     }
 
     mCtx->version = mEnableAndroidNativeBuffers ? 200 : 100;
@@ -711,7 +693,7 @@ C2GoldfishVpxDec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
     std::shared_ptr<C2GraphicBlock> block;
     C2MemoryUsage usage = {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE};
     uint32_t format = HAL_PIXEL_FORMAT_YCBCR_420_888;
-    usage.expected = (uint64_t)(BufferUsage::GPU_DATA_BUFFER);
+    usage.expected = (uint64_t)(BufferUsage::VIDEO_DECODER);
 
     c2_status_t err = pool->fetchGraphicBlock(align(mWidth, 2), mHeight, format,
                                               usage, &block);
@@ -721,24 +703,24 @@ C2GoldfishVpxDec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
         return UNKNOWN_ERROR;
     }
 
-    bool decodingToByteBuffer = false;
-    {
+    int hostColorBufferId = -1;
+    const bool decodingToHostColorBuffer = mEnableAndroidNativeBuffers;
+    if(decodingToHostColorBuffer){
         auto c2Handle = block->handle();
         native_handle_t *grallocHandle =
             UnwrapNativeCodec2GrallocHandle(c2Handle);
-        int hostColorBufferId = getColorBufferHandle(grallocHandle);
+        hostColorBufferId = getColorBufferHandle(grallocHandle);
         if (hostColorBufferId > 0) {
             DDD("found handle %d", hostColorBufferId);
         } else {
-            decodingToByteBuffer = true;
             DDD("decode to buffer, because handle %d is invalid",
                 hostColorBufferId);
             // change to -1 so host knows it is definitely invalid
             // 0 is a bit confusing
             hostColorBufferId = -1;
         }
-        setup_ctx_parameters(mCtx, hostColorBufferId);
     }
+    setup_ctx_parameters(mCtx, hostColorBufferId);
 
     vpx_image_t *img = vpx_codec_get_frame(mCtx);
 
@@ -798,7 +780,7 @@ C2GoldfishVpxDec::outputBuffer(const std::shared_ptr<C2BlockPool> &pool,
         }
     }
 
-    if (decodingToByteBuffer) {
+    if (!decodingToHostColorBuffer) {
 
         C2GraphicView wView = block->map().get();
         if (wView.error()) {

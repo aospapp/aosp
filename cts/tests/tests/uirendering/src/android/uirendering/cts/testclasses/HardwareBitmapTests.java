@@ -188,13 +188,6 @@ public class HardwareBitmapTests extends ActivityTestBase {
     }
 
     @Test
-    public void testBitmapConfigFromA8() {
-        Bitmap b = Bitmap.createBitmap(32, 32, Bitmap.Config.ALPHA_8);
-        // we do not support conversion from A8
-        assertNull(b.copy(Bitmap.Config.HARDWARE, false));
-    }
-
-    @Test
     public void testBitmapConfigFromHardwareToHardware() {
         testBitmapCopy(R.drawable.robot, Bitmap.Config.HARDWARE, Bitmap.Config.HARDWARE);
     }

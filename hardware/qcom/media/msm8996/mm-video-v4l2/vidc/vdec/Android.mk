@@ -33,11 +33,11 @@ TARGETS_THAT_NEED_SW_HEVC := msm8974 msm8226 msm8916
 TARGETS_THAT_SUPPORT_UBWC := msm8996 titanium
 TARGETS_THAT_NEED_SW_VDEC := msm8937
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_HEVC_ADSP_HEAP)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_HEVC_ADSP_HEAP)))
 libmm-vdec-def += -D_HEVC_USE_ADSP_HEAP_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_HAVE_VENUS_HEVC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_HAVE_VENUS_HEVC)))
 libmm-vdec-def += -DVENUS_HEVC
 endif
 
@@ -46,7 +46,7 @@ libmm-vdec-def += -DSMOOTH_STREAMING_DISABLED
 libmm-vdec-def += -DH264_PROFILE_LEVEL_CHECK
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_UBWC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_UBWC)))
 libmm-vdec-def += -D_UBWC_
 endif
 
@@ -58,7 +58,7 @@ ifneq (1,$(filter 1,$(shell echo "$$(( $(PLATFORM_SDK_VERSION) >= 18 ))" )))
 libmm-vdec-def += -DANDROID_JELLYBEAN_MR1=1
 endif
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-vdec-def += -DMASTER_SIDE_CP
 endif
 
@@ -90,12 +90,12 @@ ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 libmm-vdec-add-dep := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least, 19),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android KK+
 libmm-vdec-def += -DADAPTIVE_PLAYBACK_SUPPORTED
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least, 22),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android LMR1
 libmm-vdec-def += -DFLEXYUV_SUPPORTED
 endif
@@ -144,7 +144,7 @@ include $(CLEAR_VARS)
 # libOmxVdecHevc library is not built for OSS builds as QCPATH is null in OSS builds.
 
 ifneq "$(wildcard $(QCPATH) )" ""
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_HEVC_LIB)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_HEVC_LIB)))
 
 LOCAL_MODULE                    := libOmxVdecHevc
 LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
@@ -167,7 +167,7 @@ LOCAL_SRC_FILES         += src/h264_utils.cpp
 LOCAL_SRC_FILES         += src/ts_parser.cpp
 LOCAL_SRC_FILES         += src/mp4_utils.cpp
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_HEVC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_SW_HEVC)))
 LOCAL_SHARED_LIBRARIES  += libHevcSwDecoder
 LOCAL_SRC_FILES         += src/omx_vdec_hevc_swvdec.cpp
 else
@@ -190,7 +190,7 @@ endif
 
 include $(CLEAR_VARS)
 ifneq "$(wildcard $(QCPATH) )" ""
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VDEC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_SW_VDEC)))
 
 LOCAL_MODULE                  := libOmxSwVdec
 LOCAL_LICENSE_KINDS           := SPDX-license-identifier-BSD

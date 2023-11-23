@@ -674,7 +674,7 @@ tcu::TestNode::IterateResult CullDistance::APICoverageTest::iterate()
 			 * compilation & program linking process.
 			 */
 			static const glw::GLchar* cs_body_template =
-				"#version 150\n"
+				"#version 420 core\n"
 				"\n"
 				"#extension GL_ARB_compute_shader          : require\n"
 				"#extension GL_ARB_cull_distance           : require\n"
@@ -2827,7 +2827,7 @@ tcu::TestNode::IterateResult CullDistance::FunctionalTest::iterate()
 
 				if (clipdistances_array_size == 0 && culldistances_array_size == 0)
 				{
-					/* Skip the dummy iteration */
+					/* Skip the empty iteration */
 					continue;
 				}
 

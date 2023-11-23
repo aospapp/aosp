@@ -50,23 +50,14 @@ int32_t saveErrorLog(const String8 &errString, ExynosDisplay *display)
 
     String8 saveString;
     struct timeval tv;
-    struct tm* localTime;
     gettimeofday(&tv, NULL);
-    localTime = (struct tm*)localtime((time_t*)&tv.tv_sec);
 
     if (display != NULL) {
-        saveString.appendFormat("%02d-%02d %02d:%02d:%02d.%03lu(%lu) %s %" PRIu64 ": %s\n",
-                localTime->tm_mon+1, localTime->tm_mday,
-                localTime->tm_hour, localTime->tm_min,
-                localTime->tm_sec, tv.tv_usec/1000, ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)),
-                display->mDisplayName.string(), display->mErrorFrameCount,
-                errString.string());
+        saveString.appendFormat("%s %s %" PRIu64 ": %s\n", getLocalTimeStr(tv).string(),
+                                display->mDisplayName.string(), display->mErrorFrameCount,
+                                errString.string());
     } else {
-        saveString.appendFormat("%02d-%02d %02d:%02d:%02d.%03lu(%lu) : %s\n",
-                localTime->tm_mon+1, localTime->tm_mday,
-                localTime->tm_hour, localTime->tm_min,
-                localTime->tm_sec, tv.tv_usec/1000, ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)),
-                errString.string());
+        saveString.appendFormat("%s : %s\n", getLocalTimeStr(tv).string(), errString.string());
     }
 
     if (pFile != NULL) {
@@ -105,83 +96,24 @@ int32_t saveFenceTrace(ExynosDisplay *display) {
         return -1;
     }
 
-    String8 saveString;
-    struct timeval tv;
-
     ExynosDevice *device = display->mDevice;
-    hwc_fence_info_t* _info = device->mFenceInfo;
+
+    String8 saveString;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    saveString.appendFormat("\n====== Fences at time:%s ======\n", getLocalTimeStr(tv).string());
 
     if (device != NULL) {
-        for(int i=0; i<1024;i ++){
+        for (const auto &[fd, info] : device->mFenceInfos) {
+            saveString.appendFormat("---- Fence FD : %d, Display(%d) ----\n", fd, info.displayId);
+            saveString.appendFormat("usage: %d, dupFrom: %d, pendingAllowed: %d, leaking: %d\n",
+                                    info.usage, info.dupFrom, info.pendingAllowed, info.leaking);
 
-            bool sysFdOpen = false;
-            hwc_fence_info_t info = _info[i];
-
-            // FIXME: sync_fence_info and sync_pt_info are deprecated
-            //        HWC guys should fix this
-#if 0
-            struct sync_pt_info* pt_info = NULL;
-            info.sync_data = sync_fence_info(i);
-            if (info.sync_data != NULL) {
-                pt_info = sync_pt_info(info.sync_data, pt_info);
-                if (pt_info !=NULL) {
-                    saveString.appendFormat("\n-- FD sys : %d\n", i);
-                    saveString.appendFormat("real name : %s, status : %s, pt_obj : %s, pt_drv : %s, time : %llu",
-                            info.sync_data->name, info.sync_data->status==1 ? "Active":"Signaled",
-                            pt_info->obj_name, pt_info->driver_name, static_cast<unsigned long long>(pt_info->timestamp_ns));
-                } else {
-                    saveString.appendFormat("\n-- FD sys : %d\n", i);
-                    saveString.appendFormat("real name : %s, status : %d, pt_info : %p",
-                            info.sync_data->name, info.sync_data->status, pt_info);
-                }
-                sysFdOpen = true;
-                sync_fence_info_free(info.sync_data);
+            for (const auto &trace : info.traces) {
+                saveString.appendFormat("> dir: %d, type: %d, ip: %d, time:%s\n", trace.direction,
+                                        trace.type, trace.ip, getLocalTimeStr(trace.time).string());
             }
-#endif
-
-            if ((info.usage == 0) && !sysFdOpen) continue;
-
-            saveString.appendFormat("\n-- FD hwc : %d, usage %d\n", i, info.usage);
-
-            switch(info.last_dir) {
-            case FENCE_FROM:
-                saveString.appendFormat("Last state : from %d, %d\n",
-                        info.from.type, info.from.ip);
-                tv = info.from.time;
-                break;
-            case FENCE_TO:
-                saveString.appendFormat("Last state : to %d, %d\n",
-                        info.to.type, info.to.ip);
-                tv = info.to.time;
-                break;
-            case FENCE_DUP:
-                saveString.appendFormat("Last state : dup %d, %d\n",
-                        info.dup.type, info.dup.ip);
-                tv = info.dup.time;
-                break;
-            case FENCE_CLOSE:
-                saveString.appendFormat("Last state : Close %d, %d\n",
-                        info.close.type, info.close.ip);
-                tv = info.close.time;
-                break;
-                break;
-            default:
-                saveString.appendFormat("Fence trace : Undefined direction!\n");
-                break;
-            }
-
-            struct tm* localTime = (struct tm*)localtime((time_t*)&tv.tv_sec);
-
-            saveString.appendFormat("from : %d, %d (cur : %d), to : %d, %d (cur : %d), hwc_dup : %d, %d (cur : %d), hwc_close : %d, %d (cur : %d)\n",
-                    info.from.type, info.from.ip, info.from.curFlag,
-                    info.to.type, info.to.ip, info.to.curFlag,
-                    info.dup.type, info.dup.ip, info.dup.curFlag,
-                    info.close.type, info.close.ip, info.close.curFlag);
-            saveString.appendFormat("usage : %d, time:%02d-%02d %02d:%02d:%02d.%03lu(%lu)", info.usage,
-                    localTime->tm_mon+1, localTime->tm_mday,
-                    localTime->tm_hour, localTime->tm_min,
-                    localTime->tm_sec, tv.tv_usec/1000,
-                    ((tv.tv_sec * 1000) + (tv.tv_usec / 1000)));
         }
     }
 

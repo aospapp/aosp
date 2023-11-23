@@ -7,9 +7,15 @@ package {
     default_applicable_licenses: ["frameworks_av_services_mediacodec_license"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libmedia_codecserviceregistrant",
     vendor_available: true,
+    min_sdk_version: "29",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media.swcodec",
+    ],
+
     srcs: [
         "CodecServiceRegistrant.cpp",
     ],

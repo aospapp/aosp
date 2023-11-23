@@ -103,6 +103,34 @@ public class TestAppProviderTest {
     }
 
     @Test
+    public void query_afterRestore_returnsTestAppAgain() {
+        mTestAppProvider.snapshot();
+        mTestAppProvider.query().wherePackageName().isEqualTo(EXISTING_PACKAGENAME).get();
+
+        mTestAppProvider.restore();
+
+        assertThat(mTestAppProvider.query().wherePackageName()
+                .isEqualTo(EXISTING_PACKAGENAME).get()).isNotNull();
+    }
+
+    @Test
+    public void query_afterRestoreWithAppAlreadyUsed_doesNotReturnTestAppAgain() {
+        mTestAppProvider.query().wherePackageName().isEqualTo(EXISTING_PACKAGENAME).get();
+        mTestAppProvider.snapshot();
+
+        mTestAppProvider.restore();
+
+        TestAppQueryBuilder query =
+                mTestAppProvider.query().wherePackageName().isEqualTo(EXISTING_PACKAGENAME);
+        assertThrows(NotFoundException.class, query::get);
+    }
+
+    @Test
+    public void restore_noSnapshot_throwsException() {
+        assertThrows(IllegalStateException.class, mTestAppProvider::restore);
+    }
+
+    @Test
     public void any_doesNotReturnPackageQueryOnlyTestApps() {
         Set<String> testAppPackageNames = new HashSet<>();
 
@@ -231,6 +259,26 @@ public class TestAppProviderTest {
                 .get();
 
         assertThat(testApp.activities()).isEmpty();
+    }
+
+    @Test
+    public void query_isDeviceAdmin_returnsMatching() {
+        TestApp testApp = mTestAppProvider.query()
+                .whereIsDeviceAdmin().isTrue()
+                .get();
+
+        assertThat(testApp.packageName()).isEqualTo(
+                "com.android.bedstead.testapp.DeviceAdminTestApp");
+    }
+
+    @Test
+    public void query_isNotDeviceAdmin_returnsMatching() {
+        TestApp testApp = mTestAppProvider.query()
+                .whereIsDeviceAdmin().isFalse()
+                .get();
+
+        assertThat(testApp.packageName()).isNotEqualTo(
+                "com.android.bedstead.testapp.DeviceAdminTestApp");
     }
 
     @Test

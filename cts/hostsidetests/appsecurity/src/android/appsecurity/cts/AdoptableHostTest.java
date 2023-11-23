@@ -390,6 +390,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             // Uninstall the internal copy and remount; we should have no record of app
             getDevice().uninstallPackage(PKG);
             getDevice().executeShellCommand("sm mount " + vol.volId);
+            waitForVolumeReady();
 
             assertEmpty(getDevice().executeShellCommand("pm list packages " + PKG));
         } finally {

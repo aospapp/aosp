@@ -42,7 +42,7 @@ import androidx.preference.PreferenceScreen;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 import com.android.tv.settings.system.SecurityFragment;
 
 import java.util.ArrayList;

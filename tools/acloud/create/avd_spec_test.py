@@ -49,6 +49,12 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.args.launch_args = None
         self.Patch(list_instances, "ChooseOneRemoteInstance", return_value=mock.MagicMock())
         self.Patch(list_instances, "GetInstancesFromInstanceNames", return_value=mock.MagicMock())
+
+        # Setup mock Acloud config for usage in tests.
+        self.mock_config = mock.MagicMock()
+        self.mock_config.launch_args = None
+        self.Patch(config, 'GetAcloudConfig', return_value=self.mock_config)
+
         self.AvdSpec = avd_spec.AVDSpec(self.args)
 
     # pylint: disable=protected-access
@@ -111,55 +117,59 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.Patch(os.path, "isfile",
                    side_effect=lambda path: path == expected_image_file)
 
-        # Specified --local-kernel-image and --local-system-image with dirs.
-        self.args.local_image = expected_image_dir
+        # Specified --local-*-image with dirs.
         self.args.local_kernel_image = expected_image_dir
         self.args.local_system_image = expected_image_dir
-        self.AvdSpec._avd_type = constants.TYPE_CF
-        self.AvdSpec._instance_type = constants.INSTANCE_TYPE_LOCAL
-        with mock.patch("acloud.create.avd_spec.utils."
-                        "GetBuildEnvironmentVariable",
-                        return_value="cf_x86_phone"):
-            self.AvdSpec._ProcessLocalImageArgs(self.args)
-        self.assertEqual(self.AvdSpec.local_image_dir, expected_image_dir)
+        self.AvdSpec._ProcessImageArgs(self.args)
         self.assertEqual(self.AvdSpec.local_kernel_image, expected_image_dir)
         self.assertEqual(self.AvdSpec.local_system_image, expected_image_dir)
 
-        # Specified --local-kernel-image, and --local-system-image with files.
-        self.args.local_image = expected_image_dir
+        # Specified --local-*-image with files.
         self.args.local_kernel_image = expected_image_file
         self.args.local_system_image = expected_image_file
-        self.AvdSpec._avd_type = constants.TYPE_CF
-        self.AvdSpec._instance_type = constants.INSTANCE_TYPE_LOCAL
-        with mock.patch("acloud.create.avd_spec.utils."
-                        "GetBuildEnvironmentVariable",
-                        return_value="cf_x86_phone"):
-            self.AvdSpec._ProcessLocalImageArgs(self.args)
-        self.assertEqual(self.AvdSpec.local_image_dir, expected_image_dir)
+        self.AvdSpec._ProcessImageArgs(self.args)
         self.assertEqual(self.AvdSpec.local_kernel_image, expected_image_file)
         self.assertEqual(self.AvdSpec.local_system_image, expected_image_file)
 
-        # Specified --avd-type=goldfish, --local_image, and
-        # --local-system-image without args
-        self.args.local_image = constants.FIND_IN_BUILD_ENV
+        # Specified --local-*-image without args.
+        self.args.local_kernel_image = constants.FIND_IN_BUILD_ENV
         self.args.local_system_image = constants.FIND_IN_BUILD_ENV
-        self.AvdSpec._avd_type = constants.TYPE_GF
-        self.AvdSpec._instance_type = constants.INSTANCE_TYPE_LOCAL
         with mock.patch("acloud.create.avd_spec.utils."
                         "GetBuildEnvironmentVariable",
                         return_value=expected_image_dir):
-            self.AvdSpec._ProcessLocalImageArgs(self.args)
-        self.assertEqual(self.AvdSpec.local_image_dir, expected_image_dir)
+            self.AvdSpec._ProcessImageArgs(self.args)
+        self.assertEqual(self.AvdSpec.local_kernel_image, expected_image_dir)
         self.assertEqual(self.AvdSpec.local_system_image, expected_image_dir)
+
+    def testProcessAutoconnect(self):
+        """Test process autoconnect."""
+        self.AvdSpec._autoconnect = False
+        self.AvdSpec._ProcessAutoconnect()
+        self.assertEqual(self.AvdSpec._autoconnect, False)
+
+        self.AvdSpec._avd_type = constants.TYPE_CF
+        self.AvdSpec._autoconnect = "webrtc"
+        self.AvdSpec._ProcessAutoconnect()
+        self.assertEqual(self.AvdSpec._autoconnect, "webrtc")
+
+        self.AvdSpec._autoconnect = "vnc"
+        self.AvdSpec._ProcessAutoconnect()
+        self.assertEqual(self.AvdSpec._autoconnect, "vnc")
+
+        self.AvdSpec._avd_type = constants.TYPE_GF
+        self.AvdSpec._autoconnect = "webrtc"
+        self.AvdSpec._ProcessAutoconnect()
+        self.assertEqual(self.AvdSpec._autoconnect, "vnc")
 
     def testProcessImageArgs(self):
         """Test process image source."""
         self.Patch(glob, "glob", return_value=["fake.img"])
         # No specified local_image, image source is from remote
-        self.args.local_image = None
         self.AvdSpec._ProcessImageArgs(self.args)
         self.assertEqual(self.AvdSpec._image_source, constants.IMAGE_SRC_REMOTE)
         self.assertEqual(self.AvdSpec._local_image_dir, None)
+        self.assertEqual(self.AvdSpec.local_kernel_image, None)
+        self.assertEqual(self.AvdSpec.local_system_image, None)
 
         # Specified local_image with an arg for cf type
         self.Patch(os.path, "isfile", return_value=True)
@@ -333,7 +343,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(self.AvdSpec._GetFlavorFromString(img_path),
                          None)
 
-    # pylint: disable=protected-access
+    # pylint: disable=protected-access,too-many-statements
     def testProcessRemoteBuildArgs(self):
         """Test _ProcessRemoteBuildArgs."""
         self.args.branch = "git_master"
@@ -351,7 +361,7 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.assertTrue(self.AvdSpec.avd_type == "gce")
 
         # Verify auto-assigned avd_type if build_targe contains "_cf_".
-        self.args.build_target = "aosp_cf_x86_phone-userdebug"
+        self.args.build_target = "aosp_cf_x86_64_phone-userdebug"
         self.AvdSpec._ProcessRemoteBuildArgs(self.args)
         self.assertTrue(self.AvdSpec.avd_type == "cuttlefish")
 
@@ -370,6 +380,35 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec._ProcessRemoteBuildArgs(self.args)
         self.assertTrue(self.AvdSpec.avd_type == "goldfish")
 
+        # Verify extra build info.
+        self.args.system_branch = "system_branch"
+        self.args.system_build_target = "system_build_target"
+        self.args.system_build_id = "system_build_id"
+        self.args.ota_branch = "ota_branch"
+        self.args.ota_build_target = "ota_build_target"
+        self.args.ota_build_id = "ota_build_id"
+        self.args.kernel_branch = "kernel_branch"
+        self.args.kernel_build_target = "kernel_build_target"
+        self.args.kernel_build_id = "kernel_build_id"
+        self.args.kernel_artifact = "kernel_artifact"
+        self.AvdSpec._ProcessRemoteBuildArgs(self.args)
+        self.assertEqual(
+            {constants.BUILD_BRANCH: "system_branch",
+             constants.BUILD_TARGET: "system_build_target",
+             constants.BUILD_ID: "system_build_id"},
+            self.AvdSpec.system_build_info)
+        self.assertEqual(
+            {constants.BUILD_BRANCH: "kernel_branch",
+             constants.BUILD_TARGET: "kernel_build_target",
+             constants.BUILD_ID: "kernel_build_id",
+             constants.BUILD_ARTIFACT: "kernel_artifact"},
+            self.AvdSpec.kernel_build_info)
+        self.assertEqual(
+            {constants.BUILD_BRANCH: "ota_branch",
+             constants.BUILD_TARGET: "ota_build_target",
+             constants.BUILD_ID: "ota_build_id"},
+            self.AvdSpec.ota_build_info)
+
         # Verify auto-assigned avd_type if no match, default as cuttlefish.
         self.args.build_target = "mini_emulator_arm64-userdebug"
         self.args.avd_type = "cuttlefish"
@@ -377,26 +416,6 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.AvdSpec = avd_spec.AVDSpec(self.args)
         self.AvdSpec._ProcessRemoteBuildArgs(self.args)
         self.assertTrue(self.AvdSpec.avd_type == "cuttlefish")
-
-        # Setup acloud config with betty_image spec
-        cfg = mock.MagicMock()
-        cfg.betty_image = 'foobarbaz'
-        cfg.launch_args = None
-        self.Patch(config, 'GetAcloudConfig', return_value=cfg)
-        self.AvdSpec = avd_spec.AVDSpec(self.args)
-        # --betty-image from cmdline should override config
-        self.args.cheeps_betty_image = 'abcdefg'
-        self.AvdSpec._ProcessRemoteBuildArgs(self.args)
-        self.assertEqual(
-            self.AvdSpec.remote_image[constants.CHEEPS_BETTY_IMAGE],
-            self.args.cheeps_betty_image)
-        # acloud config value is used otherwise
-        self.args.cheeps_betty_image = None
-        self.AvdSpec._ProcessRemoteBuildArgs(self.args)
-        self.assertEqual(
-            self.AvdSpec.remote_image[constants.CHEEPS_BETTY_IMAGE],
-            cfg.betty_image)
-
 
     def testEscapeAnsi(self):
         """Test EscapeAnsi."""
@@ -491,6 +510,27 @@ class AvdSpecTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(self.AvdSpec.connect_adb, True)
         self.assertEqual(self.AvdSpec.connect_vnc, False)
         self.assertEqual(self.AvdSpec.connect_webrtc, True)
+
+        # Test stable host image name.
+        self.args.stable_host_image_name = "fake_host_image"
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.stable_host_image_name, "fake_host_image")
+
+        # Setup acloud config with betty_image spec
+        self.mock_config.betty_image = 'from-config'
+        # --betty-image from cmdline should override config
+        self.args.cheeps_betty_image = 'from-cmdline'
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.cheeps_betty_image, 'from-cmdline')
+        # acloud config value is used otherwise
+        self.args.cheeps_betty_image = None
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.AvdSpec.cheeps_betty_image, 'from-config')
+
+        # Verify cheeps_features is assigned from args.
+        self.args.cheeps_features = ['a', 'b', 'c']
+        self.AvdSpec._ProcessMiscArgs(self.args)
+        self.assertEqual(self.args.cheeps_features, ['a', 'b', 'c'])
 
 
 if __name__ == "__main__":

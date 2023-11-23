@@ -44,6 +44,7 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
             serviceName=base_cloud_client.BaseCloudApiClient.API_NAME,
             version=base_cloud_client.BaseCloudApiClient.API_VERSION,
             cache_discovery=False,
+            static_discovery=False,
             http=mock.ANY)
 
     def _SetupInitMocks(self):

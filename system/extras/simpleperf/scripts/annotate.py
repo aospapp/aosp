@@ -18,16 +18,17 @@
 """annotate.py: annotate source files based on perf.data.
 """
 
-
-import argparse
+import logging
 import os
 import os.path
 import shutil
+from texttable import Texttable
+from typing import Dict, Union
 
 from simpleperf_report_lib import ReportLib
 from simpleperf_utils import (
-    Addr2Nearestline, BinaryFinder, extant_dir, flatten_arg_list, is_windows, log_exit, log_info,
-    log_warning, ReadElf, SourceFileSearcher)
+    Addr2Nearestline, BaseArgumentParser, BinaryFinder, extant_dir, flatten_arg_list, is_windows,
+    log_exit, ReadElf, SourceFileSearcher)
 
 
 class SourceLine(object):
@@ -59,10 +60,10 @@ class Addr2Line(object):
         self.source_searcher = SourceFileSearcher(source_dirs)
 
     def add_addr(self, dso_path: str, build_id: str, func_addr: int, addr: int):
-        self.addr2line.add_addr(dso_path, func_addr, addr)
+        self.addr2line.add_addr(dso_path, build_id, func_addr, addr)
 
     def convert_addrs_to_lines(self):
-        self.addr2line.convert_addrs_to_lines()
+        self.addr2line.convert_addrs_to_lines(jobs=os.cpu_count())
 
     def get_sources(self, dso_path, addr):
         dso = self.addr2line.get_dso(dso_path)
@@ -145,8 +146,7 @@ class SourceFileAnnotator(object):
 
     def __init__(self, config):
         # check config variables
-        config_names = ['perf_data_list', 'source_dirs', 'comm_filters',
-                        'pid_filters', 'tid_filters', 'dso_filters', 'ndk_path']
+        config_names = ['perf_data_list', 'source_dirs', 'dso_filters', 'ndk_path']
         for name in config_names:
             if name not in config:
                 log_exit('config [%s] is missing' % name)
@@ -161,15 +161,6 @@ class SourceFileAnnotator(object):
         self.config = config
         self.symfs_dir = symfs_dir
         self.kallsyms = kallsyms
-        self.comm_filter = set(config['comm_filters']) if config.get('comm_filters') else None
-        if config.get('pid_filters'):
-            self.pid_filter = {int(x) for x in config['pid_filters']}
-        else:
-            self.pid_filter = None
-        if config.get('tid_filters'):
-            self.tid_filter = {int(x) for x in config['tid_filters']}
-        else:
-            self.tid_filter = None
         self.dso_filter = set(config['dso_filters']) if config.get('dso_filters') else None
 
         config['annotate_dest_dir'] = 'annotated_files'
@@ -201,13 +192,12 @@ class SourceFileAnnotator(object):
                 lib.SetSymfs(self.symfs_dir)
             if self.kallsyms:
                 lib.SetKallsymsFile(self.kallsyms)
+            lib.SetReportOptions(self.config['report_lib_options'])
             while True:
                 sample = lib.GetNextSample()
                 if sample is None:
                     lib.Close()
                     break
-                if not self._filter_sample(sample):
-                    continue
                 symbols = []
                 symbols.append(lib.GetSymbolOfCurrentSample())
                 callchain = lib.GetCallChainOfCurrentSample()
@@ -220,19 +210,6 @@ class SourceFileAnnotator(object):
                                                 symbol.vaddr_in_file)
                         self.addr2line.add_addr(symbol.dso_name, build_id, symbol.symbol_addr,
                                                 symbol.symbol_addr)
-
-    def _filter_sample(self, sample):
-        """Return true if the sample can be used."""
-        if self.comm_filter:
-            if sample.thread_comm not in self.comm_filter:
-                return False
-        if self.pid_filter:
-            if sample.pid not in self.pid_filter:
-                return False
-        if self.tid_filter:
-            if sample.tid not in self.tid_filter:
-                return False
-        return True
 
     def _filter_symbol(self, symbol):
         if not self.dso_filter or symbol.dso_name in self.dso_filter:
@@ -253,13 +230,12 @@ class SourceFileAnnotator(object):
                 lib.SetSymfs(self.symfs_dir)
             if self.kallsyms:
                 lib.SetKallsymsFile(self.kallsyms)
+            lib.SetReportOptions(self.config['report_lib_options'])
             while True:
                 sample = lib.GetNextSample()
                 if sample is None:
                     lib.Close()
                     break
-                if not self._filter_sample(sample):
-                    continue
                 self._generate_periods_for_sample(lib, sample)
 
     def _generate_periods_for_sample(self, lib, sample):
@@ -306,7 +282,7 @@ class SourceFileAnnotator(object):
         if is_sample_used:
             self.period += sample.period
 
-    def _add_dso_period(self, dso_name, period, used_dso_dict):
+    def _add_dso_period(self, dso_name: str, period: Period, used_dso_dict: Dict[str, bool]):
         if dso_name not in used_dso_dict:
             used_dso_dict[dso_name] = True
             dso_period = self.dso_periods.get(dso_name)
@@ -338,44 +314,72 @@ class SourceFileAnnotator(object):
         summary = os.path.join(self.config['annotate_dest_dir'], 'summary')
         with open(summary, 'w') as f:
             f.write('total period: %d\n\n' % self.period)
-            dso_periods = sorted(self.dso_periods.values(),
-                                 key=lambda x: x.period.acc_period, reverse=True)
-            for dso_period in dso_periods:
-                f.write('dso %s: %s\n' % (dso_period.dso_name,
-                                          self._get_percentage_str(dso_period.period)))
-            f.write('\n')
+            self._write_dso_summary(f)
+            self._write_file_summary(f)
 
             file_periods = sorted(self.file_periods.values(),
                                   key=lambda x: x.period.acc_period, reverse=True)
             for file_period in file_periods:
-                f.write('file %s: %s\n' % (file_period.file,
-                                           self._get_percentage_str(file_period.period)))
-            for file_period in file_periods:
-                f.write('\n\n%s: %s\n' % (file_period.file,
-                                          self._get_percentage_str(file_period.period)))
-                values = []
-                for func_name in file_period.function_dict.keys():
-                    func_start_line, period = file_period.function_dict[func_name]
-                    values.append((func_name, func_start_line, period))
-                values = sorted(values, key=lambda x: x[2].acc_period, reverse=True)
-                for value in values:
-                    f.write('\tfunction (%s): line %d, %s\n' % (
-                        value[0], value[1], self._get_percentage_str(value[2])))
-                f.write('\n')
-                for line in sorted(file_period.line_dict.keys()):
-                    f.write('\tline %d: %s\n' % (
-                        line, self._get_percentage_str(file_period.line_dict[line])))
+                self._write_function_line_summary(f, file_period)
 
-    def _get_percentage_str(self, period, short=False):
-        s = 'acc_p: %f%%, p: %f%%' if short else 'accumulated_period: %f%%, period: %f%%'
-        return s % self._get_percentage(period)
+    def _write_dso_summary(self, summary_fh):
+        dso_periods = sorted(self.dso_periods.values(),
+                             key=lambda x: x.period.acc_period, reverse=True)
+        table = Texttable(max_width=self.config['summary_width'])
+        table.set_cols_align(['l', 'l', 'l'])
+        table.add_row(['Total', 'Self', 'DSO'])
+        for dso_period in dso_periods:
+            total_str = self._get_period_str(dso_period.period.acc_period)
+            self_str = self._get_period_str(dso_period.period.period)
+            table.add_row([total_str, self_str, dso_period.dso_name])
+        print(table.draw(), file=summary_fh)
+        print(file=summary_fh)
 
-    def _get_percentage(self, period):
-        if self.period == 0:
-            return (0, 0)
-        acc_p = 100.0 * period.acc_period / self.period
-        p = 100.0 * period.period / self.period
-        return (acc_p, p)
+    def _write_file_summary(self, summary_fh):
+        file_periods = sorted(self.file_periods.values(),
+                              key=lambda x: x.period.acc_period, reverse=True)
+        table = Texttable(max_width=self.config['summary_width'])
+        table.set_cols_align(['l', 'l', 'l'])
+        table.add_row(['Total', 'Self', 'Source File'])
+        for file_period in file_periods:
+            total_str = self._get_period_str(file_period.period.acc_period)
+            self_str = self._get_period_str(file_period.period.period)
+            table.add_row([total_str, self_str, file_period.file])
+        print(table.draw(), file=summary_fh)
+        print(file=summary_fh)
+
+    def _write_function_line_summary(self, summary_fh, file_period: FilePeriod):
+        table = Texttable(max_width=self.config['summary_width'])
+        table.set_cols_align(['l', 'l', 'l'])
+        table.add_row(['Total', 'Self', 'Function/Line in ' + file_period.file])
+        values = []
+        for func_name in file_period.function_dict.keys():
+            func_start_line, period = file_period.function_dict[func_name]
+            values.append((func_name, func_start_line, period))
+        values.sort(key=lambda x: x[2].acc_period, reverse=True)
+        for func_name, func_start_line, period in values:
+            total_str = self._get_period_str(period.acc_period)
+            self_str = self._get_period_str(period.period)
+            name = func_name + ' (line %d)' % func_start_line
+            table.add_row([total_str, self_str, name])
+        for line in sorted(file_period.line_dict.keys()):
+            period = file_period.line_dict[line]
+            total_str = self._get_period_str(period.acc_period)
+            self_str = self._get_period_str(period.period)
+            name = 'line %d' % line
+            table.add_row([total_str, self_str, name])
+
+        print(table.draw(), file=summary_fh)
+        print(file=summary_fh)
+
+    def _get_period_str(self, period: Union[Period, int]) -> str:
+        if isinstance(period, Period):
+            return 'Total %s, Self %s' % (
+                self._get_period_str(period.acc_period),
+                self._get_period_str(period.period))
+        if self.config['raw_period'] or self.period == 0:
+            return str(period)
+        return '%.2f%%' % (100.0 * period / self.period)
 
     def _annotate_files(self):
         """Annotate Source files: add acc_period/period for each source file.
@@ -386,7 +390,7 @@ class SourceFileAnnotator(object):
         for key in self.file_periods:
             from_path = key
             if not os.path.isfile(from_path):
-                log_warning("can't find source file for path %s" % from_path)
+                logging.warning("can't find source file for path %s" % from_path)
                 continue
             if from_path.startswith('/'):
                 to_path = os.path.join(dest_dir, from_path[1:])
@@ -406,20 +410,20 @@ class SourceFileAnnotator(object):
           3. For each line not hitting the same line as functions, show
              line periods.
         """
-        log_info('annotate file %s' % from_path)
+        logging.info('annotate file %s' % from_path)
         with open(from_path, 'r') as rf:
             lines = rf.readlines()
 
         annotates = {}
         for line in file_period.line_dict.keys():
-            annotates[line] = self._get_percentage_str(file_period.line_dict[line], True)
+            annotates[line] = self._get_period_str(file_period.line_dict[line])
         for func_name in file_period.function_dict.keys():
             func_start_line, period = file_period.function_dict[func_name]
             if func_start_line == -1:
                 continue
             line = func_start_line - 1 if is_java else func_start_line
-            annotates[line] = '[func] ' + self._get_percentage_str(period, True)
-        annotates[1] = '[file] ' + self._get_percentage_str(file_period.period, True)
+            annotates[line] = '[func] ' + self._get_period_str(period)
+        annotates[1] = '[file] ' + self._get_period_str(file_period.period)
 
         max_annotate_cols = 0
         for key in annotates:
@@ -446,7 +450,7 @@ class SourceFileAnnotator(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="""
+    parser = BaseArgumentParser(description="""
         Annotate source files based on profiling data. It reads line information from binary_cache
         generated by app_profiler.py or binary_cache_builder.py, and generate annotated source
         files in annotated_files directory.""")
@@ -454,15 +458,14 @@ def main():
         The paths of profiling data. Default is perf.data.""")
     parser.add_argument('-s', '--source_dirs', type=extant_dir, nargs='+', action='append', help="""
         Directories to find source files.""")
-    parser.add_argument('--comm', nargs='+', action='append', help="""
-        Use samples only in threads with selected names.""")
-    parser.add_argument('--pid', nargs='+', action='append', help="""
-        Use samples only in processes with selected process ids.""")
-    parser.add_argument('--tid', nargs='+', action='append', help="""
-        Use samples only in threads with selected thread ids.""")
-    parser.add_argument('--dso', nargs='+', action='append', help="""
-        Use samples only in selected binaries.""")
     parser.add_argument('--ndk_path', type=extant_dir, help='Set the path of a ndk release.')
+    parser.add_argument('--raw-period', action='store_true',
+                        help='show raw period instead of percentage')
+    parser.add_argument('--summary-width', type=int, default=80, help='max width of summary file')
+    sample_filter_group = parser.add_argument_group('Sample filter options')
+    sample_filter_group.add_argument('--dso', nargs='+', action='append', help="""
+        Use samples only in selected binaries.""")
+    parser.add_report_lib_options(sample_filter_group=sample_filter_group)
 
     args = parser.parse_args()
     config = {}
@@ -470,15 +473,15 @@ def main():
     if not config['perf_data_list']:
         config['perf_data_list'].append('perf.data')
     config['source_dirs'] = flatten_arg_list(args.source_dirs)
-    config['comm_filters'] = flatten_arg_list(args.comm)
-    config['pid_filters'] = flatten_arg_list(args.pid)
-    config['tid_filters'] = flatten_arg_list(args.tid)
     config['dso_filters'] = flatten_arg_list(args.dso)
     config['ndk_path'] = args.ndk_path
+    config['raw_period'] = args.raw_period
+    config['summary_width'] = args.summary_width
+    config['report_lib_options'] = args.report_lib_options
 
     annotator = SourceFileAnnotator(config)
     annotator.annotate()
-    log_info('annotate finish successfully, please check result in annotated_files/.')
+    logging.info('annotate finish successfully, please check result in annotated_files/.')
 
 
 if __name__ == '__main__':

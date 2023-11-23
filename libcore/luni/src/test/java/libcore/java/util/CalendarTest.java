@@ -361,6 +361,11 @@ public class CalendarTest extends junit.framework.TestCase {
         } catch (UnsupportedOperationException expected) {}
     }
 
+    public void testGetCalendarType() {
+        Calendar cal = new FakeCalendar();
+        assertEquals(FakeCalendar.class.getName(), cal.getCalendarType());
+    }
+
     public static class FakeCalendar extends Calendar {
 
         private int[] subclassFields;

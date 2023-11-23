@@ -31,7 +31,7 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class MockIoOveruseConfigs : public IIoOveruseConfigs {
+class MockIoOveruseConfigs : public IoOveruseConfigsInterface {
 public:
     MockIoOveruseConfigs() {}
     ~MockIoOveruseConfigs() {}

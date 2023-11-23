@@ -27,7 +27,7 @@
     <string name="empty_tag_prompt" msgid="4206394383309956030">"Оваа ознака е празна."</string>
     <string name="import_vcard" msgid="5104299047930666528">"Увези ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Податоци од ознака на NFC"</string>
-    <string name="vcard_title" msgid="7122634780732426007">"Информации за контакт за ^1"</string>
+    <string name="vcard_title" msgid="7122634780732426007">"Податоци за контакт за ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Апликацијава треба да пристапи до дозволата за телефонот за да може да воспоставува повици. Може да управувате со дозволата за означување во „Поставки“"</string>
     <string name="external_storage_permission_denied" msgid="7665146019168376837">"Апликацијава треба да пристапи до „Дозволата за надворешна меморија“ за да може да пристапува до датотеките. Може да управувате со „Дозволата за означување“ во „Поставки“"</string>
 </resources>

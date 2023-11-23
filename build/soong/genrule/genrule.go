@@ -67,13 +67,6 @@ func RegisterGenruleBuildComponents(ctx android.RegistrationContext) {
 	ctx.FinalDepsMutators(func(ctx android.RegisterMutatorsContext) {
 		ctx.BottomUp("genrule_tool_deps", toolDepsMutator).Parallel()
 	})
-
-	android.DepsBp2BuildMutators(RegisterGenruleBp2BuildDeps)
-	android.RegisterBp2BuildMutator("genrule", GenruleBp2Build)
-}
-
-func RegisterGenruleBp2BuildDeps(ctx android.RegisterMutatorsContext) {
-	ctx.BottomUp("genrule_tool_deps", toolDepsMutator)
 }
 
 var (
@@ -110,19 +103,31 @@ type HostToolProvider interface {
 
 type hostToolDependencyTag struct {
 	blueprint.BaseDependencyTag
+	android.LicenseAnnotationToolchainDependencyTag
 	label string
 }
+
+func (t hostToolDependencyTag) AllowDisabledModuleDependency(target android.Module) bool {
+	// Allow depending on a disabled module if it's replaced by a prebuilt
+	// counterpart. We get the prebuilt through android.PrebuiltGetPreferred in
+	// GenerateAndroidBuildActions.
+	return target.IsReplacedByPrebuilt()
+}
+
+var _ android.AllowDisabledModuleDependency = (*hostToolDependencyTag)(nil)
+
 type generatorProperties struct {
-	// The command to run on one or more input files. Cmd supports substitution of a few variables
+	// The command to run on one or more input files. Cmd supports substitution of a few variables.
 	//
 	// Available variables for substitution:
 	//
-	//  $(location): the path to the first entry in tools or tool_files
-	//  $(location <label>): the path to the tool, tool_file, input or output with name <label>
-	//  $(in): one or more input files
-	//  $(out): a single output file
-	//  $(depfile): a file to which dependencies will be written, if the depfile property is set to true
-	//  $(genDir): the sandbox directory for this tool; contains $(out)
+	//  $(location): the path to the first entry in tools or tool_files.
+	//  $(location <label>): the path to the tool, tool_file, input or output with name <label>. Use $(location) if <label> refers to a rule that outputs exactly one file.
+	//  $(locations <label>): the paths to the tools, tool_files, inputs or outputs with name <label>. Use $(locations) if <label> refers to a rule that outputs two or more files.
+	//  $(in): one or more input files.
+	//  $(out): a single output file.
+	//  $(depfile): a file to which dependencies will be written, if the depfile property is set to true.
+	//  $(genDir): the sandbox directory for this tool; contains $(out).
 	//  $$: a literal $
 	Cmd *string
 
@@ -155,6 +160,11 @@ type Module struct {
 	// For other packages to make their own genrules with extra
 	// properties
 	Extra interface{}
+
+	// CmdModifier can be set by wrappers around genrule to modify the command, for example to
+	// prefix environment variables to it.
+	CmdModifier func(ctx android.ModuleContext, cmd string) string
+
 	android.ImageInterface
 
 	properties generatorProperties
@@ -211,6 +221,22 @@ func (g *Module) GeneratedDeps() android.Paths {
 	return g.outputDeps
 }
 
+func (g *Module) OutputFiles(tag string) (android.Paths, error) {
+	if tag == "" {
+		return append(android.Paths{}, g.outputFiles...), nil
+	}
+	// otherwise, tag should match one of outputs
+	for _, outputFile := range g.outputFiles {
+		if outputFile.Rel() == tag {
+			return android.Paths{outputFile}, nil
+		}
+	}
+	return nil, fmt.Errorf("unsupported module reference tag %q", tag)
+}
+
+var _ android.SourceFileProducer = (*Module)(nil)
+var _ android.OutputFileProducer = (*Module)(nil)
+
 func toolDepsMutator(ctx android.BottomUpMutatorContext) {
 	if g, ok := ctx.Module().(*Module); ok {
 		for _, tool := range g.properties.Tools {
@@ -224,9 +250,9 @@ func toolDepsMutator(ctx android.BottomUpMutatorContext) {
 }
 
 // Returns true if information was available from Bazel, false if bazel invocation still needs to occur.
-func (c *Module) generateBazelBuildActions(ctx android.ModuleContext, label string) bool {
+func (c *Module) GenerateBazelBuildActions(ctx android.ModuleContext, label string) bool {
 	bazelCtx := ctx.Config().BazelContext
-	filePaths, ok := bazelCtx.GetOutputFiles(label, ctx.Arch().ArchType)
+	filePaths, ok := bazelCtx.GetOutputFiles(label, android.GetConfigKey(ctx))
 	if ok {
 		var bazelOutputFiles android.Paths
 		exportIncludeDirs := map[string]bool{}
@@ -268,7 +294,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		if _, exists := locationLabels[label]; !exists {
 			locationLabels[label] = loc
 		} else {
-			ctx.ModuleErrorf("multiple labels for %q, %q and %q",
+			ctx.ModuleErrorf("multiple locations for label %q: %q and %q (do you have duplicate srcs entries?)",
 				label, locationLabels[label], loc)
 		}
 	}
@@ -282,6 +308,12 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			switch tag := ctx.OtherModuleDependencyTag(module).(type) {
 			case hostToolDependencyTag:
 				tool := ctx.OtherModuleName(module)
+				if m, ok := module.(android.Module); ok {
+					// Necessary to retrieve any prebuilt replacement for the tool, since
+					// toolDepsMutator runs too late for the prebuilt mutators to have
+					// replaced the dependency.
+					module = android.PrebuiltGetPreferred(ctx, m)
+				}
 
 				switch t := module.(type) {
 				case android.HostToolProvider:
@@ -314,14 +346,9 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 					}
 				case bootstrap.GoBinaryTool:
 					// A GoBinaryTool provides the install path to a tool, which will be copied.
-					if s, err := filepath.Rel(android.PathForOutput(ctx).String(), t.InstallPath()); err == nil {
-						toolPath := android.PathForOutput(ctx, s)
-						tools = append(tools, toolPath)
-						addLocationLabel(tag.label, toolLocation{android.Paths{toolPath}})
-					} else {
-						ctx.ModuleErrorf("cannot find path for %q: %v", tool, err)
-						return
-					}
+					p := android.PathForGoBinary(ctx, t)
+					tools = append(tools, p)
+					addLocationLabel(tag.label, toolLocation{android.Paths{p}})
 				default:
 					ctx.ModuleErrorf("%q is not a host tool provider", tool)
 					return
@@ -355,9 +382,12 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		addLocationLabel(toolFile, toolLocation{paths})
 	}
 
+	includeDirInPaths := ctx.DeviceConfig().BuildBrokenInputDir(g.Name())
 	var srcFiles android.Paths
 	for _, in := range g.properties.Srcs {
-		paths, missingDeps := android.PathsAndMissingDepsForModuleSrcExcludes(ctx, []string{in}, g.properties.Exclude_srcs)
+		paths, missingDeps := android.PathsAndMissingDepsRelativeToModuleSourceDir(android.SourceInput{
+			Context: ctx, Paths: []string{in}, ExcludePaths: g.properties.Exclude_srcs, IncludeDirs: includeDirInPaths,
+		})
 		if len(missingDeps) > 0 {
 			if !ctx.Config().AllowMissingDependencies() {
 				panic(fmt.Errorf("should never get here, the missing dependencies %q should have been reported in DepsMutator",
@@ -381,8 +411,13 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	var outputFiles android.WritablePaths
 	var zipArgs strings.Builder
 
+	cmd := String(g.properties.Cmd)
+	if g.CmdModifier != nil {
+		cmd = g.CmdModifier(ctx, cmd)
+	}
+
 	// Generate tasks, either from genrule or gensrcs.
-	for _, task := range g.taskGenerator(ctx, String(g.properties.Cmd), srcFiles) {
+	for _, task := range g.taskGenerator(ctx, cmd, srcFiles) {
 		if len(task.out) == 0 {
 			ctx.ModuleErrorf("must have at least one output file")
 			return
@@ -464,7 +499,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 						}
 						return paths[0], nil
 					} else {
-						return reportError("unknown location label %q", label)
+						return reportError("unknown location label %q is not in srcs, out, tools or tool_files.", label)
 					}
 				} else if strings.HasPrefix(name, "locations ") {
 					label := strings.TrimSpace(strings.TrimPrefix(name, "locations "))
@@ -475,7 +510,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 						}
 						return strings.Join(paths, " "), nil
 					} else {
-						return reportError("unknown locations label %q", label)
+						return reportError("unknown locations label %q is not in srcs, out, tools or tool_files.", label)
 					}
 				} else {
 					return reportError("unknown variable '$(%s)'", name)
@@ -544,7 +579,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	bazelModuleLabel := g.GetBazelLabel(ctx, g)
 	bazelActionsUsed := false
 	if g.MixedBuildsEnabled(ctx) {
-		bazelActionsUsed = g.generateBazelBuildActions(ctx, bazelModuleLabel)
+		bazelActionsUsed = g.GenerateBazelBuildActions(ctx, bazelModuleLabel)
 	}
 	if !bazelActionsUsed {
 		// For <= 6 outputs, just embed those directly in the users. Right now, that covers >90% of
@@ -810,29 +845,8 @@ type bazelGenruleAttributes struct {
 	Cmd   string
 }
 
-type bazelGenrule struct {
-	android.BazelTargetModuleBase
-	bazelGenruleAttributes
-}
-
-func BazelGenruleFactory() android.Module {
-	module := &bazelGenrule{}
-	module.AddProperties(&module.bazelGenruleAttributes)
-	android.InitBazelTargetModule(module)
-	return module
-}
-
-func GenruleBp2Build(ctx android.TopDownMutatorContext) {
-	m, ok := ctx.Module().(*Module)
-	if !ok || !m.ConvertWithBp2build(ctx) {
-		return
-	}
-
-	if ctx.ModuleType() != "genrule" {
-		// Not a regular genrule. Could be a cc_genrule or java_genrule.
-		return
-	}
-
+// ConvertWithBp2build converts a Soong module -> Bazel target.
+func (m *Module) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
 	// Bazel only has the "tools" attribute.
 	tools_prop := android.BazelLabelForModuleDeps(ctx, m.properties.Tools)
 	tool_files_prop := android.BazelLabelForModuleSrc(ctx, m.properties.Tool_files)
@@ -850,7 +864,11 @@ func GenruleBp2Build(ctx android.TopDownMutatorContext) {
 	if m.properties.Cmd != nil {
 		cmd = strings.Replace(*m.properties.Cmd, "$(in)", "$(SRCS)", -1)
 		cmd = strings.Replace(cmd, "$(out)", "$(OUTS)", -1)
-		cmd = strings.Replace(cmd, "$(genDir)", "$(GENDIR)", -1)
+		genDir := "$(GENDIR)"
+		if t := ctx.ModuleType(); t == "cc_genrule" || t == "java_genrule" || t == "java_genrule_host" {
+			genDir = "$(RULEDIR)"
+		}
+		cmd = strings.Replace(cmd, "$(genDir)", genDir, -1)
 		if len(tools.Value.Includes) > 0 {
 			cmd = strings.Replace(cmd, "$(location)", fmt.Sprintf("$(location %s)", tools.Value.Includes[0].Label), -1)
 			cmd = strings.Replace(cmd, "$(locations)", fmt.Sprintf("$(locations %s)", tools.Value.Includes[0].Label), -1)
@@ -888,14 +906,8 @@ func GenruleBp2Build(ctx android.TopDownMutatorContext) {
 	}
 
 	// Create the BazelTargetModule.
-	ctx.CreateBazelTargetModule(BazelGenruleFactory, m.Name(), props, attrs)
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: m.Name()}, attrs)
 }
-
-func (m *bazelGenrule) Name() string {
-	return m.BaseModuleName()
-}
-
-func (m *bazelGenrule) GenerateAndroidBuildActions(ctx android.ModuleContext) {}
 
 var Bool = proptools.Bool
 var String = proptools.String

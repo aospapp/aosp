@@ -44,11 +44,9 @@ import android.preference.PreferenceManager;
 import android.provider.Telephony;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbMessage;
-import android.telephony.TelephonyManager;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.text.util.Linkify;
@@ -75,6 +73,7 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -334,6 +333,25 @@ public class CellBroadcastAlertDialog extends Activity {
         }
     }
 
+    Comparator<SmsCbMessage> mPriorityBasedComparator = (Comparator) (o1, o2) -> {
+        boolean isPresidentialAlert1 =
+                ((SmsCbMessage) o1).isCmasMessage()
+                        && ((SmsCbMessage) o1).getCmasWarningInfo()
+                        .getMessageClass() == SmsCbCmasInfo
+                        .CMAS_CLASS_PRESIDENTIAL_LEVEL_ALERT;
+        boolean isPresidentialAlert2 =
+                ((SmsCbMessage) o2).isCmasMessage()
+                        && ((SmsCbMessage) o2).getCmasWarningInfo()
+                        .getMessageClass() == SmsCbCmasInfo
+                        .CMAS_CLASS_PRESIDENTIAL_LEVEL_ALERT;
+        if (isPresidentialAlert1 ^ isPresidentialAlert2) {
+            return isPresidentialAlert1 ? 1 : -1;
+        }
+        Long time1 = new Long(((SmsCbMessage) o1).getReceivedTime());
+        Long time2 = new Long(((SmsCbMessage) o2).getReceivedTime());
+        return time2.compareTo(time1);
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -355,7 +373,9 @@ public class CellBroadcastAlertDialog extends Activity {
 
         // Disable home button when alert dialog is showing if mute_by_physical_button is false.
         if (!CellBroadcastSettings.getResourcesForDefaultSubId(getApplicationContext())
-                .getBoolean(R.bool.mute_by_physical_button)) {
+                .getBoolean(R.bool.mute_by_physical_button) && !CellBroadcastSettings
+                .getResourcesForDefaultSubId(getApplicationContext())
+                .getBoolean(R.bool.disable_status_bar)) {
             final View decorView = win.getDecorView();
             decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         }
@@ -451,6 +471,10 @@ public class CellBroadcastAlertDialog extends Activity {
                 mAnimationHandler.startIconAnimation(subId);
             }
         }
+        // Some LATAM carriers mandate to disable navigation bars, quick settings etc when alert
+        // dialog is showing. This is to make sure users to ack the alert before switching to
+        // other activities.
+        setStatusBarDisabledIfNeeded(true);
     }
 
     /**
@@ -461,24 +485,29 @@ public class CellBroadcastAlertDialog extends Activity {
     public void onPause() {
         Log.d(TAG, "onPause called");
         mAnimationHandler.stopIconAnimation();
+        setStatusBarDisabledIfNeeded(false);
         super.onPause();
     }
 
     @Override
-    protected void onStop() {
-        Log.d(TAG, "onStop called");
+    protected void onUserLeaveHint() {
+        Log.d(TAG, "onUserLeaveHint called");
         // When the activity goes in background (eg. clicking Home button, dismissed by outside
         // touch if enabled), send notification.
         // Avoid doing this when activity will be recreated because of orientation change or if
         // screen goes off
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (!(isChangingConfigurations() || getLatestMessage() == null) && pm.isScreenOn()) {
-            CellBroadcastAlertService.addToNotificationBar(getLatestMessage(), mMessageList,
+        ArrayList<SmsCbMessage> messageList = getNewMessageListIfNeeded(mMessageList,
+                CellBroadcastReceiverApp.getNewMessageList());
+        SmsCbMessage latestMessage = (messageList == null || (messageList.size() < 1)) ? null
+                : messageList.get(messageList.size() - 1);
+
+        if (!(isChangingConfigurations() || latestMessage == null) && pm.isScreenOn()) {
+            Log.d(TAG, "call addToNotificationBar when activity goes in background");
+            CellBroadcastAlertService.addToNotificationBar(latestMessage, messageList,
                     getApplicationContext(), true, true, false);
         }
-        // Do not stop the audio here. Pressing power button should turn off screen but should not
-        // interrupt the audio/vibration
-        super.onStop();
+        super.onUserLeaveHint();
     }
 
     @Override
@@ -659,11 +688,10 @@ public class CellBroadcastAlertDialog extends Activity {
      * @param res Resources for the subId
      * @param languageCode the ISO-639-1 language code for this message, or null if unspecified
      */
-    private String overrideTranslation(int resId, Resources res, String languageCode,
-            boolean forceOverride) {
+    private String overrideTranslation(int resId, Resources res, String languageCode) {
         if (!TextUtils.isEmpty(languageCode)
-                && (res.getBoolean(R.bool.override_alert_title_language_to_match_message_locale)
-                || forceOverride)) {
+                && res.getBoolean(R.bool.override_alert_title_language_to_match_message_locale)) {
+            // TODO change resources to locale from message
             Configuration conf = res.getConfiguration();
             conf = new Configuration(conf);
             conf.setLocale(new Locale(languageCode));
@@ -679,24 +707,28 @@ public class CellBroadcastAlertDialog extends Activity {
      * @param message CB message which is used to update alert text.
      */
     private void updateAlertText(@NonNull SmsCbMessage message) {
+        if (message == null) {
+            return;
+        }
         Context context = getApplicationContext();
         int titleId = CellBroadcastResources.getDialogTitleResource(context, message);
 
-        Resources res = CellBroadcastSettings.getResources(context, message.getSubscriptionId());
+        Resources res = CellBroadcastSettings.getResourcesByOperator(context,
+                message.getSubscriptionId(),
+                CellBroadcastReceiver.getRoamingOperatorSupported(context));
 
         CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
                 this, message.getSubscriptionId());
         CellBroadcastChannelRange range = channelManager
                 .getCellBroadcastChannelRangeFromMessage(message);
         String languageCode;
-        boolean forceOverride = false;
         if (range != null && !TextUtils.isEmpty(range.mLanguageCode)) {
             languageCode = range.mLanguageCode;
-            forceOverride = true;
         } else {
             languageCode = message.getLanguageCode();
         }
-        String title = overrideTranslation(titleId, res, languageCode, forceOverride);
+
+        String title = overrideTranslation(titleId, res, languageCode);
         TextView titleTextView = findViewById(R.id.alertTitle);
 
         if (titleTextView != null) {
@@ -709,12 +741,8 @@ public class CellBroadcastAlertDialog extends Activity {
             titleTextView.setText(title);
         }
 
-        String messageText = message.getMessageBody();
         TextView textView = findViewById(R.id.message);
-        String messageBodyOverride = getMessageBodyOverride(context, message);
-        if (!TextUtils.isEmpty(messageBodyOverride)) {
-            messageText = messageBodyOverride;
-        }
+        String messageText = message.getMessageBody();
         if (textView != null && messageText != null) {
             int linkMethod = getLinkMethod(message.getSubscriptionId());
             if (linkMethod != LINK_METHOD_NONE) {
@@ -735,42 +763,6 @@ public class CellBroadcastAlertDialog extends Activity {
 
 
         setPictogram(context, message);
-    }
-
-    /**
-     * @param message
-     * @return the required message override for the service category for the carrier, or null if
-     * it is not set
-     */
-    private String getMessageBodyOverride(Context context, SmsCbMessage message) {
-        // return true if the carrier has configured this service category to have a fixed message
-        Resources res = CellBroadcastSettings.getResources(context, message.getSubscriptionId());
-        String[] overrides = res.getStringArray(R.array.message_body_override);
-        if (overrides != null && overrides.length > 0) {
-            for (String entry : overrides) {
-                String[] serviceCategoryAndMessage = entry.split(":");
-                if (message.getServiceCategory() == Integer.parseInt(
-                        serviceCategoryAndMessage[0])) {
-                    return insertCarrierNameIfNeeded(context, message.getSubscriptionId(),
-                            serviceCategoryAndMessage[1]);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * If an override message must have the carrier name (represented with a '>' character), return
-     * the message with the carrier name inserted. Otherwise just return the message.
-     */
-    private String insertCarrierNameIfNeeded(Context context, int subId, String message) {
-        TelephonyManager tm = context.getSystemService(TelephonyManager.class)
-                .createForSubscriptionId(subId);
-        String carrierName = (String) tm.getSimSpecificCarrierIdName();
-        if (TextUtils.isEmpty(carrierName)) {
-            return message;
-        }
-        return message.replace(">", carrierName);
     }
 
     /**
@@ -853,28 +845,7 @@ public class CellBroadcastAlertDialog extends Activity {
                         .getBoolean(R.bool.show_cmas_messages_in_priority_order)) {
                     // Sort message list to show messages in a different order than received by
                     // prioritizing them. Presidential Alert only has top priority.
-                    Collections.sort(
-                            mMessageList,
-                            (Comparator) (o1, o2) -> {
-                                boolean isPresidentialAlert1 =
-                                        ((SmsCbMessage) o1).isCmasMessage()
-                                                && ((SmsCbMessage) o1).getCmasWarningInfo()
-                                                .getMessageClass() == SmsCbCmasInfo
-                                                .CMAS_CLASS_PRESIDENTIAL_LEVEL_ALERT;
-                                boolean isPresidentialAlert2 =
-                                        ((SmsCbMessage) o2).isCmasMessage()
-                                                && ((SmsCbMessage) o2).getCmasWarningInfo()
-                                                .getMessageClass() == SmsCbCmasInfo
-                                                .CMAS_CLASS_PRESIDENTIAL_LEVEL_ALERT;
-                                if (isPresidentialAlert1 ^ isPresidentialAlert2) {
-                                    return isPresidentialAlert1 ? 1 : -1;
-                                }
-                                Long time1 =
-                                        new Long(((SmsCbMessage) o1).getReceivedTime());
-                                Long time2 =
-                                        new Long(((SmsCbMessage) o2).getReceivedTime());
-                                return time2.compareTo(time1);
-                            });
+                    Collections.sort(mMessageList, mPriorityBasedComparator);
                 }
             }
             Log.d(TAG, "onNewIntent called with message list of size " + newMessageList.size());
@@ -1156,6 +1127,91 @@ public class CellBroadcastAlertDialog extends Activity {
                 }
             }
             setFinishOnTouchOutside(mMessageList.size() > 0 && mMessageList.size() == dismissCount);
+        }
+    }
+
+    /**
+     * If message list of dialog does not have message which is included in newMessageList,
+     * Create new list which includes both dialogMessageList and newMessageList
+     * without the duplicated message, and Return the new list.
+     * If not, just return dialogMessageList as default.
+     * @param dialogMessageList message list which this dialog activity is having
+     * @param newMessageList message list which is compared with dialogMessageList
+     * @return message list which is created with dialogMessageList and newMessageList
+     */
+    @VisibleForTesting
+    public ArrayList<SmsCbMessage> getNewMessageListIfNeeded(
+            @NonNull ArrayList<SmsCbMessage> dialogMessageList,
+            ArrayList<SmsCbMessage> newMessageList) {
+        if (newMessageList == null) {
+            return dialogMessageList;
+        }
+        ArrayList<SmsCbMessage> clonedNewMessageList = new ArrayList<>(newMessageList);
+        for (SmsCbMessage message : dialogMessageList) {
+            clonedNewMessageList.removeIf(
+                    msg -> msg.getReceivedTime() == message.getReceivedTime());
+        }
+        Log.d(TAG, "clonedMessageList.size()=" + clonedNewMessageList.size());
+        if (clonedNewMessageList.size() > 0) {
+            ArrayList<SmsCbMessage> resultList = new ArrayList<>(dialogMessageList);
+            resultList.addAll(clonedNewMessageList);
+            Comparator<SmsCbMessage> comparator = (Comparator) (o1, o2) -> {
+                Long time1 = new Long(((SmsCbMessage) o1).getReceivedTime());
+                Long time2 = new Long(((SmsCbMessage) o2).getReceivedTime());
+                return time1.compareTo(time2);
+            };
+            if (CellBroadcastSettings.getResourcesForDefaultSubId(getApplicationContext())
+                    .getBoolean(R.bool.show_cmas_messages_in_priority_order)) {
+                Log.d(TAG, "Use priority order Based Comparator");
+                comparator = mPriorityBasedComparator;
+            }
+            Collections.sort(resultList, comparator);
+            return resultList;
+        }
+        return dialogMessageList;
+    }
+
+    /**
+     * To disable navigation bars, quick settings etc. Force users to engage with the alert dialog
+     * before switching to other activities.
+     *
+     * @param disable if set to {@code true} to disable the status bar. {@code false} otherwise.
+     */
+    private void setStatusBarDisabledIfNeeded(boolean disable) {
+        if (!CellBroadcastSettings.getResourcesForDefaultSubId(getApplicationContext())
+                .getBoolean(R.bool.disable_status_bar)) {
+            return;
+        }
+        try {
+            // TODO change to system API in future.
+            StatusBarManager statusBarManager = getSystemService(StatusBarManager.class);
+            Method disableMethod = StatusBarManager.class.getDeclaredMethod(
+                    "disable", int.class);
+            Method disableMethod2 = StatusBarManager.class.getDeclaredMethod(
+                    "disable2", int.class);
+            if (disable) {
+                // flags to be disabled
+                int disableHome = StatusBarManager.class.getDeclaredField("DISABLE_HOME")
+                        .getInt(null);
+                int disableRecent = StatusBarManager.class
+                        .getDeclaredField("DISABLE_RECENT").getInt(null);
+                int disableBack = StatusBarManager.class.getDeclaredField("DISABLE_BACK")
+                        .getInt(null);
+                int disableQuickSettings = StatusBarManager.class.getDeclaredField(
+                        "DISABLE2_QUICK_SETTINGS").getInt(null);
+                int disableNotificationShaded = StatusBarManager.class.getDeclaredField(
+                        "DISABLE2_NOTIFICATION_SHADE").getInt(null);
+                disableMethod.invoke(statusBarManager, disableHome | disableBack | disableRecent);
+                disableMethod2.invoke(statusBarManager, disableQuickSettings
+                        | disableNotificationShaded);
+            } else {
+                int disableNone = StatusBarManager.class.getDeclaredField("DISABLE_NONE")
+                        .getInt(null);
+                disableMethod.invoke(statusBarManager, disableNone);
+                disableMethod2.invoke(statusBarManager, disableNone);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to disable navigation when showing alert: ", e);
         }
     }
 }

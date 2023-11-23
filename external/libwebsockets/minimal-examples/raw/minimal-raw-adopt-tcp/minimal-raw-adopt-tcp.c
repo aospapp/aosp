@@ -31,7 +31,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#if !defined(WIN32)
 #include <unistd.h>
+#endif
 #include <errno.h>
 
 static int
@@ -74,8 +76,8 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "raw-test", callback_raw_test, 0, 0 },
-	{ NULL, NULL, 0, 0 } /* terminator */
+	{ "raw-test", callback_raw_test, 0, 0, 0, NULL, 0 },
+	LWS_PROTOCOL_LIST_TERM
 };
 
 static int interrupted;

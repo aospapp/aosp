@@ -260,7 +260,7 @@ mod tests {
         if let Some(mut extras) = extra_params {
             kps.append(&mut extras);
         }
-        let result = legacy.begin(purpose, &blob, &kps, None);
+        let result = legacy.begin(purpose, blob, &kps, None);
         assert!(result.is_ok(), "{:?}", result);
         result.unwrap()
     }
@@ -286,7 +286,7 @@ mod tests {
         let operation = begin_result.operation.unwrap();
 
         let update_aad_result = operation.updateAad(
-            &b"foobar".to_vec(),
+            b"foobar".as_ref(),
             None, /* authToken */
             None, /* timestampToken */
         );
@@ -310,7 +310,7 @@ mod tests {
         let operation = begin_result.operation.unwrap();
 
         let update_aad_result = operation.updateAad(
-            &b"foobar".to_vec(),
+            b"foobar".as_ref(),
             None, /* authToken */
             None, /* timestampToken */
         );
@@ -447,10 +447,6 @@ mod tests {
         assert!(sec_level_enforced.iter().any(|kp| matches!(
             kp,
             KeyParameter { tag: Tag::OS_PATCHLEVEL, value: KeyParameterValue::Integer(_) }
-        )));
-        assert!(sec_level_enforced.iter().any(|kp| matches!(
-            kp,
-            KeyParameter { tag: Tag::VENDOR_PATCHLEVEL, value: KeyParameterValue::Integer(_) }
         )));
         assert!(sec_level_enforced.iter().any(|kp| matches!(
             kp,

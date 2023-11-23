@@ -18,6 +18,7 @@ package android.car.hardware;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -39,16 +40,22 @@ import java.lang.annotation.RetentionPolicy;
 @SystemApi
 public final class CarHvacFanDirection {
     /** Constant for unknown fan direction. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int UNKNOWN = 0x0;
     /** Constant for face direction. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FACE = 0x01;
     /** Constant for floor direction. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FLOOR = 0x02;
     /** Constant for face and floor direction. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FACE_AND_FLOOR = 0x03; // FACE_AND_FLOOR = FACE | FLOOR
     /** Constant for defrost direction. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DEFROST = 0x04;
     /** Constant for defrost and floor direction.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DEFROST_AND_FLOOR = 0x06; // DEFROST_AND_FLOOR = DEFROST | FLOOR
 
     /**@hide*/

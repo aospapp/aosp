@@ -37,10 +37,6 @@ PRODUCT_PACKAGES += \
     cppreopts.sh \
     otapreopt_script
 
-# Bluetooth libraries
-PRODUCT_PACKAGES += \
-    audio.a2dp.default
-
 # System libraries commonly depended on by things on the system_ext or product partitions.
 # These lists will be pruned periodically.
 PRODUCT_PACKAGES += \

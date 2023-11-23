@@ -54,7 +54,7 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 	switch(topology)
 	{
-		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+	case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
 		{
 			auto index = start;
 			auto pointBatch = &(batch[0][0]);
@@ -69,9 +69,9 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 			{
 				*pointBatch++ = indices[index];
 			}
-			break;
 		}
-		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+		break;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
 		{
 			auto index = 2 * start;
 			for(unsigned int i = 0; i < triangleCount; i++)
@@ -82,9 +82,9 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 				index += 2;
 			}
-			break;
 		}
-		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		break;
+	case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
 		{
 			auto index = start;
 			for(unsigned int i = 0; i < triangleCount; i++)
@@ -95,9 +95,9 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 				index += 1;
 			}
-			break;
 		}
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+		break;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
 		{
 			auto index = 3 * start;
 			for(unsigned int i = 0; i < triangleCount; i++)
@@ -108,9 +108,9 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 				index += 3;
 			}
-			break;
 		}
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+		break;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
 		{
 			auto index = start;
 			for(unsigned int i = 0; i < triangleCount; i++)
@@ -121,9 +121,9 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 				index += 1;
 			}
-			break;
 		}
-		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		break;
+	case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
 		{
 			auto index = start + 1;
 			for(unsigned int i = 0; i < triangleCount; i++)
@@ -134,11 +134,11 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 				index += 1;
 			}
-			break;
 		}
-		default:
-			ASSERT(false);
-			return false;
+		break;
+	default:
+		ASSERT(false);
+		return false;
 	}
 
 	return true;
@@ -146,13 +146,13 @@ inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topo
 
 DrawCall::DrawCall()
 {
-	data = (DrawData *)allocate(sizeof(DrawData));
-	data->constants = &Constants::Get();
+	// TODO(b/140991626): Use allocateUninitialized() instead of allocateZeroOrPoison() to improve startup peformance.
+	data = (DrawData *)sw::allocateZeroOrPoison(sizeof(DrawData));
 }
 
 DrawCall::~DrawCall()
 {
-	deallocate(data);
+	sw::freeMemory(data);
 }
 
 Renderer::Renderer(vk::Device *device)
@@ -172,16 +172,16 @@ Renderer::~Renderer()
 void *Renderer::operator new(size_t size)
 {
 	ASSERT(size == sizeof(Renderer));  // This operator can't be called from a derived class
-	return vk::allocate(sizeof(Renderer), alignof(Renderer), vk::DEVICE_MEMORY, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+	return vk::allocateHostMemory(sizeof(Renderer), alignof(Renderer), vk::NULL_ALLOCATION_CALLBACKS, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 }
 
 void Renderer::operator delete(void *mem)
 {
-	vk::deallocate(mem, vk::DEVICE_MEMORY);
+	vk::freeHostMemory(mem, vk::NULL_ALLOCATION_CALLBACKS);
 }
 
 void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState &dynamicState, unsigned int count, int baseVertex,
-                    CountedEvent *events, int instanceID, int viewID, void *indexBuffer, const VkExtent3D &framebufferExtent,
+                    CountedEvent *events, int instanceID, int layer, void *indexBuffer, const VkRect2D &renderArea,
                     vk::Pipeline::PushConstantStorage const &pushConstants, bool update)
 {
 	if(count == 0) { return; }
@@ -229,20 +229,20 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	{
 		switch(pipelineState.getPolygonMode())
 		{
-			case VK_POLYGON_MODE_FILL:
-				setupPrimitives = &DrawCall::setupSolidTriangles;
-				break;
-			case VK_POLYGON_MODE_LINE:
-				setupPrimitives = &DrawCall::setupWireframeTriangles;
-				numPrimitivesPerBatch /= 3;
-				break;
-			case VK_POLYGON_MODE_POINT:
-				setupPrimitives = &DrawCall::setupPointTriangles;
-				numPrimitivesPerBatch /= 3;
-				break;
-			default:
-				UNSUPPORTED("polygon mode: %d", int(pipelineState.getPolygonMode()));
-				return;
+		case VK_POLYGON_MODE_FILL:
+			setupPrimitives = &DrawCall::setupSolidTriangles;
+			break;
+		case VK_POLYGON_MODE_LINE:
+			setupPrimitives = &DrawCall::setupWireframeTriangles;
+			numPrimitivesPerBatch /= 3;
+			break;
+		case VK_POLYGON_MODE_POINT:
+			setupPrimitives = &DrawCall::setupPointTriangles;
+			numPrimitivesPerBatch /= 3;
+			break;
+		default:
+			UNSUPPORTED("polygon mode: %d", int(pipelineState.getPolygonMode()));
+			return;
 		}
 	}
 	else if(pipelineState.isDrawLine(false))
@@ -255,7 +255,6 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	}
 
 	DrawData *data = draw->data;
-	draw->device = device;
 	draw->occlusionQuery = occlusionQuery;
 	draw->batchDataPool = &batchDataPool;
 	draw->numPrimitives = count;
@@ -267,6 +266,7 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	draw->lineRasterizationMode = pipelineState.getLineRasterizationMode();
 	draw->descriptorSetObjects = inputs.getDescriptorSetObjects();
 	draw->pipelineLayout = pipelineState.getPipelineLayout();
+	draw->depthClipEnable = pipelineState.getDepthClipEnable();
 
 	draw->vertexRoutine = vertexRoutine;
 	draw->setupRoutine = setupRoutine;
@@ -282,11 +282,11 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 		const sw::Stream &stream = inputs.getStream(i);
 		data->input[i] = stream.buffer;
 		data->robustnessSize[i] = stream.robustnessSize;
-		data->stride[i] = stream.vertexStride;
+		data->stride[i] = inputs.getVertexStride(i, pipelineState.hasDynamicVertexStride());
 	}
 
 	data->indices = indexBuffer;
-	data->viewID = viewID;
+	data->layer = layer;
 	data->instanceID = instanceID;
 	data->baseVertex = baseVertex;
 
@@ -355,21 +355,22 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 		data->constantDepthBias = pipelineState.getConstantDepthBias();
 		data->slopeDepthBias = pipelineState.getSlopeDepthBias();
 		data->depthBiasClamp = pipelineState.getDepthBiasClamp();
+		data->depthClipEnable = pipelineState.getDepthClipEnable();
 
 		const vk::Attachments attachments = pipeline->getAttachments();
 		if(attachments.depthBuffer)
 		{
 			switch(attachments.depthBuffer->getFormat(VK_IMAGE_ASPECT_DEPTH_BIT))
 			{
-				case VK_FORMAT_D16_UNORM:
-					data->minimumResolvableDepthDifference = 1.0f / 0xFFFF;
-					break;
-				case VK_FORMAT_D32_SFLOAT:
-					// The minimum resolvable depth difference is determined per-polygon for floating-point depth
-					// buffers. DrawData::minimumResolvableDepthDifference is unused.
-					break;
-				default:
-					UNSUPPORTED("Depth format: %d", int(attachments.depthBuffer->getFormat(VK_IMAGE_ASPECT_DEPTH_BIT)));
+			case VK_FORMAT_D16_UNORM:
+				data->minimumResolvableDepthDifference = 1.0f / 0xFFFF;
+				break;
+			case VK_FORMAT_D32_SFLOAT:
+				// The minimum resolvable depth difference is determined per-polygon for floating-point depth
+				// buffers. DrawData::minimumResolvableDepthDifference is unused.
+				break;
+			default:
+				UNSUPPORTED("Depth format: %d", int(attachments.depthBuffer->getFormat(VK_IMAGE_ASPECT_DEPTH_BIT)));
 			}
 		}
 	}
@@ -378,15 +379,15 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	{
 		const vk::Attachments attachments = pipeline->getAttachments();
 
-		for(int index = 0; index < RENDERTARGETS; index++)
+		for(int index = 0; index < MAX_COLOR_BUFFERS; index++)
 		{
-			draw->renderTarget[index] = attachments.renderTarget[index];
+			draw->colorBuffer[index] = attachments.colorBuffer[index];
 
-			if(draw->renderTarget[index])
+			if(draw->colorBuffer[index])
 			{
-				data->colorBuffer[index] = (unsigned int *)attachments.renderTarget[index]->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_COLOR_BIT, 0, data->viewID);
-				data->colorPitchB[index] = attachments.renderTarget[index]->rowPitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
-				data->colorSliceB[index] = attachments.renderTarget[index]->slicePitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
+				data->colorBuffer[index] = (unsigned int *)attachments.colorBuffer[index]->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_COLOR_BIT, 0, data->layer);
+				data->colorPitchB[index] = attachments.colorBuffer[index]->rowPitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
+				data->colorSliceB[index] = attachments.colorBuffer[index]->slicePitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
 			}
 		}
 
@@ -395,14 +396,14 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 
 		if(draw->depthBuffer)
 		{
-			data->depthBuffer = (float *)attachments.depthBuffer->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_DEPTH_BIT, 0, data->viewID);
+			data->depthBuffer = (float *)attachments.depthBuffer->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_DEPTH_BIT, 0, data->layer);
 			data->depthPitchB = attachments.depthBuffer->rowPitchBytes(VK_IMAGE_ASPECT_DEPTH_BIT, 0);
 			data->depthSliceB = attachments.depthBuffer->slicePitchBytes(VK_IMAGE_ASPECT_DEPTH_BIT, 0);
 		}
 
 		if(draw->stencilBuffer)
 		{
-			data->stencilBuffer = (unsigned char *)attachments.stencilBuffer->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_STENCIL_BIT, 0, data->viewID);
+			data->stencilBuffer = (unsigned char *)attachments.stencilBuffer->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_STENCIL_BIT, 0, data->layer);
 			data->stencilPitchB = attachments.stencilBuffer->rowPitchBytes(VK_IMAGE_ASPECT_STENCIL_BIT, 0);
 			data->stencilSliceB = attachments.stencilBuffer->slicePitchBytes(VK_IMAGE_ASPECT_STENCIL_BIT, 0);
 		}
@@ -412,10 +413,14 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	{
 		const VkRect2D &scissor = pipelineState.getScissor();
 
-		data->scissorX0 = clamp<int>(scissor.offset.x, 0, framebufferExtent.width);
-		data->scissorX1 = clamp<int>(scissor.offset.x + scissor.extent.width, 0, framebufferExtent.width);
-		data->scissorY0 = clamp<int>(scissor.offset.y, 0, framebufferExtent.height);
-		data->scissorY1 = clamp<int>(scissor.offset.y + scissor.extent.height, 0, framebufferExtent.height);
+		int x0 = renderArea.offset.x;
+		int y0 = renderArea.offset.y;
+		int x1 = x0 + renderArea.extent.width;
+		int y1 = y0 + renderArea.extent.height;
+		data->scissorX0 = clamp<int>(scissor.offset.x, x0, x1);
+		data->scissorX1 = clamp<int>(scissor.offset.x + scissor.extent.width, x0, x1);
+		data->scissorY0 = clamp<int>(scissor.offset.y, y0, y1);
+		data->scissorY1 = clamp<int>(scissor.offset.y + scissor.extent.height, y0, y1);
 	}
 
 	// Push constants
@@ -427,7 +432,7 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 
 	vk::DescriptorSet::PrepareForSampling(draw->descriptorSetObjects, draw->pipelineLayout, device);
 
-	DrawCall::run(draw, &drawTickets, clusterQueues);
+	DrawCall::run(device, draw, &drawTickets, clusterQueues);
 }
 
 void DrawCall::setup()
@@ -443,7 +448,7 @@ void DrawCall::setup()
 	}
 }
 
-void DrawCall::teardown()
+void DrawCall::teardown(vk::Device *device)
 {
 	if(events)
 	{
@@ -464,11 +469,11 @@ void DrawCall::teardown()
 	setupRoutine = {};
 	pixelRoutine = {};
 
-	for(auto *rt : renderTarget)
+	for(auto *target : colorBuffer)
 	{
-		if(rt)
+		if(target)
 		{
-			rt->contentsChanged();
+			target->contentsChanged(vk::Image::DIRECT_MEMORY_ACCESS);
 		}
 	}
 
@@ -478,7 +483,7 @@ void DrawCall::teardown()
 	}
 }
 
-void DrawCall::run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount])
+void DrawCall::run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount])
 {
 	draw->setup();
 
@@ -487,9 +492,9 @@ void DrawCall::run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *ticket
 	auto const numBatches = draw->numBatches;
 
 	auto ticket = tickets->take();
-	auto finally = marl::make_shared_finally([draw, ticket] {
+	auto finally = marl::make_shared_finally([device, draw, ticket] {
 		MARL_SCOPED_EVENT("FINISH draw %d", draw->id);
-		draw->teardown();
+		draw->teardown(device);
 		ticket.done();
 	});
 
@@ -505,16 +510,16 @@ void DrawCall::run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *ticket
 			batch->clusterTickets[cluster] = std::move(clusterQueues[cluster].take());
 		}
 
-		marl::schedule([draw, batch, finally] {
-			processVertices(draw.get(), batch.get());
+		marl::schedule([device, draw, batch, finally] {
+			processVertices(device, draw.get(), batch.get());
 
 			if(!draw->setupState.rasterizerDiscard)
 			{
-				processPrimitives(draw.get(), batch.get());
+				processPrimitives(device, draw.get(), batch.get());
 
 				if(batch->numVisible > 0)
 				{
-					processPixels(draw, batch, finally);
+					processPixels(device, draw, batch, finally);
 					return;
 				}
 			}
@@ -527,7 +532,7 @@ void DrawCall::run(const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *ticket
 	}
 }
 
-void DrawCall::processVertices(DrawCall *draw, BatchData *batch)
+void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *batch)
 {
 	MARL_SCOPED_EVENT("VERTEX draw %d, batch %d", draw->id, batch->id);
 
@@ -554,18 +559,18 @@ void DrawCall::processVertices(DrawCall *draw, BatchData *batch)
 		vertexTask.vertexCache.drawCall = draw->id;
 	}
 
-	draw->vertexRoutine(&batch->triangles.front().v0, &triangleIndices[0][0], &vertexTask, draw->data);
+	draw->vertexRoutine(device, &batch->triangles.front().v0, &triangleIndices[0][0], &vertexTask, draw->data);
 }
 
-void DrawCall::processPrimitives(DrawCall *draw, BatchData *batch)
+void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *batch)
 {
 	MARL_SCOPED_EVENT("PRIMITIVES draw %d batch %d", draw->id, batch->id);
 	auto triangles = &batch->triangles[0];
 	auto primitives = &batch->primitives[0];
-	batch->numVisible = draw->setupPrimitives(triangles, primitives, draw, batch->numPrimitives);
+	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, draw, batch->numPrimitives);
 }
 
-void DrawCall::processPixels(const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally)
+void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally)
 {
 	struct Data
 	{
@@ -581,11 +586,11 @@ void DrawCall::processPixels(const marl::Loan<DrawCall> &draw, const marl::Loan<
 	auto data = std::make_shared<Data>(draw, batch, finally);
 	for(int cluster = 0; cluster < MaxClusterCount; cluster++)
 	{
-		batch->clusterTickets[cluster].onCall([data, cluster] {
+		batch->clusterTickets[cluster].onCall([device, data, cluster] {
 			auto &draw = data->draw;
 			auto &batch = data->batch;
 			MARL_SCOPED_EVENT("PIXEL draw %d, batch %d, cluster %d", draw->id, batch->id, cluster);
-			draw->pixelRoutine(&batch->primitives.front(), batch->numVisible, cluster, MaxClusterCount, draw->data);
+			draw->pixelRoutine(device, &batch->primitives.front(), batch->numVisible, cluster, MaxClusterCount, draw->data);
 			batch->clusterTickets[cluster].done();
 		});
 	}
@@ -625,22 +630,22 @@ void DrawCall::processPrimitiveVertices(
 	{
 		switch(indexType)
 		{
-			case VK_INDEX_TYPE_UINT16:
-				if(!setBatchIndices(triangleIndicesOut, topology, provokingVertexMode, static_cast<const uint16_t *>(primitiveIndices), start, triangleCount))
-				{
-					return;
-				}
-				break;
-			case VK_INDEX_TYPE_UINT32:
-				if(!setBatchIndices(triangleIndicesOut, topology, provokingVertexMode, static_cast<const uint32_t *>(primitiveIndices), start, triangleCount))
-				{
-					return;
-				}
-				break;
-				break;
-			default:
-				ASSERT(false);
+		case VK_INDEX_TYPE_UINT16:
+			if(!setBatchIndices(triangleIndicesOut, topology, provokingVertexMode, static_cast<const uint16_t *>(primitiveIndices), start, triangleCount))
+			{
 				return;
+			}
+			break;
+		case VK_INDEX_TYPE_UINT32:
+			if(!setBatchIndices(triangleIndicesOut, topology, provokingVertexMode, static_cast<const uint32_t *>(primitiveIndices), start, triangleCount))
+			{
+				return;
+			}
+			break;
+			break;
+		default:
+			ASSERT(false);
+			return;
 		}
 	}
 
@@ -654,7 +659,7 @@ void DrawCall::processPrimitiveVertices(
 	}
 }
 
-int DrawCall::setupSolidTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -689,7 +694,7 @@ int DrawCall::setupSolidTriangles(Triangle *triangles, Primitive *primitives, co
 			}
 		}
 
-		if(drawCall->setupRoutine(primitives, triangles, &polygon, data))
+		if(drawCall->setupRoutine(device, primitives, triangles, &polygon, data))
 		{
 			primitives += ms;
 			visible++;
@@ -699,7 +704,7 @@ int DrawCall::setupSolidTriangles(Triangle *triangles, Primitive *primitives, co
 	return visible;
 }
 
-int DrawCall::setupWireframeTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -743,7 +748,7 @@ int DrawCall::setupWireframeTriangles(Triangle *triangles, Primitive *primitives
 
 		for(int i = 0; i < 3; i++)
 		{
-			if(setupLine(*primitives, lines[i], *drawCall))
+			if(setupLine(device, *primitives, lines[i], *drawCall))
 			{
 				primitives += ms;
 				visible++;
@@ -754,7 +759,7 @@ int DrawCall::setupWireframeTriangles(Triangle *triangles, Primitive *primitives
 	return visible;
 }
 
-int DrawCall::setupPointTriangles(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -788,7 +793,7 @@ int DrawCall::setupPointTriangles(Triangle *triangles, Primitive *primitives, co
 
 		for(int i = 0; i < 3; i++)
 		{
-			if(setupPoint(*primitives, points[i], *drawCall))
+			if(setupPoint(device, *primitives, points[i], *drawCall))
 			{
 				primitives += ms;
 				visible++;
@@ -799,7 +804,7 @@ int DrawCall::setupPointTriangles(Triangle *triangles, Primitive *primitives, co
 	return visible;
 }
 
-int DrawCall::setupLines(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -808,7 +813,7 @@ int DrawCall::setupLines(Triangle *triangles, Primitive *primitives, const DrawC
 
 	for(int i = 0; i < count; i++)
 	{
-		if(setupLine(*primitives, *triangles, *drawCall))
+		if(setupLine(device, *primitives, *triangles, *drawCall))
 		{
 			primitives += ms;
 			visible++;
@@ -820,7 +825,7 @@ int DrawCall::setupLines(Triangle *triangles, Primitive *primitives, const DrawC
 	return visible;
 }
 
-int DrawCall::setupPoints(Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -829,7 +834,7 @@ int DrawCall::setupPoints(Triangle *triangles, Primitive *primitives, const Draw
 
 	for(int i = 0; i < count; i++)
 	{
-		if(setupPoint(*primitives, *triangles, *drawCall))
+		if(setupPoint(device, *primitives, *triangles, *drawCall))
 		{
 			primitives += ms;
 			visible++;
@@ -841,7 +846,7 @@ int DrawCall::setupPoints(Triangle *triangles, Primitive *primitives, const Draw
 	return visible;
 }
 
-bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCall &draw)
+bool DrawCall::setupLine(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw)
 {
 	const DrawData &data = *draw.data;
 
@@ -901,19 +906,19 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 
 		P[0].x += -dy0w;
 		P[0].y += +dx0h;
-		C[0] = Clipper::ComputeClipFlags(P[0]);
+		C[0] = Clipper::ComputeClipFlags(P[0], draw.depthClipEnable);
 
 		P[1].x += -dy1w;
 		P[1].y += +dx1h;
-		C[1] = Clipper::ComputeClipFlags(P[1]);
+		C[1] = Clipper::ComputeClipFlags(P[1], draw.depthClipEnable);
 
 		P[2].x += +dy1w;
 		P[2].y += -dx1h;
-		C[2] = Clipper::ComputeClipFlags(P[2]);
+		C[2] = Clipper::ComputeClipFlags(P[2], draw.depthClipEnable);
 
 		P[3].x += +dy0w;
 		P[3].y += -dx0h;
-		C[3] = Clipper::ComputeClipFlags(P[3]);
+		C[3] = Clipper::ComputeClipFlags(P[3], draw.depthClipEnable);
 
 		if((C[0] & C[1] & C[2] & C[3]) == Clipper::CLIP_FINITE)
 		{
@@ -929,7 +934,7 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 				}
 			}
 
-			return draw.setupRoutine(&primitive, &triangle, &polygon, &data);
+			return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
 		}
 	}
 	else if(false)  // TODO(b/80135519): Deprecate
@@ -958,28 +963,28 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 		float dy1 = lineWidth * 0.5f * P1.w / H;
 
 		P[0].x += -dx0;
-		C[0] = Clipper::ComputeClipFlags(P[0]);
+		C[0] = Clipper::ComputeClipFlags(P[0], draw.depthClipEnable);
 
 		P[1].y += +dy0;
-		C[1] = Clipper::ComputeClipFlags(P[1]);
+		C[1] = Clipper::ComputeClipFlags(P[1], draw.depthClipEnable);
 
 		P[2].x += +dx0;
-		C[2] = Clipper::ComputeClipFlags(P[2]);
+		C[2] = Clipper::ComputeClipFlags(P[2], draw.depthClipEnable);
 
 		P[3].y += -dy0;
-		C[3] = Clipper::ComputeClipFlags(P[3]);
+		C[3] = Clipper::ComputeClipFlags(P[3], draw.depthClipEnable);
 
 		P[4].x += -dx1;
-		C[4] = Clipper::ComputeClipFlags(P[4]);
+		C[4] = Clipper::ComputeClipFlags(P[4], draw.depthClipEnable);
 
 		P[5].y += +dy1;
-		C[5] = Clipper::ComputeClipFlags(P[5]);
+		C[5] = Clipper::ComputeClipFlags(P[5], draw.depthClipEnable);
 
 		P[6].x += +dx1;
-		C[6] = Clipper::ComputeClipFlags(P[6]);
+		C[6] = Clipper::ComputeClipFlags(P[6], draw.depthClipEnable);
 
 		P[7].y += -dy1;
-		C[7] = Clipper::ComputeClipFlags(P[7]);
+		C[7] = Clipper::ComputeClipFlags(P[7], draw.depthClipEnable);
 
 		if((C[0] & C[1] & C[2] & C[3] & C[4] & C[5] & C[6] & C[7]) == Clipper::CLIP_FINITE)
 		{
@@ -1040,7 +1045,7 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 				}
 			}
 
-			return draw.setupRoutine(&primitive, &triangle, &polygon, &data);
+			return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
 		}
 	}
 	else
@@ -1112,10 +1117,10 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 			}
 		}
 
-		int C0 = Clipper::ComputeClipFlags(L[0]);
-		int C1 = Clipper::ComputeClipFlags(L[1]);
-		int C2 = Clipper::ComputeClipFlags(L[2]);
-		int C3 = Clipper::ComputeClipFlags(L[3]);
+		int C0 = Clipper::ComputeClipFlags(L[0], draw.depthClipEnable);
+		int C1 = Clipper::ComputeClipFlags(L[1], draw.depthClipEnable);
+		int C2 = Clipper::ComputeClipFlags(L[2], draw.depthClipEnable);
+		int C3 = Clipper::ComputeClipFlags(L[3], draw.depthClipEnable);
 
 		if((C0 & C1 & C2 & C3) == Clipper::CLIP_FINITE)
 		{
@@ -1131,14 +1136,14 @@ bool DrawCall::setupLine(Primitive &primitive, Triangle &triangle, const DrawCal
 				}
 			}
 
-			return draw.setupRoutine(&primitive, &triangle, &polygon, &data);
+			return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
 		}
 	}
 
 	return false;
 }
 
-bool DrawCall::setupPoint(Primitive &primitive, Triangle &triangle, const DrawCall &draw)
+bool DrawCall::setupPoint(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw)
 {
 	const DrawData &data = *draw.data;
 
@@ -1166,19 +1171,19 @@ bool DrawCall::setupPoint(Primitive &primitive, Triangle &triangle, const DrawCa
 
 	P[0].x -= X;
 	P[0].y += Y;
-	C[0] = Clipper::ComputeClipFlags(P[0]);
+	C[0] = Clipper::ComputeClipFlags(P[0], draw.depthClipEnable);
 
 	P[1].x += X;
 	P[1].y += Y;
-	C[1] = Clipper::ComputeClipFlags(P[1]);
+	C[1] = Clipper::ComputeClipFlags(P[1], draw.depthClipEnable);
 
 	P[2].x += X;
 	P[2].y -= Y;
-	C[2] = Clipper::ComputeClipFlags(P[2]);
+	C[2] = Clipper::ComputeClipFlags(P[2], draw.depthClipEnable);
 
 	P[3].x -= X;
 	P[3].y -= Y;
-	C[3] = Clipper::ComputeClipFlags(P[3]);
+	C[3] = Clipper::ComputeClipFlags(P[3], draw.depthClipEnable);
 
 	Polygon polygon(P, 4);
 
@@ -1196,7 +1201,7 @@ bool DrawCall::setupPoint(Primitive &primitive, Triangle &triangle, const DrawCa
 
 		primitive.pointSizeInv = 1.0f / pSize;
 
-		return draw.setupRoutine(&primitive, &triangle, &polygon, &data);
+		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
 	}
 
 	return false;

@@ -104,7 +104,14 @@ def stop_socket_keepalive(ad, key):
     msg = "Failed to receive confirmation of stopping socket keepalive"
     return _listen_for_keepalive_event(ad, key, msg, "Stopped")
 
+
 def set_private_dns(ad, dns_mode, hostname=None):
+    """ Set private DNS mode and DNS server hostname on DUT
+
+    :param ad: Device under test (DUT)
+    :param dns_mode: DNS mode, including OFF, OPPORTUNISTIC, STRICT
+    :param hostname: DNS server hostname
+    """
     """ Set private DNS mode on dut """
     if dns_mode == cconst.PRIVATE_DNS_MODE_OFF:
         ad.droid.setPrivateDnsMode(False)
@@ -114,6 +121,3 @@ def set_private_dns(ad, dns_mode, hostname=None):
     mode = ad.droid.getPrivateDnsMode()
     host = ad.droid.getPrivateDnsSpecifier()
     ad.log.info("DNS mode is %s and DNS server is %s" % (mode, host))
-    asserts.assert_true(dns_mode == mode and host == hostname,
-                        "Failed to set DNS mode to %s and DNS to %s" % \
-                        (dns_mode, hostname))

@@ -16,7 +16,9 @@
 
 package com.android.permissioncontroller.permission.ui.model
 
+import android.Manifest
 import android.app.Application
+import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.AndroidViewModel
@@ -28,6 +30,7 @@ import com.android.permissioncontroller.permission.data.PermGroupsPackagesUiInfo
 import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.data.StandardPermGroupNamesLiveData
 import com.android.permissioncontroller.permission.data.unusedAutoRevokePackagesLiveData
+import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.navigateSafe
 
 /**
@@ -65,6 +68,11 @@ class ManageStandardPermissionsViewModel(
      * @param args The args to pass to the new fragment
      */
     fun showPermissionApps(fragment: Fragment, args: Bundle) {
+        val groupName = args.getString(Intent.EXTRA_PERMISSION_GROUP_NAME)
+        if (groupName == Manifest.permission_group.NOTIFICATIONS) {
+            Utils.navigateToNotificationSettings(fragment.context!!)
+            return
+        }
         fragment.findNavController().navigateSafe(R.id.manage_to_perm_apps, args)
     }
 

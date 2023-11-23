@@ -437,7 +437,8 @@ public class NotificationService extends Service
         Intent intent = new Intent(Intent.ACTION_VIEW, channel.getUri());
         intent.putExtra(TUNE_PARAMS_RECOMMENDATION_TYPE, mRecommendationType);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        final PendingIntent notificationIntent = PendingIntent.getActivity(this, 0, intent, 0);
+        final PendingIntent notificationIntent = PendingIntent.getActivity(this, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
 
         // This callback will run on the main thread.
         Bitmap largeIconBitmap =

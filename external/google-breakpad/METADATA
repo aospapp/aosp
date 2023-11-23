@@ -13,8 +13,8 @@ third_party {
   }
   version: "a2d3e8b"
   last_upgrade_date { year: 2020 month: 4 day: 19 }
-  # would be NOTICE save for APSL in:
-  #   src/third_party/mac_handler/breakpad_nlist_64.cc
-  #   src/third_party/mac_headers/
+  license_note: "would be NOTICE save for APSL in:\n"
+  "   src/third_party/mac_handler/breakpad_nlist_64.cc\n"
+  "   src/third_party/mac_headers/"
   license_type: RECIPROCAL
 }

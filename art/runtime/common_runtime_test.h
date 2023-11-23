@@ -66,7 +66,7 @@ class CompilerCallbacks;
 class DexFile;
 class JavaVMExt;
 class Runtime;
-typedef std::vector<std::pair<std::string, const void*>> RuntimeOptions;
+using RuntimeOptions = std::vector<std::pair<std::string, const void*>>;
 class Thread;
 class VariableSizedHandleScope;
 
@@ -154,16 +154,19 @@ class CommonRuntimeTestImpl : public CommonArtTestImpl {
 
   jobject LoadDexInPathClassLoader(const std::string& dex_name,
                                    jobject parent_loader,
-                                   jobject shared_libraries = nullptr);
+                                   jobject shared_libraries = nullptr,
+                                   jobject shared_libraries_after = nullptr);
   jobject LoadDexInPathClassLoader(const std::vector<std::string>& dex_names,
                                    jobject parent_loader,
-                                   jobject shared_libraries = nullptr);
+                                   jobject shared_libraries = nullptr,
+                                   jobject shared_libraries_after = nullptr);
   jobject LoadDexInDelegateLastClassLoader(const std::string& dex_name, jobject parent_loader);
   jobject LoadDexInInMemoryDexClassLoader(const std::string& dex_name, jobject parent_loader);
   jobject LoadDexInWellKnownClassLoader(const std::vector<std::string>& dex_names,
                                         jclass loader_class,
                                         jobject parent_loader,
-                                        jobject shared_libraries = nullptr);
+                                        jobject shared_libraries = nullptr,
+                                        jobject shared_libraries_after = nullptr);
 
   void VisitDexes(ArrayRef<const std::string> dexes,
                   const std::function<void(MethodReference)>& method_visitor,
@@ -203,6 +206,8 @@ class CommonRuntimeTestImpl : public CommonArtTestImpl {
   const DexFile* GetFirstDexFile(jobject jclass_loader);
 
   std::unique_ptr<CompilerCallbacks> callbacks_;
+
+  bool use_boot_image_;
 
   virtual void SetUp();
 

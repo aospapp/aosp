@@ -97,7 +97,7 @@ public class ErrorDialogActivity extends Activity {
     }
 
     private void showMissingVoicemailErrorDialog() {
-        new AlertDialog.Builder(this)
+        final AlertDialog errorDialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.no_vm_number)
                 .setMessage(R.string.no_vm_number_msg)
                 .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {

@@ -18,6 +18,7 @@
 #define EXYNOS_DISPLAY_DRM_INTERFACE_MODULE_H
 
 #include <gs101/displaycolor/displaycolor_gs101.h>
+#include <gs101/histogram/histogram.h>
 
 #include "ExynosDisplayDrmInterface.h"
 
@@ -68,6 +69,27 @@ class ExynosDisplayDrmInterfaceModule : public ExynosDisplayDrmInterface {
                 uint32_t &blobId);
 
         void getDisplayInfo(std::vector<displaycolor::DisplayInfo> &display_info);
+
+        /* For Histogram */
+        int32_t createHistoRoiBlob(uint32_t &blobId);
+        int32_t createHistoWeightsBlob(uint32_t &blobId);
+
+        virtual int32_t setDisplayHistogramSetting(
+                ExynosDisplayDrmInterface::DrmModeAtomicReq &drmReq);
+
+        void registerHistogramInfo(HistogramInfo *info) {
+            if (info)
+                mHistogramInfo.reset(info);
+            else
+                mHistogramInfo.reset();
+
+            if (mHistogramInfo.get())
+                mHistogramInfoRegistered = true;
+            else
+                mHistogramInfoRegistered = false;
+        }
+        int32_t setHistogramControl(int32_t enabled);
+        virtual int32_t setHistogramData(void *bin);
 
     protected:
         class SaveBlob {
@@ -145,7 +167,29 @@ class ExynosDisplayDrmInterfaceModule : public ExynosDisplayDrmInterface {
             BPC_8,
             BPC_10,
         };
-        DrmPropertyMap mBpcEnums;
+        DrmEnumParser::MapHal2DrmEnum mBpcEnums;
+
+        /* For Histogram */
+        class HistoBlobs : public SaveBlob {
+        public:
+            enum Histo_Blob_Type {
+                ROI,
+                WEIGHTS,
+                HISTO_BLOB_NUM // number of Histogram blobs
+            };
+            void init(DrmDevice *drmDevice) { SaveBlob::init(drmDevice, HISTO_BLOB_NUM); }
+        };
+        int32_t setDisplayHistoBlob(const DrmProperty &prop, const uint32_t type,
+                                    ExynosDisplayDrmInterface::DrmModeAtomicReq &drmReq);
+        HistoBlobs mOldHistoBlobs;
+
+        std::shared_ptr<HistogramInfo> mHistogramInfo;
+        bool mHistogramInfoRegistered = false;
+
+    private:
+        const std::string GetPanelInfo(const std::string &sysfs_rel, char delim);
+        const std::string GetPanelSerial() { return GetPanelInfo("serial_number", '\n'); }
+        const std::string GetPanelName() { return GetPanelInfo("panel_name", '\n'); }
 };
 
 class ExynosPrimaryDisplayDrmInterfaceModule : public ExynosDisplayDrmInterfaceModule {

@@ -65,6 +65,8 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
             printf("window-agent-mock-impl: .isFolded ? %d\n", sIsFolded);
             return sIsFolded;
         },
+        .getFoldedArea = 0,
+        .updateFoldablePostureIndicator = 0,
         .setUIDisplayRegion =
                 [](int x_offset, int y_offset, int w, int h) {
                     printf("window-agent-mock-impl: .setUIDisplayRegion %d %d "
@@ -84,7 +86,11 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
                         *h = 1600;
                     return true;
                 },
-
+        .startExtendedWindow = 0,
+        .quitExtendedWindow = 0,
+        .setUiTheme = 0,
+        .runOnUiThread = 0,
+        .isRunningInUiThread = 0,
 };
 
 extern "C" const QAndroidEmulatorWindowAgent* const

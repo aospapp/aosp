@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8751425"
+    target: "bluejay"
+    source_file: "panel-samsung-s6e3hc3.ko"
+  }
+  dest_file: "panel-samsung-s6e3hc3.ko"
+  version: "Linux version 5.10.107-android13-4-00005-ge05ae1680b1c-ab8715050 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Mon Jun 13 03:29:10 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/bluejay-kernel"
+}

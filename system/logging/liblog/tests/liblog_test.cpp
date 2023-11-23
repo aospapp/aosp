@@ -386,11 +386,11 @@ static void bswrite_test(const char* message) {
         if (pid > 999999) ++line_overhead;
         fflush(stderr);
         if (processBinaryLogBuffer) {
-          EXPECT_GT((int)((line_overhead * num_lines) + size),
-                    android_log_printLogLine(logformat, fileno(stderr), &entry));
+          EXPECT_GT((line_overhead * num_lines) + size,
+                    android_log_printLogLine(logformat, stderr, &entry));
         } else {
-          EXPECT_EQ((int)((line_overhead * num_lines) + size),
-                    android_log_printLogLine(logformat, fileno(stderr), &entry));
+          EXPECT_EQ((line_overhead * num_lines) + size,
+                    android_log_printLogLine(logformat, stderr, &entry));
         }
       }
       android_log_format_free(logformat);
@@ -468,8 +468,8 @@ static void buf_write_test(const char* message) {
       if (pid > 99999) ++line_overhead;
       if (pid > 999999) ++line_overhead;
       fflush(stderr);
-      EXPECT_EQ((int)(((line_overhead + sizeof(tag)) * num_lines) + size),
-                android_log_printLogLine(logformat, fileno(stderr), &entry));
+      EXPECT_EQ(((line_overhead + sizeof(tag)) * num_lines) + size,
+                android_log_printLogLine(logformat, stderr, &entry));
     }
     android_log_format_free(logformat);
   };
@@ -688,9 +688,7 @@ static int start_thread() {
     return -1;
   }
 
-  struct sched_param param;
-
-  memset(&param, 0, sizeof(param));
+  struct sched_param param = {};
   pthread_attr_setschedparam(&attr, &param);
   pthread_attr_setschedpolicy(&attr, SCHED_BATCH);
 
@@ -1006,8 +1004,7 @@ TEST(liblog, __android_log_buf_print__maxtag) {
     EXPECT_EQ(0, processLogBuffer);
     if (processLogBuffer == 0) {
       fflush(stderr);
-      int printLogLine =
-          android_log_printLogLine(logformat, fileno(stderr), &entry);
+      int printLogLine = android_log_printLogLine(logformat, stderr, &entry);
       // Legacy tag truncation
       EXPECT_LE(128, printLogLine);
       // Measured maximum if we try to print part of the tag as message
@@ -1241,7 +1238,7 @@ TEST(liblog, is_loggable) {
   static const size_t base_offset = 8; /* skip "persist." */
   // sizeof("string") = strlen("string") + 1
   char key[sizeof(log_namespace) + sizeof(tag) - 1];
-  char hold[4][PROP_VALUE_MAX];
+  char hold[4][PROP_VALUE_MAX] = {};
   static const struct {
     int level;
     char type;
@@ -1253,7 +1250,6 @@ TEST(liblog, is_loggable) {
   };
 
   // Set up initial test condition
-  memset(hold, 0, sizeof(hold));
   snprintf(key, sizeof(key), "%s%s", log_namespace, tag);
   property_get(key, hold[0], "");
   property_set(key, "");
@@ -2064,7 +2060,7 @@ static int is_real_element(int type) {
 static int android_log_buffer_to_string(const char* msg, size_t len,
                                         char* strOut, size_t strOutLen) {
   android_log_context context = create_android_log_parser(msg, len);
-  android_log_list_element elem;
+  android_log_list_element elem = {};
   bool overflow = false;
   /* Reserve 1 byte for null terminator. */
   size_t origStrOutLen = strOutLen--;
@@ -2072,8 +2068,6 @@ static int android_log_buffer_to_string(const char* msg, size_t len,
   if (!context) {
     return -EBADF;
   }
-
-  memset(&elem, 0, sizeof(elem));
 
   size_t outCount;
 
@@ -2493,8 +2487,7 @@ static void create_android_logger(const char* (*fn)(uint32_t tag,
       if (pid > 99999) ++line_overhead;
       if (pid > 999999) ++line_overhead;
       print_barrier();
-      int printLogLine =
-          android_log_printLogLine(logformat, fileno(stderr), &entry);
+      int printLogLine = android_log_printLogLine(logformat, stderr, &entry);
       print_barrier();
       EXPECT_EQ(line_overhead + (int)strlen(expected_string), printLogLine);
     }

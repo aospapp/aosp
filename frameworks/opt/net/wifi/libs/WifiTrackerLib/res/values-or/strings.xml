@@ -37,13 +37,30 @@
     <string name="wifitrackerlib_wifi_unmetered_label" msgid="1902150402929678469">"ମିଟର ହୋଇନଥିବା"</string>
     <string name="wifitrackerlib_connected_via_app" msgid="7823921840931347560">"<xliff:g id="NAME">%1$s</xliff:g> ମାଧ୍ୟମରେ ସଂଯୋଗ କରାଯାଇଛି"</string>
     <string name="wifitrackerlib_available_via_app" msgid="8556844256194837469">"<xliff:g id="NAME">%1$s</xliff:g> ମାଧ୍ୟମରେ ଉପଲବ୍ଧ ଅଛି"</string>
-    <string name="wifitrackerlib_connected_via_network_scorer" msgid="6306655070903763086">"<xliff:g id="NAME">%1$s</xliff:g> ମାଧ୍ୟମରେ ସ୍ୱଚାଳିତ ଭାବେ ସଂଯୋଗ କରାଯାଇଛି"</string>
-    <string name="wifitrackerlib_connected_via_network_scorer_default" msgid="3436792128688839692">"ନେଟୱାର୍କ ମୂଲ୍ୟାଙ୍କନ ପ୍ରଦାନକାରୀଙ୍କ ମାଧ୍ୟମରେ ସ୍ୱଚାଳିତ ଭାବେ ସଂଯୋଗ କରାଯାଇଛି"</string>
     <string name="wifitrackerlib_wifi_limited_connection" msgid="4234326409980991740">"ସୀମିତ ସଂଯୋଗ"</string>
     <string name="wifitrackerlib_private_dns_broken" msgid="6049401148262718707">"ବ୍ୟକ୍ତିଗତ DNS ସର୍ଭରକୁ ଆକ୍ସେସ୍ କରାଯାଇପାରିବ ନାହିଁ"</string>
     <string name="wifitrackerlib_wifi_connected_cannot_provide_internet" msgid="3803471522215612745">"ଡିଭାଇସ୍ ସହ ସଂଯୋଗ କରାଯାଇଛି। ଇଣ୍ଟରନେଟ୍ ପ୍ରଦାନ କରାଯାଇପାରିବ ନାହିଁ।"</string>
     <string name="wifi_connected_low_quality" msgid="4478331645458058445">"ନିମ୍ନ ଗୁଣବତ୍ତା"</string>
+    <string name="wifitrackerlib_admin_restricted_network" msgid="5439914801076897515">"ଆପଣଙ୍କ ସଂସ୍ଥା ଦ୍ୱାରା ଅନୁମତି ଦିଆଯାଏ ନାହିଁ"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2" msgid="4815223667006927841">"WPA/WPA2-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2" msgid="6425661975745405271">"WPA/WPA2-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa3" msgid="6210273302049534874">"WPA3-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa3" msgid="3945746966044709030">"WPA3-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2_wpa3" msgid="1461382917566262495">"WPA/WPA2/WPA3-EAP"</string>
+    <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2_wpa3" msgid="5793439868239112839">"WPA/WPA2/WPA3-Enterprise"</string>
+    <string name="wifitrackerlib_wifi_security_short_eap_suiteb" msgid="6335062557041604336">"Suite-B-192"</string>
+    <string name="wifitrackerlib_wifi_security_eap_suiteb" msgid="4715703239786225763">"WPA3-Enterprise 192-ବିଟ୍"</string>
+    <string name="wifitrackerlib_wifi_security_short_wpa_wpa2" msgid="6770438383385707243">"WPA/WPA2"</string>
+    <string name="wifitrackerlib_wifi_security_wpa_wpa2" msgid="5767878305316110228">"WPA/WPA2-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_short_wpa_wpa2_wpa3" msgid="4489424775550194618">"WPA/WPA2/WPA3"</string>
+    <string name="wifitrackerlib_wifi_security_wpa_wpa2_wpa3" msgid="4154428413248489642">"WPA/WPA2/WPA3-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_wep" msgid="7714779033848180369">"WEP"</string>
+    <string name="wifitrackerlib_wifi_security_short_sae" msgid="107913757758514692">"WPA3"</string>
+    <string name="wifitrackerlib_wifi_security_sae" msgid="6191706087425911867">"WPA3-Personal"</string>
+    <string name="wifitrackerlib_wifi_security_short_owe" msgid="224333285610280433">"OWE"</string>
+    <string name="wifitrackerlib_wifi_security_owe" msgid="1018282395106838649">"Enhanced Open"</string>
     <string name="wifitrackerlib_wifi_security_none" msgid="2686062484642847280">"କିଛି ନାହିଁ"</string>
+    <string name="wifitrackerlib_wifi_security_passpoint" msgid="3980446437188585906">"ପାସପଏଣ୍ଟ"</string>
     <string name="wifitrackerlib_wifi_passpoint_expired" msgid="7974960573887452566">"ମିଆଦ ଶେଷ ହୋଇଯାଇଛି"</string>
     <string name="wifitrackerlib_tap_to_sign_up" msgid="3897017015910817402">"ସାଇନ୍ ଅପ୍ କରିବାକୁ ଟାପ୍ କରନ୍ତୁ"</string>
     <string name="wifitrackerlib_tap_to_renew_subscription_and_connect" msgid="6048420776676138069">"ସଦସ୍ୟତାକୁ ନବୀକରଣ କରି ସଂଯୋଗ କରିବାକୁ ଟାପ୍ କରନ୍ତୁ"</string>
@@ -53,11 +70,12 @@
     <string name="wifitrackerlib_osu_sign_up_failed" msgid="3964140125523395898">"ସାଇନ୍ ଅପ୍ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇପାରିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରିବାକୁ ଟାପ୍ କରନ୍ତୁ।"</string>
     <string name="wifitrackerlib_osu_sign_up_complete" msgid="3279606633343124580">"ସାଇନ୍ ଅପ୍ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି। ସଂଯୋଗ କରୁଛି…"</string>
     <string name="wifitrackerlib_imsi_protection_warning" msgid="7202210931586169466">"ଏହି ନେଟୱାର୍କ ଏକ SIM ID ପ୍ରାପ୍ତ କରେ ଯାହା ଡିଭାଇସର ଲୋକେସନ୍ ଟ୍ରାକ୍ କରିବାରେ ବ୍ୟବହାର କରାଯାଇପାରିବ। "<annotation id="url">"ଅଧିକ ଜାଣନ୍ତୁ"</annotation></string>
-    <string name="wifitrackerlib_speed_label_very_slow" msgid="6606409259798814244">"ଅତି ଧୀର"</string>
-    <string name="wifitrackerlib_speed_label_slow" msgid="7327906382011957760">"ଧୀର"</string>
-    <string name="wifitrackerlib_speed_label_okay" msgid="6656684124654881956">"ଠିକ୍ ଅଛି"</string>
-    <string name="wifitrackerlib_speed_label_medium" msgid="2249280306855290094">"ମଧ୍ୟମ"</string>
-    <string name="wifitrackerlib_speed_label_fast" msgid="2593921008376044650">"ଦ୍ରୁତ"</string>
-    <string name="wifitrackerlib_speed_label_very_fast" msgid="4162759416291355173">"ଅତି ଦ୍ରୁତ"</string>
     <string name="wifitrackerlib_wifi_wont_autoconnect_for_now" msgid="4923161724964349851">"ବର୍ତ୍ତମାନ ପାଇଁ ୱାଇ-ଫାଇ ସ୍ୱତଃ-ସଂଯୋଗ ହେବ ନାହିଁ"</string>
+    <string name="wifitrackerlib_wifi_standard_unknown" msgid="8339211498889012019">"ଅଜଣା"</string>
+    <string name="wifitrackerlib_wifi_standard_legacy" msgid="7760511318791054384">"ଲିଗାସୀ"</string>
+    <string name="wifitrackerlib_wifi_standard_11n" msgid="2642177213395884818">"ୱାଇ-ଫାଇ 4"</string>
+    <string name="wifitrackerlib_wifi_standard_11ac" msgid="4347870672254411383">"ୱାଇ-ଫାଇ 5"</string>
+    <string name="wifitrackerlib_wifi_standard_11ax" msgid="4071875115186480116">"ୱାଇ-ଫାଇ 6"</string>
+    <string name="wifitrackerlib_wifi_standard_11ad" msgid="4955749187120493383">"WiGig"</string>
+    <string name="wifitrackerlib_wifi_standard_11be" msgid="1886834788680487835">"ୱାଇ-ଫାଇ 7"</string>
 </resources>

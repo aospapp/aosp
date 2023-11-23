@@ -128,11 +128,15 @@ cc_defaults {
                 "libc",
             ],
         },
-        host: {
+        linux_glibc_x86_64: {
+            stl: "libc++_static",
+        },
+        linux_musl_x86_64: {
             stl: "libc++_static",
         },
         windows: {
             enabled: true,
+            stl: "libc++_static",
         },
     },
     use_version_lib: true,
@@ -166,6 +170,9 @@ cc_defaults {
             static_libs: [
                 "libc++fs",
                 "libdexfile_support",
+            ],
+            runtime_libs: [
+                "libdexfile", // libdexfile_support dependency
             ],
         },
         host: {
@@ -225,6 +232,7 @@ cc_defaults {
         "read_elf.cpp",
         "read_symbol_map.cpp",
         "record.cpp",
+        "RecordFilter.cpp",
         "record_file.proto",
         "record_file_reader.cpp",
         "record_file_writer.cpp",
@@ -234,6 +242,11 @@ cc_defaults {
         "utils.cpp",
     ],
     target: {
+        android: {
+            srcs: [
+                "cmd_boot_record.cpp",
+            ],
+        },
         linux: {
             srcs: [
                 "CallChainJoiner.cpp",
@@ -254,7 +267,6 @@ cc_defaults {
                 "OfflineUnwinder.cpp",
                 "ProbeEvents.cpp",
                 "read_dex_file.cpp",
-                "RecordFilter.cpp",
                 "RecordReadThread.cpp",
                 "workload.cpp",
             ],
@@ -287,6 +299,7 @@ cc_library_static {
         linux: {
             // See note for libdexfile_static in simpleperf_ndk.
             static_libs: ["libdexfile_support"],
+            runtime_libs: ["libdexfile"], // libdexfile_support dependency
         },
     },
 }
@@ -309,6 +322,7 @@ cc_binary {
             ],
         },
     },
+    init_rc: ["simpleperf.rc"],
 }
 
 cc_library {
@@ -317,7 +331,10 @@ cc_library {
     srcs: ["profcollect.cpp"],
     host_supported: false,
     static_libs: ["libsimpleperf"],
-    shared_libs: ["libLLVM_android"],
+    shared_libs: [
+        "libLLVM_android",
+        "libpower",
+    ],
 }
 
 rust_bindgen {
@@ -334,6 +351,16 @@ rust_library {
     rlibs: ["libsimpleperf_profcollect_bindgen"],
     shared_libs: ["libsimpleperf_profcollect"],
     visibility: ["//system/extras/profcollectd:__subpackages__"],
+}
+
+rust_test {
+    name: "libsimpleperf_profcollect_bindgen_test",
+    srcs: [":libsimpleperf_profcollect_bindgen"],
+    crate_name: "simpleperf_profcollect_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
 }
 
 // simpleperf released in ndk
@@ -408,6 +435,16 @@ cc_binary {
         linux_glibc_x86_64: {
             dist: {
                 dir: "simpleperf/linux/x86_64",
+            },
+        },
+        linux_musl_x86: {
+            dist: {
+                dir: "simpleperf/linux_musl/x86",
+            },
+        },
+        linux_musl_x86_64: {
+            dist: {
+                dir: "simpleperf/linux_musl/x86_64",
             },
         },
         windows_x86: {
@@ -494,6 +531,16 @@ cc_library_shared {
                 dir: "simpleperf/linux/x86_64",
             },
         },
+        linux_musl_x86: {
+            dist: {
+                dir: "simpleperf/linux_musl/x86",
+            },
+        },
+        linux_musl_x86_64: {
+            dist: {
+                dir: "simpleperf/linux_musl/x86_64",
+            },
+        },
         windows_x86: {
             dist: {
                 dir: "simpleperf/windows/x86",
@@ -509,6 +556,11 @@ cc_library_shared {
 
 cc_defaults {
     name: "simpleperf_test_srcs",
+    tidy_timeout_srcs: [
+        "record_test.cpp",
+        "cmd_report_sample_test.cpp",
+        "cmd_report_test.cpp",
+    ],
     srcs: [
         "cmd_inject_test.cpp",
         "cmd_kmem_test.cpp",
@@ -523,6 +575,7 @@ cc_defaults {
         "read_apk_test.cpp",
         "read_elf_test.cpp",
         "read_symbol_map_test.cpp",
+        "RecordFilter_test.cpp",
         "record_file_test.cpp",
         "record_test.cpp",
         "report_utils_test.cpp",
@@ -533,7 +586,16 @@ cc_defaults {
         "utils_test.cpp",
     ],
     target: {
+        android: {
+            srcs: [
+                "cmd_boot_record_test.cpp",
+            ],
+        },
         linux: {
+            tidy_timeout_srcs: [
+                "cmd_stat_test.cpp",
+                "cmd_record_test.cpp",
+            ],
             srcs: [
                 "CallChainJoiner_test.cpp",
                 "cmd_api_test.cpp",
@@ -546,11 +608,11 @@ cc_defaults {
                 "cmd_trace_sched_test.cpp",
                 "environment_test.cpp",
                 "IOEventLoop_test.cpp",
+                "JITDebugReader_test.cpp",
                 "MapRecordReader_test.cpp",
                 "OfflineUnwinder_test.cpp",
                 "ProbeEvents_test.cpp",
                 "read_dex_file_test.cpp",
-                "RecordFilter_test.cpp",
                 "RecordReadThread_test.cpp",
                 "workload_test.cpp",
             ],
@@ -576,6 +638,9 @@ cc_test {
     data: [
         "testdata/**/*",
     ],
+    sanitize: {
+        memtag_heap: false,
+    },
 }
 
 cc_test {
@@ -655,4 +720,35 @@ python_library_host {
         "scripts/bin/linux/x86_64/libsimpleperf_report.so",
         "scripts/bin/windows/**/*.dll",
     ],
+}
+
+filegroup {
+    name: "system-extras-simpleperf-testdata",
+    srcs: ["CtsSimpleperfTestCases_testdata/**/*"],
+}
+
+cc_fuzz {
+    name: "libsimpleperf_report_fuzzer",
+    defaults: [
+        "simpleperf_shared_libs",
+    ],
+    host_supported: true,
+    srcs: [
+        "libsimpleperf_report_fuzzer.cpp",
+    ],
+    static_libs: [
+        "libsimpleperf",
+        "libLLVMObject",
+        "libLLVMBitReader",
+        "libLLVMMC",
+        "libLLVMMCParser",
+        "libLLVMCore",
+        "libLLVMSupport",
+    ],
+    target: {
+        windows: {
+            enabled: false,
+        },
+    },
+    corpus: ["testdata/*.data"],
 }

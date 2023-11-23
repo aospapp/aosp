@@ -29,9 +29,9 @@
 
 
 typedef enum { SCSI_IO_READ, SCSI_IO_WRITE } scsi_io_mode_t;
-int scsi_max_length(void);
-int scsi_cmd(int fd, unsigned char cdb[6], int clen, scsi_io_mode_t mode,
-	     void *data, size_t len, void *extra_data);
+unsigned int scsi_max_length(void);
+int scsi_cmd(int fd, unsigned char cdb[6], uint8_t clen, scsi_io_mode_t mode,
+	     void *data, uint32_t len, void *extra_data);
 int scsi_open(const char *name, int flags, int mode, void **extra_data);
 
 #endif /* __mtools_scsi_h */

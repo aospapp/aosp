@@ -17,6 +17,7 @@
 package android.autofillservice.cts.saveui;
 
 import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.assertActivityShownInBackground;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 
 import android.autofillservice.cts.activities.LoginActivity;
@@ -74,7 +75,7 @@ public class AutofillSaveDialogTest extends AutoFillServiceTestCase.ManualActivi
         startActivityWithFlag(SimpleAfterLoginActivity.getCurrentActivity(),
                 SimpleBeforeLoginActivity.class,
                 Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        mUiBot.assertShownByRelativeId(SimpleBeforeLoginActivity.ID_BEFORE_LOGIN);
+        assertActivityShownInBackground(SimpleBeforeLoginActivity.class);
 
         // Verify save ui dialog.
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_USERNAME);
@@ -112,7 +113,7 @@ public class AutofillSaveDialogTest extends AutoFillServiceTestCase.ManualActivi
         // Start SimpleAfterLoginActivity with CLEAR_TASK and NEW_TASK after login activity.
         startActivityWithFlag(loginActivity, SimpleAfterLoginActivity.class,
                 Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-        mUiBot.assertShownByRelativeId(SimpleAfterLoginActivity.ID_AFTER_LOGIN);
+        assertActivityShownInBackground(SimpleAfterLoginActivity.class);
 
         // Verify save ui dialog.
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_USERNAME);

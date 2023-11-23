@@ -106,6 +106,9 @@ enum UserControlPressedCommand {
     POWER_TOGGLE = 0x16B;
     POWER_OFF = 0x16C;
     POWER_ON = 0x16D;
+
+    // TV Functions
+    INPUT_SELECT = 0x134;
 }
 
 // Reason parameter of the <Feature Abort> message.

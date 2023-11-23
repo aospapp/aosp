@@ -14,12 +14,16 @@
 
 #include "bsdiff/bspatch.h"
 #include "bsdiff/file_interface.h"
+#include "zucchini/patch_reader.h"
+#include "zucchini/zucchini.h"
 
+#include "puffin/src/include/puffin/brotli_util.h"
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/huffer.h"
 #include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/include/puffin/stream.h"
 #include "puffin/src/logging.h"
+#include "puffin/memory_stream.h"
 #include "puffin/src/puffin.pb.h"
 #include "puffin/src/puffin_stream.h"
 
@@ -92,8 +96,6 @@ class BsdiffStream : public bsdiff::FileInterface {
   DISALLOW_COPY_AND_ASSIGN(BsdiffStream);
 };
 
-}  // namespace
-
 bool DecodePatch(const uint8_t* patch,
                  size_t patch_length,
                  size_t* bsdiff_patch_offset,
@@ -103,7 +105,8 @@ bool DecodePatch(const uint8_t* patch,
                  vector<ByteExtent>* src_puffs,
                  vector<ByteExtent>* dst_puffs,
                  uint64_t* src_puff_size,
-                 uint64_t* dst_puff_size) {
+                 uint64_t* dst_puff_size,
+                 metadata::PatchHeader_PatchType* patch_type) {
   size_t offset = 0;
   uint32_t header_size;
   TEST_AND_RETURN_FALSE(patch_length >= (kMagicLength + sizeof(header_size)));
@@ -135,43 +138,104 @@ bool DecodePatch(const uint8_t* patch,
 
   *bsdiff_patch_offset = offset;
   *bsdiff_patch_size = patch_length - offset;
+
+  *patch_type = header.type();
   return true;
 }
+
+bool ApplyZucchiniPatch(UniqueStreamPtr src_stream,
+                        size_t src_size,
+                        const uint8_t* patch_start,
+                        size_t patch_size,
+                        UniqueStreamPtr dst_stream) {
+  // Read the source data
+  Buffer puffed_src(src_size);
+  Buffer buffer(1024 * 1024);
+  uint64_t bytes_wrote = 0;
+  while (bytes_wrote < src_size) {
+    auto write_size =
+        std::min(static_cast<uint64_t>(buffer.size()), src_size - bytes_wrote);
+    TEST_AND_RETURN_FALSE(src_stream->Read(buffer.data(), write_size));
+    std::copy(buffer.data(), buffer.data() + write_size,
+              puffed_src.data() + bytes_wrote);
+    bytes_wrote += write_size;
+  }
+  // Read the patch
+  Buffer zucchini_patch;
+  TEST_AND_RETURN_FALSE(BrotliDecode(patch_start, patch_size, &zucchini_patch));
+  auto patch_reader = zucchini::EnsemblePatchReader::Create(
+      {zucchini_patch.data(), zucchini_patch.size()});
+  if (!patch_reader.has_value()) {
+    LOG(ERROR) << "Failed to parse the zucchini patch.";
+    return false;
+  }
+
+  // TODO(197361113) Stream the patched result once zucchini supports it. So we
+  // can save some memory when applying patch on device.
+  Buffer patched_data(patch_reader->header().new_size);
+  auto status = zucchini::ApplyBuffer(
+      {puffed_src.data(), puffed_src.size()}, *patch_reader,
+      {patched_data.data(), patched_data.size()});
+  if (status != zucchini::status::kStatusSuccess) {
+    LOG(ERROR) << "Failed to parse the zucchini patch: " << status;
+    return false;
+  }
+
+  TEST_AND_RETURN_FALSE(
+      dst_stream->Write(patched_data.data(), patched_data.size()));
+  return true;
+}
+
+}  // namespace
 
 bool PuffPatch(UniqueStreamPtr src,
                UniqueStreamPtr dst,
                const uint8_t* patch,
                size_t patch_length,
                size_t max_cache_size) {
-  size_t bsdiff_patch_offset;  // bsdiff offset in |patch|.
-  size_t bsdiff_patch_size = 0;
+  size_t patch_offset;  // raw patch offset in puffin |patch|.
+  size_t raw_patch_size = 0;
   vector<BitExtent> src_deflates, dst_deflates;
   vector<ByteExtent> src_puffs, dst_puffs;
   uint64_t src_puff_size, dst_puff_size;
 
-  // Decode the patch and get the bsdiff_patch.
-  TEST_AND_RETURN_FALSE(DecodePatch(patch, patch_length, &bsdiff_patch_offset,
-                                    &bsdiff_patch_size, &src_deflates,
-                                    &dst_deflates, &src_puffs, &dst_puffs,
-                                    &src_puff_size, &dst_puff_size));
+  metadata::PatchHeader_PatchType patch_type;
+
+  // Decode the patch and get the raw patch (e.g. bsdiff, zucchini).
+  TEST_AND_RETURN_FALSE(
+      DecodePatch(patch, patch_length, &patch_offset, &raw_patch_size,
+                  &src_deflates, &dst_deflates, &src_puffs, &dst_puffs,
+                  &src_puff_size, &dst_puff_size, &patch_type));
   auto puffer = std::make_shared<Puffer>();
   auto huffer = std::make_shared<Huffer>();
 
-  // For reading from source.
-  auto reader = BsdiffStream::Create(
+  auto src_stream =
       PuffinStream::CreateForPuff(std::move(src), puffer, src_puff_size,
-                                  src_deflates, src_puffs, max_cache_size));
-  TEST_AND_RETURN_FALSE(reader);
+                                  src_deflates, src_puffs, max_cache_size);
+  TEST_AND_RETURN_FALSE(src_stream);
+  auto dst_stream = PuffinStream::CreateForHuff(
+      std::move(dst), huffer, dst_puff_size, dst_deflates, dst_puffs);
+  TEST_AND_RETURN_FALSE(dst_stream);
 
-  // For writing into destination.
-  auto writer = BsdiffStream::Create(PuffinStream::CreateForHuff(
-      std::move(dst), huffer, dst_puff_size, dst_deflates, dst_puffs));
-  TEST_AND_RETURN_FALSE(writer);
+  if (patch_type == metadata::PatchHeader_PatchType_BSDIFF) {
+    // For reading from source.
+    auto reader = BsdiffStream::Create(std::move(src_stream));
+    TEST_AND_RETURN_FALSE(reader);
+    // For writing into destination.
+    auto writer = BsdiffStream::Create(std::move(dst_stream));
+    TEST_AND_RETURN_FALSE(writer);
 
-  // Running bspatch itself.
-  TEST_AND_RETURN_FALSE(0 == bspatch(reader, writer,
-                                     &patch[bsdiff_patch_offset],
-                                     bsdiff_patch_size));
+    // Running bspatch itself.
+    TEST_AND_RETURN_FALSE(
+        0 == bspatch(reader, writer, &patch[patch_offset], raw_patch_size));
+  } else if (patch_type == metadata::PatchHeader_PatchType_ZUCCHINI) {
+    TEST_AND_RETURN_FALSE(ApplyZucchiniPatch(
+        std::move(src_stream), src_puff_size, patch + patch_offset,
+        raw_patch_size, std::move(dst_stream)));
+  } else {
+    LOG(ERROR) << "Unsupported patch type " << patch_type;
+    return false;
+  }
   return true;
 }
 

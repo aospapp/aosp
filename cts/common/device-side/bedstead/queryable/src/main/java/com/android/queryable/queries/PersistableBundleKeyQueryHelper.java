@@ -16,27 +16,40 @@
 
 package com.android.queryable.queries;
 
+import static com.android.queryable.util.ParcelableUtils.readNullableBoolean;
+import static com.android.queryable.util.ParcelableUtils.writeNullableBoolean;
+
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.PersistableBundle;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Implementation of {@link PersistableBundleKeyQuery}. */
 public final class PersistableBundleKeyQueryHelper<E extends Queryable>
-        implements PersistableBundleKeyQuery<E>, Serializable {
+        implements PersistableBundleKeyQuery<E> {
 
     private static final long serialVersionUID = 1;
 
-    private final E mQuery;
+    private final transient E mQuery;
     private Boolean mExpectsToExist = null;
     private StringQueryHelper<E> mStringQuery = null;
     private PersistableBundleQueryHelper<E> mPersistableBundleQuery;
 
     public PersistableBundleKeyQueryHelper(E query) {
         mQuery = query;
+    }
+
+    private PersistableBundleKeyQueryHelper(Parcel in) {
+        mQuery = null;
+        mExpectsToExist = readNullableBoolean(in);
+        mStringQuery = in.readParcelable(BundleKeyQueryHelper.class.getClassLoader());
+        mPersistableBundleQuery = in.readParcelable(
+                PersistableBundleKeyQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -113,5 +126,44 @@ public final class PersistableBundleKeyQueryHelper<E extends Queryable>
         }
 
         return Queryable.joinQueryStrings(queryStrings);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        writeNullableBoolean(out, mExpectsToExist);
+
+        out.writeParcelable(mStringQuery, flags);
+        out.writeParcelable(mPersistableBundleQuery, flags);
+    }
+
+    public static final Parcelable.Creator<PersistableBundleKeyQueryHelper> CREATOR =
+            new Parcelable.Creator<PersistableBundleKeyQueryHelper>() {
+                public PersistableBundleKeyQueryHelper createFromParcel(Parcel in) {
+                    return new PersistableBundleKeyQueryHelper(in);
+                }
+
+                public PersistableBundleKeyQueryHelper[] newArray(int size) {
+                    return new PersistableBundleKeyQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof PersistableBundleKeyQueryHelper)) return false;
+        PersistableBundleKeyQueryHelper<?> that = (PersistableBundleKeyQueryHelper<?>) o;
+        return Objects.equals(mExpectsToExist, that.mExpectsToExist)
+                && Objects.equals(mStringQuery, that.mStringQuery)
+                && Objects.equals(mPersistableBundleQuery, that.mPersistableBundleQuery);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mExpectsToExist, mStringQuery, mPersistableBundleQuery);
     }
 }

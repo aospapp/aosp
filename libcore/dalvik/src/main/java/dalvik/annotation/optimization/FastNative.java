@@ -76,7 +76,6 @@ import java.lang.annotation.Target;
  *
  * @hide
  */
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @SystemApi(client = MODULE_LIBRARIES)
 @libcore.api.IntraCoreApi
 @Retention(RetentionPolicy.CLASS)  // Save memory, don't instantiate as an object at runtime.

@@ -18,6 +18,8 @@ package android.view.inputmethod.cts;
 
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+import static android.view.Display.DEFAULT_DISPLAY;
+import static android.view.WindowManager.DISPLAY_IME_POLICY_LOCAL;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
 import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeInvisible;
@@ -31,6 +33,7 @@ import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectNoImeCrash;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.verificationMatcher;
 
@@ -43,6 +46,7 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.inputmethodservice.InputMethodService;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -52,11 +56,14 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.CursorAnchorInfo;
+import android.view.inputmethod.EditorBoundsInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputConnectionWrapper;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
+import android.view.inputmethod.cts.util.SimulatedVirtualDisplaySession;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.view.inputmethod.cts.util.TestActivity2;
 import android.view.inputmethod.cts.util.TestUtils;
@@ -66,6 +73,7 @@ import android.webkit.WebView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -84,6 +92,7 @@ import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -98,6 +107,8 @@ import java.util.function.Predicate;
 public class InputMethodServiceTest extends EndToEndImeTestBase {
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(20);
     private static final long EXPECTED_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
+    private static final long ACTIVITY_LAUNCH_INTERVAL = 500;  // msec
+
 
     private static final String ERASE_FONT_SCALE_CMD = "settings delete system font_scale";
     // 1.2 is an arbitrary value.
@@ -126,11 +137,15 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
     }
 
-    private TestActivity createTestActivity(final int windowFlags) {
+    private TestActivity createTestActivity(int windowFlags) {
         return TestActivity.startSync(activity -> createLayout(windowFlags, activity));
     }
 
-    private TestActivity createTestActivity2(final int windowFlags) {
+    private TestActivity createTestActivity(int windowFlags, int displayId) throws Exception {
+        return TestActivity.startSync(displayId, activity -> createLayout(windowFlags, activity));
+    }
+
+    private TestActivity createTestActivity2(int windowFlags) {
         return TestActivity2.startSync(activity -> createLayout(windowFlags, activity));
     }
 
@@ -264,6 +279,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
         }
     }
 
+    @FlakyTest(bugId = 210680326)
     @Test
     public void testHandlesConfigChanges() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
@@ -440,6 +456,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
 
             final AtomicReference<EditText> editTextRef = new AtomicReference<>();
             final AtomicInteger requestCursorUpdatesCallCount = new AtomicInteger();
+            final AtomicInteger requestCursorUpdatesWithFilterCallCount = new AtomicInteger();
             TestActivity.startSync(activity -> {
                 final LinearLayout layout = new LinearLayout(activity);
                 layout.setOrientation(LinearLayout.VERTICAL);
@@ -451,11 +468,19 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
                         return new InputConnectionWrapper(original, false) {
                             @Override
                             public boolean requestCursorUpdates(int cursorUpdateMode) {
-                                if (cursorUpdateMode == InputConnection.CURSOR_UPDATE_IMMEDIATE) {
+                                if ((cursorUpdateMode & InputConnection.CURSOR_UPDATE_IMMEDIATE)
+                                        != 0) {
                                     requestCursorUpdatesCallCount.incrementAndGet();
                                     return true;
                                 }
                                 return false;
+                            }
+
+                            @Override
+                            public boolean requestCursorUpdates(
+                                    int cursorUpdateMode, int cursorUpdateFilter) {
+                                requestCursorUpdatesWithFilterCallCount.incrementAndGet();
+                                return requestCursorUpdates(cursorUpdateMode | cursorUpdateFilter);
                             }
                         };
                     }
@@ -493,6 +518,67 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
                     TIMEOUT).getArguments().getParcelable("cursorAnchorInfo");
             assertNotNull(receivedCursorAnchorInfo);
             assertEquals(receivedCursorAnchorInfo, originalCursorAnchorInfo);
+
+            requestCursorUpdatesCallCount.set(0);
+            // Request Cursor updates with Filter
+            // Make sure that InputConnection#requestCursorUpdates() returns true with data filter.
+            assertTrue(expectCommand(stream,
+                    imeSession.callRequestCursorUpdates(
+                            InputConnection.CURSOR_UPDATE_IMMEDIATE
+                            | InputConnection.CURSOR_UPDATE_FILTER_EDITOR_BOUNDS
+                            | InputConnection.CURSOR_UPDATE_FILTER_CHARACTER_BOUNDS
+                            | InputConnection.CURSOR_UPDATE_FILTER_INSERTION_MARKER),
+                    TIMEOUT).getReturnBooleanValue());
+
+            // Also make sure that requestCursorUpdates() actually gets called only once.
+            assertEquals(1, requestCursorUpdatesCallCount.get());
+
+            EditorBoundsInfo.Builder builder = new EditorBoundsInfo.Builder();
+            builder.setEditorBounds(new RectF(0f, 1f, 2f, 3f));
+            final CursorAnchorInfo originalCursorAnchorInfo1 = new CursorAnchorInfo.Builder()
+                    .setMatrix(new Matrix())
+                    .setEditorBoundsInfo(builder.build())
+                    .build();
+
+            runOnMainSync(() -> editText.getContext().getSystemService(InputMethodManager.class)
+                    .updateCursorAnchorInfo(editText, originalCursorAnchorInfo1));
+
+            final CursorAnchorInfo receivedCursorAnchorInfo1 = expectEvent(stream,
+                    event -> "onUpdateCursorAnchorInfo".equals(event.getEventName()),
+                    TIMEOUT).getArguments().getParcelable("cursorAnchorInfo");
+            assertNotNull(receivedCursorAnchorInfo1);
+            assertEquals(receivedCursorAnchorInfo1, originalCursorAnchorInfo1);
+
+            requestCursorUpdatesCallCount.set(0);
+            requestCursorUpdatesWithFilterCallCount.set(0);
+            // Request Cursor updates with Mode and Filter
+            // Make sure that InputConnection#requestCursorUpdates() returns true with mode and
+            // data filter.
+            builder = new EditorBoundsInfo.Builder();
+            builder.setEditorBounds(new RectF(1f, 1f, 2f, 3f));
+            final CursorAnchorInfo originalCursorAnchorInfo2 = new CursorAnchorInfo.Builder()
+                    .setMatrix(new Matrix())
+                    .setEditorBoundsInfo(builder.build())
+                    .build();
+            assertTrue(expectCommand(stream,
+                    imeSession.callRequestCursorUpdates(
+                            InputConnection.CURSOR_UPDATE_IMMEDIATE,
+                                    InputConnection.CURSOR_UPDATE_FILTER_EDITOR_BOUNDS
+                                    | InputConnection.CURSOR_UPDATE_FILTER_CHARACTER_BOUNDS
+                                    | InputConnection.CURSOR_UPDATE_FILTER_INSERTION_MARKER),
+                    TIMEOUT).getReturnBooleanValue());
+
+            // Make sure that requestCursorUpdates() actually gets called only once.
+            assertEquals(1, requestCursorUpdatesCallCount.get());
+            assertEquals(1, requestCursorUpdatesWithFilterCallCount.get());
+            runOnMainSync(() -> editText.getContext().getSystemService(InputMethodManager.class)
+                    .updateCursorAnchorInfo(editText, originalCursorAnchorInfo2));
+
+            final CursorAnchorInfo receivedCursorAnchorInfo2 = expectEvent(stream,
+                    event -> "onUpdateCursorAnchorInfo".equals(event.getEventName()),
+                    TIMEOUT).getArguments().getParcelable("cursorAnchorInfo");
+            assertNotNull(receivedCursorAnchorInfo2);
+            assertEquals(receivedCursorAnchorInfo2, originalCursorAnchorInfo2);
         }
     }
 
@@ -502,6 +588,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
         try (MockImeSession imeSession = MockImeSession.create(
                 mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
                 new ImeSettings.Builder().setVerifyUiContextApisInOnCreate(true))) {
+            ensureImeRunning();
             final ImeEventStream stream = imeSession.openEventStream();
 
             // Verify if getDisplay doesn't throw exception before InputMethodService's
@@ -699,6 +786,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
         try (MockImeSession imeSession = MockImeSession.create(
                 mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
                 new ImeSettings.Builder().setVerifyUiContextApisInOnCreate(true))) {
+            ensureImeRunning();
             final ImeEventStream stream = imeSession.openEventStream();
 
             // Verify if InputMethodService#isUiContext returns true in #onCreate
@@ -727,6 +815,52 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
             // Verify if InputMethodService#isUiContext returns true
             notExpectEvent(forkedStream, event -> "onConfigurationChanged".equals(
                     event.getEventName()), EXPECTED_TIMEOUT);
+        }
+    }
+
+    @Test
+    public void testNoExceptionWhenSwitchingDisplaysWithImeReCreate() throws Exception {
+        try (SimulatedVirtualDisplaySession displaySession = SimulatedVirtualDisplaySession.create(
+                mInstrumentation.getContext(), 800, 600, 240, DISPLAY_IME_POLICY_LOCAL);
+                     MockImeSession imeSession = MockImeSession.create(
+                             mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
+                             new ImeSettings.Builder())) {
+            // Launch activity repeatedly with re-create / showing IME on different displays
+            for (int i = 0; i < 10; i++) {
+                int displayId = (i % 2 == 0) ? displaySession.getDisplayId() : DEFAULT_DISPLAY;
+                createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE, displayId);
+                SystemClock.sleep(ACTIVITY_LAUNCH_INTERVAL);
+            }
+            // Verify no crash and onCreate / onDestroy keeps paired from MockIme event stream
+            expectNoImeCrash(imeSession, TIMEOUT);
+        }
+    }
+
+    @Test
+    public void testShowSoftInput_whenAllImesDisabled() {
+        final InputMethodManager inputManager =
+                mInstrumentation.getTargetContext().getSystemService(InputMethodManager.class);
+        assertNotNull(inputManager);
+        final List<InputMethodInfo> enabledImes = inputManager.getEnabledInputMethodList();
+
+        try {
+            // disable all IMEs
+            for (InputMethodInfo ime : enabledImes) {
+                SystemUtil.runShellCommand("ime disable " + ime.getId());
+            }
+
+            // start a test activity and expect it not to crash
+            createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        } finally {
+            // restore all previous IMEs
+            SystemUtil.runShellCommand("ime reset");
+        }
+    }
+
+    /** Explicitly start-up the IME process if it would have been prevented. */
+    protected void ensureImeRunning() {
+        if (isPreventImeStartup()) {
+            createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
         }
     }
 

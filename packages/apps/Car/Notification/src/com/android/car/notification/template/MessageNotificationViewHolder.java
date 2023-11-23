@@ -20,7 +20,6 @@ import static android.app.Notification.EXTRA_IS_GROUP_CONVERSATION;
 import android.annotation.Nullable;
 import android.app.Notification;
 import android.app.Person;
-import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.Build;
@@ -35,6 +34,7 @@ import androidx.core.app.NotificationCompat.MessagingStyle;
 
 import com.android.car.notification.AlertEntry;
 import com.android.car.notification.NotificationClickHandlerFactory;
+import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.PreprocessingManager;
 import com.android.car.notification.R;
 
@@ -50,7 +50,6 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
     private static final String SENDER_BODY_SEPARATOR = ": ";
     private static final String NEW_LINE = "\n";
 
-    private final Context mContext;
     private final CarNotificationBodyView mBodyView;
     private final CarNotificationHeaderView mHeaderView;
     private final CarNotificationActionsView mActionsView;
@@ -69,23 +68,22 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
             View view, NotificationClickHandlerFactory clickHandlerFactory) {
         super(view, clickHandlerFactory);
         mHeaderView = view.findViewById(R.id.notification_header);
-        mContext = view.getContext();
         mActionsView = view.findViewById(R.id.notification_actions);
         mBodyView = view.findViewById(R.id.notification_body);
 
-        mNewMessageText = mContext.getString(R.string.restricted_hun_message_content);
-        mSeeMoreText = mContext.getString(R.string.see_more_message);
-        mEllipsizedSuffix = mContext.getString(R.string.ellipsized_string);
+        mNewMessageText = getContext().getString(R.string.restricted_hun_message_content);
+        mSeeMoreText = getContext().getString(R.string.see_more_message);
+        mEllipsizedSuffix = getContext().getString(R.string.ellipsized_string);
         mMaxMessageCount =
-                mContext.getResources().getInteger(R.integer.config_maxNumberOfMessagesInPanel);
-        mMaxLineCount =
-                mContext.getResources().getInteger(R.integer.config_maxNumberOfMessageLinesInPanel);
-        mAdditionalCharCountAfterExpansion = mContext.getResources().getInteger(
+                getContext().getResources().getInteger(R.integer.config_maxNumberOfMessagesInPanel);
+        mMaxLineCount = getContext().getResources().getInteger(
+                R.integer.config_maxNumberOfMessageLinesInPanel);
+        mAdditionalCharCountAfterExpansion = getContext().getResources().getInteger(
                 R.integer.config_additionalCharactersToShowInSingleMessageExpandedNotification);
-        mGroupIcon = mContext.getDrawable(R.drawable.ic_group);
+        mGroupIcon = getContext().getDrawable(R.drawable.ic_group);
 
         mClickHandlerFactory = clickHandlerFactory;
-        mPreprocessingManager = PreprocessingManager.getInstance(mContext);
+        mPreprocessingManager = PreprocessingManager.getInstance(getContext());
     }
 
     /**
@@ -217,7 +215,7 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
         String unshownCountText = null;
         if (!isRestricted && !isHeadsUp && messageStyleFlag) {
             if (unshownCount > 0) {
-                unshownCountText = mContext.getResources().getQuantityString(
+                unshownCountText = getContext().getResources().getQuantityString(
                         R.plurals.restricted_numbered_message_content, unshownCount, unshownCount);
             } else if (messageText.toString().endsWith(mEllipsizedSuffix)) {
                 unshownCountText = mSeeMoreText;
@@ -228,8 +226,10 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
                             sbn, conversationTitle, avatar, groupIcon, when);
             mBodyView.setCountOnClickListener(listener);
         }
+        boolean useLauncherIcon = NotificationUtils.shouldUseLauncherIcon(getContext(), sbn);
 
-        mBodyView.bind(conversationTitle, messageText, loadAppLauncherIcon(sbn), avatar, groupIcon,
+        mBodyView.bind(conversationTitle, messageText, useLauncherIcon,
+                loadAppLauncherIcon(sbn), avatar, groupIcon,
                 unshownCountText, when);
     }
 
@@ -262,7 +262,7 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
             if (isHeadsUp || messageCount == 1) {
                 messageText = mNewMessageText;
             } else {
-                messageText = mContext.getResources().getQuantityString(
+                messageText = getContext().getResources().getQuantityString(
                         R.plurals.restricted_numbered_message_content, messageCount, messageCount);
             }
         }
@@ -396,13 +396,15 @@ public class MessageNotificationViewHolder extends CarNotificationBaseViewHolder
             if (finalUnshownCount <= 0) {
                 unshownCountText = null;
             } else {
-                unshownCountText = mContext.getResources().getQuantityString(
+                unshownCountText = getContext().getResources().getQuantityString(
                         R.plurals.message_unshown_count, finalUnshownCount, finalUnshownCount);
             }
 
             Drawable launcherIcon = loadAppLauncherIcon(sbn);
-            mBodyView.bind(title, finalMessage, launcherIcon, avatar, groupIcon, unshownCountText,
-                    when);
+            boolean useLauncherIcon = NotificationUtils.shouldUseLauncherIcon(getContext(),
+                    sbn);
+            mBodyView.bind(title, finalMessage, useLauncherIcon, launcherIcon, avatar, groupIcon,
+                    unshownCountText, when);
             mBodyView.setContentMaxLines(mMaxLineCount);
             mBodyView.setCountOnClickListener(null);
         };

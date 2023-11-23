@@ -77,6 +77,7 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
     private TelephonyManager mTelephonyManager;
     private int mNetworkScanStatus;
     private static final int EVENT_NETWORK_SCAN_START = 100;
+    private static final int EVENT_NETWORK_SCAN_RENOUNCE_START = 101;
     private static final int EVENT_NETWORK_SCAN_RESULTS = 200;
     private static final int EVENT_NETWORK_SCAN_RESTRICTED_RESULTS = 201;
     private static final int EVENT_NETWORK_SCAN_ERROR = 300;
@@ -178,7 +179,7 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
                         @Override
                         public void handleMessage(Message msg) {
                             switch (msg.what) {
-                                case EVENT_NETWORK_SCAN_START:
+                                case EVENT_NETWORK_SCAN_START: {
                                     Log.d(TAG, "request network scan");
                                     boolean useShellIdentity = (Boolean) msg.obj;
                                     if (useShellIdentity) {
@@ -207,6 +208,37 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
                                         }
                                     }
                                     break;
+                                }
+                                case EVENT_NETWORK_SCAN_RENOUNCE_START: {
+                                    Log.d(TAG, "request network scan with renounce");
+                                    boolean useShellIdentity = (Boolean) msg.obj;
+                                    if (useShellIdentity) {
+                                        InstrumentationRegistry.getInstrumentation()
+                                                .getUiAutomation()
+                                                .adoptShellPermissionIdentity();
+                                    }
+                                    try {
+                                        mNetworkScan = mTelephonyManager.requestNetworkScan(
+                                                TelephonyManager.INCLUDE_LOCATION_DATA_NONE,
+                                                mNetworkScanRequest,
+                                                AsyncTask.SERIAL_EXECUTOR,
+                                                mNetworkScanCallback);
+                                        if (mNetworkScan == null) {
+                                            mNetworkScanStatus = EVENT_SCAN_DENIED;
+                                            setReady(true);
+                                        }
+                                    } catch (SecurityException e) {
+                                        mNetworkScanStatus = EVENT_SCAN_DENIED;
+                                        setReady(true);
+                                    } finally {
+                                        if (useShellIdentity) {
+                                            InstrumentationRegistry.getInstrumentation()
+                                                    .getUiAutomation()
+                                                    .dropShellPermissionIdentity();
+                                        }
+                                    }
+                                    break;
+                                }
                                 default:
                                     Log.d(TAG, "Unknown Event " + msg.what);
                             }
@@ -323,6 +355,35 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
                                     + " ERROR_UNSUPPORTED")
                     .that(isScanStatusValid())
                     .isTrue();
+        } finally {
+            getAndSetLocationSwitch(isLocationSwitchOn);
+        }
+    }
+
+    /** Tests that the device properly requests a network scan. */
+    @Test
+    public void testRequestNetworkScanWithRenounce() {
+        boolean isLocationSwitchOn = getAndSetLocationSwitch(true);
+        try {
+            mNetworkScanRequest = buildNetworkScanRequest(true);
+            mNetworkScanCallback = new NetworkScanCallbackImpl();
+            Message startNetworkScan = mHandler.obtainMessage(EVENT_NETWORK_SCAN_RENOUNCE_START,
+                    false);
+            setReady(false);
+            startNetworkScan.sendToTarget();
+            waitUntilReady();
+
+            Log.d(TAG, "mNetworkScanStatus: " + mNetworkScanStatus);
+            assertWithMessage(
+                    "The final scan status is "
+                            + mNetworkScanStatus
+                            + " with error code "
+                            + mErrorCode
+                            + ", not ScanCompleted"
+                            + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
+                            + " ERROR_UNSUPPORTED")
+                    .that(mNetworkScanStatus)
+                    .isEqualTo(EVENT_SCAN_DENIED);
         } finally {
             getAndSetLocationSwitch(isLocationSwitchOn);
         }

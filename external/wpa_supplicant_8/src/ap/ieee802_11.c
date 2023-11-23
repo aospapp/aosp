@@ -572,7 +572,7 @@ static struct wpabuf * auth_build_sae_commit(struct hostapd_data *hapd,
 
 	if (update && !use_pt &&
 	    sae_prepare_commit(hapd->own_addr, sta->addr,
-			       (u8 *) password, os_strlen(password), rx_id,
+			       (u8 *) password, os_strlen(password),
 			       sta->sae) < 0) {
 		wpa_printf(MSG_DEBUG, "SAE: Could not pick PWE");
 		return NULL;
@@ -687,42 +687,53 @@ static int auth_sae_send_confirm(struct hostapd_data *hapd,
 	return reply_res;
 }
 
+#endif /* CONFIG_SAE */
 
-static int use_sae_anti_clogging(struct hostapd_data *hapd)
+
+#if defined(CONFIG_SAE) || defined(CONFIG_PASN)
+
+static int use_anti_clogging(struct hostapd_data *hapd)
 {
 	struct sta_info *sta;
 	unsigned int open = 0;
 
-	if (hapd->conf->sae_anti_clogging_threshold == 0)
+	if (hapd->conf->anti_clogging_threshold == 0)
 		return 1;
 
 	for (sta = hapd->sta_list; sta; sta = sta->next) {
-		if (!sta->sae)
-			continue;
-		if (sta->sae->state != SAE_COMMITTED &&
-		    sta->sae->state != SAE_CONFIRMED)
-			continue;
-		open++;
-		if (open >= hapd->conf->sae_anti_clogging_threshold)
+#ifdef CONFIG_SAE
+		if (sta->sae &&
+		    (sta->sae->state == SAE_COMMITTED ||
+		     sta->sae->state == SAE_CONFIRMED))
+			open++;
+#endif /* CONFIG_SAE */
+#ifdef CONFIG_PASN
+		if (sta->pasn && sta->pasn->ecdh)
+			open++;
+#endif /* CONFIG_PASN */
+		if (open >= hapd->conf->anti_clogging_threshold)
 			return 1;
 	}
 
+#ifdef CONFIG_SAE
 	/* In addition to already existing open SAE sessions, check whether
 	 * there are enough pending commit messages in the processing queue to
 	 * potentially result in too many open sessions. */
 	if (open + dl_list_len(&hapd->sae_commit_queue) >=
-	    hapd->conf->sae_anti_clogging_threshold)
+	    hapd->conf->anti_clogging_threshold)
 		return 1;
+#endif /* CONFIG_SAE */
 
 	return 0;
 }
 
 
-static int sae_token_hash(struct hostapd_data *hapd, const u8 *addr, u8 *idx)
+static int comeback_token_hash(struct hostapd_data *hapd, const u8 *addr,
+			       u8 *idx)
 {
 	u8 hash[SHA256_MAC_LEN];
 
-	if (hmac_sha256(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256(hapd->comeback_key, sizeof(hapd->comeback_key),
 			addr, ETH_ALEN, hash) < 0)
 		return -1;
 	*idx = hash[0];
@@ -730,8 +741,8 @@ static int sae_token_hash(struct hostapd_data *hapd, const u8 *addr, u8 *idx)
 }
 
 
-static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
-			   const u8 *token, size_t token_len)
+static int check_comeback_token(struct hostapd_data *hapd, const u8 *addr,
+				const u8 *token, size_t token_len)
 {
 	u8 mac[SHA256_MAC_LEN];
 	const u8 *addrs[2];
@@ -739,11 +750,13 @@ static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
 	u16 token_idx;
 	u8 idx;
 
-	if (token_len != SHA256_MAC_LEN || sae_token_hash(hapd, addr, &idx) < 0)
+	if (token_len != SHA256_MAC_LEN ||
+	    comeback_token_hash(hapd, addr, &idx) < 0)
 		return -1;
-	token_idx = hapd->sae_pending_token_idx[idx];
+	token_idx = hapd->comeback_pending_idx[idx];
 	if (token_idx == 0 || token_idx != WPA_GET_BE16(token)) {
-		wpa_printf(MSG_DEBUG, "SAE: Invalid anti-clogging token from "
+		wpa_printf(MSG_DEBUG,
+			   "Comeback: Invalid anti-clogging token from "
 			   MACSTR " - token_idx 0x%04x, expected 0x%04x",
 			   MAC2STR(addr), WPA_GET_BE16(token), token_idx);
 		return -1;
@@ -753,12 +766,12 @@ static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
 	len[0] = ETH_ALEN;
 	addrs[1] = token;
 	len[1] = 2;
-	if (hmac_sha256_vector(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256_vector(hapd->comeback_key, sizeof(hapd->comeback_key),
 			       2, addrs, len, mac) < 0 ||
 	    os_memcmp_const(token + 2, &mac[2], SHA256_MAC_LEN - 2) != 0)
 		return -1;
 
-	hapd->sae_pending_token_idx[idx] = 0; /* invalidate used token */
+	hapd->comeback_pending_idx[idx] = 0; /* invalidate used token */
 
 	return 0;
 }
@@ -777,25 +790,26 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	u16 token_idx;
 
 	os_get_reltime(&now);
-	if (!os_reltime_initialized(&hapd->last_sae_token_key_update) ||
-	    os_reltime_expired(&now, &hapd->last_sae_token_key_update, 60) ||
-	    hapd->sae_token_idx == 0xffff) {
-		if (random_get_bytes(hapd->sae_token_key,
-				     sizeof(hapd->sae_token_key)) < 0)
+	if (!os_reltime_initialized(&hapd->last_comeback_key_update) ||
+	    os_reltime_expired(&now, &hapd->last_comeback_key_update, 60) ||
+	    hapd->comeback_idx == 0xffff) {
+		if (random_get_bytes(hapd->comeback_key,
+				     sizeof(hapd->comeback_key)) < 0)
 			return NULL;
-		wpa_hexdump(MSG_DEBUG, "SAE: Updated token key",
-			    hapd->sae_token_key, sizeof(hapd->sae_token_key));
-		hapd->last_sae_token_key_update = now;
-		hapd->sae_token_idx = 0;
-		os_memset(hapd->sae_pending_token_idx, 0,
-			  sizeof(hapd->sae_pending_token_idx));
+		wpa_hexdump(MSG_DEBUG, "Comeback: Updated token key",
+			    hapd->comeback_key, sizeof(hapd->comeback_key));
+		hapd->last_comeback_key_update = now;
+		hapd->comeback_idx = 0;
+		os_memset(hapd->comeback_pending_idx, 0,
+			  sizeof(hapd->comeback_pending_idx));
 	}
 
 	buf = wpabuf_alloc(sizeof(le16) + 3 + SHA256_MAC_LEN);
 	if (buf == NULL)
 		return NULL;
 
-	wpabuf_put_le16(buf, group); /* Finite Cyclic Group */
+	if (group)
+		wpabuf_put_le16(buf, group); /* Finite Cyclic Group */
 
 	if (h2e) {
 		/* Encapsulate Anti-clogging Token field in a container IE */
@@ -804,15 +818,16 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 		wpabuf_put_u8(buf, WLAN_EID_EXT_ANTI_CLOGGING_TOKEN);
 	}
 
-	if (sae_token_hash(hapd, addr, &p_idx) < 0) {
+	if (comeback_token_hash(hapd, addr, &p_idx) < 0) {
 		wpabuf_free(buf);
 		return NULL;
 	}
-	token_idx = hapd->sae_pending_token_idx[p_idx];
+
+	token_idx = hapd->comeback_pending_idx[p_idx];
 	if (!token_idx) {
-		hapd->sae_token_idx++;
-		token_idx = hapd->sae_token_idx;
-		hapd->sae_pending_token_idx[p_idx] = token_idx;
+		hapd->comeback_idx++;
+		token_idx = hapd->comeback_idx;
+		hapd->comeback_pending_idx[p_idx] = token_idx;
 	}
 	WPA_PUT_BE16(idx, token_idx);
 	token = wpabuf_put(buf, SHA256_MAC_LEN);
@@ -820,7 +835,7 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	len[0] = ETH_ALEN;
 	addrs[1] = idx;
 	len[1] = sizeof(idx);
-	if (hmac_sha256_vector(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256_vector(hapd->comeback_key, sizeof(hapd->comeback_key),
 			       2, addrs, len, token) < 0) {
 		wpabuf_free(buf);
 		return NULL;
@@ -830,6 +845,10 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	return buf;
 }
 
+#endif /* defined(CONFIG_SAE) || defined(CONFIG_PASN) */
+
+
+#ifdef CONFIG_SAE
 
 static int sae_check_big_sync(struct hostapd_data *hapd, struct sta_info *sta)
 {
@@ -1452,7 +1471,8 @@ static void handle_auth_sae(struct hostapd_data *hapd, struct sta_info *sta,
 			goto remove_sta;
 		}
 
-		if (token && check_sae_token(hapd, sta->addr, token, token_len)
+		if (token &&
+		    check_comeback_token(hapd, sta->addr, token, token_len)
 		    < 0) {
 			wpa_printf(MSG_DEBUG, "SAE: Drop commit message with "
 				   "incorrect token from " MACSTR,
@@ -1469,7 +1489,7 @@ static void handle_auth_sae(struct hostapd_data *hapd, struct sta_info *sta,
 			goto reply;
 		}
 
-		if (!token && use_sae_anti_clogging(hapd) && !allow_reuse) {
+		if (!token && use_anti_clogging(hapd) && !allow_reuse) {
 			int h2e = 0;
 
 			wpa_printf(MSG_DEBUG,
@@ -2363,11 +2383,12 @@ static int pasn_wd_handle_sae_commit(struct hostapd_data *hapd,
 				     struct wpabuf *wd)
 {
 	struct pasn_data *pasn = sta->pasn;
-	const char *password = NULL;
+	const char *password;
 	const u8 *data;
 	size_t buf_len;
 	u16 res, alg, seq, status;
 	int groups[] = { pasn->group, 0 };
+	struct sae_pt *pt = NULL;
 	int ret;
 
 	if (!wd)
@@ -2377,7 +2398,7 @@ static int pasn_wd_handle_sae_commit(struct hostapd_data *hapd,
 	buf_len = wpabuf_len(wd);
 
 	if (buf_len < 6) {
-		wpa_printf(MSG_DEBUG, "PASN: SAE buffer too short. len=%lu",
+		wpa_printf(MSG_DEBUG, "PASN: SAE buffer too short. len=%zu",
 			   buf_len);
 		return -1;
 	}
@@ -2389,8 +2410,8 @@ static int pasn_wd_handle_sae_commit(struct hostapd_data *hapd,
 	wpa_printf(MSG_DEBUG, "PASN: SAE commit: alg=%u, seq=%u, status=%u",
 		   alg, seq, status);
 
-	/* TODO: SAE H2E */
-	if (alg != WLAN_AUTH_SAE || seq != 1 || status != WLAN_STATUS_SUCCESS) {
+	if (alg != WLAN_AUTH_SAE || seq != 1 ||
+	    status != WLAN_STATUS_SAE_HASH_TO_ELEMENT) {
 		wpa_printf(MSG_DEBUG, "PASN: Dropping peer SAE commit");
 		return -1;
 	}
@@ -2404,15 +2425,14 @@ static int pasn_wd_handle_sae_commit(struct hostapd_data *hapd,
 		return -1;
 	}
 
-	password = sae_get_password(hapd, sta, NULL, NULL, NULL, NULL);
-	if (!password) {
-		wpa_printf(MSG_DEBUG, "PASN: No SAE password found");
+	password = sae_get_password(hapd, sta, NULL, NULL, &pt, NULL);
+	if (!password || !pt) {
+		wpa_printf(MSG_DEBUG, "PASN: No SAE PT found");
 		return -1;
 	}
 
-	ret = sae_prepare_commit(hapd->own_addr, sta->addr,
-				 (const u8 *) password, os_strlen(password), 0,
-				 &pasn->sae);
+	ret = sae_prepare_commit_pt(&pasn->sae, pt, hapd->own_addr, sta->addr,
+				    NULL, NULL);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to prepare SAE commit");
 		return -1;
@@ -2454,7 +2474,7 @@ static int pasn_wd_handle_sae_confirm(struct hostapd_data *hapd,
 	buf_len = wpabuf_len(wd);
 
 	if (buf_len < 6) {
-		wpa_printf(MSG_DEBUG, "PASN: SAE buffer too short. len=%lu",
+		wpa_printf(MSG_DEBUG, "PASN: SAE buffer too short. len=%zu",
 			   buf_len);
 		return -1;
 	}
@@ -2509,7 +2529,7 @@ static struct wpabuf * pasn_get_sae_wd(struct hostapd_data *hapd,
 	len_ptr = wpabuf_put(buf, 2);
 	wpabuf_put_le16(buf, WLAN_AUTH_SAE);
 	wpabuf_put_le16(buf, 1);
-	wpabuf_put_le16(buf, WLAN_STATUS_SUCCESS);
+	wpabuf_put_le16(buf, WLAN_STATUS_SAE_HASH_TO_ELEMENT);
 
 	/* Write the actual commit and update the length accordingly */
 	sae_write_commit(&pasn->sae, buf, NULL, 0);
@@ -2626,7 +2646,7 @@ static void pasn_fils_auth_resp(struct hostapd_data *hapd,
 			      wpabuf_head(pasn->secret),
 			      wpabuf_len(pasn->secret),
 			      &sta->pasn->ptk, sta->pasn->akmp,
-			      sta->pasn->cipher, WPA_KDK_MAX_LEN);
+			      sta->pasn->cipher, sta->pasn->kdk_len);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "PASN: FILS: Failed to derive PTK");
 		goto fail;
@@ -2656,6 +2676,10 @@ fail:
 static int pasn_wd_handle_fils(struct hostapd_data *hapd, struct sta_info *sta,
 			       struct wpabuf *wd)
 {
+#ifdef CONFIG_NO_RADIUS
+	wpa_printf(MSG_DEBUG, "PASN: FILS: RADIUS is not configured. Fail");
+	return -1;
+#else /* CONFIG_NO_RADIUS */
 	struct pasn_data *pasn = sta->pasn;
 	struct pasn_fils_data *fils = &pasn->fils;
 	struct ieee802_11_elems elems;
@@ -2680,7 +2704,7 @@ static int pasn_wd_handle_fils(struct hostapd_data *hapd, struct sta_info *sta,
 	buf_len = wpabuf_len(wd);
 
 	if (buf_len < 6) {
-		wpa_printf(MSG_DEBUG, "PASN: FILS: Buffer too short. len=%lu",
+		wpa_printf(MSG_DEBUG, "PASN: FILS: Buffer too short. len=%zu",
 			   buf_len);
 		return -1;
 	}
@@ -2740,11 +2764,6 @@ static int pasn_wd_handle_fils(struct hostapd_data *hapd, struct sta_info *sta,
 		    FILS_SESSION_LEN);
 	os_memcpy(fils->session, elems.fils_session, FILS_SESSION_LEN);
 
-#ifdef CONFIG_NO_RADIUS
-	wpa_printf(MSG_DEBUG, "PASN: FILS: RADIUS is not configured. Fail");
-	return -1;
-#endif /* CONFIG_NO_RADIUS */
-
 	fils_wd = ieee802_11_defrag(&elems, WLAN_EID_EXTENSION,
 				    WLAN_EID_EXT_WRAPPED_DATA);
 
@@ -2775,6 +2794,7 @@ static int pasn_wd_handle_fils(struct hostapd_data *hapd, struct sta_info *sta,
 
 	wpabuf_free(fils_wd);
 	return 0;
+#endif /* CONFIG_NO_RADIUS */
 }
 
 #endif /* CONFIG_FILS */
@@ -2863,7 +2883,7 @@ pasn_derive_keys(struct hostapd_data *hapd, struct sta_info *sta,
 	ret = pasn_pmk_to_ptk(pmk, pmk_len, sta->addr, hapd->own_addr,
 			      wpabuf_head(secret), wpabuf_len(secret),
 			      &sta->pasn->ptk, sta->pasn->akmp,
-			      sta->pasn->cipher, WPA_KDK_MAX_LEN);
+			      sta->pasn->cipher, sta->pasn->kdk_len);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to derive PTK");
 		return -1;
@@ -2874,6 +2894,54 @@ pasn_derive_keys(struct hostapd_data *hapd, struct sta_info *sta,
 }
 
 
+static void handle_auth_pasn_comeback(struct hostapd_data *hapd,
+				      struct sta_info *sta, u16 group)
+{
+	struct wpabuf *buf, *comeback;
+	int ret;
+
+	wpa_printf(MSG_DEBUG,
+		   "PASN: Building comeback frame 2. Comeback after=%u",
+		   hapd->conf->pasn_comeback_after);
+
+	buf = wpabuf_alloc(1500);
+	if (!buf)
+		return;
+
+	wpa_pasn_build_auth_header(buf, hapd->own_addr, hapd->own_addr,
+				   sta->addr, 2,
+				   WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY);
+
+	/*
+	 * Do not include the group as a part of the token since it is not going
+	 * to be used.
+	 */
+	comeback = auth_build_token_req(hapd, 0, sta->addr, 0);
+	if (!comeback) {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: Failed sending auth with comeback");
+		wpabuf_free(buf);
+		return;
+	}
+
+	wpa_pasn_add_parameter_ie(buf, group,
+				  WPA_PASN_WRAPPED_DATA_NO,
+				  NULL, 0, comeback,
+				  hapd->conf->pasn_comeback_after);
+	wpabuf_free(comeback);
+
+	wpa_printf(MSG_DEBUG,
+		   "PASN: comeback: STA=" MACSTR, MAC2STR(sta->addr));
+
+	ret = hostapd_drv_send_mlme(hapd, wpabuf_head(buf), wpabuf_len(buf), 0,
+				    NULL, 0, 0);
+	if (ret)
+		wpa_printf(MSG_INFO, "PASN: Failed to send comeback frame 2");
+
+	wpabuf_free(buf);
+}
+
+
 static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 				 struct sta_info *sta,
 				 struct rsn_pmksa_cache_entry *pmksa,
@@ -2881,12 +2949,13 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 {
 	struct wpabuf *buf, *pubkey = NULL, *wrapped_data_buf = NULL;
 	u8 mic[WPA_PASN_MAX_MIC_LEN];
-	u8 mic_len, frame_len, data_len;
+	u8 mic_len;
 	u8 *ptr;
 	const u8 *frame, *data, *rsn_ie, *rsnxe_ie;
 	u8 *data_buf = NULL;
-	size_t rsn_ie_len;
+	size_t rsn_ie_len, frame_len, data_len;
 	int ret;
+	const u8 *pmkid = NULL;
 
 	wpa_printf(MSG_DEBUG, "PASN: Building frame 2: status=%u", status);
 
@@ -2900,7 +2969,22 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 	if (status != WLAN_STATUS_SUCCESS)
 		goto done;
 
-	if (wpa_pasn_add_rsne(buf, pmksa ? pmksa->pmkid : NULL,
+	if (pmksa) {
+		pmkid = pmksa->pmkid;
+#ifdef CONFIG_SAE
+	} else if (sta->pasn->akmp == WPA_KEY_MGMT_SAE) {
+		wpa_printf(MSG_DEBUG, "PASN: Use SAE PMKID");
+		pmkid = sta->pasn->sae.pmkid;
+#endif /* CONFIG_SAE */
+#ifdef CONFIG_FILS
+	} else if (sta->pasn->akmp == WPA_KEY_MGMT_FILS_SHA256 ||
+		   sta->pasn->akmp == WPA_KEY_MGMT_FILS_SHA384) {
+		wpa_printf(MSG_DEBUG, "PASN: Use FILS ERP PMKID");
+		pmkid = sta->pasn->fils.erp_pmkid;
+#endif /* CONFIG_FILS */
+	}
+
+	if (wpa_pasn_add_rsne(buf, pmkid,
 			      sta->pasn->akmp, sta->pasn->cipher) < 0)
 		goto fail;
 
@@ -2921,7 +3005,7 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 
 	wpa_pasn_add_parameter_ie(buf, sta->pasn->group,
 				  sta->pasn->wrapped_data_format,
-				  pubkey, NULL, 0);
+				  pubkey, true, NULL, 0);
 
 	if (wpa_pasn_add_wrapped_data(buf, wrapped_data_buf) < 0)
 		goto fail;
@@ -2979,6 +3063,13 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 		goto fail;
 	}
 
+#ifdef CONFIG_TESTING_OPTIONS
+	if (hapd->conf->pasn_corrupt_mic) {
+		wpa_printf(MSG_DEBUG, "PASN: frame 2: Corrupt MIC");
+		mic[0] = ~mic[0];
+	}
+#endif /* CONFIG_TESTING_OPTIONS */
+
 	os_memcpy(ptr, mic, mic_len);
 
 done:
@@ -3018,7 +3109,7 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 	const int *groups = hapd->conf->pasn_groups;
 	static const int default_groups[] = { 19, 0 };
 	u16 status = WLAN_STATUS_SUCCESS;
-	int ret;
+	int ret, inc_y;
 	bool derive_keys;
 	u32 i;
 
@@ -3060,6 +3151,15 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 	sta->pasn->akmp = rsn_data.key_mgmt;
 	sta->pasn->cipher = rsn_data.pairwise_cipher;
 
+	if (hapd->conf->force_kdk_derivation ||
+	    ((hapd->iface->drv_flags2 & WPA_DRIVER_FLAGS2_SEC_LTF) &&
+	     ieee802_11_rsnx_capab_len(elems.rsnxe, elems.rsnxe_len,
+				       WLAN_RSNX_CAPAB_SECURE_LTF)))
+		sta->pasn->kdk_len = WPA_KDK_MAX_LEN;
+	else
+		sta->pasn->kdk_len = 0;
+	wpa_printf(MSG_DEBUG, "PASN: kdk_len=%zu", sta->pasn->kdk_len);
+
 	if (!elems.pasn_params || !elems.pasn_params_len) {
 		wpa_printf(MSG_DEBUG,
 			   "PASN: No PASN Parameters element found");
@@ -3093,6 +3193,25 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 		goto send_resp;
 	}
 
+	if (pasn_params.comeback) {
+		wpa_printf(MSG_DEBUG, "PASN: Checking peer comeback token");
+
+		ret = check_comeback_token(hapd, sta->addr,
+					   pasn_params.comeback,
+					   pasn_params.comeback_len);
+
+		if (ret) {
+			wpa_printf(MSG_DEBUG, "PASN: Invalid comeback token");
+			status = WLAN_STATUS_UNSPECIFIED_FAILURE;
+			goto send_resp;
+		}
+	} else if (use_anti_clogging(hapd)) {
+		wpa_printf(MSG_DEBUG, "PASN: Respond with comeback");
+		handle_auth_pasn_comeback(hapd, sta, pasn_params.group);
+		ap_free_sta(hapd, sta);
+		return;
+	}
+
 	sta->pasn->ecdh = crypto_ecdh_init(pasn_params.group);
 	if (!sta->pasn->ecdh) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to init ECDH");
@@ -3102,9 +3221,22 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 
 	sta->pasn->group = pasn_params.group;
 
-	secret = crypto_ecdh_set_peerkey(sta->pasn->ecdh, 0,
-					 pasn_params.pubkey,
-					 pasn_params.pubkey_len);
+	if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_UNCOMPRESSED) {
+		inc_y = 1;
+	} else if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_0 ||
+		   pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_1) {
+		inc_y = 0;
+	} else {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: Invalid first octet in pubkey=0x%x",
+			   pasn_params.pubkey[0]);
+		status = WLAN_STATUS_UNSPECIFIED_FAILURE;
+		goto send_resp;
+	}
+
+	secret = crypto_ecdh_set_peerkey(sta->pasn->ecdh, inc_y,
+					 pasn_params.pubkey + 1,
+					 pasn_params.pubkey_len - 1);
 	if (!secret) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to derive shared secret");
 		status = WLAN_STATUS_UNSPECIFIED_FAILURE;
@@ -3811,8 +3943,10 @@ static void handle_auth(struct hostapd_data *hapd,
 
  fail:
 	reply_res = send_auth_reply(hapd, sta, mgmt->sa, mgmt->bssid, auth_alg,
-				    auth_transaction + 1, resp, resp_ies,
-				    resp_ies_len, "handle-auth");
+				    auth_alg == WLAN_AUTH_SAE ?
+				    auth_transaction : auth_transaction + 1,
+				    resp, resp_ies, resp_ies_len,
+				    "handle-auth");
 
 	if (sta && sta->added_unassoc && (resp != WLAN_STATUS_SUCCESS ||
 					  reply_res != WLAN_STATUS_SUCCESS)) {
@@ -4561,8 +4695,8 @@ static int check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 		if (hapd->conf->sae_pwe == 2 &&
 		    sta->auth_alg == WLAN_AUTH_SAE &&
 		    sta->sae && !sta->sae->h2e &&
-		    elems.rsnxe && elems.rsnxe_len >= 1 &&
-		    (elems.rsnxe[0] & BIT(WLAN_RSNX_CAPAB_SAE_H2E))) {
+		    ieee802_11_rsnx_capab_len(elems.rsnxe, elems.rsnxe_len,
+					      WLAN_RSNX_CAPAB_SAE_H2E)) {
 			wpa_printf(MSG_INFO, "SAE: " MACSTR
 				   " indicates support for SAE H2E, but did not use it",
 				   MAC2STR(sta->addr));
@@ -5784,6 +5918,9 @@ static void handle_deauth(struct hostapd_data *hapd,
 		" reason_code=%d",
 		MAC2STR(mgmt->sa), le_to_host16(mgmt->u.deauth.reason_code));
 
+	/* Clear the PTKSA cache entries for PASN */
+	ptksa_cache_flush(hapd->ptksa, mgmt->sa, WPA_CIPHER_NONE);
+
 	sta = ap_get_sta(hapd, mgmt->sa);
 	if (sta == NULL) {
 		wpa_msg(hapd->msg_ctx, MSG_DEBUG, "Station " MACSTR " trying "
@@ -5961,19 +6098,17 @@ static int handle_action(struct hostapd_data *hapd,
 			end = ((const u8 *) mgmt) + len;
 			gas_query_ap_rx(hapd->gas, mgmt->sa,
 					mgmt->u.action.category,
-					pos, end - pos, hapd->iface->freq);
+					pos, end - pos, freq);
 			return 1;
 		}
 #endif /* CONFIG_DPP */
 		if (hapd->public_action_cb) {
 			hapd->public_action_cb(hapd->public_action_cb_ctx,
-					       (u8 *) mgmt, len,
-					       hapd->iface->freq);
+					       (u8 *) mgmt, len, freq);
 		}
 		if (hapd->public_action_cb2) {
 			hapd->public_action_cb2(hapd->public_action_cb2_ctx,
-						(u8 *) mgmt, len,
-						hapd->iface->freq);
+						(u8 *) mgmt, len, freq);
 		}
 		if (hapd->public_action_cb || hapd->public_action_cb2)
 			return 1;
@@ -5981,8 +6116,7 @@ static int handle_action(struct hostapd_data *hapd,
 	case WLAN_ACTION_VENDOR_SPECIFIC:
 		if (hapd->vendor_action_cb) {
 			if (hapd->vendor_action_cb(hapd->vendor_action_cb_ctx,
-						   (u8 *) mgmt, len,
-						   hapd->iface->freq) == 0)
+						   (u8 *) mgmt, len, freq) == 0)
 				return 1;
 		}
 		break;
@@ -6484,8 +6618,6 @@ static void handle_action_cb(struct hostapd_data *hapd,
 	struct sta_info *sta;
 	const struct rrm_measurement_report_element *report;
 
-	if (is_multicast_ether_addr(mgmt->da))
-		return;
 #ifdef CONFIG_DPP
 	if (len >= IEEE80211_HDRLEN + 6 &&
 	    mgmt->u.action.category == WLAN_ACTION_PUBLIC &&
@@ -6516,6 +6648,8 @@ static void handle_action_cb(struct hostapd_data *hapd,
 		return;
 	}
 #endif /* CONFIG_DPP */
+	if (is_multicast_ether_addr(mgmt->da))
+		return;
 	sta = ap_get_sta(hapd, mgmt->da);
 	if (!sta) {
 		wpa_printf(MSG_DEBUG, "handle_action_cb: STA " MACSTR
@@ -6930,6 +7064,388 @@ u8 * hostapd_eid_wb_chsw_wrapper(struct hostapd_data *hapd, u8 *eid)
 	*eid++ = bw; /* New Channel Width */
 	*eid++ = chan1; /* New Channel Center Frequency Segment 0 */
 	*eid++ = chan2; /* New Channel Center Frequency Segment 1 */
+
+	return eid;
+}
+
+
+static size_t hostapd_eid_nr_db_len(struct hostapd_data *hapd,
+				    size_t *current_len)
+{
+	struct hostapd_neighbor_entry *nr;
+	size_t total_len = 0, len = *current_len;
+
+	dl_list_for_each(nr, &hapd->nr_db, struct hostapd_neighbor_entry,
+			 list) {
+		if (!nr->nr || wpabuf_len(nr->nr) < 12)
+			continue;
+
+		if (nr->short_ssid == hapd->conf->ssid.short_ssid)
+			continue;
+
+		/* Start a new element */
+		if (!len ||
+		    len + RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN > 255) {
+			len = RNR_HEADER_LEN;
+			total_len += RNR_HEADER_LEN;
+		}
+
+		len += RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN;
+		total_len += RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN;
+	}
+
+	*current_len = len;
+	return total_len;
+}
+
+
+static size_t hostapd_eid_rnr_iface_len(struct hostapd_data *hapd,
+					struct hostapd_data *reporting_hapd,
+					size_t *current_len)
+{
+	size_t total_len = 0, len = *current_len;
+	int tbtt_count = 0;
+	size_t i, start = 0;
+
+	while (start < hapd->iface->num_bss) {
+		if (!len ||
+		    len + RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN > 255) {
+			len = RNR_HEADER_LEN;
+			total_len += RNR_HEADER_LEN;
+		}
+
+		len += RNR_TBTT_HEADER_LEN;
+		total_len += RNR_TBTT_HEADER_LEN;
+
+		for (i = start; i < hapd->iface->num_bss; i++) {
+			struct hostapd_data *bss = hapd->iface->bss[i];
+
+			if (!bss || !bss->conf || !bss->started)
+				continue;
+
+			if (bss == reporting_hapd ||
+			    bss->conf->ignore_broadcast_ssid)
+				continue;
+
+			if (len + RNR_TBTT_INFO_LEN > 255 ||
+			    tbtt_count >= RNR_TBTT_INFO_COUNT_MAX)
+				break;
+
+			len += RNR_TBTT_INFO_LEN;
+			total_len += RNR_TBTT_INFO_LEN;
+			tbtt_count++;
+		}
+		start = i;
+	}
+
+	if (!tbtt_count)
+		total_len = 0;
+	else
+		*current_len = len;
+
+	return total_len;
+}
+
+
+enum colocation_mode {
+	NO_COLOCATED_6GHZ,
+	STANDALONE_6GHZ,
+	COLOCATED_6GHZ,
+	COLOCATED_LOWER_BAND,
+};
+
+static enum colocation_mode get_colocation_mode(struct hostapd_data *hapd)
+{
+	u8 i;
+	bool is_6ghz = is_6ghz_op_class(hapd->iconf->op_class);
+
+	if (!hapd->iface || !hapd->iface->interfaces)
+		return NO_COLOCATED_6GHZ;
+
+	if (is_6ghz && hapd->iface->interfaces->count == 1)
+		return STANDALONE_6GHZ;
+
+	for (i = 0; i < hapd->iface->interfaces->count; i++) {
+		struct hostapd_iface *iface;
+		bool is_colocated_6ghz;
+
+		iface = hapd->iface->interfaces->iface[i];
+		if (iface == hapd->iface || !iface || !iface->conf)
+			continue;
+
+		is_colocated_6ghz = is_6ghz_op_class(iface->conf->op_class);
+		if (!is_6ghz && is_colocated_6ghz)
+			return COLOCATED_LOWER_BAND;
+		if (is_6ghz && !is_colocated_6ghz)
+			return COLOCATED_6GHZ;
+	}
+
+	if (is_6ghz)
+		return STANDALONE_6GHZ;
+
+	return NO_COLOCATED_6GHZ;
+}
+
+
+static size_t hostapd_eid_rnr_colocation_len(struct hostapd_data *hapd,
+					     size_t *current_len)
+{
+	struct hostapd_iface *iface;
+	size_t len = 0;
+	size_t i;
+
+	if (!hapd->iface || !hapd->iface->interfaces)
+		return 0;
+
+	for (i = 0; i < hapd->iface->interfaces->count; i++) {
+		iface = hapd->iface->interfaces->iface[i];
+
+		if (iface == hapd->iface ||
+		    !is_6ghz_op_class(iface->conf->op_class))
+			continue;
+
+		len += hostapd_eid_rnr_iface_len(iface->bss[0], hapd,
+						 current_len);
+	}
+
+	return len;
+}
+
+
+size_t hostapd_eid_rnr_len(struct hostapd_data *hapd, u32 type)
+{
+	size_t total_len = 0, current_len = 0;
+	enum colocation_mode mode = get_colocation_mode(hapd);
+
+	switch (type) {
+	case WLAN_FC_STYPE_BEACON:
+		if (hapd->conf->rnr)
+			total_len += hostapd_eid_nr_db_len(hapd, &current_len);
+		/* fallthrough */
+
+	case WLAN_FC_STYPE_PROBE_RESP:
+		if (mode == COLOCATED_LOWER_BAND)
+			total_len += hostapd_eid_rnr_colocation_len(
+				hapd, &current_len);
+
+		if (hapd->conf->rnr && hapd->iface->num_bss > 1)
+			total_len += hostapd_eid_rnr_iface_len(hapd, hapd,
+							       &current_len);
+		break;
+
+	case WLAN_FC_STYPE_ACTION:
+		if (hapd->iface->num_bss > 1 && mode == STANDALONE_6GHZ)
+			total_len += hostapd_eid_rnr_iface_len(hapd, hapd,
+							       &current_len);
+		break;
+
+	default:
+		break;
+	}
+
+	return total_len;
+}
+
+
+static u8 * hostapd_eid_nr_db(struct hostapd_data *hapd, u8 *eid,
+			      size_t *current_len)
+{
+	struct hostapd_neighbor_entry *nr;
+	size_t len = *current_len;
+	u8 *size_offset = (eid - len) + 1;
+
+	dl_list_for_each(nr, &hapd->nr_db, struct hostapd_neighbor_entry,
+			 list) {
+		if (!nr->nr || wpabuf_len(nr->nr) < 12)
+			continue;
+
+		if (nr->short_ssid == hapd->conf->ssid.short_ssid)
+			continue;
+
+		/* Start a new element */
+		if (!len ||
+		    len + RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN > 255) {
+			*eid++ = WLAN_EID_REDUCED_NEIGHBOR_REPORT;
+			size_offset = eid++;
+			len = RNR_HEADER_LEN;
+		}
+
+		/* TBTT Information Header subfield (2 octets) */
+		*eid++ = 0;
+		/* TBTT Information Length */
+		*eid++ = RNR_TBTT_INFO_LEN;
+		/* Operating Class */
+		*eid++ = wpabuf_head_u8(nr->nr)[10];
+		/* Channel Number */
+		*eid++ = wpabuf_head_u8(nr->nr)[11];
+		len += RNR_TBTT_HEADER_LEN;
+		/* TBTT Information Set */
+		/* TBTT Information field */
+		/* Neighbor AP TBTT Offset */
+		*eid++ = RNR_NEIGHBOR_AP_OFFSET_UNKNOWN;
+		/* BSSID */
+		os_memcpy(eid, nr->bssid, ETH_ALEN);
+		eid += ETH_ALEN;
+		/* Short SSID */
+		os_memcpy(eid, &nr->short_ssid, 4);
+		eid += 4;
+		/* BSS parameters */
+		*eid++ = nr->bss_parameters;
+		/* 20 MHz PSD */
+		*eid++ = RNR_20_MHZ_PSD_MAX_TXPOWER - 1;
+		len += RNR_TBTT_INFO_LEN;
+		*size_offset = (eid - size_offset) - 1;
+	}
+
+	*current_len = len;
+	return eid;
+}
+
+
+static u8 * hostapd_eid_rnr_iface(struct hostapd_data *hapd,
+				  struct hostapd_data *reporting_hapd,
+				  u8 *eid, size_t *current_len)
+{
+	struct hostapd_data *bss;
+	struct hostapd_iface *iface = hapd->iface;
+	size_t i, start = 0;
+	size_t len = *current_len;
+	u8 *tbtt_count_pos, *eid_start = eid, *size_offset = (eid - len) + 1;
+	u8 tbtt_count = 0, op_class, channel, bss_param;
+
+	if (!(iface->drv_flags & WPA_DRIVER_FLAGS_AP_CSA) || !iface->freq)
+		return eid;
+
+	if (ieee80211_freq_to_channel_ext(iface->freq,
+					  hapd->iconf->secondary_channel,
+					  hostapd_get_oper_chwidth(hapd->iconf),
+					  &op_class, &channel) ==
+	    NUM_HOSTAPD_MODES)
+		return eid;
+
+	while (start < iface->num_bss) {
+		if (!len ||
+		    len + RNR_TBTT_HEADER_LEN + RNR_TBTT_INFO_LEN > 255) {
+			eid_start = eid;
+			*eid++ = WLAN_EID_REDUCED_NEIGHBOR_REPORT;
+			size_offset = eid++;
+			len = RNR_HEADER_LEN;
+			tbtt_count = 0;
+		}
+
+		tbtt_count_pos = eid++;
+		*eid++ = RNR_TBTT_INFO_LEN;
+		*eid++ = op_class;
+		*eid++ = hapd->iconf->channel;
+		len += RNR_TBTT_HEADER_LEN;
+
+		for (i = start; i < iface->num_bss; i++) {
+			bss_param = 0;
+			bss = iface->bss[i];
+			if (!bss || !bss->conf || !bss->started)
+				continue;
+
+			if (bss == reporting_hapd ||
+			    bss->conf->ignore_broadcast_ssid)
+				continue;
+
+			if (len + RNR_TBTT_INFO_LEN > 255 ||
+			    tbtt_count >= RNR_TBTT_INFO_COUNT_MAX)
+				break;
+
+			*eid++ = RNR_NEIGHBOR_AP_OFFSET_UNKNOWN;
+			os_memcpy(eid, bss->conf->bssid, ETH_ALEN);
+			eid += ETH_ALEN;
+			os_memcpy(eid, &bss->conf->ssid.short_ssid, 4);
+			eid += 4;
+			if (bss->conf->ssid.short_ssid ==
+			    reporting_hapd->conf->ssid.short_ssid)
+				bss_param |= RNR_BSS_PARAM_SAME_SSID;
+
+			if (is_6ghz_op_class(hapd->iconf->op_class) &&
+			    bss->conf->unsol_bcast_probe_resp_interval)
+				bss_param |=
+					RNR_BSS_PARAM_UNSOLIC_PROBE_RESP_ACTIVE;
+
+			bss_param |= RNR_BSS_PARAM_CO_LOCATED;
+
+			*eid++ = bss_param;
+			*eid++ = RNR_20_MHZ_PSD_MAX_TXPOWER - 1;
+			len += RNR_TBTT_INFO_LEN;
+			tbtt_count += 1;
+		}
+
+		start = i;
+		*tbtt_count_pos = RNR_TBTT_INFO_COUNT(tbtt_count - 1);
+		*size_offset = (eid - size_offset) - 1;
+	}
+
+	if (tbtt_count == 0)
+		return eid_start;
+
+	*current_len = len;
+	return eid;
+}
+
+
+static u8 * hostapd_eid_rnr_colocation(struct hostapd_data *hapd, u8 *eid,
+				       size_t *current_len)
+{
+	struct hostapd_iface *iface;
+	size_t i;
+
+	if (!hapd->iface || !hapd->iface->interfaces)
+		return eid;
+
+	for (i = 0; i < hapd->iface->interfaces->count; i++) {
+		iface = hapd->iface->interfaces->iface[i];
+
+		if (iface == hapd->iface ||
+		    !is_6ghz_op_class(iface->conf->op_class))
+			continue;
+
+		eid = hostapd_eid_rnr_iface(iface->bss[0], hapd, eid,
+					    current_len);
+	}
+
+	return eid;
+}
+
+
+u8 * hostapd_eid_rnr(struct hostapd_data *hapd, u8 *eid, u32 type)
+{
+	u8 *eid_start = eid;
+	size_t current_len = 0;
+	enum colocation_mode mode = get_colocation_mode(hapd);
+
+	switch (type) {
+	case WLAN_FC_STYPE_BEACON:
+		if (hapd->conf->rnr)
+			eid = hostapd_eid_nr_db(hapd, eid, &current_len);
+		/* fallthrough */
+
+	case WLAN_FC_STYPE_PROBE_RESP:
+		if (mode == COLOCATED_LOWER_BAND)
+			eid = hostapd_eid_rnr_colocation(hapd, eid,
+							 &current_len);
+
+		if (hapd->conf->rnr && hapd->iface->num_bss > 1)
+			eid = hostapd_eid_rnr_iface(hapd, hapd, eid,
+						    &current_len);
+		break;
+
+	case WLAN_FC_STYPE_ACTION:
+		if (hapd->iface->num_bss > 1 && mode == STANDALONE_6GHZ)
+			eid = hostapd_eid_rnr_iface(hapd, hapd,	eid,
+						    &current_len);
+		break;
+
+	default:
+		return eid_start;
+	}
+
+	if (eid == eid_start + 2)
+		return eid_start;
 
 	return eid;
 }

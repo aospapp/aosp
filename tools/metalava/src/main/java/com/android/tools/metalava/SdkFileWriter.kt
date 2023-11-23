@@ -29,7 +29,6 @@ import java.io.IOException
 private const val ANDROID_VIEW_VIEW = "android.view.View"
 private const val ANDROID_VIEW_VIEW_GROUP = "android.view.ViewGroup"
 private const val ANDROID_VIEW_VIEW_GROUP_LAYOUT_PARAMS = "android.view.ViewGroup.LayoutParams"
-private const val SDK_CONSTANT_ANNOTATION = "android.annotation.SdkConstant"
 private const val SDK_CONSTANT_TYPE_ACTIVITY_ACTION =
     "android.annotation.SdkConstant.SdkConstantType.ACTIVITY_INTENT_ACTION"
 private const val SDK_CONSTANT_TYPE_BROADCAST_ACTION =
@@ -77,7 +76,7 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: File) {
                 val value = field.initialValue() ?: continue
                 val annotations = field.modifiers.annotations()
                 for (annotation in annotations) {
-                    if (SDK_CONSTANT_ANNOTATION == annotation.qualifiedName()) {
+                    if (ANDROID_SDK_CONSTANT == annotation.qualifiedName) {
                         val resolved =
                             annotation.findAttribute(null)?.leafValues()?.firstOrNull()?.resolve() as? FieldItem
                                 ?: continue
@@ -99,11 +98,11 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: File) {
                 val annotations = clazz.modifiers.annotations()
                 if (annotations.isNotEmpty()) {
                     for (annotation in annotations) {
-                        if (SDK_WIDGET_ANNOTATION == annotation.qualifiedName()) {
+                        if (SDK_WIDGET_ANNOTATION == annotation.qualifiedName) {
                             widgets.add(clazz)
                             annotated = true
                             break
-                        } else if (SDK_LAYOUT_ANNOTATION == annotation.qualifiedName()) {
+                        } else if (SDK_LAYOUT_ANNOTATION == annotation.qualifiedName) {
                             layouts.add(clazz)
                             annotated = true
                             break

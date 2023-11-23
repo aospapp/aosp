@@ -61,6 +61,7 @@ bool split_string(const string&, const string&, vector<string>&);
 bool string_suffix(const string&, const string&, string&);
 bool sorted_strings_common_prefix(vector<string>&, string&);
 string get_library_version_string();
+string get_abixml_version_string();
 bool execute_command_and_get_output(const string&, vector<string>&);
 bool get_dsos_provided_by_rpm(const string& rpm_path,
 			      set<string>& provided_dsos);
@@ -135,9 +136,7 @@ typedef shared_ptr<temp_file> temp_file_sptr;
 class temp_file
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
   temp_file();
 
@@ -249,9 +248,7 @@ abidiff_status_has_incompatible_abi_change(abidiff_status s);
 class timer
 {
   struct priv;
-  typedef shared_ptr<priv> priv_sptr;
-
-  priv_sptr priv_;
+  std::unique_ptr<priv> priv_;
 
 public:
   enum kind

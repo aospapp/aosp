@@ -30,6 +30,7 @@ function isTrustedOrigin(origin: string): boolean {
     'https://chrometto.googleplex.com',
     'https://uma.googleplex.com',
   ];
+  if (origin === window.origin) return true;
   if (TRUSTED_ORIGINS.includes(origin)) return true;
   if (new URL(origin).hostname.endsWith('corp.google.com')) return true;
   return false;
@@ -91,10 +92,18 @@ export function postMessageHandler(messageEvent: MessageEvent) {
     throw new Error('Incoming message trace buffer is empty');
   }
 
+  /* Removing this event listener to avoid callers posting the trace multiple
+   * times. If the callers add an event listener which upon receiving 'PONG'
+   * posts the trace to ui.perfetto.dev, the callers can receive multiple 'PONG'
+   * messages and accidentally post the trace multiple times. This was part of
+   * the cause of b/182502595.
+   */
+  window.removeEventListener('message', postMessageHandler);
+
   const openTrace = () => {
     // For external traces, we need to disable other features such as
     // downloading and sharing a trace.
-    globals.frontendLocalState.localOnlyMode = true;
+    postedTrace.localOnly = true;
     globals.dispatch(Actions.openTraceFromBuffer(postedTrace));
   };
 
@@ -130,7 +139,7 @@ function sanitizePostedTrace(postedTrace: PostedTrace): PostedTrace {
 }
 
 function sanitizeString(str: string): string {
-  return str.replace(/[^A-Za-z0-9.\-_#:/?=&;% ]/g, ' ');
+  return str.replace(/[^A-Za-z0-9.\-_#:/?=&;%+ ]/g, ' ');
 }
 
 // tslint:disable:no-any

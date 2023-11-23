@@ -31,13 +31,15 @@ cc_library_shared {
     ],
 
     local_include_dirs: [
+        "p73/lib",
+        "p73/pal/spi",
+        "p73/utils",
+    ],
+    export_include_dirs: [
         "common/include",
         "p73/common",
         "p73/inc",
-        "p73/lib",
         "p73/pal",
-        "p73/pal/spi",
-        "p73/utils",
         "src/include",
     ],
     include_dirs: [

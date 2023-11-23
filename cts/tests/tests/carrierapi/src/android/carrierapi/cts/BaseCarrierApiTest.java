@@ -16,6 +16,8 @@
 
 package android.carrierapi.cts;
 
+import static com.android.compatibility.common.util.UiccUtil.UiccCertificate.CTS_UICC_LEGACY;
+
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
@@ -26,6 +28,7 @@ import android.telephony.TelephonyManager;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.FeatureUtil;
+import com.android.compatibility.common.util.UiccUtil;
 
 import org.junit.Before;
 
@@ -45,6 +48,18 @@ public abstract class BaseCarrierApiTest {
     protected static final String NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE =
             "This test requires a SIM card with carrier privilege rules on it.\n"
                     + "Visit https://source.android.com/devices/tech/config/uicc.html";
+    // More specific message when the test suite detects an outdated legacy SIM.
+    private static final String DEPRECATED_TEST_SIM_FAILURE_MESSAGE =
+            "This test requires a 2021-compliant SIM card with carrier privilege rules on it.\n"
+                + "The current SIM card appears to be outdated and is not compliant with the 2021"
+                + " CTS SIM specification published with Android 12 (\"S\").\n"
+                + "As of Android 13 (\"T\"), you must use a 2021-compliant SIM card to pass this"
+                + " suite. The 2021-compliant SIM is backward compatible with the legacy"
+                + " specification, so it may also be used to run this suite on older Android"
+                + " releases.\n"
+                + "2021-compliant SIMs received directly from Google have \"2021 CTS\" printed on"
+                + " them.\n"
+                + "Visit https://source.android.com/devices/tech/config/uicc#prepare_uicc";
 
     protected Context getContext() {
         return InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -74,8 +89,15 @@ public abstract class BaseCarrierApiTest {
                         + getClass().getSimpleName()
                         + " cases will be skipped",
                 FeatureUtil.hasTelephony());
-        // We must run with carrier privileges.
-        assertWithMessage(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE)
+        // We must run with carrier privileges. As of 2022, all devices must run CTS with a SIM
+        // compliant with the 2021 spec, which has a new certificate. To make results very clear, we
+        // still explicitly check for the legacy certificate, and if we don't have carrier
+        // privileges but detect the legacy cert, we tell the tester they must upgrade to pass this
+        // test suite.
+        assertWithMessage(
+                        UiccUtil.uiccHasCertificate(CTS_UICC_LEGACY)
+                                ? DEPRECATED_TEST_SIM_FAILURE_MESSAGE
+                                : NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE)
                 .that(getContext().getSystemService(TelephonyManager.class).hasCarrierPrivileges())
                 .isTrue();
         mPreconditionsSatisfied = true;

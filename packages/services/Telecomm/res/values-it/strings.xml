@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Blocca le chiamate dalle cabine telefoniche"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Sconosciuto"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Blocca le chiamate da chiamanti non identificati"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Non disponibile"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Blocca le chiamate quando il numero non è disponibile"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Blocco delle chiamate"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Blocco delle chiamate disattivato"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Chiamata di emergenza effettuata"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Il blocco delle chiamate è stato disattivato per consentire ai servizi di emergenza di contattarti."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menu sviluppatore telecomunicazioni"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Impossibile accettare una chiamata durante una chiamata di emergenza."</string>
+    <string name="cancel" msgid="6733466216239934756">"Annulla"</string>
 </resources>

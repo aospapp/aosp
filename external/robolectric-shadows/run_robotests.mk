@@ -88,8 +88,9 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
     # directory from which this module is invoked.
     ifeq ($(strip $(LOCAL_ROBOTEST_FILES)),)
         LOCAL_ROBOTEST_FILES := $(call find-files-in-subdirs,$(LOCAL_PATH)/src,*Test.java,.)
+        LOCAL_ROBOTEST_FILES += $(call find-files-in-subdirs,$(LOCAL_PATH)/src,*Test.kt,.)
     endif
-    # Convert the paths into package names by removing .java extension and replacing "/" with "."
+    # Convert the paths into package names by removing .java or *.kt extensions and replacing "/" with "."
     my_tests := $(sort $(subst /,.,$(basename $(LOCAL_ROBOTEST_FILES))))
     ifdef my_test_filter_command
         my_tests := $(sort $(shell echo '$(my_tests)' | tr ' ' '\n' | $(my_test_filter_command)))
@@ -135,7 +136,8 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
       $(android_all_lib_path)/android-all-9-robolectric-4913185-2.jar:$(my_robolectric_path)/android-all-9-robolectric-4913185-2.jar \
       $(android_all_lib_path)/android-all-10-robolectric-5803371.jar:$(my_robolectric_path)/android-all-10-robolectric-5803371.jar \
       $(android_all_lib_path)/android-all-R-beta2-robolectric-6625208.jar:$(my_robolectric_path)/android-all-R-beta2-robolectric-6625208.jar \
-      $(local_android_all_source_jar):$(my_robolectric_path)/android-all-S-robolectric-r0.jar
+      $(android_all_lib_path)/android-all-S-beta3-robolectric-7541949.jar:$(my_robolectric_path)/android-all-S-beta3-robolectric-7541949.jar \
+      $(local_android_all_source_jar):$(my_robolectric_path)/android-all-current-robolectric-r0.jar
     copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 
     $(my_target): $(copy_android_all_jars)

@@ -30,8 +30,19 @@
 
     <color name="status_bar_color">@color/material_black_100</color>
 
+    <color name="google_grey200">#E8EAED</color>
     <color name="google_grey700">#5f6368</color>
+    <color name="google_grey800">#3C4043</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
 
     <color name="smartspace_preview_shadow_color_dark">#B0000000</color>
     <color name="smartspace_preview_shadow_color_transparent">@android:color/transparent</color>
+    <color name="toolbar_color">@color/settingslib_colorSurfaceHeader</color>
+    <color name="myphoto_background_color">@color/white</color>
+    <color name="myphoto_background_cloud">@color/google_grey200</color>
+    <color name="color_accent_primary">@android:color/system_accent1_100</color>
+    <color name="color_accent_primary_variant">@android:color/system_accent1_600</color>
+
 </resources>

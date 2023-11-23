@@ -264,7 +264,8 @@ public class CborUtils {
      * IRemotelyProvisionedComponent HAL AIDL files.
      */
     public static byte[] buildCertificateRequest(byte[] deviceInfo, byte[] challenge,
-                                                 byte[] protectedData, byte[] macedKeysToSign) {
+                                                 byte[] protectedData, byte[] macedKeysToSign,
+                                                 Map unverifiedDeviceInfo) {
         // This CBOR library doesn't support adding already serialized CBOR structures into a
         // CBOR builder. Because of this, we have to first deserialize the provided parameters
         // back into the library's CBOR object types, and then reserialize them into the
@@ -296,17 +297,18 @@ public class CborUtils {
                 return null;
             }
             Map verifiedDeviceInfoMap = (Map) dataItems.get(0);
-            Map unverifiedDeviceInfoMap = new Map();
-            unverifiedDeviceInfoMap.put(new UnicodeString("fingerprint"),
-                                        new UnicodeString(Build.FINGERPRINT));
 
+            if (unverifiedDeviceInfo.get(new UnicodeString("fingerprint")) == null) {
+                Log.e(TAG, "UnverifiedDeviceInfo is missing a fingerprint entry");
+                return null;
+            }
             // Serialize the actual CertificateSigningRequest structure
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             new CborEncoder(baos).encode(new CborBuilder()
                     .addArray()
                         .addArray()
                             .add(verifiedDeviceInfoMap)
-                            .add(unverifiedDeviceInfoMap)
+                            .add(unverifiedDeviceInfo)
                             .end()
                         .add(challenge)
                         .add(protectedDataArray)
@@ -318,5 +320,18 @@ public class CborUtils {
             Log.e(TAG, "Malformed CBOR", e);
             return null;
         }
+    }
+
+    /**
+     * Produce a CBOR Map object which contains the unverified device information for a certificate
+     * signing request.
+     *
+     * @return the CBOR Map object.
+     */
+    public static Map buildUnverifiedDeviceInfo() {
+        Map unverifiedDeviceInfo = new Map();
+        unverifiedDeviceInfo.put(new UnicodeString("fingerprint"),
+                                    new UnicodeString(Build.FINGERPRINT));
+        return unverifiedDeviceInfo;
     }
 }

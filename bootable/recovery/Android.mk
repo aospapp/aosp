@@ -45,8 +45,8 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
     $(TARGET_RECOVERY_UI_LIB)
 
 LOCAL_SHARED_LIBRARIES := \
-    libbase \
-    liblog \
+    libbase.recovery \
+    liblog.recovery \
     librecovery_ui.recovery
 
 include $(BUILD_SHARED_LIBRARY)
@@ -64,8 +64,14 @@ LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 ifeq ($(TARGET_USERIMAGES_USE_F2FS),true)
 LOCAL_REQUIRED_MODULES += \
     make_f2fs.recovery \
+    fsck.f2fs.recovery \
     sload_f2fs.recovery
 endif
+
+LOCAL_REQUIRED_MODULES += \
+    mkfs.erofs.recovery \
+    dump.erofs.recovery \
+    fsck.erofs.recovery
 
 # On A/B devices recovery-persist reads the recovery related file from the persist storage and
 # copies them into /data/misc/recovery. Then, for both A/B and non-A/B devices, recovery-persist

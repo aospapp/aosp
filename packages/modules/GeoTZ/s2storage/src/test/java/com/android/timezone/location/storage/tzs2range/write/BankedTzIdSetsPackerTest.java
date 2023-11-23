@@ -72,39 +72,39 @@ public class BankedTzIdSetsPackerTest {
     @Test
     public void overflowPacking() {
         BankedTzIdSetsPacker packer = new BankedTzIdSetsPacker(5);
-        List<List<String>> idSet1_1 = listOf(
+        List<List<String>> idSetA1 = listOf(
                 listOf("One"),
                 listOf("One", "Two"),
                 listOf("One", "Two", "Three"),
                 listOf("One", "Two", "Three", "Four"));
-        BankedTzIdSetsPacker.BankHelper bank1_1Helper = packer.addTzIdSets(idSet1_1);
-        assertEquals(0, bank1_1Helper.getId());
+        BankedTzIdSetsPacker.BankHelper bankA1Helper = packer.addTzIdSets(idSetA1);
+        assertEquals(0, bankA1Helper.getId());
 
-        List<List<String>> idSet1_2 = listOf(listOf("One", "Two", "Three", "Four", "Five"));
-        BankedTzIdSetsPacker.BankHelper bank1_2Helper = packer.addTzIdSets(idSet1_2);
-        assertEquals(0, bank1_2Helper.getId());
+        List<List<String>> idSetA2 = listOf(listOf("One", "Two", "Three", "Four", "Five"));
+        BankedTzIdSetsPacker.BankHelper bankA2Helper = packer.addTzIdSets(idSetA2);
+        assertEquals(0, bankA2Helper.getId());
 
-        BankedTzIdSetsPacker.BankHelper bank1_1Helper2 = packer.addTzIdSets(idSet1_1);
-        assertEquals(0, bank1_1Helper2.getId());
+        BankedTzIdSetsPacker.BankHelper bankA1Helper2 = packer.addTzIdSets(idSetA1);
+        assertEquals(0, bankA1Helper2.getId());
 
-        BankedTzIdSetsPacker.BankHelper bank1_2Helper2 = packer.addTzIdSets(idSet1_2);
-        assertEquals(0, bank1_2Helper2.getId());
+        BankedTzIdSetsPacker.BankHelper bankA2Helper2 = packer.addTzIdSets(idSetA2);
+        assertEquals(0, bankA2Helper2.getId());
 
-        List<List<String>> idSet2 = listOf(listOf("Two"));
-        BankedTzIdSetsPacker.BankHelper bank2Helper = packer.addTzIdSets(idSet2);
-        assertEquals(1, bank2Helper.getId());
+        List<List<String>> idSetB = listOf(listOf("Two"));
+        BankedTzIdSetsPacker.BankHelper bankBHelper = packer.addTzIdSets(idSetB);
+        assertEquals(1, bankBHelper.getId());
     }
 
     @Test
     public void exceedMaxBankSize() {
         BankedTzIdSetsPacker packer = new BankedTzIdSetsPacker(3);
-        // If the bank maxs is 3, four different sets cannot be stored.
-        List<List<String>> idSet1_1 = listOf(
+        // If the bank max size is 3, four different sets cannot be stored.
+        List<List<String>> idSet = listOf(
                 listOf("One"),
                 listOf("One", "Two"),
                 listOf("One", "Two", "Three"),
                 listOf("One", "Two", "Three", "Four"));
-        assertThrows(IllegalArgumentException.class, () -> packer.addTzIdSets(idSet1_1));
+        assertThrows(IllegalArgumentException.class, () -> packer.addTzIdSets(idSet));
     }
 
     @Test

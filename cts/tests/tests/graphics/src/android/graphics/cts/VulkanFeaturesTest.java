@@ -59,6 +59,8 @@ public class VulkanFeaturesTest {
     // and there was an important bugfix relative to 1.0.2.
     private static final int VULKAN_1_0 = 0x00400003; // 1.0.3
     private static final int VULKAN_1_1 = 0x00401000; // 1.1.0
+    private static final int VULKAN_1_2 = 0x00402000; // 1.2.0
+    private static final int VULKAN_1_3 = 0x00403000; // 1.3.0
 
     private static final String VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME =
             "VK_ANDROID_external_memory_android_hardware_buffer";
@@ -244,6 +246,17 @@ public class VulkanFeaturesTest {
         assertNoVulkanDeviceExtension("VK_KHR_video_encode_queue");
     }
 
+    @CddTest(requirement = "7.1.4.2")
+    @Test
+    public void testVulkanVariantSupport() throws JSONException {
+        if (mVulkanHardwareVersion == null) {
+            return;
+        }
+        int expectedVariant = 0x0;
+        int actualVariant = (mVulkanHardwareVersion.version >> 29) & 0x7;
+        assertEquals(expectedVariant, actualVariant);
+    }
+
     private JSONObject getBestDevice() throws JSONException {
         JSONObject bestDevice = null;
         int bestDeviceLevel = -1;
@@ -343,15 +356,18 @@ public class VulkanFeaturesTest {
     }
 
     private boolean isVersionCompatible(int expected, int actual) {
-        int expectedMajor = (expected >> 22) & 0x3FF;
-        int expectedMinor = (expected >> 12) & 0x3FF;
-        int expectedPatch = (expected >>  0) & 0xFFF;
-        int actualMajor = (actual >> 22) & 0x3FF;
-        int actualMinor = (actual >> 12) & 0x3FF;
-        int actualPatch = (actual >>  0) & 0xFFF;
-        return (actualMajor == expectedMajor) &&
-               (actualMinor == expectedMinor) &&
-               (actualPatch <= expectedPatch);
+        int expectedVariant = (expected >> 29) & 0x7;
+        int expectedMajor   = (expected >> 22) & 0x7F;
+        int expectedMinor   = (expected >> 12) & 0x3FF;
+        int expectedPatch   = (expected >>  0) & 0xFFF;
+        int actualVariant = (actual >> 29) & 0x7;
+        int actualMajor   = (actual >> 22) & 0x7F;
+        int actualMinor   = (actual >> 12) & 0x3FF;
+        int actualPatch   = (actual >>  0) & 0xFFF;
+        return (actualVariant == expectedVariant)
+            && (actualMajor == expectedMajor)
+            && (actualMinor == expectedMinor)
+            && (actualPatch <= expectedPatch);
     }
 
     private boolean isHardwareVersionAllowed(int actual) {
@@ -365,6 +381,8 @@ public class VulkanFeaturesTest {
         final int[] ALLOWED_HARDWARE_VERSIONS = {
             VULKAN_1_0,
             VULKAN_1_1,
+            VULKAN_1_2,
+            VULKAN_1_3,
         };
         for (int expected : ALLOWED_HARDWARE_VERSIONS) {
             if (actual == expected) {

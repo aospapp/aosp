@@ -17,7 +17,7 @@ void xnn_f32_gavgpool_minmax_ukernel_7x__sse_c4(
     size_t input_stride,
     const float* zero,
     float* output,
-    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(rows != 0);
   assert(rows <= 7);
@@ -48,9 +48,9 @@ void xnn_f32_gavgpool_minmax_ukernel_7x__sse_c4(
   if (rows <= 6) {
     i6 = zero;
   }
-  const __m128 vscale = _mm_load_ps(params->sse2.scale);
-  const __m128 vmin = _mm_load_ps(params->sse2.min);
-  const __m128 vmax = _mm_load_ps(params->sse2.max);
+  const __m128 vscale = _mm_load_ps(params->sse.scale);
+  const __m128 vmin = _mm_load_ps(params->sse.min);
+  const __m128 vmax = _mm_load_ps(params->sse.max);
 
   while (channels >= 4) {
     const __m128 vi0 = _mm_loadu_ps(i0);

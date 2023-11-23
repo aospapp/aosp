@@ -30,6 +30,8 @@
  *     "HT"     | IEEE Std 802.11n-2009
  *     "VHT"    | IEEE Std 802.11ac-2013
  *     "WiFi 6" | IEEE Std 802.11ax draft
+ *     "NAN"    | Wi-Fi Neighbor Awareness Networking (NAN) Technical
+ *                Specification (v3.2)
  *
  * In the current version of CHRE API, the 6GHz band introduced in WiFi 6 is
  * not supported. A scan request from CHRE should not result in scanning 6GHz
@@ -40,6 +42,7 @@
  * those produced due to scan monitoring.
  */
 
+#include "common.h"
 #include <chre/common.h>
 
 #include <stdbool.h>
@@ -58,14 +61,14 @@ extern "C" {
  */
 
 //! No WiFi APIs are supported
-#define CHRE_WIFI_CAPABILITIES_NONE             UINT32_C(0)
+#define CHRE_WIFI_CAPABILITIES_NONE              UINT32_C(0)
 
 //! Listening to scan results is supported, as enabled via
 //! chreWifiConfigureScanMonitorAsync()
-#define CHRE_WIFI_CAPABILITIES_SCAN_MONITORING  UINT32_C(1 << 0)
+#define CHRE_WIFI_CAPABILITIES_SCAN_MONITORING   UINT32_C(1 << 0)
 
 //! Requesting WiFi scans on-demand is supported via chreWifiRequestScanAsync()
-#define CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN   UINT32_C(1 << 1)
+#define CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN    UINT32_C(1 << 1)
 
 //! Specifying the radio chain preference in on-demand scan requests, and
 //! reporting it in scan events is supported
@@ -74,7 +77,13 @@ extern "C" {
 
 //! Requesting RTT ranging is supported via chreWifiRequestRangingAsync()
 //! @since v1.2
-#define CHRE_WIFI_CAPABILITIES_RTT_RANGING      UINT32_C(1 << 3)
+#define CHRE_WIFI_CAPABILITIES_RTT_RANGING       UINT32_C(1 << 3)
+
+//! Specifies if WiFi NAN service subscription is supported. If a platform
+//! supports subscriptions, then it must also support RTT ranging for NAN
+//! services via chreWifiNanRequestRangingAsync()
+//! @since v1.6
+#define CHRE_WIFI_CAPABILITIES_NAN_SUB           UINT32_C(1 << 4)
 
 /** @} */
 
@@ -106,6 +115,44 @@ extern "C" {
  * Provides results of an RTT ranging request.
  */
 #define CHRE_EVENT_WIFI_RANGING_RESULT  CHRE_WIFI_EVENT_ID(2)
+
+/**
+ * nanoappHandleEvent argument: struct chreWifiNanIdentifierEvent
+ *
+ * Lets the client know if the NAN engine was able to successfully assign
+ * an identifier to the subscribe call. The 'cookie' field in the event
+ * argument struct can be used to track which subscribe request this identifier
+ * maps to.
+ */
+#define CHRE_EVENT_WIFI_NAN_IDENTIFIER_RESULT   CHRE_WIFI_EVENT_ID(3)
+
+/**
+ * nanoappHandleEvent argument: struct chreWifiNanDiscoveryEvent
+ *
+ * Event that is sent whenever a NAN service matches the criteria specified
+ * in a subscription request.
+ */
+#define CHRE_EVENT_WIFI_NAN_DISCOVERY_RESULT  CHRE_WIFI_EVENT_ID(4)
+
+/**
+ * nanoappHandleEvent argument: struct chreWifiNanSessionLostEvent
+ *
+ * Informs the client that a discovered service is no longer available or
+ * visible.
+ * The ID of the service on the client that was communicating with the extinct
+ * service is indicated by the event argument.
+ */
+#define CHRE_EVENT_WIFI_NAN_SESSION_LOST  CHRE_WIFI_EVENT_ID(5)
+
+/**
+ * nanoappHandleEvent argument: struct chreWifiNanSessionTerminatedEvent
+ *
+ * Signals the end of a NAN subscription session. The termination can be due to
+ * the user turning the WiFi off, or other platform reasons like not being able
+ * to support NAN concurrency with the host. The terminated event will have a
+ * reason code appropriately populated to denote why the event was sent.
+ */
+#define CHRE_EVENT_WIFI_NAN_SESSION_TERMINATED  CHRE_WIFI_EVENT_ID(6)
 
 // NOTE: Do not add new events with ID > 15; only values 0-15 are reserved
 // (see chre/event.h)
@@ -358,6 +405,7 @@ enum chreWifiRequestType {
     CHRE_WIFI_REQUEST_TYPE_CONFIGURE_SCAN_MONITOR = 1,
     CHRE_WIFI_REQUEST_TYPE_REQUEST_SCAN           = 2,
     CHRE_WIFI_REQUEST_TYPE_RANGING                = 3,
+    CHRE_WIFI_REQUEST_TYPE_NAN_SUBSCRIBE          = 4,
 };
 
 /**
@@ -388,6 +436,28 @@ enum chreWifiRadioChainPref {
 };
 
 /**
+ * WiFi NAN subscription type.
+ */
+enum chreWifiNanSubscribeType {
+    //! In the active mode, explicit transmission of a subscribe message is
+    //! requested, and publish messages are processed.
+    CHRE_WIFI_NAN_SUBSCRIBE_TYPE_ACTIVE = 0,
+
+    //! In the passive mode, no transmission of a subscribe message is
+    //! requested, but received publish messages are checked for matches.
+    CHRE_WIFI_NAN_SUBSCRIBE_TYPE_PASSIVE = 1,
+};
+
+/**
+ * Indicates the reason for a subscribe session termination.
+ */
+enum chreWifiNanTerminatedReason {
+    CHRE_WIFI_NAN_TERMINATED_BY_USER_REQUEST = 0,
+    CHRE_WIFI_NAN_TERMINATED_BY_TIMEOUT = 1,
+    CHRE_WIFI_NAN_TERMINATED_BY_FAILURE = 2,
+};
+
+/**
  * SSID with an explicit length field, used when an array of SSIDs is supplied.
  */
 struct chreWifiSsidListItem {
@@ -415,7 +485,7 @@ enum chreWifiChannelSet {
  * Data structure passed to chreWifiRequestScanAsync
  */
 struct chreWifiScanParams {
-    //! Set to a value from enum chreWifiScanType
+    //! Set to a value from @ref enum chreWifiScanType
     uint8_t scanType;
 
     //! Indicates whether the client is willing to tolerate receiving cached
@@ -668,11 +738,11 @@ struct chreWifiRangingTarget {
  */
 struct chreWifiRangingParams {
     //! Number of devices to perform ranging against and the length of
-    //! targetList, in range [1, CHRE_WIFI_RANGING_LIST_MAX_LEN]
+    //! targetList, in range [1, CHRE_WIFI_RANGING_LIST_MAX_LEN].
     uint8_t targetListLen;
 
     //! Array of macAddressListLen MAC addresses (e.g. BSSIDs) with which to
-    //! attempt RTT ranging
+    //! attempt RTT ranging.
     const struct chreWifiRangingTarget *targetList;
 };
 
@@ -776,6 +846,149 @@ struct chreWifiRangingEvent {
     const struct chreWifiRangingResult *results;
 };
 
+/**
+ * Indicates the WiFi NAN capabilities of the device. Must contain non-zero
+ * values if WiFi NAN is supported.
+ */
+struct chreWifiNanCapabilities {
+    //! Maximum length of the match filter arrays (applies to both tx and rx
+    //! match filters).
+    uint32_t maxMatchFilterLength;
+
+    //! Maximum length of the service specific information byte array.
+    uint32_t maxServiceSpecificInfoLength;
+
+    //! Maximum length of the service name. Includes the NULL terminator.
+    uint8_t maxServiceNameLength;
+
+    //! Reserved for future use.
+    uint8_t reserved[3];
+};
+
+/**
+ * Data structure sent with events of type
+ * CHRE_EVENT_WIFI_NAN_IDENTIFIER_RESULT
+ */
+struct chreWifiNanIdentifierEvent {
+    //! A unique ID assigned by the NAN engine for the subscribe request
+    //! associated with the cookie encapsulated in the async result below. The
+    //! ID is set to 0 if there was a request failure in which case the async
+    //! result below contains the appropriate error code indicating the failure
+    //! reason.
+    uint32_t id;
+
+    //! Structure which contains the cookie associated with the publish/
+    //! subscribe request, along with an error code that indicates request
+    //! success or failure.
+    struct chreAsyncResult result;
+};
+
+/**
+ * Indicates the desired configuration for a WiFi NAN ranging request.
+ */
+struct chreWifiNanRangingParams {
+    //! MAC address of the NAN device for which range is to be determined.
+    uint8_t macAddress[CHRE_WIFI_BSSID_LEN];
+};
+
+/**
+ * Configuration parameters specific to the Subscribe Function (Spec 4.1.1.1)
+ */
+struct chreWifiNanSubscribeConfig {
+    //! Indicates the subscribe type, set to a value from @ref
+    //! chreWifiNanSubscribeType.
+    uint8_t subscribeType;
+
+    //! UTF-8 name string that identifies the service/application. Must be NULL
+    //! terminated. Note that the string length cannot be greater than the
+    //! maximum length specified by @ref chreWifiNanCapabilities. No
+    //! restriction is placed on the string case, since the service name
+    //! matching is expected to be case insensitive.
+    const char *service;
+
+    //! An array of bytes (and the associated array length) of service-specific
+    //! information. Note that the array length must be less than the
+    //! maxServiceSpecificInfoLength parameter obtained from the NAN
+    //! capabilities (@see struct chreWifiNanCapabilities).
+    const uint8_t *serviceSpecificInfo;
+    uint32_t serviceSpecificInfoSize;
+
+    //! Ordered sequence of {length | value} pairs that specify match criteria
+    //! beyond the service name. 'length' uses 1 byte, and its value indicates
+    //! the number of bytes of the match criteria that follow. The length of
+    //! the match filter array should not exceed the maximum match filter
+    //! length obtained from @ref chreWifiNanGetCapabilities. When a service
+    //! publish message discovery frame containing the Service ID being
+    //! subscribed to is received, the matching is done as follows:
+    //! Each {length | value} pair in the kth position (1 <= k <= #length-value
+    //! pairs) is compared against the kth {length | value} pair in the
+    //! matching filter field of the publish message.
+    //! - For a kth position {length | value} pair in the rx match filter with
+    //!   a length of 0, a match is declared regardless of the tx match filter
+    //!   contents.
+    //! - For a kth position {length | value} pair in the rx match with a non-
+    //!   zero length, there must be an exact match with the kth position pair
+    //!    in the match filter field of the received service descriptor for a
+    //!    match to be found.
+    //! Please refer to Appendix H of the NAN spec for examples on matching.
+    //! The match filter length should not exceed the maxMatchFilterLength
+    //! obtained from @ref chreWifiNanCapabilities.
+    const uint8_t *matchFilter;
+    uint32_t matchFilterLength;
+};
+
+/**
+ * Data structure sent with events of type
+ * CHRE_EVENT_WIFI_NAN_DISCOVERY_RESULT.
+ */
+struct chreWifiNanDiscoveryEvent {
+    //! Identifier of the subscribe function instance that requested a
+    //! discovery.
+    uint32_t subscribeId;
+
+    //! Identifier of the publisher on the remote NAN device.
+    uint32_t publishId;
+
+    //! NAN interface address of the publisher
+    uint8_t publisherAddress[CHRE_WIFI_BSSID_LEN];
+
+    //! An array of bytes (and the associated array length) of service-specific
+    //! information. Note that the array length must be less than the
+    //! maxServiceSpecificInfoLength parameter obtained from the NAN
+    //! capabilities (@see struct chreWifiNanCapabilities).
+    const uint8_t *serviceSpecificInfo;
+    uint32_t serviceSpecificInfoSize;
+};
+
+/**
+ * Data structure sent with events of type CHRE_EVENT_WIFI_NAN_SESSION_LOST.
+ */
+struct chreWifiNanSessionLostEvent {
+    //! The original ID (returned by the NAN discovery engine) of the subscriber
+    //! instance.
+    uint32_t id;
+
+    //! The ID of the previously discovered publisher on a peer NAN device that
+    //! is no longer connected.
+    uint32_t peerId;
+};
+
+/**
+ * Data structure sent with events of type
+ * CHRE_EVENT_WIFI_NAN_SESSION_TERMINATED.
+ */
+struct chreWifiNanSessionTerminatedEvent {
+    //! The original ID (returned by the NAN discovery engine) of the subscriber
+    //! instance that was terminated.
+    uint32_t id;
+
+    //! A value that maps to one of the termination reasons in @ref enum
+    //! chreWifiNanTerminatedReason.
+    uint8_t reason;
+
+    //! Reserved for future use.
+    uint8_t reserved[3];
+};
 
 /**
  * Retrieves a set of flags indicating the WiFi features supported by the
@@ -791,6 +1004,18 @@ struct chreWifiRangingEvent {
  * @since v1.1
  */
 uint32_t chreWifiGetCapabilities(void);
+
+/**
+ * Retrieves device-specific WiFi NAN capabilities, and populates them in
+ * the @ref chreWifiNanCapabilities structure.
+ *
+ * @param capabilities Structure into which the WiFi NAN capabilities of
+ *        the device are populated into. Must not be NULL.
+ * @return true if WiFi NAN is supported, false otherwise.
+ *
+ * @since v1.6
+ */
+bool chreWifiNanGetCapabilities(struct chreWifiNanCapabilities *capabilities);
 
 /**
  * Nanoapps must define CHRE_NANOAPP_USES_WIFI somewhere in their build
@@ -843,7 +1068,6 @@ uint32_t chreWifiGetCapabilities(void);
  *        disable
  * @param cookie An opaque value that will be included in the chreAsyncResult
  *        sent in relation to this request.
- *
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
@@ -882,7 +1106,6 @@ bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie);
  * @param params A set of parameters for the scan request. Must not be NULL.
  * @param cookie An opaque value that will be included in the chreAsyncResult
  *        sent in relation to this request.
- *
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
@@ -897,7 +1120,6 @@ bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
  *
  * @param cookie An opaque value that will be included in the chreAsyncResult
  *        sent in relation to this request.
- *
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
@@ -947,7 +1169,6 @@ static inline bool chreWifiRequestScanAsyncDefault(const void *cookie) {
  *        including the list of devices to attempt ranging.
  * @param cookie An opaque value that will be included in the chreAsyncResult
  *        sent in relation to this request.
- *
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.2
@@ -983,6 +1204,82 @@ static inline void chreWifiRangingTargetFromScanResult(
     memset(rangingTarget->reserved, 0, sizeof(rangingTarget->reserved));
 }
 
+/**
+ * Subscribe to a NAN service.
+ *
+ * Sends a subscription request to the NAN discovery engine with the
+ * specified configration parameters. If successful, a unique non-zero
+ * subscription ID associated with this instance of the subscription
+ * request is assigned by the NAN discovery engine. The subscription request
+ * is active until explicitly canceled, or if the connection was interrupted.
+ *
+ * Note that CHRE forwards any discovery events that it receives to the
+ * subscribe function instance, and does no duplicate filtering. If
+ * multiple events of the same discovery are undesirable, it is up to the
+ * platform NAN discovery engine implementation to implement redundancy
+ * detection mechanisms.
+ *
+ * If WiFi is turned off by the user at the Android level, an existing
+ * subscribe session is canceled, and a CHRE_EVENT_WIFI_ASYNC_RESULT event is
+ * event is sent to the subscriber. Nanoapps are expected to register for user
+ * settings notifications (@see chreUserSettingConfigureEvents), and
+ * re-establish a subscribe session on a WiFi re-enabled settings changed
+ * notification.
+ *
+ * @param config Service subscription configuration
+ * @param cookie A value that the nanoapp uses to track this particular
+ *        subscription request.
+ * @return true if NAN is enabled and a subscription request was successfully
+ *         made to the NAN engine. The actual result of the service discovery
+ *         is sent via a CHRE_EVENT_WIFI_NAN_DISCOVERY_RESULT event.
+ *
+ * @since v1.6
+ * @note Requires WiFi permission
+ */
+bool chreWifiNanSubscribe(struct chreWifiNanSubscribeConfig *config,
+                          const void *cookie);
+
+/**
+ * Cancel a subscribe function instance.
+ *
+ * @param subscriptionId The ID that was originally assigned to this instance
+ *        of the subscribe function.
+ * @return true if NAN is enabled, the subscribe ID  was found and the instance
+ *         successfully canceled.
+ *
+ * @since v1.6
+ * @note Requires WiFi permission
+ */
+bool chreWifiNanSubscribeCancel(uint32_t subscriptionID);
+
+/**
+ * Request RTT ranging from a peer NAN device.
+ *
+ * Nanoapps can use this API to explicitly request measurement reports from
+ * the peer device. Note that both end points have to support ranging for a
+ * successful request. The MAC address of the peer NAN device for which ranging
+ * is desired may be obtained either from a NAN service discovery or from an
+ * out-of-band source (HAL service, BLE, etc.).
+ *
+ * If WiFi is turned off by the user at the Android level, an existing
+ * ranging session is canceled, and a CHRE_EVENT_WIFI_ASYNC_RESULT event is
+ * sent to the subscriber. Nanoapps are expected to register for user settings
+ * notifications (@see chreUserSettingConfigureEvents), and perform another
+ * ranging request on a WiFi re-enabled settings changed notification.
+ *
+ * A successful result provided in CHRE_EVENT_WIFI_ASYNC_RESULT indicates that
+ * the results of ranging will be delivered in a subsequent event of type
+ * CHRE_EVENT_WIFI_RANGING_RESULT.
+ *
+ * @param params Structure containing the parameters of the ranging request,
+ *        including the MAC address of the peer NAN device to attempt ranging.
+ * @param cookie An opaque value that will be included in the chreAsyncResult
+ *        sent in relation to this request.
+ * @return true if the request was accepted for processing, false otherwise.
+ */
+bool chreWifiNanRequestRangingAsync(const struct chreWifiNanRangingParams *params,
+                                    const void *cookie);
+
 #else  /* defined(CHRE_NANOAPP_USES_WIFI) || !defined(CHRE_IS_NANOAPP_BUILD) */
 #define CHRE_WIFI_PERM_ERROR_STRING \
     "CHRE_NANOAPP_USES_WIFI must be defined when building this nanoapp in " \
@@ -1001,6 +1298,12 @@ static inline void chreWifiRangingTargetFromScanResult(
 #define chreWifiRangingTargetFromScanResult(...) \
     CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING \
                      "chreWifiRangingTargetFromScanResult")
+#define chreWifiNanSubscribe(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING "chreWifiNanSubscribe")
+#define chreWifiNanSubscribeCancel(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING "chreWifiNanSubscribeCancel")
+#define chreWifiNanRequestRangingAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING "chreWifiNanRequestRangingAsync")
 #endif  /* defined(CHRE_NANOAPP_USES_WIFI) || !defined(CHRE_IS_NANOAPP_BUILD) */
 
 #ifdef __cplusplus

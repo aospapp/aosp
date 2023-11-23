@@ -33,9 +33,9 @@ from acts_contrib.test_utils.coex.coex_test_utils import music_play_and_check_vi
 from acts_contrib.test_utils.coex.coex_test_utils import pair_and_connect_headset
 from acts_contrib.test_utils.coex.coex_test_utils import setup_tel_config
 from acts_contrib.test_utils.coex.coex_test_utils import connect_wlan_profile
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 
 
 class CoexBtMultiProfilePerformanceTest(CoexPerformanceBaseTest):

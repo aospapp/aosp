@@ -16,49 +16,65 @@
 #include "pw_preprocessor/compiler.h"
 #include "pw_protobuf/encoder.h"
 
-namespace pw::cpu_exception {
+namespace pw::cpu_exception::cortex_m {
 
-Status DumpCpuStateProto(protobuf::Encoder& dest,
+Status DumpCpuStateProto(protobuf::StreamEncoder& dest,
                          const pw_cpu_exception_State& cpu_state) {
-  cortex_m::ArmV7mCpuState::Encoder state_encoder(&dest);
+  // Note that the encoder's status is checked at the end and ignored at the
+  // Write*() calls to reduce the number of branches.
+  cortex_m::ArmV7mCpuState::StreamEncoder& state_encoder =
+      *static_cast<cortex_m::ArmV7mCpuState::StreamEncoder*>(&dest);
+
+  const ExceptionRegisters& base = cpu_state.base;
+  const ExtraRegisters& extended = cpu_state.extended;
 
   // Special and mem-mapped registers.
-  state_encoder.WritePc(cpu_state.base.pc);
-  state_encoder.WriteLr(cpu_state.base.lr);
-  state_encoder.WritePsr(cpu_state.base.psr);
-  state_encoder.WriteMsp(cpu_state.extended.msp);
-  state_encoder.WritePsp(cpu_state.extended.psp);
-  state_encoder.WriteExcReturn(cpu_state.extended.exc_return);
-  state_encoder.WriteCfsr(cpu_state.extended.cfsr);
-  state_encoder.WriteMmfar(cpu_state.extended.mmfar);
-  state_encoder.WriteBfar(cpu_state.extended.bfar);
-  state_encoder.WriteIcsr(cpu_state.extended.icsr);
-  state_encoder.WriteHfsr(cpu_state.extended.hfsr);
-  state_encoder.WriteShcsr(cpu_state.extended.shcsr);
-  state_encoder.WriteControl(cpu_state.extended.control);
+  if (base.pc != kUndefinedPcLrOrPsrRegValue) {
+    state_encoder.WritePc(base.pc).IgnoreError();
+  }
+  if (base.lr != kUndefinedPcLrOrPsrRegValue) {
+    state_encoder.WriteLr(base.lr).IgnoreError();
+  }
+  if (base.psr != kUndefinedPcLrOrPsrRegValue) {
+    state_encoder.WritePsr(base.psr).IgnoreError();
+  }
+  state_encoder.WriteMsp(extended.msp).IgnoreError();
+  state_encoder.WritePsp(extended.psp).IgnoreError();
+  state_encoder.WriteExcReturn(extended.exc_return).IgnoreError();
+  state_encoder.WriteCfsr(extended.cfsr).IgnoreError();
+#if _PW_ARCH_ARM_V8M_MAINLINE
+  state_encoder.WriteMsplim(extended.msplim).IgnoreError();
+  state_encoder.WritePsplim(extended.psplim).IgnoreError();
+#endif  // _PW_ARCH_ARM_V8M_MAINLINE
+  state_encoder.WriteMmfar(extended.mmfar).IgnoreError();
+  state_encoder.WriteBfar(extended.bfar).IgnoreError();
+  state_encoder.WriteIcsr(extended.icsr).IgnoreError();
+  state_encoder.WriteHfsr(extended.hfsr).IgnoreError();
+  state_encoder.WriteShcsr(extended.shcsr).IgnoreError();
+  state_encoder.WriteControl(extended.control).IgnoreError();
 
   // General purpose registers.
-  state_encoder.WriteR0(cpu_state.base.r0);
-  state_encoder.WriteR1(cpu_state.base.r1);
-  state_encoder.WriteR2(cpu_state.base.r2);
-  state_encoder.WriteR3(cpu_state.base.r3);
-  state_encoder.WriteR4(cpu_state.extended.r4);
-  state_encoder.WriteR5(cpu_state.extended.r5);
-  state_encoder.WriteR6(cpu_state.extended.r6);
-  state_encoder.WriteR7(cpu_state.extended.r7);
-  state_encoder.WriteR8(cpu_state.extended.r8);
-  state_encoder.WriteR9(cpu_state.extended.r9);
-  state_encoder.WriteR10(cpu_state.extended.r10);
-  state_encoder.WriteR11(cpu_state.extended.r11);
+  state_encoder.WriteR0(base.r0).IgnoreError();
+  state_encoder.WriteR1(base.r1).IgnoreError();
+  state_encoder.WriteR2(base.r2).IgnoreError();
+  state_encoder.WriteR3(base.r3).IgnoreError();
+  state_encoder.WriteR4(extended.r4).IgnoreError();
+  state_encoder.WriteR5(extended.r5).IgnoreError();
+  state_encoder.WriteR6(extended.r6).IgnoreError();
+  state_encoder.WriteR7(extended.r7).IgnoreError();
+  state_encoder.WriteR8(extended.r8).IgnoreError();
+  state_encoder.WriteR9(extended.r9).IgnoreError();
+  state_encoder.WriteR10(extended.r10).IgnoreError();
+  state_encoder.WriteR11(extended.r11).IgnoreError();
+  state_encoder.WriteR12(base.r12).IgnoreError();
 
   // If the encode buffer was exhausted in an earlier write, it will be
   // reflected here.
-  Status status = state_encoder.WriteR12(cpu_state.base.r12);
-  if (!status.ok()) {
+  if (const Status status = state_encoder.status(); !status.ok()) {
     return status.IsResourceExhausted() ? Status::ResourceExhausted()
                                         : Status::Unknown();
   }
   return OkStatus();
 }
 
-}  // namespace pw::cpu_exception
+}  // namespace pw::cpu_exception::cortex_m

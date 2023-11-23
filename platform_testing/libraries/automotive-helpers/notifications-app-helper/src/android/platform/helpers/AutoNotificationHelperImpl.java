@@ -153,4 +153,38 @@ public class AutoNotificationHelperImpl extends AbstractAutoStandardAppHelper
                                 AutoConfigConstants.CLEAR_ALL_BUTTON));
         return clear_all_btn != null;
     }
+
+    @Override
+    public boolean scrollDownOnePage() {
+        UiObject2 notification_list =
+                findUiObject(
+                        getResourceFromConfig(
+                                AutoConfigConstants.NOTIFICATIONS,
+                                AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
+                                AutoConfigConstants.NOTIFICATION_LIST));
+
+        if (notification_list == null) {
+            throw new RuntimeException("Unable to scroll through notifications");
+        }
+
+        notification_list.scroll(Direction.DOWN, 20, 300);
+        return true;
+    }
+
+    @Override
+    public boolean scrollUpOnePage() {
+        UiObject2 notification_list =
+                findUiObject(
+                        getResourceFromConfig(
+                                AutoConfigConstants.NOTIFICATIONS,
+                                AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
+                                AutoConfigConstants.NOTIFICATION_LIST));
+
+        if (notification_list == null) {
+            throw new RuntimeException("Unable to scroll through notifications");
+        }
+
+        notification_list.scroll(Direction.UP, 20, 300);
+        return true;
+    }
 }

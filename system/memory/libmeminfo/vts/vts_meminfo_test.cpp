@@ -94,7 +94,7 @@ TEST(SysMemInfo, TestIonTotalPoolsKb) {
 TEST(SysMemInfo, TestGpuTotalUsageKb) {
     uint64_t size;
 
-    if (android::base::GetIntProperty("ro.product.first_api_level", 0) < __ANDROID_API_S__) {
+    if (android::base::GetIntProperty("ro.vendor.api_level", 0) < __ANDROID_API_S__) {
         GTEST_SKIP();
     }
 

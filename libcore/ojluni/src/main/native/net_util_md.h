@@ -33,13 +33,9 @@
 #include <unistd.h>
 
 #ifndef USE_SELECT
-// Android-changed: Fuchsia: Point to correct location of header. http://b/119426171
+// Android-changed: Point to correct location of header. http://b/119426171
 // #include <sys/poll.h>
-#if !defined(__Fuchsia__)
-#include <sys/poll.h>
-#else
 #include <poll.h>
-#endif
 #endif
 
 // Android-changed: Fuchsia: Use the non-JVM NET_* on Fuchsia also.

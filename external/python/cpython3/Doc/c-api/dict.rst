@@ -22,13 +22,13 @@ Dictionary Objects
 .. c:function:: int PyDict_Check(PyObject *p)
 
    Return true if *p* is a dict object or an instance of a subtype of the dict
-   type.
+   type.  This function always succeeds.
 
 
 .. c:function:: int PyDict_CheckExact(PyObject *p)
 
    Return true if *p* is a dict object, but not an instance of a subtype of
-   the dict type.
+   the dict type.  This function always succeeds.
 
 
 .. c:function:: PyObject* PyDict_New()
@@ -101,6 +101,10 @@ Dictionary Objects
    Note that exceptions which occur while calling :meth:`__hash__` and
    :meth:`__eq__` methods will get suppressed.
    To get error reporting use :c:func:`PyDict_GetItemWithError()` instead.
+
+   .. versionchanged:: 3.10
+      Calling this API without :term:`GIL` held had been allowed for historical
+      reason. It is no longer allowed.
 
 
 .. c:function:: PyObject* PyDict_GetItemWithError(PyObject *p, PyObject *key)

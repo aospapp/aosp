@@ -17,8 +17,10 @@
 package com.android.networkstack.apishim.api29;
 
 import android.net.Uri;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
@@ -33,6 +35,7 @@ import org.json.JSONObject;
  * <p>Use {@link com.android.networkstack.apishim.CaptivePortalDataShimImpl} instead of this
  * fallback implementation.
  */
+@RequiresApi(Build.VERSION_CODES.Q)
 public abstract class CaptivePortalDataShimImpl implements CaptivePortalDataShim {
     protected CaptivePortalDataShimImpl() {}
 

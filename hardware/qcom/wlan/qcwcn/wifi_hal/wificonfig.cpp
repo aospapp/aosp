@@ -534,7 +534,7 @@ wifi_error wifi_set_latency_mode(wifi_interface_handle handle,
             goto cleanup;
     }
 
-    if (wifiConfigCommand->put_u32(
+    if (wifiConfigCommand->put_u16(
                       QCA_WLAN_VENDOR_ATTR_CONFIG_LATENCY_LEVEL,
                       latency_mode)) {
         ALOGE("wifi_set_latency_mode: failed to put latency mode");

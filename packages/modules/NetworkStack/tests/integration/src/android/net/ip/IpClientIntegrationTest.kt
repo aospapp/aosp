@@ -17,8 +17,12 @@
 package android.net.ip
 
 import android.net.ipmemorystore.NetworkAttributes
+import android.net.ipmemorystore.OnNetworkAttributesRetrievedListener
+import android.net.ipmemorystore.Status
+import android.net.ipmemorystore.Status.SUCCESS
 import android.util.ArrayMap
 import org.mockito.Mockito.any
+import org.mockito.Mockito.doAnswer
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.eq
 import org.mockito.Mockito.never
@@ -55,5 +59,13 @@ class IpClientIntegrationTest : IpClientIntegrationTestCommon() {
 
     override fun assertIpMemoryNeverStoreNetworkAttributes(l2Key: String, timeout: Long) {
         verify(mIpMemoryStore, never()).storeNetworkAttributes(eq(l2Key), any(), any())
+    }
+
+    override fun storeNetworkAttributes(l2Key: String, na: NetworkAttributes) {
+        doAnswer { inv ->
+            val listener = inv.getArgument<OnNetworkAttributesRetrievedListener>(1)
+            listener.onNetworkAttributesRetrieved(Status(SUCCESS), l2Key, na)
+            true
+        }.`when`(mIpMemoryStore).retrieveNetworkAttributes(eq(l2Key), any())
     }
 }

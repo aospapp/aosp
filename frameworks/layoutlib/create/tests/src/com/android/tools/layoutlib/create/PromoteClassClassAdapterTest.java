@@ -162,7 +162,7 @@ public class PromoteClassClassAdapterTest {
         });
 
         reader.accept(adapter, 0);
-        assertTrue(log.mLog.contains("[visit] - version=52, access=[public], " +
+        assertTrue(log.mLog.contains("[visit] - version=55, access=[public], " +
                 "name=com/android/tools/layoutlib/create/PackageProtectedClass, signature=null, " +
                 "superName=java/lang/Object, interfaces=[]"));
 

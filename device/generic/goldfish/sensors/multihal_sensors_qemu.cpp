@@ -273,10 +273,27 @@ void MultihalSensors::parseQemuSensorEvent(const int pipe,
             }
             parsed = true;
         }
+    } else if (const char* values = testPrefix(buf, end, "wrist-tilt", ':')) {
+        long measurementId;
+        int args = sscanf(values, "%f:%ld", &payload->scalar, &measurementId);
+        if (args == 2) {
+            if (state->lastWristTiltMeasurement != measurementId) {
+                event.timestamp = nowNs + state->timeBiasNs;
+                event.sensorHandle = kSensorHandleWristTilt;
+                event.sensorType = SensorType::WRIST_TILT_GESTURE;
+                postSensorEvent(event);
+                state->lastWristTiltMeasurement = measurementId;
+            }
+        }
+        if (args >= 1) {
+            // Skip if the measurement id is not included.
+            parsed = true;
+        }
+
      } else if (const char* values = testPrefix(buf, end, "guest-sync", ':')) {
         long long value;
         if ((sscanf(values, "%lld", &value) == 1) && (value >= 0)) {
-            const int64_t guestTimeNs = static_cast<int64_t>(value * 1000ll);
+            const int64_t guestTimeNs = static_cast<int64_t>(value * 1000LL);
             const int64_t timeBiasNs = guestTimeNs - nowNs;
             state->timeBiasNs =
                 std::min(int64_t(0),

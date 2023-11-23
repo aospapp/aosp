@@ -22,6 +22,7 @@ updater.sh update --refresh --keep_date rust/crates/libc
 
 import argparse
 import enum
+import glob
 import json
 import os
 import sys
@@ -94,25 +95,32 @@ def _do_update(args: argparse.Namespace, updater: Updater,
         git_utils.checkout(full_path, args.remote_name + '/master')
         git_utils.start_branch(full_path, TMP_BRANCH_NAME)
 
-    updater.update()
+    try:
+        updater.update()
 
-    updated_metadata = metadata_pb2.MetaData()
-    updated_metadata.CopyFrom(metadata)
-    updated_metadata.third_party.version = updater.latest_version
-    for metadata_url in updated_metadata.third_party.url:
-        if metadata_url == updater.current_url:
-            metadata_url.CopyFrom(updater.latest_url)
-    # For Rust crates, replace GIT url with ARCHIVE url
-    if isinstance(updater, CratesUpdater):
-        updater.update_metadata(updated_metadata, full_path)
-    fileutils.write_metadata(full_path, updated_metadata, args.keep_date)
-    git_utils.add_file(full_path, 'METADATA')
+        updated_metadata = metadata_pb2.MetaData()
+        updated_metadata.CopyFrom(metadata)
+        updated_metadata.third_party.version = updater.latest_version
+        for metadata_url in updated_metadata.third_party.url:
+            if metadata_url == updater.current_url:
+                metadata_url.CopyFrom(updater.latest_url)
+        # For Rust crates, replace GIT url with ARCHIVE url
+        if isinstance(updater, CratesUpdater):
+            updater.update_metadata(updated_metadata, full_path)
+        fileutils.write_metadata(full_path, updated_metadata, args.keep_date)
+        git_utils.add_file(full_path, 'METADATA')
 
-    if args.branch_and_commit:
-        msg = 'Upgrade {} to {}\n\nTest: make\n'.format(
-            args.path, updater.latest_version)
-        git_utils.add_file(full_path, '*')
-        git_utils.commit(full_path, msg)
+        if args.branch_and_commit:
+            rel_proj_path = fileutils.get_relative_project_path(full_path)
+            msg = 'Upgrade {} to {}\n\nTest: make\n'.format(
+                rel_proj_path, updater.latest_version)
+            git_utils.remove_gitmodules(full_path)
+            git_utils.add_file(full_path, '*')
+            git_utils.commit(full_path, msg)
+    except Exception as err:
+        if updater.rollback():
+            print('Rolled back.')
+        raise err
 
     if args.push_change:
         git_utils.push(full_path, args.remote_name, updater.has_errors)
@@ -162,12 +170,13 @@ def check_and_update(args: argparse.Namespace,
         return str(err)
 
 
-def _check_path(args: argparse.Namespace, paths: Iterator[str],
-                delay: int) -> Dict[str, Dict[str, str]]:
+def check_and_update_path(args: argparse.Namespace, paths: Iterator[str],
+                          update_lib: bool,
+                          delay: int) -> Dict[str, Dict[str, str]]:
     results = {}
     for path in paths:
         res = {}
-        updater = check_and_update(args, Path(path))
+        updater = check_and_update(args, Path(path), update_lib)
         if isinstance(updater, str):
             res['error'] = updater
         else:
@@ -188,19 +197,45 @@ def _list_all_metadata() -> Iterator[str]:
         dirs.sort(key=lambda d: d.lower())
 
 
+def get_paths(paths: List[str]) -> List[str]:
+    """Expand paths via globs."""
+    # We want to use glob to get all the paths, so we first convert to absolute.
+    abs_paths = [fileutils.get_absolute_project_path(Path(path))
+                 for path in paths]
+    result = [path for abs_path in abs_paths
+              for path in sorted(glob.glob(str(abs_path)))]
+    if paths and not result:
+        print('Could not find any valid paths in %s' % str(paths))
+    return result
+
+
+def write_json(json_file: str, results: Dict[str, Dict[str, str]]) -> List[str]:
+    """Output a JSON report."""
+    with Path(json_file).open('w') as res_file:
+        json.dump(results, res_file, sort_keys=True, indent=4)
+
+
 def check(args: argparse.Namespace) -> None:
     """Handler for check command."""
-    paths = _list_all_metadata() if args.all else args.paths
-    results = _check_path(args, paths, args.delay)
+    paths = _list_all_metadata() if args.all else get_paths(args.paths)
+    results = check_and_update_path(args, paths, False, args.delay)
 
     if args.json_output is not None:
-        with Path(args.json_output).open('w') as res_file:
-            json.dump(results, res_file, sort_keys=True, indent=4)
+        write_json(args.json_output, results)
 
 
 def update(args: argparse.Namespace) -> None:
     """Handler for update command."""
-    check_and_update(args, args.path, update_lib=True)
+    all_paths = get_paths(args.paths)
+    # Remove excluded paths.
+    excludes = set() if args.exclude is None else set(args.exclude)
+    filtered_paths = [path for path in all_paths
+                      if not Path(path).name in excludes]
+    # Now we can update each path.
+    results = check_and_update_path(args, filtered_paths, True, 0)
+
+    if args.json_output is not None:
+        write_json(args.json_output, results)
 
 
 def parse_args() -> argparse.Namespace:
@@ -235,9 +270,12 @@ def parse_args() -> argparse.Namespace:
     # Creates parser for update command.
     update_parser = subparsers.add_parser('update', help='Update one project.')
     update_parser.add_argument(
-        'path',
-        help='Path of the project. '
+        'paths',
+        nargs='*',
+        help='Paths of the project as globs. '
         'Relative paths will be resolved from external/.')
+    update_parser.add_argument('--json_output',
+                               help='Path of a json file to write result to.')
     update_parser.add_argument(
         '--force',
         help='Run update even if there\'s no new version.',
@@ -260,6 +298,11 @@ def parse_args() -> argparse.Namespace:
                                default='aosp',
                                required=False,
                                help='Upstream remote name.')
+    update_parser.add_argument('--exclude',
+                               action='append',
+                               help='Names of projects to exclude. '
+                               'These are just the final part of the path '
+                               'with no directories.')
     update_parser.set_defaults(func=update)
 
     return parser.parse_args()

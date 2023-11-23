@@ -13,12 +13,21 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<configuration description="Config for on-device signing ART e2e test cases">
+<configuration description="Config for a subset of on-device signing ART e2e test cases that run in CTS">
     <option name="test-suite-tag" value="odsign_e2e_tests" />
     <option name="test-suite-tag" value="apct" />
+    <option name="test-suite-tag" value="cts" />
+    <option name="config-descriptor:metadata" key="component" value="art" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <!-- odsign runs on early boot, so multi-user doesn't apply. -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
 
-    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer"/>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="jar" value="odsign_e2e_tests.jar" />
+        <option name="include-annotation" value="com.android.tests.odsign.annotation.CtsTestCase" />
     </test>
+
+    <!-- Only run tests if the device under test is SDK version 31 (Android 12) or above. -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk31ModuleController" />
 </configuration>

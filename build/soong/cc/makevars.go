@@ -92,9 +92,10 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("RS_LLVM_AS", "${config.RSLLVMPrebuiltsPath}/llvm-as")
 	ctx.Strict("RS_LLVM_LINK", "${config.RSLLVMPrebuiltsPath}/llvm-link")
 
-	ctx.Strict("CLANG_EXTERNAL_CFLAGS", "${config.ClangExternalCflags}")
-	ctx.Strict("GLOBAL_CLANG_CFLAGS_NO_OVERRIDE", "${config.NoOverrideClangGlobalCflags}")
+	ctx.Strict("CLANG_EXTERNAL_CFLAGS", "${config.ExternalCflags}")
+	ctx.Strict("GLOBAL_CLANG_CFLAGS_NO_OVERRIDE", "${config.NoOverrideGlobalCflags}")
 	ctx.Strict("GLOBAL_CLANG_CPPFLAGS_NO_OVERRIDE", "")
+	ctx.Strict("GLOBAL_CLANG_EXTERNAL_CFLAGS_NO_OVERRIDE", "${config.NoOverrideExternalGlobalCflags}")
 
 	ctx.Strict("BOARD_VNDK_VERSION", ctx.DeviceConfig().VndkVersion())
 	ctx.Strict("RECOVERY_SNAPSHOT_VERSION", ctx.DeviceConfig().RecoverySnapshotVersion())
@@ -165,7 +166,7 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	sort.Strings(ndkKnownLibs)
 	ctx.Strict("NDK_KNOWN_LIBS", strings.Join(ndkKnownLibs, " "))
 
-	hostTargets := ctx.Config().Targets[android.BuildOs]
+	hostTargets := ctx.Config().Targets[ctx.Config().BuildOS]
 	makeVarsToolchain(ctx, "", hostTargets[0])
 	if len(hostTargets) > 1 {
 		makeVarsToolchain(ctx, "2ND_", hostTargets[1])
@@ -212,13 +213,13 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 	ctx.StrictRaw(makePrefix+"C_SYSTEM_INCLUDES", strings.Join(systemIncludes, " "))
 
 	if target.Arch.ArchType == android.Arm {
-		flags, err := toolchain.ClangInstructionSetFlags("arm")
+		flags, err := toolchain.InstructionSetFlags("arm")
 		if err != nil {
 			panic(err)
 		}
 		ctx.Strict(makePrefix+"arm_CFLAGS", flags)
 
-		flags, err = toolchain.ClangInstructionSetFlags("thumb")
+		flags, err = toolchain.InstructionSetFlags("thumb")
 		if err != nil {
 			panic(err)
 		}
@@ -226,46 +227,71 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 	}
 
 	clangPrefix := secondPrefix + "CLANG_" + typePrefix
-	clangExtras := "-B" + config.ToolPath(toolchain)
 
 	ctx.Strict(clangPrefix+"TRIPLE", toolchain.ClangTriple())
 	ctx.Strict(clangPrefix+"GLOBAL_CFLAGS", strings.Join([]string{
-		toolchain.ClangCflags(),
-		"${config.CommonClangGlobalCflags}",
-		fmt.Sprintf("${config.%sClangGlobalCflags}", hod),
-		toolchain.ToolchainClangCflags(),
-		clangExtras,
+		toolchain.Cflags(),
+		"${config.CommonGlobalCflags}",
+		fmt.Sprintf("${config.%sGlobalCflags}", hod),
+		toolchain.ToolchainCflags(),
 		productExtraCflags,
 	}, " "))
 	ctx.Strict(clangPrefix+"GLOBAL_CPPFLAGS", strings.Join([]string{
-		"${config.CommonClangGlobalCppflags}",
+		"${config.CommonGlobalCppflags}",
 		fmt.Sprintf("${config.%sGlobalCppflags}", hod),
-		toolchain.ClangCppflags(),
+		toolchain.Cppflags(),
 	}, " "))
 	ctx.Strict(clangPrefix+"GLOBAL_LDFLAGS", strings.Join([]string{
 		fmt.Sprintf("${config.%sGlobalLdflags}", hod),
-		toolchain.ClangLdflags(),
-		toolchain.ToolchainClangLdflags(),
+		toolchain.Ldflags(),
+		toolchain.ToolchainLdflags(),
 		productExtraLdflags,
-		clangExtras,
 	}, " "))
 	ctx.Strict(clangPrefix+"GLOBAL_LLDFLAGS", strings.Join([]string{
 		fmt.Sprintf("${config.%sGlobalLldflags}", hod),
-		toolchain.ClangLldflags(),
-		toolchain.ToolchainClangLdflags(),
+		toolchain.Lldflags(),
+		toolchain.ToolchainLdflags(),
 		productExtraLdflags,
-		clangExtras,
 	}, " "))
 
 	if target.Os.Class == android.Device {
-		ctx.Strict(secondPrefix+"ADDRESS_SANITIZER_RUNTIME_LIBRARY", strings.TrimSuffix(config.AddressSanitizerRuntimeLibrary(toolchain), ".so"))
-		ctx.Strict(secondPrefix+"HWADDRESS_SANITIZER_RUNTIME_LIBRARY", strings.TrimSuffix(config.HWAddressSanitizerRuntimeLibrary(toolchain), ".so"))
-		ctx.Strict(secondPrefix+"HWADDRESS_SANITIZER_STATIC_LIBRARY", strings.TrimSuffix(config.HWAddressSanitizerStaticLibrary(toolchain), ".a"))
-		ctx.Strict(secondPrefix+"UBSAN_RUNTIME_LIBRARY", strings.TrimSuffix(config.UndefinedBehaviorSanitizerRuntimeLibrary(toolchain), ".so"))
-		ctx.Strict(secondPrefix+"UBSAN_MINIMAL_RUNTIME_LIBRARY", strings.TrimSuffix(config.UndefinedBehaviorSanitizerMinimalRuntimeLibrary(toolchain), ".a"))
-		ctx.Strict(secondPrefix+"TSAN_RUNTIME_LIBRARY", strings.TrimSuffix(config.ThreadSanitizerRuntimeLibrary(toolchain), ".so"))
-		ctx.Strict(secondPrefix+"SCUDO_RUNTIME_LIBRARY", strings.TrimSuffix(config.ScudoRuntimeLibrary(toolchain), ".so"))
-		ctx.Strict(secondPrefix+"SCUDO_MINIMAL_RUNTIME_LIBRARY", strings.TrimSuffix(config.ScudoMinimalRuntimeLibrary(toolchain), ".so"))
+		sanitizerVariables := map[string]string{
+			"ADDRESS_SANITIZER_RUNTIME_LIBRARY":   config.AddressSanitizerRuntimeLibrary(toolchain),
+			"HWADDRESS_SANITIZER_RUNTIME_LIBRARY": config.HWAddressSanitizerRuntimeLibrary(toolchain),
+			"HWADDRESS_SANITIZER_STATIC_LIBRARY":  config.HWAddressSanitizerStaticLibrary(toolchain),
+			"UBSAN_RUNTIME_LIBRARY":               config.UndefinedBehaviorSanitizerRuntimeLibrary(toolchain),
+			"UBSAN_MINIMAL_RUNTIME_LIBRARY":       config.UndefinedBehaviorSanitizerMinimalRuntimeLibrary(toolchain),
+			"TSAN_RUNTIME_LIBRARY":                config.ThreadSanitizerRuntimeLibrary(toolchain),
+			"SCUDO_RUNTIME_LIBRARY":               config.ScudoRuntimeLibrary(toolchain),
+			"SCUDO_MINIMAL_RUNTIME_LIBRARY":       config.ScudoMinimalRuntimeLibrary(toolchain),
+		}
+
+		for variable, value := range sanitizerVariables {
+			ctx.Strict(secondPrefix+variable, value)
+		}
+
+		sanitizerLibs := android.SortedStringValues(sanitizerVariables)
+		var sanitizerLibStems []string
+		ctx.VisitAllModules(func(m android.Module) {
+			if !m.Enabled() {
+				return
+			}
+
+			ccModule, _ := m.(*Module)
+			if ccModule == nil || ccModule.library == nil || !ccModule.library.shared() {
+				return
+			}
+
+			if android.InList(strings.TrimPrefix(ctx.ModuleName(m), "prebuilt_"), sanitizerLibs) &&
+				m.Target().Os == target.Os && m.Target().Arch.ArchType == target.Arch.ArchType {
+				outputFile := ccModule.outputFile
+				if outputFile.Valid() {
+					sanitizerLibStems = append(sanitizerLibStems, outputFile.Path().Base())
+				}
+			}
+		})
+		sanitizerLibStems = android.SortedUniqueStrings(sanitizerLibStems)
+		ctx.Strict(secondPrefix+"SANITIZER_STEMS", strings.Join(sanitizerLibStems, " "))
 	}
 
 	// This is used by external/gentoo/...
@@ -288,9 +314,7 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 		ctx.Strict(makePrefix+"OBJCOPY", "${config.ClangBin}/llvm-objcopy")
 		ctx.Strict(makePrefix+"LD", "${config.ClangBin}/lld")
 		ctx.Strict(makePrefix+"NDK_TRIPLE", config.NDKTriple(toolchain))
-		// TODO: work out whether to make this "${config.ClangBin}/llvm-", which
-		// should mostly work, or remove it.
-		ctx.Strict(makePrefix+"TOOLS_PREFIX", gccCmd(toolchain, ""))
+		ctx.Strict(makePrefix+"TOOLS_PREFIX", "${config.ClangBin}/llvm-")
 		// TODO: GCC version is obsolete now that GCC has been removed.
 		ctx.Strict(makePrefix+"GCC_VERSION", toolchain.GccVersion())
 	}

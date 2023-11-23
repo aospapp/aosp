@@ -18,6 +18,7 @@
 package com.android.bips;
 
 import android.net.Uri;
+import android.os.Bundle;
 import android.print.PrintJobId;
 import android.printservice.PrintJob;
 import android.util.Log;
@@ -34,6 +35,8 @@ import com.android.bips.jni.LocalPrinterCapabilities;
 import com.android.bips.p2p.P2pPrinterConnection;
 import com.android.bips.p2p.P2pUtils;
 
+import java.util.ArrayList;
+import java.util.StringJoiner;
 import java.util.function.Consumer;
 
 /**
@@ -69,6 +72,8 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
     private P2pPrinterConnection mConnection;
     private LocalPrinterCapabilities mCapabilities;
     private CertificateStore mCertificateStore;
+    private long mStartTime;
+    private ArrayList<String> mBlockedReasons = new ArrayList<>();
 
     /**
      * Construct the object; use {@link #start(Consumer)} to begin job processing.
@@ -92,6 +97,8 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
      * @param callback Callback to be issued when job processing is complete
      */
     void start(Consumer<LocalPrintJob> callback) {
+        mStartTime = System.currentTimeMillis();
+        // TODO: Log job attempted event here using getJobAttemptedBundle()
         if (DEBUG) Log.d(TAG, "start() " + mPrintJob);
         if (mState != STATE_INIT) {
             Log.w(TAG, "Invalid start state " + mState);
@@ -143,6 +150,9 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                 mBackend.cancel();
                 break;
         }
+        Bundle bundle = getJobCompletedAnalyticsBundle(BackendConstants.JOB_DONE_CANCELLED);
+        bundle.putString(BackendConstants.PARAM_ERROR_MESSAGES, getStringifiedBlockedReasons());
+        // TODO: Log job completed event here with the above bundle
     }
 
     PrintJobId getPrintJobId() {
@@ -279,8 +289,12 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
             }
         }
 
+        mBlockedReasons.addAll(jobStatus.getBlockedReasons());
+
         switch (jobStatus.getJobState()) {
             case BackendConstants.JOB_STATE_DONE:
+                Bundle bundle = getJobCompletedAnalyticsBundle(jobStatus.getJobResult());
+
                 switch (jobStatus.getJobResult()) {
                     case BackendConstants.JOB_DONE_OK:
                         finish(true, null);
@@ -288,9 +302,15 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                     case BackendConstants.JOB_DONE_CANCELLED:
                         mState = STATE_CANCEL;
                         finish(false, null);
+                        bundle.putString(
+                                BackendConstants.PARAM_ERROR_MESSAGES,
+                                getStringifiedBlockedReasons());
                         break;
                     case BackendConstants.JOB_DONE_CORRUPT:
                         finish(false, mPrintService.getString(R.string.unreadable_input));
+                        bundle.putString(
+                                BackendConstants.PARAM_ERROR_MESSAGES,
+                                getStringifiedBlockedReasons());
                         break;
                     default:
                         // Job failed
@@ -299,8 +319,12 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                         } else {
                             finish(false, null);
                         }
+                        bundle.putString(
+                                BackendConstants.PARAM_ERROR_MESSAGES,
+                                getStringifiedBlockedReasons());
                         break;
                 }
+                // TODO: Log JobCompleted analytic with the bundle here
                 break;
 
             case BackendConstants.JOB_STATE_BLOCKED:
@@ -364,5 +388,58 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         }
         mState = STATE_DONE;
         mCompleteConsumer.accept(LocalPrintJob.this);
+    }
+
+    /**
+     * Get stringified blocked reasons delimited by '|'
+     * @return delimited string of blocked reasons
+     */
+    private String getStringifiedBlockedReasons() {
+        StringJoiner reasons = new StringJoiner("|");
+        for (String reason: mBlockedReasons) {
+            reasons.add(reason);
+        }
+        return reasons.toString();
+    }
+
+    /**
+     * Get the job completed analytics bundle
+     *
+     * @param result result of the job
+     * @return analytics bundle
+     */
+    private Bundle getJobCompletedAnalyticsBundle(String result) {
+        Bundle bundle = new Bundle();
+        bundle.putString(BackendConstants.PARAM_JOB_ID, mPrintJob.getId().toString());
+        bundle.putLong(BackendConstants.PARAM_DATE_TIME, System.currentTimeMillis());
+        // TODO: Add real location
+        bundle.putString(BackendConstants.PARAM_LOCATION, "United States");
+        // TODO: Add real user id
+        bundle.putString(BackendConstants.PARAM_USER_ID, "userid");
+        bundle.putString(BackendConstants.PARAM_RESULT, result);
+        bundle.putLong(
+                BackendConstants.PARAM_ELAPSED_TIME_ALL, System.currentTimeMillis() - mStartTime);
+        return bundle;
+    }
+
+    /**
+     * Get the job started analytics bundle
+     *
+     * @return analytics bundle
+     */
+    private Bundle getJobAttemptedAnalyticsBundle() {
+        Bundle bundle = new Bundle();
+        bundle.putString(BackendConstants.PARAM_JOB_ID, mPrintJob.getId().toString());
+        bundle.putLong(BackendConstants.PARAM_DATE_TIME, System.currentTimeMillis());
+        // TODO: Add real location
+        bundle.putString(BackendConstants.PARAM_LOCATION, "United States");
+        bundle.putInt(
+                BackendConstants.PARAM_JOB_PAGES,
+                mPrintJob.getInfo().getCopies() * mPrintJob.getDocument().getInfo().getPageCount());
+        // TODO: Add real user id
+        bundle.putString(BackendConstants.PARAM_USER_ID, "userid");
+        // TODO: Determine whether the print job came from share to BIPS or from print system
+        bundle.putString(BackendConstants.PARAM_SOURCE_PATH, "ShareToBips || PrintSystem");
+        return bundle;
     }
 }

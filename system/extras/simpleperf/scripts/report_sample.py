@@ -18,12 +18,18 @@
 """report_sample.py: report samples in the same format as `perf script`.
 """
 
-from __future__ import print_function
-import argparse
 from simpleperf_report_lib import ReportLib
+from simpleperf_utils import BaseArgumentParser, flatten_arg_list, ReportLibOptions
+from typing import List, Set, Optional
 
 
-def report_sample(record_file, symfs_dir, kallsyms_file, show_tracing_data):
+def report_sample(
+        record_file: str,
+        symfs_dir: str,
+        kallsyms_file: str,
+        show_tracing_data: bool,
+        header: bool,
+        report_lib_options: ReportLibOptions):
     """ read record_file, and print each sample"""
     lib = ReportLib()
 
@@ -34,6 +40,16 @@ def report_sample(record_file, symfs_dir, kallsyms_file, show_tracing_data):
         lib.SetRecordFile(record_file)
     if kallsyms_file is not None:
         lib.SetKallsymsFile(kallsyms_file)
+    lib.SetReportOptions(report_lib_options)
+
+    if header:
+        print("# ========")
+        print("# cmdline : %s" % lib.GetRecordCmd())
+        print("# arch : %s" % lib.GetArch())
+        for k, v in lib.MetaInfo().items():
+            print('# %s : %s' % (k, v.replace('\n', ' ')))
+        print("# ========")
+        print("#")
 
     while True:
         sample = lib.GetNextSample()
@@ -44,15 +60,15 @@ def report_sample(record_file, symfs_dir, kallsyms_file, show_tracing_data):
         symbol = lib.GetSymbolOfCurrentSample()
         callchain = lib.GetCallChainOfCurrentSample()
 
-        sec = sample.time / 1000000000
-        usec = (sample.time - sec * 1000000000) / 1000
-        print('%s\t%d [%03d] %d.%06d:\t\t%d %s:' % (sample.thread_comm,
-                                                    sample.tid, sample.cpu, sec,
+        sec = sample.time // 1000000000
+        usec = (sample.time - sec * 1000000000) // 1000
+        print('%s\t%d/%d [%03d] %d.%06d: %d %s:' % (sample.thread_comm,
+                                                    sample.pid, sample.tid, sample.cpu, sec,
                                                     usec, sample.period, event.name))
-        print('%16x\t%s (%s)' % (sample.ip, symbol.symbol_name, symbol.dso_name))
+        print('\t%16x %s (%s)' % (sample.ip, symbol.symbol_name, symbol.dso_name))
         for i in range(callchain.nr):
             entry = callchain.entries[i]
-            print('%16x\t%s (%s)' % (entry.ip, entry.symbol.symbol_name, entry.symbol.dso_name))
+            print('\t%16x %s (%s)' % (entry.ip, entry.symbol.symbol_name, entry.symbol.dso_name))
         if show_tracing_data:
             data = lib.GetTracingDataOfCurrentSample()
             if data:
@@ -63,15 +79,24 @@ def report_sample(record_file, symfs_dir, kallsyms_file, show_tracing_data):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Report samples in perf.data.')
+    parser = BaseArgumentParser(description='Report samples in perf.data.')
     parser.add_argument('--symfs',
                         help='Set the path to find binaries with symbols and debug info.')
     parser.add_argument('--kallsyms', help='Set the path to find kernel symbols.')
-    parser.add_argument('record_file', nargs='?', default='perf.data',
+    parser.add_argument('-i', '--record_file', nargs='?', default='perf.data',
                         help='Default is perf.data.')
     parser.add_argument('--show_tracing_data', action='store_true', help='print tracing data.')
+    parser.add_argument('--header', action='store_true',
+                        help='Show metadata header, like perf script --header')
+    parser.add_report_lib_options()
     args = parser.parse_args()
-    report_sample(args.record_file, args.symfs, args.kallsyms, args.show_tracing_data)
+    report_sample(
+        record_file=args.record_file,
+        symfs_dir=args.symfs,
+        kallsyms_file=args.kallsyms,
+        show_tracing_data=args.show_tracing_data,
+        header=args.header,
+        report_lib_options=args.report_lib_options)
 
 
 if __name__ == '__main__':

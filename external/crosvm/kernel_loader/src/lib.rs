@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 
 use std::ffi::CStr;
-use std::fmt::{self, Display};
 use std::io::{Read, Seek, SeekFrom};
 use std::mem;
 
 use base::AsRawDescriptor;
+use data_model::DataInit;
+use remain::sorted;
+use thiserror::Error;
 use vm_memory::{GuestAddress, GuestMemory};
 
 #[allow(dead_code)]
@@ -17,51 +19,45 @@ use vm_memory::{GuestAddress, GuestMemory};
 #[allow(clippy::all)]
 mod elf;
 
-#[derive(Debug, PartialEq)]
+// Elf64_Ehdr is plain old data with no implicit padding.
+unsafe impl data_model::DataInit for elf::Elf64_Ehdr {}
+
+// Elf64_Phdr is plain old data with no implicit padding.
+unsafe impl data_model::DataInit for elf::Elf64_Phdr {}
+
+#[sorted]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
+    #[error("trying to load big-endian binary on little-endian machine")]
     BigEndianElfOnLittle,
+    #[error("failed writing command line to guest memory")]
     CommandLineCopy,
+    #[error("command line overflowed guest memory")]
     CommandLineOverflow,
+    #[error("invalid Elf magic number")]
     InvalidElfMagicNumber,
-    InvalidProgramHeaderSize,
-    InvalidProgramHeaderOffset,
+    #[error("invalid Program Header Address")]
     InvalidProgramHeaderAddress,
+    #[error("invalid Program Header memory size")]
     InvalidProgramHeaderMemSize,
+    #[error("invalid program header offset")]
+    InvalidProgramHeaderOffset,
+    #[error("invalid program header size")]
+    InvalidProgramHeaderSize,
+    #[error("unable to read elf header")]
     ReadElfHeader,
+    #[error("unable to read kernel image")]
     ReadKernelImage,
+    #[error("unable to read program header")]
     ReadProgramHeader,
-    SeekKernelStart,
+    #[error("unable to seek to elf start")]
     SeekElfStart,
+    #[error("unable to seek to kernel start")]
+    SeekKernelStart,
+    #[error("unable to seek to program header")]
     SeekProgramHeader,
 }
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl std::error::Error for Error {}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        let description = match self {
-            BigEndianElfOnLittle => "trying to load big-endian binary on little-endian machine",
-            CommandLineCopy => "failed writing command line to guest memory",
-            CommandLineOverflow => "command line overflowed guest memory",
-            InvalidElfMagicNumber => "invalid Elf magic number",
-            InvalidProgramHeaderSize => "invalid program header size",
-            InvalidProgramHeaderOffset => "invalid program header offset",
-            InvalidProgramHeaderAddress => "invalid Program Header Address",
-            InvalidProgramHeaderMemSize => "invalid Program Header memory size",
-            ReadElfHeader => "unable to read elf header",
-            ReadKernelImage => "unable to read kernel image",
-            ReadProgramHeader => "unable to read program header",
-            SeekKernelStart => "unable to seek to kernel start",
-            SeekElfStart => "unable to seek to elf start",
-            SeekProgramHeader => "unable to seek to program header",
-        };
-
-        write!(f, "kernel loader: {}", description)
-    }
-}
 
 /// Loads a kernel from a vmlinux elf image to a slice
 ///
@@ -73,19 +69,15 @@ impl Display for Error {
 pub fn load_kernel<F>(
     guest_mem: &GuestMemory,
     kernel_start: GuestAddress,
-    kernel_image: &mut F,
+    mut kernel_image: &mut F,
 ) -> Result<u64>
 where
     F: Read + Seek + AsRawDescriptor,
 {
-    let mut ehdr: elf::Elf64_Ehdr = Default::default();
     kernel_image
         .seek(SeekFrom::Start(0))
         .map_err(|_| Error::SeekElfStart)?;
-    unsafe {
-        // read_struct is safe when reading a POD struct.  It can be used and dropped without issue.
-        base::read_struct(kernel_image, &mut ehdr).map_err(|_| Error::ReadElfHeader)?;
-    }
+    let ehdr = elf::Elf64_Ehdr::from_reader(&mut kernel_image).map_err(|_| Error::ReadElfHeader)?;
 
     // Sanity checks
     if ehdr.e_ident[elf::EI_MAG0 as usize] != elf::ELFMAG0 as u8
@@ -109,11 +101,12 @@ where
     kernel_image
         .seek(SeekFrom::Start(ehdr.e_phoff))
         .map_err(|_| Error::SeekProgramHeader)?;
-    let phdrs: Vec<elf::Elf64_Phdr> = unsafe {
-        // Reading the structs is safe for a slice of POD structs.
-        base::read_struct_slice(kernel_image, ehdr.e_phnum as usize)
-            .map_err(|_| Error::ReadProgramHeader)?
-    };
+    let phdrs = (0..ehdr.e_phnum)
+        .enumerate()
+        .map(|_| {
+            elf::Elf64_Phdr::from_reader(&mut kernel_image).map_err(|_| Error::ReadProgramHeader)
+        })
+        .collect::<Result<Vec<elf::Elf64_Phdr>>>()?;
 
     let mut kernel_end = 0;
 
@@ -185,7 +178,7 @@ mod test {
     const MEM_SIZE: u64 = 0x8000;
 
     fn create_guest_mem() -> GuestMemory {
-        GuestMemory::new(&vec![(GuestAddress(0x0), MEM_SIZE)]).unwrap()
+        GuestMemory::new(&[(GuestAddress(0x0), MEM_SIZE)]).unwrap()
     }
 
     #[test]
@@ -215,19 +208,19 @@ mod test {
             )
         );
         let val: u8 = gm.read_obj_from_addr(cmdline_address).unwrap();
-        assert_eq!(val, '1' as u8);
+        assert_eq!(val, b'1');
         cmdline_address = cmdline_address.unchecked_add(1);
         let val: u8 = gm.read_obj_from_addr(cmdline_address).unwrap();
-        assert_eq!(val, '2' as u8);
+        assert_eq!(val, b'2');
         cmdline_address = cmdline_address.unchecked_add(1);
         let val: u8 = gm.read_obj_from_addr(cmdline_address).unwrap();
-        assert_eq!(val, '3' as u8);
+        assert_eq!(val, b'3');
         cmdline_address = cmdline_address.unchecked_add(1);
         let val: u8 = gm.read_obj_from_addr(cmdline_address).unwrap();
-        assert_eq!(val, '4' as u8);
+        assert_eq!(val, b'4');
         cmdline_address = cmdline_address.unchecked_add(1);
         let val: u8 = gm.read_obj_from_addr(cmdline_address).unwrap();
-        assert_eq!(val, '\0' as u8);
+        assert_eq!(val, b'\0');
     }
 
     // Elf64 image that prints hello world on x86_64.
@@ -242,7 +235,7 @@ mod test {
     fn mutate_elf_bin(mut f: &File, offset: u64, val: u8) {
         f.seek(SeekFrom::Start(offset))
             .expect("failed to seek file");
-        f.write(&[val])
+        f.write_all(&[val])
             .expect("failed to write mutated value to file");
     }
 

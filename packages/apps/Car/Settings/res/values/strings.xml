@@ -74,6 +74,8 @@
     <string name="mobile_network_mobile_network_toggle_title">Mobile network</string>
     <!-- Mobile network screen, toggle mobile network summary [CHAR LIMIT=50] -->
     <string name="mobile_network_mobile_network_toggle_summary">Use mobile data</string>
+    <!-- Subtitle for when mobile network is toggled off [CHAR LIMIT=45] -->
+    <string name="mobile_network_state_off">Off</string>
     <!-- Mobile network screen, confirmation dialog to turn off mobile data [CHAR LIMIT=50] -->
     <string name="confirm_mobile_data_disable">Turn off mobile data?</string>
     <!-- When a SIM preference hasn't been selected yet, this string is displayed as the pref summary until the user chooses a SIM subscription from the preference list. [CHAR LIMIT=50] -->
@@ -298,6 +300,8 @@
     <string name="wifi_cellular_fallback_summary">Use mobile data when Wi\u2011Fi has no internet access. Data usage charges may apply.</string>
     <!-- Content description for the wifi state switch. [CHAR LIMIT=NONE] -->
     <string name="wifi_state_switch_content_description" translatable="false">Wi\u2011Fi toggle switch</string>
+    <!-- Subtitle for Wi-Fi state switch on the Network & internet page [CHAR LIMIT=45] -->
+    <string name="wifi_network_state_switch_subtitle">Find and connect to Wi\u2011Fi networks</string>
     <!-- url for the wifi scanning required dialog help page -->
     <string name="help_uri_wifi_scanning_required" translatable="false"></string>
     <!-- Button label to allow the user to view additional information [CHAR LIMIT=NONE] -->
@@ -313,9 +317,13 @@
     <string name="wifi_hotspot_password_title">Hotspot password</string>
     <!-- Label for Wifi security type title [CHAR LIMIT=15]-->
     <string name="wifi_hotspot_security_title">Security</string>
+    <!-- Label for Wifi security type WPA3-Personal [CHAR LIMIT=25]-->
+    <string name="wifi_hotspot_wpa3_sae">WPA3-Personal</string>
+    <!-- Label for Wifi security type WPA2/WPA3 Transition [CHAR LIMIT=25]-->
+    <string name="wifi_security_psk_sae">WPA2/WPA3-Personal</string>
     <!-- Label for Wifi security type WPA2-Personal [CHAR LIMIT=25]-->
     <string name="wifi_hotspot_wpa2_personal">WPA2-Personal</string>
-    <!-- Label for Wifi security type WPA2-Personal [CHAR LIMIT=25]-->
+    <!-- Label for Wifi security type None [CHAR LIMIT=25]-->
     <string name="wifi_hotspot_security_none">None</string>
     <!-- Label for Wifi hotspot AP Band. [CHAR LIMIT=15]-->
     <string name="wifi_hotspot_ap_band_title">AP Band</string>
@@ -914,10 +922,16 @@
     <string name="driver_assistance_warning_confirm_label">
         Turn off anyway
     </string>
-    <!-- Title of Recent Location Requests setting [CHAR LIMIT=60] -->
-    <string name="location_settings_recent_requests_title">Recent Location Requests</string>
-    <!-- Message indicating that no apps have requested location recently [CHAR LIMIT=60] -->
-    <string name="location_settings_recent_requests_empty_message">No recent location requests</string>
+    <!-- Title of Recent Location Accesses category [CHAR LIMIT=60] -->
+    <string name="location_recently_accessed">Recently accessed</string>
+    <!-- Title of Location Recently Accessed setting [CHAR LIMIT=60] -->
+    <string name="location_settings_recently_accessed_title">Recently accessed</string>
+    <!-- Title of preference name to view all apps that recently accessed location [CHAR LIMIT=60] -->
+    <string name="location_settings_recently_accessed_view_all_title">View all</string>
+    <!-- Message indicating that no apps have accessed location recently [CHAR LIMIT=60] -->
+    <string name="location_no_recent_access">No recent apps</string>
+    <!-- Label for driver assistance apps that recently accessed location [CHAR LIMIT=60] -->
+    <string name="driver_assistance_label"><xliff:g id="time" example="1 min. ago">%1$s</xliff:g> \u2022 Driver Assistance</string>
     <!-- Title of Location App-level Permissions setting [CHAR LIMIT=60] -->
     <string name="location_settings_app_permissions_title">App-level permissions</string>
     <!-- Title of Location Services category [CHAR LIMIT=60] -->
@@ -970,7 +984,7 @@
     </string>
     <!-- Title of Recent Microphone Requests setting [CHAR LIMIT=60] -->
     <string name="microphone_settings_recent_requests_title">Recently accessed</string>
-    <!-- Title of Recent Microphone Requests setting [CHAR LIMIT=60] -->
+    <!-- Title of preference name to view all apps that recently accessed microphone [CHAR LIMIT=60] -->
     <string name="microphone_settings_recent_requests_view_all_title">View all</string>
     <!-- Microphone settings, loading the number of apps which have microphone permission [CHAR LIMIT=30] -->
     <string name="microphone_settings_loading_app_permission_stats">Loading\u2026</string>
@@ -1134,7 +1148,7 @@
     <!-- Button summary to factory data reset the entire device.  Factory reset will delete all data from the vehicle. [CHAR LIMIT=NONE]-->
     <string name="factory_reset_summary">Erase all data and profiles from the infotainment system</string>
     <!-- Message on screen after user selects factory reset. [CHAR LIMIT=NONE] -->
-    <string name="factory_reset_desc">This will erase all data from your vehicle\u2019s infotainment system, including:\n\n<li>Your Google Account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
+    <string name="factory_reset_desc">This will erase all data from your vehicle\u2019s infotainment system, including:\n\n<li>Your accounts and profiles</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
     <!-- The list of current accounts follows this text. [CHAR LIMIT=NONE] -->
     <string name="factory_reset_accounts">You are currently signed into the following accounts:</string>
     <!-- Message on screen if other profiles are present on the device after user selects factory reset. [CHAR LIMIT=NONE] -->
@@ -1270,10 +1284,6 @@
     <string name="choose_new_admin_label">Choose admin</string>
 
     <!-- User info --><skip/>
-    <!-- Title for Guest user [CHAR LIMIT=35] -->
-    <string name="user_guest">Guest</string>
-    <!-- Title for button for starting a new guest session [CHAR LIMIT=35] -->
-    <string name="start_guest_session">Guest</string>
     <!-- Description for icon to switch user [CHAR LIMIT=35] -->
     <string name="user_switch">Switch</string>
     <!-- Description for user name that is currently in use -->
@@ -1352,11 +1362,11 @@
     <!-- Switch summary to enable auto sync account [CHAR LIMIT=60] -->
     <string name="account_auto_sync_summary">Let apps refresh data automatically</string>
     <!--  Title of dialog shown when user enables global auto sync [CHAR LIMIT=50] -->
-    <string name="data_usage_auto_sync_on_dialog_title">Turn auto-sync data on?</string>
+    <string name="data_usage_auto_sync_on_dialog_title">Allow automatic data syncing?</string>
     <!--  Body of dialog shown when user enables global auto sync [CHAR LIMIT=NONE] -->
-    <string name="data_usage_auto_sync_on_dialog">Any changes you make to your accounts on the web will be automatically copied to your device.\n\nSome accounts may also automatically copy any changes you make on the phone to the web. A Google Account works this way.</string>
+    <string name="data_usage_auto_sync_on_dialog">Any changes you make to your accounts on the web will be automatically copied to your vehicle.\n\nSome accounts may also automatically copy any changes you make on the vehicle to the web.</string>
     <!--  Title of dialog shown when user disables global auto sync [CHAR LIMIT=50] -->
-    <string name="data_usage_auto_sync_off_dialog_title">Turn auto-sync data off?</string>
+    <string name="data_usage_auto_sync_off_dialog_title">Disallow automatic data syncing?</string>
     <!--  Body of dialog shown when user disables global auto sync [CHAR LIMIT=NONE] -->
     <string name="data_usage_auto_sync_off_dialog">This will conserve data, but you\u2019ll need to sync each account manually to collect recent information. And you won\u2019t receive notifications when updates occur.</string>
     <!-- Account details in Settings screen title [CHAR LIMIT=25] -->
@@ -1407,6 +1417,10 @@
     <string name="privacy_vehicle_data_title">Infotainment system data</string>
     <!-- Privacy settings screen, setting option that opens a page to manage location settings [CHAR LIMIT=NONE] -->
     <string name="privacy_location_summary">Control app access to your location</string>
+    <!-- Privacy settings screen, title for setting option name enable/disable the camera [CHAR LIMIT=30] -->
+    <string name="mute_camera_title">Camera</string>
+    <!-- Privacy settings screen, summary for setting option to enable/disable the camera [CHAR LIMIT=NONE] -->
+    <string name="mute_camera_summary">Control app access to your cameras</string>
     <!-- Privacy settings screen, title for setting option name enable/disable the microphone [CHAR LIMIT=30] -->
     <string name="mute_mic_title">Microphone</string>
     <!-- Privacy settings screen, summary for setting option to enable/disable the microphone [CHAR LIMIT=NONE] -->
@@ -1532,15 +1546,6 @@
     <string name="lockpassword_confirm_label">Confirm</string>
     <!-- Hints for Choose Lock Password Screen [CHAR_LIMIT=73] -->
     <string name="choose_lock_password_hints">Must be at least 4 characters</string>
-    <!-- Hint shown in dialog screen when password is too short [CHAR LIMIT=40] -->
-    <string name="lockpassword_password_too_short">Must be at least <xliff:g example="3" id="count">%d</xliff:g> characters</string>
-    <!-- Hint shown in dialog screen when PIN is too short [CHAR LIMIT=44] -->
-    <string name="lockpassword_pin_too_short">PIN must be at least <xliff:g example="3" id="count">%d</xliff:g> digits</string>
-
-    <!-- Error shown in popup when password is too long [CHAR LIMIT=42] -->
-    <string name="lockpassword_password_too_long">Must be fewer than <xliff:g example="17" id="number">%d</xliff:g> characters</string>
-    <!-- Error shown in popup when PIN is too long [CHAR LIMIT=42] -->
-    <string name="lockpassword_pin_too_long">Must be fewer than <xliff:g example="17" id="number">%d</xliff:g> digits</string>
 
     <!-- Error shown when in PIN mode and user enters a non-digit. Because this may be concatenated with other messages, please make sure there's a period at the end of the sentence. [CHAR LIMIT=40] -->
     <string name="lockpassword_pin_contains_non_digits">Must contain only digits 0-9.</string>
@@ -1566,8 +1571,105 @@
     <!-- Error shown when a user is choosing a PASSWORD for their work phone, but what they suggest is blocked by their company's IT administrator. The user should try another PASSWORD that's less common and more complicated. [CHAR LIMIT=NONE] -->
     <string name="lockpassword_password_denylisted_by_admin">Common passwords are blocked by your IT admin. Try a different password.</string>
 
+    <!-- Error shown when in PASSWORD mode and password is all digits [CHAR LIMIT=60] -->
+    <string name="lockpassword_password_requires_alpha">Must contain at least one letter</string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain any digits [CHAR LIMIT=60] -->
+    <string name="lockpassword_password_requires_digit">Must contain at least one digit</string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain any symbols [CHAR LIMIT=60] -->
+    <string name="lockpassword_password_requires_symbol">Must contain at least one symbol</string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of letters [CHAR LIMIT=60] -->
+    <string name="lockpassword_password_requires_letters">
+        {count, plural,
+        =1    {Must contain at least # letter}
+        other {Must contain at least # letters}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of lowercase letters [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_lowercase">
+        {count, plural,
+        =1    {Must contain at least # lowercase letter}
+        other {Must contain at least # lowercase letters}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of uppercase letters [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_uppercase">
+        {count, plural,
+        =1    {Must contain at least # uppercase letter}
+        other {Must contain at least # uppercase letters}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of numerical digits [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_numeric">
+        {count, plural,
+        =1    {Must contain at least # numerical digit}
+        other {Must contain at least # numerical digits}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of special symbols [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_symbols">
+        {count, plural,
+        =1    {Must contain at least # special symbol}
+        other {Must contain at least # special symbols}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of non-letter characters [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_nonletter">
+        {count, plural,
+        =1    {Must contain at least # non-letter character}
+        other {Must contain at least # non-letter characters}
+        }
+    </string>
+
+    <!-- Error shown when in PASSWORD mode and password doesn't contain the required number of non-numerical characters [CHAR LIMIT=80]-->
+    <string name="lockpassword_password_requires_nonnumerical">
+        {count, plural,
+        =1    {Must contain at least # non-numerical character}
+        other {Must contain at least # non-numerical characters}
+        }
+    </string>
+
+    <!-- Hint shown in dialog screen when password is too short [CHAR LIMIT=60]-->
+    <string name="lockpassword_password_too_short">
+        {count, plural,
+        =1    {Must contain at least # character}
+        other {Must contain at least # characters}
+        }
+    </string>
+
+    <!-- Hint shown in dialog screen when PIN is too short [CHAR LIMIT=60] -->
+    <string name="lockpassword_pin_too_short">
+        {count, plural,
+        =1    {Must contain at least # digit}
+        other {Must contain at least # digits}
+        }
+    </string>
+
+    <!-- Error shown in popup when password is too long [CHAR LIMIT=60] -->
+    <string name="lockpassword_password_too_long">
+        {count, plural,
+        =1    {Must be fewer than # character}
+        other {Must be fewer than # characters}
+        }
+    </string>
+
+    <!-- Error shown in popup when PIN is too long [CHAR LIMIT=60] -->
+    <string name="lockpassword_pin_too_long">
+        {count, plural,
+        =1    {Must be fewer than # digit}
+        other {Must be fewer than # digits}
+        }
+    </string>
+
     <!-- [CHAR_LIMIT=NONE] Error shown when the user tries to set an ascending or descending sequence of digits. Because this may be concatenated with other messages, please make sure there's a period at the end of the sentence. [CHAR LIMIT=NONE] -->
-    <string name="lockpassword_pin_no_sequential_digits">Ascending, descending, or repeated sequence of digits isn\'t allowed.</string>
+    <string name="lockpassword_pin_no_sequential_digits">Ascending, descending, or repeated sequence of digits isn\'t allowed</string>
 
     <!-- Label for button in screen lock settings, allowing users to choose other types of screen locks. [CHAR LIMIT=40] -->
     <string name="setup_lock_settings_options_button_label">Screen lock options</string>
@@ -1603,6 +1705,8 @@
     <string name="cancel">Cancel</string>
     <!-- Generic dialog allow button. [CHAR_LIMIT=20] -->
     <string name="allow">Allow</string>
+    <!-- Generic dialog don't allow button. [CHAR_LIMIT=20] -->
+    <string name="do_not_allow">Don\u2019t allow</string>
     <!-- Generic dialog deny button. [CHAR_LIMIT=20] -->
     <string name="deny">Deny</string>
 
@@ -1712,8 +1816,6 @@
     <string name="deactivate_and_uninstall_device_admin">Deactivate &amp; uninstall</string>
     <!-- Label for button to remove the active device admin app [CHAR LIMIT=NONE] -->
     <string name="remove_device_admin">Deactivate this infotainment system app</string>
-<!-- Shown in dialog to allow user to see more information about the device admin [CHAR LIMIT=NONE] -->
-    <string name="admin_support_more_info">More details</string>
     <!-- Shown in admin details page to warn user about policies the admin can set in a work profile. [CHAR LIMIT=NONE] -->
     <string name="admin_profile_owner_message">The organization manager can monitor and manage apps and data
         associated with this profile, including settings, permissions, corporate access,
@@ -1768,61 +1870,117 @@
     <string name="footer_learn_more_content_description">Learn more about <xliff:g id="service" example="Select to Speak">%1$s</xliff:g></string>
 
     <!-- Enterprise Privacy --> <skip />
-    <!-- TODO(b/206022572, b/203004258): remove translatable="false" once the proper strings have been defined -->
     <!-- Title of setting on security settings screen. This will take the user to a screen with information about admin powers and their impact on the user's privacy on a managed device. Shown on enterprise-managed devices only. Note: "Device" is singular and refers to the device (e.g. phone or tablet) that the user is holding in their hand. -->
-    <string name="enterprise_privacy_settings" translatable="false">Managed device info</string>
+    <string name="enterprise_privacy_settings">Managed vehicle info</string>
     <!-- Summary for Enterprise Privacy settings, explaining what the user can expect to find under it [CHAR LIMIT=NONE]-->
-    <string name="enterprise_privacy_settings_summary_generic" translatable="false">Changes &amp; settings managed by your organization</string>
+    <string name="enterprise_privacy_settings_summary_generic">Settings managed by fleet admin</string>
     <!-- Enterprise Privacy settings activity header, summarizing the powers that the admin has. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_header" translatable="false">To provide access to your work data, your organization may change settings and install software on your device.\n\nFor more details, contact your organization\'s admin.</string>
+    <string name="enterprise_privacy_header">To provide access to data on this managed vehicle, the fleet admin may change settings and install software on the infotainment system.\n\nFor more details, contact your fleet\'s admin.</string>
     <!-- Title for the 'Types of information your organization can see' preference category. [CHAR LIMIT=60] -->
-    <string name="enterprise_privacy_exposure_category" translatable="false">Types of information your organization can see</string>
+    <string name="enterprise_privacy_exposure_category">Information your fleet\’s admin can see</string>
     <!-- Title for the 'Changes made by your organization’s admin' preference category. [CHAR LIMIT=60] -->
-    <string name="enterprise_privacy_exposure_changes_category" translatable="false">Changes made by your organization\'s admin</string>
+    <string name="enterprise_privacy_exposure_changes_category">Changes made by your fleet\’s admin</string>
+    <!-- Description for the information that organization can see on managed device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_exposure_desc">
+        <li>Data associated with your managed vehicle account</li>\n
+        <li>List of apps on your managed vehicle</li>\n
+        <li>Amount of time and data spent in each app</li>
+    </string>
     <!-- Title for the 'Your access to this device' preference category. [CHAR LIMIT=60] -->
-    <string name="enterprise_privacy_device_access_category" translatable="false">Your access to this device</string>
-    <!-- Label explaining that the admin can see data associated with their work account. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_enterprise_data" translatable="false">Data associated with your work account, such as email and calendar</string>
+    <string name="enterprise_privacy_device_access_category">Your access to the infotainment system</string>
     <!-- Label explaining that the admin can see apps installed on the device. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_installed_packages" translatable="false">List of apps on your device</string>
-    <!-- Label explaining that the admin can see app usage statistics. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_usage_stats" translatable="false">Amount of time and data spent in each app</string>
+    <string name="enterprise_privacy_installed_packages">List of apps on your vehicle</string>
+    <!-- Label explaining that the number of apps is an estimation. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_apps_count_estimation_info">Number of apps is estimated. It may not include apps installed outside of the Play Store.</string>
+    <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. The number shown is a minimum as there may be additional apps we do not know about. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_packages_lower_bound">
+        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> app</item>
+        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> apps</item>
+    </plurals>
+    <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_packages">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g> app</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> apps</item>
+    </plurals>
     <!-- Label explaining that the admin can retrieve network logs on the device. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_network_logs" translatable="false">Most recent network traffic log</string>
+    <string name="enterprise_privacy_network_logs">Most recent network traffic log</string>
     <!-- Label explaining that the admin can request bug reports on the device. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_bug_reports" translatable="false">Most recent bug report</string>
+    <string name="enterprise_privacy_bug_reports">Most recent bug report</string>
     <!-- Label explaining that the admin can retrieve security on from the device. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_security_logs" translatable="false">Most recent security log</string>
+    <string name="enterprise_privacy_security_logs">Most recent security log</string>
     <!-- Label indicating that the admin never took a given action so far (e.g. did not retrieve security logs or request bug reports). -->
-    <string name="enterprise_privacy_none" translatable="false">None</string>
+    <string name="enterprise_privacy_none">None</string>
     <!-- Label indicating that the admin installed one or more apps on the device. -->
-    <string name="enterprise_privacy_enterprise_installed_packages" translatable="false">Apps installed</string>
+    <string name="enterprise_privacy_enterprise_installed_packages">Apps installed</string>
     <!-- Label indicating that the admin granted one or more apps access to the device's location. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_location_access" translatable="false">Location permissions</string>
+    <string name="enterprise_privacy_location_access">Location permissions</string>
     <!-- Label indicating that the admin granted one or more apps access to the microphone. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_microphone_access" translatable="false">Microphone permissions</string>
+    <string name="enterprise_privacy_microphone_access">Microphone permissions</string>
     <!-- Label indicating that the admin granted one or more apps access to the camera. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_camera_access" translatable="false">Camera permissions</string>
+    <string name="enterprise_privacy_camera_access">Camera permissions</string>
     <!-- Label indicating that the admin set one or more apps as defaults for common actions (e.g. open browser, send e-mail). [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_enterprise_set_default_apps" translatable="false">Default apps</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps">Default apps</string>
     <!-- Label explaining that the current input method was set by the admin. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_input_method" translatable="false">Default keyboard</string>
+    <string name="enterprise_privacy_input_method">Default keyboard</string>
     <!-- Summary indicating the input method set by the admin. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_input_method_name" translatable="false">Set to <xliff:g id="app_label" example="Example Keyboard">%s</xliff:g></string>
-    <!-- Label explaining that an always-on VPN was set by the admin for the entire device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_input_method_name">Set to <xliff:g id="app_label" example="Example Keyboard">%s</xliff:g></string>
+    <!-- TODO(b/222330070) Remove unsupported code. Label explaining that an always-on VPN was set by the admin for the entire device. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_always_on_vpn_device" translatable="false">Always-on VPN turned on</string>
     <!-- Label explaining that a global HTTP proxy was set by the admin. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_global_http_proxy" translatable="false">Global HTTP proxy set</string>
-    <!-- Label explaining that the admin installed trusted CA certificates in personal profile. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_ca_certs_personal" translatable="false">Trusted credentials in your personal profile</string>
-    <!-- Label explaining that the admin can lock the device and change the user's password. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_lock_device" translatable="false">Admin can lock the device and reset password</string>
-    <!-- Label explaining that the admin can wipe the device remotely. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_wipe_device" translatable="false">Admin can delete all device data</string>
+    <string name="enterprise_privacy_global_http_proxy">Global HTTP proxy set</string>
+    <!-- TODO(b/222330070) Remove unsupported code. Label explaining that the admin installed trusted CA certificates in personal profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_ca_certs_personal">Trusted credentials in your personal profile</string>
+    <!-- Description for device access on managed device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_device_access_desc">
+        <li>Admin can lock the infotainment system and reset password</li>\n
+        <li>Admin can delete data on infotainment system</li>
+    </string>
     <!-- Label explaining that the admin configured the device to wipe itself when the password is mistyped too many times. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_failed_password_wipe_device" translatable="false">Failed password attempts before deleting all device data</string>
+    <string name="enterprise_privacy_failed_password_wipe_device">Failed password attempts before deleting all data on infotainment system</string>
     <!-- Label explaining that the admin configured the current user to wipe itself when the password is mistyped too many times. [CHAR LIMIT=NONE] -->
-    <string name="enterprise_privacy_failed_password_wipe_current_user" translatable="false">Failed password attempts before deleting  profile data</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user">Failed password attempts before deleting profile data</string>
+    <!-- TODO(b/222330070) Remove unsupported code. Label explaining that an always-on VPN was set by the admin in the personal profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_always_on_vpn_personal" translatable="false">Always-on VPN turned on in your personal profile</string>
+    <!-- TODO(b/222330070) Remove unsupported code. Label explaining that the admin installed trusted CA certificates for the entire device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_ca_certs_device" translatable="false">Trusted credentials</string>
+    <!-- TODO(b/222330070) Remove unsupported code. Summary indicating the number of trusted CA certificates installed by the admin. The number shown is a minimum as there may be additional CA certificates we do not know about. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_ca_certs" translatable="false">
+        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> CA certificate</item>
+        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> CA certificates</item>
+    </plurals>
+    <!-- Summary indicating the number of mistyped passwords after which the device or work profile wipes itself. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_failed_password_wipe">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g> attempt</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> attempts</item>
+    </plurals>
+    <!-- TODO(b/222330070) Remove unsupported code. Strings for displaying which applications were set as default for specific actions. -->
+    <!-- Title for the apps that have been set as default handlers of camera-related intents. [CHAR LIMIT=30] -->
+    <plurals name="default_camera_app_title">
+        <item quantity="one" translatable="false">Camera app</item>
+        <item quantity="other" translatable="false">Camera apps</item>
+    </plurals>
+    <!-- Title for the app that has been set as default handler of calendar-related intents. [CHAR LIMIT=30] -->
+    <string name="default_calendar_app_title" translatable="false">Calendar app</string>
+    <!-- Title for the app that has been set as default handler of contacts-related intents. [CHAR LIMIT=30] -->
+    <string name="default_contacts_app_title" translatable="false">Contacts app</string>
+    <!-- Title for the apps that have been set as default handlers of new email intents. [CHAR LIMIT=30] -->
+    <plurals name="default_email_app_title">
+        <item quantity="one" translatable="false">Email client app</item>
+        <item quantity="other" translatable="false">Email client apps</item>
+    </plurals>
+    <!-- Title for the app that has been set as default handler of geo-related intents. [CHAR LIMIT=30] -->
+    <string name="default_map_app_title" translatable="false">Map app</string>
+    <!-- Title for the apps that have been set as default handlers of call-related intents. [CHAR LIMIT=30] -->
+    <plurals name="default_phone_app_title">
+        <item quantity="one" translatable="false">Phone app</item>
+        <item quantity="other" translatable="false">Phone apps</item>
+    </plurals>
+    <!-- Title for Default Browser settings [CHAR LIMIT=30] -->
+    <string name="default_browser_title" translatable="false">Browser app</string>
+    <!-- Template for concatenating two app names -->
+    <string name="app_names_concatenation_template_2" translatable="false"><xliff:g id="first_app_name">%1$s</xliff:g>, <xliff:g id="second_app_name">%2$s</xliff:g></string>
+    <!-- Template for concatenating three app names -->
+    <string name="app_names_concatenation_template_3" translatable="false"><xliff:g id="first_app_name">%1$s</xliff:g>, <xliff:g id="second_app_name">%2$s</xliff:g>, <xliff:g id="third_app_name">%3$s</xliff:g></string>
 
     <!-- Remote request bugreport --><skip/>
     <!-- Title of dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the vehicle's organization manager. [CHAR LIMIT=50] -->
@@ -1837,6 +1995,35 @@
     <string name="share_remote_bugreport_action">Share</string>
     <!-- Decline label of dialog shown to ask for user consent for sharing the remote bugreport. [CHAR LIMIT=20] -->
     <string name="decline_remote_bugreport_action">Decline</string>
+
+    <!-- Strings used by FactoryResetActivity --><skip/>
+    <!-- Title for the dialog when delayed factory reset is required [CHAR_LIMIT=60] -->
+    <string name="factory_reset_parked_title">Reset the infotainment system</string>
+    <!-- Message for the dialog when delayed factory reset is required [CHAR_LIMIT=NONE] -->
+    <string name="factory_reset_parked_text">Your system has received a request to factory reset and erase all data. You can reset it now, or it will reset the next time the car starts. You can then set up a new profile.</string>
+    <!-- Label for the button that will reset the device now [CHAR_LIMIT=20] -->
+    <string name="factory_reset_now_button">Reset Now</string>
+    <!-- Label for the button that will reset the device later [CHAR_LIMIT=20] -->
+    <string name="factory_reset_later_button">Reset Later</string>
+    <!-- Text of the toast shown when the factory reset will be delayed [CHAR_LIMIT=50] -->
+    <string name="factory_reset_later_text">The infotainment system will reset the next time the car starts.</string>
+    <!-- Text of the toast shown to when detailed factory reset information is requested when driving [CHAR_LIMIT=50]-->
+    <string name="factory_reset_driving_text">The car must be parked to start the reset.</string>
+
+    <!-- Strings used by NewUserDisclaimerActivity --><skip/>
+    <!-- TODO(b/203004258): remove translatable="false" for following Strings once the proper strings have been defined -->
+    <!-- Title of the new managed user disclaimer dialog that informs the user that device is owned and managed by an enterprise [CHAR_LIMIT=60] -->
+    <string name="new_user_managed_device_title" translatable="false">This is a managed vehicle</string>
+    <!-- Message of the new managed user disclaimer dialog asking user to accept [CHAR_LIMIT=NONE] -->
+    <string name="new_user_managed_device_text" translatable="false">
+        New profiles will also be managed. Terms apply.\n\nIf you have questions, contact the admin. \n
+    </string>
+    <!-- Text for the new managed user disclaimer dialog button to launch Enterprise Privacy settings screen [CHAR_LIMIT=20]  -->
+    <string name="new_user_managed_device_learn_more" translatable="false">Learn more</string>
+    <!-- Text for the new managed user disclaimer dialog button to accept the disclaimer [CHAR_LIMIT=20] -->
+    <string name="new_user_managed_device_acceptance" translatable="false">Accept and continue</string>
+
+    <!-- End of Device Policy Management --><skip/>
 
     <!-- Power policy --><skip/>
     <!-- Power components which are disabled by the current power policy cannot be toggled in Setting. [CHAR LIMIT=80] -->
@@ -1883,4 +2070,48 @@
     <string name="captions_settings_text_style_yellow_on_black">Yellow on black</string>
     <!-- Settings option for closed captions text style to be yellow text on blue background [CHAR LIMIT=40] -->
     <string name="captions_settings_text_style_yellow_on_blue">Yellow on blue</string>
+
+    <!-- Header for the section of the accessibility settings that lets the user change their screen reader settings. [CHAR LIMIT=30] -->
+    <string name="accessibility_settings_screen_reader_title">Screen reader</string>
+    <!-- Subtitle for the screen reader settings item when it is turned off [CHAR LIMIT=30] -->
+    <string name="screen_reader_settings_off">Off</string>
+    <!-- Subtitle for the screen reader settings item when it is turned on [CHAR LIMIT=40] -->
+    <string name="screen_reader_settings_on">Speak items on screen</string>
+    <!-- Title for toggle to enable the  screen reader. [CHAR LIMIT=30] -->
+    <string name="enable_screen_reader_toggle_title">Use <xliff:g id="accessibility_app_name" example="TalkBack">%1$s</xliff:g></string>
+    <!-- Header for the options section of the screen reader settings. [CHAR LIMIT=30] -->
+    <string name="screen_reader_options_title">Options</string>
+    <!-- Header for the settings section of the screen reader settings. [CHAR LIMIT=30] -->
+    <string name="screen_reader_description_title">Settings</string>
+
+    <!-- Camera --><skip/>
+    <!-- Title of camera settings screen [CHAR LIMIT=40] -->
+    <string name="camera_settings_title">Camera</string>
+    <!-- Title of setting to toggle camera [CHAR LIMIT=40] -->
+    <string name="camera_toggle_title">Use camera</string>
+    <!-- Summary of setting to toggle camera [CHAR LIMIT=100] -->
+    <string name="camera_toggle_summary">Allow all apps to access your camera</string>
+    <!-- Title of setting linking to camera permission management screen [CHAR LIMIT=60] -->
+    <string name="camera_manage_permissions">Manage camera permissions</string>
+    <!-- Title of Recent Camera Accesses category [CHAR LIMIT=60] -->
+    <string name="camera_recently_accessed">Recently accessed</string>
+    <!-- Description when no apps have accessed camera recently [CHAR LIMIT=60] -->
+    <string name="camera_no_recent_access">No recent apps</string>
+    <!-- Summary for number of apps that have access when camera is off.  [CHAR LIMIT=100] -->
+    <string name="camera_app_permission_summary_camera_off">0 apps have access</string>
+    <!--
+    Summary for Camera settings when camera is on, explaining how many apps have camera
+    permission. [CHAR LIMIT=100]-->
+    <string name="camera_app_permission_summary_camera_on">
+        {count, plural,
+            =1    {# of {total_count} apps has access}
+            other {# of {total_count} apps have access}
+        }
+    </string>
+    <!-- Title of Recent Camera Requests setting [CHAR LIMIT=60] -->
+    <string name="camera_settings_recent_requests_title">Recently accessed</string>
+    <!-- Title of Recent Camera Requests setting [CHAR LIMIT=60] -->
+    <string name="camera_settings_recent_requests_view_all_title">View all</string>
+    <!-- Camera settings, loading the number of apps which have camera permission [CHAR LIMIT=30] -->
+    <string name="camera_settings_loading_app_permission_stats">Loading\u2026</string>
 </resources>

@@ -27,6 +27,7 @@ message ApplicationInfo {
   optional string version_string = 3;
   optional string package_name = 4;
   optional string installer = 5;
+  optional bytes certificate_hash = 6;
 }
 
 // StatsServiceCompanion uses the proto to supply statsd with uid-package

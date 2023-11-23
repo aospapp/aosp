@@ -18,10 +18,6 @@
 
 #include "chre/platform/fatal_error.h"
 
-namespace chre {
-
-void doAssert(const char *filename, size_t line) {
+void chreDoAssert(const char *filename, size_t line) {
   FATAL_ERROR("Assertion failure at %s:%zu", filename, line);
 }
-
-}  // namespace chre

@@ -23,6 +23,7 @@
 #include "host-common/address_space_device.h"
 #include "host-common/address_space_graphics.h"
 #include "host-common/address_space_graphics_types.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/GoldfishDma.h"
 #include "host-common/RefcountPipe.h"
 #include "host-common/FeatureControl.h"
@@ -48,12 +49,12 @@
 //     VERBOSE_PRINT(init,__VA_ARGS__); \
 //     android_opengl_logger_write(__VA_ARGS__); \
 // } while(0);
-// 
+//
 // #define DD(...) do { \
 //     VERBOSE_PRINT(gles,__VA_ARGS__); \
 //     android_opengl_logger_write(__VA_ARGS__); \
 // } while(0);
-// 
+//
 // #define E(fmt,...) do { \
 //     derror(fmt, ##__VA_ARGS__); \
 //     android_opengl_logger_write(fmt "\n", ##__VA_ARGS__); \
@@ -62,8 +63,10 @@
 using android::base::pj;
 using android::base::SharedLibrary;
 using android::emulation::asg::AddressSpaceGraphicsContext;
-using android::emulation::asg::ConsumerInterface;
 using android::emulation::asg::ConsumerCallbacks;
+using android::emulation::asg::ConsumerInterface;
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 /* Name of the GLES rendering library we're going to use */
 #define RENDERER_LIB_NAME "libOpenglRender"
@@ -109,36 +112,36 @@ int android_prepareOpenglesEmulation() {
 
     return 0;
 }
-// 
+//
 //     char* error = NULL;
-// 
+//
 //     if (sRenderLib != NULL)
 //         return 0;
-// 
+//
 //     D("Initializing hardware OpenGLES emulation support");
-// 
+//
 //     SharedLibrary* rendererSo =
 //         SharedLibrary::open(RENDERER_LIB_NAME);
 //     if (rendererSo == NULL) {
 //         E("Could not load OpenGLES emulation library [%s]: %s",
 //                RENDERER_LIB_NAME, error);
-// 
+//
 //         E("Retrying in program directory/lib64...");
-// 
+//
 //         auto progDir = System::get()->getProgramDirectory();
-// 
+//
 //         auto retryLibPath =
 //             pj(progDir, "lib64", RENDERER_LIB_NAME);
-// 
+//
 //         rendererSo = adynamicLibrary_open(retryLibPath.c_str(), &error);
-// 
+//
 //         if (rendererSo == nullptr) {
 //             E("Could not load OpenGLES emulation library [%s]: %s (2nd try)",
 //                    retryLibPath.c_str(), error);
 //             return -1;
 //         }
 //     }
-// 
+//
 //     /* Resolve the functions */
 //     if (initOpenglesEmulationFuncs(rendererSo) < 0) {
 //         E("OpenGLES emulation library mismatch. Be sure to use the correct version!");
@@ -146,33 +149,33 @@ int android_prepareOpenglesEmulation() {
 //             "OpenGLES emulation library mismatch. Be sure to use the correct version!");
 //         goto BAD_EXIT;
 //     }
-// 
+//
 //     sRenderLib = initLibrary();
 //     if (!sRenderLib) {
 //         E("OpenGLES initialization failed!");
 //         crashhandler_append_message_format("OpenGLES initialization failed!");
 //         goto BAD_EXIT;
 //     }
-// 
+//
 //     sRendererUsesSubWindow = true;
 //     if (const char* env = getenv("ANDROID_GL_SOFTWARE_RENDERER")) {
 //         if (env[0] != '\0' && env[0] != '0') {
 //             sRendererUsesSubWindow = false;
 //         }
 //     }
-// 
+//
 //     sEgl2egl = false;
 //     if (const char* env = getenv("ANDROID_EGL_ON_EGL")) {
 //         if (env[0] != '\0' && env[0] == '1') {
 //             sEgl2egl = true;
 //         }
 //     }
-// 
+//
 //     sEgl = (const EGLDispatch *)sRenderLib->getEGLDispatch();
 //     sGlesv2 = (const GLESv2Dispatch *)sRenderLib->getGLESv2Dispatch();
-// 
+//
 //     return 0;
-// 
+//
 // BAD_EXIT:
 //     E("OpenGLES emulation library could not be initialized!");
 //     adynamicLibrary_close(rendererSo);
@@ -191,8 +194,8 @@ int android_setOpenglesEmulation(void* renderLib, void* eglDispatch, void* glesv
 }
 
 int android_initOpenglesEmulation() {
-    fprintf(stderr, "%s: Not meant to call android_initOpenglesEmulation in the new build\n", __func__);
-    abort();
+    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+        << "Not meant to call android_initOpenglesEmulation in the new build.";
 }
 
 int

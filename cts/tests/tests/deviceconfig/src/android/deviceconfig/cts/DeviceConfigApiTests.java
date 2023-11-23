@@ -20,8 +20,9 @@ import static android.provider.Settings.RESET_MODE_PACKAGE_DEFAULTS;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.os.SystemClock;
@@ -816,6 +817,106 @@ public final class DeviceConfigApiTests {
                 + " getProperty() when property is not null", DEFAULT_FLOAT, result, 0.0f);
     }
 
+    @Test
+    public void testDeleteProperty_nullNamespace() {
+        try {
+            DeviceConfig.deleteProperty(null, KEY1);
+            fail("DeviceConfig.deleteProperty() with null namespace must result in "
+                    + "NullPointerException");
+        } catch (NullPointerException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testDeleteProperty_nullName() {
+        try {
+            DeviceConfig.deleteProperty(NAMESPACE1, null);
+            fail("DeviceConfig.deleteProperty() with null name must result in "
+                    + "NullPointerException");
+        } catch (NullPointerException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testDeletePropertyString() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
+        assertEquals("DeviceConfig.Properties.getString() must return default value if "
+                + "property is deleted", DEFAULT_VALUE,
+                DeviceConfig.getProperties(NAMESPACE1, KEY1).getString(KEY1, DEFAULT_VALUE));
+    }
+
+    @Test
+    public void testDeletePropertyBoolean() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(BOOLEAN_TRUE));
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
+        assertEquals("DeviceConfig.Properties.getBoolean() must return default value if "
+                        + "property is deleted", BOOLEAN_FALSE,
+                DeviceConfig.getProperties(NAMESPACE1, KEY1).getBoolean(KEY1,
+                        DEFAULT_BOOLEAN_FALSE));
+    }
+
+    @Test
+    public void testDeletePropertyInt() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_INT));
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
+        assertEquals("DeviceConfig.Properties.getInt() must return default value if "
+                        + "property is deleted", DEFAULT_INT,
+                DeviceConfig.getProperties(NAMESPACE1, KEY1).getInt(KEY1, DEFAULT_INT));
+    }
+
+    @Test
+    public void testDeletePropertyLong() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_LONG));
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
+        assertEquals("DeviceConfig.Properties.getLong() must return default value if "
+                        + "property is deleted", DEFAULT_LONG,
+                DeviceConfig.getProperties(NAMESPACE1, KEY1).getLong(KEY1, DEFAULT_LONG));
+    }
+
+    @Test
+    public void testDeletePropertyFloat() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, String.valueOf(VALID_FLOAT));
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
+        assertEquals("DeviceConfig.Properties.getString() must return default value if "
+                        + "property is deleted", DEFAULT_FLOAT,
+                DeviceConfig.getProperties(NAMESPACE1, KEY1).getFloat(KEY1, DEFAULT_FLOAT), 0.0f);
+    }
+
+    @Test
+    public void testDeleteProperty_withNonExistingProperty() {
+        assertNull(DeviceConfig.getProperty(NAMESPACE1, KEY1));
+        // Test that deletion returns true when the key doesn't exist
+        deletePropertyAndAssertNoChange(NAMESPACE1, KEY1);
+    }
+
+    @Test
+    public void testDeleteProperty_withUndeletedProperty() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY2, VALUE2);
+        assertEquals(VALUE1, DeviceConfig.getProperty(NAMESPACE1, KEY1));
+        assertEquals(VALUE2, DeviceConfig.getProperty(NAMESPACE1, KEY2));
+        final Properties propertiesBeforeDeletion = DeviceConfig.getProperties(
+                NAMESPACE1, KEY1, KEY2);
+        assertEquals(VALUE1, propertiesBeforeDeletion.getString(KEY1, DEFAULT_VALUE));
+        assertEquals(VALUE2, propertiesBeforeDeletion.getString(KEY2, DEFAULT_VALUE));
+        // Only delete one property, leaving another one undeleted
+        final Properties propertiesAfterDeletion = deletePropertyAndAssertSuccessfulChange(
+                NAMESPACE1, KEY1);
+        final String result = DeviceConfig.getString(NAMESPACE1, KEY1, DEFAULT_VALUE);
+        assertEquals("DeviceConfig.getString() must return default value if property is "
+                + "deleted", DEFAULT_VALUE, result);
+        assertNull("DeviceConfig.getProperty() must return null if property is deleted",
+                DeviceConfig.getProperty(NAMESPACE1, KEY1));
+        assertEquals(VALUE2, DeviceConfig.getProperty(NAMESPACE1, KEY2));
+        assertEquals("DeviceConfig.Properties.getString() must return default value if "
+                + "property is deleted", DEFAULT_VALUE, propertiesAfterDeletion.getString(KEY1,
+                DEFAULT_VALUE));
+        assertEquals(VALUE2, propertiesBeforeDeletion.getString(KEY2, DEFAULT_VALUE));
+    }
+
     /**
      * Test that properties listener is successfully registered and provides callbacks on value
      * change when DeviceConfig.setProperty is called.
@@ -834,6 +935,16 @@ public final class DeviceConfigApiTests {
         Properties properties = new Properties.Builder(NAMESPACE1)
                 .setString(KEY1, VALUE1).setInt(KEY2, VALID_INT).build();
         setPropertiesAndAssertSuccessfulChange(properties);
+    }
+
+    /**
+     * Test that properties listener is successfully registered and provides callbacks on value
+     * change when DeviceConfig.deleteProperty is called.
+     */
+    @Test
+    public void testPropertiesListener_deleteProperty() {
+        setPropertiesAndAssertSuccessfulChange(NAMESPACE1, KEY1, VALUE1);
+        deletePropertyAndAssertSuccessfulChange(NAMESPACE1, KEY1);
     }
 
     /**
@@ -1078,6 +1189,47 @@ public final class DeviceConfigApiTests {
                 1, receivedUpdates.size());
         PropertyUpdate propertiesUpdate = receivedUpdates.get(0);
         propertiesUpdate.assertEqual(properties);
+
+        return propertiesUpdate.properties;
+    }
+
+    private Properties deletePropertyAndAssertSuccessfulChange(String namespace, String name) {
+        final List<PropertyUpdate> receivedUpdates = new ArrayList<>();
+        OnPropertiesChangedListener changeListener = createOnPropertiesChangedListener(receivedUpdates);
+
+        DeviceConfig.addOnPropertiesChangedListener(namespace, EXECUTOR, changeListener);
+
+        assertTrue(DeviceConfig.deleteProperty(namespace, name));
+        assertNull("DeviceConfig.getProperty() must return null if property is deleted",
+                DeviceConfig.getProperty(namespace, name));
+        waitForListenerUpdateOrTimeout(receivedUpdates, 1);
+        DeviceConfig.removeOnPropertiesChangedListener(changeListener);
+
+        assertEquals("Failed to receive update to OnPropertiesChangedListener",
+                receivedUpdates.size(), 1);
+        PropertyUpdate propertiesUpdate = receivedUpdates.get(0);
+        propertiesUpdate.assertEqual(namespace, name, null);
+
+        return propertiesUpdate.properties;
+    }
+
+    private Properties deletePropertyAndAssertNoChange(String namespace, String name) {
+        final List<PropertyUpdate> receivedUpdates = new ArrayList<>();
+        OnPropertiesChangedListener changeListener = createOnPropertiesChangedListener(
+                receivedUpdates);
+
+        DeviceConfig.addOnPropertiesChangedListener(namespace, EXECUTOR, changeListener);
+
+        assertTrue(DeviceConfig.deleteProperty(namespace, name));
+        assertNull("DeviceConfig.getProperty() must return null if property is deleted",
+                DeviceConfig.getProperty(namespace, name));
+        DeviceConfig.removeOnPropertiesChangedListener(changeListener);
+
+        assertEquals("Received unexpected update to OnPropertiesChangedListener",
+                receivedUpdates.size(), 0);
+        PropertyUpdate propertiesUpdate = new PropertyUpdate(DeviceConfig.getProperties(
+                namespace, ""));
+        propertiesUpdate.assertEqual(namespace, name, null);
 
         return propertiesUpdate.properties;
     }

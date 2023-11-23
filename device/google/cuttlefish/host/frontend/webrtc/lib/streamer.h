@@ -32,7 +32,7 @@
 #include "host/frontend/webrtc/lib/connection_observer.h"
 #include "host/frontend/webrtc/lib/local_recorder.h"
 #include "host/frontend/webrtc/lib/video_sink.h"
-#include "host/frontend/webrtc/lib/ws_connection.h"
+#include "host/frontend/webrtc/lib/server_connection.h"
 
 namespace cuttlefish {
 namespace webrtc_streaming {
@@ -42,18 +42,9 @@ class ClientHandler;
 struct StreamerConfig {
   // The id with which to register with the operator server.
   std::string device_id;
-  struct {
-    // The ip address or domain name of the operator server.
-    std::string addr;
-    int port;
-    // The path component of the operator server's register url.
-    std::string path;
-    // The security level to use when connecting to the operator server.
-    WsConnection::Security security;
-    // A list of key value pairs to include as HTTP handshake headers when
-    // connecting to the operator.
-    std::vector<std::pair<std::string, std::string>> http_headers;
-  } operator_server;
+  // The port on which the client files are being served
+  int client_files_port;
+  ServerConfig operator_server;
   // The port ranges webrtc is allowed to use.
   // [0,0] means all ports
   std::pair<uint16_t, uint16_t> udp_port_range = {15550, 15558};

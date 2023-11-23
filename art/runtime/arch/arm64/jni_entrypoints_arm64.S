@@ -16,35 +16,88 @@
 
 #include "asm_support_arm64.S"
 
+#define ALL_ARGS_SIZE (/*x0-x7*/ 8 * 8 + /*d0-d7*/ 8 * 8)
+
+.macro SAVE_ALL_ARGS_INCREASE_FRAME extra_space
+    // Save register args x0-x7, d0-d7 and return address.
+    stp    x0, x1, [sp, #-(ALL_ARGS_SIZE + \extra_space)]!
+    .cfi_adjust_cfa_offset (ALL_ARGS_SIZE + \extra_space)
+    stp    x2, x3, [sp, #16]
+    stp    x4, x5, [sp, #32]
+    stp    x6, x7, [sp, #48]
+    stp    d0, d1, [sp, #64]
+    stp    d2, d3, [sp, #80]
+    stp    d4, d5, [sp, #96]
+    stp    d6, d7, [sp, #112]
+.endm
+
+.macro RESTORE_ALL_ARGS_DECREASE_FRAME extra_space
+    ldp    x2, x3, [sp, #16]
+    ldp    x4, x5, [sp, #32]
+    ldp    x6, x7, [sp, #48]
+    ldp    d0, d1, [sp, #64]
+    ldp    d2, d3, [sp, #80]
+    ldp    d4, d5, [sp, #96]
+    ldp    d6, d7, [sp, #112]
+    ldp    x0, x1, [sp], #(ALL_ARGS_SIZE + \extra_space)
+    .cfi_adjust_cfa_offset -(ALL_ARGS_SIZE + \extra_space)
+.endm
+
+.macro JNI_SAVE_MANAGED_ARGS_TRAMPOLINE name, cxx_name, arg1 = "none"
+    .extern \cxx_name
+ENTRY \name
+    // Save args and LR.
+    SAVE_ALL_ARGS_INCREASE_FRAME /*padding*/ 8 + /*LR*/ 8
+    str    lr, [sp, #(ALL_ARGS_SIZE + /*padding*/ 8)]
+    .cfi_rel_offset lr, ALL_ARGS_SIZE + /*padding*/ 8
+    // Call `cxx_name()`.
+    .ifnc \arg1, none
+        mov x0, \arg1                          // Pass arg1.
+    .endif
+    bl     \cxx_name                           // Call cxx_name(...).
+    // Restore LR and args and return.
+    ldr    lr, [sp, #(ALL_ARGS_SIZE + /*padding*/ 8)]
+    .cfi_restore lr
+    RESTORE_ALL_ARGS_DECREASE_FRAME /*padding*/ 8 + /*LR*/ 8
+    ret
+END \name
+.endm
+
+.macro JNI_SAVE_RETURN_VALUE_TRAMPOLINE name, cxx_name, arg1, arg2 = "none"
+    .extern \cxx_name
+ENTRY \name
+    // Save return registers and return address.
+    stp    x0, lr, [sp, #-32]!
+    .cfi_adjust_cfa_offset 32
+    .cfi_rel_offset lr, 8
+    str    d0, [sp, #16]
+    // Call `cxx_name()`.
+    mov    x0, \arg1                           // Pass arg1.
+    .ifnc \arg2, none
+        mov x1, \arg2                          // Pass arg2.
+    .endif
+    bl     \cxx_name                           // Call cxx_name(...).
+    // Restore return registers and return.
+    ldr    d0, [sp, #16]
+    ldp    x0, lr, [sp], #32
+    .cfi_adjust_cfa_offset -32
+    .cfi_restore lr
+    ret
+END \name
+.endm
+
     /*
      * Jni dlsym lookup stub.
      */
     .extern artFindNativeMethod
     .extern artFindNativeMethodRunnable
-
 ENTRY art_jni_dlsym_lookup_stub
     // spill regs.
-    stp   x29, x30, [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    .cfi_rel_offset x29, 0
-    .cfi_rel_offset x30, 8
-    mov   x29, sp
-    stp   d6, d7,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   d4, d5,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   d2, d3,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   d0, d1,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   x6, x7,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   x4, x5,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   x2, x3,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
-    stp   x0, x1,   [sp, #-16]!
-    .cfi_adjust_cfa_offset 16
+    SAVE_ALL_ARGS_INCREASE_FRAME 2 * 8
+    stp   x29, x30, [sp, ALL_ARGS_SIZE]
+    .cfi_rel_offset x29, ALL_ARGS_SIZE
+    .cfi_rel_offset x30, ALL_ARGS_SIZE + 8
+    add   x29, sp, ALL_ARGS_SIZE
 
     mov x0, xSELF   // pass Thread::Current()
     // Call artFindNativeMethod() for normal native and artFindNativeMethodRunnable()
@@ -64,26 +117,10 @@ ENTRY art_jni_dlsym_lookup_stub
     mov   x17, x0    // store result in scratch reg.
 
     // load spill regs.
-    ldp   x0, x1,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   x2, x3,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   x4, x5,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   x6, x7,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   d0, d1,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   d2, d3,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   d4, d5,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   d6, d7,   [sp], #16
-    .cfi_adjust_cfa_offset -16
-    ldp   x29, x30, [sp], #16
-    .cfi_adjust_cfa_offset -16
+    ldp   x29, x30, [sp, #ALL_ARGS_SIZE]
     .cfi_restore x29
     .cfi_restore x30
+    RESTORE_ALL_ARGS_DECREASE_FRAME 2 * 8
 
     cbz   x17, 1f   // is method code null ?
     br    x17       // if non-null, tail call to method's code.
@@ -92,23 +129,18 @@ ENTRY art_jni_dlsym_lookup_stub
     ret             // restore regs and return to caller to handle exception.
 END art_jni_dlsym_lookup_stub
 
+    /*
+     * Jni dlsym lookup stub for @CriticalNative.
+     */
 ENTRY art_jni_dlsym_lookup_critical_stub
     // The hidden arg holding the tagged method (bit 0 set means GenericJNI) is x15.
     // For Generic JNI we already have a managed frame, so we reuse the art_jni_dlsym_lookup_stub.
     tbnz  x15, #0, art_jni_dlsym_lookup_stub
 
     // Save args, the hidden arg and caller PC. No CFI needed for args and the hidden arg.
-    stp   x0, x1, [sp, #-(8 * 8 + 8 * 8 + 2 * 8)]!
-    .cfi_adjust_cfa_offset (8 * 8 + 8 * 8 + 2 * 8)
-    stp   x2, x3, [sp, #16]
-    stp   x4, x5, [sp, #32]
-    stp   x6, x7, [sp, #48]
-    stp   d0, d1, [sp, #64]
-    stp   d2, d3, [sp, #80]
-    stp   d4, d5, [sp, #96]
-    stp   d6, d7, [sp, #112]
-    stp   x15, lr, [sp, #128]
-    .cfi_rel_offset lr, 136
+    SAVE_ALL_ARGS_INCREASE_FRAME 2 * 8
+    stp   x15, lr, [sp, #ALL_ARGS_SIZE]
+    .cfi_rel_offset lr, ALL_ARGS_SIZE + 8
 
     // Call artCriticalNativeFrameSize(method, caller_pc)
     mov   x0, x15  // x0 := method (from hidden arg)
@@ -119,17 +151,9 @@ ENTRY art_jni_dlsym_lookup_critical_stub
     mov   x14, x0
 
     // Restore args, the hidden arg and caller PC.
-    ldp   x2, x3, [sp, #16]
-    ldp   x4, x5, [sp, #32]
-    ldp   x6, x7, [sp, #48]
-    ldp   d0, d1, [sp, #64]
-    ldp   d2, d3, [sp, #80]
-    ldp   d4, d5, [sp, #96]
-    ldp   d6, d7, [sp, #112]
     ldp   x15, lr, [sp, #128]
     .cfi_restore lr
-    ldp   x0, x1, [sp], #(8 * 8 + 8 * 8 + 2 * 8)
-    .cfi_adjust_cfa_offset -(8 * 8 + 8 * 8 + 2 * 8)
+    RESTORE_ALL_ARGS_DECREASE_FRAME 2 * 8
 
     // Reserve space for a SaveRefsAndArgs managed frame, either for the actual runtime
     // method or for a GenericJNI frame which is similar but has a native method and a tag.
@@ -272,8 +296,7 @@ ENTRY art_jni_dlsym_lookup_critical_stub
 
     // Do the tail call.
     br    x13
-    .cfi_restore_state
-    .cfi_def_cfa sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
+    CFI_RESTORE_STATE_AND_DEF_CFA sp, FRAME_SIZE_SAVE_REFS_AND_ARGS
 
 .Lcritical_deliver_exception:
     // The exception delivery checks that xSELF was saved but the SaveRefsAndArgs
@@ -321,11 +344,112 @@ ENTRY art_jni_dlsym_lookup_critical_stub
 
     // Store ArtMethod* Runtime::callee_save_methods_[kSaveAllCalleeSaves] to the managed frame.
     LOAD_RUNTIME_INSTANCE xIP0
-    ldr xIP0, [xIP0, #RUNTIME_SAVE_ALL_CALLEE_SAVES_METHOD_OFFSET]
-    str xIP0, [x29]
+    ldr   xIP0, [xIP0, #RUNTIME_SAVE_ALL_CALLEE_SAVES_METHOD_OFFSET]
+    str   xIP0, [x29]
 
     // Place the managed frame SP in Thread::Current()->top_quick_frame.
-    str x29, [xSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]
+    str   x29, [xSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]
 
     DELIVER_PENDING_EXCEPTION_FRAME_READY
 END art_jni_dlsym_lookup_critical_stub
+
+    /*
+     * Read barrier for the method's declaring class needed by JNI stub for static methods.
+     * (We're using a pointer to the declaring class in `ArtMethod` as `jclass`.)
+     */
+// The method argument is already in x0 for call to `artJniReadBarrier(ArtMethod*)`.
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_read_barrier, artJniReadBarrier
+
+    /*
+     * Trampoline to `artJniMethodStart()` that preserves all managed arguments.
+     */
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_method_start, artJniMethodStart, xSELF
+
+    /*
+     * Trampoline to `artJniMonitoredMethodStart()` that preserves all managed arguments.
+     */
+JNI_SAVE_MANAGED_ARGS_TRAMPOLINE art_jni_monitored_method_start, artJniMonitoredMethodStart, xSELF
+
+    /*
+     * Trampoline to `artJniMethodEnd()` that preserves all return registers.
+     */
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_method_end, artJniMethodEnd, xSELF
+
+    /*
+     * Trampoline to `artJniMonitoredMethodEnd()` that preserves all return registers.
+     */
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_monitored_method_end, artJniMonitoredMethodEnd, xSELF
+
+    /*
+     * Entry from JNI stub that tries to lock the object in a fast path and
+     * calls `artLockObjectFromCode()` (the same as for managed code) for the
+     * difficult cases, may block for GC.
+     * Custom calling convention:
+     *     x15 holds the non-null object to lock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     All argument registers need to be preserved.
+     */
+ENTRY art_jni_lock_object
+    LOCK_OBJECT_FAST_PATH x15, art_jni_lock_object_no_inline, /*can_be_null*/ 0
+END art_jni_lock_object
+
+    /*
+     * Entry from JNI stub that calls `artLockObjectFromCode()`
+     * (the same as for managed code), may block for GC.
+     * Custom calling convention:
+     *     x15 holds the non-null object to lock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     All argument registers need to be preserved.
+     */
+    .extern artLockObjectFromCode
+ENTRY art_jni_lock_object_no_inline
+    // This is also the slow path for art_jni_lock_object.
+    // Save args and LR.
+    SAVE_ALL_ARGS_INCREASE_FRAME /*padding*/ 8 + /*LR*/ 8
+    str    lr, [sp, #(ALL_ARGS_SIZE + /*padding*/ 8)]
+    .cfi_rel_offset lr, ALL_ARGS_SIZE + /*padding*/ 8
+    // Call `artLockObjectFromCode()`.
+    mov    x0, x15                    // Pass the object to lock.
+    mov    x1, xSELF                  // Pass Thread::Current().
+    bl     artLockObjectFromCode      // (Object* obj, Thread*)
+    // Restore return address.
+    ldr    lr, [sp, #(ALL_ARGS_SIZE + /*padding*/ 8)]
+    .cfi_restore lr
+    // Check result.
+    cbnz   x0, 1f
+    // Restore register args x0-x7, d0-d7 and return.
+    RESTORE_ALL_ARGS_DECREASE_FRAME /*padding*/ 8 + /*LR*/ 8
+    ret
+    .cfi_adjust_cfa_offset (ALL_ARGS_SIZE + /*padding*/ 8 + /*LR*/ 8)
+1:
+    // All args are irrelevant when throwing an exception. Remove the spill area.
+    DECREASE_FRAME (ALL_ARGS_SIZE + /*padding*/ 8 + /*LR*/ 8)
+    // Make a tail call to `artDeliverPendingExceptionFromCode()`.
+    // Rely on the JNI transition frame constructed in the JNI stub.
+    mov    x0, xSELF                           // Pass Thread::Current().
+    b      artDeliverPendingExceptionFromCode  // (Thread*)
+END art_jni_lock_object_no_inline
+
+    /*
+     * Entry from JNI stub that tries to unlock the object in a fast path and calls
+     * `artJniUnlockObject()` for the difficult cases. Note that failure to unlock
+     * is fatal, so we do not need to check for exceptions in the slow path.
+     * Custom calling convention:
+     *     x15 holds the non-null object to unlock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     Return registers r0 and d0 need to be preserved.
+     */
+ENTRY art_jni_unlock_object
+    UNLOCK_OBJECT_FAST_PATH x15, art_jni_unlock_object_no_inline, /*can_be_null*/ 0
+END art_jni_unlock_object
+
+    /*
+     * Entry from JNI stub that calls `artJniUnlockObject()`. Note that failure to
+     * unlock is fatal, so we do not need to check for exceptions.
+     * Custom calling convention:
+     *     x15 holds the non-null object to unlock.
+     *     Callee-save registers have been saved and can be used as temporaries.
+     *     Return registers r0 and d0 need to be preserved.
+     */
+    // This is also the slow path for art_jni_unlock_object.
+JNI_SAVE_RETURN_VALUE_TRAMPOLINE art_jni_unlock_object_no_inline, artJniUnlockObject, x15, xSELF

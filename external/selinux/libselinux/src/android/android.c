@@ -14,6 +14,9 @@ static const struct selinux_opt seopts_service_plat[] = {
     { SELABEL_OPT_PATH, "/system/etc/selinux/plat_service_contexts" },
     { SELABEL_OPT_PATH, "/plat_service_contexts" }
 };
+static const struct selinux_opt seopts_service_apex[] = {
+    { SELABEL_OPT_PATH, "/dev/selinux/apex_service_contexts" }
+};
 static const struct selinux_opt seopts_service_system_ext[] = {
     { SELABEL_OPT_PATH, "/system_ext/etc/selinux/system_ext_service_contexts" },
     { SELABEL_OPT_PATH, "/system_ext_service_contexts" }
@@ -24,10 +27,7 @@ static const struct selinux_opt seopts_service_product[] = {
 };
 static const struct selinux_opt seopts_service_vendor[] = {
     { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_service_contexts" },
-    { SELABEL_OPT_PATH, "/vendor_service_contexts" },
-    // TODO: remove nonplat* when no need to retain backward compatibility.
-    { SELABEL_OPT_PATH, "/vendor/etc/selinux/nonplat_service_contexts" },
-    { SELABEL_OPT_PATH, "/nonplat_service_contexts" }
+    { SELABEL_OPT_PATH, "/vendor_service_contexts" }
 };
 
 static const struct selinux_opt seopts_hwservice_plat[] = {
@@ -44,10 +44,7 @@ static const struct selinux_opt seopts_hwservice_product[] = {
 };
 static const struct selinux_opt seopts_hwservice_vendor[] = {
     { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_hwservice_contexts" },
-    { SELABEL_OPT_PATH, "/vendor_hwservice_contexts" },
-    // TODO: remove nonplat* when no need to retain backward compatibility.
-    { SELABEL_OPT_PATH, "/vendor/etc/selinux/nonplat_hwservice_contexts" },
-    { SELABEL_OPT_PATH, "/nonplat_hwservice_contexts" }
+    { SELABEL_OPT_PATH, "/vendor_hwservice_contexts" }
 };
 static const struct selinux_opt seopts_hwservice_odm[] = {
     { SELABEL_OPT_PATH, "/odm/etc/selinux/odm_hwservice_contexts" },
@@ -125,6 +122,12 @@ struct selabel_handle* selinux_android_service_context_handle(void)
     for (i = 0; i < ARRAY_SIZE(seopts_service_plat); i++) {
         if (access(seopts_service_plat[i].value, R_OK) != -1) {
             seopts_service[size++] = seopts_service_plat[i];
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(seopts_service_apex); i++) {
+        if (access(seopts_service_apex[i].value, R_OK) != -1) {
+            seopts_service[size++] = seopts_service_apex[i];
             break;
         }
     }

@@ -13,8 +13,8 @@
 #include "gflags/gflags.h"
 #endif
 
+#include "puffin/file_stream.h"
 #include "puffin/src/extent_stream.h"
-#include "puffin/src/file_stream.h"
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/huffer.h"
 #include "puffin/src/include/puffin/puffdiff.h"
@@ -22,7 +22,7 @@
 #include "puffin/src/include/puffin/puffpatch.h"
 #include "puffin/src/include/puffin/utils.h"
 #include "puffin/src/logging.h"
-#include "puffin/src/memory_stream.h"
+#include "puffin/memory_stream.h"
 #include "puffin/src/puffin_stream.h"
 
 using puffin::BitExtent;
@@ -154,44 +154,46 @@ bool LocateDeflatesBasedOnFileType(const UniqueStreamPtr& stream,
 
 }  // namespace
 
-#define SETUP_FLAGS                                                        \
-  DEFINE_string(src_file, "", "Source file");                              \
-  DEFINE_string(dst_file, "", "Target file");                              \
-  DEFINE_string(patch_file, "", "patch file");                             \
-  DEFINE_string(                                                           \
-      src_deflates_byte, "",                                               \
-      "Source deflate byte locations in the format offset:length,...");    \
-  DEFINE_string(                                                           \
-      dst_deflates_byte, "",                                               \
-      "Target deflate byte locations in the format offset:length,...");    \
-  DEFINE_string(                                                           \
-      src_deflates_bit, "",                                                \
-      "Source deflate bit locations in the format offset:length,...");     \
-  DEFINE_string(                                                           \
-      dst_deflates_bit, "",                                                \
-      "Target deflatebit locations in the format offset:length,...");      \
-  DEFINE_string(src_puffs, "",                                             \
-                "Source puff locations in the format offset:length,...");  \
-  DEFINE_string(dst_puffs, "",                                             \
-                "Target puff locations in the format offset:length,...");  \
-  DEFINE_string(src_extents, "",                                           \
-                "Source extents in the format of offset:length,...");      \
-  DEFINE_string(dst_extents, "",                                           \
-                "Target extents in the format of offset:length,...");      \
-  DEFINE_string(operation, "",                                             \
-                "Type of the operation: puff, huff, puffdiff, puffpatch, " \
-                "puffhuff");                                               \
-  DEFINE_string(src_file_type, "",                                         \
-                "Type of the input source file: deflate, gzip, "           \
-                "zlib or zip");                                            \
-  DEFINE_string(dst_file_type, "",                                         \
-                "Same as src_file_type but for the target file");          \
-  DEFINE_bool(verbose, false,                                              \
-              "Logs all the given parameters including internally "        \
-              "generated ones");                                           \
-  DEFINE_uint64(cache_size, kDefaultPuffCacheSize,                         \
-                "Maximum size to cache the puff stream. Used in puffpatch");
-
+#define SETUP_FLAGS                                                          \
+  DEFINE_string(src_file, "", "Source file");                                \
+  DEFINE_string(dst_file, "", "Target file");                                \
+  DEFINE_string(patch_file, "", "patch file");                               \
+  DEFINE_string(                                                             \
+      src_deflates_byte, "",                                                 \
+      "Source deflate byte locations in the format offset:length,...");      \
+  DEFINE_string(                                                             \
+      dst_deflates_byte, "",                                                 \
+      "Target deflate byte locations in the format offset:length,...");      \
+  DEFINE_string(                                                             \
+      src_deflates_bit, "",                                                  \
+      "Source deflate bit locations in the format offset:length,...");       \
+  DEFINE_string(                                                             \
+      dst_deflates_bit, "",                                                  \
+      "Target deflatebit locations in the format offset:length,...");        \
+  DEFINE_string(src_puffs, "",                                               \
+                "Source puff locations in the format offset:length,...");    \
+  DEFINE_string(dst_puffs, "",                                               \
+                "Target puff locations in the format offset:length,...");    \
+  DEFINE_string(src_extents, "",                                             \
+                "Source extents in the format of offset:length,...");        \
+  DEFINE_string(dst_extents, "",                                             \
+                "Target extents in the format of offset:length,...");        \
+  DEFINE_string(operation, "",                                               \
+                "Type of the operation: puff, huff, puffdiff, puffpatch, "   \
+                "puffhuff");                                                 \
+  DEFINE_string(src_file_type, "",                                           \
+                "Type of the input source file: deflate, gzip, "             \
+                "zlib or zip");                                              \
+  DEFINE_string(dst_file_type, "",                                           \
+                "Same as src_file_type but for the target file");            \
+  DEFINE_bool(verbose, false,                                                \
+              "Logs all the given parameters including internally "          \
+              "generated ones");                                             \
+  DEFINE_uint64(cache_size, kDefaultPuffCacheSize,                           \
+                "Maximum size to cache the puff stream. Used in puffpatch"); \
+  DEFINE_int32(patch_algorithm, 0,                                           \
+               "Type of raw diff algorithm to use. The current supported "   \
+               "ones are 0: bsdiff, 1: zucchini.");
 #ifndef USE_BRILLO
 SETUP_FLAGS;
 #endif
@@ -343,12 +345,18 @@ bool Main(int argc, char** argv) {
                                                  &dst_deflates_bit));
     }
 
+    if (FLAGS_patch_algorithm != 0 && FLAGS_patch_algorithm != 1) {
+      LOG(ERROR)
+          << "The supported patch algorithms are 0: bsdiff, 1: zucchini.";
+      return false;
+    }
     // TODO(xunchang) add flags to select the bsdiff compressors.
     Buffer puffdiff_delta;
     TEST_AND_RETURN_FALSE(puffin::PuffDiff(
         std::move(src_stream), std::move(dst_stream), src_deflates_bit,
         dst_deflates_bit,
         {bsdiff::CompressorType::kBZ2, bsdiff::CompressorType::kBrotli},
+        static_cast<puffin::PatchAlgorithm>(FLAGS_patch_algorithm),
         "/tmp/patch.tmp", &puffdiff_delta));
     if (FLAGS_verbose) {
       LOG(INFO) << "patch_size: " << puffdiff_delta.size();

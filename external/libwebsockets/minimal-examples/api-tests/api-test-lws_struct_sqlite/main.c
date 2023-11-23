@@ -87,7 +87,9 @@ int main(int argc, const char **argv)
 	lwsl_user("LWS API selftest: lws_struct SQLite\n");
 
 	memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
+#if defined(LWS_WITH_NETWORK)
 	info.port = CONTEXT_PORT_NO_LISTEN;
+#endif
 	context = lws_create_context(&info);
 	if (!context) {
 		lwsl_err("lws init failed\n");
@@ -97,7 +99,7 @@ int main(int argc, const char **argv)
 
 	unlink("_lws_apitest.sq3");
 
-	if (lws_struct_sq3_open(context, "_lws_apitest.sq3", &db)) {
+	if (lws_struct_sq3_open(context, "_lws_apitest.sq3", 1, &db)) {
 		lwsl_err("%s: failed to open table\n", __func__);
 		goto bail;
 	}

@@ -584,6 +584,80 @@ public class LineBreakerTest {
     }
 
     @Test
+    public void testLineBreak_Balanced_Hyphenation() {
+        // The visual BALANCED line break output is like
+        // |hyphenation hy-   |
+        // |phenation hyphen- |
+        // |ation hyphenation |
+        final String text = "hyphenation hyphenation hyphenation hyphenation";
+        final LineBreaker lb = new LineBreaker.Builder()
+                .setBreakStrategy(BREAK_STRATEGY_BALANCED)
+                .setHyphenationFrequency(HYPHENATION_FREQUENCY_FULL)
+                .build();
+        final ParagraphConstraints c = new ParagraphConstraints();
+        c.setWidth(180f);
+        MeasuredText mt = new MeasuredText.Builder(text.toCharArray())
+                .setComputeHyphenation(MeasuredText.Builder.HYPHENATION_MODE_NORMAL)
+                .appendStyleRun(sPaint, text.length(), false)
+                .build();
+        final Result r = lb.computeLineBreaks(mt, c, 0);
+        assertEquals(3, r.getLineCount());
+        assertEquals(14, r.getLineBreakOffset(0));
+        assertEquals(30, r.getLineBreakOffset(1));
+        assertEquals(47, r.getLineBreakOffset(2));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(0));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(0));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(1));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(1));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(2));
+        assertEquals(Paint.END_HYPHEN_EDIT_NO_EDIT, r.getEndLineHyphenEdit(2));
+        assertFalse(r.hasLineTab(0));
+        assertFalse(r.hasLineTab(1));
+        assertFalse(r.hasLineTab(2));
+        assertEquals(150.0f, r.getLineWidth(0), 0.0f);
+        assertEquals(170.0f, r.getLineWidth(1), 0.0f);
+        assertEquals(170.0f, r.getLineWidth(2), 0.0f);
+    }
+
+    @Test
+    public void testLineBreak_Balanced_Hyphenation_IgnoreKerning() {
+        // The visual BALANCED line break output is like
+        // |hyphenation hy-   |
+        // |phenation hyphen- |
+        // |ation hyphenation |
+        //
+        // Note: The line break result should be same to non-fast version.
+        final String text = "hyphenation hyphenation hyphenation hyphenation";
+        final LineBreaker lb = new LineBreaker.Builder()
+                .setBreakStrategy(BREAK_STRATEGY_BALANCED)
+                .setHyphenationFrequency(HYPHENATION_FREQUENCY_FULL)
+                .build();
+        final ParagraphConstraints c = new ParagraphConstraints();
+        c.setWidth(180f);
+        MeasuredText mt = new MeasuredText.Builder(text.toCharArray())
+                .setComputeHyphenation(MeasuredText.Builder.HYPHENATION_MODE_FAST)
+                .appendStyleRun(sPaint, text.length(), false)
+                .build();
+        final Result r = lb.computeLineBreaks(mt, c, 0);
+        assertEquals(3, r.getLineCount());
+        assertEquals(14, r.getLineBreakOffset(0));
+        assertEquals(30, r.getLineBreakOffset(1));
+        assertEquals(47, r.getLineBreakOffset(2));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(0));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(0));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(1));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(1));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(2));
+        assertEquals(Paint.END_HYPHEN_EDIT_NO_EDIT, r.getEndLineHyphenEdit(2));
+        assertFalse(r.hasLineTab(0));
+        assertFalse(r.hasLineTab(1));
+        assertFalse(r.hasLineTab(2));
+        assertEquals(150.0f, r.getLineWidth(0), 0.0f);
+        assertEquals(170.0f, r.getLineWidth(1), 0.0f);
+        assertEquals(170.0f, r.getLineWidth(2), 0.0f);
+    }
+
+    @Test
     public void testLineBreak_ZeroWidthTab() {
         final String text = "Hi, \tWorld.";
         final LineBreaker lb = new LineBreaker.Builder()

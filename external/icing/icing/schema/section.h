@@ -77,6 +77,11 @@ struct SectionMetadata {
         id(id_in),
         tokenizer(tokenizer),
         term_match_type(term_match_type_in) {}
+
+  bool operator==(const SectionMetadata& rhs) const {
+    return path == rhs.path && id == rhs.id && tokenizer == rhs.tokenizer &&
+           term_match_type == rhs.term_match_type;
+  }
 };
 
 // Section is an icing internal concept similar to document property but with

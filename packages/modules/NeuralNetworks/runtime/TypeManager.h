@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TYPE_MANAGER_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TYPE_MANAGER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TYPE_MANAGER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TYPE_MANAGER_H
 
 #include <map>
 #include <set>
@@ -80,6 +80,10 @@ class TypeManager {
     //
     // Aborts if the type is an unknown extension type.
     uint32_t getSizeOfData(OperandType type, const std::vector<uint32_t>& dimensions) const;
+
+    // Returns the ExtensionNameAndPrefix mapping from metaData.
+    std::vector<ExtensionNameAndPrefix> getExtensionNameAndPrefix(
+            const std::vector<TokenValuePair>& metaData);
 
     // Returns true if the amount of space needed to store a value of the specified
     // dimensions and element size overflows the uint32_t type.
@@ -159,4 +163,4 @@ class TypeManager {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TYPE_MANAGER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TYPE_MANAGER_H

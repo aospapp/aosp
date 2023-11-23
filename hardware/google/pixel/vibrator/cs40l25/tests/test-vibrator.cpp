@@ -312,6 +312,9 @@ TEST_F(VibratorTest, Constructor) {
         EXPECT_CALL(*mMockApi, getEffectDuration(_)).InSequence(durSeq).WillOnce(DoDefault());
     }
 
+    EXPECT_CALL(*mMockApi, hasEffectScale()).WillRepeatedly(Return(true));
+    EXPECT_CALL(*mMockApi, hasAspEnable()).WillRepeatedly(Return(true));
+
     createVibrator(std::move(mockapi), std::move(mockcal), false);
 }
 
@@ -373,10 +376,8 @@ TEST_F(VibratorTest, supportsExternalAmplitudeControl_unsupported) {
 TEST_F(VibratorTest, setAmplitude_supported) {
     Sequence s;
     EffectAmplitude amplitude = static_cast<float>(std::rand()) / RAND_MAX ?: 1.0f;
+    // The default mIsUnderExternalControl is false, no need to turn off the External Control
 
-    EXPECT_CALL(*mMockApi, getAspEnable(_))
-            .InSequence(s)
-            .WillOnce(DoAll(SetArgPointee<0>(false), Return(true)));
     EXPECT_CALL(*mMockApi, setEffectScale(amplitudeToScale(amplitude)))
             .InSequence(s)
             .WillOnce(Return(true));
@@ -385,7 +386,13 @@ TEST_F(VibratorTest, setAmplitude_supported) {
 }
 
 TEST_F(VibratorTest, setAmplitude_unsupported) {
-    EXPECT_CALL(*mMockApi, getAspEnable(_)).WillOnce(DoAll(SetArgPointee<0>(true), Return(true)));
+    // Turn on the External Control and make mIsUnderExternalControl true
+    Sequence s;
+
+    EXPECT_CALL(*mMockApi, hasAspEnable()).WillOnce(Return(true));
+    EXPECT_CALL(*mMockApi, setGlobalScale(ON_GLOBAL_SCALE)).InSequence(s).WillOnce(Return(true));
+    EXPECT_CALL(*mMockApi, setAspEnable(true)).InSequence(s).WillOnce(Return(true));
+    EXPECT_TRUE(mVibrator->setExternalControl(true).isOk());
 
     EXPECT_EQ(EX_UNSUPPORTED_OPERATION, mVibrator->setAmplitude(1).getExceptionCode());
 }
@@ -411,6 +418,7 @@ TEST_F(VibratorTest, supportsExternalControl_unsupported) {
 TEST_F(VibratorTest, setExternalControl_enable) {
     Sequence s;
 
+    EXPECT_CALL(*mMockApi, hasAspEnable()).WillOnce(Return(true));
     EXPECT_CALL(*mMockApi, setGlobalScale(ON_GLOBAL_SCALE)).InSequence(s).WillOnce(Return(true));
     EXPECT_CALL(*mMockApi, setAspEnable(true)).InSequence(s).WillOnce(Return(true));
 
@@ -418,6 +426,16 @@ TEST_F(VibratorTest, setExternalControl_enable) {
 }
 
 TEST_F(VibratorTest, setExternalControl_disable) {
+    Sequence s;
+
+    EXPECT_CALL(*mMockApi, hasAspEnable()).WillRepeatedly(Return(true));
+    // The default mIsUnderExternalControl is false, so it needs to turn on the External Control
+    // to make mIsUnderExternalControl become true.
+    EXPECT_CALL(*mMockApi, setGlobalScale(ON_GLOBAL_SCALE)).InSequence(s).WillOnce(Return(true));
+    EXPECT_CALL(*mMockApi, setAspEnable(true)).InSequence(s).WillOnce(Return(true));
+
+    EXPECT_TRUE(mVibrator->setExternalControl(true).isOk());
+
     EXPECT_CALL(*mMockApi, setAspEnable(false)).WillOnce(Return(true));
     EXPECT_CALL(*mMockApi, setGlobalScale(0)).WillOnce(Return(true));
 

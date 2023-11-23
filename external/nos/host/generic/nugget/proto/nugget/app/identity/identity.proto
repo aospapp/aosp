@@ -29,8 +29,8 @@ service Identity {
   option (nugget.protobuf.app_id) = "IDENTITY";
   option (nugget.protobuf.app_name) = "Identity";
   option (nugget.protobuf.app_version) = 1;
-  option (nugget.protobuf.request_buffer_size) = 1024;
-  option (nugget.protobuf.response_buffer_size) = 1024;
+  option (nugget.protobuf.request_buffer_size) = 2048;
+  option (nugget.protobuf.response_buffer_size) = 2048;
 
   // RPCs for the Identity HAL
   rpc WICinitialize (WICinitializeRequest) returns (WICinitializeResponse);
@@ -56,6 +56,18 @@ service Identity {
   rpc ICfinishRetrieval (ICfinishRetrievalRequest) returns (ICfinishRetrievalResponse);
   rpc ICdeleteCredential (ICdeleteCredentialRequest) returns (ICdeleteCredentialResponse);
   rpc ICproveOwnership (ICproveOwnershipRequest) returns (ICproveOwnershipResponse);
+  rpc GetSessionId (GetSessionIdRequest) returns (GetSessionIdResponse);
+  rpc SessionShutdown(SessionShutdownRequest) returns (SessionShutdownResponse);
+  rpc SessionInitialize (SessionInitializeRequest) returns (SessionInitializeResponse);
+  rpc SessionSetReaderEphemeralPublicKey (SessionSetReaderEphemeralPublicKeyRequest) returns (SessionSetReaderEphemeralPublicKeyResponse);
+  rpc SessionSetSessionTranscript (SessionSetSessionTranscriptRequest) returns (SessionSetSessionTranscriptResponse);
+}
+
+enum RequestType {
+  unknown = 0;
+  provision = 1;
+  presentation = 2;
+  session = 3;
 }
 
 // WICinitialize
@@ -92,6 +104,7 @@ message WICstartPersonalizationRequest{
   bytes entryCounts = 2;
   bytes docType = 3;
   uint32 expectedProofOfProvisioningSize = 4;
+  bool supportInt32EntryCounts = 5;
 }
 message WICstartPersonalizationResponse{
   Result result = 1;
@@ -150,6 +163,8 @@ message ICinitializeRequest{
   bool testCredential = 1;
   bytes docType = 2;
   bytes encryptedCredentialKeys = 3;
+  uint32 oemHalVersion = 4;
+  uint32 sessionId = 5;
 }
 
 message ICinitializeResponse{
@@ -281,6 +296,7 @@ message ICstartRetrieveEntryValueRequest{
 
 message ICstartRetrieveEntryValueResponse{
   AccessResult accessCheckResult = 1;
+  uint32 sessionCookie = 2;
 }
 
 // ICretrieveEntryValue
@@ -289,6 +305,7 @@ message ICretrieveEntryValueRequest{
   string nameSpace = 2;
   string name = 3;
   bytes accessControlProfileIds = 4;
+  uint32 sessionCookie = 5;
 }
 
 message ICretrieveEntryValueResponse{
@@ -329,4 +346,51 @@ message ICproveOwnershipRequest{
 message ICproveOwnershipResponse{
   Result result = 1;
   bytes signatureOfToBeSigned = 2;
+}
+
+// GetSessionId
+message GetSessionIdRequest{
+  RequestType requestType = 1;
+}
+
+message GetSessionIdResponse{
+  Result result = 1;
+  uint32 id = 2;
+}
+
+// SessionShutdown
+message SessionShutdownRequest{
+  RequestType requestType = 1;
+}
+
+message SessionShutdownResponse{
+  Result result = 1;
+}
+
+// SessionInitialize
+message SessionInitializeRequest{
+}
+
+message SessionInitializeResponse{
+  Result result = 1;
+  uint64 authChallenge = 2;
+  bytes ephemeralPrivateKey = 3;
+}
+
+// SessionSetReaderEphemeralPublicKey
+message SessionSetReaderEphemeralPublicKeyRequest{
+  bytes readerEphemeralPublicKey = 1;
+}
+
+message SessionSetReaderEphemeralPublicKeyResponse{
+  Result result = 1;
+}
+
+// SessionSetSessionTranscript
+message SessionSetSessionTranscriptRequest{
+  bytes sessionTranscript = 1;
+}
+
+message SessionSetSessionTranscriptResponse{
+  Result result = 1;
 }

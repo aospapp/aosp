@@ -20,6 +20,8 @@ import static android.content.ContentResolver.NOTIFY_INSERT;
 import static android.content.ContentResolver.NOTIFY_UPDATE;
 
 import android.accounts.Account;
+import android.annotation.NonNull;
+import android.annotation.UserIdInt;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentResolver.MimeTypeInfo;
@@ -38,6 +40,7 @@ import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -45,6 +48,8 @@ import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.ShellIdentityUtils;
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.ArrayUtils;
 
 import java.io.File;
@@ -1182,6 +1187,105 @@ public class ContentResolverTest extends AndroidTestCase {
             //expected.
         }
     }
+    // Tests registerContentObserverForAllUsers without INTERACT_ACROSS_USERS_FULL: verify
+    // SecurityException.
+    public void testRegisterContentObserverForAllUsersWithoutPermission() {
+        final MockContentObserver mco = new MockContentObserver();
+        try {
+            mContentResolver.registerContentObserverAsUser(TABLE1_URI, true, mco, UserHandle.ALL);
+            fail("testRegisterContentObserverForAllUsers: "
+                    + "SecurityException expected on testRegisterContentObserverForAllUsers");
+        } catch (SecurityException se) {
+            // expected
+        }
+    }
+
+    public void testRegisterContentObserverAsUser() {
+        final MockContentObserver mco = new MockContentObserver();
+
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mContentResolver,
+                (cr) -> cr.registerContentObserverAsUser(TABLE1_URI, true, mco, mContext.getUser())
+        );
+        assertFalse(mco.hadOnChanged());
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_KEY_NAME, "key10");
+        values.put(COLUMN_VALUE_NAME, 10);
+        mContentResolver.update(TABLE1_URI, values, null, null);
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return mco.hadOnChanged();
+            }
+        }.run();
+
+        mco.reset();
+        mContentResolver.unregisterContentObserver(mco);
+        assertFalse(mco.hadOnChanged());
+        mContentResolver.update(TABLE1_URI, values, null, null);
+
+        assertFalse(mco.hadOnChanged());
+    }
+
+    public void testRegisterContentObserverForAllUsers() {
+        final MockContentObserver mco = new MockContentObserver();
+
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mContentResolver,
+                (cr) -> cr.registerContentObserverAsUser(TABLE1_URI, true, mco, UserHandle.ALL)
+        );
+        assertFalse(mco.hadOnChanged());
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_KEY_NAME, "key10");
+        values.put(COLUMN_VALUE_NAME, 10);
+        mContentResolver.update(TABLE1_URI, values, null, null);
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return mco.hadOnChanged();
+            }
+        }.run();
+
+        mco.reset();
+        mContentResolver.unregisterContentObserver(mco);
+        assertFalse(mco.hadOnChanged());
+        mContentResolver.update(TABLE1_URI, values, null, null);
+
+        assertFalse(mco.hadOnChanged());
+
+        try {
+            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                    mContentResolver,
+                    (cr) -> cr.registerContentObserverAsUser(null, false, mco, UserHandle.ALL)
+            );
+            fail("did not throw NullPointerException or IllegalArgumentException when uri is null"
+                    + ".");
+        } catch (NullPointerException e) {
+            //expected.
+        } catch (IllegalArgumentException e) {
+            // also expected
+        }
+
+        try {
+            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                    mContentResolver,
+                    (cr) -> cr.registerContentObserverAsUser(TABLE1_URI, false, null,
+                            UserHandle.ALL)
+            );
+            fail("did not throw NullPointerException when register null content observer.");
+        } catch (NullPointerException e) {
+            //expected.
+        }
+
+        try {
+            mContentResolver.unregisterContentObserver(null);
+            fail("did not throw NullPointerException when unregister null content observer.");
+        } catch (NullPointerException e) {
+            //expected.
+        }
+    }
 
     public void testRegisterContentObserverDescendantBehavior() throws Exception {
         final MockContentObserver mco1 = new MockContentObserver();
@@ -1191,6 +1295,59 @@ public class ContentResolverTest extends AndroidTestCase {
         // another with true.
         mContentResolver.registerContentObserver(LEVEL2_URI, false, mco1);
         mContentResolver.registerContentObserver(LEVEL2_URI, true, mco2);
+
+        // Initially nothing has happened.
+        assertFalse(mco1.hadOnChanged());
+        assertFalse(mco2.hadOnChanged());
+
+        // Fire a change with the exact URI.
+        // Should signal both observers due to exact match, notifyDescendants doesn't matter.
+        mContentResolver.notifyChange(LEVEL2_URI, null);
+        Thread.sleep(200);
+        assertTrue(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco1.reset();
+        mco2.reset();
+
+        // Fire a change with a descendant URI.
+        // Should only signal observer with notifyDescendants set to true.
+        mContentResolver.notifyChange(LEVEL3_URI, null);
+        Thread.sleep(200);
+        assertFalse(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco2.reset();
+
+        // Fire a change with an ancestor URI.
+        // Should signal both observers due to ancestry, notifyDescendants doesn't matter.
+        mContentResolver.notifyChange(LEVEL1_URI, null);
+        Thread.sleep(200);
+        assertTrue(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco1.reset();
+        mco2.reset();
+
+        // Fire a change with an unrelated URI.
+        // Should signal neither observer.
+        mContentResolver.notifyChange(TABLE1_URI, null);
+        Thread.sleep(200);
+        assertFalse(mco1.hadOnChanged());
+        assertFalse(mco2.hadOnChanged());
+    }
+
+    public void testRegisterContentObserverForAllUsersDescendantBehavior() throws Exception {
+        final MockContentObserver mco1 = new MockContentObserver();
+        final MockContentObserver mco2 = new MockContentObserver();
+
+        // Register one content observer with notifyDescendants set to false, and
+        // another with true.
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mContentResolver,
+                (cr) -> cr.registerContentObserverAsUser(LEVEL2_URI, false, mco1, UserHandle.ALL)
+        );
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                mContentResolver,
+                (cr) -> cr.registerContentObserverAsUser(LEVEL2_URI, true, mco2, UserHandle.ALL)
+        );
 
         // Initially nothing has happened.
         assertFalse(mco1.hadOnChanged());
@@ -1489,17 +1646,27 @@ public class ContentResolverTest extends AndroidTestCase {
         public final boolean selfChange;
         public final Iterable<Uri> uris;
         public final int flags;
+        @UserIdInt
+        public final int userId;
 
         public Change(boolean selfChange, Iterable<Uri> uris, int flags) {
             this.selfChange = selfChange;
             this.uris = uris;
             this.flags = flags;
+            this.userId = -1;
+        }
+
+        public Change(boolean selfChange, Iterable<Uri> uris, int flags, @UserIdInt int userId) {
+            this.selfChange = selfChange;
+            this.uris = uris;
+            this.flags = flags;
+            this.userId = userId;
         }
 
         @Override
         public String toString() {
-            return String.format("onChange(%b, %s, %d)",
-                    selfChange, asSet(uris).toString(), flags);
+            return String.format("onChange(%b, %s, %d, %d)",
+                    selfChange, asSet(uris).toString(), flags, userId);
         }
 
         @Override
@@ -1508,7 +1675,7 @@ public class ContentResolverTest extends AndroidTestCase {
                 final Change change = (Change) other;
                 return change.selfChange == selfChange &&
                         Objects.equals(asSet(change.uris), asSet(uris)) &&
-                        change.flags == flags;
+                        change.flags == flags && change.userId == userId;
             } else {
                 return false;
             }
@@ -1536,11 +1703,13 @@ public class ContentResolverTest extends AndroidTestCase {
 
         @Override
         public synchronized void onChange(boolean selfChange, Collection<Uri> uris, int flags) {
-            final Change change = new Change(selfChange, uris, flags);
-            Log.v(TAG, change.toString());
+            doOnChangeLocked(selfChange, uris, flags, /*userId=*/ -1);
+        }
 
-            mHadOnChanged = true;
-            mChanges.add(change);
+        @Override
+        public synchronized void onChange(boolean selfChange, @NonNull Collection<Uri> uris,
+                @ContentResolver.NotifyFlags int flags, UserHandle user) {
+            doOnChangeLocked(selfChange, uris, flags, user.getIdentifier());
         }
 
         public synchronized boolean hadOnChanged() {
@@ -1553,6 +1722,16 @@ public class ContentResolverTest extends AndroidTestCase {
 
         public synchronized boolean hadChanges(Collection<Change> changes) {
             return mChanges.containsAll(changes);
+        }
+
+        @GuardedBy("this")
+        private void doOnChangeLocked(boolean selfChange, @NonNull Collection<Uri> uris,
+                @ContentResolver.NotifyFlags int flags, @UserIdInt int userId) {
+            final Change change = new Change(selfChange, uris, flags, userId);
+            Log.v(TAG, change.toString());
+
+            mHadOnChanged = true;
+            mChanges.add(change);
         }
     }
 }

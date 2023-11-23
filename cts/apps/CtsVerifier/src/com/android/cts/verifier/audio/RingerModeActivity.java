@@ -75,8 +75,8 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
     private boolean mUseFixedVolume;
     private boolean mIsTelevision;
     private boolean mIsSingleVolume;
-    private boolean mSkipRingerTests;
     private boolean mIsWatch;
+    private boolean mSkipRingerTests;
     private boolean mSkipTouchSoundTests;
 
     @Override
@@ -250,10 +250,12 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
 
         @Override
         protected void test() {
+
             if (mSkipTouchSoundTests) {
                 status = PASS;
                 return;
             }
+
             boolean touchSoundEnabled =
                 Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.SOUND_EFFECTS_ENABLED, 1) == 1;
@@ -284,10 +286,12 @@ public class RingerModeActivity extends InteractiveVerifierActivity {
 
         @Override
         protected void test() {
+
             if (mSkipTouchSoundTests) {
                 status = PASS;
                 return;
             }
+
             // should hear sound after loadSoundEffects() called.
             mAudioManager.loadSoundEffects();
             try {

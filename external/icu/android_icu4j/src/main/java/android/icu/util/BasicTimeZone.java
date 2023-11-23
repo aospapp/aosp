@@ -28,7 +28,6 @@ import android.icu.impl.Grego;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.CorePlatformApi
 public abstract class BasicTimeZone extends TimeZone {
 
     private static final long serialVersionUID = -3204278532246180932L;
@@ -38,7 +37,7 @@ public abstract class BasicTimeZone extends TimeZone {
     /**
      * <strong>[icu]</strong> Returns the first time zone transition after the base time.
      * <p>Example code:{{@literal @}.jcite  android.icu.samples.util.timezone.BasicTimeZoneExample:---getNextTransitionExample}
-     * 
+     *
      * @param base      The base time.
      * @param inclusive Whether the base time is inclusive or not.
      *
@@ -46,7 +45,6 @@ public abstract class BasicTimeZone extends TimeZone {
      *          after the given base time, or null if no time zone transitions
      *          are available after the base time.
      */
-    @libcore.api.CorePlatformApi
     public abstract TimeZoneTransition getNextTransition(long base, boolean inclusive);
 
     /**
@@ -93,14 +91,14 @@ public abstract class BasicTimeZone extends TimeZone {
      * @param ignoreDstAmount When true, any transitions with only daylight saving amount
      * changes will be ignored, except either of them is zero. For example, a transition
      * from rawoffset 3:00/dstsavings 1:00 to rawoffset 2:00/dstsavings 2:00 is excluded
-     * from the comparison, but a transtion from rawoffset 2:00/dstsavings 1:00 to
+     * from the comparison, but a transition from rawoffset 2:00/dstsavings 1:00 to
      * rawoffset 3:00/dstsavings 0:00 is included.
      *
      * @return true if the other time zone has the equivalent transitions in the
      * time range.  When tz is not a <code>BasicTimeZone</code>, this method
      * returns false.
      */
-    public boolean hasEquivalentTransitions(TimeZone tz, long start, long end, 
+    public boolean hasEquivalentTransitions(TimeZone tz, long start, long end,
                                             boolean ignoreDstAmount) {
         if (this == tz) {
             return true;
@@ -235,7 +233,7 @@ public abstract class BasicTimeZone extends TimeZone {
         }
 
         BitSet isProcessed = new BitSet(all.length);
-        List<TimeZoneRule> filteredRules = new LinkedList<TimeZoneRule>();
+        List<TimeZoneRule> filteredRules = new LinkedList<>();
 
         // Create initial rule
         TimeZoneRule initial = new InitialTimeZoneRule(tzt.getTo().getName(),
@@ -423,16 +421,16 @@ public abstract class BasicTimeZone extends TimeZone {
                         // Check if the next next transition is either DST->STD or STD->DST
                         // and within roughly 1 year from the next transition
                         if (((tr.getFrom().getDSTSavings() == 0 && tr.getTo().getDSTSavings() != 0)
-                                || (tr.getFrom().getDSTSavings() != 0 
+                                || (tr.getFrom().getDSTSavings() != 0
                                     && tr.getTo().getDSTSavings() == 0))
                             && nextTransitionTime + MILLIS_PER_YEAR > tr.getTime()) {
                             // Generate another DOW rule
                             dtfields = Grego.timeToFields(tr.getTime()
-                                    + tr.getFrom().getRawOffset() + tr.getFrom().getDSTSavings(), 
+                                    + tr.getFrom().getRawOffset() + tr.getFrom().getDSTSavings(),
                                                           dtfields);
-                            weekInMonth = Grego.getDayOfWeekInMonth(dtfields[0], dtfields[1], 
+                            weekInMonth = Grego.getDayOfWeekInMonth(dtfields[0], dtfields[1],
                                                                     dtfields[2]);
-                            dtr = new DateTimeRule(dtfields[1], weekInMonth, dtfields[3], 
+                            dtr = new DateTimeRule(dtfields[1], weekInMonth, dtfields[3],
                                                    dtfields[5], DateTimeRule.WALL_TIME);
                             secondRule = new AnnualTimeZoneRule(tr.getTo().getName(),
                                     tr.getTo().getRawOffset(), tr.getTo().getDSTSavings(),
@@ -461,22 +459,22 @@ public abstract class BasicTimeZone extends TimeZone {
                                     && tr.getTo().getDSTSavings() == 0)) {
                             // Generate another DOW rule
                             dtfields = Grego.timeToFields(tr.getTime()
-                                    + tr.getFrom().getRawOffset() + tr.getFrom().getDSTSavings(), 
+                                    + tr.getFrom().getRawOffset() + tr.getFrom().getDSTSavings(),
                                                           dtfields);
-                            weekInMonth = Grego.getDayOfWeekInMonth(dtfields[0], dtfields[1], 
+                            weekInMonth = Grego.getDayOfWeekInMonth(dtfields[0], dtfields[1],
                                                                     dtfields[2]);
-                            dtr = new DateTimeRule(dtfields[1], weekInMonth, dtfields[3], 
+                            dtr = new DateTimeRule(dtfields[1], weekInMonth, dtfields[3],
                                                    dtfields[5], DateTimeRule.WALL_TIME);
 
                             // second rule raw/dst offsets should match raw/dst offsets
                             // at the given time
                             secondRule = new AnnualTimeZoneRule(
-                                tr.getTo().getName(), initialRaw, initialDst, dtr, 
+                                tr.getTo().getName(), initialRaw, initialDst, dtr,
                                 annualRules[0].getStartYear() - 1, AnnualTimeZoneRule.MAX_YEAR);
 
                             // Check if this rule start after the first rule after the
                             // specified date
-                            Date d = secondRule.getNextStart(date, tr.getFrom().getRawOffset(), 
+                            Date d = secondRule.getNextStart(date, tr.getFrom().getRawOffset(),
                                                              tr.getFrom().getDSTSavings(), false);
                             if (d.getTime() > nextTransitionTime) {
                                 // We can use this rule as the second transition rule
@@ -525,44 +523,117 @@ public abstract class BasicTimeZone extends TimeZone {
     }
 
     /**
-     * <strong>[icu]</strong> The time type option for standard time used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * <strong>[icu]</strong> Options used by {@link #getOffsetFromLocal(long, LocalOption, LocalOption, int[])}
+     * to specify how to interpret an input time when it does not exist, or when it is ambiguous,
+     * around a time zone transition.
+     *
+     * @hide Only a subset of ICU is exposed in Android
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static enum LocalOption {
+        /**
+         * An input time is always interpreted as local time before
+         * a time zone transition.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        FORMER(0x04),
+        /**
+         * An input time is always interpreted as local time after
+         * a time zone transition.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        LATTER(0x0C),
+        /**
+         * An input time is interpreted as standard time when local
+         * time is switched to/from daylight saving time. When both
+         * sides of a time zone transition are standard time,
+         * or daylight saving time, the local time before the
+         * transition is used.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        STANDARD_FORMER(0x05),
+        /**
+         * An input time is interpreted as standard time when local
+         * time is switched to/from daylight saving time. When both
+         * sides of a time zone transition are standard time,
+         * or daylight saving time, the local time after the
+         * transition is used.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        STANDARD_LATTER(0x0D),
+        /**
+         * An input time is interpreted as daylight saving time when
+         * local time is switched to/from standard time. When both
+         * sides of a time zone transition are standard time,
+         * or daylight saving time, the local time before the
+         * transition is used.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        DAYLIGHT_FORMER(0x07),
+        /**
+         * An input time is interpreted as daylight saving time when
+         * local time is switched to/from standard time. When both
+         * sides of a time zone transition are standard time,
+         * or daylight saving time, the local time after the
+         * transition is used.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        DAYLIGHT_LATTER(0x0F);
+
+        private int flagVal;
+
+        LocalOption(int flagVal) {
+            this.flagVal = flagVal;
+        }
+    }
+
+    /**
+     * Get {@link LocalOption}'s internal flag value. This is used by ICU internal
+     * implementation only.
+     * @param locOpt    A LocalOption
+     * @return LocalOption's internal flag value.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
-    public static final int LOCAL_STD = 0x01;
+    protected static int getLocalOptionValue(LocalOption locOpt) {
+        return locOpt.flagVal;
+    }
 
     /**
-     * <strong>[icu]</strong> The time type option for daylight saving time used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * The time type option for standard time used by internal implementation.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
-    public static final int LOCAL_DST = 0x03;
+    protected static final int LOCAL_STD = 0x01;
 
     /**
-     * <strong>[icu]</strong> The option designate former time to be used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * The time type option for daylight saving time used internally.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
-    public static final int LOCAL_FORMER = 0x04;
+    protected static final int LOCAL_DST = 0x03;
 
     /**
-     * <strong>[icu]</strong> The option designate latter time to be used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * The option designate former time used by internal implementation.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
-    public static final int LOCAL_LATTER = 0x0C;
+    protected static final int LOCAL_FORMER = 0x04;
 
     /**
-     * <strong>[icu]</strong> The bit mask for the time type option used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * The option designate latter time used by internal implementation.
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    protected static final int LOCAL_LATTER = 0x0C;
+
+    /**
+     * The bit mask for the time type option used by internal implementation.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
@@ -570,8 +641,7 @@ public abstract class BasicTimeZone extends TimeZone {
     protected static final int STD_DST_MASK = 0x03;
 
     /**
-     * <strong>[icu]</strong> The bit mask for the former/latter option used by
-     * {@link #getOffsetFromLocal(long, int, int, int[])}
+     * The bit mask for the former/latter option used by internal implementation.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
@@ -580,12 +650,10 @@ public abstract class BasicTimeZone extends TimeZone {
 
     /**
      * <strong>[icu]</strong> Returns time zone offsets from local wall time.
-     * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
     public void getOffsetFromLocal(long date,
-            int nonExistingTimeOpt, int duplicatedTimeOpt, int[] offsets) {
+            LocalOption nonExistingTimeOpt, LocalOption duplicatedTimeOpt, int[] offsets) {
         throw new IllegalStateException("Not implemented");
     }
 

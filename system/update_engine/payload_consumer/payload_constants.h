@@ -59,6 +59,12 @@ extern const uint32_t kVerityMinorPayloadVersion;
 // The minor version that allows partial update, e.g. kernel only update.
 extern const uint32_t kPartialUpdateMinorPayloadVersion;
 
+// The minor version that allows ZUCCHINI operation.
+extern const uint32_t kZucchiniMinorPayloadVersion;
+
+// THe minor version that allows LZ4DIFF operation
+constexpr uint32_t kLZ4DIFFMinorPayloadVersion = 9;
+
 // The minimum and maximum supported minor version.
 extern const uint32_t kMinSupportedMinorPayloadVersion;
 extern const uint32_t kMaxSupportedMinorPayloadVersion;

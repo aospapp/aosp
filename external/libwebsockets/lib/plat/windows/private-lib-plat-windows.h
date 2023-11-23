@@ -51,6 +51,7 @@
  #define SHUT_WR SD_SEND
 
  #define compatible_close(fd) closesocket(fd)
+ #define compatible_file_close(fd) CloseHandle(fd)
  #define lws_set_blocking_send(wsi) wsi->sock_send_blocking = 1
 
  #include <winsock2.h>
@@ -62,6 +63,22 @@
  #endif
  #include <mstcpip.h>
  #include <io.h>
+
+#if defined(LWS_WITH_UNIX_SOCK)
+#include <afunix.h>
+#endif
+
+#if defined(LWS_WITH_TLS)
+#include <wincrypt.h>
+#endif
+
+#if defined(LWS_HAVE_PTHREAD_H)
+#define lws_mutex_t		pthread_mutex_t
+#define lws_mutex_init(x)	pthread_mutex_init(&(x), NULL)
+#define lws_mutex_destroy(x)	pthread_mutex_destroy(&(x))
+#define lws_mutex_lock(x)	pthread_mutex_lock(&(x))
+#define lws_mutex_unlock(x)	pthread_mutex_unlock(&(x))
+#endif
 
  #if !defined(LWS_HAVE_ATOLL)
   #if defined(LWS_HAVE__ATOI64)
@@ -125,7 +142,7 @@ struct lws_fd_hashtable {
 	int length;
 };
 
-
+#if !defined(LWS_EXTERN)
 #ifdef LWS_DLL
 #ifdef LWS_INTERNAL
 #define LWS_EXTERN extern __declspec(dllexport)
@@ -133,11 +150,16 @@ struct lws_fd_hashtable {
 #define LWS_EXTERN extern __declspec(dllimport)
 #endif
 #else
-#define LWS_EXTERN extern
+#define LWS_EXTERN
+#endif
 #endif
 
 typedef SOCKET lws_sockfd_type;
+#if defined(__MINGW32__)
+typedef int lws_filefd_type;
+#else
 typedef HANDLE lws_filefd_type;
+#endif
 #define LWS_WIN32_HANDLE_TYPES
 
 LWS_EXTERN struct lws *

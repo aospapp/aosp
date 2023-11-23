@@ -24,10 +24,10 @@
 
 #include <android-base/stringprintf.h>
 
+#define LOG_TAG "IptablesBaseTest"
 #include "IptablesBaseTest.h"
 #include "NetdConstants.h"
 
-#define LOG_TAG "IptablesBaseTest"
 #include <log/log.h>
 
 using android::base::StringPrintf;

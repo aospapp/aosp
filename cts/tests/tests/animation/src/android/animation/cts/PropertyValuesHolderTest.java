@@ -37,6 +37,7 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.drawable.ShapeDrawable;
 import android.os.SystemClock;
+import android.platform.test.annotations.FlakyTest;
 import android.util.FloatProperty;
 import android.util.Property;
 import android.view.View;
@@ -116,6 +117,7 @@ public class PropertyValuesHolderTest {
         assertEquals(pVHolder.getPropertyName(), cloneHolder.getPropertyName());
     }
 
+    @FlakyTest
     @Test
     public void testSetValues() throws Throwable {
         float[] dummyValues = {100, 150};
@@ -157,6 +159,7 @@ public class PropertyValuesHolderTest {
         mActivityRule.runOnUiThread(() -> mActivity.startSingleAnimation(animator));
     }
 
+    @FlakyTest
     @Test
     public void testResetValues() throws Throwable {
         final float initialY = mActivity.view.newBall.getY();
@@ -227,6 +230,7 @@ public class PropertyValuesHolderTest {
         assertEquals("Animation should run as expected", 100f, mActivity.view.newBall.getY(), 0.0f);
     }
 
+    @FlakyTest
     @Test
     public void testOfFloat() throws Throwable {
         float[] values = {mStartY, mEndY};
@@ -242,6 +246,7 @@ public class PropertyValuesHolderTest {
         assertResults(yArray, mStartY, mEndY);
     }
 
+    @FlakyTest
     @Test
     public void testOfFloat_Property() throws Throwable {
         float[] values = {mStartY, mEndY};
@@ -259,6 +264,7 @@ public class PropertyValuesHolderTest {
         assertResults(yArray, mStartY, mEndY);
     }
 
+    @FlakyTest
     @Test
     public void testOfInt() throws Throwable {
         int start = 0;
@@ -680,6 +686,7 @@ public class PropertyValuesHolderTest {
         assertTrue(endLatch.await(200, TimeUnit.MILLISECONDS));
     }
 
+    @FlakyTest
     @Test
     public void testSetProperty() throws Throwable {
         float[] values = {mStartY, mEndY};

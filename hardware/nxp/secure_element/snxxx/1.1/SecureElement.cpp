@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,10 +16,14 @@
  *
  ******************************************************************************/
 #include "SecureElement.h"
+
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+
 #include "NxpEse.h"
+#ifdef NXP_BOOTTIME_UPDATE
 #include "eSEClient.h"
+#endif
 #include "hal_nxpese.h"
 #include "phNxpEse_Apdu_Api.h"
 #include "phNxpEse_Api.h"
@@ -78,6 +82,7 @@ Return<void> SecureElement::init(
     clientCallback->linkToDeath(this, 0 /*cookie*/);
   }
   LOG(INFO) << "SecureElement::init called here";
+#ifdef NXP_BOOTTIME_UPDATE
   if (ese_update != ESE_UPDATE_COMPLETED) {
     mCallbackV1_0 = clientCallback;
     clientCallback->onStateChange(false);
@@ -86,6 +91,7 @@ Return<void> SecureElement::init(
     return Void();
     // Register
   }
+#endif
   if (mIsEseInitialized) {
     clientCallback->onStateChange(true);
     return Void();
@@ -135,6 +141,7 @@ Return<void> SecureElement::init_1_1(
     clientCallback->linkToDeath(this, 0 /*cookie*/);
   }
   LOG(INFO) << "SecureElement::init called here";
+#ifdef NXP_BOOTTIME_UPDATE
   if (ese_update != ESE_UPDATE_COMPLETED) {
     mCallbackV1_1 = clientCallback;
     clientCallback->onStateChange_1_1(false, "NXP SE update going on");
@@ -143,6 +150,7 @@ Return<void> SecureElement::init_1_1(
     return Void();
     // Register
   }
+#endif
   if (mIsEseInitialized) {
     clientCallback->onStateChange_1_1(true, "NXP SE HAL init ok");
     return Void();
@@ -565,13 +573,17 @@ Return<SecureElementStatus> SecureElement::internalCloseChannel(
   LOG(ERROR) << "Acquired the lock in SPI internalCloseChannel";
   LOG(INFO) << StringPrintf("mMaxChannelCount = %d, Closing Channel = %d",
                             mMaxChannelCount, channelNumber);
-  if ((int8_t)channelNumber < DEFAULT_BASIC_CHANNEL ||
-      channelNumber >= mMaxChannelCount) {
+  if (channelNumber >= mMaxChannelCount) {
     LOG(ERROR) << StringPrintf("invalid channel!!! %d", channelNumber);
   } else if (channelNumber > DEFAULT_BASIC_CHANNEL) {
     phNxpEse_memset(&cpdu, 0x00, sizeof(phNxpEse_7816_cpdu_t));
     phNxpEse_memset(&rpdu, 0x00, sizeof(phNxpEse_7816_rpdu_t));
     cpdu.cla = channelNumber; /* Class of instruction */
+    // For Suplementary Channel update CLA byte according to GP
+    if ((channelNumber > 0x03) && (channelNumber < 0x14)) {
+      /* update CLA byte accoridng to GP spec Table 11-12*/
+      cpdu.cla = 0x40 + (channelNumber - 4); /* Class of instruction */
+    }
     cpdu.ins = 0x70;          /* Instruction code */
     cpdu.p1 = 0x80;           /* Instruction parameter 1 */
     cpdu.p2 = channelNumber;  /* Instruction parameter 2 */

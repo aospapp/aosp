@@ -26,7 +26,6 @@ import android.annotation.SystemApi;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public class AppSpecializationHooks {
 
     private AppSpecializationHooks() {}
@@ -43,7 +42,6 @@ public class AppSpecializationHooks {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static void handleCompatChangesBeforeBindingApplication() {
         com.android.i18n.system.AppSpecializationHooks
                 .handleCompatChangesBeforeBindingApplication();

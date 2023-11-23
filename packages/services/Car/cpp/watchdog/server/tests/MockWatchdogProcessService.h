@@ -25,6 +25,7 @@
 #include <android/automotive/watchdog/internal/ICarWatchdogMonitor.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogServiceForSystem.h>
 #include <android/automotive/watchdog/internal/PowerCycle.h>
+#include <android/automotive/watchdog/internal/ProcessIdentifier.h>
 #include <android/automotive/watchdog/internal/UserState.h>
 #include <binder/Status.h>
 #include <gmock/gmock.h>
@@ -37,13 +38,16 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class MockWatchdogProcessService : public WatchdogProcessService {
+class MockWatchdogProcessService : public WatchdogProcessServiceInterface {
 public:
-    MockWatchdogProcessService() : WatchdogProcessService(nullptr) {}
+    MockWatchdogProcessService() {}
+    MOCK_METHOD(android::base::Result<void>, start, (), (override));
+    MOCK_METHOD(void, terminate, (), (override));
     MOCK_METHOD(android::base::Result<void>, dump, (int fd, const Vector<android::String16>&),
                 (override));
+    MOCK_METHOD(void, doHealthCheck, (int), (override));
     MOCK_METHOD(android::base::Result<void>, registerWatchdogServiceHelper,
-                (const android::sp<IWatchdogServiceHelper>&), (override));
+                (const android::sp<WatchdogServiceHelperInterface>&), (override));
 
     MOCK_METHOD(android::binder::Status, registerClient,
                 (const sp<ICarWatchdogClient>&, TimeoutLength), (override));
@@ -63,11 +67,12 @@ public:
     MOCK_METHOD(android::binder::Status, tellCarWatchdogServiceAlive,
                 (const android::sp<
                          android::automotive::watchdog::internal::ICarWatchdogServiceForSystem>&,
-                 const std::vector<int32_t>&, int32_t),
+                 const std::vector<android::automotive::watchdog::internal::ProcessIdentifier>&,
+                 int32_t),
                 (override));
     MOCK_METHOD(android::binder::Status, tellDumpFinished,
                 (const android::sp<android::automotive::watchdog::internal::ICarWatchdogMonitor>&,
-                 int32_t),
+                 const android::automotive::watchdog::internal::ProcessIdentifier&),
                 (override));
     MOCK_METHOD(void, setEnabled, (bool), (override));
     MOCK_METHOD(void, notifyUserStateChange, (userid_t, bool), (override));

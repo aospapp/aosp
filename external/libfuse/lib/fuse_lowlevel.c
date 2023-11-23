@@ -156,7 +156,7 @@ static struct fuse_req *fuse_ll_alloc_req(struct fuse_session *se)
 		req->se = se;
 		req->ctr = 1;
 		list_init_req(req);
-		fuse_mutex_init(&req->lock);
+		pthread_mutex_init(&req->lock, NULL);
 	}
 
 	return req;
@@ -168,6 +168,7 @@ static int fuse_send_msg(struct fuse_session *se, struct fuse_chan *ch,
 {
 	struct fuse_out_header *out = iov[0].iov_base;
 
+	assert(se != NULL);
 	out->len = iov_length(iov, count);
 	if (se->debug) {
 		if (out->unique == 0) {
@@ -190,8 +191,6 @@ static int fuse_send_msg(struct fuse_session *se, struct fuse_chan *ch,
 	int err = errno;
 
 	if (res == -1) {
-		assert(se != NULL);
-
 		/* ENOENT means the operation was interrupted */
 		if (!fuse_session_exited(se) && err != ENOENT)
 			perror("fuse: writing device");
@@ -400,20 +399,45 @@ static void fill_open(struct fuse_open_out *arg,
 		arg->open_flags |= FOPEN_NONSEEKABLE;
 }
 
-int fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param *e)
-{
-	struct fuse_entry_out arg;
-	size_t size = req->se->conn.proto_minor < 9 ?
-		FUSE_COMPAT_ENTRY_OUT_SIZE : sizeof(arg);
+int fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param* e) {
+    struct {
+        struct fuse_entry_out arg;
+        struct fuse_entry_bpf_out bpf_arg;
+    } __attribute__((packed)) arg_ext = {0};
 
-	/* before ABI 7.4 e->ino == 0 was invalid, only ENOENT meant
-	   negative entry */
-	if (!e->ino && req->se->conn.proto_minor < 4)
-		return fuse_reply_err(req, ENOENT);
+    struct fuse_entry_out arg;
+    struct fuse_entry_bpf_out bpf_arg;
+    size_t size;
+    int extended_args = e->bpf_action || bpf_arg.bpf_fd || e->backing_action || e->backing_fd;
 
-	memset(&arg, 0, sizeof(arg));
-	fill_entry(&arg, e);
-	return send_reply_ok(req, &arg, size);
+    if (extended_args) {
+        size = req->se->conn.proto_minor < 9 ? FUSE_COMPAT_ENTRY_OUT_SIZE : sizeof(arg_ext);
+    } else {
+        size = req->se->conn.proto_minor < 9 ? FUSE_COMPAT_ENTRY_OUT_SIZE : sizeof(arg);
+    }
+
+    /* before ABI 7.4 e->ino == 0 was invalid, only ENOENT meant
+       negative entry */
+    if (!e->ino && req->se->conn.proto_minor < 4) return fuse_reply_err(req, ENOENT);
+
+    memset(&arg, 0, sizeof(arg));
+
+    if (extended_args) {
+        memset(&bpf_arg, 0, sizeof(bpf_arg));
+
+        bpf_arg.bpf_action = e->bpf_action;
+        bpf_arg.bpf_fd = e->bpf_fd;
+        bpf_arg.backing_action = e->backing_action;
+        bpf_arg.backing_fd = e->backing_fd;
+
+        arg_ext.arg = arg;
+        arg_ext.bpf_arg = bpf_arg;
+
+        return send_reply_ok(req, &arg_ext, size);
+    } else {
+        fill_entry(&arg, e);
+        return send_reply_ok(req, &arg, size);
+    }
 }
 
 int fuse_reply_create(fuse_req_t req, const struct fuse_entry_param *e,
@@ -730,7 +754,7 @@ static int fuse_send_data_iov(struct fuse_session *se, struct fuse_chan *ch,
 	struct fuse_ll_pipe *llp;
 	int splice_flags;
 	size_t pipesize;
-	size_t total_fd_size;
+	size_t total_buf_size;
 	size_t idx;
 	size_t headerlen;
 	struct fuse_bufvec pipe_buf = FUSE_BUFVEC_INIT(len);
@@ -741,15 +765,13 @@ static int fuse_send_data_iov(struct fuse_session *se, struct fuse_chan *ch,
 	if (flags & FUSE_BUF_NO_SPLICE)
 		goto fallback;
 
-	total_fd_size = 0;
+	total_buf_size = 0;
 	for (idx = buf->idx; idx < buf->count; idx++) {
-		if (buf->buf[idx].flags & FUSE_BUF_IS_FD) {
-			total_fd_size = buf->buf[idx].size;
-			if (idx == buf->idx)
-				total_fd_size -= buf->off;
-		}
+		total_buf_size += buf->buf[idx].size;
+		if (idx == buf->idx)
+			total_buf_size -= buf->off;
 	}
-	if (total_fd_size < 2 * pagesize)
+	if (total_buf_size < 2 * pagesize)
 		goto fallback;
 
 	if (se->conn.proto_minor < 14 ||
@@ -1981,7 +2003,10 @@ static void do_lseek(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 		fuse_reply_err(req, ENOSYS);
 }
 
-static void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
+/* Prevent bogus data races (bogus since "init" is called before
+ * multi-threading becomes relevant */
+static __attribute__((no_sanitize("thread")))
+void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 {
 	struct fuse_init_in *arg = (struct fuse_init_in *) inarg;
 	struct fuse_init_out outarg;
@@ -2053,8 +2078,12 @@ static void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 			se->conn.capable |= FUSE_CAP_POSIX_ACL;
 		if (arg->flags & FUSE_HANDLE_KILLPRIV)
 			se->conn.capable |= FUSE_CAP_HANDLE_KILLPRIV;
+		if (arg->flags & FUSE_CACHE_SYMLINKS)
+			se->conn.capable |= FUSE_CAP_CACHE_SYMLINKS;
 		if (arg->flags & FUSE_NO_OPENDIR_SUPPORT)
 			se->conn.capable |= FUSE_CAP_NO_OPENDIR_SUPPORT;
+		if (arg->flags & FUSE_EXPLICIT_INVAL_DATA)
+			se->conn.capable |= FUSE_CAP_EXPLICIT_INVAL_DATA;
 		if (!(arg->flags & FUSE_MAX_PAGES)) {
 			size_t max_bufsize =
 				FUSE_DEFAULT_MAX_PAGES_PER_REQ * getpagesize()
@@ -2179,6 +2208,10 @@ static void do_init(fuse_req_t req, fuse_ino_t nodeid, const void *inarg)
 		outarg.flags |= FUSE_POSIX_ACL;
 	if (se->conn.want & FUSE_CAP_PASSTHROUGH)
 		outarg.flags |= FUSE_PASSTHROUGH;
+	if (se->conn.want & FUSE_CAP_CACHE_SYMLINKS)
+		outarg.flags |= FUSE_CACHE_SYMLINKS;
+	if (se->conn.want & FUSE_CAP_EXPLICIT_INVAL_DATA)
+		outarg.flags |= FUSE_EXPLICIT_INVAL_DATA;
 	outarg.max_readahead = se->conn.max_readahead;
 	outarg.max_write = se->conn.max_write;
 	if (se->conn.proto_minor >= 13) {
@@ -2319,7 +2352,7 @@ int fuse_lowlevel_notify_inval_inode(struct fuse_session *se, fuse_ino_t ino,
 	if (!se)
 		return -EINVAL;
 
-	if (se->conn.proto_major < 6 || se->conn.proto_minor < 12)
+	if (se->conn.proto_minor < 12)
 		return -ENOSYS;
 	
 	outarg.ino = ino;
@@ -2341,7 +2374,7 @@ int fuse_lowlevel_notify_inval_entry(struct fuse_session *se, fuse_ino_t parent,
 	if (!se)
 		return -EINVAL;
 	
-	if (se->conn.proto_major < 6 || se->conn.proto_minor < 12)
+	if (se->conn.proto_minor < 12)
 		return -ENOSYS;
 
 	outarg.parent = parent;
@@ -2366,7 +2399,7 @@ int fuse_lowlevel_notify_delete(struct fuse_session *se,
 	if (!se)
 		return -EINVAL;
 
-	if (se->conn.proto_major < 6 || se->conn.proto_minor < 18)
+	if (se->conn.proto_minor < 18)
 		return -ENOSYS;
 
 	outarg.parent = parent;
@@ -2395,7 +2428,7 @@ int fuse_lowlevel_notify_store(struct fuse_session *se, fuse_ino_t ino,
 	if (!se)
 		return -EINVAL;
 
-	if (se->conn.proto_major < 6 || se->conn.proto_minor < 15)
+	if (se->conn.proto_minor < 15)
 		return -ENOSYS;
 
 	out.unique = 0;
@@ -2473,7 +2506,7 @@ int fuse_lowlevel_notify_retrieve(struct fuse_session *se, fuse_ino_t ino,
 	if (!se)
 		return -EINVAL;
 
-	if (se->conn.proto_major < 6 || se->conn.proto_minor < 15)
+	if (se->conn.proto_minor < 15)
 		return -ENOSYS;
 
 	rreq = malloc(sizeof(*rreq));
@@ -2604,6 +2637,22 @@ static const char *opname(enum fuse_opcode opcode)
 		return fuse_ll_ops[opcode].name;
 }
 
+static const char *opfiltername(int filter)
+{
+	switch (filter) {
+	case 0:
+		return "NONE";
+	case FUSE_PREFILTER:
+		return "FUSE_PREFILTER";
+	case FUSE_POSTFILTER:
+		return "FUSE_POSTFILTER";
+	case FUSE_PREFILTER | FUSE_POSTFILTER:
+		return "FUSE_PREFILTER | FUSE_POSTFILTER";
+	default:
+		return "???";
+	}
+}
+
 static int fuse_ll_copy_from_pipe(struct fuse_bufvec *dst,
 				  struct fuse_bufvec *src)
 {
@@ -2638,6 +2687,7 @@ void fuse_session_process_buf_int(struct fuse_session *se,
 	void *mbuf = NULL;
 	int err;
 	int res;
+	int opcode_filter;
 
 	if (buf->flags & FUSE_BUF_IS_FD) {
 		if (buf->size < tmpbuf.buf[0].size)
@@ -2659,11 +2709,16 @@ void fuse_session_process_buf_int(struct fuse_session *se,
 		in = buf->mem;
 	}
 
+	/* Cleanup opcode most significant bits used by FUSE BPF */
+	opcode_filter = in->opcode & ~FUSE_OPCODE_FILTER;
+	in->opcode &= FUSE_OPCODE_FILTER;
+
 	if (se->debug) {
 		fuse_log(FUSE_LOG_DEBUG,
-			"unique: %llu, opcode: %s (%i), nodeid: %llu, insize: %zu, pid: %u\n",
+			"unique: %llu, opcode: %s (%i), opcode filter: %s (%i), nodeid: %llu, insize: %zu, pid: %u\n",
 			(unsigned long long) in->unique,
 			opname((enum fuse_opcode) in->opcode), in->opcode,
+			opfiltername((enum fuse_opcode) opcode_filter), opcode_filter,
 			(unsigned long long) in->nodeid, buf->size, in->pid);
 	}
 
@@ -3045,7 +3100,7 @@ struct fuse_session *fuse_session_new(struct fuse_args *args,
 	list_init_req(&se->interrupts);
 	list_init_nreq(&se->notify_list);
 	se->notify_ctr = 1;
-	fuse_mutex_init(&se->lock);
+	pthread_mutex_init(&se->lock, NULL);
 
 	err = pthread_key_create(&se->pipe_key, fuse_ll_pipe_destructor);
 	if (err) {
@@ -3066,7 +3121,8 @@ out5:
 out4:
 	fuse_opt_free_args(args);
 out3:
-	free(mo);
+	if (mo != NULL)
+		destroy_mount_opts(mo);
 out2:
 	free(se);
 out1:
@@ -3132,6 +3188,7 @@ void fuse_session_unmount(struct fuse_session *se)
 {
 	if (se->mountpoint != NULL) {
 		fuse_kern_unmount(se->mountpoint, se->fd);
+		se->fd = -1;
 		free(se->mountpoint);
 		se->mountpoint = NULL;
 	}
@@ -3207,17 +3264,22 @@ int fuse_req_getgroups(fuse_req_t req, int size, gid_t list[])
 }
 #endif
 
+/* Prevent spurious data race warning - we don't care
+ * about races for this flag */
+__attribute__((no_sanitize_thread))
 void fuse_session_exit(struct fuse_session *se)
 {
 	se->exited = 1;
 }
 
+__attribute__((no_sanitize_thread))
 void fuse_session_reset(struct fuse_session *se)
 {
 	se->exited = 0;
 	se->error = 0;
 }
 
+__attribute__((no_sanitize_thread))
 int fuse_session_exited(struct fuse_session *se)
 {
 	return se->exited;

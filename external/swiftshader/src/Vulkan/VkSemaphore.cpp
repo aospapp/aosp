@@ -87,7 +87,7 @@ static const VkExternalSemaphoreHandleTypeFlags kSupportedTypes =
     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT |
 #endif
 #if VK_USE_PLATFORM_FUCHSIA
-    VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA |
+    VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA |
 #endif
     0;
 
@@ -100,7 +100,7 @@ SemaphoreCreateInfo::SemaphoreCreateInfo(const VkSemaphoreCreateInfo *pCreateInf
 	{
 		switch(nextInfo->sType)
 		{
-			case VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO:
+		case VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO:
 			{
 				const auto *exportInfo = reinterpret_cast<const VkExportSemaphoreCreateInfo *>(nextInfo);
 				exportSemaphore = true;
@@ -113,16 +113,16 @@ SemaphoreCreateInfo::SemaphoreCreateInfo(const VkSemaphoreCreateInfo *pCreateInf
 				}
 			}
 			break;
-			case VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO:
+		case VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO:
 			{
 				const auto *tlsInfo = reinterpret_cast<const VkSemaphoreTypeCreateInfo *>(nextInfo);
 				semaphoreType = tlsInfo->semaphoreType;
 				initialPayload = tlsInfo->initialValue;
 			}
 			break;
-			default:
-				WARN("nextInfo->sType = %s", vk::Stringify(nextInfo->sType).c_str());
-				break;
+		default:
+			WARN("nextInfo->sType = %s", vk::Stringify(nextInfo->sType).c_str());
+			break;
 		}
 	}
 }
@@ -224,7 +224,7 @@ template<class EXTERNAL>
 BinarySemaphore::External *BinarySemaphore::allocateExternal()
 {
 	auto *ext = reinterpret_cast<BinarySemaphore::External *>(
-	    vk::allocate(sizeof(EXTERNAL), alignof(EXTERNAL), allocator));
+	    vk::allocateHostMemory(sizeof(EXTERNAL), alignof(EXTERNAL), allocator, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT));
 	new(ext) EXTERNAL();
 	return ext;
 }
@@ -232,7 +232,7 @@ BinarySemaphore::External *BinarySemaphore::allocateExternal()
 void BinarySemaphore::deallocateExternal(BinarySemaphore::External *ext)
 {
 	ext->~External();
-	vk::deallocate(ext, allocator);
+	vk::freeHostMemory(ext, allocator);
 }
 
 template<typename ALLOC_FUNC, typename IMPORT_FUNC>
@@ -341,11 +341,11 @@ VkResult BinarySemaphore::importHandle(zx_handle_t handle, bool temporaryImport)
 
 VkResult BinarySemaphore::exportHandle(zx_handle_t *pHandle)
 {
-	if((exportableHandleTypes & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA) == 0)
+	if((exportableHandleTypes & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA) == 0)
 	{
 		TRACE("Cannot export semaphore as Zircon handle (exportableHandleType = 0x%X, want 0x%X)",
 		      exportableHandleTypes,
-		      VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA);
+		      VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA);
 
 		return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 	}

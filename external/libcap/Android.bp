@@ -50,6 +50,7 @@ cc_library {
     host_supported: true,
     vendor_available: true,
     product_available: true,
+    ramdisk_available: true,
     recovery_available: true,
     vndk: {
         enabled: true,
@@ -83,6 +84,7 @@ cc_library {
     apex_available: [
         "//apex_available:platform",
         "com.android.adbd",
+        "com.android.compos",
         "com.android.media.swcodec",
         "com.android.virt",
     ],

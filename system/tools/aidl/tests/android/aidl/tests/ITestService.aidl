@@ -23,12 +23,31 @@ import android.aidl.tests.INewName;
 import android.aidl.tests.IOldName;
 import android.aidl.tests.IntEnum;
 import android.aidl.tests.LongEnum;
+import android.aidl.tests.RecursiveList;
 import android.aidl.tests.StructuredParcelable;
+import android.aidl.tests.Union;
+import android.aidl.tests.extension.ExtendableParcelable;
 
+/**
+ * interface comment
+ */
 @SuppressWarnings(value={"inout-parameter", "mixed-oneway", "out-array"})
 @SensitiveData
+@JavaDefault
+@JavaDelegator
 interface ITestService {
     // Test that constants are accessible
+
+    /**
+     * extra doc comment
+     */
+    // extra line comment
+    /*
+     * extra regular comment
+     */
+    /**
+     * const comment
+     */
     const int TEST_CONSTANT = 42;
     const int TEST_CONSTANT2 = -42;
     const int TEST_CONSTANT3 = +42;
@@ -98,8 +117,18 @@ interface ITestService {
     LongEnum[] ReverseLongEnum(in LongEnum[] input, out LongEnum[] repeated);
 
     // Test that clients can send and receive Binders.
-    INamedCallback GetOtherTestService(String name);
+    @PropagateAllowBlocking INamedCallback GetOtherTestService(String name);
     boolean VerifyName(INamedCallback service, String name);
+    INamedCallback[] GetInterfaceArray(in String[] names);
+    boolean VerifyNamesWithInterfaceArray(in INamedCallback[] services, in String[] names);
+    @nullable INamedCallback[] GetNullableInterfaceArray(
+            in @nullable String[] names);
+    boolean VerifyNamesWithNullableInterfaceArray(
+            in @nullable INamedCallback[] services, in @nullable String[] names);
+
+    @nullable List<INamedCallback> GetInterfaceList(in @nullable String[] names);
+    boolean VerifyNamesWithInterfaceList(in @nullable List<INamedCallback> services,
+            in @nullable String[] names);
 
     // Test that List<T> types work correctly.
     List<String> ReverseStringList(in List<String> input, out List<String> repeated);
@@ -119,11 +148,20 @@ interface ITestService {
     @nullable String RepeatNullableString(in @nullable String input);
     @nullable List<String> RepeatNullableStringList(
             in @nullable List<String> input);
-    @nullable StructuredParcelable RepeatNullableParcelable(
-            in @nullable StructuredParcelable input);
+
+    // Small empty parcelable for nullability check
+    @JavaDerive(equals=true)
+    @RustDerive(Clone=true, PartialEq=true)
+    parcelable Empty {}
+    @nullable Empty RepeatNullableParcelable(in @nullable Empty input);
+    @nullable Empty[] RepeatNullableParcelableArray(in @nullable Empty[] input);
+    @nullable List<Empty> RepeatNullableParcelableList(
+            in @nullable List<Empty> input);
 
     void TakesAnIBinder(in IBinder input);
     void TakesANullableIBinder(in @nullable IBinder input);
+    void TakesAnIBinderList(in List<IBinder> input);
+    void TakesANullableIBinderList(in @nullable List<IBinder> input);
 
     // Test utf8 decoding from utf16 wire format
     @utf8InCpp String RepeatUtf8CppString(@utf8InCpp String token);
@@ -143,11 +181,22 @@ interface ITestService {
             in @nullable @utf8InCpp List<String> input,
             out @nullable @utf8InCpp List<String> repeated);
 
+    /**
+     * comment before annotation
+     */
     @nullable INamedCallback GetCallback(boolean return_null);
 
     // Since this paracelable has clearly defined default values, it would be
     // inefficient to use an IPC to fill it out in practice.
     void FillOutStructuredParcelable(inout StructuredParcelable parcel);
+
+    void RepeatExtendableParcelable(in ExtendableParcelable ep, out ExtendableParcelable ep2);
+
+    RecursiveList ReverseList(in RecursiveList list);
+
+    IBinder[] ReverseIBinderArray(in IBinder[] input, out IBinder[] repeated);
+    @nullable IBinder[] ReverseNullableIBinderArray(
+            in @nullable IBinder[] input, out @nullable IBinder[] repeated);
 
     // All these constant expressions should be equal to 1
     const int A1 = (~(-1)) == 0;
@@ -211,8 +260,36 @@ interface ITestService {
     IOldName GetOldNameInterface();
     INewName GetNewNameInterface();
 
+    Union.Tag[] GetUnionTags(in Union[] input);
+
     // Retrieve the ICppJavaTests if the server supports it
     @nullable IBinder GetCppJavaTests();
 
     BackendType getBackendType();
+
+    parcelable CompilerChecks {
+        // IBinder
+        IBinder binder;
+        @nullable IBinder nullable_binder;
+        IBinder[] binder_array;
+        @nullable IBinder[] nullable_binder_array;
+        List<IBinder> binder_list;
+        @nullable List<IBinder> nullable_binder_list;
+
+        // ParcelFileDescriptor
+        ParcelFileDescriptor pfd;
+        @nullable ParcelFileDescriptor nullable_pfd;
+        ParcelFileDescriptor[] pfd_array;
+        @nullable ParcelFileDescriptor[] nullable_pfd_array;
+        List<ParcelFileDescriptor> pfd_list;
+        @nullable List<ParcelFileDescriptor> nullable_pfd_list;
+
+        // parcelable
+        Empty parcel;
+        @nullable Empty nullable_parcel;
+        Empty[] parcel_array;
+        @nullable Empty[] nullable_parcel_array;
+        List<Empty> parcel_list;
+        @nullable List<Empty> nullable_parcel_list;
+    }
 }

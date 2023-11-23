@@ -31,8 +31,9 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.system_annotation" />
-        <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="class" value="android.signature.cts.api.AnnotationTest" />
+        <option name="instrumentation-arg" key="dynamic-config-name" value="CtsSystemApiAnnotationTestCases" />
         <option name="instrumentation-arg" key="expected-api-files" value="system-current.api.gz,system-removed.api.gz,car-system-current.api.gz,car-system-removed.api.gz" />
         <option name="instrumentation-arg" key="annotation-for-exact-match" value="@android.annotation.SystemApi\(client=PRIVILEGED_APPS\)" />
         <option name="runtime-hint" value="30s" />

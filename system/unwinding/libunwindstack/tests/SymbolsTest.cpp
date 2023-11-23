@@ -34,8 +34,8 @@
 
 #include <unwindstack/Memory.h>
 
-#include "MemoryFake.h"
 #include "Symbols.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 

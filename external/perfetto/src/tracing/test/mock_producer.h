@@ -17,6 +17,7 @@
 #ifndef SRC_TRACING_TEST_MOCK_PRODUCER_H_
 #define SRC_TRACING_TEST_MOCK_PRODUCER_H_
 
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <string>
@@ -47,6 +48,7 @@ class MockProducer : public Producer {
   void Connect(TracingService* svc,
                const std::string& producer_name,
                uid_t uid = 42,
+               pid_t pid = 1025,
                size_t shared_memory_size_hint_bytes = 0,
                size_t shared_memory_page_size_hint_bytes = 0,
                std::unique_ptr<SharedMemory> shm = nullptr);
@@ -55,6 +57,12 @@ class MockProducer : public Producer {
                           bool ack_start = false,
                           bool handle_incremental_state_clear = false);
   void UnregisterDataSource(const std::string& name);
+  void RegisterTrackEventDataSource(
+      const std::initializer_list<std::string>& categories,
+      uint32_t id);
+  void UpdateTrackEventDataSource(
+      const std::initializer_list<std::string>& categories,
+      uint32_t id);
   void RegisterTraceWriter(uint32_t writer_id, uint32_t target_buffer);
   void UnregisterTraceWriter(uint32_t writer_id);
   void WaitForTracingSetup();

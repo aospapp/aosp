@@ -19,8 +19,7 @@ package {
 
 apex_defaults {
     name: "com.android.ipsec-defaults",
-    updatable: true,
-    min_sdk_version: "30",
+    defaults: ["r-launched-apex-module"],
     bootclasspath_fragments: ["com.android.ipsec-bootclasspath-fragment"],
     prebuilts: ["current_sdkinfo"],
     key: "com.android.ipsec.key",
@@ -73,4 +72,31 @@ bootclasspath_fragment {
     additional_stubs: [
         "android-non-updatable",
     ],
+
+    hidden_api: {
+        // This module does not contain any split packages.
+        split_packages: [],
+
+        // The following packages and all their subpackages currently only
+        // contain classes from this bootclasspath_fragment. Listing a package
+        // here won't prevent other bootclasspath modules from adding classes in
+        // any of those packages but it will prevent them from adding those
+        // classes into an API surface, e.g. public, system, etc.. Doing so will
+        // result in a build failure due to inconsistent flags.
+        package_prefixes: [
+            "android.net.eap",
+            "android.net.ipsec",
+            // These look like implementation specific packages which contain
+            // no APIs, not even hidden APIs. If that is the case then please
+            // consider moving the classes in these packages under one of the
+            // previous package_prefixes to avoid exposing these packages in
+            // the hidden API flags that are stored in the SDK snapshot.
+            "com.android.internal.net.crypto",
+            "com.android.internal.net.eap",
+            "com.android.internal.net.ipsec",
+            "com.android.internal.net.org",
+            "com.android.internal.net.utils",
+            "com.android.internal.net.vcn",
+        ],
+    },
 }

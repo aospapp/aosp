@@ -22,7 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
@@ -38,7 +38,6 @@ import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.hardware.display.DisplayManager;
 import android.os.Looper;
@@ -54,6 +53,7 @@ import com.android.car.CarOccupantZoneService.DisplayConfig;
 import com.android.car.CarOccupantZoneService.DisplayInfo;
 import com.android.car.CarOccupantZoneService.OccupantConfig;
 import com.android.car.user.CarUserService;
+import com.android.car.user.UserHandleHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -84,6 +84,9 @@ public class CarOccupantZoneServiceTest {
 
     @Mock
     private CarUserService mCarUserService;
+
+    @Mock
+    private UserHandleHelper mUserHandleHelper;
 
     @Mock
     private Context mContext;
@@ -238,7 +241,7 @@ public class CarOccupantZoneServiceTest {
         });
 
         mService = new CarOccupantZoneService(mContext, mDisplayManager, mUserManager,
-                /* enableProfileUserAssignmentForMultiDisplay= */ false);
+                /* enableProfileUserAssignmentForMultiDisplay= */ false, mUserHandleHelper);
         spyOn(mService);
         doReturn(VehicleAreaSeat.SEAT_ROW_1_LEFT).when(mService).getDriverSeat();
         doReturn(CURRENT_USER).when(mService).getCurrentUser();
@@ -322,15 +325,15 @@ public class CarOccupantZoneServiceTest {
 
     private void setUpServiceWithProfileSupportEnabled() {
         mService = new CarOccupantZoneService(mContext, mDisplayManager, mUserManager,
-                /* enableProfileUserAssignmentForMultiDisplay= */ true);
+                /* enableProfileUserAssignmentForMultiDisplay= */ true, mUserHandleHelper);
         spyOn(mService);
         doReturn(VehicleAreaSeat.SEAT_ROW_1_LEFT).when(mService).getDriverSeat();
         doReturn(CURRENT_USER).when(mService).getCurrentUser();
-        LinkedList<UserInfo> profileUsers = new LinkedList<>();
-        profileUsers.add(new UserInfo(PROFILE_USER1, "1", 0));
-        profileUsers.add(new UserInfo(PROFILE_USER2, "1", 0));
-        doReturn(profileUsers).when(mUserManager).getEnabledProfiles(CURRENT_USER);
-        doReturn(true).when(mUserManager).isUserRunning(anyInt());
+        LinkedList<UserHandle> profileUsers = new LinkedList<>();
+        profileUsers.add(UserHandle.of(PROFILE_USER1));
+        profileUsers.add(UserHandle.of(PROFILE_USER2));
+        doReturn(profileUsers).when(mUserHandleHelper).getEnabledProfiles(CURRENT_USER);
+        doReturn(true).when(mUserManager).isUserRunning(any());
 
         Car car = new Car(mContext, /* service= */ null, /* handler= */ null);
         mManager = new CarOccupantZoneManager(car, mService);
@@ -387,7 +390,7 @@ public class CarOccupantZoneServiceTest {
         assertPassengerDisplaysFromDefaultConfig();
 
         mICarServiceHelper.mAllowlists.clear();
-        doReturn(false).when(mUserManager).isUserRunning(PROFILE_USER1);
+        doReturn(false).when(mUserManager).isUserRunning(UserHandle.of(PROFILE_USER1));
         assertThat(mManager.assignProfileUserToOccupantZone(mZoneFrontPassengerLHD,
                 PROFILE_USER1)).isFalse();
     }

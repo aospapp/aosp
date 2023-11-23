@@ -25,11 +25,10 @@
 #include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
 #include <nnapi/Validation.h>
-#include <nnapi/hal/HandleError.h>
 
 namespace android::hardware::neuralnetworks::V1_0::utils {
 
-constexpr auto kVersion = nn::Version::ANDROID_OC_MR1;
+constexpr auto kVersion = nn::kVersionFeatureLevel1;
 
 template <typename Type>
 nn::Result<void> validate(const Type& halObject) {
@@ -50,9 +49,9 @@ bool valid(const Type& halObject) {
 }
 
 template <typename Type>
-nn::GeneralResult<void> compliantVersion(const Type& canonical) {
-    const auto version = NN_TRY(hal::utils::makeGeneralFailure(nn::validate(canonical)));
-    if (version > kVersion) {
+nn::Result<void> compliantVersion(const Type& canonical) {
+    const auto version = NN_TRY(nn::validate(canonical));
+    if (!nn::isCompliantVersion(version, kVersion)) {
         return NN_ERROR() << "Insufficient version: " << version << " vs required " << kVersion;
     }
     return {};

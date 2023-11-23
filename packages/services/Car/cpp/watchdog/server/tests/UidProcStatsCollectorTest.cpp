@@ -102,6 +102,7 @@ TEST(UidProcStatsCollectorTest, TestValidStatFiles) {
                                         perProcessStatus, perThreadStat));
 
     UidProcStatsCollector collector(firstSnapshot.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << firstSnapshot.path << "` are inaccessible";
@@ -208,6 +209,7 @@ TEST(UidProcStatsCollectorTest, TestHandlesProcessTerminationBetweenScanningAndP
                                         perThreadStat));
 
     UidProcStatsCollector collector(procDir.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << procDir.path << "` are inaccessible";
@@ -266,6 +268,7 @@ TEST(UidProcStatsCollectorTest, TestHandlesPidTidReuse) {
                                         perProcessStatus, perThreadStat));
 
     UidProcStatsCollector collector(firstSnapshot.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << firstSnapshot.path << "` are inaccessible";
@@ -358,6 +361,7 @@ TEST(UidProcStatsCollectorTest, TestErrorOnCorruptedProcessStatFile) {
                                         perThreadStat));
 
     UidProcStatsCollector collector(procDir.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << procDir.path << "` are inaccessible";
@@ -386,6 +390,7 @@ TEST(UidProcStatsCollectorTest, TestErrorOnCorruptedProcessStatusFile) {
                                         perThreadStat));
 
     UidProcStatsCollector collector(procDir.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << procDir.path << "` are inaccessible";
@@ -415,6 +420,7 @@ TEST(UidProcStatsCollectorTest, TestErrorOnCorruptedThreadStatFile) {
                                         perThreadStat));
 
     UidProcStatsCollector collector(procDir.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << procDir.path << "` are inaccessible";
@@ -451,6 +457,7 @@ TEST(UidProcStatsCollectorTest, TestHandlesSpaceInCommName) {
                                         perThreadStat));
 
     UidProcStatsCollector collector(procDir.path);
+    collector.init();
 
     ASSERT_TRUE(collector.enabled())
             << "Files under the path `" << procDir.path << "` are inaccessible";
@@ -466,13 +473,15 @@ TEST(UidProcStatsCollectorTest, TestHandlesSpaceInCommName) {
 
 TEST(UidProcStatsCollectorTest, TestUidProcStatsCollectorContentsFromDevice) {
     UidProcStatsCollector collector;
+    collector.init();
+
     ASSERT_TRUE(collector.enabled()) << "/proc/[pid]/.* files are inaccessible";
     ASSERT_RESULT_OK(collector.collect());
 
     const auto& processStats = collector.deltaStats();
 
     // The below check should pass because there should be at least one process.
-    EXPECT_GT(processStats.size(), 0);
+    EXPECT_GT(processStats.size(), static_cast<size_t>(0));
 }
 
 }  // namespace watchdog

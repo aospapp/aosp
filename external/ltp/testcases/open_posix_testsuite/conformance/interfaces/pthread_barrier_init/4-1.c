@@ -35,7 +35,7 @@ static int thread_state;
 #define EXITING_THREAD 3
 
 /* child thread */
-static void *fn_chld(void *arg LTP_ATTRIBUTE_UNUSED)
+static void *fn_chld(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int rc = 0;
 
@@ -58,7 +58,7 @@ static void *fn_chld(void *arg LTP_ATTRIBUTE_UNUSED)
 	return NULL;
 }
 
-void sig_handler()
+static void sig_handler()
 {
 	printf("Interrupted by SIGALRM\n");
 	printf("Test PASSED: main blocked on barrier init\n");
@@ -114,7 +114,7 @@ int main(void)
 	rc = pthread_barrier_init(&barrier, NULL, 2);
 
 	if (rc == EBUSY) {
-		printf("main: pthread_barrier_init() correctly got EBUSY");
+		printf("main: pthread_barrier_init() correctly got EBUSY\n");
 		printf("Test PASSED\n");
 	} else {
 		printf("main: got return code: %d, %s\n", rc, strerror(rc));

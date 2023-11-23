@@ -16,35 +16,14 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_library_shared {
-    name: "libnativedns_jni",
+cc_defaults {
+    name: "net_jni_defaults",
 
-    srcs: ["NativeDnsJni.c"],
-    sdk_version: "current",
-
-    shared_libs: [
-        "libnativehelper_compat_libc++",
-        "liblog",
-    ],
-    stl: "libc++_static",
-
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-unused-parameter",
-    ],
-
-}
-
-cc_library_shared {
-    name: "libnativemultinetwork_jni",
-
-    srcs: ["NativeMultinetworkJni.cpp"],
-    sdk_version: "current",
     cflags: [
         "-Wall",
         "-Werror",
         "-Wno-format",
+        "-Wno-unused-parameter",
     ],
     shared_libs: [
         "libandroid",
@@ -52,4 +31,19 @@ cc_library_shared {
         "liblog",
     ],
     stl: "libc++_static",
+    // To be compatible with Q devices, the min_sdk_version must be 29.
+    sdk_version: "current",
+    min_sdk_version: "29",
+}
+
+cc_library_shared {
+    name: "libnativedns_jni",
+    defaults: ["net_jni_defaults"],
+    srcs: ["NativeDnsJni.c"],
+}
+
+cc_library_shared {
+    name: "libnativemultinetwork_jni",
+    defaults: ["net_jni_defaults"],
+    srcs: ["NativeMultinetworkJni.cpp"],
 }

@@ -4,8 +4,8 @@ allow platform_app hal_exynos_rild_hwservice:hwservice_manager find;
 allow platform_app hal_wlc_hwservice:hwservice_manager find;
 binder_call(platform_app, hal_wlc)
 
-allow platform_app sysfs_vendor_sched:dir r_dir_perms;
-allow platform_app sysfs_vendor_sched:file w_file_perms;
+allow platform_app proc_vendor_sched:dir r_dir_perms;
+allow platform_app proc_vendor_sched:file w_file_perms;
 
 allow platform_app nfc_service:service_manager find;
 allow platform_app uwb_service:service_manager find;

@@ -25,6 +25,7 @@
 
 #include <core/core_interface.h>
 #include <utils/locker.h>
+#include <utils/constants.h>
 #include <qd_utils.h>
 #include <display_config.h>
 #include <vector>
@@ -56,6 +57,7 @@ using ::android::hardware::Void;
 namespace composer_V2_4 = ::android::hardware::graphics::composer::V2_4;
 using HwcDisplayCapability = composer_V2_4::IComposerClient::DisplayCapability;
 using HwcDisplayConnectionType = composer_V2_4::IComposerClient::DisplayConnectionType;
+using HwcClientTargetProperty = composer_V2_4::IComposerClient::ClientTargetProperty;
 
 namespace sdm {
 
@@ -242,6 +244,8 @@ class HWCSession : hwc2_device_t, HWCUEventListener, public qClient::BnQClient,
   int32_t GetDataspaceSaturationMatrix(int32_t /*Dataspace*/ int_dataspace, float *out_matrix);
   int32_t SetDisplayBrightnessScale(const android::Parcel *input_parcel);
   int32_t GetDisplayConnectionType(hwc2_display_t display, HwcDisplayConnectionType *type);
+  int32_t GetClientTargetProperty(hwc2_display_t display,
+                                  HwcClientTargetProperty *outClientTargetProperty);
 
   // Layer functions
   int32_t SetLayerBuffer(hwc2_display_t display, hwc2_layer_t layer, buffer_handle_t buffer,
@@ -407,6 +411,9 @@ class HWCSession : hwc2_device_t, HWCUEventListener, public qClient::BnQClient,
     virtual int SetCameraSmoothInfo(CameraSmoothOp op, uint32_t fps);
     virtual int ControlCameraSmoothCallback(bool enable);
 #endif
+    virtual int IsRCSupported(uint32_t disp_id, bool *supported);
+    virtual int AllowIdleFallback();
+
     std::weak_ptr<DisplayConfig::ConfigCallback> callback_;
     HWCSession *hwc_session_ = nullptr;
   };
@@ -499,6 +506,8 @@ class HWCSession : hwc2_device_t, HWCUEventListener, public qClient::BnQClient,
   android::status_t SetColorModeFromClient(const android::Parcel *input_parcel);
   android::status_t getComposerStatus();
   android::status_t SetStandByMode(const android::Parcel *input_parcel);
+  android::status_t GetPanelResolution(const android::Parcel *input_parcel,
+                                       android::Parcel *output_parcel);
   android::status_t SetQSyncMode(const android::Parcel *input_parcel);
   android::status_t SetIdlePC(const android::Parcel *input_parcel);
   android::status_t SetDisplayDeviceStatus(const android::Parcel *input_parcel);
@@ -518,6 +527,7 @@ class HWCSession : hwc2_device_t, HWCUEventListener, public qClient::BnQClient,
                                       uint32_t *out_num_requests);
   HWC2::Error PresentDisplayInternal(hwc2_display_t display);
   void HandleSecureSession();
+  void SetCpuPerfHintLargeCompCycle();
   void HandlePendingPowerMode(hwc2_display_t display, const shared_ptr<Fence> &retire_fence);
   void HandlePendingHotplug(hwc2_display_t disp_id, const shared_ptr<Fence> &retire_fence);
   bool IsPluggableDisplayConnected();
@@ -593,6 +603,7 @@ class HWCSession : hwc2_device_t, HWCUEventListener, public qClient::BnQClient,
   static constexpr const char *ltm_hbm_mode_cmd_ = "Ltm:UserMode:Primary:hbm";
   static constexpr const char *ltm_power_save_mode_cmd_ = "Ltm:UserMode:Primary:power_save";
   static constexpr const char *ltm_get_mode_cmd_ = "Ltm:GetUserMode:Primary";
+  bool is_idle_time_up_ = false;
 };
 }  // namespace sdm
 

@@ -18,6 +18,7 @@ package com.google.android.car.kitchensink.users;
 
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
+import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -48,6 +49,7 @@ public final class UserInfoView extends LinearLayout {
     private EditText mUserNameEditText;
     private EditText mUserTypeEditText;
     private EditText mUserFlagsEditText;
+    private EditText mUserStatusEditText;
     private TextView mManagedTextView;
 
     public UserInfoView(Context context, AttributeSet attrs) {
@@ -59,6 +61,7 @@ public final class UserInfoView extends LinearLayout {
         mUserNameEditText = findViewById(R.id.user_name);
         mUserTypeEditText = findViewById(R.id.user_type);
         mUserFlagsEditText = findViewById(R.id.user_flags);
+        mUserStatusEditText = findViewById(R.id.user_status);
         mManagedTextView = findViewById(R.id.managed);
     }
 
@@ -73,7 +76,24 @@ public final class UserInfoView extends LinearLayout {
         mUserNameEditText.setText(user.name);
         mUserTypeEditText.setText(user.userType);
         mUserFlagsEditText.setText(UserInfo.flagsToString(user.flags));
+        mUserStatusEditText.setText(getStatus(user));
         setManagedStatus(user.id);
+    }
+
+    private String getStatus(@NonNull UserInfo user) {
+        ActivityManager am = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        int currentUserId = ActivityManager.getCurrentUser();
+        boolean current = user.id == currentUserId;
+        boolean running = am.isUserRunning(user.id);
+        String s = new StringBuilder()
+                .append(user.preCreated ? " (pre-created)" : "")
+                .append(user.convertedFromPreCreated ? " (converted)" : "")
+                .append(user.partial ? " (partial)" : "")
+                .append(running ? " (running)" : "")
+                .append(current ? " (current)" : "")
+                .toString();
+        return s;
     }
 
     private void setUserIcon(@UserIdInt int userId) {

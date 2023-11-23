@@ -28,15 +28,15 @@ class ApiFromTextTest : DriverTest() {
                   public class MyTest {
                     ctor public MyTest();
                     method public int clamp(int);
-                    method public java.lang.Double convert(java.lang.Float);
-                    field public static final java.lang.String ANY_CURSOR_ITEM_TYPE = "vnd.android.cursor.item/*";
-                    field public java.lang.Number myNumber;
+                    method public Double convert(Float);
+                    field public static final String ANY_CURSOR_ITEM_TYPE = "vnd.android.cursor.item/*";
+                    field public Number myNumber;
                   }
                 }
                 """
 
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = source
         )
@@ -56,7 +56,6 @@ class ApiFromTextTest : DriverTest() {
 
         check(
             format = FileFormat.V3,
-            compatibilityMode = false,
             inputKotlinStyleNulls = true,
             signatureSource = source,
             includeSignatureVersion = true,
@@ -77,7 +76,6 @@ class ApiFromTextTest : DriverTest() {
 
         check(
             format = FileFormat.V3,
-            compatibilityMode = false,
             inputKotlinStyleNulls = true,
             signatureSource = source,
             includeSignatureVersion = true,
@@ -112,7 +110,6 @@ class ApiFromTextTest : DriverTest() {
 
         check(
             format = FileFormat.V3,
-            compatibilityMode = false,
             inputKotlinStyleNulls = true,
             signatureSource = source,
             includeSignatureVersion = true,
@@ -146,7 +143,6 @@ class ApiFromTextTest : DriverTest() {
 
         check(
             format = FileFormat.V3,
-            compatibilityMode = false,
             inputKotlinStyleNulls = true,
             signatureSource = source,
             includeSignatureVersion = true,
@@ -166,7 +162,7 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
         check(
-            compatibilityMode = false,
+            format = FileFormat.V2,
             outputKotlinStyleNulls = false,
             signatureSource = source,
             api = source
@@ -185,7 +181,6 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
         check(
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             signatureSource = source,
             api = source
@@ -195,7 +190,6 @@ class ApiFromTextTest : DriverTest() {
     @Test
     fun `Native and strictfp keywords`() {
         check(
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             signatureSource = """
                     package test.pkg {
@@ -219,7 +213,7 @@ class ApiFromTextTest : DriverTest() {
     @Test
     fun `Type use annotations`() {
         check(
-            compatibilityMode = false,
+            format = FileFormat.V2,
             outputKotlinStyleNulls = false,
             signatureSource = """
                 package test.pkg {
@@ -259,7 +253,6 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
         check(
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             signatureSource = source
         )
@@ -268,8 +261,7 @@ class ApiFromTextTest : DriverTest() {
     @Test
     fun `Infer fully qualified names from shorter names`() {
         check(
-            compatibilityMode = true,
-            extraArguments = arrayOf("--annotations-in-signatures"),
+            format = FileFormat.V2,
             signatureSource = """
                 package test.pkg {
                   public class MyTest {
@@ -284,7 +276,7 @@ class ApiFromTextTest : DriverTest() {
                   public class MyTest {
                     ctor public MyTest();
                     method public int clamp(int);
-                    method public double convert(@androidx.annotation.Nullable java.lang.Float, byte[], java.lang.Iterable<java.io.File>);
+                    method public double convert(@Nullable Float, byte[], Iterable<java.io.File>);
                   }
                 }
                 """
@@ -304,14 +296,14 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = """
                 package test.pkg {
-                  public deprecated class MyTest {
-                    ctor public deprecated MyTest(int, int);
-                    method public static final deprecated void edit(android.content.SharedPreferences, kotlin.jvm.functions.Function1<? super android.content.SharedPreferences.Editor,kotlin.Unit>);
-                    field public static deprecated java.util.List<java.lang.String> LIST;
+                  @Deprecated public class MyTest {
+                    ctor @Deprecated public MyTest(int, int);
+                    method @Deprecated public static final void edit(android.content.SharedPreferences, kotlin.jvm.functions.Function1<? super android.content.SharedPreferences.Editor,kotlin.Unit> action);
+                    field @Deprecated public static java.util.List<java.lang.String> LIST;
                   }
                 }
                 """
@@ -322,25 +314,25 @@ class ApiFromTextTest : DriverTest() {
     fun `Test generics, superclasses and interfaces`() {
         val source = """
             package a.b.c {
-              public abstract interface MyStream<T, S extends a.b.c.MyStream<T, S>> {
+              public interface MyStream<T, S extends a.b.c.MyStream<T, S>> {
               }
             }
             package test.pkg {
-              public final class Foo extends java.lang.Enum {
+              public enum Foo {
                 ctor public Foo(int);
                 ctor public Foo(int, int);
-                method public static test.pkg.Foo valueOf(java.lang.String);
+                method public static test.pkg.Foo valueOf(String);
                 method public static final test.pkg.Foo[] values();
                 enum_constant public static final test.pkg.Foo A;
                 enum_constant public static final test.pkg.Foo B;
               }
-              public abstract interface MyBaseInterface {
+              public interface MyBaseInterface {
               }
-              public abstract interface MyInterface<T> implements test.pkg.MyBaseInterface {
+              public interface MyInterface<T> extends test.pkg.MyBaseInterface {
               }
-              public abstract interface MyInterface2<T extends java.lang.Number> implements test.pkg.MyBaseInterface {
+              public interface MyInterface2<T extends java.lang.Number> extends test.pkg.MyBaseInterface {
               }
-              public static abstract class MyInterface2.Range<T extends java.lang.Comparable<? super T>> {
+              public abstract static class MyInterface2.Range<T extends java.lang.Comparable<? super T>> {
                 ctor public MyInterface2.Range();
               }
               public static class MyInterface2.TtsSpan<C extends test.pkg.MyInterface<?>> {
@@ -357,7 +349,7 @@ class ApiFromTextTest : DriverTest() {
             """
 
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = source
         )
@@ -369,7 +361,7 @@ class ApiFromTextTest : DriverTest() {
                 package test.pkg {
                   public class Foo2 {
                     ctor public Foo2();
-                    field public static final java.lang.String GOOD_IRI_CHAR = "a-zA-Z0-9\u00a0-\ud7ff\uf900-\ufdcf\ufdf0-\uffef";
+                    field public static final String GOOD_IRI_CHAR = "a-zA-Z0-9\u00a0-\ud7ff\uf900-\ufdcf\ufdf0-\uffef";
                     field public static final char HEX_INPUT = 61184; // 0xef00 '\uef00'
                     field protected int field00;
                     field public static final boolean field01 = true;
@@ -380,7 +372,7 @@ class ApiFromTextTest : DriverTest() {
                     field public static final char field06 = 99; // 0x0063 'c'
                     field public static final float field07 = 98.5f;
                     field public static final double field08 = 98.5;
-                    field public static final java.lang.String field09 = "String with \"escapes\" and \u00a9...";
+                    field public static final String field09 = "String with \"escapes\" and \u00a9...";
                     field public static final double field10 = (0.0/0.0);
                     field public static final double field11 = (1.0/0.0);
                   }
@@ -388,7 +380,6 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = true,
             signatureSource = source,
             api = source
         )
@@ -400,24 +391,23 @@ class ApiFromTextTest : DriverTest() {
                 package test.pkg {
                   public abstract class Foo {
                     ctor public Foo();
-                    method public static final deprecated synchronized void method1();
-                    method public static final deprecated synchronized void method2();
+                    method @Deprecated public static final void method1();
+                    method @Deprecated public static final void method2();
                   }
-                  protected static final deprecated class Foo.Inner1 {
+                  @Deprecated protected static final class Foo.Inner1 {
                     ctor protected Foo.Inner1();
                   }
-                  protected static abstract deprecated class Foo.Inner2 {
+                  @Deprecated protected abstract static class Foo.Inner2 {
                     ctor protected Foo.Inner2();
                   }
-                  protected static abstract deprecated interface Foo.Inner3 {
+                  @Deprecated protected static interface Foo.Inner3 {
                     method public default void method3();
-                    method public static abstract void method4(int);
+                    method public abstract static void method4(int);
                   }
                 }
                 """
 
         check(
-            compatibilityMode = true,
             signatureSource = source,
             api = source
         )
@@ -435,7 +425,7 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = source
         )
@@ -464,16 +454,8 @@ class ApiFromTextTest : DriverTest() {
     }
 
     @Test
-    fun `Enums and annotations`() {
-        // In non-compat mode we write interfaces out as "@interface" (instead of abstract class)
-        // and similarly for enums we write "enum" instead of "class extends java.lang.Enum".
-        // Make sure we can also read this back in.
+    fun `Enums`() {
         val source = """
-                package android.annotation {
-                  public @interface SuppressLint {
-                    method public abstract String[] value();
-                  }
-                }
                 package test.pkg {
                   public enum Foo {
                     enum_constant public static final test.pkg.Foo A;
@@ -483,7 +465,23 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = false,
+            outputKotlinStyleNulls = false,
+            signatureSource = source,
+            api = source
+        )
+    }
+
+    @Test
+    fun `Annotations`() {
+        val source = """
+                package android.annotation {
+                  public @interface SuppressLint {
+                    method public abstract String[] value();
+                  }
+                }
+                """
+
+        check(
             outputKotlinStyleNulls = false,
             signatureSource = source,
             api = source
@@ -501,7 +499,6 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = false,
             outputKotlinStyleNulls = false,
             signatureSource = source,
             api = source
@@ -509,42 +506,9 @@ class ApiFromTextTest : DriverTest() {
     }
 
     @Test
-    fun `Enums and annotations exported to compat`() {
-        val source = """
-                package android.annotation {
-                  public @interface SuppressLint {
-                  }
-                }
-                package test.pkg {
-                  public final enum Foo {
-                    enum_constant public static final test.pkg.Foo A;
-                    enum_constant public static final test.pkg.Foo B;
-                  }
-                }
-                """
-
-        check(
-            compatibilityMode = true,
-            signatureSource = source,
-            api = """
-                package android.annotation {
-                  public abstract class SuppressLint implements java.lang.annotation.Annotation {
-                  }
-                }
-                package test.pkg {
-                  public final class Foo extends java.lang.Enum {
-                    enum_constant public static final test.pkg.Foo A;
-                    enum_constant public static final test.pkg.Foo B;
-                  }
-                }
-                """
-        )
-    }
-
-    @Test
     fun `Sort throws list by full name`() {
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = """
                     package android.accounts {
                       public abstract interface AccountManagerFuture<V> {
@@ -562,12 +526,12 @@ class ApiFromTextTest : DriverTest() {
                     """,
             api = """
                     package android.accounts {
-                      public abstract interface AccountManagerFuture<V> {
-                        method public abstract boolean cancel(boolean);
-                        method public abstract V getResult() throws android.accounts.AuthenticatorException, java.io.IOException, android.accounts.OperationCanceledException;
-                        method public abstract V getResult(long, java.util.concurrent.TimeUnit) throws android.accounts.AuthenticatorException, java.io.IOException, android.accounts.OperationCanceledException;
-                        method public abstract boolean isCancelled();
-                        method public abstract boolean isDone();
+                      public interface AccountManagerFuture<V> {
+                        method public boolean cancel(boolean);
+                        method public V getResult() throws android.accounts.AuthenticatorException, java.io.IOException, android.accounts.OperationCanceledException;
+                        method public V getResult(long, java.util.concurrent.TimeUnit) throws android.accounts.AuthenticatorException, java.io.IOException, android.accounts.OperationCanceledException;
+                        method public boolean isCancelled();
+                        method public boolean isDone();
                       }
                       public class AuthenticatorException extends java.lang.Throwable {
                       }
@@ -643,7 +607,6 @@ class ApiFromTextTest : DriverTest() {
 
         check(
             format = FileFormat.V2,
-            compatibilityMode = false,
             signatureSource = source,
             api = source
         )
@@ -690,7 +653,7 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = false,
+            format = FileFormat.V3,
             inputKotlinStyleNulls = true,
             outputKotlinStyleNulls = true,
             signatureSource = source,
@@ -736,7 +699,7 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
         check(
-            compatibilityMode = false,
+            format = FileFormat.V3,
             inputKotlinStyleNulls = true,
             outputKotlinStyleNulls = true,
             signatureSource = source,
@@ -759,7 +722,7 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = source
         )
@@ -771,13 +734,13 @@ class ApiFromTextTest : DriverTest() {
                 package test.pkg {
                   public final class TestKt {
                     ctor public TestKt();
-                    method public static suspend inline java.lang.Object hello(kotlin.coroutines.experimental.Continuation<? super kotlin.Unit>);
+                    method public static suspend inline Object hello(kotlin.coroutines.experimental.Continuation<? super kotlin.Unit>);
                   }
                 }
                 """
 
         check(
-            compatibilityMode = true,
+            format = FileFormat.V2,
             signatureSource = source,
             api = source
         )
@@ -802,7 +765,6 @@ class ApiFromTextTest : DriverTest() {
                 """
 
         check(
-            compatibilityMode = false,
             signatureSource = source,
             api = expectedApi
         )

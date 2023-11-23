@@ -36,7 +36,7 @@
 /**
  * Converts input to shortname
  * @param un unix name (in Unix charset)
- * 
+ *
  * @return 1 if name had to be mangled
  */
 static __inline__ int convert_to_shortname(doscp_t *cp, ClashHandling_t *ch,
@@ -54,7 +54,7 @@ static __inline__ int convert_to_shortname(doscp_t *cp, ClashHandling_t *ch,
 
 static __inline__ void chomp(char *line)
 {
-	int l = strlen(line);
+	size_t l = strlen(line);
 	while(l > 0 && (line[l-1] == '\n' || line[l-1] == '\r')) {
 		line[--l] = '\0';
 	}
@@ -70,7 +70,7 @@ static __inline__ int ask_rename(doscp_t *cp, ClashHandling_t *ch,
 {
 	int mangled;
 
-	/* TODO: Would be nice to suggest "autorenamed" version of name, press 
+	/* TODO: Would be nice to suggest "autorenamed" version of name, press
 	 * <Return> to get it.
 	 */
 #if 0
@@ -92,7 +92,7 @@ static __inline__ int ask_rename(doscp_t *cp, ClashHandling_t *ch,
 		if (isprimary)
 			strcpy(longname, tname);
 		else
-			mangled = convert_to_shortname(cp, 
+			mangled = convert_to_shortname(cp,
 						       ch, tname, shortname);
 	} while (mangled & 1);
 	return 1;
@@ -107,7 +107,7 @@ static __inline__ int ask_rename(doscp_t *cp, ClashHandling_t *ch,
 static __inline__ clash_action ask_namematch(doscp_t *cp,
 					     dos_name_t *dosname,
 					     char *longname,
-					     int isprimary, 
+					     int isprimary,
 					     ClashHandling_t *ch,
 					     int no_overwrite,
 					     int reason)
@@ -178,12 +178,12 @@ static __inline__ clash_action ask_namematch(doscp_t *cp,
 		fflush(opentty(1));
 		if (mtools_raw_tty) {
 			int rep;
-			rep = fgetc(opentty(1));			
+			rep = fgetc(opentty(1));
 			fputs("\n", stderr);
 			if(rep == EOF)
 				ans[0] = 'q';
 			else
-				ans[0] = rep;
+				ans[0] = (char) rep;
 		} else {
 			if(fgets(ans, 9, opentty(0)) == NULL)
 				ans[0] = 'q';
@@ -299,9 +299,13 @@ static __inline__ clash_action process_namematch(doscp_t *cp,
 			return NAMEMATCH_SKIP;
 		else
 			return NAMEMATCH_OVERWRITE;
-	default:
+	case NAMEMATCH_NONE:
+	case NAMEMATCH_ERROR:
+	case NAMEMATCH_SUCCESS:
+	case NAMEMATCH_GREW:
 		return NAMEMATCH_NONE;
 	}
+	return action;
 }
 
 static int contains_illegals(const char *string, const char *illegals,
@@ -332,7 +336,7 @@ static int is_reserved(char *ans, int islong)
 		    ((islong && !ans[4]) ||
 		     (!islong && !strncmp(ans+4,"    ",4))))
 			return 1;
-	
+
 	return 0;
 }
 
@@ -384,18 +388,18 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 					ch->use_longname)) {
 			case -1:
 				return NAMEMATCH_ERROR;
-				
+
 			case 0:
 				return NAMEMATCH_SKIP;
 				/* Single-file error error or skip request */
-				
+
 			case 5:
 				return NAMEMATCH_GREW;
 				/* Grew directory, try again */
-				
+
 			case 6:
 				return NAMEMATCH_SUCCESS; /* Success */
-		}	
+		}
 		match_pos = -2;
 		if (ssp->longmatch > -1) {
 			/* Primary Long Name Match */
@@ -403,7 +407,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 			fprintf(stderr,
 				"Got longmatch=%d for name %s.\n",
 				longmatch, longname);
-#endif			
+#endif
 			match_pos = ssp->longmatch;
 			isprimary = 1;
 		} else if ((ch->use_longname & 1) && (ssp->shortmatch != -1)) {
@@ -439,7 +443,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 	}
 	ret = process_namematch(cp, dosname, longname,
 				isprimary, ch, no_overwrite, reason);
-	
+
 	if (ret == NAMEMATCH_OVERWRITE && match_pos > -1){
 		if((entry.dir.attr & 0x5) &&
 		   (ask_confirmation("file is read only, overwrite anyway (y/n) ? ")))
@@ -447,7 +451,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 		/* Free up the file to be overwritten */
 		if(fatFreeWithDirentry(&entry))
 			return NAMEMATCH_ERROR;
-		
+
 #if 0
 		if(isprimary &&
 		   match_pos - ssp->match_free + 1 >= ssp->size_needed){
@@ -587,7 +591,7 @@ static int _mwrite_one(Stream_t *Dir,
 			case NAMEMATCH_ERROR:
 				return -1;	/* Non-file-specific error,
 						 * quit */
-				
+
 			case NAMEMATCH_SKIP:
 				return -1;	/* Skip file (user request or
 						 * error) */
@@ -613,7 +617,7 @@ static int _mwrite_one(Stream_t *Dir,
 					return -1;
 				}
 				expanded = 1;
-				
+
 				if (dir_grow(Dir, scan.max_entry))
 					return -1;
 				continue;
@@ -622,7 +626,9 @@ static int _mwrite_one(Stream_t *Dir,
 				return write_slots(Dir, &dosname, longname,
 						   &scan, cb, arg,
 						   ch->use_longname);
-			default:
+			case NAMEMATCH_NONE:
+			case NAMEMATCH_AUTORENAME:
+			case NAMEMATCH_QUIT:
 				fprintf(stderr,
 					"Internal error: clash_action=%d\n",
 					ret);

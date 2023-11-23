@@ -102,6 +102,8 @@ static const char *kCodecMime = "android.media.mediacodec.mime";    /* e.g. audi
 static const char *kCodecMode = "android.media.mediacodec.mode";    /* audio, video */
 static const char *kCodecModeVideo = "video";            /* values returned for kCodecMode */
 static const char *kCodecModeAudio = "audio";
+static const char *kCodecModeImage = "image";
+static const char *kCodecModeUnknown = "unknown";
 static const char *kCodecEncoder = "android.media.mediacodec.encoder"; /* 0,1 */
 static const char *kCodecSecure = "android.media.mediacodec.secure";   /* 0, 1 */
 static const char *kCodecWidth = "android.media.mediacodec.width";     /* 0..n */
@@ -112,6 +114,15 @@ static const char *kCodecFrameRate = "android.media.mediacodec.frame-rate";
 static const char *kCodecCaptureRate = "android.media.mediacodec.capture-rate";
 static const char *kCodecOperatingRate = "android.media.mediacodec.operating-rate";
 static const char *kCodecPriority = "android.media.mediacodec.priority";
+static const char *kCodecConfigColorStandard = "android.media.mediacodec.config-color-standard";
+static const char *kCodecConfigColorRange = "android.media.mediacodec.config-color-range";
+static const char *kCodecConfigColorTransfer = "android.media.mediacodec.config-color-transfer";
+static const char *kCodecParsedColorStandard = "android.media.mediacodec.parsed-color-standard";
+static const char *kCodecParsedColorRange = "android.media.mediacodec.parsed-color-range";
+static const char *kCodecParsedColorTransfer = "android.media.mediacodec.parsed-color-transfer";
+static const char *kCodecHDRStaticInfo = "android.media.mediacodec.hdr-static-info";
+static const char *kCodecHDR10PlusInfo = "android.media.mediacodec.hdr10-plus-info";
+static const char *kCodecHDRFormat = "android.media.mediacodec.hdr-format";
 
 // Min/Max QP before shaping
 static const char *kCodecOriginalVideoQPIMin = "android.media.mediacodec.original-video-qp-i-min";
@@ -177,9 +188,12 @@ static const char *kCodecShapingEnhanced = "android.media.mediacodec.shaped";
 // XXX suppress until we get our representation right
 static bool kEmitHistogram = false;
 
+static int64_t getId(IResourceManagerClient const * client) {
+    return (int64_t) client;
+}
 
 static int64_t getId(const std::shared_ptr<IResourceManagerClient> &client) {
-    return (int64_t) client.get();
+    return getId(client.get());
 }
 
 static bool isResourceError(status_t err) {
@@ -196,12 +210,20 @@ static const C2MemoryUsage kDefaultReadWriteUsage{
 ////////////////////////////////////////////////////////////////////////////////
 
 struct ResourceManagerClient : public BnResourceManagerClient {
-    explicit ResourceManagerClient(MediaCodec* codec) : mMediaCodec(codec) {}
+    explicit ResourceManagerClient(MediaCodec* codec, int32_t pid) :
+            mMediaCodec(codec), mPid(pid) {}
 
     Status reclaimResource(bool* _aidl_return) override {
         sp<MediaCodec> codec = mMediaCodec.promote();
         if (codec == NULL) {
-            // codec is already gone.
+            // Codec is already gone, so remove the resources as well
+            ::ndk::SpAIBinder binder(AServiceManager_getService("media.resource_manager"));
+            std::shared_ptr<IResourceManagerService> service =
+                    IResourceManagerService::fromBinder(binder);
+            if (service == nullptr) {
+                ALOGW("MediaCodec::ResourceManagerClient unable to find ResourceManagerService");
+            }
+            service->removeClient(mPid, getId(this));
             *_aidl_return = true;
             return Status::ok();
         }
@@ -238,6 +260,7 @@ struct ResourceManagerClient : public BnResourceManagerClient {
 
 private:
     wp<MediaCodec> mMediaCodec;
+    int32_t mPid;
 
     DISALLOW_EVIL_CONSTRUCTORS(ResourceManagerClient);
 };
@@ -247,7 +270,7 @@ struct MediaCodec::ResourceManagerServiceProxy : public RefBase {
             const std::shared_ptr<IResourceManagerClient> &client);
     virtual ~ResourceManagerServiceProxy();
 
-    void init();
+    status_t init();
 
     // implements DeathRecipient
     static void BinderDiedCallback(void* cookie);
@@ -276,6 +299,9 @@ MediaCodec::ResourceManagerServiceProxy::ResourceManagerServiceProxy(
         pid_t pid, uid_t uid, const std::shared_ptr<IResourceManagerClient> &client)
         : mPid(pid), mUid(uid), mClient(client),
           mDeathRecipient(AIBinder_DeathRecipient_new(BinderDiedCallback)) {
+    if (mUid == MediaCodec::kNoUid) {
+        mUid = AIBinder_getCallingUid();
+    }
     if (mPid == MediaCodec::kNoPid) {
         mPid = AIBinder_getCallingPid();
     }
@@ -294,12 +320,26 @@ MediaCodec::ResourceManagerServiceProxy::~ResourceManagerServiceProxy() {
     }
 }
 
-void MediaCodec::ResourceManagerServiceProxy::init() {
+status_t MediaCodec::ResourceManagerServiceProxy::init() {
     ::ndk::SpAIBinder binder(AServiceManager_getService("media.resource_manager"));
     mService = IResourceManagerService::fromBinder(binder);
     if (mService == nullptr) {
         ALOGE("Failed to get ResourceManagerService");
-        return;
+        return UNKNOWN_ERROR;
+    }
+
+    int callerPid = AIBinder_getCallingPid();
+    int callerUid = AIBinder_getCallingUid();
+    if (mPid != callerPid || mUid != callerUid) {
+        // Media processes don't need special permissions to act on behalf of other processes.
+        if (callerUid != AID_MEDIA) {
+            char const * permission = "android.permission.MEDIA_RESOURCE_OVERRIDE_PID";
+            if (!checkCallingPermission(String16(permission))) {
+                ALOGW("%s is required to override the caller's PID for media resource management.",
+                        permission);
+                return PERMISSION_DENIED;
+            }
+        }
     }
 
     // Kill clients pending removal.
@@ -310,6 +350,7 @@ void MediaCodec::ResourceManagerServiceProxy::init() {
 
     // after this, require mLock whenever using mService
     AIBinder_linkToDeath(mService->asBinder().get(), mDeathRecipient.get(), this);
+    return OK;
 }
 
 //static
@@ -649,6 +690,24 @@ void CodecCallback::onFirstTunnelFrameReady() {
     notify->post();
 }
 
+static MediaResourceSubType toMediaResourceSubType(MediaCodec::Domain domain) {
+    switch (domain) {
+        case MediaCodec::DOMAIN_VIDEO: return MediaResourceSubType::kVideoCodec;
+        case MediaCodec::DOMAIN_AUDIO: return MediaResourceSubType::kAudioCodec;
+        case MediaCodec::DOMAIN_IMAGE: return MediaResourceSubType::kImageCodec;
+        default:                       return MediaResourceSubType::kUnspecifiedSubType;
+    }
+}
+
+static const char * toCodecMode(MediaCodec::Domain domain) {
+    switch (domain) {
+        case MediaCodec::DOMAIN_VIDEO: return kCodecModeVideo;
+        case MediaCodec::DOMAIN_AUDIO: return kCodecModeAudio;
+        case MediaCodec::DOMAIN_IMAGE: return kCodecModeImage;
+        default:                       return kCodecModeUnknown;
+    }
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -744,10 +803,13 @@ MediaCodec::MediaCodec(
       mFlags(0),
       mStickyError(OK),
       mSoftRenderer(NULL),
-      mIsVideo(false),
-      mVideoWidth(0),
-      mVideoHeight(0),
+      mDomain(DOMAIN_UNKNOWN),
+      mWidth(0),
+      mHeight(0),
       mRotationDegrees(0),
+      mConfigColorTransfer(-1),
+      mHDRStaticInfo(false),
+      mHDR10PlusInfo(false),
       mDequeueInputTimeoutGeneration(0),
       mDequeueInputReplyID(0),
       mDequeueOutputTimeoutGeneration(0),
@@ -755,7 +817,7 @@ MediaCodec::MediaCodec(
       mTunneledInputWidth(0),
       mTunneledInputHeight(0),
       mTunneled(false),
-      mTunnelPeekState(TunnelPeekState::kEnabledNoBuffer),
+      mTunnelPeekState(TunnelPeekState::kLegacyMode),
       mHaveInputSurface(false),
       mHavePendingInputBuffers(false),
       mCpuBoostRequested(false),
@@ -773,13 +835,8 @@ MediaCodec::MediaCodec(
       mInputBufferCounter(0),
       mGetCodecBase(getCodecBase),
       mGetCodecInfo(getCodecInfo) {
-    if (uid == kNoUid) {
-        mUid = AIBinder_getCallingUid();
-    } else {
-        mUid = uid;
-    }
-    mResourceManagerProxy = new ResourceManagerServiceProxy(pid, mUid,
-            ::ndk::SharedRefBase::make<ResourceManagerClient>(this));
+    mResourceManagerProxy = new ResourceManagerServiceProxy(pid, uid,
+            ::ndk::SharedRefBase::make<ResourceManagerClient>(this, pid));
     if (!mGetCodecBase) {
         mGetCodecBase = [](const AString &name, const char *owner) {
             return GetCodecBase(name, owner);
@@ -807,7 +864,6 @@ MediaCodec::MediaCodec(
             return NAME_NOT_FOUND;
         };
     }
-
     initMediametrics();
 }
 
@@ -898,11 +954,71 @@ void MediaCodec::updateMediametrics() {
         mediametrics_setInt64(mMetricsHandle, kCodecFirstFrameIndexLowLatencyModeOn,
                               mIndexOfFirstFrameWhenLowLatencyOn);
     }
+
+    mediametrics_setInt32(mMetricsHandle, kCodecHDRStaticInfo, mHDRStaticInfo ? 1 : 0);
+    mediametrics_setInt32(mMetricsHandle, kCodecHDR10PlusInfo, mHDR10PlusInfo ? 1 : 0);
 #if 0
     // enable for short term, only while debugging
     updateEphemeralMediametrics(mMetricsHandle);
 #endif
 }
+
+void MediaCodec::updateHDRFormatMetric() {
+    int32_t profile = -1;
+    AString mediaType;
+    if (mOutputFormat->findInt32(KEY_PROFILE, &profile)
+            && mOutputFormat->findString("mime", &mediaType)) {
+        hdr_format hdrFormat = getHDRFormat(profile, mConfigColorTransfer, mediaType);
+        mediametrics_setInt32(mMetricsHandle, kCodecHDRFormat, static_cast<int>(hdrFormat));
+    }
+}
+
+hdr_format MediaCodec::getHDRFormat(const int32_t profile, const int32_t transfer,
+        const AString &mediaType) {
+    switch (transfer) {
+        case COLOR_TRANSFER_ST2084:
+            if (mediaType.equalsIgnoreCase(MEDIA_MIMETYPE_VIDEO_VP9)) {
+                switch (profile) {
+                    case VP9Profile2HDR:
+                        return HDR_FORMAT_HDR10;
+                    case VP9Profile2HDR10Plus:
+                        return HDR_FORMAT_HDR10PLUS;
+                    default:
+                        return HDR_FORMAT_NONE;
+                }
+            } else if (mediaType.equalsIgnoreCase(MEDIA_MIMETYPE_VIDEO_AV1)) {
+                switch (profile) {
+                    case AV1ProfileMain10HDR10:
+                        return HDR_FORMAT_HDR10;
+                    case AV1ProfileMain10HDR10Plus:
+                        return HDR_FORMAT_HDR10PLUS;
+                    default:
+                        return HDR_FORMAT_NONE;
+                }
+            } else if (mediaType.equalsIgnoreCase(MEDIA_MIMETYPE_VIDEO_HEVC)) {
+                switch (profile) {
+                    case HEVCProfileMain10HDR10:
+                        return HDR_FORMAT_HDR10;
+                    case HEVCProfileMain10HDR10Plus:
+                        return HDR_FORMAT_HDR10PLUS;
+                    default:
+                        return HDR_FORMAT_NONE;
+                }
+            } else {
+                return HDR_FORMAT_NONE;
+            }
+        case COLOR_TRANSFER_HLG:
+            if (!mediaType.equalsIgnoreCase(MEDIA_MIMETYPE_VIDEO_DOLBY_VISION)) {
+                return HDR_FORMAT_HLG;
+            } else {
+                // TODO: DOLBY format
+                return HDR_FORMAT_NONE;
+            }
+        default:
+            return HDR_FORMAT_NONE;
+    }
+}
+
 
 void MediaCodec::updateEphemeralMediametrics(mediametrics_handle_t item) {
     ALOGD("MediaCodec::updateEphemeralMediametrics()");
@@ -971,6 +1087,8 @@ void MediaCodec::updateLowLatency(const sp<AMessage> &msg) {
 
 constexpr const char *MediaCodec::asString(TunnelPeekState state, const char *default_string){
     switch(state) {
+        case TunnelPeekState::kLegacyMode:
+            return "LegacyMode";
         case TunnelPeekState::kEnabledNoBuffer:
             return "EnabledNoBuffer";
         case TunnelPeekState::kDisabledNoBuffer:
@@ -997,6 +1115,9 @@ void MediaCodec::updateTunnelPeek(const sp<AMessage> &msg) {
     TunnelPeekState previousState = mTunnelPeekState;
     if(tunnelPeek == 0){
         switch (mTunnelPeekState) {
+            case TunnelPeekState::kLegacyMode:
+                msg->setInt32("android._tunnel-peek-set-legacy", 0);
+                [[fallthrough]];
             case TunnelPeekState::kEnabledNoBuffer:
                 mTunnelPeekState = TunnelPeekState::kDisabledNoBuffer;
                 break;
@@ -1009,6 +1130,9 @@ void MediaCodec::updateTunnelPeek(const sp<AMessage> &msg) {
         }
     } else {
         switch (mTunnelPeekState) {
+            case TunnelPeekState::kLegacyMode:
+                msg->setInt32("android._tunnel-peek-set-legacy", 0);
+                [[fallthrough]];
             case TunnelPeekState::kDisabledNoBuffer:
                 mTunnelPeekState = TunnelPeekState::kEnabledNoBuffer;
                 break;
@@ -1155,7 +1279,7 @@ void MediaCodec::statsBufferSent(int64_t presentationUs, const sp<MediaCodecBuff
         });
     }
 
-    if (mIsVideo && (mFlags & kFlagIsEncoder)) {
+    if (mDomain == DOMAIN_VIDEO && (mFlags & kFlagIsEncoder)) {
         mBytesInput += buffer->size();
         mFramesInput++;
     }
@@ -1184,7 +1308,7 @@ void MediaCodec::statsBufferReceived(int64_t presentationUs, const sp<MediaCodec
 
     CHECK_NE(mState, UNINITIALIZED);
 
-    if (mIsVideo && (mFlags & kFlagIsEncoder)) {
+    if (mDomain == DOMAIN_VIDEO && (mFlags & kFlagIsEncoder)) {
         int32_t flags = 0;
         (void) buffer->meta()->findInt32("flags", &flags);
 
@@ -1363,7 +1487,11 @@ static const CodecListCache &GetCodecListCache() {
 }
 
 status_t MediaCodec::init(const AString &name) {
-    mResourceManagerProxy->init();
+    status_t err = mResourceManagerProxy->init();
+    if (err != OK) {
+        mCodec = NULL; // remove the codec
+        return err;
+    }
 
     // save init parameters for reset
     mInitName = name;
@@ -1378,7 +1506,7 @@ status_t MediaCodec::init(const AString &name) {
     bool secureCodec = false;
     const char *owner = "";
     if (!name.startsWith("android.filter.")) {
-        status_t err = mGetCodecInfo(name, &mCodecInfo);
+        err = mGetCodecInfo(name, &mCodecInfo);
         if (err != OK) {
             mCodec = NULL;  // remove the codec.
             return err;
@@ -1392,7 +1520,13 @@ status_t MediaCodec::init(const AString &name) {
         mCodecInfo->getSupportedMediaTypes(&mediaTypes);
         for (size_t i = 0; i < mediaTypes.size(); ++i) {
             if (mediaTypes[i].startsWith("video/")) {
-                mIsVideo = true;
+                mDomain = DOMAIN_VIDEO;
+                break;
+            } else if (mediaTypes[i].startsWith("audio/")) {
+                mDomain = DOMAIN_AUDIO;
+                break;
+            } else if (mediaTypes[i].startsWith("image/")) {
+                mDomain = DOMAIN_IMAGE;
                 break;
             }
         }
@@ -1405,12 +1539,17 @@ status_t MediaCodec::init(const AString &name) {
         return NAME_NOT_FOUND;
     }
 
-    if (mIsVideo) {
+    if (mDomain == DOMAIN_VIDEO) {
         // video codec needs dedicated looper
         if (mCodecLooper == NULL) {
+            status_t err = OK;
             mCodecLooper = new ALooper;
             mCodecLooper->setName("CodecLooper");
-            mCodecLooper->start(false, false, ANDROID_PRIORITY_AUDIO);
+            err = mCodecLooper->start(false, false, ANDROID_PRIORITY_AUDIO);
+            if (OK != err) {
+                ALOGE("Codec Looper failed to start");
+                return err;
+            }
         }
 
         mCodecLooper->registerHandler(mCodec);
@@ -1438,17 +1577,15 @@ status_t MediaCodec::init(const AString &name) {
 
     if (mMetricsHandle != 0) {
         mediametrics_setCString(mMetricsHandle, kCodecCodec, name.c_str());
-        mediametrics_setCString(mMetricsHandle, kCodecMode,
-                                mIsVideo ? kCodecModeVideo : kCodecModeAudio);
+        mediametrics_setCString(mMetricsHandle, kCodecMode, toCodecMode(mDomain));
     }
 
-    if (mIsVideo) {
+    if (mDomain == DOMAIN_VIDEO) {
         mBatteryChecker = new BatteryChecker(new AMessage(kWhatCheckBatteryStats, this));
     }
 
-    status_t err;
     std::vector<MediaResourceParcel> resources;
-    resources.push_back(MediaResource::CodecResource(secureCodec, mIsVideo));
+    resources.push_back(MediaResource::CodecResource(secureCodec, toMediaResourceSubType(mDomain)));
     for (int i = 0; i <= kMaxRetry; ++i) {
         if (i > 0) {
             // Don't try to reclaim resource for the first time.
@@ -1529,16 +1666,16 @@ status_t MediaCodec::configure(
         mediametrics_setCString(mMetricsHandle, kCodecLogSessionId, mLogSessionId.c_str());
     }
 
-    if (mIsVideo) {
-        format->findInt32("width", &mVideoWidth);
-        format->findInt32("height", &mVideoHeight);
+    if (mDomain == DOMAIN_VIDEO || mDomain == DOMAIN_IMAGE) {
+        format->findInt32("width", &mWidth);
+        format->findInt32("height", &mHeight);
         if (!format->findInt32("rotation-degrees", &mRotationDegrees)) {
             mRotationDegrees = 0;
         }
 
         if (mMetricsHandle != 0) {
-            mediametrics_setInt32(mMetricsHandle, kCodecWidth, mVideoWidth);
-            mediametrics_setInt32(mMetricsHandle, kCodecHeight, mVideoHeight);
+            mediametrics_setInt32(mMetricsHandle, kCodecWidth, mWidth);
+            mediametrics_setInt32(mMetricsHandle, kCodecHeight, mHeight);
             mediametrics_setInt32(mMetricsHandle, kCodecRotation, mRotationDegrees);
             int32_t maxWidth = 0;
             if (format->findInt32("max-width", &maxWidth)) {
@@ -1552,28 +1689,48 @@ status_t MediaCodec::configure(
             if (format->findInt32("color-format", &colorFormat)) {
                 mediametrics_setInt32(mMetricsHandle, kCodecColorFormat, colorFormat);
             }
-            float frameRate = -1.0;
-            if (format->findFloat("frame-rate", &frameRate)) {
-                mediametrics_setDouble(mMetricsHandle, kCodecFrameRate, frameRate);
+            if (mDomain == DOMAIN_VIDEO) {
+                float frameRate = -1.0;
+                if (format->findFloat("frame-rate", &frameRate)) {
+                    mediametrics_setDouble(mMetricsHandle, kCodecFrameRate, frameRate);
+                }
+                float captureRate = -1.0;
+                if (format->findFloat("capture-rate", &captureRate)) {
+                    mediametrics_setDouble(mMetricsHandle, kCodecCaptureRate, captureRate);
+                }
+                float operatingRate = -1.0;
+                if (format->findFloat("operating-rate", &operatingRate)) {
+                    mediametrics_setDouble(mMetricsHandle, kCodecOperatingRate, operatingRate);
+                }
+                int32_t priority = -1;
+                if (format->findInt32("priority", &priority)) {
+                    mediametrics_setInt32(mMetricsHandle, kCodecPriority, priority);
+                }
             }
-            float captureRate = -1.0;
-            if (format->findFloat("capture-rate", &captureRate)) {
-                mediametrics_setDouble(mMetricsHandle, kCodecCaptureRate, captureRate);
+            int32_t colorStandard = -1;
+            if (format->findInt32(KEY_COLOR_STANDARD, &colorStandard)) {
+                mediametrics_setInt32(mMetricsHandle, kCodecConfigColorStandard, colorStandard);
             }
-            float operatingRate = -1.0;
-            if (format->findFloat("operating-rate", &operatingRate)) {
-                mediametrics_setDouble(mMetricsHandle, kCodecOperatingRate, operatingRate);
+            int32_t colorRange = -1;
+            if (format->findInt32(KEY_COLOR_RANGE, &colorRange)) {
+                mediametrics_setInt32(mMetricsHandle, kCodecConfigColorRange, colorRange);
             }
-            int32_t priority = -1;
-            if (format->findInt32("priority", &priority)) {
-                mediametrics_setInt32(mMetricsHandle, kCodecPriority, priority);
+            int32_t colorTransfer = -1;
+            if (format->findInt32(KEY_COLOR_TRANSFER, &colorTransfer)) {
+                mConfigColorTransfer = colorTransfer;
+                mediametrics_setInt32(mMetricsHandle, kCodecConfigColorTransfer, colorTransfer);
+            }
+            HDRStaticInfo info;
+            if (ColorUtils::getHDRStaticInfoFromFormat(format, &info)
+                    && ColorUtils::isHDRStaticInfoValid(&info)) {
+                mHDRStaticInfo = true;
             }
         }
 
         // Prevent possible integer overflow in downstream code.
-        if (mVideoWidth < 0 || mVideoHeight < 0 ||
-               (uint64_t)mVideoWidth * mVideoHeight > (uint64_t)INT32_MAX / 4) {
-            ALOGE("Invalid size(s), width=%d, height=%d", mVideoWidth, mVideoHeight);
+        if (mWidth < 0 || mHeight < 0 ||
+               (uint64_t)mWidth * mHeight > (uint64_t)INT32_MAX / 4) {
+            ALOGE("Invalid size(s), width=%d, height=%d", mWidth, mHeight);
             return BAD_VALUE;
         }
 
@@ -1606,7 +1763,7 @@ status_t MediaCodec::configure(
     }
 
     // push min/max QP to MediaMetrics after shaping
-    if (mIsVideo && mMetricsHandle != 0) {
+    if (mDomain == DOMAIN_VIDEO && mMetricsHandle != 0) {
         int32_t qpIMin = -1;
         if (format->findInt32("video-qp-i-min", &qpIMin)) {
             mediametrics_setInt32(mMetricsHandle, kCodecRequestedVideoQPIMin, qpIMin);
@@ -1659,7 +1816,8 @@ status_t MediaCodec::configure(
 
     status_t err;
     std::vector<MediaResourceParcel> resources;
-    resources.push_back(MediaResource::CodecResource(mFlags & kFlagIsSecure, mIsVideo));
+    resources.push_back(MediaResource::CodecResource(mFlags & kFlagIsSecure,
+            toMediaResourceSubType(mDomain)));
     // Don't know the buffer size at this point, but it's fine to use 1 because
     // the reclaimResource call doesn't consider the requester's buffer size for now.
     resources.push_back(MediaResource::GraphicMemoryResource(1));
@@ -2081,7 +2239,7 @@ static void mapFormat(AString componentName, const sp<AMessage> &format, const c
                       bool reverse) {
     AString mediaType;
     if (!format->findString("mime", &mediaType)) {
-        ALOGW("mapFormat: no mediaType information");
+        ALOGV("mapFormat: no mediaType information");
         return;
     }
     ALOGV("mapFormat: codec %s mediatype %s kind %s reverse %d", componentName.c_str(),
@@ -2240,7 +2398,7 @@ status_t MediaCodec::createInputSurface(
 }
 
 uint64_t MediaCodec::getGraphicBufferSize() {
-    if (!mIsVideo) {
+    if (mDomain != DOMAIN_VIDEO && mDomain != DOMAIN_IMAGE) {
         return 0;
     }
 
@@ -2248,7 +2406,7 @@ uint64_t MediaCodec::getGraphicBufferSize() {
     size_t portNum = sizeof(mPortBuffers) / sizeof((mPortBuffers)[0]);
     for (size_t i = 0; i < portNum; ++i) {
         // TODO: this is just an estimation, we should get the real buffer size from ACodec.
-        size += mPortBuffers[i].size() * mVideoWidth * mVideoHeight * 3 / 2;
+        size += mPortBuffers[i].size() * mWidth * mHeight * 3 / 2;
     }
     return size;
 }
@@ -2260,7 +2418,8 @@ status_t MediaCodec::start() {
 
     status_t err;
     std::vector<MediaResourceParcel> resources;
-    resources.push_back(MediaResource::CodecResource(mFlags & kFlagIsSecure, mIsVideo));
+    resources.push_back(MediaResource::CodecResource(mFlags & kFlagIsSecure,
+            toMediaResourceSubType(mDomain)));
     // Don't know the buffer size at this point, but it's fine to use 1 because
     // the reclaimResource call doesn't consider the requester's buffer size for now.
     resources.push_back(MediaResource::GraphicMemoryResource(1));
@@ -2463,7 +2622,9 @@ status_t MediaCodec::queueBuffer(
     msg->setObject("c2buffer", obj);
     msg->setInt64("timeUs", presentationTimeUs);
     msg->setInt32("flags", flags);
-    msg->setMessage("tunings", tunings);
+    if (tunings && tunings->countEntries() > 0) {
+        msg->setMessage("tunings", tunings);
+    }
     msg->setPointer("errorDetailMsg", errorDetailMsg);
 
     sp<AMessage> response;
@@ -2505,7 +2666,9 @@ status_t MediaCodec::queueEncryptedBuffer(
     msg->setInt32("skipBlocks", pattern.mSkipBlocks);
     msg->setInt64("timeUs", presentationTimeUs);
     msg->setInt32("flags", flags);
-    msg->setMessage("tunings", tunings);
+    if (tunings && tunings->countEntries() > 0) {
+        msg->setMessage("tunings", tunings);
+    }
     msg->setPointer("errorDetailMsg", errorDetailMsg);
 
     sp<AMessage> response;
@@ -2977,8 +3140,9 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                     CHECK(msg->findInt32("err", &err));
                     CHECK(msg->findInt32("actionCode", &actionCode));
 
-                    ALOGE("Codec reported err %#x, actionCode %d, while in state %d/%s",
-                            err, actionCode, mState, stateString(mState).c_str());
+                    ALOGE("Codec reported err %#x/%s, actionCode %d, while in state %d/%s",
+                                              err, StrMediaError(err).c_str(), actionCode,
+                                              mState, stateString(mState).c_str());
                     if (err == DEAD_OBJECT) {
                         mFlags |= kFlagSawMediaServerDie;
                         mFlags &= ~kFlagIsComponentAllocated;
@@ -3034,10 +3198,8 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                         case STOPPING:
                         {
                             if (mFlags & kFlagSawMediaServerDie) {
-                                bool postPendingReplies = true;
                                 if (mState == RELEASING && !mReplyID) {
                                     ALOGD("Releasing asynchronously, so nothing to reply here.");
-                                    postPendingReplies = false;
                                 }
                                 // MediaServer died, there definitely won't
                                 // be a shutdown complete notification after
@@ -3050,8 +3212,11 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                                 if (mState == RELEASING) {
                                     mComponentName.clear();
                                 }
-                                if (postPendingReplies) {
+                                if (mReplyID) {
                                     postPendingRepliesAndDeferredMessages(origin + ":dead");
+                                } else {
+                                    ALOGD("no pending replies: %s:dead following %s",
+                                          origin.c_str(), mLastReplyOrigin.c_str());
                                 }
                                 sendErrorResponse = false;
                             } else if (!mReplyID) {
@@ -3187,10 +3352,13 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                         mediametrics_setInt32(mMetricsHandle, kCodecSecure, 0);
                     }
 
-                    if (mIsVideo) {
-                        // audio codec is currently ignored.
-                        mResourceManagerProxy->addResource(
-                                MediaResource::CodecResource(mFlags & kFlagIsSecure, mIsVideo));
+                    MediaCodecInfo::Attributes attr = mCodecInfo
+                            ? mCodecInfo->getAttributes()
+                            : MediaCodecInfo::Attributes(0);
+                    if (!(attr & MediaCodecInfo::kFlagIsSoftwareOnly)) {
+                        // software codec is currently ignored.
+                        mResourceManagerProxy->addResource(MediaResource::CodecResource(
+                            mFlags & kFlagIsSecure, toMediaResourceSubType(mDomain)));
                     }
 
                     postPendingRepliesAndDeferredMessages("kWhatComponentAllocated");
@@ -3213,6 +3381,8 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
 
                     CHECK(msg->findMessage("input-format", &mInputFormat));
                     CHECK(msg->findMessage("output-format", &mOutputFormat));
+
+                    updateHDRFormatMetric();
 
                     // limit to confirming the opt-in behavior to minimize any behavioral change
                     if (mSurface != nullptr && !mAllowFrameDroppingBySurface) {
@@ -3295,6 +3465,7 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                                 mComponentName.c_str(),
                                 mInputFormat->debugString(4).c_str(),
                                 mOutputFormat->debugString(4).c_str());
+                        updateHDRFormatMetric();
                         CHECK(obj != NULL);
                         response->setObject("input-surface", obj);
                         mHaveInputSurface = true;
@@ -3319,6 +3490,7 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                     if (!msg->findInt32("err", &err)) {
                         CHECK(msg->findMessage("input-format", &mInputFormat));
                         CHECK(msg->findMessage("output-format", &mOutputFormat));
+                        updateHDRFormatMetric();
                         mHaveInputSurface = true;
                     } else {
                         response->setInt32("err", err);
@@ -3356,7 +3528,7 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                     }
 
                     CHECK_EQ(mState, STARTING);
-                    if (mIsVideo) {
+                    if (mDomain == DOMAIN_VIDEO || mDomain == DOMAIN_IMAGE) {
                         mResourceManagerProxy->addResource(
                                 MediaResource::GraphicMemoryResource(getGraphicBufferSize()));
                     }
@@ -3379,10 +3551,12 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                         break;
                     }
                     TunnelPeekState previousState = mTunnelPeekState;
-                    mTunnelPeekState = TunnelPeekState::kBufferRendered;
-                    ALOGV("TunnelPeekState: %s -> %s",
-                          asString(previousState),
-                          asString(TunnelPeekState::kBufferRendered));
+                    if (mTunnelPeekState != TunnelPeekState::kLegacyMode) {
+                        mTunnelPeekState = TunnelPeekState::kBufferRendered;
+                        ALOGV("TunnelPeekState: %s -> %s",
+                                asString(previousState),
+                                asString(TunnelPeekState::kBufferRendered));
+                    }
                     updatePlaybackDuration(msg);
                     // check that we have a notification set
                     if (mOnFrameRenderedNotification != NULL) {
@@ -3504,6 +3678,20 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
 
                 case kWhatDrainThisBuffer:
                 {
+                    if ((mFlags & kFlagUseBlockModel) == 0 && mTunneled) {
+                        sp<RefBase> obj;
+                        CHECK(msg->findObject("buffer", &obj));
+                        sp<MediaCodecBuffer> buffer = static_cast<MediaCodecBuffer *>(obj.get());
+                        if (mFlags & kFlagIsAsync) {
+                            // In asynchronous mode, output format change is processed immediately.
+                            handleOutputFormatChangeIfNeeded(buffer);
+                        } else {
+                            postActivityNotificationIfPossible();
+                        }
+                        mBufferChannel->discardBuffer(buffer);
+                        break;
+                    }
+
                     /* size_t index = */updateBuffers(kPortIndexOutput, msg);
 
                     if (mState == FLUSHING
@@ -3785,6 +3973,14 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                 mTunneled = false;
             }
 
+            // If mTunnelPeekState is still in kLegacyMode at this point,
+            // configure the codec in legacy mode
+            if (mTunneled && (mTunnelPeekState == TunnelPeekState::kLegacyMode)) {
+                sp<AMessage> params = new AMessage;
+                params->setInt32("android._tunnel-peek-set-legacy", 1);
+                onSetParameters(params);
+            }
+
             int32_t background = 0;
             if (format->findInt32("android._background-mode", &background) && background) {
                 androidSetThreadPriority(gettid(), ANDROID_PRIORITY_BACKGROUND);
@@ -3903,10 +4099,12 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
             sp<AReplyToken> replyID;
             CHECK(msg->senderAwaitsResponse(&replyID));
             TunnelPeekState previousState = mTunnelPeekState;
-            mTunnelPeekState = TunnelPeekState::kEnabledNoBuffer;
-            ALOGV("TunnelPeekState: %s -> %s",
-                  asString(previousState),
-                  asString(TunnelPeekState::kEnabledNoBuffer));
+            if (previousState != TunnelPeekState::kLegacyMode) {
+                mTunnelPeekState = TunnelPeekState::kEnabledNoBuffer;
+                ALOGV("TunnelPeekState: %s -> %s",
+                        asString(previousState),
+                        asString(TunnelPeekState::kEnabledNoBuffer));
+            }
 
             mReplyID = replyID;
             setState(STARTING);
@@ -4048,26 +4246,29 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
                 break;
             }
 
-            if (asyncNotify != nullptr) {
-                if (mSurface != NULL) {
-                    if (!mReleaseSurface) {
-                        uint64_t usage = 0;
-                        if (mSurface->getConsumerUsage(&usage) != OK) {
-                            usage = 0;
-                        }
-                        mReleaseSurface.reset(new ReleaseSurface(usage));
+            bool forceSync = false;
+            if (asyncNotify != nullptr && mSurface != NULL) {
+                if (!mReleaseSurface) {
+                    uint64_t usage = 0;
+                    if (mSurface->getConsumerUsage(&usage) != OK) {
+                        usage = 0;
                     }
-                    if (mSurface != mReleaseSurface->getSurface()) {
-                        status_t err = connectToSurface(mReleaseSurface->getSurface());
-                        ALOGW_IF(err != OK, "error connecting to release surface: err = %d", err);
-                        if (err == OK && !(mFlags & kFlagUsesSoftwareRenderer)) {
-                            err = mCodec->setSurface(mReleaseSurface->getSurface());
-                            ALOGW_IF(err != OK, "error setting release surface: err = %d", err);
-                        }
-                        if (err == OK) {
-                            (void)disconnectFromSurface();
-                            mSurface = mReleaseSurface->getSurface();
-                        }
+                    mReleaseSurface.reset(new ReleaseSurface(usage));
+                }
+                if (mSurface != mReleaseSurface->getSurface()) {
+                    status_t err = connectToSurface(mReleaseSurface->getSurface());
+                    ALOGW_IF(err != OK, "error connecting to release surface: err = %d", err);
+                    if (err == OK && !(mFlags & kFlagUsesSoftwareRenderer)) {
+                        err = mCodec->setSurface(mReleaseSurface->getSurface());
+                        ALOGW_IF(err != OK, "error setting release surface: err = %d", err);
+                    }
+                    if (err == OK) {
+                        (void)disconnectFromSurface();
+                        mSurface = mReleaseSurface->getSurface();
+                    } else {
+                        // We were not able to switch the surface, so force
+                        // synchronous release.
+                        forceSync = true;
                     }
                 }
             }
@@ -4091,8 +4292,10 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
             }
 
             if (asyncNotify != nullptr) {
-                mResourceManagerProxy->markClientForPendingRemoval();
-                postPendingRepliesAndDeferredMessages("kWhatRelease:async");
+                if (!forceSync) {
+                    mResourceManagerProxy->markClientForPendingRemoval();
+                    postPendingRepliesAndDeferredMessages("kWhatRelease:async");
+                }
                 asyncNotifyPost.clear();
                 mAsyncReleaseCompleteNotification = asyncNotify;
             }
@@ -4342,10 +4545,12 @@ void MediaCodec::onMessageReceived(const sp<AMessage> &msg) {
             mCodec->signalFlush();
             returnBuffersToCodec();
             TunnelPeekState previousState = mTunnelPeekState;
-            mTunnelPeekState = TunnelPeekState::kEnabledNoBuffer;
-            ALOGV("TunnelPeekState: %s -> %s",
-                  asString(previousState),
-                  asString(TunnelPeekState::kEnabledNoBuffer));
+            if (previousState != TunnelPeekState::kLegacyMode) {
+                mTunnelPeekState = TunnelPeekState::kEnabledNoBuffer;
+                ALOGV("TunnelPeekState: %s -> %s",
+                        asString(previousState),
+                        asString(TunnelPeekState::kEnabledNoBuffer));
+            }
             break;
         }
 
@@ -4476,6 +4681,7 @@ void MediaCodec::handleOutputFormatChangeIfNeeded(const sp<MediaCodecBuffer> &bu
         buffer->meta()->setObject("changedKeys", changedKeys);
     }
     mOutputFormat = format;
+    updateHDRFormatMetric();
     mapFormat(mComponentName, format, nullptr, true);
     ALOGV("[%s] output format changed to: %s",
             mComponentName.c_str(), mOutputFormat->debugString(4).c_str());
@@ -4501,6 +4707,9 @@ void MediaCodec::handleOutputFormatChangeIfNeeded(const sp<MediaCodecBuffer> &bu
             HDRStaticInfo info;
             if (ColorUtils::getHDRStaticInfoFromFormat(mOutputFormat, &info)) {
                 setNativeWindowHdrMetadata(mSurface.get(), &info);
+                if (ColorUtils::isHDRStaticInfoValid(&info)) {
+                    mHDRStaticInfo = true;
+                }
             }
         }
 
@@ -4509,6 +4718,7 @@ void MediaCodec::handleOutputFormatChangeIfNeeded(const sp<MediaCodecBuffer> &bu
                 && hdr10PlusInfo != nullptr && hdr10PlusInfo->size() > 0) {
             native_window_set_buffers_hdr10_plus_metadata(mSurface.get(),
                     hdr10PlusInfo->size(), hdr10PlusInfo->data());
+            mHDR10PlusInfo = true;
         }
 
         if (mime.startsWithIgnoreCase("video/")) {
@@ -4553,6 +4763,21 @@ void MediaCodec::handleOutputFormatChangeIfNeeded(const sp<MediaCodecBuffer> &bu
             mCrypto->notifyResolution(width, height);
         }
     }
+
+    if (mMetricsHandle != 0) {
+        int32_t colorStandard = -1;
+        if (format->findInt32(KEY_COLOR_STANDARD, &colorStandard)) {
+            mediametrics_setInt32(mMetricsHandle, kCodecParsedColorStandard, colorStandard);
+        }
+        int32_t colorRange = -1;
+        if (format->findInt32( KEY_COLOR_RANGE, &colorRange)) {
+            mediametrics_setInt32(mMetricsHandle, kCodecParsedColorRange, colorRange);
+        }
+        int32_t colorTransfer = -1;
+        if (format->findInt32(KEY_COLOR_TRANSFER, &colorTransfer)) {
+            mediametrics_setInt32(mMetricsHandle, kCodecParsedColorTransfer, colorTransfer);
+        }
+    }
 }
 
 void MediaCodec::extractCSD(const sp<AMessage> &format) {
@@ -4582,7 +4807,6 @@ status_t MediaCodec::queueCSDInputBuffer(size_t bufferIndex) {
     mCSD.erase(mCSD.begin());
     std::shared_ptr<C2Buffer> c2Buffer;
     sp<hardware::HidlMemory> memory;
-    size_t offset = 0;
 
     if (mFlags & kFlagUseBlockModel) {
         if (hasCryptoOrDescrambler()) {
@@ -4603,7 +4827,6 @@ status_t MediaCodec::queueCSDInputBuffer(size_t bufferIndex) {
             memcpy(mem->unsecurePointer(), csd->data(), csd->size());
             ssize_t heapOffset;
             memory = hardware::fromHeap(mem->getMemory(&heapOffset, nullptr));
-            offset += heapOffset;
         } else {
             std::shared_ptr<C2LinearBlock> block =
                 FetchLinearBlock(csd->size(), {std::string{mComponentName.c_str()}});
@@ -4645,12 +4868,10 @@ status_t MediaCodec::queueCSDInputBuffer(size_t bufferIndex) {
         sp<WrapperObject<std::shared_ptr<C2Buffer>>> obj{
             new WrapperObject<std::shared_ptr<C2Buffer>>{c2Buffer}};
         msg->setObject("c2buffer", obj);
-        msg->setMessage("tunings", new AMessage);
     } else if (memory) {
         sp<WrapperObject<sp<hardware::HidlMemory>>> obj{
             new WrapperObject<sp<hardware::HidlMemory>>{memory}};
         msg->setObject("memory", obj);
-        msg->setMessage("tunings", new AMessage);
     }
 
     return onQueueInputBuffer(msg);
@@ -4777,8 +4998,8 @@ status_t MediaCodec::onQueueInputBuffer(const sp<AMessage> &msg) {
     }
     const CryptoPlugin::SubSample *subSamples;
     size_t numSubSamples;
-    const uint8_t *key;
-    const uint8_t *iv;
+    const uint8_t *key = NULL;
+    const uint8_t *iv = NULL;
     CryptoPlugin::Mode mode = CryptoPlugin::kMode_Unencrypted;
 
     // We allow the simpler queueInputBuffer API to be used even in
@@ -4793,8 +5014,6 @@ status_t MediaCodec::onQueueInputBuffer(const sp<AMessage> &msg) {
 
             subSamples = &ss;
             numSubSamples = 1;
-            key = NULL;
-            iv = NULL;
             pattern.mEncryptBlocks = 0;
             pattern.mSkipBlocks = 0;
         }
@@ -4832,9 +5051,10 @@ status_t MediaCodec::onQueueInputBuffer(const sp<AMessage> &msg) {
     sp<MediaCodecBuffer> buffer = info->mData;
 
     if (c2Buffer || memory) {
-        sp<AMessage> tunings;
-        CHECK(msg->findMessage("tunings", &tunings));
-        onSetParameters(tunings);
+        sp<AMessage> tunings = NULL;
+        if (msg->findMessage("tunings", &tunings) && tunings != NULL) {
+            onSetParameters(tunings);
+        }
 
         status_t err = OK;
         if (c2Buffer) {
@@ -4866,6 +5086,8 @@ status_t MediaCodec::onQueueInputBuffer(const sp<AMessage> &msg) {
         offset = buffer->offset();
         size = buffer->size();
         if (err != OK) {
+            ALOGI("block model buffer attach failed: err = %s (%d)",
+                  StrMediaError(err).c_str(), err);
             return err;
         }
     }

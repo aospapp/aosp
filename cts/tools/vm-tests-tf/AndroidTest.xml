@@ -23,7 +23,7 @@
     <option name="config-descriptor:metadata" key="component" value="art" />
     <target_preparer class="android.core.vm.targetprep.VmTestPreparer" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
-        <option name="jar" value="android.core.vm-tests-tf.jar" />
+        <option name="jar" value="vm-tests-tf.jar" />
         <option name="runtime-hint" value="51m" />
     </test>
 </configuration>

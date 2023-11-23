@@ -21,11 +21,11 @@ void xnn_math_f32_roundu__wasmsimd_cvt(
 
   // Threshold of non-integral values in single-precision floating-point representation.
   // All inputs above this threshold (by absolute value) are integer numbers.
-  const v128_t vintegral_threshold = wasm_f32x4_splat(0x1.000000p+23f);
+  const v128_t vintegral_threshold = wasm_f32x4_const_splat(0x1.000000p+23f);
   // Mask for the sign of a single-precision floating-point number.
-  const v128_t vsign_mask = wasm_f32x4_splat(-0.0f);
+  const v128_t vsign_mask = wasm_f32x4_const_splat(-0.0f);
   // Unit constant to increment results rounded "wrong way" (i.e. down) in the round-towards-zero operation.
-  const v128_t vone = wasm_f32x4_splat(1.0f);
+  const v128_t vone = wasm_f32x4_const_splat(1.0f);
 
   for (; n != 0; n -= 4 * sizeof(float)) {
     const v128_t vx = wasm_v128_load(input);
@@ -33,7 +33,7 @@ void xnn_math_f32_roundu__wasmsimd_cvt(
 
     // Convert floating-point value x to integer, with rounding towards zero, and then back to floating-point.
     // Note: the result is valid only for abs(x) < 2**31, but we further restrict its use to 2**23.
-    const v128_t vprerndx = wasm_f32x4_convert_i32x4(wasm_i32x4_trunc_saturate_f32x4(vx));
+    const v128_t vprerndx = wasm_f32x4_convert_i32x4(wasm_i32x4_trunc_sat_f32x4(vx));
 
     // Compute bitmask for the bits we want to copy from the rounded x. Other bits will be copied from x.
     // If abs(x) is below the integral threshold, use all but the sign bit from the rounded x and the sign bit from x.

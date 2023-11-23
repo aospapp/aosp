@@ -124,7 +124,7 @@ callback_minimal_server_echo(struct lws *wsi, enum lws_callback_reasons reason,
 
 		/* notice we allowed for LWS_PRE in the payload already */
 		m = lws_write(wsi, ((unsigned char *)pmsg->payload) +
-			      LWS_PRE, pmsg->len, flags);
+			      LWS_PRE, pmsg->len, (enum lws_write_protocol)flags);
 		if (m < (int)pmsg->len) {
 			lwsl_err("ERROR %d writing to ws socket\n", m);
 			return -1;
@@ -168,9 +168,9 @@ callback_minimal_server_echo(struct lws *wsi, enum lws_callback_reasons reason,
 			//lwsl_hexdump_notice(in, len);
 		}
 
-		amsg.first = lws_is_first_fragment(wsi);
-		amsg.final = lws_is_final_fragment(wsi);
-		amsg.binary = lws_frame_is_binary(wsi);
+		amsg.first = (char)lws_is_first_fragment(wsi);
+		amsg.final = (char)lws_is_final_fragment(wsi);
+		amsg.binary = (char)lws_frame_is_binary(wsi);
 		n = (int)lws_ring_get_count_free_elements(pss->ring);
 		if (!n) {
 			lwsl_user("dropping!\n");
@@ -180,7 +180,7 @@ callback_minimal_server_echo(struct lws *wsi, enum lws_callback_reasons reason,
 		if (amsg.final)
 			pss->msglen = 0;
 		else
-			pss->msglen += len;
+			pss->msglen += (uint32_t)len;
 
 		amsg.len = len;
 		/* notice we over-allocate by LWS_PRE */
@@ -230,36 +230,3 @@ callback_minimal_server_echo(struct lws *wsi, enum lws_callback_reasons reason,
 		1024, \
 		0, NULL, 0 \
 	}
-
-#if !defined (LWS_PLUGIN_STATIC)
-
-/* boilerplate needed if we are built as a dynamic plugin */
-
-static const struct lws_protocols protocols[] = {
-	LWS_PLUGIN_PROTOCOL_MINIMAL_SERVER_ECHO
-};
-
-int
-init_protocol_minimal_server_echo(struct lws_context *context,
-			       struct lws_plugin_capability *c)
-{
-	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
-		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
-			 c->api_magic);
-		return 1;
-	}
-
-	c->protocols = protocols;
-	c->count_protocols = LWS_ARRAY_SIZE(protocols);
-	c->extensions = NULL;
-	c->count_extensions = 0;
-
-	return 0;
-}
-
-int
-destroy_protocol_minimal_server_echo(struct lws_context *context)
-{
-	return 0;
-}
-#endif

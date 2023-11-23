@@ -22,7 +22,6 @@ import copy
 import logging
 import os
 import re
-import shutil
 import tempfile
 import xml.etree.ElementTree as ElementTree
 
@@ -240,29 +239,6 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                                       prebuilt_jar, extract_path)
                         jar_file.extractall(extract_path)
                     test_files.append(os.path.join(extract_path, xml_path))
-
-        # TODO(b/194362862): Remove below logic after prebuilt jars could be
-        # loaded by atest_tradefed.sh from prebuilt folder directly.
-        # If found in prebuilt jars, manually copy tradefed related jars
-        # to out/host as tradefed's java path.
-        if test_files:
-            host_framework_dir = os.path.join(
-                os.getenv(constants.ANDROID_HOST_OUT, ''), 'framework')
-            if not os.path.isdir(host_framework_dir):
-                os.makedirs(host_framework_dir)
-            prebuilt_dirs = []
-            for prebuilt_jar in prebuilt_jars:
-                prebuilt_dir = os.path.dirname(prebuilt_jar)
-                if prebuilt_dir not in prebuilt_dirs:
-                    prebuilt_dirs.append(prebuilt_dir)
-            for prebuilt_dir in prebuilt_dirs:
-                prebuilts = os.listdir(prebuilt_dir)
-                for prebuilt in prebuilts:
-                    if os.path.splitext(prebuilt)[1] == '.jar':
-                        prebuilt_jar = os.path.join(prebuilt_dir, prebuilt)
-                        logging.debug('Copy %s to %s',
-                                      prebuilt_jar, host_framework_dir)
-                        shutil.copy2(prebuilt_jar, host_framework_dir)
         return test_files
 
     def _get_test_info(self, name, test_file, class_name):
@@ -283,8 +259,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             return None
         int_name = match.group('int_name')
         if int_name != name:
-            logging.warning('Input (%s) not valid integration name, '
-                            'did you mean: %s?', name, int_name)
+            logging.debug('Input (%s) not valid integration name, '
+                          'did you mean: %s?', name, int_name)
             return None
         rel_config = os.path.relpath(test_file, self.root_dir)
         filters = frozenset()
@@ -294,9 +270,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if '.' in class_name:
                 test_filters.append(test_info.TestFilter(class_name, methods))
             else:
-                logging.warning('Looking up fully qualified class name for: %s.'
-                                'Improve speed by using fully qualified names.',
-                                class_name)
+                logging.debug('Looking up fully qualified class name for: %s.'
+                              'Improve speed by using fully qualified names.',
+                              class_name)
                 paths = test_finder_utils.find_class_file(self.root_dir,
                                                           class_name)
                 if not paths:

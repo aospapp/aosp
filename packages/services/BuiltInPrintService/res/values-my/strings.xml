@@ -41,7 +41,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"ပရင်တာ ထည့်ရန်"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"ပရင်တာကို IP လိပ်စာဖြင့် ထည့်ရန်"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"အင်တာနက်လက်ခံဝန်ဆောင်ပေးသူအမည် သို့မဟုတ် အိုင်ပီလိပ်စာ"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"ဆာဗာအမည် (သို့) IP လိပ်စာ"</string>
     <string name="ip_hint" msgid="7939777481941979799">"၁၉၂.၁၆၈.၀.၄"</string>
     <string name="add" msgid="1950342261671100906">"ထည့်ရန်"</string>
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> ကို ထည့်ရန်"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"ချိတ်ဆက်မှုများ"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"\'မူရင်း ပုံနှိပ်ဝန်ဆောင်မှု\' က တိုက်ရိုက် Wi-Fi ပုံနှိပ်စက်များကို ရှာမတွေ့ပါ"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"တိုက်ရိုက် Wi-Fi ကို ပိတ်ရန်"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"\'ပုံသေ ပုံနှိပ်ပေးမှု ဝန်ဆောင်မှု\' သည် အနီးရှိ စက်ပစ္စည်းများကို ရှာရန် တည်နေရာ ခွင့်ပြုချက်များ လိုအပ်ပါသည်။"</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"အနီးရှိပုံနှိပ်စက်များကို ရှာရန် ‘ပုံသေပုံနှိပ်ပေးသည့် ဝန်ဆောင်မှု’ က အနီးတစ်ဝိုက်ရှိ စက်များဆိုင်ရာ ခွင့်ပြုချက်လိုအပ်သည်။"</string>
     <string name="fix" msgid="7784394272611365393">"ခွင့်ပြုချက် စစ်ရန်"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"\'မူရင်း ပုံနှိပ်ဝန်ဆောင်မှု\' က အနီးရှိ စက်များကိုရှာရန် တည်နေရာဝန်ဆောင်မှုများကို ဖွင့်ထားရန် လိုအပ်ပါသည်။"</string>
-    <string name="enable_location" msgid="3627841004298863140">"တည်နေရာကို ဖွင့်ရန်"</string>
     <string name="print" msgid="7851318072404916362">"ပရင့်ထုတ်ရန်"</string>
 </resources>

@@ -22,19 +22,23 @@ import android.net.NetworkScore.KEEP_CONNECTED_NONE
 import android.os.Build
 import android.text.TextUtils
 import android.util.ArraySet
+import android.util.Log
 import androidx.test.filters.SmallTest
 import com.android.server.connectivity.FullScore.MAX_CS_MANAGED_POLICY
 import com.android.server.connectivity.FullScore.POLICY_ACCEPT_UNVALIDATED
 import com.android.server.connectivity.FullScore.POLICY_EVER_USER_SELECTED
+import com.android.server.connectivity.FullScore.POLICY_IS_DESTROYED
+import com.android.server.connectivity.FullScore.POLICY_IS_UNMETERED
 import com.android.server.connectivity.FullScore.POLICY_IS_VALIDATED
 import com.android.server.connectivity.FullScore.POLICY_IS_VPN
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.reflect.full.staticProperties
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -47,7 +51,8 @@ class FullScoreTest {
         validated: Boolean = false,
         vpn: Boolean = false,
         onceChosen: Boolean = false,
-        acceptUnvalidated: Boolean = false
+        acceptUnvalidated: Boolean = false,
+        destroyed: Boolean = false
     ): FullScore {
         val nac = NetworkAgentConfig.Builder().apply {
             setUnvalidatedConnectivityAcceptable(acceptUnvalidated)
@@ -57,7 +62,24 @@ class FullScoreTest {
             if (vpn) addTransportType(NetworkCapabilities.TRANSPORT_VPN)
             if (validated) addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         }.build()
-        return mixInScore(nc, nac, validated, false /* yieldToBadWifi */)
+        return mixInScore(nc, nac, validated, false /* yieldToBadWifi */, destroyed)
+    }
+
+    private val TAG = this::class.simpleName
+
+    private var wtfHandler: Log.TerribleFailureHandler? = null
+
+    @Before
+    fun setUp() {
+        // policyNameOf will call Log.wtf if passed an invalid policy.
+        wtfHandler = Log.setWtfHandler() { tagString, what, system ->
+            Log.d(TAG, "WTF captured, ignoring: $tagString $what")
+        }
+    }
+
+    @After
+    fun tearDown() {
+        Log.setWtfHandler(wtfHandler)
     }
 
     @Test
@@ -98,9 +120,9 @@ class FullScoreTest {
             assertFalse(foundNames.contains(name))
             foundNames.add(name)
         }
-        assertFailsWith<IllegalArgumentException> {
-            FullScore.policyNameOf(MAX_CS_MANAGED_POLICY + 1)
-        }
+        assertEquals("IS_UNMETERED", FullScore.policyNameOf(POLICY_IS_UNMETERED))
+        val invalidPolicy = MAX_CS_MANAGED_POLICY + 1
+        assertEquals(Integer.toString(invalidPolicy), FullScore.policyNameOf(invalidPolicy))
     }
 
     fun getAllPolicies() = Regex("POLICY_.*").let { nameRegex ->
@@ -118,6 +140,7 @@ class FullScoreTest {
         assertTrue(ns.withPolicies(vpn = true).hasPolicy(POLICY_IS_VPN))
         assertTrue(ns.withPolicies(onceChosen = true).hasPolicy(POLICY_EVER_USER_SELECTED))
         assertTrue(ns.withPolicies(acceptUnvalidated = true).hasPolicy(POLICY_ACCEPT_UNVALIDATED))
+        assertTrue(ns.withPolicies(destroyed = true).hasPolicy(POLICY_IS_DESTROYED))
     }
 
     @Test

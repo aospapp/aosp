@@ -45,7 +45,6 @@ import com.android.server.wifi.proto.WifiScoreCardProto.SystemInfoStats;
 import com.android.server.wifi.proto.WifiStatsLog;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.HealthMonitorFailureStats;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.HealthMonitorMetrics;
-import com.android.server.wifi.util.ScanResultUtil;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -164,8 +163,9 @@ public class WifiHealthMonitor {
         mDeviceConfigFacade = deviceConfigFacade;
         mActiveModeWarden = activeModeWarden;
         mWifiSystemInfoStats = new WifiSystemInfoStats(l2KeySeed);
-        mWifiConfigManager.addOnNetworkUpdateListener(new OnNetworkUpdateListener());
         mActiveModeWarden.registerModeChangeCallback(new ModeChangeCallback());
+        mHandler.postAtFrontOfQueue(() -> mWifiConfigManager
+                .addOnNetworkUpdateListener(new OnNetworkUpdateListener()));
     }
 
     /**
@@ -1094,7 +1094,7 @@ public class WifiHealthMonitor {
             if (!mWifiEnabled) {
                 return;
             }
-            mScanDetails.add(ScanResultUtil.toScanDetail(fullScanResult));
+            mScanDetails.add(new ScanDetail(fullScanResult));
         }
     }
 }

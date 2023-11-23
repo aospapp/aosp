@@ -23,6 +23,7 @@ PRODUCT_PACKAGES += \
     CarUiPortraitDialerRRO \
     CarUiPortraitSettingsRRO \
     CarUiPortraitMediaRRO \
+    CarUiPortraitMediaCommonRRO \
     CarUiPortraitLauncherRRO \
     CarUiPortraitNotificationRRO \
     CarUiPortraitCarServiceRRO \

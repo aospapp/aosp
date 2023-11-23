@@ -15,7 +15,7 @@ syntax = "proto3";
 
 package pw.rpc.internal;
 
-option java_package = "dev.pigweed.pw.rpc.internal";
+option java_package = "dev.pigweed.pw_rpc.internal";
 
 enum PacketType {
   // To simplify identifying the origin of a packet, client-to-server packets
@@ -23,28 +23,38 @@ enum PacketType {
 
   // Client-to-server packets
 
-  // A request from a client for a service method.
+  // The client invokes an RPC. Always the first packet.
   REQUEST = 0;
 
-  // A client stream has completed.
-  CLIENT_STREAM_END = 2;
+  // A message in a client stream. Always sent after a REQUEST and before a
+  // CLIENT_STREAM_END.
+  CLIENT_STREAM = 2;
 
   // The client received a packet for an RPC it did not request.
   CLIENT_ERROR = 4;
 
-  // The client requests cancellation of an ongoing server stream.
-  CANCEL_SERVER_STREAM = 6;
+  // Deprecated, do not use. Send a CLIENT_ERROR with status CANCELLED instead.
+  // TODO(pwbug/512): Remove this packet type.
+  DEPRECATED_CANCEL = 6;
+
+  // A client stream has completed.
+  CLIENT_STREAM_END = 8;
 
   // Server-to-client packets
 
-  // A response from a server for a service method.
+  // The RPC has finished.
   RESPONSE = 1;
 
-  // A server streaming or bidirectional RPC has completed.
-  SERVER_STREAM_END = 3;
+  // Deprecated, do not use. Formerly was used as the last packet in a server
+  // stream.
+  // TODO(pwbug/512): Remove this packet type.
+  DEPRECATED_SERVER_STREAM_END = 3;
 
   // The server was unable to process a request.
   SERVER_ERROR = 5;
+
+  // A message in a server stream.
+  SERVER_STREAM = 7;
 }
 
 message RpcPacket {
@@ -66,4 +76,9 @@ message RpcPacket {
 
   // Status code for the RPC response or error.
   uint32 status = 6;
+
+  // Unique identifier for the call that initiated this RPC. Optionally set by
+  // the client in the initial request and sent in all subsequent client
+  // packets; echoed by the server.
+  uint32 call_id = 7;
 }

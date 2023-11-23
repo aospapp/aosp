@@ -13,6 +13,8 @@ mallopt01
 profil01
 stime01
 stime02
+## Uses SHM_LOCKED
+shmctl07
 
 # Test SysV IPC, which is not allowed in Android kernels.
 
@@ -364,9 +366,6 @@ in6_01
 # bionic doesn't expose resolver routines to the public
 mc_gethost
 
-# Actually two conflicting tests with the same name (upstream bug)
-fsstress
-
 # Require mkfifo
 gf12
 gf13
@@ -477,9 +476,119 @@ testcases/bin/fs_bind/regression/test03
 # Depends on CONFIG_EXT4_FS_ENCRYPTION which is not required on Android.
 # b/123523766
 statx05
+# Depends on exportfs (NFS not supported on Android).
+# b/191236106
+statx07
 
 # Disabled from LTP20190517
 # b/136666217
 # Needs pthread_cancel() and friends
 af_alg02
 
+# Depends on DNOTIFY (not enabled in Android).
+# b/191236494
+fcntl38
+fcntl38_64
+
+# Depends on HDLC line discipline (not enabled on Android).
+# b/191224903
+pty05
+
+# Disable RPC tests as not available in Android.
+rpc01.sh
+rpc_lib.sh
+rpc_test.sh
+rpcinfo01.sh
+rup01.sh
+rusers01.sh
+rpc_auth_destroy
+rpc_authnone_create
+rpc_authunix_create
+rpc_authunix_create_default
+rpc_callrpc
+rpc_callrpc_dataint
+rpc_callrpc_performance
+rpc_callrpc_scalability
+rpc_callrpc_stress
+rpc_cleaner
+rpc_clnt_broadcast
+rpc_clnt_broadcast_complex
+rpc_clnt_broadcast_dataint
+rpc_clnt_broadcast_performance
+rpc_clnt_broadcast_scalability
+rpc_clnt_broadcast_stress
+rpc_clnt_call
+rpc_clnt_call_complex
+rpc_clnt_call_dataint
+rpc_clnt_call_performance
+rpc_clnt_call_scalability
+rpc_clnt_call_stress
+rpc_clnt_control
+rpc_clnt_control_dataint
+rpc_clnt_create
+rpc_clnt_create_stress
+rpc_clnt_destroy
+rpc_clnt_destroy_stress
+rpc_clnt_freeres
+rpc_clnt_geterr
+rpc_clnt_pcreateerror
+rpc_clnt_perrno
+rpc_clnt_perror
+rpc_clnt_spcreateerror
+rpc_clnt_sperrno
+rpc_clnt_sperror
+rpc_clntraw_create
+rpc_clntraw_create_complex
+rpc_clntraw_create_performance
+rpc_clnttcp_create
+rpc_clnttcp_create_limits
+rpc_clnttcp_create_performance
+rpc_clnttcp_create_stress
+rpc_clntudp_bufcreate
+rpc_clntudp_bufcreate_limits
+rpc_clntudp_create
+rpc_clntudp_create_performance
+rpc_clntudp_create_stress
+rpc_get_myaddress
+rpc_pmap_getmaps
+rpc_pmap_getport
+rpc_pmap_rmtcall
+rpc_pmap_rmtcall_performance
+rpc_pmap_rmtcall_stress
+rpc_pmap_set
+rpc_pmap_unset
+rpc_svc_1
+rpc_svc_2
+rpc_svc_destroy
+rpc_svc_destroy_stress
+rpc_svc_freeargs
+rpc_svc_freeargs_svc
+rpc_svc_getargs
+rpc_svc_getargs_client
+rpc_svc_getargs_dataint
+rpc_svc_getcaller
+rpc_svc_register
+rpc_svc_sendreply
+rpc_svc_sendreply_client
+rpc_svc_unregister
+rpc_svcerr_auth
+rpc_svcerr_noproc
+rpc_svcerr_noprog
+rpc_svcerr_progvers
+rpc_svcerr_systemerr
+rpc_svcerr_weakauth
+rpc_svcfd_create
+rpc_svcfd_create_limits
+rpc_svcraw_create
+rpc_svcraw_create_performance
+rpc_svctcp_create
+rpc_svctcp_create_limits
+rpc_svctcp_create_performance
+rpc_svctcp_create_stress
+rpc_svcudp_bufcreate
+rpc_svcudp_bufcreate_limits
+rpc_svcudp_create
+rpc_svcudp_create_performance
+rpc_svcudp_create_stress
+rpc_xprt_register
+rpc_xprt_unregister

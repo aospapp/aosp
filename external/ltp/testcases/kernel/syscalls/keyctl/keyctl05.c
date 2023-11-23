@@ -71,6 +71,8 @@ static const char x509_cert[] =
 	"\x83\x8d\x69\xda\xd6\x59\xbd"
 	;
 
+	static int fips_enabled;
+
 static void new_session_keyring(void)
 {
 	TEST(keyctl(KEYCTL_JOIN_SESSION_KEYRING, NULL));
@@ -85,25 +87,31 @@ static void test_update_nonupdatable(const char *type,
 
 	new_session_keyring();
 
+	int is_asymmetric = !strcmp(type, "asymmetric");
+
 	TEST(add_key(type, "desc", payload, plen, KEY_SPEC_SESSION_KEYRING));
 	if (TST_RET < 0) {
+		if (TST_ERR == EINVAL && is_asymmetric && fips_enabled) {
+			tst_res(TCONF, "key size not allowed in FIPS mode");
+			return;
+		}
 		if (TST_ERR == ENODEV) {
 			tst_res(TCONF, "kernel doesn't support key type '%s'",
 				type);
 			return;
 		}
-		if (TST_ERR == EBADMSG && !strcmp(type, "asymmetric")) {
+		if (TST_ERR == EBADMSG && is_asymmetric) {
 			tst_res(TCONF, "kernel is missing x509 cert parser "
 				"(CONFIG_X509_CERTIFICATE_PARSER)");
 			return;
 		}
-		if (TST_ERR == ENOENT && !strcmp(type, "asymmetric")) {
+		if (TST_ERR == ENOENT && is_asymmetric) {
 			tst_res(TCONF, "kernel is missing crypto algorithms "
 				"needed to parse x509 cert (CONFIG_CRYPTO_RSA "
 				"and/or CONFIG_CRYPTO_SHA256)");
 			return;
 		}
-		tst_res(TBROK | TTERRNO, "unexpected error adding '%s' key",
+		tst_res(TFAIL | TTERRNO, "unexpected error adding '%s' key",
 			type);
 		return;
 	}
@@ -115,7 +123,7 @@ static void test_update_nonupdatable(const char *type,
 	 */
 	TEST(keyctl(KEYCTL_SETPERM, keyid, KEY_POS_ALL));
 	if (TST_RET != 0) {
-		tst_res(TBROK | TTERRNO,
+		tst_res(TFAIL | TTERRNO,
 			"failed to grant write permission to '%s' key", type);
 		return;
 	}
@@ -123,12 +131,12 @@ static void test_update_nonupdatable(const char *type,
 	tst_res(TINFO, "Try to update the '%s' key...", type);
 	TEST(keyctl(KEYCTL_UPDATE, keyid, payload, plen));
 	if (TST_RET == 0) {
-		tst_res(TBROK,
+		tst_res(TFAIL,
 			"updating '%s' key unexpectedly succeeded", type);
 		return;
 	}
 	if (TST_ERR != EOPNOTSUPP) {
-		tst_res(TBROK | TTERRNO,
+		tst_res(TFAIL | TTERRNO,
 			"updating '%s' key unexpectedly failed", type);
 		return;
 	}
@@ -151,7 +159,7 @@ static void test_update_setperm_race(void)
 	TEST(add_key("user", "desc", payload, sizeof(payload),
 		KEY_SPEC_SESSION_KEYRING));
 	if (TST_RET < 0) {
-		tst_res(TBROK | TTERRNO, "failed to add 'user' key");
+		tst_res(TFAIL | TTERRNO, "failed to add 'user' key");
 		return;
 	}
 	keyid = TST_RET;
@@ -172,12 +180,17 @@ static void test_update_setperm_race(void)
 	for (i = 0; i < 10000; i++) {
 		TEST(keyctl(KEYCTL_UPDATE, keyid, payload, sizeof(payload)));
 		if (TST_RET != 0 && TST_ERR != EACCES) {
-			tst_res(TBROK | TTERRNO, "failed to update 'user' key");
+			tst_res(TFAIL | TTERRNO, "failed to update 'user' key");
 			return;
 		}
 	}
 	tst_reap_children();
 	tst_res(TPASS, "didn't crash while racing to update 'user' key");
+}
+
+static void setup(void)
+{
+	fips_enabled = tst_fips_enabled();
 }
 
 static void do_test(unsigned int i)
@@ -205,6 +218,7 @@ static void do_test(unsigned int i)
 
 static struct tst_test test = {
 	.tcnt = 3,
+	.setup = setup,
 	.test = do_test,
 	.forks_child = 1,
 	.tags = (const struct tst_tag[]) {

@@ -1,14 +1,12 @@
 # Base and default-included sources and headers
 
 HB_BASE_sources = \
-	hb-aat-fdsc-table.hh \
 	hb-aat-layout-ankr-table.hh \
 	hb-aat-layout-bsln-table.hh \
 	hb-aat-layout-common.hh \
 	hb-aat-layout-feat-table.hh \
 	hb-aat-layout-just-table.hh \
 	hb-aat-layout-kerx-table.hh \
-	hb-aat-layout-lcar-table.hh \
 	hb-aat-layout-morx-table.hh \
 	hb-aat-layout-opbd-table.hh \
 	hb-aat-layout-trak-table.hh \
@@ -20,6 +18,10 @@ HB_BASE_sources = \
 	hb-algs.hh \
 	hb-array.hh \
 	hb-atomic.hh \
+	hb-bimap.hh \
+	hb-bit-page.hh \
+	hb-bit-set.hh \
+	hb-bit-set-invertible.hh \
 	hb-blob.cc \
 	hb-blob.hh \
 	hb-buffer-serialize.cc \
@@ -35,6 +37,8 @@ HB_BASE_sources = \
 	hb-config.hh \
 	hb-debug.hh \
 	hb-dispatch.hh \
+	hb-draw.cc \
+	hb-draw.hh \
 	hb-face.cc \
 	hb-face.hh \
 	hb-fallback-shape.cc \
@@ -45,8 +49,9 @@ HB_BASE_sources = \
 	hb-machinery.hh \
 	hb-map.cc \
 	hb-map.hh \
-	hb-bimap.hh \
 	hb-meta.hh \
+	hb-ms-feature-ranges.cc \
+	hb-ms-feature-ranges.hh \
 	hb-mutex.hh \
 	hb-null.hh \
 	hb-number.cc \
@@ -55,6 +60,7 @@ HB_BASE_sources = \
 	hb-open-file.hh \
 	hb-open-type.hh \
 	hb-ot-cff-common.hh \
+	hb-ot-cff1-std-str.hh \
 	hb-ot-cff1-table.cc \
 	hb-ot-cff1-table.hh \
 	hb-ot-cff2-table.cc \
@@ -66,9 +72,9 @@ HB_BASE_sources = \
 	hb-ot-color-sbix-table.hh \
 	hb-ot-color-svg-table.hh \
 	hb-ot-color.cc \
+	hb-ot-face-table-list.hh \
 	hb-ot-face.cc \
 	hb-ot-face.hh \
-	hb-ot-face-table-list.hh \
 	hb-ot-font.cc \
 	hb-ot-gasp-table.hh \
 	hb-ot-glyf-table.hh \
@@ -104,6 +110,7 @@ HB_BASE_sources = \
 	hb-ot-post-macroman.hh \
 	hb-ot-post-table.hh \
 	hb-ot-shape-complex-arabic-fallback.hh \
+	hb-ot-shape-complex-arabic-joining-list.hh \
 	hb-ot-shape-complex-arabic-table.hh \
 	hb-ot-shape-complex-arabic-win1256.hh \
 	hb-ot-shape-complex-arabic.cc \
@@ -118,10 +125,11 @@ HB_BASE_sources = \
 	hb-ot-shape-complex-khmer.hh \
 	hb-ot-shape-complex-myanmar.cc \
 	hb-ot-shape-complex-myanmar.hh \
+	hb-ot-shape-complex-syllabic.cc \
+	hb-ot-shape-complex-syllabic.hh \
 	hb-ot-shape-complex-thai.cc \
-	hb-ot-shape-complex-use-table.cc \
+	hb-ot-shape-complex-use-table.hh \
 	hb-ot-shape-complex-use.cc \
-	hb-ot-shape-complex-use.hh \
 	hb-ot-shape-complex-vowel-constraints.cc \
 	hb-ot-shape-complex-vowel-constraints.hh \
 	hb-ot-shape-complex.hh \
@@ -135,6 +143,7 @@ HB_BASE_sources = \
 	hb-ot-tag-table.hh \
 	hb-ot-tag.cc \
 	hb-ot-var-avar-table.hh \
+	hb-ot-var-common.hh \
 	hb-ot-var-fvar-table.hh \
 	hb-ot-var-gvar-table.hh \
 	hb-ot-var-hvar-table.hh \
@@ -156,6 +165,7 @@ HB_BASE_sources = \
 	hb-shaper.hh \
 	hb-static.cc \
 	hb-string-array.hh \
+	hb-style.cc \
 	hb-ucd-table.hh \
 	hb-ucd.cc \
 	hb-unicode-emoji-table.hh \
@@ -163,6 +173,7 @@ HB_BASE_sources = \
 	hb-unicode.hh \
 	hb-utf.hh \
 	hb-vector.hh \
+	hb-priority-queue.hh \
 	hb.hh \
 	$(NULL)
 
@@ -192,6 +203,7 @@ HB_BASE_headers = \
 	hb-buffer.h \
 	hb-common.h \
 	hb-deprecated.h \
+	hb-draw.h \
 	hb-face.h \
 	hb-font.h \
 	hb-map.h \
@@ -209,6 +221,7 @@ HB_BASE_headers = \
 	hb-set.h \
 	hb-shape-plan.h \
 	hb-shape.h \
+	hb-style.h \
 	hb-unicode.h \
 	hb-version.h \
 	hb.h \
@@ -249,6 +262,8 @@ HB_SUBSET_sources = \
 	hb-number.hh \
 	hb-ot-cff1-table.cc \
 	hb-ot-cff2-table.cc \
+	hb-ot-color-colrv1-closure.hh \
+	hb-ot-post-table-v2subset.hh \
 	hb-static.cc \
 	hb-subset-cff-common.cc \
 	hb-subset-cff-common.hh \
@@ -260,10 +275,9 @@ HB_SUBSET_sources = \
 	hb-subset-input.hh \
 	hb-subset-plan.cc \
 	hb-subset-plan.hh \
-	hb-subset-plan.hh \
 	hb-subset.cc \
 	hb-subset.hh \
-	hb-subset.hh \
+	hb-repacker.hh \
 	$(NULL)
 
 HB_SUBSET_headers = \

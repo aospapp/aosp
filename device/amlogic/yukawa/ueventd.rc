@@ -5,6 +5,7 @@ subsystem usbmisc
 
 /dev/mali0	0666 system graphics
 /dev/ion	0666 system graphics
+/dev/dma_heap/linux,cma	0666 system graphics
 /dev/graphics/fb0	0666 system graphics
 /dev/cec0	0666 system graphics
 /dev/i2c-0	0666 system system

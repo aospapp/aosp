@@ -19,12 +19,15 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-fstack-protector-strong",
             "-fPIE",
             "-pie",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ]
         }
@@ -54,12 +57,15 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-fstack-protector-strong",
             "-fPIE",
             "-pie",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -93,12 +99,15 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-fstack-protector-strong",
             "-fPIE",
             "-pie",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ]
         }
@@ -126,10 +135,13 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-fstack-protector-strong",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -161,11 +173,14 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "-fno-stack-protector",
             "-D__KERNEL__",
             "main.cc",
+            "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [
@@ -197,11 +212,14 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-D_FORTIFY_SOURCE=2",
+            "-static-libgcc",
             "-mthumb",
             "-fno-stack-protector",
             "-D__KERNEL__",
-            "main.cc"
+            "main.cc",
+            "-L/usr/armv7a-cros-linux-gnueabihf/usr/lib"
           ],
           "env_updates": [
             "CCACHE_DIR=/var/cache/distfiles/ccache",
@@ -231,13 +249,16 @@
             "-fno-reorder-blocks-and-partition",
             "-Wno-unused-local-typedefs",
             "-Wno-maybe-uninitialized",
+            "-fcommon",
             "-fstack-protector-strong",
             "-fPIE",
             "-pie",
             "-D_FORTIFY_SOURCE=2",
             "-fno-omit-frame-pointer",
+            "-static-libgcc",
             "--sysroot=xyz",
             "main.cc",
+            "-Lxyz/usr/lib64",
             "-mno-movbe"
           ],
           "env_updates": [

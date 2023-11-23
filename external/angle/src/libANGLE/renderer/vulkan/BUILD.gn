@@ -18,6 +18,16 @@ declare_args() {
   angle_enable_vulkan_gpu_trace_events = false
 }
 
+declare_args() {
+  # Enable custom secondary command buffers for outside render pass commands only
+  angle_enable_custom_vulkan_outside_render_pass_cmd_buffers =
+      angle_enable_custom_vulkan_cmd_buffers
+
+  # Enable custom secondary command buffers for render pass commands only
+  angle_enable_custom_vulkan_render_pass_cmd_buffers =
+      angle_enable_custom_vulkan_cmd_buffers
+}
+
 _vulkan_backend_sources = [
   "BufferVk.cpp",
   "BufferVk.h",
@@ -84,12 +94,17 @@ _vulkan_backend_sources = [
   "UtilsVk.h",
   "VertexArrayVk.cpp",
   "VertexArrayVk.h",
+  "VkImageImageSiblingVk.cpp",
+  "VkImageImageSiblingVk.h",
+  "VulkanSecondaryCommandBuffer.cpp",
+  "VulkanSecondaryCommandBuffer.h",
   "android/vk_android_utils.cpp",
   "android/vk_android_utils.h",
   "vk_cache_utils.cpp",
   "vk_cache_utils.h",
   "vk_caps_utils.cpp",
   "vk_caps_utils.h",
+  "vk_command_buffer_utils.h",
   "vk_format_table_autogen.cpp",
   "vk_format_utils.cpp",
   "vk_format_utils.h",
@@ -131,21 +146,23 @@ if (angle_use_vulkan_null_display) {
   _vulkan_backend_sources += [
     "null/DisplayVkNull.cpp",
     "null/DisplayVkNull.h",
-    "null/WindowSurfaceVkNull.cpp",
-    "null/WindowSurfaceVkNull.h",
   ]
 }
 
-if (is_linux) {
+if (is_linux || is_chromeos) {
   _vulkan_backend_sources += [
-    "display/DisplayVkSimple.cpp",
-    "display/DisplayVkSimple.h",
-    "display/WindowSurfaceVkSimple.cpp",
-    "display/WindowSurfaceVkSimple.h",
-    "headless/DisplayVkHeadless.cpp",
-    "headless/DisplayVkHeadless.h",
-    "headless/WindowSurfaceVkHeadless.cpp",
-    "headless/WindowSurfaceVkHeadless.h",
+    "linux/DisplayVkLinux.cpp",
+    "linux/DisplayVkLinux.h",
+    "linux/DmaBufImageSiblingVkLinux.cpp",
+    "linux/DmaBufImageSiblingVkLinux.h",
+    "linux/display/DisplayVkSimple.cpp",
+    "linux/display/DisplayVkSimple.h",
+    "linux/display/WindowSurfaceVkSimple.cpp",
+    "linux/display/WindowSurfaceVkSimple.h",
+    "linux/headless/DisplayVkHeadless.cpp",
+    "linux/headless/DisplayVkHeadless.h",
+    "linux/headless/WindowSurfaceVkHeadless.cpp",
+    "linux/headless/WindowSurfaceVkHeadless.h",
   ]
 }
 
@@ -173,10 +190,19 @@ if (is_win) {
 
 if (angle_use_x11) {
   _vulkan_backend_sources += [
-    "xcb/DisplayVkXcb.cpp",
-    "xcb/DisplayVkXcb.h",
-    "xcb/WindowSurfaceVkXcb.cpp",
-    "xcb/WindowSurfaceVkXcb.h",
+    "linux/xcb/DisplayVkXcb.cpp",
+    "linux/xcb/DisplayVkXcb.h",
+    "linux/xcb/WindowSurfaceVkXcb.cpp",
+    "linux/xcb/WindowSurfaceVkXcb.h",
+  ]
+}
+
+if (angle_use_wayland) {
+  _vulkan_backend_sources += [
+    "linux/wayland/DisplayVkWayland.cpp",
+    "linux/wayland/DisplayVkWayland.h",
+    "linux/wayland/WindowSurfaceVkWayland.cpp",
+    "linux/wayland/WindowSurfaceVkWayland.h",
   ]
 }
 
@@ -214,8 +240,11 @@ config("angle_vulkan_backend_config") {
   if (angle_enable_swiftshader) {
     defines += [ "ANGLE_ENABLE_SWIFTSHADER" ]
   }
-  if (angle_enable_custom_vulkan_cmd_buffers) {
-    defines += [ "ANGLE_USE_CUSTOM_VULKAN_CMD_BUFFERS=1" ]
+  if (angle_enable_custom_vulkan_outside_render_pass_cmd_buffers) {
+    defines += [ "ANGLE_USE_CUSTOM_VULKAN_OUTSIDE_RENDER_PASS_CMD_BUFFERS=1" ]
+  }
+  if (angle_enable_custom_vulkan_render_pass_cmd_buffers) {
+    defines += [ "ANGLE_USE_CUSTOM_VULKAN_RENDER_PASS_CMD_BUFFERS=1" ]
   }
   if (angle_enable_vulkan_gpu_trace_events) {
     defines += [ "ANGLE_ENABLE_VULKAN_GPU_TRACE_EVENTS=1" ]
@@ -258,6 +287,10 @@ angle_source_set("angle_vulkan_backend") {
     "$angle_spirv_headers_dir:spv_headers",
   ]
 
+  if (angle_enable_cl || is_android) {
+    deps += [ "$angle_root:angle_version_info" ]
+  }
+
   public_deps = [
     "$angle_root:angle_glslang_wrapper",
     "$angle_root:libANGLE_headers",
@@ -268,6 +301,10 @@ angle_source_set("angle_vulkan_backend") {
   ]
   public_configs = [ ":angle_vulkan_backend_config" ]
 
+  if (angle_use_wayland) {
+    public_configs += [ "$angle_root:angle_wayland_config" ]
+  }
+
   data_deps = []
 
   defines = []
@@ -275,6 +312,10 @@ angle_source_set("angle_vulkan_backend") {
   if (angle_enable_vulkan_validation_layers) {
     defines += [ "ANGLE_ENABLE_VULKAN_VALIDATION_LAYERS_BY_DEFAULT" ]
     data_deps += [ "$angle_root/src/common/vulkan:vulkan_validation_layers" ]
+  }
+
+  if (is_linux || is_chromeos) {
+    deps += [ "$angle_root/src/common/linux:angle_dma_buf" ]
   }
 
   if (is_fuchsia) {

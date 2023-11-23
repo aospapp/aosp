@@ -17,22 +17,18 @@
 #include <span>
 
 #include "pw_bytes/span.h"
-#include "pw_rpc/internal/base_client_call.h"
+#include "pw_rpc/channel.h"
 #include "pw_rpc/internal/channel.h"
+#include "pw_rpc/internal/endpoint.h"
+#include "pw_rpc/internal/lock.h"
 
 namespace pw::rpc {
 
-class Client {
+class Client : public internal::Endpoint {
  public:
   // Creates a client that uses a set of RPC channels. Channels can be shared
   // between a client and a server, but not between multiple clients.
-  constexpr Client(std::span<Channel> channels)
-      : channels_(static_cast<internal::Channel*>(channels.data()),
-                  channels.size()) {
-    for (Channel& channel : channels_) {
-      channel.set_client(this);
-    };
-  }
+  _PW_RPC_CONSTEXPR Client(std::span<Channel> channels) : Endpoint(channels) {}
 
   // Processes an incoming RPC packet. The packet may be an RPC response or a
   // control packet, the result of which is processed in this function. Returns
@@ -41,22 +37,15 @@ class Client {
   //   OK - The packet was processed by the client.
   //   DATA_LOSS - Failed to decode the packet.
   //   INVALID_ARGUMENT - The packet is intended for a server, not a client.
-  //   NOT_FOUND - The packet belongs to an unknown RPC call.
-  //   UNIMPLEMENTED - Received a type of packet that the client doesn't know
-  //       how to handle.
+  //   UNAVAILABLE - No RPC channel with the requested ID was found.
   //
-  Status ProcessPacket(ConstByteSpan data);
-
-  size_t active_calls() const { return calls_.size(); }
+  Status ProcessPacket(ConstByteSpan data)
+      PW_LOCKS_EXCLUDED(internal::rpc_lock());
 
  private:
-  friend class internal::BaseClientCall;
-
-  Status RegisterCall(internal::BaseClientCall& call);
-  void RemoveCall(const internal::BaseClientCall& call) { calls_.remove(call); }
-
-  std::span<internal::Channel> channels_;
-  IntrusiveList<internal::BaseClientCall> calls_;
+  // Remove these internal::Endpoint functions from the public interface.
+  using Endpoint::active_call_count;
+  using Endpoint::GetInternalChannel;
 };
 
 }  // namespace pw::rpc

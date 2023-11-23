@@ -26,6 +26,7 @@ import android.hdmicec.cts.CecOperand;
 import android.hdmicec.cts.HdmiCecConstants;
 import android.hdmicec.cts.LogicalAddress;
 
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Rule;
@@ -170,5 +171,99 @@ public final class HdmiCecSystemInformationTest extends BaseHdmiCecCtsTest {
         String reportFeatures = hdmiCecClient.checkExpectedOutput(LogicalAddress.BROADCAST,
                 CecOperand.REPORT_FEATURES);
         assertThat(CecMessage.getParams(reportFeatures, 2)).isEqualTo(cecVersion);
+    }
+
+    /**
+     * Tests that the device sends a {@code <CEC Version>} in response to a {@code <Get CEC
+     * Version>} in standby
+     */
+    @Test
+    public void cectGiveCecVersionInStandby() throws Exception {
+        ITestDevice device = getDevice();
+        try {
+            sendDeviceToSleepAndValidate();
+            hdmiCecClient.sendCecMessage(hdmiCecClient.getSelfDevice(), CecOperand.GET_CEC_VERSION);
+            String message =
+                    hdmiCecClient.checkExpectedOutputOrFeatureAbort(
+                            hdmiCecClient.getSelfDevice(),
+                            CecOperand.CEC_VERSION,
+                            CecOperand.GET_CEC_VERSION,
+                            HdmiCecConstants.ABORT_NOT_IN_CORRECT_MODE);
+            assertThat(CecMessage.getParams(message))
+                    .isIn(
+                            Arrays.asList(
+                                    HdmiCecConstants.CEC_VERSION_2_0,
+                                    HdmiCecConstants.CEC_VERSION_1_4));
+        } finally {
+            wakeUpDevice();
+        }
+    }
+
+    /**
+     * Test HF4-2-16 (CEC 2.0)
+     *
+     * <p>Tests that the DUT responds to a {@code <Give Device Vendor Id>} with a {@code <Device
+     * Vendor ID>} message or a {@code <Feature Abort>[Unrecognized Opcode]}
+     */
+    @Test
+    public void cect_hf_4_2_16_GiveDeviceVendorId() throws Exception {
+        ITestDevice device = getDevice();
+        setCec20();
+        hdmiCecClient.sendCecMessage(
+                hdmiCecClient.getSelfDevice(), CecOperand.GIVE_DEVICE_VENDOR_ID);
+        String message =
+                hdmiCecClient.checkExpectedOutputOrFeatureAbort(
+                        LogicalAddress.BROADCAST,
+                        CecOperand.DEVICE_VENDOR_ID,
+                        CecOperand.GIVE_DEVICE_VENDOR_ID,
+                        HdmiCecConstants.ABORT_UNRECOGNIZED_MODE);
+        if (CecMessage.getOperand(message) == CecOperand.GIVE_DEVICE_VENDOR_ID) {
+            assertThat(CecMessage.getParams(message))
+                    .isNotEqualTo(HdmiCecConstants.INVALID_VENDOR_ID);
+        }
+    }
+
+    /**
+     * Test HF4-2-17 (CEC 2.0)
+     *
+     * <p>Tests that the DUT responds to a {@code <Vendor Command with Id>} that has an incorrect or
+     * unrecognised Vendor ID with a {@code <Feature Abort>} message with an appropriate reason.
+     */
+    @Test
+    public void cect_hf_4_2_17_VendorCommandWithIncorrectId() throws Exception {
+        ITestDevice device = getDevice();
+        setCec20();
+        long vendorId = 0xBADDAD;
+        String vendorCommandParams =
+                CecMessage.formatParams(vendorId, 6) + CecMessage.formatParams("01DBF7E498");
+        String featureAbortRefused =
+                CecOperand.VENDOR_COMMAND_WITH_ID.toString()
+                        + String.format("%02d", HdmiCecConstants.ABORT_REFUSED);
+        String featureAbortUnrecognised =
+                CecOperand.VENDOR_COMMAND_WITH_ID.toString()
+                        + String.format("%02d", HdmiCecConstants.ABORT_UNRECOGNIZED_MODE);
+
+        hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.GIVE_DEVICE_VENDOR_ID);
+
+        String message =
+                hdmiCecClient.checkExpectedOutput(
+                        LogicalAddress.BROADCAST, CecOperand.DEVICE_VENDOR_ID);
+        if (CecMessage.getParams(message) == vendorId) {
+            // Device has the same vendor ID used in test, change it.
+            vendorId += 1;
+        }
+
+        hdmiCecClient.sendCecMessage(
+                LogicalAddress.TV,
+                LogicalAddress.BROADCAST,
+                CecOperand.DEVICE_VENDOR_ID,
+                CecMessage.formatParams(vendorId, 6));
+        hdmiCecClient.sendCecMessage(
+                LogicalAddress.TV, CecOperand.VENDOR_COMMAND_WITH_ID, vendorCommandParams);
+        message = hdmiCecClient.checkExpectedOutput(LogicalAddress.TV, CecOperand.FEATURE_ABORT);
+        if (!CecMessage.getParamsAsString(message).equals(featureAbortRefused)
+                && !CecMessage.getParamsAsString(message).equals(featureAbortUnrecognised)) {
+            throw new Exception("Feature Abort reason is not REFUSED(0x04) or UNRECOGNIZED(0x00)");
+        }
     }
 }

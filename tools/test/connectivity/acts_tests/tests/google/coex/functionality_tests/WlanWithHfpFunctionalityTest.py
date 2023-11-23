@@ -27,8 +27,8 @@ from acts_contrib.test_utils.coex.coex_test_utils import perform_classic_discove
 from acts_contrib.test_utils.coex.coex_test_utils import toggle_screen_state
 from acts_contrib.test_utils.coex.coex_test_utils import setup_tel_config
 from acts_contrib.test_utils.coex.coex_test_utils import start_fping
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
 
 BLUETOOTH_WAIT_TIME = 2
 

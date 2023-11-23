@@ -24,6 +24,7 @@ import androidx.preference.Preference;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.settingslib.utils.StringUtil;
 
 import org.junit.Test;
@@ -31,7 +32,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public final class ManageDeviceAdminPreferenceControllerTest
-        extends BasePreferenceControllerTestCase {
+        extends BaseEnterprisePreferenceControllerTestCase {
 
     private Preference mPreference;
 
@@ -73,14 +74,16 @@ public final class ManageDeviceAdminPreferenceControllerTest
     public void testGetAvailabilityStatus_deviceAdminDisabled() {
         ManageDeviceAdminPreferenceController controller = newControllerWithFeatureDisabled();
 
-        assertAvailability(controller.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
     }
 
     @Test
     public void testGetAvailabilityStatus_deviceAdminEnabled() {
         ManageDeviceAdminPreferenceController controller = newControllerWithFeatureEnabled();
 
-        assertAvailability(controller.getAvailabilityStatus(), AVAILABLE);
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                AVAILABLE);
     }
 
     private ManageDeviceAdminPreferenceController newControllerWithFeatureDisabled() {

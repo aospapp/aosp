@@ -22,7 +22,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Formatter;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -32,20 +34,43 @@ import java.util.Set;
 public class ApiComplianceChecker extends ApiPresenceChecker {
 
     /**
-     * A set of method signatures whose abstract modifier should be ignored.
+     * A set of field values signatures whose value modifier should be ignored.
      *
-     * <p>If a class is not intended to be created or extended by application developers and all
-     * instances are created and supplied by Android itself then the abstract modifier has no
-     * impact on runtime compatibility.
+     * <p>If a field value is intended to be changed to correct its value, that change should be
+     * allowed. The field name is the key of the ignoring map, and a FieldValuePair which is a pair
+     * of the old value and the new value is the value of the ignoring map.
+     * WARNING: Entries should only be added after consulting API council.
      */
-    private static final Set<String> IGNORE_METHOD_ABSTRACT_MODIFIER_WHITE_LIST = new HashSet<>();
+    private static class FieldValuePair {
+        private String oldValue;
+        private String newValue;
+
+        private FieldValuePair(String oldValue, String newValue) {
+            this.oldValue = oldValue;
+            this.newValue = newValue;
+        }
+    };
+    private static final Map<String, FieldValuePair> IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST =
+            new HashMap<String, FieldValuePair>();
     static {
-        // This method was previously abstract and is now not abstract. As the
-        // CtsSystemApiSignatureTestCases package tests both the old and new specifications, with
-        // and without the abstract modifier this needs to ignore the abstract modifier.
-        IGNORE_METHOD_ABSTRACT_MODIFIER_WHITE_LIST.add(
-                "public int android.service.euicc.EuiccService.onDownloadSubscription("
-                        + "int,android.telephony.euicc.DownloadableSubscription,boolean,boolean)");
+        // This field value was previously wrong. As the CtsSystemApiSignatureTestCases package
+        // tests both the old and new specifications with both old and new values, this needs to be
+        // ignored.
+        IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.put(
+                "android.media.tv.tuner.frontend.FrontendSettings#FEC_28_45(long)",
+                new FieldValuePair("-2147483648", "2147483648"));
+        IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.put(
+                "android.media.tv.tuner.frontend.FrontendSettings#FEC_29_45(long)",
+                new FieldValuePair("1", "4294967296"));
+        IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.put(
+                "android.media.tv.tuner.frontend.FrontendSettings#FEC_31_45(long)",
+                new FieldValuePair("2", "8589934592"));
+        IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.put(
+                "android.media.tv.tuner.frontend.FrontendSettings#FEC_32_45(long)",
+                new FieldValuePair("4", "17179869184"));
+        IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.put(
+                "android.media.tv.tuner.frontend.FrontendSettings#FEC_77_90(long)",
+                new FieldValuePair("8", "34359738368"));
     }
 
     /** Indicates that the class is an annotation. */
@@ -120,21 +145,89 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
     }
 
     /**
-     * Check if it is allowed that a class is in previous system Api and changed to abstract class
-     * in current API.
+     * Check if the class definition is from a previous API and was neither instantiable nor
+     * extensible through that API.
+     *
+     * <p>Such a class is more flexible in how it can be modified than other classes as there is
+     * no way to either create or extend the class.</p>
+     *
+     * <p>A class that has no constructors in the API cannot be instantiated or extended. Such a
+     * class has a lot more flexibility when it comes to making forwards compatible changes than
+     * other classes. e.g. Normally, a non-final class cannot be made final as that would break any
+     * code that extended the class but if there are no constructors in the API then it is
+     * impossible to extend it through the API so making it final is forwards compatible.</p>
+     *
+     * <p>Similarly, a concrete class cannot normally be made abstract as that would break any code
+     * that attempted to instantiate it but if there are no constructors in the API then it is
+     * impossible to instantiate it so making it abstract is forwards compatible.</p>
+     *
+     * <p>Finally, a non-static class cannot normally be made static (or vice versa) as that would
+     * break any code that attemped to instantiate it but if there are no constructors in the API
+     * then it is impossible to instantiate so changing the static flag is forwards compatible.</p>
+     *
+     * <p>In a similar fashion the abstract and final (but not static) modifier can be added to a
+     * method on this type of class.</p>
+     *
+     * <p>In this case forwards compatible is restricted to compile time and runtime behavior. It
+     * does not cover testing. e.g. making a class that was previously non-final could break tests
+     * that relied on mocking that class. However, that is a non-standard use of the API and so we
+     * are not strictly required to maintain compatibility in that case. It should also only be a
+     * minor issue as most mocking libraries support mocking final classes now.</p>
+     *
      * @param classDescription a description of a class in an API.
-     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
-     * @return true if the change is allowed.
      */
-    private static boolean isAllowedClassAbstractionFromPreviousSystemApi(
-            JDiffClassDescription classDescription, Class<?> runtimeClass) {
-        // Allow a class that was previously final and had no visible constructors,
-        // (so could not be instantiated or extended) to be changed to an abstract class.
+    private static boolean classIsNotInstantiableOrExtensibleInPreviousApi(
+            JDiffClassDescription classDescription) {
         return classDescription.getConstructors().isEmpty()
-                && (classDescription.getModifier() & Modifier.FINAL) != 0
-                && (classDescription.getModifier() & Modifier.ABSTRACT) == 0
-                && classDescription.isPreviousApi()
-                && (runtimeClass.getModifiers() & Modifier.ABSTRACT) != 0;
+                && classDescription.isPreviousApi();
+    }
+
+    /**
+     * If a modifier (final or abstract) has been removed since the previous API was published then
+     * it is forwards compatible so clear the modifier flag in the previous API modifiers so that it
+     * does not cause a mismatch.
+     *
+     * @param previousModifiers The set of modifiers for the previous API.
+     * @param currentModifiers The set of modifiers for the current implementation class.
+     * @return the normalized previous modifiers.
+     */
+    private static int normalizePreviousModifiersIfModifierIsRemoved(
+            int previousModifiers, int currentModifiers, int... flags) {
+        for (int flag : flags) {
+            // If the flag was present in the previous API but is no longer present then the
+            // modifier has been removed.
+            if ((previousModifiers & flag) != 0 && (currentModifiers & flag) == 0) {
+                previousModifiers &= ~flag;
+            }
+        }
+
+        return previousModifiers;
+    }
+
+    /**
+     * If a modifier (final or abstract) has been added since the previous API was published then
+     * this treats it as forwards compatible and clears the modifier flag in the current API
+     * modifiers so that it does not cause a mismatch.
+     *
+     * <p>This must only be called when adding one of the supplied modifiers is forwards compatible,
+     * e.g. when called on a class or methods from a class that returns true for
+     * {@link #classIsNotInstantiableOrExtensibleInPreviousApi(JDiffClassDescription)}.</p>
+     *
+     * @param previousModifiers The set of modifiers for the previous API.
+     * @param currentModifiers The set of modifiers for the current implementation class.
+     * @return the normalized current modifiers.
+     */
+    private static int normalizeCurrentModifiersIfModifierIsAdded(
+            int previousModifiers, int currentModifiers, int... flags) {
+        for (int flag : flags) {
+            // If the flag was not present in the previous API but is present then the modifier has
+            // been added.
+            if ((previousModifiers & flag) == 0 && (currentModifiers & flag) != 0) {
+                currentModifiers &= ~flag;
+            }
+        }
+
+        return currentModifiers;
     }
 
     /**
@@ -149,22 +242,11 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
         int reflectionModifiers = runtimeClass.getModifiers();
         int apiModifiers = classDescription.getModifier();
 
-        // If the api class isn't abstract
-        if (((apiModifiers & Modifier.ABSTRACT) == 0) &&
-                // but the reflected class is
-                ((reflectionModifiers & Modifier.ABSTRACT) != 0) &&
-                // interfaces are implicitly abstract (JLS 9.1.1.1)
-                classDescription.getClassType() != JDiffClassDescription.JDiffType.INTERFACE &&
-                // and it isn't an enum
-                !classDescription.isEnumType() &&
-                // and it isn't allowed previous api final class with no visible ctor
-                !isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)) {
-            // that is a problem
-            return "description is abstract but class is not and is not an enum";
+        // If the api class is an interface then always treat it as abstract.
+        // interfaces are implicitly abstract (JLS 9.1.1.1)
+        if (classDescription.getClassType() == JDiffClassDescription.JDiffType.INTERFACE) {
+            apiModifiers |= Modifier.ABSTRACT;
         }
-        // ABSTRACT check passed, so mask off ABSTRACT
-        reflectionModifiers &= ~Modifier.ABSTRACT;
-        apiModifiers &= ~Modifier.ABSTRACT;
 
         if (classDescription.isAnnotation()) {
             reflectionModifiers &= ~CLASS_MODIFIER_ANNOTATION;
@@ -179,21 +261,32 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
             // override a method from the class cannot be marked as final because those constants
             // are represented as a subclass. As enum classes cannot be extended (except for its own
             // constants) there is no benefit in checking final modifier so just ignore them.
-            reflectionModifiers &= ~Modifier.FINAL;
-            apiModifiers &= ~Modifier.FINAL;
+            //
+            // Ditto for abstract.
+            reflectionModifiers &= ~(Modifier.FINAL | Modifier.ABSTRACT);
+            apiModifiers &= ~(Modifier.FINAL | Modifier.ABSTRACT);
         }
 
-        // Allow previous final API to be changed to abstract or static, and other modifiers should
-        // not be changed.
-        boolean isAllowedPreviousApiModifierChange =
-                isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)
-                && (apiModifiers & ~Modifier.FINAL) != 0
-                && (reflectionModifiers & ~(Modifier.ABSTRACT | Modifier.STATIC))
-                == (apiModifiers & ~Modifier.FINAL);
+        if (classDescription.isPreviousApi()) {
+            // If the final and/or abstract modifiers have been removed since the previous API was
+            // published then that is forwards compatible so remove the modifier in the previous API
+            // modifiers so they match the runtime modifiers.
+            apiModifiers = normalizePreviousModifiersIfModifierIsRemoved(
+                    apiModifiers, reflectionModifiers, Modifier.FINAL, Modifier.ABSTRACT);
+
+            if (classIsNotInstantiableOrExtensibleInPreviousApi(classDescription)) {
+                // Adding the final, abstract or static flags to the runtime class is forwards
+                // compatible as the class cannot be instantiated or extended. Clear the flags for
+                // any such added modifier from the current implementation's modifiers so that it
+                // does not cause a mismatch.
+                reflectionModifiers = normalizeCurrentModifiersIfModifierIsAdded(
+                        apiModifiers, reflectionModifiers,
+                        Modifier.FINAL, Modifier.ABSTRACT, Modifier.STATIC);
+            }
+        }
 
         if ((reflectionModifiers == apiModifiers)
-                && (classDescription.isEnumType() == runtimeClass.isEnum())
-                || isAllowedPreviousApiModifierChange) {
+                && (classDescription.isEnumType() == runtimeClass.isEnum())) {
             return null;
         } else {
             return String.format("modifier mismatch - description (%s), class (%s)",
@@ -311,7 +404,7 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
                             expectedFieldType, actualFieldType));
         }
 
-        String message = checkFieldValueCompliance(fieldDescription, field);
+        String message = checkFieldValueCompliance(classDescription, fieldDescription, field);
         if (message != null) {
             resultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
                     fieldDescription.toReadableString(classDescription.getAbsoluteClassName()),
@@ -363,7 +456,8 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
      * @param apiField The field as defined by the platform API.
      * @param deviceField The field as defined by the device under test.
      */
-    private static String checkFieldValueCompliance(JDiffField apiField, Field deviceField) {
+    private static String checkFieldValueCompliance(
+            JDiffClassDescription classDescription, JDiffField apiField, Field deviceField) {
         if ((apiField.mModifier & Modifier.FINAL) == 0 ||
                 (apiField.mModifier & Modifier.STATIC) == 0) {
             // Only final static fields can have fixed values.
@@ -383,6 +477,14 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
 
         String deviceFieldValue = getFieldValueAsString(deviceField);
         if (!Objects.equals(apiFieldValue, deviceFieldValue)) {
+            String fieldName = apiField.toReadableString(classDescription.getAbsoluteClassName());
+            if (IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.containsKey(fieldName)
+                    && IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.get(fieldName).oldValue.equals(
+                            apiFieldValue)
+                    && IGNORE_FIELD_VALUES_MODIFIER_ALLOWED_LIST.get(fieldName).newValue.equals(
+                            deviceFieldValue)) {
+                return null;
+            }
             return String.format("Incorrect field value, expected <%s>, found <%s>",
                     apiFieldValue, deviceFieldValue);
 
@@ -473,16 +575,6 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
     @Override
     protected void checkMethod(JDiffClassDescription classDescription, Class<?> runtimeClass,
             JDiffClassDescription.JDiffMethod methodDescription, Method method) {
-        if (method.isVarArgs()) {
-            methodDescription.mModifier |= METHOD_MODIFIER_VAR_ARGS;
-        }
-        if (method.isBridge()) {
-            methodDescription.mModifier |= METHOD_MODIFIER_BRIDGE;
-        }
-        if (method.isSynthetic()) {
-            methodDescription.mModifier |= METHOD_MODIFIER_SYNTHETIC;
-        }
-
         // FIXME: A workaround to fix the final mismatch on enumeration
         if (runtimeClass.isEnum() && methodDescription.mName.equals("values")) {
             return;
@@ -491,12 +583,6 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
         String reason;
         if ((reason = areMethodsModifierCompatible(
                 classDescription, methodDescription, method)) != null) {
-            // Allow previous API method to be changed to abstract
-            if (isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)
-                    && (method.getModifiers() & ~(Modifier.ABSTRACT))
-                    == methodDescription.mModifier) {
-                return;
-            }
             resultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
                     methodDescription.toReadableString(classDescription.getAbsoluteClassName()),
                     String.format("Non-compatible method found when looking for %s - because %s",
@@ -520,16 +606,14 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
             JDiffClassDescription.JDiffMethod apiMethod,
             Method reflectedMethod) {
 
-        // Mask off NATIVE since it is a don't care.  Also mask off
-        // SYNCHRONIZED since it is not considered API significant (b/112626813)
-        int ignoredMods = (Modifier.NATIVE | Modifier.SYNCHRONIZED | Modifier.STRICT);
+        // Mask off NATIVE since it is a don't care.
+        // Mask off SYNCHRONIZED since it is not considered API significant (b/112626813)
+        // Mask off STRICT as it has no effect (b/26082535)
+        // Mask off SYNTHETIC, VARARGS and BRIDGE as they are not represented in the API.
+        int ignoredMods = (Modifier.NATIVE | Modifier.SYNCHRONIZED | Modifier.STRICT |
+                METHOD_MODIFIER_SYNTHETIC | METHOD_MODIFIER_VAR_ARGS | METHOD_MODIFIER_BRIDGE);
         int reflectionModifiers = reflectedMethod.getModifiers() & ~ignoredMods;
         int apiModifiers = apiMethod.mModifier & ~ignoredMods;
-
-        // A method can become non-abstract
-        if ((reflectionModifiers & Modifier.ABSTRACT) == 0) {
-            apiModifiers &= ~Modifier.ABSTRACT;
-        }
 
         // We can ignore FINAL for classes
         if ((classDescription.getModifier() & Modifier.FINAL) != 0) {
@@ -538,9 +622,21 @@ public class ApiComplianceChecker extends ApiPresenceChecker {
         }
 
         String genericString = reflectedMethod.toGenericString();
-        if (IGNORE_METHOD_ABSTRACT_MODIFIER_WHITE_LIST.contains(genericString)) {
-            reflectionModifiers &= ~Modifier.ABSTRACT;
-            apiModifiers &= ~Modifier.ABSTRACT;
+        if (classDescription.isPreviousApi()) {
+            // If the final and/or abstract modifiers have been removed since the previous API was
+            // published then that is forwards compatible so remove the modifier in the previous API
+            // modifiers so they match the runtime modifiers.
+            apiModifiers = normalizePreviousModifiersIfModifierIsRemoved(
+                    apiModifiers, reflectionModifiers, Modifier.FINAL, Modifier.ABSTRACT);
+
+            if (classIsNotInstantiableOrExtensibleInPreviousApi(classDescription)) {
+                // Adding the final, or abstract flags to the runtime method is forwards compatible
+                // as the class cannot be instantiated or extended. Clear the flags for any such
+                // added modifier from the current implementation's modifiers so that it does not
+                // cause a mismatch.
+                reflectionModifiers = normalizeCurrentModifiersIfModifierIsAdded(
+                        apiModifiers, reflectionModifiers, Modifier.FINAL, Modifier.ABSTRACT);
+            }
         }
 
         if (reflectionModifiers == apiModifiers) {

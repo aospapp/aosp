@@ -16,13 +16,6 @@
 
 package com.android.cts.verifier.audio;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ReportLog;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
-
 import android.app.AlertDialog;
 import android.content.Context;
 import android.media.AudioDeviceCallback;
@@ -35,6 +28,11 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 /**
  * Audio Frequency Test base activity
@@ -88,24 +86,19 @@ public class AudioFrequencyActivity extends PassFailButtons.Activity {
     private class OnBtnClickListener implements OnClickListener {
         @Override
         public void onClick(View v) {
-            switch (v.getId()) {
-                case R.id.refmic_tests_yes_btn:
-                    recordRefMicStatus(true);
-                    enableTestUI(true);
-                    // disable test button so that they will now run the test(s)
-                    getPassButton().setEnabled(false);
-                    break;
-
-                case R.id.refmic_tests_no_btn:
-                    recordRefMicStatus(false);
-                    enableTestUI(false);
-                    // Allow the user to "pass" the test.
-                    getPassButton().setEnabled(true);
-                    break;
-
-                case R.id.refmic_test_info_btn:
-                    showRefMicInfoDialog();
-                    break;
+            int id = v.getId();
+            if (id == R.id.refmic_tests_yes_btn) {
+                recordRefMicStatus(true);
+                enableTestUI(true);
+                // disable test button so that they will now run the test(s)
+                getPassButton().setEnabled(false);
+            } else if (id == R.id.refmic_tests_no_btn) {
+                recordRefMicStatus(false);
+                enableTestUI(false);
+                // Allow the user to "pass" the test.
+                getPassButton().setEnabled(true);
+            } else if (id == R.id.refmic_test_info_btn) {
+                showRefMicInfoDialog();
             }
         }
     }

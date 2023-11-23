@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#define PW_LOG_MODULE_NAME "KVS"
+#define PW_LOG_MODULE_NAME "PW_FLASH"
 #define PW_LOG_LEVEL PW_KVS_LOG_LEVEL
 
 #include "pw_kvs/fake_flash_memory.h"
@@ -99,13 +99,6 @@ StatusWithSize FakeFlashMemory::Write(Address address,
                  unsigned(address),
                  unsigned(data.size()),
                  unsigned(alignment_bytes()));
-    return StatusWithSize::InvalidArgument();
-  }
-
-  if (data.size() > sector_size_bytes() - (address % sector_size_bytes())) {
-    PW_LOG_ERROR("Write crosses sector boundary; address %x, size %u B",
-                 unsigned(address),
-                 unsigned(data.size()));
     return StatusWithSize::InvalidArgument();
   }
 

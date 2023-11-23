@@ -97,6 +97,7 @@ public class DownloadPackageTaskTest {
                 mUtils,
                 mContext,
                 PARAMS,
+                TEST_DOWNLOAD_INFO,
                 mCallback,
                 mock(ProvisioningAnalyticsTracker.class));
     }
@@ -124,7 +125,7 @@ public class DownloadPackageTaskTest {
         runTask();
 
         // THEN we get an error callback
-        verify(mCallback).onError(mTask, ERROR_OTHER);
+        verify(mCallback).onError(mTask, ERROR_OTHER, /* errorMessage= */ null);
         verifyNoMoreInteractions(mCallback);
     }
 
@@ -144,7 +145,7 @@ public class DownloadPackageTaskTest {
         receiver.onReceive(mContext, new Intent(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
 
         // THEN we get a success callback
-        verify(mCallback).onError(mTask, ERROR_DOWNLOAD_FAILED);
+        verify(mCallback).onError(mTask, ERROR_DOWNLOAD_FAILED, /* errorMessage= */ null);
         verifyNoMoreInteractions(mCallback);
     }
 

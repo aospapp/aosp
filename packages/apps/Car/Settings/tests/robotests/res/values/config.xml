@@ -20,4 +20,6 @@
     <string name="config_defaultAssistantComponentName" translatable="false">#+UNSET</string>
     <!-- Whether exit button in settings' root action bar should be shown or not -->
     <bool name="config_show_settings_root_exit_icon">true</bool>
+
+    <string name="config_default_screen_reader" translatable="false">com.android.screen.reader/.ScreenReaderService</string>
 </resources>

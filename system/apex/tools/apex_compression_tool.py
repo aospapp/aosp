@@ -89,10 +89,13 @@ def RunCompress(args, work_dir):
   cmd.extend(['-o', args.output])
 
   # We want to put the input apex inside the compressed APEX with name
-  # "original_apex". So we create a hard link and put the renamed file inside
-  # the zip
+  # "original_apex". Originally this was done by creating a hard link
+  # in order to put the renamed file inside the zip, but it causes some issue
+  # when running this tool with Bazel in a sandbox which restricts the function
+  # of creating cross-device links. So instead of creating hard links, we make a
+  # copy of the original_apex here.
   original_apex = os.path.join(work_dir, 'original_apex')
-  os.link(args.input, original_apex)
+  shutil.copy2(args.input, original_apex)
   cmd.extend(['-C', work_dir])
   cmd.extend(['-f', original_apex])
 
@@ -115,24 +118,24 @@ def RunCompress(args, work_dir):
 
   # Set digest of original_apex to apex_manifest.pb
   apex_manifest_path = os.path.join(extract_dir, 'apex_manifest.pb')
-  assert AddOriginalApexDigestToManifest(apex_manifest_path, image_path)
+  assert AddOriginalApexDigestToManifest(apex_manifest_path, image_path, args.verbose)
 
   # Don't forget to compress
   cmd.extend(['-L', '9'])
 
-  RunCommand(cmd, verbose=True)
+  RunCommand(cmd, verbose=args.verbose)
 
   return True
 
 
-def AddOriginalApexDigestToManifest(capex_manifest_path, apex_image_path):
+def AddOriginalApexDigestToManifest(capex_manifest_path, apex_image_path, verbose=False):
   # Retrieve the root digest of the image
   avbtool_cmd = [
         'avbtool',
         'print_partition_digests', '--image',
         apex_image_path]
   # avbtool_cmd output has format "<name>: <value>"
-  root_digest = RunCommand(avbtool_cmd, True)[0].decode().split(': ')[1].strip()
+  root_digest = RunCommand(avbtool_cmd, verbose=verbose)[0].decode().split(': ')[1].strip()
   # Update the manifest proto file
   with open(capex_manifest_path, 'rb') as f:
     pb = apex_manifest_pb2.ApexManifest()
@@ -154,6 +157,8 @@ def ParseArgs(argv):
   # Handle sub-command "compress"
   parser_compress = subparsers.add_parser('compress',
                                           help='compresses an APEX')
+  parser_compress.add_argument('-v', '--verbose', action='store_true',
+                               help='verbose execution')
   parser_compress.add_argument('--input', type=str, required=True,
                                help='path to input APEX file that will be '
                                     'compressed')

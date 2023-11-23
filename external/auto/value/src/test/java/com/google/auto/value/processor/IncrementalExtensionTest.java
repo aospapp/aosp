@@ -22,6 +22,7 @@ import com.google.auto.value.extension.AutoValueExtension;
 import com.google.auto.value.extension.AutoValueExtension.IncrementalExtensionType;
 import com.google.auto.value.extension.memoized.processor.MemoizeExtension;
 import com.google.auto.value.extension.serializable.processor.SerializableAutoValueExtension;
+import com.google.auto.value.extension.toprettystring.processor.ToPrettyStringExtension;
 import com.google.common.collect.ImmutableList;
 import javax.annotation.processing.ProcessingEnvironment;
 import net.ltgt.gradle.incap.IncrementalAnnotationProcessorType;
@@ -46,7 +47,10 @@ public class IncrementalExtensionTest {
     // different <?>.
     assertThat(builtInExtensions)
         .comparingElementsUsing(transforming(e -> (Object) e.getClass(), "is class"))
-        .containsExactly(MemoizeExtension.class, SerializableAutoValueExtension.class);
+        .containsExactly(
+            MemoizeExtension.class,
+            SerializableAutoValueExtension.class,
+            ToPrettyStringExtension.class);
 
     AutoValueProcessor processor = new AutoValueProcessor(builtInExtensions);
     assertThat(processor.getSupportedOptions())
@@ -58,10 +62,12 @@ public class IncrementalExtensionTest {
     AutoValueExtension nonIsolatingExtension = new NonIsolatingExtension();
     assertThat(nonIsolatingExtension.incrementalType((ProcessingEnvironment) null))
         .isEqualTo(IncrementalExtensionType.UNKNOWN);
-    ImmutableList<AutoValueExtension> extensions = ImmutableList.<AutoValueExtension>builder()
-        .addAll(AutoValueProcessor.extensionsFromLoader(AutoValueProcessor.class.getClassLoader()))
-        .add(nonIsolatingExtension)
-        .build();
+    ImmutableList<AutoValueExtension> extensions =
+        ImmutableList.<AutoValueExtension>builder()
+            .addAll(
+                AutoValueProcessor.extensionsFromLoader(AutoValueProcessor.class.getClassLoader()))
+            .add(nonIsolatingExtension)
+            .build();
 
     AutoValueProcessor processor = new AutoValueProcessor(extensions);
     assertThat(processor.getSupportedOptions())
@@ -73,10 +79,12 @@ public class IncrementalExtensionTest {
     AutoValueExtension isolatingExtension = new IsolatingExtension();
     assertThat(isolatingExtension.incrementalType((ProcessingEnvironment) null))
         .isEqualTo(IncrementalExtensionType.ISOLATING);
-    ImmutableList<AutoValueExtension> extensions = ImmutableList.<AutoValueExtension>builder()
-        .addAll(AutoValueProcessor.extensionsFromLoader(AutoValueProcessor.class.getClassLoader()))
-        .add(isolatingExtension)
-        .build();
+    ImmutableList<AutoValueExtension> extensions =
+        ImmutableList.<AutoValueExtension>builder()
+            .addAll(
+                AutoValueProcessor.extensionsFromLoader(AutoValueProcessor.class.getClassLoader()))
+            .add(isolatingExtension)
+            .build();
 
     AutoValueProcessor processor = new AutoValueProcessor(extensions);
     assertThat(processor.getSupportedOptions())

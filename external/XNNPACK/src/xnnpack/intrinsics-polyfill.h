@@ -11,8 +11,8 @@
 #if defined(__SSE2__)
 #include <emmintrin.h>
 
-// GCC any, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, and ICC pre-16
-#if (defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)) || \
+// GCC pre-11, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, and ICC pre-16
+#if (defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER) && __GNUC__ < 11) || \
     (defined(__clang__) && !defined(__apple_build_version__) && (__clang_major__ < 8)) || \
     (defined(__clang__) && defined(__ANDROID__) && (__clang_major__ == 8) && (__clang_minor__ == 0) && (__clang_patchlevel__ < 7)) || \
     (defined(__clang__) && defined(__apple_build_version__) && (__apple_build_version__ < 11000000)) || \
@@ -27,18 +27,19 @@ static XNN_INTRINSIC
 void _mm_storeu_si32(const void* address, __m128i v) {
   *((int*) address) = _mm_cvtsi128_si32(v);
 }
-#endif  // GCC any, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, and ICC pre-16
+#endif  // GCC pre-11, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, and ICC pre-16
 #endif  // SSE2
 
 #ifdef __AVX512F__
 #include <immintrin.h>
 
-// GCC pre-7, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, and ICC pre-18
+// GCC pre-7, Clang pre-8, Android NDK Clang pre-8.0.7, Apple Clang pre-11, ICC pre-18, and MSVC pre-2019
 #if (defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER) && (__GNUC__ < 7)) || \
     (defined(__clang__) && !defined(__apple_build_version__) && (__clang_major__ < 8)) || \
     (defined(__clang__) && defined(__ANDROID__) && (__clang_major__ == 8) && (__clang_minor__ == 0) && (__clang_patchlevel__ < 7)) || \
     (defined(__clang__) && defined(__apple_build_version__) && (__apple_build_version__ < 11000000)) || \
-    (defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1800))
+    (defined(__INTEL_COMPILER) && (__INTEL_COMPILER < 1800)) || \
+    (defined(_MSC_VER) && !defined(__clang__) && !defined(__GNUC__) && (_MSC_VER <= 1916))
 
 static XNN_INTRINSIC
 __mmask16 _cvtu32_mask16(unsigned int mask) {
@@ -129,3 +130,37 @@ __m512i _mm512_set_epi8(
 #endif  // GCC pre-9
 
 #endif  // __AVX512F__
+
+#if XNN_ARCH_ARM && (defined(__ARM_NEON) || defined(__ARM_NEON__))
+#include <arm_neon.h>
+
+// AArch32 GCC targeting ARMv8 NEON, see
+// - https://gcc.gnu.org/bugzilla/show_bug.cgi?id=71233
+// - https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95399
+#if defined(__GNUC__) && !defined(__clang__) && (__ARM_ARCH >= 8)
+static XNN_INTRINSIC
+int32x4_t vcvtnq_s32_f32(float32x4_t v) {
+  return vcvtq_s32_f32(vrndnq_f32(v));
+}
+#endif  // AArch32 GCC targeting ARMv8 NEON
+
+#endif  // ARM NEON
+
+#if XNN_ARCH_ARM64
+#include <arm_neon.h>
+
+// AArch64 GCC pre-8, 8.1-8.4, 9.1-9.3
+#if defined(__GNUC__) && !defined(__clang__) && \
+  (__GNUC__ < 8 || __GNUC__ == 8 && __GNUC_MINOR__ < 5 || __GNUC__ == 9 && __GNUC_MINOR__ < 4)
+static XNN_INTRINSIC
+uint8x16x4_t vld1q_u8_x4(const uint8_t* address) {
+  uint8x16x4_t result;
+  result.val[0] = vld1q_u8(address);
+  result.val[1] = vld1q_u8(address + 16);
+  result.val[2] = vld1q_u8(address + 32);
+  result.val[3] = vld1q_u8(address + 48);
+  return result;
+}
+#endif  // AArch64 GCC pre-8, 8.1-8.4, 9.1-9.3
+
+#endif  // ARM64 NEON

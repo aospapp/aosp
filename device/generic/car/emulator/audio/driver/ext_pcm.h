@@ -34,6 +34,7 @@ struct ext_pcm {
   struct pcm *pcm;
   pthread_mutex_t lock;
   pthread_cond_t mixer_wake;
+  bool run_mixer;
   unsigned int ref_count;
   pthread_mutex_t mixer_lock;
   struct ext_mixer_pipeline mixer_pipeline;

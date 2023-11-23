@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/ppv-lite86/ppv-lite86-0.2.10.crate"
+    value: "https://static.crates.io/crates/ppv-lite86/ppv-lite86-0.2.16.crate"
   }
-  version: "0.2.10"
+  version: "0.2.16"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 11
-    day: 2
+    year: 2022
+    month: 3
+    day: 1
   }
 }

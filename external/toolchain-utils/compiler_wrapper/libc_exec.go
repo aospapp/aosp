@@ -18,7 +18,20 @@ package main
 //	// Since fork() brings us to one thread, we can only use async-signal-safe funcs below.
 //	pid_t pid = fork();
 //	if (pid == 0) {
-//		execve(pathname, argv, envp);
+//		// crbug.com/1166017: we're (very rarely) getting ERESTARTSYS on some builders.
+//		// Documentation indicates that this is a bug in the kernel. Work around it by
+//		// retrying. 25 is an arbitrary retry number that Should Be Enough For Anyone(TM).
+//		int i = 0;
+//		for (; i < 25; i++) {
+//			execve(pathname, argv, envp);
+//			if (errno != 512) {
+//				break;
+//			}
+//			// Sleep a bit. Not sure if this helps, but if the condition we're seeing is
+//			// transient, it *hopefully* should. nanosleep isn't async-signal safe, so
+//			// we have to live with sleep()
+//			sleep(1);
+//		}
 //		fprintf(stderr, "exec failed (errno: %d)\n", errno);
 //		_exit(1);
 //	}

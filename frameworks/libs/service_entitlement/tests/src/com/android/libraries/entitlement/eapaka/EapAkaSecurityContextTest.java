@@ -104,6 +104,8 @@ public class EapAkaSecurityContextTest {
                 .isEqualTo(ServiceEntitlementException.ERROR_ICC_AUTHENTICATION_NOT_AVAILABLE);
         assertThat(exception.getMessage())
                 .isEqualTo("Invalid SIM EAP-AKA authentication response!");
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
     }
 
     @Test

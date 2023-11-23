@@ -70,7 +70,8 @@ public class AndroidSdk {
      * compilation class path and android jar path.
      */
     public static AndroidSdk createAndroidSdk(
-            Log log, Mkdir mkdir, ModeId modeId, Language language) {
+            Log log, Mkdir mkdir, ModeId modeId, Language language,
+            boolean supportBuildFromSource) {
         List<String> path = new Command.Builder(log).args("which", ARBITRARY_BUILD_TOOL_NAME)
                 .permitNonZeroExitStatus(true)
                 .execute();
@@ -175,47 +176,43 @@ public class AndroidSdk {
 
             desugarJarPath = desugarJar.getPath();
 
-            String pattern = outDir +
-                    "target/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
-            if (modeId.isHost()) {
-                pattern = outDir + "host/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
-            }
-            pattern += ".jar";
-
-            String[] jarNames = modeId.getJarNames();
-            compilationClasspath = new File[jarNames.length];
-            for (int i = 0; i < jarNames.length; i++) {
-                String jar = jarNames[i];
-                File file;
+            if (!supportBuildFromSource) {
+                compilationClasspath = new File[]{};
+            } else {
+                String pattern = outDir +
+                        "target/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
                 if (modeId.isHost()) {
-                    if  ("conscrypt-hostdex".equals(jar)) {
-                        jar = "conscrypt-host-hostdex";
-                    } else if ("core-icu4j-hostdex".equals(jar)) {
-                        jar = "core-icu4j-host-hostdex";
-                    }
-                    file = new File(String.format(pattern, jar));
-                } else {
-                    final String apexPackage;
-                    // With unbundled ART, the intermediate directory storing the jar file
-                    // outside ART APEX doesn't contain the apex package name.
-                    final boolean tryNonApexIntermediate;
-                    if ("conscrypt".equals(jar)) {
-                        apexPackage = "com.android.conscrypt";
-                        tryNonApexIntermediate = true;
-                    } else if ("core-icu4j".equals(jar)) {
-                        apexPackage = "com.android.i18n";
-                        tryNonApexIntermediate = true;
-                    } else {
-                        apexPackage = "com.android.art.testing";
-                        tryNonApexIntermediate = false;
-                    }
-
-                    file = new File(String.format(pattern, jar + "." + apexPackage));
-                    if (tryNonApexIntermediate && !file.exists()) {
-                        file = new File(String.format(pattern, jar));
-                    }
+                    pattern = outDir + "host/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
                 }
-                compilationClasspath[i] = file;
+                pattern += ".jar";
+
+                String[] jarNames = modeId.getJarNames();
+                compilationClasspath = new File[jarNames.length];
+                List<String> missingJars = new ArrayList<>();
+                for (int i = 0; i < jarNames.length; i++) {
+                    String jar = jarNames[i];
+                    File file;
+                    if (modeId.isHost()) {
+                        if  ("conscrypt-hostdex".equals(jar)) {
+                            jar = "conscrypt-host-hostdex";
+                        } else if ("core-icu4j-hostdex".equals(jar)) {
+                            jar = "core-icu4j-host-hostdex";
+                        }
+                        file = new File(String.format(pattern, jar));
+                    } else {
+                        file = findApexJar(jar, pattern);
+                        if (file.exists()) {
+                            log.verbose("Using jar " + jar + " from " + file);
+                        } else {
+                            missingJars.add(jar);
+                        }
+                    }
+                    compilationClasspath[i] = file;
+                }
+                if (!missingJars.isEmpty()) {
+                    logMissingJars(log, missingJars);
+                    throw new RuntimeException("Unable to locate all jars needed for compilation");
+                }
             }
         } else {
             throw new RuntimeException("Couldn't derive Android home from "
@@ -224,6 +221,42 @@ public class AndroidSdk {
 
         return new AndroidSdk(log, mkdir, compilationClasspath, androidJarPath, desugarJarPath,
                 new HostFileCache(log, mkdir), language);
+    }
+
+    /** Logs jars that couldn't be found ands suggests a command for building them */
+    private static void logMissingJars(Log log, List<String> missingJars) {
+        StringBuilder makeCommand = new StringBuilder().append("m ");
+        for (String jarName : missingJars) {
+            String apex = apexForJar(jarName);
+            log.warn("Missing compilation jar " + jarName +
+                    (apex != null ? " from APEX " + apex : ""));
+            makeCommand.append(jarName).append(" ");
+        }
+        log.info("Suggested make command: " + makeCommand);
+    }
+
+    /** Returns the name of the APEX a particular jar might be located in */
+    private static String apexForJar(String jar) {
+        if (jar.endsWith(".api.stubs")) {
+            return null;  // API stubs aren't in any APEX.
+        }
+        return "com.android.art.testing";
+    }
+
+    /**
+     * Depending on the build setup, jars might be located in the intermediates directory
+     * for their APEX or not, so look in both places. Returns the last path searched, so
+     * always non-null but possibly non-existent and so the caller should check.
+     */
+    private static File findApexJar(String jar, String filePattern) {
+        String apex = apexForJar(jar);
+        if (apex != null) {
+            File file = new File(String.format(filePattern, jar + "." + apex));
+            if (file.exists()) {
+                return file;
+            }
+        }
+        return new File(String.format(filePattern, jar));
     }
 
     @VisibleForTesting
@@ -331,9 +364,10 @@ public class AndroidSdk {
             }
         }
 
-        // Call desugar first to remove invoke-dynamic LambdaMetaFactory usage,
-        // which ART doesn't support.
-        List<String> desugarOutputFilePaths = desugar(outputTempDir, classpath, dependentCp);
+        List<String> filePaths = new ArrayList<String>();
+        for (File file : classpath.getElements()) {
+          filePaths.add(file.getPath());
+        }
 
         /*
          * We pass --core-library so that we can write tests in the
@@ -359,26 +393,42 @@ public class AndroidSdk {
                 builder.args("--dex")
                     .args("--output=" + output)
                     .args("--core-library")
-                    .args(desugarOutputFilePaths);
+                    .args(filePaths);
                 builder.execute();
                 break;
             case D8:
-                List<String> sanitizedDesugarOutputFilePaths;
+                List<String> sanitizedOutputFilePaths;
                 try {
-                    sanitizedDesugarOutputFilePaths = removeDexFilesForD8(desugarOutputFilePaths);
+                    sanitizedOutputFilePaths = removeDexFilesForD8(filePaths);
                 } catch (IOException e) {
                     throw new RuntimeException("Error while removing dex files from archive", e);
                 }
                 builder.args(D8_COMMAND_NAME);
                 builder.args("-JXms16M").args("-JXmx1536M");
+
+                // d8 will not allow compiling with a single dex file as the target, but if given
+                // a directory name will start its output in classes.dex but may overflow into
+                // multiple dex files. See b/189327238
+                String outputPath = output.toString();
+                String dexOverflowPath = null;
+                if (outputPath.endsWith("/classes.dex")) {
+                    dexOverflowPath = outputPath.replace("classes.dex", "classes2.dex");
+                    outputPath = output.getParentFile().toString();
+                }
                 builder
                     .args("--min-api").args(language.getMinApiLevel())
-                    .args("--output").args(output)
-                    .args(sanitizedDesugarOutputFilePaths);
+                    .args("--output").args(outputPath)
+                    .args(sanitizedOutputFilePaths);
                 builder.execute();
+                if (dexOverflowPath != null && new File(dexOverflowPath).exists()) {
+                    // If we were expecting a single dex file and d8 overflows into two
+                    // or more files than fail.
+                    throw new RuntimeException("Dex file overflow " + dexOverflowPath
+                        + ", try --multidex");
+                }
                 if (output.toString().endsWith(".jar")) {
                     try {
-                        fixD8JarOutput(output, desugarOutputFilePaths);
+                        fixD8JarOutput(output, filePaths);
                     } catch (IOException e) {
                         throw new RuntimeException("Error while fixing d8 output", e);
                     }
@@ -423,7 +473,7 @@ public class AndroidSdk {
     }
 
     /**
-      * Removes DEX files from an archive and preserve the rest.
+      * Removes DEX files from an archive and preserves the rest.
       */
     private List<String> removeDexFilesForD8(List<String> fileNames) throws IOException {
         byte[] buffer = new byte[4096];
@@ -436,7 +486,7 @@ public class AndroidSdk {
                     inputFileName.substring(0, inputFileName.length() - jarExtension.length())
                     + "-d8" + jarExtension;
             } else {
-              outputFileName = inputFileName + "-d8" + jarExtension;
+                outputFileName = inputFileName + "-d8" + jarExtension;
             }
             try (JarOutputStream outputJar =
                     new JarOutputStream(new FileOutputStream(outputFileName))) {
@@ -479,73 +529,6 @@ public class AndroidSdk {
                 outputJar.closeEntry();
             }
         }
-    }
-
-    // Runs desugar on classpath as the input with dependentCp as the classpath_entry.
-    // Returns the generated output list of files.
-    private List<String> desugar(File outputTempDir, Classpath classpath, Classpath dependentCp) {
-        Command.Builder builder = new Command.Builder(log)
-                .args("java", "-jar", desugarJarPath);
-
-        // Ensure that libcore is on the bootclasspath for desugar,
-        // otherwise it tries to use the java command's bootclasspath.
-        for (File f : compilationClasspath) {
-            builder.args("--bootclasspath_entry", f.getPath());
-        }
-
-        // Desugar needs to actively resolve classes that the original inputs
-        // were compiled against. Dx does not; so it doesn't use dependentCp.
-        for (File f : dependentCp.getElements()) {
-            builder.args("--classpath_entry", f.getPath());
-        }
-
-        builder.args("--core_library")
-                .args("--min_sdk_version", language.getMinApiLevel());
-
-        // Build the -i (input) and -o (output) arguments.
-        // Every input from classpath corresponds to a new output temp file into
-        // desugarTempDir.
-        File desugarTempDir;
-        {
-            // Generate a temporary list of files that correspond to the 'classpath';
-            // desugar will then convert the files in 'classpath' into 'desugarClasspath'.
-            if (!outputTempDir.isDirectory()) {
-                throw new AssertionError(
-                        "outputTempDir must be a directory: " + outputTempDir.getPath());
-            }
-
-            String desugarTempDirPath = outputTempDir.getPath() + "/desugar";
-            desugarTempDir = new File(desugarTempDirPath);
-            desugarTempDir.mkdirs();
-            if (!desugarTempDir.exists()) {
-                throw new AssertionError(
-                        "desugarTempDir; failed to create " + desugarTempDirPath);
-            }
-        }
-
-        // Create unique file names to support non-unique classpath base names.
-        //
-        // For example:
-        //
-        // Classpath("/x/y.jar:/z/y.jar:/a/b.jar") ->
-        // Output Files("${tmp}/0y.jar:${tmp}/1y.jar:${tmp}/2b.jar")
-        int uniqueCounter = 0;
-        List<String> desugarOutputFilePaths = new ArrayList<String>();
-
-        for (File desugarInput : classpath.getElements()) {
-            String tmpName = uniqueCounter + desugarInput.getName();
-            ++uniqueCounter;
-
-            String desugarOutputPath = desugarTempDir.getPath() + "/" + tmpName;
-            desugarOutputFilePaths.add(desugarOutputPath);
-
-            builder.args("-i", desugarInput.getPath())
-                    .args("-o", desugarOutputPath);
-        }
-
-        builder.execute();
-
-        return desugarOutputFilePaths;
     }
 
     public void packageApk(File apk, File manifest) {

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
@@ -66,12 +67,14 @@ public class BrightnessTest {
     private DisplayManager mDisplayManager;
     private PowerManager.WakeLock mWakeLock;
     private Context mContext;
+    private PackageManager mPackageManager;
 
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getContext();
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
         PowerManager pm = mContext.getSystemService(PowerManager.class);
+        mPackageManager = mContext.getPackageManager();
 
         mWakeLock = pm.newWakeLock(
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
@@ -91,6 +94,9 @@ public class BrightnessTest {
 
     @Test
     public void testBrightnessSliderTracking() throws InterruptedException {
+        // Only run if we have a valid ambient light sensor.
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT));
+
         // Don't run as there is no app that has permission to access slider usage.
         assumeTrue(
                 numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
@@ -174,6 +180,9 @@ public class BrightnessTest {
 
     @Test
     public void testNoColorSampleData() throws InterruptedException {
+        // Only run if we have a valid ambient light sensor.
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT));
+
           // Don't run as there is no app that has permission to access slider usage.
         assumeTrue(
                 numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
@@ -254,6 +263,9 @@ public class BrightnessTest {
 
     @Test
     public void testSetGetSimpleCurve() {
+        // Only run if we have a valid ambient light sensor.
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT));
+
         // Don't run as there is no app that has permission to push curves.
         assumeTrue(numberOfSystemAppsWithPermission(
                 Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
@@ -261,6 +273,8 @@ public class BrightnessTest {
         grantPermission(Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS);
 
         BrightnessConfiguration defaultConfig = mDisplayManager.getDefaultBrightnessConfiguration();
+        // This might be null, meaning that the device doesn't support brightness configuration
+        assumeNotNull(defaultConfig);
 
         BrightnessConfiguration config =
                 new BrightnessConfiguration.Builder(
@@ -330,6 +344,9 @@ public class BrightnessTest {
 
     @Test
     public void testSliderEventsReflectCurves() throws InterruptedException {
+        // Only run if we have a valid ambient light sensor.
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT));
+
         // Don't run as there is no app that has permission to access slider usage.
         assumeTrue(
                 numberOfSystemAppsWithPermission(Manifest.permission.BRIGHTNESS_SLIDER_USAGE) > 0);
@@ -426,6 +443,9 @@ public class BrightnessTest {
 
     @Test
     public void testSetAndGetPerDisplay() throws InterruptedException{
+        // Only run if we have a valid ambient light sensor.
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT));
+
         assumeTrue(numberOfSystemAppsWithPermission(
                 Manifest.permission.CONFIGURE_DISPLAY_BRIGHTNESS) > 0);
 

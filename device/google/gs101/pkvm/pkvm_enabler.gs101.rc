@@ -1,0 +1,5 @@
+service pkvm_enabler /vendor/bin/pkvm_enabler
+    reboot_on_failure reboot,pkvm-not-enabled
+
+on early-init
+    exec_start pkvm_enabler

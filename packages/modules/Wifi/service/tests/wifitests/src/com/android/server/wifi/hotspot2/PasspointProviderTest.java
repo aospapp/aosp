@@ -29,6 +29,7 @@ import android.net.wifi.EAPConstants;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiSsid;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
@@ -104,6 +105,7 @@ public class PasspointProviderTest extends WifiBaseTest {
     private static final long[] TEST_IE_RC_OIS = new long[]{0x1234L, 0x2133L};
     private static final long[] TEST_IE_NO_MATCHED_RC_OIS = new long[]{0x2255L, 0x2133L};
     private static final Long[] TEST_ANQP_RC_OIS = new Long[]{0x1234L, 0x2133L};
+    private static final Long[] TEST_ANQP_RC_OIS_2 = new Long[]{0x4321L, 0x3321L};
     private static final String TEST_REALM = "realm.com";
     private static final String[] TEST_TRUSTED_NAME =
             new String[]{"trusted.fqdn.com", "another.fqdn.com"};
@@ -118,10 +120,15 @@ public class PasspointProviderTest extends WifiBaseTest {
     private static final int VALID_SUBSCRIPTION_ID = 2;
 
     private static final String TEST_SSID = "TestSSID";
+    private static final String TEST_SSID_QUOTED = "\"TestSSID\"";
+    private static final String TEST_SSID_2 = "TestSSID2";
+    private static final String TEST_SSID_2_QUOTED = "\"TestSSID2\"";
     private static final String TEST_BSSID_STRING = "11:22:33:44:55:66";
     private static final String TEST_BSSID_STRING_2 = "11:22:33:44:55:67";
     private static final long TEST_HESSID = 0x5678L;
     private static final int TEST_ANQP_DOMAIN_ID = 0;
+    private static final long TEST_HESSID_2 = 0xaa0aL;
+    private static final int TEST_ANQP_DOMAIN_ID_2 = 1;
     private static final long TEST_ELAPSED_TIME_SINCE_BOOT = 100000L;
     private static final String TEST_ANONYMOUS_IDENTITY = "AnonymousIdentity";
     private static final String USER_CONNECT_CHOICE = "SomeNetworkProfileId";
@@ -345,7 +352,7 @@ public class PasspointProviderTest extends WifiBaseTest {
         assertFalse(wifiConfig.shared);
         assertEquals(credential.getRealm(), wifiEnterpriseConfig.getRealm());
         if (passpointConfig.isMacRandomizationEnabled()) {
-            if (passpointConfig.isEnhancedMacRandomizationEnabled()) {
+            if (passpointConfig.isNonPersistentMacRandomizationEnabled()) {
                 assertEquals(WifiConfiguration.RANDOMIZATION_NON_PERSISTENT,
                         wifiConfig.macRandomizationSetting);
             } else {
@@ -797,6 +804,12 @@ public class PasspointProviderTest extends WifiBaseTest {
 
         assertEquals(PasspointMatch.RoamingProvider,
                 mProvider.match(anqpElementMap, mRoamingConsortium, createTestScanResult()));
+
+        // Confirm the selected RCOI matches the expected value
+        assertEquals(TEST_IE_RC_OIS[0],
+                mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
+        // Confirm the value is cleared after it was fetched
+        assertEquals(0, mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
     }
 
     /**
@@ -929,6 +942,12 @@ public class PasspointProviderTest extends WifiBaseTest {
 
         assertEquals(PasspointMatch.RoamingProvider,
                 mProvider.match(anqpElementMap, mRoamingConsortium, createTestScanResult()));
+
+        // Confirm the selected RCOI matches the expected value
+        assertEquals(TEST_IE_RC_OIS[0],
+                mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
+        // Confirm the value is cleared after it was fetched
+        assertEquals(0, mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
     }
 
     /**
@@ -1343,14 +1362,14 @@ public class PasspointProviderTest extends WifiBaseTest {
     }
 
     /**
-     * Verify the WifiConfiguration is generated properly with settings to use enhanced MAC
+     * Verify the WifiConfiguration is generated properly with settings to use non-persistent MAC
      * randomization.
      */
     @Test
-    public void testMacRandomizationSettingEnhanced() throws Exception {
+    public void testMacRandomizationSettingNonPersistent() throws Exception {
         PasspointConfiguration config = generateTestPasspointConfiguration(
                 CredentialType.SIM, false);
-        config.setEnhancedMacRandomizationEnabled(true);
+        config.setNonPersistentMacRandomizationEnabled(true);
         mProvider = createProvider(config);
 
         assertEquals(WifiConfiguration.RANDOMIZATION_NON_PERSISTENT,
@@ -1669,6 +1688,7 @@ public class PasspointProviderTest extends WifiBaseTest {
 
         assertEquals(PasspointMatch.None,
                 mProvider.match(anqpElementMap, mRoamingConsortium, createTestScanResult()));
+        assertEquals(0, mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
     }
 
     /**
@@ -1683,9 +1703,25 @@ public class PasspointProviderTest extends WifiBaseTest {
         scanResult.hessid = TEST_HESSID;
         scanResult.anqpDomainId = TEST_ANQP_DOMAIN_ID;
         scanResult.flags = ScanResult.FLAG_PASSPOINT_NETWORK;
+        scanResult.setWifiSsid(WifiSsid.fromString(TEST_SSID_QUOTED));
         return scanResult;
     }
 
+    /**
+     * Helper function for creating another ScanResult for testing.
+     *
+     * @return {@link ScanResult}
+     */
+    private ScanResult createSecondaryTestScanResult() {
+        ScanResult scanResult = new ScanResult();
+        scanResult.SSID = TEST_SSID_2;
+        scanResult.BSSID = TEST_BSSID_STRING_2;
+        scanResult.hessid = TEST_HESSID_2;
+        scanResult.anqpDomainId = TEST_ANQP_DOMAIN_ID_2;
+        scanResult.flags = ScanResult.FLAG_PASSPOINT_NETWORK;
+        scanResult.setWifiSsid(WifiSsid.fromString(TEST_SSID_2_QUOTED));
+        return scanResult;
+    }
     /**
      * Verify that a home provider is not matched followed by a Deauthentication-imminent WNM
      * notification from the AP that covers a specific BSS.
@@ -1955,5 +1991,41 @@ public class PasspointProviderTest extends WifiBaseTest {
 
         assertEquals(TEST_DECORATED_IDENTITY_PREFIX,
                 mProvider.getWifiConfig().enterpriseConfig.getDecoratedIdentityPrefix());
+    }
+
+    @Test
+    public void testRcoiMatchMapAgeOut() throws Exception {
+        // Setup test provider.
+        PasspointConfiguration config = generateTestPasspointConfiguration(
+                CredentialType.SIM, false);
+        mProvider = createProvider(config);
+        when(mWifiCarrierInfoManager.getMatchingImsiCarrierId(
+                eq(config.getCredential().getSimCredential().getImsi())))
+                .thenReturn(new Pair<>(TEST_IMSI, VALID_CARRIER_ID));
+
+        // Setup Roaming Consortium ANQP element.
+        Map<ANQPElementType, ANQPElement> anqpElementMap = new HashMap<>();
+        anqpElementMap.put(ANQPElementType.ANQPRoamingConsortium,
+                createRoamingConsortiumElement(TEST_ANQP_RC_OIS));
+
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(TEST_ELAPSED_TIME_SINCE_BOOT);
+
+        // Roaming provider with RCOI match adds a selected RCOI to the match map
+        assertEquals(PasspointMatch.RoamingProvider,
+                mProvider.match(anqpElementMap, mRoamingConsortium, createTestScanResult()));
+
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(TEST_ELAPSED_TIME_SINCE_BOOT
+                + 700_000L);
+
+        anqpElementMap.put(ANQPElementType.ANQPRoamingConsortium,
+                createRoamingConsortiumElement(TEST_ANQP_RC_OIS_2));
+
+        // Now a new scan with another SSID and no match after a while
+        assertEquals(PasspointMatch.None, mProvider.match(anqpElementMap, mRoamingConsortium,
+                createSecondaryTestScanResult()));
+
+        // Confirm the selected roaming match map entry for the first SSID is cleared after it was
+        // aged out
+        assertEquals(0, mProvider.getAndRemoveMatchedRcoi(TEST_SSID_QUOTED));
     }
 }

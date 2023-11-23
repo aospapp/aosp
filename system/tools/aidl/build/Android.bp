@@ -27,7 +27,6 @@ bootstrap_go_package {
     deps: [
         "blueprint",
         "soong",
-        "soong-apex",
         "soong-android",
         "soong-cc",
         "soong-genrule",
@@ -63,8 +62,11 @@ aidl_interfaces_metadata {
 // be moved back to LoadHook, and then default can be applied as well.
 cc_defaults {
     name: "aidl-cpp-module-defaults",
-    // TODO(b/31559095): remove when host bionic is available
-    defaults: ["libbinder_ndk_host_user"],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 }
 
 java_defaults {
@@ -107,6 +109,43 @@ aidl_interface {
 }
 
 aidl_interface {
+    name: "test-piece-ndk-sdk-29",
+    local_include_dir: "tests_1",
+    flags: ["-Werror"],
+    srcs: [
+        "tests_1/some_package/IFoo.aidl",
+        "tests_1/some_package/Thing.aidl",
+        "tests_1/some_package/sub_package/*.aidl", // testing glob w/o filegroup
+    ],
+    unstable: true,
+    backend: { ndk: { sdk_version: "29", }, },
+}
+aidl_interface {
+    name: "test-piece-ndk-sdk-30",
+    local_include_dir: "tests_1",
+    flags: ["-Werror"],
+    srcs: [
+        "tests_1/some_package/IFoo.aidl",
+        "tests_1/some_package/Thing.aidl",
+        "tests_1/some_package/sub_package/*.aidl", // testing glob w/o filegroup
+    ],
+    unstable: true,
+    backend: { ndk: { sdk_version: "30", }, },
+}
+aidl_interface {
+    name: "test-piece-ndk-sdk-31",
+    local_include_dir: "tests_1",
+    flags: ["-Werror"],
+    srcs: [
+        "tests_1/some_package/IFoo.aidl",
+        "tests_1/some_package/Thing.aidl",
+        "tests_1/some_package/sub_package/*.aidl", // testing glob w/o filegroup
+    ],
+    unstable: true,
+    backend: { ndk: { sdk_version: "31", }, },
+}
+
+aidl_interface {
     name: "test-piece-2",
     local_include_dir: "tests_1",
     flags: ["-Werror"],
@@ -115,7 +154,7 @@ aidl_interface {
         "tests_1/some_package/IBar.aidl",
     ],
     imports: [
-        "test-piece-1",
+        "test-piece-1-V3",
     ],
     backend: {
         java: {
@@ -123,7 +162,13 @@ aidl_interface {
         },
     },
     gen_trace: true,
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["test-piece-1-V3"],
+        },
+    ],
+
 }
 
 aidl_interface {
@@ -134,7 +179,7 @@ aidl_interface {
         "tests_1/other_package/IBaz.aidl",
     ],
     imports: [
-        "test-piece-2",
+        "test-piece-2-V1",
     ],
     backend: {
         java: {
@@ -153,7 +198,7 @@ aidl_interface {
         "tests_2/another_package/IFaz.aidl",
     ],
     imports: [
-        "test-piece-1",
+        "test-piece-1-V3",
     ],
     backend: {
         java: {
@@ -174,7 +219,7 @@ aidl_interface {
         "test_package/IBaz.aidl",
     ],
     imports: [
-        "test-piece-2",
+        "test-piece-2-V1",
     ],
     backend: {
         java: {
@@ -197,6 +242,17 @@ aidl_interface {
     srcs: [
         "tests_3/EmptyParcelable.aidl",
         "tests_3/IEmptyInterface.aidl",
+    ],
+}
+
+aidl_interface {
+    name: "test-piece-6",
+    unstable: true,
+    local_include_dir: "tests_6",
+    flags: ["-Werror"],
+    srcs: [
+        "tests_6/test6/Bar.aidl",
+        "tests_6/test6/Foo.aidl",
     ],
 }
 
@@ -242,4 +298,10 @@ aidl_interface {
             enabled: true,
         },
     },
+}
+
+sh_binary {
+    name: "aidl_hash_gen",
+    src: "hash_gen.sh",
+    host_supported: true,
 }

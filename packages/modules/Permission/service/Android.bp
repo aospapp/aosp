@@ -17,24 +17,26 @@ package {
 }
 
 filegroup {
-    name: "service-permission-sources",
+    name: "service-permission-java-sources",
     srcs: [
         "java/**/*.java",
+        // Exclude Kotlin sources for T.
+        //"java/**/*.kt",
     ],
     path: "java",
     visibility: ["//visibility:private"],
 }
 
 filegroup {
-    name: "service-permission-protos",
+    name: "service-permission-streaming-proto-sources",
     srcs: [
-        "proto/**/*.proto",
+        "proto/role_service.proto",
     ],
     visibility: ["//frameworks/base"],
 }
 
 gensrcs {
-    name: "service-permission-javastream-protos",
+    name: "service-permission-streaming-proto-java-gen",
     depfile: true,
 
     tools: [
@@ -54,7 +56,7 @@ gensrcs {
         "&& $(location soong_zip) -jar -o $(out) -C $(genDir)/$(in) -D $(genDir)/$(in)",
 
     srcs: [
-        ":service-permission-protos",
+        ":service-permission-streaming-proto-sources",
     ],
     output_extension: "srcjar",
 }
@@ -77,31 +79,50 @@ java_library {
 
 java_sdk_library {
     name: "service-permission",
-    defaults: ["framework-system-server-module-defaults"],
+    defaults: [
+        "framework-system-server-module-defaults",
+        "framework-system-server-module-optimize-defaults",
+    ],
     impl_library_visibility: [
         "//frameworks/base/apex/permission/tests",
         "//frameworks/base/services/tests/mockingservicestests",
         "//frameworks/base/services/tests/servicestests",
-        "//packages/modules/Permission/tests",
+        "//packages/modules/Permission/tests/apex",
     ],
     srcs: [
-        ":service-permission-sources",
-        ":service-permission-javastream-protos",
+        ":service-permission-java-sources",
+        ":service-permission-streaming-proto-java-gen",
     ],
     libs: [
+        "androidx.annotation_annotation",
         // TODO(b/177884622): Short term solution to prevent service-permission from seeing hidden
         //  APIs in framework-permission, as we don't actually have any dependency in it.
         //"framework-permission",
         "framework-permission-s.impl",
-        "androidx.annotation_annotation",
         "framework-permission-s-shared",
-        "modules-annotation-minsdk",
+
+        // Soong fails to automatically add this dependency because all the
+        // *.kt sources are inside a filegroup.
+        // Exclude Kotlin sources for T.
+        //"kotlin-annotations",
     ],
     static_libs: [
+        // Exclude Kotlin sources for T.
+        //"kotlin-stdlib",
+        "modules-utils-backgroundthread",
         "modules-utils-os",
+        "safety-center-config",
+        "safety-center-resources-lib",
         "service-permission-shared",
     ],
+    exclude_kotlinc_generated_files: true,
     jarjar_rules: ":permission-jarjar-rules",
+    kotlincflags: [
+        "-Xjvm-default=all",
+        "-Xno-call-assertions",
+        "-Xno-param-assertions",
+        "-Xno-receiver-assertions",
+    ],
     lint: {
         strict_updatability_linting: true,
     },

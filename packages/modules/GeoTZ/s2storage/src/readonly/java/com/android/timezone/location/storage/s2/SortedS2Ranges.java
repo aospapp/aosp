@@ -43,11 +43,23 @@ public final class SortedS2Ranges<T extends S2LevelRange> implements Iterable<T>
         mRanges = Collections.unmodifiableList(new ArrayList<>(ranges));
     }
 
+    /**
+     * Creates a {@link SortedS2Ranges} from a pre-sorted set of ranges with the same S2 level.
+     *
+     * @thorws IllegalArgumentException if the ranges are at different levels, ranges are not
+     *     sorted, or ranges overlap
+     */
     public static <T extends S2LevelRange> SortedS2Ranges<T> createFromSorted(
             int s2Level, T... ranges) {
         return createFromSorted(s2Level, Arrays.asList(ranges));
     }
 
+    /**
+     * Creates a {@link SortedS2Ranges} from a pre-sorted set of ranges with the same S2 level.
+     *
+     * @thorws IllegalArgumentException if the ranges are at different levels, ranges are not
+     *     sorted, or ranges overlap
+     */
     public static <T extends S2LevelRange> SortedS2Ranges<T> createFromSorted(
             int s2Level, List<T> ranges) {
         // Validate - look for overlapping ranges or ranges of the wrong level.

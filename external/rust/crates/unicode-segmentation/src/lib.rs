@@ -46,13 +46,14 @@
 //!
 //! ```toml
 //! [dependencies]
-//! unicode-segmentation = "1.7.1"
+//! unicode-segmentation = "1.9.0"
 //! ```
 
 #![deny(missing_docs, unsafe_code)]
-#![doc(html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
-       html_favicon_url = "https://unicode-rs.github.io/unicode-rs_sm.png")]
-
+#![doc(
+    html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
+    html_favicon_url = "https://unicode-rs.github.io/unicode-rs_sm.png"
+)]
 #![no_std]
 
 // ANDROID: Always import std to enable building as a dylib
@@ -63,16 +64,17 @@ extern crate std;
 #[macro_use]
 extern crate quickcheck;
 
-pub use grapheme::{Graphemes, GraphemeIndices};
 pub use grapheme::{GraphemeCursor, GraphemeIncomplete};
+pub use grapheme::{GraphemeIndices, Graphemes};
+pub use sentence::{USentenceBoundIndices, USentenceBounds, UnicodeSentences};
 pub use tables::UNICODE_VERSION;
-pub use word::{UWordBounds, UWordBoundIndices, UnicodeWords};
-pub use sentence::{USentenceBounds, USentenceBoundIndices, UnicodeSentences};
+pub use word::{UWordBoundIndices, UWordBounds, UnicodeWordIndices, UnicodeWords};
 
 mod grapheme;
+#[rustfmt::skip]
 mod tables;
-mod word;
 mod sentence;
+mod word;
 
 #[cfg(test)]
 mod test;
@@ -145,6 +147,30 @@ pub trait UnicodeSegmentation {
     /// assert_eq!(&uw1[..], b);
     /// ```
     fn unicode_words<'a>(&'a self) -> UnicodeWords<'a>;
+
+    /// Returns an iterator over the words of `self`, separated on
+    /// [UAX#29 word boundaries](http://www.unicode.org/reports/tr29/#Word_Boundaries), and their
+    /// offsets.
+    ///
+    /// Here, "words" are just those substrings which, after splitting on
+    /// UAX#29 word boundaries, contain any alphanumeric characters. That is, the
+    /// substring must contain at least one character with the
+    /// [Alphabetic](http://unicode.org/reports/tr44/#Alphabetic)
+    /// property, or with
+    /// [General_Category=Number](http://unicode.org/reports/tr44/#General_Category_Values).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use self::unicode_segmentation::UnicodeSegmentation;
+    /// let uwis = "The quick (\"brown\") fox can't jump 32.3 feet, right?";
+    /// let uwi1 = uwis.unicode_word_indices().collect::<Vec<(usize, &str)>>();
+    /// let b: &[_] = &[(0, "The"), (4, "quick"), (12, "brown"), (20, "fox"), (24, "can't"),
+    ///                 (30, "jump"), (35, "32.3"), (40, "feet"), (46, "right")];
+    ///
+    /// assert_eq!(&uwi1[..], b);
+    /// ```
+    fn unicode_word_indices<'a>(&'a self) -> UnicodeWordIndices<'a>;
 
     /// Returns an iterator over substrings of `self` separated on
     /// [UAX#29 word boundaries](http://www.unicode.org/reports/tr29/#Word_Boundaries).
@@ -247,6 +273,11 @@ impl UnicodeSegmentation for str {
     #[inline]
     fn unicode_words(&self) -> UnicodeWords {
         word::new_unicode_words(self)
+    }
+
+    #[inline]
+    fn unicode_word_indices(&self) -> UnicodeWordIndices {
+        word::new_unicode_word_indices(self)
     }
 
     #[inline]

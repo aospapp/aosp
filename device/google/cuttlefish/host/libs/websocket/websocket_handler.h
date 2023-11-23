@@ -16,6 +16,7 @@
 #pragma once
 
 #include <deque>
+#include <string>
 #include <vector>
 
 struct lws;
@@ -63,4 +64,46 @@ class WebSocketHandlerFactory {
   virtual std::shared_ptr<WebSocketHandler> Build(struct lws* wsi) = 0;
 };
 
+class WebSocketServer;
+
+enum class HttpStatusCode : int {
+  // From https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+  Ok = 200,
+  NoContent = 204,
+  BadRequest = 400,
+  Unauthorized = 401,
+  NotFound = 404,
+  MethodNotAllowed = 405,
+  Conflict = 409,
+};
+
+class DynHandler {
+ public:
+  DynHandler(struct lws* wsi);
+
+  virtual ~DynHandler() = default;
+  // TODO (jemoreira): Allow more than just JSON replies
+  // TODO (jemoreira): Receive request parameters
+  // Handle a GET request.
+  virtual HttpStatusCode DoGet() = 0;
+  // Handle a POST request.
+  virtual HttpStatusCode DoPost() = 0;
+
+ protected:
+  void AppendDataOut(const std::string& data);
+  const std::string& GetDataIn() const { return in_buffer_; }
+
+ private:
+  friend WebSocketServer;
+  void AppendDataIn(void* data, size_t len);
+  int OnWritable();
+  size_t content_len() const;
+
+  struct lws* wsi_;
+  std::string in_buffer_ = {};
+  std::string out_buffer_ = {};
+};
+
+using DynHandlerFactory =
+    std::function<std::unique_ptr<DynHandler>(struct lws*)>;
 }  // namespace cuttlefish

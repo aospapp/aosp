@@ -13,7 +13,7 @@ const crosClangHostGoldenDir = "testdata/cros_clang_host_golden"
 const crosGccHostGoldenDir = "testdata/cros_gcc_host_golden"
 
 func TestCrosClangHostConfig(t *testing.T) {
-	withTestContext(t, func(ctx *testContext) {
+	withGoldenTestContext(t, func(ctx *testContext) {
 		useLlvmNext := false
 		useCCache := false
 		cfg, err := getConfig("cros.host", useCCache, useLlvmNext, "123")
@@ -43,7 +43,7 @@ func TestCrosClangHostConfig(t *testing.T) {
 }
 
 func TestCrosGccHostConfig(t *testing.T) {
-	withTestContext(t, func(ctx *testContext) {
+	withGoldenTestContext(t, func(ctx *testContext) {
 		useLlvmNext := false
 		useCCache := false
 		cfg, err := getConfig("cros.host", useCCache, useLlvmNext, "123")

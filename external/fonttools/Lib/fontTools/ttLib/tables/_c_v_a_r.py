@@ -1,6 +1,6 @@
-from fontTools.misc.py23 import bytesjoin
 from . import DefaultTable
 from fontTools.misc import sstruct
+from fontTools.misc.textTools import bytesjoin
 from fontTools.ttLib.tables.TupleVariation import \
     compileTupleVariationStore, decompileTupleVariationStore, TupleVariation
 
@@ -41,7 +41,7 @@ class table__c_v_a_r(DefaultTable.DefaultTable):
             "tupleVariationCount": tupleVariationCount,
             "offsetToData": CVAR_HEADER_SIZE + len(tuples),
         }
-        return bytesjoin([
+        return b''.join([
             sstruct.pack(CVAR_HEADER_FORMAT, header),
             tuples,
             data

@@ -60,8 +60,8 @@ type bootimgProperties struct {
 	// https://source.android.com/devices/bootloader/partitions/vendor-boot-partitions
 	Vendor_boot *bool
 
-	// Optional kernel commandline
-	Cmdline *string `android:"arch_variant"`
+	// Optional kernel commandline arguments
+	Cmdline []string `android:"arch_variant"`
 
 	// File that contains bootconfig parameters. This can be set only when `vendor_boot` is true
 	// and `header_version` is greater than or equal to 4.
@@ -145,14 +145,12 @@ func (b *bootimg) buildBootImage(ctx android.ModuleContext, vendor bool) android
 	}
 
 	dtbName := proptools.String(b.properties.Dtb_prebuilt)
-	if dtbName == "" {
-		ctx.PropertyErrorf("dtb_prebuilt", "must be set")
-		return output
+	if dtbName != "" {
+		dtb := android.PathForModuleSrc(ctx, dtbName)
+		cmd.FlagWithInput("--dtb ", dtb)
 	}
-	dtb := android.PathForModuleSrc(ctx, dtbName)
-	cmd.FlagWithInput("--dtb ", dtb)
 
-	cmdline := proptools.String(b.properties.Cmdline)
+	cmdline := strings.Join(b.properties.Cmdline, " ")
 	if cmdline != "" {
 		flag := "--cmdline "
 		if vendor {
@@ -178,20 +176,18 @@ func (b *bootimg) buildBootImage(ctx android.ModuleContext, vendor bool) android
 	cmd.FlagWithArg("--header_version ", headerVersion)
 
 	ramdiskName := proptools.String(b.properties.Ramdisk_module)
-	if ramdiskName == "" {
-		ctx.PropertyErrorf("ramdisk_module", "must be set")
-		return output
-	}
-	ramdisk := ctx.GetDirectDepWithTag(ramdiskName, bootimgRamdiskDep)
-	if filesystem, ok := ramdisk.(*filesystem); ok {
-		flag := "--ramdisk "
-		if vendor {
-			flag = "--vendor_ramdisk "
+	if ramdiskName != "" {
+		ramdisk := ctx.GetDirectDepWithTag(ramdiskName, bootimgRamdiskDep)
+		if filesystem, ok := ramdisk.(*filesystem); ok {
+			flag := "--ramdisk "
+			if vendor {
+				flag = "--vendor_ramdisk "
+			}
+			cmd.FlagWithInput(flag, filesystem.OutputPath())
+		} else {
+			ctx.PropertyErrorf("ramdisk", "%q is not android_filesystem module", ramdisk.Name())
+			return output
 		}
-		cmd.FlagWithInput(flag, filesystem.OutputPath())
-	} else {
-		ctx.PropertyErrorf("ramdisk", "%q is not android_filesystem module", ramdisk.Name())
-		return output
 	}
 
 	bootconfig := proptools.String(b.properties.Bootconfig)
@@ -267,7 +263,7 @@ func (b *bootimg) AndroidMkEntries() []android.AndroidMkEntries {
 		OutputFile: android.OptionalPathForPath(b.output),
 		ExtraEntries: []android.AndroidMkExtraEntriesFunc{
 			func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
-				entries.SetString("LOCAL_MODULE_PATH", b.installDir.ToMakePath().String())
+				entries.SetString("LOCAL_MODULE_PATH", b.installDir.String())
 				entries.SetString("LOCAL_INSTALLED_MODULE_STEM", b.installFileName())
 			},
 		},

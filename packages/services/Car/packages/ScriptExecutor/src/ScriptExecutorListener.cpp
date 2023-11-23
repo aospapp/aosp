@@ -77,6 +77,15 @@ void ScriptExecutorListener::onError(const ErrorType errorType, const char* mess
                         messageStringRef.get(), stackTraceRef.get());
 }
 
+void ScriptExecutorListener::onMetricsReport(jobject reportBundle, jobject stateBundle) {
+    JNIEnv* env = getCurrentJNIEnv();
+    ScopedLocalRef<jclass> listenerClassRef(env, env->GetObjectClass(mScriptExecutorListener));
+    jmethodID onMetricsReport =
+            env->GetMethodID(listenerClassRef.get(), "onMetricsReport",
+                             "(Landroid/os/PersistableBundle;Landroid/os/PersistableBundle;)V");
+    env->CallVoidMethod(mScriptExecutorListener, onMetricsReport, reportBundle, stateBundle);
+}
+
 JNIEnv* ScriptExecutorListener::getCurrentJNIEnv() {
     JNIEnv* env;
     if (mJavaVM->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {

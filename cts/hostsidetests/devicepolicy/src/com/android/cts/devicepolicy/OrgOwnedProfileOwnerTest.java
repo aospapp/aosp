@@ -404,6 +404,7 @@ public class OrgOwnedProfileOwnerTest extends BaseDevicePolicyTest {
     @Test
     public void testPersonalAppsSuspensionSms() throws Exception {
         assumeHasTelephonyFeature();
+        assumeSupportsSms();
 
         // Install an SMS app and make it the default.
         installAppAsUser(SIMPLE_SMS_APP_APK, mPrimaryUserId);
@@ -524,7 +525,7 @@ public class OrgOwnedProfileOwnerTest extends BaseDevicePolicyTest {
 
         // Test managed profile. This should not be disabled when screen capture is disabled on
         // the parent by the profile owner of an organization-owned device.
-        takeScreenCaptureAsUser(mUserId, "testScreenCapturePossible");
+        takeScreenCaptureAsUser(mUserId, testMethodName);
     }
 
     private void assertHasNoUser(int userId) throws DeviceNotAvailableException {

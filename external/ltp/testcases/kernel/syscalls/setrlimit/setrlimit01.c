@@ -117,7 +117,7 @@ static void test2(void)
 	 * Since we would be altering the filesize in the child,
 	 * we need to "sync", ie. fflush the parent's write buffers
 	 * here.  This is because the child will inherit the parent's
-	 * write buffer, and while exitting it would try to fflush it.
+	 * write buffer, and while exiting it would try to fflush it.
 	 * Since its filesize is truncated to only 10 bytes, the
 	 * fflush attempt would fail, and the child would exit with
 	 * an wired value!  So, it is essential to fflush the parent's
@@ -151,8 +151,7 @@ static void test2(void)
 
 		bytes = write(fd, buf, 26);
 		if (bytes != 10) {
-			if (write(pipefd[1], &bytes, sizeof(bytes))
-			    < sizeof(bytes)) {
+			if (write(pipefd[1], &bytes, sizeof(bytes)) < (long)sizeof(bytes)) {
 				perror("child: write to pipe failed");
 			}
 			close(pipefd[1]);	/* EOF */
@@ -177,7 +176,7 @@ static void test2(void)
 		break;
 	case 3:
 		close(pipefd[1]);	/* close unused write end */
-		if (read(pipefd[0], &bytes, sizeof(bytes)) < sizeof(bytes))
+		if (read(pipefd[0], &bytes, sizeof(bytes)) < (long)sizeof(bytes))
 			tst_resm(TFAIL, "parent: reading pipe failed");
 
 		close(pipefd[0]);
@@ -248,7 +247,7 @@ static void test4(void)
 	TEST(setrlimit(RLIMIT_CORE, &rlim));
 
 	if (TEST_RETURN == -1) {
-		tst_resm(TFAIL | TERRNO, "setrlimit failed to set RLIMIT_CORE");
+		tst_resm(TFAIL | TTERRNO, "setrlimit failed to set RLIMIT_CORE");
 		return;
 	}
 

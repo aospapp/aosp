@@ -38,4 +38,10 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsSuspendTestDeviceAdmin",
+        ":CtsSuspendTestApp",
+        ":CtsSuspendTestApp2",
+    ],
+    per_testcase_directory: true,
 }

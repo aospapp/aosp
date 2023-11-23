@@ -18,7 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.carlauncher.test">
 
-    <application android:debuggable="true">
+    <application android:label="@string/app_title" android:debuggable="true">
         <uses-library android:name="android.test.runner" />
 
         <!-- This is used in AppLauncherUtilTests -->
@@ -27,7 +27,7 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.car.carlauncher"
+                     android:targetPackage="com.android.car.carlauncher.test"
                      android:label="Tests for Car Launcher"/>
 
 </manifest>

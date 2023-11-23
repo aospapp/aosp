@@ -47,16 +47,16 @@ static void checkListTwice(char *filename) {
 /**
  * Marks given cluster as bad, but prints error instead if cluster already used
  */
-static void mark(Fs_t *Fs, long offset, unsigned int badClus) {
-	unsigned int old = Fs->fat_decode((Fs_t*)Fs, offset);
+static void mark(Fs_t *Fs, uint32_t offset, uint32_t badClus) {
+	uint32_t old = Fs->fat_decode((Fs_t*)Fs, offset);
 	if(old == 0) {
 		fatEncode((Fs_t*)Fs, offset, badClus);
 		return;
 	}
 	if(old == badClus) {
-		fprintf(stderr, "Cluster %ld already marked\n", offset);
+		fprintf(stderr, "Cluster %d already marked\n", offset);
 	} else {
-		fprintf(stderr, "Cluster %ld is busy\n", offset);
+		fprintf(stderr, "Cluster %d is busy\n", offset);
 	}
 }
 
@@ -71,24 +71,24 @@ static void progress(unsigned int i, unsigned int total) {
 }
 
 static int scan(Fs_t *Fs, Stream_t *dev,
-		long cluster, unsigned int badClus,
+		uint32_t cluster, uint32_t badClus,
 		char *buffer, int doWrite) {
-	off_t start;
+	uint32_t start;
 	off_t ret;
-	off_t pos;
+	mt_off_t pos;
 	int bad=0;
 
 	if(Fs->fat_decode((Fs_t*)Fs, cluster))
 		/* cluster busy, or already marked */
 		return 0;
 	start = (cluster - 2) * Fs->cluster_size + Fs->clus_start;
-	pos = sectorsToBytes((Stream_t*)Fs, start);
+	pos = sectorsToBytes(Fs, start);
 	if(doWrite) {
-		ret = force_write(dev, buffer, pos, in_len);
-		if(ret < (off_t) in_len )
+		ret = force_pwrite(dev, buffer, pos, in_len);
+		if(ret < 0 || (size_t) ret < in_len )
 			bad = 1;
 	} else {
-		ret = force_read(dev, in_buf, pos, in_len);
+		ret = force_pread(dev, in_buf, pos, in_len);
 		if(ret < (off_t) in_len )
 			bad = 1;
 		else if(buffer) {
@@ -102,7 +102,7 @@ static int scan(Fs_t *Fs, Stream_t *dev,
 	}
 
 	if(bad) {
-		printf("Bad cluster %ld found\n", cluster);
+		printf("Bad cluster %d found\n", cluster);
 		fatEncode((Fs_t*)Fs, cluster, badClus);
 		return 1;
 	}
@@ -140,10 +140,10 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 			sectorMode = 1;
 			break;
 		case 'S':
-			startSector = atoui(optarg); 
+			startSector = atoui(optarg);
 			break;
 		case 'E':
-			endSector = atoui(optarg); 
+			endSector = atoui(optarg);
 			break;
 		case 'w':
 			writeMode = 1;
@@ -185,17 +185,19 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 		}
 		init_random();
 		for(i=0; i < in_len * N_PATTERN; i++) {
-			pat_buf[i] = random();
+			pat_buf[i] = (char) random();
 		}
 	}
 	for(i=0; i < Fs->clus_start; i++ ){
-		ret = READS(Fs->Next, in_buf, 
-			    sectorsToBytes((Stream_t*)Fs, i), Fs->sector_size);
-		if( ret < 0 ){
+		ssize_t r;
+		r = PREADS(Fs->head.Next, in_buf,
+			   sectorsToBytes(Fs, i), Fs->sector_size);
+		if( r < 0 ){
 			perror("early error");
+			ret = -1;
 			goto exit_0;
 		}
-		if(ret < (signed int) Fs->sector_size){
+		if((size_t) r < Fs->sector_size){
 			fprintf(stderr,"end of file in file_read\n");
 			ret = 1;
 			goto exit_0;
@@ -207,7 +209,7 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 
 	if(startSector < 2)
 		startSector = 2;
-	if(endSector > Fs->num_clus + 2 || endSector <= 0) 
+	if(endSector > Fs->num_clus + 2 || endSector <= 0)
 		endSector = Fs->num_clus + 2;
 
 	if(filename) {
@@ -222,7 +224,7 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 		}
 		while(fgets(line, sizeof(line), f)) {
 			char *ptr = line + strspn(line, " \t");
-			long offset = strtol(ptr, 0, 0);
+			uint32_t offset = strtou32(ptr, 0, 0);
 			if(sectorMode)
 				offset = (offset-Fs->clus_start)/Fs->cluster_size + 2;
 			if(offset < 2) {
@@ -236,7 +238,7 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 		}
 	} else {
 		Stream_t *dev;
-		dev = Fs->Next;
+		dev = Fs->head.Next;
 		if(dev->Next)
 			dev = dev->Next;
 
@@ -247,7 +249,7 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 				if(got_signal)
 					break;
 				progress(i, Fs->num_clus);
-				ret |= scan(Fs, dev, i, badClus, 
+				ret |= scan(Fs, dev, i, badClus,
 					    pat_buf + in_len * (i % N_PATTERN),
 					    1);
 			}
@@ -262,7 +264,7 @@ void mbadblocks(int argc, char **argv, int type UNUSEDP)
 				if(got_signal)
 					break;
 				progress(i, Fs->num_clus);
-				ret |= scan(Fs, dev, i, badClus, 
+				ret |= scan(Fs, dev, i, badClus,
 					    pat_buf + in_len * (i % N_PATTERN),
 					    0);
 			}

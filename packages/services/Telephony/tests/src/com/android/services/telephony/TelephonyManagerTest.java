@@ -16,14 +16,19 @@
 
 package com.android.services.telephony;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.PropertyInvalidatedCache;
+import android.content.ComponentName;
 import android.content.Context;
+import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
@@ -48,6 +53,12 @@ import java.util.Map;
 public class TelephonyManagerTest {
     private static final String PKG_NAME = "Unittest.TelephonyManagerTest";
     private static final String TAG = "TelephonyManagerTest";
+    private static final PhoneAccountHandle TEST_HANDLE1 = new PhoneAccountHandle(
+            new ComponentName("com.test", "Test"), "1");
+    private static final int TEST_SUBID_1 = 1;
+    private static final PhoneAccountHandle TEST_HANDLE2 = new PhoneAccountHandle(
+            new ComponentName("com.test", "Test"), "2");
+    private static final int TEST_SUBID_2 = 2;
 
     private ITelephony mMockITelephony;
     private SubscriptionManager mMockSubscriptionManager;
@@ -179,5 +190,32 @@ public class TelephonyManagerTest {
             assertTrue(num.isInEmergencyServiceCategories(
                     EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_POLICE));
         }
+    }
+
+    /**
+     * Verifies that {@link TelephonyManager#getSubscriptionId(PhoneAccountHandle)} is properly
+     * using a property invalidated cache.
+     * @throws Exception
+     */
+    @Test
+    public void testGetSubscriptionIdCache() throws Exception {
+        PropertyInvalidatedCache.invalidateCache(TelephonyManager.CACHE_KEY_PHONE_ACCOUNT_TO_SUBID);
+        when(mMockITelephony.getSubIdForPhoneAccountHandle(eq(TEST_HANDLE1),
+                anyString(), anyString())).thenReturn(TEST_SUBID_1);
+        when(mMockITelephony.getSubIdForPhoneAccountHandle(eq(TEST_HANDLE2),
+                anyString(), anyString())).thenReturn(TEST_SUBID_2);
+
+        // Ensure queries for phone account handles come back consistently.
+        assertEquals(TEST_SUBID_1, mTelephonyManager.getSubscriptionId(TEST_HANDLE1));
+        assertEquals(TEST_SUBID_1, mTelephonyManager.getSubscriptionId(TEST_HANDLE1));
+        assertEquals(TEST_SUBID_2, mTelephonyManager.getSubscriptionId(TEST_HANDLE2));
+        assertEquals(TEST_SUBID_2, mTelephonyManager.getSubscriptionId(TEST_HANDLE2));
+
+        // We should have only had a single call to the underlying AIDL, however.  The cache should
+        // have protected us from calling this multiple times.
+        verify(mMockITelephony, times(1)).getSubIdForPhoneAccountHandle(eq(TEST_HANDLE1),
+                anyString(), anyString());
+        verify(mMockITelephony, times(1)).getSubIdForPhoneAccountHandle(eq(TEST_HANDLE2),
+                anyString(), anyString());
     }
 }

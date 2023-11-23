@@ -37,7 +37,7 @@ ifeq ($(TARGET_BOARD_PLATFORM),bengal)
 libmm-venc-def += -U_UBWC_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_FLAG_MSM8226)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_FLAG_MSM8226)))
 libmm-venc-def += -D_MSM8226_
 endif
 
@@ -47,7 +47,7 @@ endif
 
 libmm-venc-def += -DUSE_NATIVE_HANDLE_SOURCE
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-venc-def += -DMASTER_SIDE_CP
 endif
 
@@ -70,7 +70,7 @@ libmm-venc-inc      += $(TARGET_OUT_HEADERS)/fastcv
 libmm-venc-inc      += $(TOP)/frameworks/native/libs/arect/include
 libmm-venc-inc      += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 
-ifneq ($(call is-board-platform-in-list, $(TARGETS_THAT_DONT_SUPPORT_SW_VENC_ROTATION)),true)
+ifeq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_DONT_SUPPORT_SW_VENC_ROTATION)))
 libmm-venc-inc      += hardware/libhardware/include/hardware
 endif
 
@@ -127,7 +127,7 @@ LOCAL_SRC_FILES   += src/video_encoder_device_v4l2_params.cpp
 
 include $(BUILD_SHARED_LIBRARY)
 
-ifneq ($(call is-board-platform-in-list, $(TARGETS_THAT_DONT_NEED_SW_VENC_MPEG4)),true)
+ifeq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_DONT_NEED_SW_VENC_MPEG4)))
 # ---------------------------------------------------------------------------------
 # 			Make the Shared library (libOmxSwVencMpeg4)
 # ---------------------------------------------------------------------------------
@@ -169,7 +169,7 @@ LOCAL_SHARED_LIBRARIES    += libMpeg4SwEncoder
 LOCAL_SHARED_LIBRARIES    += libqdMetaData
 LOCAL_SHARED_LIBRARIES += libfastcvopt
 
-ifneq ($(call is-board-platform-in-list, $(TARGETS_THAT_DONT_SUPPORT_SW_VENC_ROTATION)),true)
+ifeq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_DONT_SUPPORT_SW_VENC_ROTATION)))
 LOCAL_SHARED_LIBRARIES += libui
 LOCAL_SHARED_LIBRARIES += libutils
 endif

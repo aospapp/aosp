@@ -22,6 +22,8 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.AutoValue.CopyAnnotations;
 import com.google.auto.value.extension.memoized.MemoizedTest.HashCodeEqualsOptimization.EqualsCounter;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.ImmutableTypeParameter;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -123,7 +125,9 @@ public class MemoizedTest {
     @org.checkerframework.checker.nullness.qual.Nullable
     String nullableWithTypeAnnotation() {
       nullableWithTypeAnnotationCount++;
-      return "nullable derived " + stringWithTypeAnnotation() + " "
+      return "nullable derived "
+          + stringWithTypeAnnotation()
+          + " "
           + nullableWithTypeAnnotationCount;
     }
 
@@ -234,8 +238,9 @@ public class MemoizedTest {
 
   @Before
   public void setUp() {
-    value = new AutoValue_MemoizedTest_Value(
-        "string", "stringWithTypeAnnotation", new HashCodeAndToStringCounter());
+    value =
+        new AutoValue_MemoizedTest_Value(
+            "string", "stringWithTypeAnnotation", new HashCodeAndToStringCounter());
     listValue = new AutoValue_MemoizedTest_ListValue<Integer, String>(0, "hello");
   }
 
@@ -375,8 +380,9 @@ public class MemoizedTest {
     Method nullable =
         AutoValue_MemoizedTest_Value.class.getDeclaredMethod("nullableWithTypeAnnotation");
     AnnotatedType returnType = nullable.getAnnotatedReturnType();
-    assertThat(returnType.isAnnotationPresent(
-                   org.checkerframework.checker.nullness.qual.Nullable.class))
+    assertThat(
+            returnType.isAnnotationPresent(
+                org.checkerframework.checker.nullness.qual.Nullable.class))
         .isTrue();
   }
 
@@ -387,11 +393,13 @@ public class MemoizedTest {
     // [1] @org.checkerframework.checker.nullness.qual.Nullable String stringWithTypeAnnotation,
     // [2] HashCodeAndToStringCounter counter
     // We don't currently copy @javax.annotation.Nullable because it is not a TYPE_USE annotation.
-    Constructor<?> constructor = AutoValue_MemoizedTest_Value.class.getDeclaredConstructor(
-        String.class, String.class, HashCodeAndToStringCounter.class);
+    Constructor<?> constructor =
+        AutoValue_MemoizedTest_Value.class.getDeclaredConstructor(
+            String.class, String.class, HashCodeAndToStringCounter.class);
     AnnotatedType paramType = constructor.getAnnotatedParameterTypes()[1];
-    assertThat(paramType.isAnnotationPresent(
-                   org.checkerframework.checker.nullness.qual.Nullable.class))
+    assertThat(
+            paramType.isAnnotationPresent(
+                org.checkerframework.checker.nullness.qual.Nullable.class))
         .isTrue();
   }
 
@@ -448,8 +456,8 @@ public class MemoizedTest {
     assertThat(memoizedHashCodeAndFinalEqualsMethod.equals(second)).isTrue();
     assertThat(memoizedHashCodeAndFinalEqualsMethod.hashCodeCount).isEqualTo(0);
 
-    memoizedHashCodeAndFinalEqualsMethod.hashCode();
-    memoizedHashCodeAndFinalEqualsMethod.hashCode();
+    int unused1 = memoizedHashCodeAndFinalEqualsMethod.hashCode();
+    int unused2 = memoizedHashCodeAndFinalEqualsMethod.hashCode();
     assertThat(memoizedHashCodeAndFinalEqualsMethod.hashCodeCount).isEqualTo(1);
   }
 
@@ -465,8 +473,7 @@ public class MemoizedTest {
 
   @AutoValue
   abstract static class ResourceUriPath<InputT> extends AbstractTypePath<InputT, ResourceUri> {
-    static <InputT> ResourceUriPath<InputT> create(
-        TypeEdgeIterable<InputT, ResourceUri> edges) {
+    static <InputT> ResourceUriPath<InputT> create(TypeEdgeIterable<InputT, ResourceUri> edges) {
       return new AutoValue_MemoizedTest_ResourceUriPath<>(edges);
     }
 
@@ -481,5 +488,28 @@ public class MemoizedTest {
     ResourceUriPath<String> path =
         ResourceUriPath.create(new TypeEdgeIterable<String, ResourceUri>() {});
     assertThat(path.edges()).isNotNull();
+  }
+
+  @Immutable
+  @AutoValue
+  abstract static class Unchanging<@ImmutableTypeParameter T> {
+    abstract T value();
+
+    @Override
+    @Memoized
+    public abstract int hashCode();
+
+    static <@ImmutableTypeParameter T> Unchanging<T> of(T value) {
+      return new AutoValue_MemoizedTest_Unchanging<T>(value);
+    }
+  }
+
+  @Test
+  public void copiedTypeAnnotations() {
+    for (Class<?> c = Unchanging.of("foo").getClass(); c != Object.class; c = c.getSuperclass()) {
+      assertThat(c.getTypeParameters()).hasLength(1);
+      assertThat(c.getTypeParameters()[0].isAnnotationPresent(ImmutableTypeParameter.class))
+          .isTrue();
+    }
   }
 }

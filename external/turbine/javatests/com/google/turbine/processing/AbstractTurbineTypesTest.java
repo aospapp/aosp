@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -231,6 +232,14 @@ class AbstractTurbineTypesTest {
         "Float",
         "Double",
       },
+      // type annotations
+      {
+        "@A List<@B Integer>",
+        "@A List",
+        "@A int @B []",
+        "@A List<@A int @B []>",
+        "Map.@A Entry<@B Integer, @C Number>",
+      },
     };
     List<String> files = new ArrayList<>();
     AtomicInteger idx = new AtomicInteger();
@@ -242,6 +251,7 @@ class AbstractTurbineTypesTest {
               "package p;",
               "import java.util.*;",
               "import java.io.*;",
+              "import java.lang.annotation.*;",
               String.format("abstract class Test%s {", idx.getAndIncrement()),
               Streams.mapWithIndex(
                       Arrays.stream(group), (x, i) -> String.format("  %s f%d;\n", x, i))
@@ -250,6 +260,9 @@ class AbstractTurbineTypesTest {
               "  abstract <V extends List<V>> V g();",
               "  abstract <W extends ArrayList> W h();",
               "  abstract <X extends Serializable> X i();",
+              "  @Target(ElementType.TYPE_USE) @interface A {}",
+              "  @Target(ElementType.TYPE_USE) @interface B {}",
+              "  @Target(ElementType.TYPE_USE) @interface C {}",
               "}");
       String content = sb.toString();
       files.add(content);
@@ -332,6 +345,21 @@ class AbstractTurbineTypesTest {
                 "  void h(T t) {}",
                 "}"));
 
+    // type variable bounds
+    files.add(
+        Joiner.on('\n')
+            .join(
+                "import java.util.List;",
+                "class N<X, T extends X> {",
+                "  void h(T t) {}",
+                "}",
+                "class O<X extends Enum<X>, T extends X> {",
+                "  void h(T t) {}",
+                "}",
+                "class P<X extends List<?>, T extends X> {",
+                "  void h(T t) {}",
+                "}"));
+
     Context context = new Context();
     JavaFileManager fileManager = new JavacFileManager(context, true, UTF_8);
     idx.set(0);
@@ -397,8 +425,11 @@ class AbstractTurbineTypesTest {
 
       ListMultimap<String, TypeMirror> turbineInputs =
           MultimapBuilder.linkedHashKeys().arrayListValues().build();
-      turbineElements
-          .get(name)
+      /*
+       * requireNonNull is safe because `name` is from `javacElements`, which we checked has the
+       * same keys as `turbineElements`.
+       */
+      requireNonNull(turbineElements.get(name))
           .getEnclosedElements()
           .forEach(e -> getTypes(turbineTypes, e, turbineInputs));
 

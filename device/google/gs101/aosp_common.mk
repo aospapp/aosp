@@ -17,11 +17,14 @@
 #
 # All components inherited here go to system image
 #
-ifeq (,$(filter %_64,$(TARGET_PRODUCT)))
-$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-else
+DEVICE_IS_64BIT_ONLY ?= $(if $(filter %_64,$(TARGET_PRODUCT)),true,false)
+
+ifeq ($(DEVICE_IS_64BIT_ONLY),true)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
+else
+$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 endif
+
 $(call inherit-product, $(SRC_TARGET_DIR)/product/generic_system.mk)
 
 # Enable CSI checking

@@ -25,6 +25,7 @@
 #include "base/System.h"
 #include "base/testing/TestSystem.h"
 #include "host-common/AndroidAgentFactory.h"
+#include "host-common/testing/MockAndroidAgentFactory.h"
 
 #include "Standalone.h"
 
@@ -416,6 +417,13 @@ static void teardownVulkanTest(const VulkanDispatch* vk,
 
 class VulkanTest : public ::testing::Test {
 protected:
+    static void SetUpTestSuite() {
+        android::emulation::injectConsoleAgents(
+                android::emulation::MockAndroidConsoleFactory());
+    }
+
+    static void TearDownTestSuite() { }
+
     void SetUp() override {
         goldfish_vk::init_vulkan_dispatch_from_system_loader(
                 dlOpenFuncForTesting,

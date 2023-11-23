@@ -31,6 +31,7 @@ _RE_ADB_DEVICE_INFO = (r"%s\s*(?P<adb_status>[\S]+)? ?"
                        r"(model:(?P<model>[\S]+))? ?"
                        r"(device:(?P<device>[\S]+))? ?"
                        r"(transport_id:(?P<transport_id>[\S]+))? ?")
+_RE_SERIAL = r"(?P<ip>.+):(?P<port>.+)"
 _DEVICE_ATTRIBUTES = ["adb_status", "usb", "product", "model", "device", "transport_id"]
 _MAX_RETRIES_ON_WAIT_ADB_GONE = 5
 #KEY_CODE 82 = KEY_MENU
@@ -79,6 +80,13 @@ class AdbTools:
                            argument is empty, the serial number is set to the
                            network address.
         """
+        if device_serial:
+            match = re.match(_RE_SERIAL, device_serial)
+            if match:
+                self._adb_port = match.group("port")
+                self._device_address = device_serial
+                self._device_serial = device_serial
+                return
         self._device_address = ("127.0.0.1:%s" % self._adb_port if
                                 self._adb_port else "")
         self._device_serial = (device_serial if device_serial else

@@ -1,7 +1,7 @@
 /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2020 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -27,34 +27,53 @@
 #endif
 #include "private-lib-core.h"
 
-
 int
 lws_plat_pipe_create(struct lws *wsi)
 {
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
+	int n;
+
 #if defined(LWS_HAVE_EVENTFD)
-	pt->dummy_pipe_fds[0] = eventfd(0, EFD_CLOEXEC|EFD_NONBLOCK);
+	pt->dummy_pipe_fds[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	pt->dummy_pipe_fds[1] = -1;
-	return pt->dummy_pipe_fds[0]<0?-1:0;
+
+	n = pt->dummy_pipe_fds[0] < 0 ? -1 : 0;
+	goto set;
+
 #elif defined(LWS_HAVE_PIPE2)
-	return pipe2(pt->dummy_pipe_fds, O_NONBLOCK);
+	n = pipe2(pt->dummy_pipe_fds, O_NONBLOCK);
 #else
-	return pipe(pt->dummy_pipe_fds);
+	n = pipe(pt->dummy_pipe_fds);
 #endif
+
+#if defined(LWS_HAVE_EVENTFD)
+set:
+#endif
+	if (n >= 0) {
+		if (fcntl(pt->dummy_pipe_fds[0], F_SETFL, O_NONBLOCK) < 0)
+			n = -1;
+		else if (pt->dummy_pipe_fds[1] >= 0) {
+			if (fcntl(pt->dummy_pipe_fds[1], F_SETFL, O_NONBLOCK) < 0)
+				n = -1;
+		}
+	}
+
+	return n;
 }
 
 int
-lws_plat_pipe_signal(struct lws *wsi)
+lws_plat_pipe_signal(struct lws_context *ctx, int tsi)
 {
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &ctx->pt[tsi];
 #if defined(LWS_HAVE_EVENTFD)
 	eventfd_t value = 1;
+
 	return eventfd_write(pt->dummy_pipe_fds[0], value);
 #else
 	char buf = 0;
 	int n;
 
-	n = write(pt->dummy_pipe_fds[1], &buf, 1);
+	n = (int)write(pt->dummy_pipe_fds[1], &buf, 1);
 
 	return n != 1;
 #endif
@@ -63,7 +82,7 @@ lws_plat_pipe_signal(struct lws *wsi)
 void
 lws_plat_pipe_close(struct lws *wsi)
 {
-	struct lws_context_per_thread *pt = &wsi->context->pt[(int)wsi->tsi];
+	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
 
 	if (pt->dummy_pipe_fds[0] && pt->dummy_pipe_fds[0] != -1)
 		close(pt->dummy_pipe_fds[0]);
@@ -72,4 +91,3 @@ lws_plat_pipe_close(struct lws *wsi)
 
 	pt->dummy_pipe_fds[0] = pt->dummy_pipe_fds[1] = -1;
 }
-

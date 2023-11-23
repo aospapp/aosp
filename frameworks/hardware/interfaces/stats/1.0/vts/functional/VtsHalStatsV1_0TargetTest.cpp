@@ -140,7 +140,7 @@ TEST_P(StatsHidlTest, reportVendorAtom) {
     values.push_back(tmp);
     tmp.intValue(3);
     values.push_back(tmp);
-    VendorAtom atom = {.reverseDomainName = "com.google.pixel", .atomId = 100001, .values = values};
+    VendorAtom atom = {.reverseDomainName = "", .atomId = 100001, .values = values};
 
     Return<void> ret;
     client->reportVendorAtom(atom);

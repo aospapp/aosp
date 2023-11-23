@@ -17,10 +17,15 @@
 package com.android.server.wm.flicker.monitor
 
 import android.os.RemoteException
+import android.util.Log
 import android.view.WindowManagerGlobal
+import com.android.server.wm.flicker.FLICKER_TAG
 import com.android.server.wm.flicker.FlickerRunResult
+import com.android.server.wm.flicker.getDefaultFlickerOutputDir
 import com.android.server.wm.flicker.traces.windowmanager.WindowManagerTraceSubject
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
+import com.android.server.wm.traces.parser.windowmanager.WindowManagerTraceParser
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
@@ -28,11 +33,12 @@ import java.nio.file.Path
  *
  * Use [WindowManagerTraceSubject.assertThat] to make assertions on the trace
  */
-open class WindowManagerTraceMonitor(
-    outputDir: Path
-) : TransitionMonitor(outputDir, "wm_trace$WINSCOPE_EXT") {
+open class WindowManagerTraceMonitor @JvmOverloads constructor(
+    outputDir: Path = getDefaultFlickerOutputDir(),
+    sourceFile: Path = TRACE_DIR.resolve("wm_trace$WINSCOPE_EXT")
+) : TransitionMonitor(outputDir, sourceFile) {
     private val windowManager = WindowManagerGlobal.getWindowManagerService()
-    override fun start() {
+    override fun startTracing() {
         try {
             windowManager.startWindowTrace()
         } catch (e: RemoteException) {
@@ -40,7 +46,7 @@ open class WindowManagerTraceMonitor(
         }
     }
 
-    override fun stop() {
+    override fun stopTracing() {
         try {
             windowManager.stopWindowTrace()
         } catch (e: RemoteException) {
@@ -51,9 +57,12 @@ open class WindowManagerTraceMonitor(
     override val isEnabled: Boolean
         get() = windowManager.isWindowTraceEnabled
 
-    override fun setResult(flickerRunResultBuilder: FlickerRunResult.Builder, traceFile: Path) {
-        flickerRunResultBuilder.wmTraceFile = traceFile
+    override fun setResult(flickerRunResultBuilder: FlickerRunResult.Builder) {
+        flickerRunResultBuilder.setWmTrace(outputFile) {
+            Log.v(FLICKER_TAG, "Parsing WM trace")
+            val traceData = Files.readAllBytes(outputFile)
+            val wmTrace = WindowManagerTraceParser.parseFromTrace(traceData)
+            WindowManagerTraceSubject.assertThat(wmTrace)
+        }
     }
-
-    override fun getTracePath(builder: FlickerRunResult.Builder) = builder.wmTraceFile
 }

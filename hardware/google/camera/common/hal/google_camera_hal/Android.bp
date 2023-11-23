@@ -16,11 +16,7 @@
 
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "hardware_google_camera_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: ["hardware_google_camera_license"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 soong_config_module_type_import {
@@ -74,6 +70,7 @@ cc_library_shared {
         "realtime_process_block.cc",
         "realtime_zsl_request_processor.cc",
         "realtime_zsl_result_processor.cc",
+        "realtime_zsl_result_request_processor.cc",
         "rgbird_capture_session.cc",
         "rgbird_depth_result_processor.cc",
         "rgbird_result_request_processor.cc",
@@ -100,6 +97,7 @@ cc_library_shared {
     ],
     header_libs: [
         "lib_depth_generator_headers",
+        "libgooglecamerahal_headers",
     ],
     // b/129863492, clang-tidy nondeterministic seg fault
     tidy: false,

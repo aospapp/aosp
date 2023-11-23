@@ -217,7 +217,7 @@ void GenerateEncodedStrings(TestDataFile* file) {
   std::mt19937 random(6006411);
   std::uniform_int_distribution<int64_t> big;
   std::uniform_int_distribution<int32_t> medium;
-  std::uniform_int_distribution<char> small(' ', '~');
+  std::uniform_int_distribution<int32_t> small(' ', '~');
   std::uniform_real_distribution<float> real;
 
   file->Section("Simple strings");
@@ -271,7 +271,7 @@ void GenerateEncodedStrings(TestDataFile* file) {
   MAKE_TEST_CASE("%ju", static_cast<uintmax_t>(99));
   MAKE_TEST_CASE("%jd", static_cast<intmax_t>(99));
   MAKE_TEST_CASE("%zu", sizeof(uint64_t));
-  MAKE_TEST_CASE("%zd", static_cast<ssize_t>(123));
+  MAKE_TEST_CASE("%zd", static_cast<ptrdiff_t>(123));
   MAKE_TEST_CASE("%td", static_cast<ptrdiff_t>(99));
 
   file->Section("Percent character");
@@ -348,7 +348,7 @@ void GenerateEncodedStrings(TestDataFile* file) {
   for (int i = 0; i < 100; ++i) {
     unsigned long long n1 = big(random);
     int n2 = medium(random);
-    char ch = small(random);
+    char ch = static_cast<char>(small(random));
     if (ch == '"' || ch == '\\') {
       ch = '\t';
     }
@@ -359,7 +359,7 @@ void GenerateEncodedStrings(TestDataFile* file) {
   for (int i = 0; i < 100; ++i) {
     const long long n1 = big(random);
     const unsigned n2 = medium(random);
-    const char ch = small(random);
+    const char ch = static_cast<char>(small(random));
 
     MAKE_TEST_CASE(
         "%s: %lld 0x%16u%08X %d", std::to_string(i).c_str(), n1, n2, n2, ch);

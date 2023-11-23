@@ -1,29 +1,18 @@
+#![forbid(unsafe_code)]
+#![rustfmt::skip]
 #[derive(Debug)]
 pub enum UnionWithFd {
   Num(i32),
-  Pfd(Option<binder::parcel::ParcelFileDescriptor>),
+  Pfd(Option<binder::ParcelFileDescriptor>),
 }
-pub(crate) mod mangled { pub use super::UnionWithFd as _7_android_4_aidl_5_tests_11_UnionWithFd; }
 impl Default for UnionWithFd {
   fn default() -> Self {
     Self::Num(0)
   }
 }
-impl binder::parcel::Serialize for UnionWithFd {
-  fn serialize(&self, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    <Self as binder::parcel::SerializeOption>::serialize_option(Some(self), parcel)
-  }
-}
-impl binder::parcel::SerializeArray for UnionWithFd {}
-impl binder::parcel::SerializeOption for UnionWithFd {
-  fn serialize_option(this: Option<&Self>, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    let this = if let Some(this) = this {
-      parcel.write(&1i32)?;
-      this
-    } else {
-      return parcel.write(&0i32);
-    };
-    match this {
+impl binder::Parcelable for UnionWithFd {
+  fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
+    match self {
       Self::Num(v) => {
         parcel.write(&0i32)?;
         parcel.write(v)
@@ -35,32 +24,41 @@ impl binder::parcel::SerializeOption for UnionWithFd {
       }
     }
   }
-}
-impl binder::parcel::Deserialize for UnionWithFd {
-  fn deserialize(parcel: &binder::parcel::Parcel) -> binder::Result<Self> {
-    <Self as binder::parcel::DeserializeOption>::deserialize_option(parcel)
-       .transpose()
-       .unwrap_or(Err(binder::StatusCode::UNEXPECTED_NULL))
-  }
-}
-impl binder::parcel::DeserializeArray for UnionWithFd {}
-impl binder::parcel::DeserializeOption for UnionWithFd {
-  fn deserialize_option(parcel: &binder::parcel::Parcel) -> binder::Result<Option<Self>> {
-    let status: i32 = parcel.read()?;
-    if status == 0 { return Ok(None); }
+  fn read_from_parcel(&mut self, parcel: &binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     let tag: i32 = parcel.read()?;
     match tag {
       0 => {
         let value: i32 = parcel.read()?;
-        Ok(Some(Self::Num(value)))
+        *self = Self::Num(value);
+        Ok(())
       }
       1 => {
-        let value: Option<binder::parcel::ParcelFileDescriptor> = Some(parcel.read()?);
-        Ok(Some(Self::Pfd(value)))
+        let value: Option<binder::ParcelFileDescriptor> = Some(parcel.read()?);
+        *self = Self::Pfd(value);
+        Ok(())
       }
       _ => {
         Err(binder::StatusCode::BAD_VALUE)
       }
     }
   }
+}
+binder::impl_serialize_for_parcelable!(UnionWithFd);
+binder::impl_deserialize_for_parcelable!(UnionWithFd);
+impl binder::binder_impl::ParcelableMetadata for UnionWithFd {
+  fn get_descriptor() -> &'static str { "android.aidl.tests.UnionWithFd" }
+}
+pub mod Tag {
+  #![allow(non_upper_case_globals)]
+  use binder::declare_binder_enum;
+  declare_binder_enum! {
+    Tag : [i32; 2] {
+      num = 0,
+      pfd = 1,
+    }
+  }
+}
+pub(crate) mod mangled {
+ pub use super::UnionWithFd as _7_android_4_aidl_5_tests_11_UnionWithFd;
+ pub use super::Tag::Tag as _7_android_4_aidl_5_tests_11_UnionWithFd_3_Tag;
 }

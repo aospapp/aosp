@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vaše zařízení bude spravovat následující aplikace:"</string>
     <string name="next" msgid="1004321437324424398">"Další"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nastavování pracovního profilu…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administrátor IT může sledovat a spravovat nastavení, firemní přístup, aplikace, oprávnění a data přidružená k tomuto profilu, včetně síťové aktivity, polohy zařízení, historie volání a historie vyhledávání kontaktů.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Administrátor IT vám může poskytnout další informace, včetně zásad ochrany soukromí ve vaší organizaci."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Administrátor IT může sledovat a spravovat nastavení, firemní přístup, aplikace, oprávnění a data přidružená k tomuto profilu, včetně historie volání a historie vyhledávání kontaktů. Administrátor IT vám může poskytnout další informace, včetně zásad ochrany soukromí ve vaší organizaci."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administrátor IT může sledovat a spravovat nastavení, firemní přístup, aplikace, oprávnění a data přidružená k tomuto zařízení, včetně síťové aktivity, polohy zařízení, historie volání a historie vyhledávání kontaktů.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Administrátor IT vám může poskytnout další informace, včetně zásad ochrany soukromí ve vaší organizaci."</string>
@@ -162,9 +160,9 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Váš účet je spravován"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Váš správce IT vynucuje dodržování bezpečnostních zásad prostřednictvím správy mobilních zařízení"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Příprava na nastavení pro práci…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Teď nastavíme váš pracovní profil"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Pojďme nastavit váš pracovní profil"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Pracovní aplikace jsou uložené v pracovním profilu"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Až budete mít hotovo, pracovní aplikace pozastavte"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Až s prací skončíte, pracovní aplikace pozastavte"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Údaje v pracovním profilu může vidět administrátor IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Nastavování pracovního profilu…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Pracovní aplikace jsou uložené v pracovním profilu. Když pro daný den skončíte s prací, můžete je pozastavit. Údaje v pracovním profilu může vidět administrátor IT."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> může nainstalovat aplikaci společnosti <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, abyste zařízení mohli začít splácet."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Toto zařízení může být omezeno"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Pokud nebudete splácet, <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> může přístup k tomuto zařízení omezit."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Zařízení nelze nastavit. Obraťte se na administrátora IT a sdělte mu, že dochází k neplatnému kontrolnímu součtu."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Zkuste to znovu později nebo požádejte o pomoc administrátora IT"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Zařízení nelze nastavit. Obraťte se na administrátora IT a sdělte mu, že chybí komponenty nebo jsou poškozeny."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Nastavování…"</string>
 </resources>

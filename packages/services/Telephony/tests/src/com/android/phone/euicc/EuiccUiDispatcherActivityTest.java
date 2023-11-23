@@ -75,6 +75,12 @@ public class EuiccUiDispatcherActivityTest {
     }
 
     @Test
+    public void testResolveEuiccUiIntent_nullAction() {
+        mIntent = new Intent();
+        assertNull(mActivity.resolveEuiccUiIntent());
+    }
+
+    @Test
     public void testResolveEuiccUiIntent_unsupportedAction() {
         mIntent = new Intent("fake.action");
         assertNull(mActivity.resolveEuiccUiIntent());

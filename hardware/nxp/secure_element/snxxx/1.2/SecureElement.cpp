@@ -16,15 +16,17 @@
  *
  ******************************************************************************/
 #include "SecureElement.h"
-#include <android-base/logging.h>
-#include <android-base/stringprintf.h>
+
 #include "NxpEse.h"
-#include "hal_nxpese.h"
-#include "phNxpEse_Apdu_Api.h"
-#include "phNxpEse_Api.h"
 #ifdef NXP_BOOTTIME_UPDATE
 #include "eSEClient.h"
 #endif
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+
+#include "hal_nxpese.h"
+#include "phNxpEse_Apdu_Api.h"
+#include "phNxpEse_Api.h"
 /* Mutex to synchronize multiple transceive */
 
 namespace android {
@@ -37,6 +39,7 @@ namespace implementation {
 #define DEFAULT_BASIC_CHANNEL 0x00
 #define INVALID_LEN_SW1 0x64
 #define INVALID_LEN_SW2 0xFF
+#define SW1_BYTES_REMAINING 0x61
 
 typedef struct gsTransceiveBuffer {
   phNxpEse_data cmdData;
@@ -44,6 +47,9 @@ typedef struct gsTransceiveBuffer {
   hidl_vec<uint8_t>* pRspDataBuff;
 } sTransceiveBuffer_t;
 
+static Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
+getResponseInternal(uint8_t cla, phNxpEse_7816_rpdu_t& rpdu,
+                    hidl_vec<uint8_t>& result);
 static sTransceiveBuffer_t gsTxRxBuffer;
 static hidl_vec<uint8_t> gsRspDataBuff(256);
 sp<V1_0::ISecureElementHalCallback> SecureElement::mCallbackV1_0 = nullptr;
@@ -198,8 +204,8 @@ Return<void> SecureElement::getAtr(getAtr_cb _hidl_cb) {
   ESESTATUS status = ESESTATUS_FAILED;
   bool mIsSeHalInitDone = false;
 
-  if (IS_OSU_MODE(OsuHalExtn::getInstance().OPENLOGICAL) >=
-      OsuHalExtn::getInstance().OSU_PROP_MODE) {
+  // In dedicated mode getATR not allowed
+  if (IS_OSU_MODE(OsuHalExtn::getInstance().GETATR)) {
     LOG(ERROR) << "%s: Not allowed in dedicated mode!!!" << __func__;
     _hidl_cb(response);
     return Void();
@@ -336,8 +342,8 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
 
   LOG(INFO) << "Acquired the lock from SPI openLogicalChannel";
 
-  if (IS_OSU_MODE(OsuHalExtn::getInstance().OPENLOGICAL) >=
-      OsuHalExtn::getInstance().OSU_PROP_MODE) {
+  // In dedicated mode openLogical not allowed
+  if (IS_OSU_MODE(OsuHalExtn::getInstance().OPENLOGICAL)) {
     LOG(ERROR) << "%s: Not allowed in dedicated mode!!!" << __func__;
     _hidl_cb(resApduBuff, SecureElementStatus::IOERROR);
     return Void();
@@ -466,6 +472,14 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
     memcpy(&resApduBuff.selectResponse[0], rpdu.pdata, rpdu.len);
     resApduBuff.selectResponse[responseLen - 1] = rpdu.sw2;
     resApduBuff.selectResponse[responseLen - 2] = rpdu.sw1;
+
+    if (rpdu.sw1 == SW1_BYTES_REMAINING) {
+      sestatus =
+          getResponseInternal(cpdu.cla, rpdu, resApduBuff.selectResponse);
+      if (sestatus != SecureElementStatus::SUCCESS) {
+        LOG(ERROR) << "%s: getResponseInternal Failed" << __func__;
+      }
+    }
 
     /*Status is success*/
     if ((rpdu.sw1 == 0x90 && rpdu.sw2 == 0x00) || (rpdu.sw1 == 0x62) ||
@@ -609,6 +623,12 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
     memcpy(&result[0], rpdu.pdata, rpdu.len);
     result[responseLen - 1] = rpdu.sw2;
     result[responseLen - 2] = rpdu.sw1;
+    if (rpdu.sw1 == SW1_BYTES_REMAINING) {
+      sestatus = getResponseInternal(cpdu.cla, rpdu, result);
+      if (sestatus != SecureElementStatus::SUCCESS) {
+        LOG(ERROR) << "%s: getResponseInternal Failed " << __func__;
+      }
+    }
 
     /*Status is success*/
     if (((rpdu.sw1 == 0x90) && (rpdu.sw2 == 0x00)) || (rpdu.sw1 == 0x62) ||
@@ -660,13 +680,17 @@ Return<SecureElementStatus> SecureElement::internalCloseChannel(
   LOG(ERROR) << "Acquired the lock in SPI internalCloseChannel";
   LOG(INFO) << StringPrintf("mMaxChannelCount = %d, Closing Channel = %d",
                             mMaxChannelCount, channelNumber);
-  if ((int8_t)channelNumber < DEFAULT_BASIC_CHANNEL ||
-      channelNumber >= mMaxChannelCount) {
+  if (channelNumber >= mMaxChannelCount) {
     LOG(ERROR) << StringPrintf("invalid channel!!! %d", channelNumber);
   } else if (channelNumber > DEFAULT_BASIC_CHANNEL) {
     phNxpEse_memset(&cpdu, 0x00, sizeof(phNxpEse_7816_cpdu_t));
     phNxpEse_memset(&rpdu, 0x00, sizeof(phNxpEse_7816_rpdu_t));
     cpdu.cla = channelNumber; /* Class of instruction */
+    // For Suplementary Channel update CLA byte according to GP
+    if ((channelNumber > 0x03) && (channelNumber < 0x14)) {
+      /* update CLA byte accoridng to GP spec Table 11-12*/
+      cpdu.cla = 0x40 + (channelNumber - 4); /* Class of instruction */
+    }
     cpdu.ins = 0x70;          /* Instruction code */
     cpdu.p1 = 0x80;           /* Instruction parameter 1 */
     cpdu.p2 = channelNumber;  /* Instruction parameter 2 */
@@ -704,8 +728,8 @@ Return<SecureElementStatus> SecureElement::internalCloseChannel(
 
 Return<SecureElementStatus> SecureElement::closeChannel(uint8_t channelNumber) {
   AutoMutex guard(seHalLock);
-  if (IS_OSU_MODE(OsuHalExtn::getInstance().CLOSE, channelNumber) ==
-      OsuHalExtn::getInstance().NON_OSU_MODE) {
+  // Close internal allowed when not in dedicated Mode
+  if (!IS_OSU_MODE(OsuHalExtn::getInstance().CLOSE, channelNumber)) {
     return internalCloseChannel(channelNumber);
   } else {
     /*Decrement channel count opened to
@@ -822,6 +846,67 @@ SecureElement::reset() {
     }
   }
   LOG(ERROR) << "%s: Exit" << __func__;
+  return sestatus;
+}
+
+static Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
+getResponseInternal(uint8_t cla, phNxpEse_7816_rpdu_t& rpdu,
+                    hidl_vec<uint8_t>& result) {
+  SecureElementStatus sestatus = SecureElementStatus::SUCCESS;
+  ESESTATUS status = ESESTATUS_SUCCESS;
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  uint16_t responseLen = rpdu.len;  // Response already copied
+  uint8_t getRespLe = rpdu.sw2;     // Response pending to receive
+  uint8_t getResponse[5] = {0x00, 0xC0, 0x00, 0x00, 0x00};
+
+  getResponse[0] = cla;
+
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+
+  cmdApdu.len = (uint32_t)sizeof(getResponse);
+  cmdApdu.p_data = getResponse;
+
+  do {
+    // update GET response 61 xx(Le)
+    getResponse[4] = getRespLe;
+
+    phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+
+    status = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+    if (status != ESESTATUS_SUCCESS) {
+      /*Transceive failed*/
+      if (rspApdu.len > 0 && (rspApdu.p_data[rspApdu.len - 2] == 0x64 &&
+                              rspApdu.p_data[rspApdu.len - 1] == 0xFF)) {
+        sestatus = SecureElementStatus::IOERROR;
+      } else {
+        sestatus = SecureElementStatus::FAILED;
+      }
+      break;
+    } else {
+      uint32_t respLen = rspApdu.len;
+
+      // skip 2 bytes in case of 61xx SW again
+      if (rspApdu.p_data[respLen - 2] == SW1_BYTES_REMAINING) {
+        respLen -= 2;
+        getRespLe = rspApdu.p_data[respLen - 1];
+      }
+      // copy response chunk received
+      result.resize(responseLen + respLen);
+      memcpy(&result[responseLen], rspApdu.p_data, respLen);
+      responseLen += respLen;
+    }
+  } while (rspApdu.p_data[rspApdu.len - 2] == SW1_BYTES_REMAINING);
+
+  // Propagate SW as it is received from card
+  if (sestatus == SecureElementStatus::SUCCESS) {
+    rpdu.sw1 = rspApdu.p_data[rspApdu.len - 2];
+    rpdu.sw2 = rspApdu.p_data[rspApdu.len - 1];
+  } else {  // Other Failure cases update failure SW:64FF
+    rpdu.sw1 = INVALID_LEN_SW1;
+    rpdu.sw2 = INVALID_LEN_SW2;
+  }
+
   return sestatus;
 }
 

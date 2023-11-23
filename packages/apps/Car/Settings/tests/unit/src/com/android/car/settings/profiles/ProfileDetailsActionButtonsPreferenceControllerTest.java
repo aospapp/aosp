@@ -41,6 +41,8 @@ import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.internal.user.UserHelper;
+import com.android.car.settings.R;
 import com.android.car.settings.common.ActionButtonInfo;
 import com.android.car.settings.common.ActionButtonsPreference;
 import com.android.car.settings.common.ConfirmationDialogFragment;
@@ -153,7 +155,7 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
     }
 
     @Test
-    public void onStart_isAdminViewingSelf_makeManageOtherProfilesButtonShown() {
+    public void onStart_isAdminViewingSelf_manageOtherProfilesButtonShown() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
         List<UserInfo> otherUsers = new ArrayList<>();
@@ -168,10 +170,12 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
         mPreferenceController.onStart(mLifecycleOwner);
 
         assertThat(getProfilesButton().isVisible()).isTrue();
+        assertThat(getProfilesButton().getText())
+                .isEqualTo(mContext.getString(R.string.manage_other_profiles_button_text));
     }
 
     @Test
-    public void onStart_isAdminViewingOther_makeManageOtherProfilesButtonHidden() {
+    public void onStart_isAdminViewingOther_manageOtherProfilesButtonHidden() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
         List<UserInfo> otherUsers = new ArrayList<>();
@@ -188,7 +192,7 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
     }
 
     @Test
-    public void onStart_isNonAdmin_makeManageOtherProfilesButtonHidden() {
+    public void onStart_isNonAdmin_addAProfileButtonShown() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
         List<UserInfo> otherUsers = new ArrayList<>();
@@ -201,11 +205,13 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
 
-        assertThat(getProfilesButton().isVisible()).isFalse();
+        assertThat(getProfilesButton().isVisible()).isTrue();
+        assertThat(getProfilesButton().getText())
+                .isEqualTo(mContext.getString(R.string.add_a_profile_button_text));
     }
 
     @Test
-    public void onStart_isOnlyProfile_makeAddAProfileButtonShown() {
+    public void onStart_isAdmin_isOnlyProfile_makeAddAProfileButtonShown() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME,
                 FLAG_INITIALIZED | FLAG_ADMIN);
         List<UserInfo> otherUsers = new ArrayList<>();
@@ -218,6 +224,8 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
         mPreferenceController.onStart(mLifecycleOwner);
 
         assertThat(getProfilesButton().isVisible()).isTrue();
+        assertThat(getProfilesButton().getText())
+                .isEqualTo(mContext.getString(R.string.add_a_profile_button_text));
     }
 
     @Test
@@ -338,7 +346,7 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
     @Test
     public void onMakeAdminConfirmed_makeProfileAdmin() {
         mSession = ExtendedMockito.mockitoSession().mockStatic(
-                android.car.userlib.UserHelper.class).startMocking();
+                UserHelper.class).startMocking();
 
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
@@ -353,7 +361,7 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
         mPreferenceController.mMakeAdminConfirmListener.onConfirm(arguments);
 
         ExtendedMockito.verify(
-                () -> android.car.userlib.UserHelper.grantAdminPermissions(mContext, userInfo));
+                () -> UserHelper.grantAdminPermissions(mContext, userInfo.getUserHandle()));
     }
 
     @Test

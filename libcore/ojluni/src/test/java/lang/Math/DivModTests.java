@@ -31,13 +31,14 @@ import org.testng.Assert;
 /**
  * @test Test Math and StrictMath Floor Div / Modulo operations.
  * @bug 6282196
- * @summary Basic tests for Floor division and modulo methods for both Math
- * and StrictMath for int and long datatypes.
+ * @summary Basic tests for Floor division and modulo methods for both Math and StrictMath for int
+ * and long datatypes.
  */
 public class DivModTests {
 
     /**
      * Report a test failure and increment the error count.
+     *
      * @param message the formatting string
      * @param args the variable number of arguments for the message.
      */
@@ -47,12 +48,13 @@ public class DivModTests {
     }
 
     /**
-     * Test the integer floorDiv and floorMod methods.
-     * Math and StrictMath tested and the same results are expected for both.
+     * Test the integer floorDiv and floorMod methods. Math and StrictMath tested and the same
+     * results are expected for both.
      */
     @Test
     public void testIntFloorDivMod() {
-        testIntFloorDivMod(4, 0, new ArithmeticException(), new ArithmeticException()); // Should throw ArithmeticException
+        testIntFloorDivMod(4, 0, new ArithmeticException(),
+                new ArithmeticException()); // Should throw ArithmeticException
         testIntFloorDivMod(4, 3, 1, 1);
         testIntFloorDivMod(3, 3, 1, 0);
         testIntFloorDivMod(2, 3, 0, 2);
@@ -101,7 +103,8 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorDiv(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
     }
 
@@ -116,17 +119,19 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorMod(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
 
         try {
             // Verify result against double precision floor function
             int tmp = x / y;     // Force ArithmeticException for divide by zero
-            double ff = x - Math.floor((double)x / (double)y) * y;
-            int fr = (int)ff;
-            boolean t = (fr == ((Integer)result));
+            double ff = x - Math.floor((double) x / (double) y) * y;
+            int fr = (int) ff;
+            boolean t = (fr == ((Integer) result));
             if (!result.equals(fr)) {
-                fail("FAIL: Math.floorMod(%d, %d) = %s differs from Math.floor(x, y): %d%n", x, y, result, fr);
+                fail("FAIL: Math.floorMod(%d, %d) = %s differs from Math.floor(x, y): %d%n", x, y,
+                        result, fr);
             }
         } catch (ArithmeticException ae) {
             if (y != 0) {
@@ -140,7 +145,8 @@ public class DivModTests {
      */
     @Test
     public void testLongFloorDivMod() {
-        testLongFloorDivMod(4L, 0L, new ArithmeticException(), new ArithmeticException()); // Should throw ArithmeticException
+        testLongFloorDivMod(4L, 0L, new ArithmeticException(),
+                new ArithmeticException()); // Should throw ArithmeticException
         testLongFloorDivMod(4L, 3L, 1L, 1L);
         testLongFloorDivMod(3L, 3L, 1L, 0L);
         testLongFloorDivMod(2L, 3L, 0L, 2L);
@@ -172,8 +178,8 @@ public class DivModTests {
     }
 
     /**
-     * Test the long floorDiv and floorMod methods.
-     * Math and StrictMath are tested and the same results are expected for both.
+     * Test the long floorDiv and floorMod methods. Math and StrictMath are tested and the same
+     * results are expected for both.
      */
     static void testLongFloorDivMod(long x, long y, Object divExpected, Object modExpected) {
         testLongFloorDiv(x, y, divExpected);
@@ -181,9 +187,8 @@ public class DivModTests {
     }
 
     /**
-     * Test FloorDiv with long arguments against expected value.
-     * The expected value is usually a Long but in some cases  is
-     * an ArithmeticException.
+     * Test FloorDiv with long arguments against expected value. The expected value is usually a
+     * Long but in some cases  is an ArithmeticException.
      *
      * @param x dividend
      * @param y modulus
@@ -197,14 +202,14 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorDiv(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: long StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: long StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
     }
 
     /**
-     * Test FloorMod of long arguments against expected value.
-     * The expected value is usually a Long but in some cases  is
-     * an ArithmeticException.
+     * Test FloorMod of long arguments against expected value. The expected value is usually a Long
+     * but in some cases  is an ArithmeticException.
      *
      * @param x dividend
      * @param y modulus
@@ -218,7 +223,8 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorMod(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: long StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: long StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
 
         try {
@@ -230,7 +236,8 @@ public class DivModTests {
             resultD = xD.subtract(resultD);
             long fr = resultD.longValue();
             if (!result.equals(fr)) {
-                fail("FAIL: Long.floorMod(%d, %d) = %d is different than BigDecimal result: %d%n", x, y, result, fr);
+                fail("FAIL: Long.floorMod(%d, %d) = %d is different than BigDecimal result: %d%n",
+                        x, y, result, fr);
 
             }
         } catch (ArithmeticException ae) {
@@ -245,7 +252,8 @@ public class DivModTests {
      */
     @Test
     public void testLongIntFloorDivMod() {
-        testLongIntFloorDivMod(4L, 0, new ArithmeticException(), new ArithmeticException()); // Should throw ArithmeticException
+        testLongIntFloorDivMod(4L, 0, new ArithmeticException(),
+                new ArithmeticException()); // Should throw ArithmeticException
         testLongIntFloorDivMod(4L, 3, 1L, 1);
         testLongIntFloorDivMod(3L, 3, 1L, 0);
         testLongIntFloorDivMod(2L, 3, 0L, 2);
@@ -277,8 +285,8 @@ public class DivModTests {
     }
 
     /**
-     * Test the integer floorDiv and floorMod methods.
-     * Math and StrictMath are tested and the same results are expected for both.
+     * Test the integer floorDiv and floorMod methods. Math and StrictMath are tested and the same
+     * results are expected for both.
      */
     static void testLongIntFloorDivMod(long x, int y, Object divExpected, Object modExpected) {
         testLongIntFloorDiv(x, y, divExpected);
@@ -286,9 +294,8 @@ public class DivModTests {
     }
 
     /**
-     * Test FloorDiv with long arguments against expected value.
-     * The expected value is usually a Long but in some cases  is
-     * an ArithmeticException.
+     * Test FloorDiv with long arguments against expected value. The expected value is usually a
+     * Long but in some cases  is an ArithmeticException.
      *
      * @param x dividend
      * @param y modulus
@@ -302,14 +309,14 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorDiv(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: long StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: long StrictMath.floorDiv(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
     }
 
     /**
-     * Test FloorMod of long arguments against expected value.
-     * The expected value is usually a Long but in some cases  is
-     * an ArithmeticException.
+     * Test FloorMod of long arguments against expected value. The expected value is usually a Long
+     * but in some cases  is an ArithmeticException.
      *
      * @param x dividend
      * @param y modulus
@@ -323,7 +330,8 @@ public class DivModTests {
 
         Object strict_result = doStrictFloorMod(x, y);
         if (!resultEquals(strict_result, expected)) {
-            fail("FAIL: long StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result, expected);
+            fail("FAIL: long StrictMath.floorMod(%d, %d) = %s; expected %s%n", x, y, strict_result,
+                    expected);
         }
 
         try {
@@ -337,7 +345,8 @@ public class DivModTests {
             // long fr = resultD.longValue();
             int fr = resultD.intValue();
             if (!result.equals(fr)) {
-                fail("FAIL: Long.floorMod(%d, %d) = %d is different than BigDecimal result: %d%n", x, y, result, fr);
+                fail("FAIL: Long.floorMod(%d, %d) = %d is different than BigDecimal result: %d%n",
+                        x, y, result, fr);
             }
         } catch (ArithmeticException ae) {
             if (y != 0) {
@@ -348,6 +357,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -362,6 +372,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -376,6 +387,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -390,6 +402,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -404,6 +417,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -418,6 +432,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -432,6 +447,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -446,6 +462,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -460,6 +477,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -474,6 +492,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -488,6 +507,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -502,6 +522,7 @@ public class DivModTests {
 
     /**
      * Invoke floorDiv and return the result or any exception.
+     *
      * @param x the x value
      * @param y the y value
      * @return the result Integer or an exception.
@@ -515,10 +536,9 @@ public class DivModTests {
     }
 
     /**
-     * Returns a boolean by comparing the result and the expected value.
-     * The equals method is not defined for ArithmeticException but it is
-     * desirable to have equals return true if the expected and the result
-     * both threw the same exception (class and message.)
+     * Returns a boolean by comparing the result and the expected value. The equals method is not
+     * defined for ArithmeticException but it is desirable to have equals return true if the
+     * expected and the result both threw the same exception (class and message.)
      *
      * @param result the result from testing the method
      * @param expected the expected value

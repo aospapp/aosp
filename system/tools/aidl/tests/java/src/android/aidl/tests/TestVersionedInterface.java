@@ -92,8 +92,24 @@ public class TestVersionedInterface {
     public void testReadDataCorrectlyAfterParcelableWithNewField() throws RemoteException {
       Foo inFoo = new Foo();
       Foo inoutFoo = new Foo();
+      inoutFoo.intDefault42 = 0;
       Foo outFoo = new Foo();
+      outFoo.intDefault42 = 0;
       int ret = service.ignoreParcelablesAndRepeatInt(inFoo, inoutFoo, outFoo, 43);
       assertThat(ret, is(43));
+      assertThat(inoutFoo.intDefault42, is(0));
+      assertThat(outFoo.intDefault42, is(0));
+    }
+
+    @Test
+    public void testDelegatorGetInterfaceVersion() throws RemoteException {
+      IFooInterface.Delegator delegator = new IFooInterface.Delegator(service);
+      assertThat(delegator.getInterfaceVersion(), is(1));
+    }
+
+    @Test
+    public void testDelegatorGetInterfaceHash() throws RemoteException {
+      IFooInterface.Delegator delegator = new IFooInterface.Delegator(service);
+      assertThat(delegator.getInterfaceHash(), is("9e7be1859820c59d9d55dd133e71a3687b5d2e5b"));
     }
 }

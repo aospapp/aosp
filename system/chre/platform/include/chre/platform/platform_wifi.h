@@ -69,12 +69,15 @@ class PlatformWifi : public PlatformWifiBase {
    */
   bool requestRanging(const struct chreWifiRangingParams *params);
 
+  bool requestNanRanging(const struct chreWifiNanRangingParams *params);
+
   /**
-   * Requests that the WiFi chipset perform an active wifi scan. Refer to the
-   * {@link chrePalWifiApi} struct which includes further documentation. Note
-   * that the implementation of this method may be supplied by the CHRE PAL but
-   * is not required to be. The semantics of this implementation, however, must
-   * be the same those of the requestScan PAL API.
+   * Requests that the WiFi chipset perform an active wifi scan. Refer to
+   * the
+   * {@link chrePalWifiApi} struct which includes further documentation.
+   * Note that the implementation of this method may be supplied by the CHRE
+   * PAL but is not required to be. The semantics of this implementation,
+   * however, must be the same those of the requestScan PAL API.
    *
    * @param params The configuration of the wifi scan.
    *
@@ -97,6 +100,31 @@ class PlatformWifi : public PlatformWifiBase {
    * @param event A pointer to an event to be released.
    */
   void releaseScanEvent(struct chreWifiScanEvent *event);
+
+  /**
+   * Requests the initiation of a NAN service subscription.
+   *
+   * @param config Service specific NAN subscription configuration.
+   * @return true if the request was successful, false otherwise.
+   */
+  bool nanSubscribe(const struct chreWifiNanSubscribeConfig *config);
+
+  /**
+   * Requests a subscription cancelation.
+   *
+   * @param subscriptionID The ID of the subscriber that's requesting a
+   *        cancelation.
+   * @return true if the cancelation request was successful.
+   */
+  bool nanSubscribeCancel(uint32_t subscriptionId);
+
+  /**
+   * Releases the memory associated with a NAN service discovery information
+   * structure, and passes memory ownership back to the PAL module.
+   *
+   * @param event The discovery event data to be released.
+   */
+  void releaseNanDiscoveryEvent(struct chreWifiNanDiscoveryEvent *event);
 };
 
 }  // namespace chre

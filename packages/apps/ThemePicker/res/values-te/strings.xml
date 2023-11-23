@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"రూపానికి తగిన చిహ్నాలు"</string>
     <string name="beta_title" msgid="8703819523760746458">"బీటా"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"యాప్ గ్రిడ్‌ను మార్చండి"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"వాల్‌పేపర్ రంగులు"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"వాల్‌పేపర్ రంగు"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"ప్రాథమిక రంగులు"</string>
+    <string name="color_changed" msgid="7029571720331641235">"రంగు మార్చబడింది"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"డైనమిక్"</string>
 </resources>

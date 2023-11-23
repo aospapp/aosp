@@ -23,13 +23,15 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-sdk android:minSdkVersion="23"/>
+    <uses-sdk android:minSdkVersion="31"
+        tools:overrideLibrary="com.android.tv.settings.library"/>
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BACKUP"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CLEAR_APP_USER_DATA"/>
     <uses-permission android:name="android.permission.DELETE_CACHE_FILES"/>
@@ -69,6 +71,8 @@
     <uses-permission android:name="com.google.android.assistant.READ_HOTWORD_STATE"/>
     <uses-permission android:name="com.google.android.assistant.WRITE_HOTWORD_STATE"/>
     <uses-permission android:name="android.permission.MANAGE_SLICE_PERMISSIONS"/>
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND"/>
+    <uses-permission android:name="android.permission.SET_UNRESTRICTED_KEEP_CLEAR_AREAS"/>
 
     <application
          android:name=".TvSettingsApplication"
@@ -159,7 +163,13 @@
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:theme="@style/Theme.SettingsConnectivity" />
+            android:permission="android.permission.NETWORK_SETTINGS"
+            android:theme="@style/Theme.SettingsConnectivity" >
+            <intent-filter>
+                <action android:name="com.android.settings.wifi.action.WIFI_CONNECTION_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".connectivity.EditProxySettingsActivity"
@@ -193,7 +203,12 @@
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:theme="@style/Theme.SettingsConnectivity" />
+            android:theme="@style/Theme.SettingsConnectivity">
+            <intent-filter>
+                <action android:name="com.android.settings.wifi.action.ADD_WIFI_NETWORK"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <!-- AccountSliceActivity is just here to facilitate the activity-alias below to eliminate
              the risk of repackaging. -->
@@ -311,6 +326,19 @@
         </activity>
 
         <activity
+            android:name=".device.apps.specialaccess.AllFilesAccessActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@style/TvSettingsActivityTheme">
+            <intent-filter android:priority="1">
+                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION"/>
+                <data android:scheme="package" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".device.apps.specialaccess.AppUsageAccessActivity"
             android:excludeFromRecents="true"
             android:exported="true"
@@ -402,7 +430,7 @@
         </activity>
 
         <activity android:name=".device.storage.ResetActivity"
-            android:theme="@style/GuidedStepFragmentThemeTwoPanel"
+            android:theme="@style/Theme.Reset"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true" />
         <activity
@@ -571,6 +599,18 @@
         </activity>
 
         <activity
+            android:name=".system.TextToSpeechActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@style/TvSettingsActivityTheme">
+            <intent-filter>
+                <action android:name="android.settings.TTS_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".system.development.DevelopmentActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
@@ -627,6 +667,19 @@
         </activity>
 
         <activity
+            android:name=".system.AppLanguageActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|locale"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@style/TvSettingsActivityTheme">
+            <intent-filter>
+                <action android:name="android.settings.APP_LOCALE_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="package" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".system.LanguageActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|locale"
             android:excludeFromRecents="true"
@@ -649,6 +702,7 @@
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="true"
+            android:permission="android.permission.BLUETOOTH_CONNECT"
             android:theme="@style/TvSettingsActivityTheme" />
 
         <activity
@@ -657,6 +711,7 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
+            android:permission="android.permission.BLUETOOTH_CONNECT"
             android:persistableMode="persistNever"
             android:showWhenLocked="true"
             android:taskAffinity=""
@@ -680,6 +735,7 @@
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="true"
+            android:permission="android.permission.BLUETOOTH_PRIVILEGED"
             android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.PAIRING_REQUEST"/>
@@ -738,7 +794,7 @@
 
         <activity
             android:name=".name.DeviceNameSettingsActivity"
-            android:theme="@style/GuidedStepFragmentThemeTwoPanel"
+            android:theme="@style/Theme.SettingsDeviceName"
             android:configChanges="keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="true">
@@ -781,11 +837,15 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".users.UserSwitchListenerService" />
+        <service
+            android:name=".users.UserSwitchListenerService"
+            android:exported="false"
+            android:singleUser="true" />
 
         <receiver
             android:name=".users.UserSwitchListenerService$BootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:singleUser="true">
             <intent-filter android:priority="1">
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -833,7 +893,13 @@
         <activity
             android:name=".device.storage.FormatActivity"
             android:excludeFromRecents="true"
-            android:exported="false" />
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="com.android.tv.settings.device.storage.FormatActivity.formatAsPublic"/>
+                <action android:name="com.android.tv.settings.device.storage.FormatActivity.formatAsPrivate"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".device.storage.MigrateStorageActivity"
@@ -999,14 +1065,6 @@
             </intent-filter>
         </provider>
 
-        <!-- Workaround to fix b/139637267 in Q. -->
-        <provider
-            android:name="androidx.lifecycle.ProcessLifecycleOwnerInitializer"
-            android:authorities="${applicationId}.lifecycle-tests"
-            android:exported="false"
-            android:multiprocess="true"
-            tools:replace="android:authorities" />
-
         <activity
             android:name=".deviceadmin.ProfileOwnerAdd"
             android:clearTaskOnLaunch="true"
@@ -1155,14 +1213,6 @@
         <service
             android:name=".accessories.BluetoothDevicesService"
             android:exported="false" />
-
-        <service
-            android:name=".service.SettingsService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.android.tv.settings.SETTINGS_SERVICE" />
-            </intent-filter>
-        </service>
         <provider
             android:name=".accessories.ConnectedDevicesSliceProvider"
             android:authorities="com.android.tv.settings.accessories.sliceprovider"
@@ -1209,6 +1259,24 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".device.apps.ConfirmationActivity"
+            android:theme="@style/GuidedStepFragmentThemeTwoPanel"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.ui.CONFIRM" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".GlobalKeyReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.GLOBAL_BUTTON"/>
+            </intent-filter>
+        </receiver>
 
     </application>
 

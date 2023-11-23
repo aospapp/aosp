@@ -40,8 +40,8 @@ java_library_static {
     ],
     srcs: ["java/**/*.java"],
     exclude_srcs: [
-        "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
+        "java/com/google/security/wycheproof/SpongyCastleTest.java",
     ],
     sdk_version: "current",
     libs: [
@@ -49,4 +49,41 @@ java_library_static {
         "conscrypt.module.platform.api",
         "junit",
     ],
+}
+
+java_library_static {
+    name: "wycheproof-keystore",
+    visibility: [
+        "//cts/tests/tests/keystore",
+    ],
+    srcs: ["keystore-cts/java/**/*.java"],
+    exclude_srcs: [
+        "keystore-cts/java/com/google/security/wycheproof/testcases/CipherInputStreamTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/CipherOutputStreamTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/EcdhTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/EcdsaTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonCipherTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonEcdhTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonMacTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonSignatureTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/MacTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaEncryptionTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaOaepTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaPssTest.java",
+        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaSignatureTest.java",
+    ],
+    java_resource_dirs: ["keystore-cts/testvectors"],
+    sdk_version: "current",
+    libs: [
+        "bouncycastle-bcpkix-unbundled",
+        "bouncycastle-unbundled",
+        "junit",
+        "wycheproof-gson",
+    ],
+}
+
+java_import {
+    name: "wycheproof-gson",
+    visibility: ["//cts/tests/tests/keystore"],
+    jars: ["keystore-cts/libs/gson-2.9.0.jar"],
 }

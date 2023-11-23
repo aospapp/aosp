@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"계정 추가"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"계정 및 로그인"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"계정 없음"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other">계정 <xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g>개</item>
-      <item quantity="one">계정 <xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g>개</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{계정 #개}other{계정 #개}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"미디어 서비스, 어시스턴트, 결제"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"네트워크 및 인터넷"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"소리"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"앱"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"기기 환경설정"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"리모컨 및 액세서리"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"연결된 블루투스 기기 없음"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other">액세서리 <xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g>개</item>
-      <item quantity="one">액세서리 <xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g>개</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"화면 및 소리"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"고객센터"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"개인정보 보호"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"초기화"</string>
     <string name="device_calibration" msgid="2907914144048739705">"보정"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"에너지 절약"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"기기"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"형식 선택"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"서라운드 사운드"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -134,7 +128,7 @@
     <string name="surround_sound_auto_summary" msgid="7073023654150720285">"선택하면 시스템에서 앱이 기기 체인에서 지원되는 모든 사운드 형식을 선택하도록 허용하게 됩니다. 앱에서 최고 품질이 아닌 형식을 선택할 수 있습니다."</string>
     <string name="surround_sound_none_title" msgid="1600095173519889326">"사용 안함: 서라운드 사운드를 사용하지 않음"</string>
     <string name="surround_sound_manual_title" msgid="4935447605070985537">"수동: 오디오 출력 장치의 지원 여부와 무관하게 이 기기에서 지원되는 각 형식을 선택적으로 사용 또는 사용 중지합니다"</string>
-    <string name="surround_sound_manual_summary" msgid="5155535847461070572">"선택하면 기기 체인에서 지원되며 재생 관련 문제를 일으키는 사운드 형식을 직접 사용 중지할 수 있습니다. 기기 체인에서 지원되지 않는 사운드 형식은 사용 설정됩니다. 경우에 따라 앱에서 최고 품질이 아닌 형식을 선택할 수 있습니다."</string>
+    <string name="surround_sound_manual_summary" msgid="5155535847461070572">"선택하면 재생 관련 문제를 일으키는 기기 체인에서 지원하는 사운드 형식을 직접 사용 중지할 수 있습니다. 기기 체인에서 지원하지 않는 사운드 형식을 사용 설정할 수 있습니다. 경우에 따라 앱에서 최고 품질이 아닌 형식을 선택할 가능성이 있습니다."</string>
     <string name="surround_sound_enable_unsupported_dialog_title" msgid="9155579373370356463">"지원되지 않는 사운드 형식을 사용 설정할까요?"</string>
     <string name="surround_sound_enable_unsupported_dialog_desc" msgid="1901648758103522741">"연결된 오디오 기기가 이 형식을 지원하지 않습니다. 이로 인해 기기에서 큰 잡음과 같은 예기치 않은 동작이 발생할 수 있습니다."</string>
     <string name="surround_sound_enable_unsupported_dialog_cancel" msgid="3499147437078761105">"취소"</string>
@@ -178,15 +172,23 @@
     <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
     <string name="hdr_format_dolby_vision" msgid="7367264615042999587">"Dolby Vision"</string>
     <string name="hdr_format_selection_auto_summary" msgid="7384637194191436727">"이 옵션을 선택하면 시스템에서 앱이 기기 체인에서 지원되는 HDR 형식을 선택하도록 허용하게 됩니다. 앱에서 최고 품질이 아닌 형식을 선택할 수 있습니다."</string>
-    <string name="hdr_format_selection_manual_summary" msgid="7886959642083639353">"이 옵션을 선택하면 기기 체인에서 지원되며 재생 관련 문제를 일으키는 HDR 형식을 수동으로 사용 중지할 수 있습니다. 기기 체인에서 지원되지 않는 HDR 형식은 강제로 사용 설정할 수 없습니다. 앱에서 최고 품질이 아닌 형식을 선택할 수 있습니다."</string>
+    <string name="hdr_format_selection_manual_summary" msgid="7886959642083639353">"선택하면 재생 관련 문제를 일으키는 기기 체인에서 지원하는 HDR 형식을 수동으로 사용 중지할 수 있습니다. 기기 체인에서 지원하지 않는 HDR 형식은 강제로 사용 설정할 수 없습니다. 앱에서 최고 품질이 아닌 형식을 선택할 가능성이 있습니다."</string>
     <string name="hdr_format_info" msgid="5652559220799426076">"형식 정보"</string>
     <string name="hdr_show_formats" msgid="171065892975445851">"형식 표시"</string>
     <string name="hdr_hide_formats" msgid="8561568998525727230">"형식 숨기기"</string>
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"사용 설정된 형식"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"사용 중지된 형식"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"사용 중지하려면 형식 선택을 수동 모드로 변경하세요."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"해상도"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"자동"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"해상도 변경됨"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"지금부터 %1$s 해상도를 사용하려면 확인을 선택하세요."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"취소"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"확인"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"캐시된 데이터를 지우시겠습니까?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"모든 앱의 캐시된 데이터가 지워집니다."</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"액세서리 추가"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"페어링 중..."</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"연결 중…"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"액세서리"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"리모컨"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"리모컨 설정"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"리모컨 버튼 설정"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"TV, 수신기 및 사운드바의 볼륨, 전원, 입력을 제어합니다."</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"연결"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s에 연결하세요"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"연결 해제"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"사용 불가"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"기기 관리자 앱"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"활성 앱 없음"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other">활성 상태의 앱 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
-      <item quantity="one">활성 상태의 앱 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"관리자, 암호화 정책 또는 사용자 인증 정보 저장소에 의해 사용 중지됨"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"관리 기기 정보"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"조직에서 관리하는 변경사항 및 설정"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"없음"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"설치된 앱"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"앱의 수는 추정치입니다. Play 스토어 이외의 출처에서 설치된 앱은 포함되지 않을 수도 있습니다."</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">앱 최소 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
-      <item quantity="one">앱 최소 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{앱 최소 #개}other{앱 최소 #개}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"위치 정보 액세스 권한"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"마이크 사용 권한"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"카메라 사용 권한"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"기본 앱"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other">앱 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
-      <item quantity="one">앱 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{앱 #개}other{앱 #개}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"기본 키보드"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g>(으)로 설정"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"연결 유지 VPN 사용 설정됨"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"신뢰할 수 있는 사용자 인증 정보"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"개인 프로필에서 신뢰할 수 있는 사용자 인증 정보"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"직장 프로필에서 신뢰할 수 있는 사용자 인증 정보"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">CA 인증서 최소 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
-      <item quantity="one">CA 인증서 최소 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{CA 인증서 #개}other{CA 인증서 #개}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"관리자는 기기를 잠그고 비밀번호를 재설정할 수 있음"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"관리자는 모든 기기 데이터를 삭제할 수 있습니다."</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"기기의 데이터가 모두 삭제되는 비밀번호 입력 시도 실패 횟수"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"직장 프로필 데이터가 삭제되는 비밀번호 입력 시도 실패 횟수"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g>회 시도</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g>회 시도</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{#회 시도}other{#회 시도}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"조직에서 관리하는 기기입니다."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"<xliff:g id="ORGANIZATION_NAME">%s</xliff:g>에서 관리하는 기기입니다."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"자세히 알아보기"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">카메라 앱</item>
-      <item quantity="one">카메라 앱</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{카메라 앱}other{카메라 앱}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"캘린더 앱"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"연락처 앱"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">이메일 클라이언트 앱</item>
-      <item quantity="one">이메일 클라이언트 앱</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{이메일 클라이언트 앱}other{이메일 클라이언트 앱}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"지도 앱"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">전화 앱</item>
-      <item quantity="one">전화 앱</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{전화 앱}other{전화 앱}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"브라우저 앱"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV OS 버전"</string>
     <string name="about_serial" msgid="3432319328808745459">"일련번호"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV OS 빌드"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">개발자가 되기까지 <xliff:g id="STEP_COUNT_1">%1$d</xliff:g>단계 남았습니다.</item>
-      <item quantity="one">개발자가 되기까지 <xliff:g id="STEP_COUNT_0">%1$d</xliff:g>단계 남았습니다.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{개발자 설정 완료까지 #단계 남았습니다.}other{개발자 설정 완료까지 #단계 남았습니다.}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"광고"</string>
     <string name="ads_description" msgid="8081069475265061074">"광고 ID 재설정 등의 광고 설정을 관리합니다."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"광고, 광고 ID 재설정 등의 광고 설정을 관리합니다."</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"추가 시스템 업데이트"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"네트워크가 모니터링될 수 있음"</string>
     <string name="done_button" msgid="616159688526431451">"완료"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">인증서 신뢰 또는 삭제</item>
-      <item quantity="one">인증서 신뢰 또는 삭제</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>에서 기기에 CA 인증서를 설치했으며, 인증서를 통해 관리자가 이메일, 앱, 보안 웹사이트를 포함한 내 기기의 네트워크 활동을 모니터링할 수 있습니다.\n\n이 인증서에 관해 자세히 알아보려면 관리자에게 문의하세요.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>에서 내 기기에 CA 인증서를 설치했으며, 인증서를 통해 관리자가 이메일, 앱, 보안 웹사이트를 포함한 내 기기의 네트워크 활동을 모니터링할 수 있습니다.\n\n이 인증서에 관해 자세히 알아보려면 관리자에게 문의하세요.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>에서 내 직장 프로필에 CA 인증서를 설치했으며, 인증서를 통해 관리자가 이메일, 앱, 보안 웹사이트를 포함한 내 직장 프로필의 네트워크 활동을 모니터링할 수 있습니다.\n\n이 인증서에 관해 자세히 알아보려면 관리자에게 문의하세요.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>에서 내 직장 프로필에 CA 인증서를 설치했으며, 인증서를 통해 관리자가 이메일, 앱, 보안 웹사이트를 포함한 내 직장 프로필의 네트워크 활동을 모니터링할 수 있습니다.\n\n이 인증서에 관해 자세히 알아보려면 관리자에게 문의하세요.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"기기에 신뢰할 수 있는 자격증명이 설치되어 있기 때문에\n제3자가 이메일, 앱, 보안 웹사이트를 포함한 네트워크 활동을 모니터링 할 수 있습니다.\n"</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">인증서 확인</item>
-      <item quantity="one">인증서 확인</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{인증서 신뢰 또는 삭제}other{인증서 신뢰 또는 삭제}}"</string>
     <string name="device_status" msgid="8266002761193692207">"상태"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"네트워크, 일련번호 및 기타 정보"</string>
     <string name="manual" msgid="5683935624321864999">"수동"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"연결"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"네트워크 저장 안함"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"저장된 비밀번호를 비롯하여 이 네트워크에 연결하는 데 사용된 정보가 삭제됩니다."</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"Wi-Fi에 연결하려면 휴대전화에서 QR 코드를 스캔하고 안내를 따르세요."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" 휴대전화에서 QR 코드를 스캔하여 Wi-Fi에 연결하고 안내에 따르세요.\n \n "<b>"Android 휴대전화"</b>"에서 설정 -&gt; 네트워크 및 인터넷 -&gt; Wi-Fi -&gt; Wi-Fi 선택 -&gt; 고급 -&gt; 기기 추가로 이동한 다음 QR 코드를 스캔하세요."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"취소하려면 뒤로 버튼을 누르세요."</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"확인"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"계속"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"기기 저장용량"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"이동식 저장소"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"재설정"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"여유 공간 확보"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"캐시된 데이터 지우기"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"<xliff:g id="SPACE">%1$s</xliff:g> 확보"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"용량을 차지하는 임시 파일을 지웁니다. 앱 환경설정이나 오프라인 동영상 등의 저장된 데이터는 영향을 받지 않으며 다시 앱에 로그인하지 않아도 됩니다"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"캐시된 데이터를 지우시겠습니까?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"모든 앱의 캐시된 데이터가 지워집니다"</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"앱 제거"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g>이(가) 마운트되었습니다."</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"<xliff:g id="NAME">%1$s</xliff:g>을(를) 마운트하지 못했습니다."</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB 저장소 다시 연결됨"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"마이크"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"마이크 액세스"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"앱의 마이크 액세스 권한"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"마이크 액세스 차단됨"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"차단을 해제하려면 기기에서 마이크에 대한 개인 정보 보호 스위치를 켜짐 위치에 놓아 마이크 액세스를 허용합니다."</string>
     <string name="camera" msgid="1226671478936288283">"카메라"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"카메라 액세스"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"앱의 카메라 액세스 권한"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"카메라 액세스 차단됨"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"차단을 해제하려면 기기에서 카메라에 대한 개인 정보 보호 스위치를 켜짐 위치에 놓아 카메라 액세스를 허용합니다."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"마이크 액세스: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"옵션을 사용 설정하면 권한을 부여받은 모든 앱 및 서비스가 기기의 마이크에 모두 액세스할 수 있습니다.\n\n맞춤 프로토콜이 지정된 오디오 주변기기는 설정의 영향을 받지 않습니다."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"카메라 액세스: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"청록색"</string>
     <string name="color_yellow" msgid="3519470952904560404">"노란색"</string>
     <string name="color_magenta" msgid="2377854703399624607">"자홍색"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"오디오 설명"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"지원되는 영화 및 TV 프로그램에서 상황에 대한 설명을 음성으로 들으세요."</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"사용"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"설정"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g> 사용"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"모니터링"</string>
     <string name="system_apps" msgid="8481888654606868074">"앱"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"켜진 상태로 유지"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"화면이 절전 모드로 변경되지 않습니다."</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP 확인"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI 최적화"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"지금 다시 시작하시겠습니까?"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"TV로 HDMI 기기 종료"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"TV 자동 켜기"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"HDMI 기기로 TV 전원 켜기"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">연결된 입력</item>
-      <item quantity="one">연결된 입력</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">대기 입력</item>
-      <item quantity="one">대기 입력</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">연결되지 않은 입력</item>
-      <item quantity="one">연결되지 않은 입력</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{연결된 입력}other{연결된 입력}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{대기 입력}other{대기 입력}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{연결되지 않은 입력}other{연결되지 않은 입력}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"내 계정의 앱 및 기타 콘텐츠에 대한 액세스 제한"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"제한된 프로필"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g>에 의해 제어됨"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"제한된 프로필 만들기"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"설정"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"허용된 앱"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d개 앱 허용됨</item>
-      <item quantity="one">1개 앱 허용됨</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"허용됨"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"허용되지 않음"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"제한 맞춤설정"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"제3자 출처"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"권한"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"사용할 수 없는 애플리케이션"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"사용하지 않는 앱"</string>
     <string name="settings_ok" msgid="5950888975075541964">"확인"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"확인"</string>
     <string name="settings_cancel" msgid="576094334743686152">"취소"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"이 권한은 앱이 시스템 설정을 수정하도록 허용합니다."</string>
     <string name="write_settings_on" msgid="71675710746513956">"예"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"아니요"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"모든 파일에 액세스"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"모든 파일 관리 허용"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"앱이 이 기기 또는 연결된 모든 저장장치에 있는 파일을 모두 읽고 수정하고 삭제하도록 허용합니다. 권한을 부여하면 앱이 나에게 명시적으로 알리지 않고도 파일에 액세스할 수 있습니다."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"PIP 모드"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"PIP 모드 허용"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"PIP 모드를 지원하는 앱이 설치되지 않았습니다."</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"앱이 열려 있을 때나 사용자가 앱에서 나갔을 때 앱에서 PIP 창을 표시하도록 허용합니다(예: 동영상 시청을 계속하기 위해). 이 창은 사용 중인 다른 앱 위에 표시됩니다."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"앱에서 알람을 설정하고 시간 기반 작업을 예약할 수 있도록 허용합니다. 이렇게 하면 백그라운드에서 앱 실행이 허용되어 전원 사용량이 증가할 수 있습니다.\n\n이 권한을 사용 중지하면 앱에서 예약한 기존의 알람 및 시간 기반 일정이 작동하지 않습니다."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"화면 켜기"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"화면 켜기 허용"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"앱에서 화면을 켜도록 허용합니다. 권한이 부여된 경우 앱에서 명시적 인텐트 없이 언제든지 화면을 켤 수 있습니다."</string>
     <string name="special_access" msgid="21806055758289916">"특수 앱 액세스"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"오디오"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"데이터 절약 모드"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"모바일 데이터를 절약하기 위해 동영상 품질을 자동 조정합니다."</string>
     <string name="title_data_alert" msgid="8262081890052682475">"데이터 사용량 및 알림"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Wi-Fi, 이더넷 또는 휴대전화의 핫스팟으로 인터넷에 연결할 수 있습니다. 도움이 필요한 경우 "<b>"g.co/network"</b>"를 참조하세요."</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Wi-Fi, 이더넷 또는 휴대전화의 핫스팟으로 인터넷에 연결할 수 있습니다"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"허용되지 않는 작업"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"볼륨을 변경할 수 없음"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"전원 및 에너지"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"전원이 켜질 때 동작"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"초기화"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"이더넷 페어링 코드"</string>
 </resources>

@@ -15,6 +15,10 @@
 -->
 
 <resources>
+    <!-- 4355-->
+    <string-array name="etws_test_alerts_range_strings" translatable="false">
+        <item>0x1103:rat=gsm, emergency=true, debug_build=true</item>
+    </string-array>
     <string-array name="additional_cbs_channels_strings" translatable="false">
         <item>0xA800:type=etws_earthquake, emergency=true, scope=carrier</item>
         <item>0xAFEE:type=etws_tsunami, emergency=true, scope=carrier</item>

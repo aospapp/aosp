@@ -22,6 +22,6 @@ import android.hardware.security.keymint.SecurityLevel;
 /** @hide */
 @VintfStability
 parcelable Authorization {
-    SecurityLevel securityLevel;
+    SecurityLevel securityLevel = SecurityLevel.SOFTWARE;
     KeyParameter keyParameter;
 }

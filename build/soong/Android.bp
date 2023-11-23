@@ -46,28 +46,11 @@ cc_defaults {
 // C static libraries extracted from the gcc toolchain
 //
 
-toolchain_library {
-    name: "libwinpthread",
-    host_supported: true,
-    enabled: false,
-    target: {
-        windows: {
-            enabled: true,
-        },
-        windows_x86: {
-            src: "prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/lib32/libwinpthread.a",
-        },
-        windows_x86_64: {
-            src: "prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/lib/libwinpthread.a",
-        },
-    },
-    notice: ":mingw-libwinpthread-notice",
-}
-
 kernel_headers {
     name: "device_kernel_headers",
     vendor: true,
     recovery_available: true,
+    min_sdk_version: "apex_inherit",
 }
 
 cc_genrule {
@@ -77,6 +60,9 @@ cc_genrule {
     target: {
         linux_bionic: {
             enabled: true,
+        },
+        linux_musl: {
+            enabled: false,
         },
         linux_glibc: {
             enabled: false,
@@ -92,12 +78,15 @@ cc_genrule {
 }
 
 cc_genrule {
-    name: "host_bionic_linker_flags",
+    name: "host_bionic_linker_script",
     host_supported: true,
     device_supported: false,
     target: {
         linux_bionic: {
             enabled: true,
+        },
+        linux_musl: {
+            enabled: false,
         },
         linux_glibc: {
             enabled: false,
@@ -107,12 +96,37 @@ cc_genrule {
         },
     },
     tools: ["extract_linker"],
-    cmd: "$(location) -f $(out) $(in)",
+    cmd: "$(location) -T $(out) $(in)",
     srcs: [":linker"],
-    out: ["linker.flags"],
+    out: ["linker.script"],
 }
 
 // Instantiate the dex_bootjars singleton module.
 dex_bootjars {
     name: "dex_bootjars",
+}
+
+// Pseudo-test that's run on checkbuilds to ensure that get_clang_version can
+// parse cc/config/global.go.
+genrule {
+    name: "get_clang_version_test",
+    cmd: "$(location get_clang_version) > $(out)",
+    tools: ["get_clang_version"],
+    srcs: ["cc/config/global.go"],
+    out: ["clang-prebuilts-version.txt"],
+}
+
+dexpreopt_systemserver_check {
+    name: "dexpreopt_systemserver_check",
+}
+
+// buildinfo.prop contains common properties for system/build.prop, like ro.build.version.*
+buildinfo_prop {
+    name: "buildinfo.prop",
+
+    // not installable because this will be included to system/build.prop
+    installable: false,
+
+    // Currently, only microdroid can refer to buildinfo.prop
+    visibility: ["//packages/modules/Virtualization/microdroid"],
 }

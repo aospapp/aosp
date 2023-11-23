@@ -72,71 +72,81 @@ h1, h2, h3 {
 
 </style>
 
-<h1><a href="games_v1.html">Google Play Game Services API</a> . <a href="games_v1.leaderboards.html">leaderboards</a></h1>
+<h1><a href="games_v1.html">Google Play Game Services</a> . <a href="games_v1.leaderboards.html">leaderboards</a></h1>
 <h2>Instance Methods</h2>
 <p class="toc_element">
-  <code><a href="#get">get(leaderboardId, language=None)</a></code></p>
+  <code><a href="#close">close()</a></code></p>
+<p class="firstline">Close httplib2 connections.</p>
+<p class="toc_element">
+  <code><a href="#get">get(leaderboardId, language=None, x__xgafv=None)</a></code></p>
 <p class="firstline">Retrieves the metadata of the leaderboard with the given ID.</p>
 <p class="toc_element">
-  <code><a href="#list">list(pageToken=None, language=None, maxResults=None)</a></code></p>
+  <code><a href="#list">list(language=None, maxResults=None, pageToken=None, x__xgafv=None)</a></code></p>
 <p class="firstline">Lists all the leaderboard metadata for your application.</p>
 <p class="toc_element">
   <code><a href="#list_next">list_next(previous_request, previous_response)</a></code></p>
 <p class="firstline">Retrieves the next page of results.</p>
 <h3>Method Details</h3>
 <div class="method">
-    <code class="details" id="get">get(leaderboardId, language=None)</code>
+    <code class="details" id="close">close()</code>
+  <pre>Close httplib2 connections.</pre>
+</div>
+
+<div class="method">
+    <code class="details" id="get">get(leaderboardId, language=None, x__xgafv=None)</code>
   <pre>Retrieves the metadata of the leaderboard with the given ID.
 
 Args:
   leaderboardId: string, The ID of the leaderboard. (required)
   language: string, The preferred language to use for strings returned by this method.
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # This is a JSON template for the Leaderboard resource.
-    "kind": "games#leaderboard", # Uniquely identifies the type of this resource. Value is always the fixed string games#leaderboard.
-    "isIconUrlDefault": True or False, # Indicates whether the icon image being returned is a default image, or is game-provided.
-    "name": "A String", # The name of the leaderboard.
-    "id": "A String", # The leaderboard ID.
-    "iconUrl": "A String", # The icon for the leaderboard.
-    "order": "A String", # How scores are ordered.
-        # Possible values are:
-        # - "LARGER_IS_BETTER" - Larger values are better; scores are sorted in descending order.
-        # - "SMALLER_IS_BETTER" - Smaller values are better; scores are sorted in ascending order.
-  }</pre>
+    { # The Leaderboard resource.
+  &quot;iconUrl&quot;: &quot;A String&quot;, # The icon for the leaderboard.
+  &quot;id&quot;: &quot;A String&quot;, # The leaderboard ID.
+  &quot;isIconUrlDefault&quot;: True or False, # Indicates whether the icon image being returned is a default image, or is game-provided.
+  &quot;kind&quot;: &quot;A String&quot;, # Uniquely identifies the type of this resource. Value is always the fixed string `games#leaderboard`.
+  &quot;name&quot;: &quot;A String&quot;, # The name of the leaderboard.
+  &quot;order&quot;: &quot;A String&quot;, # How scores are ordered.
+}</pre>
 </div>
 
 <div class="method">
-    <code class="details" id="list">list(pageToken=None, language=None, maxResults=None)</code>
+    <code class="details" id="list">list(language=None, maxResults=None, pageToken=None, x__xgafv=None)</code>
   <pre>Lists all the leaderboard metadata for your application.
 
 Args:
-  pageToken: string, The token returned by the previous request.
   language: string, The preferred language to use for strings returned by this method.
-  maxResults: integer, The maximum number of leaderboards to return in the response. For any response, the actual number of leaderboards returned may be less than the specified maxResults.
+  maxResults: integer, The maximum number of leaderboards to return in the response. For any response, the actual number of leaderboards returned may be less than the specified `maxResults`.
+  pageToken: string, The token returned by the previous request.
+  x__xgafv: string, V1 error format.
+    Allowed values
+      1 - v1 error format
+      2 - v2 error format
 
 Returns:
   An object of the form:
 
-    { # This is a JSON template for a list of leaderboard objects.
-    "nextPageToken": "A String", # Token corresponding to the next page of results.
-    "items": [ # The leaderboards.
-      { # This is a JSON template for the Leaderboard resource.
-        "kind": "games#leaderboard", # Uniquely identifies the type of this resource. Value is always the fixed string games#leaderboard.
-        "isIconUrlDefault": True or False, # Indicates whether the icon image being returned is a default image, or is game-provided.
-        "name": "A String", # The name of the leaderboard.
-        "id": "A String", # The leaderboard ID.
-        "iconUrl": "A String", # The icon for the leaderboard.
-        "order": "A String", # How scores are ordered.
-            # Possible values are:
-            # - "LARGER_IS_BETTER" - Larger values are better; scores are sorted in descending order.
-            # - "SMALLER_IS_BETTER" - Smaller values are better; scores are sorted in ascending order.
-      },
-    ],
-    "kind": "games#leaderboardListResponse", # Uniquely identifies the type of this resource. Value is always the fixed string games#leaderboardListResponse.
-  }</pre>
+    { # A list of leaderboard objects.
+  &quot;items&quot;: [ # The leaderboards.
+    { # The Leaderboard resource.
+      &quot;iconUrl&quot;: &quot;A String&quot;, # The icon for the leaderboard.
+      &quot;id&quot;: &quot;A String&quot;, # The leaderboard ID.
+      &quot;isIconUrlDefault&quot;: True or False, # Indicates whether the icon image being returned is a default image, or is game-provided.
+      &quot;kind&quot;: &quot;A String&quot;, # Uniquely identifies the type of this resource. Value is always the fixed string `games#leaderboard`.
+      &quot;name&quot;: &quot;A String&quot;, # The name of the leaderboard.
+      &quot;order&quot;: &quot;A String&quot;, # How scores are ordered.
+    },
+  ],
+  &quot;kind&quot;: &quot;A String&quot;, # Uniquely identifies the type of this resource. Value is always the fixed string `games#leaderboardListResponse`.
+  &quot;nextPageToken&quot;: &quot;A String&quot;, # Token corresponding to the next page of results.
+}</pre>
 </div>
 
 <div class="method">
@@ -148,7 +158,7 @@ Args:
   previous_response: The response from the request for the previous page. (required)
 
 Returns:
-  A request object that you can call 'execute()' on to request the next
+  A request object that you can call &#x27;execute()&#x27; on to request the next
   page. Returns None if there are no more items in the collection.
     </pre>
 </div>

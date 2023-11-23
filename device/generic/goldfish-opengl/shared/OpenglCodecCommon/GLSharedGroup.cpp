@@ -278,7 +278,7 @@ GLSharedGroup::~GLSharedGroup() {
 
 bool GLSharedGroup::isShaderOrProgramObject(GLuint obj) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     return (findObjectOrDefault(m_shaders, obj) ||
             findObjectOrDefault(m_programs, obj) ||
@@ -287,7 +287,7 @@ bool GLSharedGroup::isShaderOrProgramObject(GLuint obj) {
 
 BufferData* GLSharedGroup::getBufferData(GLuint bufferId) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     return findObjectOrDefault(m_buffers, bufferId);
 }
@@ -306,14 +306,14 @@ SamplerInfo* GLSharedGroup::getSamplerInfo() {
 
 void GLSharedGroup::addBufferData(GLuint bufferId, GLsizeiptr size, const void* data) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     m_buffers[bufferId] = new BufferData(size, data);
 }
 
 void GLSharedGroup::updateBufferData(GLuint bufferId, GLsizeiptr size, const void* data) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     BufferData* currentBuffer = findObjectOrDefault(m_buffers, bufferId);
 
@@ -324,7 +324,7 @@ void GLSharedGroup::updateBufferData(GLuint bufferId, GLsizeiptr size, const voi
 
 void GLSharedGroup::setBufferUsage(GLuint bufferId, GLenum usage) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     BufferData* data = findObjectOrDefault(m_buffers, bufferId);
 
@@ -357,7 +357,7 @@ bool GLSharedGroup::isBufferMapped(GLuint bufferId) {
 
 GLenum GLSharedGroup::subUpdateBufferData(GLuint bufferId, GLintptr offset, GLsizeiptr size, const void* data) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     BufferData* buf = findObjectOrDefault(m_buffers, bufferId);
 
@@ -373,7 +373,7 @@ GLenum GLSharedGroup::subUpdateBufferData(GLuint bufferId, GLintptr offset, GLsi
 
 void GLSharedGroup::deleteBufferData(GLuint bufferId) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     BufferData* buf = findObjectOrDefault(m_buffers, bufferId);
     if (buf) {
@@ -384,7 +384,7 @@ void GLSharedGroup::deleteBufferData(GLuint bufferId) {
 
 void GLSharedGroup::addProgramData(GLuint program) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
     if (pData) {
@@ -396,7 +396,7 @@ void GLSharedGroup::addProgramData(GLuint program) {
 
 void GLSharedGroup::initProgramData(GLuint program, GLuint numIndexes, GLuint numAttributes) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
     if (pData) {
@@ -405,7 +405,7 @@ void GLSharedGroup::initProgramData(GLuint program, GLuint numIndexes, GLuint nu
 }
 
 void GLSharedGroup::refProgramData(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData = findObjectOrDefault(m_programs, program);
     if (!pData) return;
     pData->incRef();
@@ -414,7 +414,7 @@ void GLSharedGroup::refProgramData(GLuint program) {
 void GLSharedGroup::onUseProgram(GLuint previous, GLuint next) {
     if (previous == next) return;
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     if (previous) {
         deleteProgramDataLocked(previous);
@@ -427,7 +427,7 @@ void GLSharedGroup::onUseProgram(GLuint previous, GLuint next) {
 
 bool GLSharedGroup::isProgramInitialized(GLuint program) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
 
@@ -450,7 +450,7 @@ bool GLSharedGroup::isProgramInitialized(GLuint program) {
 }
 
 void GLSharedGroup::deleteProgramData(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     deleteProgramDataLocked(program);
 }
 
@@ -483,7 +483,7 @@ void GLSharedGroup::deleteProgramDataLocked(GLuint program) {
 
 // No such thing for separable shader programs.
 bool GLSharedGroup::attachShader(GLuint program, GLuint shader) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
     ShaderData* sData = findObjectOrDefault(m_shaders, shader);
@@ -501,7 +501,7 @@ bool GLSharedGroup::attachShader(GLuint program, GLuint shader) {
 }
 
 bool GLSharedGroup::detachShader(GLuint program, GLuint shader) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     return detachShaderLocked(program, shader);
 }
 
@@ -526,7 +526,7 @@ void GLSharedGroup::setProgramIndexInfo(
     GLuint program, GLuint index, GLint base,
     GLint size, GLenum type, const char* name) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
 
@@ -543,7 +543,7 @@ void GLSharedGroup::setProgramIndexInfo(
                 ShaderData::StringList::iterator nameEnd =
                     shader->samplerExternalNames.end();
                 while (nameIter != nameEnd) {
-                    if (*nameIter == name) {
+                    if (*nameIter == name || *nameIter + "[0]" == name) {
                         pData->setIndexFlags(
                             index,
                             ProgramData::INDEX_FLAG_SAMPLER_EXTERNAL);
@@ -560,7 +560,7 @@ void GLSharedGroup::setProgramAttribInfo(
     GLuint program, GLuint index, GLint attribLoc,
     GLint size, GLenum type, const char* name) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = getProgramDataLocked(program);
 
@@ -571,7 +571,7 @@ void GLSharedGroup::setProgramAttribInfo(
 
 GLenum GLSharedGroup::getProgramUniformType(GLuint program, GLint location) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
     GLenum type = 0;
@@ -596,7 +596,7 @@ GLenum GLSharedGroup::getProgramUniformType(GLuint program, GLint location) {
 
 bool GLSharedGroup::isProgram(GLuint program) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
 
@@ -614,9 +614,9 @@ bool GLSharedGroup::isProgram(GLuint program) {
 }
 
 GLint GLSharedGroup::getNextSamplerUniform(
-    GLuint program, GLint index, GLint* val, GLenum* target) const {
+    GLuint program, GLint index, GLint* val, GLenum* target) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData = findObjectOrDefault(m_programs, program);
 
@@ -638,7 +638,7 @@ GLint GLSharedGroup::getNextSamplerUniform(
 bool GLSharedGroup::setSamplerUniform(
     GLuint program, GLint appLoc, GLint val, GLenum* target) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData =
         findObjectOrDefault(m_programs, program);
@@ -659,7 +659,7 @@ bool GLSharedGroup::setSamplerUniform(
 bool GLSharedGroup::isProgramUniformLocationValid(GLuint program, GLint location) {
     if (location < 0) return false;
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData =
         findObjectOrDefault(m_programs, program);
@@ -671,7 +671,7 @@ bool GLSharedGroup::isProgramUniformLocationValid(GLuint program, GLint location
 
 bool GLSharedGroup::isShader(GLuint shader) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ShaderData* pData = findObjectOrDefault(m_shaders, shader);
 
@@ -680,7 +680,7 @@ bool GLSharedGroup::isShader(GLuint shader) {
 
 bool GLSharedGroup::addShaderData(GLuint shader, GLenum shaderType) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ShaderData* data = new ShaderData;
 
@@ -695,14 +695,14 @@ bool GLSharedGroup::addShaderData(GLuint shader, GLenum shaderType) {
 
 ShaderData* GLSharedGroup::getShaderData(GLuint shader) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     return findObjectOrDefault(m_shaders, shader);
 }
 
 void GLSharedGroup::unrefShaderData(GLuint shader) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     unrefShaderDataLocked(shader);
 }
@@ -740,7 +740,7 @@ ProgramData* GLSharedGroup::getProgramDataLocked(GLuint program) {
 
 uint32_t GLSharedGroup::addNewShaderProgramData() {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ShaderProgramData* data = new ShaderProgramData;
     uint32_t currId = m_shaderProgramId;
@@ -753,14 +753,14 @@ uint32_t GLSharedGroup::addNewShaderProgramData() {
 void GLSharedGroup::associateGLShaderProgram(
     GLuint shaderProgramName, uint32_t shaderProgramId) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     m_shaderProgramIdMap[shaderProgramName] = shaderProgramId;
 }
 
 ShaderProgramData* GLSharedGroup::getShaderProgramDataById(uint32_t id) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ShaderProgramData* res = findObjectOrDefault(m_shaderPrograms, id);
 
@@ -770,7 +770,7 @@ ShaderProgramData* GLSharedGroup::getShaderProgramDataById(uint32_t id) {
 ShaderProgramData* GLSharedGroup::getShaderProgramData(
     GLuint shaderProgramName) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     return findObjectOrDefault(m_shaderPrograms,
                                m_shaderProgramIdMap[shaderProgramName]);
@@ -778,7 +778,7 @@ ShaderProgramData* GLSharedGroup::getShaderProgramData(
 
 void GLSharedGroup::deleteShaderProgramDataById(uint32_t id) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ShaderProgramData* data =
         findObjectOrDefault(m_shaderPrograms, id);
@@ -791,7 +791,7 @@ void GLSharedGroup::deleteShaderProgramDataById(uint32_t id) {
 
 void GLSharedGroup::deleteShaderProgramData(GLuint shaderProgramName) {
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     uint32_t id = m_shaderProgramIdMap[shaderProgramName];
     ShaderProgramData* data = findObjectOrDefault(m_shaderPrograms, id);
@@ -838,7 +838,7 @@ void GLSharedGroup::setShaderProgramIndexInfo(
 UniformValidationInfo GLSharedGroup::getUniformValidationInfo(GLuint program) {
     UniformValidationInfo res;
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData =
         getProgramDataLocked(program);
@@ -852,7 +852,7 @@ UniformValidationInfo GLSharedGroup::getUniformValidationInfo(GLuint program) {
 AttribValidationInfo GLSharedGroup::getAttribValidationInfo(GLuint program) {
     AttribValidationInfo res;
 
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
 
     ProgramData* pData =
         getProgramDataLocked(program);
@@ -864,7 +864,7 @@ AttribValidationInfo GLSharedGroup::getAttribValidationInfo(GLuint program) {
 }
 
 void GLSharedGroup::setProgramLinkStatus(GLuint program, GLint linkStatus) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData =
         getProgramDataLocked(program);
     if (!pData) return;
@@ -872,14 +872,14 @@ void GLSharedGroup::setProgramLinkStatus(GLuint program, GLint linkStatus) {
 }
 
 GLint GLSharedGroup::getProgramLinkStatus(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData = getProgramDataLocked(program);
     if (!pData) return 0;
     return pData->getLinkStatus();
 }
 
 void GLSharedGroup::setActiveUniformBlockCountForProgram(GLuint program, GLint count) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData =
         getProgramDataLocked(program);
 
@@ -889,7 +889,7 @@ void GLSharedGroup::setActiveUniformBlockCountForProgram(GLuint program, GLint c
 }
 
 GLint GLSharedGroup::getActiveUniformBlockCount(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData =
         getProgramDataLocked(program);
 
@@ -899,21 +899,21 @@ GLint GLSharedGroup::getActiveUniformBlockCount(GLuint program) {
 }
 
 void GLSharedGroup::setTransformFeedbackVaryingsCountForProgram(GLuint program, GLint count) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData = getProgramDataLocked(program);
     if (!pData) return;
     pData->setTransformFeedbackVaryingsCount(count);
 }
 
 GLint GLSharedGroup::getTransformFeedbackVaryingsCountForProgram(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData = getProgramDataLocked(program);
     if (!pData) return 0;
     return pData->getTransformFeedbackVaryingsCount();
 }
 
 int GLSharedGroup::getActiveUniformsCountForProgram(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData =
         getProgramDataLocked(program);
 
@@ -923,7 +923,7 @@ int GLSharedGroup::getActiveUniformsCountForProgram(GLuint program) {
 }
 
 int GLSharedGroup::getActiveAttributesCountForProgram(GLuint program) {
-    android::AutoMutex _lock(m_lock);
+    AutoLock<Lock> _lock(m_lock);
     ProgramData* pData =
         getProgramDataLocked(program);
 

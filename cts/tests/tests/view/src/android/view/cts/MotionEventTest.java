@@ -169,10 +169,10 @@ public class MotionEventTest {
     public void testObtainFromPropertyArrays() {
         PointerCoordsBuilder coordsBuilder0 =
                 withCoords(X_3F, Y_4F).withPressure(PRESSURE_1F).withSize(SIZE_1F).
-                        withTool(1.2f, 1.4f);
+                        withTool(1.2f, 1.4f).withGenericAxis1(2.6f);
         PointerCoordsBuilder coordsBuilder1 =
                 withCoords(X_3F + 1.0f, Y_4F - 2.0f).withPressure(PRESSURE_1F + 0.2f).
-                        withSize(SIZE_1F + 0.5f).withTouch(2.2f, 0.6f);
+                        withSize(SIZE_1F + 0.5f).withTouch(2.2f, 0.6f).withGenericAxis1(2.6f);
 
         PointerPropertiesBuilder propertiesBuilder0 =
                 withProperties(0, MotionEvent.TOOL_TYPE_FINGER);
@@ -451,9 +451,11 @@ public class MotionEventTest {
     @Test
     public void testGetCurrentDataWithTwoPointers() {
         PointerCoordsBuilder coordsBuilder0 =
-                withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f);
+                withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f,
+                        1.4f).withGenericAxis1(4.4f);
         PointerCoordsBuilder coordsBuilder1 =
-                withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTouch(2.2f, 0.6f);
+                withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTouch(2.2f,
+                        0.6f).withGenericAxis1(6.6f);
 
         PointerPropertiesBuilder propertiesBuilder0 =
                 withProperties(0, MotionEvent.TOOL_TYPE_FINGER);
@@ -484,9 +486,11 @@ public class MotionEventTest {
     @Test
     public void testGetRawCoordsWithTwoPointers() {
         PointerCoordsBuilder coordsBuilder0 =
-                withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f);
+                withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f,
+                        1.4f).withGenericAxis1(4.4f);
         PointerCoordsBuilder coordsBuilder1 =
-                withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTouch(2.2f, 0.6f);
+                withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTouch(2.2f,
+                        0.6f).withGenericAxis1(6.6f);
 
         PointerPropertiesBuilder propertiesBuilder0 =
                 withProperties(0, MotionEvent.TOOL_TYPE_FINGER);
@@ -518,10 +522,10 @@ public class MotionEventTest {
         // PHASE 1 - construct the initial data for the event
         PointerCoordsBuilder coordsBuilderInitial0 =
                 withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f).
-                        withTouch(0.7f, 0.6f).withOrientation(2.0f);
+                        withTouch(0.7f, 0.6f).withOrientation(2.0f).withGenericAxis1(4.4f);
         PointerCoordsBuilder coordsBuilderInitial1 =
                 withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTool(1.3f, 1.7f).
-                        withTouch(2.7f, 3.6f).withOrientation(1.0f);
+                        withTouch(2.7f, 3.6f).withOrientation(1.0f).withGenericAxis1(5.4f);
 
         PointerPropertiesBuilder propertiesBuilder0 =
                 withProperties(0, MotionEvent.TOOL_TYPE_FINGER);
@@ -547,10 +551,10 @@ public class MotionEventTest {
         // PHASE 2 - add a new batch of data to our event
         PointerCoordsBuilder coordsBuilderNext0 =
                 withCoords(15.0f, 25.0f).withPressure(1.6f).withSize(2.2f).withTool(1.2f, 1.4f).
-                        withTouch(1.0f, 0.9f).withOrientation(2.2f);
+                        withTouch(1.0f, 0.9f).withOrientation(2.2f).withGenericAxis1(7.4f);
         PointerCoordsBuilder coordsBuilderNext1 =
                 withCoords(35.0f, 45.0f).withPressure(1.8f).withSize(3.2f).withTool(1.2f, 1.4f).
-                        withTouch(0.7f, 0.6f).withOrientation(2.9f);
+                        withTouch(0.7f, 0.6f).withOrientation(2.9f).withGenericAxis1(8.4f);
 
         mMotionEventDynamic.addBatch(mEventTime + 10,
                 new PointerCoords[] { coordsBuilderNext0.build(), coordsBuilderNext1.build() }, 0);
@@ -576,10 +580,10 @@ public class MotionEventTest {
         // PHASE 3 - add one more new batch of data to our event
         PointerCoordsBuilder coordsBuilderLast0 =
                 withCoords(18.0f, 28.0f).withPressure(1.1f).withSize(2.9f).withTool(1.5f, 1.9f).
-                        withTouch(1.2f, 5.0f).withOrientation(3.2f);
+                        withTouch(1.2f, 5.0f).withOrientation(3.1f).withGenericAxis1(1.4f);
         PointerCoordsBuilder coordsBuilderLast1 =
                 withCoords(38.0f, 48.0f).withPressure(1.2f).withSize(2.5f).withTool(0.2f, 0.4f).
-                        withTouch(2.7f, 4.6f).withOrientation(0.2f);
+                        withTouch(2.7f, 4.6f).withOrientation(0.2f).withGenericAxis1(5.4f);
 
         mMotionEventDynamic.addBatch(mEventTime + 20,
                 new PointerCoords[] { coordsBuilderLast0.build(), coordsBuilderLast1.build() }, 0);
@@ -676,7 +680,8 @@ public class MotionEventTest {
             originalRawCoords[i] = new PointerCoords(c);
         }
         final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE,
-                pointerCount, pointerIds, pointerCoords, 0, 0, 0, 0, 0, 0, 0);
+                pointerCount, pointerIds, pointerCoords, 0, 0, 0, 0, 0,
+                InputDevice.SOURCE_TOUCHSCREEN, 0);
         dump("Original points.", event);
 
         // Check original raw X and Y assumption.
@@ -1006,7 +1011,8 @@ public class MotionEventTest {
     @Test
     public void testNativeConverter() {
         final MotionEvent event = MotionEvent.obtain(mDownTime, mEventTime,
-                MotionEvent.ACTION_MOVE, X_3F, Y_4F, META_STATE);
+                MotionEvent.ACTION_BUTTON_PRESS, X_3F, Y_4F, META_STATE);
+        event.setActionButton(MotionEvent.BUTTON_PRIMARY);
         nativeMotionEventTest(event);
     }
 }

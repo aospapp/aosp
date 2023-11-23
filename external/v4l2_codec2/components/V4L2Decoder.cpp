@@ -529,10 +529,13 @@ bool V4L2Decoder::changeResolution() {
     mFrameAtDevice.clear();
     mBlockIdToV4L2Id.clear();
 
-    if (mOutputQueue->allocateBuffers(*numOutputBuffers, V4L2_MEMORY_DMABUF) == 0) {
+    const size_t adjustedNumOutputBuffers =
+            mOutputQueue->allocateBuffers(*numOutputBuffers, V4L2_MEMORY_DMABUF);
+    if (adjustedNumOutputBuffers == 0) {
         ALOGE("Failed to allocate output buffer.");
         return false;
     }
+    ALOGV("Allocated %zu output buffers.", adjustedNumOutputBuffers);
     if (!mOutputQueue->streamon()) {
         ALOGE("Failed to streamon output queue.");
         return false;
@@ -542,7 +545,8 @@ bool V4L2Decoder::changeResolution() {
     // exists at the same time.
     mVideoFramePool.reset();
     // Always use flexible pixel 420 format YCBCR_420_888 in Android.
-    mVideoFramePool = mGetPoolCb.Run(mCodedSize, HalPixelFormat::YCBCR_420_888, *numOutputBuffers);
+    mVideoFramePool =
+            mGetPoolCb.Run(mCodedSize, HalPixelFormat::YCBCR_420_888, adjustedNumOutputBuffers);
     if (!mVideoFramePool) {
         ALOGE("Failed to get block pool with size: %s", toString(mCodedSize).c_str());
         return false;

@@ -5,4 +5,5 @@
     <boolean name="csp_enabled_bool" value="true"/>
     <boolean name="carrier_volte_available_bool" value="true"/>
     <int name="volte_replacement_rat_int" value="3"/>
+    <int name="default_mtu_int" value="1358"/>
 </carrier_config>

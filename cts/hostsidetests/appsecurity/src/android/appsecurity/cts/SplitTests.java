@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNotNull;
 
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.util.CpuFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -41,6 +42,7 @@ import java.util.Set;
 /**
  * Tests that verify installing of various split APKs from host side.
  */
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class SplitTests extends BaseAppSecurityTest {
     static final String PKG_NO_RESTART = "com.android.cts.norestart";
@@ -50,6 +52,19 @@ public class SplitTests extends BaseAppSecurityTest {
     static final String APK_NEED_SPLIT_BASE = "CtsNeedSplitApp.apk";
     static final String APK_NEED_SPLIT_FEATURE_WARM = "CtsNeedSplitFeatureWarm.apk";
     static final String APK_NEED_SPLIT_CONFIG = "CtsNeedSplitApp_xxhdpi-v4.apk";
+
+    static final String APK_REQUIRED_SPLIT_TYPE_BASE = "CtsRequiredSplitTypeSplitApp.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_BASE_UPDATED =
+            "CtsRequiredSplitTypeSplitAppUpdated.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_DENSITY = "CtsSplitAppTypeDensity.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_LOCALE = "CtsSplitAppTypeLocale.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_FOO = "CtsSplitAppTypeFoo.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_MULTIPLE = "CtsSplitAppTypeMultiple.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_FEATURE = "CtsSplitAppTypeFeature.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_FEATURE_DATA = "CtsSplitAppTypeFeatureData.apk";
+    static final String APK_REQUIRED_SPLIT_TYPE_FEATURE_FOO = "CtsSplitAppTypeFeatureFoo.apk";
+    static final String APK_INVALID_REQUIRED_SPLIT_TYPE_BASE =
+            "CtsInvalidRequiredSplitTypeSplitApp.apk";
 
     static final String PKG = "com.android.cts.splitapp";
     static final String CLASS = PKG + ".SplitAppTest";
@@ -707,6 +722,170 @@ public class SplitTests extends BaseAppSecurityTest {
         new InstallMultiple(instant).inheritFrom(PKG).removeSplit("feature_warm").run();
         // but, not to remove all of them
         new InstallMultiple(instant).inheritFrom(PKG).removeSplit("config.xxhdpi")
+                .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledIncomplete_full() throws Exception {
+        testRequiredSplitTypesInstalledIncomplete(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledIncomplete_instant() throws Exception {
+        testRequiredSplitTypesInstalledIncomplete(true);
+    }
+    private void testRequiredSplitTypesInstalledIncomplete(boolean instant) throws Exception {
+        new InstallMultiple(instant).addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInvalidRequiredSplitTypes_full() throws Exception {
+        testInvalidRequiredSplitTypes(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInvalidRequiredSplitTypes_instant() throws Exception {
+        testInvalidRequiredSplitTypes(true);
+    }
+    private void testInvalidRequiredSplitTypes(boolean instant) throws Exception {
+        new InstallMultiple(instant).addFile(APK_INVALID_REQUIRED_SPLIT_TYPE_BASE)
+                .runExpectingFailure("INSTALL_PARSE_FAILED_MANIFEST_MALFORMED");
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledAll_full() throws Exception {
+        testRequiredSplitTypesInstalledAll(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledAll_instant() throws Exception {
+        testRequiredSplitTypesInstalledAll(true);
+    }
+    private void testRequiredSplitTypesInstalledAll(boolean instant) throws Exception {
+        new InstallMultiple(instant).addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_DENSITY)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .run();
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledMultipleOne_full() throws Exception {
+        testRequiredSplitTypesInstalledMultipleOne(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testRequiredSplitTypesInstalledMultipleOne_instant() throws Exception {
+        testRequiredSplitTypesInstalledMultipleOne(true);
+    }
+    private void testRequiredSplitTypesInstalledMultipleOne(boolean instant) throws Exception {
+        new InstallMultiple(instant).addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_MULTIPLE)
+                .run();
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testRequiredSplitTypesRemoved_full() throws Exception {
+        testRequiredSplitTypesRemoved(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testRequiredSplitTypesRemoved_instant() throws Exception {
+        testRequiredSplitTypesRemoved(true);
+    }
+    private void testRequiredSplitTypesRemoved(boolean instant) throws Exception {
+        // start with a base and three splits
+        new InstallMultiple(instant)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_DENSITY)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FOO)
+                .run();
+        // it's okay to remove non-required split type
+        new InstallMultiple(instant).inheritFrom(PKG).removeSplit("config.foo").run();
+        // but, not to remove a required one
+        new InstallMultiple(instant).inheritFrom(PKG).removeSplit("config.de")
+                .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInheritUpdatedBase_requiredSplitTypesMissing_full() throws Exception {
+        testInheritUpdatedBase_requiredSplitTypesMissing(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInheritUpdatedBase_requiredSplitTypesMissing_instant() throws Exception {
+        testInheritUpdatedBase_requiredSplitTypesMissing(true);
+    }
+    private void testInheritUpdatedBase_requiredSplitTypesMissing(boolean instant)
+            throws Exception {
+        // start with a base and the required splits
+        new InstallMultiple(instant)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_DENSITY)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .run();
+        // the updated base requires a new split type, but it's missing
+        new InstallMultiple(instant).inheritFrom(PKG).addFile(APK_REQUIRED_SPLIT_TYPE_BASE_UPDATED)
+                .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInheritUpdatedBase_requiredSplitTypesInstalled_full() throws Exception {
+        testInheritUpdatedBase_requiredSplitTypesInstalled(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInheritUpdatedBase_requiredSplitTypesInstalled_instant() throws Exception {
+        testInheritUpdatedBase_requiredSplitTypesInstalled(true);
+    }
+    private void testInheritUpdatedBase_requiredSplitTypesInstalled(boolean instant)
+            throws Exception {
+        // start with a base and the required splits
+        new InstallMultiple(instant)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_DENSITY)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .run();
+        // the updated base requires a split type, and this split also requires another.
+        new InstallMultiple(instant).inheritFrom(PKG)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_BASE_UPDATED)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FEATURE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FEATURE_DATA)
+                .run();
+    }
+
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testRequiredSplitTypesFromSplit_full() throws Exception {
+        testRequiredSplitTypesFromSplit(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testRequiredSplitTypesFromSplit_instant() throws Exception {
+        testRequiredSplitTypesFromSplit(true);
+    }
+    private void testRequiredSplitTypesFromSplit(boolean instant) throws Exception {
+        new InstallMultiple(instant)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_BASE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_DENSITY)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_LOCALE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FEATURE)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FEATURE_DATA)
+                .addFile(APK_REQUIRED_SPLIT_TYPE_FEATURE_FOO)
+                .run();
+        // it's okay to remove non-required split type for the split
+        new InstallMultiple(instant).inheritFrom(PKG).removeSplit("feature_foo.foo").run();
+        // but, not to remove a required one for the split
+        new InstallMultiple(instant).inheritFrom(PKG).removeSplit("feature_foo.data")
                 .runExpectingFailure("INSTALL_FAILED_MISSING_SPLIT");
     }
 

@@ -39,6 +39,7 @@ cc_binary {
         "vendor.nxp.nxpnfc@2.0",
         "android.hardware.nfc@1.0",
         "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
     ],
 
     local_include_dirs: [
@@ -52,9 +53,11 @@ cc_binary {
         "libese-spi/p73/spm",
         "libese-spi/src/include",
         "1.2/OsuHal/inc",
-        "extns/impl",
     ],
 
+    include_dirs: [
+        "hardware/nxp/secure_element/snxxx/extns/impl",
+    ],
     cflags: [
         "-DANDROID",
         "-DJCOP_VER_3_1=1",

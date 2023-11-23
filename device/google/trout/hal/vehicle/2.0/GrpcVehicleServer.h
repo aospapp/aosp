@@ -18,7 +18,7 @@
 #define android_hardware_automotive_vehicle_V2_0_impl_virtialization_GrpcVehicleServer_H_
 
 #include "Utils.h"
-#include "vhal_v2_0/VehicleHalServer.h"
+#include "vhal_v2_0/DefaultVehicleHalServer.h"
 
 namespace android {
 namespace hardware {
@@ -29,7 +29,7 @@ namespace V2_0 {
 namespace impl {
 
 // Connect to the Vehicle Client via GRPC
-class GrpcVehicleServer : public VehicleHalServer {
+class GrpcVehicleServer : public DefaultVehicleHalServer {
   public:
     // Start listening incoming calls
     virtual GrpcVehicleServer& Start() = 0;

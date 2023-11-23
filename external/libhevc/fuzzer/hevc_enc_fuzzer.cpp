@@ -19,6 +19,7 @@
  */
 #include <algorithm>
 #include <memory>
+#include <string.h>
 
 #include "ihevc_typedefs.h"
 #include "itt_video_api.h"

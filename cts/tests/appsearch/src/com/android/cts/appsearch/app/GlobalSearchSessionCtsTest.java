@@ -18,23 +18,21 @@ package android.app.appsearch.cts.app;
 import android.app.appsearch.AppSearchManager;
 import android.app.appsearch.AppSearchSessionShim;
 import android.app.appsearch.GlobalSearchSessionShim;
+import android.app.appsearch.testutil.AppSearchSessionShimImpl;
+import android.app.appsearch.testutil.GlobalSearchSessionShimImpl;
 
 import androidx.annotation.NonNull;
-
-import com.android.server.appsearch.testing.AppSearchSessionShimImpl;
-import com.android.server.appsearch.testing.GlobalSearchSessionShimImpl;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
 public class GlobalSearchSessionCtsTest extends GlobalSearchSessionCtsTestBase {
-    @Override
-    protected ListenableFuture<AppSearchSessionShim> createSearchSession(@NonNull String dbName) {
-        return AppSearchSessionShimImpl.createSearchSession(
+    protected ListenableFuture<AppSearchSessionShim> createSearchSessionAsync(
+            @NonNull String dbName) {
+        return AppSearchSessionShimImpl.createSearchSessionAsync(
                 new AppSearchManager.SearchContext.Builder(dbName).build());
     }
 
-    @Override
-    protected ListenableFuture<GlobalSearchSessionShim> createGlobalSearchSession() {
-        return GlobalSearchSessionShimImpl.createGlobalSearchSession();
+    protected ListenableFuture<GlobalSearchSessionShim> createGlobalSearchSessionAsync() {
+        return GlobalSearchSessionShimImpl.createGlobalSearchSessionAsync();
     }
 }

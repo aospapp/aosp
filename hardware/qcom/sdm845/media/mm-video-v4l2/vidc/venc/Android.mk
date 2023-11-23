@@ -31,15 +31,15 @@ ifeq ($(TARGET_BOARD_PLATFORM),msm8610)
 libmm-venc-def += -D_MSM8610_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_UBWC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_UBWC)))
 libmm-venc-def += -D_UBWC_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_VQZIP)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_VQZIP)))
 libmm-venc-def += -D_VQZIP_
 endif
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_USE_FLAG_MSM8226)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_USE_FLAG_MSM8226)))
 libmm-venc-def += -D_MSM8226_
 endif
 
@@ -49,7 +49,7 @@ endif
 
 libmm-venc-def += -DUSE_NATIVE_HANDLE_SOURCE
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-venc-def += -DMASTER_SIDE_CP
 endif
 
@@ -67,7 +67,7 @@ libmm-venc-inc      += $(QCOM_MEDIA_ROOT)/libc2dcolorconvert
 libmm-venc-inc      += $(TARGET_OUT_HEADERS)/libvqzip
 libmm-venc-inc      += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_SW_VENC_ROTATION)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_SW_VENC_ROTATION)))
 libmm-venc-inc      += hardware/libhardware/include/hardware
 endif
 
@@ -119,7 +119,7 @@ LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
 
 include $(BUILD_SHARED_LIBRARY)
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VENC_MPEG4)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_NEED_SW_VENC_MPEG4)))
 # ---------------------------------------------------------------------------------
 # 			Make the Shared library (libOmxSwVencMpeg4)
 # ---------------------------------------------------------------------------------
@@ -151,7 +151,7 @@ LOCAL_SHARED_LIBRARIES    := liblog libcutils libdl libplatformconfig libMpeg4Sw
 LOCAL_SHARED_LIBRARIES    += libnativewindow
 LOCAL_SHARED_LIBRARIES    += libqdMetaData
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_SUPPORT_SW_VENC_ROTATION)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_SUPPORT_SW_VENC_ROTATION)))
 LOCAL_SHARED_LIBRARIES += libui
 LOCAL_SHARED_LIBRARIES += libutils
 endif

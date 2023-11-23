@@ -49,9 +49,11 @@ enum SlangTargetAPI {
   SLANG_Q_TARGET_API = 29,
   SLANG_R_TARGET_API = 30,
   SLANG_S_TARGET_API = 31,
+  SLANG_S_V2_TARGET_API = 32,
+  SLANG_T_TARGET_API = 33,
   SLANG_MAXIMUM_TARGET_API = RS_VERSION,
   // The maximum API level that is acceptable for the "-target-api" commandline option.
-  SLANG_MAXIMUM_CMDLINE_TARGET_API = SLANG_S_TARGET_API,
+  SLANG_MAXIMUM_CMDLINE_TARGET_API = SLANG_T_TARGET_API,
   SLANG_DEVELOPMENT_TARGET_API = RS_DEVELOPMENT_API
 };
 // Note that RS_VERSION is defined at build time (see Android.mk for details).

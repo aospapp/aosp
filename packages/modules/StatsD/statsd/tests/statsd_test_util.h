@@ -21,14 +21,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/stats_log.pb.h"
-#include "src/statsd_config.pb.h"
 #include "src/StatsLogProcessor.h"
+#include "src/flags/FlagProvider.h"
 #include "src/hash.h"
 #include "src/logd/LogEvent.h"
 #include "src/matchers/EventMatcherWizard.h"
 #include "src/packages/UidMap.h"
+#include "src/stats_log.pb.h"
 #include "src/stats_log_util.h"
+#include "src/statsd_config.pb.h"
 #include "stats_event.h"
 #include "statslog_statsdtest.h"
 
@@ -43,6 +44,25 @@ using ::aidl::android::os::IPullAtomResultReceiver;
 using android::util::ProtoReader;
 using google::protobuf::RepeatedPtrField;
 using Status = ::ndk::ScopedAStatus;
+
+// Wrapper for assertion helpers called from tests to keep track of source location of failures.
+// Example usage:
+//      static void myTestVerificationHelper(Foo foo) {
+//          EXPECT_EQ(...);
+//          ASSERT_EQ(...);
+//      }
+//
+//      TEST_F(MyTest, TestFoo) {
+//          ...
+//          TRACE_CALL(myTestVerificationHelper, foo);
+//          ...
+//      }
+//
+#define TRACE_CALL(function, ...) \
+    do {                          \
+        SCOPED_TRACE("");         \
+        (function)(__VA_ARGS__);  \
+    } while (false)
 
 const int SCREEN_STATE_ATOM_ID = util::SCREEN_STATE_CHANGED;
 const int UID_PROCESS_STATE_ATOM_ID = util::UID_PROCESS_STATE_CHANGED;
@@ -126,7 +146,24 @@ AtomMatcher CreateMoveToBackgroundAtomMatcher();
 AtomMatcher CreateMoveToForegroundAtomMatcher();
 
 // Create AtomMatcher proto for process crashes
-AtomMatcher CreateProcessCrashAtomMatcher() ;
+AtomMatcher CreateProcessCrashAtomMatcher();
+
+// Create AtomMatcher proto for app launches.
+AtomMatcher CreateAppStartOccurredAtomMatcher();
+
+// Create AtomMatcher proto for test atom repeated state.
+AtomMatcher CreateTestAtomRepeatedStateAtomMatcher(const string& name,
+                                                   TestAtomReported::State state,
+                                                   Position position);
+
+// Create AtomMatcher proto for test atom repeated state is off, first position.
+AtomMatcher CreateTestAtomRepeatedStateFirstOffAtomMatcher();
+
+// Create AtomMatcher proto for test atom repeated state is on, first position.
+AtomMatcher CreateTestAtomRepeatedStateFirstOnAtomMatcher();
+
+// Create AtomMatcher proto for test atom repeated state is on, any position.
+AtomMatcher CreateTestAtomRepeatedStateAnyOnAtomMatcher();
 
 // Add an AtomMatcher to a combination AtomMatcher.
 void addMatcherToMatcherCombination(const AtomMatcher& matcher, AtomMatcher* combinationMatcher);
@@ -154,6 +191,9 @@ Predicate CreateIsSyncingPredicate();
 
 // Create a Predicate proto for app is in background.
 Predicate CreateIsInBackgroundPredicate();
+
+// Create a Predicate proto for test atom repeated state field is off.
+Predicate CreateTestAtomRepeatedStateFirstOffPredicate();
 
 // Create State proto for screen state atom.
 State CreateScreenState();
@@ -194,6 +234,10 @@ void addPredicateToPredicateCombination(const Predicate& predicate, Predicate* c
 // Create dimensions from primitive fields.
 FieldMatcher CreateDimensions(const int atomId, const std::vector<int>& fields);
 
+// Create dimensions from repeated primitive fields.
+FieldMatcher CreateRepeatedDimensions(const int atomId, const std::vector<int>& fields,
+                                      const std::vector<Position>& positions);
+
 // Create dimensions by attribution uid and tag.
 FieldMatcher CreateAttributionUidAndTagDimensions(const int atomId,
                                                   const std::vector<Position>& positions);
@@ -223,6 +267,9 @@ GaugeMetric createGaugeMetric(const string& name, const int64_t what,
 
 ValueMetric createValueMetric(const string& name, const AtomMatcher& what, const int valueField,
                               const optional<int64_t>& condition, const vector<int64_t>& states);
+
+KllMetric createKllMetric(const string& name, const AtomMatcher& what, const int valueField,
+                          const optional<int64_t>& condition);
 
 Alert createAlert(const string& name, const int64_t metricId, const int buckets,
                   const int64_t triggerSum);
@@ -275,14 +322,35 @@ std::shared_ptr<LogEvent> CreateNoValuesLogEvent(int atomId, int64_t eventTimeNs
 
 void CreateNoValuesLogEvent(LogEvent* logEvent, int atomId, int64_t eventTimeNs);
 
+AStatsEvent* makeUidStatsEvent(int atomId, int64_t eventTimeNs, int uid, int data1, int data2);
+
+AStatsEvent* makeUidStatsEvent(int atomId, int64_t eventTimeNs, int uid, int data1,
+                               const vector<int>& data2);
+
 std::shared_ptr<LogEvent> makeUidLogEvent(int atomId, int64_t eventTimeNs, int uid, int data1,
                                           int data2);
+
+std::shared_ptr<LogEvent> makeUidLogEvent(int atomId, int64_t eventTimeNs, int uid, int data1,
+                                          const vector<int>& data2);
+
+shared_ptr<LogEvent> makeExtraUidsLogEvent(int atomId, int64_t eventTimeNs, int uid1, int data1,
+                                           int data2, const std::vector<int>& extraUids);
+
+std::shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
+                                                  const std::vector<int>& uids);
+
+shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
+                                             const vector<int>& uids, int data1, int data2);
+
+shared_ptr<LogEvent> makeRepeatedUidLogEvent(int atomId, int64_t eventTimeNs,
+                                             const vector<int>& uids, int data1,
+                                             const vector<int>& data2);
 
 std::shared_ptr<LogEvent> makeAttributionLogEvent(int atomId, int64_t eventTimeNs,
                                                   const vector<int>& uids,
                                                   const vector<string>& tags, int data1, int data2);
 
-sp<MockUidMap> makeMockUidMapForOneHost(int hostUid, const vector<int>& isolatedUids);
+sp<MockUidMap> makeMockUidMapForHosts(const map<int, vector<int>>& hostUidToIsolatedUidsMap);
 
 sp<MockUidMap> makeMockUidMapForPackage(const string& pkg, const set<int32_t>& uids);
 
@@ -369,6 +437,22 @@ std::unique_ptr<LogEvent> CreateAppStartOccurredEvent(
         AppStartOccurred::TransitionType type, const string& activity_name,
         const string& calling_pkg_name, const bool is_instant_app, int64_t activity_start_msec);
 
+std::unique_ptr<LogEvent> CreateTestAtomReportedEventVariableRepeatedFields(
+        uint64_t timestampNs, const vector<int>& repeatedIntField,
+        const vector<int64_t>& repeatedLongField, const vector<float>& repeatedFloatField,
+        const vector<string>& repeatedStringField, const bool* repeatedBoolField,
+        const size_t repeatedBoolFieldLength, const vector<int>& repeatedEnumField);
+
+std::unique_ptr<LogEvent> CreateTestAtomReportedEvent(
+        uint64_t timestampNs, const vector<int>& attributionUids,
+        const vector<string>& attributionTags, const int intField, const long longField,
+        const float floatField, const string& stringField, const bool boolField,
+        const TestAtomReported::State enumField, const vector<uint8_t>& bytesField,
+        const vector<int>& repeatedIntField, const vector<int64_t>& repeatedLongField,
+        const vector<float>& repeatedFloatField, const vector<string>& repeatedStringField,
+        const bool* repeatedBoolField, const size_t repeatedBoolFieldLength,
+        const vector<int>& repeatedEnumField);
+
 // Create a statsd log event processor upon the start time in seconds, config and key.
 sp<StatsLogProcessor> CreateStatsLogProcessor(const int64_t timeBaseNs, const int64_t currentTimeNs,
                                               const StatsdConfig& config, const ConfigKey& key,
@@ -406,7 +490,10 @@ void ValidateDurationBucket(const DurationBucketInfo& bucket, int64_t startTimeN
 void ValidateGaugeBucketTimes(const GaugeBucketInfo& gaugeBucket, int64_t startTimeNs,
                               int64_t endTimeNs, vector<int64_t> eventTimesNs);
 void ValidateValueBucket(const ValueBucketInfo& bucket, int64_t startTimeNs, int64_t endTimeNs,
-                         const vector<int64_t>& values, int64_t conditionTrueNs);
+                         const vector<int64_t>& values, int64_t conditionTrueNs,
+                         int64_t conditionCorrectionNs);
+void ValidateKllBucket(const KllBucketInfo& bucket, int64_t startTimeNs, int64_t endTimeNs,
+                       const std::vector<int64_t> sketchSizes, int64_t conditionTrueNs);
 
 struct DimensionsPair {
     DimensionsPair(DimensionsValue m1, google::protobuf::RepeatedPtrField<StateValue> m2)
@@ -427,6 +514,14 @@ void backfillStartEndTimestamp(ConfigMetricsReportList *config_report_list);
 void backfillStringInReport(ConfigMetricsReportList *config_report_list);
 void backfillStringInDimension(const std::map<uint64_t, string>& str_map,
                                DimensionsValue* dimension);
+
+void backfillAggregatedAtoms(ConfigMetricsReportList* config_report_list);
+void backfillAggregatedAtoms(ConfigMetricsReport* config_report);
+void backfillAggregatedAtoms(StatsLogReport* report);
+void backfillAggregatedAtomsInEventMetric(StatsLogReport::EventMetricDataWrapper* wrapper);
+void backfillAggregatedAtomsInGaugeMetric(StatsLogReport::GaugeMetricDataWrapper* wrapper);
+
+vector<pair<Atom, int64_t>> unnestGaugeAtomData(const GaugeBucketInfo& bucketInfo);
 
 template <typename T>
 void backfillStringInDimension(const std::map<uint64_t, string>& str_map,
@@ -449,6 +544,8 @@ void backfillDimensionPath(ConfigMetricsReportList* config_report_list);
 bool backfillDimensionPath(const DimensionsValue& path,
                            const google::protobuf::RepeatedPtrField<DimensionsValue>& leafValues,
                            DimensionsValue* dimension);
+
+void sortReportsByElapsedTime(ConfigMetricsReportList* configReportList);
 
 class FakeSubsystemSleepCallback : public BnPullAtomCallback {
 public:
@@ -556,6 +653,31 @@ void backfillStartEndTimestampForSkippedBuckets(const int64_t timeBaseNs, T* met
         backfillStartEndTimestampForPartialBucket(timeBaseNs, metrics->mutable_skipped(i));
     }
 }
+
+inline bool isAtLeastSFuncTrue() {
+    return true;
+}
+
+inline bool isAtLeastSFuncFalse() {
+    return false;
+}
+
+inline std::string getServerFlagFuncTrue(const std::string& flagNamespace,
+                                         const std::string& flagName,
+                                         const std::string& defaultValue) {
+    return FLAG_TRUE;
+}
+
+inline std::string getServerFlagFuncFalse(const std::string& flagNamespace,
+                                          const std::string& flagName,
+                                          const std::string& defaultValue) {
+    return FLAG_FALSE;
+}
+
+void writeFlag(const std::string& flagName, const std::string& flagValue);
+
+void writeBootFlag(const std::string& flagName, const std::string& flagValue);
+
 }  // namespace statsd
 }  // namespace os
 }  // namespace android

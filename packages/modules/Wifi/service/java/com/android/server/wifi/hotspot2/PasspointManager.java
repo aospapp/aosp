@@ -54,6 +54,7 @@ import com.android.server.wifi.WifiInjector;
 import com.android.server.wifi.WifiKeyStore;
 import com.android.server.wifi.WifiMetrics;
 import com.android.server.wifi.WifiNative;
+import com.android.server.wifi.WifiSettingsStore;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 import com.android.server.wifi.hotspot2.anqp.HSOsuProvidersElement;
@@ -128,11 +129,13 @@ public class PasspointManager {
     private final WifiConfigManager mWifiConfigManager;
     private final WifiMetrics mWifiMetrics;
     private final PasspointProvisioner mPasspointProvisioner;
+    private PasspointNetworkNominateHelper mPasspointNetworkNominateHelper;
     private final AppOpsManager mAppOps;
     private final WifiCarrierInfoManager mWifiCarrierInfoManager;
     private final MacAddressUtil mMacAddressUtil;
     private final Clock mClock;
     private final WifiPermissionsUtil mWifiPermissionsUtil;
+    private final WifiSettingsStore mSettingsStore;
 
     /**
      * Map of package name of an app to the app ops changed listener for the app.
@@ -142,6 +145,7 @@ public class PasspointManager {
     // Counter used for assigning unique identifier to each provider.
     private long mProviderIndex;
     private boolean mVerboseLoggingEnabled = false;
+    private boolean mEnabled;
 
     private class CallbackHandler implements PasspointEventHandler.Callbacks {
         private final Context mContext;
@@ -351,6 +355,7 @@ public class PasspointManager {
             WifiNative wifiNative, WifiKeyStore keyStore, Clock clock,
             PasspointObjectFactory objectFactory, WifiConfigManager wifiConfigManager,
             WifiConfigStore wifiConfigStore,
+            WifiSettingsStore wifiSettingsStore,
             WifiMetrics wifiMetrics,
             WifiCarrierInfoManager wifiCarrierInfoManager,
             MacAddressUtil macAddressUtil,
@@ -378,9 +383,12 @@ public class PasspointManager {
         sPasspointManager = this;
         mMacAddressUtil = macAddressUtil;
         mClock = clock;
-        mWifiConfigManager.addOnNetworkUpdateListener(
-                new PasspointManager.OnNetworkUpdateListener());
+        mHandler.postAtFrontOfQueue(() ->
+                mWifiConfigManager.addOnNetworkUpdateListener(
+                        new PasspointManager.OnNetworkUpdateListener()));
         mWifiPermissionsUtil = wifiPermissionsUtil;
+        mSettingsStore = wifiSettingsStore;
+        mEnabled = mSettingsStore.isWifiPasspointEnabled();
     }
 
     /**
@@ -390,6 +398,14 @@ public class PasspointManager {
      */
     public void initializeProvisioner(Looper looper) {
         mPasspointProvisioner.init(looper);
+    }
+
+    /**
+     * Sets the {@link PasspointNetworkNominateHelper} used by this PasspointManager.
+     */
+    public void setPasspointNetworkNominateHelper(
+            @Nullable PasspointNetworkNominateHelper nominateHelper) {
+        mPasspointNetworkNominateHelper = nominateHelper;
     }
 
     /**
@@ -418,7 +434,7 @@ public class PasspointManager {
             return;
         }
         NetworkUpdateResult result = mWifiConfigManager.addOrUpdateNetwork(
-                newConfig, uid, packageName);
+                newConfig, uid, packageName, false);
         if (!result.isSuccess()) {
             Log.e(TAG, "Failed to update config in WifiConfigManager");
         } else {
@@ -461,7 +477,7 @@ public class PasspointManager {
             Log.e(TAG, "Set isTrusted to false on a non suggestion passpoint is not allowed");
             return false;
         }
-        if (!mWifiPermissionsUtil.doesUidBelongToCurrentUser(uid)) {
+        if (!mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(uid)) {
             Log.e(TAG, "UID " + uid + " not visible to the current user");
             return false;
         }
@@ -555,6 +571,9 @@ public class PasspointManager {
             mWifiMetrics.incrementTotalNumberOfPasspointProfilesWithDecoratedIdentity();
         }
         mWifiMetrics.incrementNumPasspointProviderInstallSuccess();
+        if (mPasspointNetworkNominateHelper != null) {
+            mPasspointNetworkNominateHelper.updateBestMatchScanDetailForProviders();
+        }
         return true;
     }
 
@@ -565,15 +584,18 @@ public class PasspointManager {
                     + provider.getCreatorUid());
             return false;
         }
-        if (!mWifiPermissionsUtil.doesUidBelongToCurrentUser(callingUid)) {
+        if (!mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(callingUid)) {
             Log.e(TAG, "UID " + callingUid + " not visible to the current user");
             return false;
         }
         provider.uninstallCertsAndKeys();
         String packageName = provider.getPackageName();
-        // Remove any configs corresponding to the profile in WifiConfigManager.
-        mWifiConfigManager.removePasspointConfiguredNetwork(
-                provider.getWifiConfig().getProfileKey());
+        if (!provider.isFromSuggestion()) {
+            // Remove non-suggestion configs corresponding to the profile in WifiConfigManager.
+            // Suggestion passpoint will be handled by WifiNetworkSuggestionsManager
+            mWifiConfigManager.removePasspointConfiguredNetwork(
+                    provider.getWifiConfig().getProfileKey());
+        }
         String uniqueId = provider.getConfig().getUniqueId();
         mProviders.remove(uniqueId);
         mWifiConfigManager.removeConnectChoiceFromAllNetworks(uniqueId);
@@ -804,9 +826,6 @@ public class PasspointManager {
      * Find all providers that can provide service through the given AP, which means the
      * providers contained credential to authenticate with the given AP.
      *
-     * If there is any home provider available, will return a list of matched home providers.
-     * Otherwise will return a list of matched roaming providers.
-     *
      * A empty list will be returned if no matching is found.
      *
      * @param scanResult The scan result associated with the AP
@@ -815,40 +834,19 @@ public class PasspointManager {
      */
     public @NonNull List<Pair<PasspointProvider, PasspointMatch>> matchProvider(
             ScanResult scanResult, boolean anqpRequestAllowed) {
+        if (!mEnabled) {
+            return Collections.emptyList();
+        }
         List<Pair<PasspointProvider, PasspointMatch>> allMatches = getAllMatchedProviders(
-                scanResult, anqpRequestAllowed);
+                scanResult, anqpRequestAllowed).stream()
+                .filter(a -> !isExpired(a.first.getConfig()))
+                .collect(Collectors.toList());
         if (allMatches.isEmpty()) {
-            return allMatches;
-        }
-        List<Pair<PasspointProvider, PasspointMatch>> homeProviders = new ArrayList<>();
-        List<Pair<PasspointProvider, PasspointMatch>> roamingProviders = new ArrayList<>();
-        for (Pair<PasspointProvider, PasspointMatch> match : allMatches) {
-            if (isExpired(match.first.getConfig())) {
-                continue;
-            }
-            if (match.second == PasspointMatch.HomeProvider) {
-                homeProviders.add(match);
-            } else {
-                roamingProviders.add(match);
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, "No service provider found for " + scanResult.SSID);
             }
         }
-
-        if (!homeProviders.isEmpty()) {
-            Log.d(TAG, String.format("Matched %s to %s providers as %s", scanResult.SSID,
-                    homeProviders.size(), "Home Provider"));
-            return homeProviders;
-        }
-
-        if (!roamingProviders.isEmpty()) {
-            Log.d(TAG, String.format("Matched %s to %s providers as %s", scanResult.SSID,
-                    roamingProviders.size(), "Roaming Provider"));
-            return roamingProviders;
-        }
-
-        if (mVerboseLoggingEnabled) {
-            Log.d(TAG, "No service provider found for " + scanResult.SSID);
-        }
-        return new ArrayList<>();
+        return allMatches;
     }
 
     /**
@@ -1184,7 +1182,7 @@ public class PasspointManager {
                     .isPasspointSuggestionSharedWithUser(config)) {
                 continue;
             }
-            if (mWifiConfigManager.shouldUseEnhancedRandomization(config)) {
+            if (mWifiConfigManager.shouldUseNonPersistentRandomization(config)) {
                 config.setRandomizedMacAddress(MacAddress.fromString(DEFAULT_MAC_ADDRESS));
             } else {
                 MacAddress result = mMacAddressUtil.calculatePersistentMac(config.getNetworkKey(),
@@ -1240,6 +1238,7 @@ public class PasspointManager {
      */
     public void dump(PrintWriter pw) {
         pw.println("Dump of PasspointManager");
+        pw.println("mEnabled: " + mEnabled);
         pw.println("PasspointManager - Providers Begin ---");
         for (Map.Entry<String, PasspointProvider> entry : mProviders.entrySet()) {
             pw.println(entry.getValue());
@@ -1602,5 +1601,38 @@ public class PasspointManager {
         Log.i(TAG, "Captive network, Terms and Conditions URL: " + termsAndConditionsUrl
                 + " from BSSID: " + Utils.macToString(event.getBssid()));
         return termsAndConditionsUrl;
+    }
+
+    /**
+     * Check if Wi-Fi Passpoint is enabled.
+     *
+     * @return true if Wi-Fi Passpoint is enabled.
+     */
+    public boolean isWifiPasspointEnabled() {
+        return mEnabled;
+    }
+
+    /**
+     * Enable or disable Wi-Fi Passpoint globally.
+     */
+    public void setWifiPasspointEnabled(boolean enabled) {
+        if (enabled != mEnabled) {
+            clearAnqpRequestsAndFlushCache();
+            mEnabled = enabled;
+            mSettingsStore.handleWifiPasspointEnabled(enabled);
+        }
+    }
+
+    /**
+     * Get the selected RCOI for a particular Passpoint network connection
+     * @param uniqueId The Unique ID of the Passpoint configuration
+     * @param ssid The target SSID
+     * @return Selected RCOI for a network, or 0 if none.
+     */
+    public long getSelectedRcoiForNetwork(String uniqueId, String ssid) {
+        if (TextUtils.isEmpty(uniqueId) || TextUtils.isEmpty(ssid)) return 0;
+        PasspointProvider provider = mProviders.get(uniqueId);
+        if (provider == null) return 0;
+        return provider.getAndRemoveMatchedRcoi(ssid);
     }
 }

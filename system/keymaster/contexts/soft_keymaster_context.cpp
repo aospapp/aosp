@@ -52,11 +52,14 @@ KeymasterBlob string2Blob(const std::string& str) {
 
 SoftKeymasterContext::SoftKeymasterContext(KmVersion version, const std::string& root_of_trust)
     : SoftAttestationContext(version),  //
-      rsa_factory_(new RsaKeyFactory(*this /* blob_maker */, *this /* context */)),
-      ec_factory_(new EcKeyFactory(*this /* blob_maker */, *this /* context */)),
-      aes_factory_(new AesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
-      tdes_factory_(new TripleDesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
-      hmac_factory_(new HmacKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      rsa_factory_(new (std::nothrow) RsaKeyFactory(*this /* blob_maker */, *this /* context */)),
+      ec_factory_(new (std::nothrow) EcKeyFactory(*this /* blob_maker */, *this /* context */)),
+      aes_factory_(new (std::nothrow)
+                       AesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      tdes_factory_(new (std::nothrow)
+                        TripleDesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      hmac_factory_(new (std::nothrow)
+                        HmacKeyFactory(*this /* blob_maker */, *this /* random_source */)),
       km1_dev_(nullptr), root_of_trust_(string2Blob(root_of_trust)), os_version_(0),
       os_patchlevel_(0) {}
 
@@ -67,10 +70,10 @@ keymaster_error_t SoftKeymasterContext::SetHardwareDevice(keymaster1_device_t* k
 
     km1_dev_ = keymaster1_device;
 
-    km1_engine_.reset(new Keymaster1Engine(keymaster1_device));
-    rsa_factory_.reset(new RsaKeymaster1KeyFactory(
+    km1_engine_.reset(new (std::nothrow) Keymaster1Engine(keymaster1_device));
+    rsa_factory_.reset(new (std::nothrow) RsaKeymaster1KeyFactory(
         *this /* blob_maker */, *this /* attestation_context */, km1_engine_.get()));
-    ec_factory_.reset(new EcdsaKeymaster1KeyFactory(
+    ec_factory_.reset(new (std::nothrow) EcdsaKeymaster1KeyFactory(
         *this /* blob_maker */, *this /* attestation_context */, km1_engine_.get()));
 
     // Use default HMAC and AES key factories. Higher layers will pass HMAC/AES keys/ops that are

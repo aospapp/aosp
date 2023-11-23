@@ -16,26 +16,25 @@
 
 #include "HalDisplay.h"
 
-#include <inttypes.h>
-
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 
-using android::base::StringAppendF;
+#include <inttypes.h>
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+using ::android::base::StringAppendF;
+using ::android::hardware::Return;
+using ::android::hardware::Void;
+using ::android::hardware::automotive::evs::V1_0::EvsResult;
+using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using EvsDisplayState = ::android::hardware::automotive::evs::V1_0::DisplayState;
+using IEvsDisplay_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
+using IEvsDisplay_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
 
-HalDisplay::HalDisplay(sp<IEvsDisplay_1_0> display, int32_t id) :
-  mHwDisplay(display),
-  mId(id) {
-    // nothing to do.
-}
+namespace android::automotive::evs::V1_1::implementation {
+
+HalDisplay::HalDisplay(sp<IEvsDisplay_1_0> display, int32_t id) : mHwDisplay(display), mId(id) {}
 
 HalDisplay::~HalDisplay() {
     shutdown();
@@ -114,15 +113,13 @@ Return<EvsResult> HalDisplay::returnTargetBufferForDisplay(const BufferDesc_1_0&
  * and returns.
  */
 Return<void> HalDisplay::getDisplayInfo_1_1(getDisplayInfo_1_1_cb _info_cb) {
-    sp<IEvsDisplay_1_1> display = IEvsDisplay_1_1::castFrom(mHwDisplay)
-                                  .withDefault(nullptr);
+    sp<IEvsDisplay_1_1> display = IEvsDisplay_1_1::castFrom(mHwDisplay).withDefault(nullptr);
     if (display != nullptr) {
         display->getDisplayInfo_1_1(_info_cb);
     }
 
     return Void();
 }
-
 
 std::string HalDisplay::toString(const char* indent) {
     std::string buffer;
@@ -137,26 +134,17 @@ std::string HalDisplay::toString(const char* indent) {
     }
 
     getDisplayInfo_1_1([&](auto& config, auto& state) {
-        displayMode =
-            *(reinterpret_cast<const android::ui::DisplayMode*>(config.data()));
-        displayState =
-            *(reinterpret_cast<const android::ui::DisplayState*>(state.data()));
+        displayMode = *(reinterpret_cast<const android::ui::DisplayMode*>(config.data()));
+        displayState = *(reinterpret_cast<const android::ui::DisplayState*>(state.data()));
     });
 
-    StringAppendF(&buffer, "%sWidth: %" PRId32 "\n",
-                           indent, displayMode.resolution.getWidth());
-    StringAppendF(&buffer, "%sHeight: %" PRId32 "\n",
-                           indent, displayMode.resolution.getHeight());
-    StringAppendF(&buffer, "%sRefresh rate: %f\n",
-                           indent, displayMode.refreshRate);
-    StringAppendF(&buffer, "%sRotation: %" PRId32 "\n",
-                           indent, static_cast<int32_t>(displayState.orientation));
+    StringAppendF(&buffer, "%sWidth: %" PRId32 "\n", indent, displayMode.resolution.getWidth());
+    StringAppendF(&buffer, "%sHeight: %" PRId32 "\n", indent, displayMode.resolution.getHeight());
+    StringAppendF(&buffer, "%sRefresh rate: %f\n", indent, displayMode.refreshRate);
+    StringAppendF(&buffer, "%sRotation: %" PRId32 "\n", indent,
+                  static_cast<int32_t>(displayState.orientation));
 
     return buffer;
 }
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation

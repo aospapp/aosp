@@ -29,6 +29,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.isA;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -55,7 +56,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 
 import java.util.Map;
 
@@ -72,14 +72,12 @@ public class UiccProfileTest extends TelephonyTest {
 
     private static final int UICCPROFILE_CARRIER_PRIVILEGE_LOADED_EVENT = 3;
 
-    @Mock
+    // Mocked classes
     private CatService mCAT;
-    @Mock
     private IccCardStatus mIccCardStatus;
-    @Mock
     private Handler mMockedHandler;
-    @Mock
     private UiccCard mUiccCard;
+    private SubscriptionInfo mSubscriptionInfo;
 
     private IccCardApplicationStatus composeUiccApplicationStatus(
             IccCardApplicationStatus.AppType appType,
@@ -96,6 +94,11 @@ public class UiccProfileTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mCAT = mock(CatService.class);
+        mIccCardStatus = mock(IccCardStatus.class);
+        mMockedHandler = mock(Handler.class);
+        mUiccCard = mock(UiccCard.class);
+        mSubscriptionInfo = mock(SubscriptionInfo.class);
          /* initially there are no application available, but the array should not be empty. */
         IccCardApplicationStatus umtsApp = composeUiccApplicationStatus(
                 IccCardApplicationStatus.AppType.APPTYPE_USIM,
@@ -116,6 +119,8 @@ public class UiccProfileTest extends TelephonyTest {
 
     @After
     public void tearDown() throws Exception {
+        mUiccProfile = null;
+        mIccIoResult = null;
         super.tearDown();
     }
 
@@ -193,7 +198,7 @@ public class UiccProfileTest extends TelephonyTest {
         mUiccProfile.update(mContext, mSimulatedCommands, mIccCardStatus);
         processAllMessages();
 
-        assertTrue(mUiccProfile.areCarrierPriviligeRulesLoaded());
+        assertTrue(mUiccProfile.areCarrierPrivilegeRulesLoaded());
         verify(mSimulatedCommandsVerifier, times(2)).iccOpenLogicalChannel(isA(String.class),
                 anyInt(), isA(Message.class));
         verify(mSimulatedCommandsVerifier, times(2)).iccTransmitApduLogicalChannel(
@@ -209,19 +214,6 @@ public class UiccProfileTest extends TelephonyTest {
         mUiccProfile.update(mContext, mSimulatedCommands, mIccCardStatus);
         assertEquals(IccCardStatus.PinState.PINSTATE_ENABLED_VERIFIED,
                 mUiccProfile.getUniversalPinState());
-    }
-
-    @Test
-    @SmallTest
-    public void testCarrierPriviledgeLoadedListener() {
-        mUiccProfile.registerForCarrierPrivilegeRulesLoaded(mMockedHandler,
-                UICCPROFILE_CARRIER_PRIVILEGE_LOADED_EVENT, null);
-        ArgumentCaptor<Message> mCaptorMessage = ArgumentCaptor.forClass(Message.class);
-        ArgumentCaptor<Long> mCaptorLong = ArgumentCaptor.forClass(Long.class);
-        testUpdateUiccProfile();
-        verify(mMockedHandler, atLeast(1)).sendMessageDelayed(mCaptorMessage.capture(),
-                mCaptorLong.capture());
-        assertEquals(UICCPROFILE_CARRIER_PRIVILEGE_LOADED_EVENT, mCaptorMessage.getValue().what);
     }
 
     @Test
@@ -551,9 +543,6 @@ public class UiccProfileTest extends TelephonyTest {
         }
         assertTrue(carrierFound);
     }
-
-    @Mock
-    private SubscriptionInfo mSubscriptionInfo;
 
     @Test
     public void testSetOperatorBrandOverride() {

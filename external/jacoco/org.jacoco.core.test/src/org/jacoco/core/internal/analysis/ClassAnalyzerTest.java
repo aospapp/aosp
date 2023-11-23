@@ -1,22 +1,25 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.core.internal.analysis;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.jacoco.core.internal.instr.InstrSupport;
 import org.junit.Before;
 import org.junit.Test;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -55,6 +58,14 @@ public class ClassAnalyzerTest {
 				null, null);
 		mv.visitEnd();
 		assertEquals(0, coverage.getMethods().size());
+	}
+
+	@Test
+	public void should_collect_attributes() {
+		assertTrue(analyzer.getClassAttributes().isEmpty());
+		analyzer.visitAttribute(new Attribute("foo") {
+		});
+		assertTrue(analyzer.getClassAttributes().contains("foo"));
 	}
 
 }

@@ -28,8 +28,7 @@
  * compiling external/dynamic nanoapps.
  */
 
-#include "chre/util/entry_points.h"
-
+#include <chre.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -52,6 +51,17 @@ extern "C" {
 
 //! Maximum length of vendor and name strings
 #define CHRE_NSL_DSO_NANOAPP_STRING_MAX_LEN (32)
+
+//! @see nanoappStart()
+typedef bool(chreNanoappStartFunction)(void);
+
+//! @see nanoappHandleEvent()
+typedef void(chreNanoappHandleEventFunction)(uint32_t senderInstanceId,
+                                             uint16_t eventType,
+                                             const void *eventData);
+
+//! @see nanoappEnd()
+typedef void(chreNanoappEndFunction)(void);
 
 /**
  * DSO-based nanoapps must expose this struct under a symbol whose name is given

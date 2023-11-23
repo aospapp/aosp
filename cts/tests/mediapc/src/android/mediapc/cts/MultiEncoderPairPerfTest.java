@@ -16,11 +16,19 @@
 
 package android.mediapc.cts;
 
+import android.media.MediaFormat;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
+import android.mediapc.cts.common.Utils;
 import android.util.Pair;
 
 import androidx.test.filters.LargeTest;
 
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -53,6 +61,9 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
         mSecondPair = secondPair;
     }
 
+    @Rule
+    public final TestName mTestName = new TestName();
+
     // Returns the list of params with two hardware (mime - encoder) pairs in both
     // sync and async modes.
     // Parameters {0}_{1}_{2} -- Pair(Mime EncoderName)_Pair(Mime EncoderName)_isAsync
@@ -61,7 +72,7 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
         final List<Object[]> argsList = new ArrayList<>();
         ArrayList<Pair<String, String>> mimeTypeEncoderPairs = new ArrayList<>();
         for (String mime : mMimeList) {
-            ArrayList<String> listOfEncoders = getHardwareCodecsFor720p(mime, true);
+            ArrayList<String> listOfEncoders = getHardwareCodecsForMime(mime, true);
             for (String encoder : listOfEncoders) {
                 mimeTypeEncoderPairs.add(Pair.create(mime, encoder));
             }
@@ -86,26 +97,74 @@ public class MultiEncoderPairPerfTest extends MultiCodecPerfTestBase {
      */
     @LargeTest
     @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement = "2.2.7.1/5.1/H-1-3,H-1-4")
     public void test720p() throws Exception {
+        Assume.assumeTrue(Utils.isSPerfClass() || Utils.isRPerfClass() || !Utils.isPerfClass());
+
+        boolean hasVP9 = mFirstPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9) ||
+                mSecondPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9);
+        int requiredMinInstances = getRequiredMinConcurrentInstances720p(hasVP9);
+        testCodec(720, 1280, 4000000, requiredMinInstances);
+    }
+
+    /**
+     * This test calculates the number of 1080p 30 fps encoder instances that the given two
+     * (mime - encoder) pairs can support. Assigns the same number of instances to the two pairs
+     * (if max instances are even), or one more to one pair (if odd) and ensures that all the
+     * concurrent sessions succeed in encoding.
+     */
+    @LargeTest
+    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement = "2.2.7.1/5.1/H-1-3,H-1-4")
+    public void test1080p() throws Exception {
+        Assume.assumeTrue(Utils.isTPerfClass() || !Utils.isPerfClass());
+        testCodec(1080, 1920, 10000000, REQUIRED_MIN_CONCURRENT_INSTANCES);
+    }
+
+    private void testCodec(int height, int width, int bitrate, int requiredMinInstances)
+            throws Exception {
         ArrayList<Pair<String, String>> mimeEncoderPairs = new ArrayList<>();
         mimeEncoderPairs.add(mFirstPair);
         mimeEncoderPairs.add(mSecondPair);
-        int maxInstances = checkAndGetMaxSupportedInstancesFor720p(mimeEncoderPairs);
-        int secondPairInstances = maxInstances / 2;
-        int firstPairInstances = maxInstances - secondPairInstances;
-        ExecutorService pool = Executors.newFixedThreadPool(maxInstances);
-        List<Encode> testList = new ArrayList<>();
-        for (int i = 0; i < firstPairInstances; i++) {
-            testList.add(new Encode(mFirstPair.first, mFirstPair.second, mIsAsync));
-        }
-        for (int i = 0; i < secondPairInstances; i++) {
-            testList.add(new Encode(mSecondPair.first, mSecondPair.second, mIsAsync));
-        }
-        List<Future<Double>> resultList = pool.invokeAll(testList);
+        int maxInstances = checkAndGetMaxSupportedInstancesForCodecCombinations(height, width,
+                mimeEncoderPairs, requiredMinInstances);
         double achievedFrameRate = 0.0;
-        for (Future<Double> result : resultList) {
-            achievedFrameRate += result.get();
+        if (maxInstances >= requiredMinInstances) {
+            int secondPairInstances = maxInstances / 2;
+            int firstPairInstances = maxInstances - secondPairInstances;
+            ExecutorService pool = Executors.newFixedThreadPool(maxInstances);
+            List<Encode> testList = new ArrayList<>();
+            for (int i = 0; i < firstPairInstances; i++) {
+                testList.add(
+                        new Encode(mFirstPair.first, mFirstPair.second, mIsAsync, height, width, 30,
+                                bitrate));
+            }
+            for (int i = 0; i < secondPairInstances; i++) {
+                testList.add(
+                        new Encode(mSecondPair.first, mSecondPair.second, mIsAsync, height, width,
+                                30, bitrate));
+            }
+            List<Future<Double>> resultList = pool.invokeAll(testList);
+            for (Future<Double> result : resultList) {
+                achievedFrameRate += result.get();
+            }
         }
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_3;
+        PerformanceClassEvaluator.ConcurrentCodecRequirement r5_1__H_1_4;
         // Achieved frame rate is not compared as this test runs in byte buffer mode.
+        if (height >= 1080) {
+            r5_1__H_1_3 = pce.addR5_1__H_1_3_1080p();
+            r5_1__H_1_4 = pce.addR5_1__H_1_4_1080p();
+            r5_1__H_1_3.setConcurrentInstances(maxInstances);
+            r5_1__H_1_4.setConcurrentFps(achievedFrameRate);
+        } else {
+            r5_1__H_1_3 = pce.addR5_1__H_1_3_720p(mMime, mMime, height);
+            r5_1__H_1_4 = pce.addR5_1__H_1_4_720p();
+            r5_1__H_1_3.setConcurrentInstances(maxInstances);
+            r5_1__H_1_4.setConcurrentFps(achievedFrameRate);
+        }
+
+        pce.submitAndCheck();
     }
 }

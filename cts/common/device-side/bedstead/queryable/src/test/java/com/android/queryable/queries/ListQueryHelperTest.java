@@ -16,6 +16,7 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
 import static com.android.queryable.queries.BundleQuery.bundle;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -198,5 +199,19 @@ public class ListQueryHelperTest {
 
         assertThat(listQueryHelper.matches(
                 List.of(ANOTHER_DIFFERENT_INTEGER))).isTrue();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        ListQueryHelper<Queryable, Integer, IntegerQuery<?>> listQueryHelper =
+                new ListQueryHelper<>(mQuery);
+
+        listQueryHelper.size().isEqualTo(1);
+        listQueryHelper.contains(1);
+        listQueryHelper.doesNotContain(1);
+        listQueryHelper.contains(IntegerQuery.integer().isEqualTo(1));
+        listQueryHelper.doesNotContain(IntegerQuery.integer().isEqualTo(1));
+
+        assertParcelsCorrectly(ListQueryHelper.class, listQueryHelper);
     }
 }

@@ -19,15 +19,26 @@ package com.android.server.wifi;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_OWE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_WPA3_SAE;
 
-import static com.android.server.wifi.util.NativeUtil.removeEnclosingQuotes;
-
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.validateMockitoUsage;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiSsid;
 
 import androidx.test.filters.SmallTest;
 
@@ -91,13 +102,13 @@ public class WifiCandidatesTest extends WifiBaseTest {
         mConfig1 = WifiConfigurationTestUtil.createOpenNetwork();
 
         mScanResult1 = new ScanResult();
-        mScanResult1.SSID = removeEnclosingQuotes(mConfig1.SSID);
+        mScanResult1.setWifiSsid(WifiSsid.fromString(mConfig1.SSID));
         mScanResult1.capabilities = "[ESS]";
         mScanResult1.BSSID = "00:00:00:00:00:01";
 
         mConfig2 = WifiConfigurationTestUtil.createEphemeralNetwork();
         mScanResult2 = new ScanResult();
-        mScanResult2.SSID = removeEnclosingQuotes(mConfig2.SSID);
+        mScanResult2.setWifiSsid(WifiSsid.fromString(mConfig2.SSID));
         mScanResult2.capabilities = "[ESS]";
 
         doReturn(mScanResult1).when(mScanDetail1).getScanResult();
@@ -164,6 +175,7 @@ public class WifiCandidatesTest extends WifiBaseTest {
     public void testQuotingBotch() throws Exception {
         // Unfortunately ScanResult.SSID is not quoted; make sure we catch that
         mScanResult1.SSID = mConfig1.SSID;
+        mScanResult1.setWifiSsid(WifiSsid.fromUtf8Text(mConfig1.SSID));
         mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, true, 100);
 
         // Should not have added this one
@@ -252,7 +264,9 @@ public class WifiCandidatesTest extends WifiBaseTest {
         // method chaining may be used).
         assertTrue(mWifiCandidates == mWifiCandidates.setPicky(true));
         try {
-            mScanResult1.SSID = mConfig1.SSID; // As in testQuotingBotch()
+            // As in testQuotingBotch()
+            mScanResult1.SSID = mConfig1.SSID;
+            mScanResult1.setWifiSsid(WifiSsid.fromUtf8Text(mConfig1.SSID));
             mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 100);
             fail("Exception not raised in picky mode");
         } catch (IllegalArgumentException e) {
@@ -324,6 +338,7 @@ public class WifiCandidatesTest extends WifiBaseTest {
         mConfig2 = new WifiConfiguration(mConfig1);
         // Make a second scan result, same network, different BSSID.
         mScanResult2.SSID = mScanResult1.SSID;
+        mScanResult2.setWifiSsid(mScanResult1.getWifiSsid());
         mScanResult2.BSSID = mScanResult1.BSSID.replace('1', '2');
         // Add both
         mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 100);
@@ -357,6 +372,7 @@ public class WifiCandidatesTest extends WifiBaseTest {
         mConfig2 = new WifiConfiguration(mConfig1);
         // And the scan result
         mScanResult2.SSID = mScanResult1.SSID;
+        mScanResult2.setWifiSsid(mScanResult1.getWifiSsid());
         mScanResult2.BSSID = mScanResult1.BSSID;
         // Try adding them both, in a known order
         assertTrue(mWifiCandidates.add(mScanDetail2, mConfig2, 2, 0.0, false, 100));
@@ -378,6 +394,7 @@ public class WifiCandidatesTest extends WifiBaseTest {
     public void testMultiplePasspointCandidatesWithSameFQDN() {
         // Create a Passpoint WifiConfig
         mScanResult2.SSID = mScanResult1.SSID;
+        mScanResult2.setWifiSsid(mScanResult1.getWifiSsid());
         mScanResult2.BSSID = mScanResult1.BSSID.replace('1', '2');
         // Add candidates with different scanDetail for same passpoint WifiConfig.
         assertTrue(mWifiCandidates.add(mScanDetail1, mConfig1, 2, 0.0, false, 100));
@@ -396,14 +413,31 @@ public class WifiCandidatesTest extends WifiBaseTest {
                 .keyFromScanDetailAndConfig(mScanDetail1, mConfig1);
         WifiCandidates.Candidate candidate;
         // Make sure the CarrierOrPrivileged false is remembered
-        assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412, 0.0, false, false, 100));
+        assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412,
+                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, false, 100));
         candidate = mWifiCandidates.getCandidates().get(0);
         assertFalse(candidate.isCarrierOrPrivileged());
         mWifiCandidates.remove(candidate);
         // Make sure the CarrierOrPrivileged true is remembered
-        assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412, 0.0, false, true, 100));
+        assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, 2412,
+                ScanResult.CHANNEL_WIDTH_20MHZ, 0.0, false, true, 100));
         candidate = mWifiCandidates.getCandidates().get(0);
         assertTrue(candidate.isCarrierOrPrivileged());
         mWifiCandidates.remove(candidate);
+    }
+
+    @Test
+    public void testAddCandidateFrequencyAndChannelWidth() {
+        int testFrequency = 5975;
+        int testChannelWidth = ScanResult.CHANNEL_WIDTH_80MHZ;
+        WifiCandidates.Key key = mWifiCandidates
+                .keyFromScanDetailAndConfig(mScanDetail1, mConfig1);
+        WifiCandidates.Candidate candidate;
+
+        assertTrue(mWifiCandidates.add(key, mConfig1, 0, -50, testFrequency,
+                testChannelWidth, 0.0, false, false, 100));
+        candidate = mWifiCandidates.getCandidates().get(0);
+        assertEquals(testFrequency, candidate.getFrequency());
+        assertEquals(testChannelWidth, candidate.getChannelWidth());
     }
 }

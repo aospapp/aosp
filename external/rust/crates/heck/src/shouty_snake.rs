@@ -18,8 +18,8 @@ pub trait ShoutySnakeCase: ToOwned {
     fn to_shouty_snake_case(&self) -> Self::Owned;
 }
 
-/// Oh heck, ShoutySnekCase is an alias for ShoutySnakeCase. See ShoutySnakeCase for
-/// more documentation.
+/// Oh heck, ShoutySnekCase is an alias for ShoutySnakeCase. See ShoutySnakeCase
+/// for more documentation.
 pub trait ShoutySnekCase: ToOwned {
     /// CONVERT THIS TYPE TO SNEK CASE.
     #[allow(non_snake_case)]
@@ -31,7 +31,6 @@ impl<T: ?Sized + ShoutySnakeCase> ShoutySnekCase for T {
         self.to_shouty_snake_case()
     }
 }
-
 
 impl ShoutySnakeCase for str {
     fn to_shouty_snake_case(&self) -> Self::Owned {
@@ -49,7 +48,7 @@ mod tests {
             fn $t() {
                 assert_eq!($s1.to_shouty_snake_case(), $s2)
             }
-        }
+        };
     }
 
     t!(test1: "CamelCase" => "CAMEL_CASE");

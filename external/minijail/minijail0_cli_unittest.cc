@@ -14,8 +14,10 @@
 
 #include <gtest/gtest.h>
 
+#include "config_parser.h"
 #include "libminijail.h"
 #include "minijail0_cli.h"
+#include "test_util.h"
 
 namespace {
 
@@ -58,9 +60,10 @@ class CliTest : public ::testing::Test {
     testing::internal::CaptureStdout();
 
     const char* preload_path = PRELOADPATH;
+    char **envp = NULL;
     int ret =
         parse_args(j, pargv.size(), const_cast<char* const*>(pargv.data()),
-                   exit_immediately, elftype, &preload_path);
+                   NULL, exit_immediately, elftype, &preload_path, &envp);
     testing::internal::GetCapturedStdout();
 
     minijail_destroy(j);
@@ -526,3 +529,80 @@ TEST_F(CliTest, invalid_remount_mode) {
   argv[1] = "-Kfoo";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
 }
+
+TEST_F(CliTest, invalid_L_combo) {
+  std::vector<std::string> argv = {"", "", "", "/bin/sh"};
+
+  // Cannot call minijail0 with -L and a pre-compiled seccomp policy.
+  argv[0] = "-L";
+  argv[1] = "--seccomp-bpf-binary";
+  argv[2] = "source";
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  argv[0] = "--seccomp-bpf-binary";
+  argv[1] = "source";
+  argv[2] = "-L";
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+}
+
+// Valid calls to the clear env option.
+TEST_F(CliTest, valid_clear_env) {
+  std::vector<std::string> argv = {"--env-reset", "/bin/sh"};
+
+  ASSERT_TRUE(parse_args_(argv));
+}
+
+// Valid calls to the set env option.
+TEST_F(CliTest, valid_set_env) {
+  std::vector<std::string> argv1 = {"--env-add", "NAME=value", "/bin/sh"};
+  ASSERT_TRUE(parse_args_(argv1));
+
+  // multiple occurences are allowed.
+  std::vector<std::string> argv2 = {"--env-add", "A=b",
+                                    "--env-add", "b=C=D", "/bin/sh"};
+  ASSERT_TRUE(parse_args_(argv2));
+
+  // --env-reset before any --env-add to not pass our own env.
+  std::vector<std::string> argv3 = {"--env-reset", "--env-add", "A=b", "/bin/sh"};
+  ASSERT_TRUE(parse_args_(argv3));
+
+  // --env-add before an --env-reset doesn't have any effect, but is allowed.
+  std::vector<std::string> argv4 = {"--env-add", "A=b", "--env-reset", "/bin/sh"};
+  ASSERT_TRUE(parse_args_(argv4));
+}
+
+// Invalid calls to the set env options.
+TEST_F(CliTest, invalid_set_env) {
+
+  // invalid env=value arguments.
+  std::vector<std::string> argv2 = {"--env-add", "", "/bin/sh"};
+
+  argv2[1] = "INVALID";
+  ASSERT_EXIT(parse_args_(argv2), testing::ExitedWithCode(1), "");
+
+  argv2[1] = "=";
+  ASSERT_EXIT(parse_args_(argv2), testing::ExitedWithCode(1), "");
+
+  argv2[1] = "=foo";
+  ASSERT_EXIT(parse_args_(argv2), testing::ExitedWithCode(1), "");
+}
+
+// Android unit tests do not support data file yet.
+#if !defined(__ANDROID__)
+
+TEST_F(CliTest, conf_parsing_invalid_key) {
+  std::vector<std::string> argv = {"--config", source_path("test/invalid.conf"),
+                                   "/bin/sh"};
+
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+}
+
+TEST_F(CliTest, conf_parsing) {
+  std::vector<std::string> argv = {"--config",
+                                   source_path("test/valid.conf"),
+                                   "/bin/sh"};
+
+  ASSERT_TRUE(parse_args_(argv));
+}
+
+#endif  // !__ANDROID__

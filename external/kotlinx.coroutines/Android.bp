@@ -48,6 +48,7 @@ java_library {
         "kotlinx-coroutines-core/jvm/src/debug/**/*.kt",
         "kotlinx-coroutines-core/jvm/src/test_/TestCoroutineContext.kt",
     ],
+    java_resource_dirs: ["kotlinx-coroutines-core/jvm/resources"],
     static_libs: [
         "kotlinx_atomicfu",
     ],
@@ -61,12 +62,17 @@ java_library {
         "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
         "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
 }
 
 java_library {
     name: "kotlinx_coroutines_android",
     sdk_version: "28",
     srcs: ["ui/kotlinx-coroutines-android/src/**/*.kt"],
+    java_resource_dirs: ["ui/kotlinx-coroutines-android/resources"],
     kotlincflags: [
         "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
         "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
@@ -75,4 +81,68 @@ java_library {
         "kotlinx_coroutines",
         "androidx.annotation_annotation",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
+}
+
+java_library {
+    name: "kotlinx_coroutines_test",
+    host_supported: true,
+    srcs: ["kotlinx-coroutines-test/src/**/*.kt"],
+    java_resource_dirs: ["kotlinx-coroutines-test/resources"],
+    kotlincflags: [
+        "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
+        "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+    ],
+    libs: [
+        "kotlinx_coroutines",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
+}
+
+// Temporary aliases for kotlinx-coroutines-core, kotlinx-coroutines-core-jvm and kotlinx-coroutines-android
+
+java_library {
+    name: "kotlinx-coroutines-core",
+    host_supported: true,
+    sdk_version: "28",
+    static_libs: ["kotlinx_coroutines"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
+}
+
+java_library {
+    name: "kotlinx-coroutines-core-jvm",
+    host_supported: true,
+    sdk_version: "28",
+    static_libs: ["kotlinx_coroutines"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
+}
+
+java_library {
+    name: "kotlinx-coroutines-android",
+    sdk_version: "28",
+    static_libs: [
+        "kotlinx_coroutines_android",
+        "kotlinx_coroutines",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex"
+    ],
+}
+
+filegroup {
+    name: "kotlinx-coroutines-play-services",
+    srcs: ["integration/kotlinx-coroutines-play-services/src/**/*.kt"],
 }

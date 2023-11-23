@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, Arm Limited. All rights reserved.
+# Copyright (c) 2021, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -31,6 +31,8 @@ $(eval $(call add_define,FPGA_PRELOADED_DTB_BASE))
 
 FPGA_PRELOADED_CMD_LINE := 0x1000
 $(eval $(call add_define,FPGA_PRELOADED_CMD_LINE))
+
+ENABLE_AMU		:=	1
 
 # Treating this as a memory-constrained port for now
 USE_COHERENT_MEM	:=	0
@@ -67,8 +69,11 @@ else
 				lib/cpus/aarch64/cortex_a78_ae.S	\
 				lib/cpus/aarch64/cortex_a65.S		\
 				lib/cpus/aarch64/cortex_a65ae.S		\
-				lib/cpus/aarch64/cortex_klein.S		\
-				lib/cpus/aarch64/cortex_matterhorn.S
+				lib/cpus/aarch64/cortex_a510.S		\
+				lib/cpus/aarch64/cortex_a710.S	\
+				lib/cpus/aarch64/cortex_makalu.S	\
+				lib/cpus/aarch64/cortex_makalu_elp_arm.S \
+				lib/cpus/aarch64/cortex_a78c.S
 
 # AArch64/AArch32 cores
 	FPGA_CPU_LIBS	+=	lib/cpus/aarch64/cortex_a55.S	\

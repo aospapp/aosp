@@ -49,7 +49,6 @@ import android.net.metrics.ApfProgramEvent;
 import android.net.metrics.ApfStats;
 import android.net.metrics.IpConnectivityLog;
 import android.net.metrics.RaEvent;
-import android.net.util.InterfaceParams;
 import android.net.util.NetworkStackUtils;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -67,6 +66,7 @@ import com.android.internal.util.HexDump;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.net.module.util.CollectionUtils;
 import com.android.net.module.util.ConnectivityUtils;
+import com.android.net.module.util.InterfaceParams;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -1411,7 +1411,7 @@ public class ApfFilter {
         //     pass
         // if it's ICMPv6 RS to any:
         //   drop
-        // if it's ICMPv6 NA to ff02::1 or ff02::2:
+        // if it's ICMPv6 NA to anything in ff02::/120
         //   drop
         // if keepalive ack
         //   drop
@@ -1495,7 +1495,7 @@ public class ApfFilter {
      * <li>Drop all broadcast non-IP non-ARP packets.
      * <li>Pass all non-ICMPv6 IPv6 packets,
      * <li>Pass all non-IPv4 and non-IPv6 packets,
-     * <li>Drop IPv6 ICMPv6 NAs to ff02::1 or ff02::2.
+     * <li>Drop IPv6 ICMPv6 NAs to anything in ff02::/120.
      * <li>Drop IPv6 ICMPv6 RSs.
      * <li>Filter IPv4 packets (see generateIPv4FilterLocked())
      * <li>Filter IPv6 packets (see generateIPv6FilterLocked())

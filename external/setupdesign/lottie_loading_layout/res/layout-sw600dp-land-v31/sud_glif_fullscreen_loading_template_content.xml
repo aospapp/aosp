@@ -64,9 +64,9 @@
 
             <LinearLayout
                 android:id="@+id/sud_landscape_content_area"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="@dimen/sud_glif_land_content_area_weight"
+                style="@style/SudLandContentContianerStyle"
+                android:paddingTop="?attr/sudGlifContentPaddingTop"
+                android:focusedByDefault="false"
                 android:orientation="vertical">
 
                 <FrameLayout

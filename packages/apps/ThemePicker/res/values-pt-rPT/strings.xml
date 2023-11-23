@@ -61,7 +61,7 @@
     <string name="shape_component_title" msgid="8366847436022025538">"Escolha a forma"</string>
     <string name="name_component_title" msgid="532425087968663437">"Atribua um nome ao seu estilo"</string>
     <string name="icon_component_label" msgid="2625784884001407944">"Ícones <xliff:g id="ID_1">%1$d</xliff:g>"</string>
-    <string name="delete_custom_theme_confirmation" msgid="4452137183628769394">"Pretende eliminar o estilo personalizado?"</string>
+    <string name="delete_custom_theme_confirmation" msgid="4452137183628769394">"Eliminar o estilo personalizado?"</string>
     <string name="delete_custom_theme_button" msgid="5102462988130208824">"Eliminar"</string>
     <string name="cancel" msgid="4651030493668562067">"Cancelar"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"Defina a imagem de fundo do estilo"</string>
@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"Ícones temáticos"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Altere a grelha de apps"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Cores imag. de fundo"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Cor da imagem de fundo"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Cores básicas"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Cor alterada"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Dinâmico"</string>
 </resources>

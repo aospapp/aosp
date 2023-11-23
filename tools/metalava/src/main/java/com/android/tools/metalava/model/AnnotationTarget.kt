@@ -107,3 +107,9 @@ val ANNOTATION_STUBS_ONLY = setOf(
     AnnotationTarget.DOC_STUBS_FILE,
     AnnotationTarget.INTERNAL
 )
+
+/** Write it only into the SDK stubs, but don't track it in the signature files. */
+val ANNOTATION_SDK_STUBS_ONLY = setOf(
+    AnnotationTarget.SDK_STUBS_FILE,
+    AnnotationTarget.INTERNAL
+)

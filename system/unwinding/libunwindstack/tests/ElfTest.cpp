@@ -31,7 +31,7 @@
 #include "ElfFake.h"
 #include "ElfTestUtils.h"
 #include "LogFake.h"
-#include "MemoryFake.h"
+#include "utils/MemoryFake.h"
 
 #if !defined(PT_ARM_EXIDX)
 #define PT_ARM_EXIDX 0x70000001
@@ -172,8 +172,7 @@ TEST_F(ElfTest, elf32_invalid_machine) {
   ASSERT_FALSE(elf.Init());
 
   ASSERT_EQ("", GetFakeLogBuf());
-  ASSERT_EQ("4 unwind 32 bit elf that is neither arm nor x86 nor mips: e_machine = 20\n\n",
-            GetFakeLogPrint());
+  ASSERT_EQ("", GetFakeLogPrint());
 }
 
 TEST_F(ElfTest, elf64_invalid_machine) {
@@ -185,8 +184,7 @@ TEST_F(ElfTest, elf64_invalid_machine) {
   ASSERT_FALSE(elf.Init());
 
   ASSERT_EQ("", GetFakeLogBuf());
-  ASSERT_EQ("4 unwind 64 bit elf that is neither aarch64 nor x86_64 nor mips64: e_machine = 21\n\n",
-            GetFakeLogPrint());
+  ASSERT_EQ("", GetFakeLogPrint());
 }
 
 TEST_F(ElfTest, elf_arm) {
@@ -296,12 +294,12 @@ TEST_F(ElfTest, rel_pc) {
   elf.FakeSetInterface(interface);
 
   elf.FakeSetValid(true);
-  MapInfo map_info(nullptr, nullptr, 0x1000, 0x2000, 0, 0, "");
+  auto map_info = MapInfo::Create(0x1000, 0x2000, 0, 0, "");
 
-  ASSERT_EQ(0x101U, elf.GetRelPc(0x1101, &map_info));
+  ASSERT_EQ(0x101U, elf.GetRelPc(0x1101, map_info.get()));
 
   elf.FakeSetValid(false);
-  ASSERT_EQ(0x101U, elf.GetRelPc(0x1101, &map_info));
+  ASSERT_EQ(0x101U, elf.GetRelPc(0x1101, map_info.get()));
 }
 
 void ElfTest::VerifyStepIfSignalHandler(uint64_t load_bias) {
@@ -551,6 +549,16 @@ TEST_F(ElfTest, error_code_valid) {
   EXPECT_EQ(0x1000U, error.address);
   EXPECT_EQ(ERROR_MEMORY_INVALID, elf.GetLastErrorCode());
   EXPECT_EQ(0x1000U, elf.GetLastErrorAddress());
+}
+
+TEST(ElfBuildIdTest, get_printable_build_id_empty) {
+  std::string empty;
+  ASSERT_EQ("", Elf::GetPrintableBuildID(empty));
+}
+
+TEST(ElfBuildIdTest, get_printable_build_id_check) {
+  std::string empty = {'\xff', '\x45', '\x40', '\x0f'};
+  ASSERT_EQ("ff45400f", Elf::GetPrintableBuildID(empty));
 }
 
 }  // namespace unwindstack

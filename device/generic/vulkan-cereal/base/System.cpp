@@ -94,15 +94,15 @@ public:
     }
     LARGE_INTEGER now;
     ::QueryPerformanceCounter(&now);
-    return (now.QuadPart * 1000000ull) / mFreqPerSec;
+    return (now.QuadPart * 1000000ULL) / mFreqPerSec;
 #elif defined __linux__
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000000ll + ts.tv_nsec / 1000;
+    return ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
 #else // APPLE
     mach_timespec_t mts;
     clock_get_time(mClockServ, &mts);
-    return mts.tv_sec * 1000000ll + mts.tv_nsec / 1000;
+    return mts.tv_sec * 1000000LL + mts.tv_nsec / 1000;
 #endif
     }
 };

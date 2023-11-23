@@ -72,13 +72,13 @@ public final class IkeUdpEncapSocket extends IkeSocket {
      *
      * @param sockConfig the socket configuration
      * @param ipsecManager for creating {@link UdpEncapsulationSocket}
-     * @param ikeSession the IkeSessionStateMachine that is requesting an IkeUdpEncapSocket.
+     * @param callback the callback for signalling IkeSocket events
      * @return an IkeUdpEncapSocket instance
      */
     public static IkeUdpEncapSocket getIkeUdpEncapSocket(
             IkeSocketConfig sockConfig,
             IpSecManager ipsecManager,
-            IkeSessionStateMachine ikeSession,
+            IkeSocket.Callback callback,
             Looper looper)
             throws ErrnoException, IOException, ResourceUnavailableException {
         IkeUdpEncapSocket ikeSocket = sConfigToSocketMap.get(sockConfig);
@@ -94,7 +94,7 @@ public final class IkeUdpEncapSocket extends IkeSocket {
 
             sConfigToSocketMap.put(sockConfig, ikeSocket);
         }
-        ikeSocket.mAliveIkeSessions.add(ikeSession);
+        ikeSocket.mRegisteredCallbacks.add(callback);
         return ikeSocket;
     }
 
@@ -125,7 +125,7 @@ public final class IkeUdpEncapSocket extends IkeSocket {
      */
     @Override
     protected void handlePacket(byte[] recvbuf, int length) {
-        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToIkeSession);
+        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToCallback);
     }
 
     @Override

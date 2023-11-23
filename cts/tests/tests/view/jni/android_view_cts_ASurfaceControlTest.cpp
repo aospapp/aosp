@@ -16,12 +16,17 @@
 
 #define LOG_TAG "ASurfaceControlTest"
 
+#include <ChoreographerTestUtils.h>
+#include <android/choreographer.h>
 #include <android/data_space.h>
 #include <android/hardware_buffer.h>
+#include <android/hardware_buffer_jni.h>
 #include <android/log.h>
+#include <android/looper.h>
 #include <android/native_window_jni.h>
 #include <android/surface_control.h>
 #include <android/sync.h>
+#include <android/trace.h>
 #include <errno.h>
 #include <jni.h>
 #include <poll.h>
@@ -42,16 +47,6 @@ static struct {
     jclass clazz;
     jmethodID onTransactionComplete;
 } gTransactionCompleteListenerClassInfo;
-
-#define NANOS_PER_SECOND 1000000000LL
-int64_t systemTime() {
-    struct timespec time;
-    int result = clock_gettime(CLOCK_MONOTONIC, &time);
-    if (result < 0) {
-        return -errno;
-    }
-    return (time.tv_sec * NANOS_PER_SECOND) + time.tv_nsec;
-}
 
 static AHardwareBuffer* allocateBuffer(int32_t width, int32_t height) {
     AHardwareBuffer* buffer = nullptr;
@@ -98,6 +93,7 @@ static bool getSolidBuffer(int32_t width, int32_t height, uint32_t color,
     AHardwareBuffer_lock(buffer, AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN, -1, &rect,
                                              &data);
     if (!data) {
+        AHardwareBuffer_release(buffer);
         return true;
     }
 
@@ -107,6 +103,16 @@ static bool getSolidBuffer(int32_t width, int32_t height, uint32_t color,
 
     *outHardwareBuffer = buffer;
     return false;
+}
+
+jobject Utils_getSolidBuffer(JNIEnv* env, jobject /*clazz*/, jint width, jint height, jint color) {
+    AHardwareBuffer* buffer;
+    if (getSolidBuffer(width, height, static_cast<uint32_t>(color), &buffer, nullptr)) {
+        return nullptr;
+    }
+    jobject result = AHardwareBuffer_toHardwareBuffer(env, buffer);
+    AHardwareBuffer_release(buffer);
+    return result;
 }
 
 static bool getQuadrantBuffer(int32_t width, int32_t height, jint colorTopLeft,
@@ -141,6 +147,26 @@ static bool getQuadrantBuffer(int32_t width, int32_t height, jint colorTopLeft,
 
     *outHardwareBuffer = buffer;
     return false;
+}
+
+jobject Utils_getQuadrantBuffer(JNIEnv* env, jobject /*clazz*/, jint width, jint height,
+                                jint colorTopLeft, jint colorTopRight, jint colorBottomRight,
+                                jint colorBottomLeft) {
+    AHardwareBuffer* buffer;
+    if (getQuadrantBuffer(width, height, colorTopLeft, colorTopRight, colorBottomRight,
+                          colorBottomLeft, &buffer, nullptr)) {
+        return nullptr;
+    }
+    jobject result = AHardwareBuffer_toHardwareBuffer(env, buffer);
+    AHardwareBuffer_release(buffer);
+    return result;
+}
+
+jlong Utils_getBufferId(JNIEnv* env, jobject /*clazz*/, jobject jHardwareBuffer) {
+    AHardwareBuffer* buffer = AHardwareBuffer_fromHardwareBuffer(env, jHardwareBuffer);
+    uint64_t id = 0;
+    AHardwareBuffer_getId(buffer, &id);
+    return id;
 }
 
 jlong SurfaceTransaction_create(JNIEnv* /*env*/, jclass) {
@@ -544,6 +570,77 @@ void SurfaceTransaction_setOnCommitCallbackWithoutContext(JNIEnv* env, jclass,
                                     nullptr, transactionCallbackWithoutContextThunk);
 }
 
+void SurfaceTransaction_setFrameTimeline(JNIEnv* /*env*/, jclass, jlong surfaceTransaction,
+                                         jlong vsyncId) {
+    ASurfaceTransaction_setFrameTimeline(reinterpret_cast<ASurfaceTransaction*>(surfaceTransaction),
+                                         vsyncId);
+}
+
+static struct {
+    jclass clazz;
+    jmethodID constructor;
+} gFrameTimelineClassInfo;
+
+static struct {
+    jclass clazz;
+    jmethodID constructor;
+} gFrameCallbackDataClassInfo;
+
+static void verifyChoreographer(JNIEnv* env, AChoreographer* choreographer) {
+    ASSERT(choreographer != nullptr, "Choreographer setup unsuccessful");
+}
+
+static void verifyPollCallback(JNIEnv* env, int result) {
+    ASSERT(result == ALOOPER_POLL_CALLBACK, "Callback failed with error: %d", result);
+}
+
+/** Gets VSync information from Choreographer, including a collection of frame timelines and
+ * platform-preferred index using Choreographer. */
+jobject SurfaceControlTest_getFrameTimelines(JNIEnv* env, jclass) {
+    ALooper_prepare(0);
+    ATrace_beginSection("Getting Choreographer instance");
+    AChoreographer* choreographer = AChoreographer_getInstance();
+    ATrace_endSection();
+    verifyChoreographer(env, choreographer);
+
+    VsyncCallback cb1("cb1", env);
+    auto start = now();
+    ATrace_beginSection("postVsyncCallback");
+    AChoreographer_postVsyncCallback(choreographer, vsyncCallback, &cb1);
+    ATrace_endSection();
+    auto delayPeriod = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
+    ATrace_beginSection("ALooper_pollOnce");
+    int result = ALooper_pollOnce(delayPeriod * 5, nullptr, nullptr, nullptr);
+    ATrace_endSection();
+    verifyPollCallback(env, result);
+    verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
+
+    jobjectArray frameTimelineObjs =
+            env->NewObjectArray(cb1.getTimeline().size(), gFrameTimelineClassInfo.clazz,
+                                /*initial element*/ NULL);
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return NULL;
+    }
+    if (frameTimelineObjs == NULL) {
+        jniThrowRuntimeException(env, "Failed to create FrameTimeline array");
+        return NULL;
+    }
+    for (int i = 0; i < cb1.getTimeline().size(); i++) {
+        VsyncCallback::FrameTime frameTimeline = cb1.getTimeline()[i];
+        jobject frameTimelineObj =
+                env->NewObject(gFrameTimelineClassInfo.clazz, gFrameTimelineClassInfo.constructor,
+                               frameTimeline.vsyncId, frameTimeline.expectedPresentTime,
+                               frameTimeline.deadline);
+        env->SetObjectArrayElement(frameTimelineObjs, i, frameTimelineObj);
+    }
+
+    return env->NewObject(gFrameCallbackDataClassInfo.clazz,
+                          gFrameCallbackDataClassInfo.constructor, frameTimelineObjs,
+                          cb1.getPreferredFrameTimelineIndex());
+}
+
 static const JNINativeMethod JNI_METHODS[] = {
         {"nSurfaceTransaction_create", "()J", (void*)SurfaceTransaction_create},
         {"nSurfaceTransaction_delete", "(J)V", (void*)SurfaceTransaction_delete},
@@ -591,6 +688,17 @@ static const JNINativeMethod JNI_METHODS[] = {
         {"nSurfaceTransaction_setOnCommitCallbackWithoutContext",
          "(JLandroid/view/cts/util/ASurfaceControlTestUtils$TransactionCompleteListener;)V",
          (void*)SurfaceTransaction_setOnCommitCallbackWithoutContext},
+        {"nSurfaceTransaction_setFrameTimeline", "(JJ)V",
+         (void*)SurfaceTransaction_setFrameTimeline},
+        {"getSolidBuffer", "(III)Landroid/hardware/HardwareBuffer;", (void*)Utils_getSolidBuffer},
+        {"getQuadrantBuffer", "(IIIIII)Landroid/hardware/HardwareBuffer;",
+         (void*)Utils_getQuadrantBuffer},
+        {"getBufferId", "(Landroid/hardware/HardwareBuffer;)J", (void*)Utils_getBufferId},
+};
+
+static const JNINativeMethod FRAME_TIMELINE_JNI_METHODS[] = {
+        {"nGetFrameTimelines", "()Landroid/view/cts/util/FrameCallbackData;",
+         (void*)SurfaceControlTest_getFrameTimelines},
 };
 
 }  // anonymous namespace
@@ -602,6 +710,22 @@ jint register_android_view_cts_ASurfaceControlTest(JNIEnv* env) {
             static_cast<jclass>(env->NewGlobalRef(transactionCompleteListenerClazz));
     gTransactionCompleteListenerClassInfo.onTransactionComplete =
             env->GetMethodID(transactionCompleteListenerClazz, "onTransactionComplete", "(JJ)V");
+
+    gFrameTimelineClassInfo.clazz = static_cast<jclass>(env->NewGlobalRef(
+            env->FindClass("android/view/cts/util/FrameCallbackData$FrameTimeline")));
+    gFrameTimelineClassInfo.constructor =
+            env->GetMethodID(gFrameTimelineClassInfo.clazz, "<init>", "(JJJ)V");
+
+    gFrameCallbackDataClassInfo.clazz = static_cast<jclass>(
+            env->NewGlobalRef(env->FindClass("android/view/cts/util/FrameCallbackData")));
+    gFrameCallbackDataClassInfo.constructor =
+            env->GetMethodID(gFrameCallbackDataClassInfo.clazz, "<init>",
+                             "([Landroid/view/cts/util/FrameCallbackData$FrameTimeline;I)V");
+
+    jclass frameCallbackDataClass = env->FindClass("android/view/cts/util/FrameCallbackData");
+    env->RegisterNatives(frameCallbackDataClass, FRAME_TIMELINE_JNI_METHODS,
+                         sizeof(FRAME_TIMELINE_JNI_METHODS) / sizeof(JNINativeMethod));
+
     jclass clazz = env->FindClass("android/view/cts/util/ASurfaceControlTestUtils");
     return env->RegisterNatives(clazz, JNI_METHODS, sizeof(JNI_METHODS) / sizeof(JNINativeMethod));
 }

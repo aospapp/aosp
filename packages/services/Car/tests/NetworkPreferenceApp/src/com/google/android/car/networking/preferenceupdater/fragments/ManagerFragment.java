@@ -26,7 +26,6 @@ import static android.net.OemNetworkPreferences.OEM_NETWORK_PREFERENCE_OEM_PRIVA
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.ConnectivityManager.NetworkCallback;
-import android.net.NetworkIdentity;
 import android.net.NetworkRequest;
 import android.net.NetworkTemplate;
 import android.net.wifi.WifiManager;
@@ -176,11 +175,11 @@ public final class ManagerFragment extends Fragment {
 
     private void updateMetricIndicatorByType(int type, long rx, long tx) {
         switch (type) {
-            case NetworkIdentity.OEM_PAID:
+            case NetworkTemplate.OEM_MANAGED_PAID:
                 mOemPaidRxBytesTextView.setText("RX: " + rx);
                 mOemPaidTxBytesTextView.setText("TX: " + tx);
                 break;
-            case NetworkIdentity.OEM_PRIVATE:
+            case NetworkTemplate.OEM_MANAGED_PRIVATE:
                 mOemPrivateRxBytesTextView.setText("RX: " + rx);
                 mOemPrivateTxBytesTextView.setText("TX: " + tx);
                 break;

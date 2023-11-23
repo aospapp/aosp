@@ -15,6 +15,7 @@
  */
 package com.android.quickstep;
 
+import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 import static android.view.WindowManager.LayoutParams.TYPE_DOCK_DIVIDER;
 import static android.view.WindowManager.TRANSIT_OPEN;
 import static android.view.WindowManager.TRANSIT_TO_FRONT;
@@ -36,6 +37,7 @@ import static com.android.launcher3.anim.Interpolators.TOUCH_RESPONSE_INTERPOLAT
 import static com.android.launcher3.anim.Interpolators.clampToProgress;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_QUICKSTEP_LIVE_TILE;
 import static com.android.launcher3.statehandlers.DepthController.DEPTH;
+import static com.android.launcher3.testing.TestProtocol.BAD_STATE;
 import static com.android.systemui.shared.system.RemoteAnimationTargetCompat.MODE_CLOSING;
 import static com.android.systemui.shared.system.RemoteAnimationTargetCompat.MODE_OPENING;
 
@@ -45,6 +47,7 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Matrix;
@@ -52,6 +55,7 @@ import android.graphics.Matrix.ScaleToFit;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
+import android.util.Log;
 import android.view.SurfaceControl;
 import android.view.View;
 import android.window.TransitionInfo;
@@ -85,6 +89,7 @@ import com.android.systemui.shared.system.SyncRtSurfaceTransactionApplierCompat.
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Utility class for helpful methods related to {@link TaskView} objects and their tasks.
@@ -164,11 +169,9 @@ public final class TaskViewUtils {
         boolean isQuickSwitch = v.isEndQuickswitchCuj();
         v.setEndQuickswitchCuj(false);
 
-        boolean inLiveTileMode =
-                ENABLE_QUICKSTEP_LIVE_TILE.get() && v.getRecentsView().getRunningTaskIndex() != -1;
         final RemoteAnimationTargets targets =
                 new RemoteAnimationTargets(appTargets, wallpaperTargets, nonAppTargets,
-                        inLiveTileMode ? MODE_CLOSING : MODE_OPENING);
+                        MODE_OPENING);
         final RemoteAnimationTargetCompat navBarTarget = targets.getNavBarRemoteAnimationTarget();
 
         SurfaceTransactionApplier applier = new SurfaceTransactionApplier(v);
@@ -195,7 +198,7 @@ public final class TaskViewUtils {
         int taskIndex = recentsView.indexOfChild(v);
         Context context = v.getContext();
         DeviceProfile dp = BaseActivity.fromContext(context).getDeviceProfile();
-        boolean showAsGrid = dp.overviewShowAsGrid;
+        boolean showAsGrid = dp.isTablet;
         boolean parallaxCenterAndAdjacentTask =
                 taskIndex != recentsView.getCurrentPage() && !showAsGrid;
         int taskRectTranslationPrimary = recentsView.getScrollOffset(taskIndex);
@@ -270,7 +273,7 @@ public final class TaskViewUtils {
                         }
                     }
                 });
-            } else if (inLiveTileMode) {
+            } else {
                 // There is no transition animation for app launch from recent in live tile mode so
                 // we have to trigger the navigation bar animation from system here.
                 final RecentsAnimationController controller =
@@ -282,7 +285,8 @@ public final class TaskViewUtils {
             topMostSimulators = remoteTargetHandles;
         }
 
-        if (!skipViewChanges && parallaxCenterAndAdjacentTask && topMostSimulators.length > 0) {
+        if (!skipViewChanges && parallaxCenterAndAdjacentTask && topMostSimulators != null
+                && topMostSimulators.length > 0) {
             out.addFloat(v, VIEW_ALPHA, 1, 0, clampToProgress(LINEAR, 0.2f, 0.4f));
 
             RemoteTargetHandle[] simulatorCopies = topMostSimulators;
@@ -387,18 +391,20 @@ public final class TaskViewUtils {
      * device is considered in multiWindowMode and things like insets and stuff change
      * and calculations have to be adjusted in the animations for that
      */
-    public static void composeRecentsSplitLaunchAnimator(@NonNull Task initalTask,
-            @NonNull Task secondTask, @NonNull TransitionInfo transitionInfo,
-            SurfaceControl.Transaction t, @NonNull Runnable finishCallback) {
-
-        final TransitionInfo.Change[] splitRoots = new TransitionInfo.Change[2];
+    public static void composeRecentsSplitLaunchAnimator(int initialTaskId,
+            @Nullable PendingIntent initialTaskPendingIntent, int secondTaskId,
+            @NonNull TransitionInfo transitionInfo, SurfaceControl.Transaction t,
+            @NonNull Runnable finishCallback) {
+        // TODO: consider initialTaskPendingIntent
+        TransitionInfo.Change splitRoot1 = null;
+        TransitionInfo.Change splitRoot2 = null;
         for (int i = 0; i < transitionInfo.getChanges().size(); ++i) {
             final TransitionInfo.Change change = transitionInfo.getChanges().get(i);
             final int taskId = change.getTaskInfo() != null ? change.getTaskInfo().taskId : -1;
             final int mode = change.getMode();
             // Find the target tasks' root tasks since those are the split stages that need to
             // be animated (the tasks themselves are children and thus inherit animation).
-            if (taskId == initalTask.key.id || taskId == secondTask.key.id) {
+            if (taskId == initialTaskId || taskId == secondTaskId) {
                 if (!(mode == TRANSIT_OPEN || mode == TRANSIT_TO_FRONT)) {
                     throw new IllegalStateException(
                             "Expected task to be showing, but it is " + mode);
@@ -407,16 +413,18 @@ public final class TaskViewUtils {
                     throw new IllegalStateException("Initiating multi-split launch but the split"
                             + "root of " + taskId + " is already visible or has broken hierarchy.");
                 }
-                splitRoots[taskId == initalTask.key.id ? 0 : 1] =
-                        transitionInfo.getChange(change.getParent());
+            }
+            if (taskId == initialTaskId && initialTaskId != INVALID_TASK_ID) {
+                splitRoot1 = transitionInfo.getChange(change.getParent());
+            }
+            if (taskId == secondTaskId) {
+                splitRoot2 = transitionInfo.getChange(change.getParent());
             }
         }
 
         // This is where we should animate the split roots. For now, though, just make them visible.
-        for (int i = 0; i < 2; ++i) {
-            t.show(splitRoots[i].getLeash());
-            t.setAlpha(splitRoots[i].getLeash(), 1.f);
-        }
+        animateSplitRoot(t, splitRoot1);
+        animateSplitRoot(t, splitRoot2);
 
         // This contains the initial state (before animation), so apply this at the beginning of
         // the animation.
@@ -424,6 +432,14 @@ public final class TaskViewUtils {
 
         // Once there is an animation, this should be called AFTER the animation completes.
         finishCallback.run();
+    }
+
+    private static void animateSplitRoot(SurfaceControl.Transaction t,
+            TransitionInfo.Change splitRoot) {
+        if (splitRoot != null) {
+            t.show(splitRoot.getLeash());
+            t.setAlpha(splitRoot.getLeash(), 1.f);
+        }
     }
 
     /**
@@ -438,9 +454,9 @@ public final class TaskViewUtils {
      * If it is null, then it will simply fade in the starting apps and fade out launcher (for the
      * case where launcher handles animating starting split tasks from app icon) */
     public static void composeRecentsSplitLaunchAnimatorLegacy(
-            @Nullable GroupedTaskView launchingTaskView,
-            @NonNull Task initialTask,
-            @NonNull Task secondTask, @NonNull RemoteAnimationTargetCompat[] appTargets,
+            @Nullable GroupedTaskView launchingTaskView, int initialTaskId,
+            @Nullable PendingIntent initialTaskPendingIntent, int secondTaskId,
+            @NonNull RemoteAnimationTargetCompat[] appTargets,
             @NonNull RemoteAnimationTargetCompat[] wallpaperTargets,
             @NonNull RemoteAnimationTargetCompat[] nonAppTargets,
             @NonNull StateManager stateManager,
@@ -469,14 +485,14 @@ public final class TaskViewUtils {
         for (RemoteAnimationTargetCompat appTarget : appTargets) {
             final int taskId = appTarget.taskInfo != null ? appTarget.taskInfo.taskId : -1;
             final int mode = appTarget.mode;
-            final SurfaceControl leash = appTarget.leash.getSurfaceControl();
+            final SurfaceControl leash = appTarget.leash;
             if (leash == null) {
                 continue;
             }
 
             if (mode == MODE_OPENING) {
                 openingTargets.add(leash);
-            } else if (taskId == initialTask.key.id || taskId == secondTask.key.id) {
+            } else if (taskId == initialTaskId || taskId == secondTaskId) {
                 throw new IllegalStateException("Expected task to be opening, but it is " + mode);
             } else if (mode == MODE_CLOSING) {
                 closingTargets.add(leash);
@@ -484,7 +500,7 @@ public final class TaskViewUtils {
         }
 
         for (int i = 0; i < nonAppTargets.length; ++i) {
-            final SurfaceControl leash = appTargets[i].leash.getSurfaceControl();
+            final SurfaceControl leash = nonAppTargets[i].leash;
             if (nonAppTargets[i].windowType == TYPE_DOCK_DIVIDER && leash != null) {
                 openingTargets.add(leash);
             }
@@ -497,9 +513,6 @@ public final class TaskViewUtils {
             float progress = valueAnimator.getAnimatedFraction();
             for (SurfaceControl leash: openingTargets) {
                 t.setAlpha(leash, progress);
-            }
-            for (SurfaceControl leash: closingTargets) {
-                t.setAlpha(leash, 1 - progress);
             }
             t.apply();
         });
@@ -538,8 +551,16 @@ public final class TaskViewUtils {
                 nonAppTargets, depthController, pa);
         if (launcherClosing) {
             // TODO(b/182592057): differentiate between "restore split" vs "launch fullscreen app"
-            TaskViewUtils.setSplitAuxiliarySurfacesShown(nonAppTargets,
-                    true /*shown*/, true /*animate*/, pa);
+            TaskViewUtils.createSplitAuxiliarySurfacesAnimator(nonAppTargets, true /*shown*/,
+                    (dividerAnimator) -> {
+                        // If split apps are launching, we want to delay showing the divider bar
+                        // until the very end once the apps are mostly in place. This is because we
+                        // aren't moving the divider leash in the relative position with the
+                        // launching apps.
+                        dividerAnimator.setStartDelay(pa.getDuration()
+                                - SPLIT_DIVIDER_ANIM_DURATION);
+                        pa.add(dividerAnimator);
+                    });
         }
 
         Animator childStateAnimation = null;
@@ -549,9 +570,32 @@ public final class TaskViewUtils {
         if (launcherClosing) {
             Context context = v.getContext();
             DeviceProfile dp = BaseActivity.fromContext(context).getDeviceProfile();
-            launcherAnim = dp.overviewShowAsGrid
+            launcherAnim = dp.isTablet
                     ? ObjectAnimator.ofFloat(recentsView, RecentsView.CONTENT_ALPHA, 0)
                     : recentsView.createAdjacentPageAnimForTaskLaunch(taskView);
+            if (dp.isTablet) {
+                Log.d(BAD_STATE, "TVU composeRecentsLaunchAnimator alpha=" + 0);
+                launcherAnim.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        Log.d(BAD_STATE, "TVU composeRecentsLaunchAnimator onStart");
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {
+                        float alpha = recentsView == null
+                                ? -1
+                                : RecentsView.CONTENT_ALPHA.get(recentsView);
+                        Log.d(BAD_STATE, "TVU composeRecentsLaunchAnimator onCancel, alpha="
+                                + alpha);
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        Log.d(BAD_STATE, "TVU composeRecentsLaunchAnimator onEnd");
+                    }
+                });
+            }
             launcherAnim.setInterpolator(Interpolators.TOUCH_RESPONSE_INTERPOLATOR);
             launcherAnim.setDuration(RECENTS_LAUNCH_DURATION);
 
@@ -594,16 +638,17 @@ public final class TaskViewUtils {
         anim.addListener(windowAnimEndListener);
     }
 
-    public static void setSplitAuxiliarySurfacesShown(RemoteAnimationTargetCompat[] nonApps,
-            boolean shown, boolean animate) {
-        setSplitAuxiliarySurfacesShown(nonApps, shown, animate,null);
-    }
-
-    private static void setSplitAuxiliarySurfacesShown(
-            @NonNull RemoteAnimationTargetCompat[] nonApps, boolean shown, boolean animate,
-            @Nullable PendingAnimation splitLaunchAnimation) {
+    /**
+     * Creates an animation to show/hide the auxiliary surfaces (aka. divider bar), only calling
+     * {@param animatorHandler} if there are valid surfaces to animate.
+     *
+     * @return the animator animating the surfaces
+     */
+    public static ValueAnimator createSplitAuxiliarySurfacesAnimator(
+            RemoteAnimationTargetCompat[] nonApps, boolean shown,
+            Consumer<ValueAnimator> animatorHandler) {
         if (nonApps == null || nonApps.length == 0) {
-            return;
+            return null;
         }
 
         SurfaceControl.Transaction t = new SurfaceControl.Transaction();
@@ -611,27 +656,14 @@ public final class TaskViewUtils {
         boolean hasSurfaceToAnimate = false;
         for (int i = 0; i < nonApps.length; ++i) {
             final RemoteAnimationTargetCompat targ = nonApps[i];
-            final SurfaceControl leash = targ.leash.getSurfaceControl();
+            final SurfaceControl leash = targ.leash;
             if (targ.windowType == TYPE_DOCK_DIVIDER && leash != null) {
                 auxiliarySurfaces.add(leash);
                 hasSurfaceToAnimate = true;
             }
         }
         if (!hasSurfaceToAnimate) {
-            return;
-        }
-
-        if (!animate) {
-            for (SurfaceControl leash : auxiliarySurfaces) {
-                t.setAlpha(leash, shown ? 1 : 0);
-                if (shown) {
-                    t.show(leash);
-                } else {
-                    t.hide(leash);
-                }
-            }
-            t.apply();
-            return;
+            return null;
         }
 
         ValueAnimator dockFadeAnimator = ValueAnimator.ofFloat(0f, 1f);
@@ -668,15 +700,7 @@ public final class TaskViewUtils {
             }
         });
         dockFadeAnimator.setDuration(SPLIT_DIVIDER_ANIM_DURATION);
-        if (splitLaunchAnimation != null) {
-            // If split apps are launching, we want to delay showing the divider bar until the very
-            // end once the apps are mostly in place. This is because we aren't moving the divider
-            // leash in the relative position with the launching apps.
-            dockFadeAnimator.setStartDelay(
-                    splitLaunchAnimation.getDuration() - SPLIT_DIVIDER_ANIM_DURATION);
-            splitLaunchAnimation.add(dockFadeAnimator);
-        } else {
-            dockFadeAnimator.start();
-        }
+        animatorHandler.accept(dockFadeAnimator);
+        return dockFadeAnimator;
     }
 }

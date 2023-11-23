@@ -33,8 +33,7 @@ EXPORT void load_gralloc_module(
     impl_out->lib = dlopen(path, RTLD_NOW);
 
     if (!impl_out->lib) {
-        fprintf(stderr, "%s: failed to load gralloc module from %s\n",
-                __func__, impl_out->lib);
+        fprintf(stderr, "%s: failed to load gralloc module from %s\n", __func__, path);
         return;
     }
 

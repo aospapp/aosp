@@ -16,16 +16,17 @@
 
 package android.net.ip;
 
-import static android.net.netlink.NetlinkConstants.hexify;
 import static android.net.util.SocketUtils.makeNetlinkSocketAddress;
 import static android.system.OsConstants.AF_NETLINK;
+import static android.system.OsConstants.ENOBUFS;
 import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOCK_NONBLOCK;
+import static android.system.OsConstants.SOL_SOCKET;
+import static android.system.OsConstants.SO_RCVBUF;
+
+import static com.android.net.module.util.netlink.NetlinkConstants.hexify;
 
 import android.annotation.NonNull;
-import android.net.netlink.NetlinkErrorMessage;
-import android.net.netlink.NetlinkMessage;
-import android.net.netlink.NetlinkSocket;
 import android.net.util.SharedLog;
 import android.net.util.SocketUtils;
 import android.os.Handler;
@@ -35,6 +36,9 @@ import android.system.Os;
 import android.util.Log;
 
 import com.android.net.module.util.PacketReader;
+import com.android.net.module.util.netlink.NetlinkErrorMessage;
+import com.android.net.module.util.netlink.NetlinkMessage;
+import com.android.net.module.util.netlink.NetlinkSocket;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -56,8 +60,12 @@ public class NetlinkMonitor extends PacketReader {
     protected final String mTag;
     private final int mFamily;
     private final int mBindGroups;
+    private final int mSockRcvbufSize;
 
     private static final boolean DBG = false;
+
+    // Default socket receive buffer size. This means the specific buffer size is not set.
+    private static final int DEFAULT_SOCKET_RECV_BUFSIZE = -1;
 
     /**
      * Constructs a new {@code NetlinkMonitor} instance.
@@ -68,14 +76,23 @@ public class NetlinkMonitor extends PacketReader {
      * @param tag The log tag to use for log messages.
      * @param family the Netlink socket family to, e.g., {@code NETLINK_ROUTE}.
      * @param bindGroups the netlink groups to bind to.
+     * @param sockRcvbufSize the specific socket receive buffer size in bytes. -1 means that don't
+     *        set the specific socket receive buffer size in #createFd and use the default value in
+     *        /proc/sys/net/core/rmem_default file. See SO_RCVBUF in man-pages/socket.
      */
     public NetlinkMonitor(@NonNull Handler h, @NonNull SharedLog log, @NonNull String tag,
-            int family, int bindGroups) {
+            int family, int bindGroups, int sockRcvbufSize) {
         super(h, NetlinkSocket.DEFAULT_RECV_BUFSIZE);
         mLog = log.forSubComponent(tag);
         mTag = tag;
         mFamily = family;
         mBindGroups = bindGroups;
+        mSockRcvbufSize = sockRcvbufSize;
+    }
+
+    public NetlinkMonitor(@NonNull Handler h, @NonNull SharedLog log, @NonNull String tag,
+            int family, int bindGroups) {
+        this(h, log, tag, family, bindGroups, DEFAULT_SOCKET_RECV_BUFSIZE);
     }
 
     @Override
@@ -84,6 +101,13 @@ public class NetlinkMonitor extends PacketReader {
 
         try {
             fd = Os.socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, mFamily);
+            if (mSockRcvbufSize != DEFAULT_SOCKET_RECV_BUFSIZE) {
+                try {
+                    Os.setsockoptInt(fd, SOL_SOCKET, SO_RCVBUF, mSockRcvbufSize);
+                } catch (ErrnoException e) {
+                    Log.wtf(mTag, "Failed to set SO_RCVBUF to " + mSockRcvbufSize, e);
+                }
+            }
             Os.bind(fd, makeNetlinkSocketAddress(0, mBindGroups));
             NetlinkSocket.connectToKernel(fd);
 
@@ -126,6 +150,32 @@ public class NetlinkMonitor extends PacketReader {
                 mLog.e("Error handling netlink message", e);
             }
         }
+    }
+
+    @Override
+    protected void logError(String msg, Exception e) {
+        mLog.e(msg, e);
+    }
+
+    // Ignoring ENOBUFS may miss any important netlink messages, there are some messages which
+    // cannot be recovered by dumping current state once missed since kernel doesn't keep state
+    // for it. In addition, dumping current state will not result in any RTM_DELxxx messages, so
+    // reconstructing current state from a dump will be difficult. However, for those netlink
+    // messages don't cause any state changes, e.g. RTM_NEWLINK with current link state, maybe
+    // it's okay to ignore them, because these netlink messages won't cause any changes on the
+    // LinkProperties. Given the above trade-offs, try to ignore ENOBUFS and that's similar to
+    // what netd does today.
+    //
+    // TODO: log metrics when ENOBUFS occurs, or even force a disconnect, it will help see how
+    // often this error occurs on fields with the associated socket receive buffer size.
+    @Override
+    protected boolean handleReadError(ErrnoException e) {
+        logError("readPacket error: ", e);
+        if (e.errno == ENOBUFS) {
+            Log.wtf(mTag, "Errno: ENOBUFS");
+            return false;
+        }
+        return true;
     }
 
     // TODO: move NetworkStackUtils to frameworks/libs/net for NetworkStackUtils#closeSocketQuietly.

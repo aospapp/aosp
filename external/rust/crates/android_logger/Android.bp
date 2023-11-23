@@ -40,8 +40,10 @@ license {
 }
 
 rust_test {
-    name: "android_logger_device_test_src_lib",
+    name: "android_logger_test_src_lib",
     crate_name: "android_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.10.1",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -59,8 +61,10 @@ rust_test {
 }
 
 rust_defaults {
-    name: "android_logger_defaults",
+    name: "android_logger_test_defaults",
     crate_name: "android_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.10.1",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2015",
@@ -78,26 +82,28 @@ rust_defaults {
 }
 
 rust_test {
-    name: "android_logger_device_test_tests_config_log_level",
-    defaults: ["android_logger_defaults"],
+    name: "android_logger_test_tests_config_log_level",
+    defaults: ["android_logger_test_defaults"],
     srcs: ["tests/config_log_level.rs"],
 }
 
 rust_test {
-    name: "android_logger_device_test_tests_default_init",
-    defaults: ["android_logger_defaults"],
+    name: "android_logger_test_tests_default_init",
+    defaults: ["android_logger_test_defaults"],
     srcs: ["tests/default_init.rs"],
 }
 
 rust_test {
-    name: "android_logger_device_test_tests_multiple_init",
-    defaults: ["android_logger_defaults"],
+    name: "android_logger_test_tests_multiple_init",
+    defaults: ["android_logger_test_defaults"],
     srcs: ["tests/multiple_init.rs"],
 }
 
 rust_library {
     name: "libandroid_logger",
     crate_name: "android_logger",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.10.1",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
@@ -112,19 +118,12 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }
-
-// dependent_library ["feature_list"]
-//   aho-corasick-0.7.15 "default,std"
-//   android_log-sys-0.2.0
-//   cfg-if-1.0.0
-//   env_logger-0.8.3 "regex"
-//   lazy_static-1.4.0
-//   log-0.4.14 "std"
-//   memchr-2.3.4 "default,std,use_std"
-//   regex-1.4.6 "aho-corasick,memchr,perf,perf-cache,perf-dfa,perf-inline,perf-literal,std"
-//   regex-syntax-0.6.23

@@ -321,6 +321,7 @@ ObjectDataPtr ShareGroup::getObjectDataPtr(NamedObjectType p_type,
 
 unsigned int ShareGroup::ensureObjectOnBind(NamedObjectType p_type, ObjectLocalName p_localName) {
     android::base::AutoLock lock(m_namespaceLock);
+    ObjectDataAutoLock objDataLock(this);
 
     auto ns = m_nameSpace[toIndex(p_type)];
 

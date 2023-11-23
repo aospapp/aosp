@@ -59,7 +59,6 @@ arm_gralloc_core_cc_defaults {
 		"mali_gralloc_bufferdescriptor.cpp",
 		"mali_gralloc_formats.cpp",
 		"mali_gralloc_reference.cpp",
-		"mali_gralloc_debug.cpp",
 		"format_info.cpp",
 	],
 	include_dirs: [
@@ -76,6 +75,7 @@ arm_gralloc_core_cc_defaults {
 		"libcutils",
 		"libutils",
 		"android.hardware.graphics.common@1.2",
+		"android.hardware.graphics.common-V3-ndk",
 	],
 	target: {
 		android: {

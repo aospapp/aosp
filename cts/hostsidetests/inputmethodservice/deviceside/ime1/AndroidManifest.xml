@@ -18,13 +18,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.inputmethodservice.cts.ime1">
 
-    <!--
-              TODO: We may need to have another new APK that has the latest targetSdkVersion to check the
-              latest OS behaviors.
-            -->
-    <uses-sdk android:minSdkVersion="19"
-         android:targetSdkVersion="25"/>
-
     <application android:label="@string/ime_name"
          android:allowBackup="false"
          android:theme="@android:style/Theme.InputMethod">

@@ -18,6 +18,9 @@
 
 namespace android::net {
 
+static constexpr int kDohPort = 443;
+static constexpr int kDotPort = 853;
+
 enum class PrivateDnsTransport : uint8_t {
     kDot,  // DNS over TLS.
     kDoh,  // DNS over HTTPS.

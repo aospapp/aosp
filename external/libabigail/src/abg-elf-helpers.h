@@ -50,6 +50,15 @@ find_section(Elf*		elf_handle,
 	     Elf64_Word		section_type);
 
 Elf_Scn*
+find_section(Elf* elf_handle, Elf64_Word section_type);
+
+Elf_Scn*
+find_symtab_section(Elf* elf_handle);
+
+Elf_Scn*
+find_dynsym_section(Elf* elf_handle);
+
+Elf_Scn*
 find_symbol_table_section(Elf* elf_handle);
 
 bool
@@ -102,6 +111,10 @@ find_ksymtab_strings_section(Elf *elf_handle);
 
 Elf_Scn*
 find_relocation_section(Elf* elf_handle, Elf_Scn* target_section);
+
+Elf_Scn*
+find_strtab_for_symtab_section(Elf*	elf_handle,
+                               Elf_Scn*	symtab_section);
 
 //
 // Helpers for symbol versioning

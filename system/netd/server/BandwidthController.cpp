@@ -55,7 +55,7 @@
 #include "FirewallController.h" /* For makeCriticalCommands */
 #include "Fwmark.h"
 #include "NetdConstants.h"
-#include "TrafficController.h"
+#include "android/net/INetd.h"
 #include "bpf/BpfUtils.h"
 
 /* Alphabetical */
@@ -74,8 +74,7 @@ using android::base::StartsWith;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
 using android::net::FirewallController;
-using android::net::gCtls;
-using android::netdutils::Status;
+using android::net::INetd::CLAT_MARK;
 using android::netdutils::StatusOr;
 using android::netdutils::UniqueFile;
 
@@ -147,8 +146,6 @@ const std::string NEW_CHAIN_COMMAND = "-N ";
  */
 
 const std::string COMMIT_AND_CLOSE = "COMMIT\n";
-const std::string BPF_PENALTY_BOX_MATCH_DENYLIST_COMMAND = StringPrintf(
-        "-I bw_penalty_box -m bpf --object-pinned %s -j REJECT", XT_BPF_DENYLIST_PROG_PATH);
 
 static const std::vector<std::string> IPT_FLUSH_COMMANDS = {
         /*
@@ -227,6 +224,8 @@ std::vector<std::string> getBasicAccountingCommands() {
             "COMMIT",
 
             "*raw",
+            // Drop duplicate ingress clat packets
+            StringPrintf("-A bw_raw_PREROUTING -m mark --mark 0x%x -j DROP", CLAT_MARK),
             // Prevents IPSec double counting (Tunnel mode and Transport mode,
             // respectively)
             ("-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN"),
@@ -236,9 +235,7 @@ std::vector<std::string> getBasicAccountingCommands() {
             // interface and later correct for overhead (+20 bytes/packet).
             //
             // Note: eBPF offloaded packets never hit base interface's ip6tables, and non
-            // offloaded packets (which when using xt_qtaguid means all packets, because
-            // clat eBPF offload does not work on xt_qtaguid devices) are dropped in
-            // clat_raw_PREROUTING.
+            // offloaded packets are dropped up above due to being marked with CLAT_MARK
             //
             // Hence we will never double count and additional corrections are not needed.
             // We can simply take the sum of base and stacked (+20B/pkt) interface counts.
@@ -252,9 +249,6 @@ std::vector<std::string> getBasicAccountingCommands() {
             "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN",
             // Clear the uid billing done (egress) mark before sending this packet
             StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x", uidBillingMask),
-            // Packets from the clat daemon have already been counted on egress through the
-            // stacked v4-* interface.
-            "-A bw_mangle_POSTROUTING -m owner --uid-owner clat -j RETURN",
             // This is egress interface accounting: we account 464xlat traffic only on
             // the clat interface (as offloaded packets never hit base interface's ip6tables)
             // and later sum base and stacked with overhead (+20B/pkt) in higher layers
@@ -321,31 +315,6 @@ int BandwidthController::enableDataSaver(bool enable) {
     int ret = iptablesRestoreFunction(V4, makeDataSaverCommand(V4, enable), nullptr);
     ret |= iptablesRestoreFunction(V6, makeDataSaverCommand(V6, enable), nullptr);
     return ret;
-}
-
-int BandwidthController::addNaughtyApps(const std::vector<uint32_t>& appUids) {
-    return manipulateSpecialApps(appUids, PENALTY_BOX_MATCH, IptOpInsert);
-}
-
-int BandwidthController::removeNaughtyApps(const std::vector<uint32_t>& appUids) {
-    return manipulateSpecialApps(appUids, PENALTY_BOX_MATCH, IptOpDelete);
-}
-
-int BandwidthController::addNiceApps(const std::vector<uint32_t>& appUids) {
-    return manipulateSpecialApps(appUids, HAPPY_BOX_MATCH, IptOpInsert);
-}
-
-int BandwidthController::removeNiceApps(const std::vector<uint32_t>& appUids) {
-    return manipulateSpecialApps(appUids, HAPPY_BOX_MATCH, IptOpDelete);
-}
-
-int BandwidthController::manipulateSpecialApps(const std::vector<uint32_t>& appUids,
-                                               UidOwnerMatchType matchType, IptOp op) {
-    Status status = gCtls->trafficCtrl.updateUidOwnerMap(appUids, matchType, op);
-    if (!isOk(status)) {
-        ALOGE("unable to update the Bandwidth Uid Map: %s", toString(status).c_str());
-    }
-    return status.code();
 }
 
 int BandwidthController::setInterfaceSharedQuota(const std::string& iface, int64_t maxBytes) {

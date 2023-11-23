@@ -32,6 +32,7 @@
 
 import argparse
 import datetime
+import logging
 import os
 import subprocess
 import sys
@@ -41,7 +42,8 @@ import sys
 SCRIPTS_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(SCRIPTS_PATH)
 from simpleperf_report_lib import ReportLib
-from simpleperf_utils import log_exit, log_fatal, log_info, AdbHelper, open_report_in_browser
+from simpleperf_utils import (log_exit, log_fatal, AdbHelper, open_report_in_browser,
+                              BaseArgumentParser)
 
 from data_types import Process
 from svg_renderer import get_proper_scaled_time_string, render_svg
@@ -78,10 +80,10 @@ def collect_data(args):
             record_arg_str += "-c %s -e %s " % (num_events, event_name)
         else:
             log_exit("Event format string of -e option cann't be recognized.")
-        log_info("Using event sampling (-c %s -e %s)." % (num_events, event_name))
+        logging.info("Using event sampling (-c %s -e %s)." % (num_events, event_name))
     else:
         record_arg_str += "-f %d " % args.sample_frequency
-        log_info("Using frequency sampling (-f %d)." % args.sample_frequency)
+        logging.info("Using frequency sampling (-f %d)." % args.sample_frequency)
     record_arg_str += "--duration %d " % args.capture_duration
     app_profiler_args += ["-r", record_arg_str]
     returncode = subprocess.call(app_profiler_args)
@@ -109,10 +111,7 @@ def parse_samples(process, args, sample_filter_fn):
         lib.SetRecordFile(record_file)
     if kallsyms_file:
         lib.SetKallsymsFile(kallsyms_file)
-    if args.show_art_frames:
-        lib.ShowArtFrames(True)
-    for file_path in args.proguard_mapping_file or []:
-        lib.AddProguardMappingFile(file_path)
+    lib.SetReportOptions(args.report_lib_options)
     process.cmd = lib.GetRecordCmd()
     product_props = lib.MetaInfo().get("product_props")
     if product_props:
@@ -149,7 +148,7 @@ def parse_samples(process, args, sample_filter_fn):
         min_event_count = thread.num_events * args.min_callchain_percentage * 0.01
         thread.flamegraph.trim_callchain(min_event_count, args.max_callchain_depth)
 
-    log_info("Parsed %s callchains." % process.num_samples)
+    logging.info("Parsed %s callchains." % process.num_samples)
 
 
 def get_local_asset_content(local_path):
@@ -250,8 +249,8 @@ def collect_machine_info(process):
 def main():
     # Allow deep callchain with length >1000.
     sys.setrecursionlimit(1500)
-    parser = argparse.ArgumentParser(description="""Report samples in perf.data. Default option
-                                                    is: "-np surfaceflinger -f 6000 -t 10".""")
+    parser = BaseArgumentParser(description="""Report samples in perf.data. Default option
+                                               is: "-np surfaceflinger -f 6000 -t 10".""")
     record_group = parser.add_argument_group('Record options')
     record_group.add_argument('-du', '--dwarf_unwinding', action='store_true', help="""Perform
                               unwinding using dwarf instead of fp.""")
@@ -307,10 +306,8 @@ def main():
     report_group.add_argument('--symfs', help="""Set the path to find binaries with symbols and
                               debug info.""")
     report_group.add_argument('--title', help='Show a title in the report.')
-    report_group.add_argument('--show_art_frames', action='store_true',
-                              help='Show frames of internal methods in the ART Java interpreter.')
-    report_group.add_argument('--proguard-mapping-file', nargs='+',
-                              help='Add proguard mapping file to de-obfuscate symbols')
+    parser.add_report_lib_options(
+        report_group, sample_filter_group=report_group, sample_filter_with_pid_shortcut=False)
 
     debug_group = parser.add_argument_group('Debug options')
     debug_group.add_argument('--disable_adb_root', action='store_true', help="""Force adb to run
@@ -330,7 +327,7 @@ def main():
             process.name = 'system_wide'
         else:
             process.name = args.app or args.native_program or ('Process %d' % args.pid)
-        log_info("Starting data collection stage for '%s'." % process.name)
+        logging.info("Starting data collection stage for '%s'." % process.name)
         if not collect_data(args):
             log_exit("Unable to collect data.")
         if process.pid == 0:
@@ -365,7 +362,7 @@ def main():
             log_fatal("Recursion limit exceeded (%s), try --max_callchain_depth." % r)
         raise r
 
-    log_info("Flamegraph generated at '%s'." % report_path)
+    logging.info("Flamegraph generated at '%s'." % report_path)
 
 
 if __name__ == "__main__":

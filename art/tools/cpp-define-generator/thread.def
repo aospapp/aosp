@@ -21,12 +21,6 @@
 
 ASM_DEFINE(THREAD_CARD_TABLE_OFFSET,
            art::Thread::CardTableOffset<art::kRuntimePointerSize>().Int32Value())
-ASM_DEFINE(THREAD_CHECKPOINT_REQUEST,
-           art::kCheckpointRequest)
-ASM_DEFINE(THREAD_CURRENT_IBASE_OFFSET,
-           art::Thread::MterpCurrentIBaseOffset<art::kRuntimePointerSize>().Int32Value())
-ASM_DEFINE(THREAD_EMPTY_CHECKPOINT_REQUEST,
-           art::kEmptyCheckpointRequest)
 ASM_DEFINE(THREAD_EXCEPTION_OFFSET,
            art::Thread::ExceptionOffset<art::kRuntimePointerSize>().Int32Value())
 ASM_DEFINE(THREAD_FLAGS_OFFSET,
@@ -40,7 +34,7 @@ ASM_DEFINE(THREAD_INTERPRETER_CACHE_SIZE_LOG2,
 ASM_DEFINE(THREAD_INTERPRETER_CACHE_SIZE_MASK,
            (sizeof(art::InterpreterCache::Entry) * (art::InterpreterCache::kSize - 1)))
 ASM_DEFINE(THREAD_INTERPRETER_CACHE_SIZE_SHIFT,
-           2)
+           (art::WhichPowerOf2(sizeof(art::InterpreterCache::Entry)) - 2))
 ASM_DEFINE(THREAD_IS_GC_MARKING_OFFSET,
            art::Thread::IsGcMarkingOffset<art::kRuntimePointerSize>().Int32Value())
 ASM_DEFINE(THREAD_LOCAL_ALLOC_STACK_END_OFFSET,
@@ -58,13 +52,13 @@ ASM_DEFINE(THREAD_ROSALLOC_RUNS_OFFSET,
 ASM_DEFINE(THREAD_SELF_OFFSET,
            art::Thread::SelfOffset<art::kRuntimePointerSize>().Int32Value())
 ASM_DEFINE(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST,
-           art::kSuspendRequest | art::kCheckpointRequest | art::kEmptyCheckpointRequest)
+           art::Thread::SuspendOrCheckpointRequestFlags())
 ASM_DEFINE(THREAD_SUSPEND_REQUEST,
-           art::kSuspendRequest)
-ASM_DEFINE(THREAD_USE_MTERP_OFFSET,
-           art::Thread::UseMterpOffset<art::kRuntimePointerSize>().Int32Value())
+           static_cast<uint32_t>(art::ThreadFlag::kSuspendRequest))
 ASM_DEFINE(THREAD_TOP_QUICK_FRAME_OFFSET,
            art::Thread::TopOfManagedStackOffset<art::kRuntimePointerSize>().Int32Value())
+ASM_DEFINE(THREAD_SUSPEND_TRIGGER_OFFSET,
+           art::Thread::ThreadSuspendTriggerOffset<art::kRuntimePointerSize>().Int32Value())
 ASM_DEFINE(THREAD_ALLOC_OBJECT_ENTRYPOINT_OFFSET,
            art::GetThreadOffset<art::kRuntimePointerSize>(art::kQuickAllocObjectInitialized)
                .Int32Value())
@@ -73,3 +67,5 @@ ASM_DEFINE(THREAD_ALLOC_ARRAY_ENTRYPOINT_OFFSET,
                .Int32Value())
 ASM_DEFINE(THREAD_READ_BARRIER_MARK_REG00_OFFSET,
            art::Thread::ReadBarrierMarkEntryPointsOffset<art::kRuntimePointerSize>(0))
+ASM_DEFINE(THREAD_SHARED_METHOD_HOTNESS_OFFSET,
+           art::Thread::SharedMethodHotnessOffset<art::kRuntimePointerSize>().Int32Value())

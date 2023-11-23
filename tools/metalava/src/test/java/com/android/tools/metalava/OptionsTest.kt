@@ -30,7 +30,7 @@ class OptionsTest : DriverTest() {
     private val DESCRIPTION = """
 $PROGRAM_NAME extracts metadata from source code to generate artifacts such as the signature files, the SDK stub files,
 external annotations etc.
-""".trimIndent()
+    """.trimIndent()
 
     private val FLAGS = """
 Usage: metalava <flags>
@@ -49,9 +49,6 @@ General:
                                              Attempt to colorize the output (defaults to true if ${"$"}TERM is xterm)
 --no-color
                                              Do not attempt to colorize the output
---no-docs
-                                             Cancel any other documentation flags supplied to metalava. This is here to
-                                             make it easier customize build system tasks.
 --only-update-api
                                              Cancel any other "action" flags other than generating signature files. This
                                              is here to make it easier customize build system tasks, particularly for
@@ -106,12 +103,6 @@ API sources:
                                              A .jar file to read APIs from directly
 --manifest <file>
                                              A manifest file, used to for check permissions to cross check APIs
---replace-documentation <p> <r> <t>
-                                             Amongst nonempty documentation of items from Java packages <p> and their
-                                             subpackages, replaces any matches of regular expression <r> with
-                                             replacement text <t>. <p> is given as a nonempty list of Java package names
-                                             separated by ':' (e.g. "java:android.util"); <t> may contain backreferences
-                                             ($1, $2 etc.) to matching groups from <r>.
 --hide-package <package>
                                              Remove the given packages from the API even if they have not been marked
                                              with @hide
@@ -136,7 +127,7 @@ API sources:
 --java-source <level>
                                              Sets the source level for Java source files; default is 1.8.
 --kotlin-source <level>
-                                             Sets the source level for Kotlin source files; default is 1.4.
+                                             Sets the source level for Kotlin source files; default is 1.6.
 --sdk-home <dir>
                                              If set, locate the `android.jar` file from the given Android SDK
 --compile-sdk-version <api>
@@ -194,14 +185,6 @@ Extracting Signature Files:
 --output-default-values[=yes|no]
                                              Controls whether default values should be included in signature files. The
                                              default is yes.
---compatible-output=[yes|no]
-                                             Controls whether to keep signature files compatible with the historical
-                                             format (with its various quirks) or to generate the new format (which will
-                                             also include annotations that are part of the API, etc.)
---omit-common-packages[=yes|no]
-                                             Skip common package prefixes like java.lang.* and kotlin.* in signature
-                                             files, along with packages for well known annotations like @Nullable and
-                                             @NonNull.
 --include-signature-version[=yes|no]
                                              Whether the signature files should include a comment listing the format
                                              version of the signature file.
@@ -235,6 +218,10 @@ Generating Stubs:
 --exclude-annotation <annotation classes>
                                              A comma separated list of fully qualified names of annotation classes that
                                              must be stripped from metalava's outputs.
+--enhance-documentation
+                                             Enhance documentation in various ways, for example auto-generating
+                                             documentation based on source annotations present in the code. This is
+                                             implied by --doc-stubs.
 --exclude-documentation-from-stubs
                                              Exclude element documentation (javadoc and kdoc) from the generated stubs.
                                              (Copyright notices are not affected by this, they are always included.
@@ -246,10 +233,6 @@ Generating Stubs:
                                              stubs; otherwise it's the non-documentation stubs.
 --write-doc-stubs-source-list <file>
                                              Write the list of generated doc stub files into the given source list file
---register-artifact <api-file> <id>
-                                             Registers the given id for the packages found in the given signature file.
-                                             metalava will inject an @artifactId <id> tag into every top level stub
-                                             class in that API.
 
 
 Diffs and Checks:
@@ -331,10 +314,6 @@ Diffs and Checks:
                                              If set, metalava shows it when errors are detected in
                                              --check-compatibility:api:released and
                                              --check-compatibility:removed:released.
---error-message:compatibility:current <message>
-                                             If set, metalava shows it when errors are detected in
-                                             --check-compatibility:api:current and
-                                             --check-compatibility:removed:current.
 
 
 JDiff:
@@ -346,34 +325,6 @@ JDiff:
 --convert-new-to-jdiff <old> <new> <xml>
                                              Reads in the given old and new api files, computes the difference, and
                                              writes out only the new parts of the API in the JDiff XML format.
---convert-to-v1 <sig> <sig>
-                                             Reads in the given signature file and writes it out as a signature file in
-                                             the original v1/doclava format.
---convert-to-v2 <sig> <sig>
-                                             Reads in the given signature file and writes it out as a signature file in
-                                             the new signature format, v2.
---convert-new-to-v2 <old> <new> <sig>
-                                             Reads in the given old and new api files, computes the difference, and
-                                             writes out only the new parts of the API in the v2 format.
-
-
-Statistics:
---annotation-coverage-stats
-                                             Whether metalava should emit coverage statistics for annotations, listing
-                                             the percentage of the API that has been annotated with nullness
-                                             information.
---annotation-coverage-of <paths>
-                                             One or more jars (separated by `:`) containing existing apps that we want
-                                             to measure annotation coverage statistics for. The set of API usages in
-                                             those apps are counted up and the most frequently used APIs that are
-                                             missing annotation metadata are listed in descending order.
---skip-java-in-coverage-report
-                                             In the coverage annotation report, skip java.** and kotlin.** to narrow the
-                                             focus down to the Android framework APIs.
---write-class-coverage-to <path>
-                                             Specifies a file to write the annotation coverage report for classes to.
---write-member-coverage-to <path>
-                                             Specifies a file to write the annotation coverage report for members to.
 
 
 Extracting Annotations:
@@ -413,6 +364,8 @@ Extracting API Levels:
 --android-jar-pattern <pattern>
                                              Patterns to use to locate Android JAR files. The default is
                                              ${"$"}ANDROID_HOME/platforms/android-%/android.jar.
+--first-version
+                                             Sets the first API level to generate an API database from; usually 1
 --current-version
                                              Sets the current API level of the current source code
 --current-codename
@@ -454,7 +407,7 @@ METALAVA_APPEND_ARGS
                                              One or more arguments (concatenated by space) to append to the end of the
                                              command line, after the generate documentation flags.
 
-""".trimIndent()
+    """.trimIndent()
 
     @Test
     fun `Test invalid arguments`() {
@@ -475,7 +428,8 @@ Aborting: Invalid argument --blah-blah-blah
 
 $FLAGS
 
-""".trimIndent(), stderr.toString()
+            """.trimIndent(),
+            stderr.toString()
         )
     }
 
@@ -500,7 +454,8 @@ $DESCRIPTION
 
 $FLAGS
 
-""".trimIndent(), stdout.toString()
+            """.trimIndent(),
+            stdout.toString()
         )
     }
 
@@ -572,8 +527,10 @@ $FLAGS
 
         try {
             check(
-                extraArguments = arrayOf("--strict-input-files-exempt",
-                    file1.path + File.pathSeparatorChar + dir.path)
+                extraArguments = arrayOf(
+                    "--strict-input-files-exempt",
+                    file1.path + File.pathSeparatorChar + dir.path
+                )
             )
 
             assertTrue(FileReadSandbox.isAccessAllowed(file1))

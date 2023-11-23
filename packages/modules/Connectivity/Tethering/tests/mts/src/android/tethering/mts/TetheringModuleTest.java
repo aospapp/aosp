@@ -29,7 +29,6 @@ import static com.android.testutils.TestNetworkTrackerKt.initTestNetwork;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 import android.app.UiAutomation;
 import android.content.Context;
@@ -81,12 +80,8 @@ public class TetheringModuleTest {
         mUiAutomation.dropShellPermissionIdentity();
     }
 
-    private static final String TETHER_ENABLE_SELECT_ALL_PREFIX_RANGES =
-            "tether_enable_select_all_prefix_ranges";
     @Test
     public void testSwitchBasePrefixRangeWhenConflict() throws Exception {
-        assumeTrue(isFeatureEnabled(TETHER_ENABLE_SELECT_ALL_PREFIX_RANGES, true));
-
         addressConflictTest(true);
     }
 

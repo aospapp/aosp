@@ -8,6 +8,7 @@
 #include "../cros_gralloc_driver.h"
 
 #include <cassert>
+#include <cutils/native_handle.h>
 #include <hardware/gralloc.h>
 #include <memory.h>
 
@@ -67,9 +68,10 @@ static int gralloc0_droid_yuv_format(int droid_format)
 }
 
 static int gralloc0_alloc(alloc_device_t *dev, int w, int h, int format, int usage,
-			  buffer_handle_t *handle, int *stride)
+			  buffer_handle_t *out_handle, int *out_stride)
 {
 	int32_t ret;
+	native_handle_t *handle;
 	struct cros_gralloc_buffer_descriptor descriptor;
 	auto mod = (struct gralloc0_module const *)dev->common.module;
 
@@ -89,20 +91,31 @@ static int gralloc0_alloc(alloc_device_t *dev, int w, int h, int format, int usa
 		return -EINVAL;
 	}
 
-	ret = mod->driver->allocate(&descriptor, handle);
+	ret = mod->driver->allocate(&descriptor, &handle);
 	if (ret)
 		return ret;
 
-	auto hnd = cros_gralloc_convert_handle(*handle);
-	*stride = hnd->pixel_stride;
+	auto hnd = cros_gralloc_convert_handle(handle);
+	*out_handle = handle;
+	*out_stride = hnd->pixel_stride;
 
 	return 0;
 }
 
 static int gralloc0_free(alloc_device_t *dev, buffer_handle_t handle)
 {
+	int32_t ret;
 	auto mod = (struct gralloc0_module const *)dev->common.module;
-	return mod->driver->release(handle);
+
+	ret = mod->driver->release(handle);
+	if (ret)
+		return ret;
+
+	auto hnd = const_cast<native_handle_t *>(handle);
+	native_handle_close(hnd);
+	native_handle_delete(hnd);
+
+	return 0;
 }
 
 static int gralloc0_close(struct hw_device_t *dev)

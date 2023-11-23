@@ -24,33 +24,53 @@
     `/data/misc/apexdata/com.android.art/dalvik-cache` -->
   <xs:element name="cacheInfo">
     <xs:complexType>
+    <!-- True if the cache info is generated in the Compilation OS. -->
+    <xs:attribute name="compilationOsMode" type="xs:boolean" />
     <xs:sequence>
-      <xs:element name="artModuleInfo" minOccurs="1" maxOccurs="1" type="t:artModuleInfo" />
-      <xs:element name="dex2oatBootClasspath" type="t:dex2oatBootClasspath" />
-      <xs:element name="systemServerClasspath" type="t:systemServerClasspath" />
+      <xs:element name="systemProperties" minOccurs="1" maxOccurs="1" type="t:keyValuePairList" />
+      <xs:element name="artModuleInfo" minOccurs="1" maxOccurs="1" type="t:moduleInfo" />
+      <xs:element name="moduleInfoList" minOccurs="1" maxOccurs="1" type="t:moduleInfoList" />
+      <xs:element name="bootClasspath" minOccurs="1" maxOccurs="1" type="t:classpath" />
+      <xs:element name="dex2oatBootClasspath" minOccurs="1" maxOccurs="1" type="t:classpath" />
+      <xs:element name="systemServerComponents" minOccurs="1" maxOccurs="1" type="t:systemServerComponents" />
     </xs:sequence>
     </xs:complexType>
   </xs:element>
 
-  <!-- Data type representing the provenance of the AOT artifacts in the cache. -->
-  <xs:complexType name="artModuleInfo">
-    <!-- Module versionCode for the active ART APEX from `/apex/apex-info-list.xml`. -->
-    <xs:attribute name="versionCode" type="xs:long" use="required" />
-    <!-- Module versionName for the active ART APEX from `/apex/apex-info-list.xml`. -->
-    <xs:attribute name="versionName" type="xs:string" use="required" />
-    <!-- Module lastUpdateMillis for the active ART APEX from `/apex/apex-info-list.xml`. -->
-    <xs:attribute name="lastUpdateMillis" type="xs:long" use="required" />
-  </xs:complexType>
-
-  <!-- Components of the `DEX2OATBOOTCLASSPATH`. -->
-  <xs:complexType name="dex2oatBootClasspath">
+  <!-- List of key-value pairs. -->
+  <xs:complexType name="keyValuePairList">
     <xs:sequence>
-      <xs:element name="component" type="t:component" />
+      <xs:element name="item" type="t:keyValuePair" />
     </xs:sequence>
   </xs:complexType>
 
-  <!-- Components of the `SYSTEMSERVERCLASSPATH`. -->
-  <xs:complexType name="systemServerClasspath">
+  <!-- A key-value pair. -->
+  <xs:complexType name="keyValuePair">
+    <xs:attribute name="k" type="xs:string" use="required" />
+    <xs:attribute name="v" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <!-- List of modules. -->
+  <xs:complexType name="moduleInfoList">
+    <xs:sequence>
+      <xs:element name="moduleInfo" type="t:moduleInfo" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Data type representing the provenance of the AOT artifacts in the cache. -->
+  <xs:complexType name="moduleInfo">
+    <!-- Module name for the active APEX from `/apex/apex-info-list.xml`. -->
+    <xs:attribute name="name" type="xs:string" use="required" />
+    <!-- Module versionCode for the active APEX from `/apex/apex-info-list.xml`. -->
+    <xs:attribute name="versionCode" type="xs:long" use="required" />
+    <!-- Module versionName for the active APEX from `/apex/apex-info-list.xml`. -->
+    <xs:attribute name="versionName" type="xs:string" use="required" />
+    <!-- Module lastUpdateMillis for the active APEX from `/apex/apex-info-list.xml`. -->
+    <xs:attribute name="lastUpdateMillis" type="xs:long" use="required" />
+  </xs:complexType>
+
+  <!-- Components of a classpath. -->
+  <xs:complexType name="classpath">
     <xs:sequence>
       <xs:element name="component" type="t:component" />
     </xs:sequence>
@@ -63,6 +83,22 @@
     <xs:attribute name="size" type="xs:unsignedLong" use="required" />
     <!-- DEX file checksums within the component. Multidex files have multiple checksums. -->
     <xs:attribute name="checksums" type="xs:string" use="required" />
+  </xs:complexType>
+
+  <xs:complexType name="systemServerComponents">
+    <xs:sequence>
+      <xs:element name="component" type="t:systemServerComponent" />
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="systemServerComponent">
+    <xs:complexContent>
+      <xs:extension base="component">
+        <!-- True if the component is in SYSTEMSERVERCLASSPATH. Otherwise, the component is a
+          standalone one. -->
+        <xs:attribute name="isInClasspath" type="xs:boolean" use="required" />
+      </xs:extension>
+    </xs:complexContent>
   </xs:complexType>
 
 </xs:schema>

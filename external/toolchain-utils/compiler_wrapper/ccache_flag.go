@@ -19,6 +19,13 @@ func processCCacheFlag(builder *commandBuilder) {
 		return arg.value
 	})
 
+	// Disable ccache during portage's src_configure phase. Using ccache here is generally a
+	// waste of time, since these files are very small. Experimentally, this speeds up
+	// configuring by ~13%.
+	if val, present := builder.env.getenv("EBUILD_PHASE"); present && val == "configure" {
+		useCCache = false
+	}
+
 	if builder.cfg.useCCache && useCCache {
 		// Note: we used to also set CCACHE_BASEDIR but don't do it
 		// anymore for reasons outlined in crrev.com/c/2103170.

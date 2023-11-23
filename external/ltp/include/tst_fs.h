@@ -1,18 +1,5 @@
-/*
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (c) 2015-2016 Cyril Hrubis <chrubis@suse.cz>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef TST_FS_H__
@@ -42,6 +29,7 @@
 #define TST_NILFS_MAGIC    0x3434
 #define TST_EXOFS_MAGIC    0x5DF5
 #define TST_OVERLAYFS_MAGIC 0x794c7630
+#define TST_FUSE_MAGIC     0x65735546
 
 enum {
 	TST_BYTES = 1,
@@ -154,6 +142,15 @@ int tst_get_path(const char *prog_name, char *buf, size_t buf_len);
 int tst_fill_fd(int fd, char pattern, size_t bs, size_t bcount);
 
 /*
+ * Preallocate space in open file. If fallocate() fails, falls back to
+ * using tst_fill_fd().
+ * @fd: file descriptor
+ * @bs: block size
+ * @bcount: blocks count
+ */
+int tst_prealloc_size_fd(int fd, size_t bs, size_t bcount);
+
+/*
  * Creates/ovewrites a file with specified pattern
  * @path: path to file
  * @pattern: pattern
@@ -162,18 +159,56 @@ int tst_fill_fd(int fd, char pattern, size_t bs, size_t bcount);
  */
 int tst_fill_file(const char *path, char pattern, size_t bs, size_t bcount);
 
-#define TST_FS_SKIP_FUSE 0x01
+/*
+ * Creates file of specified size. Space will be only preallocated if possible.
+ * @path: path to file
+ * @bs: block size
+ * @bcount: blocks amount
+ */
+int tst_prealloc_file(const char *path, size_t bs, size_t bcount);
+
+enum tst_fs_impl {
+	TST_FS_UNSUPPORTED = 0,
+	TST_FS_KERNEL = 1,
+	TST_FS_FUSE = 2,
+};
 
 /*
- * Return 1 if a specified fiilsystem is supported
- * Return 0 if a specified fiilsystem isn't supported
+ * Returns if filesystem is suppored and if driver is in kernel or FUSE.
+ *
+ * @fs_type A filesystem name to check the support for.
  */
-int tst_fs_is_supported(const char *fs_type, int flags);
+enum tst_fs_impl tst_fs_is_supported(const char *fs_type);
 
 /*
  * Returns NULL-terminated array of kernel-supported filesystems.
+ *
+ * @skiplist A NULL terminated array of filesystems to skip.
+*/
+const char **tst_get_supported_fs_types(const char *const *skiplist);
+
+/*
+ * Returns 1 if filesystem is in skiplist 0 otherwise.
+ *
+ * @fs_type A filesystem type to lookup.
+ * @skiplist A NULL terminated array of fileystemsytems to skip.
  */
-const char **tst_get_supported_fs_types(int flags);
+int tst_fs_in_skiplist(const char *fs_type, const char *const *skiplist);
+
+/*
+ * Check whether device supports FS quotas. Negative return value means that
+ * quotas appear to be broken.
+ */
+int tst_check_quota_support(const char *device, int format, char *quotafile);
+
+/*
+ * Check for quota support and terminate the test with appropriate exit status
+ * if quotas are not supported or broken.
+ */
+#define tst_require_quota_support(dev, fmt, qfile) \
+	tst_require_quota_support_(__FILE__, __LINE__, (dev), (fmt), (qfile))
+void tst_require_quota_support_(const char *file, const int lineno,
+	const char *device, int format, char *quotafile);
 
 /*
  * Creates and writes to files on given path until write fails with ENOSPC

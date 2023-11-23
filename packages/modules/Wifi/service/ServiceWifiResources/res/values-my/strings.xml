@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"ဆက်တင် အပ်ဒိတ်လုပ်ပြီးပြီ။ ထပ်ချိတ်ဆက်ကြည့်ပါ။"</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"ကိုယ်ရေးလုံခြုံမှုဆက်တင်ကို ပြောင်းလဲ၍မရပါ"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"ကွန်ရက်ကို ရှာမတွေ့ပါ"</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှားကုဒ် 32756"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32760"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - Verizon ဝန်ဆောင်မှုပေးသောနေရာ ပြင်ပမှ Verizon Wi-Fi Access သို့ ချိတ်ဆက်၍မရပါ။ (အမှား = ၃၂၇၆၀)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32761"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင်သည် Verizon Wi-Fi Access တွင် စာရင်းသွင်းမထားပါ။ ၈၀၀-၉၂၂-၀၂၀၄ ကို ခေါ်ပါ။ (အမှား = ၃၂၇၆၁)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32762"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့် Verizon Wi-Fi Access အကောင့်တွင် ပြဿနာရှိနေသည်။ ၈၀၀-၉၂၂-၀၂၀၄ ကို ခေါ်ပါ။ (အမှား = ၃၂၇၆၂)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32763"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင်သည် Verizon Wi-Fi Access သို့ ချိတ်ဆက်ထားပြီးဖြစ်သည်။ (အမှား = ၃၂၇၆၃)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32764"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်ကို Verizon Wi-Fi Access နှင့် ချိတ်ဆက်ပေးရာတွင် ပြဿနာရှိနေသည်။ ၈၀၀-၉၂၂-၀၂၀၄ ကို ခေါ်ပါ။ (အမှားကုဒ် = ၃၂၇၆၄)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32765"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့် Verizon Wi-Fi Access အကောင့်တွင် ပြဿနာရှိနေသည်။ ၈၀၀-၉၂၂-၀၂၀၄ ကို ခေါ်ပါ။ (အမှား = ၃၂၇၆၅)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား 32766"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်တည်နေရာတွင် Verizon Wi-Fi Access မရနိုင်ပါ။ နောက်မှထပ်စမ်းကြည့်ပါ (သို့) အခြားနေရာမှ စမ်းကြည့်ပါ။ (အမှားကုဒ် = ၃၂၇၆၆)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှားကုဒ် 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်ကို Verizon Wi-Fi Access နှင့် ချိတ်ဆက်ပေးရာတွင် ပြဿနာရှိနေသည်။ နောက်မှထပ်စမ်းကြည့်ပါ (သို့) အခြားနေရာမှ စမ်းကြည့်ပါ။"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှားကုဒ် 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်ကို Verizon Wi-Fi Access နှင့် ချိတ်ဆက်ပေးရာတွင် အမှားကုဒ် ၁၆၃၈၄ ကြောင့် ပြဿနာရှိနေသည်။"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှားကုဒ် 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်ကို Verizon Wi-Fi Access နှင့် ချိတ်ဆက်ပေးရာတွင် အမှားကုဒ် ၁၆၃၈၅ ကြောင့် ပြဿနာရှိနေသည်။"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> - EAP အထောက်အထားစိစစ်ခြင်း အမှား၊ အမှားကုဒ် မသိပါ"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g> - သင့်ကို Verizon Wi-Fi Access နှင့် ချိတ်ဆက်ပေးရာတွင် ပြဿနာရှိနေသည်။"</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"ဟော့စပေါ့ ပိတ်ထားသည်"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"ချိတ်ဆက်ထားသောစက် မရှိပါ။ ပြင်ဆင်ရန် တို့ပါ။"</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"Wi-Fi ချိတ်ဆက်မှု မရှိပါ"</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"<xliff:g id="SSID">%1$s</xliff:g> နှင့် ချိတ်ဆက်ရန် <xliff:g id="CARRIER_NAME">%2$s</xliff:g> ဆင်းမ်ကတ် ထည့်ပါ။"</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"<xliff:g id="APP">%1$s</xliff:g> က ကွန်ရက်ရင်းမြစ်ကို အသုံးပြုလိုသည်"</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"<xliff:g id="APPS">%3$s</xliff:g> အတွက် ပြဿနာများ ဖြစ်ပေါ်နိုင်သည်။"</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"၎င်းက ဤအက်ပ်များအတွက် ပြဿနာများ ဖြစ်စေနိုင်သည်- <xliff:g id="APPS">%3$s</xliff:g>။"</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"ခွင့်ပြုရန်"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"ခွင့်မပြုပါ"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"ဤကွန်ရက်ကို ယုံကြည်ရပါသလား။"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"ချိတ်ဆက်ရန်"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"မချိတ်ဆက်ပါနှင့်"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"အောက်ပါအချက်အလက်များ မှန်ကန်မှသာ ဤကွန်ရက်ကို ချိတ်ဆက်ရန်ခွင့်ပြုပါ။\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"ဆာဗာအမည်-\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"ထုတ်ပေးသူ အမည်-\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"အဖွဲ့အစည်း-\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"အဆက်အသွယ်-\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"လက်မှတ်-\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"ကွန်ရက်ကို စိစစ်ရမည်"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"မချိတ်ဆက်မီ <xliff:g id="SSID">%1$s</xliff:g> အတွက် ကွန်ရက်အသေးစိတ်ကို ကြည့်ရှုပါ။ ဆက်လုပ်ရန် တို့ပါ"</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"အသိအမှတ်ပြုလက်မှတ် ထည့်သွင်း၍မရပါ။"</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"ဤကွန်ရက်ကို စိစစ်၍မရပါ"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"မည်သို့ပင်ဖြစ်စေ ချိတ်ဆက်ရန်"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"မချိတ်ဆက်ပါနှင့်"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"ကွန်ရက် <xliff:g id="SSID">%1$s</xliff:g> တွင် အသိအမှတ်ပြုလက်မှတ် မရှိပါ။"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"အသိအမှတ်ပြုလက်မှတ်များ ထည့်သွင်းပုံ လေ့လာပါ"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"ဤကွန်ရက်ကို စိစစ်၍မရပါ"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"ကွန်ရက် <xliff:g id="SSID">%1$s</xliff:g> တွင် အသိအမှတ်ပြုလက်မှတ် မရှိပါ။ အသိအမှတ်ပြုလက်မှတ်များ ထည့်သွင်းပုံ လေ့လာရန် တို့ပါ။"</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"မည်သို့ပင်ဖြစ်စေ ချိတ်ဆက်ရန်"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"မချိတ်ဆက်ပါနှင့်"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"<xliff:g id="APP_NAME">%1$s</xliff:g> ကို Wi‑Fi ဖွင့်ခွင့်ပြုမလား။"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"‘အမြန် ဆက်တင်များ’ တွင် Wi‑Fi ပိတ်နိုင်သည်"</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"ခွင့်ပြုရန်"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"ခွင့်မပြုရန်"</string>
 </resources>

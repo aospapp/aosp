@@ -68,6 +68,7 @@
         <item name="android:windowTitleStyle">?android:attr/textAppearanceLarge</item>
         <!-- Color palette -->
         <item name="android:colorButtonNormal">@color/btn_device_default_dark</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
     </style>
 
     <style name="Theme.DeviceDefault.Dialog.NoActionBar" parent="android:Theme.DeviceDefault.Dialog">
@@ -94,6 +95,8 @@
         <item name="android:colorButtonNormal">@color/btn_device_default_dark</item>
         <item name="android:background">@android:color/transparent</item>
         <item name="android:textColorPrimary">@color/alert_dialog_message_text_color</item>
+
+        <item name="android:windowBackground">@android:color/transparent</item>
     </style>
 
     <style name="Theme.DeviceDefault.Settings.Dialog" parent="android:Theme.DeviceDefault.Dialog.Alert">

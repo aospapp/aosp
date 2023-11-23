@@ -76,9 +76,9 @@ class DhcpLeaseRepository {
     private IpPrefix mPrefix;
     @NonNull
     private Set<Inet4Address> mReservedAddrs;
-    private int mSubnetAddr;
+    private int mLeasesSubnetAddr;
     private int mPrefixLength;
-    private int mSubnetMask;
+    private int mLeasesSubnetMask;
     private int mNumAddresses;
     private long mLeaseTimeMs;
     @Nullable
@@ -131,22 +131,25 @@ class DhcpLeaseRepository {
     private final LinkedHashMap<Inet4Address, Long> mDeclinedAddrs = new LinkedHashMap<>();
 
     DhcpLeaseRepository(@NonNull IpPrefix prefix, @NonNull Set<Inet4Address> reservedAddrs,
-            long leaseTimeMs, @Nullable Inet4Address clientAddr, @NonNull SharedLog log,
-            @NonNull Clock clock) {
+            long leaseTimeMs, @Nullable Inet4Address clientAddr, int leasesSubnetPrefixLength,
+            @NonNull SharedLog log, @NonNull Clock clock) {
         mLog = log;
         mClock = clock;
         mClientAddr = clientAddr;
-        updateParams(prefix, reservedAddrs, leaseTimeMs, clientAddr);
+        updateParams(prefix, reservedAddrs, leaseTimeMs, clientAddr, leasesSubnetPrefixLength);
     }
 
     public void updateParams(@NonNull IpPrefix prefix, @NonNull Set<Inet4Address> reservedAddrs,
-            long leaseTimeMs, @Nullable Inet4Address clientAddr) {
+            long leaseTimeMs, @Nullable Inet4Address clientAddr, int leasesSubnetPrefixLength) {
         mPrefix = prefix;
         mReservedAddrs = Collections.unmodifiableSet(new HashSet<>(reservedAddrs));
         mPrefixLength = prefix.getPrefixLength();
-        mSubnetMask = prefixLengthToV4NetmaskIntHTH(mPrefixLength);
-        mSubnetAddr = inet4AddressToIntHTH((Inet4Address) prefix.getAddress()) & mSubnetMask;
-        mNumAddresses = clientAddr != null ? 1 : 1 << (IPV4_ADDR_BITS - prefix.getPrefixLength());
+        int subnetPrefixLength = mPrefixLength > leasesSubnetPrefixLength
+                ? mPrefixLength : leasesSubnetPrefixLength;
+        mLeasesSubnetMask = prefixLengthToV4NetmaskIntHTH(subnetPrefixLength);
+        mLeasesSubnetAddr =
+                inet4AddressToIntHTH((Inet4Address) prefix.getAddress()) & mLeasesSubnetMask;
+        mNumAddresses = clientAddr != null ? 1 : 1 << (IPV4_ADDR_BITS - subnetPrefixLength);
         mLeaseTimeMs = leaseTimeMs;
         mClientAddr = clientAddr;
 
@@ -519,11 +522,11 @@ class DhcpLeaseRepository {
      *
      */
     private int getAddrIndex(int addr) {
-        return addr & ~mSubnetMask;
+        return addr & ~mLeasesSubnetMask;
     }
 
     private int getAddrByIndex(int index) {
-        return mSubnetAddr | index;
+        return mLeasesSubnetAddr | index;
     }
 
     /**

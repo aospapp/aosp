@@ -17,7 +17,7 @@
 package com.android.server.wm.traces.common.service.processors
 
 import com.android.server.wm.traces.common.DeviceStateDump
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.tags.Tag
 import com.android.server.wm.traces.common.tags.Transition
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
@@ -29,7 +29,7 @@ import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 class AppLaunchProcessor(logger: (String) -> Unit) : TransitionProcessor(logger) {
     override val transition = Transition.APP_LAUNCH
     private val windowsBecomeVisible =
-        HashMap<Int, DeviceStateDump<WindowManagerState, LayerTraceEntry>>()
+        HashMap<Int, DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>>()
 
     override fun getInitialState(tags: MutableMap<Long, MutableList<Tag>>) =
         WaitUntilWindowIsInVisibleActivity(tags)
@@ -42,9 +42,9 @@ class AppLaunchProcessor(logger: (String) -> Unit) : TransitionProcessor(logger)
         tags: MutableMap<Long, MutableList<Tag>>
     ) : BaseState(tags) {
         override fun doProcessState(
-            previous: DeviceStateDump<WindowManagerState, LayerTraceEntry>?,
-            current: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
-            next: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+            previous: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>?,
+            current: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>,
+            next: DeviceStateDump<WindowManagerState, BaseLayerTraceEntry>
         ): FSMState {
             if (previous == null) return this
             val prevVisibleWindows = previous.wmState.visibleWindows

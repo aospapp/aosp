@@ -21,7 +21,7 @@ import static android.telephony.data.RouteSelectionDescriptor.SESSION_TYPE_IPV4;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.hardware.radio.V1_6.SliceInfo;
+import android.telephony.data.NetworkSliceInfo;
 import android.telephony.data.RouteSelectionDescriptor;
 
 import org.junit.Test;
@@ -36,8 +36,8 @@ public class RouteSelectionDescriptorTest {
 
     @Test
     public void testConstructorAndGetters() {
-        List<SliceInfo> si = new ArrayList<SliceInfo>();
-        List<String> dnn = new ArrayList<String>();
+        List<NetworkSliceInfo> si = new ArrayList<>();
+        List<String> dnn = new ArrayList<>();
         RouteSelectionDescriptor rsd = new RouteSelectionDescriptor(
                 TEST_PRECEDENCE, TEST_SESSION_TYPE, TEST_SSC_MODE, si, dnn);
         assertThat(rsd.getPrecedence()).isEqualTo(TEST_PRECEDENCE);

@@ -16,19 +16,21 @@
 
 package com.android.car.settings.wifi;
 
+import android.annotation.NonNull;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.ConnectivityManager;
 import android.net.TetheringManager;
+import android.net.wifi.SoftApInfo;
+import android.net.wifi.WifiClient;
 import android.net.wifi.WifiManager;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.Lifecycle;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import com.android.internal.util.ConcurrentUtils;
+import java.util.List;
 
 /**
  * Consolidates Wifi tethering logic into one handler so we can have consistent logic across various
@@ -36,18 +38,25 @@ import com.android.internal.util.ConcurrentUtils;
  */
 public class WifiTetheringHandler {
 
-    private Context mContext;
-    private CarWifiManager mCarWifiManager;
-    private TetheringManager mTetheringManager;
+    private final Context mContext;
+    private final CarWifiManager mCarWifiManager;
+    private final TetheringManager mTetheringManager;
+    private final WifiTetheringAvailabilityListener mWifiTetheringAvailabilityListener;
     private boolean mRestartBooked = false;
-    private WifiTetheringAvailabilityListener mWifiTetheringAvailabilityListener;
 
-    private WifiManager.SoftApCallback mSoftApCallback = new WifiManager.SoftApCallback() {
+    private final WifiManager.SoftApCallback mSoftApCallback = new WifiManager.SoftApCallback() {
         @Override
         public void onStateChanged(int state, int failureReason) {
             handleWifiApStateChanged(state);
         }
+
+        @Override
+        public void onConnectedClientsChanged(@NonNull SoftApInfo info,
+                @NonNull List<WifiClient> clients) {
+            mWifiTetheringAvailabilityListener.onConnectedClientsChanged(clients.size());
+        }
     };
+
     private final BroadcastReceiver mRestartReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -59,9 +68,16 @@ public class WifiTetheringHandler {
 
     public WifiTetheringHandler(Context context, Lifecycle lifecycle,
             WifiTetheringAvailabilityListener wifiTetherAvailabilityListener) {
+        this(context, new CarWifiManager(context, lifecycle),
+                context.getSystemService(TetheringManager.class), wifiTetherAvailabilityListener);
+    }
+
+    public WifiTetheringHandler(Context context, CarWifiManager carWifiManager,
+            TetheringManager tetheringManager, WifiTetheringAvailabilityListener
+            wifiTetherAvailabilityListener) {
         mContext = context;
-        mCarWifiManager = new CarWifiManager(mContext, lifecycle);
-        mTetheringManager = mContext.getSystemService(TetheringManager.class);
+        mCarWifiManager = carWifiManager;
+        mTetheringManager = tetheringManager;
         mWifiTetheringAvailabilityListener = wifiTetherAvailabilityListener;
     }
 
@@ -105,16 +121,6 @@ public class WifiTetheringHandler {
     }
 
     @VisibleForTesting
-    void setCarWifiManager(CarWifiManager carWifiManager) {
-        mCarWifiManager = carWifiManager;
-    }
-
-    @VisibleForTesting
-    void setTetheringManager(TetheringManager tetheringManager) {
-        mTetheringManager = tetheringManager;
-    }
-
-    @VisibleForTesting
     void handleWifiApStateChanged(int state) {
         switch (state) {
             case WifiManager.WIFI_AP_STATE_ENABLING:
@@ -146,11 +152,10 @@ public class WifiTetheringHandler {
     }
 
     private void startTethering() {
-        mTetheringManager.startTethering(ConnectivityManager.TETHERING_WIFI,
-                ConcurrentUtils.DIRECT_EXECUTOR,
+        WifiTetherUtil.startTethering(mTetheringManager,
                 new TetheringManager.StartTetheringCallback() {
                     @Override
-                    public void onTetheringFailed(final int result) {
+                    public void onTetheringFailed(int error) {
                         mWifiTetheringAvailabilityListener.onWifiTetheringUnavailable();
                         mWifiTetheringAvailabilityListener.enablePreference();
                     }
@@ -158,7 +163,7 @@ public class WifiTetheringHandler {
     }
 
     private void stopTethering() {
-        mTetheringManager.stopTethering(ConnectivityManager.TETHERING_WIFI);
+        WifiTetherUtil.stopTethering(mTetheringManager);
     }
 
     private void restartTethering() {
@@ -179,6 +184,13 @@ public class WifiTetheringHandler {
          * Callback for when Wifi tethering is unavailable
          */
         void onWifiTetheringUnavailable();
+
+        /**
+         * Callback for when the number of tethered devices has changed
+         * @param clientCount number of connected clients
+         */
+        default void onConnectedClientsChanged(int clientCount){
+        }
 
         /**
          * Listener should allow further changes to Wifi tethering

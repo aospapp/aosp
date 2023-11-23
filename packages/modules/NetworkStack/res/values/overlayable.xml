@@ -84,6 +84,10 @@
             <!-- An array of Denylisted EtherType, packets with EtherTypes within this array
             will be dropped -->
             <item type="array" name="config_apfEthTypeDenyList"/>
+            <!-- Icon used for connected captive portal notifications on wifi networks,
+            notifying that internet access is now available or that a venue info page is
+            available, for example. -->
+            <item type="drawable" name="icon_wifi"/>
         </policy>
     </overlayable>
 </resources>

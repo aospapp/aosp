@@ -13,8 +13,11 @@ cc_test {
     srcs: ["hidl_lazy_test.cpp"],
 
     shared_libs: [
+        "android.hardware.tests.lazy@1.0",
         "android.hardware.tests.lazy@1.1",
+        "android.hardware.tests.lazy_cb@1.0",
         "libbase",
+        "libcutils",
         "libhidl-gen-utils",
         "libhidlbase",
         "liblog",
@@ -35,7 +38,26 @@ cc_binary {
     srcs: ["hidl_lazy_test_server.cpp"],
 
     shared_libs: [
+        "android.hardware.tests.lazy@1.0",
         "android.hardware.tests.lazy@1.1",
+        "android.hardware.tests.lazy_cb@1.0",
+        "libbase",
+        "libhidlbase",
+        "libutils",
+    ],
+}
+
+cc_binary {
+    name: "hidl_lazy_cb_test_server",
+    system_ext_specific: true,
+
+    vintf_fragments: ["hidl_lazy_cb_test_server.xml"],
+    init_rc: ["hidl_lazy_cb_test_server.rc"],
+
+    srcs: ["hidl_lazy_cb_test_server.cpp"],
+
+    shared_libs: [
+        "android.hardware.tests.lazy_cb@1.0",
         "libbase",
         "libhidlbase",
         "libutils",

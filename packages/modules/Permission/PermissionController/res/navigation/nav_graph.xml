@@ -144,6 +144,18 @@
     </fragment>
 
     <fragment
+        android:id="@+id/review_permissions_dest"
+        android:name="com.android.permissioncontroller.permission.ui.handheld.ReviewPermissionsFragment"
+        android:label="ReviewAppPermissions">
+        <action
+            android:id="@+id/app_to_all_perms"
+            app:destination="@id/all_app_permissions"
+            app:enterAnim="@anim/activity_open_enter"
+            app:popExitAnim="@anim/activity_close_exit"
+            app:popEnterAnim="@anim/activity_open_enter"/>
+    </fragment>
+
+    <fragment
         android:id="@+id/all_app_permissions"
         android:name="com.android.permissioncontroller.permission.ui.handheld.AllAppPermissionsWrapperFragment"
         android:label="AllAppPermissions"/>

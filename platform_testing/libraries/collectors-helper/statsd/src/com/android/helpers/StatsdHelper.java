@@ -21,6 +21,7 @@ import android.app.StatsManager.StatsUnavailableException;
 import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
+import android.util.Pair;
 import android.util.StatsLog;
 
 import androidx.test.InstrumentationRegistry;
@@ -34,6 +35,7 @@ import com.google.protobuf.nano.InvalidProtocolBufferNanoException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -220,8 +222,15 @@ public class StatsdHelper {
             for (com.android.os.nano.StatsLog.StatsLogReport metric : configReport.metrics) {
                 com.android.os.nano.StatsLog.StatsLogReport.EventMetricDataWrapper
                         eventMetricDataWrapper = metric.getEventMetrics();
+                List<com.android.os.nano.StatsLog.EventMetricData> backfilledData =
+                        new ArrayList<>();
                 if (eventMetricDataWrapper != null) {
-                    eventData.addAll(Arrays.asList(eventMetricDataWrapper.data));
+                    for (com.android.os.nano.StatsLog.EventMetricData eventMetricData :
+                            eventMetricDataWrapper.data) {
+                        backfilledData.addAll(backfillEventMetricData(eventMetricData));
+                    }
+                    backfilledData.sort(Comparator.comparing(d -> d.elapsedTimestampNanos));
+                    eventData.addAll(backfilledData);
                 }
             }
         }
@@ -254,6 +263,7 @@ public class StatsdHelper {
             for (com.android.os.nano.StatsLog.StatsLogReport metric : configReport.metrics) {
                 com.android.os.nano.StatsLog.StatsLogReport.GaugeMetricDataWrapper
                         gaugeMetricDataWrapper = metric.getGaugeMetrics();
+                backfillGaugeMetricData(gaugeMetricDataWrapper);
                 if (gaugeMetricDataWrapper != null) {
                     gaugeData.addAll(Arrays.asList(gaugeMetricDataWrapper.data));
                 }
@@ -293,6 +303,56 @@ public class StatsdHelper {
             return pkgNameSplit[0];
         }
         return pkgName;
+    }
+
+    private List<com.android.os.nano.StatsLog.EventMetricData> backfillEventMetricData(
+            com.android.os.nano.StatsLog.EventMetricData metricData) {
+        if (metricData.aggregatedAtomInfo == null) {
+            return List.of(metricData);
+        }
+        List<com.android.os.nano.StatsLog.EventMetricData> data = new ArrayList<>();
+        com.android.os.nano.StatsLog.AggregatedAtomInfo atomInfo = metricData.aggregatedAtomInfo;
+        for (long timestamp : atomInfo.elapsedTimestampNanos) {
+            com.android.os.nano.StatsLog.EventMetricData newMetricData =
+                    new com.android.os.nano.StatsLog.EventMetricData();
+            newMetricData.atom = atomInfo.atom;
+            newMetricData.elapsedTimestampNanos = timestamp;
+            data.add(newMetricData);
+        }
+        return data;
+    }
+
+    protected void backfillGaugeMetricData(
+            com.android.os.nano.StatsLog.StatsLogReport.GaugeMetricDataWrapper dataWrapper) {
+        if (dataWrapper == null) {
+            return;
+        }
+        for (com.android.os.nano.StatsLog.GaugeMetricData gaugeMetricData : dataWrapper.data) {
+            for (com.android.os.nano.StatsLog.GaugeBucketInfo bucketInfo :
+                    gaugeMetricData.bucketInfo) {
+                backfillGaugeBucket(bucketInfo);
+            }
+        }
+    }
+
+    private void backfillGaugeBucket(com.android.os.nano.StatsLog.GaugeBucketInfo bucketInfo) {
+        if (bucketInfo.atom.length != 0) {
+            return;
+        }
+        List<Pair<AtomsProto.Atom, Long>> atomTimestampData = new ArrayList<>();
+        for (com.android.os.nano.StatsLog.AggregatedAtomInfo atomInfo :
+                bucketInfo.aggregatedAtomInfo) {
+            for (long timestampNs : atomInfo.elapsedTimestampNanos) {
+                atomTimestampData.add(Pair.create(atomInfo.atom, timestampNs));
+            }
+        }
+        atomTimestampData.sort(Comparator.comparing(o -> o.second));
+        bucketInfo.atom = new AtomsProto.Atom[atomTimestampData.size()];
+        bucketInfo.elapsedTimestampNanos = new long[atomTimestampData.size()];
+        for (int i = 0; i < atomTimestampData.size(); i++) {
+            bucketInfo.atom[i] = atomTimestampData.get(i).first;
+            bucketInfo.elapsedTimestampNanos[i] = atomTimestampData.get(i).second;
+        }
     }
 
     /** Gets {@code StatsManager}, used to configure, collect and remove the statsd configs. */

@@ -30,7 +30,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/temperature_bar_icon_margin"
-            android:layout_centerHorizontal="true"
             android:layout_alignParentTop="true"
             android:src="@drawable/ic_increase_icon"
             style="@style/HvacTemperatureControlIcon"/>
@@ -46,8 +45,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/temperature_bar_icon_margin"
-            android:layout_centerHorizontal="true"
             android:layout_alignParentBottom="true"
-            android:src="@drawable/ic_decrease_icon" />
+            android:src="@drawable/ic_decrease_icon"
+            style="@style/HvacTemperatureControlIcon"/>
     </RelativeLayout>
 </FrameLayout>

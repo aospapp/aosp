@@ -699,7 +699,7 @@ include $(call all-makefiles-under,$(LOCAL_PATH))
 		expected: `
 			android_library {
 				srcs: ["test.java"],
-				resource_dirs: ["res"],
+
 				jacoco: {
 					include_filter: ["foo.*"],
 				},
@@ -794,7 +794,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 `,
 		expected: `
-android_test {
+android_test_helper_app {
     name: "FooTest",
     defaults: ["cts_support_defaults"],
     test_suites: ["cts"],
@@ -1121,6 +1121,25 @@ prebuilt_usr_share_host {
 `,
 	},
 	{
+		desc: "prebuilt_root_host",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(HOST_OUT)/subdir
+LOCAL_SRC_FILES := foo.txt
+include $(BUILD_PREBUILT)
+`,
+		expected: `
+prebuilt_root_host {
+	name: "foo",
+
+	src: "foo.txt",
+	relative_install_path: "subdir",
+}
+`,
+	},
+	{
 		desc: "prebuilt_font",
 		in: `
 include $(CLEAR_VARS)
@@ -1439,7 +1458,7 @@ include $(BUILD_RRO_PACKAGE)
 runtime_resource_overlay {
 	name: "foo",
 	product_specific: true,
-	resource_dirs: ["res"],
+
 	sdk_version: "current",
 	theme: "FooTheme",
 
@@ -1460,6 +1479,229 @@ android_app {
     name: "foo",
     enforce_uses_libs: false,
     enforce_uses_libs: true,
+}
+`,
+	},
+	{
+		desc: "LOCAL_CERTIFICATE_LINEAGE",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_MODULE_TAGS := tests
+LOCAL_CERTIFICATE_LINEAGE := lineage
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_test {
+    name: "foo",
+    lineage: "lineage",
+}
+`,
+	},
+	{
+		desc: "LOCAL_USES_LIBRARIES",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_USES_LIBRARIES := foo.test bar.test baz.test
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_app {
+    name: "foo",
+    uses_libs: [
+        "foo.test",
+        "bar.test",
+        "baz.test",
+    ],
+}
+`,
+	},
+	{
+		desc: "LOCAL_OPTIONAL_USES_LIBRARIES",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_OPTIONAL_USES_LIBRARIES := foo.test bar.test baz.test
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_app {
+    name: "foo",
+    optional_uses_libs: [
+        "foo.test",
+        "bar.test",
+        "baz.test",
+    ],
+}
+`,
+	},
+	{
+		desc: "Obsolete LOCAL_MODULE_PATH",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
+LOCAL_CTS_TEST_PACKAGE := bar
+LOCAL_USE_AAPT2 := blah
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_app {
+  name: "foo",
+
+}
+`,
+	},
+	{
+		desc: "LOCAL_LICENSE_KINDS, LOCAL_LICENSE_CONDITIONS, LOCAL_NOTICE_FILE",
+		// When "android_license_files" is valid, the test requires an Android.mk file
+		// outside the current (and an Android.bp file is required as well if the license
+		// files locates directory), thus a mock file system is needed. The integration
+		// test cases for these scenarios have been added in
+		// $(ANDROID_BUILD_TOP)/build/soong/tests/androidmk_test.sh.
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_LICENSE_KINDS := license_kind
+LOCAL_LICENSE_CONDITIONS := license_condition
+LOCAL_NOTICE_FILE := license_notice
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+package {
+    // See: http://go/android-license-faq
+    default_applicable_licenses: [
+	"Android-Apache-2.0",
+    ],
+}
+
+android_app {
+    name: "foo",
+    // ANDROIDMK TRANSLATION ERROR: Only $(LOCAL_PATH)/.. values are allowed
+    // LOCAL_NOTICE_FILE := license_notice
+
+}
+`,
+	},
+	{
+		desc: "LOCAL_CHECK_ELF_FILES",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_SRC_FILES := test.c
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_CHECK_ELF_FILES := false
+include $(BUILD_PREBUILT)
+		`,
+		expected: `
+cc_prebuilt_library_shared {
+	name: "foo",
+	srcs: ["test.c"],
+
+	check_elf_files: false,
+}
+`,
+	},
+	{
+		desc: "Drop default resource and asset dirs from bp",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_app {
+		name: "foo",
+
+}
+`,
+	},
+	{
+		desc: "LOCAL_GENERATED_SOURCES",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_SRC_FILES := src1, src2, src3
+LOCAL_GENERATED_SOURCES := gen_src1, gen_src2, gen_src3
+include $(BUILD_PACKAGE)
+		`,
+		expected: `
+android_app {
+	name: "foo",
+	srcs: [
+		"src1,",
+		"src2,",
+		"src3",
+	],
+	generated_sources: [
+		"gen_src1,",
+		"gen_src2,",
+		"gen_src3",
+	],
+}
+`,
+	},
+	{
+		desc: "LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG is true",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG := true
+include $(BUILD_PACKAGE)
+		`,
+		expected: `
+android_app {
+	name: "foo",
+	auto_gen_config: false,
+}
+`,
+	},
+	{
+		desc: "LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG is false",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG := false
+include $(BUILD_PACKAGE)
+		`,
+		expected: `
+android_app {
+	name: "foo",
+	auto_gen_config: true,
+}
+`,
+	},
+	{
+		desc: "privileged app",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_MODULE_PATH := $(PRODUCT_OUT)/system/priv-app
+include $(BUILD_PACKAGE)
+		`,
+		expected: `
+android_app {
+	name: "foo",
+	privileged: true
+}
+`,
+	},
+	{
+		desc: "convert android_app to android_test when having test_suites",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_COMPATIBILITY_SUITE := bar
+include $(BUILD_PACKAGE)
+		`,
+		expected: `
+android_test {
+	name: "foo",
+	test_suites: ["bar"],
 }
 `,
 	},

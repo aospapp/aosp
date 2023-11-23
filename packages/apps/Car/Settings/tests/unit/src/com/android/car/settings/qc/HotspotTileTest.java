@@ -22,17 +22,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.TetheringManager;
 import android.net.wifi.WifiManager;
+import android.os.UserManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCItem;
@@ -48,8 +46,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.concurrent.Executor;
 
 @RunWith(AndroidJUnit4.class)
-public class HotspotTileTest {
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
+public class HotspotTileTest extends BaseSettingsQCItemTestCase {
     private HotspotTile mHotspotTile;
 
     @Mock
@@ -106,6 +103,22 @@ public class HotspotTileTest {
         mHotspotTile.setHotspotSupported(false);
         QCTile tile = getTile();
         assertThat(tile.isAvailable()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasBaseUmRestriction_tileDisabled() {
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING, /* restricted= */ true);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_tileClickableWhileDisabled() {
+        setUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING, /* restricted= */ true);
+        QCTile tile = getTile();
+        assertThat(tile.isEnabled()).isFalse();
+        assertThat(tile.isClickableWhileDisabled()).isTrue();
     }
 
     @Test

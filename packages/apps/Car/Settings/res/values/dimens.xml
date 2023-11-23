@@ -96,6 +96,8 @@
     <dimen name="pin_pad_key_margin">12dp</dimen>
     <dimen name="confirm_pattern_dimension">350dp</dimen>
     <dimen name="confirm_lock_message_vertical_spacing">@*android:dimen/car_padding_2</dimen>
+    <dimen name="lock_hint_padding">24dp</dimen>
+    <dimen name="lock_hint_min_height">110dp</dimen>
 
     <!-- Profile Switcher -->
     <dimen name="profile_switcher_image_avatar_size">96dp</dimen>
@@ -193,5 +195,18 @@
     <dimen name="top_level_preference_corner_radius">40dp</dimen>
     <dimen name="top_level_recyclerview_margin_right">@*android:dimen/car_padding_2</dimen>
     <dimen name="top_level_foreground_icon_inset">8dp</dimen>
+
+    <!-- Dimensions for NewUserDisclaimerActivity -->
+    <dimen name="user_disclaimer_text_size">@*android:dimen/car_body1_size</dimen>
+    <dimen name="user_disclaimer_action_button_height">76dp</dimen>
+    <dimen name="user_disclaimer_action_button_top_margin">48dp</dimen>
+    <dimen name="user_disclaimer_action_button_corner_radius">38dp</dimen>
+    <dimen name="user_disclaimer_action_button_max_width">500dp</dimen>
+    <dimen name="user_disclaimer_action_button_min_width">@*android:dimen/car_button_min_width</dimen>
+    <dimen name="user_disclaimer_action_button_text_size">@*android:dimen/car_body3_size</dimen>
+    <dimen name="user_disclaimer_action_button_padding_horizontal">@*android:dimen/car_padding_4</dimen>
+
+    <!-- Blocked by admin icon -->
+    <dimen name="block_by_admin_icon_padding">@*android:dimen/car_padding_2</dimen>
 
 </resources>

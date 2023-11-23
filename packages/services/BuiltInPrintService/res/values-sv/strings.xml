@@ -50,7 +50,7 @@
     <string name="wifi_direct" msgid="4629404342852294985">"wifi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Hitta skrivare med wifi Direct"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Utskrift via wifi Direct"</string>
-    <string name="wifi_direct_printers" msgid="541168032444693191">"Skrivare med wifi Direct"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Skrivare med Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Söker …"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Du kan behöva godkänna anslutningen på frontpanelen på skrivaren"</string>
     <string name="connecting_to" msgid="2665161014972086194">"Ansluter till <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Anslutningar"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Standardtjänsten för utskrift kan inte hitta skrivare med wifi Direct"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"wifi Direct av"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjänsten för utskrift behöver platsbehörighet för att kunna upptäcka enheter i närheten."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Standardtjänsten för utskrift kräver behörigheten Enheter i närheten för att hitta skrivare i närheten."</string>
     <string name="fix" msgid="7784394272611365393">"Granska behörighet"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Platstjänster måste ha aktiverats för att standardtjänsten för utskrift ska kunna upptäcka enheter i närheten."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Aktivera plats"</string>
     <string name="print" msgid="7851318072404916362">"Skriv ut"</string>
 </resources>

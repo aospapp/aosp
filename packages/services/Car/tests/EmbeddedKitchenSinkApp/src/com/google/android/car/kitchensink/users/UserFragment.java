@@ -15,10 +15,10 @@
  */
 package com.google.android.car.kitchensink.users;
 
-import static android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationSetValue.ASSOCIATE_CURRENT_USER;
-import static android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationSetValue.DISASSOCIATE_CURRENT_USER;
-import static android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationType.KEY_FOB;
-import static android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationValue.ASSOCIATED_CURRENT_USER;
+import static android.car.user.CarUserManager.USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_ASSOCIATE_CURRENT_USER;
+import static android.car.user.CarUserManager.USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_DISASSOCIATE_CURRENT_USER;
+import static android.car.user.CarUserManager.USER_IDENTIFICATION_ASSOCIATION_TYPE_KEY_FOB;
+import static android.car.user.CarUserManager.USER_IDENTIFICATION_ASSOCIATION_VALUE_ASSOCIATE_CURRENT_USER;
 
 import android.annotation.Nullable;
 import android.app.AlertDialog;
@@ -30,13 +30,12 @@ import android.car.user.UserRemovalResult;
 import android.car.user.UserSwitchResult;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.pm.UserInfo;
-import android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationSetValue;
-import android.hardware.automotive.vehicle.V2_0.UserIdentificationAssociationValue;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.StorageManager;
 import android.text.TextUtils;
+import android.util.DebugUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -88,6 +87,7 @@ public final class UserFragment extends Fragment {
     private EditText mNewUserNameText;
     private CheckBox mNewUserIsAdminCheckBox;
     private CheckBox mNewUserIsGuestCheckBox;
+    private CheckBox mNewUserIsPreCreatedCheckBox;
     private EditText mNewUserExtraFlagsText;
     private Button mCreateUserButton;
 
@@ -116,6 +116,8 @@ public final class UserFragment extends Fragment {
         mNewUserNameText = view.findViewById(R.id.new_user_name);
         mNewUserIsAdminCheckBox = view.findViewById(R.id.new_user_is_admin);
         mNewUserIsGuestCheckBox = view.findViewById(R.id.new_user_is_guest);
+        mNewUserIsPreCreatedCheckBox = view.findViewById(R.id.new_user_is_pre_created);
+
         mNewUserExtraFlagsText = view.findViewById(R.id.new_user_flags);
         mCreateUserButton = view.findViewById(R.id.create_user);
 
@@ -153,10 +155,36 @@ public final class UserFragment extends Fragment {
         }
         int flags = 0;
         boolean isGuest = mNewUserIsGuestCheckBox.isChecked();
-        AsyncFuture<UserCreationResult> future;
-        if (isGuest) {
-            Log.i(TAG, "Create guest: " + name);
-            future = mCarUserManager.createGuest(name);
+        boolean isPreCreated = mNewUserIsPreCreatedCheckBox.isChecked();
+        UserCreationResult result;
+        UserInfo userInfo;
+        Log.v(TAG, "Create user: name=" + name + ", flags="
+                + UserInfo.flagsToString(flags) + ", is guest=" + isGuest
+                + ", is pre-created=" + isPreCreated);
+        if (isPreCreated) {
+            try {
+                userInfo = mUserManager.preCreateUser(isGuest ? UserManager.USER_TYPE_FULL_GUEST :
+                        UserManager.USER_TYPE_FULL_SECONDARY);
+                if (userInfo != null) {
+                    result = new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL,
+                            userInfo.getUserHandle());
+                    Log.i(TAG, "userinfo successfully created. User: " + userInfo.toFullString());
+                } else {
+                    result = new UserCreationResult(UserCreationResult.STATUS_ANDROID_FAILURE,
+                            /* androidFailureStatus= */ null, /* user= */ null,
+                            /* errorMessage= */ null,
+                            /* internalErrorMessage= */ "User is not created");
+                    Log.e(TAG, "Failed to create userInfo.");
+                }
+            } catch (UserManager.UserOperationException e) {
+                result = new UserCreationResult(UserCreationResult.STATUS_ANDROID_FAILURE,
+                        /* androidFailureStatus= */ null, /* user= */ null,
+                        /* errorMessage= */ null,
+                        /* internalErrorMessage= */ e.getMessage());
+                Log.e(TAG, "Exception pre-created user: " + e);
+            }
+        } else if (isGuest) {
+            result = getResult(mCarUserManager.createGuest(name));
         } else {
             if (mNewUserIsAdminCheckBox.isChecked()) {
                 flags |= UserInfo.FLAG_ADMIN;
@@ -170,16 +198,15 @@ public final class UserFragment extends Fragment {
                 }
             }
             Log.v(TAG, "Create user: name=" + name + ", flags=" + UserInfo.flagsToString(flags));
-            future = mCarUserManager.createUser(name, UserManager.USER_TYPE_FULL_SECONDARY, flags);
+            result = getResult(mCarUserManager.createUser(name, flags));
         }
-        UserCreationResult result = getResult(future);
         updateState();
         StringBuilder message = new StringBuilder();
         if (result == null) {
             message.append("Timed out creating user");
         } else {
             if (result.isSuccess()) {
-                message.append("User created: ").append(result.getUser().toFullString());
+                message.append("User created: ").append(result.getUser().toString());
             } else {
                 int status = result.getStatus();
                 message.append("Failed with code ").append(status).append('(')
@@ -279,21 +306,25 @@ public final class UserFragment extends Fragment {
 
     private boolean isAssociatedKeyFob() {
         UserIdentificationAssociationResponse result = mCarUserManager
-                .getUserIdentificationAssociation(KEY_FOB);
+                .getUserIdentificationAssociation(USER_IDENTIFICATION_ASSOCIATION_TYPE_KEY_FOB);
         if (!result.isSuccess()) {
             Log.e(TAG, "isAssociatedKeyFob() failed: " + result);
             return false;
         }
-        return result.getValues()[0] == ASSOCIATED_CURRENT_USER;
+        return result.getValues()[0]
+                == USER_IDENTIFICATION_ASSOCIATION_VALUE_ASSOCIATE_CURRENT_USER;
     }
 
     private void associateKeyFob(boolean associate) {
-        int value = associate ? ASSOCIATE_CURRENT_USER : DISASSOCIATE_CURRENT_USER;
-        Log.d(TAG, "associateKey(" + associate + "): setting to "
-                + UserIdentificationAssociationSetValue.toString(value));
+        int value = associate ? USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_ASSOCIATE_CURRENT_USER :
+                USER_IDENTIFICATION_ASSOCIATION_SET_VALUE_DISASSOCIATE_CURRENT_USER;
+        Log.d(TAG, "associateKey(" + associate + "): setting to " + DebugUtils.constantToString(
+                CarUserManager.class, /* prefix= */ "", value));
 
         AsyncFuture<UserIdentificationAssociationResponse> future = mCarUserManager
-                .setUserIdentificationAssociation(new int[] { KEY_FOB } , new int[] { value });
+                .setUserIdentificationAssociation(
+                        new int[] { USER_IDENTIFICATION_ASSOCIATION_TYPE_KEY_FOB },
+                        new int[] { value });
         UserIdentificationAssociationResponse result = getResult(future);
         Log.d(TAG, "Result: " + result);
 
@@ -307,11 +338,13 @@ public final class UserFragment extends Fragment {
                 error = "HAL call failed: " + result;
             } else {
                 int newValue = result.getValues()[0];
-                Log.d(TAG, "New status: " + UserIdentificationAssociationValue.toString(newValue));
-                associated = newValue == ASSOCIATED_CURRENT_USER;
+                String newValueName = DebugUtils.constantToString(CarUserManager.class,
+                        /* prefix= */ "", newValue);
+                Log.d(TAG, "New status: " + newValueName);
+                associated = (
+                        newValue == USER_IDENTIFICATION_ASSOCIATION_VALUE_ASSOCIATE_CURRENT_USER);
                 if (associated != associate) {
-                    error = "Result doesn't match request: "
-                            + UserIdentificationAssociationValue.toString(newValue);
+                    error = "Result doesn't match request: " + newValueName;
                 }
             }
         }

@@ -24,7 +24,7 @@ import java.io.File;
 /** Dumps low-level information about a block file in text form for debugging / analysis. */
 public final class DumpBlockFile {
 
-    /*
+    /**
      * Usage:
      * DumpBlockFile <[input] block file name> <[output] directory name>
      */

@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"ವಾಲ್‌ಪೇಪರ್ ಅನ್ನು ಆನ್‌ಗೆ ಹೊಂದಿಸಿ"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"ಮುಖಪುಟದ ಪರದೆ"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"ಲಾಕ್ ಪರದೆ"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"ಹೋಮ್ ಮತ್ತು ಲಾಕ್ ಸ್ಕ್ರೀನ್"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"ಹೋಮ್ ಮತ್ತು ಲಾಕ್ ಸ್ಕ್ರೀನ್‌ಗಳು"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"ತಿರುಗುವ ಚಿತ್ರದ ವಾಲ್‌ಪೇಪರ್"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"ಪ್ರಸ್ತುತ ವಾಲ್ಪೇಪರ್ ಅನ್ನು ಇಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲು, <xliff:g id="APP_NAME">%1$s</xliff:g> ಗೆ ನಿಮ್ಮ ಸಾಧನದ ಸಂಗ್ರಹಣೆಯ ಪ್ರವೇಶದ ಅಗತ್ಯವಿದೆ."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"ಪ್ರಸ್ತುತ ಅನ್ನು ಇಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲು, ವಾಲ್ಪೇಪರ್‌ಗಳಿಗೆ ನಿಮ್ಮ ಸಾಧನದ ಸಂಗ್ರಹಣೆ ಪ್ರವೇಶದ ಅಗತ್ಯವಿದೆ. \n\nಈ ಸೆಟ್ಟಿಂಗ್‌ ಅನ್ನು ಬದಯಾಯಿಸಲು, ವಾಲ್ಪೇಪರ್‌ಗಳ ಅಪ್ಲಿಕೇಶನ್‌ನ ಮಾಹಿತಿಯ ಅನುಮತಿ ಪ್ರದೇಶಕ್ಕೆ ಹೋಗಿ."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"ಪೂರ್ವವೀಕ್ಷಣೆ"</string>
     <string name="tab_info" msgid="818614080690111416">"ಮಾಹಿತಿ"</string>
     <string name="tab_customize" msgid="2533745409174959960">"ಕಸ್ಟಮೈಜ್‌ ಮಾಡಿ"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"ಎಫೆಕ್ಟ್‌ಗಳು"</string>
+    <string name="my_photos" msgid="8613021349284084982">"ನನ್ನ ಫೋಟೋಗಳು"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು..."</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"ಅಳಿಸಿ"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ಈ ವಾಲ್‌ಪೇಪರ್ ಅನ್ನು ಅಳಿಸುವುದೇ?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"ವಾಲ್‌ಪೇಪರ್‌"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"ವಾಲ್‌ಪೇಪರ್ ಪೂರ್ವವೀಕ್ಷಣೆ"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"ಸಂಗ್ರಹಣೆ ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ"</string>
+    <string name="cancel" msgid="4970902691067201584">"ರದ್ದುಮಾಡಿ"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI ಪೂರ್ವವೀಕ್ಷಣೆಯನ್ನು ಮರೆಮಾಡಿ"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"ಪೂರ್ವವೀಕ್ಷಣೆಯಲ್ಲಿ UI ಅನ್ನು ಮರೆಮಾಡಲಾಗಿದೆ. ಪ್ರದರ್ಶಿಸಲು ಡಬಲ್ ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UI ಪೂರ್ವವೀಕ್ಷಣೆಯನ್ನು ತೋರಿಸಿ"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"ಕಸ್ಟಮೈಸ್ ಪ್ಯಾನೆಲ್ ಅನ್ನು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆ"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"ಮಾಹಿತಿಯನ್ನು ಮರೆಮಾಡಲಾಗಿದೆ"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"ಮಾಹಿತಿಯನ್ನು ಪ್ರದರ್ಶಿಸಲಾಗಿದೆ"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಫೈಲ್‌ಗಳು ಮತ್ತು ಮಾಧ್ಯಮವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"ನನ್ನ ಫೋಟೋಗಳನ್ನು ತೆರೆಯಿರಿ"</string>
 </resources>

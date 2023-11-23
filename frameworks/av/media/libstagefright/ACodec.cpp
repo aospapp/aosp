@@ -77,6 +77,7 @@ enum {
 namespace {
 
 constexpr char TUNNEL_PEEK_KEY[] = "android._trigger-tunnel-peek";
+constexpr char TUNNEL_PEEK_SET_LEGACY_KEY[] = "android._tunnel-peek-set-legacy";
 
 }
 
@@ -2195,7 +2196,10 @@ status_t ACodec::configureCodec(
             }
 
             if (!msg->findInt32("aac-max-output-channel_count", &maxOutputChannelCount)) {
-                maxOutputChannelCount = -1;
+                // check non AAC-specific key
+                if (!msg->findInt32("max-output-channel-count", &maxOutputChannelCount)) {
+                    maxOutputChannelCount = -1;
+                }
             }
             if (!msg->findInt32("aac-pcm-limiter-enable", &pcmLimiterEnable)) {
                 // value is unknown
@@ -2480,17 +2484,39 @@ status_t ACodec::setTunnelPeek(int32_t tunnelPeek) {
         return BAD_VALUE;
     }
 
-    OMX_CONFIG_BOOLEANTYPE config;
-    InitOMXParams(&config);
-    config.bEnabled = (OMX_BOOL)(tunnelPeek != 0);
+    OMX_CONFIG_BOOLEANTYPE tunnelPeekConfig;
+    InitOMXParams(&tunnelPeekConfig);
+    tunnelPeekConfig.bEnabled = (OMX_BOOL)(tunnelPeek != 0);
     status_t err = mOMXNode->setConfig(
             (OMX_INDEXTYPE)OMX_IndexConfigAndroidTunnelPeek,
-            &config, sizeof(config));
+            &tunnelPeekConfig, sizeof(tunnelPeekConfig));
     if (err != OK) {
         ALOGE("decoder cannot set %s to %d (err %d)",
-              TUNNEL_PEEK_KEY, tunnelPeek, err);
+                TUNNEL_PEEK_KEY, tunnelPeek, err);
+    }
+    return err;
+}
+
+status_t ACodec::setTunnelPeekLegacy(int32_t isLegacy) {
+    if (mIsEncoder) {
+        ALOGE("encoder does not support %s", TUNNEL_PEEK_SET_LEGACY_KEY);
+        return BAD_VALUE;
+    }
+    if (!mTunneled) {
+        ALOGE("%s is only supported in tunnel mode", TUNNEL_PEEK_SET_LEGACY_KEY);
+        return BAD_VALUE;
     }
 
+    OMX_CONFIG_BOOLEANTYPE tunnelPeekLegacyModeConfig;
+    InitOMXParams(&tunnelPeekLegacyModeConfig);
+    tunnelPeekLegacyModeConfig.bEnabled = (OMX_BOOL)(isLegacy != 0);
+    status_t err = mOMXNode->setConfig(
+            (OMX_INDEXTYPE)OMX_IndexConfigAndroidTunnelPeekLegacyMode,
+            &tunnelPeekLegacyModeConfig, sizeof(tunnelPeekLegacyModeConfig));
+    if (err != OK) {
+        ALOGE("decoder cannot set video peek legacy mode to %d (err %d)",
+                isLegacy,  err);
+    }
     return err;
 }
 
@@ -3304,10 +3330,12 @@ status_t ACodec::configureTunneledVideoPlayback(
     if (err != OK) {
         ALOGE("native_window_set_sideband_stream(%p) failed! (err %d).",
                 sidebandHandle, err);
-        return err;
     }
 
-    return OK;
+    native_handle_close(sidebandHandle);
+    native_handle_delete(sidebandHandle);
+
+    return err;
 }
 
 status_t ACodec::setVideoPortFormatType(
@@ -5431,6 +5459,7 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                     notify->setInt32("channel-count", params.nChannels);
                     notify->setInt32("sample-rate", params.nSampleRate);
                     notify->setInt32("bitrate", params.nBitRate);
+                    notify->setInt32("aac-profile", params.eAACProfile);
                     break;
                 }
 
@@ -7928,11 +7957,22 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
         }
     }
 
-    int32_t tunnelPeek = 0;
-    if (params->findInt32(TUNNEL_PEEK_KEY, &tunnelPeek)) {
-        status_t err = setTunnelPeek(tunnelPeek);
-        if (err != OK) {
-            return err;
+    {
+        int32_t tunnelPeek = 0;
+        if (params->findInt32(TUNNEL_PEEK_KEY, &tunnelPeek)) {
+            status_t err = setTunnelPeek(tunnelPeek);
+            if (err != OK) {
+                return err;
+            }
+        }
+    }
+    {
+        int32_t tunnelPeekSetLegacy = 0;
+        if (params->findInt32(TUNNEL_PEEK_SET_LEGACY_KEY, &tunnelPeekSetLegacy)) {
+            status_t err = setTunnelPeekLegacy(tunnelPeekSetLegacy);
+            if (err != OK) {
+                return err;
+            }
         }
     }
 
@@ -9202,6 +9242,21 @@ status_t ACodec::getOMXChannelMapping(size_t numChannels, OMX_AUDIO_CHANNELTYPE 
             return -EINVAL;
     }
 
+    return OK;
+}
+
+status_t ACodec::querySupportedParameters(std::vector<std::string> *names) {
+    if (!names) {
+        return BAD_VALUE;
+    }
+    return OK;
+}
+
+status_t ACodec::subscribeToParameters([[maybe_unused]] const std::vector<std::string> &names) {
+    return OK;
+}
+
+status_t ACodec::unsubscribeFromParameters([[maybe_unused]] const std::vector<std::string> &names) {
     return OK;
 }
 

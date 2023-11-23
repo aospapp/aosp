@@ -55,6 +55,12 @@ class SharedRefBase {
         std::call_once(mFlagThis, [&]() {
             __assert(__FILE__, __LINE__, "SharedRefBase: no ref created during lifetime");
         });
+
+        if (ref() != nullptr) {
+            __assert(__FILE__, __LINE__,
+                     "SharedRefBase: destructed but still able to lock weak_ptr. Is this object "
+                     "double-owned?");
+        }
     }
 
     /**
@@ -184,9 +190,9 @@ class BnCInterface : public INTERFACE {
     BnCInterface() {}
     virtual ~BnCInterface() {}
 
-    SpAIBinder asBinder() override;
+    SpAIBinder asBinder() override final;
 
-    bool isRemote() override { return false; }
+    bool isRemote() override final { return false; }
 
    protected:
     /**
@@ -209,9 +215,9 @@ class BpCInterface : public INTERFACE {
     explicit BpCInterface(const SpAIBinder& binder) : mBinder(binder) {}
     virtual ~BpCInterface() {}
 
-    SpAIBinder asBinder() override;
+    SpAIBinder asBinder() override final;
 
-    bool isRemote() override { return AIBinder_isRemote(mBinder.get()); }
+    bool isRemote() override final { return AIBinder_isRemote(mBinder.get()); }
 
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override {
         return AIBinder_dump(asBinder().get(), fd, args, numArgs);
@@ -250,7 +256,11 @@ AIBinder_Class* ICInterface::defineClass(const char* interfaceDescriptor,
     // ourselves. The defaults are harmless.
     AIBinder_Class_setOnDump(clazz, ICInterfaceData::onDump);
 #ifdef HAS_BINDER_SHELL_COMMAND
+#ifdef __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__
     if (__builtin_available(android 30, *)) {
+#else
+    if (__ANDROID_API__ >= 30) {
+#endif
         AIBinder_Class_setHandleShellCommand(clazz, ICInterfaceData::handleShellCommand);
     }
 #endif
@@ -313,5 +323,43 @@ SpAIBinder BpCInterface<INTERFACE>::asBinder() {
 }
 
 }  // namespace ndk
+
+// Once minSdkVersion is 30, we are guaranteed to be building with the
+// Android 11 AIDL compiler which supports the SharedRefBase::make API.
+#if !defined(__ANDROID_API__) || __ANDROID_API__ >= 30 || defined(__ANDROID_APEX__)
+namespace ndk::internal {
+template <typename T, typename = void>
+struct is_complete_type : std::false_type {};
+
+template <typename T>
+struct is_complete_type<T, decltype(void(sizeof(T)))> : std::true_type {};
+}  // namespace ndk::internal
+
+namespace std {
+
+// Define `SharedRefBase` specific versions of `std::make_shared` and
+// `std::make_unique` to block people from using them. Using them to allocate
+// `ndk::SharedRefBase` objects results in double ownership. Use
+// `ndk::SharedRefBase::make<T>(...)` instead.
+//
+// Note: We exclude incomplete types because `std::is_base_of` is undefined in
+// that case.
+
+template <typename T, typename... Args,
+          std::enable_if_t<ndk::internal::is_complete_type<T>::value, bool> = true,
+          std::enable_if_t<std::is_base_of<ndk::SharedRefBase, T>::value, bool> = true>
+shared_ptr<T> make_shared(Args...) {  // SEE COMMENT ABOVE.
+    static_assert(!std::is_base_of<ndk::SharedRefBase, T>::value);
+}
+
+template <typename T, typename... Args,
+          std::enable_if_t<ndk::internal::is_complete_type<T>::value, bool> = true,
+          std::enable_if_t<std::is_base_of<ndk::SharedRefBase, T>::value, bool> = true>
+unique_ptr<T> make_unique(Args...) {  // SEE COMMENT ABOVE.
+    static_assert(!std::is_base_of<ndk::SharedRefBase, T>::value);
+}
+
+}  // namespace std
+#endif
 
 /** @} */

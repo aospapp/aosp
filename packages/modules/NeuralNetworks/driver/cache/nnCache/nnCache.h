@@ -14,8 +14,8 @@
  ** limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_NN_CACHE_NN_CACHE_H
-#define ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_NN_CACHE_NN_CACHE_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_DRIVER_CACHE_NN_CACHE_NN_CACHE_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_DRIVER_CACHE_NN_CACHE_NN_CACHE_H
 
 #include <functional>
 #include <memory>
@@ -153,4 +153,4 @@ class NNCache {
 };  // namespace android
 // ----------------------------------------------------------------------------
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_DRIVER_CACHE_NN_CACHE_NN_CACHE_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_DRIVER_CACHE_NN_CACHE_NN_CACHE_H

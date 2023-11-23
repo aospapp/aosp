@@ -13,3 +13,43 @@
 -keep public class com.android.managedprovisioning.common.HomogenousBiMap {
     public *;
 }
+-keep public class com.android.managedprovisioning.common.ViewModelEvent {
+    public *;
+}
+-keep class com.android.managedprovisioning.common.RetryLaunchViewModel {
+    public *;
+    *;
+}
+
+-keep public class com.android.managedprovisioning.common.RetryLaunchViewModel$CanLaunchActivityChecker {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.RetryLaunchViewModel$Config {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.RoleHolderUpdaterProvider {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.DeviceManagementRoleHolderUpdaterHelper {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.DeviceManagementRoleHolderHelper {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.DefaultPackageInstallChecker {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences {
+    public *;
+}
+
+-keep public class com.android.managedprovisioning.common.SharedPreferences {
+    public *;
+    *;
+}

@@ -23,14 +23,16 @@
 #include <unordered_map>
 #include <vector>
 
-#include "src/statsd_config.pb.h"
 #include "src/condition/CombinationConditionTracker.h"
 #include "src/condition/SimpleConditionTracker.h"
+#include "src/flags/FlagProvider.h"
 #include "src/matchers/CombinationAtomMatchingTracker.h"
 #include "src/metrics/DurationMetricProducer.h"
 #include "src/metrics/GaugeMetricProducer.h"
-#include "src/metrics/ValueMetricProducer.h"
+#include "src/metrics/KllMetricProducer.h"
+#include "src/metrics/NumericValueMetricProducer.h"
 #include "src/metrics/parsing_utils/metrics_manager_util.h"
+#include "src/statsd_config.pb.h"
 #include "tests/statsd_test_util.h"
 
 using namespace testing;
@@ -80,11 +82,20 @@ vector<int> metricsWithActivation;
 map<int64_t, uint64_t> oldStateHashes;
 std::set<int64_t> noReportMetricIds;
 
+bool initConfig(const StatsdConfig& config) {
+    return initStatsdConfig(
+            key, config, uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
+            timeBaseNs, timeBaseNs, allTagIds, oldAtomMatchingTrackers, oldAtomMatchingTrackerMap,
+            oldConditionTrackers, oldConditionTrackerMap, oldMetricProducers, oldMetricProducerMap,
+            oldAnomalyTrackers, oldAlarmTrackers, tmpConditionToMetricMap, tmpTrackerToMetricMap,
+            tmpTrackerToConditionMap, tmpActivationAtomTrackerToMetricMap,
+            tmpDeactivationAtomTrackerToMetricMap, oldAlertTrackerMap, metricsWithActivation,
+            oldStateHashes, noReportMetricIds);
+}
+}  // anonymous namespace
+
 class ConfigUpdateTest : public ::testing::Test {
 public:
-    ConfigUpdateTest() {
-    }
-
     void SetUp() override {
         allTagIds.clear();
         oldAtomMatchingTrackers.clear();
@@ -105,20 +116,13 @@ public:
         oldStateHashes.clear();
         noReportMetricIds.clear();
         StateManager::getInstance().clear();
+        FlagProvider::getInstance().overrideFuncs(&isAtLeastSFuncTrue, &getServerFlagFuncTrue);
+    }
+
+    void TearDown() override {
+        FlagProvider::getInstance().resetOverrides();
     }
 };
-
-bool initConfig(const StatsdConfig& config) {
-    return initStatsdConfig(
-            key, config, uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
-            timeBaseNs, timeBaseNs, allTagIds, oldAtomMatchingTrackers, oldAtomMatchingTrackerMap,
-            oldConditionTrackers, oldConditionTrackerMap, oldMetricProducers, oldMetricProducerMap,
-            oldAnomalyTrackers, oldAlarmTrackers, tmpConditionToMetricMap, tmpTrackerToMetricMap,
-            tmpTrackerToConditionMap, tmpActivationAtomTrackerToMetricMap,
-            tmpDeactivationAtomTrackerToMetricMap, oldAlertTrackerMap, metricsWithActivation,
-            oldStateHashes, noReportMetricIds);
-}
-}  // anonymous namespace
 
 TEST_F(ConfigUpdateTest, TestSimpleMatcherPreserve) {
     StatsdConfig config;
@@ -1645,6 +1649,94 @@ TEST_F(ConfigUpdateTest, TestValueMetricStateChanged) {
     EXPECT_EQ(metricsToUpdate[0], UPDATE_REPLACE);
 }
 
+TEST_F(ConfigUpdateTest, TestKllMetricPreserve) {
+    StatsdConfig config;
+    AtomMatcher startMatcher = CreateScreenTurnedOnAtomMatcher();
+    *config.add_atom_matcher() = startMatcher;
+    AtomMatcher stopMatcher = CreateScreenTurnedOffAtomMatcher();
+    *config.add_atom_matcher() = stopMatcher;
+    AtomMatcher whatMatcher = CreateAppStartOccurredAtomMatcher();
+    *config.add_atom_matcher() = whatMatcher;
+
+    Predicate predicate = CreateScreenIsOnPredicate();
+    *config.add_predicate() = predicate;
+
+    *config.add_kll_metric() =
+            createKllMetric("KLL1", whatMatcher, /*valueField=*/12, predicate.id());
+    EXPECT_TRUE(initConfig(config));
+
+    unordered_map<int64_t, int> metricToActivationMap;
+    vector<UpdateStatus> metricsToUpdate{UPDATE_UNKNOWN};
+    EXPECT_TRUE(determineAllMetricUpdateStatuses(config, oldMetricProducerMap, oldMetricProducers,
+                                                 metricToActivationMap,
+                                                 /*replacedMatchers*/ {}, /*replacedConditions=*/{},
+                                                 /*replacedStates=*/{}, metricsToUpdate));
+    EXPECT_EQ(metricsToUpdate[0], UPDATE_PRESERVE);
+}
+
+TEST_F(ConfigUpdateTest, TestKllMetricDefinitionChange) {
+    StatsdConfig config;
+    AtomMatcher whatMatcher = CreateScreenBrightnessChangedAtomMatcher();
+    *config.add_atom_matcher() = whatMatcher;
+
+    *config.add_kll_metric() = createKllMetric("KLL1", whatMatcher, /*valueField=*/12, nullopt);
+    EXPECT_TRUE(initConfig(config));
+
+    // Change split bucket setting for app upgrades, which should change the proto, causing
+    // replacement.
+    config.mutable_kll_metric(0)->set_split_bucket_for_app_upgrade(false);
+
+    unordered_map<int64_t, int> metricToActivationMap;
+    vector<UpdateStatus> metricsToUpdate{UPDATE_UNKNOWN};
+    EXPECT_TRUE(determineAllMetricUpdateStatuses(config, oldMetricProducerMap, oldMetricProducers,
+                                                 metricToActivationMap,
+                                                 /*replacedMatchers*/ {}, /*replacedConditions=*/{},
+                                                 /*replacedStates=*/{}, metricsToUpdate));
+    EXPECT_EQ(metricsToUpdate[0], UPDATE_REPLACE);
+}
+
+TEST_F(ConfigUpdateTest, TestKllMetricWhatChanged) {
+    StatsdConfig config;
+    AtomMatcher whatMatcher = CreateAppStartOccurredAtomMatcher();
+    *config.add_atom_matcher() = whatMatcher;
+
+    *config.add_kll_metric() = createKllMetric("KLL1", whatMatcher, /*valueField=*/12, nullopt);
+    EXPECT_TRUE(initConfig(config));
+
+    unordered_map<int64_t, int> metricToActivationMap;
+    vector<UpdateStatus> metricsToUpdate{UPDATE_UNKNOWN};
+    EXPECT_TRUE(determineAllMetricUpdateStatuses(
+            config, oldMetricProducerMap, oldMetricProducers, metricToActivationMap,
+            /*replacedMatchers*/ {whatMatcher.id()}, /*replacedConditions=*/{},
+            /*replacedStates=*/{}, metricsToUpdate));
+    EXPECT_EQ(metricsToUpdate[0], UPDATE_REPLACE);
+}
+
+TEST_F(ConfigUpdateTest, TestKllMetricConditionChanged) {
+    StatsdConfig config;
+    AtomMatcher startMatcher = CreateScreenTurnedOnAtomMatcher();
+    *config.add_atom_matcher() = startMatcher;
+    AtomMatcher stopMatcher = CreateScreenTurnedOffAtomMatcher();
+    *config.add_atom_matcher() = stopMatcher;
+    AtomMatcher whatMatcher = CreateAppStartOccurredAtomMatcher();
+    *config.add_atom_matcher() = whatMatcher;
+
+    Predicate predicate = CreateScreenIsOnPredicate();
+    *config.add_predicate() = predicate;
+
+    *config.add_kll_metric() =
+            createKllMetric("KLL1", whatMatcher, /*valueField=*/12, predicate.id());
+    EXPECT_TRUE(initConfig(config));
+
+    unordered_map<int64_t, int> metricToActivationMap;
+    vector<UpdateStatus> metricsToUpdate{UPDATE_UNKNOWN};
+    EXPECT_TRUE(determineAllMetricUpdateStatuses(
+            config, oldMetricProducerMap, oldMetricProducers, metricToActivationMap,
+            /*replacedMatchers*/ {}, /*replacedConditions=*/{predicate.id()},
+            /*replacedStates=*/{}, metricsToUpdate));
+    EXPECT_EQ(metricsToUpdate[0], UPDATE_REPLACE);
+}
+
 TEST_F(ConfigUpdateTest, TestUpdateEventMetrics) {
     StatsdConfig config;
 
@@ -2521,7 +2613,7 @@ TEST_F(ConfigUpdateTest, TestUpdateDurationMetrics) {
                                                   conditionCache));
     }
     // Predicate5 should be true since 2 uids have wakelocks
-    EXPECT_EQ(conditionCache, vector({kTrue, kUnknown, kUnknown, kUnknown, kUnknown}));
+    EXPECT_EQ(conditionCache, vector({kTrue, kFalse, kUnknown, kUnknown, kUnknown}));
 
     StatsdConfig newConfig;
     *newConfig.add_duration_metric() = duration6;
@@ -2624,7 +2716,7 @@ TEST_F(ConfigUpdateTest, TestUpdateDurationMetrics) {
             static_cast<DurationMetricProducer*>(newMetricProducers[duration1Index].get());
     EXPECT_EQ(durationProducer1->getMetricId(), duration1Id);
     EXPECT_EQ(durationProducer1->mConditionTrackerIndex, predicate4Index);
-    EXPECT_EQ(durationProducer1->mCondition, ConditionState::kUnknown);
+    EXPECT_EQ(durationProducer1->mCondition, ConditionState::kFalse);
     EXPECT_EQ(durationProducer1->mStartIndex, matcher3Index);
     EXPECT_EQ(durationProducer1->mStopIndex, matcher4Index);
     EXPECT_EQ(durationProducer1->mStopAllIndex, matcher7Index);
@@ -2745,7 +2837,8 @@ TEST_F(ConfigUpdateTest, TestUpdateValueMetrics) {
 
     // Used later to ensure the condition wizard is replaced. Get it before doing the update.
     sp<EventMatcherWizard> oldMatcherWizard =
-            static_cast<ValueMetricProducer*>(oldMetricProducers[0].get())->mEventMatcherWizard;
+            static_cast<NumericValueMetricProducer*>(oldMetricProducers[0].get())
+                    ->mEventMatcherWizard;
     EXPECT_EQ(oldMatcherWizard->getStrongCount(), 6);
 
     // Change value2, causing it to be replaced.
@@ -2874,32 +2967,32 @@ TEST_F(ConfigUpdateTest, TestUpdateValueMetrics) {
     ASSERT_EQ(metricsWithActivation.size(), 0);
 
     // Verify tracker indices/ids/conditions/states are correct.
-    ValueMetricProducer* valueProducer1 =
-            static_cast<ValueMetricProducer*>(newMetricProducers[value1Index].get());
+    NumericValueMetricProducer* valueProducer1 =
+            static_cast<NumericValueMetricProducer*>(newMetricProducers[value1Index].get());
     EXPECT_EQ(valueProducer1->getMetricId(), value1Id);
     EXPECT_EQ(valueProducer1->mConditionTrackerIndex, predicate1Index);
     EXPECT_EQ(valueProducer1->mCondition, ConditionState::kUnknown);
     EXPECT_EQ(valueProducer1->mWhatMatcherIndex, matcher4Index);
-    ValueMetricProducer* valueProducer2 =
-            static_cast<ValueMetricProducer*>(newMetricProducers[value2Index].get());
+    NumericValueMetricProducer* valueProducer2 =
+            static_cast<NumericValueMetricProducer*>(newMetricProducers[value2Index].get());
     EXPECT_EQ(valueProducer2->getMetricId(), value2Id);
     EXPECT_EQ(valueProducer2->mConditionTrackerIndex, -1);
     EXPECT_EQ(valueProducer2->mCondition, ConditionState::kTrue);
     EXPECT_EQ(valueProducer2->mWhatMatcherIndex, matcher1Index);
-    ValueMetricProducer* valueProducer3 =
-            static_cast<ValueMetricProducer*>(newMetricProducers[value3Index].get());
+    NumericValueMetricProducer* valueProducer3 =
+            static_cast<NumericValueMetricProducer*>(newMetricProducers[value3Index].get());
     EXPECT_EQ(valueProducer3->getMetricId(), value3Id);
     EXPECT_EQ(valueProducer3->mConditionTrackerIndex, predicate2Index);
     EXPECT_EQ(valueProducer3->mCondition, ConditionState::kUnknown);
     EXPECT_EQ(valueProducer3->mWhatMatcherIndex, matcher5Index);
-    ValueMetricProducer* valueProducer4 =
-            static_cast<ValueMetricProducer*>(newMetricProducers[value4Index].get());
+    NumericValueMetricProducer* valueProducer4 =
+            static_cast<NumericValueMetricProducer*>(newMetricProducers[value4Index].get());
     EXPECT_EQ(valueProducer4->getMetricId(), value4Id);
     EXPECT_EQ(valueProducer4->mConditionTrackerIndex, -1);
     EXPECT_EQ(valueProducer4->mCondition, ConditionState::kTrue);
     EXPECT_EQ(valueProducer4->mWhatMatcherIndex, matcher3Index);
-    ValueMetricProducer* valueProducer6 =
-            static_cast<ValueMetricProducer*>(newMetricProducers[value6Index].get());
+    NumericValueMetricProducer* valueProducer6 =
+            static_cast<NumericValueMetricProducer*>(newMetricProducers[value6Index].get());
     EXPECT_EQ(valueProducer6->getMetricId(), value6Id);
     EXPECT_EQ(valueProducer6->mConditionTrackerIndex, predicate1Index);
     EXPECT_EQ(valueProducer6->mCondition, ConditionState::kUnknown);
@@ -2911,6 +3004,216 @@ TEST_F(ConfigUpdateTest, TestUpdateValueMetrics) {
     oldMetricProducers.clear();
     // Only reference to the old wizard should be the one in the test.
     EXPECT_EQ(oldMatcherWizard->getStrongCount(), 1);
+}
+
+TEST_F(ConfigUpdateTest, TestUpdateKllMetrics) {
+    StatsdConfig config;
+
+    // Add atom matchers/predicates. These are mostly needed for initStatsdConfig.
+    AtomMatcher matcher1 = CreateScreenTurnedOnAtomMatcher();
+    int64_t matcher1Id = matcher1.id();
+    *config.add_atom_matcher() = matcher1;
+
+    AtomMatcher matcher2 = CreateScreenTurnedOffAtomMatcher();
+    int64_t matcher2Id = matcher2.id();
+    *config.add_atom_matcher() = matcher2;
+
+    AtomMatcher matcher3 = CreateStartScheduledJobAtomMatcher();
+    int64_t matcher3Id = matcher3.id();
+    *config.add_atom_matcher() = matcher3;
+
+    AtomMatcher matcher4 = CreateAppStartOccurredAtomMatcher();
+    int64_t matcher4Id = matcher4.id();
+    *config.add_atom_matcher() = matcher4;
+
+    AtomMatcher matcher5 = CreateSimpleAtomMatcher("SubsystemSleep", util::SUBSYSTEM_SLEEP_STATE);
+    int64_t matcher5Id = matcher5.id();
+    *config.add_atom_matcher() = matcher5;
+
+    Predicate predicate1 = CreateScreenIsOnPredicate();
+    int64_t predicate1Id = predicate1.id();
+    *config.add_predicate() = predicate1;
+
+    Predicate predicate2 = CreateScreenIsOffPredicate();
+    int64_t predicate2Id = predicate2.id();
+    *config.add_predicate() = predicate2;
+
+    // Add a few kll metrics.
+    // Note that these will not work as "real" metrics since the value field is always 2.
+    // Will be preserved.
+    KllMetric kll1 = createKllMetric("KLL1", matcher4, /*valueField=*/2, predicate1Id);
+    int64_t kll1Id = kll1.id();
+    *config.add_kll_metric() = kll1;
+
+    // Will be replaced - definition change.
+    KllMetric kll2 = createKllMetric("KLL2", matcher1, /*valueField=*/2, nullopt);
+    int64_t kll2Id = kll2.id();
+    *config.add_kll_metric() = kll2;
+
+    // Will be replaced - condition change.
+    KllMetric kll3 = createKllMetric("KLL3", matcher5, /*valueField=*/2, predicate2Id);
+    int64_t kll3Id = kll3.id();
+    *config.add_kll_metric() = kll3;
+
+    // Will be preserved.
+    KllMetric kll4 = createKllMetric("KLL", matcher3, /*valueField=*/2, nullopt);
+    int64_t kll4Id = kll4.id();
+    *config.add_kll_metric() = kll4;
+
+    // Will be deleted.
+    KllMetric kll5 = createKllMetric("KLL5", matcher2, /*valueField=*/2, nullopt);
+    int64_t kll5Id = kll5.id();
+    *config.add_kll_metric() = kll5;
+
+    ASSERT_TRUE(initConfig(config));
+
+    // Change kll2, causing it to be replaced.
+    kll2.set_split_bucket_for_app_upgrade(false);
+
+    // Mark predicate 2 as replaced. Causes kll3 to be replaced.
+    set<int64_t> replacedConditions = {predicate2Id};
+
+    // New kll metric.
+    KllMetric kll6 = createKllMetric("KLL6", matcher5, /*valueField=*/2, predicate1Id);
+    int64_t kll6Id = kll6.id();
+
+    // Map the matchers and predicates in reverse order to force the indices to change.
+    std::unordered_map<int64_t, int> newAtomMatchingTrackerMap;
+    const int matcher5Index = 0;
+    newAtomMatchingTrackerMap[matcher5Id] = 0;
+    const int matcher4Index = 1;
+    newAtomMatchingTrackerMap[matcher4Id] = 1;
+    const int matcher3Index = 2;
+    newAtomMatchingTrackerMap[matcher3Id] = 2;
+    const int matcher2Index = 3;
+    newAtomMatchingTrackerMap[matcher2Id] = 3;
+    const int matcher1Index = 4;
+    newAtomMatchingTrackerMap[matcher1Id] = 4;
+    // Use the existing matchers. A bit hacky, but saves code and we don't rely on them.
+    vector<sp<AtomMatchingTracker>> newAtomMatchingTrackers(5);
+    std::reverse_copy(oldAtomMatchingTrackers.begin(), oldAtomMatchingTrackers.end(),
+                      newAtomMatchingTrackers.begin());
+
+    std::unordered_map<int64_t, int> newConditionTrackerMap;
+    const int predicate2Index = 0;
+    newConditionTrackerMap[predicate2Id] = 0;
+    const int predicate1Index = 1;
+    newConditionTrackerMap[predicate1Id] = 1;
+    // Use the existing conditionTrackers. A bit hacky, but saves code and we don't rely on them.
+    vector<sp<ConditionTracker>> newConditionTrackers(2);
+    std::reverse_copy(oldConditionTrackers.begin(), oldConditionTrackers.end(),
+                      newConditionTrackers.begin());
+    // Say that predicate1 & predicate2 is unknown since the initial condition never changed.
+    vector<ConditionState> conditionCache = {ConditionState::kUnknown, ConditionState::kUnknown};
+
+    StatsdConfig newConfig;
+    *newConfig.add_kll_metric() = kll6;
+    const int kll6Index = 0;
+    *newConfig.add_kll_metric() = kll3;
+    const int kll3Index = 1;
+    *newConfig.add_kll_metric() = kll1;
+    const int kll1Index = 2;
+    *newConfig.add_kll_metric() = kll4;
+    const int kll4Index = 3;
+    *newConfig.add_kll_metric() = kll2;
+    const int kll2Index = 4;
+
+    // Output data structures to validate.
+    unordered_map<int64_t, int> newMetricProducerMap;
+    vector<sp<MetricProducer>> newMetricProducers;
+    unordered_map<int, vector<int>> conditionToMetricMap;
+    unordered_map<int, vector<int>> trackerToMetricMap;
+    set<int64_t> noReportMetricIds;
+    unordered_map<int, vector<int>> activationAtomTrackerToMetricMap;
+    unordered_map<int, vector<int>> deactivationAtomTrackerToMetricMap;
+    vector<int> metricsWithActivation;
+    set<int64_t> replacedMetrics;
+    EXPECT_TRUE(updateMetrics(
+            key, newConfig, /*timeBaseNs=*/123, /*currentTimeNs=*/12345, new StatsPullerManager(),
+            oldAtomMatchingTrackerMap, newAtomMatchingTrackerMap, /*replacedMatchers=*/{},
+            newAtomMatchingTrackers, newConditionTrackerMap, replacedConditions,
+            newConditionTrackers, conditionCache, /*stateAtomIdMap=*/{}, /*allStateGroupMaps=*/{},
+            /*replacedStates=*/{}, oldMetricProducerMap, oldMetricProducers, newMetricProducerMap,
+            newMetricProducers, conditionToMetricMap, trackerToMetricMap, noReportMetricIds,
+            activationAtomTrackerToMetricMap, deactivationAtomTrackerToMetricMap,
+            metricsWithActivation, replacedMetrics));
+
+    unordered_map<int64_t, int> expectedMetricProducerMap = {
+            {kll1Id, kll1Index}, {kll2Id, kll2Index}, {kll3Id, kll3Index},
+            {kll4Id, kll4Index}, {kll6Id, kll6Index},
+    };
+    EXPECT_THAT(newMetricProducerMap, ContainerEq(expectedMetricProducerMap));
+    EXPECT_EQ(replacedMetrics, set<int64_t>({kll2Id, kll3Id}));
+
+    // Make sure preserved metrics are the same.
+    ASSERT_EQ(newMetricProducers.size(), 5);
+    EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(kll1Id)],
+              newMetricProducers[newMetricProducerMap.at(kll1Id)]);
+    EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(kll4Id)],
+              newMetricProducers[newMetricProducerMap.at(kll4Id)]);
+
+    // Make sure replaced metrics are different.
+    EXPECT_NE(oldMetricProducers[oldMetricProducerMap.at(kll2Id)],
+              newMetricProducers[newMetricProducerMap.at(kll2Id)]);
+    EXPECT_NE(oldMetricProducers[oldMetricProducerMap.at(kll3Id)],
+              newMetricProducers[newMetricProducerMap.at(kll3Id)]);
+
+    // Verify the conditionToMetricMap.
+    ASSERT_EQ(conditionToMetricMap.size(), 2);
+    const vector<int>& condition1Metrics = conditionToMetricMap[predicate1Index];
+    EXPECT_THAT(condition1Metrics, UnorderedElementsAre(kll1Index, kll6Index));
+    const vector<int>& condition2Metrics = conditionToMetricMap[predicate2Index];
+    EXPECT_THAT(condition2Metrics, UnorderedElementsAre(kll3Index));
+
+    // Verify the trackerToMetricMap.
+    ASSERT_EQ(trackerToMetricMap.size(), 4);
+    const vector<int>& matcher1Metrics = trackerToMetricMap[matcher1Index];
+    EXPECT_THAT(matcher1Metrics, UnorderedElementsAre(kll2Index));
+    const vector<int>& matcher3Metrics = trackerToMetricMap[matcher3Index];
+    EXPECT_THAT(matcher3Metrics, UnorderedElementsAre(kll4Index));
+    const vector<int>& matcher4Metrics = trackerToMetricMap[matcher4Index];
+    EXPECT_THAT(matcher4Metrics, UnorderedElementsAre(kll1Index));
+    const vector<int>& matcher5Metrics = trackerToMetricMap[matcher5Index];
+    EXPECT_THAT(matcher5Metrics, UnorderedElementsAre(kll3Index, kll6Index));
+
+    // Verify event activation/deactivation maps.
+    ASSERT_EQ(activationAtomTrackerToMetricMap.size(), 0);
+    ASSERT_EQ(deactivationAtomTrackerToMetricMap.size(), 0);
+    ASSERT_EQ(metricsWithActivation.size(), 0);
+
+    // Verify tracker indices/ids/conditions are correct.
+    KllMetricProducer* kllProducer1 =
+            static_cast<KllMetricProducer*>(newMetricProducers[kll1Index].get());
+    EXPECT_EQ(kllProducer1->getMetricId(), kll1Id);
+    EXPECT_EQ(kllProducer1->mConditionTrackerIndex, predicate1Index);
+    EXPECT_EQ(kllProducer1->mCondition, ConditionState::kUnknown);
+    EXPECT_EQ(kllProducer1->mWhatMatcherIndex, matcher4Index);
+    KllMetricProducer* kllProducer2 =
+            static_cast<KllMetricProducer*>(newMetricProducers[kll2Index].get());
+    EXPECT_EQ(kllProducer2->getMetricId(), kll2Id);
+    EXPECT_EQ(kllProducer2->mConditionTrackerIndex, -1);
+    EXPECT_EQ(kllProducer2->mCondition, ConditionState::kTrue);
+    EXPECT_EQ(kllProducer2->mWhatMatcherIndex, matcher1Index);
+    KllMetricProducer* kllProducer3 =
+            static_cast<KllMetricProducer*>(newMetricProducers[kll3Index].get());
+    EXPECT_EQ(kllProducer3->getMetricId(), kll3Id);
+    EXPECT_EQ(kllProducer3->mConditionTrackerIndex, predicate2Index);
+    EXPECT_EQ(kllProducer3->mCondition, ConditionState::kUnknown);
+    EXPECT_EQ(kllProducer3->mWhatMatcherIndex, matcher5Index);
+    KllMetricProducer* kllProducer4 =
+            static_cast<KllMetricProducer*>(newMetricProducers[kll4Index].get());
+    EXPECT_EQ(kllProducer4->getMetricId(), kll4Id);
+    EXPECT_EQ(kllProducer4->mConditionTrackerIndex, -1);
+    EXPECT_EQ(kllProducer4->mCondition, ConditionState::kTrue);
+    EXPECT_EQ(kllProducer4->mWhatMatcherIndex, matcher3Index);
+    KllMetricProducer* kllProducer6 =
+            static_cast<KllMetricProducer*>(newMetricProducers[kll6Index].get());
+    EXPECT_EQ(kllProducer6->getMetricId(), kll6Id);
+    EXPECT_EQ(kllProducer6->mConditionTrackerIndex, predicate1Index);
+    EXPECT_EQ(kllProducer6->mCondition, ConditionState::kUnknown);
+    EXPECT_EQ(kllProducer6->mWhatMatcherIndex, matcher5Index);
+
+    oldMetricProducers.clear();
 }
 
 TEST_F(ConfigUpdateTest, TestUpdateMetricActivations) {
@@ -3088,11 +3391,16 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     int64_t durationMetricId = durationMetric.id();
     *config.add_duration_metric() = durationMetric;
 
+    // Preserved.
+    KllMetric kllMetric = createKllMetric("KLL1", matcher3, /*valueField=*/2, predicate1Id);
+    int64_t kllMetricId = kllMetric.id();
+    *config.add_kll_metric() = kllMetric;
+
     EXPECT_TRUE(initConfig(config));
 
     // Used later to ensure the condition wizard is replaced. Get it before doing the update.
     sp<ConditionWizard> oldConditionWizard = oldMetricProducers[0]->mWizard;
-    EXPECT_EQ(oldConditionWizard->getStrongCount(), 6);
+    EXPECT_EQ(oldConditionWizard->getStrongCount(), 7);
 
     // Mark matcher 2 as replaced. Causes eventMetric to be replaced.
     set<int64_t> replacedMatchers;
@@ -3135,6 +3443,8 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     const int valueMetricIndex = 3;
     *newConfig.add_gauge_metric() = gaugeMetric;
     const int gaugeMetricIndex = 4;
+    *newConfig.add_kll_metric() = kllMetric;
+    const int kllMetricIndex = 5;
 
     // Add the predicate since duration metric needs it.
     *newConfig.add_predicate() = predicate1;
@@ -3162,20 +3472,21 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     unordered_map<int64_t, int> expectedMetricProducerMap = {
             {countMetricId, countMetricIndex}, {durationMetricId, durationMetricIndex},
             {eventMetricId, eventMetricIndex}, {valueMetricId, valueMetricIndex},
-            {gaugeMetricId, gaugeMetricIndex},
-    };
+            {gaugeMetricId, gaugeMetricIndex}, {kllMetricId, kllMetricIndex}};
     EXPECT_THAT(newMetricProducerMap, ContainerEq(expectedMetricProducerMap));
 
     EXPECT_EQ(replacedMetrics, set<int64_t>({eventMetricId, gaugeMetricId}));
 
     // Make sure preserved metrics are the same.
-    ASSERT_EQ(newMetricProducers.size(), 5);
+    ASSERT_EQ(newMetricProducers.size(), 6);
     EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(countMetricId)],
               newMetricProducers[newMetricProducerMap.at(countMetricId)]);
     EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(durationMetricId)],
               newMetricProducers[newMetricProducerMap.at(durationMetricId)]);
     EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(valueMetricId)],
               newMetricProducers[newMetricProducerMap.at(valueMetricId)]);
+    EXPECT_EQ(oldMetricProducers[oldMetricProducerMap.at(kllMetricId)],
+              newMetricProducers[newMetricProducerMap.at(kllMetricId)]);
 
     // Make sure replaced metrics are different.
     EXPECT_NE(oldMetricProducers[oldMetricProducerMap.at(eventMetricId)],
@@ -3186,8 +3497,8 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     // Verify the conditionToMetricMap.
     ASSERT_EQ(conditionToMetricMap.size(), 1);
     const vector<int>& condition1Metrics = conditionToMetricMap[predicate1Index];
-    EXPECT_THAT(condition1Metrics,
-                UnorderedElementsAre(countMetricIndex, gaugeMetricIndex, valueMetricIndex));
+    EXPECT_THAT(condition1Metrics, UnorderedElementsAre(countMetricIndex, gaugeMetricIndex,
+                                                        valueMetricIndex, kllMetricIndex));
 
     // Verify the trackerToMetricMap.
     ASSERT_EQ(trackerToMetricMap.size(), 3);
@@ -3196,7 +3507,8 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     const vector<int>& matcher2Metrics = trackerToMetricMap[matcher2Index];
     EXPECT_THAT(matcher2Metrics, UnorderedElementsAre(eventMetricIndex, durationMetricIndex));
     const vector<int>& matcher3Metrics = trackerToMetricMap[matcher3Index];
-    EXPECT_THAT(matcher3Metrics, UnorderedElementsAre(gaugeMetricIndex, valueMetricIndex));
+    EXPECT_THAT(matcher3Metrics,
+                UnorderedElementsAre(gaugeMetricIndex, valueMetricIndex, kllMetricIndex));
 
     // Verify event activation/deactivation maps.
     ASSERT_EQ(activationAtomTrackerToMetricMap.size(), 0);
@@ -3216,10 +3528,13 @@ TEST_F(ConfigUpdateTest, TestUpdateMetricsMultipleTypes) {
     EXPECT_EQ(newMetricProducers[gaugeMetricIndex]->getMetricId(), gaugeMetricId);
     EXPECT_EQ(newMetricProducers[gaugeMetricIndex]->mConditionTrackerIndex, predicate1Index);
     EXPECT_EQ(newMetricProducers[gaugeMetricIndex]->mCondition, ConditionState::kUnknown);
+    EXPECT_EQ(newMetricProducers[kllMetricIndex]->getMetricId(), kllMetricId);
+    EXPECT_EQ(newMetricProducers[kllMetricIndex]->mConditionTrackerIndex, predicate1Index);
+    EXPECT_EQ(newMetricProducers[kllMetricIndex]->mCondition, ConditionState::kUnknown);
 
     sp<ConditionWizard> newConditionWizard = newMetricProducers[0]->mWizard;
     EXPECT_NE(newConditionWizard, oldConditionWizard);
-    EXPECT_EQ(newConditionWizard->getStrongCount(), 6);
+    EXPECT_EQ(newConditionWizard->getStrongCount(), 7);
     oldMetricProducers.clear();
     // Only reference to the old wizard should be the one in the test.
     EXPECT_EQ(oldConditionWizard->getStrongCount(), 1);

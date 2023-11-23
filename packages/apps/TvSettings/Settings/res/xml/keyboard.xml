@@ -53,4 +53,7 @@
 
     </PreferenceCategory>
 
+    <!-- Physical keyboard setting is inserted here with order=5 if any physical keyboards are
+         present -->
+
 </PreferenceScreen>

@@ -175,6 +175,138 @@ public final class SecureSettings {
     }
 
     /**
+     * See {@link Settings.Secure#putString(ContentResolver, String, String)}
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    public void putString(ContentResolver contentResolver, String key, String value) {
+        Versions.requireMinimumVersion(Build.VERSION_CODES.S);
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                INTERACT_ACROSS_USERS_FULL, WRITE_SECURE_SETTINGS)) {
+            Settings.Secure.putString(contentResolver, key, value);
+        }
+    }
+
+    /**
+     * Put String to secure settings for the given {@link UserReference}.
+     *
+     * <p>If the user is not the instrumented user, this will only succeed when running on Android S
+     * and above.
+     *
+     * <p>See {@link #putString(ContentResolver, String, String)}
+     */
+    @SuppressLint("NewApi")
+    public void putString(UserReference user, String key, String value) {
+        if (user.equals(sTestApis.users().instrumented())) {
+            putString(key, value);
+            return;
+        }
+
+        putString(sTestApis.context().androidContextAsUser(user).getContentResolver(), key, value);
+    }
+
+    /**
+     * Put String to secure settings for the instrumented user.
+     *
+     * <p>See {@link #putString(ContentResolver, String, String)}
+     */
+    public void putString(String key, String value) {
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                WRITE_SECURE_SETTINGS)) {
+            Settings.Secure.putString(
+                    sTestApis.context().instrumentedContext().getContentResolver(), key, value);
+        }
+    }
+
+    /**
+     * See {@link Settings.Secure#getString(ContentResolver, String)}
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    public String getString(ContentResolver contentResolver, String key) {
+        Versions.requireMinimumVersion(Build.VERSION_CODES.S);
+        try (PermissionContext p =
+                     sTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            return getStringInner(contentResolver, key);
+        }
+    }
+
+    /**
+     * See {@link Settings.Secure#getString(ContentResolver, String)}.
+     *
+     * <p>If the value is null, the {@code defaultValue} will be returned.
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    public String getString(ContentResolver contentResolver, String key, String defaultValue) {
+        Versions.requireMinimumVersion(Build.VERSION_CODES.S);
+        try (PermissionContext p =
+                     sTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            return getStringInner(contentResolver, key, defaultValue);
+        }
+    }
+
+    private String getStringInner(ContentResolver contentResolver, String key) {
+        return Settings.Secure.getString(contentResolver, key);
+    }
+
+    private String getStringInner(
+            ContentResolver contentResolver, String key, String defaultValue) {
+        String s = getStringInner(contentResolver, key);
+        return s == null ? defaultValue : s;
+    }
+
+    /**
+     * Get String from secure settings for the given {@link UserReference}.
+     *
+     * <p>If the user is not the instrumented user, this will only succeed when running on Android S
+     * and above.
+     *
+     * <p>See {@link #getString(ContentResolver, String)}
+     */
+    @SuppressLint("NewApi")
+    public String getString(UserReference user, String key) {
+        if (user.equals(sTestApis.users().instrumented())) {
+            return getString(key);
+        }
+        return getString(sTestApis.context().androidContextAsUser(user).getContentResolver(), key);
+    }
+
+    /**
+     * Get String from secure settings for the given {@link UserReference}, or the default value.
+     *
+     * <p>If the user is not the instrumented user, this will only succeed when running on Android S
+     * and above.
+     *
+     * <p>See {@link #getString(ContentResolver, String, String)}
+     */
+    @SuppressLint("NewApi")
+    public String getString(UserReference user, String key, String defaultValue) {
+        if (user.equals(sTestApis.users().instrumented())) {
+            return getString(key, defaultValue);
+        }
+        return getString(
+                sTestApis.context().androidContextAsUser(user).getContentResolver(),
+                key, defaultValue);
+    }
+
+    /**
+     * Get String from secure settings for the instrumented user.
+     *
+     * <p>See {@link #getString(ContentResolver, String)}
+     */
+    public String getString(String key) {
+        return getStringInner(sTestApis.context().instrumentedContext().getContentResolver(), key);
+    }
+
+    /**
+     * Get String from secure settings for the instrumented user, or the default value.
+     *
+     * <p>See {@link #getString(ContentResolver, String)}
+     */
+    public String getString(String key, String defaultValue) {
+        return getStringInner(
+                sTestApis.context().instrumentedContext().getContentResolver(), key, defaultValue);
+    }
+
+    /**
      * Reset all secure settings set by this package.
      *
      * See {@link Settings.Secure#resetToDefaults(ContentResolver, String)}.

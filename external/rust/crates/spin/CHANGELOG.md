@@ -13,6 +13,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+# [0.9.2] - 2021-07-09
+
+### Changed
+
+- Improved `Once` performance by reducing the memory footprint of internal state to one byte
+
+### Fixed
+
+- Improved performance of `Once` by relaxing ordering guarantees and removing redundant checks
+
+# [0.9.1] - 2021-06-21
+
+### Added
+
+- Default type parameter on `Once` for better ergonomics
+
+# [0.9.0] - 2021-03-18
+
+### Changed
+
+- Placed all major API features behind feature flags
+
+### Fixed
+
+- A compilation bug with the `lock_api` feature
+
+# [0.8.0] - 2021-03-15
+
+### Added
+
+- `Once::get_unchecked`
+- `RelaxStrategy` trait with type parameter on all locks to support switching between relax strategies
+
+### Changed
+
+- `lock_api1` feature is now named `lock_api`
+
 # [0.7.1] - 2021-01-12
 
 ### Fixed

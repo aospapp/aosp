@@ -433,7 +433,11 @@ The potential properties of this sections are listed below:
 
  Suppresses change reports involving a type which has at least one
  data member inserted at an offset specified by the property value
- ``offset-in-bit``.  The value ``offset-in-bit`` is either:
+ ``offset-in-bit``.  Please note that if a type has a change in which
+ at least one of its data members is removed or its size is reduced,
+ the type will *NOT* be suppressed by the evaluation of this property.
+
+ The value ``offset-in-bit`` is either:
 
 	 - an integer value, expressed in bits, which denotes the
 	   offset of the insertion point of the data member, starting
@@ -468,11 +472,14 @@ The potential properties of this sections are listed below:
    ``has_data_member_inserted_between`` ``=`` {<``range-begin``>, <``range-end``>}
 
  Suppresses change reports involving a type which has at least one
- data mber inserted at an offset that is comprised in the range
- between range-begin`` and ``range-end``.  Please note that each of
- the lues ``range-begin`` and ``range-end`` can be of the same form as
- the :ref:`has_data_member_inserted_at
- <suppr_has_data_member_inserted_at_label>` property above.
+ data member inserted at an offset that is comprised in the range
+ between ``range-begin`` and ``range-end``.  Please note that each of
+ the values ``range-begin`` and ``range-end`` can be of the same form
+ as the :ref:`has_data_member_inserted_at
+ <suppr_has_data_member_inserted_at_label>` property above.  Please
+ also note that if a type has a change in which at least one of its
+ data members is removed or its size is reduced, the type will *NOT* be
+ suppressed by the evaluation of this property.
 
  Usage examples of this properties are: ::
 
@@ -508,7 +515,10 @@ The potential properties of this sections are listed below:
  long as the system can cope with.  The values of the boundaries of
  the ranges are of the same kind as for the
  :ref:`has_data_member_inserted_at
- <suppr_has_data_member_inserted_at_label>` property above.
+ <suppr_has_data_member_inserted_at_label>` property above.  Please
+ note that if a type has a change in which at least one of its data
+ members is removed or its size is reduced, the type will *NOT* be
+ suppressed by the evaluation of this property.
 
  Another usage example of this property is thus: ::
 

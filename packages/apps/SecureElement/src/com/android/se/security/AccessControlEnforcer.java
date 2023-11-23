@@ -271,8 +271,8 @@ public class AccessControlEnforcer {
     }
 
     /** Sets up the Channel Access for the given Package */
-    public ChannelAccess setUpChannelAccess(byte[] aid, String packageName, boolean checkRefreshTag)
-            throws IOException, MissingResourceException {
+    public ChannelAccess setUpChannelAccess(byte[] aid, String packageName, byte[] uuid,
+            boolean checkRefreshTag) throws IOException, MissingResourceException {
         ChannelAccess channelAccess = null;
         // check result of channel access during initialization procedure
         if (mInitialChannelAccess.getAccess() == ChannelAccess.ACCESS.DENIED) {
@@ -281,7 +281,7 @@ public class AccessControlEnforcer {
         }
         // this is the new GP Access Control Enforcer implementation
         if (mUseAra || mUseArf) {
-            channelAccess = internal_setUpChannelAccess(aid, packageName,
+            channelAccess = internal_setUpChannelAccess(aid, packageName, uuid,
                     checkRefreshTag);
         }
         if (channelAccess == null || (channelAccess.getApduAccess() != ChannelAccess.ACCESS.ALLOWED
@@ -299,14 +299,23 @@ public class AccessControlEnforcer {
     }
 
     private synchronized ChannelAccess internal_setUpChannelAccess(byte[] aid,
-            String packageName, boolean checkRefreshTag) throws IOException,
+            String packageName, byte[] uuid, boolean checkRefreshTag) throws IOException,
             MissingResourceException {
-        if (packageName == null || packageName.isEmpty()) {
+        if (uuid == null && (packageName == null || packageName.isEmpty())) {
             throw new AccessControlException("package names must be specified");
         }
         try {
             // estimate SHA-1 and SHA-256 hash values of the device application's certificate.
-            List<byte[]> appCertHashes = getAppCertHashes(packageName);
+            List<byte[]> appCertHashes = null;
+            if (packageName != null) {
+                appCertHashes = getAppCertHashes(packageName);
+            } else {
+                if (uuid != null) {
+                    appCertHashes = new ArrayList<byte[]>();
+                    appCertHashes.add(uuid);
+                }
+            }
+
             // APP certificates must be available => otherwise Exception
             if (appCertHashes == null || appCertHashes.size() == 0) {
                 throw new AccessControlException(

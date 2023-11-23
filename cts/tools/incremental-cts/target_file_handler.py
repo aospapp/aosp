@@ -41,3 +41,16 @@ class TargetFileHandler(AbstractBuildFileHandler):
           else:
             hash_dict[file_name] = hash(f.read())
     return hash_dict
+
+  def get_system_fingerprint(self):
+    """See base class."""
+    fingerprint = ''
+    with ZipFile(self.build_file) as zip_file:
+      with zip_file.open('SYSTEM/build.prop') as build_prop:
+        for line in build_prop:
+          line = line.decode('UTF-8')
+          if 'build.fingerprint' not in line:
+            continue
+          fingerprint = line.split('=')[1].strip()
+          break
+    return fingerprint

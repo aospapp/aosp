@@ -42,6 +42,7 @@
     <uses-permission android:name="com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS"/>
     <!-- Permissions/feature for USB tuner -->
     <uses-permission android:name="android.permission.DVB_DEVICE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <uses-feature android:name="android.hardware.usb.host"
          android:required="false"/>

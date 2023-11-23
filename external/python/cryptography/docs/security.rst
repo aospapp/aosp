@@ -9,9 +9,9 @@ Infrastructure
 --------------
 
 In addition to ``cryptography``'s code, we're also concerned with the security
-of the infrastructure we run (primarily ``cryptography.io`` and
-``ci.cryptography.io``). If you discover a security vulnerability in our
-infrastructure, we ask you to report it using the same procedure.
+of the infrastructure we run (primarily ``cryptography.io``).  If you discover
+a security vulnerability in our infrastructure, we ask you to report it using
+the same procedure.
 
 What is a security issue?
 -------------------------
@@ -53,10 +53,9 @@ We ask that you do not report security issues to our normal GitHub issue
 tracker.
 
 If you believe you've identified a security issue with ``cryptography``, please
-report it to ``alex.gaynor@gmail.com``. Messages may be optionally encrypted
-with PGP using key fingerprint
-``F7FC 698F AAE2 D2EF BECD  E98E D1B3 ADC0 E023 8CA6`` (this public key is
-available from most commonly-used key servers).
+report it to ``alex.gaynor@gmail.com`` and/or ``paul.l.kehrer@gmail.com``. You
+should verify that your MTA uses TLS to ensure the confidentiality of your
+message.
 
 Once you've submitted an issue via email, you should receive an acknowledgment
 within 48 hours, and depending on the action to be taken, you may receive
@@ -72,9 +71,9 @@ New releases for OpenSSL updates
 --------------------------------
 
 As of versions 0.5, 1.0.1, and 2.0.0, ``cryptography`` statically links OpenSSL
-on Windows, macOS, and Linux respectively, to ease installation. Due to this,
-``cryptography`` will release a new version whenever OpenSSL has a security or
-bug fix release to avoid shipping insecure software.
+in binary distributions for Windows, macOS, and Linux respectively, to ease
+installation. Due to this, ``cryptography`` will release a new version whenever
+OpenSSL has a security or bug fix release to avoid shipping insecure software.
 
 Like all our other releases, this will be announced on the mailing list and we
 strongly recommend that you upgrade as soon as possible.

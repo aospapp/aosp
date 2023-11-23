@@ -33,10 +33,15 @@ java_test_host {
         "general-tests",
     ],
     data: [
+        ":IncrementalTestApp",
+        ":IncrementalTestAppUncompressed",
+        ":IncrementalTestApp2_v1",
+        ":IncrementalTestApp2_v2",
         ":IncrementalTestAppDynamicAsset",
         ":IncrementalTestAppDynamicCode",
         ":IncrementalTestAppCompressedNativeLib",
         ":IncrementalTestAppUncompressedNativeLib",
+        ":IncrementalTestAppValidator",
     ],
-
+    per_testcase_directory: true,
 }

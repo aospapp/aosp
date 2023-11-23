@@ -77,7 +77,7 @@ public class CtsLocationAccessService extends Service {
                     }
                     break;
                 case COMMAND_GET_SERVICE_STATE_FROM_LISTENER:
-                    result = listenForServiceState();
+                    result = listenForServiceState(mTelephonyManager);
                     break;
                 case COMMAND_LISTEN_CELL_INFO:
                     result = listenForCellInfo();
@@ -147,7 +147,7 @@ public class CtsLocationAccessService extends Service {
         }
     }
 
-    private ServiceState listenForServiceState() {
+    public static ServiceState listenForServiceState(TelephonyManager telephonyManager) {
         LinkedBlockingQueue<ServiceState> queue = new LinkedBlockingQueue<>();
         HandlerThread handlerThread = new HandlerThread("Telephony location CTS");
         handlerThread.start();
@@ -160,7 +160,7 @@ public class CtsLocationAccessService extends Service {
             }
         };
 
-        mTelephonyManager.listen(listener, PhoneStateListener.LISTEN_SERVICE_STATE);
+        telephonyManager.listen(listener, PhoneStateListener.LISTEN_SERVICE_STATE);
 
         try {
             ServiceState ss = queue.poll(LISTENER_TIMEOUT, TimeUnit.MILLISECONDS);

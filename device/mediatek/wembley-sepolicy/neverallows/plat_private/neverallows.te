@@ -127,6 +127,7 @@ full_treble_only(`
 full_treble_only(`
     neverallow {
     coredomain
+    -apexd
     -cameraserver
     -fastbootd
     -hal_camera

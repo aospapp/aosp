@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_HAL_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_HAL_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_HAL_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_HAL_UTILS_H
 
 #include <HalInterfaces.h>
 #include <Utils.h>
@@ -63,4 +63,4 @@ inline SharedDevice makeSharedDevice(std::string name, sp<V1_0::IDevice> driver)
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_HAL_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_HAL_UTILS_H

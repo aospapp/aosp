@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,7 +79,8 @@ final class BugStorageUtils {
             Status.STATUS_PENDING_USER_ACTION.getValue(),
             Status.STATUS_MOVE_FAILED.getValue(),
             Status.STATUS_MOVE_IN_PROGRESS.getValue(),
-            Status.STATUS_AUDIO_PENDING.getValue());
+            Status.STATUS_AUDIO_PENDING.getValue(),
+            Status.STATUS_UPLOADED_BEFORE.getValue());
 
     /**
      * Creates a new {@link Status#STATUS_WRITE_PENDING} bug report record in a local sqlite
@@ -224,8 +225,8 @@ final class BugStorageUtils {
     static List<MetaBugReport> getUnexpiredBugReportsWithZipFile(
             @NonNull Context context, boolean ttlPointsReachedZero) {
         // Number of question marks should be the same as the size of EXPIRATION_STATUSES.
-        String selection = COLUMN_STATUS + " IN (?, ?, ?, ?, ?, ?, ?)";
-        Preconditions.checkState(EXPIRATION_STATUSES.size() == 7, "Invalid EXPIRATION_STATUSES");
+        String selection = COLUMN_STATUS + " IN (?, ?, ?, ?, ?, ?, ?, ?)";
+        Preconditions.checkState(EXPIRATION_STATUSES.size() == 8, "Invalid EXPIRATION_STATUSES");
         if (ttlPointsReachedZero) {
             selection += " AND " + COLUMN_TTL_POINTS + " = 0";
         } else {
@@ -326,6 +327,14 @@ final class BugStorageUtils {
     public static void setUploadSuccess(Context context, MetaBugReport bugReport) {
         setBugReportStatus(context, bugReport, Status.STATUS_UPLOAD_SUCCESS,
                 "Upload time: " + currentTimestamp());
+    }
+
+    /**
+     * Sets bugreport status to uploaded before.
+     */
+    public static void setUploadedBefore(Context context, MetaBugReport bugReport, Exception e) {
+        setBugReportStatus(context, bugReport, Status.STATUS_UPLOADED_BEFORE,
+                "Already uploaded, new attempt failed:  " + getRootCauseMessage(e));
     }
 
     /**

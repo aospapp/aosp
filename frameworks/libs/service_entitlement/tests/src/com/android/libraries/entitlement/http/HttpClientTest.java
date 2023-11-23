@@ -192,4 +192,56 @@ public class HttpClientTest {
         FakeHttpsURLConnection connection = sFakeURLStreamHandler.getConnections().get(0);
         assertThat(connection.getBytesWrittenToOutputStream()).isEqualTo(postData.getBytes(UTF_8));
     }
+
+    @Test
+    public void request_getResponseCodeFailed_expectThrowsException() {
+        HttpRequest request =
+                HttpRequest.builder()
+                        .setUrl(TEST_URL)
+                        .setRequestMethod(RequestMethod.GET)
+                        .build();
+        FakeResponse responseContent =
+                FakeResponse.builder()
+                        .setResponseBody(TEST_RESPONSE_BODY.getBytes(UTF_8))
+                        .setContentType(CONTENT_TYPE_STRING_JSON)
+                        .setHasException(true)
+                        .build();
+        Map<String, FakeResponse> response = ImmutableMap.of(TEST_URL, responseContent);
+        sFakeURLStreamHandler.stubResponse(response);
+
+        ServiceEntitlementException exception = expectThrows(
+                ServiceEntitlementException.class, () -> mHttpClient.request(request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(
+                ServiceEntitlementException.ERROR_HTTP_STATUS_NOT_SUCCESS);
+        assertThat(exception.getMessage()).isEqualTo("Read response code failed!");
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
+    }
+
+    @Test
+    public void request_getResponseBodyFailed_expectThrowsException() {
+        HttpRequest request =
+                HttpRequest.builder()
+                        .setUrl(TEST_URL)
+                        .setRequestMethod(RequestMethod.GET)
+                        .build();
+        FakeResponse responseContent =
+                FakeResponse.builder()
+                        .setResponseCode(HttpURLConnection.HTTP_OK)
+                        .setContentType(CONTENT_TYPE_STRING_JSON)
+                        .setHasException(true)
+                        .build();
+        Map<String, FakeResponse> response = ImmutableMap.of(TEST_URL, responseContent);
+        sFakeURLStreamHandler.stubResponse(response);
+
+        ServiceEntitlementException exception = expectThrows(
+                ServiceEntitlementException.class, () -> mHttpClient.request(request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(
+                ServiceEntitlementException.ERROR_MALFORMED_HTTP_RESPONSE);
+        assertThat(exception.getMessage()).isEqualTo("Read response body/message failed!");
+        assertThat(exception.getHttpStatus()).isEqualTo(0);
+        assertThat(exception.getRetryAfter()).isEmpty();
+    }
 }

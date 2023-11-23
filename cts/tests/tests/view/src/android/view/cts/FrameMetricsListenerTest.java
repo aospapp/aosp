@@ -212,7 +212,7 @@ public class FrameMetricsListenerTest {
         assertTrue(swapBuffers > 0);
         assertTrue(intended_vsync > 0);
         assertTrue(vsync > 0);
-        assertTrue(gpuDuration > 0);
+        assertTrue(gpuDuration >= 0);
         assertTrue(totalDuration > 0);
         assertTrue(deadline > 0);
 

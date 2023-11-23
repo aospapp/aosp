@@ -18,7 +18,6 @@ package android.server.wm.jetpack.utils;
 
 import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.ACTIVITY_ID_LABEL;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -49,7 +48,7 @@ public class TestActivityWithId extends TestActivity {
 
     @Override
     public String toString() {
-        return String.format("TestActivityWithID{id=%s}", mId);
+        return String.format("{" + this.getClass().getSimpleName() + ", id=%s}", mId);
     }
 
 }

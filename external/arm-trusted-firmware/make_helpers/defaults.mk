@@ -212,6 +212,9 @@ SDEI_SUPPORT            	:= 0
 # True Random Number firmware Interface
 TRNG_SUPPORT            	:= 0
 
+# SMCCC PCI support
+SMC_PCI_SUPPORT            	:= 0
+
 # Whether code and read-only data should be put on separate memory pages. The
 # platform Makefile is free to override this value.
 SEPARATE_CODE_AND_RODATA	:= 0
@@ -291,17 +294,20 @@ endif
 # Include Memory Tagging Extension registers in cpu context. This must be set
 # to 1 if the platform wants to use this feature in the Secure world and MTE is
 # enabled at ELX.
-CTX_INCLUDE_MTE_REGS := 0
+CTX_INCLUDE_MTE_REGS		:= 0
 
 ENABLE_AMU			:= 0
+AMU_RESTRICT_COUNTERS		:= 0
 
-# By default, enable Scalable Vector Extension if implemented for Non-secure
+# By default, enable Scalable Vector Extension if implemented only for Non-secure
 # lower ELs
 # Note SVE is only supported on AArch64 - therefore do not enable in AArch32
 ifneq (${ARCH},aarch32)
     ENABLE_SVE_FOR_NS		:= 1
+    ENABLE_SVE_FOR_SWD		:= 0
 else
     override ENABLE_SVE_FOR_NS	:= 0
+    override ENABLE_SVE_FOR_SWD  := 0
 endif
 
 SANITIZE_UB := off
@@ -338,3 +344,14 @@ OPENSSL_DIR			:= /usr
 
 # Build option to use the SP804 timer instead of the generic one
 USE_SP804_TIMER			:= 0
+
+# Build option to define number of firmware banks, used in firmware update
+# metadata structure.
+NR_OF_FW_BANKS			:= 2
+
+# Build option to define number of images in firmware bank, used in firmware
+# update metadata structure.
+NR_OF_IMAGES_IN_FW_BANK		:= 1
+
+# Disable Firmware update support by default
+PSA_FWU_SUPPORT			:= 0

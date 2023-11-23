@@ -37,20 +37,28 @@ import static android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
+import static com.android.networkstack.apishim.ConstantsShim.KEY_CARRIER_SUPPORTS_TETHERING_BOOL;
+import static com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ModuleInfo;
@@ -63,6 +71,7 @@ import android.os.Handler;
 import android.os.PersistableBundle;
 import android.os.ResultReceiver;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.os.test.TestLooper;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
@@ -72,9 +81,12 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.test.BroadcastInterceptingContext;
+import com.android.modules.utils.build.SdkLevel;
+import com.android.testutils.DevSdkIgnoreRule;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
@@ -91,19 +103,27 @@ public final class EntitlementManagerTest {
     private static final String PROVISIONING_NO_UI_APP_NAME = "no_ui_app";
     private static final String PROVISIONING_APP_RESPONSE = "app_response";
     private static final String TEST_PACKAGE_NAME = "com.android.tethering.test";
+    private static final String FAILED_TETHERING_REASON = "Tethering provisioning failed.";
+    private static final int RECHECK_TIMER_HOURS = 24;
 
     @Mock private CarrierConfigManager mCarrierConfigManager;
     @Mock private Context mContext;
     @Mock private Resources mResources;
     @Mock private SharedLog mLog;
     @Mock private PackageManager mPm;
-    @Mock private EntitlementManager.OnUiEntitlementFailedListener mEntitlementFailedListener;
+    @Mock private EntitlementManager
+            .OnTetherProvisioningFailedListener mTetherProvisioningFailedListener;
+    @Mock private AlarmManager mAlarmManager;
+    @Mock private PendingIntent mAlarmIntent;
+
+    @Rule
+    public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
 
     // Like so many Android system APIs, these cannot be mocked because it is marked final.
     // We have to use the real versions.
     private final PersistableBundle mCarrierConfig = new PersistableBundle();
     private final TestLooper mLooper = new TestLooper();
-    private Context mMockContext;
+    private MockContext mMockContext;
     private Runnable mPermissionChangeCallback;
 
     private WrappedEntitlementManager mEnMgr;
@@ -118,6 +138,13 @@ public final class EntitlementManagerTest {
         @Override
         public Resources getResources() {
             return mResources;
+        }
+
+        @Override
+        public Object getSystemService(String name) {
+            if (Context.ALARM_SERVICE.equals(name)) return mAlarmManager;
+
+            return super.getSystemService(name);
         }
     }
 
@@ -164,8 +191,8 @@ public final class EntitlementManagerTest {
 
         @Override
         protected Intent runSilentTetherProvisioning(int type,
-                final TetheringConfiguration config) {
-            Intent intent = super.runSilentTetherProvisioning(type, config);
+                final TetheringConfiguration config, final ResultReceiver receiver) {
+            Intent intent = super.runSilentTetherProvisioning(type, config, receiver);
             assertSilentTetherProvisioning(type, config, intent);
             silentProvisionCount++;
             addDownstreamMapping(type, fakeEntitlementResult);
@@ -183,6 +210,11 @@ public final class EntitlementManagerTest {
             assertTrue(intent.hasExtra(EXTRA_PROVISION_CALLBACK));
             assertEquals(config.activeDataSubId,
                     intent.getIntExtra(EXTRA_TETHER_SUBID, INVALID_SUBSCRIPTION_ID));
+        }
+
+        @Override
+        PendingIntent createRecheckAlarmIntent() {
+            return mAlarmIntent;
         }
     }
 
@@ -225,7 +257,7 @@ public final class EntitlementManagerTest {
         mPermissionChangeCallback = spy(() -> { });
         mEnMgr = new WrappedEntitlementManager(mMockContext, new Handler(mLooper.getLooper()), mLog,
                 mPermissionChangeCallback);
-        mEnMgr.setOnUiEntitlementFailedListener(mEntitlementFailedListener);
+        mEnMgr.setOnTetherProvisioningFailedListener(mTetherProvisioningFailedListener);
         mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
         mEnMgr.setTetheringConfigurationFetcher(() -> {
             return mConfig;
@@ -245,46 +277,29 @@ public final class EntitlementManagerTest {
                 .thenReturn(PROVISIONING_NO_UI_APP_NAME);
         when(mResources.getString(R.string.config_mobile_hotspot_provision_response)).thenReturn(
                 PROVISIONING_APP_RESPONSE);
+        when(mResources.getInteger(R.integer.config_mobile_hotspot_provision_check_period))
+                .thenReturn(RECHECK_TIMER_HOURS);
         // Act like the CarrierConfigManager is present and ready unless told otherwise.
-        when(mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
-                .thenReturn(mCarrierConfigManager);
+        mockService(Context.CARRIER_CONFIG_SERVICE,
+                CarrierConfigManager.class, mCarrierConfigManager);
         when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(mCarrierConfig);
         mCarrierConfig.putBoolean(CarrierConfigManager.KEY_REQUIRE_ENTITLEMENT_CHECKS_BOOL, true);
         mCarrierConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
         mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
     }
 
+    private void setupCarrierConfig(boolean carrierSupported) {
+        mCarrierConfig.putBoolean(KEY_CARRIER_SUPPORTS_TETHERING_BOOL, carrierSupported);
+    }
+
+    private <T> void mockService(String serviceName, Class<T> serviceClass, T service) {
+        when(mMockContext.getSystemServiceName(serviceClass)).thenReturn(serviceName);
+        when(mMockContext.getSystemService(serviceName)).thenReturn(service);
+    }
+
     @Test
     public void canRequireProvisioning() {
         setupForRequiredProvisioning();
-        assertTrue(mEnMgr.isTetherProvisioningRequired(mConfig));
-    }
-
-    @Test
-    public void toleratesCarrierConfigManagerMissing() {
-        setupForRequiredProvisioning();
-        when(mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
-            .thenReturn(null);
-        mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
-        // Couldn't get the CarrierConfigManager, but still had a declared provisioning app.
-        // Therefore provisioning still be required.
-        assertTrue(mEnMgr.isTetherProvisioningRequired(mConfig));
-    }
-
-    @Test
-    public void toleratesCarrierConfigMissing() {
-        setupForRequiredProvisioning();
-        when(mCarrierConfigManager.getConfig()).thenReturn(null);
-        mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
-        // We still have a provisioning app configured, so still require provisioning.
-        assertTrue(mEnMgr.isTetherProvisioningRequired(mConfig));
-    }
-
-    @Test
-    public void toleratesCarrierConfigNotLoaded() {
-        setupForRequiredProvisioning();
-        mCarrierConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, false);
-        // We still have a provisioning app configured, so still require provisioning.
         assertTrue(mEnMgr.isTetherProvisioningRequired(mConfig));
     }
 
@@ -591,14 +606,16 @@ public final class EntitlementManagerTest {
     @Test
     public void testCallStopTetheringWhenUiProvisioningFail() {
         setupForRequiredProvisioning();
-        verify(mEntitlementFailedListener, times(0)).onUiEntitlementFailed(TETHERING_WIFI);
+        verify(mTetherProvisioningFailedListener, times(0))
+                .onTetherProvisioningFailed(TETHERING_WIFI, FAILED_TETHERING_REASON);
         mEnMgr.fakeEntitlementResult = TETHER_ERROR_PROVISIONING_FAILED;
         mEnMgr.notifyUpstream(true);
         mLooper.dispatchAll();
         mEnMgr.startProvisioningIfNeeded(TETHERING_WIFI, true);
         mLooper.dispatchAll();
         assertEquals(1, mEnMgr.uiProvisionCount);
-        verify(mEntitlementFailedListener, times(1)).onUiEntitlementFailed(TETHERING_WIFI);
+        verify(mTetherProvisioningFailedListener, times(1))
+                .onTetherProvisioningFailed(TETHERING_WIFI, FAILED_TETHERING_REASON);
     }
 
     @Test
@@ -622,11 +639,121 @@ public final class EntitlementManagerTest {
 
         // When second downstream is down, exempted downstream can use cellular upstream.
         assertEquals(1, mEnMgr.uiProvisionCount);
-        verify(mEntitlementFailedListener).onUiEntitlementFailed(TETHERING_USB);
+        verify(mTetherProvisioningFailedListener).onTetherProvisioningFailed(TETHERING_USB,
+                FAILED_TETHERING_REASON);
         mEnMgr.stopProvisioningIfNeeded(TETHERING_USB);
         assertTrue(mEnMgr.isCellularUpstreamPermitted());
 
         mEnMgr.stopProvisioningIfNeeded(TETHERING_WIFI);
         assertFalse(mEnMgr.isCellularUpstreamPermitted());
+    }
+
+    private void sendProvisioningRecheckAlarm() {
+        final Intent intent = new Intent(EntitlementManager.ACTION_PROVISIONING_ALARM);
+        mMockContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+        mLooper.dispatchAll();
+    }
+
+    @Test
+    public void testScheduleProvisioningReCheck() throws Exception {
+        setupForRequiredProvisioning();
+        assertFalse(mEnMgr.isCellularUpstreamPermitted());
+
+        mEnMgr.fakeEntitlementResult = TETHER_ERROR_NO_ERROR;
+        mEnMgr.notifyUpstream(true);
+        mLooper.dispatchAll();
+        mEnMgr.startProvisioningIfNeeded(TETHERING_WIFI, true);
+        mLooper.dispatchAll();
+        assertTrue(mEnMgr.isCellularUpstreamPermitted());
+        verify(mAlarmManager).setExact(eq(AlarmManager.ELAPSED_REALTIME_WAKEUP), anyLong(),
+                eq(mAlarmIntent));
+        reset(mAlarmManager);
+
+        sendProvisioningRecheckAlarm();
+        verify(mAlarmManager).cancel(eq(mAlarmIntent));
+        verify(mAlarmManager).setExact(eq(AlarmManager.ELAPSED_REALTIME_WAKEUP), anyLong(),
+                eq(mAlarmIntent));
+    }
+
+    @Test
+    @IgnoreUpTo(SC_V2)
+    public void requestLatestTetheringEntitlementResult_carrierDoesNotSupport_noProvisionCount()
+            throws Exception {
+        setupCarrierConfig(false);
+        setupForRequiredProvisioning();
+        mEnMgr.fakeEntitlementResult = TETHER_ERROR_NO_ERROR;
+        ResultReceiver receiver = new ResultReceiver(null) {
+            @Override
+            protected void onReceiveResult(int resultCode, Bundle resultData) {
+                assertEquals(TETHER_ERROR_PROVISIONING_FAILED, resultCode);
+            }
+        };
+        mEnMgr.requestLatestTetheringEntitlementResult(TETHERING_WIFI, receiver, false);
+        mLooper.dispatchAll();
+        assertEquals(0, mEnMgr.uiProvisionCount);
+        mEnMgr.reset();
+    }
+
+    @Test
+    @IgnoreUpTo(SC_V2)
+    public void reevaluateSimCardProvisioning_carrierUnsupportAndSimswitch() {
+        setupForRequiredProvisioning();
+
+        // Start a tethering with cellular data without provisioning.
+        mEnMgr.notifyUpstream(true);
+        mEnMgr.startProvisioningIfNeeded(TETHERING_WIFI, false);
+        mLooper.dispatchAll();
+
+        // Tear down mobile, then switch SIM.
+        mEnMgr.notifyUpstream(false);
+        mLooper.dispatchAll();
+        setupCarrierConfig(false);
+        mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+        mEnMgr.reevaluateSimCardProvisioning(mConfig);
+
+        // Turn on upstream.
+        mEnMgr.notifyUpstream(true);
+        mLooper.dispatchAll();
+
+        verify(mTetherProvisioningFailedListener)
+                .onTetherProvisioningFailed(TETHERING_WIFI, "Carrier does not support.");
+    }
+
+    @Test
+    @IgnoreUpTo(SC_V2)
+    public void startProvisioningIfNeeded_carrierUnsupport()
+            throws Exception {
+        setupCarrierConfig(false);
+        setupForRequiredProvisioning();
+        mEnMgr.startProvisioningIfNeeded(TETHERING_WIFI, true);
+        verify(mTetherProvisioningFailedListener, never())
+                .onTetherProvisioningFailed(TETHERING_WIFI, "Carrier does not support.");
+
+        mEnMgr.notifyUpstream(true);
+        mLooper.dispatchAll();
+        verify(mTetherProvisioningFailedListener)
+                .onTetherProvisioningFailed(TETHERING_WIFI, "Carrier does not support.");
+        mEnMgr.stopProvisioningIfNeeded(TETHERING_WIFI);
+        reset(mTetherProvisioningFailedListener);
+
+        mEnMgr.startProvisioningIfNeeded(TETHERING_WIFI, true);
+        mLooper.dispatchAll();
+        verify(mTetherProvisioningFailedListener)
+                .onTetherProvisioningFailed(TETHERING_WIFI, "Carrier does not support.");
+    }
+
+    @Test
+    public void isTetherProvisioningRequired_carrierUnSupport() {
+        setupForRequiredProvisioning();
+        setupCarrierConfig(false);
+        when(mResources.getStringArray(R.array.config_mobile_hotspot_provision_app))
+                .thenReturn(new String[0]);
+        mConfig = new FakeTetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+
+        if (SdkLevel.isAtLeastT()) {
+            assertTrue(mEnMgr.isTetherProvisioningRequired(mConfig));
+        } else {
+            assertFalse(mEnMgr.isTetherProvisioningRequired(mConfig));
+        }
     }
 }

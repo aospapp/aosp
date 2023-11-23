@@ -179,45 +179,6 @@ static void PrintDmaBufPerProcess(const std::vector<DmaBuffer>& bufs) {
            total_size / 1024, kernel_rss / 1024, total_rss / 1024, total_pss / 1024);
 }
 
-static bool ReadDmaBufs(std::vector<DmaBuffer>* bufs) {
-    bufs->clear();
-
-    if (!ReadDmaBufInfo(bufs)) {
-        printf("debugfs entry for dmabuf not available, using /proc/<pid>/fdinfo instead\n");
-    }
-
-    std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir("/proc"), closedir);
-    if (!dir) {
-        fprintf(stderr, "Failed to open /proc directory\n");
-        bufs->clear();
-        return false;
-    }
-
-    struct dirent* dent;
-    while ((dent = readdir(dir.get()))) {
-        if (dent->d_type != DT_DIR) continue;
-
-        int pid = atoi(dent->d_name);
-        if (pid == 0) {
-            continue;
-        }
-
-        if (!ReadDmaBufFdRefs(pid, bufs)) {
-            fprintf(stderr, "Failed to read dmabuf fd references for pid %d\n", pid);
-            bufs->clear();
-            return false;
-        }
-
-        if (!ReadDmaBufMapRefs(pid, bufs)) {
-            fprintf(stderr, "Failed to read dmabuf map references for pid %d\n", pid);
-            bufs->clear();
-            return false;
-        }
-    }
-
-    return true;
-}
-
 static void DumpDmabufSysfsStats() {
     android::dmabufinfo::DmabufSysfsStats stats;
 
@@ -300,7 +261,10 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
     } else {
-        if (!ReadDmaBufs(&bufs)) exit(EXIT_FAILURE);
+        if (!ReadDmaBufs(&bufs)) {
+            fprintf(stderr, "Failed to ReadDmaBufs, check logcat for info\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Show the old dmabuf table, inode x process

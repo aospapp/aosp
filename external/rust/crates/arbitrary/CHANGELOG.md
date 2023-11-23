@@ -28,6 +28,60 @@ Released YYYY-MM-DD.
 
 --------------------------------------------------------------------------------
 
+## 1.1.0
+
+Released 2022-02-09.
+
+### Added
+
+* Added the `Unstructured::ratio` method to generate a boolean that is `true` at
+  the given rate.
+
+* Added the `Unstructured::arbitrary_loop` method to call a function an
+  arbitrary number of times.
+
+--------------------------------------------------------------------------------
+
+## 1.0.3
+
+Released 2021-11-20.
+
+### Fixed
+
+* Fixed documentation for `Unstructured::fill_bytes`. We forgot to update this
+  way back in [#53](https://github.com/rust-fuzz/arbitrary/pull/53) when the
+  behavior changed.
+
+--------------------------------------------------------------------------------
+
+## 1.0.2
+
+Released 2021-08-25.
+
+### Added
+
+* `Arbitrary` impls for `HashMap`s and `HashSet`s with custom `Hasher`s
+  [#87](https://github.com/rust-fuzz/arbitrary/pull/87)
+
+--------------------------------------------------------------------------------
+
+## 1.0.1
+
+Released 2021-05-20.
+
+### Added
+
+* `Arbitrary` impls for `NonZeroX` types [#79](https://github.com/rust-fuzz/arbitrary/pull/79)
+* `Arbitrary` impls for all arrays using const generics [#55](https://github.com/rust-fuzz/arbitrary/pull/55)
+* `Arbitrary` impls for `Ipv4Addr` and `Ipv6Addr` [#84](https://github.com/rust-fuzz/arbitrary/pull/84)
+
+### Fixed
+
+* Use fewer bytes for `Unstructured::int_in_range()` [#80](https://github.com/rust-fuzz/arbitrary/pull/80)
+* Use correct range for `char` generation [#83](https://github.com/rust-fuzz/arbitrary/pull/83)
+
+--------------------------------------------------------------------------------
+
 ## 1.0.0
 
 Released 2020-02-24.

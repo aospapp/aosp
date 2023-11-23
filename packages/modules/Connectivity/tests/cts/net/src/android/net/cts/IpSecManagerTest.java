@@ -52,6 +52,7 @@ import static android.system.OsConstants.IPPROTO_UDP;
 
 import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
 import static com.android.compatibility.common.util.PropertyUtil.getVendorApiLevel;
+import static com.android.testutils.MiscAsserts.assertThrows;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -129,12 +130,11 @@ public class IpSecManagerTest extends IpSecBaseTest {
             assertTrue("Failed to allocate specified SPI, " + DROID_SPI,
                     droidSpi.getSpi() == DROID_SPI);
 
-            try {
-                mISM.allocateSecurityParameterIndex(addr, DROID_SPI);
-                fail("Duplicate SPI was allowed to be created");
-            } catch (IpSecManager.SpiUnavailableException expected) {
-                // This is a success case because we expect a dupe SPI to throw
-            }
+            IpSecManager.SpiUnavailableException expectedException =
+                    assertThrows("Duplicate SPI was allowed to be created",
+                            IpSecManager.SpiUnavailableException.class,
+                            () -> mISM.allocateSecurityParameterIndex(addr, DROID_SPI));
+            assertEquals(expectedException.getSpi(), droidSpi.getSpi());
 
             randomSpi.close();
             droidSpi.close();
@@ -413,20 +413,26 @@ public class IpSecManagerTest extends IpSecBaseTest {
 
             // Check that iface stats are within an acceptable range; data might be sent
             // on the local interface by other apps.
-            assertApproxEquals(
-                    ifaceTxBytes, newIfaceTxBytes, expectedTxByteDelta, ERROR_MARGIN_BYTES);
-            assertApproxEquals(
-                    ifaceRxBytes, newIfaceRxBytes, expectedRxByteDelta, ERROR_MARGIN_BYTES);
-            assertApproxEquals(
-                    ifaceTxPackets, newIfaceTxPackets, expectedTxPacketDelta, ERROR_MARGIN_PKTS);
-            assertApproxEquals(
-                    ifaceRxPackets, newIfaceRxPackets, expectedRxPacketDelta, ERROR_MARGIN_PKTS);
+            assertApproxEquals("TX bytes", ifaceTxBytes, newIfaceTxBytes, expectedTxByteDelta,
+                    ERROR_MARGIN_BYTES);
+            assertApproxEquals("RX bytes", ifaceRxBytes, newIfaceRxBytes, expectedRxByteDelta,
+                    ERROR_MARGIN_BYTES);
+            assertApproxEquals("TX packets", ifaceTxPackets, newIfaceTxPackets,
+                    expectedTxPacketDelta, ERROR_MARGIN_PKTS);
+            assertApproxEquals("RX packets",  ifaceRxPackets, newIfaceRxPackets,
+                    expectedRxPacketDelta, ERROR_MARGIN_PKTS);
         }
 
         private static void assertApproxEquals(
-                long oldStats, long newStats, int expectedDelta, double errorMargin) {
-            assertTrue(expectedDelta <= newStats - oldStats);
-            assertTrue((expectedDelta * errorMargin) > newStats - oldStats);
+                String what, long oldStats, long newStats, int expectedDelta, double errorMargin) {
+            assertTrue(
+                    "Expected at least " + expectedDelta + " " + what
+                            + ", got "  + (newStats - oldStats),
+                    newStats - oldStats >= expectedDelta);
+            assertTrue(
+                    "Expected at most " + errorMargin + " * " + expectedDelta + " " + what
+                            + ", got " + (newStats - oldStats),
+                    newStats - oldStats < (expectedDelta * errorMargin));
         }
 
         private static void initStatsChecker() throws Exception {
@@ -717,11 +723,10 @@ public class IpSecManagerTest extends IpSecBaseTest {
         algoToRequiredMinSdk.put(AUTH_HMAC_SHA512, Build.VERSION_CODES.P);
         algoToRequiredMinSdk.put(AUTH_CRYPT_AES_GCM, Build.VERSION_CODES.P);
 
-        // TODO: b/170424293 Use Build.VERSION_CODES.S when is finalized
-        algoToRequiredMinSdk.put(CRYPT_AES_CTR, Build.VERSION_CODES.R + 1);
-        algoToRequiredMinSdk.put(AUTH_AES_CMAC, Build.VERSION_CODES.R + 1);
-        algoToRequiredMinSdk.put(AUTH_AES_XCBC, Build.VERSION_CODES.R + 1);
-        algoToRequiredMinSdk.put(AUTH_CRYPT_CHACHA20_POLY1305, Build.VERSION_CODES.R + 1);
+        algoToRequiredMinSdk.put(CRYPT_AES_CTR, Build.VERSION_CODES.S);
+        algoToRequiredMinSdk.put(AUTH_AES_CMAC, Build.VERSION_CODES.S);
+        algoToRequiredMinSdk.put(AUTH_AES_XCBC, Build.VERSION_CODES.S);
+        algoToRequiredMinSdk.put(AUTH_CRYPT_CHACHA20_POLY1305, Build.VERSION_CODES.S);
 
         final Set<String> supportedAlgos = IpSecAlgorithm.getSupportedAlgorithms();
 

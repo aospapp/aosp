@@ -306,11 +306,11 @@ public class DialHelperImpl extends AbstractAutoStandardAppHelper implements IAu
                         getResourceFromConfig(
                                 AutoConfigConstants.PHONE,
                                 AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.DIALED_CONTACT_NUMBER));
+                                AutoConfigConstants.DIALED_CONTACT_TYPE));
         if (contactDetail != null) {
-            return contactDetail.getText();
+            return contactDetail.getText().trim();
         } else {
-            throw new UnknownUiException("Unable to find contact details.");
+            throw new UnknownUiException("Unable to find Contact Type on In Call Screen.");
         }
     }
 
@@ -585,7 +585,15 @@ public class DialHelperImpl extends AbstractAutoStandardAppHelper implements IAu
         }
         char[] array = phoneNumber.toCharArray();
         for (char ch : array) {
-            UiObject2 numberButton = findUiObject(By.text(Character.toString(ch)));
+            UiObject2 numberButton =
+                    findUiObject(
+                            getResourceFromConfig(
+                                    AutoConfigConstants.PHONE,
+                                    AutoConfigConstants.DIAL_PAD_VIEW,
+                                    Character.toString(ch)));
+            if (numberButton == null) {
+                numberButton = findUiObject(By.text(Character.toString(ch)));
+            }
             if (numberButton == null) {
                 throw new UnknownUiException("Unable to find number" + phoneNumber);
             }

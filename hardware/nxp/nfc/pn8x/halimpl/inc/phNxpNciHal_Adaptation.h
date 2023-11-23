@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 NXP Semiconductors
+ * Copyright 2012-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,4 +47,5 @@ void phNxpNciHal_do_factory_reset(void);
 void phNxpNciHal_getVendorConfig(
     android::hardware::nfc::V1_1::NfcConfig& config);
 void phNxpNciHal_getVendorConfig_1_2(NfcConfig& config);
+int phNxpNciHal_Minclose(void);
 #endif /* _PHNXPNCIHAL_ADAPTATION_H_ */

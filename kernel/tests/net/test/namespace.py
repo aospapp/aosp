@@ -18,6 +18,7 @@
 
 import ctypes
 import ctypes.util
+import errno
 import os
 import socket
 import sys
@@ -128,6 +129,12 @@ def IfPossibleEnterNewNetworkNamespace():
 
   sys.stdout.write('Creating clean namespace... ')
 
+  # sysctl only present on 4.14 and earlier Android kernels
+  if net_test.LINUX_VERSION < (4, 15, 0):
+    TCP_DEFAULT_INIT_RWND = "/proc/sys/net/ipv4/tcp_default_init_rwnd"
+    # In root netns this will succeed
+    init_rwnd_sysctl = open(TCP_DEFAULT_INIT_RWND, "w")
+
   try:
     UnShare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWNET)
   except OSError as err:
@@ -147,6 +154,26 @@ def IfPossibleEnterNewNetworkNamespace():
     print('failed.')
     # We've already transitioned into the new netns -- it's too late to recover.
     raise
+
+  if net_test.LINUX_VERSION < (4, 15, 0):
+    # In non-root netns this open might fail due to non-namespace-ified sysctl
+    # ie. lack of kernel commit:
+    #    https://android-review.googlesource.com/c/kernel/common/+/1312623
+    #    ANDROID: namespace'ify tcp_default_init_rwnd implementation
+    try:
+      init_rwnd_sysctl = open(TCP_DEFAULT_INIT_RWND, "w")
+    except IOError as e:
+      if e.errno != errno.ENOENT:
+        raise
+      # Note! if the netns open above succeeded (and thus we don't reach here)
+      # then we don't need to actually update the sysctl, since we'll be able to do
+      # that in the sock_diag_test.py TcpRcvWindowTest test case setUp() call instead.
+      #
+      # As such this write here is *still* to the root netns sysctl
+      # (because we obtained a file descriptor *prior* to unshare/etc...)
+      # and handles the case where the sysctl is not namespace aware and thus
+      # affects the entire system.
+      init_rwnd_sysctl.write("60");
 
   print('succeeded.')
   return True

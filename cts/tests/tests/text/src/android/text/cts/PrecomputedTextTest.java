@@ -19,6 +19,8 @@ package android.text.cts;
 import static android.text.TextDirectionHeuristics.LTR;
 import static android.text.TextDirectionHeuristics.RTL;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -27,19 +29,26 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.fonts.Font;
+import android.graphics.fonts.FontFamily;
+import android.graphics.text.LineBreakConfig;
 import android.text.Layout;
 import android.text.PrecomputedText;
 import android.text.PrecomputedText.Params;
 import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
+import android.text.style.AbsoluteSizeSpan;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.LocaleSpan;
 import android.text.style.TextAppearanceSpan;
@@ -54,6 +63,7 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
 import java.util.Locale;
 
 @SmallTest
@@ -88,6 +98,24 @@ public class PrecomputedTextTest {
                 .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
                 .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
                 .setTextDirection(LTR).build());
+
+        LineBreakConfig strictNoneConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE).build();
+        assertNotNull(new Params.Builder(PAINT)
+                .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
+                .setLineBreakConfig(strictNoneConfig)
+                .setTextDirection(LTR).build());
+
+        LineBreakConfig nonePhraseConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_NONE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+        assertNotNull(new Params.Builder(PAINT)
+                .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
+                .setLineBreakConfig(nonePhraseConfig)
+                .setTextDirection(LTR).build());
     }
 
     @Test
@@ -99,6 +127,12 @@ public class PrecomputedTextTest {
                         .getHyphenationFrequency());
         assertEquals(RTL, new Params.Builder(PAINT).setTextDirection(RTL).build()
                 .getTextDirection());
+
+        LineBreakConfig lineBreakConfig = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+        assertTrue(lineBreakConfig.equals(new Params.Builder(PAINT)
+                .setLineBreakConfig(lineBreakConfig).build().getLineBreakConfig()));
     }
 
     @Test
@@ -112,10 +146,24 @@ public class PrecomputedTextTest {
     }
 
     @Test
+    public void testParams_defaultLineBreakConfig() {
+        // Verify it will return the pre-defined instance with the default value if the
+        // LineBreakConfig has not been set to Params before.
+        LineBreakConfig config = new Params.Builder(PAINT).build().getLineBreakConfig();
+        assertEquals(LineBreakConfig.LINE_BREAK_STYLE_NONE, config.getLineBreakStyle());
+        assertEquals(LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, config.getLineBreakWordStyle());
+    }
+
+    @Test
     public void testParams_equals() {
+        LineBreakConfig config = new LineBreakConfig.Builder()
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_STRICT)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE).build();
+
         final Params base = new Params.Builder(PAINT)
                 .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
                 .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
+                .setLineBreakConfig(config)
                 .setTextDirection(LTR).build();
 
         assertFalse(base.equals(null));
@@ -125,6 +173,7 @@ public class PrecomputedTextTest {
         Params other = new Params.Builder(PAINT)
                 .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
                 .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL)
+                .setLineBreakConfig(config)
                 .setTextDirection(LTR).build();
         assertTrue(base.equals(other));
         assertTrue(other.equals(base));
@@ -726,5 +775,80 @@ public class PrecomputedTextTest {
         assertSameOutput(ssb, 0, ssb.length(), 0, ssb.length(), paint);
         assertSameOutput(ssb, 3, firstLineLen - 3, 0, ssb.length(), paint);
         assertSameOutput(ssb, 3, firstLineLen - 3, 2, ssb.length() - 2, paint);
+    }
+
+    private TextPaint getTestPaint() {
+        try {
+            AssetManager am =
+                    androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                            .getTargetContext().getAssets();
+            Typeface typeface = new Typeface.CustomFallbackBuilder(
+                    new FontFamily.Builder(
+                            new Font.Builder(am, "fonts/LowGlyphFont.ttf").build()
+                    ).build()
+            ).addCustomFallback(
+                    new FontFamily.Builder(
+                            new Font.Builder(am, "fonts/TallGlyphFont.ttf").build()
+                    ).build()
+            ).build();
+
+            TextPaint p = new TextPaint();
+            p.setTextSize(100);  // make 1 em = 100 pixels
+            p.setTypeface(typeface);
+            return p;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void testMetricsInt() {
+        final TextPaint paint = getTestPaint();
+        final Params param = new Params.Builder(paint).build();
+        final SpannableString ss = new SpannableString("a\u1000");
+
+        PrecomputedText pt = PrecomputedText.create(ss, param);
+        Paint.FontMetricsInt fmi = new Paint.FontMetricsInt();
+        pt.getFontMetricsInt(0, ss.length(), fmi);
+
+        Paint.FontMetricsInt expected = new Paint.FontMetricsInt();
+        paint.getFontMetricsInt(ss, 0, ss.length(), 0, ss.length(), false, expected);
+
+        assertThat(fmi).isEqualTo(expected);
+    }
+
+    @Test
+    public void testMetricsInt_Substring() {
+        final TextPaint paint = getTestPaint();
+        final Params param = new Params.Builder(paint).build();
+        final SpannableString ss = new SpannableString("a\u1000");
+
+        PrecomputedText pt = PrecomputedText.create(ss, param);
+        Paint.FontMetricsInt fmi = new Paint.FontMetricsInt();
+        Paint.FontMetricsInt expected = new Paint.FontMetricsInt();
+
+        pt.getFontMetricsInt(0, 1, fmi);
+        paint.getFontMetricsInt(ss, 0, 1, 0, 1, false, expected);
+        assertThat(fmi).isEqualTo(expected);
+
+        pt.getFontMetricsInt(1, 2, fmi);
+        paint.getFontMetricsInt(ss, 1, 1, 1, 1, false, expected);
+        assertThat(fmi).isEqualTo(expected);
+    }
+
+    @Test
+    public void testMetricsInt_MultiStyle() {
+        final TextPaint paint = getTestPaint();
+        final Params param = new Params.Builder(paint).build();
+        final SpannableString ss = new SpannableString("a\u1000");
+        ss.setSpan(new AbsoluteSizeSpan(10), 0, 1, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+        PrecomputedText pt = PrecomputedText.create(ss, param);
+        Paint.FontMetricsInt fmi = new Paint.FontMetricsInt();
+        Paint.FontMetricsInt expected = new Paint.FontMetricsInt();
+
+        pt.getFontMetricsInt(0, 2, fmi);
+        paint.getFontMetricsInt(ss, 0, 2, 0, 2, false, expected);
+        assertThat(fmi).isEqualTo(expected);
     }
 }

@@ -26,8 +26,8 @@ import org.jetbrains.kotlin.psi.KtConstantExpression
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.uast.UExpression
+import org.jetbrains.uast.UMethod
 import org.jetbrains.uast.UastFacade
-import org.jetbrains.uast.kotlin.declarations.KotlinUMethod
 
 class PsiParameterItem(
     override val codebase: PsiBasedCodebase,
@@ -42,30 +42,42 @@ class PsiParameterItem(
     modifiers = modifiers,
     documentation = documentation,
     element = psiParameter
-), ParameterItem {
+),
+    ParameterItem {
     lateinit var containingMethod: PsiMethodItem
+
+    override var property: PsiPropertyItem? = null
 
     override fun name(): String = name
 
     override fun publicName(): String? {
         if (isKotlin(psiParameter)) {
-            // Don't print out names for extension function receiver parameters
+            // Omit names of some special parameters in Kotlin. None of these parameters may be
+            // set through Kotlin keyword arguments, so there's no need to track their names for
+            // compatibility. This also helps avoid signature file churn if PSI or the compiler
+            // change what name they're using for these parameters.
+
+            // Receiver parameter of extension function
             if (isReceiver()) {
                 return null
             }
-            // Hardcode parameter name for the generated suspend function continuation parameter
+            // Property setter parameter
+            if (containingMethod.isKotlinProperty()) {
+                return null
+            }
+            // Continuation parameter of suspend function
             if (containingMethod.modifiers.isSuspend() &&
-                    "kotlin.coroutines.Continuation" == type.asClass()?.qualifiedName() &&
-                    containingMethod.parameters().size - 1 == parameterIndex
+                "kotlin.coroutines.Continuation" == type.asClass()?.qualifiedName() &&
+                containingMethod.parameters().size - 1 == parameterIndex
             ) {
-                return "p"
+                return null
             }
             return name
         } else {
             // Java: Look for @ParameterName annotation
             val annotation = modifiers.annotations().firstOrNull { it.isParameterName() }
             if (annotation != null) {
-                return annotation.attributes().firstOrNull()?.value?.value()?.toString()
+                return annotation.attributes.firstOrNull()?.value?.value()?.toString()
             }
         }
 
@@ -88,7 +100,7 @@ class PsiParameterItem(
 
     private fun getKtParameter(): KtParameter? {
         val ktParameters =
-            ((containingMethod.psiMethod as? KotlinUMethod)?.sourcePsi as? KtFunction)?.valueParameters
+            ((containingMethod.psiMethod as? UMethod)?.sourcePsi as? KtFunction)?.valueParameters
                 ?: return null
 
         // Perform matching based on parameter names, because indices won't work in the
@@ -163,7 +175,7 @@ class PsiParameterItem(
             // Java: Look for @ParameterName annotation
             val annotation = modifiers.annotations().firstOrNull { it.isDefaultValue() }
             if (annotation != null) {
-                return annotation.attributes().firstOrNull()?.value?.value()?.toString()
+                return annotation.attributes.firstOrNull()?.value?.value()?.toString()
             }
         }
 
@@ -237,12 +249,13 @@ class PsiParameterItem(
             return original.map { create(codebase, it as PsiParameterItem) }
         }
 
-        fun createParameterModifiers(
+        private fun createParameterModifiers(
             codebase: PsiBasedCodebase,
             psiParameter: PsiParameter,
             commentText: String
         ): PsiModifierItem {
-            val modifiers = modifiers(codebase, psiParameter, commentText)
+            val modifiers = PsiModifierItem
+                .create(codebase, psiParameter, commentText)
             // Method parameters don't have a visibility level; they are visible to anyone that can
             // call their method. However, Kotlin constructors sometimes appear to specify the
             // visibility of a constructor parameter by putting visibility inside the constructor

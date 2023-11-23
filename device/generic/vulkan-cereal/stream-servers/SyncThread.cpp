@@ -16,16 +16,21 @@
 
 #include "SyncThread.h"
 
+#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 #include "base/System.h"
 #include "base/Thread.h"
-#include "OpenGLESDispatch/OpenGLDispatchLoader.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/crash_reporter.h"
+#include "host-common/logging.h"
 #include "host-common/sync_device.h"
 
 #ifndef _MSC_VER
 #include <sys/time.h>
 #endif
 #include <memory>
+
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 #define DEBUG 0
 
@@ -48,15 +53,39 @@ static uint64_t curr_ms() {
 
 #endif
 
+#define SYNC_THREAD_CHECK(condition)                                        \
+    do {                                                                    \
+        if (!(condition)) {                                                 \
+            GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<              \
+                #condition << " is false";                                  \
+        }                                                                   \
+    } while (0)
+
 // The single global sync thread instance.
 class GlobalSyncThread {
 public:
     GlobalSyncThread() = default;
 
-    SyncThread* syncThreadPtr() { return &mSyncThread; }
+    void initialize(bool noGL) {
+        AutoLock mutex(mLock);
+        SYNC_THREAD_CHECK(!mSyncThread);
+        mSyncThread = std::make_unique<SyncThread>(noGL);
+    }
+    SyncThread* syncThreadPtr() {
+        AutoLock mutex(mLock);
+        return mSyncThread.get();
+    }
+
+    void destroy() {
+        AutoLock mutex(mLock);
+        mSyncThread = nullptr;
+    }
 
 private:
-    SyncThread mSyncThread;
+    std::unique_ptr<SyncThread> mSyncThread = nullptr;
+    // lock for the access to this object
+    android::base::Lock mLock;
+    using AutoLock = android::base::AutoLock;
 };
 
 static GlobalSyncThread* sGlobalSyncThread() {
@@ -66,16 +95,16 @@ static GlobalSyncThread* sGlobalSyncThread() {
 
 static const uint32_t kTimelineInterval = 1;
 static const uint64_t kDefaultTimeoutNsecs = 5ULL * 1000ULL * 1000ULL * 1000ULL;
-static const uint64_t kNumWorkerThreads = 4u;
 
-SyncThread::SyncThread()
+SyncThread::SyncThread(bool noGL)
     : android::base::Thread(android::base::ThreadFlags::MaskSignals, 512 * 1024),
-      mWorkerThreadPool(kNumWorkerThreads, [this](SyncThreadCmd&& cmd) {
-          doSyncThreadCmd(&cmd);
-      }) {
+      mWorkerThreadPool(kNumWorkerThreads, doSyncThreadCmd),
+      mNoGL(noGL) {
     this->start();
     mWorkerThreadPool.start();
-    initSyncContext();
+    if (!noGL) {
+        initSyncEGLContext();
+    }
 }
 
 SyncThread::~SyncThread() {
@@ -84,63 +113,110 @@ SyncThread::~SyncThread() {
 
 void SyncThread::triggerWait(FenceSync* fenceSync,
                              uint64_t timeline) {
-    DPRINT("fenceSyncInfo=0x%llx timeline=0x%lx ...",
-            fenceSync, timeline);
-    SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_WAIT;
-    to_send.fenceSync = fenceSync;
-    to_send.timeline = timeline;
-    DPRINT("opcode=%u", to_send.opCode);
-    sendAsync(to_send);
-    DPRINT("exit");
+    std::stringstream ss;
+    ss << "triggerWait fenceSyncInfo=0x" << std::hex << reinterpret_cast<uintptr_t>(fenceSync)
+       << " timeline=0x" << std::hex << timeline;
+    sendAsync(
+        [fenceSync, timeline, this](WorkerId) {
+            doSyncWait(fenceSync, [timeline] {
+                DPRINT("wait done (with fence), use goldfish sync timeline inc");
+                emugl::emugl_sync_timeline_inc(timeline, kTimelineInterval);
+            });
+        },
+        ss.str());
 }
 
 void SyncThread::triggerWaitVk(VkFence vkFence, uint64_t timeline) {
-    DPRINT("fenceSyncInfo=0x%llx timeline=0x%lx ...", fenceSync, timeline);
-    SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_WAIT_VK;
-    to_send.vkFence = vkFence;
-    to_send.timeline = timeline;
-    DPRINT("opcode=%u", to_send.opCode);
-    sendAsync(to_send);
-    DPRINT("exit");
+    std::stringstream ss;
+    ss << "triggerWaitVk vkFence=0x" << std::hex << reinterpret_cast<uintptr_t>(vkFence)
+       << " timeline=0x" << std::hex << timeline;
+    sendAsync(
+        [vkFence, timeline](WorkerId) {
+            doSyncWaitVk(vkFence, [timeline] {
+                DPRINT("vk wait done, use goldfish sync timeline inc");
+                emugl::emugl_sync_timeline_inc(timeline, kTimelineInterval);
+            });
+        },
+        ss.str());
 }
 
 void SyncThread::triggerBlockedWaitNoTimeline(FenceSync* fenceSync) {
-    DPRINT("fenceSyncInfo=0x%llx ...", fenceSync);
-    SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE;
-    to_send.fenceSync = fenceSync;
-    DPRINT("opcode=%u", to_send.opCode);
-    sendAndWaitForResult(to_send);
-    DPRINT("exit");
+    std::stringstream ss;
+    ss << "triggerBlockedWaitNoTimeline fenceSyncInfo=0x" << std::hex
+       << reinterpret_cast<uintptr_t>(fenceSync);
+    sendAndWaitForResult(
+        [fenceSync, this](WorkerId) {
+            doSyncWait(fenceSync, std::function<void()>());
+            return 0;
+        },
+        ss.str());
+}
+
+void SyncThread::triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback cb) {
+    std::stringstream ss;
+    ss << "triggerWaitWithCompletionCallback fenceSyncInfo=0x" << std::hex
+       << reinterpret_cast<uintptr_t>(fenceSync);
+    sendAsync(
+        [fenceSync, cb = std::move(cb), this](WorkerId) { doSyncWait(fenceSync, std::move(cb)); },
+        ss.str());
+}
+
+
+void SyncThread::triggerWaitVkWithCompletionCallback(VkFence vkFence, FenceCompletionCallback cb) {
+    std::stringstream ss;
+    ss << "triggerWaitVkWithCompletionCallback vkFence=0x" << std::hex
+       << reinterpret_cast<uintptr_t>(vkFence);
+    sendAsync([vkFence, cb = std::move(cb)](WorkerId) { doSyncWaitVk(vkFence, std::move(cb)); },
+              ss.str());
+}
+
+void SyncThread::triggerWaitVkQsriWithCompletionCallback(VkImage vkImage, FenceCompletionCallback cb) {
+    std::stringstream ss;
+    ss << "triggerWaitVkQsriWithCompletionCallback vkImage=0x"
+       << reinterpret_cast<uintptr_t>(vkImage);
+    sendAsync(
+        [vkImage, cb = std::move(cb)](WorkerId) {
+            auto decoder = goldfish_vk::VkDecoderGlobalState::get();
+            decoder->registerQsriCallback(vkImage, std::move(cb));
+        },
+        ss.str());
+}
+
+void SyncThread::triggerGeneral(FenceCompletionCallback cb, std::string description) {
+    std::stringstream ss;
+    ss << "triggerGeneral: " << description;
+    sendAsync(std::bind(std::move(cb)), ss.str());
 }
 
 void SyncThread::cleanup() {
-    DPRINT("enter");
-    SyncThreadCmd to_send;
-    to_send.opCode = SYNC_THREAD_EXIT;
-    sendAndWaitForResult(to_send);
+    sendAndWaitForResult(
+        [this](WorkerId workerId) {
+            if (!mNoGL) {
+                const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
+
+                egl->eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+                egl->eglDestroyContext(mDisplay, mContext[workerId]);
+                egl->eglDestroySurface(mDisplay, mSurface[workerId]);
+                mContext[workerId] = EGL_NO_CONTEXT;
+                mSurface[workerId] = EGL_NO_SURFACE;
+            }
+            return 0;
+        },
+        "cleanup");
     DPRINT("signal");
     mLock.lock();
     mExiting = true;
     mCv.signalAndUnlock(&mLock);
     DPRINT("exit");
+    // Wait for the control thread to exit. We can't destroy the SyncThread
+    // before we wait the control thread.
+    if (!wait(nullptr)) {
+        ERR("Fail to wait the control thread of the SyncThread to exit.");
+    }
 }
 
 // Private methods below////////////////////////////////////////////////////////
-
-void SyncThread::initSyncContext() {
-    DPRINT("enter");
-    // TODO(b/187082169, warty): The thread pool's command-assignment strategy
-    // is round-robin, so as a hack, create one command for each worker.
-    for (int i = 0; i < mWorkerThreadPool.numWorkers(); i++) {
-        SyncThreadCmd to_send;
-        to_send.opCode = SYNC_THREAD_INIT;
-        sendAndWaitForResult(to_send);
-    }
-    DPRINT("exit");
-}
 
 intptr_t SyncThread::main() {
     DPRINT("in sync thread");
@@ -153,88 +229,114 @@ intptr_t SyncThread::main() {
     return 0;
 }
 
-int SyncThread::sendAndWaitForResult(SyncThreadCmd& cmd) {
-    DPRINT("send with opcode=%d", cmd.opCode);
-    android::base::Lock lock;
-    android::base::ConditionVariable cond;
-    android::base::Optional<int> result = android::base::kNullopt;
-    cmd.lock = &lock;
-    cmd.cond = &cond;
-    cmd.result = &result;
-
-    lock.lock();
-    mWorkerThreadPool.enqueue(std::move(cmd));
-    cond.wait(&lock, [&result] { return result.hasValue(); });
-
-    DPRINT("result=%d", *result);
-    return *result;
-}
-
-void SyncThread::sendAsync(SyncThreadCmd& cmd) {
-    DPRINT("send with opcode=%u fenceSyncInfo=0x%llx",
-           cmd.opCode, cmd.fenceSync);
-    mWorkerThreadPool.enqueue(std::move(cmd));
-}
-
-void SyncThread::doSyncContextInit() {
-    const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
-
-    mDisplay = egl->eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    int eglMaj, eglMin;
-    egl->eglInitialize(mDisplay, &eglMaj , &eglMin);
-
-    const EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-        EGL_RED_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_NONE,
+int SyncThread::sendAndWaitForResult(std::function<int(WorkerId)> job, std::string description) {
+    DPRINT("sendAndWaitForResult task(%s)", description.c_str());
+    std::packaged_task<int(WorkerId)> task(std::move(job));
+    std::future<int> resFuture = task.get_future();
+    Command command = {
+        .mTask = std::move(task),
+        .mDescription = std::move(description),
     };
 
-    EGLint nConfigs;
-    EGLConfig config;
-
-    egl->eglChooseConfig(mDisplay, configAttribs, &config, 1, &nConfigs);
-
-    const EGLint pbufferAttribs[] = {
-        EGL_WIDTH, 1,
-        EGL_HEIGHT, 1,
-        EGL_NONE,
-    };
-
-    mSurface =
-        egl->eglCreatePbufferSurface(mDisplay, config, pbufferAttribs);
-
-    const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
-    mContext = egl->eglCreateContext(mDisplay, config, EGL_NO_CONTEXT, contextAttribs);
-
-    egl->eglMakeCurrent(mDisplay, mSurface, mSurface, mContext);
+    mWorkerThreadPool.enqueue(std::move(command));
+    auto res = resFuture.get();
+    DPRINT("exit");
+    return res;
 }
 
-void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
+void SyncThread::sendAsync(std::function<void(WorkerId)> job, std::string description) {
+    DPRINT("send task(%s)", description.c_str());
+    mWorkerThreadPool.enqueue(Command{
+        .mTask =
+            std::packaged_task<int(WorkerId)>([job = std::move(job)](WorkerId workerId) mutable {
+                job(workerId);
+                return 0;
+            }),
+        .mDescription = std::move(description),
+    });
+    DPRINT("exit");
+}
+
+void SyncThread::initSyncEGLContext() {
+    mWorkerThreadPool.broadcast([this] {
+        return Command{
+            .mTask = std::packaged_task<int(WorkerId)>([this](WorkerId workerId) {
+                DPRINT("for worker id: %d", workerId);
+                // We shouldn't initialize EGL context, when SyncThread is initialized
+                // without GL enabled.
+                SYNC_THREAD_CHECK(!mNoGL);
+
+                const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
+
+                mDisplay = egl->eglGetDisplay(EGL_DEFAULT_DISPLAY);
+                int eglMaj, eglMin;
+                egl->eglInitialize(mDisplay, &eglMaj, &eglMin);
+
+                const EGLint configAttribs[] = {
+                    EGL_SURFACE_TYPE,
+                    EGL_PBUFFER_BIT,
+                    EGL_RENDERABLE_TYPE,
+                    EGL_OPENGL_ES2_BIT,
+                    EGL_RED_SIZE,
+                    8,
+                    EGL_GREEN_SIZE,
+                    8,
+                    EGL_BLUE_SIZE,
+                    8,
+                    EGL_NONE,
+                };
+
+                EGLint nConfigs;
+                EGLConfig config;
+
+                egl->eglChooseConfig(mDisplay, configAttribs, &config, 1, &nConfigs);
+
+                const EGLint pbufferAttribs[] = {
+                    EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE,
+                };
+
+                mSurface[workerId] = egl->eglCreatePbufferSurface(mDisplay, config, pbufferAttribs);
+
+                const EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+                mContext[workerId] =
+                    egl->eglCreateContext(mDisplay, config, EGL_NO_CONTEXT, contextAttribs);
+
+                egl->eglMakeCurrent(mDisplay, mSurface[workerId], mSurface[workerId],
+                                    mContext[workerId]);
+                return 0;
+            }),
+            .mDescription = "init sync EGL context",
+        };
+    });
+}
+
+void SyncThread::doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete) {
     DPRINT("enter");
 
-    FenceSync* fenceSync =
-        FenceSync::getFromHandle((uint64_t)(uintptr_t)cmd->fenceSync);
-
-    if (!fenceSync) {
-        emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    if (!FenceSync::getFromHandle((uint64_t)(uintptr_t)fenceSync)) {
+        if (onComplete) {
+            onComplete();
+        }
         return;
     }
+    // We shouldn't use FenceSync to wait, when SyncThread is initialized
+    // without GL enabled, because FenceSync uses EGL/GLES.
+    SYNC_THREAD_CHECK(!mNoGL);
 
     EGLint wait_result = 0x0;
 
-    DPRINT("wait on sync obj: %p", cmd->fenceSync);
-    wait_result = cmd->fenceSync->wait(kDefaultTimeoutNsecs);
+    DPRINT("wait on sync obj: %p", fenceSync);
+    wait_result = fenceSync->wait(kDefaultTimeoutNsecs);
 
     DPRINT("done waiting, with wait result=0x%x. "
            "increment timeline (and signal fence)",
            wait_result);
 
     if (wait_result != EGL_CONDITION_SATISFIED_KHR) {
-        DPRINT("error: eglClientWaitSync abnormal exit 0x%x. sync handle 0x%llx\n",
-               wait_result, (unsigned long long)cmd->fenceSync);
+        EGLint error = s_egl.eglGetError();
+        DPRINT("error: eglClientWaitSync abnormal exit 0x%x. sync handle 0x%llx. egl error = %#x\n",
+               wait_result, (unsigned long long)fenceSync, error);
+        (void)error;
     }
 
     DPRINT("issue timeline increment");
@@ -263,7 +365,9 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
     //   incrementing the timeline means that the app's rendering freezes.
     //   So, despite the faulty GPU driver, not incrementing is too heavyweight a response.
 
-    emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    if (onComplete) {
+        onComplete();
+    }
     FenceSync::incrementTimelineAndDeleteOldFences();
 
     DPRINT("done timeline increment");
@@ -271,17 +375,15 @@ void SyncThread::doSyncWait(SyncThreadCmd* cmd) {
     DPRINT("exit");
 }
 
-int SyncThread::doSyncWaitVk(SyncThreadCmd* cmd) {
+int SyncThread::doSyncWaitVk(VkFence vkFence, std::function<void()> onComplete) {
     DPRINT("enter");
 
     auto decoder = goldfish_vk::VkDecoderGlobalState::get();
-    auto result = decoder->waitForFence(cmd->vkFence, kDefaultTimeoutNsecs);
+    auto result = decoder->waitForFence(vkFence, kDefaultTimeoutNsecs);
     if (result == VK_TIMEOUT) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK timeout: vkFence=%p\n",
-                __func__, cmd->vkFence);
+        DPRINT("SYNC_WAIT_VK timeout: vkFence=%p", vkFence);
     } else if (result != VK_SUCCESS) {
-        fprintf(stderr, "SyncThread::%s: SYNC_WAIT_VK error: %d vkFence=%p\n",
-                __func__, result, cmd->vkFence);
+        DPRINT("SYNC_WAIT_VK error: %d vkFence=%p", result, vkFence);
     }
 
     DPRINT("issue timeline increment");
@@ -289,7 +391,9 @@ int SyncThread::doSyncWaitVk(SyncThreadCmd* cmd) {
     // We always unconditionally increment timeline at this point, even
     // if the call to vkWaitForFences returned abnormally.
     // See comments in |doSyncWait| about the rationale.
-    emugl::emugl_sync_timeline_inc(cmd->timeline, kTimelineInterval);
+    if (onComplete) {
+        onComplete();
+    }
 
     DPRINT("done timeline increment");
 
@@ -297,87 +401,17 @@ int SyncThread::doSyncWaitVk(SyncThreadCmd* cmd) {
     return result;
 }
 
-void SyncThread::doSyncBlockedWaitNoTimeline(SyncThreadCmd* cmd) {
-    DPRINT("enter");
-
-    FenceSync* fenceSync =
-        FenceSync::getFromHandle((uint64_t)(uintptr_t)cmd->fenceSync);
-
-    if (!fenceSync) {
-        return;
-    }
-
-    EGLint wait_result = 0x0;
-
-    DPRINT("wait on sync obj: %p", cmd->fenceSync);
-    wait_result = cmd->fenceSync->wait(kDefaultTimeoutNsecs);
-
-    DPRINT("done waiting, with wait result=0x%x. "
-           "increment timeline (and signal fence)",
-           wait_result);
-
-    if (wait_result != EGL_CONDITION_SATISFIED_KHR) {
-        EGLint error = s_egl.eglGetError();
-        fprintf(stderr, "error: eglClientWaitSync abnormal exit 0x%x %p %#x\n",
-                wait_result, cmd->fenceSync, error);
-    }
-}
-
-void SyncThread::doExit() {
-
-    if (mContext == EGL_NO_CONTEXT) return;
-
-    const EGLDispatch* egl = emugl::LazyLoadedEGLDispatch::get();
-
-    egl->eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    egl->eglDestroyContext(mDisplay, mContext);
-    egl->eglDestroySurface(mDisplay, mContext);
-    mContext = EGL_NO_CONTEXT;
-    mSurface = EGL_NO_SURFACE;
-}
-
-int SyncThread::doSyncThreadCmd(SyncThreadCmd* cmd) {
-#if DEBUG
-    thread_local static auto threadId = android::base::getCurrentThreadId();
-    thread_local static size_t numCommands = 0U;
-    DPRINT("threadId = %lu numCommands = %lu cmd = %p", threadId, ++numCommands,
-           cmd);
-#endif  // DEBUG
-
-    int result = 0;
-    switch (cmd->opCode) {
-    case SYNC_THREAD_INIT:
-        DPRINT("exec SYNC_THREAD_INIT");
-        doSyncContextInit();
-        break;
-    case SYNC_THREAD_WAIT:
-        DPRINT("exec SYNC_THREAD_WAIT");
-        doSyncWait(cmd);
-        break;
-    case SYNC_THREAD_WAIT_VK:
-        DPRINT("exec SYNC_THREAD_WAIT_VK");
-        result = doSyncWaitVk(cmd);
-        break;
-    case SYNC_THREAD_EXIT:
-        DPRINT("exec SYNC_THREAD_EXIT");
-        doExit();
-        break;
-    case SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE:
-        DPRINT("exec SYNC_THREAD_BLOCKED_WAIT_NO_TIMELINE");
-        doSyncBlockedWaitNoTimeline(cmd);
-        break;
-    }
-
-    bool need_reply = cmd->lock != nullptr && cmd->cond != nullptr;
-    if (need_reply) {
-        cmd->lock->lock();
-        *cmd->result = android::base::makeOptional(result);
-        cmd->cond->signalAndUnlock(cmd->lock);
-    }
-    return result;
-}
-
 /* static */
+void SyncThread::doSyncThreadCmd(Command&& command, WorkerId workerId) { command.mTask(workerId); }
+
 SyncThread* SyncThread::get() {
-    return sGlobalSyncThread()->syncThreadPtr();
+    auto res = sGlobalSyncThread()->syncThreadPtr();
+    SYNC_THREAD_CHECK(res);
+    return res;
 }
+
+void SyncThread::initialize(bool noEGL) {
+    sGlobalSyncThread()->initialize(noEGL);
+}
+
+void SyncThread::destroy() { sGlobalSyncThread()->destroy(); }

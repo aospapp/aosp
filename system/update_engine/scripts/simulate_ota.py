@@ -41,28 +41,39 @@ def extract_file(zip_file_path, entry_name, target_file_path):
       with open(os.path.join(zip_file_path, entry_name), "rb") as fp:
         shutil.copyfileobj(fp, out_fp)
 
+
 def is_sparse_image(filepath):
   with open(filepath, 'rb') as fp:
     # Magic for android sparse image format
     # https://source.android.com/devices/bootloader/images
     return fp.read(4) == b'\x3A\xFF\x26\xED'
 
-def extract_img(zip_archive, img_name, output_path):
+
+def extract_img(zip_archive: zipfile.ZipFile, img_name, output_path):
   entry_name = "IMAGES/" + img_name + ".img"
-  extract_file(zip_archive, entry_name, output_path)
+  try:
+    extract_file(zip_archive, entry_name, output_path)
+  except (KeyError, FileNotFoundError) as e:
+    print("Faild to extract", img_name, "from IMAGES/ dir, trying RADIO/", e)
+    extract_file(zip_archive, "RADIO/" + img_name + ".img", output_path)
   if is_sparse_image(output_path):
     raw_img_path = output_path + ".raw"
     subprocess.check_output(["simg2img", output_path, raw_img_path])
     os.rename(raw_img_path, output_path)
 
-def run_ota(source, target, payload_path, tempdir):
+
+def run_ota(source, target, payload_path, tempdir, output_dir):
   """Run an OTA on host side"""
   payload = update_payload.Payload(payload_path)
   payload.Init()
-  if zipfile.is_zipfile(source):
+  if source and zipfile.is_zipfile(source):
     source = zipfile.ZipFile(source)
-  if zipfile.is_zipfile(target):
+  if target and zipfile.is_zipfile(target):
     target = zipfile.ZipFile(target)
+  source_exist = source and (isinstance(
+      source, zipfile.ZipFile) or os.path.exists(source))
+  target_exist = target and (isinstance(
+      target, zipfile.ZipFile) or os.path.exists(target))
 
   old_partitions = []
   new_partitions = []
@@ -71,10 +82,15 @@ def run_ota(source, target, payload_path, tempdir):
     name = part.partition_name
     old_image = os.path.join(tempdir, "source_" + name + ".img")
     new_image = os.path.join(tempdir, "target_" + name + ".img")
-    print("Extracting source image for", name)
-    extract_img(source, name, old_image)
-    print("Extracting target image for", name)
-    extract_img(target, name, new_image)
+    if part.HasField("old_partition_info"):
+      assert source_exist, \
+          "source target file must point to a valid zipfile or directory " + \
+          source
+      print("Extracting source image for", name)
+      extract_img(source, name, old_image)
+    if target_exist:
+      print("Extracting target image for", name)
+      extract_img(target, name, new_image)
 
     old_partitions.append(old_image)
     scratch_image_name = new_image + ".actual"
@@ -87,15 +103,24 @@ def run_ota(source, target, payload_path, tempdir):
   partition_names = [
       part.partition_name for part in payload.manifest.partitions
   ]
+  if payload.manifest.partial_update:
+    delta_generator_args.append("--is_partial_update")
+  if payload.is_incremental:
+    delta_generator_args.append("--old_partitions=" + ":".join(old_partitions))
   delta_generator_args.append("--partition_names=" + ":".join(partition_names))
-  delta_generator_args.append("--old_partitions=" + ":".join(old_partitions))
   delta_generator_args.append("--new_partitions=" + ":".join(new_partitions))
 
+  print("Running ", " ".join(delta_generator_args))
   subprocess.check_output(delta_generator_args)
 
   valid = True
+  if not target_exist:
+    for part in new_partitions:
+      print("Output written to", part)
+      shutil.copy(part, output_dir)
+    return
   for (expected_part, actual_part, part_name) in \
-      zip(expected_new_partitions, new_partitions, partition_names):
+          zip(expected_new_partitions, new_partitions, partition_names):
     if filecmp.cmp(expected_part, actual_part):
       print("Partition `{}` is valid".format(part_name))
     else:
@@ -114,22 +139,22 @@ def main():
   parser.add_argument(
       "--source",
       help="Target file zip for the source build",
-      required=True, nargs=1)
+      required=False)
   parser.add_argument(
       "--target",
       help="Target file zip for the target build",
-      required=True, nargs=1)
+      required=False)
+  parser.add_argument(
+      "-o",
+      dest="output_dir",
+      help="Output directory to put all images, current directory by default"
+  )
   parser.add_argument(
       "payload",
       help="payload.bin for the OTA package, or a zip of OTA package itself",
       nargs=1)
   args = parser.parse_args()
   print(args)
-
-  assert os.path.exists(args.source[0]), \
-    "source target file must point to a valid zipfile or directory"
-  assert os.path.exists(args.target[0]), \
-    "target path must point to a valid zipfile or directory"
 
   # pylint: disable=no-member
   with tempfile.TemporaryDirectory() as tempdir:
@@ -139,8 +164,12 @@ def main():
         payload_entry_name = 'payload.bin'
         zfp.extract(payload_entry_name, tempdir)
         payload_path = os.path.join(tempdir, payload_entry_name)
-
-    run_ota(args.source[0], args.target[0], payload_path, tempdir)
+    if args.output_dir is None:
+      args.output_dir = "."
+    if not os.path.exists(args.output_dir):
+      os.makedirs(args.output_dir, exist_ok=True)
+    assert os.path.isdir(args.output_dir)
+    run_ota(args.source, args.target, payload_path, tempdir, args.output_dir)
 
 
 if __name__ == '__main__':

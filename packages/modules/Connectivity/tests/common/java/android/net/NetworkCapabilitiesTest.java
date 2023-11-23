@@ -22,6 +22,7 @@ import static android.net.NetworkCapabilities.MIN_TRANSPORT;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_CBS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_EIMS;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_ENTERPRISE;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_FOREGROUND;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_MMS;
@@ -33,15 +34,24 @@ import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_PARTIAL_CONNECTIVITY;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_LATENCY;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_WIFI_P2P;
+import static android.net.NetworkCapabilities.NET_ENTERPRISE_ID_1;
+import static android.net.NetworkCapabilities.NET_ENTERPRISE_ID_2;
+import static android.net.NetworkCapabilities.NET_ENTERPRISE_ID_3;
+import static android.net.NetworkCapabilities.NET_ENTERPRISE_ID_4;
+import static android.net.NetworkCapabilities.NET_ENTERPRISE_ID_5;
 import static android.net.NetworkCapabilities.REDACT_FOR_ACCESS_FINE_LOCATION;
 import static android.net.NetworkCapabilities.REDACT_FOR_LOCAL_MAC_ADDRESS;
 import static android.net.NetworkCapabilities.REDACT_FOR_NETWORK_SETTINGS;
 import static android.net.NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_ETHERNET;
 import static android.net.NetworkCapabilities.TRANSPORT_TEST;
+import static android.net.NetworkCapabilities.TRANSPORT_USB;
 import static android.net.NetworkCapabilities.TRANSPORT_VPN;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI_AWARE;
@@ -49,7 +59,8 @@ import static android.os.Process.INVALID_UID;
 
 import static com.android.modules.utils.build.SdkLevel.isAtLeastR;
 import static com.android.modules.utils.build.SdkLevel.isAtLeastS;
-import static com.android.net.module.util.NetworkCapabilitiesUtils.TRANSPORT_USB;
+import static com.android.modules.utils.build.SdkLevel.isAtLeastT;
+import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
 import static com.android.testutils.MiscAsserts.assertEmpty;
 import static com.android.testutils.MiscAsserts.assertThrows;
 import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
@@ -71,22 +82,29 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.util.ArraySet;
 import android.util.Range;
 
-import androidx.test.runner.AndroidJUnit4;
-
 import com.android.testutils.CompatUtil;
+import com.android.testutils.ConnectivityModuleTest;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+import com.android.testutils.DevSdkIgnoreRunner;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
-@RunWith(AndroidJUnit4.class)
 @SmallTest
+@RunWith(DevSdkIgnoreRunner.class)
+// NetworkCapabilities is only updatable on S+, and this test covers behavior which implementation
+// is self-contained within NetworkCapabilities.java, so it does not need to be run on, or
+// compatible with, earlier releases.
+@IgnoreUpTo(Build.VERSION_CODES.R)
+@ConnectivityModuleTest
 public class NetworkCapabilitiesTest {
     private static final String TEST_SSID = "TEST_SSID";
     private static final String DIFFERENT_TEST_SSID = "DIFFERENT_TEST_SSID";
@@ -279,18 +297,10 @@ public class NetworkCapabilitiesTest {
             assertFalse(netCap2.satisfiedByUids(netCap));
             assertFalse(netCap.appliesToUid(650));
             assertTrue(netCap2.appliesToUid(650));
-            netCap.combineCapabilities(netCap2);
+            netCap.setUids(uids);
             assertTrue(netCap2.satisfiedByUids(netCap));
             assertTrue(netCap.appliesToUid(650));
             assertFalse(netCap.appliesToUid(500));
-
-            assertTrue(new NetworkCapabilities().satisfiedByUids(netCap));
-            netCap.combineCapabilities(new NetworkCapabilities());
-            assertTrue(netCap.appliesToUid(500));
-            assertTrue(netCap.appliesToUidRange(new UidRange(1, 100000)));
-            assertFalse(netCap2.appliesToUid(500));
-            assertFalse(netCap2.appliesToUidRange(new UidRange(1, 100000)));
-            assertTrue(new NetworkCapabilities().satisfiedByUids(netCap));
 
             // Null uids satisfies everything.
             netCap.setUids(null);
@@ -299,6 +309,48 @@ public class NetworkCapabilitiesTest {
             netCap2.setUids(null);
             assertTrue(netCap2.satisfiedByUids(netCap));
             assertTrue(netCap.satisfiedByUids(netCap2));
+        }
+    }
+
+    @Test @IgnoreUpTo(SC_V2)
+    public void testSetAllowedUids() {
+        final NetworkCapabilities nc = new NetworkCapabilities();
+        assertThrows(NullPointerException.class, () -> nc.setAllowedUids(null));
+        assertFalse(nc.hasAllowedUids());
+        assertFalse(nc.isUidWithAccess(0));
+        assertFalse(nc.isUidWithAccess(1000));
+        assertEquals(0, nc.getAllowedUids().size());
+        nc.setAllowedUids(new ArraySet<>());
+        assertFalse(nc.hasAllowedUids());
+        assertFalse(nc.isUidWithAccess(0));
+        assertFalse(nc.isUidWithAccess(1000));
+        assertEquals(0, nc.getAllowedUids().size());
+
+        final ArraySet<Integer> uids = new ArraySet<>();
+        uids.add(200);
+        uids.add(250);
+        uids.add(-1);
+        uids.add(Integer.MAX_VALUE);
+        nc.setAllowedUids(uids);
+        assertNotEquals(nc, new NetworkCapabilities());
+        assertTrue(nc.hasAllowedUids());
+
+        final List<Integer> includedList = List.of(-2, 0, 199, 700, 901, 1000, Integer.MIN_VALUE);
+        final List<Integer> excludedList = List.of(-1, 200, 250, Integer.MAX_VALUE);
+        for (final int uid : includedList) {
+            assertFalse(nc.isUidWithAccess(uid));
+        }
+        for (final int uid : excludedList) {
+            assertTrue(nc.isUidWithAccess(uid));
+        }
+
+        final Set<Integer> outUids = nc.getAllowedUids();
+        assertEquals(4, outUids.size());
+        for (final int uid : includedList) {
+            assertFalse(outUids.contains(uid));
+        }
+        for (final int uid : excludedList) {
+            assertTrue(outUids.contains(uid));
         }
     }
 
@@ -312,6 +364,10 @@ public class NetworkCapabilitiesTest {
             .addCapability(NET_CAPABILITY_EIMS)
             .addCapability(NET_CAPABILITY_NOT_METERED);
         if (isAtLeastS()) {
+            final ArraySet<Integer> allowedUids = new ArraySet<>();
+            allowedUids.add(4);
+            allowedUids.add(9);
+            netCap.setAllowedUids(allowedUids);
             netCap.setSubscriptionIds(Set.of(TEST_SUBID1, TEST_SUBID2));
             netCap.setUids(uids);
         }
@@ -411,7 +467,32 @@ public class NetworkCapabilitiesTest {
         assertFalse(nr.satisfiedByNetworkCapabilities(new NetworkCapabilities()));
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test @IgnoreUpTo(SC_V2) // TODO: Use to Build.VERSION_CODES.SC_V2 when available
+    public void testPrioritizeLatencyAndBandwidth() {
+        NetworkCapabilities netCap = new NetworkCapabilities();
+        netCap.addCapability(NET_CAPABILITY_PRIORITIZE_LATENCY);
+        netCap.addCapability(NET_CAPABILITY_NOT_METERED);
+        netCap.maybeMarkCapabilitiesRestricted();
+        assertTrue(netCap.hasCapability(NET_CAPABILITY_NOT_RESTRICTED));
+        netCap = new NetworkCapabilities();
+        netCap.addCapability(NET_CAPABILITY_PRIORITIZE_LATENCY);
+        netCap.removeCapability(NET_CAPABILITY_NOT_METERED);
+        netCap.maybeMarkCapabilitiesRestricted();
+        assertTrue(netCap.hasCapability(NET_CAPABILITY_NOT_RESTRICTED));
+
+        netCap = new NetworkCapabilities();
+        netCap.addCapability(NET_CAPABILITY_PRIORITIZE_BANDWIDTH);
+        netCap.addCapability(NET_CAPABILITY_NOT_METERED);
+        netCap.maybeMarkCapabilitiesRestricted();
+        assertTrue(netCap.hasCapability(NET_CAPABILITY_NOT_RESTRICTED));
+        netCap = new NetworkCapabilities();
+        netCap.addCapability(NET_CAPABILITY_PRIORITIZE_BANDWIDTH);
+        netCap.removeCapability(NET_CAPABILITY_NOT_METERED);
+        netCap.maybeMarkCapabilitiesRestricted();
+        assertTrue(netCap.hasCapability(NET_CAPABILITY_NOT_RESTRICTED));
+    }
+
+    @Test
     public void testOemPrivate() {
         NetworkCapabilities nc = new NetworkCapabilities();
         // By default OEM_PRIVATE is neither in the required or forbidden lists and the network is
@@ -438,7 +519,7 @@ public class NetworkCapabilitiesTest {
         assertFalse(nr.satisfiedByNetworkCapabilities(new NetworkCapabilities()));
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
     public void testForbiddenCapabilities() {
         NetworkCapabilities network = new NetworkCapabilities();
 
@@ -552,7 +633,7 @@ public class NetworkCapabilitiesTest {
         return new Range<Integer>(from, to);
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    @Test
     public void testSetAdministratorUids() {
         NetworkCapabilities nc =
                 new NetworkCapabilities().setAdministratorUids(new int[] {2, 1, 3});
@@ -560,110 +641,13 @@ public class NetworkCapabilitiesTest {
         assertArrayEquals(new int[] {1, 2, 3}, nc.getAdministratorUids());
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    @Test
     public void testSetAdministratorUidsWithDuplicates() {
         try {
             new NetworkCapabilities().setAdministratorUids(new int[] {1, 1});
             fail("Expected IllegalArgumentException for duplicate uids");
         } catch (IllegalArgumentException expected) {
         }
-    }
-
-    @Test
-    public void testCombineCapabilities() {
-        NetworkCapabilities nc1 = new NetworkCapabilities();
-        NetworkCapabilities nc2 = new NetworkCapabilities();
-
-        if (isAtLeastS()) {
-            nc1.addForbiddenCapability(NET_CAPABILITY_CAPTIVE_PORTAL);
-        }
-        nc1.addCapability(NET_CAPABILITY_NOT_ROAMING);
-        assertNotEquals(nc1, nc2);
-        nc2.combineCapabilities(nc1);
-        assertEquals(nc1, nc2);
-        assertTrue(nc2.hasCapability(NET_CAPABILITY_NOT_ROAMING));
-        if (isAtLeastS()) {
-            assertTrue(nc2.hasForbiddenCapability(NET_CAPABILITY_CAPTIVE_PORTAL));
-        }
-
-        if (isAtLeastS()) {
-            // This will effectively move NOT_ROAMING capability from required to forbidden for nc1.
-            nc1.addForbiddenCapability(NET_CAPABILITY_NOT_ROAMING);
-            // It is not allowed to have the same capability in both wanted and forbidden list.
-            assertThrows(IllegalArgumentException.class, () -> nc2.combineCapabilities(nc1));
-            // Remove forbidden capability to continue other tests.
-            nc1.removeForbiddenCapability(NET_CAPABILITY_NOT_ROAMING);
-        }
-
-        nc1.setSSID(TEST_SSID);
-        nc2.combineCapabilities(nc1);
-        if (isAtLeastR()) {
-            assertTrue(TEST_SSID.equals(nc2.getSsid()));
-        }
-
-        // Because they now have the same SSID, the following call should not throw
-        nc2.combineCapabilities(nc1);
-
-        nc1.setSSID(DIFFERENT_TEST_SSID);
-        try {
-            nc2.combineCapabilities(nc1);
-            fail("Expected IllegalStateException: can't combine different SSIDs");
-        } catch (IllegalStateException expected) {}
-        nc1.setSSID(TEST_SSID);
-
-        if (isAtLeastS()) {
-            nc1.setUids(uidRanges(10, 13));
-            assertNotEquals(nc1, nc2);
-            nc2.combineCapabilities(nc1);  // Everything + 10~13 is still everything.
-            assertNotEquals(nc1, nc2);
-            nc1.combineCapabilities(nc2);  // 10~13 + everything is everything.
-            assertEquals(nc1, nc2);
-            nc1.setUids(uidRanges(10, 13));
-            nc2.setUids(uidRanges(20, 23));
-            assertNotEquals(nc1, nc2);
-            nc1.combineCapabilities(nc2);
-            assertTrue(nc1.appliesToUid(12));
-            assertFalse(nc2.appliesToUid(12));
-            assertTrue(nc1.appliesToUid(22));
-            assertTrue(nc2.appliesToUid(22));
-
-            // Verify the subscription id list can be combined only when they are equal.
-            nc1.setSubscriptionIds(Set.of(TEST_SUBID1, TEST_SUBID2));
-            nc2.setSubscriptionIds(Set.of(TEST_SUBID2));
-            assertThrows(IllegalStateException.class, () -> nc2.combineCapabilities(nc1));
-
-            nc2.setSubscriptionIds(Set.of());
-            assertThrows(IllegalStateException.class, () -> nc2.combineCapabilities(nc1));
-
-            nc2.setSubscriptionIds(Set.of(TEST_SUBID2, TEST_SUBID1));
-            nc2.combineCapabilities(nc1);
-            assertEquals(Set.of(TEST_SUBID2, TEST_SUBID1), nc2.getSubscriptionIds());
-        }
-    }
-
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
-    public void testCombineCapabilities_AdministratorUids() {
-        final NetworkCapabilities nc1 = new NetworkCapabilities();
-        final NetworkCapabilities nc2 = new NetworkCapabilities();
-
-        final int[] adminUids = {3, 6, 12};
-        nc1.setAdministratorUids(adminUids);
-        nc2.combineCapabilities(nc1);
-        assertTrue(nc2.equalsAdministratorUids(nc1));
-        assertArrayEquals(nc2.getAdministratorUids(), adminUids);
-
-        final int[] adminUidsOtherOrder = {3, 12, 6};
-        nc1.setAdministratorUids(adminUidsOtherOrder);
-        assertTrue(nc2.equalsAdministratorUids(nc1));
-
-        final int[] adminUids2 = {11, 1, 12, 3, 6};
-        nc1.setAdministratorUids(adminUids2);
-        assertFalse(nc2.equalsAdministratorUids(nc1));
-        assertFalse(Arrays.equals(nc2.getAdministratorUids(), adminUids2));
-        try {
-            nc2.combineCapabilities(nc1);
-            fail("Shouldn't be able to combine different lists of admin UIDs");
-        } catch (IllegalStateException expected) { }
     }
 
     @Test
@@ -704,27 +688,81 @@ public class NetworkCapabilitiesTest {
     }
 
     @Test
+    public void testUnderlyingNetworks() {
+        assumeTrue(isAtLeastT());
+        final NetworkCapabilities nc = new NetworkCapabilities();
+        final Network network1 = new Network(100);
+        final Network network2 = new Network(101);
+        final ArrayList<Network> inputNetworks = new ArrayList<>();
+        inputNetworks.add(network1);
+        inputNetworks.add(network2);
+        nc.setUnderlyingNetworks(inputNetworks);
+        final ArrayList<Network> outputNetworks = new ArrayList<>(nc.getUnderlyingNetworks());
+        assertEquals(network1, outputNetworks.get(0));
+        assertEquals(network2, outputNetworks.get(1));
+        nc.setUnderlyingNetworks(null);
+        assertNull(nc.getUnderlyingNetworks());
+    }
+
+    @Test
+    public void testEqualsForUnderlyingNetworks() {
+        assumeTrue(isAtLeastT());
+        final NetworkCapabilities nc1 = new NetworkCapabilities();
+        final NetworkCapabilities nc2 = new NetworkCapabilities();
+        assertEquals(nc1, nc2);
+        final Network network = new Network(100);
+        final ArrayList<Network> inputNetworks = new ArrayList<>();
+        final ArrayList<Network> emptyList = new ArrayList<>();
+        inputNetworks.add(network);
+        nc1.setUnderlyingNetworks(inputNetworks);
+        assertNotEquals(nc1, nc2);
+        nc2.setUnderlyingNetworks(inputNetworks);
+        assertEquals(nc1, nc2);
+        nc1.setUnderlyingNetworks(emptyList);
+        assertNotEquals(nc1, nc2);
+        nc2.setUnderlyingNetworks(emptyList);
+        assertEquals(nc1, nc2);
+        nc1.setUnderlyingNetworks(null);
+        assertNotEquals(nc1, nc2);
+        nc2.setUnderlyingNetworks(null);
+        assertEquals(nc1, nc2);
+    }
+
+    @Test
     public void testSetNetworkSpecifierOnMultiTransportNc() {
         // Sequence 1: Transport + Transport + NetworkSpecifier
-        NetworkCapabilities nc1 = new NetworkCapabilities();
+        NetworkCapabilities.Builder nc1 = new NetworkCapabilities.Builder();
         nc1.addTransportType(TRANSPORT_CELLULAR).addTransportType(TRANSPORT_WIFI);
-        try {
-            nc1.setNetworkSpecifier(CompatUtil.makeEthernetNetworkSpecifier("eth0"));
-            fail("Cannot set NetworkSpecifier on a NetworkCapability with multiple transports!");
-        } catch (IllegalStateException expected) {
-            // empty
-        }
+        final NetworkSpecifier specifier = CompatUtil.makeEthernetNetworkSpecifier("eth0");
+        assertThrows("Cannot set NetworkSpecifier on a NetworkCapability with multiple transports!",
+                IllegalStateException.class,
+                () -> nc1.build().setNetworkSpecifier(specifier));
+        assertThrows("Cannot set NetworkSpecifier on a NetworkCapability with multiple transports!",
+                IllegalStateException.class,
+                () -> nc1.setNetworkSpecifier(specifier));
 
         // Sequence 2: Transport + NetworkSpecifier + Transport
-        NetworkCapabilities nc2 = new NetworkCapabilities();
-        nc2.addTransportType(TRANSPORT_CELLULAR).setNetworkSpecifier(
-                CompatUtil.makeEthernetNetworkSpecifier("testtap3"));
-        try {
-            nc2.addTransportType(TRANSPORT_WIFI);
-            fail("Cannot set a second TransportType of a network which has a NetworkSpecifier!");
-        } catch (IllegalStateException expected) {
-            // empty
-        }
+        NetworkCapabilities.Builder nc2 = new NetworkCapabilities.Builder();
+        nc2.addTransportType(TRANSPORT_CELLULAR).setNetworkSpecifier(specifier);
+
+        assertThrows("Cannot set a second TransportType of a network which has a NetworkSpecifier!",
+                IllegalStateException.class,
+                () -> nc2.build().addTransportType(TRANSPORT_WIFI));
+        assertThrows("Cannot set a second TransportType of a network which has a NetworkSpecifier!",
+                IllegalStateException.class,
+                () -> nc2.addTransportType(TRANSPORT_WIFI));
+    }
+
+    @Test
+    public void testSetNetworkSpecifierOnTestMultiTransportNc() {
+        final NetworkSpecifier specifier = CompatUtil.makeEthernetNetworkSpecifier("eth0");
+        NetworkCapabilities nc = new NetworkCapabilities.Builder()
+                .addTransportType(TRANSPORT_TEST)
+                .addTransportType(TRANSPORT_ETHERNET)
+                .setNetworkSpecifier(specifier)
+                .build();
+        // Adding a specifier did not crash with 2 transports if one is TEST
+        assertEquals(specifier, nc.getNetworkSpecifier());
     }
 
     @Test
@@ -738,29 +776,6 @@ public class NetworkCapabilitiesTest {
         NetworkCapabilities nc2 = new NetworkCapabilities();
         nc2.addTransportType(TRANSPORT_CELLULAR).setTransportInfo(new TestTransportInfo())
                 .addTransportType(TRANSPORT_WIFI);
-    }
-
-    @Test
-    public void testCombineTransportInfo() {
-        NetworkCapabilities nc1 = new NetworkCapabilities();
-        nc1.setTransportInfo(new TestTransportInfo());
-
-        NetworkCapabilities nc2 = new NetworkCapabilities();
-        // new TransportInfo so that object is not #equals to nc1's TransportInfo (that's where
-        // combine fails)
-        nc2.setTransportInfo(new TestTransportInfo());
-
-        try {
-            nc1.combineCapabilities(nc2);
-            fail("Should not be able to combine NetworkCabilities which contain TransportInfos");
-        } catch (IllegalStateException expected) {
-            // empty
-        }
-
-        // verify that can combine with identical TransportInfo objects
-        NetworkCapabilities nc3 = new NetworkCapabilities();
-        nc3.setTransportInfo(nc1.getTransportInfo());
-        nc1.combineCapabilities(nc3);
     }
 
     @Test
@@ -847,7 +862,7 @@ public class NetworkCapabilitiesTest {
         assertEquals(TRANSPORT_TEST, transportTypes[3]);
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    @Test
     public void testTelephonyNetworkSpecifier() {
         final TelephonyNetworkSpecifier specifier = new TelephonyNetworkSpecifier(1);
         final NetworkCapabilities nc1 = new NetworkCapabilities.Builder()
@@ -864,6 +879,88 @@ public class NetworkCapabilitiesTest {
         } catch (IllegalStateException expected) { }
     }
 
+    @Test @IgnoreUpTo(SC_V2) // TODO: Use to Build.VERSION_CODES.SC_V2 when available
+    public void testEnterpriseId() {
+        final NetworkCapabilities nc1 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_ENTERPRISE)
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .build();
+        assertEquals(1, nc1.getEnterpriseIds().length);
+        assertEquals(NET_ENTERPRISE_ID_1,
+                nc1.getEnterpriseIds()[0]);
+        final NetworkCapabilities nc2 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_ENTERPRISE)
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .addEnterpriseId(NET_ENTERPRISE_ID_2)
+                .build();
+        assertEquals(2, nc2.getEnterpriseIds().length);
+        assertEquals(NET_ENTERPRISE_ID_1,
+                nc2.getEnterpriseIds()[0]);
+        assertEquals(NET_ENTERPRISE_ID_2,
+                nc2.getEnterpriseIds()[1]);
+        final NetworkCapabilities nc3 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_ENTERPRISE)
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .addEnterpriseId(NET_ENTERPRISE_ID_2)
+                .addEnterpriseId(NET_ENTERPRISE_ID_3)
+                .addEnterpriseId(NET_ENTERPRISE_ID_4)
+                .addEnterpriseId(NET_ENTERPRISE_ID_5)
+                .build();
+        assertEquals(5, nc3.getEnterpriseIds().length);
+        assertEquals(NET_ENTERPRISE_ID_1,
+                nc3.getEnterpriseIds()[0]);
+        assertEquals(NET_ENTERPRISE_ID_2,
+                nc3.getEnterpriseIds()[1]);
+        assertEquals(NET_ENTERPRISE_ID_3,
+                nc3.getEnterpriseIds()[2]);
+        assertEquals(NET_ENTERPRISE_ID_4,
+                nc3.getEnterpriseIds()[3]);
+        assertEquals(NET_ENTERPRISE_ID_5,
+                nc3.getEnterpriseIds()[4]);
+
+        final Class<IllegalArgumentException> illegalArgumentExceptionClass =
+                IllegalArgumentException.class;
+        assertThrows(illegalArgumentExceptionClass, () -> new NetworkCapabilities.Builder()
+                .addEnterpriseId(6)
+                .build());
+        assertThrows(illegalArgumentExceptionClass, () -> new NetworkCapabilities.Builder()
+                .removeEnterpriseId(6)
+                .build());
+
+        final Class<IllegalStateException> illegalStateException =
+                IllegalStateException.class;
+        assertThrows(illegalStateException, () -> new NetworkCapabilities.Builder()
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .build());
+
+        final NetworkCapabilities nc4 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_ENTERPRISE)
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .addEnterpriseId(NET_ENTERPRISE_ID_2)
+                .removeEnterpriseId(NET_ENTERPRISE_ID_1)
+                .removeEnterpriseId(NET_ENTERPRISE_ID_2)
+                .build();
+        assertEquals(1, nc4.getEnterpriseIds().length);
+        assertTrue(nc4.hasEnterpriseId(NET_ENTERPRISE_ID_1));
+
+        final NetworkCapabilities nc5 = new NetworkCapabilities.Builder()
+                .addCapability(NET_CAPABILITY_CBS)
+                .addEnterpriseId(NET_ENTERPRISE_ID_1)
+                .addEnterpriseId(NET_ENTERPRISE_ID_2)
+                .removeEnterpriseId(NET_ENTERPRISE_ID_1)
+                .removeEnterpriseId(NET_ENTERPRISE_ID_2)
+                .build();
+
+        assertTrue(nc4.satisfiedByNetworkCapabilities(nc1));
+        assertTrue(nc1.satisfiedByNetworkCapabilities(nc4));
+
+        assertFalse(nc3.satisfiedByNetworkCapabilities(nc2));
+        assertTrue(nc2.satisfiedByNetworkCapabilities(nc3));
+
+        assertFalse(nc1.satisfiedByNetworkCapabilities(nc5));
+        assertFalse(nc5.satisfiedByNetworkCapabilities(nc1));
+    }
+
     @Test
     public void testWifiAwareNetworkSpecifier() {
         final NetworkCapabilities nc = new NetworkCapabilities()
@@ -876,7 +973,7 @@ public class NetworkCapabilitiesTest {
         assertEquals(specifier, nc.getNetworkSpecifier());
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    @Test
     public void testAdministratorUidsAndOwnerUid() {
         // Test default owner uid.
         // If the owner uid is not set, the default value should be Process.INVALID_UID.
@@ -920,7 +1017,7 @@ public class NetworkCapabilitiesTest {
         return nc;
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
     public void testSubIds() throws Exception {
         final NetworkCapabilities ncWithoutId = capsWithSubIds();
         final NetworkCapabilities ncWithId = capsWithSubIds(TEST_SUBID1);
@@ -942,7 +1039,7 @@ public class NetworkCapabilitiesTest {
         assertTrue(requestWithoutId.canBeSatisfiedBy(ncWithId));
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
     public void testEqualsSubIds() throws Exception {
         assertEquals(capsWithSubIds(), capsWithSubIds());
         assertNotEquals(capsWithSubIds(), capsWithSubIds(TEST_SUBID1));
@@ -1091,7 +1188,7 @@ public class NetworkCapabilitiesTest {
         }
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    @Test
     public void testBuilder() {
         final int ownerUid = 1001;
         final int signalStrength = -80;
@@ -1101,7 +1198,7 @@ public class NetworkCapabilitiesTest {
         final TransportInfo transportInfo = new TransportInfo() {};
         final String ssid = "TEST_SSID";
         final String packageName = "com.google.test.networkcapabilities";
-        final NetworkCapabilities nc = new NetworkCapabilities.Builder()
+        final NetworkCapabilities.Builder capBuilder = new NetworkCapabilities.Builder()
                 .addTransportType(TRANSPORT_WIFI)
                 .addTransportType(TRANSPORT_CELLULAR)
                 .removeTransportType(TRANSPORT_CELLULAR)
@@ -1117,8 +1214,14 @@ public class NetworkCapabilitiesTest {
                 .setSignalStrength(signalStrength)
                 .setSsid(ssid)
                 .setRequestorUid(requestUid)
-                .setRequestorPackageName(packageName)
-                .build();
+                .setRequestorPackageName(packageName);
+        final Network network1 = new Network(100);
+        final Network network2 = new Network(101);
+        final List<Network> inputNetworks = List.of(network1, network2);
+        if (isAtLeastT()) {
+            capBuilder.setUnderlyingNetworks(inputNetworks);
+        }
+        final NetworkCapabilities nc = capBuilder.build();
         assertEquals(1, nc.getTransportTypes().length);
         assertEquals(TRANSPORT_WIFI, nc.getTransportTypes()[0]);
         assertTrue(nc.hasCapability(NET_CAPABILITY_EIMS));
@@ -1136,6 +1239,11 @@ public class NetworkCapabilitiesTest {
         assertEquals(ssid, nc.getSsid());
         assertEquals(requestUid, nc.getRequestorUid());
         assertEquals(packageName, nc.getRequestorPackageName());
+        if (isAtLeastT()) {
+            final List<Network> outputNetworks = nc.getUnderlyingNetworks();
+            assertEquals(network1, outputNetworks.get(0));
+            assertEquals(network2, outputNetworks.get(1));
+        }
         // Cannot assign null into NetworkCapabilities.Builder
         try {
             final NetworkCapabilities.Builder builder = new NetworkCapabilities.Builder(null);
@@ -1150,7 +1258,7 @@ public class NetworkCapabilitiesTest {
         }
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
     public void testBuilderWithoutDefaultCap() {
         final NetworkCapabilities nc =
                 NetworkCapabilities.Builder.withoutDefaultCapabilities().build();
@@ -1159,5 +1267,107 @@ public class NetworkCapabilitiesTest {
         assertFalse(nc.hasCapability(NET_CAPABILITY_NOT_VPN));
         // Ensure test case fails if new net cap is added into default cap but no update here.
         assertEquals(0, nc.getCapabilities().length);
+    }
+
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkByNotOwnerWithNonRestrictedNc() {
+        testRestrictCapabilitiesForTestNetworkWithNonRestrictedNc(false /* isOwner */);
+    }
+
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkByOwnerWithNonRestrictedNc() {
+        testRestrictCapabilitiesForTestNetworkWithNonRestrictedNc(true /* isOwner */);
+    }
+
+    private void testRestrictCapabilitiesForTestNetworkWithNonRestrictedNc(boolean isOwner) {
+        final int ownerUid = 1234;
+        final int signalStrength = -80;
+        final int[] administratorUids = {1001, ownerUid};
+        final TelephonyNetworkSpecifier specifier = new TelephonyNetworkSpecifier(TEST_SUBID1);
+        final TransportInfo transportInfo = new TransportInfo() {};
+        final NetworkCapabilities nonRestrictedNc = new NetworkCapabilities.Builder()
+                .addTransportType(TRANSPORT_CELLULAR)
+                .addCapability(NET_CAPABILITY_MMS)
+                .addCapability(NET_CAPABILITY_NOT_METERED)
+                .setAdministratorUids(administratorUids)
+                .setOwnerUid(ownerUid)
+                .setNetworkSpecifier(specifier)
+                .setSignalStrength(signalStrength)
+                .setTransportInfo(transportInfo)
+                .setSubscriptionIds(Set.of(TEST_SUBID1)).build();
+        final int creatorUid = isOwner ? ownerUid : INVALID_UID;
+        nonRestrictedNc.restrictCapabilitiesForTestNetwork(creatorUid);
+
+        final NetworkCapabilities.Builder expectedNcBuilder = new NetworkCapabilities.Builder();
+        // Non-UNRESTRICTED_TEST_NETWORKS_ALLOWED_TRANSPORTS will be removed and TRANSPORT_TEST will
+        // be appended for non-restricted net cap.
+        expectedNcBuilder.addTransportType(TRANSPORT_TEST);
+        // Only TEST_NETWORKS_ALLOWED_CAPABILITIES will be kept. SubIds are only allowed for Test
+        // Networks that only declare TRANSPORT_TEST.
+        expectedNcBuilder.addCapability(NET_CAPABILITY_NOT_METERED)
+                .removeCapability(NET_CAPABILITY_TRUSTED)
+                .setSubscriptionIds(Set.of(TEST_SUBID1));
+
+        expectedNcBuilder.setNetworkSpecifier(specifier)
+                .setSignalStrength(signalStrength).setTransportInfo(transportInfo);
+        if (creatorUid == ownerUid) {
+            // Only retain the owner and administrator UIDs if they match the app registering the
+            // remote caller that registered the network.
+            expectedNcBuilder.setAdministratorUids(new int[]{ownerUid}).setOwnerUid(ownerUid);
+        }
+
+        assertEquals(expectedNcBuilder.build(), nonRestrictedNc);
+    }
+
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkByNotOwnerWithRestrictedNc() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(false /* isOwner */);
+    }
+
+    @Test
+    public void testRestrictCapabilitiesForTestNetworkByOwnerWithRestrictedNc() {
+        testRestrictCapabilitiesForTestNetworkWithRestrictedNc(true /* isOwner */);
+    }
+
+    private void testRestrictCapabilitiesForTestNetworkWithRestrictedNc(boolean isOwner) {
+        final int ownerUid = 1234;
+        final int signalStrength = -80;
+        final int[] administratorUids = {1001, ownerUid};
+        final TransportInfo transportInfo = new TransportInfo() {};
+        // No NetworkSpecifier is set because after performing restrictCapabilitiesForTestNetwork
+        // the networkCapabilities will contain more than one transport type. However,
+        // networkCapabilities must have a single transport specified to use NetworkSpecifier. Thus,
+        // do not verify this part since it's verified in other tests.
+        final NetworkCapabilities restrictedNc = new NetworkCapabilities.Builder()
+                .removeCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addTransportType(TRANSPORT_CELLULAR)
+                .addCapability(NET_CAPABILITY_MMS)
+                .addCapability(NET_CAPABILITY_NOT_METERED)
+                .setAdministratorUids(administratorUids)
+                .setOwnerUid(ownerUid)
+                .setSignalStrength(signalStrength)
+                .setTransportInfo(transportInfo)
+                .setSubscriptionIds(Set.of(TEST_SUBID1)).build();
+        final int creatorUid = isOwner ? ownerUid : INVALID_UID;
+        restrictedNc.restrictCapabilitiesForTestNetwork(creatorUid);
+
+        final NetworkCapabilities.Builder expectedNcBuilder = new NetworkCapabilities.Builder()
+                .removeCapability(NET_CAPABILITY_NOT_RESTRICTED);
+        // If the test network is restricted, then the network may declare any transport, and
+        // appended with TRANSPORT_TEST.
+        expectedNcBuilder.addTransportType(TRANSPORT_CELLULAR);
+        expectedNcBuilder.addTransportType(TRANSPORT_TEST);
+        // Only TEST_NETWORKS_ALLOWED_CAPABILITIES will be kept.
+        expectedNcBuilder.addCapability(NET_CAPABILITY_NOT_METERED);
+        expectedNcBuilder.removeCapability(NET_CAPABILITY_TRUSTED);
+
+        expectedNcBuilder.setSignalStrength(signalStrength).setTransportInfo(transportInfo);
+        if (creatorUid == ownerUid) {
+            // Only retain the owner and administrator UIDs if they match the app registering the
+            // remote caller that registered the network.
+            expectedNcBuilder.setAdministratorUids(new int[]{ownerUid}).setOwnerUid(ownerUid);
+        }
+
+        assertEquals(expectedNcBuilder.build(), restrictedNc);
     }
 }

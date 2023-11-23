@@ -32,6 +32,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
     If no configuration information is provided, the test will default to
     toggling between WW and US.
     """
+
     def setup_class(self):
         super().setup_class()
         if len(self.fuchsia_devices) < 1:
@@ -40,13 +41,16 @@ class RegulatoryRecoveryTest(WifiBaseTest):
         self.config_test_params = self.user_params.get(
             "regulatory_recovery_test_params", {})
         self.country_code = self.config_test_params.get("country_code", "US")
+        self.negative_test = self.config_test_params.get(
+            "negative_test", False)
 
         for fd in self.fuchsia_devices:
             fd.configure_wlan(association_mechanism='policy')
 
     def teardown_class(self):
-        for fd in self.fuchsia_devices:
-            fd.wlan_controller.set_country_code(self.country_code)
+        if not self.negative_test:
+            for fd in self.fuchsia_devices:
+                fd.wlan_controller.set_country_code(self.country_code)
 
         super().teardown_class()
 
@@ -66,6 +70,27 @@ class RegulatoryRecoveryTest(WifiBaseTest):
             fd.wlan_policy_controller.stop_client_connections()
             fd.wlan_ap_policy_lib.wlanStopAllAccessPoint()
 
+    def set_country_code(self, fd):
+        try:
+            fd.wlan_controller.set_country_code(self.country_code)
+        except EnvironmentError as e:
+            if self.negative_test:
+                # In the negative case, setting the country code for an
+                # invalid country should fail.
+                pass
+            else:
+                # If this is not a negative test case, re-raise the
+                # exception.
+                raise e
+        else:
+            # The negative test case should have failed to set the country
+            # code and the positive test case should succeed.
+            if self.negative_test:
+                raise EnvironmentError(
+                    "Setting invalid country code succeeded.")
+            else:
+                pass
+
     def test_interfaces_not_recreated_when_initially_disabled(self):
         """This test ensures that after a new regulatory region is applied
         while client connections and access points are disabled, no new
@@ -73,7 +98,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
         """
         for fd in self.fuchsia_devices:
             # Set the region code.
-            fd.wlan_controller.set_country_code(self.country_code)
+            self.set_country_code(fd)
 
             # Reset the listeners and verify the current state.
             fd.wlan_policy_lib.wlanSetNewListener()
@@ -116,7 +141,7 @@ class RegulatoryRecoveryTest(WifiBaseTest):
                                                        "local_only", "any")
 
             # Set the country code.
-            fd.wlan_controller.set_country_code(self.country_code)
+            self.set_country_code(fd)
 
             # Reset the listeners and verify the current state.
             fd.wlan_policy_lib.wlanSetNewListener()

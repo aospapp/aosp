@@ -18,19 +18,13 @@ package com.android.ims;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.IInterface;
-import android.telephony.SubscriptionInfo;
-import android.telephony.SubscriptionManager;
+import android.telephony.ims.feature.ImsFeature;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
@@ -39,6 +33,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,33 +53,56 @@ public class MmTelFeatureConnectionTest extends ImsTestBase {
             ImsCallbackAdapterManager<TestCallback> {
 
         List<TestCallback> mCallbacks = new ArrayList<>();
+        FeatureConnection mFeatureConnection;
 
-        CallbackManagerTest(Context context, Object lock) {
-            super(context, lock, 0 /*slotId*/);
+        CallbackManagerTest(Context context, Object lock, FeatureConnection featureConnection) {
+            super(context, lock, SLOT_ID, SUB_ID);
+            mFeatureConnection = featureConnection;
         }
 
         // A callback has been registered. Register that callback with the MmTelFeature.
         @Override
         public void registerCallback(TestCallback localCallback) {
+            if (!isBinderReady()) {
+                return;
+            }
             mCallbacks.add(localCallback);
         }
 
         // A callback has been removed, unregister that callback with the MmTelFeature.
         @Override
         public void unregisterCallback(TestCallback localCallback) {
+            if (!mFeatureConnection.isBinderAlive()) {
+                return;
+            }
             mCallbacks.remove(localCallback);
         }
 
         public boolean doesCallbackExist(TestCallback callback) {
             return mCallbacks.contains(callback);
         }
+
+        public boolean isBinderReady() {
+            return mFeatureConnection.isBinderAlive()
+                    && mFeatureConnection.getFeatureState() == ImsFeature.STATE_READY;
+        }
     }
+
     private CallbackManagerTest mCallbackManagerUT;
+
+    @Mock
+    FeatureConnection mFeatureConnection;
+
+    public static final int SUB_ID = 1;
+    public static final int SLOT_ID = 0;
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        mCallbackManagerUT = new CallbackManagerTest(mContext, this);
+
+        when(mFeatureConnection.isBinderAlive()).thenReturn(true);
+        when(mFeatureConnection.getFeatureState()).thenReturn(ImsFeature.STATE_READY);
+        mCallbackManagerUT = new CallbackManagerTest(mContext, this, mFeatureConnection);
     }
 
     @After
@@ -103,160 +121,47 @@ public class MmTelFeatureConnectionTest extends ImsTestBase {
         TestCallback testCallback = new TestCallback();
         mCallbackManagerUT.addCallback(testCallback);
         assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback));
-        // The subscriptions changed listener should only be added for callbacks that are being
-        // linked to a subscription.
-        verify(mSubscriptionManager, never()).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
 
         mCallbackManagerUT.removeCallback(testCallback);
         assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback));
-        // The subscriptions changed listener should only be removed for callbacks that are
-        // linked to a subscription.
-        verify(mSubscriptionManager, never()).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
     }
 
     /**
      * Ensure that adding the callback and linking subId triggers the appropriate registerCallback
-     * and unregisterCallback calls as well as the subscriptionChanged listener.
+     * and unregisterCallback calls.
      */
     @Test
     @SmallTest
-    public void testCallbackAdapter_addAndRemoveCallbackForSub() throws Exception {
+    public void testCallbackAdapter_addCallbackForSubAndRemove() throws Exception {
         TestCallback testCallback = new TestCallback();
         int testSub = 1;
         mCallbackManagerUT.addCallbackForSubscription(testCallback, testSub);
         assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback));
-        verify(mSubscriptionManager, times(1)).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
 
-        mCallbackManagerUT.removeCallbackForSubscription(testCallback, testSub);
+        mCallbackManagerUT.removeCallback(testCallback);
         assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback));
-        verify(mSubscriptionManager, times(1)).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
     }
 
     /**
-     * Ensure that adding the callback and linking multiple subIds trigger the appropriate
-     * registerCallback and unregisterCallback calls as well as the subscriptionChanged listener.
-     * When removing the callbacks, the subscriptionChanged listener shoud only be removed when all
-     * callbacks have been removed.
+     * The close() method has been called, so all callbacks should be cleaned up and notified
+     * that they have been removed.
      */
     @Test
     @SmallTest
-    public void testCallbackAdapter_addAndRemoveCallbackForMultipleSubs() throws Exception {
-        TestCallback testCallback1 = new TestCallback();
-        TestCallback testCallback2 = new TestCallback();
-        int testSub1 = 1;
-        int testSub2 = 2;
-        mCallbackManagerUT.addCallbackForSubscription(testCallback1, testSub1);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        mCallbackManagerUT.addCallbackForSubscription(testCallback2, testSub2);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        // This should only happen once.
-        verify(mSubscriptionManager, times(1)).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-
-        mCallbackManagerUT.removeCallbackForSubscription(testCallback1, testSub1);
-        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        // removing the listener should not happen until the second callback is removed.
-        verify(mSubscriptionManager, never()).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-
-        mCallbackManagerUT.removeCallbackForSubscription(testCallback2, testSub2);
-        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        verify(mSubscriptionManager, times(1)).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-    }
-
-    /**
-     * The subscriptions have changed, ensure that the callbacks registered to the original
-     * subscription testSub1 are removed, while keeping the callbacks for testSub2, since it was not
-     * removed.
-     */
-    @Test
-    @SmallTest
-    public void testCallbackAdapter_onSubscriptionsChangedMultipleSubs() throws Exception {
-        TestCallback testCallback1 = new TestCallback();
-        TestCallback testCallback2 = new TestCallback();
-        int testSub1 = 1;
-        int testSub2 = 2;
-        int testSub3 = 3;
-        mCallbackManagerUT.addCallbackForSubscription(testCallback1, testSub1);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        mCallbackManagerUT.addCallbackForSubscription(testCallback2, testSub2);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        verify(mSubscriptionManager, times(1)).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-
-        // Simulate subscriptions changed, where testSub1 is no longer active
-        doReturn(createSubscriptionInfoList(new int[] {testSub2, testSub3}))
-                .when(mSubscriptionManager).getActiveSubscriptionInfoList(anyBoolean());
-        mCallbackManagerUT.mSubChangedListener.onSubscriptionsChanged();
-        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        // verify that the subscription changed listener is not removed, since we still have a
-        // callback on testSub2
-        verify(mSubscriptionManager, never()).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-    }
-
-    /**
-     * The active subscription has changed, ensure that the callback registered to the original
-     * subscription testSub1 are removed as well as the subscription changed listener, since
-     * there are mo more active callbacks.
-     */
-    @Test
-    @SmallTest
-    public void testCallbackAdapter_onSubscriptionsChangedOneSub() throws Exception {
+    public void testCallbackAdapter_closeSub() throws Exception {
         TestCallback testCallback1 = new TestCallback();
         int testSub1 = 1;
-        int testSub2 = 2;
+
         mCallbackManagerUT.addCallbackForSubscription(testCallback1, testSub1);
         assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        verify(mSubscriptionManager, times(1)).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
 
-        // Simulate subscriptions changed, where testSub1 is no longer active
-        doReturn(createSubscriptionInfoList(new int[] {testSub2}))
-                .when(mSubscriptionManager).getActiveSubscriptionInfoList(anyBoolean());
-        mCallbackManagerUT.mSubChangedListener.onSubscriptionsChanged();
-        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        // verify that the subscription listener is removed, since the only active callback has been
-        // removed.
-        verify(mSubscriptionManager, times(1)).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-    }
-
-    /**
-     * The close() method has been called, so al callbacks should be cleaned up and notified
-     * that they have been removed. The subscriptions changed listener should also be removed.
-     */
-    @Test
-    @SmallTest
-    public void testCallbackAdapter_closeMultipleSubs() throws Exception {
-        TestCallback testCallback1 = new TestCallback();
-        TestCallback testCallback2 = new TestCallback();
-        int testSub1 = 1;
-        int testSub2 = 2;
-        mCallbackManagerUT.addCallbackForSubscription(testCallback1, testSub1);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        mCallbackManagerUT.addCallbackForSubscription(testCallback2, testSub2);
-        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        verify(mSubscriptionManager, times(1)).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
-
-        // Close the manager, ensure all subscription callbacks are removed
+        // Close the manager, ensure subscription callback are removed
         mCallbackManagerUT.close();
         assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
-        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        // verify that the subscription changed listener is removed.
-        verify(mSubscriptionManager, times(1)).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
     }
 
     /**
-     * The close() method has been called, so all callbacks should be cleaned up. Since they are
-     * not associated with any subscriptions, no subscription based logic should be called.
+     * The close() method has been called, so all callbacks should be cleaned up.
      */
     @Test
     @SmallTest
@@ -267,27 +172,68 @@ public class MmTelFeatureConnectionTest extends ImsTestBase {
         assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
         mCallbackManagerUT.addCallback(testCallback2);
         assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        // verify that the subscription changed listener is never called for these callbacks
-        // because they are not associated with any subscriptions.
-        verify(mSubscriptionManager, never()).addOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
 
         // Close the manager, ensure all subscription callbacks are removed
         mCallbackManagerUT.close();
         assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
         assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback2));
-        // verify that the subscription changed removed method is never called
-        verify(mSubscriptionManager, never()).removeOnSubscriptionsChangedListener(
-                any(SubscriptionManager.OnSubscriptionsChangedListener.class));
     }
 
-    private List<SubscriptionInfo> createSubscriptionInfoList(int[] subIds) {
-        List<SubscriptionInfo> infos = new ArrayList<>();
-        for (int i = 0; i < subIds.length; i++) {
-            SubscriptionInfo info = new SubscriptionInfo(subIds[i], null, -1, null, null, -1, -1,
-                    null, -1, null, null, null, null, false, null, null);
-            infos.add(info);
-        }
-        return infos;
+
+    /**
+     * UnregisterCallback is success After ImsFeatureState changed to STATE_UNAVAILABLE.
+     */
+    @Test
+    @SmallTest
+    public void testCallbackAdapter_removeCallbackSuccessAfterImsFeatureStateChangeToUnavailable()
+            throws Exception {
+        TestCallback testCallback1 = new TestCallback();
+        mCallbackManagerUT.addCallback(testCallback1);
+        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
+        mCallbackManagerUT.removeCallback(testCallback1);
+        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
+
+        TestCallback testCallback2 = new TestCallback();
+        mCallbackManagerUT.addCallback(testCallback2);
+        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback2));
+        assertTrue(mCallbackManagerUT.isBinderReady());
+        when(mFeatureConnection.getFeatureState()).thenReturn(ImsFeature.STATE_UNAVAILABLE);
+        assertFalse(mCallbackManagerUT.isBinderReady());
+        mCallbackManagerUT.removeCallback(testCallback2);
+        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback2));
+    }
+
+    /**
+     * UnregisterCallback is failed After binder isn't alive.
+     */
+    @Test
+    @SmallTest
+    public void testCallbackAdapter_removeCallbackFailedAfterBinderIsNotAlive() throws Exception {
+        TestCallback testCallback1 = new TestCallback();
+        mCallbackManagerUT.addCallback(testCallback1);
+        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
+
+        when(mFeatureConnection.isBinderAlive()).thenReturn(false);
+        mCallbackManagerUT.removeCallback(testCallback1);
+        assertTrue(mCallbackManagerUT.doesCallbackExist(testCallback1));
+    }
+
+    /**
+     * RegisterCallback is failed After binder isn't ready.
+     */
+    @Test
+    @SmallTest
+    public void testCallbackAdapter_addCallbackFailedAfterBinderIsNotReady() throws Exception {
+        when(mFeatureConnection.isBinderAlive()).thenReturn(false);
+        assertFalse(mCallbackManagerUT.isBinderReady());
+        TestCallback testCallback1 = new TestCallback();
+        mCallbackManagerUT.addCallback(testCallback1);
+        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
+
+        when(mFeatureConnection.isBinderAlive()).thenReturn(true);
+        when(mFeatureConnection.getFeatureState()).thenReturn(ImsFeature.STATE_UNAVAILABLE);
+        assertFalse(mCallbackManagerUT.isBinderReady());
+        mCallbackManagerUT.addCallback(testCallback1);
+        assertFalse(mCallbackManagerUT.doesCallbackExist(testCallback1));
     }
 }

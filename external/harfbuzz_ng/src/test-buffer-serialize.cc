@@ -32,10 +32,8 @@
 #include "hb-ft.h"
 #endif
 
-#include <stdio.h>
-
 #ifdef HB_NO_OPEN
-#define hb_blob_create_from_file(x)  hb_blob_get_empty ()
+#define hb_blob_create_from_file_or_fail(x)  hb_blob_get_empty ()
 #endif
 
 int
@@ -50,7 +48,8 @@ main (int argc, char **argv)
     exit (1);
   }
 
-  hb_blob_t *blob = hb_blob_create_from_file (argv[1]);
+  hb_blob_t *blob = hb_blob_create_from_file_or_fail (argv[1]);
+  assert (blob);
   hb_face_t *face = hb_face_create (blob, 0 /* first face */);
   hb_blob_destroy (blob);
   blob = nullptr;
@@ -68,7 +67,7 @@ main (int argc, char **argv)
   buf = hb_buffer_create ();
 
   char line[BUFSIZ], out[BUFSIZ];
-  while (fgets (line, sizeof(line), stdin) != nullptr)
+  while (fgets (line, sizeof(line), stdin))
   {
     hb_buffer_clear_contents (buf);
 

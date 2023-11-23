@@ -27,6 +27,7 @@ import os
 import pickle
 import re
 import subprocess
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -37,21 +38,47 @@ import atest_utils
 import constants
 
 from metrics import metrics_utils
+from tools import atest_tools
 
 # Helps find apk files listed in a test config (AndroidTest.xml) file.
 # Matches "filename.apk" in <option name="foo", value="filename.apk" />
 # We want to make sure we don't grab apks with paths in their name since we
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
-# Group matches "class" of line "TEST_F(class, "
+
+# Macros that used in GTest. Detailed explanation can be found in
+# $ANDROID_BUILD_TOP/external/googletest/googletest/samples/sample*_unittest.cc
+# 1. Traditional Tests:
+#   TEST(class, method)
+#   TEST_F(class, method)
+# 2. Type Tests:
+#   TYPED_TEST_SUITE(class, types)
+#     TYPED_TEST(class, method)
+# 3. Value-parameterized Tests:
+#   TEST_P(class, method)
+#     INSTANTIATE_TEST_SUITE_P(Prefix, class, param_generator, name_generator)
+# 4. Type-parameterized Tests:
+#   TYPED_TEST_SUITE_P(class)
+#     TYPED_TEST_P(class, method)
+#       REGISTER_TYPED_TEST_SUITE_P(class, method)
+#         INSTANTIATE_TYPED_TEST_SUITE_P(Prefix, class, Types)
+# Macros with (class, method) pattern.
 _CC_CLASS_METHOD_RE = re.compile(
-    r'^\s*TEST(_F|_P)?\s*\(\s*(?P<class>\w+)\s*,\s*(?P<method>\w+)\s*\)', re.M)
-# Group matches parameterized "class" of line "INSTANTIATE_TEST_CASE_P( ,class "
-_PARA_CC_CLASS_RE = re.compile(
-    r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
-    r'\s*(?P<class>\w+)\s*\,', re.M)
+    r'^\s*(TYPED_TEST(?:|_P)|TEST(?:|_F|_P))\s*\(\s*'
+    r'(?P<class_name>\w+),\s*(?P<method_name>\w+)\)\s*\{', re.M)
+# Macros with (prefix, class, ...) pattern.
+# Note: Since v1.08, the INSTANTIATE_TEST_CASE_P was replaced with
+#   INSTANTIATE_TEST_SUITE_P. However, Atest does not intend to change the
+#   behavior of a test, so we still search *_CASE_* macros.
+_CC_PARAM_CLASS_RE = re.compile(
+    r'^\s*INSTANTIATE_(?:|TYPED_)TEST_(?:SUITE|CASE)_P\s*\(\s*'
+    r'(?P<instantiate>\w+),\s*(?P<class>\w+)\s*,', re.M)
+# Type/Type-parameterized Test macros:
+_TYPE_CC_CLASS_RE = re.compile(
+    r'^\s*TYPED_TEST_SUITE(?:|_P)\(\s*(?P<class_name>\w+)', re.M)
+
 # Group that matches java/kt method.
-_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
+_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<method>\w+)\('
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -64,7 +91,11 @@ _PARAMET_JAVA_CLASS_RE = re.compile(
     r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
     r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
     r').class\s*\)', re.I)
-_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
+# RE for Java/Kt parent classes:
+# Java:   class A extends B {...}
+# Kotlin: class A : B (...)
+_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+(?:extends|:)\s+'
+                            r'(?P<parent>[\w\.]+)\s*(?:\{|\()')
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -101,8 +132,8 @@ FIND_CMDS = {
     # is case-insensitive.
     FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} {1} -type f -print"
                                   r"| egrep -i '/*test.*\.(cc|cpp)$'"
-                                  r"| xargs -P" + str(_CPU_COUNT) +
-                                  r" egrep -sH '^[ ]*TEST(_F|_P)?[ ]*\({2}' "
+                                  r"| xargs -P" + str(_CPU_COUNT) + r" egrep -sH"
+                                  r" '{}' ".format(constants.CC_GREP_KWRE) +
                                   " || true"
 }
 
@@ -117,7 +148,6 @@ FIND_INDEXES = {
 
 # XML parsing related constants.
 _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
-_CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
 DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
@@ -128,7 +158,7 @@ DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
 DALVIK_HOST_RUNNER_JAR = 'cts-dalvik-host-test-runner'
 DALVIK_TEST_DEPS = {DALVIK_DEVICE_RUNNER_JAR,
                     DALVIK_HOST_RUNNER_JAR,
-                    _CTS_JAR}
+                    constants.CTS_JAR}
 # Setup script for device perf tests.
 _PERF_SETUP_LABEL = 'perf-setup.sh'
 _PERF_SETUP_TARGET = 'perf-setup'
@@ -228,10 +258,9 @@ def has_cc_class(test_path):
         Boolean: has cc class in test_path or not.
     """
     with open(test_path) as class_file:
-        for line in class_file:
-            match = _CC_CLASS_METHOD_RE.match(line)
-            if match:
-                return True
+        content = class_file.read()
+        if re.findall(_CC_CLASS_METHOD_RE, content):
+            return True
     return False
 
 
@@ -252,10 +281,10 @@ def get_package_name(file_name):
 
 
 def get_parent_cls_name(file_name):
-    """Parse the parent class name from a java file.
+    """Parse the parent class name from a java/kt file.
 
     Args:
-        file_name: A string of the absolute path to the java file.
+        file_name: A string of the absolute path to the javai/kt file.
 
     Returns:
         A string of the parent class name or None
@@ -266,7 +295,42 @@ def get_parent_cls_name(file_name):
             if match:
                 return match.group('parent')
 
-# pylint: disable=too-many-branches
+
+def get_java_parent_paths(test_path):
+    """Find out the paths of parent classes, including itself.
+
+    Args:
+        test_path: A string of absolute path to the test file.
+
+    Returns:
+        A set of test paths.
+    """
+    all_parent_test_paths = set([test_path])
+    parent = get_parent_cls_name(test_path)
+    if not parent:
+        return all_parent_test_paths
+    # Remove <Generics> if any.
+    parent_cls = re.sub(r'\<\w+\>', '', parent)
+    package = get_package_name(test_path)
+    # Use Fully Qualified Class Name for searching precisely.
+    # package org.gnome;
+    # public class Foo extends com.android.Boo -> com.android.Boo
+    # public class Foo extends Boo -> org.gnome.Boo
+    if '.' in parent_cls:
+        parent_fqcn = parent_cls
+    else:
+        parent_fqcn = package + '.' + parent_cls
+    parent_test_paths = run_find_cmd(
+        FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+        os.environ.get(constants.ANDROID_BUILD_TOP),
+        parent_fqcn)
+    # Recursively search parent classes until the class is not found.
+    if parent_test_paths:
+        for parent_test_path in parent_test_paths:
+            all_parent_test_paths |= get_java_parent_paths(parent_test_path)
+    return all_parent_test_paths
+
+
 def has_method_in_file(test_path, methods):
     """Find out if every method can be found in the file.
 
@@ -281,40 +345,36 @@ def has_method_in_file(test_path, methods):
     """
     if not os.path.isfile(test_path):
         return False
+    all_methods = set()
     if constants.JAVA_EXT_RE.match(test_path):
         # omit parameterized pattern: method[0]
         _methods = set(re.sub(r'\[\S+\]', '', x) for x in methods)
+        # Return True when every method is in the same Java file.
         if _methods.issubset(get_java_methods(test_path)):
             return True
-        parent = get_parent_cls_name(test_path)
-        package = get_package_name(test_path)
-        if parent and package:
-            # Remove <Generics> when needed.
-            parent_cls = re.sub(r'\<\w+\>', '', parent)
-            # Use Full Qualified Class Name for searching precisely.
-            # package org.gnome;
-            # public class Foo extends com.android.Boo -> com.android.Boo
-            # public class Foo extends Boo -> org.gnome.Boo
-            if '.' in parent_cls:
-                parent_fqcn = parent_cls
-            else:
-                parent_fqcn = package + '.' + parent_cls
-            try:
-                logging.debug('Searching methods in %s', parent_fqcn)
-                return has_method_in_file(
-                    run_find_cmd(FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
-                                os.environ.get(constants.ANDROID_BUILD_TOP),
-                                parent_fqcn,
-                                methods)[0], methods)
-            except TypeError:
-                logging.debug('Out of searching range: no test found.')
-                return False
-    if constants.CC_EXT_RE.match(test_path):
+        # Otherwise, search itself and all the parent classes respectively
+        # to get all test names.
+        parent_test_paths = get_java_parent_paths(test_path)
+        logging.debug('Will search methods %s in %s\n',
+                      _methods, parent_test_paths)
+        for path in parent_test_paths:
+            all_methods |= get_java_methods(path)
+        if _methods.issubset(all_methods):
+            return True
+        # If cannot find all methods, override the test_path for debugging.
+        test_path = parent_test_paths
+    elif constants.CC_EXT_RE.match(test_path):
         # omit parameterized pattern: method/argument
         _methods = set(re.sub(r'\/.*', '', x) for x in methods)
-        _, cc_methods, _ = get_cc_test_classes_methods(test_path)
-        if _methods.issubset(cc_methods):
+        class_info = get_cc_class_info(test_path)
+        for info in class_info.values():
+            all_methods |= info.get('methods')
+        if _methods.issubset(all_methods):
             return True
+    missing_methods = _methods - all_methods
+    logging.debug('Cannot find methods %s in %s',
+        atest_utils.colorize(','.join(missing_methods), constants.RED),
+        test_path)
     return False
 
 
@@ -476,10 +536,7 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         return None
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     start = time.time()
-    # Validate mlocate.db before using 'locate' or 'find'.
-    # TODO: b/187146540 record abnormal mlocate.db in Metrics.
-    is_valid_mlocate = atest_utils.check_md5(constants.LOCATE_CACHE_MD5)
-    if os.path.isfile(FIND_INDEXES[ref_type]) and is_valid_mlocate:
+    if os.path.isfile(FIND_INDEXES[ref_type]):
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
@@ -681,8 +738,8 @@ def get_targets_from_xml_root(xml_root, module_info):
         if target_to_add and module_info.is_module(target_to_add):
             targets.add(target_to_add)
         elif target_to_add:
-            logging.warning('Build target (%s) not present in module info, '
-                            'skipping build', target_to_add)
+            logging.debug('Build target (%s) not present in module info, '
+                          'skipping build', target_to_add)
 
     # TODO (b/70813166): Remove this lookup once all runtime dependencies
     # can be listed as a build dependencies or are in the base test harness.
@@ -690,9 +747,11 @@ def get_targets_from_xml_root(xml_root, module_info):
     for class_attr in nodes_with_class:
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
-            targets.add(_CTS_JAR)
+            targets.add(constants.CTS_JAR)
         if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
-            targets.update(DALVIK_TEST_DEPS)
+            for dalvik_dep in DALVIK_TEST_DEPS:
+                if module_info.is_module(dalvik_dep):
+                    targets.add(dalvik_dep)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
@@ -841,8 +900,8 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
             if module_info.is_module(value):
                 targets.add(value)
             else:
-                logging.warning('vts10 test module (%s) not present in module '
-                                'info, skipping build', value)
+                logging.debug('vts10 test module (%s) not present in module '
+                              'info, skipping build', value)
         elif name == _VTS_BINARY_SRC:
             targets.add(_get_vts_binary_src_target(value, rel_out_dir))
         elif name == _VTS_PUSH_GROUP:
@@ -898,17 +957,39 @@ def get_dir_path_and_filename(path):
     return dir_path, file_path
 
 
-def get_cc_filter(class_name, methods):
+def get_cc_filter(class_info, class_name, methods):
     """Get the cc filter.
 
     Args:
+        class_info: a dict of class info.
         class_name: class name of the cc test.
         methods: a list of method names.
 
     Returns:
         A formatted string for cc filter.
-        Ex: "class1.method1:class1.method2" or "class1.*"
+        For a Type/Typed-parameterized test, it will be:
+          "class1/*.method1:class1/*.method2" or "class1/*.*"
+        For a parameterized test, it will be:
+          "*/class1.*" or "prefix/class1.*"
+        For the rest the pattern will be:
+          "class1.method1:class1.method2" or "class1.*"
     """
+    #Strip prefix from class_name.
+    _class_name = class_name
+    if '/' in class_name:
+        _class_name = str(class_name).split('/')[-1]
+    type_str = get_cc_class_type(class_info, _class_name)
+    logging.debug('%s is a "%s".', _class_name, type_str)
+    # When found parameterized tests, recompose the class name
+    # in */$(ClassName) if the prefix is not given.
+    if type_str in (constants.GTEST_TYPED_PARAM, constants.GTEST_PARAM):
+        if not '/' in class_name:
+            class_name = '*/%s' % class_name
+    if type_str in (constants.GTEST_TYPED, constants.GTEST_TYPED_PARAM):
+        if methods:
+            sorted_methods = sorted(list(methods))
+            return ":".join(["%s/*.%s" % (class_name, x) for x in sorted_methods])
+        return "%s/*.*" % class_name
     if methods:
         sorted_methods = sorted(list(methods))
         return ":".join(["%s.%s" % (class_name, x) for x in sorted_methods])
@@ -959,12 +1040,12 @@ def get_int_dir_from_path(path, int_dirs):
             int_dir = abs_int_dir
             break
     if not file_name:
-        logging.warning('Found dir (%s) matching input (%s).'
-                        ' Referencing an entire Integration/Suite dir'
-                        ' is not supported. If you are trying to reference'
-                        ' a test by its path, please input the path to'
-                        ' the integration/suite config file itself.',
-                        int_dir, path)
+        logging.debug('Found dir (%s) matching input (%s).'
+                      ' Referencing an entire Integration/Suite dir'
+                      ' is not supported. If you are trying to reference'
+                      ' a test by its path, please input the path to'
+                      ' the integration/suite config file itself.',
+                      int_dir, path)
         return None
     return int_dir
 
@@ -1048,8 +1129,7 @@ def is_test_from_kernel_xml(xml_file, test_name):
         True if test_name in xml_file, False otherwise.
     """
     if not os.path.exists(xml_file):
-        raise atest_error.XmlNotExistError('%s: The xml file does'
-                                           'not exist' % xml_file)
+        return False
     xml_root = ET.parse(xml_file).getroot()
     option_tags = xml_root.findall('.//option')
     for option_tag in option_tags:
@@ -1085,68 +1165,134 @@ def get_java_methods(test_path):
     Returns:
         A set of methods.
     """
+    logging.debug('Probing %s:', test_path)
     with open(test_path) as class_file:
         content = class_file.read()
     matches = re.findall(_JAVA_METHODS_RE, content)
     if matches:
         methods = {match[1] for match in matches}
-        logging.debug('Available methods: %s', methods)
+        logging.debug('Available methods: %s\n', methods)
         return methods
     return set()
 
 
-def get_cc_test_classes_methods(test_path):
-    """Find out the cc test class of input test_path.
+def get_cc_class_info(test_path):
+    """Get the class info of the given cc input test_path.
+
+    The class info dict will be like:
+        {'classA': {
+            'methods': {'m1', 'm2'}, 'prefixes': {'pfx1'}, 'typed': True},
+         'classB': {
+            'methods': {'m3', 'm4'}, 'prefixes': set(), 'typed': False},
+         'classC': {
+            'methods': {'m5', 'm6'}, 'prefixes': set(), 'typed': True},
+         'classD': {
+            'methods': {'m7', 'm8'}, 'prefixes': {'pfx3'}, 'typed': False}}
+    According to the class info, we can tell that:
+        classA is a typed-parameterized test. (TYPED_TEST_SUITE_P)
+        classB is a regular gtest.            (TEST_F|TEST)
+        classC is a typed test.               (TYPED_TEST_SUITE)
+        classD is a value-parameterized test. (TEST_P)
 
     Args:
         test_path: A string of absolute path to the cc file.
 
     Returns:
-        A tuple of sets: classes, methods and para_classes.
+        A dict of class info.
     """
-    classes = set()
-    methods = set()
-    para_classes = set()
-    with open(test_path) as class_file:
+    # Strip comments prior to parsing class and method names if possible.
+    _test_path = tempfile.NamedTemporaryFile()
+    if atest_tools.has_command('gcc'):
+        strip_comment_cmd = 'gcc -fpreprocessed -dD -E {} > {}'
+        if subprocess.getoutput(
+            strip_comment_cmd.format(test_path, _test_path.name)):
+            logging.debug('Failed to strip comments in %s. Parsing class/method'
+                          'names may not be accurate.', test_path)
+    file_to_parse = test_path
+    # If failed to strip comments, it will be empty.
+    if os.stat(_test_path.name).st_size != 0:
+        file_to_parse = _test_path.name
+
+    with open(file_to_parse) as class_file:
+        logging.debug('Parsing: %s', test_path)
         content = class_file.read()
-        # Search matched CC CLASS/METHOD
-        matches = re.findall(_CC_CLASS_METHOD_RE, content)
-        logging.debug('Found cc classes: %s', matches)
-        for match in matches:
-            # The elements of `matches` will be "Group 1"(_F),
-            # "Group class"(MyClass1) and "Group method"(MyMethod1)
-            classes.update([match[1]])
-            methods.update([match[2]])
-        # Search matched parameterized CC CLASS.
-        matches = re.findall(_PARA_CC_CLASS_RE, content)
-        logging.debug('Found parameterized classes: %s', matches)
-        for match in matches:
-            # The elements of `matches` will be "Group 1"(_F),
-            # "Group instantiate class"(MyInstantClass1)
-            # and "Group class"(MyClass1)
-            para_classes.update([match[2]])
-    return classes, methods, para_classes
+        # ('TYPED_TEST', 'PrimeTableTest', 'ReturnsTrueForPrimes')
+        method_matches = re.findall(_CC_CLASS_METHOD_RE, content)
+        # ('OnTheFlyAndPreCalculated', 'PrimeTableTest2')
+        prefix_matches = re.findall(_CC_PARAM_CLASS_RE, content)
+        # 'PrimeTableTest'
+        typed_matches = re.findall(_TYPE_CC_CLASS_RE, content)
+
+    classes = {cls[1] for cls in method_matches}
+    class_info = {}
+    for cls in classes:
+        class_info.setdefault(cls, {'methods': set(),
+                                    'prefixes': set(),
+                                    'typed': False})
+    logging.debug('Probing TestCase.TestName pattern:')
+    for match in method_matches:
+        logging.debug('  Found %s.%s', match[1], match[2])
+        class_info[match[1]]['methods'].add(match[2])
+    # Parameterized test.
+    logging.debug('Probing InstantiationName/TestCase pattern:')
+    for match in prefix_matches:
+        logging.debug('  Found %s/%s', match[0], match[1])
+        class_info[match[1]]['prefixes'].add(match[0])
+    # Typed test
+    logging.debug('Probing typed test names:')
+    for match in typed_matches:
+        logging.debug('  Found %s', match)
+        class_info[match]['typed'] = True
+    return class_info
+
+def get_cc_class_type(class_info, classname):
+    """Tell the type of the given class.
+
+    Args:
+        class_info: A dict of class info.
+        classname: A string of class name.
+
+    Returns:
+        String of the gtest type to prompt. The output will be one of:
+        1. 'regular test'             (GTEST_REGULAR)
+        2. 'typed test'               (GTEST_TYPED)
+        3. 'value-parameterized test' (GTEST_PARAM)
+        4. 'typed-parameterized test' (GTEST_TYPED_PARAM)
+    """
+    if class_info.get(classname).get('prefixes'):
+        if class_info.get(classname).get('typed'):
+            return constants.GTEST_TYPED_PARAM
+        return constants.GTEST_PARAM
+    if class_info.get(classname).get('typed'):
+        return constants.GTEST_TYPED
+    return constants.GTEST_REGULAR
 
 def find_host_unit_tests(module_info, path):
     """Find host unit tests for the input path.
 
     Args:
         module_info: ModuleInfo obj.
-        path: A string of the relative path from $BUILD_TOP we want to search.
+        path: A string of the relative path from $ANDROID_BUILD_TOP that we want
+              to search.
 
     Returns:
-        A list that includes the module name of unit tests, otherwise an empty
+        A list that includes the module name of host unit tests, otherwise an empty
         list.
     """
-    logging.debug('finding unit tests under %s', path)
-    found_unit_tests = []
-    unit_test_names = module_info.get_all_unit_tests()
-    logging.debug('All the unit tests: %s', unit_test_names)
-    for unit_test_name in unit_test_names:
-        for test_path in module_info.get_paths(unit_test_name):
+    logging.debug('finding host unit tests under %s', path)
+    host_unit_test_names = module_info.get_all_host_unit_tests()
+    logging.debug('All the host unit tests: %s', host_unit_test_names)
+
+    # Return all tests if the path relative to ${ANDROID_BUILD_TOP} is '.'.
+    if path == '.':
+        return host_unit_test_names
+
+    tests = []
+    for name in host_unit_test_names:
+        for test_path in module_info.get_paths(name):
             if test_path.find(path) == 0:
-                found_unit_tests.append(unit_test_name)
-    return found_unit_tests
+                tests.append(name)
+    return tests
 
 def get_annotated_methods(annotation, file_path):
     """Find all the methods annotated by the input annotation in the file_path.
@@ -1218,3 +1364,31 @@ def get_test_config_and_srcs(test_info, module_info):
                 if config_name == test_name and os.path.isfile(config_path):
                     return config_path, info.get(constants.MODULE_SRCS, [])
     return None, None
+
+
+def need_aggregate_metrics_result(test_xml):
+    """Check if input test config need aggregate metrics.
+
+    If the input test define metrics_collector, which means there's a need for
+    atest to have the aggregate metrcis result.
+
+    Args:
+        test_xml: A string of the path for the test xml.
+
+    Returns:
+        True if input test need to enable aggregate metrics result.
+    """
+    if os.path.isfile(test_xml):
+        xml_root = ET.parse(test_xml).getroot()
+        if xml_root.findall('.//metrics_collector'):
+            return True
+        # Check if include other config
+        include_configs = xml_root.findall('.//include')
+        for include_config in include_configs:
+            name = include_config.attrib[_XML_NAME].strip()
+            # Get the absolute path for the include config.
+            include_path = os.path.join(
+                str(test_xml).split(str(name).split('/')[0])[0], name)
+            if need_aggregate_metrics_result(include_path):
+                return True
+    return False

@@ -37,12 +37,18 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "futures-task_defaults",
+rust_test {
+    name: "futures-task_test_src_lib",
+    host_supported: true,
     crate_name: "futures_task",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.21",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2018",
     features: [
         "alloc",
@@ -51,23 +57,12 @@ rust_defaults {
     ],
 }
 
-rust_test_host {
-    name: "futures-task_host_test_src_lib",
-    defaults: ["futures-task_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "futures-task_device_test_src_lib",
-    defaults: ["futures-task_defaults"],
-}
-
 rust_library {
     name: "libfutures_task",
     host_supported: true,
     crate_name: "futures_task",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.21",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -77,6 +72,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.resolv",
         "com.android.virt",
     ],
+    min_sdk_version: "29",
 }

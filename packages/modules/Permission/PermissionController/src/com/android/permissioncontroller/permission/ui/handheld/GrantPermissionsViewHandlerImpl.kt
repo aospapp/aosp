@@ -27,6 +27,7 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Typeface
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
@@ -36,6 +37,7 @@ import android.text.method.LinkMovementMethod
 import android.transition.ChangeBounds
 import android.transition.TransitionManager
 import android.util.SparseIntArray
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.View.OnClickListener
@@ -45,9 +47,11 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.R
 import com.android.permissioncontroller.permission.ui.GrantPermissionsActivity.ALLOW_ALWAYS_BUTTON
 import com.android.permissioncontroller.permission.ui.GrantPermissionsActivity.ALLOW_BUTTON
@@ -192,12 +196,23 @@ class GrantPermissionsViewHandlerImpl(
     override fun createView(): View {
         // Make this activity be Non-IME target to prevent hiding keyboard flicker when it show up.
         mActivity.window.addFlags(LayoutParams.FLAG_ALT_FOCUSABLE_IM)
-        val rootView = LayoutInflater.from(mActivity)
-            .inflate(R.layout.grant_permissions, null) as ViewGroup
+
+        val useMaterial3PermissionGrantDialog = mActivity.resources
+                .getBoolean(R.bool.config_useMaterial3PermissionGrantDialog)
+        val rootView = if (useMaterial3PermissionGrantDialog || SdkLevel.isAtLeastT()) {
+            LayoutInflater.from(mActivity)
+                    .inflate(R.layout.grant_permissions_material3, null) as ViewGroup
+        } else {
+            LayoutInflater.from(mActivity)
+                    .inflate(R.layout.grant_permissions, null) as ViewGroup
+        }
         this.rootView = rootView
 
-        val h = mActivity.resources.displayMetrics.heightPixels
-        rootView.minimumHeight = h
+        // Uses the vertical gravity of the PermissionGrantSingleton style to position the window
+        val gravity = rootView.requireViewById<LinearLayout>(R.id.grant_singleton).gravity
+        val verticalGravity = Gravity.VERTICAL_GRAVITY_MASK and gravity
+        mActivity.window.setGravity(Gravity.CENTER_HORIZONTAL or verticalGravity)
+
         // Cancel dialog
         rootView.findViewById<View>(R.id.grant_singleton)!!.setOnClickListener(this)
         // Swallow click event
@@ -326,17 +341,25 @@ class GrantPermissionsViewHandlerImpl(
             } else {
                 View.GONE
             }
-            if (pos == ALLOW_FOREGROUND_BUTTON && buttonVisibilities[pos] &&
-                    locationVisibilities[LOCATION_ACCURACY_LAYOUT] &&
-                    locationVisibilities[DIALOG_WITH_FINE_LOCATION_ONLY]) {
-                buttons[pos]?.text = mActivity.resources.getString(
-                        R.string.grant_dialog_button_change_to_precise_location)
+            if (pos == ALLOW_FOREGROUND_BUTTON && buttonVisibilities[pos]) {
+                if (locationVisibilities[LOCATION_ACCURACY_LAYOUT] &&
+                        locationVisibilities[DIALOG_WITH_FINE_LOCATION_ONLY]) {
+                    buttons[pos]?.text = mActivity.resources.getString(
+                            R.string.grant_dialog_button_change_to_precise_location)
+                } else {
+                    buttons[pos]?.text = mActivity.resources.getString(
+                            R.string.grant_dialog_button_allow_foreground)
+                }
             }
-            if ((pos == DENY_BUTTON || pos == DENY_AND_DONT_ASK_AGAIN_BUTTON) &&
-                    locationVisibilities[LOCATION_ACCURACY_LAYOUT] &&
-                    locationVisibilities[DIALOG_WITH_FINE_LOCATION_ONLY]) {
-                buttons[pos]?.text = mActivity.resources.getString(
-                        R.string.grant_dialog_button_keey_approximate_location)
+            if ((pos == DENY_BUTTON || pos == DENY_AND_DONT_ASK_AGAIN_BUTTON)) {
+                if (locationVisibilities[LOCATION_ACCURACY_LAYOUT] &&
+                        locationVisibilities[DIALOG_WITH_FINE_LOCATION_ONLY]) {
+                    buttons[pos]?.text = mActivity.resources.getString(
+                            R.string.grant_dialog_button_keey_approximate_location)
+                } else {
+                    buttons[pos]?.text = mActivity.resources.getString(
+                            R.string.grant_dialog_button_deny)
+                }
             }
             buttons[pos]?.requestLayout()
         }
@@ -398,6 +421,8 @@ class GrantPermissionsViewHandlerImpl(
                     null, null)
             coarseOffDrawable?.start()
             fineOnDrawable?.start()
+            fineRadioButton?.setTypeface(null, Typeface.BOLD)
+            coarseRadioButton?.setTypeface(null, Typeface.NORMAL)
         } else {
             coarseOffDrawable?.stop()
             fineOnDrawable?.stop()
@@ -407,6 +432,8 @@ class GrantPermissionsViewHandlerImpl(
                     null, null)
             coarseOnDrawable?.start()
             fineOffDrawable?.start()
+            coarseRadioButton?.setTypeface(null, Typeface.BOLD)
+            fineRadioButton?.setTypeface(null, Typeface.NORMAL)
         }
     }
 

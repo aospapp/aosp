@@ -14,6 +14,7 @@
 
 #include "abg-internal.h"
 #include <memory>
+#include <limits>
 
 // <headers defining libabigail's API go under here>
 ABG_BEGIN_EXPORT_DECLARATIONS
@@ -773,67 +774,91 @@ type_suppression::suppresses_diff(const diff* diff) const
       d = is_type_diff(get_typedef_diff_underlying_type_diff(d));
     }
 
+  // Now let's consider class diffs in the context of a suppr spec
+  // that contains properties like "has_data_member_inserted_*".
+
   const class_diff* klass_diff = dynamic_cast<const class_diff*>(d);
-  if (// We are looking at a class diff ...
-      klass_diff
-      // ... that has inserted data members ...
-      && !get_data_member_insertion_ranges().empty()
-      // ... that has no deleted data members ...
-      && klass_diff->deleted_data_members().empty()
-      // ... and in which the class size hasn't shrunk (because, e.g,
-      // the base classes have changed).
-      && (klass_diff->first_class_decl()->get_size_in_bits()
-	  <= klass_diff->second_class_decl()->get_size_in_bits()))
+  if (klass_diff)
     {
-      const class_decl_sptr& first_type_decl = klass_diff->first_class_decl();
-      const class_decl_sptr& second_type_decl = klass_diff->second_class_decl();
-      size_t first_type_size = first_type_decl->get_size_in_bits();
-      size_t second_type_size = second_type_decl->get_size_in_bits();
-
-      for (string_decl_base_sptr_map::const_iterator m =
-	     klass_diff->inserted_data_members().begin();
-	   m != klass_diff->inserted_data_members().end();
-	   ++m)
+      // We are looking at a class diff ...
+      if (!get_data_member_insertion_ranges().empty())
 	{
-	  decl_base_sptr member = m->second;
-	  size_t dm_offset = get_data_member_offset(member);
-	  bool matched = false;
-
-	  for (insertion_ranges::const_iterator i =
-		 get_data_member_insertion_ranges().begin();
-	       i != get_data_member_insertion_ranges().end();
-	       ++i)
+	  // ... and the suppr spec contains a
+	  // "has_data_member_inserted_*" clause ...
+	  if (klass_diff->deleted_data_members().empty()
+	      && (klass_diff->first_class_decl()->get_size_in_bits()
+		  <= klass_diff->second_class_decl()->get_size_in_bits()))
 	    {
-	      type_suppression::insertion_range_sptr range = *i;
-	      ssize_t range_begin_val = 0,range_end_val = 0;
-	      if (!type_suppression::insertion_range::eval_boundary
-		  (range->begin(), first_type_decl, range_begin_val))
-		break;
-	      if (!type_suppression::insertion_range::eval_boundary
-		  (range->end(), first_type_decl, range_end_val))
-		break;
+	      // That "has_data_member_inserted_*" clause doesn't hold
+	      // if the class has deleted data members or shrunk.
 
-	      unsigned range_begin =
-		(range_begin_val < 0) ? first_type_size : range_begin_val;
+	      const class_decl_sptr& first_type_decl =
+		klass_diff->first_class_decl();
 
-	      unsigned range_end =
-		(range_end_val < 0) ? second_type_size : range_end_val;
-
-	      if (range_begin > range_end)
-		continue;
-
-	      if (range_begin_val < 0 || range_end_val < 0)
+	      for (string_decl_base_sptr_map::const_iterator m =
+		     klass_diff->inserted_data_members().begin();
+		   m != klass_diff->inserted_data_members().end();
+		   ++m)
 		{
-		  if (dm_offset < range_begin)
-		    continue;
-		}
-	      else
-		if (dm_offset < range_begin || dm_offset > range_end)
-		  continue;
+		  decl_base_sptr member = m->second;
+		  size_t dm_offset = get_data_member_offset(member);
+		  bool matched = false;
 
-	      matched = true;
+		  for (insertion_ranges::const_iterator i =
+			 get_data_member_insertion_ranges().begin();
+		       i != get_data_member_insertion_ranges().end();
+		       ++i)
+		    {
+		      type_suppression::insertion_range_sptr range = *i;
+		      uint64_t range_begin_val = 0, range_end_val = 0;
+		      if (!type_suppression::insertion_range::eval_boundary
+			  (range->begin(), first_type_decl, range_begin_val))
+			break;
+		      if (!type_suppression::insertion_range::eval_boundary
+			  (range->end(), first_type_decl, range_end_val))
+			break;
+
+		      uint64_t range_begin = range_begin_val;
+		      uint64_t range_end = range_end_val;
+
+		      if (insertion_range::boundary_value_is_end(range_begin)
+			  && insertion_range::boundary_value_is_end(range_end))
+			{
+			  // This idiom represents the predicate
+			  // "has_data_member_inserted_at = end"
+			  if (dm_offset >
+			      get_data_member_offset(get_last_data_member
+						     (first_type_decl)))
+			    {
+			      // So the data member was added after
+			      // last data member of the klass.  That
+			      // matches the suppr spec
+			      // "has_data_member_inserted_at = end".
+			      matched = true;
+			      continue;
+			    }
+			}
+
+			if (range_begin > range_end)
+			  // Wrong suppr spec.  Ignore it.
+			  continue;
+
+		      if (dm_offset < range_begin || dm_offset > range_end)
+			// The offset of the added data member doesn't
+			// match the insertion range specified.  So
+			// the diff object won't be suppressed.
+			continue;
+
+		      // If we reached this point, then all the
+		      // insertion range constraints have been
+		      // satisfied.  So
+		      matched = true;
+		    }
+		  if (!matched)
+		    return false;
+		}
 	    }
-	  if (!matched)
+	  else
 	    return false;
 	}
     }
@@ -1311,7 +1336,7 @@ type_suppression::insertion_range::create_fn_call_expr_boundary(const string& s)
 bool
 type_suppression::insertion_range::eval_boundary(boundary_sptr	 boundary,
 						 class_decl_sptr context,
-						 ssize_t&	 value)
+						 uint64_t&	 value)
 {
   if (integer_boundary_sptr b = is_integer_boundary(boundary))
     {
@@ -1338,8 +1363,13 @@ type_suppression::insertion_range::eval_boundary(boundary_sptr	 boundary,
 		  if (fn_call->get_name() == "offset_of")
 		    value = get_data_member_offset(*it);
 		  else if (fn_call->get_name() == "offset_after")
-		    value = get_data_member_offset(*it) +
-		      (*it)->get_type()->get_size_in_bits();
+		    {
+		      if (!get_next_data_member_offset(context, *it, value))
+			{
+			  value = get_data_member_offset(*it) +
+			    (*it)->get_type()->get_size_in_bits();
+			}
+		    }
 		  else
 		    // We should not reach this point.
 		    abort();
@@ -1349,6 +1379,19 @@ type_suppression::insertion_range::eval_boundary(boundary_sptr	 boundary,
 	}
     }
   return false;
+}
+
+/// Test if a given value supposed to be inside an insertion range
+/// represents the end of the range.
+///
+/// @param value the value to test for.
+///
+/// @return true iff @p value represents the end of the insertion
+/// range.
+bool
+type_suppression::insertion_range::boundary_value_is_end(uint64_t value)
+{
+  return value == std::numeric_limits<uint64_t>::max();
 }
 
 /// Tests if a given instance of @ref
@@ -1398,13 +1441,13 @@ type_suppression::insertion_range::boundary::~boundary()
 /// type_suppression::insertion_range::integer_boundary.
 struct type_suppression::insertion_range::integer_boundary::priv
 {
-  int value_;
+  uint64_t value_;
 
   priv()
     : value_()
   {}
 
-  priv(int value)
+  priv(uint64_t value)
     : value_(value)
   {}
 }; // end type_suppression::insertion_range::integer_boundary::priv
@@ -1413,22 +1456,22 @@ struct type_suppression::insertion_range::integer_boundary::priv
 /// type_suppression::insertion_range::integer_boundary.
 ///
 /// @param value the integer value of the newly created integer boundary.
-type_suppression::insertion_range::integer_boundary::integer_boundary(int value)
+type_suppression::insertion_range::integer_boundary::integer_boundary(uint64_t value)
   : priv_(new priv(value))
 {}
 
-/// Return the integer value of the current inace of @ref
+/// Return the integer value of the current instance of @ref
 /// type_suppression::insertion_range::integer_boundary.
 ///
 /// @return the integer value of the current boundary.
-int
+uint64_t
 type_suppression::insertion_range::integer_boundary::as_integer() const
 {return priv_->value_;}
 
 /// Converts the current boundary into an integer value.
 ///
 /// @return the integer value of the current boundary.
-type_suppression::insertion_range::integer_boundary::operator int() const
+type_suppression::insertion_range::integer_boundary::operator uint64_t() const
 {return as_integer();}
 
 /// Destructor of @ref type_suppression::insertion_range::integer_boundary.

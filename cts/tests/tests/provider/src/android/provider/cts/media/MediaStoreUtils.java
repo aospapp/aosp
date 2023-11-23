@@ -27,15 +27,15 @@ import android.provider.MediaStore.Downloads;
 import android.provider.MediaStore.MediaColumns;
 import android.text.format.DateUtils;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.test.filters.SdkSuppress;
+
 import org.junit.Test;
 
 import java.io.FileNotFoundException;
 import java.io.OutputStream;
 import java.util.Objects;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.test.filters.SdkSuppress;
 
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 public class MediaStoreUtils {
@@ -116,6 +116,10 @@ public class MediaStoreUtils {
             } else {
                 this.insertValues.put(MediaColumns.RELATIVE_PATH, path);
             }
+        }
+
+        public void setIsFavorite(@Nullable Boolean isFavorite) {
+            this.insertValues.put(MediaColumns.IS_FAVORITE, isFavorite);
         }
 
         /**

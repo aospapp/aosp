@@ -16,6 +16,9 @@
 
 package com.android.queryable.queries;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
 import com.android.queryable.info.BroadcastReceiverInfo;
 
@@ -23,7 +26,7 @@ import com.android.queryable.info.BroadcastReceiverInfo;
 public final class BroadcastReceiverQueryHelper<E extends Queryable>
         implements BroadcastReceiverQuery<E> {
 
-    private final E mQuery;
+    private final transient E mQuery;
     private final ClassQueryHelper<E> mReceiverClassQueryHelper;
 
     BroadcastReceiverQueryHelper() {
@@ -34,6 +37,12 @@ public final class BroadcastReceiverQueryHelper<E extends Queryable>
     public BroadcastReceiverQueryHelper(E query) {
         mQuery = query;
         mReceiverClassQueryHelper = new ClassQueryHelper<>(query);
+    }
+
+    private BroadcastReceiverQueryHelper(Parcel in) {
+        mQuery = null;
+        mReceiverClassQueryHelper = in.readParcelable(
+                BroadcastReceiverQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -53,4 +62,25 @@ public final class BroadcastReceiverQueryHelper<E extends Queryable>
                 mReceiverClassQueryHelper.describeQuery(fieldName + ".receiverClass")
         );
     }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mReceiverClassQueryHelper, flags);
+    }
+
+    public static final Parcelable.Creator<BroadcastReceiverQueryHelper> CREATOR =
+            new Parcelable.Creator<BroadcastReceiverQueryHelper>() {
+                public BroadcastReceiverQueryHelper createFromParcel(Parcel in) {
+                    return new BroadcastReceiverQueryHelper(in);
+                }
+
+                public BroadcastReceiverQueryHelper[] newArray(int size) {
+                    return new BroadcastReceiverQueryHelper[size];
+                }
+    };
 }

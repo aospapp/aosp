@@ -153,10 +153,10 @@ int AHardwareBuffer_sendHandleToUnixSocket(const AHardwareBuffer* buffer, int so
     iov[0].iov_len = flattenedSize;
     char buf[CMSG_SPACE(kFdBufferSize)];
     struct msghdr msg = {
-            .msg_control = buf,
-            .msg_controllen = sizeof(buf),
-            .msg_iov = &iov[0],
-            .msg_iovlen = 1,
+        .msg_iov = &iov[0],
+        .msg_iovlen = 1,
+        .msg_control = buf,
+        .msg_controllen = sizeof(buf),
     };
     struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
     cmsg->cmsg_level = SOL_SOCKET;
@@ -186,10 +186,10 @@ int AHardwareBuffer_recvHandleFromUnixSocket(int socketFd, AHardwareBuffer** out
     iov[0].iov_base = dataBuf.get();
     iov[0].iov_len = kMessageBufferSize;
     struct msghdr msg = {
-            .msg_control = fdBuf,
-            .msg_controllen = sizeof(fdBuf),
-            .msg_iov = &iov[0],
-            .msg_iovlen = 1,
+        .msg_iov = &iov[0],
+        .msg_iovlen = 1,
+        .msg_control = fdBuf,
+        .msg_controllen = sizeof(fdBuf),
     };
     int result;
     do {

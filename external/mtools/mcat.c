@@ -23,15 +23,12 @@
 #include "msdos.h"
 #include "mtools.h"
 #include "mainloop.h"
-#include "fsP.h"
-#include "xdf_io.h"
-#include "floppyd_io.h"
-#include "plain_io.h"
+#include "open_image.h"
 
 static void usage(void) NORETURN;
-static void usage(void) 
+static void usage(void)
 {
-	fprintf(stderr, "Mtools version %s, dated %s\n", 
+	fprintf(stderr, "Mtools version %s, dated %s\n",
 		mversion, mdate);
 	fprintf(stderr, "Usage: mcat [-V] [-w] device\n");
 	fprintf(stderr, "       -w write on device else read\n");
@@ -44,12 +41,12 @@ static void usage(void)
 #define BUF_SIZE 16000u
 #endif
 
-static size_t bufLen(size_t blocksize, mt_size_t totalSize, mt_off_t address)
+static size_t bufLen(size_t blocksize, mt_off_t totalSize, mt_off_t address)
 {
 	if(totalSize == 0)
 		return blocksize;
-	if(address + blocksize > totalSize)
-		return totalSize - address;
+	if((mt_off_t) blocksize > totalSize - address)
+		return (size_t) (totalSize - address);
 	return blocksize;
 }
 
@@ -64,10 +61,10 @@ void mcat(int argc, char **argv, int type UNUSEDP)
 	char buf[BUF_SIZE];
 
 	mt_off_t address = 0;
+	mt_off_t maxSize = 0;
 
 	char mode = O_RDONLY;
-	int optindex = 1;
-	size_t len;
+	int c;
 
 	noPrivileges = 1;
 
@@ -75,27 +72,31 @@ void mcat(int argc, char **argv, int type UNUSEDP)
 		usage();
 	}
 
-	if (argv[1][0] == '-') {
-		if (argv[1][1] != 'w') {
+	while ((c = getopt(argc,argv, "wi:"))!= EOF) {
+		switch (c) {
+		case 'w':
+			mode = O_WRONLY;
+			break;
+		case 'i':
+			set_cmd_line_image(optarg);
+			break;
+		default:
 			usage();
 		}
-		mode = O_WRONLY;
-		optindex++;
 	}
 
-	if (argc - optindex < 1)
+	if (argc - optind > 1)
 		usage();
-
-
-	if (!argv[optindex][0] || argv[optindex][1] != ':' 
-	    || argv[optindex][2]) {
-		usage();
+	if(argc - optind == 1) {
+		if(!argv[optind][0] || argv[optind][1] != ':')
+			usage();
+		drive = ch_toupper(argv[argc -1][0]);
+	} else {
+		drive = get_default_drive();
 	}
 
-        drive = ch_toupper(argv[optindex][0]);
-
-        /* check out a drive whose letter and parameters match */       
-        sprintf(errmsg, "Drive '%c:' not supported", drive);    
+        /* check out a drive whose letter and parameters match */
+        sprintf(errmsg, "Drive '%c:' not supported", drive);
         Stream = NULL;
         for (dev=devices; dev->name; dev++) {
                 FREE(&Stream);
@@ -107,58 +108,47 @@ void mcat(int argc, char **argv, int type UNUSEDP)
                 strcpy(name, getVoldName(dev, name));
 #endif
 
-                Stream = 0;
-#ifdef USE_XDF
-                Stream = XdfOpen(&out_dev, name, mode, errmsg, 0);
-				if(Stream)
-                        out_dev.use_2m = 0x7f;
-
-#endif
-
-#ifdef USE_FLOPPYD
-                if(!Stream)
-                        Stream = FloppydOpen(&out_dev, name, 
-					     mode, errmsg, NULL);
-#endif
-
-
-                if (!Stream)
-                        Stream = SimpleFileOpen(&out_dev, dev, name, mode,
-						errmsg, 0, 1, 0);
-
+		Stream = OpenImage(&out_dev, dev, name, mode,
+				   errmsg, ALWAYS_GET_GEOMETRY, mode, &maxSize,
+				   NULL, NULL);
                 if( !Stream)
                         continue;
                 break;
         }
 
-        /* print error msg if needed */ 
-        if ( dev->drive == 0 ){
-                FREE(&Stream);
-                fprintf(stderr,"%s\n",errmsg);
-                exit(1);
-        }
-
+        /* print error msg if needed */
+        if ( dev->drive == 0 )
+		goto exit_1;
 
 	if (mode == O_WRONLY) {
-		mt_size_t size=0;
-		size = out_dev.sectors * out_dev.heads * out_dev.tracks;
-		size *= 512;
+		size_t len;
+		mt_off_t size=0;
+		if(chs_to_totsectors(&out_dev, errmsg) < 0 ||
+		   check_if_sectors_fit(out_dev.tot_sectors,
+					maxSize, 512, errmsg))
+			goto exit_1;
+		size = 512 * (mt_off_t) out_dev.tot_sectors;
 		while ((len = fread(buf, 1,
 				    bufLen(BUF_SIZE, size, address),
-				    stdin)) > 0) {			
-			int r = WRITES(Stream, buf, address, len);
+				    stdin)) > 0) {
+			ssize_t r = PWRITES(Stream, buf, address, len);
 			fprintf(stderr, "Wrote to %d\n", (int) address);
 			if(r < 0)
 				break;
 			address += len;
 		}
 	} else {
-		while ((len = READS(Stream, buf, address, BUF_SIZE)) > 0) {
-			fwrite(buf, 1, len, stdout);
-			address += len;
+		ssize_t len;
+		while ((len = PREADS(Stream, buf, address, BUF_SIZE)) > 0) {
+			fwrite(buf, 1, (size_t) len, stdout);
+			address += (size_t) len;
 		}
 	}
 
 	FREE(&Stream);
 	exit(0);
+exit_1:
+	FREE(&Stream);
+	fprintf(stderr,"%s\n",errmsg);
+	exit(1);
 }

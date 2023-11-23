@@ -196,7 +196,7 @@ public class DialTest {
         mDialerHelper.get().callContact(DIAL_CONTACT_BY_NAME);
         assertTrue(
                 "Contact detail is not the same",
-                mDialerHelper.get().getContactType().contains(CONTACT_TYPE));
+                mDialerHelper.get().getContactType().equalsIgnoreCase(CONTACT_TYPE));
         mDialerHelper.get().endCall();
     }
 

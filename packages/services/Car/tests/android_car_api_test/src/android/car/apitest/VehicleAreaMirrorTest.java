@@ -28,10 +28,10 @@ public class VehicleAreaMirrorTest {
     @Test
     public void testMatchWithVehicleHal() {
         assertThat(VehicleAreaMirror.MIRROR_DRIVER_CENTER).isEqualTo(
-                android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_CENTER);
+                android.hardware.automotive.vehicle.VehicleAreaMirror.DRIVER_CENTER);
         assertThat(VehicleAreaMirror.MIRROR_DRIVER_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaMirror.DRIVER_LEFT);
         assertThat(VehicleAreaMirror.MIRROR_DRIVER_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaMirror.DRIVER_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaMirror.DRIVER_RIGHT);
     }
 }

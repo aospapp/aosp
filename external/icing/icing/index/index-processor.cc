@@ -43,14 +43,13 @@ namespace lib {
 
 libtextclassifier3::StatusOr<std::unique_ptr<IndexProcessor>>
 IndexProcessor::Create(const Normalizer* normalizer, Index* index,
-                       const IndexProcessor::Options& options,
                        const Clock* clock) {
   ICING_RETURN_ERROR_IF_NULL(normalizer);
   ICING_RETURN_ERROR_IF_NULL(index);
   ICING_RETURN_ERROR_IF_NULL(clock);
 
   return std::unique_ptr<IndexProcessor>(
-      new IndexProcessor(normalizer, index, options, clock));
+      new IndexProcessor(normalizer, index, clock));
 }
 
 libtextclassifier3::Status IndexProcessor::IndexDocument(
@@ -66,53 +65,48 @@ libtextclassifier3::Status IndexProcessor::IndexDocument(
   }
   index_->set_last_added_document_id(document_id);
   uint32_t num_tokens = 0;
-  libtextclassifier3::Status overall_status;
+  libtextclassifier3::Status status;
   for (const TokenizedSection& section : tokenized_document.sections()) {
     // TODO(b/152934343): pass real namespace ids in
     Index::Editor editor =
         index_->Edit(document_id, section.metadata.id,
                      section.metadata.term_match_type, /*namespace_id=*/0);
     for (std::string_view token : section.token_sequence) {
-      if (++num_tokens > options_.max_tokens_per_document) {
-        // Index all tokens buffered so far.
-        editor.IndexAllBufferedTerms();
-        if (put_document_stats != nullptr) {
-          put_document_stats->mutable_tokenization_stats()
-              ->set_exceeded_max_token_num(true);
-          put_document_stats->mutable_tokenization_stats()
-              ->set_num_tokens_indexed(options_.max_tokens_per_document);
-        }
-        switch (options_.token_limit_behavior) {
-          case Options::TokenLimitBehavior::kReturnError:
-            return absl_ports::ResourceExhaustedError(
-                "Max number of tokens reached!");
-          case Options::TokenLimitBehavior::kSuppressError:
-            return overall_status;
-        }
+      ++num_tokens;
+
+      switch (section.metadata.tokenizer) {
+        case StringIndexingConfig::TokenizerType::VERBATIM:
+          // data() is safe to use here because a token created from the
+          // VERBATIM tokenizer is the entire string value. The character at
+          // data() + token.length() is guaranteed to be a null char.
+          status = editor.BufferTerm(token.data());
+          break;
+        case StringIndexingConfig::TokenizerType::NONE:
+          ICING_LOG(WARNING)
+              << "Unexpected TokenizerType::NONE found when indexing document.";
+          [[fallthrough]];
+        case StringIndexingConfig::TokenizerType::PLAIN:
+          std::string normalized_term = normalizer_.NormalizeTerm(token);
+          status = editor.BufferTerm(normalized_term.c_str());
       }
-      std::string term = normalizer_.NormalizeTerm(token);
-      // Add this term to Hit buffer. Even if adding this hit fails, we keep
-      // trying to add more hits because it's possible that future hits could
-      // still be added successfully. For instance if the lexicon is full, we
-      // might fail to add a hit for a new term, but should still be able to
-      // add hits for terms that are already in the index.
-      auto status = editor.BufferTerm(term.c_str());
-      if (overall_status.ok() && !status.ok()) {
-        // If we've succeeded to add everything so far, set overall_status to
-        // represent this new failure. If we've already failed, no need to
-        // update the status - we're already going to return a resource
-        // exhausted error.
-        overall_status = status;
+
+      if (!status.ok()) {
+        // We've encountered a failure. Bail out. We'll mark this doc as deleted
+        // and signal a failure to the client.
+        ICING_LOG(WARNING) << "Failed to buffer term in lite lexicon due to: "
+                           << status.error_message();
+        break;
       }
     }
+    if (!status.ok()) {
+      break;
+    }
     // Add all the seen terms to the index with their term frequency.
-    auto status = editor.IndexAllBufferedTerms();
-    if (overall_status.ok() && !status.ok()) {
-      // If we've succeeded so far, set overall_status to
-      // represent this new failure. If we've already failed, no need to
-      // update the status - we're already going to return a resource
-      // exhausted error.
-      overall_status = status;
+    status = editor.IndexAllBufferedTerms();
+    if (!status.ok()) {
+      ICING_LOG(WARNING) << "Failed to add hits in lite index due to: "
+                         << status.error_message();
+      break;
     }
   }
 
@@ -123,9 +117,11 @@ libtextclassifier3::Status IndexProcessor::IndexDocument(
         num_tokens);
   }
 
-  // Merge if necessary.
-  if (overall_status.ok() && index_->WantsMerge()) {
-    ICING_VLOG(1) << "Merging the index at docid " << document_id << ".";
+  // If we're either successful or we've hit resource exhausted, then attempt a
+  // merge.
+  if ((status.ok() || absl_ports::IsResourceExhausted(status)) &&
+      index_->WantsMerge()) {
+    ICING_LOG(ERROR) << "Merging the index at docid " << document_id << ".";
 
     std::unique_ptr<Timer> merge_timer = clock_.GetNewTimer();
     libtextclassifier3::Status merge_status = index_->Merge();
@@ -150,7 +146,7 @@ libtextclassifier3::Status IndexProcessor::IndexDocument(
     }
   }
 
-  return overall_status;
+  return status;
 }
 
 }  // namespace lib

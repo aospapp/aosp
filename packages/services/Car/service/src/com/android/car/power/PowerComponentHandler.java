@@ -26,8 +26,12 @@ import static android.car.hardware.power.PowerComponentUtil.LAST_POWER_COMPONENT
 import static android.car.hardware.power.PowerComponentUtil.powerComponentToString;
 import static android.car.hardware.power.PowerComponentUtil.toPowerComponent;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothAdapter;
+import android.car.builtin.app.VoiceInteractionHelper;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerPolicy;
 import android.car.hardware.power.CarPowerPolicyFilter;
 import android.car.hardware.power.PowerComponent;
@@ -35,18 +39,16 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.util.AtomicFile;
-import android.util.IndentingPrintWriter;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 
 import com.android.car.CarLog;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.app.IVoiceInteractionManagerService;
-import com.android.server.utils.Slogf;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -82,25 +84,21 @@ public final class PowerComponentHandler {
     private final SparseBooleanArray mComponentsOffByPolicy = new SparseBooleanArray();
     @GuardedBy("mLock")
     private final SparseBooleanArray mLastModifiedComponents = new SparseBooleanArray();
-    private final IVoiceInteractionManagerService mVoiceInteractionServiceHolder;
     private final PackageManager mPackageManager;
 
     @GuardedBy("mLock")
     private String mCurrentPolicyId = "";
 
     PowerComponentHandler(Context context, SystemInterface systemInterface) {
-        this(context, systemInterface, /* voiceInteractionService= */ null,
-                new AtomicFile(new File(systemInterface.getSystemCarDir(),
-                        FORCED_OFF_COMPONENTS_FILENAME)));
+        this(context, systemInterface, new AtomicFile(new File(systemInterface.getSystemCarDir(),
+                FORCED_OFF_COMPONENTS_FILENAME)));
     }
 
     public PowerComponentHandler(Context context, SystemInterface systemInterface,
-            IVoiceInteractionManagerService voiceInteractionService,
             AtomicFile componentStateFile) {
         mContext = context;
         mPackageManager = mContext.getPackageManager();
         mSystemInterface = systemInterface;
-        mVoiceInteractionServiceHolder = voiceInteractionService;
         mOffComponentsByUserFile = componentStateFile;
     }
 
@@ -189,6 +187,7 @@ public final class PowerComponentHandler {
         }
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(IndentingPrintWriter writer) {
         synchronized (mLock) {
             writer.println("Power components state:");
@@ -222,6 +221,7 @@ public final class PowerComponentHandler {
      *
      * @return {@code true} if power state is changed. Otherwise, {@code false}
      */
+    @GuardedBy("mLock")
     private boolean setComponentEnabledLocked(int component, boolean enabled) {
         boolean oldState = mComponentStates.get(component, /* valueIfKeyNotFound= */ false);
         if (oldState == enabled) {
@@ -258,6 +258,7 @@ public final class PowerComponentHandler {
         return true;
     }
 
+    @GuardedBy("mLock")
     private void readUserOffComponentsLocked() {
         boolean invalid = false;
         mComponentsOffByPolicy.clear();
@@ -389,23 +390,16 @@ public final class PowerComponentHandler {
     }
 
     private final class VoiceInteractionPowerComponentMediator extends PowerComponentMediator {
-        private final IVoiceInteractionManagerService mVoiceInteractionManagerService;
 
         private boolean mIsEnabled = true;
 
         VoiceInteractionPowerComponentMediator() {
             super(VOICE_INTERACTION);
-            if (mVoiceInteractionServiceHolder == null) {
-                mVoiceInteractionManagerService = IVoiceInteractionManagerService.Stub.asInterface(
-                        ServiceManager.getService(Context.VOICE_INTERACTION_MANAGER_SERVICE));
-            } else {
-                mVoiceInteractionManagerService = mVoiceInteractionServiceHolder;
-            }
         }
 
         @Override
         public boolean isComponentAvailable() {
-            return mVoiceInteractionManagerService != null;
+            return VoiceInteractionHelper.isAvailable();
         }
 
         @Override
@@ -416,11 +410,11 @@ public final class PowerComponentHandler {
         @Override
         public void setEnabled(boolean enabled) {
             try {
-                mVoiceInteractionManagerService.setDisabled(!enabled);
+                VoiceInteractionHelper.setEnabled(enabled);
                 mIsEnabled = enabled;
                 Slogf.d(TAG, "Voice Interaction power component is %s", enabled ? "on" : "off");
             } catch (RemoteException e) {
-                Slogf.w(TAG, e, "IVoiceInteractionManagerService.setDisabled(%b) failed", !enabled);
+                Slogf.w(TAG, e, "VoiceInteractionHelper.setEnabled(%b) failed", enabled);
             }
         }
     }
@@ -447,7 +441,7 @@ public final class PowerComponentHandler {
         public void setEnabled(boolean enabled) {
             // No op
             Slogf.w(TAG, "Bluetooth power is controlled by "
-                    + "com.android.car.BluetoothDeviceConnectionPolicy");
+                    + "com.android.car.BluetoothPowerPolicy");
         }
     }
 

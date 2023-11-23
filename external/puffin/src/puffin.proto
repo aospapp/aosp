@@ -19,8 +19,15 @@ message StreamInfo {
 }
 
 message PatchHeader {
+  enum PatchType {
+    BSDIFF = 0;
+    ZUCCHINI = 1;
+  }
+
   int32 version = 1;
   StreamInfo src = 2;
   StreamInfo dst = 3;
   // The bsdiff patch is installed right after this protobuf.
+
+  PatchType type = 4;
 }

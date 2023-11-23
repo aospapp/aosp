@@ -25,10 +25,9 @@ package {
 
 cc_defaults {
     name: "odrefresh-defaults",
-    host_supported: true,
-    defaults: ["art_defaults"],
     srcs: [
         "odrefresh.cc",
+        "odr_common.cc",
         "odr_compilation_log.cc",
         "odr_fs_utils.cc",
         "odr_metrics.cc",
@@ -37,43 +36,51 @@ cc_defaults {
     local_include_dirs: ["include"],
     header_libs: ["dexoptanalyzer_headers"],
     generated_sources: [
-        "apex-info-list",
+        "apex-info-list-tinyxml",
         "art-apex-cache-info",
         "art-odrefresh-operator-srcs",
     ],
     shared_libs: [
         "libartpalette",
         "libbase",
-        "libdexfile",
         "liblog",
     ],
-    static_libs: ["libxml2"],
-    target: {
-        android: {
-            compile_multilib: "first",
-        },
-        host: {
-            shared_libs: [
-                // Both these libraries for libxml2 on host for code derived from apex-info-list.
-                "libicui18n",
-                "libicuuc",
-            ],
-        },
-    },
+    static_libs: [
+        "libc++fs",
+        "libtinyxml2",
+    ],
     tidy: true,
+    tidy_disabled_srcs: [":art-apex-cache-info"],
     tidy_flags: [
         "-format-style=file",
         "-header-filter=(art/odrefresh/|system/apex/)",
     ],
 }
 
+cc_defaults {
+    name: "odrefresh_binary_defaults",
+    defaults: [
+        "art_defaults",
+        "odrefresh-defaults",
+    ],
+    srcs: ["odrefresh_main.cc"],
+    shared_libs: [
+        "libdexfile",
+    ],
+    target: {
+        android: {
+            compile_multilib: "first",
+        },
+    },
+}
+
 cc_library_headers {
     name: "odrefresh_headers",
+    defaults: ["art_defaults"],
     export_include_dirs: ["include"],
     host_supported: true,
     stl: "none",
     system_shared_libs: [],
-    min_sdk_version: "29", // As part of mainline modules(APEX), it should support at least 29(Q).
     sdk_version: "minimum", // The minimum sdk version required by users of this module.
     apex_available: [
         "//apex_available:platform", // For odsign.
@@ -93,7 +100,7 @@ gensrcs {
 
 art_cc_binary {
     name: "odrefresh",
-    defaults: ["odrefresh-defaults"],
+    defaults: ["odrefresh_binary_defaults"],
     required: [
         "dexoptanalyzer",
         "dex2oat",
@@ -108,11 +115,22 @@ art_cc_binary {
     ],
 }
 
+// A no-op version of the odrefresh binary.
+art_cc_binary {
+    name: "odrefresh_broken",
+    defaults: ["art_defaults"],
+    stem: "odrefresh",
+    local_include_dirs: ["include"],
+    header_libs: ["libbase_headers"],
+    srcs: ["odrefresh_broken.cc"],
+    apex_available: ["test_jitzygote_com.android.art"],
+}
+
 art_cc_binary {
     name: "odrefreshd",
     defaults: [
         "art_debug_defaults",
-        "odrefresh-defaults",
+        "odrefresh_binary_defaults",
     ],
     required: [
         "dexoptanalyzerd",
@@ -136,7 +154,6 @@ cc_library_static {
     defaults: ["art_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
-
     local_include_dirs: ["include"],
     shared_libs: ["libartbase"],
     target: {
@@ -161,21 +178,20 @@ cc_library_static {
 
 art_cc_defaults {
     name: "art_odrefresh_tests_defaults",
-    generated_sources: ["art-odrefresh-operator-srcs"],
+    defaults: ["odrefresh-defaults"],
     header_libs: ["odrefresh_headers"],
     srcs: [
         "odr_artifacts_test.cc",
-        "odr_compilation_log.cc",
+        "odr_common_test.cc",
         "odr_compilation_log_test.cc",
-        "odr_fs_utils.cc",
         "odr_fs_utils_test.cc",
-        "odr_metrics.cc",
         "odr_metrics_test.cc",
-        "odr_metrics_record.cc",
         "odr_metrics_record_test.cc",
         "odrefresh_test.cc",
     ],
-    shared_libs: ["libbase"],
+    static_libs: [
+        "libgmock",
+    ],
 }
 
 // Version of ART gtest `art_odrefresh_tests` bundled with the ART APEX on target.
@@ -186,6 +202,16 @@ art_cc_test {
         "art_gtest_defaults",
         "art_odrefresh_tests_defaults",
     ],
+    host_supported: false,
+    shared_libs: [
+        "libdexfiled",
+    ],
+    // The test config template is needed even though it's not used by the test
+    // runner. Otherwise, Soong will generate a test config, which is adding
+    // `art-host-test` as a test tag, while this test does not support running
+    // on host.
+    // TODO(b/214016626): Remove this line once the bug is fixed.
+    test_config_template: "//art/test:art-gtests-target-standalone-template",
 }
 
 // Standalone version of ART gtest `art_odrefresh_tests`, not bundled with the ART APEX on target.
@@ -194,6 +220,9 @@ art_cc_test {
     defaults: [
         "art_standalone_gtest_defaults",
         "art_odrefresh_tests_defaults",
+    ],
+    shared_libs: [
+        "libdexfile",
     ],
 }
 
@@ -221,4 +250,5 @@ xsd_config {
     package_name: "com.android.art",
     api_dir: "schema",
     gen_writer: true,
+    tinyxml: true,
 }

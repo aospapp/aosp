@@ -1,5 +1,8 @@
 import init.common.rc
 
+on fs
+    mount_all /vendor/etc/fstab.${ro.hardware}
+
 on post-fs
     # Set supported opengles version
     setprop ro.hardware.hwcomposer drm_hikey

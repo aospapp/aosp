@@ -23,6 +23,7 @@ android_test {
     static_libs: [
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "MediaPerformanceClassCommon",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
@@ -30,5 +31,5 @@ android_test {
         "cts",
         "general-tests",
     ],
-    sdk_version: "test_current",
+    min_sdk_version: "30",
 }

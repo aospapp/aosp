@@ -110,7 +110,8 @@ TEST(AttributionE2eTest, TestAttributionMatchAndSliceByFirstUid) {
             {String16("v1"), String16("v1"), String16("v2"), String16("v2")},
             {String16("com.android.gmscore"), String16("com.android.gmscore"), String16("app1"),
              String16("APP3")},
-            {String16(""), String16(""), String16(""), String16("")});
+            {String16(""), String16(""), String16(""), String16("")},
+            /* certificateHash */ {{}, {}, {}, {}});
 
     std::vector<std::unique_ptr<LogEvent>> events;
     // Events 1~4 are in the 1st bucket.
@@ -223,7 +224,8 @@ TEST(AttributionE2eTest, TestAttributionMatchAndSliceByChain) {
             {String16("v1"), String16("v1"), String16("v2"), String16("v2")},
             {String16("com.android.gmscore"), String16("com.android.gmscore"), String16("app1"),
              String16("APP3")},
-            {String16(""), String16(""), String16(""), String16("")});
+            {String16(""), String16(""), String16(""), String16("")},
+            /* certificateHash */ {{}, {}, {}, {}});
 
     std::vector<std::unique_ptr<LogEvent>> events;
     // Events 1~4 are in the 1st bucket.

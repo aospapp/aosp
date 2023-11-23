@@ -47,5 +47,5 @@ android_app {
         "androidx.legacy_legacy-support-v4",
     ],
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 }

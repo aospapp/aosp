@@ -39,6 +39,7 @@ using ::android::hardware::identity::CipherSuite;
 using ::android::hardware::identity::HardwareInformation;
 using ::android::hardware::identity::IIdentityCredential;
 using ::android::hardware::identity::IIdentityCredentialStore;
+using ::android::hardware::identity::IPresentationSession;
 using ::android::hardware::identity::RequestDataItem;
 using ::android::hardware::identity::RequestNamespace;
 
@@ -46,7 +47,8 @@ class Credential : public BnCredential {
   public:
     Credential(CipherSuite cipherSuite, const string& dataPath, const string& credentialName,
                uid_t callingUid, HardwareInformation hwInfo,
-               sp<IIdentityCredentialStore> halStoreBinder, int halApiVersion);
+               sp<IIdentityCredentialStore> halStoreBinder,
+               sp<IPresentationSession> halSessionBinder, int halApiVersion);
     ~Credential();
 
     Status ensureOrReplaceHalBinder();
@@ -67,13 +69,14 @@ class Credential : public BnCredential {
     Status getCredentialKeyCertificateChain(vector<uint8_t>* _aidl_return) override;
 
     Status selectAuthKey(bool allowUsingExhaustedKeys, bool allowUsingExpiredKeys,
-                         int64_t* _aidl_return) override;
+                         bool incrementUsageCount, int64_t* _aidl_return) override;
 
     Status getEntries(const vector<uint8_t>& requestMessage,
                       const vector<RequestNamespaceParcel>& requestNamespaces,
                       const vector<uint8_t>& sessionTranscript,
                       const vector<uint8_t>& readerSignature, bool allowUsingExhaustedKeys,
-                      bool allowUsingExpiredKeys, GetEntriesResultParcel* _aidl_return) override;
+                      bool allowUsingExpiredKeys, bool incrementUsageCount,
+                      GetEntriesResultParcel* _aidl_return) override;
 
     Status setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey) override;
     Status getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_return) override;
@@ -94,11 +97,19 @@ class Credential : public BnCredential {
     uid_t callingUid_;
     HardwareInformation hwInfo_;
     sp<IIdentityCredentialStore> halStoreBinder_;
+    sp<IPresentationSession> halSessionBinder_;
 
     uint64_t selectedChallenge_ = 0;
 
     sp<IIdentityCredential> halBinder_;
     int halApiVersion_;
+
+    // This is used to cache the selected AuthKey to ensure the same AuthKey is used across
+    // multiple getEntries() calls.
+    //
+    bool selectedAuthKey_ = false;
+    vector<uint8_t> selectedAuthKeySigningKeyBlob_;
+    vector<uint8_t> selectedAuthKeyStaticAuthData_;
 
     bool ensureChallenge();
 

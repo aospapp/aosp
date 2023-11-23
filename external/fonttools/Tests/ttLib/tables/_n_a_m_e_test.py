@@ -1,12 +1,12 @@
-from fontTools.misc.py23 import bytesjoin, tostr
 from fontTools.misc import sstruct
 from fontTools.misc.loggingTools import CapturingLogHandler
 from fontTools.misc.testTools import FakeFont
+from fontTools.misc.textTools import bytesjoin, tostr
 from fontTools.misc.xmlWriter import XMLWriter
 from io import BytesIO
 import struct
 import unittest
-from fontTools.ttLib import newTable
+from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._n_a_m_e import (
 	table__n_a_m_e, NameRecord, nameRecordFormat, nameRecordSize, makeName, log)
 
@@ -305,6 +305,17 @@ class NameTableTest(unittest.TestCase):
 		self.assertGreaterEqual(nameID, 256)
 		self.assertEqual(nameID, table.findMultilingualName(names, minNameID=256))
 
+	def test_addMultilingualName_name_inconsistencies(self):
+		# Check what happens, when there are
+		# inconsistencies in the name table
+		table = table__n_a_m_e()
+		table.setName('Weight', 270, 3, 1, 0x409)
+		names = {'en': 'Weight', }
+		nameID = table.addMultilingualName(names, minNameID=256)
+		# Because there is an inconsistency in the names,
+		# addMultilingualName adds a new name ID
+		self.assertEqual(271, nameID)
+
 	def test_decompile_badOffset(self):
                 # https://github.com/fonttools/fonttools/issues/525
 		table = table__n_a_m_e()
@@ -449,6 +460,103 @@ class NameRecordTest(unittest.TestCase):
 		self.assertEqual(name.getEncoding(), "ascii")
 		self.assertEqual(name.getEncoding(None), None)
 		self.assertEqual(name.getEncoding(default=None), None)
+
+	def test_get_family_name(self):
+		name = table__n_a_m_e()
+		name.names = [
+			makeName("Copyright", 0, 1, 0, 0),
+			makeName("Family Name ID 1", 1, 1, 0, 0),
+			makeName("SubFamily Name ID 2", 2, 1, 0, 0),
+			makeName("Unique Name ID 3", 3, 1, 0, 0),
+			makeName("Full Name ID 4", 4, 1, 0, 0),
+			makeName("PS Name ID 6", 6, 1, 0, 0),
+			makeName("Version Name ID 5", 5, 1, 0, 0),
+			makeName("Trademark Name ID 7", 7, 1, 0, 0),
+		]
+
+		result_value = name.getBestFamilyName()
+		self.assertEqual("Family Name ID 1", result_value)
+
+		expected_value = "Family Name ID 16"
+		name.setName(expected_value, 16, 1, 0, 0)
+		result_value = name.getBestFamilyName()
+		self.assertEqual(expected_value, result_value)
+
+		expected_value = "Family Name ID 21"
+		name.setName(expected_value, 21, 1, 0, 0)
+		result_value = name.getBestFamilyName()
+		self.assertEqual(expected_value, result_value)
+
+	def test_get_subfamily_name(self):
+		name = table__n_a_m_e()
+		name.names = [
+			makeName("Copyright", 0, 1, 0, 0),
+			makeName("Family Name ID 1", 1, 1, 0, 0),
+			makeName("SubFamily Name ID 2", 2, 1, 0, 0),
+			makeName("Unique Name ID 3", 3, 1, 0, 0),
+			makeName("Full Name ID 4", 4, 1, 0, 0),
+			makeName("PS Name ID 6", 6, 1, 0, 0),
+			makeName("Version Name ID 5", 5, 1, 0, 0),
+			makeName("Trademark Name ID 7", 7, 1, 0, 0),
+		]
+
+		result_value = name.getBestSubFamilyName()
+		self.assertEqual("SubFamily Name ID 2", result_value)
+
+		expected_value = "Family Name ID 17"
+		name.setName(expected_value, 17, 1, 0, 0)
+		result_value = name.getBestSubFamilyName()
+		self.assertEqual(expected_value, result_value)
+
+		expected_value = "Family Name ID 22"
+		name.setName(expected_value, 22, 1, 0, 0)
+		result_value = name.getBestSubFamilyName()
+		self.assertEqual(expected_value, result_value)
+
+	def test_get_nice_full_name(self):
+		name = table__n_a_m_e()
+		name.names = [
+			makeName("NID 1", 1, 1, 0, 0),
+			makeName("NID 2", 2, 1, 0, 0),
+			makeName("NID 4", 4, 1, 0, 0),
+			makeName("NID 6", 6, 1, 0, 0),
+		]
+
+		result_value = name.getBestFullName()
+		self.assertEqual("NID 1 NID 2", result_value)
+
+		expected_value = "NID 1 NID 2"
+		# expection is still NID 1 NID 2,
+		# because name ID 17 is missing
+		name.setName("NID 16", 16, 1, 0, 0)
+		result_value = name.getBestFullName()
+		self.assertEqual(expected_value, result_value)
+
+		name.setName('NID 17', 17, 1, 0, 0)
+		result_value = name.getBestFullName()
+		self.assertEqual("NID 16 NID 17", result_value)
+
+		expected_value = "NID 16 NID 17"
+		# expection is still NID 16 NID 17,
+		# because name ID 21 is missing
+		name.setName('NID 21', 21, 1, 0, 0)
+		result_value = name.getBestFullName()
+		self.assertEqual(expected_value, result_value)
+
+		name.setName('NID 22', 22, 1, 0, 0)
+		result_value = name.getBestFullName()
+		self.assertEqual("NID 21 NID 22", result_value)
+
+		for NID in [2, 16, 17, 21, 22]:
+			name.removeNames(NID)
+
+		result_value = name.getBestFullName()
+		self.assertEqual("NID 4", result_value)
+
+		name.setName('Regular', 2, 1, 0, 0)
+		result_value = name.getBestFullName()
+		self.assertEqual("NID 1", result_value)
+
 
 if __name__ == "__main__":
 	import sys

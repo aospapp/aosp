@@ -91,18 +91,18 @@ class Subprocess {
   // |output_pipes|, otherwise returns -1.
   int GetPipeFd(pid_t pid, int fd) const;
 
-  // Executes a command synchronously. Returns true on success. If |stdout| is
-  // non-null, the process output is stored in it, otherwise the output is
+  // Executes a command synchronously. Returns true on success. If |stdout_str|
+  // is non-null, the process output is stored in it, otherwise the output is
   // logged.
   static bool SynchronousExec(const std::vector<std::string>& cmd,
                               int* return_code,
-                              std::string* stdout,
-                              std::string* stderr);
+                              std::string* stdout_str,
+                              std::string* stderr_str);
   static bool SynchronousExecFlags(const std::vector<std::string>& cmd,
                                    uint32_t flags,
                                    int* return_code,
-                                   std::string* stdout,
-                                   std::string* stderr);
+                                   std::string* stdout_str,
+                                   std::string* stderr_str);
 
   // Gets the one instance.
   static Subprocess& Get() { return *subprocess_singleton_; }
@@ -131,7 +131,7 @@ class Subprocess {
     std::unique_ptr<base::FileDescriptorWatcher::Controller> stdout_controller;
 
     int stdout_fd{-1};
-    std::string stdout;
+    std::string stdout_str;
   };
 
   // Callback which runs whenever there is input available on the subprocess

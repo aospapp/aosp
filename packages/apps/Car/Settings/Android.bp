@@ -34,13 +34,14 @@ android_library {
         "androidx.test.core",
         "car-apps-common",
         "car-setup-wizard-lib-utils",
+        "WifiTrackerLib",
         "SettingsLib",
         "SettingsLib-search",
-        "android.car.userlib",
         "androidx-constraintlayout_constraintlayout-solver",
         "jsr305",
         "car-ui-lib",
         "car-admin-ui-lib",
+        "car-helper-lib",
         "car-qc-lib",
     ],
 
@@ -61,10 +62,14 @@ android_app {
         "CarSettings-core",
     ],
 
+    libs: [
+        "android.car",
+    ],
+
     certificate: "platform",
 
     optimize: {
-        enabled: false,
+        proguard_flags_files: ["proguard.flags"],
     },
 
     privileged: true,
@@ -107,13 +112,14 @@ android_app {
         "androidx.test.core",
         "car-apps-common",
         "car-setup-wizard-lib-utils",
+        "WifiTrackerLib",
         "SettingsLib",
         "SettingsLib-search",
-        "android.car.userlib",
         "androidx-constraintlayout_constraintlayout-solver",
         "jsr305",
         "car-ui-lib-testing-support",
         "car-admin-ui-lib",
+        "car-helper-lib",
         "car-qc-lib",
     ],
 
@@ -167,13 +173,14 @@ android_library {
         "androidx-constraintlayout_constraintlayout",
         "car-apps-common",
         "car-setup-wizard-lib-utils",
+        "WifiTrackerLib",
         "SettingsLib",
         "SettingsLib-search",
-        "android.car.userlib",
         "androidx-constraintlayout_constraintlayout-solver",
         "jsr305",
         "car-ui-lib-testing-support",
         "car-admin-ui-lib",
+        "car-helper-lib",
         "car-qc-lib",
     ],
 

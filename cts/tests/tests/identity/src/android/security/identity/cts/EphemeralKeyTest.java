@@ -30,6 +30,7 @@ import android.security.identity.IdentityCredential;
 import android.security.identity.IdentityCredentialException;
 import android.security.identity.IdentityCredentialStore;
 import androidx.test.InstrumentationRegistry;
+import com.android.security.identity.internal.Util;
 
 import org.junit.Test;
 
@@ -60,7 +61,7 @@ public class EphemeralKeyTest {
 
     @Test
     public void createEphemeralKey() throws IdentityCredentialException {
-        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+        assumeTrue("IC HAL is not implemented", TestUtil.isHalImplemented());
 
         Context appContext = InstrumentationRegistry.getTargetContext();
         IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);

@@ -285,7 +285,7 @@ public class AppTransitionTests extends Instrumentation {
                             mTraceDumpInterval, mRootTraceSubDir,
                             String.format("%s-%d", appName, launchCount - 1));
                 }
-                mLauncher.getBackground().switchToOverview();
+                mLauncher.getLaunchedAppState().switchToOverview();
                 sleep(mPostLaunchTimeout);
                 if (null != mAtraceLogger && launchCount > 0) {
                     mAtraceLogger.atraceStop();
@@ -324,7 +324,7 @@ public class AppTransitionTests extends Instrumentation {
                     "\\/")[0]);
             for (int launchCount = 0; launchCount <= mLaunchIterations; launchCount++) {
                 sleep(mPostLaunchTimeout);
-                final Workspace workspace = mLauncher.pressHome();
+                final Workspace workspace = mLauncher.goHome();
                 if (null != mAtraceLogger) {
                     mAtraceLogger.atraceStart(mTraceCategoriesSet, mTraceBufferSize,
                             mTraceDumpInterval, mRootTraceSubDir,

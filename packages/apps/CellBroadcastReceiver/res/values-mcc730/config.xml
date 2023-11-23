@@ -48,7 +48,7 @@
     </string-array>
     <!-- 4380~4382, 519 -->
     <string-array name="required_monthly_test_range_strings" translatable="false">
-        <item>0x111C:rat=gsm, type=info, emergency=true, language=es</item>
+        <item>0x111C:rat=gsm, type=info, emergency=true</item>
         <item>0x207:rat=gsm, type=info, emergency=true</item>
     </string-array>
     <string-array name="exercise_alert_range_strings" translatable="false">
@@ -61,20 +61,16 @@
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
     <bool name="override_dnd">true</bool>
     <!-- Append date-time to the alert title -->
-    <string name="date_time_format" translatable="false">yyyy-MM-dd, HH:mm a</string>
+    <string name="date_time_format" translatable="false">dd/MM/yyyy hh:mm a</string>
     <!-- Link method -->
     <string name="link_method" translatable="false">none</string>
     <!-- Whether the user can mute the alert by physical button -->
     <bool name="mute_by_physical_button">false</bool>
+    <!-- Whether to disable the status bar while alert is showing, not allow
+    users to interact with other activities until pressing the "ok" button -->
+    <bool name="disable_status_bar">true</bool>
     <!-- Whether to disable the opt-out dialog for all channels -->
     <bool name="disable_opt_out_dialog">true</bool>
     <bool name="show_main_switch_settings">false</bool>
-
-    <!-- String used to override message body for certain service categories.
-         The format for each entry is: "service_category:message".
-         '>' is a special character which indicates that the carrier's name should be shown -->
-    <string-array name="message_body_override" translatable="false">
-        <item>4380:Esta es una prueba de mantenimiento, sin costo, del Sistema de Alerta de Emergencia, emitido por ></item>
-    </string-array>
 </resources>
 

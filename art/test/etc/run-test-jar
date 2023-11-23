@@ -2,8 +2,27 @@
 #
 # Runner for an individual run-test.
 
+readonly local_path=$(dirname "$0")
+source "${local_path}/apex-bootclasspath-utils.sh"
+
+# Check how many colors the terminal can display.
+ncolors=$(tput colors 2>/dev/null)
+
+# Check that stdout is connected to a terminal and that we have at least 1 color.
+# This ensures that if the stdout is not connected to a terminal and instead
+# the stdout will be used for a log, it will not append the color characters.
+if [[ -t 1 && ${ncolors} && ${ncolors} -ge 1 ]]; then
+  bold_red="$(tput bold)$(tput setaf 1)"
+fi
+
+readonly bold_red
+
+error_msg() {
+  echo -e "${bold_red}ERROR: $@" 1>&2
+}
+
 if [[ -z "$ANDROID_BUILD_TOP" ]]; then
-  echo 'ANDROID_BUILD_TOP environment variable is empty; did you forget to run `lunch`?'
+  error_msg 'ANDROID_BUILD_TOP environment variable is empty; did you forget to run `lunch`?'
   exit 1
 fi
 
@@ -38,6 +57,8 @@ FLAGS=""
 ANDROID_FLAGS=""
 GDB=""
 GDB_ARGS=""
+GDB_DEX2OAT=""
+GDB_DEX2OAT_ARGS=""
 GDBSERVER_DEVICE="gdbserver"
 GDBSERVER_HOST="gdbserver"
 HAVE_IMAGE="y"
@@ -71,6 +92,7 @@ TIME_OUT_VALUE=
 USE_GDB="n"
 USE_GDBSERVER="n"
 GDBSERVER_PORT=":5039"
+USE_GDB_DEX2OAT="n"
 USE_JVM="n"
 USE_JVMTI="n"
 VERIFY="y" # y=yes,n=no,s=softfail
@@ -82,7 +104,8 @@ VDEX_ARGS=""
 EXTERNAL_LOG_TAGS="n" # if y respect externally set ANDROID_LOG_TAGS.
 DRY_RUN="n" # if y prepare to run the test but don't run it.
 TEST_VDEX="n"
-TEST_DM="n"
+TEST_DEX2OAT_DM="n"
+TEST_RUNTIME_DM="n"
 TEST_IS_NDEBUG="n"
 APP_IMAGE="y"
 SECONDARY_APP_IMAGE="y"
@@ -122,7 +145,7 @@ while true; do
     elif [ "x$1" = "x--dex2oat-rt-timeout" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --dex2oat-rt-timeout" 1>&2
+            error_msg "$0 missing argument to --dex2oat-rt-timeout"
             exit 1
         fi
         DEX2OAT_RT_TIMEOUT="$1"
@@ -130,7 +153,7 @@ while true; do
     elif [ "x$1" = "x--dex2oat-timeout" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --dex2oat-timeout" 1>&2
+            error_msg "$0 missing argument to --dex2oat-timeout"
             exit 1
         fi
         DEX2OAT_TIMEOUT="$1"
@@ -150,7 +173,7 @@ while true; do
     elif [ "x$1" = "x--lib" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --lib" 1>&2
+            error_msg "$0 missing argument to --lib"
             exit 1
         fi
         LIB="$1"
@@ -162,7 +185,7 @@ while true; do
     elif [ "x$1" = "x--testlib" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --testlib" 1>&2
+            error_msg "$0 missing argument to --testlib"
             exit 1
         fi
         ARGS="${ARGS} $1"
@@ -170,7 +193,7 @@ while true; do
     elif [ "x$1" = "x--args" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --args" 1>&2
+            error_msg "$0 missing argument to --args"
             exit 1
         fi
         ARGS="${ARGS} $1"
@@ -199,8 +222,7 @@ while true; do
         option="$1"
         FLAGS="${FLAGS} $option"
         if [ "x$option" = "x-Xmethod-trace" ]; then
-            # Method tracing can slow some tests down a lot, in particular
-            # 530-checker-lse2.
+            # Method tracing can slow some tests down a lot.
             TIME_OUT_EXTRA=$((${TIME_OUT_EXTRA} + 1200))
         fi
         shift
@@ -349,6 +371,17 @@ while true; do
         gdb_arg="$1"
         GDB_ARGS="${GDB_ARGS} $gdb_arg"
         shift
+    elif [ "x$1" = "x--gdb-dex2oat" ]; then
+        USE_GDB_DEX2OAT="y"
+        DEV_MODE="y"
+        TIME_OUT="n"
+        shift
+    elif [ "x$1" = "x--gdb-dex2oat-args" ]; then
+        shift
+        for arg in $(echo $1 | tr ";" " "); do
+          GDB_DEX2OAT_ARGS+="$arg "
+        done
+        shift
     elif [ "x$1" = "x--zygote" ]; then
         ZYGOTE="-Xzygote"
         msg "Spawning from zygote"
@@ -372,7 +405,7 @@ while true; do
     elif [ "x$1" = "x--invoke-with" ]; then
         shift
         if [ "x$1" = "x" ]; then
-            echo "$0 missing argument to --invoke-with" 1>&2
+            error_msg "$0 missing argument to --invoke-with"
             exit 1
         fi
         if [ "x$INVOKE_WITH" = "x" ]; then
@@ -393,6 +426,9 @@ while true; do
     elif [ "x$1" = "x--chroot" ]; then
         shift
         CHROOT="$1"
+        shift
+    elif [ "x$1" = "x--simpleperf" ]; then
+        SIMPLEPERF="yes"
         shift
     elif [ "x$1" = "x--android-root" ]; then
         shift
@@ -435,7 +471,7 @@ while true; do
         shift
     elif [ "x$1" = "x--experimental" ]; then
         if [ "$#" -lt 2 ]; then
-            echo "missing --experimental option" 1>&2
+            error_msg "missing --experimental option"
             exit 1
         fi
         EXPERIMENTAL="$EXPERIMENTAL $2"
@@ -449,8 +485,11 @@ while true; do
     elif [ "x$1" = "x--vdex" ]; then
         TEST_VDEX="y"
         shift
-    elif [ "x$1" = "x--dm" ]; then
-        TEST_DM="y"
+    elif [ "x$1" = "x--dex2oat-dm" ]; then
+        TEST_DEX2OAT_DM="y"
+        shift
+    elif [ "x$1" = "x--runtime-dm" ]; then
+        TEST_RUNTIME_DM="y"
         shift
     elif [ "x$1" = "x--vdex-filter" ]; then
         shift
@@ -471,7 +510,7 @@ while true; do
         RANDOM_PROFILE="y"
         shift
     elif expr "x$1" : "x--" >/dev/null 2>&1; then
-        echo "unknown $0 option: $1" 1>&2
+        error_msg "unknown $0 option: $1"
         exit 1
     else
         break
@@ -582,7 +621,7 @@ elif [ "$DEBUGGER" = "agent" ]; then
   PORT=12345
   # TODO Support ddms connection and support target.
   if [ "$HOST" = "n" ]; then
-    echo "--debug-agent not supported yet for target!"
+    error_msg "--debug-agent not supported yet for target!"
     exit 1
   fi
   AGENTPATH=${DEBUGGER_AGENT}
@@ -610,6 +649,12 @@ if [ "$USE_JVMTI" = "y" ]; then
     # We used to add flags here that made the runtime debuggable but that is not
     # needed anymore since the plugin can do it for us now.
     FLAGS="${FLAGS} -Xplugin:${plugin}"
+
+    # For jvmti tests, set the threshold of compilation to 1, so we jit early to
+    # provide better test coverage for jvmti + jit. This means we won't run
+    # the default --jit configuration but it is not too important test scenario for
+    # jvmti tests. This is art specific flag, so don't use it with jvm.
+    FLAGS="${FLAGS} -Xjitthreshold:1"
   fi
 fi
 
@@ -692,43 +737,19 @@ if [ "$USE_JVM" = "y" ]; then
   exit
 fi
 
-# Note: This must start with the CORE_IMG_JARS in Android.common_path.mk
-# because that's what we use for compiling the boot.art image.
-# It may contain additional modules from TEST_CORE_JARS.
-bpath_modules="core-oj core-libart okhttp bouncycastle apache-xml core-icu4j conscrypt"
-bpath=""
-bpath_locations=""
-bpath_separator=""
-bpath_prefix=""
-bpath_location_prefix=""
-if [ "${HOST}" = "y" ]; then
-  bpath_prefix="${ANDROID_HOST_OUT}"
-  if [ "${ANDROID_HOST_OUT:0:${#ANDROID_BUILD_TOP}+1}" = "${ANDROID_BUILD_TOP}/" ]; then
-    bpath_location_prefix="${ANDROID_HOST_OUT:${#ANDROID_BUILD_TOP}+1}"
-  else
-    echo "error: ANDROID_BUILD_TOP/ is not a prefix of ANDROID_HOST_OUT"
-    echo "ANDROID_BUILD_TOP=${ANDROID_BUILD_TOP}"
-    echo "ANDROID_HOST_OUT=${ANDROID_HOST_OUT}"
-    exit
-  fi
+readonly b_path=$(get_apex_bootclasspath ${HOST})
+readonly b_path_locations=$(get_apex_bootclasspath_locations ${HOST})
+
+BCPEX=
+if [ -f "$TEST_NAME-bcpex.jar" ] ; then
+  BCPEX=":$DEX_LOCATION/$TEST_NAME-bcpex.jar"
 fi
-for bpath_module in ${bpath_modules}; do
-  apex_module="com.android.art"
-  case "$bpath_module" in
-    (conscrypt)  apex_module="com.android.conscrypt";;
-    (core-icu4j) apex_module="com.android.i18n";;
-    (*)          apex_module="com.android.art";;
-  esac
-  bpath_jar="/apex/${apex_module}/javalib/${bpath_module}.jar"
-  bpath+="${bpath_separator}${bpath_prefix}${bpath_jar}"
-  bpath_locations+="${bpath_separator}${bpath_location_prefix}${bpath_jar}"
-  bpath_separator=":"
-done
+
 # Pass down the bootclasspath
-FLAGS="${FLAGS} -Xbootclasspath:${bpath}"
-FLAGS="${FLAGS} -Xbootclasspath-locations:${bpath_locations}"
-COMPILE_FLAGS="${COMPILE_FLAGS} --runtime-arg -Xbootclasspath:${bpath}"
-COMPILE_FLAGS="${COMPILE_FLAGS} --runtime-arg -Xbootclasspath-locations:${bpath_locations}"
+FLAGS="${FLAGS} -Xbootclasspath:${b_path}${BCPEX}"
+FLAGS="${FLAGS} -Xbootclasspath-locations:${b_path_locations}${BCPEX}"
+COMPILE_FLAGS="${COMPILE_FLAGS} --runtime-arg -Xbootclasspath:${b_path}"
+COMPILE_FLAGS="${COMPILE_FLAGS} --runtime-arg -Xbootclasspath-locations:${b_path_locations}"
 
 if [ "$HAVE_IMAGE" = "n" ]; then
     # Disable image dex2oat - this will forbid the runtime to patch or compile an image.
@@ -737,19 +758,24 @@ if [ "$HAVE_IMAGE" = "n" ]; then
     # We'll abuse a second flag here to test different behavior. If --relocate, use the
     # existing image - relocation will fail as patching is disallowed. If --no-relocate,
     # pass a non-existent image - compilation will fail as dex2oat is disallowed.
-    if [ "${RELOCATE}" = "y" ] ; then
-      DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
-    else
-      DALVIKVM_BOOT_OPT="-Ximage:/system/non-existent/boot.art"
+    if [ "${RELOCATE}" = "n" ] ; then
+      BOOT_IMAGE="/system/non-existent/boot.art"
     fi
-else
-    DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
+    # App images cannot be generated without a boot image.
+    APP_IMAGE="n"
 fi
+DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
 
+if [ "$USE_GDB_DEX2OAT" = "y" ]; then
+  if [ "$HOST" = "n" ]; then
+    echo "The --gdb-dex2oat option is not yet implemented for target." >&2
+    exit 1
+  fi
+fi
 
 if [ "$USE_GDB" = "y" ]; then
   if [ "$USE_GDBSERVER" = "y" ]; then
-    echo "Cannot pass both --gdb and --gdbserver at the same time!" >&2
+    error_msg "Cannot pass both --gdb and --gdbserver at the same time!"
     exit 1
   elif [ "$HOST" = "n" ]; then
     # We might not have any hostname resolution if we are using a chroot.
@@ -813,7 +839,7 @@ if [ "$BIONIC" = "y" ]; then
   # This is the location that soong drops linux_bionic builds. Despite being
   # called linux_bionic-x86 the build is actually amd64 (x86_64) only.
   if [ ! -e "$OUT_DIR/soong/host/linux_bionic-x86" ]; then
-    echo "linux_bionic-x86 target doesn't seem to have been built!" >&2
+    error_msg "linux_bionic-x86 target doesn't seem to have been built!"
     exit 1
   fi
   # Set TIMEOUT_DUMPER manually so it works even with apex's
@@ -836,7 +862,7 @@ DEX_LOCATION_STRIPPED="${DEX_LOCATION#/}"
 VDEX_NAME="${DEX_LOCATION_STRIPPED//\//@}@$TEST_NAME.jar@classes.vdex"
 if [ ${#VDEX_NAME} -gt $max_filename_size ]; then
     echo "Dex location path too long:"
-    echo "$VDEX_NAME is ${#VDEX_NAME} character long, and the limit is $max_filename_size."
+    error_msg "$VDEX_NAME is ${#VDEX_NAME} character long, and the limit is $max_filename_size."
     exit 1
 fi
 
@@ -870,6 +896,8 @@ installapex_test_cmdline="true"
 
 linkdirs() {
   find "$1" -maxdepth 1 -mindepth 1 -type d | xargs -i ln -sf '{}' "$2"
+  # Also create a link for the boot image.
+  ln -sf $ANDROID_HOST_OUT/apex/art_boot_images "$2"
 }
 
 if [ "$CREATE_ANDROID_ROOT" = "y" ]; then
@@ -879,6 +907,8 @@ if [ "$CREATE_ANDROID_ROOT" = "y" ]; then
     # TODO Make this overlay more generic.
     linkroot_overlay_cmdline="linkdirs $OUT_DIR/soong/host/linux_bionic-x86 ${ANDROID_ROOT}"
   fi
+  # Replace the boot image to a location expected by the runtime.
+  DALVIKVM_BOOT_OPT="-Ximage:${ANDROID_ROOT}/art_boot_images/javalib/boot.art"
 fi
 
 if [ "$USE_ZIPAPEX" = "y" ]; then
@@ -927,6 +957,47 @@ if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
   fi
 fi
 
+function get_prebuilt_lldb_path {
+  local CLANG_BASE="prebuilts/clang/host"
+  local CLANG_VERSION="$("$ANDROID_BUILD_TOP/build/soong/scripts/get_clang_version.py")"
+  case "$(uname -s)" in
+    Darwin)
+      local PREBUILT_NAME="darwin-x86"
+      ;;
+    Linux)
+      local PREBUILT_NAME="linux-x86"
+      ;;
+    *)
+      >&2 echo "Unknown host $(uname -s). Unsupported for debugging dex2oat with LLDB."
+      return
+      ;;
+  esac
+  local CLANG_PREBUILT_HOST_PATH="$ANDROID_BUILD_TOP/$CLANG_BASE/$PREBUILT_NAME/$CLANG_VERSION"
+  # If the clang prebuilt directory exists and the reported clang version
+  # string does not, then it is likely that the clang version reported by the
+  # get_clang_version.py script does not match the expected directory name.
+  if [ -d "${ANDROID_BUILD_TOP}/${CLANG_BASE}/${PREBUILT_NAME}" ] && \
+     [ ! -d "${CLANG_PREBUILT_HOST_PATH}" ]; then
+    error_msg "The prebuilt clang directory exists, but the specific clang"\
+    "\nversion reported by get_clang_version.py does not exist in that path."\
+    "\nPlease make sure that the reported clang version resides in the"\
+    "\nprebuilt clang directory!"
+    exit 1
+  fi
+
+  # The lldb-server binary is a dependency of lldb.
+  export LLDB_DEBUGSERVER_PATH="${CLANG_PREBUILT_HOST_PATH}/runtimes_ndk_cxx/x86_64/lldb-server"
+
+  # Set the current terminfo directory to TERMINFO so that LLDB can read the
+  # termcap database.
+  local terminfo_regexp_path='\/.*\/*terminfo\/'
+  if [[ $(infocmp) =~ $terminfo_regexp_path ]] ; then
+    export TERMINFO="${BASH_REMATCH[0]}"
+  fi
+
+  prebuilt_lldb_path="$CLANG_PREBUILT_HOST_PATH/bin/lldb.sh"
+}
+
 function write_dex2oat_cmdlines {
   local name="$1"
 
@@ -939,7 +1010,17 @@ function write_dex2oat_cmdlines {
   # If the name ends in -ex then this is a secondary dex file
   if [ "${name:${#name}-3}" = "-ex" ]; then
     # Lazily realize the default value in case DEX_LOCATION/TEST_NAME change
-    [ -z "$SECONDARY_CLASS_LOADER_CONTEXT" ] && SECONDARY_CLASS_LOADER_CONTEXT="PCL[];PCL[$DEX_LOCATION/$TEST_NAME.jar]"
+    if [ "x$SECONDARY_CLASS_LOADER_CONTEXT" = "x" ]; then
+      if [ "x$SECONDARY_DEX" = "x" ]; then
+        # Tests without `--secondary` load the "-ex" jar in a separate PathClassLoader
+        # that is a child of the main PathClassLoader. If the class loader is constructed
+        # in any other way, the test needs to specify the secondary CLC explicitly.
+        SECONDARY_CLASS_LOADER_CONTEXT="PCL[];PCL[$DEX_LOCATION/$TEST_NAME.jar]"
+      else
+        # Tests with `--secondary` load the `-ex` jar a part of the main PathClassLoader.
+        SECONDARY_CLASS_LOADER_CONTEXT="PCL[$DEX_LOCATION/$TEST_NAME.jar]"
+      fi
+    fi
     class_loader_context="'--class-loader-context=$SECONDARY_CLASS_LOADER_CONTEXT'"
     $enable_app_image && [ "$SECONDARY_APP_IMAGE" = "y" ] || enable_app_image=false
   fi
@@ -947,12 +1028,20 @@ function write_dex2oat_cmdlines {
   local app_image=""
   $enable_app_image && app_image="--app-image-file=$DEX_LOCATION/oat/$ISA/$name.art --resolve-startup-const-strings=true"
 
+  if [ "$USE_GDB_DEX2OAT" = "y" ]; then
+    get_prebuilt_lldb_path
+    GDB_DEX2OAT="$prebuilt_lldb_path -f"
+    GDB_DEX2OAT_ARGS+=" -- "
+  fi
+
   local dex2oat_binary
   dex2oat_binary=${DEX2OAT_DEBUG_BINARY}
   if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
     dex2oat_binary=${DEX2OAT_NDEBUG_BINARY}
   fi
-  dex2oat_cmdline="$INVOKE_WITH $ANDROID_ART_BIN_DIR/$dex2oat_binary \
+  dex2oat_cmdline="$INVOKE_WITH $GDB_DEX2OAT \
+                      $ANDROID_ART_BIN_DIR/$dex2oat_binary \
+                      $GDB_DEX2OAT_ARGS \
                       $COMPILE_FLAGS \
                       --boot-image=${BOOT_IMAGE} \
                       --dex-file=$DEX_LOCATION/$name.jar \
@@ -966,12 +1055,13 @@ function write_dex2oat_cmdlines {
   fi
 
   # Add in a timeout. This is important for testing the compilation/verification time of
-  # pathological cases.
+  # pathological cases. We do not append a timeout when debugging dex2oat because we
+  # do not want it to exit while debugging.
   # Note: as we don't know how decent targets are (e.g., emulator), only do this on the host for
   #       now. We should try to improve this.
   #       The current value is rather arbitrary. run-tests should compile quickly.
   # Watchdog timeout is in milliseconds so add 3 '0's to the dex2oat timeout.
-  if [ "$HOST" != "n" ]; then
+  if [ "$HOST" != "n" ] && [ "$USE_GDB_DEX2OAT" != "y" ]; then
     # Use SIGRTMIN+2 to try to dump threads.
     # Use -k 1m to SIGKILL it a minute later if it hasn't ended.
     dex2oat_cmdline="timeout -k ${DEX2OAT_TIMEOUT}s -s SIGRTMIN+2 ${DEX2OAT_RT_TIMEOUT}s ${dex2oat_cmdline} --watchdog-timeout=${DEX2OAT_TIMEOUT}000"
@@ -985,10 +1075,13 @@ function write_dex2oat_cmdlines {
     else
       vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --input-vdex=$DEX_LOCATION/oat/$ISA/$name.vdex"
     fi
-  elif [ "$TEST_DM" = "y" ]; then
+  elif [ "$TEST_DEX2OAT_DM" = "y" ]; then
+    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --dump-timings --dm-file=$DEX_LOCATION/oat/$ISA/$name.dm"
     dex2oat_cmdline="${dex2oat_cmdline} --copy-dex-files=false --output-vdex=$DEX_LOCATION/oat/$ISA/primary.vdex"
     dm_cmdline="zip -qj $DEX_LOCATION/oat/$ISA/$name.dm $DEX_LOCATION/oat/$ISA/primary.vdex"
-    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --dump-timings --dm-file=$DEX_LOCATION/oat/$ISA/$name.dm"
+  elif [ "$TEST_RUNTIME_DM" = "y" ]; then
+    dex2oat_cmdline="${dex2oat_cmdline} --copy-dex-files=false --output-vdex=$DEX_LOCATION/oat/$ISA/primary.vdex"
+    dm_cmdline="zip -qj $DEX_LOCATION/$name.dm $DEX_LOCATION/oat/$ISA/primary.vdex"
   fi
 }
 
@@ -1049,9 +1142,16 @@ else
   QUOTED_DALVIKVM_BOOT_OPT="$DALVIKVM_BOOT_OPT"
 fi
 
+DALVIKVM_CLASSPATH=$DEX_LOCATION/$TEST_NAME.jar
+if [ -f "$TEST_NAME-aotex.jar" ] ; then
+  DALVIKVM_CLASSPATH=$DALVIKVM_CLASSPATH:$DEX_LOCATION/$TEST_NAME-aotex.jar
+fi
+DALVIKVM_CLASSPATH=$DALVIKVM_CLASSPATH$SECONDARY_DEX
+
 # We set DumpNativeStackOnSigQuit to false to avoid stressing libunwind.
 # b/27185632
 # b/24664297
+
 dalvikvm_cmdline="$INVOKE_WITH $GDB $ANDROID_ART_BIN_DIR/$DALVIKVM \
                   $GDB_ARGS \
                   $FLAGS \
@@ -1066,7 +1166,11 @@ dalvikvm_cmdline="$INVOKE_WITH $GDB $ANDROID_ART_BIN_DIR/$DALVIKVM \
                   ${QUOTED_DALVIKVM_BOOT_OPT} \
                   $TMP_DIR_OPTION \
                   -XX:DumpNativeStackOnSigQuit:false \
-                  -cp $DEX_LOCATION/$TEST_NAME.jar$SECONDARY_DEX $MAIN $ARGS"
+                  -cp $DALVIKVM_CLASSPATH $MAIN $ARGS"
+
+if [ "x$SIMPLEPERF" == xyes ]; then
+  dalvikvm_cmdline="simpleperf record ${dalvikvm_cmdline} && simpleperf report"
+fi
 
 sanitize_dex2oat_cmdline() {
   local args=()
@@ -1119,6 +1223,8 @@ if [ "$HOST" = "n" ]; then
       adb shell mkdir -p $CHROOT_DEX_LOCATION
       adb push $TEST_NAME.jar $CHROOT_DEX_LOCATION
       adb push $TEST_NAME-ex.jar $CHROOT_DEX_LOCATION
+      adb push $TEST_NAME-aotex.jar $CHROOT_DEX_LOCATION
+      adb push $TEST_NAME-bcpex.jar $CHROOT_DEX_LOCATION
       if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
         adb push profile $CHROOT_DEX_LOCATION
       fi
@@ -1131,6 +1237,8 @@ if [ "$HOST" = "n" ]; then
       adb shell mkdir -p $CHROOT_DEX_LOCATION >/dev/null 2>&1
       adb push $TEST_NAME.jar $CHROOT_DEX_LOCATION >/dev/null 2>&1
       adb push $TEST_NAME-ex.jar $CHROOT_DEX_LOCATION >/dev/null 2>&1
+      adb push $TEST_NAME-aotex.jar $CHROOT_DEX_LOCATION >/dev/null 2>&1
+      adb push $TEST_NAME-bcpex.jar $CHROOT_DEX_LOCATION >/dev/null 2>&1
       if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
         adb push profile $CHROOT_DEX_LOCATION >/dev/null 2>&1
       fi

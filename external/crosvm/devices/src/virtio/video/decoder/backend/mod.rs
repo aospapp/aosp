@@ -8,24 +8,27 @@
 use crate::virtio::video::{
     decoder::Capability,
     error::{VideoError, VideoResult},
-    format::{Format, FramePlane, Rect},
+    format::{Format, Rect},
+    resource::{GuestResource, GuestResourceHandle},
 };
-use base::{AsRawDescriptor, RawDescriptor};
+use base::AsRawDescriptor;
 
+pub mod utils;
+#[cfg(feature = "libvda")]
 pub mod vda;
 
 /// Contains the device's state for one playback session, i.e. one stream.
 pub trait DecoderSession {
     /// Tell how many output buffers will be used for this session and which format they will carry.
     /// This method must be called after a `ProvidePictureBuffers` event is emitted, and before the
-    /// first call to `use_output_buffers()`.
+    /// first call to `use_output_buffer()`.
     fn set_output_parameters(&mut self, buffer_count: usize, format: Format) -> VideoResult<()>;
 
     /// Decode the compressed stream contained in [`offset`..`offset`+`bytes_used`]
-    /// of the shared memory in `descriptor`. `bitstream_id` is the identifier for that
+    /// of the shared memory in `resource`. `bitstream_id` is the identifier for that
     /// part of the stream (most likely, a timestamp).
     ///
-    /// The device takes ownership of `descriptor` and is responsible for closing it
+    /// The device takes ownership of `resource` and is responsible for closing it
     /// once it is not used anymore.
     ///
     /// The device will emit a `NotifyEndOfBitstreamBuffer` event after the input
@@ -37,13 +40,13 @@ pub trait DecoderSession {
     fn decode(
         &mut self,
         bitstream_id: i32,
-        descriptor: RawDescriptor,
+        resource: GuestResourceHandle,
         offset: u32,
         bytes_used: u32,
     ) -> VideoResult<()>;
 
-    /// Flush the decoder device, i.e. finish processing of all queued decode
-    /// requests.
+    /// Flush the decoder device, i.e. finish processing all queued decode requests and emit frames
+    /// for them.
     ///
     /// The device will emit a `FlushCompleted` event once the flush is done.
     fn flush(&mut self) -> VideoResult<()>;
@@ -53,27 +56,28 @@ pub trait DecoderSession {
     /// The device will emit a `ResetCompleted` event once the reset is done.
     fn reset(&mut self) -> VideoResult<()>;
 
+    /// Immediately release all buffers passed using `use_output_buffer()` and
+    /// `reuse_output_buffer()`.
+    fn clear_output_buffers(&mut self) -> VideoResult<()>;
+
     /// Returns the event pipe on which the availability of events will be signaled. Note that the
     /// returned value is borrowed and only valid as long as the session is alive.
     fn event_pipe(&self) -> &dyn AsRawDescriptor;
 
-    /// Ask the device to use the memory buffer in `output_buffer` to store decoded frames. `planes`
-    /// describes how the frame's planes should be laid out in the buffer, and `picture_buffer_id`
-    /// is the ID of the picture, that will be reproduced in `PictureReady` events using this
-    /// buffer.
+    /// Ask the device to use `resource` to store decoded frames according to its layout.
+    /// `picture_buffer_id` is the ID of the picture that will be reproduced in `PictureReady`
+    /// events using this buffer.
     ///
-    /// The device takes ownership of `output_buffer` and is responsible for closing it once the
-    /// buffer is not used anymore (either when the session is closed, or a new set of buffers is
-    /// provided for the session).
+    /// The device takes ownership of `resource` and is responsible for closing it once the buffer
+    /// is not used anymore (either when the session is closed, or a new set of buffers is provided
+    /// for the session).
     ///
     /// The device will emit a `PictureReady` event with the `picture_buffer_id` field set to the
     /// same value as the argument of the same name when a frame has been decoded into that buffer.
     fn use_output_buffer(
         &mut self,
         picture_buffer_id: i32,
-        output_buffer: RawDescriptor,
-        planes: &[FramePlane],
-        modifier: u64,
+        resource: GuestResource,
     ) -> VideoResult<()>;
 
     /// Ask the device to reuse an output buffer previously passed to
@@ -95,15 +99,16 @@ pub trait DecoderBackend {
     /// Return the decoding capabilities for this backend instance.
     fn get_capabilities(&self) -> Capability;
 
-    /// Create a new decoding session for the passed `profile`.
+    /// Create a new decoding session for the passed `format`.
     fn new_session(&mut self, format: Format) -> VideoResult<Self::Session>;
 }
 
 #[derive(Debug)]
 pub enum DecoderEvent {
-    /// Emitted when the device knows the buffer format it will need to decode
-    /// frames, and how many buffers it will need. The decoder is supposed to
-    /// provide buffers of the requested dimensions using `use_output_buffer`.
+    /// Emitted when the device knows the buffer format it will need to decode frames, and how many
+    /// buffers it will need. The decoder is supposed to call `set_output_parameters()` to confirm
+    /// the pixel format and actual number of buffers used, and provide buffers of the requested
+    /// dimensions using `use_output_buffer()`.
     ProvidePictureBuffers {
         min_num_buffers: u32,
         width: i32,

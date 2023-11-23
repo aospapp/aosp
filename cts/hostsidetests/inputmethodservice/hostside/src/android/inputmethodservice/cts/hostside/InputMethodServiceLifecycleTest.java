@@ -24,6 +24,7 @@ import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_E
 import static android.inputmethodservice.cts.common.DeviceEventConstants.RECEIVER_COMPONENT;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.inputmethodservice.cts.common.ComponentNameUtils;
@@ -460,6 +461,8 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
 
     private void testImeSwitchingWithoutWindowFocusAfterDisplayOffOn(boolean instant)
             throws Exception {
+        // Skip whole tests when DUT has com.google.android.tv.operator_tier feature.
+        assumeFalse(hasDeviceFeature(ShellCommandUtils.FEATURE_TV_OPERATOR_TIER));
         sendTestStartEvent(
                 DeviceTestConstants.TEST_IME_SWITCHING_WITHOUT_WINDOW_FOCUS_AFTER_DISPLAY_OFF_ON);
         installPossibleInstantPackage(

@@ -22,8 +22,16 @@
 #ifndef ZOPFLIPNG_LIB_H_
 #define ZOPFLIPNG_LIB_H_
 
+#ifdef __cplusplus
+
 #include <string>
 #include <vector>
+
+extern "C" {
+
+#endif
+
+#include <stdlib.h>
 
 enum ZopfliPNGFilterStrategy {
   kStrategyZero = 0,
@@ -38,8 +46,53 @@ enum ZopfliPNGFilterStrategy {
   kNumFilterStrategies /* Not a strategy but used for the size of this enum */
 };
 
+typedef struct CZopfliPNGOptions {
+  int lossy_transparent;
+  int lossy_8bit;
+
+  enum ZopfliPNGFilterStrategy* filter_strategies;
+  // How many strategies to try.
+  int num_filter_strategies;
+
+  int auto_filter_strategy;
+
+  char** keepchunks;
+  // How many entries in keepchunks.
+  int num_keepchunks;
+
+  int use_zopfli;
+
+  int num_iterations;
+
+  int num_iterations_large;
+
+  int block_split_strategy;
+} CZopfliPNGOptions;
+
+// Sets the default options
+// Does not allocate or set keepchunks or filter_strategies
+void CZopfliPNGSetDefaults(CZopfliPNGOptions *png_options);
+
+// Returns 0 on success, error code otherwise
+// The caller must free resultpng after use
+int CZopfliPNGOptimize(const unsigned char* origpng,
+    const size_t origpng_size,
+    const CZopfliPNGOptions* png_options,
+    int verbose,
+    unsigned char** resultpng,
+    size_t* resultpng_size);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+// C++ API
+#ifdef __cplusplus
+
 struct ZopfliPNGOptions {
   ZopfliPNGOptions();
+
+  bool verbose;
 
   // Allow altering hidden colors of fully transparent pixels
   bool lossy_transparent;
@@ -51,6 +104,16 @@ struct ZopfliPNGOptions {
 
   // Automatically choose filter strategy using less good compression
   bool auto_filter_strategy;
+
+  // Keep original color type (RGB, RGBA, gray, gray+alpha or palette) and bit
+  // depth of the PNG.
+  // This results in a loss of compression opportunities, e.g. it will no
+  // longer convert a 4-channel RGBA image to 2-channel gray+alpha if the image
+  // only had translucent gray pixels.
+  // May be useful if a device does not support decoding PNGs of a particular
+  // color type.
+  // Default value: false.
+  bool keep_colortype;
 
   // PNG chunks to keep
   // chunks to literally copy over from the original PNG to the resulting one
@@ -65,7 +128,7 @@ struct ZopfliPNGOptions {
   // Zopfli number of iterations on large images
   int num_iterations_large;
 
-  // 0=none, 1=first, 2=last, 3=both
+  // Unused, left for backwards compatiblity.
   int block_split_strategy;
 };
 
@@ -75,5 +138,7 @@ int ZopfliPNGOptimize(const std::vector<unsigned char>& origpng,
     const ZopfliPNGOptions& png_options,
     bool verbose,
     std::vector<unsigned char>* resultpng);
+
+#endif  // __cplusplus
 
 #endif  // ZOPFLIPNG_LIB_H_

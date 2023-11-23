@@ -85,12 +85,21 @@ public class EncryptionTest {
     }
 
     private void handleEncryptedDevice() {
-        if ("file".equals(PropertyUtil.getProperty("ro.crypto.type"))) {
+        final String cryptoType = PropertyUtil.getProperty("ro.crypto.type");
+        if ("file".equals(cryptoType)) {
             Log.d(TAG, "Device is encrypted with file-based encryption.");
             // Note: this test doesn't check whether the requirements for
             // encryption algorithms are met, since apps don't have a way to
             // query this information.  Instead, it's tested in
             // CtsNativeEncryptionTestCases.
+            return;
+        }
+        if ("managed".equals(cryptoType)) {
+            // Android is running in a virtualized environment and the file
+            // system is encrypted by the host system.
+            Log.d(TAG, "Device encryption is managed by the host system.");
+            // Note: All encryption-related CDD requirements still must be met,
+            // but they can't be tested directly in this case.
             return;
         }
         // Prior to Android Q, file-based encryption wasn't required

@@ -546,6 +546,19 @@ int amdgpu_device_initialize(int fd,
 */
 int amdgpu_device_deinitialize(amdgpu_device_handle device_handle);
 
+/**
+ *
+ * /param device_handle - \c [in] Device handle.
+ *                           See #amdgpu_device_initialize()
+ *
+ * \return Returns the drm fd used for operations on this
+ *         device. This is still owned by the library and hence
+ *         should not be closed. Guaranteed to be valid until
+ *         #amdgpu_device_deinitialize gets called.
+ *
+*/
+int amdgpu_device_get_fd(amdgpu_device_handle device_handle);
+
 /*
  * Memory Management
  *
@@ -1238,6 +1251,23 @@ int amdgpu_query_sensor_info(amdgpu_device_handle dev, unsigned sensor_type,
 			     unsigned size, void *value);
 
 /**
+ * Query information about video capabilities
+ *
+ * The return sizeof(struct drm_amdgpu_info_video_caps)
+ *
+ * \param   dev         - \c [in] Device handle. See #amdgpu_device_initialize()
+ * \param   caps_type   - \c [in] AMDGPU_INFO_VIDEO_CAPS_DECODE(ENCODE)
+ * \param   size        - \c [in] Size of the returned value.
+ * \param   value       - \c [out] Pointer to the return value.
+ *
+ * \return   0 on success\n
+ *          <0 - Negative POSIX Error code
+ *
+*/
+int amdgpu_query_video_caps_info(amdgpu_device_handle dev, unsigned cap_type,
+                                 unsigned size, void *value);
+
+/**
  * Read a set of consecutive memory-mapped registers.
  * Not all registers are allowed to be read by userspace.
  *
@@ -1263,6 +1293,7 @@ int amdgpu_read_mm_registers(amdgpu_device_handle dev, unsigned dword_offset,
 */
 #define AMDGPU_VA_RANGE_32_BIT		0x1
 #define AMDGPU_VA_RANGE_HIGH		0x2
+#define AMDGPU_VA_RANGE_REPLAYABLE	0x4
 
 /**
  * Allocate virtual address range

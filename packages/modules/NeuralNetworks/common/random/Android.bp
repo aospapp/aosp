@@ -15,12 +15,15 @@
  */
 
 package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
+    // Inherits all licenses from parent to get Apache 2.0 and package name
+    default_applicable_licenses: [
+        "packages_modules_NeuralNetworks_license",
+    ],
 }
 
 cc_library_headers {
     name: "philox_random_headers",
-    host_supported: false,
+    host_supported: true,
     vendor_available: true,
     export_include_dirs: ["."],
     apex_available: [
@@ -28,11 +31,12 @@ cc_library_headers {
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
     ],
+    sdk_version: "current",
 }
 
 cc_library_static {
     name: "philox_random",
-    host_supported: false,
+    host_supported: true,
     vendor_available: true,
     apex_available: [
         "//apex_available:platform",
@@ -46,8 +50,6 @@ cc_library_static {
     ],
     cflags: [
         "-DLOG_TAG=\"Random\"",
-        "-Wno-invalid-partial-specialization",
-        "-Wno-unused-parameter",
     ],
     header_libs: [
         "libeigen",
@@ -57,4 +59,31 @@ cc_library_static {
     shared_libs: [
         "libbase",
     ],
+}
+
+cc_library_static {
+    name: "philox_random_cl",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.neuralnetworks",
+        "test_com.android.neuralnetworks",
+    ],
+    srcs: [
+        "guarded_philox_random.cc",
+        "random.cc",
+        "simple_philox.cc",
+    ],
+    cflags: [
+        "-DLOG_TAG=\"Random\"",
+    ],
+    header_libs: [
+        "libeigen",
+        "philox_random_headers",
+        "tensorflow_headers",
+    ],
+    static_libs: [
+        "libbase_ndk",
+    ],
+    sdk_version: "current",
+    stl: "libc++_static",
 }

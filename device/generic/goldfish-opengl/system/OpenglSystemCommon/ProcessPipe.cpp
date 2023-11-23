@@ -29,7 +29,7 @@
 #include <errno.h>
 
 #ifdef __Fuchsia__
-#include <fuchsia/hardware/goldfish/llcpp/fidl.h>
+#include <fidl/fuchsia.hardware.goldfish/cpp/wire.h>
 #include <lib/zx/vmo.h>
 
 #include "services/service_connector.h"
@@ -42,6 +42,7 @@ static QEMU_PIPE_HANDLE   sProcDevice = 0;
 
 #include "VirtioGpuPipeStream.h"
 static VirtioGpuPipeStream* sVirtioGpuPipeStream = 0;
+static int sStreamHandle = -1;
 
 #endif // !__Fuchsia__
 
@@ -95,11 +96,11 @@ static void processPipeInitOnce() {
 
     fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe> pipe(
         std::move(pipe_ends->client));
-    device.OpenPipe(std::move(pipe_ends->server));
+    device->OpenPipe(std::move(pipe_ends->server));
 
     zx::vmo vmo;
     {
-        auto result = pipe.GetBuffer();
+        auto result = pipe->GetBuffer();
         if (!result.ok() || result.Unwrap()->res != ZX_OK) {
             ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
@@ -116,7 +117,7 @@ static void processPipeInitOnce() {
     }
 
     {
-        auto result = pipe.Write(len + 1, 0);
+        auto result = pipe->Write(len + 1, 0);
         if (!result.ok() || result.Unwrap()->res != ZX_OK) {
             ALOGD("%s: connecting to pipe service failed: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
@@ -133,7 +134,7 @@ static void processPipeInitOnce() {
     }
 
     {
-        auto result = pipe.DoCall(sizeof(confirmInt), 0, sizeof(sProcUID), 0);
+        auto result = pipe->DoCall(sizeof(confirmInt), 0, sizeof(sProcUID), 0);
         if (!result.ok() || result.Unwrap()->res != ZX_OK) {
             ALOGD("%s: failed to get per-process ID: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
@@ -146,8 +147,8 @@ static void processPipeInitOnce() {
         ALOGE("%s: failed read per-process ID: %d", __FUNCTION__, status);
         return;
     }
-    sProcDevice = device.mutable_channel()->release();
-    sProcPipe = pipe.mutable_channel()->release();
+    sProcDevice = device.TakeClientEnd().TakeChannel().release();
+    sProcPipe = pipe.TakeClientEnd().TakeChannel().release();
 }
 #else // __Fuchsia__
 
@@ -193,7 +194,7 @@ static void processPipeInitOnce() {
             break;
         case HOST_CONNECTION_VIRTIO_GPU_PIPE:
         case HOST_CONNECTION_VIRTIO_GPU_ADDRESS_SPACE: {
-            sVirtioGpuPipeStream = new VirtioGpuPipeStream(4096);
+            sVirtioGpuPipeStream = new VirtioGpuPipeStream(4096, sStreamHandle);
             sProcUID = sVirtioGpuPipeStream->initProcessPipe();
             break;
         }
@@ -202,8 +203,11 @@ static void processPipeInitOnce() {
 }
 #endif // !__Fuchsia__
 
-bool processPipeInit(HostConnectionType connType, renderControl_encoder_context_t *rcEnc) {
+bool processPipeInit(int streamHandle, HostConnectionType connType, renderControl_encoder_context_t *rcEnc) {
     sConnType = connType;
+#ifndef __Fuchsia__
+    sStreamHandle = streamHandle;
+#endif // !__Fuchsia
     pthread_once(&sProcPipeOnce, processPipeInitOnce);
     bool pipeHandleInvalid = !sProcPipe;
 #ifndef __Fuchsia__
@@ -255,7 +259,7 @@ void processPipeRestart() {
 #endif // __Fuchsia__
 
     processPipeInitOnce();
-};
+}
 
 void refreshHostConnection() {
     HostConnection* hostConn = HostConnection::get();

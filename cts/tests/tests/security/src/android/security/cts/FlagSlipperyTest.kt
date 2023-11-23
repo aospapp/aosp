@@ -16,7 +16,6 @@
 
 package android.security.cts
 
-import android.app.Instrumentation
 import android.graphics.Rect
 import android.os.SystemClock
 import android.platform.test.annotations.AsbSecurityTest
@@ -30,12 +29,13 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
 import android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+import android.view.WindowManager.LayoutParams.FLAG_SLIPPERY
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
-import androidx.test.platform.app.InstrumentationRegistry
 import com.android.compatibility.common.util.PollingCheck
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -49,8 +49,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.Queue
-
-val FLAG_SLIPPERY = 0x20000000 // android.view.WindowManager.LayoutParams.FLAG_SLIPPERY
 
 private fun getViewCenterOnScreen(v: View): Pair<Float, Float> {
     val location = IntArray(2)
@@ -115,8 +113,7 @@ private class SurfaceCreatedCallback(created: CountDownLatch) : SurfaceHolder.Ca
  * test code. The third approach requires adding an embedded window, and the code for that test was
  * forked to avoid excessive branching.
  */
-class FlagSlipperyTest {
-    private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
+class FlagSlipperyTest : StsExtraBusinessLogicTestCase {
     private lateinit var scenario: ActivityScenario<SlipperyEnterBottomActivity>
     private lateinit var windowManager: WindowManager
 
@@ -132,10 +129,12 @@ class FlagSlipperyTest {
     val rule = ActivityScenarioRule<SlipperyEnterBottomActivity>(
             SlipperyEnterBottomActivity::class.java)
 
+    constructor() : super()
+
     @Before
     fun setup() {
         scenario = rule.getScenario()
-        windowManager = instrumentation.getTargetContext().getSystemService<WindowManager>(
+        windowManager = getInstrumentation().getTargetContext().getSystemService<WindowManager>(
                 WindowManager::class.java)
         setDimensionsToQuarterScreen()
 
@@ -156,7 +155,7 @@ class FlagSlipperyTest {
     // ========================== Regular window tests =============================================
 
     private fun addWindow(slipperyWhenAdded: Boolean): View {
-        val view = View(instrumentation.targetContext)
+        val view = View(getInstrumentation().targetContext)
         scenario.onActivity {
             view.setOnTouchListener(OnTouchListener(view))
             view.setBackgroundColor(android.graphics.Color.RED)
@@ -220,7 +219,7 @@ class FlagSlipperyTest {
     private lateinit var mVr: SurfaceControlViewHost
 
     private fun addEmbeddedHostWindow(): SurfaceView {
-        val surfaceView = SurfaceView(instrumentation.targetContext)
+        val surfaceView = SurfaceView(getInstrumentation().targetContext)
         val surfaceCreated = CountDownLatch(1)
         scenario.onActivity {
             surfaceView.setZOrderOnTop(true)
@@ -247,7 +246,7 @@ class FlagSlipperyTest {
             embeddedViewDrawn.countDown()
         }
         layoutCompleted.set(false)
-        val embeddedView = View(instrumentation.targetContext)
+        val embeddedView = View(getInstrumentation().targetContext)
         scenario.onActivity {
             embeddedView.setOnTouchListener(OnTouchListener(surfaceView))
             embeddedView.setBackgroundColor(android.graphics.Color.RED)
@@ -340,7 +339,7 @@ class FlagSlipperyTest {
         PollingCheck.waitFor {
             layoutCompleted.get()
         }
-        instrumentation.uiAutomation.syncInputTransactions(true /*waitAnimations*/)
+        getInstrumentation().uiAutomation.syncInputTransactions(true /*waitAnimations*/)
     }
 
     private fun setDimensionsToQuarterScreen() {
@@ -360,7 +359,7 @@ class FlagSlipperyTest {
         }
         val event = MotionEvent.obtain(downTime, eventTime, action, x, y, 0 /*metaState*/)
         event.source = InputDevice.SOURCE_TOUCHSCREEN
-        instrumentation.uiAutomation.injectInputEvent(event, true /*sync*/)
+        getInstrumentation().uiAutomation.injectInputEvent(event, true /*sync*/)
     }
 
     companion object {

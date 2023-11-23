@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # llcstat.py Summarize cache references and cache misses by PID.
 #            Cache reference and cache miss are corresponding events defined in
@@ -50,7 +50,7 @@ BPF_HASH(miss_count, struct key_t);
 
 static inline __attribute__((always_inline)) void get_key(struct key_t* key) {
     key->cpu = bpf_get_smp_processor_id();
-    key->pid = bpf_get_current_pid_tgid();
+    key->pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(&(key->name), sizeof(key->name));
 }
 

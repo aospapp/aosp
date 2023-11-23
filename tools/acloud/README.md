@@ -87,16 +87,13 @@ target set from above.
 
 Additional helpful create options are:
 
-* `--flavor`: This can be one of phone, auto, wear, tv, iot, tablet and 3g.
-This will be used to choose the default hw properties and infer build target
-if not specified.
+* `--config`: This can be one of phone, auto, tablet, tv. This wil be used to configure different types of hardware properties and infer build target if not specified.
 
-* `--autoconnect`: This defaults to true and upon creation of a remote instance,
-creates a ssh tunnel to enable adb and vnc connection to the instance. For the
-local instance, acloud will just invoke the vnc client. If you don't want
-autoconnect, you can pass in `--no-autoconnect`
+* `--autoconnect`:&ensp;Cuttlefish AVD defaults to webrtc and acloud will automatically open the browser upon creation of a remote or local instance.
+Acloud will also create a ssh tunnel to enable adb and webrtc connection to the instance. Other AVD types(such as goldfish, cheeps...) still default to vnc.
 
-* `--unlock`: This can unlock screen after invoke the vnc client.
+    *   If you want to invoke vnc client, you can pass in `--autoconnect vnc`.
+    *   If you don't want autoconnect, you can pass in `--no-autoconnect`.
 
 * `--hw-property`: This is a string where you can specify the different
 properties of the AVD. You can specify the cpu, resolution, dpi, memory,and/or
@@ -150,10 +147,10 @@ Cheatsheet:
 
 #### **reconnect**
 
-Reconnect will re-establish ssh tunnels for adb/vnc port forwarding for all
+Reconnect will re-establish ssh tunnels for adb/webrtc/vnc port forwarding for all
 remote instance created by you. It will then look for any devices missing in
-`adb devices` and reconnect them to adb. Lastly it will restart vnc for all
-devices that don't already have vnc started for them.
+`adb devices` and reconnect them to adb. Lastly it will restart webrtc/vnc for all
+devices that don't already have webrtc/vnc started for them.
 
 Cheatsheet:
 

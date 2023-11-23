@@ -429,6 +429,17 @@ SM_STATE(EAP, GET_METHOD)
 	wpa_msg(sm->msg_ctx, MSG_INFO, WPA_EVENT_EAP_METHOD
 		"EAP vendor %u method %u (%s) selected",
 		sm->reqVendor, method, sm->m->name);
+
+	if (sm->eapol_cb->notify_eap_method_selected) {
+		char *format_str = "EAP vendor %u method %u (%s) selected";
+		int msg_len = snprintf(NULL, 0, format_str,
+			sm->reqVendor, method, sm->m->name) + 1;
+		char *msg = os_malloc(msg_len);
+		snprintf(msg, msg_len, format_str,
+			sm->reqVendor, method, sm->m->name);
+		sm->eapol_cb->notify_eap_method_selected(sm->eapol_ctx, msg);
+		os_free(msg);
+	}
 	return;
 
 nak:
@@ -1069,6 +1080,20 @@ SM_STATE(EAP, SUCCESS)
 	wpa_msg(sm->msg_ctx, MSG_INFO, WPA_EVENT_EAP_SUCCESS
 		"EAP authentication completed successfully");
 
+	if (!config || !sm->m) {
+		/*
+		 * This should not happen under normal conditions, but be more
+		 * careful here since there was an earlier case where
+		 * EAP-Success could end up getting delivered to the state
+		 * machine for processing after the state had been cleaned with
+		 * a call to eap_invalidate_cached_session() (and also
+		 * eapol_sm_notify_config() having been used to clear EAP
+		 * configuration in the EAPOL state machine).
+		 */
+		wpa_printf(MSG_DEBUG,
+			   "EAP: State machine not configured - cannot initialize ERP");
+		return;
+	}
 	if (config->erp && sm->m->get_emsk && sm->eapSessionId &&
 	    sm->m->isKeyAvailable &&
 	    sm->m->isKeyAvailable(sm, sm->eap_method_priv))

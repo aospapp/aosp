@@ -31,41 +31,57 @@ interface ICarStorageMonitoring {
 
   /**
    * Returns the current wear estimate indicators.
+   *
+   * @deprecated wear estimate data is unreliable
    */
   WearEstimate getWearEstimate() = 2;
 
   /**
    * Returns the list of all observed wear estimate changes.
+   *
+   * @deprecated wear estimate data is unreliable
    */
   List<WearEstimateChange> getWearEstimateHistory() = 3;
 
   /**
    * Returns I/O stats as collected at service boot time.
+   *
+   * @deprecated use CarWatchdogManager#getResourceOveruseStats(int, int) instead.
    */
   List<IoStatsEntry> getBootIoStats() = 4;
 
   /**
    * Returns total I/O stats as collected from kernel start until the last snapshot.
+   *
+   * @deprecated use CarWatchdogManager#getResourceOveruseStats(int, int) instead.
    */
   List<IoStatsEntry> getAggregateIoStats() = 5;
 
   /**
    * Return the I/O stats deltas currently known to the service.
+   *
+   * @deprecated use CarWatchdogManager#getResourceOveruseStats(int, int) instead.
    */
   List<IoStats> getIoStatsDeltas() = 6;
 
   /**
    * Register a new listener to receive new I/O activity deltas as they are generated.
+   *
+   * @deprecated IIoStatsListener is deprecated
    */
   void registerListener(IIoStatsListener listener) = 7;
 
   /**
    * Remove a listener registration, terminating delivery of I/O activity deltas to it.
+   *
+   * @deprecated IIoStatsListener is deprecated
    */
   void unregisterListener(IIoStatsListener listener) = 8;
 
   /**
    * Returns the approximate amount of bytes written to disk during the previous shutdown.
+   *
+   * @deprecated use CarWatchdogManager#getResourceOveruseStats(int, int) instead.
    */
   long getShutdownDiskWriteAmount() = 9;
 }

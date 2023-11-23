@@ -131,8 +131,8 @@ cc_library {
         "src/hb-ot-shape-complex-indic.cc",
         "src/hb-ot-shape-complex-khmer.cc",
         "src/hb-ot-shape-complex-myanmar.cc",
+        "src/hb-ot-shape-complex-syllabic.cc",
         "src/hb-ot-shape-complex-thai.cc",
-        "src/hb-ot-shape-complex-use-table.cc",
         "src/hb-ot-shape-complex-use.cc",
         "src/hb-ot-shape-complex-vowel-constraints.cc",
         "src/hb-ot-shape-fallback.cc",
@@ -181,7 +181,8 @@ cc_library {
 
     export_include_dirs: ["src"],
     cflags: [
-        "-DHAVE_INTEL_ATOMIC_PRIMITIVES",
+        "-DHAVE_PTHREAD",
+        "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC",
         "-DHAVE_OT",
         "-DHAVE_ICU",
         "-DHAVE_ICU_BUILTIN",

@@ -29,6 +29,7 @@
 #include <backtrace.h>
 
 #include "Allocator.h"
+#include "AtomicState.h"
 #include "Binder.h"
 #include "HeapWalker.h"
 #include "Leak.h"
@@ -37,7 +38,6 @@
 #include "ProcessMappings.h"
 #include "PtracerThread.h"
 #include "ScopedDisableMalloc.h"
-#include "Semaphore.h"
 #include "ThreadCapture.h"
 
 #include "bionic.h"
@@ -282,6 +282,13 @@ static inline const char* plural(T val) {
   return (val == 1) ? "" : "s";
 }
 
+enum State {
+  STARTING = 0,
+  PAUSING,
+  COLLECTING,
+  ABORT,
+};
+
 bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
   if (info.version > 0) {
     MEM_ALOGE("unsupported UnreachableMemoryInfo.version %zu in GetUnreachableMemory",
@@ -294,7 +301,7 @@ bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
 
   Heap heap;
 
-  Semaphore continue_parent_sem;
+  AtomicState<State> state(STARTING);
   LeakPipe pipe;
 
   PtracerThread thread{[&]() -> int {
@@ -303,6 +310,13 @@ bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
     /////////////////////////////////////////////
     MEM_ALOGI("collecting thread info for process %d...", parent_pid);
 
+    if (!state.transition_or(STARTING, PAUSING, [&] {
+          MEM_ALOGI("collecting thread expected state STARTING, aborting");
+          return ABORT;
+        })) {
+      return 1;
+    }
+
     ThreadCapture thread_capture(parent_pid, heap);
     allocator::vector<ThreadInfo> thread_info(heap);
     allocator::vector<Mapping> mappings(heap);
@@ -310,24 +324,34 @@ bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
 
     // ptrace all the threads
     if (!thread_capture.CaptureThreads()) {
-      continue_parent_sem.Post();
+      state.set(ABORT);
       return 1;
     }
 
     // collect register contents and stacks
     if (!thread_capture.CapturedThreadInfo(thread_info)) {
-      continue_parent_sem.Post();
+      state.set(ABORT);
       return 1;
     }
 
     // snapshot /proc/pid/maps
     if (!ProcessMappings(parent_pid, mappings)) {
-      continue_parent_sem.Post();
+      state.set(ABORT);
       return 1;
     }
 
     if (!BinderReferences(refs)) {
-      continue_parent_sem.Post();
+      state.set(ABORT);
+      return 1;
+    }
+
+    // Atomically update the state from PAUSING to COLLECTING.
+    // The main thread may have given up waiting for this thread to finish
+    // pausing, in which case it will have changed the state to ABORT.
+    if (!state.transition_or(PAUSING, COLLECTING, [&] {
+          MEM_ALOGI("collecting thread aborting");
+          return ABORT;
+        })) {
       return 1;
     }
 
@@ -337,7 +361,6 @@ bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
     // can drop the malloc locks, it will block until the collection thread
     // exits.
     thread_capture.ReleaseThread(parent_tid);
-    continue_parent_sem.Post();
 
     // fork a process to do the heap walking
     int ret = fork();
@@ -400,7 +423,15 @@ bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit) {
 
     // Wait for the collection thread to signal that it is ready to fork the
     // heap walker process.
-    continue_parent_sem.Wait(30s);
+    if (!state.wait_for_either_of(COLLECTING, ABORT, 30s)) {
+      // The pausing didn't finish within 30 seconds, attempt to atomically
+      // update the state from PAUSING to ABORT.  The collecting thread
+      // may have raced with the timeout and already updated the state to
+      // COLLECTING, in which case aborting is not necessary.
+      if (state.transition(PAUSING, ABORT)) {
+        MEM_ALOGI("main thread timed out waiting for collecting thread");
+      }
+    }
 
     // Re-enable malloc so the collection thread can fork.
   }

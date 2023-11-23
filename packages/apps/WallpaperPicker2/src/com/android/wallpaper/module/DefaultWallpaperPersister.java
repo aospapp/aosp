@@ -29,6 +29,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.text.TextUtils;
 import android.util.Log;
@@ -43,7 +44,6 @@ import com.android.wallpaper.asset.Asset.DimensionsReceiver;
 import com.android.wallpaper.asset.BitmapUtils;
 import com.android.wallpaper.asset.StreamableAsset;
 import com.android.wallpaper.asset.StreamableAsset.StreamReceiver;
-import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.BitmapCropper.Callback;
@@ -701,7 +701,7 @@ public class DefaultWallpaperPersister implements WallpaperPersister {
                         && mWallpaperPreferences.getWallpaperPresentationMode()
                         == WallpaperPreferences.PRESENTATION_MODE_ROTATING
                         && !wasLockWallpaperSet
-                        && BuildCompat.isAtLeastN()) {
+                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     copyRotatingWallpaperToLock();
                 }
                 setImageWallpaperMetadata(mDestination, wallpaperId);
@@ -791,7 +791,7 @@ public class DefaultWallpaperPersister implements WallpaperPersister {
         }
 
         private void setImageWallpaperHomeMetadata(int homeWallpaperId) {
-            if (BuildCompat.isAtLeastN()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 mWallpaperPreferences.setHomeWallpaperManagerId(homeWallpaperId);
             }
 

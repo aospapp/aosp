@@ -27,7 +27,7 @@ TARGETS_THAT_HAVE_VENUS_HEVC := apq8084 msm8994 msm8996
 # KONA_TODO_UPDATE: Disable SW codec for Kona for now
 TARGETS_THAT_DONT_NEED_SW_VDEC := msm8226 msm8916 msm8992 msm8996 sdm660 msm8998 msm8909
 
-ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_HAVE_VENUS_HEVC)),true)
+ifneq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_HAVE_VENUS_HEVC)))
 libmm-vdec-def += -DVENUS_HEVC
 endif
 
@@ -49,11 +49,11 @@ ifneq (1,$(filter 1,$(shell echo "$$(( $(PLATFORM_SDK_VERSION) >= 18 ))" )))
 libmm-vdec-def += -DANDROID_JELLYBEAN_MR1=1
 endif
 
-ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)),true)
+ifneq (,$(call is-board-platform-in-list2, $(MASTER_SIDE_CP_TARGET_LIST)))
 libmm-vdec-def += -DMASTER_SIDE_CP
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least,27),true) # O-MR1
+ifdef IS_AT_LEAST_OPM1 # O-MR1
 libmm-vdec-def += -D_ANDROID_O_MR1_DIVX_CHANGES
 endif
 
@@ -82,12 +82,12 @@ endif
 # Common Dependencies
 libmm-vdec-add-dep := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-ifeq ($(call is-platform-sdk-version-at-least, 19),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android KK+
 libmm-vdec-def += -DADAPTIVE_PLAYBACK_SUPPORTED
 endif
 
-ifeq ($(call is-platform-sdk-version-at-least, 22),true)
+ifeq (T,T)  # TODO: Obsolete, please remove
 # This feature is enabled for Android LMR1
 libmm-vdec-def += -DFLEXYUV_SUPPORTED
 endif
@@ -148,7 +148,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 ifneq "$(wildcard $(QCPATH) )" ""
-ifneq ($(call is-board-platform-in-list, $(TARGETS_THAT_DONT_NEED_SW_VDEC)),true)
+ifeq (,$(call is-board-platform-in-list2, $(TARGETS_THAT_DONT_NEED_SW_VDEC)))
 
 LOCAL_MODULE                  := libOmxSwVdec
 LOCAL_LICENSE_KINDS           := SPDX-license-identifier-BSD

@@ -16,6 +16,8 @@
 
 package com.android.queryable.queries;
 
+import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.IntentFilter;
@@ -99,5 +101,16 @@ public class IntentFilterQueryHelperTest {
         intentFilterQueryHelper.actions().contains("category4");
 
         assertThat(intentFilterQueryHelper.matches(CATEGORIES_INTENT_FILTER)).isFalse();
+    }
+
+    @Test
+    public void parcel_parcelsCorrectly() {
+        IntentFilterQueryHelper<Queryable> intentFilterQueryHelper =
+                new IntentFilterQueryHelper<>(mQuery);
+
+        intentFilterQueryHelper.actions().contains("");
+        intentFilterQueryHelper.categories().contains(StringQuery.string().isEqualTo(""));
+
+        assertParcelsCorrectly(IntentFilterQueryHelper.class, intentFilterQueryHelper);
     }
 }

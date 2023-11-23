@@ -39,55 +39,73 @@ use crate::inode::{DirectoryEntry, Inode, InodeData, InodeKind, InodeTable};
 
 fn main() -> Result<()> {
     let matches = App::new("zipfuse")
+        .arg(
+            Arg::with_name("options")
+                .short("o")
+                .takes_value(true)
+                .required(false)
+                .help("Comma separated list of mount options"),
+        )
         .arg(Arg::with_name("ZIPFILE").required(true))
         .arg(Arg::with_name("MOUNTPOINT").required(true))
         .get_matches();
 
     let zip_file = matches.value_of("ZIPFILE").unwrap().as_ref();
     let mount_point = matches.value_of("MOUNTPOINT").unwrap().as_ref();
-    run_fuse(zip_file, mount_point)?;
+    let options = matches.value_of("options");
+    run_fuse(zip_file, mount_point, options)?;
     Ok(())
 }
 
 /// Runs a fuse filesystem by mounting `zip_file` on `mount_point`.
-pub fn run_fuse(zip_file: &Path, mount_point: &Path) -> Result<()> {
+pub fn run_fuse(zip_file: &Path, mount_point: &Path, extra_options: Option<&str>) -> Result<()> {
     const MAX_READ: u32 = 1 << 20; // TODO(jiyong): tune this
     const MAX_WRITE: u32 = 1 << 13; // This is a read-only filesystem
 
     let dev_fuse = OpenOptions::new().read(true).write(true).open("/dev/fuse")?;
 
+    let mut mount_options = vec![
+        MountOption::FD(dev_fuse.as_raw_fd()),
+        MountOption::RootMode(libc::S_IFDIR | libc::S_IXUSR | libc::S_IXGRP | libc::S_IXOTH),
+        MountOption::AllowOther,
+        MountOption::UserId(0),
+        MountOption::GroupId(0),
+        MountOption::MaxRead(MAX_READ),
+    ];
+    if let Some(value) = extra_options {
+        mount_options.push(MountOption::Extra(value));
+    }
+
     fuse::mount(
         mount_point,
         "zipfuse",
         libc::MS_NOSUID | libc::MS_NODEV | libc::MS_RDONLY,
-        &[
-            MountOption::FD(dev_fuse.as_raw_fd()),
-            MountOption::RootMode(libc::S_IFDIR | libc::S_IXUSR | libc::S_IXGRP | libc::S_IXOTH),
-            MountOption::AllowOther,
-            MountOption::UserId(0),
-            MountOption::GroupId(0),
-            MountOption::MaxRead(MAX_READ),
-        ],
+        &mount_options,
     )?;
-    Ok(fuse::worker::start_message_loop(dev_fuse, MAX_READ, MAX_WRITE, ZipFuse::new(zip_file)?)?)
+    let mut config = fuse::FuseConfig::new();
+    config.dev_fuse(dev_fuse).max_write(MAX_WRITE).max_read(MAX_READ);
+    Ok(config.enter_message_loop(ZipFuse::new(zip_file)?)?)
 }
 
 struct ZipFuse {
     zip_archive: Mutex<zip::ZipArchive<File>>,
+    raw_file: Mutex<File>,
     inode_table: InodeTable,
-    open_files: Mutex<HashMap<Handle, OpenFileBuf>>,
+    open_files: Mutex<HashMap<Handle, OpenFile>>,
     open_dirs: Mutex<HashMap<Handle, OpenDirBuf>>,
 }
 
-/// Holds the (decompressed) contents of a [`ZipFile`].
-///
-/// This buf is needed because `ZipFile` is in general not seekable due to the compression.
-///
-/// TODO(jiyong): do this only for compressed `ZipFile`s. Uncompressed (store) files don't need
-/// this; they can be directly read from `zip_archive`.
-struct OpenFileBuf {
+/// Represents a [`ZipFile`] that is opened.
+struct OpenFile {
     open_count: u32, // multiple opens share the buf because this is a read-only filesystem
-    buf: Box<[u8]>,
+    content: OpenFileContent,
+}
+
+/// Holds the content of a [`ZipFile`]. Depending on whether it is compressed or not, the
+/// entire content is stored, or only the zip index is stored.
+enum OpenFileContent {
+    Compressed(Box<[u8]>),
+    Uncompressed(usize), // zip index
 }
 
 /// Holds the directory entries in a directory opened by [`opendir`].
@@ -110,11 +128,15 @@ impl ZipFuse {
     fn new(zip_file: &Path) -> Result<ZipFuse> {
         // TODO(jiyong): Use O_DIRECT to avoid double caching.
         // `.custom_flags(nix::fcntl::OFlag::O_DIRECT.bits())` currently doesn't work.
-        let f = OpenOptions::new().read(true).open(zip_file)?;
+        let f = File::open(zip_file)?;
         let mut z = zip::ZipArchive::new(f)?;
+        // Open the same file again so that we can directly access it when accessing
+        // uncompressed zip_file entries in it. `ZipFile` doesn't implement `Seek`.
+        let raw_file = File::open(zip_file)?;
         let it = InodeTable::from_zip(&mut z)?;
         Ok(ZipFuse {
             zip_archive: Mutex::new(z),
+            raw_file: Mutex::new(raw_file),
             inode_table: it,
             open_files: Mutex::new(HashMap::new()),
             open_dirs: Mutex::new(HashMap::new()),
@@ -195,21 +217,37 @@ impl fuse::filesystem::FileSystem for ZipFuse {
         // If the file is already opened, just increase the reference counter. If not, read the
         // entire file content to the buffer. When `read` is called, a portion of the buffer is
         // copied to the kernel.
-        // TODO(jiyong): do this only for compressed zip files. Files that are not compressed
-        // (store) can be directly read from zip_archive. That will help reduce the memory usage.
-        if let Some(ofb) = open_files.get_mut(&handle) {
-            if ofb.open_count == 0 {
+        if let Some(file) = open_files.get_mut(&handle) {
+            if file.open_count == 0 {
                 return Err(ebadf());
             }
-            ofb.open_count += 1;
+            file.open_count += 1;
         } else {
             let inode_data = self.find_inode(inode)?;
             let zip_index = inode_data.get_zip_index().ok_or_else(ebadf)?;
             let mut zip_archive = self.zip_archive.lock().unwrap();
             let mut zip_file = zip_archive.by_index(zip_index)?;
-            let mut buf = Vec::with_capacity(inode_data.size as usize);
-            zip_file.read_to_end(&mut buf)?;
-            open_files.insert(handle, OpenFileBuf { open_count: 1, buf: buf.into_boxed_slice() });
+            let content = match zip_file.compression() {
+                zip::CompressionMethod::Stored => OpenFileContent::Uncompressed(zip_index),
+                _ => {
+                    if let Some(mode) = zip_file.unix_mode() {
+                        let is_reg_file = zip_file.is_file();
+                        let is_executable =
+                            mode & (libc::S_IXUSR | libc::S_IXGRP | libc::S_IXOTH) != 0;
+                        if is_reg_file && is_executable {
+                            log::warn!(
+                                "Executable file {:?} is stored compressed. Consider \
+                                storing it uncompressed to save memory",
+                                zip_file.mangled_name()
+                            );
+                        }
+                    }
+                    let mut buf = Vec::with_capacity(inode_data.size as usize);
+                    zip_file.read_to_end(&mut buf)?;
+                    OpenFileContent::Compressed(buf.into_boxed_slice())
+                }
+            };
+            open_files.insert(handle, OpenFile { open_count: 1, content });
         }
         // Note: we don't return `DIRECT_IO` here, because then applications wouldn't be able to
         // mmap the files.
@@ -231,8 +269,8 @@ impl fuse::filesystem::FileSystem for ZipFuse {
         // again when the same file is opened in the future.
         let mut open_files = self.open_files.lock().unwrap();
         let handle = inode as Handle;
-        if let Some(ofb) = open_files.get_mut(&handle) {
-            if ofb.open_count.checked_sub(1).ok_or_else(ebadf)? == 0 {
+        if let Some(file) = open_files.get_mut(&handle) {
+            if file.open_count.checked_sub(1).ok_or_else(ebadf)? == 0 {
                 open_files.remove(&handle);
             }
             Ok(())
@@ -253,15 +291,28 @@ impl fuse::filesystem::FileSystem for ZipFuse {
         _flags: u32,
     ) -> io::Result<usize> {
         let open_files = self.open_files.lock().unwrap();
-        let ofb = open_files.get(&handle).ok_or_else(ebadf)?;
-        if ofb.open_count == 0 {
+        let file = open_files.get(&handle).ok_or_else(ebadf)?;
+        if file.open_count == 0 {
             return Err(ebadf());
         }
-        let start = offset as usize;
-        let end = start + size as usize;
-        let end = std::cmp::min(end, ofb.buf.len());
-        let read_len = w.write(&ofb.buf[start..end])?;
-        Ok(read_len)
+        Ok(match &file.content {
+            OpenFileContent::Uncompressed(zip_index) => {
+                let mut zip_archive = self.zip_archive.lock().unwrap();
+                let zip_file = zip_archive.by_index(*zip_index)?;
+                let start = zip_file.data_start() + offset;
+                let remaining_size = zip_file.size() - offset;
+                let size = std::cmp::min(remaining_size, size.into());
+
+                let mut raw_file = self.raw_file.lock().unwrap();
+                w.write_from(&mut raw_file, size as usize, start)?
+            }
+            OpenFileContent::Compressed(buf) => {
+                let start = offset as usize;
+                let end = start + size as usize;
+                let end = std::cmp::min(end, buf.len());
+                w.write(&buf[start..end])?
+            }
+        })
     }
 
     fn opendir(
@@ -388,7 +439,7 @@ mod tests {
         let zip_path = PathBuf::from(zip_path);
         let mnt_path = PathBuf::from(mnt_path);
         std::thread::spawn(move || {
-            crate::run_fuse(&zip_path, &mnt_path).unwrap();
+            crate::run_fuse(&zip_path, &mnt_path, None).unwrap();
         });
     }
 
@@ -631,5 +682,80 @@ mod tests {
                 );
             },
         );
+    }
+
+    fn run_fuse_and_check_test_zip(test_dir: &Path, zip_path: &Path) {
+        let mnt_path = test_dir.join("mnt");
+        assert!(fs::create_dir(&mnt_path).is_ok());
+
+        start_fuse(zip_path, &mnt_path);
+
+        // Give some time for the fuse to boot up
+        assert!(wait_for_mount(&mnt_path).is_ok());
+
+        check_dir(&mnt_path, "", &[], &["dir"]);
+        check_dir(&mnt_path, "dir", &["file1", "file2"], &[]);
+        check_file(&mnt_path, "dir/file1", include_bytes!("../testdata/dir/file1"));
+        check_file(&mnt_path, "dir/file2", include_bytes!("../testdata/dir/file2"));
+        assert!(nix::mount::umount2(&mnt_path, nix::mount::MntFlags::empty()).is_ok());
+    }
+
+    #[test]
+    fn supports_deflate() {
+        let test_dir = tempfile::TempDir::new().unwrap();
+        let zip_path = test_dir.path().join("test.zip");
+        let mut zip_file = File::create(&zip_path).unwrap();
+        zip_file.write_all(include_bytes!("../testdata/test.zip")).unwrap();
+
+        run_fuse_and_check_test_zip(test_dir.path(), &zip_path);
+    }
+
+    #[test]
+    fn supports_store() {
+        run_test(
+            |zip| {
+                let data = vec![10; 2 << 20];
+                zip.start_file(
+                    "foo",
+                    FileOptions::default().compression_method(zip::CompressionMethod::Stored),
+                )
+                .unwrap();
+                zip.write_all(&data).unwrap();
+            },
+            |root| {
+                let data = vec![10; 2 << 20];
+                check_file(root, "foo", &data);
+            },
+        );
+    }
+
+    #[cfg(not(target_os = "android"))] // Android doesn't have the loopdev crate
+    #[test]
+    fn supports_zip_on_block_device() {
+        // Write test.zip to the test directory
+        let test_dir = tempfile::TempDir::new().unwrap();
+        let zip_path = test_dir.path().join("test.zip");
+        let mut zip_file = File::create(&zip_path).unwrap();
+        let data = include_bytes!("../testdata/test.zip");
+        zip_file.write_all(data).unwrap();
+
+        // Pad 0 to test.zip so that its size is multiple of 4096.
+        const BLOCK_SIZE: usize = 4096;
+        let size = (data.len() + BLOCK_SIZE) & !BLOCK_SIZE;
+        let pad_size = size - data.len();
+        assert!(pad_size != 0);
+        let pad = vec![0; pad_size];
+        zip_file.write_all(pad.as_slice()).unwrap();
+        drop(zip_file);
+
+        // Attach test.zip to a loop device
+        let lc = loopdev::LoopControl::open().unwrap();
+        let ld = scopeguard::guard(lc.next_free().unwrap(), |ld| {
+            ld.detach().unwrap();
+        });
+        ld.attach_file(&zip_path).unwrap();
+
+        // Start zipfuse over to the loop device (not the zip file)
+        run_fuse_and_check_test_zip(&test_dir.path(), &ld.path().unwrap());
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2021, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,6 +15,18 @@ static inline bool is_armv7_gentimer_present(void)
 {
 	/* The Generic Timer is always present in an ARMv8-A implementation */
 	return true;
+}
+
+static inline bool is_armv8_1_pan_present(void)
+{
+	return ((read_id_aa64mmfr1_el1() >> ID_AA64MMFR1_EL1_PAN_SHIFT) &
+		ID_AA64MMFR1_EL1_PAN_MASK) != 0U;
+}
+
+static inline bool is_armv8_1_vhe_present(void)
+{
+	return ((read_id_aa64mmfr1_el1() >> ID_AA64MMFR1_EL1_VHE_SHIFT) &
+		ID_AA64MMFR1_EL1_VHE_MASK) != 0U;
 }
 
 static inline bool is_armv8_2_ttcnp_present(void)
@@ -80,6 +92,12 @@ static inline bool is_armv8_5_rng_present(void)
 {
 	return ((read_id_aa64isar0_el1() >> ID_AA64ISAR0_RNDR_SHIFT) &
 		ID_AA64ISAR0_RNDR_MASK);
+}
+
+static inline bool is_armv8_6_feat_amuv1p1_present(void)
+{
+	return (((read_id_aa64pfr0_el1() >> ID_AA64PFR0_AMU_SHIFT) &
+		ID_AA64PFR0_AMU_MASK) >= ID_AA64PFR0_AMU_V1P1);
 }
 
 /*

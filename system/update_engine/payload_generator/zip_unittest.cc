@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <brillo/secure_blob.h>
 #include <gtest/gtest.h>
 
 #include "update_engine/common/test_utils.h"
@@ -54,7 +55,6 @@ class MemoryExtentWriter : public ExtentWriter {
     return true;
   }
   bool Write(const void* bytes, size_t count) override {
-    data_->reserve(data_->size() + count);
     data_->insert(data_->end(),
                   static_cast<const uint8_t*>(bytes),
                   static_cast<const uint8_t*>(bytes) + count);
@@ -67,6 +67,7 @@ class MemoryExtentWriter : public ExtentWriter {
 
 template <typename W>
 bool DecompressWithWriter(const brillo::Blob& in, brillo::Blob* out) {
+  out->reserve(in.size());
   std::unique_ptr<ExtentWriter> writer(
       new W(std::make_unique<MemoryExtentWriter>(out)));
   // Init() parameters are ignored by the testing MemoryExtentWriter.
@@ -163,7 +164,7 @@ TYPED_TEST(ZipTest, EmptyInputsTest) {
 TYPED_TEST(ZipTest, CompressELFTest) {
   string path = test_utils::GetBuildArtifactsPath("delta_generator");
   brillo::Blob in;
-  utils::ReadFile(path, &in);
+  ASSERT_TRUE(utils::ReadFile(path, &in));
   brillo::Blob out;
   EXPECT_TRUE(this->ZipCompress(in, &out));
   EXPECT_LT(out.size(), in.size());

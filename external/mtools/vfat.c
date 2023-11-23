@@ -43,7 +43,7 @@ static void autorename(char *name,
 	unsigned int seqnum=0, maxseq=0;
 	char tmp;
 	char *p;
-	
+
 #ifdef DEBUG
 	printf("In autorename for name=%s.\n", name);
 #endif
@@ -63,7 +63,7 @@ static void autorename(char *name,
 			seqnum = 0;
 			maxseq = 1;
 		} else if (name[dotpos] >= '0' && name[dotpos] <= '9') {
-			seqnum = seqnum * 10 + name[dotpos] - '0';
+			seqnum = seqnum * 10 + (uint8_t)(name[dotpos] - '0');
 			maxseq = maxseq * 10;
 		} else
 			tildapos = -1; /* sequence number interrupted */
@@ -155,7 +155,7 @@ void clear_vfat(struct vfat_state *v)
  * and adding in each character, from left to right, padding both
  * the name and extension to maximum length with spaces and skipping
  * the "." (hence always summing exactly 11 characters).
- * 
+ *
  * This exact algorithm is required in order to remain compatible
  * with Microsoft Windows-95 and Microsoft Windows NT 3.5.
  * Thanks to Jeffrey Richter of Microsoft Systems Journal for
@@ -171,7 +171,7 @@ static __inline__ unsigned char sum_shortname(const dos_name_t *dn)
 
 	for (sum=0; name<end; ++name)
 		sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1)
-		  + *name;
+			+ (uint8_t) *name;
 	return(sum);
 }
 
@@ -183,7 +183,7 @@ static __inline__ unsigned char sum_shortname(const dos_name_t *dn)
  */
 static __inline__ void check_vfat(struct vfat_state *v, struct directory *dir)
 {
-	dos_name_t dn;;
+	dos_name_t dn;
 
 	if (! v->subentries) {
 #ifdef DEBUG
@@ -197,7 +197,7 @@ static __inline__ void check_vfat(struct vfat_state *v, struct directory *dir)
 
 	if (v->sum != sum_shortname(&dn))
 		return;
-	
+
 	if( (v->status & ((1<<v->subentries) - 1)) != (1<<v->subentries) - 1)
 		return; /* missing entries */
 
@@ -206,8 +206,16 @@ static __inline__ void check_vfat(struct vfat_state *v, struct directory *dir)
 	v->present = 1;
 }
 
-
-int clear_vses(Stream_t *Dir, int entrySlot, size_t last)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+/* We have indeed different types for the entry slot
+ * - the higher levels have a "signed" type, in order to accomodate
+ *   reserved values for "root directory" entry, "not found" entries, and
+ *   "uninitialized"
+ * - the lower levels always consider it as an index into the
+ *   directory viewed as a table, i.e. always positive
+ */
+int clear_vses(Stream_t *Dir, int entrySlot, unsigned int last)
 {
 	direntry_t entry;
 	dirCache_t *cache;
@@ -240,11 +248,12 @@ int clear_vses(Stream_t *Dir, int entrySlot, size_t last)
 	return 0;
 }
 
-int write_vfat(Stream_t *Dir, dos_name_t *shortname, char *longname, int start,
+int write_vfat(Stream_t *Dir, dos_name_t *shortname, char *longname,
+	       unsigned int start,
 	       direntry_t *mainEntry)
 {
 	struct vfat_subentry *vse;
-	int vse_id, num_vses;
+	uint8_t vse_id, num_vses;
 	wchar_t *c;
 	direntry_t entry;
 	dirCache_t *cache;
@@ -252,7 +261,7 @@ int write_vfat(Stream_t *Dir, dos_name_t *shortname, char *longname, int start,
 	doscp_t *cp = GET_DOSCONVERT(Dir);
 
 	wchar_t wlongname[MAX_VNAMELEN+1];
-	int wlen;
+	size_t wlen;
 
 	if(longname) {
 #ifdef DEBUG
@@ -272,12 +281,12 @@ int write_vfat(Stream_t *Dir, dos_name_t *shortname, char *longname, int start,
 
 		wlen = native_to_wchar(longname, wlongname, MAX_VNAMELEN+1,
 				       0, 0);
-		num_vses = (wlen + VSE_NAMELEN - 1)/VSE_NAMELEN;
+		num_vses = (uint8_t)((wlen + VSE_NAMELEN - 1)/VSE_NAMELEN);
 		for (vse_id = num_vses; vse_id; --vse_id) {
 			int end = 0;
-			
+
 			c = wlongname + (vse_id - 1) * VSE_NAMELEN;
-			
+
 			c += unicode_write(c, vse->text1, VSE1SIZE, &end);
 			c += unicode_write(c, vse->text2, VSE2SIZE, &end);
 			c += unicode_write(c, vse->text3, VSE3SIZE, &end);
@@ -288,7 +297,7 @@ int write_vfat(Stream_t *Dir, dos_name_t *shortname, char *longname, int start,
 			       longname, vse_id, longname + (vse_id-1) * VSE_NAMELEN,
 			       start + num_vses - vse_id, start + num_vses);
 #endif
-			
+
 			entry.entry = start + num_vses - vse_id;
 			low_level_dir_write(&entry);
 		}
@@ -339,15 +348,15 @@ void dir_write(direntry_t *entry)
  * The following function translates a series of vfat_subentries into
  * data suitable for a dircache entry
  */
-static __inline__ void parse_vses(direntry_t *entry,			
+static __inline__ void parse_vses(direntry_t *entry,
 				  struct vfat_state *v)
 {
 	struct vfat_subentry *vse;
 	unsigned char id, last_flag;
 	wchar_t *c;
-	
+
 	vse = (struct vfat_subentry *) &entry->dir;
-	
+
 	id = vse->id & VSE_MASK;
 	last_flag = (vse->id & VSE_LAST);
 	if (id > MAX_VFAT_SUBENTRIES) {
@@ -355,7 +364,7 @@ static __inline__ void parse_vses(direntry_t *entry,
 			id, entry->entry);
 		return;
 	}
-	
+
 /* 950819: This code enforced finding the VSEs in order.  Well, Win95
  * likes to write them in *reverse* order for some bizarre reason!  So
  * we pretty much have to tolerate them coming in any possible order.
@@ -375,17 +384,17 @@ static __inline__ void parse_vses(direntry_t *entry,
 		clear_vfat(v);
 		v->sum = vse->sum;
 	}
-	
+
 #ifdef DEBUG
 	if(v->status & (1 << (id-1)))
 		fprintf(stderr,
 			"parse_vses: duplicate VSE %d\n", vse->id);
 #endif
-	
+
 	v->status |= 1 << (id-1);
 	if(last_flag)
 		v->subentries = id;
-	
+
 #ifdef DEBUG
 	if (id > v->subentries)
 		/* simple test to detect entries preceding
@@ -402,7 +411,7 @@ static __inline__ void parse_vses(direntry_t *entry,
 #ifdef DEBUG
 	printf("Read VSE %d at %d, subentries=%d, = (%13ls).\n",
 	       id,entry->entry,v->subentries,&(v->name[VSE_NAMELEN * (id-1)]));
-#endif		
+#endif
 	if (last_flag)
 		*c = '\0';	/* Null terminate long name */
 }
@@ -418,7 +427,7 @@ static dirCacheEntry_t *vfat_lookup_loop_common(doscp_t *cp,
 						int *io_error)
 {
 	wchar_t newfile[13];
-	int initpos = direntry->entry + 1;
+	unsigned int initpos = direntry->entry + 1;
 	struct vfat_state vfat;
 	wchar_t *longname;
 	int error;
@@ -438,7 +447,7 @@ static dirCacheEntry_t *vfat_lookup_loop_common(doscp_t *cp,
 					endmarkSeen);
 			return addEndEntry(cache, direntry->entry);
 		}
-		
+
 		if (endmarkSeen || direntry->dir.name[0] == ENDMARK){
 				/* the end of the directory */
 			if(lookForFreeSpace) {
@@ -454,11 +463,11 @@ static dirCacheEntry_t *vfat_lookup_loop_common(doscp_t *cp,
 			/* the main entry */
 			break;
 	}
-	
+
 	/* If we get here, it's a short name FAT entry, maybe erased.
 	 * thus we should make sure that the vfat structure will be
 	 * cleared before the next loop run */
-	
+
 	/* deleted file */
 	if (direntry->dir.name[0] == DELMARK) {
 		return addFreeEntry(cache, initpos,
@@ -599,13 +608,22 @@ static result_t checkNameForMatch(struct direntry_t *direntry,
 }
 
 
+int vfat_lookup_zt(direntry_t *direntry, const char *filename,
+		   int flags, char *shortname, size_t shortname_size,
+		   char *longname, size_t longname_size) {
+	return vfat_lookup(direntry, filename, strlen(filename),
+			   flags, shortname, shortname_size,
+			   longname, longname_size);
+}
+
 /*
  * vfat_lookup looks for filenames in directory dir.
  * if a name if found, it is returned in outname
  * if applicable, the file is opened and its stream is returned in File
  */
 
-int vfat_lookup(direntry_t *direntry, const char *filename, int length,
+int vfat_lookup(direntry_t *direntry, const char *filename,
+		size_t length,
 		int flags, char *shortname, size_t shortname_size,
 		char *longname, size_t longname_size)
 {
@@ -615,9 +633,6 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 	int io_error;
 	wchar_t wfilename[MAX_VNAMELEN+1];
 	doscp_t *cp = GET_DOSCONVERT(direntry->Dir);
-
-	if(length == -1 && filename)
-		length = strlen(filename);
 
 	if(filename != NULL)
 		length = native_to_wchar(filename, wfilename, MAX_VNAMELEN,
@@ -644,7 +659,7 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 		}
 		result = checkNameForMatch(direntry, dce,
 					   wfilename,
-					   length, flags);
+					   (int) length, flags);
 	} while(result == RES_NOMATCH);
 
 	if(result == RES_MATCH){
@@ -669,7 +684,7 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 
 static __inline__ dirCacheEntry_t *vfat_lookup_loop_for_insert(doscp_t *cp,
 							       direntry_t *direntry,
-							       int initpos,
+							       unsigned int initpos,
 							       dirCache_t *cache)
 {
 	dirCacheEntry_t *dce;
@@ -717,8 +732,8 @@ static void clear_scan(wchar_t *longname, int use_longname,
 	s->free_end = s->got_slots = s->free_start = 0;
 
 	if (use_longname & 1)
-		s->size_needed = 1 +
-			(wcslen(longname) + VSE_NAMELEN - 1)/VSE_NAMELEN;
+		s->size_needed = (unsigned)
+			(1 + (wcslen(longname) + VSE_NAMELEN - 1)/VSE_NAMELEN);
 	else
                 s->size_needed = 1;
 }
@@ -741,7 +756,7 @@ int lookupForInsert(Stream_t *Dir,
 	int ignore_match;
 	dirCacheEntry_t *dce;
 	dirCache_t *cache;
-	int pos; /* position _before_ the next answered entry */
+	unsigned int pos; /* position _before_ the next answered entry */
 	wchar_t shortName[13];
 	wchar_t wlongname[MAX_VNAMELEN+1];
 	doscp_t *cp = GET_DOSCONVERT(Dir);
@@ -828,13 +843,13 @@ int lookupForInsert(Stream_t *Dir,
 		return 6;	/* Success */
 
 	/* Need more room.  Can we grow the directory? */
-	if(!isRootDir(Dir))		
+	if(!isRootDir(Dir))
 		return 5;	/* OK, try to grow the directory */
 
 	fprintf(stderr, "No directory slots\n");
 	return -1;
 }
-
+#pragma GCC diagnostic pop
 
 
 /* End vfat.c */

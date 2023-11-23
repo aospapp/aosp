@@ -34,7 +34,7 @@ public:
     using GetImageParam = VpxPingInfoParser::GetImageParam;
 
     MediaVpxDecoder() = default;
-    virtual ~MediaVpxDecoder() = default;
+    virtual ~MediaVpxDecoder();
     void handlePing(MediaCodecType type, MediaOperation op, void* ptr) override;
 
 public:

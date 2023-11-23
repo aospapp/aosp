@@ -25,12 +25,10 @@
     <string name="tap_to_launch_text" msgid="6910695705119260847">"දියත් කිරීමට කාඩ්පත තට්ටු කරන්න"</string>
     <string name="ongoing_call_duration_text_separator" msgid="6019453854809413561">" • "</string>
     <string name="ongoing_call_text" msgid="2394626676478708070">"කරගෙන යන ඇමතුම"</string>
+    <string name="dialing_call_text" msgid="415326503409745490">"අමතමින්…"</string>
     <string name="projected_launch_text" msgid="5809132353957907500">"Android Auto දියත් කරන්න"</string>
     <string name="projected_onclick_launch_error_toast_text" msgid="7462478007773137082">"Android Auto දියත් කිරීමට නොහැකිය. ක්‍රියාකාරකම් නොමැත."</string>
-    <plurals name="projection_devices" formatted="false" msgid="4740612230451956299">
-      <item quantity="one">උපාංග <xliff:g id="COUNT_1">%d</xliff:g></item>
-      <item quantity="other">උපාංග <xliff:g id="COUNT_1">%d</xliff:g></item>
-    </plurals>
+    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{උපාංග #ක්}one{උපාංග #ක්}other{උපාංග #ක්}}"</string>
     <string name="weather_app_name" msgid="8048146303519139993">"කාලගුණය"</string>
     <string name="fake_weather_main_text" msgid="8117240999340284429">"--° බොහෝ විට අව්ව"</string>
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"කඳුකර දර්ශනය • H: --° L: --°"</string>

@@ -65,9 +65,8 @@ final class OpenSSLKey {
     /**
      * Returns the EVP_PKEY context for use in JNI calls.
      */
-    @android.compat.annotation
-            .UnsupportedAppUsage
-            NativeRef.EVP_PKEY getNativeRef() {
+    @android.compat.annotation.UnsupportedAppUsage
+    NativeRef.EVP_PKEY getNativeRef() {
         return ctx;
     }
 

@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Walang impormasyon tungkol sa may-ari ng telepono"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Kung telepono mo ito, i-tap ang icon na lapis upang magdagdag ng impormasyon na ipapakita rito kung sakaling may emergency"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"I-unlock ang iyong telepono saka i-tap ang icon na lapis para magdagdag ng impormasyong ipapakita rito kapag nagkaroon ng emergency"</string>
     <string name="clear_all" msgid="8899013032870561633">"I-clear lahat"</string>
     <string name="clear" msgid="3648880442502887163">"I-clear"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Iki-clear ba ang lahat ng impormasyon at contact?"</string>

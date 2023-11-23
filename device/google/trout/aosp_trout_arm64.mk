@@ -15,8 +15,7 @@
 #
 
 TARGET_USES_CF_RILD ?= false
-
-$(call inherit-product, device/google/cuttlefish/vsoc_arm64/auto/aosp_cf.mk)
+$(call inherit-product, device/google/cuttlefish/vsoc_arm64_only/auto/aosp_cf.mk)
 
 # Package ramdisk.img in target package
 BOARD_IMG_USE_RAMDISK := true
@@ -34,6 +33,7 @@ endif
 
 # Audio HAL
 TARGET_USES_CUTTLEFISH_AUDIO ?= false
+AUDIO_FEATURE_HFP_ENABLED ?= true
 
 # Audio Control HAL
 # TODO (chenhaosjtuacm, egranata): move them to kernel command line

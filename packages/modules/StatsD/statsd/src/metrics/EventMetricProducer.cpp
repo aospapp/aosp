@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "EventMetricProducer.h"
@@ -51,8 +51,10 @@ const int FIELD_ID_IS_ACTIVE = 14;
 // for EventMetricDataWrapper
 const int FIELD_ID_DATA = 1;
 // for EventMetricData
-const int FIELD_ID_ELAPSED_TIMESTAMP_NANOS = 1;
-const int FIELD_ID_ATOMS = 2;
+const int FIELD_ID_AGGREGATED_ATOM = 4;
+// for AggregatedAtomInfo
+const int FIELD_ID_ATOM = 1;
+const int FIELD_ID_ATOM_TIMESTAMPS = 2;
 
 EventMetricProducer::EventMetricProducer(
         const ConfigKey& key, const EventMetric& metric, const int conditionIndex,
@@ -64,7 +66,7 @@ EventMetricProducer::EventMetricProducer(
         const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap)
     : MetricProducer(metric.id(), key, startTimeNs, conditionIndex, initialConditionCache, wizard,
                      protoHash, eventActivationMap, eventDeactivationMap, slicedStateAtoms,
-                     stateGroupMap) {
+                     stateGroupMap, /*splitBucketForAppUpgrade=*/nullopt) {
     if (metric.links().size() > 0) {
         for (const auto& link : metric.links()) {
             Metric2Condition mc;
@@ -75,7 +77,7 @@ EventMetricProducer::EventMetricProducer(
         }
         mConditionSliced = true;
     }
-    mProto = std::make_unique<ProtoOutputStream>();
+    mTotalSize = 0;
     VLOG("metric %lld created. bucket size %lld start_time: %lld", (long long)metric.id(),
          (long long)mBucketSizeNs, (long long)mTimeBaseNs);
 }
@@ -126,7 +128,8 @@ bool EventMetricProducer::onConfigUpdatedLocked(
 }
 
 void EventMetricProducer::dropDataLocked(const int64_t dropTimeNs) {
-    mProto->clear();
+    mAggregatedAtoms.clear();
+    mTotalSize = 0;
     StatsdStats::getInstance().noteBucketDropped(mMetricId);
 }
 
@@ -152,7 +155,8 @@ std::unique_ptr<std::vector<uint8_t>> serializeProtoLocked(ProtoOutputStream& pr
 }
 
 void EventMetricProducer::clearPastBucketsLocked(const int64_t dumpTimeNs) {
-    mProto->clear();
+    mAggregatedAtoms.clear();
+    mTotalSize = 0;
 }
 
 void EventMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
@@ -163,20 +167,29 @@ void EventMetricProducer::onDumpReportLocked(const int64_t dumpTimeNs,
                                              ProtoOutputStream* protoOutput) {
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_ID, (long long)mMetricId);
     protoOutput->write(FIELD_TYPE_BOOL | FIELD_ID_IS_ACTIVE, isActiveLocked());
-    if (mProto->size() <= 0) {
-        return;
+    uint64_t protoToken = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_ID_EVENT_METRICS);
+    for (const auto& [atomDimensionKey, elapsedTimestampsNs] : mAggregatedAtoms) {
+        uint64_t wrapperToken =
+                protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_DATA);
+
+        uint64_t aggregatedToken =
+                protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_ID_AGGREGATED_ATOM);
+
+        uint64_t atomToken = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_ID_ATOM);
+        writeFieldValueTreeToStream(atomDimensionKey.getAtomTag(),
+                                    atomDimensionKey.getAtomFieldValues().getValues(), protoOutput);
+        protoOutput->end(atomToken);
+        for (int64_t timestampNs : elapsedTimestampsNs) {
+            protoOutput->write(FIELD_TYPE_INT64 | FIELD_COUNT_REPEATED | FIELD_ID_ATOM_TIMESTAMPS,
+                               (long long)timestampNs);
+        }
+        protoOutput->end(aggregatedToken);
+        protoOutput->end(wrapperToken);
     }
-
-    size_t bufferSize = mProto->size();
-    VLOG("metric %lld dump report now... proto size: %zu ",
-        (long long)mMetricId, bufferSize);
-    std::unique_ptr<std::vector<uint8_t>> buffer = serializeProtoLocked(*mProto);
-
-    protoOutput->write(FIELD_TYPE_MESSAGE | FIELD_ID_EVENT_METRICS,
-                       reinterpret_cast<char*>(buffer.get()->data()), buffer.get()->size());
-
+    protoOutput->end(protoToken);
     if (erase_data) {
-        mProto->clear();
+        mAggregatedAtoms.clear();
+        mTotalSize = 0;
     }
 }
 
@@ -194,19 +207,19 @@ void EventMetricProducer::onMatchedLogEventInternalLocked(
         return;
     }
 
-    uint64_t wrapperToken =
-            mProto->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_DATA);
     const int64_t elapsedTimeNs = truncateTimestampIfNecessary(event);
-    mProto->write(FIELD_TYPE_INT64 | FIELD_ID_ELAPSED_TIMESTAMP_NANOS, (long long) elapsedTimeNs);
+    AtomDimensionKey key(event.GetTagId(), HashableDimensionKey(event.getValues()));
 
-    uint64_t eventToken = mProto->start(FIELD_TYPE_MESSAGE | FIELD_ID_ATOMS);
-    event.ToProto(*mProto);
-    mProto->end(eventToken);
-    mProto->end(wrapperToken);
+    std::vector<int64_t>& aggregatedTimestampsNs = mAggregatedAtoms[key];
+    if (aggregatedTimestampsNs.empty()) {
+        mTotalSize += getSize(key.getAtomFieldValues().getValues());
+    }
+    aggregatedTimestampsNs.push_back(elapsedTimeNs);
+    mTotalSize += sizeof(int64_t); // Add the size of the event timestamp
 }
 
 size_t EventMetricProducer::byteSizeLocked() const {
-    return mProto->bytesWritten();
+    return mTotalSize;
 }
 
 }  // namespace statsd

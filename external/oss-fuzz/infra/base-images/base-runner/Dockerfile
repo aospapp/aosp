@@ -45,12 +45,18 @@ RUN apt-get update && apt-get install -y \
     libcap2 \
     python3 \
     python3-pip \
+    python3-setuptools \
     unzip \
     wget \
     zip --no-install-recommends
 
-RUN git clone https://chromium.googlesource.com/chromium/src/tools/code_coverage /opt/code_coverage && \
-    pip3 install -r /opt/code_coverage/requirements.txt
+ENV CODE_COVERAGE_SRC=/opt/code_coverage
+RUN git clone https://chromium.googlesource.com/chromium/src/tools/code_coverage $CODE_COVERAGE_SRC && \
+    cd /opt/code_coverage && \
+    git checkout edba4873b5e8a390e977a64c522db2df18a8b27d && \
+    pip3 install wheel && \
+    pip3 install -r requirements.txt && \
+    pip3 install MarkupSafe==0.23
 
 # Default environment options for various sanitizers.
 # Note that these match the settings used in ClusterFuzz and
@@ -91,6 +97,12 @@ RUN wget https://download.java.net/java/GA/jdk15.0.2/0d1cfde4252546c6931946de8db
     rm -f openjdk-15.0.2_linux-x64_bin.tar.gz && \
     rm -rf $JAVA_HOME/jmods $JAVA_HOME/lib/src.zip
 
+# Install JaCoCo for JVM coverage.
+RUN wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.cli/0.8.7/org.jacoco.cli-0.8.7-nodeps.jar -O /opt/jacoco-cli.jar && \
+    wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.7/org.jacoco.agent-0.8.7-runtime.jar -O /opt/jacoco-agent.jar && \
+    echo "37df187b76888101ecd745282e9cd1ad4ea508d6  /opt/jacoco-agent.jar" | shasum --check && \
+    echo "c1814e7bba5fd8786224b09b43c84fd6156db690  /opt/jacoco-cli.jar" | shasum --check
+
 # Do this last to make developing these files easier/faster due to caching.
 COPY bad_build_check \
     collect_dft \
@@ -98,10 +110,12 @@ COPY bad_build_check \
     coverage_helper \
     dataflow_tracer.py \
     download_corpus \
+    jacoco_report_converter.py \
     rcfilt \
     reproduce \
     run_fuzzer \
     parse_options.py \
+    profraw_update.py \
     targets_list \
     test_all.py \
     test_one.py \

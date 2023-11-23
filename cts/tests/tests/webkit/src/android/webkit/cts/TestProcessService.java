@@ -16,70 +16,54 @@
 
 package android.webkit.cts;
 
-
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
-import android.os.Message;
-import android.os.Messenger;
-import android.os.RemoteException;
-import android.util.Log;
 
-import junit.framework.Assert;
-import junit.framework.AssertionFailedError;
+import com.google.common.util.concurrent.SettableFuture;
 
 // Subclasses are the ones that get actually used, so make this abstract
 abstract class TestProcessService extends Service {
-    static final int MSG_RUN_TEST = 0;
-    static final int MSG_EXIT_PROCESS = 1;
-    static final String TEST_CLASS_KEY = "class";
-
-    static final int REPLY_OK = 0;
-    static final int REPLY_EXCEPTION = 1;
     static final String REPLY_EXCEPTION_KEY = "exception";
+
+    private final Handler mHandler;
+
+    public TestProcessService() {
+        HandlerThread handlerThread = new HandlerThread("TestThread");
+        handlerThread.start();
+        mHandler = new Handler(handlerThread.getLooper());
+    }
+
+    private final ITestProcessService.Stub mBinder = new ITestProcessService.Stub() {
+        @Override
+        public Bundle run(String testClassName) {
+            final SettableFuture<Bundle> testResultFuture = SettableFuture.create();
+            mHandler.post(() -> {
+                Bundle testResultBundle = new Bundle();
+                try {
+                    Class testClass = Class.forName(testClassName);
+                    TestProcessClient.TestRunnable test =
+                            (TestProcessClient.TestRunnable) testClass.newInstance();
+                    test.run(TestProcessService.this);
+                } catch (Throwable t) {
+                    testResultBundle.putSerializable(REPLY_EXCEPTION_KEY, t);
+                }
+                testResultFuture.set(testResultBundle);
+            });
+            return WebkitUtils.waitForFuture(testResultFuture);
+        }
+
+        @Override
+        public void exit() {
+            System.exit(0);
+        }
+    };
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mMessenger.getBinder();
-    }
-
-    final Messenger mMessenger = new Messenger(new IncomingHandler());
-
-    private class IncomingHandler extends Handler {
-        @Override
-        public void handleMessage(Message msg) {
-            if (msg.what == MSG_EXIT_PROCESS) {
-                System.exit(0);
-            }
-
-            try {
-                if (msg.what != MSG_RUN_TEST) {
-                    throw new AssertionFailedError("Unknown service message " + msg.what);
-                }
-
-                String testClassName = msg.getData().getString(TEST_CLASS_KEY);
-                Class testClass = Class.forName(testClassName);
-                TestProcessClient.TestRunnable test =
-                        (TestProcessClient.TestRunnable) testClass.newInstance();
-                test.run(TestProcessService.this);
-            } catch (Throwable t) {
-                try {
-                    Message m = Message.obtain(null, REPLY_EXCEPTION);
-                    m.getData().putSerializable(REPLY_EXCEPTION_KEY, t);
-                    msg.replyTo.send(m);
-                } catch (RemoteException e) {
-                    throw new RuntimeException(e);
-                }
-                return;
-            }
-
-            try {
-                msg.replyTo.send(Message.obtain(null, REPLY_OK));
-            } catch (RemoteException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        return mBinder;
     }
 }

@@ -73,7 +73,8 @@
  ], 
  "android.control.availableVideoStabilizationModes": [
    "0", 
-   "1"
+   "1",
+   "2"
  ], 
  "android.control.awbAvailableModes": [
   "0", 
@@ -112,7 +113,13 @@
  ], 
  "android.flash.info.available": [
   "TRUE"
- ], 
+ ],
+  "android.flash.info.strengthMaximumLevel": [
+  "10"
+ ],
+  "android.flash.info.strengthDefaultLevel": [
+  "3"
+ ],
  "android.hotPixel.availableHotPixelModes": [
   "0", 
   "1", 
@@ -174,7 +181,9 @@
   "BURST_CAPTURE", 
   "PRIVATE_REPROCESSING", 
   "YUV_REPROCESSING", 
-  "RAW"
+  "RAW", 
+  "DYNAMIC_RANGE_TEN_BIT",
+  "STREAM_USE_CASE"
  ], 
  "android.sensor.referenceIlluminant1": [
   "D50"
@@ -186,6 +195,14 @@
  "android.request.maxNumInputStreams": [
   "1"
  ], 
+ "android.request.availableDynamicRangeProfilesMap": [
+  "2", 
+  "3", 
+  "0"
+ ], 
+ "android.request.recommendedTenBitDynamicRangeProfile": [
+  "2"
+ ], 
  "android.scaler.availableInputOutputFormatsMap": [
   "34", 
   "2", 
@@ -196,6 +213,14 @@
   "33", 
   "35"
  ], 
+ "android.scaler.availableStreamUseCases": [
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+ ],
  "android.reprocess.maxCaptureStall": [
   "2"
  ], 
@@ -437,7 +462,7 @@
   "1"
  ], 
  "android.request.pipelineMaxDepth": [
-  "4"
+  "8"
  ], 
  "android.scaler.availableMaxDigitalZoom": [
   "10.00000000"
@@ -456,7 +481,15 @@
   "1856", 
   "1392", 
   "33331760", 
+  "54", 
+  "1856", 
+  "1392", 
+  "33331760", 
   "33", 
+  "1280", 
+  "720", 
+  "33331760", 
+  "54", 
   "1280", 
   "720", 
   "33331760", 
@@ -464,7 +497,15 @@
   "160", 
   "120", 
   "33331760", 
+  "54", 
+  "160", 
+  "120", 
+  "33331760", 
   "34", 
+  "320", 
+  "240", 
+  "33331760", 
+  "54", 
   "320", 
   "240", 
   "33331760", 
@@ -489,6 +530,10 @@
   "480", 
   "33331760", 
   "33", 
+  "640", 
+  "480", 
+  "33331760", 
+  "54", 
   "640", 
   "480", 
   "33331760", 
@@ -521,6 +566,10 @@
   "144", 
   "33331760", 
   "33", 
+  "176", 
+  "144", 
+  "33331760", 
+  "54", 
   "176", 
   "144", 
   "33331760", 
@@ -558,6 +607,10 @@
   "1024", 
   "768", 
   "33331760", 
+  "54", 
+  "1024", 
+  "768", 
+  "0", 
   "34", 
   "160", 
   "120", 
@@ -567,6 +620,10 @@
   "240", 
   "0", 
   "35", 
+  "160", 
+  "120", 
+  "0", 
+  "54", 
   "160", 
   "120", 
   "0", 
@@ -575,6 +632,10 @@
   "240", 
   "0", 
   "1", 
+  "320", 
+  "240", 
+  "0", 
+  "54", 
   "320", 
   "240", 
   "0", 
@@ -590,6 +651,10 @@
   "640", 
   "480", 
   "33331760", 
+  "54", 
+  "640", 
+  "480", 
+  "0", 
   "34", 
   "1280", 
   "720", 
@@ -602,7 +667,15 @@
   "1280", 
   "720", 
   "0", 
+  "54", 
+  "1280", 
+  "720", 
+  "0", 
   "35", 
+  "1856", 
+  "1392", 
+  "0", 
+  "54", 
   "1856", 
   "1392", 
   "0", 
@@ -632,7 +705,15 @@
   "160", 
   "120", 
   "OUTPUT", 
+  "54", 
+  "160", 
+  "120", 
+  "OUTPUT", 
   "34", 
+  "320", 
+  "240", 
+  "OUTPUT", 
+  "54", 
   "320", 
   "240", 
   "OUTPUT", 
@@ -660,6 +741,10 @@
   "640", 
   "480", 
   "OUTPUT", 
+  "54", 
+  "640", 
+  "480", 
+  "OUTPUT", 
   "34", 
   "1280", 
   "720", 
@@ -676,11 +761,19 @@
   "1280", 
   "720", 
   "OUTPUT", 
+  "54", 
+  "1280", 
+  "720", 
+  "OUTPUT", 
   "35", 
   "1856", 
   "1392", 
   "OUTPUT", 
   "32", 
+  "1856", 
+  "1392", 
+  "OUTPUT", 
+  "54", 
   "1856", 
   "1392", 
   "OUTPUT", 
@@ -697,6 +790,10 @@
   "144", 
   "OUTPUT", 
   "33", 
+  "176", 
+  "144", 
+  "OUTPUT", 
+  "54", 
   "176", 
   "144", 
   "OUTPUT", 

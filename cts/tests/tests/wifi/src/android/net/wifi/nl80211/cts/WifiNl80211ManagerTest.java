@@ -21,6 +21,7 @@ import static android.net.wifi.nl80211.WifiNl80211Manager.OemSecurityType;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -130,6 +131,15 @@ public class WifiNl80211ManagerTest {
         } catch (Exception ignore) {}
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @Test
+    public void testGetMaxSsidsPerScan() {
+        try {
+            WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
+            manager.getMaxSsidsPerScan("wlan0");
+        } catch (Exception ignore) { }
+    }
+
     @Test
     public void testSetOnServiceDeadCallback() {
         try {
@@ -151,9 +161,22 @@ public class WifiNl80211ManagerTest {
         // Register listener and unregister listener for API coverage only.
         // Since current cts don't have sufficient permission to call WifiNl80211Manager API.
         // Assert register fail because the CTS don't have sufficient permission to call
-        // WifiNl80211Manager API which are guarded by selinux.
+        // WifiNl80211Manager API which is guarded by selinux.
         assertFalse(manager.registerCountryCodeChangedListener(executor,
                 testCountryCodeChangeListener));
         manager.unregisterCountryCodeChangedListener(testCountryCodeChangeListener);
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @Test
+    public void testNotifyCountryCodeChanged() {
+        WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
+        // Assert fail because the CTS don't have sufficient permission to call
+        // WifiNl80211Manager API which is guarded by selinux.
+        try {
+            manager.notifyCountryCodeChanged("US");
+            fail("notifyCountryCodeChanged doesn't throws RuntimeException");
+        } catch (RuntimeException re) {
+        }
     }
 }

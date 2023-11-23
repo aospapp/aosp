@@ -33,9 +33,16 @@ PRODUCT_IS_ATV := true
 PRODUCT_PACKAGES += \
     TvProvider
 
-# Media tuner jni
-PRODUCT_PACKAGES += \
-    libmedia_tv_tuner
+# PRODUCT_SUPPORTS_TUNER: Whether the product hardware tuner. When 'false',
+# we drop mediatuner, which saves ~4 MiB of RAM. When 'true', the tuner HAL
+# should be implemented in vendor partition and android.hardware.tv.tuner
+# permission should be installed.
+#
+# Defaults to true to mimic legacy behaviour.
+PRODUCT_SUPPORTS_TUNER ?= true
+ifeq ($(PRODUCT_SUPPORTS_TUNER),true)
+    PRODUCT_PACKAGES += libmedia_tv_tuner
+endif
 
 # From build/target/product/core.mk
 PRODUCT_PACKAGES += \
@@ -44,7 +51,6 @@ PRODUCT_PACKAGES += \
     CalendarProvider \
     CaptivePortalLogin \
     CertInstaller \
-    clatd \
     ExternalStorageProvider \
     FusedLocation \
     InputDevices \

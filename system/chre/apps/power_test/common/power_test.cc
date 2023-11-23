@@ -17,11 +17,10 @@
 #include <chre.h>
 #include <cinttypes>
 
-#include "chre/util/flatbuffers/helpers.h"
-#include "chre/util/nanoapp/callbacks.h"
-#include "chre/util/unique_ptr.h"
+#include "chre/util/macros.h"
 #include "common.h"
 #include "generated/chre_power_test_generated.h"
+#include "include/request_manager.h"
 #include "request_manager.h"
 
 #ifdef CHRE_NANOAPP_INTERNAL
@@ -30,40 +29,6 @@ namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
 using chre::power_test::MessageType;
-
-/**
- * Responds to a host request indicating whether the request was successfully
- * executed.
- *
- * @param success whether the nanoapp successfully fullfilled a request
- * @param hostEndpoint the host endpoint that sent the request to the nanoapp
- */
-void sendResponseMessageToHost(bool success, uint16_t hostEndpoint) {
-  auto builder = chre::MakeUnique<chre::ChreFlatBufferBuilder>();
-  if (builder.isNull()) {
-    LOG_OOM();
-  } else {
-    builder->Finish(
-        chre::power_test::CreateNanoappResponseMessage(*builder, success));
-
-    // TODO: Modify this logic to remove the buffer copy now that the latest
-    // version of flatbuffers allows releasing the underlying buffer from the
-    // builder.
-    size_t bufferCopySize = builder->GetSize();
-    void *buffer = chreHeapAlloc(bufferCopySize);
-    if (buffer == nullptr) {
-      LOG_OOM();
-    } else {
-      memcpy(buffer, builder->GetBufferPointer(), bufferCopySize);
-      if (!chreSendMessageToHostEndpoint(
-              buffer, bufferCopySize,
-              static_cast<uint32_t>(MessageType::NANOAPP_RESPONSE),
-              hostEndpoint, chre::heapFreeMessageCallback)) {
-        LOGE("Failed to send response message with success %d", success);
-      }
-    }
-  }
-}
 
 bool nanoappStart() {
   LOGI("App started on platform ID %" PRIx64, chreGetPlatformId());
@@ -75,17 +40,46 @@ bool nanoappStart() {
 
 void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
+  UNUSED_VAR(senderInstanceId);
+
   switch (eventType) {
     case CHRE_EVENT_MESSAGE_FROM_HOST: {
       auto *msg = static_cast<const chreMessageFromHostData *>(eventData);
-      bool success =
-          RequestManagerSingleton::get()->handleMessageFromHost(*msg);
-      sendResponseMessageToHost(success, msg->hostEndpoint);
+      RequestManagerSingleton::get()->handleMessageFromHost(*msg);
       break;
     }
     case CHRE_EVENT_TIMER:
       RequestManagerSingleton::get()->handleTimerEvent(eventData);
       break;
+    case CHRE_EVENT_WIFI_NAN_IDENTIFIER_RESULT: {
+      auto *event =
+          static_cast<const struct chreWifiNanIdentifierEvent *>(eventData);
+      RequestManagerSingleton::get()->handleNanIdResult(event);
+      break;
+    }
+    case CHRE_EVENT_WIFI_NAN_DISCOVERY_RESULT: {
+      auto *event =
+          static_cast<const struct chreWifiNanDiscoveryEvent *>(eventData);
+      LOGD("NAN discovery subId %" PRIu32 " pubId %" PRIu32, event->subscribeId,
+           event->publishId);
+      RequestManagerSingleton::get()->requestNanRanging(event);
+      break;
+    }
+    case CHRE_EVENT_WIFI_NAN_SESSION_LOST: {
+      auto *event =
+          static_cast<const struct chreWifiNanSessionLostEvent *>(eventData);
+      LOGD("NAN lost session ID %" PRIu32 " peer ID %" PRIu32, event->id,
+           event->peerId);
+      break;
+    }
+    case CHRE_EVENT_WIFI_NAN_SESSION_TERMINATED: {
+      auto *event =
+          static_cast<const struct chreWifiNanSessionTerminatedEvent *>(
+              eventData);
+      LOGD("NAN session ID %" PRIu32 " terminated due to %d", event->id,
+           event->reason);
+      break;
+    }
     case CHRE_EVENT_WIFI_ASYNC_RESULT: {
       const struct chreAsyncResult *event =
           static_cast<const struct chreAsyncResult *>(eventData);
@@ -99,6 +93,18 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       LOGD("Wifi scan received with %" PRIu8 " results, scanType %" PRIu8
            ", radioChainPref %" PRIu8,
            event->resultCount, event->scanType, event->radioChainPref);
+      break;
+    }
+    case CHRE_EVENT_WIFI_RANGING_RESULT: {
+      auto *event = static_cast<const struct chreWifiRangingEvent *>(eventData);
+      LOGD("Wifi ranging result received with %" PRIu8 " results",
+           event->resultCount);
+      for (uint8_t i = 0; i < event->resultCount; ++i) {
+        LOGD("Ranging result #%" PRIu8 " status %" PRIu8 " rssi %" PRId8
+             " distance (mm) %" PRIu32,
+             i, event->results[i].status, event->results[i].rssi,
+             event->results[i].distance);
+      }
       break;
     }
     case CHRE_EVENT_GNSS_ASYNC_RESULT: {

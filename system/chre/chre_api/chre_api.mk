@@ -12,5 +12,7 @@ include $(CHRE_PREFIX)/chre_api/chre_api_version.mk
 # Common Compiler Flags ########################################################
 
 # Include paths.
-COMMON_CFLAGS += -Ichre_api/include
-COMMON_CFLAGS += -Ichre_api/include/chre_api # Allows including chre.h directly
+COMMON_CFLAGS += -I$(CHRE_PREFIX)/chre_api/include
+
+# Allows including chre.h directly
+COMMON_CFLAGS += -I$(CHRE_PREFIX)/chre_api/include/chre_api

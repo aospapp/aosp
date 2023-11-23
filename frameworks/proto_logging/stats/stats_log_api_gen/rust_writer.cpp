@@ -103,7 +103,8 @@ static void write_rust_method_signature(FILE* out, const char* namePrefix,
                                         const AtomDecl& atomDecl,
                                         const AtomDecl& attributionDecl,
                                         bool isCode,
-                                        bool isNonChained) {
+                                        bool isNonChained,
+                                        const char* headerCrate) {
     // To make the generated code pretty, add newlines between arguments.
     const char* separator = (isCode ? "\n" : " ");
     if (isCode) {
@@ -151,33 +152,25 @@ static void write_rust_method_signature(FILE* out, const char* namePrefix,
             }
         }
     }
-    fprintf(out, "    ) -> statslog_rust_header::StatsResult");
+    fprintf(out, "    ) -> %s::StatsResult", headerCrate);
     if (isCode) {
         fprintf(out, " {");
     }
     fprintf(out, "\n");
 }
 
-static bool write_rust_usage(FILE* out, const string& method_name,
-                             const shared_ptr<AtomDecl> atom,
-                             const AtomDecl& attributionDecl,
-                             bool isNonChained) {
-    // Key value pairs not supported in Rust because they're not supported in native.
-    if (std::find_if(atom->fields.begin(), atom->fields.end(),
-                     [](const AtomField &atomField) {
-                         return atomField.javaType == JAVA_TYPE_KEY_VALUE_PAIR;
-                     }) != atom->fields.end()) {
-        fprintf(out, "    // Key value pairs are unsupported in Rust.\n");
-        return false;
-    }
+static bool write_rust_usage(FILE* out, const string& method_name, const shared_ptr<AtomDecl> atom,
+                             const AtomDecl& attributionDecl, bool isNonChained,
+                             const char* headerCrate) {
     fprintf(out, "    // Definition: ");
     write_rust_method_signature(out, method_name.c_str(), *atom, attributionDecl,
-                                false, isNonChained);
+                                false, isNonChained, headerCrate);
     return true;
 }
 
 static void write_rust_atom_constants(FILE* out, const Atoms& atoms,
-                                      const AtomDecl& attributionDecl) {
+                                      const AtomDecl& attributionDecl,
+                                      const char* headerCrate) {
     fprintf(out, "// Constants for atom codes.\n");
     fprintf(out, "#[derive(Clone, Copy)]\n");
     fprintf(out, "pub enum Atoms {\n");
@@ -189,7 +182,8 @@ static void write_rust_atom_constants(FILE* out, const Atoms& atoms,
         string constant = make_camel_case_name(atomDecl->name);
         fprintf(out, "\n");
         fprintf(out, "    // %s %s\n", atomDecl->message.c_str(), atomDecl->name.c_str());
-        bool isSupported = write_rust_usage(out, "// stats_write", atomDecl, attributionDecl, false);
+        bool isSupported = write_rust_usage(out, "// stats_write", atomDecl,
+                            attributionDecl, false, headerCrate);
         if (!isSupported) {
             continue;
         }
@@ -197,7 +191,7 @@ static void write_rust_atom_constants(FILE* out, const Atoms& atoms,
         auto non_chained_decl = atom_code_to_non_chained_decl_map.find(atomDecl->code);
         if (non_chained_decl != atom_code_to_non_chained_decl_map.end()) {
             write_rust_usage(out, "stats_write_non_chained", *non_chained_decl->second,
-                             attributionDecl, true);
+                             attributionDecl, true, headerCrate);
         }
         fprintf(out, "    %s = %d,\n", constant.c_str(), atomDecl->code);
     }
@@ -212,7 +206,7 @@ static void write_rust_atom_constant_values(FILE* out, const shared_ptr<AtomDecl
     for (const AtomField& field : atomDecl->fields) {
         if (field.javaType == JAVA_TYPE_ENUM) {
             fprintf(out, "    #[repr(i32)]\n");
-            fprintf(out, "    #[derive(Clone, Copy)]\n");
+            fprintf(out, "    #[derive(Clone, Copy, Eq, PartialEq)]\n");
             fprintf(out, "    pub enum %s {\n", make_camel_case_name(field.name).c_str());
             for (map<int, string>::const_iterator value = field.enumValues.begin();
                  value != field.enumValues.end(); value++) {
@@ -301,7 +295,8 @@ static void write_annotations(FILE* out, int argIndex, const AtomDecl& atomDecl,
 
 static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
                                   const AtomDecl& attributionDecl,
-                                  const int minApiLevel) {
+                                  const int minApiLevel,
+                                  const char* headerCrate) {
     fprintf(out, "        unsafe {\n");
     if (minApiLevel == API_Q) {
         fprintf(stderr, "TODO: Do we need to handle this case?");
@@ -313,7 +308,8 @@ static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
     } else {
         fprintf(out, "            let __event = AStatsEventList_addStatsEvent(pulled_data_);\n");
     }
-    fprintf(out, "            AStatsEvent_setAtomId(__event, statslog_rust_header::Atoms::%s as u32);\n",
+    fprintf(out, "            AStatsEvent_setAtomId(__event, %s::Atoms::%s as u32);\n",
+            headerCrate,
             make_camel_case_name(atomDecl.name).c_str());
     write_annotations(out, ATOM_ID_FIELD_NUMBER, atomDecl, "AStatsEvent_", "__event, ");
     for (int i = 0; i < atomDecl.fields.size(); i++) {
@@ -360,22 +356,23 @@ static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
         case JAVA_TYPE_STRING:
             fprintf(out, "            let str = std::ffi::CString::new(%s)?;\n", name.c_str());
             fprintf(out, "            AStatsEvent_writeString(__event, str.as_ptr());\n");
-	    break;
+            break;
         default:
-	    // Unsupported types: OBJECT, DOUBLE, KEY_VALUE_PAIRS
-	    fprintf(stderr, "Encountered unsupported type: %d.", type);
-	    return 1;
+            // Unsupported types: OBJECT, DOUBLE
+            fprintf(stderr, "Encountered unsupported type: %d.", type);
+            return 1;
         }
         // write_annotations expects the first argument to have an index of 1.
         write_annotations(out, i + 1, atomDecl, "AStatsEvent_", "__event, ");
     }
     if (atomDecl.oneOfName == ONEOF_PUSHED_ATOM_NAME) {
         fprintf(out, "            let __ret = AStatsEvent_write(__event);\n");
-        fprintf(out, "            if __ret >= 0 { statslog_rust_header::StatsResult::Ok(()) }"
-                " else { Err(statslog_rust_header::StatsError::Return(__ret)) }\n");
+        fprintf(out, "            if __ret >= 0 { %s::StatsResult::Ok(()) }"
+                " else { Err(%s::StatsError::Return(__ret)) }\n", headerCrate,
+                headerCrate);
     } else {
         fprintf(out, "            AStatsEvent_build(__event);\n");
-        fprintf(out, "            statslog_rust_header::StatsResult::Ok(())\n");
+        fprintf(out, "            %s::StatsResult::Ok(())\n", headerCrate);
     }
     fprintf(out, "        }\n");
     return 0;
@@ -383,15 +380,16 @@ static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
 
 static int write_rust_stats_write_method(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
                                           const AtomDecl& attributionDecl,
-                                          const int minApiLevel) {
+                                          const int minApiLevel,
+                                          const char* headerCrate) {
     if (atomDecl->oneOfName == ONEOF_PUSHED_ATOM_NAME) {
         write_rust_method_signature(out, "stats_write", *atomDecl, attributionDecl,
-                                    true, false);
+                                    true, false, headerCrate);
     } else {
         write_rust_method_signature(out, "add_astats_event", *atomDecl, attributionDecl,
-                                    true, false);
+                                    true, false, headerCrate);
     }
-    int ret = write_rust_method_body(out, *atomDecl, attributionDecl, minApiLevel);
+    int ret = write_rust_method_body(out, *atomDecl, attributionDecl, minApiLevel, headerCrate);
     if (ret != 0) {
         return ret;
     }
@@ -401,9 +399,10 @@ static int write_rust_stats_write_method(FILE* out, const shared_ptr<AtomDecl>& 
 
 static void write_rust_stats_write_non_chained_method(FILE* out,
                                                       const shared_ptr<AtomDecl>& atomDecl,
-                                                      const AtomDecl& attributionDecl) {
+                                                      const AtomDecl& attributionDecl,
+                                                      const char* headerCrate) {
     write_rust_method_signature(out, "stats_write_non_chained", *atomDecl, attributionDecl,
-                                true, true);
+                                true, true, headerCrate);
     fprintf(out, "        stats_write(");
     for (int i = 0; i < atomDecl->fields.size(); i++) {
         if (i != 0) {
@@ -442,7 +441,7 @@ static bool needs_lifetime(const shared_ptr<AtomDecl>& atomDecl) {
 }
 
 static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
-                              const AtomDecl& attributionDecl) {
+                              const AtomDecl& attributionDecl, const char* headerCrate) {
     // Write the struct.
     bool lifetime = needs_lifetime(atomDecl);
     if (lifetime) {
@@ -478,21 +477,21 @@ static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
         }
     } else {
         if (lifetime) {
-            fprintf(out, "    impl<'a> statslog_rust_header::Stat for %s<'a> {\n",
+            fprintf(out, "    impl<'a> %s::Stat for %s<'a> {\n", headerCrate,
                     make_camel_case_name(atomDecl->name).c_str());
         } else {
-            fprintf(out, "    impl statslog_rust_header::Stat for %s {\n",
+            fprintf(out, "    impl %s::Stat for %s {\n", headerCrate,
                     make_camel_case_name(atomDecl->name).c_str());
         }
     }
     fprintf(out, "        #[inline(always)]\n");
     if (isPush) {
         fprintf(out, "        pub fn stats_write(&self)"
-                " -> statslog_rust_header::StatsResult {\n");
+                " -> %s::StatsResult {\n", headerCrate);
         fprintf(out, "            stats_write(");
     } else {
         fprintf(out, "        fn add_astats_event(&self, pulled_data: &mut AStatsEventList)"
-                " -> statslog_rust_header::StatsResult {\n");
+                " -> %s::StatsResult {\n", headerCrate);
         fprintf(out, "            add_astats_event(pulled_data, ");
     }
     for (const AtomField& atomField : atomDecl->fields) {
@@ -513,12 +512,13 @@ static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
 static int write_rust_stats_write_atoms(FILE* out, const AtomDeclSet& atomDeclSet,
                                         const AtomDecl& attributionDecl,
                                         const AtomDeclSet& nonChainedAtomDeclSet,
-                                        const int minApiLevel) {
-    for (const auto &atomDecl : atomDeclSet) {
-        // Key value pairs not supported in Rust because they're not supported in native.
+                                        const int minApiLevel,
+                                        const char* headerCrate) {
+    for (const auto& atomDecl : atomDeclSet) {
+        // TODO(b/216543320): support repeated fields in Rust
         if (std::find_if(atomDecl->fields.begin(), atomDecl->fields.end(),
-                         [](const AtomField &atomField) {
-                             return atomField.javaType == JAVA_TYPE_KEY_VALUE_PAIR;
+                         [](const AtomField& atomField) {
+                             return is_repeated_field(atomField.javaType);
                          }) != atomDecl->fields.end()) {
             continue;
         }
@@ -528,21 +528,24 @@ static int write_rust_stats_write_atoms(FILE* out, const AtomDeclSet& atomDeclSe
         fprintf(out, "    use std::convert::TryInto;\n");
         fprintf(out, "\n");
         write_rust_atom_constant_values(out, atomDecl);
-        write_rust_struct(out, atomDecl, attributionDecl);
-        int ret = write_rust_stats_write_method(out, atomDecl, attributionDecl, minApiLevel);
+        write_rust_struct(out, atomDecl, attributionDecl, headerCrate);
+        int ret = write_rust_stats_write_method(out, atomDecl, attributionDecl,
+                    minApiLevel, headerCrate);
         if (ret != 0) {
             return ret;
         }
         auto nonChained = nonChainedAtomDeclSet.find(atomDecl);
         if (nonChained != nonChainedAtomDeclSet.end()) {
-            write_rust_stats_write_non_chained_method(out, *nonChained, attributionDecl);
+            write_rust_stats_write_non_chained_method(out, *nonChained,
+                attributionDecl, headerCrate);
         }
         fprintf(out, "}\n");
     }
     return 0;
 }
 
-void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl) {
+void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
+                                    const char* headerCrate) {
     // Print prelude
     fprintf(out, "// This file is autogenerated.\n");
     fprintf(out, "\n");
@@ -565,11 +568,11 @@ void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& 
     fprintf(out, "}\n");
     fprintf(out, "\n");
 
-    write_rust_atom_constants(out, atoms, attributionDecl);
+    write_rust_atom_constants(out, atoms, attributionDecl, headerCrate);
 }
 
 int write_stats_log_rust(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
-                         const int minApiLevel) {
+                         const int minApiLevel, const char* headerCrate) {
     //Print prelude
     fprintf(out, "// This file is autogenerated.\n");
     fprintf(out, "\n");
@@ -585,7 +588,8 @@ int write_stats_log_rust(FILE* out, const Atoms& atoms, const AtomDecl& attribut
     write_rust_annotation_constants(out);
 
     int errorCount = write_rust_stats_write_atoms(out, atoms.decls, attributionDecl,
-                                                  atoms.non_chained_decls, minApiLevel);
+                                                  atoms.non_chained_decls,
+                                                  minApiLevel, headerCrate);
 
     return errorCount;
 }

@@ -16,10 +16,14 @@
 
 package com.android.server.wifi.aware;
 
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_128;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_PK_256;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
+import static android.net.wifi.aware.Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+
 import android.hardware.wifi.V1_0.IWifiNanIface;
 import android.hardware.wifi.V1_0.NanBandIndex;
 import android.hardware.wifi.V1_0.NanBandSpecificConfig;
-import android.hardware.wifi.V1_0.NanCipherSuiteType;
 import android.hardware.wifi.V1_0.NanConfigRequest;
 import android.hardware.wifi.V1_0.NanDataPathSecurityType;
 import android.hardware.wifi.V1_0.NanEnableRequest;
@@ -33,12 +37,15 @@ import android.hardware.wifi.V1_0.NanTransmitFollowupRequest;
 import android.hardware.wifi.V1_0.NanTxType;
 import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
+import android.hardware.wifi.V1_6.NanCipherSuiteType;
+import android.net.wifi.aware.AwareParams;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
+import android.net.wifi.aware.WifiAwareDataPathSecurityConfig;
 import android.net.wifi.util.HexEncoding;
 import android.os.RemoteException;
-import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.util.SparseIntArray;
 
@@ -83,7 +90,6 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         mDbg = verbose | VDBG;
     }
 
-
     private void recordTransactionId(int transactionId) {
         if (!VDBG) return;
 
@@ -123,6 +129,15 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
      */
     public android.hardware.wifi.V1_5.IWifiNanIface mockableCastTo_1_5(IWifiNanIface iface) {
         return android.hardware.wifi.V1_5.IWifiNanIface.castFrom(iface);
+    }
+
+    /**
+     * (HIDL) Cast the input to a 1.6 NAN interface (possibly resulting in a null).
+     *
+     * Separate function so can be mocked in unit tests.
+     */
+    public android.hardware.wifi.V1_6.IWifiNanIface mockableCastTo_1_6(IWifiNanIface iface) {
+        return android.hardware.wifi.V1_6.IWifiNanIface.castFrom(iface);
     }
 
     /*
@@ -169,8 +184,48 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     /* package */ static final String PARAM_MAC_RANDOM_INTERVAL_SEC = "mac_random_interval_sec";
     private static final int PARAM_MAC_RANDOM_INTERVAL_SEC_DEFAULT = 1800; // 30 minutes
 
-    private Map<String, Map<String, Integer>> mSettablePowerParameters = new HashMap<>();
-    private Map<String, Integer> mSettableParameters = new HashMap<>();
+    private final Map<String, Map<String, Integer>> mSettablePowerParameters = new HashMap<>();
+    private final Map<String, Integer> mSettableParameters = new HashMap<>();
+    private final Map<String, Integer> mExternalSetParams = new ArrayMap<>();
+
+    /**
+     * Accept using parameter from external to config the Aware
+     */
+    public void setAwareParams(AwareParams parameters) {
+        mExternalSetParams.clear();
+        if (parameters == null) {
+            return;
+        }
+        if (mDbg) {
+            Log.v(TAG, "setting Aware Parameters=" + parameters);
+        }
+        if (parameters.getDiscoveryWindowWakeInterval24Ghz() > 0
+                && parameters.getDiscoveryWindowWakeInterval24Ghz() <= 5) {
+            mExternalSetParams.put(PARAM_DW_24GHZ,
+                    parameters.getDiscoveryWindowWakeInterval24Ghz());
+        }
+        if (parameters.getDiscoveryWindowWakeInterval5Ghz() >= 0
+                && parameters.getDiscoveryWindowWakeInterval5Ghz() <= 5) {
+            mExternalSetParams.put(PARAM_DW_5GHZ, parameters.getDiscoveryWindowWakeInterval5Ghz());
+        }
+        if (parameters.getDiscoveryBeaconIntervalMillis() > 0) {
+            mExternalSetParams.put(PARAM_DISCOVERY_BEACON_INTERVAL_MS,
+                    parameters.getDiscoveryBeaconIntervalMillis());
+        }
+        if (parameters.getNumSpatialStreamsInDiscovery() > 0) {
+            mExternalSetParams.put(PARAM_NUM_SS_IN_DISCOVERY,
+                    parameters.getNumSpatialStreamsInDiscovery());
+        }
+        if (parameters.getMacRandomizationIntervalSeconds() > 0
+                && parameters.getMacRandomizationIntervalSeconds() <= 1800) {
+            mExternalSetParams.put(PARAM_MAC_RANDOM_INTERVAL_SEC,
+                    parameters.getMacRandomizationIntervalSeconds());
+        }
+        if (parameters.isDwEarlyTerminationEnabled()) {
+            mExternalSetParams.put(PARAM_ENABLE_DW_EARLY_TERM, 1);
+        }
+    }
+
 
     /**
      * Interpreter of adb shell command 'adb shell wifiaware native_api ...'.
@@ -303,6 +358,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
 
         mSettableParameters.put(PARAM_MAC_RANDOM_INTERVAL_SEC,
                 PARAM_MAC_RANDOM_INTERVAL_SEC_DEFAULT);
+        mExternalSetParams.clear();
     }
 
     @Override
@@ -371,18 +427,20 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
      * @param isIdle PowerManager.isIdle
      * @param rangingEnabled Indicates whether or not enable ranging.
      * @param isInstantCommunicationEnabled Indicates whether or not enable instant communication
-     *                                      mode.
+     * @param instantModeChannel
      */
     public boolean enableAndConfigure(short transactionId, ConfigRequest configRequest,
             boolean notifyIdentityChange, boolean initialConfiguration, boolean isInteractive,
-            boolean isIdle, boolean rangingEnabled, boolean isInstantCommunicationEnabled) {
+            boolean isIdle, boolean rangingEnabled, boolean isInstantCommunicationEnabled,
+            int instantModeChannel) {
         if (mDbg) {
             Log.v(TAG, "enableAndConfigure: transactionId=" + transactionId + ", configRequest="
                     + configRequest + ", notifyIdentityChange=" + notifyIdentityChange
                     + ", initialConfiguration=" + initialConfiguration
                     + ", isInteractive=" + isInteractive + ", isIdle=" + isIdle
                     + ", isRangingEnabled=" + rangingEnabled
-                    + ", isInstantCommunicationEnabled=" + isInstantCommunicationEnabled);
+                    + ", isInstantCommunicationEnabled=" + isInstantCommunicationEnabled
+                    + ", instantModeChannel=" + instantModeChannel);
         }
         recordTransactionId(transactionId);
 
@@ -394,10 +452,13 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         android.hardware.wifi.V1_2.IWifiNanIface iface12 = mockableCastTo_1_2(iface);
         android.hardware.wifi.V1_4.IWifiNanIface iface14 = mockableCastTo_1_4(iface);
         android.hardware.wifi.V1_5.IWifiNanIface iface15 = mockableCastTo_1_5(iface);
+        android.hardware.wifi.V1_6.IWifiNanIface iface16 = mockableCastTo_1_6(iface);
         android.hardware.wifi.V1_2.NanConfigRequestSupplemental configSupplemental12 =
                 new android.hardware.wifi.V1_2.NanConfigRequestSupplemental();
         android.hardware.wifi.V1_5.NanConfigRequestSupplemental configSupplemental15 =
                 new android.hardware.wifi.V1_5.NanConfigRequestSupplemental();
+        android.hardware.wifi.V1_6.NanConfigRequestSupplemental configSupplemental16 =
+                new android.hardware.wifi.V1_6.NanConfigRequestSupplemental();
         if (iface12 != null || iface14 != null) {
             configSupplemental12.discoveryBeaconIntervalMs = 0;
             configSupplemental12.numberOfSpatialStreamsInDiscovery = 0;
@@ -408,6 +469,10 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         if (iface15 != null) {
             configSupplemental15.V1_2 = configSupplemental12;
             configSupplemental15.enableInstantCommunicationMode = isInstantCommunicationEnabled;
+        }
+        if (iface16 != null) {
+            configSupplemental16.V1_5 = configSupplemental15;
+            configSupplemental16.instantModeChannel = instantModeChannel;
         }
 
         NanBandSpecificConfig config24 = new NanBandSpecificConfig();
@@ -463,7 +528,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         try {
             WifiStatus status;
             if (initialConfiguration) {
-                if (iface14 != null || iface15 != null) {
+                if (iface14 != null || iface15 != null || iface16 != null) {
                     // translate framework to HIDL configuration (V_1.4)
                     android.hardware.wifi.V1_4.NanEnableRequest req =
                             new android.hardware.wifi.V1_4.NanEnableRequest();
@@ -483,8 +548,9 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     req.configParams.includeSubscribeServiceIdsInBeacon = true;
                     req.configParams.numberOfSubscribeServiceIdsInBeacon = 0;
                     req.configParams.rssiWindowSize = 8;
-                    req.configParams.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                            PARAM_MAC_RANDOM_INTERVAL_SEC);
+                    req.configParams.macAddressRandomizationIntervalSec =
+                            mExternalSetParams.getOrDefault(PARAM_MAC_RANDOM_INTERVAL_SEC,
+                                    mSettableParameters.get(PARAM_MAC_RANDOM_INTERVAL_SEC));
 
                     req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
                     req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
@@ -519,7 +585,10 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     updateConfigForPowerSettings14(req.configParams, configSupplemental12,
                             isInteractive, isIdle);
 
-                    if (iface15 != null) {
+                    if (iface16 != null) {
+                        status = iface16.enableRequest_1_6(transactionId, req,
+                                configSupplemental16);
+                    } else if (iface15 != null) {
                         status = iface15.enableRequest_1_5(transactionId, req,
                                 configSupplemental15);
                     } else {
@@ -543,8 +612,9 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     req.configParams.includeSubscribeServiceIdsInBeacon = true;
                     req.configParams.numberOfSubscribeServiceIdsInBeacon = 0;
                     req.configParams.rssiWindowSize = 8;
-                    req.configParams.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                            PARAM_MAC_RANDOM_INTERVAL_SEC);
+                    req.configParams.macAddressRandomizationIntervalSec =
+                            mExternalSetParams.getOrDefault(PARAM_MAC_RANDOM_INTERVAL_SEC,
+                                    mSettableParameters.get(PARAM_MAC_RANDOM_INTERVAL_SEC));
 
                     req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
                     req.configParams.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
@@ -580,7 +650,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     }
                 }
             } else {
-                if (iface14 != null || iface15 != null) {
+                if (iface14 != null || iface15 != null || iface16 != null) {
                     android.hardware.wifi.V1_4.NanConfigRequest req =
                             new android.hardware.wifi.V1_4.NanConfigRequest();
                     req.masterPref = (byte) configRequest.mMasterPreference;
@@ -592,8 +662,9 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     req.includeSubscribeServiceIdsInBeacon = true;
                     req.numberOfSubscribeServiceIdsInBeacon = 0;
                     req.rssiWindowSize = 8;
-                    req.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                            PARAM_MAC_RANDOM_INTERVAL_SEC);
+                    req.macAddressRandomizationIntervalSec =
+                            mExternalSetParams.getOrDefault(PARAM_MAC_RANDOM_INTERVAL_SEC,
+                                    mSettableParameters.get(PARAM_MAC_RANDOM_INTERVAL_SEC));
 
                     req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
                     req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
@@ -602,7 +673,10 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
 
                     updateConfigForPowerSettings14(req, configSupplemental12,
                             isInteractive, isIdle);
-                    if (iface15 != null) {
+                    if (iface16 != null) {
+                        status = iface16.configRequest_1_6(transactionId, req,
+                                configSupplemental16);
+                    } else if (iface15 != null) {
                         status = iface15.configRequest_1_5(transactionId, req,
                                 configSupplemental15);
                     } else {
@@ -620,8 +694,9 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                     req.includeSubscribeServiceIdsInBeacon = true;
                     req.numberOfSubscribeServiceIdsInBeacon = 0;
                     req.rssiWindowSize = 8;
-                    req.macAddressRandomizationIntervalSec = mSettableParameters.get(
-                            PARAM_MAC_RANDOM_INTERVAL_SEC);
+                    req.macAddressRandomizationIntervalSec =
+                            mExternalSetParams.getOrDefault(PARAM_MAC_RANDOM_INTERVAL_SEC,
+                                    mSettableParameters.get(PARAM_MAC_RANDOM_INTERVAL_SEC));
 
                     req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ] = config24;
                     req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ] = config5;
@@ -701,45 +776,125 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             return false;
         }
 
-        NanPublishRequest req = new NanPublishRequest();
-        req.baseConfigs.sessionId = publishId;
-        req.baseConfigs.ttlSec = (short) publishConfig.mTtlSec;
-        req.baseConfigs.discoveryWindowPeriod = 1;
-        req.baseConfigs.discoveryCount = 0;
-        convertNativeByteArrayToArrayList(publishConfig.mServiceName, req.baseConfigs.serviceName);
-        req.baseConfigs.discoveryMatchIndicator = NanMatchAlg.MATCH_NEVER;
-        convertNativeByteArrayToArrayList(publishConfig.mServiceSpecificInfo,
-                req.baseConfigs.serviceSpecificInfo);
-        convertNativeByteArrayToArrayList(publishConfig.mMatchFilter,
-                publishConfig.mPublishType == PublishConfig.PUBLISH_TYPE_UNSOLICITED
-                        ? req.baseConfigs.txMatchFilter : req.baseConfigs.rxMatchFilter);
-        req.baseConfigs.useRssiThreshold = false;
-        req.baseConfigs.disableDiscoveryTerminationIndication =
-                !publishConfig.mEnableTerminateNotification;
-        req.baseConfigs.disableMatchExpirationIndication = true;
-        req.baseConfigs.disableFollowupReceivedIndication = false;
+        android.hardware.wifi.V1_6.IWifiNanIface iface16 = mockableCastTo_1_6(iface);
+        if (iface16 == null) {
+            NanPublishRequest req = new NanPublishRequest();
+            req.baseConfigs.sessionId = publishId;
+            req.baseConfigs.ttlSec = (short) publishConfig.mTtlSec;
+            req.baseConfigs.discoveryWindowPeriod = 1;
+            req.baseConfigs.discoveryCount = 0;
+            convertNativeByteArrayToArrayList(publishConfig.mServiceName,
+                    req.baseConfigs.serviceName);
+            req.baseConfigs.discoveryMatchIndicator = NanMatchAlg.MATCH_NEVER;
+            convertNativeByteArrayToArrayList(publishConfig.mServiceSpecificInfo,
+                    req.baseConfigs.serviceSpecificInfo);
+            convertNativeByteArrayToArrayList(publishConfig.mMatchFilter,
+                    publishConfig.mPublishType == PublishConfig.PUBLISH_TYPE_UNSOLICITED
+                            ? req.baseConfigs.txMatchFilter : req.baseConfigs.rxMatchFilter);
+            req.baseConfigs.useRssiThreshold = false;
+            req.baseConfigs.disableDiscoveryTerminationIndication =
+                    !publishConfig.mEnableTerminateNotification;
+            req.baseConfigs.disableMatchExpirationIndication = true;
+            req.baseConfigs.disableFollowupReceivedIndication = false;
 
-        req.autoAcceptDataPathRequests = false;
+            req.autoAcceptDataPathRequests = false;
 
-        req.baseConfigs.rangingRequired = publishConfig.mEnableRanging;
+            req.baseConfigs.rangingRequired = publishConfig.mEnableRanging;
 
-        // TODO: configure security
-        req.baseConfigs.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            req.baseConfigs.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            WifiAwareDataPathSecurityConfig securityConfig = publishConfig.getSecurityConfig();
+            if (securityConfig != null) {
+                req.baseConfigs.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
+                    req.baseConfigs.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.baseConfigs.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.baseConfigs.securityConfig.securityType =
+                            NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.baseConfigs.securityConfig.passphrase);
+                }
+            }
 
-        req.publishType = publishConfig.mPublishType;
-        req.txType = NanTxType.BROADCAST;
+            req.publishType = publishConfig.mPublishType;
+            req.txType = NanTxType.BROADCAST;
 
-        try {
-            WifiStatus status = iface.startPublishRequest(transactionId, req);
-            if (status.code == WifiStatusCode.SUCCESS) {
-                return true;
-            } else {
-                Log.e(TAG, "publish: error: " + statusString(status));
+            try {
+                WifiStatus status = iface.startPublishRequest(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "publish: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "publish: exception: " + e);
                 return false;
             }
-        } catch (RemoteException e) {
-            Log.e(TAG, "publish: exception: " + e);
-            return false;
+        } else {
+            android.hardware.wifi.V1_6.NanPublishRequest req =
+                    new android.hardware.wifi.V1_6.NanPublishRequest();
+            req.baseConfigs.sessionId = publishId;
+            req.baseConfigs.ttlSec = (short) publishConfig.mTtlSec;
+            req.baseConfigs.discoveryWindowPeriod = 1;
+            req.baseConfigs.discoveryCount = 0;
+            convertNativeByteArrayToArrayList(publishConfig.mServiceName,
+                    req.baseConfigs.serviceName);
+            req.baseConfigs.discoveryMatchIndicator = NanMatchAlg.MATCH_NEVER;
+            convertNativeByteArrayToArrayList(publishConfig.mServiceSpecificInfo,
+                    req.baseConfigs.serviceSpecificInfo);
+            convertNativeByteArrayToArrayList(publishConfig.mMatchFilter,
+                    publishConfig.mPublishType == PublishConfig.PUBLISH_TYPE_UNSOLICITED
+                            ? req.baseConfigs.txMatchFilter : req.baseConfigs.rxMatchFilter);
+            req.baseConfigs.useRssiThreshold = false;
+            req.baseConfigs.disableDiscoveryTerminationIndication =
+                    !publishConfig.mEnableTerminateNotification;
+            req.baseConfigs.disableMatchExpirationIndication = true;
+            req.baseConfigs.disableFollowupReceivedIndication = false;
+
+            req.autoAcceptDataPathRequests = false;
+
+            req.baseConfigs.rangingRequired = publishConfig.mEnableRanging;
+
+            req.baseConfigs.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            WifiAwareDataPathSecurityConfig securityConfig = publishConfig.getSecurityConfig();
+            if (securityConfig != null) {
+                req.baseConfigs.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
+                    req.baseConfigs.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.baseConfigs.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.baseConfigs.securityConfig.securityType =
+                            NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.baseConfigs.securityConfig.passphrase);
+                }
+                if (securityConfig.getPmkId() != null && securityConfig.getPmkId().length != 0) {
+                    copyArray(securityConfig.getPmkId(), req.baseConfigs.securityConfig.scid);
+                }
+            }
+
+            req.publishType = publishConfig.mPublishType;
+            req.txType = NanTxType.BROADCAST;
+
+            try {
+                WifiStatus status = iface16.startPublishRequest_1_6(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "publish: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "publish: exception: " + e);
+                return false;
+            }
         }
     }
 
@@ -1015,7 +1170,6 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     /**
      * Initiates setting up a data-path between device and peer. Security is provided by either
      * PMK or Passphrase (not both) - if both are null then an open (unencrypted) link is set up.
-     *
      * @param transactionId      Transaction ID for the transaction - used in the async callback to
      *                           match with the original request.
      * @param peerId             ID of the peer ID to associate the data path with. A value of 0
@@ -1026,22 +1180,21 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
      * @param channel            The channel on which to set up the data-path.
      * @param peer               The MAC address of the peer to create a connection with.
      * @param interfaceName      The interface on which to create the data connection.
-     * @param pmk Pairwise master key (PMK - see IEEE 802.11i) for the data-path.
-     * @param passphrase  Passphrase for the data-path.
      * @param isOutOfBand Is the data-path out-of-band (i.e. without a corresponding Aware discovery
      *                    session).
      * @param appInfo Arbitrary binary blob transmitted to the peer.
      * @param capabilities The capabilities of the firmware.
+     * @param securityConfig Security config to encrypt the data-path
      */
     public boolean initiateDataPath(short transactionId, int peerId, int channelRequestType,
-            int channel, byte[] peer, String interfaceName, byte[] pmk, String passphrase,
-            boolean isOutOfBand, byte[] appInfo, Capabilities capabilities) {
+            int channel, byte[] peer, String interfaceName,
+            boolean isOutOfBand, byte[] appInfo, Capabilities capabilities,
+            WifiAwareDataPathSecurityConfig securityConfig) {
         if (mDbg) {
             Log.v(TAG, "initiateDataPath: transactionId=" + transactionId + ", peerId=" + peerId
                     + ", channelRequestType=" + channelRequestType + ", channel=" + channel
                     + ", peer=" + String.valueOf(HexEncoding.encode(peer)) + ", interfaceName="
-                    + interfaceName + ", pmk=" + ((pmk == null) ? "<null>" : "<*>")
-                    + ", passphrase=" + (TextUtils.isEmpty(passphrase) ? "<empty>" : "<*>")
+                    + interfaceName + ", securityConfig=" + securityConfig
                     + ", isOutOfBand=" + isOutOfBand + ", appInfo.length="
                     + ((appInfo == null) ? 0 : appInfo.length) + ", capabilities=" + capabilities);
         }
@@ -1058,71 +1211,126 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             return false;
         }
 
-        NanInitiateDataPathRequest req = new NanInitiateDataPathRequest();
-        req.peerId = peerId;
-        copyArray(peer, req.peerDiscMacAddr);
-        req.channelRequestType = channelRequestType;
-        req.channel = channel;
-        req.ifaceName = interfaceName;
-        req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
-        if (pmk != null && pmk.length != 0) {
-            req.securityConfig.cipherType = getStrongestCipherSuiteType(
-                    capabilities.supportedCipherSuites);
-            req.securityConfig.securityType = NanDataPathSecurityType.PMK;
-            copyArray(pmk, req.securityConfig.pmk);
-        }
-        if (passphrase != null && passphrase.length() != 0) {
-            req.securityConfig.cipherType = getStrongestCipherSuiteType(
-                    capabilities.supportedCipherSuites);
-            req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
-            convertNativeByteArrayToArrayList(passphrase.getBytes(), req.securityConfig.passphrase);
-        }
+        android.hardware.wifi.V1_6.IWifiNanIface iface16 = mockableCastTo_1_6(iface);
 
-        if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
-            convertNativeByteArrayToArrayList(
-                    SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
-                    req.serviceNameOutOfBand);
-        }
-        convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+        if (iface16 == null) {
+            NanInitiateDataPathRequest req = new NanInitiateDataPathRequest();
+            req.peerId = peerId;
+            copyArray(peer, req.peerDiscMacAddr);
+            req.channelRequestType = channelRequestType;
+            req.channel = channel;
+            req.ifaceName = interfaceName;
+            req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            if (securityConfig != null) {
+                req.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
 
-        try {
-            WifiStatus status = iface.initiateDataPathRequest(transactionId, req);
-            if (status.code == WifiStatusCode.SUCCESS) {
-                return true;
-            } else {
-                Log.e(TAG, "initiateDataPath: error: " + statusString(status));
+                    req.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.securityConfig.passphrase);
+                }
+            }
+
+            if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
+                convertNativeByteArrayToArrayList(
+                        SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
+                        req.serviceNameOutOfBand);
+            }
+            convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+
+            try {
+                WifiStatus status = iface.initiateDataPathRequest(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "initiateDataPath: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "initiateDataPath: exception: " + e);
                 return false;
             }
-        } catch (RemoteException e) {
-            Log.e(TAG, "initiateDataPath: exception: " + e);
-            return false;
+        } else {
+            android.hardware.wifi.V1_6.NanInitiateDataPathRequest req =
+                    new android.hardware.wifi.V1_6.NanInitiateDataPathRequest();
+            req.peerId = peerId;
+            copyArray(peer, req.peerDiscMacAddr);
+            req.channelRequestType = channelRequestType;
+            req.channel = channel;
+            req.ifaceName = interfaceName;
+            req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            if (securityConfig != null) {
+                req.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
+                    req.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.securityConfig.passphrase);
+                }
+                if (securityConfig.getPmkId() != null && securityConfig.getPmkId().length != 0) {
+                    copyArray(securityConfig.getPmkId(), req.securityConfig.scid);
+                }
+            }
+
+            if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
+                convertNativeByteArrayToArrayList(
+                        SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
+                        req.serviceNameOutOfBand);
+            }
+            convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+
+            try {
+                WifiStatus status = iface16.initiateDataPathRequest_1_6(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "initiateDataPath_1_6: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "initiateDataPath_1_6: exception: " + e);
+                return false;
+            }
         }
     }
+
+
 
     /**
      * Responds to a data request from a peer. Security is provided by either PMK or Passphrase (not
      * both) - if both are null then an open (unencrypted) link is set up.
-     *
      * @param transactionId Transaction ID for the transaction - used in the async callback to
      *                      match with the original request.
      * @param accept Accept (true) or reject (false) the original call.
      * @param ndpId The NDP (Aware data path) ID. Obtained from the request callback.
      * @param interfaceName The interface on which the data path will be setup. Obtained from the
-     *                      request callback.
-     * @param pmk Pairwise master key (PMK - see IEEE 802.11i) for the data-path.
-     * @param passphrase  Passphrase for the data-path.
+*                      request callback.
      * @param appInfo Arbitrary binary blob transmitted to the peer.
      * @param isOutOfBand Is the data-path out-of-band (i.e. without a corresponding Aware discovery
-     *                    session).
+*                    session).
      * @param capabilities The capabilities of the firmware.
+     * @param securityConfig Security config to encrypt the data-path
      */
     public boolean respondToDataPathRequest(short transactionId, boolean accept, int ndpId,
-            String interfaceName, byte[] pmk, String passphrase, byte[] appInfo,
-            boolean isOutOfBand, Capabilities capabilities) {
+            String interfaceName, byte[] appInfo,
+            boolean isOutOfBand, Capabilities capabilities,
+            WifiAwareDataPathSecurityConfig securityConfig) {
         if (mDbg) {
             Log.v(TAG, "respondToDataPathRequest: transactionId=" + transactionId + ", accept="
                     + accept + ", int ndpId=" + ndpId + ", interfaceName=" + interfaceName
-                    + ", appInfo.length=" + ((appInfo == null) ? 0 : appInfo.length));
+                    + ", appInfo.length=" + ((appInfo == null) ? 0 : appInfo.length)
+                    + ", securityConfig" + securityConfig);
         }
         recordTransactionId(transactionId);
 
@@ -1133,46 +1341,99 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         }
 
         if (capabilities == null) {
-            Log.e(TAG, "initiateDataPath: null capabilities");
+            Log.e(TAG, "respondToDataPathRequest: null capabilities");
             return false;
         }
 
-        NanRespondToDataPathIndicationRequest req = new NanRespondToDataPathIndicationRequest();
-        req.acceptRequest = accept;
-        req.ndpInstanceId = ndpId;
-        req.ifaceName = interfaceName;
-        req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
-        if (pmk != null && pmk.length != 0) {
-            req.securityConfig.cipherType = getStrongestCipherSuiteType(
-                    capabilities.supportedCipherSuites);
-            req.securityConfig.securityType = NanDataPathSecurityType.PMK;
-            copyArray(pmk, req.securityConfig.pmk);
-        }
-        if (passphrase != null && passphrase.length() != 0) {
-            req.securityConfig.cipherType = getStrongestCipherSuiteType(
-                    capabilities.supportedCipherSuites);
-            req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
-            convertNativeByteArrayToArrayList(passphrase.getBytes(), req.securityConfig.passphrase);
-        }
+        android.hardware.wifi.V1_6.IWifiNanIface iface16 = mockableCastTo_1_6(iface);
 
-        if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
-            convertNativeByteArrayToArrayList(
-                    SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
-                    req.serviceNameOutOfBand);
-        }
-        convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+        if (iface16 == null) {
+            NanRespondToDataPathIndicationRequest req = new NanRespondToDataPathIndicationRequest();
+            req.acceptRequest = accept;
+            req.ndpInstanceId = ndpId;
+            req.ifaceName = interfaceName;
+            req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            if (securityConfig != null) {
+                req.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
 
-        try {
-            WifiStatus status = iface.respondToDataPathIndicationRequest(transactionId, req);
-            if (status.code == WifiStatusCode.SUCCESS) {
-                return true;
-            } else {
-                Log.e(TAG, "respondToDataPathRequest: error: " + statusString(status));
+                    req.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.securityConfig.passphrase);
+                }
+            }
+
+            if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
+                convertNativeByteArrayToArrayList(
+                        SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
+                        req.serviceNameOutOfBand);
+            }
+            convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+
+            try {
+                WifiStatus status = iface.respondToDataPathIndicationRequest(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "respondToDataPathRequest: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "respondToDataPathRequest: exception: " + e);
                 return false;
             }
-        } catch (RemoteException e) {
-            Log.e(TAG, "respondToDataPathRequest: exception: " + e);
-            return false;
+        } else {
+            android.hardware.wifi.V1_6.NanRespondToDataPathIndicationRequest req =
+                    new android.hardware.wifi.V1_6.NanRespondToDataPathIndicationRequest();
+            req.acceptRequest = accept;
+            req.ndpInstanceId = ndpId;
+            req.ifaceName = interfaceName;
+            req.securityConfig.securityType = NanDataPathSecurityType.OPEN;
+            if (securityConfig != null) {
+                req.securityConfig.cipherType = getHalCipherSuiteType(
+                        securityConfig.getCipherSuite());
+                if (securityConfig.getPmk() != null && securityConfig.getPmk().length != 0) {
+
+                    req.securityConfig.securityType = NanDataPathSecurityType.PMK;
+                    copyArray(securityConfig.getPmk(), req.securityConfig.pmk);
+                }
+                if (securityConfig.getPskPassphrase() != null
+                        && securityConfig.getPskPassphrase().length() != 0) {
+                    req.securityConfig.securityType = NanDataPathSecurityType.PASSPHRASE;
+                    convertNativeByteArrayToArrayList(securityConfig.getPskPassphrase().getBytes(),
+                            req.securityConfig.passphrase);
+                }
+                if (securityConfig.getPmkId() != null && securityConfig.getPmkId().length != 0) {
+                    copyArray(securityConfig.getPmkId(), req.securityConfig.scid);
+                }
+            }
+
+            if (req.securityConfig.securityType != NanDataPathSecurityType.OPEN && isOutOfBand) {
+                convertNativeByteArrayToArrayList(
+                        SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(StandardCharsets.UTF_8),
+                        req.serviceNameOutOfBand);
+            }
+            convertNativeByteArrayToArrayList(appInfo, req.appInfo);
+
+            try {
+                WifiStatus status = iface16
+                        .respondToDataPathIndicationRequest_1_6(transactionId, req);
+                if (status.code == WifiStatusCode.SUCCESS) {
+                    return true;
+                } else {
+                    Log.e(TAG, "respondToDataPathRequest_1_6: error: " + statusString(status));
+                    return false;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "respondToDataPathRequest_1_6: exception: " + e);
+                return false;
+            }
         }
     }
 
@@ -1226,16 +1487,16 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         }
 
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ],
-                mSettablePowerParameters.get(key).get(PARAM_DW_5GHZ));
+                getSettablePowerParameters(key, PARAM_DW_5GHZ));
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ],
-                mSettablePowerParameters.get(key).get(PARAM_DW_24GHZ));
+                getSettablePowerParameters(key, PARAM_DW_24GHZ));
 
-        configSupplemental12.discoveryBeaconIntervalMs = mSettablePowerParameters.get(key).get(
+        configSupplemental12.discoveryBeaconIntervalMs = getSettablePowerParameters(key,
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS);
-        configSupplemental12.numberOfSpatialStreamsInDiscovery = mSettablePowerParameters.get(
-                key).get(PARAM_NUM_SS_IN_DISCOVERY);
-        configSupplemental12.enableDiscoveryWindowEarlyTermination = mSettablePowerParameters.get(
-                key).get(PARAM_ENABLE_DW_EARLY_TERM) != 0;
+        configSupplemental12.numberOfSpatialStreamsInDiscovery = getSettablePowerParameters(key,
+                PARAM_NUM_SS_IN_DISCOVERY);
+        configSupplemental12.enableDiscoveryWindowEarlyTermination = getSettablePowerParameters(key,
+                PARAM_ENABLE_DW_EARLY_TERM) != 0;
     }
 
     /**
@@ -1252,19 +1513,26 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         }
 
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ],
-                mSettablePowerParameters.get(key).get(PARAM_DW_5GHZ));
+                getSettablePowerParameters(key, PARAM_DW_5GHZ));
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ],
-                mSettablePowerParameters.get(key).get(PARAM_DW_24GHZ));
+                getSettablePowerParameters(key, PARAM_DW_24GHZ));
         updateSingleConfigForPowerSettings(req.bandSpecificConfig[
                 android.hardware.wifi.V1_4.NanBandIndex.NAN_BAND_6GHZ],
-                mSettablePowerParameters.get(key).get(PARAM_DW_6GHZ));
+                getSettablePowerParameters(key, PARAM_DW_6GHZ));
 
-        configSupplemental12.discoveryBeaconIntervalMs = mSettablePowerParameters.get(key).get(
+        configSupplemental12.discoveryBeaconIntervalMs = getSettablePowerParameters(key,
                 PARAM_DISCOVERY_BEACON_INTERVAL_MS);
-        configSupplemental12.numberOfSpatialStreamsInDiscovery = mSettablePowerParameters.get(
-                key).get(PARAM_NUM_SS_IN_DISCOVERY);
-        configSupplemental12.enableDiscoveryWindowEarlyTermination = mSettablePowerParameters.get(
-                key).get(PARAM_ENABLE_DW_EARLY_TERM) != 0;
+        configSupplemental12.numberOfSpatialStreamsInDiscovery = getSettablePowerParameters(key,
+                PARAM_NUM_SS_IN_DISCOVERY);
+        configSupplemental12.enableDiscoveryWindowEarlyTermination =
+                getSettablePowerParameters(key, PARAM_ENABLE_DW_EARLY_TERM) != 0;
+    }
+
+    private int getSettablePowerParameters(String state, String key) {
+        if (mExternalSetParams.containsKey(key)) {
+            return mExternalSetParams.get(key);
+        }
+        return mSettablePowerParameters.get(state).get(key);
     }
 
     private void updateSingleConfigForPowerSettings(NanBandSpecificConfig cfg, int override) {
@@ -1275,16 +1543,18 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     }
 
     /**
-     * Returns the strongest supported cipher suite.
-     *
-     * Baseline is very simple: 256 > 128 > 0.
+     * Returns the HAL cipher suite.
      */
-    private int getStrongestCipherSuiteType(int supportedCipherSuites) {
-        if ((supportedCipherSuites & NanCipherSuiteType.SHARED_KEY_256_MASK) != 0) {
-            return NanCipherSuiteType.SHARED_KEY_256_MASK;
-        }
-        if ((supportedCipherSuites & NanCipherSuiteType.SHARED_KEY_128_MASK) != 0) {
-            return NanCipherSuiteType.SHARED_KEY_128_MASK;
+    private int getHalCipherSuiteType(int frameworkCipherSuites) {
+        switch (frameworkCipherSuites) {
+            case WIFI_AWARE_CIPHER_SUITE_NCS_SK_128:
+                return NanCipherSuiteType.SHARED_KEY_128_MASK;
+            case WIFI_AWARE_CIPHER_SUITE_NCS_SK_256:
+                return NanCipherSuiteType.SHARED_KEY_256_MASK;
+            case WIFI_AWARE_CIPHER_SUITE_NCS_PK_128:
+                return NanCipherSuiteType.PUBLIC_KEY_128_MASK;
+            case WIFI_AWARE_CIPHER_SUITE_NCS_PK_256:
+                return NanCipherSuiteType.PUBLIC_KEY_256_MASK;
         }
         return NanCipherSuiteType.NONE;
     }
@@ -1339,6 +1609,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("WifiAwareNativeApi:");
         pw.println("  mSettableParameters: " + mSettableParameters);
+        pw.println("  mExternalSetParams" + mExternalSetParams);
         mHal.dump(fd, pw, args);
     }
 }

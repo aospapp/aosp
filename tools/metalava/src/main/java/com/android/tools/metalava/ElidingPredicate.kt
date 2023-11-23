@@ -18,7 +18,6 @@ package com.android.tools.metalava
 
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
-
 import java.util.function.Predicate
 
 /**
@@ -31,12 +30,14 @@ class ElidingPredicate(private val wrapped: Predicate<Item>) : Predicate<Item> {
         // This method should be included, but if it's an exact duplicate
         // override then we can elide it.
         return if (method is MethodItem && !method.isConstructor()) {
-            val differentSuper = method.findPredicateSuperMethod(Predicate { test ->
-                // We're looking for included and perfect signature
-                wrapped.test(test) &&
-                    test is MethodItem &&
-                    MethodItem.sameSignature(method, test, false)
-            })
+            val differentSuper = method.findPredicateSuperMethod(
+                Predicate { test ->
+                    // We're looking for included and perfect signature
+                    wrapped.test(test) &&
+                        test is MethodItem &&
+                        MethodItem.sameSignature(method, test, false)
+                }
+            )
             differentSuper == null
         } else {
             true

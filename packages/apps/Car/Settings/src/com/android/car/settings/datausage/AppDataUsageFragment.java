@@ -17,13 +17,10 @@
 package com.android.car.settings.datausage;
 
 import android.content.Context;
-import android.net.NetworkPolicy;
-import android.net.NetworkPolicyManager;
 import android.net.NetworkTemplate;
 import android.os.Bundle;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.util.Pair;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
@@ -35,8 +32,6 @@ import com.android.car.settings.common.SettingsFragment;
 import com.android.settingslib.net.DataUsageController;
 import com.android.settingslib.net.NetworkCycleChartData;
 
-import java.time.ZonedDateTime;
-import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -125,8 +120,10 @@ public class AppDataUsageFragment extends SettingsFragment implements
     }
 
     private Bundle getBundleForNetworkStats() {
-        long start = mDataUsageController.getDataUsageInfo(mNetworkTemplate).cycleStart;
-        long end = mDataUsageController.getDataUsageInfo(mNetworkTemplate).cycleEnd;
+        DataUsageController.DataUsageInfo dataUsageInfo =
+                mDataUsageController.getDataUsageInfo(mNetworkTemplate);
+        long start = dataUsageInfo.cycleStart;
+        long end = dataUsageInfo.cycleEnd;
 
         return SummaryForAllUidLoader.buildArgs(mNetworkTemplate, start, end);
     }
@@ -134,11 +131,6 @@ public class AppDataUsageFragment extends SettingsFragment implements
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)
     Bundle getBundle() {
         return mBundle;
-    }
-
-    @VisibleForTesting
-    Iterator<Pair<ZonedDateTime, ZonedDateTime>> getCycleIterator(NetworkPolicy policy) {
-        return NetworkPolicyManager.cycleIterator(policy);
     }
 
     @Override

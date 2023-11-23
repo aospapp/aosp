@@ -20,7 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.turbine.testing.TestClassPaths.optionsWithBootclasspath;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
+import static java.util.Objects.requireNonNull;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -106,7 +107,7 @@ public class ReducedClasspathTest {
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(lib))) {
       for (String className : classNames) {
         jos.putNextEntry(new JarEntry(className + ".class"));
-        jos.write(compiled.get(className));
+        jos.write(requireNonNull(compiled.get(className), className));
       }
     }
     return lib;
@@ -231,19 +232,19 @@ public class ReducedClasspathTest {
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
-    try {
-      Main.compile(
-          optionsWithBootclasspath()
-              .setOutput(output.toString())
-              .setSources(ImmutableList.of(src.toString()))
-              .setReducedClasspathMode(ReducedClasspathMode.JAVABUILDER_REDUCED)
-              .setClassPath(ImmutableList.of(libc.toString()))
-              .setDepsArtifacts(ImmutableList.of(libcJdeps.toString()))
-              .build());
-      fail();
-    } catch (TurbineError e) {
-      assertThat(e).hasMessageThat().contains("could not resolve I");
-    }
+    TurbineError e =
+        assertThrows(
+            TurbineError.class,
+            () ->
+                Main.compile(
+                    optionsWithBootclasspath()
+                        .setOutput(output.toString())
+                        .setSources(ImmutableList.of(src.toString()))
+                        .setReducedClasspathMode(ReducedClasspathMode.JAVABUILDER_REDUCED)
+                        .setClassPath(ImmutableList.of(libc.toString()))
+                        .setDepsArtifacts(ImmutableList.of(libcJdeps.toString()))
+                        .build()));
+    assertThat(e).hasMessageThat().contains("could not resolve I");
   }
 
   static String lines(String... lines) {

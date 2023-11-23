@@ -16,6 +16,8 @@
 
 #include "lang_id/common/lite_strings/str-split.h"
 
+#include <vector>
+
 namespace libtextclassifier3 {
 namespace mobile {
 

@@ -9,7 +9,7 @@ cc_binary {
     vintf_fragments: ["memtrack.xml"],
     vendor: true,
     shared_libs: [
-        "android.hardware.memtrack-V1-ndk_platform",
+        "android.hardware.memtrack-V1-ndk",
         "libbase",
         "libbinder_ndk",
         "libmemtrack-pixel",

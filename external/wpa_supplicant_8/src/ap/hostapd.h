@@ -138,6 +138,8 @@ struct hostapd_neighbor_entry {
 	/* LCI update time */
 	struct os_time lci_date;
 	int stationary;
+	u32 short_ssid;
+	u8 bss_parameters;
 };
 
 struct hostapd_sae_commit_queue {
@@ -326,10 +328,10 @@ struct hostapd_data {
 
 #ifdef CONFIG_SAE
 	/** Key used for generating SAE anti-clogging tokens */
-	u8 sae_token_key[8];
-	struct os_reltime last_sae_token_key_update;
-	u16 sae_token_idx;
-	u16 sae_pending_token_idx[256];
+	u8 comeback_key[8];
+	struct os_reltime last_comeback_key_update;
+	u16 comeback_idx;
+	u16 comeback_pending_idx[256];
 	int dot11RSNASAERetransPeriod; /* msec */
 	struct dl_list sae_commit_queue; /* struct hostapd_sae_commit_queue */
 #endif /* CONFIG_SAE */
@@ -354,6 +356,8 @@ struct hostapd_data {
 	int last_bigtk_key_idx;
 	u8 last_bigtk[WPA_BIGTK_MAX_LEN];
 	size_t last_bigtk_len;
+
+	bool force_backlog_bytes;
 #endif /* CONFIG_TESTING_OPTIONS */
 
 #ifdef CONFIG_MBO

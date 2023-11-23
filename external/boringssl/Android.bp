@@ -51,7 +51,6 @@ cc_defaults {
         "-DBORINGSSL_SHARED_LIBRARY",
         "-DBORINGSSL_ANDROID_SYSTEM",
         "-DOPENSSL_SMALL",
-        "-D_XOPEN_SOURCE=700",
         "-Werror",
         "-Wno-unused-parameter",
     ],
@@ -61,7 +60,7 @@ cc_defaults {
         "-Werror",
     ],
 
-    conlyflags: ["-std=c99"],
+    c_std: "gnu11",
 
     // Build BoringSSL and its tests against the same STL.
     sdk_version: "9",
@@ -129,11 +128,7 @@ cc_object {
         fuzzer: false,
     },
     target: {
-        linux_bionic: {
-            header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
-        },
         android: {
-            header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
             cflags: [
                 "-DBORINGSSL_FIPS",
                 "-fPIC",
@@ -163,9 +158,9 @@ cc_object {
         "com.android.art",
         "com.android.art.debug",
         "com.android.art.testing",
-        "com.android.bluetooth.updatable",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.conscrypt",
-        "com.android.media",
         "com.android.resolv",
         "com.android.virt",
     ],
@@ -251,9 +246,9 @@ cc_library {
         "com.android.art",
         "com.android.art.debug",
         "com.android.art.testing",
-        "com.android.bluetooth.updatable",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.conscrypt",
-        "com.android.media",
         "com.android.resolv",
         "com.android.virt",
     ],
@@ -306,6 +301,36 @@ cc_library_static {
     ],
 }
 
+// Common defaults for lib*_fuzz_unsafe. These are unsafe and deterministic
+// libraries for testing and fuzzing only. See src/FUZZING.md.
+cc_defaults {
+    name: "boringssl_fuzz_unsafe_defaults",
+    host_supported: true,
+    cflags: [
+        "-DBORINGSSL_UNSAFE_DETERMINISTIC_MODE",
+        "-DBORINGSSL_UNSAFE_FUZZER_MODE",
+    ],
+    visibility: [
+        "//frameworks/native/libs/binder/tests:__subpackages__",
+    ],
+}
+
+// Unsafe and deterministic version of libcrypto. For testing and fuzzing only.
+// See src/FUZZING.md.
+cc_test_library {
+    name: "libcrypto_fuzz_unsafe",
+    ramdisk_available: false,
+    vendor_ramdisk_available: false,
+    defaults: [
+        "libcrypto_bcm_sources",
+        "libcrypto_sources",
+        "libcrypto_defaults",
+        "boringssl_defaults",
+        "boringssl_flags",
+        "boringssl_fuzz_unsafe_defaults",
+    ],
+}
+
 //// libssl
 
 // Target static library
@@ -338,11 +363,28 @@ cc_library {
 
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
         "com.android.adbd",
         "com.android.conscrypt",
         "com.android.resolv",
     ],
     min_sdk_version: "29",
+}
+
+// Unsafe and deterministic version of libssl. For testing and fuzzing only.
+// See src/FUZZING.md.
+cc_test_library {
+    name: "libssl_fuzz_unsafe",
+    host_supported: true,
+    defaults: [
+        "libssl_sources",
+        "boringssl_defaults",
+        "boringssl_flags",
+        "boringssl_fuzz_unsafe_defaults",
+    ],
+    static_libs: [
+        "libcrypto_fuzz_unsafe",
+    ],
 }
 
 // Tool
@@ -373,67 +415,23 @@ cc_binary {
     },
 }
 
-// Used for CAVP testing for FIPS certification.
-// Not installed on devices by default.
-cc_binary {
-    name: "cavp",
-    host_supported: true,
-    srcs: [
-        "src/util/fipstools/cavp/cavp_aes_gcm_test.cc",
-        "src/util/fipstools/cavp/cavp_aes_test.cc",
-        "src/util/fipstools/cavp/cavp_ctr_drbg_test.cc",
-        "src/util/fipstools/cavp/cavp_ecdsa2_keypair_test.cc",
-        "src/util/fipstools/cavp/cavp_ecdsa2_pkv_test.cc",
-        "src/util/fipstools/cavp/cavp_ecdsa2_siggen_test.cc",
-        "src/util/fipstools/cavp/cavp_ecdsa2_sigver_test.cc",
-        "src/util/fipstools/cavp/cavp_hmac_test.cc",
-        "src/util/fipstools/cavp/cavp_kas_test.cc",
-        "src/util/fipstools/cavp/cavp_keywrap_test.cc",
-        "src/util/fipstools/cavp/cavp_main.cc",
-        "src/util/fipstools/cavp/cavp_rsa2_keygen_test.cc",
-        "src/util/fipstools/cavp/cavp_rsa2_siggen_test.cc",
-        "src/util/fipstools/cavp/cavp_rsa2_sigver_test.cc",
-        "src/util/fipstools/cavp/cavp_sha_monte_test.cc",
-        "src/util/fipstools/cavp/cavp_sha_test.cc",
-        "src/util/fipstools/cavp/cavp_tdes_test.cc",
-        "src/util/fipstools/cavp/cavp_test_util.cc",
-        "src/util/fipstools/cavp/cavp_tlskdf_test.cc",
-    ],
-    target: {
-        android: {
-            compile_multilib: "both",
-        },
-    },
-    multilib: {
-        lib32: {
-            suffix: "32",
-        },
-    },
-
-    shared_libs: [
-        "libcrypto",
-    ],
-
-    defaults: [
-        "boringssl_test_support_sources",
-        "boringssl_flags",
-    ],
-}
-
 // Used for ACVP testing for FIPS certification.
 // Not installed on devices by default.
 cc_binary {
     name: "acvp_modulewrapper",
-    host_supported: true,
     srcs: [
         "src/util/fipstools/acvp/modulewrapper/main.cc",
     ],
     target: {
-        android: {
-            compile_multilib: "both",
+        android_x86: {
+            enabled: false,
+        },
+        android_x86_64: {
+            enabled: false,
         },
     },
     stem: "modulewrapper",
+    compile_multilib: "both",
     multilib: {
         lib32: {
             suffix: "32",
@@ -495,31 +493,63 @@ cc_library_static {
 // Tests
 cc_test {
     name: "boringssl_crypto_test",
-    test_suites: ["device-tests"],
-    host_supported: true,
+    test_config: "NativeTests.xml",
+    host_supported: false,
+    per_testcase_directory: true,
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
     defaults: [
         "boringssl_crypto_test_sources",
         "boringssl_flags",
     ],
     whole_static_libs: ["boringssl_test_support"],
-
-    shared_libs: ["libcrypto"],
+    // Statically link the library to test to ensure we always pick up the
+    // correct version regardless of device linker configuration.
+    static_libs: ["libcrypto_static"],
+    target: {
+        android: {
+            test_suites: ["mts-conscrypt"],
+        },
+    },
 }
 
 cc_test {
     name: "boringssl_ssl_test",
-    test_suites: ["device-tests"],
-    host_supported: true,
+    test_config: "NativeTests.xml",
+    host_supported: false,
+    per_testcase_directory: true,
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
     defaults: [
         "boringssl_ssl_test_sources",
         "boringssl_flags",
     ],
     whole_static_libs: ["boringssl_test_support"],
-
-    shared_libs: [
-        "libcrypto",
+    // Statically link the libraries to test to ensure we always pick up the
+    // correct version regardless of device linker configuration.
+    static_libs: [
+        "libcrypto_static",
         "libssl",
     ],
+    target: {
+        android: {
+            test_suites: ["mts-conscrypt"],
+        },
+    },
 }
 
 // Utility binary for CMVP on-site testing.
@@ -533,6 +563,6 @@ cc_binary {
         "libcrypto",
     ],
     srcs: [
-        "src/util/fipstools/cavp/test_fips.c",
+        "src/util/fipstools/test_fips.c",
     ],
 }

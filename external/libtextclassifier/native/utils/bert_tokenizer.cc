@@ -17,6 +17,7 @@
 #include "utils/bert_tokenizer.h"
 
 #include <string>
+#include <vector>
 
 #include "annotator/types.h"
 #include "utils/tokenizer-utils.h"
@@ -25,6 +26,19 @@
 #include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
+
+namespace {
+
+int SafeLookup(const std::vector<int>& vector, int index) {
+  if (vector.empty()) {
+    return 0;
+  }
+  index = std::max(index, 0);
+  index = std::min(index, static_cast<int>(vector.size()) - 1);
+  return vector[index];
+}
+
+}  // namespace
 
 FlatHashMapBackedWordpiece::FlatHashMapBackedWordpiece(
     const std::vector<std::string>& vocab)
@@ -59,39 +73,69 @@ bool FlatHashMapBackedWordpiece::LookupWord(int vocab_id,
   return true;
 }
 
-TokenizerResult BertTokenizer::TokenizeSingleToken(const std::string& token) {
-  std::vector<std::string> tokens = {token};
-  return BertTokenizer::Tokenize(tokens);
-}
-
 TokenizerResult BertTokenizer::Tokenize(const std::string& input) {
-  std::vector<std::string> tokens = PreTokenize(input);
-  return BertTokenizer::Tokenize(tokens);
+  return TokenizeIntoWordpieces(input);
 }
 
-TokenizerResult BertTokenizer::Tokenize(
-    const std::vector<std::string>& tokens) {
+WordpieceTokenizerResult BertTokenizer::TokenizeIntoWordpieces(
+    const std::string& input) {
+  std::vector<Token> tokens =
+      TokenizeOnWhiteSpacePunctuationAndChineseLetter(input);
+  return TokenizeIntoWordpieces(tokens);
+}
+
+WordpieceTokenizerResult BertTokenizer::TokenizeSingleToken(
+    const std::string& token) {
+  const UnicodeText token_unicode = UTF8ToUnicodeText(token, /*do_copy=*/false);
+  std::vector<Token> tokens = {
+      Token(token, 0, token_unicode.size_codepoints())};
+  return TokenizeIntoWordpieces(tokens);
+}
+
+WordpieceTokenizerResult BertTokenizer::TokenizeIntoWordpieces(
+    const std::vector<Token>& tokens) {
   WordpieceTokenizerResult result;
   std::vector<std::string>& subwords = result.subwords;
-  std::vector<int>& wp_absolute_begin_offset = result.wp_begin_offset;
-  std::vector<int>& wp_absolute_end_offset = result.wp_end_offset;
 
   for (int token_index = 0; token_index < tokens.size(); token_index++) {
-    auto& token = tokens[token_index];
+    const Token& token = tokens[token_index];
     int num_word_pieces = 0;
+    std::vector<int> wp_absolute_begin_offset;
+    std::vector<int> wp_absolute_end_offset;
     LookupStatus status = WordpieceTokenize(
-        token, options_.max_bytes_per_token, options_.max_chars_per_subtoken,
-        options_.suffix_indicator, options_.use_unknown_token,
-        options_.unknown_token, options_.split_unknown_chars, &vocab_,
-        &subwords, &wp_absolute_begin_offset, &wp_absolute_end_offset,
-        &num_word_pieces);
+        token.value, options_.max_bytes_per_token,
+        options_.max_chars_per_subtoken, options_.suffix_indicator,
+        options_.use_unknown_token, options_.unknown_token,
+        options_.split_unknown_chars, &vocab_, &subwords,
+        &wp_absolute_begin_offset, &wp_absolute_end_offset, &num_word_pieces);
+    const UnicodeText token_unicode =
+        UTF8ToUnicodeText(token.value, /*do_copy=*/false);
+
+    std::vector<int> byte_to_codepoint_offsets;
+    int byte_to_codepoint_offset = 0;
+    for (const auto& it : token_unicode.Codepoints()) {
+      byte_to_codepoint_offsets.resize(
+          it.utf8_data() + it.utf8_length() - token_unicode.data(),
+          byte_to_codepoint_offset++);
+    }
+    byte_to_codepoint_offsets.push_back(byte_to_codepoint_offset);
+
+    for (const int offset : wp_absolute_begin_offset) {
+      result.wp_begin_offset.push_back(
+          token.start + SafeLookup(byte_to_codepoint_offsets, offset));
+    }
+    for (const int offset : wp_absolute_end_offset) {
+      result.wp_end_offset.push_back(
+          token.start + SafeLookup(byte_to_codepoint_offsets, offset));
+    }
+    result.row_lengths.push_back(num_word_pieces);
 
     if (!status.success) {
-      return std::move(result);
+      return result;
     }
   }
 
-  return std::move(result);
+  return result;
 }
 
 // This replicates how the original bert_tokenizer from the tflite-support

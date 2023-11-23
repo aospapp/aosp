@@ -137,7 +137,6 @@ public class MultiActionPreference extends CarUiPreference
     @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
-
         View actionContainer = requireViewByRefId(holder.itemView,
                 R.id.multi_action_preference_second_action_container);
         FrameLayout container1 = requireViewByRefId(holder.itemView,
@@ -151,7 +150,6 @@ public class MultiActionPreference extends CarUiPreference
         for (BaseActionItem baseActionItem: mActionItemArray) {
             if (baseActionItem != null) {
                 baseActionItem.setPreference(this)
-                        .setPreferenceRestricted(isUxRestricted())
                         .setRestrictedOnClickListener(getOnClickWhileRestrictedListener());
 
                 if (baseActionItem.isVisible()) {

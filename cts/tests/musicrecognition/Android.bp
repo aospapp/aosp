@@ -31,4 +31,8 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsOutsideOfPackageService",
+    ],
+    per_testcase_directory: true,
 }

@@ -27,13 +27,17 @@ import com.google.android.textclassifier.NamedVariant;
 import com.google.android.textclassifier.RemoteActionTemplate;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class TemplateIntentFactoryTest {
+
+  @Rule public final MockitoRule mocks = MockitoJUnit.rule();
 
   private static final String TITLE_WITHOUT_ENTITY = "Map";
   private static final String TITLE_WITH_ENTITY = "Map NW14D1";
@@ -71,7 +75,6 @@ public class TemplateIntentFactoryTest {
 
   @Before
   public void setup() {
-    MockitoAnnotations.initMocks(this);
     templateIntentFactory = new TemplateIntentFactory();
   }
 

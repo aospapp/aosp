@@ -80,11 +80,6 @@ public class UserCallIntentProcessor {
      */
     public void processIntent(Intent intent, String callingPackageName,
             boolean canCallNonEmergency, boolean isLocalInvocation) {
-        // Ensure call intents are not processed on devices that are not capable of calling.
-        if (!isVoiceCapable()) {
-            return;
-        }
-
         String action = intent.getAction();
 
         if (Intent.ACTION_CALL.equals(action) ||
@@ -98,6 +93,7 @@ public class UserCallIntentProcessor {
     private void processOutgoingCallIntent(Intent intent, String callingPackageName,
             boolean canCallNonEmergency, boolean isLocalInvocation) {
         Uri handle = intent.getData();
+        if (handle == null) return;
         String scheme = handle.getScheme();
         String uriString = handle.getSchemeSpecificPart();
 
@@ -156,16 +152,6 @@ public class UserCallIntentProcessor {
         intent.putExtra(CallIntentProcessor.KEY_INITIATING_USER, mUserHandle);
 
         sendIntentToDestination(intent, isLocalInvocation, callingPackageName);
-    }
-
-    /**
-     * Returns whether the device is voice-capable (e.g. a phone vs a tablet).
-     *
-     * @return {@code True} if the device is voice-capable.
-     */
-    private boolean isVoiceCapable() {
-        return ((TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE))
-                .isVoiceCapable();
     }
 
     /**

@@ -582,7 +582,8 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_CLIENT_HELLO_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_TTLS_CLIENT_HELLO_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -591,7 +592,9 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         verify(mMockCallback)
-                .onResponse(eq(EAP_TTLS_ACKNOWLEDGEMENT_RESPONSE_SERVER_HELLO_FRAGMENT));
+                .onResponse(
+                        eq(EAP_TTLS_ACKNOWLEDGEMENT_RESPONSE_SERVER_HELLO_FRAGMENT),
+                        eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -607,7 +610,8 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_CLIENT_FINISHED_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_TTLS_CLIENT_FINISHED_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -626,7 +630,9 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_TUNNELED_IDENTITY_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(
+                        eq(EAP_TTLS_TUNNELED_IDENTITY_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -651,7 +657,9 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_TUNNELED_CHALLENGE_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(
+                        eq(EAP_TTLS_TUNNELED_CHALLENGE_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verify(mMockSecureRandom).nextBytes(argThat(arr -> arr.length == PEER_CHALLENGE.length));
         verifyNoMoreInteractions(mMockCallback);
     }
@@ -670,7 +678,8 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_TUNNELED_SUCCESS_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_TTLS_TUNNELED_SUCCESS_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -689,7 +698,9 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
         verify(mMockCallback, times(callsToVerify))
-                .onResponse(eq(EAP_TTLS_TUNNELED_EAP_NOTIFICATION_RESPONSE));
+                .onResponse(
+                        eq(EAP_TTLS_TUNNELED_EAP_NOTIFICATION_RESPONSE),
+                        eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -707,7 +718,8 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_TUNNELED_FAILURE_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_TTLS_TUNNELED_FAILURE_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -727,7 +739,8 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
 
         // TODO(b/166794957): Verify SSLEngine wrap/unwrap in EAP-TTLS end-to-end tests
         // verify EAP-Response/Nak returned
-        verify(mMockCallback).onResponse(eq(EAP_TTLS_TUNNELED_NAK_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_TTLS_TUNNELED_NAK_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -737,7 +750,7 @@ public class EapTtlsTest extends EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // verify that onSuccess callback made
-        verify(mMockCallback).onSuccess(eq(msk), eq(emsk));
+        verify(mMockCallback).onSuccess(eq(msk), eq(emsk), eq(null));
         verify(mTlsSessionSpy).generateKeyingMaterial();
         verifyNoMoreInteractions(mMockContext, mMockSecureRandom, mMockCallback);
     }

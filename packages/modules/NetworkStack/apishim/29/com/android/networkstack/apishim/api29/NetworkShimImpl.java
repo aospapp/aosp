@@ -17,14 +17,17 @@
 package com.android.networkstack.apishim.api29;
 
 import android.net.Network;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.NetworkShim;
 import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
 /**
  * Implementation of NetworkShim for API 29.
  */
+@RequiresApi(Build.VERSION_CODES.Q)
 public class NetworkShimImpl implements NetworkShim {
     @NonNull
     protected final Network mNetwork;

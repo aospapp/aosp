@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2020 NXP
+ *  Copyright 2020-2021 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <phNfcTypes.h>
 #include <phTmlNfc.h>
 
-enum NfccResetType : long {
+enum NfccResetType : uint32_t {
   MODE_POWER_OFF = 0x00,
   MODE_POWER_ON,
   MODE_FW_DWNLD_WITH_VEN,
@@ -30,12 +30,12 @@ enum NfccResetType : long {
   MODE_FW_GPIO_LOW
 };
 
-enum EseResetCallSrc : long {
+enum EseResetCallSrc : uint32_t {
   SRC_SPI = 0x0,
   SRC_NFC = 0x10,
 };
 
-enum EseResetType : long {
+enum EseResetType : uint32_t {
   MODE_ESE_POWER_ON = 0,
   MODE_ESE_POWER_OFF,
   MODE_ESE_POWER_STATE,
@@ -59,7 +59,7 @@ class NfccTransport {
    **
    ** Function         Close
    **
-   ** Description      Closes PN54X device
+   ** Description      Closes NFCC device
    **
    ** Parameters       pDevHandle - device handle
    **
@@ -72,7 +72,7 @@ class NfccTransport {
    **
    ** Function         OpenAndConfigure
    **
-   ** Description      Open and configure PN54X device and transport layer
+   ** Description      Open and configure NFCC device and transport layer
    **
    ** Parameters       pConfig     - hardware information
    **                  pLinkHandle - device handle
@@ -89,7 +89,7 @@ class NfccTransport {
    **
    ** Function         Read
    **
-   ** Description      Reads requested number of bytes from PN54X device into
+   ** Description      Reads requested number of bytes from NFCC device into
    **                 given buffer
    **
    ** Parameters       pDevHandle       - valid device handle
@@ -107,7 +107,7 @@ class NfccTransport {
    ** Function         Write
    **
    ** Description      Writes requested number of bytes from given buffer into
-   **                  PN54X device
+   **                  NFCC device
    **
    ** Parameters       pDevHandle       - valid device handle
    **                  pBuffer          - buffer for read data
@@ -125,7 +125,7 @@ class NfccTransport {
    **
    ** Function         Reset
    **
-   ** Description      Reset PN54X device, using VEN pin
+   ** Description      Reset NFCC device, using VEN pin
    **
    ** Parameters       pDevHandle     - valid device handle
    **                  eType          - NfccResetType
@@ -136,19 +136,6 @@ class NfccTransport {
    ****************************************************************************/
   virtual int NfccReset(void* pDevHandle, NfccResetType eType);
 
-  /*****************************************************************************
-  **
-  ** Function         GetNfcState
-  **
-  ** Description      Get NFC state
-  **
-  ** Parameters       pDevHandle     - valid device handle
-  ** Returns           0   - unknown
-  **                   1   - FW DWL
-  **                   2   - NCI
-  **
-  *****************************************************************************/
-  virtual int GetNfcState(void* pDevHandle);
   /*****************************************************************************
    **
    ** Function         EseReset
@@ -177,21 +164,7 @@ class NfccTransport {
    **                  else - reset operation failure
    **
    ****************************************************************************/
-  virtual int EseGetPower(void* pDevHandle, long level);
-
-  /*****************************************************************************
-   **
-   ** Function         GetPlatform
-   **
-   ** Description      Get platform interface type (i2c or i3c) for common mw
-   **
-   ** Parameters       pDevHandle     - valid device handle
-   **
-   ** Returns           0   - i2c
-   **                   1   - i3c
-   **
-   ****************************************************************************/
-  virtual int GetPlatform(void* pDevHandle);
+  virtual int EseGetPower(void* pDevHandle, uint32_t level);
 
   /*****************************************************************************
    **
@@ -218,19 +191,18 @@ class NfccTransport {
   virtual bool_t IsFwDnldModeEnabled(void);
 
   /*******************************************************************************
-   **
-   ** Function         GetIrqState
-   **
-   ** Description      Get state of IRQ GPIO
-   **
-   ** Parameters       pDevHandle - valid device handle
-   **
-   ** Returns          The state of IRQ line i.e. +ve if read is pending else
-   *Zer0.
-   **                  In the case of IOCTL error, it returns -ve value.
-   **
-   *******************************************************************************/
-  virtual int GetIrqState(void* pDevHandle);
+  **
+  ** Function         Flushdata
+  **
+  ** Description      Reads payload of FW rsp from NFCC device into given
+  *buffer
+  **
+  ** Parameters       pConfig     - hardware information
+  **
+  ** Returns          True(Success)/False(Fail)
+  **
+  *******************************************************************************/
+  virtual bool Flushdata(pphTmlNfc_Config_t pConfig);
 
   /*****************************************************************************
    **

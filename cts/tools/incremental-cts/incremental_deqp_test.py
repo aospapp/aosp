@@ -99,7 +99,7 @@ class IncrementalDeqpTest(unittest.TestCase):
     adb = incremental_deqp.AdbHelper()
     adb.run_shell_command = MagicMock(side_effect=side_effect)
     self.assertTrue(build_helper.compare_base_build_with_device_files(
-        deqp_deps, adb, base_build_file))
+        deqp_deps, adb, base_build_file)[0])
 
   def test_compare_build_with_device_files_false(self):
     """Test BuildHelper.compare_base_build_with_device_files returns false."""
@@ -115,7 +115,7 @@ class IncrementalDeqpTest(unittest.TestCase):
     adb = incremental_deqp.AdbHelper()
     adb.run_shell_command = MagicMock(side_effect=side_effect)
     self.assertFalse(build_helper.compare_base_build_with_device_files(
-        deqp_deps, adb, base_build_file))
+        deqp_deps, adb, base_build_file)[0])
 
   def test_build_helper_compare_build_with_current_build_true(self):
     """Test BuildHelper.compare_base_build_with_current_build returns true."""
@@ -124,7 +124,7 @@ class IncrementalDeqpTest(unittest.TestCase):
     base_build_file = './testdata/base_build_target-files.zip'
 
     self.assertTrue(build_helper.compare_base_build_with_current_build(
-        deqp_deps, base_build_file, base_build_file))
+        deqp_deps, base_build_file, base_build_file)[0])
 
   def test_build_helper_compare_build_with_current_build_false(self):
     """Test BuildHelper.compare_base_build_with_current_build returns false."""
@@ -134,7 +134,16 @@ class IncrementalDeqpTest(unittest.TestCase):
     current_build_file = './testdata/current_build_target-files.zip'
 
     self.assertFalse(build_helper.compare_base_build_with_current_build(
-        deqp_deps, current_build_file, base_build_file))
+        deqp_deps, current_build_file, base_build_file)[0])
+
+  def test_build_helper_get_system_fingerprint(self):
+    """Test BuildHelper gets system fingerprint."""
+    build_helper = incremental_deqp.BuildHelper()
+    build_file = './testdata/base_build_target-files.zip'
+
+    self.assertEqual(('generic/aosp_cf_x86_64_phone/vsoc_x86_64:S/AOSP.MASTER/7363308:'
+                      'userdebug/test-keys'), build_helper.get_system_fingerprint(build_file))
+
 
   @patch('incremental_deqp.BuildHelper', autospec=True)
   @patch('incremental_deqp._save_deqp_deps', autospec=True)
@@ -155,19 +164,22 @@ class IncrementalDeqpTest(unittest.TestCase):
     with self.assertRaises(incremental_deqp.TestResourceError):
       incremental_deqp._local_run(args, '')
 
+  @patch('incremental_deqp._generate_report', autospec=True)
   @patch('incremental_deqp.BuildHelper', autospec=True)
   @patch('incremental_deqp._save_deqp_deps', autospec=True)
   @patch('incremental_deqp.DeqpDependencyCollector', autospec=True)
   @patch('incremental_deqp.AdbHelper', autospec=True)
   def test_local_run_compare_build(self, adb_helper_mock, dependency_collector_mock,
-                                   save_deps_mock, build_helper_mock):
+                                   save_deps_mock, build_helper_mock, generate_report_mock):
     """Test local_run could compare build based on dependency."""
     dependency_collector_mock.return_value.get_deqp_dependency.return_value = {'a.so'}
+    build_helper_mock.return_value.compare_base_build_with_device_files.return_value = [False, {}]
     args = self.parser.parse_args(['-b', 'base_build', '-t', self.testdata_dir])
+
     incremental_deqp._local_run(args, '')
+
     save_deps_mock.assert_called_once_with({'a.so', 'extra_a.so'}, 'dEQP-dependency.txt')
     build_helper_mock.assert_called_once_with(False)
-
 
 if __name__ == '__main__':
   unittest.main()

@@ -72,7 +72,7 @@ public class RBNFParseTest extends TestFmwk {
             ">>",
             ">>>",
             "10:", // formatting any value with a one's digit will fail
-            "11: << x", // formating a multiple of 10 causes rollback rule to fail
+            "11: << x", // formatting a multiple of 10 causes rollback rule to fail
             "%%foo: 0 foo; 10: =%%bar=; %%bar: 0: bar; 10: =%%foo=;",
         };
 
@@ -132,7 +132,7 @@ public class RBNFParseTest extends TestFmwk {
     }
 
     @Test
-    @Ignore("http://bugs.icu-project.org/trac/ticket/13793")
+    @Ignore("https://unicode-org.atlassian.net/browse/ICU-13793")
     public void TestLenientParse() throws Exception {
         RuleBasedNumberFormat rbnf_en, rbnf_fr;
 

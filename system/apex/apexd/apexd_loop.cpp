@@ -15,18 +15,24 @@
  */
 
 #define LOG_TAG "apexd"
+#define ATRACE_TAG ATRACE_TAG_PACKAGE_MANAGER
 
 #include "apexd_loop.h"
 
+#include <array>
+#include <filesystem>
 #include <mutex>
+#include <string_view>
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <libdm/dm.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -36,6 +42,7 @@
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <utils/Trace.h>
 
 #include "apexd_utils.h"
 #include "string_log.h"
@@ -45,21 +52,12 @@ using android::base::ErrnoError;
 using android::base::Error;
 using android::base::GetBoolProperty;
 using android::base::ParseUint;
+using android::base::ReadFileToString;
 using android::base::Result;
 using android::base::StartsWith;
 using android::base::StringPrintf;
 using android::base::unique_fd;
-
-#ifndef LOOP_CONFIGURE
-// These can be removed whenever we pull in the Linux v5.8 UAPI headers
-struct loop_config {
-  __u32 fd;
-  __u32 block_size;
-  struct loop_info64 info;
-  __u64 __reserved[8];
-};
-#define LOOP_CONFIGURE 0x4C0A
-#endif
+using android::dm::DeviceMapper;
 
 namespace android {
 namespace apex {
@@ -84,6 +82,168 @@ void LoopbackDeviceUniqueFd::MaybeCloseBad() {
       PLOG(ERROR) << "Unable to clear fd for loopback device";
     }
   }
+}
+
+Result<void> ConfigureScheduler(const std::string& device_path) {
+  if (!StartsWith(device_path, "/dev/")) {
+    return Error() << "Invalid argument " << device_path;
+  }
+
+  const std::string device_name = Basename(device_path);
+
+  const std::string sysfs_path =
+      StringPrintf("/sys/block/%s/queue/scheduler", device_name.c_str());
+  unique_fd sysfs_fd(open(sysfs_path.c_str(), O_RDWR | O_CLOEXEC));
+  if (sysfs_fd.get() == -1) {
+    return ErrnoError() << "Failed to open " << sysfs_path;
+  }
+
+  // Kernels before v4.1 only support 'noop'. Kernels [v4.1, v5.0) support
+  // 'noop' and 'none'. Kernels v5.0 and later only support 'none'.
+  static constexpr const std::array<std::string_view, 2> kNoScheduler = {
+      "none", "noop"};
+
+  int ret = 0;
+
+  for (const std::string_view& scheduler : kNoScheduler) {
+    ret = write(sysfs_fd.get(), scheduler.data(), scheduler.size());
+    if (ret > 0) {
+      break;
+    }
+  }
+
+  if (ret <= 0) {
+    return ErrnoError() << "Failed to write to " << sysfs_path;
+  }
+
+  return {};
+}
+
+// Return the parent device of a partition. Converts e.g. "sda26" into "sda".
+static Result<std::string> PartitionParent(const std::string& blockdev) {
+  if (blockdev.find('/') != std::string::npos) {
+    return Error() << "Invalid argument " << blockdev;
+  }
+  std::error_code ec;
+  for (const auto& entry :
+       std::filesystem::directory_iterator("/sys/class/block", ec)) {
+    const std::string path = entry.path().string();
+    if (std::filesystem::exists(
+            StringPrintf("%s/%s", path.c_str(), blockdev.c_str()))) {
+      return Basename(path);
+    }
+  }
+  return blockdev;
+}
+
+// Convert a major:minor pair into a block device name.
+static std::string BlockdevName(dev_t dev) {
+  std::error_code ec;
+  for (const auto& entry :
+       std::filesystem::directory_iterator("/dev/block", ec)) {
+    struct stat statbuf;
+    if (stat(entry.path().string().c_str(), &statbuf) < 0) {
+      continue;
+    }
+    if (dev == statbuf.st_rdev) {
+      return Basename(entry.path().string());
+    }
+  }
+  return {};
+}
+
+// For file `file_path`, retrieve the block device backing the filesystem on
+// which the file exists and return the queue depth of the block device. The
+// loop in this function may e.g. traverse the following hierarchy:
+// /dev/block/dm-9 (system-verity; dm-verity)
+// -> /dev/block/dm-1 (system_b; dm-linear)
+// -> /dev/sda26
+static Result<uint32_t> BlockDeviceQueueDepth(const std::string& file_path) {
+  struct stat statbuf;
+  int res = stat(file_path.c_str(), &statbuf);
+  if (res < 0) {
+    return ErrnoErrorf("stat({})", file_path.c_str());
+  }
+  std::string blockdev = "/dev/block/" + BlockdevName(statbuf.st_dev);
+  LOG(VERBOSE) << file_path << " -> " << blockdev;
+  if (blockdev.empty()) {
+    return Errorf("Failed to convert {}:{} (path {})", major(statbuf.st_dev),
+                  minor(statbuf.st_dev), file_path.c_str());
+  }
+  auto& dm = DeviceMapper::Instance();
+  for (;;) {
+    std::optional<std::string> child = dm.GetParentBlockDeviceByPath(blockdev);
+    if (!child) {
+      break;
+    }
+    LOG(VERBOSE) << blockdev << " -> " << *child;
+    blockdev = *child;
+  }
+  std::optional<std::string> maybe_blockdev =
+      android::dm::ExtractBlockDeviceName(blockdev);
+  if (!maybe_blockdev) {
+    return Error() << "Failed to remove /dev/block/ prefix from " << blockdev;
+  }
+  Result<std::string> maybe_parent = PartitionParent(*maybe_blockdev);
+  if (!maybe_parent.ok()) {
+    return Error() << "Failed to determine parent of " << *maybe_blockdev;
+  }
+  blockdev = *maybe_parent;
+  LOG(VERBOSE) << "Partition parent: " << blockdev;
+  const std::string nr_tags_path =
+      StringPrintf("/sys/class/block/%s/mq/0/nr_tags", blockdev.c_str());
+  std::string nr_tags;
+  if (!ReadFileToString(nr_tags_path, &nr_tags)) {
+    return Error() << "Failed to read " << nr_tags_path;
+  }
+  nr_tags = android::base::Trim(nr_tags);
+  LOG(VERBOSE) << file_path << " is backed by /dev/" << blockdev
+               << " and that block device supports queue depth " << nr_tags;
+  return strtol(nr_tags.c_str(), NULL, 0);
+}
+
+// Set 'nr_requests' of `loop_device_path` equal to the queue depth of
+// the block device backing `file_path`.
+Result<void> ConfigureQueueDepth(const std::string& loop_device_path,
+                                 const std::string& file_path) {
+  if (!StartsWith(loop_device_path, "/dev/")) {
+    return Error() << "Invalid argument " << loop_device_path;
+  }
+
+  const std::string loop_device_name = Basename(loop_device_path);
+
+  const std::string sysfs_path =
+      StringPrintf("/sys/block/%s/queue/nr_requests", loop_device_name.c_str());
+  std::string cur_nr_requests_str;
+  if (!ReadFileToString(sysfs_path, &cur_nr_requests_str)) {
+    return Error() << "Failed to read " << sysfs_path;
+  }
+  cur_nr_requests_str = android::base::Trim(cur_nr_requests_str);
+  uint32_t cur_nr_requests = 0;
+  if (!ParseUint(cur_nr_requests_str.c_str(), &cur_nr_requests)) {
+    return Error() << "Failed to parse " << cur_nr_requests_str;
+  }
+
+  unique_fd sysfs_fd(open(sysfs_path.c_str(), O_RDWR | O_CLOEXEC));
+  if (sysfs_fd.get() == -1) {
+    return ErrnoErrorf("Failed to open {}", sysfs_path);
+  }
+
+  const auto qd = BlockDeviceQueueDepth(file_path);
+  if (!qd.ok()) {
+    return qd.error();
+  }
+  if (*qd == cur_nr_requests) {
+    return {};
+  }
+  // Only report write failures if reducing the queue depth. Attempts to
+  // increase the queue depth are rejected by the kernel if no I/O scheduler
+  // is associated with the request queue.
+  if (!WriteStringToFd(StringPrintf("%u", *qd), sysfs_fd) &&
+      *qd < cur_nr_requests) {
+    return ErrnoErrorf("Failed to write {} to {}", *qd, sysfs_path);
+  }
+  return {};
 }
 
 Result<void> ConfigureReadAhead(const std::string& device_path) {
@@ -159,7 +319,7 @@ Result<void> PreAllocateLoopDevices(size_t num) {
 }
 
 Result<void> ConfigureLoopDevice(const int device_fd, const std::string& target,
-                                 const int32_t image_offset,
+                                 const uint32_t image_offset,
                                  const size_t image_size) {
   static bool use_loop_configure;
   static std::once_flag once_flag;
@@ -187,6 +347,7 @@ Result<void> ConfigureLoopDevice(const int device_fd, const std::string& target,
    * kernel driver will automatically enable Direct I/O when it sees that
    * condition is now met.
    */
+  bool use_buffered_io = false;
   unique_fd target_fd(open(target.c_str(), O_RDONLY | O_CLOEXEC | O_DIRECT));
   if (target_fd.get() == -1) {
     struct statfs stbuf;
@@ -199,6 +360,7 @@ Result<void> ConfigureLoopDevice(const int device_fd, const std::string& target,
       return Error(saved_errno) << "Failed to open " << target;
     }
     LOG(WARNING) << "Fallback to buffered I/O for " << target;
+    use_buffered_io = true;
     target_fd.reset(open(target.c_str(), O_RDONLY | O_CLOEXEC));
     if (target_fd.get() == -1) {
       return ErrnoError() << "Failed to open " << target;
@@ -216,10 +378,12 @@ Result<void> ConfigureLoopDevice(const int device_fd, const std::string& target,
   if (use_loop_configure) {
     struct loop_config config;
     memset(&config, 0, sizeof(config));
-    li.lo_flags |= LO_FLAGS_DIRECT_IO;
     config.fd = target_fd.get();
     config.info = li;
     config.block_size = 4096;
+    if (!use_buffered_io) {
+        li.lo_flags |= LO_FLAGS_DIRECT_IO;
+    }
 
     if (ioctl(device_fd, LOOP_CONFIGURE, &config) == -1) {
       return ErrnoError() << "Failed to LOOP_CONFIGURE";
@@ -278,14 +442,13 @@ Result<LoopbackDeviceUniqueFd> WaitForDevice(int num) {
   // a loop device for it. To work around this we keep polling for loop device
   // to be created until ueventd's cold boot sequence is done.
   // See comment on kLoopDeviceRetryAttempts.
-  unique_fd sysfs_fd;
   bool cold_boot_done = GetBoolProperty("ro.cold_boot_done", false);
   for (size_t i = 0; i != kLoopDeviceRetryAttempts; ++i) {
     if (!cold_boot_done) {
       cold_boot_done = GetBoolProperty("ro.cold_boot_done", false);
     }
     for (const auto& device : candidate_devices) {
-      sysfs_fd.reset(open(device.c_str(), O_RDWR | O_CLOEXEC));
+      unique_fd sysfs_fd(open(device.c_str(), O_RDWR | O_CLOEXEC));
       if (sysfs_fd.get() != -1) {
         return LoopbackDeviceUniqueFd(std::move(sysfs_fd), device);
       }
@@ -302,15 +465,17 @@ Result<LoopbackDeviceUniqueFd> WaitForDevice(int num) {
 }
 
 Result<LoopbackDeviceUniqueFd> CreateLoopDevice(const std::string& target,
-                                                const int32_t image_offset,
-                                                const size_t image_size) {
+                                                uint32_t image_offset,
+                                                size_t image_size) {
+  ATRACE_NAME("CreateLoopDevice");
+
   unique_fd ctl_fd(open("/dev/loop-control", O_RDWR | O_CLOEXEC));
   if (ctl_fd.get() == -1) {
     return ErrnoError() << "Failed to open loop-control";
   }
 
-  static std::mutex mlock;
-  std::lock_guard lock(mlock);
+  static std::mutex mtx;
+  std::lock_guard lock(mtx);
   int num = ioctl(ctl_fd.get(), LOOP_CTL_GET_FREE);
   if (num == -1) {
     return ErrnoError() << "Failed LOOP_CTL_GET_FREE";
@@ -322,10 +487,39 @@ Result<LoopbackDeviceUniqueFd> CreateLoopDevice(const std::string& target,
   }
   CHECK_NE(loop_device->device_fd.get(), -1);
 
-  Result<void> configureStatus = ConfigureLoopDevice(
+  Result<void> configure_status = ConfigureLoopDevice(
       loop_device->device_fd.get(), target, image_offset, image_size);
-  if (!configureStatus.ok()) {
-    return configureStatus.error();
+  if (!configure_status.ok()) {
+    return configure_status.error();
+  }
+
+  return loop_device;
+}
+
+Result<LoopbackDeviceUniqueFd> CreateAndConfigureLoopDevice(
+    const std::string& target, uint32_t image_offset, size_t image_size) {
+  ATRACE_NAME("CreateAndConfigureLoopDevice");
+  // Do minimal amount of work while holding a mutex. We need it because
+  // acquiring + configuring a loop device is not atomic. Ideally we should
+  // pre-acquire all the loop devices in advance, so that when we run APEX
+  // activation in-parallel, we can do it without holding any lock.
+  // Unfortunately, this will require some refactoring of how we manage loop
+  // devices, and probably some new loop-control ioctls, so for the time being
+  // we just limit the scope that requires locking.
+  auto loop_device = CreateLoopDevice(target, image_offset, image_size);
+  if (!loop_device.ok()) {
+    return loop_device.error();
+  }
+
+  Result<void> sched_status = ConfigureScheduler(loop_device->name);
+  if (!sched_status.ok()) {
+    LOG(WARNING) << "Configuring I/O scheduler failed: "
+                 << sched_status.error();
+  }
+
+  Result<void> qd_status = ConfigureQueueDepth(loop_device->name, target);
+  if (!qd_status.ok()) {
+    LOG(WARNING) << qd_status.error();
   }
 
   Result<void> read_ahead_status = ConfigureReadAhead(loop_device->name);

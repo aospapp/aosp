@@ -14,107 +14,84 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:gravity="center_horizontal"
+              style="@style/RootLayoutPadding">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/instructions"
-                    style="@style/InstructionsSmallFont"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentRight="true"
-                    android:layout_alignParentTop="true"
-                    android:layout_toRightOf="@id/status"
-                    android:text="@string/companion_service_test_info" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginLeft="10dp">
-                    <Button
-                        android:id="@+id/go_button"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentRight="true"
-                        android:layout_marginLeft="20dip"
-                        android:layout_marginRight="20dip"
-                        android:layout_toRightOf="@id/status"
-                        android:text="@string/go_button_text" />
-                </LinearLayout>
-            </LinearLayout>
+            android:gravity="center_horizontal"
+            android:orientation="vertical" >
 
             <TextView
-                android:id="@+id/gone_info"
-                style="@style/InstructionsSmallFont"
+                android:id="@+id/companion_service_test_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_alignParentTop="true"
-                android:layout_toRightOf="@id/status"
-                android:layout_below="@id/go_button"
-                android:text="@string/companion_service_test_gone_text" />
+                style="@style/InstructionsFont"/>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginLeft="10dp">
-                <Button
-                    android:id="@+id/gone_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentRight="true"
-                    android:layout_marginLeft="20dip"
-                    android:layout_marginRight="20dip"
-                    android:layout_toRightOf="@id/status"
-                    android:text="@string/gone_button_text" />
-            </LinearLayout>
-
+            <!-- The padding here matches what InstructionsFont has so that these look
+                 nice together-->
             <TextView
-                android:id="@+id/present_info"
-                style="@style/InstructionsSmallFont"
+                android:id="@+id/companion_service_test_description"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_alignParentTop="true"
-                android:layout_toRightOf="@id/status"
-                android:layout_below="@id/gone_button"
-                android:text="@string/companion_service_test_present_text" />
+                android:padding="10dp"
+                style="@style/InstructionsSmallFont"/>
 
-            <LinearLayout
+            <Button
+                android:id="@+id/companion_service_test_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="24dp"/>
+
+            <!-- Used to display test state in cases where we verify a state  -->
+            <TextView
+                android:id="@+id/companion_service_test_state"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginLeft="10dp">
+                android:padding="10dp"
+                style="@style/InstructionsSmallFont"/>
+
+            <!-- Pass / fail buttons for the test step -->
+            <LinearLayout
+                android:id="@+id/button_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="horizontal">
+
                 <Button
-                    android:id="@+id/present_button"
-                    android:layout_width="match_parent"
+                    android:id="@+id/test_step_passed"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentRight="true"
-                    android:layout_marginLeft="20dip"
-                    android:layout_marginRight="20dip"
-                    android:layout_toRightOf="@id/status"
-                    android:text="@string/present_button_text" />
+                    android:text="@string/pass_button_text"/>
+
+                <Button
+                    android:id="@+id/test_step_failed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/fail_button_text"/>
+
             </LinearLayout>
 
         </LinearLayout>
-        <include layout="@layout/pass_fail_buttons" />
-    </LinearLayout>
-</ScrollView>
+
+    </ScrollView>
+
+    <include
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        layout="@layout/pass_fail_buttons" />
+
+</LinearLayout>

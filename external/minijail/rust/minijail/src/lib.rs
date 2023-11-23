@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use libc::pid_t;
-use minijail_sys::*;
 use std::ffi::CString;
 use std::fmt::{self, Display};
 use std::fs;
@@ -12,6 +10,154 @@ use std::os::raw::{c_char, c_ulong, c_ushort};
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
+use std::result::Result as StdResult;
+
+use libc::pid_t;
+use minijail_sys::*;
+
+enum Program {
+    Filename(PathBuf),
+    FileDescriptor(RawFd),
+}
+
+/// Configuration of a command to be run in a jail.
+pub struct Command {
+    program: Program,
+    preserve_fds: Vec<(RawFd, RawFd)>,
+
+    // Ownership of the backing data of args_cptr is provided by args_cstr.
+    args_cstr: Vec<CString>,
+    args_cptr: Vec<*const c_char>,
+
+    // Ownership of the backing data of env_cptr is provided by env_cstr.
+    env_cstr: Option<Vec<CString>>,
+    env_cptr: Option<Vec<*const c_char>>,
+}
+
+impl Command {
+    /// This exposes a subset of what Command can do, before we are ready to commit to a stable
+    /// API.
+    pub fn new_for_path<P: AsRef<Path>, S: AsRef<str>, A: AsRef<str>>(
+        path: P,
+        keep_fds: &[RawFd],
+        args: &[S],
+        env_vars: Option<&[A]>,
+    ) -> Result<Command> {
+        let mut cmd = Command::new(Program::Filename(path.as_ref().to_path_buf()))
+            .keep_fds(keep_fds)
+            .args(args)?;
+        if let Some(env_vars) = env_vars {
+            cmd = cmd.envs(env_vars)?;
+        }
+
+        Ok(cmd)
+    }
+
+    fn new(program: Program) -> Command {
+        Command {
+            program,
+            preserve_fds: Vec::new(),
+            args_cstr: Vec::new(),
+            args_cptr: Vec::new(),
+            env_cstr: None,
+            env_cptr: None,
+        }
+    }
+
+    fn keep_fds(mut self, keep_fds: &[RawFd]) -> Command {
+        self.preserve_fds = keep_fds
+            .iter()
+            .map(|&a| (a, a))
+            .collect::<Vec<(RawFd, RawFd)>>();
+        self
+    }
+
+    fn remap_fds(mut self, remap_fds: &[(RawFd, RawFd)]) -> Command {
+        self.preserve_fds = remap_fds.to_vec();
+        self
+    }
+
+    fn args<S: AsRef<str>>(mut self, args: &[S]) -> Result<Command> {
+        let (args_cstr, args_cptr) = to_execve_cstring_array(args)?;
+        self.args_cstr = args_cstr;
+        self.args_cptr = args_cptr;
+        Ok(self)
+    }
+
+    fn envs<S: AsRef<str>>(mut self, vars: &[S]) -> Result<Command> {
+        let (env_cstr, env_cptr) = to_execve_cstring_array(vars)?;
+        self.env_cstr = Some(env_cstr);
+        self.env_cptr = Some(env_cptr);
+        Ok(self)
+    }
+
+    fn argv(&self) -> *const *mut c_char {
+        self.args_cptr.as_ptr() as *const *mut c_char
+    }
+
+    fn envp(&self) -> *const *mut c_char {
+        (match self.env_cptr {
+            Some(ref env_cptr) => env_cptr.as_ptr(),
+            None => null_mut(),
+        }) as *const *mut c_char
+    }
+}
+
+/// Abstracts paths and executable file descriptors in a way that the run implementation can cover
+/// both.
+trait Runnable {
+    fn run_command(&self, jail: &Minijail, cmd: &Command) -> Result<pid_t>;
+}
+
+impl Runnable for &Path {
+    fn run_command(&self, jail: &Minijail, cmd: &Command) -> Result<pid_t> {
+        let path_str = self
+            .to_str()
+            .ok_or_else(|| Error::PathToCString(self.to_path_buf()))?;
+        let path_cstr =
+            CString::new(path_str).map_err(|_| Error::StrToCString(path_str.to_owned()))?;
+
+        let mut pid: pid_t = 0;
+        let ret = unsafe {
+            minijail_run_env_pid_pipes(
+                jail.jail,
+                path_cstr.as_ptr(),
+                cmd.argv(),
+                cmd.envp(),
+                &mut pid,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            )
+        };
+        if ret < 0 {
+            return Err(Error::ForkingMinijail(ret));
+        }
+        Ok(pid)
+    }
+}
+
+impl Runnable for RawFd {
+    fn run_command(&self, jail: &Minijail, cmd: &Command) -> Result<pid_t> {
+        let mut pid: pid_t = 0;
+        let ret = unsafe {
+            minijail_run_fd_env_pid_pipes(
+                jail.jail,
+                *self,
+                cmd.argv(),
+                cmd.envp(),
+                &mut pid,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            )
+        };
+        if ret < 0 {
+            return Err(Error::ForkingMinijail(ret));
+        }
+        Ok(pid)
+    }
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -83,6 +229,8 @@ pub enum Error {
     Killed(u8),
     /// Process finished returning a non-zero code.
     ReturnCode(u8),
+    /// Failed to wait the process.
+    Wait(i32),
 }
 
 impl Display for Error {
@@ -171,13 +319,14 @@ impl Display for Error {
             SeccompViolation(s) => write!(f, "seccomp violation syscall #{}", s),
             Killed(s) => write!(f, "killed with signal number {}", s),
             ReturnCode(e) => write!(f, "exited with code {}", e),
+            Wait(errno) => write!(f, "failed to wait: {}", io::Error::from_raw_os_error(*errno)),
         }
     }
 }
 
 impl std::error::Error for Error {}
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = StdResult<T, Error>;
 
 /// Configuration to jail a process based on wrapping libminijail.
 ///
@@ -233,6 +382,9 @@ fn translate_wait_error(ret: libc::c_int) -> Result<()> {
     if ret == 0 {
         return Ok(());
     }
+    if ret < 0 {
+        return Err(Error::Wait(ret));
+    }
     if ret == MINIJAIL_ERR_NO_COMMAND as libc::c_int {
         return Err(Error::NoCommand);
     }
@@ -249,7 +401,7 @@ fn translate_wait_error(ret: libc::c_int) -> Result<()> {
     if ret > 0 && ret <= 0xff {
         return Err(Error::ReturnCode(ret as u8));
     }
-    unreachable!();
+    unreachable!("Unexpected returned value from wait: {}", ret);
 }
 
 impl Minijail {
@@ -313,7 +465,7 @@ impl Minijail {
     }
     pub fn set_supplementary_gids(&mut self, ids: &[libc::gid_t]) {
         unsafe {
-            minijail_set_supplementary_gids(self.jail, ids.len(), ids.as_ptr());
+            minijail_set_supplementary_gids(self.jail, ids.len() as size_t, ids.as_ptr());
         }
     }
     pub fn keep_supplementary_gids(&mut self) {
@@ -358,6 +510,9 @@ impl Minijail {
         }
 
         let buffer = fs::read(path).map_err(Error::ReadProgram)?;
+        self.parse_seccomp_bytes(&buffer)
+    }
+    pub fn parse_seccomp_bytes(&mut self, buffer: &[u8]) -> Result<()> {
         if buffer.len() % std::mem::size_of::<sock_filter>() != 0 {
             return Err(Error::WrongProgramSize);
         }
@@ -612,7 +767,7 @@ impl Minijail {
     }
     pub fn mount_tmp_size(&mut self, size: usize) {
         unsafe {
-            minijail_mount_tmp_size(self.jail, size);
+            minijail_mount_tmp_size(self.jail, size as size_t);
         }
     }
     pub fn mount_bind<P1: AsRef<Path>, P2: AsRef<Path>>(
@@ -662,13 +817,10 @@ impl Minijail {
         inheritable_fds: &[RawFd],
         args: &[S],
     ) -> Result<pid_t> {
-        self.run_remap(
-            cmd,
-            &inheritable_fds
-                .iter()
-                .map(|&a| (a, a))
-                .collect::<Vec<(RawFd, RawFd)>>(),
-            args,
+        self.run_internal(
+            Command::new(Program::Filename(cmd.as_ref().to_path_buf()))
+                .keep_fds(inheritable_fds)
+                .args(args)?,
         )
     }
 
@@ -680,25 +832,49 @@ impl Minijail {
         inheritable_fds: &[(RawFd, RawFd)],
         args: &[S],
     ) -> Result<pid_t> {
-        let cmd_os = cmd
-            .as_ref()
-            .to_str()
-            .ok_or_else(|| Error::PathToCString(cmd.as_ref().to_owned()))?;
-        let cmd_cstr = CString::new(cmd_os).map_err(|_| Error::StrToCString(cmd_os.to_owned()))?;
+        self.run_internal(
+            Command::new(Program::Filename(cmd.as_ref().to_path_buf()))
+                .remap_fds(inheritable_fds)
+                .args(args)?,
+        )
+    }
 
-        // Converts each incoming `args` string to a `CString`, and then puts each `CString` pointer
-        // into a null terminated array, suitable for use as an argv parameter to `execve`.
-        let mut args_cstr = Vec::with_capacity(args.len());
-        let mut args_array = Vec::with_capacity(args.len());
-        for arg in args {
-            let arg_cstr = CString::new(arg.as_ref())
-                .map_err(|_| Error::StrToCString(arg.as_ref().to_owned()))?;
-            args_array.push(arg_cstr.as_ptr());
-            args_cstr.push(arg_cstr);
-        }
-        args_array.push(null());
+    /// Behaves the same as `run()` except cmd is a file descriptor to the executable.
+    pub fn run_fd<F: AsRawFd, S: AsRef<str>>(
+        &self,
+        cmd: &F,
+        inheritable_fds: &[RawFd],
+        args: &[S],
+    ) -> Result<pid_t> {
+        self.run_internal(
+            Command::new(Program::FileDescriptor(cmd.as_raw_fd()))
+                .keep_fds(inheritable_fds)
+                .args(args)?,
+        )
+    }
 
-        for (src_fd, dst_fd) in inheritable_fds {
+    /// Behaves the same as `run()` except cmd is a file descriptor to the executable, and
+    /// `inheritable_fds` is a list of fd mappings rather than just a list of fds to preserve.
+    pub fn run_fd_remap<F: AsRawFd, S: AsRef<str>>(
+        &self,
+        cmd: &F,
+        inheritable_fds: &[(RawFd, RawFd)],
+        args: &[S],
+    ) -> Result<pid_t> {
+        self.run_internal(
+            Command::new(Program::FileDescriptor(cmd.as_raw_fd()))
+                .remap_fds(inheritable_fds)
+                .args(args)?,
+        )
+    }
+
+    /// A generic version of `run()` that is a super set of all variants.
+    pub fn run_command(&self, cmd: Command) -> Result<pid_t> {
+        self.run_internal(cmd)
+    }
+
+    fn run_internal(&self, cmd: Command) -> Result<pid_t> {
+        for (src_fd, dst_fd) in cmd.preserve_fds.iter() {
             let ret = unsafe { minijail_preserve_fd(self.jail, *src_fd, *dst_fd) };
             if ret < 0 {
                 return Err(Error::PreservingFd(ret));
@@ -713,7 +889,7 @@ impl Minijail {
         // Set stdin, stdout, and stderr to /dev/null unless they are in the inherit list.
         // These will only be closed when this process exits.
         for io_fd in &[libc::STDIN_FILENO, libc::STDOUT_FILENO, libc::STDERR_FILENO] {
-            if !inheritable_fds.iter().any(|(_, fd)| *fd == *io_fd) {
+            if !cmd.preserve_fds.iter().any(|(_, fd)| *fd == *io_fd) {
                 let ret = unsafe { minijail_preserve_fd(self.jail, dev_null.as_raw_fd(), *io_fd) };
                 if ret < 0 {
                     return Err(Error::PreservingFd(ret));
@@ -725,22 +901,10 @@ impl Minijail {
             minijail_close_open_fds(self.jail);
         }
 
-        let mut pid = 0;
-        let ret = unsafe {
-            minijail_run_pid_pipes(
-                self.jail,
-                cmd_cstr.as_ptr(),
-                args_array.as_ptr() as *const *mut c_char,
-                &mut pid,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-            )
-        };
-        if ret < 0 {
-            return Err(Error::ForkingMinijail(ret));
+        match cmd.program {
+            Program::Filename(ref path) => path.as_path().run_command(&self, &cmd),
+            Program::FileDescriptor(fd) => fd.run_command(&self, &cmd),
         }
-        Ok(pid)
     }
 
     /// Forks a child and puts it in the previously configured minijail.
@@ -860,14 +1024,53 @@ fn is_single_threaded() -> io::Result<bool> {
     }
 }
 
+fn to_execve_cstring_array<S: AsRef<str>>(
+    slice: &[S],
+) -> Result<(Vec<CString>, Vec<*const c_char>)> {
+    // Converts each incoming `str` to a `CString`, and then puts each `CString` pointer into a
+    // null terminated array, suitable for use as an argv or envp parameter to `execve`.
+    let mut vec_cstr = Vec::with_capacity(slice.len());
+    let mut vec_cptr = Vec::with_capacity(slice.len() + 1);
+    for s in slice {
+        let cstr =
+            CString::new(s.as_ref()).map_err(|_| Error::StrToCString(s.as_ref().to_owned()))?;
+
+        vec_cstr.push(cstr);
+        vec_cptr.push(vec_cstr.last().unwrap().as_ptr());
+    }
+
+    vec_cptr.push(null());
+
+    Ok((vec_cstr, vec_cptr))
+}
+
 #[cfg(test)]
 mod tests {
-    use std::process::exit;
-
     use super::*;
+
+    use std::fs::File;
+
+    use libc::{FD_CLOEXEC, F_GETFD, F_SETFD};
 
     const SHELL: &str = "/bin/sh";
     const EMPTY_STRING_SLICE: &[&str] = &[];
+
+    fn clear_cloexec<A: AsRawFd>(fd_owner: &A) -> StdResult<(), io::Error> {
+        let fd = fd_owner.as_raw_fd();
+        // Safe because fd is read only.
+        let flags = unsafe { libc::fcntl(fd, F_GETFD) };
+        if flags == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        let masked_flags = flags & !FD_CLOEXEC;
+        // Safe because this has no side effect(s) on the current process.
+        if masked_flags != flags && unsafe { libc::fcntl(fd, F_SETFD, masked_flags) } == -1 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
 
     #[test]
     fn create_and_free() {
@@ -889,9 +1092,7 @@ mod tests {
         j.no_new_privs();
         j.parse_seccomp_filters("src/test_filter.policy").unwrap();
         j.use_seccomp_filter();
-        if unsafe { j.fork(None).unwrap() } == 0 {
-            exit(0);
-        }
+        j.run("/bin/true", &[], &EMPTY_STRING_SLICE).unwrap();
     }
 
     #[test]
@@ -903,14 +1104,28 @@ mod tests {
             let j = Minijail::new().unwrap();
             let first = libc::open(FILE_PATH.as_ptr() as *const c_char, libc::O_RDONLY);
             assert!(first >= 0);
+            // This appears unused but its function is to be a file descriptor that is closed
+            // inside run_remap after the fork. If it is not closed, the script will fail.
             let second = libc::open(FILE_PATH.as_ptr() as *const c_char, libc::O_RDONLY);
             assert!(second >= 0);
-            let fds: Vec<RawFd> = vec![0, 1, 2, first];
-            if j.fork(Some(&fds)).unwrap() == 0 {
-                assert!(libc::close(second) < 0); // Should fail as second should be closed already.
-                assert_eq!(libc::close(first), 0); // Should succeed as first should be untouched.
-                exit(0);
-            }
+
+            let fds: Vec<(RawFd, RawFd)> = vec![(first, 0), (1, 1), (2, 2)];
+            j.run_remap(
+                SHELL,
+                &fds,
+                &[
+                    SHELL,
+                    "-c",
+                    r#"
+if [ `ls -l /proc/self/fd/ | grep '/dev/null' | wc -l` != '1' ]; then
+  ls -l /proc/self/fd/  # Included to make debugging easier.
+  exit 1
+fi
+"#,
+                ],
+            )
+            .unwrap();
+            j.wait().unwrap();
         }
     }
 
@@ -964,14 +1179,29 @@ mod tests {
         let j = Minijail::new().unwrap();
         j.run("/bin/does not exist", &[1, 2], &EMPTY_STRING_SLICE)
             .unwrap();
-        expect_result!(j.wait(), Err(Error::NoCommand));
+        // TODO(b/194221986) Fix libminijail so that Error::NoAccess is not sometimes returned.
+        assert!(matches!(
+            j.wait(),
+            Err(Error::NoCommand) | Err(Error::NoAccess)
+        ));
+    }
+
+    #[test]
+    fn runnable_fd_success() {
+        let bin_file = File::open("/bin/true").unwrap();
+        // On Chrome OS targets /bin/true is actually a script, so drop CLOEXEC to prevent ENOENT.
+        clear_cloexec(&bin_file).unwrap();
+
+        let j = Minijail::new().unwrap();
+        j.run_fd(&bin_file, &[1, 2], &EMPTY_STRING_SLICE).unwrap();
+        expect_result!(j.wait(), Ok(()));
     }
 
     #[test]
     fn kill_success() {
         let j = Minijail::new().unwrap();
         j.run(
-            Path::new("usr/bin/sleep"),
+            Path::new("/usr/bin/sleep"),
             &[1, 2],
             &["/usr/bin/sleep", "5"],
         )
@@ -985,9 +1215,7 @@ mod tests {
     fn chroot() {
         let mut j = Minijail::new().unwrap();
         j.enter_chroot(".").unwrap();
-        if unsafe { j.fork(None).unwrap() } == 0 {
-            exit(0);
-        }
+        j.run("/bin/true", &[], &EMPTY_STRING_SLICE).unwrap();
     }
 
     #[test]
@@ -995,9 +1223,7 @@ mod tests {
     fn namespace_vfs() {
         let mut j = Minijail::new().unwrap();
         j.namespace_vfs();
-        if unsafe { j.fork(None).unwrap() } == 0 {
-            exit(0);
-        }
+        j.run("/bin/true", &[], &EMPTY_STRING_SLICE).unwrap();
     }
 
     #[test]

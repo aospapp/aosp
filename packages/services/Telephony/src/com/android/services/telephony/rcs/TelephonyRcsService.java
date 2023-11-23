@@ -34,6 +34,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConfigurationManager;
 import com.android.internal.telephony.metrics.RcsStats;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.phone.ImsStateCallbackController;
 import com.android.phone.R;
 
 import java.io.FileDescriptor;
@@ -313,6 +314,9 @@ public class TelephonyRcsService {
         }
         // Only start the connection procedure if we have active features.
         if (c.hasActiveFeatures()) c.connect();
+
+        ImsStateCallbackController.getInstance()
+                .notifyExternalRcsStateChanged(slotId, false, c.hasActiveFeatures());
     }
 
     /**

@@ -46,6 +46,9 @@
 #include <signal.h>
 #endif
 
+#ifdef PIPE_OS_LINUX
+#include <sys/prctl.h>
+#endif
 
 /* pipe_thread
  */
@@ -83,6 +86,15 @@ static inline int pipe_thread_wait( pipe_thread thread )
 static inline int pipe_thread_destroy( pipe_thread thread )
 {
    return thrd_detach( thread );
+}
+
+static inline void pipe_thread_setname( const char *name )
+{
+#ifdef PIPE_OS_LINUX
+   prctl(PR_SET_NAME, name, 0, 0, 0);
+#else
+   (void)name;
+#endif
 }
 
 

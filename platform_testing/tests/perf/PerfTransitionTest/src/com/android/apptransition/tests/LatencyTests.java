@@ -26,6 +26,7 @@ import android.support.test.uiautomator.UiDevice;
 import android.system.helpers.LockscreenHelper;
 import android.system.helpers.OverviewHelper;
 import android.system.helpers.SettingsHelper;
+import android.util.Log;
 import android.view.IWindowManager;
 import android.view.Surface;
 import android.view.WindowManagerGlobal;
@@ -35,10 +36,12 @@ import androidx.test.rule.logging.AtraceLogger;
 
 import com.android.launcher3.tapl.LauncherInstrumentation;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -54,6 +57,10 @@ public class LatencyTests extends Instrumentation {
             + "com.android.systemui.latency.ACTION_FINGERPRINT_WAKE";
     private static final String TURN_ON_SCREEN_COMMAND = "am broadcast -a "
             + "com.android.systemui.latency.ACTION_TURN_ON_SCREEN";
+    private static final String ENABLE_LATENCY_TEST =
+            "device_config put latency_tracker enabled true";
+    private static final String RESET_ENABLE_LATENCY_TEST =
+            "device_config delete latency_tracker enabled";
     private static final String AM_START_COMMAND_TEMPLATE = "am start -a %s";
     private static final String PIN = "1234";
     private static final String KEY_TRACE_DIRECTORY = "trace_directory";
@@ -87,6 +94,11 @@ public class LatencyTests extends Instrumentation {
     @Before
     public void setUp() throws Exception {
         mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        try {
+            mDevice.executeShellCommand(ENABLE_LATENCY_TEST);
+        } catch (IOException ioe) {
+            Log.e("LatencyTests", "Failed to enable latency commands");
+        }
         Bundle mArgs = InstrumentationRegistry.getArguments();
         mIterationCount = Integer.parseInt(mArgs.getString(KEY_ITERATION_COUNT,
                 Integer.toString(DEFAULT_ITERATION_COUNT)));
@@ -112,6 +124,15 @@ public class LatencyTests extends Instrumentation {
         // Need to run strategy initialization code as a precondition for tests.
         LauncherStrategyFactory.getInstance(mDevice);
         mLauncher = new LauncherInstrumentation(getInstrumentation());
+    }
+
+    @After
+    public void tearDown() {
+        try {
+            mDevice.executeShellCommand(RESET_ENABLE_LATENCY_TEST);
+        } catch (IOException ioe) {
+            Log.e("LatencyTests", "Failed to reset latency commands");
+        }
     }
 
     /**
@@ -319,7 +340,7 @@ public class LatencyTests extends Instrumentation {
                         mTraceDumpInterval, mRootTrace,
                         String.format("%s-%d", TEST_APPTORECENTS, i));
             }
-            mLauncher.getBackground().switchToOverview();
+            mLauncher.getLaunchedAppState().switchToOverview();
 
             // Make sure all the animations are really done.
             SystemClock.sleep(200);

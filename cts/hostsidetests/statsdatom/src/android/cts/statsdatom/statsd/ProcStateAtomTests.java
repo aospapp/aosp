@@ -158,7 +158,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
                 PROC_STATE_FUNCTION); // clear out initial proc states.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, waitTime, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, waitTime, PROC_STATE_FUNCTION);
     }
 
     public void testForeground() throws Exception {
@@ -177,7 +177,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
                 PROC_STATE_FUNCTION); // clear out initial proc states.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, 0, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 0, PROC_STATE_FUNCTION);
     }
 
     public void testBackground() throws Exception {
@@ -195,7 +195,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
                 PROC_STATE_FUNCTION); // clear out initial proc states.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, waitTime, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, waitTime, PROC_STATE_FUNCTION);
     }
 
     public void testTop() throws Exception {
@@ -214,7 +214,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
                 PROC_STATE_FUNCTION); // clear out initial proc states.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, waitTime, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, waitTime, PROC_STATE_FUNCTION);
     }
 
     public void testTopSleeping() throws Exception {
@@ -244,7 +244,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         // reset screen back on
         DeviceUtils.turnScreenOn(getDevice());
         // Don't check the wait time, since it's up to the system how long top sleeping persists.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, 0, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 0, PROC_STATE_FUNCTION);
     }
 
     public void testCached() throws Exception {
@@ -276,7 +276,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         // Now clear out the bg state from step #2 (since we are interested in the cache after it).
         AtomTestUtils.popUntilFind(data, onStates, PROC_STATE_FUNCTION);
         // The result is that data should start at step #3, definitively in a cached state.
-        AtomTestUtils.assertStatesOccurred(stateSet, data, 1_000, PROC_STATE_FUNCTION);
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 1_000, PROC_STATE_FUNCTION);
     }
 
     public void testValidityOfStates() throws Exception {

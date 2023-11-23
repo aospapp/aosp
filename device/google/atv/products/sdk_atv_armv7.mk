@@ -16,16 +16,9 @@
 
 PRODUCT_IS_ATV_SDK := true
 
-# ATV SDK is not designed to have a camera by default
-PRODUCT_SUPPORTS_CAMERA ?= false
-
 QEMU_USE_SYSTEM_EXT_PARTITIONS := true
 
 $(call inherit-product, device/google/atv/products/aosp_tv_arm.mk)
-
-# Define the host tools and libs that are parts of the SDK.
-$(call inherit-product, sdk/build/product_sdk.mk)
-$(call inherit-product, development/build/product_sdk.mk)
 
 # keep this apk for sdk targets for now
 PRODUCT_PACKAGES += \

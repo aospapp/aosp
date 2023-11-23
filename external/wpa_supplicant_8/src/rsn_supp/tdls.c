@@ -136,6 +136,9 @@ struct wpa_tdls_peer {
 
 	struct ieee80211_ht_capabilities *ht_capabilities;
 	struct ieee80211_vht_capabilities *vht_capabilities;
+	struct ieee80211_he_capabilities *he_capabilities;
+	size_t he_capab_len;
+	struct ieee80211_he_6ghz_band_cap *he_6ghz_band_capabilities;
 
 	u8 qos_info;
 
@@ -703,6 +706,10 @@ static void wpa_tdls_peer_clear(struct wpa_sm *sm, struct wpa_tdls_peer *peer)
 	peer->ht_capabilities = NULL;
 	os_free(peer->vht_capabilities);
 	peer->vht_capabilities = NULL;
+	os_free(peer->he_capabilities);
+	peer->he_capabilities = NULL;
+	os_free(peer->he_6ghz_band_capabilities);
+	peer->he_6ghz_band_capabilities = NULL;
 	os_free(peer->ext_capab);
 	peer->ext_capab = NULL;
 	os_free(peer->supp_channels);
@@ -1414,6 +1421,8 @@ static int wpa_tdls_send_tpk_m3(struct wpa_sm *sm,
 
 skip_ies:
 
+	if (peer->he_capabilities)
+		peer_capab |= TDLS_PEER_HE;
 	if (peer->vht_capabilities)
 		peer_capab |= TDLS_PEER_VHT;
 	if (peer->ht_capabilities)
@@ -1652,6 +1661,56 @@ static int copy_peer_vht_capab(const struct wpa_eapol_ie_parse *kde,
 }
 
 
+static int copy_peer_he_capab(const struct wpa_eapol_ie_parse *kde,
+			      struct wpa_tdls_peer *peer)
+{
+	if (!kde->he_capabilities) {
+		wpa_printf(MSG_DEBUG, "TDLS: No HE capabilities received");
+		return 0;
+	}
+
+	os_free(peer->he_capabilities);
+	peer->he_capab_len = 0;
+	peer->he_capabilities = os_memdup(kde->he_capabilities,
+					  kde->he_capab_len);
+	if (!peer->he_capabilities)
+		return -1;
+
+	peer->he_capab_len = kde->he_capab_len;
+	wpa_hexdump(MSG_DEBUG, "TDLS: Peer HE capabilities",
+		    peer->he_capabilities, peer->he_capab_len);
+
+	return 0;
+}
+
+
+static int copy_peer_he_6ghz_band_capab(const struct wpa_eapol_ie_parse *kde,
+					struct wpa_tdls_peer *peer)
+{
+	if (!kde->he_6ghz_capabilities) {
+		wpa_printf(MSG_DEBUG,
+			   "TDLS: No HE 6 GHz band capabilities received");
+		return 0;
+	}
+
+	if (!peer->he_6ghz_band_capabilities) {
+		peer->he_6ghz_band_capabilities =
+			os_zalloc(sizeof(struct ieee80211_he_6ghz_band_cap));
+		if (peer->he_6ghz_band_capabilities == NULL)
+			return -1;
+	}
+
+	os_memcpy(peer->he_6ghz_band_capabilities, kde->he_6ghz_capabilities,
+		  sizeof(struct ieee80211_he_6ghz_band_cap));
+
+	wpa_hexdump(MSG_DEBUG, "TDLS: Peer 6 GHz band HE capabilities",
+		    peer->he_6ghz_band_capabilities,
+		    sizeof(struct ieee80211_he_6ghz_band_cap));
+
+	return 0;
+}
+
+
 static int copy_peer_ext_capab(const struct wpa_eapol_ie_parse *kde,
 			       struct wpa_tdls_peer *peer)
 {
@@ -1761,6 +1820,9 @@ static int wpa_tdls_addset_peer(struct wpa_sm *sm, struct wpa_tdls_peer *peer,
 				       peer->supp_rates, peer->supp_rates_len,
 				       peer->ht_capabilities,
 				       peer->vht_capabilities,
+				       peer->he_capabilities,
+				       peer->he_capab_len,
+				       peer->he_6ghz_band_capabilities,
 				       peer->qos_info, peer->wmm_capable,
 				       peer->ext_capab, peer->ext_capab_len,
 				       peer->supp_channels,
@@ -1896,7 +1958,9 @@ static int wpa_tdls_process_tpk_m1(struct wpa_sm *sm, const u8 *src_addr,
 	if (copy_peer_ht_capab(&kde, peer) < 0)
 		goto error;
 
-	if (copy_peer_vht_capab(&kde, peer) < 0)
+	if (copy_peer_vht_capab(&kde, peer) < 0 ||
+	    copy_peer_he_capab(&kde, peer) < 0 ||
+	    copy_peer_he_6ghz_band_capab(&kde, peer) < 0)
 		goto error;
 
 	if (copy_peer_ext_capab(&kde, peer) < 0)
@@ -1925,7 +1989,8 @@ static int wpa_tdls_process_tpk_m1(struct wpa_sm *sm, const u8 *src_addr,
 			   "TDLS setup - send own request");
 		peer->initiator = 1;
 		wpa_sm_tdls_peer_addset(sm, peer->addr, 1, 0, 0, NULL, 0, NULL,
-					NULL, 0, 0, NULL, 0, NULL, 0, NULL, 0);
+					NULL, NULL, 0, NULL, 0, 0, NULL, 0,
+					NULL, 0, NULL, 0);
 		if (wpa_tdls_send_tpk_m1(sm, peer) == -2) {
 			peer = NULL;
 			goto error;
@@ -2303,7 +2368,9 @@ static int wpa_tdls_process_tpk_m2(struct wpa_sm *sm, const u8 *src_addr,
 	if (copy_peer_ht_capab(&kde, peer) < 0)
 		goto error;
 
-	if (copy_peer_vht_capab(&kde, peer) < 0)
+	if (copy_peer_vht_capab(&kde, peer) < 0 ||
+	    copy_peer_he_capab(&kde, peer) < 0 ||
+	    copy_peer_he_6ghz_band_capab(&kde, peer) < 0)
 		goto error;
 
 	if (copy_peer_ext_capab(&kde, peer) < 0)
@@ -2690,7 +2757,8 @@ int wpa_tdls_start(struct wpa_sm *sm, const u8 *addr)
 
 	/* add the peer to the driver as a "setup in progress" peer */
 	if (wpa_sm_tdls_peer_addset(sm, peer->addr, 1, 0, 0, NULL, 0, NULL,
-				    NULL, 0, 0, NULL, 0, NULL, 0, NULL, 0)) {
+				    NULL, NULL, 0, NULL, 0, 0, NULL, 0, NULL, 0,
+				    NULL, 0)) {
 		wpa_tdls_disable_peer_link(sm, peer);
 		return -1;
 	}

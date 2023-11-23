@@ -24,7 +24,7 @@
   <option name="plan" value="catbox-functional-multiuser"/>
 
   <!-- adb shell command specific to multiuser tests -->
-  <option name="run-command:run-command" value="setprop fw.stop_bg_users_on_switch 0" />
+  <option name="run-command:run-command" value="cmd activity set-stop-user-on-switch false" />
 
   <!-- Test Args -->
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:runner:androidx.test.runner.AndroidJUnitRunner" />

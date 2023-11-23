@@ -26,6 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.media.AudioFormat;
@@ -125,7 +126,7 @@ public class AdvancedVolumeFragmentTest {
 
         ArgumentCaptor<Integer> audioFormat = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Boolean> formatEnabled = ArgumentCaptor.forClass(Boolean.class);
-        verify(mAudioManager).setSurroundFormatEnabled(
+        verify(mAudioManager, times(4)).setSurroundFormatEnabled(
                 audioFormat.capture(), formatEnabled.capture());
         assertThat(audioFormat.getValue()).isEqualTo(AudioFormat.ENCODING_DTS);
         assertThat(formatEnabled.getValue()).isTrue();
@@ -153,7 +154,7 @@ public class AdvancedVolumeFragmentTest {
 
         ArgumentCaptor<Integer> audioFormat = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Boolean> formatEnabled = ArgumentCaptor.forClass(Boolean.class);
-        verify(mAudioManager).setSurroundFormatEnabled(
+        verify(mAudioManager, times(4)).setSurroundFormatEnabled(
                 audioFormat.capture(), formatEnabled.capture());
         assertThat(audioFormat.getValue()).isEqualTo(AudioFormat.ENCODING_DTS);
         assertThat(formatEnabled.getValue()).isFalse();

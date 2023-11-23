@@ -9,8 +9,6 @@
 Sends an email if something interesting (probably) happened.
 """
 
-# pylint: disable=cros-logging-import
-
 import argparse
 import itertools
 import json
@@ -21,10 +19,9 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, Iterable, List, Optional, Tuple, NamedTuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
-from cros_utils import email_sender
-from cros_utils import tiny_render
+from cros_utils import bugs, email_sender, tiny_render
 
 
 def gentoo_sha_to_link(sha: str) -> str:
@@ -164,7 +161,7 @@ def get_new_gentoo_commits(git_dir: pathlib.Path,
           'git',
           'log',
           '--format=%H %s',
-          f'{most_recent_sha}..origin/master',
+          f'{most_recent_sha}..origin/master',  # nocheck
           '--',
           'dev-lang/rust',
       ],
@@ -225,43 +222,63 @@ def atomically_write_state(state_file: pathlib.Path, state: State) -> None:
   temp_file.rename(state_file)
 
 
-def maybe_compose_email(old_state: State, newest_release: RustReleaseVersion,
-                        new_gentoo_commits: List[GitCommit]
-                       ) -> Optional[Tuple[str, List[tiny_render.Piece]]]:
+def file_bug(title: str, body: str) -> None:
+  """Files a bug against gbiv@ with the given title/body."""
+  bugs.CreateNewBug(
+      bugs.WellKnownComponents.CrOSToolchainPublic,
+      title,
+      body,
+      # To either take or reassign depending on the rotation.
+      assignee='gbiv@google.com',
+  )
+
+
+def maybe_compose_bug(
+    old_state: State,
+    newest_release: RustReleaseVersion,
+) -> Optional[Tuple[str, str]]:
+  """Creates a bug to file about the new release, if doing is desired."""
+  if newest_release == old_state.last_seen_release:
+    return None
+
+  title = f'[Rust] Update to {newest_release}'
+  body = ('A new release has been detected; we should probably roll to it. '
+          "Please see go/crostc-rust-rotation for who's turn it is.")
+  return title, body
+
+
+def maybe_compose_email(
+    new_gentoo_commits: List[GitCommit]
+) -> Optional[Tuple[str, List[tiny_render.Piece]]]:
   """Creates an email given our new state, if doing so is appropriate."""
+  if not new_gentoo_commits:
+    return None
+
   subject_pieces = []
   body_pieces = []
 
-  if newest_release > old_state.last_seen_release:
-    subject_pieces.append('new rustc release detected')
-    body_pieces.append(f'Rustc tag for v{newest_release} was found.')
+  # Separate the sections a bit for prettier output.
+  if body_pieces:
+    body_pieces += [tiny_render.line_break, tiny_render.line_break]
 
-  if new_gentoo_commits:
-    # Separate the sections a bit for prettier output.
-    if body_pieces:
-      body_pieces += [tiny_render.line_break, tiny_render.line_break]
+  if len(new_gentoo_commits) == 1:
+    subject_pieces.append('new rust ebuild commit detected')
+    body_pieces.append('commit:')
+  else:
+    subject_pieces.append('new rust ebuild commits detected')
+    body_pieces.append('commits (newest first):')
 
-    if len(new_gentoo_commits) == 1:
-      subject_pieces.append('new rust ebuild commit detected')
-      body_pieces.append('commit:')
-    else:
-      subject_pieces.append('new rust ebuild commits detected')
-      body_pieces.append('commits (newest first):')
+  commit_lines = []
+  for commit in new_gentoo_commits:
+    commit_lines.append([
+        tiny_render.Link(
+            gentoo_sha_to_link(commit.sha),
+            commit.sha[:12],
+        ),
+        f': {commit.subject}',
+    ])
 
-    commit_lines = []
-    for commit in new_gentoo_commits:
-      commit_lines.append([
-          tiny_render.Link(
-              gentoo_sha_to_link(commit.sha),
-              commit.sha[:12],
-          ),
-          f': {commit.subject}',
-      ])
-
-    body_pieces.append(tiny_render.UnorderedList(commit_lines))
-
-  if not subject_pieces:
-    return None
+  body_pieces.append(tiny_render.UnorderedList(commit_lines))
 
   subject = '[rust-watch] ' + '; '.join(subject_pieces)
   return subject, body_pieces
@@ -271,11 +288,14 @@ def main(argv: List[str]) -> None:
   logging.basicConfig(level=logging.INFO)
 
   parser = argparse.ArgumentParser(
-      description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-  parser.add_argument(
-      '--state_dir', required=True, help='Directory to store state in.')
-  parser.add_argument(
-      '--skip_email', action='store_true', help="Don't send an email.")
+      description=__doc__,
+      formatter_class=argparse.RawDescriptionHelpFormatter)
+  parser.add_argument('--state_dir',
+                      required=True,
+                      help='Directory to store state in.')
+  parser.add_argument('--skip_side_effects',
+                      action='store_true',
+                      help="Don't send an email or file a bug.")
   parser.add_argument(
       '--skip_state_update',
       action='store_true',
@@ -318,14 +338,25 @@ def main(argv: List[str]) -> None:
                                        prior_state.last_gentoo_sha)
   logging.info('New commits: %r', new_commits)
 
-  maybe_email = maybe_compose_email(prior_state, most_recent_release,
-                                    new_commits)
+  maybe_bug = maybe_compose_bug(prior_state, most_recent_release)
+  maybe_email = maybe_compose_email(new_commits)
+
+  if maybe_bug is None:
+    logging.info('No bug to file')
+  else:
+    title, body = maybe_bug
+    if opts.skip_side_effects:
+      logging.info('Skipping sending bug with title %r and contents\n%s',
+                   title, body)
+    else:
+      logging.info('Writing new bug')
+      file_bug(title, body)
 
   if maybe_email is None:
-    logging.info('No updates to send')
+    logging.info('No email to send')
   else:
     title, body = maybe_email
-    if opts.skip_email:
+    if opts.skip_side_effects:
       logging.info('Skipping sending email with title %r and contents\n%s',
                    title, tiny_render.render_html_pieces(body))
     else:
@@ -336,8 +367,8 @@ def main(argv: List[str]) -> None:
     logging.info('Skipping state update, as requested')
     return
 
-  newest_sha = (
-      new_commits[-1].sha if new_commits else prior_state.last_gentoo_sha)
+  newest_sha = (new_commits[-1].sha
+                if new_commits else prior_state.last_gentoo_sha)
   atomically_write_state(
       state_file,
       State(

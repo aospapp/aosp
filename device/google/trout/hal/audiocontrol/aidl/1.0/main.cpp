@@ -46,11 +46,14 @@ int main() {
     // Create an instance of our service class
     std::shared_ptr<AudioControl> audioControl = ndk::SharedRefBase::make<AudioControl>(si ? si->str() : "");
 
+    audioControl->start();
+
     const std::string instance = std::string() + AudioControl::descriptor + "/default";
     binder_status_t status =
             AServiceManager_addService(audioControl->asBinder().get(), instance.c_str());
     CHECK(status == STATUS_OK);
 
     ABinderProcess_joinThreadPool();
+    audioControl->join();
     return EXIT_FAILURE;  // should not reach
 }

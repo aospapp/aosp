@@ -87,16 +87,18 @@ class ProtoDescriptor {
   void AddEnumValue(int32_t integer_representation,
                     std::string string_representation) {
     PERFETTO_DCHECK(type_ == Type::kEnum);
-    enum_values_[integer_representation] = std::move(string_representation);
+    enum_values_by_name_[string_representation] = integer_representation;
+    enum_names_by_value_[integer_representation] =
+        std::move(string_representation);
   }
 
   const FieldDescriptor* FindFieldByName(const std::string& name) const {
     PERFETTO_DCHECK(type_ == Type::kMessage);
-    auto it =
-        std::find_if(fields_.begin(), fields_.end(),
-                     [name](std::pair<int32_t, const FieldDescriptor&> p) {
-                       return p.second.name() == name;
-                     });
+    auto it = std::find_if(
+        fields_.begin(), fields_.end(),
+        [name](const std::pair<const uint32_t, FieldDescriptor>& p) {
+          return p.second.name() == name;
+        });
     if (it == fields_.end()) {
       return nullptr;
     }
@@ -114,9 +116,16 @@ class ProtoDescriptor {
 
   base::Optional<std::string> FindEnumString(const int32_t value) const {
     PERFETTO_DCHECK(type_ == Type::kEnum);
-    auto it = enum_values_.find(value);
-    return it == enum_values_.end() ? base::nullopt
-                                    : base::Optional<std::string>(it->second);
+    auto it = enum_names_by_value_.find(value);
+    return it == enum_names_by_value_.end() ? base::nullopt
+                                            : base::make_optional(it->second);
+  }
+
+  base::Optional<int32_t> FindEnumValue(const std::string& value) const {
+    PERFETTO_DCHECK(type_ == Type::kEnum);
+    auto it = enum_values_by_name_.find(value);
+    return it == enum_values_by_name_.end() ? base::nullopt
+                                            : base::make_optional(it->second);
   }
 
   const std::string& file_name() const { return file_name_; }
@@ -141,26 +150,34 @@ class ProtoDescriptor {
   const Type type_;
   base::Optional<uint32_t> parent_id_;
   std::unordered_map<uint32_t, FieldDescriptor> fields_;
-  std::unordered_map<int32_t, std::string> enum_values_;
+  std::unordered_map<int32_t, std::string> enum_names_by_value_;
+  std::unordered_map<std::string, int32_t> enum_values_by_name_;
 };
 
 using ExtensionInfo = std::pair<std::string, protozero::ConstBytes>;
 
 class DescriptorPool {
  public:
+  // Adds Descriptors from file_descriptor_set_proto. Ignores any FileDescriptor
+  // with name matching a prefix in |skip_prefixes|.
   base::Status AddFromFileDescriptorSet(
       const uint8_t* file_descriptor_set_proto,
       size_t size,
+      const std::vector<std::string>& skip_prefixes = {},
       bool merge_existing_messages = false);
 
   base::Optional<uint32_t> FindDescriptorIdx(
       const std::string& full_name) const;
 
+  std::vector<uint8_t> SerializeAsDescriptorSet();
+
+  void AddProtoDescriptorForTesting(ProtoDescriptor descriptor) {
+    AddProtoDescriptor(std::move(descriptor));
+  }
+
   const std::vector<ProtoDescriptor>& descriptors() const {
     return descriptors_;
   }
-
-  std::vector<uint8_t> SerializeAsDescriptorSet();
 
  private:
   base::Status AddNestedProtoDescriptors(const std::string& file_name,
@@ -183,7 +200,13 @@ class DescriptorPool {
   base::Optional<uint32_t> ResolveShortType(const std::string& parent_path,
                                             const std::string& short_type);
 
+  // Adds a new descriptor to the pool and returns its index. There must not be
+  // already a descriptor with the same full_name in the pool.
+  uint32_t AddProtoDescriptor(ProtoDescriptor descriptor);
+
   std::vector<ProtoDescriptor> descriptors_;
+  // full_name -> index in the descriptors_ vector.
+  std::unordered_map<std::string, uint32_t> full_name_to_descriptor_index_;
   std::set<std::string> processed_files_;
 };
 

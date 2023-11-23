@@ -60,7 +60,7 @@ func TestSoongConfigModule(t *testing.T) {
 			module_type: "test",
 			config_namespace: "acme",
 			variables: ["board", "feature1", "FEATURE3", "unused_string_var"],
-			bool_variables: ["feature2", "unused_feature"],
+			bool_variables: ["feature2", "unused_feature", "always_true"],
 			value_variables: ["size", "unused_size"],
 			properties: ["cflags", "srcs", "defaults"],
 		}
@@ -148,6 +148,11 @@ func TestSoongConfigModule(t *testing.T) {
 			cflags: ["DEFAULT_B"],
 		}
 
+		test_defaults {
+			name: "foo_defaults_always_true",
+			cflags: ["DEFAULT_ALWAYS_TRUE"],
+		}
+
 		acme_test {
 			name: "foo_with_defaults",
 			cflags: ["-DGENERIC"],
@@ -175,6 +180,15 @@ func TestSoongConfigModule(t *testing.T) {
 				},
 				FEATURE3: {
 					cflags: ["-DFEATURE3"],
+				},
+				always_true: {
+					defaults: ["foo_defaults_always_true"],
+					conditions_default: {
+						// verify that conditions_default is skipped if the
+						// soong config variable is true by specifying a
+						// non-existent module in conditions_default
+						defaults: ["//nonexistent:defaults"],
+					}
 				},
 			},
 		}
@@ -205,6 +219,7 @@ func TestSoongConfigModule(t *testing.T) {
 						"unused_feature":    "true", // unused
 						"unused_size":       "1",    // unused
 						"unused_string_var": "a",    // unused
+						"always_true":       "true",
 					},
 				}),
 				fooExpectedFlags: []string{
@@ -217,6 +232,7 @@ func TestSoongConfigModule(t *testing.T) {
 				},
 				fooDefaultsExpectedFlags: []string{
 					"DEFAULT_A",
+					"DEFAULT_ALWAYS_TRUE",
 					"DEFAULT",
 					"-DGENERIC",
 					"-DSIZE=42",
@@ -227,7 +243,10 @@ func TestSoongConfigModule(t *testing.T) {
 			{
 				name: "empty_prop_for_string_var",
 				preparer: fixtureForVendorVars(map[string]map[string]string{
-					"acme": {"board": "soc_c"}}),
+					"acme": {
+						"board":       "soc_c",
+						"always_true": "true",
+					}}),
 				fooExpectedFlags: []string{
 					"DEFAULT",
 					"-DGENERIC",
@@ -236,6 +255,7 @@ func TestSoongConfigModule(t *testing.T) {
 					"-DF1_CONDITIONS_DEFAULT",
 				},
 				fooDefaultsExpectedFlags: []string{
+					"DEFAULT_ALWAYS_TRUE",
 					"DEFAULT",
 					"-DGENERIC",
 				},
@@ -243,7 +263,10 @@ func TestSoongConfigModule(t *testing.T) {
 			{
 				name: "unused_string_var",
 				preparer: fixtureForVendorVars(map[string]map[string]string{
-					"acme": {"board": "soc_d"}}),
+					"acme": {
+						"board":       "soc_d",
+						"always_true": "true",
+					}}),
 				fooExpectedFlags: []string{
 					"DEFAULT",
 					"-DGENERIC",
@@ -253,14 +276,18 @@ func TestSoongConfigModule(t *testing.T) {
 					"-DF1_CONDITIONS_DEFAULT",
 				},
 				fooDefaultsExpectedFlags: []string{
+					"DEFAULT_ALWAYS_TRUE",
 					"DEFAULT",
 					"-DGENERIC",
 				},
 			},
 
 			{
-				name:     "conditions_default",
-				preparer: fixtureForVendorVars(map[string]map[string]string{}),
+				name: "conditions_default",
+				preparer: fixtureForVendorVars(map[string]map[string]string{
+					"acme": {
+						"always_true": "true",
+					}}),
 				fooExpectedFlags: []string{
 					"DEFAULT",
 					"-DGENERIC",
@@ -270,6 +297,7 @@ func TestSoongConfigModule(t *testing.T) {
 					"-DF1_CONDITIONS_DEFAULT",
 				},
 				fooDefaultsExpectedFlags: []string{
+					"DEFAULT_ALWAYS_TRUE",
 					"DEFAULT",
 					"-DGENERIC",
 				},
@@ -282,10 +310,10 @@ func TestSoongConfigModule(t *testing.T) {
 					tc.preparer,
 					PrepareForTestWithDefaults,
 					FixtureRegisterWithContext(func(ctx RegistrationContext) {
-						ctx.RegisterModuleType("soong_config_module_type_import", soongConfigModuleTypeImportFactory)
-						ctx.RegisterModuleType("soong_config_module_type", soongConfigModuleTypeFactory)
-						ctx.RegisterModuleType("soong_config_string_variable", soongConfigStringVariableDummyFactory)
-						ctx.RegisterModuleType("soong_config_bool_variable", soongConfigBoolVariableDummyFactory)
+						ctx.RegisterModuleType("soong_config_module_type_import", SoongConfigModuleTypeImportFactory)
+						ctx.RegisterModuleType("soong_config_module_type", SoongConfigModuleTypeFactory)
+						ctx.RegisterModuleType("soong_config_string_variable", SoongConfigStringVariableDummyFactory)
+						ctx.RegisterModuleType("soong_config_bool_variable", SoongConfigBoolVariableDummyFactory)
 						ctx.RegisterModuleType("test_defaults", soongConfigTestDefaultsModuleFactory)
 						ctx.RegisterModuleType("test", soongConfigTestModuleFactory)
 					}),
@@ -311,6 +339,91 @@ func TestSoongConfigModule(t *testing.T) {
 			"SoongConfig.bp": []byte(configBp),
 		})
 	})
+}
+
+func TestNonExistentPropertyInSoongConfigModule(t *testing.T) {
+	bp := `
+		soong_config_module_type {
+			name: "acme_test",
+			module_type: "test",
+			config_namespace: "acme",
+			bool_variables: ["feature1"],
+			properties: ["made_up_property"],
+		}
+
+		acme_test {
+			name: "foo",
+			cflags: ["-DGENERIC"],
+			soong_config_variables: {
+				feature1: {
+					made_up_property: true,
+				},
+			},
+		}
+    `
+
+	fixtureForVendorVars := func(vars map[string]map[string]string) FixturePreparer {
+		return FixtureModifyProductVariables(func(variables FixtureProductVariables) {
+			variables.VendorVars = vars
+		})
+	}
+
+	GroupFixturePreparers(
+		fixtureForVendorVars(map[string]map[string]string{"acme": {"feature1": "1"}}),
+		PrepareForTestWithDefaults,
+		FixtureRegisterWithContext(func(ctx RegistrationContext) {
+			ctx.RegisterModuleType("soong_config_module_type_import", SoongConfigModuleTypeImportFactory)
+			ctx.RegisterModuleType("soong_config_module_type", SoongConfigModuleTypeFactory)
+			ctx.RegisterModuleType("soong_config_string_variable", SoongConfigStringVariableDummyFactory)
+			ctx.RegisterModuleType("soong_config_bool_variable", SoongConfigBoolVariableDummyFactory)
+			ctx.RegisterModuleType("test_defaults", soongConfigTestDefaultsModuleFactory)
+			ctx.RegisterModuleType("test", soongConfigTestModuleFactory)
+		}),
+		FixtureWithRootAndroidBp(bp),
+	).ExtendWithErrorHandler(FixtureExpectsAllErrorsToMatchAPattern([]string{
+		// TODO(b/171232169): improve the error message for non-existent properties
+		`unrecognized property "soong_config_variables`,
+	})).RunTest(t)
+}
+
+func TestDuplicateStringValueInSoongConfigStringVariable(t *testing.T) {
+	bp := `
+		soong_config_string_variable {
+			name: "board",
+			values: ["soc_a", "soc_b", "soc_c", "soc_a"],
+		}
+
+		soong_config_module_type {
+			name: "acme_test",
+			module_type: "test",
+			config_namespace: "acme",
+			variables: ["board"],
+			properties: ["cflags", "srcs", "defaults"],
+		}
+    `
+
+	fixtureForVendorVars := func(vars map[string]map[string]string) FixturePreparer {
+		return FixtureModifyProductVariables(func(variables FixtureProductVariables) {
+			variables.VendorVars = vars
+		})
+	}
+
+	GroupFixturePreparers(
+		fixtureForVendorVars(map[string]map[string]string{"acme": {"feature1": "1"}}),
+		PrepareForTestWithDefaults,
+		FixtureRegisterWithContext(func(ctx RegistrationContext) {
+			ctx.RegisterModuleType("soong_config_module_type_import", SoongConfigModuleTypeImportFactory)
+			ctx.RegisterModuleType("soong_config_module_type", SoongConfigModuleTypeFactory)
+			ctx.RegisterModuleType("soong_config_string_variable", SoongConfigStringVariableDummyFactory)
+			ctx.RegisterModuleType("soong_config_bool_variable", SoongConfigBoolVariableDummyFactory)
+			ctx.RegisterModuleType("test_defaults", soongConfigTestDefaultsModuleFactory)
+			ctx.RegisterModuleType("test", soongConfigTestModuleFactory)
+		}),
+		FixtureWithRootAndroidBp(bp),
+	).ExtendWithErrorHandler(FixtureExpectsAllErrorsToMatchAPattern([]string{
+		// TODO(b/171232169): improve the error message for non-existent properties
+		`Android.bp: soong_config_string_variable: values property error: duplicate value: "soc_a"`,
+	})).RunTest(t)
 }
 
 func testConfigWithVendorVars(buildDir, bp string, fs map[string][]byte, vendorVars map[string]map[string]string) Config {

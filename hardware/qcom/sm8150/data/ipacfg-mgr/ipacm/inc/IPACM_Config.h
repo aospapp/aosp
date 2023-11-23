@@ -261,6 +261,10 @@ public:
 
 	enum ipa_hw_type GetIPAVer(bool get = false);
 
+#ifdef IPA_IOCTL_GET_HW_FEATURE_SUPPORT
+	int GetIPAFeatureSupport(bool get = false);
+#endif
+
 	bool isEthBridgingSupported();
 
 	bool isIPAv3Supported();
@@ -361,6 +365,9 @@ public:
 
 private:
 	enum ipa_hw_type ver;
+#ifdef IPA_IOCTL_GET_HW_FEATURE_SUPPORT
+	uint32_t hw_feature;
+#endif
 	static IPACM_Config *pInstance;
 	static const char *DEVICE_NAME;
 	IPACM_Config(void);

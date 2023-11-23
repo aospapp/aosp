@@ -16,6 +16,8 @@
 
 package com.google.turbine.binder.bytecode;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.turbine.binder.bound.EnumConstantValue;
@@ -40,6 +42,7 @@ import com.google.turbine.bytecode.sig.Sig.WildTySig;
 import com.google.turbine.bytecode.sig.SigParser;
 import com.google.turbine.model.Const;
 import com.google.turbine.model.Const.ArrayInitValue;
+import com.google.turbine.model.Const.Value;
 import com.google.turbine.type.AnnoInfo;
 import com.google.turbine.type.Type;
 import java.util.ArrayList;
@@ -49,7 +52,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Bind {@link Type}s from bytecode. */
-public class BytecodeBinder {
+public final class BytecodeBinder {
 
   static Type.ClassTy bindClassTy(Sig.ClassTySig sig, Function<String, TyVarSymbol> scope) {
     StringBuilder sb = new StringBuilder(sig.pkg());
@@ -134,7 +137,7 @@ public class BytecodeBinder {
     for (Map.Entry<String, ElementValue> e : value.elementValuePairs().entrySet()) {
       values.put(e.getKey(), bindValue(e.getValue()));
     }
-    return new TurbineAnnotationValue(new AnnoInfo(null, sym, null, values.build()));
+    return new TurbineAnnotationValue(new AnnoInfo(null, sym, null, values.buildOrThrow()));
   }
 
   static ImmutableList<AnnoInfo> bindAnnotations(List<AnnotationInfo> input) {
@@ -175,17 +178,21 @@ public class BytecodeBinder {
     // TODO(b/32626659): this is not bug-compatible with javac
     switch (((Type.PrimTy) type).primkind()) {
       case CHAR:
-        return new Const.CharValue(value.asChar().value());
+        return new Const.CharValue((char) asInt(value));
       case SHORT:
-        return new Const.ShortValue(value.asShort().value());
+        return new Const.ShortValue((short) asInt(value));
       case BOOLEAN:
         // boolean constants are encoded as integers
-        return new Const.BooleanValue(value.asInteger().value() != 0);
+        return new Const.BooleanValue(asInt(value) != 0);
       case BYTE:
-        return new Const.ByteValue(value.asByte().value());
+        return new Const.ByteValue((byte) asInt(value));
       default:
         return value;
     }
+  }
+
+  private static int asInt(Value value) {
+    return ((Const.IntValue) value).value();
   }
 
   private static Const bindEnumValue(EnumConstValue value) {
@@ -201,6 +208,7 @@ public class BytecodeBinder {
   public static ModuleInfo bindModuleInfo(String path, Supplier<byte[]> bytes) {
     ClassFile classFile = ClassReader.read(path, bytes.get());
     ClassFile.ModuleInfo module = classFile.module();
+    requireNonNull(module, path);
     return new ModuleInfo(
         module.name(),
         module.version(),
@@ -212,4 +220,6 @@ public class BytecodeBinder {
         /* uses= */ ImmutableList.of(),
         /* provides= */ ImmutableList.of());
   }
+
+  private BytecodeBinder() {}
 }

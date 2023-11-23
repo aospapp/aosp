@@ -44,12 +44,12 @@ import android.os.Looper;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.util.IndentingPrintWriter;
 import android.util.Log;
 import android.util.Pair;
 
 import com.android.car.CarServiceBase;
-import com.android.car.Utils;
+import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.util.TransitionLog;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -94,7 +94,7 @@ public final class DriverDistractionExperimentalFeatureService extends
     private final Object mLock = new Object();
 
     @GuardedBy("mLock")
-    private final ArrayDeque<Utils.TransitionLog> mTransitionLogs = new ArrayDeque<>();
+    private final ArrayDeque<TransitionLog> mTransitionLogs = new ArrayDeque<>();
 
     /**
      * All the active service connections.
@@ -342,7 +342,7 @@ public final class DriverDistractionExperimentalFeatureService extends
             writer.println("  mLastDispatchUptimeMillis: " + mLastDispatchUptimeMillis);
             writer.println("  mIsDispatchQueued: " + mIsDispatchQueued);
             writer.println("Change log:");
-            for (Utils.TransitionLog log : mTransitionLogs) {
+            for (TransitionLog log : mTransitionLogs) {
                 writer.println(log);
             }
         }
@@ -689,7 +689,7 @@ public final class DriverDistractionExperimentalFeatureService extends
             mTransitionLogs.remove();
         }
 
-        Utils.TransitionLog tLog = new Utils.TransitionLog(TAG, oldValue, newValue,
+        TransitionLog tLog = new TransitionLog(TAG, oldValue, newValue,
                 System.currentTimeMillis(), extra);
         mTransitionLogs.add(tLog);
     }

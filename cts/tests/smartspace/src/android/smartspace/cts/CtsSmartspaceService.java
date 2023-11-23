@@ -20,7 +20,6 @@ import android.app.smartspace.SmartspaceConfig;
 import android.app.smartspace.SmartspaceSessionId;
 import android.app.smartspace.SmartspaceTarget;
 import android.app.smartspace.SmartspaceTargetEvent;
-import android.os.Process;
 import android.service.smartspace.SmartspaceService;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -58,9 +57,10 @@ public class CtsSmartspaceService extends SmartspaceService {
 
         if (sWatcher.verifier != null) {
             Log.e(TAG, "onCreateSmartspaceSession, trying to set verifier when it already exists");
+        } else {
+            sWatcher.verifier = Mockito.mock(CtsSmartspaceService.class);
         }
         targets.put(sessionId, new ArrayList<>());
-        sWatcher.verifier = Mockito.mock(CtsSmartspaceService.class);
         sWatcher.created.countDown();
     }
 

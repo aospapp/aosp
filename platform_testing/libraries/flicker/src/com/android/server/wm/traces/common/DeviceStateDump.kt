@@ -16,14 +16,14 @@
 
 package com.android.server.wm.traces.common
 
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.layers.BaseLayerTraceEntry
 import com.android.server.wm.traces.common.windowmanager.WindowManagerState
 
 /**
  * Represents a state dump containing the [WindowManagerState] and the [LayerTraceEntry] both
  * parsed and in raw (byte) data.
  */
-class DeviceStateDump<WMType : WindowManagerState?, LayerType : LayerTraceEntry?>(
+class DeviceStateDump<WMType : WindowManagerState?, LayerType : BaseLayerTraceEntry?>(
     /**
      * Parsed [WindowManagerState]
      */

@@ -16,9 +16,11 @@
         android:layout_gravity="center"
         />
     <com.android.layoutlib.test.myapplication.widgets.CustomDate
+        android:firstDayOfWeek="1"
         android:layout_width="100dp"
         android:layout_height="wrap_content"/>
     <com.android.layoutlib.test.myapplication.widgets.CustomCalendar
+        android:firstDayOfWeek="1"
         android:layout_width="200dp"
         android:layout_gravity="center_horizontal"
         android:layout_height="200dp"/>

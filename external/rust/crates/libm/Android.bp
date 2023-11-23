@@ -42,6 +42,8 @@ rust_library {
     name: "liblibm",
     host_supported: true,
     crate_name: "libm",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: ["default"],
@@ -52,33 +54,19 @@ rust_library {
     min_sdk_version: "29",
 }
 
-rust_defaults {
-    name: "libm_defaults",
+rust_test {
+    name: "libm_test_src_lib",
+    host_supported: true,
     crate_name: "libm",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.1",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
     edition: "2018",
     features: ["default"],
     proc_macros: ["libno_panic"],
 }
-
-rust_test_host {
-    name: "libm_host_test_src_lib",
-    defaults: ["libm_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "libm_device_test_src_lib",
-    defaults: ["libm_defaults"],
-}
-
-// dependent_library ["feature_list"]
-//   no-panic-0.1.15
-//   proc-macro2-1.0.26 "default,proc-macro"
-//   quote-1.0.9 "default,proc-macro"
-//   syn-1.0.70 "clone-impls,default,derive,full,parsing,printing,proc-macro,quote"
-//   unicode-xid-0.2.1 "default"

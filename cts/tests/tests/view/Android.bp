@@ -40,6 +40,8 @@ android_test {
         "ctsdeviceutillegacy-axt",
         "ctstestrunner-axt",
         "cts-input-lib",
+        "cts-hardware-lib",
+        "junit-params",
         "mockito-target-minus-junit4",
         "platform-test-annotations",
         "ub-uiautomator",

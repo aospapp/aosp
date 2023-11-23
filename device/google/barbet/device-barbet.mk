@@ -18,28 +18,27 @@ PRODUCT_HARDWARE := barbet
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
     ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
-        LOCAL_KERNEL := device/google/barbet-kernel/Image.lz4
+        LOCAL_KERNEL := device/google/redbull-kernel/Image.lz4
     else
-        LOCAL_KERNEL := device/google/barbet-kernel/vintf/Image.lz4
+        LOCAL_KERNEL := device/google/redbull-kernel/vintf/Image.lz4
     endif
 else
     LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
 
-PRODUCT_VENDOR_KERNEL_HEADERS := device/google/barbet-kernel/sm7250/kernel-headers
+PRODUCT_VENDOR_KERNEL_HEADERS := device/google/redbull-kernel/sm7250/kernel-headers
 
 DEVICE_PACKAGE_OVERLAYS += device/google/barbet/barbet/overlay
 
 PRODUCT_DEVICE_SVN_OVERRIDE := true
 
-include build/make/target/product/iorap_large_memory_config.mk
 include device/google/redbull/device-common.mk
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/launch_with_vendor_ramdisk.mk)
 
 # Increment the SVN for any official public releases
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.vendor.build.svn=18
+    ro.vendor.build.svn=25
 
 # Enable watchdog timeout loop breaker.
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -109,8 +108,11 @@ ifeq ($(wildcard vendor/google_devices/barbet/proprietary/device-vendor-barbet.m
     BUILD_WITHOUT_VENDOR := true
 endif
 
+# USB HAL
 PRODUCT_PACKAGES += \
-    android.hardware.usb@1.3-service.barbet
+    android.hardware.usb-service.barbet
+PRODUCT_PACKAGES += \
+    android.hardware.usb.gadget-service.barbet
 
 # Vibrator HAL
 PRODUCT_PACKAGES += \

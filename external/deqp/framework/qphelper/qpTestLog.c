@@ -249,6 +249,8 @@ static const qpKeyStringMap s_qpShaderTypeMap[] =
 	{ QP_SHADER_TYPE_MISS,				"MissShader"			},
 	{ QP_SHADER_TYPE_INTERSECTION,		"IntersectionShader"	},
 	{ QP_SHADER_TYPE_CALLABLE,			"CallableShader"		},
+	{ QP_SHADER_TYPE_TASK,				"TaskShader"			},
+	{ QP_SHADER_TYPE_MESH,				"MeshShader"			},
 
 	{ QP_SHADER_TYPE_LAST,				DE_NULL					}
 };
@@ -698,7 +700,9 @@ deBool Buffer_resize (Buffer* buffer, size_t newSize)
 		if (!newData)
 			return DE_FALSE;
 
-		memcpy(newData, buffer->data, buffer->size);
+		if (buffer->data)
+			memcpy(newData, buffer->data, buffer->size);
+
 		deFree(buffer->data);
 		buffer->data		= newData;
 		buffer->capacity	= newCapacity;
@@ -1005,6 +1009,23 @@ deBool qpTestLog_writeImage	(
 }
 
 /*--------------------------------------------------------------------*//*!
+ * \brief Writes infoLog into log. Might filter out empty infoLog.
+ * \param log			qpTestLog instance
+ * \param infoLog		Implementation provided shader compilation or linkage log
+ * \return true if ok, false otherwise
+ *//*--------------------------------------------------------------------*/
+deBool qpTestLog_writeInfoLog (qpTestLog* log, const char* infoLog)
+{
+	if (infoLog == DE_NULL)
+		return DE_FALSE;
+
+	if (infoLog[0] == '\0' && (log->flags & QP_TEST_LOG_EXCLUDE_EMPTY_LOGINFO) != 0)
+		return DE_TRUE;
+
+	return qpXmlWriter_writeStringElement(log->writer, "InfoLog", infoLog);
+}
+
+/*--------------------------------------------------------------------*//*!
  * \brief Write a OpenGL ES shader program into the log.
  * \param linkOk			Shader program link result, false on failure
  * \param linkInfoLog		Implementation provided linkage log
@@ -1020,7 +1041,7 @@ deBool qpTestLog_startShaderProgram (qpTestLog* log, deBool linkOk, const char* 
 	programAttribs[numProgramAttribs++] = qpSetStringAttrib("LinkStatus", linkOk ? "OK" : "Fail");
 
 	if (!qpXmlWriter_startElement(log->writer, "ShaderProgram", numProgramAttribs, programAttribs) ||
-		!qpXmlWriter_writeStringElement(log->writer, "InfoLog", linkInfoLog))
+		!qpTestLog_writeInfoLog(log, linkInfoLog))
 	{
 		qpPrintf("qpTestLog_startShaderProgram(): Writing XML failed\n");
 		deMutex_unlock(log->lock);
@@ -1080,7 +1101,7 @@ deBool qpTestLog_writeShader (qpTestLog* log, qpShaderType type, const char* sou
 
 	if (!qpXmlWriter_startElement(log->writer, tagName, numShaderAttribs, shaderAttribs) ||
 		!qpXmlWriter_writeStringElement(log->writer, "ShaderSource", sourceStr) ||
-		!qpXmlWriter_writeStringElement(log->writer, "InfoLog", infoLog) ||
+		!qpTestLog_writeInfoLog(log, infoLog) ||
 		!qpXmlWriter_endElement(log->writer, tagName))
 	{
 		qpPrintf("qpTestLog_writeShader(): Writing XML failed\n");
@@ -1315,7 +1336,7 @@ deBool qpTestLog_writeCompileInfo (qpTestLog* log, const char* name, const char*
 	attribs[numAttribs++] = qpSetStringAttrib("CompileStatus", compileOk ? "OK" : "Fail");
 
 	if (!qpXmlWriter_startElement(log->writer, "CompileInfo", numAttribs, attribs) ||
-		!qpXmlWriter_writeStringElement(log->writer, "InfoLog", infoLog) ||
+		!qpTestLog_writeInfoLog(log, infoLog) ||
 		!qpXmlWriter_endElement(log->writer, "CompileInfo"))
 	{
 		qpPrintf("qpTestLog_writeCompileInfo(): Writing XML failed\n");

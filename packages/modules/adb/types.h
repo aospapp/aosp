@@ -306,7 +306,7 @@ struct weak_ptr {
         return *this;
     }
 
-    T* get() {
+    T* get() const {
         check_main_thread();
         return ptr_;
     }
@@ -349,7 +349,7 @@ struct enable_weak_from_this {
     weak_ptr<T> weak() { return weak_ptr<T>(static_cast<T*>(this)); }
 
     void schedule_deletion() {
-        fdevent_run_on_main_thread([this]() { delete this; });
+        fdevent_run_on_main_thread([this]() { delete static_cast<T*>(this); });
     }
 
   private:

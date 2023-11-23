@@ -129,9 +129,9 @@ set_prop(factory, powerctl_prop)
 allow factory misc_sd_device:chr_file r_file_perms;
 allow factory mmcblk1_block_device:blk_file rw_file_perms;
 allow factory bootdevice_block_device:blk_file rw_file_perms;
-allow factory mmcblk1p1_block_device:blk_file rw_file_perms;
+allow factory sdcard_block_device:blk_file rw_file_perms;
 allow factory block_device:dir w_dir_perms;
-allowxperm factory mmcblk1_block_device:blk_file ioctl BLKGETSIZE;
+allowxperm factory sdcard_block_device:blk_file ioctl BLKGETSIZE;
 allowxperm factory bootdevice_block_device:blk_file ioctl BLKGETSIZE;
 
 #Purpose: For EMMC test

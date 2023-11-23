@@ -51,8 +51,14 @@ public class WifiSecurityUtil {
      * @return the category of wifi security.
      */
     public static int getSecurity(WifiConfiguration config) {
+        if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
+            return AccessPoint.SECURITY_SAE;
+        }
         if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
             return AccessPoint.SECURITY_PSK;
+        }
+        if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
+            return AccessPoint.SECURITY_SAE;
         }
         if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP)
                 || config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {

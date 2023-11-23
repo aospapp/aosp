@@ -65,14 +65,14 @@ def DeleteBranch(repo, branch):
   if not os.path.isdir(repo):
     raise ValueError('Invalid directory path provided: %s' % repo)
 
-  subprocess.check_output(['git', '-C', repo, 'checkout', 'cros/master'])
+  subprocess.check_output(['git', '-C', repo, 'checkout', 'cros/main'])
 
   subprocess.check_output(['git', '-C', repo, 'reset', 'HEAD', '--hard'])
 
   subprocess.check_output(['git', '-C', repo, 'branch', '-D', branch])
 
 
-def UploadChanges(repo, branch, commit_messages):
+def UploadChanges(repo, branch, commit_messages, reviewers=None, cc=None):
   """Uploads the changes in the specifed branch of the given repo for review.
 
   Args:
@@ -80,6 +80,8 @@ def UploadChanges(repo, branch, commit_messages):
     branch: The name of the branch to upload.
     commit_messages: A string of commit message(s) (i.e. '[message]'
     of the changes made.
+    reviewers: A list of reviewers to add to the CL.
+    cc: A list of contributors to CC about the CL.
 
   Returns:
     A nametuple that has two (key, value) pairs, where the first pair is the
@@ -101,12 +103,24 @@ def UploadChanges(repo, branch, commit_messages):
     subprocess.check_output(['git', 'commit', '-F', f.name], cwd=repo)
 
   # Upload the changes for review.
+  git_args = [
+      'repo',
+      'upload',
+      '--yes',
+      f'--reviewers={",".join(reviewers)}' if reviewers else '--ne',
+      '--no-verify',
+      f'--br={branch}',
+  ]
+
+  if cc:
+    git_args.append(f'--cc={",".join(cc)}')
+
   out = subprocess.check_output(
-      ['repo', 'upload', '--yes', '--ne', '--no-verify',
-       '--br=%s' % branch],
+      git_args,
       stderr=subprocess.STDOUT,
       cwd=repo,
-      encoding='utf-8')
+      encoding='utf-8',
+  )
 
   print(out)
 

@@ -18,12 +18,13 @@ package com.android.car.settings.profiles;
 
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
-import android.car.userlib.UserHelper;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.AsyncTask;
+import android.os.UserManager;
 
+import com.android.car.internal.user.UserHelper;
 import com.android.car.settings.common.Logger;
 
 import java.util.concurrent.ExecutionException;
@@ -37,12 +38,14 @@ public class AddNewProfileTask extends AsyncTask<String, Void, UserInfo> {
     private final Context mContext;
     private final CarUserManager mCarUserManager;
     private final AddNewProfileListener mAddNewProfileListener;
+    private final UserManager mUserManager;
 
     public AddNewProfileTask(Context context, CarUserManager carUserManager,
             AddNewProfileListener addNewProfileListener) {
         mContext = context;
         mCarUserManager = carUserManager;
         mAddNewProfileListener = addNewProfileListener;
+        mUserManager = context.getSystemService(UserManager.class);
     }
 
     @Override
@@ -52,10 +55,11 @@ public class AddNewProfileTask extends AsyncTask<String, Void, UserInfo> {
         try {
             UserCreationResult result = future.get();
             if (result.isSuccess()) {
-                UserInfo user = result.getUser();
+                UserInfo user = mUserManager.getUserInfo(result.getUser().getIdentifier());
                 if (user != null) {
-                    UserHelper.setDefaultNonAdminRestrictions(mContext, user, /* enable= */ true);
-                    UserHelper.assignDefaultIcon(mContext, user);
+                    UserHelper.setDefaultNonAdminRestrictions(mContext, user.getUserHandle(),
+                            /* enable= */ true);
+                    UserHelper.assignDefaultIcon(mContext, user.getUserHandle());
                 } else {
                     LOG.wtf("Inconsistent state: successful future with null profile - "
                             + result.toString());

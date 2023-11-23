@@ -28,6 +28,10 @@ import org.junit.Test;
 
 public final class UserHelperLiteTest extends AbstractExtendedMockitoTestCase {
 
+    public UserHelperLiteTest() {
+        super(NO_LOG_TAGS);
+    }
+
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
         session.spyStatic(UserManager.class);

@@ -32,6 +32,7 @@ android_test {
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "identity-credential-util",
         "junit",
         "cts-security-test-support-library",
         "cts-keystore-user-auth-helper-library",

@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.appsecurity.cts.keyrotationtest.test">
+    package="android.appsecurity.cts.keyrotationtest.test"
+    android:versionCode="1">
   <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                    android:targetPackage="android.appsecurity.cts.keyrotationtest" />
   <application/>

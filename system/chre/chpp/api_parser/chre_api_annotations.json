@@ -1,4 +1,5 @@
-[{
+[
+  {
   "filename": "chre_api/include/chre_api/chre/wwan.h",
   "includes": [
     "chre_api/include/chre_api/chre/common.h"
@@ -190,13 +191,52 @@
           "value": "0"
         }
       ]
+    },
+    {
+      "name": "chreWifiNanSubscribeConfig",
+      "annotations": [
+        {
+          "field": "subscribeType",
+          "annotation": "enum",
+          "enum_type": "chreWifiNanSubscribeType"
+        },
+        {
+          "field": "service",
+          "annotation": "string"
+        },
+        {
+          "field": "serviceSpecificInfo",
+          "annotation": "var_len_array",
+          "length_field": "serviceSpecificInfoSize"
+        },
+        {
+          "field": "matchFilter",
+          "annotation": "var_len_array",
+          "length_field": "matchFilterLength"
+        }
+      ]
+    },
+    {
+      "name": "chreWifiNanDiscoveryEvent",
+      "annotations": [
+        {
+          "field": "serviceSpecificInfo",
+          "annotation": "var_len_array",
+          "length_field": "serviceSpecificInfoSize"
+        }
+      ]
     }
   ],
   "root_structs": [
     "chreWifiScanEvent",
     "chreWifiScanParams",
     "chreWifiRangingEvent",
-    "chreWifiRangingParams"
+    "chreWifiRangingParams",
+    "chreWifiNanSubscribeConfig",
+    "chreWifiNanDiscoveryEvent",
+    "chreWifiNanSessionLostEvent",
+    "chreWifiNanSessionTerminatedEvent",
+    "chreWifiNanRangingParams"
   ]
 },
 {

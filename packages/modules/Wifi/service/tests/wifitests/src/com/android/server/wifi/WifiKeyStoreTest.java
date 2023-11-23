@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.validateMockitoUsage;
@@ -493,6 +494,46 @@ public class WifiKeyStoreTest extends WifiBaseTest {
 
         assertTrue(mWifiKeyStore.updateNetworkKeys(savedNetwork, existingNetwork));
         verify(mKeyStore).deleteEntry(eq(USER_CA_CERT_ALIAS2));
+    }
+
+    /**
+     * Test to confirm that CA alias is not removed when the certificate was installed
+     * by the app and an update is coming from manually editing the network from Settings.
+     */
+    @Test
+    public void testConfirmCaCertAliasByAppNotRemoved() throws Exception {
+        when(mWifiEnterpriseConfig.getCaCertificateAliases())
+                .thenReturn(new String[]{USER_CA_CERT_ALIAS});
+        when(mWifiEnterpriseConfig.getClientPrivateKey())
+                .thenReturn(FakeKeys.CLIENT_SUITE_B_RSA3072_KEY);
+        when(mWifiEnterpriseConfig.getClientCertificate()).thenReturn(
+                FakeKeys.CLIENT_SUITE_B_RSA3072_CERT);
+        when(mWifiEnterpriseConfig.getCaCertificate()).thenReturn(FakeKeys.CA_SUITE_B_RSA3072_CERT);
+        when(mWifiEnterpriseConfig.getClientCertificateChain())
+                .thenReturn(new X509Certificate[]{FakeKeys.CLIENT_SUITE_B_RSA3072_CERT});
+        when(mWifiEnterpriseConfig.getCaCertificates())
+                .thenReturn(new X509Certificate[]{FakeKeys.CA_SUITE_B_RSA3072_CERT});
+        when(mWifiEnterpriseConfig.isAppInstalledCaCert()).thenReturn(true);
+        when(mKeyStore.getCertificate(eq(USER_CERT_ALIAS))).thenReturn(
+                FakeKeys.CLIENT_SUITE_B_RSA3072_CERT);
+        when(mKeyStore.getCertificate(eq(USER_CA_CERT_ALIASES[0]))).thenReturn(
+                FakeKeys.CA_SUITE_B_RSA3072_CERT);
+        WifiConfiguration savedNetwork = WifiConfigurationTestUtil.createEapSuiteBNetwork(
+                WifiConfiguration.SuiteBCipher.ECDHE_RSA);
+        savedNetwork.enterpriseConfig = mWifiEnterpriseConfig;
+        mExistingWifiEnterpriseConfig = mWifiEnterpriseConfig;
+        when(mExistingWifiEnterpriseConfig.getCaCertificateAliases())
+                .thenReturn(new String[]{USER_CA_CERT_ALIAS2});
+        WifiConfiguration existingNetwork = savedNetwork;
+        when(mKeyStore.getCertificate(eq(USER_CA_CERT_ALIASES[1]))).thenReturn(
+                FakeKeys.CA_SUITE_B_RSA3072_CERT);
+        existingNetwork.enterpriseConfig = mExistingWifiEnterpriseConfig;
+        when(mWifiEnterpriseConfig.getCaCertificate()).thenReturn(null);
+        when(mWifiEnterpriseConfig.getCaCertificates()).thenReturn(null);
+        when(mWifiEnterpriseConfig.getClientCertificateChain()).thenReturn(null);
+
+        assertTrue(mWifiKeyStore.updateNetworkKeys(savedNetwork, existingNetwork));
+        verify(mKeyStore, never()).deleteEntry(anyString());
     }
 
     /**

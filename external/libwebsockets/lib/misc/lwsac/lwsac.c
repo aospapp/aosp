@@ -70,7 +70,7 @@ lwsac_get_next(struct lwsac *lac)
 }
 
 int
-lwsac_extend(struct lwsac *head, int amount)
+lwsac_extend(struct lwsac *head, size_t amount)
 {
 	struct lwsac_head *lachead;
 	struct lwsac *bf;
@@ -277,7 +277,7 @@ lwsac_free(struct lwsac **head)
 void
 lwsac_info(struct lwsac *head)
 {
-#if defined(_DEBUG)
+#if _LWS_ENABLED_LOGS & LLL_DEBUG
 	struct lwsac_head *lachead;
 
 	if (!head) {

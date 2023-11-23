@@ -25,7 +25,7 @@
     <skip />
     <string name="phone_number_with_pin" msgid="6760582665093825412">"PIN del numero <xliff:g id="NUMBER">%1$s</xliff:g>: <xliff:g id="PIN_0">%2$s</xliff:g>"</string>
     <plurals name="all_day_title" formatted="false" msgid="7938279592034934265">
-      <item quantity="one">%d eventi che durano tutto il giorno</item>
       <item quantity="other">%d eventi che durano tutto il giorno</item>
+      <item quantity="one">%d evento che dura tutto il giorno</item>
     </plurals>
 </resources>

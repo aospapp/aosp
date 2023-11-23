@@ -89,7 +89,7 @@ type ReaderAtSeekerCloser interface {
 }
 
 type FileSystem interface {
-	// Open opens a file for reading.  Follows symlinks.
+	// Open opens a file for reading. Follows symlinks.
 	Open(name string) (ReaderAtSeekerCloser, error)
 
 	// Exists returns whether the file exists and whether it is a directory.  Follows symlinks.
@@ -124,11 +124,29 @@ type FileSystem interface {
 
 // osFs implements FileSystem using the local disk.
 type osFs struct {
-	srcDir string
+	srcDir        string
+	openFilesChan chan bool
 }
 
 func NewOsFs(path string) FileSystem {
-	return &osFs{srcDir: path}
+	// Darwin has a default limit of 256 open files, rate limit open files to 200
+	limit := 200
+	return &osFs{
+		srcDir:        path,
+		openFilesChan: make(chan bool, limit),
+	}
+}
+
+func (fs *osFs) acquire() {
+	if fs.openFilesChan != nil {
+		fs.openFilesChan <- true
+	}
+}
+
+func (fs *osFs) release() {
+	if fs.openFilesChan != nil {
+		<-fs.openFilesChan
+	}
 }
 
 func (fs *osFs) toAbs(path string) string {
@@ -163,11 +181,31 @@ func (fs *osFs) removeSrcDirPrefixes(paths []string) []string {
 	return paths
 }
 
+// OsFile wraps an os.File to also release open file descriptors semaphore on close
+type OsFile struct {
+	*os.File
+	fs *osFs
+}
+
+// Close closes file and releases the open file descriptor semaphore
+func (f *OsFile) Close() error {
+	err := f.File.Close()
+	f.fs.release()
+	return err
+}
+
 func (fs *osFs) Open(name string) (ReaderAtSeekerCloser, error) {
-	return os.Open(fs.toAbs(name))
+	fs.acquire()
+	f, err := os.Open(fs.toAbs(name))
+	if err != nil {
+		return nil, err
+	}
+	return &OsFile{f, fs}, nil
 }
 
 func (fs *osFs) Exists(name string) (bool, bool, error) {
+	fs.acquire()
+	defer fs.release()
 	stat, err := os.Stat(fs.toAbs(name))
 	if err == nil {
 		return true, stat.IsDir(), nil
@@ -179,6 +217,8 @@ func (fs *osFs) Exists(name string) (bool, bool, error) {
 }
 
 func (fs *osFs) IsDir(name string) (bool, error) {
+	fs.acquire()
+	defer fs.release()
 	info, err := os.Stat(fs.toAbs(name))
 	if err != nil {
 		return false, err
@@ -187,6 +227,8 @@ func (fs *osFs) IsDir(name string) (bool, error) {
 }
 
 func (fs *osFs) IsSymlink(name string) (bool, error) {
+	fs.acquire()
+	defer fs.release()
 	if info, err := os.Lstat(fs.toAbs(name)); err != nil {
 		return false, err
 	} else {
@@ -199,16 +241,22 @@ func (fs *osFs) Glob(pattern string, excludes []string, follow ShouldFollowSymli
 }
 
 func (fs *osFs) glob(pattern string) ([]string, error) {
+	fs.acquire()
+	defer fs.release()
 	paths, err := filepath.Glob(fs.toAbs(pattern))
 	fs.removeSrcDirPrefixes(paths)
 	return paths, err
 }
 
 func (fs *osFs) Lstat(path string) (stats os.FileInfo, err error) {
+	fs.acquire()
+	defer fs.release()
 	return os.Lstat(fs.toAbs(path))
 }
 
 func (fs *osFs) Stat(path string) (stats os.FileInfo, err error) {
+	fs.acquire()
+	defer fs.release()
 	return os.Stat(fs.toAbs(path))
 }
 
@@ -218,6 +266,8 @@ func (fs *osFs) ListDirsRecursive(name string, follow ShouldFollowSymlinks) (dir
 }
 
 func (fs *osFs) ReadDirNames(name string) ([]string, error) {
+	fs.acquire()
+	defer fs.release()
 	dir, err := os.Open(fs.toAbs(name))
 	if err != nil {
 		return nil, err
@@ -234,6 +284,8 @@ func (fs *osFs) ReadDirNames(name string) ([]string, error) {
 }
 
 func (fs *osFs) Readlink(name string) (string, error) {
+	fs.acquire()
+	defer fs.release()
 	return os.Readlink(fs.toAbs(name))
 }
 
@@ -245,7 +297,7 @@ type mockFs struct {
 }
 
 func (m *mockFs) followSymlinks(name string) string {
-	dir, file := saneSplit(name)
+	dir, file := quickSplit(name)
 	if dir != "." && dir != "/" {
 		dir = m.followSymlinks(dir)
 	}
@@ -330,7 +382,7 @@ func (m *mockFs) IsDir(name string) (bool, error) {
 }
 
 func (m *mockFs) IsSymlink(name string) (bool, error) {
-	dir, file := saneSplit(name)
+	dir, file := quickSplit(name)
 	dir = m.followSymlinks(dir)
 	name = filepath.Join(dir, file)
 
@@ -363,14 +415,14 @@ func unescapeGlob(s string) string {
 }
 
 func (m *mockFs) glob(pattern string) ([]string, error) {
-	dir, file := saneSplit(pattern)
+	dir, file := quickSplit(pattern)
 
 	dir = unescapeGlob(dir)
 	toDir := m.followSymlinks(dir)
 
 	var matches []string
 	for _, f := range m.all {
-		fDir, fFile := saneSplit(f)
+		fDir, fFile := quickSplit(f)
 		if toDir == fDir {
 			match, err := filepath.Match(file, fFile)
 			if err != nil {
@@ -402,7 +454,7 @@ func (ms *mockStat) ModTime() time.Time { return time.Time{} }
 func (ms *mockStat) Sys() interface{}   { return nil }
 
 func (m *mockFs) Lstat(name string) (os.FileInfo, error) {
-	dir, file := saneSplit(name)
+	dir, file := quickSplit(name)
 	dir = m.followSymlinks(dir)
 	name = filepath.Join(dir, file)
 
@@ -464,7 +516,7 @@ func (m *mockFs) ReadDirNames(name string) ([]string, error) {
 
 	var ret []string
 	for _, f := range m.all {
-		dir, file := saneSplit(f)
+		dir, file := quickSplit(f)
 		if dir == name && len(file) > 0 && file[0] != '.' {
 			ret = append(ret, file)
 		}
@@ -477,7 +529,7 @@ func (m *mockFs) ListDirsRecursive(name string, follow ShouldFollowSymlinks) ([]
 }
 
 func (m *mockFs) Readlink(name string) (string, error) {
-	dir, file := saneSplit(name)
+	dir, file := quickSplit(name)
 	dir = m.followSymlinks(dir)
 
 	origName := name

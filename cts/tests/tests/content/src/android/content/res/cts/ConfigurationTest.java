@@ -181,6 +181,87 @@ public class ConfigurationTest extends AndroidTestCase {
         assertEquals(1, cfg1.compareTo(cfg2));
     }
 
+    public void testGenerateDiff() {
+        Configuration cfg1 = new Configuration();
+        Configuration cfg2 = new Configuration();
+
+        cfg1.fontScale = 2;
+        cfg2.fontScale = 3;
+
+        cfg1.mcc = 2;
+        cfg2.mcc = 3;
+
+        cfg1.mnc = 2;
+        cfg2.mnc = 3;
+
+        cfg1.locale = new Locale("1", "2", "3");
+        cfg1.locale = new Locale("3", "2", "1");
+
+        cfg1.touchscreen = 2;
+        cfg2.touchscreen = 3;
+
+        cfg1.keyboard = 2;
+        cfg2.keyboard = 3;
+
+        cfg1.keyboardHidden = 2;
+        cfg2.keyboardHidden = 3;
+
+        cfg1.navigation = 2;
+        cfg2.navigation = 3;
+
+        cfg1.navigationHidden = 3;
+        cfg2.navigationHidden = 2;
+
+        cfg1.orientation = 3;
+        cfg2.orientation = 2;
+
+        cfg1.screenLayout = Configuration.SCREENLAYOUT_SIZE_NORMAL
+                | Configuration.SCREENLAYOUT_LAYOUTDIR_RTL
+                | Configuration.SCREENLAYOUT_LONG_NO
+                | Configuration.SCREENLAYOUT_ROUND_YES;
+        cfg2.screenLayout = Configuration.SCREENLAYOUT_SIZE_LARGE
+                | Configuration.SCREENLAYOUT_LAYOUTDIR_LTR
+                | Configuration.SCREENLAYOUT_LONG_YES
+                | Configuration.SCREENLAYOUT_ROUND_NO;
+
+        cfg1.colorMode = Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_YES
+                | Configuration.COLOR_MODE_HDR_NO;
+        cfg2.colorMode = Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_NO
+                | Configuration.COLOR_MODE_HDR_YES;
+
+        cfg1.uiMode = Configuration.UI_MODE_TYPE_WATCH
+                | Configuration.UI_MODE_NIGHT_NO;
+        cfg2.uiMode = Configuration.UI_MODE_TYPE_NORMAL
+                | Configuration.UI_MODE_NIGHT_YES;
+
+        cfg1.screenWidthDp = 500;
+        cfg2.screenWidthDp = 600;
+
+        cfg1.screenHeightDp = 920;
+        cfg2.screenHeightDp = 900;
+
+        cfg1.smallestScreenWidthDp = 500;
+        cfg2.smallestScreenWidthDp = 600;
+
+        cfg1.densityDpi = 200;
+        cfg2.densityDpi = 220;
+
+        cfg1.assetsSeq = 4;
+        cfg2.assetsSeq = 5;
+
+        cfg1.fontWeightAdjustment = 2;
+        cfg1.fontWeightAdjustment = 3;
+
+        Configuration delta = Configuration.generateDelta(cfg1, cfg2);
+        assertEquals(cfg2, delta);
+
+        delta = Configuration.generateDelta(cfg2, cfg1);
+        assertEquals(cfg1, delta);
+
+        delta = Configuration.generateDelta(cfg1, cfg1);
+        assertEquals(new Configuration(), delta);
+    }
+
     public void testDescribeContents() {
         assertEquals(0, mConfigDefault.describeContents());
     }

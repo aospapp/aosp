@@ -60,7 +60,7 @@ class ScreensaverSettingsActivity : AppCompatActivity() {
             }
         }
 
-        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String) {
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.screensaver_settings)
         }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,7 +12,6 @@
  * id used with Standalone MM code
  */
 struct sgi_ras_ev_map {
-	int ras_ev_num;		/* RAS Event number */
 	int sdei_ev_num;	/* SDEI Event number */
 	int intr;		/* Physical intr number */
 };

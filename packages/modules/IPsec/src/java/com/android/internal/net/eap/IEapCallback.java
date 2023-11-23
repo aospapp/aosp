@@ -16,6 +16,9 @@
 
 package com.android.internal.net.eap;
 
+import android.annotation.Nullable;
+import android.net.eap.EapInfo;
+
 /**
  * IEapCallback represents a Callback interface to be implemented by clients of the
  * {@link EapAuthenticator}.
@@ -32,8 +35,9 @@ public interface IEapCallback {
      *
      * @param msk The Master Session Key (MSK) generated in the session
      * @param emsk The Extended Master Session Key (EMSK) generated in the session
+     * @param eapInfo EAP information {@link EapInfo}
      */
-    void onSuccess(byte[] msk, byte[] emsk);
+    void onSuccess(byte[] msk, byte[] emsk, @Nullable EapInfo eapInfo);
 
     /**
      * Callback used to indicate that the EAP Authentication Session was unsuccessful.
@@ -44,8 +48,12 @@ public interface IEapCallback {
      * Callback used to return an EAP-Response message for the message being processed.
      *
      * @param eapMsg byte-array encoded EAP-Response message to be sent to the Authentication server
+     * @param flagMask contains flags that convey additional high level EAP state information that
+     *     is relevant to the clients. Clients can use
+     *     {@link com.android.internal.net.eap.EapResult.EapResponse.hasFlag() to check if a
+     *     specific flag is set in the flagMask. The flagMask is set 0 when no flags are set.
      */
-    void onResponse(byte[] eapMsg);
+    void onResponse(byte[] eapMsg, int flagMask);
 
     /**
      * Callback used to indicate that there was an error processing the current EAP message.

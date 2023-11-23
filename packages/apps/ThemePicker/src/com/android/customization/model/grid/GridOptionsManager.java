@@ -16,11 +16,11 @@
 package com.android.customization.model.grid;
 
 import android.content.Context;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.customization.model.CustomizationManager;
@@ -31,11 +31,17 @@ import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.util.PreviewUtils;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * {@link CustomizationManager} for interfacing with the launcher to handle {@link GridOption}s.
  */
 public class GridOptionsManager implements CustomizationManager<GridOption> {
+
+    private static final ExecutorService sExecutorService = Executors.newSingleThreadExecutor();
+    private static final String TAG = "GridOptionsManager";
 
     private static GridOptionsManager sGridOptionsManager;
 
@@ -65,7 +71,16 @@ public class GridOptionsManager implements CustomizationManager<GridOption> {
 
     @Override
     public boolean isAvailable() {
-        return mProvider.areGridsAvailable();
+        int gridOptionSize = 0;
+        try {
+            gridOptionSize = sExecutorService.submit(() -> {
+                List<GridOption> gridOptions = mProvider.fetch(/* reload= */true);
+                return gridOptions == null ? 0 : gridOptions.size();
+            }).get();
+        } catch (InterruptedException | ExecutionException e) {
+            Log.w(TAG, "could not get gridOptionSize", e);
+        }
+        return gridOptionSize > 1 && mProvider.areGridsAvailable();
     }
 
     @Override
@@ -81,49 +96,23 @@ public class GridOptionsManager implements CustomizationManager<GridOption> {
 
     @Override
     public void fetchOptions(OptionsFetchedListener<GridOption> callback, boolean reload) {
-        new FetchTask(mProvider, callback, reload).execute();
+        sExecutorService.submit(() -> {
+            List<GridOption> gridOptions = mProvider.fetch(reload);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (callback != null) {
+                    if (gridOptions != null && !gridOptions.isEmpty()) {
+                        callback.onOptionsLoaded(gridOptions);
+                    } else {
+                        callback.onError(null);
+                    }
+                }
+            });
+        });
     }
 
     /** Call through content provider API to render preview */
     public void renderPreview(Bundle bundle, String gridName,
             PreviewUtils.WorkspacePreviewCallback callback) {
         mProvider.renderPreview(gridName, bundle, callback);
-    }
-
-    private static class FetchTask extends AsyncTask<Void, Void, List<GridOption>> {
-        private final LauncherGridOptionsProvider mProvider;
-        @Nullable private final OptionsFetchedListener<GridOption> mCallback;
-        private final boolean mReload;
-
-        private FetchTask(@NonNull LauncherGridOptionsProvider provider,
-                @Nullable OptionsFetchedListener<GridOption> callback, boolean reload) {
-            mCallback = callback;
-            mProvider = provider;
-            mReload = reload;
-        }
-
-        @Override
-        protected List<GridOption> doInBackground(Void[] params) {
-            return mProvider.fetch(mReload);
-        }
-
-        @Override
-        protected void onPostExecute(List<GridOption> gridOptions) {
-            if (mCallback != null) {
-                if (gridOptions != null && !gridOptions.isEmpty()) {
-                    mCallback.onOptionsLoaded(gridOptions);
-                } else {
-                    mCallback.onError(null);
-                }
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            super.onCancelled();
-            if (mCallback != null) {
-                mCallback.onError(null);
-            }
-        }
     }
 }

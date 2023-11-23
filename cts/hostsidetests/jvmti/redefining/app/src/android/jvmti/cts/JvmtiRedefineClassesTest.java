@@ -742,7 +742,7 @@ public class JvmtiRedefineClassesTest extends JvmtiTestBase {
 
     @Test
     public void testCannotRetransformOnLoadTest() throws Exception {
-        // Just a sanity check along with below.
+        // Just a confidence check along with below.
         Class<?> target_class = new InMemoryDexClassLoader(
                 ByteBuffer.wrap(ONLOAD_INITIAL_CLASS),
                 getClass().getClassLoader()).loadClass(ONLOAD_TEST_CLASS_NAME);

@@ -16,30 +16,55 @@
 
 package android.mediapc.cts;
 
-import static android.util.DisplayMetrics.DENSITY_400;
+import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_SecurePlayback;
+import static android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_ALL;
+import static org.junit.Assert.assertTrue;
 
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.media.MediaDrm;
+import android.media.MediaFormat;
+import android.media.UnsupportedSchemeException;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
+import android.mediapc.cts.common.Utils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
-
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-
+import com.android.compatibility.common.util.CddTest;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
-
-import static org.junit.Assert.assertTrue;
+import org.junit.rules.TestName;
 
 /**
  * Tests the basic aspects of the media performance class.
  */
 public class PerformanceClassTest {
     private static final String TAG = "PerformanceClassTest";
+    public static final String[] VIDEO_CONTAINER_MEDIA_TYPES =
+        {"video/mp4", "video/webm", "video/3gpp", "video/3gpp2", "video/avi", "video/x-ms-wmv",
+            "video/x-ms-asf"};
+    static ArrayList<String> mMimeSecureSupport = new ArrayList<>();
+
+    @Rule
+    public final TestName mTestName = new TestName();
+
+    static {
+        mMimeSecureSupport.add(MediaFormat.MIMETYPE_VIDEO_AVC);
+        mMimeSecureSupport.add(MediaFormat.MIMETYPE_VIDEO_HEVC);
+        mMimeSecureSupport.add(MediaFormat.MIMETYPE_VIDEO_VP9);
+        mMimeSecureSupport.add(MediaFormat.MIMETYPE_VIDEO_AV1);
+    }
+
 
     private boolean isHandheld() {
         // handheld nature is not exposed to package manager, for now
@@ -54,32 +79,86 @@ public class PerformanceClassTest {
 
     @SmallTest
     @Test
+    @CddTest(requirements = {"2.2.7.1/5.1/H-1-11"})
+    public void testSecureHwDecodeSupport() {
+        ArrayList<String> noSecureHwDecoderForMimes = new ArrayList<>();
+        for (String mime : mMimeSecureSupport) {
+            boolean isSecureHwDecoderFoundForMime = false;
+            boolean isHwDecoderFoundForMime = false;
+            MediaCodecList codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+            MediaCodecInfo[] codecInfos = codecList.getCodecInfos();
+            for (MediaCodecInfo info : codecInfos) {
+                if (info.isEncoder() || !info.isHardwareAccelerated() || info.isAlias()) continue;
+                try {
+                    MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                    if (caps != null) {
+                        isHwDecoderFoundForMime = true;
+                        if (caps.isFeatureSupported(FEATURE_SecurePlayback))
+                            isSecureHwDecoderFoundForMime = true;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            if (isHwDecoderFoundForMime && !isSecureHwDecoderFoundForMime)
+                noSecureHwDecoderForMimes.add(mime);
+        }
+
+        boolean secureDecodeSupportIfHwDecoderPresent = noSecureHwDecoderForMimes.isEmpty();
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.SecureCodecRequirement r5_1__H_1_11 = pce.addR5_1__H_1_11();
+        r5_1__H_1_11.setSecureReqSatisfied(secureDecodeSupportIfHwDecoderPresent);
+
+        pce.submitAndCheck();
+    }
+
+    @SmallTest
+    @Test
+    @CddTest(requirements = {"2.2.7.1/5.7/H-1-2"})
+    public void testMediaDrmSecurityLevelHwSecureAll() throws UnsupportedSchemeException {
+        List<UUID> drmList = MediaDrm.getSupportedCryptoSchemes();
+        List<UUID> supportedHwSecureAllSchemes = new ArrayList<>();
+
+        for (UUID cryptoSchemeUUID : drmList) {
+            boolean cryptoSchemeSupportedForAtleastOneMediaType = false;
+            for (String mediaType : VIDEO_CONTAINER_MEDIA_TYPES) {
+                cryptoSchemeSupportedForAtleastOneMediaType |= MediaDrm
+                    .isCryptoSchemeSupported(cryptoSchemeUUID, mediaType,
+                        SECURITY_LEVEL_HW_SECURE_ALL);
+            }
+            if (cryptoSchemeSupportedForAtleastOneMediaType) {
+                supportedHwSecureAllSchemes.add(cryptoSchemeUUID);
+            }
+        }
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.SecureCodecRequirement r5_7__H_1_2 = pce.addR5_7__H_1_2();
+
+        r5_7__H_1_2.setNumCryptoHwSecureAllDec(supportedHwSecureAllSchemes.size());
+
+        pce.submitAndCheck();
+    }
+
+    @SmallTest
+    @Test
     public void testMediaPerformanceClassScope() throws Exception {
         // if device is not of a performance class, we are done.
         Assume.assumeTrue("not a device of a valid media performance class", Utils.isPerfClass());
 
-        if (Utils.isRPerfClass()
-                || Utils.isSPerfClass()) {
-            assertTrue("performance class is only defined for Handheld devices",
-                       isHandheld());
+        if (Utils.isPerfClass()) {
+            assertTrue("performance class is only defined for Handheld devices", isHandheld());
         }
     }
 
     @Test
-    public void testMinimumMemory() {
+    @CddTest(requirements={
+        "2.2.7.3/7.1.1.1/H-1-1",
+        "2.2.7.3/7.1.1.1/H-2-1",
+        "2.2.7.3/7.1.1.3/H-1-1",
+        "2.2.7.3/7.1.1.3/H-2-1",})
+    public void testMinimumResolutionAndDensity() {
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
 
-        if (Utils.isSPerfClass()) {
-            Context context = InstrumentationRegistry.getInstrumentation().getContext();
-
-            // Verify minimum screen density and resolution
-            assertMinDpiAndPixels(context, DENSITY_400, 1920, 1080);
-            // Verify minimum memory
-            assertMinMemoryMb(context, 5 * 1024);
-        }
-    }
-
-    /** Asserts that the given values conform to the specs in CDD */
-    private void assertMinDpiAndPixels(Context context, int minDpi, int minLong, int minShort) {
         // Verify display DPI. We only seem to be able to get the primary display.
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager windowManager =
@@ -89,27 +168,47 @@ public class PerformanceClassTest {
         int longPix = Math.max(metrics.widthPixels, metrics.heightPixels);
         int shortPix = Math.min(metrics.widthPixels, metrics.heightPixels);
 
-        Log.i(TAG, String.format("minDpi=%d minSize=%dx%dpix", minDpi, minLong, minShort));
         Log.i(TAG, String.format("dpi=%d size=%dx%dpix", density, longPix, shortPix));
 
-        assertTrue("Display density " + density + " must be at least " + minDpi + "dpi",
-                   density >= minDpi);
-        assertTrue("Display resolution " + longPix + "x" + shortPix + "pix must be at least " +
-                   minLong + "x" + minShort + "pix",
-                   longPix >= minLong && shortPix >= minShort);
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.ResolutionRequirement r7_1_1_1__h_1_1 = pce.addR7_1_1_1__H_1_1();
+        PerformanceClassEvaluator.DensityRequirement r7_1_1_3__h_1_1 = pce.addR7_1_1_3__H_1_1();
+        PerformanceClassEvaluator.ResolutionRequirement r7_1_1_1__h_2_1 = pce.addR7_1_1_1__H_2_1();
+        PerformanceClassEvaluator.DensityRequirement r7_1_1_3__h_2_1 = pce.addR7_1_1_3__H_2_1();
+
+        r7_1_1_1__h_1_1.setLongResolution(longPix);
+        r7_1_1_1__h_2_1.setLongResolution(longPix);
+
+        r7_1_1_1__h_1_1.setShortResolution(shortPix);
+        r7_1_1_1__h_2_1.setShortResolution(shortPix);
+
+        r7_1_1_3__h_1_1.setDisplayDensity(density);
+        r7_1_1_3__h_2_1.setDisplayDensity(density);
+
+        pce.submitAndCheck();
     }
 
-    /** Asserts that the given values conform to the specs in CDD 7.6.1 */
-    private void assertMinMemoryMb(Context context, long minMb) {
-        ActivityManager activityManager =
-                    (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+    @Test
+    @CddTest(requirements={
+        "2.2.7.3/7.6.1/H-1-1",
+        "2.2.7.3/7.6.1/H-2-1",})
+    public void testMinimumMemory() {
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
+
+        // Verify minimum memory
+        ActivityManager activityManager = context.getSystemService(ActivityManager.class);
         long totalMemoryMb = getTotalMemory(activityManager) / 1024 / 1024;
 
-        Log.i(TAG, String.format("minMb=%,d", minMb));
-        Log.i(TAG, String.format("totalMemoryMb=%,d", totalMemoryMb));
+        Log.i(TAG, String.format("Total device memory = %,d MB", totalMemoryMb));
 
-        assertTrue(String.format("Does not meet minimum memory requirements (CDD 7.6.1)."
-                + "Found = %d, Minimum = %d", totalMemoryMb, minMb), totalMemoryMb >= minMb);
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.MemoryRequirement r7_6_1_h_1_1 = pce.addR7_6_1__H_1_1();
+        PerformanceClassEvaluator.MemoryRequirement r7_6_1_h_2_1 = pce.addR7_6_1__H_2_1();
+
+        r7_6_1_h_1_1.setPhysicalMemory(totalMemoryMb);
+        r7_6_1_h_2_1.setPhysicalMemory(totalMemoryMb);
+
+        pce.submitAndCheck();
     }
 
     /**

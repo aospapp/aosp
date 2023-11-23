@@ -47,7 +47,7 @@ public class OldNumberFormatTest extends TestCase {
         assertEquals(0, format.getMaximumFractionDigits());
         assertTrue(format.isParseIntegerOnly());
 
-        Locale arLocale = new Locale("ar", "AE");
+        Locale arLocale = new Locale("ar", "EG");
         format = (DecimalFormat) NumberFormat.getIntegerInstance(arLocale);
         String variant = (format.toPattern().indexOf(';') > 0) ? "#,##0;-#,##0" : "#,##0";
         assertEquals(variant, format.toPattern());

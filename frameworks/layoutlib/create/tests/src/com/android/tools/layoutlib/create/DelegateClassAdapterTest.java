@@ -20,6 +20,7 @@ package com.android.tools.layoutlib.create;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -57,6 +58,13 @@ public class DelegateClassAdapterTest {
     private static final String OUTER_CLASS_NAME = OuterClass.class.getName();
     private static final String INNER_CLASS_NAME = InnerClass.class.getName();
     private static final String STATIC_INNER_CLASS_NAME = StaticInnerClass.class.getName();
+    // use a string to avoid triggering the static init
+    private static final String CLASS_WITH_STATIC_INIT_NAME =
+            "com.android.tools.layoutlib.create.dataclass.ClassWithStaticInit";
+    private static final String INNER_CLASS_WITH_STATIC_INIT_NAME =
+            "com.android.tools.layoutlib.create.dataclass.ClassWithStaticInit$InnerClass";
+    private static final String INNER_CLASS_WITH_STATIC_INIT_DELEGATE_NAME =
+            "com.android.tools.layoutlib.create.dataclass.ClassWithStaticInit_InnerClass_Delegate";
 
     @Before
     public void setUp() throws Exception {
@@ -230,6 +238,74 @@ public class DelegateClassAdapterTest {
                 }
             };
             cl2.add(STATIC_INNER_CLASS_NAME, cw);
+            cl2.testModifiedInstance();
+        } catch (Throwable t) {
+            throw dumpGeneratedClass(t, cl2);
+        }
+    }
+
+    @Test
+    public void testDelegateStaticInitializer() throws Throwable {
+        ClassWriter cw = new ClassWriter(0 /*flags*/);
+
+        String internalClassName = CLASS_WITH_STATIC_INIT_NAME.replace('.', '/');
+
+        HashSet<String> delegateMethods = new HashSet<>();
+        delegateMethods.add("<clinit>");
+        DelegateClassAdapter cv = new DelegateClassAdapter(
+                mLog, cw, internalClassName, delegateMethods);
+
+        ClassReader cr = new ClassReader(CLASS_WITH_STATIC_INIT_NAME);
+        cr.accept(cv, 0 /* flags */);
+
+        ClassLoader2 cl2 = null;
+        try {
+            cl2 = new ClassLoader2() {
+                @Override
+                public void testModifiedInstance() throws Exception {
+                    Class<?> clazz2 = loadClass(CLASS_WITH_STATIC_INIT_NAME);
+
+                    assertNull(clazz2.getField("sList").get(null));
+
+                    Class<?> delegateClass = loadClass(CLASS_WITH_STATIC_INIT_NAME + "_Delegate");
+                    assertNotNull( delegateClass.getField("sList").get(null));
+                }
+            };
+            cl2.add(CLASS_WITH_STATIC_INIT_NAME, cw);
+            cl2.testModifiedInstance();
+        } catch (Throwable t) {
+            throw dumpGeneratedClass(t, cl2);
+        }
+    }
+
+    @Test
+    public void testDelegateInnerClassStaticInitializer() throws Throwable {
+        ClassWriter cw = new ClassWriter(0 /*flags*/);
+
+        String internalClassName = INNER_CLASS_WITH_STATIC_INIT_NAME.replace('.', '/');
+
+        HashSet<String> delegateMethods = new HashSet<>();
+        delegateMethods.add("<clinit>");
+        DelegateClassAdapter cv = new DelegateClassAdapter(
+                mLog, cw, internalClassName, delegateMethods);
+
+        ClassReader cr = new ClassReader(INNER_CLASS_WITH_STATIC_INIT_NAME);
+        cr.accept(cv, 0 /* flags */);
+
+        ClassLoader2 cl2 = null;
+        try {
+            cl2 = new ClassLoader2() {
+                @Override
+                public void testModifiedInstance() throws Exception {
+                    Class<?> clazz2 = loadClass(INNER_CLASS_WITH_STATIC_INIT_NAME);
+
+                    assertNull(clazz2.getField("sInnerList").get(null));
+
+                    Class<?> delegateClass = loadClass(INNER_CLASS_WITH_STATIC_INIT_DELEGATE_NAME);
+                    assertNotNull( delegateClass.getField("sList").get(null));
+                }
+            };
+            cl2.add(INNER_CLASS_WITH_STATIC_INIT_NAME, cw);
             cl2.testModifiedInstance();
         } catch (Throwable t) {
             throw dumpGeneratedClass(t, cl2);

@@ -16,6 +16,8 @@
 package com.android.server.stats;
 
 import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
+import static android.provider.DeviceConfig.NAMESPACE_STATSD_JAVA;
+import static android.provider.DeviceConfig.Properties;
 
 import android.app.AlarmManager;
 import android.app.AlarmManager.OnAlarmListener;
@@ -25,9 +27,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.InstallSourceInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.FileUtils;
@@ -44,22 +49,28 @@ import android.os.StatsFrameworkInitializer;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.DeviceConfig;
 import android.util.Log;
+import android.util.PropertyParcel;
 import android.util.proto.ProtoOutputStream;
-
-import com.android.modules.utils.build.SdkLevel;
 import com.android.internal.annotations.GuardedBy;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.server.stats.StatsHelper;
-
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.ByteOrder;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -88,14 +99,11 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
     private static final int VERSION_STRING_FIELD_ID = 3;
     private static final int PACKAGE_NAME_FIELD_ID = 4;
     private static final int INSTALLER_FIELD_ID = 5;
+    private static final int CERTIFICATE_HASH_FIELD_ID = 6;
 
     public static final int DEATH_THRESHOLD = 10;
 
-    static final class CompanionHandler extends Handler {
-        CompanionHandler(Looper looper) {
-            super(looper);
-        }
-    }
+    private static final String INCLUDE_CERTIFICATE_HASH = "include_certificate_hash";
 
     private final Context mContext;
     private final AlarmManager mAlarmManager;
@@ -103,7 +111,6 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
     private static IStatsd sStatsd;
     private static final Object sStatsdLock = new Object();
 
-    private final OnAlarmListener mAnomalyAlarmListener;
     private final OnAlarmListener mPullingAlarmListener;
     private final OnAlarmListener mPeriodicAlarmListener;
 
@@ -113,7 +120,7 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
     private final HashSet<Long> mDeathTimeMillis = new HashSet<>();
     @GuardedBy("sStatsdLock")
     private final HashMap<Long, String> mDeletedFiles = new HashMap<>();
-    private final CompanionHandler mHandler;
+    private final Handler mHandler;
 
     // Flag that is set when PHASE_BOOT_COMPLETED is triggered in the StatsCompanion lifecycle.
     private AtomicBoolean mBootCompleted = new AtomicBoolean(false);
@@ -125,27 +132,10 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         if (DEBUG) Log.d(TAG, "Registered receiver for ACTION_PACKAGE_REPLACED and ADDED.");
         HandlerThread handlerThread = new HandlerThread(TAG);
         handlerThread.start();
-        mHandler = new CompanionHandler(handlerThread.getLooper());
+        mHandler = new Handler(handlerThread.getLooper());
 
-        mAnomalyAlarmListener = new AnomalyAlarmListener(context);
         mPullingAlarmListener = new PullingAlarmListener(context);
         mPeriodicAlarmListener = new PeriodicAlarmListener(context);
-    }
-
-    private final static int[] toIntArray(List<Integer> list) {
-        int[] ret = new int[list.size()];
-        for (int i = 0; i < ret.length; i++) {
-            ret[i] = list.get(i);
-        }
-        return ret;
-    }
-
-    private final static long[] toLongArray(List<Long> list) {
-        long[] ret = new long[list.size()];
-        for (int i = 0; i < ret.length; i++) {
-            ret[i] = list.get(i);
-        }
-        return ret;
     }
 
     /**
@@ -157,6 +147,51 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         synchronized (sStatsdLock) {
             return sStatsd;
         }
+    }
+
+    private static String getInstallerPackageName(PackageManager pm, String name) {
+        InstallSourceInfo installSourceInfo = null;
+        try {
+            installSourceInfo = pm.getInstallSourceInfo(name);
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Could not get installer for package: " + name, e);
+        }
+
+        String installerPackageName = null;
+        if (installSourceInfo != null) {
+            installerPackageName = installSourceInfo.getInitiatingPackageName();
+            if (installerPackageName == null) {
+                installerPackageName = installSourceInfo.getInstallingPackageName();
+            }
+        }
+
+        return installerPackageName == null ? "" : installerPackageName;
+    }
+
+    private static byte[] getPackageCertificateHash(final SigningInfo si) {
+        if (si == null) {
+            return new byte[0];
+        }
+
+        final Signature[] signatures = si.getApkContentsSigners();
+        if (signatures == null || signatures.length < 1) {
+            return new byte[0];
+        }
+
+        MessageDigest messageDigest = null;
+        try {
+            messageDigest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            Log.e(TAG, "Failed to get SHA-256 instance of MessageDigest", e);
+            return new byte[0];
+        }
+
+        Arrays.sort(signatures, Comparator.comparing(Signature::hashCode));
+        for (final Signature signature : signatures) {
+            messageDigest.update(signature.toByteArray());
+        }
+
+        return messageDigest.digest();
     }
 
     private static void informAllUids(Context context) {
@@ -197,18 +232,15 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
             try {
                 ProtoOutputStream output = new ProtoOutputStream(fout);
                 int numRecords = 0;
+
                 // Add in all the apps for every user/profile.
                 for (UserHandle userHandle : users) {
                     List<PackageInfo> packagesPlusApex = getAllPackagesWithApex(pm, userHandle);
                     for (int j = 0; j < packagesPlusApex.size(); j++) {
                         if (packagesPlusApex.get(j).applicationInfo != null) {
-                            String installer;
-                            try {
-                                installer = pm.getInstallerPackageName(
-                                        packagesPlusApex.get(j).packageName);
-                            } catch (IllegalArgumentException e) {
-                                installer = "";
-                            }
+                            final String installer = getInstallerPackageName(
+                                    pm, packagesPlusApex.get(j).packageName);
+
                             long applicationInfoToken =
                                     output.start(ProtoOutputStream.FIELD_TYPE_MESSAGE
                                             | ProtoOutputStream.FIELD_COUNT_REPEATED
@@ -230,7 +262,17 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
                             output.write(ProtoOutputStream.FIELD_TYPE_STRING
                                             | ProtoOutputStream.FIELD_COUNT_SINGLE
                                             | INSTALLER_FIELD_ID,
-                                    installer == null ? "" : installer);
+                                    installer);
+                            if (DeviceConfig.getBoolean(
+                                        NAMESPACE_STATSD_JAVA, INCLUDE_CERTIFICATE_HASH, false)) {
+                                final byte[] certHash = getPackageCertificateHash(
+                                        packagesPlusApex.get(j).signingInfo);
+                                output.write(ProtoOutputStream.FIELD_TYPE_BYTES
+                                                | ProtoOutputStream.FIELD_COUNT_SINGLE
+                                                | CERTIFICATE_HASH_FIELD_ID,
+                                        certHash);
+                            }
+
                             numRecords++;
                             output.end(applicationInfoToken);
                         }
@@ -253,7 +295,8 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         // We want all the uninstalled packages because uninstalled package uids can still be logged
         // to statsd.
         List<PackageInfo> allPackages = new ArrayList<>(
-                pm.getInstalledPackagesAsUser(PackageManager.MATCH_UNINSTALLED_PACKAGES
+                pm.getInstalledPackagesAsUser(PackageManager.GET_SIGNING_CERTIFICATES
+                                | PackageManager.MATCH_UNINSTALLED_PACKAGES
                                 | PackageManager.MATCH_ANY_USER,
                         userHandle.getIdentifier()));
         // We make a second query to package manager for the apex modules because package manager
@@ -327,19 +370,25 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
                         Bundle b = intent.getExtras();
                         int uid = b.getInt(Intent.EXTRA_UID);
                         String app = intent.getData().getSchemeSpecificPart();
-                        PackageInfo pi = pm.getPackageInfo(app, PackageManager.MATCH_ANY_USER);
-                        String installer;
-                        try {
-                            installer = pm.getInstallerPackageName(app);
-                        } catch (IllegalArgumentException e) {
-                            installer = "";
+                        PackageInfo pi = pm.getPackageInfo(app,
+                                    PackageManager.GET_SIGNING_CERTIFICATES
+                                    | PackageManager.MATCH_ANY_USER);
+                        final String installer = getInstallerPackageName(pm, app);
+
+                        // Get Package certificate hash.
+                        byte[] certHash = new byte[0];
+                        if (DeviceConfig.getBoolean(
+                                    NAMESPACE_STATSD_JAVA, INCLUDE_CERTIFICATE_HASH, false)) {
+                            certHash = getPackageCertificateHash(pi.signingInfo);
                         }
+
                         sStatsd.informOnePackage(
                                 app,
                                 uid,
                                 pi.getLongVersionCode(),
                                 pi.versionName == null ? "" : pi.versionName,
-                                installer == null ? "" : installer);
+                                installer,
+                                certHash);
                     }
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to inform statsd of an app update", e);
@@ -354,41 +403,6 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
             // Pull the latest state of UID->app name, version mapping.
             // Needed since the new user basically has a version of every app.
             informAllUids(context);
-        }
-    }
-
-    public static final class AnomalyAlarmListener implements OnAlarmListener {
-        private final Context mContext;
-
-        AnomalyAlarmListener(Context context) {
-            mContext = context;
-        }
-
-        @Override
-        public void onAlarm() {
-            if (DEBUG) {
-                Log.i(TAG, "StatsCompanionService believes an anomaly has occurred at time "
-                        + System.currentTimeMillis() + "ms.");
-            }
-            IStatsd statsd = getStatsdNonblocking();
-            if (statsd == null) {
-                Log.w(TAG, "Could not access statsd to inform it of anomaly alarm firing");
-                return;
-            }
-
-            // Wakelock needs to be retained while calling statsd.
-            Thread thread = new WakelockThread(mContext,
-                    AnomalyAlarmListener.class.getCanonicalName(), new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                statsd.informAnomalyAlarmFired();
-                            } catch (RemoteException e) {
-                                Log.w(TAG, "Failed to inform statsd of anomaly alarm firing", e);
-                            }
-                        }
-                    });
-            thread.start();
         }
     }
 
@@ -490,32 +504,12 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
     }
 
     @Override // Binder call
-    public void setAnomalyAlarm(long timestampMs) {
-        StatsCompanion.enforceStatsdCallingUid();
-        if (DEBUG) Log.d(TAG, "Setting anomaly alarm for " + timestampMs);
-        final long callingToken = Binder.clearCallingIdentity();
-        try {
-            // using ELAPSED_REALTIME, not ELAPSED_REALTIME_WAKEUP, so if device is asleep, will
-            // only fire when it awakens.
-            // AlarmManager will automatically cancel any previous mAnomalyAlarmListener alarm.
-            mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME, timestampMs, TAG + ".anomaly",
-                    mAnomalyAlarmListener, mHandler);
-        } finally {
-            Binder.restoreCallingIdentity(callingToken);
-        }
-    }
+    // Unused, but keep the IPC due to the bootstrap apex issue on R.
+    public void setAnomalyAlarm(long timestampMs) {}
 
     @Override // Binder call
-    public void cancelAnomalyAlarm() {
-        StatsCompanion.enforceStatsdCallingUid();
-        if (DEBUG) Log.d(TAG, "Cancelling anomaly alarm");
-        final long callingToken = Binder.clearCallingIdentity();
-        try {
-            mAlarmManager.cancel(mAnomalyAlarmListener);
-        } finally {
-            Binder.restoreCallingIdentity(callingToken);
-        }
-    }
+    // Unused, but keep the IPC due to the bootstrap apex issue on R.
+    public void cancelAnomalyAlarm() {}
 
     @Override // Binder call
     public void setAlarmForSubscriberTriggering(long timestampMs) {
@@ -677,6 +671,49 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
         mStatsManagerService = statsManagerService;
     }
 
+    private void onPropertiesChanged(final Properties properties) {
+        updateProperties(properties);
+
+        // Re-fetch package information with package certificates if include_certificate_hash
+        // property changed.
+        final Set<String> propertyNames = properties.getKeyset();
+        if (propertyNames.contains(INCLUDE_CERTIFICATE_HASH)) {
+            informAllUids(mContext);
+        }
+    }
+
+    private void updateProperties(final Properties properties) {
+        if (DEBUG) {
+            Log.d(TAG, "statsd_java properties updated");
+        }
+
+        final Set<String> propertyNames = properties.getKeyset();
+        if (propertyNames.isEmpty()) {
+            return;
+        }
+
+        final PropertyParcel[] propertyParcels = new PropertyParcel[propertyNames.size()];
+        int index = 0;
+        for (final String propertyName : propertyNames) {
+            propertyParcels[index] = new PropertyParcel();
+            propertyParcels[index].property = propertyName;
+            propertyParcels[index].value = properties.getString(propertyName, null);
+            index++;
+        }
+
+        final IStatsd statsd = getStatsdNonblocking();
+        if (statsd == null) {
+            Log.w(TAG, "Could not access statsd to inform it of updated statsd_java properties");
+            return;
+        }
+
+        try {
+            statsd.updateProperties(propertyParcels);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed to inform statsd of an include app certificate flag update", e);
+        }
+    }
+
     /**
      * Tells statsd that statscompanion is ready. If the binder call returns, link to
      * statsd.
@@ -697,11 +734,11 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
             return;
         }
 
-        // Cleann up from previous statsd - cancel any alarms that had been set. Do this here
-        // instead of in binder death because statsd can come back and set different alarms, or not
-        // want to set an alarm when it had been set. This guarantees that when we get a new statsd,
-        // we cancel any alarms before it is able to set them.
-        cancelAnomalyAlarm();
+        // Cleann up from previous statsd - cancel any alarms that had been set.
+        // Do this here instead of in binder death because statsd can come back
+        // and set different alarms, or not want to set an alarm when it had
+        // been set. This guarantees that when we get a new statsd, we cancel
+        // any alarms before it is able to set them.
         cancelPullingAlarm();
         cancelAlarmForSubscriberTriggering();
 
@@ -731,6 +768,18 @@ public class StatsCompanionService extends IStatsCompanionService.Stub {
             filter = new IntentFilter(Intent.ACTION_REBOOT);
             filter.addAction(Intent.ACTION_SHUTDOWN);
             mContext.registerReceiverForAllUsers(shutdownEventReceiver, filter, null, null);
+
+            // Register listener for statsd_java properties updates.
+            DeviceConfig.addOnPropertiesChangedListener(NAMESPACE_STATSD_JAVA,
+                    mContext.getMainExecutor(), this::onPropertiesChanged);
+
+            // Get current statsd_java properties.
+            final long token = Binder.clearCallingIdentity();
+            try {
+                updateProperties(DeviceConfig.getProperties(NAMESPACE_STATSD_JAVA));
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
 
             // Register death recipient.
             List<BroadcastReceiver> broadcastReceivers =

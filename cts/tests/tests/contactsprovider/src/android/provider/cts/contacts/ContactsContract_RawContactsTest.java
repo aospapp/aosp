@@ -228,7 +228,7 @@ public class ContactsContract_RawContactsTest extends AndroidTestCase {
      *
      * <p>See {@link #testRawContactCreate_noAccountUsesLocalAccount()}
      */
-    @CddTest(requirement="3.18/C-1-1,C-1-2,C-1-3")
+    @CddTest(requirement = "3.18/C-1-1,C-1-2,C-1-3")
     public void testRawContactCreate_nullAccountUsesLocalAccount() throws Exception {
         // Save a raw contact using the default local account
         TestRawContact rawContact = mBuilder.newRawContact()

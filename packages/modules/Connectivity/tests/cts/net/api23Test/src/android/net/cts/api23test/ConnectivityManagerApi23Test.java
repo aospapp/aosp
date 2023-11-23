@@ -57,7 +57,8 @@ public class ConnectivityManagerApi23Test extends AndroidTestCase {
     /**
      * Tests reporting of connectivity changed.
      */
-    public void testConnectivityChanged_manifestRequestOnly_shouldNotReceiveIntent() {
+    public void testConnectivityChanged_manifestRequestOnly_shouldNotReceiveIntent()
+            throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testConnectivityChanged_manifestRequestOnly_shouldNotReceiveIntent cannot execute unless device supports WiFi");
             return;
@@ -75,7 +76,7 @@ public class ConnectivityManagerApi23Test extends AndroidTestCase {
     }
 
     public void testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent()
-            throws InterruptedException {
+            throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot"
                     + "execute unless device supports WiFi");
@@ -94,7 +95,7 @@ public class ConnectivityManagerApi23Test extends AndroidTestCase {
                 getConnectivityCount, SEND_BROADCAST_TIMEOUT));
     }
 
-    public void testConnectivityChanged_whenRegistered_shouldReceiveIntent() {
+    public void testConnectivityChanged_whenRegistered_shouldReceiveIntent() throws Exception {
         if (!mPackageManager.hasSystemFeature(FEATURE_WIFI)) {
             Log.i(TAG, "testConnectivityChanged_whenRegistered_shouldReceiveIntent cannot execute unless device supports WiFi");
             return;

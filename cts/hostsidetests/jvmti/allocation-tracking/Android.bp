@@ -27,4 +27,8 @@ java_test_host {
     test_options: {
         unit_test: false,
     },
+    data: [
+        ":CtsJvmtiTrackingDeviceApp",
+    ],
+    per_testcase_directory: true,
 }

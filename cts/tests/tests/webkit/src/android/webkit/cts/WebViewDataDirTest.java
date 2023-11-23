@@ -16,7 +16,6 @@
 
 package android.webkit.cts;
 
-
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
@@ -26,7 +25,6 @@ import com.android.compatibility.common.util.NullWebViewUtils;
 
 public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
 
-    private static final long REMOTE_TIMEOUT_MS = 5000;
     private static final String ALTERNATE_DIR_NAME = "test";
     private static final String COOKIE_URL = "https://www.webviewdatadirtest.com/";
     private static final String COOKIE_VALUE = "foo=main";
@@ -53,7 +51,7 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
 
         try (TestProcessClient process = TestProcessClient.createProcessA(getActivity())) {
-            process.run(TestDisableThenUseImpl.class, REMOTE_TIMEOUT_MS);
+            process.run(TestDisableThenUseImpl.class);
         }
     }
 
@@ -97,7 +95,7 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
 
         try (TestProcessClient process = TestProcessClient.createProcessA(getActivity())) {
-            process.run(TestInvalidDirImpl.class, REMOTE_TIMEOUT_MS);
+            process.run(TestInvalidDirImpl.class);
         }
     }
 
@@ -119,7 +117,7 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         assertNotNull(getActivity().getWebView());
 
         try (TestProcessClient processA = TestProcessClient.createProcessA(getActivity())) {
-            processA.run(TestDefaultDirDisallowed.class, REMOTE_TIMEOUT_MS);
+            processA.run(TestDefaultDirDisallowed.class);
         }
     }
 
@@ -145,7 +143,7 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         assertEquals("wrong cookie in default cookie jar", COOKIE_VALUE, cookie);
 
         try (TestProcessClient processA = TestProcessClient.createProcessA(getActivity())) {
-            processA.run(TestCookieInAlternateDir.class, REMOTE_TIMEOUT_MS);
+            processA.run(TestCookieInAlternateDir.class);
         }
     }
 }

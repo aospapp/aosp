@@ -19,24 +19,31 @@ package android.net.wifi.cts;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.MloLink;
 import android.net.wifi.ScanResult;
 import android.net.wifi.ScanResult.InformationElement;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.net.wifi.WifiScanner;
+import android.net.wifi.WifiSsid;
+import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+import android.support.test.uiautomator.UiDevice;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class ScanResultTest extends WifiJUnit3TestBase {
@@ -46,6 +53,7 @@ public class ScanResultTest extends WifiJUnit3TestBase {
 
     private WifiManager mWifiManager;
     private WifiLock mWifiLock;
+    private TestHelper mTestHelper;
     private static MySync mMySync;
     private boolean mWasVerboseLoggingEnabled;
     private boolean mWasScanThrottleEnabled;
@@ -66,6 +74,9 @@ public class ScanResultTest extends WifiJUnit3TestBase {
     private static final int SCAN_FIND_BSSID_MAX_RETRY_COUNT = 5;
     private static final long SCAN_FIND_BSSID_WAIT_MSEC = 5_000L;
     private static final int WIFI_CONNECT_TIMEOUT_MILLIS = 30_000;
+
+    // Note: defined in ScanRequestProxy.java
+    public static final int SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS = 4;
 
     private static final String TEST_SSID = "TEST_SSID";
     public static final String TEST_BSSID = "04:ac:fe:45:34:10";
@@ -118,6 +129,9 @@ public class ScanResultTest extends WifiJUnit3TestBase {
         mContext.registerReceiver(mReceiver, mIntentFilter);
         mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
         assertThat(mWifiManager).isNotNull();
+
+        mTestHelper = new TestHelper(InstrumentationRegistry.getInstrumentation().getContext(),
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()));
 
         // turn on verbose logging for tests
         mWasVerboseLoggingEnabled = ShellIdentityUtils.invokeWithShellPermissions(
@@ -283,6 +297,7 @@ public class ScanResultTest extends WifiJUnit3TestBase {
 
         ScanResult scanResult = new ScanResult();
         scanResult.SSID = TEST_SSID;
+        scanResult.setWifiSsid(WifiSsid.fromBytes(TEST_SSID.getBytes(StandardCharsets.UTF_8)));
         scanResult.BSSID = TEST_BSSID;
         scanResult.capabilities = TEST_CAPS;
         scanResult.level = TEST_LEVEL;
@@ -291,6 +306,7 @@ public class ScanResultTest extends WifiJUnit3TestBase {
 
         ScanResult scanResult2 = new ScanResult(scanResult);
         assertThat(scanResult2.SSID).isEqualTo(TEST_SSID);
+        assertThat(scanResult2.getWifiSsid()).isEqualTo(scanResult.getWifiSsid());
         assertThat(scanResult2.BSSID).isEqualTo(TEST_BSSID);
         assertThat(scanResult2.capabilities).isEqualTo(TEST_CAPS);
         assertThat(scanResult2.level).isEqualTo(TEST_LEVEL);
@@ -338,5 +354,87 @@ public class ScanResultTest extends WifiJUnit3TestBase {
                 .that("\"" + scanResultSsidUnquoted + "\"")
                 .isEqualTo(wifiInfoSsidQuoted);
         assertThat(currentNetwork.frequency).isEqualTo(wifiInfo.getFrequency());
+        assertThat(currentNetwork.getSecurityTypes())
+                .asList().contains(wifiInfo.getCurrentSecurityType());
+    }
+
+    /**
+     * Verify that scan throttling is enforced.
+     */
+    public void testScanThrottling() throws Exception {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+
+        // re-enable scan throttling
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> mWifiManager.setScanThrottleEnabled(true));
+        mTestHelper.turnScreenOn();
+
+        synchronized (mMySync) {
+            for (int i = 0; i < SCAN_REQUEST_THROTTLE_MAX_IN_TIME_WINDOW_FG_APPS; ++i) {
+                mWifiManager.startScan();
+                assertTrue("Iteration #" + i,
+                        waitForBroadcast(SCAN_WAIT_MSEC, STATE_SCAN_RESULTS_AVAILABLE));
+            }
+
+            mWifiManager.startScan();
+            assertTrue("Should be throttled", waitForBroadcast(SCAN_WAIT_MSEC, STATE_SCAN_FAILURE));
+        }
+    }
+
+    /**
+     * Test MLO Attributes in ScanResult Constructor (WiFi-7)
+     */
+    public void testScanResultMloAttributes() {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+
+        ScanResult scanResult = new ScanResult();
+        assertNull(scanResult.getApMldMacAddress());
+        assertEquals(MloLink.INVALID_MLO_LINK_ID, scanResult.getApMloLinkId());
+        assertNotNull(scanResult.getAffiliatedMloLinks());
+        assertTrue(scanResult.getAffiliatedMloLinks().isEmpty());
+    }
+
+    /**
+     * Test MLO Link Constructor (WiFi-7)
+     */
+    public void testMloLinkConstructor() {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+
+        MloLink mloLink = new MloLink();
+        assertEquals(WifiScanner.WIFI_BAND_UNSPECIFIED, mloLink.getBand());
+        assertEquals(0, mloLink.getChannel());
+        assertEquals(MloLink.INVALID_MLO_LINK_ID, mloLink.getLinkId());
+        assertNull(mloLink.getStaMacAddress());
+        assertNull(mloLink.getApMacAddress());
+        assertEquals(MloLink.MLO_LINK_STATE_UNASSOCIATED, mloLink.getState());
+    }
+
+    /**
+     * Test MLO Link parcelable APIs
+     */
+    public void testMloLinkParcelable() {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+
+        Parcel p = Parcel.obtain();
+        MloLink mloLink = new MloLink();
+
+        mloLink.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        MloLink newMloLink = MloLink.CREATOR.createFromParcel(p);
+        assertEquals(mloLink, newMloLink);
+        assertEquals("hashCode() did not get right hashCode",
+                mloLink.hashCode(), newMloLink.hashCode());
     }
 }

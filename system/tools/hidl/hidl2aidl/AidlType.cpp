@@ -46,17 +46,24 @@ std::optional<const ReplacedTypeInfo> AidlHelper::getAidlReplacedType(const FQNa
     return std::nullopt;
 }
 
-std::string AidlHelper::getAidlType(const Type& type, const FQName& relativeTo) {
+std::string AidlHelper::getAidlType(const Type& type, const FQName& relativeTo,
+                                    AidlBackend backend) {
     if (type.isVector()) {
         const VectorType& vec = static_cast<const VectorType&>(type);
         return getAidlType(*vec.getElementType(), relativeTo) + "[]";
     } else if (type.isArray()) {
         const ArrayType& arr = static_cast<const ArrayType&>(type);
-        return getAidlType(*arr.getElementType(), relativeTo) + "[]";
+        auto sizes = arr.getConstantExpressions();
+        CHECK(sizes.size() > 0) << "Failed to get array dimensions for " << arr.definedName();
+        std::string typeStr = getAidlType(*arr.getElementType(), relativeTo);
+        for (const auto& size : sizes) {
+            typeStr += "[" + size->value() + "]";
+        }
+        return typeStr;
     } else if (type.isNamedType()) {
         const NamedType& namedType = static_cast<const NamedType&>(type);
         if (getAidlPackage(relativeTo) == getAidlPackage(namedType.fqName())) {
-            return getAidlName(namedType.fqName());
+            return getAidlName(namedType.fqName(), backend);
         } else {
             std::optional<const ReplacedTypeInfo> type = getAidlReplacedType(namedType.fqName());
             if (type) {

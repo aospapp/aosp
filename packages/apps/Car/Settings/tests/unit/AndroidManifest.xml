@@ -24,8 +24,14 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BACKUP"/>
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <!-- Request legacy Bluetooth permissions on older devices. -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+                     android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+                     android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED"/>
     <uses-permission android:name="android.permission.CAR_VENDOR_EXTENSION"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
@@ -147,6 +153,16 @@
             android:name="com.android.car.settings.system.RegulatoryInfoDisplayActivity"
             android:theme="@style/CarSettingTheme"
             android:label="@string/regulatory_labels">
+        </activity>
+
+        <activity android:name="com.android.car.settings.admin.NewUserDisclaimerActivity"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:launchMode="singleTask">
+        </activity>
+
+        <activity
+            android:name="com.android.car.settings.bluetooth.TestBluetoothRequestPermissionActivity"
+            android:theme="@style/ActionDialogTheme">
         </activity>
 
         <receiver

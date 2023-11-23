@@ -19,11 +19,15 @@
 
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_abortCaptures);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_capture);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_captureV2);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_close);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_getDevice);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_logicalCamera_capture);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_logicalCamera_captureV2);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_logicalCamera_setRepeatingRequest);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_logicalCamera_setRepeatingRequestV2);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_setRepeatingRequest);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_setRepeatingRequestV2);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_stopRepeating);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraCaptureSession_updateSharedOutput);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraDevice_close);
@@ -86,11 +90,15 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACaptureSessionSharedOutput_remove);
 static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_abortCaptures);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_capture);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_captureV2);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_close);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_getDevice);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_logicalCamera_capture);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_logicalCamera_captureV2);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_logicalCamera_setRepeatingRequest);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_logicalCamera_setRepeatingRequestV2);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_setRepeatingRequest);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_setRepeatingRequestV2);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_stopRepeating);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraCaptureSession_updateSharedOutput);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraDevice_close);

@@ -137,6 +137,9 @@ build = False
 dist = False
 gdb = False
 gdb_arg = ''
+dump_cfg = ''
+gdb_dex2oat = False
+gdb_dex2oat_args = ''
 csv_result = None
 csv_writer = None
 runtime_option = ''
@@ -193,7 +196,6 @@ class ChildProcessTracker(object):
       self.procs = None # Make future wait() calls kill their processes immediately.
 
 child_process_tracker = ChildProcessTracker()
-
 
 def setup_csv_result():
   """Set up the CSV output if required."""
@@ -317,8 +319,8 @@ def setup_test_env():
   if 'target' in _user_input_variants['target']:
     device_name = get_device_name()
     if n_thread == 0:
-      # Use only half of the cores since fully loading the device tends to lead to timeouts.
-      n_thread = get_target_cpu_count() // 2
+      # Use only part of the cores since fully loading the device tends to lead to timeouts.
+      n_thread = max(1, int(get_target_cpu_count() * 0.75))
       if device_name == 'fugu':
         n_thread = 1
   else:
@@ -417,6 +419,13 @@ def run_tests(tests):
     options_all += ' --gdb'
     if gdb_arg:
       options_all += ' --gdb-arg ' + gdb_arg
+
+  if dump_cfg:
+    options_all += ' --dump-cfg ' + dump_cfg
+  if gdb_dex2oat:
+    options_all += ' --gdb-dex2oat'
+    if gdb_dex2oat_args:
+      options_all += ' --gdb-dex2oat-args ' + gdb_dex2oat_args
 
   options_all += ' ' + ' '.join(run_test_option)
 
@@ -568,10 +577,9 @@ def run_tests(tests):
       if address_size == '64':
         options_test += ' --64'
 
-      # TODO(http://36039166): This is a temporary solution to
-      # fix build breakages.
-      options_test = (' --output-path %s') % (
-          tempfile.mkdtemp(dir=env.ART_HOST_TEST_DIR)) + options_test
+      # b/36039166: Note that the path lengths must kept reasonably short.
+      temp_path = tempfile.mkdtemp(dir=env.ART_HOST_TEST_DIR)
+      options_test = '--temp-path {} '.format(temp_path) + options_test
 
       run_test_sh = env.ANDROID_BUILD_TOP + '/art/test/run-test'
       command = ' '.join((run_test_sh, options_test, ' '.join(extra_arguments[target]), test))
@@ -594,7 +602,7 @@ def run_tests(tests):
 
       try:
         tests_done = 0
-        for test_future in concurrent.futures.as_completed(test_futures):
+        for test_future in concurrent.futures.as_completed(f for f in test_futures if f):
           (test, status, failure_info, test_time) = test_future.result()
           tests_done += 1
           print_test_info(tests_done, test, status, failure_info, test_time)
@@ -657,7 +665,7 @@ def run_test(command, test, test_variant, test_name):
       test_start_time = time.monotonic()
       if verbose:
         print_text("Starting %s at %s\n" % (test_name, test_start_time))
-      if gdb:
+      if gdb or gdb_dex2oat:
         proc = _popen(
           args=command.split(),
           stderr=subprocess.STDOUT,
@@ -1083,6 +1091,9 @@ def parse_option():
   global dist
   global gdb
   global gdb_arg
+  global dump_cfg
+  global gdb_dex2oat
+  global gdb_dex2oat_args
   global runtime_option
   global run_test_option
   global timeout
@@ -1122,12 +1133,17 @@ def parse_option():
   global_group.set_defaults(build = env.ART_TEST_RUN_TEST_BUILD)
   global_group.add_argument('--gdb', action='store_true', dest='gdb')
   global_group.add_argument('--gdb-arg', dest='gdb_arg')
+  global_group.add_argument('--dump-cfg', dest='dump_cfg',
+                            help="""Dump the CFG to the specified host path.
+                            Example \"--dump-cfg <full-path>/graph.cfg\".""")
+  global_group.add_argument('--gdb-dex2oat', action='store_true', dest='gdb_dex2oat')
+  global_group.add_argument('--gdb-dex2oat-args', dest='gdb_dex2oat_args')
   global_group.add_argument('--run-test-option', action='append', dest='run_test_option',
                             default=[],
                             help="""Pass an option, unaltered, to the run-test script.
                             This should be enclosed in single-quotes to allow for spaces. The option
                             will be split using shlex.split() prior to invoking run-test.
-                            Example \"--run-test-option='--with-agent libtifast.so=MethodExit'\"""")
+                            Example \"--run-test-option='--with-agent libtifast.so=MethodExit'\".""")
   global_group.add_argument('--with-agent', action='append', dest='with_agent',
                             help="""Pass an agent to be attached to the runtime""")
   global_group.add_argument('--runtime-option', action='append', dest='runtime_option',
@@ -1191,6 +1207,13 @@ def parse_option():
     gdb = True
     if options['gdb_arg']:
       gdb_arg = options['gdb_arg']
+  if options['dump_cfg']:
+    dump_cfg = options['dump_cfg']
+  if options['gdb_dex2oat']:
+    n_thread = 1
+    gdb_dex2oat = True
+    if options['gdb_dex2oat_args']:
+      gdb_dex2oat_args = options['gdb_dex2oat_args']
   runtime_option = options['runtime_option'];
   with_agent = options['with_agent'];
   run_test_option = sum(map(shlex.split, options['run_test_option']), [])

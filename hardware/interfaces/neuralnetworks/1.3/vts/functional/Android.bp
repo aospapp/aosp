@@ -45,6 +45,10 @@ cc_library_static {
 cc_test {
     name: "VtsHalNeuralnetworksV1_3TargetTest",
     defaults: ["neuralnetworks_vts_functional_defaults"],
+    tidy_timeout_srcs: [
+        "CompilationCachingTests.cpp",
+        "MemoryDomainTests.cpp",
+    ],
     srcs: [
         "BasicTests.cpp",
         "CompilationCachingTests.cpp",
@@ -66,7 +70,6 @@ cc_test {
         "VtsHalNeuralNetworksV1_0_utils",
         "VtsHalNeuralNetworksV1_2_utils",
         "VtsHalNeuralNetworksV1_3_utils",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "android.hardware.neuralnetworks@1.0",
         "android.hardware.neuralnetworks@1.1",
         "android.hardware.neuralnetworks@1.2",
@@ -76,7 +79,7 @@ cc_test {
         "libgmock",
         "libhidlmemory",
         "libneuralnetworks_generated_test_harness",
-        "libneuralnetworks_utils",
+        "libneuralnetworks_common",
         "libsync",
     ],
     whole_static_libs: [

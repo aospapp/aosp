@@ -42,13 +42,17 @@ static void _get_status(const ifc_status_monitor_t *this_p, printer_state_dyn_t 
 
 static void _start(const ifc_status_monitor_t *this_p, void (*status_cb)(
         const printer_state_dyn_t *new_status, const printer_state_dyn_t *old_status,
-                void *status_param), void *param);
+                void *status_param),
+                void (*job_state_cb)(const job_state_dyn_t *new_state, void *param), void *param);
 
 static void _stop(const ifc_status_monitor_t *this_p);
 
 static status_t _cancel(const ifc_status_monitor_t *this_p, const char *requesting_user);
 
 static void _destroy(const ifc_status_monitor_t *this_p);
+
+static void _get_job_state(const ifc_status_monitor_t *this_p, job_state_dyn_t *job_state_dyn,
+        int job_id);
 
 static const ifc_status_monitor_t _status_ifc = {.init = _init, .get_status = _get_status,
         .cancel = _cancel, .start = _start, .stop = _stop, .destroy = _destroy,};
@@ -64,6 +68,7 @@ typedef struct {
     pthread_mutex_t mutex;
     pthread_mutexattr_t mutexattr;
     ifc_status_monitor_t ifc;
+    char requesting_user[1024];
 } ipp_monitor_t;
 
 const ifc_status_monitor_t *ipp_status_get_monitor_ifc(const ifc_wprint_t *wprint_ifc) {
@@ -186,9 +191,11 @@ static void _get_status(const ifc_status_monitor_t *this_p,
 static void _start(const ifc_status_monitor_t *this_p,
         void (*status_cb)(const printer_state_dyn_t *new_status,
                 const printer_state_dyn_t *old_status, void *status_param),
+        void (*job_state_cb)(const job_state_dyn_t *new_state, void *param),
         void *param) {
-    int i;
+    int i, job_id = -1;
     printer_state_dyn_t last_status, curr_status;
+    job_state_dyn_t old_state, new_state;
     ipp_monitor_t *monitor = NULL;
 
     LOGD("_start(): enter");
@@ -209,6 +216,19 @@ static void _start(const ifc_status_monitor_t *this_p,
     if (status_cb != NULL) {
         (*status_cb)(&curr_status, &last_status, param);
     }
+
+    /* initialize job status structures */
+    for (i = 0; i <= IPP_JOB_STATE_REASON_MAX_VALUE; i++) {
+        new_state.job_state_reasons[i] = IPP_JOB_STATE_REASON_MAX_VALUE;
+        old_state.job_state_reasons[i] = IPP_JOB_STATE_REASON_MAX_VALUE;
+    }
+
+    old_state.job_state = IPP_JOB_STATE_UNKNOWN;
+    old_state.job_state_reasons[0] = IPP_JOB_STATE_REASON_UNKNOWN;
+
+    new_state.job_state = IPP_JOB_STATE_UNKNOWN;
+    new_state.job_state_reasons[0] = IPP_JOB_STATE_REASON_UNKNOWN;
+
     do {
         curr_status.printer_status = PRINT_STATUS_SVC_REQUEST;
         curr_status.printer_reasons[0] = PRINT_STATUS_UNABLE_TO_CONNECT;
@@ -248,6 +268,23 @@ static void _start(const ifc_status_monitor_t *this_p,
                         (memcmp(&curr_status, &last_status, sizeof(printer_state_dyn_t)) != 0)) {
                     (*status_cb)(&curr_status, &last_status, param);
                     memcpy(&last_status, &curr_status, sizeof(printer_state_dyn_t));
+                }
+
+                // Do not call for job state if thread has been stopped
+                if (job_state_cb != NULL && !monitor->stop_monitor) {
+                    pthread_mutex_lock(&monitor->mutex);
+                    if (job_id == -1) {
+                        job_id = getJobId(monitor->http, monitor->http_resource,
+                                          monitor->printer_uri, &new_state,
+                                          monitor->requesting_user);
+                    }
+                    _get_job_state(this_p, &new_state, job_id);
+                    pthread_mutex_unlock(&monitor->mutex);
+
+                    if (memcmp(&new_state, &old_state, sizeof(job_state_dyn_t)) != 0) {
+                        (*job_state_cb)(&new_state, param);
+                        memcpy(&old_state, &new_state, sizeof(job_state_dyn_t));
+                    }
                 }
                 sleep(1);
             }
@@ -397,4 +434,39 @@ static status_t _cancel(const ifc_status_monitor_t *this_p, const char *requesti
         }
     }
     return return_value;
+}
+
+/*
+ * Get job state for the given job_id
+ */
+static void _get_job_state(const ifc_status_monitor_t *this_p, job_state_dyn_t *job_state_dyn,
+                           int job_id) {
+    if (job_id == -1) return;
+
+    LOGD("_get_job_state(): enter");
+
+    ipp_monitor_t *monitor = NULL;
+    monitor = IMPL(ipp_monitor_t, ifc, this_p);
+
+    if (this_p != NULL && monitor != NULL && monitor->initialized) {
+        pthread_mutex_lock(&monitor->mutex);
+
+        do {
+            if (monitor->stop_monitor)
+                break;
+
+            ipp_monitor_t *ipp_job;
+            ipp_job = IMPL(ipp_monitor_t, ifc, this_p);
+
+            if (ipp_job->http == NULL)
+                break;
+
+            ipp_jstate_t job_ippstate;
+            ipp_status_t ipp_status = get_JobStatus(ipp_job->http, ipp_job->printer_uri, job_id,
+                                                    job_state_dyn, &job_ippstate,
+                                                    monitor->requesting_user);
+            LOGD("_get_job_state(): Print job State is %d", ipp_status);
+        } while (0);
+        pthread_mutex_unlock(&monitor->mutex);
+    }
 }

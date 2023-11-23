@@ -33,10 +33,10 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     platform_apis: true,
-    manifest: "fullbackup/AndroidManifest.xml"
+    manifest: "fullbackup/AndroidManifest.xml",
 }
 
 android_test_helper_app {
@@ -57,10 +57,10 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     platform_apis: true,
-    manifest: "keyvalue/AndroidManifest.xml"
+    manifest: "keyvalue/AndroidManifest.xml",
 }
 
 android_test_helper_app {
@@ -81,10 +81,10 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-permission",
     ],
     platform_apis: true,
-    manifest: "permission/AndroidManifest.xml"
+    manifest: "permission/AndroidManifest.xml",
 }
 
 android_test_helper_app {
@@ -103,8 +103,56 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
+        "mts-permission",
+    ],
+    platform_apis: true,
+    manifest: "permission22/AndroidManifest.xml",
+}
+
+android_test_helper_app {
+    name: "CtsAppLocalesBackupApp1",
+    defaults: [
+        "cts_support_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
+    srcs: [
+        "src/**/*.java",
+    ],
+    static_libs: [
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+    ],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
         "mts",
     ],
     platform_apis: true,
-    manifest: "permission22/AndroidManifest.xml"
+    manifest: "AppLocalesBackupApp1/AndroidManifest.xml",
+}
+
+android_test_helper_app {
+    name: "CtsAppLocalesBackupApp2",
+    defaults: [
+        "cts_support_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
+    srcs: [
+        "src/**/*.java",
+    ],
+    static_libs: [
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+    ],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+        "mts",
+    ],
+    platform_apis: true,
+    manifest: "AppLocalesBackupApp2/AndroidManifest.xml",
 }

@@ -28,6 +28,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.android.settingslib.activityembedding.ActivityEmbeddingUtils;
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.CustomizationSectionController;
 import com.android.wallpaper.model.CustomizationSectionController.CustomizationSectionNavigationController;
@@ -58,10 +59,15 @@ public class CustomizationPickerFragment extends AppbarFragment implements
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             @Nullable Bundle savedInstanceState) {
-        final View view = inflater.inflate(R.layout.collapsing_toolbar_base_layout,
+        final View view = inflater.inflate(R.layout.collapsing_toolbar_container_layout,
                 container, /* attachToRoot= */ false);
         setContentView(view, R.layout.fragment_customization_picker);
-        setUpToolbar(view, ActivityUtils.isLaunchedFromSettingsRelated(getActivity().getIntent()));
+        if (ActivityUtils.isLaunchedFromSettingsRelated(getActivity().getIntent())) {
+            setUpToolbar(view, !ActivityEmbeddingUtils.shouldHideNavigateUpButton(
+                    getActivity(), /* isSecondLayerPage= */ true));
+        } else {
+            setUpToolbar(view, /* upArrow= */ false);
+        }
 
         ViewGroup sectionContainer = view.findViewById(R.id.section_container);
         sectionContainer.setOnApplyWindowInsetsListener((v, windowInsets) -> {

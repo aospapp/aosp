@@ -45,9 +45,9 @@ dirCacheEntry_t *addUsedEntry(dirCache_t *Stream,
 			      wchar_t *longName, wchar_t *shortName,
 			      struct directory *dir);
 void freeDirCache(Stream_t *Stream);
-dirCacheEntry_t *addFreeEntry(dirCache_t *Stream, 
+dirCacheEntry_t *addFreeEntry(dirCache_t *Stream,
 			      unsigned int begin, unsigned int end);
-dirCacheEntry_t *addFreeEndEntry(dirCache_t *Stream, 
+dirCacheEntry_t *addFreeEndEntry(dirCache_t *Stream,
 				 unsigned int begin, unsigned int end,
 				 int isAtEnd);
 dirCacheEntry_t *addEndEntry(dirCache_t *Stream, unsigned int pos);

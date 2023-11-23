@@ -15,7 +15,10 @@
 //
 
 package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
+    // Inherits all licenses from parent to get Apache 2.0 and package name
+    default_applicable_licenses: [
+        "packages_modules_NeuralNetworks_license",
+    ],
 }
 
 cc_library_static {
@@ -71,6 +74,7 @@ filegroup {
 
 cc_library_headers {
     name: "libneuralnetworks_generated_test_harness_headers_for_cts",
+    host_supported: true,
     export_include_dirs: ["include"],
     sdk_version: "current",
 }

@@ -921,6 +921,50 @@ public class ArraysTest {
         }
     }
 
+    @Test
+    public void compareLIILII() {
+        final Integer[] lhs = { Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2) };
+        final Integer[] rhs = { Integer.valueOf(1), Integer.valueOf(2), Integer.valueOf(0) };
+        final Integer[] empty = (Integer []) null;
+
+        assertEquals(0, Arrays.compare(lhs, 0, lhs.length, lhs, 0, lhs.length));
+        assertEquals(0, Arrays.compare(lhs, 1, 3, rhs, 0, 2));
+        assertEquals(-1, Arrays.compare(lhs, 0, 2, rhs, 0, 2));
+        assertEquals(-1, Arrays.compare(lhs, 0, 2, rhs, 1, 3));
+        assertEquals(-1, Arrays.compare(lhs, 0, 3, rhs, 0, 3));
+        assertEquals(1, Arrays.compare(rhs, 0, 3, lhs, 0, 3));
+
+        for (Integer[][] arrays : new Integer[][][] { { lhs, empty }, { empty, rhs }}) {
+            try {
+                Arrays.compare(arrays[0], 1, 3, arrays[1], 0, 2);
+                fail("Expected NPE");
+            } catch (NullPointerException e) {
+                // Expected
+            }
+        }
+
+        for (int[] i : new int[][] {{3, 1, 0, 2}, {1, 3, 2, 0}}) {
+            try {
+                Arrays.compare(lhs, i[0], i[1], rhs, i[2], i[3]);
+                fail("Expected IAE");
+            } catch (IllegalArgumentException e) {
+                // Expected
+            }
+        }
+
+        for (int[] i : new int[][] { {-1, 1, 0, 1},
+                                     {0, lhs.length + 1, 0, 1},
+                                     {0, 1, -1, 1},
+                                     {0, 1, 0, rhs.length + 1}}) {
+            try {
+                Arrays.compare(lhs, i[0], i[1], rhs, i[2], i[3]);
+                fail("Expected AIOBE");
+            } catch (ArrayIndexOutOfBoundsException e) {
+                // Expected
+            }
+        }
+    }
+
     private int[] intTestArray(int size) {
         int[] array = new int[size];
         for (int i = 0; i < size; i++) {

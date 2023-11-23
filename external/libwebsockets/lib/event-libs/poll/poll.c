@@ -1,7 +1,7 @@
  /*
  * libwebsockets - small server side websockets and web server implementation
  *
- * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
+ * Copyright (C) 2010 - 2021 Andy Green <andy@warmcat.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -19,28 +19,44 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
- *  This is included from private-lib-core.h if LWS_ROLE_WS
+ * IN THE SOFTWARE
  */
 
 #include <private-lib-core.h>
+#include "private-lib-event-libs-poll.h"
+
+static int
+elops_foreign_thread_poll(struct lws_context *cx, int tsi)
+{
+	struct lws_context_per_thread *pt = &cx->pt[tsi];
+	volatile struct lws_context_per_thread *vpt =
+				(volatile struct lws_context_per_thread *)pt;
+
+	/*
+	 * To avoid mandating a specific threading library, we can check
+	 * probabilistically by seeing if the lws default wait is still asleep
+	 * at the time we are checking, if it is then we cannot be being called
+	 * by the event loop loop thread.
+	 */
+
+	return vpt->inside_poll;
+}
 
 struct lws_event_loop_ops event_loop_ops_poll = {
-	/* name */			"poll",
-	/* init_context */		NULL,
-	/* destroy_context1 */		NULL,
-	/* destroy_context2 */		NULL,
-	/* init_vhost_listen_wsi */	NULL,
-	/* init_pt */			NULL,
-	/* wsi_logical_close */		NULL,
-	/* check_client_connect_ok */	NULL,
-	/* close_handle_manually */	NULL,
-	/* accept */			NULL,
-	/* io */			NULL,
-	/* run */			NULL,
-	/* destroy_pt */		NULL,
-	/* destroy wsi */		NULL,
+	.name				= "poll",
 
-	/* flags */			LELOF_ISPOLL,
+	.foreign_thread			= elops_foreign_thread_poll,
+
+	.flags				= LELOF_ISPOLL,
+};
+
+const lws_plugin_evlib_t evlib_poll = {
+	.hdr = {
+		"poll",
+		"lws_evlib_plugin",
+		"n/a",
+		LWS_PLUGIN_API_MAGIC
+	},
+
+	.ops	= &event_loop_ops_poll
 };

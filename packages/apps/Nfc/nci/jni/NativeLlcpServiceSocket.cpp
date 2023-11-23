@@ -119,7 +119,8 @@ static jboolean nativeLlcpServiceSocket_doClose(JNIEnv* e, jobject o) {
 
   stat = PeerToPeer::getInstance().deregisterServer(jniServerHandle);
 
-  DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", __func__);
+  DLOG_IF(INFO, nfc_debug_enabled)
+      << StringPrintf("%s: exit Status=0x%X", __func__, stat);
   return JNI_TRUE;
 }
 

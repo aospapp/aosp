@@ -21,19 +21,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 
-import android.app.Instrumentation;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
+import android.os.CancellationSignal;
 import android.os.SystemClock;
+import android.service.textclassifier.TextClassifierService;
+import android.view.textclassifier.ConversationActions;
+import android.view.textclassifier.SelectionEvent;
 import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassificationContext;
 import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassificationSessionId;
 import android.view.textclassifier.TextClassifier;
-import android.view.textclassifier.TextLanguage;
 import android.view.textclassifier.TextSelection;
 
 import androidx.core.os.BuildCompat;
@@ -50,7 +52,9 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Tests for TextClassifierService query related functions.
@@ -94,14 +98,14 @@ public class TextClassifierServiceSwapTest {
         final CtsTextClassifierService service = mTestWatcher.getService();
 
         // Wait a delay for the query is delivered.
-        service.awaitQuery(1_000);
+        service.awaitQuery();
 
         // Verify the request was not passed to the service.
         assertThat(service.getRequestSessions()).isEmpty();
     }
 
     @Test
-    public void multipleActiveSessions() throws Exception {
+    public void testMultipleActiveSessions() throws Exception {
         final TextClassification.Request request =
                 new TextClassification.Request.Builder("Hello World", 0, 1).build();
         final TextClassificationManager tcm =
@@ -113,14 +117,72 @@ public class TextClassifierServiceSwapTest {
                 tcm.createTextClassificationSession(mTextClassificationContext);
 
         firstSession.classifyText(request);
-        secondSessionSession.classifyText(request);
         final CtsTextClassifierService service = mTestWatcher.getService();
-        service.awaitQuery(1_000);
+        service.awaitQuery();
+
+        service.resetRequestLatch(1);
+        secondSessionSession.classifyText(request);
+        service.awaitQuery();
 
         final List<TextClassificationSessionId> sessionIds =
                 service.getRequestSessions().get("onClassifyText");
         assertThat(sessionIds).hasSize(2);
         assertThat(sessionIds.get(0).getValue()).isNotEqualTo(sessionIds.get(1).getValue());
+
+        service.resetRequestLatch(2);
+        firstSession.destroy();
+        secondSessionSession.destroy();
+        service.awaitQuery();
+
+        final List<TextClassificationSessionId> destroyedSessionIds =
+                service.getRequestSessions().get("onDestroyTextClassificationSession");
+        assertThat(destroyedSessionIds).hasSize(2);
+        firstSession.isDestroyed();
+        secondSessionSession.isDestroyed();
+    }
+
+    private void serviceOnSuggestConversationActions(CtsTextClassifierService service)
+            throws Exception {
+        ConversationActions.Request conversationActionRequest =
+                new ConversationActions.Request.Builder(Collections.emptyList()).build();
+        // TODO: add @TestApi for TextClassificationSessionId and use it
+        SelectionEvent event =
+                SelectionEvent.createSelectionStartedEvent(
+                        SelectionEvent.INVOCATION_LINK, 1);
+        final CountDownLatch onSuccessLatch = new CountDownLatch(1);
+        service.onSuggestConversationActions(event.getSessionId(),
+                conversationActionRequest, new CancellationSignal(),
+                new TextClassifierService.Callback<ConversationActions>() {
+                    @Override
+                    public void onFailure(CharSequence charSequence) {
+                        // do nothing
+                    }
+
+                    @Override
+                    public void onSuccess(ConversationActions o) {
+                        onSuccessLatch.countDown();
+                    }
+                });
+        onSuccessLatch.await();
+        final List<TextClassificationSessionId> sessionIds =
+                service.getRequestSessions().get("onSuggestConversationActions");
+        assertThat(sessionIds).hasSize(1);
+    }
+
+    @Test
+    public void testTextClassifierServiceApiCoverage() throws Exception {
+        // Implemented for API test coverage only
+        // Any method that is better tested not be called here.
+        // We already have tests for the TC APIs
+        // We however need to directly query the TextClassifierService methods in the tests for
+        // code coverage.
+        CtsTextClassifierService service = new CtsTextClassifierService();
+
+        service.onConnected();
+
+        serviceOnSuggestConversationActions(service);
+
+        service.onDisconnected();
     }
 
     @Test

@@ -85,16 +85,16 @@ message ResultSpecProto {
     // have snippet information provided. If set to 0, snippeting is disabled.
     optional int32 num_matches_per_property = 2;
 
-    // How large of a window to provide. Windows start at max_window_bytes / 2
-    // bytes before the middle of the matching token and end at max_window_bytes
-    // / 2 bytes after the middle of the matching token. Windowing respects
-    // token boundaries.
-    // Therefore, the returned window may be smaller than requested. Setting
-    // max_window_bytes to 0 will disable windowing information. If matches
-    // enabled is also set to false, then snippeting is disabled.
-    // Ex. max_window_bytes = 16. "foo bar baz bat rat" with a query of "baz"
+    // How large of a window to provide. Windows start at
+    // max_window_utf32_length / 2 bytes before the middle of the matching token
+    // and end at max_window_utf32_length / 2 bytes after the middle of the
+    // matching token. Windowing respects token boundaries. Therefore, the
+    // returned window may be smaller than requested. Setting
+    // max_window_utf32_length to 0 will disable windowing information. If
+    // matches enabled is also set to false, then snippeting is disabled. Ex.
+    // max_window_utf32_length = 16. "foo bar baz bat rat" with a query of "baz"
     // will return a window of "bar baz bat" which is only 11 bytes long.
-    optional int32 max_window_bytes = 3;
+    optional int32 max_window_utf32_length = 3;
   }
   optional SnippetSpecProto snippet_spec = 3;
 
@@ -136,27 +136,57 @@ message ResultSpecProto {
 }
 
 // The representation of a single match within a DocumentProto property.
-// Next tag: 10
+//
+// Example : A document whose content is "Necesito comprar comida mañana." and a
+// query for "mana" with window=15
+// Next tag: 12
 message SnippetMatchProto {
   // The index of the byte in the string at which the match begins and the
   // length in bytes of the match.
+  //
+  // For the example above, the values of these fields would be
+  // exact_match_byte_position=24, exact_match_byte_length=7 "mañana"
   optional int32 exact_match_byte_position = 2;
   optional int32 exact_match_byte_length = 3;
+
+  // The length in bytes of the subterm that matches the query. The beginning of
+  // the submatch is the same as exact_match_byte_position.
+  //
+  // For the example above, the value of this field would be 5. With
+  // exact_match_byte_position=24 above, it would produce the substring "maña"
+  optional int32 submatch_byte_length = 10;
 
   // The index of the UTF-16 code unit in the string at which the match begins
   // and the length in UTF-16 code units of the match. This is for use with
   // UTF-16 encoded strings like Java.lang.String.
+  //
+  // For the example above, the values of these fields would be
+  // exact_match_utf16_position=24, exact_match_utf16_length=6 "mañana"
   optional int32 exact_match_utf16_position = 6;
   optional int32 exact_match_utf16_length = 7;
 
+  // The length in UTF-16 code units of the subterm that matches the query. The
+  // beginning of the submatch is the same as exact_match_utf16_position. This
+  // is for use with UTF-16 encoded strings like Java.lang.String.
+  //
+  // For the example above, the value of this field would be 4. With
+  // exact_match_utf16_position=24 above, it would produce the substring "maña"
+  optional int32 submatch_utf16_length = 11;
+
   // The index of the byte in the string at which the suggested snippet window
   // begins and the length in bytes of the window.
+  //
+  // For the example above, the values of these fields would be
+  // window_byte_position=17, window_byte_length=15 "comida mañana."
   optional int32 window_byte_position = 4;
   optional int32 window_byte_length = 5;
 
   // The index of the UTF-16 code unit in the string at which the suggested
   // snippet window begins and the length in UTF-16 code units of the window.
   // This is for use with UTF-16 encoded strings like Java.lang.String.
+  //
+  // For the example above, the values of these fields would be
+  // window_utf16_position=17, window_utf16_length=14 "comida mañana."
   optional int32 window_utf16_position = 8;
   optional int32 window_utf16_length = 9;
 
@@ -277,4 +307,55 @@ message GetResultSpecProto {
   // has been specified for a schema type, then *all* properties of that schema
   // type will be retrieved.
   repeated TypePropertyMask type_property_masks = 1;
+}
+
+// Next tag: 5
+message SuggestionSpecProto {
+  // REQUIRED: The "raw" prefix string that users may type. For example, "f"
+  // will search for suggested query that start with "f" like "foo", "fool".
+  optional string prefix = 1;
+
+  // OPTIONAL: Only search for suggestions that under the specified namespaces.
+  // If unset, the suggestion will search over all namespaces. Note that this
+  // applies to the entire 'prefix'. To issue different suggestions for
+  // different namespaces, separate RunSuggestion()'s will need to be made.
+  repeated string namespace_filters = 2;
+
+  // REQUIRED: The number of suggestions to be returned.
+  optional int32 num_to_return = 3;
+
+  // Indicates how the suggestion terms should be scored and ranked.
+  message SuggestionScoringSpecProto {
+    // TermMatchType.Code=UNKNOWN
+    // Should never purposely be set and may lead to undefined behavior. This is
+    // used for backwards compatibility reasons.
+    //
+    // TermMatchType.Code=EXACT_ONLY
+    // Only exact hits will be counted to score a suggestion term.
+    //
+    // TermMatchType.Code=PREFIX
+    // Both exact hits and prefix hits will be counted to score a suggestion
+    // term.
+    optional TermMatchType.Code scoring_match_type = 1;
+  }
+
+  optional SuggestionScoringSpecProto scoring_spec = 4;
+}
+
+// Next tag: 3
+message SuggestionResponse {
+  message Suggestion {
+    // The suggested query string for client to search for.
+    optional string query = 1;
+  }
+
+  // Status code can be one of:
+  //   OK
+  //   FAILED_PRECONDITION
+  //   INTERNAL
+  //
+  // See status.proto for more details.
+  optional StatusProto status = 1;
+
+  repeated Suggestion suggestions = 2;
 }

@@ -17,7 +17,6 @@
 #include "config/av1_rtcd.h"
 
 #include "test/acm_random.h"
-#include "test/clear_system_state.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
 
@@ -45,7 +44,7 @@ class AV1SelfguidedFilterTest
   virtual ~AV1SelfguidedFilterTest() {}
   virtual void SetUp() {}
 
-  virtual void TearDown() { libaom_test::ClearSystemState(); }
+  virtual void TearDown() {}
 
  protected:
   void RunSpeedTest() {
@@ -197,6 +196,7 @@ class AV1SelfguidedFilterTest
  private:
   SgrFunc tst_fun_;
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1SelfguidedFilterTest);
 
 TEST_P(AV1SelfguidedFilterTest, DISABLED_SpeedTest) { RunSpeedTest(); }
 TEST_P(AV1SelfguidedFilterTest, CorrectnessTest) { RunCorrectnessTest(); }
@@ -230,7 +230,7 @@ class AV1HighbdSelfguidedFilterTest
   virtual ~AV1HighbdSelfguidedFilterTest() {}
   virtual void SetUp() {}
 
-  virtual void TearDown() { libaom_test::ClearSystemState(); }
+  virtual void TearDown() {}
 
  protected:
   void RunSpeedTest() {
@@ -388,6 +388,7 @@ class AV1HighbdSelfguidedFilterTest
  private:
   SgrFunc tst_fun_;
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AV1HighbdSelfguidedFilterTest);
 
 TEST_P(AV1HighbdSelfguidedFilterTest, DISABLED_SpeedTest) { RunSpeedTest(); }
 TEST_P(AV1HighbdSelfguidedFilterTest, CorrectnessTest) { RunCorrectnessTest(); }

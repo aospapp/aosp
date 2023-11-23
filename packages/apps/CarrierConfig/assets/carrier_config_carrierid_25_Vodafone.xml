@@ -7,5 +7,6 @@
     <int name="volte_replacement_rat_int" value="3"/>
     <!-- wfcSpnFormat is "%s WiFi Calling" -->
     <int name="wfc_spn_format_idx_int" value="11"/>
+    <int name="default_mtu_int" value="1358"/>
     <string name="default_vm_number_string">5500</string>
 </carrier_config>

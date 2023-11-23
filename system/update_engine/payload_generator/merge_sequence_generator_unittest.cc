@@ -20,11 +20,18 @@
 #include <gtest/gtest.h>
 
 #include "update_engine/payload_consumer/payload_constants.h"
+#include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/extent_ranges.h"
 #include "update_engine/payload_generator/extent_utils.h"
 #include "update_engine/payload_generator/merge_sequence_generator.h"
+#include "update_engine/update_metadata.pb.h"
 
 namespace chromeos_update_engine {
+CowMergeOperation CreateCowMergeOperation(const Extent& src_extent,
+                                          const Extent& dst_extent) {
+  return CreateCowMergeOperation(
+      src_extent, dst_extent, CowMergeOperation::COW_COPY);
+}
 class MergeSequenceGeneratorTest : public ::testing::Test {
  protected:
   void VerifyTransfers(MergeSequenceGenerator* generator,
@@ -51,7 +58,7 @@ class MergeSequenceGeneratorTest : public ::testing::Test {
 };
 
 TEST_F(MergeSequenceGeneratorTest, Create) {
-  std::vector<AnnotatedOperation> aops{{"file1", {}}, {"file2", {}}};
+  std::vector<AnnotatedOperation> aops{{"file1", {}, {}}, {"file2", {}, {}}};
   aops[0].op.set_type(InstallOperation::SOURCE_COPY);
   *aops[0].op.add_src_extents() = ExtentForRange(10, 10);
   *aops[0].op.add_dst_extents() = ExtentForRange(30, 10);
@@ -81,7 +88,7 @@ TEST_F(MergeSequenceGeneratorTest, Create_SplitSource) {
   *(op.add_src_extents()) = ExtentForRange(8, 4);
   *(op.add_dst_extents()) = ExtentForRange(10, 8);
 
-  AnnotatedOperation aop{"file1", op};
+  AnnotatedOperation aop{"file1", op, {}};
   auto generator = MergeSequenceGenerator::Create({aop});
   ASSERT_TRUE(generator);
   std::vector<CowMergeOperation> expected = {
@@ -183,8 +190,8 @@ TEST_F(MergeSequenceGeneratorTest, GenerateSequenceWithCycles) {
       CreateCowMergeOperation(ExtentForRange(10, 10), ExtentForRange(15, 10)),
   };
 
-  // file 1,2,3 form a cycle. And file3, whose dst ext has smallest offset, will
-  // be converted to raw blocks
+  // file 1,2,3 form a cycle. And file3, whose dst ext has smallest offset,
+  // will be converted to raw blocks
   std::vector<CowMergeOperation> expected{
       transfers[3], transfers[1], transfers[0]};
   GenerateSequence(transfers, expected);
@@ -245,6 +252,176 @@ TEST_F(MergeSequenceGeneratorTest, SplitSelfOverlappingTest) {
   auto b = ExtentForRange(30, 16);
   ValidateSplitSequence(a, b);
   ValidateSplitSequence(b, a);
+}
+
+TEST_F(MergeSequenceGeneratorTest, GenerateSequenceWithXor) {
+  std::vector<CowMergeOperation> transfers = {
+      // cycle 1
+      CreateCowMergeOperation(ExtentForRange(10, 10),
+                              ExtentForRange(25, 10),
+                              CowMergeOperation::COW_XOR),
+      CreateCowMergeOperation(ExtentForRange(24, 5), ExtentForRange(35, 5)),
+      CreateCowMergeOperation(ExtentForRange(30, 10),
+                              ExtentForRange(15, 10),
+                              CowMergeOperation::COW_XOR),
+      // cycle 2
+      CreateCowMergeOperation(ExtentForRange(55, 10), ExtentForRange(60, 10)),
+      CreateCowMergeOperation(ExtentForRange(60, 10),
+                              ExtentForRange(70, 10),
+                              CowMergeOperation::COW_XOR),
+      CreateCowMergeOperation(ExtentForRange(70, 10), ExtentForRange(55, 10)),
+  };
+
+  // file 3, 6 will be converted to raw.
+  std::vector<CowMergeOperation> expected{
+      transfers[1], transfers[0], transfers[4], transfers[3]};
+  GenerateSequence(transfers, expected);
+}
+
+TEST_F(MergeSequenceGeneratorTest, CreateGeneratorWithXor) {
+  std::vector<AnnotatedOperation> aops;
+  auto& aop = aops.emplace_back();
+  aop.op.set_type(InstallOperation::SOURCE_BSDIFF);
+  *aop.op.mutable_src_extents()->Add() = ExtentForRange(10, 5);
+  *aop.op.mutable_dst_extents()->Add() = ExtentForRange(20, 5);
+  auto& xor_map = aop.xor_ops;
+  {
+    // xor_map[i] = i * kBlockSize + 123;
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(10, 5);
+    *op.mutable_dst_extent() = ExtentForRange(20, 5);
+    op.set_src_offset(123);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  auto generator = MergeSequenceGenerator::Create(aops);
+  ASSERT_NE(generator, nullptr);
+  std::vector<CowMergeOperation> sequence;
+  ASSERT_TRUE(generator->Generate(&sequence));
+  ASSERT_EQ(sequence.size(), 1UL);
+  ASSERT_EQ(sequence[0].src_extent().start_block(), 10UL);
+  ASSERT_EQ(sequence[0].dst_extent().start_block(), 20UL);
+  ASSERT_EQ(sequence[0].src_extent().num_blocks(), 6UL);
+  ASSERT_EQ(sequence[0].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[0].type(), CowMergeOperation::COW_XOR);
+  ASSERT_EQ(sequence[0].src_offset(), 123UL);
+
+  ASSERT_TRUE(generator->ValidateSequence(sequence));
+}
+
+TEST_F(MergeSequenceGeneratorTest, CreateGeneratorWithXorMultipleExtents) {
+  std::vector<AnnotatedOperation> aops;
+  auto& aop = aops.emplace_back();
+  aop.op.set_type(InstallOperation::SOURCE_BSDIFF);
+  *aop.op.mutable_src_extents()->Add() = ExtentForRange(10, 10);
+  *aop.op.mutable_dst_extents()->Add() = ExtentForRange(30, 5);
+  *aop.op.mutable_dst_extents()->Add() = ExtentForRange(45, 5);
+  auto& xor_map = aop.xor_ops;
+  {
+    // xor_map[i] = i * kBlockSize + 123;
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(10, 5);
+    *op.mutable_dst_extent() = ExtentForRange(30, 5);
+    op.set_src_offset(123);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  {
+    // xor_map[i] = i * kBlockSize + 123;
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(15, 5);
+    *op.mutable_dst_extent() = ExtentForRange(45, 5);
+    op.set_src_offset(123);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  auto generator = MergeSequenceGenerator::Create(aops);
+  ASSERT_NE(generator, nullptr);
+  std::vector<CowMergeOperation> sequence;
+  ASSERT_TRUE(generator->Generate(&sequence));
+  ASSERT_EQ(sequence.size(), 2UL);
+  ASSERT_EQ(sequence[0].src_extent().start_block(), 10UL);
+  ASSERT_EQ(sequence[0].dst_extent().start_block(), 30UL);
+  ASSERT_EQ(sequence[0].src_extent().num_blocks(), 6UL);
+  ASSERT_EQ(sequence[0].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[0].type(), CowMergeOperation::COW_XOR);
+  ASSERT_EQ(sequence[0].src_offset(), 123UL);
+
+  ASSERT_EQ(sequence[1].src_extent().start_block(), 15UL);
+  ASSERT_EQ(sequence[1].dst_extent().start_block(), 45UL);
+  ASSERT_EQ(sequence[1].src_extent().num_blocks(), 6UL);
+  ASSERT_EQ(sequence[1].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[1].type(), CowMergeOperation::COW_XOR);
+  ASSERT_EQ(sequence[1].src_offset(), 123UL);
+
+  ASSERT_TRUE(generator->ValidateSequence(sequence));
+}
+
+TEST_F(MergeSequenceGeneratorTest, CreateGeneratorXorAppendBlock) {
+  std::vector<AnnotatedOperation> aops;
+  auto& aop = aops.emplace_back();
+  aop.op.set_type(InstallOperation::SOURCE_BSDIFF);
+  *aop.op.mutable_src_extents()->Add() = ExtentForRange(10, 10);
+  *aop.op.mutable_dst_extents()->Add() = ExtentForRange(20, 10);
+  auto& xor_map = aop.xor_ops;
+  {
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(10, 5);
+    *op.mutable_dst_extent() = ExtentForRange(20, 5);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  {
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(15, 5);
+    *op.mutable_dst_extent() = ExtentForRange(25, 5);
+    op.set_src_offset(123);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  auto generator = MergeSequenceGenerator::Create(aops);
+  ASSERT_NE(generator, nullptr);
+  std::vector<CowMergeOperation> sequence;
+  ASSERT_TRUE(generator->Generate(&sequence));
+  ASSERT_EQ(sequence.size(), 2UL);
+  ASSERT_EQ(sequence[0].src_extent().start_block(), 15UL);
+  ASSERT_EQ(sequence[0].dst_extent().start_block(), 25UL);
+  ASSERT_EQ(sequence[0].src_extent().num_blocks(), 6UL);
+  ASSERT_EQ(sequence[0].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[0].type(), CowMergeOperation::COW_XOR);
+  ASSERT_EQ(sequence[0].src_offset(), 123UL);
+
+  ASSERT_EQ(sequence[1].src_extent().start_block(), 10UL);
+  ASSERT_EQ(sequence[1].dst_extent().start_block(), 20UL);
+  ASSERT_EQ(sequence[1].src_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[1].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[1].type(), CowMergeOperation::COW_XOR);
+
+  ASSERT_TRUE(generator->ValidateSequence(sequence));
+}
+
+TEST_F(MergeSequenceGeneratorTest, CreateGeneratorXorAlreadyPlusOne) {
+  std::vector<AnnotatedOperation> aops;
+  auto& aop = aops.emplace_back();
+  aop.op.set_type(InstallOperation::SOURCE_BSDIFF);
+  *aop.op.mutable_src_extents()->Add() = ExtentForRange(10, 10);
+  *aop.op.mutable_dst_extents()->Add() = ExtentForRange(20, 10);
+  auto& xor_map = aop.xor_ops;
+  {
+    auto& op = xor_map.emplace_back();
+    *op.mutable_src_extent() = ExtentForRange(15, 6);
+    *op.mutable_dst_extent() = ExtentForRange(25, 5);
+    op.set_src_offset(123);
+    op.set_type(CowMergeOperation::COW_XOR);
+  }
+  auto generator = MergeSequenceGenerator::Create(aops);
+  ASSERT_NE(generator, nullptr);
+  std::vector<CowMergeOperation> sequence;
+  ASSERT_TRUE(generator->Generate(&sequence));
+  ASSERT_EQ(sequence.size(), 1UL);
+  ASSERT_EQ(sequence[0].src_extent().start_block(), 15UL);
+  ASSERT_EQ(sequence[0].dst_extent().start_block(), 25UL);
+  ASSERT_EQ(sequence[0].src_extent().num_blocks(), 6UL);
+  ASSERT_EQ(sequence[0].dst_extent().num_blocks(), 5UL);
+  ASSERT_EQ(sequence[0].type(), CowMergeOperation::COW_XOR);
+  ASSERT_EQ(sequence[0].src_offset(), 123UL);
+
+  ASSERT_TRUE(generator->ValidateSequence(sequence));
 }
 
 }  // namespace chromeos_update_engine

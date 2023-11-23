@@ -17,5 +17,6 @@
     "rtt_reference_distance_mm": 100,
     "stress_test_min_iteration_count": 100,
     "stress_test_target_run_time_sec" : 30,
-    "dbs_supported_models" : []
+    "dbs_supported_models" : [],
+    "ranging_role_concurrency_flexible_models" : ["<models which support ranging role change with active ranging session>"]
 }

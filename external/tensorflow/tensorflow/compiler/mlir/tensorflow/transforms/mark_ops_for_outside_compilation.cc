@@ -78,7 +78,27 @@ void AddSupportedOpsUsingFolding(MLIRContext* context,
       OperationName(TF::ConcatOffsetOp::getOperationName(), context),
       OperationName(TF::EmptyOp::getOperationName(), context),
       OperationName(TF::ListDiffOp::getOperationName(), context),
+      OperationName(TF::RankOp::getOperationName(), context),
       OperationName(TF::RangeOp::getOperationName(), context),
+      OperationName(TF::ShapeOp::getOperationName(), context),
+      OperationName(TF::ShapeNOp::getOperationName(), context),
+      OperationName(TF::SizeOp::getOperationName(), context),
+  };
+
+  supported_ops->insert(allowlist_ops.begin(), allowlist_ops.end());
+}
+
+// Adds the list of ops that are supported through dynamic padder using op by op
+// fallback to the TF2XLA bridge.
+// TODO(b/168036682): Remove this once ops are supported using dynamic padder
+// on MLIR bridge.
+void AddSupportedOpsUsingDynamicPadder(
+    MLIRContext* context, llvm::DenseSet<OperationName>* supported_ops) {
+  llvm::SmallDenseSet<OperationName, 8> allowlist_ops = {
+      OperationName(TF::WhereOp::getOperationName(), context),
+      OperationName(TF::UniqueOp::getOperationName(), context),
+      OperationName(TF::XlaSetDynamicDimensionSizeOp::getOperationName(),
+                    context),
   };
 
   supported_ops->insert(allowlist_ops.begin(), allowlist_ops.end());
@@ -86,12 +106,36 @@ void AddSupportedOpsUsingFolding(MLIRContext* context,
 
 // TODO(b/159128666): Check the control flow legalization passes instead once
 // added.
-void AddSupportedControlFlowOps(MLIRContext* context,
-                                llvm::DenseSet<OperationName>* supported_ops) {
+void AddSupportedFunctionalOps(MLIRContext* context,
+                               llvm::DenseSet<OperationName>* supported_ops) {
+  supported_ops->insert(
+      OperationName(TF::CaseRegionOp::getOperationName(), context));
   supported_ops->insert(
       OperationName(TF::IfRegionOp::getOperationName(), context));
   supported_ops->insert(
+      OperationName(TF::InplaceAddOp::getOperationName(), context));
+  supported_ops->insert(
       OperationName(TF::WhileRegionOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaReduceOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaReduceWindowOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaRngBitGeneratorOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaScatterOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaSelectAndScatterOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::SymbolicGradientOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaVariadicReduceOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaVariadicReduceV2Op::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaVariadicSortOp::getOperationName(), context));
+  supported_ops->insert(
+      OperationName(TF::XlaReplicaIdOp::getOperationName(), context));
   supported_ops->insert(
       OperationName(TF::YieldOp::getOperationName(), context));
 }
@@ -299,6 +343,30 @@ LogicalResult MarkUncompilableOps(
   return success();
 }
 
+// Check for uncompilable ops that are in `tf_dialect` and are not already
+// marked for outside compilation.
+bool ContainsUncompilableOps(const Dialect* tf_dialect, Block* block,
+                             llvm::DenseSet<OperationName>& supported_ops) {
+  int uncompilable_op_count = 0;
+  // Check if op or any parent is already marked for outside compilation.
+  block->walk([&](Operation* op) {
+    Operation* iter_op = op;
+    while (iter_op && !llvm::isa<tf_device::ClusterOp>(iter_op)) {
+      if (iter_op->hasAttrOfType<StringAttr>(kXlaOutsideCompilationAttr)) {
+        return;
+      }
+      iter_op = iter_op->getParentOp();
+    }
+
+    if (!IsSupportedOp(*op, supported_ops, tf_dialect)) {
+      op->emitOpError() << "isn't compilable for TPU device. enable "
+                           "soft_device_placement option to run on CPU";
+      ++uncompilable_op_count;
+    }
+  });
+  return uncompilable_op_count > 0;
+}
+
 // Unmarks outside compilation for any op that has parents already
 // marked for outside compilation since the child will be extracted
 // anyways.
@@ -325,9 +393,10 @@ void MarkOpsForOutsideCompilation::runOnOperation() {
     getOperation().emitError() << "'tf' dialect is not registered";
     return signalPassFailure();
   }
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   mhlo::PopulateLegalizeTfPatterns(module.getContext(), &patterns);
-  TF::PopulateLoweringTFPatterns(module.getContext(), &patterns);
+  TF::PopulateTFLoweringBeforeHLOPatterns(module.getContext(), &patterns);
+  TF::PopulateLoweringQuantizedPatterns(module.getContext(), &patterns);
   AddCanonicalizationPatterns(module.getContext(), &patterns);
 
   // `supported_ops` contains the name of all of the ops that can potentially be
@@ -340,8 +409,9 @@ void MarkOpsForOutsideCompilation::runOnOperation() {
         Optional<OperationName> root_kind = pattern.getRootKind();
         if (root_kind.hasValue()) supported_ops.insert(root_kind.getValue());
       });
-  AddSupportedControlFlowOps(module.getContext(), &supported_ops);
+  AddSupportedFunctionalOps(module.getContext(), &supported_ops);
   AddSupportedOpsUsingFolding(module.getContext(), &supported_ops);
+  AddSupportedOpsUsingDynamicPadder(module.getContext(), &supported_ops);
   AddRewrittenEmbeddingOps(module.getContext(), &supported_ops);
   AddRewrittenCompositeOps(module.getContext(), &supported_ops);
 
@@ -353,6 +423,10 @@ void MarkOpsForOutsideCompilation::runOnOperation() {
     if ((soft_placement_attr && soft_placement_attr.getValue())) {
       if (failed(MarkUncompilableOps(tf_dialect, &cluster.GetBody(),
                                      supported_ops)))
+        return WalkResult::interrupt();
+    } else {
+      if (ContainsUncompilableOps(tf_dialect, &cluster.GetBody(),
+                                  supported_ops))
         return WalkResult::interrupt();
     }
     MarkVariantInputsOutputs(cluster);

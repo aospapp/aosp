@@ -30,12 +30,17 @@
 #include <string>
 #include <vector>
 
+#include <android-base/strings.h>
 #include <base/files/file_path.h>
 #include <base/posix/eintr_wrapper.h>
+#include <base/strings/string_number_conversions.h>
 #include <base/time/time.h>
 #include <brillo/key_value_store.h>
 #include <brillo/secure_blob.h>
 
+#include "android-base/mapped_file.h"
+#include "android-base/scopeguard.h"
+#include "google/protobuf/repeated_field.h"
 #include "update_engine/common/action.h"
 #include "update_engine/common/action_processor.h"
 #include "update_engine/common/constants.h"
@@ -63,12 +68,15 @@ bool WriteFile(const char* path, const void* data, size_t data_len);
 bool WriteAll(int fd, const void* buf, size_t count);
 bool PWriteAll(int fd, const void* buf, size_t count, off_t offset);
 
-bool WriteAll(const FileDescriptorPtr& fd, const void* buf, size_t count);
+bool WriteAll(FileDescriptor* fd, const void* buf, size_t count);
+
+constexpr bool WriteAll(const FileDescriptorPtr& fd,
+                        const void* buf,
+                        size_t count) {
+  return WriteAll(fd.get(), buf, count);
+}
 // WriteAll writes data at specified offset, but it modifies file position.
-bool WriteAll(const FileDescriptorPtr& fd,
-              const void* buf,
-              size_t count,
-              off_t off);
+bool WriteAll(FileDescriptorPtr* fd, const void* buf, size_t count, off_t off);
 
 // https://man7.org/linux/man-pages/man2/pread.2.html
 // PWriteAll writes data at specified offset, but it DOES NOT modify file
@@ -92,20 +100,37 @@ bool PReadAll(
     int fd, void* buf, size_t count, off_t offset, ssize_t* out_bytes_read);
 
 // Reads data at specified offset, this function does change file position.
-bool ReadAll(const FileDescriptorPtr& fd,
+
+bool ReadAll(FileDescriptor* fd,
              void* buf,
              size_t count,
              off_t offset,
              ssize_t* out_bytes_read);
 
+constexpr bool ReadAll(const FileDescriptorPtr& fd,
+                       void* buf,
+                       size_t count,
+                       off_t offset,
+                       ssize_t* out_bytes_read) {
+  return ReadAll(fd.get(), buf, count, offset, out_bytes_read);
+}
+
 // https://man7.org/linux/man-pages/man2/pread.2.html
 // Reads data at specified offset, this function DOES NOT change file position.
 // Behavior is similar to linux's pread syscall.
-bool PReadAll(const FileDescriptorPtr& fd,
+bool PReadAll(FileDescriptor* fd,
               void* buf,
               size_t count,
               off_t offset,
               ssize_t* out_bytes_read);
+
+constexpr bool PReadAll(const FileDescriptorPtr& fd,
+                        void* buf,
+                        size_t count,
+                        off_t offset,
+                        ssize_t* out_bytes_read) {
+  return PReadAll(fd.get(), buf, count, offset, out_bytes_read);
+}
 
 // Opens |path| for reading and appends its entire content to the container
 // pointed to by |out_p|. Returns true upon successfully reading all of the
@@ -135,7 +160,7 @@ off_t BlockDevSize(int fd);
 off_t FileSize(const std::string& path);
 off_t FileSize(int fd);
 
-std::string ErrnoNumberAsString(int err);
+bool SendFile(int out_fd, int in_fd, size_t count);
 
 // Returns true if the file exists for sure. Returns false if it doesn't exist,
 // or an error occurs.
@@ -306,6 +331,38 @@ bool ReadExtents(const std::string& path,
                  ssize_t out_data_size,
                  size_t block_size);
 
+bool ReadExtents(FileDescriptorPtr path,
+                 const std::vector<Extent>& extents,
+                 brillo::Blob* out_data,
+                 ssize_t out_data_size,
+                 size_t block_size);
+
+bool WriteExtents(const std::string& path,
+                  const google::protobuf::RepeatedPtrField<Extent>& extents,
+                  const brillo::Blob& data,
+                  size_t block_size);
+
+constexpr bool ReadExtents(const std::string& path,
+                           const std::vector<Extent>& extents,
+                           brillo::Blob* out_data,
+                           size_t block_size) {
+  return ReadExtents(path,
+                     extents,
+                     out_data,
+                     utils::BlocksInExtents(extents) * block_size,
+                     block_size);
+}
+
+bool ReadExtents(const std::string& path,
+                 const google::protobuf::RepeatedPtrField<Extent>& extents,
+                 brillo::Blob* out_data,
+                 size_t block_size);
+
+bool ReadExtents(FileDescriptorPtr path,
+                 const google::protobuf::RepeatedPtrField<Extent>& extents,
+                 brillo::Blob* out_data,
+                 size_t block_size);
+
 // Read the current boot identifier and store it in |boot_id|. This identifier
 // is constants during the same boot of the kernel and is regenerated after
 // reboot. Returns whether it succeeded getting the boot_id.
@@ -354,8 +411,12 @@ std::string GetExclusionName(const std::string& str_to_convert);
 // integer.
 // Return kPayloadTimestampError if both are integers but |new_version| <
 // |old_version|.
-ErrorCode IsTimestampNewer(const std::string& old_version,
-                           const std::string& new_version);
+ErrorCode IsTimestampNewer(const std::string_view old_version,
+                           const std::string_view new_version);
+
+std::unique_ptr<android::base::MappedFile> GetReadonlyZeroBlock(size_t size);
+
+std::string_view GetReadonlyZeroString(size_t size);
 
 }  // namespace utils
 
@@ -465,17 +526,46 @@ class ScopedActionCompleter {
   DISALLOW_COPY_AND_ASSIGN(ScopedActionCompleter);
 };
 
+// Simple wrapper for creating a slice of some container,
+// similar to string_view but for other containers.
+template <typename T>
+struct Range {
+  Range(T t1, T t2) : t1_(t1), t2_(t2) {}
+  constexpr auto begin() const noexcept { return t1_; }
+  constexpr auto end() const noexcept { return t2_; }
+  T t1_;
+  T t2_;
+};
+
+std::string HexEncode(const brillo::Blob& blob) noexcept;
+std::string HexEncode(const std::string_view blob) noexcept;
+
+template <size_t kSize>
+std::string HexEncode(const std::array<uint8_t, kSize> blob) noexcept {
+  return base::HexEncode(blob.data(), blob.size());
+}
+
+[[nodiscard]] std::string_view ToStringView(
+    const std::vector<unsigned char>& blob) noexcept;
+
+constexpr std::string_view ToStringView(
+    const std::vector<char>& blob) noexcept {
+  return std::string_view{blob.data(), blob.size()};
+}
+
+[[nodiscard]] std::string_view ToStringView(const void* data,
+                                            size_t size) noexcept;
+
 }  // namespace chromeos_update_engine
 
-#define TEST_AND_RETURN_FALSE_ERRNO(_x)                              \
-  do {                                                               \
-    bool _success = static_cast<bool>(_x);                           \
-    if (!_success) {                                                 \
-      std::string _msg =                                             \
-          chromeos_update_engine::utils::ErrnoNumberAsString(errno); \
-      LOG(ERROR) << #_x " failed: " << _msg;                         \
-      return false;                                                  \
-    }                                                                \
+#define TEST_AND_RETURN_FALSE_ERRNO(_x)                             \
+  do {                                                              \
+    bool _success = static_cast<bool>(_x);                          \
+    if (!_success) {                                                \
+      std::string _msg = android::base::ErrnoNumberAsString(errno); \
+      LOG(ERROR) << #_x " failed: " << _msg;                        \
+      return false;                                                 \
+    }                                                               \
   } while (0)
 
 #define TEST_AND_RETURN_FALSE(_x)          \
@@ -487,15 +577,14 @@ class ScopedActionCompleter {
     }                                      \
   } while (0)
 
-#define TEST_AND_RETURN_ERRNO(_x)                                    \
-  do {                                                               \
-    bool _success = static_cast<bool>(_x);                           \
-    if (!_success) {                                                 \
-      std::string _msg =                                             \
-          chromeos_update_engine::utils::ErrnoNumberAsString(errno); \
-      LOG(ERROR) << #_x " failed: " << _msg;                         \
-      return;                                                        \
-    }                                                                \
+#define TEST_AND_RETURN_ERRNO(_x)                                   \
+  do {                                                              \
+    bool _success = static_cast<bool>(_x);                          \
+    if (!_success) {                                                \
+      std::string _msg = android::base::ErrnoNumberAsString(errno); \
+      LOG(ERROR) << #_x " failed: " << _msg;                        \
+      return;                                                       \
+    }                                                               \
   } while (0)
 
 #define TEST_AND_RETURN(_x)                \
@@ -516,5 +605,44 @@ class ScopedActionCompleter {
       return false;                            \
     }                                          \
   } while (0)
+
+#define TEST_OP(_x, _y, op)                                                \
+  do {                                                                     \
+    const auto& x = _x;                                                    \
+    const auto& y = _y;                                                    \
+    if (!(x op y)) {                                                       \
+      LOG(ERROR) << #_x " " #op " " #_y << " failed: " << x << " " #op " " \
+                 << y;                                                     \
+      return {};                                                           \
+    }                                                                      \
+  } while (0)
+
+#define TEST_EQ(_x, _y) TEST_OP(_x, _y, ==)
+#define TEST_NE(_x, _y) TEST_OP(_x, _y, !=)
+#define TEST_LE(_x, _y) TEST_OP(_x, _y, <=)
+#define TEST_GE(_x, _y) TEST_OP(_x, _y, >=)
+#define TEST_LT(_x, _y) TEST_OP(_x, _y, <)
+#define TEST_GT(_x, _y) TEST_OP(_x, _y, >)
+
+// Macro for running a block of code before function exits.
+// Example:
+// DEFER {
+//     fclose(hc);
+//     hc = nullptr;
+//   };
+// It works by creating a new local variable struct holding the lambda, the
+// destructor of that struct will invoke the lambda.
+
+constexpr struct {
+  template <typename F>
+  constexpr auto operator<<(F&& f) const noexcept {
+    return android::base::make_scope_guard(std::forward<F>(f));
+  }
+} deferrer;
+
+#define TOKENPASTE(x, y) x##y
+#define DEFER                                                    \
+  auto TOKENPASTE(_deferred_lambda_call, __COUNTER__) = deferrer \
+                                                        << [&]() mutable
 
 #endif  // UPDATE_ENGINE_COMMON_UTILS_H_

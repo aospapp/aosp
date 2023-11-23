@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"모바일 네트워크를 사용하여 데이터 액세스"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"모바일 네트워크"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"모바일 데이터 사용"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"꺼짐"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"모바일 데이터를 사용 중지하시겠습니까?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"선택 필요"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"<xliff:g id="CARRIER">%1$s</xliff:g>의 모바일 데이터를 사용하시겠습니까?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi 검색 사용 설정됨"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"모바일 데이터로 자동 전환"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi‑Fi 인터넷 액세스가 끊기면 모바일 데이터를 사용합니다. 데이터 사용 요금이 부과될 수 있습니다."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi‑Fi 네트워크 찾기 및 연결"</string>
     <string name="learn_more" msgid="8214605928933358604">"자세히 알아보기"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"핫스팟 이름"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> 켜는 중..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"다른 기기에서 <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>에 연결할 수 있습니다."</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"핫스팟 비밀번호"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"보안"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-개인"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"없음"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP 대역"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"앱 환경설정이 초기화되었습니다."</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"모든 데이터 삭제(초기화)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"인포테인먼트 시스템에서 모든 데이터와 프로필 삭제"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"초기화하면 다음을 포함한 인포테인먼트 시스템의 모든 데이터가 삭제됩니다.\n\n"<li>"Google 계정"</li>\n<li>"시스템과 앱 데이터 및 설정"</li>\n<li>"다운로드한 앱"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"초기화하면 차량의 인포테인먼트 시스템에서 다음을 포함한 모든 데이터가 삭제됩니다.\n\n"<li>"계정 및 프로필"</li>\n<li>"시스템과 앱 데이터 및 설정"</li>\n<li>"다운로드한 앱"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"현재 로그인한 계정:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"차량에 다른 프로필이 설정되어 있습니다."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"모든 데이터 삭제"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"새 관리자 선택"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"관리자 한 명 이상을 선택해야 합니다. 이 관리자를 삭제하려면 먼저 대체 관리자를 선택하세요."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"관리자 선택"</string>
-    <string name="user_guest" msgid="3465399481257448601">"게스트"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"게스트"</string>
     <string name="user_switch" msgid="6544839750534690781">"전환"</string>
     <string name="current_user_name" msgid="3813671533249316823">"사용자(%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"이름"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>님의 계정"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"자동으로 데이터 동기화"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"앱에서 데이터를 자동으로 새로고침하도록 허용"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"데이터 자동 동기화를 사용하시겠습니까?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"웹에서 변경한 계정 정보가 모두 기기에 자동으로 복사됩니다.\n\n또한 일부 계정은 휴대전화의 변경사항을 웹에 자동으로 복사할 수 있습니다. Google 계정은 이러한 자동 동기화를 지원합니다."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"데이터 자동 동기화를 사용 중지하시겠습니까?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"데이터 자동 동기화를 허용하시겠습니까?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"웹에서 적용한 계정 관련 변경사항은 모두 차량에 자동으로 복사됩니다.\n\n일부 계정은 차량에서 적용한 변경사항을 모두 온라인 계정에 자동으로 복사할 수도 있습니다."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"데이터 자동 동기화를 허용하지 않으시겠습니까?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"이 경우 데이터 사용량이 절약되지만, 최근 정보를 수집하려면 각 계정을 직접 동기화해야 합니다. 또한 업데이트가 발생해도 알림을 받지 못합니다."</string>
     <string name="account_details_title" msgid="7529571432258448573">"계정 정보"</string>
     <string name="add_account_title" msgid="5988746086885210040">"계정 추가"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"개인정보 보호"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"인포테인먼트 시스템 데이터"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"위치에 대한 앱 액세스 제어"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"카메라"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"카메라에 대한 앱 액세스 권한 관리"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"마이크"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"앱의 마이크 액세스 권한 제어"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"인포테인먼트 시스템 데이터"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"취소"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"확인"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"4자 이상이어야 합니다."</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"<xliff:g id="COUNT">%d</xliff:g>자 이상이어야 합니다."</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN은 <xliff:g id="COUNT">%d</xliff:g>자리 이상이어야 합니다."</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"<xliff:g id="NUMBER">%d</xliff:g>자 미만이어야 합니다."</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g>자리 미만이어야 합니다."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"숫자 0~9만 포함해야 합니다."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"기기 관리자가 최근 PIN 사용을 허용하지 않습니다."</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"IT 관리자가 일반적으로 사용되는 PIN을 차단했습니다. 다른 PIN을 시도해 보세요."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"기기 관리자가 최근 비밀번호 사용을 허용하지 않습니다."</string>
     <string name="error_saving_password" msgid="8334882262622500658">"비밀번호 저장 중 오류 발생"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"IT 관리자가 일반적으로 사용되는 비밀번호를 차단했습니다. 다른 비밀번호로 시도해 보세요."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"연속으로 올라가거나 내려가는 숫자 또는 반복되는 숫자의 배열은 허용되지 않습니다."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"문자를 1개 이상 포함해야 합니다."</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"숫자를 1개 이상 포함해야 합니다."</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"기호를 1개 이상 포함해야 합니다."</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{문자를 #개 이상 포함해야 합니다.}other{문자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{소문자를 #개 이상 포함해야 합니다.}other{소문자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{대문자를 #개 이상 포함해야 합니다.}other{대문자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{숫자를 #개 이상 포함해야 합니다.}other{숫자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{특수 기호를 #개 이상 포함해야 합니다.}other{특수 기호를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{글자가 아닌 문자를 #개 이상 포함해야 합니다.}other{글자가 아닌 문자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{숫자가 아닌 문자를 #개 이상 포함해야 합니다.}other{숫자가 아닌 문자를 #개 이상 포함해야 합니다.}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{#자 이상이어야 합니다.}other{#자 이상이어야 합니다.}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{#자리 이상이어야 합니다.}other{#자리 이상이어야 합니다.}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{#자 미만이어야 합니다.}other{#자 미만이어야 합니다.}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{#자리 미만이어야 합니다.}other{#자리 미만이어야 합니다.}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"연속으로 올라가거나 내려가는 숫자 또는 반복되는 숫자의 배열은 허용되지 않습니다."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"화면 잠금 옵션"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g>일 전"</string>
     <string name="credentials_reset" msgid="873900550885788639">"사용자 인증 정보 삭제"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"삭제"</string>
     <string name="cancel" msgid="750286395700355455">"취소"</string>
     <string name="allow" msgid="7519431342750394402">"허용"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"허용 안함"</string>
     <string name="deny" msgid="340512788979930804">"거부"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace 키"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter 키"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"인포테인먼트 시스템 앱 활성화"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"비활성화 및 제거"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"인포테인먼트 시스템 앱 비활성화"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"세부정보 더보기"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"조직 관리자는 이 프로필과 연결된 앱 및 데이터를 모니터링하고 관리할 수 있습니다. 여기에는 설정, 권한, 기업 액세스, 네트워크 활동, 차량의 위치 정보가 포함됩니다."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"조직 관리자는 이 프로필과 연결된 앱 및 데이터를 모니터링하고 관리할 수 있습니다. 여기에는 설정, 권한, 기업 액세스, 네트워크 활동, 기기의 위치 정보가 포함됩니다."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"조직 관리자는 이 인포테인먼트 시스템과 연결된 앱 및 데이터를 모니터링하고 관리할 수 있습니다. 여기에는 설정, 권한, 기업 액세스, 네트워크 활동, 차량의 위치 정보가 포함됩니다."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> 차량 정책"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"조직 관리자가 관리하는 설정"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> 자세히 알아보기"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"관리 자동차 정보"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"자동차 관리자가 관리하는 설정"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"관리 자동차의 데이터에 대한 액세스 권한을 제공하기 위해 자동차 관리자가 인포테인먼트 시스템에서 설정을 변경하고 소프트웨어를 설치할 수 있습니다.\n\n자세히 알아보려면 자동차 관리자에게 문의하세요."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"자동차 관리자가 볼 수 있는 정보"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"자동차 관리자가 변경한 사항"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"관리 자동차 계정과 연결된 데이터"</li>\n" "<li>"관리 자동차의 앱 목록"</li>\n" "<li>"각 앱을 사용한 시간 및 각 앱에 사용된 데이터양"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"인포테인먼트 시스템 액세스 권한"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"자동차의 앱 목록"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"앱의 수는 추정치입니다. Play 스토어 이외의 출처에서 설치된 앱은 포함되지 않을 수도 있습니다."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">앱 최소 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
+      <item quantity="one">앱 최소 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other">앱 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
+      <item quantity="one">앱 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"최신 네트워크 트래픽 로그"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"최근 버그 신고"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"최근 보안 로그"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"없음"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"설치된 앱"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"위치 정보 액세스 권한"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"마이크 사용 권한"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"카메라 사용 권한"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"기본 앱"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"기본 키보드"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> 입력으로 설정함"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"전체 HTTP 프록시 설정함"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"개인 프로필의 신뢰할 수 있는 사용자 인증 정보"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"관리자는 인포테인먼트 시스템을 잠그고 비밀번호를 재설정할 수 있음"</li>\n" "<li>"관리자는 인포테인먼트 시스템의 데이터를 소거할 수 있음"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"인포테인먼트 시스템의 모든 데이터가 삭제되기 전까지 허용되는 비밀번호 입력 시도 실패 횟수"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"프로필 데이터가 삭제되기 전까지 허용되는 비밀번호 입력 시도 실패 횟수"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g>회 시도</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g>회 시도</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">카메라 앱</item>
+      <item quantity="one">카메라 앱</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">이메일 클라이언트 앱</item>
+      <item quantity="one">이메일 클라이언트 앱</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">전화 앱</item>
+      <item quantity="one">전화 앱</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"버그 신고를 공유하시겠습니까?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"차량의 조직 관리자가 이 기기의 문제를 해결하기 위해 버그 신고를 요청했습니다. 앱과 데이터가 공유될 수 있습니다."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"차량의 조직 관리자가 이 기기의 문제를 해결하기 위해 버그 신고를 요청했습니다. 앱과 데이터가 공유될 수 있으며 기기 속도가 일시적으로 느려질 수 있습니다."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"버그 신고는 차량의 조직 관리자와 공유됩니다. 자세한 내용은 관리자에게 문의하세요."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"공유"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"거부"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"인포테인먼트 시스템 초기화"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"시스템 초기화 요청이 접수되었으며 모든 데이터가 삭제됩니다. 지금 초기화하지 않으면 다음에 차가 시동이 걸릴 때 초기화됩니다. 이후 새 프로필을 설정할 수 있습니다."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"지금 초기화"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"나중에 초기화"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"다음에 차 시동이 걸리면 인포테인먼트 시스템이 초기화됩니다."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"초기화하려면 차량이 주차된 상태여야 합니다."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"지금은 이 설정을 변경할 수 없습니다."</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"접근성"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"자막"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"흰색 바탕에 검은색"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"검은색 바탕에 노란색"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"파란색 바탕에 노란색"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"스크린 리더"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"꺼짐"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"화면의 항목 읽어주기"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> 사용"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"옵션"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"설정"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"카메라"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"카메라 사용"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"모든 앱이 카메라에 액세스하도록 허용"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"카메라 권한 관리"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"최근 액세스함"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"최근에 사용한 앱 없음"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"앱 0개에 액세스 권한이 있음"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{앱 #/{total_count}개에 액세스 권한이 있음}other{앱 #/{total_count}개에 액세스 권한이 있음}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"최근 액세스함"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"모두 보기"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"로드 중…"</string>
 </resources>

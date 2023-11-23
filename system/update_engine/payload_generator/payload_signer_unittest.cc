@@ -25,6 +25,7 @@
 
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/test_utils.h"
+#include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
@@ -40,15 +41,6 @@ using std::vector;
 // The public-key version is created by the build system.
 
 namespace chromeos_update_engine {
-
-const char* kUnittestPrivateKeyPath = "unittest_key.pem";
-const char* kUnittestPublicKeyPath = "unittest_key.pub.pem";
-const char* kUnittestPrivateKey2Path = "unittest_key2.pem";
-const char* kUnittestPublicKey2Path = "unittest_key2.pub.pem";
-const char* kUnittestPrivateKeyRSA4096Path = "unittest_key_RSA4096.pem";
-const char* kUnittestPublicKeyRSA4096Path = "unittest_key_RSA4096.pub.pem";
-const char* kUnittestPrivateKeyECPath = "unittest_key_EC.pem";
-const char* kUnittestPublicKeyECPath = "unittest_key_EC.pub.pem";
 
 // Some data and its corresponding hash and signature:
 const char kDataToSign[] = "This is some data to sign.";

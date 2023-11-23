@@ -39,6 +39,7 @@ import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.FrameStats;
 import android.view.KeyEvent;
 import android.view.WindowAnimationFrameStats;
@@ -189,7 +190,7 @@ public class UiAutomationTest {
             getInstrumentation().waitForIdleSync();
 
             // Find the application window.
-            final int windowId = findAppWindowId(uiAutomation.getWindows());
+            final int windowId = findAppWindowId(uiAutomation.getWindows(), activity);
             assertTrue(windowId >= 0);
 
             // Clear stats to be with a clean slate.
@@ -251,7 +252,7 @@ public class UiAutomationTest {
             getInstrumentation().waitForIdleSync();
 
             // Find the application window.
-            final int windowId = findAppWindowId(uiAutomation.getWindows());
+            final int windowId = findAppWindowId(uiAutomation.getWindows(), activity);
             assertTrue(windowId >= 0);
 
             // Clear stats to be with a clean slate.
@@ -587,31 +588,48 @@ public class UiAutomationTest {
     }
 
     private void assertWindowContentTimestampsInAscendingOrder(WindowContentFrameStats stats) {
-        long lastExpectedTimeNano = 0;
-        long lastPresentedTimeNano = 0;
-        long lastPreparedTimeNano = 0;
+        long lastDesiredPresentTimeNano = 0;
+        long lastPreviousFramePresentTimeNano = 0;
+        long lastFrameReadyTimeNano = 0;
+
+        String statsDebugDump = stats.toString();
+        for (int i = 0; i < stats.getFrameCount(); i++) {
+            statsDebugDump += " [" + i + ":" +
+            stats.getFramePostedTimeNano(i) + " " +
+            stats.getFramePresentedTimeNano(i) + " " + stats.getFrameReadyTimeNano(i)  + "] ";
+        }
 
         final int frameCount = stats.getFrameCount();
         for (int i = 0; i < frameCount; i++) {
-            final long expectedTimeNano = stats.getFramePostedTimeNano(i);
-            assertTrue(expectedTimeNano >= lastExpectedTimeNano);
-            lastExpectedTimeNano = expectedTimeNano;
+            final long desiredPresentTimeNano = stats.getFramePostedTimeNano(i);
+            final long previousFramePresentTimeNano = stats.getFramePresentedTimeNano(i);
+            final long frameReadyTimeNano = stats.getFrameReadyTimeNano(i);
 
-            final long presentedTimeNano = stats.getFramePresentedTimeNano(i);
-            if (lastPresentedTimeNano == FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(presentedTimeNano == FrameStats.UNDEFINED_TIME_NANO);
-            } else if (presentedTimeNano != FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(presentedTimeNano >= lastPresentedTimeNano);
+            if (desiredPresentTimeNano == FrameStats.UNDEFINED_TIME_NANO ||
+                previousFramePresentTimeNano == FrameStats.UNDEFINED_TIME_NANO ||
+                frameReadyTimeNano == FrameStats.UNDEFINED_TIME_NANO) {
+                continue;
             }
-            lastPresentedTimeNano = presentedTimeNano;
 
-            final long preparedTimeNano = stats.getFrameReadyTimeNano(i);
-            if (lastPreparedTimeNano == FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(preparedTimeNano == FrameStats.UNDEFINED_TIME_NANO);
-            } else if (preparedTimeNano != FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(preparedTimeNano >= lastPreparedTimeNano);
+            if (i > 0) {
+                // WindowContentFrameStats#getFramePresentedTimeNano() returns the previous frame
+                // presented time, so verify the actual presented timestamp is ahead of the
+                // last frame's desired present time and frame ready time.
+
+                // NOTE: actual present time maybe an estimate. If this test continues to be flaky,
+                // we may need to add a margin like the one below.
+                // previousFramePresentTimeNano += stats.getRefreshPeriodNano() / 2;
+                assertTrue("Failed frame:" + i + statsDebugDump,
+                        previousFramePresentTimeNano >= lastDesiredPresentTimeNano);
+                assertTrue("Failed frame:" + i + statsDebugDump,
+                        previousFramePresentTimeNano >= lastFrameReadyTimeNano);
             }
-            lastPreparedTimeNano = preparedTimeNano;
+            assertTrue("Failed frame:" + i + statsDebugDump,
+                    previousFramePresentTimeNano >= lastPreviousFramePresentTimeNano);
+
+            lastDesiredPresentTimeNano = desiredPresentTimeNano;
+            lastPreviousFramePresentTimeNano = previousFramePresentTimeNano;
+            lastFrameReadyTimeNano = frameReadyTimeNano;
         }
     }
 
@@ -636,11 +654,13 @@ public class UiAutomationTest {
         waitForAccessibilityServiceToStart();
     }
 
-    private int findAppWindowId(List<AccessibilityWindowInfo> windows) {
+    private int findAppWindowId(List<AccessibilityWindowInfo> windows, Activity activity) {
+        final CharSequence activityTitle = getActivityTitle(getInstrumentation(), activity);
         final int windowCount = windows.size();
         for (int i = 0; i < windowCount; i++) {
             AccessibilityWindowInfo window = windows.get(i);
-            if (window.getType() == AccessibilityWindowInfo.TYPE_APPLICATION) {
+            if (window.getType() == AccessibilityWindowInfo.TYPE_APPLICATION
+                    && TextUtils.equals(window.getTitle(), activityTitle)) {
                 return window.getId();
             }
         }
@@ -649,5 +669,12 @@ public class UiAutomationTest {
 
     private Instrumentation getInstrumentation() {
         return InstrumentationRegistry.getInstrumentation();
+    }
+
+    private static CharSequence getActivityTitle(
+            Instrumentation instrumentation, Activity activity) {
+        final StringBuilder titleBuilder = new StringBuilder();
+        instrumentation.runOnMainSync(() -> titleBuilder.append(activity.getTitle()));
+        return titleBuilder;
     }
 }

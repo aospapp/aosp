@@ -27,6 +27,7 @@ python_test_host {
 
 cc_test {
     name: "hidl_test_java_native",
+    tidy_timeout_srcs: ["hidl_test_java_native.cpp"],
     srcs: ["hidl_test_java_native.cpp"],
 
     cflags: [

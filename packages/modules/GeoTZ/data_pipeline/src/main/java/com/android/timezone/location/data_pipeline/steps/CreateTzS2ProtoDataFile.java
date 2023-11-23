@@ -63,14 +63,13 @@ public final class CreateTzS2ProtoDataFile {
                 description = "The input TzS2Ranges file to parse",
                 required = true,
                 converter = FileConverter.class)
-        File inputFile;
+        public File inputFile;
 
         @Parameter(names = "--output-file",
                 description = "The output file to produce",
                 required = true,
                 converter = FileConverter.class)
-        File outputFile;
-
+        public File outputFile;
     }
 
     /**

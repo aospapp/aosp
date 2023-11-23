@@ -31,7 +31,6 @@ import java.net.SocketException;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public abstract class SocketTagger {
 
     private static SocketTagger tagger = new SocketTagger() {
@@ -44,7 +43,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public SocketTagger() {
     }
 
@@ -59,7 +57,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public abstract void tag(FileDescriptor socketDescriptor) throws SocketException;
 
     /**
@@ -76,7 +73,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public abstract void untag(FileDescriptor socketDescriptor) throws SocketException;
 
     /**
@@ -91,7 +87,6 @@ public abstract class SocketTagger {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public final void tag(Socket socket) throws SocketException {
         if (!socket.isClosed()) {
             tag(socket.getFileDescriptor$());
@@ -114,7 +109,6 @@ public abstract class SocketTagger {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public final void untag(Socket socket) throws SocketException {
         if (!socket.isClosed()) {
             untag(socket.getFileDescriptor$());
@@ -132,7 +126,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public final void tag(DatagramSocket socket) throws SocketException {
         if (!socket.isClosed()) {
             tag(socket.getFileDescriptor$());
@@ -154,7 +147,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public final void untag(DatagramSocket socket) throws SocketException {
         if (!socket.isClosed()) {
             untag(socket.getFileDescriptor$());
@@ -169,7 +161,6 @@ public abstract class SocketTagger {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static synchronized void set(SocketTagger tagger) {
         if (tagger == null) {
             throw new NullPointerException("tagger == null");
@@ -186,7 +177,6 @@ public abstract class SocketTagger {
      */
     @UnsupportedAppUsage
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static synchronized SocketTagger get() {
         return tagger;
     }

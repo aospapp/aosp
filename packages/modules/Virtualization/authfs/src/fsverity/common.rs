@@ -24,8 +24,8 @@ use crate::crypto::{CryptoError, Sha256Hash, Sha256Hasher};
 
 #[derive(Error, Debug)]
 pub enum FsverityError {
-    #[error("Cannot verify a signature")]
-    BadSignature,
+    #[error("Invalid digest")]
+    InvalidDigest,
     #[error("Insufficient data, only got {0}")]
     InsufficientData(usize),
     #[error("Cannot verify a block")]
@@ -52,6 +52,18 @@ pub fn merkle_tree_height(data_size: u64) -> Option<u64> {
     log128_ceil(hash_pages)
 }
 
+/// Returns the size of Merkle tree for `data_size` bytes amount of data.
+pub fn merkle_tree_size(mut data_size: u64) -> u64 {
+    let mut total = 0;
+    while data_size > CHUNK_SIZE {
+        let hash_size = divide_roundup(data_size, CHUNK_SIZE) * Sha256Hasher::HASH_SIZE as u64;
+        let hash_storage_size = divide_roundup(hash_size, CHUNK_SIZE) * CHUNK_SIZE;
+        total += hash_storage_size;
+        data_size = hash_storage_size;
+    }
+    total
+}
+
 pub fn build_fsverity_digest(
     root_hash: &Sha256Hash,
     file_size: u64,
@@ -74,4 +86,23 @@ pub fn build_fsverity_digest(
         .update(&[0u8; 32])? // reserved
         .update(&[0u8; 16])? // reserved
         .finalize()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_merkle_tree_size() {
+        // To produce groundtruth:
+        //   dd if=/dev/zero of=zeros bs=1 count=524289 && \
+        //   fsverity digest --out-merkle-tree=tree zeros && \
+        //   du -b tree
+        assert_eq!(merkle_tree_size(0), 0);
+        assert_eq!(merkle_tree_size(1), 0);
+        assert_eq!(merkle_tree_size(4096), 0);
+        assert_eq!(merkle_tree_size(4097), 4096);
+        assert_eq!(merkle_tree_size(524288), 4096);
+        assert_eq!(merkle_tree_size(524289), 12288);
+    }
 }

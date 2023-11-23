@@ -19,5 +19,6 @@ third_party {
   }
   version: "cdd7cd5beba869a637ef08ac7e91b146edfd30fe"
   last_upgrade_date { year: 2018 month: 12 day: 7 }
+  license_note: "contains OFL fonts"
   license_type: BY_EXCEPTION_ONLY
 }

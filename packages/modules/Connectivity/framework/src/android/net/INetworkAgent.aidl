@@ -48,4 +48,5 @@ oneway interface INetworkAgent {
     void onQosCallbackUnregistered(int qosCallbackId);
     void onNetworkCreated();
     void onNetworkDestroyed();
+    void onDscpPolicyStatusUpdated(int policyId, int status);
 }

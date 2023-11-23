@@ -193,13 +193,38 @@ XML_APACHE_2 = """<component name="CopyrightManager">
 </component>
 """
 
-# The template content of profiles_settings.xml
-XML_PROFILES_SETTINGS = """<component name="CopyrightManager">
+# The template content of copyright/profiles_settings.xml
+XML_COPYRIGHT_PROFILES_SETTINGS = """<component name="CopyrightManager">
     <settings default="">
         <module2copyright>
             <element module="Project Files" copyright="Apache 2"/>
         </module2copyright>
     </settings>
+</component>
+"""
+
+# The template content of inspectionProfiles/profiles_settings.xml
+XML_INSPECTION_PROFILES_SETTINGS = """<component name="InspectionProjectProfileManager">
+  <settings>
+    <option name="PROJECT_PROFILE" value="Aidegen_Inspections" />
+    <version value="1.0" />
+  </settings>
+</component>
+"""
+
+# The template content of inspectionProfiles/Aidegen_Inspections.xml
+# N.b. this minimal configuration leaves most of the options unspecified,
+# which means that they will be filled with default values set by Jetbrains.
+XML_INSPECTIONS = """<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Aidegen_Inspections" />
+    <inspection_tool class="JavaDoc" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myAdditionalJavadocTags" value="hide,attr" />
+    </inspection_tool>
+    <inspection_tool class="MissortedModifiers" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="m_requireAnnotationsFirst" value="true" />
+    </inspection_tool>
+  </profile>
 </component>
 """
 

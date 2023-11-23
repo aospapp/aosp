@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "MemoryCache.h"
-#include "MemoryFake.h"
+#include "utils/MemoryFake.h"
 
 namespace unwindstack {
 
@@ -164,17 +164,23 @@ TEST_F(MemoryThreadCacheTest, read_cached_in_thread) {
   }
 }
 
-TEST_F(MemoryThreadCacheTest, read_uncached_due_to_error) {
+static void ExhaustPthreadKeys(std::vector<pthread_key_t>* keys) {
   // Use up all of the keys to force the next attempt to create one to fail.
   static constexpr size_t kMaxKeysToCreate = 10000;
-  std::vector<pthread_key_t> keys(kMaxKeysToCreate);
+  keys->resize(kMaxKeysToCreate);
   for (size_t i = 0; i < kMaxKeysToCreate; i++) {
-    if (pthread_key_create(&keys[i], nullptr) != 0) {
-      keys.resize(i);
+    if (pthread_key_create(&(*keys)[i], nullptr) != 0) {
+      keys->resize(i);
       break;
     }
   }
-  ASSERT_NE(kMaxKeysToCreate, keys.size()) << "Cannot exist pthread keys.";
+  ASSERT_NE(0U, keys->size()) << "No keys created.";
+  ASSERT_LT(keys->size(), kMaxKeysToCreate) << "Cannot use up pthread keys.";
+}
+
+TEST_F(MemoryThreadCacheTest, read_uncached_due_to_error) {
+  std::vector<pthread_key_t> keys;
+  ASSERT_NO_FATAL_FAILURE(ExhaustPthreadKeys(&keys));
 
   MemoryFake* fake = new MemoryFake;
   MemoryThreadCache memory(fake);
@@ -193,6 +199,19 @@ TEST_F(MemoryThreadCacheTest, read_uncached_due_to_error) {
   ASSERT_EQ(0x12, value);
   ASSERT_TRUE(memory.ReadFully(0x8001, &value, 1));
   ASSERT_EQ(0x12, value);
+
+  for (pthread_key_t& key : keys) {
+    pthread_key_delete(key);
+  }
+}
+
+TEST_F(MemoryThreadCacheTest, clear_cache_when_no_cache) {
+  std::vector<pthread_key_t> keys;
+  ASSERT_NO_FATAL_FAILURE(ExhaustPthreadKeys(&keys));
+
+  MemoryFake* fake = new MemoryFake;
+  MemoryThreadCache memory(fake);
+  memory.Clear();
 
   for (pthread_key_t& key : keys) {
     pthread_key_delete(key);

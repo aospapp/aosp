@@ -25,6 +25,7 @@ from acloud.internal.lib import utils
 from acloud.public.actions import common_operations
 from acloud.public.actions import remote_instance_cf_device_factory
 from acloud.public.actions import remote_instance_fvp_device_factory
+from acloud.public import report
 
 
 class LocalImageRemoteInstance(base_avd_create.BaseAVDCreate):
@@ -42,18 +43,18 @@ class LocalImageRemoteInstance(base_avd_create.BaseAVDCreate):
         Returns:
             A Report instance.
         """
-        if avd_spec.avd_type == constants.TYPE_CF:
-            device_factory = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
-                avd_spec,
-                avd_spec.local_image_artifact,
-                create_common.GetCvdHostPackage())
-            command = "create_cf"
-        elif avd_spec.avd_type == constants.TYPE_FVP:
+        # AVD type default to CF.
+        command = "create_cf"
+        device_factory = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
+            avd_spec,
+            avd_spec.local_image_artifact,
+            create_common.GetCvdHostPackage(avd_spec.cvd_host_package))
+        if avd_spec.avd_type == constants.TYPE_FVP:
             device_factory = remote_instance_fvp_device_factory.RemoteInstanceDeviceFactory(
                 avd_spec)
             command = "create_fvp"
 
-        report = common_operations.CreateDevices(
+        create_report = common_operations.CreateDevices(
             command, avd_spec.cfg, device_factory,
             avd_spec.num,
             report_internal_ip=avd_spec.report_internal_ip,
@@ -64,10 +65,10 @@ class LocalImageRemoteInstance(base_avd_create.BaseAVDCreate):
             wait_for_boot=False,
             connect_webrtc=avd_spec.connect_webrtc,
             client_adb_port=avd_spec.client_adb_port)
-        # Launch vnc client if we're auto-connecting.
-        if avd_spec.connect_vnc:
-            utils.LaunchVNCFromReport(report, avd_spec, no_prompts)
-        if avd_spec.connect_webrtc:
-            utils.LaunchBrowserFromReport(report)
+        if create_report.status == report.Status.SUCCESS:
+            if avd_spec.connect_vnc:
+                utils.LaunchVNCFromReport(create_report, avd_spec, no_prompts)
+            if avd_spec.connect_webrtc:
+                utils.LaunchBrowserFromReport(create_report)
 
-        return report
+        return create_report

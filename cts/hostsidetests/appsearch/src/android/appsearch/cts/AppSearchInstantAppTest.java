@@ -20,14 +20,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.util.Map;
 
 import javax.annotation.Nonnull;
 
@@ -46,7 +43,7 @@ import javax.annotation.Nonnull;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class AppSearchInstantAppTest extends BaseHostJUnit4Test {
     private static final String TARGET_APK_A = "CtsAppSearchHostTestHelperA.apk";
-    private static final String TARGET_PKG_A = "android.appsearch.app.a";
+    private static final String TARGET_PKG_A = "android.appsearch.app.helper_a";
     private static final String TEST_CLASS_A = TARGET_PKG_A + ".AppSearchInstantAppTest";
     private static final long DEFAULT_INSTRUMENTATION_TIMEOUT_MS = 600_000; // 10min
 

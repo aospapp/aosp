@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#define PW_LOG_MODULE_NAME "KVS"
+#define PW_LOG_MODULE_NAME "PW_FLASH"
 #define PW_LOG_LEVEL PW_KVS_LOG_LEVEL
 
 #include "pw_kvs/flash_partition_with_stats.h"
@@ -27,8 +27,8 @@ namespace pw::kvs {
 
 Status FlashPartitionWithStats::SaveStorageStats(const KeyValueStore& kvs,
                                                  const char* label) {
-  // If size is zero saving stats is disabled so do not save any stats.
-  if (sector_counters_.size() == 0) {
+  // If empty, saving stats is disabled so do not save any stats.
+  if (sector_counters_.empty()) {
     return OkStatus();
   }
 

@@ -76,6 +76,7 @@ cc_library {
         "src/gallium/auxiliary",
         "src/gallium/auxiliary/util",
         "src/gallium/include",
+        "src/venus",
     ],
     srcs: [
         "prebuilt-intermediates/src/u_format_table.c",
@@ -121,22 +122,21 @@ cc_library {
         "src/vrend_winsys_gbm.c",
     ],
     target: {
+        host_linux: {
+            shared_libs: [
+                "libdrm",
+                "libepoxy",
+                "libgbm",
+            ],
+        },
         linux_glibc: {
             // Avoid linking to another host copy of libdrm; this library will cause
             // binary GPU drivers to be loaded from the host, which might be linked
             // to a system copy of libdrm, which conflicts with the AOSP one
             allow_undefined_symbols: true,
             header_libs: ["libdrm_headers"],
-            shared_libs: [
-                "libepoxy",
-                "libgbm"
-            ],
-        },
-        linux_bionic: {
-            shared_libs: [
+            exclude_shared_libs: [
                 "libdrm",
-                "libepoxy",
-                "libgbm",
             ],
         },
         android: {

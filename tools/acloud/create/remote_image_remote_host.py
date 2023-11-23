@@ -25,7 +25,7 @@ from acloud.create import base_avd_create
 from acloud.internal import constants
 from acloud.internal.lib import utils
 from acloud.public.actions import common_operations
-from acloud.public.actions import remote_instance_cf_device_factory
+from acloud.public.actions import remote_host_cf_device_factory
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class RemoteImageRemoteHost(base_avd_create.BaseAVDCreate):
         Returns:
             A Report instance.
         """
-        device_factory = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
+        device_factory = remote_host_cf_device_factory.RemoteHostDeviceFactory(
             avd_spec=avd_spec)
         report = common_operations.CreateDevices(
             "create_cf", avd_spec.cfg, device_factory, num=1,
@@ -54,7 +54,9 @@ class RemoteImageRemoteHost(base_avd_create.BaseAVDCreate):
             boot_timeout_secs=avd_spec.boot_timeout_secs,
             unlock_screen=avd_spec.unlock_screen,
             wait_for_boot=False,
-            connect_webrtc=avd_spec.connect_webrtc)
+            connect_webrtc=avd_spec.connect_webrtc,
+            ssh_private_key_path=avd_spec.host_ssh_private_key_path,
+            ssh_user=avd_spec.host_user)
         # Launch vnc client if we're auto-connecting.
         if avd_spec.connect_vnc:
             utils.LaunchVNCFromReport(report, avd_spec, no_prompts)

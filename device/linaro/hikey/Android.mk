@@ -24,6 +24,29 @@ ifneq ($(filter hikey%, $(TARGET_DEVICE)),)
 
 LOCAL_PATH := $(call my-dir)
 
+
+ifeq (,$(wildcard $(LINARO_VENDOR_PATH)/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/version.mk))
+droidcore: $(PRODUCT_OUT)/missing_vendor_package
+$(PRODUCT_OUT)/missing_vendor_package:
+	echo
+	echo "Missing Linaro Vendor Package!"
+	echo "Please download new binaries here:"
+	echo "  $(VND_PKG_URL)"
+	echo "And extract in the ANDROID_TOP_DIR"
+	echo
+	false
+endif
+
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,.conf))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,.img))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,.kl))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,.rc))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,.xml))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,fstab.hikey))
+$(eval $(call declare-1p-copy-files,device/linaro/hikey,fstab.hikey960))
+
+$(eval $(call declare-copy-files-license-metadata,device/linaro/hikey/bt-wifi-firmware-util,,SPDX-license-identifier-BSD,notice,device/linaro/hikey/bt-wifi-firmware-util/NOTICE,))
+
 # if some modules are built directly from this directory (not subdirectories),
 # their rules should be written here.
 

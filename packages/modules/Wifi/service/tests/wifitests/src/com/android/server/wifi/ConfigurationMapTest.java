@@ -21,17 +21,20 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSess
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 import android.content.pm.UserInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.util.SparseArray;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.server.wifi.util.WifiPermissionsUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -39,6 +42,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
+import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,7 +87,7 @@ public class ConfigurationMapTest extends WifiBaseTest {
         USER_PROFILES.put(11, Arrays.asList(new UserInfo(11, "Bob", 0)));
     }
 
-    @Mock UserManager mUserManager;
+    @Mock WifiPermissionsUtil mWifiPermissionsUtil;
     @Mock WifiInjector mWifiInjector;
     @Mock ActiveModeWarden mActiveModeWarden;
     @Mock ClientModeManager mPrimaryClientModeManager;
@@ -111,16 +115,26 @@ public class ConfigurationMapTest extends WifiBaseTest {
         when(mWifiGlobals.isWpa3SaeUpgradeEnabled()).thenReturn(true);
         when(mWifiGlobals.isOweUpgradeEnabled()).thenReturn(true);
 
-        // by default, return false
-        when(mUserManager.isSameProfileGroup(any(), any())).thenReturn(false);
-        // return true for these 2 userids
-        when(mUserManager.isSameProfileGroup(UserHandle.SYSTEM,
-                UserHandle.of(SYSTEM_MANAGE_PROFILE_USER_ID)))
-                .thenReturn(true);
-        when(mUserManager.isSameProfileGroup(UserHandle.of(SYSTEM_MANAGE_PROFILE_USER_ID),
-                UserHandle.SYSTEM))
-                .thenReturn(true);
-        mConfigs = new ConfigurationMap(mUserManager);
+        when(mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(anyInt()))
+                .thenAnswer((Answer<Boolean>) invocation -> {
+                    Object[] args = invocation.getArguments();
+                    int userId = UserHandle.getUserId((int) args[0]);
+                    // Current userId matches input userId
+                    if (userId == mCurrentUserId) {
+                        return true;
+                    }
+                    // Current userId and input userId belong to the same profile group
+                    if (userId == UserHandle.USER_SYSTEM
+                            && mCurrentUserId == SYSTEM_MANAGE_PROFILE_USER_ID) {
+                        return true;
+                    }
+                    if (userId == SYSTEM_MANAGE_PROFILE_USER_ID
+                            && mCurrentUserId == UserHandle.USER_SYSTEM) {
+                        return true;
+                    }
+                    return false;
+                });
+        mConfigs = new ConfigurationMap(mWifiPermissionsUtil);
     }
 
     @After
@@ -170,10 +184,8 @@ public class ConfigurationMapTest extends WifiBaseTest {
         // user. Also, check that *ForAllUsers() methods can be used to access all network
         // configurations, irrespective of their visibility to the current user.
         for (WifiConfiguration config : configs) {
-            final UserHandle currentUser = UserHandle.of(mCurrentUserId);
-            final UserHandle creatorUser = UserHandle.getUserHandleForUid(config.creatorUid);
-            if (config.shared || currentUser.equals(creatorUser)
-                    || mUserManager.isSameProfileGroup(currentUser, creatorUser)) {
+            if (config.shared || mWifiPermissionsUtil
+                    .doesUidBelongToCurrentUserOrDeviceOwner(config.creatorUid)) {
                 configsForCurrentUser.add(config);
                 if (config.status != WifiConfiguration.Status.DISABLED) {
                     enabledConfigsForCurrentUser.add(config);

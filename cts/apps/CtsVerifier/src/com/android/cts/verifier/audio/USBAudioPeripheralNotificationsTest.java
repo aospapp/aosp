@@ -40,7 +40,7 @@ import com.android.compatibility.common.util.ResultUnit;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;  // needed to access resource in CTSVerifier project namespace.
 
-@CddTest(requirement="7.8.2.2/H-2-1,H-3-1,H-4-2,H-4-3,H-4-4,H-4-5")
+@CddTest(requirement = "7.8.2.2/H-2-1,H-3-1,H-4-2,H-4-3,H-4-4,H-4-5")
 public class USBAudioPeripheralNotificationsTest extends PassFailButtons.Activity {
     private static final String
             TAG = USBAudioPeripheralNotificationsTest.class.getSimpleName();

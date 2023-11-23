@@ -60,34 +60,25 @@ interface IVold {
     void fixupAppDir(@utf8InCpp String path, int appUid);
     void ensureAppDirsCreated(in @utf8InCpp String[] paths, int appUid);
 
-    @utf8InCpp String createObb(@utf8InCpp String sourcePath, @utf8InCpp String sourceKey,
-                                int ownerGid);
+    @utf8InCpp String createObb(@utf8InCpp String sourcePath, int ownerGid);
     void destroyObb(@utf8InCpp String volId);
 
     void fstrim(int fstrimFlags, IVoldTaskListener listener);
-    void runIdleMaint(IVoldTaskListener listener);
+    void runIdleMaint(boolean needGC, IVoldTaskListener listener);
     void abortIdleMaint(IVoldTaskListener listener);
+    int getStorageLifeTime();
+    void setGCUrgentPace(int neededSegments, int minSegmentThreshold,
+                         float dirtyReclaimRate, float reclaimWeight,
+                         int gcPeriod);
+    void refreshLatestWrite();
+    int getWriteAmount();
 
     FileDescriptor mountAppFuse(int uid, int mountId);
     void unmountAppFuse(int uid, int mountId);
 
-    void fdeCheckPassword(@utf8InCpp String password);
-    void fdeRestart();
-    int fdeComplete();
-    void fdeEnable(int passwordType, @utf8InCpp String password, int encryptionFlags);
-    void fdeChangePassword(int passwordType, @utf8InCpp String password);
-    void fdeVerifyPassword(@utf8InCpp String password);
-    @utf8InCpp String fdeGetField(@utf8InCpp String key);
-    void fdeSetField(@utf8InCpp String key, @utf8InCpp String value);
-    int fdeGetPasswordType();
-    @utf8InCpp String fdeGetPassword();
-    void fdeClearPassword();
-
     void fbeEnable();
 
-    void mountDefaultEncrypted();
     void initUser0();
-    boolean isConvertibleToFbe();
     void mountFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint);
     void encryptFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint, boolean shouldFormat, @utf8InCpp String fsType);
 
@@ -96,15 +87,12 @@ interface IVold {
     void createUserKey(int userId, int userSerial, boolean ephemeral);
     void destroyUserKey(int userId);
 
-    void addUserKeyAuth(int userId, int userSerial, @utf8InCpp String token,
-                        @utf8InCpp String secret);
-    void clearUserKeyAuth(int userId, int userSerial, @utf8InCpp String token,
-                        @utf8InCpp String secret);
+    void addUserKeyAuth(int userId, int userSerial, @utf8InCpp String secret);
+    void clearUserKeyAuth(int userId, int userSerial, @utf8InCpp String secret);
     void fixateNewestUserKeyAuth(int userId);
 
     int[] getUnlockedUsers();
-    void unlockUserKey(int userId, int userSerial, @utf8InCpp String token,
-                       @utf8InCpp String secret);
+    void unlockUserKey(int userId, int userSerial, @utf8InCpp String secret);
     void lockUserKey(int userId);
 
     void prepareUserStorage(@nullable @utf8InCpp String uuid, int userId, int userSerial,
@@ -147,28 +135,15 @@ interface IVold {
 
     void destroyDsuMetadataKey(@utf8InCpp String dsuSlot);
 
-    const int ENCRYPTION_FLAG_NO_UI = 4;
-
-    const int ENCRYPTION_STATE_NONE = 1;
-    const int ENCRYPTION_STATE_OK = 0;
-    const int ENCRYPTION_STATE_ERROR_UNKNOWN = -1;
-    const int ENCRYPTION_STATE_ERROR_INCOMPLETE = -2;
-    const int ENCRYPTION_STATE_ERROR_INCONSISTENT = -3;
-    const int ENCRYPTION_STATE_ERROR_CORRUPT = -4;
-
     const int FSTRIM_FLAG_DEEP_TRIM = 1;
 
     const int MOUNT_FLAG_PRIMARY = 1;
-    const int MOUNT_FLAG_VISIBLE = 2;
+    const int MOUNT_FLAG_VISIBLE_FOR_READ = 2;
+    const int MOUNT_FLAG_VISIBLE_FOR_WRITE = 4;
 
     const int PARTITION_TYPE_PUBLIC = 0;
     const int PARTITION_TYPE_PRIVATE = 1;
     const int PARTITION_TYPE_MIXED = 2;
-
-    const int PASSWORD_TYPE_PASSWORD = 0;
-    const int PASSWORD_TYPE_DEFAULT = 1;
-    const int PASSWORD_TYPE_PATTERN = 2;
-    const int PASSWORD_TYPE_PIN = 3;
 
     const int STORAGE_FLAG_DE = 1;
     const int STORAGE_FLAG_CE = 2;

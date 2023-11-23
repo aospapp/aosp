@@ -21,7 +21,7 @@
     <string name="add_medical_info" msgid="483921612415907139">"Мэдээлэл нэмэх"</string>
     <string name="edit_info" msgid="5973929805855224805">"Яаралтай тусламжийн мэдээллийг өөрчлөх"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Мэдээлэл"</string>
-    <string name="tab_title_contacts" msgid="4298341166404791209">"Харилцагчийн хаяг"</string>
+    <string name="tab_title_contacts" msgid="4298341166404791209">"Харилцагчид"</string>
     <string name="name" msgid="4286267457738861977">"Нэр"</string>
     <string name="unknown_name" msgid="2834802479170495056">"Тодорхойгүй"</string>
     <string name="address" msgid="6449303483151189969">"Хаяг"</string>
@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"ЗА"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Утасны эзний талаар мэдээлэл алга"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Хэрэв энэ таны утас бол балны дүрс тэмдгийг дарж, онцгой байдлын үед харагдах мэдээлэл оруулна уу."</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Таны утасны түгжээ тайлагдсан үед харандааны дүрс тэмдэг дээр товшиж, яаралтай тусламжийн үед үзүүлэх мэдээллийг нэмнэ үү"</string>
     <string name="clear_all" msgid="8899013032870561633">"Бүгдийг арилгах"</string>
     <string name="clear" msgid="3648880442502887163">"Устгах"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Бүх мэдээлэл, харилцагчдыг устгах уу?"</string>

@@ -1023,6 +1023,18 @@ class CmdInput(cmd.Cmd):
         except Exception as err:
             self.log.info(FAILURE.format(cmd, err))
 
+    def do_bta_hfp_client_connect(self, line):
+        self.pri_dut.droid.bluetoothHfpClientConnect(self.mac_addr)
+
+    def do_bta_hfp_client_disconnect(self, line):
+        self.pri_dut.droid.bluetoothHfpClientDisconnect(self.mac_addr)
+
+    def do_bta_hfp_client_connect_audio(self, line):
+        self.pri_dut.droid.bluetoothHfpClientConnectAudio(self.mac_addr)
+
+    def do_bta_hfp_client_disconnect_audio(self, line):
+        self.pri_dut.droid.bluetoothHfpClientDisconnectAudio(self.mac_addr)
+
     """End HFP/HSP wrapper"""
     """Begin HID wrappers"""
 

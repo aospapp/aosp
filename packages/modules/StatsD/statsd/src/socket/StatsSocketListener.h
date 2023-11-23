@@ -33,7 +33,7 @@ namespace android {
 namespace os {
 namespace statsd {
 
-class StatsSocketListener : public SocketListener, public virtual android::RefBase {
+class StatsSocketListener : public SocketListener, public virtual RefBase {
 public:
     explicit StatsSocketListener(std::shared_ptr<LogEventQueue> queue);
 

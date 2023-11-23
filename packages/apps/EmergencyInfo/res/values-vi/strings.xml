@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Không có thông tin nào về chủ sở hữu điện thoại"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Nếu đây là điện thoại của bạn, hãy nhấn vào biểu tượng bút chì để thêm thông tin sẽ được hiển thị tại đây trong trường hợp khẩn cấp"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Khi điện thoại mở khoá, hãy nhấn vào biểu tượng bút chì để thêm thông tin sẽ xuất hiện tại đây trong trường hợp khẩn cấp"</string>
     <string name="clear_all" msgid="8899013032870561633">"Xóa tất cả"</string>
     <string name="clear" msgid="3648880442502887163">"Xóa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Xóa tất cả thông tin và liên hệ?"</string>

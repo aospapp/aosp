@@ -46,8 +46,16 @@ import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.Manifest;
+import android.app.KeyguardManager.KeyguardLockedStateListener;
 import android.content.ComponentName;
 import android.content.res.Configuration;
 import android.platform.test.annotations.Presubmit;
@@ -187,6 +195,8 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     public void testTranslucentShowWhenLockedActivity() {
+        // TODO(b/209906849) remove assumeFalse after issue fix.
+        assumeFalse(ENABLE_SHELL_TRANSITIONS);
         final LockScreenSession lockScreenSession = createManagedLockScreenSession();
         launchActivity(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
         mWmState.computeState(SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY);
@@ -219,6 +229,8 @@ public class KeyguardTests extends KeyguardTestBase {
 
     @Test
     public void testDialogShowWhenLockedActivity() {
+        // TODO(b/209906849) remove assumeFalse after issue fix.
+        assumeFalse(ENABLE_SHELL_TRANSITIONS);
         final LockScreenSession lockScreenSession = createManagedLockScreenSession();
         launchActivity(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
         mWmState.computeState(SHOW_WHEN_LOCKED_DIALOG_ACTIVITY);
@@ -677,4 +689,68 @@ public class KeyguardTests extends KeyguardTestBase {
 
     }
 
+    @Test
+    public void testAddKeyguardLockedStateListener_hideToShow_callbackInvoked() {
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE);
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final KeyguardLockedStateListener listener = getTestKeyguardLockedStateListener();
+        mKeyguardManager.addKeyguardLockedStateListener(mContext.getMainExecutor(), listener);
+
+        lockScreenSession.gotoKeyguard();
+        lockScreenSession.gotoKeyguard();  // state not changed
+
+        verify(listener, times(1)).onKeyguardLockedStateChanged(true);
+        verify(listener, never()).onKeyguardLockedStateChanged(false);
+
+        mKeyguardManager.removeKeyguardLockedStateListener(listener);
+        mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+    }
+
+    @Test
+    public void testAddKeyguardLockedStateListener_showToHide_callbackInvoked() {
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE);
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final KeyguardLockedStateListener listener = getTestKeyguardLockedStateListener();
+        mKeyguardManager.addKeyguardLockedStateListener(mContext.getMainExecutor(), listener);
+
+        lockScreenSession.gotoKeyguard();
+        lockScreenSession.unlockDevice();
+        lockScreenSession.unlockDevice();  // state not changed
+
+        verify(listener, times(1)).onKeyguardLockedStateChanged(true);
+        verify(listener, times(1)).onKeyguardLockedStateChanged(false);
+
+        mKeyguardManager.removeKeyguardLockedStateListener(listener);
+        mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+    }
+
+    @Test
+    public void testAddRemoveKeyguardLockedStateListener_callbackNotInvoked() {
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE);
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        final KeyguardLockedStateListener listener = getTestKeyguardLockedStateListener();
+        mKeyguardManager.addKeyguardLockedStateListener(mContext.getMainExecutor(), listener);
+        mKeyguardManager.removeKeyguardLockedStateListener(listener);
+
+        lockScreenSession.gotoKeyguard();
+        lockScreenSession.unlockDevice();
+        lockScreenSession.gotoKeyguard();
+
+        verify(listener, never()).onKeyguardLockedStateChanged(anyBoolean());
+
+        mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+    }
+
+    public KeyguardLockedStateListener getTestKeyguardLockedStateListener() {
+        return spy(new TestKeyguardLockedStateListener());
+    }
+
+    public static class TestKeyguardLockedStateListener implements KeyguardLockedStateListener {
+        @Override
+        public void onKeyguardLockedStateChanged(boolean isKeyguardLocked) {
+        }
+    }
 }

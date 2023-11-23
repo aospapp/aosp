@@ -41,10 +41,11 @@ import android.os.connectivity.WifiBatteryStats;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
+import androidx.test.filters.RequiresDevice;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.testutils.DevSdkIgnoreRule;
-import com.android.testutils.SkipPresubmit;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -61,6 +62,7 @@ import java.util.function.Supplier;
  * Test for BatteryStatsManager.
  */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R) // BatteryStatsManager did not exist on Q
 public class BatteryStatsManagerTest{
     @Rule
     public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
@@ -92,7 +94,7 @@ public class BatteryStatsManagerTest{
     // properly.
     @Test
     @AppModeFull(reason = "Cannot get CHANGE_NETWORK_STATE to request wifi/cell in instant mode")
-    @SkipPresubmit(reason = "Virtual hardware does not support wifi battery stats")
+    @RequiresDevice // Virtual hardware does not support wifi battery stats
     public void testReportNetworkInterfaceForTransports() throws Exception {
         try {
             // Simulate the device being unplugged from charging.

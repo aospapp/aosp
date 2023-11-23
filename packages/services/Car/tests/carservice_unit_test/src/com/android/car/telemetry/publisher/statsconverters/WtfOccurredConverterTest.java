@@ -70,7 +70,7 @@ public class WtfOccurredConverterTest {
     public void testConvertAtomsListWithDimensionValues_putsCorrectDataToPersistableBundle()
             throws StatsConversionException {
         List<AtomsProto.Atom> atomsList = Arrays.asList(ATOM_A, ATOM_B);
-        SparseArray<AtomFieldAccessor<AtomsProto.WTFOccurred>> accessorMap =
+        SparseArray<AtomFieldAccessor<AtomsProto.WTFOccurred, ?>> accessorMap =
                 mConverter.getAtomFieldAccessorMap();
 
         PersistableBundle bundle = mConverter.convert(atomsList, null, null, null);

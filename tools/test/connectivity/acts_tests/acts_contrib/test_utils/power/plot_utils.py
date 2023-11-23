@@ -14,16 +14,18 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os
+import datetime
 import logging
-import numpy
 import math
+import numpy
+import os
 
-from bokeh.layouts import layout
-from bokeh.models import CustomJS, ColumnDataSource
 from bokeh.models import tools as bokeh_tools
+from bokeh.models import CustomJS, ColumnDataSource
 from bokeh.models.widgets import DataTable, TableColumn
+from bokeh.models.formatters import DatetimeTickFormatter
 from bokeh.plotting import figure, output_file, save
+from bokeh.layouts import layout
 
 
 def current_waveform_plot(samples, voltage, dest_path, plot_title):
@@ -48,16 +50,17 @@ def current_waveform_plot(samples, voltage, dest_path, plot_title):
     """
     logging.info('Plotting the power measurement data.')
 
-    time_relative = [sample[0] for sample in samples]
-    duration = time_relative[-1] - time_relative[0]
+    duration = samples[-1][0] - samples[0][0]
     current_data = [sample[1] * 1000 for sample in samples]
     avg_current = sum(current_data) / len(current_data)
-
     color = ['navy'] * len(samples)
+    time_realtime = [
+        datetime.datetime.fromtimestamp(sample[0]) for sample in samples
+    ]
 
     # Preparing the data and source link for bokehn java callback
     source = ColumnDataSource(
-        data=dict(x=time_relative, y=current_data, color=color))
+        data=dict(x=time_realtime, y=current_data, color=color))
     s2 = ColumnDataSource(
         data=dict(a=[duration],
                   b=[round(avg_current, 2)],
@@ -81,7 +84,8 @@ def current_waveform_plot(samples, voltage, dest_path, plot_title):
     output_file(os.path.join(dest_path, plot_title + '.html'))
     tools = 'box_zoom,box_select,pan,crosshair,redo,undo,reset,hover,save'
     # Create a new plot with the datatable above
-    plot = figure(plot_width=1300,
+    plot = figure(x_axis_type='datetime',
+                  plot_width=1300,
                   plot_height=700,
                   title=plot_title,
                   tools=tools)
@@ -91,6 +95,13 @@ def current_waveform_plot(samples, voltage, dest_path, plot_title):
     plot.circle('x', 'y', source=source, size=0.5, fill_color='color')
     plot.xaxis.axis_label = 'Time (s)'
     plot.yaxis.axis_label = 'Current (mA)'
+    plot.xaxis.formatter = DatetimeTickFormatter(
+        seconds=["%H:%M:%S"],
+        milliseconds=["%H:%M:%S:%3Ns"],
+        microseconds=["%H:%M:%S:%fus"],
+        minutes=["%H:%M:%S"],
+        minsec=["%H:%M:%S"],
+        hours=["%H:%M:%S"])
 
     # Callback JavaScript
     source.selected.js_on_change(
@@ -120,7 +131,7 @@ def current_waveform_plot(samples, voltage, dest_path, plot_title):
         }
         ym /= inds.length
         ts = max - min
-        d2['a'].push(Math.round(ts*1000.0)/1000.0)
+        d2['a'].push(Math.round(ts*1000.0)/1000000.0)
         d2['b'].push(Math.round(ym*100.0)/100.0)
         d2['c'].push(Math.round(ym*4.2*100.0)/100.0)
         d2['d'].push(Math.round(ym*4.2*ts*100.0)/100.0)

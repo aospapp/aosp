@@ -4436,7 +4436,7 @@ mDNSexport mDNSs32 mDNS_Execute(mDNS *const m)
 				}
 			}
 		m->NewLocalRecords = head;
-		// debugf("mDNS_Execute: Setting NewLocalRecords to %s", (head ? ARDisplayString(m, head) : "NULL"));
+		debugf("mDNS_Execute: Setting NewLocalRecords to %s", (head ? ARDisplayString(m, head) : "NULL"));
 
 		if (i >= 1000) LogMsg("mDNS_Execute: m->NewLocalRecords exceeded loop limit");
 

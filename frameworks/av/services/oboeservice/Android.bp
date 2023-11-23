@@ -27,6 +27,7 @@ cc_library {
 
     srcs: [
         "AAudioClientTracker.cpp",
+        "AAudioCommandQueue.cpp",
         "AAudioEndpointManager.cpp",
         "AAudioMixer.cpp",
         "AAudioService.cpp",
@@ -68,6 +69,8 @@ cc_library {
         "aaudio-aidl-cpp",
         "framework-permission-aidl-cpp",
         "libaudioclient_aidl_conversion",
+        "packagemanager_aidl-cpp",
+        "android.media.audio.common.types-V1-cpp",
     ],
 
     export_shared_lib_headers: [

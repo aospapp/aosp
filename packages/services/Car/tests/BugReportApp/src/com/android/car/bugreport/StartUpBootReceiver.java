@@ -40,7 +40,7 @@ public class StartUpBootReceiver extends BroadcastReceiver {
         }
 
         // Run it only once for the system user (u0) and ignore for other users.
-        UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
+        UserManager userManager = context.getSystemService(UserManager.class);
         if (!userManager.isSystemUser()) {
             return;
         }

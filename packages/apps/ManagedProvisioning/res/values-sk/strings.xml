@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vaše zariadenie bude spravovať nasledujúca aplikácia:"</string>
     <string name="next" msgid="1004321437324424398">"Ďalej"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nastavuje sa pracovný profil…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto zariadením vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Váš správca IT môže sledovať a spravovať nastavenia, podnikový prístup, aplikácie, povolenia, údaje, aktivitu v sieti spojenú s týmto profilom, ako aj vašu históriu hovorov a históriu vyhľadávania kontaktov. Ak chcete získať ďalšie informácie a dozvedieť sa viac o pravidlách ochrany súkromia svojej organizácie, kontaktujte svojho správcu IT."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Správca IT môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a údaje spojené s týmto profilom vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ak potrebujete ďalšie informácie vrátane informácií o pravidlách ochrany súkromia svojej organizácie, kontaktujte správcu."</string>
@@ -111,7 +109,7 @@
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Ak máte nejaké otázky, obráťte sa na svojho správcu IT"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Nastavenie nie je dokončené. Kontaktujte správcu IT a požiadajte ho o pomoc."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Ak potrebujete pomoc, obráťte sa na svojho správcu IT"</string>
-    <string name="organization_admin" msgid="5975914478148511290">"Správa IT"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"správca IT"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"Organizácia <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> bude spravovať a sledovať toto zariadenie pomocou nasledujúcej aplikácie:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Vaša organizácia"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"vaša organizácia"</string>
@@ -182,9 +180,9 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Prejdite späť na predchádzajúcu obrazovku alebo toto zariadenie resetujte a vráťte správcovi IT."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Zrušiť nastavenie"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Resetovať a vrátiť zariadenie"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Prac. ap. sú uložené v prac. profile a ovláda ich správca IT"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Pracovné aplikácie sú v pracovnom profile a spravuje ich správca IT"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Osobné aplikácie sú od pracovných oddelené a nevidno ich"</string>
-    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Toto zariadenie ovláda správca IT (môže blokovať aplikácie)"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Váš správca IT môže ovládať toto zariadenie a blokovať určité aplikácie"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Pracovné aplikácie sú uchovávané vo vašom pracovnom profile a ovládané vaším správcom IT. Osobné aplikácie sú od pracovných oddelené a nie je ich vidieť. Váš správca IT môže ovládať toto zariadenie a blokovať určité aplikácie."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Moment…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Pripomenutie týkajúce sa ochrany súkromia"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> môže nainštalovať aplikáciu <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, aby ste mohli v tomto zariadení platiť"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Toto zariadenie je možné obmedziť"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> môže obmedziť prístup k tomuto zariadeniu, ak ním neplatíte"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Zariadenie sa nedá nastaviť. Kontaktujte správcu IT, pričom v správe uveďte „Neplatný kontrolný súčet“."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Skúste to neskôr alebo požiadajte o pomoc správcu IT"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Zariadenie sa nedá nastaviť. Kontaktujte správcu IT, pričom v správe uveďte „Chýbajúce alebo nefunkčné komponenty“."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Nastavuje sa…"</string>
 </resources>

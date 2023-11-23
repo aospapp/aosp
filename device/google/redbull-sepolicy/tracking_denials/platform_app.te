@@ -1,2 +1,2 @@
-# b/152624986
-dontaudit platform_app default_android_hwservice:hwservice_manager find;
+# b/194892738
+dontaudit platform_app hal_power_stats_hwservice:hwservice_manager find;

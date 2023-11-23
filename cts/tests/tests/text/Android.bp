@@ -56,4 +56,8 @@ android_test {
         "mts",
         "sts",
     ],
+    data: [
+        ":CtsTextTestResourceData",
+    ],
+    per_testcase_directory: true,
 }

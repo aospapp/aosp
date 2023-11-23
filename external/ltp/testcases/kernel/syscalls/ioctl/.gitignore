@@ -6,6 +6,14 @@
 /ioctl06
 /ioctl07
 /ioctl08
+/ioctl09
+/ioctl_loop01
+/ioctl_loop02
+/ioctl_loop03
+/ioctl_loop04
+/ioctl_loop05
+/ioctl_loop06
+/ioctl_loop07
 /ioctl_ns01
 /ioctl_ns02
 /ioctl_ns03
@@ -13,3 +21,4 @@
 /ioctl_ns05
 /ioctl_ns06
 /ioctl_ns07
+/ioctl_sg01

@@ -16,6 +16,10 @@
 
 package android.net.wifi;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -24,14 +28,21 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.validateMockitoUsage;
 
 import android.net.wifi.ScanResult.InformationElement;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Unit tests for {@link android.net.wifi.WifiScanner}.
@@ -39,6 +50,7 @@ import org.mockito.MockitoAnnotations;
 @SmallTest
 public class ScanResultTest {
     public static final String TEST_SSID = "\"test_ssid\"";
+    public static final String TEST_SSID_NON_UTF_8 = "B9C8B8E8";
     public static final String TEST_BSSID = "04:ac:fe:45:34:10";
     public static final String TEST_CAPS = "CCMP";
     public static final int TEST_LEVEL = -56;
@@ -151,6 +163,18 @@ public class ScanResultTest {
         ScanResult readScanResult = parcelReadWrite(writeScanResult);
         assertScanResultEquals(writeScanResult, readScanResult);
     }
+
+    /**
+     * Verify parcel read/write for ScanResult with non-UTF-8 SSID.
+     */
+    @Test
+    public void verifyScanResultParcelWithNonUtf8Ssid() throws Exception {
+        ScanResult writeScanResult = createScanResult();
+        writeScanResult.setWifiSsid(WifiSsid.fromString(TEST_SSID_NON_UTF_8));
+        ScanResult readScanResult = parcelReadWrite(writeScanResult);
+        assertScanResultEquals(writeScanResult, readScanResult);
+    }
+
 
     /**
      * Verify parcel read/write for ScanResult.
@@ -266,6 +290,22 @@ public class ScanResultTest {
     }
 
     /**
+     * Verify toString for ScanResult with non-UTF-8 SSID.
+     */
+    @Test
+    public void verifyScanResultToStringWithNonUtf8Ssid() throws Exception {
+        ScanResult scanResult = createScanResult();
+        scanResult.setWifiSsid(WifiSsid.fromString(TEST_SSID_NON_UTF_8));
+        assertEquals("SSID: B9C8B8E8, BSSID: 04:ac:fe:45:34:10, capabilities: CCMP, "
+                + "level: -56, frequency: 2412, timestamp: 2480, "
+                + "distance: 0(cm), distanceSd: 0(cm), "
+                + "passpoint: no, ChannelBandwidth: 0, centerFreq0: 0, centerFreq1: 0, "
+                + "standard: 11ac, "
+                + "80211mcResponder: is not supported, "
+                + "Radio Chain Infos: null, interface name: test_ifname", scanResult.toString());
+    }
+
+    /**
      * verify frequency to channel conversion for all possible frequencies.
      */
     @Test
@@ -286,6 +326,46 @@ public class ScanResultTest {
     }
 
     /**
+     * Verify that getSecurityTypes returns the types derived from the generated security params
+     */
+    @Test
+    public void verifyGetSecurityTypesDerivedFromSecurityParams() {
+        List<Integer> wifiConfigSecurityTypes = List.of(
+                WifiConfiguration.SECURITY_TYPE_OPEN,
+                WifiConfiguration.SECURITY_TYPE_WEP,
+                WifiConfiguration.SECURITY_TYPE_PSK,
+                WifiConfiguration.SECURITY_TYPE_EAP,
+                WifiConfiguration.SECURITY_TYPE_SAE,
+                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
+                WifiConfiguration.SECURITY_TYPE_OWE,
+                WifiConfiguration.SECURITY_TYPE_WAPI_PSK,
+                WifiConfiguration.SECURITY_TYPE_WAPI_CERT,
+                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE,
+                WifiConfiguration.SECURITY_TYPE_OSEN,
+                WifiConfiguration.SECURITY_TYPE_PASSPOINT_R1_R2,
+                WifiConfiguration.SECURITY_TYPE_PASSPOINT_R3);
+        List<SecurityParams> securityParamsList = wifiConfigSecurityTypes.stream()
+                .map(SecurityParams::createSecurityParamsBySecurityType)
+                .collect(Collectors.toList());
+        List<Integer> wifiInfoSecurityTypes = wifiConfigSecurityTypes.stream()
+                .map(WifiInfo::convertWifiConfigurationSecurityType)
+                .collect(Collectors.toList());
+
+        MockitoSession session =
+                ExtendedMockito.mockitoSession().spyStatic(ScanResultUtil.class).startMocking();
+        try {
+            ScanResult scanResult = new ScanResult();
+            scanResult.capabilities = "";
+            doReturn(securityParamsList).when(
+                    () -> ScanResultUtil.generateSecurityParamsListFromScanResult(scanResult));
+            assertThat(scanResult.getSecurityTypes())
+                    .asList().containsExactlyElementsIn(wifiInfoSecurityTypes);
+        } finally {
+            session.finishMocking();
+        }
+    }
+
+    /**
      * Write the provided {@link ScanResult} to a parcel and deserialize it.
      */
     private static ScanResult parcelReadWrite(ScanResult writeResult) throws Exception {
@@ -297,7 +377,7 @@ public class ScanResultTest {
 
     private static ScanResult createScanResult() {
         ScanResult result = new ScanResult();
-        result.wifiSsid = WifiSsid.createFromAsciiEncoded(TEST_SSID);
+        result.setWifiSsid(WifiSsid.fromString(TEST_SSID));
         result.BSSID = TEST_BSSID;
         result.capabilities = TEST_CAPS;
         result.level = TEST_LEVEL;
@@ -311,6 +391,7 @@ public class ScanResultTest {
 
     private static void assertScanResultEquals(ScanResult expected, ScanResult actual) {
         assertEquals(expected.SSID, actual.SSID);
+        assertEquals(expected.getWifiSsid(), actual.getWifiSsid());
         assertEquals(expected.BSSID, actual.BSSID);
         assertEquals(expected.capabilities, actual.capabilities);
         assertEquals(expected.level, actual.level);
@@ -319,5 +400,33 @@ public class ScanResultTest {
         assertEquals(expected.getWifiStandard(), actual.getWifiStandard());
         assertArrayEquals(expected.radioChainInfos, actual.radioChainInfos);
         assertArrayEquals(expected.informationElements, actual.informationElements);
+    }
+
+    /**
+     * Test ScanResult.getBand() function.
+     */
+    @Test
+    public void testScanResultGetBand() throws Exception {
+        ScanResult scanResult = createScanResult();
+        assertEquals(WifiScanner.WIFI_BAND_24_GHZ, scanResult.getBand());
+    }
+
+    /**
+     * Test ScanResult.toBand() function.
+     */
+    @Test
+    public void testScanResultToBand() throws Exception {
+        assertEquals(WifiScanner.WIFI_BAND_24_GHZ, ScanResult.toBand(TEST_FREQUENCY));
+    }
+
+    /**
+     * Test ScanResult.getBandFromOpClass() function.
+     */
+    @Test
+    public void testScanResultGetBandFromOpCalss() throws Exception {
+        assertEquals(WifiScanner.WIFI_BAND_24_GHZ, ScanResult.getBandFromOpClass(81, 11));
+        assertEquals(WifiScanner.WIFI_BAND_UNSPECIFIED, ScanResult.getBandFromOpClass(81, 36));
+        assertEquals(WifiScanner.WIFI_BAND_5_GHZ, ScanResult.getBandFromOpClass(120, 149));
+        assertEquals(WifiScanner.WIFI_BAND_6_GHZ, ScanResult.getBandFromOpClass(131, 32));
     }
 }

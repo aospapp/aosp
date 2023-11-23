@@ -25,6 +25,11 @@ public class CecMessage {
 
     private static final int HEXADECIMAL_RADIX = 16;
 
+    public static String buildCecMessage(
+            LogicalAddress source, LogicalAddress destination, CecOperand operand, int params) {
+        return "" + source + destination + ":" + operand + formatParams(params);
+    }
+
     public static String formatParams(String rawParams) {
         StringBuilder params = new StringBuilder("");
         int position = 0;
@@ -99,8 +104,8 @@ public class CecMessage {
     /**
      * From the params of a CEC message, gets the nibbles from position start to position end.
      * The start and end are relative to the beginning of the params. For example, in the following
-     * message - 4F:82:10:00:04, getParamsFromMessage(message, 0, 4) will return 0x1000 and
-     * getParamsFromMessage(message, 4, 6) will return 0x04.
+     * message - 4F:82:10:00:04, getParams(message, 0, 4) will return 0x1000 and
+     * getParams(message, 4, 6) will return 0x04.
      */
     public static int getParams(String message, int start, int end) {
         return hexStringToInt(getNibbles(message).substring(4).substring(start, end));
@@ -138,10 +143,19 @@ public class CecMessage {
         return params.toString();
     }
 
-    /** Assert for the DUT's physical address with the value passed from command line argument. */
+    /**
+     *  Assert for the DUT's physical address with the value passed from command line argument.
+     *  Assert for the source's physical address in a <Routing Change> message.
+     */
     public static void assertPhysicalAddressValid(String message, int expectedPhysicalAddress) {
         int physicalAddress = getParams(message, HdmiCecConstants.PHYSICAL_ADDRESS_LENGTH);
         assertThat(physicalAddress).isEqualTo(expectedPhysicalAddress);
+    }
+
+    /** Assert for the target's physical address in a <Routing Change> message. */
+    public static void assertTargetPhysicalAddressValid(String message, int expectedTargetPhysicalAddress) {
+        int targetPhysicalAddress = getParams(message, 4, 8);
+        assertThat(targetPhysicalAddress).isEqualTo(expectedTargetPhysicalAddress);
     }
 
     private static String getNibbles(String message) {

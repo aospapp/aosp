@@ -23,8 +23,8 @@ class AndroidApiChecksTest : DriverTest() {
     fun `Flag TODO documentation`() {
         check(
             expectedIssues = """
-                src/android/pkg/Test.java:3: lint: Documentation mentions 'TODO' [Todo]
-                src/android/pkg/Test.java:5: lint: Documentation mentions 'TODO' [Todo]
+                src/android/pkg/Test.java:4: lint: Documentation mentions 'TODO' [Todo]
+                src/android/pkg/Test.java:6: lint: Documentation mentions 'TODO' [Todo]
                 """,
             sourceFiles = arrayOf(
                 // Nothing in outside of Android
@@ -66,8 +66,8 @@ class AndroidApiChecksTest : DriverTest() {
     fun `Document Permissions`() {
         check(
             expectedIssues = """
-                src/android/pkg/PermissionTest.java:10: lint: Method 'test0' documentation mentions permissions without declaring @RequiresPermission [RequiresPermission]
-                src/android/pkg/PermissionTest.java:19: lint: Method 'test1' documentation mentions permissions already declared by @RequiresPermission [RequiresPermission]
+                src/android/pkg/PermissionTest.java:14: lint: Method 'test0' documentation mentions permissions without declaring @RequiresPermission [RequiresPermission]
+                src/android/pkg/PermissionTest.java:21: lint: Method 'test1' documentation mentions permissions already declared by @RequiresPermission [RequiresPermission]
                 """,
             sourceFiles = arrayOf(
                 java(
@@ -125,9 +125,9 @@ class AndroidApiChecksTest : DriverTest() {
     fun `Document Intent Actions`() {
         check(
             expectedIssues = """
-                src/android/pkg/IntentActionTest.java:27: lint: Field 'BAR_FOO_ERROR_ACTION' is missing @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION) [SdkConstant]
-                src/android/pkg/IntentActionTest.java:16: lint: Field 'FOO_BAR_ERROR_ACTION' is missing @BroadcastBehavior [BroadcastBehavior]
-                src/android/pkg/IntentActionTest.java:16: lint: Field 'FOO_BAR_ERROR_ACTION' is missing @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION) [SdkConstant]
+                src/android/pkg/IntentActionTest.java:30: lint: Field 'BAR_FOO_ERROR_ACTION' is missing @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION) [SdkConstant]
+                src/android/pkg/IntentActionTest.java:19: lint: Field 'FOO_BAR_ERROR_ACTION' is missing @BroadcastBehavior [BroadcastBehavior]
+                src/android/pkg/IntentActionTest.java:19: lint: Field 'FOO_BAR_ERROR_ACTION' is missing @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION) [SdkConstant]
                 """,
             sourceFiles = arrayOf(
                 java(
@@ -176,8 +176,8 @@ class AndroidApiChecksTest : DriverTest() {
         check(
             expectedIssues = """
                 src/android/pkg/NullMentions.java:18: warning: Parameter 'param1' of 'method3' documentation mentions 'null' without declaring @NonNull or @Nullable [Nullable]
-                src/android/pkg/NullMentions.java:19: warning: Return value of 'method4' documentation mentions 'null' without declaring @NonNull or @Nullable [Nullable]
-                src/android/pkg/NullMentions.java:8: warning: Field 'field2' documentation mentions 'null' without declaring @NonNull or @Nullable [Nullable]
+                src/android/pkg/NullMentions.java:21: warning: Return value of 'method4' documentation mentions 'null' without declaring @NonNull or @Nullable [Nullable]
+                src/android/pkg/NullMentions.java:9: warning: Field 'field2' documentation mentions 'null' without declaring @NonNull or @Nullable [Nullable]
                 """,
             extraArguments = arrayOf(ARG_WARNING, "Nullable"), // Hidden by default
             sourceFiles = arrayOf(
@@ -220,7 +220,7 @@ class AndroidApiChecksTest : DriverTest() {
     fun `Check IntDef Warnings`() {
         check(
             expectedIssues = """
-                src/android/pkg/NullMentions.java:15: warning: Field 'field1' documentation mentions constants without declaring an @IntDef [IntDef]
+                src/android/pkg/NullMentions.java:16: warning: Field 'field1' documentation mentions constants without declaring an @IntDef [IntDef]
                 """,
             extraArguments = arrayOf(ARG_WARNING, "IntDef"), // Hidden by default
             sourceFiles = arrayOf(

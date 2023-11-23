@@ -319,19 +319,6 @@ util_format_is_compressed(enum pipe_format format)
 }
 
 static inline boolean 
-util_format_is_s3tc(enum pipe_format format)
-{
-   const struct util_format_description *desc = util_format_description(format);
-
-   assert(desc);
-   if (!desc) {
-      return FALSE;
-   }
-
-   return desc->layout == UTIL_FORMAT_LAYOUT_S3TC ? TRUE : FALSE;
-}
-
-static inline boolean 
 util_format_is_srgb(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
@@ -435,55 +422,6 @@ util_format_get_mask(enum pipe_format format)
    }
 }
 
-/**
- * Give the RGBA colormask of the channels that can be represented in this
- * format.
- *
- * That is, the channels whose values are preserved.
- */
-static inline unsigned
-util_format_colormask(const struct util_format_description *desc)
-{
-   unsigned colormask;
-   unsigned chan;
-
-   switch (desc->colorspace) {
-   case UTIL_FORMAT_COLORSPACE_RGB:
-   case UTIL_FORMAT_COLORSPACE_SRGB:
-   case UTIL_FORMAT_COLORSPACE_YUV:
-      colormask = 0;
-      for (chan = 0; chan < 4; ++chan) {
-         if (desc->swizzle[chan] < 4) {
-            colormask |= (1 << chan);
-         }
-      }
-      return colormask;
-   case UTIL_FORMAT_COLORSPACE_ZS:
-      return 0;
-   default:
-      assert(0);
-      return 0;
-   }
-}
-
-
-/**
- * Checks if color mask covers every channel for the specified format
- *
- * @param desc       a format description to check colormask with
- * @param colormask  a bit mask for channels, matches format of PIPE_MASK_RGBA
- */
-static inline boolean
-util_format_colormask_full(const struct util_format_description *desc, unsigned colormask)
-{
-   return (~colormask & util_format_colormask(desc)) == 0;
-}
-
-
-boolean
-util_format_is_float(enum pipe_format format);
-
-
 boolean
 util_format_has_alpha(enum pipe_format format);
 
@@ -500,9 +438,6 @@ util_format_is_luminance_alpha(enum pipe_format format);
 
 boolean
 util_format_is_intensity(enum pipe_format format);
-
-boolean
-util_format_is_subsampled_422(enum pipe_format format);
 
 boolean
 util_format_is_pure_integer(enum pipe_format format);
@@ -524,13 +459,6 @@ util_format_is_snorm(enum pipe_format format);
 boolean
 util_is_format_compatible(const struct util_format_description *src_desc,
                           const struct util_format_description *dst_desc);
-
-/**
- * Whether the format is supported by Gallium for the given bindings.
- * This covers S3TC textures and floating-point render targets.
- */
-boolean
-util_format_is_supported(enum pipe_format format, unsigned bind);
 
 /**
  * Whether this format is a rgab8 variant.

@@ -24,6 +24,7 @@ import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.cts.ProviderTestUtils;
 
+import androidx.annotation.RequiresApi;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -91,7 +92,6 @@ public class MediaStoreAudioTestHelper {
         public static final int IS_RINGTONE = 0;
         public static final int IS_NOTIFICATION = 0;
         public static final int IS_ALARM = 0;
-        public static final int IS_RECORDING = 0;
         public static final int IS_MUSIC = 1;
         public static final int YEAR = 1992;
         public static final int TRACK = 1;
@@ -135,7 +135,6 @@ public class MediaStoreAudioTestHelper {
             values.put(Media.IS_MUSIC, IS_MUSIC);
             values.put(Media.IS_ALARM, IS_ALARM);
             values.put(Media.IS_NOTIFICATION, IS_NOTIFICATION);
-            values.put(Media.IS_RECORDING, IS_RECORDING);
             values.put(Media.IS_RINGTONE, IS_RINGTONE);
             return values;
         }
@@ -274,6 +273,28 @@ public class MediaStoreAudioTestHelper {
             ContentValues values = super.getContentValues(volumeName);
             values.put(Media.DATA, values.getAsString(Media.DATA) + ".6.mp3");
             values.put(Media.ARTIST, ARTIST);
+            return values;
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    public static class Audio7 extends Audio1 {
+        public static final int IS_RECORDING = 0;
+
+        private Audio7() {
+        }
+
+        private static Audio7 sInstance = new Audio7();
+
+        public static Audio7 getInstance() {
+            return sInstance;
+        }
+
+        @Override
+        public ContentValues getContentValues(String volumeName) {
+            ContentValues values = super.getContentValues(volumeName);
+            values.put(Media.DATA, values.getAsString(Media.DATA) + ".recording.mp3");
+            values.put(Media.IS_RECORDING, IS_RECORDING);
             return values;
         }
     }

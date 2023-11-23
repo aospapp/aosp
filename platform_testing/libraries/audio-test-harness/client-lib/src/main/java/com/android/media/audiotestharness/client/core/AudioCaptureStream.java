@@ -19,6 +19,7 @@ package com.android.media.audiotestharness.client.core;
 import com.android.media.audiotestharness.common.Defaults;
 import com.android.media.audiotestharness.proto.AudioFormatOuterClass.AudioFormat;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -26,6 +27,21 @@ import java.io.InputStream;
  * while also providing access to helper methods to interact with the session.
  */
 public abstract class AudioCaptureStream extends InputStream {
+
+    /**
+     * Read method that reads a number of audio samples, up to the max into the provided array
+     * starting at offset. These samples are expected to be signed 16-bit values and thus are
+     * provided as an array of short values.
+     *
+     * <p>This method blocks until at least one complete sample is read, and ensures that no
+     * incomplete samples are read.
+     *
+     * @param samples the array to read into.
+     * @param offset the offset to use when writing into samples.
+     * @param len the maximum number of samples to read.
+     * @return the number of samples read into the provided array.
+     */
+    public abstract int read(short[] samples, int offset, int len) throws IOException;
 
     /**
      * Returns the {@link AudioFormat} corresponding to this {@link AudioCaptureStream}, thus the

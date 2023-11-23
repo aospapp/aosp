@@ -41,6 +41,7 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.EventLog;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -558,14 +559,14 @@ public class AppRestrictionsFragment extends SettingsPreferenceFragment implemen
         if (intent.getPackage() != null && intent.getPackage().equals(packageName)) {
             return;
         }
-        // Activity can be started if intent resolves to multiple activities
-        List<ResolveInfo> resolveInfos = AppRestrictionsFragment.this.mPackageManager
-                .queryIntentActivities(intent, 0 /* no flags */);
-        if (resolveInfos.size() != 1) {
-            return;
+        ResolveInfo resolveInfo = mPackageManager.resolveActivity(
+                intent, PackageManager.MATCH_DEFAULT_ONLY);
+
+        if (resolveInfo == null) {
+            throw new ActivityNotFoundException("No result for resolving " + intent);
         }
         // Prevent potential privilege escalation
-        ActivityInfo activityInfo = resolveInfos.get(0).activityInfo;
+        ActivityInfo activityInfo = resolveInfo.activityInfo;
         if (!packageName.equals(activityInfo.packageName)) {
             throw new SecurityException("Application " + packageName
                     + " is not allowed to start activity " + intent);
@@ -595,8 +596,16 @@ public class AppRestrictionsFragment extends SettingsPreferenceFragment implemen
             }
             return true;
         } else if (preference.getIntent() != null) {
-            assertSafeToStartCustomActivity(preference.getIntent(),
+
+            try {
+                assertSafeToStartCustomActivity(preference.getIntent(),
                     getPackageFromKey(preference.getKey()));
+            } catch (ActivityNotFoundException | SecurityException e) {
+                // return without startActivity
+                Log.e(TAG, "Cannot start restrictionsIntent " + e);
+                EventLog.writeEvent(0x534e4554, "200688991", -1 /* UID */, "");
+                return true;
+            }
             try {
                 startActivityForResult(preference.getIntent(),
                         generateCustomActivityRequestCode(preference));

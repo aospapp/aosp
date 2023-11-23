@@ -146,4 +146,7 @@ open class NotificationTemplateTestBase : AndroidTestCase() {
 
     @BoolRes
     protected fun getAndroidRBool(boolName: String): Int = getAndroidRes("bool", boolName)
+
+    @DimenRes
+    protected fun getAndroidRDimen(dimenName: String) : Int = getAndroidRes("dimen", dimenName)
 }

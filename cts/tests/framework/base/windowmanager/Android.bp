@@ -67,6 +67,7 @@ android_test {
         "cts-wm-overlayapp-base",
         "cts-wm-shared",
         "platform-compat-test-rules",
+        "cts_window_jetpack_utils",
     ],
 
     test_suites: [
@@ -76,4 +77,30 @@ android_test {
     ],
 
     sdk_version: "test_current",
+    data: [
+        ":CtsDragAndDropSourceApp",
+        ":CtsDragAndDropTargetApp",
+        ":CtsDeviceAlertWindowTestApp",
+        ":CtsAlertWindowService",
+        ":CtsDeviceServicesTestApp",
+        ":CtsDeviceServicesTestApp27",
+        ":CtsDeviceServicesTestApp30",
+        ":CtsDeviceServicesTestSecondApp",
+        ":CtsDeviceServicesTestThirdApp",
+        ":CtsDeviceDeprecatedSdkApp",
+        ":CtsDeviceDisplaySizeApp",
+        ":CtsDevicePrereleaseSdkApp",
+        ":CtsDeviceProfileableApp",
+        ":CtsDeviceTranslucentTestApp",
+        ":CtsDeviceTranslucentTestApp26",
+        ":CtsMockInputMethod",
+        ":CtsDeviceServicesTestShareUidAppA",
+        ":CtsDeviceServicesTestShareUidAppB",
+        ":CtsCrossProcessSurfaceControlViewHostTestService",
+        ":CtsWindowManagerJetpackSecondUidApp",
+        ":CtsBackLegacyApp",
+        ":CtsDragAndDropTargetAppSdk23",
+        ":CtsDeviceAlertWindowTestAppSdk25",
+    ],
+    per_testcase_directory: true,
 }

@@ -32,7 +32,7 @@
 namespace android {
 
 auto DrmFbIdHandle::CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
-                                   const std::shared_ptr<DrmDevice> &drm)
+                                   DrmDevice &drm)
     -> std::shared_ptr<DrmFbIdHandle> {
   // NOLINTNEXTLINE(cppcoreguidelines-owning-memory): priv. constructor usage
   std::shared_ptr<DrmFbIdHandle> local(new DrmFbIdHandle(drm));
@@ -41,10 +41,10 @@ auto DrmFbIdHandle::CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
   int32_t err = 0;
 
   /* Framebuffer object creation require gem handle for every used plane */
-  for (int i = 1; i < local->gem_handles_.size(); i++) {
+  for (size_t i = 1; i < local->gem_handles_.size(); i++) {
     if (bo->prime_fds[i] > 0) {
       if (bo->prime_fds[i] != bo->prime_fds[0]) {
-        err = drmPrimeFDToHandle(drm->fd(), bo->prime_fds[i],
+        err = drmPrimeFDToHandle(drm.GetFd(), bo->prime_fds[i],
                                  &local->gem_handles_.at(i));
         if (err != 0) {
           ALOGE("failed to import prime fd %d errno=%d", bo->prime_fds[i],
@@ -59,7 +59,7 @@ auto DrmFbIdHandle::CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
   bool has_modifiers = bo->modifiers[0] != DRM_FORMAT_MOD_NONE &&
                        bo->modifiers[0] != DRM_FORMAT_MOD_INVALID;
 
-  if (!drm->HasAddFb2ModifiersSupport() && has_modifiers) {
+  if (!drm.HasAddFb2ModifiersSupport() && has_modifiers) {
     ALOGE("No ADDFB2 with modifier support. Can't import modifier %" PRIu64,
           bo->modifiers[0]);
     local.reset();
@@ -68,11 +68,11 @@ auto DrmFbIdHandle::CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
 
   /* Create framebuffer object */
   if (!has_modifiers) {
-    err = drmModeAddFB2(drm->fd(), bo->width, bo->height, bo->format,
+    err = drmModeAddFB2(drm.GetFd(), bo->width, bo->height, bo->format,
                         &local->gem_handles_[0], &bo->pitches[0],
                         &bo->offsets[0], &local->fb_id_, 0);
   } else {
-    err = drmModeAddFB2WithModifiers(drm->fd(), bo->width, bo->height,
+    err = drmModeAddFB2WithModifiers(drm.GetFd(), bo->width, bo->height,
                                      bo->format, &local->gem_handles_[0],
                                      &bo->pitches[0], &bo->offsets[0],
                                      &bo->modifiers[0], &local->fb_id_,
@@ -88,7 +88,7 @@ auto DrmFbIdHandle::CreateInstance(hwc_drm_bo_t *bo, GemHandle first_gem_handle,
 
 DrmFbIdHandle::~DrmFbIdHandle() {
   /* Destroy framebuffer object */
-  if (drmModeRmFB(drm_->fd(), fb_id_) != 0) {
+  if (drmModeRmFB(drm_->GetFd(), fb_id_) != 0) {
     ALOGE("Failed to rm fb");
   }
 
@@ -101,7 +101,7 @@ DrmFbIdHandle::~DrmFbIdHandle() {
    * request via system properties)
    */
   struct drm_gem_close gem_close {};
-  for (int i = 0; i < gem_handles_.size(); i++) {
+  for (size_t i = 0; i < gem_handles_.size(); i++) {
     /* Don't close invalid handle. Close handle only once in cases
      * where several YUV planes located in the single buffer. */
     if (gem_handles_[i] == 0 ||
@@ -109,7 +109,7 @@ DrmFbIdHandle::~DrmFbIdHandle() {
       continue;
     }
     gem_close.handle = gem_handles_[i];
-    int32_t err = drmIoctl(drm_->fd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
+    int32_t err = drmIoctl(drm_->GetFd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
     if (err != 0) {
       ALOGE("Failed to close gem handle %d, errno: %d", gem_handles_[i], errno);
     }
@@ -120,11 +120,12 @@ auto DrmFbImporter::GetOrCreateFbId(hwc_drm_bo_t *bo)
     -> std::shared_ptr<DrmFbIdHandle> {
   /* Lookup DrmFbIdHandle in cache first. First handle serves as a cache key. */
   GemHandle first_handle = 0;
-  int32_t err = drmPrimeFDToHandle(drm_->fd(), bo->prime_fds[0], &first_handle);
+  int32_t err = drmPrimeFDToHandle(drm_->GetFd(), bo->prime_fds[0],
+                                   &first_handle);
 
   if (err != 0) {
     ALOGE("Failed to import prime fd %d ret=%d", bo->prime_fds[0], err);
-    return std::shared_ptr<DrmFbIdHandle>();
+    return {};
   }
 
   auto drm_fb_id_cached = drm_fb_id_handle_cache_.find(first_handle);
@@ -143,7 +144,7 @@ auto DrmFbImporter::GetOrCreateFbId(hwc_drm_bo_t *bo)
   }
 
   /* No DrmFbIdHandle found in cache, create framebuffer object */
-  auto fb_id_handle = DrmFbIdHandle::CreateInstance(bo, first_handle, drm_);
+  auto fb_id_handle = DrmFbIdHandle::CreateInstance(bo, first_handle, *drm_);
   if (fb_id_handle) {
     drm_fb_id_handle_cache_[first_handle] = fb_id_handle;
   }

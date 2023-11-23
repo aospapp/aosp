@@ -6,7 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.3.4]
+## [0.3.5] - 2021-07-26
+### Fixed
+- Corrected `Criterion.toml` in the book.
+- Corrected configuration typo in the book.
+
+### Changed
+- Bump plotters dependency to always include a bug-fix.
+- MSRV bumped to 1.46.
+
+## [0.3.4] - 2021-01-24
 ### Added
 - Added support for benchmarking async functions
 - Added `with_output_color` for enabling or disabling CLI output coloring programmatically.

@@ -34,7 +34,7 @@ using suppr::suppressions_type;
 static const std::string test_data_dir =
     std::string(abigail::tests::get_src_dir()) + "/tests/data/test-symtab/";
 
-dwarf_reader::status
+elf_reader::status
 read_corpus(const std::string&		    path,
 	    corpus_sptr&		    result,
 	    const std::vector<std::string>& whitelist_paths =
@@ -58,10 +58,10 @@ read_corpus(const std::string&		    path,
       dwarf_reader::add_read_context_suppressions(*ctxt, wl_suppr);
     }
 
-  dwarf_reader::status status = dwarf_reader::STATUS_UNKNOWN;
+  elf_reader::status status = elf_reader::STATUS_UNKNOWN;
   result = read_corpus_from_elf(*ctxt, status);
 
-  REQUIRE(status != dwarf_reader::STATUS_UNKNOWN);
+  REQUIRE(status != elf_reader::STATUS_UNKNOWN);
   return status;
 }
 
@@ -69,22 +69,22 @@ TEST_CASE("Symtab::Empty", "[symtab, basic]")
 {
   const std::string	     binary = "basic/empty.so";
   corpus_sptr		     corpus_ptr;
-  const dwarf_reader::status status = read_corpus(binary, corpus_ptr);
+  const elf_reader::status status = read_corpus(binary, corpus_ptr);
   REQUIRE(!corpus_ptr);
 
-  REQUIRE((status & dwarf_reader::STATUS_NO_SYMBOLS_FOUND));
+  REQUIRE((status & elf_reader::STATUS_NO_SYMBOLS_FOUND));
 }
 
 TEST_CASE("Symtab::NoDebugInfo", "[symtab, basic]")
 {
   const std::string	     binary = "basic/no_debug_info.so";
   corpus_sptr		     corpus_ptr;
-  const dwarf_reader::status status = read_corpus(binary, corpus_ptr);
+  const elf_reader::status status = read_corpus(binary, corpus_ptr);
   REQUIRE(corpus_ptr);
 
   REQUIRE(status
-	  == (dwarf_reader::STATUS_OK
-	      | dwarf_reader::STATUS_DEBUG_INFO_NOT_FOUND));
+	  == (elf_reader::STATUS_OK
+	      | elf_reader::STATUS_DEBUG_INFO_NOT_FOUND));
 }
 
 // this value indicates in the following helper method, that we do not want to
@@ -102,11 +102,11 @@ assert_symbol_count(const std::string& path,
 			std::vector<std::string>())
 {
   corpus_sptr		     corpus_ptr;
-  const dwarf_reader::status status =
+  const elf_reader::status status =
     read_corpus(path, corpus_ptr, whitelist_paths);
   REQUIRE(corpus_ptr);
 
-  REQUIRE((status & dwarf_reader::STATUS_OK));
+  REQUIRE((status & elf_reader::STATUS_OK));
   const corpus& corpus = *corpus_ptr;
 
   size_t total_symbols = 0;
@@ -244,10 +244,10 @@ TEST_CASE("Symtab::SymtabWithWhitelist", "[symtab, whitelist]")
 	+ "basic/one_function_one_variable_irrelevant.whitelist");
 
       corpus_sptr		 corpus_ptr;
-      const dwarf_reader::status status =
+      const elf_reader::status status =
 	read_corpus(binary, corpus_ptr, whitelists);
       REQUIRE(!corpus_ptr);
-      REQUIRE((status & dwarf_reader::STATUS_NO_SYMBOLS_FOUND));
+      REQUIRE((status & elf_reader::STATUS_NO_SYMBOLS_FOUND));
     }
 
     GIVEN("we read the binary with only the function whitelisted")

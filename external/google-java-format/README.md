@@ -13,7 +13,7 @@
 and run it with:
 
 ```
-java -jar /path/to/google-java-format-1.8-all-deps.jar <options> [files...]
+java -jar /path/to/google-java-format-${GJF_VERSION?}-all-deps.jar <options> [files...]
 ```
 
 The formatter can act on whole files, on limited lines (`--lines`), on specific
@@ -26,6 +26,21 @@ To reformat changed lines in a specific patch, use
 ***Note:*** *There is no configurability as to the formatter's algorithm for
 formatting. This is a deliberate design decision to unify our code formatting on
 a single format.*
+
+#### JDK 16
+
+The following flags are required when running on JDK 16, due to
+[JEP 396: Strongly Encapsulate JDK Internals by Default](https://openjdk.java.net/jeps/396):
+
+```
+java \
+  --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+  --add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+  --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+  --add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+  --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+  -jar google-java-format-${GJF_VERSION?}-all-deps.jar <options> [files...]
+```
 
 ### IntelliJ, Android Studio, and other JetBrains IDEs
 
@@ -55,9 +70,9 @@ and import it into File→Settings→Editor→Code Style.
 
 ### Eclipse
 
-Version 1.6 of the
-[google-java-format Eclipse plugin](https://github.com/google/google-java-format/releases/download/google-java-format-1.6/google-java-format-eclipse-plugin_1.6.0.jar)
-can be downloaded from the releases page. Drop it into the Eclipse
+The latest version of the `google-java-format` Eclipse plugin can be downloaded
+from the [releases page](https://github.com/google/google-java-format/releases).
+Drop it into the Eclipse
 [drop-ins folder](http://help.eclipse.org/neon/index.jsp?topic=%2Forg.eclipse.platform.doc.isv%2Freference%2Fmisc%2Fp2_dropins_format.html)
 to activate the plugin.
 
@@ -98,7 +113,7 @@ configuration.
 <dependency>
   <groupId>com.google.googlejavaformat</groupId>
   <artifactId>google-java-format</artifactId>
-  <version>1.8</version>
+  <version>${google-java-format.version}</version>
 </dependency>
 ```
 
@@ -106,7 +121,7 @@ configuration.
 
 ```groovy
 dependencies {
-  compile 'com.google.googlejavaformat:google-java-format:1.8'
+  implementation 'com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion'
 }
 ```
 

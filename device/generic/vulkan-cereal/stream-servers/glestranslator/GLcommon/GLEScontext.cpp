@@ -20,7 +20,7 @@
 #include "base/Lookup.h"
 #include "base/StreamSerializing.h"
 #include "host-common/feature_control.h"
-#include "ErrorLog.h"
+#include "host-common/logging.h"
 
 #include <GLcommon/GLconversion_macros.h>
 #include <GLcommon/GLSnapshotSerializers.h>
@@ -290,7 +290,7 @@ static GLuint getIndex(GLenum indices_type, const GLvoid* indices, unsigned int 
         case GL_UNSIGNED_INT:
             return static_cast<const GLuint*>(indices)[i];
         default:
-            ERR("**** ERROR unknown type 0x%x (%s,%d)\n", indices_type, __FUNCTION__,__LINE__);
+            ERR("**** ERROR unknown type 0x%x", indices_type);
             return 0;
     }
 }
@@ -913,9 +913,7 @@ void GLEScontext::postLoadRestoreCtx() {
         err = dispatcher.glGetError();
 #ifdef _DEBUG
         if (err) {
-            fprintf(stderr,
-                    "warning: get GL error %d while restoring a snapshot\n",
-                    err);
+            ERR("warning: get GL error %d while restoring a snapshot", err);
         }
 #endif
     } while (err != 0);
@@ -961,7 +959,7 @@ const GLvoid* GLEScontext::setPointer(GLenum arrType,GLint size,GLenum type,GLsi
                                         bufferName));
         if(offset >= vbo->getSize() || vbo->getSize() - offset < size) {
 #ifdef _DEBUG
-            fprintf(stderr, "Warning: Invalid pointer offset %u, arrType %d, type %d\n", offset, arrType, type);
+            ERR("Warning: Invalid pointer offset %u, arrType %d, type %d", offset, arrType, type);
 #endif
             return nullptr;
         }
@@ -972,11 +970,6 @@ const GLvoid* GLEScontext::setPointer(GLenum arrType,GLint size,GLenum type,GLsi
     }
     glesPointer->setArray(size,type,stride,data,dataSize,normalize,isInt);
     return data;
-}
-
-GLint GLEScontext::getUnpackAlignment() {
-    return android::base::findOrDefault(m_glPixelStoreiList,
-            GL_UNPACK_ALIGNMENT, 4);
 }
 
 void GLEScontext::enableArr(GLenum arr,bool enable) {
@@ -1754,11 +1747,11 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
                 hasEtc2Support = true; // Supports ETC2 underneath
             } else {
                 // It is unusual to support only some. Record what happened.
-                fprintf(stderr, "%s: Not supporting etc2: %d vs %d\n", __func__,
-                        numEtc2FormatsSupported, numEtc2Formats);
+                ERR("Not supporting etc2: %d vs %d",
+                    numEtc2FormatsSupported, numEtc2Formats);
                 for (auto it : found) {
                     if (!it.second) {
-                        fprintf(stderr, "%s: Not found: 0x%x\n", __func__, it.first);
+                        ERR("Not found: 0x%x", it.first);
                     }
                 }
             }
@@ -1767,11 +1760,11 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
                 hasAstcSupport = true; // Supports ASTC underneath
             } else {
                 // It is unusual to support only some. Record what happened.
-                fprintf(stderr, "%s: Not supporting astc: %d vs %d\n", __func__,
-                        numAstcFormatsSupported, numAstcFormats);
+                ERR("Not supporting astc: %d vs %d",
+                    numAstcFormatsSupported, numAstcFormats);
                 for (auto it : found) {
                     if (!it.second) {
-                        fprintf(stderr, "%s: Not found: 0x%x\n", __func__, it.first);
+                        ERR("Not found: 0x%x", it.first);
                     }
                 }
             }
@@ -1880,6 +1873,12 @@ void GLEScontext::initCapsLocked(const GLubyte * extensionString)
     if (feature_is_enabled(kFeature_S3tcTextureSupport)) {
         if (strstr(cstring, "GL_EXT_texture_compression_s3tc") != NULL) {
             s_glSupport.hasS3tcSupport = true;
+        }
+    }
+
+    if (feature_is_enabled(kFeature_RgtcTextureSupport)) {
+        if (strstr(cstring, "GL_EXT_texture_compression_rgtc") != NULL) {
+            s_glSupport.hasRgtcSupport = true;
         }
     }
 }
@@ -2129,7 +2128,7 @@ void GLEScontext::initEmulatedEGLSurface(GLint width, GLint height,
         dispatcher().glRenderbufferStorageMultisample(GL_RENDERBUFFER, multisamples, colorFormat, width, height);
         GLint err = dispatcher().glGetError();
         if (err != GL_NO_ERROR) {
-            fprintf(stderr, "%s: error setting up multisampled RBO! 0x%x\n", __func__, err);
+            ERR("error setting up multisampled RBO! 0x%x", err);
         }
     } else {
         dispatcher().glRenderbufferStorage(GL_RENDERBUFFER, colorFormat, width, height);
@@ -2140,7 +2139,7 @@ void GLEScontext::initEmulatedEGLSurface(GLint width, GLint height,
         dispatcher().glRenderbufferStorageMultisample(GL_RENDERBUFFER, multisamples, depthstencilFormat, width, height);
         GLint err = dispatcher().glGetError();
         if (err != GL_NO_ERROR) {
-            fprintf(stderr, "%s: error setting up multisampled RBO! 0x%x\n", __func__, err);
+            ERR("error setting up multisampled RBO! 0x%x", err);
         }
     } else {
         dispatcher().glRenderbufferStorage(GL_RENDERBUFFER, depthstencilFormat, width, height);
@@ -2592,7 +2591,7 @@ GLuint GLEScontext::compileAndValidateCoreShader(GLenum shaderType, const char* 
         gl.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
         std::vector<char> infoLog(infoLogLength + 1, 0);
         gl.glGetShaderInfoLog(shader, infoLogLength, nullptr, &infoLog[0]);
-        fprintf(stderr, "%s: fail to compile. infolog %s\n", __func__, &infoLog[0]);
+        ERR("fail to compile. infolog %s", &infoLog[0]);
     }
 
     return shader;
@@ -2615,9 +2614,7 @@ GLuint GLEScontext::linkAndValidateProgram(GLuint vshader, GLuint fshader) {
         gl.glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
         std::vector<char> infoLog(infoLogLength + 1, 0);
         gl.glGetProgramInfoLog(program, infoLogLength, nullptr, &infoLog[0]);
-
-        fprintf(stderr, "%s: fail to link program. infolog: %s\n", __func__,
-                &infoLog[0]);
+        ERR("fail to link program. infolog: %s", &infoLog[0]);
     }
 
     gl.glDeleteShader(vshader);
@@ -2834,6 +2831,111 @@ void GLEScontext::blitFromReadBufferToTextureFlipped(GLuint globalTexObj,
     gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_blitState.fbo);
     gl.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               GL_TEXTURE_2D, globalTexObj, 0);
+
+    gl.glDisable(GL_BLEND);
+    gl.glDisable(GL_SCISSOR_TEST);
+    gl.glDisable(GL_DEPTH_TEST);
+    gl.glDisable(GL_STENCIL_TEST);
+    gl.glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    gl.glDisable(GL_SAMPLE_COVERAGE);
+    gl.glDisable(GL_CULL_FACE);
+    gl.glDisable(GL_POLYGON_OFFSET_FILL);
+    gl.glDisable(GL_RASTERIZER_DISCARD);
+
+    gl.glViewport(0, 0, width, height);
+    if (isGles2Gles()) {
+        gl.glDepthRangef(0.0f, 1.0f);
+    } else {
+        gl.glDepthRange(0.0f, 1.0f);
+    }
+    gl.glColorMask(1, 1, 1, 1);
+
+    gl.glUseProgram(m_blitState.program);
+    gl.glUniform1i(m_blitState.samplerLoc, m_activeTexture);
+
+    gl.glBindVertexArray(m_blitState.vao);
+    gl.glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // state restore
+    const GLuint globalProgramName = shareGroup()->getGlobalName(
+        NamedObjectType::SHADER_OR_PROGRAM, m_useProgram);
+    gl.glUseProgram(globalProgramName);
+
+    gl.glBindVertexArray(getVAOGlobalName(m_currVaoState.vaoId()));
+
+    gl.glBindTexture(
+        GL_TEXTURE_2D,
+        shareGroup()->getGlobalName(
+            NamedObjectType::TEXTURE,
+            getTextureLocalName(GL_TEXTURE_2D,
+                                getBindedTexture(GL_TEXTURE_2D))));
+
+    GLuint drawFboBinding = getFramebufferBinding(GL_DRAW_FRAMEBUFFER);
+    GLuint readFboBinding = getFramebufferBinding(GL_READ_FRAMEBUFFER);
+
+    gl.glBindFramebuffer(
+        GL_DRAW_FRAMEBUFFER,
+        drawFboBinding ? getFBOGlobalName(drawFboBinding) : m_defaultFBO);
+    gl.glBindFramebuffer(
+        GL_READ_FRAMEBUFFER,
+        readFboBinding ? getFBOGlobalName(readFboBinding) : m_defaultReadFBO);
+
+    if (isEnabled(GL_BLEND)) gl.glEnable(GL_BLEND);
+    if (isEnabled(GL_SCISSOR_TEST)) gl.glEnable(GL_SCISSOR_TEST);
+    if (isEnabled(GL_DEPTH_TEST)) gl.glEnable(GL_DEPTH_TEST);
+    if (isEnabled(GL_STENCIL_TEST)) gl.glEnable(GL_STENCIL_TEST);
+    if (isEnabled(GL_SAMPLE_ALPHA_TO_COVERAGE)) gl.glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    if (isEnabled(GL_SAMPLE_COVERAGE)) gl.glEnable(GL_SAMPLE_COVERAGE);
+    if (isEnabled(GL_CULL_FACE)) gl.glEnable(GL_CULL_FACE);
+    if (isEnabled(GL_POLYGON_OFFSET_FILL)) gl.glEnable(GL_POLYGON_OFFSET_FILL);
+    if (isEnabled(GL_RASTERIZER_DISCARD)) gl.glEnable(GL_RASTERIZER_DISCARD);
+
+    gl.glViewport(prevViewport[0], prevViewport[1],
+                  prevViewport[2], prevViewport[3]);
+
+    if (isGles2Gles()) {
+        gl.glDepthRangef(m_zNear, m_zFar);
+    } else {
+        gl.glDepthRange(m_zNear, m_zFar);
+    }
+
+    gl.glColorMask(m_colorMaskR, m_colorMaskG, m_colorMaskB, m_colorMaskA);
+
+    gl.glFlush();
+}
+
+void GLEScontext::blitFromReadBufferToEGLImage(EGLImage image, GLint internalFormat, int width, int height) {
+
+    auto& gl = dispatcher();
+    GLint prevViewport[4];
+    getViewport(prevViewport);
+
+    setupImageBlitState();
+    bool shouldBlit = setupImageBlitForTexture(width, height, internalFormat);
+
+    if (!shouldBlit) return;
+
+    // b/159670873: The texture to blit doesn't necessarily match the display
+    // size. If it doesn't match, then we might not be using the right mipmap
+    // level, which can result in a black screen. Set to always use level 0.
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    if (!m_blitState.eglImageTex) {
+        gl.glGenTextures(1, &m_blitState.eglImageTex);
+    }
+
+    gl.glBindTexture(GL_TEXTURE_2D, m_blitState.eglImageTex);
+    gl.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    gl.glBindTexture(GL_TEXTURE_2D, m_blitState.tex);
+    gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_blitState.fbo);
+    gl.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                              GL_TEXTURE_2D, m_blitState.eglImageTex, 0);
 
     gl.glDisable(GL_BLEND);
     gl.glDisable(GL_SCISSOR_TEST);

@@ -30,4 +30,8 @@ java_test_host {
         "cts-tradefed",
         "tradefed",
     ],
+    data: [
+        ":CtsAbiOverrideTestApp",
+    ],
+    per_testcase_directory: true,
 }

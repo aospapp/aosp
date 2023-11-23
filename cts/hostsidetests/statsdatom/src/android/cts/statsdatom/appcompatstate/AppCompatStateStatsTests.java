@@ -16,13 +16,13 @@
 
 package android.cts.statsdatom.appcompatstate;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_ASPECT_RATIO;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_FIXED_ORIENTATION;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.LETTERBOXED_FOR_SIZE_COMPAT_MODE;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.NOT_LETTERBOXED;
 import static com.android.os.AtomsProto.AppCompatStateChanged.State.NOT_VISIBLE;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
 import android.cts.statsdatom.lib.ConfigUtils;
@@ -154,8 +154,9 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
 
     public void testNonResizablePortraitActivitySwitchedToOpenedThenMinAspectRatioActivity()
             throws Exception {
-        // The 1st and 2nd options for expected states are for portrait devices and the 3rd and 4th
-        // options are for landscape devices, there are two options for each type of device because
+        // The 1st and 2nd options for expected states are for portrait devices, the 3rd and 4th
+        // options are for landscape devices, and the 5th and 6th options are for portrait
+        // devices that unfold into landscape, there are two options for each type of device because
         // the NOT_VISIBLE state between visible states isn't always logged.
         testAppCompatFlow(NON_RESIZEABLE_PORTRAIT_ACTIVITY,
                 MIN_ASPECT_RATIO_PORTRAIT_ACTIVITY, /* switchToOpened= */ true,
@@ -166,6 +167,10 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
                 Arrays.asList(LETTERBOXED_FOR_FIXED_ORIENTATION, LETTERBOXED_FOR_SIZE_COMPAT_MODE,
                         NOT_VISIBLE, LETTERBOXED_FOR_FIXED_ORIENTATION, NOT_VISIBLE),
                 Arrays.asList(LETTERBOXED_FOR_FIXED_ORIENTATION, LETTERBOXED_FOR_SIZE_COMPAT_MODE,
+                        LETTERBOXED_FOR_FIXED_ORIENTATION, NOT_VISIBLE),
+                Arrays.asList(NOT_LETTERBOXED, LETTERBOXED_FOR_SIZE_COMPAT_MODE, NOT_VISIBLE,
+                        LETTERBOXED_FOR_FIXED_ORIENTATION, NOT_VISIBLE),
+                Arrays.asList(NOT_LETTERBOXED, LETTERBOXED_FOR_SIZE_COMPAT_MODE,
                         LETTERBOXED_FOR_FIXED_ORIENTATION, NOT_VISIBLE));
     }
 
@@ -178,8 +183,9 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
     private void testAppCompatFlow(String activity, @Nullable String secondActivity,
             boolean switchToOpened, List<AppCompatStateChanged.State>... expectedStatesOptions)
             throws Exception {
-        if (!isOpenedDeviceStateAvailable()) {
-            CLog.i("Device doesn't support OPENED device state.");
+        if (!isDeviceStateAvailable(DEVICE_STATE_OPENED)
+                || !isDeviceStateAvailable(DEVICE_STATE_CLOSED)) {
+            CLog.i("Device doesn't support OPENED or CLOSED device states.");
             return;
         }
 
@@ -233,10 +239,10 @@ public class AppCompatStateStatsTests extends DeviceTestCase implements IBuildRe
         return result;
     }
 
-    private boolean isOpenedDeviceStateAvailable() throws Exception {
+    private boolean isDeviceStateAvailable(int state) throws Exception {
         return Arrays.stream(
                 getDevice().executeShellCommand(CMD_GET_AVAILABLE_DEVICE_STATES).split(","))
                 .map(Integer::valueOf)
-                .anyMatch(state -> state == DEVICE_STATE_OPENED);
+                .anyMatch(availableState -> availableState == state);
     }
 }

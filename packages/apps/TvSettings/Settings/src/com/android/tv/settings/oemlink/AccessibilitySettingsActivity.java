@@ -16,25 +16,20 @@
 
 package com.android.tv.settings.oemlink;
 
-import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
 import com.android.tv.settings.accessibility.AccessibilityFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /** An OEM hook for starting accessibility settings directly. */
 public class AccessibilitySettingsActivity extends TvSettingsActivity {
 
     @Override
-    protected Fragment createSettingsFragment()  {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+    protected Fragment createSettingsFragment() {
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(AccessibilityFragment.class.getName(), null);
-    }
-
-    @Override
-    protected int getAvailableFlavors() {
-        return X_EXPERIENCE_FLAVORS_MASK;
     }
 }

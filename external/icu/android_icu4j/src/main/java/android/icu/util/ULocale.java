@@ -447,7 +447,6 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * Creates a ULocale from the locale by first canonicalizing the locale according to CLDR.
      * @param locale the ULocale to canonicalize
      * @return the ULocale created from the canonical version of the ULocale.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static ULocale createCanonical(ULocale locale) {
         return createCanonical(locale.getName());
@@ -564,7 +563,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * user.language property, a security exception will be thrown,
      * and the default ULocale will remain unchanged.
      * <p>
-     * By setting the default ULocale with this method, all of the default categoy locales
+     * By setting the default ULocale with this method, all of the default category locales
      * are also set to the specified default ULocale.
      * @param newLocale the new default locale
      * @throws SecurityException if a security manager exists and its
@@ -777,7 +776,8 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * <strong>[icu] Note:</strong> Unlike the Locale API, this returns an array of <code>ULocale</code>,
      * not <code>Locale</code>.
      *
-     * <p>Returns a list of all installed locales.
+     * <p>Returns a list of all installed locales. This is equivalent to calling
+     * {@link #getAvailableLocalesByType} with AvailableType.DEFAULT.
      */
     public static ULocale[] getAvailableLocales() {
         return ICUResourceBundle.getAvailableULocales().clone();
@@ -1051,10 +1051,13 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
      * @return String the full name of the localeID
      */
     public static String getName(String localeID){
-        String tmpLocaleID;
+        String tmpLocaleID = localeID;
         // Convert BCP47 id if necessary
         if (localeID != null && !localeID.contains("@") && getShortestSubtagLength(localeID) == 1) {
-            tmpLocaleID = forLanguageTag(localeID).getName();
+            if (localeID.indexOf('_') >= 0 && localeID.charAt(1) != '_' && localeID.charAt(1) != '-') {
+                tmpLocaleID = localeID.replace('_', '-');
+            }
+            tmpLocaleID = forLanguageTag(tmpLocaleID).getName();
             if (tmpLocaleID.length() == 0) {
                 tmpLocaleID = localeID;
             }
@@ -1209,12 +1212,35 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 // Nothing changed in this iteration, break out the loop
                 break;
             }  // while(1)
-            if (changed) {
-                String result =  lscvToID(language, script, region,
+            if (extensions == null && !changed) {
+                return null;
+            }
+            String result =  lscvToID(language, script, region,
                     ((variants == null) ? "" : Utility.joinStrings("_", variants)));
-                if (extensions != null) {
-                    result += extensions;
+            if (extensions != null) {
+                boolean keywordChanged = false;
+                ULocale temp = new ULocale(result + extensions);
+                Iterator<String> keywords = temp.getKeywords();
+                while (keywords != null && keywords.hasNext()) {
+                    String key = keywords.next();
+                    if (key.equals("rg") || key.equals("sd") || key.equals("t")) {
+                        String value = temp.getKeywordValue(key);
+                        String replacement = key.equals("t") ?
+                            replaceTransformedExtensions(value) :
+                            replaceSubdivision(value);
+                        if (replacement != null) {
+                            temp = temp.setKeywordValue(key, replacement);
+                            keywordChanged = true;
+                        }
+                    }
                 }
+                if (keywordChanged) {
+                    extensions = temp.getName().substring(temp.getBaseName().length());
+                    changed = true;
+                }
+                result += extensions;
+            }
+            if (changed) {
                 return result;
             }
             // Nothing changed in any iteration of the loop.
@@ -1226,6 +1252,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
         private static Map<String, String> scriptAliasMap = null;
         private static Map<String, List<String>> territoryAliasMap = null;
         private static Map<String, String> variantAliasMap = null;
+        private static Map<String, String> subdivisionAliasMap = null;
 
         /*
          * Initializes the alias data from the ICU resource bundles. The alias
@@ -1243,6 +1270,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             scriptAliasMap = new HashMap<>();
             territoryAliasMap = new HashMap<>();
             variantAliasMap = new HashMap<>();
+            subdivisionAliasMap = new HashMap<>();
 
             UResourceBundle metadata = UResourceBundle.getBundleInstance(
                 ICUData.ICU_BASE_NAME, "metadata",
@@ -1252,6 +1280,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             UResourceBundle scriptAlias = metadataAlias.get("script");
             UResourceBundle territoryAlias = metadataAlias.get("territory");
             UResourceBundle variantAlias = metadataAlias.get("variant");
+            UResourceBundle subdivisionAlias = metadataAlias.get("subdivision");
 
             for (int i = 0 ; i < languageAlias.getSize(); i++) {
                 UResourceBundle res = languageAlias.get(i);
@@ -1309,6 +1338,23 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                         "] in alias:variant.");
                 }
                 variantAliasMap.put(aliasFrom, aliasTo);
+            }
+            for (int i = 0 ; i < subdivisionAlias.getSize(); i++) {
+                UResourceBundle res = subdivisionAlias.get(i);
+                String aliasFrom = res.getKey();
+                String aliasTo = res.get("replacement").getString().split(" ")[0];
+                if (aliasFrom.length() < 3 || aliasFrom.length() > 8) {
+                    throw new IllegalArgumentException(
+                        "Incorrect key [" + aliasFrom + "] in alias:territory.");
+                }
+                if (aliasTo.length() == 2) {
+                    // Add 'zzzz' based on changes to UTS #35 for CLDR-14312.
+                    aliasTo += "zzzz";
+                } else if (aliasTo.length() < 2 || aliasTo.length() > 8) {
+                    throw new IllegalArgumentException(
+                        "Incorrect value [" + aliasTo + "] in alias:territory.");
+                }
+                subdivisionAliasMap.put(aliasFrom, aliasTo);
             }
 
             aliasDataIsLoaded = true;
@@ -1449,7 +1495,6 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                     }
                 }
                 if (replacedExtensions != null && !replacedExtensions.isEmpty()) {
-                    // TODO(ICU-21292)
                     // DO NOTHING
                     // UTS35 does not specifiy what should we do if we have extensions in the
                     // replacement. Currently we know only the following 4 "BCP47 LegacyRules" have
@@ -1532,6 +1577,63 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
             }
             return false;
         }
+
+        private String replaceSubdivision(String subdivision) {
+            return subdivisionAliasMap.get(subdivision);
+        }
+
+        private String replaceTransformedExtensions(String extensions) {
+            StringBuilder builder = new StringBuilder();
+            List<String> subtags = new ArrayList<>(Arrays.asList(extensions.split(LanguageTag.SEP)));
+            List<String> tfields = new ArrayList<>();
+            int processedLength = 0;
+            int tlangLength = 0;
+            String tkey = "";
+            for (String subtag : subtags) {
+                if (LanguageTag.isTKey(subtag)) {
+                    if (tlangLength == 0) {
+                        // Found the first tkey. Record the total length of the preceding
+                        // tlang subtags. -1 if there is no tlang before the first tkey.
+                        tlangLength = processedLength-1;
+                    }
+                    if (builder.length() > 0) {
+                        // Finish & store the previous tkey with its tvalue subtags.
+                        tfields.add(builder.toString());
+                        builder.setLength(0);
+                    }
+                    // Start collecting subtags for this new tkey.
+                    tkey = subtag;
+                    builder.append(subtag);
+                } else {
+                    if (tlangLength != 0) {
+                        builder.append(LanguageTag.SEP).append(toUnicodeLocaleType(tkey, subtag));
+                    }
+                }
+                processedLength += subtag.length() + 1;
+            }
+            if (builder.length() > 0) {
+                // Finish & store the previous=last tkey with its tvalue subtags.
+                tfields.add(builder.toString());
+                builder.setLength(0);
+            }
+            String tlang = (tlangLength > 0) ? extensions.substring(0, tlangLength) :
+                ((tfields.size() == 0) ? extensions :  "");
+            if (tlang.length() > 0) {
+                String canonicalized = ULocale.createCanonical(
+                    ULocale.forLanguageTag(extensions)).toLanguageTag();
+                builder.append(AsciiUtil.toLowerString(canonicalized));
+            }
+
+            if (tfields.size() > 0) {
+                if (builder.length() > 0) {
+                    builder.append(LanguageTag.SEP);
+                }
+                // tfields are sorted by alphabetical order of their keys
+                Collections.sort(tfields);
+                builder.append(Utility.joinStrings(LanguageTag.SEP, tfields));
+            }
+            return builder.toString();
+        }
     };
 
     /**
@@ -1601,7 +1703,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
                 "km", "km_KH", "kn", "kn_IN", "ko", "ko_KR", "ky", "ky_KG", "lo", "lo_LA",
                 "lt", "lt_LT", "lv", "lv_LV", "mk", "mk_MK", "ml", "ml_IN", "mn", "mn_MN",
                 "mr", "mr_IN", "ms", "ms_MY", "my", "my_MM", "nb", "nb_NO", "ne", "ne_NP",
-                "nl", "nl_NL", "or", "or_IN", "pa", "pa_IN", "pl", "pl_PL", "ps", "ps_AF",
+                "nl", "nl_NL", "no", "or", "or_IN", "pa", "pa_IN", "pl", "pl_PL", "ps", "ps_AF",
                 "pt", "pt_BR", "pt_PT", "ro", "ro_RO", "ru", "ru_RU", "sd", "sd_IN", "si",
                 "si_LK", "sk", "sk_SK", "sl", "sl_SI", "so", "so_SO", "sq", "sq_AL", "sr",
                 "sr_Cyrl_RS", "sr_Latn", "sr_RS", "sv", "sv_SE", "sw", "sw_TZ", "ta",
@@ -2847,7 +2949,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
         if (trailing != null && trailing.length() > 1) {
             /*
              * The current ICU format expects two underscores
-             * will separate the variant from the preceeding
+             * will separate the variant from the preceding
              * parts of the tag, if there is no region.
              */
             int separators = 0;
@@ -2942,7 +3044,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
         /*
          * Search for the variant.  If there is one, then return the index of
-         * the preceeding separator.
+         * the preceding separator.
          * If there's no variant, search for the keyword delimiter,
          * and return its index.  Otherwise, return the length of the
          * string.
@@ -3312,9 +3414,10 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
 
         subtag = tag.getPrivateuse();
         if (subtag.length() > 0) {
-            if (buf.length() > 0) {
-                buf.append(LanguageTag.SEP);
+            if (buf.length() == 0) {
+               buf.append(UNDEFINED_LANGUAGE);
             }
+            buf.append(LanguageTag.SEP);
             buf.append(LanguageTag.PRIVATEUSE).append(LanguageTag.SEP);
             buf.append(LanguageTag.canonicalizePrivateuse(subtag));
         }
@@ -3802,7 +3905,7 @@ public final class ULocale implements Serializable, Comparable<ULocale> {
          * effect.  The attribute must not be null and must be well-formed
          * or an exception is thrown.
          *
-         * <p>Attribute comparision for removal is case-insensitive.
+         * <p>Attribute comparison for removal is case-insensitive.
          *
          * @param attribute the attribute
          * @return This builder.

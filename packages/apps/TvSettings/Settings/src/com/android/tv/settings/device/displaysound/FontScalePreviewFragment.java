@@ -87,7 +87,7 @@ public class FontScalePreviewFragment extends InfoFragment implements OnLayoutCh
             sampleText.setMaxLines(lines);
 
             // Ellipsize after the max line change
-            int lineEndIndex = sampleText.getLayout().getLineEnd(lines);
+            int lineEndIndex = sampleText.getLayout().getLineEnd(lines - 1);
             if (lineEndIndex >= ELLIPSIS.length()) {
                 String ellipsizedText =
                         sampleText.getText().subSequence(0, lineEndIndex - ELLIPSIS.length())

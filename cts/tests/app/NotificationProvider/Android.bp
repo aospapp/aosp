@@ -27,6 +27,5 @@ android_test_helper_app {
         "general-tests",
         "sts",
     ],
-    platform_apis: true,
     sdk_version: "current",
 }

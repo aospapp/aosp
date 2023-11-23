@@ -539,7 +539,8 @@ public abstract class SaProposal {
             EncryptionTransform encryptionTransform = new EncryptionTransform(algorithm, keyLength);
 
             // For Child SA algorithm, check if that is supported by IPsec
-            if (isChild
+            if (SdkLevel.isAtLeastS()
+                    && isChild
                     && !ChildSaProposal.getSupportedEncryptionAlgorithms().contains(algorithm)) {
                 throw new IllegalArgumentException("Unsupported encryption algorithm " + algorithm);
             }
@@ -560,7 +561,9 @@ public abstract class SaProposal {
         protected void validateAndAddIntegrityAlgo(
                 @IntegrityAlgorithm int algorithm, boolean isChild) {
             // For Child SA algorithm, check if that is supported by IPsec
-            if (isChild && !ChildSaProposal.getSupportedIntegrityAlgorithms().contains(algorithm)) {
+            if (SdkLevel.isAtLeastS()
+                    && isChild
+                    && !ChildSaProposal.getSupportedIntegrityAlgorithms().contains(algorithm)) {
                 throw new IllegalArgumentException("Unsupported integrity algorithm " + algorithm);
             }
 

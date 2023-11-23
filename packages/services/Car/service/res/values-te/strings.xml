@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"మీ కారు కామెరా(ల)ను యాక్సెస్ చేయడం."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"కారు శక్తి సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"మీ కారు శక్తి సమాచారాన్ని యాక్సెస్ చేయండి."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"కార్ EV ఛార్జ్ సెట్టింగ్‌లను కంట్రోల్ చేయండి"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"మీ కార్ EV ఛార్జ్ సెట్టింగ్‌లను కంట్రోల్ చేయండి."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"కారు యొక్క మిగిలిన ప్రయాణ దూరాన్ని సర్దుబాటు చేయండి"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"కారు యొక్క మిగిలిన ప్రయాణ దూర విలువను సర్దుబాటు చేయండి."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"కారు hvacని యాక్సెస్ చేయగలవు"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"పరికర గుంపులో ప్రదర్శించాల్సిన కార్యకలాపలని తెలియచెప్పడానికి అప్లికేషన్‌ను అనుమతించండి."</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"పరికర గుంపు నియంత్రణ"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"పరికర గుంపు యాప్‌లను ప్రారంభించండి"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"పరికర క్లస్టర్ నావిగేషన్ స్టేట్"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"పరికర క్లస్టర్ నావిగేషన్ స్టేట్ మార్పులను వినండి"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"పరికర గుంపు రెండరింగ్"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"పరికర గుంపు డేటాని పొందండి"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX పరిమితుల కాన్ఫిగరేషన్"</string>
@@ -72,18 +76,11 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Occupant Awareness Systemను గుర్తించే గ్రాఫ్‌ను ప్రారంభించడాన్ని, ఆపివేయడాన్ని నియంత్రించడానికి అనుమతిస్తుంది"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"కారు ఇన్‌పుట్ సేవ"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"ఇన్‌పుట్ ఈవెంట్‌లను హ్యాండిల్ చేయండి"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN బస్సు విఫలమైంది"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN బస్సు స్పందించలేదు. హెడ్ యూనిట్ బాక్స్‌‍‌ని ప్లగ్ మరియు అన్‌ప్లగ్ చేసి కారుని పునఃప్రారంభించుము"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"డ్రైవింగ్‌లో ఉండగా మీరు ఈ ఫీచర్‌ని ఉపయోగించలేరు"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"సురక్షిత యాప్ లక్షణాలతో ప్రారంభించడానికి, <xliff:g id="EXIT_BUTTON">%s</xliff:g>ని ఎంచుకోండి."</string>
-    <string name="exit_button" msgid="5829638404777671253">"వెనుకకు"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"యాప్‌ను మూసివేయండి"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"వెనుకకు"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"సమస్య విశ్లేషణ డేటాను తెలుసుకోగలవు"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"కారు నుండి విశ్లేషణ డేటాను తెలుసుకోగలవు."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"సమస్య విశ్లేషణ డేటాను క్లియర్ చేయగలవు"</string>
     <string name="car_permission_desc_diag_clear" msgid="7453222114866042786">"కారు నుండి సమస్య విశ్లేషణ డేటాను క్లియర్ చేయగలవు."</string>
-    <string name="car_permission_label_vms_publisher" msgid="3049934078926106641">"VMS ప్రచురణకర్త"</string>
+    <string name="car_permission_label_vms_publisher" msgid="3049934078926106641">"VMS పబ్లిషర్‌"</string>
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"VMS మెసేజ్‌లను పబ్లిష్ చేయండి"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS సభ్యులు"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS మెసేజ్‌లను పొందడానికి సబ్‌స్క్రయిబ్ చేయండి"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"కారు సీట్లను నియంత్రించగలవు."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"కారు ప్రాథమిక సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"కారు యొక్క ప్రాథమిక సమాచారాన్ని యాక్సెస్ చేయగలవు."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"కార్ తాలూకు కొందరికే యాక్సెస్ ఉన్న సమాచారాన్ని యాక్సెస్ చేయండి"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"కార్ తాలూకు కొందరికే యాక్సెస్ ఉన్న సమాచారాన్ని యాక్సెస్ చేయండి."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"కారు విక్రేత అనుమతి సమాచారాన్ని యాక్సెస్ చేయగలవు"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"కారు విక్రేత అనుమతి సమాచారాన్ని యాక్సెస్ చేయగలవు."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"కారు బయటి లైట్‌ల స్థితిని తెలుసుకోగలవు"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"కారు పవర్ పాలసీని చదవండి."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"కారు పవర్ పాలసీని కంట్రోల్ చేయండి"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"కారు పవర్ పాలసీని కంట్రోల్ చేయండి."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"షట్‌డౌన్ ప్రాసెస్‌ను సర్దుబాటు చేయండి"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"షట్‌డౌన్ ప్రాసెస్‌ను సర్దుబాటు చేయండి."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"టెంప్లేట్‌లను రెండర్ చేస్తుంది"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"టెంప్లేట్‌లను రెండర్ చేస్తుంది."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"లాంచ్ చేయబడుతున్న యాప్‌లను కంట్రోల్ చేయండి"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"లాంచ్ చేయబడుతున్న యాప్‌లను కంట్రోల్ చేయండి."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN బస్సు విఫలమైంది"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN బస్సు స్పందించలేదు. హెడ్ యూనిట్ బాక్స్‌‍‌ని ప్లగ్ మరియు అన్‌ప్లగ్ చేసి కారుని పునఃప్రారంభించుము"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"నా పరికరం"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"అతిథి"</string>
-    <string name="importance_default" msgid="8587741629268312938">"ప్రాముఖ్యత ఆటోమేటిక్ సెట్టింగ్‌గా ఉన్నది"</string>
-    <string name="importance_high" msgid="3141530792377745041">"అధిక ప్రాముఖ్యత"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"ఫ్యాక్టరీ రీసెట్ చేయడం అవసరం"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"సమాచారంతో కూడిన వినోదం సిస్టమ్‌లోని మొత్తం డేటా ఫ్యాక్టరీ రీసెట్ చేయబడుతుంది. రీసెట్ చేసిన తర్వాత, మీరు కొత్త ప్రొఫైల్‌ను సెటప్ చేయవచ్చు."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"మరిన్ని"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"సమాచారంతో కూడిన వినోదం సిస్టమ్‌ను రీసెట్ చేయండి"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"ఫ్యాక్టరీ రీసెట్ చేయడానికి, మొత్తం డేటాను తొలగించడానికి మీ సిస్టమ్ రిక్వెస్ట్‌ను అందుకుంది. మీరు దీన్ని ఇప్పుడే రీసెట్ చేయవచ్చు లేదా తర్వాతి సారి కారు ప్రారంభమైనప్పుడు ఇది రీసెట్ అవుతుంది. అప్పుడు మీరు కొత్త ప్రొఫైల్‌ను సెటప్ చేయవచ్చు."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"ఇప్పుడే రీసెట్ చేయి"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"తర్వాత రీసెట్ చేయి"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"ఇన్ఫోటైన్‌మెంట్ సిస్టం కారు స్టార్టయ్యాక రీసెట్ అవుతుంది."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"రీసెట్ ప్రారంభించడానికి మీ కారును పార్క్ చేయండి."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g>, మీ సిస్టమ్ పనితీరును ప్రభావితం చేస్తోంది"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"సిస్టమ్ పనితీరును మెరుగుపరచడానికి యాప్‌ను డిజేబుల్ చేయండి. మీరు సెట్టింగ్‌లలో యాప్‌ను మరోసారి ఎనేబుల్ చేయవచ్చు."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"యాప్‌ను ఉపయోగించడాన్ని కొనసాగించడానికి యాప్‌నకు ప్రాధాన్యత ఇవ్వండి."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"సిస్టమ్ పనితీరును మెరుగుపరచడానికి యాప్‌ను అన్‌ఇన్‌స్టాల్ చేయండి."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"యాప్‌ను డిజేబుల్ చేయండి"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"యాప్‌నకు ప్రాధాన్యత ఇవ్వండి"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"యాప్‌ను అన్‌ఇన్‌స్టాల్ చేయండి"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> డిజేబుల్ చేయబడింది. మీరు సెట్టింగ్‌లలో దీన్ని మళ్లీ ఎనేబుల్ చేయవచ్చు."</string>
 </resources>

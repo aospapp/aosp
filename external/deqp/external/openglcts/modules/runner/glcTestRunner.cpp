@@ -496,8 +496,41 @@ static void getTestRunsForSingleConfigGL(glu::ApiType type, vector<TestRunParams
 							   DE_LENGTH_OF_ARRAY(khronos_mustpass_gl_single_config_first_cfg), mustpassDir);
 }
 
+static void getTestRunsForESForGL(glu::ApiType type, vector<TestRunParams>& runs, const ConfigList& configs)
+{
+	DE_UNREF(type);
+#include "glcKhronosMustpassAospForGl.hpp"
+
+	vector<Config>::const_iterator cfgIter = configs.configs.begin();
+	const int  numRunParams = DE_LENGTH_OF_ARRAY(khronos_mustpass_aosp_for_gl_first_cfg);
+	const RunParams* runParams = khronos_mustpass_aosp_for_gl_first_cfg;
+
+	for (int i = 0; i < numRunParams; ++i)
+	{
+		const char* apiName = getApiName(runParams[i].apiType);
+
+		const int width  = runParams[i].surfaceWidth;
+		const int height = runParams[i].surfaceHeight;
+		const int seed   = runParams[i].baseSeed;
+
+		TestRunParams params;
+		params.logFilename = getLogFileName(apiName, runParams[i].configName, 1, i, width, height, seed);
+
+		getBaseOptions(params.args, mustpassDir, apiName, runParams[i].configName, runParams[i].screenRotation, width,
+					   height);
+
+		params.args.push_back(string("--deqp-base-seed=") + de::toString(seed));
+
+		appendConfigArgs(*cfgIter, params.args, runParams[i].fboConfig);
+
+		runs.push_back(params);
+	}
+}
+
+
 static void getTestRunsForGL(glu::ApiType type, const ConfigList& configs, vector<TestRunParams>& runs)
 {
+	getTestRunsForESForGL(type, runs, configs);
 	getTestRunsForNoContextGL(type, runs, configs);
 	getTestRunsForSingleConfigGL(type, runs, configs);
 #include "glcKhronosMustpassGl.hpp"
@@ -807,7 +840,7 @@ void TestRunner::initSession(const TestRunParams& runParams)
 
 	// Translate to argc, argv
 	vector<const char*> argv;
-	argv.push_back("cts-runner"); // Dummy binary name
+	argv.push_back("cts-runner"); // Assumed binary name
 	for (vector<string>::const_iterator i = args.begin(); i != args.end(); i++)
 		argv.push_back(i->c_str());
 

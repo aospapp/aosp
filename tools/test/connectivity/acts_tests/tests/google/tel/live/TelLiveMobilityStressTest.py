@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-#   Copyright 2017 - Google
+#   Copyright 2022 - Google
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -26,42 +26,21 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_atten_utils import set_rssi
 from acts_contrib.test_utils.tel.tel_defines import CELL_WEAK_RSSI_VALUE
-from acts_contrib.test_utils.tel.tel_defines import CELL_STRONG_RSSI_VALUE
 from acts_contrib.test_utils.tel.tel_defines import MAX_RSSI_RESERVED_VALUE
 from acts_contrib.test_utils.tel.tel_defines import MIN_RSSI_RESERVED_VALUE
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_DISABLED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
-from acts_contrib.test_utils.tel.tel_defines import WIFI_WEAK_RSSI_VALUE
-from acts_contrib.test_utils.tel.tel_test_utils import active_file_download_test
-from acts_contrib.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_default_state
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_idle
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import is_voice_attached
-from acts_contrib.test_utils.tel.tel_test_utils import run_multithread_func
-from acts_contrib.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts_contrib.test_utils.tel.tel_test_utils import sms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts_contrib.test_utils.tel.tel_test_utils import mms_send_receive_verify
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_message_utils import sms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_message_utils import mms_send_receive_verify
+from acts_contrib.test_utils.tel.tel_data_utils import active_file_download_test
+from acts_contrib.test_utils.tel.tel_voice_utils import call_setup_teardown
 from acts_contrib.test_utils.tel.tel_voice_utils import get_current_voice_rat
-
-from acts.logger import epoch_to_log_line_timestamp
 from acts.utils import get_current_epoch_time
 from acts.utils import rand_ascii_str
+from acts.libs.utils.multithread import run_multithread_func
 
 from TelWifiVoiceTest import TelWifiVoiceTest
 from TelWifiVoiceTest import ATTEN_NAME_FOR_WIFI_2G
@@ -69,12 +48,10 @@ from TelWifiVoiceTest import ATTEN_NAME_FOR_WIFI_5G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_3G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_4G
 
-import socket
 from acts.controllers.sl4a_lib.rpc_client import Sl4aProtocolError
 
 IGNORE_EXCEPTIONS = (BrokenPipeError, Sl4aProtocolError)
 EXCEPTION_TOLERANCE = 20
-
 
 class TelLiveMobilityStressTest(TelWifiVoiceTest):
     def setup_class(self):

@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"Известувања коишто ги прикажуваат завршените или откажани преземања"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"Напредок на преземањата"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"Известувања коишто го прикажуваат напредокот на преземањата на датотеките"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"Преземањето е откажано"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"Датотеката е преголема, преземањето е откажано."</string>
 </resources>

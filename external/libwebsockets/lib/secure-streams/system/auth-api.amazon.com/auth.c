@@ -31,7 +31,6 @@ typedef struct ss_api_amazon_auth {
 	void			*opaque_data;
 	/* ... application specific state ... */
 	struct lejp_ctx		jctx;
-	lws_sorted_usec_list_t	sul;
 	size_t			pos;
 	int			expires_secs;
 } ss_api_amazon_auth_t;
@@ -55,7 +54,7 @@ static void
 lws_ss_sys_auth_api_amazon_com_kick(lws_sorted_usec_list_t *sul)
 {
 	struct lws_context *context = lws_container_of(sul, struct lws_context,
-							sul_api_amazon_com_kick);
+						       sul_api_amazon_com_kick);
 
 	lws_state_transition_steps(&context->mgr_system,
 				   LWS_SYSTATE_OPERATIONAL);
@@ -65,11 +64,9 @@ static void
 lws_ss_sys_auth_api_amazon_com_renew(lws_sorted_usec_list_t *sul)
 {
 	struct lws_context *context = lws_container_of(sul, struct lws_context,
-							sul_api_amazon_com);
+						       sul_api_amazon_com);
 
-	/* if nothing is there to intercept anything, go all the way */
-	lws_state_transition_steps(&context->mgr_system,
-				   LWS_SYSTATE_OPERATIONAL);
+	lws_ss_sys_auth_api_amazon_com(context);
 }
 
 static signed char
@@ -77,6 +74,7 @@ auth_api_amazon_com_parser_cb(struct lejp_ctx *ctx, char reason)
 {
 	ss_api_amazon_auth_t *m = (ss_api_amazon_auth_t *)ctx->user;
 	struct lws_context *context = (struct lws_context *)m->opaque_data;
+	lws_system_blob_t *blob;
 
 	if (!(reason & LEJP_FLAG_CB_IS_VALUE) || !ctx->path_match)
 		return 0;
@@ -85,12 +83,17 @@ auth_api_amazon_com_parser_cb(struct lejp_ctx *ctx, char reason)
 	case LSSPPT_ACCESS_TOKEN:
 		if (!ctx->npos)
 			break;
-		if (lws_system_blob_heap_append(lws_system_get_blob(context,
-						LWS_SYSBLOB_TYPE_AUTH,
-						AUTH_IDX_LWA),
+
+		blob = lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH,
+					   AUTH_IDX_LWA);
+		if (!blob)
+			return -1;
+
+		if (lws_system_blob_heap_append(blob,
 						(const uint8_t *)ctx->buf,
 						ctx->npos)) {
 			lwsl_err("%s: unable to store auth token\n", __func__);
+
 			return -1;
 		}
 		break;
@@ -98,7 +101,7 @@ auth_api_amazon_com_parser_cb(struct lejp_ctx *ctx, char reason)
 		m->expires_secs = atoi(ctx->buf);
 		lws_sul_schedule(context, 0, &context->sul_api_amazon_com,
 				 lws_ss_sys_auth_api_amazon_com_renew,
-				 (uint64_t)m->expires_secs * LWS_US_PER_SEC);
+				 (lws_usec_t)m->expires_secs * LWS_US_PER_SEC);
 		break;
 	}
 
@@ -107,16 +110,21 @@ auth_api_amazon_com_parser_cb(struct lejp_ctx *ctx, char reason)
 
 /* secure streams payload interface */
 
-static int
+static lws_ss_state_return_t
 ss_api_amazon_auth_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 {
 	ss_api_amazon_auth_t *m = (ss_api_amazon_auth_t *)userobj;
 	struct lws_context *context = (struct lws_context *)m->opaque_data;
 	lws_system_blob_t *ab;
+#if !defined(LWS_WITH_NO_LOGS)
 	size_t total;
+#endif
 	int n;
 
 	ab = lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH, AUTH_IDX_LWA);
+	/* coverity */
+	if (!ab)
+		return LWSSSSRET_DISCONNECT_ME;
 
 	if (buf) {
 		if (flags & LWSSS_FLAG_SOM) {
@@ -126,7 +134,7 @@ ss_api_amazon_auth_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 			lws_system_blob_heap_empty(ab);
 		}
 
-		n = (int)(signed char)lejp_parse(&m->jctx, buf, len);
+		n = lejp_parse(&m->jctx, buf, (int)len);
 		if (n < 0) {
 			lejp_destruct(&m->jctx);
 			lws_system_blob_destroy(
@@ -134,26 +142,28 @@ ss_api_amazon_auth_rx(void *userobj, const uint8_t *buf, size_t len, int flags)
 						    LWS_SYSBLOB_TYPE_AUTH,
 						    AUTH_IDX_LWA));
 
-			return -1;
+			return LWSSSSRET_DISCONNECT_ME;
 		}
 	}
 	if (!(flags & LWSSS_FLAG_EOM))
-		return 0;
+		return LWSSSSRET_OK;
 
 	/* we should have the auth token now */
 
+#if !defined(LWS_WITH_NO_LOGS)
 	total = lws_system_blob_get_size(ab);
 	lwsl_notice("%s: acquired %u-byte api.amazon.com auth token, exp %ds\n",
 			__func__, (unsigned int)total, m->expires_secs);
+#endif
 
 	lejp_destruct(&m->jctx);
 
 	/* we move the system state at auth connection close */
 
-	return 0;
+	return LWSSSSRET_DISCONNECT_ME;
 }
 
-static int
+static lws_ss_state_return_t
 ss_api_amazon_auth_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 		      size_t *len, int *flags)
 {
@@ -169,11 +179,14 @@ ss_api_amazon_auth_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 	 */
 
 	ab = lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH, AUTH_IDX_ROOT);
+	if (!ab)
+		return LWSSSSRET_DESTROY_ME;
+
 	total = lws_system_blob_get_size(ab);
 
 	n = lws_system_blob_get(ab, buf, len, m->pos);
 	if (n < 0)
-		return 1;
+		return LWSSSSRET_TX_DONT_SEND;
 
 	if (!m->pos)
 		*flags |= LWSSS_FLAG_SOM;
@@ -185,29 +198,37 @@ ss_api_amazon_auth_tx(void *userobj, lws_ss_tx_ordinal_t ord, uint8_t *buf,
 		m->pos = 0; /* for next time */
 	}
 
-	return 0;
+	return LWSSSSRET_OK;
 }
 
-static int
+static lws_ss_state_return_t
 ss_api_amazon_auth_state(void *userobj, void *sh, lws_ss_constate_t state,
 			 lws_ss_tx_ordinal_t ack)
 {
 	ss_api_amazon_auth_t *m = (ss_api_amazon_auth_t *)userobj;
 	struct lws_context *context = (struct lws_context *)m->opaque_data;
+	lws_system_blob_t *ab;
 	size_t s;
 
-	lwsl_info("%s: %s, ord 0x%x\n", __func__, lws_ss_state_name(state),
+	lwsl_info("%s: %s, ord 0x%x\n", __func__, lws_ss_state_name((int)state),
 		  (unsigned int)ack);
+
+	ab = lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH, AUTH_IDX_ROOT);
+	/* coverity */
+	if (!ab)
+		return LWSSSSRET_DESTROY_ME;
 
 	switch (state) {
 	case LWSSSCS_CREATING:
+		//if (lws_ss_set_metadata(m->ss, "ctype", "application/json", 16))
+		//	return LWSSSSRET_DESTROY_ME;
+		/* fallthru */
 	case LWSSSCS_CONNECTING:
-		s = lws_system_blob_get_size(
-			lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH,
-					    AUTH_IDX_ROOT));
-		lws_ss_request_tx_len(m->ss, s);
+		s = lws_system_blob_get_size(ab);
+		if (!s)
+			lwsl_debug("%s: no auth blob\n", __func__);
 		m->pos = 0;
-		break;
+		return lws_ss_request_tx_len(m->ss, (unsigned long)s);
 
 	case LWSSSCS_DISCONNECTED:
 		/*
@@ -222,29 +243,21 @@ ss_api_amazon_auth_state(void *userobj, void *sh, lws_ss_constate_t state,
 		 * when the close process for the auth wsi has completed and
 		 * the related tls is already freed.
 		 */
-		s = lws_system_blob_get_size(
-			lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH,
-					    AUTH_IDX_LWA));
+		s = lws_system_blob_get_size(ab);
 
-		if (s)
+		if (s && context->mgr_system.state != LWS_SYSTATE_OPERATIONAL)
 			lws_sul_schedule(context, 0,
 					 &context->sul_api_amazon_com_kick,
 					 lws_ss_sys_auth_api_amazon_com_kick, 1);
-		break;
 
-	case LWSSSCS_DESTROYING:
-		lws_sul_schedule(context, 0, &context->sul_api_amazon_com,
-				 NULL, LWS_SET_TIMER_USEC_CANCEL);
-		lws_system_blob_destroy(
-			lws_system_get_blob(context, LWS_SYSBLOB_TYPE_AUTH,
-					    AUTH_IDX_LWA));
-		break;
+		context->hss_auth = NULL;
+		return LWSSSSRET_DESTROY_ME;
 
 	default:
 		break;
 	}
 
-	return 0;
+	return LWSSSSRET_OK;
 }
 
 int

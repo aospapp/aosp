@@ -17,6 +17,7 @@
 package com.android.internal.telephony.metrics;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.telephony.CallQuality;
@@ -28,6 +29,7 @@ import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.SignalStrength;
 
+import com.android.internal.telephony.SignalStrengthController;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyCallSession.Event.CallQualitySummary;
 
@@ -36,22 +38,27 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class CallQualityMetricsTest extends TelephonyTest {
+    // Mocked classes
+    SignalStrengthController mSsc;
 
     private CallQualityMetrics mCallQualityMetrics;
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mSsc = mock(SignalStrengthController.class);
         mCallQualityMetrics = new CallQualityMetrics(mPhone);
 
         // the ImsPhone does not return a ServiceStateTracker, so CallQualityMetrics gets the
         // default phone from the ImsPhone and uses that to get the ServiceStateTracker, therefore
         // we need to mock the default phone as well.
         when(mPhone.getDefaultPhone()).thenReturn(mPhone);
+        when(mPhone.getSignalStrengthController()).thenReturn(mSsc);
     }
 
     @After
     public void tearDown() throws Exception {
+        mCallQualityMetrics = null;
         super.tearDown();
     }
 
@@ -264,7 +271,7 @@ public class CallQualityMetricsTest extends TelephonyTest {
                 new CellSignalStrengthTdscdma(),
                 lteSs1,
                 new CellSignalStrengthNr());
-        when(mSST.getSignalStrength()).thenReturn(ss1);
+        when(mSsc.getSignalStrength()).thenReturn(ss1);
         mCallQualityMetrics.saveCallQuality(cq1);
 
         // save good quality with low rssnr
@@ -280,7 +287,7 @@ public class CallQualityMetricsTest extends TelephonyTest {
                 new CellSignalStrengthTdscdma(),
                 lteSs2,
                 new CellSignalStrengthNr());
-        when(mSST.getSignalStrength()).thenReturn(ss2);
+        when(mSsc.getSignalStrength()).thenReturn(ss2);
         mCallQualityMetrics.saveCallQuality(cq1);
 
         CallQualitySummary dlSummary = mCallQualityMetrics.getCallQualitySummaryDl();

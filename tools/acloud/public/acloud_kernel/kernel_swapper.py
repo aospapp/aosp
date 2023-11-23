@@ -38,7 +38,7 @@ MOUNT_CMD = ('if mountpoint -q /boot ; then umount /boot ; fi ; '
 REBOOT_CMD = 'nohup reboot > /dev/null 2>&1 &'
 
 
-class KernelSwapper(object):
+class KernelSwapper():
     """A class that manages swapping a kernel image on a Cloud Android instance.
 
     Attributes:

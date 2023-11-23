@@ -41,7 +41,7 @@
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"भण्डारणको स्वतः व्यवस्थापन गर्ने हो?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"अहिले <xliff:g id="USED">%1$s</xliff:g> खाली छ। भण्डारण प्रबन्धकलाई तपाईँको यन्त्रबाट ब्याक अप गरिएको सामग्री हटाएर स्वतः ठाउँ खाली गर्न दिने हो?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"पर्दैन, धन्यवाद"</string>
-    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"सक्रिय गर्नुहोस्"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"अन गर्नुहोस्"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"कहिलेकाहीँ प्रयोग गरिने एपहरू"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
@@ -53,7 +53,7 @@
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"तपाईंको ट्याब्लेटमा खाली ठाउँ कम छ"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"तपाईँको फोन फेरि भरिन थाल्दा भण्डारण प्रबन्धकलाई पुराना फोटो र भिडियोहरू स्वतः हटाएर ठाउँ खाली गर्न दिनुहोस्।"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"पर्दैन, धन्यवाद"</string>
-    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"सक्रिय गर्नुहोस्"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"अन गर्नुहोस्"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ब्याक अप गरिएका फोटो तथा भिडियोहरू"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"वस्तुहरू भेट्टाउँदै…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"सबै वस्तुहरू देखाउनुहोस्"</string>

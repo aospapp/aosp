@@ -25,23 +25,34 @@ from acts.keys import Config
 from acts.utils import unzip_maintain_permissions
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
+from acts_contrib.test_utils.tel.tel_defines import GEN_4G
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_FOR_STATE_CHANGE
+from acts_contrib.test_utils.tel.tel_defines import MOBILE_DATA
+from acts_contrib.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
+from acts_contrib.test_utils.tel.tel_defines import USE_SIM
+from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_BETWEEN_STATE_CHECK
+from acts_contrib.test_utils.tel.tel_bootloader_utils import flash_radio
+from acts_contrib.test_utils.tel.tel_logging_utils import set_qxdm_logger_command
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_slot_index_from_subid
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_subscription
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
 from acts_contrib.test_utils.tel.tel_test_utils import dumpsys_carrier_config
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phone_subscription
-from acts_contrib.test_utils.tel.tel_test_utils import flash_radio
 from acts_contrib.test_utils.tel.tel_test_utils import get_outgoing_voice_sub_id
-from acts_contrib.test_utils.tel.tel_test_utils import get_slot_index_from_subid
+from acts_contrib.test_utils.tel.tel_test_utils import is_droid_in_network_generation
 from acts_contrib.test_utils.tel.tel_test_utils import is_sim_locked
-from acts_contrib.test_utils.tel.tel_test_utils import multithread_func
+from acts_contrib.test_utils.tel.tel_test_utils import get_current_override_network_type
 from acts_contrib.test_utils.tel.tel_test_utils import power_off_sim
 from acts_contrib.test_utils.tel.tel_test_utils import power_on_sim
 from acts_contrib.test_utils.tel.tel_test_utils import print_radio_info
 from acts_contrib.test_utils.tel.tel_test_utils import revert_default_telephony_setting
-from acts_contrib.test_utils.tel.tel_test_utils import set_qxdm_logger_command
 from acts_contrib.test_utils.tel.tel_test_utils import system_file_push
 from acts_contrib.test_utils.tel.tel_test_utils import unlock_sim
 from acts_contrib.test_utils.tel.tel_test_utils import verify_default_telephony_setting
+from acts_contrib.test_utils.tel.tel_ops_utils import get_resource_value
+from acts_contrib.test_utils.tel.tel_ops_utils import wait_and_click_element
 from acts.utils import set_mobile_data_always_on
+from acts.libs.utils.multithread import multithread_func
 
 
 class TelLiveSettingsTest(TelephonyBaseTest):
@@ -53,6 +64,9 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         self.carrier_configs = dumpsys_carrier_config(self.dut)
         self.dut_subID = get_outgoing_voice_sub_id(self.dut)
         self.dut_capabilities = self.dut.telephony["subscription"][self.dut_subID].get("capabilities", [])
+
+    def teardown_test(self):
+        ensure_phones_idle(self.log, self.android_devices)
 
     @test_tracker_info(uuid="c6149bd6-7080-453d-af37-1f9bd350a764")
     @TelephonyBaseTest.tel_test_wrap
@@ -258,7 +272,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
             old_carrier_id, old_carrier_name)
         self.dut.log.info(self.result_detail)
         sub_id = get_outgoing_voice_sub_id(self.dut)
-        slot_index = get_slot_index_from_subid(self.log, self.dut, sub_id)
+        slot_index = get_slot_index_from_subid(self.dut, sub_id)
 
         if self.dut.model in ("angler", "bullhead", "marlin", "sailfish"):
             msg = "Power off SIM slot is not supported"
@@ -328,3 +342,134 @@ class TelLiveSettingsTest(TelephonyBaseTest):
             else:
                 self.dut.log.info(msg)
         return result
+
+    @test_tracker_info(uuid='7b6d145f-2497-4842-96db-67f9053943ce')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_disable_enable_sim_lte(self):
+        """Test sim disable and enable
+
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Toggle Use SIM switch to Disable
+            5. Verify Use SIM switch is disabled
+            6. Toggle Use SIM switch to Enable
+            7. Verify Use SIM switch is Enabled
+            8. Verify SIM is connected to LTE
+
+        Returns:
+            True is tests passes else False
+        """
+        ad = self.android_devices[0]
+
+        if not phone_setup_volte(ad.log, ad):
+            ad.log.error('Phone failed to enable LTE')
+            return False
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+
+        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
+        wait_and_click_element(ad, 'SIMs')
+
+        switch_value = get_resource_value(ad, USE_SIM)
+        if switch_value == 'true':
+            ad.log.info('SIM is enabled as expected')
+        else:
+            ad.log.error('SIM should be enabled but SIM is disabled')
+            return False
+
+        label_text = USE_SIM
+        label_resource_id = 'com.android.settings:id/switch_text'
+
+        ad.log.info('Disable SIM')
+        wait_and_click_element(ad, label_text, label_resource_id)
+
+        button_resource_id = 'android:id/button1'
+        wait_and_click_element(ad, 'Yes', button_resource_id)
+        switch_value = get_resource_value(ad, USE_SIM)
+        if switch_value == 'false':
+            ad.log.info('SIM is disabled as expected')
+        else:
+            ad.log.error('SIM should be disabled but SIM is enabled')
+            return False
+
+        ad.log.info('Enable SIM')
+        wait_and_click_element(ad, label_text, label_resource_id)
+
+        wait_and_click_element(ad, 'Yes', button_resource_id)
+        switch_value = get_resource_value(ad, USE_SIM)
+        if switch_value == 'true':
+            ad.log.info('SIM is enabled as expected')
+        else:
+            ad.log.error('SIM should be enabled but SIM is disabled')
+            return False
+
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+
+        if is_droid_in_network_generation(self.log, ad, GEN_4G,
+                                            NETWORK_SERVICE_DATA):
+            ad.log.info('Success! attached on LTE')
+        else:
+            ad.log.error('Failure - expected LTE, current %s',
+                         get_current_override_network_type(ad))
+            return False
+
+    @test_tracker_info(uuid='dc0d381b-2dbf-4e25-87a4-53ec657e12d1')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_disable_enable_mobile_data_lte(self):
+        """Test sim disable and enable
+
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Toggle Mobile Data switch to Disable
+            5. Verify Mobile Data switch is disabled
+            6. Toggle Mobile Data switch to Enable
+            7. Verify Mobile Data switch is Enabled
+            8. Verify Mobile Data is connected to LTE
+
+        Returns:
+            True is tests passes else False
+        """
+        ad = self.android_devices[0]
+
+        if not phone_setup_volte(ad.log, ad):
+            ad.log.error('Phone failed to enable LTE')
+            return False
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+
+        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
+        wait_and_click_element(ad, 'SIMs')
+        switch_value = get_resource_value(ad, MOBILE_DATA)
+
+        if switch_value == 'true':
+            ad.log.info('Mobile data is enabled as expected')
+        else:
+            ad.log.error('Mobile data should be enabled but it is disabled')
+
+        ad.log.info('Disable mobile data')
+        ad.droid.telephonyToggleDataConnection(False)
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+        switch_value = get_resource_value(ad, MOBILE_DATA)
+        if switch_value == 'false':
+            ad.log.info('Mobile data is disabled as expected')
+        else:
+            ad.log.error('Mobile data should be disabled but it is enabled')
+
+        ad.log.info('Enabling mobile data')
+        ad.droid.telephonyToggleDataConnection(True)
+        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+        switch_value = get_resource_value(ad, MOBILE_DATA)
+        if switch_value == 'true':
+            ad.log.info('Mobile data is enabled as expected')
+        else:
+            ad.log.error('Mobile data should be enabled but it is disabled')
+
+        if is_droid_in_network_generation(self.log, ad, GEN_4G,
+                                            NETWORK_SERVICE_DATA):
+            ad.log.info('Success! attached on LTE')
+        else:
+            ad.log.error('Failure - expected LTE, current %s',
+                         get_current_override_network_type(ad))
+            return False

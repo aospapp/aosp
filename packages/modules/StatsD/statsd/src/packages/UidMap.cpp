@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "hash.h"
@@ -28,12 +28,14 @@ using namespace android;
 using android::base::StringPrintf;
 using android::util::FIELD_COUNT_REPEATED;
 using android::util::FIELD_TYPE_BOOL;
+using android::util::FIELD_TYPE_BYTES;
 using android::util::FIELD_TYPE_FLOAT;
 using android::util::FIELD_TYPE_INT32;
 using android::util::FIELD_TYPE_INT64;
-using android::util::FIELD_TYPE_UINT64;
 using android::util::FIELD_TYPE_MESSAGE;
 using android::util::FIELD_TYPE_STRING;
+using android::util::FIELD_TYPE_UINT32;
+using android::util::FIELD_TYPE_UINT64;
 using android::util::ProtoOutputStream;
 
 namespace android {
@@ -49,10 +51,14 @@ const int FIELD_ID_SNAPSHOT_PACKAGE_VERSION_STRING = 6;
 const int FIELD_ID_SNAPSHOT_PACKAGE_VERSION_STRING_HASH = 7;
 const int FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER = 8;
 const int FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_HASH = 9;
+const int FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_INDEX = 10;
+const int FIELD_ID_SNAPSHOT_PACKAGE_TRUNCATED_CERTIFICATE_HASH = 11;
 const int FIELD_ID_SNAPSHOT_TIMESTAMP = 1;
 const int FIELD_ID_SNAPSHOT_PACKAGE_INFO = 2;
 const int FIELD_ID_SNAPSHOTS = 1;
 const int FIELD_ID_CHANGES = 2;
+const int FIELD_ID_INSTALLER_HASH = 3;
+const int FIELD_ID_INSTALLER_NAME = 4;
 const int FIELD_ID_CHANGE_DELETION = 1;
 const int FIELD_ID_CHANGE_TIMESTAMP = 2;
 const int FIELD_ID_CHANGE_PACKAGE = 3;
@@ -65,7 +71,8 @@ const int FIELD_ID_CHANGE_PREV_VERSION_STRING = 9;
 const int FIELD_ID_CHANGE_NEW_VERSION_STRING_HASH = 10;
 const int FIELD_ID_CHANGE_PREV_VERSION_STRING_HASH = 11;
 
-UidMap::UidMap() : mBytesUsed(0) {}
+UidMap::UidMap() : mBytesUsed(0), mIncludeCertificateHash(false) {
+}
 
 UidMap::~UidMap() {}
 
@@ -114,7 +121,8 @@ int64_t UidMap::getAppVersion(int uid, const string& packageName) const {
 
 void UidMap::updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
                        const vector<int64_t>& versionCode, const vector<String16>& versionString,
-                       const vector<String16>& packageName, const vector<String16>& installer) {
+                       const vector<String16>& packageName, const vector<String16>& installer,
+                       const vector<vector<uint8_t>>& certificateHash) {
     wp<PackageInfoListener> broadcast = NULL;
     {
         lock_guard<mutex> lock(mMutex);  // Exclusively lock for updates.
@@ -130,10 +138,11 @@ void UidMap::updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
 
         mMap.clear();
         for (size_t j = 0; j < uid.size(); j++) {
-            string package = string(String8(packageName[j]).string());
+            const string package = string(String8(packageName[j]).string());
+            const string installerName = string(String8(installer[j]).string());
             mMap[std::make_pair(uid[j], package)] =
                     AppData(versionCode[j], string(String8(versionString[j]).string()),
-                            string(String8(installer[j]).string()));
+                            installerName, certificateHash[j]);
         }
 
         for (const auto& kv : deletedApps) {
@@ -160,36 +169,36 @@ void UidMap::updateMap(const int64_t& timestamp, const vector<int32_t>& uid,
 
 void UidMap::updateApp(const int64_t& timestamp, const String16& app_16, const int32_t& uid,
                        const int64_t& versionCode, const String16& versionString,
-                       const String16& installer) {
+                       const String16& installer, const vector<uint8_t>& certificateHash) {
     wp<PackageInfoListener> broadcast = NULL;
-    string appName = string(String8(app_16).string());
+    const string appName = string(String8(app_16).string());
+    const string installerName = string(String8(installer).string());
     {
         lock_guard<mutex> lock(mMutex);
         int32_t prevVersion = 0;
         string prevVersionString = "";
         string newVersionString = string(String8(versionString).string());
-        bool found = false;
         auto it = mMap.find(std::make_pair(uid, appName));
         if (it != mMap.end()) {
-            found = true;
             prevVersion = it->second.versionCode;
             prevVersionString = it->second.versionString;
             it->second.versionCode = versionCode;
             it->second.versionString = newVersionString;
-            it->second.installer = string(String8(installer).string());
+            it->second.installer = installerName;
             it->second.deleted = false;
-        }
-        if (!found) {
-            // Otherwise, we need to add an app at this uid.
-            mMap[std::make_pair(uid, appName)] =
-                    AppData(versionCode, newVersionString, string(String8(installer).string()));
-        } else {
+            it->second.certificateHash = certificateHash;
+
             // Only notify the listeners if this is an app upgrade. If this app is being installed
             // for the first time, then we don't notify the listeners.
             // It's also OK to split again if we're forming a partial bucket after re-installing an
             // app after deletion.
             broadcast = mSubscriber;
+        } else {
+            // Otherwise, we need to add an app at this uid.
+            mMap[std::make_pair(uid, appName)] =
+                    AppData(versionCode, newVersionString, installerName, certificateHash);
         }
+
         mChanges.emplace_back(false, timestamp, appName, uid, versionCode, newVersionString,
                               prevVersion, prevVersionString);
         mBytesUsed += kBytesChangeRecord;
@@ -313,62 +322,108 @@ size_t UidMap::getBytesUsed() const {
 }
 
 void UidMap::writeUidMapSnapshot(int64_t timestamp, bool includeVersionStrings,
-                                 bool includeInstaller, const std::set<int32_t>& interestingUids,
-                                 std::set<string>* str_set, ProtoOutputStream* proto) {
+                                 bool includeInstaller, const uint8_t truncatedCertificateHashSize,
+                                 const std::set<int32_t>& interestingUids,
+                                 map<string, int>* installerIndices, std::set<string>* str_set,
+                                 ProtoOutputStream* proto) const {
     lock_guard<mutex> lock(mMutex);
 
-    writeUidMapSnapshotLocked(timestamp, includeVersionStrings, includeInstaller, interestingUids,
+    writeUidMapSnapshotLocked(timestamp, includeVersionStrings, includeInstaller,
+                              truncatedCertificateHashSize, interestingUids, installerIndices,
                               str_set, proto);
 }
 
-void UidMap::writeUidMapSnapshotLocked(int64_t timestamp, bool includeVersionStrings,
-                                       bool includeInstaller,
+void UidMap::writeUidMapSnapshotLocked(const int64_t timestamp, const bool includeVersionStrings,
+                                       const bool includeInstaller,
+                                       const uint8_t truncatedCertificateHashSize,
                                        const std::set<int32_t>& interestingUids,
-                                       std::set<string>* str_set, ProtoOutputStream* proto) {
+                                       map<string, int>* installerIndices,
+                                       std::set<string>* str_set, ProtoOutputStream* proto) const {
+    int curInstallerIndex = 0;
+
     proto->write(FIELD_TYPE_INT64 | FIELD_ID_SNAPSHOT_TIMESTAMP, (long long)timestamp);
-    for (const auto& kv : mMap) {
-        if (!interestingUids.empty() &&
-            interestingUids.find(kv.first.first) == interestingUids.end()) {
+    for (const auto& [keyPair, appData] : mMap) {
+        const auto& [uid, packageName] = keyPair;
+        if (!interestingUids.empty() && interestingUids.find(uid) == interestingUids.end()) {
             continue;
         }
         uint64_t token = proto->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED |
                                       FIELD_ID_SNAPSHOT_PACKAGE_INFO);
-        if (str_set != nullptr) {
-            str_set->insert(kv.first.second);
+        // Get installer index.
+        int installerIndex = -1;
+        if (includeInstaller && mIncludeCertificateHash && installerIndices != nullptr) {
+            const auto& it = installerIndices->find(appData.installer);
+            if (it == installerIndices->end()) {
+                // We have not encountered this installer yet; add it to installerIndices.
+                (*installerIndices)[appData.installer] = curInstallerIndex;
+                installerIndex = curInstallerIndex;
+                curInstallerIndex++;
+            } else {
+                installerIndex = it->second;
+            }
+        }
+
+        if (str_set != nullptr) {  // Hash strings in report
+            str_set->insert(packageName);
             proto->write(FIELD_TYPE_UINT64 | FIELD_ID_SNAPSHOT_PACKAGE_NAME_HASH,
-                         (long long)Hash64(kv.first.second));
+                         (long long)Hash64(packageName));
             if (includeVersionStrings) {
-                str_set->insert(kv.second.versionString);
+                str_set->insert(appData.versionString);
                 proto->write(FIELD_TYPE_UINT64 | FIELD_ID_SNAPSHOT_PACKAGE_VERSION_STRING_HASH,
-                             (long long)Hash64(kv.second.versionString));
+                             (long long)Hash64(appData.versionString));
             }
             if (includeInstaller) {
-                str_set->insert(kv.second.installer);
-                proto->write(FIELD_TYPE_UINT64 | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_HASH,
-                             (long long)Hash64(kv.second.installer));
+                str_set->insert(appData.installer);
+                if (installerIndex != -1) {
+                    // Write installer index.
+                    proto->write(FIELD_TYPE_UINT32 | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_INDEX,
+                                 installerIndex);
+                } else {
+                    proto->write(FIELD_TYPE_UINT64 | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_HASH,
+                                 (long long)Hash64(appData.installer));
+                }
             }
-        } else {
-            proto->write(FIELD_TYPE_STRING | FIELD_ID_SNAPSHOT_PACKAGE_NAME, kv.first.second);
+        } else {  // Strings not hashed in report
+            proto->write(FIELD_TYPE_STRING | FIELD_ID_SNAPSHOT_PACKAGE_NAME, packageName);
             if (includeVersionStrings) {
                 proto->write(FIELD_TYPE_STRING | FIELD_ID_SNAPSHOT_PACKAGE_VERSION_STRING,
-                             kv.second.versionString);
+                             appData.versionString);
             }
             if (includeInstaller) {
-                proto->write(FIELD_TYPE_STRING | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER,
-                             kv.second.installer);
+                if (installerIndex != -1) {
+                    proto->write(FIELD_TYPE_UINT32 | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER_INDEX,
+                                 installerIndex);
+                } else {
+                    proto->write(FIELD_TYPE_STRING | FIELD_ID_SNAPSHOT_PACKAGE_INSTALLER,
+                                 appData.installer);
+                }
+            }
+        }
+
+        if (mIncludeCertificateHash) {
+            const size_t dumpHashSize =
+                    truncatedCertificateHashSize <= appData.certificateHash.size()
+                            ? truncatedCertificateHashSize
+                            : appData.certificateHash.size();
+            if (dumpHashSize > 0) {
+                proto->write(
+                        FIELD_TYPE_BYTES | FIELD_ID_SNAPSHOT_PACKAGE_TRUNCATED_CERTIFICATE_HASH,
+                        reinterpret_cast<const char*>(appData.certificateHash.data()),
+                        dumpHashSize);
             }
         }
 
         proto->write(FIELD_TYPE_INT64 | FIELD_ID_SNAPSHOT_PACKAGE_VERSION,
-                     (long long)kv.second.versionCode);
-        proto->write(FIELD_TYPE_INT32 | FIELD_ID_SNAPSHOT_PACKAGE_UID, kv.first.first);
-        proto->write(FIELD_TYPE_BOOL | FIELD_ID_SNAPSHOT_PACKAGE_DELETED, kv.second.deleted);
+                     (long long)appData.versionCode);
+        proto->write(FIELD_TYPE_INT32 | FIELD_ID_SNAPSHOT_PACKAGE_UID, uid);
+        proto->write(FIELD_TYPE_BOOL | FIELD_ID_SNAPSHOT_PACKAGE_DELETED, appData.deleted);
         proto->end(token);
     }
 }
 
-void UidMap::appendUidMap(const int64_t& timestamp, const ConfigKey& key, std::set<string>* str_set,
-                          bool includeVersionStrings, bool includeInstaller,
+void UidMap::appendUidMap(const int64_t& timestamp, const ConfigKey& key,
+                          const bool includeVersionStrings, const bool includeInstaller,
+                          const uint8_t truncatedCertificateHashSize, std::set<string>* str_set,
                           ProtoOutputStream* proto) {
     lock_guard<mutex> lock(mMutex);  // Lock for updates
 
@@ -409,13 +464,35 @@ void UidMap::appendUidMap(const int64_t& timestamp, const ConfigKey& key, std::s
         }
     }
 
+    map<string, int> installerIndices;
+
     // Write snapshot from current uid map state.
     uint64_t snapshotsToken =
             proto->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | FIELD_ID_SNAPSHOTS);
     writeUidMapSnapshotLocked(timestamp, includeVersionStrings, includeInstaller,
+                              truncatedCertificateHashSize,
                               std::set<int32_t>() /*empty uid set means including every uid*/,
-                              str_set, proto);
+                              &installerIndices, str_set, proto);
     proto->end(snapshotsToken);
+
+    vector<string> installers(installerIndices.size(), "");
+    for (const auto& [installer, index] : installerIndices) {
+        // index is guaranteed to be < installers.size().
+        installers[index] = installer;
+    }
+
+    if (includeInstaller && mIncludeCertificateHash) {
+        // Write installer list; either strings or hashes.
+        for (const string& installerName : installers) {
+            if (str_set == nullptr) {  // Strings not hashed
+                proto->write(FIELD_TYPE_STRING | FIELD_COUNT_REPEATED | FIELD_ID_INSTALLER_NAME,
+                             installerName);
+            } else {  // Strings are hashed
+                proto->write(FIELD_TYPE_UINT64 | FIELD_COUNT_REPEATED | FIELD_ID_INSTALLER_HASH,
+                             (long long)Hash64(installerName));
+            }
+        }
+    }
 
     int64_t prevMin = getMinimumTimestampNs();
     mLastUpdatePerConfigKey[key] = timestamp;
@@ -437,14 +514,22 @@ void UidMap::appendUidMap(const int64_t& timestamp, const ConfigKey& key, std::s
     StatsdStats::getInstance().setUidMapChanges(mChanges.size());
 }
 
-void UidMap::printUidMap(int out) const {
+void UidMap::printUidMap(int out, bool includeCertificateHash) const {
     lock_guard<mutex> lock(mMutex);
 
-    for (const auto& kv : mMap) {
-        if (!kv.second.deleted) {
-            dprintf(out, "%s, v%" PRId64 ", %s, %s (%i)\n", kv.first.second.c_str(),
-                    kv.second.versionCode, kv.second.versionString.c_str(),
-                    kv.second.installer.c_str(), kv.first.first);
+    for (const auto& [keyPair, appData] : mMap) {
+        const auto& [uid, packageName] = keyPair;
+        if (!appData.deleted) {
+            if (includeCertificateHash) {
+                const string& certificateHashHexString = toHexString(appData.certificateHash);
+                dprintf(out, "%s, v%" PRId64 ", %s, %s (%i), %s\n", packageName.c_str(),
+                        appData.versionCode, appData.versionString.c_str(),
+                        appData.installer.c_str(), uid, certificateHashHexString.c_str());
+            } else {
+                dprintf(out, "%s, v%" PRId64 ", %s, %s (%i)\n", packageName.c_str(),
+                        appData.versionCode, appData.versionString.c_str(),
+                        appData.installer.c_str(), uid);
+            }
         }
     }
 }
@@ -467,6 +552,11 @@ set<int32_t> UidMap::getAppUid(const string& package) const {
         }
     }
     return results;
+}
+
+void UidMap::setIncludeCertificateHash(const bool include) {
+    lock_guard<mutex> lock(mMutex);
+    mIncludeCertificateHash = include;
 }
 
 // Note not all the following AIDs are used as uids. Some are used only for gids.
@@ -554,6 +644,7 @@ const std::map<string, uint32_t> UidMap::sAidToUidMapping = {{"AID_ROOT", 0},
                                                              {"AID_EXT_DATA_RW", 1078},
                                                              {"AID_EXT_OBB_RW", 1079},
                                                              {"AID_CONTEXT_HUB", 1080},
+                                                             {"AID_VIRTUALIZATIONSERVICE", 1081},
                                                              {"AID_ARTD", 1082},
                                                              {"AID_SHELL", 2000},
                                                              {"AID_CACHE", 2001},

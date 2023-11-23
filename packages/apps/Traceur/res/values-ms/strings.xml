@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Pulihkan kategori lalai"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Kategori lalai dipulihkan"</string>
     <string name="default_categories" msgid="2117679794687799407">"Lalai"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d dipilih</item>
-      <item quantity="one">%d dipilih</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# dipilih}other{# dipilih}}"</string>
     <string name="applications" msgid="521776761270770549">"Aplikasi"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Tiada aplikasi yang boleh dinyahpepijat tersedia"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Saiz penimbal Per CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Gunakan Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Surih panjang"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Disimpan secara berterusan ke storan peranti"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Disimpan secara berterusan pada storan peranti (tidak akan dilampirkan secara automatik pada laporan pepijat)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Saiz surih panjang maksimum"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Tempoh surih panjang maksimum"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

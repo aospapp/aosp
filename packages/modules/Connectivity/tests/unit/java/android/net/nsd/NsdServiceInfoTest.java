@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.net.Network;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -123,6 +124,8 @@ public class NsdServiceInfoTest {
         fullInfo.setServiceType("_kitten._tcp");
         fullInfo.setPort(4242);
         fullInfo.setHost(LOCALHOST);
+        fullInfo.setNetwork(new Network(123));
+        fullInfo.setInterfaceIndex(456);
         checkParcelable(fullInfo);
 
         NsdServiceInfo noHostInfo = new NsdServiceInfo();
@@ -172,6 +175,8 @@ public class NsdServiceInfoTest {
         assertEquals(original.getServiceType(), result.getServiceType());
         assertEquals(original.getHost(), result.getHost());
         assertTrue(original.getPort() == result.getPort());
+        assertEquals(original.getNetwork(), result.getNetwork());
+        assertEquals(original.getInterfaceIndex(), result.getInterfaceIndex());
 
         // Assert equality of attribute map.
         Map<String, byte[]> originalMap = original.getAttributes();

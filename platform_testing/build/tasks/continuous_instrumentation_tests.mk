@@ -81,6 +81,8 @@ continuous_instrumentation_tests_api_coverage : $(coverage_report)
 $(call dist-for-goals, continuous_instrumentation_tests_api_coverage, \
 	$(coverage_report):$(name)-api_coverage.html)
 
+ALL_TARGETS.$(coverage_report).META_LIC:=$(module_license_metadata)
+
 # Also build this when you run "make tests".
 # This allow us to not change the build server config.
 tests : continuous_instrumentation_tests_api_coverage

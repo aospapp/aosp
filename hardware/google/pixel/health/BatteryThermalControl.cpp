@@ -16,6 +16,9 @@
 
 #include "pixelhealth/BatteryThermalControl.h"
 
+using aidl::android::hardware::health::BatteryStatus;
+using aidl::android::hardware::health::HealthInfo;
+
 namespace hardware {
 namespace google {
 namespace pixel {
@@ -51,6 +54,19 @@ void BatteryThermalControl::updateThermalState(const struct android::BatteryProp
         setThermalMode(props->batteryStatus != android::BATTERY_STATUS_CHARGING &&
                                props->batteryStatus != android::BATTERY_STATUS_FULL,
                        props->maxChargingCurrent * props->maxChargingVoltage < 37500000);
+}
+
+void BatteryThermalControl::updateThermalState(const HealthInfo &health_info) {
+    int bcl_disable = GetIntProperty("persist.vendor.disable.bcl.control", 0);
+
+    if (bcl_disable)
+        setThermalMode(false, true);
+    else
+        setThermalMode(
+                health_info.batteryStatus != BatteryStatus::CHARGING &&
+                        health_info.batteryStatus != BatteryStatus::FULL,
+                health_info.maxChargingCurrentMicroamps * health_info.maxChargingVoltageMicrovolts <
+                        37500000);
 }
 
 }  // namespace health

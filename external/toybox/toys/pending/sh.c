@@ -41,6 +41,8 @@
  * {/}, [[/]], (/), function assignment
 
 USE_SH(NEWTOY(cd, ">1LP[-LP]", TOYFLAG_NOFORK))
+USE_SH(NEWTOY(declare, "pAailunxr", TOYFLAG_NOFORK))
+ // TODO tpgfF
 USE_SH(NEWTOY(eval, 0, TOYFLAG_NOFORK))
 USE_SH(NEWTOY(exec, "^cla:", TOYFLAG_NOFORK))
 USE_SH(NEWTOY(exit, 0, TOYFLAG_NOFORK))
@@ -79,12 +81,32 @@ config CD
   default n
   depends on SH
   help
-    usage: cd [-PL] [path]
+    usage: cd [-PL] [-] [path]
 
-    Change current directory.  With no arguments, go $HOME.
+    Change current directory. With no arguments, go $HOME. Sets $OLDPWD to
+    previous directory: cd - to return to $OLDPWD.
 
     -P	Physical path: resolve symlinks in path
     -L	Local path: .. trims directories off $PWD (default)
+
+config DECLARE
+  bool
+  default n
+  depends on SH
+  help
+    usage: declare [-pAailunxr] [NAME...]
+
+    Set or print variable attributes and values.
+
+    -p	Print variables instead of setting
+    -A	Associative array
+    -a	Indexed array
+    -i	Integer
+    -l	Lower case
+    -n	Name reference (symlink)
+    -r	Readonly
+    -u	Uppercase
+    -x	Export
 
 config EXIT
   bool
@@ -234,7 +256,7 @@ GLOBALS(
   long long SECONDS;
   char *isexec, *wcpat;
   unsigned options, jobcnt, LINENO;
-  int hfd, pid, bangpid, varslen, cdcount, srclvl, recursion;
+  int hfd, pid, bangpid, varslen, srclvl, recursion;
 
   // Callable function array
   struct sh_function {
@@ -285,7 +307,7 @@ GLOBALS(
     struct sh_process *next, *prev; // | && ||
     struct arg_list *delete;   // expanded strings
     // undo redirects, a=b at start, child PID, exit status, has !, job #
-    int *urd, envlen, pid, exit, not, job, dash;
+    int *urd, envlen, pid, exit, flags, job, dash;
     long long when; // when job backgrounded/suspended
     struct sh_arg *raw, arg;
   } *pp; // currently running process
@@ -308,6 +330,12 @@ static const char *redirectors[] = {"<<<", "<<-", "<<", "<&", "<>", "<", ">>",
 #define OPT_C	0x200
 #define OPT_x	0x400
 
+// only export $PWD and $OLDPWD on first cd
+#define OPT_cd  0x80000000
+
+// struct sh_process->flags
+#define PFLAG_NOT    1
+
 static void syntax_err(char *s)
 {
   error_msg("syntax error: %s", s);
@@ -322,6 +350,7 @@ void debug_show_fds()
   struct dirent *DE;
   char *s, *ss = 0, buf[4096], *sss = buf;
 
+  if (!X) return;
   for (; (DE = readdir(X));) {
     if (atoi(DE->d_name) == fd) continue;
     s = xreadlink(ss = xmprintf("/proc/self/fd/%s", DE->d_name));
@@ -373,7 +402,7 @@ static void arg_add_del(struct sh_arg *arg, char *data,struct arg_list **delete)
 #define VAR_TOLOWER   (1<<5)
 #define VAR_TOUPPER   (1<<4)
 #define VAR_NAMEREF   (1<<3)
-#define VAR_GLOBAL    (1<<2)
+#define VAR_EXPORT    (1<<2)
 #define VAR_READONLY  (1<<1)
 #define VAR_MAGIC     (1<<0)
 
@@ -386,7 +415,10 @@ static char *varend(char *s)
   return s;
 }
 
-// Return index of variable within this list
+// TODO: this has to handle VAR_NAMEREF, but return dangling symlink
+// Also, unset -n, also "local ISLINK" to parent var.
+// Return sh_vars * or 0 if not found.
+// Sets *pff to function (only if found), only returns whiteouts if pff not NULL
 static struct sh_vars *findvar(char *name, struct sh_fcall **pff)
 {
   int len = varend(name)-name;
@@ -396,11 +428,13 @@ static struct sh_vars *findvar(char *name, struct sh_fcall **pff)
   if (len) do {
     struct sh_vars *var = ff->vars+ff->varslen;
 
-    if (!var) continue;
-    if (pff) *pff = ff;
-    while (var-- != ff->vars)
-      if (pff || !(var->flags&VAR_WHITEOUT))
-        if (!strncmp(var->str, name, len) && var->str[len] == '=') return var;
+    if (var) while (var--!=ff->vars) {
+      if (strncmp(var->str, name, len) || var->str[len]!='=') continue;
+      if (pff) *pff = ff;
+      else if (var->flags&VAR_WHITEOUT) return 0;
+
+      return var;
+    }
   } while ((ff = ff->next)!=TT.ff);
 
   return 0;
@@ -418,50 +452,144 @@ static struct sh_vars *addvar(char *s, struct sh_fcall *ff)
   return ff->vars+ff->varslen++;
 }
 
-// TODO function to resolve a string into a number for $((1+2)) etc
-long long do_math(char **s)
+static char **nospace(char **ss)
 {
-  long long ll;
+  while (isspace(**ss)) ++*ss;
 
-  while (isspace(**s)) ++*s;
-  ll = strtoll(*s, s, 0);
-  while (isspace(**s)) ++*s;
-
-  return ll;
+  return ss;
 }
 
-// declare -aAilnrux
-// ft
-static struct sh_vars *setvar_found(char *s, struct sh_vars *var)
+/*
+15L ( [ . -> ++ --
+14R (all prefix operators)
+++ -- + - ! ~ (typecast) * & sizeof
+13L * / %
+12L + -
+11L << >>
+10L < <= > >=
+9L == !=
+8L & (bitwise)
+7L ^ (xor)
+6L |
+5L &&
+4L ||
+3R ? :
+2R (assignments) = += -= *= /= %= &= ^= |= <<= >>=
+1L ,
+
+*/
+
+// Recursively calculate string into dd, returns 0 if failed, ss = error point
+static int recalculate(long long *dd, char **ss, int lvl)
 {
-  long flags;
+  long long ee, ff;
+  char cc = **nospace(ss);
 
-  if ((flags = var->flags&~VAR_WHITEOUT)&VAR_READONLY) {
-    error_msg("%.*s: read only", (int)(strchr(s, '=')-s), s);
-    free(s);
+  // TODO: assignable (variable)
+  // Always start handling unary prefixes, parenthetical blocks, and constants
+  if (cc=='+' || cc=='-') {
+    ++*ss;
+    if (!recalculate(dd, ss, 1)) return 0;
+    if (cc=='-') *dd = -*dd;
+  } else if (cc=='(') {
+    ++*ss;
+    if (!recalculate(dd, ss, 1)) return 0;
+    if (**ss!=')') return 0;
+    else ++*ss;
+  } else if (isdigit(cc)) *dd = strtoll(*ss, ss, 0); //TODO overflow?
+  else if (!lvl && (!cc || cc==')')) {
+    *dd = 0;
+    return 1;
+  } else return 0;
 
-    return 0;
-  } else var->flags = flags;
-
-// TODO if (flags&(VAR_TOUPPER|VAR_TOLOWER)) 
-// unicode _is stupid enough for upper/lower case to be different utf8 byte
-// lengths. example: lowercase of U+0130 (C4 B0) is U+0069 (69)
-// TODO VAR_INT
-// TODO VAR_ARRAY VAR_DICT
-
-  if (flags&VAR_MAGIC) {
-    char *ss = strchr(s, '=')+1;
-
-    if (*s == 'S') TT.SECONDS = millitime() - 1000*do_math(&ss);
-    else if (*s == 'R') srandom(do_math(&ss));
-// TODO: trailing garbage after do_math()?
-  } else {
-    if (!(flags&VAR_NOFREE)) free(var->str);
-    else var->flags ^= VAR_NOFREE;
-    var->str = s;
+  // x^y binds first
+  if (lvl<4) while (strstart(nospace(ss), "**")) {
+    if (!recalculate(&ee, ss, 4)) return 0;
+    if (ee<0) perror_msg("** < 0");
+    for (ff = *dd, *dd = 1; ee; ee--) *dd *= ff;
   }
 
-  return var;
+  // w*x/y%z bind next
+  if (lvl<3) while ((cc = **nospace(ss))) {
+    if (cc=='*' || cc=='/' || cc=='%') {
+      ++*ss;
+      if (!recalculate(&ee, ss, 3)) return 0;
+      if (cc=='*') *dd *= ee;
+      else if (cc=='%') *dd %= ee;
+      else if (!ee) {
+        perror_msg("/0");
+        return 0;
+      } else *dd /= ee;
+    } else break;
+  }
+
+  // x+y-z
+  if (lvl<2) while ((cc = **nospace(ss))) {
+    if (cc=='+' || cc=='-') {
+      ++*ss;
+      if (!recalculate(&ee, ss, 2)) return 0;
+      if (cc=='+') *dd += ee;
+      else *dd -= ee;
+    } else break;
+  }
+  nospace(ss);
+
+  return 1;
+}
+
+static int calculate(long long *ll, char *equation)
+{
+  char *ss = equation;
+
+  // TODO: error_msg->sherror_msg() with LINENO for scripts
+  if (!recalculate(ll, &ss, 0) || *ss) {
+    perror_msg("bad math: %s @ %d", equation, (int)(ss-equation));
+
+    return 0;
+  }
+
+  return 1;
+}
+
+// Return length of utf8 char @s fitting in len, writing value into *cc
+int getutf8(char *s, int len, int *cc)
+{
+  unsigned wc;
+
+  if (len<0) wc = len = 0;
+  else if (1>(len = utf8towc(&wc, s, len))) wc = *s, len = 1;
+  if (cc) *cc = wc;
+
+  return len;
+}
+
+// get value of variable starting at s.
+static char *getvar(char *s)
+{
+  struct sh_vars *var = findvar(s, 0);
+
+  if (!var) return 0;
+
+  if (var->flags & VAR_MAGIC) {
+    char c = *var->str;
+
+    if (c == 'S') sprintf(toybuf, "%lld", (millitime()-TT.SECONDS)/1000);
+    else if (c == 'R') sprintf(toybuf, "%ld", random()&((1<<16)-1));
+    else if (c == 'L') sprintf(toybuf, "%u", TT.ff->pl->lineno);
+    else if (c == 'G') sprintf(toybuf, "TODO: GROUPS");
+    else if (c == 'B') sprintf(toybuf, "%d", getpid());
+    else if (c == 'E') {
+      struct timespec ts;
+
+      clock_gettime(CLOCK_REALTIME, &ts);
+      sprintf(toybuf, "%lld%c%06ld", (long long)ts.tv_sec, (s[5]=='R')*'.',
+              ts.tv_nsec/1000);
+    }
+
+    return toybuf;
+  }
+
+  return varend(var->str)+1;
 }
 
 // Update $IFS cache in function call stack after variable assignment
@@ -471,23 +599,132 @@ static void cache_ifs(char *s, struct sh_fcall *ff)
     do ff->ifs = s+4; while ((ff = ff->next) != TT.ff->prev);
 }
 
-static struct sh_vars *setvar(char *s)
+// declare -aAilnrux
+// ft
+// TODO VAR_ARRAY VAR_DICT
+
+// Assign new name=value string for existing variable. s takes x=y or x+=y
+static struct sh_vars *setvar_found(char *s, int freeable, struct sh_vars *var)
 {
-  struct sh_fcall *ff;
-  struct sh_vars *var;
+  char *ss, *sss, *sd, buf[24];
+  long ii, jj, kk, flags = var->flags&~VAR_WHITEOUT;
+  long long ll;
+  int cc, vlen = varend(s)-s;
 
-  if (s[varend(s)-s] != '=') {
+  if (flags&VAR_READONLY) {
+    error_msg("%.*s: read only", vlen, s);
+    goto bad;
+  }
+
+  // If += has no old value (addvar placeholder or empty old var) yank the +
+  if (s[vlen]=='+' && (var->str==s || !strchr(var->str, '=')[1])) {
+    ss = xmprintf("%.*s%s", vlen, s, s+vlen+1);
+    if (var->str==s) {
+      if (!freeable++) var->flags |= VAR_NOFREE;
+    } else if (freeable++) free(s);
+    s = ss;
+  }
+
+  // Handle VAR_NAMEREF mismatch by replacing name
+  if (strncmp(var->str, s, vlen)) {
+    ss = s+vlen+(s[vlen]=='+')+1;
+    ss = xmprintf("%.*s%s", (vlen = varend(var->str)-var->str)+1, var->str, ss);
+    if (freeable++) free(s);
+    s = ss;
+  }
+
+  // utf8 aware case conversion, two pass (measure, allocate, convert) because
+  // unicode IS stupid enough for upper/lower case to be different utf8 byte
+  // lengths, for example lowercase of U+023a (c8 ba) is U+2c65 (e2 b1 a5)
+  if (flags&(VAR_TOUPPER|VAR_TOLOWER)) {
+    for (jj = kk = 0, sss = 0; jj<2; jj++, sss = sd = xmalloc(vlen+kk+2)) {
+      sd = jj ? stpncpy(sss, s, vlen+1) : (void *)&sss;
+      for (ss = s+vlen+1; (ii = getutf8(ss, 4, &cc)); ss += ii) {
+        kk += wctoutf8(sd, (flags&VAR_TOUPPER) ? towupper(cc) : towlower(cc));
+        if (jj) {
+          sd += kk;
+          kk = 0;
+        }
+      }
+    }
+    *sd = 0;
+    if (freeable++) free(s);
+    s = sss;
+  }
+
+  // integer variables treat += differently
+  ss = s+vlen+(s[vlen]=='+')+1;
+  if (flags&VAR_INT) {
+    if (!calculate(&ll, ss)) goto bad;
+    sprintf(buf, "%lld", ll);
+    if (flags&VAR_MAGIC) {
+      if (*s == 'S') {
+        ll *= 1000;
+        TT.SECONDS = (s[vlen]=='+') ? TT.SECONDS+ll : millitime()-ll;
+      } else if (*s == 'R') srandom(ll);
+      if (freeable) free(s);
+
+      // magic can't be whiteout or nofree, and keeps old string
+      return var;
+    } else if (s[vlen]=='+' || strcmp(buf, ss)) {
+      if (s[vlen]=='+') ll += atoll(strchr(var->str, '=')+1);
+      ss = xmprintf("%.*s=%lld", vlen, s, ll);
+      if (freeable++) free(s);
+      s = ss;
+    }
+  } else if (s[vlen]=='+' && !(flags&VAR_MAGIC)) {
+    ss = xmprintf("%s%s", var->str, ss);
+    if (freeable++) free(s);
+    s = ss;
+  }
+
+  // Replace old string with new one, adjusting nofree status
+  if (flags&VAR_NOFREE) flags ^= VAR_NOFREE;
+  else free(var->str);
+  if (!freeable) flags |= VAR_NOFREE;
+  var->str = s;
+  var->flags = flags;
+
+  return var;
+bad:
+  if (freeable) free(s);
+
+  return 0;
+}
+
+// Creates new variables (local or global) and handles +=
+// returns 0 on error, else sh_vars of new entry.
+static struct sh_vars *setvar_long(char *s, int freeable, struct sh_fcall *ff)
+{
+  struct sh_vars *vv = 0, *was;
+  char *ss;
+
+  if (!s) return 0;
+  ss = varend(s);
+  if (ss[*ss=='+']!='=') {
     error_msg("bad setvar %s\n", s);
-    free(s);
-
+    if (freeable) free(s);
     return 0;
   }
-  if (!(var = findvar(s, &ff))) ff = TT.ff->prev;
-  cache_ifs(s, ff);
-  if (!var) return addvar(s, TT.ff->prev);
 
-  return setvar_found(s, var);
+  // Add if necessary, set value, and remove again if we added but set failed
+  if (!(was = vv = findvar(s, &ff))) (vv = addvar(s, ff))->flags = VAR_NOFREE;
+  if (!(vv = setvar_found(s, freeable, vv))) {
+    int ii = vv-ff->vars;
+
+    if (!was) memmove(ff->vars+ii, ff->vars+ii+1, (ff->varslen--)-ii);
+  } else cache_ifs(vv->str, ff);
+
+  return vv;
 }
+
+// Set variable via a malloced "name=value" (or "name+=value") string.
+// Returns sh_vars * or 0 for failure (readonly, etc)
+static struct sh_vars *setvar(char *str)
+{
+  return setvar_long(str, 0, TT.ff->prev);
+}
+
 
 // returns whether variable found (whiteout doesn't count)
 static int unsetvar(char *name)
@@ -519,27 +756,6 @@ static int unsetvar(char *name)
 static struct sh_vars *setvarval(char *name, char *val)
 {
   return setvar(xmprintf("%s=%s", name, val));
-}
-
-// get value of variable starting at s.
-static char *getvar(char *s)
-{
-  struct sh_vars *var = findvar(s, 0);
-
-  if (!var) return 0;
-
-  if (var->flags & VAR_MAGIC) {
-    char c = *var->str;
-
-    if (c == 'S') sprintf(toybuf, "%lld", (millitime()-TT.SECONDS)/1000);
-    else if (c == 'R') sprintf(toybuf, "%ld", random()&((1<<16)-1));
-    else if (c == 'L') sprintf(toybuf, "%u", TT.ff->pl->lineno);
-    else if (c == 'G') sprintf(toybuf, "TODO: GROUPS");
-
-    return toybuf;
-  }
-
-  return varend(var->str)+1;
 }
 
 // TODO: keep variable arrays sorted for binary search
@@ -576,26 +792,28 @@ static struct sh_vars **visible_vars(void)
 // malloc declare -x "escaped string"
 static char *declarep(struct sh_vars *var)
 {
-  char *types = "-rgnuliaA", *in = types, flags[16], *out = flags, *ss;
+  char *types = "rxnuliaA", *esc = "$\"\\`", *in, flags[16], *out = flags, *ss;
   int len;
 
-  while (*++in) if (var->flags&(1<<(in-types))) *out++ = *in;
-  if (in == types) *out++ = *types;
+  for (len = 0; types[len]; len++) if (var->flags&(2<<len)) *out++ = types[len];
+  if (out==flags) *out++ = '-';
   *out = 0;
   len = out-flags;
 
-  for (in = types = varend(var->str); *in; in++) len += !!strchr("$\"\\`", *in);
-  len += in-types;
+  for (in = var->str; *in; in++) len += !!strchr(esc, *in);
+  len += in-var->str;
   ss = xmalloc(len+15);
 
-  out = ss + sprintf(ss, "declare -%s \"", out);
-  while (*types) {
-    if (strchr("$\"\\`", *types)) *out++ = '\\';
-    *out++ = *types++;
+  len = varend(var->str)-var->str;
+  out = ss + sprintf(ss, "declare -%s %.*s", flags, len, var->str);
+  if (var->flags != VAR_MAGIC)  {
+    out = stpcpy(out, "=\"");
+    for (in = var->str+len+1; *in; *out++ = *in++)
+      if (strchr(esc, *in)) *out++ = '\\';
+    *out++ = '"';
   }
-  *out++ = '"';
   *out = 0;
- 
+
   return ss; 
 }
 
@@ -690,8 +908,8 @@ static char *parse_word(char *start, int early, int quote)
         if (!*end || (*end=='\n' && !end[1])) return early ? end : 0;
       } else if (ii=='$' && -1!=(qq = stridx("({[", *end))) {
         if (strstart(&end, "((")) {
+          end--;
           toybuf[quote++] = 255;
-          end++;
         } else toybuf[quote++] = ")}]"[qq];
       } else if (*end=='(' && strchr("?*+@!", ii)) toybuf[quote++] = ')';
       else {
@@ -771,8 +989,8 @@ static void subshell_callback(char **argv)
 static char *pl2str(struct sh_pipeline *pl, int one)
 {
   struct sh_pipeline *end = 0, *pp;
-  int len = len, i;
-  char *s, *ss;
+  int len QUIET, i;
+  char *ss;
 
   // Find end of block (or one argument)
   if (one) end = pl->next;
@@ -784,12 +1002,10 @@ static char *pl2str(struct sh_pipeline *pl, int one)
   for (ss = 0;; ss = xmalloc(len+1)) {
     for (pp = pl; pp != end; pp = pp->next) {
       if (pp->type == 'F') continue; // TODO fix this
-      for (i = len = 0; i<pp->arg->c; i++)
-        len += snprintf(ss+len, ss ? INT_MAX : 0, "%s ", pp->arg->v[i]);
-      if (!(s = pp->arg->v[pp->arg->c])) s = ";"+(pp->next==end);
-      len += snprintf(ss+len, ss ? INT_MAX : 0, s);
+      for (i = len = 0; i<=pp->arg->c; i++)
+        len += snprintf(ss+len, ss ? INT_MAX : 0, " %s"+!i,
+           pp->arg->v[i] ? : ";"+(pp->next==end));
     }
-
     if (ss) return ss;
   }
 
@@ -928,8 +1144,8 @@ static int run_subshell(char *str, int len)
   // On nommu vfork, exec /proc/self/exe, and pipe state data to ourselves.
   } else {
     int pipes[2];
-    unsigned len, i;
-    char **oldenv = environ, *s, *ss = str ? : pl2str(TT.ff->pl->next, 0);
+    unsigned i;
+    char **oldenv = environ, *ss = str ? : pl2str(TT.ff->pl->next, 0);
     struct sh_vars **vv;
 
     // open pipe to child
@@ -950,15 +1166,16 @@ static int run_subshell(char *str, int len)
 
     // marshall context to child
     close(254);
-    for (i = 0, vv = visible_vars(); vv[i]; i++) {
-      if (vv[i]->flags&VAR_WHITEOUT) continue;
-      dprintf(pipes[1], "%s\n", s = declarep(vv[i]));
-      free(s);
-    }
+    dprintf(pipes[1], "%lld %u %u %u %u\n", TT.SECONDS,
+      TT.options, TT.LINENO, TT.pid, TT.bangpid);
+
+    for (i = 0, vv = visible_vars(); vv[i]; i++)
+      dprintf(pipes[1], "%u %lu\n%.*s", (unsigned)strlen(vv[i]->str),
+              vv[i]->flags, (int)strlen(vv[i]->str), vv[i]->str);
     free(vv);
 
     // send command
-    dprintf(pipes[1], "%.*s\n", len, ss);
+    dprintf(pipes[1], "0 0\n%.*s\n", len, ss);
     if (!str) free(ss);
     close(pipes[1]);
   }
@@ -993,7 +1210,7 @@ static int pipe_subshell(char *s, int len, int out)
 // if len, save length of next wc (whether or not it's in list)
 static int utf8chr(char *wc, char *chrs, int *len)
 {
-  wchar_t wc1, wc2;
+  unsigned wc1, wc2;
   int ll;
 
   if (len) *len = 1;
@@ -1045,18 +1262,6 @@ char *getvar_special(char *str, int len, int *used, struct arg_list **delete)
   return s;
 }
 
-// Return length of utf8 char @s fitting in len, writing value into *cc
-int getutf8(char *s, int len, int *cc)
-{
-  wchar_t wc;
-
-  if (len<0) wc = len = 0;
-  else if (1>(len = utf8towc(&wc, s, len))) wc = *s, len = 1;
-  if (cc) *cc = wc;
-
-  return len;
-}
-
 #define WILD_SHORT 1 // else longest match
 #define WILD_CASE  2 // case insensitive
 #define WILD_ANY   4 // advance through pattern instead of str
@@ -1080,10 +1285,10 @@ static int wildcard_matchlen(char *str, int len, char *pattern, int plen,
     } else if (dd>=deck->c || pp!=(long)deck->v[dd]) {
       if (ss<len) {
         if (flags&WILD_CASE) {
-          c = towupper(getutf8(str+ss, len-ss, &i));
-          ss += i;
-          i = towupper(getutf8(pattern+pp, pp-plen, &j));
-          pp += j;
+          ss += getutf8(str+ss, len-ss, &c);
+          c = towupper(c);
+          pp += getutf8(pattern+pp, pp-plen, &i);
+          i = towupper(i);
         } else c = str[ss++], i = pattern[pp++];
         if (c==i) continue;
       }
@@ -1343,7 +1548,7 @@ static void wildcard_add_files(struct sh_arg *arg, char *pattern,
   if (!dt) return arg_add(arg, pattern);
   while (dt) {
     while (dt->child) dt = dt->child;
-    arg_add(arg, dirtree_path(dt, 0));
+    arg_add(arg, push_arg(delete, dirtree_path(dt, 0)));
     do {
       pp = (void *)dt;
       if ((dt = dt->parent)) dt->child = dt->child->next;
@@ -1458,9 +1663,23 @@ static int expand_arg_nobrace(struct sh_arg *arg, char *str, unsigned flags,
       s = str+ii-1;
       kk = parse_word(s, 1, 0)-s;
       if (str[ii] == '[' || *toybuf == 255) {
-        s += 2+(str[ii]!='[');
-        kk -= 3+2*(str[ii]!='[');
-dprintf(2, "TODO: do math for %.*s\n", kk, s);
+        struct sh_arg aa = {0};
+        long long ll;
+
+        // Expand $VARS in math string
+        ss = str+ii+1+(str[ii]=='(');
+        push_arg(delete, ss = xstrndup(ss, kk - (3+2*(str[ii]!='['))));
+        expand_arg_nobrace(&aa, ss, NO_PATH|NO_SPLIT, delete, 0);
+        s = ss = (aa.v && *aa.v) ? *aa.v : "";
+        free(aa.v);
+
+        // Recursively calculate result
+        if (!recalculate(&ll, &s, 0) || *s) {
+          error_msg("bad math: %s @ %ld", ss, (s-ss)+1);
+          goto fail;
+        }
+        ii += kk-1;
+        push_arg(delete, ifs = xmprintf("%lld", ll));
       } else {
         // Run subshell and trim trailing newlines
         s += (jj = 1+(cc == '$'));
@@ -1513,17 +1732,16 @@ dprintf(2, "TODO: do math for %.*s\n", kk, s);
 
         if (cc == '}') ifs = (void *)1;
         else if (strchr("#!", cc)) ss++;
-        jj = varend(ss)-ss;
-        if (!jj) while (isdigit(ss[jj])) jj++;
-        if (!jj && strchr("#$!_*", *ss)) jj++;
+        if (!(jj = varend(ss)-ss)) while (isdigit(ss[jj])) jj++;
+        if (!jj && strchr("#$_*", *ss)) jj++;
         // parameter or operator? Maybe not a prefix: ${#-} vs ${#-x}
         if (!jj && strchr("-?@", *ss)) if (ss[++jj]!='}' && ss[-1]!='{') ss--;
         slice = ss+jj;        // start of :operation
 
         if (!jj) {
-          ifs = (void *)1;
           // literal ${#} or ${!} wasn't a prefix
           if (strchr("#!", cc)) ifs = getvar_special(--ss, 1, &kk, delete);
+          else ifs = (void *)1;  // unrecognized char ala ${~}
         } else if (ss[-1]=='{'); // not prefix, fall through
         else if (cc == '#') {  // TODO ${#x[@]}
           dd = !!strchr("@*", *ss);  // For ${#@} or ${#*} do normal ${#}
@@ -1606,7 +1824,7 @@ barf:
     // Fetch separator to glue string back together with
     *sep = 0;
     if (((qq&1) && cc=='*') || (flags&NO_SPLIT)) {
-      wchar_t wc;
+      unsigned wc;
 
       nosplit++;
       if (flags&SEMI_IFS) strcpy(sep, " ");
@@ -1636,24 +1854,23 @@ barf:
         else if (dd == '+')
           push_arg(delete, ifs = slashcopy(slice+xx+1, "}", 0));
         else if (xx) { // ${x::}
-          long long la, lb, lc;
+          long long la = 0, lb = LLONG_MAX, lc = 1;
 
-// TODO don't redo math in loop
-          ss = slice+1;
-          la = do_math(&s);
-          if (s && *s == ':') {
-            s++;
-            lb = do_math(&s);
-          } else lb = LLONG_MAX;
-          if (s && *s != '}') {
-            error_msg("%.*s: bad '%c'", (int)(slice-ss), ss, *s);
-            s = 0;
+          ss = ++slice;
+          if ((lc = recalculate(&la, &ss, 0)) && *ss == ':') {
+            ss++;
+            lc = recalculate(&lb, &ss, 0);
           }
-          if (!s) goto fail;
+          if (!lc || *ss != '}') {
+            for (s = ss; *s != '}' && *s != ':'; s++);
+            error_msg("bad %.*s @ %ld", (int)(s-slice), slice, ss-slice);
+//TODO fix error message
+            goto fail;
+          }
 
           // This isn't quite what bash does, but close enough.
           if (!(lc = aa.c)) lc = strlen(ifs);
-          else if (!la && !yy && strchr("@*", slice[1])) {
+          else if (!la && !yy && strchr("@*", *slice)) {
             aa.v--; // ${*:0} shows $0 even though default is 1-indexed
             aa.c++;
             yy++;
@@ -1929,7 +2146,7 @@ static int expand_arg(struct sh_arg *arg, char *old, unsigned flags,
     }
   }
 
-// TODO NOSPLIT with braces? (Collate with spaces?)
+// TODO NO_SPLIT with braces? (Collate with spaces?)
   // If none, pass on verbatim
   if (!blist) return expand_arg_nobrace(arg, old, flags, delete, 0);
 
@@ -2069,10 +2286,8 @@ static struct sh_process *expand_redir(struct sh_arg *arg, int skip, int *urd)
   for (j = skip; j<arg->c; j++) {
     int saveclose = 0, bad = 0;
 
-    s = arg->v[j];
-
-    if (!strcmp(s, "!")) {
-      pp->not ^= 1;
+    if (!strcmp(s = arg->v[j], "!")) {
+      pp->flags ^= PFLAG_NOT;
 
       continue;
     }
@@ -2287,8 +2502,8 @@ static void sh_exec(char **argv)
     // convert vars in-place and use original sh_arg alloc to add one more
     aa.v = environ = (void *)vv;
     for (aa.c = uu = 0; vv[uu]; uu++) {
-      if ((vv[uu]->flags&(VAR_WHITEOUT|VAR_GLOBAL))==VAR_GLOBAL) {
-        if (*(pp = vv[uu]->str)=='_' && pp[1] == '=') sss = aa.v+aa.c;
+      if ((vv[uu]->flags&(VAR_WHITEOUT|VAR_EXPORT))==VAR_EXPORT) {
+        if (*(pp = vv[uu]->str)=='_' && pp[1]=='=') sss = aa.v+aa.c;
         aa.v[aa.c++] = pp;
       }
     }
@@ -2324,14 +2539,15 @@ static void sh_exec(char **argv)
 // Execute a single command at TT.ff->pl
 static struct sh_process *run_command(void)
 {
-  char *s, *sss;
+  char *s, *ss, *sss;
   struct sh_arg *arg = TT.ff->pl->arg;
-  int envlen, funk = TT.funcslen, jj = 0, locals = 0;
+  int envlen, funk = TT.funcslen, jj = 0, prefix = 0;
   struct sh_process *pp;
 
   // Count leading variable assignments
   for (envlen = 0; envlen<arg->c; envlen++)
-    if ((s = varend(arg->v[envlen])) == arg->v[envlen] || *s != '=') break;
+    if ((ss = varend(arg->v[envlen]))==arg->v[envlen] || ss[*ss=='+']!='=')
+      break;
   pp = expand_redir(arg, envlen, 0);
 
   // Are we calling a shell function?  TODO binary search
@@ -2348,30 +2564,22 @@ static struct sh_process *run_command(void)
       pp->delete = 0;
     }
     addvar(0, TT.ff); // function context (not source) so end_function deletes
-    locals = 1;
+    prefix = 1;  // create local variables for function prefix assignment
   }
 
   // perform any assignments
-  if (envlen) {
-    struct sh_fcall *ff;
+  if (envlen) for (; jj<envlen && !pp->exit; jj++) {
     struct sh_vars *vv;
 
-    for (; jj<envlen && !pp->exit; jj++) {
-      if (!(vv = findvar(s = arg->v[jj], &ff))) ff = locals?TT.ff:TT.ff->prev;
-      else if (vv->flags&VAR_READONLY) ff = 0;
-      else if (locals && ff!=TT.ff) vv = 0, ff = TT.ff;
-
-      if (!vv&&ff) (vv = addvar(s, ff))->flags = VAR_NOFREE|(VAR_GLOBAL*locals);
-      if (!(sss = expand_one_arg(s, SEMI_IFS, 0))) pp->exit = 1;
-      else {
-        if (!setvar_found(sss, vv)) continue;
-        if (sss==s) {
-          if (!locals) vv->str = xstrdup(sss);
-          else vv->flags |= VAR_NOFREE;
-        }
-        cache_ifs(vv->str, ff ? : TT.ff);
+    if ((sss = expand_one_arg(ss = arg->v[jj], SEMI_IFS, 0))) {
+      if (!prefix && sss==ss) sss = xstrdup(sss);
+      if ((vv = setvar_long(sss, sss!=ss, prefix ? TT.ff : TT.ff->prev))) {
+        if (prefix) vv->flags |= VAR_EXPORT;
+        continue;
       }
     }
+    pp->exit = 1;
+    break;
   }
 
   // Do the thing
@@ -2384,9 +2592,11 @@ static struct sh_process *run_command(void)
 
   // call shell function
   else if (funk != TT.funcslen) {
+    s = 0; // $_ set on return, not here
     (TT.ff->func = TT.functions[funk])->refcount++;
     TT.ff->pl = TT.ff->func->pipeline;
     TT.ff->arg = pp->arg;
+// TODO: unredirect(pp->urd) called below but haven't traversed function yet
   } else {
     struct toy_list *tl = toy_find(*pp->arg.v);
 
@@ -2399,7 +2609,7 @@ static struct sh_process *run_command(void)
 // TODO: figure out when can exec instead of forking, ala sh -c blah
 
     // Is this command a builtin that should run in this process?
-    if ((jj&TOYFLAG_NOFORK) || ((jj&TOYFLAG_MAYFORK) && !locals)) {
+    if ((jj&TOYFLAG_NOFORK) || ((jj&TOYFLAG_MAYFORK) && !prefix)) {
       sigjmp_buf rebound;
       char temp[jj = offsetof(struct toy_context, rebound)];
 
@@ -2413,6 +2623,7 @@ static struct sh_process *run_command(void)
       memset(&TT, 0, offsetof(struct sh_data, SECONDS));
       if (!sigsetjmp(rebound, 1)) {
         toys.rebound = &rebound;
+//dprintf(2, "%d builtin", getpid()); for (int xx = 0; xx<=pp->arg.c; xx++) dprintf(2, "{%s}", pp->arg.v[xx]); dprintf(2, "\n");
         toy_singleinit(tl, pp->arg.v);
         tl->toy_main();
         xflush(0);
@@ -2429,7 +2640,7 @@ static struct sh_process *run_command(void)
   // cleanup process
   unredirect(pp->urd);
   pp->urd = 0;
-  if (locals && funk == TT.funcslen) end_function(0);
+  if (prefix && funk == TT.funcslen) end_function(0);
   if (s) setvarval("_", s);
 
   return pp;
@@ -2677,8 +2888,10 @@ funky:
 
       // Stop at EOL. Discard blank pipeline segment, else end segment
       if (end == start) done++;
-      if (!pl->type && !arg->c) free_pipeline(dlist_lpop(ppl));
-      else pl->count = -1;
+      if (!pl->type && !arg->c) {
+        free_pipeline(dlist_lpop(ppl));
+        pl = *ppl ? (*ppl)->prev : 0;
+      } else pl->count = -1;
 
       continue;
     }
@@ -2913,12 +3126,7 @@ flush:
   if (s) syntax_err(s);
   llist_traverse(*ppl, free_pipeline);
   *ppl = 0;
-  while (*expect) {
-    struct double_list *del = dlist_pop(expect);
-
-    if (del->data != (void *)1) free(del->data);
-    free(del);
-  }
+  llist_traverse(*expect, free);
   *expect = 0;
 
   return 0-!!s;
@@ -2972,7 +3180,7 @@ char *show_job(struct sh_process *pp, char dash)
 // Wait for pid to exit and remove from jobs table, returning process or 0.
 struct sh_process *wait_job(int pid, int nohang)
 {
-  struct sh_process *pp;
+  struct sh_process *pp = pp;
   int ii, status, minus, plus;
 
   if (TT.jobs.c<1) return 0;
@@ -3010,7 +3218,7 @@ static int wait_pipeline(struct sh_process *pp)
       pp->pid = 0;
     }
     // TODO handle set -o pipefail here
-    rc = pp->not ? !pp->exit : pp->exit;
+    rc = (pp->flags&PFLAG_NOT) ? !pp->exit : pp->exit;
   }
 
   while ((pp = wait_job(-1, 1)) && (TT.options&FLAG_i)) {
@@ -3484,34 +3692,35 @@ static struct sh_vars *initvardef(char *name, char *val, char *def)
 }
 
 // export existing "name" or assign/export name=value string (making new copy)
-static void export(char *str)
+static void set_varflags(char *str, unsigned set_flags, unsigned unset_flags)
 {
   struct sh_vars *shv = 0;
+  struct sh_fcall *ff;
   char *s;
 
   // Make sure variable exists and is updated
   if (strchr(str, '=')) shv = setvar(xstrdup(str));
-  else if (!(shv = findvar(str, 0))) {
+  else if (!(shv = findvar(str, &ff))) {
+    if (!set_flags) return;
     shv = addvar(str = xmprintf("%s=", str), TT.ff->prev);
     shv->flags = VAR_WHITEOUT;
-  } else if (shv->flags&VAR_WHITEOUT) shv->flags |= VAR_GLOBAL;
-  if (!shv || (shv->flags&VAR_GLOBAL)) return;
+  } else if (shv->flags&VAR_WHITEOUT) shv->flags |= VAR_EXPORT;
+  if (!shv || (shv->flags&VAR_EXPORT)) return;
 
   // Resolve magic for export (bash bug compatibility, really should be dynamic)
   if (shv->flags&VAR_MAGIC) {
     s = shv->str;
     shv->str = xmprintf("%.*s=%s", (int)(varend(str)-str), str, getvar(str));
-    free(s);
+    if (!(shv->flags&VAR_NOFREE)) free(s);
+    else shv->flags ^= VAR_NOFREE;
   }
-  shv->flags |= VAR_GLOBAL;
+  shv->flags |= set_flags;
+  shv->flags &= ~unset_flags;
 }
 
-static void unexport(char *str)
+static void export(char *str)
 {
-  struct sh_vars *shv = findvar(str, 0);
-
-  if (shv) shv->flags &=~VAR_GLOBAL;
-  if (strchr(str, '=')) setvar(str);
+  set_varflags(str, VAR_EXPORT, 0);
 }
 
 FILE *fpathopen(char *name)
@@ -3534,7 +3743,7 @@ int do_source(char *name, FILE *ff)
 {
   struct sh_pipeline *pl = 0;
   struct double_list *expect = 0;
-  unsigned lineno = TT.LINENO, more = 0;
+  unsigned lineno = TT.LINENO, more = 0, wc;
   int cc, ii;
   char *new;
 
@@ -3554,14 +3763,12 @@ int do_source(char *name, FILE *ff)
 //dprintf(2, "%d getline from %p %s\n", getpid(), ff, new); debug_show_fds();
     // did we exec an ELF file or something?
     if (!TT.LINENO++ && name && new) {
-      wchar_t wc;
-
       // A shell script's first line has no high bytes that aren't valid utf-8.
       for (ii = 0; new[ii] && 0<(cc = utf8towc(&wc, new+ii, 4)); ii += cc);
       if (new[ii]) {
 is_binary:
         if (name) error_msg("'%s' is binary", name); // TODO syntax_err() exit?
-        free(new);
+        if (new != (void *)1) free(new);
         new = 0;
       }
     }
@@ -3597,27 +3804,63 @@ end:
   return more;
 }
 
+// On nommu we had to exec(), so parent environment is passed via a pipe.
+static void nommu_reentry(void)
+{
+  struct stat st;
+  int ii, pid, ppid, len;
+  unsigned long ll;
+  char *s = 0;
+  FILE *fp;
+
+  // Sanity check
+  if (!fstat(254, &st) && S_ISFIFO(st.st_mode)) {
+    for (ii = len = 0; (s = environ[ii]); ii++) {
+      if (*s!='@') continue;
+      sscanf(s, "@%u,%u%n", &pid, &ppid, &len);
+      break;
+    }
+  }
+  if (!s || s[len] || pid!=getpid() || ppid!=getppid()) error_exit(0);
+
+// TODO signal setup before this so fscanf can't EINTR.
+// TODO marshall TT.jobcnt TT.funcslen: child needs jobs and function list
+  // Marshall magics: $SECONDS $- $LINENO $$ $!
+  if (5!=fscanf(fp = fdopen(254, "r"), "%lld %u %u %u %u%*[^\n]", &TT.SECONDS,
+      &TT.options, &TT.LINENO, &TT.pid, &TT.bangpid)) error_exit(0);
+
+  // Read named variables: type, len, var=value\0
+  for (;;) {
+    len = ll = 0;
+    fscanf(fp, "%u %lu%*[^\n]", &len, &ll);
+    fgetc(fp); // Discard the newline fscanf didn't eat.
+    if (!len) break;
+    (s = xmalloc(len+1))[len] = 0;
+    for (ii = 0; ii<len; ii += pid)
+      if (1>(pid = fread(s+ii, 1, len-ii, fp))) error_exit(0);
+    set_varflags(s, ll, 0);
+  }
+
+  // Perform subshell command(s)
+  do_source(0, fp);
+  xexit();
+}
+
 // init locals, sanitize environment, handle nommu subshell handoff
 static void subshell_setup(void)
 {
-  int ii, from, pid, ppid, zpid, myppid = getppid(), len, uid = getuid();
+  int ii, from, uid = getuid();
   struct passwd *pw = getpwuid(uid);
-  char *s, *ss, *magic[] = {"SECONDS", "RANDOM", "LINENO", "GROUPS"},
+  char *s, *ss, *magic[] = {"SECONDS", "RANDOM", "LINENO", "GROUPS", "BASHPID",
+    "EPOCHREALTIME", "EPOCHSECONDS"},
     *readonly[] = {xmprintf("EUID=%d", geteuid()), xmprintf("UID=%d", uid),
-                   xmprintf("PPID=%d", myppid)};
-  struct stat st;
+                   xmprintf("PPID=%d", getppid())};
   struct sh_vars *shv;
   struct utsname uu;
 
-  // Create initial function context
-  call_function();
-  TT.ff->arg.v = toys.optargs;
-  TT.ff->arg.c = toys.optc;
-
   // Initialize magic and read only local variables
-  srandom(TT.SECONDS = millitime());
-  for (ii = 0; ii<ARRAY_LEN(magic); ii++)
-    initvar(magic[ii], "")->flags = VAR_MAGIC|(VAR_INT*('G'!=*magic[ii]));
+  for (ii = 0; ii<ARRAY_LEN(magic) && (s = magic[ii]); ii++)
+    initvar(s, "")->flags = VAR_MAGIC+VAR_INT*('G'!=*s)+VAR_READONLY*('B'==*s);
   for (ii = 0; ii<ARRAY_LEN(readonly); ii++)
     addvar(readonly[ii], TT.ff)->flags = VAR_READONLY|VAR_INT;
 
@@ -3646,30 +3889,16 @@ static void subshell_setup(void)
   initvar("PS4", "+ ");
 
   // Ensure environ copied and toys.envc set, and clean out illegal entries
-  TT.ff->ifs = " \t\n";
-
-  for (from = pid = ppid = zpid = 0; (s = environ[from]); from++) {
-
-    // If nommu subshell gets handoff
-    if (!CFG_TOYBOX_FORK && !toys.stacktop) {
-      len = 0;
-      sscanf(s, "@%d,%d%n", &pid, &ppid, &len);
-      if (s[len]) pid = ppid = 0;
-      if (*s == '$' && s[1] == '=') zpid = atoi(s+2);
-// TODO marshall $- to subshell like $$
-    }
-
-    // Filter out non-shell variable names from inherited environ.
+  for (from = 0; (s = environ[from]); from++) {
     if (*varend(s) != '=') continue;
-
-    if (!(shv = findvar(s, 0))) addvar(s, TT.ff)->flags = VAR_GLOBAL|VAR_NOFREE;
+    if (!(shv = findvar(s, 0))) addvar(s, TT.ff)->flags = VAR_EXPORT|VAR_NOFREE;
     else if (shv->flags&VAR_READONLY) continue;
     else {
       if (!(shv->flags&VAR_NOFREE)) {
         free(shv->str);
         shv->flags ^= VAR_NOFREE;
       }
-      shv->flags |= VAR_GLOBAL;
+      shv->flags |= VAR_EXPORT;
       shv->str = s;
     }
     cache_ifs(s, TT.ff);
@@ -3688,27 +3917,16 @@ static void subshell_setup(void)
       ss = s;
     } else if (*toybuf) s = toybuf; // from /proc/self/exe
   }
-  setvarval("_", s)->flags |= VAR_GLOBAL;
+  setvarval("_", s)->flags |= VAR_EXPORT;
   free(ss);
-  if (!(ss = getvar("SHLVL"))) export("SHLVL=1");
+
+  // TODO: this is in pipe, not environment
+  if (!(ss = getvar("SHLVL"))) export("SHLVL=1"); // Bash 5.0
   else {
     char buf[16];
 
     sprintf(buf, "%u", atoi(ss+6)+1);
-    setvarval("SHLVL", buf)->flags |= VAR_GLOBAL;
-  }
-
-//TODO indexed array,associative array,integer,local,nameref,readonly,uppercase
-//          if (s+1<ss && strchr("aAilnru", *s)) {
-
-  // Are we a nofork subshell? (check magic env variable and pipe status)
-  if (!CFG_TOYBOX_FORK && !toys.stacktop && pid==getpid() && ppid==myppid) {
-    if (fstat(254, &st) || !S_ISFIFO(st.st_mode)) error_exit(0);
-    TT.pid = zpid;
-    fcntl(254, F_SETFD, FD_CLOEXEC);
-    do_source(0, fdopen(254, "r"));
-
-    xexit();
+    setvarval("SHLVL", buf)->flags |= VAR_EXPORT;
   }
 }
 
@@ -3717,10 +3935,12 @@ void sh_main(void)
   char *cc = 0;
   FILE *ff;
 
+//unsigned uu; dprintf(2, "%d main", getpid()); for (uu = 0; toys.argv[uu]; uu++) dprintf(2, " %s", toys.argv[uu]); dprintf(2, "\n");
+
   signal(SIGPIPE, SIG_IGN);
   TT.options = OPT_B;
   TT.pid = getpid();
-  TT.SECONDS = time(0);
+  srandom(TT.SECONDS = millitime());
 
   // TODO euid stuff?
   // TODO login shell?
@@ -3742,10 +3962,17 @@ void sh_main(void)
     TT.options |= toys.optflags&0xff;
   }
 
-  // Read environment for exports from parent shell. Note, calls run_sh()
-  // which blanks argument sections of TT and this, so parse everything
-  // we need from shell command line before that.
-  subshell_setup();
+  // Create initial function context
+  call_function();
+  TT.ff->arg.v = toys.optargs;
+  TT.ff->arg.c = toys.optc;
+  TT.ff->ifs = " \t\n";
+
+  // Set up environment variables.
+  // Note: can call run_command() which blanks argument sections of TT and this,
+  // so parse everything we need from shell command line before here.
+  if (CFG_TOYBOX_FORK || toys.stacktop) subshell_setup(); // returns
+  else nommu_reentry(); // does not return
 
   if (TT.options&FLAG_i) {
     if (!getvar("PS1")) setvarval("PS1", getpid() ? "\\$ " : "# ");
@@ -3768,73 +3995,62 @@ void sh_main(void)
 
 /********************* shell builtin functions *************************/
 
-#define CLEANUP_sh
 #define FOR_cd
 #include "generated/flags.h"
 void cd_main(void)
 {
-  char *home = getvar("HOME") ? : "/", *pwd = getvar("PWD"), *from, *to = 0,
-    *dd = xstrdup(*toys.optargs ? *toys.optargs : home);
-  int bad = 0;
+  char *from, *to = 0, *dd = *toys.optargs ? : (getvar("HOME") ? : "/"),
+       *pwd = FLAG(P) ? 0 : getvar("PWD"), *zap = 0;
+  struct stat st1, st2;
 
   // TODO: CDPATH? Really?
 
-  // prepend cwd or $PWD to relative path
-  if (*dd != '/') {
-    from = pwd ? : (to = getcwd(0, 0));
-    if (!from) setvarval("PWD", "(nowhere)");
-    else {
-      from = xmprintf("%s/%s", from, dd);
-      free(dd);
-      free(to);
-      dd = from;
-    }
-  }
+  // For cd - use $OLDPWD as destination directory
+  if (!strcmp(dd, "-") && (!(dd = getvar("OLDPWD")) || !*dd))
+    return perror_msg("No $OLDPWD");
 
-  if (FLAG(P)) {
-    struct stat st;
-    char *pp;
+  if (*dd == '/') pwd = 0;
 
-    // Does this directory exist?
-    if ((pp = xabspath(dd, 1)) && stat(pp, &st) && !S_ISDIR(st.st_mode))
-      bad++, errno = ENOTDIR;
-    else {
-      free(dd);
-      dd = pp;
-    }
-  } else {
+  // Did $PWD move out from under us?
+  if (pwd && !stat(".", &st1))
+    if (stat(pwd, &st2) || st1.st_dev!=st2.st_dev || st1.st_ino!=st2.st_ino)
+      pwd = 0;
+
+  // Handle logical relative path
+  if (pwd) {
+    zap = xmprintf("%s/%s", pwd, dd);
 
     // cancel out . and .. in the string
-    for (from = to = dd; *from;) {
+    for (from = to = zap; *from;) {
       if (*from=='/' && from[1]=='/') from++;
       else if (*from!='/' || from[1]!='.') *to++ = *from++;
       else if (!from[2] || from[2]=='/') from += 2;
       else if (from[2]=='.' && (!from[3] || from[3]=='/')) {
         from += 3;
-        while (to>dd && *--to != '/');
+        while (to>zap && *--to != '/');
       } else *to++ = *from++;
     }
-    if (to == dd) to++;
-    if (to-dd>1 && to[-1]=='/') to--;
+    if (to == zap) to++;
+    if (to-zap>1 && to[-1]=='/') to--;
     *to = 0;
   }
 
-  if (bad || chdir(dd)) perror_msg("chdir '%s'", dd);
-  else {
-    if (pwd) {
-      setvarval("OLDPWD", pwd);
-      if (TT.cdcount == 1) {
-        export("OLDPWD");
-        TT.cdcount++;
-      }
-    }
-    setvarval("PWD", dd);
-    if (!TT.cdcount) {
-      export("PWD");
-      TT.cdcount++;
-    }
-  }
+  // If logical chdir doesn't work, fall back to physical
+  if (!zap || chdir(zap)) {
+    free(zap);
+    if (chdir(dd)) return perror_msg("%s", dd);
+    if (!(dd = getcwd(0, 0))) dd = xstrdup("(nowhere)");
+  } else dd = zap;
+
+  if ((pwd = getvar("PWD"))) setvarval("OLDPWD", pwd);
+  setvarval("PWD", dd);
   free(dd);
+
+  if (!(TT.options&OPT_cd)) {
+    export("OLDPWD");
+    export("PWD");
+    TT.options |= OPT_cd;
+  }
 }
 
 void exit_main(void)
@@ -3908,7 +4124,6 @@ void set_main(void)
 }
 
 // TODO need test: unset clears var first and stops, function only if no var.
-#define CLEANUP_cd
 #define FOR_unset
 #include "generated/flags.h"
 
@@ -3937,7 +4152,6 @@ void unset_main(void)
   }
 }
 
-#define CLEANUP_unset
 #define FOR_export
 #include "generated/flags.h"
 
@@ -3951,11 +4165,12 @@ void export_main(void)
     unsigned uu;
 
     for (uu = 0; vv[uu]; uu++) {
-      if ((vv[uu]->flags&(VAR_WHITEOUT|VAR_GLOBAL))==VAR_GLOBAL) {
+      if ((vv[uu]->flags&(VAR_WHITEOUT|VAR_EXPORT))==VAR_EXPORT) {
         xputs(eq = declarep(vv[uu]));
         free(eq);
       }
     }
+    free(vv);
 
     return;
   }
@@ -3963,13 +4178,50 @@ void export_main(void)
   // set/move variables
   for (arg = toys.optargs; *arg; arg++) {
     eq = varend(*arg);
-    if (eq == *arg || (*eq && *eq != '=')) {
+    if (eq == *arg || (*eq && eq[*eq=='+'] != '=')) {
       error_msg("bad %s", *arg);
       continue;
     }
 
-    if (FLAG(n)) unexport(*arg);
+    if (FLAG(n)) set_varflags(*arg, 0, VAR_EXPORT);
     else export(*arg);
+  }
+}
+
+#define FOR_declare
+#include "generated/flags.h"
+
+void declare_main(void)
+{
+  unsigned uu, fl = toys.optflags&(FLAG(p)-1);
+  char *ss, **arg;
+// TODO: need a show_vars() to collate all the visible_vars() loop output
+// TODO: -g support including -gp
+// TODO: dump everything key=value and functions too
+  if (!toys.optc) {
+    struct sh_vars **vv = visible_vars();
+
+    for (uu = 0; vv[uu]; uu++) {
+      if ((vv[uu]->flags&VAR_WHITEOUT) || (fl && !(vv[uu]->flags&fl))) continue;
+      xputs(ss = declarep(vv[uu]));
+      free(ss);
+    }
+    free(vv);
+  } else if (FLAG(p)) for (arg = toys.optargs; *arg; arg++) {
+    struct sh_vars *vv = *varend(ss = *arg) ? 0 : findvar(ss, 0);
+
+    if (!vv) perror_msg("%s: not found", ss);
+    else {
+      xputs(ss = declarep(vv));
+      free(ss);
+    }
+  } else for (arg = toys.optargs; *arg; arg++) {
+    ss = varend(*arg);
+    if (ss == *arg || (*ss && ss[*ss=='+'] != '=')) {
+      error_msg("bad %s", *arg);
+      continue;
+    }
+    set_varflags(*arg, toys.optflags<<1, 0); // TODO +x unset
   }
 }
 
@@ -3989,7 +4241,6 @@ void eval_main(void)
   free(s);
 }
 
-#define CLEANUP_export
 #define FOR_exec
 #include "generated/flags.h"
 
@@ -4073,7 +4324,6 @@ void jobs_main(void)
   }
 }
 
-#define CLEANUP_exec
 #define FOR_local
 #include "generated/flags.h"
 
@@ -4110,7 +4360,7 @@ void local_main(void)
 
     // Add local inheriting global status and setting whiteout if blank.
     if (!var || ff!=ff2) {
-      int flags = var ? var->flags&VAR_GLOBAL : 0;
+      int flags = var ? var->flags&VAR_EXPORT : 0;
 
       var = addvar(xmprintf("%s%s", *arg, *eq ? "" : "="), ff);
       var->flags = flags|(VAR_WHITEOUT*!*eq);
@@ -4149,7 +4399,6 @@ void source_main(void)
   --TT.srclvl;
 }
 
-#define CLEANUP_local
 #define FOR_wait
 #include "generated/flags.h"
 

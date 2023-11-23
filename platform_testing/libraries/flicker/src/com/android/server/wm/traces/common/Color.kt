@@ -16,46 +16,40 @@
 
 package com.android.server.wm.traces.common
 
-data class Color(val r: Float, val g: Float, val b: Float, val a: Float) {
-    val isEmpty: Boolean
+/**
+ * Wrapper for ColorProto (frameworks/native/services/surfaceflinger/layerproto/common.proto)
+ *
+ * This class is used by flicker and Winscope
+ */
+class Color(r: Float, g: Float, b: Float, val a: Float) : Color3(r, g, b) {
+    override val isEmpty: Boolean
         get() = a == 0f || r < 0 || g < 0 || b < 0
 
-    val isNotEmpty: Boolean
+    override val isNotEmpty: Boolean
         get() = !isEmpty
 
-    fun prettyPrint(): String = prettyPrint(this)
-
-    override fun toString(): String = if (isEmpty) "[empty]" else prettyPrint()
+    override fun prettyPrint(): String {
+        val parentPrint = super.prettyPrint()
+        return "$parentPrint a:$a"
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Color) return false
+        if (!super.equals(other)) return false
 
-        if (r != other.r) return false
-        if (g != other.g) return false
-        if (b != other.b) return false
         if (a != other.a) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = r.hashCode()
-        result = 31 * result + g.hashCode()
-        result = 31 * result + b.hashCode()
+        var result = super.hashCode()
         result = 31 * result + a.hashCode()
         return result
     }
 
     companion object {
-        val EMPTY = Color(r = -1f, g = -1f, b = -1f, a = 0f)
-
-        fun prettyPrint(color: Color): String {
-            val r = FloatFormatter.format(color.r)
-            val g = FloatFormatter.format(color.g)
-            val b = FloatFormatter.format(color.b)
-            val a = FloatFormatter.format(color.a)
-            return "r:$r g:$g b:$b a:$a"
-        }
+        val EMPTY: Color = Color(r = -1f, g = -1f, b = -1f, a = 0f)
     }
 }

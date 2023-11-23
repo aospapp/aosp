@@ -17,8 +17,8 @@
 package android.content.pm.cts;
 
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.ApplicationInfo.DisplayNameComparator;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.test.AndroidTestCase;
 
@@ -52,13 +52,15 @@ public class ApplicationInfo_DisplayNameComparatorTest extends AndroidTestCase {
         info2.packageName = PACKAGE_NAME;
         assertEquals(0, mDisplayNameComparator.compare(info1, info2));
 
-        info1 = mContext.getPackageManager().getApplicationInfo(PACKAGE_NAME, 0);
+        info1 = mContext.getPackageManager().getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
         info2.packageName = PACKAGE_NAME + ".2";
         assertTrue((mDisplayNameComparator.compare(info1, info2) < 0));
 
         info1 = new ApplicationInfo();
         info1.packageName = PACKAGE_NAME + ".1";
-        info2 = mContext.getPackageManager().getApplicationInfo(PACKAGE_NAME, 0);
+        info2 = mContext.getPackageManager().getApplicationInfo(PACKAGE_NAME,
+                PackageManager.ApplicationInfoFlags.of(0));
         assertTrue((mDisplayNameComparator.compare(info1, info2) > 0));
 
         try {

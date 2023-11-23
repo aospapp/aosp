@@ -8,9 +8,14 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <assert.h>
+
+#ifdef _MSC_VER
+  #include <intrin.h>
+#endif
 
 #include <xnnpack/common.h>
 
@@ -45,9 +50,11 @@ inline static size_t round_up(size_t n, size_t q) {
   return divide_round_up(n, q) * q;
 }
 
+inline static bool is_po2(size_t n) {
+  return (n != 0) && ((n & (n - 1)) == 0);
+}
 inline static size_t round_down_po2(size_t n, size_t q) {
-  assert(q != 0);
-  assert((q & (q - 1)) == 0);
+  assert(is_po2(q));
   return n & -q;
 }
 
@@ -61,12 +68,30 @@ inline static size_t subtract_modulo(size_t a, size_t b, size_t m) {
   return XNN_UNPREDICTABLE(a >= b) ? a - b : a - b + m;
 }
 
+inline static int32_t math_min_s32(int32_t a, int32_t b) {
+  return XNN_UNPREDICTABLE(a < b) ? a : b;
+}
+
+inline static int32_t math_max_s32(int32_t a, int32_t b) {
+  return XNN_UNPREDICTABLE(a > b) ? a : b;
+}
+
 inline static uint32_t math_min_u32(uint32_t a, uint32_t b) {
   return XNN_UNPREDICTABLE(a < b) ? a : b;
 }
 
 inline static uint32_t math_max_u32(uint32_t a, uint32_t b) {
   return XNN_UNPREDICTABLE(a > b) ? a : b;
+}
+
+inline static float math_muladd_f32(float x, float y, float acc) {
+  #if defined(__GNUC__) && defined(__FP_FAST_FMAF)
+    return __builtin_fmaf(x, y, acc);
+  #elif defined(__clang__) && defined(__riscv)
+    return __builtin_fmaf(x, y, acc);
+  #else
+    return x * y + acc;
+  #endif
 }
 
 inline static float math_min_f32(float a, float b) {
@@ -91,7 +116,7 @@ inline static float math_max_f32(float a, float b) {
 
 inline static float math_nonsign_mask_f32() {
   #if defined(__INTEL_COMPILER)
-    // Suprisingly, Intel compiler ignores __builtin_nanf payload
+    // Surprisingly, Intel compiler ignores __builtin_nanf payload
     return _castu32_f32(0x7FFFFFFF);
   #elif defined(__GNUC__)
     return __builtin_nanf("0x7FFFFF");
@@ -105,3 +130,57 @@ inline static float math_nonsign_mask_f32() {
   #endif
 }
 
+
+#if defined(__clang__)
+  #if __clang_major__ == 3 && __clang_minor__ >= 7 || __clang_major__ > 3
+    #define XNN_IGNORE_SHIFT_BASE_UB __attribute__((__no_sanitize__("shift-base")))
+  #else
+    #define XNN_IGNORE_SHIFT_BASE_UB
+  #endif
+#elif defined(__GNUC__)
+  #if __GNUC__ >= 8
+    #define XNN_IGNORE_SHIFT_BASE_UB __attribute__((__no_sanitize__("shift-base")))
+  #elif __GNUC__ == 4 && __GNUC_MINOR__ >= 9 || __GNUC__ > 4
+    // 4.9 <= gcc < 8 support ubsan, but doesn't support no_sanitize attribute
+    #define XNN_IGNORE_SHIFT_BASE_UB
+    #ifndef XNN_USE_SHIFT_BASE_UB_WORKAROUND
+      #define XNN_USE_SHIFT_BASE_UB_WORKAROUND 1
+    #endif
+  #else
+    #define XNN_IGNORE_SHIFT_BASE_UB
+  #endif
+#else
+  #define XNN_IGNORE_SHIFT_BASE_UB
+#endif
+
+XNN_IGNORE_SHIFT_BASE_UB
+inline static int32_t asr_s32(int32_t x, uint32_t n) {
+  #ifdef XNN_USE_SHIFT_BASE_UB_WORKAROUND
+    #if XNN_ARCH_X86_64 || XNN_ARCH_ARM64
+      return (int32_t) ((uint64_t) (int64_t) x >> n);
+    #else
+      return x >= 0 ? x >> n : ~(~x >> n);
+    #endif
+  #else
+    return x >> n;
+  #endif
+}
+
+XNN_IGNORE_SHIFT_BASE_UB
+inline static int64_t asr_s64(int64_t x, uint32_t n) {
+  #ifdef XNN_USE_SHIFT_BASE_UB_WORKAROUND
+    return x >= 0 ? x >> n : ~(~x >> n);
+  #else
+    return x >> n;
+  #endif
+}
+
+inline static uint32_t ctz(uint32_t x) {
+  #ifdef _MSC_VER
+    unsigned long index;
+    _BitScanForward(&index, (unsigned long) x);
+    return (uint32_t) index;
+  #else
+    return __builtin_ctz(x);
+  #endif
+}

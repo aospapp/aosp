@@ -20,30 +20,20 @@ package {
 
 cc_defaults {
     name: "vts_security_avb_defaults",
-    srcs: ["VtsSecurityAvbTest.cpp"],
-    shared_libs: [
-        "libbase",
-        "liblog",
+    srcs: [
+        "gsi_validation_utils.cpp",
     ],
     static_libs: [
         "libavb_user",
         "libavb",
+        "libbase",
         "libcrypto_static",
         "libfs_avb",
         "libfs_mgr",
+        "liblog",
     ],
     header_libs: [
-        "bootimg_headers",
-    ],
-}
-
-cc_test {
-    name: "vts_security_avb_test",
-    defaults: ["vts_security_avb_defaults"],
-    test_config: "vts_security_avb_test.xml",
-    test_suites: [
-        "device-tests",
-        "vts",
+        "libstorage_literals_headers",
     ],
     data: [
         ":q-gsi_avbpubkey",
@@ -52,9 +42,44 @@ cc_test {
         ":t-gsi_avbpubkey",
         ":qcar-gsi_avbpubkey",
     ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
 
 cc_test {
-    name: "VtsSecurityAvbTest",
+    name: "vts_security_avb_test",
     defaults: ["vts_security_avb_defaults"],
+    srcs: [
+        "VtsSecurityAvbTest.cpp",
+    ],
+    test_config: "vts_security_avb_test.xml",
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
+}
+
+cc_test {
+    name: "vts_gki_compliance_test",
+    defaults: [
+        "vts_security_avb_defaults",
+        "libvintf_static_user_defaults",
+    ],
+    srcs: [
+        "vts_gki_compliance_test.cpp",
+    ],
+    static_libs: [
+        "libvintf",
+    ],
+    header_libs: [
+        "bootimg_headers",
+    ],
+    test_suites: [
+        "device-tests",
+        "vts",
+    ],
+
+    require_root: true,
 }

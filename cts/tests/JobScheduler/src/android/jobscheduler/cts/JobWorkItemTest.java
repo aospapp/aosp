@@ -50,6 +50,48 @@ public class JobWorkItemTest extends BaseJobSchedulerTest {
         assertEquals(0, jwi.getDeliveryCount());
     }
 
+    public void testItemWithMinimumChunkBytes() {
+        JobWorkItem jwi = new JobWorkItem(TEST_INTENT, 10, 20, 3);
+
+        assertEquals(TEST_INTENT, jwi.getIntent());
+        assertEquals(10, jwi.getEstimatedNetworkDownloadBytes());
+        assertEquals(20, jwi.getEstimatedNetworkUploadBytes());
+        assertEquals(3, jwi.getMinimumNetworkChunkBytes());
+        // JobWorkItem hasn't been scheduled yet. Delivery count should be 0.
+        assertEquals(0, jwi.getDeliveryCount());
+
+        try {
+            new JobWorkItem(TEST_INTENT, 10, 20, -3);
+            fail("Successfully created JobWorkItem with negative minimum chunk value");
+        } catch (IllegalArgumentException expected) {
+            // Success
+        }
+        try {
+            new JobWorkItem(TEST_INTENT, 10, 20, 0);
+            fail("Successfully created JobWorkItem with 0 minimum chunk value");
+        } catch (IllegalArgumentException expected) {
+            // Success
+        }
+        try {
+            new JobWorkItem(TEST_INTENT, 10, 20, 50);
+            fail("Successfully created JobWorkItem with minimum chunk value too large");
+        } catch (IllegalArgumentException expected) {
+            // Success
+        }
+        try {
+            new JobWorkItem(TEST_INTENT, JobInfo.NETWORK_BYTES_UNKNOWN, 20, 25);
+            fail("Successfully created JobWorkItem with minimum chunk value too large");
+        } catch (IllegalArgumentException expected) {
+            // Success
+        }
+        try {
+            new JobWorkItem(TEST_INTENT, 10, JobInfo.NETWORK_BYTES_UNKNOWN, 15);
+            fail("Successfully created JobWorkItem with minimum chunk value too large");
+        } catch (IllegalArgumentException expected) {
+            // Success
+        }
+    }
+
     public void testDeliveryCountBumped() throws Exception {
         JobInfo jobInfo = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setOverrideDeadline(0)

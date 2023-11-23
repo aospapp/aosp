@@ -23,6 +23,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.car.Car;
+import android.car.annotation.AddedInOrBefore;
 import android.car.vms.VmsClientManager.VmsClientCallback;
 import android.os.Binder;
 import android.os.IBinder;
@@ -104,6 +105,7 @@ public final class VmsClient {
      */
     @Nullable
     @RequiresPermission(anyOf = {Car.PERMISSION_VMS_PUBLISHER, Car.PERMISSION_VMS_SUBSCRIBER})
+    @AddedInOrBefore(majorVersion = 33)
     public byte[] getProviderDescription(int providerId) {
         if (DBG) Log.d(TAG, "Getting provider information for " + providerId);
         try {
@@ -123,6 +125,7 @@ public final class VmsClient {
      * @param layers Data layers to be subscribed
      */
     @RequiresPermission(Car.PERMISSION_VMS_SUBSCRIBER)
+    @AddedInOrBefore(majorVersion = 33)
     public void setSubscriptions(@NonNull Set<VmsAssociatedLayer> layers) {
         if (DBG) Log.d(TAG, "Setting subscriptions to " + layers);
         try {
@@ -140,6 +143,7 @@ public final class VmsClient {
      * subscriptions. Enabling monitoring does not affect the client's existing subscriptions.
      */
     @RequiresPermission(Car.PERMISSION_VMS_SUBSCRIBER)
+    @AddedInOrBefore(majorVersion = 33)
     public void setMonitoringEnabled(boolean enabled) {
         if (DBG) Log.d(TAG, "Setting monitoring state to " + enabled);
         try {
@@ -157,6 +161,7 @@ public final class VmsClient {
      * Returns the current monitoring state of the client.
      */
     @RequiresPermission(Car.PERMISSION_VMS_SUBSCRIBER)
+    @AddedInOrBefore(majorVersion = 33)
     public boolean isMonitoringEnabled() {
         synchronized (mLock) {
             return mMonitoringEnabled;
@@ -168,6 +173,7 @@ public final class VmsClient {
      */
     @NonNull
     @RequiresPermission(anyOf = {Car.PERMISSION_VMS_PUBLISHER, Car.PERMISSION_VMS_SUBSCRIBER})
+    @AddedInOrBefore(majorVersion = 33)
     public VmsAvailableLayers getAvailableLayers() {
         synchronized (mLock) {
             return mAvailableLayers;
@@ -182,6 +188,7 @@ public final class VmsClient {
      * connection error
      */
     @RequiresPermission(Car.PERMISSION_VMS_PUBLISHER)
+    @AddedInOrBefore(majorVersion = 33)
     public int registerProvider(@NonNull byte[] providerDescription) {
         if (DBG) Log.d(TAG, "Registering provider");
         Objects.requireNonNull(providerDescription, "providerDescription cannot be null");
@@ -201,6 +208,7 @@ public final class VmsClient {
      * @param providerId Provider ID
      */
     @RequiresPermission(Car.PERMISSION_VMS_PUBLISHER)
+    @AddedInOrBefore(majorVersion = 33)
     public void unregisterProvider(int providerId) {
         if (DBG) Log.d(TAG, "Unregistering provider");
         try {
@@ -221,6 +229,7 @@ public final class VmsClient {
      * @throws IllegalArgumentException if the client has not registered the provider
      */
     @RequiresPermission(Car.PERMISSION_VMS_PUBLISHER)
+    @AddedInOrBefore(majorVersion = 33)
     public void setProviderOfferings(int providerId, @NonNull Set<VmsLayerDependency> offerings) {
         if (DBG) Log.d(TAG, "Setting provider offerings for " + providerId);
         Objects.requireNonNull(offerings, "offerings cannot be null");
@@ -241,6 +250,7 @@ public final class VmsClient {
      * @throws IllegalArgumentException if the client does not offer the layer as the provider
      */
     @RequiresPermission(Car.PERMISSION_VMS_PUBLISHER)
+    @AddedInOrBefore(majorVersion = 33)
     public void publishPacket(int providerId, @NonNull VmsLayer layer, @NonNull byte[] packet) {
         Objects.requireNonNull(layer, "layer cannot be null");
         Objects.requireNonNull(packet, "packet cannot be null");
@@ -267,6 +277,7 @@ public final class VmsClient {
      */
     @NonNull
     @RequiresPermission(anyOf = {Car.PERMISSION_VMS_PUBLISHER, Car.PERMISSION_VMS_SUBSCRIBER})
+    @AddedInOrBefore(majorVersion = 33)
     public VmsSubscriptionState getSubscriptionState() {
         synchronized (mLock) {
             return mSubscriptionState;
@@ -278,6 +289,7 @@ public final class VmsClient {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void register() throws RemoteException {
         VmsRegistrationInfo registrationInfo = mService.registerClient(
                 mClientToken, mClientCallback, mLegacyClient);
@@ -292,6 +304,7 @@ public final class VmsClient {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public void unregister() throws RemoteException {
         mService.unregisterClient(mClientToken);
     }

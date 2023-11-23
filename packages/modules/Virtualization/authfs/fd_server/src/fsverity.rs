@@ -47,16 +47,7 @@ fn read_metadata(fd: i32, metadata_type: u64, offset: u64, buf: &mut [u8]) -> io
         buf_ptr: buf.as_mut_ptr() as u64,
         __reserved: 0,
     };
-    Ok(unsafe { read_verity_metadata(fd, &mut arg) }.map_err(|e| {
-        if let nix::Error::Sys(errno) = e {
-            io::Error::from_raw_os_error(errno as i32)
-        } else {
-            // Document of nix::sys::ioctl indicates the macro-generated function always returns an
-            // nix::errno::Errno, which can be converted nix::Error::Sys above. As the result, this
-            // branch is unreachable.
-            unreachable!();
-        }
-    })? as usize)
+    Ok(unsafe { read_verity_metadata(fd, &mut arg) }? as usize)
 }
 
 /// Read the raw Merkle tree from the fd, if it exists. The API semantics is similar to a regular

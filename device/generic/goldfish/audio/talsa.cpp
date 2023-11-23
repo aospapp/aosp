@@ -22,7 +22,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V7_0 {
+namespace CPP_VERSION {
 namespace implementation {
 namespace talsa {
 
@@ -112,11 +112,10 @@ std::unique_ptr<pcm_t, PcmDeleter> pcmOpen(const unsigned int dev,
 
     pcm_config.channels = nChannels;
     pcm_config.rate = sampleRateHz;
-    pcm_config.period_size = frameCount;     // Approx frames between interrupts
-    pcm_config.period_count = 8;             // Approx interrupts per buffer
+    pcm_config.period_count = 8; // Approx interrupts per buffer
+    // Approx frames between interrupts
+    pcm_config.period_size = 2 * frameCount / pcm_config.period_count;
     pcm_config.format = PCM_FORMAT_S16_LE;
-    pcm_config.start_threshold = 0;
-    pcm_config.stop_threshold = isOut ? 0 : INT_MAX;
 
     PcmPtr pcm =
         PcmPtr(::pcm_open(dev, card,
@@ -133,6 +132,81 @@ std::unique_ptr<pcm_t, PcmDeleter> pcmOpen(const unsigned int dev,
     }
 }
 
+bool pcmPrepare(pcm_t *pcm) {
+    if (!pcm) {
+        return FAILURE(false);
+    }
+
+    const int r = ::pcm_prepare(pcm);
+    if (r) {
+        ALOGE("%s:%d pcm_prepare failed with %s",
+              __func__, __LINE__, ::pcm_get_error(pcm));
+        return FAILURE(false);
+    } else {
+        return true;
+    }
+}
+
+bool pcmStart(pcm_t *pcm) {
+    if (!pcm) {
+        return FAILURE(false);
+    }
+
+    const int r = ::pcm_start(pcm);
+    if (r) {
+        ALOGE("%s:%d pcm_start failed with %s",
+              __func__, __LINE__, ::pcm_get_error(pcm));
+        return FAILURE(false);
+    } else {
+        return true;
+    }
+}
+
+bool pcmStop(pcm_t *pcm) {
+    if (!pcm) {
+        return FAILURE(false);
+    }
+
+    const int r = ::pcm_stop(pcm);
+    if (r) {
+        ALOGE("%s:%d pcm_stop failed with %s",
+              __func__, __LINE__, ::pcm_get_error(pcm));
+        return FAILURE(false);
+    } else {
+        return true;
+    }
+}
+
+bool pcmRead(pcm_t *pcm, void *data, unsigned int count) {
+    if (!pcm) {
+        return FAILURE(false);
+    }
+
+    const int r = ::pcm_read(pcm, data, count);
+    if (r) {
+        ALOGE("%s:%d pcm_read failed with %s (%d)",
+              __func__, __LINE__, ::pcm_get_error(pcm), r);
+        return FAILURE(false);
+    } else {
+        return true;
+    }
+}
+
+bool pcmWrite(pcm_t *pcm, const void *data, unsigned int count) {
+    if (!pcm) {
+        return FAILURE(false);
+    }
+
+    const int r = ::pcm_write(pcm, data, count);
+    if (r) {
+        ALOGE("%s:%d pcm_write failed with %s (%d)",
+              __func__, __LINE__, ::pcm_get_error(pcm), r);
+        return FAILURE(false);
+    } else {
+        return true;
+    }
+}
+
 Mixer::Mixer(unsigned card): mMixer(mixerGetOrOpen(card)) {}
 
 Mixer::~Mixer() {
@@ -143,7 +217,7 @@ Mixer::~Mixer() {
 
 }  // namespace talsa
 }  // namespace implementation
-}  // namespace V7_0
+}  // namespace CPP_VERSION
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

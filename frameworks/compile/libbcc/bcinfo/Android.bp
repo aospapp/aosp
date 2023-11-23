@@ -82,7 +82,7 @@ cc_library_shared {
         darwin: {
             shared_libs: ["libLLVM_android"],
         },
-        linux_glibc: {
+        host_linux: {
             allow_undefined_symbols: true,
         },
         host: {

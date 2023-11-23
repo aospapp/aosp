@@ -23,15 +23,15 @@ from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import CAPABILITY_WFC
 from acts_contrib.test_utils.tel.tel_defines import DEFAULT_DEVICE_PASSWORD
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
+from acts_contrib.test_utils.tel.tel_bootloader_utils import fastboot_wipe
+from acts_contrib.test_utils.tel.tel_bootloader_utils import reset_device_password
 from acts_contrib.test_utils.tel.tel_lookup_tables import operator_capabilities
-from acts_contrib.test_utils.tel.tel_test_utils import fastboot_wipe
-from acts_contrib.test_utils.tel.tel_test_utils import reset_device_password
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_2g
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts_contrib.test_utils.tel.tel_test_utils import wait_for_sim_ready_by_adb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
 from TelLiveEmergencyBase import TelLiveEmergencyBase
 
 

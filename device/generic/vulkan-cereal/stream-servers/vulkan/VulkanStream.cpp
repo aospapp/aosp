@@ -18,12 +18,16 @@
 #include "base/BumpPool.h"
 
 #include "host-common/feature_control.h"
+#include "host-common/GfxstreamFatalError.h"
 
 #include <vector>
 
 #include <inttypes.h>
 
 #define E(fmt,...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 namespace goldfish_vk {
 
@@ -56,12 +60,12 @@ void VulkanStream::alloc(void** ptrAddr, size_t bytes) {
         *ptrAddr = nullptr;
         return;
     }
-    
+
     *ptrAddr = mPool.alloc(bytes);
 
     if (!*ptrAddr) {
-        fprintf(stderr, "%s: FATAL: alloc failed. Wanted size: %zu\n", __func__, bytes);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "alloc failed. Wanted size: " << bytes;
     }
 }
 
@@ -99,10 +103,8 @@ void VulkanStream::loadStringInPlaceWithStreamPtr(char** forOutput, uint8_t** st
     android::base::Stream::fromBe32((uint8_t*)&len);
 
     if (len == UINT32_MAX) {
-        fprintf(stderr,
-                "%s: FATAL: VulkanStream can't allocate %u bytes\n",
-                __func__, UINT32_MAX);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                "VulkanStream can't allocate UINT32_MAX bytes";
     }
 
     alloc((void**)forOutput, len + 1);
@@ -137,8 +139,8 @@ void VulkanStream::loadStringArrayInPlaceWithStreamPtr(char*** forOutput, uint8_
 ssize_t VulkanStream::read(void *buffer, size_t size) {
     commitWrite();
     if (!mStream->readFully(buffer, size)) {
-        E("FATAL: Could not read back %zu bytes", size);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Could not read back " << size << " bytes";
     }
     return size;
 }
@@ -162,16 +164,16 @@ ssize_t VulkanStream::write(const void *buffer, size_t size) {
 
 void VulkanStream::commitWrite() {
     if (!valid()) {
-        E("FATAL: Tried to commit write to vulkan pipe with invalid pipe!");
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                            "Tried to commit write to vulkan pipe with invalid pipe!";
     }
-    
+
     int written =
         mStream->writeFully(mWriteBuffer.data(), mWritePos);
-    
+
     if (written) {
-        E("FATAL: Did not write exactly %zu bytes!", mWritePos);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER))
+            << "Did not write exactly " << mWritePos << " bytes!";
     }
     mWritePos = 0;
 }
@@ -226,10 +228,8 @@ ssize_t VulkanMemReadingStream::read(void* buffer, size_t size) {
 }
 
 ssize_t VulkanMemReadingStream::write(const void* buffer, size_t size) {
-    fprintf(stderr,
-            "%s: FATAL: VulkanMemReadingStream does not support writing\n",
-            __func__);
-    abort();
+    GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+            "VulkanMemReadingStream does not support writing";
 }
 
 uint8_t* VulkanMemReadingStream::beginTrace() {

@@ -15,6 +15,8 @@
  */
 package com.android.car.audio;
 
+import static android.car.builtin.media.AudioManagerHelper.usageToString;
+
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
@@ -24,10 +26,10 @@ import android.content.pm.PackageManager;
 import android.media.AudioFocusInfo;
 import android.media.AudioManager;
 import android.os.Bundle;
-import android.util.IndentingPrintWriter;
 
 import com.android.car.audio.CarAudioContext.AudioContext;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +110,8 @@ final class FocusEntry {
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
-        writer.printf("%s - %s\n", getClientId(), mAudioFocusInfo.getAttributes().usageToString());
+        writer.printf("%s - %s\n", getClientId(),
+                usageToString(mAudioFocusInfo.getAttributes().getUsage()));
         writer.increaseIndent();
         // Prints in single line
         writer.printf("Receives Duck Events: %b, ", receivesDuckEvents());

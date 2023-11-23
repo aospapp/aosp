@@ -11,4 +11,9 @@
         <item name="android:layout_height">150dp</item>
     </style>
 
+    <style name="WindowBackgroundTheme" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorAccent">#ffff0000</item>
+        <item name="android:windowBackground">@drawable/theme_attribute_drawable</item>
+    </style>
+
 </resources>

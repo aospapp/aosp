@@ -36,6 +36,7 @@
 #include <android/os/IVold.h>
 #include <binder/IServiceManager.h>
 #include <binder/LazyServiceRegistrar.h>
+#include <cutils/android_reboot.h>
 #include <ext4_utils/ext4_utils.h>
 #include <fs_mgr.h>
 #include <libavb/libavb.h>
@@ -154,13 +155,34 @@ binder::Status GsiService::openInstall(const std::string& install_dir, int* _aid
 binder::Status GsiService::closeInstall(int* _aidl_return) {
     ENFORCE_SYSTEM;
     std::lock_guard<std::mutex> guard(lock_);
+
+    installer_ = {};
+
     auto dsu_slot = GetDsuSlot(install_dir_);
     std::string file = GetCompleteIndication(dsu_slot);
     if (!WriteStringToFile("OK", file)) {
         PLOG(ERROR) << "write failed: " << file;
-        *_aidl_return = INSTALL_ERROR_GENERIC;
+        *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
+        return binder::Status::ok();
     }
-    *_aidl_return = INSTALL_OK;
+
+    // Create installation complete marker files, but set disabled immediately.
+    if (!WriteStringToFile(dsu_slot, kDsuActiveFile)) {
+        PLOG(ERROR) << "cannot write active DSU slot (" << dsu_slot << "): " << kDsuActiveFile;
+        *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
+        return binder::Status::ok();
+    }
+    RestoreconMetadataFiles();
+
+    // DisableGsi() creates the DSU install status file and mark it as "disabled".
+    if (!DisableGsi()) {
+        PLOG(ERROR) << "cannot write DSU status file: " << kDsuInstallStatusFile;
+        *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
+        return binder::Status::ok();
+    }
+
+    SetProperty(kGsiInstalledProp, "1");
+    *_aidl_return = IGsiService::INSTALL_OK;
     return binder::Status::ok();
 }
 
@@ -216,7 +238,8 @@ binder::Status GsiService::closePartition(int32_t* _aidl_return) {
         return binder::Status::ok();
     }
     // It is important to not reset |installer_| here because other methods such
-    // as enableGsi() relies on the state of |installer_|.
+    // as isGsiInstallInProgress() relies on the state of |installer_|.
+    // TODO: Maybe don't do this, use a dedicated |in_progress_| flag?
     *_aidl_return = installer_->FinishInstall();
     return binder::Status::ok();
 }
@@ -291,41 +314,19 @@ binder::Status GsiService::setGsiAshmem(const ::android::os::ParcelFileDescripto
 
 binder::Status GsiService::enableGsiAsync(bool one_shot, const std::string& dsuSlot,
                                           const sp<IGsiServiceCallback>& resultCallback) {
-    int result;
-    auto status = enableGsi(one_shot, dsuSlot, &result);
-    if (!status.isOk()) {
-        LOG(ERROR) << "Could not enableGsi: " << status.exceptionMessage().string();
-        result = IGsiService::INSTALL_ERROR_GENERIC;
-    }
+    ENFORCE_SYSTEM_OR_SHELL;
+    std::lock_guard<std::mutex> guard(lock_);
+
+    const auto result = EnableGsi(one_shot, dsuSlot);
     resultCallback->onResult(result);
     return binder::Status::ok();
 }
 
 binder::Status GsiService::enableGsi(bool one_shot, const std::string& dsuSlot, int* _aidl_return) {
+    ENFORCE_SYSTEM_OR_SHELL;
     std::lock_guard<std::mutex> guard(lock_);
 
-    if (!WriteStringToFile(dsuSlot, kDsuActiveFile)) {
-        PLOG(ERROR) << "write failed: " << GetDsuSlot(install_dir_);
-        *_aidl_return = INSTALL_ERROR_GENERIC;
-        return binder::Status::ok();
-    }
-    RestoreconMetadataFiles();
-    if (installer_) {
-        ENFORCE_SYSTEM;
-        installer_ = {};
-        // Note: create the install status file last, since this is the actual boot
-        // indicator.
-        if (!SetBootMode(one_shot) || !CreateInstallStatusFile()) {
-            *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
-        } else {
-            *_aidl_return = INSTALL_OK;
-        }
-    } else {
-        ENFORCE_SYSTEM_OR_SHELL;
-        *_aidl_return = ReenableGsi(one_shot);
-    }
-
-    installer_ = nullptr;
+    *_aidl_return = EnableGsi(one_shot, dsuSlot);
     return binder::Status::ok();
 }
 
@@ -515,12 +516,12 @@ binder::Status GsiService::suggestScratchSize(int64_t* _aidl_return) {
     if (statvfs(install_dir_.c_str(), &info)) {
         PLOG(ERROR) << "Could not statvfs(" << install_dir_ << ")";
     } else {
-        // Keep the storage device at least 40% free, plus 1% for jitter.
-        constexpr int jitter = 1;
-        const uint64_t reserved_blocks =
-                static_cast<uint64_t>(info.f_blocks) * (kMinimumFreeSpaceThreshold + jitter) / 100;
-        if (info.f_bavail > reserved_blocks) {
-            size = (info.f_bavail - reserved_blocks) * info.f_frsize;
+        uint64_t free_space = static_cast<uint64_t>(info.f_bavail) * info.f_frsize;
+        const auto free_space_threshold =
+                PartitionInstaller::GetMinimumFreeSpaceThreshold(install_dir_);
+        if (free_space_threshold.has_value() && free_space > *free_space_threshold) {
+            // Round down to multiples of filesystem block size.
+            size = (free_space - *free_space_threshold) / info.f_frsize * info.f_frsize;
         }
     }
 
@@ -529,7 +530,7 @@ binder::Status GsiService::suggestScratchSize(int64_t* _aidl_return) {
     return binder::Status::ok();
 }
 
-bool GsiService::CreateInstallStatusFile() {
+bool GsiService::ResetBootAttemptCounter() {
     if (!android::base::WriteStringToFile("0", kDsuInstallStatusFile)) {
         PLOG(ERROR) << "write " << kDsuInstallStatusFile;
         return false;
@@ -578,6 +579,7 @@ class ImageService : public BinderService<ImageService>, public BnImageService {
     binder::Status removeAllImages() override;
     binder::Status removeDisabledImages() override;
     binder::Status getMappedImageDevice(const std::string& name, std::string* device) override;
+    binder::Status isImageDisabled(const std::string& name, bool* _aidl_return) override;
 
   private:
     bool CheckUid();
@@ -745,6 +747,14 @@ binder::Status ImageService::removeDisabledImages() {
     if (!impl_->RemoveDisabledImages()) {
         return BinderError("Failed to remove disabled images");
     }
+    return binder::Status::ok();
+}
+
+binder::Status ImageService::isImageDisabled(const std::string& name, bool* _aidl_return) {
+    if (!CheckUid()) return UidSecurityError();
+
+    std::lock_guard<std::mutex> guard(service_->lock());
+    *_aidl_return = impl_->IsImageDisabled(name);
     return binder::Status::ok();
 }
 
@@ -921,32 +931,6 @@ std::string GsiService::GetInstalledImageDir() {
     return kDefaultDsuImageFolder;
 }
 
-int GsiService::ReenableGsi(bool one_shot) {
-    if (!android::gsi::IsGsiInstalled()) {
-        LOG(ERROR) << "no gsi installed - cannot re-enable";
-        return INSTALL_ERROR_GENERIC;
-    }
-    std::string boot_key;
-    if (!GetInstallStatus(&boot_key)) {
-        PLOG(ERROR) << "read " << kDsuInstallStatusFile;
-        return INSTALL_ERROR_GENERIC;
-    }
-    if (boot_key != kInstallStatusDisabled) {
-        LOG(ERROR) << "GSI is not currently disabled";
-        return INSTALL_ERROR_GENERIC;
-    }
-    if (IsGsiRunning()) {
-        if (!SetBootMode(one_shot) || !CreateInstallStatusFile()) {
-            return IGsiService::INSTALL_ERROR_GENERIC;
-        }
-        return IGsiService::INSTALL_OK;
-    }
-    if (!SetBootMode(one_shot) || !CreateInstallStatusFile()) {
-        return IGsiService::INSTALL_ERROR_GENERIC;
-    }
-    return IGsiService::INSTALL_OK;
-}
-
 static android::sp<android::os::IVold> GetVoldService() {
     return android::waitForService<android::os::IVold>(android::String16("vold"));
 }
@@ -1000,6 +984,35 @@ bool GsiService::RemoveGsiFiles(const std::string& install_dir) {
         SetProperty(kGsiInstalledProp, "0");
     }
     return ok;
+}
+
+int GsiService::EnableGsi(bool one_shot, const std::string& dsu_slot) {
+    if (!android::gsi::IsGsiInstalled()) {
+        LOG(ERROR) << "no gsi installed - cannot enable";
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+    if (installer_) {
+        LOG(ERROR) << "cannot enable an ongoing installation, was closeInstall() called?";
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+
+    if (!DisableGsi()) {
+        PLOG(ERROR) << "cannot write DSU status file";
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+    if (!SetBootMode(one_shot)) {
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+    if (!ResetBootAttemptCounter()) {
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+
+    if (!WriteStringToFile(dsu_slot, kDsuActiveFile)) {
+        PLOG(ERROR) << "cannot write active DSU slot (" << dsu_slot << "): " << kDsuActiveFile;
+        return IGsiService::INSTALL_ERROR_GENERIC;
+    }
+    RestoreconMetadataFiles();
+    return IGsiService::INSTALL_OK;
 }
 
 bool GsiService::DisableGsiInstall() {
@@ -1097,6 +1110,28 @@ void GsiService::RunStartupTasks() {
                 PLOG(ERROR) << "write " << kDsuInstallStatusFile;
             }
         }
+    }
+}
+
+void GsiService::VerifyImageMaps() {
+    std::vector<std::pair<std::string, std::string>> paths = {
+            {"/metadata/gsi/remount", "/data/gsi/remount"},
+            {"/metadata/gsi/ota", "/data/gsi/ota"},
+    };
+
+    for (const auto& [metadata_dir, data_dir] : paths) {
+        auto impl = ImageManager::Open(metadata_dir, data_dir);
+        if (!impl) {
+            LOG(ERROR) << "Could not open ImageManager for " << metadata_dir << " and " << data_dir;
+            continue;
+        }
+        if (!impl->ValidateImageMaps()) {
+            LOG(ERROR) << "ImageManager for " << metadata_dir
+                       << " failed validation, device data is at risk. Rebooting.";
+            android::base::SetProperty(ANDROID_RB_PROPERTY, "reboot,fastboot");
+            continue;
+        }
+        LOG(INFO) << "ImageManager verification passed for " << metadata_dir;
     }
 }
 

@@ -31,32 +31,8 @@ ExecutorRegistration: android.car.media.CarAudioManager#registerCarVolumeCallbac
     Registration methods should have overload that accepts delivery Executor: `registerCarVolumeCallback`
 
 
-HiddenSuperclass: android.car.CarAppFocusManager:
-    Public class android.car.CarAppFocusManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.CarInfoManager:
-    Public class android.car.CarInfoManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.CarOccupantZoneManager:
-    Public class android.car.CarOccupantZoneManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.content.pm.CarPackageManager:
-    Public class android.car.content.pm.CarPackageManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.drivingstate.CarUxRestrictionsManager:
-    Public class android.car.drivingstate.CarUxRestrictionsManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.hardware.CarSensorManager:
-    Public class android.car.hardware.CarSensorManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.hardware.property.CarPropertyManager:
-    Public class android.car.hardware.property.CarPropertyManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.media.CarAudioManager:
-    Public class android.car.media.CarAudioManager stripped of unavailable superclass android.car.CarManagerBase
-HiddenSuperclass: android.car.settings.CarConfigurationManager:
-    Public class android.car.settings.CarConfigurationManager stripped of unavailable superclass android.car.CarManagerBase
-
-
 IntentName: android.car.Car#CAR_EXTRA_BROWSE_SERVICE_FOR_SESSION:
     Intent extra constant name must be EXTRA_FOO: CAR_EXTRA_BROWSE_SERVICE_FOR_SESSION
-IntentName: android.car.Car#CAR_EXTRA_MEDIA_COMPONENT:
-    Intent extra constant name must be EXTRA_FOO: CAR_EXTRA_MEDIA_COMPONENT
-IntentName: android.car.Car#CAR_INTENT_ACTION_MEDIA_TEMPLATE:
-    Intent action constant name must be ACTION_FOO: CAR_INTENT_ACTION_MEDIA_TEMPLATE
 
 
 ListenerLast: android.car.CarAppFocusManager#abandonAppFocus(android.car.CarAppFocusManager.OnAppFocusOwnershipCallback, int) parameter #1:
@@ -65,16 +41,12 @@ ListenerLast: android.car.CarAppFocusManager#isOwningFocus(android.car.CarAppFoc
     Listeners should always be at end of argument list (method `isOwningFocus`)
 
 
+MissingGetterMatchingBuilder: android.car.drivingstate.CarUxRestrictions.Builder#setMaxStringLength(int):
+    android.car.drivingstate.CarUxRestrictions does not declare a `getMaxStringLength()` method matching method android.car.drivingstate.CarUxRestrictions.Builder.setMaxStringLength(int)
+
+
 MissingNullability: android.car.Car#createCar(android.content.Context) parameter #0:
     Missing nullability on parameter `context` in method `createCar`
-MissingNullability: android.car.Car#createCar(android.content.Context, android.content.ServiceConnection) parameter #0:
-    Missing nullability on parameter `context` in method `createCar`
-MissingNullability: android.car.Car#createCar(android.content.Context, android.content.ServiceConnection) parameter #1:
-    Missing nullability on parameter `serviceConnectionListener` in method `createCar`
-MissingNullability: android.car.Car#createCar(android.content.Context, android.content.ServiceConnection, android.os.Handler) parameter #0:
-    Missing nullability on parameter `context` in method `createCar`
-MissingNullability: android.car.Car#createCar(android.content.Context, android.content.ServiceConnection, android.os.Handler) parameter #1:
-    Missing nullability on parameter `serviceConnectionListener` in method `createCar`
 MissingNullability: android.car.Car#createCar(android.content.Context, android.os.Handler) parameter #0:
     Missing nullability on parameter `context` in method `createCar`
 MissingNullability: android.car.Car#getCarManager(String) parameter #0:
@@ -97,14 +69,6 @@ MissingNullability: android.car.CarInfoManager#getEvConnectorTypes():
     Missing nullability on method `getEvConnectorTypes` return
 MissingNullability: android.car.CarInfoManager#getFuelTypes():
     Missing nullability on method `getFuelTypes` return
-MissingNullability: android.car.CarNotConnectedException#CarNotConnectedException(Exception) parameter #0:
-    Missing nullability on parameter `cause` in method `CarNotConnectedException`
-MissingNullability: android.car.CarNotConnectedException#CarNotConnectedException(String) parameter #0:
-    Missing nullability on parameter `name` in method `CarNotConnectedException`
-MissingNullability: android.car.CarNotConnectedException#CarNotConnectedException(String, Throwable) parameter #0:
-    Missing nullability on parameter `name` in method `CarNotConnectedException`
-MissingNullability: android.car.CarNotConnectedException#CarNotConnectedException(String, Throwable) parameter #1:
-    Missing nullability on parameter `cause` in method `CarNotConnectedException`
 MissingNullability: android.car.CarOccupantZoneManager.OccupantZoneInfo#CREATOR:
     Missing nullability on field `CREATOR` in class `class android.car.CarOccupantZoneManager.OccupantZoneInfo`
 MissingNullability: android.car.CarOccupantZoneManager.OccupantZoneInfo#writeToParcel(android.os.Parcel, int) parameter #0:
@@ -161,12 +125,6 @@ MissingNullability: android.car.hardware.CarSensorManager.OnSensorChangedListene
     Missing nullability on parameter `event` in method `onSensorChanged`
 MissingNullability: android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback#onChangeEvent(android.car.hardware.CarPropertyValue) parameter #0:
     Missing nullability on parameter `value` in method `onChangeEvent`
-MissingNullability: android.car.settings.CarConfigurationManager#getSpeedBumpConfiguration():
-    Missing nullability on method `getSpeedBumpConfiguration` return
-MissingNullability: android.car.settings.SpeedBumpConfiguration#CREATOR:
-    Missing nullability on field `CREATOR` in class `class android.car.settings.SpeedBumpConfiguration`
-MissingNullability: android.car.settings.SpeedBumpConfiguration#writeToParcel(android.os.Parcel, int) parameter #0:
-    Missing nullability on parameter `desk` in method `writeToParcel`
 
 
 MutableBareField: android.car.CarOccupantZoneManager.OccupantZoneInfo#zoneId:
@@ -217,19 +175,11 @@ SamShouldBeLast: android.car.hardware.CarSensorManager#unregisterListener(androi
     SAM-compatible parameters (such as parameter 1, "listener", in android.car.hardware.CarSensorManager.unregisterListener) should be last to improve Kotlin interoperability; see https://kotlinlang.org/docs/reference/java-interop.html#sam-conversions
 
 
-ServiceName: android.car.Car#CAR_CONFIGURATION_SERVICE:
-    Inconsistent service value; expected `CAR_CONFIGURATION`, was `configuration`
-ServiceName: android.car.Car#CAR_NAVIGATION_SERVICE:
-    Inconsistent service value; expected `CAR_NAVIGATION`, was `car_navigation_service`
-ServiceName: android.car.Car#CAR_OCCUPANT_ZONE_SERVICE:
-    Inconsistent service value; expected `CAR_OCCUPANT_ZONE`, was `car_occupant_zone_service`
-ServiceName: android.car.Car#CAR_UX_RESTRICTION_SERVICE:
-    Inconsistent service value; expected `CAR_UX_RESTRICTION`, was `uxrestriction`
+StaticFinalBuilder: android.car.drivingstate.CarUxRestrictions.Builder:
+    Builder must be final: android.car.drivingstate.CarUxRestrictions.Builder
 
 
 StaticUtils: android.car.VehiclePropertyIds:
-    Fully-static utility classes must not have constructor
-StaticUtils: android.car.settings.CarSettings.Global:
     Fully-static utility classes must not have constructor
 
 
@@ -249,5 +199,3 @@ VisiblySynchronized: android.car.CarAppFocusManager#removeFocusListener(android.
     Internal locks must not be exposed (synchronizing on this or class is still externally observable): method android.car.CarAppFocusManager.removeFocusListener(android.car.CarAppFocusManager.OnAppFocusChangedListener,int)
 VisiblySynchronized: android.car.CarAppFocusManager#requestAppFocus(int, android.car.CarAppFocusManager.OnAppFocusOwnershipCallback):
     Internal locks must not be exposed (synchronizing on this or class is still externally observable): method android.car.CarAppFocusManager.requestAppFocus(int,android.car.CarAppFocusManager.OnAppFocusOwnershipCallback)
-VisiblySynchronized: android.car.drivingstate.CarUxRestrictionsManager#unregisterListener():
-    Internal locks must not be exposed (synchronizing on this or class is still externally observable): method android.car.drivingstate.CarUxRestrictionsManager.unregisterListener()

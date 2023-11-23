@@ -49,14 +49,28 @@ declare_args() {
 # 2. setting is_system_compiler=true in args.gn and the env vars AR/CC/CXX.
 #    This is used by OSSFuzz and CrOS ebuilds.
 
+_llvm_strip_wrapper = rebase_path("llvm-strip.py", root_build_dir)
+
 declare_args() {
   sysroot = ""
   gcc_toolchain = ""
   ar = "ar"
   linker = ""
+  strip = ""
 
   if (is_linux_host) {
     linker = "gold"
+    if (linux_llvm_objcopy != "") {
+      # If we are using the hermetic clang toolchain llvm-objcopy from there as
+      # it works with Linux-arm cross toolchains. The |_llvm_strip_wrapper| is
+      # to set argv0 as llvm-strip. llvm-objcopy's frontend works differently
+      # when invoked as llvm-strip, pretending to be just 'strip'.
+      strip = "${_llvm_strip_wrapper} ${linux_llvm_objcopy}"
+    } else {
+      strip = "strip"
+    }
+  } else if (is_mac_host) {
+    strip = "strip -x"
   }
 
   if (is_clang) {
@@ -86,7 +100,7 @@ declare_args() {
 # Then determine the target toolchain.
 
 declare_args() {
-  target_sysroot = sysroot
+  _default_target_sysroot = ""
   target_gcc_toolchain = ""
 
   # |target_triplet| is the variable that the user can set via GN args. The user
@@ -105,10 +119,16 @@ declare_args() {
     _target_triplet = "x86_64-apple-darwin"
   } else if (target_os == "mac" && target_cpu == "x86") {
     _target_triplet = "i686-apple-darwin"
+  } else if (target_os == "mac" && target_cpu == "arm64") {
+    _target_triplet = "aarch64-apple-darwin"
   } else if (target_os == "linux" && target_cpu == "arm64") {
     _target_triplet = "aarch64-linux-gnu"
+    _default_target_sysroot =
+        rebase_path("//buildtools/debian_sid_arm64-sysroot", root_build_dir)
   } else if (target_os == "linux" && target_cpu == "arm") {
-    _target_triplet = "arm-linux-gnueabi"
+    _target_triplet = "arm-linux-gnueabihf"
+    _default_target_sysroot =
+        rebase_path("//buildtools/debian_sid_arm-sysroot", root_build_dir)
   } else if (target_os == "linux" && target_cpu == "x64") {
     _target_triplet = "x86_64-linux-gnu"
   } else if (target_os == "linux" && target_cpu == "x86") {
@@ -129,6 +149,18 @@ declare_args() {
 }
 
 declare_args() {
+  if (sysroot != "") {
+    # If the user specifies a sysroot, use that for both host and target.
+    target_sysroot = sysroot
+  } else {
+    # If no explicit sysroot has been set, use the guessed sysroot from the ones
+    # pulled by //tools/install-build-deps (only for Linux).
+    target_sysroot = _default_target_sysroot
+  }
+}
+
+declare_args() {
+  target_strip = ""
   if (is_linux || is_android) {
     target_linker = "gold"
   } else {
@@ -141,6 +173,7 @@ declare_args() {
     target_cc = cc
     target_cxx = cxx
     target_linker = linker
+    target_strip = strip
   } else {
     target_ar = "ar"
     if (is_android) {
@@ -148,9 +181,11 @@ declare_args() {
       target_cc = "$android_llvm_dir/bin/clang"
       target_cxx = "$android_llvm_dir/bin/clang++"
       target_linker = "$android_llvm_dir/bin/ld.lld"
+      target_strip = "$android_toolchain_root/bin/$android_abi_target-strip"
     } else {
       assert(_target_triplet != "",
              "target_triplet must be non-empty when cross-compiling")
+      target_strip = strip
       if (is_clang) {
         if (is_linux_host) {
           target_cc = "${linux_clang_bin} --target=${_target_triplet}"
@@ -180,6 +215,7 @@ template("gcc_like_toolchain") {
     external_cflags = ""
     external_cxxflags = ""
     external_ldflags = ""
+    strip = ""
     if (defined(invoker.linker) && invoker.linker != "") {
       _invoker_linker = invoker.linker
       ld_arg = "-fuse-ld=$_invoker_linker"
@@ -202,6 +238,9 @@ template("gcc_like_toolchain") {
     }
     if (defined(invoker.external_ldflags)) {
       external_ldflags = invoker.external_ldflags
+    }
+    if (defined(invoker.strip)) {
+      strip = invoker.strip
     }
 
     tool("cc") {
@@ -249,24 +288,34 @@ template("gcc_like_toolchain") {
 
     tool("solink") {
       soname = "{{target_output_name}}{{output_extension}}"
-
+      unstripped_so = "{{root_out_dir}}/$soname"
       rpath = "-Wl,-soname,$soname"
       if (is_mac) {
         rpath = "-Wl,-install_name,@rpath/$soname"
       }
-
-      command = "$cc_wrapper $cxx $ld_arg -shared {{ldflags}} ${external_ldflags} {{inputs}} {{solibs}} {{libs}} $rpath -o {{output}}"
-      outputs = [ "{{root_out_dir}}/$soname" ]
+      command = "$cc_wrapper $cxx $ld_arg -shared {{ldflags}} ${external_ldflags} {{inputs}} {{solibs}} {{libs}} $rpath -o $unstripped_so"
+      outputs = [ unstripped_so ]
       output_prefix = "lib"
       default_output_extension = ".so"
-      description = "link {{output}}"
+      description = "link $unstripped_so"
+      if (strip != "") {
+        stripped_so = "{{root_out_dir}}/stripped/$soname"
+        outputs += [ stripped_so ]
+        command += " && $strip -o $stripped_so $unstripped_so"
+      }
     }
 
     tool("link") {
-      command = "$cc_wrapper $cxx $ld_arg {{ldflags}} ${external_ldflags} {{inputs}} {{solibs}} {{libs}} -o {{output}}"
-      outputs =
-          [ "{{root_out_dir}}/{{target_output_name}}{{output_extension}}" ]
-      description = "link {{output}}"
+      unstripped_exe =
+          "{{root_out_dir}}/{{target_output_name}}{{output_extension}}"
+      command = "$cc_wrapper $cxx $ld_arg {{ldflags}} ${external_ldflags} {{inputs}} {{solibs}} {{libs}} -o $unstripped_exe"
+      outputs = [ unstripped_exe ]
+      description = "link $unstripped_exe"
+      if (strip != "") {
+        stripped_exe = "{{root_out_dir}}/stripped/{{target_output_name}}{{output_extension}}"
+        outputs += [ stripped_exe ]
+        command += " && $strip -o $stripped_exe $unstripped_exe"
+      }
     }
 
     tool("stamp") {
@@ -293,6 +342,7 @@ gcc_like_toolchain("gcc_like") {
   cc = target_cc
   cxx = target_cxx
   linker = target_linker
+  strip = target_strip
   sysroot = target_sysroot
   gcc_toolchain = target_gcc_toolchain
   external_cflags = string_join(" ",
@@ -319,6 +369,7 @@ gcc_like_toolchain("gcc_like_host") {
   cc = cc
   cxx = cxx
   linker = linker
+  strip = strip
   sysroot = sysroot
   gcc_toolchain = gcc_toolchain
   external_cflags = string_join(" ",
@@ -345,6 +396,7 @@ gcc_like_toolchain("wasm") {
   ar = "$emsdk_dir/emscripten/emar --em-config $em_config"
   cc = "$emsdk_dir/emscripten/emcc --em-config $em_config"
   cxx = "$emsdk_dir/emscripten/em++ --em-config $em_config"
+  strip = ""
 }
 
 # This is used both for MSVC anc clang-cl. clang-cl cmdline interface pretends
@@ -352,10 +404,7 @@ gcc_like_toolchain("wasm") {
 toolchain("msvc") {
   lib_switch = ""
   lib_dir_switch = "/LIBPATH:"
-
-  sys_lib_flags = "/LIBPATH:\"${win_sdk_lib_dir}\\ucrt\\x64\" "
-  sys_lib_flags += "/LIBPATH:\"${win_sdk_lib_dir}\\um\\x64\" "
-  sys_lib_flags += "/LIBPATH:\"${win_msvc_lib_dir}\" "
+  sys_lib_flags = string_join(" ", win_msvc_sys_lib_flags)
 
   # Note: /showIncludes below is required for ninja, to build a complete
   # dependency graph for headers. Removing it breaks incremental builds.

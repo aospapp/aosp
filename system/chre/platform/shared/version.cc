@@ -26,7 +26,7 @@ namespace chre {
 //! The CHRE version string is placed in its own section so that it can be
 //! removed before hashing to check whether there has been a change in the
 //! compiled binary.
-DLL_EXPORT extern "C" const char _chreVersionString[]
+extern "C" DLL_EXPORT const char _chreVersionString[]
     __attribute__((section(".unstable_id"))) __attribute__((aligned(8))) =
         CHRE_VERSION_STRING;
 

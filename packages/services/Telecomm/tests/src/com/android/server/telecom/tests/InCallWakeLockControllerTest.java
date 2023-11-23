@@ -17,6 +17,7 @@
 package com.android.server.telecom.tests;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
@@ -127,5 +128,35 @@ public class InCallWakeLockControllerTest extends TelecomTestCase {
         mInCallWakeLockController.onCallAdded(mock(Call.class));
 
         verify(mWakeLockAdapter, never()).acquire();
+    }
+
+    @SmallTest
+    @Test
+    public void testExternalCallStateChangeDuringRinging() throws Exception {
+        // A call is ringing on the local device directly.
+        when(mCallsManager.getRingingOrSimulatedRingingCall()).thenReturn(mCall);
+        when(mCall.isExternalCall()).thenReturn(false);
+
+        mInCallWakeLockController.onCallAdded(mCall);
+
+        verify(mWakeLockAdapter).acquire();
+
+        // The call then becomes an external call during ringing. The wake lock should be
+        // released.
+        reset(mWakeLockAdapter);
+        when(mWakeLockAdapter.isHeld()).thenReturn(true);
+        when(mCall.isExternalCall()).thenReturn(true);
+
+        mInCallWakeLockController.onExternalCallChanged(mCall, /* isExternalCall= */ true);
+
+        verify(mWakeLockAdapter).release(0);
+
+        // The call then is pulled to the device, wake up the device and acquire the wake lock.
+        reset(mWakeLockAdapter);
+        when(mCall.isExternalCall()).thenReturn(false);
+
+        mInCallWakeLockController.onExternalCallChanged(mCall, /* isExternalCall= */ true);
+
+        verify(mWakeLockAdapter).acquire();
     }
 }

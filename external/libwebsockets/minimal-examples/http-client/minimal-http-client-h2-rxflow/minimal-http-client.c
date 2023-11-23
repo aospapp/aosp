@@ -66,7 +66,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 			char buf[128];
 
 			lws_get_peer_simple(wsi, buf, sizeof(buf));
-			status = lws_http_client_http_response(wsi);
+			status = (int)lws_http_client_http_response(wsi);
 
 			lwsl_user("Connected to %s, http response: %d\n",
 					buf, status);
@@ -115,8 +115,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason,
 	case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
 		interrupted = 1;
 		bad = status != 200;
-		lws_sul_schedule(lws_get_context(wsi), 0, &pss->sul, NULL,
-				 LWS_SET_TIMER_USEC_CANCEL);
+		lws_sul_cancel(&pss->sul);
 		lws_cancel_service(lws_get_context(wsi)); /* abort poll wait */
 		break;
 
@@ -132,9 +131,9 @@ static const struct lws_protocols protocols[] = {
 		"http",
 		callback_http,
 		sizeof(struct pss),
-		0,
+		0, 0, NULL, 0
 	},
-	{ NULL, NULL, 0, 0 }
+	LWS_PROTOCOL_LIST_TERM
 };
 
 static void
@@ -236,7 +235,8 @@ system_notify_cb(lws_state_manager_t *mgr, lws_state_notify_link_t *link,
 
 int main(int argc, const char **argv)
 {
-	lws_state_notify_link_t notifier = { {0}, system_notify_cb, "app" };
+	lws_state_notify_link_t notifier = { { NULL, NULL, NULL },
+						system_notify_cb, "app" };
 	lws_state_notify_link_t *na[] = { &notifier, NULL };
 	struct lws_context_creation_info info;
 	struct lws_context *context;
@@ -259,6 +259,8 @@ int main(int argc, const char **argv)
 	info.protocols = protocols;
 	info.user = &args;
 	info.register_notifier_list = na;
+	info.timeout_secs = 10;
+	info.connect_timeout_secs = 30;
 
 	/*
 	 * since we know this lws context is only ever going to be used with
@@ -269,7 +271,7 @@ int main(int argc, const char **argv)
 	 */
 	info.fd_limit_per_thread = 1 + 1 + 1;
 
-#if defined(LWS_WITH_MBEDTLS)
+#if defined(LWS_WITH_MBEDTLS) || defined(USE_WOLFSSL)
 	/*
 	 * OpenSSL uses the system trust store.  mbedTLS has to be told which
 	 * CA to trust explicitly.

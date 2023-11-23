@@ -9,6 +9,7 @@ from enum import Enum
 import six
 
 from cryptography import utils
+from cryptography.hazmat.backends import _get_backend
 from cryptography.x509.oid import NameOID, ObjectIdentifier
 
 
@@ -25,7 +26,7 @@ class _ASN1Type(Enum):
     BMPString = 30
 
 
-_ASN1_TYPE_TO_ENUM = dict((i.value, i) for i in _ASN1Type)
+_ASN1_TYPE_TO_ENUM = {i.value: i for i in _ASN1Type}
 _SENTINEL = object()
 _NAMEOID_DEFAULT_TYPE = {
     NameOID.COUNTRY_NAME: _ASN1Type.PrintableString,
@@ -39,35 +40,38 @@ _NAMEOID_DEFAULT_TYPE = {
 #: Short attribute names from RFC 4514:
 #: https://tools.ietf.org/html/rfc4514#page-7
 _NAMEOID_TO_NAME = {
-    NameOID.COMMON_NAME: 'CN',
-    NameOID.LOCALITY_NAME: 'L',
-    NameOID.STATE_OR_PROVINCE_NAME: 'ST',
-    NameOID.ORGANIZATION_NAME: 'O',
-    NameOID.ORGANIZATIONAL_UNIT_NAME: 'OU',
-    NameOID.COUNTRY_NAME: 'C',
-    NameOID.STREET_ADDRESS: 'STREET',
-    NameOID.DOMAIN_COMPONENT: 'DC',
-    NameOID.USER_ID: 'UID',
+    NameOID.COMMON_NAME: "CN",
+    NameOID.LOCALITY_NAME: "L",
+    NameOID.STATE_OR_PROVINCE_NAME: "ST",
+    NameOID.ORGANIZATION_NAME: "O",
+    NameOID.ORGANIZATIONAL_UNIT_NAME: "OU",
+    NameOID.COUNTRY_NAME: "C",
+    NameOID.STREET_ADDRESS: "STREET",
+    NameOID.DOMAIN_COMPONENT: "DC",
+    NameOID.USER_ID: "UID",
 }
 
 
 def _escape_dn_value(val):
     """Escape special characters in RFC4514 Distinguished Name value."""
 
-    # See https://tools.ietf.org/html/rfc4514#section-2.4
-    val = val.replace('\\', '\\\\')
-    val = val.replace('"', '\\"')
-    val = val.replace('+', '\\+')
-    val = val.replace(',', '\\,')
-    val = val.replace(';', '\\;')
-    val = val.replace('<', '\\<')
-    val = val.replace('>', '\\>')
-    val = val.replace('\0', '\\00')
+    if not val:
+        return ""
 
-    if val[0] in ('#', ' '):
-        val = '\\' + val
-    if val[-1] == ' ':
-        val = val[:-1] + '\\ '
+    # See https://tools.ietf.org/html/rfc4514#section-2.4
+    val = val.replace("\\", "\\\\")
+    val = val.replace('"', '\\"')
+    val = val.replace("+", "\\+")
+    val = val.replace(",", "\\,")
+    val = val.replace(";", "\\;")
+    val = val.replace("<", "\\<")
+    val = val.replace(">", "\\>")
+    val = val.replace("\0", "\\00")
+
+    if val[0] in ("#", " "):
+        val = "\\" + val
+    if val[-1] == " ":
+        val = val[:-1] + "\\ "
 
     return val
 
@@ -80,21 +84,16 @@ class NameAttribute(object):
             )
 
         if not isinstance(value, six.text_type):
-            raise TypeError(
-                "value argument must be a text type."
-            )
+            raise TypeError("value argument must be a text type.")
 
         if (
-            oid == NameOID.COUNTRY_NAME or
-            oid == NameOID.JURISDICTION_COUNTRY_NAME
+            oid == NameOID.COUNTRY_NAME
+            or oid == NameOID.JURISDICTION_COUNTRY_NAME
         ):
             if len(value.encode("utf8")) != 2:
                 raise ValueError(
                     "Country name must be a 2 character country code"
                 )
-
-        if len(value) == 0:
-            raise ValueError("Value cannot be an empty string")
 
         # The appropriate ASN1 string type varies by OID and is defined across
         # multiple RFCs including 2459, 3280, and 5280. In general UTF8String
@@ -123,16 +122,13 @@ class NameAttribute(object):
         dotted string.
         """
         key = _NAMEOID_TO_NAME.get(self.oid, self.oid.dotted_string)
-        return '%s=%s' % (key, _escape_dn_value(self.value))
+        return "%s=%s" % (key, _escape_dn_value(self.value))
 
     def __eq__(self, other):
         if not isinstance(other, NameAttribute):
             return NotImplemented
 
-        return (
-            self.oid == other.oid and
-            self.value == other.value
-        )
+        return self.oid == other.oid and self.value == other.value
 
     def __ne__(self, other):
         return not self == other
@@ -169,7 +165,7 @@ class RelativeDistinguishedName(object):
         Within each RDN, attributes are joined by '+', although that is rarely
         used in certificates.
         """
-        return '+'.join(attr.rfc4514_string() for attr in self._attributes)
+        return "+".join(attr.rfc4514_string() for attr in self._attributes)
 
     def __eq__(self, other):
         if not isinstance(other, RelativeDistinguishedName):
@@ -190,7 +186,7 @@ class RelativeDistinguishedName(object):
         return len(self._attributes)
 
     def __repr__(self):
-        return "<RelativeDistinguishedName({0})>".format(self.rfc4514_string())
+        return "<RelativeDistinguishedName({})>".format(self.rfc4514_string())
 
 
 class Name(object):
@@ -216,9 +212,12 @@ class Name(object):
         An X.509 name is a two-level structure: a list of sets of attributes.
         Each list element is separated by ',' and within each list element, set
         elements are separated by '+'. The latter is almost never used in
-        real world certificates.
+        real world certificates. According to RFC4514 section 2.1 the
+        RDNSequence must be reversed when converting to string representation.
         """
-        return ','.join(attr.rfc4514_string() for attr in self._attributes)
+        return ",".join(
+            attr.rfc4514_string() for attr in reversed(self._attributes)
+        )
 
     def get_attributes_for_oid(self, oid):
         return [i for i in self if i.oid == oid]
@@ -227,7 +226,8 @@ class Name(object):
     def rdns(self):
         return self._attributes
 
-    def public_bytes(self, backend):
+    def public_bytes(self, backend=None):
+        backend = _get_backend(backend)
         return backend.x509_name_bytes(self)
 
     def __eq__(self, other):
@@ -253,4 +253,9 @@ class Name(object):
         return sum(len(rdn) for rdn in self._attributes)
 
     def __repr__(self):
-        return "<Name({0})>".format(self.rfc4514_string())
+        rdns = ",".join(attr.rfc4514_string() for attr in self._attributes)
+
+        if six.PY2:
+            return "<Name({})>".format(rdns.encode("utf8"))
+        else:
+            return "<Name({})>".format(rdns)

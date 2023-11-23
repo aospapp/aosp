@@ -612,21 +612,34 @@ static int vrend_decode_create_rasterizer(struct vrend_context *ctx, const uint3
    return 0;
 }
 
-static int vrend_decode_create_surface(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+static int vrend_decode_create_surface_common(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint32_t sample_count)
 {
    uint32_t res_handle, format, val0, val1;
-   int ret;
-
-   if (length != VIRGL_OBJ_SURFACE_SIZE)
-      return EINVAL;
 
    res_handle = get_buf_entry(buf, VIRGL_OBJ_SURFACE_RES_HANDLE);
    format = get_buf_entry(buf, VIRGL_OBJ_SURFACE_FORMAT);
    /* decide later if these are texture or buffer */
    val0 = get_buf_entry(buf, VIRGL_OBJ_SURFACE_BUFFER_FIRST_ELEMENT);
    val1 = get_buf_entry(buf, VIRGL_OBJ_SURFACE_BUFFER_LAST_ELEMENT);
-   ret = vrend_create_surface(ctx, handle, res_handle, format, val0, val1);
-   return ret;
+
+   return vrend_create_surface(ctx, handle, res_handle, format, val0, val1, sample_count);
+}
+
+static int vrend_decode_create_surface(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+{
+   if (length != VIRGL_OBJ_SURFACE_SIZE)
+      return EINVAL;
+
+   return vrend_decode_create_surface_common(ctx, buf, handle, 0);
+}
+
+static int vrend_decode_create_msaa_surface(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
+{
+   if (length != VIRGL_OBJ_MSAA_SURFACE_SIZE)
+      return EINVAL;
+
+   uint32_t sample_count = get_buf_entry(buf, VIRGL_OBJ_SURFACE_SAMPLE_COUNT);
+   return vrend_decode_create_surface_common(ctx, buf, handle, sample_count);
 }
 
 static int vrend_decode_create_sampler_view(struct vrend_context *ctx, const uint32_t *buf, uint32_t handle, uint16_t length)
@@ -662,6 +675,7 @@ static int vrend_decode_create_sampler_state(struct vrend_context *ctx, const ui
    state.compare_mode = (tmp >> 15) & 0x1;
    state.compare_func = (tmp >> 16) & 0x7;
    state.seamless_cube_map = (tmp >> 19) & 0x1;
+   state.max_anisotropy = (float)((tmp >> 20) & 0x3f);
 
    state.lod_bias = uif(get_buf_entry(buf, VIRGL_OBJ_SAMPLER_STATE_LOD_BIAS));
    state.min_lod = uif(get_buf_entry(buf, VIRGL_OBJ_SAMPLER_STATE_MIN_LOD));
@@ -788,6 +802,9 @@ static int vrend_decode_create_object(struct vrend_context *ctx, const uint32_t 
       break;
    case VIRGL_OBJECT_STREAMOUT_TARGET:
       ret = vrend_decode_create_stream_output_target(ctx, buf, handle, length);
+      break;
+   case VIRGL_OBJECT_MSAA_SURFACE:
+      ret = vrend_decode_create_msaa_surface(ctx, buf, handle, length);
       break;
    default:
       return EINVAL;
@@ -1192,7 +1209,7 @@ static int vrend_decode_set_shader_buffers(struct vrend_context *ctx, const uint
       return 0;
 
    if (start_slot > PIPE_MAX_SHADER_BUFFERS ||
-       start_slot > PIPE_MAX_SHADER_BUFFERS - num_ssbo)
+       num_ssbo > PIPE_MAX_SHADER_BUFFERS - start_slot)
       return EINVAL;
 
    for (uint32_t i = 0; i < num_ssbo; i++) {
@@ -1561,6 +1578,26 @@ static int vrend_decode_get_memory_info(struct vrend_context *ctx, const uint32_
    return 0;
 }
 
+static int vrend_decode_send_string_marker(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
+{
+   uint32_t buf_len = sizeof(uint32_t) * (length - 1);
+
+   if (length < VIRGL_SEND_STRING_MARKER_MIN_SIZE) {
+      fprintf(stderr, "minimal command length not okay\n");
+      return EINVAL;
+   }
+
+   uint32_t str_len = get_buf_entry(buf, VIRGL_SEND_STRING_MARKER_STRING_SIZE);
+   if (str_len > buf_len) {
+       fprintf(stderr, "String len %u > buf_len %u\n", str_len, buf_len);
+       return EINVAL;
+   }
+
+   vrend_context_emit_string_marker(ctx, str_len, get_buf_ptr(buf, VIRGL_SEND_STRING_MARKER_OFFSET));
+
+   return 0;
+}
+
 typedef int (*vrend_decode_callback)(struct vrend_context *ctx, const uint32_t *buf, uint32_t length);
 
 static int vrend_decode_dummy(struct vrend_context *ctx, const uint32_t *buf, uint32_t length)
@@ -1623,6 +1660,7 @@ static const vrend_decode_callback decode_table[VIRGL_MAX_COMMANDS] = {
    [VIRGL_CCMD_PIPE_RESOURCE_CREATE] = vrend_decode_pipe_resource_create,
    [VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE] = vrend_decode_pipe_resource_set_type,
    [VIRGL_CCMD_GET_MEMORY_INFO] = vrend_decode_get_memory_info,
+   [VIRGL_CCMD_SEND_STRING_MARKER] = vrend_decode_send_string_marker,
 };
 
 static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
@@ -1639,7 +1677,7 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
       return EINVAL;
 
    const uint32_t *typed_buf = (const uint32_t *)buffer;
-   const uint32_t buf_total = size / sizeof(uint32_t);
+   const uint32_t buf_total = (uint32_t)(size / sizeof(uint32_t));
    uint32_t buf_offset = 0;
 
    while (buf_offset < buf_total) {

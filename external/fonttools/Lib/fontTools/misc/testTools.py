@@ -7,7 +7,7 @@ import shutil
 import sys
 import tempfile
 from unittest import TestCase as _TestCase
-from fontTools.misc.py23 import tobytes
+from fontTools.misc.textTools import tobytes
 from fontTools.misc.xmlWriter import XMLWriter
 
 
@@ -38,6 +38,14 @@ def parseXML(xmlSnippet):
     return reader.root[2]
 
 
+def parseXmlInto(font, parseInto, xmlSnippet):
+    parsed_xml = [e for e in parseXML(xmlSnippet.strip()) if not isinstance(e, str)]
+    for name, attrs, content in parsed_xml:
+        parseInto.fromXML(name, attrs, content, font)
+    parseInto.populateDefaults()
+    return parseInto
+
+
 class FakeFont:
     def __init__(self, glyphs):
         self.glyphOrder_ = glyphs
@@ -57,11 +65,16 @@ class FakeFont:
     def getGlyphID(self, name):
         return self.reverseGlyphOrderDict_[name]
 
+    def getGlyphIDMany(self, lst):
+        return [self.getGlyphID(gid) for gid in lst]
+
     def getGlyphName(self, glyphID):
         if glyphID < len(self.glyphOrder_):
             return self.glyphOrder_[glyphID]
         else:
             return "glyph%.5d" % glyphID
+    def getGlyphNameMany(self, lst):
+        return [self.getGlyphName(gid) for gid in lst]
 
     def getGlyphOrder(self):
         return self.glyphOrder_
@@ -136,7 +149,7 @@ class MockFont(object):
         self._reverseGlyphOrder = AllocatingDict({'.notdef': 0})
         self.lazy = False
 
-    def getGlyphID(self, glyph, requireReal=None):
+    def getGlyphID(self, glyph):
         gid = self._reverseGlyphOrder[glyph]
         return gid
 

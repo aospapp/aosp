@@ -16,10 +16,12 @@
 
 package com.android.queryable.queries;
 
+import android.os.Parcelable;
+
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
 
-public interface Query<E> extends Serializable, Queryable {
+public interface Query<E> extends Serializable, Queryable, Parcelable {
     boolean matches(E value);
 }

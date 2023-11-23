@@ -118,7 +118,7 @@ public class AddWifiNetworkTaskTest {
         runTask();
 
         // THEN error should be called
-        verify(mCallback).onError(mTask, 0);
+        verify(mCallback).onError(mTask, 0, /* errorMessage= */ null);
     }
 
     @Test
@@ -137,7 +137,7 @@ public class AddWifiNetworkTaskTest {
         runTask();
 
         // THEN error should be called
-        verify(mCallback).onError(mTask, 0);
+        verify(mCallback).onError(mTask, 0, /* errorMessage= */ null);
     }
 
     @Test
@@ -187,7 +187,7 @@ public class AddWifiNetworkTaskTest {
                 .thenReturn(null);
 
         // THEN error should be called
-        verify(mCallback).onError(mTask, 0);
+        verify(mCallback).onError(mTask, 0, /* errorMessage= */ null);
     }
 
     @Test
@@ -218,7 +218,7 @@ public class AddWifiNetworkTaskTest {
         runTask();
 
         // THEN error should be called
-        verify(mCallback).onError(mTask, 0);
+        verify(mCallback).onError(mTask, 0, /* errorMessage= */ null);
     }
 
     @Test
@@ -254,7 +254,7 @@ public class AddWifiNetworkTaskTest {
         assertTrue(mWifiManager.isWifiEnabled());
 
         // THEN error should be called
-        verify(mCallback).onError(mTask, 0);
+        verify(mCallback).onError(mTask, 0, /* errorMessage= */ null);
     }
 
     @Test

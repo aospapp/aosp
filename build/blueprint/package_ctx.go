@@ -81,7 +81,7 @@ type packageContext struct {
 	ninjaFileDeps []string
 }
 
-var _ PackageContext = &packageContext{}
+var _ PackageContext = (*packageContext)(nil)
 
 func (p *packageContext) getScope() *basicScope {
 	return p.scope

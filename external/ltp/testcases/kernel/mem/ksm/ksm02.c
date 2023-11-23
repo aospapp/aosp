@@ -59,7 +59,8 @@
 #ifdef HAVE_NUMA_V2
 #include <numaif.h>
 
-static int cpuset_mounted;
+static const struct tst_cgroup_group *cg;
+static const struct tst_cgroup_group *cg_drain;
 
 static void verify_ksm(void)
 {
@@ -78,8 +79,10 @@ static void verify_ksm(void)
 	}
 	create_same_memory(size, num, unit);
 
-	write_cpusets(node);
+	write_cpusets(cg, node);
+	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
 	create_same_memory(size, num, unit);
+	SAFE_CGROUP_PRINTF(cg_drain, "cgroup.procs", "%d", getpid());
 }
 
 static void cleanup(void)
@@ -88,8 +91,7 @@ static void cleanup(void)
 		FILE_PRINTF(PATH_KSM "merge_across_nodes",
 				 "%d", merge_across_nodes);
 
-	if (cpuset_mounted)
-		umount_mem(CPATH, CPATH_NEW);
+	tst_cgroup_cleanup();
 }
 
 static void setup(void)
@@ -105,17 +107,26 @@ static void setup(void)
 		SAFE_FILE_PRINTF(PATH_KSM "merge_across_nodes", "1");
 	}
 
-	mount_mem("cpuset", "cpuset", NULL, CPATH, CPATH_NEW);
-	cpuset_mounted = 1;
+	tst_cgroup_require("cpuset", NULL);
+	cg = tst_cgroup_get_test_group();
+	cg_drain = tst_cgroup_get_drain_group();
 }
 
 static struct tst_test test = {
 	.needs_root = 1,
 	.forks_child = 1,
-	.options = ksm_options,
+	.options = (struct tst_option[]) {
+		{"n:", &opt_numstr,  "-n       Number of processes"},
+		{"s:", &opt_sizestr, "-s       Memory allocation size in MB"},
+		{"u:", &opt_unitstr, "-u       Memory allocation unit in MB"},
+		{}
+	},
 	.setup = setup,
 	.cleanup = cleanup,
-	.save_restore = save_restore,
+	.save_restore = (const char * const[]) {
+		"?/sys/kernel/mm/ksm/max_page_sharing",
+		NULL,
+	},
 	.test_all = verify_ksm,
 	.min_kver = "2.6.32",
 };

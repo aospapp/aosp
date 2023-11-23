@@ -29,9 +29,14 @@ class CharacterIterator {
   CharacterIterator(std::string_view text, int utf8_index, int utf16_index,
                     int utf32_index)
       : text_(text),
+        cached_current_char_(i18n_utils::kInvalidUChar32),
         utf8_index_(utf8_index),
         utf16_index_(utf16_index),
         utf32_index_(utf32_index) {}
+
+  // Returns the character that the iterator currently points to.
+  // i18n_utils::kInvalidUChar32 if unable to read that character.
+  UChar32 GetCurrentChar();
 
   // Moves current position to desired_utf8_index.
   // REQUIRES: 0 <= desired_utf8_index <= text_.length()
@@ -82,6 +87,8 @@ class CharacterIterator {
   int utf32_index() const { return utf32_index_; }
 
   bool operator==(const CharacterIterator& rhs) const {
+    // cached_current_char_ is just that: a cached value. As such, it's not
+    // considered for equality.
     return text_ == rhs.text_ && utf8_index_ == rhs.utf8_index_ &&
            utf16_index_ == rhs.utf16_index_ && utf32_index_ == rhs.utf32_index_;
   }
@@ -92,7 +99,12 @@ class CharacterIterator {
   }
 
  private:
+  // Resets the character iterator to the start of the text if any of the
+  // indices are negative.
+  void ResetToStartIfNecessary();
+
   std::string_view text_;
+  UChar32 cached_current_char_;
   int utf8_index_;
   int utf16_index_;
   int utf32_index_;

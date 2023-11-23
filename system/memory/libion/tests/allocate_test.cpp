@@ -16,6 +16,7 @@
 
 #include <sys/mman.h>
 #include <memory>
+#include <sys/sysinfo.h>
 
 #include <gtest/gtest.h>
 
@@ -90,12 +91,17 @@ TEST_F(Allocate, RepeatedAllocate) {
 }
 
 TEST_F(Allocate, Large) {
+    struct sysinfo si;
+    ASSERT_TRUE(sysinfo(&si) != -1);
+
+    auto totalRamSize = si.totalram * si.mem_unit;
+
     for (const auto& heap : ion_heaps) {
         SCOPED_TRACE(::testing::Message()
                      << "heap:" << heap.name << ":" << heap.type << ":" << heap.heap_id);
         int fd;
         ASSERT_EQ(-ENOMEM,
-                  ion_alloc_fd(ionfd, 3UL * 1024 * 1024 * 1024, 0, (1 << heap.heap_id), 0, &fd));
+                  ion_alloc_fd(ionfd, totalRamSize, 0, (1 << heap.heap_id), 0, &fd));
     }
 }
 

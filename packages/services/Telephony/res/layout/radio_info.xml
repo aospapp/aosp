@@ -92,6 +92,12 @@
             <TextView android:id="@+id/data_network" style="@style/info_value" />
         </LinearLayout>
 
+        <!-- Override Network Type -->
+        <LinearLayout style="@style/RadioInfo_entry_layout">
+            <TextView android:text="@string/radio_info_override_network_type_label" style="@style/info_label" />
+            <TextView android:id="@+id/override_network" style="@style/info_value" />
+        </LinearLayout>
+
         <!-- Voice Service Status -->
         <LinearLayout style="@style/RadioInfo_entry_layout">
             <TextView android:text="@string/radio_info_gsm_service_label" style="@style/info_label" />
@@ -251,6 +257,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/dsds_switch_string" />
+
+        <!-- Set removable eSIM as default eUICC. -->
+        <Switch android:id="@+id/removable_esim_switch"
+                android:textSize="14sp"
+                android:layout_marginTop="8dip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:text="@string/removable_esim_string" />
 
         <!-- Horizontal Rule -->
         <View

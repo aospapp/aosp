@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import android.net.wifi.p2p.WifiP2pDevice;
+import android.net.wifi.p2p.WifiP2pProvDiscEvent;
 import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
@@ -39,6 +41,7 @@ import org.mockito.ArgumentCaptor;
 public class WifiP2pMonitorTest extends WifiBaseTest {
     private static final String P2P_IFACE_NAME = "p2p0";
     private static final String SECOND_P2P_IFACE_NAME = "p2p1";
+    private static final int TEST_GROUP_FREQUENCY = 5180;
     private WifiP2pMonitor mWifiP2pMonitor;
     private TestLooper mLooper;
     private Handler mHandlerSpy;
@@ -112,5 +115,57 @@ public class WifiP2pMonitorTest extends WifiBaseTest {
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiP2pMonitor.SUP_DISCONNECTION_EVENT, messageCaptor.getValue().what);
+    }
+    /**
+     * Broadcast frequency changed event test
+     */
+    @Test
+    public void testBroadcastP2pFrequencyChanged() {
+        mWifiP2pMonitor.registerHandler(
+                P2P_IFACE_NAME, WifiP2pMonitor.P2P_FREQUENCY_CHANGED_EVENT, mHandlerSpy);
+        mWifiP2pMonitor.broadcastP2pFrequencyChanged(P2P_IFACE_NAME, TEST_GROUP_FREQUENCY);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiP2pMonitor.P2P_FREQUENCY_CHANGED_EVENT, messageCaptor.getValue().what);
+        assertEquals(TEST_GROUP_FREQUENCY, messageCaptor.getValue().arg1);
+    }
+
+    /**
+     * Broadcast message when provision discovery fails.
+     */
+    @Test
+    public void testBroadcastP2pProvisionDiscoveryFailure() throws Exception {
+        mWifiP2pMonitor.registerHandler(
+                P2P_IFACE_NAME, WifiP2pMonitor.P2P_PROV_DISC_FAILURE_EVENT, mHandlerSpy);
+        mWifiP2pMonitor.broadcastP2pProvisionDiscoveryFailure(P2P_IFACE_NAME,
+                WifiP2pMonitor.PROV_DISC_STATUS_UNKNOWN, new WifiP2pProvDiscEvent());
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiP2pMonitor.P2P_PROV_DISC_FAILURE_EVENT, messageCaptor.getValue().what);
+    }
+
+    /**
+     * Broadcast message when provision discovery is rejected.
+     */
+    @Test
+    public void testBroadcastP2pProvisionDiscoveryRejection() throws Exception {
+        mWifiP2pMonitor.registerHandler(
+                P2P_IFACE_NAME, WifiP2pMonitor.P2P_PROV_DISC_FAILURE_EVENT, mHandlerSpy);
+        WifiP2pProvDiscEvent event = new WifiP2pProvDiscEvent();
+        event.device = new WifiP2pDevice();
+        event.device.deviceAddress = "11:22:33:44:55:66";
+        mWifiP2pMonitor.broadcastP2pProvisionDiscoveryFailure(P2P_IFACE_NAME,
+                WifiP2pMonitor.PROV_DISC_STATUS_REJECTED, event);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiP2pMonitor.P2P_PROV_DISC_FAILURE_EVENT, messageCaptor.getValue().what);
+        assertEquals(event.device.deviceAddress,
+                ((WifiP2pProvDiscEvent) messageCaptor.getValue().obj).device.deviceAddress);
     }
 }

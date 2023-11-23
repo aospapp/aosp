@@ -23,6 +23,7 @@
 #include "chre/core/nanoapp.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/system/debug_dump.h"
+#include "heap_block_header.h"
 
 // This default value can be overridden in the variant-specific makefile.
 #ifndef CHRE_MAX_ALLOCATION_BYTES
@@ -34,8 +35,6 @@ namespace chre {
 /**
  * The MemoryManager keeps track of heap memory allocated/deallocated by all
  * nanoapps.
- *
- * TODO: Free memory space when nanoapps are unloaded.
  */
 class MemoryManager : public NonCopyable {
  public:
@@ -55,6 +54,14 @@ class MemoryManager : public NonCopyable {
    * @param ptr The pointer to the memory to deallocate.
    */
   void nanoappFree(Nanoapp *app, void *ptr);
+
+  /**
+   * Free all allocated heap blocks for the nanoapp.
+   *
+   * @param app The pointer to the nanoapp.
+   * @return The number of heap blocks freed.
+   */
+  uint32_t nanoappFreeAll(Nanoapp *app);
 
   /**
    * @return current total allocated memory in bytes.
@@ -101,23 +108,6 @@ class MemoryManager : public NonCopyable {
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  private:
-  /**
-   * Header to store allocation details for tracking.
-   * We use a union to ensure proper memory alignment.
-   */
-  union AllocHeader {
-    struct {
-      //! The amount of memory in bytes allocated (not including header).
-      uint32_t bytes;
-
-      //! The ID of nanoapp requesting memory allocation.
-      uint32_t instanceId;
-    } data;
-
-    //! Makes sure header is a multiple of the size of max_align_t
-    max_align_t aligner;
-  };
-
   //! The total allocated memory in bytes (not including header).
   size_t mTotalAllocatedBytes = 0;
 

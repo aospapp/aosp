@@ -32,7 +32,6 @@ import android.app.Dialog;
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
 import android.car.user.UserSwitchResult;
-import android.car.userlib.UserHelper;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -62,7 +61,9 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.admin.ui.UserAvatarView;
+import com.android.car.internal.user.UserHelper;
 import com.android.internal.util.UserIcons;
+import com.android.settingslib.utils.StringUtil;
 import com.android.systemui.R;
 
 import java.lang.annotation.Retention;
@@ -245,7 +246,7 @@ public class UserGridRecyclerView extends RecyclerView {
             mRes = context.getResources();
             mContext = context;
             updateUsers(users);
-            mGuestName = mRes.getString(R.string.car_guest);
+            mGuestName = mRes.getString(com.android.internal.R.string.guest_name);
             mNewUserName = mRes.getString(R.string.car_new_user);
         }
 
@@ -364,10 +365,8 @@ public class UserGridRecyclerView extends RecyclerView {
             AlertDialog maxUsersDialog = new Builder(mContext,
                     com.android.internal.R.style.Theme_DeviceDefault_Dialog_Alert)
                     .setTitle(R.string.profile_limit_reached_title)
-                    .setMessage(getResources().getQuantityString(
-                            R.plurals.profile_limit_reached_message,
-                            getMaxSupportedRealUsers(),
-                            getMaxSupportedRealUsers()))
+                    .setMessage(StringUtil.getIcuPluralsString(mContext, getMaxSupportedRealUsers(),
+                            R.string.profile_limit_reached_message))
                     .setPositiveButton(android.R.string.ok, null)
                     .create();
             // Sets window flags for the SysUI dialog
@@ -439,7 +438,7 @@ public class UserGridRecyclerView extends RecyclerView {
             String recordName;
             switch (userRecord.mType) {
                 case UserRecord.START_GUEST:
-                    recordName = mContext.getString(R.string.start_guest_session);
+                    recordName = mContext.getString(com.android.internal.R.string.guest_name);
                     break;
                 case UserRecord.ADD_USER:
                     recordName = mContext.getString(R.string.car_add_user);
@@ -509,7 +508,7 @@ public class UserGridRecyclerView extends RecyclerView {
                 return null;
             }
 
-            return userCreationResult.getUser();
+            return mUserManager.getUserInfo(userCreationResult.getUser().getIdentifier());
         }
 
         private boolean switchUser(@UserIdInt int userId) {
@@ -545,9 +544,9 @@ public class UserGridRecyclerView extends RecyclerView {
                 try {
                     UserInfo user = getUserInfo(future);
                     if (user != null) {
-                        UserHelper.setDefaultNonAdminRestrictions(mContext, user,
+                        UserHelper.setDefaultNonAdminRestrictions(mContext, user.getUserHandle(),
                                 /* enable= */ true);
-                        UserHelper.assignDefaultIcon(mContext, user);
+                        UserHelper.assignDefaultIcon(mContext, user.getUserHandle());
                         mAddUserRecord = new UserRecord(user, UserRecord.ADD_USER);
                         return user;
                     } else {

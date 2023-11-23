@@ -127,6 +127,8 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
     protected UserManager mUserManager;
     protected Context mContext;
     protected boolean mHasSecureLockScreen;
+    protected boolean mIsAutomotive;
+    protected boolean mIsDeviceOwnerTest;
     static CountDownLatch mOnPasswordExpiryTimeoutCalled;
 
     protected final String mTag = getClass().getSimpleName();
@@ -141,12 +143,14 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
 
         mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_SECURE_LOCK_SCREEN);
+        mIsAutomotive = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE);
 
-        boolean isDeviceOwnerTest = "DeviceOwner"
+        mIsDeviceOwnerTest = "DeviceOwner"
                 .equals(InstrumentationRegistry.getArguments().getString("admin_type"));
 
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
-                BasicAdminReceiver.class, isDeviceOwnerTest);
+                BasicAdminReceiver.class, mIsDeviceOwnerTest);
 
         Log.v(TAG, "setup(): dpm for " + getClass() + " and user " + mContext.getUserId() + ": "
                 + mDevicePolicyManager);
@@ -159,7 +163,7 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
         Log.d(mTag, "setup() on user " + mContext.getUserId() + ": package=" + PACKAGE_NAME
                 + ", adminReceiverComponent=" + ADMIN_RECEIVER_COMPONENT
                 + ", isActiveAdmin=" + isActiveAdmin + ", isProfileOwner=" + isProfileOwner
-                + ", isDeviceOwner=" + isDeviceOwner + ", isDeviceOwnerTest=" + isDeviceOwnerTest);
+                + ", isDeviceOwner=" + isDeviceOwner + ", isDeviceOwnerTest=" + mIsDeviceOwnerTest);
 
         assertWithMessage("active admin for %s", ADMIN_RECEIVER_COMPONENT).that(isActiveAdmin)
                 .isTrue();

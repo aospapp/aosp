@@ -57,7 +57,7 @@ func TestClearEmptySysrootFlagInEnv(t *testing.T) {
 
 func TestSetSysrootRelativeToWrapperPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.gccRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand(gccX86_64, mainCc)))
 		if err := verifyArgOrder(cmd,
@@ -69,7 +69,7 @@ func TestSetSysrootRelativeToWrapperPath(t *testing.T) {
 
 func TestSetSysrootRelativeToSymlinkedWrapperPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.gccRootRelPath = "somepath"
 		linkedWrapperPath := path.Join(ctx.tempDir, "a/linked/path/x86_64-cros-linux-gnu-gcc")
 		ctx.symlink(path.Join(ctx.tempDir, gccX86_64), linkedWrapperPath)
 

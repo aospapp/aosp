@@ -17,11 +17,14 @@
 package com.google.turbine.lower;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.MoreFiles.getFileExtension;
 import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -35,6 +38,7 @@ import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.ClassPath;
 import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.diag.SourceFile;
+import com.google.turbine.options.LanguageVersion;
 import com.google.turbine.parse.Parser;
 import com.google.turbine.testing.AsmUtils;
 import com.google.turbine.tree.Tree.CompUnit;
@@ -79,10 +83,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.InnerClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.RecordComponentNode;
 import org.objectweb.asm.tree.TypeAnnotationNode;
 
 /** Support for bytecode diffing-integration tests. */
-public class IntegrationTestSupport {
+public final class IntegrationTestSupport {
 
   /**
    * Normalizes order of members, attributes, and constant pool entries, to allow diffing bytecode.
@@ -240,11 +245,21 @@ public class IntegrationTestSupport {
     for (FieldNode f : n.fields) {
       sortAnnotations(f.visibleAnnotations);
       sortAnnotations(f.invisibleAnnotations);
-
-      sortAnnotations(f.visibleAnnotations);
-      sortAnnotations(f.invisibleAnnotations);
       sortTypeAnnotations(f.visibleTypeAnnotations);
       sortTypeAnnotations(f.invisibleTypeAnnotations);
+    }
+
+    if (n.recordComponents != null) {
+      for (RecordComponentNode r : n.recordComponents) {
+        sortAnnotations(r.visibleAnnotations);
+        sortAnnotations(r.invisibleAnnotations);
+        sortTypeAnnotations(r.visibleTypeAnnotations);
+        sortTypeAnnotations(r.invisibleTypeAnnotations);
+      }
+    }
+
+    if (n.nestMembers != null) {
+      Collections.sort(n.nestMembers);
     }
   }
 
@@ -321,6 +336,26 @@ public class IntegrationTestSupport {
       addTypesInTypeAnnotations(types, f.visibleTypeAnnotations);
       addTypesInTypeAnnotations(types, f.invisibleTypeAnnotations);
     }
+    if (n.recordComponents != null) {
+      for (RecordComponentNode r : n.recordComponents) {
+        collectTypesFromSignature(types, r.descriptor);
+        collectTypesFromSignature(types, r.signature);
+
+        addTypesInAnnotations(types, r.visibleAnnotations);
+        addTypesInAnnotations(types, r.invisibleAnnotations);
+        addTypesInTypeAnnotations(types, r.visibleTypeAnnotations);
+        addTypesInTypeAnnotations(types, r.invisibleTypeAnnotations);
+      }
+    }
+
+    if (n.nestMembers != null) {
+      for (String member : n.nestMembers) {
+        InnerClassNode i = infos.get(member);
+        if (i.outerName != null) {
+          types.add(member);
+        }
+      }
+    }
 
     List<InnerClassNode> used = new ArrayList<>();
     for (InnerClassNode i : n.innerClasses) {
@@ -334,6 +369,11 @@ public class IntegrationTestSupport {
     }
     addInnerChain(infos, used, n.name);
     n.innerClasses = used;
+
+    if (n.nestMembers != null) {
+      Set<String> members = used.stream().map(i -> i.name).collect(toSet());
+      n.nestMembers = n.nestMembers.stream().filter(members::contains).collect(toList());
+    }
   }
 
   private static void addTypesFromParameterAnnotations(
@@ -410,20 +450,21 @@ public class IntegrationTestSupport {
     final Set<String> classes1 = classes;
     new SignatureReader(signature)
         .accept(
-            new SignatureVisitor(Opcodes.ASM7) {
+            new SignatureVisitor(Opcodes.ASM9) {
               private final Set<String> classes = classes1;
               // class signatures may contain type arguments that contain class signatures
               Deque<List<String>> pieces = new ArrayDeque<>();
 
               @Override
               public void visitInnerClassType(String name) {
-                pieces.peek().add(name);
+                pieces.element().add(name);
               }
 
               @Override
               public void visitClassType(String name) {
-                pieces.push(new ArrayList<>());
-                pieces.peek().add(name);
+                List<String> classType = new ArrayList<>();
+                classType.add(name);
+                pieces.push(classType);
               }
 
               @Override
@@ -434,20 +475,32 @@ public class IntegrationTestSupport {
             });
   }
 
-  static Map<String, byte[]> runTurbine(Map<String, String> input, ImmutableList<Path> classpath)
+  public static Map<String, byte[]> runTurbine(
+      Map<String, String> input, ImmutableList<Path> classpath) throws IOException {
+    return runTurbine(input, classpath, ImmutableList.of());
+  }
+
+  public static Map<String, byte[]> runTurbine(
+      Map<String, String> input, ImmutableList<Path> classpath, ImmutableList<String> javacopts)
       throws IOException {
     return runTurbine(
-        input, classpath, TURBINE_BOOTCLASSPATH, /* moduleVersion= */ Optional.empty());
+        input, classpath, TURBINE_BOOTCLASSPATH, /* moduleVersion= */ Optional.empty(), javacopts);
   }
 
   static Map<String, byte[]> runTurbine(
       Map<String, String> input,
       ImmutableList<Path> classpath,
       ClassPath bootClassPath,
-      Optional<String> moduleVersion)
+      Optional<String> moduleVersion,
+      ImmutableList<String> javacopts)
       throws IOException {
     BindingResult bound = turbineAnalysis(input, classpath, bootClassPath, moduleVersion);
-    return Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+    return Lower.lowerAll(
+            LanguageVersion.fromJavacopts(javacopts),
+            bound.units(),
+            bound.modules(),
+            bound.classPathEnv())
+        .bytes();
   }
 
   public static BindingResult turbineAnalysis(
@@ -510,7 +563,7 @@ public class IntegrationTestSupport {
           @Override
           public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
               throws IOException {
-            if (path.getFileName().toString().endsWith(".class")) {
+            if (getFileExtension(path).equals("class")) {
               classes.add(path);
             }
             return FileVisitResult.CONTINUE;
@@ -551,7 +604,9 @@ public class IntegrationTestSupport {
     fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(out));
     fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
     fileManager.setLocationFromPaths(StandardLocation.locationFor("MODULE_PATH"), classpath);
-    if (inputs.stream().filter(i -> i.getFileName().toString().equals("module-info.java")).count()
+    if (inputs.stream()
+            .filter(i -> requireNonNull(i.getFileName()).toString().equals("module-info.java"))
+            .count()
         > 1) {
       // multi-module mode
       fileManager.setLocationFromPaths(
@@ -578,7 +633,7 @@ public class IntegrationTestSupport {
         na = na.substring(1);
       }
       sb.append(String.format("=== %s ===\n", na));
-      sb.append(AsmUtils.textify(compiled.get(key)));
+      sb.append(AsmUtils.textify(compiled.get(key), /* skipDebug= */ true));
     }
     return sb.toString();
   }
@@ -634,4 +689,10 @@ public class IntegrationTestSupport {
       return new TestInput(sources, classes);
     }
   }
+
+  public static int getMajor() {
+    return Runtime.version().feature();
+  }
+
+  private IntegrationTestSupport() {}
 }

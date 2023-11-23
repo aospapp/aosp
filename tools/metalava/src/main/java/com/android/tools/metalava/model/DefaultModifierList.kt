@@ -16,8 +16,6 @@
 
 package com.android.tools.metalava.model
 
-import com.android.tools.metalava.compatibility
-
 open class DefaultModifierList(
     override val codebase: Codebase,
     protected var flags: Int = PACKAGE_PRIVATE,
@@ -54,7 +52,8 @@ open class DefaultModifierList(
         val levels = VISIBILITY_LEVEL_ENUMS
         if (visibilityFlags >= levels.size) {
             throw IllegalStateException(
-                "Visibility flags are invalid, expected value in range [0, " + levels.size + ") got " + visibilityFlags)
+                "Visibility flags are invalid, expected value in range [0, " + levels.size + ") got " + visibilityFlags
+            )
         }
         return levels[visibilityFlags]
     }
@@ -147,6 +146,14 @@ open class DefaultModifierList(
         return isSet(INLINE)
     }
 
+    override fun isValue(): Boolean {
+        return isSet(VALUE)
+    }
+
+    override fun isData(): Boolean {
+        return isSet(DATA)
+    }
+
     override fun setVisibilityLevel(level: VisibilityLevel) {
         flags = (flags and VISIBILITY_MASK.inv()) or level.visibilityFlagValue
     }
@@ -207,6 +214,14 @@ open class DefaultModifierList(
         set(INLINE, inline)
     }
 
+    override fun setValue(value: Boolean) {
+        set(VALUE, value)
+    }
+
+    override fun setData(data: Boolean) {
+        set(DATA, data)
+    }
+
     override fun setVarArg(vararg: Boolean) {
         set(VARARG, vararg)
     }
@@ -250,21 +265,23 @@ open class DefaultModifierList(
     override fun equivalentTo(other: ModifierList): Boolean {
         if (other is DefaultModifierList) {
             val flags2 = other.flags
-            val mask = if (compatibility.includeSynchronized) COMPAT_EQUIVALENCE_MASK else EQUIVALENCE_MASK
+            val mask = EQUIVALENCE_MASK
 
             val masked1 = flags and mask
             val masked2 = flags2 and mask
             val same = masked1 xor masked2
             if (same == 0) {
                 return true
-            } else if (compatibility.hideDifferenceImplicit) {
+            } else {
                 if (same == FINAL &&
                     // Only differ in final: not significant if implied by containing class
-                    isFinal() && (owner as? MethodItem)?.containingClass()?.modifiers?.isFinal() == true) {
+                    isFinal() && (owner as? MethodItem)?.containingClass()?.modifiers?.isFinal() == true
+                ) {
                     return true
                 } else if (same == DEPRECATED &&
                     // Only differ in deprecated: not significant if implied by containing class
-                    isDeprecated() && (owner as? MethodItem)?.containingClass()?.deprecated == true) {
+                    isDeprecated() && (owner as? MethodItem)?.containingClass()?.deprecated == true
+                ) {
                     return true
                 }
             }
@@ -323,6 +340,8 @@ open class DefaultModifierList(
         const val SUSPEND = 1 shl 19
         const val COMPANION = 1 shl 20
         const val CONST = 1 shl 21
+        const val DATA = 1 shl 22
+        const val VALUE = 1 shl 23
 
         /**
          * Modifiers considered significant to include signature files (and similarly
@@ -331,7 +350,5 @@ open class DefaultModifierList(
         private const val EQUIVALENCE_MASK = VISIBILITY_MASK or STATIC or ABSTRACT or
             FINAL or TRANSIENT or VOLATILE or DEPRECATED or VARARG or
             SEALED or FUN or INFIX or OPERATOR or SUSPEND or COMPANION
-
-        private const val COMPAT_EQUIVALENCE_MASK = EQUIVALENCE_MASK or SYNCHRONIZED
     }
 }

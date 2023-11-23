@@ -21,10 +21,14 @@ import static com.android.cellbroadcastreceiver.CellBroadcastAlertService.SHOW_N
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.provider.Telephony;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.NetworkRegistrationInfo;
@@ -80,6 +84,8 @@ public class CellBroadcastAlertServiceTest extends
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        // No roaming supported by default
+        doReturn("").when(mMockedSharedPreferences).getString(anyString(), anyString());
     }
 
     @After
@@ -362,6 +368,11 @@ public class CellBroadcastAlertServiceTest extends
     }
 
     public void testShouldDisplayMessage() {
+        putResources(com.android.cellbroadcastreceiver.R.array
+                .state_local_test_alert_range_strings, new String[]{
+                    "0x112E:rat=gsm, emergency=true",
+                    "0x112F:rat=gsm, emergency=true",
+                });
         sendMessage(1);
         waitForServiceIntent();
 
@@ -383,5 +394,119 @@ public class CellBroadcastAlertServiceTest extends
         assertTrue("Message should be ETWS message", message.isEtwsMessage());
         assertTrue("Should display ETWS message",
                 cellBroadcastAlertService.shouldDisplayMessage(message));
+
+        SmsCbMessage message2 = new SmsCbMessage(1, 2, 3, new SmsCbLocation(),
+                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_STATE_LOCAL_TEST,
+                "language", "body",
+                SmsCbMessage.MESSAGE_PRIORITY_NORMAL, null,
+                null, 0, 1);
+
+        // check disable when setting is shown and preference is false
+        disablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .show_state_local_test_settings, true);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .state_local_test_alerts_enabled_default, true);
+        assertFalse("Should disable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        // check disable when setting is not shown and default preference is false
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .show_state_local_test_settings, false);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .state_local_test_alerts_enabled_default, false);
+        assertFalse("Should disable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        // check enable when setting is not shown and default preference is true
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .show_state_local_test_settings, false);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .state_local_test_alerts_enabled_default, true);
+        assertTrue("Should enable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        // check enable when setting is shown and preference is true
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .show_state_local_test_settings, true);
+        putResources(com.android.cellbroadcastreceiver.R.bool
+                .state_local_test_alerts_enabled_default, false);
+        assertTrue("Should enable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        // roaming case
+        Context mockContext = mock(Context.class);
+        Resources mockResources = mock(Resources.class);
+        doReturn(mockResources).when(mockContext).getResources();
+        ((TestContextWrapper) mContext).injectCreateConfigurationContext(mockContext);
+        // inject roaming operator
+        doReturn("123").when(mMockedSharedPreferences)
+                .getString(anyString(), anyString());
+        doReturn(true).when(mockResources).getBoolean(
+                eq(com.android.cellbroadcastreceiver.R.bool
+                        .state_local_test_alerts_enabled_default));
+
+        disablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        assertTrue("Should enable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        assertTrue("Should enable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        doReturn(false).when(mockResources).getBoolean(
+                eq(com.android.cellbroadcastreceiver.R.bool
+                        .state_local_test_alerts_enabled_default));
+        disablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        assertFalse("Should disable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        assertTrue("Should enable local test channel",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+        ((TestContextWrapper) mContext).injectCreateConfigurationContext(null);
+    }
+
+    public void testFilterLanguage() {
+        final String language = "en";
+        final String language2nd = "es";
+        doReturn(new String[]{"0x112E:rat=gsm, emergency=true, filter_language=true",
+                "0x112F:rat=gsm, emergency=true"}).when(mResources).getStringArray(
+                        eq(com.android.cellbroadcastreceiver.R.array
+                                .state_local_test_alert_range_strings));
+        doReturn(language).when(mResources).getString(
+                eq(com.android.cellbroadcastreceiver.R.string
+                        .emergency_alert_second_language_code));
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE);
+        enablePreference(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
+        enablePreference(CellBroadcastSettings.KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE);
+
+        sendMessage(1);
+        waitForServiceIntent();
+        CellBroadcastAlertService cellBroadcastAlertService =
+                (CellBroadcastAlertService) getService();
+
+        // Verify the message with the same language to be displayed for the channel
+        // with filter_language=true
+        SmsCbMessage message = new SmsCbMessage(1, 2, 3, new SmsCbLocation(), 0x112E,
+                language, "body", SmsCbMessage.MESSAGE_PRIORITY_NORMAL, null, null, 0, 1);
+
+        assertTrue("Should display the message",
+                cellBroadcastAlertService.shouldDisplayMessage(message));
+
+        // Verify the message with the different language not to be displayed for the channel
+        // with filter_language=true
+        SmsCbMessage message2 = new SmsCbMessage(1, 2, 3, new SmsCbLocation(), 0x112E,
+                language2nd, "body", SmsCbMessage.MESSAGE_PRIORITY_NORMAL, null, null, 0, 1);
+
+        assertFalse("Should not display the message",
+                cellBroadcastAlertService.shouldDisplayMessage(message2));
+
+        // Verify the message with the different language to be displayed for the channel
+        // without filter_language=true
+        SmsCbMessage message3 = new SmsCbMessage(1, 2, 3, new SmsCbLocation(), 0x112F,
+                language2nd, "body", SmsCbMessage.MESSAGE_PRIORITY_NORMAL, null, null, 0, 1);
+
+        assertTrue("Should display the message",
+                cellBroadcastAlertService.shouldDisplayMessage(message3));
     }
 }

@@ -33,6 +33,7 @@
       <xs:attribute name="isFactory" type="xs:boolean" use="required"/>
       <xs:attribute name="isActive" type="xs:boolean" use="required"/>
       <xs:attribute name="lastUpdateMillis" type="xs:long"/>
+      <xs:attribute name="provideSharedApexLibs" type="xs:boolean" use="required"/>
     </xs:complexType>
   </xs:element>
 </xs:schema>

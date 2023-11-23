@@ -18,6 +18,7 @@ package com.android.timezone.location.provider.core;
 import static com.android.timezone.location.provider.core.OfflineLocationTimeZoneDelegate.LOCATION_LISTEN_MODE_ACTIVE;
 import static com.android.timezone.location.provider.core.OfflineLocationTimeZoneDelegate.LOCATION_LISTEN_MODE_PASSIVE;
 import static com.android.timezone.location.provider.core.TimeZoneProviderResult.RESULT_TYPE_SUGGESTION;
+import static com.android.timezone.location.provider.core.TimeZoneProviderResult.RESULT_TYPE_UNCERTAIN;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -91,16 +92,13 @@ public class OfflineLocationTimeZoneDelegateTest {
         assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
         mTestEnvironment.assertIsNotListening();
         mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
 
-        mDelegate.onBind();
-        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
-        mTestEnvironment.assertIsNotListening();
-        mTestEnvironment.assertNoActiveTimeouts();
+        final Duration initializationTimeout = Duration.ofSeconds(20);
+        mDelegate.onStartUpdates(initializationTimeout);
 
         // The provider should have started an initialization timeout and followed the first
         // instruction from the accountant.
-        final Duration initializationTimeout = Duration.ofSeconds(20);
-        mDelegate.onStartUpdates(initializationTimeout);
         FakeEnvironment.TestTimeoutState<?> initializationTimeoutState =
                 mTestEnvironment.getActiveTimeoutState(0);
         initializationTimeoutState.assertDelay(initializationTimeout);
@@ -147,16 +145,13 @@ public class OfflineLocationTimeZoneDelegateTest {
         assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
         mTestEnvironment.assertIsNotListening();
         mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
 
-        mDelegate.onBind();
-        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
-        mTestEnvironment.assertIsNotListening();
-        mTestEnvironment.assertNoActiveTimeouts();
+        final Duration initializationTimeout = Duration.ofSeconds(20);
+        mDelegate.onStartUpdates(initializationTimeout);
 
         // The provider should have started an initialization timeout and followed the first
         // instruction from the accountant.
-        final Duration initializationTimeout = Duration.ofSeconds(20);
-        mDelegate.onStartUpdates(initializationTimeout);
         FakeEnvironment.TestTimeoutState<?> initializationTimeoutState =
                 mTestEnvironment.getActiveTimeoutState(0);
         initializationTimeoutState.assertDelay(initializationTimeout);
@@ -177,6 +172,102 @@ public class OfflineLocationTimeZoneDelegateTest {
         // Check the provider has moved onto the next instruction.
         mTestEnvironment.assertIsLocationListening(
                 passiveInstruction.listenMode, passiveInstruction.duration);
+    }
+
+    @Test
+    public void onDestroy_neverStarted() throws Exception {
+        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
+
+        mDelegate.onDestroy();
+
+        assertEquals(Mode.MODE_DESTROYED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
+    }
+
+    @Test
+    public void onDestroy_afterStarted() throws Exception {
+        // Prime the accountant with instructions.
+        ListeningInstruction activeInstruction = new ListeningInstruction(
+                LOCATION_LISTEN_MODE_ACTIVE, Duration.ofSeconds(15));
+        ListeningInstruction passiveInstruction = new ListeningInstruction(
+                LOCATION_LISTEN_MODE_PASSIVE, Duration.ofSeconds(25));
+        mTestLocationListeningAccountant.addInstruction(activeInstruction)
+                .addInstruction(passiveInstruction);
+
+        // Start of the test
+
+        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
+
+        final Duration initializationTimeout = Duration.ofSeconds(20);
+        mDelegate.onStartUpdates(initializationTimeout);
+
+        // The provider should have started an initialization timeout and followed the first
+        // instruction from the accountant.
+        FakeEnvironment.TestTimeoutState<?> initializationTimeoutState =
+                mTestEnvironment.getActiveTimeoutState(0);
+        initializationTimeoutState.assertDelay(initializationTimeout);
+        assertEquals(Mode.MODE_STARTED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsLocationListening(
+                activeInstruction.listenMode, activeInstruction.duration);
+
+        // Destroyed without first being stopped.
+        mDelegate.onDestroy();
+
+        assertEquals(Mode.MODE_DESTROYED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertUncertainResultReported();
+    }
+
+    @Test
+    public void onDestroy_afterStartedAndStopped() throws Exception {
+        // Prime the accountant with instructions.
+        ListeningInstruction activeInstruction = new ListeningInstruction(
+                LOCATION_LISTEN_MODE_ACTIVE, Duration.ofSeconds(15));
+        ListeningInstruction passiveInstruction = new ListeningInstruction(
+                LOCATION_LISTEN_MODE_PASSIVE, Duration.ofSeconds(25));
+        mTestLocationListeningAccountant.addInstruction(activeInstruction)
+                .addInstruction(passiveInstruction);
+
+        // Start of the test
+        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
+
+        final Duration initializationTimeout = Duration.ofSeconds(20);
+        mDelegate.onStartUpdates(initializationTimeout);
+
+        // The provider should have started an initialization timeout and followed the first
+        // instruction from the accountant.
+        FakeEnvironment.TestTimeoutState<?> initializationTimeoutState =
+                mTestEnvironment.getActiveTimeoutState(0);
+        initializationTimeoutState.assertDelay(initializationTimeout);
+        assertEquals(Mode.MODE_STARTED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsLocationListening(
+                activeInstruction.listenMode, activeInstruction.duration);
+
+        mDelegate.onStopUpdates();
+        assertEquals(Mode.MODE_STOPPED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
+
+        // Destroyed without first being stopped.
+        mDelegate.onDestroy();
+
+        assertEquals(Mode.MODE_DESTROYED, mDelegate.getCurrentModeEnumForTests());
+        mTestEnvironment.assertIsNotListening();
+        mTestEnvironment.assertNoActiveTimeouts();
+        mTestEnvironment.assertNoResultReported();
     }
 
     private static class FakeEnvironment implements Environment {
@@ -328,6 +419,12 @@ public class OfflineLocationTimeZoneDelegateTest {
             assertNotNull(mLastResultReported);
             assertEquals(RESULT_TYPE_SUGGESTION, mLastResultReported.getType());
             assertEquals(expectedTimeZoneIds, mLastResultReported.getSuggestion().getTimeZoneIds());
+            return this;
+        }
+
+        FakeEnvironment assertUncertainResultReported() {
+            assertNotNull(mLastResultReported);
+            assertEquals(RESULT_TYPE_UNCERTAIN, mLastResultReported.getType());
             return this;
         }
 
@@ -483,8 +580,8 @@ public class OfflineLocationTimeZoneDelegateTest {
                     return false;
                 }
                 FakeLocationToken that = (FakeLocationToken) o;
-                return Double.compare(that.mLngDegrees, mLngDegrees) == 0 &&
-                        Double.compare(that.mLatDegrees, mLatDegrees) == 0;
+                return Double.compare(that.mLngDegrees, mLngDegrees) == 0
+                        && Double.compare(that.mLatDegrees, mLatDegrees) == 0;
             }
 
             @Override

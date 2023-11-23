@@ -99,10 +99,10 @@
 /* Define to 1 if you have the `lockf' function. */
 #undef HAVE_LOCKF
 
-/* Define when the compiler supports LOFF_T type */
+/* Define to 1 if the system has the type `loff_t'. */
 #undef HAVE_LOFF_T
 
-/* Define when the compiler supports LONG_LONG type */
+/* Define to 1 if the system has the type `long long'. */
 #undef HAVE_LONG_LONG
 
 /* Define to 1 if you have the `lseek64' function. */
@@ -141,11 +141,11 @@
 /* Define to 1 if you have the <netinet/tcp.h> header file. */
 #undef HAVE_NETINET_TCP_H
 
-/* Define when the compiler supports OFFSET_T type */
-#undef HAVE_OFFSET_T
+/* Define to 1 if the system has the type `off64_t'. */
+#undef HAVE_OFF64_T
 
-/* Define when the system has a 64 bit off_t type */
-#undef HAVE_OFF_T_64
+/* Define to 1 if the system has the type `offset_t'. */
+#undef HAVE_OFFSET_T
 
 /* Define to 1 if you have the `on_exit' function. */
 #undef HAVE_ON_EXIT
@@ -188,6 +188,12 @@
 
 /* Define to 1 if you have the `stat64' function. */
 #undef HAVE_STAT64
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
+
+/* Define to 1 if stdbool.h conforms to C99. */
+#undef HAVE_STDBOOL_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -251,6 +257,9 @@
 
 /* Define to 1 if you have the `strtoul' function. */
 #undef HAVE_STRTOUL
+
+/* Define to 1 if you have the <sys/fdio.h> header file. */
+#undef HAVE_SYS_FDIO_H
 
 /* Define to 1 if you have the <sys/file.h> header file. */
 #undef HAVE_SYS_FILE_H
@@ -342,6 +351,9 @@
 /* Define to 1 if you have the <xlocale.h> header file. */
 #undef HAVE_XLOCALE_H
 
+/* Define to 1 if the system has the type `_Bool'. */
+#undef HAVE__BOOL
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -369,8 +381,8 @@
 /* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of `long long', as computed by sizeof. */
-#undef SIZEOF_LONG_LONG
+/* The size of `off_t', as computed by sizeof. */
+#undef SIZEOF_OFF_T
 
 /* The size of `size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
@@ -435,6 +447,12 @@
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS
+
+/* Needed for off64_t / lseek64 */
+#undef _LARGEFILE64_SOURCE
+
+/* Might be needed for loff_t / llseek64 */
+#undef _LARGEFILE_SOURCE
 
 /* Define for large files, on AIX-style hosts. */
 #undef _LARGE_FILES

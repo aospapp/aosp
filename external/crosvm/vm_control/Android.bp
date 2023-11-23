@@ -15,9 +15,12 @@ rust_library {
     defaults: ["crosvm_defaults"],
     host_supported: true,
     crate_name: "vm_control",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.1.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
+        "libballoon_control",
         "libbase_rust",
         "libdata_model",
         "libhypervisor",
@@ -27,10 +30,12 @@ rust_library {
         "libserde",
         "libserde_json",
         "libsync_rust",
+        "libthiserror",
         "libvm_memory",
     ],
+    proc_macros: ["libremain"],
     target: {
-        linux_glibc_x86_64: {
+        host_linux: {
             features: [
                 "gdb",
             ],
@@ -39,59 +44,5 @@ rust_library {
             ],
         },
     },
-}
 
-rust_defaults {
-    name: "vm_control_test_defaults",
-    defaults: ["crosvm_defaults"],
-    crate_name: "vm_control",
-    srcs: ["src/lib.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    rustlibs: [
-        "libbase_rust",
-        "libdata_model",
-        "libhypervisor",
-        "liblibc",
-        "libresources",
-        "librutabaga_gfx",
-        "libserde",
-        "libserde_json",
-        "libsync_rust",
-        "libvm_memory",
-    ],
-}
-
-rust_test_host {
-    name: "vm_control_host_test_src_lib",
-    defaults: ["vm_control_test_defaults"],
-    test_options: {
-        unit_test: true,
-    },
-    target: {
-        linux_glibc_x86_64: {
-            features: [
-                "gdb",
-            ],
-            rustlibs: [
-                "libgdbstub_arch",
-            ],
-        },
-    },
-}
-
-rust_test {
-    name: "vm_control_device_test_src_lib",
-    defaults: ["vm_control_test_defaults"],
-    target: {
-        linux_glibc_x86_64: {
-            features: [
-                "gdb",
-            ],
-            rustlibs: [
-                "libgdbstub_arch",
-            ],
-        },
-    },
 }

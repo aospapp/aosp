@@ -48,7 +48,8 @@ public class GattPMCReceiver extends BroadcastReceiver {
 
         // RegisterAlarmReceiver for GattListener
         context.registerReceiver(mGattClientListener,
-                new IntentFilter(GattClientListener.GATTCLIENT_ALARM));
+                new IntentFilter(GattClientListener.GATTCLIENT_ALARM),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Log.d(TAG, "Start GattPMCReceiver()");
     }
 

@@ -18,7 +18,10 @@ package {
 
 android_test {
     name: "CtsMediaParserTestCases",
-    defaults: ["CtsMediaParserTestCasesDefaults", "cts_defaults"],
+    defaults: [
+        "CtsMediaParserTestCasesDefaults",
+        "cts_defaults",
+    ],
     min_sdk_version: "29",
     test_suites: [
         "cts",
@@ -39,8 +42,8 @@ java_defaults {
     static_libs: [
         "ctstestrunner-axt",
         "androidx.test.ext.junit",
-        "exoplayer2-extractor-test-utils",
-        "exoplayer2-extractor-tests-assets",
+        "exoplayer-cts_media-test_assets",
+        "exoplayer-cts_media-test_utils",
     ],
     libs: [
         "android.test.base",

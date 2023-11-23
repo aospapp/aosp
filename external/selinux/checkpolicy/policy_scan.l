@@ -36,6 +36,8 @@ typedef int (* require_func_t)(void);
 
 static char linebuf[2][255];
 static unsigned int lno = 0;
+int werror = 0;
+int yyerror(const char *msg);
 int yywarn(const char *msg);
 
 void set_source_file(const char *name);
@@ -57,12 +59,24 @@ alnum   [a-zA-Z0-9]
 hexval	[0-9A-Fa-f]
 
 %%
-\n.*				{ strncpy(linebuf[lno], yytext+1, 255);
-                                  linebuf[lno][254] = 0;
-                                  lno = 1 - lno; 
-                                  policydb_lineno++;
-				  source_lineno++;
-                                  yyless(1); }
+\n.*				{
+#if defined(__GNUC__) && __GNUC__ >= 8
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+#endif
+				  strncpy(linebuf[lno], yytext+1, 255);
+#if defined(__GNUC__) && __GNUC__ >= 8
+#pragma GCC diagnostic pop
+#endif
+				  linebuf[lno][254] = 0;
+				  lno = 1 - lno;
+				  policydb_lineno++;
+				  if (source_lineno == ULONG_MAX)
+				      yywarn("source line number overflow");
+				  else
+				      source_lineno++;
+				  yyless(1);
+				}
 CLONE |
 clone				{ return(CLONE); }
 COMMON |
@@ -268,7 +282,13 @@ GLBLUB				{ return(GLBLUB); }
 {hexval}{0,4}":"{hexval}{0,4}":"({hexval}|[:.])*  { return(IPV6_ADDR); }
 {digit}+(\.({alnum}|[_.])*)?    { return(VERSION_IDENTIFIER); }
 #line[ ]1[ ]\"[^\n]*\"		{ set_source_file(yytext+9); }
-#line[ ]{digit}+	        { source_lineno = atoi(yytext+6)-1; }
+#line[ ]{digit}+	        {
+				  errno = 0;
+				  source_lineno = strtoul(yytext+6, NULL, 10) - 1;
+				  if (errno) {
+				    yywarn("source line number too big");
+				  }
+				}
 #[^\n]*                         { /* delete comments */ }
 [ \t\f]+			{ /* delete whitespace */ }
 "==" 				{ return(EQUALS); }
@@ -290,16 +310,16 @@ GLBLUB				{ return(GLBLUB); }
 "]" |
 "~" |
 "*"				{ return(yytext[0]); } 
-.                               { yywarn("unrecognized character");}
+.                               { yyerror("unrecognized character");}
 %%
 int yyerror(const char *msg)
 {
 	if (source_file[0])
-		fprintf(stderr, "%s:%ld:",
+		fprintf(stderr, "%s:%lu:",
 			source_file, source_lineno);
 	else
 		fprintf(stderr, "(unknown source)::");
-	fprintf(stderr, "ERROR '%s' at token '%s' on line %ld:\n%s\n%s\n",
+	fprintf(stderr, "ERROR '%s' at token '%s' on line %lu:\n%s\n%s\n",
 			msg,
 			yytext,
 			policydb_lineno,
@@ -310,12 +330,15 @@ int yyerror(const char *msg)
 
 int yywarn(const char *msg)
 {
+	if (werror)
+		return yyerror(msg);
+
 	if (source_file[0])
-		fprintf(stderr, "%s:%ld:",
+		fprintf(stderr, "%s:%lu:",
 			source_file, source_lineno);
 	else
 		fprintf(stderr, "(unknown source)::");
-	fprintf(stderr, "WARNING '%s' at token '%s' on line %ld:\n%s\n%s\n",
+	fprintf(stderr, "WARNING '%s' at token '%s' on line %lu:\n%s\n%s\n",
 			msg,
 			yytext,
 			policydb_lineno,

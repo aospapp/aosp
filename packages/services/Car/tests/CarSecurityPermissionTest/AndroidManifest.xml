@@ -17,6 +17,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.securitypermissiontest">
+    <uses-sdk android:minSdkVersion="33"/>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.car.securitypermissiontest"
                      android:label="Security permission tests for Car APIs"/>

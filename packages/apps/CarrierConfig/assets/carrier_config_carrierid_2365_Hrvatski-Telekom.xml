@@ -7,4 +7,7 @@
         <item value="95"/>
         <item value="96"/>
     </string-array>
+    <string-array name="carrier_certificate_string_array" num="1">
+        <item value="CC12A9016142DD2080D20F8075C5CC418F64423D3EA773AEC3C838A51508569C:com.hrvatskitelekom.m.mojT"/>
+    </string-array>
 </carrier_config>

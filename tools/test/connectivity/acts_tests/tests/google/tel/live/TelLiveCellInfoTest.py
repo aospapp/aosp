@@ -19,8 +19,8 @@ and regression check for GetAllCellInfo() on Android P
 import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_wifi_connected, \
-    toggle_airplane_mode, ensure_phones_idle, start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
+from acts_contrib.test_utils.tel.tel_wifi_utils import ensure_wifi_connected
 from acts_contrib.test_utils.wifi import wifi_test_utils
 from acts.utils import disable_usb_charging, enable_usb_charging
 

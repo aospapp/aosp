@@ -20,7 +20,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1527793174155125990">"Laneko konfigurazioa"</string>
-    <string name="provisioning_error_title" msgid="6320515739861578118">"Arazo bat izan da."</string>
+    <string name="provisioning_error_title" msgid="6320515739861578118">"Ene!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Konfiguratu laneko profila"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Erakundeak kontrolatzen du profila eta seguru mantentzen du. Gailuan duzun gainerako guztia zeuk kontrolatzen duzu."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"Erakundeak kontrolatuko du gailua, eta seguru mantenduko du."</string>
@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikazio honek kudeatuko du zure gailua:"</string>
     <string name="next" msgid="1004321437324424398">"Hurrengoa"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Laneko profila konfiguratzen…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IKT saileko dministratzaileak gainbegiratu eta kudeatu egin ditzake ezarpenak, enpresa-sarbidea, aplikazioak, baimenak eta profilarekin erlazionatutako datuak (hala nola sareko jarduerak, gailuaren kokapena, deien historia eta kontaktuen bilaketa-historia).<xliff:g id="LINE_BREAK">
-
-</xliff:g>Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroak), jarri IKT saileko administratzailearekin harremanetan."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Profil honekin erlazionatutako ezarpenak, enpresa-sarbidea, aplikazioak, baimenak, datuak, sareko jarduerak, deien historia eta kontaktuen bilaketa-historia gainbegiratu eta kudea ditzake IKT saileko administratzaileak. Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroak), jarri IKT saileko administratzailearekin harremanetan."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IKT saileko administratzaileak gainbegiratu eta kudeatu egin ditzake ezarpenak, enpresa-sarbidea, aplikazioak, baimenak eta gailuarekin erlazionatutako datuak (hala nola sareko jarduerak, gailuaren kokapena, deien historia eta kontaktuen bilaketa-historia).<xliff:g id="LINE_BREAK">
 
 </xliff:g>Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroak), jarri IKT saileko administratzailearekin harremanetan."</string>
@@ -161,13 +159,13 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Telefono hau kudeatzeko eta kontrolatzeko erabiliko da aplikazioa"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Kudeatuta dago kontua"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Gailu mugikorren kudeaketa erabiltzen du IKT saileko administratzaileak segurtasun-gidalerroak aplikatzeko"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"Laneko konfigurazioa gauzatzeko prestatzen…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Konfiguratu laneko profila"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Laneko konfigurazio-prozesua prestatzen…"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Konfigura dezagun laneko profila"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Laneko profilean gordetzen dira laneko aplikazioak"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Laneguna amaitzean, pausatu laneko aplikazioak"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"IKT saileko administratzaileak ikusi egin ditzake laneko profilean dituzun datuak"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"IKT saileko administratzaileak laneko profilean dituzun datuak ikus ditzake"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Laneko profila konfiguratzen…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Laneko profilean gordetzen dira laneko aplikazioak. Laneguna amaitzean, pausatu egin ditzakezu laneko aplikazioak. IKT saileko administratzaileak ikusi egin ditzake laneko profilean dituzun datuak."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Laneko profilean gordetzen dira laneko aplikazioak. Laneguna amaitzean, pausatu egin ditzakezu laneko aplikazioak. IKT saileko administratzaileak laneko profilean dituzun datuak ikus ditzake."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Konfigura dezagun laneko gailua"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Izan laneko aplikazioak eskura"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Gailu hau ez da pribatua"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> erakundeak <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> aplikazioa instala dezake, gailuari dagozkion ordainketak egin ahal izan ditzazun."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Gailua mugatu egin daiteke"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> erakundeak gailu honetarako sarbidea muga dezake ordainketak egiten ez badituzu."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Ezin da konfiguratu gailua. Jarri harremanetan IKT saileko administratzailearekin eta eman \"Batuketak ez du balio\" erreferentzia gisa."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Saiatu berriro geroago edo eskatu laguntza IKT saileko administratzaileari"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Ezin da konfiguratu gailua. Jarri harremanetan IKT saileko administratzailearekin eta eman \"Osagaiak falta dira edo hondatuta daude\" erreferentzia gisa."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Konfiguratzen…"</string>
 </resources>

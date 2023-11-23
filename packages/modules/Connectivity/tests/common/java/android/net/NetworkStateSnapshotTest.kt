@@ -22,6 +22,7 @@ import android.net.InetAddresses.parseNumericAddress
 import android.net.NetworkCapabilities.TRANSPORT_WIFI
 import android.os.Build
 import androidx.test.filters.SmallTest
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
 import com.android.testutils.assertParcelingIsLossless
@@ -59,6 +60,7 @@ private val TEST_CAPABILITIES = NetworkCapabilities().apply {
 @SmallTest
 @RunWith(DevSdkIgnoreRunner::class)
 @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@ConnectivityModuleTest
 class NetworkStateSnapshotTest {
 
     @Test

@@ -16,20 +16,22 @@
 
 package dagger.hilt.processor.internal.root;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
+import static dagger.hilt.processor.internal.HiltCompilerOptions.isSharedTestComponentsEnabled;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.ComponentDescriptor;
-import dagger.hilt.processor.internal.ComponentTree;
 import dagger.hilt.processor.internal.KotlinMetadataUtils;
 import dagger.hilt.processor.internal.Processors;
 import dagger.hilt.processor.internal.aggregateddeps.ComponentDependencies;
@@ -53,15 +55,34 @@ public final class RootMetadata {
       ComponentTree componentTree,
       ComponentDependencies deps,
       ProcessingEnvironment env) {
-    RootMetadata metadata = new RootMetadata(root, componentTree, deps, env);
-    metadata.validate();
-    return metadata;
+    return createInternal(root, ImmutableList.of(), componentTree, deps, env);
   }
 
-  static RootMetadata copyWithNewTree(
-      RootMetadata other,
-      ComponentTree componentTree) {
-    return create(other.root, componentTree, other.deps, other.env);
+  static RootMetadata createForDefaultRoot(
+      Root root,
+      ImmutableList<RootMetadata> rootsUsingDefaultComponents,
+      ComponentTree componentTree,
+      ComponentDependencies deps,
+      ProcessingEnvironment env) {
+    checkState(root.isDefaultRoot());
+    return createInternal(root, rootsUsingDefaultComponents, componentTree, deps, env);
+  }
+
+  static RootMetadata copyWithNewTree(RootMetadata other, ComponentTree componentTree) {
+    return createInternal(
+        other.root, other.rootsUsingDefaultComponents, componentTree, other.deps, other.env);
+  }
+
+  private static RootMetadata createInternal(
+      Root root,
+      ImmutableList<RootMetadata> rootsUsingDefaultComponents,
+      ComponentTree componentTree,
+      ComponentDependencies deps,
+      ProcessingEnvironment env) {
+    RootMetadata metadata =
+        new RootMetadata(root, componentTree, deps, rootsUsingDefaultComponents, env);
+    metadata.validate();
+    return metadata;
   }
 
   private final Root root;
@@ -69,6 +90,7 @@ public final class RootMetadata {
   private final Elements elements;
   private final ComponentTree componentTree;
   private final ComponentDependencies deps;
+  private final ImmutableList<RootMetadata> rootsUsingDefaultComponents;
   private final Supplier<ImmutableSetMultimap<ClassName, ClassName>> scopesByComponent =
       memoize(this::getScopesByComponentUncached);
   private final Supplier<TestRootMetadata> testRootMetadata =
@@ -78,12 +100,14 @@ public final class RootMetadata {
       Root root,
       ComponentTree componentTree,
       ComponentDependencies deps,
+      ImmutableList<RootMetadata> rootsUsingDefaultComponents,
       ProcessingEnvironment env) {
     this.root = root;
     this.env = env;
     this.elements = env.getElementUtils();
     this.componentTree = componentTree;
     this.deps = deps;
+    this.rootsUsingDefaultComponents = rootsUsingDefaultComponents;
   }
 
   public Root root() {
@@ -102,9 +126,25 @@ public final class RootMetadata {
     return deps.modules().get(componentName, root.classname(), root.isTestRoot());
   }
 
+  /**
+   * Returns {@code true} if this is a test root that provides no test-specific dependencies or sets
+   * other options that would prevent it from sharing components with other test roots.
+   */
+  // TODO(groakley): Allow more tests to share modules, e.g. tests that uninstall the same module.
+  // In that case, this might instead return which shared dep grouping should be used.
+  public boolean canShareTestComponents() {
+    return isSharedTestComponentsEnabled(env)
+        && root.isTestRoot()
+        && !deps.includesTestDeps(root.classname());
+  }
+
   public ImmutableSet<TypeName> entryPoints(ClassName componentName) {
     return ImmutableSet.<TypeName>builder()
         .addAll(getUserDefinedEntryPoints(componentName))
+        .add(
+            root.isTestRoot() && componentName.equals(ClassNames.SINGLETON_COMPONENT)
+                ? ClassNames.TEST_SINGLETON_COMPONENT
+                : ClassNames.GENERATED_COMPONENT)
         .add(componentName)
         .build();
   }
@@ -128,6 +168,7 @@ public final class RootMetadata {
   }
 
   public TestRootMetadata testRootMetadata() {
+    checkState(!root.isDefaultRoot(), "The default root does not have TestRootMetadata!");
     return testRootMetadata.get();
   }
 
@@ -149,7 +190,7 @@ public final class RootMetadata {
     for (ComponentDescriptor componentDescriptor : componentTree.getComponentDescriptors()) {
       ClassName componentName = componentDescriptor.component();
       for (TypeElement extraModule : modulesThatDaggerCannotConstruct(componentName)) {
-        if (root.type().isTestRoot() && !componentName.equals(ClassNames.SINGLETON_COMPONENT)) {
+        if (root.isTestRoot() && !componentName.equals(ClassNames.SINGLETON_COMPONENT)) {
           env.getMessager()
               .printMessage(
                   Diagnostic.Kind.ERROR,
@@ -157,7 +198,7 @@ public final class RootMetadata {
                       + "static provision methods or have a visible, no-arg constructor. Found: "
                       + extraModule.getQualifiedName(),
                   root.element());
-        } else if (!root.type().isTestRoot()) {
+        } else if (!root.isTestRoot()) {
           env.getMessager()
               .printMessage(
                   Diagnostic.Kind.ERROR,
@@ -172,10 +213,19 @@ public final class RootMetadata {
 
   private ImmutableSet<TypeName> getUserDefinedEntryPoints(ClassName componentName) {
     ImmutableSet.Builder<TypeName> entryPointSet = ImmutableSet.builder();
-    entryPointSet.add(ClassNames.GENERATED_COMPONENT);
-    for (TypeElement element :
-        deps.entryPoints().get(componentName, root.classname(), root.isTestRoot())) {
-      entryPointSet.add(ClassName.get(element));
+    if (root.isDefaultRoot() && !rootsUsingDefaultComponents.isEmpty()) {
+      // Add entry points for shared component
+      rootsUsingDefaultComponents.stream()
+          .flatMap(metadata -> metadata.entryPoints(componentName).stream())
+          .forEach(entryPointSet::add);
+    } else if (root.isDefaultRoot() && componentName.equals(ClassNames.SINGLETON_COMPONENT)) {
+      // We only do this for SingletonComponent because EarlyEntryPoints can only be installed
+      // in the SingletonComponent.
+      deps.earlyEntryPoints().forEach(entryPointSet::add);
+    } else {
+      deps.entryPoints().get(componentName, root.classname(), root.isTestRoot()).stream()
+          .map(ClassName::get)
+          .forEach(entryPointSet::add);
     }
     return entryPointSet.build();
   }
@@ -188,7 +238,7 @@ public final class RootMetadata {
             .flatMap(descriptor -> descriptor.scopes().stream())
             .collect(toImmutableSet());
 
-    AliasOfs aliasOfs = new AliasOfs(env, defineComponentScopes);
+    AliasOfs aliasOfs = AliasOfs.create(env.getElementUtils(), defineComponentScopes);
 
     for (ComponentDescriptor componentDescriptor : componentTree.getComponentDescriptors()) {
       for (ClassName scope : componentDescriptor.scopes()) {

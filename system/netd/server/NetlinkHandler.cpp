@@ -107,18 +107,6 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
     if (!strcmp(subsys, "net")) {
         NetlinkEvent::Action action = evt->getAction();
         const char *iface = evt->findParam("INTERFACE");
-        if ((action == NetlinkEvent::Action::kAdd) ||
-            (action == NetlinkEvent::Action::kLinkUp) ||
-            (action == NetlinkEvent::Action::kLinkDown)) {
-            const char *ifIndex = evt->findParam("IFINDEX");
-            long ifaceIndex = parseIfIndex(ifIndex);
-            if (ifaceIndex) {
-                gCtls->trafficCtrl.addInterface(iface, ifaceIndex);
-            } else {
-                ALOGE("invalid interface index: %s(%s)", iface, ifIndex);
-            }
-        }
-
         if (action == NetlinkEvent::Action::kAdd) {
             notifyInterfaceAdded(iface);
         } else if (action == NetlinkEvent::Action::kRemove) {

@@ -11,10 +11,11 @@ cc_library_static {
     name: "gfxstream_translator_glesv2",
     defaults: [ "gfxstream_defaults" ],
     static_libs: [
+        "gfxstream_angle_common",
+        "gfxstream_angle_shader_translator",
         "gfxstream_base",
         "gfxstream_apigen_codec_common",
         "gfxstream_translator_glcommon",
-        "gfxstream_angle_stub",
     ],
     cflags: [
         "-fvisibility=hidden",

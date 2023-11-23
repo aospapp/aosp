@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-
-import androidx.build.dependencies.DependenciesKt
 import static androidx.build.SupportConfig.*
 
 buildscript {
@@ -65,7 +63,7 @@ dependencies {
 
 protobuf {
     protoc {
-        artifact = DependenciesKt.getDependencyAsString(libs.protobufCompiler)
+        artifact = libs.protobufCompiler.get()
     }
 
     generateProtoTasks {

@@ -65,4 +65,13 @@
         android:layout_height="wrap_content"
     />
 
+    <TextView
+        android:id="@+id/selectableText"
+        android:textIsSelectable="true"
+        android:text="selectable text"
+        android:singleLine="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+    />
+
 </LinearLayout>

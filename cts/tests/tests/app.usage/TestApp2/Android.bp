@@ -19,7 +19,6 @@ package {
 android_test_helper_app {
     name: "CtsUsageStatsTestApp2",
     defaults: ["cts_defaults"],
-    platform_apis: true,
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",

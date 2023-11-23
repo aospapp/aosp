@@ -26,7 +26,7 @@
     <!-- use for CarServiceTest -->
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
     <uses-permission android:name="android.car.permission.CAR_ENERGY"/>
-    <uses-permission android:name="android.car.permission.CAR_MONITOR_CLUSTER_NAVIGATION_STATE" />
+    <uses-permission android:name="android.car.permission.CAR_MONITOR_CLUSTER_NAVIGATION_STATE"/>
     <!-- use for AndroidCarApiTest -->
     <uses-permission android:name="android.car.permission.CAR_INFO"/>
     <!-- use for AndroidCarApiTest -->
@@ -80,6 +80,7 @@
     <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
+    <uses-permission android:name="android.permission.BACKUP"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
@@ -89,6 +90,7 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+    <uses-permission android:name="android.permission.LOCATION_BYPASS" />
     <!-- Use for sensor access in Sensors fragment. -->
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
     <uses-permission android:name="android.permission.INJECT_EVENTS"/>
@@ -120,6 +122,8 @@
     <!-- use for CarServiceTest -->
     <uses-permission android:name="android.permission.MONITOR_INPUT"/>
     <uses-permission android:name="android.permission.SET_ACTIVITY_WATCHER"/>
+    <!-- use for CarWatchdogReliabilityTest -->
+    <uses-permission android:name="android.car.permission.USE_CAR_WATCHDOG" />
     <!-- needed for User fragment to lock user data -->
     <uses-permission android:name="android.permission.STORAGE_INTERNAL"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
@@ -149,7 +153,19 @@
     <uses-permission android:name="android.car.permission.USE_CAR_EVS_CAMERA"/>
     <uses-permission android:name="android.car.permission.MONITOR_CAR_EVS_STATUS"/>
 
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!-- Allows sending of notifications in T+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- To make curl downloads work in CarTelemetryTestFragment -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- To enable suspend to RAM emulation via shell command in CarTelemetryTestFragment -->
+    <uses-permission android:name="android.permission.DEVICE_POWER"/>
+
+    <!-- Allow backup is set to false for KitchenSinkApp to avoid infinite loop during backup -->
     <application android:label="@string/app_title"
+                 android:allowBackup="false"
          android:icon="@drawable/ic_launcher">
         <uses-library android:name="android.test.runner"/>
         <!-- This is for embedded mode. -->
@@ -161,6 +177,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="tel" />
             </intent-filter>
         </activity>
 
@@ -205,7 +230,7 @@
              android:directBootAware="true">
         </service>
 
-        <service android:name=".UserNoiticeDemoUiService"
+        <service android:name=".UserNoticeDemoUiService"
              android:directBootAware="true"/>
 
         <!-- Content provider for images -->
@@ -284,5 +309,24 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".bluetooth.InCallServiceImpl"
+                 android:exported="false"
+                 android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING"
+                       android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService"/>
+            </intent-filter>
+        </service>
+
+        <!-- This is a backup transport layer, the system recognizes it as a transport host. -->
+        <service android:name=".backup.KitchenSinkBackupTransportService"
+                 android:permission="android.permission.CONFIRM_FULL_BACKUP"
+                 android:exported="false">
+            <intent-filter>
+                <action android:name="android.backup.TRANSPORT_HOST" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

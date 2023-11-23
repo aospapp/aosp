@@ -22,10 +22,13 @@ rust_library {
     name: "libtextwrap",
     host_supported: true,
     crate_name: "textwrap",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.15.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     apex_available: [
         "//apex_available:platform",
+        "com.android.compos",
         "com.android.virt",
     ],
 }

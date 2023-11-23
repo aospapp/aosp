@@ -47,7 +47,7 @@ static void BenchmarkSymbolLookup(benchmark::State& state, std::vector<uint64_t>
 
     unwindstack::Elf elf(unwindstack::Memory::CreateFileMemory(elf_file, 0).release());
     if (!elf.Init() || !elf.valid()) {
-      errx(1, "Internal Error: Cannot open elf.");
+      errx(1, "Internal Error: Cannot open elf: %s", elf_file.c_str());
     }
 
     unwindstack::SharedString name;
@@ -129,3 +129,25 @@ void BM_elf_and_symbol_find_multiple_from_sorted(benchmark::State& state) {
                         GetSymbolSortedElfFile(), true);
 }
 BENCHMARK(BM_elf_and_symbol_find_multiple_from_sorted);
+
+void BM_elf_and_symbol_not_present_from_large_compressed_frame(benchmark::State& state) {
+  BenchmarkSymbolLookup(state, 0, GetLargeCompressedFrameElfFile(), false);
+}
+BENCHMARK(BM_elf_and_symbol_not_present_from_large_compressed_frame);
+
+void BM_elf_and_symbol_find_single_from_large_compressed_frame(benchmark::State& state) {
+  BenchmarkSymbolLookup(state, 0x202aec, GetLargeCompressedFrameElfFile(), true);
+}
+BENCHMARK(BM_elf_and_symbol_find_single_from_large_compressed_frame);
+
+void BM_elf_and_symbol_find_single_many_times_from_large_compressed_frame(benchmark::State& state) {
+  BenchmarkSymbolLookup(state, 0x202aec, GetLargeCompressedFrameElfFile(), true, 4096);
+}
+BENCHMARK(BM_elf_and_symbol_find_single_many_times_from_large_compressed_frame);
+
+void BM_elf_and_symbol_find_multiple_from_large_compressed_frame(benchmark::State& state) {
+  BenchmarkSymbolLookup(state,
+                        std::vector<uint64_t>{0x202aec, 0x23e74c, 0xd000c, 0x201b10, 0x183060},
+                        GetLargeCompressedFrameElfFile(), true);
+}
+BENCHMARK(BM_elf_and_symbol_find_multiple_from_large_compressed_frame);

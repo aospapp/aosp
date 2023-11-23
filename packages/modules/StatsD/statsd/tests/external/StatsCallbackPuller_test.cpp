@@ -128,7 +128,7 @@ TEST_F(StatsCallbackPullerTest, PullSuccess) {
 
     vector<std::shared_ptr<LogEvent>> dataHolder;
     int64_t startTimeNs = getElapsedRealtimeNs();
-    EXPECT_TRUE(puller.PullInternal(&dataHolder));
+    EXPECT_EQ(puller.PullInternal(&dataHolder), PULL_SUCCESS);
     int64_t endTimeNs = getElapsedRealtimeNs();
 
     ASSERT_EQ(1, dataHolder.size());
@@ -148,7 +148,7 @@ TEST_F(StatsCallbackPullerTest, PullFail) {
     StatsCallbackPuller puller(pullTagId, cb, pullCoolDownNs, pullTimeoutNs, {});
 
     vector<shared_ptr<LogEvent>> dataHolder;
-    EXPECT_FALSE(puller.PullInternal(&dataHolder));
+    EXPECT_EQ(puller.PullInternal(&dataHolder), PULL_FAIL);
     ASSERT_EQ(0, dataHolder.size());
 }
 
@@ -165,7 +165,7 @@ TEST_F(StatsCallbackPullerTest, PullTimeout) {
     vector<shared_ptr<LogEvent>> dataHolder;
     int64_t startTimeNs = getElapsedRealtimeNs();
     // Returns true to let StatsPuller code evaluate the timeout.
-    EXPECT_TRUE(puller.PullInternal(&dataHolder));
+    EXPECT_EQ(puller.PullInternal(&dataHolder), PULL_SUCCESS);
     int64_t endTimeNs = getElapsedRealtimeNs();
     int64_t actualPullDurationNs = endTimeNs - startTimeNs;
 

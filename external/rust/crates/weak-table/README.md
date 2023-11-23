@@ -1,13 +1,25 @@
 # weak-table: weak hash maps and sets for Rust
 
-[![Build Status](https://travis-ci.org/tov/weak-table-rs.svg?branch=master)](https://travis-ci.org/tov/weak-table-rs)
+[![Build Status](https://github.com/tov/weak-table-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/tov/weak-table-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/weak-table.svg?maxAge=2592000)](https://crates.io/crates/weak-table)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 
 This crate defines several kinds of weak hash maps and sets. See 
 the [full API documentation](http://docs.rs/weak-table/) for details.
 
-This crate supports Rust version 1.32 and later.
+### Rust version support
+
+This crate supports Rust version 1.46 and later.
+
+### Crate features
+
+`weak-table` is built with the `std` feature, which enables
+functionality dependent on the `std` library, enabled by default.
+Optionally, the following dependency may be enabled:
+
+  - `ahash`: use `ahash`’s hasher rather than the `std` hasher
+
+If the `std` feature is disabled (for no_std) then the `ahash` dependency **must** be enabled.
 
 ### Examples
 

@@ -47,14 +47,36 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
-        "sts"
+        "sts",
     ],
     instrumentation_for: "CtsAppTestStubs",
     sdk_version: "test_current",
     min_sdk_version: "14",
     // Disable coverage since it pushes us over the dex limit and we don't
     // actually need to measure the tests themselves.
-    jacoco: { exclude_filter: ["**"] }
+    jacoco: {
+        exclude_filter: ["**"],
+    },
+    data: [
+        ":CtsSimpleApp",
+        ":CtsAppTestStubs",
+        ":CtsAppTestStubsApp1",
+        ":CtsAppTestStubsApp3",
+        ":CtsAppTestStubsApp2",
+        ":CtsAppTestStubsApi30",
+        ":CtsBadProviderStubs",
+        ":CtsCantSaveState1",
+        ":CtsCantSaveState2",
+        ":NotificationApp",
+        ":NotificationProvider",
+        ":NotificationListener",
+        ":StorageDelegator",
+        ":CtsActivityManagerApi29",
+        ":NotificationTrampoline",
+        ":NotificationTrampolineApi30",
+        ":NotificationTrampolineApi32",
+    ],
+    per_testcase_directory: true,
 }
 
 android_test {
@@ -90,7 +112,7 @@ android_test {
     manifest: "DownloadManagerApi28Test/AndroidManifest.xml",
     test_config: "DownloadManagerApi28Test/AndroidTest.xml",
     lint: {
-    	baseline_filename: "lint-baseline-api-28.xml",
+        baseline_filename: "lint-baseline-api-28.xml",
     },
 }
 
@@ -127,7 +149,7 @@ android_test {
     manifest: "DownloadManagerInstallerTest/AndroidManifest.xml",
     test_config: "DownloadManagerInstallerTest/AndroidTest.xml",
     lint: {
-    	baseline_filename: "lint-baseline-installer.xml",
+        baseline_filename: "lint-baseline-installer.xml",
     },
 }
 
@@ -147,9 +169,13 @@ android_test {
         "cts-wm-util",
         "libprotobuf-java-lite",
     ],
+    aidl: {
+        local_include_dirs: ["app/src"],
+    },
     srcs: [
         ":libtombstone_proto-src",
         "AppExitTest/src/**/*.java",
+        "app/src/**/*.aidl",
         "src/android/app/cts/android/app/cts/tools/WatchUidRunner.java",
     ],
     jarjar_rules: "AppExitTest/jarjar-rules.txt",
@@ -160,4 +186,10 @@ android_test {
     manifest: "AppExitTest/AndroidManifest.xml",
     test_config: "AppExitTest/AndroidTest.xml",
     platform_apis: true,
+    data: [
+        ":CtsSimpleApp",
+        ":CtsExternalServiceService",
+        ":CtsAppTestStubs",
+    ],
+    per_testcase_directory: true,
 }

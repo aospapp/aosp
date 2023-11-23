@@ -24,6 +24,7 @@ import static android.scopedstorage.cts.lib.TestUtils.CHECK_DATABASE_ROW_EXISTS_
 import static android.scopedstorage.cts.lib.TestUtils.CREATE_FILE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.CREATE_IMAGE_ENTRY_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.DELETE_FILE_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.DELETE_RECURSIVE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXCEPTION;
 import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXTRA_CALLING_PKG;
 import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXTRA_PATH;
@@ -33,6 +34,8 @@ import static android.scopedstorage.cts.lib.TestUtils.IS_URI_REDACTED_VIA_FILE_D
 import static android.scopedstorage.cts.lib.TestUtils.IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE;
 import static android.scopedstorage.cts.lib.TestUtils.OPEN_FILE_FOR_READ_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.OPEN_FILE_FOR_WRITE_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.QUERY_MAX_ROW_ID;
+import static android.scopedstorage.cts.lib.TestUtils.QUERY_MIN_ROW_ID;
 import static android.scopedstorage.cts.lib.TestUtils.QUERY_TYPE;
 import static android.scopedstorage.cts.lib.TestUtils.QUERY_URI;
 import static android.scopedstorage.cts.lib.TestUtils.READDIR_QUERY;
@@ -40,16 +43,22 @@ import static android.scopedstorage.cts.lib.TestUtils.RENAME_FILE_PARAMS_SEPARAT
 import static android.scopedstorage.cts.lib.TestUtils.RENAME_FILE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.SETATTR_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.canOpen;
+import static android.scopedstorage.cts.lib.TestUtils.deleteRecursively;
 import static android.scopedstorage.cts.lib.TestUtils.getFileRowIdFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getImageContentUri;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 
 import androidx.annotation.Nullable;
@@ -93,6 +102,7 @@ public class ScopedStorageTestHelper extends Activity {
                 case CAN_READ_WRITE_QUERY:
                 case CREATE_FILE_QUERY:
                 case DELETE_FILE_QUERY:
+                case DELETE_RECURSIVE_QUERY:
                 case CAN_OPEN_FILE_FOR_READ_QUERY:
                 case CAN_OPEN_FILE_FOR_WRITE_QUERY:
                 case OPEN_FILE_FOR_READ_QUERY:
@@ -122,6 +132,10 @@ public class ScopedStorageTestHelper extends Activity {
                 case QUERY_URI:
                     returnIntent = queryForUri(queryType);
                     break;
+                case QUERY_MAX_ROW_ID:
+                case QUERY_MIN_ROW_ID:
+                    returnIntent = queryRowId(queryType);
+                    break;
                 case "null":
                 default:
                     throw new IllegalStateException(
@@ -148,6 +162,53 @@ public class ScopedStorageTestHelper extends Activity {
         return intent;
     }
 
+    private Intent queryRowId(String queryType) {
+        // Ensure M_E_S permission has been granted.
+        assertThat(Environment.isExternalStorageManager()).isTrue();
+        final Intent intent = new Intent(queryType);
+        final Uri uri = getIntent().getParcelableExtra(INTENT_EXTRA_URI);
+        final Bundle bundle = createQueryArgs(queryType);
+        try {
+            final Cursor c = getContentResolver().query(uri,
+                    new String[]{MediaStore.Files.FileColumns._ID}, bundle, null);
+            if (c != null && c.moveToFirst()) {
+                intent.putExtra(queryType, c.getLong(0));
+            }
+        } catch (Exception e) {
+            intent.putExtra(INTENT_EXCEPTION, e);
+        }
+
+        return intent;
+    }
+
+    private Bundle createQueryArgs(String queryType) {
+        switch (queryType){
+            case QUERY_MAX_ROW_ID:
+                return createQueryArgToRetrieveMaximumRowId();
+            case QUERY_MIN_ROW_ID:
+                return createQueryArgToRetrieveMinimumRowId();
+            default:
+                throw new IllegalStateException(
+                        "Unknown query type received from launcher app: " + queryType);
+        }
+    }
+
+    private Bundle createQueryArgToRetrieveMinimumRowId() {
+        final Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER,
+                MediaStore.Files.FileColumns._ID + " ASC");
+        queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, 1);
+        return queryArgs;
+    }
+
+    private Bundle createQueryArgToRetrieveMaximumRowId() {
+        final Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER,
+                MediaStore.Files.FileColumns._ID + " DESC");
+        queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, 1);
+        return queryArgs;
+    }
+
     private Intent isFileDescriptorRedactedForUri(String queryType) {
         final Intent intent = new Intent(queryType);
         final Uri uri = getIntent().getParcelableExtra(INTENT_EXTRA_URI);
@@ -155,10 +216,11 @@ public class ScopedStorageTestHelper extends Activity {
         try {
             final String mode = queryType.equals(IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE)
                     ? "w" : "r";
-            FileDescriptor fd = getContentResolver().openFileDescriptor(uri,
-                    mode).getFileDescriptor();
-            ExifInterface exifInterface = new ExifInterface(fd);
-            intent.putExtra(queryType, exifInterface.getGpsDateTime() == -1);
+            try (ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, mode)) {
+                FileDescriptor fd = pfd.getFileDescriptor();
+                ExifInterface exifInterface = new ExifInterface(fd);
+                intent.putExtra(queryType, exifInterface.getGpsDateTime() == -1);
+            }
         } catch (Exception e) {
             intent.putExtra(INTENT_EXCEPTION, e);
         }
@@ -262,6 +324,9 @@ public class ScopedStorageTestHelper extends Activity {
                     return intent;
                 case DELETE_FILE_QUERY:
                     intent.putExtra(queryType, file.delete());
+                    return intent;
+                case DELETE_RECURSIVE_QUERY:
+                    intent.putExtra(queryType, deleteRecursively(file));
                     return intent;
                 case SETATTR_QUERY:
                     int newTimeMillis = 12345000;

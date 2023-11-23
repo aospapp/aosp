@@ -14,6 +14,8 @@
 """Tools for working with tokenized logs."""
 
 from dataclasses import dataclass
+import re
+from typing import Dict, Mapping
 
 
 def _mask(value: int, start: int, count: int) -> int:
@@ -21,21 +23,57 @@ def _mask(value: int, start: int, count: int) -> int:
     return (value & (mask << start)) >> start
 
 
-@dataclass(frozen=True)
 class Metadata:
-    """Parses the metadata payload sent by pw_log_tokenized."""
-    _value: int
+    """Parses the metadata payload used by pw_log_tokenized."""
+    def __init__(self,
+                 value: int,
+                 *,
+                 log_bits: int = 3,
+                 line_bits: int = 11,
+                 flag_bits: int = 2,
+                 module_bits: int = 16) -> None:
+        self.value = value
 
-    log_bits: int = 6
-    module_bits: int = 16
-    flag_bits: int = 10
+        self.log_level = _mask(value, 0, log_bits)
+        self.line = _mask(value, log_bits, line_bits)
+        self.flags = _mask(value, log_bits + line_bits, flag_bits)
+        self.module_token = _mask(value, log_bits + line_bits + flag_bits,
+                                  module_bits)
 
-    def log_level(self) -> int:
-        return _mask(self._value, 0, self.log_bits)
+    def __repr__(self) -> str:
+        return (f'{type(self).__name__}('
+                f'log_level={self.log_level}, '
+                f'line={self.line}, '
+                f'flags={self.flags}, '
+                f'module_token={self.module_token})')
 
-    def module_token(self) -> int:
-        return _mask(self._value, self.log_bits, self.module_bits)
 
-    def flags(self) -> int:
-        return _mask(self._value, self.log_bits + self.module_bits,
-                     self.flag_bits)
+class FormatStringWithMetadata:
+    """Parses metadata from a log format string with metadata fields."""
+    _FIELD_KEY = re.compile(r'■([a-zA-Z]\w*)♦', flags=re.ASCII)
+
+    def __init__(self, string: str) -> None:
+        self.raw_string = string
+        self.fields: Dict[str, str] = {}
+
+        # Only look for fields if the raw string starts with one.
+        if self._FIELD_KEY.match(self.raw_string):
+            fields = self._FIELD_KEY.split(self.raw_string)[1:]
+            for name, value in zip(fields[::2], fields[1::2]):
+                self.fields[name] = value
+
+    @property
+    def message(self) -> str:
+        """Displays the msg field or the whole string if it is not present."""
+        return self.fields.get('msg', self.raw_string)
+
+    @property
+    def module(self) -> str:
+        return self.fields.get('module', '')
+
+    @property
+    def file(self) -> str:
+        return self.fields.get('file', '')
+
+    def __repr__(self) -> str:
+        return self.message

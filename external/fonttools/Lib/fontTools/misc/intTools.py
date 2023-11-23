@@ -1,28 +1,25 @@
-__all__ = ['popCount']
+__all__ = ["popCount"]
 
 
-def popCount(v):
-    """Return number of 1 bits (population count) of an integer.
+try:
+    bit_count = int.bit_count
+except AttributeError:
 
-    If the integer is negative, the number of 1 bits in the
-    twos-complement representation of the integer is returned. i.e.
-    ``popCount(-30) == 28`` because -30 is::
+    def bit_count(v):
+        return bin(v).count("1")
 
-        1111 1111 1111 1111 1111 1111 1110 0010
 
-    Uses the algorithm from `HAKMEM item 169 <https://www.inwap.com/pdp10/hbaker/hakmem/hacks.html#item169>`_.
+"""Return number of 1 bits (population count) of the absolute value of an integer.
 
-    Args:
-        v (int): Value to count.
+See https://docs.python.org/3.10/library/stdtypes.html#int.bit_count
+"""
+popCount = bit_count
 
-    Returns:
-        Number of 1 bits in the binary representation of ``v``.
+
+def bit_indices(v):
+    """Return list of indices where bits are set, 0 being the index of the least significant bit.
+
+    >>> bit_indices(0b101)
+    [0, 2]
     """
-
-    if v > 0xFFFFFFFF:
-        return popCount(v >> 32) + popCount(v & 0xFFFFFFFF)
-
-    # HACKMEM 169
-    y = (v >> 1) & 0xDB6DB6DB
-    y = v - y - ((y >> 1) & 0xDB6DB6DB)
-    return (((y + (y >> 3)) & 0xC71C71C7) % 0x3F)
+    return [i for i, b in enumerate(bin(v)[::-1]) if b == "1"]

@@ -57,6 +57,7 @@ enum virgl_object_type {
    VIRGL_OBJECT_SURFACE,
    VIRGL_OBJECT_QUERY,
    VIRGL_OBJECT_STREAMOUT_TARGET,
+   VIRGL_OBJECT_MSAA_SURFACE,
    VIRGL_MAX_OBJECTS,
 };
 
@@ -114,6 +115,7 @@ enum virgl_context_cmd {
    VIRGL_CCMD_PIPE_RESOURCE_CREATE,
    VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE,
    VIRGL_CCMD_GET_MEMORY_INFO,
+   VIRGL_CCMD_SEND_STRING_MARKER,
    VIRGL_MAX_COMMANDS
 };
 
@@ -344,6 +346,10 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_SURFACE_TEXTURE_LEVEL 4
 #define VIRGL_OBJ_SURFACE_TEXTURE_LAYERS 5
 
+/* create surface with implicit MSAA support (for EXT_multisample_render_to_texture) */
+#define VIRGL_OBJ_MSAA_SURFACE_SIZE (VIRGL_OBJ_SURFACE_SIZE + 1)
+#define VIRGL_OBJ_SURFACE_SAMPLE_COUNT 6
+
 /* create streamout target */
 #define VIRGL_OBJ_STREAMOUT_SIZE 4
 #define VIRGL_OBJ_STREAMOUT_HANDLE 1
@@ -364,6 +370,7 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_SAMPLE_STATE_S0_COMPARE_MODE(x) (((x) & 0x1) << 15)
 #define VIRGL_OBJ_SAMPLE_STATE_S0_COMPARE_FUNC(x) (((x) & 0x7) << 16)
 #define VIRGL_OBJ_SAMPLE_STATE_S0_SEAMLESS_CUBE_MAP(x) (((x) & 0x1) << 19)
+#define VIRGL_OBJ_SAMPLE_STATE_MAX_ANISOTROPY (((x & 0x3f)) << 20)
 
 #define VIRGL_OBJ_SAMPLER_STATE_LOD_BIAS 3
 #define VIRGL_OBJ_SAMPLER_STATE_MIN_LOD 4
@@ -660,5 +667,10 @@ enum vrend_tweak_type {
 #define VIRGL_PIPE_RES_SET_TYPE_MODIFIER_HI 8
 #define VIRGL_PIPE_RES_SET_TYPE_PLANE_STRIDE(plane) (9 + (plane) * 2)
 #define VIRGL_PIPE_RES_SET_TYPE_PLANE_OFFSET(plane) (10 + (plane) * 2)
+
+/* send string marker */
+#define VIRGL_SEND_STRING_MARKER_MIN_SIZE 2
+#define VIRGL_SEND_STRING_MARKER_STRING_SIZE 1
+#define VIRGL_SEND_STRING_MARKER_OFFSET 2
 
 #endif

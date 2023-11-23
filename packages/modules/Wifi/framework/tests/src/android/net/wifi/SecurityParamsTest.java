@@ -550,7 +550,7 @@ public class SecurityParamsTest {
         parcelR.unmarshall(bytes, 0, bytes.length);
         parcelR.setDataPosition(0);
 
-        SecurityParams reParams = SecurityParams.createFromParcel(parcelR);
+        SecurityParams reParams = SecurityParams.CREATOR.createFromParcel(parcelR);
         assertEquals(params, reParams);
     }
 }

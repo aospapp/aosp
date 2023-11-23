@@ -23,9 +23,11 @@ tradefed-all: tradefed atest_tradefed.sh
 
 tradefed_dist_host_jars := tradefed
 tradefed_dist_artifacts := tradefed-tests.jar tradefed-test-framework.jar loganalysis.jar tradefed-contrib.jar tf-contrib-tests.jar tradefed-isolation.jar tradefed.sh tradefed_win.bat script_help.sh atest_tradefed.sh TradeFedUiTestApp.apk TradeFedTestApp.apk version.txt
+tradefed_dist_suite_artifacts := compatibility-host-util.jar  compatibility-tradefed.jar
 
 tradefed_dist_copy_pairs := $(foreach m, $(tradefed_dist_host_jars), $(call intermediates-dir-for,JAVA_LIBRARIES,$(m),HOST,COMMON)/javalib.jar:$(m).jar)
 tradefed_dist_copy_pairs += $(foreach m, $(tradefed_dist_artifacts), $(LOCAL_PATH)/../filegroups/tradefed/$(m):$(m))
+tradefed_dist_copy_pairs += $(foreach m, $(tradefed_dist_suite_artifacts), $(LOCAL_PATH)/../filegroups/suite/$(m):$(m))
 
 tradefed_dist_artifacts :=
 
@@ -38,6 +40,9 @@ $(tradefed_dist_zip) : $(SOONG_ZIP) $(foreach f,$(tradefed_dist_copy_pairs),$(ca
 	  cp -f $(call word-colon,1,$(f)) $(dir $@)/tmp/$(call word-colon,2,$(f)) &&) true
 	$(SOONG_ZIP) -o $@ -C $(dir $@)/tmp \
 	  $(foreach f,$(PRIVATE_COPY_PAIRS),-f $(dir $@)/tmp/$(call word-colon,2,$(f)))
+
+$(call declare-1p-container,$(tradefed_dist_zip),tools/tradefederation/prebuilts)
+$(call declare-container-license-deps,$(tradefed_dist_zip),$(filter $(OUT_DIR)/%,$(foreach f,$(tradefed_dist_copy_pairs), $(call word-colon,1,$(f)))),$(tradefed_dist_zip):)
 
 $(call dist-for-goals, tradefed, $(tradefed_dist_zip))
 

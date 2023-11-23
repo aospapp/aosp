@@ -6,11 +6,11 @@ third_party {
     value: "https://github.com/libffi/libffi.git"
   }
   version: "v3.3"
-  # would be NOTICE save for:
-  #   .travis/
-  #   testsuite/lib*/
-  #   libtool-ldflags
-  #   LICENSE-BUILDTOOLS
+  license_note: "would be NOTICE save for:\n"
+  "   .travis/\n"
+  "   testsuite/lib*/\n"
+  "   libtool-ldflags\n"
+  "   LICENSE-BUILDTOOLS"
   license_type: RESTRICTED
   last_upgrade_date {
     year: 2020

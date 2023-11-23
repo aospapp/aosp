@@ -16,6 +16,8 @@
 
 package android.net.ipsec.test.ike;
 
+import static com.android.internal.net.TestUtils.hexStringToByteArray;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -24,6 +26,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 import android.net.InetAddresses;
+import android.net.eap.test.EapAkaInfo;
+import android.net.eap.test.EapInfo;
 
 import com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload;
 import com.android.internal.net.ipsec.test.ike.message.IkeConfigPayload.ConfigAttribute;
@@ -46,12 +50,15 @@ public final class IkeSessionConfigurationTest {
             (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.100");
     private static final Inet6Address PCSCF_IPV6_ADDRESS =
             (Inet6Address) InetAddresses.parseNumericAddress("2001:db8::1");
-
+    private static final String REAUTH_ID = "test@android.net";
+    private static final byte[] REAUTH_ID_BYTES = hexStringToByteArray(REAUTH_ID);
     private static final IkeSessionConnectionInfo IKE_CONNECT_INFO =
             mock(IkeSessionConnectionInfo.class);
 
     private static final List<byte[]> REMOTE_VENDOR_IDS;
     private static final List<Integer> ENABLED_EXTENSIONS;
+    private static final EapInfo EAP_INFO =
+            new EapAkaInfo.Builder().setReauthId(REAUTH_ID_BYTES).build();
 
     static {
         REMOTE_VENDOR_IDS = new ArrayList<>();
@@ -77,6 +84,9 @@ public final class IkeSessionConfigurationTest {
 
         // Verify IkeSessionConnectionInfo
         assertEquals(IKE_CONNECT_INFO, config.getIkeSessionConnectionInfo());
+
+        // Verify EapInfo
+        assertEquals(EAP_INFO, config.getEapInfo());
     }
 
     @Test
@@ -86,7 +96,8 @@ public final class IkeSessionConfigurationTest {
                         IKE_CONNECT_INFO,
                         null /*configPayload*/,
                         REMOTE_VENDOR_IDS,
-                        ENABLED_EXTENSIONS);
+                        ENABLED_EXTENSIONS,
+                        EAP_INFO);
         verifyBuildCommon(config);
     }
 
@@ -101,7 +112,11 @@ public final class IkeSessionConfigurationTest {
 
         IkeSessionConfiguration config =
                 new IkeSessionConfiguration(
-                        IKE_CONNECT_INFO, configPayload, REMOTE_VENDOR_IDS, ENABLED_EXTENSIONS);
+                        IKE_CONNECT_INFO,
+                        configPayload,
+                        REMOTE_VENDOR_IDS,
+                        ENABLED_EXTENSIONS,
+                        EAP_INFO);
 
         verifyBuildCommon(config);
         assertEquals(
@@ -115,7 +130,8 @@ public final class IkeSessionConfigurationTest {
                 new IkeSessionConfiguration.Builder(IKE_CONNECT_INFO)
                         .addPcscfServer(PCSCF_IPV4_ADDRESS)
                         .addPcscfServer(PCSCF_IPV6_ADDRESS)
-                        .setRemoteApplicationVersion(REMOTE_APP_VERSION);
+                        .setRemoteApplicationVersion(REMOTE_APP_VERSION)
+                        .setEapInfo(EAP_INFO);
 
         for (byte[] vendorId : REMOTE_VENDOR_IDS) {
             builder.addRemoteVendorId(vendorId);
@@ -139,7 +155,8 @@ public final class IkeSessionConfigurationTest {
                     null /*ikeConnInfo*/,
                     null /*configPayload*/,
                     REMOTE_VENDOR_IDS,
-                    ENABLED_EXTENSIONS);
+                    ENABLED_EXTENSIONS,
+                    EAP_INFO);
             fail("Expected to fail due to null value ikeConnInfo");
         } catch (NullPointerException expected) {
         }

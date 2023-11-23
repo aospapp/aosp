@@ -24,6 +24,7 @@
 #include <hardware/hardware.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
+
 #include "phNxpEse_Api.h"
 
 namespace vendor {
@@ -77,7 +78,6 @@ struct VirtualISO : public ISecureElement, public hidl_death_recipient {
     // T=1 stack
     // close(0);
   }
-
  private:
   uint8_t mMaxChannelCount;
   uint8_t mOpenedchannelCount = 0;

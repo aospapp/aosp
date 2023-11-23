@@ -10,9 +10,12 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
+	"time"
 )
 
 type env interface {
+	umask(int) int
 	getenv(key string) (string, bool)
 	environ() []string
 	getwd() string
@@ -20,6 +23,7 @@ type env interface {
 	stdout() io.Writer
 	stderr() io.Writer
 	run(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error
+	runWithTimeout(cmd *command, duration time.Duration) error
 	exec(cmd *command) error
 }
 
@@ -52,6 +56,10 @@ func newProcessEnv() (env, error) {
 
 var _ env = (*processEnv)(nil)
 
+func (env *processEnv) umask(newmask int) (oldmask int) {
+	return syscall.Umask(newmask)
+}
+
 func (env *processEnv) getenv(key string) (string, bool) {
 	return os.LookupEnv(key)
 }
@@ -78,6 +86,10 @@ func (env *processEnv) stderr() io.Writer {
 
 func (env *processEnv) exec(cmd *command) error {
 	return execCmd(env, cmd)
+}
+
+func (env *processEnv) runWithTimeout(cmd *command, duration time.Duration) error {
+	return runCmdWithTimeout(env, cmd, duration)
 }
 
 func (env *processEnv) run(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
@@ -108,6 +120,10 @@ func (env *commandRecordingEnv) exec(cmd *command) error {
 	return env.run(cmd, env.stdin(), env.stdout(), env.stderr())
 }
 
+func (env *commandRecordingEnv) runWithTimeout(cmd *command, duration time.Duration) error {
+	return env.runWithTimeout(cmd, duration)
+}
+
 func (env *commandRecordingEnv) run(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 	stdoutBuffer := &bytes.Buffer{}
 	stderrBuffer := &bytes.Buffer{}
@@ -132,6 +148,11 @@ var _env = (*printingEnv)(nil)
 func (env *printingEnv) exec(cmd *command) error {
 	printCmd(env, cmd)
 	return env.env.exec(cmd)
+}
+
+func (env *printingEnv) runWithTimeout(cmd *command, duration time.Duration) error {
+	printCmd(env, cmd)
+	return env.env.runWithTimeout(cmd, duration)
 }
 
 func (env *printingEnv) run(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {

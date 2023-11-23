@@ -114,6 +114,21 @@ extern "C" void art_quick_invoke_super_trampoline_with_access_check(uint32_t, vo
 
 extern "C" void art_quick_invoke_virtual_trampoline_with_access_check(uint32_t, void*);
 
+// JNI read barrier entrypoint. Note: Preserves all registers.
+extern "C" void art_jni_read_barrier(art::ArtMethod* method);
+
+// JNI method start entrypoint. Note: Custom calling convention.
+extern "C" void art_jni_method_start();
+extern "C" void art_jni_monitored_method_start();
+extern "C" void art_jni_method_end();
+extern "C" void art_jni_monitored_method_end();
+
+// JNI lock/unlock entrypoints. Note: Custom calling convention.
+extern "C" void art_jni_lock_object(art::mirror::Object*);
+extern "C" void art_jni_lock_object_no_inline(art::mirror::Object*);
+extern "C" void art_jni_unlock_object(art::mirror::Object*);
+extern "C" void art_jni_unlock_object_no_inline(art::mirror::Object*);
+
 // Polymorphic invoke entrypoints.
 extern "C" void art_quick_invoke_polymorphic(uint32_t, void*);
 extern "C" void art_quick_invoke_custom(uint32_t, void*);

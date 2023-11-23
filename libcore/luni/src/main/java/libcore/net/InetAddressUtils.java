@@ -35,7 +35,6 @@ import static android.system.OsConstants.AI_NUMERICHOST;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public class InetAddressUtils {
 
     private static final int NETID_UNSET = 0;
@@ -59,7 +58,6 @@ public class InetAddressUtils {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static boolean isNumericAddress(String address) {
         return parseNumericAddressNoThrow(address) != null;
     }
@@ -80,7 +78,6 @@ public class InetAddressUtils {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static InetAddress parseNumericAddress(String address) {
         InetAddress result = parseNumericAddressNoThrow(address);
         if (result == null) {

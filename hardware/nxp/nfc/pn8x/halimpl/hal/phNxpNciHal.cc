@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 NXP Semiconductors
+ * Copyright 2012-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,6 @@ uint32_t wFwVerRsp;
 EseAdaptation* gpEseAdapt = NULL;
 /* External global variable to get FW version */
 extern uint16_t wFwVer;
-extern uint16_t fw_maj_ver;
 extern uint16_t rom_version;
 extern uint8_t gRecFWDwnld;
 static uint8_t gRecFwRetryCount;  // variable to hold recovery FW retry count
@@ -318,6 +317,7 @@ static void phNxpNciHal_kill_client_thread(
  *
  ******************************************************************************/
 static NFCSTATUS phNxpNciHal_fw_download(void) {
+  NFCSTATUS readRestoreStatus = NFCSTATUS_FAILED;
   if (NFCSTATUS_SUCCESS != phNxpNciHal_CheckValidFwVersion()) {
     return NFCSTATUS_REJECTED;
   }
@@ -365,6 +365,18 @@ static NFCSTATUS phNxpNciHal_fw_download(void) {
       phTmlNfc_ReadAbort();
       phDnldNfc_ReSetHwDevHandle();
       fw_retry_count++;
+      if (phTmlNfc_ReadAbort() != NFCSTATUS_SUCCESS) {
+        NXPLOG_NCIHAL_E("Tml Read Abort failed!!");
+      }
+      /*Keep Read Pending on I2C*/
+      readRestoreStatus = phTmlNfc_Read(
+          nxpncihal_ctrl.p_cmd_data, NCI_MAX_DATA_LEN,
+          (pphTmlNfc_TransactCompletionCb_t)&phNxpNciHal_read_complete, NULL);
+      if (readRestoreStatus != NFCSTATUS_PENDING) {
+        status = NFCSTATUS_FAILED;
+        NXPLOG_NCIHAL_E("TML Read status error status = %x", readRestoreStatus);
+        break;
+      }
       NXPLOG_NCIHAL_D("Retrying: FW download");
       android_errorWriteLog(0x534e4554, "192614125");
     }
@@ -385,7 +397,6 @@ static NFCSTATUS phNxpNciHal_fw_download(void) {
   }
 
   /*Keep Read Pending on I2C*/
-  NFCSTATUS readRestoreStatus = NFCSTATUS_FAILED;
   readRestoreStatus = phTmlNfc_Read(
       nxpncihal_ctrl.p_cmd_data, NCI_MAX_DATA_LEN,
       (pphTmlNfc_TransactCompletionCb_t)&phNxpNciHal_read_complete, NULL);
@@ -673,10 +684,12 @@ init_retry:
      * trigger Force FW update during every Minopen. To avoid multiple Force
      * Force FW upadted return if Force FW update is already done */
     NXPLOG_NCIHAL_E("%s: Failed after Force FW updated. Exit", __func__);
-    return NFCSTATUS_FAILED;
+    goto clean_and_return;
   }
-  sIsForceFwDownloadReqd = (status != NFCSTATUS_SUCCESS) &&
-                           (nxpncihal_ctrl.retry_cnt >= MAX_RETRY_COUNT);
+  sIsForceFwDownloadReqd =
+      ((init_retry_cnt >= MAX_INIT_RETRY_COUNT) /*No response for reset/init*/
+       || ((status != NFCSTATUS_SUCCESS) &&
+           (nxpncihal_ctrl.retry_cnt >= MAX_RETRY_COUNT)) /*write failure*/);
   if (sIsForceFwDownloadReqd) {
     NXPLOG_NCIHAL_E("Force FW Download, NFCC not coming out from Standby");
     wConfigStatus = NFCSTATUS_FAILED;
@@ -761,14 +774,12 @@ init_retry:
   return wConfigStatus;
 
 clean_and_return:
+  phNxpNciHal_Minclose();
   CONCURRENCY_UNLOCK();
   if (nfc_dev_node != NULL) {
     free(nfc_dev_node);
     nfc_dev_node = NULL;
   }
-  /* Report error status */
-  phNxpNciHal_cleanup_monitor();
-  nxpncihal_ctrl.halStatus = HAL_STATUS_CLOSE;
   return NFCSTATUS_FAILED;
 }
 
@@ -835,15 +846,13 @@ clean_and_return:
 int phNxpNciHal_fw_mw_ver_check() {
   NFCSTATUS status = NFCSTATUS_FAILED;
   if (((nfcFL.chipType == pn557) || (nfcFL.chipType == pn81T)) &&
-      (rom_version == FW_MOBILE_ROM_VERSION_PN557) && (fw_maj_ver == 0x01)) {
+      (rom_version == FW_MOBILE_ROM_VERSION_PN557)) {
     status = NFCSTATUS_SUCCESS;
   } else if (((nfcFL.chipType == pn553) || (nfcFL.chipType == pn80T)) &&
-             (rom_version == FW_MOBILE_ROM_VERSION_PN553) &&
-             (fw_maj_ver == 0x01 || fw_maj_ver == 0x02)) {
+             (rom_version == FW_MOBILE_ROM_VERSION_PN553)) {
     status = NFCSTATUS_SUCCESS;
   } else if (((nfcFL.chipType == pn551) || (nfcFL.chipType == pn67T)) &&
-             (rom_version == FW_MOBILE_ROM_VERSION_PN551) &&
-             (fw_maj_ver == 0x05)) {
+             (rom_version == FW_MOBILE_ROM_VERSION_PN551)) {
     status = NFCSTATUS_SUCCESS;
   }
   return status;
@@ -2191,7 +2200,58 @@ int phNxpNciHal_close(bool bShutdown) {
   /* Return success always */
   return NFCSTATUS_SUCCESS;
 }
+/******************************************************************************
+ * Function         phNxpNciHal_Minclose
+ *
+ * Description      This function close the NFCC interface and free all
+ *                  resources.This is called by libnfc-nci on NFC service stop.
+ *
+ * Returns          Always return NFCSTATUS_SUCCESS (0).
+ *
+ ******************************************************************************/
+int phNxpNciHal_Minclose(void) {
+  NFCSTATUS status;
+  /*NCI_RESET_CMD*/
+  uint8_t cmd_reset_nci[] = {0x20, 0x00, 0x01, 0x00};
+  CONCURRENCY_LOCK();
+  nxpncihal_ctrl.halStatus = HAL_STATUS_CLOSE;
+  status = phNxpNciHal_send_ext_cmd(sizeof(cmd_reset_nci), cmd_reset_nci);
+  if (status != NFCSTATUS_SUCCESS) {
+    NXPLOG_NCIHAL_E("NCI_CORE_RESET: Failed");
+  }
+  sem_destroy(&nxpncihal_ctrl.syncSpiNfc);
+  if (NULL != gpphTmlNfc_Context->pDevHandle) {
+    phNxpNciHal_close_complete(NFCSTATUS_SUCCESS);
+    /* Abort any pending read and write */
+    status = phTmlNfc_ReadAbort();
+    status = phTmlNfc_WriteAbort();
 
+    phOsalNfc_Timer_Cleanup();
+
+    status = phTmlNfc_Shutdown();
+
+    if (0 != pthread_join(nxpncihal_ctrl.client_thread, (void**)NULL)) {
+      NXPLOG_TML_E("Fail to kill client thread!");
+    }
+
+    phTmlNfc_CleanUp();
+
+    phDal4Nfc_msgrelease(nxpncihal_ctrl.gDrvCfg.nClientId);
+
+    memset(&nxpncihal_ctrl, 0x00, sizeof(nxpncihal_ctrl));
+
+    NXPLOG_NCIHAL_D("phNxpNciHal_close - phOsalNfc_DeInit completed");
+  }
+
+  CONCURRENCY_UNLOCK();
+
+  phNxpNciHal_cleanup_monitor();
+
+  /* reset config cache */
+  resetNxpConfig();
+  /* Return success always */
+  return NFCSTATUS_SUCCESS;
+}
 /******************************************************************************
  * Function         phNxpNciHal_close_complete
  *
@@ -2496,10 +2556,10 @@ int phNxpNciHal_check_ncicmd_write_window(uint16_t cmd_len, uint8_t* p_cmd) {
   }
 
   if ((p_cmd[0] & 0xF0) == 0x20) {
-    clock_gettime(CLOCK_REALTIME, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     ts.tv_sec += sem_timedout;
 
-    while ((s = sem_timedwait(&nxpncihal_ctrl.syncSpiNfc, &ts)) == -1 &&
+    while ((s = sem_timedwait_monotonic_np(&nxpncihal_ctrl.syncSpiNfc, &ts)) == -1 &&
            errno == EINTR)
       continue; /* Restart if interrupted by handler */
 

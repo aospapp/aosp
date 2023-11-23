@@ -50,27 +50,24 @@ using android::system::keystore2::KeyEntryResponse;
 using android::base::Error;
 using android::base::Result;
 
-// Keystore boot level that the odsign key uses
-static const int kOdsignBootLevel = 30;
-
-const std::string kPublicKeySignature = "/data/misc/odsign/publickey.signature";
-
-static KeyDescriptor getKeyDescriptor() {
+static KeyDescriptor getKeyDescriptor(const android::String16& keyAlias, int64_t keyNspace) {
     // AIDL parcelable objects don't have constructor
     static KeyDescriptor descriptor;
     static std::once_flag flag;
     std::call_once(flag, [&]() {
         descriptor.domain = Domain::SELINUX;
-        descriptor.alias = String16("ondevice-signing");
-        descriptor.nspace = 101;  // odsign_key
+        descriptor.alias = keyAlias;
+        descriptor.nspace = keyNspace;
     });
 
     return descriptor;
 }
 
-KeystoreKey::KeystoreKey() {
-    mDescriptor = getKeyDescriptor();
-}
+KeystoreKey::KeystoreKey(std::string signedPubKeyPath, const android::String16& keyAlias,
+                         int64_t keyNspace, int keyBootLevel)
+    : mDescriptor(getKeyDescriptor(keyAlias, keyNspace)),
+      mHmacKey(keyAlias, keyNspace, keyBootLevel), mSignedPubKeyPath(std::move(signedPubKeyPath)),
+      mKeyBootLevel(keyBootLevel) {}
 
 Result<std::vector<uint8_t>> KeystoreKey::createKey() {
     std::vector<KeyParameter> params;
@@ -113,13 +110,13 @@ Result<std::vector<uint8_t>> KeystoreKey::createKey() {
 
     KeyParameter boot_level;
     boot_level.tag = Tag::MAX_BOOT_LEVEL;
-    boot_level.value = KeyParameterValue::make<KeyParameterValue::integer>(kOdsignBootLevel);
+    boot_level.value = KeyParameterValue::make<KeyParameterValue::integer>(mKeyBootLevel);
     params.push_back(boot_level);
 
     KeyMetadata metadata;
     auto status = mSecurityLevel->generateKey(mDescriptor, {}, params, 0, {}, &metadata);
     if (!status.isOk()) {
-        return Error() << "Failed to create new key";
+        return Error() << "Failed to create new key: " << status;
     }
 
     // Extract the public key from the certificate, HMAC it and store the signature
@@ -137,7 +134,7 @@ Result<std::vector<uint8_t>> KeystoreKey::createKey() {
         return Error() << "Failed to sign public key.";
     }
 
-    if (!android::base::WriteStringToFile(*signature, kPublicKeySignature)) {
+    if (!android::base::WriteStringToFile(*signature, mSignedPubKeyPath)) {
         return Error() << "Can't write public key signature.";
     }
 
@@ -172,11 +169,13 @@ bool KeystoreKey::initialize() {
 
     auto key = getOrCreateKey();
     if (!key.ok()) {
+        // Delete the HMAC, just in case signing failed, and we could recover by recreating it.
+        mHmacKey.deleteKey();
         LOG(ERROR) << key.error().message();
         return false;
     }
     mPublicKey = *key;
-    LOG(ERROR) << "Initialized Keystore key.";
+    LOG(INFO) << "Initialized Keystore key.";
     return true;
 }
 
@@ -204,7 +203,7 @@ Result<std::vector<uint8_t>> KeystoreKey::verifyExistingKey() {
     bool foundBootLevel = false;
     for (const auto& auth : keyEntryResponse.metadata.authorizations) {
         if (auth.keyParameter.tag == Tag::MAX_BOOT_LEVEL) {
-            if (auth.keyParameter.value.get<KeyParameterValue::integer>() == kOdsignBootLevel) {
+            if (auth.keyParameter.value.get<KeyParameterValue::integer>() == mKeyBootLevel) {
                 foundBootLevel = true;
                 break;
             }
@@ -230,7 +229,7 @@ Result<std::vector<uint8_t>> KeystoreKey::verifyExistingKey() {
     std::string publicKeyString = {publicKey->begin(), publicKey->end()};
 
     std::string signature;
-    if (!android::base::ReadFileToString(kPublicKeySignature, &signature)) {
+    if (!android::base::ReadFileToString(mSignedPubKeyPath, &signature)) {
         return Error() << "Can't find signature for public key.";
     }
 
@@ -254,13 +253,15 @@ Result<std::vector<uint8_t>> KeystoreKey::getOrCreateKey() {
     return *existingKey;
 }
 
-Result<SigningKey*> KeystoreKey::getInstance() {
-    static KeystoreKey keystoreKey;
+Result<SigningKey*> KeystoreKey::getInstance(const std::string& signedPubKeyPath,
+                                             const android::String16& keyAlias, int64_t keyNspace,
+                                             int keyBootLevel) {
+    auto keystoreKey = new KeystoreKey(signedPubKeyPath, keyAlias, keyNspace, keyBootLevel);
 
-    if (!keystoreKey.initialize()) {
+    if (!keystoreKey->initialize()) {
         return Error() << "Failed to initialize keystore key.";
     } else {
-        return &keystoreKey;
+        return keystoreKey;
     }
 }
 
@@ -297,19 +298,13 @@ Result<std::string> KeystoreKey::sign(const std::string& message) const {
 
     auto status = mSecurityLevel->createOperation(mDescriptor, opParameters, false, &opResponse);
     if (!status.isOk()) {
-        return Error() << "Failed to create keystore signing operation: "
-                       << status.serviceSpecificErrorCode();
+        return Error() << "Failed to create keystore signing operation: " << status;
     }
     auto operation = opResponse.iOperation;
 
-    std::optional<std::vector<uint8_t>> out;
-    status = operation->update({message.begin(), message.end()}, &out);
-    if (!status.isOk()) {
-        return Error() << "Failed to call keystore update operation.";
-    }
-
+    std::optional<std::vector<uint8_t>> input{std::in_place, message.begin(), message.end()};
     std::optional<std::vector<uint8_t>> signature;
-    status = operation->finish({}, {}, &signature);
+    status = operation->finish(input, {}, &signature);
     if (!status.isOk()) {
         return Error() << "Failed to call keystore finish operation.";
     }

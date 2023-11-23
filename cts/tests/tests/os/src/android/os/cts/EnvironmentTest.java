@@ -43,14 +43,11 @@ public class EnvironmentTest extends TestCase {
     }
 
     /**
-     * TMPDIR being set prevents apps from asking to have temporary files
-     * placed in their own storage, instead forcing their location to
-     * something OS-defined. If TMPDIR points to a global shared directory,
+     * If TMPDIR points to a global shared directory,
      * this could compromise the security of the files.
      */
     public void testNoTmpDir() {
-        assertNull("environment variable TMPDIR should not be set",
-                System.getenv("TMPDIR"));
+        assertTrue(System.getenv("TMPDIR").endsWith("android.os.cts/cache"));
     }
 
     /**

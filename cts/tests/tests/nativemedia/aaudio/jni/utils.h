@@ -115,7 +115,6 @@ class OutputStreamBuilderHelper : public StreamBuilderHelper {
             aaudio_performance_mode_t requestedPerfMode,
             aaudio_format_t requestedFormat = AAUDIO_FORMAT_PCM_I16);
     void initBuilder();
-    void createAndVerifyStream(bool *success);
 
   private:
     const int32_t kBufferCapacityFrames = 2000;

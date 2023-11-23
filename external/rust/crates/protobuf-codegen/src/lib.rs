@@ -1,4 +1,7 @@
-//! This crate implement protobuf codegen.
+//! # Protobuf code generator
+//!
+//! This crate contains protobuf code generator implementation
+//! and a `protoc-gen-rust` `protoc` plugin.
 //!
 //! This crate:
 //! * provides `protoc-gen-rust` plugin for `protoc` command
@@ -8,11 +11,71 @@
 //! (except for `protoc-gen-rust` binary).
 //!
 //! Code can be generated with either:
-//! * `protoc-gen-rust` binary or
-//! * `protoc-rust` crate (codegen which depends on `protoc` binary for parsing)
-//! * `protobuf-codegen-pure` crate
+//! * `protoc-gen-rust` plugin for `protoc` or
+//! * [`protoc-rust`](https://docs.rs/protoc) crate
+//!   (code generator which depends on `protoc` binary for parsing of `.proto` files)
+//! * [`protobuf-codegen-pure`](https://docs.rs/protobuf-codegen-pure) crate,
+//!   similar API to `protoc-rust`, but uses pure rust parser of `.proto` files.
+//!
+//! # `protoc-gen-rust` plugin for `protoc`
+//!
+//! When non-cargo build system is used, consider using standard protobuf code generation pattern:
+//! `protoc` command does all the work of handling paths and parsing `.proto` files.
+//! When `protoc` is invoked with `--rust_out=` option, it invokes `protoc-gen-rust` plugin.
+//! provided by this crate.
+//!
+//! When building with cargo, consider using `protoc-rust` or `protobuf-codegen-pure` crates.
+//!
+//! ## How to use `protoc-gen-rust` if you have to
+//!
+//! (Note `protoc` can be invoked programmatically with
+//! [protoc crate](https://docs.rs/protoc))
+//!
+//! 0) Install protobuf for `protoc` binary.
+//!
+//! On OS X [Homebrew](https://github.com/Homebrew/brew) can be used:
+//!
+//! ```sh
+//! brew install protobuf
+//! ```
+//!
+//! On Ubuntu, `protobuf-compiler` package can be installed:
+//!
+//! ```sh
+//! apt-get install protobuf-compiler
+//! ```
+//!
+//! Protobuf is needed only for code generation, `rust-protobuf` runtime
+//! does not use `protobuf` library.
+//!
+//! 1) Install `protoc-gen-rust` program (which is `protoc` plugin)
+//!
+//! It can be installed either from source or with `cargo install protobuf` command.
+//!
+//! 2) Add `protoc-gen-rust` to $PATH
+//!
+//! If you installed it with cargo, it should be
+//!
+//! ```sh
+//! PATH="$HOME/.cargo/bin:$PATH"
+//! ```
+//!
+//! 3) Generate .rs files:
+//!
+//! ```sh
+//! protoc --rust_out . foo.proto
+//! ```
+//!
+//! This will generate .rs files in current directory.
+//!
+//! # Version 2
+//!
+//! This is documentation for version 2 of the crate.
+//!
+//! [Version 3 of the crate](https://docs.rs/protobuf-codegen/%3E=3.0.0-alpha)
+//! (currently in development) encapsulates both `protoc` and pure codegens in this crate.
 
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
 
 extern crate protobuf;
@@ -57,22 +120,21 @@ pub use customize::Customize;
 
 pub mod code_writer;
 
-use self::code_writer::CodeWriter;
-use self::enums::*;
-use self::extensions::*;
-use self::message::*;
 use inside::protobuf_crate_path;
-use scope::FileScope;
-use scope::RootScope;
-
-use crate::file::proto_path_to_rust_mod;
-
 #[doc(hidden)]
 pub use protobuf_name::ProtobufAbsolutePath;
 #[doc(hidden)]
 pub use protobuf_name::ProtobufIdent;
 #[doc(hidden)]
 pub use protobuf_name::ProtobufRelativePath;
+use scope::FileScope;
+use scope::RootScope;
+
+use self::code_writer::CodeWriter;
+use self::enums::*;
+use self::extensions::*;
+use self::message::*;
+use crate::file::proto_path_to_rust_mod;
 
 fn escape_byte(s: &mut String, b: u8) {
     if b == b'\n' {
@@ -192,7 +254,7 @@ fn gen_file(
     {
         let mut w = CodeWriter::new(&mut v);
 
-        w.write_generated_by("rust-protobuf", "2.22.1");
+        w.write_generated_by("rust-protobuf", "2.27.1");
         w.write_line(&format!("//! Generated file from `{}`", file.get_name()));
         if customize.inside_protobuf != Some(true) {
             w.write_line("");

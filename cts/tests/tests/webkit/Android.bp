@@ -31,7 +31,10 @@ android_test {
         "ctstestrunner-axt",
         "hamcrest-library",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.aidl",
+    ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

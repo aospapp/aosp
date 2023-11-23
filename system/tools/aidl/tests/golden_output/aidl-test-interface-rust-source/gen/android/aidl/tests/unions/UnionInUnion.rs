@@ -1,29 +1,18 @@
+#![forbid(unsafe_code)]
+#![rustfmt::skip]
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnionInUnion {
   First(crate::mangled::_7_android_4_aidl_5_tests_6_unions_9_EnumUnion),
   Second(i32),
 }
-pub(crate) mod mangled { pub use super::UnionInUnion as _7_android_4_aidl_5_tests_6_unions_12_UnionInUnion; }
 impl Default for UnionInUnion {
   fn default() -> Self {
     Self::First(Default::default())
   }
 }
-impl binder::parcel::Serialize for UnionInUnion {
-  fn serialize(&self, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    <Self as binder::parcel::SerializeOption>::serialize_option(Some(self), parcel)
-  }
-}
-impl binder::parcel::SerializeArray for UnionInUnion {}
-impl binder::parcel::SerializeOption for UnionInUnion {
-  fn serialize_option(this: Option<&Self>, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    let this = if let Some(this) = this {
-      parcel.write(&1i32)?;
-      this
-    } else {
-      return parcel.write(&0i32);
-    };
-    match this {
+impl binder::Parcelable for UnionInUnion {
+  fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
+    match self {
       Self::First(v) => {
         parcel.write(&0i32)?;
         parcel.write(v)
@@ -34,32 +23,41 @@ impl binder::parcel::SerializeOption for UnionInUnion {
       }
     }
   }
-}
-impl binder::parcel::Deserialize for UnionInUnion {
-  fn deserialize(parcel: &binder::parcel::Parcel) -> binder::Result<Self> {
-    <Self as binder::parcel::DeserializeOption>::deserialize_option(parcel)
-       .transpose()
-       .unwrap_or(Err(binder::StatusCode::UNEXPECTED_NULL))
-  }
-}
-impl binder::parcel::DeserializeArray for UnionInUnion {}
-impl binder::parcel::DeserializeOption for UnionInUnion {
-  fn deserialize_option(parcel: &binder::parcel::Parcel) -> binder::Result<Option<Self>> {
-    let status: i32 = parcel.read()?;
-    if status == 0 { return Ok(None); }
+  fn read_from_parcel(&mut self, parcel: &binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     let tag: i32 = parcel.read()?;
     match tag {
       0 => {
         let value: crate::mangled::_7_android_4_aidl_5_tests_6_unions_9_EnumUnion = parcel.read()?;
-        Ok(Some(Self::First(value)))
+        *self = Self::First(value);
+        Ok(())
       }
       1 => {
         let value: i32 = parcel.read()?;
-        Ok(Some(Self::Second(value)))
+        *self = Self::Second(value);
+        Ok(())
       }
       _ => {
         Err(binder::StatusCode::BAD_VALUE)
       }
     }
   }
+}
+binder::impl_serialize_for_parcelable!(UnionInUnion);
+binder::impl_deserialize_for_parcelable!(UnionInUnion);
+impl binder::binder_impl::ParcelableMetadata for UnionInUnion {
+  fn get_descriptor() -> &'static str { "android.aidl.tests.unions.UnionInUnion" }
+}
+pub mod Tag {
+  #![allow(non_upper_case_globals)]
+  use binder::declare_binder_enum;
+  declare_binder_enum! {
+    Tag : [i32; 2] {
+      first = 0,
+      second = 1,
+    }
+  }
+}
+pub(crate) mod mangled {
+ pub use super::UnionInUnion as _7_android_4_aidl_5_tests_6_unions_12_UnionInUnion;
+ pub use super::Tag::Tag as _7_android_4_aidl_5_tests_6_unions_12_UnionInUnion_3_Tag;
 }

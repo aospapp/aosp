@@ -33,6 +33,16 @@
 #include "LogWriter.h"
 #include "LogdLock.h"
 
+struct PendingReaderThreadKey {
+    uid_t uid;
+    gid_t gid;
+    pid_t pid;
+    int32_t fd;
+    bool operator==(const PendingReaderThreadKey& rhs) const {
+        return uid == rhs.uid && gid == rhs.gid && pid == rhs.pid && fd == rhs.fd;
+    }
+};
+
 class LogReaderList;
 
 class LogReaderThread {
@@ -46,6 +56,8 @@ class LogReaderThread {
     void TriggerSkip(log_id_t id, unsigned int skip) REQUIRES(logd_lock) { skip_ahead_[id] = skip; }
     void CleanSkip() REQUIRES(logd_lock) { memset(skip_ahead_, 0, sizeof(skip_ahead_)); }
 
+    void Run() REQUIRES(logd_lock);
+    void Revoke() REQUIRES(logd_lock) { writer_->revoke(); }
     void Release() REQUIRES(logd_lock) {
         // gracefully shut down the socket.
         writer_->Shutdown();
@@ -64,6 +76,17 @@ class LogReaderThread {
     uint64_t start() const REQUIRES(logd_lock) { return flush_to_state_->start(); }
     std::chrono::steady_clock::time_point deadline() const REQUIRES(logd_lock) { return deadline_; }
     FlushToState& flush_to_state() REQUIRES(logd_lock) { return *flush_to_state_; }
+    void set_pending_reader_thread_key(uid_t uid, gid_t gid, pid_t pid, int32_t fd)
+            REQUIRES(logd_lock) {
+        pending_reader_thread_key_ = {uid, gid, pid, fd};
+    }
+    const PendingReaderThreadKey& pending_reader_thread_key() const REQUIRES(logd_lock) {
+        return pending_reader_thread_key_;
+    }
+    void set_finish_flag() REQUIRES(logd_lock) { finished_ = true; }
+    bool finish_flag() REQUIRES(logd_lock) { return finished_; }
+    void set_track_flag() REQUIRES(logd_lock) { tracked_ = true; }
+    bool track_flag() REQUIRES(logd_lock) { return tracked_; }
 
   private:
     void ThreadFunction();
@@ -77,6 +100,12 @@ class LogReaderThread {
     LogBuffer* log_buffer_;
     LogReaderList* reader_list_;
     std::unique_ptr<LogWriter> writer_ GUARDED_BY(logd_lock);
+
+    PendingReaderThreadKey pending_reader_thread_key_ GUARDED_BY(logd_lock);
+    // Set to true to indicate the thread has finished.
+    bool finished_ GUARDED_BY(logd_lock) = false;
+    // Set to true to indicate the thread is tracked by AppOps.
+    bool tracked_ GUARDED_BY(logd_lock) = false;
 
     // Set to true to cause the thread to end and the LogReaderThread to delete itself.
     bool release_ GUARDED_BY(logd_lock) = false;

@@ -30,10 +30,12 @@ FrameBuffer::FrameBuffer(
     Device* device,
     const std::vector<const amber::Pipeline::BufferInfo*>& color_attachments,
     amber::Pipeline::BufferInfo depth_stencil_attachment,
+    const std::vector<const amber::Pipeline::BufferInfo*>& resolve_targets,
     uint32_t width,
     uint32_t height)
     : device_(device),
       color_attachments_(color_attachments),
+      resolve_targets_(resolve_targets),
       depth_stencil_attachment_(depth_stencil_attachment),
       width_(width),
       height_(height) {}
@@ -62,15 +64,16 @@ Result FrameBuffer::Initialize(VkRenderPass render_pass) {
 
     attachments.resize(color_attachments_.size());
     for (auto* info : color_attachments_) {
+      const VkImageUsageFlags usage_flags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       color_images_.push_back(MakeUnique<TransferImage>(
           device_, *info->buffer->GetFormat(), VK_IMAGE_ASPECT_COLOR_BIT,
-          VK_IMAGE_TYPE_2D, width_ << info->base_mip_level,
+          VK_IMAGE_TYPE_2D, usage_flags, width_ << info->base_mip_level,
           height_ << info->base_mip_level, depth_, info->buffer->GetMipLevels(),
-          info->base_mip_level, 1u, 1u));
+          info->base_mip_level, 1u, info->buffer->GetSamples()));
 
-      Result r = color_images_.back()->Initialize(
-          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+      Result r = color_images_.back()->Initialize();
       if (!r.IsSuccess())
         return r;
 
@@ -87,17 +90,35 @@ Result FrameBuffer::Initialize(VkRenderPass render_pass) {
       aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
     assert(aspect != 0);
 
+    const VkImageUsageFlags usage_flags =
+        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
     depth_stencil_image_ = MakeUnique<TransferImage>(
         device_, *depth_stencil_attachment_.buffer->GetFormat(), aspect,
-        VK_IMAGE_TYPE_2D, width_, height_, depth_, 1u, 0u, 1u, 1u);
+        VK_IMAGE_TYPE_2D, usage_flags, width_, height_, depth_, 1u, 0u, 1u, 1u);
 
-    Result r = depth_stencil_image_->Initialize(
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    Result r = depth_stencil_image_->Initialize();
     if (!r.IsSuccess())
       return r;
 
     attachments.push_back(depth_stencil_image_->GetVkImageView());
+  }
+
+  for (auto* info : resolve_targets_) {
+    const VkImageUsageFlags usage_flags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    resolve_images_.push_back(MakeUnique<TransferImage>(
+        device_, *info->buffer->GetFormat(), VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_TYPE_2D, usage_flags, width_, height_, depth_, 1u, 0u, 1u,
+        1u));
+
+    Result r = resolve_images_.back()->Initialize();
+    if (!r.IsSuccess())
+      return r;
+
+    attachments.push_back(resolve_images_.back()->GetVkImageView());
   }
 
   VkFramebufferCreateInfo frame_buffer_info = VkFramebufferCreateInfo();
@@ -124,6 +145,9 @@ void FrameBuffer::ChangeFrameLayout(CommandBuffer* command,
                                     VkImageLayout depth_layout,
                                     VkPipelineStageFlags depth_stage) {
   for (auto& img : color_images_)
+    img->ImageBarrier(command, color_layout, color_stage);
+
+  for (auto& img : resolve_images_)
     img->ImageBarrier(command, color_layout, color_stage);
 
   if (depth_stencil_image_)
@@ -162,6 +186,9 @@ void FrameBuffer::TransferImagesToHost(CommandBuffer* command) {
   for (auto& img : color_images_)
     img->CopyToHost(command);
 
+  for (auto& img : resolve_images_)
+    img->CopyToHost(command);
+
   if (depth_stencil_image_)
     depth_stencil_image_->CopyToHost(command);
 }
@@ -170,6 +197,15 @@ void FrameBuffer::CopyImagesToBuffers() {
   for (size_t i = 0; i < color_images_.size(); ++i) {
     auto& img = color_images_[i];
     auto* info = color_attachments_[i];
+    auto* values = info->buffer->ValuePtr();
+    values->resize(info->buffer->GetSizeInBytes());
+    std::memcpy(values->data(), img->HostAccessibleMemoryPtr(),
+                info->buffer->GetSizeInBytes());
+  }
+
+  for (size_t i = 0; i < resolve_images_.size(); ++i) {
+    auto& img = resolve_images_[i];
+    auto* info = resolve_targets_[i];
     auto* values = info->buffer->ValuePtr();
     values->resize(info->buffer->GetSizeInBytes());
     std::memcpy(values->data(), img->HostAccessibleMemoryPtr(),
@@ -196,6 +232,18 @@ void FrameBuffer::CopyBuffersToImages() {
   for (size_t i = 0; i < color_images_.size(); ++i) {
     auto& img = color_images_[i];
     auto* info = color_attachments_[i];
+    auto* values = info->buffer->ValuePtr();
+    // Nothing to do if our local buffer is empty
+    if (values->empty())
+      continue;
+
+    std::memcpy(img->HostAccessibleMemoryPtr(), values->data(),
+                info->buffer->GetSizeInBytes());
+  }
+
+  for (size_t i = 0; i < resolve_images_.size(); ++i) {
+    auto& img = resolve_images_[i];
+    auto* info = resolve_targets_[i];
     auto* values = info->buffer->ValuePtr();
     // Nothing to do if our local buffer is empty
     if (values->empty())

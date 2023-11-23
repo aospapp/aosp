@@ -90,9 +90,6 @@ public class SelectionManager {
         if ((itemSupportedOperations & MediaObject.SUPPORT_CROP) > 0) {
             mSelectedCroppableCount += increment;
         }
-        if ((itemSupportedOperations & MediaObject.SUPPORT_SETAS) > 0) {
-            mSelectedSetableCount += increment;
-        }
         if ((itemSupportedOperations & MediaObject.SUPPORT_TRIM) > 0) {
             mSelectedTrimmableCount += increment;
         }
@@ -146,9 +143,6 @@ public class SelectionManager {
             }
             if (mSelectedEditableCount == 1) {
                 supported |= MediaObject.SUPPORT_EDIT;
-            }
-            if (mSelectedSetableCount == 1) {
-                supported |= MediaObject.SUPPORT_SETAS;
             }
             if (mSelectedTrimmableCount == 1) {
                 supported |= MediaObject.SUPPORT_TRIM;

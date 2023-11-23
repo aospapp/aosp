@@ -35,7 +35,7 @@ package {
 // See: http://go/android-license-faq
 license {
     name: "external_noto-fonts_other_license",
-    visibility: [":__subpackages__"],
+    visibility: ["//external/noto-fonts:__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-MIT",

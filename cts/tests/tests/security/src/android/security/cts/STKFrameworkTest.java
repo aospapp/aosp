@@ -15,26 +15,27 @@
  */
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
 import android.content.ComponentName;
 import android.content.Intent;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.test.AndroidTestCase;
 import android.content.pm.PackageManager;
-import android.test.AndroidTestCase;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
-public class STKFrameworkTest extends AndroidTestCase {
+import androidx.test.runner.AndroidJUnit4;
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.Test;
+
+@RunWith(AndroidJUnit4.class)
+public class STKFrameworkTest extends StsExtraBusinessLogicTestCase {
     private boolean mHasTelephony;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mHasTelephony = getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_TELEPHONY);
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
     }
 
     /*
@@ -42,6 +43,7 @@ public class STKFrameworkTest extends AndroidTestCase {
      * zero-permission malicious application
      */
     @AsbSecurityTest(cveBugId = 21697171)
+    @Test
     public void testInterceptedSIMCommandsToTelephony() {
         if (!mHasTelephony) {
             return;
@@ -54,7 +56,7 @@ public class STKFrameworkTest extends AndroidTestCase {
                 ComponentName.unflattenFromString("com.android.stk/com.android.stk.StkCmdReceiver");
         intent.setComponent(cn);
         try {
-            mContext.sendBroadcast(intent);
+            getInstrumentation().getContext().sendBroadcast(intent);
             fail("Able to send broadcast which can be received by any app which has registered " +
                     "broadcast for action 'com.android.internal.stk.command' since it is not " +
                     "protected with any permission. Device is vulnerable to CVE-2015-3843.");

@@ -83,6 +83,20 @@ class MockDeviceHwl : public CameraDeviceHwl {
     return OK;
   }
 
+   status_t TurnOnTorchWithStrengthLevel(int32_t torch_strength) {
+    if (torch_strength < 1) {
+      return BAD_VALUE;
+    }
+
+    torch_strength_ = torch_strength;
+    return OK;
+  }
+
+  status_t GetTorchStrengthLevel(int32_t& torch_strength) const {
+    torch_strength = torch_strength_;
+    return OK;
+  }
+
   // Dump the camera device states in fd, using dprintf() or write().
   status_t DumpState(int fd) {
     if (fd < 0) {
@@ -132,6 +146,7 @@ class MockDeviceHwl : public CameraDeviceHwl {
       physical_camera_characteristics_;
 
   std::string dump_string_;
+  int32_t torch_strength_ = 0;
 
  protected:
   MockDeviceHwl() {

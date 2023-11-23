@@ -47,5 +47,5 @@ android_app {
             "androidx.appcompat_appcompat",
     ],
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
 }

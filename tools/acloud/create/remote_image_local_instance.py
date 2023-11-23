@@ -20,14 +20,17 @@ remote image.
 """
 import logging
 import os
+import shutil
 import subprocess
 import sys
 
 from acloud import errors
+from acloud.create import create_common
 from acloud.create import local_image_local_instance
 from acloud.internal import constants
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import auth
+from acloud.internal.lib import ota_tools
 from acloud.internal.lib import utils
 from acloud.setup import setup_common
 
@@ -48,6 +51,10 @@ _HOME_FOLDER = os.path.expanduser("~")
 # Let's add an extra buffer (~2G) to make sure user has enough disk space
 # for the downloaded image artifacts.
 _REQUIRED_SPACE = 10
+
+_SYSTEM_IMAGE_NAME_PATTERN = r"system\.img"
+_SYSTEM_MIX_IMAGE_DIR = "mix_image_{build_id}"
+_DOWNLOAD_MIX_IMAGE_NAME = "{build_target}-target_files-{build_id}.zip"
 
 
 @utils.TimeExecute(function_description="Downloading Android Build image")
@@ -77,8 +84,9 @@ def DownloadAndProcessImageFiles(avd_spec):
         build_id + build_target)
 
     logger.debug("Extract path: %s", extract_path)
-    # TODO(b/117189191): If extract folder exists, check if the files are
-    # already downloaded and skip this step if they are.
+
+    if avd_spec.force_sync and os.path.exists(extract_path):
+        shutil.rmtree(extract_path)
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
         build_api = (
@@ -97,7 +105,10 @@ def DownloadAndProcessImageFiles(avd_spec):
             avd_spec.kernel_build_info.get(constants.BUILD_TARGET),
             avd_spec.bootloader_build_info.get(constants.BUILD_ID),
             avd_spec.bootloader_build_info.get(constants.BUILD_BRANCH),
-            avd_spec.bootloader_build_info.get(constants.BUILD_TARGET))
+            avd_spec.bootloader_build_info.get(constants.BUILD_TARGET),
+            avd_spec.ota_build_info.get(constants.BUILD_ID),
+            avd_spec.ota_build_info.get(constants.BUILD_BRANCH),
+            avd_spec.ota_build_info.get(constants.BUILD_TARGET))
         creds_cache_file = os.path.join(_HOME_FOLDER, cfg.creds_cache_file)
         fetch_cvd_cert_arg = build_api.GetFetchCertArg(creds_cache_file)
         fetch_cvd_args = [fetch_cvd, "-directory=%s" % extract_path,
@@ -149,6 +160,21 @@ def ConfirmDownloadRemoteImageDir(download_dir):
             return download_dir
 
 
+def GetMixBuildTargetFilename(build_target, build_id):
+    """Get the mix build target filename.
+
+    Args:
+        build_id: String, Build id, e.g. "2263051", "P2804227"
+        build_target: String, the build target, e.g. cf_x86_phone-userdebug
+
+    Returns:
+        String, a file name, e.g. "cf_x86_phone-target_files-2263051.zip"
+    """
+    return _DOWNLOAD_MIX_IMAGE_NAME.format(
+        build_target=build_target.split('-')[0],
+        build_id=build_id)
+
+
 class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstance):
     """Create class for a remote image local instance AVD.
 
@@ -184,7 +210,42 @@ class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstanc
             raise errors.GetCvdLocalHostPackageError(
                 "No launch_cvd found. Please check downloaded artifacts dir: %s"
                 % image_dir)
+
+        mix_image_dir = None
+        if avd_spec.local_system_image:
+            build_id = avd_spec.remote_image[constants.BUILD_ID]
+            build_target = avd_spec.remote_image[constants.BUILD_TARGET]
+            mix_image_dir =os.path.join(
+                image_dir, _SYSTEM_MIX_IMAGE_DIR.format(build_id=build_id))
+            if not os.path.exists(mix_image_dir):
+                os.makedirs(mix_image_dir)
+                create_common.DownloadRemoteArtifact(
+                    avd_spec.cfg, build_target, build_id,
+                    GetMixBuildTargetFilename(build_target, build_id),
+                    mix_image_dir, decompress=True)
+            misc_info_path = super().FindMiscInfo(mix_image_dir)
+            mix_image_dir = super().FindImageDir(mix_image_dir)
+            tool_dirs = (avd_spec.local_tool_dirs +
+                         create_common.GetNonEmptyEnvVars(
+                             constants.ENV_ANDROID_SOONG_HOST_OUT,
+                             constants.ENV_ANDROID_HOST_OUT))
+            ota_tools_dir = os.path.abspath(
+                ota_tools.FindOtaToolsDir(tool_dirs))
+            system_image_path = create_common.FindLocalImage(
+                avd_spec.local_system_image, _SYSTEM_IMAGE_NAME_PATTERN)
+        else:
+            misc_info_path = None
+            ota_tools_dir = None
+            system_image_path = None
+
         # This method does not set the optional fields because launch_cvd loads
         # the paths from the fetcher config in image_dir.
         return local_image_local_instance.ArtifactPaths(
-            image_dir, image_dir, None, None, None, None)
+            image_dir=mix_image_dir or image_dir,
+            host_bins=image_dir,
+            host_artifacts=image_dir,
+            misc_info=misc_info_path,
+            ota_tools_dir=ota_tools_dir,
+            system_image=system_image_path,
+            boot_image=None,
+            vendor_boot_image=None)

@@ -39,11 +39,19 @@
 
         <activity android:name="android.input.cts.IncompleteMotionActivity"
                   android:label="IncompleteMotion activity"
-                  android:turnScreenOn="true">
+                  android:turnScreenOn="true"
+                  android:exported="true">
         </activity>
         <activity android:name="android.input.cts.CaptureEventActivity"
                   android:label="Capture events"
-                  android:turnScreenOn="true">
+                  android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|navigation|keyboard|density|fontScale|layoutDirection|locale|mcc|mnc|smallestScreenSize"
+                  android:turnScreenOn="true"
+                  android:exported="true">
+        </activity>
+        <activity android:name="android.app.Activity"
+                  android:label="Empty activity for simple tests"
+                  android:turnScreenOn="true"
+                  android:exported="true">
         </activity>
     </application>
 

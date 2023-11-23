@@ -142,7 +142,8 @@ public class HvacUiService extends Service {
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         // Register receiver such that any user with climate control permission can call it.
         registerReceiverAsUser(mBroadcastReceiver, UserHandle.ALL, filter,
-                Car.PERMISSION_CONTROL_CAR_CLIMATE, null);
+                Car.PERMISSION_CONTROL_CAR_CLIMATE, null,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
 

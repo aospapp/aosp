@@ -158,7 +158,6 @@ subprojects {
         googleAuthVersion = '0.11.0'
         googleCloudBetaVersion = '0.64.0-beta'
         googleCloudGaVersion = '1.46.0'
-        log4j2Version = '2.11.1'
         signalfxVersion = '0.0.39'
         springBootVersion = '1.5.15.RELEASE'
         springCloudVersion = '1.3.4.RELEASE'
@@ -183,7 +182,6 @@ subprojects {
                 google_auth: "com.google.auth:google-auth-library-credentials:${googleAuthVersion}",
                 google_cloud_logging: "com.google.cloud:google-cloud-logging:${googleCloudGaVersion}",
                 google_cloud_trace: "com.google.cloud:google-cloud-trace:${googleCloudBetaVersion}",
-                log4j2: "org.apache.logging.log4j:log4j-core:${log4j2Version}",
                 zipkin_reporter: "io.zipkin.reporter2:zipkin-reporter:${zipkinReporterVersion}",
                 zipkin_urlconnection: "io.zipkin.reporter2:zipkin-sender-urlconnection:${zipkinReporterVersion}",
                 jaeger_reporter: "com.uber.jaeger:jaeger-core:${jaegerReporterVersion}",
@@ -425,7 +423,6 @@ subprojects {
                  'opencensus-contrib-grpc-metrics',
                  'opencensus-contrib-grpc-util',
                  'opencensus-contrib-http-util',
-                 'opencensus-contrib-log-correlation-log4j2',
                  'opencensus-contrib-log-correlation-stackdriver',
                  'opencensus-contrib-monitored-resource-util',
                  'opencensus-contrib-spring',

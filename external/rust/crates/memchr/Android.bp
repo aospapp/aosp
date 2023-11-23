@@ -42,8 +42,10 @@ rust_library {
     name: "libmemchr",
     host_supported: true,
     crate_name: "memchr",
+    cargo_env_compat: true,
+    cargo_pkg_version: "2.4.1",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2018",
     features: [
         "default",
         "std",
@@ -56,8 +58,12 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.compos",
         "com.android.resolv",
+        "com.android.uwb",
         "com.android.virt",
     ],
+    vendor_available: true,
     min_sdk_version: "29",
 }

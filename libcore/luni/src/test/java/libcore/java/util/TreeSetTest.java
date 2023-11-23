@@ -16,7 +16,9 @@
 
 package libcore.java.util;
 
+import java.util.Arrays;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import junit.framework.TestCase;
@@ -132,5 +134,23 @@ public final class TreeSetTest extends TestCase {
                 assertEquals(0, deserialized.comparator().compare("X", "x"));
             }
         }.test();
+    }
+
+    public void testHeadSet() {
+        TreeSet<Integer> set = new TreeSet<>();
+        for (int i = -5; i < 5; i++) {
+            set.add(i);
+            // Adding twice should make no difference to the set.
+            set.add(i);
+        }
+
+        Set<Integer> headset = set.headSet(-1, true);
+        assertTrue(headset.containsAll(Arrays.asList(-5, -4, -3, -2, -1)));
+        assertEquals(5, headset.size());
+
+
+        headset = set.headSet(-1, false);
+        assertTrue(headset.containsAll(Arrays.asList(-5, -4, -3, -2)));
+        assertEquals(4, headset.size());
     }
 }

@@ -1,4 +1,3 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
-dikshag@google.com
-zemiao@google.com
+# Bug component: 46626
+
+include platform/frameworks/base:/core/java/android/os/storage/OWNERS

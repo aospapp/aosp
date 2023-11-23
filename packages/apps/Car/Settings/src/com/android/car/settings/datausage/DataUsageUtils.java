@@ -17,6 +17,7 @@
 package com.android.car.settings.datausage;
 
 import android.content.Context;
+import android.net.NetworkStats;
 import android.net.NetworkTemplate;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -26,6 +27,7 @@ import android.text.BidiFormatter;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -34,6 +36,7 @@ import com.android.internal.util.CollectionUtils;
 
 import java.util.Calendar;
 import java.util.List;
+import java.util.Set;
 
 /** Provides helpful utilities related to data usage. */
 public final class DataUsageUtils {
@@ -49,9 +52,31 @@ public final class DataUsageUtils {
      */
     public static NetworkTemplate getMobileNetworkTemplate(TelephonyManager telephonyManager,
             int subscriptionId) {
-        NetworkTemplate mobileAll = NetworkTemplate.buildTemplateMobileAll(
-                telephonyManager.getSubscriberId(subscriptionId));
-        return NetworkTemplate.normalize(mobileAll, telephonyManager.getMergedSubscriberIds());
+        String subscriberId = telephonyManager.getSubscriberId(subscriptionId);
+        NetworkTemplate.Builder builder =
+                new NetworkTemplate.Builder(NetworkTemplate.MATCH_MOBILE)
+                .setMeteredness(NetworkStats.METERED_YES);
+        if (subscriberId != null) {
+            builder.setSubscriberIds(Set.of(subscriberId));
+        }
+        return normalizeMobileTemplate(builder.build(), telephonyManager.getMergedSubscriberIds());
+    }
+
+    private static NetworkTemplate normalizeMobileTemplate(
+            @NonNull NetworkTemplate template, @Nullable String[] mergedSet) {
+        if (template.getSubscriberIds().isEmpty() || mergedSet == null) return template;
+        // The input template should have at most 1 subscriberId.
+        String subscriberId = template.getSubscriberIds().iterator().next();
+
+        if (Set.of(mergedSet).contains(subscriberId)) {
+            // Requested template subscriber is part of the merge group; return
+            // a template that matches all merged subscribers.
+            return new NetworkTemplate.Builder(template.getMatchRule())
+                    .setSubscriberIds(Set.of(mergedSet))
+                    .setMeteredness(template.getMeteredness()).build();
+        }
+
+        return template;
     }
 
     /**

@@ -17,6 +17,8 @@ package android.car.util.concurrent;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.TestApi;
+import android.car.annotation.AddedInOrBefore;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -35,18 +37,21 @@ import java.util.function.BiConsumer;
  *
  * @hide
  */
+@TestApi
 public interface AsyncFuture<T> {
 
     /**
      * See {@link java.util.concurrent.Future#get()}.
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     T get() throws InterruptedException, ExecutionException;
 
     /**
      * See {@link java.util.concurrent.Future#get(long, TimeUnit).
      */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     T get(long timeout, @NonNull TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException;
 
@@ -54,6 +59,7 @@ public interface AsyncFuture<T> {
      * See {@link java.util.concurrent.CompletableFuture#whenCompleteAsync(BiConsumer, Executor).
      */
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     AsyncFuture<T> whenCompleteAsync(@NonNull BiConsumer<? super T, ? super Throwable> action,
             @NonNull Executor executor);
 }

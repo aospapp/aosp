@@ -29,21 +29,6 @@
     <!--Percent by which to blur the image used for the card's background as a float between 0 and 1, where 0 is not blurred-->
     <dimen name="card_background_image_blur_radius" format="float">0</dimen>
 
-    <!-- screen height of the device. This is used when custom policy is provided using
-    config_deviceSpecificDisplayAreaPolicyProvider -->
-    <dimen name="total_screen_height">2176dp</dimen>
-    <!-- screen width of the device. This is used when custom policy is provided using
-    config_deviceSpecificDisplayAreaPolicyProvider -->
-    <dimen name="total_screen_width">1224dp</dimen>
-
-    <dimen name="control_bar_height">136dp</dimen>
-    <dimen name="control_bar_padding">0dp</dimen>
-    <!-- This height is from the top of navbar not accounting for the control bar height. -->
-    <dimen name="default_app_display_area_height">1056dp</dimen>
-    <dimen name="title_bar_display_area_height">40dp</dimen>
-    <!-- This value is 500dp + (top of title bar)  -->
-    <dimen name="title_bar_display_area_touch_drag_threshold">1204dp</dimen>
-
     <dimen name="default_audio_icon_padding">26dp</dimen>
     <dimen name="default_audio_icon_outer_ring_size">66dp</dimen>
     <dimen name="default_audio_icon_outer_ring_thickness">8dp</dimen>
@@ -52,4 +37,6 @@
     <dimen name="control_bar_image_background_radius">24dp</dimen>
 
     <dimen name="button_tap_target_size">88dp</dimen>
+    <dimen name="recent_apps_row_height">2dp</dimen>
+    <dimen name="app_grid_row_margin">57dp</dimen>
 </resources>

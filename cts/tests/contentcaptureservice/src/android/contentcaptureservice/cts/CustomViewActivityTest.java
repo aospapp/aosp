@@ -16,9 +16,6 @@
 package android.contentcaptureservice.cts;
 
 import static android.contentcaptureservice.cts.Assertions.assertRightActivity;
-import static android.contentcaptureservice.cts.Assertions.assertViewTextChanged;
-import static android.contentcaptureservice.cts.Assertions.assertVirtualViewAppeared;
-import static android.contentcaptureservice.cts.Assertions.assertVirtualViewsDisappeared;
 import static android.contentcaptureservice.cts.Helper.MY_PACKAGE;
 import static android.contentcaptureservice.cts.Helper.NO_ACTIVITIES;
 import static android.contentcaptureservice.cts.Helper.OTHER_PACKAGE;
@@ -278,14 +275,11 @@ public class CustomViewActivityTest extends
         final AutofillId customViewId = activity.mCustomView.getAutofillId();
         final ContentCaptureSession mainSession = activity.mCustomView.getContentCaptureSession();
 
-        final int i = CustomViewActivity.MIN_EVENTS;
-
-        assertVirtualViewAppeared(events, i, mainSession, customViewId, 1, "child1");
-        assertVirtualViewAppeared(events, i + 1, mainSession, customViewId, 2, "child2");
-        assertViewTextChanged(events, i + 2, child2IdRef.get(), "The Times They Are a-Changin'");
-        assertVirtualViewsDisappeared(events, i + 3, customViewId, mainSession, 2, 1);
-
-        activity.assertInitialViewsDisappeared(events, additionalEvents);
+        new EventsAssertor(events)
+                .assertVirtualViewAppeared(mainSession, customViewId, 1, "child1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 2, "child2")
+                .assertViewTextChanged(child2IdRef.get(), "The Times They Are a-Changin'")
+                .assertVirtualViewsDisappeared(customViewId, mainSession, 2, 1);
         // TODO(b/122315042): assert views disappeared
     }
 
@@ -392,18 +386,15 @@ public class CustomViewActivityTest extends
         final AutofillId customViewId = activity.mCustomView.getAutofillId();
         final ContentCaptureSession mainSession = activity.mCustomView.getContentCaptureSession();
 
-        final int i = CustomViewActivity.MIN_EVENTS;
-
-        assertVirtualViewAppeared(events, i, mainSession, customViewId, 1, "c1");
-        assertVirtualViewAppeared(events, i + 1, mainSession, customViewId, 11, "c1g1");
-        assertVirtualViewAppeared(events, i + 2, mainSession, customViewId, 12, "c1g2");
-        assertVirtualViewAppeared(events, i + 3, mainSession, customViewId, 2, "c2");
-        assertVirtualViewAppeared(events, i + 4, mainSession, customViewId, 21, "c2g1");
-        assertVirtualViewAppeared(events, i + 5, mainSession, customViewId, 211, "c2g1gg1");
-        assertVirtualViewAppeared(events, i + 6, mainSession, customViewId, 3, "c3");
-        assertVirtualViewsDisappeared(events, i + 7, customViewId, mainSession, 21, 2, 11, 1, 12);
-
-        activity.assertInitialViewsDisappeared(events, additionalEvents);
+        new EventsAssertor(events)
+                .assertVirtualViewAppeared(mainSession, customViewId, 1, "c1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 11, "c1g1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 12, "c1g2")
+                .assertVirtualViewAppeared(mainSession, customViewId, 2, "c2")
+                .assertVirtualViewAppeared(mainSession, customViewId, 21, "c2g1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 211, "c2g1gg1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 3, "c3")
+                .assertVirtualViewsDisappeared(customViewId, mainSession, 21, 2, 11, 1, 12);
         // TODO(b/122315042): assert other views disappeared
     }
 
@@ -458,13 +449,10 @@ public class CustomViewActivityTest extends
         final AutofillId customViewId = activity.mCustomView.getAutofillId();
         final ContentCaptureSession mainSession = activity.mCustomView.getContentCaptureSession();
 
-        final int i = CustomViewActivity.MIN_EVENTS;
-
-        assertVirtualViewAppeared(events, i, mainSession, customViewId, 1, "child1");
-        assertVirtualViewAppeared(events, i + 1, mainSession, customViewId, 2, "child2");
-        assertVirtualViewsDisappeared(events, i + 2, customViewId, mainSession, 2, 1);
-
-        activity.assertInitialViewsDisappeared(events, additionalEvents);
+        new EventsAssertor(events)
+                .assertVirtualViewAppeared(mainSession, customViewId, 1, "child1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 2, "child2")
+                .assertVirtualViewsDisappeared(customViewId, mainSession, 2, 1);
         // TODO(b/122315042): assert other views disappeared
     }
 

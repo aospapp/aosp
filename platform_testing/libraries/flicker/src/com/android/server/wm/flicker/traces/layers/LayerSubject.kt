@@ -17,9 +17,9 @@ package com.android.server.wm.flicker.traces.layers
 
 import android.graphics.Point
 import com.android.server.wm.flicker.assertions.Assertion
-import com.android.server.wm.flicker.traces.FlickerFailureStrategy
 import com.android.server.wm.flicker.assertions.FlickerSubject
-import com.android.server.wm.flicker.traces.RegionSubject
+import com.android.server.wm.flicker.traces.FlickerFailureStrategy
+import com.android.server.wm.flicker.traces.region.RegionSubject
 import com.android.server.wm.traces.common.Size
 import com.android.server.wm.traces.common.layers.Layer
 import com.google.common.truth.Fact
@@ -64,13 +64,14 @@ class LayerSubject private constructor(
      * Visible region calculated by the Composition Engine
      */
     val visibleRegion: RegionSubject get() =
-        RegionSubject.assertThat(layer?.visibleRegion, this)
+        RegionSubject.assertThat(layer?.visibleRegion, this, timestamp)
+
     /**
      * Visible region calculated by the Composition Engine (when available) or calculated
      * based on the layer bounds and transform
      */
     val screenBounds: RegionSubject get() =
-        RegionSubject.assertThat(layer?.screenBounds, this)
+        RegionSubject.assertThat(layer?.screenBounds, this, timestamp)
 
     override val selfFacts = if (layer != null) {
         listOf(Fact.fact("Frame", layer.currFrame), Fact.fact("Layer", layer.name))
@@ -84,11 +85,6 @@ class LayerSubject private constructor(
     operator fun invoke(assertion: Assertion<Layer>): LayerSubject = apply {
         layer ?: return exists()
         assertion(this.layer)
-    }
-
-    /** {@inheritDoc} */
-    override fun clone(): FlickerSubject {
-        return LayerSubject(fm, parent, timestamp, layer, layerName)
     }
 
     /**

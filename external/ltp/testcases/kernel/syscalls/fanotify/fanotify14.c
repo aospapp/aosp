@@ -3,21 +3,22 @@
  * Copyright (c) 2018 Matthew Bobrowski. All Rights Reserved.
  *
  * Started by Matthew Bobrowski <mbobrowski@mbobrowski.org>
- *
- * DESCRIPTION
- *	This test file has been designed to ensure that the fanotify
- *	system calls fanotify_init(2) and fanotify_mark(2) return the
- *	correct error code to the calling process when an invalid flag or
- *	mask value has been specified in conjunction with FAN_REPORT_FID.
  */
+
+/*\
+ * [Description]
+ * This test file has been designed to ensure that the fanotify
+ * system calls fanotify_init(2) and fanotify_mark(2) return the
+ * correct error code to the calling process when an invalid flag or
+ * mask value has been specified in conjunction with FAN_REPORT_FID.
+ */
+
 #define _GNU_SOURCE
 #include "tst_test.h"
-#include "fanotify.h"
-
 #include <errno.h>
 
-#if defined(HAVE_SYS_FANOTIFY_H)
-#include <sys/fanotify.h>
+#ifdef HAVE_SYS_FANOTIFY_H
+#include "fanotify.h"
 
 #define MNTPOINT "mntpoint"
 #define FILE1 MNTPOINT"/file1"
@@ -52,7 +53,15 @@ static struct test_case_t {
 	},
 	{
 		FAN_CLASS_NOTIF | FAN_REPORT_FID, FAN_MARK_MOUNT, INODE_EVENTS
-	}
+	},
+	{
+		/* FAN_REPORT_NAME without FAN_REPORT_DIR_FID is not valid */
+		FAN_CLASS_NOTIF | FAN_REPORT_NAME, 0, 0
+	},
+	{
+		/* FAN_REPORT_NAME without FAN_REPORT_DIR_FID is not valid */
+		FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_NAME, 0, 0
+	},
 };
 
 static void do_test(unsigned int number)

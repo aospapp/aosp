@@ -21,19 +21,18 @@
  *  This file contains the action functions for NFA-EE
  *
  ******************************************************************************/
-#include <string.h>
-
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <statslog.h>
+#include <string.h>
 
+#include "include/debug_lmrt.h"
+#include "metrics.h"
 #include "nfa_api.h"
 #include "nfa_dm_int.h"
 #include "nfa_ee_int.h"
 #include "nfa_hci_int.h"
 #include "nfc_int.h"
-
-#include <statslog.h>
-#include "metrics.h"
 
 using android::base::StringPrintf;
 
@@ -646,8 +645,8 @@ tNFA_EE_ECB* nfa_ee_find_aid_offset(uint8_t aid_len, uint8_t* p_aid,
                                     int* p_offset, int* p_entry) {
   int xx, yy, aid_len_offset, offset;
   tNFA_EE_ECB *p_ret = nullptr, *p_ecb;
-
-  p_ecb = &nfa_ee_cb.ecb[NFA_EE_CB_4_DH];
+  /* NFA_EE_CB_4_DH + Empty aid ECB */
+  p_ecb = &nfa_ee_cb.ecb[NFA_EE_CB_4_DH + 1];
   aid_len_offset = 1; /* skip the tag */
   for (yy = 0; yy <= nfa_ee_cb.cur_ee; yy++) {
     if (p_ecb->aid_entries) {
@@ -2251,7 +2250,9 @@ void nfa_ee_report_update_evt(void) {
 
     if (nfa_ee_cb.ee_wait_evt & NFA_EE_WAIT_UPDATE) {
       nfa_ee_cb.ee_wait_evt &= ~NFA_EE_WAIT_UPDATE;
-      /* finished updating NFCC; report NFA_EE_UPDATED_EVT now */
+      /* finished updating NFCC; record the committed listen mode routing
+       * configuration command; report NFA_EE_UPDATED_EVT now */
+      lmrt_update();
       evt_data.status = NFA_STATUS_OK;
       nfa_ee_report_event(nullptr, NFA_EE_UPDATED_EVT, &evt_data);
     }
@@ -2411,7 +2412,6 @@ void nfa_ee_nci_action_ntf(tNFA_EE_MSG* p_data) {
 *******************************************************************************/
 void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG* p_data) {
   tNFC_EE_DISCOVER_REQ_REVT* p_cbk = p_data->disc_req.p_data;
-  tNFA_HANDLE ee_handle;
   tNFA_EE_ECB* p_cb = nullptr;
   uint8_t report_ntf = 0;
   uint8_t xx;
@@ -2420,8 +2420,6 @@ void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG* p_data) {
       "num_info: %d cur_ee:%d", p_cbk->num_info, nfa_ee_cb.cur_ee);
 
   for (xx = 0; xx < p_cbk->num_info; xx++) {
-    ee_handle = NFA_HANDLE_GROUP_EE | p_cbk->info[xx].nfcee_id;
-
     p_cb = nfa_ee_find_ecb(p_cbk->info[xx].nfcee_id);
     if (!p_cb) {
       DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
@@ -2805,7 +2803,6 @@ void nfa_ee_lmrt_to_nfcc(__attribute__((unused)) tNFA_EE_MSG* p_data) {
   int max_len;
   tNFA_STATUS status = NFA_STATUS_FAILED;
   int cur_offset;
-  uint8_t max_tlv;
 
   /* update routing table: DH and the activated NFCEEs */
   max_len = (NFC_GetLmrtSize() > NFA_EE_ROUT_BUF_SIZE) ? NFC_GetLmrtSize()
@@ -2834,10 +2831,6 @@ void nfa_ee_lmrt_to_nfcc(__attribute__((unused)) tNFA_EE_MSG* p_data) {
   if (last_active == NFA_EE_INVALID) {
     check = false;
   }
-
-  max_tlv =
-      (uint8_t)((max_len > NFA_EE_ROUT_MAX_TLV_SIZE) ? NFA_EE_ROUT_MAX_TLV_SIZE
-                                                     : max_len);
   cur_offset = 0;
   /* use the first byte of the buffer (p) to keep the num_tlv */
   *p = 0;
@@ -2859,6 +2852,16 @@ void nfa_ee_lmrt_to_nfcc(__attribute__((unused)) tNFA_EE_MSG* p_data) {
         << StringPrintf("%s --add the routing for DH!!", __func__);
     nfa_ee_route_add_one_ecb_by_route_order(&nfa_ee_cb.ecb[NFA_EE_CB_4_DH], rt,
                                             &max_len, more, p, &cur_offset);
+
+    if (rt == NCI_ROUTE_ORDER_AID) {
+      p_cb = &nfa_ee_cb.ecb[NFA_EE_EMPTY_AID_ECB];
+      if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE) {
+        DLOG_IF(INFO, nfc_debug_enabled)
+            << StringPrintf("%s --add the routing for Empty Aid!!", __func__);
+        nfa_ee_route_add_one_ecb_by_route_order(p_cb, rt, &max_len, more, p,
+                                                &cur_offset);
+      }
+    }
   }
 
   GKI_freebuf(p);

@@ -57,7 +57,7 @@ public class ImageProvider extends ContentProvider {
         sUriMatcher.addURI(ImageContract.AUTHORITY, "images/#", IMAGE_ID);
     }
 
-    // Indicated how many same images are going to be written as dummy images
+    // Indicated how many same images are going to be written as unused images
     private static final int REPEAT_COUNT_WRITE_FILES = 10;
 
     private File mBaseDir;
@@ -71,7 +71,7 @@ public class ImageProvider extends ContentProvider {
             return false;
         }
         mBaseDir = context.getFilesDir();
-        writeDummyFilesToStorage(context);
+        writeUnusedFilesToStorage(context);
 
         return true;
     }
@@ -185,10 +185,10 @@ public class ImageProvider extends ContentProvider {
 
     /**
      * Preload sample files packaged in the apk into the internal storage directory.  This is a
-     * dummy function specific to this demo.  The MyCloud mock cloud service doesn't actually
+     * function specific to this demo.  The MyCloud mock cloud service doesn't actually
      * have a backend, so it simulates by reading content from the device's internal storage.
      */
-    private void writeDummyFilesToStorage(Context context) {
+    private void writeUnusedFilesToStorage(Context context) {
         if (mBaseDir.list().length > 0) {
             return;
         }
@@ -202,7 +202,7 @@ public class ImageProvider extends ContentProvider {
     }
 
     /**
-     * Write a file to internal storage.  Used to set up our dummy "cloud server".
+     * Write a file to internal storage.  Used to set up our mock "cloud server".
      *
      * @param context   the Context
      * @param resId     the resource ID of the file to write to internal storage

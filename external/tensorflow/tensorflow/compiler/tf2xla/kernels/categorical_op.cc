@@ -44,8 +44,10 @@ class CategoricalOp : public XlaOpKernel {
     // Get the logits
     const xla::XlaOp& logits = ctx->Input(0);
     TensorShape logits_shape = ctx->InputShape(0);
-    int64 num_samples;
-    OP_REQUIRES_OK(ctx, ctx->ConstantInputAsIntScalar(1, &num_samples));
+    int64_t num_samples;
+    OP_REQUIRES_OK(ctx,
+                   ctx->ConstantInputAsIntScalar(
+                       1, &num_samples, xla::ValueInferenceMode::kUpperBound));
     OP_REQUIRES(ctx, TensorShapeUtils::IsMatrix(logits_shape),
                 errors::InvalidArgument("logits should be a matrix, got shape ",
                                         logits_shape.DebugString()));
@@ -54,19 +56,22 @@ class CategoricalOp : public XlaOpKernel {
                     "num_samples should be nonnegative, got ", num_samples));
 
     for (int i = 0; i < 2; i++) {
-      const int64 dim = logits_shape.dim_size(i);
+      const int64_t dim = logits_shape.dim_size(i);
       OP_REQUIRES(
           ctx, static_cast<int>(dim) == dim,
           errors::InvalidArgument("logits.shape = ", logits_shape.DebugString(),
                                   " too large for int"));
     }
 
-    const int64 batch_size = logits_shape.dim_size(0);
-    const int64 num_classes = logits_shape.dim_size(1);
+    const int64_t batch_size = logits_shape.dim_size(0);
+    const int64_t num_classes = logits_shape.dim_size(1);
 
     xla::Shape uniform_shape;
     int class_dimension;
-    if (num_samples != 1) {
+    bool num_samples_is_dynamic = false;
+    OP_REQUIRES_OK(
+        ctx, ctx->ResolveInputDynamismIntoPred(1, &num_samples_is_dynamic));
+    if (num_samples != 1 || num_samples_is_dynamic) {
       std::array<int64, 3> uniform_shape_array = {
           {batch_size, num_samples, num_classes}};
       xla::PrimitiveType uniform_xla_type;
@@ -91,11 +96,9 @@ class CategoricalOp : public XlaOpKernel {
     xla::PrimitiveType type;
     OP_REQUIRES_OK(ctx, DataTypeToPrimitiveType(input_type(0), &type));
     xla::XlaOp log_uniforms = GetLogUniforms(uniform_shape, type, ctx);
-    bool num_samples_is_dynamic = false;
-    OP_REQUIRES_OK(
-        ctx, ctx->ResolveInputDynamismIntoPred(1, &num_samples_is_dynamic));
-    if (num_samples_is_dynamic && num_samples != 1) {
-      // Number samples is dimension 1 in uniform_shape_array.
+
+    if (num_samples_is_dynamic) {
+      // num_samples is dimension 1 in uniform_shape_array.
       log_uniforms = xla::SetDimensionSize(log_uniforms, ctx->Input(1), 1);
     }
 
@@ -119,7 +122,7 @@ class CategoricalOp : public XlaOpKernel {
                            /*axis=*/class_dimension, /*stable=*/true);
     }
 
-    if (num_samples == 1) {
+    if (num_samples == 1 && !num_samples_is_dynamic) {
       argmax = xla::Reshape(argmax, {batch_size, 1});
     }
 

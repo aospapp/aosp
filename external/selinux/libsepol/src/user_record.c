@@ -4,6 +4,7 @@
 
 #include "user_internal.h"
 #include "debug.h"
+#include "private.h"
 
 struct sepol_user {
 	/* This user's name */
@@ -51,7 +52,6 @@ int sepol_user_key_create(sepol_handle_t * handle,
 	return STATUS_SUCCESS;
 }
 
-hidden_def(sepol_user_key_create)
 
 void sepol_user_key_unpack(const sepol_user_key_t * key, const char **name)
 {
@@ -59,7 +59,6 @@ void sepol_user_key_unpack(const sepol_user_key_t * key, const char **name)
 	*name = key->name;
 }
 
-hidden_def(sepol_user_key_unpack)
 
 int sepol_user_key_extract(sepol_handle_t * handle,
 			   const sepol_user_t * user,
@@ -115,7 +114,6 @@ int sepol_user_set_name(sepol_handle_t * handle,
 	return STATUS_SUCCESS;
 }
 
-hidden_def(sepol_user_set_name)
 
 /* MLS */
 const char *sepol_user_get_mlslevel(const sepol_user_t * user)
@@ -124,7 +122,6 @@ const char *sepol_user_get_mlslevel(const sepol_user_t * user)
 	return user->mls_level;
 }
 
-hidden_def(sepol_user_get_mlslevel)
 
 int sepol_user_set_mlslevel(sepol_handle_t * handle,
 			    sepol_user_t * user, const char *mls_level)
@@ -141,7 +138,6 @@ int sepol_user_set_mlslevel(sepol_handle_t * handle,
 	return STATUS_SUCCESS;
 }
 
-hidden_def(sepol_user_set_mlslevel)
 
 const char *sepol_user_get_mlsrange(const sepol_user_t * user)
 {
@@ -149,7 +145,6 @@ const char *sepol_user_get_mlsrange(const sepol_user_t * user)
 	return user->mls_range;
 }
 
-hidden_def(sepol_user_get_mlsrange)
 
 int sepol_user_set_mlsrange(sepol_handle_t * handle,
 			    sepol_user_t * user, const char *mls_range)
@@ -166,7 +161,6 @@ int sepol_user_set_mlsrange(sepol_handle_t * handle,
 	return STATUS_SUCCESS;
 }
 
-hidden_def(sepol_user_set_mlsrange)
 
 /* Roles */
 int sepol_user_get_num_roles(const sepol_user_t * user)
@@ -189,8 +183,9 @@ int sepol_user_add_role(sepol_handle_t * handle,
 	if (!role_cp)
 		goto omem;
 
-	roles_realloc = realloc(user->roles,
-				sizeof(char *) * (user->num_roles + 1));
+	roles_realloc = reallocarray(user->roles,
+				     user->num_roles + 1,
+				     sizeof(char *));
 	if (!roles_realloc)
 		goto omem;
 
@@ -207,7 +202,6 @@ int sepol_user_add_role(sepol_handle_t * handle,
 	return STATUS_ERR;
 }
 
-hidden_def(sepol_user_add_role)
 
 int sepol_user_has_role(const sepol_user_t * user, const char *role)
 {
@@ -220,7 +214,6 @@ int sepol_user_has_role(const sepol_user_t * user, const char *role)
 	return 0;
 }
 
-hidden_def(sepol_user_has_role)
 
 int sepol_user_set_roles(sepol_handle_t * handle,
 			 sepol_user_t * user,
@@ -274,7 +267,7 @@ int sepol_user_get_roles(sepol_handle_t * handle,
 
 	unsigned int i;
 	const char **tmp_roles =
-	    (const char **)malloc(sizeof(char *) * user->num_roles);
+	    (const char **)mallocarray(user->num_roles, sizeof(char *));
 	if (!tmp_roles)
 		goto omem;
 
@@ -292,7 +285,6 @@ int sepol_user_get_roles(sepol_handle_t * handle,
 	return STATUS_ERR;
 }
 
-hidden_def(sepol_user_get_roles)
 
 void sepol_user_del_role(sepol_user_t * user, const char *role)
 {
@@ -330,7 +322,6 @@ int sepol_user_create(sepol_handle_t * handle, sepol_user_t ** user_ptr)
 	return STATUS_SUCCESS;
 }
 
-hidden_def(sepol_user_create)
 
 /* Deep copy clone */
 int sepol_user_clone(sepol_handle_t * handle,
@@ -386,4 +377,3 @@ void sepol_user_free(sepol_user_t * user)
 	free(user);
 }
 
-hidden_def(sepol_user_free)

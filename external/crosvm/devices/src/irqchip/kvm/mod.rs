@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::Bus;
+use crate::{Bus, IrqEdgeEvent, IrqLevelEvent};
 use base::{error, Error, Event, Result};
 use hypervisor::kvm::KvmVcpu;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
@@ -36,20 +36,37 @@ impl IrqChip for KvmKernelIrqChip {
         Ok(())
     }
 
-    /// Register an event that can trigger an interrupt for a particular GSI.
-    fn register_irq_event(
+    /// Register an event with edge-trigger semantic that can trigger an interrupt
+    /// for a particular GSI.
+    fn register_edge_irq_event(
         &mut self,
         irq: u32,
-        irq_event: &Event,
-        resample_event: Option<&Event>,
+        irq_event: &IrqEdgeEvent,
     ) -> Result<Option<IrqEventIndex>> {
-        self.vm.register_irqfd(irq, irq_event, resample_event)?;
+        self.vm.register_irqfd(irq, irq_event.get_trigger(), None)?;
         Ok(None)
     }
 
-    /// Unregister an event for a particular GSI.
-    fn unregister_irq_event(&mut self, irq: u32, irq_event: &Event) -> Result<()> {
-        self.vm.unregister_irqfd(irq, irq_event)
+    /// Unregister an event with edge-trigger semantic for a particular GSI.
+    fn unregister_edge_irq_event(&mut self, irq: u32, irq_event: &IrqEdgeEvent) -> Result<()> {
+        self.vm.unregister_irqfd(irq, irq_event.get_trigger())
+    }
+
+    /// Register an event with level-trigger semantic that can trigger an interrupt
+    /// for a particular GSI.
+    fn register_level_irq_event(
+        &mut self,
+        irq: u32,
+        irq_event: &IrqLevelEvent,
+    ) -> Result<Option<IrqEventIndex>> {
+        self.vm
+            .register_irqfd(irq, irq_event.get_trigger(), Some(irq_event.get_resample()))?;
+        Ok(None)
+    }
+
+    /// Unregister an event with level-trigger semantic for a particular GSI.
+    fn unregister_level_irq_event(&mut self, irq: u32, irq_event: &IrqLevelEvent) -> Result<()> {
+        self.vm.unregister_irqfd(irq, irq_event.get_trigger())
     }
 
     /// Route an IRQ line to an interrupt controller, or to a particular MSI vector.
@@ -156,8 +173,8 @@ impl IrqChip for KvmKernelIrqChip {
     fn finalize_devices(
         &mut self,
         _resources: &mut SystemAllocator,
-        _io_bus: &mut Bus,
-        _mmio_bus: &mut Bus,
+        _io_bus: &Bus,
+        _mmio_bus: &Bus,
     ) -> Result<()> {
         Ok(())
     }
@@ -167,12 +184,16 @@ impl IrqChip for KvmKernelIrqChip {
         Ok(())
     }
 
+    fn irq_delayed_event_token(&self) -> Result<Option<Event>> {
+        Ok(None)
+    }
+
     fn check_capability(&self, c: IrqChipCap) -> bool {
         match c {
             IrqChipCap::TscDeadlineTimer => self
                 .vm
                 .get_hypervisor()
-                .check_capability(&HypervisorCap::TscDeadlineTimer),
+                .check_capability(HypervisorCap::TscDeadlineTimer),
             IrqChipCap::X2Apic => true,
         }
     }
@@ -180,9 +201,8 @@ impl IrqChip for KvmKernelIrqChip {
 
 #[cfg(test)]
 mod tests {
-
     use hypervisor::kvm::{Kvm, KvmVm};
-    use hypervisor::{MPState, Vm};
+    use hypervisor::{MPState, ProtectionType, Vm};
     use vm_memory::GuestMemory;
 
     use crate::irqchip::{IrqChip, KvmKernelIrqChip};
@@ -196,7 +216,8 @@ mod tests {
     fn create_kvm_kernel_irqchip() {
         let kvm = Kvm::new().expect("failed to instantiate Kvm");
         let mem = GuestMemory::new(&[]).unwrap();
-        let vm = KvmVm::new(&kvm, mem).expect("failed to instantiate vm");
+        let vm =
+            KvmVm::new(&kvm, mem, ProtectionType::Unprotected).expect("failed to instantiate vm");
 
         let mut chip = KvmKernelIrqChip::new(vm.try_clone().expect("failed to clone vm"), 1)
             .expect("failed to instantiate KvmKernelIrqChip");
@@ -210,7 +231,8 @@ mod tests {
     fn mp_state() {
         let kvm = Kvm::new().expect("failed to instantiate Kvm");
         let mem = GuestMemory::new(&[]).unwrap();
-        let vm = KvmVm::new(&kvm, mem).expect("failed to instantiate vm");
+        let vm =
+            KvmVm::new(&kvm, mem, ProtectionType::Unprotected).expect("failed to instantiate vm");
 
         let mut chip = KvmKernelIrqChip::new(vm.try_clone().expect("failed to clone vm"), 1)
             .expect("failed to instantiate KvmKernelIrqChip");

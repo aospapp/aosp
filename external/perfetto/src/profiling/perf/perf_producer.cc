@@ -36,7 +36,7 @@
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 #include "src/profiling/common/callstack_trie.h"
-#include "src/profiling/common/proc_utils.h"
+#include "src/profiling/common/proc_cmdline.h"
 #include "src/profiling/common/producer_support.h"
 #include "src/profiling/common/profiler_guardrails.h"
 #include "src/profiling/common/unwind_support.h"
@@ -68,7 +68,7 @@ namespace {
 // The proper fix is in the platform, see bug for progress.
 constexpr uint32_t kProcDescriptorsAndroidDelayMs = 50;
 
-constexpr uint32_t kMemoryLimitCheckPeriodMs = 5 * 1000;
+constexpr uint32_t kMemoryLimitCheckPeriodMs = 1000;
 
 constexpr uint32_t kInitialConnectionBackoffMs = 100;
 constexpr uint32_t kMaxConnectionBackoffMs = 30 * 1000;
@@ -78,6 +78,23 @@ constexpr char kDataSourceName[] = "linux.perf";
 
 size_t NumberOfCpus() {
   return static_cast<size_t>(sysconf(_SC_NPROCESSORS_CONF));
+}
+
+int32_t ToBuiltinClock(int32_t clockid) {
+  switch (clockid) {
+    case CLOCK_REALTIME:
+      return protos::pbzero::BUILTIN_CLOCK_REALTIME;
+    case CLOCK_MONOTONIC:
+      return protos::pbzero::BUILTIN_CLOCK_MONOTONIC;
+    case CLOCK_MONOTONIC_RAW:
+      return protos::pbzero::BUILTIN_CLOCK_MONOTONIC_RAW;
+    case CLOCK_BOOTTIME:
+      return protos::pbzero::BUILTIN_CLOCK_BOOTTIME;
+    // Should never get invalid input here as otherwise the syscall itself
+    // would've failed earlier.
+    default:
+      return protos::pbzero::BUILTIN_CLOCK_UNKNOWN;
+  }
 }
 
 TraceWriter::TracePacketHandle StartTracePacket(TraceWriter* trace_writer) {
@@ -97,16 +114,16 @@ void WritePerfEventDefaultsPacket(const EventConfig& event_config,
   packet->set_sequence_flags(
       protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
 
-  // default packet timestamp clockid:
+  // default packet timestamp clock for the samples:
+  perf_event_attr* perf_attr = event_config.perf_attr();
   auto* defaults = packet->set_trace_packet_defaults();
-  defaults->set_timestamp_clock_id(protos::pbzero::BUILTIN_CLOCK_MONOTONIC_RAW);
-  PERFETTO_DCHECK(event_config.perf_attr()->clockid == CLOCK_MONOTONIC_RAW);
+  int32_t builtin_clock = ToBuiltinClock(perf_attr->clockid);
+  defaults->set_timestamp_clock_id(static_cast<uint32_t>(builtin_clock));
 
   auto* perf_defaults = defaults->set_perf_sample_defaults();
   auto* timebase_pb = perf_defaults->set_timebase();
 
   // frequency/period:
-  perf_event_attr* perf_attr = event_config.perf_attr();
   if (perf_attr->freq) {
     timebase_pb->set_frequency(perf_attr->sample_freq);
   } else {
@@ -115,17 +132,35 @@ void WritePerfEventDefaultsPacket(const EventConfig& event_config,
 
   // event:
   const PerfCounter& timebase = event_config.timebase_event();
-  if (timebase.is_counter()) {
-    timebase_pb->set_counter(
-        static_cast<protos::pbzero::PerfEvents::Counter>(timebase.counter));
-  } else {
-    PERFETTO_DCHECK(timebase.is_tracepoint());
-    // TODO(rsavitski): reconsider using a struct with two strings instead
-    // of the ::gen::Tracepoint class in the C++ code.
-    auto* tracepoint_pb = timebase_pb->set_tracepoint();
-    tracepoint_pb->set_name(timebase.tracepoint.name());
-    tracepoint_pb->set_filter(timebase.tracepoint.filter());
+  switch (timebase.event_type()) {
+    case PerfCounter::Type::kBuiltinCounter: {
+      timebase_pb->set_counter(
+          static_cast<protos::pbzero::PerfEvents::Counter>(timebase.counter));
+      break;
+    }
+    case PerfCounter::Type::kTracepoint: {
+      auto* tracepoint_pb = timebase_pb->set_tracepoint();
+      tracepoint_pb->set_name(timebase.tracepoint_name);
+      tracepoint_pb->set_filter(timebase.tracepoint_filter);
+      break;
+    }
+    case PerfCounter::Type::kRawEvent: {
+      auto* raw_pb = timebase_pb->set_raw_event();
+      raw_pb->set_type(timebase.attr_type);
+      raw_pb->set_config(timebase.attr_config);
+      raw_pb->set_config1(timebase.attr_config1);
+      raw_pb->set_config2(timebase.attr_config2);
+      break;
+    }
   }
+
+  // optional name to identify the counter during parsing:
+  if (!timebase.name.empty()) {
+    timebase_pb->set_name(timebase.name);
+  }
+
+  // Not setting timebase.timestamp_clock since the field that matters during
+  // parsing is the root timestamp_clock_id set above.
 }
 
 uint32_t TimeToNextReadTickMs(DataSourceInstanceID ds_id, uint32_t period_ms) {
@@ -145,14 +180,27 @@ bool ShouldRejectDueToFilter(pid_t pid,
                              base::FlatSet<std::string>* additional_cmdlines,
                              const TargetFilter& filter) {
   PERFETTO_CHECK(additional_cmdlines);
+
   std::string cmdline;
-  bool have_cmdline = GetCmdlineForPID(pid, &cmdline);  // normalized form
-  if (!have_cmdline) {
-    PERFETTO_DLOG("Failed to look up cmdline for pid [%d]",
-                  static_cast<int>(pid));
+  bool have_cmdline = glob_aware::ReadProcCmdlineForPID(pid, &cmdline);
+
+  const char* binname = "";
+  if (have_cmdline) {
+    binname = glob_aware::FindBinaryName(cmdline.c_str(), cmdline.size());
   }
 
-  if (have_cmdline && filter.exclude_cmdlines.count(cmdline)) {
+  auto has_matching_pattern = [](const std::vector<std::string>& patterns,
+                                 const char* cmd, const char* name) {
+    for (const std::string& pattern : patterns) {
+      if (glob_aware::MatchGlobPattern(pattern.c_str(), cmd, name)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (have_cmdline &&
+      has_matching_pattern(filter.exclude_cmdlines, cmdline.c_str(), binname)) {
     PERFETTO_DLOG("Explicitly rejecting samples for pid [%d] due to cmdline",
                   static_cast<int>(pid));
     return true;
@@ -163,20 +211,21 @@ bool ShouldRejectDueToFilter(pid_t pid,
     return true;
   }
 
-  if (have_cmdline && filter.cmdlines.count(cmdline)) {
+  if (have_cmdline &&
+      has_matching_pattern(filter.cmdlines, cmdline.c_str(), binname)) {
     return false;
   }
   if (filter.pids.count(pid)) {
     return false;
   }
+
+  // Empty allow filter means keep everything that isn't explicitly excluded.
   if (filter.cmdlines.empty() && filter.pids.empty() &&
       !filter.additional_cmdline_count) {
-    // If no filters are set allow everything.
     return false;
   }
 
-  // If we didn't read the command line that's a good prediction we will not be
-  // able to profile either.
+  // Config option that allows to profile just the N first seen cmdlines.
   if (have_cmdline) {
     if (additional_cmdlines->count(cmdline)) {
       return false;
@@ -235,6 +284,12 @@ protos::pbzero::Profiling::StackUnwindError ToProtoEnum(
       return Profiling::UNWIND_ERROR_THREAD_TIMEOUT;
     case unwindstack::ERROR_THREAD_DOES_NOT_EXIST:
       return Profiling::UNWIND_ERROR_THREAD_DOES_NOT_EXIST;
+    case unwindstack::ERROR_BAD_ARCH:
+      return Profiling::UNWIND_ERROR_BAD_ARCH;
+    case unwindstack::ERROR_MAPS_PARSE:
+      return Profiling::UNWIND_ERROR_MAPS_PARSE;
+    case unwindstack::ERROR_INVALID_PARAMETER:
+      return Profiling::UNWIND_ERROR_INVALID_PARAMETER;
   }
   return Profiling::UNWIND_ERROR_UNKNOWN;
 }

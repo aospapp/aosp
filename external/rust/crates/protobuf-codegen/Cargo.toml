@@ -3,21 +3,27 @@
 # When uploading crates to the registry Cargo will automatically
 # "normalize" Cargo.toml files for maximal compatibility
 # with all versions of Cargo and also rewrite `path` dependencies
-# to registry (e.g., crates.io) dependencies
+# to registry (e.g., crates.io) dependencies.
 #
-# If you believe there's an error in this file please file an
-# issue against the rust-lang/cargo repository. If you're
-# editing this file be aware that the upstream Cargo.toml
-# will likely look very different (and much more reasonable)
+# If you are reading this file be aware that the original Cargo.toml
+# will likely look very different (and much more reasonable).
+# See Cargo.toml.orig for the original contents.
 
 [package]
 name = "protobuf-codegen"
-version = "2.22.1"
+version = "2.27.1"
 authors = ["Stepan Koltsov <stepan.koltsov@gmail.com>"]
-description = "Code generator for rust-protobuf.\n\nIncludes a library and `protoc-gen-rust` binary.\n\nSee `protoc-rust` and `protobuf-codegen-pure` crates.\n"
+description = """
+Code generator for rust-protobuf.
+
+Includes a library and `protoc-gen-rust` binary.
+
+See `protoc-rust` and `protobuf-codegen-pure` crates.
+"""
 homepage = "https://github.com/stepancheg/rust-protobuf/"
 license = "MIT"
 repository = "https://github.com/stepancheg/rust-protobuf/"
+
 [package.metadata.docs.rs]
 all-features = true
 
@@ -33,5 +39,6 @@ test = false
 name = "protobuf-bin-gen-rust-do-not-use"
 path = "src/bin/protobuf-bin-gen-rust-do-not-use.rs"
 test = false
+
 [dependencies.protobuf]
-version = "=2.22.1"
+version = "=2.27.1"

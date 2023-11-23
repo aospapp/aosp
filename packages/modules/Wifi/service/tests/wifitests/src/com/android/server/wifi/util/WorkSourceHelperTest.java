@@ -28,12 +28,14 @@ import static org.mockito.Mockito.when;
 import android.app.ActivityManager;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.Process;
 import android.os.WorkSource;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiBaseTest;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,6 +56,7 @@ public class WorkSourceHelperTest extends WifiBaseTest {
     @Mock private WifiPermissionsUtil mWifiPermissionsUtil;
     @Mock private ActivityManager mActivityManager;
     @Mock private PackageManager mPackageManager;
+    @Mock private Resources mResources;
 
     private WorkSource mWorkSource;
     private WorkSourceHelper mWorkSourceHelper;
@@ -67,7 +70,7 @@ public class WorkSourceHelperTest extends WifiBaseTest {
         mWorkSource.add(new WorkSource(TEST_UID_2, TEST_PACKAGE_2));
 
         mWorkSourceHelper = new WorkSourceHelper(
-                mWorkSource, mWifiPermissionsUtil, mActivityManager, mPackageManager);
+                mWorkSource, mWifiPermissionsUtil, mActivityManager, mPackageManager, mResources);
     }
 
     @Test
@@ -96,12 +99,19 @@ public class WorkSourceHelperTest extends WifiBaseTest {
                 .thenReturn(IMPORTANCE_BACKGROUND);
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_2))
                 .thenReturn(IMPORTANCE_BACKGROUND);
-        assertFalse(mWorkSourceHelper.hasAnyForegroundAppRequest());
+        assertFalse(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
+
+        // override background status
+        when(mResources.getStringArray(
+                R.array.config_wifiInterfacePriorityTreatAsForegroundList)).thenReturn(
+                new String[]{TEST_PACKAGE_2});
+        assertTrue(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
+        assertFalse(mWorkSourceHelper.hasAnyForegroundAppRequest(false));
 
         // 1 request from fg app, 1 from bg app.
         when(mActivityManager.getPackageImportance(TEST_PACKAGE_1))
                 .thenReturn(IMPORTANCE_FOREGROUND);
-        assertTrue(mWorkSourceHelper.hasAnyForegroundAppRequest());
+        assertTrue(mWorkSourceHelper.hasAnyForegroundAppRequest(true));
     }
 
     @Test

@@ -35,6 +35,7 @@ use keystore2_crypto::parse_subject_from_certificate;
 /// handled quite differently, thus the different representations.
 pub enum AttestationKeyInfo {
     RemoteProvisioned {
+        key_id_guard: KeyIdGuard,
         attestation_key: AttestationKey,
         attestation_certs: Certificate,
     },
@@ -58,20 +59,27 @@ pub fn get_attest_key_info(
     db: &mut KeystoreDB,
 ) -> Result<Option<AttestationKeyInfo>> {
     let challenge_present = params.iter().any(|kp| kp.tag == Tag::ATTESTATION_CHALLENGE);
+    let is_device_unique_attestation =
+        params.iter().any(|kp| kp.tag == Tag::DEVICE_UNIQUE_ATTESTATION);
     match attest_key_descriptor {
-        None if challenge_present => rem_prov_state
-            .get_remotely_provisioned_attestation_key_and_certs(&key, caller_uid, params, db)
+        // Do not select an RKP key if DEVICE_UNIQUE_ATTESTATION is present.
+        None if challenge_present && !is_device_unique_attestation => rem_prov_state
+            .get_remotely_provisioned_attestation_key_and_certs(key, caller_uid, params, db)
             .context(concat!(
                 "In get_attest_key_and_cert_chain: ",
                 "Trying to get remotely provisioned attestation key."
             ))
             .map(|result| {
-                result.map(|(attestation_key, attestation_certs)| {
-                    AttestationKeyInfo::RemoteProvisioned { attestation_key, attestation_certs }
+                result.map(|(key_id_guard, attestation_key, attestation_certs)| {
+                    AttestationKeyInfo::RemoteProvisioned {
+                        key_id_guard,
+                        attestation_key,
+                        attestation_certs,
+                    }
                 })
             }),
         None => Ok(None),
-        Some(attest_key) => get_user_generated_attestation_key(&attest_key, caller_uid, db)
+        Some(attest_key) => get_user_generated_attestation_key(attest_key, caller_uid, db)
             .context("In get_attest_key_and_cert_chain: Trying to load attest key")
             .map(Some),
     }
@@ -83,7 +91,7 @@ fn get_user_generated_attestation_key(
     db: &mut KeystoreDB,
 ) -> Result<AttestationKeyInfo> {
     let (key_id_guard, blob, cert, blob_metadata) =
-        load_attest_key_blob_and_cert(&key, caller_uid, db)
+        load_attest_key_blob_and_cert(key, caller_uid, db)
             .context("In get_user_generated_attestation_key: Failed to load blob and cert")?;
 
     let issuer_subject: Vec<u8> = parse_subject_from_certificate(&cert).context(
@@ -105,11 +113,11 @@ fn load_attest_key_blob_and_cert(
         _ => {
             let (key_id_guard, mut key_entry) = db
                 .load_key_entry(
-                    &key,
+                    key,
                     KeyType::Client,
                     KeyEntryLoadBits::BOTH,
                     caller_uid,
-                    |k, av| check_key_permission(KeyPerm::use_(), k, &av),
+                    |k, av| check_key_permission(KeyPerm::Use, k, &av),
                 )
                 .context("In load_attest_key_blob_and_cert: Failed to load key.")?;
 

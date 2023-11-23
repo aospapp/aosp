@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'application suivante va gérer votre appareil :"</string>
     <string name="next" msgid="1004321437324424398">"Suivant"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configuration du profil professionnel en cours…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Votre administrateur informatique peut contrôler et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à ce profil, y compris votre activité réseau et les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Pour consulter plus d\'information, y compris les politiques de confidentialité de votre entreprise, communiquez avec votre administrateur informatique."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Votre administrateur informatique peut surveiller et gérer l\'accès aux contenus de l\'entreprise, les applications, les autorisations, les données, l\'activité réseau et les paramètres associés à ce profil, de même que votre historique des appels et vos recherches de contacts. Communiquez avec votre administrateur informatique pour en savoir plus à ce sujet ou sur les politiques de confidentialité de votre organisation."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Votre administrateur informatique peut contrôler et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau et les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Pour consulter plus d\'information, y compris les politiques de confidentialité de votre entreprise, communiquez avec votre administrateur informatique."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> peut installer l\'application <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> afin de vous permettre d\'effectuer des paiements pour cet appareil."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Cet appareil peut être sous restriction"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> peut restreindre l\'accès à l\'appareil si vous n\'effectuez pas vos paiements."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Impossible de configurer l\'appareil. Communiquez avec votre administrateur informatique et précisez qu\'une erreur de « somme de contrôle incorrecte » est survenue."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Réessayez plus tard ou demandez de l\'aide à votre administrateur informatique"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Impossible de configurer l\'appareil. Communiquez avec votre administrateur informatique et précisez qu\'une erreur de « composants manquants ou corrompus » est survenue."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configuration en cours…"</string>
 </resources>

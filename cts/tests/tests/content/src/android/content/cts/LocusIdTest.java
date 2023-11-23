@@ -81,7 +81,7 @@ public class LocusIdTest {
 
         try {
             // Write to parcel
-            parcel.setDataPosition(0); // Sanity / paranoid check
+            parcel.setDataPosition(0); // Initial check
             original.writeToParcel(parcel, 0);
 
             // Read from parcel

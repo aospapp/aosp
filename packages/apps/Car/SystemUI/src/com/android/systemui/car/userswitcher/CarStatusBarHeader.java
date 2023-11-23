@@ -29,6 +29,8 @@ import com.android.settingslib.Utils;
 import com.android.systemui.R;
 import com.android.systemui.plugins.DarkIconDispatcher;
 
+import java.util.ArrayList;
+
 /**
  * A view that forms the header of the notification panel. This view will ensure that any
  * status icons that are displayed are tinted accordingly to the current theme.
@@ -46,15 +48,15 @@ public class CarStatusBarHeader extends LinearLayout {
         int colorForeground = Utils.getColorAttrDefaultColor(getContext(),
                 android.R.attr.colorForeground);
         float intensity = colorForeground == Color.WHITE ? 0f : 1f;
-        Rect tintArea = new Rect(0, 0, 0, 0);
 
-        applyDarkness(R.id.clock, tintArea, intensity, colorForeground);
+        applyDarkness(R.id.clock, new ArrayList<>(), intensity, colorForeground);
     }
 
-    private void applyDarkness(@IdRes int id, Rect tintArea, float intensity, int color) {
+    private void applyDarkness(@IdRes int id, ArrayList<Rect> tintAreas, float intensity, 
+		int color) {
         View v = findViewById(id);
         if (v instanceof DarkIconDispatcher.DarkReceiver) {
-            ((DarkIconDispatcher.DarkReceiver) v).onDarkChanged(tintArea, intensity, color);
+            ((DarkIconDispatcher.DarkReceiver) v).onDarkChanged(tintAreas, intensity, color);
         }
     }
 }

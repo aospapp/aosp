@@ -17,11 +17,11 @@
 
 import collections
 import datetime
+import os
 import subprocess
 import unittest
 
 from unittest import mock
-from six import b
 
 # pylint: disable=import-error
 import dateutil.parser
@@ -37,12 +37,12 @@ from acloud.list import instance
 
 class InstanceTest(driver_test_lib.BaseDriverTest):
     """Test instance."""
-    PS_SSH_TUNNEL = b("/fake_ps_1 --fake arg \n"
-                      "/fake_ps_2 --fake arg \n"
-                      "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
-                      "-o UserKnownHostsFile=/dev/null "
-                      "-o StrictHostKeyChecking=no -L 54321:127.0.0.1:6520 "
-                      "-L 12345:127.0.0.1:6444 -N -f -l user 1.1.1.1")
+    PS_SSH_TUNNEL = ("/fake_ps_1 --fake arg \n"
+                     "/fake_ps_2 --fake arg \n"
+                     "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
+                     "-o UserKnownHostsFile=/dev/null "
+                     "-o StrictHostKeyChecking=no -L 54321:127.0.0.1:6520 "
+                     "-L 12345:127.0.0.1:6444 -N -f -l user 1.1.1.1").encode()
     GCE_INSTANCE = {
         constants.INS_KEY_NAME: "fake_ins_name",
         constants.INS_KEY_CREATETIME: "fake_create_time",
@@ -55,7 +55,9 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             "items":[{"key":constants.INS_KEY_AVD_TYPE,
                       "value":"fake_type"},
                      {"key":constants.INS_KEY_AVD_FLAVOR,
-                      "value":"fake_flavor"}]}
+                      "value":"fake_flavor"},
+                     {"key":constants.INS_KEY_WEBRTC_PORT,
+                      "value":"fake_webrtc_port"}]}
     }
 
     @staticmethod
@@ -82,6 +84,8 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         mock_adb_tools.return_value = mock_adb_tools_object
         self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
                    return_value=self._MockCvdRuntimeConfig())
+        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+                   return_value=None)
         local_instance = instance.LocalInstance("fake_config_path")
 
         self.assertEqual("local-instance-2", local_instance.name)
@@ -96,9 +100,50 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(6445, local_instance.vnc_port)
         self.assertEqual(8444, local_instance.webrtc_port)
 
+    # pylint: disable=protected-access
+    def testGetCvdEnv(self):
+        """Test GetCvdEnv."""
+        self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
+                   return_value=self._MockCvdRuntimeConfig())
+        self.Patch(instance, "_IsProcessRunning", return_value=False)
+        local_instance = instance.LocalInstance("fake_config_path")
+        cvd_env = local_instance._GetCvdEnv()
+        self.assertEqual(cvd_env[constants.ENV_CUTTLEFISH_INSTANCE], "2")
+        self.assertEqual(cvd_env[constants.ENV_CUTTLEFISH_CONFIG_FILE],
+                         "fake_config_path")
+
+    # pylint: disable=protected-access
+    def testParsingCvdFleetOutput(self):
+        """Test ParsingCvdFleetOutput."""
+        cvd_fleet_output = """WARNING: cvd_server client version does not match
+{
+"adb_serial" : "0.0.0.0:6520",
+"instance_name" : "cvd-1",
+}"""
+
+        expected_result = """{
+"adb_serial" : "0.0.0.0:6520",
+"instance_name" : "cvd-1",
+}"""
+
+        self.assertEqual(
+            instance.LocalInstance._ParsingCvdFleetOutput(cvd_fleet_output),
+            expected_result)
+
+    # pylint: disable=protected-access
+    def testIsProcessRunning(self):
+        """Test IsProcessRunning."""
+        process = "cvd_server"
+        self.Patch(utils, "CheckOutput",
+                   return_value="/bin/cvd_server -server_fd=4")
+        self.assertEqual(instance._IsProcessRunning(process), True)
+
+        self.Patch(utils, "CheckOutput", return_value="/bin/cvd start")
+        self.assertEqual(instance._IsProcessRunning(process), False)
+
     @mock.patch("acloud.list.instance.AdbTools")
     def testDeleteLocalInstance(self, mock_adb_tools):
-        """Test executing stop_cvd command."""
+        """Test executing 'cvd stop' command."""
         self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
                    return_value=self._MockCvdRuntimeConfig())
         mock_adb_tools_object = mock.Mock(device_information={})
@@ -106,20 +151,30 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         mock_adb_tools.return_value = mock_adb_tools_object
         self.Patch(utils, "AddUserGroupsToCmd",
                    side_effect=lambda cmd, groups: cmd)
+        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+                   return_value=None)
         mock_check_call = self.Patch(subprocess, "check_call")
+        mock_check_output = self.Patch(
+            subprocess, "check_output",
+            return_value="cvd_internal_stop E stop cvd failed")
 
         local_instance = instance.LocalInstance("fake_config_path")
         with mock.patch.dict("acloud.list.instance.os.environ", clear=True):
             local_instance.Delete()
 
         expected_env = {
-            'CUTTLEFISH_INSTANCE': '2',
-            'HOME': '/tmp/acloud_cvd_temp/local-instance-2',
-            'CUTTLEFISH_CONFIG_FILE': 'fake_config_path',
+            "CUTTLEFISH_INSTANCE": "2",
+            "HOME": "/tmp/acloud_cvd_temp/local-instance-2",
+            "CUTTLEFISH_CONFIG_FILE": "fake_config_path",
+            "ANDROID_SOONG_HOST_OUT": "",
         }
+        mock_check_output.assert_called_with(
+            "/tmp/acloud_cvd_temp/local-instance-2/host_bins/bin/cvd stop",
+            stderr=subprocess.STDOUT, shell=True, env=expected_env, text=True,
+            timeout=instance._CVD_TIMEOUT)
         mock_check_call.assert_called_with(
-            'fake_cvd_tools_path/stop_cvd', stderr=subprocess.STDOUT,
-            shell=True, env=expected_env)
+            "/tmp/acloud_cvd_temp/local-instance-2/host_bins/bin/stop_cvd",
+            stderr=subprocess.STDOUT, shell=True, env=expected_env)
         mock_adb_tools_object.DisconnectAdb.assert_called()
 
     @mock.patch("acloud.list.instance.tempfile")
@@ -223,6 +278,8 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             instance.RemoteInstance,
             "GetAdbVncPortFromSSHTunnel",
             return_value=forwarded_ports(vnc_port=fake_vnc, adb_port=fake_adb))
+        self.Patch(utils, "GetWebrtcPortFromSSHTunnel",
+                   return_value="fake_webrtc_port")
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
         self.Patch(AdbTools, "IsAdbConnected", return_value=True)
 
@@ -269,6 +326,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             instance.RemoteInstance,
             "GetAdbVncPortFromSSHTunnel",
             return_value=forwarded_ports(vnc_port=fake_vnc, adb_port=fake_adb))
+        self.Patch(utils, "GetWebrtcPortFromSSHTunnel", return_value=8443)
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
         self.Patch(AdbTools, "IsAdbConnected", return_value=True)
         remote_instance = instance.RemoteInstance(self.GCE_INSTANCE)
@@ -281,7 +339,9 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                           "   display: None\n "
                           "   vnc: 127.0.0.1:654321\n "
                           "   zone: fake_zone\n "
-                          "   webrtc port: 8443\n "
+                          "   autoconnect: webrtc\n "
+                          "   webrtc port: fake_webrtc_port\n "
+                          "   webrtc forward port: 8443\n "
                           "   adb serial: 127.0.0.1:123456\n "
                           "   product: None\n "
                           "   model: None\n "
@@ -305,7 +365,9 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                           "   display: None\n "
                           "   vnc: 127.0.0.1:None\n "
                           "   zone: fake_zone\n "
-                          "   webrtc port: 8443\n "
+                          "   autoconnect: webrtc\n "
+                          "   webrtc port: fake_webrtc_port\n "
+                          "   webrtc forward port: 8443\n "
                           "   adb serial: disconnected")
         self.assertEqual(remote_instance.Summary(), result_summary)
 
@@ -318,6 +380,53 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         # Test can't get zone name from zone info.
         zone_info = "v1/projects/project/us-central1-c"
         self.assertEqual(instance.RemoteInstance._GetZoneName(zone_info), None)
+
+    def testGetLocalInstanceConfig(self):
+        """Test GetLocalInstanceConfig."""
+        self.Patch(instance, "GetLocalInstanceHomeDir",
+                  return_value="ins_home")
+        self.Patch(os.path, "isfile", return_value=False)
+        instance_id = 1
+        self.assertEqual(instance.GetLocalInstanceConfig(instance_id), None)
+
+        # Test config in new folder path.
+        self.Patch(os.path, "isfile", return_value=True)
+        expected_result = "ins_home/cuttlefish_assembly/cuttlefish_config.json"
+        self.assertEqual(
+            instance.GetLocalInstanceConfig(instance_id), expected_result)
+
+    def testGetLocalInstanceLogDir(self):
+        """Test GetLocalInstanceLogDir."""
+        self.Patch(instance, "GetLocalInstanceRuntimeDir",
+                   return_value="ins_runtime_dir")
+        self.Patch(os.path, "isdir", return_value=False)
+        self.assertEqual(instance.GetLocalInstanceLogDir(1), "ins_runtime_dir")
+
+        expected_path = "ins_runtime_dir/instances/cvd-1/logs"
+        self.Patch(os.path, "isdir",
+                   side_effect=lambda path: path == expected_path)
+        self.assertEqual(instance.GetLocalInstanceLogDir(1), expected_path)
+
+    def testGetAutoConnect(self):
+        """Test GetAutoConnect."""
+        name = "ins_name"
+        fullname = "fake_fullname"
+        display = "1080x1920 (480)"
+        ip = "fake_ip"
+        ins_webrtc = instance.Instance(
+            name, fullname, display, ip, webrtc_port=8443)
+        self.assertEqual(ins_webrtc._GetAutoConnect(), constants.INS_KEY_WEBRTC)
+
+        ins_webrtc = instance.Instance(
+            name, fullname, display, ip, vnc_port=6520)
+        self.assertEqual(ins_webrtc._GetAutoConnect(), constants.INS_KEY_VNC)
+
+        ins_webrtc = instance.Instance(
+            name, fullname, display, ip, adb_port=6666)
+        self.assertEqual(ins_webrtc._GetAutoConnect(), constants.INS_KEY_ADB)
+
+        ins_webrtc = instance.Instance(name, fullname, display, ip)
+        self.assertEqual(ins_webrtc._GetAutoConnect(), None)
 
 
 if __name__ == "__main__":

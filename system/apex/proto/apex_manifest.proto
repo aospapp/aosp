@@ -33,7 +33,8 @@ message ApexManifest {
   string preInstallHook = 3;
 
   // Post Install Hook
-  string postInstallHook = 4;
+  // This feature is not supported.
+  string postInstallHook = 4 [ deprecated = true ];
 
   // Version Name
   string versionName = 5;
@@ -56,9 +57,12 @@ message ApexManifest {
   // marked as "is_jni: true" from the list of "native_shared_libs".
   repeated string jniLibs = 9;
 
-  // List of libs required that are located in a shared libraries APEX.
-  // Format of the content is 'library:hash'.
-  // Example) libc++.so:83d8f50...
+  // List of libs required that are located in a shared libraries APEX.  The
+  // Android platform only checks whether this list is non-empty, and by default
+  // the Android build system never sets this. This field can be used when
+  // producing or processing an APEX using libraries in /apex/sharedlibs (see
+  // `provideSharedApexLibs` field) to store some information about the
+  // libraries.
   repeated string requireSharedApexLibs = 10;
 
   // Whether this APEX provides libraries to be shared with other APEXs. This
@@ -79,4 +83,3 @@ message ApexManifest {
   // Indicates that this APEX can be updated without rebooting device.
   bool supportsRebootlessUpdate = 13;
 }
-

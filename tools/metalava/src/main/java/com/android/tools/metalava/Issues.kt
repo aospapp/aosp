@@ -16,8 +16,6 @@
 package com.android.tools.metalava
 
 import com.android.sdklib.SdkVersionInfo
-import java.util.ArrayList
-import java.util.HashMap
 import java.util.Locale
 import kotlin.reflect.full.declaredMemberProperties
 
@@ -27,59 +25,46 @@ object Issues {
 
     val PARSE_ERROR = Issue(Severity.ERROR)
     // Compatibility issues
-    val ADDED_PACKAGE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_CLASS = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_METHOD = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_FIELD = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_INTERFACE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_PACKAGE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_CLASS = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_METHOD = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_FIELD = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_INTERFACE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_STATIC = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_FINAL = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_TRANSIENT = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_VOLATILE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_TYPE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_VALUE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_SUPERCLASS = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_SCOPE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_ABSTRACT = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_THROWS = Issue(Severity.WARNING, Category.COMPATIBILITY)
+    val ADDED_PACKAGE = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val ADDED_CLASS = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val ADDED_METHOD = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val ADDED_FIELD = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val ADDED_INTERFACE = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val REMOVED_PACKAGE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val REMOVED_CLASS = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val REMOVED_METHOD = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val REMOVED_FIELD = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val REMOVED_INTERFACE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_STATIC = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val ADDED_FINAL = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_TRANSIENT = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_VOLATILE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_TYPE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_VALUE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_SUPERCLASS = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_SCOPE = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_ABSTRACT = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_DEFAULT = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_THROWS = Issue(Severity.ERROR, Category.COMPATIBILITY)
     val CHANGED_NATIVE = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
-    val CHANGED_CLASS = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_DEPRECATED = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val CHANGED_SYNCHRONIZED = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val ADDED_FINAL_UNINSTANTIABLE = Issue(Severity.WARNING, Category.COMPATIBILITY)
-    val REMOVED_FINAL = Issue(Severity.WARNING, Category.COMPATIBILITY)
+    val CHANGED_CLASS = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val CHANGED_DEPRECATED = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val CHANGED_SYNCHRONIZED = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val ADDED_FINAL_UNINSTANTIABLE = Issue(Severity.HIDDEN, Category.COMPATIBILITY)
+    val REMOVED_FINAL = Issue(Severity.ERROR, Category.COMPATIBILITY)
     val REMOVED_DEPRECATED_CLASS = Issue(REMOVED_CLASS, Category.COMPATIBILITY)
     val REMOVED_DEPRECATED_METHOD = Issue(REMOVED_METHOD, Category.COMPATIBILITY)
     val REMOVED_DEPRECATED_FIELD = Issue(REMOVED_FIELD, Category.COMPATIBILITY)
-    val ADDED_ABSTRACT_METHOD = Issue(ADDED_METHOD, Category.COMPATIBILITY)
-    val ADDED_REIFIED = Issue(Severity.WARNING, Category.COMPATIBILITY)
+    val ADDED_ABSTRACT_METHOD = Issue(Severity.ERROR, Category.COMPATIBILITY)
+    val ADDED_REIFIED = Issue(Severity.ERROR, Category.COMPATIBILITY)
 
     // Issues in javadoc generation
     val UNRESOLVED_LINK = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val BAD_INCLUDE_TAG = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val UNKNOWN_TAG = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val UNKNOWN_PARAM_TAG_NAME = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val UNDOCUMENTED_PARAMETER = Issue(Severity.HIDDEN, Category.DOCUMENTATION)
-    val BAD_ATTR_TAG = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val BAD_INHERITDOC = Issue(Severity.HIDDEN, Category.DOCUMENTATION)
-    val HIDDEN_LINK = Issue(Severity.LINT, Category.DOCUMENTATION)
-    val HIDDEN_CONSTRUCTOR = Issue(Severity.WARNING, Category.DOCUMENTATION)
     val UNAVAILABLE_SYMBOL = Issue(Severity.WARNING, Category.DOCUMENTATION)
     val HIDDEN_SUPERCLASS = Issue(Severity.WARNING, Category.DOCUMENTATION)
     val DEPRECATED = Issue(Severity.HIDDEN, Category.DOCUMENTATION)
     val DEPRECATION_MISMATCH = Issue(Severity.ERROR, Category.DOCUMENTATION)
-    val MISSING_COMMENT = Issue(Severity.LINT, Category.DOCUMENTATION)
     val IO_ERROR = Issue(Severity.ERROR)
-    val NO_SINCE_DATA = Issue(Severity.HIDDEN, Category.DOCUMENTATION)
-    val NO_FEDERATION_DATA = Issue(Severity.WARNING, Category.DOCUMENTATION)
-    val BROKEN_SINCE_FILE = Issue(Severity.ERROR, Category.DOCUMENTATION)
-    val INVALID_CONTENT_TYPE = Issue(Severity.ERROR, Category.DOCUMENTATION)
-    val INVALID_SAMPLE_INDEX = Issue(Severity.ERROR, Category.DOCUMENTATION)
     val HIDDEN_TYPE_PARAMETER = Issue(Severity.WARNING, Category.DOCUMENTATION)
     val PRIVATE_SUPERCLASS = Issue(Severity.WARNING, Category.DOCUMENTATION)
     val NULLABLE = Issue(Severity.HIDDEN, Category.DOCUMENTATION)
@@ -225,6 +210,7 @@ object Issues {
     val DOCUMENT_EXCEPTIONS = Issue(Severity.ERROR, Category.API_LINT, "docs-throws")
     val FORBIDDEN_SUPER_CLASS = Issue(Severity.ERROR, Category.API_LINT)
     val MISSING_NULLABILITY = Issue(Severity.ERROR, Category.API_LINT, "annotations")
+    val INVALID_NULLABILITY_OVERRIDE = Issue(Severity.ERROR, Category.API_LINT, "annotations-nullability-overrides")
     val MUTABLE_BARE_FIELD = Issue(Severity.ERROR, Category.API_LINT, "mutable-bare-field")
     val INTERNAL_FIELD = Issue(Severity.ERROR, Category.API_LINT, "internal-fields")
     val PUBLIC_TYPEDEF = Issue(Severity.ERROR, Category.API_LINT, "no-public-typedefs")
@@ -238,6 +224,8 @@ object Issues {
         Issue(Severity.WARNING, Category.API_LINT, "builders-nonnull-constructors")
     val NO_SETTINGS_PROVIDER = Issue(Severity.HIDDEN, Category.API_LINT, "no-settings-provider")
     val NULLABLE_COLLECTION = Issue(Severity.WARNING, Category.API_LINT, "methods-prefer-non-null-collections")
+    val ASYNC_SUFFIX_FUTURE = Issue(Severity.ERROR, Category.API_LINT)
+    val GENERIC_CALLBACKS = Issue(Severity.ERROR, Category.API_LINT, "callbacks-sam")
 
     fun findIssueById(id: String?): Issue? {
         return nameToIssue[id]
@@ -307,7 +295,7 @@ object Issues {
             if (property.returnType.classifier != Issue::class) continue
             val issue = property.getter.call(Issues) as Issue
 
-            issue.name = SdkVersionInfo.underlinesToCamelCase(property.name.toLowerCase(Locale.US))
+            issue.name = SdkVersionInfo.underlinesToCamelCase(property.name.lowercase(Locale.US))
             nameToIssue[issue.name] = issue
         }
         for (issue in allIssues) {

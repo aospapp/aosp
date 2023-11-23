@@ -34,17 +34,12 @@ class EventLogSubject private constructor(
     override val timestamp: Long get() = 0
     override val parent: FlickerSubject? get() = null
     override val selfFacts by lazy {
-        val firstTimestamp = subjects.first().timestamp
-        val lastTimestamp = subjects.last().timestamp
+        val firstTimestamp = subjects.firstOrNull()?.timestamp ?: 0L
+        val lastTimestamp = subjects.lastOrNull()?.timestamp ?: 0L
         val first = "${prettyTimestamp(firstTimestamp)} (timestamp=$firstTimestamp)"
         val last = "${prettyTimestamp(lastTimestamp)} (timestamp=$lastTimestamp)"
         listOf(Fact.fact("Trace start", first),
                 Fact.fact("Trace end", last))
-    }
-
-    /** {@inheritDoc} */
-    override fun clone(): FlickerSubject {
-        return EventLogSubject(fm, trace)
     }
 
     private val subjects by lazy {

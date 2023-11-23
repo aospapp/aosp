@@ -17,11 +17,14 @@
 package com.android.queryable.queries;
 
 import android.content.Intent;
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /** Implementation of {@link IntentQuery}. */
 public final class IntentQueryHelper<E extends Queryable> implements IntentQuery<E>,
@@ -29,7 +32,7 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
 
     private static final long serialVersionUID = 1;
 
-    private final E mQuery;
+    private final transient E mQuery;
     private final StringQueryHelper<E> mAction;
     private final BundleQueryHelper<E> mExtras;
 
@@ -43,6 +46,12 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
         mQuery = query;
         mAction = new StringQueryHelper<>(query);
         mExtras = new BundleQueryHelper<>(query);
+    }
+
+    private IntentQueryHelper(Parcel in) {
+        mQuery = null;
+        mAction = in.readParcelable(IntentQueryHelper.class.getClassLoader());
+        mExtras = in.readParcelable(IntentQueryHelper.class.getClassLoader());
     }
 
     @Override
@@ -86,5 +95,41 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
                 mAction.describeQuery(fieldName + ".action"),
                 mExtras.describeQuery(fieldName + ".extras")
         );
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeParcelable(mAction, flags);
+        out.writeParcelable(mExtras, flags);
+    }
+
+    public static final Parcelable.Creator<IntentQueryHelper> CREATOR =
+            new Parcelable.Creator<IntentQueryHelper>() {
+                public IntentQueryHelper createFromParcel(Parcel in) {
+                    return new IntentQueryHelper(in);
+                }
+
+                public IntentQueryHelper[] newArray(int size) {
+                    return new IntentQueryHelper[size];
+                }
+    };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof IntentQueryHelper)) return false;
+        IntentQueryHelper<?> that = (IntentQueryHelper<?>) o;
+        return Objects.equals(mAction, that.mAction) && Objects.equals(mExtras,
+                that.mExtras);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mAction, mExtras);
     }
 }

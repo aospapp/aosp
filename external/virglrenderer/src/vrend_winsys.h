@@ -59,5 +59,6 @@ int vrend_winsys_get_fd_for_texture(uint32_t tex_id, int *fd);
 int vrend_winsys_get_fd_for_texture2(uint32_t tex_id, int *fd, int *stride, int *offset);
 
 uint32_t vrend_winsys_query_video_memory(void);
+bool vrend_winsys_different_gpu(void);
 
 #endif /* VREND_WINSYS_H */

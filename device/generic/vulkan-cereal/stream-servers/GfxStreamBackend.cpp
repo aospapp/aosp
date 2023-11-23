@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "base/MemStream.h"
+#include "base/Metrics.h"
 #include "base/PathUtils.h"
 #include "base/System.h"
 #include "host-common/address_space_device.h"
@@ -22,6 +23,7 @@
 #include "host-common/android_pipe_device.h"
 #include "host-common/vm_operations.h"
 #include "host-common/window_agent.h"
+#include "host-common/GfxstreamFatalError.h"
 #include "host-common/HostmemIdMapping.h"
 #include "host-common/FeatureControl.h"
 #include "host-common/feature_control.h"
@@ -36,10 +38,15 @@
 #include <string>
 
 #include <stdio.h>
+#include <string.h>
 
 #include "VulkanDispatch.h"
 #include "GfxStreamAgents.h"
 #include "render_api.h"
+#include "FrameBuffer.h"
+
+using emugl::ABORT_REASON_OTHER;
+using emugl::FatalError;
 
 #define GFXSTREAM_DEBUG_LEVEL 1
 
@@ -61,6 +68,7 @@ extern "C" {
 
 using android::AndroidPipe;
 using android::base::pj;
+using android::base::MetricsLogger;
 
 #ifdef _WIN32
 #define VG_EXPORT __declspec(dllexport)
@@ -77,6 +85,17 @@ typedef void (*get_pixels_t)(void*, uint32_t, uint32_t);
 static get_pixels_t sGetPixelsFunc = 0;
 typedef void (*post_callback_t)(void*, uint32_t, int, int, int, int, int, unsigned char*);
 
+struct gfxstream_callbacks {
+   /* Metrics callbacks */
+   void (*add_instant_event)(int64_t event_code);
+   void (*add_instant_event_with_descriptor)(
+       int64_t event_code, int64_t descriptor);
+   void (*add_instant_event_with_metric)(
+       int64_t event_code, int64_t metric_value);
+   void (*set_annotation)(
+       const char* key, const char* value);
+   void (*abort)();
+};
 
 
 extern "C" VG_EXPORT void gfxstream_backend_init(
@@ -85,7 +104,8 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks);
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks);
 
 extern "C" VG_EXPORT void gfxstream_backend_setup_window(
         void* native_window_handle,
@@ -249,29 +269,6 @@ enum BackendFlags {
     GFXSTREAM_BACKEND_FLAGS_EGL2EGL_BIT = 1 << 1,
 };
 
-// based on VIRGL_RENDERER_USE* and friends
-enum RendererFlags {
-    GFXSTREAM_RENDERER_FLAGS_USE_EGL_BIT = 1 << 0,
-    GFXSTREAM_RENDERER_FLAGS_THREAD_SYNC = 1 << 1,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLX_BIT = 1 << 2,
-    GFXSTREAM_RENDERER_FLAGS_USE_SURFACELESS_BIT = 1 << 3,
-    GFXSTREAM_RENDERER_FLAGS_USE_GLES_BIT = 1 << 4,
-    GFXSTREAM_RENDERER_FLAGS_NO_VK_BIT = 1 << 5,  // for disabling vk
-    GFXSTREAM_RENDERER_FLAGS_IGNORE_HOST_GL_ERRORS_BIT =
-        1 << 6,  // control IgnoreHostOpenGLErrors flag
-    GFXSTREAM_RENDERER_FLAGS_NATIVE_TEXTURE_DECOMPRESSION_BIT =
-        1 << 7,  // Attempt GPU texture decompression
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_BPTC_TEXTURES_BIT =
-        1 << 8,  // enable BPTC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_GLES31_BIT =
-        1 << 9,  // disables the PlayStoreImage flag
-    GFXSTREAM_RENDERER_FLAGS_ENABLE_S3TC_TEXTURES_BIT =
-        1 << 10,  // enable S3TC texture support if available
-    GFXSTREAM_RENDERER_FLAGS_NO_SYNCFD_BIT = 1 << 20,  // for disabling syncfd
-    GFXSTREAM_RENDERER_FLAGS_GUEST_USES_ANGLE = 1 << 21,
-    GFXSTREAM_RENDERER_FLAGS_VULKAN_NATIVE_SWAPCHAIN_BIT = 1 << 22,
-};
-
 // Sets backend flags for different kinds of initialization.
 // Default (and default if not called): flags == 0
 // Needs to be called before |gfxstream_backend_init|.
@@ -285,7 +282,31 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     uint32_t display_type,
     void* renderer_cookie,
     int renderer_flags,
-    struct virgl_renderer_callbacks* virglrenderer_callbacks) {
+    struct virgl_renderer_callbacks* virglrenderer_callbacks,
+    struct gfxstream_callbacks* gfxstreamcallbacks) {
+
+    // Set metrics callbacks
+    if (gfxstreamcallbacks) {
+        if (gfxstreamcallbacks->add_instant_event) {
+            MetricsLogger::add_instant_event_callback =
+                gfxstreamcallbacks->add_instant_event;
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_metric) {
+            MetricsLogger::add_instant_event_with_metric_callback =
+                gfxstreamcallbacks->add_instant_event_with_metric;
+        }
+        if (gfxstreamcallbacks->add_instant_event_with_descriptor) {
+            MetricsLogger::add_instant_event_with_descriptor_callback =
+                gfxstreamcallbacks->add_instant_event_with_descriptor;
+        }
+        if (gfxstreamcallbacks->set_annotation) {
+            MetricsLogger::set_crash_annotation_callback =
+                gfxstreamcallbacks->set_annotation;
+        }
+        if (gfxstreamcallbacks->abort) {
+            emugl::setDieFunction(gfxstreamcallbacks->abort);
+        }
+    }
 
 
     // First we make some agents available.
@@ -393,6 +414,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
             kFeature_BptcTextureSupport, bptcTextureSupport);
     feature_set_enabled_override(
             kFeature_S3tcTextureSupport, s3tcTextureSupport);
+    feature_set_enabled_override(kFeature_RgtcTextureSupport, true);
     feature_set_enabled_override(
             kFeature_GLDirectMem, false);
     feature_set_enabled_override(
@@ -419,13 +441,16 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
                                  useVulkanNativeSwapchain);
     feature_set_enabled_override(
             kFeature_VulkanBatchedDescriptorSetUpdate, true);
+    // TODO: Strictly speaking, renderer_flags check is insufficient because
+    // fence contexts require us to be running a new-enough guest kernel.
+    feature_set_enabled_override(
+           kFeature_VirtioGpuFenceContexts,
+           !syncFdDisabledByFlag &&
+           (renderer_flags & GFXSTREAM_RENDERER_FLAGS_ASYNC_FENCE_CB));
 
     if (useVulkanNativeSwapchain && !enableVk) {
-        fprintf(stderr,
-                "%s: can't enable vulkan native swapchain, Vulkan is disabled, "
-                "fatal\n",
-                __func__);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) <<
+                            "can't enable vulkan native swapchain, Vulkan is disabled";
     }
 
     emugl::vkDispatch(false /* don't use test ICD */);
@@ -485,8 +510,7 @@ extern "C" VG_EXPORT void gfxstream_backend_init(
     auto openglesRenderer = android_getOpenglesRenderer();
 
     if (!openglesRenderer) {
-        fprintf(stderr, "%s: no renderer started, fatal\n", __func__);
-        abort();
+        GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << "No renderer started, fatal";
     }
 
     address_space_set_vm_operations(getConsoleAgents()->vm);
@@ -519,13 +543,9 @@ extern "C" VG_EXPORT void gfxstream_backend_setup_window(
 }
 
 static void set_post_callback(struct renderer_display_info* r, post_callback_t func, uint32_t display_type) {
-
-    // crosvm needs bgra readback depending on the display type
-    bool use_bgra_readback = false;
     switch (display_type) {
         case POST_CALLBACK_DISPLAY_TYPE_X:
             GFXS_LOG("using display type: X11");
-            use_bgra_readback = true;
             break;
         case POST_CALLBACK_DISPLAY_TYPE_WAYLAND_SHARED_MEM:
             GFXS_LOG("using display type: wayland shared mem");
@@ -553,6 +573,23 @@ extern "C" VG_EXPORT void gfxstream_backend_set_screen_mask(int width, int heigh
 extern "C" VG_EXPORT void get_pixels(void* pixels, uint32_t bytes) {
     //TODO: support display > 0
     sGetPixelsFunc(pixels, bytes, 0);
+}
+
+extern "C" VG_EXPORT void gfxstream_backend_getrender(char* buf, size_t bufSize, size_t* size) {
+    const char* render = "";
+    FrameBuffer* pFB = FrameBuffer::getFB();
+    if (pFB) {
+        const char* vendor = nullptr;
+        const char* version = nullptr;
+        pFB->getGLStrings(&vendor, &render, &version);
+    }
+    if (!buf || bufSize==0) {
+        if (size) *size = strlen(render);
+        return;
+    }
+    *buf = '\0';
+    strncat(buf, render, bufSize - 1);
+    if (size) *size = strlen(buf);
 }
 
 extern "C" const GoldfishPipeServiceOps* goldfish_pipe_get_service_ops() {

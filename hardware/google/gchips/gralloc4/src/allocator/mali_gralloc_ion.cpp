@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -25,6 +27,8 @@
 
 #include <log/log.h>
 #include <cutils/atomic.h>
+#include <utils/Trace.h>
+
 
 #include <linux/dma-buf.h>
 #include <vector>
@@ -342,6 +346,7 @@ static std::string select_dmabuf_heap(unsigned int heap_mask)
 int ion_device::alloc_from_dmabuf_heap(const std::string& heap_name, size_t size,
 				       unsigned int flags)
 {
+	ATRACE_NAME(("alloc_from_dmabuf_heap " +  heap_name).c_str());
 	if (!buffer_allocator)
 	{
 		return -1;
@@ -358,6 +363,7 @@ int ion_device::alloc_from_dmabuf_heap(const std::string& heap_name, size_t size
 
 int ion_device::alloc_from_ion_heap(uint64_t usage, size_t size, unsigned int flags, int *min_pgsz)
 {
+	ATRACE_CALL();
 	/* TODO: remove min_pgsz? I don't think this is useful on Exynos */
 	if (size == 0 || min_pgsz == NULL)
 	{
@@ -541,6 +547,7 @@ static void mali_gralloc_ion_free_internal(buffer_handle_t * const pHandle,
 
 int mali_gralloc_ion_allocate_attr(private_handle_t *hnd)
 {
+	ATRACE_CALL();
 	ion_device *dev = ion_device::get();
 	if (!dev)
 	{
@@ -588,7 +595,8 @@ int mali_gralloc_ion_allocate(const gralloc_buffer_descriptor_t *descriptors,
 	uint32_t i;
 	unsigned int ion_flags = 0;
 	int min_pgsz = 0;
-	int fds[5] = {-1, -1, -1, -1, -1};
+	int fds[MAX_FDS];
+	std::fill(fds, fds + MAX_FDS, -1);
 
 	ion_device *dev = ion_device::get();
 	if (!dev)

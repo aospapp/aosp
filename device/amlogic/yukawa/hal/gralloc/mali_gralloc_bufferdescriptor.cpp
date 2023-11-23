@@ -17,6 +17,7 @@
  */
 
 #include <hardware/hardware.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,6 +31,27 @@
 #include "mali_gralloc_bufferdescriptor.h"
 #include "mali_gralloc_private_interface_types.h"
 #include "mali_gralloc_buffer.h"
+
+/*
+ * Validate descriptor to ensure that it originated from this version
+ * of gralloc. Rudimentary signature is simply calculated from size of
+ * buffer descriptor structure and initialised immediately after
+ * structure is allocated.
+ *
+ * @param buffer_descriptor    [in]    Buffer descriptor.
+ *
+ * @return true, for valid buffer descriptor;
+ *         false, otherwise
+ */
+static bool descriptor_is_valid(buffer_descriptor_t *buffer_descriptor)
+{
+	if (buffer_descriptor /*&& buffer_descriptor->signature == sizeof(*buffer_descriptor)*/)
+	{
+		return true;
+	}
+
+	return false;
+}
 
 #if GRALLOC_USE_GRALLOC1_API == 1
 int mali_gralloc_create_descriptor_internal(gralloc1_buffer_descriptor_t *outDescriptor)
@@ -192,6 +214,44 @@ int mali_gralloc_get_producer_usage_internal(buffer_handle_t buffer, uint64_t *o
 	return GRALLOC1_ERROR_NONE;
 }
 
+#if PLATFORM_SDK_VERSION >= 26
+int mali_gralloc_set_layer_count_internal(gralloc1_buffer_descriptor_t descriptor, uint32_t layerCount)
+{
+        buffer_descriptor_t *buffer_descriptor = (buffer_descriptor_t *)descriptor;
+        if (!descriptor_is_valid(buffer_descriptor))
+        {
+                AERR("Invalid buffer descriptor %p", buffer_descriptor);
+                return GRALLOC1_ERROR_BAD_DESCRIPTOR;
+        }
+
+        if (layerCount == 0)
+        {
+                AERR("Invalid layer count: %" PRIu32, layerCount);
+                return GRALLOC1_ERROR_BAD_VALUE;
+        }
+
+        buffer_descriptor->layer_count = layerCount;
+        return GRALLOC1_ERROR_NONE;
+}
+
+int mali_gralloc_get_layer_count_internal(buffer_handle_t buffer, uint32_t *outLayerCount)
+{
+        if (private_handle_t::validate(buffer) < 0)
+        {
+                AERR("Invalid buffer %p, returning error", buffer);
+                return GRALLOC1_ERROR_BAD_HANDLE;
+        }
+
+        if (outLayerCount == NULL)
+        {
+                return GRALLOC1_ERROR_BAD_VALUE;
+        }
+
+        private_handle_t *hnd = (private_handle_t *)buffer;
+        *outLayerCount = hnd->layer_count;
+        return GRALLOC1_ERROR_NONE;
+}
+#endif /* PLATFORM_SDK_VERSION >= 26 */
 #endif
 int mali_gralloc_query_getstride(buffer_handle_t buffer, int *pixelStride)
 {

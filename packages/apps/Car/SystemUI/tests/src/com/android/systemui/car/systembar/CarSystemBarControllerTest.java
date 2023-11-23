@@ -16,11 +16,19 @@
 
 package com.android.systemui.car.systembar;
 
+import static android.app.StatusBarManager.DISABLE2_QUICK_SETTINGS;
+import static android.app.StatusBarManager.DISABLE_HOME;
+import static android.app.StatusBarManager.DISABLE_NOTIFICATION_ICONS;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.testing.TestableResources;
@@ -34,7 +42,8 @@ import com.android.systemui.SysuiTestCase;
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.CarSystemUiTest;
-import com.android.systemui.car.privacy.MicQcPanel;
+import com.android.systemui.car.privacy.CameraPrivacyElementsProviderImpl;
+import com.android.systemui.car.privacy.MicPrivacyElementsProviderImpl;
 import com.android.systemui.car.statusbar.UserNameViewController;
 import com.android.systemui.car.statusicon.ui.QuickControlsEntryPointsController;
 import com.android.systemui.car.statusicon.ui.ReadOnlyIconsController;
@@ -49,6 +58,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.Set;
+
 @CarSystemUiTest
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
@@ -62,7 +73,10 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     private CarSystemBarController mCarSystemBar;
     private CarSystemBarViewFactory mCarSystemBarViewFactory;
     private TestableResources mTestableResources;
+    private Context mSpiedContext;
 
+    @Mock
+    private ActivityManager mActivityManager;
     @Mock
     private ButtonSelectionStateController mButtonSelectionStateController;
     @Mock
@@ -70,7 +84,9 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     @Mock
     private UserNameViewController mUserNameViewController;
     @Mock
-    private PrivacyChipViewController mPrivacyChipViewController;
+    private MicPrivacyChipViewController mMicPrivacyChipViewController;
+    @Mock
+    private CameraPrivacyChipViewController mCameraPrivacyChipViewController;
     @Mock
     private FeatureFlags mFeatureFlags;
     @Mock
@@ -84,14 +100,18 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     @Mock
     private ConfigurationController mConfigurationController;
     @Mock
-    private MicQcPanel.MicPrivacyElementsProvider mMicPrivacyElementsProvider;
+    private MicPrivacyElementsProviderImpl mMicPrivacyElementsProvider;
+    @Mock
+    private CameraPrivacyElementsProviderImpl mCameraPrivacyElementsProvider;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mCarSystemBarViewFactory = new CarSystemBarViewFactory(mContext, mFeatureFlags,
-                mQuickControlsEntryPointsController, mReadOnlyIconsController);
         mTestableResources = mContext.getOrCreateTestableResources();
+        mSpiedContext = spy(mContext);
+        when(mSpiedContext.getSystemService(ActivityManager.class)).thenReturn(mActivityManager);
+        mCarSystemBarViewFactory = new CarSystemBarViewFactory(mSpiedContext, mFeatureFlags,
+                mQuickControlsEntryPointsController, mReadOnlyIconsController);
 
         // Needed to inflate top navigation bar.
         mDependency.injectMockDependency(DarkIconDispatcher.class);
@@ -99,12 +119,13 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     }
 
     private CarSystemBarController createSystemBarController() {
-        return new CarSystemBarController(mContext, mCarSystemBarViewFactory, mCarServiceProvider,
-                mBroadcastDispatcher, mConfigurationController, mButtonSelectionStateController,
-                () -> mUserNameViewController, () -> mPrivacyChipViewController,
+        return new CarSystemBarController(mSpiedContext, mCarSystemBarViewFactory,
+                mCarServiceProvider, mBroadcastDispatcher, mConfigurationController,
+                mButtonSelectionStateController, () -> mUserNameViewController,
+                () -> mMicPrivacyChipViewController, () -> mCameraPrivacyChipViewController,
                 mButtonRoleHolderController,
                 new SystemBarConfigs(mTestableResources.getResources()),
-                () -> mMicPrivacyElementsProvider);
+                () -> mMicPrivacyElementsProvider, () -> mCameraPrivacyElementsProvider);
     }
 
     @Test
@@ -131,7 +152,8 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
 
         mCarSystemBar.removeAll();
 
-        verify(mPrivacyChipViewController).removeAll();
+        verify(mMicPrivacyChipViewController).removeAll();
+        verify(mCameraPrivacyChipViewController).removeAll();
     }
 
     @Test
@@ -360,12 +382,14 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
         mCarSystemBar = createSystemBarController();
 
         CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
-        View.OnTouchListener controller = bottomBar.getStatusBarWindowTouchListener();
-        assertThat(controller).isNull();
+        Set<View.OnTouchListener> controllers = bottomBar.getStatusBarWindowTouchListeners();
+        assertThat(controllers).isNotNull();
+        assertThat(controllers.size()).isEqualTo(0);
         mCarSystemBar.registerBottomBarTouchListener(mock(View.OnTouchListener.class));
-        controller = bottomBar.getStatusBarWindowTouchListener();
+        controllers = bottomBar.getStatusBarWindowTouchListeners();
 
-        assertThat(controller).isNotNull();
+        assertThat(controllers).isNotNull();
+        assertThat(controllers.size()).isEqualTo(1);
     }
 
     @Test
@@ -375,9 +399,10 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
 
         mCarSystemBar.registerBottomBarTouchListener(mock(View.OnTouchListener.class));
         CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
-        View.OnTouchListener controller = bottomBar.getStatusBarWindowTouchListener();
+        Set<View.OnTouchListener> controllers = bottomBar.getStatusBarWindowTouchListeners();
 
-        assertThat(controller).isNotNull();
+        assertThat(controllers).isNotNull();
+        assertThat(controllers.size()).isEqualTo(1);
     }
 
     @Test
@@ -572,5 +597,155 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
                 hasUnseen);
 
         assertThat(notifications.getUnseen()).isFalse();
+    }
+
+    @Test
+    public void testSetSystemBarStates_stateUpdated() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        clearSystemBarStates();
+
+        mCarSystemBar.setSystemBarStates(DISABLE_HOME, /* state2= */ 0);
+
+        assertThat(mCarSystemBar.getStatusBarState()).isEqualTo(DISABLE_HOME);
+    }
+
+    @Test
+    public void testSetSystemBarStates_state2Updated() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        clearSystemBarStates();
+
+        mCarSystemBar.setSystemBarStates(0, DISABLE2_QUICK_SETTINGS);
+
+        assertThat(mCarSystemBar.getStatusBarState2()).isEqualTo(DISABLE2_QUICK_SETTINGS);
+    }
+
+    @Test
+    public void testRefreshSystemBar_homeDisabled() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        clearSystemBarStates();
+        CarSystemBarButton button = bottomBar.findViewById(R.id.home);
+        assertThat(button.getDisabled()).isFalse();
+
+        mCarSystemBar.setSystemBarStates(DISABLE_HOME, /* state2= */ 0);
+
+        assertThat(button.getDisabled()).isTrue();
+    }
+
+    @Test
+    public void testRefreshSystemBar_phoneNavDisabled() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        clearSystemBarStates();
+        CarSystemBarButton button = bottomBar.findViewById(R.id.phone_nav);
+        assertThat(button.getDisabled()).isFalse();
+
+        setLockTaskModeLocked(/* locked= */true);
+
+        assertThat(button.getDisabled()).isTrue();
+    }
+
+    @Test
+    public void testRefreshSystemBar_appGridisabled() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        clearSystemBarStates();
+        CarSystemBarButton button = bottomBar.findViewById(R.id.grid_nav);
+        assertThat(button.getDisabled()).isFalse();
+
+        mCarSystemBar.setSystemBarStates(DISABLE_HOME, /* state2= */ 0);
+
+        assertThat(button.getDisabled()).isTrue();
+    }
+
+    @Test
+    public void testRefreshSystemBar_notificationDisabled() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        clearSystemBarStates();
+        CarSystemBarButton button = bottomBar.findViewById(R.id.notifications);
+        assertThat(button.getDisabled()).isFalse();
+
+        mCarSystemBar.setSystemBarStates(DISABLE_NOTIFICATION_ICONS, /* state2= */ 0);
+
+        assertThat(button.getDisabled()).isTrue();
+    }
+
+    @Test
+    public void testRefreshSystemBar_disableQcFlagOn_qcHidden() {
+        mTestableResources.addOverride(R.bool.config_enableTopSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+
+        CarSystemBarView topBar = mCarSystemBar.getTopBar(/* isSetUp= */ true);
+        View qcView = topBar.findViewById(R.id.qc_entry_points_container);
+        clearSystemBarStates();
+        assertThat(qcView.getVisibility()).isEqualTo(View.VISIBLE);
+
+        mCarSystemBar.setSystemBarStates(0, DISABLE2_QUICK_SETTINGS);
+
+        assertThat(qcView.getVisibility()).isEqualTo(View.INVISIBLE);
+    }
+
+    @Test
+    public void testRefreshSystemBar_lockTaskModeOn_qcHidden() {
+        mTestableResources.addOverride(R.bool.config_enableTopSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView topBar = mCarSystemBar.getTopBar(/* isSetUp= */ true);
+        View qcView = topBar.findViewById(R.id.qc_entry_points_container);
+        clearSystemBarStates();
+        assertThat(qcView.getVisibility()).isEqualTo(View.VISIBLE);
+
+        setLockTaskModeLocked(/* locked= */ true);
+
+        assertThat(qcView.getVisibility()).isEqualTo(View.INVISIBLE);
+    }
+
+    @Test
+    public void testRefreshSystemBar_disableQcFlagOn_userSwitcherHidden() {
+        mTestableResources.addOverride(R.bool.config_enableTopSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView topBar = mCarSystemBar.getTopBar(/* isSetUp= */ true);
+
+        View userSwitcher = topBar.findViewById(R.id.user_name_container);
+        clearSystemBarStates();
+        assertThat(userSwitcher.getVisibility()).isEqualTo(View.VISIBLE);
+
+        mCarSystemBar.setSystemBarStates(0, DISABLE2_QUICK_SETTINGS);
+
+        assertThat(userSwitcher.getVisibility()).isEqualTo(View.INVISIBLE);
+    }
+
+    @Test
+    public void testRefreshSystemBar_lockTaskModeOn_userSwitcherHidden() {
+        mTestableResources.addOverride(R.bool.config_enableTopSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+        CarSystemBarView topBar = mCarSystemBar.getTopBar(/* isSetUp= */ true);
+        View userSwitcher = topBar.findViewById(R.id.user_name_container);
+        clearSystemBarStates();
+        assertThat(userSwitcher.getVisibility()).isEqualTo(View.VISIBLE);
+
+        setLockTaskModeLocked(/* locked= */ true);
+
+        assertThat(userSwitcher.getVisibility()).isEqualTo(View.INVISIBLE);
+    }
+
+    private void clearSystemBarStates() {
+        if (mCarSystemBar != null) {
+            mCarSystemBar.setSystemBarStates(/* state= */ 0, /* state2= */ 0);
+        }
+        setLockTaskModeLocked(false);
+    }
+
+    private void setLockTaskModeLocked(boolean locked) {
+        when(mActivityManager.getLockTaskModeState()).thenReturn(locked
+                ? ActivityManager.LOCK_TASK_MODE_LOCKED
+                : ActivityManager.LOCK_TASK_MODE_NONE);
+        mCarSystemBar.setSystemBarStates(/* state= */ 0, /* state2= */ 0);
     }
 }

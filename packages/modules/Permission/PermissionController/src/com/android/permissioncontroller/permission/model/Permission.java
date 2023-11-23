@@ -180,6 +180,22 @@ public final class Permission {
         }
     }
 
+    public boolean isSelectedLocationAccuracy() {
+        return (mFlags & PackageManager.FLAG_PERMISSION_SELECTED_LOCATION_ACCURACY) != 0;
+    }
+
+   /**
+     * Sets the selected-location-accuracy permission flag
+     * @param selectedLocationAccuracy true to set the flag, false to unset it
+     */
+    public void setSelectedLocationAccuracy(boolean selectedLocationAccuracy) {
+        if (selectedLocationAccuracy) {
+            mFlags |= PackageManager.FLAG_PERMISSION_SELECTED_LOCATION_ACCURACY;
+        } else {
+            mFlags &= ~PackageManager.FLAG_PERMISSION_SELECTED_LOCATION_ACCURACY;
+        }
+    }
+
     public boolean isSystemFixed() {
         return (mFlags & PackageManager.FLAG_PERMISSION_SYSTEM_FIXED) != 0;
     }

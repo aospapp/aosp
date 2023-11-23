@@ -15,17 +15,17 @@
  *
  * translate.c - CLAT functions / partial implementation of rfc6145
  */
+#include "translate.h"
+
 #include <string.h>
 
-#include "netutils/checksum.h"
-
+#include "checksum.h"
 #include "clatd.h"
 #include "common.h"
 #include "config.h"
 #include "debug.h"
 #include "icmp.h"
 #include "logging.h"
-#include "translate.h"
 
 /* function: packet_checksum
  * calculates the checksum over all the packet components starting from pos

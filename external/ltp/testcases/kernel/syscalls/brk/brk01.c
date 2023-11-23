@@ -31,12 +31,9 @@ void verify_brk(void)
 		break;
 		}
 
-		TEST(brk((void *)new_brk));
-
-		if (TST_RET == -1) {
-			tst_res(TFAIL | TERRNO, "brk() failed");
+		TST_EXP_PASS_SILENT(brk((void *)new_brk), "brk()");
+		if (!TST_PASS)
 			return;
-		}
 
 		cur_brk = (uintptr_t)sbrk(0);
 

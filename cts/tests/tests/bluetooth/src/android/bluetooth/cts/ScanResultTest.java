@@ -72,4 +72,39 @@ public class ScanResultTest extends AndroidTestCase {
                 TIMESTAMP_NANOS);
         assertEquals(0, result.describeContents());
     }
+
+    @SmallTest
+    public void testConstructor() {
+        if (!mContext.getPackageManager().
+                  hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return;
+
+        BluetoothDevice device =
+                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(DEVICE_ADDRESS);
+        int eventType = 0xAAAA;
+        int primaryPhy = 0xAAAB;
+        int secondaryPhy = 0xAABA;
+        int advertisingSid = 0xAABB;
+        int txPower = 0xABAA;
+        int rssi = 0xABAB;
+        int periodicAdvertisingInterval = 0xABBA;
+        long timestampNanos = 0xABBB;
+        ScanResult result = new ScanResult(device, eventType, primaryPhy, secondaryPhy,
+                advertisingSid, txPower, rssi, periodicAdvertisingInterval, null, timestampNanos);
+        assertEquals(result.getDevice(), device);
+        assertNull(result.getScanRecord());
+        assertEquals(result.getRssi(), rssi);
+        assertEquals(result.getTimestampNanos(), timestampNanos);
+        assertEquals(result.getDataStatus(), 0x01);
+        assertEquals(result.getPrimaryPhy(), primaryPhy);
+        assertEquals(result.getSecondaryPhy(), secondaryPhy);
+        assertEquals(result.getAdvertisingSid(), advertisingSid);
+        assertEquals(result.getTxPower(), txPower);
+        assertEquals(result.getPeriodicAdvertisingInterval(), periodicAdvertisingInterval);
+
+        // specific value of event type for isLegacy and isConnectable to be true
+        ScanResult result2 = new ScanResult(device, 0x11, primaryPhy, secondaryPhy,
+                advertisingSid, txPower, rssi, periodicAdvertisingInterval, null, timestampNanos);
+        assertTrue(result2.isLegacy());
+        assertTrue(result2.isConnectable());
+    }
 }

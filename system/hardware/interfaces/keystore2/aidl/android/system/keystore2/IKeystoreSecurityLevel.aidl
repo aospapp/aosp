@@ -101,9 +101,13 @@ interface IKeystoreSecurityLevel {
      *                   of the caller.
      *            * SeLinux: The key is stored by the alias string in the namespace given by the
      *                       `nspace` field provided the caller has the appropriate access rights.
-     *            * Blob: The key is returned as raw keymint blob in the resultKey.blob field.
-     *                    The `nspace` and `alias` fields are ignored. The caller must have the
-     *                    `MANAGE_BLOB` permission for the keystore:keystore_key context.
+     *            * Blob: The key is returned as an opaque KeyMint blob in the KeyMetadata.key.blob
+     *                    field of the return value.
+     *                    The `alias` field is ignored. The caller must have the `MANAGE_BLOB`
+     *                    permission for the targeted `keystore2_key` context given by
+     *                    `nspace`. `nspace` is translated into the corresponding target context
+     *                    `<target_context>` and `<target_context>:keystore2_key manage_blob` is
+     *                    checked against the caller's context.
      *
      * @param attestationKey Optional key to be used for signing the attestation certificate.
      *

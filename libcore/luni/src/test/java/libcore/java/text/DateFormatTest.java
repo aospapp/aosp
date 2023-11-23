@@ -16,6 +16,7 @@
 
 package libcore.java.text;
 
+import java.util.TimeZone;
 import junit.framework.TestCase;
 
 import java.text.DateFormat;
@@ -55,5 +56,13 @@ public class DateFormatTest extends TestCase {
         SimpleDateFormat sdf = new SimpleDateFormat(expectedPattern, locale);
         String expectedDateString = sdf.format(current);
         assertEquals(expectedDateString, actualDateString);
+    }
+
+    public void testGetTimeInstance_withLocaleExtension() {
+        Locale locale = Locale.forLanguageTag("en-u-tz-usden");
+        DateFormat df = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
+        // Note: when Calendar class supports "tz" extension, it should return "America/Denver".
+        assertEquals(TimeZone.getDefault().getID(), df.getCalendar().getTimeZone().getID());
+        // assertEquals("America/Denver", df.getCalendar().getTimeZone().getID());
     }
 }

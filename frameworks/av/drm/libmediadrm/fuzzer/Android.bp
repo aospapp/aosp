@@ -35,7 +35,8 @@ cc_fuzz {
     static_libs: [
         "libmediadrm",
         "liblog",
-        "resourcemanager_aidl_interface-ndk_platform",
+        "resourcemanager_aidl_interface-ndk",
+        "libaidlcommonsupport",
     ],
     header_libs: [
         "libmedia_headers",
@@ -59,6 +60,7 @@ cc_fuzz {
         "android.hardware.drm@1.4",
         "libhidlallocatorutils",
         "libhidlbase",
+        "android.hardware.drm-V1-ndk",
     ],
     fuzz_config: {
         cc: [

@@ -181,7 +181,7 @@ func TestContextParse(t *testing.T) {
 func TestWalkDeps(t *testing.T) {
 	ctx := NewContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			foo_module {
 			    name: "A",
 			    deps: ["B", "C"],
@@ -220,7 +220,7 @@ func TestWalkDeps(t *testing.T) {
 	ctx.RegisterModuleType("foo_module", newFooModule)
 	ctx.RegisterModuleType("bar_module", newBarModule)
 	ctx.RegisterBottomUpMutator("deps", depsMutator)
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {
@@ -257,7 +257,7 @@ func TestWalkDeps(t *testing.T) {
 func TestWalkDepsDuplicates(t *testing.T) {
 	ctx := NewContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			foo_module {
 			    name: "A",
 			    deps: ["B", "C"],
@@ -301,7 +301,7 @@ func TestWalkDepsDuplicates(t *testing.T) {
 	ctx.RegisterModuleType("foo_module", newFooModule)
 	ctx.RegisterModuleType("bar_module", newBarModule)
 	ctx.RegisterBottomUpMutator("deps", depsMutator)
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {
@@ -337,7 +337,7 @@ func TestWalkDepsDuplicates(t *testing.T) {
 func TestWalkDepsDuplicates_IgnoreFirstPath(t *testing.T) {
 	ctx := NewContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			foo_module {
 			    name: "A",
 			    deps: ["B"],
@@ -368,7 +368,7 @@ func TestWalkDepsDuplicates_IgnoreFirstPath(t *testing.T) {
 	ctx.RegisterModuleType("foo_module", newFooModule)
 	ctx.RegisterModuleType("bar_module", newBarModule)
 	ctx.RegisterBottomUpMutator("deps", depsMutator)
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {
@@ -401,7 +401,7 @@ func TestWalkDepsDuplicates_IgnoreFirstPath(t *testing.T) {
 func TestCreateModule(t *testing.T) {
 	ctx := newContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			foo_module {
 			    name: "A",
 			    deps: ["B", "C"],
@@ -414,7 +414,7 @@ func TestCreateModule(t *testing.T) {
 
 	ctx.RegisterModuleType("foo_module", newFooModule)
 	ctx.RegisterModuleType("bar_module", newBarModule)
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 	if len(errs) > 0 {
 		t.Errorf("unexpected parse errors:")
 		for _, err := range errs {
@@ -492,17 +492,17 @@ func doTestWalkFileOrder(t *testing.T, sleepDuration time.Duration) {
 	// setup mock context
 	ctx := newContext()
 	mockFiles := map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			sample_module {
 			    name: "a",
 			}
 		`),
-		"dir1/Blueprints": []byte(`
+		"dir1/Android.bp": []byte(`
 			sample_module {
 			    name: "b",
 			}
 		`),
-		"dir1/dir2/Blueprints": []byte(`
+		"dir1/dir2/Android.bp": []byte(`
 			sample_module {
 			    name: "c",
 			}
@@ -513,7 +513,7 @@ func doTestWalkFileOrder(t *testing.T, sleepDuration time.Duration) {
 	// prepare to monitor the visit order
 	visitOrder := []string{}
 	visitLock := sync.Mutex{}
-	correctVisitOrder := []string{"Blueprints", "dir1/Blueprints", "dir1/dir2/Blueprints"}
+	correctVisitOrder := []string{"Android.bp", "dir1/Android.bp", "dir1/dir2/Android.bp"}
 
 	// sleep longer when processing the earlier files
 	chooseSleepDuration := func(fileName string) (duration time.Duration) {
@@ -533,7 +533,7 @@ func doTestWalkFileOrder(t *testing.T, sleepDuration time.Duration) {
 		defer visitLock.Unlock()
 		visitOrder = append(visitOrder, file.Name)
 	}
-	keys := []string{"Blueprints", "dir1/Blueprints", "dir1/dir2/Blueprints"}
+	keys := []string{"Android.bp", "dir1/Android.bp", "dir1/dir2/Android.bp"}
 
 	// visit the blueprints files
 	ctx.WalkBlueprintsFiles(".", keys, visitor)
@@ -549,16 +549,16 @@ func TestWalkingWithSyntaxError(t *testing.T) {
 	// setup mock context
 	ctx := newContext()
 	mockFiles := map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			sample_module {
 			    name: "a" "b",
 			}
 		`),
-		"dir1/Blueprints": []byte(`
+		"dir1/Android.bp": []byte(`
 			sample_module {
 			    name: "b",
 		`),
-		"dir1/dir2/Blueprints": []byte(`
+		"dir1/dir2/Android.bp": []byte(`
 			sample_module {
 			    name: "c",
 			}
@@ -566,14 +566,14 @@ func TestWalkingWithSyntaxError(t *testing.T) {
 	}
 	ctx.MockFileSystem(mockFiles)
 
-	keys := []string{"Blueprints", "dir1/Blueprints", "dir1/dir2/Blueprints"}
+	keys := []string{"Android.bp", "dir1/Android.bp", "dir1/dir2/Android.bp"}
 
 	// visit the blueprints files
 	_, errs := ctx.WalkBlueprintsFiles(".", keys, func(file *parser.File) {})
 
 	expectedErrs := []error{
-		errors.New(`Blueprints:3:18: expected "}", found String`),
-		errors.New(`dir1/Blueprints:4:3: expected "}", found EOF`),
+		errors.New(`Android.bp:3:18: expected "}", found String`),
+		errors.New(`dir1/Android.bp:4:3: expected "}", found EOF`),
 	}
 	if fmt.Sprintf("%s", expectedErrs) != fmt.Sprintf("%s", errs) {
 		t.Errorf("Incorrect errors; expected:\n%s\ngot:\n%s", expectedErrs, errs)
@@ -584,7 +584,7 @@ func TestWalkingWithSyntaxError(t *testing.T) {
 func TestParseFailsForModuleWithoutName(t *testing.T) {
 	ctx := NewContext()
 	ctx.MockFileSystem(map[string][]byte{
-		"Blueprints": []byte(`
+		"Android.bp": []byte(`
 			foo_module {
 			    name: "A",
 			}
@@ -597,10 +597,10 @@ func TestParseFailsForModuleWithoutName(t *testing.T) {
 	ctx.RegisterModuleType("foo_module", newFooModule)
 	ctx.RegisterModuleType("bar_module", newBarModule)
 
-	_, errs := ctx.ParseBlueprintsFiles("Blueprints", nil)
+	_, errs := ctx.ParseBlueprintsFiles("Android.bp", nil)
 
 	expectedErrs := []error{
-		errors.New(`Blueprints:6:4: property 'name' is missing from a module`),
+		errors.New(`Android.bp:6:4: property 'name' is missing from a module`),
 	}
 	if fmt.Sprintf("%s", expectedErrs) != fmt.Sprintf("%s", errs) {
 		t.Errorf("Incorrect errors; expected:\n%s\ngot:\n%s", expectedErrs, errs)

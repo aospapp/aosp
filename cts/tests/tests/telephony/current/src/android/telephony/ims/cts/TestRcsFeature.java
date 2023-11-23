@@ -16,7 +16,6 @@
 
 package android.telephony.ims.cts;
 
-import android.content.Context;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.RcsFeature;
 import android.telephony.ims.stub.CapabilityExchangeEventListener;
@@ -43,13 +42,30 @@ public class TestRcsFeature extends RcsFeature {
     private CapabilityExchangeEventListener mCapEventListener;
     private TestImsService.DeviceCapPublishListener mDeviceCapPublishListener;
 
-    TestRcsFeature(Context context,
-            TestImsService.ReadyListener readyListener,
+    TestRcsFeature(TestImsService.ReadyListener readyListener,
             TestImsService.RemovedListener removedListener,
             TestImsService.CapabilitiesSetListener setListener,
             TestImsService.RcsCapabilityExchangeEventListener capExchangeEventListener) {
-        super(context.getMainExecutor());
+        super();
+        Log.d(TAG, "TestRcsFeature with default constructor");
+        mReadyListener = readyListener;
+        mRemovedListener = removedListener;
+        mCapExchangeEventListener = capExchangeEventListener;
 
+        mRcsCapabilityChangedListener = setListener;
+        mRcsCapabilitiesLte = new RcsImsCapabilities(RcsImsCapabilities.CAPABILITY_TYPE_NONE);
+        mRcsCapabilitiesIWan = new RcsImsCapabilities(RcsImsCapabilities.CAPABILITY_TYPE_NONE);
+
+        setFeatureState(STATE_READY);
+    }
+
+    TestRcsFeature(TestImsService.ReadyListener readyListener,
+            TestImsService.RemovedListener removedListener,
+            TestImsService.CapabilitiesSetListener setListener,
+            TestImsService.RcsCapabilityExchangeEventListener capExchangeEventListener,
+            Executor executor) {
+        super(executor);
+        Log.d(TAG, "TestRcsFeature with Executor constructor");
         mReadyListener = readyListener;
         mRemovedListener = removedListener;
         mCapExchangeEventListener = capExchangeEventListener;

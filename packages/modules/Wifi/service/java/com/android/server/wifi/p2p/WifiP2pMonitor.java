@@ -16,6 +16,8 @@
 
 package com.android.server.wifi.p2p;
 
+import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pGroup;
@@ -31,6 +33,8 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Protocol;
 import com.android.server.wifi.p2p.WifiP2pServiceImpl.P2pStatus;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,19 +74,36 @@ public class WifiP2pMonitor {
     public static final int P2P_FIND_STOPPED_EVENT               = BASE + 37;
     public static final int P2P_SERV_DISC_RESP_EVENT             = BASE + 38;
     public static final int P2P_PROV_DISC_FAILURE_EVENT          = BASE + 39;
+    public static final int P2P_FREQUENCY_CHANGED_EVENT          = BASE + 40;
 
     /* hostap events */
     public static final int AP_STA_DISCONNECTED_EVENT            = BASE + 41;
     public static final int AP_STA_CONNECTED_EVENT               = BASE + 42;
 
+    public static final int PROV_DISC_STATUS_SUCCESS             = 0;
+    public static final int PROV_DISC_STATUS_TIMEOUT             = 1;
+    public static final int PROV_DISC_STATUS_REJECTED            = 2;
+    public static final int PROV_DISC_STATUS_TIMEOUT_JOIN        = 3;
+    public static final int PROV_DISC_STATUS_INFO_UNAVAILABLE    = 4;
+    public static final int PROV_DISC_STATUS_UNKNOWN             = 5;
+    @IntDef(prefix = {"PROV_DISC_STATUS_"}, value = {
+            PROV_DISC_STATUS_SUCCESS,
+            PROV_DISC_STATUS_TIMEOUT,
+            PROV_DISC_STATUS_REJECTED,
+            PROV_DISC_STATUS_TIMEOUT_JOIN,
+            PROV_DISC_STATUS_INFO_UNAVAILABLE,
+            PROV_DISC_STATUS_UNKNOWN})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface P2pProvDiscStatus {
+    }
 
     private boolean mVerboseLoggingEnabled = false;
 
     /**
      * Enable verbose logging for all sub modules.
      */
-    public void enableVerboseLogging(int verbose) {
-        mVerboseLoggingEnabled = verbose > 0;
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
     }
 
     private final Map<String, SparseArray<Set<Handler>>> mHandlerMap = new HashMap<>();
@@ -421,9 +442,12 @@ public class WifiP2pMonitor {
      * Broadcast P2P discovery failure event to all handlers registered for this event.
      *
      * @param iface Name of iface on which this occurred.
+     * @param status Indicate the reason of this failure.
+     * @param event The information about the provision discovery.
      */
-    public void broadcastP2pProvisionDiscoveryFailure(String iface) {
-        sendMessage(iface, P2P_PROV_DISC_FAILURE_EVENT);
+    public void broadcastP2pProvisionDiscoveryFailure(@NonNull String iface,
+            @P2pProvDiscStatus int status, @NonNull WifiP2pProvDiscEvent event) {
+        sendMessage(iface, P2P_PROV_DISC_FAILURE_EVENT, status, 0, event);
     }
 
     /**
@@ -453,5 +477,15 @@ public class WifiP2pMonitor {
      */
     public void broadcastP2pApStaDisconnected(String iface, WifiP2pDevice device) {
         sendMessage(iface, AP_STA_DISCONNECTED_EVENT, device);
+    }
+
+    /**
+     * Broadcast frequency changed event.
+     *
+     * @param iface Name of iface on which this occurred.
+     * @param frequency New operating frequency.
+     */
+    public void broadcastP2pFrequencyChanged(String iface,  int frequency) {
+        sendMessage(iface, P2P_FREQUENCY_CHANGED_EVENT, frequency);
     }
 }

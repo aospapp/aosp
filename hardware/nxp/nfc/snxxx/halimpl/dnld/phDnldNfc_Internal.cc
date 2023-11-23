@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 NXP
+ * Copyright (C) 2010-2021 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 #include <phNxpLog.h>
 #include <phNxpNciHal_utils.h>
 #include <phTmlNfc.h>
+
+#include "NxpNfcThreadMutex.h"
 
 /* Minimum length of payload including 1 byte CmdId */
 #define PHDNLDNFC_MIN_PLD_LEN (0x04U)
@@ -71,6 +73,9 @@
 #define PHDNLDNFC_USERDATA_EEPROM_OFFSIZE (0x02U)
 
 #define PH_LIBNFC_VEN_RESET_ON_DOWNLOAD_TIMEOUT (1)
+
+static NfcHalThreadMutex sProcessSeqStateLock;
+static NfcHalThreadMutex sProcessRwSeqStateLock;
 
 /* Function prototype declarations */
 static void phDnldNfc_ProcessSeqState(void* pContext,
@@ -191,6 +196,7 @@ NFCSTATUS phDnldNfc_CmdHandler(void* pContext, phDnldNfc_Event_t TrigEvent) {
 *******************************************************************************/
 static void phDnldNfc_ProcessSeqState(void* pContext,
                                       phTmlNfc_TransactInfo_t* pInfo) {
+  NfcHalAutoThreadMutex a(sProcessSeqStateLock);
   NFCSTATUS wStatus = NFCSTATUS_SUCCESS;
   NFCSTATUS wIntStatus;
   uint32_t TimerId;
@@ -227,11 +233,6 @@ static void phDnldNfc_ProcessSeqState(void* pContext,
 
         if (NFCSTATUS_SUCCESS == wStatus) {
           pDlCtxt->tCurrState = phDnldNfc_StateRecv;
-          phTmlNfc_Read(
-              pDlCtxt->tCmdRspFrameInfo.aFrameBuff,
-              (uint16_t)PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE,
-              (pphTmlNfc_TransactCompletionCb_t)&phDnldNfc_ProcessSeqState,
-              (void*)pDlCtxt);
           wStatus = phTmlNfc_Write(
               (pDlCtxt->tCmdRspFrameInfo.aFrameBuff),
               (uint16_t)(pDlCtxt->tCmdRspFrameInfo.dwSendlength),
@@ -256,9 +257,11 @@ static void phDnldNfc_ProcessSeqState(void* pContext,
             NXPLOG_FWDNLD_W("Response timer not started");
             pDlCtxt->tCurrState = phDnldNfc_StateResponse;
           }
-
-          /* set read status to pDlCtxt->wCmdSendStatus to enable callback */
-          pDlCtxt->wCmdSendStatus = wStatus;
+          phTmlNfc_Read(
+              pDlCtxt->tCmdRspFrameInfo.aFrameBuff,
+              (uint16_t)pDlCtxt->nxp_i2c_fragment_len,
+              (pphTmlNfc_TransactCompletionCb_t)&phDnldNfc_ProcessSeqState,
+              (void*)pDlCtxt);
           break;
         } else {
           /* Setting TimerExpStatus below to avoid frame processing in response
@@ -341,6 +344,7 @@ static void phDnldNfc_ProcessSeqState(void* pContext,
 *******************************************************************************/
 static void phDnldNfc_ProcessRWSeqState(void* pContext,
                                         phTmlNfc_TransactInfo_t* pInfo) {
+  NfcHalAutoThreadMutex a(sProcessRwSeqStateLock);
   NFCSTATUS wStatus = NFCSTATUS_SUCCESS;
   NFCSTATUS wIntStatus = wStatus;
   uint32_t TimerId;
@@ -406,14 +410,11 @@ static void phDnldNfc_ProcessRWSeqState(void* pContext,
             /* Todo:- diagnostic in this case */
           }
           /* Call TML_Read function and register the call back function */
-          wStatus = phTmlNfc_Read(
+          phTmlNfc_Read(
               pDlCtxt->tCmdRspFrameInfo.aFrameBuff,
-              (uint16_t)PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE,
+              (uint16_t)pDlCtxt->nxp_i2c_fragment_len,
               (pphTmlNfc_TransactCompletionCb_t)&phDnldNfc_ProcessRWSeqState,
               (void*)pDlCtxt);
-
-          /* set read status to pDlCtxt->wCmdSendStatus to enable callback */
-          pDlCtxt->wCmdSendStatus = wStatus;
           break;
         } else {
           /* Setting TimerExpStatus below to avoid frame processing in response
@@ -564,13 +565,17 @@ static NFCSTATUS phDnldNfc_BuildFramePkt(pphDnldNfc_DlContext_t pDlContext) {
               (uint16_t)(pDlContext->tRspBuffInfo.wLen) + PHDNLDNFC_MIN_PLD_LEN;
 
           (pDlContext->tRWInfo.wRWPldSize) =
-              (PHDNLDNFC_CMDRESP_MAX_PLD_SIZE - PHDNLDNFC_MIN_PLD_LEN);
+              (((pDlContext->nxp_i2c_fragment_len) -
+                (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN)) -
+               PHDNLDNFC_MIN_PLD_LEN);
           (pDlContext->tRWInfo.wRemBytes) = (pDlContext->tRspBuffInfo.wLen);
           (pDlContext->tRWInfo.dwAddr) = (pDlContext->FrameInp.dwAddr);
           (pDlContext->tRWInfo.wOffset) = 0;
           (pDlContext->tRWInfo.wBytesRead) = 0;
 
-          if (PHDNLDNFC_CMDRESP_MAX_PLD_SIZE < wFrameLen) {
+          if (((pDlContext->nxp_i2c_fragment_len) -
+               (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN)) <
+              wFrameLen) {
             (pDlContext->tRWInfo.bFramesSegmented) = true;
           }
         }
@@ -591,8 +596,9 @@ static NFCSTATUS phDnldNfc_BuildFramePkt(pphDnldNfc_DlContext_t pDlContext) {
     if (NFCSTATUS_SUCCESS == wStatus) {
       wFrameLen = 0;
       wFrameLen = (pDlContext->tCmdRspFrameInfo.dwSendlength);
-      if (wFrameLen > PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE) {
-        NXPLOG_FWDNLD_D("wFrameLen exceeds the limit");
+      if (wFrameLen > pDlContext->nxp_i2c_fragment_len) {
+        NXPLOG_FWDNLD_E("wFrameLen (%x) exceeds the limit %x", wFrameLen,
+                        pDlContext->nxp_i2c_fragment_len);
         return NFCSTATUS_FAILED;
       }
 
@@ -639,7 +645,7 @@ static NFCSTATUS phDnldNfc_BuildFramePkt(pphDnldNfc_DlContext_t pDlContext) {
           }
         }
         /*Check whether enough space is left for 2 bytes of CRC append*/
-        if (wFrameLen > (PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE - 2)) {
+        if (wFrameLen > (pDlContext->nxp_i2c_fragment_len - 2)) {
           NXPLOG_FWDNLD_D("wFrameLen exceeds the limit");
           return NFCSTATUS_FAILED;
         }
@@ -689,7 +695,7 @@ static NFCSTATUS phDnldNfc_CreateFramePld(pphDnldNfc_DlContext_t pDlContext) {
     wStatus = PHNFCSTVAL(CID_NFC_DNLD, NFCSTATUS_INVALID_PARAMETER);
   } else {
     memset((pDlContext->tCmdRspFrameInfo.aFrameBuff), 0,
-           PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE);
+           pDlContext->nxp_i2c_fragment_len);
     (pDlContext->tCmdRspFrameInfo.dwSendlength) = 0;
 
     if (phDnldNfc_FTNone == (pDlContext->FrameInp.Type)) {
@@ -725,17 +731,21 @@ static NFCSTATUS phDnldNfc_CreateFramePld(pphDnldNfc_DlContext_t pDlContext) {
         (pDlContext->tRWInfo.wRWPldSize) = wFrameLen;
       }
 
-      if ((pDlContext->tRWInfo.wRWPldSize) > PHDNLDNFC_CMDRESP_MAX_PLD_SIZE) {
+      if ((pDlContext->tRWInfo.wRWPldSize) >
+          ((pDlContext->nxp_i2c_fragment_len) -
+           (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN))) {
         if ((pDlContext->tRWInfo.bFirstChunkResp) == false) {
           (pDlContext->tRWInfo.wRemChunkBytes) = wFrameLen;
           (pDlContext->tRWInfo.wOffset) += PHDNLDNFC_FRAME_HDR_LEN;
           wBuffIdx = (pDlContext->tRWInfo.wOffset);
         }
 
-        if (PHDNLDNFC_CMDRESP_MAX_PLD_SIZE <
+        if (((pDlContext->nxp_i2c_fragment_len) -
+             (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN)) <
             (pDlContext->tRWInfo.wRemChunkBytes)) {
           (pDlContext->tRWInfo.wBytesToSendRecv) =
-              PHDNLDNFC_CMDRESP_MAX_PLD_SIZE;
+              ((pDlContext->nxp_i2c_fragment_len) -
+               (PHDNLDNFC_FRAME_HDR_LEN + PHDNLDNFC_FRAME_CRC_LEN));
           (pDlContext->tRWInfo.bFramesSegmented) = true;
         } else {
           (pDlContext->tRWInfo.wBytesToSendRecv) =
@@ -856,6 +866,11 @@ static NFCSTATUS phDnldNfc_ProcessFrame(void* pContext,
           NXPLOG_FWDNLD_E("Cannot update Response buff with received data!!");
         }
       } else {
+        if (pInfo->wLength <= PHDNLDNFC_FRAME_CRC_LEN) {
+          NXPLOG_FWDNLD_E("Invalid frame received");
+          wStatus = PHNFCSTVAL(CID_NFC_DNLD, NFCSTATUS_FAILED);
+          return wStatus;
+        }
         /* calculate CRC16 */
         wCrcVal = phDnldNfc_CalcCrc16(
             (pInfo->pBuff), ((pInfo->wLength) - PHDNLDNFC_FRAME_CRC_LEN));
@@ -1189,15 +1204,22 @@ static NFCSTATUS phDnldNfc_UpdateRsp(pphDnldNfc_DlContext_t pDlContext,
       }
     } else {
       if (PH_DL_STATUS_OK == (pInfo->pBuff[PHDNLDNFC_FRAMESTATUS_OFFSET])) {
-        if ((0 != (pDlContext->tRspBuffInfo.wLen)) &&
-            (NULL != (pDlContext->tRspBuffInfo.pBuff))) {
-          memcpy((pDlContext->tRspBuffInfo.pBuff),
-                 &(pInfo->pBuff[PHDNLDNFC_FRAMESTATUS_OFFSET + 1]), wPldLen);
+        if ((pDlContext->tRspBuffInfo.wLen) >= wPldLen) {
+          if ((0 != (pDlContext->tRspBuffInfo.wLen)) &&
+              (NULL != (pDlContext->tRspBuffInfo.pBuff))) {
+            memcpy((pDlContext->tRspBuffInfo.pBuff),
+                   &(pInfo->pBuff[PHDNLDNFC_FRAMESTATUS_OFFSET + 1]), wPldLen);
 
-          (pDlContext->tRspBuffInfo.wLen) = wPldLen;
+            (pDlContext->tRspBuffInfo.wLen) = wPldLen;
+          }
+        } else if ((pDlContext->tRspBuffInfo.wLen) == 0) {
+          NXPLOG_FWDNLD_D("Ignore the response");
         }
       } else {
-        NXPLOG_FWDNLD_E("Unsuccessful Status received!!");
+        NXPLOG_FWDNLD_E(
+            "Unsuccessful Status received!! wPldLen = 0x%x "
+            ",pDlContext->tRspBuffInfo.wLen = 0x%x",
+            wPldLen, pDlContext->tRspBuffInfo.wLen);
         wStatus = PHNFCSTVAL(CID_NFC_DNLD, NFCSTATUS_FAILED);
       }
     }

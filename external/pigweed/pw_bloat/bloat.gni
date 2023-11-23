@@ -34,6 +34,9 @@ declare_args() {
   #
   # If this list is empty, pw_toolchain_size_report targets become no-ops.
   pw_bloat_TOOLCHAINS = []
+
+  # Controls whether to display size reports in the build output.
+  pw_bloat_SHOW_SIZE_REPORTS = false
 }
 
 # Creates a target which runs a size report diff on a set of executables.
@@ -113,9 +116,9 @@ template("pw_size_report") {
 
       # Allow each binary to override the global bloaty config.
       if (defined(binary.bloaty_config)) {
-        _bloaty_configs += [ rebase_path(binary.bloaty_config) ]
+        _bloaty_configs += [ binary.bloaty_config ]
       } else {
-        _bloaty_configs += [ rebase_path(pw_bloat_BLOATY_CONFIG) ]
+        _bloaty_configs += [ pw_bloat_BLOATY_CONFIG ]
       }
 
       _binary_path += ";" + "<TARGET_FILE($_binary_base)>"
@@ -126,9 +129,9 @@ template("pw_size_report") {
 
     _bloat_script_args = [
       "--bloaty-config",
-      string_join(";", _bloaty_configs),
+      string_join(";", rebase_path(_bloaty_configs, root_build_dir)),
       "--out-dir",
-      rebase_path(target_gen_dir),
+      rebase_path(target_gen_dir, root_build_dir),
       "--target",
       target_name,
       "--title",
@@ -162,7 +165,7 @@ template("pw_size_report") {
         }
         script = "$dir_pw_bloat/py/pw_bloat/no_bloaty.py"
         python_deps = [ "$dir_pw_bloat/py" ]
-        args = [ rebase_path(_doc_rst_output) ]
+        args = [ rebase_path(_doc_rst_output, root_build_dir) ]
         outputs = [ _doc_rst_output ]
       }
 
@@ -180,14 +183,14 @@ template("pw_size_report") {
         python_deps = [ "$dir_pw_bloat/py" ]
         inputs = _bloaty_configs
         outputs = [
-          "$target_gen_dir/${target_name}.txt",
+          "${_doc_rst_output}.txt",
           _doc_rst_output,
         ]
         deps = _all_target_dependencies
         args = _bloat_script_args + _binary_paths
 
-        # Print size reports to stdout when they are generated.
-        capture_output = false
+        # Print size reports to stdout when they are generated, if requested.
+        capture_output = !pw_bloat_SHOW_SIZE_REPORTS
       }
     }
   } else {
@@ -247,7 +250,8 @@ template("pw_toolchain_size_report") {
     _linker_script_target_name = "${_prefix}_linker_script"
     config(_linker_script_target_name) {
       if (defined(_toolchain.linker_script)) {
-        ldflags = [ "-T" + rebase_path(_toolchain.linker_script) ]
+        ldflags =
+            [ "-T" + rebase_path(_toolchain.linker_script, root_build_dir) ]
         inputs = [ _toolchain.linker_script ]
       } else {
         ldflags = []
@@ -324,7 +328,7 @@ template("pw_toolchain_size_report") {
       }
       script = "$dir_pw_bloat/py/pw_bloat/no_toolchains.py"
       python_deps = [ "$dir_pw_bloat/py" ]
-      args = [ rebase_path(_doc_rst_output) ]
+      args = [ rebase_path(_doc_rst_output, root_build_dir) ]
       outputs = [ _doc_rst_output ]
     }
   }

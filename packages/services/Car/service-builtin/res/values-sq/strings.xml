@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"Nuk mund ta përdorësh këtë veçori gjatë drejtimit të makinës"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"Për të filluar nga e para me funksionet e sigurta të aplikacionit, zgjidh <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
+    <string name="exit_button" msgid="3491899413031549265">"Prapa"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"Mbyll aplikacionin"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"Pas"</string>
+    <string name="importance_default" msgid="8017186728206153704">"Rëndësia e parazgjedhur"</string>
+    <string name="importance_high" msgid="3393374688015554727">"Rëndësi e lartë"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Sistemi Android"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"Kërkohet rivendosja në gjendje fabrike"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"Të gjitha të dhënat në sistemin info-argëtues do të spastrohen. Pas rivendosjes, mund të konfigurosh një profil të ri."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"Më shumë"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"Pajisja do të spastrohet"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"Aplikacioni i administratorit nuk mund të përdoret. Pajisja jote tani do të fshihet.\n\nNëse ke pyetje, kontakto administratorin e organizatës."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> po ndikon në performancën e sistemit"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Çaktivizo aplikacionin për të përmirësuar performancën e sistemit. Mund ta aktivizosh aplikacionin sërish te \"Cilësimet\"."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Jepi përparësi aplikacionit për të vazhduar ta përdorësh."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Çinstalo aplikacionin për të përmirësuar performancën e sistemit."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Çaktivizo aplikacionin"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Jepi përparësi aplikacionit"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Çinstalo aplikacionin"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> është çaktivizuar. Mund ta aktivizosh përsëri te \"Cilësimet\"."</string>
+</resources>

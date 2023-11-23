@@ -20,8 +20,6 @@
 import time
 
 from acts.utils import rand_ascii_str
-from acts.utils import enable_doze
-from acts.utils import disable_doze
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
@@ -32,15 +30,15 @@ from acts_contrib.test_utils.tel.tel_defines import RAT_5G
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_PASSWORD_HAS_ESCAPE
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_SPECIAL_SSID_LIST
 from acts_contrib.test_utils.tel.tel_defines import TETHERING_SPECIAL_PASSWORD_LIST
-from acts_contrib.test_utils.tel.tel_defines import \
-    WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING
+from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING
+from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
+from acts_contrib.test_utils.tel.tel_bt_utils import verify_bluetooth_tethering_connection
 from acts_contrib.test_utils.tel.tel_data_utils import run_stress_test
 from acts_contrib.test_utils.tel.tel_data_utils import test_wifi_tethering
 from acts_contrib.test_utils.tel.tel_data_utils import test_setup_tethering
 from acts_contrib.test_utils.tel.tel_data_utils import test_start_wifi_tethering_connect_teardown
 from acts_contrib.test_utils.tel.tel_data_utils import test_tethering_wifi_and_voice_call
 from acts_contrib.test_utils.tel.tel_data_utils import tethering_check_internet_connection
-from acts_contrib.test_utils.tel.tel_data_utils import verify_bluetooth_tethering_connection
 from acts_contrib.test_utils.tel.tel_data_utils import verify_toggle_apm_tethering_internet_connection
 from acts_contrib.test_utils.tel.tel_data_utils import verify_tethering_entitlement_check
 from acts_contrib.test_utils.tel.tel_data_utils import wifi_tethering_cleanup
@@ -51,19 +49,18 @@ from acts_contrib.test_utils.tel.tel_data_utils import verify_wifi_tethering_whe
 from acts_contrib.test_utils.tel.tel_data_utils import setup_device_internet_connection_then_reboot
 from acts_contrib.test_utils.tel.tel_data_utils import verify_internet_connection_in_doze_mode
 from acts_contrib.test_utils.tel.tel_data_utils import verify_toggle_data_during_wifi_tethering
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_network_generation
-from acts_contrib.test_utils.tel.tel_test_utils import ensure_phones_default_state
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_network_generation
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_default_state
 from acts_contrib.test_utils.tel.tel_test_utils import verify_internet_connection
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_reset
-from acts_contrib.test_utils.tel.tel_5g_test_utils import provision_device_for_5g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_csfb
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_reset
 
 
 class Nsa5gTetheringTest(TelephonyBaseTest):
@@ -104,7 +101,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    RAT_5G,
                                    WIFI_CONFIG_APBAND_5G,
                                    check_interval=10,
-                                   check_iteration=10)
+                                   check_iteration=10,
+                                   nr_type= 'nsa')
 
 
     @test_tracker_info(uuid="0af10a6b-7c01-41fd-95ce-d839a787aa98")
@@ -128,7 +126,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    RAT_5G,
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
-                                   check_iteration=10)
+                                   check_iteration=10,
+                                   nr_type= 'nsa')
 
 
     @test_tracker_info(uuid="d7ab31d5-5f96-4b48-aa92-810e6cfcf845")
@@ -158,7 +157,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                        check_interval=10,
                                        check_iteration=2,
                                        do_cleanup=False,
-                                       ssid=ssid):
+                                       ssid=ssid,
+                                       nr_type= 'nsa'):
                 self.log.error("WiFi Tethering failed.")
                 return False
 
@@ -191,7 +191,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
         if not verify_toggle_data_during_wifi_tethering(self.log,
                                                         self.provider,
                                                         self.clients,
-                                                        new_gen=RAT_5G):
+                                                        new_gen=RAT_5G,
+                                                        nr_type= 'nsa'):
             return False
         return True
 
@@ -206,7 +207,7 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if entitlement check returns True.
         """
 
-        if not provision_device_for_5g(self.log, self.provider):
+        if not provision_device_for_5g(self.log, self.provider, nr_type= 'nsa'):
             return False
         return verify_tethering_entitlement_check(self.log,
                                                   self.provider)
@@ -235,7 +236,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                        RAT_5G,
                                        WIFI_CONFIG_APBAND_2G,
                                        check_interval=10,
-                                       check_iteration=10)
+                                       check_iteration=10,
+                                       nr_type= 'nsa')
         return run_stress_test(self.log, self.stress_test_number, precondition, test_case)
 
 
@@ -263,7 +265,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
                                    check_iteration=10,
-                                   ssid=ssid)
+                                   ssid=ssid,
+                                   nr_type= 'nsa')
 
 
     @test_tracker_info(uuid="678c6b04-6733-41e1-bb0c-af8c9d1183cb")
@@ -292,7 +295,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
                                    check_iteration=10,
-                                   password=password)
+                                   password=password,
+                                   nr_type= 'nsa')
 
 
     @test_tracker_info(uuid="eacc5412-fe75-400b-aba9-c0c38bdfff71")
@@ -307,7 +311,11 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if WiFi tethering succeed on all SSIDs.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Setup Failed.")
             return False
         ssid_list = TETHERING_SPECIAL_SSID_LIST
@@ -342,7 +350,11 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if WiFi tethering succeed on all passwords.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Setup Failed.")
             return False
         password_list = TETHERING_SPECIAL_PASSWORD_LIST
@@ -381,11 +393,17 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients)
 
 
     @test_tracker_info(uuid="db70c6ec-5edc-44c2-b61b-1c39516a7475")
@@ -404,12 +422,20 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=False, toggle_bluetooth=False, voice_call=True)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=False,
+                                                    toggle_bluetooth=False,
+                                                    voice_call=True)
 
 
     @test_tracker_info(uuid="12efb94f-7466-40e9-9a79-59b4074ab4dd")
@@ -428,12 +454,20 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=False, toggle_bluetooth=False, toggle_data=True)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=False,
+                                                    toggle_bluetooth=False,
+                                                    toggle_data=True)
 
 
     @test_tracker_info(uuid="475b485a-1228-4f18-b9f2-593f96850165")
@@ -452,12 +486,20 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=True, toggle_bluetooth=False, toggle_data=False)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=True,
+                                                    toggle_bluetooth=False,
+                                                    toggle_data=False)
 
 
     @test_tracker_info(uuid="07f8e523-b471-4156-b057-558123973a5b")
@@ -476,15 +518,21 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=False,
-            toggle_bluetooth=False,
-            toggle_data=False,
-            change_rat=RAT_4G)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=False,
+                                                    toggle_bluetooth=False,
+                                                    toggle_data=False,
+                                                    change_rat=RAT_4G)
 
 
     @test_tracker_info(uuid="93040a69-fa85-431f-ac9d-80091c6c8223")
@@ -503,15 +551,21 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=False,
-            toggle_bluetooth=False,
-            toggle_data=False,
-            change_rat=RAT_3G)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=False,
+                                                    toggle_bluetooth=False,
+                                                    toggle_data=False,
+                                                    change_rat=RAT_3G)
 
 
     @test_tracker_info(uuid="6cc17fc7-13a0-4493-9673-920952a16fcc")
@@ -530,15 +584,21 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
 
-        return verify_bluetooth_tethering_connection(self.log, self.provider, self.clients,
-            toggle_tethering=False,
-            toggle_bluetooth=False,
-            toggle_data=False,
-            change_rat=RAT_2G)
+        return verify_bluetooth_tethering_connection(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    toggle_tethering=False,
+                                                    toggle_bluetooth=False,
+                                                    toggle_data=False,
+                                                    change_rat=RAT_2G)
 
 
     # Invalid Live Test. Can't rely on the result of this test with live network.
@@ -560,7 +620,11 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
         try:
@@ -623,7 +687,10 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_3G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_3G):
             self.log.error("Verify 3G Internet access failed.")
             return False
         try:
@@ -650,7 +717,9 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                     toggle_apm_after_setting=False):
                 self.log.error("Provider failed to reselect to LTE")
                 return False
-            if not provision_device_for_5g(self.log, self.provider):
+            if not provision_device_for_5g(self.log,
+                                            self.provider,
+                                            nr_type='nsa'):
                 self.log.error("Provider failed to reselect to nsa 5G")
                 return False
             time.sleep(WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING)
@@ -688,7 +757,11 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_5G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_5G,
+                                    nr_type='nsa'):
             self.log.error("Verify 5G Internet access failed.")
             return False
         try:
@@ -751,7 +824,10 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        if not test_setup_tethering(self.log, self.provider, self.clients, RAT_4G):
+        if not test_setup_tethering(self.log,
+                                    self.provider,
+                                    self.clients,
+                                    RAT_4G):
             self.log.error("Verify 4G Internet access failed.")
             return False
         try:
@@ -778,7 +854,9 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                     toggle_apm_after_setting=False):
                 self.log.error("Provider failed to reselect to LTE")
                 return False
-            if not provision_device_for_5g(self.log, self.provider):
+            if not provision_device_for_5g(self.log,
+                                            self.provider,
+                                            nr_type='nsa'):
                 self.log.error("Provider failed to reselect to nsa 5G")
                 return False
             time.sleep(WAIT_TIME_DATA_STATUS_CHANGE_DURING_WIFI_TETHERING)
@@ -812,8 +890,13 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return test_tethering_wifi_and_voice_call(self.log, self.provider, self.clients,
-            RAT_5G, phone_setup_volte, is_phone_in_call_volte)
+        return test_tethering_wifi_and_voice_call(self.log,
+                                                self.provider,
+                                                self.clients,
+                                                RAT_5G,
+                                                phone_setup_volte,
+                                                is_phone_in_call_volte,
+                                                nr_type='nsa')
 
     @test_tracker_info(uuid="f4b96666-ac71-49f2-89db-a792da7bb88c")
     @TelephonyBaseTest.tel_test_wrap
@@ -830,8 +913,13 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return test_tethering_wifi_and_voice_call(self.log, self.provider, self.clients,
-            RAT_5G, phone_setup_csfb, is_phone_in_call_csfb)
+        return test_tethering_wifi_and_voice_call(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    RAT_5G,
+                                                    phone_setup_csfb,
+                                                    is_phone_in_call_csfb,
+                                                    nr_type='nsa')
 
     @test_tracker_info(uuid="8cfa6ab6-6dcd-4ee5-97f2-db3b0f52ae17")
     @TelephonyBaseTest.tel_test_wrap
@@ -848,8 +936,13 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
             True if success.
             False if failed.
         """
-        return test_tethering_wifi_and_voice_call(self.log, self.provider, self.clients,
-            RAT_5G, phone_setup_voice_3g, is_phone_in_call_3g)
+        return test_tethering_wifi_and_voice_call(self.log,
+                                                    self.provider,
+                                                    self.clients,
+                                                    RAT_5G,
+                                                    phone_setup_voice_3g,
+                                                    is_phone_in_call_3g,
+                                                    nr_type='nsa')
 
     @test_tracker_info(uuid="ff1f71d7-142c-4e0d-94be-cadbc30828fd")
     @TelephonyBaseTest.tel_test_wrap
@@ -873,7 +966,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
                                    check_iteration=10,
-                                   password="")
+                                   password="",
+                                   nr_type='nsa')
 
     @test_tracker_info(uuid="fd6daa93-2ecb-4a23-8f29-6d2db3b940c4")
     @TelephonyBaseTest.tel_test_wrap
@@ -900,7 +994,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                        WIFI_CONFIG_APBAND_2G,
                                        check_interval=10,
                                        check_iteration=2,
-                                       do_cleanup=False):
+                                       do_cleanup=False,
+                                       nr_type='nsa'):
                 return False
 
             if not verify_wifi_tethering_when_reboot(self.log,
@@ -955,7 +1050,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                        check_interval=10,
                                        check_iteration=2,
                                        do_cleanup=False,
-                                       pre_teardown_func=setup_provider_internet_connection):
+                                       pre_teardown_func=setup_provider_internet_connection,
+                                       nr_type='nsa'):
                 return False
 
             if not verify_wifi_tethering_when_reboot(self.log,
@@ -1002,7 +1098,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
                                    check_iteration=2,
-                                   pre_teardown_func=setup_provider_internet_connect_then_reboot)
+                                   pre_teardown_func=setup_provider_internet_connect_then_reboot,
+                                   nr_type='nsa')
 
     @test_tracker_info(uuid="70f20bcf-8064-49e3-a3f0-ff151374d1ac")
     @TelephonyBaseTest.tel_test_wrap
@@ -1032,7 +1129,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                        WIFI_CONFIG_APBAND_2G,
                                        check_interval=10,
                                        check_iteration=2,
-                                       do_cleanup=False):
+                                       do_cleanup=False,
+                                       nr_type='nsa'):
                 return False
             if not verify_internet_connection_in_doze_mode(self.log,
                                                            self.provider,
@@ -1078,7 +1176,8 @@ class Nsa5gTetheringTest(TelephonyBaseTest):
                                    WIFI_CONFIG_APBAND_2G,
                                    check_interval=10,
                                    check_iteration=2,
-                                   pre_teardown_func=setup_provider_internet_connection):
+                                   pre_teardown_func=setup_provider_internet_connection,
+                                   nr_type='nsa'):
             return False
 
         if not wait_and_verify_device_internet_connection(self.log, self.provider):

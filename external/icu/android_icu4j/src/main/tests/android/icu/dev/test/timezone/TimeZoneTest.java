@@ -15,13 +15,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -554,10 +554,10 @@ public class TimeZoneTest extends TestFmwk
 
 
         String tzver = TimeZone.getTZDataVersion();
-        if (tzver.length() != 5 /* 4 digits + 1 letter */) {
-            errln("FAIL: getTZDataVersion returned " + tzver);
-        } else {
+        if (tzver != null && (tzver.length() == 5 || tzver.length() == 6) /* 4 digits + 1 or 2 letters */ ) {
             logln("PASS: tzdata version: " + tzver);
+        } else {
+            errln("FAIL: getTZDataVersion returned " + tzver);
         }
     }
 
@@ -1086,31 +1086,7 @@ public class TimeZoneTest extends TestFmwk
     public void TestFractionalDST() {
         String tzName = "Australia/Lord_Howe"; // 30 min offset
         java.util.TimeZone tz_java = java.util.TimeZone.getTimeZone(tzName);
-        int dst_java = 0;
-        try {
-            // hack so test compiles and runs in both JDK 1.3 and JDK 1.4
-            final Object[] args = new Object[0];
-            final Class[] argtypes = new Class[0];
-            java.lang.reflect.Method m = tz_java.getClass().getMethod("getDSTSavings", argtypes);
-            dst_java = ((Integer) m.invoke(tz_java, args)).intValue();
-            if (dst_java <= 0 || dst_java >= 3600000) { // didn't get the fractional time zone we wanted
-            errln("didn't get fractional time zone!");
-            }
-        } catch (NoSuchMethodException e) {
-            // see JDKTimeZone for the reason for this code
-            dst_java = 3600000;
-        } catch (IllegalAccessException e) {
-            // see JDKTimeZone for the reason for this code
-            errln(e.getMessage());
-            dst_java = 3600000;
-        } catch (InvocationTargetException e) {
-            // see JDKTimeZone for the reason for this code
-            errln(e.getMessage());
-            dst_java = 3600000;
-        } catch (SecurityException e) {
-            warnln(e.getMessage());
-            return;
-        }
+        int dst_java = tz_java.getDSTSavings();
 
         android.icu.util.TimeZone tz_icu = android.icu.util.TimeZone.getTimeZone(tzName);
         int dst_icu = tz_icu.getDSTSavings();
@@ -1506,10 +1482,20 @@ public class TimeZoneTest extends TestFmwk
     }
 
     @Test
+    @Ignore
     public void TestCanonicalID() {
-        // Some canonical IDs in CLDR are defined as "Link"
-        // in Olson tzdata.
+        // Olson (IANA) tzdata used to have very few "Link"s long time ago.
+        // This test case was written when most of CLDR canonical time zones are
+        // defined as independent "Zone" in the TZ database.
+        // Since then, the TZ maintainer found some historic rules in mid 20th century
+        // were not really reliable, and many zones are now sharing rules.
+        // As of TZ database release 2022a, there are quite a lot of zones defined
+        // by "Link" to another zone, so the exception table below becomes really
+        // big. It might be still useful to make sure CLDR zone aliases are consistent
+        // with zone rules.
         final String[][] excluded1 = {
+            //  {"<link-from>", "<link-to> (A zone ID with "Zone" rule)"},
+                {"Africa/Accra", "Africa/Abidjan"},
                 {"Africa/Addis_Ababa", "Africa/Nairobi"},
                 {"Africa/Asmera", "Africa/Nairobi"},
                 {"Africa/Bamako", "Africa/Abidjan"},
@@ -1544,34 +1530,43 @@ public class TimeZoneTest extends TestFmwk
                 {"Africa/Ouagadougou", "Africa/Abidjan"},
                 {"Africa/Porto-Novo", "Africa/Lagos"},
                 {"Africa/Sao_Tome", "Africa/Abidjan"},
-                {"America/Antigua", "America/Port_of_Spain"},
-                {"America/Anguilla", "America/Port_of_Spain"},
-                {"America/Curacao", "America/Aruba"},
-                {"America/Dominica", "America/Port_of_Spain"},
-                {"America/Grenada", "America/Port_of_Spain"},
-                {"America/Guadeloupe", "America/Port_of_Spain"},
-                {"America/Kralendijk", "America/Aruba"},
-                {"America/Lower_Princes", "America/Aruba"},
-                {"America/Marigot", "America/Port_of_Spain"},
-                {"America/Montserrat", "America/Port_of_Spain"},
-                {"America/Panama", "America/Cayman"},
+                {"America/Antigua", "America/Puerto_Rico"},
+                {"America/Anguilla", "America/Puerto_Rico"},
+                {"America/Aruba", "America/Puerto_Rico"},
+                {"America/Atikokan", "America/Panama"},
+                {"America/Blanc-Sablon", "America/Puerto_Rico"},
+                {"America/Cayman", "America/Panama"},
+                {"America/Coral_Harbour", "America/Panama"},
+                {"America/Creston", "America/Phoenix"},
+                {"America/Curacao", "America/Puerto_Rico"},
+                {"America/Dominica", "America/Puerto_Rico"},
+                {"America/Grenada", "America/Puerto_Rico"},
+                {"America/Guadeloupe", "America/Puerto_Rico"},
+                {"America/Kralendijk", "America/Puerto_Rico"},
+                {"America/Lower_Princes", "America/Puerto_Rico"},
+                {"America/Marigot", "America/Puerto_Rico"},
+                {"America/Montreal", "America/Toronto"},
+                {"America/Montserrat", "America/Puerto_Rico"},
+                {"America/Nassau", "America/Toronto"},
+                {"America/Port_of_Spain", "America/Puerto_Rico"},
                 {"America/Santa_Isabel", "America/Tijuana"},
                 {"America/Shiprock", "America/Denver"},
-                {"America/St_Barthelemy", "America/Port_of_Spain"},
-                {"America/St_Kitts", "America/Port_of_Spain"},
-                {"America/St_Lucia", "America/Port_of_Spain"},
-                {"America/St_Thomas", "America/Port_of_Spain"},
-                {"America/St_Vincent", "America/Port_of_Spain"},
-                {"America/Toronto", "America/Montreal"},
-                {"America/Tortola", "America/Port_of_Spain"},
-                {"America/Virgin", "America/Port_of_Spain"},
+                {"America/St_Barthelemy", "America/Puerto_Rico"},
+                {"America/St_Kitts", "America/Puerto_Rico"},
+                {"America/St_Lucia", "America/Puerto_Rico"},
+                {"America/St_Thomas", "America/Puerto_Rico"},
+                {"America/St_Vincent", "America/Puerto_Rico"},
+                {"America/Tortola", "America/Puerto_Rico"},
+                {"America/Virgin", "America/Puerto_Rico"},
+                {"Antarctica/DumontDUrville", "Pacific/Port_Moresby"},
                 {"Antarctica/South_Pole", "Antarctica/McMurdo"},
+                {"Antarctica/Syowa", "Asia/Riyadh"},
                 {"Arctic/Longyearbyen", "Europe/Oslo"},
-                {"Asia/Kuwait", "Asia/Aden"},
+                {"Asia/Aden", "Asia/Riyadh"},
+                {"Asia/Kuwait", "Asia/Riyadh"},
                 {"Asia/Muscat", "Asia/Dubai"},
                 {"Asia/Phnom_Penh", "Asia/Bangkok"},
                 {"Asia/Qatar", "Asia/Bahrain"},
-                {"Asia/Riyadh", "Asia/Aden"},
                 {"Asia/Vientiane", "Asia/Bangkok"},
                 {"Atlantic/Jan_Mayen", "Europe/Oslo"},
                 {"Atlantic/St_Helena", "Africa/Abidjan"},
@@ -1655,7 +1650,7 @@ public class TimeZoneTest extends TestFmwk
             if (!bFoundCanonical) {
                 // test exclusion because of differences between Olson tzdata and CLDR
                 boolean isExcluded = false;
-                for (int k = 0; k < excluded1.length; k++) {
+                for (int k = 0; k < excluded2.length; k++) {
                     if (ids[i].equals(excluded2[k])) {
                         isExcluded = true;
                         break;
@@ -1997,7 +1992,7 @@ public class TimeZoneTest extends TestFmwk
             }
 
             // setRawOffset
-            if (!(thawedZones[i] instanceof RuleBasedTimeZone)) {    // RuleBasedTimeZone does not supprot setRawOffset
+            if (!(thawedZones[i] instanceof RuleBasedTimeZone)) {    // RuleBasedTimeZone does not support setRawOffset
                 try {
                     int newOffset = -3600000;
                     thawedZones[i].setRawOffset(newOffset);
@@ -2102,7 +2097,7 @@ public class TimeZoneTest extends TestFmwk
             }
 
             // setRawOffset
-            if (!(frozenZones[i] instanceof RuleBasedTimeZone)) {    // RuleBasedTimeZone does not supprot setRawOffset
+            if (!(frozenZones[i] instanceof RuleBasedTimeZone)) {    // RuleBasedTimeZone does not support setRawOffset
                 try {
                     int newOffset = -3600000;
                     frozenZones[i].setRawOffset(newOffset);

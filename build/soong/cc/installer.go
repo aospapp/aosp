@@ -25,6 +25,13 @@ import (
 type InstallerProperties struct {
 	// install to a subdirectory of the default install path for the module
 	Relative_install_path *string `android:"arch_variant"`
+
+	// Install output directly in {partition}/, not in any subdir.  This is only intended for use by
+	// init_first_stage.
+	Install_in_root *bool `android:"arch_variant"`
+
+	// Install output directly in {partition}/xbin
+	Install_in_xbin *bool `android:"arch_vvariant"`
 }
 
 type installLocation int
@@ -66,6 +73,13 @@ func (installer *baseInstaller) installDir(ctx ModuleContext) android.InstallPat
 	if ctx.toolchain().Is64Bit() && installer.dir64 != "" {
 		dir = installer.dir64
 	}
+
+	if installer.installInRoot() {
+		dir = ""
+	} else if installer.installInXbin() {
+		dir = "xbin"
+	}
+
 	if ctx.Target().NativeBridge == android.NativeBridgeEnabled {
 		dir = filepath.Join(dir, ctx.Target().NativeBridgeRelativePath)
 	} else if !ctx.Host() && ctx.Config().HasMultilibConflict(ctx.Arch().ArchType) {
@@ -109,4 +123,12 @@ func (installer *baseInstaller) relativeInstallPath() string {
 
 func (installer *baseInstaller) makeUninstallable(mod *Module) {
 	mod.ModuleBase.MakeUninstallable()
+}
+
+func (installer *baseInstaller) installInRoot() bool {
+	return Bool(installer.Properties.Install_in_root)
+}
+
+func (installer *baseInstaller) installInXbin() bool {
+	return Bool(installer.Properties.Install_in_xbin)
 }

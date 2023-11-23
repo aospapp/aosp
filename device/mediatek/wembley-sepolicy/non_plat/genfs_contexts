@@ -25,7 +25,6 @@ genfscon proc /perfmgr u:object_r:proc_perfmgr:s0
 genfscon proc /driver/wmt_dbg u:object_r:proc_wmtdbg:s0
 genfscon proc /zraminfo u:object_r:proc_zraminfo:s0
 genfscon proc /gpulog u:object_r:proc_gpulog:s0
-genfscon proc /cpu/alignment u:object_r:proc_cpu_alignment:s0
 genfscon proc /sched_debug u:object_r:proc_sched_debug:s0
 genfscon proc /chip u:object_r:proc_chip:s0
 genfscon proc /atf_log u:object_r:proc_atf_log:s0

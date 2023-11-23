@@ -19,23 +19,39 @@ set -e
 
 [ -z $TOOLS_DIR ] && TOOLS_DIR=$(realpath $(dirname $0))
 [ -z $LTP_ROOT ] && LTP_ROOT=$(realpath $TOOLS_DIR/../..)
+[ -z $TOOLS_DUMP_DIR ] && TOOLS_DUMP_DIR=$(realpath $TOOLS_DIR/dump)
+
+mkdir -p $TOOLS_DUMP_DIR
 
 if ! [ -f $LTP_ROOT/include/config.h ]; then
+  echo ""
   echo "LTP has not been configured."
-  echo "Executing \"cd $LTP_ROOT; make autotools; ./configure\""
-  (cd $LTP_ROOT; make autotools)
-  (cd $LTP_ROOT; ./configure)
+  echo ""
+  echo "Executing \"cd $LTP_ROOT; make autotools\""
+  (cd $LTP_ROOT; make autotools > /dev/null)
+  echo ""
+  echo "Executing \"cd $LTP_ROOT; ./configure\""
+  (cd $LTP_ROOT; ./configure > /dev/null)
+
+  OUTPUT=$TOOLS_DUMP_DIR/config.h.dump
+  cat $LTP_ROOT/include/config.h > $OUTPUT
 fi
 
-OUTPUT=$TOOLS_DIR/make_dry_run.dump
-echo "Dumping output to $OUTPUT from command 'make -C $LTP_ROOT/testcases --dry-run'"
-make -j1 -C $LTP_ROOT/testcases --dry-run > $OUTPUT
+MAKE_FLAGS="-j1 --dry-run V=1"
 
-OUTPUT=$TOOLS_DIR/make_install_dry_run.dump
-echo "Dumping output to $OUTPUT from command 'make -C $LTP_ROOT/testcases install --dry-run'"
-make -j1 -C $LTP_ROOT/testcases install --dry-run > $OUTPUT
+OUTPUT=$TOOLS_DUMP_DIR/make_dry_run.dump
+CMD="make $MAKE_FLAGS -C $LTP_ROOT/testcases"
+echo ""
+echo "Dumping output to $OUTPUT from command '$CMD'"
+$CMD > $OUTPUT
 
+OUTPUT=$TOOLS_DUMP_DIR/make_install_dry_run.dump
+CMD="make $MAKE_FLAGS -C $LTP_ROOT/testcases install"
+echo ""
+echo "Dumping output to $OUTPUT from command '$CMD'"
+$CMD > $OUTPUT
+
+echo ""
 echo "Distclean $LTP_ROOT ..."
-make -C $LTP_ROOT distclean
+make -C $LTP_ROOT distclean > /dev/null
 
-echo "Finished!"

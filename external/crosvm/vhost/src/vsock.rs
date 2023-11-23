@@ -2,36 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::os::unix::fs::OpenOptionsExt;
-use std::{
-    fs::{File, OpenOptions},
-    path::Path,
-};
+use std::fs::File;
 
 use base::{ioctl_with_ref, AsRawDescriptor, RawDescriptor};
 use virtio_sys::{VHOST_VSOCK_SET_GUEST_CID, VHOST_VSOCK_SET_RUNNING};
-use vm_memory::GuestMemory;
 
-use super::{ioctl_result, Error, Result, Vhost};
+use super::{ioctl_result, Result, Vhost};
 
 /// Handle for running VHOST_VSOCK ioctls.
 pub struct Vsock {
     descriptor: File,
-    mem: GuestMemory,
 }
 
 impl Vsock {
     /// Open a handle to a new VHOST_VSOCK instance.
-    pub fn new(vhost_vsock_device_path: &Path, mem: &GuestMemory) -> Result<Vsock> {
-        Ok(Vsock {
-            descriptor: OpenOptions::new()
-                .read(true)
-                .write(true)
-                .custom_flags(libc::O_CLOEXEC | libc::O_NONBLOCK)
-                .open(vhost_vsock_device_path)
-                .map_err(Error::VhostOpen)?,
-            mem: mem.clone(),
-        })
+    pub fn new(vhost_vsock_file: File) -> Vsock {
+        Vsock {
+            descriptor: vhost_vsock_file,
+        }
     }
 
     /// Set the CID for the guest.  This number is used for routing all data destined for
@@ -69,11 +57,7 @@ impl Vsock {
     }
 }
 
-impl Vhost for Vsock {
-    fn mem(&self) -> &GuestMemory {
-        &self.mem
-    }
-}
+impl Vhost for Vsock {}
 
 impl AsRawDescriptor for Vsock {
     fn as_raw_descriptor(&self) -> RawDescriptor {

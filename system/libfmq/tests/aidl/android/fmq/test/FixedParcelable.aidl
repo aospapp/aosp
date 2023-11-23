@@ -17,9 +17,11 @@
 package android.fmq.test;
 
 import android.fmq.test.EventFlagBits;
+import android.fmq.test.FixedUnion;
 
 @FixedSize
 parcelable FixedParcelable {
   int a;
   EventFlagBits b;
+  FixedUnion u;
 }

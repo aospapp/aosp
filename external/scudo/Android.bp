@@ -46,6 +46,24 @@ license {
     ],
 }
 
+cc_library_headers {
+    name: "scudo_headers",
+    recovery_available: true,
+    vendor_ramdisk_available: true,
+
+    export_include_dirs: [
+        "standalone/include",
+    ],
+
+    apex_available: [
+        "com.android.runtime",
+    ],
+
+    visibility: [
+        "//system/core/debuggerd",
+    ],
+}
+
 cc_defaults {
     name: "libscudo_defaults",
     native_coverage: false,
@@ -93,8 +111,6 @@ cc_defaults {
         "external/scudo/standalone/include",
     ],
 
-    system_shared_libs: [],
-
     srcs: [
         "standalone/checksum.cpp",
         "standalone/common.cpp",
@@ -126,21 +142,17 @@ cc_defaults {
     },
 
     target: {
-        linux_glibc: {
-            enabled: true,
-        },
-        android: {
-            header_libs: ["bionic_libc_platform_headers"],
-        },
-        linux_bionic: {
-            header_libs: ["bionic_libc_platform_headers"],
+        bionic: {
+            system_shared_libs: [],
+            header_libs: [
+                "libc_headers",
+                "bionic_libc_platform_headers",
+            ],
         },
         native_bridge: {
             cflags: ["-DSCUDO_DISABLE_TBI"],
         },
     },
-
-    header_libs: ["libc_headers"],
 }
 
 cc_library_static {
@@ -199,10 +211,7 @@ cc_test {
         "-fno-emulated-tls",
     ],
     target: {
-        android: {
-            header_libs: ["bionic_libc_platform_headers"],
-        },
-        linux_bionic: {
+        bionic: {
             header_libs: ["bionic_libc_platform_headers"],
         },
     },

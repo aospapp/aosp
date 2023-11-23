@@ -63,8 +63,8 @@ void xnn_f32_gemm${"inc" if INC else ""}${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}
       }
 
   $if ACTIVATION == "MINMAX" and not X86:
-    const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
-    const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+    const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
+    const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
   do {
     $if INC:
       $for M in range(MR):
@@ -102,35 +102,38 @@ void xnn_f32_gemm${"inc" if INC else ""}${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}
       k -= 4 * sizeof(float);
     }
     if XNN_UNLIKELY(k != 0) {
-      do {
-        $for M in range(MR):
-          const v128_t va${M} = wasm_v32x4_load_splat(a${M});
-          a${M} += 1;
+      $for M in range(MR):
+        v128_t va${M} = wasm_v128_load(a${M});
+        a${M} = (const float*) ((uintptr_t) a${M} + k);
 
-        const v128_t vb${ABC[0:4]} = wasm_v128_load(w);
-        $for N in range(4, NR, 4):
-          const v128_t vb${ABC[N:N+4]} = wasm_v128_load(w + ${N});
-        w += ${NR};
+      const v128_t vzero = wasm_f32x4_const_splat(0.0f);
+      $for L in range(4):
+
+        $for N in range(0, NR, 4):
+          const v128_t vb${ABC[N:N+4]}c${L} = wasm_v128_load(w + ${L * NR + N});
 
         $for N in range(0, NR, 4):
           $for M in range(MR):
-            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_add(vacc${M}x${ABC[N:N+4]}, wasm_f32x4_mul(va${M}, vb${ABC[N:N+4]}));
+            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_add(vacc${M}x${ABC[N:N+4]}, wasm_f32x4_mul(wasm_v128_andnot(va${M}, wasm_f32x4_eq(vb${ABC[N:N+4]}c${L}, vzero)), vb${ABC[N:N+4]}c${L}));
 
-        k -= sizeof(float);
-      } while (k != 0);
+        $if L + 1 != 4:
+          $for M in range(MR):
+            va${M} = wasm_v32x4_shuffle(va${M}, va${M}, 1, 2, 3, 0);
+
+      w += ${4 * NR};
     }
 
     $if ACTIVATION == "MINMAX":
       $if X86:
-        const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
+        const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
         $for N in range(0, NR, 4):
           $for M in range(MR):
-            vacc${M}x${ABC[N:N+4]} = wasm_v128_bitselect(vmin, vacc${M}x${ABC[N:N+4]}, wasm_f32x4_lt(vacc${M}x${ABC[N:N+4]}, vmin));
+            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_pmax(vmin, vacc${M}x${ABC[N:N+4]});
 
-        const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
+        const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
         $for N in range(0, NR, 4):
           $for M in range(MR):
-            vacc${M}x${ABC[N:N+4]} = wasm_v128_bitselect(vacc${M}x${ABC[N:N+4]}, vmax, wasm_f32x4_le(vacc${M}x${ABC[N:N+4]}, vmax));
+            vacc${M}x${ABC[N:N+4]} = wasm_f32x4_pmin(vmax, vacc${M}x${ABC[N:N+4]});
       $else:
         $for N in range(0, NR, 4):
           $for M in range(MR):
@@ -140,7 +143,7 @@ void xnn_f32_gemm${"inc" if INC else ""}${ACTIVATION_SUFFIX}_ukernel_${MR}x${NR}
           $for M in range(MR):
             vacc${M}x${ABC[N:N+4]} = wasm_f32x4_min(vacc${M}x${ABC[N:N+4]}, vmax);
     $elif ACTIVATION == "RELU":
-      const v128_t vzero = wasm_f32x4_splat(0.0f);
+      const v128_t vzero = wasm_i32x4_const_splat(0);
       $for N in range(0, NR, 4):
         $for M in range(MR):
           vacc${M}x${ABC[N:N+4]} = wasm_i32x4_max(vacc${M}x${ABC[N:N+4]}, vzero);

@@ -51,17 +51,9 @@ public:
     static  status_t            freeze(pid_t pid, bool enabled, uint32_t timeout_ms);
 
     // Provide information about the state of a frozen process
-    static  status_t            getProcessFreezeInfo(pid_t pid, bool *sync_received,
-                                                    bool *async_received);
-
-    // TODO: Remove the above legacy duplicated function in next version
-#ifndef __ANDROID_VNDK__
     static  status_t            getProcessFreezeInfo(pid_t pid, uint32_t *sync_received,
                                                     uint32_t *async_received);
-#endif
 
-            sp<ProcessState>    process();
-            
             status_t            clearLastError();
 
             /**
@@ -69,7 +61,7 @@ public:
              * call. If not in a binder call, this will return getpid. If the
              * call is oneway, this will return 0.
              */
-            pid_t               getCallingPid() const;
+            [[nodiscard]] pid_t getCallingPid() const;
 
             /**
              * Returns the SELinux security identifier of the process which has
@@ -80,13 +72,43 @@ public:
              * This can't be restored once it's cleared, and it does not return the
              * context of the current process when not in a binder call.
              */
-            const char*         getCallingSid() const;
+            [[nodiscard]] const char* getCallingSid() const;
 
             /**
              * Returns the UID of the process which has made the current binder
              * call. If not in a binder call, this will return 0.
              */
-            uid_t               getCallingUid() const;
+            [[nodiscard]] uid_t getCallingUid() const;
+
+            /**
+             * Make it an abort to rely on getCalling* for a section of
+             * execution.
+             *
+             * Usage:
+             *     IPCThreadState::SpGuard guard {
+             *        .address = __builtin_frame_address(0),
+             *        .context = "...",
+             *     };
+             *     const auto* orig = pushGetCallingSpGuard(&guard);
+             *     {
+             *         // will abort if you call getCalling*, unless you are
+             *         // serving a nested binder transaction
+             *     }
+             *     restoreCallingSpGuard(orig);
+             */
+            struct SpGuard {
+                const void* address;
+                const char* context;
+            };
+            const SpGuard* pushGetCallingSpGuard(const SpGuard* guard);
+            void restoreGetCallingSpGuard(const SpGuard* guard);
+            /**
+             * Used internally by getCalling*. Can also be used to assert that
+             * you are in a binder context (getCalling* is valid). This is
+             * intentionally not exposed as a boolean API since code should be
+             * written to know its environment.
+             */
+            void checkContextIsBinderForUse(const char* use) const;
 
             void                setStrictModePolicy(int32_t policy);
             int32_t             getStrictModePolicy() const;
@@ -204,6 +226,7 @@ private:
             Parcel              mOut;
             status_t            mLastError;
             const void*         mServingStackPointer;
+            const SpGuard* mServingStackPointerGuard;
             pid_t               mCallingPid;
             const char*         mCallingSid;
             uid_t               mCallingUid;

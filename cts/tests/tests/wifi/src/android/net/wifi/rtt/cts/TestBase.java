@@ -16,6 +16,12 @@
 
 package android.net.wifi.rtt.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -24,18 +30,33 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
-import android.net.wifi.cts.WifiJUnit3TestBase;
+import android.net.wifi.cts.TestHelper;
+import android.net.wifi.cts.WifiFeature;
+import android.net.wifi.cts.WifiJUnit4TestBase;
 import android.net.wifi.rtt.RangingResult;
 import android.net.wifi.rtt.RangingResultCallback;
 import android.net.wifi.rtt.WifiRttManager;
 import android.os.Handler;
 import android.os.HandlerExecutor;
 import android.os.HandlerThread;
+import android.support.test.uiautomator.UiDevice;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
-import com.android.compatibility.common.util.SystemUtil;
 
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +65,7 @@ import java.util.concurrent.TimeUnit;
  * Base class for Wi-Fi RTT CTS test cases. Provides a uniform configuration and event management
  * facility.
  */
-public class TestBase extends WifiJUnit3TestBase {
+public class TestBase extends WifiJUnit4TestBase {
     protected static final String TAG = "WifiRttCtsTests";
 
     // wait for Wi-Fi RTT to become available
@@ -59,101 +80,114 @@ public class TestBase extends WifiJUnit3TestBase {
     // Interval between failure scans
     private static final int INTERVAL_BETWEEN_FAILURE_SCAN_MILLIS = 5_000;
 
+    private static final int DURATION_MILLIS = 10_000;
+
+    // Number of scans to do while searching for APs supporting IEEE 802.11mc
+    private static final int NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP = 5;
+
     // 5GHz Frequency band
     private static final int FREQUENCY_OF_5GHZ_BAND_IN_MHZ = 5_000;
+    private static Context sContext;
+    private static boolean sShouldRunTest;
+    private static UiDevice sUiDevice;
+    private static TestHelper sTestHelper;
+    private static boolean sWasVerboseLoggingEnabled;
+    private static WifiManager sWifiManager;
+    private static Boolean sWasScanThrottleEnabled;
+    private static boolean sWasWifiEnabled;
+    private static ScanResult s11McScanResult;
+    private static ScanResult sNone11McScanResult;
 
     protected WifiRttManager mWifiRttManager;
-    protected WifiManager mWifiManager;
-    private LocationManager mLocationManager;
-    private WifiManager.WifiLock mWifiLock;
 
     private final HandlerThread mHandlerThread = new HandlerThread("SingleDeviceTest");
     protected final Executor mExecutor;
-    private Boolean mWasVerboseLoggingEnabled;
 
     {
         mHandlerThread.start();
         mExecutor = new HandlerExecutor(new Handler(mHandlerThread.getLooper()));
     }
 
-    /**
-     * Returns a flag indicating whether or not Wi-Fi RTT should be tested. Wi-Fi RTT
-     * should be tested if the feature is supported on the current device.
-     */
-    static boolean shouldTestWifiRtt(Context context) {
-        final PackageManager pm = context.getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_WIFI_RTT);
-    }
+    @BeforeClass
+    public static void setupClass() throws Exception {
+        sContext = InstrumentationRegistry.getInstrumentation().getContext();
+        // skip the test if WiFi is not supported
+        // Don't use assumeTrue in @BeforeClass
+        if (!WifiFeature.isWifiSupported(sContext)) return;
+        if (!WifiFeature.isRttSupported(sContext)) return;
+        // skip the test if location is not supported
+        if (!sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION)) return;
+        // skip if the location is disabled
+        if (!sContext.getSystemService(LocationManager.class).isLocationEnabled()) return;
 
-    /**
-     * Returns a flag indicating whether or not Wi-Fi Aware should be tested. Wi-Fi Aware
-     * should be tested if the feature is supported on the current device.
-     */
-    static boolean shouldTestWifiAware(Context context) {
-        final PackageManager pm = context.getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE);
-    }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        if (!shouldTestWifiRtt(getContext())) {
-            return;
-        }
-
-        mLocationManager = (LocationManager) getContext().getSystemService(
-                Context.LOCATION_SERVICE);
-        assertTrue("RTT testing requires Location to be enabled",
-                mLocationManager.isLocationEnabled());
-
-        mWifiRttManager = (WifiRttManager) getContext().getSystemService(
-                Context.WIFI_RTT_RANGING_SERVICE);
-        assertNotNull("Wi-Fi RTT Manager", mWifiRttManager);
-
-        mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
-        assertNotNull("Wi-Fi Manager", mWifiManager);
+        sWifiManager = sContext.getSystemService(WifiManager.class);
+        assertThat(sWifiManager).isNotNull();
+        sShouldRunTest = true;
+        sUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        sTestHelper = new TestHelper(sContext, sUiDevice);
 
         // turn on verbose logging for tests
-        mWasVerboseLoggingEnabled = ShellIdentityUtils.invokeWithShellPermissions(
-                () -> mWifiManager.isVerboseLoggingEnabled());
+        sWasVerboseLoggingEnabled = ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.isVerboseLoggingEnabled());
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> mWifiManager.setVerboseLoggingEnabled(true));
+                () -> sWifiManager.setVerboseLoggingEnabled(true));
+        // Disable scan throttling for tests.
+        sWasScanThrottleEnabled = ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.isScanThrottleEnabled());
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.setScanThrottleEnabled(false));
+        // Disable auto join
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.allowAutojoinGlobal(false));
 
-        mWifiLock = mWifiManager.createWifiLock(TAG);
-        mWifiLock.acquire();
-        if (!mWifiManager.isWifiEnabled()) {
-            SystemUtil.runShellCommand("svc wifi enable");
-            // Turn on Wi-Fi may trigger connection. Wait connection state stable.
-            scanAps();
-            Thread.sleep(WAIT_FOR_CONNECTION_FINISH_MS);
+        // turn screen on
+        sTestHelper.turnScreenOn();
+        // enable Wifi
+        sWasWifiEnabled = ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.isWifiEnabled());
+        if (!sWifiManager.isWifiEnabled()) {
+            ShellIdentityUtils.invokeWithShellPermissions(() -> sWifiManager.setWifiEnabled(true));
         }
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WifiRttManager.ACTION_WIFI_RTT_STATE_CHANGED);
-        WifiRttBroadcastReceiver receiver = new WifiRttBroadcastReceiver();
-        mContext.registerReceiver(receiver, intentFilter);
+        PollingCheck.check("Wifi not enabled", DURATION_MILLIS, () -> sWifiManager.isWifiEnabled());
+        scanForTestAp();
+        Thread.sleep(DURATION_MILLIS);
+    }
+
+    @AfterClass
+    public static void tearDownClass() throws Exception {
+        if (!sShouldRunTest) return;
+
+        // turn screen off
+        sTestHelper.turnScreenOff();
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.setScanThrottleEnabled(sWasScanThrottleEnabled));
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.setVerboseLoggingEnabled(sWasVerboseLoggingEnabled));
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.setWifiEnabled(sWasWifiEnabled));
+        ShellIdentityUtils.invokeWithShellPermissions(
+                () -> sWifiManager.allowAutojoinGlobal(true));
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        assumeTrue(sShouldRunTest);
+        mWifiRttManager = sContext.getSystemService(WifiRttManager.class);
+        assertNotNull("Wi-Fi RTT Manager", mWifiRttManager);
         if (!mWifiRttManager.isAvailable()) {
+            IntentFilter intentFilter = new IntentFilter();
+            intentFilter.addAction(WifiRttManager.ACTION_WIFI_RTT_STATE_CHANGED);
+            WifiRttBroadcastReceiver receiver = new WifiRttBroadcastReceiver();
+            sContext.registerReceiver(receiver, intentFilter);
             assertTrue("Timeout waiting for Wi-Fi RTT to change status",
                     receiver.waitForStateChange());
             assertTrue("Wi-Fi RTT is not available (should be)", mWifiRttManager.isAvailable());
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        if (!shouldTestWifiRtt(getContext())) {
-            super.tearDown();
-            return;
-        }
-
-        ShellIdentityUtils.invokeWithShellPermissions(
-                () -> mWifiManager.setVerboseLoggingEnabled(mWasVerboseLoggingEnabled));
-
-        super.tearDown();
-    }
-
-    class WifiRttBroadcastReceiver extends BroadcastReceiver {
-        private CountDownLatch mBlocker = new CountDownLatch(1);
+    static class WifiRttBroadcastReceiver extends BroadcastReceiver {
+        private final CountDownLatch mBlocker = new CountDownLatch(1);
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -167,8 +201,8 @@ public class TestBase extends WifiJUnit3TestBase {
         }
     }
 
-    class WifiScansBroadcastReceiver extends BroadcastReceiver {
-        private CountDownLatch mBlocker = new CountDownLatch(1);
+    static class WifiScansBroadcastReceiver extends BroadcastReceiver {
+        private final CountDownLatch mBlocker = new CountDownLatch(1);
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -182,8 +216,8 @@ public class TestBase extends WifiJUnit3TestBase {
         }
     }
 
-    class ResultCallback extends RangingResultCallback {
-        private CountDownLatch mBlocker = new CountDownLatch(1);
+    static class ResultCallback extends RangingResultCallback {
+        private final CountDownLatch mBlocker = new CountDownLatch(1);
         private int mCode; // 0: success, otherwise RangingResultCallback STATUS_CODE_*.
         private List<RangingResult> mResults;
 
@@ -228,78 +262,90 @@ public class TestBase extends WifiJUnit3TestBase {
     /**
      * Start a scan and return a list of observed ScanResults (APs).
      */
-    protected List<ScanResult> scanAps() throws InterruptedException {
+    private static List<ScanResult> scanAps() throws InterruptedException {
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
         WifiScansBroadcastReceiver receiver = new WifiScansBroadcastReceiver();
-        mContext.registerReceiver(receiver, intentFilter);
+        sContext.registerReceiver(receiver, intentFilter);
 
-        mWifiManager.startScan();
+        sWifiManager.startScan();
         receiver.waitForStateChange();
-        mContext.unregisterReceiver(receiver);
-        return mWifiManager.getScanResults();
+        sContext.unregisterReceiver(receiver);
+        return sWifiManager.getScanResults();
     }
 
-    /**
-     * Start a scan and return a test AP which supports IEEE 802.11mc and which has the highest
-     * RSSI. Will perform N (parameterized) scans and get the best AP across both scans.
-     *
-     * Returns null if test AP is not found in the specified number of scans.
-     *
-     * @param numScanRetries Maximum number of scans retries (in addition to first scan).
-     */
-    protected ScanResult scanForTest11mcCapableAp(int numScanRetries)
+    private static void scanForTestAp()
             throws InterruptedException {
         int scanCount = 0;
-        ScanResult bestTestAp = null;
-        while (scanCount <= numScanRetries) {
+
+        Map<String, ScanResult> ap24Ghz = new HashMap<>();
+        Map<String, ScanResult> ap5Ghz = new HashMap<>();
+        while (scanCount <= NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP) {
             for (ScanResult scanResult : scanAps()) {
                 if (!scanResult.is80211mcResponder()) {
+                    if (scanResult.centerFreq0 < FREQUENCY_OF_5GHZ_BAND_IN_MHZ) {
+                        continue;
+                    }
+                    if (sNone11McScanResult == null
+                            || scanResult.level > sNone11McScanResult.level) {
+                        sNone11McScanResult = scanResult;
+                    }
                     continue;
                 }
-                if (bestTestAp == null || scanResult.level > bestTestAp.level) {
-                    bestTestAp = scanResult;
+                if (scanResult.level < -70) {
+                    continue;
+                }
+                if (is24Ghz(scanResult.frequency)) {
+                    ap24Ghz.put(scanResult.BSSID, scanResult);
+                } else if (is5Ghz(scanResult.frequency)) {
+                    ap5Ghz.put(scanResult.BSSID, scanResult);
                 }
             }
-            if (bestTestAp == null) {
+            if (sNone11McScanResult == null) {
                 // Ongoing connection may cause scan failure, wait for a while before next scan.
                 Thread.sleep(INTERVAL_BETWEEN_FAILURE_SCAN_MILLIS);
             }
             scanCount++;
         }
-        return bestTestAp;
+
+        if (!ap5Ghz.isEmpty()) {
+            s11McScanResult = getRandomScanResult(ap5Ghz.values());
+            return;
+        }
+        s11McScanResult = getRandomScanResult(ap24Ghz.values());
     }
 
-    /**
-     * Start a scan and return a test AP which does NOT support IEEE 802.11mc, with a BSS in the
-     * 5GHz band, and which has the highest RSSI. Will perform N (parameterized) scans and get
-     * the best AP across all scan results.
-     *
-     * Returns null if test AP is not found in the specified number of scans.
-     *
-     * @param numScanRetries Maximum number of scans retries (in addition to first scan).
-     */
-    protected ScanResult scanForTestNon11mcCapableAp(int numScanRetries)
-            throws InterruptedException {
-        int scanCount = 0;
-        ScanResult bestTestAp = null;
-        while (scanCount <= numScanRetries) {
-            for (ScanResult scanResult : scanAps()) {
-                // Ensure using a 5GHz or greater channel
-                if (scanResult.is80211mcResponder()
-                        || scanResult.centerFreq0 < FREQUENCY_OF_5GHZ_BAND_IN_MHZ) {
-                    continue;
-                }
-                if (bestTestAp == null || scanResult.level > bestTestAp.level) {
-                    bestTestAp = scanResult;
-                }
-            }
-            if (bestTestAp == null) {
-                // Ongoing connection may cause scan failure, wait for a while before next scan.
-                Thread.sleep(INTERVAL_BETWEEN_FAILURE_SCAN_MILLIS);
-            }
-            scanCount++;
+    static Context getContext() {
+        return sContext;
+    }
+
+    static ScanResult getS11McScanResult() {
+        return s11McScanResult;
+    }
+
+    static ScanResult getNone11McScanResult() {
+        return sNone11McScanResult;
+    }
+
+    private static boolean is24Ghz(int freq) {
+        return freq >= 2142 && freq <= 2484;
+    }
+
+    private static boolean is5Ghz(int freq) {
+        return freq >= 5160 && freq <= 5885;
+    }
+
+    private static ScanResult getRandomScanResult(Collection<ScanResult> scanResults) {
+        if (scanResults.isEmpty()) {
+            return null;
         }
-        return bestTestAp;
+        int index = new Random().nextInt(scanResults.size());
+        return new ArrayList<>(scanResults).get(index);
+    }
+    private static ScanResult getHighestRssiScanResult(Collection<ScanResult> scanResults) {
+        if (scanResults.isEmpty()) {
+            return null;
+        }
+        return scanResults.stream().max(Comparator.comparingInt(a -> a.level)).get();
     }
 }

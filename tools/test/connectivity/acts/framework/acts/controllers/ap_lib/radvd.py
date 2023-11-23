@@ -134,8 +134,9 @@ class Radvd(object):
         """
         start_time = time.time()
         while time.time() - start_time < timeout and not self.is_alive():
-            self._scan_for_errors(True)
             time.sleep(0.1)
+            self._scan_for_errors(False)
+        self._scan_for_errors(True)
 
     def _scan_for_errors(self, should_be_up):
         """Scans the radvd log for any errors.

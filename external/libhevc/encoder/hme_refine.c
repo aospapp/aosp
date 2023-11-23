@@ -2011,8 +2011,9 @@ void hme_update_mv_bank_in_l1_me(
     pi1_ref_idx4 = pi1_ref_idx3 + (ps_layer_mv->i4_num_mvs_per_blk);
 
     {
-        search_node_t *aps_result_nodes_sorted[2][MAX_NUM_REF * 4];
-        U08 au1_cost_shifts_for_sorted_node[2][MAX_NUM_REF * 4];
+        /* max ref frames * max results per partition * number of partitions (4x4, 8x8) */
+        search_node_t *aps_result_nodes_sorted[2][MAX_NUM_REF * MAX_RESULTS_PER_PART * 2];
+        U08 au1_cost_shifts_for_sorted_node[2][MAX_NUM_REF * MAX_RESULTS_PER_PART * 2];
 
         S32 i;
 

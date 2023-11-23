@@ -205,8 +205,8 @@ public final class Command {
                 log.verbose("sending quit signal to command " + Command.this);
                 sendQuitSignal(process);
 
-                // hard kill in 2 seconds
-                timeoutNanoTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+                // hard kill in 1 minute
+                timeoutNanoTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
                 new TimeoutTask() {
                     @Override protected void onTimeout(Process process) {
                         log.verbose("killing timed out command " + Command.this);

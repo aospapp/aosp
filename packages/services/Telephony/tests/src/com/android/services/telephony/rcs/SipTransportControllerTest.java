@@ -78,6 +78,7 @@ import java.util.stream.Collectors;
 @RunWith(AndroidJUnit4.class)
 public class SipTransportControllerTest extends TelephonyTestBase {
     private static final int TEST_SUB_ID = 1;
+    private static final int TEST_UID = 1001;
     private static final String TEST_PACKAGE_NAME = "com.test_pkg";
     private static final String TEST_PACKAGE_NAME_2 = "com.test_pkg2";
     private static final int TIMEOUT_MS = 200;
@@ -132,13 +133,13 @@ public class SipTransportControllerTest extends TelephonyTestBase {
         mSmsPackageName.add(TEST_PACKAGE_NAME);
         doAnswer(invocation -> {
             Integer subId = invocation.getArgument(0);
-            String packageName = invocation.getArgument(2);
-            DelegateRequest request = invocation.getArgument(1);
+            String packageName = invocation.getArgument(3);
+            DelegateRequest request = invocation.getArgument(2);
             SipDelegateController c = getMockDelegateController(subId, packageName, request);
             assertNotNull("create called with no corresponding controller set up", c);
             return c;
-        }).when(mMockDelegateControllerFactory).create(anyInt(), any(), anyString(), any(), any(),
-                any(), any(), any());
+        }).when(mMockDelegateControllerFactory).create(anyInt(), anyInt(), any(), anyString(),
+                any(), any(), any(), any(), any());
         setFeatureAllowedConfig(TEST_SUB_ID, new String[]{ImsSignallingUtils.MMTEL_TAG,
                 ImsSignallingUtils.ONE_TO_ONE_CHAT_TAG, ImsSignallingUtils.GROUP_CHAT_TAG,
                 ImsSignallingUtils.FILE_TRANSFER_HTTP_TAG});
@@ -254,7 +255,7 @@ public class SipTransportControllerTest extends TelephonyTestBase {
         doReturn(mSipTransport).when(mRcsManager).getSipTransport();
         controller.onRcsConnected(mRcsManager);
         try {
-            controller.createSipDelegate(TEST_SUB_ID + 1,
+            controller.createSipDelegate(TEST_SUB_ID + 1, TEST_UID,
                     new DelegateRequest(Collections.emptySet()), TEST_PACKAGE_NAME,
                     mock(ISipDelegateConnectionStateCallback.class),
                     mock(ISipDelegateMessageCallback.class));
@@ -271,7 +272,7 @@ public class SipTransportControllerTest extends TelephonyTestBase {
         doReturn(null).when(mRcsManager).getSipTransport();
         controller.onRcsConnected(mRcsManager);
         try {
-            controller.createSipDelegate(TEST_SUB_ID,
+            controller.createSipDelegate(TEST_SUB_ID, TEST_UID,
                     new DelegateRequest(Collections.emptySet()), TEST_PACKAGE_NAME,
                     mock(ISipDelegateConnectionStateCallback.class),
                     mock(ISipDelegateMessageCallback.class));
@@ -289,7 +290,7 @@ public class SipTransportControllerTest extends TelephonyTestBase {
                 .when(mRcsManager).getSipTransport();
         // No RCS connected message
         try {
-            controller.createSipDelegate(TEST_SUB_ID,
+            controller.createSipDelegate(TEST_SUB_ID, TEST_UID,
                     new DelegateRequest(Collections.emptySet()), TEST_PACKAGE_NAME,
                     mock(ISipDelegateConnectionStateCallback.class),
                     mock(ISipDelegateMessageCallback.class));
@@ -812,7 +813,7 @@ public class SipTransportControllerTest extends TelephonyTestBase {
         CompletableFuture<Boolean> pendingChange = setChangeSupportedFeatureTagsFuture(
                 delegateControllerContainer.delegateController, allowedTags, deniedTags);
         try {
-            controller.createSipDelegate(delegateControllerContainer.subId,
+            controller.createSipDelegate(delegateControllerContainer.subId, TEST_UID,
                     delegateControllerContainer.delegateRequest,
                     delegateControllerContainer.packageName,
                     delegateControllerContainer.mockDelegateConnectionCallback,

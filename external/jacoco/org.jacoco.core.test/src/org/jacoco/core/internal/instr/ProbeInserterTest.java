@@ -1,13 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2009, 2021 Mountainminds GmbH & Co. KG and Contributors
+ * This program and the accompanying materials are made available under
+ * the terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
  *    Marc R. Hoffmann - initial API and implementation
- *    
+ *
  *******************************************************************************/
 package org.jacoco.core.internal.instr;
 
@@ -18,8 +19,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.TypeReference;
 
 /**
  * Unit tests for {@link ProbeInserter}.
@@ -39,7 +42,8 @@ public class ProbeInserterTest {
 		expected = new MethodRecorder();
 		expectedVisitor = expected.getVisitor();
 		arrayStrategy = new IProbeArrayStrategy() {
-			public int storeInstance(MethodVisitor mv, boolean clinit, int variable) {
+			public int storeInstance(MethodVisitor mv, boolean clinit,
+					int variable) {
 				mv.visitLdcInsn(clinit ? "clinit" : "init");
 				return 5;
 			}
@@ -183,6 +187,28 @@ public class ProbeInserterTest {
 	}
 
 	@Test
+	public void should_remap_LocalVariableAnnotation() {
+		ProbeInserter pi = new ProbeInserter(0, "m", "(I)V", actualVisitor,
+				arrayStrategy);
+
+		final Label start = new Label();
+		pi.visitLabel(start);
+		final Label end = new Label();
+		pi.visitLabel(end);
+
+		pi.visitLocalVariableAnnotation(TypeReference.LOCAL_VARIABLE, null,
+				new Label[] { start }, new Label[] { end }, new int[] { 2 },
+				"LNonNull;", false);
+
+		expectedVisitor.visitLabel(start);
+		expectedVisitor.visitLabel(end);
+		// Local variables are shifted by one:
+		expectedVisitor.visitLocalVariableAnnotation(
+				TypeReference.LOCAL_VARIABLE, null, new Label[] { start },
+				new Label[] { end }, new int[] { 3 }, "LNonNull;", false);
+	}
+
+	@Test
 	public void testVisitMaxs1() {
 		ProbeInserter pi = new ProbeInserter(0, "m", "(II)V", actualVisitor,
 				arrayStrategy);
@@ -209,11 +235,13 @@ public class ProbeInserterTest {
 		ProbeInserter pi = new ProbeInserter(0, "m", "(J)V", actualVisitor,
 				arrayStrategy);
 
-		pi.visitFrame(Opcodes.F_NEW, 3, new Object[] { "Foo", Opcodes.LONG,
-				"java/lang/String" }, 0, new Object[0]);
+		pi.visitFrame(Opcodes.F_NEW, 3,
+				new Object[] { "Foo", Opcodes.LONG, "java/lang/String" }, 0,
+				new Object[0]);
 
-		expectedVisitor.visitFrame(Opcodes.F_NEW, 4, new Object[] { "Foo",
-				Opcodes.LONG, "[Z", "java/lang/String" }, 0, new Object[0]);
+		expectedVisitor.visitFrame(Opcodes.F_NEW, 4,
+				new Object[] { "Foo", Opcodes.LONG, "[Z", "java/lang/String" },
+				0, new Object[0]);
 	}
 
 	@Test
@@ -235,8 +263,8 @@ public class ProbeInserterTest {
 		pi.visitFrame(Opcodes.F_NEW, 2, new Object[] { Opcodes.DOUBLE, "Foo" },
 				0, new Object[0]);
 
-		expectedVisitor.visitFrame(Opcodes.F_NEW, 3, new Object[] { "[Z",
-				Opcodes.DOUBLE, "Foo" }, 0, new Object[0]);
+		expectedVisitor.visitFrame(Opcodes.F_NEW, 3,
+				new Object[] { "[Z", Opcodes.DOUBLE, "Foo" }, 0, new Object[0]);
 	}
 
 	@Test
@@ -247,8 +275,8 @@ public class ProbeInserterTest {
 		pi.visitFrame(Opcodes.F_NEW, 0, new Object[] {}, 0, new Object[] {});
 
 		// The locals in this frame are filled with TOP up to the probe variable
-		expectedVisitor.visitFrame(Opcodes.F_NEW, 2, new Object[] {
-				Opcodes.TOP, "[Z", }, 0, new Object[] {});
+		expectedVisitor.visitFrame(Opcodes.F_NEW, 2,
+				new Object[] { Opcodes.TOP, "[Z", }, 0, new Object[] {});
 	}
 
 	@Test
@@ -259,8 +287,9 @@ public class ProbeInserterTest {
 		pi.visitFrame(Opcodes.F_NEW, 0, new Object[] {}, 0, new Object[] {});
 
 		// The locals in this frame are filled with TOP up to the probe variable
-		expectedVisitor.visitFrame(Opcodes.F_NEW, 3, new Object[] {
-				Opcodes.TOP, Opcodes.TOP, "[Z", }, 0, new Object[] {});
+		expectedVisitor.visitFrame(Opcodes.F_NEW, 3,
+				new Object[] { Opcodes.TOP, Opcodes.TOP, "[Z", }, 0,
+				new Object[] {});
 	}
 
 	@Test
@@ -272,9 +301,11 @@ public class ProbeInserterTest {
 				new Object[] {});
 
 		// The locals in this frame are filled with TOP up to the probe variable
-		expectedVisitor.visitFrame(Opcodes.F_NEW, 5, new Object[] {
-				Opcodes.DOUBLE, Opcodes.TOP, Opcodes.TOP, Opcodes.TOP, "[Z", },
-				0, new Object[] {});
+		expectedVisitor
+				.visitFrame(
+						Opcodes.F_NEW, 5, new Object[] { Opcodes.DOUBLE,
+								Opcodes.TOP, Opcodes.TOP, Opcodes.TOP, "[Z", },
+						0, new Object[] {});
 	}
 
 	@Test(expected = IllegalArgumentException.class)

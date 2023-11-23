@@ -4,10 +4,10 @@
 //  "presubmit": [
 //    {
 //      "host": true,
-//      "name": "x86_64_host_test_src_lib"
+//      "name": "x86_64_test_src_lib"
 //    },
 //    {
-//      "name": "x86_64_device_test_src_lib"
+//      "name": "x86_64_test_src_lib"
 //    }
 //  ]
 }

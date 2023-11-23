@@ -20,6 +20,7 @@
 /*include files*/
 #include <phNfcStatus.h>
 #include <phNfcTypes.h>
+#include <semaphore.h>
 
 #define NxpMfcReaderInstance (NxpMfcReader::getInstance())
 
@@ -101,6 +102,8 @@ typedef struct MfcTagCmdIntfData {
 class NxpMfcReader {
  private:
   MfcTagCmdIntfData_t mMfcTagCmdIntfData;
+  sem_t mNacksem;
+  bool isAck;
   void BuildMfcCmd(uint8_t* pData, uint16_t* pLength);
   void BuildAuthCmd();
   void BuildReadCmd();
@@ -116,5 +119,8 @@ class NxpMfcReader {
   NFCSTATUS AnalyzeMfcResp(uint8_t* pBuff, uint16_t* pBufflen);
   NFCSTATUS CheckMfcResponse(uint8_t* pTransceiveData,
                              uint16_t transceiveDataLen);
+  void MfcNotifyOnAckReceived(uint8_t* buff);
+  NFCSTATUS MfcWaitForAck();
   static NxpMfcReader& getInstance();
+  bool checkIsMFCIncDecRestore(uint8_t cmd);
 };

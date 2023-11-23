@@ -25,6 +25,7 @@ class ProcAsoundCardsTest(KernelProcFileTestBase.KernelProcFileTestBase):
 
     t_LBRACKET = literal_token(r'\[')
     t_RBRACKET = literal_token(r'\]')
+    t_SLASH = literal_token(r'\/')
 
     t_NO = literal_token(r'no')
     t_SOUNDCARDS = literal_token(r'soundcards')
@@ -57,6 +58,7 @@ class ProcAsoundCardsTest(KernelProcFileTestBase.KernelProcFileTestBase):
                 | FLOAT
                 | DASH
                 | COLON
+                | SLASH
                 | HEX_LITERAL'''
         p[0] = p[1]
 

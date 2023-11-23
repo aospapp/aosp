@@ -15,8 +15,8 @@
 #   limitations under the License.
 
 import time
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
-from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_2G
+from acts_contrib.test_utils.tel.tel_wifi_utils import WIFI_CONFIG_APBAND_5G
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 import acts_contrib.test_utils.power.cellular.cellular_traffic_power_test as ctpt
 

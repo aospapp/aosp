@@ -23,7 +23,8 @@ import android.os.Handler;
 import android.os.HandlerExecutor;
 import android.os.Looper;
 
-import com.android.car.settings.R;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.ui.preference.CarUiTwoActionSwitchPreference;
@@ -35,14 +36,15 @@ public class WifiTetherPreferenceController extends
         PreferenceController<CarUiTwoActionSwitchPreference>
         implements WifiTetheringHandler.WifiTetheringAvailabilityListener {
 
-    private final TetheringManager mTetheringManager =
-            getContext().getSystemService(TetheringManager.class);
+    private final TetheringManager mTetheringManager;
+    private final CarWifiManager mCarWifiManager;
     private final Handler mHandler;
-    private WifiTetheringHandler mWifiTetheringHandler;
+    private final WifiTetheringHandler mWifiTetheringHandler;
+    private int mConnectedDevicesCount;
     private volatile boolean mIsTetheringSupported;
     private volatile boolean mReceivedTetheringEventCallback = false;
 
-    private TetheringManager.TetheringEventCallback mTetheringCallback =
+    private final TetheringManager.TetheringEventCallback mTetheringCallback =
             new TetheringManager.TetheringEventCallback() {
                 @Override
                 public void onTetheringSupported(boolean supported) {
@@ -56,10 +58,21 @@ public class WifiTetherPreferenceController extends
 
     public WifiTetherPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                new CarWifiManager(context, fragmentController.getSettingsLifecycle()),
+                context.getSystemService(TetheringManager.class));
+    }
+
+    @VisibleForTesting
+    WifiTetherPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            CarWifiManager carWifiManager, TetheringManager tetheringManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mCarWifiManager = carWifiManager;
+        mTetheringManager = tetheringManager;
         mHandler = new Handler(Looper.getMainLooper());
-        mWifiTetheringHandler = new WifiTetheringHandler(context,
-                fragmentController.getSettingsLifecycle(), this);
+        mWifiTetheringHandler = new WifiTetheringHandler(context, mCarWifiManager,
+                mTetheringManager, this);
     }
 
     @Override
@@ -118,6 +131,12 @@ public class WifiTetherPreferenceController extends
     }
 
     @Override
+    public void onConnectedClientsChanged(int clientCount) {
+        mConnectedDevicesCount = clientCount;
+        updateSummary(mWifiTetheringHandler.isWifiTetheringEnabled());
+    }
+
+    @Override
     public void enablePreference() {
         getPreference().setSecondaryActionEnabled(true);
     }
@@ -128,8 +147,13 @@ public class WifiTetherPreferenceController extends
     }
 
     private void updateSwitchPreference(boolean switchOn) {
-        getPreference().setSummary(switchOn ? R.string.car_ui_preference_switch_on
-                : R.string.car_ui_preference_switch_off);
+        updateSummary(switchOn);
         getPreference().setSecondaryActionChecked(switchOn);
+    }
+
+    private void updateSummary(boolean hotspotEnabled) {
+        String subtitle = WifiTetherUtil.getHotspotSubtitle(getContext(),
+                mCarWifiManager.getSoftApConfig(), hotspotEnabled, mConnectedDevicesCount);
+        getPreference().setSummary(subtitle);
     }
 }

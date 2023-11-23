@@ -22,12 +22,12 @@ ART_ANDROID_COMMON_PATH_MK := true
 # relate to them, because `m checkbuild` complains on rules with nonexisting
 # dependencies, even if they won't get called.
 # TODO(b/172480617): Remove this when ART sources are no longer in platform manifests.
-ifeq (true,$(SOONG_CONFIG_art_module_source_build))
+ifeq (true,$(ART_MODULE_BUILD_FROM_SOURCE))
   my_art_module_source_build := true
-else ifeq (false,$(SOONG_CONFIG_art_module_source_build))
+else ifeq (false,$(ART_MODULE_BUILD_FROM_SOURCE))
   my_art_module_source_build := false
 else
-  $(error SOONG_CONFIG_art_module_source_build is neither true nor false - mk file ordering problem?)
+  $(error ART_MODULE_BUILD_FROM_SOURCE is neither true nor false - mk file ordering problem?)
 endif
 
 ifeq (true,$(my_art_module_source_build))
@@ -64,10 +64,15 @@ HOST_CORE_IMG_DEX_FILES   := $(foreach jar,$(HOST_CORE_IMG_JARS),  $(call interm
 TARGET_CORE_IMG_DEX_FILES := $(foreach jar,$(TARGET_CORE_IMG_JARS),$(call intermediates-dir-for,JAVA_LIBRARIES,$(jar).com.android.art.testing, ,COMMON)/javalib.jar)
 
 # Also copy the jar files next to host boot.art image.
+# `dexpreopt_bootjars.go` uses a single source of input regardless of variants, so we should use the
+# same source for `CORE_IMG_JARS` to avoid checksum mismatches on the oat files.
 HOST_BOOT_IMAGE_JARS := $(foreach jar,$(CORE_IMG_JARS),$(HOST_OUT)/apex/com.android.art/javalib/$(jar).jar)
-$(HOST_BOOT_IMAGE_JARS): $(HOST_OUT)/apex/com.android.art/javalib/%.jar : $(HOST_OUT_JAVA_LIBRARIES)/%-hostdex.jar
+CORE_IMG_JAR_DIR := $(OUT_DIR)/soong/$(PRODUCT_DEVICE)/dex_artjars_input
+$(HOST_BOOT_IMAGE_JARS): $(HOST_OUT)/apex/com.android.art/javalib/%.jar : $(CORE_IMG_JAR_DIR)/%.jar
 	$(copy-file-to-target)
 
+# We can still use the host variant of `conscrypt` and `core-icu4j` because they don't go into the
+# primary boot image that is used in host gtests, and hence can't lead to checksum mismatches.
 HOST_BOOT_IMAGE_JARS += $(HOST_OUT)/apex/com.android.conscrypt/javalib/conscrypt.jar
 $(HOST_OUT)/apex/com.android.conscrypt/javalib/conscrypt.jar : $(HOST_OUT_JAVA_LIBRARIES)/conscrypt-hostdex.jar
 	$(copy-file-to-target)
@@ -77,11 +82,11 @@ $(HOST_OUT)/apex/com.android.i18n/javalib/core-icu4j.jar : $(HOST_OUT_JAVA_LIBRA
 
 HOST_CORE_IMG_OUTS += $(HOST_BOOT_IMAGE_JARS) $(HOST_BOOT_IMAGE) $(2ND_HOST_BOOT_IMAGE)
 
-HOST_TEST_CORE_JARS   := $(addsuffix -hostdex,$(CORE_IMG_JARS) core-icu4j conscrypt)
+HOST_TEST_CORE_JARS := $(addsuffix -hostdex,$(CORE_IMG_JARS) core-icu4j conscrypt)
 ART_HOST_DEX_DEPENDENCIES := $(foreach jar,$(HOST_TEST_CORE_JARS),$(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
 ART_TARGET_DEX_DEPENDENCIES := com.android.art.testing com.android.conscrypt com.android.i18n
 
-ART_CORE_SHARED_LIBRARIES := libjavacore libopenjdk libopenjdkjvm libopenjdkjvmti
+ART_CORE_SHARED_LIBRARIES := libjavacore libopenjdk libopenjdkjvm libopenjdkjvmti libjdwp
 ART_CORE_SHARED_DEBUG_LIBRARIES := libopenjdkd libopenjdkjvmd libopenjdkjvmtid
 ART_HOST_CORE_SHARED_LIBRARIES := $(ART_CORE_SHARED_LIBRARIES) libicuuc-host libicui18n-host libicu_jni
 ART_HOST_SHARED_LIBRARY_DEPENDENCIES := $(foreach lib,$(ART_HOST_CORE_SHARED_LIBRARIES), $(ART_HOST_OUT_SHARED_LIBRARIES)/$(lib)$(ART_HOST_SHLIB_EXTENSION))
@@ -99,13 +104,15 @@ ifdef TARGET_2ND_ARCH
 ART_TARGET_SHARED_LIBRARY_DEBUG_DEPENDENCIES += $(foreach lib,$(ART_CORE_SHARED_DEBUG_LIBRARIES), $(2ND_TARGET_OUT_SHARED_LIBRARIES)/$(lib).so)
 endif
 
-ART_CORE_DEBUGGABLE_EXECUTABLES := \
+ART_CORE_DEBUGGABLE_EXECUTABLES_COMMON := \
     dex2oat \
     dexoptanalyzer \
     imgdiag \
     oatdump \
-    odrefresh \
     profman \
+
+ART_CORE_DEBUGGABLE_EXECUTABLES_TARGET := $(ART_CORE_DEBUGGABLE_EXECUTABLES_COMMON) odrefresh
+ART_CORE_DEBUGGABLE_EXECUTABLES_HOST := $(ART_CORE_DEBUGGABLE_EXECUTABLES_COMMON)
 
 ART_CORE_EXECUTABLES := \
     dalvikvm \
@@ -115,18 +122,18 @@ ART_CORE_EXECUTABLES := \
 # for each module
 ART_TARGET_EXECUTABLES :=
 ifneq ($(ART_BUILD_TARGET_NDEBUG),false)
-ART_TARGET_EXECUTABLES += $(foreach name,$(ART_CORE_EXECUTABLES) $(ART_CORE_DEBUGGABLE_EXECUTABLES),$(name)-target)
+ART_TARGET_EXECUTABLES += $(foreach name,$(ART_CORE_EXECUTABLES) $(ART_CORE_DEBUGGABLE_EXECUTABLES_TARGET),$(name)-target)
 endif
 ifneq ($(ART_BUILD_TARGET_DEBUG),false)
-ART_TARGET_EXECUTABLES += $(foreach name,$(ART_CORE_DEBUGGABLE_EXECUTABLES),$(name)d-target)
+ART_TARGET_EXECUTABLES += $(foreach name,$(ART_CORE_DEBUGGABLE_EXECUTABLES_TARGET),$(name)d-target)
 endif
 
 ART_HOST_EXECUTABLES :=
 ifneq ($(ART_BUILD_HOST_NDEBUG),false)
-ART_HOST_EXECUTABLES += $(foreach name,$(ART_CORE_EXECUTABLES) $(ART_CORE_DEBUGGABLE_EXECUTABLES),$(name)-host)
+ART_HOST_EXECUTABLES += $(foreach name,$(ART_CORE_EXECUTABLES) $(ART_CORE_DEBUGGABLE_EXECUTABLES_HOST),$(name)-host)
 endif
 ifneq ($(ART_BUILD_HOST_DEBUG),false)
-ART_HOST_EXECUTABLES += $(foreach name,$(ART_CORE_DEBUGGABLE_EXECUTABLES),$(name)d-host)
+ART_HOST_EXECUTABLES += $(foreach name,$(ART_CORE_DEBUGGABLE_EXECUTABLES_HOST),$(name)d-host)
 endif
 
 # Release ART APEX, included by default in "user" builds.

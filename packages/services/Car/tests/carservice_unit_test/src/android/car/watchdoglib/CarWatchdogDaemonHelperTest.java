@@ -35,6 +35,7 @@ import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
 import android.automotive.watchdog.internal.PackageInfo;
 import android.automotive.watchdog.internal.PackageIoOveruseStats;
 import android.automotive.watchdog.internal.PowerCycle;
+import android.automotive.watchdog.internal.ProcessIdentifier;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.automotive.watchdog.internal.StateType;
 import android.automotive.watchdog.internal.UserPackageIoUsageStats;
@@ -59,8 +60,8 @@ import java.util.List;
  * <p>This class contains unit tests for the {@link CarWatchdogDaemonHelper}.
  */
 public class CarWatchdogDaemonHelperTest {
-
-    private static final String CAR_WATCHDOG_DAEMON_INTERFACE = "carwatchdogd_system";
+    private static final String CAR_WATCHDOG_DAEMON_INTERFACE =
+            "android.automotive.watchdog.internal.ICarWatchdog/default";
 
     @Mock CarWatchdogDaemonHelper.OnConnectionChangeListener mListener;
     @Mock private IBinder mBinder = new Binder();
@@ -134,20 +135,26 @@ public class CarWatchdogDaemonHelperTest {
     @Test
     public void testIndirectCall_TellCarWatchdogServiceAlive() throws Exception {
         ICarWatchdogServiceForSystem service = new ICarWatchdogServiceForSystem.Default();
-        int[] pids = new int[]{111};
+        List<ProcessIdentifier> processIdentifiers = new ArrayList<>();
+        ProcessIdentifier processIdentifier = new ProcessIdentifier();
+        processIdentifier.pid = 111;
+        processIdentifier.startTimeMillis = 1000;
 
-        mCarWatchdogDaemonHelper.tellCarWatchdogServiceAlive(service, pids, 123456);
+        mCarWatchdogDaemonHelper.tellCarWatchdogServiceAlive(service, processIdentifiers, 123456);
 
-        verify(mFakeCarWatchdog).tellCarWatchdogServiceAlive(service, pids, 123456);
+        verify(mFakeCarWatchdog).tellCarWatchdogServiceAlive(service, processIdentifiers, 123456);
     }
 
     @Test
     public void testIndirectCall_TellDumpFinished() throws Exception {
         ICarWatchdogMonitor monitor = new ICarWatchdogMonitor.Default();
 
-        mCarWatchdogDaemonHelper.tellDumpFinished(monitor, 123456);
+        ProcessIdentifier processIdentifier = new ProcessIdentifier();
+        processIdentifier.pid = 123456;
+        processIdentifier.startTimeMillis = 1000;
+        mCarWatchdogDaemonHelper.tellDumpFinished(monitor, processIdentifier);
 
-        verify(mFakeCarWatchdog).tellDumpFinished(monitor, 123456);
+        verify(mFakeCarWatchdog).tellDumpFinished(monitor, processIdentifier);
     }
 
     @Test
@@ -268,6 +275,16 @@ public class CarWatchdogDaemonHelperTest {
         @Override
         public List<UserPackageIoUsageStats> getTodayIoUsageStats() {
             return new ArrayList<>();
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ICarWatchdogServiceForSystem.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ICarWatchdogServiceForSystem.VERSION;
         }
     }
 }

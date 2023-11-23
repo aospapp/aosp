@@ -44,16 +44,19 @@ cc_defaults {
 
 cc_library_headers {
   name: "libdynamic_depth-public_headers",
+  host_supported: true,
   export_include_dirs: ["includes"],
 }
 
 cc_library_headers {
   name: "libdynamic_depth-internal_headers",
+  host_supported: true,
   export_include_dirs: ["internal"],
 }
 
 cc_library {
     name: "libdynamic_depth",
+    host_supported: true,
     defaults: ["libdynamic_depth-defaults"],
     header_libs: [
         "libdynamic_depth-public_headers",

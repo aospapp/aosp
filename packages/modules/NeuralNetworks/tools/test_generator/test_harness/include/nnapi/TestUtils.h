@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H
 
+#include <nnapi/Result.h>
 #include <nnapi/Types.h>
 
 #include "TestHarness.h"
 
 namespace android::nn::test {
 
-Model createModel(const ::test_helper::TestModel& testModel);
+GeneralResult<Model> createModel(const ::test_helper::TestModel& testModel);
 
-Request createRequest(const ::test_helper::TestModel& testModel);
+GeneralResult<Request> createRequest(const ::test_helper::TestModel& testModel);
 
 }  // namespace android::nn::test
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_UTILS_H

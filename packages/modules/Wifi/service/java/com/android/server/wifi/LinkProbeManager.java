@@ -220,11 +220,10 @@ public class LinkProbeManager {
         }
 
         if (mVerboseLoggingEnabled) {
-            Log.d(TAG, String.format(
-                    "link probing triggered with conditions: timeSinceLastLinkProbeMs=%d "
-                            + "timeSinceLastTxSuccessIncreaseMs=%d rssi=%d linkSpeed=%s",
-                    timeSinceLastLinkProbeMs, timeSinceLastTxSuccessIncreaseMs,
-                    rssi, linkSpeed));
+            Log.d(TAG, "link probing triggered with conditions: timeSinceLastLinkProbeMs="
+                    + timeSinceLastLinkProbeMs
+                    + " timeSinceLastTxSuccessIncreaseMs=" + timeSinceLastTxSuccessIncreaseMs
+                    + " rssi=" + rssi + " linkSpeed=" + linkSpeed);
         }
 
         // TODO(b/112029045): also report MCS rate to metrics when supported by driver

@@ -15,12 +15,12 @@
  */
 
 #include <stdlib.h>
-#include <sys/system_properties.h>
 #include <sys/types.h>
 
 #include <string>
 
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/android_utils.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "src/base/test/test_task_runner.h"
 #include "test/android_test_utils.h"
@@ -39,21 +39,18 @@ namespace {
 // LSM hooks in perf_event_open. This comes up when a device with an older
 // kernel upgrades to R.
 bool HasPerfLsmHooks() {
-  char buf[PROP_VALUE_MAX + 1] = {};
-  int ret = __system_property_get("sys.init.perf_lsm_hooks", buf);
-  PERFETTO_CHECK(ret >= 0);
-  return std::string(buf) == "1";
+  return base::GetAndroidProp("sys.init.perf_lsm_hooks") == "1";
 }
 
 std::string RandomSessionName() {
   std::random_device rd;
   std::default_random_engine generator(rd());
-  std::uniform_int_distribution<char> distribution('a', 'z');
+  std::uniform_int_distribution<> distribution('a', 'z');
 
   constexpr size_t kSessionNameLen = 20;
   std::string result(kSessionNameLen, '\0');
   for (size_t i = 0; i < kSessionNameLen; ++i)
-    result[i] = distribution(generator);
+    result[i] = static_cast<char>(distribution(generator));
   return result;
 }
 
@@ -63,12 +60,12 @@ std::vector<protos::gen::TracePacket> ProfileSystemWide(std::string app_name) {
   // (re)start the target app's main activity
   if (IsAppRunning(app_name)) {
     StopApp(app_name, "old.app.stopped", &task_runner);
-    task_runner.RunUntilCheckpoint("old.app.stopped", 1000 /*ms*/);
+    task_runner.RunUntilCheckpoint("old.app.stopped", 10000 /*ms*/);
   }
   StartAppActivity(app_name, "BusyWaitActivity", "target.app.running",
                    &task_runner,
                    /*delay_ms=*/100);
-  task_runner.RunUntilCheckpoint("target.app.running", 1000 /*ms*/);
+  task_runner.RunUntilCheckpoint("target.app.running", 10000 /*ms*/);
 
   // set up tracing
   TestHelper helper(&task_runner);

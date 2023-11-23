@@ -179,6 +179,7 @@
         <map code="0x0078" name="1em" /> <!-- x -->
         <map code="0x0079" name="1em" /> <!-- y -->
         <map code="0x007A" name="1em" /> <!-- z -->
+        <map code="0x2010" name="1em" /> <!-- hyphen -->
     </cmap_format_4>
   </cmap>
 

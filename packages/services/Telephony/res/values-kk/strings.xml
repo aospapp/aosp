@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Төтенше қоңырауды кері шалу режимі"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Дерекқор байланысы өшірілген"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> дейін мобильдік байланыс болмайды."</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Телефон <xliff:g id="COUNT_1">%s</xliff:g> минут бойы жедел кері қоңырау шалу режимінде болады. Бұл режимде деректер байланысын пайдаланатын қолданбаларды пайдалану мүмкін емес. Қазір шығу керек пе?</item>
-      <item quantity="one">Телефон <xliff:g id="COUNT_0">%s</xliff:g> минут бойы жедел кері қоңырау шалу режимінде болады. Бұл режимде деректер байланысын пайдаланатын қолданбаларды пайдалану мүмкін емес. Қазір шығу керек пе?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Таңдалған әрекет жедел кері қоңырау шалу режимінде қол жетімді емес. Телефон осы режимде <xliff:g id="COUNT_1">%s</xliff:g> минут бойы болады. Қазір шығу керек пе?</item>
-      <item quantity="one">Таңдалған әрекет жедел кері қоңырау шалу режимінде қол жетімді емес. Телефон осы режимде <xliff:g id="COUNT_0">%s</xliff:g> минут бойы болады. Қазір шығу керек пе?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Телефон \"Құтқару қызметіне кері қоңырау шалу\" режимінде бір минут болады. Осы режимде дерек байланысын пайдаланатын қолданбалар жұмыс істемейді. Режимнен қазір шығуды қалайсыз ба?}other{Телефон \"Құтқару қызметіне кері қоңырау шалу\" режимінде %s минут болады. Осы режимде дерек байланысын пайдаланатын қолданбалар жұмыс істемейді. Режимнен қазір шығуды қалайсыз ба?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Таңдалған әрекет \"Құтқару қызметіне кері қоңырау шалу\" режимінде қолжетімсіз. Телефон бұл режимде бір минут болады. Бұл режимнен қазір шығуды қалайсыз ба?}other{Таңдалған әрекет \"құтқару қызметіне кері қоңырау шалу\" режимінде қолжетімсіз. Телефон бұл режимде %s минут болады. Бұл режимнен қазір шығуды қалайсыз ба?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Төтенше қоңырау режимінде таңдалған әрекет қол жетімсіз."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Төтенше қоңырауды кері шалу режимінен шығуда"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Иә"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Бас тарту"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Телефон шұғыл кері қоңырау шалу режимінде"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> дейін"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Телефон <xliff:g id="COUNT_1">%s</xliff:g> минут бойы шұғыл кері қоңырау шалу режимінде болады.\nҚазір шыққыңыз келе ме?</item>
-      <item quantity="one">Телефон <xliff:g id="COUNT_0">%s</xliff:g> минут бойы шұғыл кері қоңырау шалу режимінде болады.\nҚазір шыққыңыз келе ме?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Телефон бір минут бойы \"Құтқару қызметіне кері қоңырау шалу\" режимінде болады.\nҚазір шыққыңыз келе ме?}other{Телефон %s минут бойы \"Құтқару қызметіне кері қоңырау шалу\" режимінде болады.\nҚазір шыққыңыз келе ме?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Қызмет"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Орнату"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Реттелген жоқ&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Арнайы мүмкіндіктер"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi қоңырауын шалушы:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi қоңырауы"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Ашу үшін қайта түртіңіз"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Хабарды кодтан шығару кезінде қате пайда болды."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM карта қызметті белсендіріп, телефонның роуминг мүмкіндіктерін жаңартты."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Белсенді қоңыраулар тым көп. Жаңа қоңырау шалудан бұрын бар қоңырауларды аяқтаңыз немесе біріктіріңіз."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Қоңырау шалу мүмкін емес, себебі басқа шығыс қоңырау орындалуда."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Қоңырау шалу мүмкін емес, себебі жауап берілмеген кіріс қоңырау бар. Кіріс қоңырауға жауап беріңіз немесе оны өшіріңіз."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Қоңырау шалу мүмкін емес, себебі қоңырау шалу функциясы ro.telephony.disable-call жүйелік параметрі арқылы өшірілген."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Қоңырау шалу мүмкін емес, себебі екі қоңырау орындалуда. Жаңа қоңырауды бастау үшін олардың біреуін тоқтатыңыз немесе бір конференцияға қосыңыз."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Қоңырау шалу мүмкін емес, себебі екі қоңырау орындалуда. Жаңа қоңырауды бастау үшін олардың біреуін тоқтатыңыз немесе бір конференцияға қосыңыз."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> пайдалану үшін мобильді интернеттің қосылғанына көз жеткізіңіз. Оны мобильдік желі параметрлерінен өзгертуге болады."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> пайдалану үшін мобильді интернет пен деректер роумингінің қосылғанына көз жеткізіңіз. Оны мобильдік желі параметрлерінен өзгертуге болады."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> пайдалану үшін SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> картасында мобильді интернеттің қосылғанына көз жеткізіңіз. Оны мобильдік желі параметрлерінен өзгертуге болады."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Бұл параметрді өзгерту үшін құрылғыны қайта қосу қажет."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Қайта қосу"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Өшіру"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Алынбалы eSIM әдепкі етіп орнату"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Радиосигнал күші"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM мекенжай кітапшасын көру"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Рұқсат нөмірлерді көру"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Радио жолағын таңдау"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Дауыс желісінің түрі:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Деректер желісінің түрі:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Желі түрін қайта анықтау:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Телефон индексін таңдау"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Қалаулы желі түрін реттеу:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping хост атауы (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Жаңарту"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS тексерісін қосу/өшіру"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Өндірушіге қатысты ақпарат/параметрлер"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC қолжетімді:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR шектеулі:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR қолжетімді:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR күйі:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC қолжетімді (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR шектеулі (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR қолжетімді (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR күйі (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR жиілігі:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Радиожолақ режимін орнату"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Жолақтар тізімі жүктелуде…"</string>

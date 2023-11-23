@@ -49,6 +49,13 @@ s! {
         __unused: [::c_uint; 2],
     }
 
+    pub struct user_regs_struct {
+        pub regs: [::c_ulonglong; 31],
+        pub sp: ::c_ulonglong,
+        pub pc: ::c_ulonglong,
+        pub pstate: ::c_ulonglong,
+    }
+
     pub struct ipc_perm {
         pub __ipc_perm_key: ::key_t,
         pub uid: ::uid_t,
@@ -159,6 +166,40 @@ pub const EOWNERDEAD: ::c_int = 130;
 pub const ENOTRECOVERABLE: ::c_int = 131;
 pub const ERFKILL: ::c_int = 132;
 pub const EHWPOISON: ::c_int = 133;
+
+// bits/hwcap.h
+pub const HWCAP_FP: ::c_ulong = 1 << 0;
+pub const HWCAP_ASIMD: ::c_ulong = 1 << 1;
+pub const HWCAP_EVTSTRM: ::c_ulong = 1 << 2;
+pub const HWCAP_AES: ::c_ulong = 1 << 3;
+pub const HWCAP_PMULL: ::c_ulong = 1 << 4;
+pub const HWCAP_SHA1: ::c_ulong = 1 << 5;
+pub const HWCAP_SHA2: ::c_ulong = 1 << 6;
+pub const HWCAP_CRC32: ::c_ulong = 1 << 7;
+pub const HWCAP_ATOMICS: ::c_ulong = 1 << 8;
+pub const HWCAP_FPHP: ::c_ulong = 1 << 9;
+pub const HWCAP_ASIMDHP: ::c_ulong = 1 << 10;
+pub const HWCAP_CPUID: ::c_ulong = 1 << 11;
+pub const HWCAP_ASIMDRDM: ::c_ulong = 1 << 12;
+pub const HWCAP_JSCVT: ::c_ulong = 1 << 13;
+pub const HWCAP_FCMA: ::c_ulong = 1 << 14;
+pub const HWCAP_LRCPC: ::c_ulong = 1 << 15;
+pub const HWCAP_DCPOP: ::c_ulong = 1 << 16;
+pub const HWCAP_SHA3: ::c_ulong = 1 << 17;
+pub const HWCAP_SM3: ::c_ulong = 1 << 18;
+pub const HWCAP_SM4: ::c_ulong = 1 << 19;
+pub const HWCAP_ASIMDDP: ::c_ulong = 1 << 20;
+pub const HWCAP_SHA512: ::c_ulong = 1 << 21;
+pub const HWCAP_SVE: ::c_ulong = 1 << 22;
+pub const HWCAP_ASIMDFHM: ::c_ulong = 1 << 23;
+pub const HWCAP_DIT: ::c_ulong = 1 << 24;
+pub const HWCAP_USCAT: ::c_ulong = 1 << 25;
+pub const HWCAP_ILRCPC: ::c_ulong = 1 << 26;
+pub const HWCAP_FLAGM: ::c_ulong = 1 << 27;
+pub const HWCAP_SSBS: ::c_ulong = 1 << 28;
+pub const HWCAP_SB: ::c_ulong = 1 << 29;
+pub const HWCAP_PACA: ::c_ulong = 1 << 30;
+pub const HWCAP_PACG: ::c_ulong = 1 << 31;
 
 pub const MAP_ANON: ::c_int = 0x0020;
 pub const MAP_GROWSDOWN: ::c_int = 0x0100;
@@ -516,7 +557,7 @@ pub const SYS_epoll_pwait2: ::c_long = 441;
 pub const SYS_mount_setattr: ::c_long = 442;
 
 pub const RLIMIT_NLIMITS: ::c_int = 15;
-pub const TIOCINQ: ::c_int = ::FIONREAD;
+pub const RLIM_NLIMITS: ::c_int = RLIMIT_NLIMITS;
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;
 pub const CBAUD: ::tcflag_t = 0o0010017;
@@ -586,9 +627,6 @@ pub const B3000000: ::speed_t = 0o010015;
 pub const B3500000: ::speed_t = 0o010016;
 pub const B4000000: ::speed_t = 0o010017;
 
-pub const FIOCLEX: ::c_int = 0x5451;
-pub const FIONCLEX: ::c_int = 0x5450;
-pub const FIONBIO: ::c_int = 0x5421;
 pub const EDEADLK: ::c_int = 35;
 pub const EDEADLOCK: ::c_int = EDEADLK;
 
@@ -599,55 +637,6 @@ pub const VMIN: usize = 6;
 pub const IEXTEN: ::tcflag_t = 0x00008000;
 pub const TOSTOP: ::tcflag_t = 0x00000100;
 pub const FLUSHO: ::tcflag_t = 0x00001000;
-pub const TCGETS: ::c_int = 0x5401;
-pub const TCSETS: ::c_int = 0x5402;
-pub const TCSETSW: ::c_int = 0x5403;
-pub const TCSETSF: ::c_int = 0x5404;
-pub const TCGETA: ::c_int = 0x5405;
-pub const TCSETA: ::c_int = 0x5406;
-pub const TCSETAW: ::c_int = 0x5407;
-pub const TCSETAF: ::c_int = 0x5408;
-pub const TCSBRK: ::c_int = 0x5409;
-pub const TCXONC: ::c_int = 0x540A;
-pub const TCFLSH: ::c_int = 0x540B;
-pub const TIOCGSOFTCAR: ::c_int = 0x5419;
-pub const TIOCSSOFTCAR: ::c_int = 0x541A;
-pub const TIOCLINUX: ::c_int = 0x541C;
-pub const TIOCGSERIAL: ::c_int = 0x541E;
-pub const TIOCEXCL: ::c_int = 0x540C;
-pub const TIOCNXCL: ::c_int = 0x540D;
-pub const TIOCSCTTY: ::c_int = 0x540E;
-pub const TIOCGPGRP: ::c_int = 0x540F;
-pub const TIOCSPGRP: ::c_int = 0x5410;
-pub const TIOCOUTQ: ::c_int = 0x5411;
-pub const TIOCSTI: ::c_int = 0x5412;
-pub const TIOCGWINSZ: ::c_int = 0x5413;
-pub const TIOCSWINSZ: ::c_int = 0x5414;
-pub const TIOCMGET: ::c_int = 0x5415;
-pub const TIOCMBIS: ::c_int = 0x5416;
-pub const TIOCMBIC: ::c_int = 0x5417;
-pub const TIOCMSET: ::c_int = 0x5418;
-pub const FIONREAD: ::c_int = 0x541B;
-pub const TIOCCONS: ::c_int = 0x541D;
-
-pub const TIOCGRS485: ::c_int = 0x542E;
-pub const TIOCSRS485: ::c_int = 0x542F;
-
-pub const TIOCM_LE: ::c_int = 0x001;
-pub const TIOCM_DTR: ::c_int = 0x002;
-pub const TIOCM_RTS: ::c_int = 0x004;
-pub const TIOCM_ST: ::c_int = 0x008;
-pub const TIOCM_SR: ::c_int = 0x010;
-pub const TIOCM_CTS: ::c_int = 0x020;
-pub const TIOCM_CAR: ::c_int = 0x040;
-pub const TIOCM_RNG: ::c_int = 0x080;
-pub const TIOCM_DSR: ::c_int = 0x100;
-pub const TIOCM_CD: ::c_int = TIOCM_CAR;
-pub const TIOCM_RI: ::c_int = TIOCM_RNG;
-
-extern "C" {
-    pub fn ioctl(fd: ::c_int, request: ::c_int, ...) -> ::c_int;
-}
 
 cfg_if! {
     if #[cfg(libc_align)] {

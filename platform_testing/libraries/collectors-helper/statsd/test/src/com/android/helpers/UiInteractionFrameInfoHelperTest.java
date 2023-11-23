@@ -79,22 +79,20 @@ public class UiInteractionFrameInfoHelperTest {
         // The CUJ
         notificationHelper.get().open();
         UiObject2 notification = notificationHelper.get().postBigTextNotification(null /* pkg */);
-        notificationHelper.get().showGuts(notification);
-        notificationHelper.get().hideGuts(notification);
         notificationHelper.get().cancelNotifications();
         notificationHelper.get().exit();
 
         // Checking metrics produced by the CUJ.
         final Map<String, StringBuilder> frameMetrics = mInteractionFrameHelper.getMetrics();
         assertTrue(
-                "No metric missed_frames_cuj_SHADE_SCROLL_FLING missing",
-                frameMetrics.containsKey("cuj_SHADE_SCROLL_FLING_missed_frames"));
+                "No metric cuj_NOTIFICATION_ADD_missed_frames",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_missed_frames"));
         assertTrue(
-                "No metric total_frames_cuj_SHADE_SCROLL_FLING",
-                frameMetrics.containsKey("cuj_SHADE_SCROLL_FLING_total_frames"));
+                "No metric cuj_NOTIFICATION_ADD_total_frames",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_total_frames"));
         assertTrue(
-                "No metric max_frame_time_nanos_cuj_SHADE_SCROLL_FLING",
-                frameMetrics.containsKey("cuj_SHADE_SCROLL_FLING_max_frame_time_ms"));
+                "No metric cuj_NOTIFICATION_ADD_max_frame_time_ms",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_max_frame_time_ms"));
 
         assertTrue(mInteractionFrameHelper.stopCollecting());
         HelperTestUtility.sendKeyCode(KEYCODE_HOME);

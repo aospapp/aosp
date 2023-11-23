@@ -16,8 +16,8 @@
 
 #include "device_factory.h"
 
-using android::hardware::audio::V7_0::IDevicesFactory;
-using android::hardware::audio::V7_0::implementation::DevicesFactory;
+using android::hardware::audio::CPP_VERSION::IDevicesFactory;
+using android::hardware::audio::CPP_VERSION::implementation::DevicesFactory;
 
 extern "C" IDevicesFactory* HIDL_FETCH_IDevicesFactory(const char* name) {
     (void)name;

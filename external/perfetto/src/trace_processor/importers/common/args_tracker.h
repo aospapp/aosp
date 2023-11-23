@@ -17,6 +17,7 @@
 #ifndef SRC_TRACE_PROCESSOR_IMPORTERS_COMMON_ARGS_TRACKER_H_
 #define SRC_TRACE_PROCESSOR_IMPORTERS_COMMON_ARGS_TRACKER_H_
 
+#include "perfetto/ext/base/small_vector.h"
 #include "src/trace_processor/importers/common/global_args_tracker.h"
 #include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/types/trace_processor_context.h"
@@ -38,8 +39,8 @@ class ArgsTracker {
    public:
     virtual ~BoundInserter();
 
-    BoundInserter(BoundInserter&&);
-    BoundInserter& operator=(BoundInserter&&);
+    BoundInserter(BoundInserter&&) noexcept;
+    BoundInserter& operator=(BoundInserter&&) noexcept;
 
     BoundInserter(const BoundInserter&) = delete;
     BoundInserter& operator=(const BoundInserter&) = delete;
@@ -64,16 +65,17 @@ class ArgsTracker {
 
     // IncrementArrayEntryIndex() and GetNextArrayEntryIndex() provide a way to
     // track the next array index for an array under a specific key.
-    void IncrementArrayEntryIndex(StringId key) {
-      // Zero-initializes |key| in the map if it doesn't exist yet.
-      args_tracker_
-          ->array_indexes_[std::make_tuple(arg_set_id_column_, row_, key)]++;
-    }
-
     size_t GetNextArrayEntryIndex(StringId key) {
       // Zero-initializes |key| in the map if it doesn't exist yet.
       return args_tracker_
           ->array_indexes_[std::make_tuple(arg_set_id_column_, row_, key)];
+    }
+
+    // Returns the next available array index after increment.
+    size_t IncrementArrayEntryIndex(StringId key) {
+      // Zero-initializes |key| in the map if it doesn't exist yet.
+      return ++args_tracker_->array_indexes_[std::make_tuple(arg_set_id_column_,
+                                                             row_, key)];
     }
 
    protected:
@@ -159,7 +161,7 @@ class ArgsTracker {
               Variadic,
               UpdatePolicy);
 
-  std::vector<GlobalArgsTracker::Arg> args_;
+  base::SmallVector<GlobalArgsTracker::Arg, 16> args_;
   TraceProcessorContext* const context_;
 
   using ArrayKeyTuple =

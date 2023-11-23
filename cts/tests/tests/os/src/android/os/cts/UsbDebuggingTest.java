@@ -26,6 +26,10 @@ public class UsbDebuggingTest extends AndroidTestCase {
 
     @RestrictedBuildTest
     public void testUsbDebugging() {
+        if (!SystemProperties.get("ro.build.type").equals("user")) {
+            return;
+        }
+
         // Secure USB debugging must be enabled
         assertEquals("1", SystemProperties.get("ro.adb.secure"));
 

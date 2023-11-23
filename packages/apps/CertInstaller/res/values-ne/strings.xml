@@ -87,5 +87,5 @@
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi प्रमाणहरू स्थापना गर्न सकिदैन। फाइल पुन: डाउनलोड गर्ने प्रयास गर्नुहोस्।"</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"स्थापना रद्द गरियो"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"स्थापना गर्न सक्दैन"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi सक्रिय गर्नुहोस् र फेरि प्रयास गर्नुहोस्।"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Wi-Fi अन गर्नुहोस् र फेरि प्रयास गर्नुहोस्।"</string>
 </resources>

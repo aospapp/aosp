@@ -117,6 +117,9 @@ public:
   // Fill in the map data structure for the given address.
   virtual void FillIn(uint64_t addr, backtrace_map_t* map);
 
+  // Get BuildId of ELF file at the given address, or empty string on failure.
+  virtual std::string GetBuildId(uint64_t /*pc*/) { return std::string(); }
+
   // Only supported with the new unwinder.
   virtual std::string GetFunctionName(uint64_t /*pc*/, uint64_t* /*offset*/) { return ""; }
   virtual std::shared_ptr<unwindstack::Memory> GetProcessMemory() { return nullptr; }

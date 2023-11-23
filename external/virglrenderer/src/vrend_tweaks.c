@@ -55,10 +55,10 @@ bool vrend_get_tweak_is_active(struct vrend_context_tweaks *ctx, enum vrend_twea
 
 const char *tweak_debug_table[] = {
    [virgl_tweak_gles_brga_emulate] =
-   "GLES: Skip linearization in blits to BGRA_UNORM surfaces",
+   "(non-functional) GLES: Skip linearization in blits to BGRA_UNORM surfaces",
 
    [virgl_tweak_gles_brga_apply_dest_swizzle] =
-   "GLES: Apply dest swizzle when a BGRA surface is emulated by an RGBA surface",
+   "(non-functional) GLES: Apply dest swizzle when a BGRA surface is emulated by an RGBA surface",
 
    [virgl_tweak_gles_tf3_samples_passes_multiplier] =
     "GLES: Value to return when emulating GL_SAMPLES_PASSES by using GL_ANY_SAMPLES_PASSES",
@@ -111,10 +111,10 @@ struct {
    const char *descr;
 } tweak_table [] = {
    { virgl_tweak_gles_brga_emulate, "emu-bgra",
-     "Emulate BGRA_UNORM and BGRA_SRB by using swizzled RGBA formats" },
+     "(non-functional) Emulate BGRA_UNORM and BGRA_SRB by using swizzled RGBA formats" },
 
    { virgl_tweak_gles_brga_apply_dest_swizzle, "bgra-dest-swz",
-     "Apply the destination swizzle of emulated BGRA surfaces in blits"},
+     "(non-functional) Apply the destination swizzle of emulated BGRA surfaces in blits"},
 
    { virgl_tweak_gles_tf3_samples_passes_multiplier, "samples-passed",
      "Return this value when GL_SAMPLES_PASSED is emulated by GL_ANY_SAMPLES_PASSED"},

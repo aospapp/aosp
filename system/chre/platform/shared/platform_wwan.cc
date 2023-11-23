@@ -43,6 +43,12 @@ void PlatformWwan::init() {
   if (mWwanApi != nullptr) {
     if (!mWwanApi->open(&gChrePalSystemApi, &sWwanCallbacks)) {
       LOGE("WWAN PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::WWAN);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mWwanApi = nullptr;
     } else {
       LOGD("Opened WWAN PAL version 0x%08" PRIx32, mWwanApi->moduleVersion);

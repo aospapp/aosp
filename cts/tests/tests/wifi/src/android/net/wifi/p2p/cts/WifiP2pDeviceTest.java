@@ -16,9 +16,11 @@
 
 package android.net.wifi.p2p.cts;
 
-import android.net.InetAddresses;
 import android.net.wifi.p2p.WifiP2pDevice;
+import android.os.Build;
 import android.test.AndroidTestCase;
+
+import androidx.test.filters.SdkSuppress;
 
 public class WifiP2pDeviceTest extends AndroidTestCase {
 
@@ -34,5 +36,11 @@ public class WifiP2pDeviceTest extends AndroidTestCase {
         WifiP2pDevice dev = new WifiP2pDevice();
 
         assertFalse(dev.isServiceDiscoveryCapable());
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    public void testGetVendorElements() {
+        WifiP2pDevice dev = new WifiP2pDevice();
+        dev.getVendorElements();
     }
 }

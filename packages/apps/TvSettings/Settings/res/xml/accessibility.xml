@@ -43,6 +43,13 @@
             android:title="@string/accessibility_shortcut"
             android:fragment="com.android.tv.settings.accessibility.AccessibilityShortcutFragment"/>
 
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
+        android:key="toggle_audio_description"
+        android:persistent="true"
+        android:title="@string/accessibility_toggle_audio_description_preference_title"
+        android:summary="@string/accessibility_audio_description_summary"/>
+
+
     <PreferenceCategory
             android:key="system_accessibility_services"
             android:title="@string/system_services"/>

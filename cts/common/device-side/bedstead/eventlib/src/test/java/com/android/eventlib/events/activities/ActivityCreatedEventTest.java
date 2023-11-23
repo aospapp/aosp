@@ -39,6 +39,8 @@ public final class ActivityCreatedEventTest {
     private static final String STRING_KEY = "Key";
     private static final String STRING_VALUE = "Value";
     private static final String DIFFERENT_STRING_VALUE = "Value2";
+    private static final int TASK_ID = 1;
+    private static final int DIFFERENT_TASK_ID = 2;
 
     private final Bundle mSavedInstanceState = new Bundle();
     private final PersistableBundle mPersistentState = new PersistableBundle();
@@ -155,6 +157,38 @@ public final class ActivityCreatedEventTest {
                         .whereActivity().activityClass().className().isEqualTo(ACTIVITY_CLASS_NAME);
 
         assertThat(eventLogs.poll().activity().className()).isEqualTo(ACTIVITY_CLASS_NAME);
+    }
+
+    @Test
+    public void whereTaskId_works() throws Exception {
+        ActivityContext.runWithContext((activity) ->
+                ActivityCreatedEvent.logger(activity, ACTIVITY_INFO, mSavedInstanceState)
+                        .setTaskId(TASK_ID)
+                        .log());
+
+        EventLogs<ActivityCreatedEvent> eventLogs =
+                ActivityCreatedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
+    }
+
+    @Test
+    public void whereTaskId_skipsNonMatching() throws Exception {
+        ActivityContext.runWithContext((activity) -> {
+            ActivityCreatedEvent.logger(activity, ACTIVITY_INFO, mSavedInstanceState)
+                    .setTaskId(DIFFERENT_TASK_ID)
+                    .log();
+            ActivityCreatedEvent.logger(activity, ACTIVITY_INFO, mSavedInstanceState)
+                    .setTaskId(TASK_ID)
+                    .log();
+        });
+
+        EventLogs<ActivityCreatedEvent> eventLogs =
+                ActivityCreatedEvent.queryPackage(sContext.getPackageName())
+                        .whereTaskId().isEqualTo(TASK_ID);
+
+        assertThat(eventLogs.poll().taskId()).isEqualTo(TASK_ID);
     }
 
 }

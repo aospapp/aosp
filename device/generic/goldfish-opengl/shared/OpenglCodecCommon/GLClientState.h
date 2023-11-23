@@ -40,6 +40,7 @@
 
 #include <vector>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -81,7 +82,7 @@ struct FboProps {
     bool previouslyBound;
     bool completenessDirty;
     GLenum cachedCompleteness;
-    std::vector<GLuint> colorAttachmenti_textures;
+    std::vector<std::shared_ptr<TextureRec>> colorAttachmenti_textures;
     std::vector<GLint> colorAttachmenti_texture_levels;
     std::vector<GLint> colorAttachmenti_texture_layers;
 
@@ -90,24 +91,24 @@ struct FboProps {
     GLint stencilAttachment_texture_level;
     GLint stencilAttachment_texture_layer;
 
-    GLuint depthAttachment_texture;
-    GLuint stencilAttachment_texture;
-    GLuint depthstencilAttachment_texture;
+    std::shared_ptr<TextureRec> depthAttachment_texture;
+    std::shared_ptr<TextureRec> stencilAttachment_texture;
+    std::shared_ptr<TextureRec> depthstencilAttachment_texture;
 
     std::vector<bool> colorAttachmenti_hasTex;
     bool depthAttachment_hasTexObj;
     bool stencilAttachment_hasTexObj;
     bool depthstencilAttachment_hasTexObj;
 
-    std::vector<GLuint> colorAttachmenti_rbos;
-    GLuint depthAttachment_rbo;
-    GLuint stencilAttachment_rbo;
-    GLuint depthstencilAttachment_rbo;
+    std::vector<std::shared_ptr<RboProps>> colorAttachmenti_rbos;
+    std::shared_ptr<RboProps> depthAttachment_rbo = 0;
+    std::shared_ptr<RboProps> stencilAttachment_rbo = 0;
+    std::shared_ptr<RboProps> depthstencilAttachment_rbo = 0;
 
     std::vector<bool> colorAttachmenti_hasRbo;
-    bool depthAttachment_hasRbo;
-    bool stencilAttachment_hasRbo;
-    bool depthstencilAttachment_hasRbo;
+    bool depthAttachment_hasRbo = false;
+    bool stencilAttachment_hasRbo = false;
+    bool depthstencilAttachment_hasRbo = false;
 
     GLuint defaultWidth;
     GLuint defaultHeight;
@@ -331,7 +332,7 @@ public:
     void setLastEncodedBufferBind(GLenum target, GLuint id);
 
     size_t pixelDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
-    size_t pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
+    size_t pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack, int ignoreTrailing = 0) const;
     size_t clearBufferNumElts(GLenum buffer) const;
     void getPackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const;
     void getUnpackingOffsets2D(GLsizei width, GLsizei height, GLenum format, GLenum type, int* bpp, int* startOffset, int* pixelRowSize, int* totalRowSize, int* skipRows) const;
@@ -489,21 +490,21 @@ public:
 
     // Texture object -> FBO
     void attachTextureObject(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
-    GLuint getFboAttachmentTextureId(GLenum target, GLenum attachment) const;
+    std::shared_ptr<TextureRec> getFboAttachmentTexture(GLenum target, GLenum attachment) const;
 
     // RBO -> FBO
     void detachRbo(GLuint renderbuffer);
     void detachRboFromFbo(GLenum target, GLenum attachment, GLuint renderbuffer);
     void attachRbo(GLenum target, GLenum attachment, GLuint renderbuffer);
-    GLuint getFboAttachmentRboId(GLenum target, GLenum attachment) const;
+    std::shared_ptr<RboProps> getFboAttachmentRbo(GLenum target, GLenum attachment) const;
 
     // FBO attachments in general
     bool attachmentHasObject(GLenum target, GLenum attachment) const;
-    GLuint objectOfAttachment(GLenum target, GLenum attachment) const;
+    bool depthStencilHasSameObject(GLenum target) const;
 
     // Dirty FBO completeness
     void setFboCompletenessDirtyForTexture(GLuint texture);
-    void setFboCompletenessDirtyForRbo(GLuint rbo_name);
+    void setFboCompletenessDirtyForRbo(std::shared_ptr<RboProps> rbo);
 
     // Transform feedback state
     void setTransformFeedbackActive(bool active);
@@ -712,7 +713,7 @@ private:
                                     GLenum internalformat);
 
     struct RboState {
-        GLuint boundRenderbuffer;
+        std::shared_ptr<RboProps> boundRenderbuffer;
         // Connects to share group.
         // Expected that share group lifetime outlives this context.
         RenderbufferInfo* rboData;
@@ -734,17 +735,14 @@ private:
     const FboProps& boundFboProps_const(GLenum target) const;
 
     // Querying framebuffer format
-    GLenum queryRboFormat(GLuint name) const;
-    GLsizei queryRboSamples(GLuint name) const;
-    GLsizei queryRboWidth(GLuint name) const;
-    GLsizei queryRboHeight(GLuint name) const;
-    bool queryRboEGLImageBacked(GLuint name) const;
     GLenum queryTexType(GLuint name) const;
     GLsizei queryTexSamples(GLuint name) const;
 
     static int compareTexId(const void* pid, const void* prec);
     TextureRec* addTextureRec(GLuint id, GLenum target);
-    TextureRec* getTextureRec(GLuint id) const;
+    std::shared_ptr<TextureRec> getTextureRec(GLuint id) const;
+    TextureRec* getTextureRecPtr(GLuint id) const;
+    TextureRec* getTextureRecPtrLocked(GLuint id) const;
 
 public:
     bool isTexture(GLuint name) const;

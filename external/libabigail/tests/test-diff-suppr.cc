@@ -2036,6 +2036,26 @@ InOutSpec in_out_specs[] =
     "data/test-diff-suppr/PR27267/report-1.txt",
     "output/test-diff-suppr/PR27267/report-1.txt"
   },
+  {
+    "data/test-diff-suppr/PR28073/PR28073.before.o.abi",
+    "data/test-diff-suppr/PR28073/PR28073.after.o.abi",
+    "",
+    "",
+    "data/test-diff-suppr/PR28073/bitfield.suppr",
+    "--drop-private-types --no-default-suppression",
+    "data/test-diff-suppr/PR28073/PR28073-output-1.txt",
+    "output/test-diff-suppr/PR28073/PR28073-output-1.txt"
+  },
+  {
+    "data/test-diff-suppr/PR28073/PR28073.before.o.abi",
+    "data/test-diff-suppr/PR28073/PR28073-bitfield-removed.o.abi",
+    "",
+    "",
+    "data/test-diff-suppr/PR28073/bitfield.suppr",
+    "--drop-private-types --no-default-suppression",
+    "data/test-diff-suppr/PR28073/PR28073-output-2.txt",
+    "output/test-diff-suppr/PR28073/PR28073-output-2.txt"
+  },
   // This should be the last entry
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };

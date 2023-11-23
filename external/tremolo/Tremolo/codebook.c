@@ -860,8 +860,11 @@ long vorbis_book_decodevs_add(codebook *book,ogg_int32_t *a,
 
     for (j=0;j<step;j++){
       if(decode_map(book,b,v,point))return -1;
-      for(i=0,o=j;i<book->dim;i++,o+=step)
-        a[o]+=v[i];
+      for(i=0,o=j;i<book->dim;i++,o+=step){
+        if (__builtin_add_overflow(a[o], v[i], &a[o])){
+           a[o] = v[i] > 0 ? INT32_MAX : INT32_MIN;
+        }
+      }
     }
   }
   return 0;
@@ -903,12 +906,7 @@ long vorbis_book_decodev_set(codebook *book,ogg_int32_t *a,
         a[i++]=v[j];
     }
   }else{
-    int i,j;
-
-    for(i=0;i<n;){
-      for (j=0;j<book->dim && i < n;j++)
-        a[i++]=0;
-    }
+    memset(a, 0, sizeof(*a) * n);
   }
 
   return 0;
@@ -932,7 +930,10 @@ long vorbis_book_decodevv_add(codebook *book,ogg_int32_t **a,
     for(i=offset;i<offset+n;){
       if(decode_map(book,b,v,point))return -1;
       for (j=0;j<book->dim && i < offset + n;j++){
-        a[chptr++][i]+=v[j];
+        if (__builtin_add_overflow(a[chptr][i], v[j], &a[chptr][i])) {
+           a[chptr][i] = v[j] > 0 ? INT32_MAX : INT32_MIN;
+        }
+        chptr++;
         if(chptr==ch){
           chptr=0;
           i++;

@@ -29,7 +29,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     mockito-robolectric-prebuilt \
     truth-prebuilt
 LOCAL_JAVA_LIBRARIES := \
-    platform-robolectric-3.6.2-prebuilt
+    platform-robolectric-4.5.1-prebuilt
 
 LOCAL_JAVA_RESOURCE_DIRS := config
 

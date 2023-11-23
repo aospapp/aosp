@@ -38,4 +38,8 @@ android_test {
     ],
     // sdk_version: "current",
     platform_apis: true,
+    data: [
+        ":CtsJobTestApp",
+    ],
+    per_testcase_directory: true,
 }

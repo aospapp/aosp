@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Bağlantılar"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Varsayılan Yazdırma Hizmeti, Kablosuz Doğrudan Bağlantı yazıcılarını bulamıyor"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Kablosuz Doğrudan Bağlantı\'yı kapat"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Varsayılan Yazdırma Hizmeti\'nin yakındaki cihazları bulabilmesi için konum iznine ihtiyacı var."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Varsayılan yazdırma hizmetinin, yakındaki yazıcıları bulması için yakındaki cihazlar iznine ihtiyacı vardır."</string>
     <string name="fix" msgid="7784394272611365393">"İzni incele"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Varsayılan Yazdırma Hizmeti\'nin yakındaki cihazları bulabilmesi için konum hizmetlerinin etkinleştirilmiş olması gerekir."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Konumu etkinleştir"</string>
     <string name="print" msgid="7851318072404916362">"Yazdır"</string>
 </resources>

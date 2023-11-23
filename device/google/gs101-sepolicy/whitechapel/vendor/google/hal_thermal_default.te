@@ -1,3 +1,2 @@
-allow hal_thermal_default self:netlink_generic_socket create_socket_perms_no_ioctl;
 allow hal_thermal_default sysfs_iio_devices:dir r_dir_perms;
 allow hal_thermal_default sysfs_odpm:file r_file_perms;

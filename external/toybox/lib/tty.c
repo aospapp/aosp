@@ -1,6 +1,11 @@
-/* interestingtimes.c - cursor control
+/* tty.c - cursor control
  *
  * Copyright 2015 Rob Landley <rob@landley.net>
+ *
+ * Common ANSI (See https://man7.org/linux/man-pages/man4/console_codes.4.html)
+ * \e[#m   - color change           \e[y;xH - jump to x/y pos (1;1 is top left)
+ * \e[K    - delete to EOL          \e[25l  - disable cursor (h to enable)
+ * \e[1L   - Insert 1 (blank) line  \e[1M   - Delete 1 line (scrolling rest up)
  */
 
 #include "toys.h"
@@ -14,7 +19,7 @@ int tty_fd(void)
   return notstdio(open("/dev/tty", O_RDWR));
 }
 
-// Quick and dirty query size of terminal, doesn't do ANSI probe fallback.
+// Query size of terminal (without ANSI probe fallback).
 // set x=80 y=25 before calling to provide defaults. Returns 0 if couldn't
 // determine size.
 
@@ -24,8 +29,8 @@ int terminal_size(unsigned *xx, unsigned *yy)
   unsigned i, x = 0, y = 0;
   char *s;
 
-  // stdin, stdout, stderr
-  for (i=0; i<3; i++) {
+  // Check stdin, stdout, stderr
+  for (i = 0; i<3; i++) {
     memset(&ws, 0, sizeof(ws));
     if (isatty(i) && !ioctl(i, TIOCGWINSZ, &ws)) {
       if (ws.ws_col) x = ws.ws_col;
@@ -56,7 +61,7 @@ int terminal_probesize(unsigned *xx, unsigned *yy)
 
   // Send probe: bookmark cursor position, jump to bottom right,
   // query position, return cursor to bookmarked position.
-  xprintf("\033[s\033[999C\033[999B\033[6n\033[u");
+  xprintf("\e[s\e[999C\e[999B\e[6n\e[u");
 
   return 0;
 }
@@ -136,39 +141,39 @@ struct scan_key_list {
   int key;
   char *seq;
 } static const scan_key_list[] = {
-  {KEY_UP, "\033[A"}, {KEY_DOWN, "\033[B"},
-  {KEY_RIGHT, "\033[C"}, {KEY_LEFT, "\033[D"},
+  {KEY_UP, "\e[A"}, {KEY_DOWN, "\e[B"},
+  {KEY_RIGHT, "\e[C"}, {KEY_LEFT, "\e[D"},
 
-  {KEY_UP|KEY_SHIFT, "\033[1;2A"}, {KEY_DOWN|KEY_SHIFT, "\033[1;2B"},
-  {KEY_RIGHT|KEY_SHIFT, "\033[1;2C"}, {KEY_LEFT|KEY_SHIFT, "\033[1;2D"},
+  {KEY_UP|KEY_SHIFT, "\e[1;2A"}, {KEY_DOWN|KEY_SHIFT, "\e[1;2B"},
+  {KEY_RIGHT|KEY_SHIFT, "\e[1;2C"}, {KEY_LEFT|KEY_SHIFT, "\e[1;2D"},
 
-  {KEY_UP|KEY_ALT, "\033[1;3A"}, {KEY_DOWN|KEY_ALT, "\033[1;3B"},
-  {KEY_RIGHT|KEY_ALT, "\033[1;3C"}, {KEY_LEFT|KEY_ALT, "\033[1;3D"},
+  {KEY_UP|KEY_ALT, "\e[1;3A"}, {KEY_DOWN|KEY_ALT, "\e[1;3B"},
+  {KEY_RIGHT|KEY_ALT, "\e[1;3C"}, {KEY_LEFT|KEY_ALT, "\e[1;3D"},
 
-  {KEY_UP|KEY_CTRL, "\033[1;5A"}, {KEY_DOWN|KEY_CTRL, "\033[1;5B"},
-  {KEY_RIGHT|KEY_CTRL, "\033[1;5C"}, {KEY_LEFT|KEY_CTRL, "\033[1;5D"},
+  {KEY_UP|KEY_CTRL, "\e[1;5A"}, {KEY_DOWN|KEY_CTRL, "\e[1;5B"},
+  {KEY_RIGHT|KEY_CTRL, "\e[1;5C"}, {KEY_LEFT|KEY_CTRL, "\e[1;5D"},
 
   // VT102/VT220 escapes.
-  {KEY_HOME, "\033[1~"},
-  {KEY_HOME|KEY_CTRL, "\033[1;5~"},
-  {KEY_INSERT, "\033[2~"},
-  {KEY_DELETE, "\033[3~"},
-  {KEY_END, "\033[4~"},
-  {KEY_END|KEY_CTRL, "\033[4;5~"},
-  {KEY_PGUP, "\033[5~"},
-  {KEY_PGDN, "\033[6~"},
+  {KEY_HOME, "\e[1~"},
+  {KEY_HOME|KEY_CTRL, "\e[1;5~"},
+  {KEY_INSERT, "\e[2~"},
+  {KEY_DELETE, "\e[3~"},
+  {KEY_END, "\e[4~"},
+  {KEY_END|KEY_CTRL, "\e[4;5~"},
+  {KEY_PGUP, "\e[5~"},
+  {KEY_PGDN, "\e[6~"},
   // "Normal" "PC" escapes (xterm).
-  {KEY_HOME, "\033OH"},
-  {KEY_END, "\033OF"},
+  {KEY_HOME, "\eOH"},
+  {KEY_END, "\eOF"},
   // "Application" "PC" escapes (gnome-terminal).
-  {KEY_HOME, "\033[H"},
-  {KEY_END, "\033[F"},
-  {KEY_HOME|KEY_CTRL, "\033[1;5H"},
-  {KEY_END|KEY_CTRL, "\033[1;5F"},
+  {KEY_HOME, "\e[H"},
+  {KEY_END, "\e[F"},
+  {KEY_HOME|KEY_CTRL, "\e[1;5H"},
+  {KEY_END|KEY_CTRL, "\e[1;5F"},
 
-  {KEY_FN+1, "\033OP"}, {KEY_FN+2, "\033OQ"}, {KEY_FN+3, "\033OR"},
-  {KEY_FN+4, "\033OS"}, {KEY_FN+5, "\033[15~"}, {KEY_FN+6, "\033[17~"},
-  {KEY_FN+7, "\033[18~"}, {KEY_FN+8, "\033[19~"}, {KEY_FN+9, "\033[20~"},
+  {KEY_FN+1, "\eOP"}, {KEY_FN+2, "\eOQ"}, {KEY_FN+3, "\eOR"},
+  {KEY_FN+4, "\eOS"}, {KEY_FN+5, "\e[15~"}, {KEY_FN+6, "\e[17~"},
+  {KEY_FN+7, "\e[18~"}, {KEY_FN+8, "\e[19~"}, {KEY_FN+9, "\e[20~"},
 };
 
 // Scan stdin for a keypress, parsing known escape sequences, including
@@ -196,7 +201,7 @@ int scan_key_getsize(char *scratch, int timeout_ms, unsigned *xx, unsigned *yy)
       // Check for return from terminal size probe
       memset(pos, 0, 6*sizeof(int));
       scratch[(1+*scratch)&15] = 0;
-      sscanf(scratch+1, "\033%n[%n%3u%n;%n%3u%nR%n", pos, pos+1, &y,
+      sscanf(scratch+1, "\e%n[%n%3u%n;%n%3u%nR%n", pos, pos+1, &y,
              pos+2, pos+3, &x, pos+4, pos+5);
       if (pos[5]) {
         // Recognized X/Y position, consume and return
@@ -252,27 +257,10 @@ int scan_key(char *scratch, int timeout_ms)
   return scan_key_getsize(scratch, timeout_ms, NULL, NULL);
 }
 
-void tty_esc(char *s)
-{
-  printf("\033[%s", s);
-}
-
-void tty_jump(int x, int y)
-{
-  char s[32];
-
-  sprintf(s, "%d;%dH", y+1, x+1);
-  tty_esc(s);
-}
-
 void tty_reset(void)
 {
   set_terminal(0, 0, 0, 0);
-  tty_esc("?25h");
-  tty_esc("0m");
-  tty_jump(0, 999);
-  tty_esc("K");
-  fflush(0);
+  xputsn("\e[?25h\e[0m\e[999H\e[K");
 }
 
 // If you call set_terminal(), use sigatexit(tty_sigreset);
@@ -296,5 +284,5 @@ void start_redraw(unsigned *width, unsigned *height)
     toys.signal = -1;
     terminal_probesize(width, height);
   }
-  xprintf("\033[H\033[J");
+  xputsn("\e[H\e[J");
 }

@@ -46,7 +46,7 @@ func TestClangPathGivenClangEnv(t *testing.T) {
 
 func TestAbsoluteClangPathBasedOnRootPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand(filepath.Join(ctx.tempDir, clangX86_64), mainCc)))
 		if err := verifyPath(cmd, filepath.Join(ctx.tempDir, "somepath/usr/bin/clang")); err != nil {
@@ -57,7 +57,7 @@ func TestAbsoluteClangPathBasedOnRootPath(t *testing.T) {
 
 func TestRelativeClangPathBasedOnRootPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand(clangX86_64, mainCc)))
 		if err := verifyPath(cmd, "somepath/usr/bin/clang"); err != nil {
@@ -68,7 +68,7 @@ func TestRelativeClangPathBasedOnRootPath(t *testing.T) {
 
 func TestRelativeClangPathWithDirBasedOnRootPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand("test/x86_64-cros-linux-gnu-clang", mainCc)))
 		if err := verifyPath(cmd, "test/somepath/usr/bin/clang"); err != nil {
@@ -79,7 +79,7 @@ func TestRelativeClangPathWithDirBasedOnRootPath(t *testing.T) {
 
 func TestPathEnvClangPathBasedOnRootPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		ctx.env = []string{"PATH=" + filepath.Join(ctx.tempDir, "/pathenv")}
 		ctx.writeFile(filepath.Join(ctx.tempDir, "/pathenv/x86_64-cros-linux-gnu-clang"), "")
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
@@ -93,7 +93,7 @@ func TestPathEnvClangPathBasedOnRootPath(t *testing.T) {
 func TestClangPathForClangHostWrapper(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
 		ctx.cfg.isHostWrapper = true
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand(clangX86_64, mainCc)))
 		if err := verifyPath(cmd, filepath.Join(ctx.tempDir, "clang")); err != nil {
@@ -128,7 +128,7 @@ func TestClangPathForAndroidWrapperWithSymlinks(t *testing.T) {
 
 func TestUseXclangPathAndCalcResourceDirByNestedClangCall(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		ctx.cmdMock = func(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 			if ctx.cmdCount > 1 {
 				return nil
@@ -183,10 +183,7 @@ func TestConvertGccToClangFlags(t *testing.T) {
 			in  string
 			out string
 		}{
-			{"-Wno-error=unused-but-set-variable", "-Wno-error=unused-variable"},
 			{"-Wno-error=maybe-uninitialized", "-Wno-error=uninitialized"},
-			{"-Wno-unused-but-set-variable", "-Wno-unused-variable"},
-			{"-Wunused-but-set-variable", "-Wunused-variable"},
 			{"-Wno-error=cpp", "-Wno-#warnings"},
 			{"-Xclang-only=-abc=xyz", "-abc=xyz"},
 		}
@@ -211,7 +208,6 @@ func TestFilterUnsupportedClangFlags(t *testing.T) {
 			flag          string
 			expectedCount int
 		}{
-			{clangX86_64, "-pass-exit-codes", 0},
 			{clangX86_64, "-Wstrict-aliasing=xyz", 0},
 			{clangX86_64, "-finline-limit=xyz", 0},
 			{"./armv7a-cros-linux-gnu-clang", "-ftrapv", 0},
@@ -236,7 +232,7 @@ func TestClangArchFlags(t *testing.T) {
 			compiler string
 			flags    []string
 		}{
-			{"./i686_64-cros-linux-gnu-clang", []string{mainCc, "-m32", "-Xclang", "-target-feature", "-Xclang", "-movbe"}},
+			{"./i686_64-cros-linux-gnu-clang", []string{mainCc, "-target", "i686_64-cros-linux-gnu"}},
 			{"./x86_64-cros-linux-gnu-clang", []string{mainCc, "-target", "x86_64-cros-linux-gnu"}},
 		}
 		for _, tt := range tests {
@@ -252,13 +248,17 @@ func TestClangArchFlags(t *testing.T) {
 func TestClangLinkerPathProbesBinariesOnPath(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
 		linkerPath := filepath.Join(ctx.tempDir, "a/b/c")
-		ctx.writeFile(filepath.Join(linkerPath, "x86_64-cros-linux-gnu-ld"), "")
+		ctx.writeFile(filepath.Join(linkerPath, "x86_64-cros-linux-gnu-ld.bfd"), "")
 		ctx.env = []string{"PATH=nonExistantPath:" + linkerPath}
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand("./x86_64-cros-linux-gnu-clang", mainCc)))
 		if err := verifyArgOrder(cmd, "-Ba/b/c"); err != nil {
 			t.Error(err)
 		}
+		if err := verifyArgOrder(cmd, "--prefix=a/b/c/x86_64-cros-linux-gnu-"); err != nil {
+			t.Error(err)
+		}
+
 	})
 }
 
@@ -268,7 +268,7 @@ func TestClangLinkerPathEvaluatesSymlinksForBinariesOnPath(t *testing.T) {
 		ctx.writeFile(realLinkerPath, "")
 		firstLinkLinkerPath := filepath.Join(ctx.tempDir, "a/first/somelinker")
 		ctx.symlink(realLinkerPath, firstLinkLinkerPath)
-		secondLinkLinkerPath := filepath.Join(ctx.tempDir, "a/second/x86_64-cros-linux-gnu-ld")
+		secondLinkLinkerPath := filepath.Join(ctx.tempDir, "a/second/x86_64-cros-linux-gnu-ld.bfd")
 		ctx.symlink(firstLinkLinkerPath, secondLinkLinkerPath)
 
 		ctx.env = []string{"PATH=nonExistantPath:" + filepath.Dir(secondLinkLinkerPath)}
@@ -277,6 +277,10 @@ func TestClangLinkerPathEvaluatesSymlinksForBinariesOnPath(t *testing.T) {
 		if err := verifyArgOrder(cmd, "-Ba/first"); err != nil {
 			t.Error(err)
 		}
+		if err := verifyArgOrder(cmd, "--prefix=a/first/x86_64-cros-linux-gnu-"); err != nil {
+			t.Error(err)
+		}
+
 	})
 }
 
@@ -287,15 +291,21 @@ func TestClangFallbackLinkerPathRelativeToRootDir(t *testing.T) {
 		if err := verifyArgOrder(cmd, "-Bbin"); err != nil {
 			t.Error(err)
 		}
+		if err := verifyArgOrder(cmd, "--prefix=bin/x86_64-cros-linux-gnu-"); err != nil {
+			t.Error(err)
+		}
 	})
 }
 
 func TestClangLinkerPathRelativeToRootDir(t *testing.T) {
 	withTestContext(t, func(ctx *testContext) {
-		ctx.cfg.rootRelPath = "somepath"
+		ctx.cfg.clangRootRelPath = "somepath"
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
 			ctx.newCommand(clangX86_64, mainCc)))
 		if err := verifyArgOrder(cmd, "-Bsomepath/bin"); err != nil {
+			t.Error(err)
+		}
+		if err := verifyArgOrder(cmd, "--prefix=somepath/bin/x86_64-cros-linux-gnu-"); err != nil {
 			t.Error(err)
 		}
 	})

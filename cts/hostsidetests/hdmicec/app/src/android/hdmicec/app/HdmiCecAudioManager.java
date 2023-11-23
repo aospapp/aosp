@@ -74,6 +74,14 @@ public class HdmiCecAudioManager extends Activity {
                 }
                 Log.i(TAG, "Volume at " + percentageVolume + "%");
                 break;
+            case "android.hdmicec.app.RAISE_VOLUME":
+                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        AudioManager.ADJUST_RAISE, 0);
+                break;
+            case "android.hdmicec.app.LOWER_VOLUME":
+                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                        AudioManager.ADJUST_LOWER, 0);
+                break;
             case "android.hdmicec.app.SET_VOLUME":
                 int percentVolume = getIntent().getIntExtra("volumePercent", 50);
                 int volume = minVolume + ((maxVolume - minVolume) * percentVolume / 100);

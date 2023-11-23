@@ -54,6 +54,7 @@
 #include <errno.h>
 #include <netinet/sctp.h>
 #include <sctputil.h>
+#include "tst_kernel.h"
 
 char *TCID = __FILE__;
 int TST_TOTAL = 10;
@@ -70,7 +71,7 @@ static char *nottlmsg = "This should NOT time out!\n";
 static char ttlfrag[SMALL_MAXSEG*3] = {0};
 static char *message = "Hello world\n";
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	int sk1, sk2;
 	sockaddr_storage_t loop1;
@@ -91,6 +92,9 @@ int main(int argc, char *argv[])
 	sctp_assoc_t associd1;
 	socklen_t len, oldlen;
 	struct sctp_status gstatus;
+
+	if (tst_check_driver("sctp"))
+		tst_brkm(TCONF, tst_exit, "sctp driver not available");
 
 	/* Rather than fflush() throughout the code, set stdout to
 	 * be unbuffered.

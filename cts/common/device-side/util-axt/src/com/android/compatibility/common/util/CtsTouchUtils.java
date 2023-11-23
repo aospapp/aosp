@@ -300,7 +300,7 @@ public final class CtsTouchUtils {
         final long longPressTimeoutMs = ViewConfiguration.getLongPressTimeout();
         final int maxDragDurationMs = getMaxDragDuration(touchSlop, longPressTimeoutMs, coordinates,
                 moveEventCount);
-        if (dragDurationMs > maxDragDurationMs) {
+        if (maxDragDurationMs < dragDurationMs) {
             Log.d(TAG, "emulateDragGesture: Lowering standard drag duration from " + dragDurationMs
                     + " ms to " + maxDragDurationMs + " ms to avoid triggering a long press ");
             dragDurationMs = maxDragDurationMs;
@@ -311,7 +311,7 @@ public final class CtsTouchUtils {
     }
 
     /**
-     * Gets the maximal drag duration that assures not triggering a long press during a drag gesture
+     * Get the maximal drag duration that assures not triggering a long press during a drag gesture
      * considering long press timeout and touch slop.
      *
      * The calculation is based on the distance between the first and the second point of provided

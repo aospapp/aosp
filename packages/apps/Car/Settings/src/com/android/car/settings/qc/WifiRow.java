@@ -18,6 +18,7 @@ package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_SWITCH;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 import static com.android.car.settings.qc.SettingsQCRegistry.WIFI_ROW_URI;
 
 import android.content.Context;
@@ -25,12 +26,14 @@ import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.UserManager;
 
 import com.android.car.qc.QCActionItem;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * QCItem for showing a wifi row element.
@@ -50,9 +53,19 @@ public class WifiRow extends SettingsQCItem {
         boolean wifiEnabled = mWifiManager.isWifiEnabled();
         Icon icon = Icon.createWithResource(getContext(), WifiQCUtils.getIcon(mWifiManager));
 
+        String userRestriction = UserManager.DISALLOW_CONFIG_WIFI;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCActionItem wifiToggle = new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH)
                 .setChecked(wifiEnabled)
                 .setAction(getBroadcastIntent())
+                .setEnabled(!hasUmRestrictions && !hasDpmRestrictions)
+                .setClickableWhileDisabled(hasDpmRestrictions)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        userRestriction))
                 .build();
 
         QCRow wifiRow = new QCRow.Builder()

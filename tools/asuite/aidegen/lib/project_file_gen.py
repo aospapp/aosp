@@ -44,10 +44,12 @@ _ENABLE_DEBUGGER_MODULE_TOKEN = '@ENABLE_DEBUGGER_MODULE@'
 _IDEA_FOLDER = '.idea'
 _MODULES_XML = 'modules.xml'
 _COPYRIGHT_FOLDER = 'copyright'
+_INSPECTION_FOLDER = 'inspectionProfiles'
 _CODE_STYLE_FOLDER = 'codeStyles'
 _APACHE_2_XML = 'Apache_2.xml'
 _PROFILES_SETTINGS_XML = 'profiles_settings.xml'
 _CODE_STYLE_CONFIG_XML = 'codeStyleConfig.xml'
+_INSPECTION_CONFIG_XML = 'Aidegen_Inspections.xml'
 _JSON_SCHEMAS_CONFIG_XML = 'jsonSchemas.xml'
 _PROJECT_XML = 'Project.xml'
 _COMPILE_XML = 'compiler.xml'
@@ -129,6 +131,7 @@ class ProjectFileGenerator:
         target_path = self.project_info.project_absolute_path
         idea_dir = os.path.join(target_path, _IDEA_FOLDER)
         copyright_dir = os.path.join(idea_dir, _COPYRIGHT_FOLDER)
+        inspection_dir = os.path.join(idea_dir, _INSPECTION_FOLDER)
         code_style_dir = os.path.join(idea_dir, _CODE_STYLE_FOLDER)
         common_util.file_generate(
             os.path.join(idea_dir, _COMPILE_XML), templates.XML_COMPILER)
@@ -138,7 +141,13 @@ class ProjectFileGenerator:
             os.path.join(copyright_dir, _APACHE_2_XML), templates.XML_APACHE_2)
         common_util.file_generate(
             os.path.join(copyright_dir, _PROFILES_SETTINGS_XML),
-            templates.XML_PROFILES_SETTINGS)
+            templates.XML_COPYRIGHT_PROFILES_SETTINGS)
+        common_util.file_generate(
+            os.path.join(inspection_dir, _PROFILES_SETTINGS_XML),
+            templates.XML_INSPECTION_PROFILES_SETTINGS)
+        common_util.file_generate(
+            os.path.join(inspection_dir, _INSPECTION_CONFIG_XML),
+            templates.XML_INSPECTIONS)
         common_util.file_generate(
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
             templates.XML_CODE_STYLE_CONFIG)
@@ -252,22 +261,17 @@ def _get_all_git_path(root_path):
 def _generate_git_ignore(target_folder):
     """Generate .gitignore file.
 
-    In target_folder, if there's no .gitignore file, uses symlink() to generate
-    one to hide project content files from git.
+    In target_folder, if there's no .gitignore file, generate one to hide
+    project content files from git.
 
     Args:
         target_folder: An absolute path string of target folder.
     """
-    # TODO(b/133639849): Provide a common method to create symbolic link.
     # TODO(b/133641803): Move out aidegen artifacts from Android repo.
     try:
         gitignore_abs_path = os.path.join(target_folder, _GITIGNORE_FILE_NAME)
-        rel_target = os.path.relpath(gitignore_abs_path, os.getcwd())
-        rel_source = os.path.relpath(_GITIGNORE_ABS_PATH, target_folder)
-        logging.debug('Relative target symlink path: %s.', rel_target)
-        logging.debug('Relative ignore_template source path: %s.', rel_source)
         if not os.path.exists(gitignore_abs_path):
-            os.symlink(rel_source, rel_target)
+            shutil.copy(_GITIGNORE_ABS_PATH, gitignore_abs_path)
     except OSError as err:
         logging.error('Not support to run aidegen on Windows.\n %s', err)
 

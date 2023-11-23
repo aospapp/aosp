@@ -153,7 +153,8 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
         mEapAuthenticator.processEapMessage(EAP_MSCHAP_V2_CHALLENGE_REQUEST);
         mTestLooper.dispatchAll();
 
-        verify(mMockCallback).onResponse(eq(EAP_MSCHAP_V2_CHALLENGE_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_MSCHAP_V2_CHALLENGE_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verify(mMockSecureRandom).nextBytes(any(byte[].class));
         verifyNoMoreInteractions(mMockCallback);
     }
@@ -162,7 +163,8 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
         mEapAuthenticator.processEapMessage(EAP_MSCHAP_V2_SUCCESS_REQUEST);
         mTestLooper.dispatchAll();
 
-        verify(mMockCallback).onResponse(eq(EAP_MSCHAP_V2_SUCCESS_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_MSCHAP_V2_SUCCESS_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -170,7 +172,8 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
         mEapAuthenticator.processEapMessage(EAP_MSCHAP_V2_FAILURE_REQUEST);
         mTestLooper.dispatchAll();
 
-        verify(mMockCallback).onResponse(eq(EAP_MSCHAP_V2_FAILURE_RESPONSE));
+        verify(mMockCallback)
+                .onResponse(eq(EAP_MSCHAP_V2_FAILURE_RESPONSE), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 }

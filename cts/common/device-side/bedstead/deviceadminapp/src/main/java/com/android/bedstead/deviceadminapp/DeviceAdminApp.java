@@ -16,10 +16,12 @@
 
 package com.android.bedstead.deviceadminapp;
 
+import android.app.admin.DelegatedAdminReceiver;
 import android.app.admin.DeviceAdminReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 
+import com.android.eventlib.premade.EventLibDelegatedAdminReceiver;
 import com.android.eventlib.premade.EventLibDeviceAdminReceiver;
 
 /**
@@ -31,5 +33,11 @@ public class DeviceAdminApp {
     public static ComponentName deviceAdminComponentName(Context context) {
         return new ComponentName(
                 context.getPackageName(), EventLibDeviceAdminReceiver.class.getName());
+    }
+
+    /** Get the {@link ComponentName} for the {@link DelegatedAdminReceiver} subclass. */
+    public static ComponentName delegatedAdminComponentName(Context context) {
+        return new ComponentName(
+                context.getPackageName(), EventLibDelegatedAdminReceiver.class.getName());
     }
 }

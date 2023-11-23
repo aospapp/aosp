@@ -19,12 +19,13 @@ package com.android.car.settings.notifications;
 
 
 import static com.android.internal.notification.NotificationAccessConfirmationActivityContract.EXTRA_COMPONENT_NAME;
-import static com.android.internal.notification.NotificationAccessConfirmationActivityContract.EXTRA_PACKAGE_TITLE;
 
 import android.Manifest;
 import android.annotation.Nullable;
 import android.app.NotificationManager;
 import android.content.ComponentName;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.os.Bundle;
@@ -66,21 +67,39 @@ public class NotificationAccessConfirmationActivity extends FragmentActivity {
                 mRejectListener,
                 /* neutralListener= */ null);
 
-
         mComponentName = getIntent().getParcelableExtra(EXTRA_COMPONENT_NAME);
-        String pkgTitle = getIntent().getStringExtra(EXTRA_PACKAGE_TITLE);
-        if (TextUtils.isEmpty(pkgTitle)) {
-            LOG.e(EXTRA_PACKAGE_TITLE + " is empty");
+        CharSequence mAppLabel;
+
+        if (mComponentName == null || mComponentName.getPackageName() == null) {
             finish();
+            return;
+        }
+
+        try {
+            ApplicationInfo applicationInfo = getPackageManager().getApplicationInfo(
+                    mComponentName.getPackageName(), 0);
+            mAppLabel = applicationInfo.loadSafeLabel(getPackageManager(),
+                    PackageItemInfo.DEFAULT_MAX_LABEL_SIZE_PX,
+                    PackageItemInfo.SAFE_LABEL_FLAG_TRIM
+                            | PackageItemInfo.SAFE_LABEL_FLAG_FIRST_LINE);
+        } catch (PackageManager.NameNotFoundException e) {
+            LOG.e("Couldn't find app with package name for " + mComponentName, e);
+            finish();
+            return;
+        }
+
+        if (TextUtils.isEmpty(mAppLabel)) {
+            finish();
+            return;
         }
 
         ConfirmationDialogFragment confirmationDialogFragment =
                 new ConfirmationDialogFragment.Builder(this)
                         .setTitle(getString(R.string.notification_listener_security_warning_title,
-                                pkgTitle))
+                                mAppLabel))
                         .setMessage(
                                 getString(R.string.notification_listener_security_warning_summary,
-                                        pkgTitle))
+                                        mAppLabel))
                         .setPositiveButton(R.string.allow, mConfirmListener)
                         .setNegativeButton(R.string.deny, mRejectListener)
                         .build();

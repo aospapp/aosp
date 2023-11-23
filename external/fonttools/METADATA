@@ -10,13 +10,14 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/fonttools/fonttools/archive/4.22.0.zip"
+    value: "https://github.com/fonttools/fonttools/archive/4.31.2.zip"
   }
-  version: "4.22.0"
+  version: "4.31.2"
   license_type: BY_EXCEPTION_ONLY
+  license_note: "contains OFL fonts"
   last_upgrade_date {
-    year: 2021
-    month: 4
-    day: 1
+    year: 2022
+    month: 3
+    day: 25
   }
 }

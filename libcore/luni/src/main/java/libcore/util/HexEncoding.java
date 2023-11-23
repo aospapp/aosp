@@ -25,7 +25,6 @@ import android.annotation.SystemApi;
  * @hide
  */
 @SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public class HexEncoding {
 
     private static final char[] LOWER_CASE_DIGITS = {
@@ -50,7 +49,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte b, boolean upperCase) {
         char[] digits = upperCase ? UPPER_CASE_DIGITS : LOWER_CASE_DIGITS;
         char[] buf = new char[2]; // We always want two digits.
@@ -68,7 +66,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data) {
         return encode(data, 0, data.length, true /* upperCase */);
     }
@@ -84,7 +81,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data, boolean upperCase) {
         return encode(data, 0, data.length, upperCase);
     }
@@ -100,7 +96,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data, int offset, int len) {
         return encode(data, offset, len, true /* upperCase */);
     }
@@ -130,7 +125,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte[] data) {
         return encodeToString(data, true /* upperCase */);
     }
@@ -146,7 +140,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte[] data, boolean upperCase) {
         return new String(encode(data, upperCase));
     }
@@ -163,7 +156,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(String encoded) throws IllegalArgumentException {
         return decode(encoded.toCharArray());
     }
@@ -182,7 +174,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(String encoded, boolean allowSingleChar)
             throws IllegalArgumentException {
         return decode(encoded.toCharArray(), allowSingleChar);
@@ -200,7 +191,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(char[] encoded) throws IllegalArgumentException {
         return decode(encoded, false);
     }
@@ -219,7 +209,6 @@ public class HexEncoding {
      * @hide
      */
     @SystemApi(client = MODULE_LIBRARIES)
-    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(char[] encoded, boolean allowSingleChar)
             throws IllegalArgumentException {
         int encodedLength = encoded.length;

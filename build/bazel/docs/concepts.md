@@ -4,6 +4,9 @@ This document provides high level explanations and mapping of the internal
 build system components and concepts of the Android build system and Bazel,
 and how components communicate with each other.
 
+For implementation concepts, see:
+https://android.googlesource.com/platform/build/bazel/+/refs/heads/master/docs/internal_concepts.md.
+
 ## High level components
 
 This table provides a high level overview of the components in the current

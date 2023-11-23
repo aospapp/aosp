@@ -99,7 +99,7 @@ public class RespondViaSmsSettings extends PreferenceActivity
         Log.d(this, "  preference = '%s'", preference);
         Log.d(this, "  newValue = '%s'", newValue);
 
-        EditTextPreference pref = (EditTextPreference) preference;
+        EditTextPreference pref = (EditTextPreference)findPreference(preference.getKey());
 
         // Copy the new text over to the title, just like in onCreate().
         // (Watch out: onPreferenceChange() is called *before* the

@@ -117,6 +117,9 @@ Adjust the number of mounts after which the filesystem will be checked by
 .BR e2fsck (8).
 If
 .I max-mount-counts
+is the string "random", tune2fs will use a random value between 20 and 40.
+If
+.I max-mount-counts
 is 0 or \-1, the number of times the filesystem is mounted will be disregarded
 by
 .BR e2fsck (8)
@@ -127,21 +130,13 @@ checked will avoid all filesystems being checked at one time
 when using journaled filesystems.
 .sp
 Mount-count-dependent checking is disabled by default to avoid
-unanticipated long reboots while e2fsck does its work.  However,
-you may wish to consider the consequences of disabling
-mount-count-dependent checking entirely.  Bad disk drives, cables,
-memory, and kernel bugs could all corrupt a filesystem without
-marking the filesystem dirty or in error.  If you are using
-journaling on your filesystem, your filesystem will
-.B never
-be marked dirty, so it will not normally be checked.  A
-filesystem error detected by the kernel will still force
-an fsck on the next reboot, but it may already be too late
-to prevent data loss at that point.
-.sp
-See also the
-.B \-i
-option for time-dependent checking.
+unanticipated long reboots while e2fsck does its work.  If you
+are concerned about file system corruptions caused by potential hardware
+problems of kernel bugs, a better solution than mount-count-dependent
+checking is to use the
+.BR e2scrub (8)
+program.  This does require placing the file system on an LVM volume,
+however.
 .TP
 .BI \-C " mount-count"
 Set the number of times the filesystem has been mounted.
@@ -323,7 +318,13 @@ consistency first using
 .BR e2fsck (8).
 This operation can also take a while and the file system can be
 corrupted and data lost if it is interrupted while in the middle of
-converting the file system.
+converting the file system.  Backing up the file system before changing
+inode size is recommended.
+.IP
+File systems with an inode size of 128 bytes do not support timestamps
+beyond January 19, 2038.  Inodes which are 256 bytes or larger will
+support extended timestamps, project id's, and the ability to store some
+extended attributes in the inode table for improved performance.
 .TP
 .B \-j
 Add an ext3 journal to the filesystem.  If the
@@ -374,6 +375,27 @@ megabytes.   The size of the journal must be at least 1024 filesystem blocks
 and may be no more than 10,240,000 filesystem blocks.
 There must be enough free space in the filesystem to create a journal of
 that size.
+.TP
+.BI fast_commit_size= fast-commit-size
+Create an additional fast commit journal area of size
+.I fast-commit-size
+kilobytes.
+This option is only valid if
+.B fast_commit
+feature is enabled
+on the file system. If this option is not specified and if
+.B fast_commit
+feature is turned on, fast commit area size defaults to
+.I journal-size
+/ 64 megabytes. The total size of the journal with
+.B fast_commit
+feature set is
+.I journal-size
++ (
+.I fast-commit-size
+* 1024) megabytes. The total journal size may be no more than
+10,240,000 filesystem blocks or half the total file system size
+(whichever is smaller).
 .TP
 .BI location =journal-location
 Specify the location of the journal.  The argument
@@ -609,6 +631,10 @@ Setting the filesystem feature is equivalent to using the
 .B \-j
 option.
 .TP
+.TP
+.B fast_commit
+Enable fast commit journaling feature to improve fsync latency.
+.TP
 .B large_dir
 Increase the limit on the number of files per directory.
 .B Tune2fs
@@ -650,6 +676,13 @@ only supports clearing this filesystem feature.
 .TP
 .B sparse_super
 Limit the number of backup superblocks to save space on large filesystems.
+.B Tune2fs
+currently only supports setting this filesystem feature.
+.TP
+.B stable_inodes
+Prevent the filesystem from being shrunk or having its UUID changed, in order to
+allow the use of specialized encryption settings that make use of the inode
+numbers and UUID.
 .B Tune2fs
 currently only supports setting this filesystem feature.
 .TP

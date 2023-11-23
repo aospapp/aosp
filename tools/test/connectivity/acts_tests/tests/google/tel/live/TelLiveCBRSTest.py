@@ -30,14 +30,21 @@ from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_FOR_CBRS_DATA_SWIT
 from acts_contrib.test_utils.tel.tel_defines import EventActiveDataSubIdChanged
 from acts_contrib.test_utils.tel.tel_defines import NetworkCallbackAvailable
 from acts_contrib.test_utils.tel.tel_defines import EventNetworkCallback
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_logger
+from acts_contrib.test_utils.tel.tel_logging_utils import start_qxdm_loggers
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import is_phone_not_in_call
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_3g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_2g
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_csfb
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_not_iwlan
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_idle_volte
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_general
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte_for_subscription
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_cdma
+from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_voice_2g
+from acts_contrib.test_utils.tel.tel_subscription_utils import get_cbrs_and_default_sub_id
 from acts_contrib.test_utils.tel.tel_test_utils import get_phone_number
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call
-from acts_contrib.test_utils.tel.tel_test_utils import hangup_call_by_adb
-from acts_contrib.test_utils.tel.tel_test_utils import initiate_call
-from acts_contrib.test_utils.tel.tel_test_utils import is_phone_not_in_call
-from acts_contrib.test_utils.tel.tel_test_utils import wait_and_answer_call
-from acts_contrib.test_utils.tel.tel_test_utils import is_phone_in_call
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts_contrib.test_utils.tel.tel_test_utils import load_scone_cat_simulate_data
 from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_success_using_sl4a
 from acts_contrib.test_utils.tel.tel_test_utils import test_data_browsing_failure_using_sl4a
@@ -46,33 +53,25 @@ from acts_contrib.test_utils.tel.tel_test_utils import is_current_data_on_cbrs
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts_contrib.test_utils.tel.tel_test_utils import STORY_LINE
 from acts_contrib.test_utils.tel.tel_test_utils import get_device_epoch_time
-from acts_contrib.test_utils.tel.tel_test_utils import start_qxdm_logger
-from acts_contrib.test_utils.tel.tel_test_utils import wifi_toggle_state
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call
+from acts_contrib.test_utils.tel.tel_voice_utils import hangup_call_by_adb
+from acts_contrib.test_utils.tel.tel_voice_utils import initiate_call
+from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call
+from acts_contrib.test_utils.tel.tel_voice_utils import wait_and_answer_call
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_not_iwlan
 from acts_contrib.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_general
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_volte_for_subscription
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_cdma
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_3g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_2g
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_csfb
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_not_iwlan
-from acts_contrib.test_utils.tel.tel_voice_utils import phone_idle_volte
-from acts_contrib.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
-from acts_contrib.test_utils.tel.tel_subscription_utils import get_operatorname_from_slot_index
-from acts_contrib.test_utils.tel.tel_subscription_utils import get_cbrs_and_default_sub_id
+from acts_contrib.test_utils.tel.tel_wifi_utils import wifi_toggle_state
 from acts.utils import get_current_epoch_time
 from queue import Empty
 
 WAIT_TIME_BETWEEN_ITERATION = 5
 WAIT_TIME_BETWEEN_HANDOVER = 10
 TIME_PERMITTED_FOR_CBRS_SWITCH = 2
+
 
 class TelLiveCBRSTest(TelephonyBaseTest):
     def setup_class(self):

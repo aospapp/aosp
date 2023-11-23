@@ -27,7 +27,7 @@
     <dimen name="preview_theme_tile_size">14dp</dimen>
     <dimen name="preview_theme_shape_size">30dp</dimen>
 
-    <dimen name="options_container_width">400dp</dimen>
+    <dimen name="options_container_width">0dp</dimen>
     <dimen name="option_bottom_margin">8dp</dimen>
     <dimen name="option_tile_width">62dp</dimen>
     <dimen name="option_tile_padding_horizontal">7dp</dimen>

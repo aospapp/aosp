@@ -38,6 +38,7 @@ import android.system.OsConstants.SOCK_RAW
 import android.system.OsConstants.SOL_SOCKET
 import android.system.OsConstants.SO_RCVTIMEO
 import android.system.StructTimeval
+import com.android.net.module.util.InterfaceParams
 import com.android.net.module.util.Ipv6Utils
 import com.android.net.module.util.NetworkStackConstants.ETHER_ADDR_LEN
 import com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ANY

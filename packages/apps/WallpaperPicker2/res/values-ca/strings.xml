@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Estableix un fons de pantalla a"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Pantalla d\'inici"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Pantalla de bloqueig"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Pantalla d\'inici i de bloqueig"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Pantalles d\'inici i de bloqueig"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Fons de pantalla amb una imatge rotativa"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Per mostrar el fons de pantalla actual, <xliff:g id="APP_NAME">%1$s</xliff:g> necessita accedir a l\'emmagatzematge del teu dispositiu."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Per mostrar el fons de pantalla actual, l\'aplicació Fons de pantalla necessita accedir a l\'emmagatzematge del dispositiu.\n\nPots canviar aquesta opció de configuració a l\'apartat Permisos de la informació de l\'aplicació."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Previsualitza"</string>
     <string name="tab_info" msgid="818614080690111416">"Informació"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Personalitza"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Efectes"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Les meves fotos"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Configuració…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Suprimeix"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Vols suprimir aquest fons de pantalla del telèfon?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Fons de pantalla"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Previsualitz. fons de pantalla"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"La col·lecció no existeix"</string>
+    <string name="cancel" msgid="4970902691067201584">"Cancel·la"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Amaga la previsualització de IU"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"IU amagada a la prev. Doble toc per deixar d\'amagar."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Mostra la previsualització de IU"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"El tauler Personalitza es mostra"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"El tauler Informació està amagat"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"El tauler Informació es mostra"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Activa Fitxers i contingut multimèdia a la configuració."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Activa"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Obre les meves fotos"</string>
 </resources>

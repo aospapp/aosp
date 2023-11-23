@@ -36,6 +36,9 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl31.h>
 
+using android::base::guest::AutoReadLock;
+using android::base::guest::AutoWriteLock;
+
 void GLClientState::init() {
     m_initialized = false;
 
@@ -120,7 +123,7 @@ void GLClientState::init() {
     m_tex.activeUnit = &m_tex.unit[0];
     m_tex.textureRecs = NULL;
 
-    mRboState.boundRenderbuffer = 0;
+    mRboState.boundRenderbuffer = nullptr;
 
     mFboState.boundDrawFramebuffer = 0;
     mFboState.boundReadFramebuffer = 0;
@@ -1048,17 +1051,17 @@ void GLClientState::setLastEncodedBufferBind(GLenum target, GLuint id)
 }
 
 bool GLClientState::isTexture(GLuint tex_name) const {
-    return getTextureRec(tex_name);
+    return getTextureRec(tex_name) != nullptr;
 }
 
 bool GLClientState::isTextureWithStorage(GLuint tex_name) const {
-    TextureRec* rec = getTextureRec(tex_name);
+    TextureRec* rec = getTextureRecPtr(tex_name);
     if (!rec) return false;
     return rec->hasStorage;
 }
 
 bool GLClientState::isTextureCubeMap(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return false;
     switch (texrec->target) {
         case GL_TEXTURE_CUBE_MAP:
@@ -1200,7 +1203,7 @@ size_t GLClientState::pixelDataSize(GLsizei width, GLsizei height, GLsizei depth
             pack ? 0 : m_pixelStore.unpack_skip_images);
 }
 
-size_t GLClientState::pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const
+size_t GLClientState::pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack, int ignoreTrailing) const
 {
     if (width <= 0 || height <= 0 || depth <= 0) return 0;
 
@@ -1228,7 +1231,8 @@ size_t GLClientState::pboNeededDataSize(GLsizei width, GLsizei height, GLsizei d
             pack ? 0 : m_pixelStore.unpack_image_height,
             pack ? m_pixelStore.pack_skip_pixels : m_pixelStore.unpack_skip_pixels,
             pack ? m_pixelStore.pack_skip_rows : m_pixelStore.unpack_skip_rows,
-            pack ? 0 : m_pixelStore.unpack_skip_images);
+            pack ? 0 : m_pixelStore.unpack_skip_images,
+            ignoreTrailing);
 }
 
 
@@ -1442,9 +1446,10 @@ GLenum GLClientState::bindTexture(GLenum target, GLuint texture,
 {
     GLboolean first = GL_FALSE;
 
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) {
         texrec = addTextureRec(texture, target);
+        first = GL_TRUE;
     }
 
     if (texture && target != texrec->target &&
@@ -1492,7 +1497,7 @@ void GLClientState::setBoundEGLImage(GLenum target, GLeglImageOES image, int wid
         setBoundRenderbufferDimensions(width, height);
     } else {
         GLuint texture = getBoundTexture(target);
-        TextureRec* texrec = getTextureRec(texture);
+        TextureRec* texrec = getTextureRecPtr(texture);
         if (!texrec) return;
         texrec->boundEGLImage = true;
         setBoundTextureInternalFormat(target, GL_RGBA);
@@ -1521,36 +1526,52 @@ TextureRec* GLClientState::addTextureRec(GLuint id, GLenum target)
     tex->hasCubeNegZ = false;
     tex->hasCubePosZ = false;
 
-    (*(m_tex.textureRecs))[id] = tex;
+    AutoWriteLock guard(m_tex.textureRecs->lock);
+    m_tex.textureRecs->map[id] = std::shared_ptr<TextureRec>(tex);
     return tex;
 }
 
-TextureRec* GLClientState::getTextureRec(GLuint id) const {
+std::shared_ptr<TextureRec> GLClientState::getTextureRec(GLuint id) const {
+    AutoReadLock guard(m_tex.textureRecs->lock);
     SharedTextureDataMap::const_iterator it =
-        m_tex.textureRecs->find(id);
-    if (it == m_tex.textureRecs->end()) {
+        m_tex.textureRecs->map.find(id);
+    if (it == m_tex.textureRecs->map.end()) {
         return NULL;
     }
     return it->second;
 }
 
+TextureRec* GLClientState::getTextureRecPtrLocked(GLuint id) const {
+    SharedTextureDataMap::const_iterator it =
+        m_tex.textureRecs->map.find(id);
+    if (it == m_tex.textureRecs->map.end()) {
+        return NULL;
+    }
+    return it->second.get();
+}
+
+TextureRec* GLClientState::getTextureRecPtr(GLuint id) const {
+    AutoReadLock guard(m_tex.textureRecs->lock);
+    return getTextureRecPtrLocked(id);
+}
+
 void GLClientState::setBoundTextureInternalFormat(GLenum target, GLint internalformat) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
     texrec->internalformat = internalformat;
 }
 
 void GLClientState::setBoundTextureFormat(GLenum target, GLenum format) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
     texrec->format = format;
 }
 
 void GLClientState::setBoundTextureType(GLenum target, GLenum type) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
     texrec->type = type;
 }
@@ -1575,7 +1596,7 @@ static size_t textureDimArrayOfCubeTarget(GLenum cubetarget) {
 
 void GLClientState::setBoundTextureDims(GLenum target, GLenum cubetarget, GLsizei level, GLsizei width, GLsizei height, GLsizei depth) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) {
         return;
     }
@@ -1633,7 +1654,7 @@ void GLClientState::setBoundTextureDims(GLenum target, GLenum cubetarget, GLsize
 
 void GLClientState::setBoundTextureSamples(GLenum target, GLsizei samples) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
     texrec->multisamples = samples;
 }
@@ -1642,7 +1663,7 @@ void GLClientState::addTextureCubeMapImage(GLenum stateTarget, GLenum cubeTarget
     if (stateTarget != GL_TEXTURE_CUBE_MAP) return;
 
     GLuint texture = getBoundTexture(stateTarget);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
 
     switch (cubeTarget) {
@@ -1669,7 +1690,7 @@ void GLClientState::addTextureCubeMapImage(GLenum stateTarget, GLenum cubeTarget
 
 void GLClientState::setBoundTextureImmutableFormat(GLenum target) {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return;
     texrec->immutable = true;
     if (target == GL_TEXTURE_CUBE_MAP) {
@@ -1684,14 +1705,14 @@ void GLClientState::setBoundTextureImmutableFormat(GLenum target) {
 
 bool GLClientState::isBoundTextureImmutableFormat(GLenum target) const {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return false;
     return texrec->immutable;
 }
 
 bool GLClientState::isBoundTextureComplete(GLenum target) const {
     GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
+    TextureRec* texrec = getTextureRecPtr(texture);
     if (!texrec) return false;
 
     if (texrec->immutable) return true;
@@ -1904,25 +1925,27 @@ GLenum GLClientState::checkFramebufferAttachmentCompleteness(GLenum target, GLen
     if (!renderable) return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
 
     // Check dimensions
-    GLuint id;
+    std::shared_ptr<TextureRec> texrec;
+    std::shared_ptr<RboProps> rbo;
     switch (fbo_format_info.type) {
     case FBO_ATTACHMENT_RENDERBUFFER:
-        id = getFboAttachmentRboId(target, attachment);
+        rbo = getFboAttachmentRbo(target, attachment);
         if (!fbo_format_info.rb_external) {
-            if (0 == queryRboWidth(id) || 0 == queryRboHeight(id)) {
+            if (!rbo || 0 == rbo->width || 0 == rbo->height) {
                 ALOGD("%s: rbo has zero dimension\n", __func__);
                 return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
             }
         }
         break;
     case FBO_ATTACHMENT_TEXTURE:
-        id = getFboAttachmentTextureId(target, attachment);
+        texrec = getFboAttachmentTexture(target, attachment);
         if (!fbo_format_info.tex_external) {
-            if (0 == queryTexWidth(fbo_format_info.tex_level, id) || 0 == queryTexHeight(fbo_format_info.tex_level, id)) {
+            if (0 == texrec->dims->widths[fbo_format_info.tex_level] ||
+                    0 == texrec->dims->heights[fbo_format_info.tex_level]) {
                 ALOGD("%s: texture has zero dimension\n", __func__);
                 return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
             }
-            GLsizei depth = queryTexDepth(fbo_format_info.tex_level, id);
+            GLsizei depth = texrec->dims->depths[fbo_format_info.tex_level];
             if (fbo_format_info.tex_layer >= depth) {
                 ALOGD("%s: texture layer/zoffset too high, wanted %d but only have %d layers\n", __func__,
                       fbo_format_info.tex_layer, depth);
@@ -2042,13 +2065,13 @@ void GLClientState::deleteTextures(GLsizei n, const GLuint* textures)
     // - could swap deleted textures to the end and re-sort.
     TextureRec* texrec;
     for (const GLuint* texture = textures; texture != textures + n; texture++) {
-        texrec = getTextureRec(*texture);
+        AutoWriteLock guard(m_tex.textureRecs->lock);
+        texrec = getTextureRecPtrLocked(*texture);
         if (texrec && texrec->dims) {
             delete [] texrec->dims;
         }
         if (texrec) {
-            m_tex.textureRecs->erase(*texture);
-            delete texrec;
+            m_tex.textureRecs->map.erase(*texture);
             for (TextureUnit* unit = m_tex.unit;
                  unit != m_tex.unit + MAX_TEXTURE_UNITS;
                  unit++)
@@ -2079,24 +2102,19 @@ void GLClientState::addRenderbuffers(GLsizei n, GLuint* renderbuffers) {
 }
 
 void GLClientState::removeRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
-    std::vector<GLuint> to_remove;
-    for (size_t i = 0; i < n; i++) {
-        if (renderbuffers[i] != 0) { // Never remove the zero rb.
-            to_remove.push_back(renderbuffers[i]);
-            setFboCompletenessDirtyForRbo(renderbuffers[i]);
-        }
-    }
-
     bool unbindCurrent = false;
     {
         RenderbufferInfo::ScopedView view(mRboState.rboData);
-        for (size_t i = 0; i < to_remove.size(); i++) {
-            view.unref(to_remove[i]);
-        }
-        for (size_t i = 0; i < to_remove.size(); i++) {
-            if (mRboState.boundRenderbuffer == renderbuffers[i]) {
-                unbindCurrent = true;
-                break;
+        for (size_t i = 0; i < n; i++) {
+            if (renderbuffers[i] != 0) { // Never remove the zero rb.
+                auto rboPtr = view.get_shared_ptr(renderbuffers[i]);
+                if (!rboPtr) {
+                    continue;
+                }
+                unbindCurrent |=
+                        (mRboState.boundRenderbuffer == rboPtr);
+                setFboCompletenessDirtyForRbo(rboPtr);
+                view.remove(renderbuffers[i]);
             }
         }
     }
@@ -2117,97 +2135,40 @@ void GLClientState::bindRenderbuffer(GLenum target, GLuint name) {
 
     (void)target; // Must be GL_RENDERBUFFER
     RenderbufferInfo::ScopedView view(mRboState.rboData);
-    if (name != mRboState.boundRenderbuffer) {
-        view.unref(mRboState.boundRenderbuffer);
-    }
-
-    mRboState.boundRenderbuffer = name;
-
-    if (!name) return;
-
-    view.bind(name);
+    mRboState.boundRenderbuffer = view.bind(name);
 }
 
 GLuint GLClientState::boundRenderbuffer() const {
-    return mRboState.boundRenderbuffer;
+    return mRboState.boundRenderbuffer->id;
 }
 
 void GLClientState::setBoundRenderbufferFormat(GLenum format) {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    RboProps* props = view.get(mRboState.boundRenderbuffer);
-    if (!props) return;
-    props->format = format;
+    mRboState.boundRenderbuffer->format = format;
 }
 
 void GLClientState::setBoundRenderbufferSamples(GLsizei samples) {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    RboProps* props = view.get(mRboState.boundRenderbuffer);
-    if (!props) return;
-    props->multisamples = samples;
+    mRboState.boundRenderbuffer->multisamples = samples;
 }
 
 void GLClientState::setBoundRenderbufferDimensions(GLsizei width, GLsizei height) {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    RboProps* props = view.get(mRboState.boundRenderbuffer);
-    if (!props) return;
-    props->width = width;
-    props->height = height;
+    mRboState.boundRenderbuffer->width = width;
+    mRboState.boundRenderbuffer->height = height;
 }
 
 void GLClientState::setBoundRenderbufferEGLImageBacked() {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    RboProps* props = view.get(mRboState.boundRenderbuffer);
-    if (!props) return;
-    props->boundEGLImage = true;
+    mRboState.boundRenderbuffer->boundEGLImage = true;
 }
 
 // FBO//////////////////////////////////////////////////////////////////////////
 
-// Format querying
-
-GLenum GLClientState::queryRboFormat(GLuint rbo_name) const {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    const RboProps* props = view.get(rbo_name);
-    if (!props) return 0;
-    return props->format;
-}
-
-GLsizei GLClientState::queryRboSamples(GLuint rbo_name) const {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    const RboProps* props = view.get(rbo_name);
-    if (!props) return 0;
-    return props->multisamples;
-}
-
-GLsizei GLClientState::queryRboWidth(GLuint rbo_name) const {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    const RboProps* props = view.get(rbo_name);
-    if (!props) return 0;
-    return props->width;
-}
-
-GLsizei GLClientState::queryRboHeight(GLuint rbo_name) const {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    const RboProps* props = view.get(rbo_name);
-    if (!props) return 0;
-    return props->height;
-}
-
-bool GLClientState::queryRboEGLImageBacked(GLuint rbo_name) const {
-    RenderbufferInfo::ScopedView view(mRboState.rboData);
-    const RboProps* props = view.get(rbo_name);
-    if (!props) return 0;
-    return props->boundEGLImage;
-}
-
 GLint GLClientState::queryTexInternalFormat(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return -1;
     return texrec->internalformat;
 }
 
 GLsizei GLClientState::queryTexWidth(GLsizei level, GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) {
         return 0;
     }
@@ -2215,43 +2176,43 @@ GLsizei GLClientState::queryTexWidth(GLsizei level, GLuint tex_name) const {
 }
 
 GLsizei GLClientState::queryTexHeight(GLsizei level, GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return 0;
     return texrec->dims->heights[level];
 }
 
 GLsizei GLClientState::queryTexDepth(GLsizei level, GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return 0;
     return texrec->dims->depths[level];
 }
 
 bool GLClientState::queryTexEGLImageBacked(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return false;
     return texrec->boundEGLImage;
 }
 
 GLenum GLClientState::queryTexFormat(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return -1;
     return texrec->format;
 }
 
 GLenum GLClientState::queryTexType(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return -1;
     return texrec->type;
 }
 
 GLsizei GLClientState::queryTexSamples(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return 0;
     return texrec->multisamples;
 }
 
 GLenum GLClientState::queryTexLastBoundTarget(GLuint tex_name) const {
-    TextureRec* texrec = getTextureRec(tex_name);
+    TextureRec* texrec = getTextureRecPtr(tex_name);
     if (!texrec) return GL_NONE;
     return texrec->target;
 }
@@ -2277,29 +2238,23 @@ void GLClientState::getBoundFramebufferFormat(
     if (colorAttachmentIndex != -1) {
         if (props.colorAttachmenti_hasRbo[colorAttachmentIndex]) {
             res_info->type = FBO_ATTACHMENT_RENDERBUFFER;
-            res_info->rb_format =
-                queryRboFormat(
-                        props.colorAttachmenti_rbos[colorAttachmentIndex]);
+            res_info->rb_format = props.colorAttachmenti_rbos[colorAttachmentIndex]->format;
             res_info->rb_multisamples =
-                queryRboSamples(
-                        props.colorAttachmenti_rbos[colorAttachmentIndex]);
+                    props.colorAttachmenti_rbos[colorAttachmentIndex]->multisamples;
             res_info->rb_external =
-                queryRboEGLImageBacked(
-                        props.colorAttachmenti_rbos[colorAttachmentIndex]);
+                    props.colorAttachmenti_rbos[colorAttachmentIndex]->boundEGLImage;
         } else if (props.colorAttachmenti_hasTex[colorAttachmentIndex]) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
-            res_info->tex_external = queryTexEGLImageBacked(
-                    props.colorAttachmenti_textures[colorAttachmentIndex]);
+            res_info->tex_external =
+                    props.colorAttachmenti_textures[colorAttachmentIndex]->boundEGLImage;
             res_info->tex_internalformat =
-                queryTexInternalFormat(
-                        props.colorAttachmenti_textures[colorAttachmentIndex]);
+                    props.colorAttachmenti_textures[colorAttachmentIndex]->internalformat;
             res_info->tex_format =
-                queryTexFormat(
-                        props.colorAttachmenti_textures[colorAttachmentIndex]);
+                    props.colorAttachmenti_textures[colorAttachmentIndex]->format;
             res_info->tex_type =
-                queryTexType(props.colorAttachmenti_textures[colorAttachmentIndex]);
+                    props.colorAttachmenti_textures[colorAttachmentIndex]->type;
             res_info->tex_multisamples =
-                queryTexSamples(props.colorAttachmenti_textures[colorAttachmentIndex]);
+                    props.colorAttachmenti_textures[colorAttachmentIndex]->multisamples;
             res_info->tex_level = props.colorAttachmenti_texture_levels[colorAttachmentIndex];
             res_info->tex_layer = props.colorAttachmenti_texture_layers[colorAttachmentIndex];
         } else {
@@ -2311,21 +2266,16 @@ void GLClientState::getBoundFramebufferFormat(
     case GL_DEPTH_ATTACHMENT:
         if (props.depthAttachment_hasRbo) {
             res_info->type = FBO_ATTACHMENT_RENDERBUFFER;
-            res_info->rb_format = queryRboFormat(props.depthAttachment_rbo);
-            res_info->rb_multisamples =
-                queryRboSamples(
-                        props.depthAttachment_rbo);
-            res_info->rb_external =
-                queryRboEGLImageBacked(
-                        props.depthAttachment_rbo);
+            res_info->rb_format = props.depthAttachment_rbo->format;
+            res_info->rb_multisamples = props.depthAttachment_rbo->multisamples;
+            res_info->rb_external = props.depthAttachment_rbo->boundEGLImage;
         } else if (props.depthAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
-            res_info->tex_external = queryTexEGLImageBacked(props.depthAttachment_texture);
-            res_info->tex_internalformat = queryTexInternalFormat(props.depthAttachment_texture);
-            res_info->tex_format = queryTexFormat(props.depthAttachment_texture);
-            res_info->tex_type = queryTexType(props.depthAttachment_texture);
-            res_info->tex_multisamples =
-                queryTexSamples(props.depthAttachment_texture);
+            res_info->tex_external = props.depthAttachment_texture->boundEGLImage;
+            res_info->tex_internalformat = props.depthAttachment_texture->internalformat;
+            res_info->tex_format = props.depthAttachment_texture->format;
+            res_info->tex_type = props.depthAttachment_texture->type;
+            res_info->tex_multisamples = props.depthAttachment_texture->multisamples;
             res_info->tex_level = props.depthAttachment_texture_level;
             res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
@@ -2335,21 +2285,16 @@ void GLClientState::getBoundFramebufferFormat(
     case GL_STENCIL_ATTACHMENT:
         if (props.stencilAttachment_hasRbo) {
             res_info->type = FBO_ATTACHMENT_RENDERBUFFER;
-            res_info->rb_format = queryRboFormat(props.stencilAttachment_rbo);
-            res_info->rb_multisamples =
-                queryRboSamples(
-                        props.stencilAttachment_rbo);
-            res_info->rb_external =
-                queryRboEGLImageBacked(
-                        props.stencilAttachment_rbo);
+            res_info->rb_format = props.stencilAttachment_rbo->format;
+            res_info->rb_multisamples = props.stencilAttachment_rbo->multisamples;
+            res_info->rb_external = props.stencilAttachment_rbo->boundEGLImage;
         } else if (props.stencilAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
-            res_info->tex_external = queryTexEGLImageBacked(props.stencilAttachment_texture);
-            res_info->tex_internalformat = queryTexInternalFormat(props.stencilAttachment_texture);
-            res_info->tex_format = queryTexFormat(props.stencilAttachment_texture);
-            res_info->tex_type = queryTexType(props.stencilAttachment_texture);
-            res_info->tex_multisamples =
-                queryTexSamples(props.stencilAttachment_texture);
+            res_info->tex_external = props.stencilAttachment_texture->boundEGLImage;
+            res_info->tex_internalformat = props.stencilAttachment_texture->internalformat;
+            res_info->tex_format = props.stencilAttachment_texture->format;
+            res_info->tex_type = props.stencilAttachment_texture->type;
+            res_info->tex_multisamples = props.stencilAttachment_texture->multisamples;
             res_info->tex_level = props.depthAttachment_texture_level;
             res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
@@ -2359,21 +2304,16 @@ void GLClientState::getBoundFramebufferFormat(
     case GL_DEPTH_STENCIL_ATTACHMENT:
         if (props.depthstencilAttachment_hasRbo) {
             res_info->type = FBO_ATTACHMENT_RENDERBUFFER;
-            res_info->rb_format = queryRboFormat(props.depthstencilAttachment_rbo);
-            res_info->rb_multisamples =
-                queryRboSamples(
-                        props.depthstencilAttachment_rbo);
-            res_info->rb_external =
-                queryRboEGLImageBacked(
-                        props.depthstencilAttachment_rbo);
+            res_info->rb_format = props.depthstencilAttachment_rbo->format;
+            res_info->rb_multisamples = props.depthstencilAttachment_rbo->multisamples;
+            res_info->rb_external = props.depthstencilAttachment_rbo->boundEGLImage;
         } else if (props.depthstencilAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
-            res_info->tex_external = queryTexEGLImageBacked(props.depthstencilAttachment_texture);
-            res_info->tex_internalformat = queryTexInternalFormat(props.depthstencilAttachment_texture);
-            res_info->tex_format = queryTexFormat(props.depthstencilAttachment_texture);
-            res_info->tex_type = queryTexType(props.depthstencilAttachment_texture);
-            res_info->tex_multisamples =
-                queryTexSamples(props.depthstencilAttachment_texture);
+            res_info->tex_external = props.depthstencilAttachment_texture->boundEGLImage;
+            res_info->tex_internalformat = props.depthstencilAttachment_texture->internalformat;
+            res_info->tex_format = props.depthstencilAttachment_texture->format;
+            res_info->tex_type = props.depthstencilAttachment_texture->type;
+            res_info->tex_multisamples = props.depthstencilAttachment_texture->multisamples;
             res_info->tex_level = props.depthAttachment_texture_level;
             res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
@@ -2485,6 +2425,7 @@ void GLClientState::addFramebuffers(GLsizei n, GLuint* framebuffers) {
 }
 
 void GLClientState::removeFramebuffers(GLsizei n, const GLuint* framebuffers) {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
     for (size_t i = 0; i < n; i++) {
         if (framebuffers[i] != 0) { // Never remove the zero fb.
             if (framebuffers[i] == mFboState.boundDrawFramebuffer) {
@@ -2596,6 +2537,7 @@ void GLClientState::attachTextureObject(
         GLenum attachment, GLuint texture, GLint level, GLint layer) {
 
     bool attach = texture != 0;
+    std::shared_ptr<TextureRec> texrec = getTextureRec(texture);
 
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
@@ -2603,7 +2545,7 @@ void GLClientState::attachTextureObject(
     boundFboProps(target).completenessDirty = true;
 
     if (colorAttachmentIndex != -1) {
-        boundFboProps(target).colorAttachmenti_textures[colorAttachmentIndex] = texture;
+        boundFboProps(target).colorAttachmenti_textures[colorAttachmentIndex] = texrec;
         boundFboProps(target).colorAttachmenti_texture_levels[colorAttachmentIndex] = level;
         boundFboProps(target).colorAttachmenti_texture_layers[colorAttachmentIndex] = layer;
         boundFboProps(target).colorAttachmenti_hasTex[colorAttachmentIndex] = attach;
@@ -2611,23 +2553,23 @@ void GLClientState::attachTextureObject(
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
-        boundFboProps(target).depthAttachment_texture = texture;
+        boundFboProps(target).depthAttachment_texture = texrec;
         boundFboProps(target).depthAttachment_texture_level = level;
         boundFboProps(target).depthAttachment_texture_layer = layer;
         boundFboProps(target).depthAttachment_hasTexObj = attach;
         break;
     case GL_STENCIL_ATTACHMENT:
-        boundFboProps(target).stencilAttachment_texture = texture;
+        boundFboProps(target).stencilAttachment_texture = texrec;
         boundFboProps(target).stencilAttachment_texture_level = level;
         boundFboProps(target).stencilAttachment_texture_layer = layer;
         boundFboProps(target).stencilAttachment_hasTexObj = attach;
         break;
     case GL_DEPTH_STENCIL_ATTACHMENT:
-        boundFboProps(target).depthstencilAttachment_texture = texture;
+        boundFboProps(target).depthstencilAttachment_texture = texrec;
         boundFboProps(target).depthstencilAttachment_hasTexObj = attach;
-        boundFboProps(target).stencilAttachment_texture = texture;
+        boundFboProps(target).stencilAttachment_texture = texrec;
         boundFboProps(target).stencilAttachment_hasTexObj = attach;
-        boundFboProps(target).depthAttachment_texture = texture;
+        boundFboProps(target).depthAttachment_texture = texrec;
         boundFboProps(target).depthAttachment_hasTexObj = attach;
         boundFboProps(target).depthAttachment_texture_level = level;
         boundFboProps(target).depthAttachment_texture_layer = layer;
@@ -2637,8 +2579,8 @@ void GLClientState::attachTextureObject(
     }
 }
 
-GLuint GLClientState::getFboAttachmentTextureId(GLenum target, GLenum attachment) const {
-    GLuint res = 0; // conservative
+std::shared_ptr<TextureRec> GLClientState::getFboAttachmentTexture(GLenum target, GLenum attachment) const {
+    std::shared_ptr<TextureRec> res = {}; // conservative
 
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
@@ -2685,43 +2627,46 @@ void GLClientState::detachRboFromFbo(GLenum target, GLenum attachment, GLuint re
 
     boundFboProps(target).completenessDirty = true;
 
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    auto renderBufferSharedPtr = view.get_shared_ptr(renderbuffer);
     if (colorAttachmentIndex != -1) {
         if (boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] &&
-            boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] == renderbuffer) {
-            boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] = 0;
+            boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex]
+                    == renderBufferSharedPtr) {
+            boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] = nullptr;
             boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] = false;
         }
     }
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
-        if (boundFboProps(target).depthAttachment_rbo == renderbuffer &&
+        if (boundFboProps(target).depthAttachment_rbo == renderBufferSharedPtr &&
             boundFboProps(target).depthAttachment_hasRbo) {
-            boundFboProps(target).depthAttachment_rbo = 0;
+            boundFboProps(target).depthAttachment_rbo = nullptr;
             boundFboProps(target).depthAttachment_hasRbo = false;
         }
         break;
     case GL_STENCIL_ATTACHMENT:
-        if (boundFboProps(target).stencilAttachment_rbo == renderbuffer &&
+        if (boundFboProps(target).stencilAttachment_rbo == renderBufferSharedPtr &&
             boundFboProps(target).stencilAttachment_hasRbo) {
-            boundFboProps(target).stencilAttachment_rbo = 0;
+            boundFboProps(target).stencilAttachment_rbo = nullptr;
             boundFboProps(target).stencilAttachment_hasRbo = false;
         }
         break;
     case GL_DEPTH_STENCIL_ATTACHMENT:
-        if (boundFboProps(target).depthAttachment_rbo == renderbuffer &&
+        if (boundFboProps(target).depthAttachment_rbo == renderBufferSharedPtr &&
             boundFboProps(target).depthAttachment_hasRbo) {
-            boundFboProps(target).depthAttachment_rbo = 0;
+            boundFboProps(target).depthAttachment_rbo = nullptr;
             boundFboProps(target).depthAttachment_hasRbo = false;
         }
-        if (boundFboProps(target).stencilAttachment_rbo == renderbuffer &&
+        if (boundFboProps(target).stencilAttachment_rbo == renderBufferSharedPtr &&
             boundFboProps(target).stencilAttachment_hasRbo) {
-            boundFboProps(target).stencilAttachment_rbo = 0;
+            boundFboProps(target).stencilAttachment_rbo = nullptr;
             boundFboProps(target).stencilAttachment_hasRbo = false;
         }
-        if (boundFboProps(target).depthstencilAttachment_rbo == renderbuffer &&
+        if (boundFboProps(target).depthstencilAttachment_rbo == renderBufferSharedPtr &&
             boundFboProps(target).depthstencilAttachment_hasRbo) {
-            boundFboProps(target).depthstencilAttachment_rbo = 0;
+            boundFboProps(target).depthstencilAttachment_rbo = nullptr;
             boundFboProps(target).depthstencilAttachment_hasRbo = false;
         }
         break;
@@ -2737,62 +2682,62 @@ void GLClientState::attachRbo(GLenum target, GLenum attachment, GLuint renderbuf
 
     boundFboProps(target).completenessDirty = true;
 
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    auto rboSharedPtr = view.get_or_add_shared_ptr(renderbuffer);
     if (colorAttachmentIndex != -1) {
-        boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] = renderbuffer;
+        boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] = rboSharedPtr;
         boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] = attach;
     }
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
-        boundFboProps(target).depthAttachment_rbo = renderbuffer;
+        boundFboProps(target).depthAttachment_rbo = rboSharedPtr;
         boundFboProps(target).depthAttachment_hasRbo = attach;
         break;
     case GL_STENCIL_ATTACHMENT:
-        boundFboProps(target).stencilAttachment_rbo = renderbuffer;
+        boundFboProps(target).stencilAttachment_rbo = rboSharedPtr;
         boundFboProps(target).stencilAttachment_hasRbo = attach;
         break;
     case GL_DEPTH_STENCIL_ATTACHMENT:
-        boundFboProps(target).depthAttachment_rbo = renderbuffer;
+        boundFboProps(target).depthAttachment_rbo = rboSharedPtr;
         boundFboProps(target).depthAttachment_hasRbo = attach;
-        boundFboProps(target).stencilAttachment_rbo = renderbuffer;
+        boundFboProps(target).stencilAttachment_rbo = rboSharedPtr;
         boundFboProps(target).stencilAttachment_hasRbo = attach;
-        boundFboProps(target).depthstencilAttachment_rbo = renderbuffer;
+        boundFboProps(target).depthstencilAttachment_rbo = rboSharedPtr;
         boundFboProps(target).depthstencilAttachment_hasRbo = attach;
         break;
     }
 }
 
-GLuint GLClientState::getFboAttachmentRboId(GLenum target, GLenum attachment) const {
-    GLuint res = 0; // conservative
-
+std::shared_ptr<RboProps> GLClientState::getFboAttachmentRbo(GLenum target, GLenum attachment) const {
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
 
     if (colorAttachmentIndex != -1) {
-        res = boundFboProps_const(target).colorAttachmenti_rbos[colorAttachmentIndex];
+        return boundFboProps_const(target).colorAttachmenti_rbos[colorAttachmentIndex];
     }
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
-        res = boundFboProps_const(target).depthAttachment_rbo;
-        break;
+        return  boundFboProps_const(target).depthAttachment_rbo;
     case GL_STENCIL_ATTACHMENT:
-        res = boundFboProps_const(target).stencilAttachment_rbo;
-        break;
+        return  boundFboProps_const(target).stencilAttachment_rbo;
     case GL_DEPTH_STENCIL_ATTACHMENT:
-        res = boundFboProps_const(target).depthstencilAttachment_rbo;
-        break;
+        return  boundFboProps_const(target).depthstencilAttachment_rbo;
     }
-    return res;
+
+    // Bad attachment enum. Should be unreachable.
+    return nullptr;
 }
 
 void GLClientState::setFboCompletenessDirtyForTexture(GLuint texture) {
+    std::shared_ptr<TextureRec> texrec = getTextureRec(texture);
     std::map<GLuint, FboProps>::iterator it = mFboState.fboData.begin();
     while (it != mFboState.fboData.end()) {
         FboProps& props = it->second;
         for (int i = 0; i < m_hostDriverCaps.max_color_attachments; ++i) {
             if (props.colorAttachmenti_hasTex[i]) {
-                if (texture == props.colorAttachmenti_textures[i]) {
+                if (texrec == props.colorAttachmenti_textures[i]) {
                     props.completenessDirty = true;
                     return;
                 }
@@ -2800,21 +2745,21 @@ void GLClientState::setFboCompletenessDirtyForTexture(GLuint texture) {
         }
 
         if (props.depthAttachment_hasTexObj) {
-            if (texture == props.depthAttachment_texture) {
+            if (texrec == props.depthAttachment_texture) {
                     props.completenessDirty = true;
                     return;
             }
         }
 
         if (props.stencilAttachment_hasTexObj) {
-            if (texture == props.stencilAttachment_texture) {
+            if (texrec == props.stencilAttachment_texture) {
                 props.completenessDirty = true;
                 return;
             }
         }
 
         if (props.depthstencilAttachment_hasTexObj) {
-            if (texture == props.depthstencilAttachment_texture) {
+            if (texrec == props.depthstencilAttachment_texture) {
                 props.completenessDirty = true;
                 return;
             }
@@ -2823,12 +2768,12 @@ void GLClientState::setFboCompletenessDirtyForTexture(GLuint texture) {
     }
 }
 
-void GLClientState::setFboCompletenessDirtyForRbo(GLuint rbo) {
+void GLClientState::setFboCompletenessDirtyForRbo(std::shared_ptr<RboProps> rbo) {
     std::map<GLuint, FboProps>::iterator it = mFboState.fboData.begin();
     while (it != mFboState.fboData.end()) {
         FboProps& props = it->second;
         for (int i = 0; i < m_hostDriverCaps.max_color_attachments; ++i) {
-            if (props.colorAttachmenti_hasTex[i]) {
+            if (props.colorAttachmenti_hasRbo[i]) {
                 if (rbo == props.colorAttachmenti_rbos[i]) {
                     props.completenessDirty = true;
                     return;
@@ -2836,14 +2781,14 @@ void GLClientState::setFboCompletenessDirtyForRbo(GLuint rbo) {
             }
         }
 
-        if (props.depthAttachment_hasTexObj) {
+        if (props.depthAttachment_hasRbo) {
             if (rbo == props.depthAttachment_rbo) {
                     props.completenessDirty = true;
                     return;
             }
         }
 
-        if (props.stencilAttachment_hasTexObj) {
+        if (props.stencilAttachment_hasRbo) {
             if (rbo == props.stencilAttachment_rbo) {
                 props.completenessDirty = true;
                 return;
@@ -2888,51 +2833,21 @@ bool GLClientState::attachmentHasObject(GLenum target, GLenum attachment) const 
     return res;
 }
 
-GLuint GLClientState::objectOfAttachment(GLenum target, GLenum attachment) const {
+bool GLClientState::depthStencilHasSameObject(GLenum target) const {
     const FboProps& props = boundFboProps_const(target);
 
-    int colorAttachmentIndex =
-        glUtilsColorAttachmentIndex(attachment);
-
-    if (colorAttachmentIndex != -1) {
-        if (props.colorAttachmenti_hasTex[colorAttachmentIndex]) {
-            return props.colorAttachmenti_textures[colorAttachmentIndex];
-        } else if (props.colorAttachmenti_hasRbo[colorAttachmentIndex]) {
-            return props.colorAttachmenti_rbos[colorAttachmentIndex];
-        } else {
-            return 0;
-        }
+    if (props.depthAttachment_hasTexObj != props.stencilAttachment_hasTexObj
+            || props.depthAttachment_hasRbo != props.stencilAttachment_hasRbo) {
+        return false;
     }
-
-    switch (attachment) {
-    case GL_DEPTH_ATTACHMENT:
-        if (props.depthAttachment_hasTexObj) {
-            return props.depthAttachment_texture;
-        } else if (props.depthAttachment_hasRbo) {
-            return props.depthAttachment_rbo;
-        } else {
-            return 0;
-        }
-        break;
-    case GL_STENCIL_ATTACHMENT:
-        if (props.stencilAttachment_hasTexObj) {
-            return props.stencilAttachment_texture;
-        } else if (props.stencilAttachment_hasRbo) {
-            return props.stencilAttachment_rbo;
-        } else {
-            return 0;
-        }
-    case GL_DEPTH_STENCIL_ATTACHMENT:
-        if (props.depthstencilAttachment_hasTexObj) {
-            return props.depthstencilAttachment_texture;
-        } else if (props.depthstencilAttachment_hasRbo) {
-            return props.depthstencilAttachment_rbo;
-        } else {
-            return 0;
-        }
-        break;
+    if (props.depthAttachment_hasTexObj) {
+        return props.depthAttachment_texture == props.stencilAttachment_texture;
     }
-    return 0;
+    if (props.depthAttachment_hasRbo) {
+        return props.depthAttachment_rbo == props.stencilAttachment_rbo;
+    }
+    // No attachment in either
+    return true;
 }
 
 void GLClientState::setTransformFeedbackActive(bool active) {
@@ -3007,6 +2922,11 @@ void GLClientState::setTextureData(SharedTextureDataMap* sharedTexData) {
 
 void GLClientState::setRenderbufferInfo(RenderbufferInfo* rbInfo) {
     mRboState.rboData = rbInfo;
+    if (rbInfo) {
+        RenderbufferInfo::ScopedView view(mRboState.rboData);
+        auto rbo = view.get_or_add_shared_ptr(0);
+        mRboState.boundRenderbuffer = rbo;
+    }
 }
 
 void GLClientState::setSamplerInfo(SamplerInfo* samplerInfo) {
@@ -3023,6 +2943,19 @@ bool GLClientState::compressedTexImageSizeCompatible(GLenum internalformat, GLsi
 void GLClientState::fromMakeCurrent() {
     if (mFboState.fboData.find(0) == mFboState.fboData.end()) {
         addFreshFramebuffer(0);
+        FboProps& default_fb_props = mFboState.fboData[0];
+        default_fb_props.colorAttachmenti_hasRbo[0] = true;
+        default_fb_props.depthAttachment_hasRbo = true;
+        default_fb_props.stencilAttachment_hasRbo = true;
+        default_fb_props.depthstencilAttachment_hasRbo = true;
+        RenderbufferInfo::ScopedView view(mRboState.rboData);
+        // Use RBO 0 as placeholder
+        auto rbo0 = view.get_or_add_shared_ptr(0);
+        default_fb_props.colorAttachmenti_rbos[0] = rbo0;
+        default_fb_props.depthAttachment_rbo = rbo0;
+        default_fb_props.stencilAttachment_rbo = rbo0;
+        default_fb_props.depthstencilAttachment_rbo = rbo0;
+
     }
 
     if (!samplerExists(0)) {
@@ -3030,11 +2963,6 @@ void GLClientState::fromMakeCurrent() {
         setExistence(ObjectType::Sampler, true, 1, &id);
     }
 
-    FboProps& default_fb_props = mFboState.fboData[0];
-    default_fb_props.colorAttachmenti_hasRbo[0] = true;
-    default_fb_props.depthAttachment_hasRbo = true;
-    default_fb_props.stencilAttachment_hasRbo = true;
-    default_fb_props.depthstencilAttachment_hasRbo = true;
 }
 
 void GLClientState::initFromCaps(
@@ -3112,20 +3040,20 @@ struct FenceRegistry {
     PredicateMap<uint64_t, false> existence;
 
     void onFenceCreated(GLsync sync) {
-        AutoLock scopedLock(lock);
+        AutoLock<Lock> scopedLock(lock);
         uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
         existence.add(asUint64);
         existence.set(asUint64, true);
     }
 
     void onFenceDestroyed(GLsync sync) {
-        AutoLock scopedLock(lock);
+        AutoLock<Lock> scopedLock(lock);
         uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
         existence.remove(asUint64);
     }
 
     bool exists(GLsync sync) {
-        AutoLock scopedLock(lock);
+        AutoLock<Lock> scopedLock(lock);
         uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
         return existence.get(asUint64);
     }

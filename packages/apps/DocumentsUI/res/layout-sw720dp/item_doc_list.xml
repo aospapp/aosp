@@ -110,7 +110,7 @@
                     android:ellipsize="middle"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Subhead"
+                    android:textAppearance="@style/Subhead"
                     android:textColor="?android:attr/textColorPrimary"/>
             </LinearLayout>
 
@@ -123,7 +123,7 @@
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:textAlignment="viewStart"
-                android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Body1"
+                android:textAppearance="@style/Body1"
                 android:textColor="?android:attr/textColorSecondary" />
 
             <TextView
@@ -136,7 +136,7 @@
                 android:minWidth="70dp"
                 android:singleLine="true"
                 android:textAlignment="viewEnd"
-                android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Body1"
+                android:textAppearance="@style/Body1"
                 android:textColor="?android:attr/textColorSecondary" />
 
             <TextView
@@ -149,7 +149,7 @@
                 android:minWidth="70dp"
                 android:singleLine="true"
                 android:textAlignment="viewEnd"
-                android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Body1"
+                android:textAppearance="@style/Body1"
                 android:textColor="?android:attr/textColorSecondary" />
         </LinearLayout>
 

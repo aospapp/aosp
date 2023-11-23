@@ -17,26 +17,23 @@
 #ifndef CAR_LIB_NATIVE_INCLUDE_CARPOWERMANAGER_H_
 #define CAR_LIB_NATIVE_INCLUDE_CARPOWERMANAGER_H_
 
-#include <binder/Status.h>
-#include <utils/RefBase.h>
-
 #include "android/car/ICar.h"
 #include "android/car/hardware/power/BnCarPowerStateListener.h"
 #include "android/car/hardware/power/ICarPower.h"
 
-using android::binder::Status;
+#include <binder/Status.h>
+#include <utils/RefBase.h>
 
 namespace android {
 namespace car {
 namespace hardware {
 namespace power {
 
-
-class CarPowerManager : public RefBase {
+class CarPowerManager : public android::RefBase {
 public:
     // Enumeration of state change events
-    //  NOTE:  The entries in this enum must match the ones in CarPowerStateListener located in
-    //      packages/services/Car/car-lib/src/android/car/hardware/power/CarPowerManager.java
+    // NOTE: The entries in this enum must match the ones in CarPowerStateListener located in
+    //       packages/services/Car/car-lib/src/android/car/hardware/power/CarPowerManager.java
     enum class State {
         kInvalid = 0,
         kWaitForVhal = 1,
@@ -46,9 +43,15 @@ public:
         kOn = 6,
         kShutdownPrepare = 7,
         kShutdownCancelled = 8,
+        kHibernationEnter = 9,
+        kHibernationExit = 10,
+        kPreShutdownPrepare = 11,
+        kPostSuspendEnter = 12,
+        kPostShutdownEnter = 13,
+        kPostHibernationEnter = 14,
 
         kFirst = kInvalid,
-        kLast = kShutdownCancelled,
+        kLast = kPostHibernationEnter,
     };
 
     using Listener = std::function<void(State)>;
@@ -60,15 +63,15 @@ public:
     }
 
     // Removes the listener and turns off callbacks
-    //  Returns 0 on success
+    // Returns 0 on success
     int clearListener();
 
-    // Request device to shutdown in lieu of suspend at the next opportunity
-    //  Returns 0 on success
+    // Requests device to shutdown in lieu of suspend at the next opportunity
+    // Returns 0 on success
     int requestShutdownOnNextSuspend();
 
-    // Set the callback function.  This will execute in the binder thread.
-    //  Returns 0 on success
+    // Sets the callback function.  This will execute in the binder thread.
+    // Returns 0 on success
     int setListener(Listener listener);
 
 private:
@@ -76,30 +79,30 @@ private:
     public:
         explicit CarPowerStateListener(CarPowerManager* parent) : mParent(parent) {}
 
-        Status onStateChanged(int state) override {
-            sp<CarPowerManager> parent = mParent;
+        android::binder::Status onStateChanged(int state) override {
+            android::sp<CarPowerManager> parent = mParent;
             if ((parent == nullptr) || (parent->mListener == nullptr)) {
                 ALOGE("CarPowerManagerNative: onStateChanged null pointer detected!");
             } else if ((state < static_cast<int>(State::kFirst)) ||
-                       (state > static_cast<int>(State::kLast)) )  {
+                       (state > static_cast<int>(State::kLast))) {
                 ALOGE("CarPowerManagerNative: onStateChanged unknown state: %d", state);
             } else {
-                // Notify the listener of the state transition
+                // Notifies the listener of the state transition
                 parent->mListener(static_cast<State>(state));
             }
-            return binder::Status::ok();
+            return android::binder::Status::ok();
         };
 
     private:
-        sp<CarPowerManager> mParent;
+        android::sp<CarPowerManager> mParent;
     };
 
     bool connectToCarService();
 
-    sp<ICarPower> mICarPower;
+    android::sp<ICarPower> mICarPower;
     bool mIsConnected;
     Listener mListener;
-    sp<CarPowerStateListener> mListenerToService;
+    android::sp<CarPowerStateListener> mListenerToService;
 };
 
 }  // namespace power

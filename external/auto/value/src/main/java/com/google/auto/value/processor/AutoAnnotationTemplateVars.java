@@ -35,6 +35,12 @@ class AutoAnnotationTemplateVars extends TemplateVars {
    */
   Map<String, AutoAnnotationProcessor.Parameter> params;
 
+  /**
+   * A string representing the parameter type declaration of the equals(Object) method, including
+   * any annotations.
+   */
+  String equalsParameterType;
+
   /** The encoded form of the {@code Generated} class, or empty if it is not available. */
   String generated;
 
@@ -73,6 +79,12 @@ class AutoAnnotationTemplateVars extends TemplateVars {
 
   /** The sum of the hash code contributions from the members in {@link #invariableHashes}. */
   Integer invariableHashSum;
+
+  /**
+   * A computed {@code serialVersionUID} based on the names and types of the {@code @AutoAnnotation}
+   * method parameters.
+   */
+  Long serialVersionUID;
 
   private static final Template TEMPLATE = parsedTemplateForResource("autoannotation.vm");
 

@@ -55,6 +55,7 @@ import com.android.internal.net.eap.test.statemachine.EapMethodStateMachine.EapM
 import org.junit.Before;
 import org.junit.Test;
 
+import java.security.SecureRandom;
 import java.util.Arrays;
 
 public class EapAkaStateTest {
@@ -71,11 +72,13 @@ public class EapAkaStateTest {
 
     protected EapAkaConfig mEapAkaConfig = new EapAkaConfig(SUB_ID, APPTYPE_USIM);
     protected EapAkaMethodStateMachine mEapAkaMethodStateMachine;
+    private SecureRandom mMockSecureRandom;
 
     @Before
     public void setUp() {
         mMockTelephonyManager = mock(TelephonyManager.class);
         mMockEapAkaTypeDataDecoder = mock(EapAkaTypeDataDecoder.class);
+        mMockSecureRandom = mock(SecureRandom.class);
 
         TelephonyManager mockInitialTelephonyManager = mock(TelephonyManager.class);
         doReturn(mMockTelephonyManager)
@@ -88,7 +91,8 @@ public class EapAkaStateTest {
                         EAP_IDENTITY_BYTES,
                         mEapAkaConfig,
                         mMockEapAkaTypeDataDecoder,
-                        true);
+                        true,
+                        mMockSecureRandom);
 
         verify(mockInitialTelephonyManager).createForSubscriptionId(SUB_ID);
     }

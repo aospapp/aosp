@@ -108,7 +108,8 @@ public class BroadcastReceiverActivity extends Activity {
         }
 
         void register() {
-            mAppContext.registerReceiver(this, new IntentFilter(ACTION_TRIGGER_BROADCAST));
+            mAppContext.registerReceiver(this, new IntentFilter(ACTION_TRIGGER_BROADCAST),
+                    Context.RECEIVER_EXPORTED);
         }
 
         void associate(Activity activity) {

@@ -24,7 +24,7 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
     const float* zero,
     float* output,
     uint32_t padding_top,
-    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_chw_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(input_height != 0);
   assert(input_width != 0);
@@ -34,37 +34,35 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
 
   const v128_t vmask_even = wasm_v128_load(params->scalar.mask_even);
   const v128_t vmask_odd  = wasm_v128_load(params->scalar.mask_odd);
-  const v128_t vmax = wasm_v32x4_load_splat(&params->scalar.max);
-  const v128_t vmin = wasm_v32x4_load_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
 
-  const v128_t vbias = wasm_v32x4_load_splat(weights);
-  const v128_t vk00 = wasm_v32x4_load_splat(weights + 1);
-  const v128_t vk01 = wasm_v32x4_load_splat(weights + 2);
-  const v128_t vk02 = wasm_v32x4_load_splat(weights + 3);
-  const v128_t vk03 = wasm_v32x4_load_splat(weights + 4);
-  const v128_t vk04 = wasm_v32x4_load_splat(weights + 5);
-  const v128_t vk10 = wasm_v32x4_load_splat(weights + 6);
-  const v128_t vk11 = wasm_v32x4_load_splat(weights + 7);
-  const v128_t vk12 = wasm_v32x4_load_splat(weights + 8);
-  const v128_t vk13 = wasm_v32x4_load_splat(weights + 9);
-  const v128_t vk14 = wasm_v32x4_load_splat(weights + 10);
-  const v128_t vk20 = wasm_v32x4_load_splat(weights + 11);
-  const v128_t vk21 = wasm_v32x4_load_splat(weights + 12);
-  const v128_t vk22 = wasm_v32x4_load_splat(weights + 13);
-  const v128_t vk23 = wasm_v32x4_load_splat(weights + 14);
-  const v128_t vk24 = wasm_v32x4_load_splat(weights + 15);
-  const v128_t vk30 = wasm_v32x4_load_splat(weights + 16);
-  const v128_t vk31 = wasm_v32x4_load_splat(weights + 17);
-  const v128_t vk32 = wasm_v32x4_load_splat(weights + 18);
-  const v128_t vk33 = wasm_v32x4_load_splat(weights + 19);
-  const v128_t vk34 = wasm_v32x4_load_splat(weights + 20);
-  const v128_t vk40 = wasm_v32x4_load_splat(weights + 21);
-  const v128_t vk41 = wasm_v32x4_load_splat(weights + 22);
-  const v128_t vk42 = wasm_v32x4_load_splat(weights + 23);
-  const v128_t vk43 = wasm_v32x4_load_splat(weights + 24);
-  const v128_t vk44 = wasm_v32x4_load_splat(weights + 25);
-
-  const v128_t vzero = wasm_f32x4_splat(0.0f);
+  const v128_t vbias = wasm_v128_load32_splat(weights);
+  const v128_t vk00 = wasm_v128_load32_splat(weights + 1);
+  const v128_t vk01 = wasm_v128_load32_splat(weights + 2);
+  const v128_t vk02 = wasm_v128_load32_splat(weights + 3);
+  const v128_t vk03 = wasm_v128_load32_splat(weights + 4);
+  const v128_t vk04 = wasm_v128_load32_splat(weights + 5);
+  const v128_t vk10 = wasm_v128_load32_splat(weights + 6);
+  const v128_t vk11 = wasm_v128_load32_splat(weights + 7);
+  const v128_t vk12 = wasm_v128_load32_splat(weights + 8);
+  const v128_t vk13 = wasm_v128_load32_splat(weights + 9);
+  const v128_t vk14 = wasm_v128_load32_splat(weights + 10);
+  const v128_t vk20 = wasm_v128_load32_splat(weights + 11);
+  const v128_t vk21 = wasm_v128_load32_splat(weights + 12);
+  const v128_t vk22 = wasm_v128_load32_splat(weights + 13);
+  const v128_t vk23 = wasm_v128_load32_splat(weights + 14);
+  const v128_t vk24 = wasm_v128_load32_splat(weights + 15);
+  const v128_t vk30 = wasm_v128_load32_splat(weights + 16);
+  const v128_t vk31 = wasm_v128_load32_splat(weights + 17);
+  const v128_t vk32 = wasm_v128_load32_splat(weights + 18);
+  const v128_t vk33 = wasm_v128_load32_splat(weights + 19);
+  const v128_t vk34 = wasm_v128_load32_splat(weights + 20);
+  const v128_t vk40 = wasm_v128_load32_splat(weights + 21);
+  const v128_t vk41 = wasm_v128_load32_splat(weights + 22);
+  const v128_t vk42 = wasm_v128_load32_splat(weights + 23);
+  const v128_t vk43 = wasm_v128_load32_splat(weights + 24);
+  const v128_t vk44 = wasm_v128_load32_splat(weights + 25);
 
   const uint32_t padding_top_less_1 = padding_top - 1;
   const size_t input_decrement = round_up_po2(input_width, 8 * sizeof(float));
@@ -92,14 +90,14 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
       if XNN_UNPREDICTABLE(padded_input_height < ${3 + M}) {
         i${M} = zero;
         $if M % 2 == 0 and M <= 2 * ROW_TILE + 1:
-          o${M / 2 - 1} = o${M / 2 - 2};
+          o${M // 2 - 1} = o${M // 2 - 2};
       }
 
     $for M in range(3 + 2 * ROW_TILE):
-      v128_t vi${M}x0246 = vzero;
+      v128_t vi${M}x0246 = wasm_f32x4_const_splat(0.0f);
 
     $for M in range(3 + 2 * ROW_TILE):
-      v128_t vi${M}x1357 = vzero;
+      v128_t vi${M}x1357 = wasm_f32x4_const_splat(0.0f);
 
     $for M in range(3 + 2 * ROW_TILE):
       const v128_t vi${M}x89AB = wasm_v128_load(i${M});
@@ -238,9 +236,9 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
 
       $if X86:
         $for M in range(ROW_TILE):
-          v128_t vo${M} = wasm_v128_bitselect(vmin, vo${M}p0, wasm_f32x4_lt(vo${M}p0, vmin));
+          v128_t vo${M} = wasm_f32x4_pmax(vmin, vo${M}p0);
         $for M in range(ROW_TILE):
-          vo${M} = wasm_v128_bitselect(vo${M}, vmax, wasm_f32x4_le(vo${M}, vmax));
+          vo${M} = wasm_f32x4_pmin(vmax, vo${M});
       $else:
         $for M in range(ROW_TILE):
           v128_t vo${M} = wasm_f32x4_max(vo${M}p0, vmin);
@@ -344,6 +342,7 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
       $for M in range(ROW_TILE):
         vo${M}p${21 % ACCUMULATORS} = wasm_f32x4_add(vo${M}p${21 % ACCUMULATORS}, wasm_f32x4_mul(vi${2*M+4}x79BD, vk41));
 
+      const v128_t vzero = wasm_f32x4_const_splat(0.0f);
       $for M in range(3 + 2 * ROW_TILE):
         const v128_t vi${M}xACEG = wasm_v32x4_shuffle(vi${M}x8ACE, vzero, 1, 2, 3, 4);
 
@@ -373,9 +372,9 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__wasmsimd${ARCH_SUFFIX}_loadsplat_${RO
 
       $if X86:
         $for M in range(ROW_TILE):
-          v128_t vo${M} = wasm_v128_bitselect(vmin, vo${M}p0, wasm_f32x4_lt(vo${M}p0, vmin));
+          v128_t vo${M} = wasm_f32x4_pmax(vmin, vo${M}p0);
         $for M in range(ROW_TILE):
-          vo${M} = wasm_v128_bitselect(vo${M}, vmax, wasm_f32x4_le(vo${M}, vmax));
+          vo${M} = wasm_f32x4_pmin(vmax, vo${M});
       $else:
         $for M in range(ROW_TILE):
           v128_t vo${M} = wasm_f32x4_max(vo${M}p0, vmin);

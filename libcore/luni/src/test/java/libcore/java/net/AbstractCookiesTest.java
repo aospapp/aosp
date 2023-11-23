@@ -726,6 +726,13 @@ public abstract class AbstractCookiesTest extends TestCase {
         assertNotEquals(createCookie("theme", "light", "a.com", "/path"), baseCookie);
     }
 
+    public void testIsHttpOnly() throws Exception {
+        HttpCookie cookie = createCookie("a", "android", "a.com", "/");
+        assertFalse(cookie.isHttpOnly());
+        cookie.setHttpOnly(true);
+        assertTrue(cookie.isHttpOnly());
+    }
+
     private static void assertNotEquals(HttpCookie one, HttpCookie two) {
         assertFalse(one.equals(two));
         assertFalse(two.equals(one));

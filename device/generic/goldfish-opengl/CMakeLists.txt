@@ -2,7 +2,7 @@
 # instead run make from .../device/generic/goldfish-opengl
 # which will re-generate this file.
 set(GOLDFISH_DEVICE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-android_validate_sha256("${GOLDFISH_DEVICE_ROOT}/./Android.mk" "aa7ac7e9637b1c1db874a5876f990c6aa04b3b6f905d03f479ecb06e93957d31")
+android_validate_sha256("${GOLDFISH_DEVICE_ROOT}/./Android.mk" "1b46812779386f6eba221003097f66f4ce3b80515761e8f8694dbe9cfe14cd01")
 add_subdirectory(shared/qemupipe)
 add_subdirectory(shared/gralloc_cb)
 add_subdirectory(shared/GoldfishAddressSpace)

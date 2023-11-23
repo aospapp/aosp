@@ -190,7 +190,6 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      *
      * @return An array of <code>ULocale</code>s for which localized
      * <code>DecimalFormatSymbols</code> instances are available.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static ULocale[] getAvailableULocales() {
         return ICUResourceBundle.getAvailableULocales();
@@ -200,6 +199,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the character used for zero. Different for Arabic, etc.
      * @return the character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getDigitStrings()} instead.
      */
     public char getZeroDigit() {
         return zeroDigit;
@@ -208,6 +208,8 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the array of characters used as digits, in order from 0 through 9
      * @return The array
+     * @see #getDigitStrings()
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getDigitStrings()} instead.
      */
     public char[] getDigits() {
         return digits.clone();
@@ -220,6 +222,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      * digit 9 by incrementing code point one by one.
      *
      * @param zeroDigit the zero character.
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #setDigitStrings(String[])} instead.
      */
     public void setZeroDigit(char zeroDigit) {
         this.zeroDigit = zeroDigit;
@@ -379,6 +382,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the character used for grouping separator. Different for French, etc.
      * @return the thousands character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getGroupingSeparatorString()} instead.
      */
     public char getGroupingSeparator() {
         return groupingSeparator;
@@ -387,6 +391,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Sets the character used for grouping separator. Different for French, etc.
      * @param groupingSeparator the thousands character
+     * @see #setGroupingSeparatorString(String)
      */
     public void setGroupingSeparator(char groupingSeparator) {
         this.groupingSeparator = groupingSeparator;
@@ -429,6 +434,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the character used for decimal sign. Different for French, etc.
      * @return the decimal character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getDecimalSeparatorString()} instead.
      */
     public char getDecimalSeparator() {
         return decimalSeparator;
@@ -479,6 +485,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the character used for mille percent sign. Different for Arabic, etc.
      * @return the mille percent character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getPerMillString()} instead.
      */
     public char getPerMill() {
         return perMill;
@@ -529,6 +536,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the character used for percent sign. Different for Arabic, etc.
      * @return the percent character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getPercentString()} instead.
      */
     public char getPercent() {
         return percent;
@@ -654,6 +662,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      * negative format is specified, one is formed by prefixing
      * minusSign to the positive format.
      * @return the minus sign character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getMinusSignString()} instead.
      */
     public char getMinusSign() {
         return minusSign;
@@ -710,6 +719,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      * @see #setPlusSign
      * @see #setMinusSign
      * @see #getMinusSign
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getPlusSignString()} instead.
      */
     public char getPlusSign() {
         return plusSign;
@@ -759,6 +769,27 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
             // Use the default plus sign as fallback
             this.plusSign = DEF_PLUS_SIGN;
         }
+    }
+
+    /**
+     * @deprecated This API is for technology preview only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public String getApproximatelySignString() {
+        return approximatelyString;
+    }
+
+    /**
+     * @deprecated This API is for technology preview only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public void setApproximatelySignString(String approximatelySignString) {
+        if (approximatelySignString == null) {
+            throw new NullPointerException("The input plus sign is null");
+        }
+        this.approximatelyString = approximatelySignString;
     }
 
     /**
@@ -852,6 +883,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * Returns the monetary decimal separator.
      * @return the monetary decimal separator character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getMonetaryDecimalSeparatorString()} instead.
      */
     public char getMonetaryDecimalSeparator() {
         return monetarySeparator;
@@ -894,7 +926,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         if (sep.length() == 1) {
             this.monetarySeparator = sep.charAt(0);
         } else {
-            // Use default decimap separator character as fallbacl
+            // Use default decimal separator character as fallback
             this.monetarySeparator = DEF_DECIMAL_SEPARATOR;
         }
     }
@@ -902,6 +934,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     /**
      * <strong>[icu]</strong> Returns the monetary grouping separator.
      * @return the monetary grouping separator character
+     * @apiNote <strong>Discouraged:</strong> ICU 58 use {@link #getMonetaryGroupingSeparatorString()} instead.
      */
     public char getMonetaryGroupingSeparator() {
         return monetaryGroupingSeparator;
@@ -1179,6 +1212,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         padEscape == other.padEscape &&
         plusSign == other.plusSign &&
         plusString.equals(other.plusString) &&
+        approximatelyString.equals(other.approximatelyString) &&
         exponentSeparator.equals(other.exponentSeparator) &&
         monetarySeparator == other.monetarySeparator &&
         monetaryGroupingSeparator == other.monetaryGroupingSeparator &&
@@ -1214,6 +1248,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
             "currencyDecimal",
             "currencyGroup",
             "superscriptingExponent",
+            "approximatelySign",
     // Android-added: Libcore bridge needs localized pattern separator. http://b/112080617
             "list",
     };
@@ -1252,7 +1287,8 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
             "NaN", // NaN
             null, // currency decimal
             null, // currency group
-            "\u00D7" // superscripting exponent
+            "\u00D7", // superscripting exponent
+            "~", // // approximately sign
         };
 
     /**
@@ -1299,7 +1335,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
      */
     public static String getLocalizedPatternSeparator(ULocale locale, NumberingSystem ns) {
         CacheData data = getCachedLocaleData(locale, ns);
-        return data.numberElements[12];
+        return data.numberElements[13];
     }
 
     private static CacheData getCachedLocaleData(ULocale locale, NumberingSystem ns) {
@@ -1340,6 +1376,7 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
         setMonetaryDecimalSeparatorString(numberElements[9]);
         setMonetaryGroupingSeparatorString(numberElements[10]);
         setExponentMultiplicationSign(numberElements[11]);
+        setApproximatelySignString(numberElements[12]);
 
         digit = '#';  // Localized pattern character no longer in CLDR
         padEscape = '*';
@@ -1542,6 +1579,10 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
                 monetaryGroupingSeparatorString = String.valueOf(monetaryGroupingSeparator);
             }
         }
+        if (serialVersionOnStream < 10) {
+            // Approximately sign
+            approximatelyString = "~"; // fallback
+        }
 
         serialVersionOnStream = currentSerialVersion;
 
@@ -1708,6 +1749,12 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     private String plusString;
 
     /**
+     * The string used to indicate an approximately sign.
+     * @serial
+     */
+    private String approximatelyString;
+
+    /**
      * String denoting the local currency, e.g. "$".
      * @serial
      * @see #getCurrencySymbol
@@ -1808,7 +1855,8 @@ public class DecimalFormatSymbols implements Cloneable, Serializable {
     // - 7 for ICU 52, which includes the minusString and plusString fields
     // - 8 for ICU 54, which includes exponentMultiplicationSign field.
     // - 9 for ICU 58, which includes a series of String symbol fields.
-    private static final int currentSerialVersion = 8;
+    // - 10 for ICU 69, which includes the approximatelyString field.
+    private static final int currentSerialVersion = 10;
 
     /**
      * Describes the version of <code>DecimalFormatSymbols</code> present on the stream.

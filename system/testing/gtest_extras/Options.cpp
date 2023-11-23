@@ -64,12 +64,12 @@ const std::unordered_map<std::string, Options::ArgInfo> Options::kArgs = {
      {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE | FLAG_CHILD, &Options::SetString}},
     {"gtest_death_test_style",
      {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE | FLAG_CHILD, nullptr}},
-    {"gtest_break_on_failure", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
+    {"gtest_break_on_failure", {FLAG_ENVIRONMENT_VARIABLE, &Options::SetBool}},
     {"gtest_catch_exceptions", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
     {"gtest_random_seed", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
     {"gtest_shuffle", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
     {"gtest_stream_result_to", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
-    {"gtest_throw_on_failure", {FLAG_ENVIRONMENT_VARIABLE | FLAG_INCOMPATIBLE, nullptr}},
+    {"gtest_throw_on_failure", {FLAG_ENVIRONMENT_VARIABLE, &Options::SetBool}},
     {"gtest_shard_index",
      {FLAG_ENVIRONMENT_VARIABLE | FLAG_REQUIRES_VALUE, &Options::SetNumericEnvOnly}},
     {"gtest_total_shards",
@@ -213,14 +213,14 @@ bool Options::HandleArg(const std::string& arg, const std::string& value, const 
 }
 
 static bool ReadFileToString(const std::string& file, std::string* contents) {
-  int fd = TEMP_FAILURE_RETRY(open(file.c_str(), O_RDONLY | O_CLOEXEC));
+  int fd = static_cast<int>(TEMP_FAILURE_RETRY(open(file.c_str(), O_RDONLY | O_CLOEXEC)));
   if (fd == -1) {
     return false;
   }
   char buf[4096];
   ssize_t bytes_read;
   while ((bytes_read = TEMP_FAILURE_RETRY(read(fd, &buf, sizeof(buf)))) > 0) {
-    contents->append(buf, bytes_read);
+    contents->append(buf, static_cast<size_t>(bytes_read));
   }
   close(fd);
   return true;
@@ -311,6 +311,7 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<char*>* 
   // Initialize the variables.
   job_count_ = static_cast<size_t>(sysconf(_SC_NPROCESSORS_ONLN));
   num_iterations_ = ::testing::GTEST_FLAG(repeat);
+  stop_on_error_ = false;
   numerics_.clear();
   numerics_["deadline_threshold_ms"] = kDefaultDeadlineThresholdMs;
   numerics_["slow_threshold_ms"] = kDefaultSlowThresholdMs;
@@ -325,6 +326,8 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<char*>* 
   bools_["gtest_print_time"] = ::testing::GTEST_FLAG(print_time);
   bools_["gtest_also_run_disabled_tests"] = ::testing::GTEST_FLAG(also_run_disabled_tests);
   bools_["gtest_list_tests"] = false;
+  bools_["gtest_break_on_failure"] = false;
+  bools_["gtest_throw_on_failure"] = false;
 
   // This does nothing, only added so that passing this option does not exit.
   bools_["gtest_format"] = true;
@@ -371,6 +374,10 @@ bool Options::Process(const std::vector<const char*>& args, std::vector<char*>* 
         return false;
       }
     }
+  }
+
+  if (bools_["gtest_break_on_failure"] || bools_["gtest_throw_on_failure"]) {
+    stop_on_error_ = true;
   }
 
   return true;

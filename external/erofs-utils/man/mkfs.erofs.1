@@ -24,8 +24,13 @@ from \fISOURCE\fR directory.
 Set an algorithm for file compression, which can be set with an optional
 compression level separated by a comma.
 .TP
+.BI "\-C " max-pcluster-size
+Specify the maximum size of compress physical cluster in bytes. It may enable
+big pcluster feature if needed (Linux v5.13+).
+.TP
 .BI "\-d " #
-Specify the level of debugging messages. The default is 0.
+Specify the level of debugging messages. The default is 2, which shows basic
+warning messages.
 .TP
 .BI "\-x " #
 Specify the upper limit of an xattr which is still inlined. The default is 2.
@@ -46,6 +51,15 @@ Forcely generate compact inodes (32-byte inodes) to output.
 .TP
 .BI force-inode-extended
 Forcely generate extended inodes (64-byte inodes) to output.
+.TP
+.BI noinline_data
+Don't inline regular files for FSDAX support (Linux v5.15+).
+.TP
+.BI force-inode-blockmap
+Forcely generate inode chunk format in 4-byte block address array.
+.TP
+.BI force-chunk-indexes
+Forcely generate inode chunk format in 8-byte chunk indexes (with device id).
 .RE
 .TP
 .BI "\-T " #
@@ -58,6 +72,26 @@ Set the universally unique identifier (UUID) of the filesystem to
 The format of the UUID is a series of hex digits separated by hyphens,
 like this: "c1b9d5a2-f162-11cf-9ece-0020afc76f16".
 .TP
+.B \-\-all-root
+Make all files owned by root.
+.TP
+.BI "\-\-blobdev " file
+Specify another extra blob device to store chunk-based data.
+.TP
+.BI "\-\-chunksize " #
+Generate chunk-based files with #-byte chunks.
+.TP
+.BI "\-\-compress-hints " file
+If the optional
+.BI "\-\-compress-hints " file
+argument is given,
+.B mkfs.erofs
+uses it to apply the per-file compression strategy. Each line is defined by
+tokens separated by spaces in the following form:
+.RS 1.2i
+<pcluster-in-bytes> <match-pattern>
+.RE
+.TP
 .BI "\-\-exclude-path=" path
 Ignore file that matches the exact literal path.
 You may give multiple `--exclude-path' options.
@@ -69,8 +103,22 @@ You may give multiple `--exclude-regex` options.
 .BI "\-\-file-contexts=" file
 Specify a \fIfile_contexts\fR file to setup / override selinux labels.
 .TP
+.BI "\-\-force-uid=" UID
+Set all file uids to \fIUID\fR.
+.TP
+.BI "\-\-force-gid=" GID
+Set all file gids to \fIGID\fR.
+.TP
 .B \-\-help
 Display this help and exit.
+.TP
+.B "\-\-ignore-mtime"
+File modification time is ignored whenever it would cause \fBmkfs.erofs\fR to
+use extended inodes over compact inodes. When not using a fixed timestamp, this
+can reduce total metadata size.
+.TP
+.BI "\-\-max-extent-bytes " #
+Specify maximum decompressed extent size # in bytes.
 .SH AUTHOR
 This version of \fBmkfs.erofs\fR is written by Li Guifu <blucerlee@gmail.com>,
 Miao Xie <miaoxie@huawei.com> and Gao Xiang <xiang@kernel.org> with
@@ -82,4 +130,3 @@ This manual page was written by Gao Xiang <xiang@kernel.org>.
 git://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git.
 .SH SEE ALSO
 .BR mkfs (8).
-

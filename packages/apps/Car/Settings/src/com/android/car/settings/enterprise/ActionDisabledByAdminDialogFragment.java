@@ -31,6 +31,7 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.util.IconDrawableFactory;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
@@ -176,7 +177,7 @@ public final class ActionDisabledByAdminDialogFragment extends CarUiDialogFragme
         if (isNotValidEnforcedAdmin(context, enforcedAdmin)) {
             admin = null;
         }
-        // NOTE: not showing icon
+        setIcon(builder, R.drawable.ic_lock);
         setAdminSupportTitle(context, builder, mRestriction);
 
         if (enforcedAdmin != null) {
@@ -214,6 +215,10 @@ public final class ActionDisabledByAdminDialogFragment extends CarUiDialogFragme
     private void setAdminSupportTitle(Context context, AlertDialogBuilder builder,
             String restriction) {
         builder.setTitle(mActionDisabledByAdminController.getAdminSupportTitle(restriction));
+    }
+
+    private void setIcon(AlertDialogBuilder builder, @DrawableRes int iconId) {
+        builder.setIcon(iconId);
     }
 
     private void setAdminSupportDetails(Context context, AlertDialogBuilder builder,

@@ -16,6 +16,7 @@
 package com.android.systemui.car.qc;
 
 import static android.os.UserManager.SWITCHABILITY_STATUS_OK;
+import static android.provider.Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS;
 import static android.view.WindowInsets.Type.statusBars;
 
 import static com.android.car.ui.utils.CarUiUtils.drawableToBitmap;
@@ -24,11 +25,11 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.admin.DevicePolicyManager;
 import android.car.Car;
 import android.car.user.CarUserManager;
 import android.car.user.UserCreationResult;
 import android.car.user.UserSwitchResult;
-import android.car.userlib.UserHelper;
 import android.car.util.concurrent.AsyncFuture;
 import android.content.Context;
 import android.content.Intent;
@@ -43,15 +44,18 @@ import android.util.Log;
 import android.view.Window;
 import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
+import com.android.car.internal.user.UserHelper;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.qc.provider.BaseLocalQCProvider;
 import com.android.internal.util.UserIcons;
+import com.android.settingslib.utils.StringUtil;
 import com.android.systemui.R;
 import com.android.systemui.car.userswitcher.UserIconProvider;
 
@@ -67,6 +71,7 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
     private static final int TIMEOUT_MS = CarProperties.user_hal_timeout().orElse(5_000) + 500;
 
     private final UserManager mUserManager;
+    private final DevicePolicyManager mDevicePolicyManager;
     private final UserIconProvider mUserIconProvider;
     private final Car mCar;
     private final CarUserManager mCarUserManager;
@@ -75,15 +80,18 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
     public ProfileSwitcher(Context context) {
         super(context);
         mUserManager = context.getSystemService(UserManager.class);
+        mDevicePolicyManager = context.getSystemService(DevicePolicyManager.class);
         mUserIconProvider = new UserIconProvider();
-        mCar = Car.createCar(mContext);
+        mCar = Car.createCar(context);
         mCarUserManager = (CarUserManager) mCar.getCarManager(Car.CAR_USER_SERVICE);
     }
 
     @VisibleForTesting
-    ProfileSwitcher(Context context, UserManager userManager, CarUserManager carUserManager) {
+    ProfileSwitcher(Context context, UserManager userManager,
+            DevicePolicyManager devicePolicyManager, CarUserManager carUserManager) {
         super(context);
         mUserManager = userManager;
+        mDevicePolicyManager = devicePolicyManager;
         mUserIconProvider = new UserIconProvider();
         mCar = null;
         mCarUserManager = carUserManager;
@@ -92,6 +100,11 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
     @Override
     public QCItem getQCItem() {
         QCList.Builder listBuilder = new QCList.Builder();
+
+        if (mDevicePolicyManager.isDeviceManaged()
+                || mDevicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile()) {
+            listBuilder.addRow(createOrganizationOwnedDeviceRow());
+        }
 
         int fgUserId = ActivityManager.getCurrentUser();
         UserHandle fgUserHandle = UserHandle.of(fgUserId);
@@ -106,7 +119,9 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
             listBuilder.addRow(createUserProfileRow(profile));
         }
         listBuilder.addRow(createGuestProfileRow());
-        listBuilder.addRow(createAddProfileRow());
+        if (!hasAddUserRestriction(fgUserHandle)) {
+            listBuilder.addRow(createAddProfileRow());
+        }
         return listBuilder.build();
     }
 
@@ -125,6 +140,29 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
                 .collect(Collectors.toList());
     }
 
+    private QCRow createOrganizationOwnedDeviceRow() {
+        Icon icon = Icon.createWithBitmap(
+                drawableToBitmap(mContext.getDrawable(R.drawable.car_ic_managed_device)));
+        QCRow row = new QCRow.Builder()
+                .setIcon(icon)
+                .setSubtitle(mContext.getString(R.string.do_disclosure_generic))
+                .build();
+        row.setActionHandler(new QCItem.ActionHandler() {
+            @Override
+            public void onAction(@NonNull QCItem item, @NonNull Context context,
+                    @NonNull Intent intent) {
+                mContext.startActivityAsUser(new Intent(ACTION_ENTERPRISE_PRIVACY_SETTINGS),
+                        UserHandle.CURRENT);
+            }
+
+            @Override
+            public boolean isActivity() {
+                return true;
+            }
+        });
+        return row;
+    }
+
     private QCRow createUserProfileRow(UserInfo userInfo) {
         QCItem.ActionHandler actionHandler = (item, context, intent) -> {
             if (mPendingUserAdd) {
@@ -134,7 +172,7 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
         };
 
         return createProfileRow(userInfo.name,
-                mUserIconProvider.getRoundedUserIcon(userInfo, mContext), actionHandler);
+                mUserIconProvider.getDrawableWithBadge(mContext, userInfo), actionHandler);
     }
 
     private QCRow createGuestProfileRow() {
@@ -148,7 +186,7 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
             }
         };
 
-        return createProfileRow(mContext.getString(R.string.start_guest_session),
+        return createProfileRow(mContext.getString(com.android.internal.R.string.guest_name),
                 mUserIconProvider.getRoundedGuestDefaultIcon(mContext.getResources()),
                 actionHandler);
     }
@@ -165,7 +203,8 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
             }
         };
 
-        return createProfileRow(mContext.getString(R.string.car_add_user), getCircularAddUserIcon(),
+        return createProfileRow(mContext.getString(R.string.car_add_user),
+                mUserIconProvider.getDrawableWithBadge(mContext, getCircularAddUserIcon()),
                 actionHandler);
     }
 
@@ -209,7 +248,7 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
     @Nullable
     private UserInfo createNewOrFindExistingGuest(Context context) {
         AsyncFuture<UserCreationResult> future = mCarUserManager.createGuest(
-                context.getString(R.string.car_guest));
+                context.getString(com.android.internal.R.string.guest_name));
         // CreateGuest will return null if a guest already exists.
         UserInfo newGuest = getUserInfo(future);
         if (newGuest != null) {
@@ -237,7 +276,7 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
             Log.w(TAG, "Could not create user: " + userCreationResult);
             return null;
         }
-        return userCreationResult.getUser();
+        return mUserManager.getUserInfo(userCreationResult.getUser().getIdentifier());
     }
 
     private RoundedBitmapDrawable getCircularAddUserIcon() {
@@ -246,6 +285,10 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
                 UserIcons.convertToBitmap(mContext.getDrawable(R.drawable.car_add_circle_round)));
         circleIcon.setCircular(true);
         return circleIcon;
+    }
+
+    private boolean hasAddUserRestriction(UserHandle userHandle) {
+        return mUserManager.hasUserRestrictionForUser(UserManager.DISALLOW_ADD_USER, userHandle);
     }
 
     private int getMaxSupportedRealUsers() {
@@ -268,10 +311,8 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
         AlertDialog maxUsersDialog = new AlertDialog.Builder(mContext,
                 com.android.internal.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(R.string.profile_limit_reached_title)
-                .setMessage(mContext.getResources().getQuantityString(
-                        R.plurals.profile_limit_reached_message,
-                        getMaxSupportedRealUsers(),
-                        getMaxSupportedRealUsers()))
+                .setMessage(StringUtil.getIcuPluralsString(mContext, getMaxSupportedRealUsers(),
+                                R.string.profile_limit_reached_message))
                 .setPositiveButton(android.R.string.ok, null)
                 .create();
         // Sets window flags for the SysUI dialog
@@ -315,9 +356,9 @@ public class ProfileSwitcher extends BaseLocalQCProvider {
             try {
                 UserInfo user = getUserInfo(future);
                 if (user != null) {
-                    UserHelper.setDefaultNonAdminRestrictions(mContext, user,
+                    UserHelper.setDefaultNonAdminRestrictions(mContext, user.getUserHandle(),
                             /* enable= */ true);
-                    UserHelper.assignDefaultIcon(mContext, user);
+                    UserHelper.assignDefaultIcon(mContext, user.getUserHandle());
                     return user;
                 } else {
                     Log.e(TAG, "Failed to create user in the background");

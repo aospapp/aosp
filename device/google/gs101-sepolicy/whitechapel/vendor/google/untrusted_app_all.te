@@ -2,4 +2,5 @@
 # for secure video playback
 allow untrusted_app_all dmabuf_system_secure_heap_device:chr_file r_file_perms;
 
-dontaudit untrusted_app_all sysfs_vendor_sched:dir search;
+dontaudit untrusted_app_all proc_vendor_sched:dir search;
+dontaudit untrusted_app_all proc_vendor_sched:file write;

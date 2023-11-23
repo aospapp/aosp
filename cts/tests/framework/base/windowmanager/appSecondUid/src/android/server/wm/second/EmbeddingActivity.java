@@ -40,7 +40,7 @@ public class EmbeddingActivity extends Activity {
         super.onCreate(icicle);
 
         IntentFilter broadcastFilter = new IntentFilter(ACTION_EMBEDDING_TEST_ACTIVITY_START);
-        registerReceiver(mBroadcastReceiver, broadcastFilter);
+        registerReceiver(mBroadcastReceiver, broadcastFilter, Context.RECEIVER_EXPORTED);
     }
 
     @Override

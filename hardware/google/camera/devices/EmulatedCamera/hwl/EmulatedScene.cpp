@@ -29,11 +29,6 @@
 
 namespace android {
 
-using ::android::frameworks::sensorservice::V1_0::ISensorManager;
-using ::android::frameworks::sensorservice::V1_0::Result;
-using ::android::hardware::sensors::V1_0::SensorInfo;
-using ::android::hardware::sensors::V1_0::SensorType;
-
 // Define single-letter shortcuts for scene definition, for directly indexing
 // mCurrentColors
 #define G (EmulatedScene::GRASS * EmulatedScene::NUM_CHANNELS)
@@ -89,8 +84,7 @@ const uint8_t EmulatedScene::kScene[EmulatedScene::kSceneWidth *
 EmulatedScene::EmulatedScene(int sensor_width_px, int sensor_height_px,
                              float sensor_sensitivity, int sensor_orientation,
                              bool is_front_facing)
-    : sensor_handle_(-1),
-      screen_rotation_(0),
+    : screen_rotation_(0),
       current_scene_(scene_rot0_),
       sensor_orientation_(sensor_orientation),
       is_front_facing_(is_front_facing),
@@ -115,11 +109,6 @@ EmulatedScene::EmulatedScene(int sensor_width_px, int sensor_height_px,
 }
 
 EmulatedScene::~EmulatedScene() {
-  if (sensor_event_queue_.get() != nullptr) {
-    sensor_event_queue_->disableSensor(sensor_handle_);
-    sensor_event_queue_.clear();
-    sensor_event_queue_ = nullptr;
-  }
 }
 
 void EmulatedScene::Initialize(int sensor_width_px, int sensor_height_px,
@@ -138,37 +127,6 @@ void EmulatedScene::Initialize(int sensor_width_px, int sensor_height_px,
   offset_x_ = (kSceneWidth * map_div_ - sensor_width_) / 2;
   offset_y_ = (kSceneHeight * map_div_ - sensor_height_) / 2;
 
-}
-
-Return<void> EmulatedScene::SensorHandler::onEvent(const Event& e) {
-  auto scene = scene_.promote();
-  if (scene.get() == nullptr) {
-    return Void();
-  }
-
-  if (e.sensorType == SensorType::ACCELEROMETER) {
-    // Heuristic approach for deducing the screen
-    // rotation depending on the reported
-    // accelerometer readings. We switch
-    // the screen rotation when one of the
-    // x/y axis gets close enough to the earth
-    // acceleration.
-    const uint32_t earth_accel = 9; // Switch threshold [m/s^2]
-    uint32_t x_accel = e.u.vec3.x;
-    uint32_t y_accel = e.u.vec3.y;
-    if (x_accel == earth_accel) {
-      scene->screen_rotation_ = 270;
-    } else if (x_accel == -earth_accel) {
-      scene->screen_rotation_ = 90;
-    } else if (y_accel == -earth_accel) {
-      scene->screen_rotation_ = 180;
-    } else {
-      scene->screen_rotation_ = 0;
-    }
-  } else {
-    ALOGE("%s: unexpected event received type: %d", __func__, e.sensorType);
-  }
-  return Void();
 }
 
 void EmulatedScene::SetColorFilterXYZ(float rX, float rY, float rZ, float grX,
@@ -197,6 +155,10 @@ int EmulatedScene::GetHour() const {
   return hour_;
 }
 
+void EmulatedScene::SetScreenRotation(uint32_t screen_rotation) {
+  screen_rotation_ = screen_rotation;
+}
+
 void EmulatedScene::SetExposureDuration(float seconds) {
   exposure_duration_ = seconds;
 }
@@ -211,9 +173,12 @@ void EmulatedScene::SetTestPatternData(uint32_t data[4]) {
 
 void EmulatedScene::CalculateScene(nsecs_t time, int32_t handshake_divider) {
   // Calculate time fractions for interpolation
+  const nsecs_t kOneHourInNsec = 1e9 * 60 * 60;
+#ifdef FAST_SCENE_CYCLE
+  hour_ = static_cast<int>(time * 6000 / kOneHourInNsec) % 24;
+#endif
   int time_idx = hour_ / kTimeStep;
   int next_time_idx = (time_idx + 1) % (24 / kTimeStep);
-  const nsecs_t kOneHourInNsec = 1e9 * 60 * 60;
   nsecs_t time_since_idx =
       (hour_ - time_idx * kTimeStep) * kOneHourInNsec + time;
   float time_frac = time_since_idx / (float)(kOneHourInNsec * kTimeStep);
@@ -386,24 +351,21 @@ void EmulatedScene::CalculateScene(nsecs_t time, int32_t handshake_divider) {
     handshake_y_ /= handshake_divider;
   }
 
-  if (sensor_event_queue_.get() != nullptr) {
-    int32_t sensor_orientation = is_front_facing_ ? -sensor_orientation_ : sensor_orientation_;
-    int32_t scene_rotation = ((screen_rotation_ + 360) + sensor_orientation) % 360;
-    switch (scene_rotation) {
-      case 90:
-        current_scene_ = scene_rot90_;
-        break;
-      case 180:
-        current_scene_ = scene_rot180_;
-        break;
-      case 270:
-        current_scene_ = scene_rot270_;
-        break;
-      default:
-        current_scene_ = scene_rot0_;
-    }
-  } else {
-    current_scene_ = scene_rot0_;
+  int32_t sensor_orientation =
+      is_front_facing_ ? -sensor_orientation_ : sensor_orientation_;
+  int32_t scene_rotation = ((screen_rotation_ + 360) + sensor_orientation) % 360;
+  switch (scene_rotation) {
+    case 90:
+      current_scene_ = scene_rot90_;
+      break;
+    case 180:
+      current_scene_ = scene_rot180_;
+      break;
+    case 270:
+      current_scene_ = scene_rot270_;
+      break;
+    default:
+      current_scene_ = scene_rot0_;
   }
 
   // Set starting pixel
@@ -438,52 +400,6 @@ void EmulatedScene::InitiliazeSceneRotation(bool clock_wise) {
         scene_rot270_[c++] = kScene[j*kSceneWidth + i];
       } else {
         scene_rot90_[c++] = kScene[j*kSceneWidth + i];
-      }
-    }
-  }
-}
-
-void EmulatedScene::InitializeSensorQueue() {
-  if (sensor_event_queue_.get() != nullptr) {
-    return;
-  }
-
-  sp<ISensorManager> manager = ISensorManager::getService();
-  if (manager == nullptr) {
-    ALOGE("%s: Cannot get ISensorManager", __func__);
-  } else {
-    bool sensor_found = false;
-    manager->getSensorList(
-        [&] (const auto& list, auto result) {
-        if (result != Result::OK) {
-          ALOGE("%s: Failed to retrieve sensor list!", __func__);
-        } else {
-          for (const SensorInfo& it : list) {
-            if (it.type == SensorType::ACCELEROMETER) {
-              sensor_found = true;
-              sensor_handle_ = it.sensorHandle;
-            }
-          }
-        }});
-    if (sensor_found) {
-      manager->createEventQueue(
-          new SensorHandler(this), [&](const auto& q, auto result) {
-            if (result != Result::OK) {
-              ALOGE("%s: Cannot create event queue", __func__);
-              return;
-            }
-            sensor_event_queue_ = q;
-          });
-
-      if (sensor_event_queue_.get() != nullptr) {
-        auto res = sensor_event_queue_->enableSensor(sensor_handle_,
-            ns2us(EmulatedSensor::kSupportedFrameDurationRange[0]), 0/*maxBatchReportLatencyUs*/);
-        if (res.isOk()) {
-        } else {
-          ALOGE("%s: Failed to enable sensor", __func__);
-        }
-      } else {
-        ALOGE("%s: Failed to create event queue", __func__);
       }
     }
   }

@@ -375,7 +375,7 @@ public final class MessagePatternUtil {
 
     /**
      * A Node representing a nested message (nested inside an argument)
-     * with its selection criterium.
+     * with its selection criterion.
      * @hide Only a subset of ICU is exposed in Android
      */
     public static class VariantNode extends Node {

@@ -9,7 +9,9 @@ package {
 cc_defaults {
     name: "libaudioroute_defaults",
     vendor_available: true,
+    host_supported: true,
     srcs: ["audio_route.c"],
+    export_include_dirs: ["include"],
     shared_libs: [
         "liblog",
         "libcutils",

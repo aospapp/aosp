@@ -32,7 +32,7 @@ import androidx.annotation.RequiresApi;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.dump.DualDumpOutputStream;
-import com.android.permission.util.BackgroundThread;
+import com.android.modules.utils.BackgroundThread;
 import com.android.permission.util.CollectionUtils;
 import com.android.role.persistence.RolesPersistence;
 import com.android.role.persistence.RolesState;
@@ -76,6 +76,9 @@ class RoleUserState {
     @Nullable
     private String mPackagesHash;
 
+    @GuardedBy("mLock")
+    private boolean mBypassingRoleQualification;
+
     /**
      * Maps role names to its holders' package names. The values should never be null.
      */
@@ -98,12 +101,17 @@ class RoleUserState {
      * @param userId the user id for this user state
      * @param platformHelper the platform helper
      * @param callback the callback for this user state
+     * @param bypassingRoleQualification whether role qualification is being bypassed
      */
     public RoleUserState(@UserIdInt int userId, @NonNull RoleServicePlatformHelper platformHelper,
-            @NonNull Callback callback) {
+            @NonNull Callback callback, boolean bypassingRoleQualification) {
         mUserId = userId;
         mPlatformHelper = platformHelper;
         mCallback = callback;
+
+        synchronized (mLock) {
+            mBypassingRoleQualification = bypassingRoleQualification;
+        }
 
         readFile();
     }
@@ -155,6 +163,32 @@ class RoleUserState {
                 return;
             }
             mPackagesHash = packagesHash;
+            scheduleWriteFileLocked();
+        }
+    }
+
+    /**
+     * Check whether role qualifications is being bypassed.
+     *
+     * @return whether role qualifications is being bypassed
+     */
+    public boolean isBypassingRoleQualification() {
+        synchronized (mLock) {
+            return mBypassingRoleQualification;
+        }
+    }
+
+    /**
+     * Set whether role qualifications is being bypassed.
+     *
+     * @param bypassingRoleQualification whether role qualifications is being bypassed
+     */
+    public void setBypassingRoleQualification(boolean bypassingRoleQualification) {
+        synchronized (mLock) {
+            if (mBypassingRoleQualification == bypassingRoleQualification) {
+                return;
+            }
+            mBypassingRoleQualification = bypassingRoleQualification;
             scheduleWriteFileLocked();
         }
     }
@@ -349,7 +383,9 @@ class RoleUserState {
 
             mWriteScheduled = false;
 
-            roles = new RolesState(mVersion, mPackagesHash,
+            // Force a reconciliation on next boot if we are bypassing role qualification now.
+            String packagesHash = mBypassingRoleQualification ? null : mPackagesHash;
+            roles = new RolesState(mVersion, packagesHash,
                     (Map<String, Set<String>>) (Map<String, ?>) snapshotRolesLocked());
         }
 

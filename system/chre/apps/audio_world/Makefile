@@ -22,6 +22,10 @@ NANOAPP_VERSION = 0x00000001
 
 NANOAPP_NAME_STRING = \"Audio\ World\"
 
+# Enable CHRE Overrides ########################################################
+
+CHRE_STD_OVERRIDES_ALLOWED = true
+
 # Common Compiler Flags ########################################################
 
 # Include paths.

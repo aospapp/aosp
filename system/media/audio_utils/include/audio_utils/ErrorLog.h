@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <vector>
 
+#include <sys/cdefs.h>
+
 #include <audio_utils/clock.h>
 #include <utils/Errors.h>
 

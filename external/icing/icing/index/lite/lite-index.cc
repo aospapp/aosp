@@ -14,12 +14,11 @@
 
 #include "icing/index/lite/lite-index.h"
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <sys/mman.h>
 
 #include <algorithm>
+#include <cinttypes>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -337,9 +336,12 @@ libtextclassifier3::StatusOr<uint32_t> LiteIndex::GetTermId(
 
 int LiteIndex::AppendHits(uint32_t term_id, SectionIdMask section_id_mask,
                           bool only_from_prefix_sections,
+                          const NamespaceChecker* namespace_checker,
                           std::vector<DocHitInfo>* hits_out) {
   int count = 0;
   DocumentId last_document_id = kInvalidDocumentId;
+  // Record whether the last document belongs to the given namespaces.
+  bool last_document_in_namespace = false;
   for (uint32_t idx = Seek(term_id); idx < header_->cur_size(); idx++) {
     TermIdHitPair term_id_hit_pair(
         hit_buffer_.array_cast<TermIdHitPair>()[idx]);
@@ -356,22 +358,31 @@ int LiteIndex::AppendHits(uint32_t term_id, SectionIdMask section_id_mask,
     }
     DocumentId document_id = hit.document_id();
     if (document_id != last_document_id) {
+      last_document_id = document_id;
+      last_document_in_namespace =
+          namespace_checker == nullptr ||
+          namespace_checker->BelongsToTargetNamespaces(document_id);
+      if (!last_document_in_namespace) {
+        // The document is removed or expired or not belongs to target
+        // namespaces.
+        continue;
+      }
       ++count;
       if (hits_out != nullptr) {
         hits_out->push_back(DocHitInfo(document_id));
       }
-      last_document_id = document_id;
     }
-    if (hits_out != nullptr) {
+    if (hits_out != nullptr && last_document_in_namespace) {
       hits_out->back().UpdateSection(hit.section_id(), hit.term_frequency());
     }
   }
   return count;
 }
 
-int LiteIndex::CountHits(uint32_t term_id) {
+libtextclassifier3::StatusOr<int> LiteIndex::CountHits(
+    uint32_t term_id, const NamespaceChecker* namespace_checker) {
   return AppendHits(term_id, kSectionIdMaskAll,
-                    /*only_from_prefix_sections=*/false,
+                    /*only_from_prefix_sections=*/false, namespace_checker,
                     /*hits_out=*/nullptr);
 }
 
@@ -380,15 +391,16 @@ bool LiteIndex::is_full() const {
           lexicon_.min_free_fraction() < (1.0 - kTrieFullFraction));
 }
 
-void LiteIndex::GetDebugInfo(int verbosity, std::string* out) const {
-  absl_ports::StrAppend(
-      out, IcingStringUtil::StringPrintf("Lite Index\nHit buffer %u/%u\n",
-                                         header_->cur_size(),
-                                         options_.hit_buffer_size));
-
-  // Lexicon.
-  out->append("Lexicon stats:\n");
-  lexicon_.GetDebugInfo(verbosity, out);
+IndexDebugInfoProto::LiteIndexDebugInfoProto LiteIndex::GetDebugInfo(
+    int verbosity) {
+  IndexDebugInfoProto::LiteIndexDebugInfoProto res;
+  res.set_curr_size(header_->cur_size());
+  res.set_hit_buffer_size(options_.hit_buffer_size);
+  res.set_last_added_document_id(header_->last_added_docid());
+  res.set_searchable_end(header_->searchable_end());
+  res.set_index_crc(ComputeChecksum().Get());
+  lexicon_.GetDebugInfo(verbosity, res.mutable_lexicon_info());
+  return res;
 }
 
 libtextclassifier3::StatusOr<int64_t> LiteIndex::GetElementsSize() const {
@@ -409,12 +421,8 @@ IndexStorageInfoProto LiteIndex::GetStorageInfo(
     IndexStorageInfoProto storage_info) const {
   int64_t header_and_hit_buffer_file_size =
       filesystem_->GetFileSize(hit_buffer_fd_.get());
-  if (header_and_hit_buffer_file_size != Filesystem::kBadFileSize) {
-    storage_info.set_lite_index_hit_buffer_size(
-        header_and_hit_buffer_file_size);
-  } else {
-    storage_info.set_lite_index_hit_buffer_size(-1);
-  }
+  storage_info.set_lite_index_hit_buffer_size(
+      IcingFilesystem::SanitizeFileSize(header_and_hit_buffer_file_size));
   int64_t lexicon_disk_usage = lexicon_.GetElementsSize();
   if (lexicon_disk_usage != Filesystem::kBadFileSize) {
     storage_info.set_lite_index_lexicon_size(lexicon_disk_usage);

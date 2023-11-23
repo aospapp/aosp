@@ -1,5 +1,5 @@
 /*  Copyright 1986-1992 Emmet P. Gray.
- *  Copyright 1994,1996-2002,2007-2009 Alain Knaff.
+ *  Copyright 1994,1996-2002,2007-2009,2021 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -40,12 +40,12 @@ static void set_mtime(const char *target, time_t mtime)
 {
 	if (target && strcmp(target, "-") && mtime != 0L) {
 #ifdef HAVE_UTIMES
-		struct timeval tv[2];	
+		struct timeval tv[2];
 		tv[0].tv_sec = mtime;
 		tv[0].tv_usec = 0;
 		tv[1].tv_sec = mtime;
 		tv[1].tv_usec = 0;
-		utimes((char *)target, tv);
+		utimes(target, tv);
 #else
 #ifdef HAVE_UTIME
 		struct utimbuf utbuf;
@@ -107,7 +107,6 @@ static int _unix_write(MainParam_t *mp, int needfilter, const char *unixFile)
 	Stream_t *File=mp->File;
 	Stream_t *Target, *Source;
 	struct MT_STAT stbuf;
-	int ret;
 	char errmsg[80];
 
 	File->Class->get_data(File, &mtime, 0, 0, 0);
@@ -130,16 +129,14 @@ static int _unix_write(MainParam_t *mp, int needfilter, const char *unixFile)
 				if(!S_ISREG(stbuf.st_mode)) {
 					fprintf(stderr,"\"%s\" is not a regular file\n",
 						unixFile);
-				
+
 					return ERROR_ONE;
 				}
 				sFd = get_fd(File);
 				if(sFd == -1) {
-					fprintf(stderr, "Not ok Unix file ==> good\n");
-				}
-				if((!MT_FSTAT(sFd, &srcStbuf)) &&
-				   stbuf.st_dev == srcStbuf.st_dev &&
-				   stbuf.st_ino == srcStbuf.st_ino) {
+				} else if((!MT_FSTAT(sFd, &srcStbuf)) &&
+					   stbuf.st_dev == srcStbuf.st_dev &&
+					   stbuf.st_ino == srcStbuf.st_ino) {
 					fprintf(stderr, "Attempt to copy file on itself\n");
 					return ERROR_ONE;
 				}
@@ -149,7 +146,7 @@ static int _unix_write(MainParam_t *mp, int needfilter, const char *unixFile)
 					     unixFile)) {
 				return ERROR_ONE;
 			}
-			
+
 		}
 	}
 
@@ -158,7 +155,7 @@ static int _unix_write(MainParam_t *mp, int needfilter, const char *unixFile)
 		mpPrintFilename(stderr,mp);
 		fprintf(stderr,"\n");
 	}
-	
+
 	if(got_signal) {
 		return ERROR_ONE;
 	}
@@ -166,19 +163,18 @@ static int _unix_write(MainParam_t *mp, int needfilter, const char *unixFile)
 	if ((Target = SimpleFileOpen(0, 0, unixFile,
 				     O_WRONLY | O_CREAT | O_TRUNC,
 				     errmsg, 0, 0, 0))) {
-		ret = 0;
-		if(needfilter && arg->textmode){
-			Source = open_filter(COPY(File),arg->convertCharset);
-			if (!Source)
-				ret = -1;
-		} else
-			Source = COPY(File);
+		mt_off_t ret;
+		Source = COPY(File);
+		if(needfilter && arg->textmode)
+			Source = open_dos2unix(Source,arg->convertCharset);
 
-		if (ret == 0 )
+		if (Source)
 			ret = copyfile(Source, Target);
+		else
+			ret = -1;
 		FREE(&Source);
 		FREE(&Target);
-		if(ret <= -1){
+		if(ret < 0){
 			if(!arg->type)
 				unlink(unixFile);
 			return ERROR_ONE;
@@ -223,7 +219,7 @@ static int unix_copydir(direntry_t *entry, MainParam_t *mp)
 	if (!arg->recursive && mp->basenameHasWildcard)
 		return 0;
 
-	File->Class->get_data(File, &mtime, 0, 0, 0);	
+	File->Class->get_data(File, &mtime, 0, 0, 0);
 	if (!arg->preserveTime)
 		mtime = 0L;
 	if(!arg->type && arg->verbose) {
@@ -250,11 +246,11 @@ static int unix_copydir(direntry_t *entry, MainParam_t *mp)
 		ret = mp->loop(File, &newArg.mp, "*");
 		set_mtime(unixFile, mtime);
 		free(unixFile);
-		return ret | GOT_ONE;		
+		return ret | GOT_ONE;
 	} else {
 		perror("mkdir");
-		fprintf(stderr, 
-			"Failure to make directory %s\n", 
+		fprintf(stderr,
+			"Failure to make directory %s\n",
 			unixFile);
 		free(unixFile);
 		return ERROR_ONE;
@@ -289,15 +285,16 @@ static int writeit(struct dos_name_t *dosname,
 {
 	Stream_t *Target;
 	time_t now;
-	int type, fat, ret;
+	int type;
+	mt_off_t ret;
+	uint32_t fat;
 	time_t date;
-	mt_size_t filesize, newsize;
+	mt_off_t filesize;
 	Arg_t *arg = (Arg_t *) arg0;
+	Stream_t *Source = COPY(arg->mp.File);
 
-
-
-	if (arg->mp.File->Class->get_data(arg->mp.File,
-									  & date, &filesize, &type, 0) < 0 ){
+	if (Source->Class->get_data(Source, &date, &filesize,
+				    &type, 0) < 0 ){
 		fprintf(stderr, "Can't stat source file\n");
 		return -1;
 	}
@@ -322,7 +319,7 @@ static int writeit(struct dos_name_t *dosname,
 	/* will it fit? */
 	if (!getfreeMinBytes(arg->mp.targetDir, filesize))
 		return -1;
-	
+
 	/* preserve mod time? */
 	if (arg->preserveTime)
 		now = date;
@@ -336,22 +333,19 @@ static int writeit(struct dos_name_t *dosname,
 		fprintf(stderr,"Could not open Target\n");
 		exit(1);
 	}
-	if (arg->needfilter & arg->textmode)
-		Target = open_filter(Target,arg->convertCharset);
-
-
-
-	ret = copyfile(arg->mp.File, Target);
-	GET_DATA(Target, 0, &newsize, 0, &fat);
+	if (arg->needfilter & arg->textmode) {
+		Source = open_unix2dos(Source,arg->convertCharset);
+	}
+		
+	ret = copyfile(Source, Target);
+	GET_DATA(Target, 0, 0, 0, &fat);
+	FREE(&Source);
 	FREE(&Target);
-	if (arg->needfilter & arg->textmode)
-	    newsize++; /* ugly hack: we gathered the size before the Ctrl-Z
-			* was written.  Increment it manually */
 	if(ret < 0 ){
 		fat_free(arg->mp.targetDir, fat);
 		return -1;
 	} else {
-		mk_entry(dosname, arg->attr, fat, truncBytes32(newsize),
+		mk_entry(dosname, arg->attr, fat, (uint32_t)ret,
 				 now, &entry->dir);
 		return 0;
 	}
@@ -392,7 +386,7 @@ static Stream_t *subDir(Stream_t *parent, const char *filename)
 	direntry_t entry;
 	initializeDirentry(&entry, parent);
 
-	switch(vfat_lookup(&entry, filename, -1, ACCEPT_DIR, 0, 0, 0, 0)) {
+	switch(vfat_lookup_zt(&entry, filename, ACCEPT_DIR, 0, 0, 0, 0)) {
 	    case 0:
 		return OpenFileByDirentry(&entry);
 	    case -1:
@@ -460,9 +454,9 @@ static int dos_copydir(direntry_t *entry, MainParam_t *mp)
 		/* maybe the directory already exist. Use it */
 		newArg.mp.targetDir = subDir(mp->targetDir, targetName);
 		if(!newArg.mp.targetDir)
-			newArg.mp.targetDir = createDir(mp->targetDir, 
+			newArg.mp.targetDir = createDir(mp->targetDir,
 							targetName,
-							&arg->ch, arg->attr, 
+							&arg->ch, arg->attr,
 							now);
 	} else
 		newArg.mp.targetDir = mp->targetDir;
@@ -495,7 +489,7 @@ static void usage(int ret)
 	fprintf(stderr,
 		"Usage: %s [-spatnmQVBT] [-D clash_option] sourcefile targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-spatnmQVBT] [-D clash_option] sourcefile [sourcefiles...] targetdirectory\n", 
+		"       %s [-spatnmQVBT] [-D clash_option] sourcefile [sourcefiles...] targetdirectory\n",
 		progname);
 	exit(ret);
 }
@@ -505,7 +499,7 @@ void mcopy(int argc, char **argv, int mtype)
 {
 	Arg_t arg;
 	int c, fastquit;
-	
+
 
 	/* get command line options */
 
@@ -537,6 +531,7 @@ void mcopy(int argc, char **argv, int mtype)
 				break;
 			case 'T':
 				arg.convertCharset = 1;
+				 /*-fallthrough*/
 			case 'a':
 			case 't':
 				arg.textmode = 1;
@@ -558,7 +553,7 @@ void mcopy(int argc, char **argv, int mtype)
 				batchmode = 1;
 				break;
 			case 'o':
-				handle_clash_options(&arg.ch, c);
+				handle_clash_options(&arg.ch, (char) c);
 				break;
 			case 'D':
 				if(handle_clash_options(&arg.ch, *optarg))
@@ -570,6 +565,7 @@ void mcopy(int argc, char **argv, int mtype)
 				usage(1);
 			default:
 				break;
+
 		}
 	}
 
@@ -595,7 +591,7 @@ void mcopy(int argc, char **argv, int mtype)
 		arg.mp.unixTarget = strdup("");
 		arg.mp.callback = dos_to_unix;
 		arg.mp.dirCallback = unix_copydir;
-		arg.mp.unixcallback = unix_to_unix;		
+		arg.mp.unixcallback = unix_to_unix;
 	} else {
 		const char *target;
 		if (argc - optind == 1) {

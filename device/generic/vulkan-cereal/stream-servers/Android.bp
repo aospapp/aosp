@@ -26,6 +26,8 @@ cc_library_shared {
         "-Wno-unreachable-code-loop-increment",
     ],
     static_libs: [
+        "gfxstream_angle_common",
+        "gfxstream_angle_shader_translator",
         "gfxstream_base",
         "gfxstream_host_common",
         "gfxstream_apigen_codec_common",
@@ -42,7 +44,6 @@ cc_library_shared {
         "gfxstream_renderControl_dec",
         "gfxstream_dispatch",
         "gfxstream_astc_codec",
-        "gfxstream_angle_stub",
         "gfxstream_lz4",
         "gfxstream_compressedTextures",
     ],
@@ -53,6 +54,7 @@ cc_library_shared {
         "ChannelStream.cpp",
         "ColorBuffer.cpp",
         "CompositorVk.cpp",
+        "Debug.cpp",
         "DisplayVk.cpp",
         "FbConfig.cpp",
         "FenceSync.cpp",
@@ -77,10 +79,12 @@ cc_library_shared {
         "RenderLibImpl.cpp",
         "RendererImpl.cpp",
         "FrameBuffer.cpp",
+        "vulkan/vk_util.cpp",
 
         "GfxStreamAgents.cpp",
         "virtio-gpu-gfxstream-renderer.cpp",
         "GfxStreamBackend.cpp",
+        "VirtioGpuTimelines.cpp",
     ],
     host_ldlibs: [
         "-lpthread",

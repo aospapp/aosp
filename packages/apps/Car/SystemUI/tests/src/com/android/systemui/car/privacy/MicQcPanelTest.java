@@ -38,6 +38,7 @@ import com.android.car.qc.QCList;
 import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.car.CarSystemUiTest;
+import com.android.systemui.car.systembar.MicPrivacyChipViewController;
 import com.android.systemui.privacy.PrivacyDialog;
 
 import org.junit.Before;
@@ -66,9 +67,9 @@ public class MicQcPanelTest extends SysuiTestCase {
     private Drawable mTestDrawable;
 
     @Mock
-    private MicQcPanel.MicPrivacyElementsProvider mMicPrivacyElementsProvider;
+    private MicPrivacyElementsProviderImpl mMicPrivacyElementsProvider;
     @Mock
-    private MicQcPanel.MicSensorInfoProvider mMicSensorInfoProvider;
+    private MicPrivacyChipViewController mMicSensorInfoProvider;
     @Mock
     private PackageManager mPackageManager;
     @Mock
@@ -82,18 +83,20 @@ public class MicQcPanelTest extends SysuiTestCase {
                 .thenReturn(mApplicationInfo);
         mContext.setMockPackageManager(mPackageManager);
 
-        mPhoneCallTitle = mContext.getString(R.string.ongoing_privacy_dialog_phonecall);
-        mMicOnTitleText = mContext.getString(R.string.mic_privacy_chip_use_microphone);
-        mMicOffTitleText = mContext.getString(R.string.mic_privacy_chip_off_content);
-        mTestDrawable = mContext.getDrawable(R.drawable.mic_privacy_chip_active_background_pill);
-
         mMicQcPanel = new MicQcPanel(mContext);
         mMicQcPanel.setControllers(mMicSensorInfoProvider, mMicPrivacyElementsProvider);
+
+        mPhoneCallTitle = mContext.getString(R.string.ongoing_privacy_dialog_phonecall);
+        mMicOnTitleText = mContext.getString(R.string.privacy_chip_use_sensor,
+                mMicQcPanel.getSensorName());
+        mMicOffTitleText = mContext.getString(R.string.privacy_chip_off_content,
+                mMicQcPanel.getSensorNameWithFirstLetterCapitalized());
+        mTestDrawable = mContext.getDrawable(R.drawable.privacy_chip_active_background_pill);
     }
 
     @Test
     public void testGetQCItem_micDisabled_noPrivacyItems_returnsOnlyMicMutedRow() {
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(false);
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(false);
         List<PrivacyDialog.PrivacyElement> elements = Collections.emptyList();
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
 
@@ -105,7 +108,7 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_noPrivacyItems_returnsOnlyMicMutedRow() {
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements = Collections.emptyList();
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
 
@@ -117,7 +120,7 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_onlyOneActivePrivacyItem_firstRowMicEnabled() {
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements =
                 List.of(getPrivacyElement(/* active=*/ true, /* phoneCall= */ false));
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
@@ -130,9 +133,9 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_onlyOneActivePrivacyItem_secondRowActiveApp() {
-        String expectedTitle = mContext
-                .getString(R.string.mic_privacy_chip_app_using_mic_suffix, APP_LABEL_ACTIVE);
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        String expectedTitle = mContext.getString(R.string.privacy_chip_app_using_sensor_suffix,
+                APP_LABEL_ACTIVE, mMicQcPanel.getSensorShortName());
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements =
                 List.of(getPrivacyElement(/* active=*/ true, /* phoneCall= */ false));
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
@@ -145,7 +148,7 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micDisabled_onlyOneInactivePhonePrivacyItem_firstRowMicDisabled() {
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(false);
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(false);
         List<PrivacyDialog.PrivacyElement> elements =
                 List.of(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
@@ -159,9 +162,9 @@ public class MicQcPanelTest extends SysuiTestCase {
     @Test
     public void testGetQCItem_micDisabled_onlyOneInactivePhonePrivacyItem_secondRowInactiveApp() {
         String expectedTitle =
-                mContext.getString(R.string.mic_privacy_chip_app_recently_used_mic_suffix,
-                        mPhoneCallTitle);
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(false);
+                mContext.getString(R.string.privacy_chip_app_recently_used_sensor_suffix,
+                        mPhoneCallTitle, mMicQcPanel.getSensorShortName());
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(false);
         List<PrivacyDialog.PrivacyElement> elements =
                 List.of(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         when(mMicPrivacyElementsProvider.getPrivacyElements()).thenReturn(elements);
@@ -174,7 +177,7 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_multiplePrivacyItems_firstRowMicEnabled() {
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements = new ArrayList<>();
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ false));
@@ -192,9 +195,9 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_multiplePrivacyItems_secondRowActiveApp() {
-        String expectedTitle = mContext
-                .getString(R.string.mic_privacy_chip_app_using_mic_suffix, APP_LABEL_ACTIVE);
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        String expectedTitle = mContext.getString(R.string.privacy_chip_app_using_sensor_suffix,
+                APP_LABEL_ACTIVE, mMicQcPanel.getSensorShortName());
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements = new ArrayList<>();
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ false));
@@ -212,9 +215,9 @@ public class MicQcPanelTest extends SysuiTestCase {
 
     @Test
     public void testGetQCItem_micEnabled_multiplePrivacyItems_thirdRowActivePhone() {
-        String expectedTitle = mContext
-                .getString(R.string.mic_privacy_chip_app_using_mic_suffix, mPhoneCallTitle);
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+        String expectedTitle = mContext.getString(R.string.privacy_chip_app_using_sensor_suffix,
+                mPhoneCallTitle, mMicQcPanel.getSensorShortName());
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements = new ArrayList<>();
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ false));
@@ -233,9 +236,9 @@ public class MicQcPanelTest extends SysuiTestCase {
     @Test
     public void testGetQCItem_micEnabled_multiplePrivacyItems_fourthRowInactiveApps() {
         String expectedTitle = mContext
-                .getString(R.string.mic_privacy_chip_apps_recently_used_mic_suffix,
-                        mPhoneCallTitle, 2);
-        when(mMicSensorInfoProvider.isMicEnabled()).thenReturn(true);
+                .getString(R.string.privacy_chip_apps_recently_used_sensor_suffix,
+                        mPhoneCallTitle, 2, mMicQcPanel.getSensorShortName());
+        when(mMicSensorInfoProvider.isSensorEnabled()).thenReturn(true);
         List<PrivacyDialog.PrivacyElement> elements = new ArrayList<>();
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ true));
         elements.add(getPrivacyElement(/* active=*/ false, /* phoneCall= */ false));

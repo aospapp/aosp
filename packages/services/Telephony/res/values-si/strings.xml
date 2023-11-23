@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"හදිසි ආපසු ඇමතුම් ආකාරය"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"දත්ත සම්බන්ධතාවය අබලයි"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> තෙක් දත්ත සම්බන්ධතාවක් නැත"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. මෙම ආකාරය තුළ සිටින අතරතුර දත්ත සම්බන්ධයක් භාවිත කරන යෙදුම් කිසිවක් භාවිත කළ නොහැකිය. ඔබට දැන් පිටවීමට අවශ්යද?</item>
-      <item quantity="other">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. මෙම ආකාරය තුළ සිටින අතරතුර දත්ත සම්බන්ධයක් භාවිත කරන යෙදුම් කිසිවක් භාවිත කළ නොහැකිය. ඔබට දැන් පිටවීමට අවශ්යද?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one"> හදිසි ආපසු ඇමතුම් ආකාරය තුළ සිටියදී තෝරන ලද ක්‍රියාව ලබාගත නොහැක. දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. ඔබට දැන් පිටවීමට අවශ්යද?</item>
-      <item quantity="other"> හදිසි ආපසු ඇමතුම් ආකාරය තුළ සිටියදී තෝරන ලද ක්‍රියාව ලබාගත නොහැක. දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. ඔබට දැන් පිටවීමට අවශ්යද?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"හදිසි ඇමතුමක් අතර තුර තෝරන ලද ක්‍රියාව ලබාගත නොහැක."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"හදිසි ආපසු ඇමතුම් ආකාරයෙන් පිට වෙමින්"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ඔව්"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"ඉවතලන්න"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"දුරකථනය හදිසි පසු ඇමතුම් ප්‍රකාරයේ ඇත"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> තෙක්"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g>ක් තිස්සේ හදිසි පසු ඇමතුම් ප්‍රකාරයේ තිබෙනු ඇත.\nදැන් ඔබට පිටවීමට අවශ්‍යද?</item>
-      <item quantity="other">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g>ක් තිස්සේ හදිසි පසු ඇමතුම් ප්‍රකාරයේ තිබෙනු ඇත.\nදැන් ඔබට පිටවීමට අවශ්‍යද?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"සේවාව"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"ස්ථාපනය කරන්න"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;පිහිටුවා නැත&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ප්‍රවේශ්‍යතාව"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"වෙතින් Wi-Fi ඇමතුම"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi ඇමතුම"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"විවෘත කිරීමට නැවත තට්ටු කරන්න"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"පණිවිඩය විකේතනය කරන අතරතුර දෝෂයක් සිදු විය."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM කාඩ්පතක් ඔබේ සේවාව සක්‍රිය කර ඔබේ දුරකථනයේ රෝමිං හැකියා යාවත්කාලීන කර තිබේ."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"සක්‍රිය ඇමතුම් ඉතා විශාල ගණනක් ඇත. කරුණාකර නව ඇමතුමක් ගැනීමට පෙර පවතින ඇමතුම් අවසන් හෝ ඒකාබද්ධ කරන්න."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"තවත් යන ඇමතුමක් දැනටමත් ඩයල් කරමින් පවතින නිසා අැමතුමක් ගැනීමට නොහැකිය."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"පිළිතුරු නොදුන් එන ඇමතුමක් තිබෙන නිසා අැමතුමක් ගැනීමට නොහැකිය. නව ඇමතුමක් ගැනීමට පෙර එන අැමතුමට පිළිතුරු දෙන්න නැතහොත් ප්‍රතික්ෂේප කරන්න."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ඇමතුම ro.telephony.disable-call පද්ධති ගුණාංගය භාවිතයෙන් ඇමතුම අබල කර ඇති නිසා ඇමතුමක් ගැනීමට නොහැකිය."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"දැනටමත් ඇමතුම් දෙකක් කෙරෙමින් පවතින නිසා ඇමතුමක් ගැනීමට නොහැකිය. නව ඇමතුමක් ගැනීමට පෙරාතුව ඇමතුම්වලින් එකක් විසන්ධි කරන්න නැතහොත් ඒවා සම්මන්ත්‍රණයකට ඒකාබද්ධ කරන්න."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"දැනටමත් ඇමතුම් දෙකක් කෙරෙමින් පවතින නිසා ඇමතුමක් ගැනීමට නොහැක. නව ඇමතුමක් ගැනීමට පෙරාතුව ඇමතුම්වලින් එකක් විසන්ධි කරන්න නැතහොත් ඒවා සම්මන්ත්‍රණයකට ඒකාබද්ධ කරන්න."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> භාවිත කිරීමට, ඔබේ ජංගම දත්ත ක්‍රියාත්මක කර ඇති බව සහතික කර ගන්න. ඔබට මෙය ජංගම ජාල සැකසීම් තුළ වෙනස් කිරීමට හැකිය."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> භාවිත කිරීමට, ජංගම දත්ත සහ දත්ත රෝමිං ක්‍රියාත්මක කර ඇති බව සහතික කර ගන්න. ඔබට මේවා ජංගම ජාල සැකසීම් තුළ වෙනස් කිරීමට හැකිය."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> භාවිත කිරීමට, SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> සඳහා ජංගම දත්ත ක්‍රියාත්මක කර ඇති බව සහතික කර ගන්න. ඔබට මෙය ජංගම ජාල සැකසීම් තුළ වෙනස් කිරීමට හැකිය."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"මෙම සැකසීම වෙනස් කිරීමට ඔබ ඔබේ උපාංගය යළි ඇරඹීමට අවශ්‍යයි."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"යළි අරඹන්න"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"අවලංගු කරන්න"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"ඉවත් කළ හැකි eSIM පෙරනිමිය ලෙස සකසන්න"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ජංගම රේඩියෝ බලය"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM ලිපින පොත බලන්න"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ස්ථාවර ඇමතුම් අංක පෙන්වන්න"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"රේඩියෝ කලාපය තෝරන්න"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"හඬ ජාල වර්ගය:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"දත්ත ජාල වර්ගය:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ජාල වර්ගය ප්‍රතික්ෂේප කරන්න:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"දුරකථන දර්ශකය තෝරන්න"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"වඩා කැමති ජාල වර්ගය සකසන්න:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"සත්කාරක නම පිං කරන්න(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"නැවුම් කරන්න"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS පරීක්ෂාව ටොගල කරන්න"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-විශේෂිත තොරතුරු/සැකසීම්"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ලබා ගත හැකි:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR සීමා කළ:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ලබා ගත හැකි:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR තත්ත්වය:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC තිබේ (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR සීමිතයි (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR තිබේ (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR තත්ත්වය (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR සංඛ්‍යාතය:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"රේඩියෝ කලාප ප්‍රකාරය සකසන්න"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"කලාප ලැයිස්තුව පූරණය කරමින්…"</string>

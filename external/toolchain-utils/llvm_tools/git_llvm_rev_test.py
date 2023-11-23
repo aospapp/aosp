@@ -93,7 +93,7 @@ class Test(unittest.TestCase):
   def test_zz_branch_revs_work_after_merge_points_and_svn_cutoff(self) -> None:
     # Arbitrary 9.x commit without an attached llvm-svn: value.
     sha = self.rev_to_sha_with_round_trip(
-        git_llvm_rev.Rev(branch='release/9.x', number=366670))
+        git_llvm_rev.Rev(branch='upstream/release/9.x', number=366670))
     self.assertEqual(sha, '4e858e4ac00b59f064da4e1f7e276916e7d296aa')
 
   def test_zz_branch_revs_work_at_merge_points(self) -> None:
@@ -108,7 +108,7 @@ class Test(unittest.TestCase):
     # branch, we'll pick main for this. That's fine.
     sha = git_llvm_rev.translate_rev_to_sha(
         get_llvm_config(),
-        git_llvm_rev.Rev(branch='release/9.x', number=rev_number))
+        git_llvm_rev.Rev(branch='upstream/release/9.x', number=rev_number))
     self.assertEqual(sha, backing_sha)
 
   def test_zz_branch_revs_work_after_merge_points(self) -> None:
@@ -117,7 +117,7 @@ class Test(unittest.TestCase):
     # ours, and are therefore untrustworthy. The commit for this *does* have a
     # different `llvm-svn:` string than we should have.
     sha = self.rev_to_sha_with_round_trip(
-        git_llvm_rev.Rev(branch='release/9.x', number=366427))
+        git_llvm_rev.Rev(branch='upstream/release/9.x', number=366427))
     self.assertEqual(sha, '2cf681a11aea459b50d712abc7136f7129e4d57f')
 
 

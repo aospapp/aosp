@@ -111,8 +111,13 @@ public class WifiKeyStore {
         }
         X509Certificate[] caCertificates = config.getCaCertificates();
         Set<String> oldCaCertificatesToRemove = new ArraySet<>();
+
+        // Create a list of old Root CA certificate aliases from the existing configuration.
+        // Note that when updating from Settings, caCertificates is empty, therefore, all
+        // certificates must be kept. This happens because the certificate material is already
+        // stored in KeyStore and the only reference left is the alias.
         if (existingConfig != null && existingConfig.getCaCertificateAliases() != null
-                && existingConfig.isAppInstalledCaCert()) {
+                && existingConfig.isAppInstalledCaCert() && caCertificates != null) {
             oldCaCertificatesToRemove.addAll(
                     Arrays.asList(existingConfig.getCaCertificateAliases()));
         }
@@ -120,7 +125,7 @@ public class WifiKeyStore {
         if (caCertificates != null) {
             caCertificateAliases = new ArrayList<>();
             for (int i = 0; i < caCertificates.length; i++) {
-                String caAlias = String.format("%s_%d", alias, i);
+                String caAlias = alias + "_" + i;
 
                 oldCaCertificatesToRemove.remove(caAlias);
                 if (!putCaCertInKeyStore(caAlias, caCertificates[i])) {
@@ -135,7 +140,7 @@ public class WifiKeyStore {
             }
         }
         // If alias changed, remove the old one.
-        if (!alias.equals(existingAlias)) {
+        if (!TextUtils.equals(alias, existingAlias)) {
             if (existingConfig != null && existingConfig.isAppInstalledDeviceKeyAndCert()) {
                 // Remove old private keys.
                 removeEntryFromKeyStore(existingAlias);
@@ -399,7 +404,7 @@ public class WifiKeyStore {
         // support for both RSA and ECDSA, and for STAs it mandates ECDSA and optionally
         // RSA. In order to be compatible with all WPA3-Enterprise 192-bit deployments,
         // we are supporting both types here.
-        if (sigAlgOid.equals("1.2.840.113549.1.1.12")) {
+        if (TextUtils.equals(sigAlgOid, "1.2.840.113549.1.1.12")) {
             // sha384WithRSAEncryption
             if (x509Certificate.getPublicKey() instanceof RSAPublicKey) {
                 final RSAPublicKey rsaPublicKey = (RSAPublicKey) x509Certificate.getPublicKey();
@@ -413,7 +418,7 @@ public class WifiKeyStore {
                     }
                 }
             }
-        } else if (sigAlgOid.equals("1.2.840.10045.4.3.3")) {
+        } else if (TextUtils.equals(sigAlgOid, "1.2.840.10045.4.3.3")) {
             // ecdsa-with-SHA384
             if (x509Certificate.getPublicKey() instanceof ECPublicKey) {
                 final ECPublicKey ecPublicKey = (ECPublicKey) x509Certificate.getPublicKey();

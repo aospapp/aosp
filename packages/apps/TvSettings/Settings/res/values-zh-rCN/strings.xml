@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"添加帐号"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"帐号和登录"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"未登录任何帐号"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> 个帐号</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> 个帐号</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# 个帐号}other{# 个帐号}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"媒体服务、Google 助理、付款功能"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"网络和互联网"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"声音"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"应用"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"设备偏好设置"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"遥控器和配件"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"未连接任何蓝牙设备"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> 个配件</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> 个配件</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"画质和音效"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"帮助和反馈"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"隐私设置"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"恢复出厂设置"</string>
     <string name="device_calibration" msgid="2907914144048739705">"校准"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"节能模式"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"设备"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"选择格式"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"环绕声"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"已启用的格式"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"已停用的格式"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"如要停用，请将格式选择设置更改为“手动”。"</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"分辨率"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"自动"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"分辨率已更改"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"选择“确定”，即可立即开始使用%1$s。"</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"取消"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"确定"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"要清除缓存的数据吗？"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"此操作会清除所有应用的缓存数据。"</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"添加配件"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"正在配对…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"正在连接…"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"配件"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"遥控器"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"遥控器设置"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"设置遥控器按钮"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"控制电视、接收器及条形音箱的音量、电源和输入源"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"连接"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"连接到%1$s"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"断开连接"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"不适用"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"设备管理应用"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"没有运行中的应用"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 个使用中的应用</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 个使用中的应用</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"由于管理员、加密策略或凭据存储的要求，您无法使用此选项"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"受管理设备的信息"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"由贵单位管理的更改和设置"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"无"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"已安装的应用"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"应用数量是估算值，其中可能不包括从 Play 商店以外的来源安装的应用。"</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">至少 <xliff:g id="COUNT_1">%d</xliff:g> 个应用</item>
-      <item quantity="one">至少 <xliff:g id="COUNT_0">%d</xliff:g> 个应用</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{至少 # 个应用}other{至少 # 个应用}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"位置权限"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"麦克风使用权限"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"相机使用权"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"默认应用"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 个应用</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 个应用</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# 个应用}other{# 个应用}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"默认键盘"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"已设为<xliff:g id="APP_LABEL">%s</xliff:g>"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"已开启“始终开启的 VPN”"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"可信凭据"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"您个人资料中的可信凭据"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"您工作资料中的可信凭据"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">至少 <xliff:g id="COUNT_1">%d</xliff:g> 个 CA 证书</item>
-      <item quantity="one">至少 <xliff:g id="COUNT_0">%d</xliff:g> 个 CA 证书</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# 个 CA 证书}other{# 个 CA 证书}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"管理员可以锁定设备及重置密码"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"管理员可以删除所有设备数据"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"输入错误密码的尝试次数上限（超过此上限将删除所有设备数据）"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"输入错误密码的尝试次数上限（超过此上限将删除工作资料数据）"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other">已尝试 <xliff:g id="COUNT_1">%d</xliff:g> 次</item>
-      <item quantity="one">已尝试 <xliff:g id="COUNT_0">%d</xliff:g> 次</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{已尝试 # 次}other{已尝试 # 次}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"此设备由贵单位管理。"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"此设备由“<xliff:g id="ORGANIZATION_NAME">%s</xliff:g>”管理。"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"了解详情"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">相机应用</item>
-      <item quantity="one">相机应用</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{相机应用}other{相机应用}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"日历应用"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"通讯录应用"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">电子邮件客户端应用</item>
-      <item quantity="one">电子邮件客户端应用</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{电子邮件客户端应用}other{电子邮件客户端应用}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"地图应用"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">电话应用</item>
-      <item quantity="one">电话应用</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{“电话”应用}other{“电话”应用}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"浏览器应用"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>、<xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>、<xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>、<xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV 操作系统版本"</string>
     <string name="about_serial" msgid="3432319328808745459">"序列号"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV 操作系统版本"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">现在只需再执行 <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> 步操作即可进入开发者模式</item>
-      <item quantity="one">现在只需再执行 <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> 步操作即可进入开发者模式</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{现在只需再执行 # 步操作，即可进入开发者模式}other{现在只需再执行 # 步操作，即可进入开发者模式}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"广告"</string>
     <string name="ads_description" msgid="8081069475265061074">"管理广告设置，例如重置广告 ID。"</string>
     <string name="ads_content_description" msgid="1006489792324920289">"广告，管理广告设置，例如重置广告 ID。"</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"其他系统更新"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"网络可能会受到监控"</string>
     <string name="done_button" msgid="616159688526431451">"完成"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">设为信任的证书或移除证书</item>
-      <item quantity="one">设为信任的证书或移除证书</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>已在您的设备上安装证书授权机构颁发的证书，借此监控设备网络活动，包括电子邮件、应用和安全网站。\n\n如需详细了解这些证书，请与您的管理员联系。</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>已在您的设备上安装证书授权机构颁发的证书，借此监控设备网络活动，包括电子邮件、应用和安全网站。\n\n如需详细了解此证书，请与您的管理员联系。</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g>已为您的工作资料安装证书授权机构颁发的证书，借此监控工作网络活动，包括电子邮件、应用和安全网站。\n\n如需详细了解这些证书，请与您的管理员联系。</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g>已为您的工作资料安装证书授权机构颁发的证书，借此监控工作网络活动，包括电子邮件、应用和安全网站。\n\n如需详细了解此证书，请与您的管理员联系。</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"第三方可以监控您的网络活动，包括收发电子邮件、使用应用和浏览安全网站。\n\n出现这种情况的原因是您在设备上安装了信任的凭据。"</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">检查证书</item>
-      <item quantity="one">检查证书</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{设为信任的证书或移除证书}other{设为信任的证书或移除证书}}"</string>
     <string name="device_status" msgid="8266002761193692207">"状态"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"网络、序列号和其他信息"</string>
     <string name="manual" msgid="5683935624321864999">"手册"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"连接"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"取消保存网络"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"这将清除用于连接至此网络的信息（包括已保存的密码）"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"如要加入 WLAN，请使用手机扫描二维码，然后按照说明操作。"</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" 如要加入 WLAN，请使用手机扫描二维码，然后按照说明操作。\n \n在 "<b>"Android 手机"</b>"中，依次转到“设置”-&gt;“网络和互联网”-&gt;“WLAN”-&gt; 选择所需 WLAN -&gt;“高级”-&gt;“添加设备”，然后扫描二维码。"</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"按返回按钮即可取消"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"确定"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"继续"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"设备存储空间"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"移动存储设备"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"重置"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"释放存储空间"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"清除缓存的数据"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"释放 <xliff:g id="SPACE">%1$s</xliff:g>"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"此操作会清除占用空间的临时文件，但不会影响应用偏好设置或离线视频等已保存的数据，您也不需要重新登录应用。"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"是否清除缓存数据？"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"此操作会清除所有应用的缓存数据。"</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"卸载应用"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"已装载<xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"无法装载<xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"已重新连接 USB 存储设备"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"麦克风"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"麦克风使用权限"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"应用的麦克风使用权限"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"已禁用麦克风使用权限"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"若要取消禁用，请将设备上的隐私保护开关移到“麦克风已启用”位置，以允许使用麦克风。"</string>
     <string name="camera" msgid="1226671478936288283">"摄像头"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"摄像头使用权限"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"应用的摄像头使用权限"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"已禁用摄像头使用权限"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"若要取消禁用，请将设备上的隐私保护开关移到“摄像头已启用”位置，以允许使用摄像头。"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"麦克风使用权限：<xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"开启后，具有权限的所有应用和服务均可使用此设备上的任何麦克风。\n\n此设置将不会影响采用自定义协议的音频外围设备。"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"摄像头使用权限：<xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -657,8 +628,8 @@
     <string name="system_services" msgid="5754310941186053151">"服务"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"服务设置"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"高对比度文字"</string>
-    <string name="accessibility_shortcut" msgid="5856158637840030531">"无障碍功能快捷方式"</string>
-    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"启用无障碍功能快捷方式"</string>
+    <string name="accessibility_shortcut" msgid="5856158637840030531">"无障碍快捷方式"</string>
+    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"启用无障碍快捷方式"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"快捷方式服务"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"开启这项快捷方式后，同时按下返回和向下按钮 3 秒钟即可启动无障碍功能。"</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"字幕"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"青色"</string>
     <string name="color_yellow" msgid="3519470952904560404">"黄色"</string>
     <string name="color_magenta" msgid="2377854703399624607">"紫红色"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"语音描述"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"听取有关当前屏幕画面内容的语音说明（仅限支持该设置的电影或电视节目）"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"启用"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"配置"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"要使用<xliff:g id="SERVICE">%1$s</xliff:g>吗？"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"监控"</string>
     <string name="system_apps" msgid="8481888654606868074">"应用"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"保持唤醒状态"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"屏幕绝不会进入休眠状态"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP检查"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI优化"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"要立即重启吗？"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"关闭电视时让HDMI设备自动关机"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"电视自动开机"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"打开HDMI设备时让电视自动开机"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">已连接的输入设备</item>
-      <item quantity="one">已连接的输入设备</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">待机的输入设备</item>
-      <item quantity="one">待机的输入设备</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">未连接的输入设备</item>
-      <item quantity="one">未连接的输入设备</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{已连接的输入设备}other{已连接的输入设备}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{待机的输入设备}other{待机的输入设备}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{已断开连接的输入设备}other{已断开连接的输入设备}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"限制其他人使用您帐号中的应用和内容"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"受限个人资料"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"由<xliff:g id="APP">%1$s</xliff:g>控制"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"创建受限个人资料"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"设置"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"允许的应用"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">允许使用 %d 个应用</item>
-      <item quantity="one">允许使用 1 个应用</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"允许"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"不允许"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"自定义限制"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"第三方源代码"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"权限"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"无法使用应用"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"未使用的应用"</string>
     <string name="settings_ok" msgid="5950888975075541964">"确定"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"确认"</string>
     <string name="settings_cancel" msgid="576094334743686152">"取消"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"此权限可让应用修改系统设置。"</string>
     <string name="write_settings_on" msgid="71675710746513956">"是"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"否"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"所有文件访问权限"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"授予管理所有文件的权限"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"允许此应用读取、修改和删除此设备或任何已连接存储卷上的所有文件。如果您授予该权限，应用无需明确通知您即可访问文件。"</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"画中画"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"允许进入画中画模式"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"已安装的应用均不支持画中画功能"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"允许应用在您打开应用时或您离开应用后（例如继续观看视频）创建画中画窗口。这类窗口会显示在您当前使用的其他应用的上层。"</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"允许应用设置闹钟以及安排在特定时间执行某些操作。开启这项权限后，应用将在后台运行，可能会消耗更多电量。\n\n如果您关闭此权限，该应用设置的现有闹钟将不会响起，而且该应用安排在特定时间执行的现有活动也不会执行。"</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"开启屏幕"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"允许开启屏幕"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"允许应用开启屏幕。如获授权，该应用便可在您未明确表达意愿的情况下随时开启屏幕。"</string>
     <string name="special_access" msgid="21806055758289916">"特殊应用权限"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>，<xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"音频"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"流量节省程序"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"自动调整视频画质以减少移动数据流量消耗"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"流量消耗和提醒"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"您可以通过 WLAN、以太网或手机的热点连接到互联网。如需更多帮助，请访问 "<b>"g.co/network"</b>"。"</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"您可以通过 WLAN、以太网或手机的热点连接到互联网。"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"不允许执行此操作"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"无法调节音量"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"开关和电源"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"开机行为"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"重置"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"以太网配对码"</string>
 </resources>

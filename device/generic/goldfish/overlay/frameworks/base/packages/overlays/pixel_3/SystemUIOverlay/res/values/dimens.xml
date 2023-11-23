@@ -16,8 +16,6 @@
 */
 -->
 <resources>
-    <dimen name="rounded_corner_content_padding">28px</dimen>
-
     <!-- Location on the screen of the center of the physical power button. -->
     <dimen name="physical_power_button_center_screen_location_y">450px</dimen>
 

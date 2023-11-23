@@ -40,9 +40,10 @@ class AssertionEngine(
         wmTrace: WindowManagerTrace,
         layersTrace: LayersTrace,
         tagTrace: TagTrace
-    ): ErrorTrace {
+    ): Pair<ErrorTrace, Map<String, Int>> {
         val errors = mutableListOf<ErrorState>()
         val allTransitions = getTransitionTags(tagTrace)
+        val assertionsResults = mutableMapOf<String, Int>()
 
         allTransitions
             .filter { knownTypes.contains(it.tag.transition) }
@@ -56,6 +57,9 @@ class AssertionEngine(
                 val errorTrace = assertor.analyze(
                     transition.tag, filteredWmTrace, filteredLayersTrace)
                 errors.addAll(errorTrace)
+                assertionsResults.putAll(
+                    getAssertionsResultsForTransition(assertionsOfType, errors)
+                )
             }
 
         /* Ensure all error states with same timestamp are merged */
@@ -65,7 +69,7 @@ class AssertionEngine(
                     ErrorState(value.flatten().toTypedArray(), key.toString()) }
                 .values.toTypedArray()
 
-        return ErrorTrace(errorStates, source = "")
+        return ErrorTrace(errorStates) to assertionsResults
     }
 
     /**
@@ -87,12 +91,6 @@ class AssertionEngine(
         }
     }
 
-    private fun getEndTagTimestamp(tagTrace: TagTrace, tag: Tag): Long {
-        val finalTag = tag.copy(isStartTag = false)
-        return tagTrace.entries.firstOrNull { state -> state.tags.contains(finalTag) }?.timestamp
-            ?: throw RuntimeException("All open tags should be closed!")
-    }
-
     /**
      * Splits a [WindowManagerTrace] and a [LayersTrace] by a [Transition].
      *
@@ -109,5 +107,32 @@ class AssertionEngine(
         val filteredWmTrace = wmTrace.filter(tag.startTimestamp, tag.endTimestamp)
         val filteredLayersTrace = layersTrace.filter(tag.startTimestamp, tag.endTimestamp)
         return Pair(filteredWmTrace, filteredLayersTrace)
+    }
+
+    private fun getEndTagTimestamp(tagTrace: TagTrace, tag: Tag): Long {
+        return tagTrace.entries.firstOrNull { state ->
+            state.tags.any { it.id == tag.id && !it.isStartTag }
+        }?.timestamp ?: throw RuntimeException("All open tags should be closed!")
+    }
+
+    /**
+     * Returns a map that associates an assertion name with 0 if the assertion failed
+     * or 1 if the assertion passed.
+     *
+     * @param assertions the assertions that were run
+     * @param errorStates the generated errors
+     * @return a map containing the assertion name and the result
+     */
+    private fun getAssertionsResultsForTransition(
+        assertions: List<AssertionData>,
+        errorStates: List<ErrorState>
+    ): Map<String, Int> {
+        val errors = errorStates.flatMap { it.errors.map { it.assertionName }.toList() }
+        val results = assertions.associate {
+            val assertionValue = if (errors.contains(it.assertion.name)) 0 else 1
+            "${it.transitionType.name}#${it.assertion.name}" to assertionValue
+        }
+
+        return results
     }
 }

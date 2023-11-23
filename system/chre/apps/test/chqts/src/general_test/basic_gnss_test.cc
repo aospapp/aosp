@@ -21,9 +21,6 @@
 
 /*
  * Test to check expected functionality of the CHRE GNSS APIs.
- * TODO: Currently the test only exists to verify that expected APIs are
- *       implemented and doesn't fail. Make the test more comprehensive by
- *       validating callback results, etc.
  */
 namespace general_test {
 
@@ -68,25 +65,24 @@ void BasicGnssTest::setUp(uint32_t messageSize, const void * /* message */) {
     sendFatalFailureToHost("Expected 0 byte message, got more bytes:",
                            &messageSize);
   } else {
-    uint32_t capabilities = chreGnssGetCapabilities();
-
-    if (capabilities & CHRE_GNSS_CAPABILITIES_LOCATION) {
+    if (isCapabilitySet(CHRE_GNSS_CAPABILITIES_LOCATION)) {
       testLocationSessionAsync();
     } else {
       mTestSuccessMarker.markStageAndSuccessOnFinish(
           BASIC_GNSS_TEST_STAGE_LOCATION);
     }
 
-    if (capabilities & CHRE_GNSS_CAPABILITIES_MEASUREMENTS) {
+    if (isCapabilitySet(CHRE_GNSS_CAPABILITIES_MEASUREMENTS)) {
       testMeasurementSessionAsync();
     } else {
       mTestSuccessMarker.markStageAndSuccessOnFinish(
           BASIC_GNSS_TEST_STAGE_MEASUREMENT);
     }
 
-    if (((mApiVersion < CHRE_API_VERSION_1_5) &&
-         (capabilities &
-          CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER) == 0) ||
+    if ((mApiVersion < CHRE_API_VERSION_1_5) ||
+        !isCapabilitySet(
+            CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER) ||
+        !isCapabilitySet(CHRE_GNSS_CAPABILITIES_LOCATION) ||
         testPassiveListener()) {
       mTestSuccessMarker.markStageAndSuccessOnFinish(
           BASIC_GNSS_TEST_STAGE_LISTENER);

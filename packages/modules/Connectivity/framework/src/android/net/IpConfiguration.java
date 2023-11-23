@@ -28,16 +28,16 @@ import android.os.Parcelable;
 import java.util.Objects;
 
 /**
- * A class representing a configured network.
- * @hide
+ * A class representing the IP configuration of a network.
  */
-@SystemApi
 public final class IpConfiguration implements Parcelable {
     private static final String TAG = "IpConfiguration";
 
     // This enum has been used by apps through reflection for many releases.
     // Therefore they can't just be removed. Duplicating these constants to
     // give an alternate SystemApi is a worse option than exposing them.
+    /** @hide */
+    @SystemApi
     @SuppressLint("Enum")
     public enum IpAssignment {
         /* Use statically configured IP settings. Configuration can be accessed
@@ -59,6 +59,8 @@ public final class IpConfiguration implements Parcelable {
     // This enum has been used by apps through reflection for many releases.
     // Therefore they can't just be removed. Duplicating these constants to
     // give an alternate SystemApi is a worse option than exposing them.
+    /** @hide */
+    @SystemApi
     @SuppressLint("Enum")
     public enum ProxySettings {
         /* No proxy is to be used. Any existing proxy settings
@@ -94,6 +96,8 @@ public final class IpConfiguration implements Parcelable {
                 null : new ProxyInfo(httpProxy);
     }
 
+    /** @hide */
+    @SystemApi
     public IpConfiguration() {
         init(IpAssignment.UNASSIGNED, ProxySettings.UNASSIGNED, null, null);
     }
@@ -107,6 +111,8 @@ public final class IpConfiguration implements Parcelable {
         init(ipAssignment, proxySettings, staticIpConfiguration, httpProxy);
     }
 
+    /** @hide */
+    @SystemApi
     public IpConfiguration(@NonNull IpConfiguration source) {
         this();
         if (source != null) {
@@ -115,34 +121,58 @@ public final class IpConfiguration implements Parcelable {
         }
     }
 
+    /** @hide */
+    @SystemApi
     public @NonNull IpAssignment getIpAssignment() {
         return ipAssignment;
     }
 
+    /** @hide */
+    @SystemApi
     public void setIpAssignment(@NonNull IpAssignment ipAssignment) {
         this.ipAssignment = ipAssignment;
     }
 
+    /**
+     * Get the current static IP configuration (possibly null). Configured via
+     * {@link Builder#setStaticIpConfiguration(StaticIpConfiguration)}.
+     *
+     * @return Current static IP configuration.
+     */
     public @Nullable StaticIpConfiguration getStaticIpConfiguration() {
         return staticIpConfiguration;
     }
 
+    /** @hide */
+    @SystemApi
     public void setStaticIpConfiguration(@Nullable StaticIpConfiguration staticIpConfiguration) {
         this.staticIpConfiguration = staticIpConfiguration;
     }
 
+    /** @hide */
+    @SystemApi
     public @NonNull ProxySettings getProxySettings() {
         return proxySettings;
     }
 
+    /** @hide */
+    @SystemApi
     public void setProxySettings(@NonNull ProxySettings proxySettings) {
         this.proxySettings = proxySettings;
     }
 
+    /**
+     * The proxy configuration of this object.
+     *
+     * @return The proxy information of this object configured via
+     * {@link Builder#setHttpProxy(ProxyInfo)}.
+     */
     public @Nullable ProxyInfo getHttpProxy() {
         return httpProxy;
     }
 
+    /** @hide */
+    @SystemApi
     public void setHttpProxy(@Nullable ProxyInfo httpProxy) {
         this.httpProxy = httpProxy;
     }
@@ -220,4 +250,56 @@ public final class IpConfiguration implements Parcelable {
                 return new IpConfiguration[size];
             }
         };
+
+    /**
+     * Builder used to construct {@link IpConfiguration} objects.
+     */
+    public static final class Builder {
+        private StaticIpConfiguration mStaticIpConfiguration;
+        private ProxyInfo mProxyInfo;
+
+        /**
+         * Set a static IP configuration.
+         *
+         * @param config Static IP configuration.
+         * @return A {@link Builder} object to allow chaining.
+         */
+        public @NonNull Builder setStaticIpConfiguration(@Nullable StaticIpConfiguration config) {
+            mStaticIpConfiguration = config;
+            return this;
+        }
+
+        /**
+         * Set a proxy configuration.
+         *
+         * @param proxyInfo Proxy configuration.
+         * @return A {@link Builder} object to allow chaining.
+         */
+        public @NonNull Builder setHttpProxy(@Nullable ProxyInfo proxyInfo) {
+            mProxyInfo = proxyInfo;
+            return this;
+        }
+
+        /**
+         * Construct an {@link IpConfiguration}.
+         *
+         * @return A new {@link IpConfiguration} object.
+         */
+        public @NonNull IpConfiguration build() {
+            IpConfiguration config = new IpConfiguration();
+            config.setStaticIpConfiguration(mStaticIpConfiguration);
+            config.setIpAssignment(
+                    mStaticIpConfiguration == null ? IpAssignment.DHCP : IpAssignment.STATIC);
+
+            config.setHttpProxy(mProxyInfo);
+            if (mProxyInfo == null) {
+                config.setProxySettings(ProxySettings.NONE);
+            } else {
+                config.setProxySettings(
+                        mProxyInfo.getPacFileUrl() == null ? ProxySettings.STATIC
+                                : ProxySettings.PAC);
+            }
+            return config;
+        }
+    }
 }

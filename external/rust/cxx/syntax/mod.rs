@@ -30,17 +30,17 @@ pub mod types;
 mod visit;
 
 use self::attrs::OtherAttrs;
-use self::discriminant::Discriminant;
 use self::namespace::Namespace;
 use self::parse::kw;
 use self::symbol::Symbol;
 use proc_macro2::{Ident, Span};
 use syn::punctuated::Punctuated;
 use syn::token::{Brace, Bracket, Paren};
-use syn::{Expr, Generics, Lifetime, LitInt, Token, Type as RustType};
+use syn::{Attribute, Expr, Generics, Lifetime, LitInt, Path, Token, Type as RustType};
 
 pub use self::atom::Atom;
 pub use self::derive::{Derive, Trait};
+pub use self::discriminant::Discriminant;
 pub use self::doc::Doc;
 pub use self::names::ForeignName;
 pub use self::parse::parse_items;
@@ -111,9 +111,15 @@ pub struct Enum {
     pub generics: Lifetimes,
     pub brace_token: Brace,
     pub variants: Vec<Variant>,
-    pub repr: Atom,
-    pub repr_type: Type,
+    pub variants_from_header: bool,
+    pub variants_from_header_attr: Option<Attribute>,
+    pub repr: EnumRepr,
     pub explicit_repr: bool,
+}
+
+pub enum EnumRepr {
+    Native { atom: Atom, repr_type: Type },
+    Foreign { rust_type: Path },
 }
 
 pub struct ExternFn {
@@ -174,6 +180,7 @@ pub struct Var {
     pub attrs: OtherAttrs,
     pub visibility: Token![pub],
     pub name: Pair,
+    pub colon_token: Token![:],
     pub ty: Type,
 }
 
@@ -184,6 +191,7 @@ pub struct Receiver {
     pub mutable: bool,
     pub var: Token![self],
     pub ty: NamedType,
+    pub colon_token: Token![:],
     pub shorthand: bool,
     pub pin_tokens: Option<(kw::Pin, Token![<], Token![>])>,
     pub mutability: Option<Token![mut]>,

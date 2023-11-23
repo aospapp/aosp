@@ -18,8 +18,6 @@ package android.translation.cts;
 
 import android.icu.util.ULocale;
 import android.util.Log;
-import android.util.Pair;
-import android.view.View;
 import android.view.translation.UiTranslationStateCallback;
 
 /**
@@ -29,73 +27,136 @@ public class FakeTranslationStateCallback implements UiTranslationStateCallback 
 
     private static final String TAG = "MockTranslationStateCallback";
 
-    private boolean mStartCalled;
-    private boolean mFinishCalled;
-    private boolean mPausedCalled;
-    private boolean mResumedCalled;
     private ULocale mSourceLocale;
     private ULocale mTargetLocale;
+    private String mStartedPackageName;
+    private String mResumedPackageName;
+    private String mPausedPackageName;
+    private String mFinishedPackageName;
+    private int mStartedCallCount = 0;
+    private int mResumedCallCount = 0;
+    private int mPausedCallCount = 0;
+    private int mFinishedCallCount = 0;
 
     FakeTranslationStateCallback() {
         resetStates();
     }
 
     void resetStates() {
-        mStartCalled = false;
-        mFinishCalled = false;
-        mPausedCalled = false;
-        mResumedCalled = false;
-        mSourceLocale = null;
-        mTargetLocale = null;
+        synchronized (this) {
+            mSourceLocale = null;
+            mTargetLocale = null;
+            mStartedPackageName = null;
+            mResumedPackageName = null;
+            mPausedPackageName = null;
+            mFinishedPackageName = null;
+            mStartedCallCount = 0;
+            mResumedCallCount = 0;
+            mPausedCallCount = 0;
+            mFinishedCallCount = 0;
+        }
     }
 
-    Pair<ULocale, ULocale> getStartedLanguagePair() {
-        return new Pair<>(mSourceLocale, mTargetLocale);
+    ULocale getStartedSourceLocale() {
+        return mSourceLocale;
     }
 
-    boolean isOnStartedCalled() {
-        return mStartCalled;
+    ULocale getStartedTargetLocale() {
+        return mTargetLocale;
     }
 
-    boolean isOnFinishedCalled() {
-        return mFinishCalled;
+    String getStartedPackageName() {
+        return mStartedPackageName;
     }
 
-    boolean isOnPausedCalled() {
-        return mPausedCalled;
+    String getResumedPackageName() {
+        return mResumedPackageName;
     }
 
-    boolean isOnResumedCalled() {
-        return mResumedCalled;
+    String getPausedPackageName() {
+        return mPausedPackageName;
     }
+
+    String getFinishedPackageName() {
+        return mFinishedPackageName;
+    }
+
+    int getStartedCallCount() {
+        return mStartedCallCount;
+    }
+
+    int getResumedCallCount() {
+        return mResumedCallCount;
+    }
+
+    int getPausedCallCount() {
+        return mPausedCallCount;
+    }
+
+    int getFinishedCallCount() {
+        return mFinishedCallCount;
+    }
+
+    @Override
+    public void onStarted(ULocale sourceLocale, ULocale targetLocale, String packageName) {
+        Log.d(TAG, "onStarted, source=" + sourceLocale.getLanguage() + " targetLocale="
+                + targetLocale.getLanguage());
+        synchronized (this) {
+            mSourceLocale = sourceLocale;
+            mTargetLocale = targetLocale;
+            mStartedPackageName = packageName;
+            mStartedCallCount++;
+        }
+    }
+
+    @Override
+    public void onResumed(ULocale sourceLocale, ULocale targetLocale, String packageName) {
+        Log.d(TAG, "onResumed, source=" + sourceLocale.getLanguage() + " targetLocale="
+                + targetLocale.getLanguage() + " packageName=" + packageName);
+        synchronized (this) {
+            mResumedPackageName = packageName;
+            mResumedCallCount++;
+        }
+    }
+
+    @Override
+    public void onPaused(String packageName) {
+        Log.d(TAG, "onPaused");
+        synchronized (this) {
+            mPausedPackageName = packageName;
+            mPausedCallCount++;
+        }
+    }
+
+    @Override
+    public void onFinished(String packageName) {
+        Log.d(TAG, "onFinished");
+        synchronized (this) {
+            mFinishedPackageName = packageName;
+            mFinishedCallCount++;
+        }
+    }
+
+    // Old callback methods below shouldn't be called
+    // TODO: Add a separate callback class and test to get test coverage for these methods
 
     @Override
     public void onStarted(ULocale sourceLocale, ULocale targetLocale) {
-        UiTranslationStateCallback.super.onStarted(sourceLocale, targetLocale);
-        Log.d(TAG, "onStarted, source=" + sourceLocale.getLanguage() + " targetLocale="
-                + targetLocale.getLanguage());
-        mStartCalled = true;
-        mSourceLocale = sourceLocale;
-        mTargetLocale = targetLocale;
-    }
-
-    @Override
-    public void onResumed(ULocale sourceLocale, ULocale targetLocale) {
-        UiTranslationStateCallback.super.onResumed(sourceLocale, targetLocale);
-        Log.d(TAG, "onResumed, source=" + sourceLocale.getLanguage() + " targetLocale="
-                + targetLocale.getLanguage());
-        mResumedCalled = true;
+        throw new RuntimeException("Old callback methods shouldn't be called.");
     }
 
     @Override
     public void onPaused() {
-        Log.d(TAG, "onPaused");
-        mPausedCalled = true;
+        throw new RuntimeException("Old callback methods shouldn't be called.");
+    }
+
+    @Override
+    public void onResumed(ULocale sourceLocale, ULocale targetLocale) {
+        throw new RuntimeException("Old callback methods shouldn't be called.");
     }
 
     @Override
     public void onFinished() {
-        Log.d(TAG, "onFinished");
-        mFinishCalled = true;
+        throw new RuntimeException("Old callback methods shouldn't be called.");
     }
 }

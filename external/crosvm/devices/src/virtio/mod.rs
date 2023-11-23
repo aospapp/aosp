@@ -4,6 +4,7 @@
 
 //! Implements virtio devices, queues, and transport mechanisms.
 
+mod async_utils;
 mod balloon;
 mod descriptor_utils;
 mod input;
@@ -58,10 +59,10 @@ pub use self::virtio_device::*;
 pub use self::virtio_pci_device::*;
 pub use self::wl::*;
 
-use crate::ProtectionType;
 use std::cmp;
 use std::convert::TryFrom;
 
+use hypervisor::ProtectionType;
 use virtio_sys::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
 
 const DEVICE_RESET: u32 = 0x0;
@@ -97,9 +98,11 @@ const TYPE_VIDEO_DEC: u32 = 31;
 const MAX_VIRTIO_DEVICE_ID: u32 = 63;
 const TYPE_WL: u32 = MAX_VIRTIO_DEVICE_ID;
 const TYPE_TPM: u32 = MAX_VIRTIO_DEVICE_ID - 1;
+// TODO(abhishekbh): Fix this after this device is accepted upstream.
+const TYPE_VHOST_USER: u32 = MAX_VIRTIO_DEVICE_ID - 2;
 
 pub const VIRTIO_F_VERSION_1: u32 = 32;
-const VIRTIO_F_ACCESS_PLATFORM: u32 = 33;
+pub const VIRTIO_F_ACCESS_PLATFORM: u32 = 33;
 
 const INTERRUPT_STATUS_USED_RING: u32 = 0x1;
 const INTERRUPT_STATUS_CONFIG_CHANGED: u32 = 0x2;
@@ -128,6 +131,7 @@ pub fn type_to_str(type_: u32) -> Option<&'static str> {
         TYPE_VSOCK => "vsock",
         TYPE_CRYPTO => "crypto",
         TYPE_IOMMU => "iommu",
+        TYPE_VHOST_USER => "vhost-user",
         TYPE_SOUND => "snd",
         TYPE_FS => "fs",
         TYPE_PMEM => "pmem",
@@ -167,7 +171,7 @@ pub fn copy_config(dst: &mut [u8], dst_offset: u64, src: &[u8], src_offset: u64)
 pub fn base_features(protected_vm: ProtectionType) -> u64 {
     let mut features: u64 = 1 << VIRTIO_F_VERSION_1 | 1 << VIRTIO_RING_F_EVENT_IDX;
 
-    if protected_vm == ProtectionType::Protected {
+    if protected_vm != ProtectionType::Unprotected {
         features |= 1 << VIRTIO_F_ACCESS_PLATFORM;
     }
 

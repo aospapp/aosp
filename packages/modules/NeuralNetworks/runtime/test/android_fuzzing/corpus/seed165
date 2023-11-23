@@ -1,112 +1,59 @@
 model {
-  operands {
-    operand {
-      type: INT32
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 1
+          dimension: 1
+          dimension: 1
+          dimension: 6
         }
-        channel_dim: 0
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2011043472
+        }
       }
-      data {
-        random_seed: 1503006379
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 1
+          dimension: 1
+          dimension: 1
+          dimension: 6
+        }
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 3231602032
+        }
       }
     }
-    operand {
-      type: TENSOR_FLOAT16
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
+    operations {
+      operation {
+        type: L2_NORMALIZATION
+        inputs {
+          index: 0
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 859448749
+        outputs {
+          index: 1
+        }
       }
     }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 2
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 355969636
-      }
+    input_indexes {
+      index: 0
     }
-    operand {
-      type: FLOAT16
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 3909043360
-      }
+    output_indexes {
+      index: 1
     }
   }
-  operations {
-    operation {
-      type: CHANNEL_SHUFFLE
-      inputs {
-        index: 0
-        index: 1
-        index: 2
-      }
-      outputs {
-        index: 3
-      }
-    }
-    operation {
-      type: RESIZE_BILINEAR
-      inputs {
-        index: 1
-        index: 1
-        index: 2
-      }
-      outputs {
-        index: 3
-      }
-    }
-    operation {
-      type: TOPK_V2
-      inputs {
-        index: 0
-        index: 1
-      }
-      outputs {
-        index: 2
-        index: 3
-      }
-    }
+  referenced {
   }
-  input_indexes {
-    index: 0
-    index: 0
-  }
-  output_indexes {
-    index: 2
-  }
-  is_relaxed: true
 }

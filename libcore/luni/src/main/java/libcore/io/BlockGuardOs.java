@@ -137,6 +137,7 @@ public class BlockGuardOs extends ForwardingOs {
         return (domain == AF_INET) || (domain == AF_INET6);
     }
 
+    @SuppressWarnings("NewApi") // False positive lint limitation, see b/177434707.
     private static boolean isLingerSocket(FileDescriptor fd) throws ErrnoException {
         StructLinger linger = Libcore.os.getsockoptLinger(fd, SOL_SOCKET, SO_LINGER);
         return linger.isOn() && linger.l_linger > 0;

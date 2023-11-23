@@ -26,6 +26,7 @@ cc_test_library {
         "android_graphics_cts_ASurfaceTextureTest.cpp",
         "android_graphics_cts_BasicVulkanGpuTest.cpp",
         "android_graphics_cts_BitmapTest.cpp",
+        "android_graphics_cts_ComputeAhbTest.cpp",
         "android_graphics_cts_FrameRateCtsActivity.cpp",
         "android_graphics_cts_SyncTest.cpp",
         "android_graphics_cts_CameraGpuCtsActivity.cpp",

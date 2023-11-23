@@ -276,23 +276,10 @@ public class CallNotifier extends Handler {
         private int mState;
         // The possible tones we can play.
         public static final int TONE_NONE = 0;
-        public static final int TONE_CALL_WAITING = 1;
-        public static final int TONE_BUSY = 2;
-        public static final int TONE_CONGESTION = 3;
-        public static final int TONE_CALL_ENDED = 4;
         public static final int TONE_VOICE_PRIVACY = 5;
-        public static final int TONE_REORDER = 6;
-        public static final int TONE_INTERCEPT = 7;
-        public static final int TONE_CDMA_DROP = 8;
-        public static final int TONE_OUT_OF_SERVICE = 9;
-        public static final int TONE_REDIAL = 10;
-        public static final int TONE_OTA_CALL_END = 11;
-        public static final int TONE_UNOBTAINABLE_NUMBER = 13;
 
         // The tone volume relative to other sounds in the stream
-        static final int TONE_RELATIVE_VOLUME_EMERGENCY = 100;
         static final int TONE_RELATIVE_VOLUME_HIPRI = 80;
-        static final int TONE_RELATIVE_VOLUME_LOPRI = 50;
 
         // Buffer time (in msec) to add on to tone timeout value.
         // Needed mainly when the timeout value for a tone is the
@@ -320,69 +307,10 @@ public class CallNotifier extends Handler {
             int phoneType = mCM.getFgPhone().getPhoneType();
 
             switch (mToneId) {
-                case TONE_CALL_WAITING:
-                    toneType = ToneGenerator.TONE_SUP_CALL_WAITING;
-                    toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                    // Call waiting tone is stopped by stopTone() method
-                    toneLengthMillis = Integer.MAX_VALUE - TONE_TIMEOUT_BUFFER;
-                    break;
-                case TONE_BUSY:
-                    if (phoneType == PhoneConstants.PHONE_TYPE_CDMA) {
-                        toneType = ToneGenerator.TONE_CDMA_NETWORK_BUSY_ONE_SHOT;
-                        toneVolume = TONE_RELATIVE_VOLUME_LOPRI;
-                        toneLengthMillis = 1000;
-                    } else if (phoneType == PhoneConstants.PHONE_TYPE_GSM
-                            || phoneType == PhoneConstants.PHONE_TYPE_SIP
-                            || phoneType == PhoneConstants.PHONE_TYPE_IMS
-                            || phoneType == PhoneConstants.PHONE_TYPE_THIRD_PARTY) {
-                        toneType = ToneGenerator.TONE_SUP_BUSY;
-                        toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                        toneLengthMillis = 4000;
-                    } else {
-                        throw new IllegalStateException("Unexpected phone type: " + phoneType);
-                    }
-                    break;
-                case TONE_CONGESTION:
-                    toneType = ToneGenerator.TONE_SUP_CONGESTION;
-                    toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                    toneLengthMillis = 4000;
-                    break;
-
-                case TONE_CALL_ENDED:
-                    toneType = ToneGenerator.TONE_PROP_PROMPT;
-                    toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                    toneLengthMillis = 200;
-                    break;
                 case TONE_VOICE_PRIVACY:
                     toneType = ToneGenerator.TONE_CDMA_ALERT_NETWORK_LITE;
                     toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
                     toneLengthMillis = 5000;
-                    break;
-                case TONE_REORDER:
-                    toneType = ToneGenerator.TONE_CDMA_REORDER;
-                    toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                    toneLengthMillis = 4000;
-                    break;
-                case TONE_INTERCEPT:
-                    toneType = ToneGenerator.TONE_CDMA_ABBR_INTERCEPT;
-                    toneVolume = TONE_RELATIVE_VOLUME_LOPRI;
-                    toneLengthMillis = 500;
-                    break;
-                case TONE_CDMA_DROP:
-                case TONE_OUT_OF_SERVICE:
-                    toneType = ToneGenerator.TONE_CDMA_CALLDROP_LITE;
-                    toneVolume = TONE_RELATIVE_VOLUME_LOPRI;
-                    toneLengthMillis = 375;
-                    break;
-                case TONE_REDIAL:
-                    toneType = ToneGenerator.TONE_CDMA_ALERT_AUTOREDIAL_LITE;
-                    toneVolume = TONE_RELATIVE_VOLUME_LOPRI;
-                    toneLengthMillis = 5000;
-                    break;
-                case TONE_UNOBTAINABLE_NUMBER:
-                    toneType = ToneGenerator.TONE_SUP_ERROR;
-                    toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                    toneLengthMillis = 4000;
                     break;
                 default:
                     throw new IllegalArgumentException("Bad toneId: " + mToneId);

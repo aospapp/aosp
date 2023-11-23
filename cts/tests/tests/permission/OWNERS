@@ -9,3 +9,4 @@ per-file NoAudioPermissionTest.java = elaurent@google.com
 per-file MainlineNetworkStackPermissionTest.java = file: platform/frameworks/base:/services/net/OWNERS
 per-file Camera2PermissionTest.java = file: platform/frameworks/av:/camera/OWNERS
 per-file NoRollbackPermissionTest.java = mpgroover@google.com
+per-file EthernetManagerPermissionTest.java = file: platform/frameworks/base:/services/net/OWNERS

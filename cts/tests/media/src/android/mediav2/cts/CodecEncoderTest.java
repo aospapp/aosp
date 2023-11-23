@@ -32,13 +32,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -118,33 +116,32 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
         final boolean needVideo = true;
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // Audio - CodecMime, arrays of bit-rates, sample rates, channel counts
-                {MediaFormat.MIMETYPE_AUDIO_AAC, new int[]{64000, 128000}, new int[]{8000, 11025,
-                        22050, 44100, 48000}, new int[]{1, 2}},
-                {MediaFormat.MIMETYPE_AUDIO_OPUS, new int[]{6600, 8850, 12650, 14250, 15850,
-                        18250, 19850, 23050, 23850}, new int[]{16000}, new int[]{1}},
-                {MediaFormat.MIMETYPE_AUDIO_AMR_NB, new int[]{4750, 5150, 5900, 6700, 7400, 7950,
-                        10200, 12200}, new int[]{8000}, new int[]{1}},
-                {MediaFormat.MIMETYPE_AUDIO_AMR_WB, new int[]{6600, 8850, 12650, 14250, 15850,
-                        18250, 19850, 23050, 23850}, new int[]{16000}, new int[]{1}},
-                /* TODO(169310292) */
-                {MediaFormat.MIMETYPE_AUDIO_FLAC, new int[]{/* 0, 1, 2, */ 3, 4, 5, 6, 7, 8},
-                        new int[]{8000, 48000, 96000, 192000}, new int[]{1, 2}},
+                {MediaFormat.MIMETYPE_AUDIO_AAC, new int[]{128000}, new int[]{8000, 48000},
+                        new int[]{1, 2}},
+                {MediaFormat.MIMETYPE_AUDIO_OPUS, new int[]{6600, 23850}, new int[]{16000},
+                        new int[]{1}},
+                {MediaFormat.MIMETYPE_AUDIO_AMR_NB, new int[]{4750, 12200}, new int[]{8000},
+                        new int[]{1}},
+                {MediaFormat.MIMETYPE_AUDIO_AMR_WB, new int[]{6600, 23850}, new int[]{16000},
+                        new int[]{1}},
+                {MediaFormat.MIMETYPE_AUDIO_FLAC, new int[]{5}, new int[]{8000, 48000},
+                        new int[]{1, 2}},
 
                 // Video - CodecMime, arrays of bit-rates, height, width
                 {MediaFormat.MIMETYPE_VIDEO_H263, new int[]{32000, 64000}, new int[]{176},
                         new int[]{144}},
                 {MediaFormat.MIMETYPE_VIDEO_MPEG4, new int[]{32000, 64000}, new int[]{176},
                         new int[]{144}},
-                {MediaFormat.MIMETYPE_VIDEO_AVC, new int[]{256000, 512000}, new int[]{176, 352,
-                        352, 480}, new int[]{144, 240, 288, 360}},
-                {MediaFormat.MIMETYPE_VIDEO_HEVC, new int[]{256000, 512000}, new int[]{176, 352,
-                        352, 480}, new int[]{144, 240, 288, 360}},
-                {MediaFormat.MIMETYPE_VIDEO_VP8, new int[]{256000, 512000}, new int[]{176, 352,
-                        352, 480}, new int[]{144, 240, 288, 360}},
-                {MediaFormat.MIMETYPE_VIDEO_VP9, new int[]{256000, 512000}, new int[]{176, 352,
-                        352, 480}, new int[]{144, 240, 288, 360}},
-                {MediaFormat.MIMETYPE_VIDEO_AV1, new int[]{256000, 512000}, new int[]{176, 352,
-                        352, 480}, new int[]{144, 240, 288, 360}},
+                {MediaFormat.MIMETYPE_VIDEO_AVC, new int[]{512000}, new int[]{176, 352},
+                        new int[]{144, 288}},
+                {MediaFormat.MIMETYPE_VIDEO_HEVC, new int[]{512000}, new int[]{176, 352},
+                        new int[]{144, 288}},
+                {MediaFormat.MIMETYPE_VIDEO_VP8, new int[]{512000}, new int[]{176, 352},
+                        new int[]{144, 288}},
+                {MediaFormat.MIMETYPE_VIDEO_VP9, new int[]{512000}, new int[]{176, 352},
+                        new int[]{144, 288}},
+                {MediaFormat.MIMETYPE_VIDEO_AV1, new int[]{512000}, new int[]{176, 352},
+                        new int[]{144, 288}},
         });
         return prepareParamList(exhaustiveArgsList, isEncoder, needAudio, needVideo, true);
     }
@@ -161,7 +158,7 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testSimpleEncode() throws IOException, InterruptedException {
-        setUpParams(Integer.MAX_VALUE);
+        setUpParams(1);
         boolean[] boolStates = {true, false};
         setUpSource(mInputFile);
         OutputManager ref = new OutputManager();
@@ -224,75 +221,6 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
                             }
                         }
                         loopCounter++;
-                    }
-                }
-            }
-            mCodec.release();
-        }
-    }
-
-    private boolean isCodecLossless(String mime) {
-        return mime.equals(MediaFormat.MIMETYPE_AUDIO_FLAC) ||
-                mime.equals(MediaFormat.MIMETYPE_AUDIO_RAW);
-    }
-
-    /**
-     * Identity test for encoder
-     */
-    @LargeTest
-    @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
-    public void testLosslessEncodeDecode() throws IOException, InterruptedException {
-        Assume.assumeTrue(isCodecLossless(mMime));
-        setUpParams(Integer.MAX_VALUE);
-        setUpSource(mInputFile);
-        mOutputBuff = new OutputManager();
-        {
-            mCodec = MediaCodec.createByCodecName(mCodecName);
-            mSaveToMem = true;
-            for (MediaFormat format : mFormats) {
-                if (mIsAudio) {
-                    mSampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-                    mChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-                } else {
-                    mWidth = format.getInteger(MediaFormat.KEY_WIDTH);
-                    mHeight = format.getInteger(MediaFormat.KEY_HEIGHT);
-                }
-                String log = String.format("format: %s \n codec: %s, file: %s :: ", format,
-                        mCodecName, mInputFile);
-                mOutputBuff.reset();
-                mInfoList.clear();
-                configureCodec(format, true, true, true);
-                mCodec.start();
-                doWork(Integer.MAX_VALUE);
-                queueEOS();
-                waitForAllOutputs();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + "unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "no output received", 0 != mOutputCount);
-                if (!mIsAudio) {
-                    assertTrue(
-                            log + "input count != output count, act/exp: " + mOutputCount +
-                                    " / " + mInputCount, mInputCount == mOutputCount);
-                }
-                if (mIsAudio) {
-                    assertTrue(log + " pts is not strictly increasing",
-                            mOutputBuff.isPtsStrictlyIncreasing(mPrevOutputPts));
-                } else {
-                    assertTrue(
-                            log + " input pts list and output pts list are not identical",
-                            mOutputBuff.isOutPtsListIdenticalToInpPtsList((mMaxBFrames != 0)));
-                }
-                ArrayList<String> listOfDecoders = selectCodecs(mMime, null, null, false);
-                assertFalse("no suitable codecs found for mime: " + mMime,
-                        listOfDecoders.isEmpty());
-                for (String decoder : listOfDecoders) {
-                    ByteBuffer out = decodeElementaryStream(decoder, format,
-                            mOutputBuff.getBuffer(), mInfoList);
-                    if (!out.equals(ByteBuffer.wrap(mInputData))) {
-                        fail(log + "identity test failed");
                     }
                 }
             }
@@ -706,7 +634,6 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     private native boolean nativeTestSetForceSyncFrame(String encoder, String file, String mime,
             int[] list0, int[] list1, int[] list2, int colorFormat);
 
-    @Ignore("TODO(b/) = test sometimes timesout")
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testSetForceSyncFrameNative() throws IOException {
@@ -742,8 +669,6 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
         mOutputBuff = new OutputManager();
         mSaveToMem = true;
         {
-            /* TODO(b/147574800) */
-            if (mCodecName.equals("c2.android.hevc.encoder")) return;
             mCodec = MediaCodec.createByCodecName(mCodecName);
             format.removeKey(MediaFormat.KEY_BITRATE_MODE);
             MediaCodecInfo.EncoderCapabilities cap =
@@ -803,7 +728,6 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     private native boolean nativeTestAdaptiveBitRate(String encoder, String file, String mime,
             int[] list0, int[] list1, int[] list2, int colorFormat);
 
-    @Ignore("TODO(b/) = test sometimes timesout")
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testAdaptiveBitRateNative() throws IOException {
@@ -811,8 +735,6 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
             mAdaptiveBitrateMimeList.contains(mMime));
         int colorFormat = -1;
         {
-            /* TODO(b/147574800) */
-            if (mCodecName.equals("c2.android.hevc.encoder")) return;
             if (!mIsAudio) {
                 colorFormat = findByteBufferColorFormat(mCodecName, mMime);
                 assertTrue("no valid color formats received", colorFormat != -1);

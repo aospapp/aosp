@@ -40,8 +40,7 @@ public final class CreateUserResultTest {
         UserInfo user = new UserInfoBuilder(100).build();
 
         CreateUserResult result = new CreateUserResult(
-                new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL, user,
-                        /* errorMessage= */ null));
+                new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL, user.getUserHandle()));
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getStatus()).isEqualTo(RemoveUserResult.STATUS_SUCCESS);
@@ -68,8 +67,7 @@ public final class CreateUserResultTest {
             }
         };
         CreateUserResult result = new CreateUserResult(
-                new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL, user,
-                        /* errorMessage= */ null));
+                new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL, user.getUserHandle()));
 
         assertThat(result.isSuccess()).isFalse();
         assertThat(result.getStatus()).isEqualTo(RemoveUserResult.STATUS_FAILURE_GENERIC);

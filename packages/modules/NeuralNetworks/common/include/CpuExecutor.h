@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_EXECUTOR_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_EXECUTOR_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_EXECUTOR_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_EXECUTOR_H
 
 #include <android-base/macros.h>
 #include <nnapi/Types.h>
@@ -28,7 +28,7 @@
 #include "ControlFlow.h"
 #include "LegacyUtils.h"
 #include "OperationResolver.h"
-#include "OperationsUtils.h"
+#include "OperationsExecutionUtils.h"
 
 namespace android {
 namespace nn {
@@ -198,7 +198,7 @@ class CpuExecutor {
     // WHILE loop.
     uint64_t mLoopTimeoutDuration = operation_while::kTimeoutNsDefault;
 
-    const IOperationResolver* mOperationResolver;
+    [[maybe_unused]] const IOperationResolver* mOperationResolver;
 };
 
 // Class for setting reasonable OpenMP threading settings. (OpenMP is used by
@@ -295,4 +295,4 @@ inline RunTimeOperandInfo* GetOutput(const Operation& operation, RunTimeOperandI
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_CPU_EXECUTOR_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_CPU_EXECUTOR_H

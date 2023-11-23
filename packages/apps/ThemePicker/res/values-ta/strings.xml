@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"தீம் செய்யப்பட்ட ஐகான்கள்"</string>
     <string name="beta_title" msgid="8703819523760746458">"பீட்டா"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ஆப்ஸ் கட்டக் காட்சியை மாற்றும்"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"வால்பேப்பர் நிறங்கள்"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"வால்பேப்பரின் நிறம்"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"அடிப்படை வண்ணங்கள்"</string>
+    <string name="color_changed" msgid="7029571720331641235">"வண்ணம் மாற்றப்பட்டது"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"டைனமிக்"</string>
 </resources>

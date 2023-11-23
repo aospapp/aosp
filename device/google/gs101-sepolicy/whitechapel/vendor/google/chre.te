@@ -15,3 +15,6 @@ allow chre device:dir r_dir_perms;
 # Allow CHRE to use the USF low latency transport
 usf_low_latency_transport(chre)
 
+# Allow CHRE to talk to the WiFi HAL
+allow chre hal_wifi_ext:binder { call transfer };
+allow chre hal_wifi_ext_hwservice:hwservice_manager find;

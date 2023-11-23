@@ -87,7 +87,9 @@ public final class ExtrasUtils {
     return classification.getExtras().getBundle(FOREIGN_LANGUAGE);
   }
 
-  /** @see #getTopLanguage(Intent) */
+  /**
+   * @see #getTopLanguage(Intent)
+   */
   static void putTopLanguageScores(Bundle container, EntityConfidence languageScores) {
     final int maxSize = Math.min(3, languageScores.getEntities().size());
     final String[] languages =

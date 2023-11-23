@@ -16,10 +16,11 @@
 
 package com.android.permissioncontroller.permission.ui.handheld;
 
-import static com.android.permissioncontroller.permission.utils.Utils.DEFAULT_MAX_LABEL_SIZE_PX;
-import static com.android.permissioncontroller.permission.utils.Utils.getRequestMessage;
+import static android.app.admin.DevicePolicyResources.Strings.PermissionSettings.BACKGROUND_ACCESS_DISABLED_BY_ADMIN_MESSAGE;
+import static android.app.admin.DevicePolicyResources.Strings.PermissionSettings.BACKGROUND_ACCESS_ENABLED_BY_ADMIN_MESSAGE;
+import static android.app.admin.DevicePolicyResources.Strings.PermissionSettings.FOREGROUND_ACCESS_ENABLED_BY_ADMIN_MESSAGE;
 
-import static java.lang.annotation.RetentionPolicy.SOURCE;
+import static com.android.permissioncontroller.permission.utils.Utils.getRequestMessage;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -27,38 +28,34 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.text.BidiFormatter;
-import android.text.TextUtils;
 import android.widget.Switch;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.LayoutRes;
 import androidx.fragment.app.DialogFragment;
-import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceFragmentCompat;
 
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.permission.model.AppPermissionGroup;
-import com.android.permissioncontroller.permission.model.Permission;
+import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup;
+import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel;
+import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionSummary;
+import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget;
+import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.SummaryMessage;
 import com.android.permissioncontroller.permission.utils.LocationUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
-import java.lang.annotation.Retention;
-import java.util.List;
-
 /**
  * A preference for representing a permission group requested by an app.
  */
 class PermissionPreference extends MultiTargetSwitchPreference {
-    @Retention(SOURCE)
-    @IntDef(value = {CHANGE_FOREGROUND, CHANGE_BACKGROUND}, flag = true)
-    @interface ChangeTarget {}
-    static final int CHANGE_FOREGROUND = 1;
-    static final int CHANGE_BACKGROUND = 2;
-    static final int CHANGE_BOTH = CHANGE_FOREGROUND | CHANGE_BACKGROUND;
 
-    private final AppPermissionGroup mGroup;
+    /**
+     * holds state for the permission group represented by this preference.
+     */
+    private PermissionTarget mState = PermissionTarget.PERMISSION_NONE;
+    private final LightAppPermGroup mGroup;
+    private final ReviewPermissionsViewModel mViewModel;
     private final PreferenceFragmentCompat mFragment;
     private final PermissionPreferenceChangeListener mCallBacks;
     private final @LayoutRes int mOriginalWidgetLayoutRes;
@@ -88,20 +85,20 @@ class PermissionPreference extends MultiTargetSwitchPreference {
 
     /**
      * Callbacks from dialogs to the fragment. These callbacks are supposed to directly cycle back
-     * to the permission tha created the dialog.
+     * to the permission that created the dialog.
      */
     interface PermissionPreferenceOwnerFragment {
         /**
          * The {@link DefaultDenyDialog} can only interact with the fragment, not the preference
          * that created it. Hence this call goes to the fragment, which then finds the preference an
-         * calls {@link #onDenyAnyWay(int)}.
+         * calls {@link #onDenyAnyWay(PermissionTarget)}.
          *
          * @param key Key uniquely identifying the preference that created the default deny dialog
          * @param changeTarget Whether background or foreground permissions should be changed
          *
-         * @see #showDefaultDenyDialog(int)
+         * @see #showDefaultDenyDialog(PermissionTarget, boolean)
          */
-        void onDenyAnyWay(String key, @ChangeTarget int changeTarget);
+        void onDenyAnyWay(String key, PermissionTarget changeTarget);
 
         /**
          * The {@link BackgroundAccessChooser} can only interact with the fragment, not the
@@ -117,76 +114,32 @@ class PermissionPreference extends MultiTargetSwitchPreference {
         void onBackgroundAccessChosen(String key, int chosenItem);
     }
 
-    PermissionPreference(PreferenceFragmentCompat fragment, AppPermissionGroup group,
-            PermissionPreferenceChangeListener callbacks) {
+    PermissionPreference(PreferenceFragmentCompat fragment, LightAppPermGroup group,
+            PermissionPreferenceChangeListener callbacks,
+            ReviewPermissionsViewModel reviewPermissionsViewModel) {
         super(fragment.getPreferenceManager().getContext());
 
         mFragment = fragment;
         mGroup = group;
+        mViewModel = reviewPermissionsViewModel;
         mCallBacks = callbacks;
         mOriginalWidgetLayoutRes = getWidgetLayoutResource();
-
+        setState(group);
         setPersistent(false);
         updateUi();
     }
 
-    /**
-     * Are any permissions of this group fixed by the system, i.e. not changeable by the user.
-     *
-     * @return {@code true} iff any permission is fixed
-     */
-    private boolean isSystemFixed() {
-        return mGroup.isSystemFixed();
+    PermissionTarget getState() {
+        return mState;
     }
 
-    /**
-     * Is any foreground permissions of this group fixed by the policy, i.e. not changeable by the
-     * user.
-     *
-     * @return {@code true} iff any foreground permission is fixed
-     */
-    private boolean isForegroundPolicyFixed() {
-        return mGroup.isPolicyFixed();
-    }
-
-    /**
-     * Is any background permissions of this group fixed by the policy, i.e. not changeable by the
-     * user.
-     *
-     * @return {@code true} iff any background permission is fixed
-     */
-    private boolean isBackgroundPolicyFixed() {
-        return mGroup.getBackgroundPermissions() != null
-                && mGroup.getBackgroundPermissions().isPolicyFixed();
-    }
-
-    /**
-     * Are there permissions fixed, so that the user cannot change the preference at all?
-     *
-     * @return {@code true} iff the permissions of this group are fixed
-     */
-    private boolean isPolicyFullyFixed() {
-        return isForegroundPolicyFixed() && (mGroup.getBackgroundPermissions() == null
-                || isBackgroundPolicyFixed());
-    }
-
-    /**
-     * Is the foreground part of this group disabled. If the foreground is disabled, there is no
-     * need to possible grant background access.
-     *
-     * @return {@code true} iff the permissions of this group are fixed
-     */
-    private boolean isForegroundDisabledByPolicy() {
-        return isForegroundPolicyFixed() && !mGroup.areRuntimePermissionsGranted();
-    }
-
-    /**
-     * Get the app that acts as admin for this profile.
-     *
-     * @return The admin or {@code null} if there is no admin.
-     */
-    private EnforcedAdmin getAdmin() {
-        return RestrictedLockUtils.getProfileOrDeviceOwner(getContext(), mGroup.getUser());
+    private void setState(LightAppPermGroup appPermGroup) {
+        if (appPermGroup.isReviewRequired()) {
+            mState = PermissionTarget.PERMISSION_FOREGROUND;
+            if (appPermGroup.getHasBackgroundGroup()) {
+                mState = PermissionTarget.PERMISSION_BOTH;
+            }
+        }
     }
 
     /**
@@ -194,8 +147,9 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      */
     void updateUi() {
         boolean arePermissionsIndividuallyControlled =
-                Utils.areGroupPermissionsIndividuallyControlled(getContext(), mGroup.getName());
-        EnforcedAdmin admin = getAdmin();
+                Utils.areGroupPermissionsIndividuallyControlled(getContext(),
+                        mGroup.getPermGroupName());
+        EnforcedAdmin admin = mViewModel.getAdmin(getContext(), mGroup);
 
         // Reset ui state
         setEnabled(true);
@@ -204,9 +158,9 @@ class PermissionPreference extends MultiTargetSwitchPreference {
         setSwitchOnClickListener(null);
         setSummary(null);
 
-        setChecked(mGroup.areRuntimePermissionsGranted());
+        setChecked(mState != PermissionTarget.PERMISSION_NONE);
 
-        if (isSystemFixed() || isPolicyFullyFixed() || isForegroundDisabledByPolicy()) {
+        if (mViewModel.isFixedOrForegroundDisabled(mGroup)) {
             if (admin != null) {
                 setWidgetLayoutResource(R.layout.restricted_icon);
 
@@ -221,13 +175,16 @@ class PermissionPreference extends MultiTargetSwitchPreference {
             updateSummaryForFixedByPolicyPermissionGroup();
         } else if (arePermissionsIndividuallyControlled) {
             setOnPreferenceClickListener((pref) -> {
-                showAllPermissions(mGroup.getName());
+                Bundle args = AllAppPermissionsFragment.createArgs(mGroup.getPackageName(),
+                                mGroup.getPermGroupName(), UserHandle.getUserHandleForUid(
+                                mGroup.getPackageInfo().getUid()));
+                mViewModel.showAllPermissions(mFragment, args);
                 return false;
             });
 
             setSwitchOnClickListener(v -> {
                 Switch switchView = (Switch) v;
-                requestChange(switchView.isChecked(), CHANGE_BOTH);
+                requestChange(switchView.isChecked(), PermissionTarget.PERMISSION_BOTH);
 
                 // Update UI as the switch widget might be in wrong state
                 updateUi();
@@ -235,23 +192,26 @@ class PermissionPreference extends MultiTargetSwitchPreference {
 
             updateSummaryForIndividuallyControlledPermissionGroup();
         } else {
-            if (mGroup.hasPermissionWithBackgroundMode()) {
-                if (mGroup.getBackgroundPermissions() == null) {
+            if (mGroup.getHasPermWithBackgroundMode()) {
+                if (!mGroup.getHasBackgroundGroup()) {
                     // The group has background permissions but the app did not request any. I.e.
                     // The app can only switch between 'never" and "only in foreground".
                     setOnPreferenceChangeListener((pref, newValue) ->
-                            requestChange((Boolean) newValue, CHANGE_FOREGROUND));
+                            requestChange((Boolean) newValue,
+                                    PermissionTarget.PERMISSION_FOREGROUND));
 
                     updateSummaryForPermissionGroupWithBackgroundPermission();
                 } else {
-                    if (isBackgroundPolicyFixed()) {
+                    if (mGroup.getBackground().isPolicyFixed()) {
                         setOnPreferenceChangeListener((pref, newValue) ->
-                                requestChange((Boolean) newValue, CHANGE_FOREGROUND));
+                                requestChange((Boolean) newValue,
+                                        PermissionTarget.PERMISSION_FOREGROUND));
 
                         updateSummaryForFixedByPolicyPermissionGroup();
-                    } else if (isForegroundPolicyFixed()) {
+                    } else if (mGroup.getForeground().isPolicyFixed()) {
                         setOnPreferenceChangeListener((pref, newValue) ->
-                                requestChange((Boolean) newValue, CHANGE_BACKGROUND));
+                                requestChange((Boolean) newValue,
+                                        PermissionTarget.PERMISSION_BACKGROUND));
 
                         updateSummaryForFixedByPolicyPermissionGroup();
                     } else {
@@ -268,7 +228,7 @@ class PermissionPreference extends MultiTargetSwitchPreference {
                             if (switchView.isChecked()) {
                                 showBackgroundChooserDialog();
                             } else {
-                                requestChange(false, CHANGE_BOTH);
+                                requestChange(false, PermissionTarget.PERMISSION_BOTH);
                             }
 
                             // Update UI as the switch widget might be in wrong state
@@ -278,7 +238,7 @@ class PermissionPreference extends MultiTargetSwitchPreference {
                 }
             } else {
                 setOnPreferenceChangeListener((pref, newValue) ->
-                        requestChange((Boolean) newValue, CHANGE_BOTH));
+                        requestChange((Boolean) newValue, PermissionTarget.PERMISSION_BOTH));
             }
         }
     }
@@ -287,27 +247,8 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * Update the summary in the case the permission group has individually controlled permissions.
      */
     private void updateSummaryForIndividuallyControlledPermissionGroup() {
-        int revokedCount = 0;
-        List<Permission> permissions = mGroup.getPermissions();
-        final int permissionCount = permissions.size();
-        for (int i = 0; i < permissionCount; i++) {
-            Permission permission = permissions.get(i);
-            if (!permission.isGrantedIncludingAppOp()) {
-                revokedCount++;
-            }
-        }
-
-        final int resId;
-        if (revokedCount == 0) {
-            resId = R.string.permission_revoked_none;
-        } else if (revokedCount == permissionCount) {
-            resId = R.string.permission_revoked_all;
-        } else {
-            resId = R.string.permission_revoked_count;
-        }
-
-        String summary = getContext().getString(resId, revokedCount);
-        setSummary(summary);
+        PermissionSummary summary = mViewModel.getSummaryForIndividuallyControlledPermGroup(mGroup);
+        setSummary(getContext().getString(getResource(summary.getMsg()), summary.getRevokeCount()));
     }
 
     /**
@@ -316,112 +257,86 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * <p>This does not apply to permission groups that are fixed by policy</p>
      */
     private void updateSummaryForPermissionGroupWithBackgroundPermission() {
-        AppPermissionGroup backgroundGroup = mGroup.getBackgroundPermissions();
-
-        if (mGroup.areRuntimePermissionsGranted()) {
-            if (backgroundGroup == null) {
-                setSummary(R.string.permission_access_only_foreground);
-            } else {
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    setSummary(R.string.permission_access_always);
-                } else {
-                    setSummary(R.string.permission_access_only_foreground);
-                }
-            }
-        } else {
-            setSummary(R.string.permission_access_never);
-        }
+        PermissionSummary summary = mViewModel.getSummaryForPermGroupWithBackgroundPermission(
+                mState);
+        setSummary(getResource(summary.getMsg()));
     }
 
     /**
      * Update the summary of a permission group that is at least partially fixed by policy.
      */
     private void updateSummaryForFixedByPolicyPermissionGroup() {
-        EnforcedAdmin admin = getAdmin();
-        AppPermissionGroup backgroundGroup = mGroup.getBackgroundPermissions();
-
-        boolean hasAdmin = admin != null;
-
-        if (isSystemFixed()) {
-            // Permission is fully controlled by the system and cannot be switched
-
-            setSummary(R.string.permission_summary_enabled_system_fixed);
-        } else if (isForegroundDisabledByPolicy()) {
-            // Permission is fully controlled by policy and cannot be switched
-
-            if (hasAdmin) {
-                setSummary(R.string.disabled_by_admin);
-            } else {
-                // Disabled state will be displayed by switch, so no need to add text for that
-                setSummary(R.string.permission_summary_enforced_by_policy);
-            }
-        } else if (isPolicyFullyFixed()) {
-            // Permission is fully controlled by policy and cannot be switched
-
-            if (backgroundGroup == null) {
-                if (hasAdmin) {
-                    setSummary(R.string.enabled_by_admin);
-                } else {
-                    // Enabled state will be displayed by switch, so no need to add text for
-                    // that
-                    setSummary(R.string.permission_summary_enforced_by_policy);
-                }
-            } else {
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    if (hasAdmin) {
-                        setSummary(R.string.enabled_by_admin);
-                    } else {
-                        // Enabled state will be displayed by switch, so no need to add text for
-                        // that
-                        setSummary(R.string.permission_summary_enforced_by_policy);
-                    }
-                } else {
-                    if (hasAdmin) {
-                        setSummary(
-                                R.string.permission_summary_enabled_by_admin_foreground_only);
-                    } else {
-                        setSummary(
-                                R.string.permission_summary_enabled_by_policy_foreground_only);
-                    }
-                }
+        PermissionSummary summary = mViewModel.getSummaryForFixedByPolicyPermissionGroup(mState,
+                mGroup, getContext());
+        if (summary.getMsg() == SummaryMessage.NO_SUMMARY) {
+            return;
+        }
+        if (summary.isEnterprise()) {
+            switch (summary.getMsg()) {
+                case ENABLED_BY_ADMIN_BACKGROUND_ONLY:
+                    setSummary(Utils.getEnterpriseString(
+                            getContext(),
+                            BACKGROUND_ACCESS_ENABLED_BY_ADMIN_MESSAGE,
+                            getResource(summary.getMsg())));
+                    break;
+                case DISABLED_BY_ADMIN_BACKGROUND_ONLY:
+                    setSummary(Utils.getEnterpriseString(
+                            getContext(),
+                            BACKGROUND_ACCESS_DISABLED_BY_ADMIN_MESSAGE,
+                            getResource(summary.getMsg())));
+                    break;
+                case ENABLED_BY_ADMIN_FOREGROUND_ONLY:
+                    setSummary(Utils.getEnterpriseString(
+                            getContext(),
+                            FOREGROUND_ACCESS_ENABLED_BY_ADMIN_MESSAGE,
+                            getResource(summary.getMsg())));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Missing enterprise summary "
+                            + "case for " + summary.getMsg());
             }
         } else {
-            // Part of the permission group can still be switched
-
-            if (isBackgroundPolicyFixed()) {
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    if (hasAdmin) {
-                        setSummary(R.string.permission_summary_enabled_by_admin_background_only);
-                    } else {
-                        setSummary(R.string.permission_summary_enabled_by_policy_background_only);
-                    }
-                } else {
-                    if (hasAdmin) {
-                        setSummary(R.string.permission_summary_disabled_by_admin_background_only);
-                    } else {
-                        setSummary(R.string.permission_summary_disabled_by_policy_background_only);
-                    }
-                }
-            } else if (isForegroundPolicyFixed()) {
-                if (hasAdmin) {
-                    setSummary(R.string.permission_summary_enabled_by_admin_foreground_only);
-                } else {
-                    setSummary(R.string.permission_summary_enabled_by_policy_foreground_only);
-                }
-            }
+            setSummary(getResource(summary.getMsg()));
         }
     }
 
-    /**
-     * Show all individual permissions in this group in a new fragment.
-     */
-    private void showAllPermissions(String filterGroup) {
-        Fragment frag = AllAppPermissionsWrapperFragment.newInstance(mGroup.getApp().packageName,
-                filterGroup, UserHandle.getUserHandleForUid(mGroup.getApp().applicationInfo.uid));
-        mFragment.getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, frag)
-                .addToBackStack("AllPerms")
-                .commit();
+    int getResource(SummaryMessage summary) {
+        switch (summary) {
+            case DISABLED_BY_ADMIN:
+                return R.string.disabled_by_admin;
+            case ENABLED_BY_ADMIN:
+                return R.string.enabled_by_admin;
+            case ENABLED_SYSTEM_FIXED:
+                return R.string.permission_summary_enabled_system_fixed;
+            case ENFORCED_BY_POLICY:
+                return R.string.permission_summary_enforced_by_policy;
+            case ENABLED_BY_ADMIN_FOREGROUND_ONLY:
+                return R.string.permission_summary_enabled_by_admin_foreground_only;
+            case ENABLED_BY_POLICY_FOREGROUND_ONLY:
+                return R.string.permission_summary_enabled_by_policy_foreground_only;
+            case ENABLED_BY_ADMIN_BACKGROUND_ONLY:
+                return R.string.permission_summary_enabled_by_admin_background_only;
+            case ENABLED_BY_POLICY_BACKGROUND_ONLY:
+                return R.string.permission_summary_enabled_by_policy_foreground_only;
+            case DISABLED_BY_ADMIN_BACKGROUND_ONLY:
+                return R.string.permission_summary_disabled_by_admin_background_only;
+            case DISABLED_BY_POLICY_BACKGROUND_ONLY:
+                return R.string.permission_summary_disabled_by_policy_background_only;
+            case REVOKED_NONE:
+                return R.string.permission_revoked_none;
+            case REVOKED_ALL:
+                return R.string.permission_revoked_all;
+            case REVOKED_COUNT:
+                return R.string.permission_revoked_count;
+            case ACCESS_ALWAYS:
+                return R.string.permission_access_always;
+            case ACCESS_ONLY_FOREGROUND:
+                return R.string.permission_access_only_foreground;
+            case ACCESS_NEVER:
+                return R.string.permission_access_never;
+            default:
+                throw new IllegalArgumentException("No resource found");
+        }
     }
 
     /**
@@ -431,12 +346,9 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * @return The label of the app
      */
     private String getAppLabel() {
-        return BidiFormatter.getInstance().unicodeWrap(
-                mGroup.getApp().applicationInfo.loadSafeLabel(getContext().getPackageManager(),
-                        DEFAULT_MAX_LABEL_SIZE_PX,
-                        TextUtils.SAFE_STRING_FLAG_TRIM
-                                | TextUtils.SAFE_STRING_FLAG_FIRST_LINE)
-                        .toString());
+        String label = Utils.getAppLabel(mViewModel.getPackageInfo().applicationInfo,
+                mViewModel.getApp());
+        return BidiFormatter.getInstance().unicodeWrap(label);
     }
 
     /**
@@ -456,50 +368,37 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * @param changeTarget Which permission group (foreground/background/both) should be changed
      * @return If the request was processed.
      */
-    private boolean requestChange(boolean requestGrant, @ChangeTarget int changeTarget) {
-        if (LocationUtils.isLocationGroupAndProvider(getContext(), mGroup.getName(),
-                mGroup.getApp().packageName)) {
+    private boolean requestChange(boolean requestGrant, PermissionTarget changeTarget) {
+        if (LocationUtils.isLocationGroupAndProvider(getContext(), mGroup.getPermGroupName(),
+                mGroup.getPackageName())) {
             LocationUtils.showLocationDialog(getContext(), getAppLabel());
             return false;
         }
         if (requestGrant) {
             mCallBacks.onPreferenceChanged(getKey());
-
-            if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-                mGroup.grantRuntimePermissions(true, false);
-            }
-            if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                if (mGroup.getBackgroundPermissions() != null) {
-                    mGroup.getBackgroundPermissions().grantRuntimePermissions(true, false);
-                }
-            }
+            //allow additional state
+            mState = PermissionTarget.Companion.fromInt(mState.or(changeTarget));
         } else {
             boolean requestToRevokeGrantedByDefault = false;
-            if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-                requestToRevokeGrantedByDefault = mGroup.hasGrantedByDefaultPermission();
+            if (changeTarget.and(PermissionTarget.PERMISSION_FOREGROUND)
+                    != PermissionTarget.PERMISSION_NONE.getValue()) {
+                requestToRevokeGrantedByDefault = mGroup.isGrantedByDefault();
             }
-            if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                if (mGroup.getBackgroundPermissions() != null) {
+            if (changeTarget.and(PermissionTarget.PERMISSION_BACKGROUND)
+                    != PermissionTarget.PERMISSION_NONE.getValue()) {
+                if (mGroup.getHasBackgroundGroup()) {
                     requestToRevokeGrantedByDefault |=
-                            mGroup.getBackgroundPermissions().hasGrantedByDefaultPermission();
+                            mGroup.getBackground().isGrantedByDefault();
                 }
             }
 
-            if ((requestToRevokeGrantedByDefault || !mGroup.doesSupportRuntimePermissions())
+            if ((requestToRevokeGrantedByDefault || !mGroup.getSupportsRuntimePerms())
                     && mCallBacks.shouldConfirmDefaultPermissionRevoke()) {
-                showDefaultDenyDialog(changeTarget);
+                showDefaultDenyDialog(changeTarget, requestToRevokeGrantedByDefault);
                 return false;
             } else {
                 mCallBacks.onPreferenceChanged(getKey());
-
-                if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-                    mGroup.revokeRuntimePermissions(false);
-                }
-                if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                    if (mGroup.getBackgroundPermissions() != null) {
-                        mGroup.getBackgroundPermissions().revokeRuntimePermissions(false);
-                    }
-                }
+                mState = PermissionTarget.Companion.fromInt(mState.and(~changeTarget.getValue()));
             }
         }
 
@@ -522,28 +421,17 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      *
      * @param changeTarget Whether background or foreground should be changed
      */
-    private void showDefaultDenyDialog(@ChangeTarget int changeTarget) {
+    private void showDefaultDenyDialog(PermissionTarget changeTarget,
+            boolean showGrantedByDefaultWarning) {
         if (!mFragment.isResumed()) {
             return;
         }
 
         Bundle args = new Bundle();
-
-        boolean showGrantedByDefaultWarning = false;
-        if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-            showGrantedByDefaultWarning = mGroup.hasGrantedByDefaultPermission();
-        }
-        if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-            if (mGroup.getBackgroundPermissions() != null) {
-                showGrantedByDefaultWarning |=
-                        mGroup.getBackgroundPermissions().hasGrantedByDefaultPermission();
-            }
-        }
-
         args.putInt(DefaultDenyDialog.MSG, showGrantedByDefaultWarning ? R.string.system_warning
                 : R.string.old_sdk_deny_warning);
         args.putString(DefaultDenyDialog.KEY, getKey());
-        args.putInt(DefaultDenyDialog.CHANGE_TARGET, changeTarget);
+        args.putInt(DefaultDenyDialog.CHANGE_TARGET, changeTarget.getValue());
 
         DefaultDenyDialog deaultDenyDialog = new DefaultDenyDialog();
         deaultDenyDialog.setArguments(args);
@@ -567,21 +455,21 @@ class PermissionPreference extends MultiTargetSwitchPreference {
             return;
         }
 
-        if (LocationUtils.isLocationGroupAndProvider(getContext(), mGroup.getName(),
-                mGroup.getApp().packageName)) {
+        if (LocationUtils.isLocationGroupAndProvider(getContext(), mGroup.getPermGroupName(),
+                mGroup.getPackageName())) {
             LocationUtils.showLocationDialog(getContext(), getAppLabel());
             return;
         }
 
         Bundle args = new Bundle();
         args.putCharSequence(BackgroundAccessChooser.TITLE,
-                getRequestMessage(getAppLabel(), mGroup.getApp().packageName, mGroup.getName(),
-                        getContext(), mGroup.getRequest()));
+                getRequestMessage(getAppLabel(), mGroup.getPackageName(), mGroup.getPermGroupName(),
+                        getContext(), Utils.getRequest(mGroup.getPermGroupName())));
         args.putString(BackgroundAccessChooser.KEY, getKey());
 
 
-        if (mGroup.areRuntimePermissionsGranted()) {
-            if (mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
+        if (mState != PermissionTarget.PERMISSION_NONE) {
+            if (mState == PermissionTarget.PERMISSION_BOTH) {
                 args.putInt(BackgroundAccessChooser.SELECTION,
                         BackgroundAccessChooser.ALWAYS_OPTION);
             } else {
@@ -602,25 +490,28 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * Once we user has confirmed that he/she wants to revoke a permission that was granted by
      * default, actually revoke the permissions.
      *
-     * @see #showDefaultDenyDialog(int)
+     * @see #showDefaultDenyDialog(PermissionTarget, boolean)
      */
-    void onDenyAnyWay(@ChangeTarget int changeTarget) {
+    void onDenyAnyWay(PermissionTarget changeTarget) {
         mCallBacks.onPreferenceChanged(getKey());
 
         boolean hasDefaultPermissions = false;
-        if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-            mGroup.revokeRuntimePermissions(false);
-            hasDefaultPermissions = mGroup.hasGrantedByDefaultPermission();
+        if (changeTarget.and(PermissionTarget.PERMISSION_FOREGROUND)
+                != PermissionTarget.PERMISSION_NONE.getValue()) {
+            hasDefaultPermissions = mGroup.isGrantedByDefault();
+            mState = PermissionTarget.Companion.fromInt(mState.and(
+                    ~PermissionTarget.PERMISSION_FOREGROUND.getValue()));
         }
-        if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-            if (mGroup.getBackgroundPermissions() != null) {
-                mGroup.getBackgroundPermissions().revokeRuntimePermissions(false);
-                hasDefaultPermissions |=
-                        mGroup.getBackgroundPermissions().hasGrantedByDefaultPermission();
+        if (changeTarget.and(PermissionTarget.PERMISSION_BACKGROUND)
+                != PermissionTarget.PERMISSION_NONE.getValue()) {
+            if (mGroup.getHasBackgroundGroup()) {
+                hasDefaultPermissions |= mGroup.getBackground().isGrantedByDefault();
+                mState = PermissionTarget.Companion.fromInt(mState.and(
+                        ~PermissionTarget.PERMISSION_BACKGROUND.getValue()));
             }
         }
 
-        if (hasDefaultPermissions || !mGroup.doesSupportRuntimePermissions()) {
+        if (hasDefaultPermissions || !mGroup.getSupportsRuntimePerms()) {
             mCallBacks.hasConfirmDefaultPermissionRevoke();
         }
         updateUi();
@@ -635,22 +526,21 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * @param choosenItem The item that the user chose
      */
     void onBackgroundAccessChosen(int choosenItem) {
-        AppPermissionGroup backgroundGroup = mGroup.getBackgroundPermissions();
 
         switch (choosenItem) {
             case BackgroundAccessChooser.ALWAYS_OPTION:
-                requestChange(true, CHANGE_BOTH);
+                requestChange(true, PermissionTarget.PERMISSION_BOTH);
                 break;
             case BackgroundAccessChooser.FOREGROUND_ONLY_OPTION:
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    requestChange(false, CHANGE_BACKGROUND);
+                if (mState.and(PermissionTarget.PERMISSION_BACKGROUND)
+                        != PermissionTarget.PERMISSION_NONE.getValue()) {
+                    requestChange(false, PermissionTarget.PERMISSION_BACKGROUND);
                 }
-                requestChange(true, CHANGE_FOREGROUND);
+                requestChange(true, PermissionTarget.PERMISSION_FOREGROUND);
                 break;
             case BackgroundAccessChooser.NEVER_OPTION:
-                if (mGroup.areRuntimePermissionsGranted()
-                        || mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                    requestChange(false, CHANGE_BOTH);
+                if (mState != PermissionTarget.PERMISSION_NONE) {
+                    requestChange(false, PermissionTarget.PERMISSION_BOTH);
                 }
                 break;
         }
@@ -660,7 +550,7 @@ class PermissionPreference extends MultiTargetSwitchPreference {
      * A dialog warning the user that she/he is about to deny a permission that was granted by
      * default.
      *
-     * @see #showDefaultDenyDialog(int)
+     * @see #showDefaultDenyDialog(PermissionTarget, boolean)
      */
     public static class DefaultDenyDialog extends DialogFragment {
         private static final String MSG = DefaultDenyDialog.class.getName() + ".arg.msg";
@@ -677,7 +567,8 @@ class PermissionPreference extends MultiTargetSwitchPreference {
                             (DialogInterface dialog, int which) -> (
                                     (PermissionPreferenceOwnerFragment) getParentFragment())
                                     .onDenyAnyWay(getArguments().getString(KEY),
-                                            getArguments().getInt(CHANGE_TARGET)));
+                                            PermissionTarget.Companion.fromInt(
+                                                    getArguments().getInt(CHANGE_TARGET))));
 
             return b.create();
         }

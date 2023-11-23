@@ -232,6 +232,21 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     R.string.aware_subscribe,
                     DataPathPmkActiveSubscribeAcceptAnyTestActivity.class.getName(),
                     new Intent(this, DataPathPmkActiveSubscribeAcceptAnyTestActivity.class), null));
+
+            if (mWifiAwareManager.isSetChannelOnDataPathSupported()) {
+                adapter.add(TestListAdapter.TestListItem.newCategory(this,
+                        R.string.aware_dp_ib_force_channel_setup));
+                adapter.add(TestListAdapter.TestListItem.newTest(this,
+                        R.string.aware_publish,
+                        DataPathForceChannelSetupPublishTestActivity.class.getName(),
+                        new Intent(this, DataPathForceChannelSetupPublishTestActivity.class),
+                        null));
+                adapter.add(TestListAdapter.TestListItem.newTest(this,
+                        R.string.aware_subscribe,
+                        DataPathForceChannelSetupSubscribeTestActivity.class.getName(),
+                        new Intent(this, DataPathForceChannelSetupSubscribeTestActivity.class),
+                        null));
+            }
         }
 
         adapter.registerDataSetObserver(new DataSetObserver() {

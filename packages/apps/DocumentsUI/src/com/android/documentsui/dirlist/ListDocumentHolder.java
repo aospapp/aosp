@@ -16,12 +16,17 @@
 
 package com.android.documentsui.dirlist;
 
+import static com.android.documentsui.DevicePolicyResources.Drawables.Style.SOLID_COLORED;
+import static com.android.documentsui.DevicePolicyResources.Drawables.WORK_PROFILE_ICON;
 import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.Log;
@@ -33,6 +38,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
@@ -42,6 +48,7 @@ import com.android.documentsui.base.State;
 import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.ui.Views;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.util.ArrayList;
 import java.util.function.Function;
@@ -90,6 +97,18 @@ final class ListDocumentHolder extends DocumentHolder {
         mIconHelper = iconHelper;
         mFileTypeLookup = fileTypeLookup;
         mDoc = new DocumentInfo();
+
+        if (SdkLevel.isAtLeastT()) {
+            setUpdatableWorkProfileIcon(context);
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private void setUpdatableWorkProfileIcon(Context context) {
+        DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
+        Drawable drawable = dpm.getResources().getDrawable(WORK_PROFILE_ICON, SOLID_COLORED, () ->
+                context.getDrawable(R.drawable.ic_briefcase));
+        mIconBriefcase.setImageDrawable(drawable);
     }
 
     @Override
@@ -137,10 +156,9 @@ final class ListDocumentHolder extends DocumentHolder {
             mPreviewIcon.setVisibility(show ? View.VISIBLE : View.GONE);
             if (show) {
                 mPreviewIcon.setContentDescription(
-                        itemView.getResources().getString(
-                                mIconHelper.shouldShowBadge(mDoc.userId.getIdentifier())
-                                        ? R.string.preview_work_file
-                                        : R.string.preview_file, mDoc.displayName));
+                        getPreviewIconContentDescription(
+                                mIconHelper.shouldShowBadge(mDoc.userId.getIdentifier()),
+                                mDoc.displayName));
                 mPreviewIcon.setAccessibilityDelegate(
                         new PreviewAccessibilityDelegate(clickCallback));
             }

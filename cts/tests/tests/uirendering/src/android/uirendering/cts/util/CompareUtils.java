@@ -25,4 +25,16 @@ public class CompareUtils {
                 && Math.abs(Color.green(color) - average) <= threshold
                 && Math.abs(Color.blue(color) - average) <= threshold;
     }
+
+    /**
+     * @return True if color strictly between inner and outer colors. This verifies that the
+     * color is a mixture of the two, not just one or the other (for anti-aliased pixels).
+     */
+    public static boolean verifyPixelBetweenColors(int color, int expectedOuterColor,
+            int expectedInnerColor) {
+        if (color == expectedInnerColor || color == expectedOuterColor) {
+            return false;
+        }
+        return color == ((color & expectedInnerColor) | (color & expectedOuterColor));
+    }
 }

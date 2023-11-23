@@ -83,7 +83,7 @@ public class NotificationStatsTests extends DeviceTestCase implements IBuildRece
             assertTrue(pref.hasVisibility());
             assertTrue(pref.hasUserLockedFields());
             if (pref.getUid() == uid) {
-                assertThat(pref.getImportance()).isEqualTo(-1000);  //UNSPECIFIED_IMPORTANCE
+                assertThat(pref.getImportance()).isEqualTo(3);  //IMPORTANCE_EDULT
                 assertThat(pref.getVisibility()).isEqualTo(-1000);  //UNSPECIFIED_VISIBILITY
                 foundTestPackagePreferences = true;
             }

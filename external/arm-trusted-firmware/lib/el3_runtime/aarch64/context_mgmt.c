@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,6 +25,7 @@
 #include <lib/extensions/twed.h>
 #include <lib/utils.h>
 
+static void enable_extensions_secure(cpu_context_t *ctx);
 
 /*******************************************************************************
  * Context management library initialisation routine. This library is used by
@@ -60,7 +61,7 @@ void __init cm_init(void)
  *
  * To prepare the register state for entry call cm_prepare_el3_exit() and
  * el3_exit(). For Secure-EL1 cm_prepare_el3_exit() is equivalent to
- * cm_e1_sysreg_context_restore().
+ * cm_el1_sysregs_context_restore().
  ******************************************************************************/
 void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 {
@@ -180,6 +181,12 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	scr_el3 |= get_scr_el3_from_routing_model(security_state);
 #endif
 
+	/* Save the initialized value of CPTR_EL3 register */
+	write_ctx_reg(get_el3state_ctx(ctx), CTX_CPTR_EL3, read_cptr_el3());
+	if (security_state == SECURE) {
+		enable_extensions_secure(ctx);
+	}
+
 	/*
 	 * SCR_EL3.HCE: Enable HVC instructions if next execution state is
 	 * AArch64 and next EL is EL2, or if next execution state is AArch32 and
@@ -214,6 +221,16 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 		}
 
 		scr_el3 |= SCR_EEL2_BIT;
+	}
+
+	/*
+	 * FEAT_AMUv1p1 virtual offset registers are only accessible from EL3
+	 * and EL2, when clear, this bit traps accesses from EL2 so we set it
+	 * to 1 when EL2 is present.
+	 */
+	if (is_armv8_6_feat_amuv1p1_present() &&
+		(el_implemented(2) != EL_IMPL_NONE)) {
+		scr_el3 |= SCR_AMVOFFEN_BIT;
 	}
 
 	/*
@@ -276,7 +293,7 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 
 	/*
 	 * Store the initialised SCTLR_EL1 value in the cpu_context - SCTLR_EL2
-	 * and other EL2 registers are set up by cm_prepare_ns_entry() as they
+	 * and other EL2 registers are set up by cm_prepare_el3_exit() as they
 	 * are not part of the stored cpu_context.
 	 */
 	write_ctx_reg(get_el1_sysregs_ctx(ctx), CTX_SCTLR_EL1, sctlr_elx);
@@ -313,7 +330,7 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
  * When EL2 is implemented but unused `el2_unused` is non-zero, otherwise
  * it is zero.
  ******************************************************************************/
-static void enable_extensions_nonsecure(bool el2_unused)
+static void enable_extensions_nonsecure(bool el2_unused, cpu_context_t *ctx)
 {
 #if IMAGE_BL31
 #if ENABLE_SPE_FOR_LOWER_ELS
@@ -321,15 +338,27 @@ static void enable_extensions_nonsecure(bool el2_unused)
 #endif
 
 #if ENABLE_AMU
-	amu_enable(el2_unused);
+	amu_enable(el2_unused, ctx);
 #endif
 
 #if ENABLE_SVE_FOR_NS
-	sve_enable(el2_unused);
+	sve_enable(ctx);
 #endif
 
 #if ENABLE_MPAM_FOR_LOWER_ELS
 	mpam_enable(el2_unused);
+#endif
+#endif
+}
+
+/*******************************************************************************
+ * Enable architecture extensions on first entry to Secure world.
+ ******************************************************************************/
+static void enable_extensions_secure(cpu_context_t *ctx)
+{
+#if IMAGE_BL31
+#if ENABLE_SVE_FOR_SWD
+	sve_enable(ctx);
 #endif
 #endif
 }
@@ -568,7 +597,7 @@ void cm_prepare_el3_exit(uint32_t security_state)
 			write_cnthp_ctl_el2(CNTHP_CTL_RESET_VAL &
 						~(CNTHP_CTL_ENABLE_BIT));
 		}
-		enable_extensions_nonsecure(el2_unused);
+		enable_extensions_nonsecure(el2_unused, ctx);
 	}
 
 	cm_el1_sysregs_context_restore(security_state);

@@ -65,6 +65,7 @@ public class DhcpServingParamsTest {
             Arrays.asList(parseAddr("192.168.0.200"), parseAddr("192.168.0.201")));
     private static final boolean TEST_METERED = true;
     private static final boolean TEST_CHANGE_PREFIX_ON_DECLINE = true;
+    private static final int LEASES_SUBNET_PREFIX_LENGTH = 25;
 
     @Before
     public void setUp() {
@@ -77,7 +78,8 @@ public class DhcpServingParamsTest {
                 .setExcludedAddrs(TEST_EXCLUDED_ADDRS)
                 .setMetered(TEST_METERED)
                 .setSingleClientAddr(TEST_CLIENT_ADDR)
-                .setChangePrefixOnDecline(TEST_CHANGE_PREFIX_ON_DECLINE);
+                .setChangePrefixOnDecline(TEST_CHANGE_PREFIX_ON_DECLINE)
+                .setLeasesSubnetPrefixLength(LEASES_SUBNET_PREFIX_LENGTH);
     }
 
     @Test
@@ -174,6 +176,25 @@ public class DhcpServingParamsTest {
     }
 
     @Test
+    public void testBuild_LeasesSubnetPrefixLengthDefault() throws InvalidParameterException {
+        final DhcpServingParams params = mBuilder.setLeasesSubnetPrefixLength(0).build();
+        // Same as server address prefix length (20).
+        assertEquals(20, params.leasesSubnetPrefixLength);
+    }
+
+    @Test(expected = InvalidParameterException.class)
+    public void testBuild_LeasesSubnetPrefixLengthTooSmall() throws InvalidParameterException {
+        // Smaller than server address prefix length (20).
+        mBuilder.setLeasesSubnetPrefixLength(2).build();
+    }
+
+    @Test(expected = InvalidParameterException.class)
+    public void testBuild_LeasesSubnetPrefixLengthTooLarge() throws InvalidParameterException {
+        // Larger than max prefix length (30).
+        mBuilder.setLeasesSubnetPrefixLength(31).build();
+    }
+
+    @Test
     public void testFromParcelableObject() throws InvalidParameterException {
         final DhcpServingParams params = mBuilder.build();
         final DhcpServingParamsParcel parcel = new DhcpServingParamsParcel();
@@ -187,6 +208,7 @@ public class DhcpServingParamsTest {
         parcel.metered = TEST_METERED;
         parcel.singleClientAddr = inet4AddressToIntHTH(TEST_CLIENT_ADDR);
         parcel.changePrefixOnDecline = TEST_CHANGE_PREFIX_ON_DECLINE;
+        parcel.leasesSubnetPrefixLength = LEASES_SUBNET_PREFIX_LENGTH;
         final DhcpServingParams parceled = DhcpServingParams.fromParcelableObject(parcel);
 
         assertEquals(params.defaultRouters, parceled.defaultRouters);
@@ -198,8 +220,9 @@ public class DhcpServingParamsTest {
         assertEquals(params.metered, parceled.metered);
         assertEquals(params.singleClientAddr, parceled.singleClientAddr);
         assertEquals(params.changePrefixOnDecline, parceled.changePrefixOnDecline);
+        assertEquals(params.leasesSubnetPrefixLength, parceled.leasesSubnetPrefixLength);
 
-        MiscAsserts.assertFieldCountEquals(10, DhcpServingParamsParcel.class);
+        MiscAsserts.assertFieldCountEquals(11, DhcpServingParamsParcel.class);
     }
 
     @Test(expected = InvalidParameterException.class)

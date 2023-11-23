@@ -280,8 +280,8 @@ static int ufdt_verify_fragment(struct ufdt *tree,
     bool result = ufdt_verify_overlay_node(target_node, overlay_node, tree, overlay_tree);
 
     if (!result) {
-        dto_error("failed to verify overlay node %s to target %s\n",
-                  ufdt_node_name(overlay_node), ufdt_node_name(target_node));
+        dto_error("failed to verify fragment node %s to target %s\n",
+                  ufdt_node_name(frag_node), ufdt_node_name(target_node));
         return OVERLAY_RESULT_VERIFY_FAIL;
     }
 

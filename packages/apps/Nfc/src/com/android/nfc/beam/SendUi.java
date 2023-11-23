@@ -32,7 +32,6 @@ import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -45,7 +44,6 @@ import android.util.Log;
 import android.view.ActionMode;
 import android.view.Display;
 import android.view.KeyEvent;
-import android.view.KeyboardShortcutGroup;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -65,11 +63,10 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import com.android.internal.policy.PhoneWindow;
 import com.android.internal.policy.SystemBarUtils;
 import com.android.nfc.R;
-import com.android.nfc.beam.FireflyRenderer;
-import java.util.List;
 
 /**
  * This class is responsible for handling the UI animation
@@ -331,7 +328,7 @@ public class SendUi implements Animator.AnimatorListener, View.OnTouchListener,
         new ScreenshotTask().execute();
 
         final IntentFilter filter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        mContext.registerReceiver(mReceiver, filter);
+        mContext.registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     /** Show pre-send animation */

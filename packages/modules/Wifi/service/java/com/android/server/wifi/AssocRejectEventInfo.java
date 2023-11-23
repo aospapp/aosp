@@ -17,7 +17,7 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
-import android.hardware.wifi.supplicant.V1_4.ISupplicantStaIfaceCallback.AssociationRejectionData;
+import android.hardware.wifi.supplicant.AssociationRejectionData;
 
 import com.android.server.wifi.util.NativeUtil;
 
@@ -44,8 +44,34 @@ public class AssocRejectEventInfo {
         this.mboAssocDisallowedInfo = null;
     }
 
-    public AssocRejectEventInfo(AssociationRejectionData assocRejectData) {
+    public AssocRejectEventInfo(android.hardware.wifi.supplicant.V1_4
+            .ISupplicantStaIfaceCallback.AssociationRejectionData assocRejectData) {
         String ssid = NativeUtil.encodeSsid(assocRejectData.ssid);
+        String bssid = NativeUtil.macAddressFromByteArray(assocRejectData.bssid);
+        this.ssid = Objects.requireNonNull(ssid);
+        this.bssid = Objects.requireNonNull(bssid);
+        this.statusCode = assocRejectData.statusCode;
+        this.timedOut = assocRejectData.timedOut;
+        if (assocRejectData.isMboAssocDisallowedReasonCodePresent) {
+            this.mboAssocDisallowedInfo = new MboOceController.MboAssocDisallowedAttr(
+                    assocRejectData.mboAssocDisallowedReason);
+        } else {
+            this.mboAssocDisallowedInfo = null;
+        }
+        if (assocRejectData.isOceRssiBasedAssocRejectAttrPresent) {
+            this.oceRssiBasedAssocRejectInfo =
+                    new MboOceController.OceRssiBasedAssocRejectAttr(
+                            assocRejectData.oceRssiBasedAssocRejectData.deltaRssi,
+                            assocRejectData.oceRssiBasedAssocRejectData.retryDelayS);
+        } else {
+            this.oceRssiBasedAssocRejectInfo = null;
+        }
+    }
+
+    // Constructor using the AIDL definition
+    public AssocRejectEventInfo(AssociationRejectionData assocRejectData) {
+        String ssid = NativeUtil.encodeSsid(
+                NativeUtil.byteArrayToArrayList(assocRejectData.ssid));
         String bssid = NativeUtil.macAddressFromByteArray(assocRejectData.bssid);
         this.ssid = Objects.requireNonNull(ssid);
         this.bssid = Objects.requireNonNull(bssid);

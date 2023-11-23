@@ -16,10 +16,10 @@
 
 package com.android.tv.settings.device;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
@@ -49,20 +49,20 @@ import androidx.leanback.preference.LeanbackSettingsFragmentCompat;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.LongClickPreference;
 import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.about.RebootConfirmFragment;
-import com.android.tv.settings.autofill.AutofillHelper;
-import com.android.tv.settings.inputmethod.InputMethodHelper;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.library.settingslib.AutofillHelper;
+import com.android.tv.settings.library.settingslib.DefaultAppInfo;
+import com.android.tv.settings.library.settingslib.InputMethodHelper;
+import com.android.tv.settings.library.util.SliceUtils;
 import com.android.tv.settings.privacy.PrivacyToggle;
 import com.android.tv.settings.privacy.SensorFragment;
 import com.android.tv.settings.system.SecurityFragment;
-import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
@@ -91,6 +91,10 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
     private static final String KEY_REBOOT = "reboot";
     private static final String KEY_MIC = "microphone";
     private static final String KEY_CAMERA = "camera";
+    private static final String KEY_FASTPAIR_SETTINGS_SLICE = "fastpair_slice";
+    private static final String KEY_OVERLAY_INTERNAL_SETTINGS_SLICE = "overlay_internal";
+    private static final String KEY_ASSISTANT_BROADCAST = "assistant_broadcast";
+    private static final String RES_TOP_LEVEL_ASSISTANT_SLICE_URI = "top_level_assistant_slice_uri";
 
     private Preference mSoundsPref;
     private TwoStatePreference mSoundsSwitchPref;
@@ -138,6 +142,14 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
                 findPreference(KEY_MIC), SensorFragment.TOGGLE_EXTRA);
         PrivacyToggle.CAMERA_TOGGLE.preparePreferenceWithSensorFragment(getContext(),
                 findPreference(KEY_CAMERA), SensorFragment.TOGGLE_EXTRA);
+
+        final Preference assistantBroadcastPreference = findPreference(KEY_ASSISTANT_BROADCAST);
+        if (assistantBroadcastPreference != null && SliceUtils.isSettingsSliceEnabled(
+                getContext(),
+                ((SlicePreference) assistantBroadcastPreference).getUri(),
+                RES_TOP_LEVEL_ASSISTANT_SLICE_URI)) {
+            assistantBroadcastPreference.setVisible(true);
+        }
     }
 
     @Override
@@ -168,6 +180,8 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
         updateSounds();
         updateGoogleSettings();
         updateCastSettings();
+        updateInternalSettings();
+        updateFastpairSettings();
         updateKeyboardAutofillSettings();
         hideIfIntentUnhandled(findPreference(KEY_HOME_SETTINGS));
         hideIfIntentUnhandled(findPreference(KEY_CAST_SETTINGS));
@@ -309,6 +323,27 @@ public class DevicePrefFragment extends SettingsPreferenceFragment implements
                     || FlavorUtils.getFeatureFactory(getContext()).getBasicModeFeatureProvider()
                     .isBasicMode(getContext())) {
                 castSlicePref.setVisible(false);
+            }
+        }
+    }
+
+    private void updateInternalSettings() {
+        final SlicePreference internalSlicePref = findPreference(
+                KEY_OVERLAY_INTERNAL_SETTINGS_SLICE);
+        if (internalSlicePref != null) {
+            internalSlicePref.setVisible(
+                    SliceUtils.isSliceProviderValid(getContext(), internalSlicePref.getUri())
+                            && SliceUtils.isSettingsSliceEnabled(getContext(),
+                            internalSlicePref.getUri(), null));
+        }
+    }
+
+    @VisibleForTesting
+    void updateFastpairSettings() {
+        final SlicePreference fastpairSlicePref = findPreference(KEY_FASTPAIR_SETTINGS_SLICE);
+        if (fastpairSlicePref != null) {
+            if (SliceUtils.isSliceProviderValid(getContext(), fastpairSlicePref.getUri())) {
+                fastpairSlicePref.setVisible(true);
             }
         }
     }

@@ -107,6 +107,33 @@ bool IsTermMatchTypeCompatible(const StringIndexingConfig& old_indexed,
          old_indexed.tokenizer_type() == new_indexed.tokenizer_type();
 }
 
+void AddIncompatibleChangeToDelta(
+    std::unordered_set<std::string>& incompatible_delta,
+    const SchemaTypeConfigProto& old_type_config,
+    const SchemaUtil::DependencyMap& new_schema_dependency_map,
+    const SchemaUtil::TypeConfigMap& old_type_config_map,
+    const SchemaUtil::TypeConfigMap& new_type_config_map) {
+  // If this type is incompatible, then every type that depends on it might
+  // also be incompatible. Use the dependency map to mark those ones as
+  // incompatible too.
+  incompatible_delta.insert(old_type_config.schema_type());
+  auto parent_types_itr =
+      new_schema_dependency_map.find(old_type_config.schema_type());
+  if (parent_types_itr != new_schema_dependency_map.end()) {
+    for (std::string_view parent_type : parent_types_itr->second) {
+      // The types from new_schema that depend on the current
+      // old_type_config may not present in old_schema.
+      // Those types will be listed at schema_delta.schema_types_new
+      // instead.
+      std::string parent_type_str(parent_type);
+      if (old_type_config_map.find(parent_type_str) !=
+          old_type_config_map.end()) {
+        incompatible_delta.insert(std::move(parent_type_str));
+      }
+    }
+  }
+}
+
 }  // namespace
 
 libtextclassifier3::Status ExpandTranstiveDependencies(
@@ -447,7 +474,8 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     const DependencyMap& new_schema_dependency_map) {
   SchemaDelta schema_delta;
 
-  TypeConfigMap new_type_config_map;
+  TypeConfigMap old_type_config_map, new_type_config_map;
+  BuildTypeConfigMap(old_schema, &old_type_config_map);
   BuildTypeConfigMap(new_schema, &new_type_config_map);
 
   // Iterate through and check each field of the old schema
@@ -566,37 +594,15 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     }
 
     if (is_incompatible) {
-      // If this type is incompatible, then every type that depends on it might
-      // also be incompatible. Use the dependency map to mark those ones as
-      // incompatible too.
-      schema_delta.schema_types_incompatible.insert(
-          old_type_config.schema_type());
-      auto parent_types_itr =
-          new_schema_dependency_map.find(old_type_config.schema_type());
-      if (parent_types_itr != new_schema_dependency_map.end()) {
-        schema_delta.schema_types_incompatible.reserve(
-            schema_delta.schema_types_incompatible.size() +
-            parent_types_itr->second.size());
-        schema_delta.schema_types_incompatible.insert(
-            parent_types_itr->second.begin(), parent_types_itr->second.end());
-      }
+      AddIncompatibleChangeToDelta(schema_delta.schema_types_incompatible,
+                                   old_type_config, new_schema_dependency_map,
+                                   old_type_config_map, new_type_config_map);
     }
 
     if (is_index_incompatible) {
-      // If this type is index incompatible, then every type that depends on it
-      // might also be index incompatible. Use the dependency map to mark those
-      // ones as index incompatible too.
-      schema_delta.schema_types_index_incompatible.insert(
-          old_type_config.schema_type());
-      auto parent_types_itr =
-          new_schema_dependency_map.find(old_type_config.schema_type());
-      if (parent_types_itr != new_schema_dependency_map.end()) {
-        schema_delta.schema_types_index_incompatible.reserve(
-            schema_delta.schema_types_index_incompatible.size() +
-            parent_types_itr->second.size());
-        schema_delta.schema_types_index_incompatible.insert(
-            parent_types_itr->second.begin(), parent_types_itr->second.end());
-      }
+      AddIncompatibleChangeToDelta(schema_delta.schema_types_index_incompatible,
+                                   old_type_config, new_schema_dependency_map,
+                                   old_type_config_map, new_type_config_map);
     }
 
     if (!is_incompatible && !is_index_incompatible && has_property_changed) {

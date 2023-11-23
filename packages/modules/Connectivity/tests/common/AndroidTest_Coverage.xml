@@ -14,10 +14,13 @@
 -->
 <configuration description="Runs coverage tests for Connectivity">
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
-        <option name="test-file-name" value="ConnectivityCoverageTests.apk" />
+      <option name="test-file-name" value="ConnectivityCoverageTests.apk" />
+      <option name="install-arg" value="-t" />
     </target_preparer>
 
     <option name="test-tag" value="ConnectivityCoverageTests" />
+    <!-- Tethering/Connectivity is a SDK 30+ module -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
     <option name="config-descriptor:metadata" key="mainline-param" value="CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.connectivity.tests.coverage" />

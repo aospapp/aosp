@@ -66,6 +66,41 @@ public class CarLauncherUtils {
         return defaultIntent;
     }
 
+    /**
+     * Returns {@code true} if a proper limited map intent is configured via
+     * {@code config_smallCanvasOptimizedMapIntent} string resource.
+     */
+    public static boolean isSmallCanvasOptimizedMapIntentConfigured(Context context) {
+        String intentString = context.getString(R.string.config_smallCanvasOptimizedMapIntent);
+        if (intentString.isEmpty()) {
+            return false;
+        }
+
+        try {
+            Intent.parseUri(intentString, Intent.URI_INTENT_SCHEME);
+            return true;
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Returns an intent to trigger a map with a limited functionality (e.g., one to be used when
+     * there's not much screen real estate).
+     */
+    public static Intent getSmallCanvasOptimizedMapIntent(Context context) {
+        String intentString = context.getString(R.string.config_smallCanvasOptimizedMapIntent);
+        try {
+            Intent intent = Intent.parseUri(intentString, Intent.URI_INTENT_SCHEME);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            return intent;
+        } catch (URISyntaxException e) {
+            Log.w(TAG, "Invalid intent URI in config_smallCanvasOptimizedMapIntent: \""
+                    + intentString + "\". Falling back to fullscreen map.");
+            return getMapsIntent(context);
+        }
+    }
+
     static boolean isCustomDisplayPolicyDefined(Context context) {
         Resources resources = context.getResources();
         String customPolicyName = null;

@@ -34,4 +34,27 @@
     <style name="window_activity_transitions" parent="@android:style/Theme.DeviceDefault">
         <item name="android:windowActivityTransitions">true</item>
     </style>
+    <style name="NoInsetsTheme" parent="@android:style/Theme.NoTitleBar">
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+    </style>
+    <style name="NoInsetsTheme.Translucent" parent="NoInsetsTheme">
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
+    <style name="Theme.WhiteBackground" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:background">#ffffff</item>
+        <item name="android:windowBackground">#ffffff</item>
+        <item name="android:colorBackground">#ffffff</item>
+    </style>
+    <style name="Theme.EdgeExtensions" parent="Theme.WhiteBackground">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+    </style>
+    <style name="Theme.TranslucentBars" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

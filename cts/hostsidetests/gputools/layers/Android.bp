@@ -14,12 +14,16 @@
 
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "cts_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   SPDX-license-identifier-MIT
-    default_applicable_licenses: ["cts_license"],
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+        "cts_hostsidetests_gputools_layers_vulkan_license",
+    ],
+}
+
+license {
+    name: "cts_hostsidetests_gputools_layers_vulkan_license",
+    license_kinds: ["SPDX-license-identifier-MIT"],
+    license_text: ["LICENSE_MIT"]
 }
 
 cc_test_library {

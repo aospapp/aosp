@@ -22,7 +22,7 @@
 #include "gralloc_priv.h"
 
 int mali_gralloc_reference_retain(buffer_handle_t handle);
-int mali_gralloc_reference_release(buffer_handle_t handle, bool canFree);
+int mali_gralloc_reference_release(buffer_handle_t handle);
 int mali_gralloc_reference_validate(buffer_handle_t handle);
 int mali_gralloc_reference_map(buffer_handle_t handle);
 

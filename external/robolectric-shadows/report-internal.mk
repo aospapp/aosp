@@ -49,6 +49,9 @@ $(call dist-for-goals, $(my_report_target), \
     $(my_coverage_output_zip):robotests-coverage/$(LOCAL_MODULE)/robolectric-html-coverage.zip \
     $(my_coverage_output):robotests-coverage/$(LOCAL_MODULE)/robolectric-coverage.xml)
 
+ALL_TARGETS.$(my_coverage_output_zip).META_LIC:=$(module_license_metadata)
+ALL_TARGETS.$(my_coverage_output).META_LIC:=$(module_license_metadata)
+
 # Running the coverage will always generate the report.
 $(my_target): $(my_coverage_output)
 

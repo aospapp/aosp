@@ -36,6 +36,7 @@ import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
 import android.graphics.RenderEffect;
 import android.graphics.RenderNode;
+import android.graphics.RuntimeShader;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.uirendering.cts.R;
@@ -872,6 +873,42 @@ public class RenderNodeTests extends ActivityTestBase {
             );
     }
 
+    private static String sRedBlueInversionShader = ""
+            + "uniform shader inputShader;"
+            +  "vec4 main(vec2 coord) { "
+            + "  vec4 color = inputShader.eval(coord);"
+            + "  return vec4(color.b, color.g, color.r, color.a);"
+            + "}";
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRuntimeShaderRenderEffectInvalidUinformName() {
+        RuntimeShader shader = new RuntimeShader(sRedBlueInversionShader);
+        RenderEffect runtimeEffect = RenderEffect.createRuntimeShaderEffect(
+                shader, "invalidUniformName");
+    }
+
+    @Test
+    public void testRuntimeShaderRenderEffect() {
+        RuntimeShader shader = new RuntimeShader(sRedBlueInversionShader);
+        RenderEffect runtimeEffect = RenderEffect.createRuntimeShaderEffect(
+                shader, "inputShader");
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(runtimeEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            Paint paint = new Paint();
+            paint.setColor(Color.BLUE);
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, paint);
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.RED));
+    }
 
     @Test
     public void testBlurShaderLargeRadiiEdgeReplication() {

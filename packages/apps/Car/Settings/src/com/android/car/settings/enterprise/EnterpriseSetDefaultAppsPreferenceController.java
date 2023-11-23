@@ -15,30 +15,69 @@
  */
 package com.android.car.settings.enterprise;
 
+import android.annotation.Nullable;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserHandle;
 
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settingslib.applications.ApplicationFeatureProvider;
+import com.android.car.settingslib.enterprise.EnterpriseDefaultApps;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
-* Controller to show which default apps were set by the device owner.
+* Controller to show the number of default apps were set by the device owner.
 */
 public final class EnterpriseSetDefaultAppsPreferenceController
-        extends BaseEnterprisePreferenceController<Preference> {
+        extends BaseEnterprisePrivacyPreferenceController<Preference> {
+
+    @Nullable
+    private Integer mCount;
 
     public EnterpriseSetDefaultAppsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions);
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                /* applicationFeatureProvider= */ null);
+    }
+
+    @VisibleForTesting
+    EnterpriseSetDefaultAppsPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            @Nullable ApplicationFeatureProvider applicationFeatureProvider) {
+        super(context, preferenceKey, fragmentController, uxRestrictions,
+                /* enterprisePrivacyFeatureProvider= */ null, applicationFeatureProvider);
     }
 
     @Override
     protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) return superStatus;
+        if (mCount == null) {
+            mCount = getNumberOfEnterpriseSetDefaultApps();
+            mLogger.d("Number of apps: " + mCount);
+        }
 
-        //TODO(b/206156024): implement / add unit test
-        return DISABLED_FOR_PROFILE;
+        return mCount > 0 ? AVAILABLE : DISABLED_FOR_PROFILE;
     }
+
+    @Override
+    protected void updateState(Preference preference) {
+        preference.setSummary(getContext().getResources().getQuantityString(
+                R.plurals.enterprise_privacy_number_packages, mCount, mCount));
+    };
+
+    private int getNumberOfEnterpriseSetDefaultApps() {
+        int num = 0;
+        UserHandle user = getContext().getUser();
+        // TODO(b/1703325190): to support work profiles, it should use and outer lopp:
+        // for (UserHandle user : mUserFeatureProvider.getUserProfiles()) {
+        for (EnterpriseDefaultApps app : EnterpriseDefaultApps.values()) {
+            num += mApplicationFeatureProvider
+                    .findPersistentPreferredActivities(user.getIdentifier(), app.getIntents())
+                    .size();
+        }
+        return num;
+    }
+
 }

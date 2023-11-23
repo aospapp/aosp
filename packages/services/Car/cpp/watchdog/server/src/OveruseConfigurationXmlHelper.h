@@ -27,7 +27,7 @@ namespace watchdog {
 
 constexpr int64_t kOneMegaByte = 1024 * 1024;
 
-class OveruseConfigurationXmlHelper : public android::RefBase {
+class OveruseConfigurationXmlHelper final : public android::RefBase {
 public:
     static android::base::Result<
             android::automotive::watchdog::internal::ResourceOveruseConfiguration>

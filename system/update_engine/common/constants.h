@@ -20,116 +20,176 @@
 #include <cstdint>
 
 namespace chromeos_update_engine {
-
 // The root path of all exclusion prefs.
-extern const char kExclusionPrefsSubDir[];
+static constexpr const auto& kExclusionPrefsSubDir = "exclusion";
 
 // The root path of all DLC metadata.
-extern const char kDlcPrefsSubDir[];
+static constexpr const auto& kDlcPrefsSubDir = "dlc";
 
 // Directory for AU prefs that are preserved across powerwash.
-extern const char kPowerwashSafePrefsSubDirectory[];
+static constexpr const auto& kPowerwashSafePrefsSubDirectory =
+    "update_engine/prefs";
 
 // The location where we store the AU preferences (state etc).
-extern const char kPrefsSubDirectory[];
-
-// Path to the post install command, relative to the partition.
-extern const char kPostinstallDefaultScript[];
+static constexpr const auto& kPrefsSubDirectory = "prefs";
 
 // Path to the stateful partition on the root filesystem.
-extern const char kStatefulPartition[];
+static constexpr const auto& kStatefulPartition = "/mnt/stateful_partition";
+
+// Path to the post install command, relative to the partition.
+static constexpr const auto& kPostinstallDefaultScript = "postinst";
 
 // Constants related to preferences.
-extern const char kPrefsAttemptInProgress[];
-extern const char kPrefsBackoffExpiryTime[];
-extern const char kPrefsBootId[];
-extern const char kPrefsCurrentBytesDownloaded[];
-extern const char kPrefsCurrentResponseSignature[];
-extern const char kPrefsCurrentUrlFailureCount[];
-extern const char kPrefsCurrentUrlIndex[];
-extern const char kPrefsDailyMetricsLastReportedAt[];
-extern const char kPrefsDeltaUpdateFailures[];
-extern const char kPrefsDynamicPartitionMetadataUpdated[];
-extern const char kPrefsFullPayloadAttemptNumber[];
-extern const char kPrefsInstallDateDays[];
-extern const char kPrefsLastActivePingDay[];
-extern const char kPrefsLastRollCallPingDay[];
-extern const char kPrefsManifestMetadataSize[];
-extern const char kPrefsManifestSignatureSize[];
-extern const char kPrefsMetricsAttemptLastReportingTime[];
-extern const char kPrefsMetricsCheckLastReportingTime[];
-extern const char kPrefsNoIgnoreBackoff[];
-extern const char kPrefsNumReboots[];
-extern const char kPrefsNumResponsesSeen[];
-extern const char kPrefsOmahaCohort[];
-extern const char kPrefsOmahaCohortHint[];
-extern const char kPrefsOmahaCohortName[];
-extern const char kPrefsOmahaEolDate[];
-extern const char kPrefsP2PEnabled[];
-extern const char kPrefsP2PFirstAttemptTimestamp[];
-extern const char kPrefsP2PNumAttempts[];
-extern const char kPrefsPayloadAttemptNumber[];
-extern const char kPrefsTestUpdateCheckIntervalTimeout[];
-extern const char kPrefsPingActive[];
-extern const char kPrefsPingLastActive[];
-extern const char kPrefsPingLastRollcall[];
-extern const char kPrefsLastFp[];
-extern const char kPrefsPostInstallSucceeded[];
-extern const char kPrefsPreviousVersion[];
-extern const char kPrefsPreviousSlot[];
-extern const char kPrefsResumedUpdateFailures[];
-extern const char kPrefsRollbackHappened[];
-extern const char kPrefsRollbackVersion[];
-extern const char kPrefsChannelOnSlotPrefix[];
-extern const char kPrefsSystemUpdatedMarker[];
-extern const char kPrefsTargetVersionAttempt[];
-extern const char kPrefsTargetVersionInstalledFrom[];
-extern const char kPrefsTargetVersionUniqueId[];
-extern const char kPrefsTotalBytesDownloaded[];
-extern const char kPrefsUpdateCheckCount[];
-extern const char kPrefsUpdateCheckResponseHash[];
-extern const char kPrefsUpdateCompletedBootTime[];
-extern const char kPrefsUpdateCompletedOnBootId[];
-extern const char kPrefsUpdateDurationUptime[];
-extern const char kPrefsUpdateFirstSeenAt[];
-extern const char kPrefsUpdateOverCellularPermission[];
-extern const char kPrefsUpdateOverCellularTargetVersion[];
-extern const char kPrefsUpdateOverCellularTargetSize[];
-extern const char kPrefsUpdateServerCertificate[];
-extern const char kPrefsUpdateStateNextDataLength[];
-extern const char kPrefsUpdateStateNextDataOffset[];
-extern const char kPrefsUpdateStateNextOperation[];
-extern const char kPrefsUpdateStatePayloadIndex[];
-extern const char kPrefsUpdateStateSHA256Context[];
-extern const char kPrefsUpdateStateSignatureBlob[];
-extern const char kPrefsUpdateStateSignedSHA256Context[];
-extern const char kPrefsUpdateBootTimestampStart[];
-extern const char kPrefsUpdateTimestampStart[];
-extern const char kPrefsUrlSwitchCount[];
-extern const char kPrefsVerityWritten[];
-extern const char kPrefsWallClockScatteringWaitPeriod[];
-extern const char kPrefsWallClockStagingWaitPeriod[];
-extern const char kPrefsManifestBytes[];
+// Constants defining keys for the persisted state of update engine.
+static constexpr const auto& kPrefsAttemptInProgress = "attempt-in-progress";
+static constexpr const auto& kPrefsBackoffExpiryTime = "backoff-expiry-time";
+static constexpr const auto& kPrefsBootId = "boot-id";
+static constexpr const auto& kPrefsCurrentBytesDownloaded =
+    "current-bytes-downloaded";
+static constexpr const auto& kPrefsCurrentResponseSignature =
+    "current-response-signature";
+static constexpr const auto& kPrefsCurrentUrlFailureCount =
+    "current-url-failure-count";
+static constexpr const auto& kPrefsCurrentUrlIndex = "current-url-index";
+static constexpr const auto& kPrefsDailyMetricsLastReportedAt =
+    "daily-metrics-last-reported-at";
+static constexpr const auto& kPrefsDeltaUpdateFailures =
+    "delta-update-failures";
+static constexpr const auto& kPrefsDynamicPartitionMetadataUpdated =
+    "dynamic-partition-metadata-updated";
+static constexpr const auto& kPrefsFullPayloadAttemptNumber =
+    "full-payload-attempt-number";
+static constexpr const auto& kPrefsInstallDateDays = "install-date-days";
+static constexpr const auto& kPrefsLastActivePingDay = "last-active-ping-day";
+static constexpr const auto& kPrefsLastRollCallPingDay =
+    "last-roll-call-ping-day";
+static constexpr const auto& kPrefsManifestMetadataSize =
+    "manifest-metadata-size";
+static constexpr const auto& kPrefsManifestSignatureSize =
+    "manifest-signature-size";
+static constexpr const auto& kPrefsMetricsAttemptLastReportingTime =
+    "metrics-attempt-last-reporting-time";
+static constexpr const auto& kPrefsMetricsCheckLastReportingTime =
+    "metrics-check-last-reporting-time";
+static constexpr const auto& kPrefsNoIgnoreBackoff = "no-ignore-backoff";
+static constexpr const auto& kPrefsNumReboots = "num-reboots";
+static constexpr const auto& kPrefsNumResponsesSeen = "num-responses-seen";
+static constexpr const auto& kPrefsOmahaCohort = "omaha-cohort";
+static constexpr const auto& kPrefsOmahaCohortHint = "omaha-cohort-hint";
+static constexpr const auto& kPrefsOmahaCohortName = "omaha-cohort-name";
+static constexpr const auto& kPrefsOmahaEolDate = "omaha-eol-date";
+static constexpr const auto& kPrefsP2PEnabled = "p2p-enabled";
+static constexpr const auto& kPrefsP2PFirstAttemptTimestamp =
+    "p2p-first-attempt-timestamp";
+static constexpr const auto& kPrefsP2PNumAttempts = "p2p-num-attempts";
+static constexpr const auto& kPrefsPayloadAttemptNumber =
+    "payload-attempt-number";
+static constexpr const auto& kPrefsTestUpdateCheckIntervalTimeout =
+    "test-update-check-interval-timeout";
+// Keep |kPrefsPingActive| in sync with |kDlcMetadataFilePingActive| in
+// dlcservice.
+static constexpr const auto& kPrefsPingActive = "active";
+static constexpr const auto& kPrefsPingLastActive = "date_last_active";
+static constexpr const auto& kPrefsPingLastRollcall = "date_last_rollcall";
+static constexpr const auto& kPrefsLastFp = "last-fp";
+static constexpr const auto& kPrefsPostInstallSucceeded =
+    "post-install-succeeded";
+static constexpr const auto& kPrefsPreviousVersion = "previous-version";
+static constexpr const auto& kPrefsResumedUpdateFailures =
+    "resumed-update-failures";
+static constexpr const auto& kPrefsRollbackHappened = "rollback-happened";
+static constexpr const auto& kPrefsRollbackVersion = "rollback-version";
+static constexpr const auto& kPrefsChannelOnSlotPrefix = "channel-on-slot-";
+static constexpr const auto& kPrefsSystemUpdatedMarker =
+    "system-updated-marker";
+static constexpr const auto& kPrefsTargetVersionAttempt =
+    "target-version-attempt";
+static constexpr const auto& kPrefsTargetVersionInstalledFrom =
+    "target-version-installed-from";
+static constexpr const auto& kPrefsTargetVersionUniqueId =
+    "target-version-unique-id";
+static constexpr const auto& kPrefsTotalBytesDownloaded =
+    "total-bytes-downloaded";
+static constexpr const auto& kPrefsUpdateCheckCount = "update-check-count";
+static constexpr const auto& kPrefsUpdateCheckResponseHash =
+    "update-check-response-hash";
+static constexpr const auto& kPrefsUpdateCompletedBootTime =
+    "update-completed-boot-time";
+static constexpr const auto& kPrefsUpdateCompletedOnBootId =
+    "update-completed-on-boot-id";
+static constexpr const auto& kPrefsUpdateDurationUptime =
+    "update-duration-uptime";
+static constexpr const auto& kPrefsUpdateFirstSeenAt = "update-first-seen-at";
+static constexpr const auto& kPrefsUpdateOverCellularPermission =
+    "update-over-cellular-permission";
+static constexpr const auto& kPrefsUpdateOverCellularTargetVersion =
+    "update-over-cellular-target-version";
+static constexpr const auto& kPrefsUpdateOverCellularTargetSize =
+    "update-over-cellular-target-size";
+static constexpr const auto& kPrefsUpdateServerCertificate =
+    "update-server-cert";
+static constexpr const auto& kPrefsUpdateStateNextDataLength =
+    "update-state-next-data-length";
+static constexpr const auto& kPrefsUpdateStateNextDataOffset =
+    "update-state-next-data-offset";
+static constexpr const auto& kPrefsUpdateStateNextOperation =
+    "update-state-next-operation";
+static constexpr const auto& kPrefsUpdateStatePayloadIndex =
+    "update-state-payload-index";
+static constexpr const auto& kPrefsUpdateStateSHA256Context =
+    "update-state-sha-256-context";
+static constexpr const auto& kPrefsUpdateStateSignatureBlob =
+    "update-state-signature-blob";
+static constexpr const auto& kPrefsUpdateStateSignedSHA256Context =
+    "update-state-signed-sha-256-context";
+static constexpr const auto& kPrefsUpdateBootTimestampStart =
+    "update-boot-timestamp-start";
+static constexpr const auto& kPrefsUpdateTimestampStart =
+    "update-timestamp-start";
+static constexpr const auto& kPrefsUrlSwitchCount = "url-switch-count";
+static constexpr const auto& kPrefsVerityWritten = "verity-written";
+static constexpr const auto& kPrefsWallClockScatteringWaitPeriod =
+    "wall-clock-wait-period";
+static constexpr const auto& kPrefsWallClockStagingWaitPeriod =
+    "wall-clock-staging-wait-period";
+static constexpr const auto& kPrefsManifestBytes = "manifest-bytes";
+static constexpr const auto& kPrefsPreviousSlot = "previous-slot";
 
 // Keys used when storing and loading payload properties.
-extern const char kPayloadPropertyFileSize[];
-extern const char kPayloadPropertyFileHash[];
-extern const char kPayloadPropertyMetadataSize[];
-extern const char kPayloadPropertyMetadataHash[];
-extern const char kPayloadPropertyAuthorization[];
-extern const char kPayloadPropertyUserAgent[];
-extern const char kPayloadPropertyPowerwash[];
-extern const char kPayloadPropertyNetworkId[];
-extern const char kPayloadPropertySwitchSlotOnReboot[];
-extern const char kPayloadPropertyRunPostInstall[];
+// These four fields are generated by scripts/brillo_update_payload.
+static constexpr const auto& kPayloadPropertyFileSize = "FILE_SIZE";
+static constexpr const auto& kPayloadPropertyFileHash = "FILE_HASH";
+static constexpr const auto& kPayloadPropertyMetadataSize = "METADATA_SIZE";
+static constexpr const auto& kPayloadPropertyMetadataHash = "METADATA_HASH";
+// The Authorization: HTTP header to be sent when downloading the payload.
+static constexpr const auto& kPayloadPropertyAuthorization = "AUTHORIZATION";
+// The User-Agent HTTP header to be sent when downloading the payload.
+static constexpr const auto& kPayloadPropertyUserAgent = "USER_AGENT";
+// Set "POWERWASH=1" to powerwash (factory data reset) the device after
+// applying the update.
+static constexpr const auto& kPayloadPropertyPowerwash = "POWERWASH";
+// The network id to pass to android_setprocnetwork before downloading.
+// This can be used to zero-rate OTA traffic by sending it over the correct
+// network.
+static constexpr const auto& kPayloadPropertyNetworkId = "NETWORK_ID";
+// Set "SWITCH_SLOT_ON_REBOOT=0" to skip marking the updated partitions active.
+// The default is 1 (always switch slot if update succeeded).
+static constexpr const auto& kPayloadPropertySwitchSlotOnReboot =
+    "SWITCH_SLOT_ON_REBOOT";
+// Set "RUN_POST_INSTALL=0" to skip running optional post install.
+// The default is 1 (always run post install).
+static constexpr const auto& kPayloadPropertyRunPostInstall =
+    "RUN_POST_INSTALL";
 
-extern const char kOmahaUpdaterVersion[];
+static constexpr const auto& kOmahaUpdaterVersion = "0.1.0.0";
 
 // X-Goog-Update headers.
-extern const char kXGoogleUpdateInteractivity[];
-extern const char kXGoogleUpdateAppId[];
-extern const char kXGoogleUpdateUpdater[];
-extern const char kXGoogleUpdateSessionId[];
+// X-Goog-Update headers.
+static constexpr const auto& kXGoogleUpdateInteractivity =
+    "X-Goog-Update-Interactivity";
+static constexpr const auto& kXGoogleUpdateAppId = "X-Goog-Update-AppId";
+static constexpr const auto& kXGoogleUpdateUpdater = "X-Goog-Update-Updater";
+static constexpr const auto& kXGoogleUpdateSessionId = "X-Goog-SessionId";
 
 // A download source is any combination of protocol and server (that's of
 // interest to us when looking at UMA metrics) using which we may download

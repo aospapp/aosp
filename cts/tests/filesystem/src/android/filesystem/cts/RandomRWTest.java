@@ -20,6 +20,7 @@ import static androidx.test.InstrumentationRegistry.getContext;
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import android.os.Environment;
+import android.mediapc.cts.common.Utils;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -41,7 +42,7 @@ public class RandomRWTest {
     private static final double MIN_WRITE_MBPS;
 
     static {
-        if (MediaPerformanceClassUtils.isRPerfClass()) {
+        if (Utils.isRPerfClass()) {
             MIN_READ_MBPS = 25;
             MIN_WRITE_MBPS = 10;
         } else {
@@ -71,7 +72,7 @@ public class RandomRWTest {
         double mbps = FileUtil.doRandomReadTest(getContext(), DIR_RANDOM_RD, report, fileSize,
                 READ_BUFFER_SIZE);
         report.submit(getInstrumentation());
-        if (MediaPerformanceClassUtils.isPerfClass()) {
+        if (Utils.isPerfClass()) {
             assertTrue("measured " + mbps + " is less than target (" + MIN_READ_MBPS + " MBPS)",
                        mbps >= MIN_READ_MBPS);
         }
@@ -97,7 +98,7 @@ public class RandomRWTest {
                 WRITE_BUFFER_SIZE);
         }
         report.submit(getInstrumentation());
-        if (MediaPerformanceClassUtils.isPerfClass()) {
+        if (Utils.isPerfClass()) {
             // for performance class devices we must be able to write 256MB
             assertTrue("measured " + mbps + " is less than target (" + MIN_WRITE_MBPS + " MBPS)",
                        mbps >= MIN_WRITE_MBPS);

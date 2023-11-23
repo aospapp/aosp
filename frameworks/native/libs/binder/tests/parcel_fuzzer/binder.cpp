@@ -18,11 +18,14 @@
 #include "binder.h"
 #include "util.h"
 
+#include <android-base/hex.h>
 #include <android/os/IServiceManager.h>
 #include <binder/ParcelableHolder.h>
 #include <binder/PersistableBundle.h>
+#include <binder/Status.h>
 
 using ::android::status_t;
+using ::android::base::HexString;
 
 enum ByteEnum : int8_t {};
 enum IntEnum : int32_t {};
@@ -66,6 +69,10 @@ struct ExampleLightFlattenable : public android::LightFlattenablePod<ExampleLigh
     int32_t mValue = 0;
 };
 
+struct BigStruct {
+    uint8_t data[1337];
+};
+
 #define PARCEL_READ_WITH_STATUS(T, FUN) \
     [] (const ::android::Parcel& p, uint8_t /*data*/) {\
         FUZZ_LOG() << "about to read " #T " using " #FUN " with status";\
@@ -94,6 +101,7 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
     PARCEL_READ_NO_STATUS(size_t, dataAvail),
     PARCEL_READ_NO_STATUS(size_t, dataPosition),
     PARCEL_READ_NO_STATUS(size_t, dataCapacity),
+    PARCEL_READ_NO_STATUS(::android::binder::Status, enforceNoDataAvail),
     [] (const ::android::Parcel& p, uint8_t pos) {
         FUZZ_LOG() << "about to setDataPosition: " << pos;
         p.setDataPosition(pos);
@@ -101,6 +109,8 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
     },
     PARCEL_READ_NO_STATUS(size_t, allowFds),
     PARCEL_READ_NO_STATUS(size_t, hasFileDescriptors),
+    PARCEL_READ_NO_STATUS(std::vector<android::sp<android::IBinder>>, debugReadAllStrongBinders),
+    PARCEL_READ_NO_STATUS(std::vector<int>, debugReadAllFileDescriptors),
     [] (const ::android::Parcel& p, uint8_t len) {
         std::string interface(len, 'a');
         FUZZ_LOG() << "about to enforceInterface: " << interface;
@@ -124,7 +134,7 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
     [] (const ::android::Parcel& p, uint8_t len) {
         FUZZ_LOG() << "about to readInplace";
         const void* r = p.readInplace(len);
-        FUZZ_LOG() << "readInplace done. pointer: " << r << " bytes: " << hexString(r, len);
+        FUZZ_LOG() << "readInplace done. pointer: " << r << " bytes: " << (r ? HexString(r, len) : "null");
     },
     PARCEL_READ_OPT_STATUS(int32_t, readInt32),
     PARCEL_READ_OPT_STATUS(uint32_t, readUint32),
@@ -149,7 +159,7 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
         FUZZ_LOG() << "about to readString8Inplace";
         size_t outLen = 0;
         const char* str = p.readString8Inplace(&outLen);
-        std::string bytes = hexString(str, sizeof(char) * (outLen + 1));
+        std::string bytes = str ? HexString(str, sizeof(char) * (outLen + 1)) : "null";
         FUZZ_LOG() << "readString8Inplace: " << bytes << " size: " << outLen;
     },
     PARCEL_READ_OPT_STATUS(android::String16, readString16),
@@ -159,28 +169,26 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
         FUZZ_LOG() << "about to readString16Inplace";
         size_t outLen = 0;
         const char16_t* str = p.readString16Inplace(&outLen);
-        std::string bytes = hexString(str, sizeof(char16_t) * (outLen + 1));
+        std::string bytes = str ? HexString(str, sizeof(char16_t) * (outLen + 1)) : "null";
         FUZZ_LOG() << "readString16Inplace: " << bytes << " size: " << outLen;
     },
     PARCEL_READ_WITH_STATUS(android::sp<android::IBinder>, readStrongBinder),
     PARCEL_READ_WITH_STATUS(android::sp<android::IBinder>, readNullableStrongBinder),
 
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // PARCEL_READ_WITH_STATUS(std::vector<ByteEnum>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<ByteEnum>>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<ByteEnum>>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<IntEnum>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<IntEnum>>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<IntEnum>>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<LongEnum>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<LongEnum>>, readEnumVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<LongEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::vector<ByteEnum>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<ByteEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<ByteEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::vector<IntEnum>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<IntEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<IntEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::vector<LongEnum>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<LongEnum>>, readEnumVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<LongEnum>>, readEnumVector),
 
     // only reading one parcelable type for now
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<ExampleParcelable>>>, readParcelableVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<ExampleParcelable>>>, readParcelableVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<ExampleParcelable>, readParcelableVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<ExampleParcelable>>>, readParcelableVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<ExampleParcelable>>>, readParcelableVector),
+    PARCEL_READ_WITH_STATUS(std::vector<ExampleParcelable>, readParcelableVector),
     PARCEL_READ_WITH_STATUS(ExampleParcelable, readParcelable),
     PARCEL_READ_WITH_STATUS(std::unique_ptr<ExampleParcelable>, readParcelable),
     PARCEL_READ_WITH_STATUS(std::optional<ExampleParcelable>, readParcelable),
@@ -188,46 +196,72 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
     // only reading one binder type for now
     PARCEL_READ_WITH_STATUS(android::sp<android::os::IServiceManager>, readStrongBinder),
     PARCEL_READ_WITH_STATUS(android::sp<android::os::IServiceManager>, readNullableStrongBinder),
+    PARCEL_READ_WITH_STATUS(std::vector<android::sp<android::os::IServiceManager>>, readStrongBinderVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<android::sp<android::os::IServiceManager>>>, readStrongBinderVector),
 
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // PARCEL_READ_WITH_STATUS(::std::unique_ptr<std::vector<android::sp<android::IBinder>>>, readStrongBinderVector),
-    // PARCEL_READ_WITH_STATUS(::std::optional<std::vector<android::sp<android::IBinder>>>, readStrongBinderVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<android::sp<android::IBinder>>, readStrongBinderVector),
+    PARCEL_READ_WITH_STATUS(::std::unique_ptr<std::vector<android::sp<android::IBinder>>>, readStrongBinderVector),
+    PARCEL_READ_WITH_STATUS(::std::optional<std::vector<android::sp<android::IBinder>>>, readStrongBinderVector),
+    PARCEL_READ_WITH_STATUS(std::vector<android::sp<android::IBinder>>, readStrongBinderVector),
 
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int8_t>>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<int8_t>>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<int8_t>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<uint8_t>>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<uint8_t>>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<uint8_t>, readByteVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int32_t>>, readInt32Vector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<int32_t>>, readInt32Vector),
-    // PARCEL_READ_WITH_STATUS(std::vector<int32_t>, readInt32Vector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int64_t>>, readInt64Vector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<int64_t>>, readInt64Vector),
-    // PARCEL_READ_WITH_STATUS(std::vector<int64_t>, readInt64Vector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<uint64_t>>, readUint64Vector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<uint64_t>>, readUint64Vector),
-    // PARCEL_READ_WITH_STATUS(std::vector<uint64_t>, readUint64Vector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<float>>, readFloatVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<float>>, readFloatVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<float>, readFloatVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<double>>, readDoubleVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<double>>, readDoubleVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<double>, readDoubleVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<bool>>, readBoolVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<bool>>, readBoolVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<bool>, readBoolVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<char16_t>>, readCharVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<char16_t>>, readCharVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<char16_t>, readCharVector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<android::String16>>>, readString16Vector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<android::String16>>>, readString16Vector),
-    // PARCEL_READ_WITH_STATUS(std::vector<android::String16>, readString16Vector),
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<std::string>>>, readUtf8VectorFromUtf16Vector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<std::string>>>, readUtf8VectorFromUtf16Vector),
-    // PARCEL_READ_WITH_STATUS(std::vector<std::string>, readUtf8VectorFromUtf16Vector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int8_t>>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<int8_t>>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::vector<int8_t>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<uint8_t>>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<uint8_t>>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::vector<uint8_t>, readByteVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int32_t>>, readInt32Vector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<int32_t>>, readInt32Vector),
+    PARCEL_READ_WITH_STATUS(std::vector<int32_t>, readInt32Vector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<int64_t>>, readInt64Vector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<int64_t>>, readInt64Vector),
+    PARCEL_READ_WITH_STATUS(std::vector<int64_t>, readInt64Vector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<uint64_t>>, readUint64Vector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<uint64_t>>, readUint64Vector),
+    PARCEL_READ_WITH_STATUS(std::vector<uint64_t>, readUint64Vector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<float>>, readFloatVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<float>>, readFloatVector),
+    PARCEL_READ_WITH_STATUS(std::vector<float>, readFloatVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<double>>, readDoubleVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<double>>, readDoubleVector),
+    PARCEL_READ_WITH_STATUS(std::vector<double>, readDoubleVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<bool>>, readBoolVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<bool>>, readBoolVector),
+    PARCEL_READ_WITH_STATUS(std::vector<bool>, readBoolVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<char16_t>>, readCharVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<char16_t>>, readCharVector),
+    PARCEL_READ_WITH_STATUS(std::vector<char16_t>, readCharVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<android::String16>>>, readString16Vector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<android::String16>>>, readString16Vector),
+    PARCEL_READ_WITH_STATUS(std::vector<android::String16>, readString16Vector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<std::unique_ptr<std::string>>>, readUtf8VectorFromUtf16Vector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<std::optional<std::string>>>, readUtf8VectorFromUtf16Vector),
+    PARCEL_READ_WITH_STATUS(std::vector<std::string>, readUtf8VectorFromUtf16Vector),
+
+#define COMMA ,
+    PARCEL_READ_WITH_STATUS(std::array<uint8_t COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<uint8_t COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<char16_t COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<char16_t COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<std::string COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<std::optional<std::string> COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<android::String16 COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<std::optional<android::String16> COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<android::sp<android::IBinder> COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<android::sp<android::IBinder> COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<ExampleParcelable COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<std::optional<ExampleParcelable> COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<ByteEnum COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<ByteEnum COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<IntEnum COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<IntEnum COMMA 3>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<LongEnum COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<LongEnum COMMA 3>>, readFixedArray),
+    // nested arrays
+    PARCEL_READ_WITH_STATUS(std::array<std::array<uint8_t COMMA 3> COMMA 4>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<std::array<uint8_t COMMA 3> COMMA 4>>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::array<ExampleParcelable COMMA 3>, readFixedArray),
+    PARCEL_READ_WITH_STATUS(std::optional<std::array<std::array<std::optional<ExampleParcelable> COMMA 3> COMMA 4>>, readFixedArray),
+#undef COMMA
 
     [] (const android::Parcel& p, uint8_t /*len*/) {
         FUZZ_LOG() << "about to read flattenable";
@@ -242,8 +276,12 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
         FUZZ_LOG() << "read lite flattenable: " << status;
     },
 
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // TODO: resizeOutVector
+    PARCEL_READ_WITH_STATUS(std::vector<uint8_t>, resizeOutVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<uint8_t>>, resizeOutVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<uint8_t>>, resizeOutVector),
+    PARCEL_READ_WITH_STATUS(std::vector<BigStruct>, resizeOutVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<BigStruct>>, resizeOutVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<BigStruct>>, resizeOutVector),
 
     PARCEL_READ_NO_STATUS(int32_t, readExceptionCode),
     [] (const android::Parcel& p, uint8_t /*len*/) {
@@ -261,10 +299,9 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
     PARCEL_READ_NO_STATUS(int, readParcelFileDescriptor),
     PARCEL_READ_WITH_STATUS(android::base::unique_fd, readUniqueFileDescriptor),
 
-    // TODO(b/131868573): can force read of arbitrarily sized vector
-    // PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<android::base::unique_fd>>, readUniqueFileDescriptorVector),
-    // PARCEL_READ_WITH_STATUS(std::optional<std::vector<android::base::unique_fd>>, readUniqueFileDescriptorVector),
-    // PARCEL_READ_WITH_STATUS(std::vector<android::base::unique_fd>, readUniqueFileDescriptorVector),
+    PARCEL_READ_WITH_STATUS(std::unique_ptr<std::vector<android::base::unique_fd>>, readUniqueFileDescriptorVector),
+    PARCEL_READ_WITH_STATUS(std::optional<std::vector<android::base::unique_fd>>, readUniqueFileDescriptorVector),
+    PARCEL_READ_WITH_STATUS(std::vector<android::base::unique_fd>, readUniqueFileDescriptorVector),
 
     [] (const android::Parcel& p, uint8_t len) {
         FUZZ_LOG() << "about to readBlob";
@@ -279,7 +316,6 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
         FUZZ_LOG() << "readObject: " << obj;
     },
     PARCEL_READ_NO_STATUS(uid_t, readCallingWorkSourceUid),
-    PARCEL_READ_NO_STATUS(size_t, getBlobAshmemSize),
     PARCEL_READ_NO_STATUS(size_t, getOpenAshmemSize),
 
     // additional parcelable objects defined in libbinder
@@ -296,6 +332,23 @@ std::vector<ParcelRead<::android::Parcel>> BINDER_PARCEL_READ_FUNCTIONS {
         FUZZ_LOG() << "ParcelableHolder status: " << status;
     },
     PARCEL_READ_WITH_STATUS(android::os::PersistableBundle, readParcelable),
+    [] (const ::android::Parcel& p, uint8_t /* data */) {
+        FUZZ_LOG() << "about to call hasFileDescriptorsInRange() with status";
+        size_t offset = p.readUint32();
+        size_t length = p.readUint32();
+        bool result;
+        status_t status = p.hasFileDescriptorsInRange(offset, length, &result);
+        FUZZ_LOG() << " status: " << status  << " result: " << result;
+    },
+    [] (const ::android::Parcel& p, uint8_t /* data */) {
+        FUZZ_LOG() << "about to call compareDataInRange() with status";
+        size_t thisOffset = p.readUint32();
+        size_t otherOffset = p.readUint32();
+        size_t length = p.readUint32();
+        int result;
+        status_t status = p.compareDataInRange(thisOffset, p, otherOffset, length, &result);
+        FUZZ_LOG() << " status: " << status  << " result: " << result;
+    },
 };
 // clang-format on
 #pragma clang diagnostic pop

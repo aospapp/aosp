@@ -20,6 +20,8 @@ import logging
 import os
 import shutil
 
+from pathlib import Path
+
 from aidegen import constant
 from aidegen.idea import iml
 from aidegen.lib import common_util
@@ -361,7 +363,7 @@ class ProjectSplitter:
                 constant.KEY_PATH: [relpath],
                 constant.KEY_MODULE_NAME: project.module_name,
                 constant.KEY_IML_NAME: iml.IMLGenerator.get_unique_iml_name(
-                    os.path.join(root_path, relpath))
+                    str(Path(root_path, relpath)))
             }
             dep_iml = iml.IMLGenerator(mod_info)
             dep_iml.create({constant.KEY_SRCS: True,

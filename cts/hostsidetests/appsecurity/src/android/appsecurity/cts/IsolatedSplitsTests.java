@@ -17,6 +17,7 @@ package android.appsecurity.cts;
 
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.Presubmit;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -27,6 +28,7 @@ import org.junit.runner.RunWith;
 
 import java.io.FileNotFoundException;
 
+@Presubmit
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class IsolatedSplitsTests extends BaseAppSecurityTest {
     private static final String PKG = "com.android.cts.isolatedsplitapp";

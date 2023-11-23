@@ -16,8 +16,9 @@
 
 use crate::{
     database::{
-        BlobMetaData, BlobMetaEntry, CertificateInfo, DateTime, KeyEntry, KeyEntryLoadBits,
-        KeyIdGuard, KeyMetaData, KeyMetaEntry, KeyType, KeystoreDB, SubComponentType, Uuid,
+        BlobInfo, BlobMetaData, BlobMetaEntry, CertificateInfo, DateTime, KeyEntry,
+        KeyEntryLoadBits, KeyIdGuard, KeyMetaData, KeyMetaEntry, KeyType, KeystoreDB,
+        SubComponentType, Uuid,
     },
     error::{map_km_error, Error, ErrorCode},
     globals::get_keymint_device,
@@ -59,14 +60,16 @@ impl KeyMintDevice {
     pub const KEY_MASTER_V4_1: i32 = 41;
     /// Version number of KeyMintDevice@V1
     pub const KEY_MINT_V1: i32 = 100;
+    /// Version number of KeyMintDevice@V2
+    pub const KEY_MINT_V2: i32 = 200;
 
     /// Get a [`KeyMintDevice`] for the given [`SecurityLevel`]
     pub fn get(security_level: SecurityLevel) -> Result<KeyMintDevice> {
-        let (asp, hw_info, km_uuid) = get_keymint_device(&security_level)
+        let (km_dev, hw_info, km_uuid) = get_keymint_device(&security_level)
             .context("In KeyMintDevice::get: get_keymint_device failed")?;
 
         Ok(KeyMintDevice {
-            km_dev: asp.get_interface()?,
+            km_dev,
             km_uuid,
             version: hw_info.versionNumber,
             security_level: hw_info.securityLevel,
@@ -120,10 +123,10 @@ impl KeyMintDevice {
         blob_metadata.add(BlobMetaEntry::KmUuid(self.km_uuid));
 
         db.store_new_key(
-            &key_desc,
+            key_desc,
             key_type,
             &key_parameters,
-            &(&creation_result.keyBlob, &blob_metadata),
+            &BlobInfo::new(&creation_result.keyBlob, &blob_metadata),
             &CertificateInfo::new(None, None),
             &key_metadata,
             &self.km_uuid,
@@ -148,7 +151,7 @@ impl KeyMintDevice {
         key_desc: &KeyDescriptor,
         key_type: KeyType,
     ) -> Result<(KeyIdGuard, KeyEntry)> {
-        db.load_key_entry(&key_desc, key_type, KeyEntryLoadBits::KM, AID_KEYSTORE, |_, _| Ok(()))
+        db.load_key_entry(key_desc, key_type, KeyEntryLoadBits::KM, AID_KEYSTORE, |_, _| Ok(()))
             .context("In lookup_from_desc: load_key_entry failed.")
     }
 
@@ -228,8 +231,8 @@ impl KeyMintDevice {
             };
         }
 
-        self.create_and_store_key(db, &key_desc, key_type, |km_dev| {
-            km_dev.generateKey(&params, None)
+        self.create_and_store_key(db, key_desc, key_type, |km_dev| {
+            km_dev.generateKey(params, None)
         })
         .context("In lookup_or_generate_key: generate_and_store_key failed")?;
         Self::lookup_from_desc(db, key_desc, key_type)

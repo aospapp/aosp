@@ -6,13 +6,17 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"flag"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Attention: The tests in this file execute the test binary again with the `-run` flag.
@@ -160,6 +164,48 @@ func TestProcessEnvRunCmdDeleteEnv(t *testing.T) {
 			if strings.HasPrefix(ll, "PATH=") {
 				t.Errorf("path env was not removed: %s", ll)
 			}
+		}
+	})
+}
+
+func TestRunWithTimeoutRunsTheGivenProcess(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		env, err := newProcessEnv()
+		if err != nil {
+			t.Fatalf("Unexpected error making new process env: %v", err)
+		}
+
+		tempFile := path.Join(ctx.tempDir, "some_file")
+		cmd := &command{
+			Path: "touch",
+			Args: []string{tempFile},
+		}
+		if err := env.runWithTimeout(cmd, time.Second*120); err != nil {
+			t.Fatalf("Unexpected error touch'ing %q: %v", tempFile, err)
+		}
+
+		// This should be fine, since `touch` should've created the file.
+		if _, err := os.Stat(tempFile); err != nil {
+			t.Errorf("Stat'ing temp file at %q failed: %v", tempFile, err)
+		}
+	})
+}
+
+func TestRunWithTimeoutReturnsErrorOnTimeout(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		env, err := newProcessEnv()
+		if err != nil {
+			t.Fatalf("Unexpected error making new process env: %v", err)
+		}
+
+		cmd := &command{
+			Path: "sleep",
+			Args: []string{"30"},
+		}
+
+		err = env.runWithTimeout(cmd, 100*time.Millisecond)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("Expected context.DeadlineExceeded after `sleep` timed out; got error: %v", err)
 		}
 	})
 }

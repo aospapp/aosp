@@ -16,12 +16,14 @@
 
 package com.android.networkstack.apishim.api30;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastR;
+
 import android.net.util.SocketUtils;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
-import com.android.networkstack.apishim.common.ShimUtils;
 import com.android.networkstack.apishim.common.SocketUtilsShim;
 
 import java.net.SocketAddress;
@@ -29,6 +31,7 @@ import java.net.SocketAddress;
 /**
  * Implementation of {@link SocketUtilsShim} for API 30.
  */
+@RequiresApi(Build.VERSION_CODES.R)
 public class SocketUtilsShimImpl
         extends com.android.networkstack.apishim.api29.SocketUtilsShimImpl {
     protected SocketUtilsShimImpl() {}
@@ -36,8 +39,9 @@ public class SocketUtilsShimImpl
     /**
      * Get a new instance of {@link SocketUtilsShim}.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     public static SocketUtilsShim newInstance() {
-        if (!ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q)) {
+        if (!isAtLeastR()) {
             return com.android.networkstack.apishim.api29.SocketUtilsShimImpl.newInstance();
         }
         return new SocketUtilsShimImpl();

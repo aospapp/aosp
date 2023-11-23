@@ -109,6 +109,162 @@ TEST_P(DrawElementsTest, ClientSideNullptrArrayZeroCount)
     ASSERT_GL_NO_ERROR();
 }
 
+// Test uploading part of an index buffer after deleting a vertex array
+// previously used for DrawElements.
+TEST_P(DrawElementsTest, DeleteVertexArrayAndUploadIndex)
+{
+    const auto &vertices = GetIndexedQuadVertices();
+    const auto &indices  = GetQuadIndices();
+
+    ANGLE_GL_PROGRAM(programDrawRed, essl3_shaders::vs::Simple(), essl3_shaders::fs::Red());
+    glUseProgram(programDrawRed);
+
+    GLint posLocation = glGetAttribLocation(programDrawRed, essl3_shaders::PositionAttrib());
+    ASSERT_NE(-1, posLocation);
+
+    GLuint vertexArray;
+    glGenVertexArrays(1, &vertexArray);
+    glBindVertexArray(vertexArray);
+
+    GLBuffer vertexBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertices.size(), vertices.data(),
+                 GL_STATIC_DRAW);
+
+    glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(posLocation);
+
+    GLBuffer indexBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), indices.data(),
+                 GL_STATIC_DRAW);
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+
+    glDeleteVertexArrays(1, &vertexArray);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    // Could crash here if the observer binding from the vertex array doesn't get
+    // removed on vertex array destruction.
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(indices[0]) * 3, indices.data());
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test VAO switch is handling cached element array buffer properly along with line loop mode
+// switch.
+TEST_P(DrawElementsTest, LineLoopTriangles)
+{
+    const auto &vertices                    = GetIndexedQuadVertices();
+    constexpr std::array<GLuint, 6> indices = {{0, 1, 2, 0, 2, 3}};
+
+    ANGLE_GL_PROGRAM(programDrawRed, essl3_shaders::vs::Simple(), essl3_shaders::fs::Red());
+    ANGLE_GL_PROGRAM(programDrawBlue, essl3_shaders::vs::Simple(), essl3_shaders::fs::Blue());
+
+    glUseProgram(programDrawRed);
+    GLint posLocation = glGetAttribLocation(programDrawRed, essl3_shaders::PositionAttrib());
+    ASSERT_NE(-1, posLocation);
+
+    GLVertexArray vertexArray[2];
+    GLBuffer vertexBuffer[2];
+
+    glBindVertexArray(vertexArray[0]);
+
+    GLBuffer indexBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), indices.data(),
+                 GL_STATIC_DRAW);
+
+    for (int i = 0; i < 2; i++)
+    {
+        glBindVertexArray(vertexArray[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer[i]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertices.size(), vertices.data(),
+                     GL_STATIC_DRAW);
+        glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(posLocation);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    }
+
+    // First draw with VAO0 and line loop mode
+    glBindVertexArray(vertexArray[0]);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    // Switch to VAO1 and draw with triangle mode.
+    glBindVertexArray(vertexArray[1]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, 0, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(0, getWindowHeight() - 1, GLColor::red);
+    EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, getWindowHeight() - 1, GLColor::red);
+
+    // Switch back to VAO0 and draw with triangle mode.
+    glUseProgram(programDrawBlue);
+    glBindVertexArray(vertexArray[0]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
+    EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, 0, GLColor::blue);
+    EXPECT_PIXEL_COLOR_EQ(0, getWindowHeight() - 1, GLColor::blue);
+    EXPECT_PIXEL_COLOR_EQ(getWindowWidth() - 1, getWindowHeight() - 1, GLColor::blue);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Regression test for using two VAOs, one to draw only GL_LINE_LOOPs, and
+// another to draw indexed triangles.
+TEST_P(DrawElementsTest, LineLoopTriangles2)
+{
+    const auto &vertices                    = GetIndexedQuadVertices();
+    constexpr std::array<GLuint, 6> indices = {{0, 1, 2, 0, 2, 3}};
+
+    ANGLE_GL_PROGRAM(programDrawRed, essl3_shaders::vs::Simple(), essl3_shaders::fs::Red());
+
+    glUseProgram(programDrawRed);
+    GLint posLocation = glGetAttribLocation(programDrawRed, essl3_shaders::PositionAttrib());
+    ASSERT_NE(-1, posLocation);
+
+    GLVertexArray vertexArray[2];
+    GLBuffer vertexBuffer[2];
+
+    GLBuffer indexBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), indices.data(),
+                 GL_STATIC_DRAW);
+
+    for (int i = 0; i < 2; i++)
+    {
+        glBindVertexArray(vertexArray[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer[i]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertices.size(), vertices.data(),
+                     GL_STATIC_DRAW);
+        glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(posLocation);
+        if (i != 0)
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    }
+
+    // First draw with VAO0 and line loop mode
+    glBindVertexArray(vertexArray[0]);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    // Switch to VAO1 and draw some indexed triangles
+    glBindVertexArray(vertexArray[1]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    // Switch back to VAO0 and do another line loop
+    glBindVertexArray(vertexArray[0]);
+
+    // Would crash if the index buffer dirty bit got errantly set on VAO0.
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    ASSERT_GL_NO_ERROR();
+}
+
 // Test a state desync that can occur when using a streaming index buffer in GL in concert with
 // deleting the applied index buffer.
 TEST_P(DrawElementsTest, DeletingAfterStreamingIndexes)
@@ -233,6 +389,63 @@ TEST_P(DrawElementsTest, DeletingAfterStreamingIndexes)
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 
+    ASSERT_GL_NO_ERROR();
+}
+
+// Verify that detaching shaders after linking doesn't break draw calls
+TEST_P(DrawElementsTest, DrawWithDetachedShaders)
+{
+    const auto &vertices = GetIndexedQuadVertices();
+
+    GLBuffer vertexBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertices.size(), vertices.data(),
+                 GL_STATIC_DRAW);
+
+    GLBuffer indexBuffer;
+    const auto &indices = GetQuadIndices();
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), indices.data(),
+                 GL_STATIC_DRAW);
+    ASSERT_GL_NO_ERROR();
+
+    GLuint vertexShader   = CompileShader(GL_VERTEX_SHADER, essl3_shaders::vs::Simple());
+    GLuint fragmentShader = CompileShader(GL_FRAGMENT_SHADER, essl3_shaders::fs::Red());
+    ASSERT_NE(0u, vertexShader);
+    ASSERT_NE(0u, fragmentShader);
+
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+
+    glLinkProgram(program);
+
+    GLint linkStatus;
+    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+    EXPECT_EQ(GL_TRUE, linkStatus);
+
+    glDetachShader(program, vertexShader);
+    glDetachShader(program, fragmentShader);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    ASSERT_GL_NO_ERROR();
+
+    glUseProgram(program);
+
+    GLint posLocation = glGetAttribLocation(program, essl3_shaders::PositionAttrib());
+    ASSERT_NE(-1, posLocation);
+
+    GLVertexArray vertexArray;
+    glBindVertexArray(vertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glVertexAttribPointer(posLocation, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(posLocation);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+    ASSERT_GL_NO_ERROR();
+
+    glDeleteProgram(program);
     ASSERT_GL_NO_ERROR();
 }
 

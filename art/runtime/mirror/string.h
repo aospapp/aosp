@@ -29,6 +29,7 @@ enum AllocatorType : char;
 }  // namespace gc
 
 template<class T> class Handle;
+class InternTable;
 template<class MirrorType> class ObjPtr;
 class StringBuilderAppend;
 struct StringOffsets;
@@ -104,9 +105,13 @@ class MANAGED String final : public Object {
     SetField32<false, false>(OFFSET_OF_OBJECT_MEMBER(String, count_), new_count);
   }
 
+  int32_t GetStoredHashCode() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return GetField32(OFFSET_OF_OBJECT_MEMBER(String, hash_code_));
+  }
+
   int32_t GetHashCode() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Computes, stores, and returns the hash code.
+  // Computes and returns the hash code.
   int32_t ComputeHashCode() REQUIRES_SHARED(Locks::mutator_lock_);
 
   int32_t GetUtfLength() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -119,6 +124,13 @@ class MANAGED String final : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   ObjPtr<String> Intern() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template <bool kIsInstrumented = true, typename PreFenceVisitor>
+  ALWAYS_INLINE static ObjPtr<String> Alloc(Thread* self,
+                                            int32_t utf16_length_with_flag,
+                                            gc::AllocatorType allocator_type,
+                                            const PreFenceVisitor& pre_fence_visitor)
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   template <bool kIsInstrumented = true>
   ALWAYS_INLINE static ObjPtr<String> AllocFromByteArray(Thread* self,
@@ -151,6 +163,9 @@ class MANAGED String final : public Object {
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   static ObjPtr<String> DoConcat(Thread* self, Handle<String> h_this, Handle<String> h_arg)
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
+
+  static ObjPtr<String> DoRepeat(Thread* self, Handle<String> h_this, int32_t count)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   static ObjPtr<String> AllocFromUtf16(Thread* self,
@@ -246,19 +261,22 @@ class MANAGED String final : public Object {
  private:
   static bool AllASCIIExcept(const uint16_t* chars, int32_t length, uint16_t non_ascii);
 
-  void SetHashCode(int32_t new_hash_code) REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Hash code is invariant so use non-transactional mode. Also disable check as we may run inside
-    // a transaction.
-    DCHECK_EQ(0, GetField32(OFFSET_OF_OBJECT_MEMBER(String, hash_code_)));
-    SetField32<false, false>(OFFSET_OF_OBJECT_MEMBER(String, hash_code_), new_hash_code);
-  }
+  // Computes, stores, and returns the hash code.
+  int32_t ComputeAndSetHashCode() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <bool kIsInstrumented = true, typename PreFenceVisitor>
-  ALWAYS_INLINE static ObjPtr<String> Alloc(Thread* self,
-                                            int32_t utf16_length_with_flag,
-                                            gc::AllocatorType allocator_type,
-                                            const PreFenceVisitor& pre_fence_visitor)
-      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
+  void SetHashCode(int32_t new_hash_code) REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kIsDebugBuild) {
+      CHECK_EQ(new_hash_code, ComputeHashCode());
+      int32_t old_hash_code = GetStoredHashCode();
+      // Another thread could have raced this one and set the hash code.
+      CHECK(old_hash_code == 0 || old_hash_code == new_hash_code)
+          << "old: " << old_hash_code << " new: " << new_hash_code;
+    }
+    // Hash code is invariant so use non-transactional mode, allowing a failed transaction
+    // to set the hash code anyway. Also disable check as we may run inside a transaction.
+    SetField32</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+        OFFSET_OF_OBJECT_MEMBER(String, hash_code_), new_hash_code);
+  }
 
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
 
@@ -274,6 +292,7 @@ class MANAGED String final : public Object {
     uint8_t value_compressed_[0];
   };
 
+  friend class art::InternTable;  // Let `InternTable` call `SetHashCode()`.
   friend class art::StringBuilderAppend;
   friend struct art::StringOffsets;  // for verifying offset information
 

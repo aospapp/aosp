@@ -19,13 +19,13 @@ void xnn_f32_vlrelu_ukernel__wasmsimd_minmax_x4(
     size_t n,
     const float* x,
     float* y,
-    const union xnn_f32_lrelu_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_lrelu_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
 
-  const v128_t vslope = wasm_v32x4_load_splat(&params->scalar.slope);
-  const v128_t vzero = wasm_f32x4_splat(0.0f);
+  const v128_t vslope = wasm_v128_load64_splat(params->wasmsimd.slope);
+  const v128_t vzero = wasm_i32x4_const_splat(0);
   for (; n >= 4 * sizeof(float); n -= 4 * sizeof(float)) {
     v128_t vx = wasm_v128_load(x);
     x += 4;

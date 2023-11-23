@@ -109,3 +109,5 @@ allow mnld sysfs_leds:file r_file_perms;
 #Add for /nvcfg/almanac.dat
 allow mnld nvcfg_file:dir w_dir_perms;
 allow mnld nvcfg_file:file create_file_perms;
+
+allow mnld self:netlink_route_socket { bind nlmsg_readpriv nlmsg_getneigh };

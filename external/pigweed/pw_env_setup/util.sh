@@ -155,21 +155,25 @@ _pw_hello() {
 }
 
 pw_deactivate() {
-  # Assume PW_ROOT and PW_PROJECT_ROOT has already been set and we need to
+  # Assume PW_ROOT and PW_PROJECT_ROOT have already been set and we need to
   # preserve their values.
   _NEW_PW_ROOT="$PW_ROOT"
   _NEW_PW_PROJECT_ROOT="$PW_PROJECT_ROOT"
 
-  # Find deactivate script and run it.
+  # Find deactivate script, run it, and then delete it. This way if the
+  # deactivate script is doing something wrong subsequent bootstraps still
+  # have a chance to pass.
   _PW_DEACTIVATE_SH="$_PW_ACTUAL_ENVIRONMENT_ROOT/deactivate.sh"
   if [ -f "$_PW_DEACTIVATE_SH" ]; then
     . "$_PW_DEACTIVATE_SH"
+    rm -f "$_PW_DEACTIVATE_SH" &> /dev/null
   fi
 
   # If there's a _pw_deactivate function run it. Redirect output to /dev/null
-  # in case _pw_deactivate doesn't exist.
+  # in case _pw_deactivate doesn't exist. Remove _pw_deactivate when complete.
   if [ -n "$(command -v _pw_deactivate)" ]; then
-    _pw_deactivate &> /dev/null
+    _pw_deactivate > /dev/null 2> /dev/null
+    unset -f _pw_deactivate
   fi
 
   # Restore.
@@ -179,10 +183,19 @@ pw_deactivate() {
   export PW_PROJECT_ROOT
 }
 
+deactivate() {
+  pw_deactivate
+  unset -f pw_deactivate
+  unset -f deactivate
+  unset PW_ROOT
+  unset PW_PROJECT_ROOT
+  unset PW_BRANDING_BANNER
+  unset PW_BRANDING_BANNER_COLOR
+}
+
 # The next three functions use the following variables.
 # * PW_BANNER_FUNC: function to print banner
 # * PW_BOOTSTRAP_PYTHON: specific Python interpreter to use for bootstrap
-# * PW_USE_GCS_ENVSETUP: attempt to grab env setup executable from GCS if "true"
 # * PW_ROOT: path to Pigweed root
 # * PW_ENVSETUP_QUIET: limit output if "true"
 #
@@ -193,25 +206,35 @@ pw_deactivate() {
 pw_bootstrap() {
   _pw_hello "  BOOTSTRAP! Bootstrap may take a few minutes; please be patient.\n"
 
+  local _pw_alias_check=0
+  alias python > /dev/null 2> /dev/null || _pw_alias_check=$?
+  if [ "$_pw_alias_check" -eq 0 ]; then
+    pw_bold_red "Error: 'python' is an alias"
+    pw_red "The shell has a 'python' alias set. This causes many obscure"
+    pw_red "Python-related issues both in and out of Pigweed. Please remove"
+    pw_red "the Python alias from your shell init file or at least run the"
+    pw_red "following command before bootstrapping Pigweed."
+    pw_red
+    pw_red "  unalias python"
+    pw_red
+    return
+  fi
+
   # Allow forcing a specific version of Python for testing pursposes.
   if [ -n "$PW_BOOTSTRAP_PYTHON" ]; then
     _PW_PYTHON="$PW_BOOTSTRAP_PYTHON"
-  elif which python &> /dev/null; then
-    _PW_PYTHON=python
-  elif which python3 &> /dev/null; then
+  elif command -v python3 > /dev/null 2> /dev/null; then
     _PW_PYTHON=python3
-  elif which python2 &> /dev/null; then
+  elif command -v python2 > /dev/null 2> /dev/null; then
     _PW_PYTHON=python2
+  elif command -v python > /dev/null 2> /dev/null; then
+    _PW_PYTHON=python
   else
     pw_bold_red "Error: No system Python present\n"
     pw_red "  Pigweed's bootstrap process requires a local system Python."
     pw_red "  Please install Python on your system, add it to your PATH"
     pw_red "  and re-try running bootstrap."
     return
-  fi
-
-  if [ -n "$PW_USE_GCS_ENVSETUP" ]; then
-    _PW_ENV_SETUP="$("$PW_ROOT/pw_env_setup/get_pw_env_setup.sh")"
   fi
 
   if [ -n "$_PW_ENV_SETUP" ]; then
@@ -221,6 +244,9 @@ pw_bootstrap() {
     "$_PW_PYTHON" "$PW_ROOT/pw_env_setup/py/pw_env_setup/env_setup.py" "$@"
     _PW_ENV_SETUP_STATUS="$?"
   fi
+
+  # Create the environment README file. Use quotes to prevent alias expansion.
+  "cp" "$PW_ROOT/pw_env_setup/destination.md" "$_PW_ACTUAL_ENVIRONMENT_ROOT/README.md"
 }
 
 pw_activate() {
@@ -241,10 +267,15 @@ pw_finalize() {
 
     if [ "$?" -eq 0 ]; then
       if [ "$_PW_NAME" = "bootstrap" ] && [ -z "$PW_ENVSETUP_QUIET" ]; then
-        echo "To activate this environment in the future, run this in your "
+        echo "To reactivate this environment in the future, run this in your "
         echo "terminal:"
         echo
-        pw_green "  source ./activate.sh\n"
+        pw_green "  source ./activate.sh"
+        echo
+        echo "To deactivate this environment, run this:"
+        echo
+        pw_green "  deactivate"
+        echo
       fi
     else
       pw_red "Error during $_PW_NAME--see messages above."
@@ -257,6 +288,7 @@ pw_finalize() {
 pw_cleanup() {
   unset _PW_BANNER
   unset _PW_BANNER_FUNC
+  unset PW_BANNER_FUNC
   unset _PW_ENV_SETUP
   unset _PW_NAME
   unset _PW_PYTHON
@@ -265,23 +297,24 @@ pw_cleanup() {
   unset _NEW_PW_ROOT
   unset _PW_ENV_SETUP_STATUS
 
-  unset pw_none
-  unset pw_red
-  unset pw_bold_red
-  unset pw_yellow
-  unset pw_bold_yellow
-  unset pw_green
-  unset pw_bold_green
-  unset pw_blue
-  unset pw_cyan
-  unset pw_magenta
-  unset pw_bold_white
-  unset pw_eval_sourced
-  unset pw_check_root
-  unset pw_get_env_root
-  unset _pw_banner
-  unset pw_bootstrap
-  unset pw_activate
-  unset pw_finalize
-  unset _pw_cleanup
+  unset -f pw_none
+  unset -f pw_red
+  unset -f pw_bold_red
+  unset -f pw_yellow
+  unset -f pw_bold_yellow
+  unset -f pw_green
+  unset -f pw_bold_green
+  unset -f pw_blue
+  unset -f pw_cyan
+  unset -f pw_magenta
+  unset -f pw_bold_white
+  unset -f pw_eval_sourced
+  unset -f pw_check_root
+  unset -f pw_get_env_root
+  unset -f _pw_banner
+  unset -f pw_bootstrap
+  unset -f pw_activate
+  unset -f pw_finalize
+  unset -f pw_cleanup
+  unset -f _pw_hello
 }

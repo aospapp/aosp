@@ -328,18 +328,13 @@ static struct vrend_format_table gl_bgra_formats[] = {
   { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
-
 static struct vrend_format_table gles_bgra_formats[] = {
-  { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
-  { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_BGRA_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8X8_UNORM, GL_RGBA8,        GL_RGBA,     GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_UNORM, GL_RGBA8,        GL_RGBA,     GL_UNSIGNED_BYTE, NO_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8X8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA,     GL_UNSIGNED_BYTE, RGB1_SWIZZLE },
+  { VIRGL_FORMAT_B8G8R8A8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA,     GL_UNSIGNED_BYTE, NO_SWIZZLE },
 };
 
-static struct vrend_format_table gles_bgra_formats_emulation[] = {
-  { VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, BGR1_SWIZZLE },
-  { VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, BGRA_SWIZZLE },
-  { VIRGL_FORMAT_B8G8R8X8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, BGR1_SWIZZLE },
-  { VIRGL_FORMAT_B8G8R8A8_SRGB,  GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, BGRA_SWIZZLE },
-};
 
 
 static struct vrend_format_table gles_z32_format[] = {
@@ -537,14 +532,6 @@ static void vrend_add_formats(struct vrend_format_table *table, int num_entries)
           flags |= VIRGL_TEXTURE_CAN_READBACK;
     }
 
-    if (i == VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED) {
-       table[VIRGL_FORMAT_B8G8R8A8_UNORM].flags |= VIRGL_TEXTURE_CAN_READBACK;
-       binding |= VIRGL_BIND_PREFER_EMULATED_BGRA;
-    } else if (i == VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED) {
-       table[VIRGL_FORMAT_B8G8R8X8_UNORM].flags |= VIRGL_TEXTURE_CAN_READBACK;
-       binding |= VIRGL_BIND_PREFER_EMULATED_BGRA;
-    }
-
     glDeleteTextures(1, &tex_id);
     glDeleteFramebuffers(1, &fb_id);
 
@@ -586,7 +573,6 @@ void vrend_build_format_list_common(void)
 
   /* compressed */
   add_formats(etc2_formats);
-  add_formats(astc_formats);
   add_formats(rgtc_formats);
   add_formats(dxtn_formats);
   add_formats(dxtn_srgb_formats);
@@ -615,9 +601,11 @@ void vrend_build_format_list_gl(void)
 void vrend_build_format_list_gles(void)
 {
   /* The BGR[A|X] formats is required but OpenGL ES does not
-   * support rendering to it. Try to use GL_BGRA_EXT from the
-   * GL_EXT_texture_format_BGRA8888 extension. But the
-   * GL_BGRA_EXT format is not supported by OpenGL Desktop.
+   * support it as nicely as OpenGL. We could try to use BGRA_EXT from
+   * EXT_texture_format_BGRA8888, but it becomes error prone when mixed
+   * with BGR*_SRGB formats and framebuffer multisampling. Instead, on
+   * GLES hosts, we always emulate BGR* as GL_RGB* with a swizzle on
+   * transfers to/from the host.
    */
   add_formats(gles_bgra_formats);
 
@@ -627,11 +615,7 @@ void vrend_build_format_list_gles(void)
    */
   add_formats(gles_z32_format);
   add_formats(gles_bit10_formats);
-}
-
-void vrend_build_emulated_format_list_gles(void)
-{
-  add_formats(gles_bgra_formats_emulation);
+  add_formats(astc_formats);
 }
 
 /* glTexStorage may not support all that is supported by glTexImage,
@@ -785,6 +769,7 @@ static int format_uncompressed_compressed_copy_compatible(enum virgl_formats src
       case VIRGL_FORMAT_ASTC_12x10:
       case VIRGL_FORMAT_ASTC_12x12:
       case VIRGL_FORMAT_ASTC_4x4_SRGB:
+      case VIRGL_FORMAT_ASTC_5x4_SRGB:
       case VIRGL_FORMAT_ASTC_5x5_SRGB:
       case VIRGL_FORMAT_ASTC_6x5_SRGB:
       case VIRGL_FORMAT_ASTC_6x6_SRGB:
@@ -847,7 +832,7 @@ static boolean format_compressed_compressed_copy_compatible(enum virgl_formats s
         (src == VIRGL_FORMAT_ASTC_8x6 && dst == VIRGL_FORMAT_ASTC_8x6_SRGB) ||
         (src == VIRGL_FORMAT_ASTC_8x8 && dst == VIRGL_FORMAT_ASTC_8x8_SRGB) ||
         (src == VIRGL_FORMAT_ASTC_10x5 && dst == VIRGL_FORMAT_ASTC_10x5_SRGB) ||
-        (src == VIRGL_FORMAT_ASTC_10x6 && dst == VIRGL_FORMAT_ASTC_10x5_SRGB) ||
+        (src == VIRGL_FORMAT_ASTC_10x6 && dst == VIRGL_FORMAT_ASTC_10x6_SRGB) ||
         (src == VIRGL_FORMAT_ASTC_10x8 && dst == VIRGL_FORMAT_ASTC_10x8_SRGB) ||
         (src == VIRGL_FORMAT_ASTC_10x10 && dst == VIRGL_FORMAT_ASTC_10x10_SRGB) ||
         (src == VIRGL_FORMAT_ASTC_12x10 && dst == VIRGL_FORMAT_ASTC_12x10_SRGB) ||
@@ -869,12 +854,22 @@ static boolean format_compressed_compressed_copy_compatible(enum virgl_formats s
 }
 
 boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst,
-                                  boolean allow_compressed)
+                                  unsigned int flags)
 {
    int r;
 
-   if (src == dst)
+   if (src == dst) {
+      /* When Mesa imports dma_buf VIRGL_FORMAT_B8G8R8X8_UNORM/DRM|GBM_FORMAT_XRGB8888
+       * it uses internal format GL_RGB8.
+       * But when virglrenderer creates VIRGL_FORMAT_B8G8R8X8_UNORM texture, it
+       * uses internal format GL_RGBA8.
+       * So the formats do not match when Mesa checks them internally.
+       */
+      if (flags & VREND_COPY_COMPAT_FLAG_ONE_IS_EGL_IMAGE &&
+          src == VIRGL_FORMAT_B8G8R8X8_UNORM)
+         return false;
       return true;
+   }
 
    if (util_format_is_plain(src) && util_format_is_plain(dst))  {
       const struct util_format_description *src_desc = util_format_description(src);
@@ -882,7 +877,7 @@ boolean format_is_copy_compatible(enum virgl_formats src, enum virgl_formats dst
       return util_is_format_compatible(src_desc, dst_desc);
    }
 
-   if (!allow_compressed)
+   if (!(flags & VREND_COPY_COMPAT_FLAG_ALLOW_COMPRESSED))
       return false;
 
    /* compressed-uncompressed */

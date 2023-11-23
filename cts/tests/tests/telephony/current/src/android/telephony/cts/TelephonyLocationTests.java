@@ -1,5 +1,7 @@
 package android.telephony.cts;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -7,8 +9,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.Manifest;
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextParams;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -19,16 +23,21 @@ import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
 import android.telephony.cts.locationaccessingapp.CtsLocationAccessService;
 import android.telephony.cts.locationaccessingapp.ICtsLocationAccessControl;
 import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -103,6 +112,41 @@ public class TelephonyLocationTests {
                     assertServiceStateSanitization(ss1, false);
                 },
                 Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+    }
+
+    @Test
+    public void testServiceStateLocationSanitizationWithRenouncedPermission() {
+        if (!mShouldTest) return;
+
+        TelephonyManagerTest.grantLocationPermissions();
+        HashSet<String> permissionsToRenounce =
+                new HashSet<>(Arrays.asList(android.Manifest.permission.ACCESS_FINE_LOCATION));
+
+        ServiceState ss =
+                getTelephonyManagerWithRenouncedPermissions(permissionsToRenounce)
+                .getServiceState();
+        assertServiceStateSanitization(ss, true);
+
+        permissionsToRenounce.add(android.Manifest.permission.ACCESS_COARSE_LOCATION);
+        ss = getTelephonyManagerWithRenouncedPermissions(permissionsToRenounce).getServiceState();
+        assertServiceStateSanitization(ss, false);
+    }
+
+    @Test
+    public void testServiceStateListeningWithRenouncedPermission() {
+        if (!mShouldTest) return;
+
+        TelephonyManagerTest.grantLocationPermissions();
+        HashSet<String> permissionsToRenounce =
+                new HashSet<>(Arrays.asList(android.Manifest.permission.ACCESS_FINE_LOCATION));
+        ServiceState ss = CtsLocationAccessService.listenForServiceState(
+                getTelephonyManagerWithRenouncedPermissions(permissionsToRenounce));
+        assertServiceStateSanitization(ss , true);
+
+        permissionsToRenounce.add(android.Manifest.permission.ACCESS_COARSE_LOCATION);
+        ss = CtsLocationAccessService.listenForServiceState(
+                getTelephonyManagerWithRenouncedPermissions(permissionsToRenounce));
+        assertServiceStateSanitization(ss, false);
     }
 
     @Test
@@ -393,4 +437,29 @@ public class TelephonyLocationTests {
         assertTrue(TextUtils.isEmpty(state.getOperatorNumeric()));
     }
 
+    private TelephonyManager getTelephonyManagerWithRenouncedPermissions(
+                HashSet<String> permissionsToRenounce) {
+        Context context = InstrumentationRegistry.getContext();
+        try {
+            return callWithRenouncePermissions(() -> ((TelephonyManager) context.createContext(
+                new ContextParams.Builder()
+                    .setRenouncedPermissions(permissionsToRenounce)
+                    .setAttributionTag(context.getAttributionTag())
+                    .build()).getSystemService(Context.TELEPHONY_SERVICE)));
+        } catch (Exception e) {
+            fail("unable to get service state with renounced permissions:" + e);
+        }
+        return null;
+    }
+
+    private <T> T callWithRenouncePermissions(@NonNull Callable<T> callable)
+            throws Exception {
+        final UiAutomation automan = getInstrumentation().getUiAutomation();
+        automan.adoptShellPermissionIdentity(Manifest.permission.RENOUNCE_PERMISSIONS);
+        try {
+            return callable.call();
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+    }
 }

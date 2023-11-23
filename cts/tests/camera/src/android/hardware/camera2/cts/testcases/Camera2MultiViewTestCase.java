@@ -16,10 +16,25 @@
 
 package android.hardware.camera2.cts.testcases;
 
-import static android.hardware.camera2.cts.CameraTestUtils.*;
+import static android.hardware.camera2.cts.CameraTestUtils.CAMERA_CLOSE_TIMEOUT_MS;
+import static android.hardware.camera2.cts.CameraTestUtils.PREVIEW_SIZE_BOUND;
+import static android.hardware.camera2.cts.CameraTestUtils.SESSION_CLOSE_TIMEOUT_MS;
+import static android.hardware.camera2.cts.CameraTestUtils.SESSION_CONFIGURE_TIMEOUT_MS;
+import static android.hardware.camera2.cts.CameraTestUtils.SESSION_READY_TIMEOUT_MS;
+import static android.hardware.camera2.cts.CameraTestUtils.assertFalse;
+import static android.hardware.camera2.cts.CameraTestUtils.assertNotNull;
+import static android.hardware.camera2.cts.CameraTestUtils.assertNull;
+import static android.hardware.camera2.cts.CameraTestUtils.assertTrue;
+import static android.hardware.camera2.cts.CameraTestUtils.checkSessionConfigurationSupported;
+import static android.hardware.camera2.cts.CameraTestUtils.configureCameraSession;
+import static android.hardware.camera2.cts.CameraTestUtils.configureCameraSessionWithConfig;
+import static android.hardware.camera2.cts.CameraTestUtils.getPreviewSizeBound;
+import static android.hardware.camera2.cts.CameraTestUtils.getSupportedPreviewSizes;
+import static android.hardware.camera2.cts.CameraTestUtils.isSessionConfigSupported;
 
-import static com.android.ex.camera2.blocking.BlockingSessionCallback.*;
-import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
+import static com.android.ex.camera2.blocking.BlockingSessionCallback.SESSION_CLOSED;
+import static com.android.ex.camera2.blocking.BlockingSessionCallback.SESSION_READY;
+import static com.android.ex.camera2.blocking.BlockingStateCallback.STATE_CLOSED;
 
 import android.app.Activity;
 import android.content.Context;
@@ -28,13 +43,11 @@ import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
-import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.cts.Camera2MultiViewCtsActivity;
+import android.hardware.camera2.cts.Camera2ParameterizedTestCase;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.params.OutputConfiguration;
@@ -43,7 +56,6 @@ import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -58,9 +70,6 @@ import com.android.ex.camera2.blocking.BlockingStateCallback;
 
 import junit.framework.Assert;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 
 import java.util.Arrays;
@@ -141,7 +150,8 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
     protected void updatePreviewDisplayRotation(Size previewSize, TextureView textureView) {
         int rotationDegrees = 0;
         Camera2MultiViewCtsActivity activity = (Camera2MultiViewCtsActivity) mActivity;
-        int displayRotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+
+        int displayRotation = activity.getDisplay().getRotation();
         Configuration config = activity.getResources().getConfiguration();
 
         // Get UI display rotation
@@ -330,6 +340,7 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
 
     public static class CameraPreviewListener implements TextureView.SurfaceTextureListener {
         private boolean mFirstPreviewAvailable = false;
+        private float[] mTransformMatrix = new float[16];
         private final ConditionVariable mPreviewDone = new ConditionVariable();
 
         @Override
@@ -361,6 +372,10 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
                 mFirstPreviewAvailable = true;
                 mPreviewDone.open();
             }
+
+            synchronized(this) {
+                surface.getTransformMatrix(mTransformMatrix);
+            }
         }
 
         /** Waits until the camera preview is up running */
@@ -372,6 +387,10 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
             }
             mPreviewDone.close();
             return true;
+        }
+
+        public synchronized float[] getPreviewTransform() {
+            return mTransformMatrix;
         }
 
         /** Reset the Listener */

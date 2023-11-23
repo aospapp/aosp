@@ -429,7 +429,8 @@ hashtree is also appended to the image.
         [--calc_max_image_size]                                                    \
         [--do_not_use_ab]                                                          \
         [--no_hashtree]                                                            \
-        [--use_persistent_digest]
+        [--use_persistent_digest]                                                  \
+        [--check_at_most_once]
 
 Valid values for `HASH_ALG` above include `sha1`, `sha256`, and `blake2b-256`.
 
@@ -907,6 +908,13 @@ if (is_slot_is_marked_as_successful(slot->ab_suffix)) {
 }
 ```
 
+This logic should ideally be implemented outside of the HLOS. One
+possible implementation is to update rollback indices in the
+bootloader when booting into a successful slot. This means that
+when booting into a new OS not yet marked as successful, the
+rollback indices would not be updated. The first reboot after the
+slot succeeded would trigger an update of the rollback indices.
+
 For an HLOS where it's possible to roll back to a previous version,
 `stored_rollback_index[n]` should be set to the largest possible value
 allowing all bootable slots to boot. This approach is implemented in
@@ -1112,7 +1120,9 @@ part of the boot process to remind the user that the custom key is in use.
 
 ### Version 1.2
 
-Version 1.2 adds support for the `rollback_index_location` field of the main vbmeta header.
+Version 1.2 adds support for the following:
+* `rollback_index_location` field of the main vbmeta header.
+* `check_at_most_once` parameter of dm-verity in a hashtree descriptor.
 
 ### Version 1.1
 

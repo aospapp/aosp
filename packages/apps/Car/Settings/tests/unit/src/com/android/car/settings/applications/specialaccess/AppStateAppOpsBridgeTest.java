@@ -85,7 +85,7 @@ public class AppStateAppOpsBridgeTest {
         mParceledListSlice1 = new ParceledListSlice<>(mPackages);
         when(mMockIPackageManager.getPackagesHoldingPermissions(
                 AdditionalMatchers.aryEq(new String[]{PERMISSION}),
-                eq(PackageManager.GET_PERMISSIONS),
+                eq((long) PackageManager.GET_PERMISSIONS),
                 eq(USER_ID1)))
                 .thenReturn(mParceledListSlice1);
 
@@ -241,7 +241,7 @@ public class AppStateAppOpsBridgeTest {
         mParceledListSlice2 = new ParceledListSlice<>(Collections.singletonList(packageInfo2));
         when(mMockIPackageManager.getPackagesHoldingPermissions(
                 AdditionalMatchers.aryEq(new String[]{PERMISSION}),
-                eq(PackageManager.GET_PERMISSIONS),
+                eq((long) PackageManager.GET_PERMISSIONS),
                 eq(USER_ID2)))
                 .thenReturn(mParceledListSlice2);
         when(mMockIPackageManager.isPackageAvailable(packageInfo2.packageName,

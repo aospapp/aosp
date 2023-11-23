@@ -16,6 +16,10 @@
  * limitations under the License.
  */
 
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+
+#include <utils/Trace.h>
+
 #include "SharedMetadata.h"
 #include "Allocator.h"
 #include "core/mali_gralloc_bufferallocation.h"
@@ -38,6 +42,7 @@ void allocate(const buffer_descriptor_t &bufferDescriptor, uint32_t count, IAllo
 #if DISABLE_FRAMEBUFFER_HAL
 	GRALLOC_UNUSED(fb_allocator);
 #endif
+	ATRACE_CALL();
 
 	Error error = Error::NONE;
 	int stride = 0;

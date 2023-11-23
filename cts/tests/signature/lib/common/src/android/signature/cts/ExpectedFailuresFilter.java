@@ -48,12 +48,12 @@ public class ExpectedFailuresFilter implements ResultObserver {
     }
 
     @Override
-    public void notifyFailure(FailureType type, String name, String errorMessage) {
+    public void notifyFailure(FailureType type, String name, String errorMessage, Throwable throwable) {
         String key = type.toString().toLowerCase() + ":" + name;
         if (expected.contains(key)) {
             return;
         }
 
-        delegate.notifyFailure(type, name, errorMessage);
+        delegate.notifyFailure(type, name, errorMessage, throwable);
     }
 }

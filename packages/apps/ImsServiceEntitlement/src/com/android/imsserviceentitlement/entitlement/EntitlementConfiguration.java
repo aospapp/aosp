@@ -131,9 +131,13 @@ public class EntitlementConfiguration {
                 .orElse(DEFAULT_VALIDITY);
     }
 
-    /** Returns version stored in the {@link EntitlementCharacteristicDataStore}. */
-    public Optional<String> getVersion() {
-        return mXmlDoc.get(ResponseXmlNode.VERS, ResponseXmlAttributes.VERSION, null);
+    /**
+     * Returns version stored in the {@link EntitlementCharacteristicDataStore}.
+     * If no data exists then return the default value {@link #DEFAULT_VERSION}.
+     */
+    public String getVersion() {
+        return mXmlDoc.get(ResponseXmlNode.VERS, ResponseXmlAttributes.VERSION, null)
+                .orElse(String.valueOf(DEFAULT_VERSION));
     }
 
     /**
@@ -229,7 +233,7 @@ public class EntitlementConfiguration {
         String rawXml =
                 "<wap-provisioningdoc version=\"1.1\">"
                 + "  <characteristic type=\"VERS\">"
-                + "    <parm name=\"version\" value=\"" + getVersion().get() + "\"/>"
+                + "    <parm name=\"version\" value=\"" + getVersion() + "\"/>"
                 + "    <parm name=\"validity\" value=\"" + getVersValidity() + "\"/>"
                 + "  </characteristic>"
                 + "  <characteristic type=\"TOKEN\">"

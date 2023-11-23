@@ -28,9 +28,6 @@
 #include "include/HevcUtils.h"
 
 #include <cutils/properties.h>
-#include <media/openmax/OMX_Audio.h>
-#include <media/openmax/OMX_Video.h>
-#include <media/openmax/OMX_VideoExt.h>
 #include <media/stagefright/CodecBase.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -56,6 +53,14 @@
   "mpegh-reference-channel-layout"
 #define AMEDIAFORMAT_KEY_MPEGH_COMPATIBLE_SETS \
   "mpegh-compatible-sets"
+
+namespace {
+    // TODO: this should possibly be handled in an else
+    constexpr static int32_t AACObjectNull = 0;
+
+    // TODO: decide if we should just not transmit the level in this case
+    constexpr static int32_t DolbyVisionLevelUnknown = 0;
+}
 
 namespace android {
 
@@ -121,14 +126,10 @@ static void convertMetaDataToMessageColorAspects(const MetaDataBase *meta, sp<AM
     }
 }
 
-static bool isHdr(const sp<AMessage> &format) {
-    // if CSD specifies HDR transfer(s), we assume HDR. Otherwise, if it specifies non-HDR
-    // transfers, we must assume non-HDR. This is because CSD trumps any color-transfer key
-    // in the format.
-    int32_t isHdr;
-    if (format->findInt32("android._is-hdr", &isHdr)) {
-        return isHdr;
-    }
+/**
+ * Returns true if, and only if, the given format corresponds to HDR10 or HDR10+.
+ */
+static bool isHdr10or10Plus(const sp<AMessage> &format) {
 
     // if user/container supplied HDR static info without transfer set, assume true
     if ((format->contains("hdr-static-info") || format->contains("hdr10-plus-info"))
@@ -138,8 +139,7 @@ static bool isHdr(const sp<AMessage> &format) {
     // otherwise, verify that an HDR transfer function is set
     int32_t transfer;
     if (format->findInt32("color-transfer", &transfer)) {
-        return transfer == ColorUtils::kColorTransferST2084
-                || transfer == ColorUtils::kColorTransferHLG;
+        return transfer == ColorUtils::kColorTransferST2084;
     }
     return false;
 }
@@ -156,21 +156,22 @@ static void parseAacProfileFromCsd(const sp<ABuffer> &csd, sp<AMessage> &format)
         audioObjectType >>= 11;
     }
 
-    const static ALookup<uint16_t, OMX_AUDIO_AACPROFILETYPE> profiles {
-        { 1,  OMX_AUDIO_AACObjectMain     },
-        { 2,  OMX_AUDIO_AACObjectLC       },
-        { 3,  OMX_AUDIO_AACObjectSSR      },
-        { 4,  OMX_AUDIO_AACObjectLTP      },
-        { 5,  OMX_AUDIO_AACObjectHE       },
-        { 6,  OMX_AUDIO_AACObjectScalable },
-        { 17, OMX_AUDIO_AACObjectERLC     },
-        { 23, OMX_AUDIO_AACObjectLD       },
-        { 29, OMX_AUDIO_AACObjectHE_PS    },
-        { 39, OMX_AUDIO_AACObjectELD      },
-        { 42, OMX_AUDIO_AACObjectXHE      },
+
+    const static ALookup<uint16_t, int32_t> profiles {
+        { 1,  AACObjectMain     },
+        { 2,  AACObjectLC       },
+        { 3,  AACObjectSSR      },
+        { 4,  AACObjectLTP      },
+        { 5,  AACObjectHE       },
+        { 6,  AACObjectScalable },
+        { 17, AACObjectERLC     },
+        { 23, AACObjectLD       },
+        { 29, AACObjectHE_PS    },
+        { 39, AACObjectELD      },
+        { 42, AACObjectXHE      },
     };
 
-    OMX_AUDIO_AACPROFILETYPE profile;
+    int32_t profile;
     if (profiles.map(audioObjectType, &profile)) {
         format->setInt32("profile", profile);
     }
@@ -184,59 +185,92 @@ static void parseAvcProfileLevelFromAvcc(const uint8_t *ptr, size_t size, sp<AMe
     const uint8_t constraints = ptr[2];
     const uint8_t level = ptr[3];
 
-    const static ALookup<uint8_t, OMX_VIDEO_AVCLEVELTYPE> levels {
-        {  9, OMX_VIDEO_AVCLevel1b }, // technically, 9 is only used for High+ profiles
-        { 10, OMX_VIDEO_AVCLevel1  },
-        { 11, OMX_VIDEO_AVCLevel11 }, // prefer level 1.1 for the value 11
-        { 11, OMX_VIDEO_AVCLevel1b },
-        { 12, OMX_VIDEO_AVCLevel12 },
-        { 13, OMX_VIDEO_AVCLevel13 },
-        { 20, OMX_VIDEO_AVCLevel2  },
-        { 21, OMX_VIDEO_AVCLevel21 },
-        { 22, OMX_VIDEO_AVCLevel22 },
-        { 30, OMX_VIDEO_AVCLevel3  },
-        { 31, OMX_VIDEO_AVCLevel31 },
-        { 32, OMX_VIDEO_AVCLevel32 },
-        { 40, OMX_VIDEO_AVCLevel4  },
-        { 41, OMX_VIDEO_AVCLevel41 },
-        { 42, OMX_VIDEO_AVCLevel42 },
-        { 50, OMX_VIDEO_AVCLevel5  },
-        { 51, OMX_VIDEO_AVCLevel51 },
-        { 52, OMX_VIDEO_AVCLevel52 },
-        { 60, OMX_VIDEO_AVCLevel6  },
-        { 61, OMX_VIDEO_AVCLevel61 },
-        { 62, OMX_VIDEO_AVCLevel62 },
+    const static ALookup<uint8_t, int32_t> levels {
+        {  9, AVCLevel1b }, // technically, 9 is only used for High+ profiles
+        { 10, AVCLevel1  },
+        { 11, AVCLevel11 }, // prefer level 1.1 for the value 11
+        { 11, AVCLevel1b },
+        { 12, AVCLevel12 },
+        { 13, AVCLevel13 },
+        { 20, AVCLevel2  },
+        { 21, AVCLevel21 },
+        { 22, AVCLevel22 },
+        { 30, AVCLevel3  },
+        { 31, AVCLevel31 },
+        { 32, AVCLevel32 },
+        { 40, AVCLevel4  },
+        { 41, AVCLevel41 },
+        { 42, AVCLevel42 },
+        { 50, AVCLevel5  },
+        { 51, AVCLevel51 },
+        { 52, AVCLevel52 },
+        { 60, AVCLevel6  },
+        { 61, AVCLevel61 },
+        { 62, AVCLevel62 },
     };
-    const static ALookup<uint8_t, OMX_VIDEO_AVCPROFILETYPE> profiles {
-        { 66, OMX_VIDEO_AVCProfileBaseline },
-        { 77, OMX_VIDEO_AVCProfileMain     },
-        { 88, OMX_VIDEO_AVCProfileExtended },
-        { 100, OMX_VIDEO_AVCProfileHigh    },
-        { 110, OMX_VIDEO_AVCProfileHigh10  },
-        { 122, OMX_VIDEO_AVCProfileHigh422 },
-        { 244, OMX_VIDEO_AVCProfileHigh444 },
+    const static ALookup<uint8_t, int32_t> profiles {
+        { 66, AVCProfileBaseline },
+        { 77, AVCProfileMain     },
+        { 88, AVCProfileExtended },
+        { 100, AVCProfileHigh    },
+        { 110, AVCProfileHigh10  },
+        { 122, AVCProfileHigh422 },
+        { 244, AVCProfileHigh444 },
     };
 
     // set profile & level if they are recognized
-    OMX_VIDEO_AVCPROFILETYPE codecProfile;
-    OMX_VIDEO_AVCLEVELTYPE codecLevel;
+    int32_t codecProfile;
+    int32_t codecLevel;
     if (profiles.map(profile, &codecProfile)) {
         if (profile == 66 && (constraints & 0x40)) {
-            codecProfile = (OMX_VIDEO_AVCPROFILETYPE)OMX_VIDEO_AVCProfileConstrainedBaseline;
+            codecProfile = AVCProfileConstrainedBaseline;
         } else if (profile == 100 && (constraints & 0x0C) == 0x0C) {
-            codecProfile = (OMX_VIDEO_AVCPROFILETYPE)OMX_VIDEO_AVCProfileConstrainedHigh;
+            codecProfile = AVCProfileConstrainedHigh;
         }
         format->setInt32("profile", codecProfile);
         if (levels.map(level, &codecLevel)) {
             // for 9 && 11 decide level based on profile and constraint_set3 flag
             if (level == 11 && (profile == 66 || profile == 77 || profile == 88)) {
-                codecLevel = (constraints & 0x10) ? OMX_VIDEO_AVCLevel1b : OMX_VIDEO_AVCLevel11;
+                codecLevel = (constraints & 0x10) ? AVCLevel1b : AVCLevel11;
             }
             format->setInt32("level", codecLevel);
         }
     }
 }
 
+static const ALookup<uint8_t, int32_t>&  getDolbyVisionProfileTable() {
+    static const ALookup<uint8_t, int32_t> profileTable = {
+        {1, DolbyVisionProfileDvavPen},
+        {3, DolbyVisionProfileDvheDen},
+        {4, DolbyVisionProfileDvheDtr},
+        {5, DolbyVisionProfileDvheStn},
+        {6, DolbyVisionProfileDvheDth},
+        {7, DolbyVisionProfileDvheDtb},
+        {8, DolbyVisionProfileDvheSt},
+        {9, DolbyVisionProfileDvavSe},
+        {10, DolbyVisionProfileDvav110},
+    };
+    return profileTable;
+}
+
+static const ALookup<uint8_t, int32_t>&  getDolbyVisionLevelsTable() {
+    static const ALookup<uint8_t, int32_t> levelsTable = {
+        {0, DolbyVisionLevelUnknown},
+        {1, DolbyVisionLevelHd24},
+        {2, DolbyVisionLevelHd30},
+        {3, DolbyVisionLevelFhd24},
+        {4, DolbyVisionLevelFhd30},
+        {5, DolbyVisionLevelFhd60},
+        {6, DolbyVisionLevelUhd24},
+        {7, DolbyVisionLevelUhd30},
+        {8, DolbyVisionLevelUhd48},
+        {9, DolbyVisionLevelUhd60},
+        {10, DolbyVisionLevelUhd120},
+        {11, DolbyVisionLevel8k30},
+        {12, DolbyVisionLevel8k60},
+    };
+    return levelsTable;
+}
 static void parseDolbyVisionProfileLevelFromDvcc(const uint8_t *ptr, size_t size, sp<AMessage> &format) {
     // dv_major.dv_minor Should be 1.0 or 2.1
     if (size != 24 || ((ptr[0] != 1 || ptr[1] != 0) && (ptr[0] != 2 || ptr[1] != 1))) {
@@ -256,41 +290,20 @@ static void parseDolbyVisionProfileLevelFromDvcc(const uint8_t *ptr, size_t size
 
     // All Dolby Profiles will have profile and level info in MediaFormat
     // Profile 8 and 9 will have bl_compatibility_id too.
-    const static ALookup<uint8_t, OMX_VIDEO_DOLBYVISIONPROFILETYPE> profiles{
-        {1, OMX_VIDEO_DolbyVisionProfileDvavPen},
-        {3, OMX_VIDEO_DolbyVisionProfileDvheDen},
-        {4, OMX_VIDEO_DolbyVisionProfileDvheDtr},
-        {5, OMX_VIDEO_DolbyVisionProfileDvheStn},
-        {6, OMX_VIDEO_DolbyVisionProfileDvheDth},
-        {7, OMX_VIDEO_DolbyVisionProfileDvheDtb},
-        {8, OMX_VIDEO_DolbyVisionProfileDvheSt},
-        {9, OMX_VIDEO_DolbyVisionProfileDvavSe},
-        {10, OMX_VIDEO_DolbyVisionProfileDvav110},
-    };
+    const ALookup<uint8_t, int32_t> &profiles = getDolbyVisionProfileTable();
+    const ALookup<uint8_t, int32_t> &levels = getDolbyVisionLevelsTable();
 
-    const static ALookup<uint8_t, OMX_VIDEO_DOLBYVISIONLEVELTYPE> levels{
-        {0, OMX_VIDEO_DolbyVisionLevelUnknown},
-        {1, OMX_VIDEO_DolbyVisionLevelHd24},
-        {2, OMX_VIDEO_DolbyVisionLevelHd30},
-        {3, OMX_VIDEO_DolbyVisionLevelFhd24},
-        {4, OMX_VIDEO_DolbyVisionLevelFhd30},
-        {5, OMX_VIDEO_DolbyVisionLevelFhd60},
-        {6, OMX_VIDEO_DolbyVisionLevelUhd24},
-        {7, OMX_VIDEO_DolbyVisionLevelUhd30},
-        {8, OMX_VIDEO_DolbyVisionLevelUhd48},
-        {9, OMX_VIDEO_DolbyVisionLevelUhd60},
-    };
     // set rpuAssoc
     if (rpu_present_flag && el_present_flag && !bl_present_flag) {
         format->setInt32("rpuAssoc", 1);
     }
     // set profile & level if they are recognized
-    OMX_VIDEO_DOLBYVISIONPROFILETYPE codecProfile;
-    OMX_VIDEO_DOLBYVISIONLEVELTYPE codecLevel;
+    int32_t codecProfile;
+    int32_t codecLevel;
     if (profiles.map(profile, &codecProfile)) {
         format->setInt32("profile", codecProfile);
-        if (codecProfile == OMX_VIDEO_DolbyVisionProfileDvheSt ||
-            codecProfile == OMX_VIDEO_DolbyVisionProfileDvavSe) {
+        if (codecProfile == DolbyVisionProfileDvheSt ||
+            codecProfile == DolbyVisionProfileDvavSe) {
             format->setInt32("bl_compatibility_id", bl_compatibility_id);
         }
         if (levels.map(level, &codecLevel)) {
@@ -307,32 +320,32 @@ static void parseH263ProfileLevelFromD263(const uint8_t *ptr, size_t size, sp<AM
     const uint8_t profile = ptr[6];
     const uint8_t level = ptr[5];
 
-    const static ALookup<uint8_t, OMX_VIDEO_H263PROFILETYPE> profiles {
-        { 0, OMX_VIDEO_H263ProfileBaseline },
-        { 1, OMX_VIDEO_H263ProfileH320Coding },
-        { 2, OMX_VIDEO_H263ProfileBackwardCompatible },
-        { 3, OMX_VIDEO_H263ProfileISWV2 },
-        { 4, OMX_VIDEO_H263ProfileISWV3 },
-        { 5, OMX_VIDEO_H263ProfileHighCompression },
-        { 6, OMX_VIDEO_H263ProfileInternet },
-        { 7, OMX_VIDEO_H263ProfileInterlace },
-        { 8, OMX_VIDEO_H263ProfileHighLatency },
+    const static ALookup<uint8_t, int32_t> profiles {
+        { 0, H263ProfileBaseline },
+        { 1, H263ProfileH320Coding },
+        { 2, H263ProfileBackwardCompatible },
+        { 3, H263ProfileISWV2 },
+        { 4, H263ProfileISWV3 },
+        { 5, H263ProfileHighCompression },
+        { 6, H263ProfileInternet },
+        { 7, H263ProfileInterlace },
+        { 8, H263ProfileHighLatency },
     };
 
-    const static ALookup<uint8_t, OMX_VIDEO_H263LEVELTYPE> levels {
-        { 10, OMX_VIDEO_H263Level10 },
-        { 20, OMX_VIDEO_H263Level20 },
-        { 30, OMX_VIDEO_H263Level30 },
-        { 40, OMX_VIDEO_H263Level40 },
-        { 45, OMX_VIDEO_H263Level45 },
-        { 50, OMX_VIDEO_H263Level50 },
-        { 60, OMX_VIDEO_H263Level60 },
-        { 70, OMX_VIDEO_H263Level70 },
+    const static ALookup<uint8_t, int32_t> levels {
+        { 10, H263Level10 },
+        { 20, H263Level20 },
+        { 30, H263Level30 },
+        { 40, H263Level40 },
+        { 45, H263Level45 },
+        { 50, H263Level50 },
+        { 60, H263Level60 },
+        { 70, H263Level70 },
     };
 
     // set profile & level if they are recognized
-    OMX_VIDEO_H263PROFILETYPE codecProfile;
-    OMX_VIDEO_H263LEVELTYPE codecLevel;
+    int32_t codecProfile;
+    int32_t codecLevel;
     if (profiles.map(profile, &codecProfile)) {
         format->setInt32("profile", codecProfile);
         if (levels.map(level, &codecLevel)) {
@@ -350,59 +363,63 @@ static void parseHevcProfileLevelFromHvcc(const uint8_t *ptr, size_t size, sp<AM
     const uint8_t tier = (ptr[1] & 0x20) >> 5;
     const uint8_t level = ptr[12];
 
-    const static ALookup<std::pair<uint8_t, uint8_t>, OMX_VIDEO_HEVCLEVELTYPE> levels {
-        { { 0, 30  }, OMX_VIDEO_HEVCMainTierLevel1  },
-        { { 0, 60  }, OMX_VIDEO_HEVCMainTierLevel2  },
-        { { 0, 63  }, OMX_VIDEO_HEVCMainTierLevel21 },
-        { { 0, 90  }, OMX_VIDEO_HEVCMainTierLevel3  },
-        { { 0, 93  }, OMX_VIDEO_HEVCMainTierLevel31 },
-        { { 0, 120 }, OMX_VIDEO_HEVCMainTierLevel4  },
-        { { 0, 123 }, OMX_VIDEO_HEVCMainTierLevel41 },
-        { { 0, 150 }, OMX_VIDEO_HEVCMainTierLevel5  },
-        { { 0, 153 }, OMX_VIDEO_HEVCMainTierLevel51 },
-        { { 0, 156 }, OMX_VIDEO_HEVCMainTierLevel52 },
-        { { 0, 180 }, OMX_VIDEO_HEVCMainTierLevel6  },
-        { { 0, 183 }, OMX_VIDEO_HEVCMainTierLevel61 },
-        { { 0, 186 }, OMX_VIDEO_HEVCMainTierLevel62 },
-        { { 1, 30  }, OMX_VIDEO_HEVCHighTierLevel1  },
-        { { 1, 60  }, OMX_VIDEO_HEVCHighTierLevel2  },
-        { { 1, 63  }, OMX_VIDEO_HEVCHighTierLevel21 },
-        { { 1, 90  }, OMX_VIDEO_HEVCHighTierLevel3  },
-        { { 1, 93  }, OMX_VIDEO_HEVCHighTierLevel31 },
-        { { 1, 120 }, OMX_VIDEO_HEVCHighTierLevel4  },
-        { { 1, 123 }, OMX_VIDEO_HEVCHighTierLevel41 },
-        { { 1, 150 }, OMX_VIDEO_HEVCHighTierLevel5  },
-        { { 1, 153 }, OMX_VIDEO_HEVCHighTierLevel51 },
-        { { 1, 156 }, OMX_VIDEO_HEVCHighTierLevel52 },
-        { { 1, 180 }, OMX_VIDEO_HEVCHighTierLevel6  },
-        { { 1, 183 }, OMX_VIDEO_HEVCHighTierLevel61 },
-        { { 1, 186 }, OMX_VIDEO_HEVCHighTierLevel62 },
+    const static ALookup<std::pair<uint8_t, uint8_t>, int32_t> levels {
+        { { 0, 30  }, HEVCMainTierLevel1  },
+        { { 0, 60  }, HEVCMainTierLevel2  },
+        { { 0, 63  }, HEVCMainTierLevel21 },
+        { { 0, 90  }, HEVCMainTierLevel3  },
+        { { 0, 93  }, HEVCMainTierLevel31 },
+        { { 0, 120 }, HEVCMainTierLevel4  },
+        { { 0, 123 }, HEVCMainTierLevel41 },
+        { { 0, 150 }, HEVCMainTierLevel5  },
+        { { 0, 153 }, HEVCMainTierLevel51 },
+        { { 0, 156 }, HEVCMainTierLevel52 },
+        { { 0, 180 }, HEVCMainTierLevel6  },
+        { { 0, 183 }, HEVCMainTierLevel61 },
+        { { 0, 186 }, HEVCMainTierLevel62 },
+        { { 1, 30  }, HEVCHighTierLevel1  },
+        { { 1, 60  }, HEVCHighTierLevel2  },
+        { { 1, 63  }, HEVCHighTierLevel21 },
+        { { 1, 90  }, HEVCHighTierLevel3  },
+        { { 1, 93  }, HEVCHighTierLevel31 },
+        { { 1, 120 }, HEVCHighTierLevel4  },
+        { { 1, 123 }, HEVCHighTierLevel41 },
+        { { 1, 150 }, HEVCHighTierLevel5  },
+        { { 1, 153 }, HEVCHighTierLevel51 },
+        { { 1, 156 }, HEVCHighTierLevel52 },
+        { { 1, 180 }, HEVCHighTierLevel6  },
+        { { 1, 183 }, HEVCHighTierLevel61 },
+        { { 1, 186 }, HEVCHighTierLevel62 },
     };
 
-    const static ALookup<uint8_t, OMX_VIDEO_HEVCPROFILETYPE> profiles {
-        { 1, OMX_VIDEO_HEVCProfileMain   },
-        { 2, OMX_VIDEO_HEVCProfileMain10 },
+    const static ALookup<uint8_t, int32_t> profiles {
+        { 1, HEVCProfileMain   },
+        { 2, HEVCProfileMain10 },
         // use Main for Main Still Picture decoding
-        { 3, OMX_VIDEO_HEVCProfileMain },
+        { 3, HEVCProfileMain },
     };
 
     // set profile & level if they are recognized
-    OMX_VIDEO_HEVCPROFILETYPE codecProfile;
-    OMX_VIDEO_HEVCLEVELTYPE codecLevel;
+    int32_t codecProfile;
+    int32_t codecLevel;
     if (!profiles.map(profile, &codecProfile)) {
         if (ptr[2] & 0x40 /* general compatibility flag 1 */) {
             // Note that this case covers Main Still Picture too
-            codecProfile = OMX_VIDEO_HEVCProfileMain;
+            codecProfile = HEVCProfileMain;
         } else if (ptr[2] & 0x20 /* general compatibility flag 2 */) {
-            codecProfile = OMX_VIDEO_HEVCProfileMain10;
+            codecProfile = HEVCProfileMain10;
         } else {
             return;
         }
     }
 
     // bump to HDR profile
-    if (isHdr(format) && codecProfile == OMX_VIDEO_HEVCProfileMain10) {
-        codecProfile = OMX_VIDEO_HEVCProfileMain10HDR10;
+    if (isHdr10or10Plus(format) && codecProfile == HEVCProfileMain10) {
+        if (format->contains("hdr10-plus-info")) {
+            codecProfile = HEVCProfileMain10HDR10Plus;
+        } else {
+            codecProfile = HEVCProfileMain10HDR10;
+        }
     }
 
     format->setInt32("profile", codecProfile);
@@ -422,36 +439,36 @@ static void parseMpeg2ProfileLevelFromHeader(
         }
         const uint8_t indication = ((seq[4] & 0xF) << 4) | ((seq[5] & 0xF0) >> 4);
 
-        const static ALookup<uint8_t, OMX_VIDEO_MPEG2PROFILETYPE> profiles {
-            { 0x50, OMX_VIDEO_MPEG2ProfileSimple  },
-            { 0x40, OMX_VIDEO_MPEG2ProfileMain    },
-            { 0x30, OMX_VIDEO_MPEG2ProfileSNR     },
-            { 0x20, OMX_VIDEO_MPEG2ProfileSpatial },
-            { 0x10, OMX_VIDEO_MPEG2ProfileHigh    },
+        const static ALookup<uint8_t, int32_t> profiles {
+            { 0x50, MPEG2ProfileSimple  },
+            { 0x40, MPEG2ProfileMain    },
+            { 0x30, MPEG2ProfileSNR     },
+            { 0x20, MPEG2ProfileSpatial },
+            { 0x10, MPEG2ProfileHigh    },
         };
 
-        const static ALookup<uint8_t, OMX_VIDEO_MPEG2LEVELTYPE> levels {
-            { 0x0A, OMX_VIDEO_MPEG2LevelLL  },
-            { 0x08, OMX_VIDEO_MPEG2LevelML  },
-            { 0x06, OMX_VIDEO_MPEG2LevelH14 },
-            { 0x04, OMX_VIDEO_MPEG2LevelHL  },
-            { 0x02, OMX_VIDEO_MPEG2LevelHP  },
+        const static ALookup<uint8_t, int32_t> levels {
+            { 0x0A, MPEG2LevelLL  },
+            { 0x08, MPEG2LevelML  },
+            { 0x06, MPEG2LevelH14 },
+            { 0x04, MPEG2LevelHL  },
+            { 0x02, MPEG2LevelHP  },
         };
 
         const static ALookup<uint8_t,
-                std::pair<OMX_VIDEO_MPEG2PROFILETYPE, OMX_VIDEO_MPEG2LEVELTYPE>> escapes {
+                std::pair<int32_t, int32_t>> escapes {
             /* unsupported
-            { 0x8E, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelLL  } },
-            { 0x8D, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelML  } },
-            { 0x8B, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelH14 } },
-            { 0x8A, { XXX_MPEG2ProfileMultiView, OMX_VIDEO_MPEG2LevelHL  } }, */
-            { 0x85, { OMX_VIDEO_MPEG2Profile422, OMX_VIDEO_MPEG2LevelML  } },
-            { 0x82, { OMX_VIDEO_MPEG2Profile422, OMX_VIDEO_MPEG2LevelHL  } },
+            { 0x8E, { XXX_MPEG2ProfileMultiView, MPEG2LevelLL  } },
+            { 0x8D, { XXX_MPEG2ProfileMultiView, MPEG2LevelML  } },
+            { 0x8B, { XXX_MPEG2ProfileMultiView, MPEG2LevelH14 } },
+            { 0x8A, { XXX_MPEG2ProfileMultiView, MPEG2LevelHL  } }, */
+            { 0x85, { MPEG2Profile422, MPEG2LevelML  } },
+            { 0x82, { MPEG2Profile422, MPEG2LevelHL  } },
         };
 
-        OMX_VIDEO_MPEG2PROFILETYPE profile;
-        OMX_VIDEO_MPEG2LEVELTYPE level;
-        std::pair<OMX_VIDEO_MPEG2PROFILETYPE, OMX_VIDEO_MPEG2LEVELTYPE> profileLevel;
+        int32_t profile;
+        int32_t level;
+        std::pair<int32_t, int32_t> profileLevel;
         if (escapes.map(indication, &profileLevel)) {
             format->setInt32("profile", profileLevel.first);
             format->setInt32("level", profileLevel.second);
@@ -468,16 +485,16 @@ static void parseMpeg2ProfileLevelFromEsds(ESDS &esds, sp<AMessage> &format) {
     // esds seems to only contain the profile for MPEG-2
     uint8_t objType;
     if (esds.getObjectTypeIndication(&objType) == OK) {
-        const static ALookup<uint8_t, OMX_VIDEO_MPEG2PROFILETYPE> profiles{
-            { 0x60, OMX_VIDEO_MPEG2ProfileSimple  },
-            { 0x61, OMX_VIDEO_MPEG2ProfileMain    },
-            { 0x62, OMX_VIDEO_MPEG2ProfileSNR     },
-            { 0x63, OMX_VIDEO_MPEG2ProfileSpatial },
-            { 0x64, OMX_VIDEO_MPEG2ProfileHigh    },
-            { 0x65, OMX_VIDEO_MPEG2Profile422     },
+        const static ALookup<uint8_t, int32_t> profiles{
+            { 0x60, MPEG2ProfileSimple  },
+            { 0x61, MPEG2ProfileMain    },
+            { 0x62, MPEG2ProfileSNR     },
+            { 0x63, MPEG2ProfileSpatial },
+            { 0x64, MPEG2ProfileHigh    },
+            { 0x65, MPEG2Profile422     },
         };
 
-        OMX_VIDEO_MPEG2PROFILETYPE profile;
+        int32_t profile;
         if (profiles.map(objType, &profile)) {
             format->setInt32("profile", profile);
         }
@@ -492,82 +509,82 @@ static void parseMpeg4ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &
         const uint8_t indication = seq[4];
 
         const static ALookup<uint8_t,
-                std::pair<OMX_VIDEO_MPEG4PROFILETYPE, OMX_VIDEO_MPEG4LEVELTYPE>> table {
-            { 0b00000001, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level1  } },
-            { 0b00000010, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level2  } },
-            { 0b00000011, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level3  } },
-            { 0b00000100, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level4a } },
-            { 0b00000101, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level5  } },
-            { 0b00000110, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level6  } },
-            { 0b00001000, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level0  } },
-            { 0b00001001, { OMX_VIDEO_MPEG4ProfileSimple,            OMX_VIDEO_MPEG4Level0b } },
-            { 0b00010000, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level0  } },
-            { 0b00010001, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level1  } },
-            { 0b00010010, { OMX_VIDEO_MPEG4ProfileSimpleScalable,    OMX_VIDEO_MPEG4Level2  } },
+                std::pair<int32_t, int32_t>> table {
+            { 0b00000001, { MPEG4ProfileSimple,            MPEG4Level1  } },
+            { 0b00000010, { MPEG4ProfileSimple,            MPEG4Level2  } },
+            { 0b00000011, { MPEG4ProfileSimple,            MPEG4Level3  } },
+            { 0b00000100, { MPEG4ProfileSimple,            MPEG4Level4a } },
+            { 0b00000101, { MPEG4ProfileSimple,            MPEG4Level5  } },
+            { 0b00000110, { MPEG4ProfileSimple,            MPEG4Level6  } },
+            { 0b00001000, { MPEG4ProfileSimple,            MPEG4Level0  } },
+            { 0b00001001, { MPEG4ProfileSimple,            MPEG4Level0b } },
+            { 0b00010000, { MPEG4ProfileSimpleScalable,    MPEG4Level0  } },
+            { 0b00010001, { MPEG4ProfileSimpleScalable,    MPEG4Level1  } },
+            { 0b00010010, { MPEG4ProfileSimpleScalable,    MPEG4Level2  } },
             /* unsupported
-            { 0b00011101, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level0  } },
-            { 0b00011110, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level1  } },
-            { 0b00011111, { XXX_MPEG4ProfileSimpleScalableER,        OMX_VIDEO_MPEG4Level2  } }, */
-            { 0b00100001, { OMX_VIDEO_MPEG4ProfileCore,              OMX_VIDEO_MPEG4Level1  } },
-            { 0b00100010, { OMX_VIDEO_MPEG4ProfileCore,              OMX_VIDEO_MPEG4Level2  } },
-            { 0b00110010, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level2  } },
-            { 0b00110011, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level3  } },
-            { 0b00110100, { OMX_VIDEO_MPEG4ProfileMain,              OMX_VIDEO_MPEG4Level4  } },
+            { 0b00011101, { XXX_MPEG4ProfileSimpleScalableER,        MPEG4Level0  } },
+            { 0b00011110, { XXX_MPEG4ProfileSimpleScalableER,        MPEG4Level1  } },
+            { 0b00011111, { XXX_MPEG4ProfileSimpleScalableER,        MPEG4Level2  } }, */
+            { 0b00100001, { MPEG4ProfileCore,              MPEG4Level1  } },
+            { 0b00100010, { MPEG4ProfileCore,              MPEG4Level2  } },
+            { 0b00110010, { MPEG4ProfileMain,              MPEG4Level2  } },
+            { 0b00110011, { MPEG4ProfileMain,              MPEG4Level3  } },
+            { 0b00110100, { MPEG4ProfileMain,              MPEG4Level4  } },
             /* deprecated
-            { 0b01000010, { OMX_VIDEO_MPEG4ProfileNbit,              OMX_VIDEO_MPEG4Level2  } }, */
-            { 0b01010001, { OMX_VIDEO_MPEG4ProfileScalableTexture,   OMX_VIDEO_MPEG4Level1  } },
-            { 0b01100001, { OMX_VIDEO_MPEG4ProfileSimpleFace,        OMX_VIDEO_MPEG4Level1  } },
-            { 0b01100010, { OMX_VIDEO_MPEG4ProfileSimpleFace,        OMX_VIDEO_MPEG4Level2  } },
-            { 0b01100011, { OMX_VIDEO_MPEG4ProfileSimpleFBA,         OMX_VIDEO_MPEG4Level1  } },
-            { 0b01100100, { OMX_VIDEO_MPEG4ProfileSimpleFBA,         OMX_VIDEO_MPEG4Level2  } },
-            { 0b01110001, { OMX_VIDEO_MPEG4ProfileBasicAnimated,     OMX_VIDEO_MPEG4Level1  } },
-            { 0b01110010, { OMX_VIDEO_MPEG4ProfileBasicAnimated,     OMX_VIDEO_MPEG4Level2  } },
-            { 0b10000001, { OMX_VIDEO_MPEG4ProfileHybrid,            OMX_VIDEO_MPEG4Level1  } },
-            { 0b10000010, { OMX_VIDEO_MPEG4ProfileHybrid,            OMX_VIDEO_MPEG4Level2  } },
-            { 0b10010001, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level1  } },
-            { 0b10010010, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level2  } },
-            { 0b10010011, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level3  } },
-            { 0b10010100, { OMX_VIDEO_MPEG4ProfileAdvancedRealTime,  OMX_VIDEO_MPEG4Level4  } },
-            { 0b10100001, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level1  } },
-            { 0b10100010, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level2  } },
-            { 0b10100011, { OMX_VIDEO_MPEG4ProfileCoreScalable,      OMX_VIDEO_MPEG4Level3  } },
-            { 0b10110001, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level1  } },
-            { 0b10110010, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level2  } },
-            { 0b10110011, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level3  } },
-            { 0b10110100, { OMX_VIDEO_MPEG4ProfileAdvancedCoding,    OMX_VIDEO_MPEG4Level4  } },
-            { 0b11000001, { OMX_VIDEO_MPEG4ProfileAdvancedCore,      OMX_VIDEO_MPEG4Level1  } },
-            { 0b11000010, { OMX_VIDEO_MPEG4ProfileAdvancedCore,      OMX_VIDEO_MPEG4Level2  } },
-            { 0b11010001, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level1  } },
-            { 0b11010010, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level2  } },
-            { 0b11010011, { OMX_VIDEO_MPEG4ProfileAdvancedScalable,  OMX_VIDEO_MPEG4Level3  } },
+            { 0b01000010, { MPEG4ProfileNbit,              MPEG4Level2  } }, */
+            { 0b01010001, { MPEG4ProfileScalableTexture,   MPEG4Level1  } },
+            { 0b01100001, { MPEG4ProfileSimpleFace,        MPEG4Level1  } },
+            { 0b01100010, { MPEG4ProfileSimpleFace,        MPEG4Level2  } },
+            { 0b01100011, { MPEG4ProfileSimpleFBA,         MPEG4Level1  } },
+            { 0b01100100, { MPEG4ProfileSimpleFBA,         MPEG4Level2  } },
+            { 0b01110001, { MPEG4ProfileBasicAnimated,     MPEG4Level1  } },
+            { 0b01110010, { MPEG4ProfileBasicAnimated,     MPEG4Level2  } },
+            { 0b10000001, { MPEG4ProfileHybrid,            MPEG4Level1  } },
+            { 0b10000010, { MPEG4ProfileHybrid,            MPEG4Level2  } },
+            { 0b10010001, { MPEG4ProfileAdvancedRealTime,  MPEG4Level1  } },
+            { 0b10010010, { MPEG4ProfileAdvancedRealTime,  MPEG4Level2  } },
+            { 0b10010011, { MPEG4ProfileAdvancedRealTime,  MPEG4Level3  } },
+            { 0b10010100, { MPEG4ProfileAdvancedRealTime,  MPEG4Level4  } },
+            { 0b10100001, { MPEG4ProfileCoreScalable,      MPEG4Level1  } },
+            { 0b10100010, { MPEG4ProfileCoreScalable,      MPEG4Level2  } },
+            { 0b10100011, { MPEG4ProfileCoreScalable,      MPEG4Level3  } },
+            { 0b10110001, { MPEG4ProfileAdvancedCoding,    MPEG4Level1  } },
+            { 0b10110010, { MPEG4ProfileAdvancedCoding,    MPEG4Level2  } },
+            { 0b10110011, { MPEG4ProfileAdvancedCoding,    MPEG4Level3  } },
+            { 0b10110100, { MPEG4ProfileAdvancedCoding,    MPEG4Level4  } },
+            { 0b11000001, { MPEG4ProfileAdvancedCore,      MPEG4Level1  } },
+            { 0b11000010, { MPEG4ProfileAdvancedCore,      MPEG4Level2  } },
+            { 0b11010001, { MPEG4ProfileAdvancedScalable,  MPEG4Level1  } },
+            { 0b11010010, { MPEG4ProfileAdvancedScalable,  MPEG4Level2  } },
+            { 0b11010011, { MPEG4ProfileAdvancedScalable,  MPEG4Level3  } },
             /* unsupported
-            { 0b11100001, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level1  } },
-            { 0b11100010, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level2  } },
-            { 0b11100011, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level3  } },
-            { 0b11100100, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level4  } },
-            { 0b11100101, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level1  } },
-            { 0b11100110, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level2  } },
-            { 0b11100111, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level3  } },
-            { 0b11101000, { XXX_MPEG4ProfileCoreStudio,              OMX_VIDEO_MPEG4Level4  } },
-            { 0b11101011, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level5  } },
-            { 0b11101100, { XXX_MPEG4ProfileSimpleStudio,            OMX_VIDEO_MPEG4Level6  } }, */
-            { 0b11110000, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level0  } },
-            { 0b11110001, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level1  } },
-            { 0b11110010, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level2  } },
-            { 0b11110011, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level3  } },
-            { 0b11110100, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level4  } },
-            { 0b11110101, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level5  } },
-            { 0b11110111, { OMX_VIDEO_MPEG4ProfileAdvancedSimple,    OMX_VIDEO_MPEG4Level3b } },
+            { 0b11100001, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level1  } },
+            { 0b11100010, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level2  } },
+            { 0b11100011, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level3  } },
+            { 0b11100100, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level4  } },
+            { 0b11100101, { XXX_MPEG4ProfileCoreStudio,              MPEG4Level1  } },
+            { 0b11100110, { XXX_MPEG4ProfileCoreStudio,              MPEG4Level2  } },
+            { 0b11100111, { XXX_MPEG4ProfileCoreStudio,              MPEG4Level3  } },
+            { 0b11101000, { XXX_MPEG4ProfileCoreStudio,              MPEG4Level4  } },
+            { 0b11101011, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level5  } },
+            { 0b11101100, { XXX_MPEG4ProfileSimpleStudio,            MPEG4Level6  } }, */
+            { 0b11110000, { MPEG4ProfileAdvancedSimple,    MPEG4Level0  } },
+            { 0b11110001, { MPEG4ProfileAdvancedSimple,    MPEG4Level1  } },
+            { 0b11110010, { MPEG4ProfileAdvancedSimple,    MPEG4Level2  } },
+            { 0b11110011, { MPEG4ProfileAdvancedSimple,    MPEG4Level3  } },
+            { 0b11110100, { MPEG4ProfileAdvancedSimple,    MPEG4Level4  } },
+            { 0b11110101, { MPEG4ProfileAdvancedSimple,    MPEG4Level5  } },
+            { 0b11110111, { MPEG4ProfileAdvancedSimple,    MPEG4Level3b } },
             /* deprecated
-            { 0b11111000, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level0  } },
-            { 0b11111001, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level1  } },
-            { 0b11111010, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level2  } },
-            { 0b11111011, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level3  } },
-            { 0b11111100, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level4  } },
-            { 0b11111101, { XXX_MPEG4ProfileFineGranularityScalable, OMX_VIDEO_MPEG4Level5  } }, */
+            { 0b11111000, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level0  } },
+            { 0b11111001, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level1  } },
+            { 0b11111010, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level2  } },
+            { 0b11111011, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level3  } },
+            { 0b11111100, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level4  } },
+            { 0b11111101, { XXX_MPEG4ProfileFineGranularityScalable, MPEG4Level5  } }, */
         };
 
-        std::pair<OMX_VIDEO_MPEG4PROFILETYPE, OMX_VIDEO_MPEG4LEVELTYPE> profileLevel;
+        std::pair<int32_t, int32_t> profileLevel;
         if (table.map(indication, &profileLevel)) {
             format->setInt32("profile", profileLevel.first);
             format->setInt32("level", profileLevel.second);
@@ -590,23 +607,32 @@ static void parseVp9ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &fo
         switch (id) {
             case 1 /* profileId */:
                 if (length >= 1) {
-                    const static ALookup<uint8_t, OMX_VIDEO_VP9PROFILETYPE> profiles {
-                        { 0, OMX_VIDEO_VP9Profile0 },
-                        { 1, OMX_VIDEO_VP9Profile1 },
-                        { 2, OMX_VIDEO_VP9Profile2 },
-                        { 3, OMX_VIDEO_VP9Profile3 },
+                    const static ALookup<uint8_t, int32_t> profiles {
+                        { 0, VP9Profile0 },
+                        { 1, VP9Profile1 },
+                        { 2, VP9Profile2 },
+                        { 3, VP9Profile3 },
                     };
 
-                    const static ALookup<OMX_VIDEO_VP9PROFILETYPE, OMX_VIDEO_VP9PROFILETYPE> toHdr {
-                        { OMX_VIDEO_VP9Profile2, OMX_VIDEO_VP9Profile2HDR },
-                        { OMX_VIDEO_VP9Profile3, OMX_VIDEO_VP9Profile3HDR },
+                    const static ALookup<int32_t, int32_t> toHdr10 {
+                        { VP9Profile2, VP9Profile2HDR },
+                        { VP9Profile3, VP9Profile3HDR },
                     };
 
-                    OMX_VIDEO_VP9PROFILETYPE profile;
+                    const static ALookup<int32_t, int32_t> toHdr10Plus {
+                        { VP9Profile2, VP9Profile2HDR10Plus },
+                        { VP9Profile3, VP9Profile3HDR10Plus },
+                    };
+
+                    int32_t profile;
                     if (profiles.map(data[0], &profile)) {
                         // convert to HDR profile
-                        if (isHdr(format)) {
-                            toHdr.lookup(profile, &profile);
+                        if (isHdr10or10Plus(format)) {
+                            if (format->contains("hdr10-plus-info")) {
+                                toHdr10Plus.lookup(profile, &profile);
+                            } else {
+                                toHdr10.lookup(profile, &profile);
+                            }
                         }
 
                         format->setInt32("profile", profile);
@@ -615,24 +641,24 @@ static void parseVp9ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &fo
                 break;
             case 2 /* levelId */:
                 if (length >= 1) {
-                    const static ALookup<uint8_t, OMX_VIDEO_VP9LEVELTYPE> levels {
-                        { 10, OMX_VIDEO_VP9Level1  },
-                        { 11, OMX_VIDEO_VP9Level11 },
-                        { 20, OMX_VIDEO_VP9Level2  },
-                        { 21, OMX_VIDEO_VP9Level21 },
-                        { 30, OMX_VIDEO_VP9Level3  },
-                        { 31, OMX_VIDEO_VP9Level31 },
-                        { 40, OMX_VIDEO_VP9Level4  },
-                        { 41, OMX_VIDEO_VP9Level41 },
-                        { 50, OMX_VIDEO_VP9Level5  },
-                        { 51, OMX_VIDEO_VP9Level51 },
-                        { 52, OMX_VIDEO_VP9Level52 },
-                        { 60, OMX_VIDEO_VP9Level6  },
-                        { 61, OMX_VIDEO_VP9Level61 },
-                        { 62, OMX_VIDEO_VP9Level62 },
+                    const static ALookup<uint8_t, int32_t> levels {
+                        { 10, VP9Level1  },
+                        { 11, VP9Level11 },
+                        { 20, VP9Level2  },
+                        { 21, VP9Level21 },
+                        { 30, VP9Level3  },
+                        { 31, VP9Level31 },
+                        { 40, VP9Level4  },
+                        { 41, VP9Level41 },
+                        { 50, VP9Level5  },
+                        { 51, VP9Level51 },
+                        { 52, VP9Level52 },
+                        { 60, VP9Level6  },
+                        { 61, VP9Level61 },
+                        { 62, VP9Level62 },
                     };
 
-                    OMX_VIDEO_VP9LEVELTYPE level;
+                    int32_t level;
                     if (levels.map(data[0], &level)) {
                         format->setInt32("level", level);
                     }
@@ -666,7 +692,7 @@ static void parseAV1ProfileLevelFromCsd(const sp<ABuffer> &csd, sp<AMessage> &fo
     int32_t profile;
     if (profiles.map(std::make_pair(highBitDepth, profileData), &profile)) {
         // bump to HDR profile
-        if (isHdr(format) && profile == AV1ProfileMain10) {
+        if (isHdr10or10Plus(format) && profile == AV1ProfileMain10) {
             if (format->contains("hdr10-plus-info")) {
                 profile = AV1ProfileMain10HDR10Plus;
             } else {
@@ -1504,10 +1530,21 @@ status_t convertMetaDataToMessage(
         msg->setBuffer("csd-0", buffer);
     }
 
-    if (meta->findData(kKeyDVCC, &type, &data, &size)) {
+    if (meta->findData(kKeyDVCC, &type, &data, &size)
+            || meta->findData(kKeyDVVC, &type, &data, &size)
+            || meta->findData(kKeyDVWC, &type, &data, &size)) {
         const uint8_t *ptr = (const uint8_t *)data;
         ALOGV("DV: calling parseDolbyVisionProfileLevelFromDvcc with data size %zu", size);
         parseDolbyVisionProfileLevelFromDvcc(ptr, size, msg);
+        sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
+        if (buffer.get() == nullptr || buffer->base() == nullptr) {
+            return NO_MEMORY;
+        }
+        memcpy(buffer->data(), data, size);
+
+        buffer->meta()->setInt32("csd", true);
+        buffer->meta()->setInt64("timeUs", 0);
+        msg->setBuffer("csd-2", buffer);
     }
 
     *format = msg;
@@ -1759,24 +1796,39 @@ status_t convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
     if (mime.startsWith("video/") || mime.startsWith("image/")) {
         int32_t width;
         int32_t height;
-        if (msg->findInt32("width", &width) && msg->findInt32("height", &height)) {
-            meta->setInt32(kKeyWidth, width);
-            meta->setInt32(kKeyHeight, height);
-        } else {
+        if (!msg->findInt32("width", &width) || !msg->findInt32("height", &height)) {
             ALOGV("did not find width and/or height");
             return BAD_VALUE;
         }
+        if (width <= 0 || height <= 0) {
+            ALOGE("Invalid value of width: %d and/or height: %d", width, height);
+            return BAD_VALUE;
+        }
+        meta->setInt32(kKeyWidth, width);
+        meta->setInt32(kKeyHeight, height);
 
-        int32_t sarWidth, sarHeight;
-        if (msg->findInt32("sar-width", &sarWidth)
-                && msg->findInt32("sar-height", &sarHeight)) {
+        int32_t sarWidth = -1, sarHeight = -1;
+        bool foundWidth, foundHeight;
+        foundWidth = msg->findInt32("sar-width", &sarWidth);
+        foundHeight = msg->findInt32("sar-height", &sarHeight);
+        if (foundWidth || foundHeight) {
+            if (sarWidth <= 0 || sarHeight <= 0) {
+                ALOGE("Invalid value of sarWidth: %d and/or sarHeight: %d", sarWidth, sarHeight);
+                return BAD_VALUE;
+            }
             meta->setInt32(kKeySARWidth, sarWidth);
             meta->setInt32(kKeySARHeight, sarHeight);
         }
 
-        int32_t displayWidth, displayHeight;
-        if (msg->findInt32("display-width", &displayWidth)
-                && msg->findInt32("display-height", &displayHeight)) {
+        int32_t displayWidth = -1, displayHeight = -1;
+        foundWidth = msg->findInt32("display-width", &displayWidth);
+        foundHeight = msg->findInt32("display-height", &displayHeight);
+        if (foundWidth || foundHeight) {
+            if (displayWidth <= 0 || displayHeight <= 0) {
+                ALOGE("Invalid value of displayWidth: %d and/or displayHeight: %d",
+                        displayWidth, displayHeight);
+                return BAD_VALUE;
+            }
             meta->setInt32(kKeyDisplayWidth, displayWidth);
             meta->setInt32(kKeyDisplayHeight, displayHeight);
         }
@@ -1786,17 +1838,29 @@ status_t convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
             if (msg->findInt32("is-default", &isPrimary) && isPrimary) {
                 meta->setInt32(kKeyTrackIsDefault, 1);
             }
-            int32_t tileWidth, tileHeight, gridRows, gridCols;
-            if (msg->findInt32("tile-width", &tileWidth)) {
+            int32_t tileWidth = -1, tileHeight = -1;
+            foundWidth = msg->findInt32("tile-width", &tileWidth);
+            foundHeight = msg->findInt32("tile-height", &tileHeight);
+            if (foundWidth || foundHeight) {
+                if (tileWidth <= 0 || tileHeight <= 0) {
+                    ALOGE("Invalid value of tileWidth: %d and/or tileHeight: %d",
+                            tileWidth, tileHeight);
+                    return BAD_VALUE;
+                }
                 meta->setInt32(kKeyTileWidth, tileWidth);
-            }
-            if (msg->findInt32("tile-height", &tileHeight)) {
                 meta->setInt32(kKeyTileHeight, tileHeight);
             }
-            if (msg->findInt32("grid-rows", &gridRows)) {
+            int32_t gridRows = -1, gridCols = -1;
+            bool foundRows, foundCols;
+            foundRows = msg->findInt32("grid-rows", &gridRows);
+            foundCols = msg->findInt32("grid-cols", &gridCols);
+            if (foundRows || foundCols) {
+                if (gridRows <= 0 || gridCols <= 0) {
+                    ALOGE("Invalid value of gridRows: %d and/or gridCols: %d",
+                            gridRows, gridCols);
+                    return BAD_VALUE;
+                }
                 meta->setInt32(kKeyGridRows, gridRows);
-            }
-            if (msg->findInt32("grid-cols", &gridCols)) {
                 meta->setInt32(kKeyGridCols, gridCols);
             }
         }
@@ -1812,6 +1876,14 @@ status_t convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
                           &cropTop,
                           &cropRight,
                           &cropBottom)) {
+            if (cropLeft < 0 || cropLeft > cropRight || cropRight >= width) {
+                ALOGE("Invalid value of cropLeft: %d and/or cropRight: %d", cropLeft, cropRight);
+                return BAD_VALUE;
+            }
+            if (cropTop < 0 || cropTop > cropBottom || cropBottom >= height) {
+                ALOGE("Invalid value of cropTop: %d and/or cropBottom: %d", cropTop, cropBottom);
+                return BAD_VALUE;
+            }
             meta->setRect(kKeyCropRect, cropLeft, cropTop, cropRight, cropBottom);
         }
 
@@ -1855,9 +1927,16 @@ status_t convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
             ALOGV("did not find channel-count and/or sample-rate");
             return BAD_VALUE;
         }
+        // channel count can be zero in some cases like mpeg h
+        if (sampleRate <= 0 || numChannels < 0) {
+            ALOGE("Invalid value of channel-count: %d and/or sample-rate: %d",
+                   numChannels, sampleRate);
+            return BAD_VALUE;
+        }
         meta->setInt32(kKeyChannelCount, numChannels);
         meta->setInt32(kKeySampleRate, sampleRate);
         int32_t bitsPerSample;
+        // TODO:(b/204430952) add appropriate bound check for bitsPerSample
         if (msg->findInt32("bits-per-sample", &bitsPerSample)) {
             meta->setInt32(kKeyBitsPerSample, bitsPerSample);
         }
@@ -1967,30 +2046,147 @@ status_t convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
                    mime == MEDIA_MIMETYPE_IMAGE_AVIF) {
             meta->setData(kKeyAV1C, 0, csd0->data(), csd0->size());
         } else if (mime == MEDIA_MIMETYPE_VIDEO_DOLBY_VISION) {
-            if (msg->findBuffer("csd-2", &csd2)) {
-                //dvcc should be 24
-                if (csd2->size() == 24) {
-                    meta->setData(kKeyDVCC, kTypeDVCC, csd2->data(), csd2->size());
-                    uint8_t *dvcc = csd2->data();
-                    const uint8_t profile = dvcc[2] >> 1;
-                    if (profile > 1 && profile < 9) {
-                        std::vector<uint8_t> hvcc(csd0size + 1024);
-                        size_t outsize = reassembleHVCC(csd0, hvcc.data(), hvcc.size(), 4);
-                        meta->setData(kKeyHVCC, kTypeHVCC, hvcc.data(), outsize);
-                    } else if (DolbyVisionProfileDvav110 == profile) {
-                        meta->setData(kKeyAV1C, 0, csd0->data(), csd0->size());
-                    } else {
-                        sp<ABuffer> csd1;
-                        if (msg->findBuffer("csd-1", &csd1)) {
-                            std::vector<char> avcc(csd0size + csd1->size() + 1024);
-                            size_t outsize = reassembleAVCC(csd0, csd1, avcc.data());
-                            meta->setData(kKeyAVCC, kTypeAVCC, avcc.data(), outsize);
-                        }
-                    }
+            int32_t profile = -1;
+            uint8_t blCompatibilityId = -1;
+            int32_t level = 0;
+            uint8_t profileVal = -1;
+            uint8_t profileVal1 = -1;
+            uint8_t profileVal2 = -1;
+            constexpr size_t dvccSize = 24;
+
+            const ALookup<uint8_t, int32_t> &profiles =
+                getDolbyVisionProfileTable();
+            const ALookup<uint8_t, int32_t> &levels =
+                getDolbyVisionLevelsTable();
+
+            if (!msg->findBuffer("csd-2", &csd2)) {
+                // MP4 extractors are expected to generate csd buffer
+                // some encoders might not be generating it, in which
+                // case we populate the track metadata dv (cc|vc|wc)
+                // from the 'profile' and 'level' info.
+                // This is done according to Dolby Vision ISOBMFF spec
+
+                if (!msg->findInt32("profile", &profile)) {
+                    ALOGE("Dolby Vision profile not found");
+                    return BAD_VALUE;
                 }
+                msg->findInt32("level", &level);
+
+                if (profile == DolbyVisionProfileDvheSt) {
+                    if (!profiles.rlookup(DolbyVisionProfileDvheSt, &profileVal)) { // dvhe.08
+                        ALOGE("Dolby Vision profile lookup error");
+                        return BAD_VALUE;
+                    }
+                    blCompatibilityId = 4;
+                } else if (profile == DolbyVisionProfileDvavSe) {
+                    if (!profiles.rlookup(DolbyVisionProfileDvavSe, &profileVal)) { // dvav.09
+                        ALOGE("Dolby Vision profile lookup error");
+                        return BAD_VALUE;
+                    }
+                    blCompatibilityId = 2;
+                } else {
+                    ALOGE("Dolby Vision profile look up error");
+                    return BAD_VALUE;
+                }
+
+                profile = (int32_t) profileVal;
+
+                uint8_t level_val = 0;
+                if (!levels.map(level, &level_val)) {
+                    ALOGE("Dolby Vision level lookup error");
+                    return BAD_VALUE;
+                }
+
+                std::vector<uint8_t> dvcc(dvccSize);
+
+                dvcc[0] = 1; // major version
+                dvcc[1] = 0; // minor version
+                dvcc[2] = (uint8_t)((profile & 0x7f) << 1); // dolby vision profile
+                dvcc[2] = (uint8_t)((dvcc[2] | (uint8_t)((level_val >> 5) & 0x1)) & 0xff);
+                dvcc[3] = (uint8_t)((level_val & 0x1f) << 3); // dolby vision level
+                dvcc[3] = (uint8_t)(dvcc[3] | (1 << 2)); // rpu_present_flag
+                dvcc[3] = (uint8_t)(dvcc[3] | (1)); // bl_present_flag
+                dvcc[4] = (uint8_t)(blCompatibilityId << 4); // bl_compatibility id
+
+                profiles.rlookup(DolbyVisionProfileDvav110, &profileVal);
+                profiles.rlookup(DolbyVisionProfileDvheDtb, &profileVal1);
+                if (profile > (int32_t) profileVal) {
+                    meta->setData(kKeyDVWC, kTypeDVWC, dvcc.data(), dvccSize);
+                } else if (profile > (int32_t) profileVal1) {
+                    meta->setData(kKeyDVVC, kTypeDVVC, dvcc.data(), dvccSize);
+                } else {
+                    meta->setData(kKeyDVCC, kTypeDVCC, dvcc.data(), dvccSize);
+                }
+
             } else {
-                ALOGE("We need csd-2!!. %s", msg->debugString().c_str());
-                return BAD_VALUE;
+                // we have csd-2, just use that to populate dvcc
+                if (csd2->size() == dvccSize) {
+                    uint8_t *dvcc = csd2->data();
+                    profile = dvcc[2] >> 1;
+
+                    profiles.rlookup(DolbyVisionProfileDvav110, &profileVal);
+                    profiles.rlookup(DolbyVisionProfileDvheDtb, &profileVal1);
+                    if (profile > (int32_t) profileVal) {
+                        meta->setData(kKeyDVWC, kTypeDVWC, csd2->data(), csd2->size());
+                    } else if (profile > (int32_t) profileVal1) {
+                        meta->setData(kKeyDVVC, kTypeDVVC, csd2->data(), csd2->size());
+                    } else {
+                         meta->setData(kKeyDVCC, kTypeDVCC, csd2->data(), csd2->size());
+                    }
+
+                } else {
+                    ALOGE("Convert MessageToMetadata csd-2 is present but not valid");
+                    return BAD_VALUE;
+                }
+            }
+            profiles.rlookup(DolbyVisionProfileDvavPen, &profileVal);
+            profiles.rlookup(DolbyVisionProfileDvavSe, &profileVal1);
+            profiles.rlookup(DolbyVisionProfileDvav110, &profileVal2);
+            if ((profile > (int32_t) profileVal) && (profile < (int32_t) profileVal1)) {
+                std::vector<uint8_t> hvcc(csd0size + 1024);
+                size_t outsize = reassembleHVCC(csd0, hvcc.data(), hvcc.size(), 4);
+                meta->setData(kKeyHVCC, kTypeHVCC, hvcc.data(), outsize);
+            } else if (profile == (int32_t) profileVal2) {
+                meta->setData(kKeyAV1C, 0, csd0->data(), csd0->size());
+            } else {
+                sp<ABuffer> csd1;
+                if (msg->findBuffer("csd-1", &csd1)) {
+                    std::vector<char> avcc(csd0size + csd1->size() + 1024);
+                    size_t outsize = reassembleAVCC(csd0, csd1, avcc.data());
+                    meta->setData(kKeyAVCC, kTypeAVCC, avcc.data(), outsize);
+                }
+                else {
+                    // for dolby vision avc, csd0 also holds csd1
+                    size_t i = 0;
+                    int csd0realsize = 0;
+                    do {
+                        i = findNextNalStartCode(csd0->data() + i,
+                                        csd0->size() - i) - csd0->data();
+                        if (i > 0) {
+                            csd0realsize = i;
+                            break;
+                        }
+                        i += 4;
+                    } while(i < csd0->size());
+                    // buffer0 -> csd0
+                    sp<ABuffer> buffer0 = new (std::nothrow) ABuffer(csd0realsize);
+                    if (buffer0.get() == NULL || buffer0->base() == NULL) {
+                        return NO_MEMORY;
+                    }
+                    memcpy(buffer0->data(), csd0->data(), csd0realsize);
+                    // buffer1 -> csd1
+                    sp<ABuffer> buffer1 = new (std::nothrow)
+                            ABuffer(csd0->size() - csd0realsize);
+                    if (buffer1.get() == NULL || buffer1->base() == NULL) {
+                        return NO_MEMORY;
+                    }
+                    memcpy(buffer1->data(), csd0->data()+csd0realsize,
+                                csd0->size() - csd0realsize);
+
+                    std::vector<char> avcc(csd0->size() + 1024);
+                    size_t outsize = reassembleAVCC(buffer0, buffer1, avcc.data());
+                    meta->setData(kKeyAVCC, kTypeAVCC, avcc.data(), outsize);
+                }
             }
         } else if (mime == MEDIA_MIMETYPE_VIDEO_VP9) {
             meta->setData(kKeyVp9CodecPrivate, 0, csd0->data(), csd0->size());
@@ -2131,29 +2327,29 @@ const struct mime_conv_t* p = &mimeLookup[0];
 }
 
 struct aac_format_conv_t {
-    OMX_AUDIO_AACPROFILETYPE eAacProfileType;
+    int32_t eAacProfileType;
     audio_format_t format;
 };
 
 static const struct aac_format_conv_t profileLookup[] = {
-    { OMX_AUDIO_AACObjectMain,        AUDIO_FORMAT_AAC_MAIN},
-    { OMX_AUDIO_AACObjectLC,          AUDIO_FORMAT_AAC_LC},
-    { OMX_AUDIO_AACObjectSSR,         AUDIO_FORMAT_AAC_SSR},
-    { OMX_AUDIO_AACObjectLTP,         AUDIO_FORMAT_AAC_LTP},
-    { OMX_AUDIO_AACObjectHE,          AUDIO_FORMAT_AAC_HE_V1},
-    { OMX_AUDIO_AACObjectScalable,    AUDIO_FORMAT_AAC_SCALABLE},
-    { OMX_AUDIO_AACObjectERLC,        AUDIO_FORMAT_AAC_ERLC},
-    { OMX_AUDIO_AACObjectLD,          AUDIO_FORMAT_AAC_LD},
-    { OMX_AUDIO_AACObjectHE_PS,       AUDIO_FORMAT_AAC_HE_V2},
-    { OMX_AUDIO_AACObjectELD,         AUDIO_FORMAT_AAC_ELD},
-    { OMX_AUDIO_AACObjectXHE,         AUDIO_FORMAT_AAC_XHE},
-    { OMX_AUDIO_AACObjectNull,        AUDIO_FORMAT_AAC},
+    { AACObjectMain,        AUDIO_FORMAT_AAC_MAIN},
+    { AACObjectLC,          AUDIO_FORMAT_AAC_LC},
+    { AACObjectSSR,         AUDIO_FORMAT_AAC_SSR},
+    { AACObjectLTP,         AUDIO_FORMAT_AAC_LTP},
+    { AACObjectHE,          AUDIO_FORMAT_AAC_HE_V1},
+    { AACObjectScalable,    AUDIO_FORMAT_AAC_SCALABLE},
+    { AACObjectERLC,        AUDIO_FORMAT_AAC_ERLC},
+    { AACObjectLD,          AUDIO_FORMAT_AAC_LD},
+    { AACObjectHE_PS,       AUDIO_FORMAT_AAC_HE_V2},
+    { AACObjectELD,         AUDIO_FORMAT_AAC_ELD},
+    { AACObjectXHE,         AUDIO_FORMAT_AAC_XHE},
+    { AACObjectNull,        AUDIO_FORMAT_AAC},
 };
 
 void mapAACProfileToAudioFormat( audio_format_t& format, uint64_t eAacProfile)
 {
-const struct aac_format_conv_t* p = &profileLookup[0];
-    while (p->eAacProfileType != OMX_AUDIO_AACObjectNull) {
+    const struct aac_format_conv_t* p = &profileLookup[0];
+    while (p->eAacProfileType != AACObjectNull) {
         if (eAacProfile == p->eAacProfileType) {
             format = p->format;
             return;
@@ -2193,7 +2389,7 @@ status_t getAudioOffloadInfo(const sp<MetaData>& meta, bool hasVideo,
     // Offloading depends on audio DSP capabilities.
     int32_t aacaot = -1;
     if (meta->findInt32(kKeyAACAOT, &aacaot)) {
-        mapAACProfileToAudioFormat(info->format,(OMX_AUDIO_AACPROFILETYPE) aacaot);
+        mapAACProfileToAudioFormat(info->format, aacaot);
     }
 
     int32_t srate = -1;

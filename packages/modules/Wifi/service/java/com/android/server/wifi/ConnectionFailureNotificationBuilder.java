@@ -17,14 +17,12 @@
 package com.android.server.wifi;
 
 import android.annotation.NonNull;
-import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.wifi.WifiConfiguration;
-import android.view.WindowManager;
+import android.net.wifi.WifiContext;
 
 import com.android.wifi.resources.R;
 
@@ -86,29 +84,5 @@ public class ConnectionFailureNotificationBuilder {
                         android.R.color.system_notification_accent_color, mContext.getTheme()))
                 .setAutoCancel(true)
                 .build();
-    }
-
-    /**
-     * Creates an AlertDialog that allows the user to disable MAC randomization for a network.
-     * @param ssid the displayed SSID in the dialog
-     * @param onUserConfirm
-     */
-    public AlertDialog buildChangeMacRandomizationSettingDialog(
-            String ssid, DialogInterface.OnClickListener onUserConfirm) {
-        AlertDialog.Builder builder = mFrameworkFacade.makeAlertDialogBuilder(mContext)
-                .setTitle(mContext.getResources().getString(
-                        R.string.wifi_disable_mac_randomization_dialog_title))
-                .setMessage(mContext.getResources().getString(
-                        R.string.wifi_disable_mac_randomization_dialog_message, ssid))
-                .setPositiveButton(
-                        mContext.getResources().getString(
-                                R.string.wifi_disable_mac_randomization_dialog_confirm_text),
-                        onUserConfirm)
-                // A null listener allows the dialog to be dismissed directly.
-                .setNegativeButton(android.R.string.no, null);
-        AlertDialog dialog = builder.create();
-        dialog.setCanceledOnTouchOutside(false);
-        dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
-        return dialog;
     }
 }

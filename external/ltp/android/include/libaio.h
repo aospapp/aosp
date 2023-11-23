@@ -6,6 +6,7 @@
 // Instead override those definitions with the ones below.
 #define __LINUX__AIO_ABI_H
 
+#include <errno.h>
 #include <stdint.h>
 
 #if __UINTPTR_MAX__ == UINT64_MAX

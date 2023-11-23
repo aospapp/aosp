@@ -31,14 +31,16 @@
     <!-- Separates the duration from the ongoing_call_text -->
     <string name="ongoing_call_duration_text_separator">&#160;&#8226;&#160;</string>
     <string name="ongoing_call_text">Ongoing call</string>
+    <string name="dialing_call_text">Dialing&#8230;</string>
 
     <!-- ProjectionModel strings -->
     <string name="projected_launch_text">Launch Android Auto</string>
     <string name="projected_onclick_launch_error_toast_text">Unable to launch Android Auto. No activity found.</string>
-    <plurals name="projection_devices">
-        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> device</item>
-        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> devices</item>
-    </plurals>
+    <string name="projection_devices">{count, plural,
+        =1 {# device}
+        other {# devices}
+        }
+    </string>
 
     <!-- FakeWeatherModel strings -->
     <string name="weather_app_name">Weather</string>

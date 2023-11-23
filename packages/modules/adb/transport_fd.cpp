@@ -121,7 +121,7 @@ struct NonblockingFdConnection : public Connection {
                         packet->msg = *read_header_;
                         packet->payload = std::move(payload);
                         read_header_ = nullptr;
-                        read_callback_(this, std::move(packet));
+                        transport_->HandleRead(std::move(packet));
                     }
                 }
             }
@@ -145,7 +145,7 @@ struct NonblockingFdConnection : public Connection {
         thread_ = std::thread([this]() {
             std::string error = "connection closed";
             Run(&error);
-            this->error_callback_(this, error);
+            transport_->HandleError(error);
         });
     }
 

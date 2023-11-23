@@ -26,6 +26,11 @@ using ahs21::SensorType;
 using ahs10::SensorFlagBits;
 using ahs10::SensorStatus;
 using ahs10::MetaDataEventType;
+using ahs10::AdditionalInfoType;
+
+namespace {
+constexpr int64_t kMaxSamplingPeriodNs = 1000000000;
+}
 
 MultihalSensors::MultihalSensors()
         : m_qemuSensorsFd(qemud_channel_open("sensors"))
@@ -77,6 +82,8 @@ MultihalSensors::MultihalSensors()
         ALOGE("%s:%d: Socketpair failed", __func__, __LINE__);
         ::abort();
     }
+
+    setAdditionalInfoFrames();
 
     m_sensorThread = std::thread(&MultihalSensors::qemuSensorListenerThread, this);
     m_batchThread = std::thread(&MultihalSensors::batchThread, this);
@@ -164,7 +171,7 @@ Return<Result> MultihalSensors::activate(const int32_t sensorHandle,
             event.sensorType = SensorType::HEART_RATE;
             doPostSensorEventLocked(*sensor, event);
         }
-
+        sendAdditionalInfoReport(sensorHandle);
         m_activeSensorsMask = m_activeSensorsMask | (1u << sensorHandle);
     } else {
         m_activeSensorsMask = m_activeSensorsMask & ~(1u << sensorHandle);
@@ -191,6 +198,29 @@ Return<Result> MultihalSensors::batch(const int32_t sensorHandle,
     std::unique_lock<std::mutex> lock(m_mtx);
     if (m_opMode == OperationMode::NORMAL) {
         m_batchInfo[sensorHandle].samplingPeriodNs = samplingPeriodNs;
+
+        auto minSamplingPeriodNs = kMaxSamplingPeriodNs;
+        auto activeSensorsMask = m_activeSensorsMask;
+        for (const auto& b : m_batchInfo) {
+            if (activeSensorsMask & 1) {
+                const auto periodNs = b.samplingPeriodNs;
+                if ((periodNs > 0) && (periodNs < minSamplingPeriodNs)) {
+                    minSamplingPeriodNs = periodNs;
+                }
+            }
+
+            activeSensorsMask >>= 1;
+        }
+
+        const int delayMs = std::max(1, int(minSamplingPeriodNs / 1000000));
+
+        char buffer[64];
+        const int len = snprintf(buffer, sizeof(buffer), "set-delay:%d", delayMs);
+
+        if (qemud_channel_send(m_qemuSensorsFd.get(), buffer, len) < 0) {
+            ALOGE("%s:%d: qemud_channel_send failed", __func__, __LINE__);
+            ::abort();
+        }
     }
 
     return Result::OK;
@@ -215,6 +245,8 @@ Return<Result> MultihalSensors::flush(const int32_t sensorHandle) {
     event.u.meta.what = MetaDataEventType::META_DATA_FLUSH_COMPLETE;
 
     doPostSensorEventLocked(*sensor, event);
+    sendAdditionalInfoReport(sensorHandle);
+
     return Result::OK;
 }
 
@@ -270,6 +302,49 @@ void MultihalSensors::doPostSensorEventLocked(const SensorInfo& sensor,
     m_halProxyCallback->postEvents(
         {event},
         m_halProxyCallback->createScopedWakelock(isWakeupEvent));
+}
+
+void MultihalSensors::setAdditionalInfoFrames() {
+    // https://developer.android.com/reference/android/hardware/SensorAdditionalInfo#TYPE_SENSOR_PLACEMENT
+    AdditionalInfo additionalInfoSensorPlacement = {
+            .type = AdditionalInfoType::AINFO_SENSOR_PLACEMENT,
+            .serial = 0,
+            .u.data_float{ {0, 1, 0, 0, -1, 0, 0, 10, 0, 0, 1, -2.5} },
+    };
+    const AdditionalInfo additionalInfoBegin = {
+            .type = AdditionalInfoType::AINFO_BEGIN,
+            .serial = 0,
+    };
+    const AdditionalInfo additionalInfoEnd = {
+            .type = AdditionalInfoType::AINFO_END,
+            .serial = 0,
+    };
+
+    mAdditionalInfoFrames.insert(
+            mAdditionalInfoFrames.end(),
+            {additionalInfoBegin, additionalInfoSensorPlacement, additionalInfoEnd});
+}
+
+void MultihalSensors::sendAdditionalInfoReport(int sensorHandle) {
+    const SensorInfo* sensor = getSensorInfoByHandle(sensorHandle);
+    const bool isWakeupEvent =
+        sensor->flags & static_cast<uint32_t>(SensorFlagBits::WAKE_UP);
+    std::vector<Event> events;
+
+    for (const auto& frame : mAdditionalInfoFrames) {
+        events.emplace_back(Event{
+                .timestamp = android::elapsedRealtimeNano(),
+                .sensorHandle = sensorHandle,
+                .sensorType = SensorType::ADDITIONAL_INFO,
+                .u.additional = frame,
+        });
+    }
+
+    if (!events.empty()) {
+        m_halProxyCallback->postEvents(
+                events,
+                m_halProxyCallback->createScopedWakelock(isWakeupEvent));
+    }
 }
 
 bool MultihalSensors::qemuSensorThreadSendCommand(const char cmd) const {

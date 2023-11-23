@@ -140,6 +140,28 @@ private:
     HashableDimensionKey mStateValuesKey;
 };
 
+class AtomDimensionKey {
+public:
+    explicit AtomDimensionKey(const int32_t atomTag, const HashableDimensionKey& atomFieldValues)
+        : mAtomTag(atomTag), mAtomFieldValues(atomFieldValues){};
+
+    AtomDimensionKey(){};
+
+    inline int32_t getAtomTag() const {
+        return mAtomTag;
+    }
+
+    inline const HashableDimensionKey& getAtomFieldValues() const {
+        return mAtomFieldValues;
+    }
+
+    bool operator==(const AtomDimensionKey& that) const;
+
+private:
+    int32_t mAtomTag;
+    HashableDimensionKey mAtomFieldValues;
+};
+
 android::hash_t hashDimension(const HashableDimensionKey& key);
 
 /**
@@ -161,6 +183,28 @@ bool filterValues(const Matcher& matcherField, const std::vector<FieldValue>& va
  */
 bool filterValues(const std::vector<Matcher>& matcherFields, const std::vector<FieldValue>& values,
                   HashableDimensionKey* output);
+
+/**
+ * Filters FieldValues to create HashableDimensionKey using dimensions matcher fields and create
+ *  vector of value indices using values matcher fields.
+ *
+ * This function may make modifications to the Field if the matcher has Position=FIRST,LAST or ALL
+ * in it. This is because: for example, when we create dimension from last uid in attribution chain,
+ * In one event, uid 1000 is at position 5 and it's the last
+ * In another event, uid 1000 is at position 6, and it's the last
+ * these 2 events should be mapped to the same dimension.  So we will remove the original position
+ * from the dimension key for the uid field (by applying 0x80 bit mask).
+ *
+ * dimKeyMatcherFields: the matchers for each dimension field
+ * valueMatcherFields: the matchers for each value field
+ * values: FieldValues being filtered by the matchers
+ * key: HashableDimensionKey containing the values filtered by the dimKeyMatcherFields
+ * valueIndices: index position of each matched FieldValue corresponding to the valueMatcherFields
+ */
+bool filterValues(const std::vector<Matcher>& dimKeyMatcherFields,
+                  const std::vector<Matcher>& valueMatcherFields,
+                  const std::vector<FieldValue>& values, HashableDimensionKey& key,
+                  std::vector<int>& valueIndices);
 
 /**
  * Creating HashableDimensionKeys from State Primary Keys in FieldValues.
@@ -226,6 +270,7 @@ bool linked(const std::vector<Metric2State>& stateLinks, const int32_t stateAtom
 
 namespace std {
 
+using android::os::statsd::AtomDimensionKey;
 using android::os::statsd::HashableDimensionKey;
 using android::os::statsd::MetricDimensionKey;
 
@@ -241,6 +286,15 @@ struct hash<MetricDimensionKey> {
     std::size_t operator()(const MetricDimensionKey& key) const {
         android::hash_t hash = hashDimension(key.getDimensionKeyInWhat());
         hash = android::JenkinsHashMix(hash, hashDimension(key.getStateValuesKey()));
+        return android::JenkinsHashWhiten(hash);
+    }
+};
+
+template <>
+struct hash<AtomDimensionKey> {
+    std::size_t operator()(const AtomDimensionKey& key) const {
+        android::hash_t hash = hashDimension(key.getAtomFieldValues());
+        hash = android::JenkinsHashMix(hash, key.getAtomTag());
         return android::JenkinsHashWhiten(hash);
     }
 };

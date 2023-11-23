@@ -16,7 +16,9 @@
 
 import collections
 import json
-from typing import Any, Dict, List
+import os
+import tempfile
+from typing import Any, Dict, List, Set
 
 from binary_cache_builder import BinaryCacheBuilder
 from . test_utils import TestBase, TestHelper
@@ -82,6 +84,10 @@ class TestReportHtml(TestBase):
         self.assertIn(original_methodname, json.dumps(record_data))
 
     def get_record_data(self, options: List[str]) -> Dict[str, Any]:
+        json_data = self.get_record_data_string(options)
+        return json.loads(json_data)
+
+    def get_record_data_string(self, options: List[str]) -> str:
         args = ['report_html.py'] + options
         if TestHelper.ndk_path:
             args += ['--ndk_path', TestHelper.ndk_path]
@@ -97,8 +103,7 @@ class TestReportHtml(TestBase):
         start_pos += 1
         end_pos = data.find(end_str, start_pos)
         self.assertNotEqual(end_pos, -1)
-        json_data = data[start_pos:end_pos]
-        return json.loads(json_data)
+        return data[start_pos:end_pos]
 
     def test_add_source_code(self):
         """ Test --add_source_code option. """
@@ -180,3 +185,72 @@ class TestReportHtml(TestBase):
                     found = True
                     break
             self.assertTrue(found, item)
+
+    def test_trace_offcpu(self):
+        """ Test --trace-offcpu option. """
+        testdata_file = TestHelper.testdata_path('perf_with_trace_offcpu_v2.data')
+        record_data = self.get_record_data(['-i', testdata_file, '--trace-offcpu', 'on-cpu'])
+        self.assertEqual(len(record_data['sampleInfo']), 1)
+        self.assertEqual(record_data['sampleInfo'][0]['eventName'], 'cpu-clock:u')
+        self.assertEqual(record_data['sampleInfo'][0]['eventCount'], 52000000)
+
+        record_data = self.get_record_data(['-i', testdata_file, '--trace-offcpu', 'off-cpu'])
+        self.assertEqual(len(record_data['sampleInfo']), 1)
+        self.assertEqual(record_data['sampleInfo'][0]['eventName'], 'sched:sched_switch')
+        self.assertEqual(record_data['sampleInfo'][0]['eventCount'], 344124304)
+
+        record_data = self.get_record_data(['-i', testdata_file, '--trace-offcpu', 'on-off-cpu'])
+        self.assertEqual(len(record_data['sampleInfo']), 2)
+        self.assertEqual(record_data['sampleInfo'][0]['eventName'], 'cpu-clock:u')
+        self.assertEqual(record_data['sampleInfo'][0]['eventCount'], 52000000)
+        self.assertEqual(record_data['sampleInfo'][1]['eventName'], 'sched:sched_switch')
+        self.assertEqual(record_data['sampleInfo'][1]['eventCount'], 344124304)
+
+        record_data = self.get_record_data(
+            ['-i', testdata_file, '--trace-offcpu', 'mixed-on-off-cpu'])
+        self.assertEqual(len(record_data['sampleInfo']), 1)
+        self.assertEqual(record_data['sampleInfo'][0]['eventName'], 'cpu-clock:u')
+        self.assertEqual(record_data['sampleInfo'][0]['eventCount'], 396124304)
+
+    def test_sample_filters(self):
+        def get_threads_for_filter(filter: str) -> Set[int]:
+            record_data = self.get_record_data(
+                ['-i', TestHelper.testdata_path('perf_display_bitmaps.data')] + filter.split())
+            threads = set()
+            try:
+                for thread in record_data['sampleInfo'][0]['processes'][0]['threads']:
+                    threads.add(thread['tid'])
+            except IndexError:
+                pass
+            return threads
+
+        self.assertNotIn(31850, get_threads_for_filter('--exclude-pid 31850'))
+        self.assertIn(31850, get_threads_for_filter('--include-pid 31850'))
+        self.assertIn(31850, get_threads_for_filter('--pid 31850'))
+        self.assertNotIn(31881, get_threads_for_filter('--exclude-tid 31881'))
+        self.assertIn(31881, get_threads_for_filter('--include-tid 31881'))
+        self.assertIn(31881, get_threads_for_filter('--tid 31881'))
+        self.assertNotIn(31881, get_threads_for_filter(
+            '--exclude-process-name com.example.android.displayingbitmaps'))
+        self.assertIn(31881, get_threads_for_filter(
+            '--include-process-name com.example.android.displayingbitmaps'))
+        self.assertNotIn(31850, get_threads_for_filter(
+            '--exclude-thread-name com.example.android.displayingbitmaps'))
+        self.assertIn(31850, get_threads_for_filter(
+            '--include-thread-name com.example.android.displayingbitmaps'))
+
+        with tempfile.NamedTemporaryFile('w', delete=False) as filter_file:
+            filter_file.write('GLOBAL_BEGIN 684943449406175\nGLOBAL_END 684943449406176')
+            filter_file.flush()
+            threads = get_threads_for_filter('--filter-file ' + filter_file.name)
+            self.assertIn(31881, threads)
+            self.assertNotIn(31850, threads)
+        os.unlink(filter_file.name)
+
+    def test_show_art_frames(self):
+        art_frame_str = 'art::interpreter::DoCall'
+        options = ['-i', TestHelper.testdata_path('perf_with_interpreter_frames.data')]
+        report = self.get_record_data_string(options)
+        self.assertNotIn(art_frame_str, report)
+        report = self.get_record_data_string(options + ['--show-art-frames'])
+        self.assertIn(art_frame_str, report)

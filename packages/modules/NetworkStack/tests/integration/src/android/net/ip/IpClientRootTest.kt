@@ -150,6 +150,7 @@ class IpClientRootTest : IpClientIntegrationTestCommon() {
             IIpClientCallbacks.Stub(), IIpClientCallbacks by base {
         // asBinder is implemented by both base class and delegate: specify explicitly
         override fun asBinder() = super.asBinder()
+        override fun getInterfaceVersion() = IIpClientCallbacks.VERSION
     }
 
     @After
@@ -259,5 +260,9 @@ class IpClientRootTest : IpClientIntegrationTestCommon() {
         val listener = TestAttributesRetrievedListener()
         mStore.retrieveNetworkAttributes(l2Key, listener)
         assertNull(listener.getBlockingNetworkAttributes(timeout))
+    }
+
+    override fun storeNetworkAttributes(l2Key: String, na: NetworkAttributes) {
+        mStore.storeNetworkAttributes(l2Key, na, null /* listener */)
     }
 }

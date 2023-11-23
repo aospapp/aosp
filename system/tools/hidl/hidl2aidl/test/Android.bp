@@ -60,17 +60,13 @@ genrule {
         "hidl2aidl/test/VectorFoo.aidl",
         "hidl2aidl/test/FooFlag.aidl",
         "hidl2aidl/test/IBar.aidl",
-        "hidl2aidl/test/IBarInner.aidl",
         "hidl2aidl/test/IFoo.aidl",
-        "hidl2aidl/test/IFooBigStruct.aidl",
         "hidl2aidl/test/NameCollision.aidl",
         "hidl2aidl/test/OnlyIn10.aidl",
         "hidl2aidl/test/OnlyIn11.aidl",
         "hidl2aidl/test/Outer.aidl",
-        "hidl2aidl/test/OuterInner.aidl",
         "hidl2aidl/test/OverrideMe.aidl",
         "hidl2aidl/test/SafeUnionBar.aidl",
-        "hidl2aidl/test/SafeUnionBarInnerStructBar.aidl",
         "hidl2aidl/test/UnionFoo.aidl",
         "hidl2aidl/test/Value.aidl",
         "hidl2aidl/test2/IFoo.aidl",
@@ -84,8 +80,8 @@ genrule {
     name: "hidl2aidl_translate_ndk_test_gen_src",
     defaults: ["hidl2aidl_test_gen_defaults"],
     out: [
-        "hidl2aidl/test/translate-ndk.cpp",
-        "hidl2aidl/test/extension/translate-ndk.cpp",
+        "translate/hidl2aidl/test/translate-ndk.cpp",
+        "translate/hidl2aidl/test/extension/translate-ndk.cpp",
     ],
 }
 
@@ -102,8 +98,8 @@ genrule {
     name: "hidl2aidl_translate_cpp_test_gen_src",
     defaults: ["hidl2aidl_test_gen_defaults"],
     out: [
-        "hidl2aidl/test/translate-cpp.cpp",
-        "hidl2aidl/test/extension/translate-cpp.cpp",
+        "translate/hidl2aidl/test/translate-cpp.cpp",
+        "translate/hidl2aidl/test/extension/translate-cpp.cpp",
     ],
 }
 
@@ -120,8 +116,8 @@ genrule {
     name: "hidl2aidl_translate_java_test_gen_src",
     defaults: ["hidl2aidl_test_gen_defaults"],
     out: [
-        "hidl2aidl/test/Translate.java",
-        "hidl2aidl/test/extension/Translate.java",
+        "translate/hidl2aidl/test/Translate.java",
+        "translate/hidl2aidl/test/extension/Translate.java",
     ],
 }
 
@@ -149,7 +145,7 @@ cc_test_library {
     ],
     shared_libs: [
         "hidl2aidl_test_gen-V1-cpp",
-        "hidl2aidl_test_gen-V1-ndk_platform",
+        "hidl2aidl_test_gen-V1-ndk",
         "libbinder",
         "libbinder_ndk",
         "libutils",
@@ -180,7 +176,7 @@ cc_test {
         "liblog",
     ],
     static_libs: [
-        "hidl2aidl_test_gen-V1-ndk_platform",
+        "hidl2aidl_test_gen-V1-ndk",
         "hidl2aidl.test@1.0",
         "hidl2aidl.test@1.1",
         "hidl2aidl.test@1.2",

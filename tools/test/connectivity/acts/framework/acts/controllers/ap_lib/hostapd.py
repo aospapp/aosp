@@ -16,9 +16,11 @@ import collections
 import itertools
 import logging
 import os
+import re
 import time
 
 from acts.controllers.ap_lib import hostapd_config
+from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.utils_lib.commands import shell
 
 
@@ -34,6 +36,7 @@ class Hostapd(object):
     """
 
     PROGRAM_FILE = '/usr/sbin/hostapd'
+    CLI_PROGRAM_FILE = '/usr/bin/hostapd_cli'
 
     def __init__(self, runner, interface, working_dir='/tmp'):
         """
@@ -102,6 +105,38 @@ class Hostapd(object):
         if self.is_alive():
             self._shell.kill(self._identifier)
 
+    def channel_switch(self, channel_num):
+        """Switches to the given channel.
+
+        Returns:
+            acts.libs.proc.job.Result containing the results of the command.
+        Raises: See _run_hostapd_cli_cmd
+        """
+        try:
+            channel_freq = hostapd_constants.FREQUENCY_MAP[channel_num]
+        except KeyError:
+            raise ValueError('Invalid channel number {}'.format(channel_num))
+        csa_beacon_count = 10
+        channel_switch_cmd = 'chan_switch {} {}'.format(
+            csa_beacon_count, channel_freq)
+        result = self._run_hostapd_cli_cmd(channel_switch_cmd)
+
+    def get_current_channel(self):
+        """Returns the current channel number.
+
+        Raises: See _run_hostapd_cli_cmd
+        """
+        status_cmd = 'status'
+        result = self._run_hostapd_cli_cmd(status_cmd)
+        match = re.search(r'^channel=(\d+)$', result.stdout, re.MULTILINE)
+        if not match:
+            raise Error('Current channel could not be determined')
+        try:
+            channel = int(match.group(1))
+        except ValueError:
+            raise Error('Internal error: current channel could not be parsed')
+        return channel
+
     def is_alive(self):
         """
         Returns:
@@ -117,6 +152,28 @@ class Hostapd(object):
         """
         # TODO: Auto pulling of logs when stop is called.
         return self._shell.read_file(self._log_file)
+
+    def _run_hostapd_cli_cmd(self, cmd):
+        """Run the given hostapd_cli command.
+
+        Runs the command, waits for the output (up to default timeout), and
+            returns the result.
+
+        Returns:
+            acts.libs.proc.job.Result containing the results of the ssh command.
+
+        Raises:
+            acts.lib.proc.job.TimeoutError: When the remote command took too
+                long to execute.
+            acts.controllers.utils_lib.ssh.connection.Error: When the ssh
+                connection failed to be created.
+            acts.controllers.utils_lib.ssh.connection.CommandError: Ssh worked,
+                but the command had an error executing.
+        """
+        hostapd_cli_job = 'cd {}; {} -p {} {}'.format(self._working_dir,
+                                                      self.CLI_PROGRAM_FILE,
+                                                      self._ctrl_file, cmd)
+        return self._runner.run(hostapd_cli_job)
 
     def _wait_for_process(self, timeout=60):
         """Waits for the process to come up.
@@ -142,12 +199,14 @@ class Hostapd(object):
         """
         start_time = time.time()
         while time.time() - start_time < timeout:
+            time.sleep(0.1)
             success = self._shell.search_file('Setup of interface done',
                                               self._log_file)
             if success:
                 return
+            self._scan_for_errors(False)
 
-            self._scan_for_errors(True)
+        self._scan_for_errors(True)
 
     def _scan_for_errors(self, should_be_up):
         """Scans the hostapd log for any errors.

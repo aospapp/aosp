@@ -24,7 +24,10 @@ import static android.Manifest.permission_group.CONTACTS;
 import static android.Manifest.permission_group.LOCATION;
 import static android.Manifest.permission_group.MICROPHONE;
 import static android.Manifest.permission_group.NEARBY_DEVICES;
+import static android.Manifest.permission_group.NOTIFICATIONS;
 import static android.Manifest.permission_group.PHONE;
+import static android.Manifest.permission_group.READ_MEDIA_AURAL;
+import static android.Manifest.permission_group.READ_MEDIA_VISUAL;
 import static android.Manifest.permission_group.SENSORS;
 import static android.Manifest.permission_group.SMS;
 import static android.Manifest.permission_group.STORAGE;
@@ -46,6 +49,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.Manifest;
 import android.app.AppOpsManager;
 import android.app.Application;
+import android.app.admin.DevicePolicyManager;
 import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -61,9 +65,8 @@ import android.content.pm.PermissionInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.hardware.SensorPrivacyManager;
 import android.os.Build;
 import android.os.Parcelable;
 import android.os.Process;
@@ -84,6 +87,7 @@ import android.view.MenuItem;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.core.text.BidiFormatter;
 import androidx.core.util.Preconditions;
@@ -95,6 +99,8 @@ import com.android.permissioncontroller.DeviceUtils;
 import com.android.permissioncontroller.PermissionControllerApplication;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
+import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup;
+import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo;
 
 import java.lang.annotation.Retention;
 import java.time.ZonedDateTime;
@@ -108,24 +114,33 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 
-import kotlin.Pair;
+import kotlin.Triple;
 
 public final class Utils {
 
     @Retention(SOURCE)
     @IntDef(value = {LAST_24H_SENSOR_TODAY, LAST_24H_SENSOR_YESTERDAY,
-            LAST_24H_CONTENT_PROVIDER, NOT_IN_LAST_24H})
+            LAST_24H_CONTENT_PROVIDER, NOT_IN_LAST_7D})
     public @interface AppPermsLastAccessType {}
     public static final int LAST_24H_SENSOR_TODAY = 1;
     public static final int LAST_24H_SENSOR_YESTERDAY = 2;
     public static final int LAST_24H_CONTENT_PROVIDER = 3;
-    public static final int NOT_IN_LAST_24H = 4;
+    public static final int LAST_7D_SENSOR = 4;
+    public static final int LAST_7D_CONTENT_PROVIDER = 5;
+    public static final int NOT_IN_LAST_7D = 6;
 
     private static final List<String> SENSOR_DATA_PERMISSIONS = List.of(
             Manifest.permission_group.LOCATION,
             Manifest.permission_group.CAMERA,
             Manifest.permission_group.MICROPHONE
     );
+
+    public static final List<String> STORAGE_SUPERGROUP_PERMISSIONS =
+            !SdkLevel.isAtLeastT() ? List.of() : List.of(
+                    Manifest.permission_group.STORAGE,
+                    Manifest.permission_group.READ_MEDIA_AURAL,
+                    Manifest.permission_group.READ_MEDIA_VISUAL
+            );
 
     private static final String LOG_TAG = "Utils";
 
@@ -155,9 +170,24 @@ public final class Utils {
     private static final String PROPERTY_ONE_TIME_PERMISSIONS_TIMEOUT_MILLIS =
             "one_time_permissions_timeout_millis";
 
+    /** The delay before ending a one-time permission session when all processes are dead */
+    private static final String PROPERTY_ONE_TIME_PERMISSIONS_KILLED_DELAY_MILLIS =
+            "one_time_permissions_killed_delay_millis";
+
     /** Whether to show location access check notifications. */
     private static final String PROPERTY_LOCATION_ACCESS_CHECK_ENABLED =
             "location_access_check_enabled";
+
+    /** How frequently to check permission event store to scrub old data */
+    public static final String PROPERTY_PERMISSION_EVENTS_CHECK_OLD_FREQUENCY_MILLIS =
+            "permission_events_check_old_frequency_millis";
+
+    /** The time an app needs to be unused in order to be hibernated */
+    public static final String PROPERTY_PERMISSION_DECISIONS_MAX_DATA_AGE_MILLIS =
+            "permission_decisions_max_data_age_millis";
+
+    /** Whether or not warning banner is displayed when device sensors are off **/
+    public static final String PROPERTY_WARNING_BANNER_DISPLAY_ENABLED = "warning_banner_enabled";
 
     /** All permission whitelists. */
     public static final int FLAGS_PERMISSION_WHITELIST_ALL =
@@ -176,6 +206,12 @@ public final class Utils {
      */
     public static final long ONE_TIME_PERMISSIONS_TIMEOUT_MILLIS = 1 * 60 * 1000; // 1 minute
 
+    /**
+     * The default length to wait before ending a one-time permission session after all processes
+     * are dead.
+     */
+    public static final long ONE_TIME_PERMISSIONS_KILLED_DELAY_MILLIS = 5 * 1000;
+
     /** Mapping permission -> group for all dangerous platform permissions */
     private static final ArrayMap<String, String> PLATFORM_PERMISSIONS;
 
@@ -191,6 +227,13 @@ public final class Utils {
     private static final ArrayMap<String, Integer> PERM_GROUP_BACKGROUND_REQUEST_DETAIL_RES;
     private static final ArrayMap<String, Integer> PERM_GROUP_UPGRADE_REQUEST_RES;
     private static final ArrayMap<String, Integer> PERM_GROUP_UPGRADE_REQUEST_DETAIL_RES;
+
+    /** Permission -> Sensor codes */
+    private static final ArrayMap<String, Integer> PERM_SENSOR_CODES;
+    /** Permission -> Icon res id */
+    private static final ArrayMap<String, Integer> PERM_BLOCKED_ICON;
+    /** Permission -> Title res id */
+    private static final ArrayMap<String, Integer> PERM_BLOCKED_TITLE;
 
     public static final int FLAGS_ALWAYS_USER_SENSITIVE =
             FLAG_PERMISSION_USER_SENSITIVE_WHEN_GRANTED
@@ -242,7 +285,16 @@ public final class Utils {
         // STORAGE_PERMISSIONS list in PermissionManagerService in frameworks/base
         PLATFORM_PERMISSIONS.put(Manifest.permission.READ_EXTERNAL_STORAGE, STORAGE);
         PLATFORM_PERMISSIONS.put(Manifest.permission.WRITE_EXTERNAL_STORAGE, STORAGE);
-        PLATFORM_PERMISSIONS.put(Manifest.permission.ACCESS_MEDIA_LOCATION, STORAGE);
+        if (!SdkLevel.isAtLeastT()) {
+            PLATFORM_PERMISSIONS.put(Manifest.permission.ACCESS_MEDIA_LOCATION, STORAGE);
+        }
+
+        if (SdkLevel.isAtLeastT()) {
+            PLATFORM_PERMISSIONS.put(Manifest.permission.READ_MEDIA_AUDIO, READ_MEDIA_AURAL);
+            PLATFORM_PERMISSIONS.put(Manifest.permission.READ_MEDIA_IMAGES, READ_MEDIA_VISUAL);
+            PLATFORM_PERMISSIONS.put(Manifest.permission.READ_MEDIA_VIDEO, READ_MEDIA_VISUAL);
+            PLATFORM_PERMISSIONS.put(Manifest.permission.ACCESS_MEDIA_LOCATION, READ_MEDIA_VISUAL);
+        }
 
         PLATFORM_PERMISSIONS.put(Manifest.permission.ACCESS_FINE_LOCATION, LOCATION);
         PLATFORM_PERMISSIONS.put(Manifest.permission.ACCESS_COARSE_LOCATION, LOCATION);
@@ -253,6 +305,9 @@ public final class Utils {
             PLATFORM_PERMISSIONS.put(Manifest.permission.BLUETOOTH_CONNECT, NEARBY_DEVICES);
             PLATFORM_PERMISSIONS.put(Manifest.permission.BLUETOOTH_SCAN, NEARBY_DEVICES);
             PLATFORM_PERMISSIONS.put(Manifest.permission.UWB_RANGING, NEARBY_DEVICES);
+        }
+        if (SdkLevel.isAtLeastT()) {
+            PLATFORM_PERMISSIONS.put(Manifest.permission.NEARBY_WIFI_DEVICES, NEARBY_DEVICES);
         }
 
         PLATFORM_PERMISSIONS.put(Manifest.permission.READ_CALL_LOG, CALL_LOG);
@@ -280,6 +335,11 @@ public final class Utils {
         }
 
         PLATFORM_PERMISSIONS.put(Manifest.permission.BODY_SENSORS, SENSORS);
+
+        if (SdkLevel.isAtLeastT()) {
+            PLATFORM_PERMISSIONS.put(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATIONS);
+            PLATFORM_PERMISSIONS.put(Manifest.permission.BODY_SENSORS_BACKGROUND, SENSORS);
+        }
 
         PLATFORM_PERMISSION_GROUPS = new ArrayMap<>();
         int numPlatformPermissions = PLATFORM_PERMISSIONS.size();
@@ -309,6 +369,8 @@ public final class Utils {
         PERM_GROUP_REQUEST_RES.put(CALENDAR, R.string.permgrouprequest_calendar);
         PERM_GROUP_REQUEST_RES.put(SMS, R.string.permgrouprequest_sms);
         PERM_GROUP_REQUEST_RES.put(STORAGE, R.string.permgrouprequest_storage);
+        PERM_GROUP_REQUEST_RES.put(READ_MEDIA_AURAL, R.string.permgrouprequest_read_media_aural);
+        PERM_GROUP_REQUEST_RES.put(READ_MEDIA_VISUAL, R.string.permgrouprequest_read_media_visual);
         PERM_GROUP_REQUEST_RES.put(MICROPHONE, R.string.permgrouprequest_microphone);
         PERM_GROUP_REQUEST_RES
                 .put(ACTIVITY_RECOGNITION, R.string.permgrouprequest_activityRecognition);
@@ -316,6 +378,7 @@ public final class Utils {
         PERM_GROUP_REQUEST_RES.put(CALL_LOG, R.string.permgrouprequest_calllog);
         PERM_GROUP_REQUEST_RES.put(PHONE, R.string.permgrouprequest_phone);
         PERM_GROUP_REQUEST_RES.put(SENSORS, R.string.permgrouprequest_sensors);
+        PERM_GROUP_REQUEST_RES.put(NOTIFICATIONS, R.string.permgrouprequest_notifications);
 
         PERM_GROUP_REQUEST_DETAIL_RES = new ArrayMap<>();
         PERM_GROUP_REQUEST_DETAIL_RES.put(LOCATION, R.string.permgrouprequestdetail_location);
@@ -329,6 +392,8 @@ public final class Utils {
                 .put(MICROPHONE, R.string.permgroupbackgroundrequest_microphone);
         PERM_GROUP_BACKGROUND_REQUEST_RES
                 .put(CAMERA, R.string.permgroupbackgroundrequest_camera);
+        PERM_GROUP_BACKGROUND_REQUEST_RES
+                .put(SENSORS, R.string.permgroupbackgroundrequest_sensors);
 
         PERM_GROUP_BACKGROUND_REQUEST_DETAIL_RES = new ArrayMap<>();
         PERM_GROUP_BACKGROUND_REQUEST_DETAIL_RES
@@ -337,11 +402,14 @@ public final class Utils {
                 .put(MICROPHONE, R.string.permgroupbackgroundrequestdetail_microphone);
         PERM_GROUP_BACKGROUND_REQUEST_DETAIL_RES
                 .put(CAMERA, R.string.permgroupbackgroundrequestdetail_camera);
+        PERM_GROUP_BACKGROUND_REQUEST_DETAIL_RES
+                .put(SENSORS, R.string.permgroupbackgroundrequestdetail_sensors);
 
         PERM_GROUP_UPGRADE_REQUEST_RES = new ArrayMap<>();
         PERM_GROUP_UPGRADE_REQUEST_RES.put(LOCATION, R.string.permgroupupgraderequest_location);
         PERM_GROUP_UPGRADE_REQUEST_RES.put(MICROPHONE, R.string.permgroupupgraderequest_microphone);
         PERM_GROUP_UPGRADE_REQUEST_RES.put(CAMERA, R.string.permgroupupgraderequest_camera);
+        PERM_GROUP_UPGRADE_REQUEST_RES.put(SENSORS, R.string.permgroupupgraderequest_sensors);
 
         PERM_GROUP_UPGRADE_REQUEST_DETAIL_RES = new ArrayMap<>();
         PERM_GROUP_UPGRADE_REQUEST_DETAIL_RES
@@ -350,6 +418,25 @@ public final class Utils {
                 .put(MICROPHONE, R.string.permgroupupgraderequestdetail_microphone);
         PERM_GROUP_UPGRADE_REQUEST_DETAIL_RES
                 .put(CAMERA, R.string.permgroupupgraderequestdetail_camera);
+        PERM_GROUP_UPGRADE_REQUEST_DETAIL_RES
+                .put(SENSORS,  R.string.permgroupupgraderequestdetail_sensors);
+
+        PERM_SENSOR_CODES = new ArrayMap<>();
+        if (SdkLevel.isAtLeastS()) {
+            PERM_SENSOR_CODES.put(CAMERA, SensorPrivacyManager.Sensors.CAMERA);
+            PERM_SENSOR_CODES.put(MICROPHONE, SensorPrivacyManager.Sensors.MICROPHONE);
+        }
+
+        PERM_BLOCKED_ICON = new ArrayMap<>();
+        PERM_BLOCKED_ICON.put(CAMERA, R.drawable.ic_camera_blocked);
+        PERM_BLOCKED_ICON.put(MICROPHONE, R.drawable.ic_mic_blocked);
+        PERM_BLOCKED_ICON.put(LOCATION, R.drawable.ic_location_blocked);
+
+        PERM_BLOCKED_TITLE = new ArrayMap<>();
+        PERM_BLOCKED_TITLE.put(CAMERA, R.string.blocked_camera_title);
+        PERM_BLOCKED_TITLE.put(MICROPHONE, R.string.blocked_microphone_title);
+        PERM_BLOCKED_TITLE.put(LOCATION, R.string.blocked_location_title);
+
     }
 
     private Utils() {
@@ -867,6 +954,38 @@ public final class Utils {
     }
 
     /**
+     * Gets whether the STORAGE group should be hidden from the UI for this package. This is true
+     * when the platform is T+, and the package has legacy storage access (i.e., either the package
+     * has a targetSdk less than Q, or has a targetSdk equal to Q and has OPSTR_LEGACY_STORAGE).
+     *
+     * TODO jaysullivan: This is always calling AppOpsManager; not taking advantage of LiveData
+     *
+     * @param pkg The package to check
+     */
+    public static boolean shouldShowStorage(LightPackageInfo pkg) {
+        if (!SdkLevel.isAtLeastT()) {
+            return true;
+        }
+        int targetSdkVersion = pkg.getTargetSdkVersion();
+        PermissionControllerApplication app = PermissionControllerApplication.get();
+        Context context = null;
+        try {
+            context = Utils.getUserContext(app, UserHandle.getUserHandleForUid(pkg.getUid()));
+        } catch (NameNotFoundException e) {
+            return true;
+        }
+        AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
+        if (appOpsManager == null) {
+            return true;
+        }
+
+        return targetSdkVersion < Build.VERSION_CODES.Q
+                || (targetSdkVersion == Build.VERSION_CODES.Q
+                && appOpsManager.unsafeCheckOpNoThrow(OPSTR_LEGACY_STORAGE, pkg.getUid(),
+                pkg.getPackageName()) == MODE_ALLOWED);
+    }
+
+    /**
      * Build a string representing the given time if it happened on the current day and the date
      * otherwise.
      *
@@ -943,9 +1062,12 @@ public final class Utils {
             @NonNull ApplicationInfo appInfo) {
         UserHandle user = UserHandle.getUserHandleForUid(appInfo.uid);
         try (IconFactory iconFactory = IconFactory.obtain(context)) {
-            Bitmap iconBmp = iconFactory.createBadgedIconBitmap(
-                    appInfo.loadUnbadgedIcon(context.getPackageManager()), user, false).icon;
-            return new BitmapDrawable(context.getResources(), iconBmp);
+            return iconFactory.createBadgedIconBitmap(
+                    appInfo.loadUnbadgedIcon(context.getPackageManager()),
+                    new IconFactory.IconOptions()
+                            .setShrinkNonAdaptiveIcons(false)
+                            .setUser(user))
+                    .newIcon(context);
         }
     }
 
@@ -980,6 +1102,10 @@ public final class Utils {
                 return context.getString(R.string.permission_description_summary_nearby_devices);
             case PHONE:
                 return context.getString(R.string.permission_description_summary_phone);
+            case READ_MEDIA_AURAL:
+                return context.getString(R.string.permission_description_summary_read_media_aural);
+            case READ_MEDIA_VISUAL:
+                return context.getString(R.string.permission_description_summary_read_media_visual);
             case SENSORS:
                 return context.getString(R.string.permission_description_summary_sensors);
             case SMS:
@@ -1019,6 +1145,25 @@ public final class Utils {
     public static long getOneTimePermissionsTimeout() {
         return DeviceConfig.getLong(DeviceConfig.NAMESPACE_PERMISSIONS,
                 PROPERTY_ONE_TIME_PERMISSIONS_TIMEOUT_MILLIS, ONE_TIME_PERMISSIONS_TIMEOUT_MILLIS);
+    }
+
+    /**
+     * Returns the delay in milliseconds before revoking permissions at the end of a one-time
+     * permission session if all processes have been killed.
+     * If the session was triggered by a self-revocation, then revocation should happen
+     * immediately. For a regular one-time permission session, a grace period allows a quick
+     * app restart without losing the permission.
+     * @param isSelfRevoked If true, return the delay for a self-revocation session. Otherwise,
+     *                      return delay for a regular one-time permission session.
+     */
+    public static long getOneTimePermissionsKilledDelay(boolean isSelfRevoked) {
+        if (isSelfRevoked) {
+            // For a self-revoked session, we revoke immediately when the process dies.
+            return 0;
+        }
+        return DeviceConfig.getLong(DeviceConfig.NAMESPACE_PERMISSIONS,
+                PROPERTY_ONE_TIME_PERMISSIONS_KILLED_DELAY_MILLIS,
+                ONE_TIME_PERMISSIONS_KILLED_DELAY_MILLIS);
     }
 
     /**
@@ -1205,27 +1350,145 @@ public final class Utils {
     /**
      * Get the timestamp and lastAccessType for the summary text
      * in app permission groups and permission apps screens
+     * @return Triple<String, Integer, String> with the first being the formatted time
+     * the second being lastAccessType and the third being the formatted date.
      */
-    public static Pair<String, Integer> getPermissionLastAccessSummaryTimestamp(
+    public static Triple<String, Integer, String> getPermissionLastAccessSummaryTimestamp(
             Long lastAccessTime, Context context, String groupName) {
         long midnightToday = ZonedDateTime.now().truncatedTo(ChronoUnit.DAYS).toEpochSecond()
                 * 1000L;
+        long midnightYesterday = ZonedDateTime.now().minusDays(1).truncatedTo(ChronoUnit.DAYS)
+                .toEpochSecond() * 1000L;
+        long yesterdayAtThisTime = ZonedDateTime.now().minusDays(1).toEpochSecond() * 1000L;
 
         boolean isLastAccessToday = lastAccessTime != null
                 && midnightToday <= lastAccessTime;
+        boolean isLastAccessWithinPast24h = lastAccessTime != null
+                && yesterdayAtThisTime <= lastAccessTime;
+        boolean isLastAccessTodayOrYesterday = lastAccessTime != null
+                && midnightYesterday <= lastAccessTime;
+
         String lastAccessTimeFormatted = "";
-        @AppPermsLastAccessType int lastAccessType = NOT_IN_LAST_24H;
+        String lastAccessDateFormatted = "";
+        @AppPermsLastAccessType int lastAccessType = NOT_IN_LAST_7D;
 
         if (lastAccessTime != null) {
             lastAccessTimeFormatted = DateFormat.getTimeFormat(context)
                     .format(lastAccessTime);
+            lastAccessDateFormatted = DateFormat.getDateFormat(context)
+                    .format(lastAccessTime);
 
-            lastAccessType = !SENSOR_DATA_PERMISSIONS.contains(groupName)
-                    ? LAST_24H_CONTENT_PROVIDER : isLastAccessToday
-                    ? LAST_24H_SENSOR_TODAY :
-                    LAST_24H_SENSOR_YESTERDAY;
+            if (!SENSOR_DATA_PERMISSIONS.contains(groupName)) {
+                // For content providers we show either the last access is within
+                // past 24 hours or past 7 days
+                lastAccessType = isLastAccessWithinPast24h
+                        ? LAST_24H_CONTENT_PROVIDER : LAST_7D_CONTENT_PROVIDER;
+            } else {
+                // For sensor data permissions we show if the last access
+                // is today, yesterday or older than yesterday
+                lastAccessType = isLastAccessToday
+                        ? LAST_24H_SENSOR_TODAY : isLastAccessTodayOrYesterday
+                        ? LAST_24H_SENSOR_YESTERDAY : LAST_7D_SENSOR;
+            }
         }
 
-        return new Pair<>(lastAccessTimeFormatted, lastAccessType);
+        return new Triple<>(lastAccessTimeFormatted, lastAccessType, lastAccessDateFormatted);
+    }
+
+    /**
+     * Returns if the permission group is Camera or Microphone (status bar indicators).
+     **/
+    public static boolean isStatusBarIndicatorPermission(@NonNull String permissionGroupName) {
+        return CAMERA.equals(permissionGroupName) || MICROPHONE.equals(permissionGroupName);
+    }
+
+    /**
+     * Navigate to notification settings for all apps
+     * @param context The current Context
+     */
+    public static void navigateToNotificationSettings(@NonNull Context context) {
+        Intent notificationIntent = new Intent(Settings.ACTION_ALL_APPS_NOTIFICATION_SETTINGS);
+        context.startActivity(notificationIntent);
+    }
+
+    /**
+     * Navigate to notification settings for an app
+     * @param context The current Context
+     * @param packageName The package to navigate to
+     * @param user Specifies the user of the package which should be navigated to. If null, the
+     *             current user is used.
+     */
+    public static void navigateToAppNotificationSettings(@NonNull Context context,
+            @NonNull String packageName, @NonNull UserHandle user) {
+        Intent notificationIntent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+        notificationIntent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName);
+        context.startActivityAsUser(notificationIntent, user);
+    }
+
+    /**
+     * Returns if a card should be shown if the sensor is blocked
+     **/
+    public static boolean shouldDisplayCardIfBlocked(@NonNull String permissionGroupName) {
+        return DeviceConfig.getBoolean(
+                DeviceConfig.NAMESPACE_PRIVACY, PROPERTY_WARNING_BANNER_DISPLAY_ENABLED, true) && (
+                CAMERA.equals(permissionGroupName) || MICROPHONE.equals(permissionGroupName)
+                        || LOCATION.equals(permissionGroupName));
+    }
+
+    /**
+     * Returns the sensor code for a permission
+     **/
+    @RequiresApi(Build.VERSION_CODES.S)
+    public static int getSensorCode(@NonNull String permissionGroupName) {
+        return PERM_SENSOR_CODES.getOrDefault(permissionGroupName, -1);
+    }
+
+    /**
+     * Returns the blocked icon code for a permission
+     **/
+    public static int getBlockedIcon(@NonNull String permissionGroupName) {
+        return PERM_BLOCKED_ICON.getOrDefault(permissionGroupName, -1);
+    }
+
+    /**
+     * Returns the blocked title code for a permission
+     **/
+    public static int getBlockedTitle(@NonNull String permissionGroupName) {
+        return PERM_BLOCKED_TITLE.getOrDefault(permissionGroupName, -1);
+    }
+
+    /**
+     * Returns if the permission group has a background mode, even if the background mode is
+     * introduced in a platform version after the one currently running
+     **/
+    public static boolean hasPermWithBackgroundModeCompat(LightAppPermGroup group) {
+        if (SdkLevel.isAtLeastS()) {
+            return group.getHasPermWithBackgroundMode();
+        }
+        String groupName = group.getPermGroupName();
+        return group.getHasPermWithBackgroundMode()
+                || Manifest.permission_group.CAMERA.equals(groupName)
+                || Manifest.permission_group.MICROPHONE.equals(groupName);
+    }
+
+    /**
+     * Returns the appropriate enterprise string for the provided IDs
+     */
+    @NonNull
+    public static String getEnterpriseString(@NonNull Context context,
+            @NonNull String updatableStringId, int defaultStringId, @NonNull Object... formatArgs) {
+        return SdkLevel.isAtLeastT()
+                ? getUpdatableEnterpriseString(
+                        context, updatableStringId, defaultStringId, formatArgs)
+                : context.getString(defaultStringId, formatArgs);
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @NonNull
+    private static String getUpdatableEnterpriseString(@NonNull Context context,
+            @NonNull String updatableStringId, int defaultStringId, @NonNull Object... formatArgs) {
+        DevicePolicyManager dpm = getSystemServiceSafe(context, DevicePolicyManager.class);
+        return  dpm.getResources().getString(updatableStringId, () -> context.getString(
+                defaultStringId, formatArgs), formatArgs);
     }
 }

@@ -50,3 +50,11 @@ networks:<
   mnc: "370"
   countryIsoCode: "gu"
 >
+
+networks:<
+  # DOCOMO PACIFIC http://b/210384434
+  mcc: "310"
+  mnc: "470"
+  countryIsoCode: "gu"
+>
+

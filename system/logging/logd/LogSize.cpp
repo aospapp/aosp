@@ -27,6 +27,7 @@ bool IsValidBufferSize(size_t value) {
     return kLogBufferMinSize <= value && value <= kLogBufferMaxSize;
 }
 
+/*
 static std::optional<size_t> GetBufferSizeProperty(const std::string& key) {
     std::string value = android::base::GetProperty(key, "");
     if (value.empty()) {
@@ -44,8 +45,22 @@ static std::optional<size_t> GetBufferSizeProperty(const std::string& key) {
 
     return size;
 }
+*/
 
-size_t GetBufferSizeFromProperties(log_id_t log_id) {
+size_t GetBufferSizeFromProperties(log_id_t /*log_id*/) {
+/*
+ * http://b/196856709
+ *
+ * We've been seeing timeouts from logcat in bugreports for years, but the
+ * rate has gone way up lately. The suspicion is that this is because we
+ * have a lot of dogfooders who still have custom (large) log sizes but
+ * the new compressed logging is cramming way more in. The bugreports I've seen
+ * have had 1,000,000+ lines, so taking 10s to collect that much logging seems
+ * plausible. Of course, it's also possible that logcat is timing out because
+ * the log is being *spammed* as it's being read. But temporarily disabling
+ * custom log sizes like this should help us confirm (or deny) whether the
+ * problem really is this simple.
+ *
     std::string buffer_name = android_log_id_to_name(log_id);
     std::array<std::string, 4> properties = {
             "persist.logd.size." + buffer_name,
@@ -59,6 +74,7 @@ size_t GetBufferSizeFromProperties(log_id_t log_id) {
             return *size;
         }
     }
+*/
 
     if (android::base::GetBoolProperty("ro.config.low_ram", false)) {
         return kLogBufferMinSize;

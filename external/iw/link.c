@@ -1,7 +1,6 @@
 #include <net/if.h>
 #include <errno.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdbool.h>
 
 #include <netlink/genl/genl.h>
@@ -98,7 +97,6 @@ static int link_bss_handler(struct nl_msg *msg, void *arg)
 }
 
 static int handle_scan_for_link(struct nl80211_state *state,
-				struct nl_cb *cb,
 				struct nl_msg *msg,
 				int argc, char **argv,
 				enum id_input id)
@@ -106,7 +104,7 @@ static int handle_scan_for_link(struct nl80211_state *state,
 	if (argc > 0)
 		return 1;
 
-	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, link_bss_handler, &lr);
+	register_handler(link_bss_handler, &lr);
 	return 0;
 }
 
@@ -123,6 +121,7 @@ static int print_link_sta(struct nl_msg *msg, void *arg)
 		[NL80211_STA_INFO_RX_PACKETS] = { .type = NLA_U32 },
 		[NL80211_STA_INFO_TX_PACKETS] = { .type = NLA_U32 },
 		[NL80211_STA_INFO_SIGNAL] = { .type = NLA_U8 },
+		[NL80211_STA_INFO_RX_BITRATE] = { .type = NLA_NESTED },
 		[NL80211_STA_INFO_TX_BITRATE] = { .type = NLA_NESTED },
 		[NL80211_STA_INFO_LLID] = { .type = NLA_U16 },
 		[NL80211_STA_INFO_PLID] = { .type = NLA_U16 },
@@ -162,6 +161,12 @@ static int print_link_sta(struct nl_msg *msg, void *arg)
 		printf("\tsignal: %d dBm\n",
 			(int8_t)nla_get_u8(sinfo[NL80211_STA_INFO_SIGNAL]));
 
+	if (sinfo[NL80211_STA_INFO_RX_BITRATE]) {
+		char buf[100];
+
+		parse_bitrate(sinfo[NL80211_STA_INFO_RX_BITRATE], buf, sizeof(buf));
+		printf("\trx bitrate: %s\n", buf);
+	}
 	if (sinfo[NL80211_STA_INFO_TX_BITRATE]) {
 		char buf[100];
 
@@ -199,7 +204,6 @@ static int print_link_sta(struct nl_msg *msg, void *arg)
 }
 
 static int handle_link_sta(struct nl80211_state *state,
-			   struct nl_cb *cb,
 			   struct nl_msg *msg,
 			   int argc, char **argv,
 			   enum id_input id)
@@ -222,14 +226,14 @@ static int handle_link_sta(struct nl80211_state *state,
 
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr);
 
-	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, print_link_sta, NULL);
+	register_handler(print_link_sta, NULL);
 
 	return 0;
  nla_put_failure:
 	return -ENOBUFS;
 }
 
-static int handle_link(struct nl80211_state *state, struct nl_cb *cb,
+static int handle_link(struct nl80211_state *state,
 		       struct nl_msg *msg, int argc, char **argv,
 		       enum id_input id)
 {
@@ -269,7 +273,7 @@ static int handle_link(struct nl80211_state *state, struct nl_cb *cb,
 }
 TOPLEVEL(link, NULL, 0, 0, CIB_NETDEV, handle_link,
 	 "Print information about the current link, if any.");
-HIDDEN(link, get_sta, "", NL80211_CMD_GET_STATION, 0,
+HIDDEN(link, get_sta, "<mac-addr>", NL80211_CMD_GET_STATION, 0,
 	CIB_NETDEV, handle_link_sta);
 HIDDEN(link, get_bss, NULL, NL80211_CMD_GET_SCAN, NLM_F_DUMP,
 	CIB_NETDEV, handle_scan_for_link);

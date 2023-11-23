@@ -303,6 +303,25 @@ public class BluetoothLeAdvertiseFacade extends RpcReceiver {
     }
 
     /**
+     * Get ble advertisement settings own address type
+     *
+     * @param index the advertise settings object to use
+     * @return the own address type of the advertise settings object
+     * @throws Exception
+     */
+    @Rpc(description = "Get ble advertisement settings tx power level")
+    public int bleGetAdvertiseSettingsOwnAddressType(
+            @RpcParameter(name = "index")
+            Integer index) throws Exception {
+        if (mAdvertiseSettingsList.get(index) != null) {
+            AdvertiseSettings mSettings = mAdvertiseSettingsList.get(index);
+            return mSettings.getOwnAddressType();
+        } else {
+            throw new Exception("Invalid index input:" + Integer.toString(index));
+        }
+    }
+
+    /**
      * Get ble advertisement data include tx power level
      *
      * @param index the advertise data object to use
@@ -512,6 +531,19 @@ public class BluetoothLeAdvertiseFacade extends RpcReceiver {
             Boolean value
             ) {
         mAdvertiseSettingsBuilder.setConnectable(value);
+    }
+
+    /**
+     * Set ble advertise settings own address type
+     *
+     * @param ownAddressType the own address type to set
+     * @throws Exception
+     */
+    @Rpc(description = "Set ble advertise settings tx power level")
+    public void bleSetAdvertiseSettingsOwnAddressType(
+            @RpcParameter(name = "ownAddressType")
+            Integer ownAddressType) {
+        mAdvertiseSettingsBuilder.setOwnAddressType(ownAddressType);
     }
 
     /**

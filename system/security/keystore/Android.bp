@@ -36,7 +36,10 @@ cc_defaults {
 
 cc_binary {
     name: "keystore_cli_v2",
-    defaults: ["keystore_defaults"],
+    defaults: [
+        "keystore_defaults",
+        "keystore2_use_latest_aidl_ndk_shared",
+    ],
 
     cflags: [
         "-DKEYMASTER_NAME_TAGS",
@@ -47,8 +50,7 @@ cc_binary {
         "keystore_client.proto",
     ],
     shared_libs: [
-        "android.security.apc-ndk_platform",
-        "android.system.keystore2-V1-ndk_platform",
+        "android.security.apc-ndk",
         "libbinder",
         "libbinder_ndk",
         "libchrome",
@@ -63,7 +65,7 @@ cc_binary {
 
 // Library used by both keystore and credstore for generating the ASN.1 stored
 // in Tag::ATTESTATION_APPLICATION_ID
-cc_library_shared {
+cc_library {
     name: "libkeystore-attestation-application-id",
     defaults: ["keystore_defaults"],
 
@@ -87,7 +89,7 @@ cc_library_shared {
 }
 
 // Library for keystore clients using the WiFi HIDL interface
-cc_library_shared {
+cc_library {
     name: "libkeystore-wifi-hidl",
     defaults: ["keystore_defaults"],
 

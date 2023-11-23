@@ -113,7 +113,7 @@ public abstract class RecordedProgram extends BaseProgramImpl {
                         .setPosterArtUri(StringUtils.nullToEmpty(cursor.getString(index++)))
                         .setThumbnailUri(StringUtils.nullToEmpty(cursor.getString(index++)))
                         .setSearchable(cursor.getInt(index++) == 1)
-                        .setDataUri(cursor.getString(index++))
+                        .setDataUri(StringUtils.nullToEmpty(cursor.getString(index++)))
                         .setDataBytes(cursor.getLong(index++))
                         .setDurationMillis(cursor.getLong(index++))
                         .setExpireTimeUtcMillis(cursor.getLong(index++))

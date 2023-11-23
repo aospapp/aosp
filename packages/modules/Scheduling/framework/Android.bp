@@ -38,5 +38,5 @@ java_sdk_library {
     apex_available: [
         "com.android.scheduling",
     ],
-    min_sdk_version: "current",
+    min_sdk_version: "S",
 }

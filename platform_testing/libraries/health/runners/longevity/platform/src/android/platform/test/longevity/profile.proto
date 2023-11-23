@@ -50,4 +50,9 @@ message Configuration {
         optional AfterTest after_test = 5 [default = EXIT];
     }
     repeated Scenario scenarios = 2;
+
+    // Amount of times the whole scenarios will be executed.
+    // For example, scenarios A->B->C with repetitions = 2 will be executed twice in a row:
+    // A->B->C->A->B->C.
+    optional int32 repetitions = 3 [default = 1];
 }

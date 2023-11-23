@@ -25,6 +25,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.icu.text.MessageFormat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -38,6 +39,7 @@ import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The {@link HomeCardInterface.Model} for projection status
@@ -196,8 +198,8 @@ public class ProjectionModel implements CarProjectionManager.ProjectionStatusLis
 
         int totalDeviceCount = projectingDeviceCount + nonProjectingDeviceCount;
         if (totalDeviceCount > 0) {
-            return mResources.getQuantityString(R.plurals.projection_devices, totalDeviceCount,
-                    totalDeviceCount);
+            return MessageFormat.format(mResources.getString(R.string.projection_devices),
+                    Map.of("count", totalDeviceCount));
         } else {
             return null;
         }

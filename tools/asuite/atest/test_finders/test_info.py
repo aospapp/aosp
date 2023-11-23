@@ -31,7 +31,7 @@ class TestInfo:
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
                  test_finder='', compatibility_suites=None,
-                 mainline_modules=None):
+                 mainline_modules=None, robo_type=None):
         """Init for TestInfo.
 
         Args:
@@ -48,9 +48,12 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
-            mainline_modules: A list of mainline modules.
-                    e.g. ['some1.apk', 'some2.apex', 'some3.apks',
-                          'some1.apk+some2.apex']
+            mainline_modules: A string of mainline modules.
+                    e.g. 'some1.apk+some2.apex+some3.apks'
+            robo_type: Integer of robolectric types.
+                       0: Not robolectric test
+                       1. Modern robolectric test(Tradefed Runner)
+                       2: Legacy robolectric test(Robolectric Runner)
         """
         self.test_name = test_name
         self.test_runner = test_runner
@@ -58,6 +61,7 @@ class TestInfo:
         self.data = data if data else {}
         self.suite = suite
         self.module_class = module_class if module_class else []
+        self.robo_type = robo_type if robo_type else 0
         self.install_locations = (install_locations if install_locations
                                   else set())
         # True if the TestInfo is built from a test configured in TEST_MAPPING.
@@ -68,25 +72,31 @@ class TestInfo:
         self.test_finder = test_finder
         self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
-        self.mainline_modules = mainline_modules if mainline_modules else []
+        # True if test need to generate aggregate metrics result.
+        self.aggregate_metrics_result = False
+        self.mainline_modules = mainline_modules if mainline_modules else ""
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
                      else '')
-        return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
-                'suite:%s - module_class: %s - install_locations:%s%s - '
-                'test_finder: %s - compatibility_suites:%s -'
-                'mainline_modules:%s' % (
-                    self.test_name, self.test_runner, self.build_targets,
-                    self.data, self.suite, self.module_class,
-                    self.install_locations, host_info, self.test_finder,
-                    self.compatibility_suites, self.mainline_modules))
+        return (f'test_name:{self.test_name} - '
+                f'test_runner:{self.test_runner} - '
+                f'build_targets:{self.build_targets} - data:{self.data} - '
+                f'suite:{self.suite} - module_class:{self.module_class} - '
+                f'install_locations:{self.install_locations}{host_info} - '
+                f'test_finder:{self.test_finder} - '
+                f'compatibility_suites:{self.compatibility_suites} - '
+                f'mainline_modules:{self.mainline_modules} - '
+                f'aggregate_metrics_result:{self.aggregate_metrics_result} - '
+                f'robo_type:{self.robo_type}')
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
 
-        Determine the test supports which execution mode by strategy:
-        Robolectric/JAVA_LIBRARIES --> 'both'
+        Determine which execution mode does the test support by strategy:
+        Modern Robolectric --> 'host'
+        Legacy Robolectric --> 'both'
+        JAVA_LIBRARIES --> 'both'
         Not native tests or installed only in out/target --> 'device'
         Installed only in out/host --> 'both'
         Installed under host and target --> 'both'
@@ -97,10 +107,11 @@ class TestInfo:
         install_path = self.install_locations
         if not self.module_class:
             return constants.DEVICE_TEST
-        # Let Robolectric test support both.
-        if constants.MODULE_CLASS_ROBOLECTRIC in self.module_class:
+        # Let Robolectric test support host/both accordingly.
+        if self.robo_type == constants.ROBOTYPE_MODERN:
+            return constants.DEVICELESS_TEST
+        if self.robo_type == constants.ROBOTYPE_LEGACY:
             return constants.BOTH_TEST
-        # Let JAVA_LIBRARIES support both.
         if constants.MODULE_CLASS_JAVA_LIBRARIES in self.module_class:
             return constants.BOTH_TEST
         if not install_path:
@@ -110,7 +121,7 @@ class TestInfo:
             return constants.DEVICE_TEST
         # Native test with install path as host should be treated as both.
         # Otherwise, return device test.
-        if len(install_path) == 1 and constants.DEVICE_TEST in install_path:
+        if install_path == {constants.DEVICE_TEST}:
             return constants.DEVICE_TEST
         return constants.BOTH_TEST
 

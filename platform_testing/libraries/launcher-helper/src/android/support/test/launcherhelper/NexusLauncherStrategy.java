@@ -143,7 +143,7 @@ public class NexusLauncherStrategy extends BaseLauncher3Strategy {
     /** {@inheritDoc} */
     @Override
     public void openOverview() {
-        mLauncher.pressHome().switchToOverview();
+        mLauncher.goHome().switchToOverview();
     }
 
     /** {@inheritDoc} */

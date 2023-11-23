@@ -21,20 +21,17 @@ import static com.google.common.truth.Truth.assertThat;
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
 import android.hdmicec.cts.CecOperand;
-import android.hdmicec.cts.HdmiCecClientWrapper;
 import android.hdmicec.cts.HdmiCecConstants;
 import android.hdmicec.cts.LogicalAddress;
-import android.hdmicec.cts.RequiredPropertyRule;
-import android.hdmicec.cts.RequiredFeatureRule;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Ignore;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-import org.junit.Test;
 
 /** HDMI CEC test to verify logical address after device reboot (Section 10.2.5) */
 @Ignore("b/162820841")
@@ -49,11 +46,12 @@ public final class HdmiCecLogicalAddressTest extends BaseHdmiCecCtsTest {
 
     @Rule
     public RuleChain ruleChain =
-        RuleChain
-            .outerRule(CecRules.requiresCec(this))
-            .around(CecRules.requiresLeanback(this))
-            .around(CecRules.requiresDeviceType(this, AUDIO_DEVICE))
-            .around(hdmiCecClient);
+            RuleChain.outerRule(CecRules.requiresCec(this))
+                    .around(CecRules.requiresLeanback(this))
+                    .around(
+                            CecRules.requiresDeviceType(
+                                    this, HdmiCecConstants.CEC_DEVICE_TYPE_AUDIO_SYSTEM))
+                    .around(hdmiCecClient);
 
     /**
      * Test 10.2.5-1
@@ -63,8 +61,7 @@ public final class HdmiCecLogicalAddressTest extends BaseHdmiCecCtsTest {
     @Test
     public void cect_10_2_5_1_RebootLogicalAddress() throws Exception {
         ITestDevice device = getDevice();
-        device.executeShellCommand("reboot");
-        device.waitForBootComplete(HdmiCecConstants.REBOOT_TIMEOUT);
+        device.reboot();
         String message = hdmiCecClient.checkExpectedOutput(CecOperand.REPORT_PHYSICAL_ADDRESS);
         assertThat(CecMessage.getSource(message)).isEqualTo(AUDIO_DEVICE);
     }

@@ -75,7 +75,7 @@ use serde::{Serialize, Deserialize};
 ///
 /// [`Uniform<X>`]: crate::distributions::Uniform
 /// [`RngCore`]: crate::RngCore
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "alloc")))]
 pub struct WeightedIndex<X: SampleUniform + PartialOrd> {
@@ -418,6 +418,11 @@ mod test {
             2, 2, 1, 3, 2, 1, 3, 3, 2, 1,
         ]);
     }
+
+    #[test]
+    fn weighted_index_distributions_can_be_compared() {
+        assert_eq!(WeightedIndex::new(&[1, 2]), WeightedIndex::new(&[1, 2]));
+    }
 }
 
 /// Error type returned from `WeightedIndex::new`.
@@ -439,15 +444,15 @@ pub enum WeightedError {
 }
 
 #[cfg(feature = "std")]
-impl ::std::error::Error for WeightedError {}
+impl std::error::Error for WeightedError {}
 
 impl fmt::Display for WeightedError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            WeightedError::NoItem => write!(f, "No weights provided."),
-            WeightedError::InvalidWeight => write!(f, "A weight is invalid."),
-            WeightedError::AllWeightsZero => write!(f, "All weights are zero."),
-            WeightedError::TooMany => write!(f, "Too many weights (hit u32::MAX)"),
-        }
+        f.write_str(match *self {
+            WeightedError::NoItem => "No weights provided in distribution",
+            WeightedError::InvalidWeight => "A weight is invalid in distribution",
+            WeightedError::AllWeightsZero => "All weights are zero in distribution",
+            WeightedError::TooMany => "Too many weights (hit u32::MAX) in distribution",
+        })
     }
 }

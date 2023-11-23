@@ -153,7 +153,7 @@ class StaticResource(Resource):
         super().sync()
 
     def clean(self):
-        super().sync()
+        super().clean()
 
     def __repr__(self):
         return (f"StaticResource(stage_path={self.stage_path}, "

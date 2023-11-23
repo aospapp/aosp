@@ -21,15 +21,15 @@ void xnn_f32_avgpool_minmax_ukernel_9p8x__sse_c4(
     float* output,
     size_t input_increment,
     size_t output_increment,
-    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(output_pixels != 0);
   assert(kernel_elements > 9);
   assert(channels != 0);
 
-  const __m128 vscale = _mm_load_ps(params->sse2.scale);
-  const __m128 vmin = _mm_load_ps(params->sse2.min);
-  const __m128 vmax = _mm_load_ps(params->sse2.max);
+  const __m128 vscale = _mm_load_ps(params->sse.scale);
+  const __m128 vmin = _mm_load_ps(params->sse.min);
+  const __m128 vmax = _mm_load_ps(params->sse.max);
 
   do {
     {
